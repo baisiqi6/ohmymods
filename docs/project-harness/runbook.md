@@ -5,9 +5,13 @@
 | 项 | 路径 |
 |---|---|
 | 本仓库 | `C:/Users/ADMIN/Projects/ohmymods` |
-| 游戏根目录 | `E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Call.of.Olympus-P2P` |
-| 游戏反编译源码（只读参考） | 本仓库 `game-source/Assembly-CSharp/`（带注释版，版本 2.0.1 mono，见 game-source/README.md） |
-| mod 安装目录 | `E:/.../Mods/MyMod/` |
+| **当前目标游戏（GOG 2.1.0 x86，2026-08-12 起）** | `E:/Kingdom Two Crowns/`（Mono 最后版本之一，官方后续已转 IL2CPP） |
+| 旧目标游戏（2.0.1 x64，已弃用） | `E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Call.of.Olympus-P2P` |
+| 游戏反编译源码（只读参考） | 本仓库 `game-source/Assembly-CSharp/`（带注释版，版本 2.0.1 mono；2.1.0 差异见 git 记录/待用户提供反编译） |
+| mod 安装目录 | `E:/Kingdom Two Crowns/Mods/MyMod/` |
+
+> 版本差异记录：2.0.1→2.1.0 仅发现 `Pool.syncID` int→short（Patch_Castle 已加显式转换）。
+> 切换目标游戏只需改 build.bat 的 `GAME_DIR`。
 | UMM | `E:/.../KingdomTwoCrowns_Data/Managed/UnityModManager/` |
 
 ## 编译
