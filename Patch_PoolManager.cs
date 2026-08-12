@@ -1,27 +1,40 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using Harmony;
+using Coatsink.Common;
 
 namespace MyMod
 {
     /// <summary>
-    /// 修复原生池丢失 bug（两层）：
+    /// 池系统修复（两层，均经 reviewer 交叉审核修正）：
     ///
-    /// 第一层（2.0.1 时代）：mod 在场景早期注册 sync 池（cachedPools.Count > 0）导致
+    /// 第一层（2.0.1 时代，保留）：mod 在场景早期注册 sync 池（cachedPools.Count > 0）导致
     /// PoolManager.OnLevelLoaded 的 `if (cachedPools == null || Count == 0)` 判 false，
-    /// 跳过 InitPools()——原生池（Coin Indicator/Fish/Building Dust 等）从未加载 → 投币崩溃。
-    /// 修复：Prefix 强制 InitPools()，随后重注册 mod sync 池。
+    /// 跳过 InitPools()——原生池从未加载。修复：Prefix 强制 InitPools() + 重注册 mod 池。
     ///
-    /// 第二层（2.1.0 发现）：InitPools 只注册 particlePools + **当前 biome** 的池资产
-    /// （"Object Pools/<biome>"），通用特效池（Transform Sparkles/Building Dust/Snow 等）
-    /// 在其他 biome 的 BiomeObjectPools 里——希腊世界读档恢复特效对象时池缺失 →
-    /// Character.UpgradeTransitionFX NRE → 乞丐捡金币 Promote("Peasant") 中断
-    /// （用户报"扔金币乞丐捡不了"）。修复：RegisterAllBiomePools 补注册全部 biome 的池资产
-    /// （按 prefab 名去重，防 Dictionary.Add 重名炸）。
+    /// 第二层（读档恢复 NRE，2026-08-12 reviewer 修正后的正确根因）：
+    /// 读档时 ProgramDirector → IslandSaveData.TryPopObjectsToScene 恢复场景对象
+    /// （Archer.SetKnight → Character.UpgradeTransitionFX → Pool.SpawnGO("Transform Sparkles")）
+    /// 发生在 Managers.OnLevelLoaded **之前**——彼时 PoolManager.Init 的
+    /// `if (!SceneManager.GetSceneByName("main").isLoaded) return;` 早退导致 InitPools 未跑，
+    /// 且读档场景的 PoolManager 被序列化为 learningMode=false → SpawnGO 的
+    /// "learningMode 现场建池"兜底失效 → "Pool not found" → NRE → 乞丐 Promote 等中断。
+    ///
+    /// 修复：Pool.SpawnGO prefix——池缺失且非 learningMode 时，直接 CreatePoolFor 现场建池
+    /// （与 learningMode 同路径，对象正常进池系统回收）。不依赖时序，覆盖一切"池未建但有人 Spawn"场景。
+    ///
+    /// 【已废弃】RegisterAllBiomePools（全 biome 池补注册）：假设错误（Sparkles/Building Dust
+    /// 本就在 particlePools 每 biome 都建）+ syncID=119 跨 biome 冲突（Boat_Fleet_Greece vs
+    /// Warrior_Ghost_norselands 同 syncID，Dictionary.Add 抛异常中断注册 → 半初始化池进
+    /// cachedPools → 每帧 DoUpdate NRE）。删除。
     /// </summary>
     public static class Patch_PoolManager
     {
+        private static FieldInfo _poolsByPrefabField;
+        private static MethodInfo _createPoolForMethod;
+
         public static void Register(HarmonyInstance harmony)
         {
             var pmType = typeof(PoolManager);
@@ -36,6 +49,20 @@ namespace MyMod
             else
             {
                 Debug.LogError("[MyMod] Could not find PoolManager.OnLevelLoaded!");
+            }
+
+            // 第二层：SpawnGO 池缺失兜底（读档恢复 NRE 真根因）
+            var spawnGOMethod = typeof(Pool).GetMethod("SpawnGO",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            if (spawnGOMethod != null)
+            {
+                var prefix = new HarmonyMethod(typeof(Patch_PoolManager).GetMethod("SpawnGO_Prefix"));
+                harmony.Patch(spawnGOMethod, prefix, null);
+                Debug.Log("[MyMod] Patched Pool.SpawnGO (missing-pool fallback)");
+            }
+            else
+            {
+                Debug.LogError("[MyMod] Could not find Pool.SpawnGO!");
             }
         }
 
@@ -56,9 +83,6 @@ namespace MyMod
                     Debug.Log("[MyMod] Force InitPools() executed (native pools rebuilt)");
                 }
 
-                // 2.1.0 补全：全 biome 池（Sparkles/Building Dust/Snow 等特效池）
-                RegisterAllBiomePools(__instance);
-
                 // InitPools 清掉了 mod 注册的 sync 池，重新注册
                 ReRegisterModPools(__instance);
 
@@ -72,61 +96,47 @@ namespace MyMod
         }
 
         /// <summary>
-        /// 补注册全部 biome 的 BiomeObjectPools 池（按 prefab 名去重）。
-        /// 注册逻辑与 PoolManager.CreateAndInitializePoolsFromCollection 等价
-        /// （Instantiate + SetName + 缓存三件套 + Init）。
+        /// 池缺失兜底：prefab 无池且非 learningMode 时现场 CreatePoolFor。
+        /// 只影响"池没建"场景，正常路径零开销（除一次静态字典 ContainsKey）。
         /// </summary>
-        private static void RegisterAllBiomePools(PoolManager pm)
+        public static void SpawnGO_Prefix(GameObject prefab)
         {
+            if (!Main.Enabled) return;
             try
             {
-                var cachedPoolsField = typeof(PoolManager).GetField("cachedPools",
-                    BindingFlags.NonPublic | BindingFlags.Instance);
-                var namePairsField = typeof(PoolManager).GetField("cachedNamePoolPairs",
-                    BindingFlags.NonPublic | BindingFlags.Instance);
-                var syncIdField = typeof(PoolManager).GetField("cachedSyncIdPoolPairs",
-                    BindingFlags.NonPublic | BindingFlags.Instance);
-                if (cachedPoolsField == null || namePairsField == null || syncIdField == null) return;
+                if (prefab == null) return;
+                var managers = SingletonMonoBehaviour<Managers>.Inst;
+                if (managers == null) return;
+                var pm = managers.pools;
+                if (pm == null) return;
 
-                var cachedPools = cachedPoolsField.GetValue(pm) as System.Collections.Generic.List<Pool>;
-                var namePairs = namePairsField.GetValue(pm) as System.Collections.Generic.Dictionary<string, Pool>;
-                var syncIdPairs = syncIdField.GetValue(pm) as System.Collections.Generic.Dictionary<int, Pool>;
-                if (cachedPools == null || namePairs == null || syncIdPairs == null) return;
+                // learningMode：原版 SpawnGO 自己会 CreatePoolFor，无需兜底
+                if (pm.learningMode) return;
 
-                int added = 0;
-                var allCollections = Resources.LoadAll<BiomeObjectPools>("");
-                foreach (var collection in allCollections)
+                // 反射缓存
+                if (_poolsByPrefabField == null)
                 {
-                    if (collection == null || collection.biomeObjectPools == null) continue;
-                    foreach (var poolPrefab in collection.biomeObjectPools)
-                    {
-                        if (poolPrefab == null || poolPrefab.prefab == null) continue;
-                        if (namePairs.ContainsKey(poolPrefab.prefab.name)) continue;  // 已注册跳过
-
-                        Pool inst = UnityEngine.Object.Instantiate<Pool>(poolPrefab, pm.transform);
-                        inst.SetName();
-                        cachedPools.Add(inst);
-                        namePairs.Add(inst.prefab.name, inst);
-                        if (inst.sync && inst.syncID != 0)
-                        {
-                            syncIdPairs.Add((int)inst.syncID, inst);
-                        }
-                        try
-                        {
-                            inst.Init(null);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.LogError("[MyMod] Pool init error (" + inst.name + "): " + ex.Message);
-                        }
-                        added++;
-                    }
+                    _poolsByPrefabField = typeof(Pool).GetField("poolsByPrefab",
+                        BindingFlags.NonPublic | BindingFlags.Static);
                 }
-                Debug.Log("[MyMod] RegisterAllBiomePools: added " + added + " missing pools");
+                if (_createPoolForMethod == null)
+                {
+                    _createPoolForMethod = typeof(PoolManager).GetMethod("CreatePoolFor",
+                        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                }
+                if (_poolsByPrefabField == null || _createPoolForMethod == null) return;
+
+                var dict = _poolsByPrefabField.GetValue(null) as Dictionary<GameObject, Pool>;
+                if (dict == null) return;
+                if (dict.ContainsKey(prefab)) return;  // 池已存在，原逻辑正常
+
+                // 池缺失：现场建池（与 learningMode 同路径）
+                _createPoolForMethod.Invoke(pm, new object[] { prefab });
+                Debug.Log("[MyMod] Created missing pool for " + prefab.name);
             }
             catch (Exception e)
             {
-                Debug.LogError("[MyMod] RegisterAllBiomePools error: " + e.Message);
+                Debug.LogError("[MyMod] SpawnGO fallback error: " + e.Message);
             }
         }
 

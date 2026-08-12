@@ -1,3 +1,12 @@
+## 2026-08-12 — 2.1.0 两个 bug 修复（乞丐拾取 + 友好巨魔永久控制）
+
+- 乞丐拾取：根因链 扔金币→乞丐捡→Promote("Peasant")→UpgradeTransitionFX→Sparkles 池缺失
+  （2.1.0 InitPools 只注册当前 biome 池资产）→NRE→拾取中断。修复：RegisterAllBiomePools
+  全 biome 池去重补注册（Patch_PoolManager）。
+- 友好巨魔：2.0.1 ShouldRevertToTroll 恒 false（原生永久），2.1.0 改为 `_expirationTime <= Time.time`
+  （_duration=5f）——补 prefix 强制 false 实现永久控制（Patch_HermesStaff）。
+- checklist feature-002/003 已登记；HotfixReviewer 交叉审核中。
+
 ## 2026-08-12 — 赫尔墨斯钱袋三件套（精细化改造第一项）
 
 - 解锁：开局强制 `ChangeCurrencyBag(Hermes, 0/1)`（Patch_CurrencyBag，OnGameStartHandler postfix）。

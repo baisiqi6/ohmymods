@@ -191,6 +191,20 @@
       "status": "done",
       "acceptance": "build.bat 产出 MyMod.dll，zip 打包含 Info.json/说明",
       "verification": "2026-08-12 arch-002：build.bat 通配化（for %%F in (Main.cs Patch_*.cs) 自动收集源文件）+ 编译成功自动部署到 Mods/MyMod/；zip 打包按需手动执行"
+    },
+    {
+      "id": "feature-002",
+      "title": "2.1.0 特效池补注册（乞丐拾取修复）",
+      "status": "done",
+      "acceptance": "RegisterAllBiomePools 全 biome 池去重补注册；修复 Sparkles 缺失→UpgradeTransitionFX NRE→乞丐 Promote 中断",
+      "verification": "编译零错误已部署；游戏内待实测；reviewer 审核中"
+    },
+    {
+      "id": "feature-003",
+      "title": "2.1.0 友好巨魔控制永久",
+      "status": "done",
+      "acceptance": "ShouldRevertToTroll prefix 强制 false（2.1.0 已实现 5 秒超时，2.0.1 是原生永久）",
+      "verification": "编译零错误已部署；游戏内待实测；reviewer 审核中"
     }
   ]
 }

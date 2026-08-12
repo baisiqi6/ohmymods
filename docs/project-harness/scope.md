@@ -22,17 +22,16 @@
 - 不引入第三方依赖（当前 UMM + Harmony v1.2 + 游戏原生 API）。
 - 不做 UI/菜单（mod 开关在 UMM 的 Main.Enabled）。
 
-## 未来规划：IL2CPP 适配（2026-08-12 记录）
+## IL2CPP 适配（2026-08-12 启动，执行中）
 
-- **现状**：本 mod 基于 Mono 2.0.1（老版本，官方已无 Mono 渠道）。用户环境已有
-  IL2CPP 2.4.0（`E:\QQ\...\Kingdom Two Crowns (1)`、`D:\Steam\...`）。
-- **适配路径**：BepInEx 6 + Il2CppInterop + Harmony（IL2CPP 唯一 Hook 方式）；
-  "Rosetta Stone" 技术——本仓库 `game-source/` 的 Mono 反编译源码作为 IL2CPP 侧的
-  逻辑说明书（IL2CPP 方法体不可读，但类名/签名一致，逻辑变化不大）。
-- **参考**：`docs/多架构开发指南.md`（版本分界、能力边界、开发环境布局、
-  IL2CPP 类型发现脚本、MonoBehaviour 注册三步）。
-- **迁移策略**：先功能等价迁移（所有 patch 点已在 game-logic-map 文档化），
-  再按 IL2CPP 能力边界调整（Postfix 改返回值 / Prefix 拦截 / 无法直接改字段初始值）。
+- **决策**（用户拍板）：发布受众 = Steam 正版玩家 → 必须 IL2CPP 版。Mono 侧维持 UMM 现状自用。
+- **目标**：Steam 2.4.0 IL2CPP（开发环境 `E:\QQ\...\Kingdom Two Crowns (1)` 已装 BepInEx 6 + interop 壳）。
+- **技术路线**：BepInEx 6 + Il2CppInterop + HarmonyX；"Rosetta Stone"——本仓库 Mono 反编译源码作逻辑说明书。
+- **工程**：`il2cpp/KingdomEnhancedMod.csproj`（插件名 KingdomEnhancedMod，Debug=IL2CPP 配置）。
+- **迁移分组**：M1 经济（CurrencyBag/Banker/ShopPlanner/SidedShop）、M2 角色（Holder/Castle/Knight/Character/Worker/World/BeggarCamp）、
+  M3 世界战斗（Mover/Construction/Level/Kingdom/EnemyManager/Artemis/HermesStaff/FriendlyTroll）。
+- **已知决策**：池修复类（Patch_PoolManager）不进第一批，冒烟测试乞丐拾取场景复现再补（`il2cpp/notes-operator.md`）。
+- **参考**：`docs/多架构开发指南.md`、`il2cpp/notes-*.md`（各组迁移笔记）。
 
 ## 环境约束
 

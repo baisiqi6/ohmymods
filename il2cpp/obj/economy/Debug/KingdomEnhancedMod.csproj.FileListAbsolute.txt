@@ -1,0 +1,13 @@
+C:\Users\ADMIN\Projects\ohmymods\il2cpp\obj\economy\Debug\KingdomEnhancedMod.csproj.AssemblyReference.cache
+C:\Users\ADMIN\Projects\ohmymods\il2cpp\obj\economy\Debug\MyPluginInfo.cs
+C:\Users\ADMIN\Projects\ohmymods\il2cpp\obj\economy\Debug\KingdomEnhancedMod.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\ADMIN\Projects\ohmymods\il2cpp\obj\economy\Debug\KingdomEnhancedMod.AssemblyInfoInputs.cache
+C:\Users\ADMIN\Projects\ohmymods\il2cpp\obj\economy\Debug\KingdomEnhancedMod.AssemblyInfo.cs
+C:\Users\ADMIN\Projects\ohmymods\il2cpp\obj\economy\Debug\KingdomEnhancedMod.csproj.CoreCompileInputs.cache
+C:\Users\ADMIN\Projects\ohmymods\il2cpp\bin\economy\Debug\KingdomEnhancedMod.deps.json
+C:\Users\ADMIN\Projects\ohmymods\il2cpp\bin\economy\Debug\KingdomEnhancedMod.dll
+C:\Users\ADMIN\Projects\ohmymods\il2cpp\bin\economy\Debug\KingdomEnhancedMod.pdb
+C:\Users\ADMIN\Projects\ohmymods\il2cpp\obj\economy\Debug\KingdomEnhancedMod.dll
+C:\Users\ADMIN\Projects\ohmymods\il2cpp\obj\economy\Debug\refint\KingdomEnhancedMod.dll
+C:\Users\ADMIN\Projects\ohmymods\il2cpp\obj\economy\Debug\KingdomEnhancedMod.pdb
+C:\Users\ADMIN\Projects\ohmymods\il2cpp\obj\economy\Debug\ref\KingdomEnhancedMod.dll

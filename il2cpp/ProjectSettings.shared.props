@@ -1,0 +1,16 @@
+<Project>
+    <!-- 跨架构配置：Debug/BIE6_IL2CPP → net6.0 + IL2CPP 宏；BIE6_Mono → netstandard2.1 + MONO 宏
+         （抄自 KingdomMod/ProjectSettings.shared.props，去掉了 MinVer 版本号机制） -->
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+        <TargetFramework>net6.0</TargetFramework>
+        <DefineConstants>IL2CPP,BIE,BIE6</DefineConstants>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='BIE6_IL2CPP|AnyCPU'">
+        <TargetFramework>net6.0</TargetFramework>
+        <DefineConstants>IL2CPP,BIE,BIE6</DefineConstants>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='BIE6_Mono|AnyCPU'">
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <DefineConstants>MONO,BIE,BIE6</DefineConstants>
+    </PropertyGroup>
+</Project>

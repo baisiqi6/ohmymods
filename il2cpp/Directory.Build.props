@@ -1,0 +1,11 @@
+<Project>
+    <PropertyGroup Condition="'$(OS)' == 'Windows_NT'">
+        <!-- IL2CPP 2.4.0 开发环境（已装 BepInEx 6 IL2CPP） -->
+        <GameDir>E:\QQ\QQ下载文件\Kingdom Two Crowns (1)\Kingdom Two Crowns\</GameDir>
+    </PropertyGroup>
+    <PropertyGroup>
+        <BepInExConfigPath>$(GameDir)BepInEx\config\</BepInExConfigPath>
+        <BepInExPluginsPath>$(GameDir)BepInEx\plugins\</BepInExPluginsPath>
+        <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    </PropertyGroup>
+</Project>

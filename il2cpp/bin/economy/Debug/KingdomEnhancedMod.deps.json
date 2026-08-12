@@ -1,0 +1,34 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v6.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v6.0": {
+      "KingdomEnhancedMod/2.4.0": {
+        "dependencies": {
+          "BepInEx.PluginInfoProps": "2.1.0"
+        },
+        "runtime": {
+          "KingdomEnhancedMod.dll": {}
+        }
+      },
+      "BepInEx.PluginInfoProps/2.1.0": {}
+    }
+  },
+  "libraries": {
+    "KingdomEnhancedMod/2.4.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "BepInEx.PluginInfoProps/2.1.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-VCG3QRiqNdW9ku2FEcNsbK+HKxrZmW0VxwMNyLNO7h0xGorU+C6vBHN8Qq4eAL5fU11Uks5x2uoYdqEoKD3P8A==",
+      "path": "bepinex.plugininfoprops/2.1.0",
+      "hashPath": "bepinex.plugininfoprops.2.1.0.nupkg.sha512"
+    }
+  }
+}
