@@ -41,12 +41,22 @@ UnityModManager + Harmony patch（本仓库源码）。
 
 ## 参考价值
 
-1. **需求档案**：这份清单是用户最初想要的数值调整全集。当前 Harmony mod 未全部实现——
-   其中"猫生成数量 +15"已由 `Patch_Kingdom.SpawnCatsInGreece` 覆盖（checklist core-009）。
-2. **未来 backlog**：其余条目可作为 Harmony patch 逐项实现（如 `Patch_Knight`/`Patch_Banker`
-   等文件可扩展，或新增 patch 文件）。每个条目的具体修改位置需在
-   `game-source/Assembly-CSharp/` 中定位对应字段/常量。
-3. **决策记录**：DLL 直改方案失败的原因（升级失效/不可维护）是选择 Harmony 的论据之一。
+1. **需求档案**：这份清单是用户最初想要的数值调整全集。
+2. **迁移状态（2026-08-12 决定）**：数值全部迁移到 Harmony patch 实现（checklist backlog-001~004），
+   **DLL 保持现状不动**（用户决定：不好改回去，重复无害——设置型条目重复设同样值无副作用；
+   注意"猫生成+15"若实现为加法会叠加，实现时按设置型处理）。
+3. **状态对照**：
+   - 猫生成数量 +15：已由 `Patch_Kingdom.SpawnCatsInGreece` 覆盖（checklist core-009，机制不同但意图一致）。
+   - 公民房屋刷新 10 秒：**2.0.1 原版已是 10 秒**（CitizenHousePayable.cs:63），无需实现。
+   - 其余条目：backlog-001（单位上限）、backlog-002（刷新/距离/燃烧弹）、
+     backlog-003（希腊神器）、backlog-004（权杖控制）。
+4. **关键源码位置**（已定位）：
+   - 权杖控制：`HermesStaff._maximumConvertedTrolls = 8`（控 16 = 改 16）；
+     `FriendlyTroll._duration` + `ShouldRevertToTroll()`（控制永久 = 不 revert）。
+   - 房屋刷新：`CitizenHousePayable._cooldownOfSpawning = 10f`。
+5. **决策记录**：DLL 直改方案失败的原因（升级失效/不可维护）是选择 Harmony 的论据之一。
+   当前游戏 `Managed/Assembly-CSharp.dll`（md5 c69d7a4f）与修改版（md5 2eceabf）完全不同——
+   游戏当前未在运行修改版数值，迁移到 Harmony 是让数值生效的唯一可控途径。
 
 ## 相关路径
 

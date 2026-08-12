@@ -130,6 +130,34 @@
       "verification": "已核实：玩家移动速度倍率（Main.speedMultiplier，仅 Player），保留"
     },
     {
+      "id": "backlog-001",
+      "title": "legacy 数值迁移-通用单位上限",
+      "status": "todo",
+      "acceptance": "骑士上船 10 队、工匠 6 人、投石手 24 人、农民 10 人（Harmony patch 设置型，重复无害）",
+      "verification": "游戏内招募上限验证"
+    },
+    {
+      "id": "backlog-002",
+      "title": "legacy 数值迁移-刷新与距离",
+      "status": "todo",
+      "acceptance": "乞丐帐篷刷新 90 秒/上限 20 人、长矛兵攻击距离 +3、投石车燃烧弹一次 10 颗",
+      "verification": "游戏内验证"
+    },
+    {
+      "id": "backlog-003",
+      "title": "legacy 数值迁移-希腊神器",
+      "status": "todo",
+      "acceptance": "神器弓箭 50 发、地面留存 50 秒、单发伤害 20 次（ArtemisBow 相关链路）",
+      "verification": "游戏内验证"
+    },
+    {
+      "id": "backlog-004",
+      "title": "legacy 数值迁移-权杖控制",
+      "status": "todo",
+      "acceptance": "HermesStaff._maximumConvertedTrolls 8→16；FriendlyTroll 控制永久（ShouldRevertToTroll 禁用或 _duration 极大）",
+      "verification": "游戏内权杖控制 16 只巨魔且不 revert"
+    },
+    {
       "id": "maint-002",
       "title": "Patch_Probe.cs 裁剪或加开关",
       "status": "todo",
