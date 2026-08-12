@@ -4,7 +4,6 @@ using UnityEngine;
 using Harmony;
 using Coatsink.Common;
 
-
 namespace MyMod
 {
     /// <summary>
@@ -14,27 +13,29 @@ namespace MyMod
     ///   1. 实际容量：Wallet.TotalCapacity = 1000（Wallet.cs:913 固定字段，全库零写入）。
     ///   2. 视觉容量：CurrencyBag.SpawnCurrency（CurrencyBag.cs:487-488）
     ///      `bagCurrency.Reset(flag2, count, count < 300)`——钱袋 UI 堆叠上限 300 个金币，
-    ///      超出者 stack=false → 散落到地面（CollideWithGround + 缩放 0.8，原版溢出设计）。
-    ///   3. 钱袋是 HUD 元素（挂在 InterfaceCamera），RecalcPosition 按玩家/合作模式定位右上角。
+    ///      超出者 stack=false → 散落到地面（原版溢出设计）。
+    ///   3. 钱袋是 HUD 元素（挂在 InterfaceCamera），无 Collider；金币拾取靠
+    ///      金币×玩家物理碰撞重叠 + 点击 OverlapCircle（无"容器碰撞空间"）。
     ///
     /// 本 mod：
-    ///   - 解锁：开局强制 ChangeCurrencyBag(Hermes)（OnGameStartHandler postfix，首局持久化+特效）。
-    ///   - 扩容：ChangeCurrencyBag postfix 按类型设玩家钱包容量（Hermes 2000 / Bag 1000），
-    ///     每局 ChangeCurrencyBag 必触发 → 读档后自动重设（TotalCapacity 非持久字段）。
-    ///   - UI：BagCurrency.Reset prefix 重设视觉堆叠上限 600（原 300，与容量同比例 30%），
-    ///     超出 600 仍保留散落溢出设计。
+    ///   - 解锁：开局强制 ChangeCurrencyBag(Hermes)（OnGameStartHandler postfix）。
+    ///   - 扩容：ChangeCurrencyBag postfix 按类型设玩家钱包容量（Hermes 2000 / Bag 1000）。
+    ///   - UI：BagCurrency.Reset prefix 视觉堆叠上限 300→600；
+    ///         CurrencyBag.Awake postfix + SetCurrencyBag postfix 放大 2.0x（金币堆子物体继承）。
     /// </summary>
     public static class Patch_CurrencyBag
     {
         private const int HermesCapacity = 2000;
         private const int BagCapacity = 1000;
         private const int VisualCoinLimit = 600;  // 原版硬编码 300（CurrencyBag.cs:487）
-        private const float BagScaleMultiplier = 1.3f;  // 钱袋 UI 放大倍率（含金币堆，子物体继承）
+        private const float BagScaleMultiplier = 2.0f;  // 钱袋 UI 放大倍率（含金币堆，子物体继承）
+        private static float _baseBagScale = -1f;       // 首次记录的原始基准（-1=未记录）
 
         public static void Register(HarmonyInstance harmony)
         {
-            // 1. 解锁：开局强制 Hermes
             var handlerType = typeof(CurrencyBagHandler);
+
+            // 1. 解锁：开局强制 Hermes
             var onGameStart = handlerType.GetMethod("OnGameStartHandler",
                 BindingFlags.NonPublic | BindingFlags.Instance);
             if (onGameStart != null)
@@ -75,7 +76,8 @@ namespace MyMod
             {
                 Debug.LogError("[MyMod] BagCurrency.Reset not found!");
             }
-            // 4. UI：钱袋整体放大 1.3x（金币堆是子物体，继承缩放一起变大）
+
+            // 4. UI：钱袋整体放大（Awake 每实例一次）
             var awakeMethod = typeof(CurrencyBag).GetMethod("Awake",
                 BindingFlags.NonPublic | BindingFlags.Instance);
             if (awakeMethod != null)
@@ -88,25 +90,71 @@ namespace MyMod
             {
                 Debug.LogError("[MyMod] CurrencyBag.Awake not found!");
             }
+
+            // 5. UI 兜底：SetCurrencyBag 返回新钱袋实例，每局切换必经——重设 scale
+            var setBagMethod = handlerType.GetMethod("SetCurrencyBag",
+                BindingFlags.Public | BindingFlags.Instance);
+            if (setBagMethod != null)
+            {
+                var postfix = new HarmonyMethod(typeof(Patch_CurrencyBag).GetMethod("SetCurrencyBag_Postfix"));
+                harmony.Patch(setBagMethod, null, postfix);
+                Debug.Log("[MyMod] Patched CurrencyBagHandler.SetCurrencyBag (scale reapply)");
+            }
+            else
+            {
+                Debug.LogError("[MyMod] CurrencyBagHandler.SetCurrencyBag not found!");
+            }
         }
 
         /// <summary>
-        /// 钱袋 UI 放大（Awake 每实例一次，幂等；BagCurrency 是 transform 子物体自动继承）。
+        /// 钱袋 UI 放大（幂等，金币堆是 transform 子物体自动继承缩放）。
         /// </summary>
         public static void Awake_Postfix(CurrencyBag __instance)
         {
             if (!Main.Enabled) return;
             try
             {
-                Vector3 s = __instance.transform.localScale;
-                s.x *= BagScaleMultiplier;
-                s.y *= BagScaleMultiplier;
-                __instance.transform.localScale = s;
+                ApplyBagScale(__instance);
+                Debug.Log("[MyMod] Bag scale applied: " + __instance.gameObject.name
+                    + " -> " + __instance.transform.localScale.x);
             }
             catch (Exception e)
             {
                 Debug.LogError("[MyMod] Bag scale error: " + e.Message);
             }
+        }
+
+        /// <summary>
+        /// 每次切换钱袋后重设 scale（防 Awake 设置被显示流程覆盖；幂等）。
+        /// </summary>
+        public static void SetCurrencyBag_Postfix(CurrencyBag __result)
+        {
+            if (!Main.Enabled) return;
+            try
+            {
+                ApplyBagScale(__result);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[MyMod] SetCurrencyBag scale error: " + e.Message);
+            }
+        }
+
+        /// <summary>
+        /// 绝对设置（非乘法累积）：首次记录原始基准，之后恒为 基准 × 倍率。
+        /// </summary>
+        private static void ApplyBagScale(CurrencyBag bag)
+        {
+            if (bag == null) return;
+            Vector3 s = bag.transform.localScale;
+            if (_baseBagScale < 0f)
+            {
+                _baseBagScale = Mathf.Max(s.x, s.y);  // 首次记录原始基准
+            }
+            float target = _baseBagScale * BagScaleMultiplier;
+            s.x = Mathf.Sign(s.x) * target;
+            s.y = Mathf.Sign(s.y) * target;
+            bag.transform.localScale = s;
         }
 
         public static void OnGameStartHandler_Postfix(CurrencyBagHandler __instance)
