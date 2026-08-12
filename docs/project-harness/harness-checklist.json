@@ -132,30 +132,30 @@
     {
       "id": "backlog-001",
       "title": "legacy 数值迁移-通用单位上限",
-      "status": "todo",
-      "acceptance": "骑士上船 10 队、工匠 6 人、投石手 24 人、农民 10 人（Harmony patch 设置型，重复无害）",
-      "verification": "游戏内招募上限验证"
+      "status": "done",
+      "acceptance": "骑士 10 队、工匠 6 人、弓手 24 人、农民 10 人",
+      "verification": "2026-08-12 源码核实全部已对齐（Boat.maxKnights=10/maxWorkers=6/弓手=_archerPositions.Length+20/maxFarmers=10），无需 patch"
     },
     {
       "id": "backlog-002",
-      "title": "legacy 数值迁移-刷新与距离",
-      "status": "todo",
-      "acceptance": "乞丐帐篷刷新 90 秒/上限 20 人、长矛兵攻击距离 +3、投石车燃烧弹一次 10 颗",
-      "verification": "游戏内验证"
+      "title": "legacy 数值迁移-乞丐刷新 90 秒",
+      "status": "done",
+      "acceptance": "BeggarCamp.spawnInterval 设为 209f（公式 209-119=90 秒，保留官方 -119f hack）",
+      "verification": "编译通过（Patch_BeggarCamp.cs，Awake postfix）；游戏内待实测"
     },
     {
       "id": "backlog-003",
-      "title": "legacy 数值迁移-希腊神器",
-      "status": "todo",
-      "acceptance": "神器弓箭 50 发、地面留存 50 秒、单发伤害 20 次（ArtemisBow 相关链路）",
-      "verification": "游戏内验证"
+      "title": "legacy 数值迁移-单发弓伤害 20 次",
+      "status": "done",
+      "acceptance": "ArtemisArrow._maxHitsPerArrow 设 0f（上限 0+20=恰好 20 次；原版 2+20=22）",
+      "verification": "编译通过（Patch_Artemis.cs，DamageAffectedEnemies prefix）；游戏内待实测"
     },
     {
       "id": "backlog-004",
       "title": "legacy 数值迁移-权杖控制",
-      "status": "todo",
-      "acceptance": "HermesStaff._maximumConvertedTrolls 8→16；FriendlyTroll 控制永久（ShouldRevertToTroll 禁用或 _duration 极大）",
-      "verification": "游戏内权杖控制 16 只巨魔且不 revert"
+      "status": "done",
+      "acceptance": "HermesStaff._maximumConvertedTrolls 8→16（有效上限 24）；控制永久 2.0.1 原生已对齐（ShouldRevertToTroll 恒 false）不实现",
+      "verification": "编译通过（Patch_HermesStaff.cs，Awake postfix）；游戏内待实测"
     },
     {
       "id": "maint-002",

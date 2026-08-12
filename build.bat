@@ -1,6 +1,7 @@
 @echo off
 REM 编译 MyMod（多文件版本）
-set GAME_DIR=..\..\KingdomTwoCrowns_Data\Managed
+REM GAME_DIR 指向游戏 Managed 目录（E 盘绝对路径，ohmymods 与游戏目录分离）
+set GAME_DIR=E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Call.of.Olympus-P2P\KingdomTwoCrowns_Data\Managed
 set UMM_DIR=%GAME_DIR%\UnityModManager
 set CSC=C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe
 
@@ -30,7 +31,10 @@ set CSC=C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe
     Patch_Castle.cs ^
     Patch_SidedShop.cs ^
     Patch_PoolManager.cs ^
-    Patch_Probe.cs
+    Patch_Probe.cs ^
+    Patch_BeggarCamp.cs ^
+    Patch_Artemis.cs ^
+    Patch_HermesStaff.cs
 
 if %ERRORLEVEL% EQU 0 (
     echo 编译成功！MyMod.dll 已生成

@@ -46,6 +46,9 @@ namespace MyMod
                 Patch_SidedShop.Register(harmony);
                 Patch_PoolManager.Register(harmony);
                 Patch_World.Register(harmony);
+                Patch_BeggarCamp.Register(harmony);
+                Patch_Artemis.Register(harmony);
+                Patch_HermesStaff.Register(harmony);
 
                 Debug.Log("[MyMod] Harmony patches applied successfully!");
             }
