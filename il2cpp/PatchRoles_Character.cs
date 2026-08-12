@@ -24,8 +24,8 @@ namespace KingdomEnhancedMod;
 [HarmonyPatch(typeof(Character))]
 public static class Character_Promote_Patch
 {
-    private const int GREECE_BIOME_INDEX = 5;
-    private const int NORSE_BIOME_INDEX = 3;
+    private static int GREECE_BIOME_INDEX => BiomeHolder.GreeceBiomeIndex;
+    private static int NORSE_BIOME_INDEX => BiomeHolder.NorselandsBiomeIndex;
     private static Character cachedNorseWarriorPeasant = null;
 
     [HarmonyPatch(nameof(Character.Promote), new[] { typeof(string), typeof(IUnitController) })]

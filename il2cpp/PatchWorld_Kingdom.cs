@@ -83,7 +83,7 @@ public static class PatchWorld_Kingdom
 
     private static void SpawnCatsInGreece(Kingdom kingdom, int kingdomId)
     {
-        if (BiomeHolder.Inst.BiomeIndex != 5) return;
+        if (BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
 
         Cat catPrefab = GetNorseCatPrefab();
         if (catPrefab == null) return;

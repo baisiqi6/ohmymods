@@ -188,7 +188,7 @@ public static class WarriorPeasant_OnEnable_Patch
         if (!ModConfig.Enabled.Value) return;
         try
         {
-            if (BiomeHolder.Inst != null && BiomeHolder.Inst.BiomeIndex == 5)
+            if (BiomeHolder.Inst != null && BiomeHolder.Inst.BiomeIndex == BiomeHolder.GreeceBiomeIndex)
             {
                 __instance.transform.localScale = new Vector3(1f, 1.2f, 1f);
                 ScaleRegistryHolder.Register(__instance.GetComponent<Mover>(), 1.2f);

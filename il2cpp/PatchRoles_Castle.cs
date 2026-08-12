@@ -100,7 +100,7 @@ public static class PayableShop_CreateItem_Patch
 
 public static class PatchRoles_Castle
 {
-    public const int GREECE_BIOME = 5;
+    public static int GREECE_BIOME => BiomeHolder.GreeceBiomeIndex;
 
     private static readonly string BERSERKER_SHOP_MARKER = "MyMod_BerserkerShop";
     private static int _nextPoolSyncId = 30000;

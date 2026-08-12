@@ -23,7 +23,7 @@ namespace KingdomEnhancedMod;
 [HarmonyPatch(typeof(World))]
 public static class World_OnLevelLoaded_Patch
 {
-    private const int GREECE_BIOME_INDEX = 5;
+    private static int GREECE_BIOME_INDEX => BiomeHolder.GreeceBiomeIndex;
 
     [HarmonyPatch(nameof(World.OnLevelLoaded))]
     [HarmonyPostfix]

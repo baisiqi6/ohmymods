@@ -68,7 +68,7 @@ public static class Holder_InitializeTagCharacterPairs_Patch
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo($"[Roles] Added {addedCount} characters to Holder");
 
             // 希腊世界：把工匠(Worker)和居民(Peasant)替换为北境版本
-            if (BiomeHolder.Inst != null && BiomeHolder.Inst.BiomeIndex == 5)
+            if (BiomeHolder.Inst != null && BiomeHolder.Inst.BiomeIndex == BiomeHolder.GreeceBiomeIndex)
             {
                 ReplaceCharacterWithNorselands(__instance, "Worker", "Worker_norselands");
                 ReplaceCharacterWithNorselands(__instance, "Peasant", "Peasant_norselands");

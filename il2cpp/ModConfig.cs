@@ -39,5 +39,15 @@ public static class ModConfig
 
         EnemyTimelineSpeed = config.Bind("Enemy", "EnemyTimelineSpeed", 1f,
             "怪物时间线推进速度倍率（1-5x）");
+
+        // 接线无限金币（2.4.0 Wallet.InfiniteMoney 为 public static 属性）：
+        // 配置改动即时生效 + 启动应用初值。Mono 版由 OnGUI toggle 驱动，此处等价迁移。
+        InfiniteMoney.SettingChanged += OnInfiniteMoneyChanged;
+        Wallet.InfiniteMoney = InfiniteMoney.Value;
+    }
+
+    private static void OnInfiniteMoneyChanged(object sender, System.EventArgs e)
+    {
+        Wallet.InfiniteMoney = InfiniteMoney.Value;
     }
 }
