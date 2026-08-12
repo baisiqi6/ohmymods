@@ -31,7 +31,10 @@ namespace MyMod
             }
         }
 
-        private static float? _vanillaMinExtents;
+        // 原版字段初始化值（Kingdom.cs:3431 `public float minKingdomExtents = 4f`）。
+        // 用常量而非运行时记录：旧 bug 版本（每岛 ×multiplier）已把存档里的值放大
+        // （4→8→16→32），运行时记录会把放大值当基准继续放大。
+        private const float VanillaMinExtents = 4f;
 
         public static void Postfix(Kingdom __instance)
         {
@@ -41,19 +44,11 @@ namespace MyMod
             {
                 if (Main.mapSizeMultiplier > 1f)
                 {
-                    // 幂等设置（ArchReviewer 2026-08-12 P0 缺陷修复）：
-                    // 原实现每次乘倍率——Kingdom.Init + 每次岛屿 OnLevelLoaded 都触发，
-                    // minKingdomExtents 从不重置（源码仅字段初始化 =4f）→ 逐岛指数放大
-                    // （4→8→16→32）。改为：首次记录原生基准，之后恒为 base * multiplier。
-                    if (_vanillaMinExtents == null
-                        || __instance.minKingdomExtents <= _vanillaMinExtents.Value + 0.01f)
-                    {
-                        // 首次调用，或当前值已被重置回基准（<= 基准）——重新记录原生值
-                        _vanillaMinExtents = __instance.minKingdomExtents;
-                    }
-                    __instance.minKingdomExtents = _vanillaMinExtents.Value * Main.mapSizeMultiplier;
+                    // 幂等设置（ArchReviewer 2026-08-12 P0 缺陷修复 + 用户实测修正）：
+                    // 恒为 原版基准(4f) × multiplier——不依赖当前值，旧存档放大值被修正。
+                    __instance.minKingdomExtents = VanillaMinExtents * Main.mapSizeMultiplier;
                     Debug.Log("[MyMod] Map extents set to " + __instance.minKingdomExtents
-                        + " (base " + _vanillaMinExtents.Value + " x " + Main.mapSizeMultiplier + ")");
+                        + " (vanilla " + VanillaMinExtents + " x " + Main.mapSizeMultiplier + ")");
                 }
 
                 int kingdomId = __instance.GetHashCode();

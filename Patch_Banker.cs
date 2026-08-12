@@ -14,11 +14,9 @@ namespace MyMod
         private static int _bankerCheckFrame = 0;
 
         // 缓存的反射字段
-        private static FieldInfo _banker_targetCoin;
-        private static FieldInfo _banker_coinScanner;
+
         private static FieldInfo _banker_wallet;
         private static FieldInfo _banker_stashedCoins;
-        private static MethodInfo _canPickUpMethod;
         private static bool _bankerFieldsCached = false;
 
         public static void Register(HarmonyInstance harmony)
@@ -27,7 +25,7 @@ namespace MyMod
 
             PatchMethod(harmony, bankerType, "FinaliseEmerge", null, "FinaliseEmerge_Postfix");
             PatchMethod(harmony, bankerType, "HandleOnDayStart", null, "HandleOnDayStart_Postfix");
-            PatchMethod(harmony, bankerType, "DropOff", "DropOff_Prefix", "DropOff_Postfix");
+            PatchMethod(harmony, bankerType, "DropOff", null, "DropOff_Postfix");
             PatchMethod(harmony, bankerType, "Hide", null, "Hide_Postfix");
             PatchMethod(harmony, bankerType, "Payout", null, "Payout_Postfix");
             PatchMethod(harmony, bankerType, "OpenCastleDoor", null, "OpenCastleDoor_Postfix");
@@ -43,23 +41,11 @@ namespace MyMod
                 Debug.Log("[MyMod] Patched Banker.ShouldHide");
             }
 
-            // GrabCoin - Prefix
-            var grabCoinMethod = bankerType.GetMethod("GrabCoin", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (grabCoinMethod != null)
-            {
-                var prefix = new HarmonyMethod(typeof(Patch_Banker).GetMethod("GrabCoin_Prefix"));
-                harmony.Patch(grabCoinMethod, prefix, null);
-                Debug.Log("[MyMod] Patched Banker.GrabCoin");
-            }
-
-            // ClaimCoins - Prefix
-            var claimCoinsMethod = bankerType.GetMethod("ClaimCoins", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (claimCoinsMethod != null)
-            {
-                var prefix = new HarmonyMethod(typeof(Patch_Banker).GetMethod("ClaimCoins_Prefix"));
-                harmony.Patch(claimCoinsMethod, prefix, null);
-                Debug.Log("[MyMod] Patched Banker.ClaimCoins");
-            }
+            // GrabCoin / ClaimCoins 远程吸币已删除（用户实测：金币凭空消失、行为不自然）。
+            // 原版流程：Scanner 发现金币 → ClaimCoins 认领目标 → GrabCoin 跑过去拾取（触碰）
+            // → DropOff 跑回城堡投币。mod 只增强：夜间不休息（ShouldHide）、大扫描范围
+            // （Awake_Postfix 300）、加速移动（runSpeed ×3）——自然且高效。
+            // 注：原版 ClaimCoins 会 TryFriendlyClaim 认领金币，拾取在触碰时完成。
         }
 
         private static void PatchMethod(HarmonyInstance harmony, System.Type type, string methodName, string prefixName, string postfixName)
@@ -87,11 +73,8 @@ namespace MyMod
         {
             if (_bankerFieldsCached) return;
             var bf = BindingFlags.NonPublic | BindingFlags.Instance;
-            _banker_targetCoin = typeof(Banker).GetField("_targetCoin", bf);
-            _banker_coinScanner = typeof(Banker).GetField("_coinScanner", bf);
             _banker_wallet = typeof(Banker).GetField("_wallet", bf);
             _banker_stashedCoins = typeof(Banker).GetField("_stashedCoins", bf);
-            _canPickUpMethod = typeof(IPickupAttributeProviderExtensions).GetMethod("CanPickUp");
             _bankerFieldsCached = true;
         }
 
@@ -263,17 +246,18 @@ namespace MyMod
                 var coinGatherField = typeof(Banker).GetField("coinGatherTargetPercentage", BindingFlags.Public | BindingFlags.Instance);
                 if (coinGatherField != null) coinGatherField.SetValue(__instance, 0.9f);
 
+                // 移动加速 ×3（原 ×15 是为瞬移吸币设计的，走流程后会穿模；×3 明显快但自然）
                 var walkSpeedField = typeof(Banker).GetField("walkSpeed", BindingFlags.Public | BindingFlags.Instance);
                 var runSpeedField = typeof(Banker).GetField("runSpeed", BindingFlags.Public | BindingFlags.Instance);
                 if (walkSpeedField != null)
                 {
                     float ws = (float)walkSpeedField.GetValue(__instance);
-                    if (ws > 0 && ws < 5f) walkSpeedField.SetValue(__instance, ws * 15f);
+                    if (ws > 0 && ws < 5f) walkSpeedField.SetValue(__instance, ws * 3f);
                 }
                 if (runSpeedField != null)
                 {
                     float rs = (float)runSpeedField.GetValue(__instance);
-                    if (rs > 0 && rs < 5f) runSpeedField.SetValue(__instance, rs * 15f);
+                    if (rs > 0 && rs < 5f) runSpeedField.SetValue(__instance, rs * 3f);
                 }
             }
             catch (Exception e)
@@ -354,101 +338,7 @@ namespace MyMod
             return false;
         }
 
-        // === GrabCoin - 瞬移到金币 ===
-
-        public static void GrabCoin_Prefix(Banker __instance)
-        {
-            if (!Main.Enabled) return;
-            CacheBankerFields();
-
-            try
-            {
-                DroppableCurrency targetCoin = _banker_targetCoin.GetValue(__instance) as DroppableCurrency;
-                if (targetCoin == null) return;
-
-                __instance.transform.position = targetCoin.transform.position;
-
-                Wallet wallet = _banker_wallet.GetValue(__instance) as Wallet;
-                if (wallet != null && wallet.Coins < wallet.TotalCapacity)
-                {
-                    wallet.Coins++;
-                    if (wallet.Coins >= wallet.TotalCapacity)
-                        wallet.CanGrabCoins = false;
-                }
-
-                targetCoin.gameObject.SetActive(false);
-            }
-            catch (Exception e)
-            {
-                Debug.LogError("[MyMod] Error in GrabCoin prefix: " + e.Message);
-            }
-        }
-
-        // === DropOff Prefix - 瞬移到城堡 ===
-
-        public static void DropOff_Prefix(Banker __instance)
-        {
-            if (!Main.Enabled) return;
-
-            try
-            {
-                float campfireX = SingletonMonoBehaviour<Managers>.Inst.kingdom.campfirePosition;
-                Vector3 pos = __instance.transform.position;
-                pos.x = campfireX + 0.8f;
-                __instance.transform.position = pos;
-            }
-            catch (Exception e)
-            {
-                Debug.LogError("[MyMod] Error in DropOff prefix: " + e.Message);
-            }
-        }
-
-        // === ClaimCoins - 远程直接拾取 ===
-
-        public static bool ClaimCoins_Prefix(Banker __instance)
-        {
-            if (!Main.Enabled) return true;
-            CacheBankerFields();
-
-            try
-            {
-                _banker_targetCoin.SetValue(__instance, null);
-
-                Scanner coinScanner = _banker_coinScanner.GetValue(__instance) as Scanner;
-                if (coinScanner == null) return false;
-
-                Wallet wallet = _banker_wallet.GetValue(__instance) as Wallet;
-                if (wallet == null || wallet.Coins >= wallet.TotalCapacity) return false;
-
-                GameObject[] array;
-                int all = coinScanner.GetAll(out array);
-
-                for (int i = 0; i < all; i++)
-                {
-                    if (wallet.Coins >= wallet.TotalCapacity) break;
-
-                    DroppableCurrency component = array[i].GetComponent<DroppableCurrency>();
-                    if (component != null && component.isActiveAndEnabled && component.CurrencyType == CurrencyType.Coins)
-                    {
-                        bool canPickUp = (bool)_canPickUpMethod.Invoke(null, new object[] { __instance, component });
-                        if (canPickUp && component.TryFriendlyClaim(__instance.gameObject, 60f))
-                        {
-                            wallet.Coins++;
-                            if (wallet.Coins >= wallet.TotalCapacity)
-                                wallet.CanGrabCoins = false;
-                            Pool.Despawn(component.gameObject, true);
-                        }
-                    }
-                }
-
-                return false;
-            }
-            catch (Exception e)
-            {
-                Debug.LogError("[MyMod] Error in ClaimCoins prefix: " + e.Message);
-                return true;
-            }
-        }
-
+        // GrabCoin / DropOff / ClaimCoins 的瞬移/远程吸币前缀已删除（2026-08-12 用户实测反馈：
+        // 金币凭空消失、行为不自然）。走原版流程：认领 → 跑过去 → 触碰拾取 → 跑回投币。
     }
 }
