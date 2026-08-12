@@ -2,6 +2,10 @@
 *.dll
 *.cache
 *.pdb
-
+# dotnet 构建产物（IL2CPP 工程）
+il2cpp/bin/
+il2cpp/obj/
+**/bin/
+**/obj/
 # 开发残留
 原始备份/
