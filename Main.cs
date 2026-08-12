@@ -56,6 +56,7 @@ namespace MyMod
                 Patch_Artemis.Register(harmony);
                 Patch_HermesStaff.Register(harmony);
                 Patch_Level.Register(harmony);
+                Patch_CurrencyBag.Register(harmony);
 
                 Debug.Log("[MyMod] Harmony patches applied successfully!");
             }

@@ -4,6 +4,13 @@
   "workflow": "ordinary",
   "items": [
     {
+      "id": "feature-001",
+      "title": "解锁赫尔墨斯钱袋（Hermes bag）",
+      "status": "done",
+      "acceptance": "开局强制 ChangeCurrencyBag(Hermes, 0/1)，首局持久化+特效，之后幂等；P2 同步",
+      "verification": "编译通过已部署；游戏内待实测"
+    },
+    {
       "id": "core-001",
       "title": "希腊世界狂战士商店（槽位劫持）",
       "status": "done",
