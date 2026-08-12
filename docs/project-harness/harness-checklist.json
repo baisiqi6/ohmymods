@@ -67,6 +67,62 @@
       "verification": "游戏内生效"
     },
     {
+      "id": "core-010",
+      "title": "乞丐→北境 WarriorPeasant 替换",
+      "status": "done",
+      "acceptance": "希腊乞丐转职 Peasant 时替换为北境 WarriorPeasant（保留颜色/位置），biome=5 生效",
+      "verification": "游戏内转化测试通过"
+    },
+    {
+      "id": "core-011",
+      "title": "快速建造",
+      "status": "done",
+      "acceptance": "Patch_Construction 加速建造",
+      "verification": "游戏内生效"
+    },
+    {
+      "id": "core-012",
+      "title": "怪物数量/时间线倍率",
+      "status": "done",
+      "acceptance": "Patch_Enemy 按倍率调整怪物数量与时间线",
+      "verification": "游戏内生效"
+    },
+    {
+      "id": "core-013",
+      "title": "狂战士跟随骑士",
+      "status": "done",
+      "acceptance": "Patch_Knight 狂战士跟随骑士（护驾行为）",
+      "verification": "游戏内生效"
+    },
+    {
+      "id": "core-014",
+      "title": "共享银行",
+      "status": "done",
+      "acceptance": "Patch_Banker 银行金币共享/利息调整",
+      "verification": "游戏内生效"
+    },
+    {
+      "id": "core-015",
+      "title": "玩家移动速度倍率",
+      "status": "done",
+      "acceptance": "Patch_Mover 按 Main.speedMultiplier 加速玩家移动（仅 Player，缓存 FieldInfo）",
+      "verification": "游戏内生效"
+    },
+    {
+      "id": "core-016",
+      "title": "希腊草地补充",
+      "status": "done",
+      "acceptance": "Patch_World 地图扩展后按间隔生成草地（避开水面/障碍，ExpandGrass）",
+      "verification": "游戏内草地可见"
+    },
+    {
+      "id": "core-017",
+      "title": "原生池丢失修复",
+      "status": "done",
+      "acceptance": "Patch_PoolManager 强制 InitPools 重建原生池 + 重注册 mod sync 池，投币/购买不崩",
+      "verification": "游戏内投币/购买无崩溃"
+    },
+    {
       "id": "maint-001",
       "title": "核实 Patch_Mover.cs 用途",
       "status": "done",
