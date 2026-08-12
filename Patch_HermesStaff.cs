@@ -60,7 +60,35 @@ namespace MyMod
             {
                 Debug.LogError("[MyMod] HermesStaff.Awake not found!");
             }
+            // 2.1.0 修复：ShouldRevertToTroll 实现为 `_expirationTime <= Time.time`
+            // （_duration=5f，控制 5 秒后变回敌人；2.0.1 是恒 return false 才"原生永久"）。
+            // legacy"控制时间永久"在此版本需要 patch：prefix 强制返回 false。
+            var trollType = typeof(FriendlyTroll);
+            var shouldRevertMethod = trollType.GetMethod("ShouldRevertToTroll",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            if (shouldRevertMethod != null)
+            {
+                var prefix = new HarmonyMethod(typeof(Patch_HermesStaff).GetMethod("FriendlyTroll_ShouldRevertToTroll_Prefix"));
+                harmony.Patch(shouldRevertMethod, prefix, null);
+                Debug.Log("[MyMod] Patched FriendlyTroll.ShouldRevertToTroll (permanent control)");
+            }
+            else
+            {
+                Debug.LogError("[MyMod] FriendlyTroll.ShouldRevertToTroll not found!");
+            }
+        }
 
+        /// <summary>
+        /// 控制永久：mod 启用时强制返回 false 并跳过原方法（revert 永不触发）；
+        /// mod 关闭时返回 true 走原逻辑（可开关）。Harmony 1.2 支持 ref bool __result
+        /// （与本仓库 Patch_Castle.CreateItem_Prefix 一致）。
+        /// </summary>
+        public static bool FriendlyTroll_ShouldRevertToTroll_Prefix(ref bool __result)
+        {
+            if (!Main.Enabled) return true;  // 未启用：走原方法（5 秒控制）
+
+            __result = false;                // 永不 revert → 控制时间永久
+            return false;                    // 跳过原方法
         }
 
         /// <summary>
