@@ -3,6 +3,8 @@ using System.Reflection;
 using UnityEngine;
 using Harmony;
 using Coatsink.Common;
+
+
 namespace MyMod
 {
     /// <summary>
@@ -27,6 +29,7 @@ namespace MyMod
         private const int HermesCapacity = 2000;
         private const int BagCapacity = 1000;
         private const int VisualCoinLimit = 600;  // 原版硬编码 300（CurrencyBag.cs:487）
+        private const float BagScaleMultiplier = 1.3f;  // 钱袋 UI 放大倍率（含金币堆，子物体继承）
 
         public static void Register(HarmonyInstance harmony)
         {
@@ -71,6 +74,38 @@ namespace MyMod
             else
             {
                 Debug.LogError("[MyMod] BagCurrency.Reset not found!");
+            }
+            // 4. UI：钱袋整体放大 1.3x（金币堆是子物体，继承缩放一起变大）
+            var awakeMethod = typeof(CurrencyBag).GetMethod("Awake",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            if (awakeMethod != null)
+            {
+                var postfix = new HarmonyMethod(typeof(Patch_CurrencyBag).GetMethod("Awake_Postfix"));
+                harmony.Patch(awakeMethod, null, postfix);
+                Debug.Log("[MyMod] Patched CurrencyBag.Awake (UI scale x" + BagScaleMultiplier + ")");
+            }
+            else
+            {
+                Debug.LogError("[MyMod] CurrencyBag.Awake not found!");
+            }
+        }
+
+        /// <summary>
+        /// 钱袋 UI 放大（Awake 每实例一次，幂等；BagCurrency 是 transform 子物体自动继承）。
+        /// </summary>
+        public static void Awake_Postfix(CurrencyBag __instance)
+        {
+            if (!Main.Enabled) return;
+            try
+            {
+                Vector3 s = __instance.transform.localScale;
+                s.x *= BagScaleMultiplier;
+                s.y *= BagScaleMultiplier;
+                __instance.transform.localScale = s;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[MyMod] Bag scale error: " + e.Message);
             }
         }
 
