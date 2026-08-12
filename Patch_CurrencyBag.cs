@@ -142,7 +142,14 @@ namespace MyMod
 
         /// <summary>
         /// 绝对设置（非乘法累积）：首次记录原始基准，之后恒为 基准 × 倍率。
+        /// 关键：金币容器（_container）反向缩放 1/倍率——抵消父级继承，
+        /// 金币保持原大小（否则金币跟袋子一起变大 = 单纯放大照片，无扩容感）。
+        /// 金币是世界物理对象（rigidbody），原大小金币在大袋子里物理滚落铺开
+        /// → 视觉上"大袋子装更多金币"。BagCurrency 全部挂在 _container 下
+        /// （CurrencyBag.cs:485 SetParent(_container)）。
         /// </summary>
+        private static FieldInfo _containerField;
+
         private static void ApplyBagScale(CurrencyBag bag)
         {
             if (bag == null) return;
@@ -155,6 +162,22 @@ namespace MyMod
             s.x = Mathf.Sign(s.x) * target;
             s.y = Mathf.Sign(s.y) * target;
             bag.transform.localScale = s;
+
+            // 金币容器反向缩放——金币世界缩放 = 袋子(2x) × 容器(0.5x) = 1x（原大小）
+            if (_containerField == null)
+            {
+                _containerField = typeof(CurrencyBag).GetField("_container",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+            }
+            if (_containerField != null)
+            {
+                Transform container = _containerField.GetValue(bag) as Transform;
+                if (container != null)
+                {
+                    container.localScale = new Vector3(
+                        1f / BagScaleMultiplier, 1f / BagScaleMultiplier, 1f);
+                }
+            }
         }
 
         public static void OnGameStartHandler_Postfix(CurrencyBagHandler __instance)
