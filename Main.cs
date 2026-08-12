@@ -15,7 +15,8 @@ namespace MyMod
         public static bool infiniteMoney = false;
         public static int speedMultiplier = 2;
         public static bool fastBuild = false;
-        public static float mapSizeMultiplier = 1f;
+        // 岛大小倍率：固定 2x（世界生成参数，动态调整会改变已生成世界，禁止滑块/运行时修改）
+        public static float mapSizeMultiplier = 2f;
         public static float enemyCountMultiplier = 1f;
         public static float enemyTimelineSpeed = 1f;
 
@@ -102,8 +103,9 @@ namespace MyMod
                 ConstructionBuildingComponent.AllAutoBuild = newFastBuild;
             }
 
-            GUILayout.Label("地图大小: " + mapSizeMultiplier.ToString("F1") + "x");
-            mapSizeMultiplier = GUILayout.HorizontalSlider(mapSizeMultiplier, 1f, 5f);
+            // 岛大小固定 2x（Patch_Level 使用）——世界生成参数，动态调整会改变
+            // 已生成/已访问的岛（下次进入时按新宽度重新生成），不可由滑块控制，定死。
+            GUILayout.Label("岛大小: 固定 2x（世界生成参数，不可调）");
 
             GUILayout.Label("怪物数量: " + enemyCountMultiplier.ToString("F1") + "x");
             enemyCountMultiplier = GUILayout.HorizontalSlider(enemyCountMultiplier, 1f, 5f);

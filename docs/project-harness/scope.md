@@ -17,11 +17,22 @@
 ## Non-Goals（明确不做）
 
 - 不改游戏资源文件（prefab/贴图/动画），一切通过运行时 Harmony patch + 代码逻辑。
-- 不做联机专用的新协议（沿用游戏原生 RPC/序列化，仅必要时注册 sync 池）。
+- 不做联机专用的新协议（沿用游戏原生 RPC/序列化，必要时仅注册 sync 池）。
 - 不碰希腊原版兵种的行为（除缩放对齐外）。
-- 不把反编译的 Assembly-CSharp 源码纳入本仓库（那是游戏的只读参考，放 E 盘游戏目录）。
-- 不引入第三方依赖（只用 UMM + Harmony v1.2 + 游戏原生 API）。
+- 不引入第三方依赖（当前 UMM + Harmony v1.2 + 游戏原生 API）。
 - 不做 UI/菜单（mod 开关在 UMM 的 Main.Enabled）。
+
+## 未来规划：IL2CPP 适配（2026-08-12 记录）
+
+- **现状**：本 mod 基于 Mono 2.0.1（老版本，官方已无 Mono 渠道）。用户环境已有
+  IL2CPP 2.4.0（`E:\QQ\...\Kingdom Two Crowns (1)`、`D:\Steam\...`）。
+- **适配路径**：BepInEx 6 + Il2CppInterop + Harmony（IL2CPP 唯一 Hook 方式）；
+  "Rosetta Stone" 技术——本仓库 `game-source/` 的 Mono 反编译源码作为 IL2CPP 侧的
+  逻辑说明书（IL2CPP 方法体不可读，但类名/签名一致，逻辑变化不大）。
+- **参考**：`docs/多架构开发指南.md`（版本分界、能力边界、开发环境布局、
+  IL2CPP 类型发现脚本、MonoBehaviour 注册三步）。
+- **迁移策略**：先功能等价迁移（所有 patch 点已在 game-logic-map 文档化），
+  再按 IL2CPP 能力边界调整（Postfix 改返回值 / Prefix 拦截 / 无法直接改字段初始值）。
 
 ## 环境约束
 
