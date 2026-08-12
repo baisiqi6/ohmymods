@@ -54,10 +54,10 @@
     },
     {
       "id": "core-008",
-      "title": "地图扩展（王国边界）",
+      "title": "岛宽度扩展（正确定位）",
       "status": "done",
-      "acceptance": "minKingdomExtents 按 mapSizeMultiplier 扩展",
-      "verification": "游戏内生效"
+      "acceptance": "Patch_Level.GenerateInternal：LevelConfig.minLevelWidth × mapSizeMultiplier（临时改+恢复防污染资产）",
+      "verification": "岛宽度→块数→Ground→worldBounds 自动连锁；塔基/墙基/泉眼随岛变宽增多；minKingdomExtents 修改已回退（与岛宽无关+存档污染）"
     },
     {
       "id": "core-009",

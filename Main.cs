@@ -54,6 +54,7 @@ namespace MyMod
                 Patch_BeggarCamp.Register(harmony);
                 Patch_Artemis.Register(harmony);
                 Patch_HermesStaff.Register(harmony);
+                Patch_Level.Register(harmony);
 
                 Debug.Log("[MyMod] Harmony patches applied successfully!");
             }

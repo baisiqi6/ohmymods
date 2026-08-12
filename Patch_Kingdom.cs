@@ -31,25 +31,17 @@ namespace MyMod
             }
         }
 
-        // 原版字段初始化值（Kingdom.cs:3431 `public float minKingdomExtents = 4f`）。
-        // 用常量而非运行时记录：旧 bug 版本（每岛 ×multiplier）已把存档里的值放大
-        // （4→8→16→32），运行时记录会把放大值当基准继续放大。
-        private const float VanillaMinExtents = 4f;
-
         public static void Postfix(Kingdom __instance)
         {
             if (!Main.Enabled) return;
 
             try
             {
-                if (Main.mapSizeMultiplier > 1f)
-                {
-                    // 幂等设置（ArchReviewer 2026-08-12 P0 缺陷修复 + 用户实测修正）：
-                    // 恒为 原版基准(4f) × multiplier——不依赖当前值，旧存档放大值被修正。
-                    __instance.minKingdomExtents = VanillaMinExtents * Main.mapSizeMultiplier;
-                    Debug.Log("[MyMod] Map extents set to " + __instance.minKingdomExtents
-                        + " (vanilla " + VanillaMinExtents + " x " + Main.mapSizeMultiplier + ")");
-                }
+                // minKingdomExtents 修改已回退（2026-08-12 用户澄清 + 源码核实）：
+                // 它只是王国初始安全区边界（场景序列化值），与岛宽度无关。
+                // 岛宽度由 Patch_Level（LevelConfig.minLevelWidth × multiplier）控制，
+                // 边界由玩家建墙自然扩展（Kingdom.cs:2335 border = outerWall 位置）。
+                // 此前改 extents 既有存档污染（旧档放大值无法区分场景值），方向错误。
 
                 int kingdomId = __instance.GetHashCode();
                 __instance.StartCoroutine(DelayedBerserkerSpawn(__instance, kingdomId));
