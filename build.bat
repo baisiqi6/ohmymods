@@ -1,8 +1,10 @@
 @echo off
 REM 编译 MyMod（多文件版本，自动收集 Main.cs + Patch_*.cs，无需手改文件列表）
 REM GAME_DIR 指向游戏 Managed 目录（E 盘绝对路径，ohmymods 与游戏目录分离）
+REM 2026-08-12 切换到 GOG 2.1.0 (x86)：E:\Kingdom Two Crowns
+REM 旧环境 (2.0.1 x64)：E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Call.of.Olympus-P2P\KingdomTwoCrowns_Data\Managed
 setlocal enabledelayedexpansion
-set GAME_DIR=E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Call.of.Olympus-P2P\KingdomTwoCrowns_Data\Managed
+set GAME_DIR=E:\Kingdom Two Crowns\KingdomTwoCrowns_Data\Managed
 set UMM_DIR=%GAME_DIR%\UnityModManager
 set CSC=C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe
 

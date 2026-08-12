@@ -370,9 +370,9 @@ namespace MyMod
                 Pool pool = pm.CreatePoolFor(prefab);
                 if (pool == null) { Debug.LogError("[MyMod] RegisterSyncedPool: CreatePoolFor returned null for " + label); return; }
 
-                // 设置 sync 和唯一 syncID
+                // 设置 sync 和唯一 syncID（2.1.0 中 Pool.syncID 为 short，需显式转换）
                 pool.sync = true;
-                pool.syncID = _nextPoolSyncId++;
+                pool.syncID = (short)_nextPoolSyncId++;
 
                 // 注册到 PoolManager 缓存（反射访问 private 字段）
                 var cachedPoolsField = typeof(PoolManager).GetField("cachedPools", BindingFlags.NonPublic | BindingFlags.Instance);
