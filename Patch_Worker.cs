@@ -133,12 +133,44 @@ namespace MyMod
                 // 登记 y 轴守护：Mover.Update 每帧会把 localScale.y 覆盖回 1，
                 // 注册表让 postfix 恢复目标值（x 是朝向符号不能动，缩放只体现在 y）
                 UnitScaleRegistry.Register(__instance.GetComponent<Mover>(),
-                    IsNorselandsWorker(__instance) ? 1.175f : 1.075f);
+                    IsNorselandsWorker(__instance) ? 1.2f : 1.075f);
                 EquipShieldIfNorselands(__instance);
+                EnsurePickupCapability(__instance);
             }
             catch (Exception e)
             {
                 Debug.LogError("[MyMod] Error in Worker.OnEnable patch: " + e.Message);
+            }
+        }
+
+        /// <summary>
+        /// 2.1.0 兼容修复：Worker.OnTriggerEnter2D 在 npcShieldUser == null 时早退
+        /// （2.1.0 新增检查），希腊原版 Worker prefab 无 NpcShieldUser 组件
+        /// （Awake 里 TryGetComponent 不创建）→ 无法拾取 BerserkerTool →
+        /// mod 把狂战士商店带进希腊后：工具滞留、商店锁定、工人卡在"去捡"状态。
+        /// 修复：OnEnable 时给无 NpcShieldUser 的工人补组件 + 反射回填 Awake 已缓存的字段。
+        /// 副作用分析：TryPickupShield 对无盾工人仍返回 false（CanPickupShield 检查），
+        /// 希腊无盾牌商店，无行为变化。
+        /// </summary>
+        private static void EnsurePickupCapability(Worker worker)
+        {
+            if (worker == null) return;
+            try
+            {
+                if (worker.GetComponent<NpcShieldUser>() != null) return;
+
+                NpcShieldUser comp = worker.gameObject.AddComponent<NpcShieldUser>();
+                var field = typeof(Worker).GetField("npcShieldUser",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                if (field != null)
+                {
+                    field.SetValue(worker, comp);
+                }
+                Debug.Log("[MyMod] Added NpcShieldUser to Greek worker (pickup capability)");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[MyMod] EnsurePickupCapability error: " + e.Message);
             }
         }
     }
