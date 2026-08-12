@@ -12,6 +12,20 @@
   （指向 patch-patterns.md 坑10）、MOD开发文档.md 归档到 docs/legacy/。
 - 剩余：Mover.Update 双 postfix 合并、Main.OnGUI 反射缓存（Worker A）。
 
+## 2026-08-12 — GOG 2.1.0 迁移完成（Mono 最后版本）
+
+- **注入方案**：UMM 21.0.32 自带 winhttp（旧 UnityDoorstop）不识别 Unity 2022.3.51f1 →
+  改用 BepInEx 5.4.23.3 的 winhttp（x86）+ `[General] target_assembly=` 格式配置指向
+  UnityModManager.dll（详见 runbook "注入方案"）。
+- **API 差异修复（4 处）**：
+  1. `Pool.syncID` int→short（Patch_Castle 显式转换）
+  2. `EquipShield NRE`：NpcShieldUser.Awake 在 HasWorldAuth 未就绪时提前 return → regenWait
+     为 null → 装备前反射补初始化
+  3. `Worker.OnTriggerEnter2D` 新增 npcShieldUser==null 早退 → 希腊工人无法拾取
+     BerserkerTool → 狂战士商店卡死；OnEnable 补组件+回填字段（EnsurePickupCapability）
+  4. 其余 21 项 patch 目标 2.1.0 验证全部存在，零 not found
+- 2.1.0 反编译源码入库 `game-source/Assembly-CSharp-2.1.0/`。
+
 ## 2026-08-12 — 架构交叉审查 + P0/P1 修复
 
 - ArchReviewer（kimi K3）审查结论：**无需框架级升级**（单 DLL + Patch 类 + harness 骨架对 19 patch 规模合适）。
