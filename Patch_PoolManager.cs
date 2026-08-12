@@ -6,15 +6,19 @@ using Harmony;
 namespace MyMod
 {
     /// <summary>
-    /// 修复原生池丢失 bug：
+    /// 修复原生池丢失 bug（两层）：
     ///
-    /// 根因：mod 在场景早期注册了 sync 池（cachedPools.Count > 0），导致
-    /// PoolManager.OnLevelLoaded 的 `if (cachedPools == null || cachedPools.Count == 0)`
-    /// 判断为 false，跳过 InitPools()——希腊世界的原生池（Coin Indicator / Fish /
-    /// Building Dust 等）从未加载 → 投币/购买/特效全部崩溃。
+    /// 第一层（2.0.1 时代）：mod 在场景早期注册 sync 池（cachedPools.Count > 0）导致
+    /// PoolManager.OnLevelLoaded 的 `if (cachedPools == null || Count == 0)` 判 false，
+    /// 跳过 InitPools()——原生池（Coin Indicator/Fish/Building Dust 等）从未加载 → 投币崩溃。
+    /// 修复：Prefix 强制 InitPools()，随后重注册 mod sync 池。
     ///
-    /// 修复：Prefix 强制执行 InitPools()（反射调私有方法），随后重新注册 mod 的
-    /// sync 池（InitPools 会 ClearStaticReferences 清掉它们），再跳过原版。
+    /// 第二层（2.1.0 发现）：InitPools 只注册 particlePools + **当前 biome** 的池资产
+    /// （"Object Pools/<biome>"），通用特效池（Transform Sparkles/Building Dust/Snow 等）
+    /// 在其他 biome 的 BiomeObjectPools 里——希腊世界读档恢复特效对象时池缺失 →
+    /// Character.UpgradeTransitionFX NRE → 乞丐捡金币 Promote("Peasant") 中断
+    /// （用户报"扔金币乞丐捡不了"）。修复：RegisterAllBiomePools 补注册全部 biome 的池资产
+    /// （按 prefab 名去重，防 Dictionary.Add 重名炸）。
     /// </summary>
     public static class Patch_PoolManager
     {
@@ -52,18 +56,77 @@ namespace MyMod
                     Debug.Log("[MyMod] Force InitPools() executed (native pools rebuilt)");
                 }
 
+                // 2.1.0 补全：全 biome 池（Sparkles/Building Dust/Snow 等特效池）
+                RegisterAllBiomePools(__instance);
+
                 // InitPools 清掉了 mod 注册的 sync 池，重新注册
                 ReRegisterModPools(__instance);
 
-                // 跳过原版 OnLevelLoaded（它的 DoPreload 会遍历 cachedPools，
-                // 我们刚 InitPools 重建后 cachedPools 是原生池，让原版 DoPreload 执行也行——
-                // 但为避免双重逻辑，这里让原版跑 DoPreload）
                 return true;
             }
             catch (Exception e)
             {
                 Debug.LogError("[MyMod] Patch_PoolManager error: " + e.Message);
                 return true;
+            }
+        }
+
+        /// <summary>
+        /// 补注册全部 biome 的 BiomeObjectPools 池（按 prefab 名去重）。
+        /// 注册逻辑与 PoolManager.CreateAndInitializePoolsFromCollection 等价
+        /// （Instantiate + SetName + 缓存三件套 + Init）。
+        /// </summary>
+        private static void RegisterAllBiomePools(PoolManager pm)
+        {
+            try
+            {
+                var cachedPoolsField = typeof(PoolManager).GetField("cachedPools",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                var namePairsField = typeof(PoolManager).GetField("cachedNamePoolPairs",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                var syncIdField = typeof(PoolManager).GetField("cachedSyncIdPoolPairs",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                if (cachedPoolsField == null || namePairsField == null || syncIdField == null) return;
+
+                var cachedPools = cachedPoolsField.GetValue(pm) as System.Collections.Generic.List<Pool>;
+                var namePairs = namePairsField.GetValue(pm) as System.Collections.Generic.Dictionary<string, Pool>;
+                var syncIdPairs = syncIdField.GetValue(pm) as System.Collections.Generic.Dictionary<int, Pool>;
+                if (cachedPools == null || namePairs == null || syncIdPairs == null) return;
+
+                int added = 0;
+                var allCollections = Resources.LoadAll<BiomeObjectPools>("");
+                foreach (var collection in allCollections)
+                {
+                    if (collection == null || collection.biomeObjectPools == null) continue;
+                    foreach (var poolPrefab in collection.biomeObjectPools)
+                    {
+                        if (poolPrefab == null || poolPrefab.prefab == null) continue;
+                        if (namePairs.ContainsKey(poolPrefab.prefab.name)) continue;  // 已注册跳过
+
+                        Pool inst = UnityEngine.Object.Instantiate<Pool>(poolPrefab, pm.transform);
+                        inst.SetName();
+                        cachedPools.Add(inst);
+                        namePairs.Add(inst.prefab.name, inst);
+                        if (inst.sync && inst.syncID != 0)
+                        {
+                            syncIdPairs.Add((int)inst.syncID, inst);
+                        }
+                        try
+                        {
+                            inst.Init(null);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogError("[MyMod] Pool init error (" + inst.name + "): " + ex.Message);
+                        }
+                        added++;
+                    }
+                }
+                Debug.Log("[MyMod] RegisterAllBiomePools: added " + added + " missing pools");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[MyMod] RegisterAllBiomePools error: " + e.Message);
             }
         }
 
