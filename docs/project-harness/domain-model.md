@@ -1,5 +1,14 @@
 # ohmymods — 领域决策记录
 
+### D9. 钱袋扩容 = 数字容量 + 视觉上限，无物理容器（2026-08-12）
+- 用户初始设想"钱袋有长宽明确的容器碰撞空间，调大空间+放大 UI = 扩容"——源码核实不成立：
+  容量是 `Wallet.TotalCapacity` 数字（全库零写入），拾取靠金币×玩家物理碰撞重叠 + 点击
+  OverlapCircle，钱袋（CurrencyBag）是 HUD 视觉对象（挂 InterfaceCamera），无 Collider。
+- 实现映射：容量 1000→2000（ChangeCurrencyBag postfix）、视觉堆叠上限 300→600
+  （BagCurrency.Reset prefix）、UI 放大 1.3x（CurrencyBag.Awake postfix）。
+- 遗留：拾取范围（吸金半径）未动——若要"吸金更猛"再改金币 collider/maxCoinPickupDistance。
+
+
 ## 关键决策（ADR 精简版）
 
 ### D1. 用 UMM + Harmony v1.2，不用 BepInEx

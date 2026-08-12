@@ -1,3 +1,15 @@
+## 2026-08-12 — 赫尔墨斯钱袋三件套（精细化改造第一项）
+
+- 解锁：开局强制 `ChangeCurrencyBag(Hermes, 0/1)`（Patch_CurrencyBag，OnGameStartHandler postfix）。
+- 扩容：`ChangeCurrencyBag` postfix 按类型设 `Player.wallet.TotalCapacity`（Hermes 2000 / Bag 1000，
+  每局重设幂等——TotalCapacity 非持久字段）。
+- UI：`BagCurrency.Reset` prefix 视觉堆叠上限 300→600；`CurrencyBag.Awake` postfix 整体放大 1.3x
+  （金币堆子物体继承）。
+- 机制澄清（防后人重踩）：游戏**没有"钱袋容器碰撞空间"**——容量是数字（Wallet.TotalCapacity），
+  拾取靠金币×玩家物理碰撞重叠 + 点击 OverlapCircle，钱袋是 HUD 视觉对象。
+- 待用户实测：钱包 2000 上限、堆叠 600、视觉放大效果。
+
+
 # ohmymods — 进展
 
 ## 2026-08-12 — arch-002 收尾（命名对齐 + Probe 裁剪 + 文档同步）

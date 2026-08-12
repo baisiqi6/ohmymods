@@ -168,6 +168,23 @@ x 绝不能动（朝向 + `Mover.cs:405 velocity.x *= localScale.x` 速度依赖
 
 ---
 
+### 13. 2.1.0 Worker.OnTriggerEnter2D 的 npcShieldUser 早退（狂战士商店卡死）
+
+**症状：** 希腊世界狂战士商店旁工匠卡住、工具滞留、商店锁死买不了。
+
+**根因：** 2.1.0 的 `Worker.OnTriggerEnter2D` 新增 `this.npcShieldUser == null` 早退；
+希腊原版 Worker prefab 无 NpcShieldUser 组件（Awake 里 TryGetComponent 不创建）→
+无法拾取 BerserkerTool。原版希腊没有狂战士商店所以从未暴露，mod 带进希腊即触发。
+
+**解法：** `Patch_Worker.EnsurePickupCapability`——OnEnable 时给无 NpcShieldUser 的工人
+补组件 + 反射回填 Worker.npcShieldUser 字段（Awake 已缓存，只 AddComponent 不够）。
+
+### 14. 2.1.0 注入必须用 BepInEx 5 doorstop
+
+UMM 21.0.32 自带 winhttp（旧 UnityDoorstop）不识别 Unity 2022.3.51f1，静默放弃。
+用 BepInEx 5.4.23.3 的 winhttp.dll（x86）+ `[General] target_assembly=` 格式
+doorstop_config.ini 指向 UnityModManager.dll（详见 runbook "注入方案"）。
+
 ## 当前 mod 功能清单
 
 | Patch 类 | 功能 | 状态 |

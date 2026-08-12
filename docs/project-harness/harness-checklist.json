@@ -7,8 +7,8 @@
       "id": "feature-001",
       "title": "赫尔墨斯钱袋解锁+扩容+UI适配",
       "status": "done",
-      "acceptance": "开局强制 Hermes；ChangeCurrencyBag postfix 设容量（Hermes 2000/Bag 1000）；BagCurrency.Reset prefix 视觉堆叠上限 300→600（超出散落保留）",
-      "verification": "编译零警告已部署；游戏内待实测（钱包 2000 上限 + 钱袋堆叠 600）"
+      "acceptance": "开局强制 Hermes；容量 2000；视觉堆叠上限 600；UI 放大 1.3x（CurrencyBag.Awake postfix，金币堆子物体继承）；P2 同步",
+      "verification": "编译零警告已部署；游戏内待实测（钱包 2000 上限 + 钱袋堆叠 600 + 视觉放大）"
     },
     {
       "id": "core-001",
