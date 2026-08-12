@@ -1,0 +1,91 @@
+{
+  "project": "ohmymods",
+  "generated_at": "2026-08-12",
+  "workflow": "ordinary",
+  "items": [
+    {
+      "id": "core-001",
+      "title": "希腊世界狂战士商店（槽位劫持）",
+      "status": "done",
+      "acceptance": "希腊城堡可购买狂战士，原生生成（Patch_Shop + Patch_SidedShop + Patch_Castle）",
+      "verification": "游戏内购买测试通过"
+    },
+    {
+      "id": "core-002",
+      "title": "忍者商店入队",
+      "status": "done",
+      "acceptance": "希腊可原生招募忍者",
+      "verification": "游戏内测试通过"
+    },
+    {
+      "id": "core-003",
+      "title": "退役狂战士/忍者 hack",
+      "status": "done",
+      "acceptance": "SpawnBerserkersInGreece/ReplaceWithBerserker 注释，DelayedBerserkerSpawn 只留猫生成",
+      "verification": "编译通过；游戏内无重复生成"
+    },
+    {
+      "id": "core-004",
+      "title": "北境工匠/居民替换（Holder）",
+      "status": "done",
+      "acceptance": "希腊 tagCharacterPairs Worker→Worker_norselands、Peasant→Peasant_norselands + sync 池",
+      "verification": "游戏内招募为北境形象"
+    },
+    {
+      "id": "core-005",
+      "title": "北境工匠出生带盾",
+      "status": "done",
+      "acceptance": "NpcShieldUser.SetShieldEnabled(true) 出生装备",
+      "verification": "游戏内盾牌可见"
+    },
+    {
+      "id": "core-006",
+      "title": "单位缩放 y 轴守护",
+      "status": "done",
+      "acceptance": "OnEnable 登记 + Mover.Update postfix 每帧恢复 y；x/z 不动；CWT 无泄漏",
+      "verification": "游戏内北境工匠 1.175、居民 1.125、希腊工匠 1.075 生效；无每帧扫描"
+    },
+    {
+      "id": "core-007",
+      "title": "清理兜底扫描",
+      "status": "done",
+      "acceptance": "DelayedBerserkerSpawn 60帧 ScaleAllWorkers 循环删除；ScaleAllWorkers 方法删除",
+      "verification": "编译通过，无调用者"
+    },
+    {
+      "id": "core-008",
+      "title": "地图扩展（王国边界）",
+      "status": "done",
+      "acceptance": "minKingdomExtents 按 mapSizeMultiplier 扩展",
+      "verification": "游戏内生效"
+    },
+    {
+      "id": "core-009",
+      "title": "希腊猫生成",
+      "status": "done",
+      "acceptance": "进希腊世界延迟生成北境猫",
+      "verification": "游戏内生效"
+    },
+    {
+      "id": "maint-001",
+      "title": "清理 Patch_Mover.cs 旧方案遗留",
+      "status": "todo",
+      "acceptance": "确认是否仍被引用；无用则删除",
+      "verification": "grep 调用点"
+    },
+    {
+      "id": "maint-002",
+      "title": "Patch_Probe.cs 裁剪或加开关",
+      "status": "todo",
+      "acceptance": "调试探测日志不进入发布版，或由 Main.Enabled 控制",
+      "verification": "日志检查"
+    },
+    {
+      "id": "maint-003",
+      "title": "mod 打包发布流程",
+      "status": "todo",
+      "acceptance": "build.bat 产出 MyMod.dll，zip 打包含 Info.json/说明",
+      "verification": "干净目录解压安装测试"
+    }
+  ]
+}

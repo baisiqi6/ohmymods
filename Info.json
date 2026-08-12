@@ -1,0 +1,11 @@
+{
+  "Id": "MyMod",
+  "DisplayName": "Kingdom Enhanced Mod",
+  "Author": "baisiqi",
+  "Version": "1.0.0",
+  "ManagerVersion": "0.21.0",
+  "GameVersion": "1.1.4",
+  "Requirements": [],
+  "AssemblyName": "MyMod.dll",
+  "EntryMethod": "MyMod.Main.Load"
+}
