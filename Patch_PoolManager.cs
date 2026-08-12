@@ -37,6 +37,8 @@ namespace MyMod
 
         public static bool OnLevelLoaded_Prefix(PoolManager __instance)
         {
+            if (!Main.Enabled) return true;  // mod 关闭：走原版逻辑
+
             try
             {
                 if (__instance == null) return true;

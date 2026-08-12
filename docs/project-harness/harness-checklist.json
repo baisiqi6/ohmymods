@@ -158,6 +158,20 @@
       "verification": "编译通过（Patch_HermesStaff.cs，Awake postfix）；游戏内待实测"
     },
     {
+      "id": "arch-001",
+      "title": "架构审查（ArchReviewer 交叉审核）",
+      "status": "done",
+      "acceptance": "审查报告 + P0/P1 修复",
+      "verification": "P0：Patch_Mover 改 SetGoal 入口（速度倍率真正生效）、Patch_Kingdom 幂等化；P1：Main.Enabled 契约统一（PoolManager/SidedShop/WorkerScale）、银行家补员删除（NetID 903 唯一不可实现）；编译通过已部署"
+    },
+    {
+      "id": "arch-002",
+      "title": "发布前收尾：Probe 裁剪/命名对齐/文档同步",
+      "status": "todo",
+      "acceptance": "Patch_Probe.cs 删除或开关化；Patch_Shop.cs→Patch_ShopPlanner.cs、Patch_Enemy.cs→Patch_EnemyManager.cs 命名对齐；architecture/biome-asset/unit-spawning/domain-model 文档同步；MOD开发文档.md 归档；Mover.Update 双 postfix 合并；build.bat 通配化+部署脚本化；Main.OnGUI 反射缓存",
+      "verification": "编译通过；文档与代码一致"
+    },
+    {
       "id": "maint-002",
       "title": "Patch_Probe.cs 裁剪或加开关",
       "status": "todo",

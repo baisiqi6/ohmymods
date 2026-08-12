@@ -56,6 +56,8 @@ namespace MyMod
         /// </summary>
         public static void Awake_Prefix(PayableSidedShop __instance)
         {
+            if (!Main.Enabled) return;
+
             try
             {
                 if (__instance == null) return;

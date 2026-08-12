@@ -31,6 +31,8 @@ namespace MyMod
             }
         }
 
+        private static float? _vanillaMinExtents;
+
         public static void Postfix(Kingdom __instance)
         {
             if (!Main.Enabled) return;
@@ -39,9 +41,19 @@ namespace MyMod
             {
                 if (Main.mapSizeMultiplier > 1f)
                 {
-                    float original = __instance.minKingdomExtents;
-                    __instance.minKingdomExtents = original * Main.mapSizeMultiplier;
-                    Debug.Log("[MyMod] Map extended from " + original + " to " + __instance.minKingdomExtents);
+                    // 幂等设置（ArchReviewer 2026-08-12 P0 缺陷修复）：
+                    // 原实现每次乘倍率——Kingdom.Init + 每次岛屿 OnLevelLoaded 都触发，
+                    // minKingdomExtents 从不重置（源码仅字段初始化 =4f）→ 逐岛指数放大
+                    // （4→8→16→32）。改为：首次记录原生基准，之后恒为 base * multiplier。
+                    if (_vanillaMinExtents == null
+                        || __instance.minKingdomExtents <= _vanillaMinExtents.Value + 0.01f)
+                    {
+                        // 首次调用，或当前值已被重置回基准（<= 基准）——重新记录原生值
+                        _vanillaMinExtents = __instance.minKingdomExtents;
+                    }
+                    __instance.minKingdomExtents = _vanillaMinExtents.Value * Main.mapSizeMultiplier;
+                    Debug.Log("[MyMod] Map extents set to " + __instance.minKingdomExtents
+                        + " (base " + _vanillaMinExtents.Value + " x " + Main.mapSizeMultiplier + ")");
                 }
 
                 int kingdomId = __instance.GetHashCode();

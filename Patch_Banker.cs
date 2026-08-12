@@ -10,7 +10,7 @@ namespace MyMod
     {
         private const string SHARED_STASH_KEY = "MyMod_SharedBankStash";
         private static int sharedStash = -1;
-        private static bool _isSpawning = false;
+
         private static int _bankerCheckFrame = 0;
 
         // 缓存的反射字段
@@ -332,18 +332,12 @@ namespace MyMod
                     return;
                 }
 
-                if (count > 0 && count < 5 && !_isSpawning)
-                {
-                    _isSpawning = true;
-                    try
-                    {
-                        int needed = 5 - count;
-                        for (int i = 0; i < needed; i++)
-                            SpawnExtraBanker(allBankers[0]);
-                        Debug.Log("[MyMod] Spawned " + needed + " extra bankers");
-                    }
-                    finally { _isSpawning = false; }
-                }
+                // 补员到 5 个已删除（ArchReviewer 2026-08-12 P1 修复）：
+                // 原版 Banker.Awake 硬编码 NetworkPostbox.RegisterObject(903, Dynamic)（Banker.cs:54），
+                // 网络层 NetID 903 唯一——克隆走 Awake 必 duplicate key 崩溃；不走 Awake 则无 FSM 无法工作。
+                // "5 银行家"在 2.0.1 架构下不可实现，且原实现与 Awake_Prefix 去重自相矛盾
+                // （每 120 帧 Instantiate/Destroy 循环 + 日志刷屏）。共享银行增强
+                // （ShouldHide false / coinScanRange 300 / 瞬移收币）保留，单银行家即可。
             }
             catch (Exception e)
             {
@@ -456,43 +450,5 @@ namespace MyMod
             }
         }
 
-        // === 克隆银行家 ===
-
-        private static void SpawnExtraBanker(Banker original)
-        {
-            try
-            {
-                Vector3 pos = new Vector3(
-                    SingletonMonoBehaviour<Managers>.Inst.kingdom.campfirePosition + 0.3f,
-                    original.transform.position.y,
-                    original.transform.position.z
-                );
-
-                GameObject extraGO = UnityEngine.Object.Instantiate(original.gameObject, pos, Quaternion.identity);
-                extraGO.name = "Banker_Extra";
-
-                // 关键：克隆的 Banker 带着原 Banker 的 Persistent.path（Banker 是 Persistent.IBehaviour）。
-                // 不处理的话，读档时多个 Banker 争抢同一 path → duplicate pseudodyn key 903
-                // → 网络层崩溃 → 池系统错乱（Coin Indicator/Fish 等原生池丢失 → 无法购买）。
-                // 方案：移除 Persistent 组件 + 移出 GameLayer 之前先注销网络注册。
-                Persistent persistent = extraGO.GetComponent<Persistent>();
-                if (persistent != null)
-                {
-                    // 阻止它进入存档/网络注册（含子物体）
-                    persistent.DontPersistInstance(true);
-                }
-                // 清除网络注册组件，避免 NetID 冲突
-                CRPCStamp stamp = extraGO.GetComponent<CRPCStamp>();
-                if (stamp != null) UnityEngine.Object.Destroy(stamp);
-
-                extraGO.transform.SetParent(SingletonMonoBehaviour<Managers>.Inst.world.gameLayer, false);
-                extraGO.SetActive(true);
-                Debug.Log("[MyMod] Spawned extra banker at " + pos);
-            }
-            catch (Exception e)
-            {
-                Debug.LogError("[MyMod] Error spawning extra banker: " + e.Message);
-            }
-        }
     }
 }

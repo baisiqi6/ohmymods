@@ -208,6 +208,7 @@ namespace MyMod
         /// </summary>
         public static void Mover_Update_Postfix(Mover __instance)
         {
+            if (!Main.Enabled) return;
             float targetY;
             if (!UnitScaleRegistry.TryGet(__instance, out targetY)) return;
             if (targetY == 1f) return;
