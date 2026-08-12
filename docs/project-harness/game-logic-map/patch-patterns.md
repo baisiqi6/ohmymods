@@ -21,7 +21,8 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:library /out:MyM
     *.cs
 ```
 
-新增 .cs 文件需手动加入 build.bat 的文件列表。
+`build.bat` 已通配化：`for %%F in (Main.cs Patch_*.cs)` 自动收集源文件，新增 .cs 文件无需改列表；
+编译成功后自动拷贝到游戏 `Mods/MyMod/MyMod.dll`（见 harness-checklist.json maint-003）。
 
 ---
 
@@ -171,22 +172,24 @@ x 绝不能动（朝向 + `Mover.cs:405 velocity.x *= localScale.x` 速度依赖
 
 | Patch 类 | 功能 | 状态 |
 |----------|------|------|
-| Patch_Shop | 跨生物群系注册商店 prefab + 希腊狂战士槽位（12/13） | ✅ |
+| Patch_ShopPlanner | InitializeShopTypePrefabPairs Prefix 全量替换：跨生物群系注册商店 prefab + 希腊狂战士槽位（12/13） | ✅ |
 | Patch_Holder | 跨生物群系注册角色 prefab + 希腊 Worker/Peasant → 北境替换 | ✅ |
 | Patch_Castle | 希腊忍者商店 + 狂战士商店原生刷新 + sync 池注册 | ✅ |
 | Patch_SidedShop | PayableSidedShop.Awake 身份改写（狂战士→ShieldShop 槽位） | ✅ |
-| Patch_Kingdom | 地图扩展 + 猫生成 | ✅（狂战士/忍者 hack 已退役注释） |
+| Patch_Kingdom | 地图扩展（幂等，基准值缓存）+ 猫生成 | ✅（狂战士/忍者 hack 已退役注释） |
 | Patch_Worker | 工匠缩放（y 守护 1.175/1.075）+ 北境工匠出生带盾 | ✅ |
 | Patch_WorkerScale | 单位缩放统一：OnEnable 登记 + Mover.Update y 守护 | ✅ |
-| Patch_Mover | 玩家移动速度倍率（Main.speedMultiplier，仅 Player） | ✅ |
+| Patch_Mover | 玩家移动速度倍率（SetGoal/SetGoalSpeed/SetGoalNoHaglet 入口乘倍率，仅 Player） | ✅ |
 | Patch_Construction | 快速建造 | ✅ |
-| Patch_Enemy | 怪物数量/时间线倍率 | ✅ |
+| Patch_EnemyManager | 怪物数量/时间线倍率（AddEnemies/GetEnemies Prefix） | ✅ |
 | Patch_Knight | 狂战士跟随骑士 | ✅ |
-| Patch_Banker | 共享银行 | ✅ |
+| Patch_Banker | 银行家去重 + 残留清理 + 共享银行增强（补员已删除） | ✅ |
 | Patch_FriendlyTroll | ~~transpiler~~ | 🗑️ 已禁用（Harmony 1.2 transpiler 崩溃） |
 | Patch_Character | 乞丐→北境 WarriorPeasant 替换（Promote_Prefix） | ✅ |
-| Patch_World | 世界相关 | ✅ |
-| Patch_PoolManager | 池管理 | ✅ |
-| Patch_Probe | 探测日志 | ⚠️ 开发期工具，完成后可删（checklist maint-002） |
+| Patch_World | 希腊草地补充（ExpandGrass） | ✅ |
+| Patch_PoolManager | 原生池重建 + mod sync 池重注册 | ✅ |
+| Patch_BeggarCamp | 乞丐生成间隔 90 秒（spawnInterval=209f） | ✅ |
+| Patch_Artemis | 单发箭伤害 20 次（_maxHitsPerArrow=0f） | ✅ |
+| Patch_HermesStaff | 权杖控制 16（_maximumConvertedTrolls 8→16） | ✅ |
 
 > 状态与 `docs/project-harness/harness-checklist.json` 同步维护。

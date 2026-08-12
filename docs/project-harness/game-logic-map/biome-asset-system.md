@@ -69,7 +69,13 @@ for (int i = 0; i < biomePathStrings.Length; i++)
 
 ### 1. 注册所有商店 prefab（Patch_ShopPlanner）
 
-hook `ShopPlanner.InitializeShopTypePrefabPairs` Postfix，遍历所有 biomePathStrings，把每个生物群系的 `uniqueShopPrefabs` 注册到 `shopTypePrefabPairs`。
+hook `ShopPlanner.InitializeShopTypePrefabPairs` **Prefix，return false 全量替换**原版实现（不是 Postfix 遍历）：
+遍历所有 biomePathStrings，把每个生物群系的 `uniqueShopPrefabs` 注册到 `shopTypePrefabPairs`。
+
+**为什么是 Prefix 而不是 Postfix：** 原版用 `Dictionary.Add` 不检查重复——`shopPrefabs`(Inspector)
+和 `curBiomeAssets.uniqueShopPrefabs` 里都有 ChangeItem 时原版直接抛 ArgumentException 崩溃，
+Postfix 根本没机会执行。Prefix 完全接管：安全写入（`[]` 赋值防重复 key）+ 跨生物群系注册，
+`return false` 跳过原版。
 
 **注意：** `InitializeShopTypePrefabPairs` 在 `Start()` 调用，此时 `curBiomeAssets` 已初始化。用反射访问 private 字段 `shopTypePrefabPairs`。
 
@@ -107,7 +113,7 @@ hook `Holder.InitializeTagCharacterPairs` Postfix，遍历所有 biomePathString
 
 ### 探测未知 prefab 数据的技巧
 
-在 `InitializeShopTypePrefabPairs` 或 `InitializeTagCharacterPairs` 的 Postfix 里加临时日志：
+在 `InitializeTagCharacterPairs` 的 Postfix（或 `InitializeShopTypePrefabPairs` 的 Prefix，Patch_ShopPlanner 已接管该方法）里加临时日志：
 
 ```csharp
 // 探测某生物群系的商店 prefab

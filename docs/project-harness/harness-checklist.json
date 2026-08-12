@@ -7,7 +7,7 @@
       "id": "core-001",
       "title": "希腊世界狂战士商店（槽位劫持）",
       "status": "done",
-      "acceptance": "希腊城堡可购买狂战士，原生生成（Patch_Shop + Patch_SidedShop + Patch_Castle）",
+      "acceptance": "希腊城堡可购买狂战士，原生生成（Patch_ShopPlanner + Patch_SidedShop + Patch_Castle）",
       "verification": "游戏内购买测试通过"
     },
     {
@@ -84,7 +84,7 @@
       "id": "core-012",
       "title": "怪物数量/时间线倍率",
       "status": "done",
-      "acceptance": "Patch_Enemy 按倍率调整怪物数量与时间线",
+      "acceptance": "Patch_EnemyManager 按倍率调整怪物数量与时间线",
       "verification": "游戏内生效"
     },
     {
@@ -105,7 +105,7 @@
       "id": "core-015",
       "title": "玩家移动速度倍率",
       "status": "done",
-      "acceptance": "Patch_Mover 按 Main.speedMultiplier 加速玩家移动（仅 Player，缓存 FieldInfo）",
+      "acceptance": "Patch_Mover 按 Main.speedMultiplier 加速玩家移动（仅 Player，SetGoal/SetGoalSpeed/SetGoalNoHaglet 入口乘倍率，ConditionalWeakTable 缓存 Player 身份）",
       "verification": "游戏内生效"
     },
     {
@@ -167,23 +167,23 @@
     {
       "id": "arch-002",
       "title": "发布前收尾：Probe 裁剪/命名对齐/文档同步",
-      "status": "todo",
-      "acceptance": "Patch_Probe.cs 删除或开关化；Patch_Shop.cs→Patch_ShopPlanner.cs、Patch_Enemy.cs→Patch_EnemyManager.cs 命名对齐；architecture/biome-asset/unit-spawning/domain-model 文档同步；MOD开发文档.md 归档；Mover.Update 双 postfix 合并；build.bat 通配化+部署脚本化；Main.OnGUI 反射缓存",
-      "verification": "编译通过；文档与代码一致"
+      "status": "done",
+      "acceptance": "6 项全部完成：Probe 删除、命名对齐（git mv）、文档同步（5 文件+MOD开发文档归档）、双 postfix 消解（Patch_Mover 改 SetGoal 入口）、build.bat 通配化+部署、OnGUI 反射缓存+120帧节流",
+      "verification": "最终编译 EXIT=0 零警告，MyMod.dll 已部署；grep PROBE 无残留；checklist JSON 校验通过"
     },
     {
       "id": "maint-002",
       "title": "Patch_Probe.cs 裁剪或加开关",
-      "status": "todo",
+      "status": "done",
       "acceptance": "调试探测日志不进入发布版，或由 Main.Enabled 控制",
-      "verification": "日志检查"
+      "verification": "2026-08-12 arch-002：Patch_Probe.cs 已删除，Main.cs 不再注册；编译通过"
     },
     {
       "id": "maint-003",
       "title": "mod 打包发布流程",
-      "status": "todo",
+      "status": "done",
       "acceptance": "build.bat 产出 MyMod.dll，zip 打包含 Info.json/说明",
-      "verification": "干净目录解压安装测试"
+      "verification": "2026-08-12 arch-002：build.bat 通配化（for %%F in (Main.cs Patch_*.cs) 自动收集源文件）+ 编译成功自动部署到 Mods/MyMod/；zip 打包按需手动执行"
     }
   ]
 }

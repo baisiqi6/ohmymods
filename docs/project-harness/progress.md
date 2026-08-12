@@ -1,5 +1,17 @@
 # ohmymods — 进展
 
+## 2026-08-12 — arch-002 收尾（命名对齐 + Probe 裁剪 + 文档同步）
+
+- 命名对齐：Patch_Shop.cs → Patch_ShopPlanner.cs、Patch_Enemy.cs → Patch_EnemyManager.cs
+  （Main.cs 注册名同步更新，maint-002/003 done）。
+- Patch_Probe.cs 已删除，不再注册（maint-002 done）。
+- build.bat 通配化（`for %%F in (Main.cs Patch_*.cs)`）+ 编译成功自动部署到 Mods/MyMod（maint-003 done）。
+- 文档同步（Worker B）：architecture.md 模块清单按最终态重写（商店注册为 Prefix 全量替换）、
+  domain-model.md 关闭 R3/R4 + 新增 D8（速度倍率 SetGoal 入口/地图幂等/银行家补员删除原因/Enabled 契约统一）、
+  biome-asset-system.md / unit-spawning.md 的商店注册描述改 Prefix、unit-spawning.md 自洽方案标注废弃
+  （指向 patch-patterns.md 坑10）、MOD开发文档.md 归档到 docs/legacy/。
+- 剩余：Mover.Update 双 postfix 合并、Main.OnGUI 反射缓存（Worker A）。
+
 ## 2026-08-12 — 架构交叉审查 + P0/P1 修复
 
 - ArchReviewer（kimi K3）审查结论：**无需框架级升级**（单 DLL + Patch 类 + harness 骨架对 19 patch 规模合适）。
@@ -37,7 +49,7 @@
 - R4：Patch_Probe.cs 调试日志待裁剪。
 
 ### 下一步（按 checklist）
-1. maint-001：清理 Patch_Mover.cs。
-2. maint-002：裁剪 Patch_Probe.cs。
-3. maint-003：打包发布流程。
+1. maint-001 ✅（Patch_Mover 已核实为玩家速度倍率并修复，见 D8）。
+2. maint-002 ✅（Patch_Probe.cs 已删除，arch-002）。
+3. maint-003 ✅（build.bat 通配化 + 自动部署，arch-002）。
 4. 完整回归测试。

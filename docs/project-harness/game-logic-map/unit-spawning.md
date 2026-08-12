@@ -91,7 +91,12 @@ Resources.Load<DroppableTool>("ToolBerserkerLeader"); // tag="BerserkerLeaderToo
 **全量 DroppableTool 列表（Resources.LoadAll 验证，共12个）：**
 Crown, ToolArmor, ToolBerserker, ToolBerserkerLeader, ToolBow, ToolHammer, ToolNinja, ToolNpcShield_norselands, ToolPike, ToolScythe, ToolShield, ToolStableKeeper
 
-### 自洽方案：动态构造虚拟商店
+### 自洽方案：动态构造虚拟商店（已废弃）
+
+> **已废弃（2026-08-12）**：克隆商店 + 换 itemPrefab 的方案最终被放弃——克隆的
+> `PayableShop.Awake` 会覆盖原商店槽位、网络组件注册冲突（NetID 冲突）、无法存档持久化。
+> 详见 [patch-patterns.md 坑10](patch-patterns.md#10-克隆商店方案已废弃记录原因)。最终采用
+> **槽位复用 + Awake 身份改写**（见 shop-system.md）。以下内容保留备查，勿再实现。
 
 既然没有商店 prefab，克隆一个已放置的 `PayableShop`，替换其 `itemPrefab` 为 `ToolBerserker`：
 1. 加载 `Resources.Load<DroppableTool>("ToolBerserker")`
@@ -129,7 +134,7 @@ Ninja 有完整的 `ShopType.NinjaLeft(7)` / `NinjaRight(8)` 枚举值，走标�
 
 ### 让希腊世界出现忍者商店（已验证方案）
 
-1. **注册 prefab**：`Patch_ShopPlanner.Postfix` 遍历所有 biomePathStrings，注册全部 uniqueShopPrefabs（包括幕府的 Ninja 商店 prefab）
+1. **注册 prefab**：`Patch_ShopPlanner.Prefix` 全量替换 InitializeShopTypePrefabPairs（return false），遍历所有 biomePathStrings，注册全部 uniqueShopPrefabs（包括幕府的 Ninja 商店 prefab）
 2. **入队摆放**：`Patch_Castle` patch `CatchupToLevel` + `ReQueueAllBuildings`，在希腊(biome=5) Castle5 时入队 NinjaLeft/NinjaRight
 
 ---

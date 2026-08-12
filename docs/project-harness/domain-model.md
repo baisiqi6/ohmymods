@@ -42,11 +42,30 @@
 - `Patch_Character.Promote_Prefix`：只处理"乞丐→Peasant"转化瞬间（希腊），替换为北境 WarriorPeasant。
 - 两者互补不冲突，都是 biome=5 才生效。
 
+### D8. 架构审查决策（2026-08-12，ArchReviewer P0/P1 修复）
+- **速度倍率走 SetGoal 入口**：`Mover.Update` 每帧用 `_goalSpeed` Lerp 重算 `_moveSpeed`
+  （Mover.cs:190），在 Update postfix 写 `_moveSpeed` 会被下一帧 Lerp 覆盖——速度倍率从不生效
+  （P0）。改为 patch 所有设置 `_goalSpeed` 的方法（`SetGoal` x2 / `SetGoalNoHaglet` / `SetGoalSpeed`），
+  prefix 里把 `speed` 参数乘倍率；只对 Player 生效（ConditionalWeakTable 缓存 Mover→Player 身份），
+  幂等（每次设置目标只乘一次，无累积放大）。上限 15f 封顶。
+- **地图倍率幂等**：原实现每次乘倍率——`Kingdom.Init` + 每次岛屿 `OnLevelLoaded` 都触发，
+  `minKingdomExtents` 从不重置（源码仅字段初始化 =4f）→ 逐岛指数放大（4→8→16→32）（P0）。
+  改为首次调用记录原生基准值 `_vanillaMinExtents`，之后恒为 `base * multiplier`；当前值
+  ≤ 基准 + 0.01 时重新记录（防重置后基准错位）。
+- **银行家补员删除**："补员到 5 个"不可实现——`Banker.Awake` 硬编码
+  `NetworkPostbox.RegisterObject(903, Dynamic)`（Banker.cs:54），NetID 903 网络层唯一，
+  克隆走 Awake 必 duplicate key 崩溃；不走 Awake 则无 FSM 无法工作。且原实现与
+  `Awake_Prefix` 去重自相矛盾（每 120 帧 Instantiate/Destroy 循环 + 日志刷屏）。
+  共享银行增强（ShouldHide false / coinScanRange 300 / 瞬移收币）保留，单银行家即可。
+- **Enabled 契约统一（P1）**：所有 patch 入口统一检查 `Main.Enabled` 再执行
+  （Patch_PoolManager / Patch_SidedShop / Patch_WorkerScale 补齐缺失检查），关闭 mod 后零副作用。
+
 ## 已知风险/开放问题
 
 - R1：存档会序列化 localScale.y（Serializer.cs:1935 写完整 localScale），y=1.175 会入档。
   读档恢复自洽（还是 1.175），但存档文件携带 mod 缩放值；卸载 mod 后旧档单位尺寸可能不符预期。
 - R2：WarriorPeasant→Berserker 转化瞬间继承 y=1.2，Berserker 无登记，Mover 会覆盖回 1.0——
   狂战士最终是标准大小（1.0），这是当前意图，若要改需给 Berserker 加登记。
-- R3：`Patch_Mover.cs` 是旧版缩放方案遗留，需确认是否仍被引用，无用则清理。
-- R4：Patch_Probe.cs 是调试探测代码（大量日志），发布版可考虑裁剪或加开关。
+- R3（已关闭 2026-08-12）：`Patch_Mover.cs` 已核实为玩家移动速度倍率（Main.speedMultiplier），
+  并经 D8 修复为 SetGoal 入口（P0），保留。见 checklist core-015 / maint-001。
+- R4（已关闭 2026-08-12）：Patch_Probe.cs 已删除（checklist maint-002 done），探测代码不进入发布版。

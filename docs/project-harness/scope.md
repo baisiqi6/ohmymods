@@ -12,7 +12,7 @@
 - 北境工匠出生自带盾牌（希腊无盾牌商店，槽位被狂战士商店占用）。
 - 单位缩放：北境形象与希腊形象最终视觉高度一致；狂战士/鹿/小动物有差异化缩放。
 - 性能：单位缩放零每帧扫描（y 轴守护替代 FindObjectsOfType 轮询）。
-- 代码可维护：patch 按职责拆文件（Patch_Castle/Patch_Shop/Patch_Worker...），决策落盘到本 harness。
+- 代码可维护：patch 按职责拆文件（Patch_Castle/Patch_ShopPlanner/Patch_Worker...），决策落盘到本 harness。
 
 ## Non-Goals（明确不做）
 

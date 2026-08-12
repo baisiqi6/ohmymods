@@ -19,6 +19,12 @@ namespace MyMod
         public static float enemyCountMultiplier = 1f;
         public static float enemyTimelineSpeed = 1f;
 
+        // OnGUI 反射缓存（ArchReviewer P3 修复：避免每帧 GetField）
+        private static FieldInfo _bankerWalletField;
+        private static FieldInfo _bankerStashedField;
+        private static int _bankerInfoFrame = -1;
+        private static string _bankerInfoCache = "";
+
         public static bool Load(UnityModManager.ModEntry modEntry)
         {
             Debug.Log("[MyMod] === Load() started ===");
@@ -42,7 +48,6 @@ namespace MyMod
                 Patch_Worker.Register(harmony);
                 Patch_WorkerScale.Register(harmony);
                 Patch_Character.Register(harmony);
-                Patch_Probe.Register(harmony);
                 Patch_SidedShop.Register(harmony);
                 Patch_PoolManager.Register(harmony);
                 Patch_World.Register(harmony);
@@ -110,30 +115,43 @@ namespace MyMod
             GUILayout.Label("--- 银行信息 ---");
             try
             {
-                Banker[] allBankers = UnityEngine.Object.FindObjectsOfType<Banker>();
-                int totalWallet = 0;
-                int totalStashed = 0;
-                for (int i = 0; i < allBankers.Length; i++)
+                // 每 120 帧刷新一次（OnGUI 每帧执行），FieldInfo 只解析一次
+                if (_bankerInfoFrame != Time.frameCount / 120)
                 {
-                    if (allBankers[i] == null) continue;
-                    var walletField = typeof(Banker).GetField("_wallet", BindingFlags.NonPublic | BindingFlags.Instance);
-                    var stashedField = typeof(Banker).GetField("_stashedCoins", BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (walletField != null)
+                    _bankerInfoFrame = Time.frameCount / 120;
+                    if (_bankerWalletField == null)
                     {
-                        Wallet w = walletField.GetValue(allBankers[i]) as Wallet;
-                        if (w != null) totalWallet += w.Coins;
+                        _bankerWalletField = typeof(Banker).GetField("_wallet", BindingFlags.NonPublic | BindingFlags.Instance);
+                        _bankerStashedField = typeof(Banker).GetField("_stashedCoins", BindingFlags.NonPublic | BindingFlags.Instance);
                     }
-                    if (stashedField != null)
+
+                    Banker[] allBankers = UnityEngine.Object.FindObjectsOfType<Banker>();
+                    int totalWallet = 0;
+                    int totalStashed = 0;
+                    for (int i = 0; i < allBankers.Length; i++)
                     {
-                        totalStashed += (int)stashedField.GetValue(allBankers[i]);
+                        if (allBankers[i] == null) continue;
+                        if (_bankerWalletField != null)
+                        {
+                            Wallet w = _bankerWalletField.GetValue(allBankers[i]) as Wallet;
+                            if (w != null) totalWallet += w.Coins;
+                        }
+                        if (_bankerStashedField != null)
+                        {
+                            totalStashed += (int)_bankerStashedField.GetValue(allBankers[i]);
+                        }
                     }
+                    _bankerInfoCache = "银行家数量: " + allBankers.Length
+                        + "\n银行家身上: " + totalWallet + " 金币"
+                        + "\n城堡金库: " + totalStashed + " 金币"
+                        + "\n总计: " + (totalWallet + totalStashed) + " 金币";
                 }
-                GUILayout.Label("银行家数量: " + allBankers.Length);
-                GUILayout.Label("银行家身上: " + totalWallet + " 金币");
-                GUILayout.Label("城堡金库: " + totalStashed + " 金币");
-                GUILayout.Label("总计: " + (totalWallet + totalStashed) + " 金币");
+                GUILayout.Label(_bankerInfoCache);
             }
-            catch { }
+            catch (Exception e)
+            {
+                Debug.LogError("[MyMod] OnGUI banker info error: " + e.Message);
+            }
 
             GUILayout.Space(10);
             GUILayout.Label("作者：baisiqi");

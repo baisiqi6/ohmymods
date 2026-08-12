@@ -1,5 +1,23 @@
 # 王国：两位君主 Mod 开发文档
 
+> ## ⚠️ 历史文档（已归档，2026-08-12）
+>
+> 本文档描述**退役架构**，内容保留备查，不再随代码更新。与当前代码的差异：
+>
+> | 本文档（旧） | 现状（新） |
+> |---|---|
+> | 单文件 `MyMod.cs` + `compile_now.bat` 手写文件列表 | `Main.cs` + 按职责拆分的 `Patch_*.cs`，`build.bat` 通配收集（`for %%F in (Main.cs Patch_*.cs)`）+ 自动部署 |
+> | Transpiler 修改 IL（`FriendlyTroll.MoveToTargetRoutine`） | **已禁用**：Harmony 1.2 下 transpiler 崩溃（见 patch-patterns.md 坑/模式）；一律用 Prefix/Postfix |
+> | 每局 hack 生成狂战士/忍者 | 已退役：商店原生生成（槽位劫持 + 身份改写，见 game-logic-map/shop-system.md） |
+> | 每帧 FindObjectsOfType 兜底缩放 | 已删除：OnEnable 登记 + y 轴守护（见 project-harness/domain-model.md D6） |
+>
+> 当前架构文档：**[docs/project-harness/](../project-harness/architecture.md)**（模块清单、关键机制）、
+> **[docs/project-harness/domain-model.md](../project-harness/domain-model.md)**（决策记录）、
+> **[docs/project-harness/harness-checklist.json](../project-harness/harness-checklist.json)**（任务状态）、
+> **[docs/project-harness/game-logic-map/](../project-harness/game-logic-map/README.md)**（游戏业务逻辑地图）。
+>
+> 相关历史文档：[docs/legacy-dll-mod.md](../legacy-dll-mod.md)（更早的 DLL 直改阶段）。
+
 ## 一、项目概述
 
 本文档详细介绍如何在 **UnityModManager (UMM)** 框架下，使用 **Harmony** 库为游戏《王国：两位君主》开发 Mod。

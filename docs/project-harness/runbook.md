@@ -32,7 +32,7 @@ UnityModManager/0Harmony-1.2）+ 全部 Patch_*.cs。
 ## 日志
 
 - Unity Player.log：`%USERPROFILE%/AppData/LocalLow/noio/KingdomTwoCrowns/Player.log`
-- mod 日志前缀 `[MyMod]`，探测日志前缀 `[PROBE-SCENE]`。
+- mod 日志前缀 `[MyMod]`（Patch_Probe 探测日志已随 maint-002 删除）。
 - 检查 patch 是否挂上：搜 `[MyMod] Patched ...`（Worker.OnEnable / Mover.Update / Kingdom.OnLevelLoaded 等）。
 
 ## 常见调参入口

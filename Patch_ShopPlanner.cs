@@ -130,14 +130,6 @@ namespace MyMod
                     }
                 }
 
-                // 第四部分：dump 全部内容（探测用，和 Patch_Probe 互补）
-                Debug.Log("[PROBE-SHOP] === shopTypePrefabPairs after init (" + pairs.Count + " entries) ===");
-                foreach (var kvp in pairs)
-                {
-                    string name = kvp.Value != null ? kvp.Value.name : "NULL";
-                    Debug.Log("[PROBE-SHOP]   " + kvp.Key + " (" + (int)kvp.Key + ") -> " + name);
-                }
-
                 Debug.Log("[MyMod] Shop loading complete, total " + pairs.Count + " entries");
             }
             catch (Exception e)
@@ -190,9 +182,8 @@ namespace MyMod
             }
             else
             {
-                Debug.Log("[PROBE-SHOP] biome=" + biomeIdx + " type=" + shopTag.type + " name=" + shopTag.gameObject.name);
+                // 普通商店：安全写入（重复 key 时跳过，避免原版 Add 崩溃）
                 if (!pairs.ContainsKey(shopTag.type)) { pairs[shopTag.type] = shopTag.gameObject; added++; }
-                else Debug.LogWarning("[PROBE-SHOP] SKIPPED duplicate type=" + shopTag.type + " biome=" + biomeIdx);
             }
             return added;
         }
