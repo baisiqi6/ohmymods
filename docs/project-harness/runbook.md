@@ -6,7 +6,7 @@
 |---|---|
 | 本仓库 | `C:/Users/ADMIN/Projects/ohmymods` |
 | 游戏根目录 | `E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Call.of.Olympus-P2P` |
-| 游戏反编译源码（只读参考） | `E:/.../自制mod/Assembly-CSharp/`（1418 文件，28.5 万行，不进本仓库） |
+| 游戏反编译源码（只读参考） | 本仓库 `game-source/Assembly-CSharp/`（带注释版，版本 2.0.1 mono，见 game-source/README.md） |
 | mod 安装目录 | `E:/.../Mods/MyMod/` |
 | UMM | `E:/.../KingdomTwoCrowns_Data/Managed/UnityModManager/` |
 

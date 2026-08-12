@@ -27,5 +27,7 @@
 
 - 语言：C# 5（Framework 4.7.2 csc.exe 命令行编译，无 NuGet）。
 - 框架：UnityModManager + Harmony v1.2（不是 BepInEx）。
-- 游戏版本：Kingdom Two Crowns: Call of Olympus（P2P 版，Mono）。
+- 游戏版本：Kingdom Two Crowns: Call of Olympus 2.0.1（P2P 版，Mono，Revision 21960，coo-day0）。
 - 编译：build.bat → MyMod.dll → 拷贝到游戏 Mods/MyMod/。
+- 源码参考：`game-source/Assembly-CSharp/`（版本标注见 game-source/README.md）。
+- 协作流程：见 `collaboration-protocol.md`（Operator/Worker/Reviewer 顺位与模型约定）。
