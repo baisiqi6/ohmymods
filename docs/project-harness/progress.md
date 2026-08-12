@@ -1,5 +1,11 @@
 # ohmymods — 进展
 
+## 2026-08-12 — kingdom-mod skill 迁入
+
+- 原 `.omp/skills/kingdom-mod/`（6 文件）全部迁入 `docs/project-harness/game-logic-map/`。
+- 链接改为相对路径；功能清单更新到当前状态（狂战士 hack 已退役、Patch_Mover 确认为速度倍率、新增坑 11/12）。
+- 原 skill 已删除；`maint-001` 核实完成（Patch_Mover 是玩家速度倍率，保留）。
+
 ## 2026-08-12 — harness 实例化
 
 ### 已完成（核心功能全部就绪）

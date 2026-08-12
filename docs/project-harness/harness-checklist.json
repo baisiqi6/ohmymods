@@ -68,10 +68,10 @@
     },
     {
       "id": "maint-001",
-      "title": "清理 Patch_Mover.cs 旧方案遗留",
-      "status": "todo",
-      "acceptance": "确认是否仍被引用；无用则删除",
-      "verification": "grep 调用点"
+      "title": "核实 Patch_Mover.cs 用途",
+      "status": "done",
+      "acceptance": "确认用途并决定去留",
+      "verification": "已核实：玩家移动速度倍率（Main.speedMultiplier，仅 Player），保留"
     },
     {
       "id": "maint-002",

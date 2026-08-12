@@ -1,5 +1,8 @@
 # ohmymods — 架构
 
+> 游戏反编译业务逻辑地图（商店/兵种/城堡/生物群系全链路、已验证 patch 模式与已知坑）：
+> 见 [game-logic-map/](game-logic-map/README.md)。
+
 ## 总览
 
 单 DLL（MyMod.dll）Harmony patch 集合。入口 `Main.cs` 注册所有 Patch 类，每个 Patch 类只 patch 游戏的一个领域。
