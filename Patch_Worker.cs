@@ -95,6 +95,9 @@ namespace MyMod
         /// <summary>
         /// 北境工匠出生时自动装备盾牌（SetShieldEnabled(true) 直接启用盾牌对象，
         /// 不需要从盾牌商店购买——希腊 12/13 槽位被狂战士商店占用，没有盾牌商店）。
+        /// 2.1.0 修复：NpcShieldUser.Awake 在 NetworkBigBoss.HasWorldAuth 未就绪时提前
+        /// return（组件禁用、regenWait 未初始化）→ SetShieldEnabled 内部 StartShieldRegen
+        /// 的 ShieldRegenRoutine yield regenWait 为 null → NRE。装备前反射补初始化。
         /// </summary>
         private static void EquipShieldIfNorselands(Worker worker)
         {
@@ -102,11 +105,17 @@ namespace MyMod
             try
             {
                 NpcShieldUser shieldUser = worker.GetComponent<NpcShieldUser>();
-                if (shieldUser != null && !shieldUser.HasShield())
+                if (shieldUser == null || shieldUser.HasShield()) return;
+
+                var regenWaitField = typeof(NpcShieldUser).GetField("regenWait",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+                if (regenWaitField != null && regenWaitField.GetValue(shieldUser) == null)
                 {
-                    shieldUser.SetShieldEnabled(true, 0);
-                    Debug.Log("[MyMod] Norselands worker equipped with shield");
+                    regenWaitField.SetValue(shieldUser, new WaitForSeconds(1f));
                 }
+
+                shieldUser.SetShieldEnabled(true, 0);
+                Debug.Log("[MyMod] Norselands worker equipped with shield");
             }
             catch (Exception e)
             {

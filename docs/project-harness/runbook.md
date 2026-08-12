@@ -29,9 +29,33 @@ UnityModManager/0Harmony-1.2）+ 全部 Patch_*.cs。
 
 ## 安装 / 更新
 
-1. 编译 → 拷贝 `MyMod.dll` 到 `E:/.../Mods/MyMod/`。
-2. 游戏必须通过 UMM 启动（doorstop_config.ini 指向 UnityModManager.dll）。
-3. 启动游戏，UMM 菜单里确认 MyMod 启用（Main.Enabled）。
+1. 编译 → 拷贝 `MyMod.dll` 到 `E:/Kingdom Two Crowns/Mods/MyMod/`。
+2. 游戏必须通过 UMM 启动（doorstop 注入，见下方"注入方案"）。
+3. 启动游戏，UMM 菜单（Ctrl+F10）确认 MyMod 启用（Main.Enabled）。
+
+## 注入方案（GOG 2.1.0 x86，2026-08-12 踩坑记录）
+
+```
+游戏根/
+├── winhttp.dll            ← BepInEx 5.4.23.3 的 winhttp（x86，22016 字节），
+│                             从 BepInEx_win_x86_5.4.23.3.zip 提取（E:/mod-dev/ 有备份）
+└── doorstop_config.ini    ← 必须用 BepInEx [General] 格式（target_assembly=），
+                             不是 UMM 旧 [UnityDoorstop] targetAssembly= 格式！
+```
+
+```ini
+[General]
+enabled = true
+target_assembly = E:\Kingdom Two Crowns\KingdomTwoCrowns_Data\Managed\UnityModManager\UnityModManager.dll
+```
+
+**为什么不能用 UMM 21.0.32 自带的 winhttp**：它打包的 UnityDoorstop 版本不识别 Unity 2022.3.51f1
+（静默放弃，UMM 不加载）。BepInEx 5.4.23.3 的 doorstop 兼容。BepInEx 完整包只需 winhttp.dll +
+doorstop_config.ini 两个文件（不需要 BepInEx 目录）；BepInEx 目录仅用于验证 doorstop 是否工作
+（LogOutput.log 生成即证明注入成功）。
+
+**验证注入是否成功**：Player.log 开头应有 `[Manager] Reading file ... Info.json` 与全部
+`[MyMod] Patched XXX` 日志。
 
 ## 日志
 
