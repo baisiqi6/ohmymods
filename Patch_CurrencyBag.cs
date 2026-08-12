@@ -226,9 +226,15 @@ namespace MyMod
         /// <summary>
         /// 视觉堆叠上限：nthCoin < 600 堆叠显示，超出散落（原版 300）。
         /// </summary>
-        public static void Reset_Prefix(int nthCoin, ref bool stack)
+        public static void Reset_Prefix(BagCurrency __instance, int nthCoin, ref bool stack)
         {
             if (!Main.Enabled) return;
+            // 关键修复：金币 Instantiate 时父级是 scale=2 的钱袋（CurrencyBag.cs:475
+            // Instantiate<BagCurrency>(prefab, base.transform)）→ 世界 scale 被带成 2；
+            // 之后 SetParent(_container, worldPositionStays=true) 保持世界 scale，
+            // 容器 0.5 反向缩放被抵消。此处（SetParent 之后、显示之前）强制
+            // localScale=1 → 世界 scale = 袋子2 × 容器0.5 × 金币1 = 1（原大小）。
+            __instance.transform.localScale = Vector3.one;
             stack = nthCoin < VisualCoinLimit;
         }
     }
