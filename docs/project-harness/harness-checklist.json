@@ -205,6 +205,13 @@
       "status": "done",
       "acceptance": "ShouldRevertToTroll prefix 强制 false（2.1.0 已实现 5 秒超时，2.0.1 是原生永久）",
       "verification": "编译零错误已部署；游戏内待实测；reviewer 审核中"
+    },
+    {
+      "id": "il2cpp-001",
+      "title": "IL2CPP 迁移（Steam 2.4.0 发布线）",
+      "status": "in_progress",
+      "acceptance": "三域全部 patch 迁移编译零错误；实机加载零异常；发布包开箱即用；MigrationReviewer 通过",
+      "verification": "M0-M3 完成（3 worker 并行）；E:/QQ 实机加载验证通过；release zip 7.6MB 产出；审核中"
     }
   ]
 }
