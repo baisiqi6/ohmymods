@@ -111,6 +111,55 @@ public static class NpcShieldUser_Awake_Patch
 
 
 [HarmonyPatch(typeof(Worker))]
+public static class Worker_TryPickupBerserkerTool_Patch
+{
+    // 交替转职计数器：奇数次 → 北境带盾工匠，偶数次 → 希腊工匠。
+    // 转职链：Worker.TryPickupBerserkerTool → Character.Promote → 按 Holder.tagCharacterPairs["Worker"]
+    // 生成工人。在转职前翻转该映射，Promote 内部立即 Pool.Spawn——下一个 Worker 生成就是本次转职。
+    private static bool _norselandsToggle;
+
+    [HarmonyPatch(nameof(Worker.TryPickupBerserkerTool))]
+    [HarmonyPrefix]
+    public static void TryPickupBerserkerTool_Prefix(Worker __instance)
+    {
+        if (!ModConfig.Enabled.Value) return;
+        try
+        {
+            var holder = Managers.Inst != null ? Managers.Inst.holder : null;
+            if (holder == null || holder.tagCharacterPairs == null) return;
+
+            _norselandsToggle = !_norselandsToggle;
+
+            string prefabName = _norselandsToggle ? "Worker_norselands" : "Worker";
+            var allChars = Resources.LoadAll<Character>("");
+            Character target = null;
+            for (int i = 0; i < allChars.Length; i++)
+            {
+                var c = allChars[i];
+                if (c != null && c.gameObject.name == prefabName)
+                {
+                    target = c;
+                    break;
+                }
+            }
+            if (target == null)
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogWarning("[Roles] Alternate worker prefab not found: " + prefabName);
+                return;
+            }
+
+            holder.tagCharacterPairs["Worker"] = target;
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                "[Roles] Alternate promotion -> " + prefabName + (_norselandsToggle ? " (shielded)" : " (greek)"));
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+        }
+    }
+}
+
+[HarmonyPatch(typeof(Worker))]
 public static class Worker_OnEnable_Patch
 {
     [HarmonyPatch(nameof(Worker.OnEnable))]
@@ -153,16 +202,29 @@ public static class Worker_OnEnable_Patch
         if (worker == null) return;
         try
         {
-            // 希腊世界无盾牌商店（12/13 槽位被狂战士商店占用），worker 组件为裸加
-            // （缺序列化字段），SetShieldEnabled 内部 NRE——希腊世界直接跳过装备。
-            if (BiomeHolder.Inst != null && BiomeHolder.Inst.BiomeIndex == BiomeHolder.GreeceBiomeIndex) return;
+            // 交替转职后希腊形态不带盾（无 norselands 名）；北境形态（prefab 或名字含 norselands）带盾
+            if (!IsNorselandsWorker(worker)) return;
 
             NpcShieldUser shieldUser = worker.GetComponent<NpcShieldUser>();
             if (shieldUser == null || shieldUser.HasShield()) return;
 
+            // 用户需求：希腊世界拾取锤子变身的北境工匠也要自带盾牌。
+            // 池复用场景（希腊原版 Worker 生成→裸加组件）shield 引用缺失——
+            // 从 Holder 的 Worker_norselands prefab 抄盾牌子对象引用。
+            if (shieldUser.shield == null)
+            {
+                GameObject prefabShield = FindShieldInPrefab();
+                if (prefabShield == null)
+                {
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                        "[Roles] No shield object found in Worker_norselands prefab - skip equip");
+                    return;
+                }
+                shieldUser.shield = prefabShield;
+            }
+
             // 真·北境 prefab 工人有 Damageable；裸加组件的无（判别用，避免 SetShieldEnabled NRE）
             if (worker.GetComponent<Damageable>() == null) return;
-            if (shieldUser.shield == null) return;
 
             if (shieldUser.regenWait == null)
                 shieldUser.regenWait = new WaitForSeconds(1f);
@@ -174,6 +236,39 @@ public static class Worker_OnEnable_Patch
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
         }
+    }
+
+    /// <summary>
+    /// 从 Holder 的 Worker_norselands prefab 找盾牌显示对象（子物体名含 "shield"）。
+    /// shield 是 prefab 序列化引用，2.4.0 池复用裸加组件时缺失——从 prefab 抄。
+    /// </summary>
+    private static GameObject FindShieldInPrefab()
+    {
+        try
+        {
+            var holder = Managers.Inst != null ? Managers.Inst.holder : null;
+            if (holder == null) return null;
+            var prefab = holder.GetCharacterByTag("Worker_norselands");
+            if (prefab == null)
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogWarning("[Roles] Worker_norselands not in Holder");
+                return null;
+            }
+            var all = prefab.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i] != null && all[i].name.ToLower().Contains("shield"))
+                {
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[Roles] Found shield object: " + all[i].name);
+                    return all[i].gameObject;
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+        }
+        return null;
     }
 
     private static bool IsNorselandsWorker(Worker worker)
