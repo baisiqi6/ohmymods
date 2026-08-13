@@ -137,7 +137,9 @@ public static class PatchRoles_Castle
         }
         catch (Exception e)
         {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+            // 时序性失败（城堡升级中 shopPlanner 引用重建）：CatchupToLevel 多次触发，
+            // shopPlanner 就绪后自然重试——降级为 Warning。
+            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning("[Roles] Ninja shop queue skipped (transient): " + e.Message);
         }
     }
 
@@ -198,7 +200,7 @@ public static class PatchRoles_Castle
         }
         catch (Exception e)
         {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning("[Roles] Berserker shop queue skipped (transient): " + e.Message);
         }
     }
 

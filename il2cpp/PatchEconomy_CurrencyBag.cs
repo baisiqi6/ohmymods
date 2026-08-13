@@ -100,7 +100,7 @@ public static class PatchEconomy_CurrencyBag
         }
     }
 
-    /// <summary>钱袋 UI 放大（幂等，金币堆是 transform 子物体自动继承缩放）。</summary>
+    /// <summary>钱袋 UI 放大 + 容量保障（读档恢复的钱袋不经过 ChangeCurrencyBag，在此补齐）。</summary>
     [HarmonyPatch(typeof(CurrencyBag), nameof(CurrencyBag.Awake))]
     [HarmonyPostfix]
     public static void Awake_Postfix(CurrencyBag __instance)
@@ -109,11 +109,28 @@ public static class PatchEconomy_CurrencyBag
         try
         {
             ApplyBagScale(__instance);
+            EnsureWalletCapacity();
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
         }
+    }
+
+    /// <summary>
+    /// 读档恢复的钱袋不触发 ChangeCurrencyBag/OnGameStartHandler（那些是新游戏开局流程），
+    /// 容量保持存档原值 → "钱袋变大没生效"。此处按钱袋 Awake 时机补齐（mod 目标即大容量钱包）。
+    /// </summary>
+    private static void EnsureWalletCapacity()
+    {
+        var kingdom = SingletonMonoBehaviour<Managers>.Inst?.kingdom;
+        if (kingdom == null) return;
+        if (kingdom.playerOne != null && kingdom.playerOne.wallet != null)
+            kingdom.playerOne.wallet.TotalCapacity = HermesCapacity;
+        if (kingdom.playerTwo != null && kingdom.playerTwo.wallet != null)
+            kingdom.playerTwo.wallet.TotalCapacity = HermesCapacity;
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+            "[Economy] Wallet capacity ensured = " + HermesCapacity + " (save-load path)");
     }
 
     /// <summary>每次切换钱袋后重设 scale（防 Awake 设置被显示流程覆盖；幂等）。</summary>

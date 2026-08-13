@@ -58,7 +58,7 @@ public class ModPanel : MonoBehaviour
         if (_skin == null)
         {
             _skin = ScriptableObject.Instantiate(GUI.skin);
-            var font = Font.CreateDynamicFontFromOSFont("Microsoft YaHei", 16);
+            var font = TryLoadCjkFont();
             if (font != null) _skin.font = font;
         }
         GUI.skin = _skin;
@@ -67,6 +67,33 @@ public class ModPanel : MonoBehaviour
         DrawControls();
         GUILayout.EndScrollView();
         GUILayout.EndArea();
+    }
+
+    /// <summary>
+    /// 加载游戏中文字体（IL2CPP 裁剪了 Font.CreateDynamicFontFromOSFont——"Method unstripping failed"）。
+    /// 游戏本地化 UI 用像素字体（日志特征 'Zpix'），从中文字体资源里选第一个可用的。
+    /// </summary>
+    private static Font TryLoadCjkFont()
+    {
+        try
+        {
+            var fonts = Resources.LoadAll<Font>("");
+            for (int i = 0; i < fonts.Length; i++)
+            {
+                var f = fonts[i];
+                if (f == null) continue;
+                string n = f.name.ToLower();
+                if (n.Contains("zpix") || n.Contains("cjk") || n.Contains("chinese") || n.Contains("han") || n.Contains("yahei"))
+                {
+                    return f;
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning("[Panel] CJK font load failed: " + e.Message);
+        }
+        return null;  // 找不到则用默认字体（英文/方块兜底）
     }
 
     private static void DrawControls()
