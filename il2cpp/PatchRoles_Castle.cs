@@ -235,6 +235,31 @@ public static class PatchRoles_Castle
     // ============================================================
     // 对象池保障
     // ============================================================
+    /// <summary>
+    /// 重新注册 mod 的 sync 池（PoolFix 的 force InitPools 清掉了它们）。幂等：
+    /// EnsurePoolFor* 内部有去重检查。供 PatchPoolFix.PoolManager_OnLevelLoaded_Patch 调用。
+    /// </summary>
+    public static void ReRegisterModPools()
+    {
+        try
+        {
+            if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
+
+            // 工具池
+            EnsurePoolForDroppableTool("ToolNinja");
+            EnsurePoolForDroppableTool("ToolBerserker");
+            // 角色池（从 Holder 拿 prefab）
+            EnsurePoolForCharacter("Ninja");
+            EnsurePoolForCharacter("Berserker");
+            EnsurePoolForCharacter("BerserkerLeader");
+            EnsurePoolForCharacter("Worker");
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+        }
+    }
+
     public static void EnsurePoolForDroppableTool(string toolName)
     {
         try

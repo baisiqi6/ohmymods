@@ -1,5 +1,15 @@
 ## 2026-08-12 — 2.1.0 两个 bug 修复（乞丐拾取 + 友好巨魔永久控制）
 
+## 2026-08-13 — Steam 实机验证与修复
+
+- 发布包两个坑：① 漏打 dotnet\ 运行时目录（67MB，doorstop 配置指向 dotnet\coreclr.dll，缺失→静默失败无日志）
+  ② BepInEx 6 IL2CPP 首次启动生成 interop 后需二次启动才加载插件（已知机制）。zip 重打 39MB 含 dotnet。
+- Steam 2.4.0 r23488 实机：插件加载成功、patch 激活（Holder 加角色/Worker 替换/sync 池注册）。
+- NRE×32 修复：NpcShieldUser.Awake 在希腊 Worker 裸加组件时 damageable null→订阅 NRE→AddComponent 回滚→
+  EnsurePickupCapability 每 OnEnable 死循环。修复：Awake prefix 分流（无 Damageable→安全版跳过订阅）+
+  EquipShieldIfNorselands shield null 防御（希腊 worker 装备盾牌 NRE）。验证：Il2CppException 32→0。
+- 封号评估：KTC 无 VAC/无反作弊/单机，社区 BepInEx mod 多年零封号——风险实质为零。
+
 ## 2026-08-13 — IL2CPP 迁移（Steam 2.4.0 发布线，用户拍板）
 
 - 决策：发布受众 = Steam 正版玩家 → BepInEx 6 + Il2CppInterop 迁移（scope.md 更新为执行中）。

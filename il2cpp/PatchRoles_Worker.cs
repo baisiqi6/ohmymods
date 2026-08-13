@@ -91,21 +91,22 @@ public static class NpcShieldUser_Awake_Patch
         if (!ModConfig.Enabled.Value) return true;
         try
         {
-            Damageable dmg = __instance.GetComponent<Damageable>();
-            if (dmg != null) return true;  // 正常 prefab 路径：原版 Awake
-
-            // 希腊裸加路径：安全版 Awake（跳过 damageable 订阅）
+            // 全接管安全版 Awake（2.4.0 实机：裸加组件场景原版 Awake 必抛，导致
+            // AddComponent 回滚 → 死循环）。2.4.0 的 OnPreReceiveDamage 是事件，
+            // 订阅签名不兼容，且希腊 worker 无盾牌——跳过订阅。
             __instance.character = __instance.GetComponent<Character>();
+            __instance.damageable = __instance.GetComponent<Damageable>();
             __instance.regenWait = new WaitForSeconds(1f);
             return false;  // 跳过原 Awake
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
-            return true;
+            return false;  // 原 Awake 已知会抛，安全版失败也不再走原版
         }
     }
 }
+
 
 [HarmonyPatch(typeof(Worker))]
 public static class Worker_OnEnable_Patch
@@ -130,10 +131,7 @@ public static class Worker_OnEnable_Patch
         }
     }
 
-    private static bool IsNorselandsWorker(Worker worker)
-    {
-        return worker != null && worker.GetComponent<NpcShieldUser>() != null;
-    }
+
 
     private static void ApplyWorkerScale(Worker worker)
     {
@@ -153,11 +151,15 @@ public static class Worker_OnEnable_Patch
         if (worker == null) return;
         try
         {
+            // 希腊世界无盾牌商店（12/13 槽位被狂战士商店占用），worker 组件为裸加
+            // （缺序列化字段），SetShieldEnabled 内部 NRE——希腊世界直接跳过装备。
+            if (BiomeHolder.Inst != null && BiomeHolder.Inst.BiomeIndex == BiomeHolder.GreeceBiomeIndex) return;
+
             NpcShieldUser shieldUser = worker.GetComponent<NpcShieldUser>();
             if (shieldUser == null || shieldUser.HasShield()) return;
 
-            // 希腊 worker 是 EnsurePickupCapability 裸加的组件（无序列化 shield 引用）——
-            // shield null 时跳过装备（希腊无盾牌商店，拾取能力不依赖盾牌对象）。
+            // 真·北境 prefab 工人有 Damageable；裸加组件的无（判别用，避免 SetShieldEnabled NRE）
+            if (worker.GetComponent<Damageable>() == null) return;
             if (shieldUser.shield == null) return;
 
             if (shieldUser.regenWait == null)
@@ -170,6 +172,15 @@ public static class Worker_OnEnable_Patch
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
         }
+    }
+
+    private static bool IsNorselandsWorker(Worker worker)
+    {
+        // 名字判别：希腊 worker 被 EnsurePickupCapability 补组件后 GetComponent 会误判，
+        // 导致 EquipShieldIfNorselands 给无 Damageable 的希腊 worker 装备盾牌 → SetShieldEnabled NRE。
+        return worker != null
+            && worker.GetComponent<NpcShieldUser>() != null
+            && worker.gameObject.name.Contains("norselands");
     }
 
     /// <summary>
