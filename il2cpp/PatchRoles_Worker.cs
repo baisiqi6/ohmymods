@@ -74,6 +74,39 @@ public class ScaleRegistryHolder : MonoBehaviour
     }
 }
 
+/// <summary>
+/// 2.4.0 修复：NpcShieldUser.Awake 在希腊 Worker 裸加组件时抛 NRE
+/// （GetComponent&lt;Damageable&gt;() 为 null → damageable.OnPreReceiveDamage 订阅 NRE
+/// → Unity 回滚 AddComponent → EnsurePickupCapability 每次 OnEnable 死循环刷屏）。
+/// 分流：无 Damageable（希腊裸加路径）→ 安全版 Awake（不订阅，仅 character+regenWait）；
+/// 有 Damageable（北境 prefab 正常路径）→ 原版 Awake。
+/// </summary>
+[HarmonyPatch(typeof(NpcShieldUser))]
+public static class NpcShieldUser_Awake_Patch
+{
+    [HarmonyPatch(nameof(NpcShieldUser.Awake))]
+    [HarmonyPrefix]
+    public static bool Awake_Prefix(NpcShieldUser __instance)
+    {
+        if (!ModConfig.Enabled.Value) return true;
+        try
+        {
+            Damageable dmg = __instance.GetComponent<Damageable>();
+            if (dmg != null) return true;  // 正常 prefab 路径：原版 Awake
+
+            // 希腊裸加路径：安全版 Awake（跳过 damageable 订阅）
+            __instance.character = __instance.GetComponent<Character>();
+            __instance.regenWait = new WaitForSeconds(1f);
+            return false;  // 跳过原 Awake
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+            return true;
+        }
+    }
+}
+
 [HarmonyPatch(typeof(Worker))]
 public static class Worker_OnEnable_Patch
 {
@@ -123,6 +156,10 @@ public static class Worker_OnEnable_Patch
             NpcShieldUser shieldUser = worker.GetComponent<NpcShieldUser>();
             if (shieldUser == null || shieldUser.HasShield()) return;
 
+            // 希腊 worker 是 EnsurePickupCapability 裸加的组件（无序列化 shield 引用）——
+            // shield null 时跳过装备（希腊无盾牌商店，拾取能力不依赖盾牌对象）。
+            if (shieldUser.shield == null) return;
+
             if (shieldUser.regenWait == null)
                 shieldUser.regenWait = new WaitForSeconds(1f);
 
@@ -137,6 +174,8 @@ public static class Worker_OnEnable_Patch
 
     /// <summary>
     /// 希腊原版 Worker prefab 无 NpcShieldUser → 无法拾取 BerserkerTool。OnEnable 补组件。
+    /// 2.4.0：裸 AddComponent 触发 Awake 抛 NRE（由 NpcShieldUser_Awake_Patch 分流接管后
+    /// 不再抛），组件正常挂上；GetComponent 幂等检查防重复添加。
     /// </summary>
     private static void EnsurePickupCapability(Worker worker)
     {
@@ -151,6 +190,7 @@ public static class Worker_OnEnable_Patch
         }
         catch (Exception e)
         {
+            // Awake 异常回滚时组件未挂上——记录一次，不反复抛。
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
         }
     }
