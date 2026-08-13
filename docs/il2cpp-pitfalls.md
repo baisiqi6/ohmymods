@@ -62,11 +62,12 @@
 - **解法**：每个 patch 类必须带类级 `[HarmonyPatch(typeof(X))]`（方法注解显式类型时不依赖类级类型，但类级是"容器标记"必需）。✅ 已修（2026-08-13，worker BagInvestigator 反编译定位）。
 - **教训**：patch 不生效时先查类级注解，再怀疑 IL2CPP 机制。
 
-## 14. 2.4.0 Wallet.TotalCapacity 是遗留字段（托管层无读取方）
-- **现象**：设 TotalCapacity=2000 后容量可能仍不生效（get/set xref 调用者=0，158k 方法全量扫描；2.1.0 的 Archer/Banker/Knight 读取方在 2.4.0 全部消失）。
-- **状态**：⚠️ 容量上限机制待深挖（SetCurrency clamp / CurrencyConfig / OVERFLOW_LIMIT），实机验证 2000 金币能否装下。
-- **注意**：2.4.0 读档也走 OnGameStartHandler→ChangeCurrencyBag（与 2.1.0 假设不同），但该时机 wallet 可能未就绪——CurrencyBag.Awake 补容量是实际有效路径。
+## 14. TotalCapacity "死字段"是 xref 扫描的假象（已纠正，EconomyFixReviewer 终审）
+- **误判**：曾以"get/set xref 调用者=0、158k 方法全量扫描"判定 2.4.0 TotalCapacity 是遗留字段。
+- **纠正**：interop 壳方法全是 il2cpp_runtime_invoke thunk（无成员引用），原生字段读取是直接内存访问——**xref 扫描结构上永远看不到字段读取**。仓库 2.0.1/2.1.0 源码实证 TotalCapacity 是活的容量杠杆：Wallet.SetCurrency `Mathf.Clamp(value, 0, TotalCapacity)`、CanGrabCurrency/SuckCurrency 门控拾取；2.4.0 interop Wallet API 与 2.1.0 1:1 相同。**赋值 TotalCapacity=2000 即正确扩容**。
+- **注意**："2.4.0 钱包重做为 CurrencyMap"也是误判——CurrencyMap 2.1.0 就存在。
+- **验证方式**：实机把袋装满超 2000，确认拾取在 2000 停止。
 
 ## 待办 issue
 - **#1 钱袋 Awake 不触发**：✅ 已解决（坑 #13 类级注解）。经济域全部激活（2026-08-13）。
-- **#2 TotalCapacity 死字段**：容量上限机制待深挖 + 实机验证（坑 #14）。
+- **#2 容量上限验证**：TotalCapacity=2000 应为正确杠杆（坑 #14 已纠正）——实机装满超 2000 验证拾取停在 2000。
