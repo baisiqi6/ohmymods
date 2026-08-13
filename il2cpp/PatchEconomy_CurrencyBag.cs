@@ -26,6 +26,7 @@ namespace KingdomEnhancedMod;
 ///     GetCurrency/SetCurrency）。TotalCapacity 字段仍存在但语义作用未经运行时验证（IL2CPP 方法体不可读），
 ///     扩容效果待 Operator 决策（见 notes-economy.md）。
 /// </summary>
+[HarmonyPatch(typeof(CurrencyBag))]
 public static class PatchEconomy_CurrencyBag
 {
     private const int HermesCapacity = 2000;

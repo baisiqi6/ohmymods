@@ -31,6 +31,7 @@ namespace KingdomEnhancedMod;
 ///   - FindObjectsOfType&lt;Banker&gt;() 返回 Il2CppArrayBase&lt;Banker&gt;（非 Banker[]），用 var + .Length/foreach。
 ///   - 共享存款 PlayerPrefs 键名沿用 MyMod_SharedBankStash。
 /// </summary>
+[HarmonyPatch(typeof(Banker))]
 public static class PatchEconomy_Banker
 {
     private const string SHARED_STASH_KEY = "MyMod_SharedBankStash";

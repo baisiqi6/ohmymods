@@ -30,6 +30,7 @@ namespace KingdomEnhancedMod;
 ///   - 希腊世界判定由硬编码 BiomeIndex==5 改为 BiomeHolder.GreeceBiomeIndex（版本间 biome 编号可能漂移）。
 ///   - Resources.LoadAll&lt;ShopTag&gt; 返回 Il2CppArrayBase&lt;ShopTag&gt;（foreach 遍历）。
 /// </summary>
+[HarmonyPatch(typeof(ShopPlanner))]
 public static class PatchEconomy_Shops
 {
     // === ShopPlanner：完全接管 InitializeShopTypePrefabPairs ===

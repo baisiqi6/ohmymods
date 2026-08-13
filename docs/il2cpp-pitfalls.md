@@ -56,5 +56,17 @@
 - **现象**：独立副本测试保存会覆盖主档（单存档设计）。
 - **解法**：测试前备份（global-v35.pre-test 惯例）。✅
 
+## 13. 类级 [HarmonyPatch] 缺失 → PatchAll 静默跳过整个类
+- **现象**：PatchEconomy_CurrencyBag/Banker/Shops 三个类的所有 patch 从未执行（[Economy] 日志 0），无任何报错。
+- **根因**：本 0Harmony 版本的 PatchClassProcessor 只读类级注解（`if (!allowUnannotatedType && fromType==null) return;`），方法级注解不足够——无类级注解的类被静默跳过（反编译 0Harmony.dll 实证）。
+- **解法**：每个 patch 类必须带类级 `[HarmonyPatch(typeof(X))]`（方法注解显式类型时不依赖类级类型，但类级是"容器标记"必需）。✅ 已修（2026-08-13，worker BagInvestigator 反编译定位）。
+- **教训**：patch 不生效时先查类级注解，再怀疑 IL2CPP 机制。
+
+## 14. 2.4.0 Wallet.TotalCapacity 是遗留字段（托管层无读取方）
+- **现象**：设 TotalCapacity=2000 后容量可能仍不生效（get/set xref 调用者=0，158k 方法全量扫描；2.1.0 的 Archer/Banker/Knight 读取方在 2.4.0 全部消失）。
+- **状态**：⚠️ 容量上限机制待深挖（SetCurrency clamp / CurrencyConfig / OVERFLOW_LIMIT），实机验证 2000 金币能否装下。
+- **注意**：2.4.0 读档也走 OnGameStartHandler→ChangeCurrencyBag（与 2.1.0 假设不同），但该时机 wallet 可能未就绪——CurrencyBag.Awake 补容量是实际有效路径。
+
 ## 待办 issue
-- **#1 钱袋 Awake 不触发**：进希腊世界但 `[Economy]` 日志空。嫌疑：CurrencyBag 类型 PatchAll 时未加载 / 2.4.0 钱袋创建路径重构 / Awake 非 2.4.0 实际方法名。worker 深挖中（2026-08-13）。
+- **#1 钱袋 Awake 不触发**：✅ 已解决（坑 #13 类级注解）。经济域全部激活（2026-08-13）。
+- **#2 TotalCapacity 死字段**：容量上限机制待深挖 + 实机验证（坑 #14）。
