@@ -2,6 +2,12 @@
 
 > 约定日期：2026-08-12。本项目的固定协作流程，所有 session/agent 遵守。
 > 不调用外部 coding agent CLI（Claude Code/Qoder 等）——**只用当前 agent 的 subagent**。
+>
+> **2026-08-13 增补——双端验证约定**：本 mod 同时维护 Mono 2.1.0（GOG 自用/开发）
+> 与 IL2CPP 2.4.0（Steam 发布）两条线。**任何功能/修复合入前必须双端验证**：
+> ① Mono 端：csc 编译零错误 + 启动加载无异常（GOG 2.1.0 实机日志）
+> ② IL2CPP 端：dotnet8 build 零错误 + BepInEx 加载零异常（E:/QQ 2.4.0 或 Steam 实机日志）
+> 游戏内行为冒烟由用户在双端分别执行；Operator 负责双端启动级验证与证据记录。
 
 ## 角色与模型顺位
 
