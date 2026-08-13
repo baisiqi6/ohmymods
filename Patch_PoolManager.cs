@@ -34,6 +34,10 @@ namespace MyMod
     {
         private static FieldInfo _poolsByPrefabField;
         private static MethodInfo _createPoolForMethod;
+        // 兜底完成标记（prefab instanceID）。2.1.0 Pool.Init 用 ContainsKey guard 不抛异常，
+        // 重复 CreatePoolFor 会静默建孤儿池——必须用集合防重（SteamFixReviewer P2 同步修正）。
+        // OnLevelLoaded 每场景清空（场景切换后池重建，需重新兜底）。
+        private static readonly HashSet<int> _fallbackDone = new HashSet<int>();
 
         public static void Register(HarmonyInstance harmony)
         {
@@ -83,6 +87,9 @@ namespace MyMod
                     Debug.Log("[MyMod] Force InitPools() executed (native pools rebuilt)");
                 }
 
+                // 新场景：清空兜底标记（池重建后需重新兜底）
+                _fallbackDone.Clear();
+
                 // InitPools 清掉了 mod 注册的 sync 池，重新注册
                 ReRegisterModPools(__instance);
 
@@ -130,9 +137,24 @@ namespace MyMod
                 if (dict == null) return;
                 if (dict.ContainsKey(prefab)) return;  // 池已存在，原逻辑正常
 
+                // 本场景已兜底过该 prefab（成功或失败）：不再重复建（防孤儿池）
+                int prefabId = prefab.GetInstanceID();
+                if (_fallbackDone.Contains(prefabId)) return;
+
                 // 池缺失：现场建池（与 learningMode 同路径）
-                _createPoolForMethod.Invoke(pm, new object[] { prefab });
-                Debug.Log("[MyMod] Created missing pool for " + prefab.name);
+                try
+                {
+                    _createPoolForMethod.Invoke(pm, new object[] { prefab });
+                    Debug.Log("[MyMod] Created missing pool for " + prefab.name);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError("[MyMod] SpawnGO fallback failed for " + prefab.name + ": " + e.Message);
+                }
+                finally
+                {
+                    _fallbackDone.Add(prefabId);  // 成功/失败都标记，防每帧重试
+                }
             }
             catch (Exception e)
             {

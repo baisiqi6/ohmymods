@@ -91,18 +91,20 @@ public static class NpcShieldUser_Awake_Patch
         if (!ModConfig.Enabled.Value) return true;
         try
         {
-            // 全接管安全版 Awake（2.4.0 实机：裸加组件场景原版 Awake 必抛，导致
-            // AddComponent 回滚 → 死循环）。2.4.0 的 OnPreReceiveDamage 是事件，
-            // 订阅签名不兼容，且希腊 worker 无盾牌——跳过订阅。
+            // 【SteamFixReviewer P1】真 prefab 路径（有 Damageable）放行原版 Awake——
+            // 2.4.0 原版 Awake 的 OnPreReceiveDamage 订阅（盾牌减伤/破碎/再生）必须保留；
+            // NRE 证据只在裸加路径（希腊拾取能力，GetComponent<Damageable>()==null）。
+            if (__instance.GetComponent<Damageable>() != null) return true;
+
+            // 裸加路径：安全版 Awake（跳过 damageable 订阅——无 Damageable 无从订阅）
             __instance.character = __instance.GetComponent<Character>();
-            __instance.damageable = __instance.GetComponent<Damageable>();
             __instance.regenWait = new WaitForSeconds(1f);
             return false;  // 跳过原 Awake
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
-            return false;  // 原 Awake 已知会抛，安全版失败也不再走原版
+            return true;
         }
     }
 }
