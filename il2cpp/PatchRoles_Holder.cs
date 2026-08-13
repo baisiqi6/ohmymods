@@ -65,6 +65,10 @@ public static class Holder_InitializeTagCharacterPairs_Patch
                 }
             }
 
+            // 角色就绪后补注册 mod 角色池（Init_Prefix 的 ReRegisterModPools 可能早于
+            // Holder 初始化——此时 tagCharacterPairs 才完整，EnsurePoolForCharacter 才能命中）。
+            PatchRoles_Castle.ReRegisterModPools();
+
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo($"[Roles] Added {addedCount} characters to Holder");
 
             // 希腊世界：把工匠(Worker)和居民(Peasant)替换为北境版本

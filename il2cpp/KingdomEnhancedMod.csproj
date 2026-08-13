@@ -70,6 +70,10 @@
             <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\interop\UnityEngine.Physics2DModule.dll</HintPath>
             <Private>False</Private>
         </Reference>
+        <Reference Include="UnityEngine.TextRenderingModule">
+            <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\interop\UnityEngine.TextRenderingModule.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
     </ItemGroup>
 
     <!-- BIE6_Mono：Mono 依赖（暂不迁移 Mono 侧，保留配置位） -->

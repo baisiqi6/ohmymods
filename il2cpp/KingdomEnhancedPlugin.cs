@@ -58,6 +58,9 @@ public class KingdomEnhancedPlugin :
             var harmony = new HarmonyLib.Harmony(MyPluginInfo.PLUGIN_GUID);
             harmony.PatchAll(typeof(KingdomEnhancedPlugin).Assembly);
 
+            // 游戏内设置面板（Ctrl+F10 / F5 呼出）
+            ModPanel.EnsureCreated();
+
             LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} loaded. Enabled={ModConfig.Enabled.Value}");
         }
         catch (System.Exception e)
