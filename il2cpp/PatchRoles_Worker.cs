@@ -110,19 +110,23 @@ public static class NpcShieldUser_Awake_Patch
 }
 
 
-[HarmonyPatch(typeof(Worker))]
-public static class Worker_TryPickupBerserkerTool_Patch
+[HarmonyPatch(typeof(Character))]
+public static class Worker_Promote_Toggle_Patch
 {
     // 交替转职计数器：奇数次 → 北境带盾工匠，偶数次 → 希腊工匠。
-    // 转职链：Worker.TryPickupBerserkerTool → Character.Promote → 按 Holder.tagCharacterPairs["Worker"]
-    // 生成工人。在转职前翻转该映射，Promote 内部立即 Pool.Spawn——下一个 Worker 生成就是本次转职。
+    // 入口选 Character.Promote(string, IUnitController)——所有转职/晋升（锤子转职、
+    // Peasant 晋升）必经此方法，且 2.4.0 签名已验证（PatchRoles_Character 同款）。
+    // 只对 newTag=="Worker" 生效（转职/晋升生成工人时翻转 Holder.tagCharacterPairs["Worker"]，
+    // Promote 内部 ReplaceBy 立即读取该映射）。
     private static bool _norselandsToggle;
 
-    [HarmonyPatch(nameof(Worker.TryPickupBerserkerTool))]
+    [HarmonyPatch(nameof(Character.Promote), new[] { typeof(string), typeof(IUnitController) })]
     [HarmonyPrefix]
-    public static void TryPickupBerserkerTool_Prefix(Worker __instance)
+    public static void Promote_Prefix(Character __instance, string newTag)
     {
         if (!ModConfig.Enabled.Value) return;
+        if (newTag != "Worker") return;
+
         try
         {
             var holder = Managers.Inst != null ? Managers.Inst.holder : null;
