@@ -19,7 +19,7 @@ public class ModPanel : MonoBehaviour
 {
     private static bool _shown;
     private static GUISkin _skin;
-    private static Rect _window = new Rect(20, 60, 440, 380);
+    private static Rect _window = new Rect(20, 60, 620, 560);
     private static Vector2 _scroll;
 
     public ModPanel(IntPtr ptr) : base(ptr) { }
@@ -58,12 +58,14 @@ public class ModPanel : MonoBehaviour
         if (_skin == null)
         {
             _skin = ScriptableObject.Instantiate(GUI.skin);
-            var font = Font.CreateDynamicFontFromOSFont("Microsoft YaHei", 14);
+            var font = Font.CreateDynamicFontFromOSFont("Microsoft YaHei", 16);
             if (font != null) _skin.font = font;
         }
         GUI.skin = _skin;
         GUILayout.BeginArea(_window, "Kingdom Enhanced Mod", GUI.skin.window);
+        _scroll = GUILayout.BeginScrollView(_scroll);
         DrawControls();
+        GUILayout.EndScrollView();
         GUILayout.EndArea();
     }
 
@@ -71,35 +73,36 @@ public class ModPanel : MonoBehaviour
     {
         GUILayout.BeginVertical();
 
-        GUILayout.Label("总开关 Enabled");
-        ModConfig.Enabled.Value = GUILayout.Toggle(ModConfig.Enabled.Value, " 启用 mod（关闭后全部走原版逻辑）");
-
         GUILayout.Space(6);
-        GUILayout.Label("无限金币 InfiniteMoney");
-        ModConfig.InfiniteMoney.Value = GUILayout.Toggle(ModConfig.InfiniteMoney.Value, " 开启后玩家金币用不完");
+        GUILayout.Label("总开关 Enabled", GUILayout.Height(24));
+        ModConfig.Enabled.Value = GUILayout.Toggle(ModConfig.Enabled.Value, " 启用 mod（关闭后全部走原版逻辑）", GUILayout.Height(28));
 
-        GUILayout.Space(6);
-        GUILayout.Label("君主移动速度 SpeedMultiplier: " + ModConfig.SpeedMultiplier.Value + "x");
-        ModConfig.SpeedMultiplier.Value = Mathf.RoundToInt(GUILayout.HorizontalSlider(ModConfig.SpeedMultiplier.Value, 1, 5));
+        GUILayout.Space(12);
+        GUILayout.Label("无限金币 InfiniteMoney", GUILayout.Height(24));
+        ModConfig.InfiniteMoney.Value = GUILayout.Toggle(ModConfig.InfiniteMoney.Value, " 开启后玩家金币用不完", GUILayout.Height(28));
 
-        GUILayout.Space(6);
-        GUILayout.Label("快速建造 FastBuild");
-        ModConfig.FastBuild.Value = GUILayout.Toggle(ModConfig.FastBuild.Value, " 建筑约 2 秒建成");
+        GUILayout.Space(12);
+        GUILayout.Label("君主移动速度 SpeedMultiplier: " + ModConfig.SpeedMultiplier.Value + "x", GUILayout.Height(24));
+        ModConfig.SpeedMultiplier.Value = Mathf.RoundToInt(GUILayout.HorizontalSlider(ModConfig.SpeedMultiplier.Value, 1, 5, GUILayout.Height(26)));
 
-        GUILayout.Space(6);
-        GUILayout.Label("地图大小 MapSizeMultiplier: " + ModConfig.MapSizeMultiplier.Value.ToString("0.0") + "x");
-        ModConfig.MapSizeMultiplier.Value = GUILayout.HorizontalSlider(ModConfig.MapSizeMultiplier.Value, 1f, 5f);
+        GUILayout.Space(12);
+        GUILayout.Label("快速建造 FastBuild", GUILayout.Height(24));
+        ModConfig.FastBuild.Value = GUILayout.Toggle(ModConfig.FastBuild.Value, " 建筑约 2 秒建成", GUILayout.Height(28));
 
-        GUILayout.Space(6);
-        GUILayout.Label("怪物数量 EnemyCountMultiplier: " + ModConfig.EnemyCountMultiplier.Value.ToString("0.0") + "x");
-        ModConfig.EnemyCountMultiplier.Value = GUILayout.HorizontalSlider(ModConfig.EnemyCountMultiplier.Value, 1f, 5f);
+        GUILayout.Space(12);
+        GUILayout.Label("地图大小 MapSizeMultiplier: " + ModConfig.MapSizeMultiplier.Value.ToString("0.0") + "x", GUILayout.Height(24));
+        ModConfig.MapSizeMultiplier.Value = GUILayout.HorizontalSlider(ModConfig.MapSizeMultiplier.Value, 1f, 5f, GUILayout.Height(26));
 
-        GUILayout.Space(6);
-        GUILayout.Label("怪物时间线 EnemyTimelineSpeed: " + ModConfig.EnemyTimelineSpeed.Value.ToString("0.0") + "x");
-        ModConfig.EnemyTimelineSpeed.Value = GUILayout.HorizontalSlider(ModConfig.EnemyTimelineSpeed.Value, 1f, 5f);
+        GUILayout.Space(12);
+        GUILayout.Label("怪物数量 EnemyCountMultiplier: " + ModConfig.EnemyCountMultiplier.Value.ToString("0.0") + "x", GUILayout.Height(24));
+        ModConfig.EnemyCountMultiplier.Value = GUILayout.HorizontalSlider(ModConfig.EnemyCountMultiplier.Value, 1f, 5f, GUILayout.Height(26));
 
-        GUILayout.Space(10);
-        if (GUILayout.Button("关闭面板（Ctrl+F10 / F5）"))
+        GUILayout.Space(12);
+        GUILayout.Label("怪物时间线 EnemyTimelineSpeed: " + ModConfig.EnemyTimelineSpeed.Value.ToString("0.0") + "x", GUILayout.Height(24));
+        ModConfig.EnemyTimelineSpeed.Value = GUILayout.HorizontalSlider(ModConfig.EnemyTimelineSpeed.Value, 1f, 5f, GUILayout.Height(26));
+
+        GUILayout.Space(16);
+        if (GUILayout.Button("关闭面板（Ctrl+F10 / F5）", GUILayout.Height(36)))
         {
             _shown = false;
         }
