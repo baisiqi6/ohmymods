@@ -2,7 +2,7 @@
 
 ## 两条完全不同的产生链
 
-### 1. 商店直接产出（Bow/Hammer/Ninja/Scythe 等）
+### 1. 商店产出工具（Bow/Hammer/Katana/Scythe 等）
 
 ```
 玩家投币 → PayableShop.HandlePayment()
@@ -11,7 +11,8 @@
       → Worker 路过拾取 → Character.Promote(tool, controller)
 ```
 
-部分商店直接生成 Character（如 Ninja 商店直接 spawn Ninja）。
+忍者商店生成 `ToolNinja`（Katana），再由 Peasant 拾取并经 `Character.Promote` 转为 Ninja；
+不是商店直接生成 Character。
 
 ### 2. 工具转化（Berserker/PikeKnight/ShieldKnight）
 
@@ -114,13 +115,14 @@ BerserkerTool 商店没有自己的 `ShopType` 枚举值。它是北境 `uniqueS
 
 ---
 
-## Ninja（忍者）— 商店直接产出
+## Ninja（忍者）— 商店工具转职
 
 ### 完整链路
 
 ```
 NinjaLeft/NinjaRight 商店（幕府 biome=1 独有）
-  → 玩家投币 → 直接 spawn Ninja (Character)
+  → 玩家投币 → ToolNinja/Katana
+  → Peasant 拾取 → Character.Promote → Ninja
 ```
 
 ### ShopType 完整支持
@@ -136,6 +138,27 @@ Ninja 有完整的 `ShopType.NinjaLeft(7)` / `NinjaRight(8)` 枚举值，走标�
 
 1. **注册 prefab**：`Patch_ShopPlanner.Prefix` 全量替换 InitializeShopTypePrefabPairs（return false），遍历所有 biomePathStrings，注册全部 uniqueShopPrefabs（包括幕府的 Ninja 商店 prefab）
 2. **入队摆放**：`Patch_Castle` patch `CatchupToLevel` + `ReQueueAllBuildings`，在希腊(biome=5) Castle5 时入队 NinjaLeft/NinjaRight
+
+### 跨 biome 运行时依赖（2.4.0 实机补充）
+
+只注册 `ToolNinja` 与 `char:Ninja` 不足以让忍者完整运行。Ninja 的动画事件和死亡分支还会直接使用：
+
+- `arrowPrefab.gameObject` → `ThrowingStar`：原生 bamboo 池为 sync，`syncID=41`。
+- `smokebombPrefab` → `Smokebomb`：原生为 local pool；通过 `APSmokeout` 动画 RPC 让各端分别生成，不能改为 sync。
+
+这两个依赖必须在 Holder/PoolManager 稳定初始化后、Ninja 首次使用前预注册，并在任何强制 `InitPools()` 清空缓存后重新注册。缺失 ThrowingStar 会让 `ThrowStar()` NRE；缺失 Smokebomb 会在忍者死亡烟遁期间中断整个 `Behaviour`，留下 `damagedBy=0`、无法降级和无法切回白天形态的卡死实例。
+
+### 希腊草丛伏击点（候选实现，待实机）
+
+原版 `Ninja.GetHidingSpot()` 不识别竹子名称，只读取 `Kingdom.GetHidingSpotList(side)`，再筛选城墙外且未占用的点。2.4.0 资源中只有 `bambooTree` 自带 `HidingSpot`；希腊 Grass/Shrub 没有。
+
+候选实现挂 `World.AddThicket(Grass)`：仅在原生成功生成实际 thicket 后，为每个宽灌木创建
+Left/Center/Right 三个命名子锚点，local x 为 `-1.1/0/+1.1`，每个子对象各挂一个原生
+`HidingSpot`。这样同一灌木最多容纳 3 名错开蹲守的 Ninja，但每个锚点仍保持原生单人占用，
+不能让多人共享同一 `HidingSpot`。原生 `World.CanSpawnThicket()` 保证 thicket 位于城墙外；每个锚点
+仍由 `Ninja.GetHidingSpot/VerifyHidingSpot` 单独做城墙外过滤。冬季或扩墙移除时，三个
+`HidingSpot.OnDisable()` 分别注销并通知各自 Ninja。池复用时 `Start()` 不会重跑，只在对应 sided
+list 缺失时清旧 hider 并手工重新登记；已经登记且正在占用的锚点不得被清除。
 
 ---
 

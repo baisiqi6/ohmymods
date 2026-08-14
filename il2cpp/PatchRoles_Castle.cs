@@ -10,26 +10,22 @@ namespace KingdomEnhancedMod;
 /// - 忍者商店：走 ShopPlanner 标准队列（ShopType 枚举，NinjaLeft/NinjaRight）
 /// - 狂战士工具商店：ShieldShop 槽位(12/13)已被 Patch_ShopPlanner 换成 Berserker prefab，
 ///   本组入队 ShieldShopLeft/Right + 清理旧版克隆残留
-/// - CreateItem 安全产出：SpawnOrInstantiate 代替 Spawn，防止 Pool 不存在导致支付卡死
+/// - ToolNinja/ToolBerserker 与角色池在初始化期显式注册，商店产出保留原生 CreateItem 路径
 ///
 /// 2.4.0 签名验证（interop Assembly-CSharp.dll）：
 /// - Castle.CatchupToLevel(bool includePrevious) —— 存在；【差异】2.1.0 无参，2.4.0 多 bool 参数（postfix 忽略）
 /// - Castle.ReQueueAllBuildings() —— 存在，无变化
 /// - Castle.level : Castle.Level（枚举 Castle1..Castle6）—— 存在
-/// - PayableShop.CreateItem(bool blink = true) : Droppable —— 存在
-/// - PayableShop.itemPrefab : Droppable —— 存在
 /// - PayableShop.ShopType（枚举：NinjaLeft/NinjaRight/ShieldShopLeft/ShieldShopRight/Pike 等）—— 存在
 /// - ShopPlanner.IsPlacedOrQueued(ShopType) —— 存在
-/// - ShopPlanner.QueueNewShopForPlacement(ShopType, Il2CppSystem.Nullable&lt;Side&gt; side = null) —— 【差异】Side 变 Nullable&lt;Side&gt;，本组省略 side 由 ShopType 推导
+/// - ShopPlanner.QueueNewShopForPlacement(ShopType, Il2CppSystem.Nullable&lt;Side&gt; side = null) —— 【差异】Side 变 Nullable&lt;Side&gt;，左右商店显式传 Side
 /// - ShopPlanner.HasPlacedShop(ShopType, GameObject go = null) —— 【差异】多可选 GameObject 参数
 /// - ShopPlanner.RemoveShop(GameObject) —— 存在
 /// - ShopPlanner._placedShops : Il2CppReferenceArray&lt;GameObject&gt; —— 存在（原 GameObject[]）
-/// - Pool.SpawnOrInstantiate&lt;T&gt;(T, Vector3, Quaternion, Transform = null) where T : Component —— 存在
 /// - Pool.GetPoolFromPrefabAsset(GameObject) : Pool —— 存在
 /// - PoolManager.CreatePoolFor(GameObject) : Pool —— 存在
 /// - PoolManager.cachedPools/cachedNamePoolPairs/cachedSyncIdPoolPairs —— 存在（公开属性，免反射）
 /// - Pool.sync : bool / Pool.syncID : short / Pool.prefab : GameObject —— 存在
-/// - SpriteRendererFX.BlinkOverlay(Color) —— 【缺失】2.4.0 无此方法（改为 BlinkRoutine/FlashRoutine 协程），本地闪烁省略，保留 Droppable.SendBlinkRequest 联网同步
 /// </summary>
 
 [HarmonyPatch(typeof(Castle))]
@@ -52,49 +48,18 @@ public static class Castle_Queue_Patch
     }
 }
 
-[HarmonyPatch(typeof(PayableShop), nameof(PayableShop.CreateItem))]
-public static class PayableShop_CreateItem_Patch
+/// <summary>
+/// Castle.CatchupToLevel 可能早于 ShopPlanner.Start；此时 IsPlacedOrQueued 所需的
+/// ShopPlanner 状态还不稳定。等 Start（含 InitializeShopTypePrefabPairs）完整返回后，
+/// 再对已经存在的城堡执行一次幂等补建。
+/// </summary>
+[HarmonyPatch(typeof(ShopPlanner), nameof(ShopPlanner.Start))]
+public static class ShopPlanner_Start_GreeceShopRetry_Patch
 {
-    [HarmonyPrefix]
-    public static bool CreateItem_Prefix(PayableShop __instance, ref Droppable __result, bool blink)
+    [HarmonyPostfix]
+    public static void Start_Postfix(ShopPlanner __instance)
     {
-        if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != PatchRoles_Castle.GREECE_BIOME)
-            return true;
-        if (__instance.itemPrefab == null)
-            return true;
-
-        try
-        {
-            Droppable droppable = Pool.SpawnOrInstantiate<Droppable>(
-                __instance.itemPrefab,
-                __instance.transform.position,
-                Quaternion.identity,
-                __instance.transform.parent);
-
-            if (droppable == null)
-            {
-                KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Roles] CreateItem: SpawnOrInstantiate returned null for " + __instance.itemPrefab.name);
-                return true;
-            }
-
-            droppable.dropper = __instance.gameObject;
-            Rigidbody2D rb = droppable.GetComponent<Rigidbody2D>();
-            if (rb != null) rb.isKinematic = true;
-
-            // 2.4.0 SpriteRendererFX.BlinkOverlay 已移除，本地闪烁省略；保留联网 blink 同步
-            if (blink && NetworkBigBoss.IsOnline)
-            {
-                droppable.SendBlinkRequest(new Color(1f, 1f, 1f, 0.6f));
-            }
-
-            __result = droppable;
-            return false;
-        }
-        catch (Exception e)
-        {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
-            return true;
-        }
+        PatchRoles_Castle.RetryGreeceShopsAfterPlannerStart(__instance);
     }
 }
 
@@ -105,6 +70,7 @@ public static class PatchRoles_Castle
     private static readonly string BERSERKER_SHOP_MARKER = "MyMod_BerserkerShop";
     private static int _nextPoolSyncId = 30000;
     private static Il2CppArrayBase<DroppableTool> _allToolsCache;
+    private static ShopPlanner _initializedShopPlanner;
 
     // ============================================================
     // 忍者商店：走 ShopPlanner 标准队列
@@ -116,19 +82,43 @@ public static class PatchRoles_Castle
         {
             if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != GREECE_BIOME) return;
             if (castle == null || castle.level < Castle.Level.Castle5) return;
+            if (!NetworkBigBoss.HasWorldAuth) return;
 
-            var sp = Managers.Inst.shopPlanner;
-            if (sp == null) return;
+            // Castle 的升级/读档回放可能发生在 ShopPlanner.Start 之前；Start postfix
+            // 会从 Kingdom 取现有城堡补建，禁止此处提前调用 IsPlacedOrQueued。
+            var managers = Managers.Inst;
+            var sp = managers != null ? managers.shopPlanner : null;
+            if (sp == null || _initializedShopPlanner != sp) return;
 
-            // 2.4.0 side 参数变 Nullable<Side> 且可选，NinjaLeft/NinjaRight 已编码左右，省略 side
+            if (sp.shopTypePrefabPairs == null
+                || !sp.shopTypePrefabPairs.ContainsKey(PayableShop.ShopType.NinjaLeft)
+                || !sp.shopTypePrefabPairs.ContainsKey(PayableShop.ShopType.NinjaRight))
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                    "[Roles] Ninja shop prefab mapping is missing after ShopPlanner.Start");
+                return;
+            }
+            if (sp.raisingShops == null || sp._placedShops == null || sp._queuedShopPlacements == null)
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                    "[Roles] Ninja shop queue state is unavailable after ShopPlanner.Start");
+                return;
+            }
+
+            RepairQueuedSidedShopValues(sp);
+
             if (!sp.IsPlacedOrQueued(PayableShop.ShopType.NinjaLeft))
             {
-                sp.QueueNewShopForPlacement(PayableShop.ShopType.NinjaLeft);
+                sp.QueueNewShopForPlacement(
+                    PayableShop.ShopType.NinjaLeft,
+                    new Il2CppSystem.Nullable<Side>(Side.Left));
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[Roles] Queued NinjaLeft shop for Greece");
             }
             if (!sp.IsPlacedOrQueued(PayableShop.ShopType.NinjaRight))
             {
-                sp.QueueNewShopForPlacement(PayableShop.ShopType.NinjaRight);
+                sp.QueueNewShopForPlacement(
+                    PayableShop.ShopType.NinjaRight,
+                    new Il2CppSystem.Nullable<Side>(Side.Right));
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[Roles] Queued NinjaRight shop for Greece");
             }
 
@@ -137,10 +127,63 @@ public static class PatchRoles_Castle
         }
         catch (Exception e)
         {
-            // 时序性失败（城堡升级中 shopPlanner 引用重建）：CatchupToLevel 多次触发，
-            // shopPlanner 就绪后自然重试——降级为 Warning。
-            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning("[Roles] Ninja shop queue skipped (transient): " + e.Message);
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[Roles] Ninja shop queue failed after readiness checks: " + e);
         }
+    }
+
+    /// <summary>
+    /// 旧版本曾用空 side 入队，存档会继续保留这批条目。仅修正尚在队列中的
+    /// Ninja/ShieldShop 左右条目；不改变队列结构，已放置商店和原版
+    /// CanShopFit/科技门槛均不改动。
+    /// </summary>
+    private static void RepairQueuedSidedShopValues(ShopPlanner sp)
+    {
+        int normalized = 0;
+        foreach (var queued in sp._queuedShopPlacements)
+        {
+            if (queued == null) continue;
+
+            Side expected;
+            switch (queued.shopType)
+            {
+            case PayableShop.ShopType.NinjaLeft:
+            case PayableShop.ShopType.ShieldShopLeft:
+                expected = Side.Left;
+                break;
+            case PayableShop.ShopType.NinjaRight:
+            case PayableShop.ShopType.ShieldShopRight:
+                expected = Side.Right;
+                break;
+            default:
+                continue;
+            }
+
+            // 不读取旧 shopSide：旧存档的 native nullable 为空时，仅调用 getter
+            // 就会在 interop Nullable(IntPtr) / CreateGCHandle 中抛 NRE。
+            queued.shopSide = new Il2CppSystem.Nullable<Side>(expected);
+            normalized++;
+        }
+
+        if (normalized > 0)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogDebug(
+                "[Roles] Normalized " + normalized + " queued sided shop value(s)");
+        }
+    }
+
+    public static void RetryGreeceShopsAfterPlannerStart(ShopPlanner shopPlanner)
+    {
+        _initializedShopPlanner = shopPlanner;
+        if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth) return;
+        if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != GREECE_BIOME) return;
+
+        Castle castle = null;
+        var managers = Managers.Inst;
+        if (managers != null && managers.kingdom != null)
+            castle = managers.kingdom.castle;
+        EnsureNinjaShopsInGreece(castle);
+        EnsureBerserkerToolShopInGreece(castle);
     }
 
     // ============================================================
@@ -153,6 +196,19 @@ public static class PatchRoles_Castle
         {
             if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != GREECE_BIOME) return;
             if (castle == null || castle.level < Castle.Level.Castle4) return;
+            if (!NetworkBigBoss.HasWorldAuth) return;
+
+            var managers = Managers.Inst;
+            var sp = managers != null ? managers.shopPlanner : null;
+            if (sp == null || _initializedShopPlanner != sp) return;
+            if (sp.raisingShops == null || sp._placedShops == null || sp._queuedShopPlacements == null)
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                    "[Roles] Berserker shop queue state is unavailable after ShopPlanner.Start");
+                return;
+            }
+
+            RepairQueuedSidedShopValues(sp);
 
             // 清理旧版克隆残留（MyMod_BerserkerShop，卖 ToolBow 的 bug 版）
             GameObject stale = GameObject.Find(BERSERKER_SHOP_MARKER);
@@ -177,20 +233,21 @@ public static class PatchRoles_Castle
                 }
             }
 
-            var sp = Managers.Inst.shopPlanner;
-            if (sp == null) return;
-
             ReplacePlacedShopIfWrong(sp, PayableShop.ShopType.ShieldShopLeft);
             ReplacePlacedShopIfWrong(sp, PayableShop.ShopType.ShieldShopRight);
 
             if (!sp.IsPlacedOrQueued(PayableShop.ShopType.ShieldShopLeft))
             {
-                sp.QueueNewShopForPlacement(PayableShop.ShopType.ShieldShopLeft);
+                sp.QueueNewShopForPlacement(
+                    PayableShop.ShopType.ShieldShopLeft,
+                    new Il2CppSystem.Nullable<Side>(Side.Left));
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[Roles] Queued Berserker shop (ShieldShopLeft) for Greece");
             }
             if (!sp.IsPlacedOrQueued(PayableShop.ShopType.ShieldShopRight))
             {
-                sp.QueueNewShopForPlacement(PayableShop.ShopType.ShieldShopRight);
+                sp.QueueNewShopForPlacement(
+                    PayableShop.ShopType.ShieldShopRight,
+                    new Il2CppSystem.Nullable<Side>(Side.Right));
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[Roles] Queued Berserker shop (ShieldShopRight) for Greece");
             }
 
@@ -200,7 +257,8 @@ public static class PatchRoles_Castle
         }
         catch (Exception e)
         {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning("[Roles] Berserker shop queue skipped (transient): " + e.Message);
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[Roles] Berserker shop queue failed after readiness checks: " + e);
         }
     }
 
@@ -255,6 +313,10 @@ public static class PatchRoles_Castle
             // 工具池
             EnsurePoolForDroppableTool("ToolNinja");
             EnsurePoolForDroppableTool("ToolBerserker");
+            // PoolManager.Init_Prefix 会强制 InitPools() 并清空全部运行时池缓存；
+            // Holder 若已就绪，不会再次触发 Holder postfix，因此这里同步恢复忍者
+            // 的飞镖/烟雾依赖池，再恢复 Ninja 角色池。
+            PatchRoles_Ninja.EnsureRuntimePoolsInGreece(holder);
             // 角色池（从 Holder 拿 prefab）
             EnsurePoolForCharacter("Ninja");
             EnsurePoolForCharacter("Berserker");

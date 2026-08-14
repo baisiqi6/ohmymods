@@ -1,0 +1,217 @@
+{
+  "project": "ohmymods",
+  "generated_at": "2026-08-12",
+  "workflow": "ordinary",
+  "items": [
+    {
+      "id": "feature-001",
+      "title": "赫尔墨斯钱袋解锁+扩容+UI适配",
+      "status": "done",
+      "acceptance": "开局强制 Hermes；容量 2000；视觉堆叠上限 600；UI 放大 1.3x（CurrencyBag.Awake postfix，金币堆子物体继承）；P2 同步",
+      "verification": "编译零警告已部署；游戏内待实测（钱包 2000 上限 + 钱袋堆叠 600 + 视觉放大）"
+    },
+    {
+      "id": "core-001",
+      "title": "希腊世界狂战士商店（槽位劫持）",
+      "status": "done",
+      "acceptance": "希腊城堡可购买狂战士，原生生成（Patch_ShopPlanner + Patch_SidedShop + Patch_Castle）",
+      "verification": "游戏内购买测试通过"
+    },
+    {
+      "id": "core-002",
+      "title": "忍者商店入队",
+      "status": "done",
+      "acceptance": "希腊可原生招募忍者",
+      "verification": "游戏内测试通过"
+    },
+    {
+      "id": "core-003",
+      "title": "退役狂战士/忍者 hack",
+      "status": "done",
+      "acceptance": "SpawnBerserkersInGreece/ReplaceWithBerserker 注释，DelayedBerserkerSpawn 只留猫生成",
+      "verification": "编译通过；游戏内无重复生成"
+    },
+    {
+      "id": "core-004",
+      "title": "北境工匠/居民替换（Holder）",
+      "status": "done",
+      "acceptance": "希腊 tagCharacterPairs Worker→Worker_norselands、Peasant→Peasant_norselands + sync 池",
+      "verification": "游戏内招募为北境形象"
+    },
+    {
+      "id": "core-005",
+      "title": "北境工匠出生带盾",
+      "status": "done",
+      "acceptance": "NpcShieldUser.SetShieldEnabled(true) 出生装备",
+      "verification": "游戏内盾牌可见"
+    },
+    {
+      "id": "core-006",
+      "title": "单位缩放 y 轴守护",
+      "status": "done",
+      "acceptance": "OnEnable 登记 + Mover.Update postfix 每帧恢复 y；x/z 不动；CWT 无泄漏",
+      "verification": "游戏内北境工匠 1.175、居民 1.125、希腊工匠 1.075 生效；无每帧扫描"
+    },
+    {
+      "id": "core-007",
+      "title": "清理兜底扫描",
+      "status": "done",
+      "acceptance": "DelayedBerserkerSpawn 60帧 ScaleAllWorkers 循环删除；ScaleAllWorkers 方法删除",
+      "verification": "编译通过，无调用者"
+    },
+    {
+      "id": "core-008",
+      "title": "岛宽度扩展（正确定位）",
+      "status": "done",
+      "acceptance": "Patch_Level.GenerateInternal：LevelConfig.minLevelWidth × mapSizeMultiplier（临时改+恢复防污染资产）",
+      "verification": "岛宽度→块数→Ground→worldBounds 自动连锁；塔基/墙基/泉眼随岛变宽增多；minKingdomExtents 修改已回退（与岛宽无关+存档污染）"
+    },
+    {
+      "id": "core-009",
+      "title": "希腊猫生成",
+      "status": "done",
+      "acceptance": "进希腊世界延迟生成北境猫",
+      "verification": "游戏内生效"
+    },
+    {
+      "id": "core-010",
+      "title": "乞丐→北境 WarriorPeasant 替换",
+      "status": "done",
+      "acceptance": "希腊乞丐转职 Peasant 时替换为北境 WarriorPeasant（保留颜色/位置），biome=5 生效",
+      "verification": "游戏内转化测试通过"
+    },
+    {
+      "id": "core-011",
+      "title": "快速建造",
+      "status": "done",
+      "acceptance": "Patch_Construction 加速建造",
+      "verification": "游戏内生效"
+    },
+    {
+      "id": "core-012",
+      "title": "怪物数量/时间线倍率",
+      "status": "done",
+      "acceptance": "Patch_EnemyManager 按倍率调整怪物数量与时间线",
+      "verification": "游戏内生效"
+    },
+    {
+      "id": "core-013",
+      "title": "狂战士跟随骑士",
+      "status": "done",
+      "acceptance": "Patch_Knight 狂战士跟随骑士（护驾行为）",
+      "verification": "游戏内生效"
+    },
+    {
+      "id": "core-014",
+      "title": "共享银行",
+      "status": "done",
+      "acceptance": "Patch_Banker 银行金币共享/利息调整",
+      "verification": "游戏内生效"
+    },
+    {
+      "id": "core-015",
+      "title": "玩家移动速度倍率",
+      "status": "done",
+      "acceptance": "Patch_Mover 按 Main.speedMultiplier 加速玩家移动（仅 Player，SetGoal/SetGoalSpeed/SetGoalNoHaglet 入口乘倍率，ConditionalWeakTable 缓存 Player 身份）",
+      "verification": "游戏内生效"
+    },
+    {
+      "id": "core-016",
+      "title": "希腊草地补充",
+      "status": "done",
+      "acceptance": "Patch_World 地图扩展后按间隔生成草地（避开水面/障碍，ExpandGrass）",
+      "verification": "游戏内草地可见"
+    },
+    {
+      "id": "core-017",
+      "title": "原生池丢失修复",
+      "status": "done",
+      "acceptance": "Patch_PoolManager 强制 InitPools 重建原生池 + 重注册 mod sync 池，投币/购买不崩",
+      "verification": "游戏内投币/购买无崩溃"
+    },
+    {
+      "id": "maint-001",
+      "title": "核实 Patch_Mover.cs 用途",
+      "status": "done",
+      "acceptance": "确认用途并决定去留",
+      "verification": "已核实：玩家移动速度倍率（Main.speedMultiplier，仅 Player），保留"
+    },
+    {
+      "id": "backlog-001",
+      "title": "legacy 数值迁移-通用单位上限",
+      "status": "done",
+      "acceptance": "骑士 10 队、工匠 6 人、弓手 24 人、农民 10 人",
+      "verification": "2026-08-12 源码核实全部已对齐（Boat.maxKnights=10/maxWorkers=6/弓手=_archerPositions.Length+20/maxFarmers=10），无需 patch"
+    },
+    {
+      "id": "backlog-002",
+      "title": "legacy 数值迁移-乞丐刷新 90 秒",
+      "status": "done",
+      "acceptance": "BeggarCamp.spawnInterval 设为 209f（公式 209-119=90 秒，保留官方 -119f hack）",
+      "verification": "编译通过（Patch_BeggarCamp.cs，Awake postfix）；游戏内待实测"
+    },
+    {
+      "id": "backlog-003",
+      "title": "legacy 数值迁移-单发弓伤害 20 次",
+      "status": "done",
+      "acceptance": "ArtemisArrow._maxHitsPerArrow 设 0f（上限 0+20=恰好 20 次；原版 2+20=22）",
+      "verification": "编译通过（Patch_Artemis.cs，DamageAffectedEnemies prefix）；游戏内待实测"
+    },
+    {
+      "id": "backlog-004",
+      "title": "legacy 数值迁移-权杖控制",
+      "status": "done",
+      "acceptance": "HermesStaff._maximumConvertedTrolls 8→16（有效上限 24）；控制永久 2.0.1 原生已对齐（ShouldRevertToTroll 恒 false）不实现",
+      "verification": "编译通过（Patch_HermesStaff.cs，Awake postfix）；游戏内待实测"
+    },
+    {
+      "id": "arch-001",
+      "title": "架构审查（ArchReviewer 交叉审核）",
+      "status": "done",
+      "acceptance": "审查报告 + P0/P1 修复",
+      "verification": "P0：Patch_Mover 改 SetGoal 入口（速度倍率真正生效）、Patch_Kingdom 幂等化；P1：Main.Enabled 契约统一（PoolManager/SidedShop/WorkerScale）、银行家补员删除（NetID 903 唯一不可实现）；编译通过已部署"
+    },
+    {
+      "id": "arch-002",
+      "title": "发布前收尾：Probe 裁剪/命名对齐/文档同步",
+      "status": "done",
+      "acceptance": "6 项全部完成：Probe 删除、命名对齐（git mv）、文档同步（5 文件+MOD开发文档归档）、双 postfix 消解（Patch_Mover 改 SetGoal 入口）、build.bat 通配化+部署、OnGUI 反射缓存+120帧节流",
+      "verification": "最终编译 EXIT=0 零警告，MyMod.dll 已部署；grep PROBE 无残留；checklist JSON 校验通过"
+    },
+    {
+      "id": "maint-002",
+      "title": "Patch_Probe.cs 裁剪或加开关",
+      "status": "done",
+      "acceptance": "调试探测日志不进入发布版，或由 Main.Enabled 控制",
+      "verification": "2026-08-12 arch-002：Patch_Probe.cs 已删除，Main.cs 不再注册；编译通过"
+    },
+    {
+      "id": "maint-003",
+      "title": "mod 打包发布流程",
+      "status": "done",
+      "acceptance": "build.bat 产出 MyMod.dll，zip 打包含 Info.json/说明",
+      "verification": "2026-08-12 arch-002：build.bat 通配化（for %%F in (Main.cs Patch_*.cs) 自动收集源文件）+ 编译成功自动部署到 Mods/MyMod/；zip 打包按需手动执行"
+    },
+    {
+      "id": "feature-002",
+      "title": "2.1.0 特效池补注册（乞丐拾取修复）",
+      "status": "done",
+      "acceptance": "RegisterAllBiomePools 全 biome 池去重补注册；修复 Sparkles 缺失→UpgradeTransitionFX NRE→乞丐 Promote 中断",
+      "verification": "编译零错误已部署；游戏内待实测；reviewer 审核中"
+    },
+    {
+      "id": "feature-003",
+      "title": "2.1.0 友好巨魔控制永久",
+      "status": "done",
+      "acceptance": "ShouldRevertToTroll prefix 强制 false（2.1.0 已实现 5 秒超时，2.0.1 是原生永久）",
+      "verification": "编译零错误已部署；游戏内待实测；reviewer 审核中"
+    },
+    {
+      "id": "il2cpp-001",
+      "title": "IL2CPP 迁移（Steam 2.4.0 发布线）",
+      "status": "in_progress",
+      "acceptance": "三域全部 patch 迁移编译零错误；实机加载零异常；发布包开箱即用；MigrationReviewer 通过",
+      "verification": "M0-M3 完成（3 worker 并行）；E:/QQ 实机加载验证通过；release zip 7.6MB 产出；审核中"
+    }
+  ]
+}

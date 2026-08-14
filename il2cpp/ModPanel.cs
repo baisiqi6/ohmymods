@@ -10,7 +10,7 @@ namespace KingdomEnhancedMod;
 /// - 呼出：Ctrl+F10 或 F5（两者皆可）
 /// - 显示所有设置当前值（状态可见）+ 即时调整（ConfigEntry.Value 直改，
 ///   patch 每次读取 → 即时生效；InfiniteMoney 已有 SettingChanged 接线）
-/// - 中文界面：Font.CreateDynamicFontFromOSFont("Microsoft YaHei") 防 IMGUI 默认字体方块
+/// - 字体：保留 Unity 默认 IMGUI skin，不扫描/注入静态 TextCore 字体
 /// - 挂载：DontDestroyOnLoad 空 GameObject + 原生 ClassInjector 注册（ScaleRegistryHolder 同款模式）
 ///
 /// IL2CPP 注意：自定义 MonoBehaviour 必须 ClassInjector 注册 + IntPtr 构造（docs §5.3）。
@@ -57,43 +57,18 @@ public class ModPanel : MonoBehaviour
 
         if (_skin == null)
         {
-            _skin = ScriptableObject.Instantiate(GUI.skin);
-            var font = TryLoadCjkFont();
-            if (font != null) _skin.font = font;
+            // IL2CPP 下把 TextCore/Zpix 静态字体塞给 IMGUI 会在每次 Repaint
+            // 重试字体转换并刷 "Unable to find/load font"。固定复用 Unity 已创建的
+            // 默认 IMGUI skin，不扫描资源、不注入字体，也不调用 stripped 的
+            // Font.CreateDynamicFontFromOSFont。
+            _skin = GUI.skin;
         }
-        GUI.skin = _skin;
+        if (_skin != null) GUI.skin = _skin;
         GUILayout.BeginArea(_window, "Kingdom Enhanced Mod", GUI.skin.window);
         _scroll = GUILayout.BeginScrollView(_scroll);
         DrawControls();
         GUILayout.EndScrollView();
         GUILayout.EndArea();
-    }
-
-    /// <summary>
-    /// 加载游戏中文字体（IL2CPP 裁剪了 Font.CreateDynamicFontFromOSFont——"Method unstripping failed"）。
-    /// 游戏本地化 UI 用像素字体（日志特征 'Zpix'），从中文字体资源里选第一个可用的。
-    /// </summary>
-    private static Font TryLoadCjkFont()
-    {
-        try
-        {
-            var fonts = Resources.LoadAll<Font>("");
-            for (int i = 0; i < fonts.Length; i++)
-            {
-                var f = fonts[i];
-                if (f == null) continue;
-                string n = f.name.ToLower();
-                if (n.Contains("zpix") || n.Contains("cjk") || n.Contains("chinese") || n.Contains("han") || n.Contains("yahei"))
-                {
-                    return f;
-                }
-            }
-        }
-        catch (Exception e)
-        {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning("[Panel] CJK font load failed: " + e.Message);
-        }
-        return null;  // 找不到则用默认字体（英文/方块兜底）
     }
 
     private static void DrawControls()

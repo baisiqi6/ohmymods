@@ -185,6 +185,53 @@ UMM 21.0.32 自带 winhttp（旧 UnityDoorstop）不识别 Unity 2022.3.51f1，�
 用 BepInEx 5.4.23.3 的 winhttp.dll（x86）+ `[General] target_assembly=` 格式
 doorstop_config.ini 指向 UnityModManager.dll（详见 runbook "注入方案"）。
 
+### 15. IL2CPP 空 Nullable 字段的生成 getter 可能先于 HasValue 崩溃
+
+**症状：** 读取 `ShopPlanner.ShopPlaceQueueData.shopSide` 时，在业务代码执行
+`HasValue` 之前就从生成 getter 抛出 `NullReferenceException`；堆栈位于
+`Il2CppSystem.Nullable<T>(IntPtr)` / `CreateGCHandle`。
+
+**根因：** interop getter 会先把 native 内嵌的 `Nullable<Side>` value-box 成对象。旧存档中
+`shopSide` 为空时，该包装路径可能返回空指针并在构造 wrapper 时直接崩溃，不能用
+`field == null || !field.HasValue` 安全探测。
+
+**规则：** 当 `shopType` 已能唯一推导 side 时，不读取旧 nullable getter，直接通过 setter 写入
+`new Il2CppSystem.Nullable<Side>(expected)`。setter 会 unbox/cpblk 覆盖 native 内嵌字段。
+另外，`ShopPlanner.Start` 只初始化 prefab 映射，`coreRoutine` 在 `Init` 创建；禁止在 Start postfix
+提前调用 `TriggerShopPlanning`。旧队列交给原生 `OnLevelLoaded` 触发，新入队由
+`QueueNewShopForPlacement` 自己触发。
+
+### 16. 静态游戏字体不能直接注入新版 IMGUI/TextCore
+
+**症状：** 打开 mod IMGUI 面板后，`Player.log` 每帧重复输出
+`Unable to find a font file ... [Zpix]`、`Unable to load font face ...`，并沿
+`FontAssetFactory.ConvertFontToFontAsset -> IMGUITextHandle -> GUILayout` 形成巨量堆栈。
+
+**根因：** 游戏内置 `Zpix` 是静态像素字体，未包含 TextCore 动态生成字体面所需的数据。
+将它写入 `GUISkin.font` 后，新版 Unity 会在每次 Repaint 重试转换。为寻找该字体而调用
+`Resources.LoadAll<Font>("")` 还会强制扫描全部资源，并暴露无关的缺脚本资源警告。
+
+**规则：** IL2CPP IMGUI 默认复用 Unity 已创建的 `GUI.skin`；禁止全量扫描 Font、禁止把
+静态游戏字体写入 skin，也不调用当前二进制已 stripped 的
+`Font.CreateDynamicFontFromOSFont`。如果以后必须完整显示中文，应随 mod 提供许可允许再分发、
+包含字体数据且经当前 Unity 版本验证的动态字体资源；在此之前优先保证面板可操作和日志安静。
+
+### 17. IL2CPP 私有 helper 的内部调用可能绕过 Harmony thunk
+
+**症状：** patch 编译、加载均无报错，目标方法在反编译和 interop 中也存在，但实机业务发生多次后
+Prefix/Postfix 日志始终为 0，功能整体 no-op。狂战士序列曾挂私有
+`Worker.TryPickupBerserkerTool`，普通/队长池均正常却永远不计数。
+
+**根因：** IL2CPP 原生方法之间的内部调用不保证经过 interop runtime-invoke wrapper/Harmony 可替换
+入口；私有 helper 尤其容易由原生直接调用或内联。方法“能反射、能 patch”不等于 native caller
+会穿过该 thunk。
+
+**规则：** 优先挂已经有实机命中证据的公开稳定边界，并在入口用对象类型、工具状态、tag 与结果
+identity 收窄语义。狂战士序列改挂 `Character.Promote(DroppableTool,IUnitController)`：要求 active
+Worker、active 且未拾取的普通 BerserkerTool，只有返回角色 tag/prefab 匹配后才提交计数。
+所有新私有方法 hook 必须有至少一条一次性 entered 日志作为运行门禁；日志为 0 时先判 thunk 未命中，
+不要继续调业务条件。
+
 ## 当前 mod 功能清单
 
 | Patch 类 | 功能 | 状态 |

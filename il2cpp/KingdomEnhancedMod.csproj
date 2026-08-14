@@ -58,6 +58,10 @@
             <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\interop\UnityEngine.CoreModule.dll</HintPath>
             <Private>False</Private>
         </Reference>
+        <Reference Include="UnityEngine.AnimationModule">
+            <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\interop\UnityEngine.AnimationModule.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
         <Reference Include="UnityEngine.IMGUIModule">
             <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\interop\UnityEngine.IMGUIModule.dll</HintPath>
             <Private>False</Private>

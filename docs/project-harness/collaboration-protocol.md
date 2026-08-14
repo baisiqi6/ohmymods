@@ -3,11 +3,9 @@
 > 约定日期：2026-08-12。本项目的固定协作流程，所有 session/agent 遵守。
 > 不调用外部 coding agent CLI（Claude Code/Qoder 等）——**只用当前 agent 的 subagent**。
 >
-> **2026-08-13 增补——双端验证约定**：本 mod 同时维护 Mono 2.1.0（GOG 自用/开发）
-> 与 IL2CPP 2.4.0（Steam 发布）两条线。**任何功能/修复合入前必须双端验证**：
-> ① Mono 端：csc 编译零错误 + 启动加载无异常（GOG 2.1.0 实机日志）
-> ② IL2CPP 端：dotnet8 build 零错误 + BepInEx 加载零异常（E:/QQ 2.4.0 或 Steam 实机日志）
-> 游戏内行为冒烟由用户在双端分别执行；Operator 负责双端启动级验证与证据记录。
+> **2026-08-13 最新约定——IL2CPP 单主线**：IL2CPP 2.4.0 是唯一发布与端到端验收目标；
+> Mono 2.1.0 降级为冻结的历史/自用线。默认只要求 IL2CPP `dotnet8 build` 与独立副本实测。
+> 只有用户明确要求维护 Mono，或任务直接修改 Mono 源码时，才追加 Mono 编译/行为验证。
 
 ## 角色与模型顺位
 
@@ -55,7 +53,9 @@ Operator 分解为 2-3 个独立 slice
    不接受口头自述。
 6. **冲突裁决**：Operator 与 reviewer 结论冲突时，Operator 裁决，但必须记录理由
    （写入任务 plan 或 events）。
-7. **checklist 同步**：任务完成更新 `harness-checklist.json`，进展写 `progress.md`。
+7. **验证分流**：IL2CPP 是默认且唯一必测端；Mono 只在用户明确要求或直接触及 Mono 源码时验证。
+8. **checklist 同步**：任务完成更新 `harness-checklist.json`，进展写 `progress.md`；
+   “待实测/审核中”的 item 不得置为 done。
 
 ## 委派模板（worker）
 

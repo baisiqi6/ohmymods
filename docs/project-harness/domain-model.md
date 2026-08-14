@@ -8,12 +8,59 @@
   （BagCurrency.Reset prefix）、UI 放大 1.3x（CurrencyBag.Awake postfix）。
 - 遗留：拾取范围（吸金半径）未动——若要"吸金更猛"再改金币 collider/maxCoinPickupDistance。
 
+### D10. 商店左右方向使用显式值，并规范化旧队列（2026-08-13）
+- IL2CPP 的 `QueueNewShopForPlacement` 可选 `Nullable<Side>` 包装不能省略，也不依赖 helper 往返；
+  Ninja/ShieldShop 左右四类均显式构造 Left/Right。
+- 旧存档可能保留空值或错误方向；按 `shopType` 直接覆盖 `shopSide`，禁止先读空 nullable getter。
+- 只修改尚在队列中的条目，不移动已放置商店，不绕过 `CanShopFit`、科技年龄、地形或排斥区。
+- 不在 `ShopPlanner.Start` postfix 强制触发规划；原生 `OnLevelLoaded`/core routine 负责消费旧队列。
+
+### D11. IL2CPP 设置面板优先使用默认 IMGUI skin（2026-08-15）
+- 游戏静态 `Zpix` 不满足新版 IMGUI/TextCore 动态字体转换契约；直接注入会在每次 Repaint
+  产生两类字体错误和完整堆栈，旧日志中各出现 17,482 次。
+- 决策：不再 `Resources.LoadAll<Font>("")`，不注入 `Zpix`，固定复用 Unity 默认 `GUI.skin`。
+- 权衡：中文 glyph 覆盖由游戏默认 IMGUI 字体决定，可能显示方框；英文配置名、数值、控件和
+  F5/Ctrl+F10 保持可操作。完整中文字体作为未来独立资源任务，不以持续报错为代价。
+- 日志等级只表达诊断重要性：钱包容量保障与旧商店 side 幂等覆写继续每次执行，但重复成功信息
+  降为 Debug；不得通过跳过业务写入来“消除日志”。
+
+### D12. 宽灌木使用三个独立忍者伏击锚点（2026-08-15）
+- 一个原生 `HidingSpot` 只有一个 `_hider`；直接允许多人共享会让多个 Ninja 重叠、占用和禁用通知
+  失去一一对应关系，因此不改写 `IsOccupied/SetHider` 契约。
+- 每个 Greece 实际 thicket 创建 Left/Center/Right 三个命名子对象，local x 为
+  `-1.1/0/+1.1`，各挂一个原生 `HidingSpot`。Kingdom 仍按各自 world x 排序，Ninja 仍逐槽执行
+  未占用与城墙外过滤。
+- 父 thicket 禁用时三个组件各自 `OnDisable` 注销并通知占用者；池复用时只对不在 sided list 的
+  锚点清旧 hider 并重新登记，已登记的当前 occupant 不得被误清。
+- 兼容前一候选在 thicket 根添加的单槽：根槽可作为中心只补左右；若三命名槽已存在，则只禁用并
+  注销旧根槽，严格保持总数为 3。
+
+### D13. 狂战士六次序列以公开 Promote 结果为提交点（2026-08-15）
+- 私有 `Worker.TryPickupBerserkerTool` 的 Harmony hook 实机未命中：用户招募大量狂战士，普通与
+  Leader pool 均注册成功，但 `slot 1..6` 日志为 0。该 hook 从序列设计中移除。
+- 稳定入口改为已由 Hammer 交替实机证明命中的
+  `Character.Promote(DroppableTool,IUnitController)`；只接受 world-authority、active Worker、active
+  且尚未 pickedUp 的普通 BerserkerTool。
+- Worker 原生路径在 Promote 正常返回后没有其他失败分支，因此 Postfix 的角色 tag + effective
+  prefab identity 匹配就是成功提交点。异常、不匹配或 Leader pool 缺失均恢复 Holder 映射且不推进。
+- 与锤子交替的门禁和映射键互斥：Hammer 为 Peasant + pickedUp + `Hammer` 并改 `Worker`；本序列为
+  Worker + !pickedUp + `BerserkerTool` 并仅第六次临时改 `Berserker`。
+
+### D14. GitHub 只保存可发布工程，不保存反编译参考源码（2026-08-15）
+- 私有远端为 `https://github.com/baisiqi6/ohmymods`；用户授权每次项目改动完成并验证后执行
+  commit + push。未完成或仍在游戏运行中的中间状态不冒充已验收发布版。
+- `game-source/`、根 `Assembly-CSharp/` 与 `ktc-il.txt` 属于本机逻辑参考资料，只在开发机保留，
+  加入 `.gitignore`，且不得出现在 GitHub 可达历史中。
+- 发布 ZIP 可以保留为版本产物；若后续持续更新导致 Git 历史膨胀，优先迁移到 GitHub Releases，
+  不重新把反编译资料或运行日志塞进仓库。
+
 
 ## 关键决策（ADR 精简版）
 
-### D1. 用 UMM + Harmony v1.2，不用 BepInEx
-项目已装 UnityModManager（doorstop 指向 UnityModManager.dll）。Harmony v1.2 是 UMM 捆绑版本。
-编译用 Framework csc.exe，C# 5 语法上限。
+### D1. 架构边界：IL2CPP 单主线，Mono 冻结
+- **IL2CPP 2.4.0 发布线**：BepInEx 6 + Il2CppInterop + HarmonyX，工程位于 `il2cpp/`。
+- **Mono 2.1.0 历史/自用线**：UMM + Harmony v1.2，根目录 `Main.cs + Patch_*.cs`；默认不维护、不作为发布门禁。
+- 两端共享业务意图但不共享二进制/API 假设；2.1.0 反编译仅作逻辑说明书，2.4.0 签名以 interop 壳为准。
 
 ### D2. 商店系统接管狂战士/忍者生成，退役 hack
 - 决策：`SpawnBerserkersInGreece`/`ReplaceWithBerserker`/忍者 hack 注释保留备查，
@@ -38,11 +85,13 @@
 - 根因：希腊 12/13 槽位被狂战士商店占用，盾牌商店不存在。
 - 决策：`NpcShieldUser.SetShieldEnabled(true)` 直接装备，绕过购买流程。
 - 依据：TryPickUpShield 内部就是调 SetShieldEnabled；shield 是 prefab 序列化引用，实例化即用。
-- 时机：OnEnable（池回收时 OnDisable 自动卸盾，复用重新装备，正好互补）。
+- 时机：对象池实例完成网络注册后，由 world authority 幂等装备。禁止在 OnEnable 直接发送 RPC；
+  该时点 `parentHeaderRef` 尚未建立，会造成 NRE 与半提交状态。
 
-### D6. hook 点全部用 OnEnable
+### D6. 本地生命周期用 OnEnable，网络动作等待注册完成
 - 对象池游戏：Pool.Spawn 复用对象走 SetActive(true)，只有 OnEnable 每次出生都触发，
   Awake/Start 只在首次创建跑一次。
+- OnEnable 适用于缩放登记等纯本地初始化；涉及 CRPC 的动作必须延迟到 NetworkPostbox 注册完成后。
 - 教训：v1 挂 Start 完全没触发（Worker/Peasant 类根本没有 Start 方法！），
   v2 挂 OnEnable 一次性设置被 Mover 覆盖，v3（当前）OnEnable 登记 + Mover postfix 每帧守护。
 
