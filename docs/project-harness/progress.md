@@ -11,6 +11,10 @@
   `https://github.com/baisiqi6/ohmymods` 并配置为 `origin`；首次 push 被历史中的 123.77 MB
   `ktc-il.txt` 拒绝。按用户补充要求，`game-source/`、`Assembly-CSharp/` 与 `ktc-il.txt` 只保留
   本机并加入 `.gitignore`，首次上传前从可推送历史中移除，不上传反编译参考源码。
+- 清理后的 `master` 与 `agent/post-release-candidate` 已推送成功，草稿 PR 为
+  `https://github.com/baisiqi6/ohmymods/pull/1`。`master` 保存首发前历史基线，候选分支保存当前全部
+  改动；PR 保持 Draft，直到三个 doing 项的游戏内门禁通过。历史中的旧发布 ZIP 约 67.85 MB，
+  GitHub 仅给出大文件警告，未阻断；后续正式包优先考虑转入 GitHub Releases，避免 Git 历史膨胀。
 
 ## 2026-08-15 — log-hygiene-004：候选已部署，待实机验证
 

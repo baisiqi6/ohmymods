@@ -16,7 +16,7 @@
       "blocked_reason": null,
       "acceptance": "打开并操作设置面板后不再持续产生Zpix TextCore/IMGUI字体错误；钱包容量与左右商店修复逻辑保持不变，重复成功日志限流或降级；IL2CPP构建通过并仅部署独立测试副本。",
       "verification": "旧Player.log已确认Zpix两类字体错误各17482次。移除Font全量扫描/Zpix注入并降噪后，新一轮Player.log为74KB且两类错误均为0；独立reviewer静态APPROVED。当前合并三槽灌木与狂战士修复的构建/独立副本DLL SHA-256均为88CE41D4D27C21F0B7BDB1D90A1286F9A0FAF1964225338E8487F7FD90B3821F。仍待用户明确确认面板中文显示/控件操作。",
-      "handoff": "候选已仅部署独立副本。完整重启并打开面板停留、切场景，确认无IMGUITextHandle/Zpix级联且控件可用；不把游戏原生uGUI BestFit警告误判为回归。Steam、共享存档与zip未修改。玩家版候选状态已汇总到release/MOD_UPDATE_AND_FIX_LOG_ZH.txt。",
+      "handoff": "候选已仅部署独立副本。完整重启并打开面板停留、切场景，确认无IMGUITextHandle/Zpix级联且控件可用；不把游戏原生uGUI BestFit警告误判为回归。Steam、共享存档与zip未修改。玩家版状态见release/MOD_UPDATE_AND_FIX_LOG_ZH.txt；代码已推送到Draft PR #1。",
       "workflow": {
         "status": "review_approved",
         "updated_at": "2026-08-15"
@@ -48,7 +48,7 @@
       "blocked_reason": null,
       "acceptance": "希腊世界在忍者使用前确定性注册ThrowingStar与Smokebomb依赖池；每个成熟宽灌木提供3个左右错开的独立HidingSpot并正确处理池禁用/复用；忍者连续战斗及烟雾撤退无池缺失/NRE且天亮恢复钓鱼形态；夜行忍者y=1.1、希腊银行家y=1.075并且只改y；reviewer通过、构建成功、独立副本日志与行为实测通过。",
       "verification": "新一轮独立副本日志确认ThrowingStar与Smokebomb池成功注册，相关Pool not found与NullReferenceException均为0。每个宽灌木3个错开独立锚点实现已获独立reviewer静态APPROVED；operator IL2CPP Debug构建0 warning/0 error。当前合并狂战士公开Promote修复的构建与独立副本DLL SHA-256均为88CE41D4D27C21F0B7BDB1D90A1286F9A0FAF1964225338E8487F7FD90B3821F。",
-      "handoff": "三槽灌木候选已仅部署独立副本；实测三忍者占位、禁用解绑、跨侧池复用、昼夜恢复与缩放。禁止修改Steam或共享存档，未验证前不重打zip。玩家版候选状态已汇总到release/MOD_UPDATE_AND_FIX_LOG_ZH.txt。",
+      "handoff": "三槽灌木候选已仅部署独立副本；实测三忍者占位、禁用解绑、跨侧池复用、昼夜恢复与缩放。禁止修改Steam或共享存档，未验证前不重打zip。玩家版状态见release/MOD_UPDATE_AND_FIX_LOG_ZH.txt；代码已推送到Draft PR #1。",
       "workflow": {
         "status": "review_approved",
         "updated_at": "2026-08-15"
@@ -80,7 +80,7 @@
       "blocked_reason": null,
       "acceptance": "工匠成功使用普通 BerserkerTool 的第1-5次生成普通狂战士、第6次生成 BerserkerLeader并循环；仅成功转职计数且换岛延续、完整退出重置；隐士不再被敌人选取或抓走但不免疫伤害、不改变其他战利品；reviewer通过、IL2CPP构建成功、独立副本实测无相关异常。",
       "verification": "用户实测招募大量狂战士仍无队长；日志确认普通与BerserkerLeader池均注册成功，但slot日志为0，证明私有Worker.TryPickupBerserkerTool hook未命中。已删除私有hook/context并迁移到Hammer实机证明命中的公开Character.Promote(DroppableTool,IUnitController)，仅active Worker+active未拾取普通BerserkerTool且结果tag/effective prefab匹配后推进。独立reviewer静态APPROVED；operator Debug构建0 warning/0 error，构建与独立副本DLL SHA-256均为88CE41D4D27C21F0B7BDB1D90A1286F9A0FAF1964225338E8487F7FD90B3821F。隐士补丁仍待实机。",
-      "handoff": "狂战士公开Promote修复已仅部署独立副本；先连续招募1..6并看slot日志/队长，第7回普通，再测换岛/重启和隐士。禁止修改Steam或共享存档，未验证前不重打zip。玩家版候选状态已汇总到release/MOD_UPDATE_AND_FIX_LOG_ZH.txt。",
+      "handoff": "狂战士公开Promote修复已仅部署独立副本；先连续招募1..6并看slot日志/队长，第7回普通，再测换岛/重启和隐士。禁止修改Steam或共享存档，未验证前不重打zip。玩家版状态见release/MOD_UPDATE_AND_FIX_LOG_ZH.txt；代码已推送到Draft PR #1。",
       "workflow": {
         "status": "review_approved",
         "updated_at": "2026-08-15"
