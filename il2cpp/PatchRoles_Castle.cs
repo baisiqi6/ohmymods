@@ -307,6 +307,11 @@ public static class PatchRoles_Castle
         {
             if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
 
+            // Cerberus' two Norse-visual Greece-logic pools do not depend on
+            // Holder tags and must be registered on host and clients even when
+            // PoolManager.Init runs before Holder.InitializeTagCharacterPairs.
+            PatchDivine_GhostSquads.EnsurePools();
+
             // Holder 未就绪（Init 早于 Holder.InitializeTagCharacterPairs）时静默跳过——
             // 角色池由 Holder postfix 补注册（ReRegisterModPools 幂等），避免时序噪音错误。
             var holder = Managers.Inst != null ? Managers.Inst.holder : null;
@@ -422,6 +427,9 @@ public static class PatchRoles_Castle
             if (_nextPoolSyncId >= BANK_ASSISTANT_SYNC_ID_MIN
                 && _nextPoolSyncId <= BANK_ASSISTANT_SYNC_ID_MAX)
                 _nextPoolSyncId = BANK_ASSISTANT_SYNC_ID_MAX + 1;
+            if (_nextPoolSyncId >= PatchDivine_GhostSquads.SyncIdMin
+                && _nextPoolSyncId <= PatchDivine_GhostSquads.SyncIdMax)
+                _nextPoolSyncId = PatchDivine_GhostSquads.SyncIdMax + 1;
             pool.syncID = (short)_nextPoolSyncId++;
 
             if (pm.cachedPools != null && !pm.cachedPools.Contains(pool)) pm.cachedPools.Add(pool);

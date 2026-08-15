@@ -201,3 +201,20 @@ Ninja 有完整的 `ShopType.NinjaLeft(7)` / `NinjaRight(8)` 枚举值，走标�
 Ninja hack 版本里替换的目标是 `WarriorPeasant`（武装农民/民兵），不是 `Worker`。这是 mod 演进过程中选择的替换目标。
 
 **自洽方案不需要替换任何单位**——玩家在忍者商店花钱购买即可。
+
+---
+
+## Cerberus 亡灵小队（IL2CPP 候选）
+
+2.4 Cerberus 的 `SummonGhostSteedAbility` 原生配置是一名 Greece leader 加四名 Greece archer。
+原生队长与弓箭手协程共享一个 `_spawnedLeader`，因此不能把字段直接改成4/16；那样只有最后一名队长
+能稳定成为十六名弓箭手的归属目标。
+
+候选实现保留原生1+4，等首队完成后再生成三支独立1+4，每支用自己的局部leader引用调用
+`AddToFormation`。补充单位仍设置原能力为GhostHolder、原骑手为Summoner、启动原生死亡倒计时并加入
+`_activeGhosts`，所以能力的原生回收入口仍覆盖全部20名单位。
+
+北境神器的亡灵虽然使用相同编队接口，AI并不相同：北境版本跟随玩家并按Duration回收，Greece子类
+主动向外作战并按离玩家距离回收。两支北境外观队因此由inactive Greece prefab克隆，只复制北境动画、
+精灵和材质，具体行为组件仍是Greece子类。两个视觉池固定使用syncID30130/30131；原生北境弓箭手池
+在2.4资源中与FleetBoat存在syncID冲突，不得直接跨世界注册。

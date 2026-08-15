@@ -15,6 +15,7 @@ KingdomEnhancedPlugin.cs  BepInEx 6 插件入口、HarmonyX 注册
 ModConfig.cs / ModPanel.cs 配置持久化与游戏内面板
 PatchEconomy_*.cs         钱包、银行家、商店等经济域
 PatchRoles_*.cs           Holder、角色池、转职、工匠、盾牌等角色域
+PatchDivine_*.cs          神器、友好巨魔与 Cerberus 亡灵小队等神力域
 PatchWorld_*.cs           移动、建造、地图、敌人和神器等世界战斗域
 ```
 
