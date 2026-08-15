@@ -1,3 +1,9 @@
+## 2026-08-16 — 主银行家提款目标 39 → 100
+
+- 当前2.4资源的`playerMaxCoins=39`与Mod钱包容量2000不匹配；原生提款量为`min(ceil(国库*0.25)+银行家随身金币, playerMaxCoins-玩家金币)`，并以每0.15秒1枚生成物理金币。
+- 为避免直接提高到2000导致最长约5分钟持续吐币和大量物理对象，本候选只把Enabled状态下的目标提高到100；25%比例、逐枚节奏、账本与助手逻辑不改。
+- WorkProfile新增原`playerMaxCoins`捕获，Mod Disabled时与扫描/速度参数一并恢复，避免同一Banker实例残留增强值。Debug构建0 warning/0 error，独立静态审查APPROVED；等待干净提交重建、独立副本部署与提款实测。
+
 ## 2026-08-15 — fleetboat-recovery-009：候选已部署，等待实机验证
 
 - 用户提供的异常存档显示四个 `GodIsland*` 神像交付任务均 completed，但 carryForward 小船数为 0、

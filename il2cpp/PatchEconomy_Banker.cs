@@ -23,7 +23,7 @@ namespace KingdomEnhancedMod;
 ///   - Banker.ShouldHide(): private bool —— 存在。
 ///   - 字段（interop 暴露为 public 属性，替代 Mono 反射）：_wallet(Wallet)、_stashedCoins(int)、
 ///     coinScanRange(float)、_coinScanner(Scanner)、coinGatherTargetPercentage(float)、
-///     walkSpeed(float)、runSpeed(float) —— 全部存在。
+///     walkSpeed(float)、runSpeed(float)、playerMaxCoins(int) —— 全部存在。
 ///   - Scanner.range / rangeBehind / _interval —— 存在。
 ///   - Castle.SetStash(int): public void —— 存在。
 ///
@@ -38,6 +38,7 @@ namespace KingdomEnhancedMod;
 public static class PatchEconomy_Banker
 {
     private const string SHARED_STASH_KEY = "MyMod_SharedBankStash";
+    private const int ENHANCED_PLAYER_PAYOUT_TARGET = 100;
     private static int _sharedStash = -1;
     private static int _primedBankerId;
     private static int _lastObservedStash;
@@ -54,6 +55,7 @@ public static class PatchEconomy_Banker
         public float WalkSpeed;
         public float RunSpeed;
         public float WanderRange;
+        public int PlayerMaxCoins;
         public Scanner Scanner;
         public float ScannerRange;
         public float ScannerRangeBehind;
@@ -153,6 +155,7 @@ public static class PatchEconomy_Banker
             WalkSpeed = banker.walkSpeed,
             RunSpeed = banker.runSpeed,
             WanderRange = banker.wanderRange,
+            PlayerMaxCoins = banker.playerMaxCoins,
             Scanner = scanner,
             ScannerRange = scanner != null ? scanner.range : 0f,
             ScannerRangeBehind = scanner != null ? scanner.rangeBehind : 0f,
@@ -172,6 +175,7 @@ public static class PatchEconomy_Banker
         banker.walkSpeed = 1.95f;
         banker.runSpeed = 3.6f;
         banker.wanderRange = 8.75f;
+        banker.playerMaxCoins = ENHANCED_PLAYER_PAYOUT_TARGET;
         ConfigureScannerForDomain(banker);
         profile.Enhanced = true;
     }
@@ -223,6 +227,7 @@ public static class PatchEconomy_Banker
         banker.walkSpeed = profile.WalkSpeed;
         banker.runSpeed = profile.RunSpeed;
         banker.wanderRange = profile.WanderRange;
+        banker.playerMaxCoins = profile.PlayerMaxCoins;
         Scanner scanner = banker._coinScanner;
         if (scanner != null && scanner == profile.Scanner)
         {
