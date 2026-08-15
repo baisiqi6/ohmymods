@@ -22,7 +22,8 @@
   x=37.96。死亡前旧正常档证明四船本应保持同一侧并按 BoatNumber 约1单位错开，问题是原生换岛生成后没有完成横向归位。
 - 第二阶段已实现并经独立 reviewer 静态 APPROVED：ApplyToScene 后由单批次runner等待2～4艘船全部 Idle、编号唯一、
   原生side/base及Mover/FSM有效，再仅调用一次原生 `UpdateBase(true)`。不改side、状态、坐标、数量、任务、standby、
-  carryForward、对象池或RPC；活动/编队/航行状态只等待或超时。Debug构建0 warning/0 error，待干净提交重建并部署独立副本实测。
+  carryForward、对象池或RPC；活动/编队/航行状态只等待或超时。提交`e643d9f`已推送；从干净提交重建0 warning/0 error，
+  并在游戏未运行时只部署独立测试副本。构建/部署DLL SHA-256=`8A829791422A575A4157DC036F943DC7446FE8C98600D080BA686A57E5A6F039`，待实机。
 
 ## 2026-08-15 — role-qol-001：马厩隐士 y=1.10 已部署独立副本
 
