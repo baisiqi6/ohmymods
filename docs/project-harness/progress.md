@@ -1,4 +1,4 @@
-## 2026-08-15 — fleetboat-recovery-009：静态通过，准备干净提交后部署
+## 2026-08-15 — fleetboat-recovery-009：候选已部署，等待实机验证
 
 - 用户提供的异常存档显示四个 `GodIsland*` 神像交付任务均 completed，但 carryForward 小船数为 0、
   所有岛无 FleetBoatSaveData，且最近载入为死亡换君主后的 sailingIn。已在游戏未运行时备份原始
@@ -9,9 +9,10 @@
   计算缺口。四个 GodIsland 交付任务给出 0～4 所有权下限，绝不把 active/standby/carry 相加。
 - standby 与 active 严格互斥恢复；riverless/前置不完整或首个生成失败时才在零 active 状态回退 standby，
   active 部分成功后不混写 standby。生成只复用当前 biome 原生同步池，无新 RPC/syncID/sidecar。
-- worker 与独立 reviewer 静态 APPROVED；当前 Debug 构建 0 warning / 0 error，DLL SHA-256=
-  `541C000DDE6361EA2859E6745EE419CA82025EE5844A5F5E59ABC3EF2BC3F073`。尚未部署；先提交源码，
-  再从干净提交重建并只覆盖独立测试副本。当前公开 zip 未刷新，运行时任务保持 doing。
+- worker 与独立 reviewer 静态 APPROVED；源码提交 `7710977` 已推送。随后从干净提交重新 Debug 构建，
+  0 warning / 0 error，并在确认游戏未运行后只覆盖独立测试副本。构建与部署 DLL SHA-256 均为
+  `774F5ACFF413C76493456596ADE35D905C58CC9299F054747266FF2CF09607F3`。当前公开 zip 未刷新，
+  运行时任务保持 doing，等待异常档首次恢复、重复读档、换岛和死亡重生门禁。
 
 ## 2026-08-15 — candidate-package-007：友好巨魔与视觉微调候选已刷新
 
