@@ -11,8 +11,8 @@
 - 最终最小补丁仅在 `Boat.OnEnable` 原生注册调用期间临时写四个容量，注册完成或异常时恢复原字段，
   避免同一主船对象在关闭 Mod 后继续残留增强值。Debug 构建 0 warning / 0 error，
   DLL SHA-256=`DF1B21214D487F7AFEBFCD2E606301B1B4CB8BA40ED773BAE2DC58594A0B5772`；
-  独立 reviewer 静态 APPROVED；尚待独立副本实测。小船、Mono、Steam、共享存档和当前正式 zip
-  均未修改。
+  独立 reviewer 静态 APPROVED；代码提交 `c27d244` 已推送候选分支并进入现有 Draft PR #1，尚待
+  独立副本实测。小船、Mono、Steam、共享存档和当前正式 zip 均未修改。
 
 ## 2026-08-15 — 银行助手系统（进行中）
 
