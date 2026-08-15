@@ -15,8 +15,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "先以完全放行原版、每Registrar最多4条日志的ReassignClaimers探针证明2.4原生调用真实命中并记录居民/工具规模与耗时；只有连续约3秒命中后，才以独立JobAssigner和原生评分实现高人口稀疏反向分配，不改全局JobAssigner及其他工作系统。",
-      "verification": "探针提交20c457b已部署且实机通过：命中582 carriers、7～8 droppables，后三次约3秒间隔，原版耗时10.352/9.678/9.051ms。第二阶段已按原生CalculateCarrierScore、独立JobAssigner、高人口/稀疏门槛及两阶段SetDroppableTarget实现；与Horn隐士y=1.15一起禁部署构建0 warning/0 error，DLL SHA-256=1D66F17E47EE4F330BE7B3CC2AE6E4C48D0921A6E243E682191F12D77764AF24。",
-      "handoff": "第二阶段尚未部署。部署后验证唯一replacement摘要耗时、工具一对一/资格/claim/开关，并重点重复切岛；此前一次切岛WER为coreclr栈溢出但无探针异常，不能仅凭一次事件归因。",
+      "verification": "探针实机命中582 carriers、7～8 droppables，原版耗时10.352/9.678/9.051ms。第二阶段按原生评分、独立JobAssigner、高人口/稀疏门槛及两阶段SetDroppableTarget实现，提交147ea44已推送；用户退出后从该提交重建0 warning/0 error并只部署独立副本，构建/部署DLL SHA-256均为2CE66091A760E0ECE0455B5B2599371156CB295EDC8E2522FEE7F292D72ADF09。",
+      "handoff": "第二阶段已部署。验证唯一replacement摘要耗时、工具一对一/资格/claim/开关，并重点重复切岛；此前一次切岛WER为coreclr栈溢出但无探针异常，不能仅凭一次事件归因。",
       "workflow": {"status": "running", "updated_at": "2026-08-16"},
       "lease": {"owner": "codex", "session": "codex-2026-08-16-tool-assignment-015", "acquired_at": "2026-08-16T03:00:00+08:00", "expires_at": "2026-08-17T03:00:00+08:00", "ttl_minutes": 1440},
       "artifacts": {"plan": "docs/project-harness/tasks/tool-assignment-015/plan.md", "code": "il2cpp/PatchPerformance_ToolAssignment.cs"},
@@ -366,8 +366,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "工匠成功使用普通 BerserkerTool 的第1-5次生成普通狂战士、第6次生成 BerserkerLeader并循环；仅成功转职计数且换岛延续、完整退出重置；隐士不再被敌人选取或抓走但不免疫伤害、不改变其他战利品；HermitType.Baker酿酒师与HermitType.Horn号角隐士绝对缩放为1.15，HermitType.Horse马厩隐士绝对缩放为1.10，其他隐士、朝向、能力不变；IL2CPP构建成功、独立副本实测无相关异常。",
-      "verification": "狂战士公开Promote修复已由用户确认。Baker酿酒师y=1.15与Horse马厩隐士y=1.10已实现并部署；本轮2.4枚举确认Horn为独立类型，新增Horn OnEnable绝对y=1.15、ScaleRegistry登记及OnDestroy精确注销，x/z和其他隐士零改。与稀疏工具分配一起禁部署构建0 warning/0 error，DLL SHA-256=1D66F17E47EE4F330BE7B3CC2AE6E4C48D0921A6E243E682191F12D77764AF24；Horn尚未部署/实机。",
-      "handoff": "狂战士循环已通过用户验收；Horn y=1.15源码候选待提交与独立副本部署，随后验证Baker/Horn=1.15、Horse=1.10、其他隐士不变。Steam、共享存档和现行zip未修改。",
+      "verification": "狂战士公开Promote修复已由用户确认。Baker酿酒师y=1.15与Horse马厩隐士y=1.10已实现并部署；本轮2.4枚举确认Horn为独立类型，新增Horn OnEnable绝对y=1.15、ScaleRegistry登记及OnDestroy精确注销，x/z和其他隐士零改。提交147ea44已推送；从该提交重建0 warning/0 error并只部署独立副本，构建/部署DLL SHA-256均为2CE66091A760E0ECE0455B5B2599371156CB295EDC8E2522FEE7F292D72ADF09。",
+      "handoff": "狂战士循环已通过用户验收；Horn y=1.15已部署独立副本，下一步验证Baker/Horn=1.15、Horse=1.10、其他隐士不变。Steam、共享存档和现行zip未修改。",
       "workflow": {
         "status": "running",
         "updated_at": "2026-08-16"
