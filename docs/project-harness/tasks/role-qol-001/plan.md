@@ -34,4 +34,8 @@
 - 正在将来源判别、计数和第六次临时映射迁移到已被 Hammer 路径实机证明命中的公开
   `Character.Promote(DroppableTool, IUnitController)`。实现已完成并获独立 reviewer 静态 APPROVED；
   Debug 构建 0 warning/0 error，合并三槽灌木后的 DLL SHA-256=
-  `88CE41D4D27C21F0B7BDB1D90A1286F9A0FAF1964225338E8487F7FD90B3821F`。游戏退出后已仅部署独立副本，构建/部署哈希一致。
+  `88CE41D4D27C21F0B7BDB1D90A1286F9A0FAF1964225338E8487F7FD90B3821F`。后续包含全部候选改动的
+  DLL SHA-256=`6E0C474B9D665CB2649F00071C2D02C09B44A0DACF3E49057D462E3D9EAE5AE0`，已仅部署独立副本且
+  构建/部署哈希一致。用户复测确认狂战士序列没有问题，公开 Promote 修复的游戏内门禁通过；
+  换岛延续/完整退出重置未单独留证。当前组合任务只剩隐士防绑架实测，仍不修改 Steam/共享存档，
+  不提前重打 zip。
