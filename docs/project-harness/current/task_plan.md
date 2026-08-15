@@ -1,11 +1,11 @@
 # Current Task Plan
 
-- Item: `ghost-squads-013`
+- Item: `ability-cooldowns-014`
 - Status: `doing`
 - Owner: `codex`
-- Session: `codex-2026-08-16-ghost-squads-013`
-- Goal: 把希腊 Cerberus 坐骑的一次召唤扩展为四支独立亡灵小队，共4名骑士与16名弓箭手；两支希腊队保留主动向外作战/距离回收，两支北境队保留跟随君主/原生30秒生命周期。
+- Session: `codex-2026-08-16-ability-cooldowns-014`
+- Goal: 把 HermesStaff 与 Cerberus 亡灵召唤的2.4.0原生30秒冷却统一微调为22.5秒。
 - Authority: 用户明确授权实现；只改 IL2CPP 发布线。游戏运行中不得部署或替换 DLL。
-- Scope: 保留原生希腊1+4并补一支希腊1+4、两支北境1+4；北境完整行为克隆池固定使用30130/30131并写入原生30秒Duration，不新增RPC，不修改Mono。
-- Validation: 修订源码提交0cd629e已推送；干净构建0 warning/0 error并部署独立副本，构建/部署DLL SHA-256均为024ADAC7...64A39。正在刷新候选包；运行时须验证20名单位、四个独立编队、两套AI、各自回收与联机池同步。
-- Plan: `docs/project-harness/tasks/ghost-squads-013/plan.md`
+- Scope: 只改冷却；法杖控制数量/永久性及亡灵数量/行为/持续时间/回收/RPC/池均不变，不修改Mono。
+- Validation: 资源实读确认两者均为30秒；目标22.5秒。初始禁部署Debug构建0 warning/0 error；等待提交、干净重建、独立副本部署与候选包刷新。
+- Plan: `docs/project-harness/tasks/ability-cooldowns-014/plan.md`

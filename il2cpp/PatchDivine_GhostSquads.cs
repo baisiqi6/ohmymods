@@ -16,9 +16,12 @@ namespace KingdomEnhancedMod;
 /// The Norselands prefabs are cloned while inactive into deterministic custom
 /// synced pools because the native 2.4 archer pool ID collides with FleetBoat.
 /// All twenty ghosts remain tracked by the Cerberus ability for cleanup.
+/// Cerberus cooldown is 22.5 seconds while the mod is enabled, instead of 30.
 /// </summary>
 public static class PatchDivine_GhostSquads
 {
+    private const float OriginalCerberusCooldownSeconds = 30f;
+    private const float EnhancedCerberusCooldownSeconds = 22.5f;
     internal const int SyncIdMin = 30130;
     internal const int SyncIdMax = 30131;
 
@@ -263,6 +266,14 @@ public static class PatchDivine_GhostSquads
         ability.StartCoroutine(SpawnSupplementalSquads(ability).WrapToIl2Cpp());
     }
 
+    internal static void ApplyCooldownProfile(SummonGhostSteedAbility ability)
+    {
+        if (ability == null) return;
+        ability._cooldown = ModConfig.Enabled.Value
+            ? EnhancedCerberusCooldownSeconds
+            : OriginalCerberusCooldownSeconds;
+    }
+
     private static IEnumerator SpawnSupplementalSquads(SummonGhostSteedAbility ability)
     {
         float deadline = Time.time + 3f;
@@ -386,9 +397,35 @@ public static class PatchDivine_GhostSquads
 [HarmonyPatch(typeof(SummonGhostSteedAbility), nameof(SummonGhostSteedAbility.Activate))]
 public static class SummonGhostSteedAbility_ExpandedSquads_Patch
 {
+    [HarmonyPrefix]
+    public static void Activate_Prefix(SummonGhostSteedAbility __instance)
+    {
+        PatchDivine_GhostSquads.ApplyCooldownProfile(__instance);
+    }
+
     [HarmonyPostfix]
     public static void Activate_Postfix(SummonGhostSteedAbility __instance)
     {
         PatchDivine_GhostSquads.AfterActivate(__instance);
+    }
+}
+
+[HarmonyPatch(typeof(SummonGhostSteedAbility), nameof(SummonGhostSteedAbility.RemoveActiveGhost))]
+public static class SummonGhostSteedAbility_RemoveActiveGhost_Cooldown_Patch
+{
+    [HarmonyPrefix]
+    public static void Prefix(SummonGhostSteedAbility __instance)
+    {
+        PatchDivine_GhostSquads.ApplyCooldownProfile(__instance);
+    }
+}
+
+[HarmonyPatch(typeof(SummonGhostSteedAbility), nameof(SummonGhostSteedAbility.DespawnUnits))]
+public static class SummonGhostSteedAbility_DespawnUnits_Cooldown_Patch
+{
+    [HarmonyPrefix]
+    public static void Prefix(SummonGhostSteedAbility __instance)
+    {
+        PatchDivine_GhostSquads.ApplyCooldownProfile(__instance);
     }
 }

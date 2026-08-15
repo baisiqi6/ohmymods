@@ -10,6 +10,7 @@ namespace KingdomEnhancedMod;
 ///      见 Mono 版 Patch_HermesStaff 对 `+8` 余量的分析）。
 ///   2. 控制永久：FriendlyTroll.ShouldRevertToTroll() prefix 强制返回 false 并跳过原方法
 ///      （revert 永不触发）；mod 关闭时返回 true 走原逻辑（可开关）。
+///   3. 2.4.0 基础冷却 30 秒 → 22.5 秒；关闭 mod 后在下一次可用性检查恢复 30 秒。
 ///
 /// 2.4.0 签名验证（E:/QQ/.../BepInEx/interop/Assembly-CSharp.dll）：
 ///   - HermesStaff.Awake()                存在 ✓ public override void
@@ -21,15 +22,54 @@ namespace KingdomEnhancedMod;
 [HarmonyPatch(typeof(HermesStaff))]
 public static class PatchDivine_HermesStaff
 {
+    private const float OriginalCooldownSeconds = 30f;
+    private const float EnhancedCooldownSeconds = 22.5f;
+
+    private static void ApplyCooldownProfile(HermesStaff staff)
+    {
+        if (staff == null) return;
+        staff._itemCooldown = ModConfig.Enabled.Value
+            ? EnhancedCooldownSeconds
+            : OriginalCooldownSeconds;
+    }
+
     [HarmonyPatch(nameof(HermesStaff.Awake))]
     [HarmonyPostfix]
     public static void HermesStaff_Awake_Postfix(HermesStaff __instance)
     {
-        if (!ModConfig.Enabled.Value) return;
-
         try
         {
+            ApplyCooldownProfile(__instance);
+            if (!ModConfig.Enabled.Value) return;
             __instance._maximumConvertedTrolls = 16;
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+        }
+    }
+
+    [HarmonyPatch(nameof(HermesStaff.CanActivate))]
+    [HarmonyPrefix]
+    public static void HermesStaff_CanActivate_Prefix(HermesStaff __instance)
+    {
+        try
+        {
+            ApplyCooldownProfile(__instance);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+        }
+    }
+
+    [HarmonyPatch(nameof(HermesStaff.TriggerItemAbility))]
+    [HarmonyPrefix]
+    public static void HermesStaff_TriggerItemAbility_Prefix(HermesStaff __instance)
+    {
+        try
+        {
+            ApplyCooldownProfile(__instance);
         }
         catch (Exception e)
         {
