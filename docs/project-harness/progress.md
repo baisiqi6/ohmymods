@@ -1,3 +1,14 @@
+## 2026-08-15 — candidate-package-007：综合测试候选包已生成
+
+- 重新打包当前综合候选，包含酿酒师 y=1.15、银行助手行为版、主船原生兵种扩容及此前候选改动；
+  包内文档已统一说明“本测试候选包已包含、仍待实机门禁、尚未转为公开稳定能力”。
+- 最终 zip SHA-256=`952FB1ECF3EEE011FA2AF8FC0956D13069D24EA5777C31EAA980692497D2087F`，
+  40,558,266 bytes / 312 entries；manifest commit=`8ea703b1c9f4ed045608cc0b1594b773e849cfbb`、Dirty=false。
+  构建、独立副本、包内 DLL SHA-256 三方均为
+  `C4003C445EAC67037C1BD295BBAD7E21B8A68E00C3DA900037E26F0BF8C683E0`。
+- 插件 DLL 恰 1、root dotnet 187、BepInEx/dotnet 0、版本顶层目录 0、required entries 无缺失、
+  20 个文本项严格 UTF-8 全通过；独立 reviewer APPROVED。Steam、共享存档、Mono 未修改。
+
 ## 2026-08-15 — role-qol-001：酿酒师隐士 1.15 倍候选已构建
 
 - 当前版本的酿酒师外观对应 `HermitType.Baker`。新补丁只在该隐士启用或对象池复用时，把 y 轴

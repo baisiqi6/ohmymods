@@ -6,7 +6,7 @@
     {
       "id": "candidate-package-007",
       "title": "生成并验收 2026-08-15 综合候选包",
-      "status": "doing",
+      "status": "done",
       "priority": "p0",
       "owner": "codex",
       "selected_in_session": "codex-2026-08-15-candidate-package-007",
@@ -15,10 +15,10 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "生成游戏根目录直装IL2CPP候选zip；构建、独立副本、zip内DLL哈希一致；root dotnet存在且无BepInEx/dotnet重复runtime、无版本顶层目录；最新三份中文文档与manifest存在；独立reviewer批准。",
-      "verification": "当前构建与独立副本DLL SHA-256均为C4003C445EAC67037C1BD295BBAD7E21B8A68E00C3DA900037E26F0BF8C683E0，待重新打包与zip结构复核。",
-      "handoff": "该包仅供用户实测当前综合候选；运行时功能任务仍保持doing，不修改Steam、共享存档或Mono，不把反编译参考源码纳入包或Git。",
+      "verification": "最终zip SHA-256=952FB1ECF3EEE011FA2AF8FC0956D13069D24EA5777C31EAA980692497D2087F，40,558,266 bytes，312 entries；manifest commit=8ea703b1c9f4ed045608cc0b1594b773e849cfbb且Dirty=false。构建、独立副本、zip内DLL SHA-256三方均为C4003C445EAC67037C1BD295BBAD7E21B8A68E00C3DA900037E26F0BF8C683E0。插件DLL恰1、root dotnet 187、BepInEx/dotnet 0、版本顶层目录0、required entries无缺失、20个文本项严格UTF-8通过；独立reviewer APPROVED。",
+      "handoff": "综合测试候选包已生成并获独立reviewer批准，可交用户实测。包内文档明确候选功能已包含但尚待实机门禁，不等同公开稳定版；运行时功能任务继续保持doing。Steam、共享存档、Mono和反编译参考源码均未修改或打包。",
       "workflow": {
-        "status": "running",
+        "status": "closed",
         "updated_at": "2026-08-15"
       },
       "lease": {
@@ -32,7 +32,7 @@
         "plan": "docs/project-harness/tasks/candidate-package-007/plan.md"
       },
       "review": {
-        "decision": null
+        "decision": "approved"
       }
     },
     {

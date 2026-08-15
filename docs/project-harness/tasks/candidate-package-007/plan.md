@@ -21,5 +21,7 @@
 
 ## 当前交接
 
-- 当前构建与独立副本 DLL SHA-256 均为 `C4003C445EAC67037C1BD295BBAD7E21B8A68E00C3DA900037E26F0BF8C683E0`。
-- 用户要求先重新打包用于外观和行为实测；运行时功能任务继续保持 doing，不因生成候选 zip 自动关闭。
+- 最终 zip SHA-256=`952FB1ECF3EEE011FA2AF8FC0956D13069D24EA5777C31EAA980692497D2087F`，
+  40,558,266 bytes / 312 entries；manifest commit=`8ea703b1c9f4ed045608cc0b1594b773e849cfbb`、Dirty=false。
+- 构建、独立副本与包内 DLL SHA-256 均为 `C4003C445EAC67037C1BD295BBAD7E21B8A68E00C3DA900037E26F0BF8C683E0`。
+- 独立 reviewer APPROVED。用户可用该包实测外观和行为；运行时功能任务继续保持 doing，不因生成候选 zip 自动关闭。
