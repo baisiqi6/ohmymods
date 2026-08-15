@@ -27,6 +27,9 @@ public static class PatchEconomy_BankAssistants
     internal const float TELEPORT_APPROACH_DISTANCE = 2f;
     internal const float PICKUP_DISTANCE = 0.22f;
     internal const float ASSISTANT_RUN_SPEED = 3.2f;
+    internal const float ASSISTANT_PATROL_SPEED = 0.8f;
+    internal const float PATROL_HALF_WIDTH = 0.35f;
+    internal const float WALL_MARGIN = 0.25f;
     internal const int SCAN_BUFFER_SIZE = 1024;
     internal const string ASSISTANT_PREFIX = "KEM_BankAssistant_";
 
@@ -409,6 +412,9 @@ public class BankAssistantCoordinator : MonoBehaviour
     private const float TELEPORT_APPROACH_DISTANCE = PatchEconomy_BankAssistants.TELEPORT_APPROACH_DISTANCE;
     private const float PICKUP_DISTANCE = PatchEconomy_BankAssistants.PICKUP_DISTANCE;
     private const float ASSISTANT_RUN_SPEED = PatchEconomy_BankAssistants.ASSISTANT_RUN_SPEED;
+    private const float ASSISTANT_PATROL_SPEED = PatchEconomy_BankAssistants.ASSISTANT_PATROL_SPEED;
+    private const float PATROL_HALF_WIDTH = PatchEconomy_BankAssistants.PATROL_HALF_WIDTH;
+    private const float WALL_MARGIN = PatchEconomy_BankAssistants.WALL_MARGIN;
     private const int SCAN_BUFFER_SIZE = PatchEconomy_BankAssistants.SCAN_BUFFER_SIZE;
     private const string ASSISTANT_PREFIX = PatchEconomy_BankAssistants.ASSISTANT_PREFIX;
     private static readonly float[] HomeOffsets = PatchEconomy_BankAssistants.HomeOffsets;
@@ -430,6 +436,8 @@ public class BankAssistantCoordinator : MonoBehaviour
         public int CarriedCoins;
         public int UncreditedCoins;
         public bool Moving;
+        public bool PatrolRight;
+        public float PatrolResumeAt;
 
         public AssistantState(int index) { Index = index; }
     }
@@ -455,6 +463,8 @@ public class BankAssistantCoordinator : MonoBehaviour
     private static bool _loggedReady;
     private static bool _loggedFirstAssignment;
     private static bool _loggedFirstSubmission;
+    private static int _collectorIndex = -1;
+    private static int _nextCollectorIndex;
     private static readonly int SpeedParameter = Animator.StringToHash("Speed");
 
     public BankAssistantCoordinator(IntPtr ptr) : base(ptr) { }
@@ -522,13 +532,14 @@ public class BankAssistantCoordinator : MonoBehaviour
         if (poolManager == null || managers.world == null || managers.kingdom == null) return;
 
         EnsureFourActors(managers.world.gameLayer);
-        UpdateMovingAssistants();
 
         if (Time.time >= _nextScanAt)
         {
             _nextScanAt = Time.time + SCAN_INTERVAL;
             ScanAndDispatch(managers);
         }
+        UpdateMovingAssistants();
+        UpdateIdlePatrols(managers.kingdom);
     }
 
     private void OnDestroy()
@@ -550,6 +561,8 @@ public class BankAssistantCoordinator : MonoBehaviour
         {
             AssistantState helper = Assistants[i];
             if (helper.Actor != null && helper.Actor.activeInHierarchy) continue;
+            if (helper.Target != null) ReleaseTarget(helper);
+            if (_collectorIndex == i) _collectorIndex = -1;
             if (existingActors == null) existingActors = UnityEngine.Object.FindObjectsOfType<PositionSync>();
             string marker = ASSISTANT_PREFIX + i + "_";
             for (int j = 0; j < existingActors.Length; j++)
@@ -561,6 +574,8 @@ public class BankAssistantCoordinator : MonoBehaviour
                 helper.Actor = candidate.gameObject;
                 helper.Animator = helper.Actor.GetComponent<Animator>();
                 helper.PositionSync = candidate;
+                helper.PatrolRight = (i & 1) == 0;
+                helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(i);
                 if (NetworkBigBoss.IsOnline && candidate.parentHeaderRef != null)
                     candidate.SetSyncAndRemote(true, true);
                 break;
@@ -588,6 +603,8 @@ public class BankAssistantCoordinator : MonoBehaviour
             helper.CarriedCoins = 0;
             helper.UncreditedCoins = 0;
             helper.Moving = false;
+            helper.PatrolRight = (i & 1) == 0;
+            helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(i);
             SetAnimationSpeed(helper, 0f);
             if (NetworkBigBoss.IsOnline && helper.PositionSync != null
                 && helper.PositionSync.parentHeaderRef != null)
@@ -677,35 +694,51 @@ public class BankAssistantCoordinator : MonoBehaviour
         for (int i = 0; i < Assistants.Length; i++)
         {
             AssistantState helper = Assistants[i];
-            if (helper.Actor == null) continue;
-
             if (helper.Target != null && !IsValidOwnedTarget(helper))
                 ReleaseTarget(helper);
+            if (i != _collectorIndex && helper.Target != null)
+                ReleaseTarget(helper);
+        }
 
+        if (_collectorIndex >= 0)
+        {
+            AssistantState collector = Assistants[_collectorIndex];
             int capacity = GetAssistantCapacity();
-            if (helper.CarriedCoins >= capacity)
+            if (collector.Actor == null || !collector.Actor.activeInHierarchy)
             {
-                TeleportHomeAndDeposit(helper);
-                continue;
+                FinishCollector(returnHome: false);
             }
-            if (helper.Target != null) continue;
-
-            bool assigned = false;
-            for (int j = 0; j < MatureBuffer.Count; j++)
+            else if (collector.CarriedCoins >= capacity)
             {
-                DroppableCurrency candidate = MatureBuffer[j];
-                if (candidate == null) continue;
-                int candidateId = candidate.gameObject.GetInstanceID();
-                if (Claims.ContainsKey(candidateId)) continue;
-                if (!TryAssign(helper, candidate)) continue;
-                assigned = true;
-                break;
+                FinishCollector(returnHome: true);
             }
+        }
 
-            if (assigned) continue;
+        if (_collectorIndex < 0 && MatureBuffer.Count > 0)
+            SelectNextCollector();
 
-            // No mature work remains: do one batch commit and stay parked.
-            TeleportHomeAndDeposit(helper);
+        if (_collectorIndex >= 0)
+        {
+            AssistantState collector = Assistants[_collectorIndex];
+            if (collector.Target == null)
+            {
+                bool assigned = false;
+                for (int j = 0; j < MatureBuffer.Count; j++)
+                {
+                    DroppableCurrency candidate = MatureBuffer[j];
+                    if (candidate == null) continue;
+                    int candidateId = candidate.gameObject.GetInstanceID();
+                    if (Claims.ContainsKey(candidateId)) continue;
+                    if (!TryAssign(collector, candidate)) continue;
+                    assigned = true;
+                    break;
+                }
+
+                // A temporarily claimed/header-blocked mature coin keeps the same
+                // collector. An actually empty mature batch completes and rotates.
+                if (!assigned && MatureBuffer.Count == 0)
+                    FinishCollector(returnHome: true);
+            }
         }
 
         bool relevantDiagnostics = outsideCoins > 0 || Observed.Count > 0
@@ -747,6 +780,32 @@ public class BankAssistantCoordinator : MonoBehaviour
         int xCompare = left.transform.position.x.CompareTo(right.transform.position.x);
         if (xCompare != 0) return xCompare;
         return left.gameObject.GetInstanceID().CompareTo(right.gameObject.GetInstanceID());
+    }
+
+    private static bool SelectNextCollector()
+    {
+        int capacity = GetAssistantCapacity();
+        for (int offset = 0; offset < Assistants.Length; offset++)
+        {
+            int index = (_nextCollectorIndex + offset) % Assistants.Length;
+            AssistantState helper = Assistants[index];
+            if (helper.Actor == null || !helper.Actor.activeInHierarchy
+                || helper.CarriedCoins >= capacity) continue;
+
+            _collectorIndex = index;
+            _nextCollectorIndex = (index + 1) % Assistants.Length;
+            return true;
+        }
+        return false;
+    }
+
+    private static void FinishCollector(bool returnHome)
+    {
+        if (_collectorIndex < 0 || _collectorIndex >= Assistants.Length) return;
+        AssistantState helper = Assistants[_collectorIndex];
+        if (helper.Target != null) ReleaseTarget(helper);
+        if (returnHome) TeleportHomeAndDeposit(helper);
+        _collectorIndex = -1;
     }
 
     private static bool TryAssign(AssistantState helper, DroppableCurrency coin)
@@ -856,6 +915,82 @@ public class BankAssistantCoordinator : MonoBehaviour
         }
     }
 
+    private static void UpdateIdlePatrols(Kingdom kingdom)
+    {
+        if (!NetworkBigBoss.HasWorldAuth || kingdom == null) return;
+        GetWallInterior(kingdom, out float wallLeft, out float wallRight);
+        float step = ASSISTANT_PATROL_SPEED * Time.deltaTime;
+
+        for (int i = 0; i < Assistants.Length; i++)
+        {
+            AssistantState helper = Assistants[i];
+            if (i == _collectorIndex || helper.Target != null || helper.Actor == null
+                || !helper.Actor.activeInHierarchy) continue;
+
+            float center = Mathf.Clamp(kingdom.campfirePosition + HomeOffsets[i],
+                wallLeft, wallRight);
+            float laneLeft = Mathf.Clamp(center - PATROL_HALF_WIDTH, wallLeft, wallRight);
+            float laneRight = Mathf.Clamp(center + PATROL_HALF_WIDTH, wallLeft, wallRight);
+
+            Vector3 position = helper.Actor.transform.position;
+            float clampedX = Mathf.Clamp(position.x, wallLeft, wallRight);
+            if (!Mathf.Approximately(position.x, clampedX))
+            {
+                position.x = clampedX;
+                helper.Actor.transform.position = position;
+                SendFullPosition(helper);
+            }
+
+            if (laneRight - laneLeft <= 0.02f)
+            {
+                helper.Moving = false;
+                SetAnimationSpeed(helper, 0f);
+                continue;
+            }
+
+            if (Time.time < helper.PatrolResumeAt)
+            {
+                helper.Moving = false;
+                SetAnimationSpeed(helper, 0f);
+                continue;
+            }
+
+            float targetX = helper.PatrolRight ? laneRight : laneLeft;
+            if (Mathf.Abs(position.x - targetX) <= 0.02f)
+            {
+                helper.PatrolRight = !helper.PatrolRight;
+                helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(i);
+                helper.Moving = false;
+                SetAnimationSpeed(helper, 0f);
+                continue;
+            }
+
+            FaceTowards(helper.Actor.transform, targetX);
+            position.x = Mathf.Clamp(
+                Mathf.MoveTowards(position.x, targetX, step), wallLeft, wallRight);
+            helper.Actor.transform.position = position;
+            helper.Moving = true;
+            SetAnimationSpeed(helper, ASSISTANT_PATROL_SPEED);
+        }
+    }
+
+    private static float PatrolPauseSeconds(int index)
+    {
+        return 2f + Mathf.Clamp(index, 0, Assistants.Length - 1);
+    }
+
+    private static void GetWallInterior(Kingdom kingdom, out float left, out float right)
+    {
+        left = kingdom.GetBorderSide(Side.Left) + WALL_MARGIN;
+        right = kingdom.GetBorderSide(Side.Right) - WALL_MARGIN;
+        if (float.IsNaN(left) || float.IsInfinity(left)
+            || float.IsNaN(right) || float.IsInfinity(right) || left > right)
+        {
+            left = kingdom.campfirePosition;
+            right = kingdom.campfirePosition;
+        }
+    }
+
     private static bool CanCommitPickup(AssistantState helper, DroppableCurrency coin)
     {
         if (!NetworkBigBoss.HasWorldAuth || helper == null || helper.Actor == null
@@ -894,6 +1029,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         helper.Target = null;
         helper.Moving = false;
         SetAnimationSpeed(helper, 0f);
+        helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(helper.Index);
         if (coin == null || coin.gameObject == null) return;
 
         int id = coin.gameObject.GetInstanceID();
@@ -920,6 +1056,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         }
         helper.Moving = false;
         SetAnimationSpeed(helper, 0f);
+        helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(helper.Index);
 
         // Economic ownership was committed at successful pickup. Home is visual/capacity
         // delivery only; the fallback below applies solely to a previously failed commit.
@@ -943,7 +1080,12 @@ public class BankAssistantCoordinator : MonoBehaviour
         Vector3 home = _mainBanker != null ? _mainBanker.transform.position : Vector3.zero;
         Managers managers = Managers.Inst;
         if (managers != null && managers.kingdom != null)
-            home.x = managers.kingdom.campfirePosition + HomeOffsets[index];
+        {
+            Kingdom kingdom = managers.kingdom;
+            GetWallInterior(kingdom, out float left, out float right);
+            home.x = Mathf.Clamp(
+                kingdom.campfirePosition + HomeOffsets[index], left, right);
+        }
         return home;
     }
 
@@ -988,7 +1130,11 @@ public class BankAssistantCoordinator : MonoBehaviour
             helper.CarriedCoins = 0;
             helper.UncreditedCoins = 0;
             helper.Moving = false;
+            helper.PatrolRight = (i & 1) == 0;
+            helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(i);
         }
+        _collectorIndex = -1;
+        _nextCollectorIndex = 0;
         Claims.Clear();
         Observed.Clear();
         SeenThisScan.Clear();

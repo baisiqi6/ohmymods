@@ -8,7 +8,7 @@ namespace KingdomEnhancedMod;
 
 /// <summary>
 /// 银行家增强：NetID 903 唯一性，
-/// 以及银行助手的唯一权威入账入口。主银行家保持 2.4.0 原生近距离行为。
+/// 以及银行助手的唯一权威入账入口。主银行家积极处理当前城墙内的金币。
 /// 迁移自 Mono Patch_Banker.cs（UMM + Harmony 1.2）。
 ///
 /// 2.4.0 签名验证结果（get_type_members.py 核对 interop Assembly-CSharp.dll）：
@@ -45,6 +45,103 @@ public static class PatchEconomy_Banker
     private static float _nextLedgerFlushAt;
     private static int _bankerCheckFrame = 0;
     private static readonly System.Collections.Generic.HashSet<int> _duplicatesThatSkippedAwake = new();
+    private static readonly System.Collections.Generic.Dictionary<int, WorkProfile> _workProfiles = new();
+
+    private sealed class WorkProfile
+    {
+        public float CoinScanRange;
+        public float GatherPercentage;
+        public float WalkSpeed;
+        public float RunSpeed;
+        public float WanderRange;
+        public Scanner Scanner;
+        public float ScannerRange;
+        public float ScannerRangeBehind;
+        public float ScannerInterval;
+        public bool Enhanced;
+    }
+
+    private static WorkProfile CaptureWorkProfile(Banker banker)
+    {
+        if (banker == null || banker.gameObject == null) return null;
+        int id = banker.gameObject.GetInstanceID();
+        if (_workProfiles.TryGetValue(id, out WorkProfile existing)) return existing;
+
+        Scanner scanner = banker._coinScanner;
+        WorkProfile profile = new WorkProfile
+        {
+            CoinScanRange = banker.coinScanRange,
+            GatherPercentage = banker.coinGatherTargetPercentage,
+            WalkSpeed = banker.walkSpeed,
+            RunSpeed = banker.runSpeed,
+            WanderRange = banker.wanderRange,
+            Scanner = scanner,
+            ScannerRange = scanner != null ? scanner.range : 0f,
+            ScannerRangeBehind = scanner != null ? scanner.rangeBehind : 0f,
+            ScannerInterval = scanner != null ? scanner._interval : 0f
+        };
+        _workProfiles[id] = profile;
+        return profile;
+    }
+
+    private static void ApplyEnhancedWorkProfile(Banker banker)
+    {
+        if (banker == null) return;
+        WorkProfile profile = CaptureWorkProfile(banker);
+        if (profile == null) return;
+
+        banker.coinGatherTargetPercentage = 0.5f;
+        banker.walkSpeed = 1.95f;
+        banker.runSpeed = 3.6f;
+        banker.wanderRange = 8.75f;
+
+        float forward = 300f;
+        Managers managers = Managers.Inst;
+        Kingdom kingdom = managers != null ? managers.kingdom : null;
+        if (kingdom != null && kingdom.HasBorderLoaded)
+        {
+            float left = kingdom.GetBorderSide(Side.Left);
+            float right = kingdom.GetBorderSide(Side.Right);
+            float x = banker.transform.position.x;
+            if (!float.IsNaN(left) && !float.IsInfinity(left)
+                && !float.IsNaN(right) && !float.IsInfinity(right) && left < right)
+            {
+                forward = Mathf.Max(1f,
+                    Mathf.Max(Mathf.Abs(x - left), Mathf.Abs(right - x)) + 0.5f);
+            }
+        }
+
+        banker.coinScanRange = forward;
+        Scanner scanner = banker._coinScanner;
+        if (scanner != null)
+        {
+            scanner.range = forward;
+            scanner.rangeBehind = forward;
+            scanner._interval = 1f;
+        }
+        profile.Enhanced = true;
+    }
+
+    private static void RestoreWorkProfile(Banker banker)
+    {
+        if (banker == null || banker.gameObject == null) return;
+        if (!_workProfiles.TryGetValue(banker.gameObject.GetInstanceID(),
+                out WorkProfile profile) || !profile.Enhanced) return;
+
+        banker.coinScanRange = profile.CoinScanRange;
+        banker.coinGatherTargetPercentage = profile.GatherPercentage;
+        banker.walkSpeed = profile.WalkSpeed;
+        banker.runSpeed = profile.RunSpeed;
+        banker.wanderRange = profile.WanderRange;
+        Scanner scanner = banker._coinScanner;
+        if (scanner != null && scanner == profile.Scanner)
+        {
+            scanner.range = profile.ScannerRange;
+            scanner.rangeBehind = profile.ScannerRangeBehind;
+            scanner._interval = profile.ScannerInterval;
+        }
+        profile.Enhanced = false;
+    }
 
     private static bool IsCanonicalAuthorityBanker(Banker banker)
     {
@@ -300,6 +397,7 @@ public static class PatchEconomy_Banker
 
         SaveCanonicalLedger(__instance);
         FlushSharedLedger(true);
+        _workProfiles.Remove(id);
         if (_primedBankerId == id) _primedBankerId = 0;
         return true;
     }
@@ -317,20 +415,7 @@ public static class PatchEconomy_Banker
             return;
         try
         {
-            __instance.coinScanRange = 7f;
-
-            Scanner scanner = __instance._coinScanner;
-            if (scanner != null)
-            {
-                scanner.range = 7f;
-                scanner.rangeBehind = 7f;
-                scanner._interval = 1f;
-            }
-
-            __instance.coinGatherTargetPercentage = 0.5f;
-            __instance.walkSpeed = 0.65f;
-            __instance.runSpeed = 1.2f;
-            __instance.wanderRange = 8.75f;
+            ApplyEnhancedWorkProfile(__instance);
 
             PatchEconomy_BankAssistants.EnsureForMainBanker(__instance);
         }
@@ -346,7 +431,11 @@ public static class PatchEconomy_Banker
     [HarmonyPostfix]
     public static void Update_Postfix(Banker __instance)
     {
-        if (!ModConfig.Enabled.Value) return;
+        if (!ModConfig.Enabled.Value)
+        {
+            RestoreWorkProfile(__instance);
+            return;
+        }
 
         // 在原生协程实际改变余额的帧之后观察，避免 IEnumerator 方法
         // postfix 只在“取得迭代器”时运行而回滚真实存入/提款。
@@ -359,6 +448,10 @@ public static class PatchEconomy_Banker
 
         try
         {
+            // Walls move as the kingdom expands. Refresh the directional scanner at
+            // low frequency; the outside-wall claim gate remains the final boundary.
+            ApplyEnhancedWorkProfile(__instance);
+
             var allBankers = UnityEngine.Object.FindObjectsOfType<Banker>();
             int count = allBankers.Length;
 
@@ -400,13 +493,26 @@ public static class PatchEconomy_Banker
         }
     }
 
-    // === ShouldHide - 完整恢复原生营业时间 ===
+    // === ShouldHide - 已验证的积极工作模式（夜间不休息） ===
 
     [HarmonyPatch(typeof(Banker), nameof(Banker.ShouldHide))]
     [HarmonyPrefix]
     public static bool ShouldHide_Prefix(ref bool __result)
     {
-        return true;
+        if (!ModConfig.Enabled.Value) return true;
+        __result = false;
+        return false;
+    }
+
+    [HarmonyPatch(typeof(Banker), nameof(Banker.ShouldEmerge))]
+    [HarmonyPrefix]
+    public static bool ShouldEmerge_Prefix(ref bool __result)
+    {
+        if (!ModConfig.Enabled.Value) return true;
+        Managers managers = Managers.Inst;
+        __result = managers != null && managers.kingdom != null
+            && managers.kingdom.isSafe;
+        return false;
     }
 }
 
