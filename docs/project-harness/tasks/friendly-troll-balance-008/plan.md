@@ -39,5 +39,5 @@
 
 - 用户已明确拍板上述目标筛选与平均 10% 平衡方案，税收助手调度保持不变。
 - 代码已完成：通过公开 `StateMachine.StepCoroutine` 精确限定 FriendlyTroll FSM，在候选枚举前临时移除 active Squid；正常返回与异常路径均恢复。反制 TrollWeak 通过公开 TargetCacher 查询临时注入 active FriendlyTroll，随后逐项恢复。
-- 独立 reviewer 静态 APPROVED；IL2CPP Debug 构建 0 warning / 0 error，DLL SHA-256=`27FF46CC34EEF7238D9AB17E61EEE99F8FF6FDEDD489AEA3ABADD943FD8C1708`。
+- 独立 reviewer 静态 APPROVED；IL2CPP Debug 构建 0 warning / 0 error，DLL SHA-256=`084981C255AE05EA7EBB9A3F8199E2D3B8DEDE6EB321A7F5F05BB0FEF6317F50`。
 - 游戏当前仍在运行，本轮 DLL 尚未部署，现有测试 zip 也不包含此修复。下一步须退出游戏后部署独立副本，并以两条 canary 日志及真实冲撞验证公开 IL2CPP hook 命中；不得提前标记运行时通过。

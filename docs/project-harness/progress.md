@@ -7,7 +7,7 @@
   在其原生目标查询期间临时加入 active FriendlyTroll，随后恢复目标缓存。未新增 RPC、序列化、pool、
   prefab、碰撞体或全场扫描。概率是大量同步池槽的长期平均，同统治期复用同一槽保持相同结果。
 - 独立 reviewer 静态 APPROVED；Debug 构建 0 warning / 0 error，DLL SHA-256=
-  `27FF46CC34EEF7238D9AB17E61EEE99F8FF6FDEDD489AEA3ABADD943FD8C1708`。独立副本仍在运行，尚未部署；
+  `084981C255AE05EA7EBB9A3F8199E2D3B8DEDE6EB321A7F5F05BB0FEF6317F50`。独立副本仍在运行，尚未部署；
   当前测试 zip 也不包含本轮。待退出后验证两个公开 IL2CPP hook canary、真实冲撞伤害、CrownStealer 与
   普通 Troll 边界，再决定是否刷新候选包。税收助手调度零改动。
 

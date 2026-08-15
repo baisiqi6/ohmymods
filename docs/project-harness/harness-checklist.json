@@ -15,7 +15,7 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "FriendlyTroll候选枚举精确排除Squid但允许CrownStealer且不用高度判定；约10% EnemyType.TrollWeak在真实生成完成时以稳定哈希一次性标记并可在原生冲锋范围攻击FriendlyTroll，普通巨魔零影响；无每帧随机、新池/prefab或全局目标缓存污染；读档/换岛/池复用/authority边界、构建、审查与独立副本实测通过。",
-      "verification": "实现已移除CrownStealer拒绝并只过滤active Squid；过滤挂公开StateMachine.StepCoroutine且只在FriendlyTroll FSM作用域临时修改候选集合，Postfix/Finalizer逐项恢复。约10% TrollWeak由存档上下文+Il2Cpp DateTime岛屿创建时间+动态NetID稳定哈希指定；仅world-authority临时注入active FriendlyTroll目标，无新RPC/池/全场扫描。独立reviewer静态APPROVED；IL2CPP Debug构建0 warning/0 error，DLL SHA-256=27FF46CC34EEF7238D9AB17E61EEE99F8FF6FDEDD489AEA3ABADD943FD8C1708。尚未部署或实机。",
+      "verification": "实现已移除CrownStealer拒绝并只过滤active Squid；过滤挂公开StateMachine.StepCoroutine且只在FriendlyTroll FSM作用域临时修改候选集合，Postfix/Finalizer逐项恢复。约10% TrollWeak由存档上下文+Il2Cpp DateTime岛屿创建时间+动态NetID稳定哈希指定；仅world-authority临时注入active FriendlyTroll目标，无新RPC/池/全场扫描。独立reviewer静态APPROVED；IL2CPP Debug构建0 warning/0 error，DLL SHA-256=084981C255AE05EA7EBB9A3F8199E2D3B8DEDE6EB321A7F5F05BB0FEF6317F50。尚未部署或实机。",
       "handoff": "游戏PID 25224仍在运行，禁止覆盖DLL。退出后部署独立副本；必须看到candidate-stage Squid filter与counter priority-target canary，并验证Squid不再被追、CrownStealer仍可攻击、反制弱巨魔可冲撞友好巨魔、普通巨魔不误伤。NetID代表同步池槽身份，同统治期复用保持结果；现有测试zip尚不包含本轮。税收助手完全未动。",
       "workflow": {
         "status": "review_approved",
