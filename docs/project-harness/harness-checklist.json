@@ -4,6 +4,38 @@
   "updated_at": "2026-08-15",
   "items": [
     {
+      "id": "candidate-package-007",
+      "title": "生成并验收 2026-08-15 综合候选包",
+      "status": "doing",
+      "priority": "p0",
+      "owner": "codex",
+      "selected_in_session": "codex-2026-08-15-candidate-package-007",
+      "updated_at": "2026-08-15",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "生成游戏根目录直装IL2CPP候选zip；构建、独立副本、zip内DLL哈希一致；root dotnet存在且无BepInEx/dotnet重复runtime、无版本顶层目录；最新三份中文文档与manifest存在；独立reviewer批准。",
+      "verification": "当前构建与独立副本DLL SHA-256均为C4003C445EAC67037C1BD295BBAD7E21B8A68E00C3DA900037E26F0BF8C683E0，待重新打包与zip结构复核。",
+      "handoff": "该包仅供用户实测当前综合候选；运行时功能任务仍保持doing，不修改Steam、共享存档或Mono，不把反编译参考源码纳入包或Git。",
+      "workflow": {
+        "status": "running",
+        "updated_at": "2026-08-15"
+      },
+      "lease": {
+        "owner": "codex",
+        "session": "codex-2026-08-15-candidate-package-007",
+        "acquired_at": "2026-08-15T15:50:00+08:00",
+        "expires_at": "2026-08-16T15:50:00+08:00",
+        "ttl_minutes": 1440
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/candidate-package-007/plan.md"
+      },
+      "review": {
+        "decision": null
+      }
+    },
+    {
       "id": "boat-capacity-006",
       "title": "主船原生兵种扩容",
       "status": "doing",
