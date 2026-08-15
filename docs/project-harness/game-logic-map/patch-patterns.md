@@ -262,6 +262,20 @@ Worker、active 且未拾取的普通 BerserkerTool，只有返回角色 tag/pre
 despawn→reuse、换岛/读档、对象池重新初始化，以及适用时的主客机追赶同步；日志中不得出现
 `Pool not found`、重复 syncID、相关 NRE 或 RPC-before-spawn。
 
+### 19. 改全局候选集合时必须使用公开作用域和双重恢复
+
+**适用场景：** 原生状态机内部直接枚举共享集合，但需要只对某一类调用临时隐藏或注入候选。只 patch
+私有校验 helper 可能被 IL2CPP native caller 绕过，也可能在“已选出最近目标”之后才拒绝，造成重复
+选择同一无效目标。
+
+**规则：** 优先选择有真实 native 入口的公开方法，用对象或 FSM/delegate 指针 O(1) 收窄到目标调用；
+Prefix 只记录本次实际修改的条目，Postfix 负责正常恢复，Finalizer 负责异常兜底，恢复必须幂等且逐项
+try/continue。不得把临时条目永久登记进全局缓存，也不得用每帧 `FindObjectsOfType` 重新扫描全场。
+
+友好巨魔采用该模式：在其公开 StateMachine step 内临时移除 active Squid；反制 TrollWeak 则只在其
+绑定的 TargetCacher delegate 查询中临时加入 active FriendlyTroll。两处都需要一次性 canary 日志证明
+IL2CPP 实机命中，编译成功和 interop 中存在签名不能代替运行证据。
+
 ## 当前 mod 功能清单
 
 | Patch 类 | 功能 | 状态 |
@@ -285,5 +299,6 @@ despawn→reuse、换岛/读档、对象池重新初始化，以及适用时的�
 | Patch_BeggarCamp | 乞丐生成间隔 90 秒（spawnInterval=209f） | ✅ |
 | Patch_Artemis | 单发箭伤害 20 次（_maxHitsPerArrow=0f） | ✅ |
 | Patch_HermesStaff | 权杖控制 16（_maximumConvertedTrolls 8→16） | ✅ |
+| PatchDivine_FriendlyTroll | 候选阶段只排除 Squid + 约10% TrollWeak 反制友好巨魔 | 🧪 静态通过，待实机 |
 
 > 状态与 `docs/project-harness/harness-checklist.json` 同步维护。

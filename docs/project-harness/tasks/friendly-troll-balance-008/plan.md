@@ -1,0 +1,43 @@
+# friendly-troll-balance-008 — 友好巨魔选敌修复与 10% 反制巨魔
+
+## 目标
+
+- 友好巨魔在选敌阶段跳过长期悬空且无法被其地面冲撞触及的 `Squid`。
+- `CrownStealer` 保持正常有效目标，因为其俯冲/扑击与接地阶段存在真实命中机会。
+- 普通弱巨魔中约 10% 在实际生成完成时被确定为“反友好巨魔”，可用原生冲撞伤害攻击附近友好巨魔，形成永久转化单位的消耗压力。
+
+## 不变量与安全边界
+
+- 仅 IL2CPP 2.4.0；Mono 冻结。税收助手、银行、船只和其他战斗单位不得改动。
+- 飞行过滤只按精确类型 `Squid`；禁止按当前 y、高度阈值或跳跃状态判断，禁止继续排除 `CrownStealer`。
+- 必须在候选枚举阶段排除 Squid，不能只在“最近目标已选出”后返回无效，否则最近 Squid 会导致重复重选与 2 秒游荡饥饿。
+- 只对 `EnemyType.TrollWeak` 生成反制标记；ToughTroll、其他敌人、由友好巨魔恢复出的特殊路径不自动计入，除非后续实证要求。
+- 指定概率是长期平均 10%，不是“每十只严格一只”。使用显式稳定 32 位哈希，不使用每帧随机、`UnityEngine.Random`、`string.GetHashCode()` 或 Unity instanceID。
+- 哈希输入为存档槽/挑战/岛屿/统治期/岛屿创建时间与动态网络 NetID；`hash % 10 == 0` 为反制巨魔。NetID 在这里代表稳定的同步池槽身份，因此同一统治期内复用同一槽会重复相同结果；约 10% 指大量同步槽的长期平均，不承诺每次对象池复用都重新抽取。
+- 读档和 authority 迁移由相同身份重算；缺存档上下文或网络 header 时 fail closed。为保持兼容，本任务不扩展 Troll 的 RPC 或序列化协议。
+- 反制巨魔只在 world-authority 执行 AI 决策；客户端只接收原生位置、冲撞与伤害同步。不得新增 prefab 或对象池。
+- 友好巨魔资源已允许 `DamageSource.Troll`；不得扩大碰撞体、修改跳跃轨迹或重写伤害系统。
+- 只有被标记的弱巨魔能把 active、未死亡的 FriendlyTroll 纳入原生冲锋范围目标；普通 90% 巨魔必须保持原版选敌。目标登记/临时注入必须在 Postfix/Finalizer 恢复，不能污染全局 TargetCacher。
+- 对象池 OnDisable/真正销毁/换岛时清理本次激活 registry；友好巨魔 active 列表由 Init、ApplyData、DeserializeFromData 登记并惰性清理，不得每个巨魔全场 FindObjectsOfType。
+
+## 实现前证据
+
+- 2.1/2.4 `FriendlyTroll` 原生目标枚举来自 `Managers.enemies.AllEnemies`，距离比较只考虑水平距离；本任务开始前的补丁只排除 `CrownStealer`，因此长期悬空的 `Squid` 仍会被选中。
+- `Squid` 具有 `_flyAltitude`/`FlyUp` 等长期飞行行为；`CrownStealer` 有接地和扑击状态，二者不应同类处理。
+- `Troll_friendly` 的 Damageable 已允许 Troll 伤害源，新增平衡只需要安全目标选择，不需要新伤害类型、池或 prefab。
+
+## 验收
+
+1. 独立 reviewer 确认 Squid 在候选枚举前被排除，CrownStealer 无排除路径，且无高度启发式。
+2. 生成大量 TrollWeak 时标记结果来自稳定 10% 哈希；普通 Troll、池预热、读档恢复不会每帧重抽；同一统治期的同步池槽复用保持相同结果。
+3. 只有被标记的 TrollWeak 会在原生冲锋范围内攻击友好巨魔；普通弱巨魔继续原版行为，友好巨魔能受到原生 Troll 冲撞伤害。
+4. IL2CPP Debug 构建 0 warning / 0 error，`git diff --check` 与 harness validator 通过。
+5. 独立副本实测：友好巨魔不再追 Squid 转圈；会在 CrownStealer 俯冲/接地时保留攻击机会；至少观察一只反制巨魔攻击并可能杀死友好巨魔。
+6. 联机/权威迁移、读档、换岛与对象池复用无普通巨魔误标、目标缓存污染、未知 RPC/Pool 或相关异常。
+
+## 当前交接
+
+- 用户已明确拍板上述目标筛选与平均 10% 平衡方案，税收助手调度保持不变。
+- 代码已完成：通过公开 `StateMachine.StepCoroutine` 精确限定 FriendlyTroll FSM，在候选枚举前临时移除 active Squid；正常返回与异常路径均恢复。反制 TrollWeak 通过公开 TargetCacher 查询临时注入 active FriendlyTroll，随后逐项恢复。
+- 独立 reviewer 静态 APPROVED；IL2CPP Debug 构建 0 warning / 0 error，DLL SHA-256=`27FF46CC34EEF7238D9AB17E61EEE99F8FF6FDEDD489AEA3ABADD943FD8C1708`。
+- 游戏当前仍在运行，本轮 DLL 尚未部署，现有测试 zip 也不包含此修复。下一步须退出游戏后部署独立副本，并以两条 canary 日志及真实冲撞验证公开 IL2CPP hook 命中；不得提前标记运行时通过。

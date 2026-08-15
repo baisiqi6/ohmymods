@@ -1,11 +1,11 @@
 # Current Task Plan
 
-- Item: `bank-assistants-005`
+- Item: `friendly-troll-balance-008`
 - Status: `doing`
 - Owner: `codex`
-- Session: `codex-2026-08-15-bank-assistants-005`
-- Goal: 将 Dead Lands 银行助手视觉高度绝对设为 1.25，北境保持 1.2，并保持现有单 collector 轮转调度。
-- Authority: 缩放在主客双方相同 prefab 构建路径确定性执行；只有 world-authority 运行收币、轮转与国库写入。
-- Scope: 仅调整 Dead Lands prefab localScale.y；不改 x/z、控制器、同步池、经济提交、单collector或round-robin逻辑。
-- Validation: 独立 reviewer APPROVED；Debug构建0 warning/0 error，构建、独立副本与刷新后zip内DLL SHA-256均为 `9E71AFF5B155EF6D50DCD9EB0CFBA1098824382CF2C0547FEE431D485F8376BB`；zip SHA-256=`7F736F339F22AFBC7FCD00659863167753A91B566643CD4818F6401CCFB42ADC`。待实机观察Dead Lands比例。
-- Plan: `docs/project-harness/tasks/bank-assistants-005/plan.md`
+- Session: `codex-2026-08-15-friendly-troll-balance-008`
+- Goal: FriendlyTroll候选阶段只排除Squid并允许CrownStealer，同时让约10%的TrollWeak成为可攻击友好巨魔的反制单位。
+- Authority: 只有world-authority执行目标与伤害决策；10%标记按存档上下文与稳定同步槽身份重算，不新增RPC/序列化。
+- Scope: Squid-only候选过滤、TrollWeak一次性稳定标记、active FriendlyTroll轻量登记与受限目标注入；不改税收助手、伤害物理、对象池或prefab。
+- Validation: worker实现、独立reviewer静态APPROVED、Debug构建0/0；游戏运行中未部署，待独立副本canary与战斗实测。
+- Plan: `docs/project-harness/tasks/friendly-troll-balance-008/plan.md`

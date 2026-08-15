@@ -1,3 +1,16 @@
+## 2026-08-15 — friendly-troll-balance-008：静态通过，待退出后部署实测
+
+- 友好巨魔选敌现只精确排除长期悬空的 Squid；旧的 CrownStealer 排除已删除，未使用当前高度阈值。
+  过滤发生在公开 StateMachine 推进中、候选枚举之前，并在正常/异常路径逐项恢复敌人集合；已有 Squid
+  目标也会被清空。全局状态机入口对非友好巨魔仅做 O(1) 字典旁路。
+- 普通 TrollWeak 中约 10% 按存档/岛屿/统治期与动态 NetID 的稳定哈希成为反制单位；只有世界权威端
+  在其原生目标查询期间临时加入 active FriendlyTroll，随后恢复目标缓存。未新增 RPC、序列化、pool、
+  prefab、碰撞体或全场扫描。概率是大量同步池槽的长期平均，同统治期复用同一槽保持相同结果。
+- 独立 reviewer 静态 APPROVED；Debug 构建 0 warning / 0 error，DLL SHA-256=
+  `27FF46CC34EEF7238D9AB17E61EEE99F8FF6FDEDD489AEA3ABADD943FD8C1708`。独立副本仍在运行，尚未部署；
+  当前测试 zip 也不包含本轮。待退出后验证两个公开 IL2CPP hook canary、真实冲撞伤害、CrownStealer 与
+  普通 Troll 边界，再决定是否刷新候选包。税收助手调度零改动。
+
 ## 2026-08-15 — bank-assistants-005：Dead Lands 助手 y=1.25
 
 - Dead Lands 外观对应固定 controller index 2，本轮在双方确定性 prefab 构建时把 localScale.y 绝对设为
