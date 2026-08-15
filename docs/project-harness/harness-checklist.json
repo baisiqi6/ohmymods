@@ -703,8 +703,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "Suppress only NpcShieldUser shield-disable audio during Managers.PrepareUnload while preserving native cleanup and RPC; pass static review/build and two consecutive high-population sail transitions without new 0xc00000fd WER.",
-      "verification": "Two identical 02:45/02:54 Player log tails and WER 0xc00000fd point to PrepareUnload shield audio. Minimal Enabled-gated audio suppression passed independent static review and Debug build 0 warnings/0 errors; DLL SHA256 ACC466D928534F7620F7610A9C20590F301FAA617DA33EF96B53DBAEDD21D0A9. Runtime deployment and two sailing transitions remain pending.",
-      "handoff": "Static implementation/review/build and commit cfeb2f2 are complete. Game process is stopped, but this restricted session cannot write the E: independent copy; target remains old SHA 2CE66091 with no partial overwrite. User must copy the ACC466D9 candidate or provide a writable deploy environment before two-sail runtime gates.",
+      "verification": "Two identical 02:45/02:54 log tails and WER 0xc00000fd point to PrepareUnload shield audio. Minimal Enabled-gated suppression passed independent static review and Debug build 0/0. Candidate is deployed only to the independent copy; build/deploy SHA256 both ACC466D928534F7620F7610A9C20590F301FAA617DA33EF96B53DBAEDD21D0A9, 162816 bytes. Two sailing transitions remain pending.",
+      "handoff": "Candidate deployed to the independent copy with matching ACC466D9 hash. Keep task doing until two successful high-population sail transitions, suppressed>0, no matching disabled-audio tail/new WER, and normal shield sounds.",
       "plan_path": "docs\\project-harness\\tasks\\crash-unload-016\\plan.md",
       "workflow": {
         "status": "review_approved",
