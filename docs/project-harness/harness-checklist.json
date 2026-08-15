@@ -47,8 +47,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "希腊世界在忍者使用前确定性注册ThrowingStar与Smokebomb依赖池；每个成熟宽灌木提供3个、每棵可砍伐树提供1个、每个乞丐帐篷提供5个错开的独立HidingSpot，统一由原生按同侧墙外、距墙最近且未占用选择，并正确处理禁用/销毁/复用；忍者连续战斗及烟雾撤退无池缺失/NRE且天亮恢复钓鱼形态；夜行忍者y=1.1、希腊银行家y=1.075并且只改y；构建成功、独立副本日志与行为实测通过。",
-      "verification": "上一轮独立副本日志确认ThrowingStar与Smokebomb池成功注册，相关Pool not found与NullReferenceException均为0；三槽灌木获独立reviewer静态APPROVED。用户实机反馈当前忍者表现良好并看到灌木左右槽，但±1.1视觉过宽，已减半为-0.55/0/+0.55。新增树1槽/乞丐帐篷5槽后，operator核对原生按同侧坐标近墙排序与墙外/占用过滤，移除帐篷同帧重复初始化入口；IL2CPP Debug构建0 warning/0 error，最新DLL SHA-256=6E0C474B9D665CB2649F00071C2D02C09B44A0DACF3E49057D462E3D9EAE5AE0，validator与diff check通过。最新范围尚未部署、独立复核或实机。",
-      "handoff": "当前候选已构建但未部署：灌木3槽间距为-0.55/0/+0.55、树1槽、乞丐帐篷5槽，统一走原生同侧近墙选点。下一步先静态复核新增树/帐篷生命周期，再在独立副本实测多载体距离顺序、容量占位、树砍伐/帐篷摧毁解绑、跨侧复用、昼夜恢复与缩放，并确认新灌木间距观感。禁止修改Steam或共享存档，未验证前不重打zip；推送Draft PR #1。",
+      "verification": "上一轮独立副本日志确认ThrowingStar与Smokebomb池成功注册，相关Pool not found与NullReferenceException均为0；三槽灌木获独立reviewer静态APPROVED。用户实机反馈当前忍者表现良好并看到灌木左右槽；原±1.1视觉过宽，已减半为-0.55/0/+0.55。新增树1槽/乞丐帐篷5槽后，operator核对原生按同侧坐标近墙排序与墙外/占用过滤，移除帐篷同帧重复初始化入口；IL2CPP Debug构建0 warning/0 error，最新DLL SHA-256=6E0C474B9D665CB2649F00071C2D02C09B44A0DACF3E49057D462E3D9EAE5AE0，validator与diff check通过。2026-08-15 已仅部署独立副本，构建/部署哈希一致；用户重新运行后确认本轮行为没有明显问题、整体逻辑自洽且±0.55间距观感合适。尚未逐项取得树砍伐、帐篷摧毁和跨侧池复用的边界证据。",
+      "handoff": "最新综合候选已仅部署独立副本：灌木3槽间距为-0.55/0/+0.55、树1槽、乞丐帐篷5槽，统一走原生同侧近墙选点；用户已完成整体游戏内体验验收。正式关闭前仍应静态复核新增树/帐篷生命周期，并在后续回归中覆盖树砍伐、帐篷摧毁解绑与跨侧池复用；这些边缘用例不否定当前用户验收。禁止修改Steam或共享存档，正式重打zip前同步其余候选门禁；Draft PR #1。",
       "workflow": {
         "status": "running",
         "updated_at": "2026-08-15"
