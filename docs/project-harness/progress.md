@@ -459,3 +459,9 @@
 - ApplyToScene稳定后只由authority建立一次scene清理批次，每帧最多同步回收1名超额普通Beggar；settler、面包房/进食、控制、被抓、inert/石化、DespawnOnLoad及pool/header不安全对象一律保护，受保护者超过5时允许可解释残余。
 - worker与独立reviewer静态APPROVED；Debug构建0 warning/0 error，当前候选DLL SHA-256=`085D84C644D6C48E046A87AAD5BE3BFCFB6154929EE8B47914533DCDF572D9DA`。游戏已退出，等待干净提交重建、存档备份、独立副本部署与实机。
 - 后续工具分配优化另开切片：原版每3秒会让约922个carrier参与近方阵匹配；必须先做放行原版的hook探针，确认命中后才考虑稀疏反向矩阵，禁止全局替换JobAssigner。
+## 2026-08-15 — save-repair-011：land 7 乞丐158→10已原子修复
+
+- 人口候选首次实机确实命中，但摘要为`before=158 assigned=158 protected=158 removed=0 residual=148`；运行时安全身份门禁过严，因此内置旧档清理不能算通过。用户随后明确授权对当前异常存档做一次性直接修复。
+- 强校验脚本经worker/reviewer多轮审查与真实dry-run后APPLY_APPROVED：锁定输入SHA/长度/schema/campaign/land/对象数/精确营地prefab与坐标；只删除无外部引用的普通Beggar；非目标root/island与幸存对象内容/顺序DeepEquals；同卷File.Replace并有已验证backup/rollback。
+- dry-run和Apply均为`before=158 removed=148 after=10 groups=5/5`。原始备份`global-v35.before-direct-beggar-prune-20260815-232403`为751,068 bytes/SHA=`68D4F779DA3CFA45A659D2082B2B15F135777699EC4A309F1F6AEAE14C724B16`；最终存档748,730 bytes/SHA=`2C681C5C2CA01E6BBCBB5F05BDEA32FC63A0D86EA563F68325D12C08D088F87A`。
+- 写后独立复读确认version16/currentCampaign1/currentLand7/objects2046/Beggar10/左右5+5，临时文件0。等待独立副本实际读档；若失败必须退出不保存并恢复上述备份。

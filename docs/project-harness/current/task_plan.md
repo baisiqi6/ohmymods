@@ -1,11 +1,11 @@
 # Current Task Plan
 
-- Item: `population-performance-010`
+- Item: `save-repair-011`
 - Status: `doing`
 - Owner: `codex`
-- Session: `codex-2026-08-15-population-performance-010`
-- Goal: 修复BeggarCamp与Baker导致的营地人口泄漏，并安全清理当前岛超额乞丐。
-- Authority: 仅world-authority生成/清理；不直接修改压缩存档，客户端只接原生同步；游戏运行时不替换DLL。
-- Scope: 本次只交付真实每营地5人硬cap与分帧安全清理；帧时诊断、工具反向分配和Idle LOD另开任务，禁止混入本次候选。
-- Validation: 当前land7只读统计为2158对象/1132角色，其中Worker458、Peasant301、Beggar158；其他岛仅52～137角色。A+B已实现，worker与独立reviewer静态APPROVED，Debug构建0 warning/0 error，等待干净提交重建、备份、独立副本部署与实测。
-- Plan: `docs/project-harness/tasks/population-performance-010/plan.md`
+- Session: `codex-2026-08-15-save-repair-011`
+- Goal: 对当前campaign1/land7异常存档做一次性、有指纹约束的乞丐人口修复，左右营地各保留5名并删除148名无引用普通乞丐。
+- Authority: 用户已明确授权直接存档修复；仅在游戏退出、即时备份、严格校验和原子替换条件下执行，存档不入Git。
+- Scope: 仅当前global-v35中land7的Beggar对象数组；其他角色、岛屿、任务、网络与经济数据零改动。
+- Validation: worker与reviewer最终APPLY_APPROVED；dry-run与Apply均为158→10、删除148、5/5。备份751068 bytes/SHA=68D4F779...724B16；最终748730 bytes/SHA=2C681C5C...88F87A；独立复读land7 objects=2046、Beggar=10、临时文件0。等待游戏内读档与硬cap验证。
+- Plan: `docs/project-harness/tasks/save-repair-011/plan.md`

@@ -4,6 +4,25 @@
   "updated_at": "2026-08-15",
   "items": [
     {
+      "id": "save-repair-011",
+      "title": "land 7 超额乞丐一次性存档修复",
+      "status": "doing",
+      "priority": "p0",
+      "owner": "codex",
+      "selected_in_session": "codex-2026-08-15-save-repair-011",
+      "updated_at": "2026-08-15",
+      "dependencies": ["population-performance-010"],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "用户明确授权的一次性直接存档修复；仅接受指定SHA/长度/schema的campaign1 land7，左右营地各保留最近5名并删除148名无引用普通Beggar；游戏退出、新备份、dry-run、临时gzip复读、非目标对象不变、同卷File.Replace与失败回滚全部通过；存档不入Git。",
+      "verification": "worker与reviewer对脚本最终APPLY_APPROVED。真实dry-run与Apply均输出before=158 removed=148 after=10 groups=5/5；输入/备份751068 bytes、SHA-256=68D4F779DA3CFA45A659D2082B2B15F135777699EC4A309F1F6AEAE14C724B16；输出748730 bytes、SHA-256=2C681C5C2CA01E6BBCBB5F05BDEA32FC63A0D86EA563F68325D12C08D088F87A。独立复读version16/campaign1/land7 objects2046/Beggar10/5+5，临时文件0。等待游戏内读档。",
+      "handoff": "一次性存档修复已原子完成，收据见tasks/save-repair-011/receipt.md；原始备份位于Release/KEM-backups/global-v35.before-direct-beggar-prune-20260815-232403。若读档失败立即退出，不保存，并用该备份恢复。存档本体不入Git。",
+      "workflow": {"status": "review_approved", "updated_at": "2026-08-15"},
+      "lease": {"owner": "codex", "session": "codex-2026-08-15-save-repair-011", "acquired_at": "2026-08-15T23:15:00+08:00", "expires_at": "2026-08-16T23:15:00+08:00", "ttl_minutes": 1440},
+      "artifacts": {"plan": "docs/project-harness/tasks/save-repair-011/plan.md", "receipt": "docs/project-harness/tasks/save-repair-011/receipt.md", "script": "scripts/repair-beggar-overflow.ps1"},
+      "review": {"decision": "approved"}
+    },
+    {
       "id": "population-performance-010",
       "title": "超大人口岛乞丐硬上限与安全清理",
       "status": "doing",
@@ -15,7 +34,7 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "BeggarCamp继续约6秒补1但每营地按稳定归属真实硬上限5，Baker离营不释放名额；仅world-authority在ApplyToScene稳定后分帧安全清理既有超额Beggar，保护settler/Baker/控制/被抓/inert/DespawnOnLoad/网络未就绪对象且不直接改压缩存档；本次不实现帧时诊断、工具反向分配或通用AI/动画/Scanner LOD；构建、独立审查、存档备份、独立副本与联机门禁通过。",
-      "verification": "只读当前存档：campaign1 land7有2158对象与1132 CharacterData；Worker458、Peasant301、Beggar158、Archer129、Farmer49、Knight33等，而其他已开发岛仅52至137角色。当前岛仅2个BeggarCamp且有2座Bread升级塔。2.1源码确认Camp只计半径5、Baker离营会RemoveBeggar并清camp；2.4 interop保留中央调度所需公开化wrapper/字段。A+B已实现：保留原生slowUpdate并以authority中央6秒调度维护稳定camp归属；ApplyToScene稳定后每帧最多安全回收1名，protected与网络未就绪对象不删。worker与独立reviewer静态APPROVED；Debug构建0 warning/0 error，候选DLL SHA-256=085D84C644D6C48E046A87AAD5BE3BFCFB6154929EE8B47914533DCDF572D9DA。尚未部署/实测。",
+      "verification": "只读当前存档确认land7曾有Beggar158。A+B代码、构建与静态审查通过并部署候选；首次实机日志为[PopulationCleanup] before=158 assigned=158 protected=158 removed=0 residual=148，证明协调器/hook命中但清理身份门禁过严，不能宣称内置旧档清理已生效。稳定camp归属与中央约6秒硬cap仍待在直接修复后的10人存档验证。当前旧档已由save-repair-011一次性原子修为10人（5/5），未靠运行时删除。",
       "handoff": "本次只交付A硬cap+B遗留清理；无永久PlayerPrefs marker，按scene generation幂等审计。原生营地协程保持存活，协调器异常/失权恢复5/1，Mod Disabled恢复捕获原profile；清理每帧最多1名且protected永不删。游戏已退出，部署前再次备份global-v35，只写独立测试副本。工具反向分配已列为后续高优先候选，但必须先用只读探针证明DroppableRegistrar.ReassignClaimers的2.4 Harmony hook命中，禁止patch全局JobAssigner.Compute。",
       "workflow": {
         "status": "running",
