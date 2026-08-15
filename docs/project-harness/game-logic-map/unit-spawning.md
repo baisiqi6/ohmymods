@@ -148,17 +148,26 @@ Ninja 有完整的 `ShopType.NinjaLeft(7)` / `NinjaRight(8)` 枚举值，走标�
 
 这两个依赖必须在 Holder/PoolManager 稳定初始化后、Ninja 首次使用前预注册，并在任何强制 `InitPools()` 清空缓存后重新注册。缺失 ThrowingStar 会让 `ThrowStar()` NRE；缺失 Smokebomb 会在忍者死亡烟遁期间中断整个 `Behaviour`，留下 `damagedBy=0`、无法降级和无法切回白天形态的卡死实例。
 
-### 希腊草丛伏击点（候选实现，待实机）
+### 希腊多载体伏击点（候选实现，待实机）
 
 原版 `Ninja.GetHidingSpot()` 不识别竹子名称，只读取 `Kingdom.GetHidingSpotList(side)`，再筛选城墙外且未占用的点。2.4.0 资源中只有 `bambooTree` 自带 `HidingSpot`；希腊 Grass/Shrub 没有。
 
-候选实现挂 `World.AddThicket(Grass)`：仅在原生成功生成实际 thicket 后，为每个宽灌木创建
-Left/Center/Right 三个命名子锚点，local x 为 `-1.1/0/+1.1`，每个子对象各挂一个原生
-`HidingSpot`。这样同一灌木最多容纳 3 名错开蹲守的 Ninja，但每个锚点仍保持原生单人占用，
-不能让多人共享同一 `HidingSpot`。原生 `World.CanSpawnThicket()` 保证 thicket 位于城墙外；每个锚点
-仍由 `Ninja.GetHidingSpot/VerifyHidingSpot` 单独做城墙外过滤。冬季或扩墙移除时，三个
-`HidingSpot.OnDisable()` 分别注销并通知各自 Ninja。池复用时 `Start()` 不会重跑，只在对应 sided
-list 缺失时清旧 hider 并手工重新登记；已经登记且正在占用的锚点不得被清除。
+候选实现为三类载体补原生 `HidingSpot`：
+
+- `World.AddThicket(Grass)` 成功生成实际 thicket 后，为每个宽灌木创建 Left/Center/Right 三槽，
+  local x 为 `-1.1/0/+1.1`。
+- `PayableTree.OnEnable` 为每棵 Greece 可砍伐树创建一个中心槽。
+- 已实机命中的 `BeggarCamp.Awake` 为每个 Greece 乞丐帐篷创建五槽，local x 为
+  `-2/-1/0/+1/+2`。
+
+每个锚点仍保持原生单人占用，不能让多人共享同一 `HidingSpot`。三类槽进入同一个 sided list；
+`Kingdom.RegisterHidingSpot` 按坐标把左侧列表由内向外、右侧列表由内向外排序，Ninja 随后取第一个
+墙外且未占用的槽。因此选择顺序只由“离当前城墙多近、有没有人”决定，不会跨过更近且有空位的
+帐篷去找远树，也不需要自定义载体优先级。墙扩张后落入墙内的槽由原生验证排除。
+
+父灌木禁用、树被砍、帐篷摧毁时，各子 `HidingSpot.OnDisable()` 分别注销并通知占用 Ninja。
+灌木池复用时 `Start()` 不会重跑，只在对应 sided list 缺失时清旧 hider 并手工重新登记；已经登记
+且正在占用的锚点不得被清除。三类补点只在 Greece world-authority 端执行。
 
 ---
 

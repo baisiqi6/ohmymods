@@ -28,5 +28,6 @@ public static class BeggarCamp_Awake_Patch
         if (__instance == null) return;
         __instance.spawnInterval = TargetSpawnInterval;
         __instance.maxBeggars = TargetMaxBeggarsPerCamp;
+        PatchRoles_Ninja.EnsureBeggarCampHidingSpots(__instance);
     }
 }

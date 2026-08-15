@@ -27,9 +27,27 @@ public static class PatchRoles_Ninja
         "KEM_NinjaHidingSpot_Right"
     };
     private static readonly float[] THICKET_ANCHOR_LOCAL_X = { -1.1f, 0f, 1.1f };
+    private static readonly string[] TREE_ANCHOR_NAMES =
+    {
+        "KEM_NinjaTreeHidingSpot"
+    };
+    private static readonly float[] TREE_ANCHOR_LOCAL_X = { 0f };
+    private static readonly string[] BEGGAR_CAMP_ANCHOR_NAMES =
+    {
+        "KEM_NinjaCampHidingSpot_FarLeft",
+        "KEM_NinjaCampHidingSpot_Left",
+        "KEM_NinjaCampHidingSpot_Center",
+        "KEM_NinjaCampHidingSpot_Right",
+        "KEM_NinjaCampHidingSpot_FarRight"
+    };
+    private static readonly float[] BEGGAR_CAMP_ANCHOR_LOCAL_X = { -2f, -1f, 0f, 1f, 2f };
     private static bool _loggedThicketHookEntered;
     private static bool _loggedThicketAdded;
     private static bool _loggedThicketReused;
+    private static bool _loggedTreeAdded;
+    private static bool _loggedTreeReused;
+    private static bool _loggedBeggarCampAdded;
+    private static bool _loggedBeggarCampReused;
 
     public static void EnsureRuntimePoolsInGreece(Holder holder)
     {
@@ -204,47 +222,15 @@ public static class PatchRoles_Ninja
 
             bool added = false;
             bool reused = false;
-
-            // Compatibility with the previous mod build, which placed one
-            // HidingSpot directly on the thicket root.  Greece's native thicket
-            // prefab has none, so an enabled root component is the legacy center
-            // slot.  Keep it and add only the two offset child anchors: total 3.
-            HidingSpot legacyRootSpot = thicket.GetComponent<HidingSpot>();
-            Transform namedCenter = thicket.transform.Find(THICKET_ANCHOR_NAMES[1]);
-            bool useLegacyRootAsCenter = legacyRootSpot != null
-                && legacyRootSpot.enabled
-                && namedCenter == null;
-
-            if (useLegacyRootAsCenter)
-            {
-                reused |= ReRegisterExistingAnchorIfMissing(legacyRootSpot, kingdom);
-                for (int i = 0; i < THICKET_ANCHOR_NAMES.Length; i += 2)
-                {
-                    bool anchorAdded;
-                    HidingSpot anchor = EnsureChildAnchor(thicket, i, out anchorAdded);
-                    added |= anchorAdded;
-                    if (!anchorAdded)
-                        reused |= ReRegisterExistingAnchorIfMissing(anchor, kingdom);
-                }
-            }
-            else
-            {
-                // If a partial/new three-anchor layout coexists with the legacy
-                // root component, disable only that old HidingSpot.  Its native
-                // OnDisable unregisters/notifies safely; no other root component
-                // is touched and a fourth hiding slot cannot survive.
-                if (legacyRootSpot != null && legacyRootSpot.enabled)
-                    legacyRootSpot.enabled = false;
-
-                for (int i = 0; i < THICKET_ANCHOR_NAMES.Length; i++)
-                {
-                    bool anchorAdded;
-                    HidingSpot anchor = EnsureChildAnchor(thicket, i, out anchorAdded);
-                    added |= anchorAdded;
-                    if (!anchorAdded)
-                        reused |= ReRegisterExistingAnchorIfMissing(anchor, kingdom);
-                }
-            }
+            bool useLegacyRootAsCenter;
+            PrepareAnchorSet(
+                thicket,
+                THICKET_ANCHOR_NAMES,
+                THICKET_ANCHOR_LOCAL_X,
+                kingdom,
+                out added,
+                out reused,
+                out useLegacyRootAsCenter);
 
             if (added && !_loggedThicketAdded)
             {
@@ -269,16 +255,160 @@ public static class PatchRoles_Ninja
         }
     }
 
-    private static HidingSpot EnsureChildAnchor(GameObject thicket, int index, out bool added)
+    public static void EnsureTreeHidingSpot(PayableTree tree)
+    {
+        if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth) return;
+        if (BiomeHolder.Inst == null
+            || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
+        if (tree == null || tree.gameObject == null || !tree.gameObject.activeInHierarchy) return;
+
+        try
+        {
+            var managers = Managers.Inst;
+            var kingdom = managers != null ? managers.kingdom : null;
+            if (kingdom == null) return;
+
+            bool added;
+            bool reused;
+            bool usedRoot;
+            PrepareAnchorSet(
+                tree.gameObject,
+                TREE_ANCHOR_NAMES,
+                TREE_ANCHOR_LOCAL_X,
+                kingdom,
+                out added,
+                out reused,
+                out usedRoot);
+
+            float x = tree.transform.position.x;
+            if (added && !_loggedTreeAdded)
+            {
+                _loggedTreeAdded = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[Ninja] Prepared 1 Greece tree hiding anchor (side="
+                    + GetSideLabel(kingdom, x) + ", x=" + x + ")");
+            }
+            if (reused && !_loggedTreeReused)
+            {
+                _loggedTreeReused = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[Ninja] Re-registered reused Greece tree hiding anchor (side="
+                    + GetSideLabel(kingdom, x) + ", x=" + x + ")");
+            }
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[Ninja] Failed to prepare HidingSpot for Greece tree: " + e);
+        }
+    }
+
+    public static void EnsureBeggarCampHidingSpots(BeggarCamp camp)
+    {
+        if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth) return;
+        if (BiomeHolder.Inst == null
+            || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
+        if (camp == null || camp.gameObject == null || !camp.gameObject.activeInHierarchy) return;
+
+        try
+        {
+            var managers = Managers.Inst;
+            var kingdom = managers != null ? managers.kingdom : null;
+            if (kingdom == null) return;
+
+            bool added;
+            bool reused;
+            bool usedRoot;
+            PrepareAnchorSet(
+                camp.gameObject,
+                BEGGAR_CAMP_ANCHOR_NAMES,
+                BEGGAR_CAMP_ANCHOR_LOCAL_X,
+                kingdom,
+                out added,
+                out reused,
+                out usedRoot);
+
+            float x = camp.transform.position.x;
+            if (added && !_loggedBeggarCampAdded)
+            {
+                _loggedBeggarCampAdded = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[Ninja] Prepared 5 Greece beggar-camp hiding anchors (side="
+                    + GetSideLabel(kingdom, x) + ", x=" + x + ")");
+            }
+            if (reused && !_loggedBeggarCampReused)
+            {
+                _loggedBeggarCampReused = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[Ninja] Re-registered reused Greece beggar-camp hiding anchors (5 anchors, side="
+                    + GetSideLabel(kingdom, x) + ", x=" + x + ")");
+            }
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[Ninja] Failed to prepare HidingSpots for Greece beggar camp: " + e);
+        }
+    }
+
+    private static void PrepareAnchorSet(
+        GameObject owner,
+        string[] anchorNames,
+        float[] localX,
+        Kingdom kingdom,
+        out bool added,
+        out bool reused,
+        out bool usedRootAsCenter)
     {
         added = false;
-        Transform anchorTransform = thicket.transform.Find(THICKET_ANCHOR_NAMES[index]);
+        reused = false;
+        usedRootAsCenter = false;
+        if (owner == null || anchorNames == null || localX == null
+            || anchorNames.Length == 0 || anchorNames.Length != localX.Length) return;
+
+        int centerIndex = anchorNames.Length / 2;
+        HidingSpot rootSpot = owner.GetComponent<HidingSpot>();
+        Transform namedCenter = owner.transform.Find(anchorNames[centerIndex]);
+        usedRootAsCenter = rootSpot != null && rootSpot.enabled && namedCenter == null;
+
+        if (usedRootAsCenter)
+        {
+            reused |= ReRegisterExistingAnchorIfMissing(rootSpot, kingdom);
+        }
+        else if (rootSpot != null && rootSpot.enabled)
+        {
+            // A named layout supersedes the legacy/native root slot.  Disabling
+            // only HidingSpot invokes its native unregister/occupant notification
+            // without changing any other component on the tree/camp/thicket.
+            rootSpot.enabled = false;
+        }
+
+        for (int i = 0; i < anchorNames.Length; i++)
+        {
+            if (usedRootAsCenter && i == centerIndex) continue;
+
+            bool anchorAdded;
+            HidingSpot anchor = EnsureChildAnchor(owner, anchorNames[i], localX[i], out anchorAdded);
+            added |= anchorAdded;
+            if (!anchorAdded)
+                reused |= ReRegisterExistingAnchorIfMissing(anchor, kingdom);
+        }
+    }
+
+    private static HidingSpot EnsureChildAnchor(
+        GameObject owner,
+        string anchorName,
+        float localX,
+        out bool added)
+    {
+        added = false;
+        Transform anchorTransform = owner.transform.Find(anchorName);
         GameObject anchorObject;
         if (anchorTransform == null)
         {
-            anchorObject = new GameObject(THICKET_ANCHOR_NAMES[index]);
+            anchorObject = new GameObject(anchorName);
             anchorTransform = anchorObject.transform;
-            anchorTransform.SetParent(thicket.transform, false);
+            anchorTransform.SetParent(owner.transform, false);
             added = true;
         }
         else
@@ -286,10 +416,10 @@ public static class PatchRoles_Ninja
             anchorObject = anchorTransform.gameObject;
         }
 
-        // Normalize all three positions on every pool spawn.  World-space x stays
-        // distinct, so Kingdom sorting and Ninja's native outside-wall filter work
+        // Normalize every slot on creation/reuse.  Distinct world-space x values
+        // let Kingdom's native ordering and Ninja's outside-wall filter operate
         // independently for each single-occupancy HidingSpot.
-        anchorTransform.localPosition = new Vector3(THICKET_ANCHOR_LOCAL_X[index], 0f, 0f);
+        anchorTransform.localPosition = new Vector3(localX, 0f, 0f);
 
         HidingSpot hidingSpot = anchorObject.GetComponent<HidingSpot>();
         if (hidingSpot == null)
@@ -299,6 +429,13 @@ public static class PatchRoles_Ninja
             added = true;
         }
         return hidingSpot;
+    }
+
+    private static string GetSideLabel(Kingdom kingdom, float x)
+    {
+        return kingdom != null
+            ? (x < kingdom.campfirePosition ? Side.Left : Side.Right).ToString()
+            : "<unknown>";
     }
 
     private static bool ReRegisterExistingAnchorIfMissing(HidingSpot hidingSpot, Kingdom kingdom)
@@ -337,5 +474,15 @@ public static class World_AddThicket_NinjaHidingSpot_Patch
     public static void Postfix(Grass grass)
     {
         PatchRoles_Ninja.EnsureThicketHidingSpots(grass);
+    }
+}
+
+[HarmonyPatch(typeof(PayableTree), nameof(PayableTree.OnEnable))]
+public static class PayableTree_OnEnable_NinjaHidingSpot_Patch
+{
+    [HarmonyPostfix]
+    public static void Postfix(PayableTree __instance)
+    {
+        PatchRoles_Ninja.EnsureTreeHidingSpot(__instance);
     }
 }

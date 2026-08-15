@@ -37,7 +37,7 @@
     },
     {
       "id": "ninja-runtime-003",
-      "title": "修复希腊忍者对象池、草丛伏击与状态缩放",
+      "title": "修复希腊忍者运行时、多载体伏击与状态缩放",
       "status": "doing",
       "priority": "p0",
       "owner": "codex",
@@ -46,11 +46,11 @@
       "dependencies": ["ninja-placement-002"],
       "blocked_by": [],
       "blocked_reason": null,
-      "acceptance": "希腊世界在忍者使用前确定性注册ThrowingStar与Smokebomb依赖池；每个成熟宽灌木提供3个左右错开的独立HidingSpot并正确处理池禁用/复用；忍者连续战斗及烟雾撤退无池缺失/NRE且天亮恢复钓鱼形态；夜行忍者y=1.1、希腊银行家y=1.075并且只改y；reviewer通过、构建成功、独立副本日志与行为实测通过。",
-      "verification": "新一轮独立副本日志确认ThrowingStar与Smokebomb池成功注册，相关Pool not found与NullReferenceException均为0。每个宽灌木3个错开独立锚点实现已获独立reviewer静态APPROVED；operator IL2CPP Debug构建0 warning/0 error。当前合并狂战士公开Promote修复的构建与独立副本DLL SHA-256均为88CE41D4D27C21F0B7BDB1D90A1286F9A0FAF1964225338E8487F7FD90B3821F。",
-      "handoff": "三槽灌木候选已仅部署独立副本；实测三忍者占位、禁用解绑、跨侧池复用、昼夜恢复与缩放。禁止修改Steam或共享存档，未验证前不重打zip。玩家版状态见release/MOD_UPDATE_AND_FIX_LOG_ZH.txt；代码已推送到Draft PR #1。",
+      "acceptance": "希腊世界在忍者使用前确定性注册ThrowingStar与Smokebomb依赖池；每个成熟宽灌木提供3个、每棵可砍伐树提供1个、每个乞丐帐篷提供5个错开的独立HidingSpot，统一由原生按同侧墙外、距墙最近且未占用选择，并正确处理禁用/销毁/复用；忍者连续战斗及烟雾撤退无池缺失/NRE且天亮恢复钓鱼形态；夜行忍者y=1.1、希腊银行家y=1.075并且只改y；构建成功、独立副本日志与行为实测通过。",
+      "verification": "上一轮独立副本日志确认ThrowingStar与Smokebomb池成功注册，相关Pool not found与NullReferenceException均为0；三槽灌木获独立reviewer静态APPROVED。新增树1槽/乞丐帐篷5槽后，operator核对原生按同侧坐标近墙排序与墙外/占用过滤，移除帐篷同帧重复初始化入口；IL2CPP Debug构建0 warning/0 error，DLL SHA-256=68149B124362F823B265BD7A0CF25B3B390B4C566026269FADB3E0182AE0C55A，validator与diff check通过。新增范围尚未部署、独立复核或实机。",
+      "handoff": "当前候选已构建但未部署：灌木3槽、树1槽、乞丐帐篷5槽统一走原生同侧近墙选点。下一步先静态复核新增树/帐篷生命周期，再在独立副本实测多载体距离顺序、容量占位、树砍伐/帐篷摧毁解绑、跨侧复用、昼夜恢复与缩放。禁止修改Steam或共享存档，未验证前不重打zip；推送Draft PR #1。",
       "workflow": {
-        "status": "review_approved",
+        "status": "running",
         "updated_at": "2026-08-15"
       },
       "lease": {
@@ -64,7 +64,7 @@
         "plan": "docs/project-harness/tasks/ninja-runtime-003/plan.md"
       },
       "review": {
-        "decision": "approved"
+        "decision": null
       }
     },
     {

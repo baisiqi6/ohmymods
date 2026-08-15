@@ -1,3 +1,21 @@
+## 2026-08-15 — ninja-runtime-003：伏击点扩展为灌木 3 / 树 1 / 乞丐帐篷 5
+
+- 用户补充：若墙外未砍树，成熟灌木可能不足；Greece 忍者还应能在树下与乞丐帐篷蹲守。
+  静态核对原生选择逻辑：`Kingdom.RegisterHidingSpot` 会把同侧列表按靠城墙方向排序，
+  `Ninja.GetHidingSpot` 选择第一个墙外且未占用的槽，所以三种载体统一登记即可自然实现
+  “谁离城墙近且没人就选谁”，无需自定义类型优先级。
+- `PatchRoles_Ninja` 已抽出通用奇数槽锚点：成熟宽灌木保持 local x=`-1.1/0/+1.1` 三槽；
+  每棵 Greece `PayableTree` 增加中心一槽；每个 Greece `BeggarCamp` 增加
+  local x=`-2/-1/0/+1/+2` 五槽。每槽仍是原生单占用，父灌木禁用、树砍伐或帐篷摧毁时
+  由原生 `OnDisable` 注销并通知占用 Ninja；仅 world-authority 创建。
+- 帐篷只复用已实机命中的 `BeggarCamp.Awake` 一次补槽，未叠加同帧权限/Start 入口，避免新组件
+  在原生 `Start` 前被手工登记、随后二次登记。树走 `PayableTree.OnEnable`，池复用时仅在 sided list
+  缺失才清旧占用并补登记。
+- IL2CPP Debug 构建 0 warning/0 error，DLL SHA-256=
+  `68149B124362F823B265BD7A0CF25B3B390B4C566026269FADB3E0182AE0C55A`；checklist validator 与
+  `git diff --check` 通过。本轮未部署、未启动游戏、未修改 Steam/共享存档/正式 zip；上一轮 reviewer
+  approval 不覆盖新增树/帐篷范围，任务保持 doing，待静态复核与独立副本实测。
+
 ## 2026-08-15 — 玩家更新日志与 Git 归档审计
 
 - 新增 `release/MOD_UPDATE_AND_FIX_LOG_ZH.txt`，以第一次正式发布包为基线，用玩家可理解的语言

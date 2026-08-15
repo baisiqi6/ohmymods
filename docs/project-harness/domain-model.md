@@ -54,6 +54,15 @@
 - 发布 ZIP 可以保留为版本产物；若后续持续更新导致 Git 历史膨胀，优先迁移到 GitHub Releases，
   不重新把反编译资料或运行日志塞进仓库。
 
+### D15. 忍者伏击点统一登记，不按载体写优先级（2026-08-15）
+- Greece 的伏击容量为：每个成熟宽灌木 3 槽、每棵 `PayableTree` 1 槽、每个 `BeggarCamp` 5 槽；
+  每个槽仍是一个原生单占用 `HidingSpot`，不允许多人共享同一组件。
+- 三类槽全部登记到 `Kingdom` 同一侧列表。原生注册会按 world x 朝城墙方向排序，`Ninja.GetHidingSpot`
+  再选择第一个墙外且未占用的槽，因此自然实现“离墙最近优先”，不添加灌木/树/帐篷类型权重。
+- 树用 `PayableTree.OnEnable` 精确补点；帐篷复用已实机命中的 `BeggarCamp.Awake`；灌木继续使用
+  `World.AddThicket`。父物体禁用、砍伐或摧毁时，子槽通过原生 `OnDisable` 注销并通知占用者。
+- 只在 Greece world-authority 创建这些本地 AI 锚点。客户端不运行忍者选点，不需要同步空锚点对象。
+
 
 ## 关键决策（ADR 精简版）
 
