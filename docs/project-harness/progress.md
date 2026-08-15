@@ -13,6 +13,20 @@
   0 warning / 0 error，并在确认游戏未运行后只覆盖独立测试副本。构建与部署 DLL SHA-256 均为
   `774F5ACFF413C76493456596ADE35D905C58CC9299F054747266FF2CF09607F3`。当前公开 zip 未刷新，
   运行时任务保持 doing，等待异常档首次恢复、重复读档、换岛和死亡重生门禁。
+- 用户首次载入后体感未看到四艘船，但只读证据确认恢复已实际发生：日志唯一摘要为
+  `expected=4 active=0 standby=0 carry=0 desired=4 missing=4 recovered=4 mode=spawned-from-zero`，之后无
+  FleetBoat/unknown pool/duplicate syncID/RPC异常；20:08 autosave 的当前第3岛含4个 `FleetBoatSaveData`，
+  BoatNumber=1～4、CurrentState=Idle，位置 x约38.31～41.26。当前不重复补船，避免制造8艘；先沿登陆点、
+  水道和左右外墙确认视觉位置，必要时下一候选只加一次延迟位置诊断。
+
+## 2026-08-15 — role-qol-001：马厩隐士 y=1.10 已构建，游戏运行中未部署
+
+- 2.1/2.4 双端核对确认吹笛解锁、用于马厩升级的隐士是 `HermitType.Horse`（标签
+  `HermitHorsekeeper`），不是 `HermitType.Horn`。沿用既有缩放守护：Horse OnEnable 绝对设置 y=1.10，
+  保留x/z；OnDestroy精确注销，Baker仍为1.15，其他类型零写入。
+- worker实现与独立reviewer静态APPROVED；禁部署Debug构建0 warning/0 error，DLL SHA-256=
+  `D5EE1F2124BF5BB27665DD37E4974DC541B8ED3F990409F9A879E0A9E581B285`。游戏PID 14132仍在运行，
+  因此未部署、打包或实机，任务保持doing/review_approved。
 
 ## 2026-08-15 — candidate-package-007：友好巨魔与视觉微调候选已刷新
 

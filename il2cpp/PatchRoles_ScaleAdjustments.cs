@@ -114,12 +114,13 @@ public static class GreeceBankerScale_Patch
 }
 
 /// <summary>
-/// 酿酒师隐士固定为 y=1.15；其他隐士保持原样。
+/// 酿酒师隐士固定为 y=1.15，马厩隐士固定为 y=1.10；其他隐士保持原样。
 /// </summary>
 [HarmonyPatch]
-public static class BakerHermitScale_Patch
+public static class HermitScale_Patch
 {
     private const float BakerHermitY = 1.15f;
+    private const float HorseHermitY = 1.10f;
 
     [HarmonyPatch(typeof(Hermit), nameof(Hermit.OnEnable))]
     [HarmonyPostfix]
@@ -129,15 +130,27 @@ public static class BakerHermitScale_Patch
 
         try
         {
-            if (__instance.Type != Hermit.HermitType.Baker) return;
+            float targetY;
+            if (__instance.Type == Hermit.HermitType.Baker)
+            {
+                targetY = BakerHermitY;
+            }
+            else if (__instance.Type == Hermit.HermitType.Horse)
+            {
+                targetY = HorseHermitY;
+            }
+            else
+            {
+                return;
+            }
 
             Mover mover = __instance.mover != null ? __instance.mover : __instance.GetComponent<Mover>();
             if (mover == null) return;
 
             Vector3 scale = __instance.transform.localScale;
-            scale.y = BakerHermitY;
+            scale.y = targetY;
             __instance.transform.localScale = scale;
-            ScaleRegistryHolder.Register(mover, BakerHermitY);
+            ScaleRegistryHolder.Register(mover, targetY);
         }
         catch (Exception e)
         {
@@ -153,7 +166,8 @@ public static class BakerHermitScale_Patch
 
         try
         {
-            if (__instance.Type != Hermit.HermitType.Baker) return;
+            if (__instance.Type != Hermit.HermitType.Baker
+                && __instance.Type != Hermit.HermitType.Horse) return;
 
             Mover mover = __instance.mover != null ? __instance.mover : __instance.GetComponent<Mover>();
             ScaleRegistryHolder.Unregister(mover);
