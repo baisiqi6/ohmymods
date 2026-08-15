@@ -18,6 +18,11 @@
   FleetBoat/unknown pool/duplicate syncID/RPC异常；20:08 autosave 的当前第3岛含4个 `FleetBoatSaveData`，
   BoatNumber=1～4、CurrentState=Idle，位置 x约38.31～41.26。当前不重复补船，避免制造8艘；先沿登陆点、
   水道和左右外墙确认视觉位置，必要时下一候选只加一次延迟位置诊断。
+- 随后换岛日志确认原生 carry-forward 已生成4艘、恢复补丁未补船，但新岛四个 Idle 实例最终停在完全相同的
+  x=37.96。死亡前旧正常档证明四船本应保持同一侧并按 BoatNumber 约1单位错开，问题是原生换岛生成后没有完成横向归位。
+- 第二阶段已实现并经独立 reviewer 静态 APPROVED：ApplyToScene 后由单批次runner等待2～4艘船全部 Idle、编号唯一、
+  原生side/base及Mover/FSM有效，再仅调用一次原生 `UpdateBase(true)`。不改side、状态、坐标、数量、任务、standby、
+  carryForward、对象池或RPC；活动/编队/航行状态只等待或超时。Debug构建0 warning/0 error，待干净提交重建并部署独立副本实测。
 
 ## 2026-08-15 — role-qol-001：马厩隐士 y=1.10 已部署独立副本
 

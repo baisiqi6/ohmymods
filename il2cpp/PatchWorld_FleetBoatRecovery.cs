@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using HarmonyLib;
+using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
 
 namespace KingdomEnhancedMod;
@@ -14,6 +15,7 @@ namespace KingdomEnhancedMod;
 public static class PatchWorld_FleetBoatRecovery
 {
     private const int MaxFleetBoats = 4;
+    private static bool _berthCoordinatorRegistered;
 
     public sealed class ApplyState
     {
@@ -214,6 +216,43 @@ public static class PatchWorld_FleetBoatRecovery
             {
                 KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(summary);
             }
+
+            TryScheduleBerthNormalization(__instance);
+        }
+    }
+
+    private static void TryScheduleBerthNormalization(CampaignSaveData campaign)
+    {
+        try
+        {
+            if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth
+                || !IsEligibleCampaign(campaign)) return;
+
+            Managers managers = Managers.Inst;
+            World world = managers?.world;
+            Kingdom kingdom = managers?.kingdom;
+            if (world == null || world.gameObject == null || world.gameLayer == null
+                || kingdom == null) return;
+
+            if (!_berthCoordinatorRegistered)
+            {
+                if (!ClassInjector.IsTypeRegisteredInIl2Cpp(typeof(FleetBoatBerthCoordinator)))
+                    ClassInjector.RegisterTypeInIl2Cpp(typeof(FleetBoatBerthCoordinator));
+                _berthCoordinatorRegistered = true;
+            }
+
+            FleetBoatBerthCoordinator coordinator =
+                world.GetComponent<FleetBoatBerthCoordinator>();
+            if (coordinator == null)
+                coordinator = world.gameObject.AddComponent<FleetBoatBerthCoordinator>();
+            if (coordinator != null)
+                coordinator.Begin(campaign, kingdom, world, world.gameLayer);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                "[FleetBoatBerth] boats=0 updated=0 waited=0 mode=schedule-failed-"
+                + e.GetType().Name);
         }
     }
 
@@ -227,7 +266,7 @@ public static class PatchWorld_FleetBoatRecovery
         return Mathf.Clamp(count, 0, MaxFleetBoats);
     }
 
-    private static bool IsEligibleCampaign(CampaignSaveData campaign)
+    internal static bool IsEligibleCampaign(CampaignSaveData campaign)
     {
         GlobalSaveData global = GlobalSaveData.loaded;
         BiomeHolder biomeHolder = BiomeHolder.Inst;
@@ -252,7 +291,7 @@ public static class PatchWorld_FleetBoatRecovery
         return count;
     }
 
-    private static bool IsSceneBoat(FleetBoat boat, Transform sceneRoot)
+    internal static bool IsSceneBoat(FleetBoat boat, Transform sceneRoot)
     {
         return boat != null && boat.gameObject != null && boat.gameObject.activeInHierarchy
             && boat.transform != null && sceneRoot != null && boat.transform.IsChildOf(sceneRoot);
@@ -318,5 +357,327 @@ public static class PatchWorld_FleetBoatRecovery
         spawnPosition = new Vector3(sailX + 5f, 0f, 0f);
         reason = "ready";
         return true;
+    }
+}
+
+/// <summary>
+/// One-shot, authority-only berth refresh after ApplyToScene. All job state is static because
+/// injected IL2CPP MonoBehaviours must not depend on managed generic instance-field layout.
+/// </summary>
+public sealed class FleetBoatBerthCoordinator : MonoBehaviour
+{
+    private const float PollInterval = 0.25f;
+    private const float Timeout = 12f;
+
+    private sealed class BoatSnapshot
+    {
+        public FleetBoat Boat;
+        public IntPtr Pointer;
+        public int BoatNumber;
+    }
+
+    private static readonly List<BoatSnapshot> Boats = new();
+    private static FleetBoatBerthCoordinator _instance;
+    private static CampaignSaveData _campaign;
+    private static Kingdom _kingdom;
+    private static World _world;
+    private static Transform _sceneRoot;
+    private static IntPtr _campaignPointer;
+    private static IntPtr _kingdomPointer;
+    private static IntPtr _worldPointer;
+    private static IntPtr _sceneRootPointer;
+    private static bool _pending;
+    private static int _generation;
+    private static int _activeGeneration;
+    private static float _startedAt;
+    private static float _deadline;
+    private static float _nextPollAt;
+    private static string _waitReason;
+
+    public FleetBoatBerthCoordinator(IntPtr ptr) : base(ptr) { }
+
+    public void Begin(CampaignSaveData campaign, Kingdom kingdom, World world, Transform sceneRoot)
+    {
+        if (campaign == null || kingdom == null || world == null || sceneRoot == null) return;
+
+        var candidates = new List<BoatSnapshot>();
+        var seen = new HashSet<IntPtr>();
+        if (kingdom.FleetBoats != null)
+        {
+            for (int i = 0; i < kingdom.FleetBoats.Count; i++)
+            {
+                FleetBoat boat = kingdom.FleetBoats[i];
+                if (!PatchWorld_FleetBoatRecovery.IsSceneBoat(boat, sceneRoot)
+                    || !seen.Add(boat.Pointer)) continue;
+                candidates.Add(new BoatSnapshot
+                {
+                    Boat = boat,
+                    Pointer = boat.Pointer,
+                    BoatNumber = boat._boatNumber
+                });
+                if (candidates.Count > 4) break;
+            }
+        }
+
+        if (candidates.Count < 2) return;
+        if (candidates.Count > 4)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                "[FleetBoatBerth] boats=" + candidates.Count
+                + " updated=0 waited=0 mode=cancelled-count");
+            return;
+        }
+
+        if (_pending)
+        {
+            if (_campaignPointer == campaign.Pointer && _kingdomPointer == kingdom.Pointer
+                && _worldPointer == world.Pointer && _sceneRootPointer == sceneRoot.Pointer
+                && SameBoatSet(candidates))
+            {
+                return;
+            }
+            Finish("replaced", 0);
+        }
+
+        _instance = this;
+        _campaign = campaign;
+        _kingdom = kingdom;
+        _world = world;
+        _sceneRoot = sceneRoot;
+        _campaignPointer = campaign.Pointer;
+        _kingdomPointer = kingdom.Pointer;
+        _worldPointer = world.Pointer;
+        _sceneRootPointer = sceneRoot.Pointer;
+        Boats.Clear();
+        Boats.AddRange(candidates);
+        _activeGeneration = ++_generation;
+        _startedAt = Time.unscaledTime;
+        _deadline = _startedAt + Timeout;
+        _nextPollAt = _startedAt;
+        _waitReason = "not-ready";
+        _pending = true;
+    }
+
+    private void Update()
+    {
+        if (!_pending || _instance != this || Time.unscaledTime < _nextPollAt) return;
+        _nextPollAt = Time.unscaledTime + PollInterval;
+
+        if (!ValidateJobIdentity(out string cancelReason))
+        {
+            Finish(cancelReason, 0);
+            return;
+        }
+
+        if (!TryValidateBoats(out string boatReason))
+        {
+            if (boatReason == "unsafe-state" || boatReason == "base-not-ready")
+            {
+                _waitReason = boatReason;
+                if (Time.unscaledTime < _deadline) return;
+                Finish("timeout-" + _waitReason, 0);
+                return;
+            }
+
+            Finish(boatReason, 0);
+            return;
+        }
+
+        int updated = 0;
+        for (int i = 0; i < Boats.Count; i++)
+        {
+            FleetBoat boat = Boats[i].Boat;
+            try
+            {
+                // Preserve the native current side. In 2.4, true forbids falling back to the
+                // common BoatSailPosition; the ready side base and BoatNumber provide spacing.
+                boat.UpdateBase(true);
+                updated++;
+            }
+            catch
+            {
+                // Continue so one stale wrapper cannot prevent the other valid boats moving.
+            }
+        }
+
+        Finish(updated == Boats.Count ? "updated" : "updated-partial", updated);
+    }
+
+    private static bool ValidateJobIdentity(out string reason)
+    {
+        reason = "cancelled";
+        if (!ModConfig.Enabled.Value)
+        {
+            reason = "cancelled-disabled";
+            return false;
+        }
+        if (_activeGeneration != _generation)
+        {
+            reason = "cancelled-generation";
+            return false;
+        }
+        if (!NetworkBigBoss.HasWorldAuth)
+        {
+            reason = "cancelled-no-authority";
+            return false;
+        }
+        if (!PatchWorld_FleetBoatRecovery.IsEligibleCampaign(_campaign))
+        {
+            reason = "cancelled-campaign";
+            return false;
+        }
+        CampaignSaveData currentCampaign = CampaignSaveData.current;
+        if (currentCampaign == null || currentCampaign.Pointer != _campaignPointer)
+        {
+            reason = "cancelled-campaign-replaced";
+            return false;
+        }
+
+        Managers managers = Managers.Inst;
+        if (managers == null || managers.kingdom == null || managers.world == null
+            || managers.world.gameLayer == null
+            || managers.kingdom.Pointer != _kingdomPointer
+            || managers.world.Pointer != _worldPointer
+            || managers.world.gameLayer.Pointer != _sceneRootPointer)
+        {
+            reason = "cancelled-scene";
+            return false;
+        }
+        return true;
+    }
+
+    private static bool TryValidateBoats(out string reason)
+    {
+        reason = "ready";
+        if (_kingdom == null || _sceneRoot == null || _kingdom.FleetBoats == null)
+        {
+            reason = "cancelled-scene";
+            return false;
+        }
+
+        var numbers = new HashSet<int>();
+        for (int i = 0; i < Boats.Count; i++)
+        {
+            BoatSnapshot snapshot = Boats[i];
+            FleetBoat boat = snapshot.Boat;
+            if (boat == null || boat.Pointer != snapshot.Pointer
+                || !PatchWorld_FleetBoatRecovery.IsSceneBoat(boat, _sceneRoot)
+                || !IsStillRegistered(boat))
+            {
+                reason = "cancelled-boat-inactive";
+                return false;
+            }
+            if (boat._boatNumber != snapshot.BoatNumber || boat._boatNumber < 1
+                || boat._boatNumber > 4 || !numbers.Add(boat._boatNumber))
+            {
+                reason = "cancelled-boat-identity";
+                return false;
+            }
+            if (boat.Side != Side.Left && boat.Side != Side.Right)
+            {
+                reason = "cancelled-side";
+                return false;
+            }
+            if (!HasReadyBase(_kingdom, boat.Side))
+            {
+                reason = "base-not-ready";
+                return false;
+            }
+
+            StateMachine fsm = boat._fsm;
+            if (fsm == null || boat._mover == null)
+            {
+                reason = "cancelled-not-ready";
+                return false;
+            }
+            // The whole captured batch must be quiescent. GoToNewBase is the 2.4 successor
+            // to FirstArrival, but UpdateBase is deferred until that transition reaches Idle.
+            if (fsm.Current != FleetBoat.State.Idle)
+            {
+                reason = "unsafe-state";
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static bool HasReadyBase(Kingdom kingdom, Side side)
+    {
+        GameObject baseObject = null;
+        try
+        {
+            PayableBorder border = kingdom.borderBanner != null
+                ? kingdom.borderBanner[side] : null;
+            if (border != null && border.gameObject != null && border.gameObject.activeInHierarchy)
+                baseObject = border.gameObject;
+            else if (kingdom.intactWall != null)
+                baseObject = kingdom.intactWall[side];
+        }
+        catch
+        {
+            return false;
+        }
+
+        if (baseObject == null || !baseObject.activeInHierarchy || baseObject.transform == null)
+            return false;
+        float x = baseObject.transform.position.x;
+        return !float.IsNaN(x) && !float.IsInfinity(x);
+    }
+
+    private static bool IsStillRegistered(FleetBoat boat)
+    {
+        for (int i = 0; i < _kingdom.FleetBoats.Count; i++)
+        {
+            FleetBoat registered = _kingdom.FleetBoats[i];
+            if (registered != null && registered.Pointer == boat.Pointer) return true;
+        }
+        return false;
+    }
+
+    private static bool SameBoatSet(List<BoatSnapshot> candidates)
+    {
+        if (candidates.Count != Boats.Count) return false;
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            bool found = false;
+            for (int j = 0; j < Boats.Count; j++)
+            {
+                if (candidates[i].Pointer != Boats[j].Pointer) continue;
+                found = true;
+                break;
+            }
+            if (!found) return false;
+        }
+        return true;
+    }
+
+    private static void Finish(string mode, int updated)
+    {
+        if (!_pending) return;
+        float waited = Mathf.Max(0f, Time.unscaledTime - _startedAt);
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+            "[FleetBoatBerth] boats=" + Boats.Count
+            + " updated=" + updated
+            + " waited=" + waited.ToString("F2")
+            + " mode=" + mode);
+
+        _pending = false;
+        Boats.Clear();
+        _campaign = null;
+        _kingdom = null;
+        _world = null;
+        _sceneRoot = null;
+        _campaignPointer = IntPtr.Zero;
+        _kingdomPointer = IntPtr.Zero;
+        _worldPointer = IntPtr.Zero;
+        _sceneRootPointer = IntPtr.Zero;
+        _waitReason = null;
+    }
+
+    private void OnDisable()
+    {
+        if (_instance == this && _pending)
+            Finish("cancelled-world-disabled", 0);
+        if (_instance == this) _instance = null;
     }
 }

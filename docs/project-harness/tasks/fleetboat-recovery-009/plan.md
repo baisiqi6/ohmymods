@@ -4,6 +4,7 @@
 
 - 修复死亡换君主后，四个神像交付任务仍为完成但 `FleetBoat` 所有权、standby、carryForward 与岛屿实例全部归零，导致小船永久丢失且无法重新领取的问题。
 - 以四个已完成的神岛交付任务作为所有权下限：Athena、Artemis、Hephaestus、Hermes，每项最多贡献 1，期望值严格限制在 0～4。
+- 修复换岛后原生 carry-forward 已正确生成四艘船，但四艘最终 Idle 在同一 x 坐标、视觉完全重叠的编队初始化异常。
 
 ## 安全边界
 
@@ -15,6 +16,7 @@
 - 遵循原生唯一来源语义，不把同一批 active、standby 和 carryForward 重复相加；只补缺口，不删除多余，不超过 4。
 - riverless/缺少安全生成条件时只写原生 standby；能生成时只用当前 biome 的 `fleetBoatPrefab` 与既有同步池。不得新增 syncID、RPC、sidecar 或自定义持久化。
 - 游戏运行时禁止替换 DLL；只部署独立测试副本，Steam/Mono/共享存档内容不改。
+- 编队修复只操作当前场景中已经注册的有效 FleetBoat：不得生成、删除、despawn、改任务、改standby、改carry或直接瞬移。
 
 ## 原生生命周期待核对
 
@@ -44,6 +46,15 @@
   到 standby；只要最终已有任一 active，就绝不同时写 standby，剩余缺口留到下一次 Apply 重试。
 - 每次 ApplyToScene 最多输出一条摘要日志：expected/active/standby/carryForward/actual/recovered/mode；同一加载不得每帧重试或刷屏。
 
+### 第二阶段：换岛后原生重编队
+
+- 只在 world-authority、Call of Olympus、非challenge且当前 active FleetBoat 至少2艘时执行；客户端只接收原生位置同步。
+- 最新实机证据为 `active=4 carry=4 missing=0`，说明本次四艘由原生 `ApplyFleetBoats` 生成，恢复补丁没有补船；因此第二阶段不得再次触发所有权恢复。
+- `ApplyToScene` Postfix 不直接改船；通过单一批次延迟 runner 等待新生成对象完成 Start。runner 必须捕获 Kingdom、world.gameLayer、场景身份和 generation token，重复Apply取代旧批次；换岛、失权、禁用、对象失活或场景替换时取消，并有有限超时。
+- 整批执行前验证每艘 boat/gameObject/transform/_fsm/_mover 有效、active、属于当前 scene root，`BoatNumber` 唯一且均在1～4；只处理当前 `FleetBoat.State.Idle`。`GoToNewBase`、ReturningToBase、Attacking、InFormation、WaitingForSailAway、SailingAway 等状态全部跳过，不抢写原生目标。
+- 保留每艘船的原生当前 `Side`，不写 `_side/_prevSide`；要求 Side 为 Left/Right，且该侧存在有效 active `borderBanner` 或 `intactWall`，否则整批 fail closed。
+- 只调用公开化 wrapper `boat.UpdateBase(true)`，明确禁止回退到 boatSailPosition，让 Mover 按 `BoatNumber` 和 prefab 编队范围自行展开；禁止直接写 transform、state、standby、carry或所有权。成功或放弃只输出一条摘要，不能每帧刷屏。
+
 ## 验证
 
 1. worker 对 2.1 逻辑说明书与 2.4 interop 签名/调用时序做双重核对并实现最小独立 patch。
@@ -51,6 +62,7 @@
 3. `dotnet build -c Debug --no-restore -p:BepInExPluginsPath=` 必须 0 warning / 0 error；`git diff --check` 通过。
 4. 游戏退出后只部署独立测试副本，确认构建/部署 DLL 哈希一致；不自动启动游戏或改存档。
 5. 当前异常存档首次加载恢复至 4；重复读档不会变成 8；换岛、死亡换君主仍为 4；2 项任务最多 2；0 项不生成；日志无 unknown pool、重复 syncID、RPC/FleetBoat 异常。
+6. 换岛后四艘现有船保持原生停靠侧并按BoatNumber重新驶向原生靠岸编队；最终横向间距恢复到旧正常档约1单位，不再四艘同x重叠，FleetBoat总数始终为4。
 
 ## 退出条件
 
