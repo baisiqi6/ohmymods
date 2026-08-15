@@ -57,9 +57,11 @@ try {
     Copy-RequiredFile (Join-Path $PSScriptRoot 'release\MOD_UPDATE_AND_FIX_LOG_ZH.txt') (Join-Path $stage 'MOD_UPDATE_AND_FIX_LOG_ZH.txt')
 
     $dllHash = (Get-FileHash -LiteralPath $BuildDll -Algorithm SHA256).Hash
-    $gitCommit = (& git -C $PSScriptRoot rev-parse HEAD 2>$null)
+    $gitSafeDirectory = 'safe.directory=' + ([IO.Path]::GetFullPath($PSScriptRoot) -replace '\\', '/')
+    $gitCommit = (& git -c $gitSafeDirectory -C $PSScriptRoot rev-parse HEAD 2>$null)
     if ($LASTEXITCODE -ne 0 -or -not $gitCommit) { $gitCommit = 'unknown' }
-    $gitDirty = (& git -C $PSScriptRoot status --porcelain 2>$null)
+    $relativeOutputZip = [IO.Path]::GetRelativePath($PSScriptRoot, $OutputZip).Replace('\', '/')
+    $gitDirty = (& git -c $gitSafeDirectory -C $PSScriptRoot status --porcelain -- . ":(exclude)$relativeOutputZip" 2>$null)
     if ($LASTEXITCODE -ne 0) { $gitDirty = 'unknown' }
     elseif ($gitDirty) { $gitDirty = 'true' }
     else { $gitDirty = 'false' }
