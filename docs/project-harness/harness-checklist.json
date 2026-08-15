@@ -46,9 +46,9 @@
       "dependencies": ["release-package-001"],
       "blocked_by": [],
       "blocked_reason": null,
-      "acceptance": "希腊只保留一个原版Banker作为国库/利息/提款/存档权威；欧洲、幕府、Dead Lands、北境四套外观各生成一名无Banker/Persistent/Wallet行为的助手；主银行家身体只在内墙活动但保持增强移速、全天工作并覆盖当前左右城墙金币；墙外玩家金币落地3秒后由中央扫描器交给单一当前助手连续处理，其他助手在城堡附近墙内巡逻且不为同批金币一起瞬移；成功拾取由world-authority立即原子入账，轮换/回城不重复入账；共享账本不覆盖日息或回滚提款；同步池、切岛/读档生命周期、构建与独立副本实测通过。",
-      "verification": "首次候选DLL 0203BC71实机暴露四套controller统一回退和候选阻塞；后续F3BAB6CB版已修复并在独立副本确认四套控制器解析及四助手生成。当前行为版新增唯一collector轮转、其余助手墙内小范围巡逻与2/3/4/5秒端点停留；主Banker保持原生状态机但使用walk=1.95/run=3.6、1秒scanner和动态左右墙范围，墙外认领门禁保留，ShouldHide关闭且ShouldEmerge仅在kingdom安全时放行。独立reviewer静态APPROVED；Debug构建0 warning/0 error；构建与独立测试副本DLL SHA-256均为91B6FDB52831BAA15B14E54B047F989E3B7639FC3DCE856A0522F4472AF41B62；git diff --check无错误。待游戏内实测。",
-      "handoff": "部署独立副本后确认：主银行家只追内墙币、增强速度、扩墙后仍覆盖左右远端、安全期夜间持续工作且攻城不主动出门；四助手空闲分散巡逻并在端点停顿，同批墙外币只激活一个助手连续处理，容量/批次完成后下一批轮换。再做切岛/读档和联机unknown pool/duplicate syncID/残留claim回归。不得复制Banker组件或让客户端写国库，不修改Steam/共享存档/正式zip。",
+      "acceptance": "希腊只保留一个原版Banker作为国库/利息/提款/存档权威；欧洲、幕府、Dead Lands、北境四套外观各生成一名无Banker/Persistent/Wallet行为的助手，北境助手y=1.2且只改y；主银行家仅管理左右从城堡向外数第二道墙之间并保持增强移速、安全期全天工作与该区域动态扫描；该管辖区外的玩家金币落地3秒后由单一当前助手连续处理，同批下一枚距助手不超过6单位就直接跑、超过才瞬移，其他助手在城堡附近巡逻且不为同批金币一起行动；成功拾取由world-authority立即原子入账，轮换/回城不重复入账；共享账本不覆盖日息或回滚提款；同步池、切岛/读档生命周期、构建与独立副本实测通过。",
+      "verification": "此前已在独立副本确认四套控制器解析与四助手生成。最新实现以左右GetWall(side,1)定义第二道墙管辖区；两侧未齐时对称回退index0，再回退有效border；主Banker ClaimCoins按朝向精确设置range/rangeBehind并在认领入口拒绝域外Player Coins，助手scan每tick只解析一次同一domain且commit时复核。同批后续金币<=6直接跑，首枚或>6才传送；banker_norselands prefab只设y=1.2。独立reviewer静态APPROVED；Debug构建0 warning/0 error；DLL SHA-256=51BFFEEF87FCC6846AF4FB253270DD0F6FE50C814DF7EBD3596A5320F8C8013B；git diff --check无错误。测试副本当前运行中，待退出后部署实测。",
+      "handoff": "本轮先实现并复审：用GetWall(Left/Right,1)定义主Banker第二道墙管辖区；两侧index1未齐时对称回退index0，再否则外墙；助手接管该区外成熟金币；同批近币6单位内不瞬移；北境助手只改y=1.2。部署独立副本后验证内外层领地分流、近币跑动/远币传送、北境比例、夜间安全与联机同步，再做切岛/读档和unknown pool/duplicate syncID/残留claim回归。不得复制Banker组件或让客户端写国库，不修改Steam/共享存档/正式zip。",
       "workflow": {
         "status": "running",
         "updated_at": "2026-08-15"

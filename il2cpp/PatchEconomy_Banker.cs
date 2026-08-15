@@ -61,6 +61,84 @@ public static class PatchEconomy_Banker
         public bool Enhanced;
     }
 
+    internal static bool TryGetMainBankerDomain(Kingdom kingdom,
+        out float left, out float right)
+    {
+        left = 0f;
+        right = 0f;
+        if (kingdom == null) return false;
+
+        // GetWall(side, 0) indexes an empty list instead of returning null. Gate
+        // every call through the native ordered lists and never mix wall stages.
+        var orderedWalls = kingdom._orderedWalls;
+        if (orderedWalls != null)
+        {
+            var leftWalls = orderedWalls[Side.Left];
+            var rightWalls = orderedWalls[Side.Right];
+            if (leftWalls != null && rightWalls != null)
+            {
+                if (leftWalls.Count > 1 && rightWalls.Count > 1
+                    && TryGetWallPair(kingdom, 1, out left, out right)) return true;
+                if (leftWalls.Count > 0 && rightWalls.Count > 0
+                    && TryGetWallPair(kingdom, 0, out left, out right)) return true;
+            }
+        }
+
+        if (!kingdom.HasBorderLoaded) return false;
+        float borderLeft = kingdom.GetBorderSide(Side.Left);
+        float borderRight = kingdom.GetBorderSide(Side.Right);
+        if (IsValidDomain(kingdom, borderLeft, borderRight))
+        {
+            left = borderLeft;
+            right = borderRight;
+            return true;
+        }
+
+        return false;
+    }
+
+    internal static bool IsInMainBankerDomain(Kingdom kingdom, float x)
+    {
+        return TryGetMainBankerDomain(kingdom, out float left, out float right)
+            && IsInMainBankerDomain(x, left, right);
+    }
+
+    internal static bool IsInMainBankerDomain(float x, float left, float right)
+    {
+        return x > left && x < right;
+    }
+
+    private static bool IsUsableWall(Wall wall)
+    {
+        return wall != null && wall.gameObject != null && wall.transform != null
+            && wall.gameObject.activeInHierarchy;
+    }
+
+    private static bool TryGetWallPair(Kingdom kingdom, int wallIndex,
+        out float left, out float right)
+    {
+        left = 0f;
+        right = 0f;
+        Wall leftWall = kingdom.GetWall(Side.Left, wallIndex);
+        Wall rightWall = kingdom.GetWall(Side.Right, wallIndex);
+        if (!IsUsableWall(leftWall) || !IsUsableWall(rightWall)) return false;
+        left = leftWall.transform.position.x;
+        right = rightWall.transform.position.x;
+        return IsValidDomain(kingdom, left, right);
+    }
+
+    private static bool IsFiniteOrdered(float left, float right)
+    {
+        return !float.IsNaN(left) && !float.IsInfinity(left)
+            && !float.IsNaN(right) && !float.IsInfinity(right) && left < right;
+    }
+
+    private static bool IsValidDomain(Kingdom kingdom, float left, float right)
+    {
+        return kingdom != null && IsFiniteOrdered(left, right)
+            && left < kingdom.campfirePosition && kingdom.campfirePosition < right;
+    }
+
     private static WorkProfile CaptureWorkProfile(Banker banker)
     {
         if (banker == null || banker.gameObject == null) return null;
@@ -94,32 +172,44 @@ public static class PatchEconomy_Banker
         banker.walkSpeed = 1.95f;
         banker.runSpeed = 3.6f;
         banker.wanderRange = 8.75f;
+        ConfigureScannerForDomain(banker);
+        profile.Enhanced = true;
+    }
 
-        float forward = 300f;
+    private static bool ConfigureScannerForDomain(Banker banker)
+    {
+        if (banker == null) return false;
+        Scanner scanner = banker._coinScanner;
         Managers managers = Managers.Inst;
         Kingdom kingdom = managers != null ? managers.kingdom : null;
-        if (kingdom != null && kingdom.HasBorderLoaded)
+        if (!TryGetMainBankerDomain(kingdom, out float left, out float right))
         {
-            float left = kingdom.GetBorderSide(Side.Left);
-            float right = kingdom.GetBorderSide(Side.Right);
-            float x = banker.transform.position.x;
-            if (!float.IsNaN(left) && !float.IsInfinity(left)
-                && !float.IsNaN(right) && !float.IsInfinity(right) && left < right)
+            banker.coinScanRange = 0f;
+            if (scanner != null)
             {
-                forward = Mathf.Max(1f,
-                    Mathf.Max(Mathf.Abs(x - left), Mathf.Abs(right - x)) + 0.5f);
+                scanner.range = 0f;
+                scanner.rangeBehind = 0f;
+                scanner._interval = 1f;
             }
+            return false;
         }
 
-        banker.coinScanRange = forward;
-        Scanner scanner = banker._coinScanner;
+        float x = banker.transform.position.x;
+        float scaleMagnitude = Mathf.Max(0.01f,
+            Mathf.Abs(banker.transform.localScale.x));
+        bool facesRight = banker.transform.localScale.x >= 0f;
+        float forward = Mathf.Max(0.1f,
+            (facesRight ? right - x : x - left) / scaleMagnitude);
+        float behind = Mathf.Max(0.1f,
+            (facesRight ? x - left : right - x) / scaleMagnitude);
+        banker.coinScanRange = Mathf.Max(forward, behind);
         if (scanner != null)
         {
             scanner.range = forward;
-            scanner.rangeBehind = forward;
+            scanner.rangeBehind = behind;
             scanner._interval = 1f;
         }
-        profile.Enhanced = true;
+        return true;
     }
 
     private static void RestoreWorkProfile(Banker banker)
@@ -493,6 +583,19 @@ public static class PatchEconomy_Banker
         }
     }
 
+    [HarmonyPatch(typeof(Banker), nameof(Banker.ClaimCoins))]
+    [HarmonyPrefix]
+    public static bool ClaimCoins_Prefix(Banker __instance)
+    {
+        if (!ModConfig.Enabled.Value) return true;
+        if (ConfigureScannerForDomain(__instance)) return true;
+
+        // Native ClaimCoins normally clears this first. The fail-closed prefix must
+        // preserve that invariant when no canonical wall domain can be resolved.
+        if (__instance != null) __instance._targetCoin = null;
+        return false;
+    }
+
     // === ShouldHide - 已验证的积极工作模式（夜间不休息） ===
 
     [HarmonyPatch(typeof(Banker), nameof(Banker.ShouldHide))]
@@ -538,7 +641,10 @@ public static class Droppable_MainBankerOutsideWallClaim_Patch
 
         Managers managers = Managers.Inst;
         Kingdom kingdom = managers != null ? managers.kingdom : null;
-        if (kingdom == null || kingdom.IsWithinWalls(coin.transform.position.x)) return true;
+        if (PatchEconomy_Banker.TryGetMainBankerDomain(
+                kingdom, out float left, out float right)
+            && PatchEconomy_Banker.IsInMainBankerDomain(
+                coin.transform.position.x, left, right)) return true;
 
         __result = false;
         return false;

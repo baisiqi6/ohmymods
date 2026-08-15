@@ -189,6 +189,12 @@ public static class PatchEconomy_BankAssistants
             prefab.hideFlags = HideFlags.HideAndDontSave;
             prefab.layer = banker.gameObject.layer;
             prefab.transform.localScale = banker.transform.localScale;
+            if (i == 3)
+            {
+                Vector3 norselandsScale = prefab.transform.localScale;
+                norselandsScale.y = 1.2f;
+                prefab.transform.localScale = norselandsScale;
+            }
 
             SpriteRenderer renderer = prefab.AddComponent<SpriteRenderer>();
             if (sourceRenderer != null)
@@ -634,6 +640,17 @@ public class BankAssistantCoordinator : MonoBehaviour
         DroppableRegistrar registrar = managers.dropManager;
         Kingdom kingdom = managers.kingdom;
         if (registrar == null || kingdom == null || _mainBanker == null) return;
+        if (!PatchEconomy_Banker.TryGetMainBankerDomain(
+                kingdom, out float domainLeft, out float domainRight))
+        {
+            for (int i = 0; i < Assistants.Length; i++)
+                if (Assistants[i].Target != null) ReleaseTarget(Assistants[i]);
+            if (_collectorIndex >= 0) FinishCollector(returnHome: true);
+            Observed.Clear();
+            Claims.Clear();
+            MatureBuffer.Clear();
+            return;
+        }
 
         SeenThisScan.Clear();
         MatureBuffer.Clear();
@@ -654,7 +671,8 @@ public class BankAssistantCoordinator : MonoBehaviour
                 && coin.CurrencyType == CurrencyType.Coins && !coin.IsFake())
             {
                 ordinaryPlayerCoins++;
-                if (!kingdom.IsWithinWalls(coin.transform.position.x))
+                if (!PatchEconomy_Banker.IsInMainBankerDomain(
+                        coin.transform.position.x, domainLeft, domainRight))
                 {
                     outsideCoins++;
                     int coinId = coin.gameObject.GetInstanceID();
@@ -662,7 +680,7 @@ public class BankAssistantCoordinator : MonoBehaviour
                         externallyClaimed++;
                 }
             }
-            if (!IsTrackableCoin(coin, kingdom)) continue;
+            if (!IsTrackableCoin(coin, domainLeft, domainRight)) continue;
 
             int id = coin.gameObject.GetInstanceID();
             SeenThisScan.Add(id);
@@ -759,15 +777,18 @@ public class BankAssistantCoordinator : MonoBehaviour
         }
     }
 
-    private static bool IsTrackableCoin(DroppableCurrency coin, Kingdom kingdom)
+    private static bool IsTrackableCoin(DroppableCurrency coin,
+        float domainLeft, float domainRight)
     {
         if (coin == null || !coin.isActiveAndEnabled || coin.gameObject == null) return false;
         if (coin.droppedBy != DropType.Player || coin.CurrencyType != CurrencyType.Coins) return false;
         if (coin.IsFake()) return false;
 
         float x = coin.transform.position.x;
-        // All inside-wall coins remain exclusively in the native Banker's domain.
-        if (kingdom.IsWithinWalls(x)) return false;
+        // The main Banker owns the symmetric second-wall domain (with safe fallbacks).
+        // Assistants also collect from built outer layers beyond that inner domain.
+        if (PatchEconomy_Banker.IsInMainBankerDomain(x, domainLeft, domainRight))
+            return false;
         // A temporary native claim must not reset the three-second maturity clock.
         // TryFriendlyClaim remains the atomic assignment gate below.
         return true;
@@ -826,16 +847,21 @@ public class BankAssistantCoordinator : MonoBehaviour
         helper.Target = coin;
 
         float coinX = coin.transform.position.x;
-        float castleDirection = Mathf.Sign(Managers.Inst.kingdom.campfirePosition - coinX);
-        if (Mathf.Approximately(castleDirection, 0f)) castleDirection = 1f;
-        Vector3 approach = coin.transform.position;
-        approach.x += castleDirection * TELEPORT_APPROACH_DISTANCE;
-        approach.z = helper.Actor.transform.position.z;
-        helper.Actor.transform.position = approach;
+        bool needsApproachTeleport = helper.CarriedCoins == 0
+            || Mathf.Abs(helper.Actor.transform.position.x - coinX) > 6f;
+        if (needsApproachTeleport)
+        {
+            float castleDirection = Mathf.Sign(Managers.Inst.kingdom.campfirePosition - coinX);
+            if (Mathf.Approximately(castleDirection, 0f)) castleDirection = 1f;
+            Vector3 approach = coin.transform.position;
+            approach.x += castleDirection * TELEPORT_APPROACH_DISTANCE;
+            approach.z = helper.Actor.transform.position.z;
+            helper.Actor.transform.position = approach;
+            SendFullPosition(helper);
+        }
         FaceTowards(helper.Actor.transform, coinX);
         helper.Moving = true;
         SetAnimationSpeed(helper, ASSISTANT_RUN_SPEED);
-        SendFullPosition(helper);
         if (!_loggedFirstAssignment)
         {
             _loggedFirstAssignment = true;
@@ -1001,7 +1027,10 @@ public class BankAssistantCoordinator : MonoBehaviour
 
         Managers managers = Managers.Inst;
         Kingdom kingdom = managers != null ? managers.kingdom : null;
-        if (kingdom == null || kingdom.IsWithinWalls(coin.transform.position.x)) return false;
+        if (!PatchEconomy_Banker.TryGetMainBankerDomain(
+                kingdom, out float domainLeft, out float domainRight)
+            || PatchEconomy_Banker.IsInMainBankerDomain(
+                coin.transform.position.x, domainLeft, domainRight)) return false;
 
         int id = coin.gameObject.GetInstanceID();
         if (!Claims.TryGetValue(id, out int owner) || owner != helper.Index
