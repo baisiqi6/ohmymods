@@ -1,3 +1,17 @@
+## 2026-08-16 — crash-unload-016：出航卸载栈溢出首修候选
+
+- 02:45 与 02:54 两次崩溃的 `Player.log` / `Player-prev.log` 均以同一末链结束：旧岛保存完成后进入
+  `Managers.PrepareUnload`，level 层级禁用触发持盾 Worker 的 `NpcShieldUser.SetShieldEnabled(false)`，
+  随后在 `pickupShieldSound -> AudioPool/AudioEmitter.ResetAndPlay` 出现 disabled audio source，Windows WER
+  均记录 `0xc00000fd` 栈溢出。相同 StackHash 在稀疏工具分配部署前已经出现，不能归因于工具优化。
+- 最窄首修只在 Mod 启用且 `PrepareUnload` 同步作用域内，临时屏蔽带盾 Worker 的收盾音效；原生盾牌状态、
+  子物体、事件、再生、编队、碰撞力和 RPC 全部继续执行。正常/异常路径分别由 Postfix/Finalizer 幂等恢复，
+  下一场景还会无条件清除任何陈旧作用域；关闭 Mod 时完整走原版。
+- 当前源码已禁部署构建 0 warning / 0 error，DLL SHA-256=`ACC466D928534F7620F7610A9C20590F301FAA617DA33EF96B53DBAEDD21D0A9`。
+  这是高置信、可逆的因果候选，不是已完成的运行时证明；独立副本进程当前仍在运行，尚未部署。
+- 运行时门禁保持：高人口岛连续至少两次完整出航并进入新岛、无新增 WER 栈溢出、卸载摘要
+  `suppressed > 0` 且不再出现对应 disabled-audio 末链；平时拾盾/破盾声音与联机盾牌状态不得回归。
+
 ## 2026-08-16 — tool-assignment-015：先部署零行为探针，再决定稀疏替换
 
 - 高人口岛的原生工具分配每约3秒运行一次，并以注册居民数构建大矩阵；当居民远多于工具时，

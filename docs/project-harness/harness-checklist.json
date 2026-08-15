@@ -11,16 +11,32 @@
       "owner": "codex",
       "selected_in_session": "codex-2026-08-16-tool-assignment-015",
       "updated_at": "2026-08-16",
-      "dependencies": ["population-performance-010"],
+      "dependencies": [
+        "population-performance-010"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "先以完全放行原版、每Registrar最多4条日志的ReassignClaimers探针证明2.4原生调用真实命中并记录居民/工具规模与耗时；只有连续约3秒命中后，才以独立JobAssigner和原生评分实现高人口稀疏反向分配，不改全局JobAssigner及其他工作系统。",
       "verification": "探针实机命中582 carriers、7～8 droppables，原版耗时10.352/9.678/9.051ms。第二阶段按原生评分、独立JobAssigner、高人口/稀疏门槛及两阶段SetDroppableTarget实现，提交147ea44已推送；用户退出后从该提交重建0 warning/0 error并只部署独立副本，构建/部署DLL SHA-256均为2CE66091A760E0ECE0455B5B2599371156CB295EDC8E2522FEE7F292D72ADF09。",
       "handoff": "第二阶段已部署。验证唯一replacement摘要耗时、工具一对一/资格/claim/开关，并重点重复切岛；此前一次切岛WER为coreclr栈溢出但无探针异常，不能仅凭一次事件归因。",
-      "workflow": {"status": "running", "updated_at": "2026-08-16"},
-      "lease": {"owner": "codex", "session": "codex-2026-08-16-tool-assignment-015", "acquired_at": "2026-08-16T03:00:00+08:00", "expires_at": "2026-08-17T03:00:00+08:00", "ttl_minutes": 1440},
-      "artifacts": {"plan": "docs/project-harness/tasks/tool-assignment-015/plan.md", "code": "il2cpp/PatchPerformance_ToolAssignment.cs"},
-      "review": {"decision": null}
+      "workflow": {
+        "status": "running",
+        "updated_at": "2026-08-16"
+      },
+      "lease": {
+        "owner": "codex",
+        "session": "codex-2026-08-16-tool-assignment-015",
+        "acquired_at": "2026-08-16T03:00:00+08:00",
+        "expires_at": "2026-08-17T03:00:00+08:00",
+        "ttl_minutes": 1440
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/tool-assignment-015/plan.md",
+        "code": "il2cpp/PatchPerformance_ToolAssignment.cs"
+      },
+      "review": {
+        "decision": null
+      }
     },
     {
       "id": "ability-cooldowns-014",
@@ -30,16 +46,32 @@
       "owner": "codex",
       "selected_in_session": "codex-2026-08-16-ability-cooldowns-014",
       "updated_at": "2026-08-16",
-      "dependencies": ["ghost-squads-013"],
+      "dependencies": [
+        "ghost-squads-013"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "HermesStaff与Cerberus召唤的2.4.0原生30秒冷却均降为22.5秒；法杖控制、四支小队数量/行为/持续时间/回收及网络逻辑零改；构建、独立副本与候选包一致。",
       "verification": "2.4资源实读确认HermesStaff基础冷却30秒且每只附加0秒，Cerberus召唤冷却30秒；源码提交14ebb6f及部署状态提交467e9d9均已推送。最终IL2CPP Debug构建0 warning/0 error并部署独立副本，构建/部署DLL SHA-256均为0744BC6B6A55D1792EB95391988D9D9400091255F7D934AD1DF1D16437BA037F。",
       "handoff": "候选实现、独立副本部署与刷新包门禁已完成；实机需分别从法杖释放、四支亡灵全部消失两个真实起点计时约22.5秒。",
-      "workflow": {"status": "released", "updated_at": "2026-08-16"},
-      "lease": {"owner": "codex", "session": "codex-2026-08-16-ability-cooldowns-014", "acquired_at": "2026-08-16T02:00:00+08:00", "expires_at": "2026-08-17T02:00:00+08:00", "ttl_minutes": 1440},
-      "artifacts": {"plan": "docs/project-harness/tasks/ability-cooldowns-014/plan.md", "code": "il2cpp/PatchDivine_HermesStaff.cs; il2cpp/PatchDivine_GhostSquads.cs"},
-      "review": {"decision": null}
+      "workflow": {
+        "status": "released",
+        "updated_at": "2026-08-16"
+      },
+      "lease": {
+        "owner": "codex",
+        "session": "codex-2026-08-16-ability-cooldowns-014",
+        "acquired_at": "2026-08-16T02:00:00+08:00",
+        "expires_at": "2026-08-17T02:00:00+08:00",
+        "ttl_minutes": 1440
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/ability-cooldowns-014/plan.md",
+        "code": "il2cpp/PatchDivine_HermesStaff.cs; il2cpp/PatchDivine_GhostSquads.cs"
+      },
+      "review": {
+        "decision": null
+      }
     },
     {
       "id": "ghost-squads-013",
@@ -55,10 +87,24 @@
       "acceptance": "Cerberus每次有效召唤恰为4名骑士+16名弓箭手，分成四支独立1+4队伍；两支希腊队保留主动向外作战与距离回收，两支北境队保留跟随君主与原生30秒生命周期；无重复syncID、unknown pool、RPC或回收异常。",
       "verification": "2.4资源与2.1逻辑已核对：原生Cerberus为1+4且只有一个共享队长引用；北境神器亡灵AI与希腊子类不同，HelsHead原生ghostDuration=30秒。用户明确改为保留差异；修订源码提交0cd629e已推送，干净构建0 warning/0 error并部署独立副本，构建/部署DLL SHA-256=024ADAC72A4D2D76B63827C19C6D9511105CDDBA977EBE196D2FF62354564A39。",
       "handoff": "第一版北境仅视觉候选已被新决定取代；修订版独立副本已部署，正在刷新候选包。随后验证20名单位、四个编队、两套AI、再次召唤/换岛回收与联机同步。",
-      "workflow": {"status": "running", "updated_at": "2026-08-16"},
-      "lease": {"owner": "codex", "session": "codex-2026-08-16-ghost-squads-013", "acquired_at": "2026-08-16T01:00:00+08:00", "expires_at": "2026-08-17T01:00:00+08:00", "ttl_minutes": 1440},
-      "artifacts": {"plan": "docs/project-harness/tasks/ghost-squads-013/plan.md", "code": "il2cpp/PatchDivine_GhostSquads.cs"},
-      "review": {"decision": null}
+      "workflow": {
+        "status": "running",
+        "updated_at": "2026-08-16"
+      },
+      "lease": {
+        "owner": "codex",
+        "session": "codex-2026-08-16-ghost-squads-013",
+        "acquired_at": "2026-08-16T01:00:00+08:00",
+        "expires_at": "2026-08-17T01:00:00+08:00",
+        "ttl_minutes": 1440
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/ghost-squads-013/plan.md",
+        "code": "il2cpp/PatchDivine_GhostSquads.cs"
+      },
+      "review": {
+        "decision": null
+      }
     },
     {
       "id": "save-repair-012",
@@ -67,17 +113,34 @@
       "priority": "p0",
       "owner": "codex",
       "selected_in_session": "codex-2026-08-15-save-repair-012",
-      "updated_at": "2026-08-15",
-      "dependencies": ["save-repair-011"],
+      "updated_at": "2026-08-16",
+      "dependencies": [
+        "save-repair-011"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "用户确认删除350名Peasant而非真正Worker；仅处理当前SHA/长度/schema的campaign1 land7，在383名严格零币、非grabbed/inert/petrified、无引用、组件与对象profile完全一致的标准希腊Peasant候选中，按createOrder确定性保留最低33并删除最高350（createOrder仅是加载顺序，不表示年龄且不重编号）；真Worker、北境Peasant、携币/异常单位与所有非目标数据零改；游戏退出、dry-run、新备份、DeepEquals、同卷File.Replace与失败回滚全部通过；存档不入Git。",
       "verification": "worker/reviewer逐行审查与真实dry-run后APPLY_APPROVED。dry-run/Apply均为Worker14不变、Peasant733→383、Greek638→288、Norse95不变、removed350、Beggar10/5+5不变；输入/备份748730 bytes、SHA-256=2C681C5C2CA01E6BBCBB5F05BDEA32FC63A0D86EA563F68325D12C08D088F87A；输出728071 bytes、SHA-256=63884D91421A7B74AD0049C8FB00BFD3E910857F05005490B2704E856FE93FED。独立复读version16/campaign1/land7 objects1696及全部角色计数，临时文件0。等待游戏内读档。",
       "handoff": "一次性居民减员已原子完成；收据见tasks/save-repair-012/receipt.md，原始备份为Release/KEM-backups/global-v35.before-direct-peasant-prune-20260815-235118。若读档失败立即退出且不保存，并恢复该备份。旧候选ZIP和所有存档/备份不得stage。",
-      "workflow": {"status": "review_approved", "updated_at": "2026-08-15"},
-      "lease": {"owner": "codex", "session": "codex-2026-08-15-save-repair-012", "acquired_at": "2026-08-15T23:38:39+08:00", "expires_at": "2026-08-16T23:38:39+08:00", "ttl_minutes": 1440},
-      "artifacts": {"plan": "docs/project-harness/tasks/save-repair-012/plan.md", "receipt": "docs/project-harness/tasks/save-repair-012/receipt.md", "script": "scripts/repair-peasant-overflow.ps1"},
-      "review": {"decision": "approved"}
+      "workflow": {
+        "status": "review_approved",
+        "updated_at": "2026-08-15"
+      },
+      "lease": {
+        "owner": "codex",
+        "session": "codex-2026-08-15-save-repair-012",
+        "acquired_at": "2026-08-15T23:38:39+08:00",
+        "expires_at": "2026-08-16T23:38:39+08:00",
+        "ttl_minutes": 1440
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/save-repair-012/plan.md",
+        "receipt": "docs/project-harness/tasks/save-repair-012/receipt.md",
+        "script": "scripts/repair-peasant-overflow.ps1"
+      },
+      "review": {
+        "decision": "approved"
+      }
     },
     {
       "id": "save-repair-011",
@@ -87,16 +150,33 @@
       "owner": "codex",
       "selected_in_session": "codex-2026-08-15-save-repair-011",
       "updated_at": "2026-08-15",
-      "dependencies": ["population-performance-010"],
+      "dependencies": [
+        "population-performance-010"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "用户明确授权的一次性直接存档修复；仅接受指定SHA/长度/schema的campaign1 land7，左右营地各保留最近5名并删除148名无引用普通Beggar；游戏退出、新备份、dry-run、临时gzip复读、非目标对象不变、同卷File.Replace与失败回滚全部通过；存档不入Git。",
       "verification": "worker与reviewer对脚本最终APPLY_APPROVED。真实dry-run与Apply均输出before=158 removed=148 after=10 groups=5/5；输入/备份751068 bytes、SHA-256=68D4F779DA3CFA45A659D2082B2B15F135777699EC4A309F1F6AEAE14C724B16；输出748730 bytes、SHA-256=2C681C5C2CA01E6BBCBB5F05BDEA32FC63A0D86EA563F68325D12C08D088F87A。独立复读version16/campaign1/land7 objects2046/Beggar10/5+5，临时文件0。等待游戏内读档。",
       "handoff": "一次性存档修复已原子完成，收据见tasks/save-repair-011/receipt.md；原始备份位于Release/KEM-backups/global-v35.before-direct-beggar-prune-20260815-232403。若读档失败立即退出，不保存，并用该备份恢复。存档本体不入Git。",
-      "workflow": {"status": "review_approved", "updated_at": "2026-08-15"},
-      "lease": {"owner": "codex", "session": "codex-2026-08-15-save-repair-011", "acquired_at": "2026-08-15T23:15:00+08:00", "expires_at": "2026-08-16T23:15:00+08:00", "ttl_minutes": 1440},
-      "artifacts": {"plan": "docs/project-harness/tasks/save-repair-011/plan.md", "receipt": "docs/project-harness/tasks/save-repair-011/receipt.md", "script": "scripts/repair-beggar-overflow.ps1"},
-      "review": {"decision": "approved"}
+      "workflow": {
+        "status": "review_approved",
+        "updated_at": "2026-08-15"
+      },
+      "lease": {
+        "owner": "codex",
+        "session": "codex-2026-08-15-save-repair-011",
+        "acquired_at": "2026-08-15T23:15:00+08:00",
+        "expires_at": "2026-08-16T23:15:00+08:00",
+        "ttl_minutes": 1440
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/save-repair-011/plan.md",
+        "receipt": "docs/project-harness/tasks/save-repair-011/receipt.md",
+        "script": "scripts/repair-beggar-overflow.ps1"
+      },
+      "review": {
+        "decision": "approved"
+      }
     },
     {
       "id": "population-performance-010",
@@ -234,7 +314,9 @@
       "owner": "codex",
       "selected_in_session": "codex-2026-08-15-boat-capacity-006",
       "updated_at": "2026-08-15",
-      "dependencies": ["release-package-001"],
+      "dependencies": [
+        "release-package-001"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "仅大船改为独立弓箭手4、工匠8、骑士/侍从小队6、长矛兵/重装步兵8、农民3；小船不变；用户已取消狂战士与忍者登船，最终产物不得含适配器、额外RPC或跨岛sidecar；构建、独立审查与独立副本实测通过。",
@@ -266,7 +348,9 @@
       "owner": "codex",
       "selected_in_session": "codex-2026-08-15-bank-assistants-005",
       "updated_at": "2026-08-15",
-      "dependencies": ["release-package-001"],
+      "dependencies": [
+        "release-package-001"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "希腊只保留一个原版Banker作为国库/利息/提款/存档权威；欧洲、幕府、Dead Lands、北境四套外观各生成一名无Banker/Persistent/Wallet行为的助手，Dead Lands助手y=1.2、北境助手y=1.2且均只改y；主银行家仅管理左右从城堡向外数第二道墙之间并保持增强移速、安全期全天工作与该区域动态扫描；该管辖区外的玩家金币落地3秒后由单一当前助手连续处理，同批下一枚距助手不超过6单位就直接跑、超过才瞬移，其他助手在城堡附近巡逻且不为同批金币一起行动；成功拾取由world-authority立即原子入账，轮换/回城不重复入账；共享账本不覆盖日息或回滚提款；同步池、切岛/读档生命周期、构建与独立副本实测通过。",
@@ -330,7 +414,9 @@
       "owner": "codex",
       "selected_in_session": "codex-2026-08-15-ninja-runtime-003",
       "updated_at": "2026-08-15",
-      "dependencies": ["ninja-placement-002"],
+      "dependencies": [
+        "ninja-placement-002"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "希腊世界在忍者使用前确定性注册ThrowingStar与Smokebomb依赖池；每个成熟宽灌木提供3个、每棵可砍伐树提供1个、每个乞丐帐篷提供5个错开的独立HidingSpot，统一由原生按同侧墙外、距墙最近且未占用选择，并正确处理禁用/销毁/复用；忍者连续战斗及烟雾撤退无池缺失/NRE且天亮恢复钓鱼形态；夜行忍者y=1.1、希腊银行家y=1.075并且只改y；构建成功、独立副本日志与行为实测通过。",
@@ -362,7 +448,9 @@
       "owner": "codex",
       "selected_in_session": "codex-2026-08-15-role-qol-001",
       "updated_at": "2026-08-16",
-      "dependencies": ["release-package-001"],
+      "dependencies": [
+        "release-package-001"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "工匠成功使用普通 BerserkerTool 的第1-5次生成普通狂战士、第6次生成 BerserkerLeader并循环；仅成功转职计数且换岛延续、完整退出重置；隐士不再被敌人选取或抓走但不免疫伤害、不改变其他战利品；HermitType.Baker酿酒师与HermitType.Horn号角隐士绝对缩放为1.15，HermitType.Horse马厩隐士绝对缩放为1.10，其他隐士、朝向、能力不变；IL2CPP构建成功、独立副本实测无相关异常。",
@@ -426,7 +514,9 @@
       "owner": "codex",
       "selected_in_session": "codex-2026-08-13-runtime-hotfix-002",
       "updated_at": "2026-08-13",
-      "dependencies": ["release-hardening-001"],
+      "dependencies": [
+        "release-hardening-001"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "Hammer 路径不再每次全资源扫描；忍者商店在 ShopPlanner 稳定后确定性排队；每个乞丐帐篷 spawnInterval=1f、实际约6秒补员且上限5；reviewer通过、IL2CPP构建与独立副本DLL哈希一致。",
@@ -458,7 +548,9 @@
       "owner": "codex",
       "selected_in_session": "codex-2026-08-13-ninja-placement-002",
       "updated_at": "2026-08-13",
-      "dependencies": ["runtime-hotfix-002"],
+      "dependencies": [
+        "runtime-hotfix-002"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "NinjaLeft 与 NinjaRight 使用显式 Left/Right 入队；旧存档中已排队的忍者商店方向被修复并重新触发规划；不绕过原生 CanShopFit；reviewer通过、IL2CPP构建成功并只部署独立测试副本。",
@@ -490,7 +582,10 @@
       "owner": "user",
       "selected_in_session": "codex-2026-08-13-runtime-test-hotfix2",
       "updated_at": "2026-08-13",
-      "dependencies": ["runtime-hotfix-002", "ninja-placement-002"],
+      "dependencies": [
+        "runtime-hotfix-002",
+        "ninja-placement-002"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "干净启动和读档无 KingdomEnhancedMod Error/Exception；连续有效锤子转职按奇数北境带盾、偶数希腊无盾；普通 Worker 生成不受交替状态污染；换岛/读档后行为有明确记录。",
@@ -512,7 +607,9 @@
       "owner": null,
       "selected_in_session": null,
       "updated_at": "2026-08-13",
-      "dependencies": ["release-hardening-001"],
+      "dependencies": [
+        "release-hardening-001"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "独立副本中 Hermes 钱包扩容生效；不新增人为停止拾取阈值，容量外观与金币溢出继续沿用原版碰撞/物理行为。",
@@ -534,7 +631,10 @@
       "owner": null,
       "selected_in_session": null,
       "updated_at": "2026-08-13",
-      "dependencies": ["runtime-test-001", "capacity-test-001"],
+      "dependencies": [
+        "runtime-test-001",
+        "capacity-test-001"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "P1/P2 钱包、交替转职、盾牌显示/防御、角色池与换岛流程无异常、无明显不同步，日志无新增 mod 异常。",
@@ -549,7 +649,9 @@
       "owner": null,
       "selected_in_session": null,
       "updated_at": "2026-08-13",
-      "dependencies": ["runtime-test-001"],
+      "dependencies": [
+        "runtime-test-001"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "北境原生 Worker 被稳定识别并正确装备盾牌；希腊 Worker 不被误判；对象池 Clone/命名后缀不改变判别结果。",
@@ -571,7 +673,11 @@
       "owner": "codex",
       "selected_in_session": "codex-2026-08-13-final-release",
       "updated_at": "2026-08-13",
-      "dependencies": ["runtime-test-001", "capacity-test-001", "norse-world-001"],
+      "dependencies": [
+        "runtime-test-001",
+        "capacity-test-001",
+        "norse-world-001"
+      ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "发布 zip 为游戏根目录直装结构；包含必需 runtime；zip 内 DLL 哈希等于已通过实测的构建 DLL；从干净独立副本安装后加载及功能门禁通过。",
@@ -583,6 +689,46 @@
       },
       "review": {
         "decision": "approved"
+      }
+    },
+    {
+      "id": "crash-unload-016",
+      "title": "Sailing unload stack-overflow guard",
+      "status": "doing",
+      "priority": "p0",
+      "owner": "codex",
+      "selected_in_session": "codex-2026-08-16-crash-unload-016",
+      "updated_at": "2026-08-16",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "Suppress only NpcShieldUser shield-disable audio during Managers.PrepareUnload while preserving native cleanup and RPC; pass static review/build and two consecutive high-population sail transitions without new 0xc00000fd WER.",
+      "verification": "Two identical 02:45/02:54 Player log tails and WER 0xc00000fd point to PrepareUnload shield audio. Minimal Enabled-gated audio suppression passed independent static review and Debug build 0 warnings/0 errors; DLL SHA256 ACC466D928534F7620F7610A9C20590F301FAA617DA33EF96B53DBAEDD21D0A9. Runtime deployment and two sailing transitions remain pending.",
+      "handoff": "Static implementation and review approved. Game process PID16236 is still running, so do not replace DLL. After real exit deploy only independent copy, then require two successful high-population sail transitions, suppressed>0, no matching disabled-audio tail/new WER, and normal shield sounds.",
+      "plan_path": "docs\\project-harness\\tasks\\crash-unload-016\\plan.md",
+      "workflow": {
+        "status": "review_approved",
+        "updated_at": "2026-08-16",
+        "branch": "agent/codex/crash-unload-016"
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/crash-unload-016/plan.md",
+        "branch": "agent/codex/crash-unload-016"
+      },
+      "review": {
+        "decision": "approved",
+        "reviewer": "bank_assistant_reviewer",
+        "phase": "running",
+        "updated_at": "2026-08-16",
+        "summary": "Static code review approved after adding the Enabled gate. Runtime deployment and two sailing transitions remain required before closeout.",
+        "artifact": "il2cpp/PatchLifecycle_UnloadShieldAudio.cs"
+      },
+      "lease": {
+        "owner": "codex",
+        "session": "codex-2026-08-16-crash-unload-016",
+        "acquired_at": "2026-08-15T19:03:52Z",
+        "expires_at": "2026-08-16T19:03:52Z",
+        "ttl_minutes": 1440
       }
     }
   ]
