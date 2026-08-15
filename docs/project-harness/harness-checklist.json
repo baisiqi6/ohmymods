@@ -4,6 +4,38 @@
   "updated_at": "2026-08-15",
   "items": [
     {
+      "id": "boat-capacity-006",
+      "title": "主船原生兵种扩容",
+      "status": "doing",
+      "priority": "p0",
+      "owner": "codex",
+      "selected_in_session": "codex-2026-08-15-boat-capacity-006",
+      "updated_at": "2026-08-15",
+      "dependencies": ["release-package-001"],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "仅大船改为独立弓箭手4、工匠8、骑士/侍从小队6、长矛兵/重装步兵8、农民3；小船不变；用户已取消狂战士与忍者登船，最终产物不得含适配器、额外RPC或跨岛sidecar；构建、独立审查与独立副本实测通过。",
+      "verification": "已确认2.4.0原生Boat直接注册Worker/Knight/Archer/Pikeman/Farmer槽，四个现有容量可在Boat.OnEnable注册前调整。深入审计确认狂战士/忍者还需要AI引导、RPC组件与额外跨岛迁移，用户决定取消该低收益高复杂度范围；全部相关半成品已移除。最小补丁只在原生OnEnable调用期间临时写容量并以Postfix/Finalizer恢复字段，独立reviewer静态APPROVED；Debug构建0 warning/0 error，DLL SHA-256=DF1B21214D487F7AFEBFCD2E606301B1B4CB8BA40ED773BAE2DC58594A0B5772；待独立副本实机。",
+      "handoff": "最终只允许Boat.OnEnable Prefix写Worker8/Knight6/Pikeman8/Farmer3；Archer原生4位置、FleetBoat、狂战士/忍者、Mono、Steam、共享存档和当前zip均不得改。无独立副本容量实测前不得done。",
+      "workflow": {
+        "status": "review_approved",
+        "updated_at": "2026-08-15"
+      },
+      "lease": {
+        "owner": "codex",
+        "session": "codex-2026-08-15-boat-capacity-006",
+        "acquired_at": "2026-08-15T12:47:00+08:00",
+        "expires_at": "2026-08-16T12:47:00+08:00",
+        "ttl_minutes": 1440
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/boat-capacity-006/plan.md"
+      },
+      "review": {
+        "decision": "approved"
+      }
+    },
+    {
       "id": "bank-assistants-005",
       "title": "唯一主银行家与四名跨世界银行助手",
       "status": "doing",

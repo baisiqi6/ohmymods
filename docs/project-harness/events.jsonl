@@ -1,2 +1,4 @@
 {"event":"ACCEPT","task":"bank-assistants-005","actor":"codex","status":"running","at":"2026-08-15T02:30:00+08:00","artifact":"docs/project-harness/tasks/bank-assistants-005/plan.md","publish_status":"local_only"}
 {"event":"REVIEW","task":"bank-assistants-005","actor":"bank_assistant_reviewer","decision":"approved","at":"2026-08-15T12:35:00+08:00","artifact":"il2cpp/PatchEconomy_BankAssistants.cs","publish_status":"local_only"}
+{"event":"ACCEPT","task":"boat-capacity-006","actor":"codex","status":"running","at":"2026-08-15T12:47:00+08:00","artifact":"docs/project-harness/tasks/boat-capacity-006/plan.md","publish_status":"local_only"}
+{"event":"REVIEW","task":"boat-capacity-006","actor":"bank_assistant_reviewer","decision":"approved","at":"2026-08-15T13:20:00+08:00","artifact":"il2cpp/PatchWorld_BoatCapacity.cs","publish_status":"local_only"}
