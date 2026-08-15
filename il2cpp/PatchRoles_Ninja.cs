@@ -26,7 +26,7 @@ public static class PatchRoles_Ninja
         "KEM_NinjaHidingSpot_Center",
         "KEM_NinjaHidingSpot_Right"
     };
-    private static readonly float[] THICKET_ANCHOR_LOCAL_X = { -1.1f, 0f, 1.1f };
+    private static readonly float[] THICKET_ANCHOR_LOCAL_X = { -0.55f, 0f, 0.55f };
     private static readonly string[] TREE_ANCHOR_NAMES =
     {
         "KEM_NinjaTreeHidingSpot"

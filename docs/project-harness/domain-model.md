@@ -28,7 +28,8 @@
 - 一个原生 `HidingSpot` 只有一个 `_hider`；直接允许多人共享会让多个 Ninja 重叠、占用和禁用通知
   失去一一对应关系，因此不改写 `IsOccupied/SetHider` 契约。
 - 每个 Greece 实际 thicket 创建 Left/Center/Right 三个命名子对象，local x 为
-  `-1.1/0/+1.1`，各挂一个原生 `HidingSpot`。Kingdom 仍按各自 world x 排序，Ninja 仍逐槽执行
+  `-0.55/0/+0.55`，各挂一个原生 `HidingSpot`。最初候选的 `±1.1` 经用户实测视觉过宽，左右忍者
+  接近灌木边缘，因此间距减半。Kingdom 仍按各自 world x 排序，Ninja 仍逐槽执行
   未占用与城墙外过滤。
 - 父 thicket 禁用时三个组件各自 `OnDisable` 注销并通知占用者；池复用时只对不在 sided list 的
   锚点清旧 hider 并重新登记，已登记的当前 occupant 不得被误清。

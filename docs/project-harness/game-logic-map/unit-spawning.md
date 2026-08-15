@@ -155,7 +155,7 @@ Ninja 有完整的 `ShopType.NinjaLeft(7)` / `NinjaRight(8)` 枚举值，走标�
 候选实现为三类载体补原生 `HidingSpot`：
 
 - `World.AddThicket(Grass)` 成功生成实际 thicket 后，为每个宽灌木创建 Left/Center/Right 三槽，
-  local x 为 `-1.1/0/+1.1`。
+  local x 为 `-0.55/0/+0.55`；最初的 `±1.1` 经实机观察视觉过宽，已将左右距离减半。
 - `PayableTree.OnEnable` 为每棵 Greece 可砍伐树创建一个中心槽。
 - 已实机命中的 `BeggarCamp.Awake` 为每个 Greece 乞丐帐篷创建五槽，local x 为
   `-2/-1/0/+1/+2`。
