@@ -189,11 +189,11 @@ public static class PatchEconomy_BankAssistants
             prefab.hideFlags = HideFlags.HideAndDontSave;
             prefab.layer = banker.gameObject.layer;
             prefab.transform.localScale = banker.transform.localScale;
-            if (i == 3)
+            if (i == 2 || i == 3)
             {
-                Vector3 norselandsScale = prefab.transform.localScale;
-                norselandsScale.y = 1.2f;
-                prefab.transform.localScale = norselandsScale;
+                Vector3 visualScale = prefab.transform.localScale;
+                visualScale.y = i == 2 ? 1.25f : 1.2f;
+                prefab.transform.localScale = visualScale;
             }
 
             SpriteRenderer renderer = prefab.AddComponent<SpriteRenderer>();

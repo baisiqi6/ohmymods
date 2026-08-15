@@ -1,3 +1,12 @@
+## 2026-08-15 — bank-assistants-005：Dead Lands 助手 y=1.25
+
+- Dead Lands 外观对应固定 controller index 2，本轮在双方确定性 prefab 构建时把 localScale.y 绝对设为
+  1.25；北境 index 3 继续为 1.2。两者都继承 source x/z，朝向逻辑仍只改 x，不会对象池累乘。
+- 调度与经济逻辑零改动：助手按欧洲→幕府→Dead Lands→北境轮转，不随机；同一时刻严格只有一个
+  collector。满载回城是同步传送/收尾，完成后若仍有成熟金币才轮到下一位，不存在返程期间并发收币。
+- 独立 reviewer APPROVED；Debug构建0 warning/0 error，构建与独立副本DLL SHA-256均为
+  `9E71AFF5B155EF6D50DCD9EB0CFBA1098824382CF2C0547FEE431D485F8376BB`。待刷新候选zip与实机观感确认。
+
 ## 2026-08-15 — candidate-package-007：综合测试候选包已生成
 
 - 重新打包当前综合候选，包含酿酒师 y=1.15、银行助手行为版、主船原生兵种扩容及此前候选改动；
