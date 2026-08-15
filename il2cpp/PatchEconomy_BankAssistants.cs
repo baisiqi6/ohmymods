@@ -192,7 +192,7 @@ public static class PatchEconomy_BankAssistants
             if (i == 2 || i == 3)
             {
                 Vector3 visualScale = prefab.transform.localScale;
-                visualScale.y = i == 2 ? 1.25f : 1.2f;
+                visualScale.y = 1.2f;
                 prefab.transform.localScale = visualScale;
             }
 

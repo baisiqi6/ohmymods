@@ -1,3 +1,14 @@
+## 2026-08-15 — 视觉微调：Dead Lands 助手 y=1.2、希腊居民 y=1.05
+
+- Dead Lands 银行助手从上一测试包的 y=1.25 调回绝对 y=1.2，与北境助手一致；只改双方确定性
+  prefab 的 y，欧洲/幕府比例、x 朝向、收币调度和经济逻辑均不变。
+- 希腊世界的普通 Peasant（包括映射使用的北境外观）与乞丐晋升得到的 WarriorPeasant 统一为
+  绝对 y=1.05；真正北境世界的 Peasant_norselands 仍保持 y=1.125。只改 y 并继续登记现有
+  ScaleRegistry，不改变转职、配色、网络或行为。
+- Debug 构建 0 warning / 0 error，DLL SHA-256=
+  `E13F6836F79DBEE630FC3ED3FCB3CC2848B3CE6A7C3015C0102EDF7F13A0A02A`；游戏 PID 25224 仍在运行，
+  所以未部署、未打包。当前测试 zip 仍是 Dead Lands y=1.25 且不含希腊居民 y=1.05。
+
 ## 2026-08-15 — friendly-troll-balance-008：静态通过，待退出后部署实测
 
 - 友好巨魔选敌现只精确排除长期悬空的 Squid；旧的 CrownStealer 排除已删除，未使用当前高度阈值。

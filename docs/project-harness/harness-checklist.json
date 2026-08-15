@@ -110,9 +110,9 @@
       "dependencies": ["release-package-001"],
       "blocked_by": [],
       "blocked_reason": null,
-      "acceptance": "希腊只保留一个原版Banker作为国库/利息/提款/存档权威；欧洲、幕府、Dead Lands、北境四套外观各生成一名无Banker/Persistent/Wallet行为的助手，Dead Lands助手y=1.25、北境助手y=1.2且均只改y；主银行家仅管理左右从城堡向外数第二道墙之间并保持增强移速、安全期全天工作与该区域动态扫描；该管辖区外的玩家金币落地3秒后由单一当前助手连续处理，同批下一枚距助手不超过6单位就直接跑、超过才瞬移，其他助手在城堡附近巡逻且不为同批金币一起行动；成功拾取由world-authority立即原子入账，轮换/回城不重复入账；共享账本不覆盖日息或回滚提款；同步池、切岛/读档生命周期、构建与独立副本实测通过。",
-      "verification": "此前已在独立副本确认四套控制器解析与四助手生成。最新实现以左右GetWall(side,1)定义第二道墙管辖区；两侧未齐时对称回退index0，再回退有效border；主Banker ClaimCoins按朝向精确设置range/rangeBehind并在认领入口拒绝域外Player Coins，助手scan每tick只解析一次同一domain且commit时复核。同批后续金币<=6直接跑，首枚或>6才传送。新增banker_deadlands prefab绝对y=1.25，banker_norselands绝对y=1.2，均只改y。独立reviewer静态APPROVED；operator Debug构建0 warning/0 error；构建与独立副本DLL SHA-256均为9E71AFF5B155EF6D50DCD9EB0CFBA1098824382CF2C0547FEE431D485F8376BB；git diff --check无错误，待实机观察比例。",
-      "handoff": "本轮新增Dead Lands助手绝对y=1.25，北境仍y=1.2；只改双方确定性prefab视觉比例，调度契约不变。当前助手不是随机选择，而是0→1→2→3 round-robin；同一时刻严格只有一个collector，满载时同步回城清容量并在仍有成熟金币时轮到下一位。须重新build/review/部署独立副本验证两种比例；不得复制Banker组件或让客户端写国库，不修改Steam/共享存档/Mono。",
+      "acceptance": "希腊只保留一个原版Banker作为国库/利息/提款/存档权威；欧洲、幕府、Dead Lands、北境四套外观各生成一名无Banker/Persistent/Wallet行为的助手，Dead Lands助手y=1.2、北境助手y=1.2且均只改y；主银行家仅管理左右从城堡向外数第二道墙之间并保持增强移速、安全期全天工作与该区域动态扫描；该管辖区外的玩家金币落地3秒后由单一当前助手连续处理，同批下一枚距助手不超过6单位就直接跑、超过才瞬移，其他助手在城堡附近巡逻且不为同批金币一起行动；成功拾取由world-authority立即原子入账，轮换/回城不重复入账；共享账本不覆盖日息或回滚提款；同步池、切岛/读档生命周期、构建与独立副本实测通过。",
+      "verification": "此前已在独立副本确认四套控制器解析与四助手生成。实现以左右GetWall(side,1)定义第二道墙管辖区；两侧未齐时对称回退index0，再回退有效border；主Banker ClaimCoins按朝向精确设置range/rangeBehind并在认领入口拒绝域外Player Coins，助手scan每tick只解析一次同一domain且commit时复核。同批后续金币<=6直接跑，首枚或>6才传送。上一测试包的banker_deadlands y=1.25；用户最新要求已在源码候选改回绝对y=1.2，与banker_norselands一致，只改y且不改调度。最新Debug构建0 warning/0 error，DLL SHA-256=E13F6836F79DBEE630FC3ED3FCB3CC2848B3CE6A7C3015C0102EDF7F13A0A02A；游戏运行中未部署，待实机观察比例。",
+      "handoff": "Dead Lands与北境助手现均为绝对y=1.2；只改双方确定性prefab视觉比例，调度契约不变。当前助手不是随机选择，而是0→1→2→3 round-robin；同一时刻严格只有一个collector，满载时同步回城清容量并在仍有成熟金币时轮到下一位。游戏仍运行，退出后须部署独立副本验证比例；不得复制Banker组件或让客户端写国库，不修改Steam/共享存档/Mono。",
       "workflow": {
         "status": "review_approved",
         "updated_at": "2026-08-15"

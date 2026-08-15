@@ -547,6 +547,8 @@ public static class Mover_Update_Patch
 [HarmonyPatch(typeof(WarriorPeasant))]
 public static class WarriorPeasant_OnEnable_Patch
 {
+    private const float GreecePeasantY = 1.05f;
+
     [HarmonyPatch(nameof(WarriorPeasant.OnEnable))]
     [HarmonyPostfix]
     public static void WarriorPeasant_OnEnable_Postfix(WarriorPeasant __instance)
@@ -556,8 +558,10 @@ public static class WarriorPeasant_OnEnable_Patch
         {
             if (BiomeHolder.Inst != null && BiomeHolder.Inst.BiomeIndex == BiomeHolder.GreeceBiomeIndex)
             {
-                __instance.transform.localScale = new Vector3(1f, 1.2f, 1f);
-                ScaleRegistryHolder.Register(__instance.GetComponent<Mover>(), 1.2f);
+                Vector3 scale = __instance.transform.localScale;
+                scale.y = GreecePeasantY;
+                __instance.transform.localScale = scale;
+                ScaleRegistryHolder.Register(__instance.GetComponent<Mover>(), GreecePeasantY);
             }
         }
         catch (Exception e)
@@ -610,6 +614,9 @@ public static class Critter_OnEnable_Patch
 [HarmonyPatch(typeof(Peasant))]
 public static class Peasant_OnEnable_Patch
 {
+    private const float GreecePeasantY = 1.05f;
+    private const float NorselandsPeasantY = 1.125f;
+
     [HarmonyPatch(nameof(Peasant.OnEnable))]
     [HarmonyPostfix]
     public static void Peasant_OnEnable_Postfix(Peasant __instance)
@@ -620,8 +627,13 @@ public static class Peasant_OnEnable_Patch
             string name = __instance.gameObject.name;
             if (name.Contains("Peasant_norselands"))
             {
-                __instance.transform.localScale = new Vector3(1f, 1.125f, 1f);
-                ScaleRegistryHolder.Register(__instance.GetComponent<Mover>(), 1.125f);
+                bool isGreece = BiomeHolder.Inst != null
+                    && BiomeHolder.Inst.BiomeIndex == BiomeHolder.GreeceBiomeIndex;
+                float targetY = isGreece ? GreecePeasantY : NorselandsPeasantY;
+                Vector3 scale = __instance.transform.localScale;
+                scale.y = targetY;
+                __instance.transform.localScale = scale;
+                ScaleRegistryHolder.Register(__instance.GetComponent<Mover>(), targetY);
             }
         }
         catch (Exception e)
