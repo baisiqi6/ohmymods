@@ -87,7 +87,7 @@ doorstop_config.ini 两个文件（不需要 BepInEx 目录）；BepInEx 目录�
 | 北境工匠缩放 1.175 | `Patch_Worker.cs` ApplyWorkerScale + OnEnable_Postfix 登记 |
 | 希腊工匠缩放 1.075 | 同上（非北境分支） |
 | 北境居民缩放 1.125 | `Patch_WorkerScale` Peasant_OnEnable_Postfix |
-| 希腊居民缩放 1.05 | `Patch_WorkerScale` Peasant/WarriorPeasant OnEnable + `Patch_Character` Promote |
+| 希腊北境外观居民缩放 1.125 | `Patch_WorkerScale` Peasant/WarriorPeasant OnEnable + `Patch_Character` Promote |
 | 鹿 0.55 / 小动物 1.8 | `Patch_WorkerScale` Deer/Critter OnEnable |
 | 猫生成 | `Patch_Kingdom.SpawnCatsInGreece` |
 | 地图扩展倍率 | `Main.mapSizeMultiplier` |

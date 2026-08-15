@@ -74,7 +74,7 @@ Patch_HermesStaff.cs    权杖控制 16（_maximumConvertedTrolls 8→16；控�
 - 解法：`UnitScaleRegistry`（ConditionalWeakTable<Mover,float>）登记目标 y 缩放，
   `Mover_Update_Postfix` 每帧恢复 y。x 不动（朝向 + `velocity.x *= localScale.x` 依赖）。
 - 所有单位 OnEnable（对象池复用也触发）时登记；弱引用无泄漏。
-- 缩放值：北境工匠 1.175、希腊工匠 1.075、北境居民 1.125、希腊居民 1.05、鹿 0.55、小动物 1.8。
+- 缩放值：北境工匠 1.175、希腊工匠 1.075、北境与希腊北境外观居民统一 1.125、鹿 0.55、小动物 1.8。
 
 ### 4. 北境工匠带盾
 - 希腊 12/13 槽位被狂战士商店占用 → 无盾牌商店 → 工匠买不到盾。

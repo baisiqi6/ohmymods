@@ -125,8 +125,8 @@
   动 x 会改变移动速度。
 - 决策：缩放只体现在 y（视觉高度）。等比放大（宽高都变）需要父物体包装，会改变碰撞体
   world size 和渲染层级，风险高，暂不做。
-- 效果：北境工匠 1.175 与希腊工匠 1.075 视觉齐平；北境居民 1.125，希腊世界的普通 Peasant 与
-  WarriorPeasant 统一为 1.05
+- 效果：北境工匠 1.175 与希腊工匠 1.075 视觉齐平；北境居民、希腊世界的普通 Peasant 与
+  WarriorPeasant 统一为 1.125
   （模型原始高度不同，系数为对齐补偿，实测调参得出）。酿酒师隐士按 `HermitType.Baker`
   判别并绝对设为 y=1.15；保留 x 朝向和 z，不影响其他隐士。
 
@@ -179,7 +179,7 @@
 
 - R1：存档会序列化 localScale.y（Serializer.cs:1935 写完整 localScale），y=1.175 会入档。
   读档恢复自洽（还是 1.175），但存档文件携带 mod 缩放值；卸载 mod 后旧档单位尺寸可能不符预期。
-- R2：WarriorPeasant→Berserker 转化瞬间继承希腊居民 y=1.05，Berserker 无登记，Mover 会覆盖回 1.0——
+- R2：WarriorPeasant→Berserker 转化瞬间继承居民 y=1.125，Berserker 无登记，Mover 会覆盖回 1.0——
   狂战士最终是标准大小（1.0），这是当前意图，若要改需给 Berserker 加登记。
 - R3（已关闭 2026-08-12）：`Patch_Mover.cs` 已核实为玩家移动速度倍率（Main.speedMultiplier），
   并经 D8 修复为 SetGoal 入口（P0），保留。见 checklist core-015 / maint-001。

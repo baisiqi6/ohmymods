@@ -547,7 +547,7 @@ public static class Mover_Update_Patch
 [HarmonyPatch(typeof(WarriorPeasant))]
 public static class WarriorPeasant_OnEnable_Patch
 {
-    private const float GreecePeasantY = 1.05f;
+    private const float GreecePeasantY = 1.125f;
 
     [HarmonyPatch(nameof(WarriorPeasant.OnEnable))]
     [HarmonyPostfix]
@@ -614,7 +614,7 @@ public static class Critter_OnEnable_Patch
 [HarmonyPatch(typeof(Peasant))]
 public static class Peasant_OnEnable_Patch
 {
-    private const float GreecePeasantY = 1.05f;
+    private const float GreecePeasantY = 1.125f;
     private const float NorselandsPeasantY = 1.125f;
 
     [HarmonyPatch(nameof(Peasant.OnEnable))]
