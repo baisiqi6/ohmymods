@@ -7,7 +7,18 @@
   调用间隔和原算法耗时；不写目标、不写claim、不替换算法，也不会持续刷屏。
 - 探针源码提交`20c457b`已推送。用户退出后从该提交Debug重建0 warning/0 error，并只部署独立测试副本；
   构建/部署DLL SHA-256均为`BDC91E72BF5B287E4BF3DD8BDEEB3CCF57B6B2C32D03FA742074024855F3E723`。
-  现在等待进入高人口岛连续约12秒的日志，以决定是否进入反向稀疏分配。
+  实机日志连续命中：582 carriers、7～8 droppables，后三次间隔约3秒，原版耗时约9～10毫秒。
+- 第二阶段现已实现：只在carriers不少于128且eligible tools不超过四分之一时，用原生评分缓存与补丁私有
+  JobAssigner求解工具×居民小矩阵；目标仍经居民自身接口两阶段更新。全局JobAssigner、其他工作系统、
+  资格与claim协议不改。与Horn隐士y=1.15一起禁部署构建0 warning/0 error，待提交和实机。
+- 本轮一次切岛闪退由Windows记录为`coreclr.dll / 0xc00000fd`栈溢出，末尾位于场景卸载；探针4次后已停止且
+  没有相关异常，当前不能归因于探针。后续必须重复切岛；若复现则先停发并单独定位。
+
+## 2026-08-16 — role-qol-001：号角隐士 y=1.15
+
+- 2.4枚举确认号角隐士为`HermitType.Horn`，与Horse马厩隐士是两个独立类型。
+- 沿用Baker/Horse现有生命周期，只在Horn启用时绝对设置localScale.y=1.15并登记ScaleRegistry，
+  OnDestroy精确注销；x朝向、z、能力、其他隐士及存档均不改。
 
 ## 2026-08-16 — ability-cooldowns-014：两项30秒冷却微调为22.5秒
 

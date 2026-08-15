@@ -4,8 +4,8 @@
 - Status: `doing`
 - Owner: `codex`
 - Session: `codex-2026-08-16-tool-assignment-015`
-- Goal: 先用零行为改动的有限日志探针证明2.4工具分配入口真实命中并测量基线，再决定是否启用高人口稀疏反向分配。
+- Goal: 在探针已证明2.4入口真实命中后，以原生评分和独立solver实现高人口稀疏反向工具分配。
 - Authority: 用户明确授权开始此前讨论的性能优化；只改IL2CPP发布线。游戏运行中不得部署或替换DLL。
-- Scope: 当前只实现`DroppableRegistrar.ReassignClaimers` Prefix/Postfix探针；不写工具目标/claim，不patch全局JobAssigner，不实现通用AI或Animator LOD。
-- Validation: 2.1与2.4调用链/interop签名已核对；探针提交20c457b已推送，从该提交重建0 warning/0 error并只部署独立副本，构建/部署DLL SHA-256均为BDC91E72...F3E723。运行时必须连续记录约3秒命中后才进入替换算法。
+- Scope: 只替换高人口且工具稀疏的`DroppableRegistrar.ReassignClaimers`；复用原生评分与角色目标接口，不patch全局JobAssigner，不实现通用AI或Animator LOD。并加入Horn隐士y=1.15视觉微调。
+- Validation: 探针实机为582 carriers/7～8 droppables、约9～10ms且连续约3秒命中。稀疏实现与Horn缩放已完成禁部署构建0 warning/0 error，等待提交、独立副本部署及切岛/工具行为实测。
 - Plan: `docs/project-harness/tasks/tool-assignment-015/plan.md`

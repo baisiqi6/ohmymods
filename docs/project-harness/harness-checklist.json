@@ -15,8 +15,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "先以完全放行原版、每Registrar最多4条日志的ReassignClaimers探针证明2.4原生调用真实命中并记录居民/工具规模与耗时；只有连续约3秒命中后，才以独立JobAssigner和原生评分实现高人口稀疏反向分配，不改全局JobAssigner及其他工作系统。",
-      "verification": "2.1与2.4调用链、字段和公开wrapper已核对；第一阶段探针源码提交20c457b已推送。用户退出后从该提交Debug重建0 warning/0 error并只部署独立测试副本，构建/部署DLL SHA-256均为BDC91E72BF5B287E4BF3DD8BDEEB3CCF57B6B2C32D03FA742074024855F3E723。真实hook命中仍待日志证明。",
-      "handoff": "探针候选已部署，不写目标或claim且只记录前4次。进入高人口岛等待至少12秒后检查ToolAssignmentProbe；零命中则停止本方案，禁止转patch全局JobAssigner.Compute。",
+      "verification": "探针提交20c457b已部署且实机通过：命中582 carriers、7～8 droppables，后三次约3秒间隔，原版耗时10.352/9.678/9.051ms。第二阶段已按原生CalculateCarrierScore、独立JobAssigner、高人口/稀疏门槛及两阶段SetDroppableTarget实现；与Horn隐士y=1.15一起禁部署构建0 warning/0 error，DLL SHA-256=1D66F17E47EE4F330BE7B3CC2AE6E4C48D0921A6E243E682191F12D77764AF24。",
+      "handoff": "第二阶段尚未部署。部署后验证唯一replacement摘要耗时、工具一对一/资格/claim/开关，并重点重复切岛；此前一次切岛WER为coreclr栈溢出但无探针异常，不能仅凭一次事件归因。",
       "workflow": {"status": "running", "updated_at": "2026-08-16"},
       "lease": {"owner": "codex", "session": "codex-2026-08-16-tool-assignment-015", "acquired_at": "2026-08-16T03:00:00+08:00", "expires_at": "2026-08-17T03:00:00+08:00", "ttl_minutes": 1440},
       "artifacts": {"plan": "docs/project-harness/tasks/tool-assignment-015/plan.md", "code": "il2cpp/PatchPerformance_ToolAssignment.cs"},
@@ -361,16 +361,16 @@
       "priority": "p1",
       "owner": "codex",
       "selected_in_session": "codex-2026-08-15-role-qol-001",
-      "updated_at": "2026-08-15",
+      "updated_at": "2026-08-16",
       "dependencies": ["release-package-001"],
       "blocked_by": [],
       "blocked_reason": null,
-      "acceptance": "工匠成功使用普通 BerserkerTool 的第1-5次生成普通狂战士、第6次生成 BerserkerLeader并循环；仅成功转职计数且换岛延续、完整退出重置；隐士不再被敌人选取或抓走但不免疫伤害、不改变其他战利品；HermitType.Baker酿酒师绝对缩放为1.15，HermitType.Horse马厩隐士绝对缩放为1.10，Horn与其他隐士、朝向、能力不变；reviewer通过、IL2CPP构建成功、独立副本实测无相关异常。",
-      "verification": "用户首轮实测招募大量狂战士仍无队长；日志确认普通与BerserkerLeader池均注册成功，但slot日志为0，证明私有Worker.TryPickupBerserkerTool hook未命中。已删除私有hook/context并迁移到Hammer实机证明命中的公开Character.Promote(DroppableTool,IUnitController)，仅active Worker+active未拾取普通BerserkerTool且结果tag/effective prefab匹配后推进。2026-08-15 用户复测确认狂战士招募序列没有问题。HermitType.Baker酿酒师绝对y=1.15已部署；新增HermitType.Horse马厩隐士绝对y=1.10并复用OnDestroy ScaleRegistry注销，Horn及其他类型零写入。独立reviewer静态APPROVED；从干净提交82333a1禁自动部署构建0 warning/0 error，确认游戏退出后只覆盖独立测试副本，构建/部署DLL SHA-256=BAF335AF932260819F01AAC3F9C93D4B3C4E1F22FF0FDA58075A8DE339E435D6。马厩缩放尚待实机；换岛延续/完整退出重置与隐士防绑架仍未单独留证。",
-      "handoff": "狂战士公开Promote修复已通过用户游戏内验收；酿酒师y=1.15已部署待观感确认。马厩隐士已准确锁定HermitType.Horse并实现绝对y=1.10，reviewer APPROVED；从干净提交重建0/0并已只部署独立副本，下一步验证Horse为1.10、Horn/其他隐士不变。Steam、共享存档和正式zip未修改。",
+      "acceptance": "工匠成功使用普通 BerserkerTool 的第1-5次生成普通狂战士、第6次生成 BerserkerLeader并循环；仅成功转职计数且换岛延续、完整退出重置；隐士不再被敌人选取或抓走但不免疫伤害、不改变其他战利品；HermitType.Baker酿酒师与HermitType.Horn号角隐士绝对缩放为1.15，HermitType.Horse马厩隐士绝对缩放为1.10，其他隐士、朝向、能力不变；IL2CPP构建成功、独立副本实测无相关异常。",
+      "verification": "狂战士公开Promote修复已由用户确认。Baker酿酒师y=1.15与Horse马厩隐士y=1.10已实现并部署；本轮2.4枚举确认Horn为独立类型，新增Horn OnEnable绝对y=1.15、ScaleRegistry登记及OnDestroy精确注销，x/z和其他隐士零改。与稀疏工具分配一起禁部署构建0 warning/0 error，DLL SHA-256=1D66F17E47EE4F330BE7B3CC2AE6E4C48D0921A6E243E682191F12D77764AF24；Horn尚未部署/实机。",
+      "handoff": "狂战士循环已通过用户验收；Horn y=1.15源码候选待提交与独立副本部署，随后验证Baker/Horn=1.15、Horse=1.10、其他隐士不变。Steam、共享存档和现行zip未修改。",
       "workflow": {
-        "status": "review_approved",
-        "updated_at": "2026-08-15"
+        "status": "running",
+        "updated_at": "2026-08-16"
       },
       "lease": {
         "owner": "codex",
@@ -383,7 +383,7 @@
         "plan": "docs/project-harness/tasks/role-qol-001/plan.md"
       },
       "review": {
-        "decision": "approved"
+        "decision": null
       }
     },
     {

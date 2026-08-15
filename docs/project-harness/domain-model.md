@@ -140,7 +140,8 @@
 - 效果：北境工匠 1.175 与希腊工匠 1.075 视觉齐平；北境居民、希腊世界的普通 Peasant 与
   WarriorPeasant 统一为 1.125
   （模型原始高度不同，系数为对齐补偿，实测调参得出）。酿酒师隐士按 `HermitType.Baker`
-  判别并绝对设为 y=1.15；保留 x 朝向和 z，不影响其他隐士。
+  判别并绝对设为 y=1.15；号角隐士按`HermitType.Horn`独立判别并同样绝对设为y=1.15；
+  马厩隐士`HermitType.Horse`保持y=1.10。三者均保留x朝向和z，不影响其他隐士。
 
 ### D4. 缩放守护用 ConditionalWeakTable
 - 决策：`UnitScaleRegistry` 用弱引用 key，单位销毁自动清理；池复用 OnEnable 覆盖登记；

@@ -114,12 +114,13 @@ public static class GreeceBankerScale_Patch
 }
 
 /// <summary>
-/// 酿酒师隐士固定为 y=1.15，马厩隐士固定为 y=1.10；其他隐士保持原样。
+/// 酿酒师与号角隐士固定为 y=1.15，马厩隐士固定为 y=1.10；其他隐士保持原样。
 /// </summary>
 [HarmonyPatch]
 public static class HermitScale_Patch
 {
     private const float BakerHermitY = 1.15f;
+    private const float HornHermitY = 1.15f;
     private const float HorseHermitY = 1.10f;
 
     [HarmonyPatch(typeof(Hermit), nameof(Hermit.OnEnable))]
@@ -134,6 +135,10 @@ public static class HermitScale_Patch
             if (__instance.Type == Hermit.HermitType.Baker)
             {
                 targetY = BakerHermitY;
+            }
+            else if (__instance.Type == Hermit.HermitType.Horn)
+            {
+                targetY = HornHermitY;
             }
             else if (__instance.Type == Hermit.HermitType.Horse)
             {
@@ -167,6 +172,7 @@ public static class HermitScale_Patch
         try
         {
             if (__instance.Type != Hermit.HermitType.Baker
+                && __instance.Type != Hermit.HermitType.Horn
                 && __instance.Type != Hermit.HermitType.Horse) return;
 
             Mover mover = __instance.mover != null ? __instance.mover : __instance.GetComponent<Mover>();

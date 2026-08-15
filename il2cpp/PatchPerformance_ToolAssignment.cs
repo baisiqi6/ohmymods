@@ -1,127 +1,325 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using HarmonyLib;
 
 namespace KingdomEnhancedMod;
 
 /// <summary>
-/// Stage-one runtime probe for the sparse tool-assignment optimization.
-///
-/// The original ReassignRoutine calls a private native method. Although the
-/// IL2CPP interop assembly exposes a callable wrapper, native-to-native calls
-/// can bypass that wrapper. This probe deliberately leaves the original
-/// assignment untouched and logs only the first four observed calls so the
-/// real hook path and its baseline cost can be proven in game before any
-/// replacement algorithm is enabled.
+/// Replaces the original large carrier-first assignment matrix only when the
+/// population is high and eligible tools are sparse. All eligibility and cost
+/// semantics still come from DroppableRegistrar.CalculateCarrierScore.
 /// </summary>
 [HarmonyPatch(typeof(DroppableRegistrar), nameof(DroppableRegistrar.ReassignClaimers))]
-internal static class PatchPerformance_ToolAssignmentProbe
+internal static class PatchPerformance_ToolAssignment
 {
-    private const int MaxLoggedSamplesPerRegistrar = 4;
+    private const int MinimumCarrierCount = 128;
+    private const int MaximumScore = 10000;
 
-    private static IntPtr _registrarPointer;
-    private static long _previousStartTimestamp;
-    private static int _observedCalls;
-    private static bool _probeErrorLogged;
+    private static readonly List<int> EligibleDroppableIndices = new();
 
-    private struct ProbeState
+    private static JobAssigner _solver;
+    private static JobAssigner.ComputeCost _reverseCostDelegate;
+    private static AssignmentContext _context;
+    private static bool _insideReplacement;
+    private static IntPtr _lastRegistrarPointer;
+    private static bool _replacementLogged;
+    private static bool _failureLogged;
+
+    private sealed class AssignmentContext
     {
-        public bool Active;
-        public int Sample;
-        public int Carriers;
-        public int Droppables;
-        public long StartTimestamp;
-        public double IntervalMilliseconds;
+        public int[,] Scores;
+        public int[] EligibleIndices;
     }
 
     [HarmonyPrefix]
-    private static void Prefix(DroppableRegistrar __instance, out ProbeState __state)
+    private static bool Prefix(DroppableRegistrar __instance)
     {
-        __state = default;
+        if (ModConfig.Enabled?.Value != true)
+            return true;
 
-        if (ModConfig.Enabled?.Value != true || __instance == null)
-            return;
+        // Native host logic owns assignment. A client that unexpectedly reaches
+        // this wrapper must never mutate claims locally.
+        if (!NetworkBigBoss.HasWorldAuth)
+            return false;
+
+        if (_insideReplacement || !TryValidateRegistrar(__instance, out var carriers, out var droppables))
+            return true;
+
+        int carrierCount = carriers.Length;
+        int rawDroppableCount = droppables.Length;
+        if (carrierCount < MinimumCarrierCount)
+            return true;
+
+        IntPtr registrarPointer = __instance.Pointer;
+        if (_lastRegistrarPointer != registrarPointer)
+        {
+            _lastRegistrarPointer = registrarPointer;
+            _replacementLogged = false;
+            _failureLogged = false;
+        }
+
+        long startTimestamp = Stopwatch.GetTimestamp();
+        bool applicationStarted = false;
+        _insideReplacement = true;
 
         try
         {
-            IntPtr pointer = __instance.Pointer;
-            if (pointer == IntPtr.Zero)
-                return;
+            var desired = new Droppable[carrierCount];
 
-            if (_registrarPointer != pointer)
+            if (rawDroppableCount > 0)
             {
-                _registrarPointer = pointer;
-                _previousStartTimestamp = 0;
-                _observedCalls = 0;
-                _probeErrorLogged = false;
+                int[,] scores = BuildScoreMatrix(__instance, carrierCount, rawDroppableCount);
+                int eligibleCount = EligibleDroppableIndices.Count;
+
+                // Dense cases keep the native implementation.
+                if (eligibleCount * 4 > carrierCount)
+                    return true;
+
+                if (eligibleCount > 0)
+                {
+                    EnsureSolver();
+                    int[] eligibleIndices = EligibleDroppableIndices.ToArray();
+                    _context = new AssignmentContext
+                    {
+                        Scores = scores,
+                        EligibleIndices = eligibleIndices
+                    };
+
+                    var assignments = _solver.Compute(
+                        eligibleCount,
+                        carrierCount,
+                        _reverseCostDelegate);
+                    if (assignments == null || assignments.Length != eligibleCount)
+                        return true;
+
+                    for (int toolRow = 0; toolRow < eligibleCount; toolRow++)
+                    {
+                        int carrierIndex = assignments[toolRow];
+                        if (carrierIndex < 0 || carrierIndex >= carrierCount)
+                            continue;
+
+                        int droppableIndex = eligibleIndices[toolRow];
+                        if (scores[droppableIndex, carrierIndex] >= MaximumScore
+                            || desired[carrierIndex] != null)
+                            continue;
+
+                        desired[carrierIndex] = droppables[droppableIndex];
+                    }
+                }
             }
 
-            long now = Stopwatch.GetTimestamp();
-            int sample = ++_observedCalls;
-            double intervalMilliseconds = _previousStartTimestamp == 0
-                ? 0d
-                : TicksToMilliseconds(now - _previousStartTimestamp);
-            _previousStartTimestamp = now;
+            // Zero writes occurred above. Revalidate the native lists and world
+            // identity immediately before the two-phase claim update.
+            if (!StillMatchesSnapshot(__instance, carriers, droppables))
+                return true;
 
-            if (sample > MaxLoggedSamplesPerRegistrar)
-                return;
+            applicationStarted = true;
+            ApplyDesiredTargets(carriers, desired);
 
-            __state = new ProbeState
-            {
-                Active = true,
-                Sample = sample,
-                Carriers = __instance._registeredCarriers?.Count ?? -1,
-                Droppables = __instance._droppedItemList?.Count ?? -1,
-                StartTimestamp = now,
-                IntervalMilliseconds = intervalMilliseconds
-            };
+            LogReplacementOnce(
+                carrierCount,
+                rawDroppableCount,
+                EligibleDroppableIndices.Count,
+                Stopwatch.GetTimestamp() - startTimestamp);
+            return false;
         }
         catch (Exception exception)
         {
-            LogProbeErrorOnce(exception);
+            LogFailureOnce(exception, applicationStarted);
+
+            // If application had begun, the original method is deliberately
+            // allowed to run in this same call and rebuild every target/claim.
+            return true;
+        }
+        finally
+        {
+            _context = null;
+            EligibleDroppableIndices.Clear();
+            _insideReplacement = false;
         }
     }
 
-    [HarmonyPostfix]
-    private static void Postfix(ProbeState __state)
+    private static bool TryValidateRegistrar(
+        DroppableRegistrar registrar,
+        out IDroppableCarrier[] carriers,
+        out Droppable[] droppables)
     {
-        if (!__state.Active)
-            return;
+        carriers = null;
+        droppables = null;
 
         try
         {
-            double elapsedMilliseconds = TicksToMilliseconds(
-                Stopwatch.GetTimestamp() - __state.StartTimestamp);
-            string interval = __state.Sample == 1
-                ? "first"
-                : __state.IntervalMilliseconds.ToString("F1") + "ms";
+            Managers managers = Managers.Inst;
+            if (registrar == null || registrar.Pointer == IntPtr.Zero
+                || registrar.gameObject == null || !registrar.gameObject.activeInHierarchy
+                || managers == null || managers.dropManager == null
+                || managers.dropManager.Pointer != registrar.Pointer
+                || managers.kingdom == null
+                || registrar._registeredCarriers == null
+                || registrar._droppedItemList == null)
+                return false;
 
-            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                "[ToolAssignmentProbe] hit=" + __state.Sample
-                + " carriers=" + __state.Carriers
-                + " droppables=" + __state.Droppables
-                + " interval=" + interval
-                + " original=" + elapsedMilliseconds.ToString("F3") + "ms");
+            int carrierCount = registrar._registeredCarriers.Count;
+            int droppableCount = registrar._droppedItemList.Count;
+            carriers = new IDroppableCarrier[carrierCount];
+            droppables = new Droppable[droppableCount];
+
+            for (int i = 0; i < carrierCount; i++)
+            {
+                IDroppableCarrier carrier = registrar._registeredCarriers[i];
+                if (carrier == null || carrier.Pointer == IntPtr.Zero)
+                    return false;
+                carriers[i] = carrier;
+            }
+
+            for (int i = 0; i < droppableCount; i++)
+            {
+                Droppable droppable = registrar._droppedItemList[i];
+                if (droppable == null || droppable.Pointer == IntPtr.Zero)
+                    return false;
+                droppables[i] = droppable;
+            }
+
+            return true;
         }
-        catch (Exception exception)
+        catch
         {
-            LogProbeErrorOnce(exception);
+            carriers = null;
+            droppables = null;
+            return false;
         }
     }
 
-    private static double TicksToMilliseconds(long ticks)
+    private static int[,] BuildScoreMatrix(
+        DroppableRegistrar registrar,
+        int carrierCount,
+        int droppableCount)
     {
-        return ticks * 1000d / Stopwatch.Frequency;
+        EligibleDroppableIndices.Clear();
+        var scores = new int[droppableCount, carrierCount];
+
+        for (int droppableIndex = 0; droppableIndex < droppableCount; droppableIndex++)
+        {
+            bool eligible = false;
+            for (int carrierIndex = 0; carrierIndex < carrierCount; carrierIndex++)
+            {
+                int score = registrar.CalculateCarrierScore(carrierIndex, droppableIndex);
+                scores[droppableIndex, carrierIndex] = score;
+                if (score < MaximumScore)
+                    eligible = true;
+            }
+
+            if (eligible)
+                EligibleDroppableIndices.Add(droppableIndex);
+        }
+
+        return scores;
     }
 
-    private static void LogProbeErrorOnce(Exception exception)
+    private static void EnsureSolver()
     {
-        if (_probeErrorLogged)
+        _solver ??= new JobAssigner();
+        _reverseCostDelegate ??= (JobAssigner.ComputeCost)(Func<int, int, int>)ReverseCost;
+    }
+
+    private static int ReverseCost(int toolRow, int carrierIndex)
+    {
+        AssignmentContext context = _context;
+        if (context == null
+            || toolRow < 0 || toolRow >= context.EligibleIndices.Length
+            || carrierIndex < 0 || carrierIndex >= context.Scores.GetLength(1))
+            return int.MaxValue;
+
+        return context.Scores[context.EligibleIndices[toolRow], carrierIndex];
+    }
+
+    private static bool StillMatchesSnapshot(
+        DroppableRegistrar registrar,
+        IDroppableCarrier[] carriers,
+        Droppable[] droppables)
+    {
+        if (!NetworkBigBoss.HasWorldAuth)
+            return false;
+
+        Managers managers = Managers.Inst;
+        if (managers == null || managers.dropManager == null
+            || managers.dropManager.Pointer != registrar.Pointer
+            || managers.kingdom == null
+            || registrar.gameObject == null || !registrar.gameObject.activeInHierarchy
+            || registrar._registeredCarriers == null
+            || registrar._registeredCarriers.Count != carriers.Length
+            || registrar._droppedItemList == null
+            || registrar._droppedItemList.Count != droppables.Length)
+            return false;
+
+        for (int i = 0; i < carriers.Length; i++)
+        {
+            IDroppableCarrier current = registrar._registeredCarriers[i];
+            if (current == null || current.Pointer != carriers[i].Pointer)
+                return false;
+        }
+
+        for (int i = 0; i < droppables.Length; i++)
+        {
+            Droppable current = registrar._droppedItemList[i];
+            if (current == null || current.Pointer != droppables[i].Pointer)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static void ApplyDesiredTargets(
+        IDroppableCarrier[] carriers,
+        Droppable[] desired)
+    {
+        // Release all changed/stale targets first. For a null desired target the
+        // interface has no getter, so explicitly clearing is the safe native path.
+        for (int i = 0; i < carriers.Length; i++)
+        {
+            Droppable target = desired[i];
+            if (target == null || !carriers[i].IsTargetingDroppable(target))
+                carriers[i].SetDroppableTarget(null);
+        }
+
+        // Reassert every desired claim, including unchanged targets. This repairs
+        // stale duplicate-claimer states that may have been cleared above.
+        for (int i = 0; i < carriers.Length; i++)
+        {
+            if (desired[i] != null)
+                carriers[i].SetDroppableTarget(desired[i]);
+        }
+    }
+
+    private static void LogReplacementOnce(
+        int carriers,
+        int rawDroppables,
+        int eligibleDroppables,
+        long elapsedTicks)
+    {
+        if (_replacementLogged)
             return;
 
-        _probeErrorLogged = true;
+        _replacementLogged = true;
+        double elapsedMilliseconds = elapsedTicks * 1000d / Stopwatch.Frequency;
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+            "[ToolAssignment] sparse replacement active: carriers=" + carriers
+            + " rawDroppables=" + rawDroppables
+            + " eligibleDroppables=" + eligibleDroppables
+            + " elapsed=" + elapsedMilliseconds.ToString("F3") + "ms");
+    }
+
+    private static void LogFailureOnce(Exception exception, bool applicationStarted)
+    {
+        if (_failureLogged)
+            return;
+
+        _failureLogged = true;
         KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
-            "[ToolAssignmentProbe] probe failed without changing original assignment: "
+            "[ToolAssignment] sparse replacement failed "
+            + (applicationStarted ? "during target application" : "before target application")
+            + "; original assignment will run: "
             + exception.GetType().Name + ": " + exception.Message);
     }
 }
