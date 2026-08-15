@@ -28,12 +28,15 @@
 12. **Resources.Load 找不到子目录资源**：必须 LoadAll + 名字匹配。
 13. **2.1.0 差异**：Pool.syncID 是 short；Worker.OnTriggerEnter2D 在 npcShieldUser==null 时早退
     （希腊工人要补组件才能捡 BerserkerTool）；NpcShieldUser.Awake 可能提前 return（regenWait 要补初始化）。
+14. **跨 biome 对象池依赖链必须完整审计**：角色本体 → 转职工具 → 攻击投射物 → 技能特效 →
+    死亡/撤退特效 → 召唤物 → 主客同步池 → 每次 `PoolManager.InitPools` 后重注册。不能只验证角色能出生；
+    必须实际触发攻击、技能、死亡/撤退、换岛/读档和池重建。详见 `game-logic-map/patch-patterns.md` 坑 18。
 
 ## 文档同步（每次改动必做，缺了会忘）
 
 - `docs/project-harness/harness-checklist.json`：活跃状态机；历史只进 `archive/`。改完运行 EXharness validator。
 - `docs/project-harness/progress.md`：进展摘要。
-- `docs/project-harness/game-logic-map/patch-patterns.md`：新坑编号追加（当前到坑 14）。
+- `docs/project-harness/game-logic-map/patch-patterns.md`：新坑编号与对象池依赖审计规则持续追加。
 - `docs/project-harness/domain-model.md`：关键决策（当前到 D9）。
 - 未获用户明确授权不要 commit；验收必须有对应证据，标有“待实测”的项目不得置为 done。
 
