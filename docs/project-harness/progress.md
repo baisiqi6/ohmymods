@@ -1,3 +1,16 @@
+## 2026-08-15 — candidate-package-007：友好巨魔与视觉微调候选已刷新
+
+- 用户退出游戏后，从干净提交 `b875c10ca421fe96106c83dfac913c1bd4778f9f` 重新构建并仅部署到
+  独立测试副本；Debug 构建 0 warning / 0 error。构建、独立副本和 zip 内 DLL SHA-256 三方均为
+  `E8B06EC90772390262F5D3B1325059097391EBE0D04E6CC5E479BE66DBECB8BD`。
+- 刷新后的 zip SHA-256=`4C44CDCC79B4CF30E58EE6CA20087692B797FA629055D02D61CACC436744832C`，
+  40,565,824 bytes / 312 entries；manifest commit 与构建提交一致、Dirty=false。插件 DLL 恰 1、
+  root dotnet 187、BepInEx/dotnet 0、版本顶层目录 0、required entries 无缺失、反编译源码条目 0，
+  包内 20 个常规文本项及 `.doorstop_version` 严格 UTF-8 通过；独立 reviewer 最终 APPROVED。
+- 本包新增包含：友好巨魔只排除 Squid 并恢复 CrownStealer 为正常目标、约 10% TrollWeak 反制单位、
+  Dead Lands/北境银行助手 y=1.2、希腊普通居民及乞丐晋升居民 y=1.05。静态审查已通过；战斗 canary、
+  实际冲撞与视觉观感仍是运行时门禁，相关功能任务继续保持 doing。Steam、共享存档、Mono 未修改。
+
 ## 2026-08-15 — 视觉微调：Dead Lands 助手 y=1.2、希腊居民 y=1.05
 
 - Dead Lands 银行助手从上一测试包的 y=1.25 调回绝对 y=1.2，与北境助手一致；只改双方确定性
@@ -5,11 +18,10 @@
 - 希腊世界的普通 Peasant（包括映射使用的北境外观）与乞丐晋升得到的 WarriorPeasant 统一为
   绝对 y=1.05；真正北境世界的 Peasant_norselands 仍保持 y=1.125。只改 y 并继续登记现有
   ScaleRegistry，不改变转职、配色、网络或行为。
-- Debug 构建 0 warning / 0 error，DLL SHA-256=
-  `E13F6836F79DBEE630FC3ED3FCB3CC2848B3CE6A7C3015C0102EDF7F13A0A02A`；游戏 PID 25224 仍在运行，
-  所以未部署、未打包。当前测试 zip 仍是 Dead Lands y=1.25 且不含希腊居民 y=1.05。
+- 初始源码构建 DLL SHA-256=`E13F6836F79DBEE630FC3ED3FCB3CC2848B3CE6A7C3015C0102EDF7F13A0A02A`；
+  游戏退出后已随上方综合候选重新构建、部署并打包，等待实机观感确认。
 
-## 2026-08-15 — friendly-troll-balance-008：静态通过，待退出后部署实测
+## 2026-08-15 — friendly-troll-balance-008：候选已部署，待实机验证
 
 - 友好巨魔选敌现只精确排除长期悬空的 Squid；旧的 CrownStealer 排除已删除，未使用当前高度阈值。
   过滤发生在公开 StateMachine 推进中、候选枚举之前，并在正常/异常路径逐项恢复敌人集合；已有 Squid
@@ -17,10 +29,10 @@
 - 普通 TrollWeak 中约 10% 按存档/岛屿/统治期与动态 NetID 的稳定哈希成为反制单位；只有世界权威端
   在其原生目标查询期间临时加入 active FriendlyTroll，随后恢复目标缓存。未新增 RPC、序列化、pool、
   prefab、碰撞体或全场扫描。概率是大量同步池槽的长期平均，同统治期复用同一槽保持相同结果。
-- 独立 reviewer 静态 APPROVED；Debug 构建 0 warning / 0 error，DLL SHA-256=
-  `084981C255AE05EA7EBB9A3F8199E2D3B8DEDE6EB321A7F5F05BB0FEF6317F50`。独立副本仍在运行，尚未部署；
-  当前测试 zip 也不包含本轮。待退出后验证两个公开 IL2CPP hook canary、真实冲撞伤害、CrownStealer 与
-  普通 Troll 边界，再决定是否刷新候选包。税收助手调度零改动。
+- 独立 reviewer 静态 APPROVED；初始源码构建 DLL SHA-256=
+  `084981C255AE05EA7EBB9A3F8199E2D3B8DEDE6EB321A7F5F05BB0FEF6317F50`。游戏退出后已随上方综合候选
+  重新构建、部署并打包；待验证两个公开 IL2CPP hook canary、真实冲撞伤害、CrownStealer 与普通 Troll
+  边界。税收助手调度零改动。
 
 ## 2026-08-15 — bank-assistants-005：Dead Lands 助手 y=1.25
 

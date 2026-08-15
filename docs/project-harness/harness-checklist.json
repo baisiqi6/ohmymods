@@ -15,8 +15,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "FriendlyTroll候选枚举精确排除Squid但允许CrownStealer且不用高度判定；约10% EnemyType.TrollWeak在真实生成完成时以稳定哈希一次性标记并可在原生冲锋范围攻击FriendlyTroll，普通巨魔零影响；无每帧随机、新池/prefab或全局目标缓存污染；读档/换岛/池复用/authority边界、构建、审查与独立副本实测通过。",
-      "verification": "实现已移除CrownStealer拒绝并只过滤active Squid；过滤挂公开StateMachine.StepCoroutine且只在FriendlyTroll FSM作用域临时修改候选集合，Postfix/Finalizer逐项恢复。约10% TrollWeak由存档上下文+Il2Cpp DateTime岛屿创建时间+动态NetID稳定哈希指定；仅world-authority临时注入active FriendlyTroll目标，无新RPC/池/全场扫描。独立reviewer静态APPROVED；IL2CPP Debug构建0 warning/0 error，DLL SHA-256=084981C255AE05EA7EBB9A3F8199E2D3B8DEDE6EB321A7F5F05BB0FEF6317F50。尚未部署或实机。",
-      "handoff": "游戏PID 25224仍在运行，禁止覆盖DLL。退出后部署独立副本；必须看到candidate-stage Squid filter与counter priority-target canary，并验证Squid不再被追、CrownStealer仍可攻击、反制弱巨魔可冲撞友好巨魔、普通巨魔不误伤。NetID代表同步池槽身份，同统治期复用保持结果；现有测试zip尚不包含本轮。税收助手完全未动。",
+      "verification": "实现已移除CrownStealer拒绝并只过滤active Squid；过滤挂公开StateMachine.StepCoroutine且只在FriendlyTroll FSM作用域临时修改候选集合，Postfix/Finalizer逐项恢复。约10% TrollWeak由存档上下文+Il2Cpp DateTime岛屿创建时间+动态NetID稳定哈希指定；仅world-authority临时注入active FriendlyTroll目标，无新RPC/池/全场扫描。独立reviewer静态APPROVED；已随刷新测试候选重新构建、部署独立副本并打包，构建/部署/包内DLL SHA-256均为E8B06EC90772390262F5D3B1325059097391EBE0D04E6CC5E479BE66DBECB8BD；尚未实机。",
+      "handoff": "当前刷新测试包已包含本轮。必须看到candidate-stage Squid filter与counter priority-target canary，并验证Squid不再被追、CrownStealer仍可攻击、反制弱巨魔可冲撞友好巨魔、普通巨魔不误伤。NetID代表同步池槽身份，同统治期复用保持结果；无运行时证据前保持doing。税收助手调度未动。",
       "workflow": {
         "status": "review_approved",
         "updated_at": "2026-08-15"
@@ -47,8 +47,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "生成游戏根目录直装IL2CPP候选zip；构建、独立副本、zip内DLL哈希一致；root dotnet存在且无BepInEx/dotnet重复runtime、无版本顶层目录；最新三份中文文档与manifest存在；独立reviewer批准。",
-      "verification": "Dead Lands助手y=1.25刷新后，最终zip SHA-256=7F736F339F22AFBC7FCD00659863167753A91B566643CD4818F6401CCFB42ADC，40,558,347 bytes，312 entries；manifest commit=59f02fd2a91ea917d2d6c33c7fcee73ba1aeafaa且Dirty=false。构建、独立副本、zip内DLL SHA-256三方均为9E71AFF5B155EF6D50DCD9EB0CFBA1098824382CF2C0547FEE431D485F8376BB。插件DLL恰1、root dotnet 187、BepInEx/dotnet 0、版本顶层目录0、required entries无缺失、20个文本项严格UTF-8通过；独立reviewer APPROVED。",
-      "handoff": "综合测试候选包已生成并获独立reviewer批准，可交用户实测。包内文档明确候选功能已包含但尚待实机门禁，不等同公开稳定版；运行时功能任务继续保持doing。Steam、共享存档、Mono和反编译参考源码均未修改或打包。",
+      "verification": "友好巨魔与视觉微调刷新包zip SHA-256=4C44CDCC79B4CF30E58EE6CA20087692B797FA629055D02D61CACC436744832C，40,565,824 bytes，312 entries；manifest commit=b875c10ca421fe96106c83dfac913c1bd4778f9f且Dirty=false。构建、独立副本、zip内DLL SHA-256三方均为E8B06EC90772390262F5D3B1325059097391EBE0D04E6CC5E479BE66DBECB8BD。插件DLL恰1、root dotnet 187、BepInEx/dotnet 0、版本顶层目录0、required entries无缺失、反编译源码/调试文件条目0、20个常规文本项及.doorstop_version严格UTF-8通过；独立reviewer APPROVED。",
+      "handoff": "刷新综合测试候选包已生成，可交用户实测；包内文档明确友好巨魔修复、Dead Lands助手y=1.2与希腊居民y=1.05已经包含但仍待实机门禁，不等同公开稳定版。运行时功能任务继续保持doing。Steam、共享存档、Mono和反编译参考源码均未修改或打包。",
       "workflow": {
         "status": "closed",
         "updated_at": "2026-08-15"
@@ -111,8 +111,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "希腊只保留一个原版Banker作为国库/利息/提款/存档权威；欧洲、幕府、Dead Lands、北境四套外观各生成一名无Banker/Persistent/Wallet行为的助手，Dead Lands助手y=1.2、北境助手y=1.2且均只改y；主银行家仅管理左右从城堡向外数第二道墙之间并保持增强移速、安全期全天工作与该区域动态扫描；该管辖区外的玩家金币落地3秒后由单一当前助手连续处理，同批下一枚距助手不超过6单位就直接跑、超过才瞬移，其他助手在城堡附近巡逻且不为同批金币一起行动；成功拾取由world-authority立即原子入账，轮换/回城不重复入账；共享账本不覆盖日息或回滚提款；同步池、切岛/读档生命周期、构建与独立副本实测通过。",
-      "verification": "此前已在独立副本确认四套控制器解析与四助手生成。实现以左右GetWall(side,1)定义第二道墙管辖区；两侧未齐时对称回退index0，再回退有效border；主Banker ClaimCoins按朝向精确设置range/rangeBehind并在认领入口拒绝域外Player Coins，助手scan每tick只解析一次同一domain且commit时复核。同批后续金币<=6直接跑，首枚或>6才传送。上一测试包的banker_deadlands y=1.25；用户最新要求已在源码候选改回绝对y=1.2，与banker_norselands一致，只改y且不改调度。最新Debug构建0 warning/0 error，DLL SHA-256=E13F6836F79DBEE630FC3ED3FCB3CC2848B3CE6A7C3015C0102EDF7F13A0A02A；游戏运行中未部署，待实机观察比例。",
-      "handoff": "Dead Lands与北境助手现均为绝对y=1.2；只改双方确定性prefab视觉比例，调度契约不变。当前助手不是随机选择，而是0→1→2→3 round-robin；同一时刻严格只有一个collector，满载时同步回城清容量并在仍有成熟金币时轮到下一位。游戏仍运行，退出后须部署独立副本验证比例；不得复制Banker组件或让客户端写国库，不修改Steam/共享存档/Mono。",
+      "verification": "此前已在独立副本确认四套控制器解析与四助手生成。实现以左右GetWall(side,1)定义第二道墙管辖区；两侧未齐时对称回退index0，再回退有效border；主Banker ClaimCoins按朝向精确设置range/rangeBehind并在认领入口拒绝域外Player Coins，助手scan每tick只解析一次同一domain且commit时复核。同批后续金币<=6直接跑，首枚或>6才传送。banker_deadlands已改回绝对y=1.2，与banker_norselands一致，只改y且不改调度；已随刷新候选重新构建、部署独立副本并打包，构建/部署/包内DLL SHA-256均为E8B06EC90772390262F5D3B1325059097391EBE0D04E6CC5E479BE66DBECB8BD，待实机观察比例。",
+      "handoff": "Dead Lands与北境助手现均为绝对y=1.2；只改双方确定性prefab视觉比例，调度契约不变。当前助手不是随机选择，而是0→1→2→3 round-robin；同一时刻严格只有一个collector，满载时同步回城清容量并在仍有成熟金币时轮到下一位。刷新测试包已包含本轮，须实机验证比例；不得复制Banker组件或让客户端写国库，不修改Steam/共享存档/Mono。",
       "workflow": {
         "status": "review_approved",
         "updated_at": "2026-08-15"

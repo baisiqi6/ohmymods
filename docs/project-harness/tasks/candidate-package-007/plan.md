@@ -21,8 +21,11 @@
 
 ## 当前交接
 
-- Dead Lands 助手 y=1.25 刷新后的最终 zip SHA-256=
-  `7F736F339F22AFBC7FCD00659863167753A91B566643CD4818F6401CCFB42ADC`，40,558,347 bytes / 312 entries；
-  manifest commit=`59f02fd2a91ea917d2d6c33c7fcee73ba1aeafaa`、Dirty=false。
-- 构建、独立副本与包内 DLL SHA-256 均为 `9E71AFF5B155EF6D50DCD9EB0CFBA1098824382CF2C0547FEE431D485F8376BB`。
-- 独立 reviewer APPROVED。用户可用该包实测外观和行为；运行时功能任务继续保持 doing，不因生成候选 zip 自动关闭。
+- 友好巨魔与视觉微调刷新后的 zip SHA-256=
+  `4C44CDCC79B4CF30E58EE6CA20087692B797FA629055D02D61CACC436744832C`，40,565,824 bytes / 312 entries；
+  manifest commit=`b875c10ca421fe96106c83dfac913c1bd4778f9f`、Dirty=false。
+- 构建、独立副本与包内 DLL SHA-256 均为 `E8B06EC90772390262F5D3B1325059097391EBE0D04E6CC5E479BE66DBECB8BD`。
+- 插件 DLL 恰 1、root dotnet 187、BepInEx/dotnet 0、版本顶层目录 0、required entries 无缺失、
+  反编译源码与调试文件条目 0；20 个常规文本项及 `.doorstop_version` 严格 UTF-8。独立 reviewer
+  APPROVED。用户可用该包实测外观和行为；
+  运行时功能任务继续保持 doing，不因生成候选 zip 自动关闭。
