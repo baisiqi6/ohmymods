@@ -11,33 +11,31 @@ namespace KingdomEnhancedMod;
 /// WarriorGhostGreece archers.  The Norselands artefact uses the same formation
 /// interfaces, but its concrete classes have different lifetime/AI overrides.
 ///
-/// Keep Greece behaviour for every summoned unit and build two deterministic
-/// visual-only variants by cloning the Greece prefabs while inactive, then
-/// copying the Norselands animator set and initial sprite.  One native Greece
-/// squad remains untouched; the supplement adds one Greece squad and two
-/// Norselands-looking Greece-logic squads for a total of four leaders and
-/// sixteen archers.
+/// Keep each world's native behaviour: one native Greece squad remains
+/// untouched, the supplement adds one Greece squad and two Norselands squads.
+/// The Norselands prefabs are cloned while inactive into deterministic custom
+/// synced pools because the native 2.4 archer pool ID collides with FleetBoat.
+/// All twenty ghosts remain tracked by the Cerberus ability for cleanup.
 /// </summary>
 public static class PatchDivine_GhostSquads
 {
     internal const int SyncIdMin = 30130;
     internal const int SyncIdMax = 30131;
 
-    private const int NorseVisualLeaderSyncId = 30130;
-    private const int NorseVisualArcherSyncId = 30131;
+    private const int NorseLeaderSyncId = 30130;
+    private const int NorseArcherSyncId = 30131;
+    private const int NorseGhostDurationSeconds = 30;
     private const string GreeceLeaderName = "Warrior_Ghost_Leader_Greece";
     private const string GreeceArcherName = "Warrior_Ghost_Greece";
     private const string NorseLeaderName = "Warrior_Ghost_Leader_norselands";
     private const string NorseArcherName = "Warrior_Ghost_norselands";
-    private const string VisualLeaderName = "KEM_Warrior_Ghost_Leader_NorseVisual_GreeceLogic";
-    private const string VisualArcherName = "KEM_Warrior_Ghost_NorseVisual_GreeceLogic";
+    private const string NorseSummonLeaderName = "KEM_Warrior_Ghost_Leader_Norse_CerberusSummon";
+    private const string NorseSummonArcherName = "KEM_Warrior_Ghost_Norse_CerberusSummon";
 
-    private static WarriorGhostLeaderGreece _greeceLeader;
-    private static WarriorGhostGreece _greeceArcher;
     private static WarriorGhostLeader _norseLeader;
     private static WarriorGhost _norseArcher;
-    private static WarriorGhostLeaderGreece _visualLeader;
-    private static WarriorGhostGreece _visualArcher;
+    private static WarriorGhostLeader _norseSummonLeader;
+    private static WarriorGhost _norseSummonArcher;
     private static bool _loggedReady;
     private static bool _loggedFailure;
 
@@ -50,18 +48,18 @@ public static class PatchDivine_GhostSquads
         {
             PoolManager pools = Managers.Inst != null ? Managers.Inst.pools : null;
             if (pools == null) return;
-            if (!EnsureVisualPrefabs()) return;
+            if (!EnsureNorseSummonPrefabs()) return;
 
-            bool leaderReady = EnsureSyncedPool(pools, _visualLeader.gameObject,
-                NorseVisualLeaderSyncId, "ghost-leader:norse-visual");
-            bool archerReady = EnsureSyncedPool(pools, _visualArcher.gameObject,
-                NorseVisualArcherSyncId, "ghost-archer:norse-visual");
+            bool leaderReady = EnsureSyncedPool(pools, _norseSummonLeader.gameObject,
+                NorseLeaderSyncId, "ghost-leader:norse-native-behaviour");
+            bool archerReady = EnsureSyncedPool(pools, _norseSummonArcher.gameObject,
+                NorseArcherSyncId, "ghost-archer:norse-native-behaviour");
 
             if (leaderReady && archerReady && !_loggedReady)
             {
                 _loggedReady = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[GhostSquads] Norse visual Greece-logic pools ready (syncIDs=30130/30131)");
+                    "[GhostSquads] Norse native-behaviour pools ready (syncIDs=30130/30131, duration=30s)");
             }
         }
         catch (Exception e)
@@ -70,14 +68,14 @@ public static class PatchDivine_GhostSquads
         }
     }
 
-    private static bool EnsureVisualPrefabs()
+    private static bool EnsureNorseSummonPrefabs()
     {
-        if (_visualLeader != null && _visualArcher != null) return true;
+        if (_norseSummonLeader != null && _norseSummonArcher != null) return true;
 
         FindSourcePrefabs();
-        if (_greeceLeader == null || _greeceArcher == null || _norseLeader == null || _norseArcher == null)
+        if (_norseLeader == null || _norseArcher == null)
         {
-            LogFailure("exact Greece/Norselands ghost prefabs were not all found", null);
+            LogFailure("unique exact Norselands ghost prefabs were not found", null);
             return false;
         }
 
@@ -86,37 +84,36 @@ public static class PatchDivine_GhostSquads
         try
         {
             GameObject leaderGo = UnityEngine.Object.Instantiate(
-                _greeceLeader.gameObject, inactiveRoot.transform, false);
+                _norseLeader.gameObject, inactiveRoot.transform, false);
             GameObject archerGo = UnityEngine.Object.Instantiate(
-                _greeceArcher.gameObject, inactiveRoot.transform, false);
+                _norseArcher.gameObject, inactiveRoot.transform, false);
             if (leaderGo == null || archerGo == null)
             {
-                LogFailure("inactive Greece prefab clone returned null", null);
+                LogFailure("inactive Norselands prefab clone returned null", null);
                 return false;
             }
 
             leaderGo.SetActive(false);
             archerGo.SetActive(false);
-            leaderGo.name = VisualLeaderName;
-            archerGo.name = VisualArcherName;
+            leaderGo.name = NorseSummonLeaderName;
+            archerGo.name = NorseSummonArcherName;
 
-            WarriorGhostLeaderGreece visualLeader = leaderGo.GetComponent<WarriorGhostLeaderGreece>();
-            WarriorGhostGreece visualArcher = archerGo.GetComponent<WarriorGhostGreece>();
-            if (visualLeader == null || visualArcher == null)
+            WarriorGhostLeader summonLeader = leaderGo.GetComponent<WarriorGhostLeader>();
+            WarriorGhost summonArcher = archerGo.GetComponent<WarriorGhost>();
+            if (summonLeader == null || summonArcher == null
+                || summonLeader.TryCast<WarriorGhostLeaderGreece>() != null
+                || summonArcher.TryCast<WarriorGhostGreece>() != null)
             {
-                LogFailure("cloned prefabs lost their Greece behaviour components", null);
+                LogFailure("cloned prefabs did not preserve Norselands behaviour components", null);
                 return false;
             }
-
-            CopyLeaderVisuals(visualLeader, _norseLeader);
-            CopyArcherVisuals(visualArcher, _norseArcher);
 
             leaderGo.transform.SetParent(null, false);
             archerGo.transform.SetParent(null, false);
             UnityEngine.Object.DontDestroyOnLoad(leaderGo);
             UnityEngine.Object.DontDestroyOnLoad(archerGo);
-            _visualLeader = visualLeader;
-            _visualArcher = visualArcher;
+            _norseSummonLeader = summonLeader;
+            _norseSummonArcher = summonArcher;
             return true;
         }
         finally
@@ -127,27 +124,16 @@ public static class PatchDivine_GhostSquads
 
     private static void FindSourcePrefabs()
     {
-        if (_greeceLeader == null || _norseLeader == null)
+        if (_norseLeader == null)
         {
-            WarriorGhostLeaderGreece greece = null;
             WarriorGhostLeader norse = null;
-            int greeceMatches = 0;
             int norseMatches = 0;
             var leaders = Resources.LoadAll<WarriorGhostLeader>("");
             for (int i = 0; i < leaders.Length; i++)
             {
                 WarriorGhostLeader leader = leaders[i];
                 if (leader == null || leader.gameObject == null) continue;
-                if (leader.gameObject.name == GreeceLeaderName)
-                {
-                    WarriorGhostLeaderGreece exact = leader.TryCast<WarriorGhostLeaderGreece>();
-                    if (exact != null)
-                    {
-                        greece = exact;
-                        greeceMatches++;
-                    }
-                }
-                else if (leader.gameObject.name == NorseLeaderName
+                if (leader.gameObject.name == NorseLeaderName
                     && leader.TryCast<WarriorGhostLeaderGreece>() == null)
                 {
                     norse = leader;
@@ -155,31 +141,19 @@ public static class PatchDivine_GhostSquads
                 }
             }
 
-            _greeceLeader = greeceMatches == 1 ? greece : null;
             _norseLeader = norseMatches == 1 ? norse : null;
         }
 
-        if (_greeceArcher == null || _norseArcher == null)
+        if (_norseArcher == null)
         {
-            WarriorGhostGreece greece = null;
             WarriorGhost norse = null;
-            int greeceMatches = 0;
             int norseMatches = 0;
             var archers = Resources.LoadAll<WarriorGhost>("");
             for (int i = 0; i < archers.Length; i++)
             {
                 WarriorGhost archer = archers[i];
                 if (archer == null || archer.gameObject == null) continue;
-                if (archer.gameObject.name == GreeceArcherName)
-                {
-                    WarriorGhostGreece exact = archer.TryCast<WarriorGhostGreece>();
-                    if (exact != null)
-                    {
-                        greece = exact;
-                        greeceMatches++;
-                    }
-                }
-                else if (archer.gameObject.name == NorseArcherName
+                if (archer.gameObject.name == NorseArcherName
                     && archer.TryCast<WarriorGhostGreece>() == null)
                 {
                     norse = archer;
@@ -187,37 +161,7 @@ public static class PatchDivine_GhostSquads
                 }
             }
 
-            _greeceArcher = greeceMatches == 1 ? greece : null;
             _norseArcher = norseMatches == 1 ? norse : null;
-        }
-    }
-
-    private static void CopyLeaderVisuals(WarriorGhostLeaderGreece target, WarriorGhostLeader source)
-    {
-        target._animators = source._animators;
-        CopyRendererAndAnimator(target.gameObject, source.gameObject);
-    }
-
-    private static void CopyArcherVisuals(WarriorGhostGreece target, WarriorGhost source)
-    {
-        target._animators = source._animators;
-        CopyRendererAndAnimator(target.gameObject, source.gameObject);
-    }
-
-    private static void CopyRendererAndAnimator(GameObject target, GameObject source)
-    {
-        Animator targetAnimator = target.GetComponent<Animator>();
-        Animator sourceAnimator = source.GetComponent<Animator>();
-        if (targetAnimator != null && sourceAnimator != null)
-            targetAnimator.runtimeAnimatorController = sourceAnimator.runtimeAnimatorController;
-
-        SpriteRenderer targetRenderer = target.GetComponent<SpriteRenderer>();
-        SpriteRenderer sourceRenderer = source.GetComponent<SpriteRenderer>();
-        if (targetRenderer != null && sourceRenderer != null)
-        {
-            targetRenderer.sprite = sourceRenderer.sprite;
-            targetRenderer.color = sourceRenderer.color;
-            targetRenderer.sharedMaterial = sourceRenderer.sharedMaterial;
         }
     }
 
@@ -279,11 +223,11 @@ public static class PatchDivine_GhostSquads
 
     private static bool PoolsReady()
     {
-        if (_visualLeader == null || _visualArcher == null) return false;
-        Pool leaderPool = Pool.GetPoolFromPrefabAsset(_visualLeader.gameObject);
-        Pool archerPool = Pool.GetPoolFromPrefabAsset(_visualArcher.gameObject);
-        return leaderPool != null && leaderPool.sync && leaderPool.syncID == NorseVisualLeaderSyncId
-            && archerPool != null && archerPool.sync && archerPool.syncID == NorseVisualArcherSyncId;
+        if (_norseSummonLeader == null || _norseSummonArcher == null) return false;
+        Pool leaderPool = Pool.GetPoolFromPrefabAsset(_norseSummonLeader.gameObject);
+        Pool archerPool = Pool.GetPoolFromPrefabAsset(_norseSummonArcher.gameObject);
+        return leaderPool != null && leaderPool.sync && leaderPool.syncID == NorseLeaderSyncId
+            && archerPool != null && archerPool.sync && archerPool.syncID == NorseArcherSyncId;
     }
 
     internal static void AfterActivate(SummonGhostSteedAbility ability)
@@ -335,17 +279,19 @@ public static class PatchDivine_GhostSquads
         IGhostHolder holder = ability.TryCast<IGhostHolder>();
         if (holder == null) yield break;
 
-        // Native squad #1 is Greece.  Add Greece #2, then two Norse-visual
-        // squads whose concrete behaviour components remain Greece subclasses.
+        // Native squad #1 is Greece. Add Greece #2, then two true Norselands
+        // behaviour squads. Every squad has its own local formation leader.
         for (int squadIndex = 1; squadIndex <= 3; squadIndex++)
         {
-            WarriorGhostLeader leaderPrefab = squadIndex == 1 ? ability._vanguardPrefab : _visualLeader;
-            WarriorGhost archerPrefab = squadIndex == 1 ? ability._archerPrefab : _visualArcher;
+            bool isNorse = squadIndex > 1;
+            WarriorGhostLeader leaderPrefab = isNorse ? _norseSummonLeader : ability._vanguardPrefab;
+            WarriorGhost archerPrefab = isNorse ? _norseSummonArcher : ability._archerPrefab;
+            int duration = isNorse ? NorseGhostDurationSeconds : 0;
 
             if (!CanContinue(ability)) yield break;
             WarriorGhostLeader leader = null;
             HelsGhost leaderGhost = SpawnGhost(
-                ability, holder, leaderPrefab.gameObject, squadIndex, 0);
+                ability, holder, leaderPrefab.gameObject, squadIndex, 0, duration);
             if (leaderGhost == null) yield break;
             leaderGhost.AddToFormation(ref leader);
             if (leader == null)
@@ -359,7 +305,7 @@ public static class PatchDivine_GhostSquads
             {
                 if (!CanContinue(ability)) yield break;
                 HelsGhost archer = SpawnGhost(
-                    ability, holder, archerPrefab.gameObject, squadIndex, member);
+                    ability, holder, archerPrefab.gameObject, squadIndex, member, duration);
                 if (archer == null) yield break;
                 archer.AddToFormation(ref leader);
                 yield return null;
@@ -369,7 +315,7 @@ public static class PatchDivine_GhostSquads
         if (CanContinue(ability) && ability._activeGhosts.Count == 20)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                "[GhostSquads] Cerberus summon completed: leaders=4 archers=16 (2 Greece / 2 Norse visual)");
+                "[GhostSquads] Cerberus summon completed: leaders=4 archers=16 (2 Greece / 2 Norse native behaviour)");
         }
         else if (CanContinue(ability))
         {
@@ -385,7 +331,8 @@ public static class PatchDivine_GhostSquads
         IGhostHolder holder,
         GameObject prefab,
         int squadIndex,
-        int memberIndex)
+        int memberIndex,
+        int durationSeconds)
     {
         try
         {
@@ -406,6 +353,8 @@ public static class PatchDivine_GhostSquads
 
             ghost.GhostHolder = holder;
             ghost.Summoner = ability._rider;
+            if (durationSeconds > 0)
+                ghost.Duration = durationSeconds;
             ghost.StartDeathCountdown();
             ability._activeGhosts.Add(ghost);
             return ghost;

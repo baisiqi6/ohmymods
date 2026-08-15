@@ -307,7 +307,7 @@ public static class PatchRoles_Castle
         {
             if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
 
-            // Cerberus' two Norse-visual Greece-logic pools do not depend on
+            // Cerberus' two Norselands-behaviour clone pools do not depend on
             // Holder tags and must be registered on host and clients even when
             // PoolManager.Init runs before Holder.InitializeTagCharacterPairs.
             PatchDivine_GhostSquads.EnsurePools();
