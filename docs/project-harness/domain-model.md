@@ -101,11 +101,14 @@
 - 决策：缩放只体现在 y（视觉高度）。等比放大（宽高都变）需要父物体包装，会改变碰撞体
   world size 和渲染层级，风险高，暂不做。
 - 效果：北境工匠 1.175 与希腊工匠 1.075 视觉齐平；北境居民 1.125 与希腊居民 1.0 齐平
-  （模型原始高度不同，系数为对齐补偿，实测调参得出）。
+  （模型原始高度不同，系数为对齐补偿，实测调参得出）。酿酒师隐士按 `HermitType.Baker`
+  判别并绝对设为 y=1.15；保留 x 朝向和 z，不影响其他隐士。
 
 ### D4. 缩放守护用 ConditionalWeakTable
 - 决策：`UnitScaleRegistry` 用弱引用 key，单位销毁自动清理；池复用 OnEnable 覆盖登记；
   转化（ReplaceBy 创建新对象）不影响旧登记。零泄漏、零手动清理。
+- IL2CPP 发布线的现有 `ScaleRegistryHolder` 以 instanceID 登记，因此酿酒师在真正 OnDestroy 时
+  精确注销；OnDisable 不注销，保证对象池复用期间仍由 OnEnable 重写并维持目标值。
 - 替代方案（字典+OnDisable 清理）被否：Worker 类没有 OnDisable，手动清理易漏。
 
 ### D5. 北境工匠出生带盾（SetShieldEnabled）

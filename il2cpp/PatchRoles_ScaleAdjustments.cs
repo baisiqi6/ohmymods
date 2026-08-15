@@ -112,3 +112,55 @@ public static class GreeceBankerScale_Patch
         }
     }
 }
+
+/// <summary>
+/// 酿酒师隐士固定为 y=1.15；其他隐士保持原样。
+/// </summary>
+[HarmonyPatch]
+public static class BakerHermitScale_Patch
+{
+    private const float BakerHermitY = 1.15f;
+
+    [HarmonyPatch(typeof(Hermit), nameof(Hermit.OnEnable))]
+    [HarmonyPostfix]
+    private static void OnEnable_Postfix(Hermit __instance)
+    {
+        if (!ModConfig.Enabled.Value || __instance == null || __instance.gameObject == null) return;
+
+        try
+        {
+            if (__instance.Type != Hermit.HermitType.Baker) return;
+
+            Mover mover = __instance.mover != null ? __instance.mover : __instance.GetComponent<Mover>();
+            if (mover == null) return;
+
+            Vector3 scale = __instance.transform.localScale;
+            scale.y = BakerHermitY;
+            __instance.transform.localScale = scale;
+            ScaleRegistryHolder.Register(mover, BakerHermitY);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+        }
+    }
+
+    [HarmonyPatch(typeof(Hermit), nameof(Hermit.OnDestroy))]
+    [HarmonyPostfix]
+    private static void OnDestroy_Postfix(Hermit __instance)
+    {
+        if (__instance == null) return;
+
+        try
+        {
+            if (__instance.Type != Hermit.HermitType.Baker) return;
+
+            Mover mover = __instance.mover != null ? __instance.mover : __instance.GetComponent<Mover>();
+            ScaleRegistryHolder.Unregister(mover);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+        }
+    }
+}

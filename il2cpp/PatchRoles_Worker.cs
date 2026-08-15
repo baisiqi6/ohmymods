@@ -60,6 +60,12 @@ public class ScaleRegistryHolder : MonoBehaviour
         _targets[mover.gameObject.GetInstanceID()] = y;
     }
 
+    public static void Unregister(Mover mover)
+    {
+        if (mover == null || mover.gameObject == null) return;
+        _targets.Remove(mover.gameObject.GetInstanceID());
+    }
+
     public static bool TryGet(Mover mover, out float y)
     {
         if (mover != null && mover.gameObject != null && _targets.TryGetValue(mover.gameObject.GetInstanceID(), out y))
