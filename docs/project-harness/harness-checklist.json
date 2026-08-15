@@ -47,8 +47,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "希腊只保留一个原版Banker作为国库/利息/提款/存档权威；欧洲、幕府、Dead Lands、北境四套外观各生成一名无Banker/Persistent/Wallet行为的助手；主银行家恢复原生近距扫描/速度/作息，城墙内金币不分给助手，墙外玩家金币落地3秒后由中央扫描器单目标分配；助手成功拾取时由world-authority立即原子入账且满载/无目标回城不重复入账；共享账本不覆盖日息或回滚提款；同步池、切岛/读档生命周期、构建与独立副本实测通过。",
-      "verification": "已核实2.4.0资源为一个Banker prefab加五套动画外观：base Europe、bamboo、deadlands、norselands、greece；原Banker固定注册NetID 903，候选四助手从空对象构建且无Banker/Persistent/Wallet。独立reviewer静态APPROVED；operator在最终duplicate-guard源码后离线restore并Debug构建0 warning/0 error；DLL SHA-256=0203BC714DCE13A20B6E9F753FF8D21E13083316DA936085F41DC758869A164C；git diff --check无错误，checklist validator 0 warning。尚未部署/实机。",
-      "handoff": "静态实现、审查和构建已完成；下一步仅部署独立副本，按plan验收四外观、墙内外分流、3秒成熟、切岛/重启账目守恒、日息/提款与主客同步。不得复制Banker组件或让客户端写国库，不修改Steam/共享存档/正式zip。",
+      "verification": "首次候选DLL 0203BC71已部署独立副本；实机日志确认四助手生成，但四套controller旧Resources入口均找不到并统一回退，且成熟列表首币暂不可认领时会阻塞后续候选。修复版改走BiomeHolder世界风格替换direct refs，四套exact controller必须齐全且InstanceID互异，否则fail closed；扫描改全岛、逐候选，临时claim不重置3秒age，双端低频重试池注册。独立reviewer静态APPROVED；Debug构建0 warning/0 error；DLL SHA-256=F3BAB6CB492335D23E9CA3D958315545EE679100B0460EE511E8B160E5B99409；git diff --check无错误。自动部署被当前桌面E盘写权限拒绝，旧测试DLL未改变，待operator手动部署实机复测。",
+      "handoff": "operator手动把修复版DLL部署到独立副本；先确认日志出现Resolved unique banker controllers再spawn 4；肉眼确认四外观不同；分别测试墙内币不分配与墙外币3秒后scan→first assignment→first submission；再做切岛/读档和联机unknown pool/duplicate syncID回归。不得复制Banker组件或让客户端写国库，不修改Steam/共享存档/正式zip。",
       "workflow": {
         "status": "running",
         "updated_at": "2026-08-15"

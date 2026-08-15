@@ -21,7 +21,9 @@ public static class PatchEconomy_BankAssistants
 {
     internal const float SCAN_INTERVAL = 0.5f;
     internal const float COIN_MATURITY_SECONDS = 3f;
-    internal const float WORLD_SCAN_RANGE = 800f;
+    // Registrar already iterates its central dropped-item list. Using the full float
+    // range preserves the promised whole-island scan on unusually long islands.
+    internal const float WORLD_SCAN_RANGE = float.MaxValue;
     internal const float TELEPORT_APPROACH_DISTANCE = 2f;
     internal const float PICKUP_DISTANCE = 0.22f;
     internal const float ASSISTANT_RUN_SPEED = 3.2f;
@@ -42,9 +44,11 @@ public static class PatchEconomy_BankAssistants
 
     private static readonly GameObject[] Prefabs = new GameObject[4];
     private static readonly Pool[] Pools = new Pool[4];
-    private static Il2CppArrayBase<RuntimeAnimatorController> _allControllers;
     private static Il2CppArrayBase<Banker> _allBankerPrefabs;
     private static bool _registeredCoordinatorType;
+    private static bool _loggedControllerSet;
+    private static float _nextControllerResolveAt;
+    private static string _lastControllerFailure;
 
     public static void EnsureForMainBanker(Banker banker)
     {
@@ -158,10 +162,20 @@ public static class PatchEconomy_BankAssistants
 
     private static void EnsurePrefabs(Banker banker)
     {
+        bool allReady = true;
+        for (int i = 0; i < Prefabs.Length; i++)
+            allReady &= Prefabs[i] != null;
+        if (allReady) return;
+
+        // EnsurePools is called from Update. Retry later if the biome asset graph is
+        // still loading, but never rescan resources or repeat the same error per frame.
+        if (Time.unscaledTime < _nextControllerResolveAt) return;
+        _nextControllerResolveAt = Time.unscaledTime + 2f;
+
         Animator sourceAnimator = banker.GetComponent<Animator>();
         SpriteRenderer sourceRenderer = banker.GetComponent<SpriteRenderer>();
-        if (_allControllers == null)
-            _allControllers = Resources.LoadAll<RuntimeAnimatorController>("");
+        if (!TryResolveControllers(sourceAnimator, out RuntimeAnimatorController[] controllers))
+            return;
 
         for (int i = 0; i < Prefabs.Length; i++)
         {
@@ -186,8 +200,7 @@ public static class PatchEconomy_BankAssistants
             }
 
             Animator animator = prefab.AddComponent<Animator>();
-            animator.runtimeAnimatorController = FindController(ControllerNames[i])
-                ?? (sourceAnimator != null ? sourceAnimator.runtimeAnimatorController : null);
+            animator.runtimeAnimatorController = controllers[i];
             if (sourceAnimator != null)
             {
                 animator.avatar = sourceAnimator.avatar;
@@ -224,19 +237,126 @@ public static class PatchEconomy_BankAssistants
         }
     }
 
-    private static RuntimeAnimatorController FindController(string exactName)
+    private static bool TryResolveControllers(Animator sourceAnimator,
+        out RuntimeAnimatorController[] resolved)
     {
-        if (_allControllers == null) return null;
-        for (int i = 0; i < _allControllers.Length; i++)
+        resolved = new RuntimeAnimatorController[ControllerNames.Length];
+        bool ambiguous = false;
+
+        RuntimeAnimatorController liveController = sourceAnimator != null
+            ? sourceAnimator.runtimeAnimatorController : null;
+        ConsiderController(liveController, resolved, ref ambiguous);
+        AnimatorOverrideController liveOverride = liveController as AnimatorOverrideController;
+        if (liveOverride != null)
+            ConsiderController(liveOverride.runtimeAnimatorController, resolved, ref ambiguous);
+
+        // These preload entries are the authoritative biome asset graph. Unlike
+        // Resources.LoadAll(""), they retain direct references to animator overrides
+        // that do not live in a Resources folder.
+        BiomeHolder holder = BiomeHolder.Inst;
+        if (holder != null)
         {
-            RuntimeAnimatorController controller = _allControllers[i];
-            if (controller != null
-                && string.Equals(controller.name, exactName, StringComparison.OrdinalIgnoreCase))
-                return controller;
+            if (holder.biomePreloadData != null)
+            {
+                for (int i = 0; i < holder.biomePreloadData.Length; i++)
+                    GatherSwapControllers(holder.biomePreloadData[i], resolved, ref ambiguous);
+            }
+            if (holder.biomeData != null)
+            {
+                for (int i = 0; i < holder.biomeData.Length; i++)
+                {
+                    BiomeData data = holder.biomeData[i];
+                    if (data != null)
+                        GatherSwapControllers(data.swapData, resolved, ref ambiguous);
+                }
+            }
         }
-        KingdomEnhancedPlugin.Instance?.LogSource.LogError(
-            "[BankAssistants] Animator controller not found: " + exactName);
-        return null;
+
+        // Runtime discovery catches already-loaded controllers supplied outside the
+        // preload tables without assuming a Resources path.
+        var loadedControllers = Resources.FindObjectsOfTypeAll<RuntimeAnimatorController>();
+        for (int i = 0; i < loadedControllers.Length; i++)
+            ConsiderController(loadedControllers[i], resolved, ref ambiguous);
+        var loadedOverrides = Resources.FindObjectsOfTypeAll<AnimatorOverrideController>();
+        for (int i = 0; i < loadedOverrides.Length; i++)
+        {
+            ConsiderController(loadedOverrides[i], resolved, ref ambiguous);
+            ConsiderController(loadedOverrides[i]?.runtimeAnimatorController, resolved, ref ambiguous);
+        }
+
+        bool complete = !ambiguous;
+        string missing = "";
+        bool duplicateInstance = false;
+        var ids = new HashSet<int>();
+        for (int i = 0; i < resolved.Length; i++)
+        {
+            RuntimeAnimatorController controller = resolved[i];
+            if (controller == null)
+            {
+                complete = false;
+                missing += (missing.Length == 0 ? "" : ",") + ControllerNames[i];
+            }
+            else if (!ids.Add(controller.GetInstanceID()))
+            {
+                complete = false;
+                duplicateInstance = true;
+            }
+        }
+
+        if (!complete)
+        {
+            string failure = "missing=" + (missing.Length == 0 ? "none" : missing)
+                + "; ambiguousNames=" + ambiguous
+                + "; duplicateInstances=" + duplicateInstance;
+            if (!string.Equals(_lastControllerFailure, failure, StringComparison.Ordinal))
+            {
+                _lastControllerFailure = failure;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                    "[BankAssistants] Banker controller set unavailable; assistants fail closed ("
+                    + failure + ")");
+            }
+            return false;
+        }
+
+        _lastControllerFailure = null;
+        if (!_loggedControllerSet)
+        {
+            _loggedControllerSet = true;
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                "[BankAssistants] Resolved unique banker controllers: banker, banker_bamboo, banker_deadlands, banker_norselands");
+        }
+        return complete;
+    }
+
+    private static void GatherSwapControllers(BiomeSwapData swapData,
+        RuntimeAnimatorController[] resolved, ref bool ambiguous)
+    {
+        if (swapData == null || swapData.animatorSwapPool == null) return;
+        for (int i = 0; i < swapData.animatorSwapPool.Count; i++)
+        {
+            BiomeSwapData.AnimatorSwapData item = swapData.animatorSwapPool[i];
+            if (item == null) continue;
+            ConsiderController(item.original, resolved, ref ambiguous);
+            ConsiderController(item.swap, resolved, ref ambiguous);
+        }
+    }
+
+    private static void ConsiderController(RuntimeAnimatorController candidate,
+        RuntimeAnimatorController[] resolved, ref bool ambiguous)
+    {
+        if (candidate == null) return;
+        for (int i = 0; i < ControllerNames.Length; i++)
+        {
+            if (!string.Equals(candidate.name, ControllerNames[i],
+                    StringComparison.OrdinalIgnoreCase)) continue;
+            if (resolved[i] == null)
+                resolved[i] = candidate;
+            else if (resolved[i].GetInstanceID() != candidate.GetInstanceID())
+            {
+                ambiguous = true;
+            }
+            return;
+        }
     }
 
     private static Banker FindBankerPrefab()
@@ -326,11 +446,15 @@ public class BankAssistantCoordinator : MonoBehaviour
     private static readonly HashSet<int> SeenThisScan = new();
     private static readonly List<int> RemovalBuffer = new();
     private static readonly List<DroppableCurrency> MatureBuffer = new();
+    private static readonly HashSet<string> LoggedDiagnosticStates = new();
     private static readonly Il2CppReferenceArray<DroppableCurrency> ScanBuffer =
         new Il2CppReferenceArray<DroppableCurrency>(SCAN_BUFFER_SIZE);
     private static float _nextScanAt;
+    private static float _nextDiagnosticsAt;
     private static bool _hadAuthority;
     private static bool _loggedReady;
+    private static bool _loggedFirstAssignment;
+    private static bool _loggedFirstSubmission;
     private static readonly int SpeedParameter = Animator.StringToHash("Speed");
 
     public BankAssistantCoordinator(IntPtr ptr) : base(ptr) { }
@@ -348,6 +472,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         _instance = component;
         _mainBanker = banker;
         _nextScanAt = Time.time + SCAN_INTERVAL;
+        _nextDiagnosticsAt = Time.time;
     }
 
     public static void HandlePoolRebuild(PoolManager poolManager)
@@ -372,6 +497,14 @@ public class BankAssistantCoordinator : MonoBehaviour
         if (BiomeHolder.Inst == null
             || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
 
+        Managers managers = Managers.Inst;
+        PoolManager poolManager = managers != null ? managers.pools : null;
+        // Both peers must keep retrying deterministic fixed-pool registration after
+        // a late controller load. Clients stop immediately afterwards and never
+        // spawn assistants, claim currency or touch the ledger.
+        if (poolManager != null)
+            PatchEconomy_BankAssistants.EnsurePools(_mainBanker, poolManager);
+
         bool authority = NetworkBigBoss.HasWorldAuth;
         if (!authority)
         {
@@ -386,11 +519,8 @@ public class BankAssistantCoordinator : MonoBehaviour
         _hadAuthority = true;
         if (Mathf.Approximately(Time.timeScale, 0f)) return;
 
-        Managers managers = Managers.Inst;
-        PoolManager poolManager = managers != null ? managers.pools : null;
         if (poolManager == null || managers.world == null || managers.kingdom == null) return;
 
-        PatchEconomy_BankAssistants.EnsurePools(_mainBanker, poolManager);
         EnsureFourActors(managers.world.gameLayer);
         UpdateMovingAssistants();
 
@@ -496,10 +626,26 @@ public class BankAssistantCoordinator : MonoBehaviour
             kingdom.campfirePosition, WORLD_SCAN_RANGE, ScanBuffer, out count, null);
 
         float now = Time.time;
+        int ordinaryPlayerCoins = 0;
+        int outsideCoins = 0;
+        int externallyClaimed = 0;
         for (int i = 0; i < count; i++)
         {
             DroppableCurrency coin = ScanBuffer[i];
-            if (!IsEligibleUnclaimedCoin(coin, kingdom)) continue;
+            if (coin != null && coin.isActiveAndEnabled && coin.gameObject != null
+                && coin.droppedBy == DropType.Player
+                && coin.CurrencyType == CurrencyType.Coins && !coin.IsFake())
+            {
+                ordinaryPlayerCoins++;
+                if (!kingdom.IsWithinWalls(coin.transform.position.x))
+                {
+                    outsideCoins++;
+                    int coinId = coin.gameObject.GetInstanceID();
+                    if (coin.friendlyClaimer != null && !Claims.ContainsKey(coinId))
+                        externallyClaimed++;
+                }
+            }
+            if (!IsTrackableCoin(coin, kingdom)) continue;
 
             int id = coin.gameObject.GetInstanceID();
             SeenThisScan.Add(id);
@@ -544,25 +690,43 @@ public class BankAssistantCoordinator : MonoBehaviour
             }
             if (helper.Target != null) continue;
 
-            DroppableCurrency selected = null;
+            bool assigned = false;
             for (int j = 0; j < MatureBuffer.Count; j++)
             {
                 DroppableCurrency candidate = MatureBuffer[j];
                 if (candidate == null) continue;
                 int candidateId = candidate.gameObject.GetInstanceID();
                 if (Claims.ContainsKey(candidateId)) continue;
-                selected = candidate;
+                if (!TryAssign(helper, candidate)) continue;
+                assigned = true;
                 break;
             }
 
-            if (selected != null && TryAssign(helper, selected)) continue;
+            if (assigned) continue;
 
             // No mature work remains: do one batch commit and stay parked.
             TeleportHomeAndDeposit(helper);
         }
+
+        bool relevantDiagnostics = outsideCoins > 0 || Observed.Count > 0
+            || MatureBuffer.Count > 0 || Claims.Count > 0 || externallyClaimed > 0;
+        string diagnosticSignature = relevantDiagnostics
+            ? (outsideCoins > 0 ? "O" : "-")
+                + (Observed.Count > 0 ? "T" : "-")
+                + (MatureBuffer.Count > 0 ? "M" : "-")
+                + (Claims.Count > 0 ? "A" : "-")
+                + (externallyClaimed > 0 ? "C" : "-")
+            : null;
+        if (relevantDiagnostics && now >= _nextDiagnosticsAt
+            && LoggedDiagnosticStates.Add(diagnosticSignature))
+        {
+            _nextDiagnosticsAt = now + 5f;
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                $"[BankAssistants] scan observed={count}, playerCoins={ordinaryPlayerCoins}, outside={outsideCoins}, tracked={Observed.Count}, mature={MatureBuffer.Count}, assigned={Claims.Count}, externallyClaimed={externallyClaimed}");
+        }
     }
 
-    private static bool IsEligibleUnclaimedCoin(DroppableCurrency coin, Kingdom kingdom)
+    private static bool IsTrackableCoin(DroppableCurrency coin, Kingdom kingdom)
     {
         if (coin == null || !coin.isActiveAndEnabled || coin.gameObject == null) return false;
         if (coin.droppedBy != DropType.Player || coin.CurrencyType != CurrencyType.Coins) return false;
@@ -571,7 +735,9 @@ public class BankAssistantCoordinator : MonoBehaviour
         float x = coin.transform.position.x;
         // All inside-wall coins remain exclusively in the native Banker's domain.
         if (kingdom.IsWithinWalls(x)) return false;
-        return coin.friendlyClaimer == null;
+        // A temporary native claim must not reset the three-second maturity clock.
+        // TryFriendlyClaim remains the atomic assignment gate below.
+        return true;
     }
 
     private static int CompareCoinsDeterministically(DroppableCurrency left, DroppableCurrency right)
@@ -611,6 +777,14 @@ public class BankAssistantCoordinator : MonoBehaviour
         helper.Moving = true;
         SetAnimationSpeed(helper, ASSISTANT_RUN_SPEED);
         SendFullPosition(helper);
+        if (!_loggedFirstAssignment)
+        {
+            _loggedFirstAssignment = true;
+            float age = Observed.TryGetValue(id, out ObservedCoin observation)
+                ? Time.time - observation.FirstObservedAt : -1f;
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                $"[BankAssistants] first assignment helper={helper.Index}, coin={id}, x={coinX:F2}, age={age:F2}s");
+        }
         return true;
     }
 
@@ -659,6 +833,13 @@ public class BankAssistantCoordinator : MonoBehaviour
                 if (NetworkBigBoss.IsOnline) collected.SyncPickedUpAndFake();
                 ReleaseTarget(helper);
                 continue;
+            }
+
+            if (!_loggedFirstSubmission)
+            {
+                _loggedFirstSubmission = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    $"[BankAssistants] first submission helper={helper.Index}, coin={id}, accepted={accepted}");
             }
 
             // Do not start DroppableCurrency.MoveTo(..., destroyAfter:true): that creates
@@ -814,6 +995,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         MatureBuffer.Clear();
         RemovalBuffer.Clear();
         _nextScanAt = Time.time + SCAN_INTERVAL;
+        _nextDiagnosticsAt = Time.time;
     }
 
     private static void FlushUncreditedCoins()
