@@ -4,6 +4,25 @@
   "updated_at": "2026-08-16",
   "items": [
     {
+      "id": "tool-assignment-015",
+      "title": "高人口稀疏工具分配优化",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "selected_in_session": "codex-2026-08-16-tool-assignment-015",
+      "updated_at": "2026-08-16",
+      "dependencies": ["population-performance-010"],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "先以完全放行原版、每Registrar最多4条日志的ReassignClaimers探针证明2.4原生调用真实命中并记录居民/工具规模与耗时；只有连续约3秒命中后，才以独立JobAssigner和原生评分实现高人口稀疏反向分配，不改全局JobAssigner及其他工作系统。",
+      "verification": "2.1与2.4调用链、字段和公开wrapper已核对；第一阶段探针源码已实现，Debug禁部署构建0 warning/0 error，DLL SHA-256=E9F8C0B741A05CD2FD34694CD25500237E33C5284FE37F342241BFFDF64E7250。游戏正在运行，尚未部署；真实hook命中仍待退出后独立副本日志证明。",
+      "handoff": "当前探针不写目标或claim且只记录前4次；提交推送后等待用户退出再部署。若12秒内无ToolAssignmentProbe命中则停止本方案，禁止转patch全局JobAssigner.Compute。",
+      "workflow": {"status": "running", "updated_at": "2026-08-16"},
+      "lease": {"owner": "codex", "session": "codex-2026-08-16-tool-assignment-015", "acquired_at": "2026-08-16T03:00:00+08:00", "expires_at": "2026-08-17T03:00:00+08:00", "ttl_minutes": 1440},
+      "artifacts": {"plan": "docs/project-harness/tasks/tool-assignment-015/plan.md", "code": "il2cpp/PatchPerformance_ToolAssignment.cs"},
+      "review": {"decision": null}
+    },
+    {
       "id": "ability-cooldowns-014",
       "title": "法杖与Cerberus召唤冷却微调",
       "status": "doing",
