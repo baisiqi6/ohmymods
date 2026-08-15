@@ -1,11 +1,11 @@
 # Current Task Plan
 
-- Item: `ninja-runtime-003`
+- Item: `bank-assistants-005`
 - Status: `doing`
-- Owner: `codex`（实现/日志审计）与 `user`（游戏内行为验收）
-- Session: `codex-2026-08-15-ninja-runtime-003`
-- Root cause: Greece 缺少 `ThrowingStar` / `Smokebomb` 池，NRE 中断 `Ninja.Behaviour`。
-- Scope: 依赖池、成熟草丛伏击点、夜行忍者 y=1.1、希腊银行家 y=1.075。
-- Review/deploy: 对象池候选已运行且相关错误为 0；三槽灌木上一轮获 final static reviewer APPROVED。最新综合候选已仅部署独立副本，构建/部署 SHA-256=`6E0C474B9D665CB2649F00071C2D02C09B44A0DACF3E49057D462E3D9EAE5AE0`；用户确认忍者当前行为无明显问题、逻辑自洽，灌木 `±0.55` 间距观感合适。
-- Next: 补充树砍伐、帐篷摧毁解绑与跨侧池复用的边界回归；狂战士序列已获用户实机验收，继续验证隐士和设置面板，之后重打候选包。
-- Safety boundary: do not start the game, modify Steam, or touch the shared save; do not repackage before runtime acceptance.
+- Owner: `codex`
+- Session: `codex-2026-08-15-bank-assistants-005`
+- Goal: 希腊保留唯一原版主银行家，并用其他四套世界外观建立纯收币助手。
+- Authority: 只有 world-authority 认领/回收金币并提交国库；助手不带 Banker/Persistent/Wallet，客户端只接收同步对象。
+- Scope: 4 个同步助手池、统一 2 Hz 扫描、墙外玩家金币 3 秒成熟、近目标传送+短跑、成功拾取即时权威入账、满载/无目标回城不重复入账；墙内金币不分给助手，主银行家恢复 2.4.0 原生近距扫描/速度/作息，并修正共享账本的日息/提款同步时点。
+- Validation: 独立 reviewer 静态 APPROVED，最终 Debug 构建 0 warning / 0 error；等待独立副本实测，不触碰 Steam、共享存档或正式 zip。
+- Plan: `docs/project-harness/tasks/bank-assistants-005/plan.md`

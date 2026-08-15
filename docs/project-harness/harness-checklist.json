@@ -4,6 +4,38 @@
   "updated_at": "2026-08-15",
   "items": [
     {
+      "id": "bank-assistants-005",
+      "title": "唯一主银行家与四名跨世界银行助手",
+      "status": "doing",
+      "priority": "p0",
+      "owner": "codex",
+      "selected_in_session": "codex-2026-08-15-bank-assistants-005",
+      "updated_at": "2026-08-15",
+      "dependencies": ["release-package-001"],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "希腊只保留一个原版Banker作为国库/利息/提款/存档权威；欧洲、幕府、Dead Lands、北境四套外观各生成一名无Banker/Persistent/Wallet行为的助手；主银行家恢复原生近距扫描/速度/作息，城墙内金币不分给助手，墙外玩家金币落地3秒后由中央扫描器单目标分配；助手成功拾取时由world-authority立即原子入账且满载/无目标回城不重复入账；共享账本不覆盖日息或回滚提款；同步池、切岛/读档生命周期、构建与独立副本实测通过。",
+      "verification": "已核实2.4.0资源为一个Banker prefab加五套动画外观：base Europe、bamboo、deadlands、norselands、greece；原Banker固定注册NetID 903，候选四助手从空对象构建且无Banker/Persistent/Wallet。独立reviewer静态APPROVED；operator在最终duplicate-guard源码后离线restore并Debug构建0 warning/0 error；DLL SHA-256=0203BC714DCE13A20B6E9F753FF8D21E13083316DA936085F41DC758869A164C；git diff --check无错误，checklist validator 0 warning。尚未部署/实机。",
+      "handoff": "静态实现、审查和构建已完成；下一步仅部署独立副本，按plan验收四外观、墙内外分流、3秒成熟、切岛/重启账目守恒、日息/提款与主客同步。不得复制Banker组件或让客户端写国库，不修改Steam/共享存档/正式zip。",
+      "workflow": {
+        "status": "running",
+        "updated_at": "2026-08-15"
+      },
+      "lease": {
+        "owner": "codex",
+        "session": "codex-2026-08-15-bank-assistants-005",
+        "acquired_at": "2026-08-15T02:30:00+08:00",
+        "expires_at": "2026-08-16T02:30:00+08:00",
+        "ttl_minutes": 1440
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/bank-assistants-005/plan.md"
+      },
+      "review": {
+        "decision": "approved"
+      }
+    },
+    {
       "id": "log-hygiene-004",
       "title": "修复设置面板字体刷屏并降低重复成功日志",
       "status": "doing",
