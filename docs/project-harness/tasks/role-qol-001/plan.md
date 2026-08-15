@@ -47,6 +47,7 @@
   静态 APPROVED；Debug 构建 0 warning/0 error，DLL SHA-256=
   `C4003C445EAC67037C1BD295BBAD7E21B8A68E00C3DA900037E26F0BF8C683E0`。游戏退出后已部署独立副本，
   部署哈希与构建一致；隐士防绑架和缩放都待实机。仍不修改 Steam/共享存档，不提前重打 zip。
-- 后续新增 `HermitType.Horse` 马厩隐士绝对 y=1.10；独立 reviewer 静态 APPROVED，禁部署 Debug
-  构建 0 warning/0 error，DLL SHA-256=`D5EE1F2124BF5BB27665DD37E4974DC541B8ED3F990409F9A879E0A9E581B285`。
-  当前游戏仍在运行，尚未部署、打包或实机，不把该构建误记为当前测试副本能力。
+- 后续新增 `HermitType.Horse` 马厩隐士绝对 y=1.10；独立 reviewer 静态 APPROVED。源码提交
+  `82333a1` 推送后，从干净提交 Debug 构建 0 warning/0 error；确认游戏退出后只部署独立测试副本，
+  构建/部署 DLL SHA-256=`BAF335AF932260819F01AAC3F9C93D4B3C4E1F22FF0FDA58075A8DE339E435D6`。
+  尚未打包或实机，不把部署自动视为观感验收。

@@ -239,8 +239,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "工匠成功使用普通 BerserkerTool 的第1-5次生成普通狂战士、第6次生成 BerserkerLeader并循环；仅成功转职计数且换岛延续、完整退出重置；隐士不再被敌人选取或抓走但不免疫伤害、不改变其他战利品；HermitType.Baker酿酒师绝对缩放为1.15，HermitType.Horse马厩隐士绝对缩放为1.10，Horn与其他隐士、朝向、能力不变；reviewer通过、IL2CPP构建成功、独立副本实测无相关异常。",
-      "verification": "用户首轮实测招募大量狂战士仍无队长；日志确认普通与BerserkerLeader池均注册成功，但slot日志为0，证明私有Worker.TryPickupBerserkerTool hook未命中。已删除私有hook/context并迁移到Hammer实机证明命中的公开Character.Promote(DroppableTool,IUnitController)，仅active Worker+active未拾取普通BerserkerTool且结果tag/effective prefab匹配后推进。2026-08-15 用户复测确认狂战士招募序列没有问题。HermitType.Baker酿酒师绝对y=1.15已部署；新增HermitType.Horse马厩隐士绝对y=1.10并复用OnDestroy ScaleRegistry注销，Horn及其他类型零写入。独立reviewer静态APPROVED，禁部署Debug构建0 warning/0 error，最新未部署DLL SHA-256=D5EE1F2124BF5BB27665DD37E4974DC541B8ED3F990409F9A879E0A9E581B285。当前游戏运行中，马厩缩放尚未部署/实机；换岛延续/完整退出重置与隐士防绑架仍未单独留证。",
-      "handoff": "狂战士公开Promote修复已通过用户游戏内验收；酿酒师y=1.15已部署待观感确认。马厩隐士已准确锁定HermitType.Horse并实现绝对y=1.10，reviewer APPROVED、构建0/0，但因游戏运行中尚未部署。退出游戏后从干净提交重建并只部署独立副本，再验证Horse为1.10、Horn/其他隐士不变。Steam、共享存档和正式zip不修改。",
+      "verification": "用户首轮实测招募大量狂战士仍无队长；日志确认普通与BerserkerLeader池均注册成功，但slot日志为0，证明私有Worker.TryPickupBerserkerTool hook未命中。已删除私有hook/context并迁移到Hammer实机证明命中的公开Character.Promote(DroppableTool,IUnitController)，仅active Worker+active未拾取普通BerserkerTool且结果tag/effective prefab匹配后推进。2026-08-15 用户复测确认狂战士招募序列没有问题。HermitType.Baker酿酒师绝对y=1.15已部署；新增HermitType.Horse马厩隐士绝对y=1.10并复用OnDestroy ScaleRegistry注销，Horn及其他类型零写入。独立reviewer静态APPROVED；从干净提交82333a1禁自动部署构建0 warning/0 error，确认游戏退出后只覆盖独立测试副本，构建/部署DLL SHA-256=BAF335AF932260819F01AAC3F9C93D4B3C4E1F22FF0FDA58075A8DE339E435D6。马厩缩放尚待实机；换岛延续/完整退出重置与隐士防绑架仍未单独留证。",
+      "handoff": "狂战士公开Promote修复已通过用户游戏内验收；酿酒师y=1.15已部署待观感确认。马厩隐士已准确锁定HermitType.Horse并实现绝对y=1.10，reviewer APPROVED；从干净提交重建0/0并已只部署独立副本，下一步验证Horse为1.10、Horn/其他隐士不变。Steam、共享存档和正式zip未修改。",
       "workflow": {
         "status": "review_approved",
         "updated_at": "2026-08-15"
