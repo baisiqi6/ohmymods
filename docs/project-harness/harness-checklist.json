@@ -15,9 +15,9 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "Cerberus每次有效召唤恰为4名骑士+16名弓箭手，分成四支独立1+4队伍；两队希腊外观、两队北境外观，但全部保留希腊坐骑召唤AI与生命周期；无重复syncID、unknown pool、RPC或回收异常。",
-      "verification": "2.4资源与2.1逻辑已核对：原生Cerberus为1+4且只有一个共享队长引用，北境神器亡灵AI与希腊子类不同；源码采用保留原生首队并补三支局部编队、北境仅视觉克隆的方案。静态自审与禁部署Debug构建0 warning/0 error，DLL SHA-256=A52B5285C2A09B6F46AEDA20382C34F4CAC13667A218EFDF689FC1EF26B62DA4；等待实机。",
-      "handoff": "最新进程检查显示游戏已退出；先提交推送，再从干净提交重建、部署独立副本并刷新候选包。随后验证20名单位、四个编队、两种外观、再次召唤/换岛回收与联机同步。",
-      "workflow": {"status": "built_not_deployed", "updated_at": "2026-08-16"},
+      "verification": "2.4资源与2.1逻辑已核对：原生Cerberus为1+4且只有一个共享队长引用，北境神器亡灵AI与希腊子类不同；源码采用保留原生首队并补三支局部编队、北境仅视觉克隆的方案。静态自审与Debug构建0 warning/0 error；源码提交c81adf1已推送，干净提交构建/独立副本DLL SHA-256=16A0206C8258CB6F2686FCF2B20EE3F4C7E95C9A11653AC43E5BFEB08FE8AE56。",
+      "handoff": "独立副本已部署，正在刷新候选包。下一步验证20名单位、四个编队、两种外观、再次召唤/换岛回收与联机同步；未通过前不转为稳定能力。",
+      "workflow": {"status": "deployed_candidate", "updated_at": "2026-08-16"},
       "lease": {"owner": "codex", "session": "codex-2026-08-16-ghost-squads-013", "acquired_at": "2026-08-16T01:00:00+08:00", "expires_at": "2026-08-17T01:00:00+08:00", "ttl_minutes": 1440},
       "artifacts": {"plan": "docs/project-harness/tasks/ghost-squads-013/plan.md", "code": "il2cpp/PatchDivine_GhostSquads.cs"},
       "review": {"decision": "pending"}
