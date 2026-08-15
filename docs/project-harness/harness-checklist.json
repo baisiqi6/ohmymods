@@ -15,9 +15,9 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "Cerberus每次有效召唤恰为4名骑士+16名弓箭手，分成四支独立1+4队伍；两支希腊队保留主动向外作战与距离回收，两支北境队保留跟随君主与原生30秒生命周期；无重复syncID、unknown pool、RPC或回收异常。",
-      "verification": "2.4资源与2.1逻辑已核对：原生Cerberus为1+4且只有一个共享队长引用；北境神器亡灵AI与希腊子类不同，HelsHead原生ghostDuration=30秒。用户明确改为保留差异；新源码完整克隆北境行为prefab并设置30秒Duration，Debug构建0 warning/0 error，DLL SHA-256=801B8851DB7A2E69F3A4735B9A48F0BA04C502A764EFF0AB2EF726A42F39C039。",
-      "handoff": "第一版北境仅视觉候选已被新决定取代。等待最终静态检查、提交推送、干净构建、独立副本部署和候选包刷新；随后验证20名单位、四个编队、两套AI、再次召唤/换岛回收与联机同步。",
-      "workflow": {"status": "implementation_revised", "updated_at": "2026-08-16"},
+      "verification": "2.4资源与2.1逻辑已核对：原生Cerberus为1+4且只有一个共享队长引用；北境神器亡灵AI与希腊子类不同，HelsHead原生ghostDuration=30秒。用户明确改为保留差异；修订源码提交0cd629e已推送，干净构建0 warning/0 error并部署独立副本，构建/部署DLL SHA-256=024ADAC72A4D2D76B63827C19C6D9511105CDDBA977EBE196D2FF62354564A39。",
+      "handoff": "第一版北境仅视觉候选已被新决定取代；修订版独立副本已部署，正在刷新候选包。随后验证20名单位、四个编队、两套AI、再次召唤/换岛回收与联机同步。",
+      "workflow": {"status": "deployed_revised_candidate", "updated_at": "2026-08-16"},
       "lease": {"owner": "codex", "session": "codex-2026-08-16-ghost-squads-013", "acquired_at": "2026-08-16T01:00:00+08:00", "expires_at": "2026-08-17T01:00:00+08:00", "ttl_minutes": 1440},
       "artifacts": {"plan": "docs/project-harness/tasks/ghost-squads-013/plan.md", "code": "il2cpp/PatchDivine_GhostSquads.cs"},
       "review": {"decision": "pending"}
