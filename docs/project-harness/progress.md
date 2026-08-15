@@ -452,3 +452,10 @@
 2. maint-002 ✅（Patch_Probe.cs 已删除，arch-002）。
 3. maint-003 ✅（build.bat 通配化 + 自动部署，arch-002）。
 4. 完整回归测试。
+## 2026-08-15 — population-performance-010：硬上限与旧档清理静态通过
+
+- 当前异常岛只读统计为1,132名角色，其中Worker 458、Peasant 301、Beggar 158；全岛只有2个BeggarCamp与2座面包房。原生营地只重算附近乞丐，面包房又会清除camp引用，导致旧的“附近最多5人”不断释放名额并积累人口。
+- 新候选保留原生营地协程，但在world-authority协调器健康时由中央调度按稳定营地归属约6秒补1、每营地硬上限5；去面包房或走远不再释放该营地名额。异常、失权和Mod关闭都有原生参数fallback。
+- ApplyToScene稳定后只由authority建立一次scene清理批次，每帧最多同步回收1名超额普通Beggar；settler、面包房/进食、控制、被抓、inert/石化、DespawnOnLoad及pool/header不安全对象一律保护，受保护者超过5时允许可解释残余。
+- worker与独立reviewer静态APPROVED；Debug构建0 warning/0 error，当前候选DLL SHA-256=`085D84C644D6C48E046A87AAD5BE3BFCFB6154929EE8B47914533DCDF572D9DA`。游戏已退出，等待干净提交重建、存档备份、独立副本部署与实机。
+- 后续工具分配优化另开切片：原版每3秒会让约922个carrier参与近方阵匹配；必须先做放行原版的hook探针，确认命中后才考虑稀疏反向矩阵，禁止全局替换JobAssigner。

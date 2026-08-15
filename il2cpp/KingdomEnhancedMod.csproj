@@ -50,6 +50,10 @@
             <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\interop\Il2Cppmscorlib.dll</HintPath>
             <Private>False</Private>
         </Reference>
+        <Reference Include="Il2CppSystem.Core">
+            <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\interop\Il2CppSystem.Core.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
         <Reference Include="UnityEngine">
             <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\interop\UnityEngine.dll</HintPath>
             <Private>False</Private>
