@@ -4,6 +4,25 @@
   "updated_at": "2026-08-15",
   "items": [
     {
+      "id": "save-repair-012",
+      "title": "land 7 普通居民一次性减员350名",
+      "status": "doing",
+      "priority": "p0",
+      "owner": "codex",
+      "selected_in_session": "codex-2026-08-15-save-repair-012",
+      "updated_at": "2026-08-15",
+      "dependencies": ["save-repair-011"],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "用户确认删除350名Peasant而非真正Worker；仅处理当前SHA/长度/schema的campaign1 land7，在383名严格零币、非grabbed/inert/petrified、无引用、组件与对象profile完全一致的标准希腊Peasant候选中，按createOrder确定性保留最低33并删除最高350（createOrder仅是加载顺序，不表示年龄且不重编号）；真Worker、北境Peasant、携币/异常单位与所有非目标数据零改；游戏退出、dry-run、新备份、DeepEquals、同卷File.Replace与失败回滚全部通过；存档不入Git。",
+      "verification": "worker/reviewer逐行审查与真实dry-run后APPLY_APPROVED。dry-run/Apply均为Worker14不变、Peasant733→383、Greek638→288、Norse95不变、removed350、Beggar10/5+5不变；输入/备份748730 bytes、SHA-256=2C681C5C2CA01E6BBCBB5F05BDEA32FC63A0D86EA563F68325D12C08D088F87A；输出728071 bytes、SHA-256=63884D91421A7B74AD0049C8FB00BFD3E910857F05005490B2704E856FE93FED。独立复读version16/campaign1/land7 objects1696及全部角色计数，临时文件0。等待游戏内读档。",
+      "handoff": "一次性居民减员已原子完成；收据见tasks/save-repair-012/receipt.md，原始备份为Release/KEM-backups/global-v35.before-direct-peasant-prune-20260815-235118。若读档失败立即退出且不保存，并恢复该备份。旧候选ZIP和所有存档/备份不得stage。",
+      "workflow": {"status": "review_approved", "updated_at": "2026-08-15"},
+      "lease": {"owner": "codex", "session": "codex-2026-08-15-save-repair-012", "acquired_at": "2026-08-15T23:38:39+08:00", "expires_at": "2026-08-16T23:38:39+08:00", "ttl_minutes": 1440},
+      "artifacts": {"plan": "docs/project-harness/tasks/save-repair-012/plan.md", "receipt": "docs/project-harness/tasks/save-repair-012/receipt.md", "script": "scripts/repair-peasant-overflow.ps1"},
+      "review": {"decision": "approved"}
+    },
+    {
       "id": "save-repair-011",
       "title": "land 7 超额乞丐一次性存档修复",
       "status": "doing",

@@ -465,3 +465,10 @@
 - 强校验脚本经worker/reviewer多轮审查与真实dry-run后APPLY_APPROVED：锁定输入SHA/长度/schema/campaign/land/对象数/精确营地prefab与坐标；只删除无外部引用的普通Beggar；非目标root/island与幸存对象内容/顺序DeepEquals；同卷File.Replace并有已验证backup/rollback。
 - dry-run和Apply均为`before=158 removed=148 after=10 groups=5/5`。原始备份`global-v35.before-direct-beggar-prune-20260815-232403`为751,068 bytes/SHA=`68D4F779DA3CFA45A659D2082B2B15F135777699EC4A309F1F6AEAE14C724B16`；最终存档748,730 bytes/SHA=`2C681C5C2CA01E6BBCBB5F05BDEA32FC63A0D86EA563F68325D12C08D088F87A`。
 - 写后独立复读确认version16/currentCampaign1/currentLand7/objects2046/Beggar10/左右5+5，临时文件0。等待独立副本实际读档；若失败必须退出不保存并恢复上述备份。
+
+## 2026-08-15 — save-repair-012：land 7 普通居民删除350名
+
+- 纠正此前人口统计：真正带WorkerData的工匠只有14名；421个名称以Worker开头的对象实际是Peasant prefab的对象池残留名。用户确认应删除350名普通居民，不删除真正工匠。
+- 从383名组件/profile完全一致、未被抓/石化/inert、钱包全0、无外部引用的希腊Peasant中，按确定性createOrder加载顺序保留最低33并删除最高350；createOrder不表示年龄且未重编号。
+- worker/reviewer逐行审查、真实dry-run与独立只读内存复算后APPLY_APPROVED。原始备份`global-v35.before-direct-peasant-prune-20260815-235118`为748,730 bytes/SHA=`2C681C5C2CA01E6BBCBB5F05BDEA32FC63A0D86EA563F68325D12C08D088F87A`；最终存档728,071 bytes/SHA=`63884D91421A7B74AD0049C8FB00BFD3E910857F05005490B2704E856FE93FED`。
+- 写后独立复读确认land7 objects1696、Worker14、Peasant383（Greek288/Norse95）、Beggar10/左右5+5，临时文件0。等待独立副本实际读档和卡顿体感；失败时退出不保存并恢复本任务备份。
