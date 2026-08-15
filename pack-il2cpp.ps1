@@ -61,7 +61,8 @@ try {
     $gitCommit = (& git -c $gitSafeDirectory -C $PSScriptRoot rev-parse HEAD 2>$null)
     if ($LASTEXITCODE -ne 0 -or -not $gitCommit) { $gitCommit = 'unknown' }
     $relativeOutputZip = [IO.Path]::GetRelativePath($PSScriptRoot, $OutputZip).Replace('\', '/')
-    $gitDirty = (& git -c $gitSafeDirectory -C $PSScriptRoot status --porcelain -- . ":(exclude)$relativeOutputZip" 2>$null)
+    $relativeStage = [IO.Path]::GetRelativePath($PSScriptRoot, $stage).Replace('\', '/')
+    $gitDirty = (& git -c $gitSafeDirectory -C $PSScriptRoot status --porcelain -- . ":(exclude)$relativeOutputZip" ":(exclude)$relativeStage/**" 2>$null)
     if ($LASTEXITCODE -ne 0) { $gitDirty = 'unknown' }
     elseif ($gitDirty) { $gitDirty = 'true' }
     else { $gitDirty = 'false' }
