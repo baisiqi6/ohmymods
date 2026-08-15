@@ -4,8 +4,10 @@
   1.25；北境 index 3 继续为 1.2。两者都继承 source x/z，朝向逻辑仍只改 x，不会对象池累乘。
 - 调度与经济逻辑零改动：助手按欧洲→幕府→Dead Lands→北境轮转，不随机；同一时刻严格只有一个
   collector。满载回城是同步传送/收尾，完成后若仍有成熟金币才轮到下一位，不存在返程期间并发收币。
-- 独立 reviewer APPROVED；Debug构建0 warning/0 error，构建与独立副本DLL SHA-256均为
-  `9E71AFF5B155EF6D50DCD9EB0CFBA1098824382CF2C0547FEE431D485F8376BB`。待刷新候选zip与实机观感确认。
+- 独立 reviewer APPROVED；Debug构建0 warning/0 error，构建、独立副本与刷新后zip内DLL SHA-256均为
+  `9E71AFF5B155EF6D50DCD9EB0CFBA1098824382CF2C0547FEE431D485F8376BB`。刷新后zip SHA-256=
+  `7F736F339F22AFBC7FCD00659863167753A91B566643CD4818F6401CCFB42ADC`，结构与UTF-8门禁均通过；
+  待实机观感确认。
 
 ## 2026-08-15 — candidate-package-007：综合测试候选包已生成
 
