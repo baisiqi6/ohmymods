@@ -5,9 +5,9 @@
 - 2.4虽公开化`DroppableRegistrar.ReassignClaimers`包装器，但原生内部调用可能绕过Harmony thunk。
   因此第一阶段只加入完全放行原版的Prefix/Postfix探针，每个Registrar最多记录前4次居民数、工具数、
   调用间隔和原算法耗时；不写目标、不写claim、不替换算法，也不会持续刷屏。
-- 探针Debug禁部署构建0 warning/0 error，DLL SHA-256=
-  `E9F8C0B741A05CD2FD34694CD25500237E33C5284FE37F342241BFFDF64E7250`。游戏当前仍在运行，
-  所以尚未部署；提交推送后等待退出，再用独立副本连续约12秒日志决定是否进入反向稀疏分配。
+- 探针源码提交`20c457b`已推送。用户退出后从该提交Debug重建0 warning/0 error，并只部署独立测试副本；
+  构建/部署DLL SHA-256均为`BDC91E72BF5B287E4BF3DD8BDEEB3CCF57B6B2C32D03FA742074024855F3E723`。
+  现在等待进入高人口岛连续约12秒的日志，以决定是否进入反向稀疏分配。
 
 ## 2026-08-16 — ability-cooldowns-014：两项30秒冷却微调为22.5秒
 
