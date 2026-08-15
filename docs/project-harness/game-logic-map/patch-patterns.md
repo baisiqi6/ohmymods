@@ -276,6 +276,21 @@ try/continue。不得把临时条目永久登记进全局缓存，也不得用�
 绑定的 TargetCacher delegate 查询中临时加入 active FriendlyTroll。两处都需要一次性 canary 日志证明
 IL2CPP 实机命中，编译成功和 interop 中存在签名不能代替运行证据。
 
+### 20. 跨岛所有权状态不能把 active、standby 与 carryForward 相加
+
+**症状：** 死亡换君主或航行载入后，任务仍显示奖励已领取，但场景实例、standby 和 carryForward
+全部为零；奖励入口又不可重复触发，所有权永久丢失。
+
+**原生语义：** `PopulateCarryForward` 有 active 时只保存 active 数，否则才保存 standby；
+`ApplyCarryForward` 在 riverless 场景写 standby，在可生成场景把 carry 物化为 active，随后清空 carry。
+三者是同一批所有权的阶段性替代表示，不是可以求和的三份库存。
+
+**规则：** 在 `ApplyToScene` Prefix 只捕获 present carry 作为 desired 下限，Postfix 等原生物化完成后
+按 `active>0 ? active : standby` 选择唯一 materialized 来源。standby 非零时不同时生成 active；active
+非零时不同时写 standby。部分生成失败只保留已成功 active、下次场景应用继续补；首个生成失败且仍无
+active 时才整批回退 standby。恢复来源必须是已经完成且原生确实发放奖励的任务，不能重放领奖动画或
+直接改写存档。网络对象只复用当前 biome 已注册的同步池，并由 world-authority 生成。
+
 ## 当前 mod 功能清单
 
 | Patch 类 | 功能 | 状态 |
@@ -300,5 +315,6 @@ IL2CPP 实机命中，编译成功和 interop 中存在签名不能代替运行�
 | Patch_Artemis | 单发箭伤害 20 次（_maxHitsPerArrow=0f） | ✅ |
 | Patch_HermesStaff | 权杖控制 16（_maximumConvertedTrolls 8→16） | ✅ |
 | PatchDivine_FriendlyTroll | 候选阶段只排除 Squid + 约10% TrollWeak 反制友好巨魔 | 🧪 静态通过，待实机 |
+| PatchWorld_FleetBoatRecovery | 死亡换君主后按四个神像交付任务幂等恢复小船所有权 | 🧪 静态通过，待实机 |
 
 > 状态与 `docs/project-harness/harness-checklist.json` 同步维护。

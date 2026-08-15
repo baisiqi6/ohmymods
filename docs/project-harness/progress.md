@@ -1,3 +1,18 @@
+## 2026-08-15 — fleetboat-recovery-009：静态通过，准备干净提交后部署
+
+- 用户提供的异常存档显示四个 `GodIsland*` 神像交付任务均 completed，但 carryForward 小船数为 0、
+  所有岛无 FleetBoatSaveData，且最近载入为死亡换君主后的 sailingIn。已在游戏未运行时备份原始
+  `global-v35` 至 `Release/KEM-backups/global-v35.before-fleetboat-recovery-20260815-162933`，
+  767,054 bytes，SHA-256=`1D50D6CE1B0DD49D30F85C0BB8B57BB88C0AFE599FC718B18F705E93D7359822`。
+- 新增 `PatchWorld_FleetBoatRecovery`：只在非 challenge 的 Greece campaign/scene 与 world-authority
+  生效；ApplyToScene 前捕获 carry 所有权目标，原生完整返回后按 active 优先、否则 standby 的唯一表示
+  计算缺口。四个 GodIsland 交付任务给出 0～4 所有权下限，绝不把 active/standby/carry 相加。
+- standby 与 active 严格互斥恢复；riverless/前置不完整或首个生成失败时才在零 active 状态回退 standby，
+  active 部分成功后不混写 standby。生成只复用当前 biome 原生同步池，无新 RPC/syncID/sidecar。
+- worker 与独立 reviewer 静态 APPROVED；当前 Debug 构建 0 warning / 0 error，DLL SHA-256=
+  `541C000DDE6361EA2859E6745EE419CA82025EE5844A5F5E59ABC3EF2BC3F073`。尚未部署；先提交源码，
+  再从干净提交重建并只覆盖独立测试副本。当前公开 zip 未刷新，运行时任务保持 doing。
+
 ## 2026-08-15 — candidate-package-007：友好巨魔与视觉微调候选已刷新
 
 - 用户退出游戏后，从干净提交 `b875c10ca421fe96106c83dfac913c1bd4778f9f` 重新构建并仅部署到

@@ -1,5 +1,17 @@
 # ohmymods — 领域决策记录
 
+### D18. FleetBoat 所有权只认一种生命周期表示（2026-08-15）
+- 奥林匹斯四艘小船的永久所有权下限来自四个实际发船的交付任务：`GodIslandAthena`、
+  `GodIslandArtemis`、`GodIslandHephaestus`、`GodIslandHermes`；不重置任务，也不重放 IdolCollector 奖励。
+- 原生 `PopulateCarryForward` 明确使用 `active.Count > 0 ? active.Count : standby`，所以 active、standby、
+  carryForward 是同一所有权在不同场景阶段的替代表示，禁止求和。`ApplyToScene` Prefix 捕获 present carry
+  只用于计算 desired，Postfix 在原生完成并清 carry 后只认 active 或 standby 其中一个 materialized 来源。
+- 恢复严格为 `desired=max(completedQuests,capturedCarry)`（上限 4）与 materialized 的缺口；不删除多余船。
+  standby 非零时只提升 standby；active 非零时只补 active，部分生成失败后留到下次 Apply 重试；两者均零且
+  riverless/生成前置不完整时才写 standby。首个生成失败、最终 active 仍为零时整批回退 standby。
+- 只在非 challenge 的 Greece campaign/scene 且 world-authority 执行；生成必须复用当前 biome
+  `fleetBoatPrefab` 已存在的原生同步池。不新增 RPC、syncID、sidecar，不直接改写压缩存档。
+
 ### D9. 钱袋扩容 = 数字容量 + 视觉上限，无物理容器（2026-08-12）
 - 用户初始设想"钱袋有长宽明确的容器碰撞空间，调大空间+放大 UI = 扩容"——源码核实不成立：
   容量是 `Wallet.TotalCapacity` 数字（全库零写入），拾取靠金币×玩家物理碰撞重叠 + 点击

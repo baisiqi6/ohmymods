@@ -4,6 +4,38 @@
   "updated_at": "2026-08-15",
   "items": [
     {
+      "id": "fleetboat-recovery-009",
+      "title": "死亡换君主后的FleetBoat所有权幂等恢复",
+      "status": "doing",
+      "priority": "p0",
+      "owner": "codex",
+      "selected_in_session": "codex-2026-08-15-fleetboat-recovery-009",
+      "updated_at": "2026-08-15",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "仅Call of Olympus world-authority根据GodIslandAthena/Artemis/Hephaestus/Hermes四个completed任务计算0至4艘所有权下限；在CampaignSaveData.ApplyToScene及Kingdom/BiomeHolder/PoolManager/boatSailPosition就绪后，以原生生命周期唯一可信来源判定active/standby/carryForward而不重复相加，仅补expected-actual且不删多余/不超过4；riverless或不可安全生成时写原生standby，可生成时复用当前biome fleetBoatPrefab与原生同步池；重复读档、换岛、死亡重生、0/2/4任务、联网与日志门禁通过。",
+      "verification": "用户提供异常存档只读证据：campaign=1/reign=1，四个GodIsland交付任务completed，carryForward.numFleetBoats=0，所有岛无FleetBoatSaveData，最近载入newReignForIslandPostLoss=true且sailingIn=true。已在游戏未运行时备份global-v35至Release/KEM-backups/global-v35.before-fleetboat-recovery-20260815-162933，767054 bytes，SHA-256=1D50D6CE1B0DD49D30F85C0BB8B57BB88C0AFE599FC718B18F705E93D7359822。实现采用desired=max(expected,capturedCarry)与active优先/否则standby的唯一表示，严格避免混合；riverless/首个spawn失败才在零active时回退standby，生成复用当前biome原生sync pool。worker与独立reviewer静态APPROVED；Debug构建0 warning/0 error，DLL SHA-256=541C000DDE6361EA2859E6745EE419CA82025EE5844A5F5E59ABC3EF2BC3F073；尚未部署或实机。",
+      "handoff": "静态代码已批准。先提交并推送源码/文档，再从干净HEAD重建；确认游戏未运行后只部署独立副本。必须实测异常档首次4、重复读档不增至8、换岛/死亡重生、0/2任务、riverless standby与联网日志。Steam/Mono/压缩存档/任务状态不得修改，当前zip不刷新。",
+      "workflow": {
+        "status": "review_approved",
+        "updated_at": "2026-08-15"
+      },
+      "lease": {
+        "owner": "codex",
+        "session": "codex-2026-08-15-fleetboat-recovery-009",
+        "acquired_at": "2026-08-15T18:45:00+08:00",
+        "expires_at": "2026-08-16T18:45:00+08:00",
+        "ttl_minutes": 1440
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/fleetboat-recovery-009/plan.md"
+      },
+      "review": {
+        "decision": "approved"
+      }
+    },
+    {
       "id": "friendly-troll-balance-008",
       "title": "友好巨魔排除Squid与10%反制巨魔",
       "status": "doing",

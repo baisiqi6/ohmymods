@@ -1,11 +1,11 @@
 # Current Task Plan
 
-- Item: `friendly-troll-balance-008`
+- Item: `fleetboat-recovery-009`
 - Status: `doing`
 - Owner: `codex`
-- Session: `codex-2026-08-15-friendly-troll-balance-008`
-- Goal: FriendlyTroll候选阶段只排除Squid并允许CrownStealer，同时让约10%的TrollWeak成为可攻击友好巨魔的反制单位。
-- Authority: 只有world-authority执行目标与伤害决策；10%标记按存档上下文与稳定同步槽身份重算，不新增RPC/序列化。
-- Scope: Squid-only候选过滤、TrollWeak一次性稳定标记、active FriendlyTroll轻量登记与受限目标注入；不改税收助手、伤害物理、对象池或prefab。
-- Validation: worker实现、独立reviewer静态APPROVED、Debug构建0/0；游戏运行中未部署，待独立副本canary与战斗实测。
-- Plan: `docs/project-harness/tasks/friendly-troll-balance-008/plan.md`
+- Session: `codex-2026-08-15-fleetboat-recovery-009`
+- Goal: 根据四个已完成的奥林匹斯神像交付任务，幂等恢复死亡换君主后丢失的 FleetBoat 所有权。
+- Authority: 仅 Call of Olympus world-authority；不改任务、存档压缩数据或奖励动画，不新增 RPC/syncID/sidecar。
+- Scope: ApplyToScene 完成后的 active/standby/carryForward 唯一来源判定、riverless standby 恢复、当前 biome 原生同步池生成与一次性诊断。
+- Validation: worker 实现与独立 reviewer 静态 APPROVED，当前 build 0/0；提交后从干净 HEAD 重建并部署独立副本，游戏内 0/2/4 船、重复读档、换岛和死亡重生门禁仍由用户实测。
+- Plan: `docs/project-harness/tasks/fleetboat-recovery-009/plan.md`
