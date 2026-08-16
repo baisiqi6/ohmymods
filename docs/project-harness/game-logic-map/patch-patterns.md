@@ -318,6 +318,17 @@ active 时才整批回退 standby。恢复来源必须是已经完成且原生�
 全空后才能恢复baseline，异常路径不得覆盖已成功注册的成员。网络权威端负责招募，客户端是否需要同构
 阵列必须由目标单位原生客户端生命周期决定，不能一概假设双方本地Formation都运行。
 
+### 23. 可失败的旧对象清理必须发生在付款提交前
+
+**症状：** 在`PayableUpgrade.Pay` Prefix才回收旧建筑投射物时，离线失败已经晚于金币提交；在线更可能
+发生Pay RPC已批准、authority取消而client继续替换的主客分叉。
+
+**规则：** 仅在原生最终`CanPay=true`之后、`TransactionComplete`之前做可失败准备；失败把CanPay结果改为
+false，让原生Cancel与DropFloatingCurrency退款。成功准备生成绑定payable/player/world/scene/frame的一次性
+token，Pay阶段只消费token，不再执行可失败动作。若现有RPC流程没有“批准前双方事务”入口，在线功能必须
+整体fail closed，不能用Pay Prefix单端取消。池回收异常还要区分“对象仍活动且仍属原池”与部分回收：前者
+才可恢复引用，后者必须归一到原生可重新装填状态。
+
 ## 当前 mod 功能清单
 
 | Patch 类 | 功能 | 状态 |

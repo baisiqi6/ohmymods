@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
@@ -34,11 +35,56 @@ public sealed class SpecialTowerRebuildMarker : MonoBehaviour
 internal static class SpecialTowerRebuild
 {
     private const float RebuildCooldown = 1.5f;
+    private const float BlockLogInterval = 30f;
+    private const float RuntimePruneInterval = 5f;
+
+    private enum BlockReason
+    {
+        None,
+        OnlineTransactionUnsupported,
+        WorldAuthorityMissing,
+        WorldNotPlaying,
+        KingdomUnsafe,
+        OutsideCurrentScene,
+        NativePaymentLayoutNotReady,
+        BallistaNotActive,
+        ActiveTarget,
+        WindingUp,
+        TowerUnderConstruction,
+        HeldBoltInactive,
+        HeldBoltPoolMissing,
+        BallistaStateNotStable,
+        PlayerTransactionMismatch,
+        CleanupFailed,
+        PreparedTokenMissing
+    }
+
+    private sealed class BlockDiagnostic
+    {
+        internal IntPtr Pointer;
+        internal IntPtr SceneRootPointer;
+        internal BlockReason PendingReason;
+        internal BlockReason LastLoggedReason;
+        internal float NextLogAt;
+    }
+
+    private sealed class PreparedToken
+    {
+        internal IntPtr Pointer;
+        internal IntPtr PlayerPointer;
+        internal int PlayerInstanceId;
+        internal IntPtr WorldPointer;
+        internal IntPtr SceneRootPointer;
+        internal int Frame;
+    }
 
     private static bool _markerRegistered;
     private static int _configuredSourceId;
     private static int _configuredBiome = -1;
     private static string _lastFailure;
+    private static readonly Dictionary<int, BlockDiagnostic> BlockDiagnostics = new();
+    private static readonly Dictionary<int, PreparedToken> PreparedTokens = new();
+    private static float _nextRuntimePruneAt;
 
     public static void EnsurePrefabLayout()
     {
@@ -236,90 +282,319 @@ internal static class SpecialTowerRebuild
 
         payable.blockPaymentUpgrade = !ModConfig.Enabled.Value;
         if (!ModConfig.Enabled.Value) return false;
+        if (NetworkBigBoss.IsOnline)
+            return Block(payable, BlockReason.OnlineTransactionUnsupported);
+        if (!NetworkBigBoss.HasWorldAuth)
+            return Block(payable, BlockReason.WorldAuthorityMissing);
 
         Managers managers = Managers.Inst;
         if (managers == null || managers.game == null || managers.world == null
-            || managers.kingdom == null || managers.game.state != Game.State.Playing
-            || !managers.kingdom.isSafe || managers.world.gameLayer == null
-            || payable.parentHeaderRef == null || payable.nextPrefab == null
-            || payable.GetComponent<Persistent>() == null
+            || managers.kingdom == null || managers.game.state != Game.State.Playing)
+            return Block(payable, BlockReason.WorldNotPlaying);
+        if (!managers.kingdom.isSafe) return Block(payable, BlockReason.KingdomUnsafe);
+        if (managers.world.gameLayer == null
+            || payable.transform == null
             || !payable.transform.IsChildOf(managers.world.gameLayer))
-        {
-            return false;
-        }
+            return Block(payable, BlockReason.OutsideCurrentScene);
+        if (payable.parentHeaderRef == null || payable.nextPrefab == null
+            || payable.GetComponent<Persistent>() == null)
+            return Block(payable, BlockReason.NativePaymentLayoutNotReady);
 
         Ballista ballista = payable.GetComponent<Ballista>();
         if (ballista == null || ballista.gameObject == null
             || !ballista.gameObject.activeInHierarchy || !ballista.enabled
-            || ballista._currentActors == null || ballista._currentActors.Count != 0
-            || ballista._target != null
-            || ballista._windingUpEmitter != null && ballista._windingUpEmitter.IsPlaying)
-        {
-            return false;
-        }
+            || ballista._currentActors == null)
+            return Block(payable, BlockReason.BallistaNotActive);
 
-        if (ballista.tower != null && ballista.tower.UnderConstruction) return false;
+        // Workers are deliberately allowed. Destroying the old root invalidates their
+        // Workable reference; the native worker routine observes Unity-null on its next
+        // step and runs ResetWorkState. Never clear actors or call private worker hooks.
+        if (ballista._target != null) return Block(payable, BlockReason.ActiveTarget);
+        if (ballista._windingUpEmitter != null && ballista._windingUpEmitter.IsPlaying)
+            return Block(payable, BlockReason.WindingUp);
+
+        if (ballista.tower != null && ballista.tower.UnderConstruction)
+            return Block(payable, BlockReason.TowerUnderConstruction);
 
         if (ballista._state == Ballista.State.Ready)
         {
-            // Held bolts are authority-local until launch; remote clients only
-            // receive the Ballista reload/angle state.  Let the client present
-            // the payable and rely on the host's immediately repeated CanPay
-            // validation before accepting the transaction.
-            if (!NetworkBigBoss.HasWorldAuth) return true;
-
             // A just-restored native Ballista can briefly be Ready before its
             // authority-local held bolt has been reconstructed.  With no
             // target and a safe kingdom there is no inventory to leak, so this
             // is also a valid rebuild state.
-            if (ballista._bolt == null) return true;
+            if (ballista._bolt == null) return Allow(payable);
 
             if (ballista._bolt.gameObject == null
                 || !ballista._bolt.gameObject.activeInHierarchy)
-            {
-                return false;
-            }
-            return Pool.GetPoolFromPrefabInstance(ballista._bolt.gameObject) != null;
+                return Block(payable, BlockReason.HeldBoltInactive);
+            if (Pool.GetPoolFromPrefabInstance(ballista._bolt.gameObject) == null)
+                return Block(payable, BlockReason.HeldBoltPoolMissing);
+            return Allow(payable);
         }
 
-        return ballista._state == Ballista.State.Reloading
-            && ballista._currentWork == 0
-            && ballista._bolt == null;
+        if (ballista._state == Ballista.State.Reloading
+            && ballista._currentWork == 0 && ballista._bolt == null)
+            return Allow(payable);
+        return Block(payable, BlockReason.BallistaStateNotStable);
     }
 
-    public static void PrepareNativePay(PayableUpgrade payable)
+    public static bool TryPrepare(PayableUpgrade payable, Player player)
     {
-        if (!IsRebuildPayable(payable)) return;
+        if (!IsRebuildPayable(payable)) return false;
+        if (NetworkBigBoss.IsOnline || !NetworkBigBoss.HasWorldAuth
+            || player == null || player._payState != Player.PayState.Completed
+            || player._completingPayable == null
+            || player._completingPayable.Pointer != payable.Pointer)
+            return Block(payable, BlockReason.PlayerTransactionMismatch);
+        if (!CanInteract(payable)) return false;
 
         try
         {
             Ballista ballista = payable.GetComponent<Ballista>();
-            if (ballista == null) return;
+            if (ballista == null) return Block(payable, BlockReason.BallistaNotActive);
 
-            // A held bolt is authority-local before launch.  Return it to the
-            // native pool without emitting a separate despawn RPC; Payable.Pay
-            // itself is already replayed on both peers by the original RPC.
-            Bolt bolt = ballista._bolt;
-            ballista._target = null;
-            if (bolt != null && bolt.gameObject != null && bolt.gameObject.activeInHierarchy)
+            int id = payable.gameObject.GetInstanceID();
+            if (!TryGetRuntimeIdentity(out IntPtr worldPointer,
+                    out IntPtr scenePointer))
+                return Block(payable, BlockReason.OutsideCurrentScene);
+            PruneRuntimeState(worldPointer, scenePointer);
+            if (PreparedTokens.TryGetValue(id, out PreparedToken existing)
+                && existing.Pointer == payable.Pointer
+                && existing.PlayerPointer == player.Pointer
+                && existing.PlayerInstanceId == player.GetInstanceID()
+                && existing.WorldPointer == worldPointer
+                && existing.SceneRootPointer == scenePointer
+                && existing.Frame == Time.frameCount)
             {
-                Pool.Despawn(bolt.gameObject, false);
+                return true;
             }
-            ballista._bolt = null;
+            PreparedTokens.Remove(id);
 
-            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                "[SpecialTowerRebuild] Rebuilding " + payable.gameObject.name
-                + " into native level-six tower");
+            Bolt bolt = ballista._bolt;
+            GameObject boltObject = bolt?.gameObject;
+            var token = new PreparedToken
+            {
+                Pointer = payable.Pointer,
+                PlayerPointer = player.Pointer,
+                PlayerInstanceId = player.GetInstanceID(),
+                WorldPointer = worldPointer,
+                SceneRootPointer = scenePointer,
+                Frame = Time.frameCount
+            };
+            PreparedTokens[id] = token;
+
+            // A held bolt is authority-local before launch. Temporarily detach the
+            // reference, then use the public boolean pool operation. A failed call
+            // restores only a still-active bolt with a valid origin pool; otherwise
+            // native Reloading state lets workers rebuild it after the refund.
+            if (bolt != null)
+            {
+                if (boltObject == null || !boltObject.activeInHierarchy
+                    || Pool.GetPoolFromPrefabInstance(boltObject) == null)
+                {
+                    PreparedTokens.Remove(id);
+                    return Block(payable, BlockReason.HeldBoltPoolMissing);
+                }
+
+                ballista._bolt = null;
+                bool despawned;
+                try { despawned = Pool.TryDespawn(boltObject, 0f); }
+                catch
+                {
+                    RestoreBoltOrNormalizeReload(ballista, bolt, boltObject);
+                    PreparedTokens.Remove(id);
+                    throw;
+                }
+                if (!despawned)
+                {
+                    RestoreBoltOrNormalizeReload(ballista, bolt, boltObject);
+                    PreparedTokens.Remove(id);
+                    return Block(payable, BlockReason.CleanupFailed);
+                }
+            }
+            return true;
         }
         catch (Exception e)
         {
-            // Payment has already completed by this point; never consume the
-            // player's coins and then suppress native Pay.  The old root is
-            // still replaced by the original transaction even if a defensive
-            // bolt cleanup unexpectedly fails.
+            RemovePrepared(payable);
+            // Continuing would destroy the old root while potentially leaving its
+            // authority-local held projectile orphaned. CanPay preflights the pool;
+            // this is a last-moment fail-closed guard for wrapper/pool races.
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(
                 "[SpecialTowerRebuild] Pre-pay cleanup failed: " + e);
+            return Block(payable, BlockReason.CleanupFailed);
         }
+    }
+
+    private static void RestoreBoltOrNormalizeReload(Ballista ballista, Bolt bolt,
+        GameObject boltObject)
+    {
+        bool canRestore = false;
+        try
+        {
+            canRestore = bolt != null && boltObject != null
+                && boltObject.activeInHierarchy
+                && Pool.GetPoolFromPrefabInstance(boltObject) != null;
+        }
+        catch { }
+
+        try
+        {
+            if (canRestore)
+            {
+                ballista._bolt = bolt;
+                return;
+            }
+
+            ballista._bolt = null;
+            ballista._state = Ballista.State.Reloading;
+            ballista._currentWork = 0;
+        }
+        catch
+        {
+            // The transaction still fails closed. Never reattach an object whose
+            // active/pool identity could not be proven after TryDespawn failed.
+            try { ballista._bolt = null; } catch { }
+        }
+    }
+
+    private static void RemovePrepared(PayableUpgrade payable)
+    {
+        try
+        {
+            if (payable == null || payable.gameObject == null) return;
+            int id = payable.gameObject.GetInstanceID();
+            if (PreparedTokens.TryGetValue(id, out PreparedToken token)
+                && token.Pointer == payable.Pointer)
+                PreparedTokens.Remove(id);
+        }
+        catch { }
+    }
+
+    public static bool ConsumePrepared(PayableUpgrade payable)
+    {
+        if (!IsRebuildPayable(payable)) return true;
+        try
+        {
+            int id = payable.gameObject.GetInstanceID();
+            if (!TryGetRuntimeIdentity(out IntPtr worldPointer,
+                    out IntPtr scenePointer))
+                return Block(payable, BlockReason.PreparedTokenMissing);
+            PruneRuntimeState(worldPointer, scenePointer);
+            Player player = payable.interactingPlayer;
+            if (!PreparedTokens.TryGetValue(id, out PreparedToken token)
+                || token.Pointer != payable.Pointer
+                || player == null || token.PlayerPointer != player.Pointer
+                || token.PlayerInstanceId != player.GetInstanceID()
+                || token.WorldPointer != worldPointer
+                || token.SceneRootPointer != scenePointer
+                || token.Frame != Time.frameCount)
+                return Block(payable, BlockReason.PreparedTokenMissing);
+
+            PreparedTokens.Remove(id);
+            return true;
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[SpecialTowerRebuild] Prepared token validation failed: " + e);
+            return false;
+        }
+    }
+
+    private static bool Allow(PayableUpgrade payable)
+    {
+        try
+        {
+            int id = payable.gameObject.GetInstanceID();
+            if (BlockDiagnostics.TryGetValue(id, out BlockDiagnostic diagnostic)
+                && diagnostic.Pointer == payable.Pointer)
+            {
+                diagnostic.PendingReason = BlockReason.None;
+                diagnostic.LastLoggedReason = BlockReason.None;
+            }
+        }
+        catch { }
+        return true;
+    }
+
+    private static bool Block(PayableUpgrade payable, BlockReason reason)
+    {
+        try
+        {
+            int id = payable.gameObject.GetInstanceID();
+            IntPtr pointer = payable.Pointer;
+            TryGetRuntimeIdentity(out IntPtr worldPointer, out IntPtr scenePointer);
+            PruneRuntimeState(worldPointer, scenePointer);
+            if (!BlockDiagnostics.TryGetValue(id, out BlockDiagnostic diagnostic)
+                || diagnostic.Pointer != pointer
+                || diagnostic.SceneRootPointer != scenePointer)
+            {
+                diagnostic = new BlockDiagnostic
+                {
+                    Pointer = pointer,
+                    SceneRootPointer = scenePointer
+                };
+                BlockDiagnostics[id] = diagnostic;
+            }
+
+            diagnostic.PendingReason = reason;
+            if (diagnostic.LastLoggedReason == reason) return false;
+            float now = Time.unscaledTime;
+            if (now < diagnostic.NextLogAt) return false;
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                "[SpecialTowerRebuild] Blocked instance=" + id + " reason=" + reason);
+            diagnostic.LastLoggedReason = reason;
+            diagnostic.NextLogAt = now + BlockLogInterval;
+        }
+        catch
+        {
+            // Diagnostics must never change the payable gate.
+        }
+        return false;
+    }
+
+    private static bool TryGetRuntimeIdentity(out IntPtr worldPointer,
+        out IntPtr scenePointer)
+    {
+        worldPointer = IntPtr.Zero;
+        scenePointer = IntPtr.Zero;
+        try
+        {
+            World world = Managers.Inst?.world;
+            Transform sceneRoot = world?.gameLayer;
+            if (world == null || sceneRoot == null) return false;
+            worldPointer = world.Pointer;
+            scenePointer = sceneRoot.Pointer;
+            return worldPointer != IntPtr.Zero && scenePointer != IntPtr.Zero;
+        }
+        catch { return false; }
+    }
+
+    private static void PruneRuntimeState(IntPtr worldPointer, IntPtr scenePointer)
+    {
+        float now = Time.unscaledTime;
+        if (now < _nextRuntimePruneAt) return;
+        _nextRuntimePruneAt = now + RuntimePruneInterval;
+
+        var staleDiagnostics = new List<int>();
+        foreach (KeyValuePair<int, BlockDiagnostic> pair in BlockDiagnostics)
+        {
+            if (pair.Value == null || pair.Value.SceneRootPointer != scenePointer)
+                staleDiagnostics.Add(pair.Key);
+        }
+        for (int i = 0; i < staleDiagnostics.Count; i++)
+            BlockDiagnostics.Remove(staleDiagnostics[i]);
+
+        var staleTokens = new List<int>();
+        foreach (KeyValuePair<int, PreparedToken> pair in PreparedTokens)
+        {
+            if (pair.Value == null || pair.Value.WorldPointer != worldPointer
+                || pair.Value.SceneRootPointer != scenePointer)
+                staleTokens.Add(pair.Key);
+        }
+        for (int i = 0; i < staleTokens.Count; i++)
+            PreparedTokens.Remove(staleTokens[i]);
     }
 
     private static void ReportFailure(string reason)
@@ -362,7 +637,8 @@ public static class PayableUpgrade_SpecialTowerRebuild_Gate_Patch
 
     [HarmonyPatch(typeof(PayableUpgrade), nameof(PayableUpgrade.CanPay))]
     [HarmonyPrefix]
-    private static bool CanPay_Prefix(PayableUpgrade __instance, ref bool __result)
+    private static bool CanPay_Prefix(PayableUpgrade __instance, Player player,
+        ref bool __result)
     {
         if (!SpecialTowerRebuild.IsRebuildPayable(__instance)) return true;
         if (SpecialTowerRebuild.CanInteract(__instance)) return true;
@@ -370,10 +646,27 @@ public static class PayableUpgrade_SpecialTowerRebuild_Gate_Patch
         return false;
     }
 
+    [HarmonyPatch(typeof(PayableUpgrade), nameof(PayableUpgrade.CanPay))]
+    [HarmonyPostfix]
+    private static void CanPay_Postfix(PayableUpgrade __instance, Player player,
+        ref bool __result)
+    {
+        if (!__result || !SpecialTowerRebuild.IsRebuildPayable(__instance)
+            || player == null || player._payState != Player.PayState.Completed
+            || player._completingPayable == null
+            || player._completingPayable.Pointer != __instance.Pointer)
+            return;
+
+        // This is the final native CanPay in Player's Completed branch. Returning
+        // false makes the untouched transaction follow CancelTransaction and then
+        // DropFloatingCurrency instead of reaching TransactionComplete.
+        __result = SpecialTowerRebuild.TryPrepare(__instance, player);
+    }
+
     [HarmonyPatch(typeof(PayableUpgrade), nameof(PayableUpgrade.Pay))]
     [HarmonyPrefix]
-    private static void Pay_Prefix(PayableUpgrade __instance)
+    private static bool Pay_Prefix(PayableUpgrade __instance)
     {
-        SpecialTowerRebuild.PrepareNativePay(__instance);
+        return SpecialTowerRebuild.ConsumePrepared(__instance);
     }
 }

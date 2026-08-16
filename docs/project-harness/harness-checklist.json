@@ -28,23 +28,23 @@
       "status": "doing",
       "priority": "p1",
       "owner": "codex",
-      "selected_in_session": "codex-2026-08-16-special-tower-rebuild",
+      "selected_in_session": "codex-2026-08-16-special-tower-worker-release",
       "updated_at": "2026-08-16",
       "dependencies": [],
       "blocked_by": [],
       "blocked_reason": null,
-      "acceptance": "首版仅允许安全空闲的Ballista弩箭塔按运行时原生六级塔价格重建回当前biome六级普通箭塔；随后专精完全走原版隐士路线。Fire/OilFire/Knight/Berserker/Baker/Mead保持fail closed；组件必须在Pool/CRPC注册前由主客确定性注入，Disabled仍保留布局但阻止交互。",
-      "verification": "2.4资源与2.1逻辑已核：完成态特种塔无PayableUpgrade；原生Pay负责next NetID、biome swap、Persistent/CRPC与销毁；Ballista持有池化bolt且OnDestroy不回收。首版源码SHA-256=DB882F8A43BC56A58C901B7101535738B2288E0114119046D6414B45BD755023；提交703be83已推送。游戏退出后从该提交重建0 warning/0 error并只部署E盘独立测试副本，构建/部署DLL均为181760 bytes、SHA-256=947131C76EF465B35AC21862E273E29D87AB0A8C2D97136E9CA15062F97E9CBD；保存读档/跨岛/分屏/联机仍待实测。",
-      "handoff": "先验证希腊空闲Ballista重建、bolt回收和再次用隐士专精；未完成存档往返与网络门禁前不得扩展到Fire/OilFire或TowerKnight来源。",
+      "acceptance": "首版允许稳定Ballista在正常当前/排队工匠存在时按运行时原生六级塔价格重建回当前biome六级普通箭塔；工匠由旧塔Destroy后的原生工作循环释放，bolt在付款提交前安全回池，失败取消并退币。离线/本地分屏开放、在线fail closed；Fire/OilFire/Knight/Berserker/Baker/Mead保持fail closed；Disabled仍保留确定性组件布局但阻止交互。",
+      "verification": "实机Ready日志证明资源注入成功但旧actors门禁持续阻断。2.1确认Ballista注销工作点后，当前/排队Worker会在旧塔Destroy后下一工作循环通过Unity-null走原生Reset/LostWork。修复移除人数门禁；离线最终CanPay=true后以payable/player/world/scene/frame token准备bolt，失败触发原生Cancel/DropFloatingCurrency，部分回收归一Reloading/currentWork=0；在线整体fail closed。worker构建0 warning/0 error，独立reviewer APPROVED；源码SHA-256=C7FF31FFD1E6D025D63CCD615AB582D9B2A3A7E88C57C784B42374B461CA3F78，禁部署DLL为196608 bytes、SHA-256=113BE01ED8F8ABAAD52571DCEF74829A14CB7B7B4F5210191AE8F804CF0D6696。尚未从干净提交部署，当前ZIP仍为旧候选。",
+      "handoff": "从干净提交重建并仅部署E盘独立副本；验证当前hammer与queued Worker各一次、bolt回收、再次用隐士专精、保存/跨岛/本地分屏。在线应无交互且无RPC/NetID异常；不得扩展到其他特种塔来源。",
       "workflow": {
         "status": "running",
         "updated_at": "2026-08-16"
       },
       "lease": {
         "owner": "codex",
-        "session": "codex-2026-08-16-special-tower-rebuild",
-        "acquired_at": "2026-08-16T21:00:00+08:00",
-        "expires_at": "2026-08-17T21:00:00+08:00",
+        "session": "codex-2026-08-16-special-tower-worker-release",
+        "acquired_at": "2026-08-16T22:10:00+08:00",
+        "expires_at": "2026-08-17T22:10:00+08:00",
         "ttl_minutes": 1440
       },
       "artifacts": {

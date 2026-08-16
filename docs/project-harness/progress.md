@@ -1,3 +1,15 @@
+## 2026-08-16 — special-tower-rebuild-018：驻守工匠交互修复静态通过
+
+- 实机日志只有`Ready source=Tower Ballista target=Tower6 price=18 biome=5`而没有`Rebuilding`；根因是旧候选
+  把正常常驻工匠视为阻断。现已移除人数门禁，不清actor、不改职业/钱包/存档；旧塔由原生Pay销毁后，
+  当前与排队工匠在下一次工作循环观察Unity-null并走原生清理。
+- bolt可失败回收已移到离线最终CanPay成功之后、TransactionComplete之前。失败取消并退币；成功用同帧
+  payable/player/world/scene token进入原生Pay。部分回收不会重新挂失活bolt，而是归一Reloading/currentWork0。
+- 在线首版整体fail closed，避免付款RPC批准后的主客分叉；本地分屏仍支持。新增按实例与原因变化、30秒
+  限流的阻断诊断。worker构建0 warning/0 error，reviewer最终APPROVED；源码SHA-256=
+  `C7FF31FFD1E6D025D63CCD615AB582D9B2A3A7E88C57C784B42374B461CA3F78`，禁部署DLL SHA-256=
+  `113BE01ED8F8ABAAD52571DCEF74829A14CB7B7B4F5210191AE8F804CF0D6696`（196,608 bytes）。尚未从干净提交部署。
+
 ## 2026-08-16 — special-tower-rebuild-018：首版已部署，刷新ZIP待生成
 
 - 用户退出后确认游戏进程为0；从已推送提交`703be83`重新构建0 warning/0 error，并只部署E盘独立

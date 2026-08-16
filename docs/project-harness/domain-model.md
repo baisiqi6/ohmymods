@@ -35,6 +35,11 @@
 - 注入的原生PayableUpgrade必须在主客pool/CRPC注册前确定性加入；总开关关闭仍保留布局、只禁交互。
   这是网络确定性优先于“Disabled时物理移除组件”的例外，兼容代价是增强存档可能多一份原生
   PayableUpgradeData。
+- Ballista当前与排队工匠不作为付款阻断；旧塔由原生Pay销毁后，Worker在下一次工作循环通过Unity-null
+  工作对象走原生Reset/LostWork。不得直接清`_currentActors`或调用native-private Worker重置入口。
+- bolt准备必须发生在离线最终`CanPay=true`之后、`TransactionComplete`之前；失败令CanPay为false并由原生
+  取消/退币，成功token只允许同玩家、同对象、同world/scene、同帧Pay消费。在线在没有批准前对称事务前
+  整体fail closed，禁止在已发送Pay RPC后做单端可失败清理。
 
 ### D21. 城墙旗帜按原生 Side 动态展开 FleetBoat 编队（2026-08-16）
 
