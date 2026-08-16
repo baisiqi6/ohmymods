@@ -36,6 +36,17 @@
   这是网络确定性优先于“Disabled时物理移除组件”的例外，兼容代价是增强存档可能多一份原生
   PayableUpgradeData。
 
+### D21. 城墙旗帜按原生 Side 动态展开 FleetBoat 编队（2026-08-16）
+
+- 小船的所有权、数量、迁侧、战斗与返航继续完全由原生 `FleetBoat` 管理；举旗补丁只读取当时的
+  `FleetBoat.Side`，把该侧0～4艘当前可加入的小船登记进玩家原生 `Formation`，不写Side、FSM或存档。
+- 原PlayerFormation只有一个FleetBoat槽且该类型间距为0。动态编队必须成对重建等长
+  `unitTypes/units`；两艘以上只在克隆的`UnitSpacing`中把FleetBoat绝对设为1，避免船体叠放。
+- 原生FleetBoat后续招募不可靠地按旗帜侧过滤，因此本轮未占用或中途释放的预留船槽必须立即改为
+  Gap；`UnregisterUnit`是即时主路径，0.5秒协调器仅作小范围兜底，不能替代native Hook实机证明。
+- 阵列profile按Player Formation实例隔离；活动期间不热缩，原生OnDisable完成逐船离队且units全空后
+  才恢复原始一船槽。只有world-authority扩展和招募，客户端继续依赖原生状态与PositionSync。
+
 ### D9. 钱袋扩容 = 数字容量 + 视觉上限，无物理容器（2026-08-12）
 - 用户初始设想"钱袋有长宽明确的容器碰撞空间，调大空间+放大 UI = 扩容"——源码核实不成立：
   容量是 `Wallet.TotalCapacity` 数字（全库零写入），拾取靠金币×玩家物理碰撞重叠 + 点击
