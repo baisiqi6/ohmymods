@@ -421,15 +421,15 @@
       "priority": "p0",
       "owner": "codex",
       "selected_in_session": "codex-2026-08-16-scale-followup",
-      "updated_at": "2026-08-16",
+      "updated_at": "2026-08-17",
       "dependencies": [
         "release-package-001"
       ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "希腊只保留一个原版Banker作为国库/利息/提款/存档权威；欧洲、幕府、Dead Lands、北境四套外观各生成一名无Banker/Persistent/Wallet行为的助手，Dead Lands助手y=1.25、北境助手y=1.2且均只改y；主银行家仅管理左右从城堡向外数第二道墙之间并保持增强移速、安全期全天工作与该区域动态扫描；该管辖区外的玩家金币落地3秒后由单一当前助手连续处理，同批下一枚距助手不超过6单位就直接跑、超过才瞬移，其他助手在城堡附近巡逻且不为同批金币一起行动；成功拾取由world-authority立即原子入账，轮换/回城不重复入账；共享账本不覆盖日息或回滚提款；同步池、切岛/读档生命周期、构建与独立副本实测通过。",
-      "verification": "此前已在独立副本确认四套控制器解析与四助手生成。实现以左右GetWall(side,1)定义第二道墙管辖区；两侧未齐时对称回退index0，再回退有效border；主Banker ClaimCoins按朝向精确设置range/rangeBehind并在认领入口拒绝域外Player Coins，助手scan每tick只解析一次同一domain且commit时复核。同批后续金币<=6直接跑，首枚或>6才传送。最新只把banker_deadlands固定index2绝对y改为1.25，banker_norselands index3仍为1.2；独立reviewer APPROVED。游戏退出后重新构建0 warning/0 error并只部署E盘独立测试副本，构建/部署DLL SHA256=116972F641D20C2801F3113C12F7B94B6DEF23B33F29684786994321071A5749（174080 bytes）。",
-      "handoff": "Dead Lands助手目标为绝对y=1.25，北境为y=1.2；只改双方确定性prefab视觉比例，国库、利息、权限、调度、同步池与单collector契约不变。本次刷新候选供用户实测比例、转向和池复用；不得复制Banker组件或让客户端写国库，不修改Steam、共享存档或Mono。",
+      "verification": "2026-08-17用户反馈逐枚捡币卡顿（捡完停动画+等0.5s扫描节拍才定位下一枚）、速度跟不上扔币。根因三层：结算后Target=null+动画归零；分配只发生在ScanAndDispatch节拍；单收集者逐枚精确定位。修复：链式目标（结算当帧TryChainNextTarget接最近未认领成熟币，保持奔跑无停顿，认领失败退让次近候选）、顺路扫吸（移动中SWEEP_RADIUS=0.35内成熟币走与目标币完全相同的认领→门禁→SetFake→Deposit→池回收事务，多币认领策略用SweepPolicies按币记录）、积压扩容（ActiveCollector集合，目标活跃数=1+成熟币/8上限4，轮转）。SCAN_INTERVAL 0.5→0.3。worker=OMP deepseek-v4-flash thinking=max；reviewer=GLM5.3 subagent（kimi K3配额耗尽回落）两轮：首轮changes_requested（AssignNextTarget单候选穿透致瞬移抖动循环、SelectNextCollectors轮转跳位），Operator修复后复核approved+门禁预检WARN防御；经济原子性/认领一致性/状态机首轮即全PASS。独立构建0 warning/0 error，DLL 204,800 bytes、SHA-256=7E1E9B80BE388FB763F349F08025FD7D02DAE5E0B4CAC9580AD2D363B143A161。待部署实测：连续扔币顺吸不停顿、动画无停帧、积压≥8出多助手、满容回家清账、联机不受损。",
+      "handoff": "待用户退出游戏后部署E盘副本；实测观感重点：助手沿币串一路跑一路吸无停顿，跟上玩家扔币节奏；成熟币≥8时出现第二个助手并行；主银行家行为不变。",
       "workflow": {
         "status": "running",
         "updated_at": "2026-08-16",
@@ -444,7 +444,8 @@
       },
       "artifacts": {
         "plan": "docs/project-harness/tasks/bank-assistants-005/plan.md",
-        "branch": "agent/post-release-candidate"
+        "branch": "agent/post-release-candidate",
+        "chain_sweep_brief": "docs/project-harness/tasks/bank-assistants-005/chain-sweep-worker-brief.md"
       },
       "review": {
         "decision": "approved"

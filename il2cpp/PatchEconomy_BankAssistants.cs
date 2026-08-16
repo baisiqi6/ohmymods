@@ -19,8 +19,10 @@ namespace KingdomEnhancedMod;
 /// </summary>
 public static class PatchEconomy_BankAssistants
 {
-    internal const float SCAN_INTERVAL = 0.5f;
+    internal const float SCAN_INTERVAL = 0.3f;
     internal const float COIN_MATURITY_SECONDS = 3f;
+    internal const float SWEEP_RADIUS = 0.35f;
+    internal const float ACTIVE_SCALING_STEP = 8f;
     // Registrar already iterates its central dropped-item list. Using the full float
     // range preserves the promised whole-island scan on unusually long islands.
     internal const float WORLD_SCAN_RANGE = float.MaxValue;
@@ -417,6 +419,8 @@ public class BankAssistantCoordinator : MonoBehaviour
     private const float WORLD_SCAN_RANGE = PatchEconomy_BankAssistants.WORLD_SCAN_RANGE;
     private const float TELEPORT_APPROACH_DISTANCE = PatchEconomy_BankAssistants.TELEPORT_APPROACH_DISTANCE;
     private const float PICKUP_DISTANCE = PatchEconomy_BankAssistants.PICKUP_DISTANCE;
+    private const float SWEEP_RADIUS = PatchEconomy_BankAssistants.SWEEP_RADIUS;
+    private const float ACTIVE_SCALING_STEP = PatchEconomy_BankAssistants.ACTIVE_SCALING_STEP;
     private const float ASSISTANT_RUN_SPEED = PatchEconomy_BankAssistants.ASSISTANT_RUN_SPEED;
     private const float ASSISTANT_PATROL_SPEED = PatchEconomy_BankAssistants.ASSISTANT_PATROL_SPEED;
     private const float PATROL_HALF_WIDTH = PatchEconomy_BankAssistants.PATROL_HALF_WIDTH;
@@ -459,7 +463,7 @@ public class BankAssistantCoordinator : MonoBehaviour
     private static readonly Dictionary<int, int> Claims = new();
     private static readonly HashSet<int> SeenThisScan = new();
     private static readonly List<int> RemovalBuffer = new();
-    private static readonly List<DroppableCurrency> MatureBuffer = new();
+    private static readonly List<ObservedCoin> MatureBuffer = new();
     private static readonly HashSet<string> LoggedDiagnosticStates = new();
     private static readonly Il2CppReferenceArray<DroppableCurrency> ScanBuffer =
         new Il2CppReferenceArray<DroppableCurrency>(SCAN_BUFFER_SIZE);
@@ -469,8 +473,15 @@ public class BankAssistantCoordinator : MonoBehaviour
     private static bool _loggedReady;
     private static bool _loggedFirstAssignment;
     private static bool _loggedFirstSubmission;
-    private static int _collectorIndex = -1;
+    private static readonly bool[] ActiveCollector = new bool[Assistants.Length];
+    // AssignNextTarget 单次尝试内已试过的候选币 id（认领失败退让次近候选用）。
+    private static readonly HashSet<int> TriedThisChain = new();
     private static int _nextCollectorIndex;
+    // 顺吸认领会同时占据多枚币，各自原始拾取策略必须按币记录，不能用单槽
+    // OriginalPolicy 覆盖（否则回滚会把错误策略还原到别的币上）。
+    private static readonly Dictionary<int, PickUpPolicy> SweepPolicies = new();
+    private static int _lastLoggedActiveCount = -1;
+    private static float _nextActiveCountLogAt;
     private static readonly int SpeedParameter = Animator.StringToHash("Speed");
 
     public BankAssistantCoordinator(IntPtr ptr) : base(ptr) { }
@@ -568,7 +579,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             AssistantState helper = Assistants[i];
             if (helper.Actor != null && helper.Actor.activeInHierarchy) continue;
             if (helper.Target != null) ReleaseTarget(helper);
-            if (_collectorIndex == i) _collectorIndex = -1;
+            ActiveCollector[i] = false;
             if (existingActors == null) existingActors = UnityEngine.Object.FindObjectsOfType<PositionSync>();
             string marker = ASSISTANT_PREFIX + i + "_";
             for (int j = 0; j < existingActors.Length; j++)
@@ -644,11 +655,19 @@ public class BankAssistantCoordinator : MonoBehaviour
                 kingdom, out float domainLeft, out float domainRight))
         {
             for (int i = 0; i < Assistants.Length; i++)
-                if (Assistants[i].Target != null) ReleaseTarget(Assistants[i]);
-            if (_collectorIndex >= 0) FinishCollector(returnHome: true);
+            {
+                AssistantState helper = Assistants[i];
+                if (helper.Target != null) ReleaseTarget(helper);
+                if (ActiveCollector[i])
+                {
+                    TeleportHomeAndDeposit(helper);
+                    ActiveCollector[i] = false;
+                }
+            }
             Observed.Clear();
             Claims.Clear();
             MatureBuffer.Clear();
+            SweepPolicies.Clear();
             return;
         }
 
@@ -696,7 +715,7 @@ public class BankAssistantCoordinator : MonoBehaviour
 
             if (!Claims.ContainsKey(id)
                 && now - observation.FirstObservedAt >= COIN_MATURITY_SECONDS)
-                MatureBuffer.Add(coin);
+                MatureBuffer.Add(observation);
         }
 
         RemovalBuffer.Clear();
@@ -707,57 +726,52 @@ public class BankAssistantCoordinator : MonoBehaviour
         }
         for (int i = 0; i < RemovalBuffer.Count; i++) Observed.Remove(RemovalBuffer[i]);
 
-        MatureBuffer.Sort(CompareCoinsDeterministically);
+        MatureBuffer.Sort(CompareObservedCoins);
 
         for (int i = 0; i < Assistants.Length; i++)
         {
             AssistantState helper = Assistants[i];
             if (helper.Target != null && !IsValidOwnedTarget(helper))
                 ReleaseTarget(helper);
-            if (i != _collectorIndex && helper.Target != null)
+            // 只有活跃收集者可以持有目标；非活跃助手的认领一律释放。
+            if (!ActiveCollector[i] && helper.Target != null)
                 ReleaseTarget(helper);
         }
 
-        if (_collectorIndex >= 0)
+        // 满容量或演员消失的活跃收集者收工：回家清账并退出活跃集合。
+        for (int i = 0; i < Assistants.Length; i++)
         {
-            AssistantState collector = Assistants[_collectorIndex];
-            int capacity = GetAssistantCapacity();
-            if (collector.Actor == null || !collector.Actor.activeInHierarchy)
+            AssistantState helper = Assistants[i];
+            if (!ActiveCollector[i]) continue;
+            if (helper.Actor == null || !helper.Actor.activeInHierarchy)
             {
-                FinishCollector(returnHome: false);
+                if (helper.Target != null) ReleaseTarget(helper);
+                ActiveCollector[i] = false;
             }
-            else if (collector.CarriedCoins >= capacity)
+            else if (helper.CarriedCoins >= GetAssistantCapacity())
             {
-                FinishCollector(returnHome: true);
+                TeleportHomeAndDeposit(helper);
+                ActiveCollector[i] = false;
             }
         }
 
-        if (_collectorIndex < 0 && MatureBuffer.Count > 0)
-            SelectNextCollector();
+        // 积压扩容：目标活跃数 = 1 + 成熟币数/8，上限为全部助手。
+        int activeCount = CountActiveCollectors();
+        int targetActive = Math.Min(Assistants.Length,
+            1 + MatureBuffer.Count / (int)ACTIVE_SCALING_STEP);
+        if (activeCount < targetActive && MatureBuffer.Count > 0)
+            SelectNextCollectors(targetActive);
 
-        if (_collectorIndex >= 0)
+        // 分配：只给没有目标且属于活跃收集者集合的助手补分配。链式逻辑内部走
+        // TryAssign（含全部在线门禁与瞬移规则），失败则收工：回家清账并退出集合。
+        for (int i = 0; i < Assistants.Length; i++)
         {
-            AssistantState collector = Assistants[_collectorIndex];
-            if (collector.Target == null)
-            {
-                bool assigned = false;
-                for (int j = 0; j < MatureBuffer.Count; j++)
-                {
-                    DroppableCurrency candidate = MatureBuffer[j];
-                    if (candidate == null) continue;
-                    int candidateId = candidate.gameObject.GetInstanceID();
-                    if (Claims.ContainsKey(candidateId)) continue;
-                    if (!TryAssign(collector, candidate)) continue;
-                    assigned = true;
-                    break;
-                }
-
-                // A temporarily claimed/header-blocked mature coin keeps the same
-                // collector. An actually empty mature batch completes and rotates.
-                if (!assigned && MatureBuffer.Count == 0)
-                    FinishCollector(returnHome: true);
-            }
+            AssistantState helper = Assistants[i];
+            if (!ActiveCollector[i] || helper.Target != null) continue;
+            TryChainNextTarget(helper);
         }
+
+        LogActiveCollectorCountIfChanged(now);
 
         bool relevantDiagnostics = outsideCoins > 0 || Observed.Count > 0
             || MatureBuffer.Count > 0 || Claims.Count > 0 || externallyClaimed > 0;
@@ -773,7 +787,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         {
             _nextDiagnosticsAt = now + 5f;
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                $"[BankAssistants] scan observed={count}, playerCoins={ordinaryPlayerCoins}, outside={outsideCoins}, tracked={Observed.Count}, mature={MatureBuffer.Count}, assigned={Claims.Count}, externallyClaimed={externallyClaimed}");
+                $"[BankAssistants] scan observed={count}, playerCoins={ordinaryPlayerCoins}, outside={outsideCoins}, tracked={Observed.Count}, mature={MatureBuffer.Count}, assigned={Claims.Count}, externallyClaimed={externallyClaimed}, collectors={CountActiveCollectors()}");
         }
     }
 
@@ -803,30 +817,57 @@ public class BankAssistantCoordinator : MonoBehaviour
         return left.gameObject.GetInstanceID().CompareTo(right.gameObject.GetInstanceID());
     }
 
-    private static bool SelectNextCollector()
+    private static int CompareObservedCoins(ObservedCoin left, ObservedCoin right)
     {
-        int capacity = GetAssistantCapacity();
-        for (int offset = 0; offset < Assistants.Length; offset++)
-        {
-            int index = (_nextCollectorIndex + offset) % Assistants.Length;
-            AssistantState helper = Assistants[index];
-            if (helper.Actor == null || !helper.Actor.activeInHierarchy
-                || helper.CarriedCoins >= capacity) continue;
-
-            _collectorIndex = index;
-            _nextCollectorIndex = (index + 1) % Assistants.Length;
-            return true;
-        }
-        return false;
+        if (left == null) return right == null ? 0 : 1;
+        if (right == null) return -1;
+        return CompareCoinsDeterministically(left.Coin, right.Coin);
     }
 
-    private static void FinishCollector(bool returnHome)
+    private static int CountActiveCollectors()
     {
-        if (_collectorIndex < 0 || _collectorIndex >= Assistants.Length) return;
-        AssistantState helper = Assistants[_collectorIndex];
-        if (helper.Target != null) ReleaseTarget(helper);
-        if (returnHome) TeleportHomeAndDeposit(helper);
-        _collectorIndex = -1;
+        int count = 0;
+        for (int i = 0; i < ActiveCollector.Length; i++)
+            if (ActiveCollector[i]) count++;
+        return count;
+    }
+
+    private static void DeactivateCollector(int index)
+    {
+        if (index >= 0 && index < ActiveCollector.Length) ActiveCollector[index] = false;
+    }
+
+    private static void SelectNextCollectors(int targetActive)
+    {
+        int capacity = GetAssistantCapacity();
+        int selected = CountActiveCollectors();
+        // 轮转起点必须在循环外定格：循环体内推进 _nextCollectorIndex 再用它算
+        // index 会在 3-4 并发时跳位（只激活 3 个且顺序偏离轮转）。
+        int start = _nextCollectorIndex;
+        int lastSelected = -1;
+        for (int offset = 0; offset < Assistants.Length && selected < targetActive; offset++)
+        {
+            int index = (start + offset) % Assistants.Length;
+            AssistantState helper = Assistants[index];
+            if (ActiveCollector[index] || helper.Actor == null
+                || !helper.Actor.activeInHierarchy || helper.CarriedCoins >= capacity) continue;
+
+            ActiveCollector[index] = true;
+            selected++;
+            lastSelected = index;
+        }
+        if (lastSelected >= 0)
+            _nextCollectorIndex = (lastSelected + 1) % Assistants.Length;
+    }
+
+    private static void LogActiveCollectorCountIfChanged(float now)
+    {
+        int active = CountActiveCollectors();
+        if (active == _lastLoggedActiveCount || now < _nextActiveCountLogAt) return;
+        _lastLoggedActiveCount = active;
+        _nextActiveCountLogAt = now + 30f;
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+            $"[BankAssistants] active collectors={active} (mature={MatureBuffer.Count})");
     }
 
     private static bool TryAssign(AssistantState helper, DroppableCurrency coin)
@@ -873,6 +914,101 @@ public class BankAssistantCoordinator : MonoBehaviour
         return true;
     }
 
+    // 从最新成熟快照里选未被认领且距离助手最近（|coin.x - actor.x| 最小，
+    // 并列按 x 再按 instanceID 决定性）的合法金币；选中后走 TryAssign。
+    // 最近候选认领失败（如被村民原生认领）时依次退让到次近候选，避免
+    // "收工回家→下个扫描又选中同一枚"的瞬移抖动循环；全部失败才返回 false。
+    private static bool AssignNextTarget(AssistantState helper)
+    {
+        if (helper.Actor == null) return false;
+        // 全局在线门禁与具体币无关，提前预检，避免 client 未追上时
+        // 对整个快照做 O(N²) 的逐候选空转（帧尖峰）。
+        if (NetworkBigBoss.IsOnline
+            && (!NetworkBigBoss.HasClientCaughtUp || helper.PositionSync == null
+                || helper.PositionSync.parentHeaderRef == null)) return false;
+        float actorX = helper.Actor.transform.position.x;
+        TriedThisChain.Clear();
+        while (true)
+        {
+            DroppableCurrency best = null;
+            float bestDistance = float.MaxValue;
+            float bestX = 0f;
+            int bestId = 0;
+            for (int i = 0; i < MatureBuffer.Count; i++)
+            {
+                DroppableCurrency candidate = MatureBuffer[i] != null ? MatureBuffer[i].Coin : null;
+                if (candidate == null || candidate.gameObject == null
+                    || !candidate.isActiveAndEnabled) continue;
+                int candidateId = candidate.gameObject.GetInstanceID();
+                if (Claims.ContainsKey(candidateId) || TriedThisChain.Contains(candidateId)) continue;
+
+                float coinX = candidate.transform.position.x;
+                float distance = Mathf.Abs(coinX - actorX);
+                if (distance > bestDistance) continue;
+                if (distance < bestDistance
+                    || (distance == bestDistance && coinX < bestX)
+                    || (distance == bestDistance && coinX == bestX && candidateId < bestId))
+                {
+                    best = candidate;
+                    bestDistance = distance;
+                    bestX = coinX;
+                    bestId = candidateId;
+                }
+            }
+            if (best == null) return false;
+            if (TryAssign(helper, best)) return true;
+            TriedThisChain.Add(best.gameObject.GetInstanceID());
+        }
+    }
+
+    // 快照里是否存在比当前目标更近的未认领成熟币（用于决定链式是否换向）。
+    private static bool HasCloserUnclaimed(AssistantState helper)
+    {
+        DroppableCurrency target = helper.Target;
+        if (helper.Actor == null || target == null || target.gameObject == null) return false;
+        int targetId = target.gameObject.GetInstanceID();
+        float actorX = helper.Actor.transform.position.x;
+        float targetDistance = Mathf.Abs(target.transform.position.x - actorX);
+        for (int i = 0; i < MatureBuffer.Count; i++)
+        {
+            DroppableCurrency candidate = MatureBuffer[i] != null ? MatureBuffer[i].Coin : null;
+            if (candidate == null || candidate.gameObject == null
+                || !candidate.isActiveAndEnabled) continue;
+            int candidateId = candidate.gameObject.GetInstanceID();
+            if (candidateId == targetId || Claims.ContainsKey(candidateId)) continue;
+            if (Mathf.Abs(candidate.transform.position.x - actorX) < targetDistance) return true;
+        }
+        return false;
+    }
+
+    // 每枚结算成功后的链式补位：满容→回家清账并退出活跃集合；当前目标仍有效且
+    // 就是最近的未认领币→保持（避免释放-重认领的 RPC 抖动）；否则释放旧目标后
+    // 就近补链；补链失败（快照空/全被认领/在线门禁）→收工：动画归零，有携币则
+    // 回家清账。成功路径 Moving/动画速度全程保持奔跑，无停顿帧。
+    private static bool TryChainNextTarget(AssistantState helper)
+    {
+        if (helper.CarriedCoins >= GetAssistantCapacity())
+        {
+            TeleportHomeAndDeposit(helper);
+            DeactivateCollector(helper.Index);
+            return false;
+        }
+
+        if (helper.Target != null)
+        {
+            if (IsValidOwnedTarget(helper) && !HasCloserUnclaimed(helper))
+                return true;
+            ReleaseTarget(helper);
+        }
+        if (AssignNextTarget(helper)) return true;
+
+        helper.Moving = false;
+        SetAnimationSpeed(helper, 0f);
+        if (helper.CarriedCoins > 0) TeleportHomeAndDeposit(helper);
+        DeactivateCollector(helper.Index);
+        return false;
+    }
+
     private static void UpdateMovingAssistants()
     {
         float step = ASSISTANT_RUN_SPEED * Time.deltaTime;
@@ -893,7 +1029,16 @@ public class BankAssistantCoordinator : MonoBehaviour
             FaceTowards(helper.Actor.transform, target.x);
             helper.Actor.transform.position = Vector3.MoveTowards(current, target, step);
 
-            if (Mathf.Abs(helper.Actor.transform.position.x - target.x) > PICKUP_DISTANCE) continue;
+            // 顺路扫吸：移动后先吸收 SWEEP_RADIUS 内未认领的成熟币（目标币已在
+            // Claims 中，天然跳过）。结算路径与目标币完全一致，一路跑一路吸。
+            SweepNearbyCoins(helper);
+            if (helper.Actor == null || helper.Target == null) continue;
+
+            current = helper.Actor.transform.position;
+            target = helper.Target.transform.position;
+            target.y = current.y;
+            target.z = current.z;
+            if (Mathf.Abs(current.x - target.x) > PICKUP_DISTANCE) continue;
 
             DroppableCurrency collected = helper.Target;
             int id = collected.gameObject.GetInstanceID();
@@ -936,9 +1081,100 @@ public class BankAssistantCoordinator : MonoBehaviour
             Observed.Remove(id);
             helper.Target = null;
             helper.CarriedCoins++;
-            helper.Moving = false;
-            SetAnimationSpeed(helper, 0f);
+
+            // 链式补位（当帧）：满容→回家清账；失败→收工；成功→保持奔跑无停顿。
+            TryChainNextTarget(helper);
         }
+    }
+
+    // 顺路扫吸：仅 authority 侧（调用方已保证）。遍历最新成熟快照，对未被认领
+    // 且 |coin.x - actor.x| <= SWEEP_RADIUS 的成熟金币，执行与目标币结算完全
+    // 相同的认领（TryFriendlyClaim）→ 全部门禁（CanCommitPickup）→ SetFake/
+    // pickedUp → DepositFromAssistant → 池回收 → Claims/Observed 清理 →
+    // CarriedCoins++ 路径；结算后同样接链式补位。快照为空时直接跳过。
+    private static void SweepNearbyCoins(AssistantState helper)
+    {
+        if (helper.Actor == null || MatureBuffer.Count == 0) return;
+        float actorX = helper.Actor.transform.position.x;
+        for (int i = 0; i < MatureBuffer.Count; i++)
+        {
+            DroppableCurrency coin = MatureBuffer[i] != null ? MatureBuffer[i].Coin : null;
+            if (coin == null || coin.gameObject == null || !coin.isActiveAndEnabled) continue;
+            if (Mathf.Abs(coin.transform.position.x - actorX) > SWEEP_RADIUS) continue;
+
+            int id = coin.gameObject.GetInstanceID();
+            if (Claims.ContainsKey(id)) continue;
+
+            if (!TryClaimSweepCoin(helper, coin)) continue;
+            if (!CanCommitPickup(helper, coin)
+                || Pool.GetPoolByInstance(coin.gameObject) == null)
+            {
+                RollbackSweepClaim(helper, coin);
+                continue;
+            }
+
+            // 与目标币完全相同的 authority 主线程事务：先冻结/标记物理币并同步，
+            // 再入账恰好一枚。只有入账成功才池回收，经济与物理总数不会分叉。
+            coin.SetFake(true);
+            coin.pickedUp = true;
+            if (NetworkBigBoss.IsOnline) coin.SyncPickedUpAndFake();
+            int accepted = PatchEconomy_Banker.DepositFromAssistant(_mainBanker, 1);
+            if (accepted != 1)
+            {
+                coin.pickedUp = false;
+                coin.SetFake(false);
+                if (NetworkBigBoss.IsOnline) coin.SyncPickedUpAndFake();
+                RollbackSweepClaim(helper, coin);
+                continue;
+            }
+
+            Pool.Despawn(coin.gameObject, true);
+            SweepPolicies.Remove(id);
+            Claims.Remove(id);
+            Observed.Remove(id);
+            helper.CarriedCoins++;
+
+            // 链式补位；失败（含满容）意味着收工/回家，停止本帧继续扫。
+            if (!TryChainNextTarget(helper)) return;
+            if (helper.Actor == null) return;
+            actorX = helper.Actor.transform.position.x;
+        }
+    }
+
+    private static bool TryClaimSweepCoin(AssistantState helper, DroppableCurrency coin)
+    {
+        if (helper.Actor == null || coin == null) return false;
+        if (NetworkBigBoss.IsOnline
+            && (!NetworkBigBoss.HasClientCaughtUp || helper.PositionSync == null
+                || helper.PositionSync.parentHeaderRef == null
+                || coin.parentHeaderRef == null)) return false;
+        int id = coin.gameObject.GetInstanceID();
+        if (Claims.ContainsKey(id)) return false;
+        if (!coin.TryFriendlyClaim(helper.Actor, 20f)) return false;
+
+        // 顺吸可能同时持有多个认领，原始策略按币记录，绝不覆盖单槽 OriginalPolicy。
+        SweepPolicies[id] = coin.pickUpPolicy;
+        coin.pickUpPolicy = PickUpPolicy.OnlyClaimer;
+        coin.SendPolicyRPC();
+        Claims[id] = helper.Index;
+        return true;
+    }
+
+    // 认领回滚：恢复该币原始拾取策略、释放友好认领并清除 Claims 条目，
+    // 与 ReleaseTarget 的回滚语义一致（回滚只作用于自己的认领）。
+    private static void RollbackSweepClaim(AssistantState helper, DroppableCurrency coin)
+    {
+        if (coin == null || coin.gameObject == null) return;
+        int id = coin.gameObject.GetInstanceID();
+        if (SweepPolicies.TryGetValue(id, out PickUpPolicy original))
+        {
+            coin.pickUpPolicy = original;
+            coin.SendPolicyRPC();
+        }
+        SweepPolicies.Remove(id);
+        Claims.Remove(id);
+        if (coin.friendlyClaimer == helper.Actor || coin.friendlyClaimer == null)
+            coin.ClearFriendlyClaimIfClaimer(helper.Actor);
     }
 
     private static void UpdateIdlePatrols(Kingdom kingdom)
@@ -950,7 +1186,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         for (int i = 0; i < Assistants.Length; i++)
         {
             AssistantState helper = Assistants[i];
-            if (i == _collectorIndex || helper.Target != null || helper.Actor == null
+            if (ActiveCollector[i] || helper.Target != null || helper.Actor == null
                 || !helper.Actor.activeInHierarchy) continue;
 
             float center = Mathf.Clamp(kingdom.campfirePosition + HomeOffsets[i],
@@ -1162,13 +1398,16 @@ public class BankAssistantCoordinator : MonoBehaviour
             helper.PatrolRight = (i & 1) == 0;
             helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(i);
         }
-        _collectorIndex = -1;
+        for (int i = 0; i < ActiveCollector.Length; i++) ActiveCollector[i] = false;
         _nextCollectorIndex = 0;
         Claims.Clear();
         Observed.Clear();
         SeenThisScan.Clear();
         MatureBuffer.Clear();
         RemovalBuffer.Clear();
+        SweepPolicies.Clear();
+        _lastLoggedActiveCount = -1;
+        _nextActiveCountLogAt = 0f;
         _nextScanAt = Time.time + SCAN_INTERVAL;
         _nextDiagnosticsAt = Time.time;
     }

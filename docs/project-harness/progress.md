@@ -1,3 +1,24 @@
+## 2026-08-17 — bank-assistants-005：捡币改链式顺吸（reviewer 两轮通过，待部署）
+
+- 用户反馈：助手逐枚"定位→走→捡→停→等下个扫描节拍"卡顿严重，跟不上扔币节奏；原生银行家是
+  批量认领+Wallet接触吸附一路连吸。根因三层：结算后`Target=null`+动画归零停死；下一枚分配只在
+  `ScanAndDispatch`节拍（0.5s）；单收集者+逐枚0.22精确定位。
+- 修复三件套（只改`PatchEconomy_BankAssistants.cs`，助手无Wallet/仅权威侧/Deposit原子入账等
+  不变量全保）：**链式目标**——每枚结算当帧`TryChainNextTarget`接最近未认领成熟币（认领失败退让
+  次近候选），奔跑动画全程不停；**顺路扫吸**——移动中`SWEEP_RADIUS=0.35`内成熟币走与目标币完全
+  相同的认领→`CanCommitPickup`→`SetFake/pickedUp`→`DepositFromAssistant`→池回收事务，多币认领
+  原策略用独立`SweepPolicies`字典按币记录回滚；**积压扩容**——`_collectorIndex`单值改
+  `ActiveCollector[4]`集合，目标活跃数=1+成熟币/8上限4，轮转补位。`SCAN_INTERVAL`0.5→0.3。
+- 委派链：worker=OMP deepseek-v4-flash thinking=max；reviewer=GLM5.3 subagent（kimi K3当月
+  配额403耗尽按协作规范回落）——首轮**changes_requested**揪出两个真bug：①`AssignNextTarget`
+  单候选穿透（最近币被村民原生认领时每0.3s回家瞬移循环最长20s）②`SelectNextCollectors`轮转
+  跳位（3-4并发只激活3个）。Operator各≤10行修复后复核**approved**；另按WARN加了联机门禁
+  预检（防client未追上时O(N²)空转帧尖峰）。经济原子性/认领一致性/状态机首轮即全PASS。
+- 独立构建0 warning/0 error；DLL 204,800 bytes、SHA-256=
+  `7E1E9B80BE388FB763F349F08025FD7D02DAE5E0B4CAC9580AD2D363B143A161`；checklist validator
+  0 warning。待用户退出后部署E盘实测：沿币串一路跑一路吸无停顿、积压≥8出第二助手、
+  主银行家行为不变。
+
 ## 2026-08-16 — special-tower-rebuild-018：交互不出现根因=源prefab解析到基座资产（候选集修复待部署）
 
 - 用户实测驻守工匠修复版（A05A6551）仍无重建交互；23:50会话日志仅开局一条
