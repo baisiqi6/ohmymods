@@ -15,7 +15,7 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "首版仅允许安全空闲的Ballista弩箭塔按运行时原生六级塔价格重建回当前biome六级普通箭塔；随后专精完全走原版隐士路线。Fire/OilFire/Knight/Berserker/Baker/Mead保持fail closed；组件必须在Pool/CRPC注册前由主客确定性注入，Disabled仍保留布局但阻止交互。",
-      "verification": "2.4资源与2.1逻辑已核：完成态特种塔无PayableUpgrade；原生Pay负责next NetID、biome swap、Persistent/CRPC与销毁；Ballista持有池化bolt且OnDestroy不回收。首版源码SHA-256=DB882F8A43BC56A58C901B7101535738B2288E0114119046D6414B45BD755023，禁部署构建0 warning/0 error，DLL SHA-256=D41870F063085B1852410393ACE358B42D8A81334948F5ED787D2C166B52A0A7；validator 0 warning。游戏运行中未部署，等待保存读档/跨岛/分屏/联机实测。",
+      "verification": "2.4资源与2.1逻辑已核：完成态特种塔无PayableUpgrade；原生Pay负责next NetID、biome swap、Persistent/CRPC与销毁；Ballista持有池化bolt且OnDestroy不回收。首版源码SHA-256=DB882F8A43BC56A58C901B7101535738B2288E0114119046D6414B45BD755023；提交703be83已推送。游戏退出后从该提交重建0 warning/0 error并只部署E盘独立测试副本，构建/部署DLL均为181760 bytes、SHA-256=947131C76EF465B35AC21862E273E29D87AB0A8C2D97136E9CA15062F97E9CBD；保存读档/跨岛/分屏/联机仍待实测。",
       "handoff": "先验证希腊空闲Ballista重建、bolt回收和再次用隐士专精；未完成存档往返与网络门禁前不得扩展到Fire/OilFire或TowerKnight来源。",
       "workflow": {
         "status": "running",
@@ -33,7 +33,7 @@
         "code": "il2cpp/PatchWorld_SpecialTowerRebuild.cs"
       },
       "review": {
-        "decision": null
+        "decision": "approved"
       }
     },
     {

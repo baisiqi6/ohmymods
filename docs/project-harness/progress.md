@@ -1,3 +1,11 @@
+## 2026-08-16 — special-tower-rebuild-018：首版已部署，刷新ZIP待生成
+
+- 用户退出后确认游戏进程为0；从已推送提交`703be83`重新构建0 warning/0 error，并只部署E盘独立
+  测试副本。构建/部署DLL均为181,760 bytes、SHA-256=
+  `947131C76EF465B35AC21862E273E29D87AB0A8C2D97136E9CA15062F97E9CBD`，覆盖前旧DLL已保留备份。
+- 本轮仍只开放安全空闲Ballista付费重建为当前biome原生六级普通箭塔；Fire/OilFire/Knight/
+  Berserker/Baker/Mead来源继续fail closed。静态与部署门禁通过，保存往返、跨岛、分屏和联机待实测。
+
 ## 2026-08-16 — 刷新测试候选：友好巨魔闭环与视觉比例
 
 - 用户退出游戏后确认 `KingdomTwoCrowns` 进程为0；当前IL2CPP源码重新构建0 warning/0 error，
@@ -615,14 +623,15 @@
 - 原生2.4资源确认Fire可离岛且可上船，因此已拥有的Passenger/Roaming状态正常读档、放下与换岛不依赖Cabin。
   但其`lostOnCrownLost=true`，失冠/死亡换君主会按原生规则转为CoinLocked/land0；当前又没有Fire小屋，
   所以不能承诺死亡后仍可重新获得，后续需单独决定是否修复这一所有权缺口。
-- 两处代码经worker构建与独立reviewer最终APPROVED；Debug 0 warning / 0 error，DLL SHA-256=
-  `7A75716A8748A09497314C7DAE32B1B760B81A1416520C7509C5BD958E691208`（174,080 bytes）。游戏仍在运行，
-  因此尚未部署、打包或实机；等待退出后只部署独立副本。
+- 两处代码经worker构建与独立reviewer最终APPROVED；初始Debug候选DLL SHA-256=
+  `7A75716A8748A09497314C7DAE32B1B760B81A1416520C7509C5BD958E691208`（174,080 bytes）。随后已随综合候选
+  提交、推送，并在确认游戏退出后部署E盘独立副本；当前综合部署DLL为181,760 bytes、SHA-256=
+  `947131C76EF465B35AC21862E273E29D87AB0A8C2D97136E9CA15062F97E9CBD`，实机观感仍待验证。
 
 ## 2026-08-16 — special-tower-rebuild-018：首版安全重建已编译
 
 - 完成态Ballista/Fire/Knight/OilFire/Berserker等资源均无原生PayableUpgrade，不能靠改nextPrefab实现互换；直接替换还会绕过next NetID、Persistent、隐士和驻员清理链。
 - 用户接受“两步重建”：先把旧专精塔付费恢复为当前世界六级普通箭塔，再携目标隐士走原版专精。首版只开放安全空闲的Ballista来源，目标价格从运行时原生六级塔读取；重建本身不消耗隐士、不计特种塔统计。
 - 新补丁在PoolManager建池前为当前biome安全Ballista prefab确定性追加原生PayableUpgrade和无状态marker；Disabled仍保留CRPC/Persistent组件布局，只关闭选择/付款。最终付款前回收已装填bolt，再完整执行原生Pay。
-- Fire/OilFire/TowerKnight/Baker/Mead因库存、隐藏驻员或同级PayableShield生命周期未审清，首版保持fail closed。禁部署Debug构建0 warning/0 error；游戏仍在运行，尚未部署、打包、提交或实机。
+- Fire/OilFire/TowerKnight/Baker/Mead因库存、隐藏驻员或同级PayableShield生命周期未审清，首版保持fail closed。禁部署Debug构建0 warning/0 error；随后已提交、推送并在游戏退出后部署独立测试副本，实机门禁仍待完成。
 - 当前源码SHA-256=`DB882F8A43BC56A58C901B7101535738B2288E0114119046D6414B45BD755023`，Debug DLL SHA-256=`D41870F063085B1852410393ACE358B42D8A81334948F5ED787D2C166B52A0A7`；checklist validator 0 warning、相关文本严格UTF-8通过。

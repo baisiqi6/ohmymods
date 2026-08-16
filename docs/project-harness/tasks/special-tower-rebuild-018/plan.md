@@ -51,10 +51,11 @@
 
 - 原生资源图、付款链、持久化与 Ballista bolt 生命周期已完成只读核对。
 - 首版代码已落在 `il2cpp/PatchWorld_SpecialTowerRebuild.cs`，禁部署构建 0 warning / 0 error。
-- 当前源码 SHA-256=`DB882F8A43BC56A58C901B7101535738B2288E0114119046D6414B45BD755023`，
-  Debug DLL SHA-256=`D41870F063085B1852410393ACE358B42D8A81334948F5ED787D2C166B52A0A7`；
-  checklist validator 为0 warning，相关文本严格UTF-8通过。
-- 游戏当前运行中，严禁部署；等待退出后才更新独立测试副本并执行上述实机门禁。
+- 当前源码 SHA-256=`DB882F8A43BC56A58C901B7101535738B2288E0114119046D6414B45BD755023`；
+  从已推送提交重新构建0 warning/0 error，并在确认游戏进程为0后只部署E盘独立测试副本。构建与部署
+  DLL均为181,760 bytes、SHA-256=`947131C76EF465B35AC21862E273E29D87AB0A8C2D97136E9CA15062F97E9CBD`；
+  覆盖前旧DLL已另存为非DLL扩展名备份。
+- 静态门禁与独立副本部署已经完成；保存往返、跨岛、分屏和联机实机门禁仍未完成。
 
 ## 回滚
 
