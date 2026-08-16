@@ -254,8 +254,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "FriendlyTroll候选枚举精确排除Squid但允许CrownStealer且不用高度判定；约10% EnemyType.TrollWeak以稳定哈希获得原生反制目标；友好巨魔追击速度为原值1.5倍、索敌距离为原值2倍且不改冲撞/伤害；无累乘、新RPC/池或全局缓存污染，Disabled与回池恢复原值；构建、审查与独立副本实测通过。",
-      "verification": "四阶段实机定位：friendly-active=41、counter-query=8且range=2.00，但friendly-injected/native-damage均0，确认原设计缺追击阶段。新增authority-only中央0.25秒追击，范围为(current chargeRange,10]，普通行走态仅SetSpeed(runSpeed,direction)，内圈仍走原生query/charge/damage。源码SHA256=12700B854332A2CB8F12A21BD8669731321C5AD2358C6F9CFE1626A99375574E；Debug构建0/0，DLL SHA256=8F122777143698C2FD0F51D0BE1E388849C4802C1DE299F93A2CA2918AAB72BF；reviewer最终APPROVED。",
-      "handoff": "游戏进程已退出。下一步path-scoped commit/push后只部署独立测试副本，不刷新release zip；实测10格内转向、2格内counter-query→friendly-injected→native-damage，并检查撤退、拾物、石化、冲锋、切岛/失权零干预。",
+      "verification": "四阶段实机定位：friendly-active=41、counter-query=8且range=2.00，但friendly-injected/native-damage均0，确认原设计缺追击阶段。新增authority-only中央0.25秒追击，范围为(current chargeRange,10]，普通行走态仅SetSpeed(runSpeed,direction)，内圈仍走原生query/charge/damage。源码SHA256=12700B854332A2CB8F12A21BD8669731321C5AD2358C6F9CFE1626A99375574E；构建0/0；提交3ee2be7已推送，独立副本部署DLL SHA256=8F122777143698C2FD0F51D0BE1E388849C4802C1DE299F93A2CA2918AAB72BF且与构建一致；reviewer最终APPROVED。",
+      "handoff": "追击修复已部署独立测试副本，release zip未刷新。实测10格内转向、2格内counter-query→friendly-injected→native-damage，并检查撤退、拾物、石化、冲锋、切岛/失权零干预。运行时闭环前任务保持doing。",
       "workflow": {
         "status": "review_approved",
         "updated_at": "2026-08-15"
