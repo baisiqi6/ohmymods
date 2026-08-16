@@ -356,8 +356,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "希腊只保留一个原版Banker作为国库/利息/提款/存档权威；欧洲、幕府、Dead Lands、北境四套外观各生成一名无Banker/Persistent/Wallet行为的助手，Dead Lands助手y=1.25、北境助手y=1.2且均只改y；主银行家仅管理左右从城堡向外数第二道墙之间并保持增强移速、安全期全天工作与该区域动态扫描；该管辖区外的玩家金币落地3秒后由单一当前助手连续处理，同批下一枚距助手不超过6单位就直接跑、超过才瞬移，其他助手在城堡附近巡逻且不为同批金币一起行动；成功拾取由world-authority立即原子入账，轮换/回城不重复入账；共享账本不覆盖日息或回滚提款；同步池、切岛/读档生命周期、构建与独立副本实测通过。",
-      "verification": "此前已在独立副本确认四套控制器解析与四助手生成。实现以左右GetWall(side,1)定义第二道墙管辖区；两侧未齐时对称回退index0，再回退有效border；主Banker ClaimCoins按朝向精确设置range/rangeBehind并在认领入口拒绝域外Player Coins，助手scan每tick只解析一次同一domain且commit时复核。同批后续金币<=6直接跑，首枚或>6才传送。最新只把banker_deadlands固定index2绝对y改为1.25，banker_norselands index3仍为1.2；独立reviewer APPROVED，Debug构建0 warning/0 error，DLL SHA256=7A75716A8748A09497314C7DAE32B1B760B81A1416520C7509C5BD958E691208（174080 bytes）。游戏仍运行，未部署；当前ZIP未刷新。",
-      "handoff": "Dead Lands助手目标为绝对y=1.25，北境为y=1.2；只改双方确定性prefab视觉比例，国库、利息、权限、调度、同步池与单collector契约不变。等待游戏退出后只部署独立副本并实测比例/转向/池复用；不得复制Banker组件或让客户端写国库，不修改Steam/共享存档/Mono/当前ZIP。",
+      "verification": "此前已在独立副本确认四套控制器解析与四助手生成。实现以左右GetWall(side,1)定义第二道墙管辖区；两侧未齐时对称回退index0，再回退有效border；主Banker ClaimCoins按朝向精确设置range/rangeBehind并在认领入口拒绝域外Player Coins，助手scan每tick只解析一次同一domain且commit时复核。同批后续金币<=6直接跑，首枚或>6才传送。最新只把banker_deadlands固定index2绝对y改为1.25，banker_norselands index3仍为1.2；独立reviewer APPROVED。游戏退出后重新构建0 warning/0 error并只部署E盘独立测试副本，构建/部署DLL SHA256=116972F641D20C2801F3113C12F7B94B6DEF23B33F29684786994321071A5749（174080 bytes）。",
+      "handoff": "Dead Lands助手目标为绝对y=1.25，北境为y=1.2；只改双方确定性prefab视觉比例，国库、利息、权限、调度、同步池与单collector契约不变。本次刷新候选供用户实测比例、转向和池复用；不得复制Banker组件或让客户端写国库，不修改Steam、共享存档或Mono。",
       "workflow": {
         "status": "running",
         "updated_at": "2026-08-16",
@@ -458,8 +458,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "工匠成功使用普通BerserkerTool的第1-5次生成普通狂战士、第6次生成BerserkerLeader并循环；仅成功转职计数且换岛延续、完整退出重置；隐士不再被敌人选取或抓走但不免疫伤害、不改变其他战利品；HermitType.Baker/Horn绝对y=1.15、Horse绝对y=1.10、Ballista绝对y=1.20、Knight绝对y=1.05、Fire绝对y=1.25，其他隐士、朝向、能力不变；IL2CPP构建成功、独立副本实测无相关异常。",
-      "verification": "狂战士公开Promote修复已由用户确认；Baker/Horse/Horn/Ballista/Knight既有缩放已实现。2026-08-16新增Fire y=1.25，只写y并沿用ScaleRegistry/OnDestroy注销；独立reviewer静态APPROVED，Debug构建0 warning/0 error，DLL SHA256=7A75716A8748A09497314C7DAE32B1B760B81A1416520C7509C5BD958E691208（174080 bytes）。游戏仍运行，未部署或打包。",
-      "handoff": "等待退出后部署独立副本；验证Baker/Horn=1.15、Horse=1.10、Ballista=1.20、Knight=1.05、Fire=1.25，左右朝向正常且其他隐士不变。Fire正常Passenger/Roaming跨岛不依赖Cabin；死亡/失冠CoinLocked无小屋风险记录在save-repair-017。Steam、共享存档和当前ZIP不修改。",
+      "verification": "狂战士公开Promote修复已由用户确认；Baker/Horse/Horn/Ballista/Knight既有缩放已实现。2026-08-16新增Fire y=1.25，只写y并沿用ScaleRegistry/OnDestroy注销；独立reviewer静态APPROVED。游戏退出后重新构建0 warning/0 error并只部署E盘独立测试副本，构建/部署DLL SHA256=116972F641D20C2801F3113C12F7B94B6DEF23B33F29684786994321071A5749（174080 bytes）。",
+      "handoff": "本次刷新候选供用户验证Baker/Horn=1.15、Horse=1.10、Ballista=1.20、Knight=1.05、Fire=1.25，左右朝向正常且其他隐士不变。Fire正常Passenger/Roaming跨岛不依赖Cabin；死亡/失冠CoinLocked无小屋风险记录在save-repair-017。Steam、共享存档和Mono不修改。",
       "workflow": {
         "status": "review_approved",
         "updated_at": "2026-08-16",
