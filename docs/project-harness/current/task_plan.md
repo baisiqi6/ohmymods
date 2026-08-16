@@ -1,10 +1,10 @@
 # Current Task Pointer
 
-- Checklist item: `friendly-troll-balance-008`
-- Title: Friendly Troll target filtering, pursuit and counter balance
+- Checklist item: `special-tower-rebuild-018`
+- Title: 特种箭塔安全重建
 - Status: doing
 - Owner: `codex`
-- Session: `codex-2026-08-16-friendly-troll-vulnerability`
-- Canonical plan: `docs/project-harness/tasks/friendly-troll-balance-008/plan.md`
+- Session: `codex-2026-08-16-special-tower-rebuild`
+- Canonical plan: `docs/project-harness/tasks/special-tower-rebuild-018/plan.md`
 
 > This file is a pointer. Full plan content lives in the canonical plan above.

@@ -291,6 +291,22 @@ IL2CPP 实机命中，编译成功和 interop 中存在签名不能代替运行�
 active 时才整批回退 standby。恢复来源必须是已经完成且原生确实发放奖励的任务，不能重放领奖动画或
 直接改写存档。网络对象只复用当前 biome 已注册的同步池，并由 world-authority 生成。
 
+### 21. 完成态专精建筑不能在实例注册后临时追加付款组件
+
+**症状：** 普通建筑能通过 `PayableUpgrade` 继续升级，但完成后的专精建筑没有任何下一步交互；直接
+`SetNextPrefab` 无入口，运行时 `AddComponent<PayableUpgrade>` 又可能造成主客 RPC 索引、序列化组件列表
+和旧存档 componentData 不一致。
+
+**原生语义：** `PayableUpgrade` 同时实现 `IRPCable` 与 `Persistent.IBehaviour`。它的组件顺序必须在
+`CRPCHeader.RegisterComponents` 枚举前确定；`Pay()` 还负责预留 next NetID、biome swap、乘客消耗、
+`IUpgradeable` 迁移与旧根销毁，不能用裸 `Instantiate/Destroy` 替代。
+
+**规则：** 若确需为完成态建筑补交互，只能在双方确定性的 prefab 初始化阶段、任何 pool/CRPC 注册之前
+加入同一个原生组件，并在 Mod Disabled 时仍保留组件布局、只关闭交互。目标和价格优先从当前原生升级图
+读取；源建筑的驻员、库存、投射物与旁挂商店必须有逐类型 teardown 证明，未证明的类型 fail closed。
+新增 Persistent 组件会让已增强存档携带额外 componentData，完全卸载 Mod 后可能被原版忽略并记错误，
+必须显式写入兼容边界并做保存往返门禁。
+
 ## 当前 mod 功能清单
 
 | Patch 类 | 功能 | 状态 |

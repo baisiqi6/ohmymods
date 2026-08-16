@@ -24,6 +24,18 @@
 - 补充单位仍登记到原 `SummonGhostSteedAbility` 的active列表并调用各自原生编队、Summoner和死亡倒计时；
   不扩展能力RPC/序列化，也不接管原生首队、冷却、雾效或回收入口。
 
+### D20. 专精塔重建先回六级普通塔，再走原版隐士专精（2026-08-16）
+
+- 完成态Ballista、Fire、OilFire、Knight/Berserker等没有原生下一阶`PayableUpgrade`，不能只扩展
+  `nextPrefab`图；直接special→special还会绕过next NetID、乘客、Persistent、驻员与库存清理。
+- 决策采用两步事务：安全空闲的专精源先按运行时原生六级塔profile付费恢复为当前biome六级普通塔；
+  之后玩家携目标隐士完成第二次原生专精。重建不退款、不消耗隐士、不重复记专精统计。
+- 首版只开放Ballista，因为其唯一额外库存是可验证回收的池化bolt。Fire/OilFire/TowerKnight及商店塔
+  均等待各自teardown证据，不以“看起来没人”代替库存、隐藏GuardSlot或同级PayableShield审计。
+- 注入的原生PayableUpgrade必须在主客pool/CRPC注册前确定性加入；总开关关闭仍保留布局、只禁交互。
+  这是网络确定性优先于“Disabled时物理移除组件”的例外，兼容代价是增强存档可能多一份原生
+  PayableUpgradeData。
+
 ### D9. 钱袋扩容 = 数字容量 + 视觉上限，无物理容器（2026-08-12）
 - 用户初始设想"钱袋有长宽明确的容器碰撞空间，调大空间+放大 UI = 扩容"——源码核实不成立：
   容量是 `Wallet.TotalCapacity` 数字（全库零写入），拾取靠金币×玩家物理碰撞重叠 + 点击

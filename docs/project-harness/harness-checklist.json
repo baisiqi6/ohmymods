@@ -4,6 +4,39 @@
   "updated_at": "2026-08-16",
   "items": [
     {
+      "id": "special-tower-rebuild-018",
+      "title": "特种箭塔安全重建",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "selected_in_session": "codex-2026-08-16-special-tower-rebuild",
+      "updated_at": "2026-08-16",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "首版仅允许安全空闲的Ballista弩箭塔按运行时原生六级塔价格重建回当前biome六级普通箭塔；随后专精完全走原版隐士路线。Fire/OilFire/Knight/Berserker/Baker/Mead保持fail closed；组件必须在Pool/CRPC注册前由主客确定性注入，Disabled仍保留布局但阻止交互。",
+      "verification": "2.4资源与2.1逻辑已核：完成态特种塔无PayableUpgrade；原生Pay负责next NetID、biome swap、Persistent/CRPC与销毁；Ballista持有池化bolt且OnDestroy不回收。首版源码SHA-256=DB882F8A43BC56A58C901B7101535738B2288E0114119046D6414B45BD755023，禁部署构建0 warning/0 error，DLL SHA-256=D41870F063085B1852410393ACE358B42D8A81334948F5ED787D2C166B52A0A7；validator 0 warning。游戏运行中未部署，等待保存读档/跨岛/分屏/联机实测。",
+      "handoff": "先验证希腊空闲Ballista重建、bolt回收和再次用隐士专精；未完成存档往返与网络门禁前不得扩展到Fire/OilFire或TowerKnight来源。",
+      "workflow": {
+        "status": "running",
+        "updated_at": "2026-08-16"
+      },
+      "lease": {
+        "owner": "codex",
+        "session": "codex-2026-08-16-special-tower-rebuild",
+        "acquired_at": "2026-08-16T21:00:00+08:00",
+        "expires_at": "2026-08-17T21:00:00+08:00",
+        "ttl_minutes": 1440
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/special-tower-rebuild-018/plan.md",
+        "code": "il2cpp/PatchWorld_SpecialTowerRebuild.cs"
+      },
+      "review": {
+        "decision": null
+      }
+    },
+    {
       "id": "tool-assignment-015",
       "title": "高人口稀疏工具分配优化",
       "status": "doing",

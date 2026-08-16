@@ -618,3 +618,11 @@
 - 两处代码经worker构建与独立reviewer最终APPROVED；Debug 0 warning / 0 error，DLL SHA-256=
   `7A75716A8748A09497314C7DAE32B1B760B81A1416520C7509C5BD958E691208`（174,080 bytes）。游戏仍在运行，
   因此尚未部署、打包或实机；等待退出后只部署独立副本。
+
+## 2026-08-16 — special-tower-rebuild-018：首版安全重建已编译
+
+- 完成态Ballista/Fire/Knight/OilFire/Berserker等资源均无原生PayableUpgrade，不能靠改nextPrefab实现互换；直接替换还会绕过next NetID、Persistent、隐士和驻员清理链。
+- 用户接受“两步重建”：先把旧专精塔付费恢复为当前世界六级普通箭塔，再携目标隐士走原版专精。首版只开放安全空闲的Ballista来源，目标价格从运行时原生六级塔读取；重建本身不消耗隐士、不计特种塔统计。
+- 新补丁在PoolManager建池前为当前biome安全Ballista prefab确定性追加原生PayableUpgrade和无状态marker；Disabled仍保留CRPC/Persistent组件布局，只关闭选择/付款。最终付款前回收已装填bolt，再完整执行原生Pay。
+- Fire/OilFire/TowerKnight/Baker/Mead因库存、隐藏驻员或同级PayableShield生命周期未审清，首版保持fail closed。禁部署Debug构建0 warning/0 error；游戏仍在运行，尚未部署、打包、提交或实机。
+- 当前源码SHA-256=`DB882F8A43BC56A58C901B7101535738B2288E0114119046D6414B45BD755023`，Debug DLL SHA-256=`D41870F063085B1852410393ACE358B42D8A81334948F5ED787D2C166B52A0A7`；checklist validator 0 warning、相关文本严格UTF-8通过。
