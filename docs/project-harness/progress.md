@@ -1,3 +1,23 @@
+## 2026-08-16 — ghost-squads-013：希腊幽灵leash处决改边界驻守候选编译通过（待部署）
+
+- 用户报告希腊亡灵小队一直向外冲锋、超距即集体死亡。根因为原生设计：`WarriorGhostLeaderGreece`/
+  `WarriorGhostGreece` 的 `StartDeathCountdown` 即"离召唤者超`_maxPlayerDistance`处决"，而其冲锋AI
+  无敌人时每秒向营火反方向推进，站桩玩家必然看到小队冲出边界自杀（D22，非mod引入，四队扩展放大了暴露面）。
+- 修复=边界驻守+定时消亡：Prefix拦截两个Greece类的`StartDeathCountdown`（mod关闭/无世界权威走原版），
+  监督协程每0.5s检查，`|dx|>=上限−1`时`ForceStop()+Pause(0.75)`钉住驻守（砍击/射箭照常，玩家回接近
+  自动恢复冲锋）；60s到期`KillUnit()`补消耗机制，否则`HasGhosts`门会锁死技能。Summoner丢失/异常/
+  启动失败均兜底，不留永生幽灵。北境行为与GhostSquads既有逻辑零改动。
+- 委派链（新协作规范首次执行）：worker=OMP `deepseek-v4-flash` thinking=max（沙箱只读无法自建，
+  AST+逐符号语义核对后由Operator独立构建0 warning/0 error）；reviewer首选OMP `kimi-code/k3`因
+  当月配额403耗尽，按备选顺位回落GLM5.3 subagent thinking=max，结论approved——核对Mover暂停
+  Max语义下0.5s+0.75s钉住节奏数学无间隙、`yield break`在try-with-catch内合法、KillUnit回收链完整、
+  联机parity；两个非阻塞观察项（弓箭手Shoot收尾UnPause的有界抖动、HelsHead若接希腊prefab同样驻守）。
+- 新增仅`il2cpp/PatchDivine_GhostLeashHold.cs`（源码SHA-256=
+  `8CFC3101AB89831A5411E63579CBDCE65284153DAB28775D89BA4EF46436A478`）；禁部署Debug构建DLL为
+  200,192 bytes、SHA-256=`06AE5B2D4DF9D55CF533225FB00E4385C0E693D27C0DD23B31FB0C1D0EE86ADF`。
+  同步D22、checklist validator 0 warning。目标机游戏进程运行中不能覆盖DLL，等用户退出后部署E盘
+  独立副本实测（驻守距离、60s消亡、北境不变、HasGhosts解锁）。
+
 ## 2026-08-16 — special-tower-rebuild-018：驻守工匠交互修复静态通过
 
 - 实机日志只有`Ready source=Tower Ballista target=Tower6 price=18 biome=5`而没有`Rebuilding`；根因是旧候选

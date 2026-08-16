@@ -1,5 +1,20 @@
 # ohmymods — 领域决策记录
 
+### D22. 希腊幽灵 leash 处决改为边界驻守 + 定时消亡（2026-08-16）
+- 原生希腊幽灵（`WarriorGhostLeaderGreece`/`WarriorGhostGreece`）的 `StartDeathCountdown` 是
+  "离召唤者 x 距离超 `_maxPlayerDistance` 即 KillUnit 处决"，而其冲锋 AI 无敌人时每秒向营火反方向
+  推进——站桩玩家会看到小队冲出边界集体自杀（D19 扩成四队后更明显）。这是原生设计，非 mod 引入。
+- 修复保留冲锋身份：Prefix 拦截两个 Greece 类的 `StartDeathCountdown`（mod 关闭/无世界权威走原版），
+  监督协程每 0.5s 检查，`|dx| >= _maxPlayerDistance − 1` 时 `ForceStop()+Pause(0.75)` 钉住驻守
+  （`Mover.Pause` 是 Max 语义且暂停期 SetGoal 不施加速度，0.5s+0.75s 节奏数学上无间隙；砍击/射箭
+  照常），玩家回接近后自动恢复原生冲锋。
+- 必须补定时消亡：希腊幽灵原生唯一死期就是 leash 处决，去掉后 `HasGhosts` 门会永久锁技能。
+  监督协程 60s 到期 `KillUnit()`（与原生处决同路径 `ReceiveDamage(999,...)`）。Summoner 丢失、
+  tick 异常、监督启动失败均兜底 KillUnit 或回落原生处决，不留永生幽灵。
+- 北境幽灵（基类行为）、`PatchDivine_GhostSquads.cs` 既有逻辑、原生召唤协程/冷却零改动；
+  类级补丁使原生第一队希腊小队同样驻守（设计意图）。观察项：弓箭手 `Shoot()` 收尾 `UnPause()`
+  造成的有界外溢抖动；`HelsHead` 神器若接希腊 prefab 也会变为驻守（预期良性，实机确认）。
+
 ### D18. FleetBoat 所有权只认一种生命周期表示（2026-08-15）
 - 奥林匹斯四艘小船的永久所有权下限来自四个实际发船的交付任务：`GodIslandAthena`、
   `GodIslandArtemis`、`GodIslandHephaestus`、`GodIslandHermes`；不重置任务，也不重放 IdolCollector 奖励。
