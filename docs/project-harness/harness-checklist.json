@@ -248,27 +248,29 @@
       "status": "doing",
       "priority": "p0",
       "owner": "codex",
-      "selected_in_session": "codex-2026-08-15-friendly-troll-balance-008",
-      "updated_at": "2026-08-15",
+      "selected_in_session": "codex-2026-08-16-friendly-troll-vulnerability",
+      "updated_at": "2026-08-16",
       "dependencies": [],
       "blocked_by": [],
       "blocked_reason": null,
-      "acceptance": "FriendlyTroll候选枚举精确排除Squid但允许CrownStealer且不用高度判定；约10% EnemyType.TrollWeak以稳定哈希获得原生反制目标；友好巨魔追击速度为原值1.5倍、索敌距离为原值2倍且不改冲撞/伤害；无累乘、新RPC/池或全局缓存污染，Disabled与回池恢复原值；构建、审查与独立副本实测通过。",
-      "verification": "四阶段实机定位：friendly-active=41、counter-query=8且range=2.00，但friendly-injected/native-damage均0，确认原设计缺追击阶段。新增authority-only中央0.25秒追击，范围为(current chargeRange,10]，普通行走态仅SetSpeed(runSpeed,direction)，内圈仍走原生query/charge/damage。源码SHA256=12700B854332A2CB8F12A21BD8669731321C5AD2358C6F9CFE1626A99375574E；构建0/0；提交3ee2be7已推送，独立副本部署DLL SHA256=8F122777143698C2FD0F51D0BE1E388849C4802C1DE299F93A2CA2918AAB72BF且与构建一致；reviewer最终APPROVED。",
-      "handoff": "追击修复已部署独立测试副本，release zip未刷新。实测10格内转向、2格内counter-query→friendly-injected→native-damage，并检查撤退、拾物、石化、冲锋、切岛/失权零干预。运行时闭环前任务保持doing。",
+      "acceptance": "FriendlyTroll候选枚举精确排除Squid但允许CrownStealer；约10% TrollWeak稳定反制并在10格外圈主动接近。活动友好巨魔在Mod启用时只由world-authority解除原生无敌，关闭Mod与正常回池恢复可逆基线；加载、卸载、失权零写，联机仅一次延迟同步；不改HP、damage mask、冲撞、RPC协议、对象池或存档。构建、审查、独立副本query→injected→native-damage实测通过。",
+      "verification": "最新独立副本实机为friendly-active=54、counter-query=12、friendly-injected=0、native-damage=0；只读存档确认54个Troll_friendly全部invulnerable=true，原生IsDamagedBy/ReceiveDamage均拒绝。最窄解除无敌修复经worker构建0/0、reviewer最终APPROVED；源码SHA256=73934E38B3C1DB59CA27C14C9FF3F64F310C7F9E6697DC6A6E64AAF691D32542，DLL SHA256=BDF1FB4415E05E8F9596D19A024D020210ECCCEE7B6291D72D68CECBA9A4AB4B。",
+      "handoff": "最终静态审查通过，尚未部署。确认进程为0后仅部署独立副本并path-scoped commit/push；release zip不刷新。实测现有54个应解除无敌，并出现friendly-injected/native-damage；禁用恢复、联机catch-up/切权与SailAway不得产生重复RPC或异常。",
       "workflow": {
-        "status": "review_approved",
-        "updated_at": "2026-08-15"
+        "status": "running",
+        "updated_at": "2026-08-16",
+        "branch": "agent/post-release-candidate"
       },
       "lease": {
         "owner": "codex",
-        "session": "codex-2026-08-15-friendly-troll-balance-008",
-        "acquired_at": "2026-08-15T17:00:00+08:00",
-        "expires_at": "2026-08-16T17:00:00+08:00",
+        "session": "codex-2026-08-16-friendly-troll-vulnerability",
+        "acquired_at": "2026-08-16T11:27:16Z",
+        "expires_at": "2026-08-17T11:27:16Z",
         "ttl_minutes": 1440
       },
       "artifacts": {
-        "plan": "docs/project-harness/tasks/friendly-troll-balance-008/plan.md"
+        "plan": "docs/project-harness/tasks/friendly-troll-balance-008/plan.md",
+        "branch": "agent/post-release-candidate"
       },
       "review": {
         "decision": "approved"

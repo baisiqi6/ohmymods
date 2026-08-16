@@ -18,6 +18,14 @@
 - 读档和 authority 迁移由相同身份重算；缺存档上下文或网络 header 时 fail closed。为保持兼容，本任务不扩展 Troll 的 RPC 或序列化协议。
 - 反制巨魔只在 world-authority 执行 AI 决策；客户端只接收原生位置、冲撞与伤害同步。不得新增 prefab 或对象池。
 - 友好巨魔资源已允许 `DamageSource.Troll`；不得扩大碰撞体、修改跳跃轨迹或重写伤害系统。
+- 原生永久化前的 `Troll_friendly` 仍保留临时召唤物的 `invulnerable=true`。Mod 启用且处于
+  world-authority/Playing 时必须通过原生公开属性把活动友好巨魔切为可受伤；不得改写 HP、
+  `damagedBy`、碰撞、存档 JSON 或 RPC 协议。
+- 每个 Damageable 原生指针必须捕获可逆基线 `currentAtFirstCapture || isInvulnerableInitially`，
+  以防 Mod 状态被原生存档为 false 后重启时丢失原版 true 基线。关闭 Mod 与正常游戏内回池前恢复；
+  Loading、SailAway、PrepareUnload、失权和失活对象禁止写入，由原生 OnDisable Reset 收尾。
+- 首次公开 setter 可能早于 CRPC header/客户端 catch-up。每实例只保留一次 pending；双方可创建场景协调器，
+  但仅 authority 在 header、RPC index 与 catch-up 全部就绪后以同一公开 setter 补发一次，禁止调用私有发送 thunk。
 - 2.4 实际原值为 `_runSpeed=2`、`_maxAttackDistance=10`，目标绝对结果为 3/20；不得修改
   `_chargeSpeed`、冲撞距离、伤害或冷却。每个池实例必须捕获原 profile 后按倍数重算，禁止在
   Init/状态机热路径累乘；关闭 Mod 或回池前恢复原值。
@@ -40,6 +48,9 @@
 6. 联机/权威迁移、读档、换岛与对象池复用无普通巨魔误标、目标缓存污染、未知 RPC/Pool 或相关异常。
 7. 友好巨魔追击速度为原版 1.5 倍、索敌距离为原版 2 倍；冲撞动作不变，关闭 Mod 恢复原值，
    回池重生不会继续累乘。
+8. 当前存档中的活动友好巨魔从原生无敌切换为可受 Troll 伤害；日志最终出现
+   `friendly-injected` 与 `native-damage`。关闭 Mod、正常回池、换岛卸载及联机 catch-up 不产生重复 RPC、
+   残留可伤状态或卸载期写入。
 
 ## 当前交接
 
@@ -56,3 +67,12 @@
   恢复，未改 charge/伤害/RPC。独立 reviewer 静态 APPROVED，Debug 构建 0 warning / 0 error；
   用户退出后已只部署独立测试副本，构建/部署 DLL SHA-256 均为
   `8571E740D8CD4C94E5552D13B7CD1AC5D3124FF863733191257A864B4E92FB94`；尚未实机或打包。
+- 最新实机再次确认：54 个友好巨魔登记、12 个反制巨魔进入查询，但注入与伤害仍为 0；只读存档复核
+  54 个 `Troll_friendly` 的 Damageable 全部为 `invulnerable=true`。原生 `IsDamagedBy` 与
+  `ReceiveDamage` 都会在无敌时拒绝，故这是追击之后仍无法攻击的决定性阻断，而非概率或性能问题。
+- 最窄修复已完成并通过 worker 构建与独立 reviewer 最终 APPROVED：只在 authority/Playing/活动且指针一致时将友好巨魔切为可受伤；
+  保存可逆原版基线，Disabled/正常回池恢复；早于 catch-up 的 setter 只挂起一次并在原生网络门禁就绪后
+  用公开属性补发一次。未改 HP、伤害掩码、攻击、对象池、协议或存档。源码 SHA-256=
+  `73934E38B3C1DB59CA27C14C9FF3F64F310C7F9E6697DC6A6E64AAF691D32542`，Debug DLL SHA-256=
+  `BDF1FB4415E05E8F9596D19A024D020210ECCCEE7B6291D72D68CECBA9A4AB4B`；等待 path-scoped
+  commit/push、独立副本部署与 `query→injected→native-damage` 实机闭环。

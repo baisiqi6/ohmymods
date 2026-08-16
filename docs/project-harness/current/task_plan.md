@@ -1,10 +1,10 @@
 # Current Task Pointer
 
-- Checklist item: `save-repair-017`
-- Title: Fire hermit Passenger ownership recovery
+- Checklist item: `friendly-troll-balance-008`
+- Title: Friendly Troll target filtering, pursuit and counter balance
 - Status: doing
 - Owner: `codex`
-- Session: `codex-2026-08-16-save-repair-017`
-- Canonical plan: `docs/project-harness/tasks/save-repair-017/plan.md`
+- Session: `codex-2026-08-16-friendly-troll-vulnerability`
+- Canonical plan: `docs/project-harness/tasks/friendly-troll-balance-008/plan.md`
 
 > This file is a pointer. Full plan content lives in the canonical plan above.

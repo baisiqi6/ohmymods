@@ -43,6 +43,11 @@ public static class PatchDivine_FriendlyTroll
         internal Damageable.DamageEvent DamageHandler;
         internal bool DamageHandlerAttempted;
         internal bool DamageHandlerSubscribed;
+        internal IntPtr DamageableProfilePointer;
+        internal bool InvulnerabilityProfileCaptured;
+        internal bool InvulnerabilityBaseline;
+        internal bool RpcSyncPending;
+        internal bool RpcPendingValue;
     }
 
     private sealed class FriendlyMovementProfile
@@ -127,6 +132,21 @@ public static class PatchDivine_FriendlyTroll
             World world = managers?.world;
             if (world == null || world.gameObject == null) return;
 
+            if (_pursuitCoordinator != null
+                && _pursuitWorldPointer == world.Pointer)
+            {
+                try
+                {
+                    if (_pursuitCoordinator.gameObject != null
+                        && _pursuitCoordinator.gameObject.activeInHierarchy)
+                        return;
+                }
+                catch { }
+
+                _pursuitCoordinator = null;
+                _pursuitWorldPointer = IntPtr.Zero;
+            }
+
             if (!_pursuitCoordinatorRegistered)
             {
                 if (!ClassInjector.IsTypeRegisteredInIl2Cpp(
@@ -158,11 +178,6 @@ public static class PatchDivine_FriendlyTroll
     {
         if (!IsCurrentPursuitCoordinator(coordinator)) return;
 
-        if (!ModConfig.Enabled.Value)
-        {
-            ClearPursuitSteering(NetworkBigBoss.HasWorldAuth);
-            return;
-        }
         if (!NetworkBigBoss.HasWorldAuth)
         {
             ClearPursuitSteering(false);
@@ -179,6 +194,13 @@ public static class PatchDivine_FriendlyTroll
         }
         if (Time.timeScale <= 0f || Time.time < _nextPursuitTickAt) return;
         _nextPursuitTickAt = Time.time + PursuitTickInterval;
+        ReconcileFriendlyInvulnerability();
+
+        if (!ModConfig.Enabled.Value)
+        {
+            ClearPursuitSteering(true);
+            return;
+        }
 
         foreach (TrollState state in ActiveCounterTrolls.Values)
         {
@@ -349,6 +371,129 @@ public static class PatchDivine_FriendlyTroll
         _nextPursuitTickAt = 0f;
     }
 
+    private static void CaptureInvulnerabilityProfile(FriendlyEntry entry)
+    {
+        Damageable damageable = entry?.Damageable;
+        if (damageable == null) return;
+
+        try
+        {
+            entry.DamageableProfilePointer = damageable.Pointer;
+            // Native persistence can save the modded false value. Including the prefab
+            // profile preserves the real baseline across a later mod-enabled save/load.
+            entry.InvulnerabilityBaseline = damageable.invulnerable
+                || damageable.isInvulnerableInitially;
+            entry.InvulnerabilityProfileCaptured = true;
+            entry.RpcSyncPending = false;
+            entry.RpcPendingValue = entry.InvulnerabilityBaseline;
+        }
+        catch
+        {
+            entry.DamageableProfilePointer = IntPtr.Zero;
+            entry.InvulnerabilityProfileCaptured = false;
+        }
+    }
+
+    private static bool CanWriteInvulnerability(FriendlyEntry entry)
+    {
+        try
+        {
+            if (!NetworkBigBoss.HasWorldAuth
+                || entry == null || entry.Troll == null
+                || entry.Damageable == null
+                || !entry.InvulnerabilityProfileCaptured
+                || entry.DamageableProfilePointer != entry.Damageable.Pointer
+                || !entry.Troll.gameObject.activeInHierarchy
+                || !entry.Damageable.gameObject.activeInHierarchy)
+                return false;
+
+            Managers managers = Managers.Inst;
+            if (managers?.world == null || managers.game == null
+                || managers.game.state != Game.State.Playing)
+                return false;
+
+            Damageable current = entry.Troll.GetComponent<Damageable>();
+            return current != null && current.Pointer == entry.Damageable.Pointer;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void ApplyOrRestoreFriendlyInvulnerability(FriendlyEntry entry)
+    {
+        if (entry == null || entry.Damageable == null) return;
+
+        try
+        {
+            if (!entry.InvulnerabilityProfileCaptured
+                || entry.DamageableProfilePointer != entry.Damageable.Pointer)
+            {
+                CaptureInvulnerabilityProfile(entry);
+            }
+            if (!CanWriteInvulnerability(entry)) return;
+
+            bool desired = ModConfig.Enabled.Value
+                ? false : entry.InvulnerabilityBaseline;
+            bool changed = entry.Damageable.invulnerable != desired;
+            bool rpcReady = NetworkBigBoss.IsClientPresent
+                && NetworkBigBoss.HasClientCaughtUp
+                && entry.Damageable.parentHeaderRef != null
+                && entry.Damageable._invulnerableIndex >= 0;
+            if (!rpcReady)
+            {
+                entry.RpcSyncPending = true;
+                entry.RpcPendingValue = desired;
+            }
+
+            if (changed) entry.Damageable.invulnerable = desired;
+            if (!rpcReady) return;
+
+            if (changed)
+            {
+                // The public setter above already emitted the native RPC exactly once.
+                entry.RpcSyncPending = false;
+                return;
+            }
+
+            if (entry.RpcSyncPending && entry.RpcPendingValue == desired)
+            {
+                // A pre-header/pre-catch-up setter could not send. Re-enter the public
+                // setter with the same value once; do not call the private send thunk.
+                entry.Damageable.invulnerable = desired;
+                entry.RpcSyncPending = false;
+            }
+        }
+        catch { }
+    }
+
+    private static void RestoreFriendlyInvulnerability(FriendlyEntry entry)
+    {
+        if (!CanWriteInvulnerability(entry)) return;
+
+        try
+        {
+            if (entry.DamageableProfilePointer == entry.Damageable.Pointer
+                && entry.Damageable.invulnerable
+                    != entry.InvulnerabilityBaseline)
+            {
+                entry.Damageable.invulnerable = entry.InvulnerabilityBaseline;
+            }
+        }
+        catch { }
+        finally
+        {
+            entry.RpcSyncPending = false;
+        }
+    }
+
+    private static void ReconcileFriendlyInvulnerability()
+    {
+        foreach (FriendlyEntry entry in ActiveFriendlies.Values)
+            ApplyOrRestoreFriendlyInvulnerability(entry);
+    }
+
     private static void RegisterFriendly(FriendlyTroll friendly)
     {
         if (!IsUsable(friendly)) return;
@@ -366,10 +511,22 @@ public static class PatchDivine_FriendlyTroll
         Damageable currentDamageable = friendly.GetComponent<Damageable>();
         if (!SameNativeComponent(entry.Damageable, currentDamageable))
         {
+            RestoreFriendlyInvulnerability(entry);
             UnsubscribeFriendlyDamage(entry);
             entry.Damageable = currentDamageable;
             entry.DamageHandlerAttempted = false;
+            entry.DamageableProfilePointer = IntPtr.Zero;
+            entry.InvulnerabilityProfileCaptured = false;
+            CaptureInvulnerabilityProfile(entry);
         }
+        else if (!entry.InvulnerabilityProfileCaptured)
+            CaptureInvulnerabilityProfile(entry);
+
+        ApplyOrRestoreFriendlyInvulnerability(entry);
+        // Install the passive coordinator on both peers. It performs mutations only
+        // while this peer owns world authority, so a later migration needs no spawn-
+        // or registration-time event to begin the deferred RPC reconciliation.
+        EnsurePursuitCoordinator();
         EnsureFriendlyDamageSubscription(entry);
 
         StateMachine fsm = friendly._fsm;
@@ -943,9 +1100,27 @@ public static class PatchDivine_FriendlyTroll
         [HarmonyPrefix]
         private static void Prefix(FriendlyTroll __instance)
         {
+            RestoreFriendlyInvulnerability(__instance);
             RestoreMovementProfile(__instance);
             DeregisterFriendly(__instance);
         }
+    }
+
+    private static void RestoreFriendlyInvulnerability(FriendlyTroll friendly)
+    {
+        if (friendly == null) return;
+
+        try
+        {
+            int id = friendly.GetInstanceID();
+            if (ActiveFriendlies.TryGetValue(id, out FriendlyEntry entry)
+                && entry.Troll != null
+                && entry.Troll.Pointer == friendly.Pointer)
+            {
+                RestoreFriendlyInvulnerability(entry);
+            }
+        }
+        catch { }
     }
 
     private static void RestoreMovementProfile(FriendlyTroll friendly)

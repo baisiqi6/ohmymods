@@ -576,3 +576,14 @@
   或首队配置。第一版“北境仅视觉”部署包已被该决定取代。
 - 修订源码提交 `0cd629e` 已推送；从该干净提交重建0 warning / 0 error并部署独立副本，构建/部署
   DLL SHA-256均为`024ADAC72A4D2D76B63827C19C6D9511105CDDBA977EBE196D2FF62354564A39`。正在刷新候选包。
+## 2026-08-16 — friendly-troll-balance-008：确认原生无敌阻断，最窄修复待部署实测
+
+- 最新独立副本日志出现54次友好巨魔登记与12个反制弱巨魔查询，但候选注入、真实伤害仍为0；没有相关异常。
+- 当前存档只读复核发现54个 `Troll_friendly` 的 Damageable 全部保持 `invulnerable=true`。原生索敌与受伤入口
+  均会拒绝无敌目标，因此此前的稳定标记与10格追击虽已运行，仍不可能进入原生冲撞伤害闭环。
+- 新修复只在 world-authority、Playing、活动实例和原生指针一致时通过公开属性解除无敌；以
+  `currentAtFirstCapture || isInvulnerableInitially` 保存可逆基线，关闭Mod和正常回池前恢复。加载、卸载、
+  失权与失活对象不写；联机header/catch-up未就绪时只挂起一次，随后用公开属性补发一次，不扩RPC协议。
+- worker禁部署构建0 warning / 0 error，独立reviewer最终APPROVED；源码SHA-256=`73934E38B3C1DB59CA27C14C9FF3F64F310C7F9E6697DC6A6E64AAF691D32542`，
+  Debug DLL SHA-256=`BDF1FB4415E05E8F9596D19A024D020210ECCCEE7B6291D72D68CECBA9A4AB4B`。
+  游戏进程为0；尚未部署、提交或打包，下一步为path-scoped提交推送与独立副本部署。
