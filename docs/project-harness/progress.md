@@ -640,4 +640,4 @@
 
 - 2.4 Player Formation资源确认原生只有一个FleetBoat槽且该类型间距为0；候选实现只在world-authority举旗时按原生Side与完整可加入门禁快照0～4艘小船，多船间距绝对设为1。
 - 原生`TryRecruit`、`UnregisterUnit`与`OnDisable`生命周期保持主导；空船槽即时封为Gap，解除旗帜后在单位清空时恢复该Player独立捕获的原版数组。协调器仅每0.5秒检查最多4个预留槽，不改FleetBoat Side/FSM/RPC/容量。
-- 禁部署Debug构建0 warning / 0 error；源码SHA-256=`8550F056A982A7FAD570EBBC77929F65C99957F1F86993BC9D5D19DF66CEFCDF`，Debug DLL SHA-256=`E30A0419A06121708D715C85A677747198D9754F64BE6A7586200DD0BA6B5AEA`（192,000 bytes）。独立reviewer已APPROVED；游戏进程为0，但当前记录时尚未部署，仍需独立副本1/2/4船、N=0、离队、分屏/联机及native Hook canary回归。
+- 禁部署Debug构建0 warning / 0 error；源码SHA-256=`8550F056A982A7FAD570EBBC77929F65C99957F1F86993BC9D5D19DF66CEFCDF`，独立reviewer已APPROVED。游戏进程为0后，192,000-byte DLL SHA-256=`3595BEB72A7CD30871FD778F7F7FCCFBD6ED6AF36C9181AC1BFF634DBD54B3F3`已只部署到E盘独立副本，并保留部署前备份；仍需1/2/4船、N=0、离队、分屏/联机及native Hook canary回归。

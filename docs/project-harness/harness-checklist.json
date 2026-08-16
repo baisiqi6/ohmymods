@@ -15,7 +15,7 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "城墙外两金币举旗时按原生FleetBoat.Side招募该侧全部可用小船0～4艘；多船使用1格编队间距，其他载员、攻击、返航、存档、RPC与对象池逻辑保持原生；解除旗帜或Disabled后安全恢复原版单船槽。",
-      "verification": "2.4 Player Formation资源精确为单FleetBoat槽且FleetBoat spacing=0；已实现authority激活快照、动态等长unitTypes/units、TryRecruit原生招募、空槽即时Gap、OnDisable恢复与0.5秒轻量兜底。IL2CPP Debug禁部署构建0 warning/0 error，源码SHA-256=8550F056A982A7FAD570EBBC77929F65C99957F1F86993BC9D5D19DF66CEFCDF，DLL SHA-256=E30A0419A06121708D715C85A677747198D9754F64BE6A7586200DD0BA6B5AEA（192000 bytes）；独立reviewer APPROVED，等待独立副本1/2/4船、N=0、离队、分屏/联机与native hook canary实测。",
+      "verification": "2.4 Player Formation资源精确为单FleetBoat槽且FleetBoat spacing=0；已实现authority激活快照、动态等长unitTypes/units、TryRecruit原生招募、空槽即时Gap、OnDisable恢复与0.5秒轻量兜底。IL2CPP Debug禁部署构建0 warning/0 error，源码SHA-256=8550F056A982A7FAD570EBBC77929F65C99957F1F86993BC9D5D19DF66CEFCDF；游戏进程为0后，192000-byte DLL SHA-256=3595BEB72A7CD30871FD778F7F7FCCFBD6ED6AF36C9181AC1BFF634DBD54B3F3已只部署E盘独立副本。独立reviewer APPROVED，等待1/2/4船、N=0、离队、分屏/联机与native hook canary实测。",
       "handoff": "先验证1/2/4船、原生Side迁移后同侧4船、N=0不跨侧、单船异常离队、分屏与联机；不得改Side/FSM/容量/所有权恢复。",
       "workflow": {"status": "running", "updated_at": "2026-08-16"},
       "lease": {"owner": "codex", "session": "codex-2026-08-16-fleetboat-formation", "acquired_at": "2026-08-16T21:15:00+08:00", "expires_at": "2026-08-17T21:15:00+08:00", "ttl_minutes": 1440},

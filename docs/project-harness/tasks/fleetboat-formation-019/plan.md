@@ -51,6 +51,7 @@
 - 2.1逻辑、2.4 interop签名与Player Formation资源数组已完成只读核对。
 - 计划与实际代码均已获独立reviewer批准；IL2CPP禁部署Debug构建0 warning/0 error，源码
   SHA-256=`8550F056A982A7FAD570EBBC77929F65C99957F1F86993BC9D5D19DF66CEFCDF`，DLL
-  SHA-256=`E30A0419A06121708D715C85A677747198D9754F64BE6A7586200DD0BA6B5AEA`（192,000 bytes）。
-- 当前仍为测试候选，等待独立副本验证1/2/4船、N=0、单船离队、分屏/联机以及
+  SHA-256=`3595BEB72A7CD30871FD778F7F7FCCFBD6ED6AF36C9181AC1BFF634DBD54B3F3`（192,000 bytes）。
+- 游戏进程为0后，该DLL已只部署到E盘独立测试副本，并保留部署前备份；当前仍为测试候选，等待
+  验证1/2/4船、N=0、单船离队、分屏/联机以及
   `UnregisterUnit`/`Formation.OnDisable`原生Hook实机命中；未完成这些门禁前不标记稳定完成。
