@@ -1,10 +1,10 @@
 # Current Task Pointer
 
-- Checklist item: `crash-unload-016`
-- Title: Sailing unload stack-overflow guard
+- Checklist item: `save-repair-017`
+- Title: Fire hermit Passenger ownership recovery
 - Status: doing
 - Owner: `codex`
-- Session: `codex-2026-08-16-crash-unload-016`
-- Canonical plan: `docs/project-harness/tasks/crash-unload-016/plan.md`
+- Session: `codex-2026-08-16-save-repair-017`
+- Canonical plan: `docs/project-harness/tasks/save-repair-017/plan.md`
 
 > This file is a pointer. Full plan content lives in the canonical plan above.

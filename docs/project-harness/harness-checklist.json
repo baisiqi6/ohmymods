@@ -730,6 +730,37 @@
         "expires_at": "2026-08-16T19:03:52Z",
         "ttl_minutes": 1440
       }
+    },
+    {
+      "id": "save-repair-017",
+      "title": "当前存档火焰塔隐士Passenger所有权恢复",
+      "status": "doing",
+      "priority": "p0",
+      "owner": "codex",
+      "selected_in_session": "codex-2026-08-16-save-repair-017",
+      "updated_at": "2026-08-16",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "仅在游戏退出后，以当前即时存档指纹和新备份为门禁，将活跃Call of Olympus campaign运行状态与currentReign副本中唯一Fire隐士的两处position从0改为5，player=0/land=0保持不变；已有Passenger、Fire所有权/实例或任一身份/结构不符时fail closed且零修改；除两处position外整棵JSON DeepEquals；真实dry-run与独立reviewer APPLY_APPROVED后才原子Apply并独立复读。",
+      "verification": "游戏退出后冻结输入817111 bytes/SHA C3A8CEF5...E55E8。专用脚本SHA86F58C23...26C0B经PLAN_APPROVED与SCRIPT_STATIC_APPROVED；真实dry-run candidate为818055 bytes/SHA5C437801...E0DFE，随后reviewer APPLY_APPROVED。原子Apply后新备份保持原输入hash，最终源与candidate一致；Fire两份状态0/0/0→5/0/0，Passenger恰1，归一两处position后整root DeepEquals=True；reviewer EXECUTION_APPROVED。",
+      "handoff": "一次性存档写入与独立复读已完成。下一步只做实机：首次读档P1只携带1位Fire，放下变Roaming，可升级火焰塔；重复读档、登船、换岛、死亡换君主不重复不丢失，日志无HermitFire/Pool/NetID/RPC异常。任务在这些门禁前保持doing。",
+      "plan_path": "docs\\project-harness\\tasks\\save-repair-017\\plan.md",
+      "workflow": {
+        "status": "running",
+        "updated_at": "2026-08-16",
+        "branch": "agent/codex/save-repair-017"
+      },
+      "artifacts": {
+        "branch": "agent/codex/save-repair-017"
+      },
+      "lease": {
+        "owner": "codex",
+        "session": "codex-2026-08-16-save-repair-017",
+        "acquired_at": "2026-08-16T06:22:56Z",
+        "expires_at": "2026-08-17T06:22:56Z",
+        "ttl_minutes": 1440
+      }
     }
   ]
 }

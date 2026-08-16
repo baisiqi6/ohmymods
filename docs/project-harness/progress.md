@@ -1,3 +1,16 @@
+## 2026-08-16 — save-repair-017：当前存档火焰塔隐士Passenger恢复已原子执行
+
+- 用户授权修复当前Call of Olympus存档中未生成的火焰塔隐士。原生证据确认Fire=index6、
+  Passenger=5，且规范Passenger状态为`player=0/land=0`；用户同意只将campaign/currentReign两份
+  Fire `position`从0改为5，不创建第六座小屋、不插入Hermit/CRPC/NetID对象。
+- 游戏退出后锁定输入817,111 bytes / SHA-256=`C3A8CEF5B3B59B0C4A763235B138381ED6327ABAAA2311F95530624AC17E55E8`。
+  全campaign 11,665对象中无Dynamic/non-Dynamic netID980、无三种Fire名称、无既有Passenger。
+- 专用默认dry-run脚本经worker/reviewer逐行审查；真实dry-run得到candidate SHA-256=
+  `5C43780197C30F2B2F843D7139A5281A76CD836C9295F9307310F9A24FEE0DFE`。reviewer明确`APPLY_APPROVED`
+  后原子执行，新备份保持原输入hash，最终源818,055 bytes且hash与candidate一致。
+- 写后独立复读：before两份Fire均0/0/0，after均5/0/0；归一两处position后整root DeepEquals=True，
+  reviewer最终`EXECUTION_APPROVED`。尚待首次读档携带、放下变Roaming、火焰塔升级与重复读档/换岛验收。
+
 ## 2026-08-16 — 隐士视觉与友好巨魔追击微调已部署，待实机
 
 - 希腊弩箭塔隐士按 `HermitType.Ballista` 精确设为 y=1.20，骑士塔隐士按
