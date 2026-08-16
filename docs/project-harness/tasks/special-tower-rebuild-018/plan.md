@@ -56,7 +56,8 @@
 - 原生资源图、付款链、持久化与 Ballista bolt 生命周期已完成只读核对。
 - 交互修复已落在 `il2cpp/PatchWorld_SpecialTowerRebuild.cs`：移除工匠数量阻断，新增付款前 bolt 事务、失败退币和有界阻断原因诊断。
 - worker 禁部署构建 0 warning / 0 error，独立 reviewer `APPROVED`。当前源码 SHA-256=`C7FF31FFD1E6D025D63CCD615AB582D9B2A3A7E88C57C784B42374B461CA3F78`；禁部署 Debug DLL 为196,608 bytes、SHA-256=`113BE01ED8F8ABAAD52571DCEF74829A14CB7B7B4F5210191AE8F804CF0D6696`。
-- 修复尚未从干净提交重建并部署；当前 E 盘独立副本与现有 ZIP 仍是上一候选。部署后仍需工匠释放、bolt、再次专精、保存往返、跨岛与本地分屏实测；在线首版明确 fail closed。
+- 修复已由提交 `1f9f988` 推送；从该干净提交重建 0 warning / 0 error，并在确认游戏进程为0后只部署 E 盘独立副本。构建/部署 DLL 为196,608 bytes、SHA-256=`A05A6551061C48DE4ADB20BCC6290D1948638F27C06DB6B19D5026F48E82514E`；上一候选DLL已保留为 `.bak`。现有 ZIP 仍是旧交互版本。
+- 仍需工匠释放、bolt、再次专精、保存往返、跨岛与本地分屏实测；在线首版明确 fail closed。
 
 ## 回滚
 

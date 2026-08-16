@@ -8,7 +8,11 @@
 - 在线首版整体fail closed，避免付款RPC批准后的主客分叉；本地分屏仍支持。新增按实例与原因变化、30秒
   限流的阻断诊断。worker构建0 warning/0 error，reviewer最终APPROVED；源码SHA-256=
   `C7FF31FFD1E6D025D63CCD615AB582D9B2A3A7E88C57C784B42374B461CA3F78`，禁部署DLL SHA-256=
-  `113BE01ED8F8ABAAD52571DCEF74829A14CB7B7B4F5210191AE8F804CF0D6696`（196,608 bytes）。尚未从干净提交部署。
+  `113BE01ED8F8ABAAD52571DCEF74829A14CB7B7B4F5210191AE8F804CF0D6696`（196,608 bytes）。
+- 代码与首轮文档已由提交`1f9f988`推送；从干净提交重建0 warning/0 error。确认游戏进程为0后只部署
+  E盘独立副本，构建/部署DLL均为196,608 bytes、SHA-256=
+  `A05A6551061C48DE4ADB20BCC6290D1948638F27C06DB6B19D5026F48E82514E`；原192,000-byte DLL已备份为
+  `KingdomEnhancedMod.dll.before-special-tower-worker-20260816-2225.bak`。当前ZIP未刷新。
 
 ## 2026-08-16 — special-tower-rebuild-018：首版已部署，刷新ZIP待生成
 
