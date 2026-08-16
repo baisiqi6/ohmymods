@@ -74,5 +74,6 @@
   保存可逆原版基线，Disabled/正常回池恢复；早于 catch-up 的 setter 只挂起一次并在原生网络门禁就绪后
   用公开属性补发一次。未改 HP、伤害掩码、攻击、对象池、协议或存档。源码 SHA-256=
   `73934E38B3C1DB59CA27C14C9FF3F64F310C7F9E6697DC6A6E64AAF691D32542`，Debug DLL SHA-256=
-  `BDF1FB4415E05E8F9596D19A024D020210ECCCEE7B6291D72D68CECBA9A4AB4B`；等待 path-scoped
-  commit/push、独立副本部署与 `query→injected→native-damage` 实机闭环。
+  `BDF1FB4415E05E8F9596D19A024D020210ECCCEE7B6291D72D68CECBA9A4AB4B`。提交 `0495a68`
+  已推送；确认进程为0后已只部署E盘独立副本，构建/部署hash一致。G盘当前未挂载，未写G盘；
+  release zip未刷新，等待 `query→injected→native-damage` 实机闭环。

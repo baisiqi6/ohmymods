@@ -254,8 +254,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "FriendlyTroll候选枚举精确排除Squid但允许CrownStealer；约10% TrollWeak稳定反制并在10格外圈主动接近。活动友好巨魔在Mod启用时只由world-authority解除原生无敌，关闭Mod与正常回池恢复可逆基线；加载、卸载、失权零写，联机仅一次延迟同步；不改HP、damage mask、冲撞、RPC协议、对象池或存档。构建、审查、独立副本query→injected→native-damage实测通过。",
-      "verification": "最新独立副本实机为friendly-active=54、counter-query=12、friendly-injected=0、native-damage=0；只读存档确认54个Troll_friendly全部invulnerable=true，原生IsDamagedBy/ReceiveDamage均拒绝。最窄解除无敌修复经worker构建0/0、reviewer最终APPROVED；源码SHA256=73934E38B3C1DB59CA27C14C9FF3F64F310C7F9E6697DC6A6E64AAF691D32542，DLL SHA256=BDF1FB4415E05E8F9596D19A024D020210ECCCEE7B6291D72D68CECBA9A4AB4B。",
-      "handoff": "最终静态审查通过，尚未部署。确认进程为0后仅部署独立副本并path-scoped commit/push；release zip不刷新。实测现有54个应解除无敌，并出现friendly-injected/native-damage；禁用恢复、联机catch-up/切权与SailAway不得产生重复RPC或异常。",
+      "verification": "最新独立副本实机为friendly-active=54、counter-query=12、friendly-injected=0、native-damage=0；只读存档确认54个Troll_friendly全部invulnerable=true，原生IsDamagedBy/ReceiveDamage均拒绝。最窄解除无敌修复经worker构建0/0、reviewer最终APPROVED；源码SHA256=73934E38B3C1DB59CA27C14C9FF3F64F310C7F9E6697DC6A6E64AAF691D32542；提交0495a68已推送；E盘独立副本构建/部署DLL均为173568 bytes、SHA256=BDF1FB4415E05E8F9596D19A024D020210ECCCEE7B6291D72D68CECBA9A4AB4B。",
+      "handoff": "解除无敌修复已部署E盘独立副本，G盘未挂载且未写，release zip未刷新。实测现有54个应解除无敌，并出现friendly-injected/native-damage；禁用恢复、联机catch-up/切权与SailAway不得产生重复RPC或异常。运行时闭环前保持doing。",
       "workflow": {
         "status": "running",
         "updated_at": "2026-08-16",
