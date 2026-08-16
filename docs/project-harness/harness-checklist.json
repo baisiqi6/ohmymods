@@ -254,8 +254,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "FriendlyTroll候选枚举精确排除Squid但允许CrownStealer且不用高度判定；约10% EnemyType.TrollWeak以稳定哈希获得原生反制目标；友好巨魔追击速度为原值1.5倍、索敌距离为原值2倍且不改冲撞/伤害；无累乘、新RPC/池或全局缓存污染，Disabled与回池恢复原值；构建、审查与独立副本实测通过。",
-      "verification": "实机已确认约10%稳定标记阶段：本轮日志出现9个designated TrollWeak，但旧候选没有counter-query/friendly-injected/native-damage证据。新增四阶段一次性诊断，源码SHA256=8C5ED0A5BEA423ED46E5B4FA0319A51C16FD7F4820823BB4CEFABE36819897CB；Debug构建0 warning/0 error，DLL SHA256=33C23C6C780B26550453C4320D4C35B980B4E391BF8802C757EF2A40FD2C34C5；独立reviewer静态APPROVED，待独立副本实机日志。",
-      "handoff": "游戏已退出；下一步仅部署独立测试副本，不刷新release zip。实测应区分friendly-active、counter-query、friendly-injected、native-damage，并确认回池/切岛后无重复delegate、订阅/解绑异常。无四阶段证据前不得宣称反制攻击已运行时通过。",
+      "verification": "实机已确认约10%稳定标记阶段：本轮日志出现9个designated TrollWeak，但旧候选没有counter-query/friendly-injected/native-damage证据。新增四阶段一次性诊断，源码SHA256=8C5ED0A5BEA423ED46E5B4FA0319A51C16FD7F4820823BB4CEFABE36819897CB；Debug构建0 warning/0 error，DLL SHA256=33C23C6C780B26550453C4320D4C35B980B4E391BF8802C757EF2A40FD2C34C5；独立reviewer静态APPROVED，提交045994d已推送，独立副本部署hash一致。",
+      "handoff": "四阶段诊断已部署独立测试副本，release zip未刷新。实测应区分friendly-active、counter-query、friendly-injected、native-damage，并确认回池/切岛后无重复delegate、订阅/解绑异常。无四阶段证据前不得宣称反制攻击已运行时通过。",
       "workflow": {
         "status": "review_approved",
         "updated_at": "2026-08-15"

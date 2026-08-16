@@ -2,7 +2,7 @@
 
 - 最新实机日志已经确认反制单位的稳定 10% 指定阶段生效，本轮共观察到 9 个被指定的 TrollWeak；但没有出现候选注入或原生伤害证据，因此当前只能确认“标记成功”，不能确认“已经攻击友好巨魔”。
 - 新增一次性四阶段诊断：友好巨魔登记、反制巨魔进入原生目标查询、友好目标被临时注入、友好巨魔收到该反制巨魔的原生伤害。每阶段按实例或稳定身份去重，不做每帧日志、不全场扫描，也不改变概率、AI、目标、伤害、RPC 或对象池。
-- 伤害诊断只订阅活动 FriendlyTroll 自己的 OnReceiveDamage，并在回池、失活、组件指针变化时精确解绑；未使用全局 Damageable 热路径 Harmony patch。worker 构建 0 warning / 0 error，独立 reviewer 静态 APPROVED；候选 DLL SHA-256=`33C23C6C780B26550453C4320D4C35B980B4E391BF8802C757EF2A40FD2C34C5`。游戏已退出，待仅部署独立副本后实测，release zip 不刷新。
+- 伤害诊断只订阅活动 FriendlyTroll 自己的 OnReceiveDamage，并在回池、失活、组件指针变化时精确解绑；未使用全局 Damageable 热路径 Harmony patch。worker 构建 0 warning / 0 error，独立 reviewer 静态 APPROVED；提交 `045994d` 已推送。确认进程为0后已只部署独立测试副本，构建/部署 DLL SHA-256 均为`33C23C6C780B26550453C4320D4C35B980B4E391BF8802C757EF2A40FD2C34C5`（167,936 bytes）；release zip 未刷新，待实测四阶段日志。
 
 ## 2026-08-16 — save-repair-017：当前存档火焰塔隐士Passenger恢复已原子执行
 
