@@ -42,13 +42,17 @@
 
 ## 协作规范（collaboration-protocol.md 摘要）
 
-- Operator 先侦查+分解；功能实现派 **worker**（deepseek V4 flash thinking=max）；
-  重大功能/架构用 **reviewer**（kimi K3 thinking=max）交叉审核。
+- Operator 先侦查+分解；功能实现派 **worker**、重大功能/架构用 **reviewer** 交叉审核。
+- 委派通道（2026-08-16 起）：第一顺位走本机 **OMP CLI**（非交互 `omp -p`）——worker 用
+  `deepseek-v4-flash` thinking=max，reviewer 用 `kimi-code/k3` thinking=max；
+  备选回落本 agent subagent（GLM 5.3 thinking=max）。调用纪律见
+  `~/.agents/skills/invoke-coding-agents/`，模型标识以 `omp models` 实时输出为准。
 - worker 只建自己的 Patch_XXX.cs，**不改 Main.cs/build.bat**（Operator 统一注册）；
   跨 slice 契约由 Operator 在委派前定死。
 - 默认只做 IL2CPP 构建与独立副本端到端验证。只有用户明确要求维护 Mono，或任务直接修改根目录
   Mono 源码时，才追加 Mono 验证。验收证据必须是编译输出、日志或游戏内现象。
-- 委派时在任务书里写明：源码位置、契约、验收、C# 5 约束、模型要求。
+- 委派时在任务书里写明：源码位置、契约、验收、语法约束（IL2CPP 主线现代 C#；
+  仅 Mono 任务才限 C# 5）、模型要求。
 
 ## 常用路径
 
