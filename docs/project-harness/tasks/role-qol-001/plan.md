@@ -9,6 +9,8 @@
 - 将号角隐士（内部类型为 Horn）绝对缩放为 1.15 倍；与Horse分别判别。
 - 将希腊弩箭塔隐士（内部类型为 Ballista）绝对缩放为 1.20 倍；将骑士塔隐士
   （内部类型为 Knight）绝对缩放为 1.05 倍。
+- 将恢复的希腊火焰塔隐士（内部类型为 Fire）绝对缩放为1.25倍；不改变其Passenger/Roaming、
+  登船、建筑升级或存档状态。
 
 ## 边界与约束
 
@@ -22,7 +24,7 @@
 - 第 6 次只在同步转职调用栈临时替换 Holder 映射，Postfix/Finalizer 必须恢复。
 - 隐士只覆盖敌人拾取判定；不修改 Damageable、移动、乘骑、建筑升级或存档状态。
 - 酿酒师缩放只按 HermitType.Baker 判别，在 OnEnable/对象池复用时把 localScale.y 设为 1.15，并交给现有缩放注册器维持；真正 OnDestroy 时精确注销该 Mover 的 instanceID，避免同进程 ID 复用污染其他单位。不得按名称扫描资源、不得累乘、不得修改 x/z 或其他隐士。
-- 马厩隐士只按`HermitType.Horse`判别并绝对设置y=1.10；号角隐士只按`HermitType.Horn`判别并绝对设置y=1.15；弩箭塔与骑士塔隐士分别只按`HermitType.Ballista`/`HermitType.Knight`判别并绝对设置y=1.20/1.05。五者与Baker共用OnEnable登记/OnDestroy注销生命周期，其他隐士保持原样。
+- 马厩隐士只按`HermitType.Horse`判别并绝对设置y=1.10；号角隐士只按`HermitType.Horn`判别并绝对设置y=1.15；弩箭塔、骑士塔与火焰塔隐士分别只按`HermitType.Ballista`/`HermitType.Knight`/`HermitType.Fire`判别并绝对设置y=1.20/1.05/1.25。它们与Baker共用OnEnable登记/OnDestroy注销生命周期，其他隐士保持原样。
 - 不触碰 Steam 目录和共享存档；游戏运行期间不覆盖独立副本 DLL。
 
 ## 验收
@@ -35,6 +37,7 @@
 6. 无相关 `Error` / `Exception`，构建产物与独立副本 DLL 哈希一致。
 7. 酿酒师生成、解锁、上下坐骑或对象池复用后保持 1.15 倍；左右朝向正常，其他隐士尺寸不变。
 8. 马厩隐士生成、解锁、上下坐骑或对象池复用后保持1.10倍；号角隐士保持1.15倍；弩箭塔/骑士塔隐士分别保持1.20/1.05倍，其他隐士尺寸不变。
+9. 火焰塔隐士上下坐骑、放下、读档和对象复用后保持1.25倍，x朝向正常；不改变其所有权与换岛规则。
 
 ## 当前交接
 
@@ -59,3 +62,6 @@
   独立 reviewer 静态 APPROVED，Debug 构建 0 warning / 0 error。用户退出后已只部署独立测试副本，
   构建/部署 DLL SHA-256 均为 `8571E740D8CD4C94E5552D13B7CD1AC5D3124FF863733191257A864B4E92FB94`；
   尚未打包或取得观感验收。
+- 2026-08-16新增`HermitType.Fire`绝对y=1.25并对称加入OnDestroy注销；独立reviewer最终APPROVED，
+  Debug构建0 warning/0 error，DLL SHA-256=`7A75716A8748A09497314C7DAE32B1B760B81A1416520C7509C5BD958E691208`。
+  游戏仍运行，尚未部署或打包；实机需观察乘骑时原生单位缩放被注册器恢复、放下与跨岛后的比例。

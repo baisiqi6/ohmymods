@@ -58,7 +58,10 @@
 4. 更新 checklist/progress/events、执行 receipt 与玩家更新日志；只 path-scoped stage 脚本与文档。
    `global-v35`、备份、临时文件、反编译参考源码和旧 release ZIP 永不进入 Git。
 5. 实机：首次读档 P1 只携带一位 Fire 隐士；放下后原生变 Roaming，可升级希腊火焰塔；重复读档、
-   登船、换岛、死亡换君主不重复、不丢失；既有五位隐士/小屋不变，日志无 HermitFire/Pool/NetID/RPC异常。
+   登船和正常换岛不重复、不丢失；既有五位隐士/小屋不变，日志无 HermitFire/Pool/NetID/RPC异常。
+6. 原生2.4 Fire prefab虽允许离岛，但`lostOnCrownLost=true`。失冠/死亡换君主可把它转为
+   CoinLocked/land0；由于当前世界没有Fire小屋，死亡后的重新取得不能作为本次一次性Passenger修复已解决能力，
+   必须单独设计或明确接受原版损失规则。
 
 ## 当前状态
 
@@ -70,3 +73,6 @@
   reviewer给出`APPLY_APPROVED`后已原子Apply并独立复读，最终source与candidate一致，备份与原输入一致，
   归一两处position后整root DeepEquals=True；最终`EXECUTION_APPROVED`。详细证据见`receipt.md`，
   当前任务继续保持doing，等待游戏内Passenger→Roaming与跨岛/读档门禁。
+- 后续资源与2.1生命周期复核确认：Fire无需Cabin即可按Passenger/Roaming正常读档、放下、上船与换岛；
+  但皇冠丢失/死亡会因`lostOnCrownLost=true`进入CoinLocked/land0。此前“死亡换君主不丢失”的验收口径
+  已纠正为独立未解决边界，不把它误报为Passenger恢复的既有能力。

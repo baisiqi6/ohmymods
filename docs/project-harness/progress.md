@@ -588,3 +588,15 @@
   Debug DLL SHA-256=`BDF1FB4415E05E8F9596D19A024D020210ECCCEE7B6291D72D68CECBA9A4AB4B`。
   源码与记录提交 `0495a68` 已推送。再次确认游戏进程为0后只部署E盘独立测试副本；构建/部署DLL均为
   173,568 bytes且SHA-256一致。G盘当前未挂载，未写G盘；release zip未刷新。下一步实测真实注入与伤害。
+## 2026-08-16 — 视觉微调：Dead Lands助手与Fire隐士 y=1.25
+
+- Dead Lands银行助手对应固定controller index 2，本轮由绝对y=1.20改为1.25；北境index 3仍为1.20。
+  只写prefab初始y，继承原x朝向/z，调度、经济、同步与对象池逻辑零改。
+- 火焰塔隐士按`HermitType.Fire`精确设为绝对y=1.25，沿用现有OnEnable/ScaleRegistry/OnDestroy生命周期；
+  乘骑时原生会临时写回单位缩放，注册器会继续恢复目标y，需作为实机观感门禁。
+- 原生2.4资源确认Fire可离岛且可上船，因此已拥有的Passenger/Roaming状态正常读档、放下与换岛不依赖Cabin。
+  但其`lostOnCrownLost=true`，失冠/死亡换君主会按原生规则转为CoinLocked/land0；当前又没有Fire小屋，
+  所以不能承诺死亡后仍可重新获得，后续需单独决定是否修复这一所有权缺口。
+- 两处代码经worker构建与独立reviewer最终APPROVED；Debug 0 warning / 0 error，DLL SHA-256=
+  `7A75716A8748A09497314C7DAE32B1B760B81A1416520C7509C5BD958E691208`（174,080 bytes）。游戏仍在运行，
+  因此尚未部署、打包或实机；等待退出后只部署独立副本。
