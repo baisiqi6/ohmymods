@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using HarmonyLib;
+using Il2CppInterop.Runtime;
+using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
 
 namespace KingdomEnhancedMod;
@@ -16,6 +18,9 @@ public static class PatchDivine_FriendlyTroll
     private const uint DesignationSchema = 0x46544231u; // "FTB1"
     private const float MovementMultiplier = 1.5f;
     private const float TargetRangeMultiplier = 2f;
+    private const float PursuitOuterRange = 10f;
+    private const float PursuitTickInterval = 0.25f;
+    private const int TrollChaseState = 1;
 
     private sealed class SquidFilterState
     {
@@ -57,6 +62,9 @@ public static class PatchDivine_FriendlyTroll
         internal uint IdentityHash;
         internal short NetId;
         internal bool DamageLogged;
+        internal Coatsink.Common.Haglet Behaviour;
+        internal Mover Mover;
+        internal bool PursuitSteered;
     }
 
     private static readonly Dictionary<int, Squid> ActiveSquids = new();
@@ -72,6 +80,10 @@ public static class PatchDivine_FriendlyTroll
     private static readonly HashSet<string> LoggedErrors = new();
     private static bool _loggedSquidFilter;
     private static bool _loggedMissingIdentity;
+    private static bool _pursuitCoordinatorRegistered;
+    private static FriendlyTrollPursuitCoordinator _pursuitCoordinator;
+    private static IntPtr _pursuitWorldPointer;
+    private static float _nextPursuitTickAt;
 
     private static void LogErrorOnce(string key, Exception exception)
     {
@@ -105,6 +117,236 @@ public static class PatchDivine_FriendlyTroll
         state = new TrollState { Troll = troll };
         TrollStates[id] = state;
         return state;
+    }
+
+    private static void EnsurePursuitCoordinator()
+    {
+        try
+        {
+            Managers managers = Managers.Inst;
+            World world = managers?.world;
+            if (world == null || world.gameObject == null) return;
+
+            if (!_pursuitCoordinatorRegistered)
+            {
+                if (!ClassInjector.IsTypeRegisteredInIl2Cpp(
+                        typeof(FriendlyTrollPursuitCoordinator)))
+                {
+                    ClassInjector.RegisterTypeInIl2Cpp(
+                        typeof(FriendlyTrollPursuitCoordinator));
+                }
+                _pursuitCoordinatorRegistered = true;
+            }
+
+            FriendlyTrollPursuitCoordinator coordinator =
+                world.GetComponent<FriendlyTrollPursuitCoordinator>();
+            if (coordinator == null)
+            {
+                coordinator = world.gameObject
+                    .AddComponent<FriendlyTrollPursuitCoordinator>();
+            }
+            if (coordinator == null) return;
+
+            _pursuitCoordinator = coordinator;
+            _pursuitWorldPointer = world.Pointer;
+            _nextPursuitTickAt = Time.time;
+        }
+        catch { }
+    }
+
+    internal static void TickPursuit(FriendlyTrollPursuitCoordinator coordinator)
+    {
+        if (!IsCurrentPursuitCoordinator(coordinator)) return;
+
+        if (!ModConfig.Enabled.Value)
+        {
+            ClearPursuitSteering(NetworkBigBoss.HasWorldAuth);
+            return;
+        }
+        if (!NetworkBigBoss.HasWorldAuth)
+        {
+            ClearPursuitSteering(false);
+            return;
+        }
+
+        Managers managers = Managers.Inst;
+        if (managers?.world == null
+            || managers.world.Pointer != _pursuitWorldPointer
+            || managers.game == null || managers.game.state != Game.State.Playing)
+        {
+            ClearPursuitSteering(false);
+            return;
+        }
+        if (Time.timeScale <= 0f || Time.time < _nextPursuitTickAt) return;
+        _nextPursuitTickAt = Time.time + PursuitTickInterval;
+
+        foreach (TrollState state in ActiveCounterTrolls.Values)
+        {
+            if (!TryGetPursuitActor(state, out Troll troll, out Mover mover))
+            {
+                state.PursuitSteered = false;
+                continue;
+            }
+
+            float trollX = troll.transform.position.x;
+            float nearestDistance = PursuitOuterRange + 1f;
+            FriendlyEntry nearest = null;
+            foreach (FriendlyEntry friendly in ActiveFriendlies.Values)
+            {
+                if (!IsPursuitTarget(friendly, troll)) continue;
+                float distance = Mathf.Abs(friendly.Troll.transform.position.x - trollX);
+                if (distance <= PursuitOuterRange && distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                    nearest = friendly;
+                }
+            }
+
+            float innerRange = Mathf.Max(0f, troll.chargeRange);
+            if (nearest != null && nearestDistance > innerRange)
+            {
+                int direction = nearest.Troll.transform.position.x > trollX ? 1 : -1;
+                mover.SetSpeed(troll.runSpeed, direction);
+                state.PursuitSteered = true;
+                continue;
+            }
+
+            // At or inside the native charge range, make no movement write: the existing
+            // exact-range TargetCacher injection and Troll charge state own the actor.
+            if (nearest != null)
+            {
+                state.PursuitSteered = false;
+                continue;
+            }
+
+            if (state.PursuitSteered) RestoreNativeChase(troll, mover);
+            state.PursuitSteered = false;
+        }
+    }
+
+    private static bool IsCurrentPursuitCoordinator(
+        FriendlyTrollPursuitCoordinator coordinator)
+    {
+        try
+        {
+            return coordinator != null && _pursuitCoordinator != null
+                && coordinator.Pointer == _pursuitCoordinator.Pointer
+                && coordinator.gameObject != null
+                && coordinator.gameObject.activeInHierarchy;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryGetPursuitActor(TrollState state, out Troll troll,
+        out Mover mover)
+    {
+        troll = state?.Troll;
+        mover = null;
+        if (state == null || !state.Active || !state.HasDesignation
+            || !state.Designated || !IsUsable(troll)
+            || troll.Type != EnemyType.TrollWeak || !troll.enabled
+            || troll.loot != null
+            || troll.shouldRetreat || troll.IsDespawning
+            || troll._unitController != null || troll._shouldCharge)
+            return false;
+
+        Damageable damageable = troll.damageable;
+        Petrifiable petrifiable = troll._petrifiable;
+        if (damageable == null || damageable.isDead || damageable.invulnerable
+            || petrifiable == null || petrifiable.IsPetrified)
+            return false;
+
+        try
+        {
+            if (troll._behaviour == null) return false;
+            if (state.Behaviour == null
+                || state.Behaviour.Pointer != troll._behaviour.Pointer)
+            {
+                state.Behaviour = troll._behaviour.Cast<Coatsink.Common.Haglet>();
+            }
+            if (state.Behaviour == null
+                || state.Behaviour.latestGoto != TrollChaseState)
+                return false;
+
+            Mover currentMover = troll._mover;
+            if (currentMover == null) return false;
+            if (state.Mover == null || state.Mover.Pointer != currentMover.Pointer)
+                state.Mover = currentMover;
+            if (state.Mover.IsPaused() || state.Mover.movingToGoal) return false;
+
+            mover = state.Mover;
+            return true;
+        }
+        catch { return false; }
+    }
+
+    private static bool IsPursuitTarget(FriendlyEntry friendly, Troll troll)
+    {
+        if (friendly == null || !IsUsable(friendly.Troll)) return false;
+        Damageable damageable = friendly.Damageable;
+        try
+        {
+            return damageable != null && damageable.gameObject != null
+                && damageable.gameObject.activeInHierarchy && !damageable.isDead
+                && damageable.IsDamagedBy(troll.damageSource);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void RestoreNativeChase(Troll troll, Mover mover)
+    {
+        try
+        {
+            if (troll == null || mover == null || troll._behaviour == null) return;
+            Coatsink.Common.Haglet behaviour =
+                troll._behaviour.Cast<Coatsink.Common.Haglet>();
+            if (behaviour == null || behaviour.latestGoto != TrollChaseState) return;
+
+            float targetX;
+            float multiplier = troll.GetWaveSpeedMultiplier(
+                troll.transform.position.x, troll.waveType, out targetX,
+                troll._waveTargetOffset);
+            float speed = troll._currentWalkSpeed > 0f
+                ? troll._currentWalkSpeed : troll.walkSpeed;
+            int direction = targetX > troll.transform.position.x ? 1 : -1;
+            mover.SetSpeed(speed * multiplier, direction);
+        }
+        catch { }
+    }
+
+    private static void ClearPursuitSteering(bool restoreAuthorityMovement)
+    {
+        foreach (TrollState state in ActiveCounterTrolls.Values)
+        {
+            if (!state.PursuitSteered) continue;
+            if (restoreAuthorityMovement && TryGetPursuitActor(state,
+                    out Troll troll, out Mover mover))
+            {
+                RestoreNativeChase(troll, mover);
+            }
+            state.PursuitSteered = false;
+        }
+    }
+
+    internal static void DisablePursuitCoordinator(
+        FriendlyTrollPursuitCoordinator coordinator)
+    {
+        if (coordinator == null || _pursuitCoordinator == null
+            || coordinator.Pointer != _pursuitCoordinator.Pointer)
+            return;
+
+        // World unload owns mover shutdown. Do not write into the hierarchy while it is
+        // recursively disabling; only relinquish the authority-side steering markers.
+        ClearPursuitSteering(false);
+        _pursuitCoordinator = null;
+        _pursuitWorldPointer = IntPtr.Zero;
+        _nextPursuitTickAt = 0f;
     }
 
     private static void RegisterFriendly(FriendlyTroll friendly)
@@ -413,6 +655,13 @@ public static class PatchDivine_FriendlyTroll
         TrollState state = GetTrollState(troll);
         if (!TryComputeDesignation(troll, out uint identityHash, out short netId))
         {
+            if (state.PursuitSteered
+                && TryGetPursuitActor(state, out Troll pursuitTroll,
+                    out Mover pursuitMover))
+            {
+                RestoreNativeChase(pursuitTroll, pursuitMover);
+            }
+            state.PursuitSteered = false;
             state.HasDesignation = false;
             state.Designated = false;
             ActiveCounterTrolls.Remove(troll.GetInstanceID());
@@ -431,9 +680,21 @@ public static class PatchDivine_FriendlyTroll
         if (state.IdentityHash != identityHash) state.DamageLogged = false;
         state.IdentityHash = identityHash;
         state.NetId = netId;
-        state.Designated = identityHash % 10u == 0u;
+        bool newDesignation = identityHash % 10u == 0u;
+        if (!newDesignation && state.PursuitSteered
+            && TryGetPursuitActor(state, out Troll previousPursuitTroll,
+                out Mover previousPursuitMover))
+        {
+            RestoreNativeChase(previousPursuitTroll, previousPursuitMover);
+        }
+        state.Designated = newDesignation;
+        if (!newDesignation) state.PursuitSteered = false;
         int id = troll.GetInstanceID();
-        if (state.Designated) ActiveCounterTrolls[id] = state;
+        if (state.Designated)
+        {
+            ActiveCounterTrolls[id] = state;
+            EnsurePursuitCoordinator();
+        }
         else ActiveCounterTrolls.Remove(id);
 
         if (state.Designated && LoggedSpecials.Add(identityHash))
@@ -725,6 +986,9 @@ public static class PatchDivine_FriendlyTroll
                 state.IdentityHash = 0u;
                 state.NetId = -1;
                 state.DamageLogged = false;
+                state.Behaviour = null;
+                state.Mover = null;
+                state.PursuitSteered = false;
                 ActiveCounterTrolls.Remove(__instance.GetInstanceID());
             }
             catch (Exception e) { LogErrorOnce("Troll activation reset failed", e); }
@@ -746,6 +1010,9 @@ public static class PatchDivine_FriendlyTroll
                 state.IdentityHash = 0u;
                 state.NetId = -1;
                 state.DamageLogged = false;
+                state.Behaviour = null;
+                state.Mover = null;
+                state.PursuitSteered = false;
                 ActiveCounterTrolls.Remove(__instance.GetInstanceID());
             }
             catch (Exception e) { LogErrorOnce("Troll deactivation reset failed", e); }
@@ -902,4 +1169,28 @@ public static class PatchDivine_FriendlyTroll
         }
     }
 
+}
+
+/// <summary>
+/// Scaled-time, authority-only steering bridge. All runtime state remains in the
+/// static balance registry so the injected IL2CPP component has no managed fields.
+/// </summary>
+public sealed class FriendlyTrollPursuitCoordinator : MonoBehaviour
+{
+    public FriendlyTrollPursuitCoordinator(IntPtr pointer) : base(pointer) { }
+
+    private void Update()
+    {
+        PatchDivine_FriendlyTroll.TickPursuit(this);
+    }
+
+    private void OnDisable()
+    {
+        PatchDivine_FriendlyTroll.DisablePursuitCoordinator(this);
+    }
+
+    private void OnDestroy()
+    {
+        PatchDivine_FriendlyTroll.DisablePursuitCoordinator(this);
+    }
 }

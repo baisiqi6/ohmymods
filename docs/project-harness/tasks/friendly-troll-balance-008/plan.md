@@ -48,6 +48,9 @@
 - 初版已由独立 reviewer 静态 APPROVED，并曾部署测试候选。2026-08-16 实机日志已证明约 10% 的稳定标记阶段生效，观察到 9 个被指定的 TrollWeak；但当时没有出现目标注入或真实伤害证据，因此不能把“可攻击友好巨魔”判为运行时通过。
 - 为区分设计链路的断点，新增四阶段一次性诊断：`friendly-active`（友好巨魔登记）、`counter-query`（被指定 Troll 进入原生目标查询）、`friendly-injected`（临时注入候选）和 `native-damage`（友好巨魔的原生受伤事件确认来自该 Troll）。诊断只订阅活动友好巨魔自身事件，回池、失活和指针变化时精确解绑；不修改目标结果、伤害、概率、RPC、对象池或原生集合恢复。
 - 诊断修订经 worker 构建与独立 reviewer 静态 APPROVED；IL2CPP Debug 构建 0 warning / 0 error，源码 SHA-256=`8C5ED0A5BEA423ED46E5B4FA0319A51C16FD7F4820823BB4CEFABE36819897CB`，DLL SHA-256=`33C23C6C780B26550453C4320D4C35B980B4E391BF8802C757EF2A40FD2C34C5`。提交 `045994d` 已推送；确认游戏进程为 0 后只部署独立测试副本，部署 DLL 哈希与构建一致。现有 release zip 未刷新。任务继续保持 doing，等待四阶段日志与真实冲撞证据。
+- 诊断实机确认断点：41 个友好巨魔已登记，8 个被指定 TrollWeak 均进入原生 `range=2.00` 查询，但候选注入和伤害都是 0。原设计只让已经贴近的目标进入冲撞查询，没有让反制巨魔主动接近，因此不足以实现“主动攻击”。
+- 修订为权威端单一中央协调器，每 0.25 秒仅遍历反制巨魔×活动友好巨魔；只在原生普通行走状态、距离位于 `(当前 chargeRange, 10]` 时，以该巨魔原生 runSpeed 朝最近友好巨魔移动。进入原生 chargeRange 后完全零写，由既有 TargetCacher 注入、Jump、碰撞与伤害接管。携带战利品、撤退、石化、受控、死亡、暂停、寻路、冲锋与失权/卸载状态均不干预。
+- worker 构建与独立 reviewer 最终静态 APPROVED；源码 SHA-256=`12700B854332A2CB8F12A21BD8669731321C5AD2358C6F9CFE1626A99375574E`，Debug DLL SHA-256=`8F122777143698C2FD0F51D0BE1E388849C4802C1DE299F93A2CA2918AAB72BF`，0 warning / 0 error。当前实测规模为 8×41，每秒约 1,312 次简单距离比较；无 LINQ、场景扫描、新 RPC 或对象池。等待提交、独立副本部署与 `query→injected→native-damage` 实机闭环。
 - 2026-08-16 追加追击速度与索敌范围微调：只写 `_runSpeed` 和 `_maxAttackDistance`，以每实例
   捕获的原 profile 得到 2→3、10→20；StateMachine 作用域负责启停切换，ResetAndDespawn 回池前
   恢复，未改 charge/伤害/RPC。独立 reviewer 静态 APPROVED，Debug 构建 0 warning / 0 error；
