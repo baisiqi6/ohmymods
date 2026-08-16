@@ -35,6 +35,9 @@ public static class PatchDivine_FriendlyTroll
     {
         internal FriendlyTroll Troll;
         internal Damageable Damageable;
+        internal Damageable.DamageEvent DamageHandler;
+        internal bool DamageHandlerAttempted;
+        internal bool DamageHandlerSubscribed;
     }
 
     private sealed class FriendlyMovementProfile
@@ -51,9 +54,9 @@ public static class PatchDivine_FriendlyTroll
         internal bool Active;
         internal bool HasDesignation;
         internal bool Designated;
-        internal bool AttackLogged;
         internal uint IdentityHash;
         internal short NetId;
+        internal bool DamageLogged;
     }
 
     private static readonly Dictionary<int, Squid> ActiveSquids = new();
@@ -63,6 +66,9 @@ public static class PatchDivine_FriendlyTroll
     private static readonly Dictionary<int, TrollState> TrollStates = new();
     private static readonly Dictionary<int, TrollState> ActiveCounterTrolls = new();
     private static readonly HashSet<uint> LoggedSpecials = new();
+    private static readonly HashSet<int> LoggedFriendlyRegistrations = new();
+    private static readonly HashSet<uint> LoggedTargetQueries = new();
+    private static readonly HashSet<uint> LoggedTargetInjections = new();
     private static readonly HashSet<string> LoggedErrors = new();
     private static bool _loggedSquidFilter;
     private static bool _loggedMissingIdentity;
@@ -106,19 +112,157 @@ public static class PatchDivine_FriendlyTroll
         if (!IsUsable(friendly)) return;
 
         int id = friendly.GetInstanceID();
-        if (!ActiveFriendlies.TryGetValue(id, out FriendlyEntry entry))
+        if (!ActiveFriendlies.TryGetValue(id, out FriendlyEntry entry)
+            || entry.Troll == null || entry.Troll.Pointer != friendly.Pointer)
         {
+            if (entry != null) RemoveFriendlyEntry(id, entry);
             entry = new FriendlyEntry();
             ActiveFriendlies[id] = entry;
         }
 
         entry.Troll = friendly;
-        if (entry.Damageable == null)
-            entry.Damageable = friendly.GetComponent<Damageable>();
+        Damageable currentDamageable = friendly.GetComponent<Damageable>();
+        if (!SameNativeComponent(entry.Damageable, currentDamageable))
+        {
+            UnsubscribeFriendlyDamage(entry);
+            entry.Damageable = currentDamageable;
+            entry.DamageHandlerAttempted = false;
+        }
+        EnsureFriendlyDamageSubscription(entry);
 
         StateMachine fsm = friendly._fsm;
         if (fsm != null) FriendlyByFsm[fsm.Pointer] = entry;
+        if (ModConfig.Enabled.Value && NetworkBigBoss.HasWorldAuth
+            && entry.Damageable != null && fsm != null
+            && LoggedFriendlyRegistrations.Add(id))
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                $"[FriendlyTrollDiag] stage=friendly-active id={id} "
+                + $"fsm=0x{fsm.Pointer.ToInt64():X} hp={entry.Damageable.hitPoints}.");
+        }
         if (FriendlyByFsm.Count > 64) PruneFriendlyRegistries();
+    }
+
+    private static bool SameNativeComponent(Component left, Component right)
+    {
+        try
+        {
+            if (left == null || right == null) return left == null && right == null;
+            return left.Pointer == right.Pointer;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void EnsureFriendlyDamageSubscription(FriendlyEntry entry)
+    {
+        if (entry == null || entry.DamageHandlerAttempted
+            || !ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth
+            || !IsUsable(entry.Troll) || entry.Damageable == null)
+            return;
+
+        entry.DamageHandlerAttempted = true;
+        try
+        {
+            FriendlyEntry capturedEntry = entry;
+            System.Action<int, GameObject, DamageSource> managedHandler =
+                (damageMultiplier, damager, source) => ObserveFriendlyDamage(
+                    capturedEntry, damageMultiplier, damager, source);
+            Damageable.DamageEvent handler = managedHandler;
+            if (handler == null) return;
+
+            entry.DamageHandler = handler;
+            entry.Damageable.add_OnReceiveDamage(handler);
+            entry.DamageHandlerSubscribed = true;
+        }
+        catch (Exception exception)
+        {
+            entry.DamageHandlerSubscribed = false;
+            entry.DamageHandler = null;
+            LogErrorOnce("friendly damage diagnostic subscription failed", exception);
+        }
+    }
+
+    private static void ObserveFriendlyDamage(FriendlyEntry entry,
+        int damageMultiplier, GameObject damager, DamageSource source)
+    {
+        if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth
+            || entry == null || damager == null || !IsUsable(entry.Troll)
+            || entry.Damageable == null)
+            return;
+
+        try
+        {
+            int friendlyId = entry.Troll.GetInstanceID();
+            if (!ActiveFriendlies.TryGetValue(friendlyId,
+                    out FriendlyEntry activeEntry)
+                || !ReferenceEquals(activeEntry, entry))
+                return;
+
+            Troll troll = damager.GetComponent<Troll>();
+            if (troll == null || source != troll.damageSource)
+                return;
+
+            int trollId = troll.GetInstanceID();
+            if (!ActiveCounterTrolls.TryGetValue(trollId,
+                    out TrollState trollState)
+                || !trollState.Active || !trollState.HasDesignation
+                || !trollState.Designated || trollState.DamageLogged
+                || trollState.Troll == null
+                || trollState.Troll.GetInstanceID() != trollId
+                || trollState.Troll.Pointer != troll.Pointer)
+                return;
+
+            trollState.DamageLogged = true;
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                $"[FriendlyTrollDiag] stage=native-damage net={trollState.NetId} "
+                + $"hash=0x{trollState.IdentityHash:X8} friendly={friendlyId} "
+                + $"multiplier={damageMultiplier} source={source} "
+                + $"hpAfterEvent={entry.Damageable.hitPoints}.");
+        }
+        catch (Exception exception)
+        {
+            LogErrorOnce("native damage event observation failed", exception);
+        }
+    }
+
+    private static void UnsubscribeFriendlyDamage(FriendlyEntry entry)
+    {
+        if (entry == null || !entry.DamageHandlerSubscribed) return;
+
+        try
+        {
+            if (entry.Damageable != null && entry.DamageHandler != null)
+                entry.Damageable.remove_OnReceiveDamage(entry.DamageHandler);
+        }
+        catch (Exception exception)
+        {
+            LogErrorOnce("friendly damage diagnostic unsubscribe failed", exception);
+        }
+        finally
+        {
+            entry.DamageHandlerSubscribed = false;
+            entry.DamageHandler = null;
+        }
+    }
+
+    private static void RemoveFriendlyEntry(int id, FriendlyEntry expected)
+    {
+        if (!ActiveFriendlies.TryGetValue(id, out FriendlyEntry entry)
+            || (expected != null && !ReferenceEquals(entry, expected)))
+            return;
+
+        UnsubscribeFriendlyDamage(entry);
+        ActiveFriendlies.Remove(id);
+
+        var staleFsms = new List<IntPtr>();
+        foreach (KeyValuePair<IntPtr, FriendlyEntry> pair in FriendlyByFsm)
+        {
+            if (ReferenceEquals(pair.Value, entry)) staleFsms.Add(pair.Key);
+        }
+        foreach (IntPtr pointer in staleFsms) FriendlyByFsm.Remove(pointer);
     }
 
     private static FriendlyMovementProfile CaptureMovementProfile(FriendlyTroll friendly)
@@ -169,7 +313,11 @@ public static class PatchDivine_FriendlyTroll
         {
             if (!IsUsable(pair.Value.Troll)) staleIds.Add(pair.Key);
         }
-        foreach (int id in staleIds) ActiveFriendlies.Remove(id);
+        foreach (int id in staleIds)
+        {
+            if (ActiveFriendlies.TryGetValue(id, out FriendlyEntry entry))
+                RemoveFriendlyEntry(id, entry);
+        }
 
         var staleFsms = new List<IntPtr>();
         foreach (KeyValuePair<IntPtr, FriendlyEntry> pair in FriendlyByFsm)
@@ -194,7 +342,10 @@ public static class PatchDivine_FriendlyTroll
         try
         {
             if (friendly == null) return;
-            ActiveFriendlies.Remove(friendly.GetInstanceID());
+            int id = friendly.GetInstanceID();
+            if (ActiveFriendlies.TryGetValue(id, out FriendlyEntry entry)
+                && (entry.Troll == null || entry.Troll.Pointer == friendly.Pointer))
+                RemoveFriendlyEntry(id, entry);
             StateMachine fsm = friendly._fsm;
             if (fsm != null) FriendlyByFsm.Remove(fsm.Pointer);
         }
@@ -277,10 +428,10 @@ public static class PatchDivine_FriendlyTroll
 
         state.Active = true;
         state.HasDesignation = true;
+        if (state.IdentityHash != identityHash) state.DamageLogged = false;
         state.IdentityHash = identityHash;
         state.NetId = netId;
         state.Designated = identityHash % 10u == 0u;
-        state.AttackLogged = false;
         int id = troll.GetInstanceID();
         if (state.Designated) ActiveCounterTrolls[id] = state;
         else ActiveCounterTrolls.Remove(id);
@@ -571,9 +722,9 @@ public static class PatchDivine_FriendlyTroll
                 state.Active = true;
                 state.HasDesignation = false;
                 state.Designated = false;
-                state.AttackLogged = false;
                 state.IdentityHash = 0u;
                 state.NetId = -1;
+                state.DamageLogged = false;
                 ActiveCounterTrolls.Remove(__instance.GetInstanceID());
             }
             catch (Exception e) { LogErrorOnce("Troll activation reset failed", e); }
@@ -592,9 +743,9 @@ public static class PatchDivine_FriendlyTroll
                 state.Active = false;
                 state.HasDesignation = false;
                 state.Designated = false;
-                state.AttackLogged = false;
                 state.IdentityHash = 0u;
                 state.NetId = -1;
+                state.DamageLogged = false;
                 ActiveCounterTrolls.Remove(__instance.GetInstanceID());
             }
             catch (Exception e) { LogErrorOnce("Troll deactivation reset failed", e); }
@@ -670,7 +821,7 @@ public static class PatchDivine_FriendlyTroll
         {
             __state = null;
             if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth
-                || ActiveFriendlies.Count == 0)
+                || ActiveCounterTrolls.Count == 0)
                 return;
 
             try
@@ -678,6 +829,17 @@ public static class PatchDivine_FriendlyTroll
                 Troll troll = FindCallingCounterTroll(pos, range,
                     conditionDelegate, ignoreDelegate);
                 if (troll == null) return;
+
+                TrollState trollState = GetTrollState(troll);
+                if (LoggedTargetQueries.Add(trollState.IdentityHash))
+                {
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                        $"[FriendlyTrollDiag] stage=counter-query net={trollState.NetId} "
+                        + $"hash=0x{trollState.IdentityHash:X8} range={range:F2} "
+                        + $"activeFriendlies={ActiveFriendlies.Count}.");
+                }
+
+                if (ActiveFriendlies.Count == 0) return;
 
                 var state = new TargetInjectionState { Cache = __instance };
                 __state = state;
@@ -701,16 +863,19 @@ public static class PatchDivine_FriendlyTroll
                     state.Injected.Add(damageable);
                 }
 
-                foreach (int id in stale) ActiveFriendlies.Remove(id);
+                foreach (int id in stale)
+                {
+                    if (ActiveFriendlies.TryGetValue(id, out FriendlyEntry entry))
+                        RemoveFriendlyEntry(id, entry);
+                }
                 if (state.Injected.Count == 0) return;
 
-                TrollState trollState = GetTrollState(troll);
-                if (!trollState.AttackLogged)
+                if (LoggedTargetInjections.Add(trollState.IdentityHash))
                 {
-                    trollState.AttackLogged = true;
                     KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                        $"[FriendlyTrollBalance] counter TrollWeak #{trollState.NetId} "
-                        + $"received {state.Injected.Count} friendly priority target(s).");
+                        $"[FriendlyTrollDiag] stage=friendly-injected net={trollState.NetId} "
+                        + $"hash=0x{trollState.IdentityHash:X8} "
+                        + $"targets={state.Injected.Count}.");
                 }
             }
             catch (Exception exception)
@@ -736,4 +901,5 @@ public static class PatchDivine_FriendlyTroll
             RestoreTargets(__state);
         }
     }
+
 }

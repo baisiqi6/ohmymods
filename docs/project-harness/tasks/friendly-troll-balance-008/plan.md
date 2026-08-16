@@ -45,8 +45,9 @@
 
 - 用户已明确拍板上述目标筛选与平均 10% 平衡方案，税收助手调度保持不变。
 - 代码已完成：通过公开 `StateMachine.StepCoroutine` 精确限定 FriendlyTroll FSM，在候选枚举前临时移除 active Squid；正常返回与异常路径均恢复。反制 TrollWeak 通过公开 TargetCacher 查询临时注入 active FriendlyTroll，随后逐项恢复。
-- 独立 reviewer 静态 APPROVED；IL2CPP Debug 构建 0 warning / 0 error，DLL SHA-256=`084981C255AE05EA7EBB9A3F8199E2D3B8DEDE6EB321A7F5F05BB0FEF6317F50`。
-- 游戏当前仍在运行，本轮 DLL 尚未部署，现有测试 zip 也不包含此修复。下一步须退出游戏后部署独立副本，并以两条 canary 日志及真实冲撞验证公开 IL2CPP hook 命中；不得提前标记运行时通过。
+- 初版已由独立 reviewer 静态 APPROVED，并曾部署测试候选。2026-08-16 实机日志已证明约 10% 的稳定标记阶段生效，观察到 9 个被指定的 TrollWeak；但当时没有出现目标注入或真实伤害证据，因此不能把“可攻击友好巨魔”判为运行时通过。
+- 为区分设计链路的断点，新增四阶段一次性诊断：`friendly-active`（友好巨魔登记）、`counter-query`（被指定 Troll 进入原生目标查询）、`friendly-injected`（临时注入候选）和 `native-damage`（友好巨魔的原生受伤事件确认来自该 Troll）。诊断只订阅活动友好巨魔自身事件，回池、失活和指针变化时精确解绑；不修改目标结果、伤害、概率、RPC、对象池或原生集合恢复。
+- 诊断修订经 worker 构建与独立 reviewer 静态 APPROVED；IL2CPP Debug 构建 0 warning / 0 error，源码 SHA-256=`8C5ED0A5BEA423ED46E5B4FA0319A51C16FD7F4820823BB4CEFABE36819897CB`，DLL SHA-256=`33C23C6C780B26550453C4320D4C35B980B4E391BF8802C757EF2A40FD2C34C5`。游戏已退出，下一步仅部署独立测试副本；现有 release zip 不刷新。任务继续保持 doing，等待四阶段日志与真实冲撞证据。
 - 2026-08-16 追加追击速度与索敌范围微调：只写 `_runSpeed` 和 `_maxAttackDistance`，以每实例
   捕获的原 profile 得到 2→3、10→20；StateMachine 作用域负责启停切换，ResetAndDespawn 回池前
   恢复，未改 charge/伤害/RPC。独立 reviewer 静态 APPROVED，Debug 构建 0 warning / 0 error；
