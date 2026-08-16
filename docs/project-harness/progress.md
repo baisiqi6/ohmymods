@@ -1,3 +1,24 @@
+## 2026-08-16 — special-tower-rebuild-018：交互不出现根因=源prefab解析到基座资产（候选集修复待部署）
+
+- 用户实测驻守工匠修复版（A05A6551）仍无重建交互；23:50会话日志仅开局一条
+  `Ready source=Tower Ballista`，全程无Blocked——CanSelect从未作用于重建payable。
+- 根因实证：存档（`Release/global-v35`，gzip解压grep）已建弩箭塔prefabPath=
+  `Prefabs/Buildings and Interactive/greece/Tower Ballista_greece`（2座），而补丁在
+  PoolManager.Init前缀经Tower6基座模板route+GetAssetSwap解析到**基座资产**`Tower Ballista`
+  ——组件加错资产，真实建造/恢复实例全来自`_greece`变体（坑24：PayableManager只对已注册
+  payable调CanSelect，故静默无日志）。上轮"驻守工匠阻断"修复非主因，保留。
+- 修复：EnsurePrefabLayout改候选集——GetAssetSwap结果（try/catch）+`Resources.LoadAll<Ballista>`
+  按名含"Tower Ballista"扫描，安全检查（无FireTower/OilFireArcherTower/TowerKnight）通过的
+  全部候选幂等配置（HashSet+biome重置）；Ready日志列出全部源名，跳过候选汇总输出。惰性克隆
+  （FastSpawn→FastClone→Instantiate(_prefab)）保证Init时配好即遗传给恢复实例。
+- worker=OMP deepseek-v4-flash thinking=max；Operator逐行审查（46行删除全属旧单源段，网关/
+  token/prepare逻辑零改动）；独立构建0 warning/0 error。本增量未启用独立reviewer（仅prefab解析、
+  不触付款/RPC契约，协议规则2裁量）。坑24沉淀；checklist validator 0 warning。禁部署Debug构建DLL为
+  201,216 bytes、SHA-256=`CC3EC9F59C70D2218228B50FE7A17D02A7C8AB112C1D01F03483B63B0B2ADD8D`；
+  修改后源码SHA-256=`C1CE18B2B88E0B2B0174F0EF591E1AD202F888342CC2C480C4E8F367D2741159`。
+- 待用户退出游戏后部署E盘副本；实测验收点：启动日志`Ready sources=[... Tower Ballista_greece ...]`、
+  已建弩箭塔出现18金币提示、付款回六级塔。
+
 ## 2026-08-16 — ghost-squads-013：希腊幽灵leash处决改边界驻守候选编译通过（待部署）
 
 - 用户报告希腊亡灵小队一直向外冲锋、超距即集体死亡。根因为原生设计：`WarriorGhostLeaderGreece`/
@@ -15,8 +36,9 @@
 - 新增仅`il2cpp/PatchDivine_GhostLeashHold.cs`（源码SHA-256=
   `8CFC3101AB89831A5411E63579CBDCE65284153DAB28775D89BA4EF46436A478`）；禁部署Debug构建DLL为
   200,192 bytes、SHA-256=`06AE5B2D4DF9D55CF533225FB00E4385C0E693D27C0DD23B31FB0C1D0EE86ADF`。
-  同步D22、checklist validator 0 warning。目标机游戏进程运行中不能覆盖DLL，等用户退出后部署E盘
-  独立副本实测（驻守距离、60s消亡、北境不变、HasGhosts解锁）。
+  同步D22、checklist validator 0 warning。用户退出后已于23:58部署E盘独立副本（旧DLL备份
+  `KingdomEnhancedMod.dll.before-ghost-leash-hold-20260816-2358.bak`），待用户实机反馈
+  （驻守距离、60s消亡、北境不变、HasGhosts解锁）。
 
 ## 2026-08-16 — special-tower-rebuild-018：驻守工匠交互修复静态通过
 

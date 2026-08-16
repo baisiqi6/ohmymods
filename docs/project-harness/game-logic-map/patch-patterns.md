@@ -329,6 +329,29 @@ token，Pay阶段只消费token，不再执行可失败动作。若现有RPC流�
 整体fail closed，不能用Pay Prefix单端取消。池回收异常还要区分“对象仍活动且仍属原池”与部分回收：前者
 才可恢复引用，后者必须归一到原生可重新装填状态。
 
+### 24. 跨 biome 资产补丁不能依赖单点 GetAssetSwap 解析
+
+**症状：** 特种箭塔重建补丁在 `PoolManager.Init` 前缀里按
+`Tower6模板.passengerUpgrades route → BiomeData.GetAssetSwap` 解析源 prefab，实机日志
+`Ready source=Tower Ballista` 证明拿到的是**基座资产**；但存档（gzip 解压）里已建弩箭塔的
+prefabPath 是 `Prefabs/Buildings and Interactive/greece/Tower Ballista_greece`。组件加错资产 →
+场上实例无 marker/PayableUpgrade → `CanSelect` 从不被调用 → 无交互且无任何 Blocked 诊断日志
+（PayableManager 只对已注册 payable 调 CanSelect，静默失败）。
+
+**原生语义：** `BiomeData.GetAssetSwap` 经 `LoadedBiome.swapData` 显式查表
+（`BiomeSwapData._prefabSwapDictionary`，按对象引用匹配），早期时点（PoolManager.Init）可能
+未生效或基座模板本就引用基座资产；而真实建造走"被升级塔自己的 payable route + 付款时 swap"、
+存档恢复走 `IslandSaveData.TryCreateOrFind` 直接按保存的 prefabPath 实例化，两者都会落到
+`_greece` 变体。池路径 `FastSpawn→FastClone→Instantiate(this._prefab)` 是惰性克隆，prefab
+配好组件即可遗传给恢复实例。
+
+**规则：** 需要把组件配置到"会被实际实例化的资产"时，用 `Resources.LoadAll<T>("")` 按组件类型
++ 名字模式扫描全部候选（如所有含 `Ballista` 组件且名含 "Tower Ballista" 的资产），对每个通过
+安全检查的候选幂等配置，`GetAssetSwap` 结果只作为候选之一且 try/catch 包裹；绝不能假设单点
+swap 在任意早期钩子都已就绪。Ready 日志必须列出全部已配置源名，被安全检查跳过的候选单独汇总
+输出——下次日志即可直接验证配置是否命中真实资产。存档 prefabPath（gzip 解压 grep）是判断
+"实例到底来自哪个资产"的最终证据。
+
 ## 当前 mod 功能清单
 
 | Patch 类 | 功能 | 状态 |

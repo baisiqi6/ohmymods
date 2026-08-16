@@ -79,9 +79,10 @@ internal static class SpecialTowerRebuild
     }
 
     private static bool _markerRegistered;
-    private static int _configuredSourceId;
+    private static readonly HashSet<int> _configuredSources = new();
     private static int _configuredBiome = -1;
     private static string _lastFailure;
+    private static string _lastUnsafeSummary;
     private static readonly Dictionary<int, BlockDiagnostic> BlockDiagnostics = new();
     private static readonly Dictionary<int, PreparedToken> PreparedTokens = new();
     private static float _nextRuntimePruneAt;
@@ -148,77 +149,194 @@ internal static class SpecialTowerRebuild
                 return;
             }
 
-            GameObject effectiveSource = BiomeData.GetAssetSwap<GameObject>(configuredBallista);
-            if (effectiveSource == null)
+            // A single-source resolution through GetAssetSwap is not reliable at
+            // PoolManager.Init time: the swap may return the base "Tower Ballista"
+            // asset (observed) while real builds and save restores instantiate the
+            // biome-specific variant (e.g. "Tower Ballista_greece").  Every safe
+            // candidate gets the layout, so lazily cloned instances inherit it no
+            // matter which asset the game actually spawns.
+            List<GameObject> candidates = CollectBallistaCandidates(configuredBallista);
+            if (candidates.Count == 0)
             {
                 ReportFailure("current-biome Ballista specialisation could not be resolved");
                 return;
             }
 
-            // Norselands maps the Ballista route to OilFireArcherTower rather
-            // than Ballista.  It is intentionally excluded from this first
-            // slice because it owns hidden GuardSlot/projectile inventory.
-            Ballista ballista = effectiveSource.GetComponent<Ballista>();
-            if (ballista == null
-                || effectiveSource.GetComponent<FireTower>() != null
-                || effectiveSource.GetComponent<OilFireArcherTower>() != null
-                || effectiveSource.GetComponent<TowerKnight>() != null)
+            int biomeIndex = biomeHolder.BiomeIndex;
+            if (_configuredBiome != biomeIndex)
             {
-                ReportFailure("current-biome Ballista route is not the safe Ballista source type");
+                _configuredSources.Clear();
+                _configuredBiome = biomeIndex;
+            }
+
+            var unsafeCandidates = new List<string>();
+            var configuredNames = new List<string>();
+            PayableUpgrade firstPayable = null;
+            int configuredCount = 0;
+            bool configuredThisPass = false;
+
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                GameObject source = candidates[i];
+                if (source == null) continue;
+
+                if (!IsSafeBallistaSource(source))
+                {
+                    unsafeCandidates.Add(source.name);
+                    continue;
+                }
+
+                int sourceId = source.GetInstanceID();
+                SpecialTowerRebuildMarker marker = source.GetComponent<SpecialTowerRebuildMarker>();
+                PayableUpgrade existing = source.GetComponent<PayableUpgrade>();
+                if (marker != null && existing != null && _configuredSources.Contains(sourceId))
+                {
+                    configuredNames.Add(source.name);
+                    configuredCount++;
+                    if (firstPayable == null) firstPayable = existing;
+                    continue;
+                }
+
+                if (existing != null && marker == null)
+                {
+                    // Only this candidate is skipped; other candidates continue.
+                    ReportFailure("source " + source.name
+                        + " already owns a native PayableUpgrade; refusing to alter its layout");
+                    continue;
+                }
+
+                if (marker == null)
+                {
+                    marker = source.AddComponent<SpecialTowerRebuildMarker>();
+                }
+                if (marker == null)
+                {
+                    ReportFailure("failed to attach the rebuild marker to " + source.name);
+                    continue;
+                }
+
+                PayableUpgrade rebuild = existing != null
+                    ? existing
+                    : source.AddComponent<PayableUpgrade>();
+                if (rebuild == null)
+                {
+                    ReportFailure("failed to attach native PayableUpgrade to " + source.name);
+                    continue;
+                }
+
+                ConfigurePayable(rebuild, template, tierSix.gameObject);
+
+                _configuredSources.Add(sourceId);
+                configuredNames.Add(source.name);
+                configuredCount++;
+                configuredThisPass = true;
+                if (firstPayable == null) firstPayable = rebuild;
+            }
+
+            if (unsafeCandidates.Count > 0)
+            {
+                string unsafeSummary = string.Join(", ", unsafeCandidates.ToArray());
+                if (_lastUnsafeSummary != unsafeSummary)
+                {
+                    _lastUnsafeSummary = unsafeSummary;
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                        "[SpecialTowerRebuild] Skipped unsafe Ballista candidates: ["
+                        + unsafeSummary + "]");
+                }
+            }
+
+            if (configuredCount == 0)
+            {
+                ReportFailure("no safe Ballista source candidate could be configured");
                 return;
             }
 
-            int sourceId = effectiveSource.GetInstanceID();
-            if (_configuredSourceId == sourceId
-                && _configuredBiome == biomeHolder.BiomeIndex
-                && effectiveSource.GetComponent<SpecialTowerRebuildMarker>() != null
-                && effectiveSource.GetComponent<PayableUpgrade>() != null)
-            {
-                return;
-            }
+            // A later Init for the same biome may find every candidate already
+            // configured; there is nothing new to report then.
+            if (!configuredThisPass) return;
 
-            PayableUpgrade existing = effectiveSource.GetComponent<PayableUpgrade>();
-            SpecialTowerRebuildMarker marker = effectiveSource.GetComponent<SpecialTowerRebuildMarker>();
-            if (existing != null && marker == null)
-            {
-                ReportFailure("source already owns a native PayableUpgrade; refusing to alter its layout");
-                return;
-            }
-
-            if (marker == null)
-            {
-                marker = effectiveSource.AddComponent<SpecialTowerRebuildMarker>();
-            }
-            if (marker == null)
-            {
-                ReportFailure("failed to attach the rebuild marker");
-                return;
-            }
-
-            PayableUpgrade rebuild = existing != null
-                ? existing
-                : effectiveSource.AddComponent<PayableUpgrade>();
-            if (rebuild == null)
-            {
-                ReportFailure("failed to attach native PayableUpgrade before pool registration");
-                return;
-            }
-
-            ConfigurePayable(rebuild, template, tierSix.gameObject);
-
-            _configuredSourceId = sourceId;
-            _configuredBiome = biomeHolder.BiomeIndex;
             _lastFailure = null;
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                "[SpecialTowerRebuild] Ready source=" + effectiveSource.name
-                + " target=" + tierSix.gameObject.name
-                + " price=" + rebuild.Price
-                + " biome=" + biomeHolder.BiomeIndex);
+                "[SpecialTowerRebuild] Ready sources=["
+                + string.Join(", ", configuredNames.ToArray())
+                + "] target=" + tierSix.gameObject.name
+                + " price=" + firstPayable.Price
+                + " biome=" + biomeIndex);
         }
         catch (Exception e)
         {
             ReportFailure(e.GetType().Name + ": " + e.Message);
         }
+    }
+
+    /// <summary>
+    /// Collects every plausible Ballista source prefab: the native route prefab
+    /// after the current biome's asset swap (candidate A) plus every Ballista
+    /// asset whose name contains "Tower Ballista" (candidate B, covering biome
+    /// variants such as "Tower Ballista_greece").  Duplicates are dropped by
+    /// native pointer.
+    /// </summary>
+    private static List<GameObject> CollectBallistaCandidates(GameObject routePrefab)
+    {
+        var candidates = new List<GameObject>();
+
+        // Candidate A: the swap may not be effective yet at PoolManager.Init
+        // time (observed: it returned the base "Tower Ballista" asset), so this
+        // is just one candidate, never the single source of truth.
+        GameObject swapped = null;
+        try
+        {
+            swapped = BiomeData.GetAssetSwap<GameObject>(routePrefab);
+        }
+        catch
+        {
+            swapped = null;
+        }
+        AddCandidate(candidates, swapped);
+
+        // Candidate B: Resources.LoadAll scans subdirectories, which
+        // Resources.Load cannot do (repo precedent: LoadAll<WarriorGhostLeader>).
+        var scanned = Resources.LoadAll<Ballista>("");
+        if (scanned != null)
+        {
+            for (int i = 0; i < scanned.Length; i++)
+            {
+                Ballista scannedBallista = scanned[i];
+                if (scannedBallista == null || scannedBallista.gameObject == null) continue;
+                GameObject scannedObject = scannedBallista.gameObject;
+                if (scannedObject.name == null
+                    || !scannedObject.name.Contains("Tower Ballista")) continue;
+                AddCandidate(candidates, scannedObject);
+            }
+        }
+
+        return candidates;
+    }
+
+    private static void AddCandidate(List<GameObject> candidates, GameObject candidate)
+    {
+        if (candidate == null) return;
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            if (candidates[i] != null && candidates[i].Pointer == candidate.Pointer) return;
+        }
+        candidates.Add(candidate);
+    }
+
+    /// <summary>
+    /// True when the asset is a plain Ballista tower: Norselands maps the
+    /// Ballista route to OilFireArcherTower rather than Ballista, and Fire,
+    /// OilFire and Knight towers own hidden GuardSlot/projectile inventory that
+    /// this first slice has no teardown path for.
+    /// </summary>
+    private static bool IsSafeBallistaSource(GameObject source)
+    {
+        if (source == null) return false;
+        Ballista ballista = source.GetComponent<Ballista>();
+        if (ballista == null) return false;
+        return source.GetComponent<FireTower>() == null
+            && source.GetComponent<OilFireArcherTower>() == null
+            && source.GetComponent<TowerKnight>() == null;
     }
 
     private static void EnsureMarkerRegistered()

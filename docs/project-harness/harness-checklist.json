@@ -50,8 +50,8 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "首版允许稳定Ballista在正常当前/排队工匠存在时按运行时原生六级塔价格重建回当前biome六级普通箭塔；工匠由旧塔Destroy后的原生工作循环释放，bolt在付款提交前安全回池，失败取消并退币。离线/本地分屏开放、在线fail closed；Fire/OilFire/Knight/Berserker/Baker/Mead保持fail closed；Disabled仍保留确定性组件布局但阻止交互。",
-      "verification": "实机Ready日志证明资源注入成功但旧actors门禁持续阻断。2.1确认Ballista注销工作点后，当前/排队Worker会在旧塔Destroy后下一工作循环通过Unity-null走原生Reset/LostWork。修复移除人数门禁；离线最终CanPay=true后以payable/player/world/scene/frame token准备bolt，失败触发原生Cancel/DropFloatingCurrency，部分回收归一Reloading/currentWork=0；在线整体fail closed。源码SHA-256=C7FF31FFD1E6D025D63CCD615AB582D9B2A3A7E88C57C784B42374B461CA3F78，worker构建与独立reviewer APPROVED；提交1f9f988已推送。从干净提交重建0 warning/0 error并只部署E盘独立副本，构建/部署DLL为196608 bytes、SHA-256=A05A6551061C48DE4ADB20BCC6290D1948638F27C06DB6B19D5026F48E82514E；当前ZIP仍为旧候选。",
-      "handoff": "E盘独立副本已部署；验证当前hammer与queued Worker各一次、bolt回收、再次用隐士专精、保存/跨岛/本地分屏。在线应无交互且无RPC/NetID异常；不得扩展到其他特种塔来源。",
+      "verification": "首版与驻守工匠修复版（1f9f988/A05A6551）实机均无重建交互，且全程无Blocked日志。2026-08-16深夜根因锁定：EnsurePrefabLayout经Tower6基座模板route+GetAssetSwap解析到基座资产Tower Ballista，而存档（gzip解压）实证已建弩箭塔prefabPath=Prefabs/Buildings and Interactive/greece/Tower Ballista_greece——组件加错资产，恢复实例无marker/PayableUpgrade，CanSelect静默失败（坑24）。修复：候选集解析（GetAssetSwap结果+Resources.LoadAll<Ballista>按名过滤Tower Ballista），全部安全候选幂等配置，Ready日志列出全部源名+跳过候选汇总。worker=OMP deepseek-v4-flash thinking=max实现，Operator逐行审查（46行删除全属旧单源段，网关/token逻辑零改动），独立构建0 warning/0 error。本增量未启用独立reviewer：改动仅限prefab解析、不触付款/RPC契约（协议规则2的裁量记录）。待部署实测：Ready sources应含Tower Ballista_greece，驻守弩箭塔应出现18金币重建交互。",
+      "handoff": "prefab解析修复候选已编译通过、未部署（用户正在游戏内测试幽灵驻守，不能覆盖DLL）。用户退出后部署E盘副本，实测点：启动日志Ready sources含_greece变体；走到已建弩箭塔（含驻守工匠）出现18金币提示；付款后弩箭塔变回当前世界六级普通塔、工匠正常释放；再携隐士走原版升级路径。",
       "workflow": {
         "status": "running",
         "updated_at": "2026-08-16"
@@ -65,7 +65,8 @@
       },
       "artifacts": {
         "plan": "docs/project-harness/tasks/special-tower-rebuild-018/plan.md",
-        "code": "il2cpp/PatchWorld_SpecialTowerRebuild.cs"
+        "code": "il2cpp/PatchWorld_SpecialTowerRebuild.cs",
+        "prefab_fix_brief": "docs/project-harness/tasks/special-tower-rebuild-018/prefab-resolution-worker-brief.md"
       },
       "review": {
         "decision": "approved"
