@@ -576,7 +576,7 @@
   或首队配置。第一版“北境仅视觉”部署包已被该决定取代。
 - 修订源码提交 `0cd629e` 已推送；从该干净提交重建0 warning / 0 error并部署独立副本，构建/部署
   DLL SHA-256均为`024ADAC72A4D2D76B63827C19C6D9511105CDDBA977EBE196D2FF62354564A39`。正在刷新候选包。
-## 2026-08-16 — friendly-troll-balance-008：确认原生无敌阻断，最窄修复已部署待实测
+## 2026-08-16 — friendly-troll-balance-008：解除无敌后反制攻击实机闭环通过
 
 - 最新独立副本日志出现54次友好巨魔登记与12个反制弱巨魔查询，但候选注入、真实伤害仍为0；没有相关异常。
 - 当前存档只读复核发现54个 `Troll_friendly` 的 Damageable 全部保持 `invulnerable=true`。原生索敌与受伤入口
@@ -588,6 +588,13 @@
   Debug DLL SHA-256=`BDF1FB4415E05E8F9596D19A024D020210ECCCEE7B6291D72D68CECBA9A4AB4B`。
   源码与记录提交 `0495a68` 已推送。再次确认游戏进程为0后只部署E盘独立测试副本；构建/部署DLL均为
   173,568 bytes且SHA-256一致。G盘当前未挂载，未写G盘；release zip未刷新。下一步实测真实注入与伤害。
+- 20:03后的当前E盘实机日志给出完整闭环：`friendly-active=56`、`counter-query=8`、
+  `friendly-injected=7`、`native-damage=6`。六次原生Troll伤害的`hpAfterEvent=0`，证明反制弱巨魔已把
+  友好巨魔选为目标并实际击杀，而不只是追到附近或写日志。
+- 同一BepInEx日志没有Exception/Error/unknown pool/duplicate sync/RPC异常；Player.log也没有
+  NullReference、StackOverflow、ArgumentException或Pool/RPC相关异常。Player.log另有原生Stats保存路径的
+  `gse orca` LogError栈，与FriendlyTroll目标/伤害链无关。本任务核心攻击能力通过，Disabled恢复、联机catch-up/
+  authority迁移、换岛与Squid/CrownStealer边界仍待回归。
 ## 2026-08-16 — 视觉微调：Dead Lands助手与Fire隐士 y=1.25
 
 - Dead Lands银行助手对应固定controller index 2，本轮由绝对y=1.20改为1.25；北境index 3仍为1.20。

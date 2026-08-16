@@ -77,3 +77,7 @@
   `BDF1FB4415E05E8F9596D19A024D020210ECCCEE7B6291D72D68CECBA9A4AB4B`。提交 `0495a68`
   已推送；确认进程为0后已只部署E盘独立副本，构建/部署hash一致。G盘当前未挂载，未写G盘；
   release zip未刷新，等待 `query→injected→native-damage` 实机闭环。
+- 最新实机已完成核心闭环：56个友好巨魔登记、8个反制弱巨魔查询、7个目标注入、6次原生Troll伤害；
+  六个受击目标事件后HP均为0。相关日志无Exception/Error、unknown pool、duplicate sync或RPC异常。
+  “反制巨魔能主动攻击并消耗永久友好巨魔”已通过；任务保持doing，仅等待Disabled恢复、联机同步/切权、
+  换岛卸载以及Squid/CrownStealer边界回归。
