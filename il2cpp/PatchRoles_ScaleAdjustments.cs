@@ -114,7 +114,8 @@ public static class GreeceBankerScale_Patch
 }
 
 /// <summary>
-/// 酿酒师与号角隐士固定为 y=1.15，马厩隐士固定为 y=1.10；其他隐士保持原样。
+/// 酿酒师与号角隐士固定为 y=1.15，马厩隐士固定为 y=1.10，
+/// 弩箭塔隐士固定为 y=1.20，骑士塔隐士固定为 y=1.05；其他隐士保持原样。
 /// </summary>
 [HarmonyPatch]
 public static class HermitScale_Patch
@@ -122,6 +123,8 @@ public static class HermitScale_Patch
     private const float BakerHermitY = 1.15f;
     private const float HornHermitY = 1.15f;
     private const float HorseHermitY = 1.10f;
+    private const float BallistaHermitY = 1.20f;
+    private const float KnightHermitY = 1.05f;
 
     [HarmonyPatch(typeof(Hermit), nameof(Hermit.OnEnable))]
     [HarmonyPostfix]
@@ -143,6 +146,14 @@ public static class HermitScale_Patch
             else if (__instance.Type == Hermit.HermitType.Horse)
             {
                 targetY = HorseHermitY;
+            }
+            else if (__instance.Type == Hermit.HermitType.Ballista)
+            {
+                targetY = BallistaHermitY;
+            }
+            else if (__instance.Type == Hermit.HermitType.Knight)
+            {
+                targetY = KnightHermitY;
             }
             else
             {
@@ -173,7 +184,9 @@ public static class HermitScale_Patch
         {
             if (__instance.Type != Hermit.HermitType.Baker
                 && __instance.Type != Hermit.HermitType.Horn
-                && __instance.Type != Hermit.HermitType.Horse) return;
+                && __instance.Type != Hermit.HermitType.Horse
+                && __instance.Type != Hermit.HermitType.Ballista
+                && __instance.Type != Hermit.HermitType.Knight) return;
 
             Mover mover = __instance.mover != null ? __instance.mover : __instance.GetComponent<Mover>();
             ScaleRegistryHolder.Unregister(mover);

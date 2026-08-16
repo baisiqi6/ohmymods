@@ -14,6 +14,8 @@ public static class PatchDivine_FriendlyTroll
     private const uint FnvOffset = 2166136261u;
     private const uint FnvPrime = 16777619u;
     private const uint DesignationSchema = 0x46544231u; // "FTB1"
+    private const float MovementMultiplier = 1.5f;
+    private const float TargetRangeMultiplier = 2f;
 
     private sealed class SquidFilterState
     {
@@ -35,6 +37,14 @@ public static class PatchDivine_FriendlyTroll
         internal Damageable Damageable;
     }
 
+    private sealed class FriendlyMovementProfile
+    {
+        internal FriendlyTroll Troll;
+        internal float RunSpeed;
+        internal float MaxAttackDistance;
+        internal bool Enhanced;
+    }
+
     private sealed class TrollState
     {
         internal Troll Troll;
@@ -49,6 +59,7 @@ public static class PatchDivine_FriendlyTroll
     private static readonly Dictionary<int, Squid> ActiveSquids = new();
     private static readonly Dictionary<int, FriendlyEntry> ActiveFriendlies = new();
     private static readonly Dictionary<IntPtr, FriendlyEntry> FriendlyByFsm = new();
+    private static readonly Dictionary<int, FriendlyMovementProfile> FriendlyMovementProfiles = new();
     private static readonly Dictionary<int, TrollState> TrollStates = new();
     private static readonly Dictionary<int, TrollState> ActiveCounterTrolls = new();
     private static readonly HashSet<uint> LoggedSpecials = new();
@@ -108,6 +119,47 @@ public static class PatchDivine_FriendlyTroll
         StateMachine fsm = friendly._fsm;
         if (fsm != null) FriendlyByFsm[fsm.Pointer] = entry;
         if (FriendlyByFsm.Count > 64) PruneFriendlyRegistries();
+    }
+
+    private static FriendlyMovementProfile CaptureMovementProfile(FriendlyTroll friendly)
+    {
+        int id = friendly.GetInstanceID();
+        if (FriendlyMovementProfiles.TryGetValue(id, out FriendlyMovementProfile profile)
+            && profile.Troll != null && profile.Troll.Pointer == friendly.Pointer)
+            return profile;
+
+        profile = new FriendlyMovementProfile
+        {
+            Troll = friendly,
+            RunSpeed = friendly._runSpeed,
+            MaxAttackDistance = friendly._maxAttackDistance
+        };
+        FriendlyMovementProfiles[id] = profile;
+        return profile;
+    }
+
+    private static void ApplyOrRestoreMovementProfile(FriendlyTroll friendly)
+    {
+        if (friendly == null || friendly.gameObject == null) return;
+
+        try
+        {
+            FriendlyMovementProfile profile = CaptureMovementProfile(friendly);
+            bool shouldEnhance = ModConfig.Enabled.Value;
+            if (profile.Enhanced == shouldEnhance) return;
+
+            friendly._runSpeed = shouldEnhance
+                ? profile.RunSpeed * MovementMultiplier
+                : profile.RunSpeed;
+            friendly._maxAttackDistance = shouldEnhance
+                ? profile.MaxAttackDistance * TargetRangeMultiplier
+                : profile.MaxAttackDistance;
+            profile.Enhanced = shouldEnhance;
+        }
+        catch (Exception exception)
+        {
+            LogErrorOnce("movement profile update failed", exception);
+        }
     }
 
     private static void PruneFriendlyRegistries()
@@ -385,6 +437,7 @@ public static class PatchDivine_FriendlyTroll
                 }
 
                 RegisterFriendly(friendly);
+                ApplyOrRestoreMovementProfile(friendly);
                 if (!ModConfig.Enabled.Value) return;
 
                 Damageable existingTarget = friendly._target;
@@ -443,28 +496,67 @@ public static class PatchDivine_FriendlyTroll
     private static class FriendlyInitPatch
     {
         [HarmonyPostfix]
-        private static void Postfix(FriendlyTroll __instance) => RegisterFriendly(__instance);
+        private static void Postfix(FriendlyTroll __instance)
+        {
+            RegisterFriendly(__instance);
+            ApplyOrRestoreMovementProfile(__instance);
+        }
     }
 
     [HarmonyPatch(typeof(FriendlyTroll), nameof(FriendlyTroll.ApplyData))]
     private static class FriendlyApplyDataPatch
     {
         [HarmonyPostfix]
-        private static void Postfix(FriendlyTroll __instance) => RegisterFriendly(__instance);
+        private static void Postfix(FriendlyTroll __instance)
+        {
+            RegisterFriendly(__instance);
+            ApplyOrRestoreMovementProfile(__instance);
+        }
     }
 
     [HarmonyPatch(typeof(FriendlyTroll), nameof(FriendlyTroll.DeserializeFromData))]
     private static class FriendlyDeserializePatch
     {
         [HarmonyPostfix]
-        private static void Postfix(FriendlyTroll __instance) => RegisterFriendly(__instance);
+        private static void Postfix(FriendlyTroll __instance)
+        {
+            RegisterFriendly(__instance);
+            ApplyOrRestoreMovementProfile(__instance);
+        }
     }
 
     [HarmonyPatch(typeof(FriendlyTroll), nameof(FriendlyTroll.ResetAndDespawn))]
     private static class FriendlyResetPatch
     {
         [HarmonyPrefix]
-        private static void Prefix(FriendlyTroll __instance) => DeregisterFriendly(__instance);
+        private static void Prefix(FriendlyTroll __instance)
+        {
+            RestoreMovementProfile(__instance);
+            DeregisterFriendly(__instance);
+        }
+    }
+
+    private static void RestoreMovementProfile(FriendlyTroll friendly)
+    {
+        if (friendly == null) return;
+
+        try
+        {
+            int id = friendly.GetInstanceID();
+            if (!FriendlyMovementProfiles.TryGetValue(id,
+                    out FriendlyMovementProfile profile)
+                || profile.Troll == null || profile.Troll.Pointer != friendly.Pointer
+                || !profile.Enhanced)
+                return;
+
+            friendly._runSpeed = profile.RunSpeed;
+            friendly._maxAttackDistance = profile.MaxAttackDistance;
+            profile.Enhanced = false;
+        }
+        catch (Exception exception)
+        {
+            LogErrorOnce("movement profile restoration failed", exception);
+        }
     }
 
     [HarmonyPatch(typeof(Troll), nameof(Troll.OnEnable))]

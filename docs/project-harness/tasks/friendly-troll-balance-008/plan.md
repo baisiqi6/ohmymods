@@ -5,6 +5,7 @@
 - 友好巨魔在选敌阶段跳过长期悬空且无法被其地面冲撞触及的 `Squid`。
 - `CrownStealer` 保持正常有效目标，因为其俯冲/扑击与接地阶段存在真实命中机会。
 - 普通弱巨魔中约 10% 在实际生成完成时被确定为“反友好巨魔”，可用原生冲撞伤害攻击附近友好巨魔，形成永久转化单位的消耗压力。
+- 将友好巨魔的原生追击移动速度提高到当前值的 1.5 倍，并把原生索敌距离提高到当前值的 2 倍。
 
 ## 不变量与安全边界
 
@@ -17,6 +18,9 @@
 - 读档和 authority 迁移由相同身份重算；缺存档上下文或网络 header 时 fail closed。为保持兼容，本任务不扩展 Troll 的 RPC 或序列化协议。
 - 反制巨魔只在 world-authority 执行 AI 决策；客户端只接收原生位置、冲撞与伤害同步。不得新增 prefab 或对象池。
 - 友好巨魔资源已允许 `DamageSource.Troll`；不得扩大碰撞体、修改跳跃轨迹或重写伤害系统。
+- 2.4 实际原值为 `_runSpeed=2`、`_maxAttackDistance=10`，目标绝对结果为 3/20；不得修改
+  `_chargeSpeed`、冲撞距离、伤害或冷却。每个池实例必须捕获原 profile 后按倍数重算，禁止在
+  Init/状态机热路径累乘；关闭 Mod 或回池前恢复原值。
 - 只有被标记的弱巨魔能把 active、未死亡的 FriendlyTroll 纳入原生冲锋范围目标；普通 90% 巨魔必须保持原版选敌。目标登记/临时注入必须在 Postfix/Finalizer 恢复，不能污染全局 TargetCacher。
 - 对象池 OnDisable/真正销毁/换岛时清理本次激活 registry；友好巨魔 active 列表由 Init、ApplyData、DeserializeFromData 登记并惰性清理，不得每个巨魔全场 FindObjectsOfType。
 
@@ -34,6 +38,8 @@
 4. IL2CPP Debug 构建 0 warning / 0 error，`git diff --check` 与 harness validator 通过。
 5. 独立副本实测：友好巨魔不再追 Squid 转圈；会在 CrownStealer 俯冲/接地时保留攻击机会；至少观察一只反制巨魔攻击并可能杀死友好巨魔。
 6. 联机/权威迁移、读档、换岛与对象池复用无普通巨魔误标、目标缓存污染、未知 RPC/Pool 或相关异常。
+7. 友好巨魔追击速度为原版 1.5 倍、索敌距离为原版 2 倍；冲撞动作不变，关闭 Mod 恢复原值，
+   回池重生不会继续累乘。
 
 ## 当前交接
 
@@ -41,3 +47,7 @@
 - 代码已完成：通过公开 `StateMachine.StepCoroutine` 精确限定 FriendlyTroll FSM，在候选枚举前临时移除 active Squid；正常返回与异常路径均恢复。反制 TrollWeak 通过公开 TargetCacher 查询临时注入 active FriendlyTroll，随后逐项恢复。
 - 独立 reviewer 静态 APPROVED；IL2CPP Debug 构建 0 warning / 0 error，DLL SHA-256=`084981C255AE05EA7EBB9A3F8199E2D3B8DEDE6EB321A7F5F05BB0FEF6317F50`。
 - 游戏当前仍在运行，本轮 DLL 尚未部署，现有测试 zip 也不包含此修复。下一步须退出游戏后部署独立副本，并以两条 canary 日志及真实冲撞验证公开 IL2CPP hook 命中；不得提前标记运行时通过。
+- 2026-08-16 追加追击速度与索敌范围微调：只写 `_runSpeed` 和 `_maxAttackDistance`，以每实例
+  捕获的原 profile 得到 2→3、10→20；StateMachine 作用域负责启停切换，ResetAndDespawn 回池前
+  恢复，未改 charge/伤害/RPC。独立 reviewer 静态 APPROVED，Debug 构建 0 warning / 0 error；
+  游戏运行中，尚未部署或实机。

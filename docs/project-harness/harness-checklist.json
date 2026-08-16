@@ -253,9 +253,9 @@
       "dependencies": [],
       "blocked_by": [],
       "blocked_reason": null,
-      "acceptance": "FriendlyTroll候选枚举精确排除Squid但允许CrownStealer且不用高度判定；约10% EnemyType.TrollWeak在真实生成完成时以稳定哈希一次性标记并可在原生冲锋范围攻击FriendlyTroll，普通巨魔零影响；无每帧随机、新池/prefab或全局目标缓存污染；读档/换岛/池复用/authority边界、构建、审查与独立副本实测通过。",
-      "verification": "实现已移除CrownStealer拒绝并只过滤active Squid；过滤挂公开StateMachine.StepCoroutine且只在FriendlyTroll FSM作用域临时修改候选集合，Postfix/Finalizer逐项恢复。约10% TrollWeak由存档上下文+Il2Cpp DateTime岛屿创建时间+动态NetID稳定哈希指定；仅world-authority临时注入active FriendlyTroll目标，无新RPC/池/全场扫描。独立reviewer静态APPROVED；已随刷新测试候选重新构建、部署独立副本并打包，构建/部署/包内DLL SHA-256均为E8B06EC90772390262F5D3B1325059097391EBE0D04E6CC5E479BE66DBECB8BD；尚未实机。",
-      "handoff": "当前刷新测试包已包含本轮。必须看到candidate-stage Squid filter与counter priority-target canary，并验证Squid不再被追、CrownStealer仍可攻击、反制弱巨魔可冲撞友好巨魔、普通巨魔不误伤。NetID代表同步池槽身份，同统治期复用保持结果；无运行时证据前保持doing。税收助手调度未动。",
+      "acceptance": "FriendlyTroll候选枚举精确排除Squid但允许CrownStealer且不用高度判定；约10% EnemyType.TrollWeak以稳定哈希获得原生反制目标；友好巨魔追击速度为原值1.5倍、索敌距离为原值2倍且不改冲撞/伤害；无累乘、新RPC/池或全局缓存污染，Disabled与回池恢复原值；构建、审查与独立副本实测通过。",
+      "verification": "原Squid/CrownStealer与10%反制实现保持不变。2026-08-16新增每实例原profile：仅_runSpeed 2→3、_maxAttackDistance 10→20，StateMachine作用域切换Enabled，ResetAndDespawn回池前恢复；未改charge/伤害/RPC。独立reviewer静态APPROVED，Debug构建0 warning/0 error，候选DLL SHA-256=8571E740D8CD4C94E5552D13B7CD1AC5D3124FF863733191257A864B4E92FB94；游戏运行中，尚未部署或实机。",
+      "handoff": "待退出后部署独立副本。除既有Squid/CrownStealer/反制canary外，验证追击速度3、索敌20、冲撞不变、关闭Mod恢复2/10、回池重生不累乘；无运行时证据前保持doing。",
       "workflow": {
         "status": "review_approved",
         "updated_at": "2026-08-15"
@@ -453,9 +453,9 @@
       ],
       "blocked_by": [],
       "blocked_reason": null,
-      "acceptance": "工匠成功使用普通 BerserkerTool 的第1-5次生成普通狂战士、第6次生成 BerserkerLeader并循环；仅成功转职计数且换岛延续、完整退出重置；隐士不再被敌人选取或抓走但不免疫伤害、不改变其他战利品；HermitType.Baker酿酒师与HermitType.Horn号角隐士绝对缩放为1.15，HermitType.Horse马厩隐士绝对缩放为1.10，其他隐士、朝向、能力不变；IL2CPP构建成功、独立副本实测无相关异常。",
-      "verification": "狂战士公开Promote修复已由用户确认。Baker酿酒师y=1.15与Horse马厩隐士y=1.10已实现并部署；本轮2.4枚举确认Horn为独立类型，新增Horn OnEnable绝对y=1.15、ScaleRegistry登记及OnDestroy精确注销，x/z和其他隐士零改。提交147ea44已推送；从该提交重建0 warning/0 error并只部署独立副本，构建/部署DLL SHA-256均为2CE66091A760E0ECE0455B5B2599371156CB295EDC8E2522FEE7F292D72ADF09。",
-      "handoff": "狂战士循环已通过用户验收；Horn y=1.15已部署独立副本，下一步验证Baker/Horn=1.15、Horse=1.10、其他隐士不变。Steam、共享存档和现行zip未修改。",
+      "acceptance": "工匠成功使用普通 BerserkerTool 的第1-5次生成普通狂战士、第6次生成 BerserkerLeader并循环；仅成功转职计数且换岛延续、完整退出重置；隐士不再被敌人选取或抓走但不免疫伤害、不改变其他战利品；HermitType.Baker/Horn绝对y=1.15、Horse绝对y=1.10、Ballista绝对y=1.20、Knight绝对y=1.05，其他隐士、朝向、能力不变；IL2CPP构建成功、独立副本实测无相关异常。",
+      "verification": "狂战士公开Promote修复已由用户确认；Baker/Horse/Horn既有缩放已实现。2026-08-16新增Ballista y=1.20与Knight y=1.05，只写y并沿用ScaleRegistry/OnDestroy注销；独立reviewer静态APPROVED，Debug构建0 warning/0 error，候选DLL SHA-256=8571E740D8CD4C94E5552D13B7CD1AC5D3124FF863733191257A864B4E92FB94。游戏运行中，尚未部署或实机。",
+      "handoff": "待游戏退出后仅部署独立测试副本；验证Baker/Horn=1.15、Horse=1.10、Ballista=1.20、Knight=1.05，左右朝向正常且其他隐士不变。Steam、共享存档和现行zip不得修改。",
       "workflow": {
         "status": "running",
         "updated_at": "2026-08-16"
