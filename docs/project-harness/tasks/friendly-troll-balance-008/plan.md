@@ -50,4 +50,5 @@
 - 2026-08-16 追加追击速度与索敌范围微调：只写 `_runSpeed` 和 `_maxAttackDistance`，以每实例
   捕获的原 profile 得到 2→3、10→20；StateMachine 作用域负责启停切换，ResetAndDespawn 回池前
   恢复，未改 charge/伤害/RPC。独立 reviewer 静态 APPROVED，Debug 构建 0 warning / 0 error；
-  游戏运行中，尚未部署或实机。
+  用户退出后已只部署独立测试副本，构建/部署 DLL SHA-256 均为
+  `8571E740D8CD4C94E5552D13B7CD1AC5D3124FF863733191257A864B4E92FB94`；尚未实机或打包。

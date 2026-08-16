@@ -1,4 +1,4 @@
-## 2026-08-16 — 隐士视觉与友好巨魔追击微调已构建，待部署
+## 2026-08-16 — 隐士视觉与友好巨魔追击微调已部署，待实机
 
 - 希腊弩箭塔隐士按 `HermitType.Ballista` 精确设为 y=1.20，骑士塔隐士按
   `HermitType.Knight` 精确设为 y=1.05；两者沿用现有 OnEnable/ScaleRegistry/OnDestroy 生命周期，
@@ -6,9 +6,10 @@
 - 友好巨魔只把原生追击速度从 2 提高到 3（1.5倍），把索敌距离从 10 提高到 20（2倍）。
   冲撞速度、冲撞距离、伤害、冷却、Squid/CrownStealer 筛选与约10%反制巨魔机制均不变。
   每个对象池实例从原 profile 计算目标值；关闭 Mod 与回池前恢复，避免重复累乘。
-- 独立 reviewer 静态 APPROVED；禁部署 Debug 构建 0 warning / 0 error，DLL SHA-256=
-  `8571E740D8CD4C94E5552D13B7CD1AC5D3124FF863733191257A864B4E92FB94`。独立测试副本仍在运行，
-  本轮没有覆盖 DLL、没有重打 zip；待退出后部署，并实测两类隐士朝向、巨魔 3/20、关闭恢复与回池复用。
+- 独立 reviewer 静态 APPROVED；Debug 构建 0 warning / 0 error。用户退出后确认游戏进程为0，
+  只覆盖独立测试副本；构建/部署 DLL SHA-256 均为
+  `8571E740D8CD4C94E5552D13B7CD1AC5D3124FF863733191257A864B4E92FB94`（164,352 bytes）。未写Steam、
+  未重打zip；待实测两类隐士朝向、巨魔3/20、关闭恢复与回池复用。
 
 ## 2026-08-16 — crash-unload-016：出航卸载栈溢出首修候选
 

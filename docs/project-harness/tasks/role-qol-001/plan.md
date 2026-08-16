@@ -56,5 +56,6 @@
   尚未打包或实机，不把部署自动视为观感验收。
 - 2026-08-16 新增 `HermitType.Ballista` 弩箭塔隐士绝对 y=1.20 与 `HermitType.Knight`
   骑士塔隐士绝对 y=1.05；沿用现有 ScaleRegistry 与 OnDestroy 注销，只写 y、保留 x/z。
-  独立 reviewer 静态 APPROVED，Debug 构建 0 warning / 0 error。游戏运行中，尚未部署独立副本、
-  打包或取得观感验收。
+  独立 reviewer 静态 APPROVED，Debug 构建 0 warning / 0 error。用户退出后已只部署独立测试副本，
+  构建/部署 DLL SHA-256 均为 `8571E740D8CD4C94E5552D13B7CD1AC5D3124FF863733191257A864B4E92FB94`；
+  尚未打包或取得观感验收。
