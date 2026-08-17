@@ -1,3 +1,21 @@
+## 2026-08-17 — V2.0.0 发布打包完成（GitHub 草稿待实测后公开）
+
+- 用户拍板打 V2.0 正式版。csproj 版本 2.4.0→2.0.0（Mod 自身版本号，游戏兼容仍 2.4.0 IL2CPP），
+  重建 0W/0E，DLL 204,800 bytes、SHA-256=`BFAF0AC6D623055ED870A836BBFEECBC32B23089B1A9026F4CB401444450E823`。
+- 玩家侧文档全部重写为 V2.0 口径（不再用"测试候选"措辞，未验证边界诚实标注在"持续观察"节）：
+  `MOD_UPDATE_AND_FIX_LOG_ZH.txt`（V2.0 更新说明：银行助手重做/四队亡灵/箭塔重建/旗帜编队/小船恢复/
+  忍者伏击转正/狂战士进阶转正/隐士防绑架/主船扩容/巨魔平衡/性能优化+修复清单+比例汇总）、
+  `MOD_USER_GUIDE_ZH.txt`（V2.0 使用指南+新功能FAQ）、`MOD_CAPABILITIES_AND_ROADMAP_ZH.txt`、
+  `release-notes-il2cpp.md`（兼作包内 INSTALL.md）。提交`0f77f61`。
+- 发布 ZIP `KingdomEnhancedMod_v2.0.0_IL2CPP.zip` 从 E 盘基座重打包：312 项（doorstop/winhttp/dotnet/
+  BepInEx core+unity-libs+config(cfg)+plugins(新DLL)+四份文档+manifest），39,345,832 bytes；
+  泄漏检查 CLEAN（无日志/缓存/interop/备份/SKIDROW 痕迹）；manifest=commit 0f77f61、dirty=false。
+- 按既有决策（避免 Git 历史膨胀）ZIP 移出版本库：`git rm --cached` 旧 v2.4.0 ZIP + gitignore `release/*.zip`，
+  提交`33c2c59`；新 ZIP 只作为 GitHub Release 资产。
+- GitHub 草稿 release 已建（v2.0.0 标签占位、资产=V2.0 ZIP、说明=V2.0 更新速览），待用户实测
+  银行助手顺吸/箭塔重建/幽灵驻守后一键公开发布。E 盘测试副本已同步部署 2.0.0 发布 DLL（备份
+  `before-v2.0.0-release.bak`）。
+
 ## 2026-08-17 — bank-assistants-005：捡币改链式顺吸（reviewer 两轮通过，待部署）
 
 - 用户反馈：助手逐枚"定位→走→捡→停→等下个扫描节拍"卡顿严重，跟不上扔币节奏；原生银行家是
