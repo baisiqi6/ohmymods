@@ -1,5 +1,7 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using BepInEx.Unity.IL2CPP.Utils.Collections;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
@@ -376,11 +378,19 @@ internal static class SpecialTowerRebuild
 
         rebuild.deactivateAfterUpgrade = false;
         rebuild.nextPrefab = nativeTierSix;
-        rebuild.onlyInBuildableRegion = template.onlyInBuildableRegion;
-        rebuild.ignoreRegionRestrictIfExpo = template.ignoreRegionRestrictIfExpo;
-        rebuild.requiresStoneTech = template.requiresStoneTech;
-        rebuild.requiresIronTech = template.requiresIronTech;
-        rebuild.cooldown = Mathf.Max(template.cooldown, RebuildCooldown);
+        // Rebuild replaces an existing structure in place; it is not a new
+        // placement, so the buildable-region restriction must not apply (the
+        // ballista's own keep-out collider would otherwise lock the prompt
+        // forever with InvalidRegion and no visible feedback).
+        rebuild.onlyInBuildableRegion = false;
+        rebuild.ignoreRegionRestrictIfExpo = false;
+        // Stone/iron tech gates make no sense for reverting a finished tower.
+        rebuild.requiresStoneTech = false;
+        rebuild.requiresIronTech = false;
+        // A flat short cooldown: inheriting the tower-upgrade template's long
+        // cooldown would keep the prompt locked (InvalidTime) for minutes after
+        // every spawn/restore.
+        rebuild.cooldown = RebuildCooldown;
         rebuild.passengerUpgrades = new Il2CppReferenceArray<RequireTagUpgrade>(0);
         rebuild.statToIncrement = Stat.Null;
         rebuild.forceBlockPayment = false;
@@ -725,6 +735,135 @@ internal static class SpecialTowerRebuild
 }
 
 /// <summary>
+/// Field diagnostics for the rebuild interaction: after each level load, scan
+/// every Ballista tower in the scene twice (+10s / +40s) and report whether the
+/// marker/payable landed on the live instances and which native lock reason
+/// (if any) is suppressing the prompt.  Identical lines are logged once.
+/// </summary>
+internal static class SpecialTowerRebuildDiagnostics
+{
+    private const int MaxScansPerSession = 6;
+    private static int _scansDone;
+    private static bool _loggedFailure;
+    private static readonly HashSet<string> LoggedStates = new();
+
+    public static void Schedule(World world)
+    {
+        if (!ModConfig.Enabled.Value || world == null) return;
+        try
+        {
+            world.StartCoroutine(ScanRoutine(world).WrapToIl2Cpp());
+        }
+        catch (Exception e)
+        {
+            if (_loggedFailure) return;
+            _loggedFailure = true;
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[SpecialTowerRebuildDiag] schedule failed: " + e);
+        }
+    }
+
+    private static IEnumerator ScanRoutine(World world)
+    {
+        yield return new WaitForSeconds(10f);
+        ScanOnce(world, "t+10s");
+        yield return new WaitForSeconds(30f);
+        ScanOnce(world, "t+40s");
+    }
+
+    private static void ScanOnce(World world, string tag)
+    {
+        if (_scansDone >= MaxScansPerSession) return;
+        _scansDone++;
+        try
+        {
+            Transform layer = world != null && world.gameObject != null ? world.gameLayer : null;
+            if (layer == null) return;
+
+            Ballista[] towers = layer.GetComponentsInChildren<Ballista>(false);
+            int registered = CountRegisteredRebuildPayables();
+            Log($"[{tag}] sceneBallistas={towers.Length} registeredRebuildPayables={registered}");
+            if (towers.Length == 0) return;
+
+            Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
+            for (int i = 0; i < towers.Length; i++)
+            {
+                Ballista tower = towers[i];
+                if (tower == null) continue;
+                GameObject go = tower.gameObject;
+                if (go == null) continue;
+
+                bool marker = go.GetComponent<SpecialTowerRebuildMarker>() != null;
+                PayableUpgrade payable = go.GetComponent<PayableUpgrade>();
+                string state;
+                if (payable == null)
+                {
+                    state = "payable=missing";
+                }
+                else
+                {
+                    string reason;
+                    try
+                    {
+                        Player player = kingdom != null
+                            ? kingdom.GetNearestPlayer(go.transform.position.x)
+                            : null;
+                        LockIndicator.LockReason lockReason;
+                        bool locked = payable.IsLocked(player, out lockReason);
+                        reason = "locked=" + locked + " reason=" + lockReason
+                            + " blockPay=" + payable.blockPaymentUpgrade
+                            + " regionRestrict=" + payable.onlyInBuildableRegion;
+                    }
+                    catch (Exception e)
+                    {
+                        reason = "probeFailed=" + e.GetType().Name;
+                    }
+                    state = "payable=present " + reason;
+                }
+                Log($"[{tag}] {go.name} active={go.activeInHierarchy} marker={marker} {state}");
+            }
+        }
+        catch (Exception e)
+        {
+            if (_loggedFailure) return;
+            _loggedFailure = true;
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[SpecialTowerRebuildDiag] scan failed: " + e);
+        }
+    }
+
+    private static int CountRegisteredRebuildPayables()
+    {
+        try
+        {
+            PayableManager manager = Managers.Inst != null ? Managers.Inst.payables : null;
+            if (manager == null || manager.AllPayables == null) return -1;
+            Il2CppArrayBase<Payable> all = manager.AllPayables;
+            int count = 0;
+            int limit = Math.Min(all.Length, 2000);
+            for (int i = 0; i < limit; i++)
+            {
+                Payable payable = all[i];
+                if (payable == null || payable.gameObject == null) continue;
+                if (payable.gameObject.GetComponent<SpecialTowerRebuildMarker>() != null)
+                    count++;
+            }
+            return count;
+        }
+        catch
+        {
+            return -1;
+        }
+    }
+
+    private static void Log(string line)
+    {
+        if (!LoggedStates.Add(line)) return;
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SpecialTowerRebuildDiag] " + line);
+    }
+}
+
+/// <summary>
 /// Runs before the existing PoolManager Init prefix that eagerly constructs
 /// native pools, ensuring cloned Ballista instances have an identical native
 /// PayableUpgrade/IRPCable component layout on host and client.
@@ -737,6 +876,16 @@ public static class PoolManager_SpecialTowerRebuild_Init_Patch
     private static void Prefix()
     {
         SpecialTowerRebuild.EnsurePrefabLayout();
+    }
+}
+
+[HarmonyPatch(typeof(World), nameof(World.OnLevelLoaded))]
+public static class World_SpecialTowerRebuild_Diagnostics_Patch
+{
+    [HarmonyPostfix]
+    private static void Postfix(World __instance)
+    {
+        SpecialTowerRebuildDiagnostics.Schedule(__instance);
     }
 }
 
