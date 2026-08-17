@@ -27,10 +27,16 @@ public sealed class SpecialTowerRebuildMarker : MonoBehaviour
 ///
 /// - an idle Ballista specialisation may be rebuilt into the current biome's
 ///   native level-six ordinary tower;
+/// - a FireTower may be rebuilt the same way while its fuel is full and no
+///   worker is on the crank: fuel full hides the native fuel PayableComponent
+///   (FireTower.IsLocked always reports NotLocked, so its CanSelect collapses
+///   to CanPay = _fireJarsActiveNum &lt; _maxFireJars), and with no worker the
+///   state machine never leaves Reloading, so no fire jar is consumed and no
+///   projectile is held while the old root is destroyed;
 /// - the player can then use any native passenger upgrade available on that
 ///   ordinary tower (for example Knight/Berserker) without this patch having to
 ///   reproduce hermit, construction, Persistent or CRPC behaviour;
-/// - Fire, OilFire, Baker/Mead and Knight/Berserker towers remain fail-closed
+/// - OilFire, Baker/Mead and Knight/Berserker towers remain fail-closed
 ///   until their inventory, hidden occupants or sibling shop lifecycles have a
 ///   separately verified teardown path.
 /// </summary>
@@ -56,6 +62,9 @@ internal static class SpecialTowerRebuild
         HeldBoltInactive,
         HeldBoltPoolMissing,
         BallistaStateNotStable,
+        FireFuelNotFull,
+        FireWorkerPresent,
+        FireProjectileInFlight,
         PlayerTransactionMismatch,
         CleanupFailed,
         PreparedTokenMissing
@@ -156,11 +165,13 @@ internal static class SpecialTowerRebuild
             // asset (observed) while real builds and save restores instantiate the
             // biome-specific variant (e.g. "Tower Ballista_greece").  Every safe
             // candidate gets the layout, so lazily cloned instances inherit it no
-            // matter which asset the game actually spawns.
-            List<GameObject> candidates = CollectBallistaCandidates(configuredBallista);
-            if (candidates.Count == 0)
+            // matter which asset the game actually spawns.  FireTower assets are
+            // collected by type scan (LoadAll), which needs no route resolution.
+            List<GameObject> ballistaCandidates = CollectBallistaCandidates(configuredBallista);
+            List<GameObject> fireCandidates = CollectFireTowerCandidates();
+            if (ballistaCandidates.Count == 0 && fireCandidates.Count == 0)
             {
-                ReportFailure("current-biome Ballista specialisation could not be resolved");
+                ReportFailure("no special-tower source candidates could be resolved");
                 return;
             }
 
@@ -171,8 +182,25 @@ internal static class SpecialTowerRebuild
                 _configuredBiome = biomeIndex;
             }
 
+            // The two families are component-exclusive (an asset owns either a
+            // Ballista or a FireTower, never both), so a single flat loop with a
+            // per-entry family flag keeps one idempotent _configuredSources set.
+            var candidates = new List<GameObject>();
+            var fireFlags = new List<bool>();
+            for (int i = 0; i < ballistaCandidates.Count; i++)
+            {
+                candidates.Add(ballistaCandidates[i]);
+                fireFlags.Add(false);
+            }
+            for (int i = 0; i < fireCandidates.Count; i++)
+            {
+                candidates.Add(fireCandidates[i]);
+                fireFlags.Add(true);
+            }
+
             var unsafeCandidates = new List<string>();
-            var configuredNames = new List<string>();
+            var configuredBallistaNames = new List<string>();
+            var configuredFireNames = new List<string>();
             PayableUpgrade firstPayable = null;
             int configuredCount = 0;
             bool configuredThisPass = false;
@@ -182,7 +210,8 @@ internal static class SpecialTowerRebuild
                 GameObject source = candidates[i];
                 if (source == null) continue;
 
-                if (!IsSafeBallistaSource(source))
+                bool isFire = fireFlags[i];
+                if (isFire ? !IsSafeFireTowerSource(source) : !IsSafeBallistaSource(source))
                 {
                     unsafeCandidates.Add(source.name);
                     continue;
@@ -193,7 +222,8 @@ internal static class SpecialTowerRebuild
                 PayableUpgrade existing = source.GetComponent<PayableUpgrade>();
                 if (marker != null && existing != null && _configuredSources.Contains(sourceId))
                 {
-                    configuredNames.Add(source.name);
+                    if (isFire) configuredFireNames.Add(source.name);
+                    else configuredBallistaNames.Add(source.name);
                     configuredCount++;
                     if (firstPayable == null) firstPayable = existing;
                     continue;
@@ -202,6 +232,8 @@ internal static class SpecialTowerRebuild
                 if (existing != null && marker == null)
                 {
                     // Only this candidate is skipped; other candidates continue.
+                    // FireTower prefabs natively carry a PayableComponent (fuel),
+                    // not a PayableUpgrade, so this check never rejects them.
                     ReportFailure("source " + source.name
                         + " already owns a native PayableUpgrade; refusing to alter its layout");
                     continue;
@@ -229,7 +261,8 @@ internal static class SpecialTowerRebuild
                 ConfigurePayable(rebuild, template, tierSix.gameObject);
 
                 _configuredSources.Add(sourceId);
-                configuredNames.Add(source.name);
+                if (isFire) configuredFireNames.Add(source.name);
+                else configuredBallistaNames.Add(source.name);
                 configuredCount++;
                 configuredThisPass = true;
                 if (firstPayable == null) firstPayable = rebuild;
@@ -242,14 +275,14 @@ internal static class SpecialTowerRebuild
                 {
                     _lastUnsafeSummary = unsafeSummary;
                     KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
-                        "[SpecialTowerRebuild] Skipped unsafe Ballista candidates: ["
+                        "[SpecialTowerRebuild] Skipped unsafe special-tower candidates: ["
                         + unsafeSummary + "]");
                 }
             }
 
             if (configuredCount == 0)
             {
-                ReportFailure("no safe Ballista source candidate could be configured");
+                ReportFailure("no safe special-tower source candidate could be configured");
                 return;
             }
 
@@ -259,8 +292,10 @@ internal static class SpecialTowerRebuild
 
             _lastFailure = null;
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                "[SpecialTowerRebuild] Ready sources=["
-                + string.Join(", ", configuredNames.ToArray())
+                "[SpecialTowerRebuild] Ready ballista=["
+                + string.Join(", ", configuredBallistaNames.ToArray())
+                + "] fire=["
+                + string.Join(", ", configuredFireNames.ToArray())
                 + "] target=" + tierSix.gameObject.name
                 + " price=" + firstPayable.Price
                 + " biome=" + biomeIndex);
@@ -323,6 +358,47 @@ internal static class SpecialTowerRebuild
             if (candidates[i] != null && candidates[i].Pointer == candidate.Pointer) return;
         }
         candidates.Add(candidate);
+    }
+
+    /// <summary>
+    /// Collects every FireTower prefab asset by type scan.  LoadAll walks
+    /// subdirectories, which Resources.Load cannot do (same precedent as the
+    /// Ballista scan), and OilFireArcherTower extends Workable directly, never
+    /// FireTower, so the type filter excludes it natively.  The name filter
+    /// drops unrelated assets ("Tower_upgrade_Fire", "Tower_upgrade_Fire_greece"
+    /// etc. all contain "Tower").
+    /// </summary>
+    private static List<GameObject> CollectFireTowerCandidates()
+    {
+        var candidates = new List<GameObject>();
+        var scanned = Resources.LoadAll<FireTower>("");
+        if (scanned != null)
+        {
+            for (int i = 0; i < scanned.Length; i++)
+            {
+                FireTower scannedFire = scanned[i];
+                if (scannedFire == null || scannedFire.gameObject == null) continue;
+                GameObject scannedObject = scannedFire.gameObject;
+                if (scannedObject.name == null
+                    || !scannedObject.name.Contains("Tower")) continue;
+                AddCandidate(candidates, scannedObject);
+            }
+        }
+        return candidates;
+    }
+
+    /// <summary>
+    /// True when the asset is a plain FireTower specialisation.  OilFireArcherTower
+    /// is a sibling Workable class, not a FireTower subclass, so the LoadAll type
+    /// scan already excludes it; the component check stays as defence in depth.
+    /// Fire tower assets carry no Ballista/bolt inventory, so no Ballista-related
+    /// checks apply here.
+    /// </summary>
+    private static bool IsSafeFireTowerSource(GameObject source)
+    {
+        if (source == null) return false;
+        if (source.GetComponent<FireTower>() == null) return false;
+        return source.GetComponent<OilFireArcherTower>() == null;
     }
 
     /// <summary>
@@ -429,41 +505,62 @@ internal static class SpecialTowerRebuild
             return Block(payable, BlockReason.NativePaymentLayoutNotReady);
 
         Ballista ballista = payable.GetComponent<Ballista>();
-        if (ballista == null || ballista.gameObject == null
-            || !ballista.gameObject.activeInHierarchy || !ballista.enabled
-            || ballista._currentActors == null)
-            return Block(payable, BlockReason.BallistaNotActive);
-
-        // Workers are deliberately allowed. Destroying the old root invalidates their
-        // Workable reference; the native worker routine observes Unity-null on its next
-        // step and runs ResetWorkState. Never clear actors or call private worker hooks.
-        if (ballista._target != null) return Block(payable, BlockReason.ActiveTarget);
-        if (ballista._windingUpEmitter != null && ballista._windingUpEmitter.IsPlaying)
-            return Block(payable, BlockReason.WindingUp);
-
-        if (ballista.tower != null && ballista.tower.UnderConstruction)
-            return Block(payable, BlockReason.TowerUnderConstruction);
-
-        if (ballista._state == Ballista.State.Ready)
+        if (ballista != null)
         {
-            // A just-restored native Ballista can briefly be Ready before its
-            // authority-local held bolt has been reconstructed.  With no
-            // target and a safe kingdom there is no inventory to leak, so this
-            // is also a valid rebuild state.
-            if (ballista._bolt == null) return Allow(payable);
+            if (ballista.gameObject == null
+                || !ballista.gameObject.activeInHierarchy || !ballista.enabled
+                || ballista._currentActors == null)
+                return Block(payable, BlockReason.BallistaNotActive);
 
-            if (ballista._bolt.gameObject == null
-                || !ballista._bolt.gameObject.activeInHierarchy)
-                return Block(payable, BlockReason.HeldBoltInactive);
-            if (Pool.GetPoolFromPrefabInstance(ballista._bolt.gameObject) == null)
-                return Block(payable, BlockReason.HeldBoltPoolMissing);
-            return Allow(payable);
+            // Workers are deliberately allowed. Destroying the old root invalidates their
+            // Workable reference; the native worker routine observes Unity-null on its next
+            // step and runs ResetWorkState. Never clear actors or call private worker hooks.
+            if (ballista._target != null) return Block(payable, BlockReason.ActiveTarget);
+            if (ballista._windingUpEmitter != null && ballista._windingUpEmitter.IsPlaying)
+                return Block(payable, BlockReason.WindingUp);
+
+            if (ballista.tower != null && ballista.tower.UnderConstruction)
+                return Block(payable, BlockReason.TowerUnderConstruction);
+
+            if (ballista._state == Ballista.State.Ready)
+            {
+                // A just-restored native Ballista can briefly be Ready before its
+                // authority-local held bolt has been reconstructed.  With no
+                // target and a safe kingdom there is no inventory to leak, so this
+                // is also a valid rebuild state.
+                if (ballista._bolt == null) return Allow(payable);
+
+                if (ballista._bolt.gameObject == null
+                    || !ballista._bolt.gameObject.activeInHierarchy)
+                    return Block(payable, BlockReason.HeldBoltInactive);
+                if (Pool.GetPoolFromPrefabInstance(ballista._bolt.gameObject) == null)
+                    return Block(payable, BlockReason.HeldBoltPoolMissing);
+                return Allow(payable);
+            }
+
+            if (ballista._state == Ballista.State.Reloading
+                && ballista._currentWork == 0 && ballista._bolt == null)
+                return Allow(payable);
+            return Block(payable, BlockReason.BallistaStateNotStable);
         }
 
-        if (ballista._state == Ballista.State.Reloading
-            && ballista._currentWork == 0 && ballista._bolt == null)
-            return Allow(payable);
-        return Block(payable, BlockReason.BallistaStateNotStable);
+        // FireTower chain: the rebuild prompt must never coexist with the native
+        // fuel PayableComponent prompt.  Fuel full hides the native interaction
+        // (FireTower.IsLocked always reports NotLocked, so its CanSelect
+        // collapses to CanPay = _fireJarsActiveNum < _maxFireJars); with no
+        // worker on the crank the state machine is stuck in Reloading — the only
+        // 0->1 transition lives in OnJobFinish — so no fire jar is consumed and
+        // _projectile stays null while the old root is being destroyed.
+        FireTower fireTower = payable.GetComponent<FireTower>();
+        if (fireTower == null || fireTower.gameObject == null)
+            return Block(payable, BlockReason.BallistaNotActive);
+        if (fireTower._fireJarsActiveNum < fireTower._maxFireJars)
+            return Block(payable, BlockReason.FireFuelNotFull);
+        if (fireTower._currentActors != null && fireTower._currentActors.Count > 0)
+            return Block(payable, BlockReason.FireWorkerPresent);
+        if (fireTower._projectile != null)
+            return Block(payable, BlockReason.FireProjectileInFlight);
+        return Allow(payable);
     }
 
     public static bool TryPrepare(PayableUpgrade payable, Player player)
@@ -479,7 +576,10 @@ internal static class SpecialTowerRebuild
         try
         {
             Ballista ballista = payable.GetComponent<Ballista>();
-            if (ballista == null) return Block(payable, BlockReason.BallistaNotActive);
+            FireTower fireTower = ballista == null
+                ? payable.GetComponent<FireTower>() : null;
+            if (ballista == null && fireTower == null)
+                return Block(payable, BlockReason.BallistaNotActive);
 
             int id = payable.gameObject.GetInstanceID();
             if (!TryGetRuntimeIdentity(out IntPtr worldPointer,
@@ -498,7 +598,11 @@ internal static class SpecialTowerRebuild
             }
             PreparedTokens.Remove(id);
 
-            Bolt bolt = ballista._bolt;
+            // Only Ballista holds an authority-local bolt to clean up.  The fire
+            // path performs no teardown: CanInteract already proved fuel is full,
+            // no worker is on the crank and no projectile is held, so nothing can
+            // leak when the old root is destroyed.
+            Bolt bolt = ballista != null ? ballista._bolt : null;
             GameObject boltObject = bolt?.gameObject;
             var token = new PreparedToken
             {
@@ -736,9 +840,10 @@ internal static class SpecialTowerRebuild
 
 /// <summary>
 /// Field diagnostics for the rebuild interaction: after each level load, scan
-/// every Ballista tower in the scene twice (+10s / +40s) and report whether the
-/// marker/payable landed on the live instances and which native lock reason
-/// (if any) is suppressing the prompt.  Identical lines are logged once.
+/// every Ballista and FireTower tower in the scene twice (+10s / +40s) and
+/// report whether the marker/payable landed on the live instances and which
+/// native lock reason (if any) is suppressing the prompt.  Fire towers also
+/// report their fuel jars and worker count.  Identical lines are logged once.
 /// </summary>
 internal static class SpecialTowerRebuildDiagnostics
 {
@@ -781,9 +886,10 @@ internal static class SpecialTowerRebuildDiagnostics
             if (layer == null) return;
 
             Ballista[] towers = layer.GetComponentsInChildren<Ballista>(false);
+            FireTower[] fireTowers = layer.GetComponentsInChildren<FireTower>(false);
             int registered = CountRegisteredRebuildPayables();
-            Log($"[{tag}] sceneBallistas={towers.Length} registeredRebuildPayables={registered}");
-            if (towers.Length == 0) return;
+            Log($"[{tag}] sceneBallistas={towers.Length} sceneFireTowers={fireTowers.Length} registeredRebuildPayables={registered}");
+            if (towers.Length == 0 && fireTowers.Length == 0) return;
 
             Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
             for (int i = 0; i < towers.Length; i++)
@@ -795,32 +901,33 @@ internal static class SpecialTowerRebuildDiagnostics
 
                 bool marker = go.GetComponent<SpecialTowerRebuildMarker>() != null;
                 PayableUpgrade payable = go.GetComponent<PayableUpgrade>();
-                string state;
-                if (payable == null)
-                {
-                    state = "payable=missing";
-                }
-                else
-                {
-                    string reason;
-                    try
-                    {
-                        Player player = kingdom != null
-                            ? kingdom.GetNearestPlayer(go.transform.position.x)
-                            : null;
-                        LockIndicator.LockReason lockReason;
-                        bool locked = payable.IsLocked(player, out lockReason);
-                        reason = "locked=" + locked + " reason=" + lockReason
-                            + " blockPay=" + payable.blockPaymentUpgrade
-                            + " regionRestrict=" + payable.onlyInBuildableRegion;
-                    }
-                    catch (Exception e)
-                    {
-                        reason = "probeFailed=" + e.GetType().Name;
-                    }
-                    state = "payable=present " + reason;
-                }
+                string state = ProbePayableState(go, payable, kingdom);
                 Log($"[{tag}] {go.name} active={go.activeInHierarchy} marker={marker} {state}");
+            }
+
+            for (int i = 0; i < fireTowers.Length; i++)
+            {
+                FireTower tower = fireTowers[i];
+                if (tower == null) continue;
+                GameObject go = tower.gameObject;
+                if (go == null) continue;
+
+                bool marker = go.GetComponent<SpecialTowerRebuildMarker>() != null;
+                PayableUpgrade payable = go.GetComponent<PayableUpgrade>();
+                string state = ProbePayableState(go, payable, kingdom);
+                int actorCount = 0;
+                string jars;
+                try
+                {
+                    if (tower._currentActors != null) actorCount = tower._currentActors.Count;
+                    jars = tower._fireJarsActiveNum + "/" + tower._maxFireJars;
+                }
+                catch
+                {
+                    jars = "probeFailed";
+                }
+                Log($"[{tag}] {go.name} active={go.activeInHierarchy} jars={jars}"
+                    + " actors=" + actorCount + " marker=" + marker + " " + state);
             }
         }
         catch (Exception e)
@@ -830,6 +937,29 @@ internal static class SpecialTowerRebuildDiagnostics
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(
                 "[SpecialTowerRebuildDiag] scan failed: " + e);
         }
+    }
+
+    private static string ProbePayableState(GameObject go, PayableUpgrade payable,
+        Kingdom kingdom)
+    {
+        if (payable == null) return "payable=missing";
+        string reason;
+        try
+        {
+            Player player = kingdom != null
+                ? kingdom.GetNearestPlayer(go.transform.position.x)
+                : null;
+            LockIndicator.LockReason lockReason;
+            bool locked = payable.IsLocked(player, out lockReason);
+            reason = "locked=" + locked + " reason=" + lockReason
+                + " blockPay=" + payable.blockPaymentUpgrade
+                + " regionRestrict=" + payable.onlyInBuildableRegion;
+        }
+        catch (Exception e)
+        {
+            reason = "probeFailed=" + e.GetType().Name;
+        }
+        return "payable=present " + reason;
     }
 
     private static int CountRegisteredRebuildPayables()
