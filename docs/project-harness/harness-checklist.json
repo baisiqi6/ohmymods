@@ -45,13 +45,13 @@
       "priority": "p1",
       "owner": "codex",
       "selected_in_session": "codex-2026-08-16-special-tower-worker-release",
-      "updated_at": "2026-08-16",
+      "updated_at": "2026-08-18",
       "dependencies": [],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "首版允许稳定Ballista在正常当前/排队工匠存在时按运行时原生六级塔价格重建回当前biome六级普通箭塔；工匠由旧塔Destroy后的原生工作循环释放，bolt在付款提交前安全回池，失败取消并退币。离线/本地分屏开放、在线fail closed；Fire/OilFire/Knight/Berserker/Baker/Mead保持fail closed；Disabled仍保留确定性组件布局但阻止交互。",
-      "verification": "首版与驻守工匠修复版（1f9f988/A05A6551）实机均无重建交互，且全程无Blocked日志。2026-08-16深夜根因锁定：EnsurePrefabLayout经Tower6基座模板route+GetAssetSwap解析到基座资产Tower Ballista，而存档（gzip解压）实证已建弩箭塔prefabPath=Prefabs/Buildings and Interactive/greece/Tower Ballista_greece——组件加错资产，恢复实例无marker/PayableUpgrade，CanSelect静默失败（坑24）。修复：候选集解析（GetAssetSwap结果+Resources.LoadAll<Ballista>按名过滤Tower Ballista），全部安全候选幂等配置，Ready日志列出全部源名+跳过候选汇总。worker=OMP deepseek-v4-flash thinking=max实现，Operator逐行审查（46行删除全属旧单源段，网关/token逻辑零改动），独立构建0 warning/0 error。本增量未启用独立reviewer：改动仅限prefab解析、不触付款/RPC契约（协议规则2的裁量记录）。待部署实测：Ready sources应含Tower Ballista_greece，驻守弩箭塔应出现18金币重建交互。",
-      "handoff": "prefab解析修复候选已编译通过、未部署（用户正在游戏内测试幽灵驻守，不能覆盖DLL）。用户退出后部署E盘副本，实测点：启动日志Ready sources含_greece变体；走到已建弩箭塔（含驻守工匠）出现18金币提示；付款后弩箭塔变回当前世界六级普通塔、工匠正常释放；再携隐士走原版升级路径。",
+      "verification": "2026-08-18用户实测确认弩箭塔重建交互已出现并可转化为普通箭塔（锁层双修复=冷却不继承塔升级长冷却、重建不受禁建区限制，为真根因；此前prefab候选集修复保证了组件命中Tower Ballista_greece资产）。诊断探针曾报marker/payable缺失系探针照错层级（Ballista组件挂在子对象BallistaWorkPosition，交互组件在塔根对象）——已升级为全层级链报告待下次日志最终确认。待补确认：完整付款链路（18金币→变回六级普通塔→驻守工匠正常离开→携目标隐士按原版重新专精）；火焰塔门控（燃料满+无工匠出重建）待用户到火焰塔所在岛实测。",
+      "handoff": "交互已通。剩余验证：完整付款重建一轮+重新专精；火焰塔门控实测；层级诊断确认后可裁剪诊断日志再发布。",
       "workflow": {
         "status": "running",
         "updated_at": "2026-08-16"
