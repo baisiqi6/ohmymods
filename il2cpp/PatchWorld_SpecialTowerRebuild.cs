@@ -902,7 +902,28 @@ internal static class SpecialTowerRebuildDiagnostics
                 bool marker = go.GetComponent<SpecialTowerRebuildMarker>() != null;
                 PayableUpgrade payable = go.GetComponent<PayableUpgrade>();
                 string state = ProbePayableState(go, payable, kingdom);
-                Log($"[{tag}] {go.name} active={go.activeInHierarchy} marker={marker} {state}");
+
+                // The live Ballista component sits on an object named
+                // "BallistaWorkPosition"; walk the hierarchy so the next log
+                // shows whether the marker/payable landed on the tower root
+                // and what that root actually is.
+                string parentName = go.transform.parent != null
+                    ? go.transform.parent.name : "<none>";
+                Transform rootTransform = go.transform.root;
+                GameObject rootGo = rootTransform != null ? rootTransform.gameObject : null;
+                bool rootMarker = rootGo != null
+                    && rootGo.GetComponent<SpecialTowerRebuildMarker>() != null;
+                PayableUpgrade rootPayable = rootGo != null
+                    ? rootGo.GetComponent<PayableUpgrade>() : null;
+                bool rootPersistent = rootGo != null
+                    && rootGo.GetComponent<Persistent>() != null;
+
+                Log($"[{tag}] self={go.name} parent={parentName}"
+                    + " root=" + (rootGo != null ? rootGo.name : "<null>")
+                    + " rootMarker=" + rootMarker
+                    + " rootPayable=" + (rootPayable != null ? "present" : "missing")
+                    + " rootPersistent=" + rootPersistent
+                    + " selfMarker=" + marker + " " + state);
             }
 
             for (int i = 0; i < fireTowers.Length; i++)
