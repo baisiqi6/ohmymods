@@ -65,9 +65,6 @@ public static class PatchWorld_DefenseSpacing
     /// squad keeps its followers within shooting distance of the wall; knight
     /// counts that natively stay shallower are untouched.
     /// </summary>
-    private const float KnightDepthCap = 6f;
-    private static bool _loggedKnightClamp;
-
     /// <summary>
     /// 2.4.0 refactored night positioning: GetWallTargetPos/GetTargetPos never
     /// fire (verified live with first-call probes on 20260819-c through a
@@ -108,5 +105,76 @@ public static class PatchWorld_DefenseSpacing
         _probedEnterGuardSlot = true;
         KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
             "[DefenseSpacing] probe: Archer.EnterGuardSlot called");
+    }
+
+    // ---- 2.4.0 depth-clamp supervisor -------------------------------------
+    // 2.4.0 inlined wall positioning into the archer behaviour coroutine:
+    // pos = wall - side * (_minDistanceFromWall + _guardDepth * _unitSpacingAtWall
+    //                        + _guardRandomOffset), with GetWallTargetPos left as
+    // dead code (verified by first-call probes through a full night).
+    // _guardDepth is a plain field, so a slow supervisor rewrites any archer
+    // whose depth * spacing exceeds bow range; the behaviour re-goals
+    // periodically and the archer walks into range.
+
+    private const float DepthClampRange = 7f;
+    private static float _nextDepthClampAt;
+    private static bool _loggedDepthClamp;
+
+    [HarmonyPatch(typeof(Director), "Update")]
+    [HarmonyPostfix]
+    private static void DepthClampSupervisor()
+    {
+        if (!ModConfig.Enabled.Value) return;
+        try
+        {
+            float now = Time.unscaledTime;
+            if (now < _nextDepthClampAt) return;
+            _nextDepthClampAt = now + 3f;
+
+            Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
+            if (kingdom == null || kingdom.Archers == null) return;
+            Archer[] archers = UnityEngine.Object.FindObjectsOfType<Archer>();
+            int count = archers != null ? archers.Length : 0;
+            if (count == 0) return;
+
+            int clamped = 0;
+            int maxDepth = 0;
+            for (int i = 0; i < count; i++)
+            {
+                Archer archer = archers[i];
+                if (archer == null || archer.gameObject == null
+                    || !archer.gameObject.activeInHierarchy) continue;
+                float side = (float)archer._guardSide;
+                if (side == 0f) continue;
+
+                float spacing = archer._unitSpacingAtWall;
+                if (spacing <= 0.01f) continue;
+                float min = archer._minDistanceFromWall;
+                float random = archer._guardRandomOffset;
+                int depth = archer._guardDepth;
+                if (depth > maxDepth) maxDepth = depth;
+
+                // Effective depth = min + depth*spacing + random; clamp the
+                // INDEX so the effective depth stays inside bow range.
+                float allowed = (DepthClampRange - min - random) / spacing;
+                int cap = (int)Math.Floor(Math.Max(0f, allowed));
+                if (depth <= cap) continue;
+
+                archer._guardDepth = cap;
+                clamped++;
+            }
+
+            if (!_loggedDepthClamp && maxDepth > 0)
+            {
+                _loggedDepthClamp = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[DefenseSpacing] depth supervisor active: archers=" + count
+                    + " maxDepth=" + maxDepth + " clamped=" + clamped);
+            }
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[DefenseSpacing/depth] " + e);
+        }
     }
 }

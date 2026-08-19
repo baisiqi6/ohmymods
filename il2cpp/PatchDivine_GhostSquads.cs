@@ -420,6 +420,26 @@ public static class SummonGhostSteedAbility_RemoveActiveGhost_Cooldown_Patch
     }
 }
 
+/// <summary>
+/// UpdateSummonStatus starts cooldown/fog coroutines when the last ghost is
+/// removed.  During scene teardown (area unload while leash-held ghosts are
+/// still alive) the component is already deactivating and the native
+/// StartCoroutine call receives a null routine (observed ArgumentNullException
+/// in the il2cpp trampoline).  Skip it there; in normal play the ability is
+/// active and the original runs untouched.
+/// </summary>
+[HarmonyPatch(typeof(SummonGhostSteedAbility), "UpdateSummonStatus")]
+public static class SummonGhostSteedAbility_UpdateSummonStatus_Teardown_Guard_Patch
+{
+    [HarmonyPrefix]
+    public static bool Prefix(SummonGhostSteedAbility __instance)
+    {
+        if (__instance == null || __instance.gameObject == null) return false;
+        if (!__instance.gameObject.activeInHierarchy) return false;
+        return true;
+    }
+}
+
 [HarmonyPatch(typeof(SummonGhostSteedAbility), nameof(SummonGhostSteedAbility.DespawnUnits))]
 public static class SummonGhostSteedAbility_DespawnUnits_Cooldown_Patch
 {
