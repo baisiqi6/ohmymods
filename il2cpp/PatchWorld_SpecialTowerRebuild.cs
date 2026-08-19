@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using BepInEx.Unity.IL2CPP.Utils.Collections;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
@@ -614,6 +615,10 @@ internal static class SpecialTowerRebuild
                 Frame = Time.frameCount
             };
             PreparedTokens[id] = token;
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                "[SpecialTowerRebuild] prepared instance=" + payable.gameObject.name
+                + " parent=" + (payable.transform.parent != null
+                    ? payable.transform.parent.name : "<none>"));
 
             // A held bolt is authority-local before launch. Temporarily detach the
             // reference, then use the public boolean pool operation. A failed call
@@ -903,27 +908,28 @@ internal static class SpecialTowerRebuildDiagnostics
                 PayableUpgrade payable = go.GetComponent<PayableUpgrade>();
                 string state = ProbePayableState(go, payable, kingdom);
 
-                // The live Ballista component sits on an object named
-                // "BallistaWorkPosition"; walk the hierarchy so the next log
-                // shows whether the marker/payable landed on the tower root
-                // and what that root actually is.
-                string parentName = go.transform.parent != null
-                    ? go.transform.parent.name : "<none>";
-                Transform rootTransform = go.transform.root;
-                GameObject rootGo = rootTransform != null ? rootTransform.gameObject : null;
-                bool rootMarker = rootGo != null
-                    && rootGo.GetComponent<SpecialTowerRebuildMarker>() != null;
-                PayableUpgrade rootPayable = rootGo != null
-                    ? rootGo.GetComponent<PayableUpgrade>() : null;
-                bool rootPersistent = rootGo != null
-                    && rootGo.GetComponent<Persistent>() != null;
-
-                Log($"[{tag}] self={go.name} parent={parentName}"
-                    + " root=" + (rootGo != null ? rootGo.name : "<null>")
-                    + " rootMarker=" + rootMarker
-                    + " rootPayable=" + (rootPayable != null ? "present" : "missing")
-                    + " rootPersistent=" + rootPersistent
-                    + " selfMarker=" + marker + " " + state);
+                // Walk the full ancestor chain: earlier probes only checked
+                // the Ballista component's own object and the scene root, and
+                // missed the intermediate "Ballista" parent where the marker
+                // and payable are now suspected to live.
+                StringBuilder chain = new StringBuilder(go.name);
+                Transform ancestor = go.transform.parent;
+                for (int depth = 0; depth < 4 && ancestor != null; depth++)
+                {
+                    GameObject ancestorGo = ancestor.gameObject;
+                    chain.Append(" <- ").Append(ancestorGo.name)
+                        .Append("[m=").Append(
+                            ancestorGo.GetComponent<SpecialTowerRebuildMarker>() != null ? 1 : 0)
+                        .Append(",p=").Append(
+                            ancestorGo.GetComponent<PayableUpgrade>() != null ? 1 : 0)
+                        .Append(",P=").Append(
+                            ancestorGo.GetComponent<Persistent>() != null ? 1 : 0)
+                        .Append(",B=").Append(
+                            ancestorGo.GetComponent<Ballista>() != null ? 1 : 0)
+                        .Append(']');
+                    ancestor = ancestor.parent;
+                }
+                Log($"[{tag}] chain={chain} selfMarker={marker} {state}");
             }
 
             for (int i = 0; i < fireTowers.Length; i++)
