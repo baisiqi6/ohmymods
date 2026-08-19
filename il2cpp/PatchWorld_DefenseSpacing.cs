@@ -68,34 +68,45 @@ public static class PatchWorld_DefenseSpacing
     private const float KnightDepthCap = 6f;
     private static bool _loggedKnightClamp;
 
-    [HarmonyPatch(typeof(Knight), "GetTargetPos")]
+    /// <summary>
+    /// 2.4.0 refactored night positioning: GetWallTargetPos/GetTargetPos never
+    /// fire (verified live with first-call probes on 20260819-c through a
+    /// full night).  These probes map which candidate path actually runs at
+    /// dusk so the real spacing fix can target it.
+    /// </summary>
+    private static bool _probedShouldGoToWall;
+    private static bool _probedGetGuardPosition;
+    private static int _guardPositionCalls;
+    private static bool _probedEnterGuardSlot;
+
+    [HarmonyPatch(typeof(Archer), nameof(Archer.ShouldGoToWall))]
     [HarmonyPostfix]
-    private static void KnightTargetPos_Postfix(Knight __instance, ref float __result)
+    private static void ShouldGoToWall_Probe()
     {
-        if (!ModConfig.Enabled.Value) return;
-        try
-        {
-            float side = (float)__instance.side;
-            if (side == 0f) return;
+        if (_probedShouldGoToWall) return;
+        _probedShouldGoToWall = true;
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+            "[DefenseSpacing] probe: Archer.ShouldGoToWall called");
+    }
 
-            float wall = Managers.Inst.kingdom.GetBorderSideIntact(__instance.side);
-            float depth = (wall - __result) * side;
-            bool clamped = depth > KnightDepthCap;
-            if (clamped) __result = wall - side * KnightDepthCap;
+    [HarmonyPatch(typeof(Kingdom), nameof(Kingdom.GetGuardPosition))]
+    [HarmonyPostfix]
+    private static void GetGuardPosition_Probe()
+    {
+        _guardPositionCalls++;
+        if (_probedGetGuardPosition) return;
+        _probedGetGuardPosition = true;
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+            "[DefenseSpacing] probe: Kingdom.GetGuardPosition first call");
+    }
 
-            if (!_loggedKnightClamp)
-            {
-                _loggedKnightClamp = true;
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[DefenseSpacing] knight target first call: depth="
-                    + depth.ToString("F2") + " rank=" + __instance.rank
-                    + " cap=" + KnightDepthCap.ToString("F2")
-                    + " clamped=" + clamped);
-            }
-        }
-        catch (Exception e)
-        {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[DefenseSpacing/knight] " + e);
-        }
+    [HarmonyPatch(typeof(Archer), nameof(Archer.EnterGuardSlot))]
+    [HarmonyPrefix]
+    private static void EnterGuardSlot_Probe()
+    {
+        if (_probedEnterGuardSlot) return;
+        _probedEnterGuardSlot = true;
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+            "[DefenseSpacing] probe: Archer.EnterGuardSlot called");
     }
 }
