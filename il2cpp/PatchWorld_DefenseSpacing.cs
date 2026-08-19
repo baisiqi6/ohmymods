@@ -119,6 +119,7 @@ public static class PatchWorld_DefenseSpacing
     private const float DepthClampRange = 7f;
     private static float _nextDepthClampAt;
     private static bool _loggedDepthClamp;
+    private static bool _loggedHeartbeat;
 
     [HarmonyPatch(typeof(Director), "Update")]
     [HarmonyPostfix]
@@ -132,7 +133,25 @@ public static class PatchWorld_DefenseSpacing
             _nextDepthClampAt = now + 3f;
 
             Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
-            if (kingdom == null || kingdom.Archers == null) return;
+            if (kingdom == null) return;
+            if (!_loggedHeartbeat)
+            {
+                _loggedHeartbeat = true;
+                int propCount = -1;
+                string propError = null;
+                try
+                {
+                    var list = kingdom.Archers;
+                    propCount = list == null ? -1 : list.Count;
+                }
+                catch (Exception ex) { propError = ex.GetType().Name; }
+                Archer[] found = UnityEngine.Object.FindObjectsOfType<Archer>();
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[DefenseSpacing] heartbeat: archersProp=" + propCount
+                    + (propError != null ? " propError=" + propError : "")
+                    + " foundByType=" + (found != null ? found.Length : -1));
+            }
+            if (kingdom.Archers == null) return;
             Archer[] archers = UnityEngine.Object.FindObjectsOfType<Archer>();
             int count = archers != null ? archers.Length : 0;
             if (count == 0) return;
