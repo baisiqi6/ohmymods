@@ -904,14 +904,25 @@ internal static class SpecialTowerRebuildDiagnostics
                 GameObject go = tower.gameObject;
                 if (go == null) continue;
 
+                // Skip boat-mounted ballistas (fleet boats carry one each);
+                // they are not rebuild targets and only polluted earlier scans.
+                bool onBoat = false;
+                Transform walker = go.transform.parent;
+                for (int depth = 0; depth < 4 && walker != null; depth++)
+                {
+                    if (walker.name != null
+                        && walker.name.Contains("Boat"))
+                    {
+                        onBoat = true;
+                        break;
+                    }
+                    walker = walker.parent;
+                }
+                if (onBoat) continue;
+
                 bool marker = go.GetComponent<SpecialTowerRebuildMarker>() != null;
                 PayableUpgrade payable = go.GetComponent<PayableUpgrade>();
                 string state = ProbePayableState(go, payable, kingdom);
-
-                // Walk the full ancestor chain: earlier probes only checked
-                // the Ballista component's own object and the scene root, and
-                // missed the intermediate "Ballista" parent where the marker
-                // and payable are now suspected to live.
                 StringBuilder chain = new StringBuilder(go.name);
                 Transform ancestor = go.transform.parent;
                 for (int depth = 0; depth < 4 && ancestor != null; depth++)
