@@ -164,12 +164,30 @@ public static class PatchWorld_DefenseSpacing
                 clamped++;
             }
 
-            if (!_loggedDepthClamp && maxDepth > 0)
+            if (!_loggedDepthClamp)
             {
                 _loggedDepthClamp = true;
+                // Unconditional first-scan heartbeat: proves Director.Update is
+                // patched alive, FindObjectsOfType works and what the 2.4.0
+                // guard fields actually hold on live archers.
+                System.Text.StringBuilder sample = new System.Text.StringBuilder();
+                int sampled = 0;
+                for (int i = 0; i < count && sampled < 3; i++)
+                {
+                    Archer archer = archers[i];
+                    if (archer == null || archer.gameObject == null) continue;
+                    if (sample.Length > 0) sample.Append(" | ");
+                    sample.Append("d=").Append(archer._guardDepth)
+                        .Append(" s=").Append(archer._unitSpacingAtWall.ToString("F2"))
+                        .Append(" min=").Append(archer._minDistanceFromWall.ToString("F2"))
+                        .Append(" rnd=").Append(archer._guardRandomOffset.ToString("F2"))
+                        .Append(" side=").Append((int)archer._guardSide);
+                    sampled++;
+                }
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[DefenseSpacing] depth supervisor active: archers=" + count
-                    + " maxDepth=" + maxDepth + " clamped=" + clamped);
+                    "[DefenseSpacing] first scan: archers=" + count
+                    + " maxDepth=" + maxDepth + " clamped=" + clamped
+                    + " sample=[" + sample + "]");
             }
         }
         catch (Exception e)
