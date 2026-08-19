@@ -36,16 +36,16 @@ public static class PatchWorld_DefenseSpacing
             float wall = kingdom.GetBorderSideIntact(__instance._guardSide);
             float depth = (wall - __result) * side;
             float cap = __instance.shootRange - RangeMargin;
-            if (depth <= cap) return;
-
-            __result = wall - side * cap;
+            bool clamped = depth > cap;
+            if (clamped) __result = wall - side * cap;
 
             if (!_loggedClamp)
             {
                 _loggedClamp = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[DefenseSpacing] column clamped: depth=" + depth.ToString("F2")
-                    + " cap=" + cap.ToString("F2"));
+                    "[DefenseSpacing] archer wall target first call: depth="
+                    + depth.ToString("F2") + " cap=" + cap.ToString("F2")
+                    + " clamped=" + clamped);
             }
         }
         catch (Exception e)
@@ -80,17 +80,17 @@ public static class PatchWorld_DefenseSpacing
 
             float wall = Managers.Inst.kingdom.GetBorderSideIntact(__instance.side);
             float depth = (wall - __result) * side;
-            if (depth <= KnightDepthCap) return;
-
-            __result = wall - side * KnightDepthCap;
+            bool clamped = depth > KnightDepthCap;
+            if (clamped) __result = wall - side * KnightDepthCap;
 
             if (!_loggedKnightClamp)
             {
                 _loggedKnightClamp = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[DefenseSpacing] knight rank clamped: depth=" + depth.ToString("F2")
-                    + " rank=" + __instance.rank
-                    + " cap=" + KnightDepthCap.ToString("F2"));
+                    "[DefenseSpacing] knight target first call: depth="
+                    + depth.ToString("F2") + " rank=" + __instance.rank
+                    + " cap=" + KnightDepthCap.ToString("F2")
+                    + " clamped=" + clamped);
             }
         }
         catch (Exception e)
