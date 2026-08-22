@@ -100,3 +100,14 @@ doorstop_config.ini 两个文件（不需要 BepInEx 目录）；BepInEx 目录�
 4. **Resources.Load 按名字找不到子目录资源**——必须 LoadAll 扫。
 5. 反编译源码是参考，别往里写代码——它不可编译。
 6. 实机只在独立测试副本进行；测试前备份共享存档，禁止把 Steam 目录当测试环境。
+
+## 发布物命名规范（2026-08-22 定案）
+
+- 文件名只承载 **Mod 自身版本**：`KingdomEnhancedMod_v{ModVersion}_IL2CPP.zip`（例：`_v2.0.0_`）。
+  早期用游戏版本号命名（`_v2.4.0_`）是历史错误，禁止再犯。
+- 架构后缀保留（`IL2CPP`/未来如需 Mono 线区分），防止用户下错包。
+- 游戏兼容性（当前 2.4.0）只放三处：BUILD-MANIFEST 的 GameCompatibility、INSTALL.md/README、
+  GitHub Release 标题；不进文件名。
+- 版本号四处必须一致：csproj `<Version>`、git tag `v{版本}`、启动日志 `build=`、ZIP 文件名。
+- 每次改版记得手改启动日志的 build 戳（`KingdomEnhancedPlugin.cs` 中 `build=` 字符串）。
+- 社区分发：GitHub Release 为主渠道，QQ 群文件同步；旧版本包在群内删除或标注"旧版"。
