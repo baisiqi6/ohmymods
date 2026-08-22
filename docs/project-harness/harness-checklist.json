@@ -1,7 +1,7 @@
 {
   "project": "ohmymods",
   "harness_root": "docs/project-harness",
-  "updated_at": "2026-08-16",
+  "updated_at": "2026-08-22",
   "items": [
     {
       "id": "fleetboat-formation-019",
@@ -50,7 +50,7 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "首版允许稳定Ballista在正常当前/排队工匠存在时按运行时原生六级塔价格重建回当前biome六级普通箭塔；工匠由旧塔Destroy后的原生工作循环释放，bolt在付款提交前安全回池，失败取消并退币。离线/本地分屏开放、在线fail closed；Fire/OilFire/Knight/Berserker/Baker/Mead保持fail closed；Disabled仍保留确定性组件布局但阻止交互。",
-      "verification": "2026-08-18用户实测确认弩箭塔重建交互已出现并可转化为普通箭塔（锁层双修复=冷却不继承塔升级长冷却、重建不受禁建区限制，为真根因；此前prefab候选集修复保证了组件命中Tower Ballista_greece资产）。诊断探针曾报marker/payable缺失系探针照错层级（Ballista组件挂在子对象BallistaWorkPosition，交互组件在塔根对象）——已升级为全层级链报告待下次日志最终确认。待补确认：完整付款链路（18金币→变回六级普通塔→驻守工匠正常离开→携目标隐士按原版重新专精）；火焰塔门控（燃料满+无工匠出重建）待用户到火焰塔所在岛实测。",
+      "verification": "2026-08-18用户实测确认弩箭塔重建交互已出现并可转化为普通箭塔（锁层双修复=冷却不继承塔升级长冷却、重建不受禁建区限制，为真根因；此前prefab候选集修复保证了组件命中Tower Ballista_greece资产）。诊断探针曾报marker/payable缺失系探针照错层级（Ballista组件挂在子对象BallistaWorkPosition，交互组件在塔根对象）——已升级为全层级链报告待下次日志最终确认。待补确认：完整付款链路（18金币→变回六级普通塔→驻守工匠正常离开→携目标隐士按原版重新专精）；火焰塔门控（燃料满+无工匠出重建）待用户到火焰塔所在岛实测。 2026-08-22 V2.0.0发布门禁：reviewer（GLM5.3 subagent）APPROVED——候选集幂等/锁层三修复语义（含expo无放大面）/火焰塔门控与原生状态机逐点对齐与交易闭环/卸载防护无误伤面且无冷却异常/诊断纯只读/发布范围干净。",
       "handoff": "交互已通。剩余验证：完整付款重建一轮+重新专精；火焰塔门控实测；层级诊断确认后可裁剪诊断日志再发布。",
       "workflow": {
         "status": "running",
@@ -154,7 +154,7 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "Cerberus每次有效召唤恰为4名骑士+16名弓箭手，分成四支独立1+4队伍；两支希腊队保留主动向外作战与距离回收，两支北境队保留跟随君主与原生30秒生命周期；无重复syncID、unknown pool、RPC或回收异常。",
-      "verification": "2.4资源与2.1逻辑已核对：原生Cerberus为1+4且只有一个共享队长引用；北境神器亡灵AI与希腊子类不同，HelsHead原生ghostDuration=30秒。用户明确改为保留差异；修订源码提交0cd629e已推送，干净构建0 warning/0 error并部署独立副本，构建/部署DLL SHA-256=024ADAC72A4D2D76B63827C19C6D9511105CDDBA977EBE196D2FF62354564A39。2026-08-16追加leash修复（D22）：希腊幽灵距离处决改为边界驻守+60s定时消亡，worker=OMP deepseek-v4-flash thinking=max 实现 il2cpp/PatchDivine_GhostLeashHold.cs，reviewer=GLM5.3 subagent（kimi K3 当月配额403耗尽按协作规范回落）结论 approved（钉住节奏在Mover语义下无间隙、消亡链完整、联机parity、范围干净，两个非阻塞观察项）；Operator独立构建0 warning/0 error。驻留/消亡/北境不受影响等待独立副本实机验证。",
+      "verification": "2.4资源与2.1逻辑已核对：原生Cerberus为1+4且只有一个共享队长引用；北境神器亡灵AI与希腊子类不同，HelsHead原生ghostDuration=30秒。用户明确改为保留差异；修订源码提交0cd629e已推送，干净构建0 warning/0 error并部署独立副本，构建/部署DLL SHA-256=024ADAC72A4D2D76B63827C19C6D9511105CDDBA977EBE196D2FF62354564A39。2026-08-16追加leash修复（D22）：希腊幽灵距离处决改为边界驻守+60s定时消亡，worker=OMP deepseek-v4-flash thinking=max 实现 il2cpp/PatchDivine_GhostLeashHold.cs，reviewer=GLM5.3 subagent（kimi K3 当月配额403耗尽按协作规范回落）结论 approved（钉住节奏在Mover语义下无间隙、消亡链完整、联机parity、范围干净，两个非阻塞观察项）；Operator独立构建0 warning/0 error。驻留/消亡/北境不受影响等待独立副本实机验证。 2026-08-19实机确认：GhostLeashHold多例holding日志（dx≈5.5-7.5 limit 5.5），驻守生效不再自杀；场景卸载ArgumentNullException已修（UpdateSummonStatus卸载防护，reviewer确认无误伤面）。",
       "handoff": "leash驻守候选已编译通过、未部署：目标机游戏进程运行中（KingdomTwoCrowns.exe），不能覆盖已加载DLL；等用户退出后部署E盘独立副本，实测清单：站桩召唤希腊队应钉在离君主约11单位处驻守并照常战斗、60秒整队消亡、追上后恢复冲锋、北境队行为不变、技能HasGhosts门60秒内解锁、观察HelsHead神器与弓箭手射箭收尾UnPause的微小抖动。",
       "workflow": {
         "status": "running",
