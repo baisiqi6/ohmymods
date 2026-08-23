@@ -177,7 +177,6 @@ public static class PatchWorld_DefenseSpacing
             if (depth > 0.5f && depth <= 15f) lined.Add(knight);
         }
         if (lined.Count < 3) return;
-        _loggedKnightLineup = true;
 
         lined.Sort((a, b) => a.rank.CompareTo(b.rank));
         System.Text.StringBuilder report = new System.Text.StringBuilder();
@@ -193,6 +192,71 @@ public static class PatchWorld_DefenseSpacing
         }
         KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
             "[DefenseSpacing] knight lineup: " + report);
+        if (_loggedKnightLineup) return;
+        _loggedKnightLineup = true;
+
+        // Measured live: depth = rank * _distanceFromWall (1.0 per rank, r15 at
+        // 15 units behind the wall).  Follower archers trail their knight by
+        // knightFollowDistance, so rank N puts its squad's bows at roughly
+        // N*spacing + 1 — far past the 8-unit bow range for N > 7.  Remap ranks
+        // per side into 1..KnightRankCap (distinct values keep squads from
+        // stacking on one spot); daytime passes rewrite ranks well before the
+        // dusk lineup reads them.
+        RemapKnightRanks(knights, kingdom);
+    }
+
+    private const int KnightRankCap = 7;
+
+    private static bool _loggedKnightRemap;
+
+    private static void RemapKnightRanks(Knight[] knights, Kingdom kingdom)
+    {
+        try
+        {
+            var left = new System.Collections.Generic.List<Knight>();
+            var right = new System.Collections.Generic.List<Knight>();
+            for (int i = 0; i < knights.Length; i++)
+            {
+                Knight knight = knights[i];
+                if (knight == null || knight.gameObject == null
+                    || !knight.gameObject.activeInHierarchy) continue;
+                if (knight.side == Side.Left) left.Add(knight);
+                else if (knight.side == Side.Right) right.Add(knight);
+            }
+            int remapped = 0;
+            remapped += RemapSide(left);
+            remapped += RemapSide(right);
+            if (!_loggedKnightRemap && remapped > 0)
+            {
+                _loggedKnightRemap = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[DefenseSpacing] knight ranks compressed to cap="
+                    + KnightRankCap + " remapped=" + remapped);
+            }
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[DefenseSpacing/knight-remap] " + e);
+        }
+    }
+
+    private static int RemapSide(System.Collections.Generic.List<Knight> side)
+    {
+        if (side.Count <= KnightRankCap) return 0;
+        side.Sort((a, b) => a.rank.CompareTo(b.rank));
+        int changed = 0;
+        for (int i = 0; i < side.Count; i++)
+        {
+            // Spread count knights over ranks 1..cap while keeping them
+            // distinct: the i-th of n knights gets 1 + i*cap/n.
+            int newRank = 1 + (int)Math.Floor((double)i * KnightRankCap / side.Count);
+            if (newRank >= side.Count) newRank = side.Count;
+            if (side[i].rank == newRank) continue;
+            side[i].rank = newRank;
+            changed++;
+        }
+        return changed;
     }
 
     // Director.Update proved unhookable in 2.4.0 (inlined or replaced — both the
