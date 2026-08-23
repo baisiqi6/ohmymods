@@ -193,8 +193,8 @@ public static class PatchWorld_DefenseSpacing
     {
         if (world == null || _supervisorWorld == world.Pointer) yield break;
         _supervisorWorld = world.Pointer;
-        // New world (island hop / new campaign / pointer reuse after GC):
-        // re-arm every one-shot report so coverage and logging restart.
+        // New world (island hop / new campaign): re-arm every one-shot
+        // report so coverage and logging restart.
         _loggedHeartbeat = false;
         _loggedDepthClamp = false;
         _loggedKnightSample = false;
