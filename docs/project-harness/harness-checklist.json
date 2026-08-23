@@ -878,6 +878,106 @@
         "expires_at": "2026-08-24T20:00:00+08:00",
         "ttl_minutes": 1440
       }
+    },
+    {
+      "id": "crossbowman-021",
+      "title": "弩手（3:1交替换皮弓箭手+独立弩矢）",
+      "status": "todo",
+      "priority": "p1",
+      "owner": null,
+      "updated_at": "2026-08-23",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "见任务目录 design.md",
+      "verification": "",
+      "handoff": "设计定稿待开工，含开工前侦查清单。设计文档：docs/project-harness/tasks/crossbowman-021/design.md",
+      "workflow": {
+        "status": "todo",
+        "updated_at": "2026-08-23"
+      },
+      "artifacts": {
+        "design": "docs/project-harness/tasks/crossbowman-021/design.md"
+      },
+      "review": {
+        "decision": null
+      },
+      "selected_in_session": "zcode-2026-08-23-v2x-designs"
+    },
+    {
+      "id": "knight-squad-023",
+      "title": "骑士小队（大骑士+2小骑士+4弓箭手）",
+      "status": "todo",
+      "priority": "p1",
+      "owner": null,
+      "updated_at": "2026-08-23",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "见任务目录 design.md",
+      "verification": "",
+      "handoff": "设计草案，开工前需用户确认5条规则。设计文档：docs/project-harness/tasks/knight-squad-023/design.md",
+      "workflow": {
+        "status": "todo",
+        "updated_at": "2026-08-23"
+      },
+      "artifacts": {
+        "design": "docs/project-harness/tasks/knight-squad-023/design.md"
+      },
+      "review": {
+        "decision": null
+      },
+      "selected_in_session": "zcode-2026-08-23-v2x-designs"
+    },
+    {
+      "id": "samurai-knight-022",
+      "title": "武士骑士+突进斩",
+      "status": "todo",
+      "priority": "p1",
+      "owner": null,
+      "updated_at": "2026-08-23",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "见任务目录 design.md",
+      "verification": "",
+      "handoff": "设计定稿，排knight-squad后。设计文档：docs/project-harness/tasks/samurai-knight-022/design.md",
+      "workflow": {
+        "status": "todo",
+        "updated_at": "2026-08-23"
+      },
+      "artifacts": {
+        "design": "docs/project-harness/tasks/samurai-knight-022/design.md"
+      },
+      "review": {
+        "decision": null
+      },
+      "selected_in_session": "zcode-2026-08-23-v2x-designs"
+    },
+    {
+      "id": "staggered-volley-024",
+      "title": "夜战齐射错峰",
+      "status": "todo",
+      "priority": "p1",
+      "owner": null,
+      "updated_at": "2026-08-23",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "见任务目录 design.md",
+      "verification": "",
+      "handoff": "等一夜DefensePerf数据决策（抖动vs五批分片）。设计文档：docs/project-harness/tasks/staggered-volley-024/design.md",
+      "workflow": {
+        "status": "todo",
+        "updated_at": "2026-08-23"
+      },
+      "artifacts": {
+        "design": "docs/project-harness/tasks/staggered-volley-024/design.md"
+      },
+      "review": {
+        "decision": null
+      },
+      "selected_in_session": "zcode-2026-08-23-v2x-designs"
     }
   ]
 }
