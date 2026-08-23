@@ -1,7 +1,7 @@
 {
   "project": "ohmymods",
   "harness_root": "docs/project-harness",
-  "updated_at": "2026-08-22",
+  "updated_at": "2026-08-23",
   "items": [
     {
       "id": "fleetboat-formation-019",
@@ -844,6 +844,31 @@
         "acquired_at": "2026-08-16T06:22:56Z",
         "expires_at": "2026-08-17T06:22:56Z",
         "ttl_minutes": 1440
+      }
+    },
+    {
+      "id": "defense-compact-020",
+      "title": "骑士小队夜战紧凑列队（rank压缩至射程内）",
+      "status": "done",
+      "priority": "p0",
+      "owner": "zcode",
+      "updated_at": "2026-08-23",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "骑士多时墙后列队压缩在约7步内、侍从全员射程覆盖、雇佣/损员/换岛后持续生效、骑士少时与原版一致。",
+      "verification": "实机数据：knight lineup r1@1.0..r15@15.0（深度=rank×1.0实锤）；diag4用户确认列队紧凑生效。发布门禁reviewer两轮：首轮changes_requested揪出remap被一次性标志锁死（自然成长/雇佣损员/换岛三场景失效）+跨世界标志不重置；修复（每拍幂等remap+maxRank守卫+权威门控+新世界重置）后复核approved。V2.1.0已发布（tag v2.1.0，build=2.1.0-release2，DLL EA156F87，manifest commit 1037a04）。",
+      "handoff": "已随V2.1.0发布闭环。诊断结论沉淀：2.4.0 GetWallTargetPos/GetTargetPos/Director.Update均钩不住（AOT内联），字段直写+World协程宿主是可行模式（与坑24同源：先证路径再写补丁）。",
+      "workflow": {
+        "status": "done",
+        "updated_at": "2026-08-23"
+      },
+      "artifacts": {
+        "code": "il2cpp/PatchWorld_DefenseSpacing.cs"
+      },
+      "review": {
+        "decision": "approved",
+        "note": "两轮，2026-08-23"
       }
     }
   ]

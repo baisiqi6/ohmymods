@@ -1,3 +1,10 @@
+## 2026-08-23 — V2.1.0 发布：骑士小队夜战紧凑列队
+
+- 问题与实测：骑士夜晚墙后列队深度=rank×1.0（r15@15步实锤），后排小队侍从在射程8外整晚划水；弓箭手在2.4.0已被官方紧凑化（s=0.11实测，无需干预）。
+- 排障长跑：2.4.0的GetWallTargetPos/GetTargetPos为死代码、Director.Update钩不住（AOT内联，性能探针同因无声）；最终模式=World.OnLevelLoaded协程宿主+字段直写（rank重映射1..7，幂等守卫防抖）。
+- reviewer两轮：首轮changes_requested（remap被一次性日志标志锁死→自然成长/雇佣损员/换岛三场景静默失效；跨世界标志不重置）——用户验证场景恰好掩盖了此bug；修复后approved（每拍幂等remap+maxRank守卫+HasWorldAuth门控+新世界重置五标志）。
+- 发布物：v2.1.0 tag+Latest，DLL 217,600字节 SHA-256=EA156F87…，build=2.1.0-release2，manifest commit 1037a04；四份玩家文档+群公告（MOD_V2.1版本更新说明.txt）；E盘同步。V2.0.0本地包曾被打包脚本误覆盖，已从GitHub资产还原。
+
 ## 2026-08-22 — V2.0.0 正式发布
 
 - 发布内容：弩箭塔+火焰塔重建（火焰塔门控=燃料满+无工匠）、Cerberus四队亡灵（含边界驻守修复）、
