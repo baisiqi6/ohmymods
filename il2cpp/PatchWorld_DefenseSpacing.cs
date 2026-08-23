@@ -123,6 +123,78 @@ public static class PatchWorld_DefenseSpacing
     private static bool _loggedDepthClamp;
     private static bool _loggedHeartbeat;
 
+    // ---- knight squad queue probe -----------------------------------------
+    // Knight kept rank/_distanceFromWall/GetTargetPos in 2.4.0, but GetTargetPos
+    // never fired through a full night (position likely inlined into the
+    // GoToWall coroutine).  rank is a writable field: measure the live
+    // depth-per-rank distribution during an actual wall lineup; if depth grows
+    // with rank, clamping rank in this pass compresses the squad queue.
+    private static bool _loggedKnightSample;
+    private static bool _loggedKnightLineup;
+
+    private static void ScanKnights()
+    {
+        Knight[] knights = UnityEngine.Object.FindObjectsOfType<Knight>();
+        int count = knights != null ? knights.Length : 0;
+
+        if (count > 0 && !_loggedKnightSample)
+        {
+            _loggedKnightSample = true;
+            System.Text.StringBuilder sample = new System.Text.StringBuilder();
+            int sampled = 0;
+            for (int i = 0; i < count && sampled < 3; i++)
+            {
+                Knight knight = knights[i];
+                if (knight == null || knight.gameObject == null) continue;
+                if (sample.Length > 0) sample.Append(" | ");
+                sample.Append("rank=").Append(knight.rank)
+                    .Append(" dfw=").Append(knight._distanceFromWall.ToString("F2"))
+                    .Append(" side=").Append((int)knight.side);
+                sampled++;
+            }
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                "[DefenseSpacing] knight sample: count=" + count
+                + " [" + sample + "]");
+        }
+
+        // Wall-lineup report: fires once when at least three knights stand in a
+        // depth band behind the border wall (the night formation), listing the
+        // rank -> measured depth mapping.  Daytime wanderers sit too far away
+        // or in front of the wall and do not trigger it.
+        if (count < 3 || _loggedKnightLineup) return;
+        Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
+        if (kingdom == null) return;
+
+        var lined = new System.Collections.Generic.List<Knight>();
+        for (int i = 0; i < count; i++)
+        {
+            Knight knight = knights[i];
+            if (knight == null || knight.gameObject == null) continue;
+            float side = (float)knight.side;
+            if (side == 0f) continue;
+            float wall = kingdom.GetBorderSideIntact(knight.side);
+            float depth = (wall - knight.transform.position.x) * side;
+            if (depth > 0.5f && depth <= 15f) lined.Add(knight);
+        }
+        if (lined.Count < 3) return;
+        _loggedKnightLineup = true;
+
+        lined.Sort((a, b) => a.rank.CompareTo(b.rank));
+        System.Text.StringBuilder report = new System.Text.StringBuilder();
+        for (int i = 0; i < lined.Count; i++)
+        {
+            Knight knight = lined[i];
+            float side = (float)knight.side;
+            float wall = kingdom.GetBorderSideIntact(knight.side);
+            float depth = (wall - knight.transform.position.x) * side;
+            if (report.Length > 0) report.Append("; ");
+            report.Append("r").Append(knight.rank)
+                .Append("@").Append(depth.ToString("F1"));
+        }
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+            "[DefenseSpacing] knight lineup: " + report);
+    }
+
     // Director.Update proved unhookable in 2.4.0 (inlined or replaced — both the
     // depth supervisor and the night-volley probe on it never fired).  Host the
     // pass in a World coroutine instead, the pattern the working GhostLeashHold
@@ -167,6 +239,8 @@ public static class PatchWorld_DefenseSpacing
                     + (propError != null ? " propError=" + propError : "")
                     + " foundByType=" + (found != null ? found.Length : -1));
             }
+
+            ScanKnights();
             if (kingdom.Archers == null) return;
             Archer[] archers = UnityEngine.Object.FindObjectsOfType<Archer>();
             int count = archers != null ? archers.Length : 0;
