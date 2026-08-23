@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using BepInEx.Unity.IL2CPP.Utils.Collections;
 using HarmonyLib;
 using UnityEngine;
 
@@ -121,11 +123,25 @@ public static class PatchWorld_DefenseSpacing
     private static bool _loggedDepthClamp;
     private static bool _loggedHeartbeat;
 
-    [HarmonyPatch(typeof(Director), "Update")]
-    [HarmonyPostfix]
-    private static void DepthClampSupervisor()
+    // Director.Update proved unhookable in 2.4.0 (inlined or replaced — both the
+    // depth supervisor and the night-volley probe on it never fired).  Host the
+    // pass in a World coroutine instead, the pattern the working GhostLeashHold
+    // supervisor uses.
+    private static IntPtr _supervisorWorld;
+
+    internal static IEnumerator SupervisorRoutine(World world)
     {
-        if (!ModConfig.Enabled.Value) return;
+        if (world == null || _supervisorWorld == world.Pointer) yield break;
+        _supervisorWorld = world.Pointer;
+        while (world != null && world.gameObject != null)
+        {
+            yield return new WaitForSeconds(3f);
+            DepthClampPass();
+        }
+    }
+
+    private static void DepthClampPass()
+    {
         try
         {
             float now = Time.unscaledTime;
@@ -212,6 +228,27 @@ public static class PatchWorld_DefenseSpacing
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError("[DefenseSpacing/depth] " + e);
+        }
+    }
+}
+
+
+[HarmonyPatch(typeof(World), nameof(World.OnLevelLoaded))]
+public static class World_DefenseSpacing_Supervisor_Host_Patch
+{
+    [HarmonyPostfix]
+    private static void Postfix(World __instance)
+    {
+        if (!ModConfig.Enabled.Value || __instance == null) return;
+        try
+        {
+            __instance.StartCoroutine(
+                PatchWorld_DefenseSpacing.SupervisorRoutine(__instance).WrapToIl2Cpp());
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[DefenseSpacing] supervisor start failed: " + e);
         }
     }
 }
