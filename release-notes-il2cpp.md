@@ -1,9 +1,13 @@
-# Kingdom Enhanced Mod（王国增强 Mod）— IL2CPP 版 V2.0
+# Kingdom Enhanced Mod（王国增强 Mod）— IL2CPP 版 V2.1
 
 ## 适用版本
 
 - **Steam 正式版** Kingdom Two Crowns: Call of Olympus **2.4.0**（IL2CPP）
 - 不支持 GOG Mono 版（那是另一个分发包）
+
+## V2.1 更新速览（当前版本）
+
+- **骑士小队夜战紧凑列队**：领地扩张后骑士纵队不再越排越长——自动压缩到墙后约 7 步（射程边界），所有小队的弓箭手侍从都能参与射击；骑士战死后自动重排。骑士少（单侧 ≤7）时与原版一致。
 
 ## V2.0 更新速览
 
