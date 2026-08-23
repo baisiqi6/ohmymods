@@ -882,27 +882,33 @@
     {
       "id": "crossbowman-021",
       "title": "弩手（3:1交替换皮弓箭手+独立弩矢）",
-      "status": "todo",
+      "status": "doing",
       "priority": "p1",
-      "owner": null,
+      "owner": "zcode",
       "updated_at": "2026-08-23",
       "dependencies": [],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "见任务目录 design.md",
-      "verification": "",
-      "handoff": "设计定稿待开工，含开工前侦查清单。设计文档：docs/project-harness/tasks/crossbowman-021/design.md",
+      "verification": "编译0错误0警告（dotnet8 build）。OMP worker(deepseek-v4-flash)3轮实现+修复；OMP reviewer(kimi-k3)两轮交叉审核，must-fix全部收口（ClassInjector注册/syncID 31000段/重算跳过骑士小队）。已部署E盘测试副本(build=2.2.0-xbow1,DLL哈希d1e4895ce4c0690e)。游戏内验收待实测：4出1弩/不入骑士队/读档25%守恒/弩矢观感",
+      "handoff": "实现完成待游戏内实测。验收清单：1)招募第4个弓箭手变弩手(deadlands皮肤) 2)弩手射程12/平直快弹/伤害2 3)骑士招募排除 4)读档后recompute日志+25%守恒 5)骑士小队成员不被转弩手",
       "workflow": {
-        "status": "todo",
+        "status": "review_approved",
         "updated_at": "2026-08-23"
       },
       "artifacts": {
-        "design": "docs/project-harness/tasks/crossbowman-021/design.md"
+        "design": "docs/project-harness/tasks/crossbowman-021/design.md",
+        "worker_brief": "docs/project-harness/tasks/crossbowman-021/worker-brief.md",
+        "review_request": "docs/project-harness/tasks/crossbowman-021/review-request.md",
+        "implementation": "il2cpp/PatchRoles_Crossbowman.cs"
       },
       "review": {
-        "decision": null
+        "decision": "approved",
+        "reviewer": "omp/kimi-code/k3",
+        "rounds": 2,
+        "date": "2026-08-23"
       },
-      "selected_in_session": "zcode-2026-08-23-v2x-designs"
+      "selected_in_session": "zcode-2026-08-23-crossbowman-impl"
     },
     {
       "id": "knight-squad-023",

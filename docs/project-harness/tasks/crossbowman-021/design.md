@@ -1,6 +1,10 @@
 # crossbowman-021 — 弩手（死地换皮弓箭手）设计定稿
 
-> 状态：设计已获用户确认（2026-08-23），待开工。
+> 状态：**实现完成待实机**（2026-08-23 夜）。`il2cpp/PatchRoles_Crossbowman.cs`（824 行），
+> 编译 0W/0E，OMP worker 3 轮 + reviewer（kimi-k3）2 轮收口，已部署 E 盘 build=2.2.0-xbow1。
+> 实现偏差记录：弹道=用户参数（v×1.5/g×0.5）但射程 12 由 shootRange 硬约束（SO Range≈36
+> 站桩狙击，Operator 裁决）；读档重算跳过骑士小队成员（不计入 25% 分母，reviewer Q2 裁决）；
+> 弩矢=Arrow 克隆+Bolt sprite×0.65 缩放（Bolt 类塞不进 Arrow 字段）。验收清单见 checklist。
 > 会话压缩安全：本文档自包含，实现者只需再读 AGENTS.md 与本文。
 
 ## 背景与关键事实（已侦查实锤）

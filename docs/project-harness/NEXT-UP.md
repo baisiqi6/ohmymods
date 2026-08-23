@@ -16,12 +16,12 @@
 
 | 序 | 任务 | 设计文档 | 状态 |
 |---|---|---|---|
-| ① | 弩手（3:1 交替换皮弓箭手） | tasks/crossbowman-021/design.md | 设计定稿，待开工 |
+| ① | 弩手（3:1 交替换皮弓箭手） | tasks/crossbowman-021/design.md | **实现完成**（`il2cpp/PatchRoles_Crossbowman.cs`，编译+reviewer 两轮收口，已部署 E 盘 build=2.2.0-xbow1）；**待实机验收**：4出1弩/射程12平直弹/伤害2/骑士排除/读档25% |
 | ② | 骑士小队（大骑士+2小骑士+4弓） | tasks/knight-squad-023/design.md | 草案，开工前需用户确认 5 条规则 |
 | ③ | 武士骑士+突进斩 | tasks/samurai-knight-022/design.md | 设计定稿，排在②后（复用编队基建） |
 | ④ | 夜战齐射错峰 | tasks/staggered-volley-024/design.md | 等一夜 DefensePerf 数据即决策 |
 
-①② 可并行派 worker；④ 随时可插队。
+①验收通过后即可发 v2.2.0；②③可并行派 worker；④随时可插队。
 
 ## 本阶段沉淀的核心技术事实（勿重新踩坑）
 

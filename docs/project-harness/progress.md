@@ -1,3 +1,14 @@
+## 2026-08-23（夜） — crossbowman-021 弩手实现完成（编译+review 通过，待实机）
+
+- V2.x ①号任务开工：Operator 侦查实锤全部挂点（Promote(DroppableTool) postfix / ActiveArrowAttack 可写但四路重置 / ArrowAttack 共享 SO 必须 clone / Range=v²/g 三参数不独立 / 索敌=shootRange 扫描器+SO Range 双门控 / 伤害在 Arrow prefab hitDamage / Bolt 非 Arrow 子类仅取外观 / IsAvailableForJob=骑士招募排除点）。
+- Operator 数值裁决：保留用户弹道参数（初速×1.5/重力×0.5→SO Range≈36 站桩狙击不冒进），交战距离 12 由 shootRange 硬约束——弹道观感与射程解耦。
+- 协作：OMP worker（deepseek-v4-flash）3 轮（初版 766 行→冷却膨胀/塔位扫描器/弩矢缩小 3 修→reviewer 必修 3 项），OMP reviewer（kimi-k3）2 轮 must-fix→收口。轮次要点：
+  1) worker 修复：Apply 幂等（already 门防间隔×2 叠加）、Strip 塔位恢复 towerShootRange、弩矢 0.65 缩放；
+  2) reviewer 阻断：CrossbowmanMarker 缺 ClassInjector 显式注册（任务书"自动注册"说法是我的错误，9/9 先例全显式注册）→ EnsureMarkerRegistered 前置到全部 5 接触点；Q1 syncID 30130 段会被 Castle 爬升分配器撞车→31000；Q2 读档重算会把骑士小队成员转弩手→跳过 _knight!=null（不计分母）；
+  3) reviewer 二轮再拦一处漏网（RecomputeOnLoad 的 GetComponent 早于注册，读档主路径全静默中止）→ Operator 直接补一行收口（reviewer 预授权），坑 25 沉淀。
+- 交付：il2cpp/PatchRoles_Crossbowman.cs（824 行），编译 0W/0E，build=2.2.0-xbow1，已部署 E 盘测试副本（DLL SHA-256 前16=d1e4895ce4c0690e，哈希核对一致）。
+- 待实机验收：4 出 1 弩（deadlands 皮肤）/射程 12 平直快弹/伤害 2/骑士不招募/读档 25% 守恒日志/骑士小队成员不转弩。
+
 ## 2026-08-23 — V2.1.0 发布：骑士小队夜战紧凑列队
 
 - 问题与实测：骑士夜晚墙后列队深度=rank×1.0（r15@15步实锤），后排小队侍从在射程8外整晚划水；弓箭手在2.4.0已被官方紧凑化（s=0.11实测，无需干预）。
