@@ -1,7 +1,12 @@
 # crossbowman-021 — 弩手（死地换皮弓箭手）设计定稿
 
-> 状态：**实现完成待实机**（2026-08-23 夜）。`il2cpp/PatchRoles_Crossbowman.cs`（824 行），
-> 编译 0W/0E，OMP worker 3 轮 + reviewer（kimi-k3）2 轮收口，已部署 E 盘 build=2.2.0-xbow1。
+> 状态：**实现完成待实机**（2026-08-24）。`il2cpp/PatchRoles_Crossbowman.cs`（~880 行），
+> 编译 0W/0E，OMP worker 3 轮 + reviewer（kimi-k3）2 轮收口，E 盘 build=2.2.0-xbow2。
+> 皮肤修正（2026-08-24，用户指正）：`archer_deadlands`（死地猎人）→
+> **`archer_soldier_deadlands`（死地士兵=骑士小队随从/塔位/上船同款姿态）** + 原生
+> ConvertToSoldier 同款旗帜色染衣（主/副色随机）；Strip 走原生 biome swap 恢复猎人。
+> 士兵皮肤与猎人行为不冲突：原生 Archer 本就在两套控制器间来回转（塔/船→士兵），
+> 行为由 `_knight==null` 例程驱动；打猎用 idle/walk/run/shoot 士兵动画集齐全。
 > 实现偏差记录：弹道=用户参数（v×1.5/g×0.5）但射程 12 由 shootRange 硬约束（SO Range≈36
 > 站桩狙击，Operator 裁决）；读档重算跳过骑士小队成员（不计入 25% 分母，reviewer Q2 裁决）；
 > 弩矢=Arrow 克隆+Bolt sprite×0.65 缩放（Bolt 类塞不进 Arrow 字段）。验收清单见 checklist。

@@ -885,16 +885,16 @@
       "status": "doing",
       "priority": "p1",
       "owner": "zcode",
-      "updated_at": "2026-08-23",
+      "updated_at": "2026-08-24",
       "dependencies": [],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "见任务目录 design.md",
-      "verification": "编译0错误0警告（dotnet8 build）。OMP worker(deepseek-v4-flash)3轮实现+修复；OMP reviewer(kimi-k3)两轮交叉审核，must-fix全部收口（ClassInjector注册/syncID 31000段/重算跳过骑士小队）。已部署E盘测试副本(build=2.2.0-xbow1,DLL哈希d1e4895ce4c0690e)。游戏内验收待实测：4出1弩/不入骑士队/读档25%守恒/弩矢观感",
+      "verification": "编译0错误0警告。worker(deepseek-v4-flash)3轮+reviewer(kimi-k3)2轮收口。2026-08-24皮肤修正(用户指正):archer_deadlands→archer_soldier_deadlands(死地士兵=骑士随从同款)+原生同款旗帜色染衣+Strip走biome swap；冲突核实=原生Archer在塔/船场景本就ConvertToSoldier,行为与控制器解耦。已部署E盘(build=2.2.0-xbow2,DLL SHA前16=7b4201b19b340679)。游戏内验收待实测:4出1弩(士兵皮肤+旗帜色)/射程12平直弹/伤害2/骑士排除/读档25%/白天打猎动画正常",
       "handoff": "实现完成待游戏内实测。验收清单：1)招募第4个弓箭手变弩手(deadlands皮肤) 2)弩手射程12/平直快弹/伤害2 3)骑士招募排除 4)读档后recompute日志+25%守恒 5)骑士小队成员不被转弩手",
       "workflow": {
         "status": "review_approved",
-        "updated_at": "2026-08-23"
+        "updated_at": "2026-08-24"
       },
       "artifacts": {
         "design": "docs/project-harness/tasks/crossbowman-021/design.md",

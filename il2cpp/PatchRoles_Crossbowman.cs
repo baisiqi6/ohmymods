@@ -9,8 +9,15 @@ namespace KingdomEnhancedMod;
 
 /// <summary>
 /// 弩手（crossbowman）：居民捡弓转职弓箭手时，每第 4 个（3:1 交替）变成弩手——
-/// 死地（deadlands）动画换皮 + 索敌/射击参数强化 + 独立外观弩矢。弩手仍是原生
+/// 死地士兵（archer_soldier_deadlands，骑士小队随从/塔位/上船同款姿态）换装 +
+/// 王国旗帜色染衣 + 索敌/射击参数强化 + 独立外观弩矢。弩手仍是原生
 /// Archer（无新兵种、无新池、无新商店），且永远不被骑士编队招募。
+///
+/// 士兵皮肤与猎人行为不冲突（原生 Archer 本就在两套控制器间来回转：EnterGuardSlot/
+/// OnEmbarkStart→ConvertToSoldier，离队/下塔→ConvertToHunter；行为由 _knight==null
+/// 的猎人例程驱动，控制器只管外观；打猎用的 idle/walk/run/shoot 士兵动画集齐全）。
+/// 原生在塔/船场景会把控制器换成当前世界的士兵皮肤，巡检 5s 内换回死地士兵；
+/// 死亡清理切回猎人皮肤播死亡动画（纯观感差异，接受）。
 ///
 /// 与原生契约：
 /// - ActiveArrowAttack 可写；原生 Awake/OnEnable/火矢 buff/网络收包都会重置它——
@@ -47,7 +54,9 @@ public static class PatchRoles_Crossbowman
 
     private const string BoltPrefabName = "KEM_CrossbowBolt";
     private const string AttackSoName = "KEM_CrossbowAttack";
-    private const string DeadlandsControllerName = "archer_deadlands";
+    // 死地士兵（骑士小队随从/塔位/上船同款姿态），不是 archer_deadlands（死地猎人）。
+    // 原生 Archer.ConvertToSoldier 同款机制：士兵皮肤=动画控制器换装+王国旗帜色染衣。
+    private const string SoldierControllerName = "archer_soldier_deadlands";
 
     // 同步池 id 分配：自建独立计数器（不 import PatchRoles_Castle 的私有分配器）。
     // 起点 31000：Castle 分配器从 30000 单调递增且不查占用，多次岛跳 Init 重建后
@@ -199,10 +208,40 @@ public static class PatchRoles_Crossbowman
                 if (animator != null && animator.runtimeAnimatorController != null)
                     animator.runtimeAnimatorController = _deadlandsController;
             }
+
+            // 士兵皮肤的第二半：王国旗帜色染衣（骑士随从同款辨识度）
+            ApplyBannerColors(archer);
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Crossbowman/apply] " + e);
+        }
+    }
+
+    /// <summary>
+    /// 旗帜色染衣：复刻原生 ConvertToSoldier 的权威端染衣块（Archer.cs:859-867）——
+    /// 主/副色随机二选一穿身上、另一色为副。outfitColor/outfitSecondaryColor 是带
+    /// spriteFX recolor 刷新的属性，直接写即生效，不需要走 PickOutfitColor 的可空参数。
+    /// _isWearingBannerColor 幂等标记与原生共用：原生士兵入队时不会重复染。
+    /// </summary>
+    private static void ApplyBannerColors(Archer archer)
+    {
+        if (!NetworkBigBoss.HasWorldAuth || archer._isWearingBannerColor) return;
+        try
+        {
+            Character character = archer.GetComponent<Character>();
+            CoatOfArms coatOfArms = CampaignSaveData.current != null
+                ? CampaignSaveData.current.coatOfArms
+                : null;
+            if (character == null || coatOfArms == null) return;
+            bool usePrimary = UnityEngine.Random.value < 0.5f;
+            character.outfitColor = usePrimary ? coatOfArms.primaryColor : coatOfArms.secondaryColor;
+            character.outfitSecondaryColor = usePrimary ? coatOfArms.secondaryColor : coatOfArms.primaryColor;
+            archer._isWearingBannerColor = true;
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Crossbowman/banner] " + e);
         }
     }
 
@@ -239,12 +278,27 @@ public static class PatchRoles_Crossbowman
                 }
             }
 
-            if (_baseAnimatorController != null)
+            // 恢复猎人控制器：走原生 ConvertToHunter 同款 biome swap（Archer.cs:889），
+            // 跨世界也能还原对应世界的猎人皮肤；swap 不可用时回落缓存基座控制器。
+            RuntimeAnimatorController hunter = null;
+            try
             {
-                Animator animator = archer.GetComponentInChildren<Animator>();
-                if (animator != null && animator.runtimeAnimatorController != null)
-                    animator.runtimeAnimatorController = _baseAnimatorController;
+                hunter = archer.hunterAnimator != null && BiomeData.Current != null
+                    ? BiomeData.Current.GetAssetSwapForThis<RuntimeAnimatorController>(archer.hunterAnimator)
+                    : null;
             }
+            catch (Exception) { /* swap 表未就绪等：走缓存回落 */ }
+            Animator stripAnimator = archer.GetComponentInChildren<Animator>();
+            if (stripAnimator != null && stripAnimator.runtimeAnimatorController != null)
+            {
+                if (hunter != null) stripAnimator.runtimeAnimatorController = hunter;
+                else if (_baseAnimatorController != null)
+                    stripAnimator.runtimeAnimatorController = _baseAnimatorController;
+            }
+
+            // 衣服颜色不还原：原生路径会自然重掷（Promote 换装继承来源颜色、
+            // ConvertToHunter 重随机），手动复刻反而要拷贝 _useOutfitGradient 分支。
+            archer._isWearingBannerColor = false;
         }
         catch (Exception e)
         {
@@ -426,7 +480,7 @@ public static class PatchRoles_Crossbowman
             {
                 for (int i = 0; i < all.Length; i++)
                 {
-                    if (all[i] != null && all[i].name == DeadlandsControllerName) { found = all[i]; break; }
+                    if (all[i] != null && all[i].name == SoldierControllerName) { found = all[i]; break; }
                 }
             }
             if (found == null)
@@ -436,7 +490,7 @@ public static class PatchRoles_Crossbowman
                 {
                     for (int i = 0; i < loaded.Length; i++)
                     {
-                        if (loaded[i] != null && loaded[i].name == DeadlandsControllerName) { found = loaded[i]; break; }
+                        if (loaded[i] != null && loaded[i].name == SoldierControllerName) { found = loaded[i]; break; }
                     }
                 }
             }
@@ -444,7 +498,7 @@ public static class PatchRoles_Crossbowman
             if (found == null)
             {
                 KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
-                    "[Crossbowman] " + DeadlandsControllerName + " controller not found; crossbowmen keep native skin");
+                    "[Crossbowman] " + SoldierControllerName + " controller not found; crossbowmen keep native skin");
             }
         }
         catch (Exception e)
@@ -692,6 +746,10 @@ public static class PatchRoles_Crossbowman
                         animator.runtimeAnimatorController = _deadlandsController;
                     }
                 }
+
+                // 原生 ConvertToHunter（下塔/下船/离队/死亡清理）会重掷随机衣色并清
+                // _isWearingBannerColor；标记被清说明衣色丢了，补染回旗帜色（幂等）。
+                ApplyBannerColors(archer);
             }
         }
         catch (Exception e)
