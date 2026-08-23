@@ -63,6 +63,17 @@ public static class PatchPerformance_NightVolley
         }
     }
 
+    // The staggered-volley design targets night wall defense only; daytime
+    // wildlife hunting never masses volleys, so skip its windows entirely
+    // (also saves the FindObjectsOfType scan during the day).
+    private static bool IsNightWindow()
+    {
+        Director director = Managers.Inst != null ? Managers.Inst.director : null;
+        if (director == null) return false;
+        float t = director.currentTime;
+        return t >= 17.5f || t <= 5.5f;
+    }
+
     private static void EmitSample()
     {
         float avgMs = _frameCount > 0 ? _frameSum / _frameCount * 1000f : 0f;
@@ -71,6 +82,7 @@ public static class PatchPerformance_NightVolley
         _frameMax = 0f;
         _frameCount = 0;
         if (avgMs <= 0f) return;
+        if (!IsNightWindow()) return;
 
         Arrow[] arrows = UnityEngine.Object.FindObjectsOfType<Arrow>();
         int arrowCount = arrows != null ? arrows.Length : 0;
