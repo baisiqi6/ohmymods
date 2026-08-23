@@ -352,6 +352,28 @@ swap 在任意早期钩子都已就绪。Ready 日志必须列出全部已配置
 输出——下次日志即可直接验证配置是否命中真实资产。存档 prefabPath（gzip 解压 grep）是判断
 "实例到底来自哪个资产"的最终证据。
 
+### 25. 自定义 MonoBehaviour 的 ClassInjector 注册必须先于一切类型接触点
+
+**症状（crossbowman-021，reviewer 拦截）：** 标记组件只在 `AddComponent` 前做了
+`ClassInjector.RegisterTypeInIl2Cpp`，但**未注册时 `GetComponent<T>()` 与
+`FindObjectsOfType<T>()` 同样抛异常**。读档重算协程（进程内最早的 marker 接触点，
+此时还没发生过任何弓转职）在循环里 `GetComponent<CrossbowmanMarker>` 直接炸，
+被 try/catch 吞掉后**整个读档重算静默中止**——玩家侧唯一症状是弩手在读档后消失。
+
+**规则：** 自定义类型的注册函数（`IsTypeRegisteredInIl2Cpp` + `RegisterTypeInIl2Cpp`
+幂等短路）必须在**每一个**类型接触点之前调用（含防御性重复调用，幂等零成本），
+不能只挂在 `AddComponent` 前。"AddComponent 会自动注册"是错误认知——本仓库 9/9
+自定义 MonoBehaviour 先例（ModPanel、各 Coordinator、Marker）全部显式注册。
+坑 17（私有 helper 绕过 Harmony thunk）的姊妹坑：IL2CPP interop 对未注册托管类型
+的一切泛型 API 都不宽容。
+
+**附带沉淀（同任务）：** `ArrowAttack` 是全体弓箭手共享的 ScriptableObject，
+改数值必须克隆（`Object.Instantiate` + DontDestroyOnLoad）；`Range = _shotMagnitude²/-_arrowGravity`
+（Util.GetProjectileRange），初速/重力/射程三者不独立；实际索敌距离由
+`Archer.shootRange`（扫描器）与 SO Range 双重门控，弹道观感与交战距离可以解耦设计
+（弩手：v×1.5/g×0.5 平直快弹 + shootRange=12 硬约束）。私有方法（如 `HasKnight()`）
+不进 interop，但等价的私有字段（`_knight`）直接可读。
+
 ## 当前 mod 功能清单
 
 | Patch 类 | 功能 | 状态 |
@@ -377,5 +399,6 @@ swap 在任意早期钩子都已就绪。Ready 日志必须列出全部已配置
 | Patch_HermesStaff | 权杖控制 16（_maximumConvertedTrolls 8→16） | ✅ |
 | PatchDivine_FriendlyTroll | 候选阶段只排除 Squid + 约10% TrollWeak 反制友好巨魔 | 🧪 静态通过，待实机 |
 | PatchWorld_FleetBoatRecovery | 死亡换君主后按四个神像交付任务幂等恢复小船所有权 | 🧪 静态通过，待实机 |
+| PatchRoles_Crossbowman | 弩手：每第4个弓转职换皮强化（deadlands皮肤/射程12/冷却×2/伤害×2/平直弩矢/骑士排除/读档25%重算） | 🧪 编译+review通过，待实机 |
 
 > 状态与 `docs/project-harness/harness-checklist.json` 同步维护。
