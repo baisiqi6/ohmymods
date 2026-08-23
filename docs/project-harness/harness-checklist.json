@@ -869,6 +869,14 @@
       "review": {
         "decision": "approved",
         "note": "两轮，2026-08-23"
+      },
+      "selected_in_session": "zcode-2026-08-23-defense-compact",
+      "lease": {
+        "owner": "zcode",
+        "session": "zcode-2026-08-23-defense-compact",
+        "acquired_at": "2026-08-23T20:00:00+08:00",
+        "expires_at": "2026-08-24T20:00:00+08:00",
+        "ttl_minutes": 1440
       }
     }
   ]
