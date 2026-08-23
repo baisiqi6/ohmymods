@@ -890,7 +890,7 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "见任务目录 design.md",
-      "verification": "编译0错误0警告。worker(deepseek-v4-flash)3轮+reviewer(kimi-k3)2轮收口。2026-08-24皮肤修正(用户指正):archer_deadlands→archer_soldier_deadlands(死地士兵=骑士随从同款)+原生同款旗帜色染衣+Strip走biome swap；冲突核实=原生Archer在塔/船场景本就ConvertToSoldier,行为与控制器解耦。已部署E盘(build=2.2.0-xbow2,DLL SHA前16=7b4201b19b340679)。游戏内验收待实测:4出1弩(士兵皮肤+旗帜色)/射程12平直弹/伤害2/骑士排除/读档25%/白天打猎动画正常",
+      "verification": "编译0错误0警告。worker 3轮+reviewer(kimi-k3) 2轮收口。2026-08-24两次用户修正:皮肤→archer_soldier_deadlands+旗帜色;弹道→只做射程x1.5(初速x√1.5,重力原生),放弃平直改造(墙后必高抛)。已部署E盘(build=2.2.0-xbow3,DLL SHA前16=028514ec48af0704)。游戏内验收待实测:4出1弩(士兵皮肤+旗帜色)/射程12原生抛物线/伤害2/骑士排除/读档25%",
       "handoff": "实现完成待游戏内实测。验收清单：1)招募第4个弓箭手变弩手(deadlands皮肤) 2)弩手射程12/平直快弹/伤害2 3)骑士招募排除 4)读档后recompute日志+25%守恒 5)骑士小队成员不被转弩手",
       "workflow": {
         "status": "review_approved",

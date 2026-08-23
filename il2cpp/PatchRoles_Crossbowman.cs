@@ -45,8 +45,8 @@ public static class PatchRoles_Crossbowman
     private const float CrossbowShootRange = 12f;          // 基础弓 8
     private const float IntervalMultiplier = 2f;           // 装填冷却 ×2
     private const int BoltHitDamage = 2;                   // 原生 1；perfect 自动 ×2 = 4
-    private const float ShotMagnitudeMultiplier = 1.5f;    // 弹道初速
-    private const float GravityMultiplier = 0.5f;          // 弹道重力
+    private const float RangeMultiplier = 1.5f;            // 射程 ×1.5（8→12）；重力不动=原生抛物线观感
+    private const float ShotMagnitudeMultiplier = 1.2247f; // √1.5：Range=v²/g，射程×1.5 即初速×√1.5
     private const float BoltVisualScale = 0.65f;           // 缩小弩炮弹矢外观；连带碰撞体等比缩小，快弹判定影响可忽略
     private const int PromoteCycle = 4;                    // 3:1 交替
     private const float RecomputeDelaySeconds = 15f;       // 等单位恢复完成
@@ -366,8 +366,8 @@ public static class PatchRoles_Crossbowman
                 return;
             }
             boltArrow.hitDamage = BoltHitDamage;
-            Rigidbody2D rb = boltGo.GetComponent<Rigidbody2D>();
-            if (rb != null) rb.gravityScale *= GravityMultiplier;
+            // 重力保持原生：弩矢与普通箭同样的抛物线观感（墙后高抛越墙是原生
+            // ParabolaCast 避障行为，平直弹道在守城场景展示不出来，不做）。
             ApplyBoltSprite(boltArrow);
 
             // 3) 克隆 ArrowAttack SO（禁止改原资产——全体弓箭手共享，改了就全弓生效）
@@ -380,12 +380,10 @@ public static class PatchRoles_Crossbowman
             }
             clonedSO.name = AttackSoName;
             UnityEngine.Object.DontDestroyOnLoad(clonedSO);
-            // 弹道：初速 ×1.5、重力 ×0.5 → SO 内部 Range≈36（v²/g）。36 是有意为之：
-            // Archer.cs:1116 的推进判断用 ActiveArrowAttack.Range，让弩手在射程内
-            // "站桩狙击不冒进"；实际交战距离 12 由 shootRange/扫描器硬约束。
+            // 弹道只做一件事：射程 ×1.5。Range = v²/g → 初速 ×√1.5、重力不动，
+            // SO 内部 Range=12 与 shootRange/扫描器一致，抛物线形状与原生弓箭相同。
             clonedSO._shotMagnitude *= ShotMagnitudeMultiplier;
             clonedSO._boostedShotMagnitude *= ShotMagnitudeMultiplier;
-            clonedSO._arrowGravity *= GravityMultiplier;
             clonedSO._arrowPrefab = boltArrow;
 
             // 4) 死地动画控制器（可选：解析失败只缺皮肤，弩手功能继续）

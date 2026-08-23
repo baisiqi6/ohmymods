@@ -7,8 +7,9 @@
 > ConvertToSoldier 同款旗帜色染衣（主/副色随机）；Strip 走原生 biome swap 恢复猎人。
 > 士兵皮肤与猎人行为不冲突：原生 Archer 本就在两套控制器间来回转（塔/船→士兵），
 > 行为由 `_knight==null` 例程驱动；打猎用 idle/walk/run/shoot 士兵动画集齐全。
-> 实现偏差记录：弹道=用户参数（v×1.5/g×0.5）但射程 12 由 shootRange 硬约束（SO Range≈36
-> 站桩狙击，Operator 裁决）；读档重算跳过骑士小队成员（不计入 25% 分母，reviewer Q2 裁决）；
+> 实现偏差记录（2026-08-24 二次简化，用户拍板）：弹道放弃平直改造（墙后 ParabolaCast 必走
+> 高抛解，平直展示不出来）——**只做射程×1.5**：初速×√1.5（Range=v²/g）、重力原生不动，
+> 弹道形状与普通弓箭一致；读档重算跳过骑士小队成员（不计入 25% 分母，reviewer Q2 裁决）；
 > 弩矢=Arrow 克隆+Bolt sprite×0.65 缩放（Bolt 类塞不进 Arrow 字段）。验收清单见 checklist。
 > 会话压缩安全：本文档自包含，实现者只需再读 AGENTS.md 与本文。
 
