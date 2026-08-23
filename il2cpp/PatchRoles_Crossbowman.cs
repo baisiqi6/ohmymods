@@ -43,6 +43,7 @@ public static class PatchRoles_Crossbowman
 {
     // ---- 数值定稿（Operator 裁决，勿改） ----
     private const float CrossbowShootRange = 12f;          // 基础弓 8
+    private const float CrossbowmanScaleY = 1.15f;         // 本体 y 缩放（坑11：只动 y，x 是朝向符号）
     private const float IntervalMultiplier = 2f;           // 装填冷却 ×2
     private const int BoltHitDamage = 2;                   // 原生 1；perfect 自动 ×2 = 4
     private const float RangeMultiplier = 1.5f;            // 射程 ×1.5（8→12）；重力不动=原生抛物线观感
@@ -211,6 +212,14 @@ public static class PatchRoles_Crossbowman
 
             // 士兵皮肤的第二半：王国旗帜色染衣（骑士随从同款辨识度）
             ApplyBannerColors(archer);
+
+            // 本体放大 1.15：y 轴绝对值 + ScaleRegistry 每帧守卫（Mover.Update postfix
+            // 重断言，池 respawn/原生重置都能自愈）；Strip 必须 Unregister，否则池复用
+            // 给普通弓箭手时会被错误守卫在 1.15（注册按 gameObject ID 键控）。
+            Vector3 scale = archer.transform.localScale;
+            scale.y = CrossbowmanScaleY;
+            archer.transform.localScale = scale;
+            ScaleRegistryHolder.Register(archer.GetComponent<Mover>(), CrossbowmanScaleY);
         }
         catch (Exception e)
         {
@@ -299,6 +308,12 @@ public static class PatchRoles_Crossbowman
             // 衣服颜色不还原：原生路径会自然重掷（Promote 换装继承来源颜色、
             // ConvertToHunter 重随机），手动复刻反而要拷贝 _useOutfitGradient 分支。
             archer._isWearingBannerColor = false;
+
+            // 缩放还原：先撤守卫再回基准 y=1（原生弓箭手即 1），顺序反了会被守卫顶回。
+            ScaleRegistryHolder.Unregister(archer.GetComponent<Mover>());
+            Vector3 stripScale = archer.transform.localScale;
+            stripScale.y = 1f;
+            archer.transform.localScale = stripScale;
         }
         catch (Exception e)
         {

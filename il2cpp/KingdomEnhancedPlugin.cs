@@ -50,7 +50,7 @@ public class KingdomEnhancedPlugin :
         {
             Instance = this;
             // 手动构建戳：日志里区分不同部署（改完记得更新）
-            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=2.2.0-xbow3 loading...");
+            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=2.2.0-xbow4 loading...");
 
             // 配置（BepInConfig，替代 UMM Settings）
             ModConfig.Init(Config);
