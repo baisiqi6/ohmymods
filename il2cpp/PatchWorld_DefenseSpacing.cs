@@ -67,11 +67,13 @@ public static class PatchWorld_DefenseSpacing
                 + " [" + sample + "]");
         }
 
-        // Wall-lineup report: fires once when at least three knights stand in a
-        // depth band behind the border wall (the night formation), listing the
-        // rank -> measured depth mapping.  Daytime wanderers sit too far away
-        // or in front of the wall and do not trigger it.
-        if (count < 3 || _loggedKnightLineup) return;
+        // Wall-lineup report: fires once per world when at least three knights
+        // stand in a depth band behind the border wall (the night formation),
+        // listing the rank -> measured depth mapping.  The remap itself runs
+        // every pass below: native RankKnights() rewrites 1..N on every hire
+        // or loss, so a one-shot remap would silently stop working as the
+        // roster grows or changes.
+        if (count < 3) return;
         Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
         if (kingdom == null) return;
 
@@ -86,33 +88,35 @@ public static class PatchWorld_DefenseSpacing
             float depth = (wall - knight.transform.position.x) * side;
             if (depth > 0.5f && depth <= 15f) lined.Add(knight);
         }
-        if (lined.Count < 3) return;
-
-        lined.Sort((a, b) => a.rank.CompareTo(b.rank));
-        System.Text.StringBuilder report = new System.Text.StringBuilder();
-        for (int i = 0; i < lined.Count; i++)
+        if (lined.Count >= 3 && !_loggedKnightLineup)
         {
-            Knight knight = lined[i];
-            float side = (float)knight.side;
-            float wall = kingdom.GetBorderSideIntact(knight.side);
-            float depth = (wall - knight.transform.position.x) * side;
-            if (report.Length > 0) report.Append("; ");
-            report.Append("r").Append(knight.rank)
-                .Append("@").Append(depth.ToString("F1"));
+            _loggedKnightLineup = true;
+            lined.Sort((a, b) => a.rank.CompareTo(b.rank));
+            System.Text.StringBuilder report = new System.Text.StringBuilder();
+            for (int i = 0; i < lined.Count; i++)
+            {
+                Knight knight = lined[i];
+                float side = (float)knight.side;
+                float wall = kingdom.GetBorderSideIntact(knight.side);
+                float depth = (wall - knight.transform.position.x) * side;
+                if (report.Length > 0) report.Append("; ");
+                report.Append("r").Append(knight.rank)
+                    .Append("@").Append(depth.ToString("F1"));
+            }
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                "[DefenseSpacing] knight lineup: " + report);
         }
-        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-            "[DefenseSpacing] knight lineup: " + report);
-        if (_loggedKnightLineup) return;
-        _loggedKnightLineup = true;
 
         // Measured live: depth = rank * _distanceFromWall (1.0 per rank, r15 at
         // 15 units behind the wall).  Follower archers trail their knight by
         // knightFollowDistance, so rank N puts its squad's bows at roughly
         // N*spacing + 1 — far past the 8-unit bow range for N > 7.  Remap ranks
-        // per side into 1..KnightRankCap (distinct values keep squads from
-        // stacking on one spot); daytime passes rewrite ranks well before the
-        // dusk lineup reads them.
-        RemapKnightRanks(knights, kingdom);
+        // per side into 1..KnightRankCap each pass; with more knights than cap
+        // values some squads share a depth slot (native code has no invariant
+        // on rank uniqueness).  The remap is idempotent: once compressed it
+        // leaves ranks untouched until native RankKnights() exceeds the cap
+        // again after a hire or a loss.
+        if (NetworkBigBoss.HasWorldAuth) RemapKnightRanks(knights, kingdom);
     }
 
     private const int KnightRankCap = 7;
@@ -154,14 +158,24 @@ public static class PatchWorld_DefenseSpacing
     private static int RemapSide(System.Collections.Generic.List<Knight> side)
     {
         if (side.Count <= KnightRankCap) return 0;
+
+        // Idempotent guard: once compressed (max rank <= cap) do nothing until
+        // a native RankKnights() rewrite pushes max rank past the cap again.
+        // This also avoids re-sorting an already-compressed list where equal
+        // ranks would let the unstable sort swap knights between passes.
+        int maxRank = 0;
+        for (int i = 0; i < side.Count; i++)
+            if (side[i].rank > maxRank) maxRank = side[i].rank;
+        if (maxRank <= KnightRankCap) return 0;
+
         side.Sort((a, b) => a.rank.CompareTo(b.rank));
         int changed = 0;
         for (int i = 0; i < side.Count; i++)
         {
-            // Spread count knights over ranks 1..cap while keeping them
-            // distinct: the i-th of n knights gets 1 + i*cap/n.
+            // Spread count knights over ranks 1..cap: the i-th of n knights
+            // gets 1 + i*cap/n (defensive clamp for degenerate inputs).
             int newRank = 1 + (int)Math.Floor((double)i * KnightRankCap / side.Count);
-            if (newRank >= side.Count) newRank = side.Count;
+            if (newRank > KnightRankCap) newRank = KnightRankCap;
             if (side[i].rank == newRank) continue;
             side[i].rank = newRank;
             changed++;
@@ -179,6 +193,13 @@ public static class PatchWorld_DefenseSpacing
     {
         if (world == null || _supervisorWorld == world.Pointer) yield break;
         _supervisorWorld = world.Pointer;
+        // New world (island hop / new campaign / pointer reuse after GC):
+        // re-arm every one-shot report so coverage and logging restart.
+        _loggedHeartbeat = false;
+        _loggedDepthClamp = false;
+        _loggedKnightSample = false;
+        _loggedKnightLineup = false;
+        _loggedKnightRemap = false;
         while (world != null && world.gameObject != null)
         {
             yield return new WaitForSeconds(3f);
