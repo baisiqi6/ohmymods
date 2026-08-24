@@ -1,3 +1,16 @@
+## 2026-08-24（十一） — knight-style-026 骑士随机风格（knightstyle1 部署）
+
+- 需求：招募骑士随机中世纪/死地/幕府/希腊四形象，随从士兵联动对应形象，希腊骑士 y=0.9；
+  存量骑士读档自动补风格（用户确认）。
+- 全程 subagent 协作通道：worker 初版 764 行（Squire 过滤/HashSet 非泛型枚举器绕法/
+  NetID 退化+收敛/Knight.OnEnable 字符串补丁兜池复用）→ reviewer 一审 must-fix 一项：
+  北境随从联动静默失效（原生士兵皮 archer_soldier_norselands 不在判定集）→ worker 二轮
+  800 行（北境款"只识别不选中"/重算分支补 StyleFollowers/注释修正）。
+- reviewer 关键背书：弩手互斥三层闭合（IsAvailableForJob 排除→无 marker→巡检不碰）；
+  哈希收敛时序源码实锤（Pool.AttemptSpawnSync 先 Register 后 SetActivate，单机/双端首
+  1-2 轮即 NetID 真值）；希腊 0.9 上船与船 scale 归一化无冲突。
+- 编译 0W/0E，build=2.2.0-knightstyle1 已部署 E 盘（SHA 前16=66c307e2d27d41ca）。
+
 ## 2026-08-24（十） — 协作流程纠偏 + 直写增量补审收口（balance2）
 
 - 用户指出流程漂移：皮肤/弹道/缩放/蛇缰绳迭代/平衡调整由 Operator 直写，未走 worker/reviewer。

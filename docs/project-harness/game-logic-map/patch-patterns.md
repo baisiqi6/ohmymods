@@ -399,6 +399,7 @@ swap 在任意早期钩子都已就绪。Ready 日志必须列出全部已配置
 | Patch_HermesStaff | 权杖控制 16（_maximumConvertedTrolls 8→16） | ✅ |
 | PatchDivine_FriendlyTroll | 候选阶段只排除 Squid + 约10% TrollWeak 反制友好巨魔 | 🧪 静态通过，待实机 |
 | PatchWorld_FleetBoatRecovery | 死亡换君主后按四个神像交付任务幂等恢复小船所有权 | 🧪 静态通过，待实机 |
+| PatchRoles_KnightStyle | 骑士随机四风格（中世纪/死地/幕府/希腊，确定性哈希）+随从联动+希腊y0.9 | 🧪 编译+review通过，待实机 |
 | PatchRoles_Crossbowman | 弩手：每第4个弓转职换皮强化（deadlands皮肤/射程12/冷却×2/伤害×2/平直弩矢/骑士排除/读档25%重算） | 🧪 编译+review通过，待实机 |
 
 > 状态与 `docs/project-harness/harness-checklist.json` 同步维护。
