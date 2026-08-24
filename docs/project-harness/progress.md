@@ -1,3 +1,14 @@
+## 2026-08-25 — knightstyle4：随从管线+夜间站位双诊断部署
+
+- knightstyle3 实测：随从反查零报错（枚举器问题终结）但用户观感仍未换皮；另报新问题
+  "守家时部分弓箭手站在城墙外"+"白天也拥挤"。夜间探针抓到 287ms 单帧尖刺（t=0.5h，
+  均值6.7ms）与"卡挺久"量级吻合。
+- worker 加双诊断（只记录不改行为）：[KnightStyle] follower diag 每60s输出管线计数
+  （archers/withKnight/inStates/styled/skippedFamily/skippedOther+样本控制器名）；
+  [DefenseSpacing] archer lineup 夜间每侧一次输出墙外弓箭手按身份分类
+  （xbow/followers/plain）+坐标采样。下次运行三问题一次定位。
+- 编译 0W/0E，build=2.2.0-knightstyle4 已部署 E 盘（SHA 前16=59565a71d56a0fc4）。
+
 ## 2026-08-24（十三） — knightstyle3：随从反查重写 + 天亮顿挫排查
 
 - knightstyle2 实测随从仍失效：堆栈实锤纯读快照段的 HashSet Enumerator.MoveNext 就抛

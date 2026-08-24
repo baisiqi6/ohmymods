@@ -109,6 +109,20 @@ public static class PatchRoles_KnightStyle
     private static bool _loggedPoolShrunk;
     private static bool _loggedPoolEmpty;
 
+    // ---- 随从换皮管线诊断（只记录不改行为）----
+    // StyleFollowersByLookup 每轮累计各环节数量，与上次"实际输出"的计数缓存比对：
+    // 状态有变化且距上次输出 ≥60s 才再输出一行（定位换皮效果在哪一环丢弃）。
+    // 世界切换时 SupervisorRoutine 复位基线，新世界首轮立即可输出。
+    private const float FollowerDiagMinIntervalSeconds = 60f;
+    private static bool _followerDiagHasBaseline;  // 上次输出计数缓存是否有效
+    private static float _nextFollowerDiagAt;      // 最早允许下次输出的 Time.time
+    private static int _diagLastArchers = -1;
+    private static int _diagLastWithKnight = -1;
+    private static int _diagLastInStates = -1;
+    private static int _diagLastStyled = -1;
+    private static int _diagLastSkippedFamily = -1;
+    private static int _diagLastSkippedOther = -1;
+
     // ---- 协程守卫 ----
     private static IntPtr _supervisorWorld;
 
@@ -619,6 +633,10 @@ public static class PatchRoles_KnightStyle
         }
         States.Clear();
 
+        // 随从诊断基线复位：新世界的计数从零开始，首轮即可输出一次
+        _followerDiagHasBaseline = false;
+        _nextFollowerDiagAt = 0f;
+
         while (world != null && world.gameObject != null)
         {
             IntegrityPass();
@@ -707,6 +725,17 @@ public static class PatchRoles_KnightStyle
             Archer[] archers = UnityEngine.Object.FindObjectsOfType<Archer>();
             if (archers == null) return;
 
+            // 管线诊断计数（只记录不改行为，输出见 LogFollowerDiag）：
+            // archers=active Archer 总数；withKnight=_knight 非空；inStates=withKnight
+            // 里其骑士在状态表且有风格的；styled=本轮实际写入控制器的；
+            // skippedFamily=当前控制器不在 archer_soldier 系（含北境款）而跳过；
+            // skippedOther=其他原因跳过（弩手/animator 空/当前控制器空/target 空）
+            int diagArchers = 0, diagWithKnight = 0, diagInStates = 0, diagStyled = 0;
+            int diagSkippedFamily = 0, diagSkippedOther = 0;
+            float diagSampleX = 0f;
+            string diagSampleController = "<no withKnight sample>";
+            bool diagSampleTaken = false;
+
             for (int i = 0; i < archers.Length; i++)
             {
                 try
@@ -714,28 +743,56 @@ public static class PatchRoles_KnightStyle
                     Archer archer = archers[i];
                     if (archer == null || archer.gameObject == null
                         || !archer.gameObject.activeInHierarchy) continue;
-                    if (PatchRoles_Crossbowman.IsCrossbowman(archer)) continue;
+                    diagArchers++;
+
+                    // 弩手按设计不入骑士队（IsAvailableForJob 已排除），防御性跳过；
+                    // 诊断计入 skippedOther（"其他原因"之一）。内部有注册防御，安全。
+                    if (PatchRoles_Crossbowman.IsCrossbowman(archer))
+                    {
+                        diagSkippedOther++;
+                        continue;
+                    }
 
                     Knight knight = archer._knight;
                     if (knight == null || knight.gameObject == null) continue;
+                    diagWithKnight++;
+
+                    // 样本 = 第一个 withKnight 弓箭手的 x 坐标 + 当前控制器名：
+                    // styled=0 且 withKnight>0 时，控制器名直接暴露跳过原因
+                    // （猎人皮/骑士本皮=不在士兵系；士兵皮=已写入或风格缺资产）
+                    if (!diagSampleTaken)
+                    {
+                        diagSampleTaken = true;
+                        diagSampleX = archer.transform.position.x;
+                        Animator sampleAnimator = archer._animator;
+                        if (sampleAnimator == null)
+                            sampleAnimator = archer.GetComponentInChildren<Animator>();
+                        RuntimeAnimatorController sampleController =
+                            sampleAnimator != null ? sampleAnimator.runtimeAnimatorController : null;
+                        diagSampleController = sampleController != null
+                            ? sampleController.name : "<null controller>";
+                    }
 
                     // 状态表键 = 骑士 gameObject.GetInstanceID()（与全部写入点一致）
                     KnightStyleState state;
                     if (!States.TryGetValue(knight.gameObject.GetInstanceID(), out state))
                         continue;
                     if (!state.HasStyle) continue;
+                    diagInStates++;
 
                     RuntimeAnimatorController target = SoldierControllers[state.StyleIndex];
-                    if (target == null) continue;
+                    if (target == null) { diagSkippedOther++; continue; }
 
                     Animator animator = archer._animator;
                     if (animator == null) animator = archer.GetComponentInChildren<Animator>();
-                    if (animator == null) continue;
+                    if (animator == null) { diagSkippedOther++; continue; }
 
                     RuntimeAnimatorController current = animator.runtimeAnimatorController;
-                    if (current == null || current.Pointer == target.Pointer) continue;
-                    if (!IsSoldierFamilyController(current)) continue;
+                    if (current == null) { diagSkippedOther++; continue; }
+                    if (current.Pointer == target.Pointer) continue; // 已是目标风格，零写入
+                    if (!IsSoldierFamilyController(current)) { diagSkippedFamily++; continue; }
                     animator.runtimeAnimatorController = target;
+                    diagStyled++;
                 }
                 catch (Exception e)
                 {
@@ -743,10 +800,58 @@ public static class PatchRoles_KnightStyle
                     LogErrorOnce("follower styling failed", e);
                 }
             }
+
+            LogFollowerDiag(diagArchers, diagWithKnight, diagInStates, diagStyled,
+                diagSkippedFamily, diagSkippedOther, diagSampleX, diagSampleController);
         }
         catch (Exception e)
         {
             LogErrorOnce("follower styling failed", e);
+        }
+    }
+
+    /// <summary>
+    /// 随从换皮管线诊断日志（只记录不改行为）：一行输出各环节数量 +
+    /// 首个 withKnight 样本，定位效果在哪一环丢弃。限频：距上次实际输出
+    /// ≥60s，且本轮计数与上次输出时的缓存不同才输出（纯读、无行为影响）；
+    /// 世界切换时 SupervisorRoutine 复位基线，新世界首轮立即可输出。
+    /// </summary>
+    private static void LogFollowerDiag(int archers, int withKnight, int inStates,
+        int styled, int skippedFamily, int skippedOther, float sampleX, string sampleController)
+    {
+        try
+        {
+            // 无基线（世界切换后首轮）视为有变化，允许立即输出一次
+            bool changed = !_followerDiagHasBaseline
+                || archers != _diagLastArchers
+                || withKnight != _diagLastWithKnight
+                || inStates != _diagLastInStates
+                || styled != _diagLastStyled
+                || skippedFamily != _diagLastSkippedFamily
+                || skippedOther != _diagLastSkippedOther;
+            if (!changed) return;
+            if (Time.time < _nextFollowerDiagAt) return;
+
+            _followerDiagHasBaseline = true;
+            _nextFollowerDiagAt = Time.time + FollowerDiagMinIntervalSeconds;
+            _diagLastArchers = archers;
+            _diagLastWithKnight = withKnight;
+            _diagLastInStates = inStates;
+            _diagLastStyled = styled;
+            _diagLastSkippedFamily = skippedFamily;
+            _diagLastSkippedOther = skippedOther;
+            LogInfo("follower diag: archers=" + archers
+                + " withKnight=" + withKnight
+                + " inStates=" + inStates
+                + " styled=" + styled
+                + " skippedFamily=" + skippedFamily
+                + " skippedOther=" + skippedOther
+                + " sample=archer@" + sampleX.ToString("F1")
+                + " controller=" + sampleController);
+        }
+        catch (Exception e)
+        {
+            LogErrorOnce("follower diag failed", e);
         }
     }
 }

@@ -183,6 +183,95 @@ public static class PatchWorld_DefenseSpacing
         return changed;
     }
 
+    // ---- night archer lineup report ----------------------------------------
+    // 夜间弓箭手列队诊断（只记录不改行为，每侧每世界只输出一次）：
+    // 用户报告"守家时一部分弓箭手站在城墙外面"+"站得拥挤"。挂在现有
+    // DepthClampPass 扫描里：夜间（director.currentTime >= 17.5 || <= 5.5）
+    // 且某侧 depth 在 [-6,8] 区间的弓箭手 >=5 时，输出该侧队列构成——
+    // 站到墙外（depth < -0.5）的数量与前三个样本 x、弩手/骑士随从/普通弓
+    // 的占比。depth 公式与上面骑士 lineup 相同：(墙x - 单位x) * side。
+    // 弩手判定用 PatchRoles_Crossbowman.IsCrossbowman（内部有注册防御，安全）。
+    private static bool _loggedArcherLineupLeft;
+    private static bool _loggedArcherLineupRight;
+
+    private static void ScanNightArcherLineup(Kingdom kingdom, Archer[] archers)
+    {
+        try
+        {
+            // 两侧都已输出过 → 零开销早退
+            if (_loggedArcherLineupLeft && _loggedArcherLineupRight) return;
+            Director director = Managers.Inst != null ? Managers.Inst.director : null;
+            if (director == null) return;
+            float t = director.currentTime;
+            if (!(t >= 17.5f || t <= 5.5f)) return; // 非夜间
+
+            ReportArcherLineupSide(kingdom, archers, Side.Left,
+                ref _loggedArcherLineupLeft, "L");
+            ReportArcherLineupSide(kingdom, archers, Side.Right,
+                ref _loggedArcherLineupRight, "R");
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[DefenseSpacing/archer-lineup] " + e);
+        }
+    }
+
+    /// <summary>
+    /// 单侧夜间弓箭手列队报告（纯读）。total=depth 在 [-6,8] 区间的该侧弓箭手
+    /// 总数；outside=其中 depth&lt;-0.5（站到墙外）的数量，outsideSample 为前
+    /// 三个墙外弓箭手的 x 坐标；xbow/followers/plain 为同一集合内弩手、
+    /// 有 _knight 的骑士随从、其余普通弓的数量（三分类互斥，plain=total-其余）。
+    /// </summary>
+    private static void ReportArcherLineupSide(Kingdom kingdom, Archer[] archers,
+        Side side, ref bool logged, string sideLabel)
+    {
+        if (logged) return;
+        float sign = (float)side;
+        float wall = kingdom.GetBorderSideIntact(side);
+
+        int inBand = 0, outside = 0, xbow = 0, followers = 0;
+        var outsideSample = new System.Collections.Generic.List<float>();
+        for (int i = 0; i < archers.Length; i++)
+        {
+            Archer archer = archers[i];
+            if (archer == null || archer.gameObject == null
+                || !archer.gameObject.activeInHierarchy) continue;
+            if (archer._guardSide != side) continue;
+
+            // depth 同骑士 lineup 公式；区间外（未列队/游荡）的不进报告
+            float depth = (wall - archer.transform.position.x) * sign;
+            if (depth < -6f || depth > 8f) continue;
+            inBand++;
+
+            if (depth < -0.5f)
+            {
+                outside++;
+                if (outsideSample.Count < 3)
+                    outsideSample.Add(archer.transform.position.x);
+            }
+            if (PatchRoles_Crossbowman.IsCrossbowman(archer)) xbow++;
+            else if (archer._knight != null) followers++; // HasKnight 等价判 _knight
+        }
+        if (inBand < 5) return;
+
+        logged = true;
+        System.Text.StringBuilder sample = new System.Text.StringBuilder();
+        for (int i = 0; i < outsideSample.Count; i++)
+        {
+            if (i > 0) sample.Append(',');
+            sample.Append(outsideSample[i].ToString("F1"));
+        }
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+            "[DefenseSpacing] archer lineup: side=" + sideLabel
+            + " total=" + inBand
+            + " outside=" + outside
+            + " xbow=" + xbow
+            + " followers=" + followers
+            + " plain=" + (inBand - xbow - followers)
+            + " outsideSample=[" + sample + "]");
+    }
+
     // Director.Update proved unhookable in 2.4.0 (inlined or replaced — both the
     // depth supervisor and the night-volley probe on it never fired).  Host the
     // pass in a World coroutine instead, the pattern the working GhostLeashHold
@@ -200,6 +289,9 @@ public static class PatchWorld_DefenseSpacing
         _loggedKnightSample = false;
         _loggedKnightLineup = false;
         _loggedKnightRemap = false;
+        // 夜间弓箭手列队诊断：每世界每侧重新武装
+        _loggedArcherLineupLeft = false;
+        _loggedArcherLineupRight = false;
         while (world != null && world.gameObject != null)
         {
             yield return new WaitForSeconds(3f);
@@ -240,6 +332,9 @@ public static class PatchWorld_DefenseSpacing
             Archer[] archers = UnityEngine.Object.FindObjectsOfType<Archer>();
             int count = archers != null ? archers.Length : 0;
             if (count == 0) return;
+
+            // 夜间弓箭手列队诊断（纯读，每侧每世界一次）
+            ScanNightArcherLineup(kingdom, archers);
 
             int clamped = 0;
             int maxDepth = 0;
