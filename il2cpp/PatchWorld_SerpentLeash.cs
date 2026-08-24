@@ -35,6 +35,18 @@ public static class PatchWorld_SerpentLeash
         try
         {
             if (serpent == null || serpent.gameObject == null) return;
+
+            // _mtOlympusGate 是懒加载字段（原生 TryFindGate 私有，不进 interop——
+            // 坑25/HasKnight 先例），OnEnable 时机字段还是 null，这里复刻其填充：
+            // FindWithTag + GetComponent 写回字段，保证"激活即上缰绳"先于
+            // OnLevelLoadedHandler 的关卡加载瞬移执行（reviewer F2）。
+            if (serpent._mtOlympusGate == null)
+            {
+                GameObject gateGo = GameObject.FindWithTag("MtOlympusGate");
+                serpent._mtOlympusGate = gateGo != null
+                    ? gateGo.GetComponent<MtOlympusGates>()
+                    : null;
+            }
             MtOlympusGates gate = serpent._mtOlympusGate;
             if (gate == null || gate.SerpentAnchor == null) return;
             Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
@@ -43,6 +55,13 @@ public static class PatchWorld_SerpentLeash
             Transform anchor = gate.SerpentAnchor;
             float wallX = kingdom.GetBorderSideIntact(Side.Right);
             float targetX = wallX + MinDistanceFromWall;
+            // 上界钳制（reviewer F1）：墙+14 可能越过可玩陆域右界，会破坏 Submerged
+            // 跟随点不变量（Min 反转压过 Max）与头部弱点可达性。worldBounds.right
+            // 本身已内缩 8（World.cs 世界边界公式），再留原生 WORLD_BORDER_BUFFER=10。
+            float worldRight = float.MaxValue;
+            World world = Managers.Inst != null ? Managers.Inst.world : null;
+            if (world != null) worldRight = world.worldBounds.right - 10f;
+            if (targetX > worldRight) targetX = worldRight;
             if (anchor.position.x >= targetX - 0.1f) return;
 
             Vector3 pos = anchor.position;
@@ -53,7 +72,9 @@ public static class PatchWorld_SerpentLeash
                 _loggedLeash = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
                     "[SerpentLeash] anchor pushed to wall+" + MinDistanceFromWall
-                    + " (wall=" + wallX.ToString("F1") + " anchor=" + targetX.ToString("F1") + ")");
+                    + " (wall=" + wallX.ToString("F1")
+                    + " anchor=" + targetX.ToString("F1")
+                    + " worldRight=" + worldRight.ToString("F1") + ")");
             }
         }
         catch (Exception e)
@@ -65,11 +86,14 @@ public static class PatchWorld_SerpentLeash
     /// <summary>
     /// 低频复扫宿主（范式同 PatchWorld_DefenseSpacing）：城墙右扩/读档后保持
     /// 锚点离墙距离。大蛇只在最终岛存在，FindObjectsOfType 每轮最多命中一个。
+    /// 墙被毁后 borderIntact 回退内侧 → targetX 下降 → no-op，锚点停在原远处
+    /// 不回拉（有意为之：更远只会更安全）。新世界重置首条日志标记。
     /// </summary>
     internal static IEnumerator SupervisorRoutine(World world)
     {
         if (world == null || _supervisorWorld == world.Pointer) yield break;
         _supervisorWorld = world.Pointer;
+        _loggedLeash = false;
         while (world != null && world.gameObject != null)
         {
             yield return new WaitForSeconds(RescanIntervalSeconds);

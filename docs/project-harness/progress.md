@@ -1,3 +1,16 @@
+## 2026-08-24（五） — 大蛇缰绳 reviewer 收口（F1+F2 落地，serpent2）
+
+- reviewer(kimi-k3)一审 must-fix 两项（核心随迁论证1-5全部逐条背书）：
+  F1 targetX 缺上界——墙+14可越可玩陆域右界，破坏 Submerged 跟随点不变量与头部弱点可达
+  → 钳制 min(墙+14, worldBounds.right-10)，日志补记 worldRight；
+  F2 OnEnable postfix 首次激活空转——_mtOlympusGate 懒加载（TryFindGate 私有，
+  仅 DistanceToGate/GatePosition getter 填充），蛇先瞬移到未右移锚点再慢爬10-20s
+  → 复刻懒加载（FindWithTag+GetComponent 写回字段，私有方法不进 interop 坑25先例），
+  附带消除客户端木马锁 UI 分歧窗口。
+- nit 顺手：新世界重置 _loggedLeash；注释补"墙毁不回拉有意为之"。
+- 编译0W/0E，build=2.2.0-serpent2 已部署 E 盘（SHA 前16=099558ffde986292）。
+  git push 因本机代理(127.0.0.1:7890)不通暂缓，代理恢复后补推。
+
 ## 2026-08-24（四） — 大蛇离墙缰绳（用户需求：最终岛大蛇刷新太贴墙）
 
 - 问题：希腊最终岛城墙推近奥林匹斯山门后，大蛇休息位=SerpentAnchor 落在墙外很近处，白天墙边

@@ -996,17 +996,21 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "最终岛大蛇休息位离右墙>=14；白天墙边小兵不再被咬/扫描覆盖；主动出击(墙+8外)冲锋照常",
-      "verification": "编译0错误0警告。已部署E盘(build=2.2.0-serpent1,DLL SHA前16=18bb7b3f2eb31d9f)。reviewer审核中。游戏内验收待实测",
+      "verification": "编译0错误0警告。reviewer(kimi-k3)一审must-fix两项已落地: F1 targetX上界钳制worldBounds.right-10(防锚点出可玩区破坏Submerged跟随/弱点可达); F2 OnEnable懒加载复刻FindWithTag+GetComponent写回_mtOlympusGate(私有TryFindGate不进interop,坑25先例),消除首次激活10-20s贴墙窗口与客户端木马锁UI分歧。reviewer预授权:F1+F2落地即approve。已部署E盘(build=2.2.0-serpent2,DLL SHA前16=099558ffde986292)。游戏内验收待实测",
       "handoff": "PatchWorld_SerpentLeash.cs：锚点右推(只向右幂等,10s复扫+OnEnable即时)；原生随迁论证=冲锋线max(锚点-0.55,墙+10)/挡门相对距离/弱点锚点按世界跨度。待实测:大蛇刷新位白天骚扰消失",
       "workflow": {
-        "status": "review_requested",
+        "status": "review_approved",
         "updated_at": "2026-08-24"
       },
       "artifacts": {
         "implementation": "il2cpp/PatchWorld_SerpentLeash.cs"
       },
       "review": {
-        "decision": null
+        "decision": "approved",
+        "reviewer": "omp/kimi-code/k3",
+        "rounds": 1,
+        "date": "2026-08-24",
+        "note": "一审must-fix(F1边界钳制/F2懒加载空转),修复后按预授权条件收口"
       },
       "selected_in_session": "zcode-2026-08-24-serpent-leash"
     }
