@@ -47,7 +47,7 @@ public static class PatchRoles_Crossbowman
     private const float IntervalMultiplier = 2f;           // 装填冷却 ×2
     private const int BoltHitDamage = 2;                   // 原生 1；perfect 自动 ×2 = 4
     private const float RangeMultiplier = 1.5f;            // 射程 ×1.5（8→12）；重力不动=原生抛物线观感
-    private const float ShotMagnitudeMultiplier = 1.2247f; // √1.5：Range=v²/g，射程×1.5 即初速×√1.5
+    private const float ShotMagnitudeMultiplier = 1.224745f; // √1.5≈1.2247449 更多位：平方=1.5000003（1.2247²=1.4998901）更接近精确 1.5；const 需编译期常量故不能用 Mathf.Sqrt；Range=v²/g，射程×1.5 即初速×√1.5
     private const float BoltVisualScale = 0.65f;           // 缩小弩炮弹矢外观；连带碰撞体等比缩小，快弹判定影响可忽略
     private const int PromoteCycle = 4;                    // 3:1 交替
     private const float RecomputeDelaySeconds = 15f;       // 等单位恢复完成

@@ -16,8 +16,8 @@ namespace KingdomEnhancedMod;
 /// - 关卡加载瞬移与 Moving 状态回巢都指向锚点本体（OnLevelLoadedHandler/
 ///   OnMovingStateRoutine 的 SetGoal）；
 /// - 冲锋线 GetMinChargePositionX = max(锚点-0.55, 墙+minCharge+warn)：锚点右移
-///   后由锚点项主导，大蛇在墙+14 休息、扫描只够到墙+8，墙边小兵白天不再被骚扰；
-///   玩家主动把部队推到墙+8 以外时冲锋照常（boss 战机制保留）；
+///   后由锚点项主导，大蛇在墙+60 休息、警戒+咬击只覆盖墙+46 外，墙边小兵
+///   白天不再被骚扰；玩家主动把部队推到墙+46 以外时冲锋照常（boss 战机制保留）；
 /// - IsBlockingGate 是"蛇与锚点的相对距离<=8"，蛇贴新锚点=照常挡门；
 /// - 弱点锚点按世界跨度均分（CalculateWeakPointAnchors 用 worldBounds），
 ///   与蛇锚点无关，战斗布局不动。
@@ -29,6 +29,7 @@ public static class PatchWorld_SerpentLeash
     private const float RescanIntervalSeconds = 10f; // 城墙右扩后复推（只向右，幂等）
     private static IntPtr _supervisorWorld;
     private static bool _loggedLeash;
+    private static bool _loggedClampUnavailable;
 
     internal static void LeashAnchorToBorder(WorldEatingSerpent serpent)
     {
@@ -54,8 +55,9 @@ public static class PatchWorld_SerpentLeash
 
             float wallX = kingdom.GetBorderSideIntact(Side.Right);
             float targetX = wallX + MinDistanceFromWall;
-            // 上界钳制（reviewer F1）：墙+14 可能越过可玩陆域右界，会破坏 Submerged
-            // 跟随点不变量（Min 反转压过 Max）与头部弱点可达性。
+            // 上界钳制（reviewer F1）：墙+60 偏移量大、比早期墙+14 方案更容易
+            // 越过可玩陆域右界，钳制必要性更高——越界会破坏 Submerged 跟随点
+            // 不变量（Min 反转压过 Max）与头部弱点可达性。
             // 注意不能用 world.worldBounds.right —— Sided<float> 泛型结构体经
             // interop marshal 出来是垃圾值（实测 4.7e19），改用原生公式复刻：
             // worldBounds.right = ground.x + collider.size.x/2 - 8（World.cs OnLevelLoaded）。
@@ -69,7 +71,18 @@ public static class PatchWorld_SerpentLeash
                     if (targetX > worldRight) targetX = worldRight;
                 }
             }
-            catch (Exception) { /* 钳制不可用就不钳：只向右推的语义仍然安全于当前锚点 */ }
+            catch (Exception)
+            {
+                // 钳制不可用就不钳：只向右推的语义仍然安全于当前锚点；
+                // 但完全静默会掩盖 ground collider 解析长期失效——一次性告警
+                // （static bool 去重，范式同 _loggedLeash）。
+                if (!_loggedClampUnavailable)
+                {
+                    _loggedClampUnavailable = true;
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                        "[SerpentLeash] worldRight clamp unavailable; pushing without upper bound this pass");
+                }
+            }
 
             Transform anchor = gate.SerpentAnchor;
             if (anchor.position.x < targetX - 0.1f)
@@ -112,6 +125,14 @@ public static class PatchWorld_SerpentLeash
             StateMachine fsm = serpent._fsm;
             int state = fsm != null ? fsm.Current : -1;
             if (state != 1 && state != 2) return; // 仅 Idle / Moving
+
+            // 行为判据双保险（与状态编号无关）：状态硬编码 {1,2} 按 2.1.0 源码
+            // 正确且失败开放（2.4.0 状态数值漂移只会导致"不拉"，不会误拉），
+            // 但若漂移后的真实攻击态恰好落在 {1,2}，纯数值判断会错触发——
+            // 警戒圈扫描器（_warnDistance）内有目标=可能正在攻击/冲锋，绝不拉。
+            // 原生用法：WorldEatingSerpent.cs:349 ShouldPrepareCharge 的
+            // this._longRangeScanner.IsAny()（私有字段，interop 暴露，同 _fsm 先例）。
+            if (serpent._longRangeScanner != null && serpent._longRangeScanner.IsAny()) return;
             float currentX = serpent.transform.position.x;
             if (currentX >= targetX - 0.5f) return;
 

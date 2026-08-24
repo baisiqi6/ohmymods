@@ -1,3 +1,15 @@
+## 2026-08-24（十） — 协作流程纠偏 + 直写增量补审收口（balance2）
+
+- 用户指出流程漂移：皮肤/弹道/缩放/蛇缰绳迭代/平衡调整由 Operator 直写，未走 worker/reviewer。
+  纠偏：worker 与 reviewer 改用本 agent subagent（GLM max）通道。
+- 补审：reviewer subagent 对全部直写增量交叉审核 = approve（0 must-fix）。关键佐证：
+  State 常量表补全（diag state=7=Stunned，{1,2}=Idle/Moving 硬编码正确且失败开放）；
+  ConvertToHunter 权威端无条件重掷衣色（Strip 不还原衣色的污染面≤原生同型）；
+  Range=v²/g 与双门控自洽；borderIntact 语义、坑11/25 合规均逐行核对。
+- worker subagent 落地三项加固：LeashBodyToAnchor 加 !IsAny() 行为判据（状态编号无关双保险）、
+  陈旧注释统一墙+60 口径、worldRight 钳制 catch 一次性警告；弩矢乘数 1.2247→1.224745。
+- 编译 0W/0E，build=2.2.0-balance2 已部署 E 盘。
+
 ## 2026-08-24（九） — balance1：巨魔反制 10%→5% + 法杖冷却减半
 
 - 友好巨魔被反制概率：DesignateFromStableIdentity 的 hash % 10 == 0 → % 20 == 0（确定性

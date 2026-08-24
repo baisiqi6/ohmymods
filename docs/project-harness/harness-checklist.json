@@ -904,9 +904,9 @@
       },
       "review": {
         "decision": "approved",
-        "reviewer": "omp/kimi-code/k3",
-        "rounds": 2,
-        "date": "2026-08-23"
+        "reviewer": "omp/kimi-code/k3 + subagent/GLM-max(直写增量补审)",
+        "rounds": 3,
+        "date": "2026-08-24"
       },
       "selected_in_session": "zcode-2026-08-23-crossbowman-impl"
     },
@@ -996,10 +996,10 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "最终岛大蛇休息位离右墙>=14；白天墙边小兵不再被咬/扫描覆盖；主动出击(墙+8外)冲锋照常",
-      "verification": "serpent5实测:锚点159.1/蛇体164.9生效,但用户澄清真问题=狩猎小兵游走进蛇攻击圈(不是蛇离墙视觉近)。拍板推到墙+60(警戒圈+咬击只覆盖墙+46外,世界右界336余量足)。serpent6编译0W/0E,游戏运行中哨兵待部署",
+      "verification": "全链收口:reviewer(subagent GLM)对积压直写增量交叉审核=approve(0 must-fix);worker(subagent)落实三项加固(IsAny()行为判据双保险/陈旧注释统一墙+60口径/钳制catch一次性警告)+弩矢乘数1.224745。编译0W/0E,build=2.2.0-balance2已部署。待实测:wall+60锚点日志/白天狩猎小兵不再挨咬/body snap日志(带state值可闭环2.4.0状态映射)",
       "handoff": "PatchWorld_SerpentLeash.cs：锚点右推(只向右幂等,10s复扫+OnEnable即时)；原生随迁论证=冲锋线max(锚点-0.55,墙+10)/挡门相对距离/弱点锚点按世界跨度。待实测:大蛇刷新位白天骚扰消失",
       "workflow": {
-        "status": "changes_requested",
+        "status": "review_approved",
         "updated_at": "2026-08-24"
       },
       "artifacts": {
@@ -1007,10 +1007,10 @@
       },
       "review": {
         "decision": "approved",
-        "reviewer": "omp/kimi-code/k3",
+        "reviewer": "subagent/GLM-max",
         "rounds": 1,
         "date": "2026-08-24",
-        "note": "一审must-fix(F1边界钳制/F2懒加载空转),修复后按预授权条件收口"
+        "note": "补审直写增量(蛇缰绳serpent3-6/弩手皮肤弹道缩放/巨魔5%/法杖11.25s),全部源码逐行核对,state=7按2.1.0=Stunned佐证常量表"
       },
       "selected_in_session": "zcode-2026-08-24-serpent-leash"
     }
