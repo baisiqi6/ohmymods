@@ -110,23 +110,45 @@ public static class PatchWorld_DefenseSpacing
         // Measured live: depth = rank * _distanceFromWall (1.0 per rank, r15 at
         // 15 units behind the wall).  Follower archers trail their knight by
         // knightFollowDistance, so rank N puts its squad's bows at roughly
-        // N*spacing + 1 — far past the 8-unit bow range for N > 7.  Remap ranks
-        // per side into 1..KnightRankCap each pass; with more knights than cap
-        // values some squads share a depth slot (native code has no invariant
-        // on rank uniqueness).  The remap is idempotent: once compressed it
-        // leaves ranks untouched until native RankKnights() exceeds the cap
-        // again after a hire or a loss.
+        // N*spacing + 1 — far past the 8-unit bow range for N > 7.
+        // Evolution — v2.1.0 compressed ranks into 1..KnightRankCap around the
+        // clock; but knights ALSO stand in rank columns by day (GetTargetPos()
+        // = guardPos - side * (_distanceFromWall * rank), Knight.cs:656, taken
+        // whenever ShouldAssemble() = isDaytime && isSafe, Knight.cs:950), so
+        // the all-day compression stacked squads 3-deep per slot in daytime
+        // too — 19 knights crammed into 7 depth slots, knights clumped and
+        // follower skins vanished inside the pile.  Now the remap is day/night
+        // split: night keeps the accepted v2.1.0 compact wall defense, day
+        // spreads every knight into its own rank (RemapKnightRanks/SpreadSide).
         if (NetworkBigBoss.HasWorldAuth) RemapKnightRanks(knights, kingdom);
     }
 
     private const int KnightRankCap = 7;
 
     private static bool _loggedKnightRemap;
+    private static bool _loggedKnightSpread;
 
+    // Day/night split (evolution from v2.1.0 all-day compression).  Knights
+    // hold rank columns around the clock: GetTargetPos() = guardPos -
+    // side * (_distanceFromWall * rank) (Knight.cs:656) is what they walk to
+    // whenever ShouldAssemble() = isDaytime && isSafe ... (Knight.cs:950)
+    // holds — i.e. the daytime "idle" formation is the SAME rank ladder as the
+    // night wall defense.  v2.1.0 compressed that ladder to 1..KnightRankCap
+    // around the clock, so daytime squads stacked 3-deep per slot (knights
+    // clumped, follower skins hidden).  Now: night keeps the accepted compact home
+    // defense (RemapSide, unchanged); day spreads one rank per knight
+    // (SpreadSide) so squads stand loose and followers stay visible.
+    // Clock access follows PatchPerformance_NightVolley (null director ->
+    // skip this pass, keep last ranks).
     private static void RemapKnightRanks(Knight[] knights, Kingdom kingdom)
     {
         try
         {
+            Director director = Managers.Inst != null ? Managers.Inst.director : null;
+            if (director == null) return;
+            float t = director.currentTime;
+            bool isNight = t >= 17.5f || t <= 5.5f;
+
             var left = new System.Collections.Generic.List<Knight>();
             var right = new System.Collections.Generic.List<Knight>();
             for (int i = 0; i < knights.Length; i++)
@@ -137,15 +159,35 @@ public static class PatchWorld_DefenseSpacing
                 if (knight.side == Side.Left) left.Add(knight);
                 else if (knight.side == Side.Right) right.Add(knight);
             }
-            int remapped = 0;
-            remapped += RemapSide(left);
-            remapped += RemapSide(right);
-            if (!_loggedKnightRemap && remapped > 0)
+            if (isNight)
             {
-                _loggedKnightRemap = true;
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[DefenseSpacing] knight ranks compressed to cap="
-                    + KnightRankCap + " remapped=" + remapped);
+                // Night: unchanged v2.1.0 semantics — compress each side into
+                // 1..KnightRankCap so every squad's bows stay in range at the
+                // wall (bows trail knights by knightFollowDistance).
+                int remapped = 0;
+                remapped += RemapSide(left);
+                remapped += RemapSide(right);
+                if (!_loggedKnightRemap && remapped > 0)
+                {
+                    _loggedKnightRemap = true;
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                        "[DefenseSpacing] knight ranks compressed to cap="
+                        + KnightRankCap + " remapped=" + remapped);
+                }
+            }
+            else
+            {
+                // Day: full-width spread, one rank per knight (1..count).
+                SpreadSide(left);
+                SpreadSide(right);
+                int total = left.Count + right.Count;
+                if (!_loggedKnightSpread && total > 0)
+                {
+                    _loggedKnightSpread = true;
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                        "[DefenseSpacing] knight ranks spread for daytime: count="
+                        + total);
+                }
             }
         }
         catch (Exception e)
@@ -176,6 +218,35 @@ public static class PatchWorld_DefenseSpacing
             // gets 1 + i*cap/n (defensive clamp for degenerate inputs).
             int newRank = 1 + (int)Math.Floor((double)i * KnightRankCap / side.Count);
             if (newRank > KnightRankCap) newRank = KnightRankCap;
+            if (side[i].rank == newRank) continue;
+            side[i].rank = newRank;
+            changed++;
+        }
+        return changed;
+    }
+
+    /// <summary>
+    /// Daytime counterpart of <see cref="RemapSide"/>: every knight on the
+    /// side gets its OWN rank 1..count (no shared depth slots), ordered by
+    /// gameObject.GetInstanceID().  The sort key is stable for the session,
+    /// so daytime ranks do not jitter between passes (same order -> same
+    /// ranks = idempotent).  Day/night transitions migrate naturally: after
+    /// dusk the night branch's RemapSide re-compresses to the cap within one
+    /// 3s pass; after dawn this re-spreads whatever the compression left.
+    /// Grounds: daytime idle knights stand in the same rank ladder as at
+    /// night — GetTargetPos() = guardPos - side * (_distanceFromWall * rank)
+    /// (Knight.cs:656) via ShouldAssemble() = isDaytime && isSafe
+    /// (Knight.cs:950).
+    /// </summary>
+    private static int SpreadSide(System.Collections.Generic.List<Knight> side)
+    {
+        if (side.Count == 0) return 0;
+        side.Sort((a, b) =>
+            a.gameObject.GetInstanceID().CompareTo(b.gameObject.GetInstanceID()));
+        int changed = 0;
+        for (int i = 0; i < side.Count; i++)
+        {
+            int newRank = i + 1;
             if (side[i].rank == newRank) continue;
             side[i].rank = newRank;
             changed++;
@@ -289,6 +360,7 @@ public static class PatchWorld_DefenseSpacing
         _loggedKnightSample = false;
         _loggedKnightLineup = false;
         _loggedKnightRemap = false;
+        _loggedKnightSpread = false;
         // 夜间弓箭手列队诊断：每世界每侧重新武装
         _loggedArcherLineupLeft = false;
         _loggedArcherLineupRight = false;

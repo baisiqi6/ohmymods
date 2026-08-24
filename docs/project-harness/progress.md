@@ -1,3 +1,13 @@
+## 2026-08-25（二） — knightstyle5：骑士 rank 昼夜分治（修白天聚堆）
+
+- 用户实锤：骑士白天聚堆看不到随从。根因：GetTargetPos=守位−side×(_distanceFromWall×rank)
+  （Knight.cs:656），白天 ShouldAssemble（isDaytime&&isSafe，Knight.cs:950）就按 rank 集合；
+  v2.1.0 紧凑列队每 3s 不分昼夜压缩到 7 档，19 骑士 3 个一叠。
+- worker 修：RemapKnightRanks 昼夜分治——夜间（17.5-5.5）压缩 1..7（v2.1.0 语义不变），
+  白天 SpreadSide 按 instanceID 稳定排序铺开 1..N 全宽（每人独立档，幂等无抖动）。
+- 编译 0W/0E，build=2.2.0-knightstyle5 已部署 E 盘（SHA 前16=72c651970ffc0a58）。
+  预期日志：白天 "knight ranks spread for daytime: count=N"，黄昏后 "compressed to cap=7"。
+
 ## 2026-08-25 — knightstyle4：随从管线+夜间站位双诊断部署
 
 - knightstyle3 实测：随从反查零报错（枚举器问题终结）但用户观感仍未换皮；另报新问题
