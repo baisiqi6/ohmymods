@@ -30,12 +30,15 @@ namespace KingdomEnhancedMod;
 ///   Promote postfix 先 StripKnight（恢复缓存的原生控制器 + 注销缩放守卫 + y=1）
 ///   再重摇；Knight.OnEnable postfix 标记 NeedsRederive 兜住"复用不经 Promote"
 ///   的路径（读档重生），巡检重算。
-/// - 随从联动（反向归属）：原生 ConvertToSoldier（入队/上船）会把随从控制器设回
-///   当前世界的士兵皮肤，巡检 5s 内换回风格皮肤。不枚举 knight._archers——
-///   Il2Cpp 非泛型枚举器对 HashSet 运行时不可靠（knightstyle2 实测：纯读快照段的
-///   MoveNext 也抛 InvalidOperationException），改为全场 FindObjectsOfType&lt;Archer&gt;
-///   读 _knight 反查骑士状态；只在当前控制器属于 archer_soldier 系时才写
-///   （离队/死亡清理切到的猎人皮肤不碰，也避免每轮重复写）。
+/// - 随从联动（反向归属 + 队籍判定）：不枚举 knight._archers——Il2Cpp 非泛型
+///   枚举器对 HashSet 运行时不可靠（knightstyle2 实测：纯读快照段的 MoveNext
+///   也抛 InvalidOperationException），改为全场 FindObjectsOfType&lt;Archer&gt;
+///   读 _knight 反查骑士状态。写入条件是队籍而非皮肤族（follower diag 实测：
+///   原生随从只在 actively 跟队时 ConvertToSoldier，白天分散打猎穿猎人皮，
+///   "∈士兵族才写"白天永远不命中）：_knight 指向已风格化骑士且当前控制器
+///   != 目标即写。代价与收益：白天分散的随从也穿风格士兵皮（随时认出归属）；
+///   离队时原生 ConvertToHunter 自动恢复猎人皮，无需清理；重新入队原生先换回
+///   世界士兵皮、巡检 5s 内再盖风格皮（过渡 ≤5s 可接受）。
 ///
 /// 2.4.0 签名验证（Operator 任务书实锤 + interop Assembly-CSharp.dll 复核）：
 /// - Character.Promote(DroppableTool, IUnitController) : Character —— 存在（双验证）
@@ -46,9 +49,10 @@ namespace KingdomEnhancedMod;
 /// - Knight/士兵四套控制器（resources.assets 实测存在）：knight / knight_deadlands /
 ///   knight_bamboo / knight_greece；archer_soldier / archer_soldier_deadlands /
 ///   archer_soldier_bamboo / archer_soldier_greece。
-///   另解析 archer_soldier_norselands 作第 5 个"只识别不选中"的士兵皮肤——北境世界
-///   随从的原生士兵控制器（ConvertToSoldier 按 biome swap 得到），仅进
-///   IsSoldierFamilyController 识别集，绝不进 AvailableStyles 风格池（Reviewer MF-1）
+///   另解析 archer_soldier_norselands（北境世界随从的原生士兵控制器，
+///   ConvertToSoldier 按 biome swap 得到）——队籍判定后写入条件不再消费
+///   识别集，但解析保留（资产存在性实锤、供回归诊断与未来判定），绝不进
+///   AvailableStyles 风格池，也不计入完整性/收缩判定（Reviewer MF-1 沿革）
 /// - Archer._knight : Knight（私有，interop 已暴露）——随从联动反向归属用
 ///   （PatchRoles_Crossbowman.cs:687 同字段先例）。不枚举 Knight._archers：
 ///   Il2CppSystem HashSet 的枚举器运行时不可靠（knightstyle2 实测纯读 MoveNext
@@ -76,8 +80,9 @@ public static class PatchRoles_KnightStyle
         { "knight", "knight_deadlands", "knight_bamboo", "knight_greece" };
     private static readonly string[] SoldierControllerNames =
         { "archer_soldier", "archer_soldier_deadlands", "archer_soldier_bamboo", "archer_soldier_greece" };
-    // 北境士兵皮肤（Reviewer MF-1）：只用于 IsSoldierFamilyController 识别——北境世界
-    // 随从的原生士兵控制器是它，不识别则随从联动每轮跳过、静默失效。
+    // 北境士兵皮肤（Reviewer MF-1 沿革）：北境世界随从的原生士兵控制器。
+    // 队籍判定（follower diag 实测修订）后写入条件不再按皮肤族判定，本解析
+    // 无行为消费点，仅保留资产解析（存在性已实锤，供回归诊断与未来判定）。
     // 绝不加入 AvailableStyles（可选风格仍四种），也不计入完整性/收缩判定。
     private const string NorselandsSoldierControllerName = "archer_soldier_norselands";
 
@@ -99,8 +104,8 @@ public static class PatchRoles_KnightStyle
     // ---- 惰性静态资产（解析一次；未解析全时按间隔重试）----
     private static readonly RuntimeAnimatorController[] KnightControllers = new RuntimeAnimatorController[StyleCount];
     private static readonly RuntimeAnimatorController[] SoldierControllers = new RuntimeAnimatorController[StyleCount];
-    // 第 5 个"只识别不选中"的士兵皮肤（MF-1）：解析失败仅降级（北境随从联动失效），
-    // 不告警、不阻塞 _assetsComplete
+    // 北境士兵皮肤（MF-1 沿革）：解析保留（队籍判定后无行为消费点，见常量区
+    // 注释）；解析失败仅静默降级，不告警、不阻塞 _assetsComplete
     private static RuntimeAnimatorController _norselandsSoldierController;
     private static readonly List<int> AvailableStyles = new(); // 收缩后的可用风格池（hash % count 均匀重映射）
     private static bool _poolBuilt;
@@ -275,20 +280,6 @@ public static class PatchRoles_KnightStyle
             if (KnightControllers[i] != null && controller.Pointer == KnightControllers[i].Pointer)
                 return true;
         return false;
-    }
-
-    /// <summary>
-    /// 士兵系判定：四套可选风格士兵 + 北境 archer_soldier_norselands（MF-1）。
-    /// 北境世界随从的原生士兵皮肤就是北境款——不在判定集里的话随从联动
-    /// 每轮 continue，静默失效。北境款只可识别、不可被选为风格。
-    /// </summary>
-    private static bool IsSoldierFamilyController(RuntimeAnimatorController controller)
-    {
-        for (int i = 0; i < StyleCount; i++)
-            if (SoldierControllers[i] != null && controller.Pointer == SoldierControllers[i].Pointer)
-                return true;
-        return _norselandsSoldierController != null
-            && controller.Pointer == _norselandsSoldierController.Pointer;
     }
 
     // ============================================================
@@ -704,16 +695,20 @@ public static class PatchRoles_KnightStyle
     }
 
     /// <summary>
-    /// 随从联动（反向归属，knightstyle2 实测修订）：彻底放弃枚举 knight._archers——
+    /// 随从联动（反向归属 + 队籍判定）：彻底放弃枚举 knight._archers——
     /// Il2Cpp 非泛型枚举器对 HashSet 运行时不可靠，纯读快照段的 MoveNext 也抛
     /// InvalidOperationException。改为全场反查：每个 active Archer 读 _knight
     /// （interop 私有字段，PatchRoles_Crossbowman.cs:687 先例），按骑士 gameObject
     /// instanceID（状态表键）查 KnightStyleState，有风格则把随从控制器换成风格款。
     /// 骑士无状态记录则跳过（第一段已负责给无记录骑士上风格，本轮/下轮跟上）。
-    /// 写入条件：当前控制器属于 archer_soldier 系（四套可选 + 北境款，见
-    /// IsSoldierFamilyController）且不等于目标——入队/上船的原生 ConvertToSoldier
-    /// 会设回当前世界士兵皮肤（会被换回），而离队/死亡清理切到的猎人皮肤是
-    /// 合法状态，不碰；指针相等时零写入。
+    /// 写入条件（follower diag 实测修订，队籍判定）：_knight 指向已风格化骑士
+    /// 即写——只要当前控制器指针 != 目标就覆盖，无论当前是猎人皮、士兵皮还是
+    /// 北境款。原"∈士兵族才写"在白天永远不命中（原生随从只在 actively 跟队时
+    /// ConvertToSoldier，白天分散打猎穿猎人皮，diag 实锤 styled=0/skippedFamily=76）。
+    /// 队籍判定的代价与收益：白天分散打猎的随从也穿风格士兵皮（用户要能随时
+    /// 认出随从归属）；离队时原生 ConvertToHunter 自动恢复猎人皮
+    /// （GetAssetSwapForThis(hunterAnimator)），我们无需清理；重新入队时原生先
+    /// 换回世界士兵皮、我们 5s 内再盖上风格皮，过渡期 ≤5s 可接受。
     /// 弩手按设计不入骑士队（IsAvailableForJob 已排除），此处防御性跳过。
     /// 注意：_knight 是 Il2Cpp 对象，fake-null 语义下判空可用重载 == null，
     /// 取 ID 前再判一次；只按 instanceID 查表，不做托管等值比较。
@@ -728,7 +723,8 @@ public static class PatchRoles_KnightStyle
             // 管线诊断计数（只记录不改行为，输出见 LogFollowerDiag）：
             // archers=active Archer 总数；withKnight=_knight 非空；inStates=withKnight
             // 里其骑士在状态表且有风格的；styled=本轮实际写入控制器的；
-            // skippedFamily=当前控制器不在 archer_soldier 系（含北境款）而跳过；
+            // skippedFamily=当前控制器已是目标风格而跳过（幂等零写入；字段名沿用
+            // 历史 diag 行结构，语义随队籍判定更新——旧语义"不在士兵族跳过"已废弃）；
             // skippedOther=其他原因跳过（弩手/animator 空/当前控制器空/target 空）
             int diagArchers = 0, diagWithKnight = 0, diagInStates = 0, diagStyled = 0;
             int diagSkippedFamily = 0, diagSkippedOther = 0;
@@ -758,8 +754,8 @@ public static class PatchRoles_KnightStyle
                     diagWithKnight++;
 
                     // 样本 = 第一个 withKnight 弓箭手的 x 坐标 + 当前控制器名：
-                    // styled=0 且 withKnight>0 时，控制器名直接暴露跳过原因
-                    // （猎人皮/骑士本皮=不在士兵系；士兵皮=已写入或风格缺资产）
+                    // 队籍判定下主要用于观测皮肤分布（猎人皮=白天分散/离队瞬间；
+                    // 士兵皮=跟队或已被我们覆盖）
                     if (!diagSampleTaken)
                     {
                         diagSampleTaken = true;
@@ -789,8 +785,13 @@ public static class PatchRoles_KnightStyle
 
                     RuntimeAnimatorController current = animator.runtimeAnimatorController;
                     if (current == null) { diagSkippedOther++; continue; }
-                    if (current.Pointer == target.Pointer) continue; // 已是目标风格，零写入
-                    if (!IsSoldierFamilyController(current)) { diagSkippedFamily++; continue; }
+                    if (current.Pointer == target.Pointer)
+                    {
+                        // 已是目标风格：幂等零写入（计入 skippedFamily，见上方语义注释）
+                        diagSkippedFamily++;
+                        continue;
+                    }
+                    // 队籍判定：不再检查当前皮肤族——猎人皮/世界士兵皮/北境款一律覆盖
                     animator.runtimeAnimatorController = target;
                     diagStyled++;
                 }

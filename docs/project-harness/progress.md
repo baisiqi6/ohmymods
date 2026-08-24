@@ -1,3 +1,14 @@
+## 2026-08-25（三） — knightstyle6：随从换皮改队籍判定（diag 实锤断点修复）
+
+- follower diag 硬数据：archers=131 withKnight=76 inStates=76 styled=0 skippedFamily=76，
+  样本 controller=archer_greece——原生随从白天分散时穿猎人皮，"当前∈士兵族才写"条件
+  永不命中。worker 改为队籍判定：_knight 指向已风格化骑士即覆盖（猎人皮/士兵皮/北境款
+  一律），离队原生 ConvertToHunter 自动恢复。IsSoldierFamilyController 删除，北境款解析
+  保留无消费点。diag 行结构保留，skippedFamily 语义更新为幂等跳过计数。
+- 人口注意：131 弓箭手/19 骑士满编 76 随从。knight spread 日志确认触发（count=19），
+  用户"没散开"观察时间待确认（夜间压缩态=正确行为；白天为 1..19 单列纵队）。
+- 编译 0W/0E，build=2.2.0-knightstyle6 已部署 E 盘（SHA 前16=3d8518f0779094b3）。
+
 ## 2026-08-25（二） — knightstyle5：骑士 rank 昼夜分治（修白天聚堆）
 
 - 用户实锤：骑士白天聚堆看不到随从。根因：GetTargetPos=守位−side×(_distanceFromWall×rank)
