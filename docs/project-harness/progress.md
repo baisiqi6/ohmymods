@@ -1,3 +1,19 @@
+## 2026-08-24（七） — serpent5：大蛇30+弩手缩放漂移诊断+Player.log报错诊断
+
+- 用户反馈：大蛇仍偏近（拍板墙+30）；地面弩手"有的高有的低"（塔位假人缩放不需要，已撤销
+  ——那轮只编译未部署）。
+- Player.log 报错诊断（BepInEx 日志零错误，报错全在 Unity Player.log）：
+  1) Curl error 7 连 127.0.0.1:7890 —— 游戏遥测/PlayFab 走系统代理（代理没开），无害；
+  2) Game:Awake 的 LogErrorFormat 打的是版本信息（2.4.0 自己用 error 级别打 info），无害；
+  3) Invalid NetID from CRPCStamp on 'CastleShieldShop(Clone)' x6 —— 狂战士商店槽位改写的
+     存档恢复戳校验抱怨（TryPopObjectsToScene），商店功能正常，历史已知权衡，跟踪不阻断。
+- 弩手高度不一致：日志零错误+Apply全走完 → 漂移必有更晚写入者。怀疑动画器 scale 曲线
+  （评估晚于 Mover.Update postfix 守卫，守卫永远输）。IntegrityPass 加只统计不改的漂移诊断
+  （drifted 计数+样本动画器位置/控制器名），下轮实测定位后决定改子节点缩放还是别的方案。
+- 额外收获：DefensePerf 血月数据到手 arrows=39 avgFrame=10.2ms maxFrame=56.3ms t=3.4h
+  （staggered-volley-024 决策输入，avg健康、max尖刺支持分批方向）。
+- serpent5 编译0W/0E；游戏运行中，部署哨兵等待退出（stamp=2.2.0-serpent5）。
+
 ## 2026-08-24（六） — 大蛇缰绳 serpent2 实测返修（serpent3）
 
 - 用户实测：蛇仍在墙边。日志实锤 [SerpentLeash] anchor pushed wall=129.1 anchor=143.1

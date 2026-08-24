@@ -43,7 +43,7 @@ public static class PatchRoles_Crossbowman
 {
     // ---- 数值定稿（Operator 裁决，勿改） ----
     private const float CrossbowShootRange = 12f;          // 基础弓 8
-    private const float CrossbowmanScaleY = 1.15f;         // 本体 y 缩放（坑11：只动 y，x 是朝向符号）
+    internal const float CrossbowmanScaleY = 1.15f;         // 本体 y 缩放（坑11：只动 y，x 是朝向符号）
     private const float IntervalMultiplier = 2f;           // 装填冷却 ×2
     private const int BoltHitDamage = 2;                   // 原生 1；perfect 自动 ×2 = 4
     private const float RangeMultiplier = 1.5f;            // 射程 ×1.5（8→12）；重力不动=原生抛物线观感
@@ -763,13 +763,46 @@ public static class PatchRoles_Crossbowman
                 // 原生 ConvertToHunter（下塔/下船/离队/死亡清理）会重掷随机衣色并清
                 // _isWearingBannerColor；标记被清说明衣色丢了，补染回旗帜色（幂等）。
                 ApplyBannerColors(archer);
+
+                // 缩放漂移诊断（用户报告"地面弩手有的高有的低"）：只统计不改——
+                // 守卫每帧都在断言仍有漂移，说明存在更晚的写入者（怀疑动画器
+                // scale 曲线，其在 Mover.Update 之后评估）。记录首个样本的动画器
+                // 位置与当前 y，用于定位真正写入者。
+                if (Mathf.Abs(archer.transform.localScale.y - CrossbowmanScaleY) > 0.02f)
+                {
+                    _scaleDriftCount++;
+                    if (_scaleDriftSample == null)
+                    {
+                        Animator a = archer.GetComponentInChildren<Animator>();
+                        _scaleDriftSample = "y=" + archer.transform.localScale.y.ToString("F3")
+                            + " animatorOnRoot=" + (a != null && a.transform == archer.transform)
+                            + " controller="
+                            + (a != null && a.runtimeAnimatorController != null
+                                ? a.runtimeAnimatorController.name : "<null>");
+                    }
+                }
             }
+
+            if (_scaleDriftCount > 0 && _loggedScaleDrift != _scaleDriftCount)
+            {
+                _loggedScaleDrift = _scaleDriftCount;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                    "[Crossbowman] scale drift: marked=" + markers.Length
+                    + " drifted=" + _scaleDriftCount
+                    + " sample[" + (_scaleDriftSample ?? "<none>") + "]");
+            }
+            _scaleDriftCount = 0;
+            _scaleDriftSample = null;
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Crossbowman/integrity] " + e);
         }
     }
+
+    private static int _scaleDriftCount;
+    private static int _loggedScaleDrift = -1;
+    private static string _scaleDriftSample;
 
     // ============================================================
     // G. 骑士招募排除

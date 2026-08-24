@@ -890,7 +890,7 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "见任务目录 design.md",
-      "verification": "编译0错误0警告。worker 3轮+reviewer 2轮收口。2026-08-24三次用户修正:皮肤→archer_soldier_deadlands+旗帜色;弹道→仅射程x1.5(初速x√1.5,重力原生);本体y缩放1.15(ScaleRegistry守卫,Strip撤注册)。已部署E盘(build=2.2.0-xbow4,DLL SHA前16=3f38ad4d49922630)。游戏内验收待实测:4出1弩(士兵皮肤+旗帜色+1.15体型)/射程1.5倍/伤害2/骑士排除/读档25%",
+      "verification": "编译0错误0警告。worker 3轮+reviewer 2轮收口。2026-08-24三次用户修正:皮肤→archer_soldier_deadlands+旗帜色;弹道→仅射程x1.5(初速x√1.5,重力原生);本体y缩放1.15(ScaleRegistry守卫,Strip撤注册)。已部署E盘(build=2.2.0-xbow4,DLL SHA前16=3f38ad4d49922630)。游戏内验收待实测:4出1弩(士兵皮肤+旗帜色+1.15体型)/射程1.5倍/伤害2/骑士排除/读档25%。serpent5新增:缩放漂移诊断(用户报告地面弩手有的高有的低,日志零错误,疑动画器scale曲线晚于Mover守卫写入,IntegrityPass统计drifted+样本动画器位置/控制器名,只统计不改)。塔位假人缩放已按用户要求撤销(未部署过)",
       "handoff": "实现完成待游戏内实测。验收清单：1)招募第4个弓箭手变弩手(deadlands皮肤) 2)弩手射程12/平直快弹/伤害2 3)骑士招募排除 4)读档后recompute日志+25%守恒 5)骑士小队成员不被转弩手",
       "workflow": {
         "status": "review_approved",
@@ -996,7 +996,7 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "最终岛大蛇休息位离右墙>=14；白天墙边小兵不再被咬/扫描覆盖；主动出击(墙+8外)冲锋照常",
-      "verification": "serpent2实测：锚点已推到wall+14(129.1->143.1)，但用户反馈蛇仍在墙边。实锤两因：a) worldBounds.right经interop读Sided<float>结构体是垃圾值(4.7e19)→F1钳制失效(未造成伤害但需修)；b) 读档蛇保留存档位置，原生回巢走Moving慢速爬行窗口10s+，且任何重出现位置不强制归位。serpent3修复：worldRight改用GroundCollider复刻原生公式；新增LeashBodyToAnchor(休息态Idle=1/Moving=2直接RepX归位，等价原生UpdatePosition写法，充电/攻击状态不碰)；supervisor立即首扫。已部署E盘(build=2.2.0-serpent3,DLL SHA前16=d7275fcc481decda)。游戏内验收待实测",
+      "verification": "serpent3实测:锚点143.1生效但用户观感仍偏近,拍板30;worldRight=336公式复刻正确。serpent5=30+诊断日志(蛇实际停位+2.4.0状态值)。待游戏退出哨兵自动部署(stamp=2.2.0-serpent5)",
       "handoff": "PatchWorld_SerpentLeash.cs：锚点右推(只向右幂等,10s复扫+OnEnable即时)；原生随迁论证=冲锋线max(锚点-0.55,墙+10)/挡门相对距离/弱点锚点按世界跨度。待实测:大蛇刷新位白天骚扰消失",
       "workflow": {
         "status": "changes_requested",

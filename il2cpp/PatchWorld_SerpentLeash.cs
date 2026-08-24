@@ -25,7 +25,7 @@ namespace KingdomEnhancedMod;
 /// </summary>
 public static class PatchWorld_SerpentLeash
 {
-    private const float MinDistanceFromWall = 14f;   // 原生冲锋线=墙+10；墙+14 让警戒(6)够不到墙边
+    private const float MinDistanceFromWall = 30f;   // 用户实测14仍偏近，拍板30
     private const float RescanIntervalSeconds = 10f; // 城墙右扩后复推（只向右，幂等）
     private static IntPtr _supervisorWorld;
     private static bool _loggedLeash;
@@ -143,6 +143,8 @@ public static class PatchWorld_SerpentLeash
         if (world == null || _supervisorWorld == world.Pointer) yield break;
         _supervisorWorld = world.Pointer;
         _loggedLeash = false;
+        _loggedBodySnap = false;
+        bool loggedDiag = false;
 
         while (world != null && world.gameObject != null)
         {
@@ -151,7 +153,17 @@ public static class PatchWorld_SerpentLeash
             {
                 for (int i = 0; i < serpents.Length; i++)
                 {
-                    if (serpents[i] != null) LeashAnchorToBorder(serpents[i]);
+                    if (serpents[i] == null) continue;
+                    LeashAnchorToBorder(serpents[i]);
+                    // 一次性诊断：蛇实际停位 + 2.4.0 真实状态值（State 常量按 2.1.0 源码
+                    // 硬编码比较，此行用于验证 2.4.0 数值是否一致，防止本体归位静默失效）
+                    if (!loggedDiag && serpents[i]._fsm != null)
+                    {
+                        loggedDiag = true;
+                        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                            "[SerpentLeash] diag serpent x=" + serpents[i].transform.position.x.ToString("F1")
+                            + " state=" + serpents[i]._fsm.Current);
+                    }
                 }
             }
             yield return new WaitForSeconds(RescanIntervalSeconds);
