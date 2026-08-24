@@ -8,7 +8,7 @@ using UnityEngine;
 namespace KingdomEnhancedMod;
 
 /// <summary>
-/// Candidate-stage Squid filtering plus a deterministic 10% TrollWeak counter.
+/// Candidate-stage Squid filtering plus a deterministic 5% TrollWeak counter.
 /// Temporary changes to native collections are always undone by a finalizer.
 /// </summary>
 public static class PatchDivine_FriendlyTroll
@@ -791,7 +791,7 @@ public static class PatchDivine_FriendlyTroll
             hash = Mix(hash, unchecked((uint)(islandStartTicks >> 32)));
             // Dynamic NetID is deliberately treated as the stable sync-slot identity.
             // Pool reuse can therefore repeat a slot's result within the same reign;
-            // this is the accepted no-custom-RPC boundary and remains ~10% long-run.
+            // this is the accepted no-custom-RPC boundary and remains ~5% long-run.
             hash = Mix(hash, unchecked((uint)(ushort)netId));
             identityHash = hash;
             return true;
@@ -837,7 +837,7 @@ public static class PatchDivine_FriendlyTroll
         if (state.IdentityHash != identityHash) state.DamageLogged = false;
         state.IdentityHash = identityHash;
         state.NetId = netId;
-        bool newDesignation = identityHash % 10u == 0u;
+        bool newDesignation = identityHash % 20u == 0u;
         if (!newDesignation && state.PursuitSteered
             && TryGetPursuitActor(state, out Troll previousPursuitTroll,
                 out Mover previousPursuitMover))
