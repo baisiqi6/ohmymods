@@ -1,3 +1,16 @@
+## 2026-08-24（四） — 大蛇离墙缰绳（用户需求：最终岛大蛇刷新太贴墙）
+
+- 问题：希腊最终岛城墙推近奥林匹斯山门后，大蛇休息位=SerpentAnchor 落在墙外很近处，白天墙边
+  小兵被它的警戒扫描(warn=6)/咬击(ShouldAttack→DynamicTargetChomp)覆盖。
+- 侦查实锤：休息位由锚点唯一决定（关卡加载瞬移+Moving回巢 SetGoal 都指向锚点）；原生已有
+  冲锋线限制 GetMinChargePositionX=max(锚点-0.55,墙+_minChargeTargetDistanceFromBorder(4)+warn(6))，
+  但墙近山门时锚点本身就是贴墙的，调该字段无效。
+- 修法：PatchWorld_SerpentLeash.cs——锚点右推到 墙+14（只向右幂等；OnEnable postfix 即时 +
+  10s 协程复扫应对城墙右扩）。随迁论证：冲锋线锚点项主导→扫描只够到墙+8，墙边白天安全，主动
+  推进部队照常触发冲锋；IsBlockingGate=蛇与锚点相对距离(<=8)不变；弱点锚点按 worldBounds
+  均分与蛇锚点无关。
+- build=2.2.0-serpent1 已部署 E 盘（SHA 前16=18bb7b3f2eb31d9f）。reviewer 审核中+游戏内待实测。
+
 ## 2026-08-24（三） — 弩手本体缩放 y×1.15（用户拍板）
 
 - Apply：y 绝对值 1.15 + ScaleRegistryHolder.Register（复用现有 Mover.Update postfix 每帧
