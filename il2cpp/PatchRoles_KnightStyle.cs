@@ -30,14 +30,16 @@ namespace KingdomEnhancedMod;
 ///   Promote postfix 先 StripKnight（恢复缓存的原生控制器 + 注销缩放守卫 + y=1）
 ///   再重摇；Knight.OnEnable postfix 标记 NeedsRederive 兜住"复用不经 Promote"
 ///   的路径（读档重生），巡检重算。
-/// - 随从联动：原生 ConvertToSoldier（入队/上船）会把随从控制器设回当前世界的
-///   士兵皮肤，巡检 5s 内换回风格皮肤；只在当前控制器属于 archer_soldier 系时才写
+/// - 随从联动（反向归属）：原生 ConvertToSoldier（入队/上船）会把随从控制器设回
+///   当前世界的士兵皮肤，巡检 5s 内换回风格皮肤。不枚举 knight._archers——
+///   Il2Cpp 非泛型枚举器对 HashSet 运行时不可靠（knightstyle2 实测：纯读快照段的
+///   MoveNext 也抛 InvalidOperationException），改为全场 FindObjectsOfType&lt;Archer&gt;
+///   读 _knight 反查骑士状态；只在当前控制器属于 archer_soldier 系时才写
 ///   （离队/死亡清理切到的猎人皮肤不碰，也避免每轮重复写）。
 ///
 /// 2.4.0 签名验证（Operator 任务书实锤 + interop Assembly-CSharp.dll 复核）：
 /// - Character.Promote(DroppableTool, IUnitController) : Character —— 存在（双验证）
-/// - Knight._animator : Animator（私有，root 上）/ _mover : Mover / _archers :
-///   Il2CppSystem.Collections.Generic.HashSet&lt;Archer&gt;（私有，interop 均已暴露）
+/// - Knight._animator : Animator（私有，root 上）/ _mover : Mover（私有，interop 均已暴露）
 /// - Knight.OnEnable() —— 私有，用字符串名打补丁（Worker/Crossbowman 的 nameof
 ///   先例不适用：Knight.OnEnable 非公开）
 /// - Archer._animator : Animator —— interop 已暴露（免 GetComponentInChildren）
@@ -47,9 +49,10 @@ namespace KingdomEnhancedMod;
 ///   另解析 archer_soldier_norselands 作第 5 个"只识别不选中"的士兵皮肤——北境世界
 ///   随从的原生士兵控制器（ConvertToSoldier 按 biome swap 得到），仅进
 ///   IsSoldierFamilyController 识别集，绝不进 AvailableStyles 风格池（Reviewer MF-1）
-/// - Il2CppSystem HashSet 不实现托管 IEnumerable，无 foreach（泛型
-///   IEnumerator&lt;T&gt; 在 interop 里缺 MoveNext，不可用）：用公开的非泛型
-///   System_Collections_IEnumerable_GetEnumerator() 迭代，Current TryCast 回 Archer
+/// - Archer._knight : Knight（私有，interop 已暴露）——随从联动反向归属用
+///   （PatchRoles_Crossbowman.cs:687 同字段先例）。不枚举 Knight._archers：
+///   Il2CppSystem HashSet 的枚举器运行时不可靠（knightstyle2 实测纯读 MoveNext
+///   也抛 InvalidOperationException；泛型 IEnumerator&lt;T&gt; 则缺 MoveNext）
 /// - ScaleRegistryHolder.Register(Mover, float) / Unregister(Mover)
 ///   （PatchRoles_Worker，按 gameObject.GetInstanceID() 键控，Mover.Update postfix
 ///   每帧守卫 y）。坑11：只动 y，x 是朝向符号。
@@ -74,7 +77,7 @@ public static class PatchRoles_KnightStyle
     private static readonly string[] SoldierControllerNames =
         { "archer_soldier", "archer_soldier_deadlands", "archer_soldier_bamboo", "archer_soldier_greece" };
     // 北境士兵皮肤（Reviewer MF-1）：只用于 IsSoldierFamilyController 识别——北境世界
-    // 随从的原生士兵控制器是它，不识别则 StyleFollowers 每轮跳过、随从联动静默失效。
+    // 随从的原生士兵控制器是它，不识别则随从联动每轮跳过、静默失效。
     // 绝不加入 AvailableStyles（可选风格仍四种），也不计入完整性/收缩判定。
     private const string NorselandsSoldierControllerName = "archer_soldier_norselands";
 
@@ -262,8 +265,8 @@ public static class PatchRoles_KnightStyle
 
     /// <summary>
     /// 士兵系判定：四套可选风格士兵 + 北境 archer_soldier_norselands（MF-1）。
-    /// 北境世界随从的原生士兵皮肤就是北境款——不在判定集里的话 StyleFollowers
-    /// 每轮 continue，随从联动静默失效。北境款只可识别、不可被选为风格。
+    /// 北境世界随从的原生士兵皮肤就是北境款——不在判定集里的话随从联动
+    /// 每轮 continue，静默失效。北境款只可识别、不可被选为风格。
     /// </summary>
     private static bool IsSoldierFamilyController(RuntimeAnimatorController controller)
     {
@@ -624,11 +627,15 @@ public static class PatchRoles_KnightStyle
     }
 
     /// <summary>
-    /// 完整性巡检：
+    /// 完整性巡检（两段结构）：
+    /// 第一段——处理所有 Knight：
     /// 1) 读档/客户端同步恢复的存量骑士（无 Promote 机会）→ 直接按哈希上风格；
     /// 2) NeedsRederive（池复用重生）或身份未收敛（NetID 后到）→ 重算，幂等；
-    /// 3) 已定风格骑士 → 重断言控制器/缩放（被原生重置则重设）；
-    /// 4) 随从联动：把随从的士兵控制器覆盖成风格对应款。
+    /// 3) 已定风格骑士 → 重断言控制器/缩放（被原生重置则重设）。
+    /// 第二段——随从联动（反向归属）：全场扫 Archer 读 _knight 查状态，
+    /// 把随从的士兵控制器覆盖成风格对应款。放在骑士段之后：本轮新上风格/
+    /// 重算收敛的骑士立即可被反查命中，Reviewer Q-1（重算分支的骑士随从
+    /// 不饥饿）由本段天然满足。
     /// </summary>
     private static void IntegrityPass()
     {
@@ -638,38 +645,39 @@ public static class PatchRoles_KnightStyle
             EnsureStyleAssets();
             if (!HasUsablePool()) return;
 
+            // ---- 第一段：骑士 ----
             Knight[] knights = UnityEngine.Object.FindObjectsOfType<Knight>();
-            if (knights == null) return;
-
-            for (int i = 0; i < knights.Length; i++)
+            if (knights != null)
             {
-                Knight knight = knights[i];
-                if (knight == null || knight.gameObject == null
-                    || !knight.gameObject.activeInHierarchy) continue;
-                if (knight.tag != "Knight") continue; // Squire 不处理
-
-                int id = knight.gameObject.GetInstanceID();
-                if (!States.TryGetValue(id, out KnightStyleState state))
+                for (int i = 0; i < knights.Length; i++)
                 {
-                    // 读档恢复：读档不重跑转职，按确定性哈希直接上风格（双端一致）
-                    ApplyKnightStyle(knight);
-                    continue;
-                }
+                    Knight knight = knights[i];
+                    if (knight == null || knight.gameObject == null
+                        || !knight.gameObject.activeInHierarchy) continue;
+                    if (knight.tag != "Knight") continue; // Squire 不处理
 
-                if (state.NeedsRederive || !state.NetIdResolved)
-                {
-                    // 重算收敛：池复用新生命周期，或首次哈希用的退化身份（网络头后到）。
-                    // 哈希不变时 ApplyKnightStyle 内部零写入，天然幂等。
-                    ApplyKnightStyle(knight);
-                    // Q-1（Reviewer）：重算分支也要跑随从联动——若某环境网络头永不可得，
-                    // 本分支会每轮命中，随从联动不能跟着骑士风格一起饥饿（幂等零风险）
-                    StyleFollowers(knight, state);
-                    continue;
-                }
+                    int id = knight.gameObject.GetInstanceID();
+                    if (!States.TryGetValue(id, out KnightStyleState state))
+                    {
+                        // 读档恢复：读档不重跑转职，按确定性哈希直接上风格（双端一致）
+                        ApplyKnightStyle(knight);
+                        continue;
+                    }
 
-                ReassertKnight(knight, state);
-                StyleFollowers(knight, state);
+                    if (state.NeedsRederive || !state.NetIdResolved)
+                    {
+                        // 重算收敛：池复用新生命周期，或首次哈希用的退化身份（网络头后到）。
+                        // 哈希不变时 ApplyKnightStyle 内部零写入，天然幂等。
+                        ApplyKnightStyle(knight);
+                        continue;
+                    }
+
+                    ReassertKnight(knight, state);
+                }
             }
+
+            // ---- 第二段：随从联动（反向归属，全场一次扫描）----
+            StyleFollowersByLookup();
         }
         catch (Exception e)
         {
@@ -678,79 +686,67 @@ public static class PatchRoles_KnightStyle
     }
 
     /// <summary>
-    /// 随从联动：遍历 knight._archers，把随从的士兵控制器换成风格对应款。
-    /// 两段式（实机 must-fix）：第一段纯枚举做快照，循环体内零写入——枚举器
-    /// 循环内写 animator.runtimeAnimatorController 会触发原生侧对集合的修改
-    /// （控制器重置引发的原生回调重入），HashSet 版本检查抛
-    /// InvalidOperationException。原生同场景的标准范式也是先快照：
-    /// Knight.cs:312 foreach (Archer archer in new List&lt;Archer&gt;(this._archers))。
-    /// 第二段遍历托管快照做过滤+写入——已脱离原生枚举器，写入即使引发原生
-    /// 集合修改也不再影响本轮。
+    /// 随从联动（反向归属，knightstyle2 实测修订）：彻底放弃枚举 knight._archers——
+    /// Il2Cpp 非泛型枚举器对 HashSet 运行时不可靠，纯读快照段的 MoveNext 也抛
+    /// InvalidOperationException。改为全场反查：每个 active Archer 读 _knight
+    /// （interop 私有字段，PatchRoles_Crossbowman.cs:687 先例），按骑士 gameObject
+    /// instanceID（状态表键）查 KnightStyleState，有风格则把随从控制器换成风格款。
+    /// 骑士无状态记录则跳过（第一段已负责给无记录骑士上风格，本轮/下轮跟上）。
     /// 写入条件：当前控制器属于 archer_soldier 系（四套可选 + 北境款，见
     /// IsSoldierFamilyController）且不等于目标——入队/上船的原生 ConvertToSoldier
     /// 会设回当前世界士兵皮肤（会被换回），而离队/死亡清理切到的猎人皮肤是
     /// 合法状态，不碰；指针相等时零写入。
     /// 弩手按设计不入骑士队（IsAvailableForJob 已排除），此处防御性跳过。
+    /// 注意：_knight 是 Il2Cpp 对象，fake-null 语义下判空可用重载 == null，
+    /// 取 ID 前再判一次；只按 instanceID 查表，不做托管等值比较。
     /// </summary>
-    private static void StyleFollowers(Knight knight, KnightStyleState state)
+    private static void StyleFollowersByLookup()
     {
-        if (!state.HasStyle) return;
-        RuntimeAnimatorController target = SoldierControllers[state.StyleIndex];
-        if (target == null) return;
-
-        // ---- 第一段：纯读快照（零写入）----
-        var snapshot = new List<Archer>();
         try
         {
-            var archers = knight._archers;
+            Archer[] archers = UnityEngine.Object.FindObjectsOfType<Archer>();
             if (archers == null) return;
 
-            // Il2CppSystem HashSet 无托管 foreach：走公开的非泛型枚举器
-            // （泛型 IEnumerator<T> 在 interop 里缺 MoveNext，不可用）；
-            // Current 是 Il2CppSystem.Object，TryCast 回 Archer
-            Il2CppSystem.Collections.IEnumerator enumerator =
-                archers.System_Collections_IEnumerable_GetEnumerator();
-            if (enumerator == null) return;
-            while (enumerator.MoveNext())
+            for (int i = 0; i < archers.Length; i++)
             {
-                Il2CppSystem.Object currentObject = enumerator.Current;
-                Archer archer = currentObject != null ? currentObject.TryCast<Archer>() : null;
-                if (archer == null || archer.gameObject == null
-                    || !archer.gameObject.activeInHierarchy) continue;
-                snapshot.Add(archer);
+                try
+                {
+                    Archer archer = archers[i];
+                    if (archer == null || archer.gameObject == null
+                        || !archer.gameObject.activeInHierarchy) continue;
+                    if (PatchRoles_Crossbowman.IsCrossbowman(archer)) continue;
+
+                    Knight knight = archer._knight;
+                    if (knight == null || knight.gameObject == null) continue;
+
+                    // 状态表键 = 骑士 gameObject.GetInstanceID()（与全部写入点一致）
+                    KnightStyleState state;
+                    if (!States.TryGetValue(knight.gameObject.GetInstanceID(), out state))
+                        continue;
+                    if (!state.HasStyle) continue;
+
+                    RuntimeAnimatorController target = SoldierControllers[state.StyleIndex];
+                    if (target == null) continue;
+
+                    Animator animator = archer._animator;
+                    if (animator == null) animator = archer.GetComponentInChildren<Animator>();
+                    if (animator == null) continue;
+
+                    RuntimeAnimatorController current = animator.runtimeAnimatorController;
+                    if (current == null || current.Pointer == target.Pointer) continue;
+                    if (!IsSoldierFamilyController(current)) continue;
+                    animator.runtimeAnimatorController = target;
+                }
+                catch (Exception e)
+                {
+                    // 单个随从失败（扫描与写入之间被销毁等）不拖累其余随从
+                    LogErrorOnce("follower styling failed", e);
+                }
             }
         }
         catch (Exception e)
         {
-            // 快照段纯读，理论上不应抛；抛了本轮放弃，等下一轮（5s）重试，
-            // 不影响本方法之外的任何状态
             LogErrorOnce("follower styling failed", e);
-            return;
-        }
-
-        // ---- 第二段：遍历托管快照做过滤 + 控制器写入 ----
-        for (int i = 0; i < snapshot.Count; i++)
-        {
-            try
-            {
-                Archer archer = snapshot[i];
-                if (archer == null) continue;
-                if (PatchRoles_Crossbowman.IsCrossbowman(archer)) continue;
-
-                Animator animator = archer._animator;
-                if (animator == null) animator = archer.GetComponentInChildren<Animator>();
-                if (animator == null) continue;
-
-                RuntimeAnimatorController current = animator.runtimeAnimatorController;
-                if (current == null || current.Pointer == target.Pointer) continue;
-                if (!IsSoldierFamilyController(current)) continue;
-                animator.runtimeAnimatorController = target;
-            }
-            catch (Exception e)
-            {
-                // 单个随从失败（快照与写入之间被销毁等）不拖累其余随从
-                LogErrorOnce("follower styling failed", e);
-            }
         }
     }
 }

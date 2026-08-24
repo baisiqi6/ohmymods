@@ -16,6 +16,11 @@ namespace KingdomEnhancedMod;
 ///
 /// Hosted on a World coroutine (per-frame yields): Director.Update proved
 /// unhookable in 2.4.0 (AOT inlining), so the original postfix never ran.
+///
+/// 天亮顿挫诊断扩展：用户报告"每天天刚亮时卡很久"，怀疑是原生每日自动存档
+/// 在天亮时刻触发的一次性长顿挫。为此在夜间探针之外新增独立的天亮采样窗口
+/// （累计区间 5.5<t<7.0），用单独一套累计器量化该时段的 avg/max 帧耗时，
+/// 两套累计器互不污染；夜间探针（>=17.5 或 <=5.5）的口径与日志完全不变。
 /// </summary>
 public static class PatchPerformance_NightVolley
 {
@@ -28,6 +33,12 @@ public static class PatchPerformance_NightVolley
     private static float _frameSum;
     private static float _frameMax;
     private static int _frameCount;
+    // 天亮窗口独立累计器（与上方夜间累计器互不污染）：
+    // 诊断每日天亮顿挫（疑原生自动存档）的量化探针专用，
+    // 仅在 5.5<t<7.0 时段的帧会计入这里。
+    private static float _dawnFrameSum;
+    private static float _dawnFrameMax;
+    private static int _dawnFrameCount;
     private static System.Collections.Generic.HashSet<string> _loggedBands
         = new System.Collections.Generic.HashSet<string>();
 
@@ -37,6 +48,9 @@ public static class PatchPerformance_NightVolley
         _probeWorld = world.Pointer;
         _loggedBands.Clear();
         _nextSampleAt = 0f;
+        _dawnFrameSum = 0f;
+        _dawnFrameMax = 0f;
+        _dawnFrameCount = 0;
         while (world != null && world.gameObject != null)
         {
             yield return null;
@@ -48,6 +62,15 @@ public static class PatchPerformance_NightVolley
                 _frameSum += dt;
                 _frameCount++;
                 if (dt > _frameMax) _frameMax = dt;
+
+                // 天亮窗口累计：夜间窗口先判，5.0~5.5 重叠期归夜间探针，
+                // 只有 5.5<t<7.0 的帧计入 dawn 累计器，两套累计器互不污染。
+                if (!IsNightWindow() && IsDawnWindow())
+                {
+                    _dawnFrameSum += dt;
+                    _dawnFrameCount++;
+                    if (dt > _dawnFrameMax) _dawnFrameMax = dt;
+                }
             }
 
             float now = Time.unscaledTime;
@@ -55,7 +78,7 @@ public static class PatchPerformance_NightVolley
             if (now < _nextSampleAt) continue;
             _nextSampleAt = now + SampleInterval;
 
-            try { EmitSample(); }
+            try { EmitSample(); EmitDawnSample(); }
             catch (Exception e)
             {
                 KingdomEnhancedPlugin.Instance?.LogSource.LogError("[DefensePerf] " + e);
@@ -72,6 +95,17 @@ public static class PatchPerformance_NightVolley
         if (director == null) return false;
         float t = director.currentTime;
         return t >= 17.5f || t <= 5.5f;
+    }
+
+    // 天亮窗口判定（5.0~7.0）：诊断每日天亮顿挫（疑原生自动存档）的量化探针。
+    // 与夜间窗口在 5.0~5.5 重叠；累计时夜间判定优先，重叠期归夜间探针，
+    // 因此 dawn 累计器实际只在 5.5<t<7.0 生效。
+    private static bool IsDawnWindow()
+    {
+        Director director = Managers.Inst != null ? Managers.Inst.director : null;
+        if (director == null) return false;
+        float t = director.currentTime;
+        return t >= 5.0f && t <= 7.0f;
     }
 
     private static void EmitSample()
@@ -96,6 +130,36 @@ public static class PatchPerformance_NightVolley
         KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
             "[DefensePerf] arrows=" + arrowCount
             + " avgFrame=" + avgMs.ToString("F1") + "ms"
+            + " maxFrame=" + maxMs.ToString("F1") + "ms"
+            + " t=" + timeOfDay.ToString("F1") + "h");
+    }
+
+    // 天亮采样输出：与夜间探针共用 15s 采样节拍，但累计与输出完全独立。
+    // 天亮没有箭雨，不需要 arrows 计数；也不做阈值过滤与频段去重——
+    // 窗口很短（约 1.5 游戏小时），每 15s 一行直接输出，用来量化
+    // 每日天亮顿挫（疑原生自动存档）的 avg/max 帧幅度。
+    private static void EmitDawnSample()
+    {
+        float timeOfDay = Managers.Inst != null && Managers.Inst.director != null
+            ? Managers.Inst.director.currentTime : -1f;
+
+        // 窗口结束（t>=7.0）：清零 dawn 累计器（丢弃跨窗残留），等明天再累计。
+        if (timeOfDay >= 7.0f)
+        {
+            _dawnFrameSum = 0f;
+            _dawnFrameMax = 0f;
+            _dawnFrameCount = 0;
+            return;
+        }
+
+        if (_dawnFrameCount == 0) return;
+        float avgMs = _dawnFrameSum / _dawnFrameCount * 1000f;
+        float maxMs = _dawnFrameMax * 1000f;
+        _dawnFrameSum = 0f;
+        _dawnFrameMax = 0f;
+        _dawnFrameCount = 0;
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+            "[DefensePerf] dawn: avgFrame=" + avgMs.ToString("F1") + "ms"
             + " maxFrame=" + maxMs.ToString("F1") + "ms"
             + " t=" + timeOfDay.ToString("F1") + "h");
     }

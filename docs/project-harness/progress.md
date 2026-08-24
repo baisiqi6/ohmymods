@@ -1,3 +1,15 @@
+## 2026-08-24（十三） — knightstyle3：随从反查重写 + 天亮顿挫排查
+
+- knightstyle2 实测随从仍失效：堆栈实锤纯读快照段的 HashSet Enumerator.MoveNext 就抛
+  InvalidOperationException——Il2Cpp 非泛型枚举器对 HashSet 运行时不可靠（reviewer 疑点成真），
+  非写入副作用问题。worker 重写：删除全部枚举器代码，StyleFollowersByLookup 用
+  FindObjectsOfType<Archer> + archer._knight 反向归属（不碰 _archers），IntegrityPass 两段化。
+- 天亮卡顿排查（用户报告"每天天刚亮卡挺久"）：mod 无任何天亮触发逻辑（三监督协程均固定
+  5/10s 节奏）；Player.log 的 83688 资产大卸载（85ms）在读档时刻非每日；首要嫌疑=原生每日
+  自动存档（序列化+gzip 整个世界），被地图扩展与大人口放大。dawn 帧率探针已由 worker 加入
+  PatchPerformance_NightVolley.cs（5.5-7.0h 独立累计器，[DefensePerf] dawn: 行），下次运行量化。
+- 编译 0W/0E，build=2.2.0-knightstyle3 已部署 E 盘（SHA 前16=48440425768e31cb）。
+
 ## 2026-08-24（十二） — knightstyle2：随从联动枚举并发修复 + 北境小队立项
 
 - knightstyle1 实测：骑士四风格生效（19 只 styled），随从全灭——根因=枚举 _archers 循环内写
