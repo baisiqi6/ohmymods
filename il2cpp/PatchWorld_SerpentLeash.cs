@@ -52,34 +52,83 @@ public static class PatchWorld_SerpentLeash
             Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
             if (kingdom == null) return;
 
-            Transform anchor = gate.SerpentAnchor;
             float wallX = kingdom.GetBorderSideIntact(Side.Right);
             float targetX = wallX + MinDistanceFromWall;
             // 上界钳制（reviewer F1）：墙+14 可能越过可玩陆域右界，会破坏 Submerged
-            // 跟随点不变量（Min 反转压过 Max）与头部弱点可达性。worldBounds.right
-            // 本身已内缩 8（World.cs 世界边界公式），再留原生 WORLD_BORDER_BUFFER=10。
+            // 跟随点不变量（Min 反转压过 Max）与头部弱点可达性。
+            // 注意不能用 world.worldBounds.right —— Sided<float> 泛型结构体经
+            // interop marshal 出来是垃圾值（实测 4.7e19），改用原生公式复刻：
+            // worldBounds.right = ground.x + collider.size.x/2 - 8（World.cs OnLevelLoaded）。
             float worldRight = float.MaxValue;
-            World world = Managers.Inst != null ? Managers.Inst.world : null;
-            if (world != null) worldRight = world.worldBounds.right - 10f;
-            if (targetX > worldRight) targetX = worldRight;
-            if (anchor.position.x >= targetX - 0.1f) return;
-
-            Vector3 pos = anchor.position;
-            pos.x = targetX;
-            anchor.position = pos;
-            if (!_loggedLeash)
+            try
             {
-                _loggedLeash = true;
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[SerpentLeash] anchor pushed to wall+" + MinDistanceFromWall
-                    + " (wall=" + wallX.ToString("F1")
-                    + " anchor=" + targetX.ToString("F1")
-                    + " worldRight=" + worldRight.ToString("F1") + ")");
+                BoxCollider2D groundCol = World.GroundCollider;
+                if (groundCol != null && groundCol.transform != null)
+                {
+                    worldRight = groundCol.transform.position.x + groundCol.size.x / 2f - 8f;
+                    if (targetX > worldRight) targetX = worldRight;
+                }
             }
+            catch (Exception) { /* 钳制不可用就不钳：只向右推的语义仍然安全于当前锚点 */ }
+
+            Transform anchor = gate.SerpentAnchor;
+            if (anchor.position.x < targetX - 0.1f)
+            {
+                Vector3 pos = anchor.position;
+                pos.x = targetX;
+                anchor.position = pos;
+                if (!_loggedLeash)
+                {
+                    _loggedLeash = true;
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                        "[SerpentLeash] anchor pushed to wall+" + MinDistanceFromWall
+                        + " (wall=" + wallX.ToString("F1")
+                        + " anchor=" + targetX.ToString("F1")
+                        + " worldRight=" + (worldRight == float.MaxValue ? -1f : worldRight).ToString("F1") + ")");
+                }
+            }
+
+            LeashBodyToAnchor(serpent, targetX);
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError("[SerpentLeash/leash] " + e);
+        }
+    }
+
+    /// <summary>
+    /// 蛇本体归位：读档蛇保留存档位置（fromSave 不瞬移），原生回巢是 Moving 状态
+    /// 慢速爬行（实测窗口 10s+），期间蛇还趴在墙边。休息态（Idle=1/Moving=2，
+    /// State 是私有嵌套类拿不到常量引用，按源码数值比较）且仍在目标位左侧时
+    /// 直接 RepX 拉回——与原生 UpdatePosition 的 transform.x 写法等价。
+    /// 充电/攻击/下潜/眩晕等状态绝不碰（冲锋贴墙是 boss 战机制本身）。
+    /// </summary>
+    private static bool _loggedBodySnap;
+
+    private static void LeashBodyToAnchor(WorldEatingSerpent serpent, float targetX)
+    {
+        try
+        {
+            StateMachine fsm = serpent._fsm;
+            int state = fsm != null ? fsm.Current : -1;
+            if (state != 1 && state != 2) return; // 仅 Idle / Moving
+            float currentX = serpent.transform.position.x;
+            if (currentX >= targetX - 0.5f) return;
+
+            Vector3 pos = serpent.transform.position;
+            pos.x = targetX;
+            serpent.transform.position = pos;
+            if (!_loggedBodySnap)
+            {
+                _loggedBodySnap = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[SerpentLeash] body snapped from x=" + currentX.ToString("F1")
+                    + " to " + targetX.ToString("F1") + " (state=" + state + ")");
+            }
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[SerpentLeash/body] " + e);
         }
     }
 
@@ -94,15 +143,18 @@ public static class PatchWorld_SerpentLeash
         if (world == null || _supervisorWorld == world.Pointer) yield break;
         _supervisorWorld = world.Pointer;
         _loggedLeash = false;
+
         while (world != null && world.gameObject != null)
         {
-            yield return new WaitForSeconds(RescanIntervalSeconds);
             WorldEatingSerpent[] serpents = UnityEngine.Object.FindObjectsOfType<WorldEatingSerpent>();
-            if (serpents == null) continue;
-            for (int i = 0; i < serpents.Length; i++)
+            if (serpents != null)
             {
-                if (serpents[i] != null) LeashAnchorToBorder(serpents[i]);
+                for (int i = 0; i < serpents.Length; i++)
+                {
+                    if (serpents[i] != null) LeashAnchorToBorder(serpents[i]);
+                }
             }
+            yield return new WaitForSeconds(RescanIntervalSeconds);
         }
     }
 }

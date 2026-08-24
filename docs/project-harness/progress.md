@@ -1,3 +1,15 @@
+## 2026-08-24（六） — 大蛇缰绳 serpent2 实测返修（serpent3）
+
+- 用户实测：蛇仍在墙边。日志实锤 [SerpentLeash] anchor pushed wall=129.1 anchor=143.1
+  worldRight=4.78e19 —— 锚点确实推了，但两个问题：
+  1) worldBounds.right 垃圾值：Sided<float> 泛型结构体经 interop marshal 损坏（坑26候选），
+     F1 钳制失效。改用 GroundCollider 复刻原生公式 ground.x+size.x/2-8（World.cs OnLevelLoaded）。
+  2) 读档蛇保留存档位置（fromSave 不瞬移），原生回巢=Moving 慢速爬行（10s+ 窗口），
+     用户看到的就是爬行窗口里的蛇。新增 LeashBodyToAnchor：休息态（fsm.Current∈{Idle=1,
+     Moving=2}，State 私有嵌套类按源码数值比较）且位置<目标位时直接 RepX 归位——与原生
+     UpdatePosition 的 transform.x 写法等价；充电/攻击/下潜不碰。supervisor 改立即首扫。
+- 编译0W/0E，build=2.2.0-serpent3 已部署 E 盘（SHA 前16=d7275fcc481decda）。
+
 ## 2026-08-24（五） — 大蛇缰绳 reviewer 收口（F1+F2 落地，serpent2）
 
 - reviewer(kimi-k3)一审 must-fix 两项（核心随迁论证1-5全部逐条背书）：
