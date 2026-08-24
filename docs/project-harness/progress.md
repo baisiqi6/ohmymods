@@ -1,3 +1,14 @@
+## 2026-08-24（十二） — knightstyle2：随从联动枚举并发修复 + 北境小队立项
+
+- knightstyle1 实测：骑士四风格生效（19 只 styled），随从全灭——根因=枚举 _archers 循环内写
+  控制器触发原生重入改集合，HashSet 版本检查抛 InvalidOperationException（LogErrorOnce 去重
+  后每轮静默失败）。worker 修复：StyleFollowers 两段式快照（纯读枚举收集托管 List 再写入，
+  范式对齐原生 Knight.cs:312 的 new List 快照）。
+- 北境裁决（用户拍板）：不进四风格随机池，作独立任务 norse-squad-027 完整引入——北境随从是
+  预制体级差异（Archer_norselands 带 NpcShieldUser 盾牌组件+近战逻辑），需走跨生物群系替换
+  基建（Holder+同步池+坑14全链审计），先例=希腊 Worker/Peasant 换北境预制体。
+- 编译 0W/0E，build=2.2.0-knightstyle2 已部署 E 盘（SHA 前16=86940f886cfbae3a）。
+
 ## 2026-08-24（十一） — knight-style-026 骑士随机风格（knightstyle1 部署）
 
 - 需求：招募骑士随机中世纪/死地/幕府/希腊四形象，随从士兵联动对应形象，希腊骑士 y=0.9；

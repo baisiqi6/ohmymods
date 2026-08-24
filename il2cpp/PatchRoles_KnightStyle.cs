@@ -679,10 +679,17 @@ public static class PatchRoles_KnightStyle
 
     /// <summary>
     /// 随从联动：遍历 knight._archers，把随从的士兵控制器换成风格对应款。
-    /// 只在当前控制器属于 archer_soldier 系（四套可选 + 北境款，见
-    /// IsSoldierFamilyController）且不等于目标时才写——入队/上船的原生
-    /// ConvertToSoldier 会设回当前世界士兵皮肤（会被换回），而离队/死亡清理
-    /// 切到的猎人皮肤是合法状态，不碰；指针相等时零写入。
+    /// 两段式（实机 must-fix）：第一段纯枚举做快照，循环体内零写入——枚举器
+    /// 循环内写 animator.runtimeAnimatorController 会触发原生侧对集合的修改
+    /// （控制器重置引发的原生回调重入），HashSet 版本检查抛
+    /// InvalidOperationException。原生同场景的标准范式也是先快照：
+    /// Knight.cs:312 foreach (Archer archer in new List&lt;Archer&gt;(this._archers))。
+    /// 第二段遍历托管快照做过滤+写入——已脱离原生枚举器，写入即使引发原生
+    /// 集合修改也不再影响本轮。
+    /// 写入条件：当前控制器属于 archer_soldier 系（四套可选 + 北境款，见
+    /// IsSoldierFamilyController）且不等于目标——入队/上船的原生 ConvertToSoldier
+    /// 会设回当前世界士兵皮肤（会被换回），而离队/死亡清理切到的猎人皮肤是
+    /// 合法状态，不碰；指针相等时零写入。
     /// 弩手按设计不入骑士队（IsAvailableForJob 已排除），此处防御性跳过。
     /// </summary>
     private static void StyleFollowers(Knight knight, KnightStyleState state)
@@ -691,6 +698,8 @@ public static class PatchRoles_KnightStyle
         RuntimeAnimatorController target = SoldierControllers[state.StyleIndex];
         if (target == null) return;
 
+        // ---- 第一段：纯读快照（零写入）----
+        var snapshot = new List<Archer>();
         try
         {
             var archers = knight._archers;
@@ -708,6 +717,24 @@ public static class PatchRoles_KnightStyle
                 Archer archer = currentObject != null ? currentObject.TryCast<Archer>() : null;
                 if (archer == null || archer.gameObject == null
                     || !archer.gameObject.activeInHierarchy) continue;
+                snapshot.Add(archer);
+            }
+        }
+        catch (Exception e)
+        {
+            // 快照段纯读，理论上不应抛；抛了本轮放弃，等下一轮（5s）重试，
+            // 不影响本方法之外的任何状态
+            LogErrorOnce("follower styling failed", e);
+            return;
+        }
+
+        // ---- 第二段：遍历托管快照做过滤 + 控制器写入 ----
+        for (int i = 0; i < snapshot.Count; i++)
+        {
+            try
+            {
+                Archer archer = snapshot[i];
+                if (archer == null) continue;
                 if (PatchRoles_Crossbowman.IsCrossbowman(archer)) continue;
 
                 Animator animator = archer._animator;
@@ -719,10 +746,11 @@ public static class PatchRoles_KnightStyle
                 if (!IsSoldierFamilyController(current)) continue;
                 animator.runtimeAnimatorController = target;
             }
-        }
-        catch (Exception e)
-        {
-            LogErrorOnce("follower styling failed", e);
+            catch (Exception e)
+            {
+                // 单个随从失败（快照与写入之间被销毁等）不拖累其余随从
+                LogErrorOnce("follower styling failed", e);
+            }
         }
     }
 }

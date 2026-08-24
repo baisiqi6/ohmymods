@@ -1027,7 +1027,7 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "招募骑士随机中世纪/死地/幕府/希腊形象；随从士兵联动对应形象；希腊骑士y=0.9；读档存量骑士按确定性哈希恢复风格",
-      "verification": "编译0W/0E(800行)。worker(subagent)两轮:初版+reviewer必修(北境随从缺口=archer_soldier_norselands只识别不选中/Q-1重算分支补StyleFollowers/注释修正)。reviewer(subagent)判定:架构/弩手互斥三层闭合/哈希收敛语义(AttemptSpawnSync先注册后激活实锤)/清污守卫全过源码级验证。已部署E盘(build=2.2.0-knightstyle1,DLL SHA前16=66c307e2d27d41ca)。游戏内验收待实测:招募+存量骑士四风格随机/随从联动/希腊0.9/北境随从/读档稳定",
+      "verification": "knightstyle1实测:骑士四风格生效(日志19只styled),随从联动全灭——枚举并发bug(循环内写控制器→原生重入改HashSet→版本检查抛异常,LogErrorOnce去重后每轮静默失败)。worker修复:StyleFollowers改两段式快照(纯读枚举收集托管List再写入,范式对齐原生Knight.cs:312)。编译0W/0E。待knightstyle2实测随从联动",
       "handoff": "入口=Promote(Armor) postfix；四套knight_*+archer_soldier_*控制器2.4.0资产已实锤；确定性哈希范式抄FriendlyTroll；ScaleRegistry希腊0.9",
       "workflow": {
         "status": "review_approved",
@@ -1044,6 +1044,31 @@
         "note": "一审must-fix(北境缺口)已修+Q-1+注释,条件收口"
       },
       "selected_in_session": "zcode-2026-08-24-knight-style"
+    },
+    {
+      "id": "norse-squad-027",
+      "title": "北境骑士小队完整引入（预制体级）",
+      "status": "todo",
+      "priority": "p2",
+      "owner": null,
+      "updated_at": "2026-08-24",
+      "dependencies": [
+        "knight-style-026"
+      ],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "北境风格骑士的随从为真北境弓箭手(Archer_norselands预制体,带NpcShieldUser盾牌组件+近战逻辑)；跨生物群系替换走Holder注册+同步池+完整池依赖审计(AGENTS坑14)",
+      "verification": "",
+      "handoff": "用户拍板(2026-08-24):北境不进四风格随机池,作独立任务完整引入。机制实锤:北境随从是prefab级差异(IsAvailableForJob有'带盾组件必须有盾才入队'判定;北境士兵动画多attack/defend/getshield/retreat四套)。先例:PatchRoles希腊Worker/Peasant换北境预制体。北境骑士本体控制器knight_norselands已实锤存在可先做视觉",
+      "workflow": {
+        "status": "todo",
+        "updated_at": "2026-08-24"
+      },
+      "artifacts": {},
+      "review": {
+        "decision": null
+      },
+      "selected_in_session": "zcode-2026-08-24-norse-squad"
     }
   ]
 }
