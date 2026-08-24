@@ -25,7 +25,7 @@ namespace KingdomEnhancedMod;
 /// </summary>
 public static class PatchWorld_SerpentLeash
 {
-    private const float MinDistanceFromWall = 30f;   // 用户实测14仍偏近，拍板30
+    private const float MinDistanceFromWall = 60f;   // 用户实锤:狩猎小兵游走进攻击圈——推到墙+60,警戒圈(6)+咬击只覆盖墙+46外,世界右界336余量充足
     private const float RescanIntervalSeconds = 10f; // 城墙右扩后复推（只向右，幂等）
     private static IntPtr _supervisorWorld;
     private static bool _loggedLeash;
