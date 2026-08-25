@@ -1,7 +1,7 @@
 {
   "project": "ohmymods",
   "harness_root": "docs/project-harness",
-  "updated_at": "2026-08-23",
+  "updated_at": "2026-08-25",
   "items": [
     {
       "id": "fleetboat-formation-019",
@@ -882,19 +882,19 @@
     {
       "id": "crossbowman-021",
       "title": "弩手（3:1交替换皮弓箭手+独立弩矢）",
-      "status": "doing",
+      "status": "done",
       "priority": "p1",
       "owner": "zcode",
-      "updated_at": "2026-08-24",
+      "updated_at": "2026-08-25",
       "dependencies": [],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "见任务目录 design.md",
-      "verification": "编译0错误0警告。worker 3轮+reviewer 2轮收口。2026-08-24三次用户修正:皮肤→archer_soldier_deadlands+旗帜色;弹道→仅射程x1.5(初速x√1.5,重力原生);本体y缩放1.15(ScaleRegistry守卫,Strip撤注册)。已部署E盘(build=2.2.0-xbow4,DLL SHA前16=3f38ad4d49922630)。游戏内验收待实测:4出1弩(士兵皮肤+旗帜色+1.15体型)/射程1.5倍/伤害2/骑士排除/读档25%。serpent5新增:缩放漂移诊断(用户报告地面弩手有的高有的低,日志零错误,疑动画器scale曲线晚于Mover守卫写入,IntegrityPass统计drifted+样本动画器位置/控制器名,只统计不改)。塔位假人缩放已按用户要求撤销(未部署过)",
+      "verification": "V3.0.0已发布(2026-08-25,GitHub Latest,commit 74134de/42016b6,DLL SHA256前16=2008184b727adf5f)。用户终验通过(塔位归塔/夜间墙外清零/弩矢观感/死地随从/幕府皮肤)",
       "handoff": "实现完成待游戏内实测。验收清单：1)招募第4个弓箭手变弩手(deadlands皮肤) 2)弩手射程12/平直快弹/伤害2 3)骑士招募排除 4)读档后recompute日志+25%守恒 5)骑士小队成员不被转弩手",
       "workflow": {
-        "status": "review_approved",
-        "updated_at": "2026-08-24"
+        "status": "closed",
+        "updated_at": "2026-08-25"
       },
       "artifacts": {
         "design": "docs/project-harness/tasks/crossbowman-021/design.md",
@@ -988,19 +988,19 @@
     {
       "id": "serpent-leash-025",
       "title": "大蛇离墙缰绳（最终岛锚点右推）",
-      "status": "doing",
+      "status": "done",
       "priority": "p1",
       "owner": "zcode",
-      "updated_at": "2026-08-24",
+      "updated_at": "2026-08-25",
       "dependencies": [],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "最终岛大蛇休息位离右墙>=14；白天墙边小兵不再被咬/扫描覆盖；主动出击(墙+8外)冲锋照常",
-      "verification": "全链收口:reviewer(subagent GLM)对积压直写增量交叉审核=approve(0 must-fix);worker(subagent)落实三项加固(IsAny()行为判据双保险/陈旧注释统一墙+60口径/钳制catch一次性警告)+弩矢乘数1.224745。编译0W/0E,build=2.2.0-balance2已部署。待实测:wall+60锚点日志/白天狩猎小兵不再挨咬/body snap日志(带state值可闭环2.4.0状态映射)",
+      "verification": "V3.0.0已发布(2026-08-25,GitHub Latest,commit 74134de/42016b6,DLL SHA256前16=2008184b727adf5f)。用户终验通过(塔位归塔/夜间墙外清零/弩矢观感/死地随从/幕府皮肤)",
       "handoff": "PatchWorld_SerpentLeash.cs：锚点右推(只向右幂等,10s复扫+OnEnable即时)；原生随迁论证=冲锋线max(锚点-0.55,墙+10)/挡门相对距离/弱点锚点按世界跨度。待实测:大蛇刷新位白天骚扰消失",
       "workflow": {
-        "status": "review_approved",
-        "updated_at": "2026-08-24"
+        "status": "closed",
+        "updated_at": "2026-08-25"
       },
       "artifacts": {
         "implementation": "il2cpp/PatchWorld_SerpentLeash.cs"
@@ -1017,21 +1017,21 @@
     {
       "id": "knight-style-026",
       "title": "骑士随机风格（四风格+随从联动+希腊0.9）",
-      "status": "doing",
+      "status": "done",
       "priority": "p1",
       "owner": "zcode",
-      "updated_at": "2026-08-24",
+      "updated_at": "2026-08-25",
       "dependencies": [
         "crossbowman-021"
       ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "招募骑士随机中世纪/死地/幕府/希腊形象；随从士兵联动对应形象；希腊骑士y=0.9；读档存量骑士按确定性哈希恢复风格",
-      "verification": "knightstyle2实测:快照两段式仍抛——堆栈实锤纯读MoveNext就炸,Il2Cpp非泛型枚举器对HashSet运行时不可靠。knightstyle3=反查重写:删枚举器,FindObjectsOfType<Archer>+archer._knight反向归属(先例Crossbowman.cs:687),两段IntegrityPass(骑士段+随从反查段)。另天亮顿挫排查:mod无天亮触发逻辑,首要嫌疑=原生每日自动存档(疑被地图扩展+大人口放大),dawn帧率探针已部署量化。编译0W/0E,build=2.2.0-knightstyle3(SHA前16=48440425768e31cb)。待实测:随从联动+dawn探针数据",
+      "verification": "V3.0.0已发布(2026-08-25,GitHub Latest,commit 74134de/42016b6,DLL SHA256前16=2008184b727adf5f)。用户终验通过(塔位归塔/夜间墙外清零/弩矢观感/死地随从/幕府皮肤)",
       "handoff": "入口=Promote(Armor) postfix；四套knight_*+archer_soldier_*控制器2.4.0资产已实锤；确定性哈希范式抄FriendlyTroll；ScaleRegistry希腊0.9",
       "workflow": {
-        "status": "review_approved",
-        "updated_at": "2026-08-24"
+        "status": "closed",
+        "updated_at": "2026-08-25"
       },
       "artifacts": {
         "worker_brief": "docs/project-harness/tasks/knight-style-026/worker-brief.md"
