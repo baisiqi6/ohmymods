@@ -1,3 +1,15 @@
+## 2026-08-25（七） — knightstyle10：随从换皮翻牌治本 + 死地骑士1.05
+
+- knightstyle9 日志：墙外随从清零（两侧 outside=0，原31/24）；dayIndex 独占踱步运行；
+  幕府之谜解——夜间 curTop=archer_soldier_greece×56+archer_soldier×20，56=dead28+shog8+gree20
+  全停原生希腊皮：原生 ConvertToSoldier（跟队例程重入）每~10s 刷回世界皮 vs 我们5s重写=翻牌，
+  视觉长期停留原生皮；中世纪幸存因基底 archer_soldier 不在刷回目标集合。
+- 治本：Archer.ConvertToSoldier/ConvertToHunter 双 postfix（私有按名补丁）——原生转换同栈
+  立即重涂风格皮（ApplyFollowerSkinTo 统一写入路径）；离队时 RemoveFromKnight 先置 _knight=null
+  （源码927-938核实）故猎人皮正确保留。StyleFollowersByLookup 降级为5s兜底。
+- 死地骑士缩放 0.95→1.05（用户拍板，Operator 直改常数：表 {0.95,1.05,1,0.9}）。
+- 编译 0W/0E，build=2.2.0-knightstyle10 已部署 E 盘（SHA 前16=186eff6f22ddeebf）。
+
 ## 2026-08-25（六） — knightstyle9：每风格缩放+幕府诊断+夜间滞留纠偏
 
 - 用户三项反馈落地：

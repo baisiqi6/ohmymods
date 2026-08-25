@@ -32,15 +32,18 @@ namespace KingdomEnhancedMod;
 ///   Promote postfix 先 StripKnight（恢复缓存的原生控制器 + 注销缩放守卫 + y=1）
 ///   再重摇；Knight.OnEnable postfix 标记 NeedsRederive 兜住"复用不经 Promote"
 ///   的路径（读档重生），巡检重算。
-/// - 随从联动（反向归属 + 队籍判定）：不枚举 knight._archers——Il2Cpp 非泛型
-///   枚举器对 HashSet 运行时不可靠（knightstyle2 实测：纯读快照段的 MoveNext
-///   也抛 InvalidOperationException），改为全场 FindObjectsOfType&lt;Archer&gt;
-///   读 _knight 反查骑士状态。写入条件是队籍而非皮肤族（follower diag 实测：
-///   原生随从只在 actively 跟队时 ConvertToSoldier，白天分散打猎穿猎人皮，
-///   "∈士兵族才写"白天永远不命中）：_knight 指向已风格化骑士且当前控制器
-///   != 目标即写。代价与收益：白天分散的随从也穿风格士兵皮（随时认出归属）；
-///   离队时原生 ConvertToHunter 自动恢复猎人皮，无需清理；重新入队原生先换回
-///   世界士兵皮、巡检 5s 内再盖风格皮（过渡 ≤5s 可接受）。
+/// - 随从联动（反向归属 + 队籍判定 + 翻牌治理）：不枚举 knight._archers——
+///   Il2Cpp 非泛型枚举器对 HashSet 运行时不可靠（knightstyle2 实测：纯读快照段
+///   的 MoveNext 也抛 InvalidOperationException），改为全场
+///   FindObjectsOfType&lt;Archer&gt; 读 _knight 反查骑士状态。写入条件是队籍而非
+///   皮肤族（follower diag 实测：原生随从只在 actively 跟队时 ConvertToSoldier，
+///   白天分散打猎穿猎人皮，"∈士兵族才写"白天永远不命中）：_knight 指向已风格化
+///   骑士且当前控制器 != 目标即写（统一路径 ApplyFollowerSkinTo）。翻牌治理
+///   （幕府之谜实锤：原生 ConvertToSoldier/Hunter 每次把控制器刷回 BiomeData
+///   世界原生皮，5s 写 vs ~10s 刷回）：两个转换的 postfix 在刷回的同一调用栈内
+///   即时重涂风格皮，5s 巡检只兜底。代价与收益：白天分散的随从也穿风格士兵皮
+///   （随时认出归属）；真正离队时原生先置 _knight=null 再 ConvertToHunter，
+///   猎人皮正确保留，无需清理。
 ///
 /// 2.4.0 签名验证（Operator 任务书实锤 + interop Assembly-CSharp.dll 复核）：
 /// - Character.Promote(DroppableTool, IUnitController) : Character —— 存在（双验证）
@@ -72,8 +75,9 @@ public static class PatchRoles_KnightStyle
     private const float AssetRetryIntervalSeconds = 30f;
 
     // 每风格骑士 y 缩放（坑11：只动 y），index 对齐 StyleNames：
-    // 中世纪 0.95 / 死地 1.0 / 幕府 1.0 / 希腊 0.9（原"希腊特例"泛化为表驱动）
-    private static readonly float[] KnightStyleScaleY = { 0.95f, 1f, 1f, 0.9f };
+    // 中世纪 0.95 / 死地 1.05 / 幕府 1.0 / 希腊 0.9（原"希腊特例"泛化为表驱动；
+    // 死地 1.05 由 Operator 2026-08 实测定稿）
+    private static readonly float[] KnightStyleScaleY = { 0.95f, 1.05f, 1f, 0.9f };
     // 中世纪风格的随从士兵 y 缩放（其余风格 1.0；用户可从身高认出中世纪队）
     private const float FollowerMedievalScaleY = 1.05f;
 
@@ -772,7 +776,54 @@ public static class PatchRoles_KnightStyle
     }
 
     /// <summary>
-    /// 随从联动（反向归属 + 队籍判定）：彻底放弃枚举 knight._archers——
+    /// 单随从换皮（统一写入路径）：读 archer._knight，队籍骑士在状态表且有风格
+    /// → 把 SoldierControllers[styleIndex] 写到 archer._animator。
+    /// 写入条件沿用：animator/current 非空、指针不等才写（幂等零写入）。
+    ///
+    /// 翻牌机制（治本背景，幕府之谜诊断实锤）：夜间 diag curTop=
+    /// archer_soldier_greece×56 + archer_soldier×20（期望 med20=archer_soldier✓、
+    /// dead28=deadlands✗、shog8=bamboo✗、gree20=greece✓）——56=dead+shog+gree
+    /// 全停在原生希腊士兵皮。我们每 5s 写一次，而原生 ConvertToSoldier（跟队例程
+    /// 重入时调用，Archer.cs:859/485）每次都把控制器刷回 BiomeData 换皮的世界
+    /// 原生皮（~10s 一轮），5s 写 vs ~10s 刷回的翻牌让视觉上绝大多数时间停在
+    /// 原生皮。中世纪幸存是因为基底 archer_soldier 恰好不在"被刷回"路径的
+    /// 目标集合里。治本：ConvertToSoldier/ConvertToHunter 的 postfix 即时重涂
+    /// （见文件尾两个 patch 类），本方法就是它们的重涂实现；5s 巡检仅兜底。
+    /// </summary>
+    internal static bool ApplyFollowerSkinTo(Archer archer)
+    {
+        try
+        {
+            if (archer == null || archer.gameObject == null) return false;
+
+            Knight knight = archer._knight;
+            if (knight == null || knight.gameObject == null) return false;
+            if (!States.TryGetValue(knight.gameObject.GetInstanceID(), out KnightStyleState state)
+                || !state.HasStyle) return false;
+
+            RuntimeAnimatorController target = SoldierControllers[state.StyleIndex];
+            if (target == null) return false;
+
+            Animator animator = archer._animator;
+            if (animator == null) animator = archer.GetComponentInChildren<Animator>();
+            if (animator == null) return false;
+
+            RuntimeAnimatorController current = animator.runtimeAnimatorController;
+            if (current == null) return false;
+            if (current.Pointer == target.Pointer) return false;
+
+            animator.runtimeAnimatorController = target;
+            return true;
+        }
+        catch (Exception e)
+        {
+            LogErrorOnce("follower skin apply failed", e);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 随从联动（反向归属 + 队籍判定，5s 巡检兜底）：彻底放弃枚举 knight._archers——
     /// Il2Cpp 非泛型枚举器对 HashSet 运行时不可靠，纯读快照段的 MoveNext 也抛
     /// InvalidOperationException。改为全场反查：每个 active Archer 读 _knight
     /// （interop 私有字段，PatchRoles_Crossbowman.cs:687 先例），按骑士 gameObject
@@ -900,9 +951,13 @@ public static class PatchRoles_KnightStyle
                         diagSkippedFamily++;
                         continue;
                     }
-                    // 队籍判定：不再检查当前皮肤族——猎人皮/世界士兵皮/北境款一律覆盖
-                    animator.runtimeAnimatorController = target;
-                    diagStyled++;
+                    // 队籍判定：不再检查当前皮肤族——猎人皮/世界士兵皮/北境款一律覆盖。
+                    // 写入统一走 ApplyFollowerSkinTo（与 ConvertToSoldier/Hunter 的
+                    // postfix 即时重涂同一条路径；内部重复做幂等检查，无害）。
+                    // 治本在 postfix：原生刷回原生皮的瞬间就被重涂，本 5s 巡检只兜
+                    // postfix 覆盖不到的窗口（postfix 挂钩前已刷回的存量等）
+                    if (ApplyFollowerSkinTo(archer)) diagStyled++;
+                    else diagSkippedOther++;
                 }
                 catch (Exception e)
                 {
@@ -1074,3 +1129,57 @@ public static class World_OnLevelLoaded_KnightStyleHost_Patch
         }
     }
 }
+
+/// <summary>
+/// 翻牌治本之一（私有方法按名打补丁，先例：Knight.OnEnable 字符串名补丁）：
+/// 原生 ConvertToSoldier（跟队例程重入/上塔/上船时调用，Archer.cs:859）把随从
+/// 控制器刷回 BiomeData 换皮的世界原生士兵皮——这是 5s 写 vs ~10s 刷回翻牌的
+/// 刷回源（幕府之谜诊断实锤，详见 ApplyFollowerSkinTo 注释）。postfix 在刷回
+/// 的同一调用栈内立即重涂风格士兵皮，随从视觉上恒为风格款。
+/// 弩手/无队籍随从 _knight 为 null，ApplyFollowerSkinTo 直接返回，不碰。
+/// </summary>
+[HarmonyPatch(typeof(Archer), "ConvertToSoldier")]
+public static class Archer_ConvertToSoldier_KnightStyleSkin_Patch
+{
+    [HarmonyPostfix]
+    private static void Postfix(Archer __instance)
+    {
+        if (!ModConfig.Enabled.Value || __instance == null) return;
+        try
+        {
+            PatchRoles_KnightStyle.ApplyFollowerSkinTo(__instance);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[KnightStyle/convert-soldier] " + e);
+        }
+    }
+}
+
+/// <summary>
+/// 翻牌治本之二：原生 ConvertToHunter（白天随从例程 Archer.cs:482 等路径）把
+/// 随从刷回猎人皮——白天翻牌路径。postfix 里若 _knight 仍非空且骑士有风格
+/// （白天分散打猎但队籍仍在，队籍判定语义）→ 重涂风格士兵皮。
+/// 真正离队时原生 RemoveFromKnight 先置 _knight=null 再调 ConvertToHunter
+/// （Archer.cs:927-938），postfix 查无队籍直接返回，猎人皮正确保留，不碰。
+/// </summary>
+[HarmonyPatch(typeof(Archer), "ConvertToHunter")]
+public static class Archer_ConvertToHunter_KnightStyleSkin_Patch
+{
+    [HarmonyPostfix]
+    private static void Postfix(Archer __instance)
+    {
+        if (!ModConfig.Enabled.Value || __instance == null) return;
+        try
+        {
+            PatchRoles_KnightStyle.ApplyFollowerSkinTo(__instance);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[KnightStyle/convert-hunter] " + e);
+        }
+    }
+}
+
