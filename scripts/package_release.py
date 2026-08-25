@@ -34,8 +34,9 @@ def sha256(path: Path) -> str:
 
 def leak_check(rel: str) -> bool:
     low = rel.lower().replace("\\", "/")
-    bad = (".bak", "logoutput", "/cache/", "/interop/", "skidrow", ".pdb",
-           "_data/", "doorstop_config", ".doorstop_version")
+    bad = (".bak", "logoutput", "/cache/", "/interop/", "skidrow",
+           "_data/", "kingdomenhancedmod.pdb")
+    # 注意：不能泛匹配 .pdb——BepInEx/core 的 Mono.Cecil.Pdb.dll 是核心程序集
     # doorstop 三个引导文件在根级允许，其余命名命中即拒绝
     if low.startswith(("doorstop_config", ".doorstop_version", "winhttp.dll")):
         return False
