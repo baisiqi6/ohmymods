@@ -1,3 +1,15 @@
+## 2026-08-25（五） — knightstyle8：夜间随从锚点拉回墙内 + 白天独占踱步位
+
+- lineup 实锂数据：side=R 42 带内 followers=40 outside=24 样本 x=墙+3.0~3.6；骑士自身
+  r3@0.6..r7@1.8 贴墙内侧——随从编队（前排≈锚点前4步）以贴墙骑士为锚，前排越墙。
+  v2.1.0 压缩贴墙+19队满编放大了原生编队半宽的越界。
+- 修1：Mover.SetGoal(GameObject,...) prefix——夜间 Archer+Formation+有骑士命中时，
+  锚点拉回 wall−side×4.2（前排≈墙内2/后排≈墙内6，全在弓射程8内）；骑士 rank 不动。
+- 修2：白天踱步改每骑士独占索引（dayIndex×1.2±0.5，两侧≈12步带）；worker 发现并修掉
+  dayIndex=0 落点必在拦截带内的无限重入（_inDaySpreadRedirect 静态重入保护）。
+- follower diag 夜间 styled 皮肤确认（44 跟队中士兵皮在身）。
+- 编译 0W/0E，build=2.2.0-knightstyle8 已部署 E 盘（SHA 前16=7bf10080ea1ad1fc）。
+
 ## 2026-08-25（四） — knightstyle7：白天骑士散布（Assemble目标拦截）+回滚rank分治
 
 - 好消息先记：knightstyle6 实测 styled=76/skippedFamily=0——随从队籍换皮确认生效。

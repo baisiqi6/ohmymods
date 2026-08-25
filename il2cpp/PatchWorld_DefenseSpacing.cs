@@ -194,16 +194,29 @@ public static class PatchWorld_DefenseSpacing
     // defense keeps its accepted semantics.  With 19 knights the same-point
     // walk is a single clump with follower skins buried (user report:
     // knights clump by day, no follower skin visible).  Fix at the movement
-    // layer instead: intercept the Mover.SetGoal(float,float) call Assemble
-    // issues and push x out by rank*0.75 — with ranks compressed to 1..7 the
-    // squad spreads over a dayZone..dayZone-5.25 band, and every 10s native
-    // re-walk re-rolls the ±1 for an idle-strolling look.
+    // layer: intercept the Mover.SetGoal(float,float) call Assemble issues
+    // and push x out to a per-knight EXCLUSIVE slot.  First attempt used
+    // rank*0.75, but measured live (knightstyle session) the compressed
+    // ranks are shared ~3-per-slot — still a small clump with ±1 jitter.  Now
+    // each side hands out stable first-seen indexes 0..N-1 (instanceID-keyed,
+    // per world) and the slot depth is dayIndex*1.2: ~10 knights per side =
+    // a ~12-unit strolling band, visually distinguishable, and every 10s
+    // native re-walk re-rolls the ±0.5 for an idle-strolling look.
     // Mover.SetGoal(float,float) is a shared hot path (archer hunting etc.),
     // so a static mover-instanceID -> is-knight cache gates it: one
     // GetComponent<Knight> probe per mover, non-knights permanently skipped.
     private static readonly System.Collections.Generic.Dictionary<int, int> _moverIsKnight =
         new System.Collections.Generic.Dictionary<int, int>();
     private static bool _loggedDaySpread;
+    private static readonly System.Collections.Generic.Dictionary<int, int> _dayIndexLeft =
+        new System.Collections.Generic.Dictionary<int, int>();
+    private static readonly System.Collections.Generic.Dictionary<int, int> _dayIndexRight =
+        new System.Collections.Generic.Dictionary<int, int>();
+    // True while our own redirected SetGoal call is in flight, so the prefix
+    // passes it through instead of re-intercepting (index-0 slots land at
+    // dayZone ±0.5 — inside the 1.6 intercept band — and would otherwise
+    // recurse forever; see the redirect site).
+    private static bool _inDaySpreadRedirect;
 
     /// <summary>
     /// Prefix body for Mover.SetGoal(float, float).  Returns false (skip the
@@ -215,6 +228,7 @@ public static class PatchWorld_DefenseSpacing
         try
         {
             if (!ModConfig.Enabled.Value || mover == null) return true;
+            if (_inDaySpreadRedirect) return true; // our own redirected call
 
             // Fast path: cached is-knight verdict per mover instance.  Pooled
             // movers keep their components, so the verdict never flips.
@@ -253,28 +267,132 @@ public static class PatchWorld_DefenseSpacing
 
             // Only intercept the Assemble walk: |goal - dayZone| <= 1.6 (the
             // native target is dayZone ±1).  Night wall targets sit at wall -
-            // depth and fall outside this band, and our redirected target is
-            // rank*0.75 deep so most re-entries self-filter: rank 1/2 edge
-            // re-entries merely re-roll the ±1 and decay out of the band
-            // geometrically — no re-entrancy flag needed.
+            // depth and fall outside this band.
             if (Math.Abs(goal - dayZone) > 1.6f) return true;
 
-            float newX = dayZone - side * (knight.rank * 0.75f)
-                + UnityEngine.Random.Range(-1f, 1f);
+            // Per-side stable exclusive slot index (first-seen assignment
+            // 0..N-1, keyed by knight instanceID, reset per world): with
+            // ranks shared ~3-per-slot after the all-day compression, rank
+            // cannot give each knight its own strolling depth — the index
+            // does.  ~10 knights per side at 1.2 spacing = ~12-unit band.
+            System.Collections.Generic.Dictionary<int, int> indexes =
+                knight.side == Side.Left ? _dayIndexLeft : _dayIndexRight;
+            int knightId = knight.gameObject.GetInstanceID();
+            if (!indexes.TryGetValue(knightId, out int dayIndex))
+            {
+                dayIndex = indexes.Count;
+                indexes[knightId] = dayIndex;
+            }
+            float newX = dayZone - side * (dayIndex * 1.2f)
+                + UnityEngine.Random.Range(-0.5f, 0.5f);
             if (!_loggedDaySpread)
             {
                 _loggedDaySpread = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[DefenseSpacing] day assemble spread active: rank="
-                    + knight.rank + " newX=" + newX.ToString("F2"));
+                    "[DefenseSpacing] day assemble spread active: dayIndex="
+                    + dayIndex + " newX=" + newX.ToString("F2"));
             }
-            mover.SetGoal(newX, speed); // re-enters this prefix, see band note
+            // Guard: index-0 slots land at dayZone ±0.5, INSIDE the 1.6 band,
+            // so our own redirected SetGoal would re-enter this prefix and
+            // re-roll forever (index 1 recursed ~90% of calls too).  The
+            // guard passes our redirect straight through; the 10s native
+            // re-walk still re-rolls ±0.5 every cycle.
+            _inDaySpreadRedirect = true;
+            try { mover.SetGoal(newX, speed); }
+            finally { _inDaySpreadRedirect = false; }
             return false; // skip the native SetGoal
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(
                 "[DefenseSpacing/day-spread] " + e);
+            return true;
+        }
+    }
+
+    // ---- night follower anchor pullback ------------------------------------
+    // Measured (knightstyle session, side=R): 42 in-band archers with
+    // followers=40, outside=24 standing at wall+3.0..3.6 while their knights
+    // held r3@0.6..r7@1.8 just inside the wall.  The follower formation
+    // (SetGoal(knight.gameObject, speed, -knightFollowDistance, Formation),
+    // Archer.cs:486) anchors on the knight: once the knight stands at the
+    // wall the formation's front slots (4 followers x unit spacing) cross to
+    // the OUTSIDE and the squad's bows stand beyond the wall.  Fix: at night,
+    // when a knight-following Archer's formation anchor is closer to the
+    // intact wall than FollowerAnchorPullback, replace the formation goal
+    // with a plain position goal 4.2 units inside — front slots ~2 inside,
+    // rear ~6 inside, every bow inside the 8-unit range the v2.1.0 depth
+    // clamp protects.  Daytime following is untouched (isDaytime gate) and
+    // non-Archer Formation callers (Knight.OnEmbarkStart boat boarding etc.)
+    // never match the Archer gate.
+    private const float FollowerAnchorPullback = 4.2f;
+    private static readonly System.Collections.Generic.Dictionary<int, int> _moverIsArcher =
+        new System.Collections.Generic.Dictionary<int, int>();
+    private static bool _loggedNightPull;
+
+    /// <summary>
+    /// Prefix body for Mover.SetGoal(GameObject, float, float, OffsetMode).
+    /// Returns false (skip the native call, anchor pulled inside the wall)
+    /// only for a nighttime knight-following Archer formation walk; true
+    /// (native call untouched) for everything else.
+    /// </summary>
+    internal static bool NightFollowerAnchorPrefix(Mover mover, GameObject goal,
+        float speed, float offset, Mover.OffsetMode offsetMode)
+    {
+        try
+        {
+            if (!ModConfig.Enabled.Value || mover == null || goal == null) return true;
+            if (offsetMode != Mover.OffsetMode.Formation) return true;
+
+            // Fast path: cached is-archer verdict per mover instance (same
+            // pattern as the is-knight cache above).
+            int id = mover.GetInstanceID();
+            if (!_moverIsArcher.TryGetValue(id, out int isArcher))
+            {
+                isArcher = mover.GetComponent<Archer>() != null ? 1 : 0;
+                _moverIsArcher[id] = isArcher;
+            }
+            if (isArcher == 0) return true;
+
+            Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
+            if (kingdom == null || kingdom.isDaytime) return true;
+
+            Archer archer = mover.GetComponent<Archer>();
+            if (archer == null || archer._knight == null) return true;
+            Knight knight = archer._knight;
+            if (knight.gameObject == null) return true;
+            float side = (float)knight.side;
+            if (side == 0f) return true;
+
+            float wall = kingdom.GetBorderSideIntact(knight.side);
+            // Formation target = goal object x + offset (native multiplies the
+            // offset by the goal's localScale.x facing sign, Mover.cs:161; the
+            // plain sum is within 0.3 of that — close enough for the band test).
+            float anchorX = goal.transform.position.x + offset;
+            if ((wall - anchorX) * side < FollowerAnchorPullback)
+            {
+                float newAnchor = wall - side * FollowerAnchorPullback;
+                if (!_loggedNightPull)
+                {
+                    _loggedNightPull = true;
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                        "[DefenseSpacing] night follower anchor pulled inside: knight@"
+                        + goal.transform.position.x.ToString("F1")
+                        + " anchor " + anchorX.ToString("F1")
+                        + "->" + newAnchor.ToString("F1"));
+                }
+                // Float overload; this mover is an Archer, so the day-spread
+                // prefix's is-knight cache passes it straight through (no
+                // recursion), and it is night anyway.
+                mover.SetGoal(newAnchor, speed);
+                return false; // skip the native formation goal
+            }
+            return true; // anchor already deep enough inside — native follow
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[DefenseSpacing/night-anchor] " + e);
             return true;
         }
     }
@@ -388,6 +506,9 @@ public static class PatchWorld_DefenseSpacing
         _loggedKnightSample = false;
         _loggedKnightLineup = false;
         _loggedKnightRemap = false;
+        // 白天踱步独占索引按世界重置（新世界骑士集合全新，0..N-1 重新分配）
+        _dayIndexLeft.Clear();
+        _dayIndexRight.Clear();
         // 夜间弓箭手列队诊断：每世界每侧重新武装
         _loggedArcherLineupLeft = false;
         _loggedArcherLineupRight = false;
@@ -531,5 +652,24 @@ public static class Mover_DefenseSpacing_DayAssemble_Spread_Patch
     private static bool Prefix(Mover __instance, float goal, float speed)
     {
         return PatchWorld_DefenseSpacing.DayAssembleSpreadPrefix(__instance, goal, speed);
+    }
+}
+
+// Night follower anchor pullback: catch the knight-following formation goal
+// (SetGoal(GameObject, float, float, OffsetMode) — Archer.cs:486 precedent
+// SetGoal(this._knight.gameObject, this.runSpeed, -this.knightFollowDistance,
+// Mover.OffsetMode.Formation)) and pull the anchor inside the wall at night.
+// Logic lives in PatchWorld_DefenseSpacing.NightFollowerAnchorPrefix — see
+// the section comment there for the measured wall-crossing evidence.
+[HarmonyPatch(typeof(Mover), nameof(Mover.SetGoal),
+    new[] { typeof(GameObject), typeof(float), typeof(float), typeof(Mover.OffsetMode) })]
+public static class Mover_DefenseSpacing_NightFollowerAnchor_Patch
+{
+    [HarmonyPrefix]
+    private static bool Prefix(Mover __instance, GameObject goal, float speed,
+        float offset, Mover.OffsetMode offsetMode)
+    {
+        return PatchWorld_DefenseSpacing.NightFollowerAnchorPrefix(
+            __instance, goal, speed, offset, offsetMode);
     }
 }
