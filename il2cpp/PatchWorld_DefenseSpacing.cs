@@ -359,6 +359,14 @@ public static class PatchWorld_DefenseSpacing
             float depth = (wall - goal) * sign;
             if (depth <= -2.5f || depth > -0.2f) continue; // 不在墙外窄带
 
+            // 塔位弓箭手跳过（实测严重误伤："箭塔弓箭手在天上走"——塔
+            // 守位 x 本就落在墙外窄带（日志 goal mirrored: 131.05->126.63
+            // 即塔位），镜像把塔上弓箭手的目标改写成墙内地面 x，mover 驱动
+            // 其在塔高度横走）。两道防线：a) 守位状态；b) 塔上高度。
+            Archer archer = mover.GetComponent<Archer>();
+            if (archer != null && archer.inGuardSlot) return true;
+            if (mover.transform.position.y > 2.5f) return true; // 塔上高度，地面单位 y 通常 <2
+
             // 镜像到墙内同深+0.5（0.7~3.0 步）。墙内 N 步 = wall − side×N
             //（与 Knight.GetTargetPos / 锚点拉回同一符号约定）。
             float newX = wall - sign * (0.5f + Math.Abs(depth));
@@ -564,8 +572,12 @@ public static class PatchWorld_DefenseSpacing
     // between same-layer units IS the density cap in essence (there is no
     // numeric knob for it anywhere in the code).  PushablePusher is the
     // combat push component and is unrelated to density — do not touch it.
-    // The layer name is serialized on the prefab (never written in code), so
-    // read it at runtime from any active Archer's gameObject.layer.
+    // Layer names are serialized on the prefab (never written in code), so
+    // sample them at runtime: the collider-diagnostic measured
+    // colliders=[10,17] on one archer — colliders live on children at a
+    // DIFFERENT layer than the root, so the ignore must cover EVERY pair in
+    // the sampled layer set, not just the root self-pair (a 10-10-only
+    // ignore left 17-layer friendly collisions still pushing).
     // Fix: ignore the units-self layer pair during the night window — the
     // wall-front crowd stops being expelled, and the deep-relocation sweep
     // below degrades to a rare no-op fallback.  Accepted cost (user knows and
@@ -583,8 +595,8 @@ public static class PatchWorld_DefenseSpacing
     // relocation sweep below stays as the final fallback.  Three mechanisms
     // run in parallel, each covering a distinct cause.
     private static bool _friendlyCollisionIgnored;
-    private static int _friendlyUnitsLayer = -1;
-    private static bool _loggedColliderLayers;
+    private static readonly System.Collections.Generic.List<int> _friendlyCollisionLayers =
+        new System.Collections.Generic.List<int>();
 
     private static void ToggleFriendlyCollision(Archer[] archers)
     {
@@ -597,10 +609,9 @@ public static class PatchWorld_DefenseSpacing
 
             if (isNight && !_friendlyCollisionIgnored)
             {
-                // Sample the units layer from any active archer this pass
-                // (layer name is prefab-serialized, not code-visible).
+                // Sample any active archer this pass (layer names are
+                // prefab-serialized, not code-visible).
                 if (archers == null) return;
-                int layer = -1;
                 Archer sample = null;
                 for (int i = 0; i < archers.Length; i++)
                 {
@@ -608,50 +619,69 @@ public static class PatchWorld_DefenseSpacing
                     if (archer == null || archer.gameObject == null
                         || !archer.gameObject.activeInHierarchy) continue;
                     sample = archer;
-                    layer = archer.gameObject.layer;
                     break;
                 }
-                if (layer < 0 || sample == null) return; // 本拍无可采样，下拍再试
-                _friendlyUnitsLayer = layer; // 关时记下，开时用同值
-                Physics2D.IgnoreLayerCollision(layer, layer, true);
+                if (sample == null) return; // 本拍无可采样，下拍再试
+
+                // Layer SET = every collider in the hierarchy (colliders may
+                // live on children at a DIFFERENT layer — diagnostic measured
+                // colliders=[10,17], so the earlier 10-10-only ignore left
+                // 17-layer friendly collisions still pushing) plus the root
+                // layer itself.
+                _friendlyCollisionLayers.Clear();
+                int rootLayer = sample.gameObject.layer;
+                if (rootLayer >= 0 && !_friendlyCollisionLayers.Contains(rootLayer))
+                    _friendlyCollisionLayers.Add(rootLayer);
+                Collider2D[] colliders = sample.GetComponentsInChildren<Collider2D>();
+                if (colliders != null)
+                {
+                    for (int j = 0; j < colliders.Length; j++)
+                    {
+                        Collider2D collider = colliders[j];
+                        if (collider == null || collider.gameObject == null) continue;
+                        int colliderLayer = collider.gameObject.layer;
+                        if (colliderLayer < 0
+                            || _friendlyCollisionLayers.Contains(colliderLayer)) continue;
+                        _friendlyCollisionLayers.Add(colliderLayer);
+                    }
+                }
+                if (_friendlyCollisionLayers.Count == 0) return;
+
+                // Ignore EVERY pair in the set (self pairs and cross pairs):
+                // with layers {10,17} that is 10-10, 10-17, 17-10, 17-17.
+                System.Text.StringBuilder layersText =
+                    new System.Text.StringBuilder();
+                System.Text.StringBuilder pairsText =
+                    new System.Text.StringBuilder();
+                for (int a = 0; a < _friendlyCollisionLayers.Count; a++)
+                {
+                    if (layersText.Length > 0) layersText.Append(',');
+                    layersText.Append(_friendlyCollisionLayers[a]);
+                    for (int b = 0; b < _friendlyCollisionLayers.Count; b++)
+                    {
+                        Physics2D.IgnoreLayerCollision(_friendlyCollisionLayers[a],
+                            _friendlyCollisionLayers[b], true);
+                        if (pairsText.Length > 0) pairsText.Append(',');
+                        pairsText.Append(_friendlyCollisionLayers[a])
+                            .Append('-').Append(_friendlyCollisionLayers[b]);
+                    }
+                }
                 _friendlyCollisionIgnored = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[DefenseSpacing] night friendly collision off (layer=" + layer + ")");
-                // 层采样自检（一次性）：碰撞体可能在子对象/异层——若
-                // distinct 层列表含 root 之外的值，说明层采错，下一步应把
-                // 那些层也纳入 Ignore（本次只记数据）。
-                if (!_loggedColliderLayers)
-                {
-                    _loggedColliderLayers = true;
-                    var distinct = new System.Collections.Generic.List<int>();
-                    System.Text.StringBuilder layers = new System.Text.StringBuilder();
-                    Collider2D[] colliders = sample.GetComponentsInChildren<Collider2D>();
-                    if (colliders != null)
-                    {
-                        for (int j = 0; j < colliders.Length; j++)
-                        {
-                            Collider2D collider = colliders[j];
-                            if (collider == null || collider.gameObject == null) continue;
-                            int colliderLayer = collider.gameObject.layer;
-                            if (distinct.Contains(colliderLayer)) continue;
-                            distinct.Add(colliderLayer);
-                            if (layers.Length > 0) layers.Append(',');
-                            layers.Append(colliderLayer);
-                        }
-                    }
-                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                        "[DefenseSpacing] archer collider layers: root=" + layer
-                        + " colliders=[" + layers + "]");
-                }
+                    "[DefenseSpacing] night friendly collision off: layers=["
+                    + layersText + "] ignored=[" + pairsText + "]");
             }
             else if (!isNight && _friendlyCollisionIgnored)
             {
-                // 白天恢复：用关时记下的层值，无需再采样（即使弓箭手已清零
-                // 也能恢复）。
-                if (_friendlyUnitsLayer >= 0)
+                // 白天恢复：遍历关时记下的同一层集合的全部层对（无需再
+                // 采样，即使弓箭手已清零也能恢复）。
+                for (int a = 0; a < _friendlyCollisionLayers.Count; a++)
                 {
-                    Physics2D.IgnoreLayerCollision(_friendlyUnitsLayer,
-                        _friendlyUnitsLayer, false);
+                    for (int b = 0; b < _friendlyCollisionLayers.Count; b++)
+                    {
+                        Physics2D.IgnoreLayerCollision(_friendlyCollisionLayers[a],
+                            _friendlyCollisionLayers[b], false);
+                    }
                 }
                 _friendlyCollisionIgnored = false;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
@@ -742,6 +772,12 @@ public static class PatchWorld_DefenseSpacing
 
                 // Part 2: knight-less archers (plain bows AND crossbowmen —
                 // both are defenders that belong inside at night).
+                // 塔位弓箭手跳过（同 MirrorNightArcherGoal 的两道防线：实测
+                // 日志 re-located deep: x=130.8 疑似同因——塔守位在墙外窄
+                // 带/塔高度，不属于墙外滞留，重定位会让塔上弓箭手在天上走）。
+                if (archer.inGuardSlot) continue;
+                if (archer.transform.position.y > 2.5f) continue; // 塔上高度
+
                 Side side = archer._guardSide;
                 float x = archer.transform.position.x;
                 if (side != Side.Left && side != Side.Right)
