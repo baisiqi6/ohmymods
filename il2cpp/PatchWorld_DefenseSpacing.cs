@@ -489,6 +489,78 @@ public static class PatchWorld_DefenseSpacing
             + " outsideSample=[" + sample + "]");
     }
 
+    // ---- night friendly-collision toggle -------------------------------------
+    // Root cause chain (user-confirmed, scout-verified): the outside-the-wall
+    // overflow is FRIENDLY units colliding with each other — the 2D physics
+    // between same-layer units IS the density cap in essence (there is no
+    // numeric knob for it anywhere in the code).  PushablePusher is the
+    // combat push component and is unrelated to density — do not touch it.
+    // The layer name is serialized on the prefab (never written in code), so
+    // read it at runtime from any active Archer's gameObject.layer.
+    // Fix: ignore the units-self layer pair during the night window — the
+    // wall-front crowd stops being expelled, and the deep-relocation sweep
+    // below degrades to a rare no-op fallback.  Accepted cost (user knows and
+    // accepts): crowded defenders may visually overlap at night.  Day
+    // restores the collision to keep the town look.  Projectiles and enemies
+    // live on separate layers: IgnoreLayerCollision(layer, layer) edits only
+    // the units-self pair, so arrows and enemy hits are unaffected.
+    // The flag deliberately does NOT reset per world: Physics2D's
+    // IgnoreLayerCollision state is global and survives scene loads, so the
+    // day-restore branch must stay reachable across island hops.
+    private static bool _friendlyCollisionIgnored;
+    private static int _friendlyUnitsLayer = -1;
+
+    private static void ToggleFriendlyCollision(Archer[] archers)
+    {
+        try
+        {
+            Director director = Managers.Inst != null ? Managers.Inst.director : null;
+            if (director == null) return;
+            float t = director.currentTime;
+            bool isNight = t >= 17.5f || t <= 5.5f;
+
+            if (isNight && !_friendlyCollisionIgnored)
+            {
+                // Sample the units layer from any active archer this pass
+                // (layer name is prefab-serialized, not code-visible).
+                if (archers == null) return;
+                int layer = -1;
+                for (int i = 0; i < archers.Length; i++)
+                {
+                    Archer archer = archers[i];
+                    if (archer == null || archer.gameObject == null
+                        || !archer.gameObject.activeInHierarchy) continue;
+                    layer = archer.gameObject.layer;
+                    break;
+                }
+                if (layer < 0) return; // 本拍无可采样 active 弓箭手，下拍再试
+                _friendlyUnitsLayer = layer; // 关时记下，开时用同值
+                Physics2D.IgnoreLayerCollision(layer, layer, true);
+                _friendlyCollisionIgnored = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[DefenseSpacing] night friendly collision off (layer=" + layer + ")");
+            }
+            else if (!isNight && _friendlyCollisionIgnored)
+            {
+                // 白天恢复：用关时记下的层值，无需再采样（即使弓箭手已清零
+                // 也能恢复）。
+                if (_friendlyUnitsLayer >= 0)
+                {
+                    Physics2D.IgnoreLayerCollision(_friendlyUnitsLayer,
+                        _friendlyUnitsLayer, false);
+                }
+                _friendlyCollisionIgnored = false;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[DefenseSpacing] day friendly collision on");
+            }
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[DefenseSpacing/friendly-collision] " + e);
+        }
+    }
+
     // ---- night parked follower sweep + deep relocation -----------------------
     // Measured: the anchor pullback above only acts when a follower ISSUES a
     // follow goal (a SetGoal call).  Followers restored from a save park at
@@ -518,6 +590,10 @@ public static class PatchWorld_DefenseSpacing
     // Followers take ONLY the re-goal path (continue below), never both.
     // Both parts are naturally rate limited: only units standing outside
     // match, and once inside they stop matching (depth >= -0.5 gate).
+    // Layering note: with the night friendly-collision toggle above active,
+    // the overflow this sweep reacts to stops at the SOURCE — the deep
+    // relocation below remains only as a rare no-op fallback (e.g. units
+    // already outside when the collision was switched off).
     private static bool _loggedNightRegoal;
     private static bool _loggedNightRelocate;
 
@@ -664,6 +740,11 @@ public static class PatchWorld_DefenseSpacing
             if (kingdom.Archers == null) return;
             Archer[] archers = UnityEngine.Object.FindObjectsOfType<Archer>();
             int count = archers != null ? archers.Length : 0;
+
+            // 夜间友军碰撞开关（治本）：夜间关 units-self 碰撞、白天恢复；
+            // 置于 count==0 早退之前，弓箭手清零后的白天恢复分支仍可达。
+            ToggleFriendlyCollision(archers);
+
             if (count == 0) return;
 
             // 夜间弓箭手列队诊断（纯读，每侧每世界一次）
