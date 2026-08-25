@@ -85,7 +85,7 @@ public static class PatchRoles_KnightStyle
     // 每风格骑士 y 缩放（坑11：只动 y），index 对齐 StyleNames：
     // 中世纪 0.95 / 死地 1.05 / 幕府 1.0 / 希腊 0.9（原"希腊特例"泛化为表驱动；
     // 死地 1.05 由 Operator 2026-08 实测定稿）
-    private static readonly float[] KnightStyleScaleY = { 0.95f, 1.05f, 1f, 0.9f };
+    private static readonly float[] KnightStyleScaleY = { 0.95f, 1.05f, 0.95f, 0.9f };
     // 中世纪风格的随从士兵 y 缩放（其余风格 1.0；用户可从身高认出中世纪队）
     private const float FollowerMedievalScaleY = 1.05f;
 
