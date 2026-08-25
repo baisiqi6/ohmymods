@@ -489,6 +489,64 @@ public static class PatchWorld_DefenseSpacing
             + " outsideSample=[" + sample + "]");
     }
 
+    // ---- night parked follower re-goal sweep ---------------------------------
+    // Measured: the anchor pullback above only acts when a follower ISSUES a
+    // follow goal (a SetGoal call).  Followers restored from a save park at
+    // their old saved position — outside the wall — because nothing ever
+    // issues them a new goal; they only return inside once enemies arrive and
+    // the native flee/re-follow cycle re-issues SetGoal ("逃跑后重跟队才
+    // 归位").  Patrol fix: during the night window, re-issue the NATIVE
+    // formation follow goal (Archer.cs:486 form) for every active
+    // knight-follower standing outside the intact wall; the call flows
+    // through our own NightFollowerAnchorPrefix, which pulls the anchor 4.2
+    // units inside, so the follower walks back on its own.  Naturally rate
+    // limited: only outside followers match, and once inside they stop
+    // matching (depth >= -0.5 gate below).
+    private static bool _loggedNightRegoal;
+
+    private static void NightParkedFollowerSweep(Kingdom kingdom, Archer[] archers)
+    {
+        try
+        {
+            Director director = Managers.Inst != null ? Managers.Inst.director : null;
+            if (director == null) return;
+            float t = director.currentTime;
+            if (!(t >= 17.5f || t <= 5.5f)) return; // 非夜间
+
+            for (int i = 0; i < archers.Length; i++)
+            {
+                Archer archer = archers[i];
+                if (archer == null || archer.gameObject == null
+                    || !archer.gameObject.activeInHierarchy) continue;
+                Knight knight = archer._knight;
+                if (knight == null || knight.gameObject == null) continue;
+
+                float side = (float)knight.side;
+                if (side == 0f) continue;
+                float depth = (kingdom.GetBorderSideIntact(knight.side)
+                    - archer.transform.position.x) * side;
+                if (depth >= -0.5f) continue; // 墙内或墙线上，不动
+
+                if (!_loggedNightRegoal)
+                {
+                    _loggedNightRegoal = true;
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                        "[DefenseSpacing] night parked follower re-goaled: x="
+                        + archer.transform.position.x.ToString("F1"));
+                }
+                // 原生跟队目标重发（与 Archer.cs:486 完全同参）；随后的
+                // NightFollowerAnchorPrefix 会把锚点钳到墙内 4.2 步。
+                archer._mover.SetGoal(knight.gameObject, archer.runSpeed,
+                    -archer.knightFollowDistance, Mover.OffsetMode.Formation);
+            }
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[DefenseSpacing/night-regoal] " + e);
+        }
+    }
+
     // Director.Update proved unhookable in 2.4.0 (inlined or replaced — both the
     // depth supervisor and the night-volley probe on it never fired).  Host the
     // pass in a World coroutine instead, the pattern the working GhostLeashHold
@@ -555,6 +613,10 @@ public static class PatchWorld_DefenseSpacing
 
             // 夜间弓箭手列队诊断（纯读，每侧每世界一次）
             ScanNightArcherLineup(kingdom, archers);
+
+            // 夜间滞留墙外随从巡检纠偏：对站墙外的骑士随从重发原生跟队
+            // 目标（会被 NightFollowerAnchorPrefix 拉回墙内 4.2 步锚点）。
+            NightParkedFollowerSweep(kingdom, archers);
 
             int clamped = 0;
             int maxDepth = 0;

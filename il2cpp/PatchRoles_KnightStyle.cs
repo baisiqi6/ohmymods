@@ -11,7 +11,9 @@ namespace KingdomEnhancedMod;
 /// 骑士随机风格（knight-style-026）：招募骑士（Armor 转职）时，每个骑士按确定性哈希
 /// 随机定为 中世纪/死亡之地/幕府/希腊 四种形象之一（纯外观，不动战斗数值）；
 /// 其随从士兵（跟随骑士的 Archer，原生 ConvertToSoldier 已把它们换成当前世界的
-/// 士兵控制器）覆盖为"骑士风格对应"的士兵控制器；希腊风格骑士 y 缩放 0.9。
+/// 士兵控制器）覆盖为"骑士风格对应"的士兵控制器。缩放（坑11：只动 y）：
+/// 骑士按风格查表（中世纪 0.95/死地 1.0/幕府 1.0/希腊 0.9，Strip 恒回 1）；
+/// 中世纪风格的随从士兵 y=1.05（其余 1.0，无骑士/骑士无风格时回 1）。
 ///
 /// 机制要点：
 /// - 转职入口：Character.Promote(DroppableTool, IUnitController) postfix，
@@ -65,10 +67,15 @@ public static class PatchRoles_KnightStyle
 {
     // ---- 常量 ----
     private const int StyleCount = 4;
-    private const int GreeceStyleIndex = 3;
-    private const float GreeceKnightScaleY = 0.9f;
+    private const int MedievalStyleIndex = 0; // 随从缩放特判用（中世纪随从 1.05）
     private const float IntegrityIntervalSeconds = 5f;
     private const float AssetRetryIntervalSeconds = 30f;
+
+    // 每风格骑士 y 缩放（坑11：只动 y），index 对齐 StyleNames：
+    // 中世纪 0.95 / 死地 1.0 / 幕府 1.0 / 希腊 0.9（原"希腊特例"泛化为表驱动）
+    private static readonly float[] KnightStyleScaleY = { 0.95f, 1f, 1f, 0.9f };
+    // 中世纪风格的随从士兵 y 缩放（其余风格 1.0；用户可从身高认出中世纪队）
+    private const float FollowerMedievalScaleY = 1.05f;
 
     private const uint FnvOffset = 2166136261u;
     private const uint FnvPrime = 16777619u;
@@ -113,6 +120,7 @@ public static class PatchRoles_KnightStyle
     private static float _nextAssetRetryAt;
     private static bool _loggedPoolShrunk;
     private static bool _loggedPoolEmpty;
+    private static bool _loggedResolution; // [3a] 解析快照一次性日志去重
 
     // ---- 随从换皮管线诊断（只记录不改行为）----
     // StyleFollowersByLookup 每轮累计各环节数量，与上次"实际输出"的计数缓存比对：
@@ -233,6 +241,7 @@ public static class PatchRoles_KnightStyle
     /// <summary>
     /// 风格池收缩：某风格的骑士或士兵控制器缺失 → 该风格从池中剔除，
     /// 哈希对剩余池取模（均匀重映射）。全缺 → 禁用本功能。
+    /// 首次到达稳定态（全解析/收缩告警/全缺）时输出解析快照（LogResolutionOnce）。
     /// </summary>
     private static void BuildAvailablePool()
     {
@@ -253,6 +262,7 @@ public static class PatchRoles_KnightStyle
         if (AvailableStyles.Count == StyleCount)
         {
             _assetsComplete = true;
+            LogResolutionOnce();
             return;
         }
         if (AvailableStyles.Count == 0)
@@ -263,6 +273,7 @@ public static class PatchRoles_KnightStyle
                 LogWarning("no style controllers resolved (missing: " + missing
                     + "); knight styling disabled");
             }
+            LogResolutionOnce();
             return;
         }
         if (!_loggedPoolShrunk)
@@ -271,6 +282,44 @@ public static class PatchRoles_KnightStyle
             LogWarning("partial controller resolution (missing: " + missing
                 + "); style pool shrunk to " + AvailableStyles.Count
                 + "/" + StyleCount + ", hash remapped uniformly");
+        }
+        LogResolutionOnce();
+    }
+
+    /// <summary>
+    /// [3a] 解析快照一次性日志：全部 请求名=解析对象名（&lt;null&gt;=未解析，
+    /// wrapper 非空即指针非空）+ 北境款。暴露重名/错配——实锤案例：幕府随从
+    /// 不换皮疑似 archer_soldier_bamboo 解析到了错误对象（名字与请求不符
+    /// 会直接显示出来）。
+    /// </summary>
+    private static void LogResolutionOnce()
+    {
+        if (_loggedResolution) return;
+        _loggedResolution = true;
+        try
+        {
+            var knightText = new System.Text.StringBuilder();
+            for (int i = 0; i < StyleCount; i++)
+            {
+                if (i > 0) knightText.Append(' ');
+                knightText.Append(KnightControllerNames[i]).Append('=')
+                    .Append(KnightControllers[i] != null ? KnightControllers[i].name : "<null>");
+            }
+            var soldierText = new System.Text.StringBuilder();
+            for (int i = 0; i < StyleCount; i++)
+            {
+                if (i > 0) soldierText.Append(' ');
+                soldierText.Append(SoldierControllerNames[i]).Append('=')
+                    .Append(SoldierControllers[i] != null ? SoldierControllers[i].name : "<null>");
+            }
+            LogInfo("resolution: knight[" + knightText + "] soldier[" + soldierText
+                + "] norse[" + NorselandsSoldierControllerName + "="
+                + (_norselandsSoldierController != null ? _norselandsSoldierController.name : "<null>")
+                + "]");
+        }
+        catch (Exception e)
+        {
+            LogErrorOnce("resolution snapshot log failed", e);
         }
     }
 
@@ -475,15 +524,16 @@ public static class PatchRoles_KnightStyle
     }
 
     /// <summary>
-    /// 缩放（坑11：只动 y，x 是朝向符号）。希腊注册 ScaleRegistry 每帧守卫
-    /// （池 respawn/原生重置能自愈），非希腊注销守卫并确保 y=1。
+    /// 骑士缩放（坑11：只动 y，x 是朝向符号）：按风格查 KnightStyleScaleY 表
+    /// （中世纪 0.95/死地 1.0/幕府 1.0/希腊 0.9）。y≠1 注册 ScaleRegistry 每帧
+    /// 守卫（池 respawn/原生重置能自愈），y=1 注销守卫。Apply/Reassert 共用；
+    /// Strip 不走此表，恒回 1（恢复原生身材）。
     /// </summary>
     private static void ApplyScale(Knight knight, int styleIndex)
     {
         try
         {
-            bool greek = styleIndex == GreeceStyleIndex;
-            float targetY = greek ? GreeceKnightScaleY : 1f;
+            float targetY = KnightStyleScaleY[styleIndex];
             Vector3 scale = knight.transform.localScale;
             if (Mathf.Abs(scale.y - targetY) > 0.0001f)
             {
@@ -493,12 +543,39 @@ public static class PatchRoles_KnightStyle
 
             Mover mover = knight._mover;
             if (mover == null) mover = knight.GetComponent<Mover>();
-            if (greek) ScaleRegistryHolder.Register(mover, GreeceKnightScaleY);
+            if (targetY != 1f) ScaleRegistryHolder.Register(mover, targetY);
             else ScaleRegistryHolder.Unregister(mover);
         }
         catch (Exception e)
         {
             LogErrorOnce("knight scale apply failed", e);
+        }
+    }
+
+    /// <summary>
+    /// 随从缩放（坑11：只动 y）：中世纪风格的随从士兵 y=1.05，其余（含骑士无
+    /// 风格/随从无骑士的清理路径传 1）回 1.0。y≠1 注册守卫，y=1 注销。
+    /// 每轮幂等重算：随从换队（骑士死了改投他人）时缩放自动跟随新骑士风格。
+    /// </summary>
+    private static void EnsureFollowerScale(Archer archer, float targetY)
+    {
+        try
+        {
+            Vector3 scale = archer.transform.localScale;
+            if (Mathf.Abs(scale.y - targetY) > 0.0001f)
+            {
+                scale.y = targetY;
+                archer.transform.localScale = scale;
+            }
+
+            Mover mover = archer._mover;
+            if (mover == null) mover = archer.GetComponent<Mover>();
+            if (targetY != 1f) ScaleRegistryHolder.Register(mover, targetY);
+            else ScaleRegistryHolder.Unregister(mover);
+        }
+        catch (Exception e)
+        {
+            LogErrorOnce("follower scale apply failed", e);
         }
     }
 
@@ -731,6 +808,11 @@ public static class PatchRoles_KnightStyle
             float diagSampleX = 0f;
             string diagSampleController = "<no withKnight sample>";
             bool diagSampleTaken = false;
+            // [3b] per-style 目标分布（各风格骑士名下的随从数）与当前控制器名频次
+            // （curTop top2）——定位"某风格随从不换皮"（如幕府解析到错误对象时，
+            // shogun 目标随从的 curTop 仍是非幕府士兵皮）
+            var diagStyleTargets = new int[StyleCount];
+            var diagCurrentNames = new Dictionary<string, int>();
 
             for (int i = 0; i < archers.Length; i++)
             {
@@ -743,6 +825,7 @@ public static class PatchRoles_KnightStyle
 
                     // 弩手按设计不入骑士队（IsAvailableForJob 已排除），防御性跳过；
                     // 诊断计入 skippedOther（"其他原因"之一）。内部有注册防御，安全。
+                    // 注意：弩手缩放（1.15）归 Crossbowman 管，本补丁绝不碰其缩放。
                     if (PatchRoles_Crossbowman.IsCrossbowman(archer))
                     {
                         diagSkippedOther++;
@@ -750,8 +833,26 @@ public static class PatchRoles_KnightStyle
                     }
 
                     Knight knight = archer._knight;
-                    if (knight == null || knight.gameObject == null) continue;
+                    if (knight == null || knight.gameObject == null)
+                    {
+                        // 无骑士（离队/猎人）：随从缩放确保回 1（幂等；曾随中世纪
+                        // 骑士放大到 1.05 的随从离队后在此归位）
+                        EnsureFollowerScale(archer, 1f);
+                        continue;
+                    }
                     diagWithKnight++;
+
+                    // 当前控制器名：样本与 [3b] 频次共用同一次查询
+                    Animator diagAnimator = archer._animator;
+                    if (diagAnimator == null)
+                        diagAnimator = archer.GetComponentInChildren<Animator>();
+                    RuntimeAnimatorController diagController = diagAnimator != null
+                        ? diagAnimator.runtimeAnimatorController : null;
+                    string controllerName = diagController != null
+                        ? diagController.name : "<null>";
+                    if (diagCurrentNames.TryGetValue(controllerName, out int nameCount))
+                        diagCurrentNames[controllerName] = nameCount + 1;
+                    else diagCurrentNames[controllerName] = 1;
 
                     // 样本 = 第一个 withKnight 弓箭手的 x 坐标 + 当前控制器名：
                     // 队籍判定下主要用于观测皮肤分布（猎人皮=白天分散/离队瞬间；
@@ -760,30 +861,38 @@ public static class PatchRoles_KnightStyle
                     {
                         diagSampleTaken = true;
                         diagSampleX = archer.transform.position.x;
-                        Animator sampleAnimator = archer._animator;
-                        if (sampleAnimator == null)
-                            sampleAnimator = archer.GetComponentInChildren<Animator>();
-                        RuntimeAnimatorController sampleController =
-                            sampleAnimator != null ? sampleAnimator.runtimeAnimatorController : null;
-                        diagSampleController = sampleController != null
-                            ? sampleController.name : "<null controller>";
+                        diagSampleController = controllerName;
                     }
 
                     // 状态表键 = 骑士 gameObject.GetInstanceID()（与全部写入点一致）
                     KnightStyleState state;
                     if (!States.TryGetValue(knight.gameObject.GetInstanceID(), out state))
+                    {
+                        // 骑士未上风格（第一段本轮/下轮会补）：随从缩放先确保回 1
+                        EnsureFollowerScale(archer, 1f);
                         continue;
-                    if (!state.HasStyle) continue;
+                    }
+                    if (!state.HasStyle)
+                    {
+                        EnsureFollowerScale(archer, 1f);
+                        continue;
+                    }
                     diagInStates++;
+                    if (state.StyleIndex >= 0 && state.StyleIndex < StyleCount)
+                        diagStyleTargets[state.StyleIndex]++;
+
+                    // 随从缩放（[2]）：中世纪 1.05，其余 1.0；随从换队（骑士死了
+                    // 改投他人）时每轮幂等重算，缩放自动跟随新骑士风格
+                    EnsureFollowerScale(archer,
+                        state.StyleIndex == MedievalStyleIndex ? FollowerMedievalScaleY : 1f);
 
                     RuntimeAnimatorController target = SoldierControllers[state.StyleIndex];
                     if (target == null) { diagSkippedOther++; continue; }
 
-                    Animator animator = archer._animator;
-                    if (animator == null) animator = archer.GetComponentInChildren<Animator>();
+                    Animator animator = diagAnimator; // 复用上面的查询结果
                     if (animator == null) { diagSkippedOther++; continue; }
 
-                    RuntimeAnimatorController current = animator.runtimeAnimatorController;
+                    RuntimeAnimatorController current = diagController;
                     if (current == null) { diagSkippedOther++; continue; }
                     if (current.Pointer == target.Pointer)
                     {
@@ -803,7 +912,10 @@ public static class PatchRoles_KnightStyle
             }
 
             LogFollowerDiag(diagArchers, diagWithKnight, diagInStates, diagStyled,
-                diagSkippedFamily, diagSkippedOther, diagSampleX, diagSampleController);
+                diagSkippedFamily, diagSkippedOther, diagSampleX, diagSampleController,
+                "med:" + diagStyleTargets[0] + " dead:" + diagStyleTargets[1]
+                + " shog:" + diagStyleTargets[2] + " gree:" + diagStyleTargets[3],
+                BuildTopControllerNames(diagCurrentNames));
         }
         catch (Exception e)
         {
@@ -813,12 +925,15 @@ public static class PatchRoles_KnightStyle
 
     /// <summary>
     /// 随从换皮管线诊断日志（只记录不改行为）：一行输出各环节数量 +
-    /// 首个 withKnight 样本，定位效果在哪一环丢弃。限频：距上次实际输出
-    /// ≥60s，且本轮计数与上次输出时的缓存不同才输出（纯读、无行为影响）；
-    /// 世界切换时 SupervisorRoutine 复位基线，新世界首轮立即可输出。
+    /// 首个 withKnight 样本 + per-style 目标分布 + 当前控制器 top2（[3b]），
+    /// 定位效果在哪一环丢弃。限频：距上次实际输出 ≥60s，且本轮计数与上次
+    /// 输出时的缓存不同才输出（纯读、无行为影响）；世界切换时
+    /// SupervisorRoutine 复位基线，新世界首轮立即可输出。
+    /// styleTargets/curTop 不参与变化检测：计数变化通常已触发，避免缓存膨胀。
     /// </summary>
     private static void LogFollowerDiag(int archers, int withKnight, int inStates,
-        int styled, int skippedFamily, int skippedOther, float sampleX, string sampleController)
+        int styled, int skippedFamily, int skippedOther, float sampleX, string sampleController,
+        string styleTargets, string curTop)
     {
         try
         {
@@ -848,12 +963,43 @@ public static class PatchRoles_KnightStyle
                 + " skippedFamily=" + skippedFamily
                 + " skippedOther=" + skippedOther
                 + " sample=archer@" + sampleX.ToString("F1")
-                + " controller=" + sampleController);
+                + " controller=" + sampleController
+                + " styleTargets=" + styleTargets
+                + " curTop=" + curTop);
         }
         catch (Exception e)
         {
             LogErrorOnce("follower diag failed", e);
         }
+    }
+
+    /// <summary>
+    /// [3b] 当前控制器名频次 top2（"名:xN 名:xN"格式，不足两项则一项，
+    /// 无随从则 &lt;none&gt;）——与 styleTargets 交叉定位"某风格随从不换皮"：
+    /// 如 shogun 有目标随从但 curTop 全是非幕府皮，即目标分发/解析问题。
+    /// </summary>
+    private static string BuildTopControllerNames(Dictionary<string, int> counts)
+    {
+        string firstName = null, secondName = null;
+        int firstCount = 0, secondCount = 0;
+        foreach (KeyValuePair<string, int> pair in counts)
+        {
+            if (pair.Value > firstCount)
+            {
+                secondName = firstName;
+                secondCount = firstCount;
+                firstName = pair.Key;
+                firstCount = pair.Value;
+            }
+            else if (pair.Value > secondCount)
+            {
+                secondName = pair.Key;
+                secondCount = pair.Value;
+            }
+        }
+        if (firstName == null) return "<none>";
+        if (secondName == null) return firstName + ":x" + firstCount;
+        return firstName + ":x" + firstCount + " " + secondName + ":x" + secondCount;
     }
 }
 
