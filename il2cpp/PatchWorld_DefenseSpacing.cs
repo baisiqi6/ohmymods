@@ -110,45 +110,23 @@ public static class PatchWorld_DefenseSpacing
         // Measured live: depth = rank * _distanceFromWall (1.0 per rank, r15 at
         // 15 units behind the wall).  Follower archers trail their knight by
         // knightFollowDistance, so rank N puts its squad's bows at roughly
-        // N*spacing + 1 — far past the 8-unit bow range for N > 7.
-        // Evolution — v2.1.0 compressed ranks into 1..KnightRankCap around the
-        // clock; but knights ALSO stand in rank columns by day (GetTargetPos()
-        // = guardPos - side * (_distanceFromWall * rank), Knight.cs:656, taken
-        // whenever ShouldAssemble() = isDaytime && isSafe, Knight.cs:950), so
-        // the all-day compression stacked squads 3-deep per slot in daytime
-        // too — 19 knights crammed into 7 depth slots, knights clumped and
-        // follower skins vanished inside the pile.  Now the remap is day/night
-        // split: night keeps the accepted v2.1.0 compact wall defense, day
-        // spreads every knight into its own rank (RemapKnightRanks/SpreadSide).
+        // N*spacing + 1 — far past the 8-unit bow range for N > 7.  Remap ranks
+        // per side into 1..KnightRankCap each pass; with more knights than cap
+        // values some squads share a depth slot (native code has no invariant
+        // on rank uniqueness).  The remap is idempotent: once compressed it
+        // leaves ranks untouched until native RankKnights() exceeds the cap
+        // again after a hire or a loss.
         if (NetworkBigBoss.HasWorldAuth) RemapKnightRanks(knights, kingdom);
     }
 
     private const int KnightRankCap = 7;
 
     private static bool _loggedKnightRemap;
-    private static bool _loggedKnightSpread;
 
-    // Day/night split (evolution from v2.1.0 all-day compression).  Knights
-    // hold rank columns around the clock: GetTargetPos() = guardPos -
-    // side * (_distanceFromWall * rank) (Knight.cs:656) is what they walk to
-    // whenever ShouldAssemble() = isDaytime && isSafe ... (Knight.cs:950)
-    // holds — i.e. the daytime "idle" formation is the SAME rank ladder as the
-    // night wall defense.  v2.1.0 compressed that ladder to 1..KnightRankCap
-    // around the clock, so daytime squads stacked 3-deep per slot (knights
-    // clumped, follower skins hidden).  Now: night keeps the accepted compact home
-    // defense (RemapSide, unchanged); day spreads one rank per knight
-    // (SpreadSide) so squads stand loose and followers stay visible.
-    // Clock access follows PatchPerformance_NightVolley (null director ->
-    // skip this pass, keep last ranks).
     private static void RemapKnightRanks(Knight[] knights, Kingdom kingdom)
     {
         try
         {
-            Director director = Managers.Inst != null ? Managers.Inst.director : null;
-            if (director == null) return;
-            float t = director.currentTime;
-            bool isNight = t >= 17.5f || t <= 5.5f;
-
             var left = new System.Collections.Generic.List<Knight>();
             var right = new System.Collections.Generic.List<Knight>();
             for (int i = 0; i < knights.Length; i++)
@@ -159,35 +137,15 @@ public static class PatchWorld_DefenseSpacing
                 if (knight.side == Side.Left) left.Add(knight);
                 else if (knight.side == Side.Right) right.Add(knight);
             }
-            if (isNight)
+            int remapped = 0;
+            remapped += RemapSide(left);
+            remapped += RemapSide(right);
+            if (!_loggedKnightRemap && remapped > 0)
             {
-                // Night: unchanged v2.1.0 semantics — compress each side into
-                // 1..KnightRankCap so every squad's bows stay in range at the
-                // wall (bows trail knights by knightFollowDistance).
-                int remapped = 0;
-                remapped += RemapSide(left);
-                remapped += RemapSide(right);
-                if (!_loggedKnightRemap && remapped > 0)
-                {
-                    _loggedKnightRemap = true;
-                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                        "[DefenseSpacing] knight ranks compressed to cap="
-                        + KnightRankCap + " remapped=" + remapped);
-                }
-            }
-            else
-            {
-                // Day: full-width spread, one rank per knight (1..count).
-                SpreadSide(left);
-                SpreadSide(right);
-                int total = left.Count + right.Count;
-                if (!_loggedKnightSpread && total > 0)
-                {
-                    _loggedKnightSpread = true;
-                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                        "[DefenseSpacing] knight ranks spread for daytime: count="
-                        + total);
-                }
+                _loggedKnightRemap = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[DefenseSpacing] knight ranks compressed to cap="
+                    + KnightRankCap + " remapped=" + remapped);
             }
         }
         catch (Exception e)
@@ -225,42 +183,111 @@ public static class PatchWorld_DefenseSpacing
         return changed;
     }
 
+    // ---- daytime knight assemble spread ------------------------------------
+    // Ground truth (Knight.cs Assemble, 2.1.0 lines 662-680): the daytime idle
+    // assembly walks EVERY knight to the SAME point — banner.x + side*3 (or
+    // border + side*4 with no banner) plus Random.Range(-1,1) — then re-walks
+    // every ~10s (WaitForSeconds(10) at the coroutine tail).  It never reads
+    // rank: rank only positions the NIGHT wall lineup (GetTargetPos,
+    // Knight.cs:656), and RemapKnightRanks above is the v2.1.0 all-day
+    // compression (1..KnightRankCap) restored verbatim so the night compact
+    // defense keeps its accepted semantics.  With 19 knights the same-point
+    // walk is a single clump with follower skins buried (user report:
+    // knights clump by day, no follower skin visible).  Fix at the movement
+    // layer instead: intercept the Mover.SetGoal(float,float) call Assemble
+    // issues and push x out by rank*0.75 — with ranks compressed to 1..7 the
+    // squad spreads over a dayZone..dayZone-5.25 band, and every 10s native
+    // re-walk re-rolls the ±1 for an idle-strolling look.
+    // Mover.SetGoal(float,float) is a shared hot path (archer hunting etc.),
+    // so a static mover-instanceID -> is-knight cache gates it: one
+    // GetComponent<Knight> probe per mover, non-knights permanently skipped.
+    private static readonly System.Collections.Generic.Dictionary<int, int> _moverIsKnight =
+        new System.Collections.Generic.Dictionary<int, int>();
+    private static bool _loggedDaySpread;
+
     /// <summary>
-    /// Daytime counterpart of <see cref="RemapSide"/>: every knight on the
-    /// side gets its OWN rank 1..count (no shared depth slots), ordered by
-    /// gameObject.GetInstanceID().  The sort key is stable for the session,
-    /// so daytime ranks do not jitter between passes (same order -> same
-    /// ranks = idempotent).  Day/night transitions migrate naturally: after
-    /// dusk the night branch's RemapSide re-compresses to the cap within one
-    /// 3s pass; after dawn this re-spreads whatever the compression left.
-    /// Grounds: daytime idle knights stand in the same rank ladder as at
-    /// night — GetTargetPos() = guardPos - side * (_distanceFromWall * rank)
-    /// (Knight.cs:656) via ShouldAssemble() = isDaytime && isSafe
-    /// (Knight.cs:950).
+    /// Prefix body for Mover.SetGoal(float, float).  Returns false (skip the
+    /// native call, goal replaced) only for a daytime knight Assemble walk;
+    /// true (native call untouched) for everything else.
     /// </summary>
-    private static int SpreadSide(System.Collections.Generic.List<Knight> side)
+    internal static bool DayAssembleSpreadPrefix(Mover mover, float goal, float speed)
     {
-        if (side.Count == 0) return 0;
-        side.Sort((a, b) =>
-            a.gameObject.GetInstanceID().CompareTo(b.gameObject.GetInstanceID()));
-        int changed = 0;
-        for (int i = 0; i < side.Count; i++)
+        try
         {
-            int newRank = i + 1;
-            if (side[i].rank == newRank) continue;
-            side[i].rank = newRank;
-            changed++;
+            if (!ModConfig.Enabled.Value || mover == null) return true;
+
+            // Fast path: cached is-knight verdict per mover instance.  Pooled
+            // movers keep their components, so the verdict never flips.
+            int id = mover.GetInstanceID();
+            if (!_moverIsKnight.TryGetValue(id, out int isKnight))
+            {
+                isKnight = mover.GetComponent<Knight>() != null ? 1 : 0;
+                _moverIsKnight[id] = isKnight;
+            }
+            if (isKnight == 0) return true;
+
+            Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
+            if (kingdom == null || !kingdom.isDaytime) return true;
+
+            Knight knight = mover.GetComponent<Knight>();
+            if (knight == null || knight.gameObject == null) return true;
+            float side = (float)knight.side;
+            if (side == 0f) return true;
+
+            // dayZone mirrors Assemble's own target (Knight.cs): banner.x +
+            // side*3, falling back to border + side*4 when the banner slot is
+            // missing or the access throws.
+            float dayZone;
+            try
+            {
+                PayableBorder banner = kingdom.borderBanner != null
+                    ? kingdom.borderBanner[knight.side] : null;
+                dayZone = banner != null && banner.transform != null
+                    ? banner.transform.position.x + side * 3f
+                    : kingdom.GetBorderSide(knight.side) + side * 4f;
+            }
+            catch
+            {
+                dayZone = kingdom.GetBorderSide(knight.side) + side * 4f;
+            }
+
+            // Only intercept the Assemble walk: |goal - dayZone| <= 1.6 (the
+            // native target is dayZone ±1).  Night wall targets sit at wall -
+            // depth and fall outside this band, and our redirected target is
+            // rank*0.75 deep so most re-entries self-filter: rank 1/2 edge
+            // re-entries merely re-roll the ±1 and decay out of the band
+            // geometrically — no re-entrancy flag needed.
+            if (Math.Abs(goal - dayZone) > 1.6f) return true;
+
+            float newX = dayZone - side * (knight.rank * 0.75f)
+                + UnityEngine.Random.Range(-1f, 1f);
+            if (!_loggedDaySpread)
+            {
+                _loggedDaySpread = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[DefenseSpacing] day assemble spread active: rank="
+                    + knight.rank + " newX=" + newX.ToString("F2"));
+            }
+            mover.SetGoal(newX, speed); // re-enters this prefix, see band note
+            return false; // skip the native SetGoal
         }
-        return changed;
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[DefenseSpacing/day-spread] " + e);
+            return true;
+        }
     }
 
     // ---- night archer lineup report ----------------------------------------
     // 夜间弓箭手列队诊断（只记录不改行为，每侧每世界只输出一次）：
     // 用户报告"守家时一部分弓箭手站在城墙外面"+"站得拥挤"。挂在现有
     // DepthClampPass 扫描里：夜间（director.currentTime >= 17.5 || <= 5.5）
-    // 且某侧 depth 在 [-6,8] 区间的弓箭手 >=5 时，输出该侧队列构成——
+    // 且某侧 depth 在 [-6,10] 区间的弓箭手 >=5 时，输出该侧队列构成——
     // 站到墙外（depth < -0.5）的数量与前三个样本 x、弩手/骑士随从/普通弓
     // 的占比。depth 公式与上面骑士 lineup 相同：(墙x - 单位x) * side。
+    // 侧归属按位置而非 _guardSide：实测（knightstyle6 会话一整夜零输出）
+    // 很多守家弓箭手 _guardSide 疑为中性 0，按侧过滤会全部漏掉。
     // 弩手判定用 PatchRoles_Crossbowman.IsCrossbowman（内部有注册防御，安全）。
     private static bool _loggedArcherLineupLeft;
     private static bool _loggedArcherLineupRight;
@@ -289,10 +316,11 @@ public static class PatchWorld_DefenseSpacing
     }
 
     /// <summary>
-    /// 单侧夜间弓箭手列队报告（纯读）。total=depth 在 [-6,8] 区间的该侧弓箭手
-    /// 总数；outside=其中 depth&lt;-0.5（站到墙外）的数量，outsideSample 为前
-    /// 三个墙外弓箭手的 x 坐标；xbow/followers/plain 为同一集合内弩手、
-    /// 有 _knight 的骑士随从、其余普通弓的数量（三分类互斥，plain=total-其余）。
+    /// 单侧夜间弓箭手列队报告（纯读）。total=depth 在 [-6,10] 区间的该侧弓箭手
+    /// 总数（侧归属纯按位置，不读 _guardSide）；outside=其中 depth&lt;-0.5
+    /// （站到墙外）的数量，outsideSample 为前三个墙外弓箭手的 x 坐标；
+    /// xbow/followers/plain 为同一集合内弩手、有 _knight 的骑士随从、其余
+    /// 普通弓的数量（三分类互斥，plain=total-其余）。
     /// </summary>
     private static void ReportArcherLineupSide(Kingdom kingdom, Archer[] archers,
         Side side, ref bool logged, string sideLabel)
@@ -308,11 +336,11 @@ public static class PatchWorld_DefenseSpacing
             Archer archer = archers[i];
             if (archer == null || archer.gameObject == null
                 || !archer.gameObject.activeInHierarchy) continue;
-            if (archer._guardSide != side) continue;
 
-            // depth 同骑士 lineup 公式；区间外（未列队/游荡）的不进报告
+            // depth 同骑士 lineup 公式；区间外（未列队/游荡）的不进报告。
+            // 侧归属按位置（depth 相对该侧墙落在带内即算），不读 _guardSide。
             float depth = (wall - archer.transform.position.x) * sign;
-            if (depth < -6f || depth > 8f) continue;
+            if (depth < -6f || depth > 10f) continue;
             inBand++;
 
             if (depth < -0.5f)
@@ -360,7 +388,6 @@ public static class PatchWorld_DefenseSpacing
         _loggedKnightSample = false;
         _loggedKnightLineup = false;
         _loggedKnightRemap = false;
-        _loggedKnightSpread = false;
         // 夜间弓箭手列队诊断：每世界每侧重新武装
         _loggedArcherLineupLeft = false;
         _loggedArcherLineupRight = false;
@@ -486,5 +513,23 @@ public static class World_DefenseSpacing_Supervisor_Host_Patch
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(
                 "[DefenseSpacing] supervisor start failed: " + e);
         }
+    }
+}
+
+// Daytime knight assemble spread: redirect the shared Mover.SetGoal(float,
+// float) only when the caller is a knight walking to its daytime Assemble
+// point.  The overload is pinned with the explicit float,float type array
+// (Mover also has a GameObject overload).  All logic, gating and the
+// mover-is-knight cache live in PatchWorld_DefenseSpacing.
+// DayAssembleSpreadPrefix — see the section comment there for the
+// Knight.cs Assemble grounds (same-point ±1 target, 10s re-walk, rank only
+// used by the night wall lineup).
+[HarmonyPatch(typeof(Mover), nameof(Mover.SetGoal), new[] { typeof(float), typeof(float) })]
+public static class Mover_DefenseSpacing_DayAssemble_Spread_Patch
+{
+    [HarmonyPrefix]
+    private static bool Prefix(Mover __instance, float goal, float speed)
+    {
+        return PatchWorld_DefenseSpacing.DayAssembleSpreadPrefix(__instance, goal, speed);
     }
 }

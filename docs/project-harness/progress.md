@@ -1,3 +1,16 @@
+## 2026-08-25（四） — knightstyle7：白天骑士散布（Assemble目标拦截）+回滚rank分治
+
+- 好消息先记：knightstyle6 实测 styled=76/skippedFamily=0——随从队籍换皮确认生效。
+- 白天聚堆根因更正：Knight.Assemble（Knight.cs:662-680）全员同点（banner+3 或 wall+4）±1
+  随机、每10s重走——与 rank 无关。上一版 rank 昼夜分治基于错误假设，已回滚（且其白天
+  铺开的 rank 会被黄昏墙前列队消费，破坏夜间紧凑）。
+- 新方案：Mover.SetGoal(float,float) prefix——Knight 缓存判定（非骑士零影响）+ isDaytime +
+  目标落 dayZone±1.6 带内才命中；newX=dayZone−side×rank×0.75±1（19骑士散在~5.25带内，
+  原生10s重走自动变各自踱步）。夜间墙前目标出带不受影响。
+- 追加：夜间弓箭手 lineup 诊断放宽（knightstyle6 整夜零输出——_guardSide 过滤太严；
+  改纯位置归属[-6,10]，≥5触发）。
+- 编译 0W/0E，build=2.2.0-knightstyle7 已部署 E 盘（SHA 前16=60133c8487098cc1）。
+
 ## 2026-08-25（三） — knightstyle6：随从换皮改队籍判定（diag 实锤断点修复）
 
 - follower diag 硬数据：archers=131 withKnight=76 inStates=76 styled=0 skippedFamily=76，
