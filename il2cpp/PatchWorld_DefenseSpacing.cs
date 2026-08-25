@@ -489,7 +489,7 @@ public static class PatchWorld_DefenseSpacing
             + " outsideSample=[" + sample + "]");
     }
 
-    // ---- night parked follower sweep + outside hard floor --------------------
+    // ---- night parked follower sweep + deep relocation -----------------------
     // Measured: the anchor pullback above only acts when a follower ISSUES a
     // follow goal (a SetGoal call).  Followers restored from a save park at
     // their old saved position — outside the wall — because nothing ever
@@ -500,17 +500,26 @@ public static class PatchWorld_DefenseSpacing
     // knight-follower standing outside the intact wall; the call flows through
     // our own NightFollowerAnchorPrefix, which pulls the anchor 4.2 units
     // inside, so the follower walks back on its own.
-    // Part 2 — hard floor (measured follow-up): plain knight-less archers
-    // ALSO end up outside at night: the native crowding/push system squeezes
-    // the high-density wall crowd outward, and native mover goals carry no
-    // outside-the-wall constraint, so nothing ever pulls them back (弩手同样
-    // 是守家单位，一并覆盖).  Final fallback: teleport any knight-less
-    // archer standing outside back to 0.6 units inside the intact wall.
+    // Part 2 — deep relocation (rework of the hard floor): plain knight-less
+    // archers ALSO end up outside at night: the native crowding/push system
+    // squeezes the high-density wall crowd outward, and native mover goals
+    // carry no outside-the-wall constraint (弩手同样是守家单位，一并覆盖).
+    // The first fix TELEPORTED outside archers to 0.6 inside — measured
+    // result: the density cap pushed them right back out, so the visible
+    // behaviour was "snap inside, spread back out, repeat": the teleport
+    // fights the push system and cannot cure it (131 archers simply overflow
+    // the wall-front space; the overflow has no directional constraint).
+    // Root-cause-compatible fix: WALK them deep instead — issue a position
+    // goal 8..18 units inside the wall at walkSpeed; the deep rear space is
+    // low-density, so the push system no longer expels them.  If a native
+    // guard goal later drags one back into the crowded strip and it gets
+    // squeezed out again, the next 3s sweep simply relocates it again — a
+    // walking loop, not a teleport snap, which reads as natural movement.
     // Followers take ONLY the re-goal path (continue below), never both.
     // Both parts are naturally rate limited: only units standing outside
     // match, and once inside they stop matching (depth >= -0.5 gate).
     private static bool _loggedNightRegoal;
-    private static bool _loggedNightFloor;
+    private static bool _loggedNightRelocate;
 
     private static void NightParkedFollowerSweep(Kingdom kingdom, Archer[] archers)
     {
@@ -568,17 +577,22 @@ public static class PatchWorld_DefenseSpacing
                 float wall = kingdom.GetBorderSideIntact(side);
                 if ((wall - x) * sideSign >= -0.5f) continue; // 墙内或墙线上
 
-                // 硬地板兜底：直接写位置，墙外 → 墙内 0.6 步（只动 x）。
-                Vector3 pos = archer.transform.position;
-                archer.transform.position =
-                    new Vector3(wall - sideSign * 0.6f, pos.y, pos.z);
-                if (!_loggedNightFloor)
+                // 深处重定位：不下发原地钳位（瞬移），改发墙内 8~18 步深
+                // 处的位置目标，以 walkSpeed 步行回位（Archer.cs:598 狩猎
+                // 路径同款公开字段）。深处密度低，推挤不再把人挤出墙。
+                float deep = UnityEngine.Random.Range(8f, 18f);
+                if (!_loggedNightRelocate)
                 {
-                    _loggedNightFloor = true;
+                    _loggedNightRelocate = true;
                     KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                        "[DefenseSpacing] night outside archer floored: x="
-                        + x.ToString("F1") + " side=" + (side == Side.Left ? "L" : "R"));
+                        "[DefenseSpacing] night outside archer re-located deep: x="
+                        + x.ToString("F1") + " -> wall-" + deep.ToString("F1"));
                 }
+                // 防抖：巡检周期即 3s，同一弓箭手两次下发间隔天然 >= 3s
+                // （走到墙内即不再触发），无需额外时间戳字典。SetGoal 走
+                // float 重载：该 mover 非 Knight，day-spread prefix 的
+                // is-knight 缓存直接放行，且本就在夜间，无递归。
+                archer._mover.SetGoal(wall - sideSign * deep, archer.walkSpeed);
             }
         }
         catch (Exception e)
@@ -657,7 +671,7 @@ public static class PatchWorld_DefenseSpacing
 
             // 夜间滞留墙外纠偏：骑士随从重发原生跟队目标（被
             // NightFollowerAnchorPrefix 拉回墙内 4.2 步锚点）；无骑士的
-            // 弓箭手/弩手直接硬地板钳回墙内 0.6 步。
+            // 弓箭手/弩手重定位到墙内 8~18 步深处步行回位。
             NightParkedFollowerSweep(kingdom, archers);
 
             int clamped = 0;
