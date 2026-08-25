@@ -1,3 +1,15 @@
+## 2026-08-25（八） — knightstyle11：死地随从弩手化+夜间硬地板+弩矢观感
+
+- 死地随从弩手化：无标记轻量包（SO/射程12/间隔×2/1.15），ApplyFollowerSkinTo 统一路径
+  消费，换队/离队 Restore 幂等；worker 自查堵两洞（真弩手上塔误拆包→IsCrossbowman 防御；
+  死地世界皮判重饿死包→巡检按风格独立调用）。
+- 夜间硬地板：随从清零后普通弓箭手仍被推挤挤出墙外——NightParkedFollowerSweep 扩全单位
+  （随从优先重发跟队 continue，其余 depth<-0.5 钳回墙内0.6步，_guardSide 中性按近墙侧判）。
+- 弩矢观感（用户实锤弩矢与箭无区别；平直失败真凶=ParabolaCast 被自家墙挡选高抛解）：
+  SO._arrowOriginOffset=(2.5,1.0) 出膛前移过墙沿→原生选低弹道解；初速×2（包络32/索敌12，
+  站桩狙击旧行为）；弩矢 _alwaysDrawTrail+尾0.25s 常显拖尾+体型0.85。死地随从共享 SO 自动受益。
+- 编译 0W/0E，build=2.2.0-knightstyle11 已部署 E 盘（SHA 前16=c9ec84848a8449f8）。
+
 ## 2026-08-25（七） — knightstyle10：随从换皮翻牌治本 + 死地骑士1.05
 
 - knightstyle9 日志：墙外随从清零（两侧 outside=0，原31/24）；dayIndex 独占踱步运行；

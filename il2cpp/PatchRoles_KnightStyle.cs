@@ -44,6 +44,13 @@ namespace KingdomEnhancedMod;
 ///   即时重涂风格皮，5s 巡检只兜底。代价与收益：白天分散的随从也穿风格士兵皮
 ///   （随时认出归属）；真正离队时原生先置 _knight=null 再 ConvertToHunter，
 ///   猎人皮正确保留，无需清理。
+/// - 死地随从"无标记弩手化"（用户拍板）：骑士风格==死地 → 随从战斗包与弩手
+///   一致（ActiveArrowAttack=KEM_CrossbowAttack 克隆 SO、shootRange/扫描器 12、
+///   间隔 ×2、y=1.15，Crossbowman.ApplySquadCrossbowPackage），非死地/无队籍/
+///   无风格 → RestoreSquadCrossbowPackage（幂等 no-op）。绝不挂
+///   CrossbowmanMarker（标记=拒绝骑士招募，随从就是队员）；弩手本体永不入队
+///   （IsAvailableForJob 排除），两个群体不相交。死地随从缩放由该包管理，
+///   本文件风格缩放对死地跳过。
 ///
 /// 2.4.0 签名验证（Operator 任务书实锤 + interop Assembly-CSharp.dll 复核）：
 /// - Character.Promote(DroppableTool, IUnitController) : Character —— 存在（双验证）
@@ -71,6 +78,7 @@ public static class PatchRoles_KnightStyle
     // ---- 常量 ----
     private const int StyleCount = 4;
     private const int MedievalStyleIndex = 0; // 随从缩放特判用（中世纪随从 1.05）
+    private const int DeadlandsStyleIndex = 1; // 死地随从"无标记弩手化"包特判用
     private const float IntegrityIntervalSeconds = 5f;
     private const float AssetRetryIntervalSeconds = 30f;
 
@@ -780,6 +788,14 @@ public static class PatchRoles_KnightStyle
     /// → 把 SoldierControllers[styleIndex] 写到 archer._animator。
     /// 写入条件沿用：animator/current 非空、指针不等才写（幂等零写入）。
     ///
+    /// 死地随从"无标记弩手化"（用户拍板）：骑士风格==死地 → 追加
+    /// Crossbowman.ApplySquadCrossbowPackage（弩矢/伤害/射程/间隔/体型 1.15 与
+    /// 弩手一致；deadlands 士兵皮与弩手皮相同，视觉统一）；非死地/无骑士/无风格
+    /// → RestoreSquadCrossbowPackage（幂等 no-op）。关键约束：随从绝不挂
+    /// CrossbowmanMarker（标记=拒绝骑士招募，它们就是队员）；弩手本体永不入队
+    /// （IsAvailableForJob 排除），两个群体不相交，无冲突。死地随从缩放（1.15）
+    /// 由该包统一管理，本文件的 EnsureFollowerScale 死地分支跳过。
+    ///
     /// 翻牌机制（治本背景，幕府之谜诊断实锤）：夜间 diag curTop=
     /// archer_soldier_greece×56 + archer_soldier×20（期望 med20=archer_soldier✓、
     /// dead28=deadlands✗、shog8=bamboo✗、gree20=greece✓）——56=dead+shog+gree
@@ -796,10 +812,35 @@ public static class PatchRoles_KnightStyle
         {
             if (archer == null || archer.gameObject == null) return false;
 
+            // 真弩手（marker 群体）绝不碰 squad 包：其 ActiveArrowAttack 同样指向
+            // 克隆 SO，RestoreSquadCrossbowPackage 的指针判据无法区分群体，会把
+            // 弩手战斗包误拆（间隔/扫描器/缩放在 Crossbowman.IntegrityPass 里
+            // 无自愈路径）。弩手不入骑士队，正常流程到不了这里；弩手上塔/上船
+            // 同样触发 ConvertToSoldier → 本 postfix，此检查是必须的防御。
+            if (PatchRoles_Crossbowman.IsCrossbowman(archer)) return false;
+
             Knight knight = archer._knight;
-            if (knight == null || knight.gameObject == null) return false;
+            if (knight == null || knight.gameObject == null)
+            {
+                // 无队籍（离队/猎人）：撤弩手化包（幂等 no-op）——离队瞬间在
+                // ConvertToHunter postfix 走到这里，战斗数值随猎人身份还原
+                PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
+                return false;
+            }
             if (!States.TryGetValue(knight.gameObject.GetInstanceID(), out KnightStyleState state)
-                || !state.HasStyle) return false;
+                || !state.HasStyle)
+            {
+                // 骑士未上风格：同样撤包（换队过渡/新骑士未定型期间不持弩手数值）
+                PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
+                return false;
+            }
+
+            // 死地随从弩手化包：Apply 幂等（SO 指针判重）；非死地随从撤包（换队到
+            // 非死地骑士时战斗数值跟随还原）
+            if (state.StyleIndex == DeadlandsStyleIndex)
+                PatchRoles_Crossbowman.ApplySquadCrossbowPackage(archer);
+            else
+                PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
 
             RuntimeAnimatorController target = SoldierControllers[state.StyleIndex];
             if (target == null) return false;
@@ -887,7 +928,9 @@ public static class PatchRoles_KnightStyle
                     if (knight == null || knight.gameObject == null)
                     {
                         // 无骑士（离队/猎人）：随从缩放确保回 1（幂等；曾随中世纪
-                        // 骑士放大到 1.05 的随从离队后在此归位）
+                        // 骑士放大到 1.05 的随从离队后在此归位）；同时撤弩手化包
+                        // （幂等 no-op，离队主路径在 ConvertToHunter postfix）
+                        PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
                         EnsureFollowerScale(archer, 1f);
                         continue;
                     }
@@ -919,12 +962,15 @@ public static class PatchRoles_KnightStyle
                     KnightStyleState state;
                     if (!States.TryGetValue(knight.gameObject.GetInstanceID(), out state))
                     {
-                        // 骑士未上风格（第一段本轮/下轮会补）：随从缩放先确保回 1
+                        // 骑士未上风格（第一段本轮/下轮会补）：随从缩放先确保回 1；
+                        // 弩手化包同撤（幂等 no-op）
+                        PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
                         EnsureFollowerScale(archer, 1f);
                         continue;
                     }
                     if (!state.HasStyle)
                     {
+                        PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
                         EnsureFollowerScale(archer, 1f);
                         continue;
                     }
@@ -933,9 +979,23 @@ public static class PatchRoles_KnightStyle
                         diagStyleTargets[state.StyleIndex]++;
 
                     // 随从缩放（[2]）：中世纪 1.05，其余 1.0；随从换队（骑士死了
-                    // 改投他人）时每轮幂等重算，缩放自动跟随新骑士风格
-                    EnsureFollowerScale(archer,
-                        state.StyleIndex == MedievalStyleIndex ? FollowerMedievalScaleY : 1f);
+                    // 改投他人）时每轮幂等重算，缩放自动跟随新骑士风格。
+                    // 死地随从例外：缩放（1.15）由 ApplySquadCrossbowPackage 作为
+                    // 弩手化包的一部分统一管理，此处跳过避免两个写入者互相覆盖
+                    if (state.StyleIndex != DeadlandsStyleIndex)
+                    {
+                        EnsureFollowerScale(archer,
+                            state.StyleIndex == MedievalStyleIndex ? FollowerMedievalScaleY : 1f);
+                    }
+
+                    // 死地随从弩手化包：与皮肤写入独立调用（均幂等）——皮肤已是
+                    // 目标（skippedFamily）或资产缺失（skippedOther）的分支不会走
+                    // ApplyFollowerSkinTo，包仍需按风格上/撤；死地世界里死地随从的
+                    // 原生皮恰好就是目标皮，皮写入路径不可靠，包必须独立保证
+                    if (state.StyleIndex == DeadlandsStyleIndex)
+                        PatchRoles_Crossbowman.ApplySquadCrossbowPackage(archer);
+                    else
+                        PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
 
                     RuntimeAnimatorController target = SoldierControllers[state.StyleIndex];
                     if (target == null) { diagSkippedOther++; continue; }

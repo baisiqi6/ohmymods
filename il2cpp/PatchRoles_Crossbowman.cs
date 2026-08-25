@@ -10,8 +10,16 @@ namespace KingdomEnhancedMod;
 /// <summary>
 /// 弩手（crossbowman）：居民捡弓转职弓箭手时，每第 4 个（3:1 交替）变成弩手——
 /// 死地士兵（archer_soldier_deadlands，骑士小队随从/塔位/上船同款姿态）换装 +
-/// 王国旗帜色染衣 + 索敌/射击参数强化 + 独立外观弩矢。弩手仍是原生
+/// 王国旗帜色染衣 + 索敌/射击参数强化 + 独立弩矢。弩手仍是原生
 /// Archer（无新兵种、无新池、无新商店），且永远不被骑士编队招募。
+///
+/// 弩矢观感（用户实锤"与普通弓箭手无区别"后的改造定稿）：
+/// - 平直快弹：初速 ×2（射程包络 32，索敌钳在 12 → 12 步内用 32 步的力气打）；
+/// - 出膛点前移 (2.5,1.0)：此前"平直弹道失败"的真凶=墙后弩手的 ParabolaCast
+///   （ArrowAttack.cs:134 低弹道解门槛）被自家墙挡 → 原生主动选高抛解；前移后
+///   出膛点≈墙沿，原生选低弹道解 → 真正平直；
+/// - 常显 0.25s 光痕拖尾（_alwaysDrawTrail + _notPerfectTrailLength）+ 0.85 醒目体型，
+///   与普通箭一眼区分。
 ///
 /// 士兵皮肤与猎人行为不冲突（原生 Archer 本就在两套控制器间来回转：EnterGuardSlot/
 /// OnEmbarkStart→ConvertToSoldier，离队/下塔→ConvertToHunter；行为由 _knight==null
@@ -33,8 +41,10 @@ namespace KingdomEnhancedMod;
 /// - Archer.ActiveArrowAttack : ArrowAttack（可写）/ _arrowAttack / _fireArrowAttack —— 存在
 /// - Archer._shootIntervalRange / _shootIntervalRangeFormation : Vector2 —— 存在
 /// - Archer._enemyScanner : Scanner；Scanner.range / rangeBehind 可写 —— 存在
-/// - ArrowAttack：_arrowPrefab(Arrow) / _shotMagnitude / _boostedShotMagnitude / _arrowGravity —— 存在
-/// - Arrow.hitDamage / perfectDamageMultiplier —— 存在（_damageSource 保持 Arrow 不动）
+/// - ArrowAttack：_arrowPrefab(Arrow) / _shotMagnitude / _boostedShotMagnitude /
+///   _arrowGravity / _arrowOriginOffset(Vector2，FireArrow 按方向符号侧移) —— 存在
+/// - Arrow.hitDamage / perfectDamageMultiplier / _alwaysDrawTrail(bool) /
+///   _notPerfectTrailLength(float，EnableTrail 短尾时长) —— 存在（_damageSource 保持 Arrow 不动）
 /// - Bolt : MonoBehaviour（DamageSource.Bolt，非 Arrow 子类）—— 仅取 SpriteRenderer.sprite 外观
 /// - Archer.IsAvailableForJob(GameObject) : bool —— 实例方法，存在
 /// - PoolManager.cachedPools / cachedNamePoolPairs / cachedSyncIdPoolPairs —— 公开属性
@@ -46,9 +56,23 @@ public static class PatchRoles_Crossbowman
     internal const float CrossbowmanScaleY = 1.15f;         // 本体 y 缩放（坑11：只动 y，x 是朝向符号）
     private const float IntervalMultiplier = 2f;           // 装填冷却 ×2
     private const int BoltHitDamage = 2;                   // 原生 1；perfect 自动 ×2 = 4
-    private const float RangeMultiplier = 1.5f;            // 射程 ×1.5（8→12）；重力不动=原生抛物线观感
-    private const float ShotMagnitudeMultiplier = 1.224745f; // √1.5≈1.2247449 更多位：平方=1.5000003（1.2247²=1.4998901）更接近精确 1.5；const 需编译期常量故不能用 Mathf.Sqrt；Range=v²/g，射程×1.5 即初速×√1.5
-    private const float BoltVisualScale = 0.65f;           // 缩小弩炮弹矢外观；连带碰撞体等比缩小，快弹判定影响可忽略
+    private const float RangeMultiplier = 1.5f;            // 射程 ×1.5（8→12）；索敌钳制用（shootRange/扫描器）
+    // 初速 ×2（弩矢观感改造）：Range=v²/g → 射程包络=8×4=32，但索敌仍由 shootRange/
+    // 扫描器钳在 12——12 步内目标用 32 步的力气打，又平又快。Archer.cs:1116 的
+    // 推进判断读 SO Range=32 → 弩手 12 步内站桩狙击不冒进（用户早已接受的旧行为）
+    private const float ShotMagnitudeMultiplier = 2f;
+    private const float BoltVisualScale = 0.85f;           // 弩矢醒目化（原 0.65 缩小观感弱）；连带碰撞体等比缩放，快弹判定影响可忽略
+    // 出膛点前移（弩矢观感改造核心）：原生 _arrowOriginOffset 默认 (0.15,0.5)，
+    // 弩手在墙后射击时 ParabolaCast 从出膛点出发被自家墙挡 → BestShotInternal
+    // （ArrowAttack.cs:134）被迫选高抛解——这是此前"平直弹道失败"的真凶。
+    // 前移到前方 2.5 步（墙后单位≈墙沿）后 ParabolaCast 不再被自家墙挡，
+    // 原生选低弹道解 → 真正平直。ArrowAttack.FireArrow（ArrowAttack.cs:60）按
+    // 目标方向符号侧移 x，正值=朝目标前方。
+    private static readonly Vector2 BoltOriginOffset = new Vector2(2.5f, 1.0f);
+    // 常显拖尾长度（秒）：Arrow.EnableTrail（Arrow.cs:67）在 _alwaysDrawTrail 且
+    // 非 perfect 时用 _notPerfectTrailLength（原生默认 0.1，火矢用长尾）——0.25s
+    // 光痕拖尾让弩矢与普通箭一眼区分
+    private const float BoltTrailLength = 0.25f;
     private const int PromoteCycle = 4;                    // 3:1 交替
     private const float RecomputeDelaySeconds = 15f;       // 等单位恢复完成
     private const float IntegrityIntervalSeconds = 5f;
@@ -381,8 +405,14 @@ public static class PatchRoles_Crossbowman
                 return;
             }
             boltArrow.hitDamage = BoltHitDamage;
-            // 重力保持原生：弩矢与普通箭同样的抛物线观感（墙后高抛越墙是原生
-            // ParabolaCast 避障行为，平直弹道在守城场景展示不出来，不做）。
+            // 弩矢观感强化（Arrow.cs 拖尾语义）：_alwaysDrawTrail=true 让 OnEnable
+            // （Arrow.cs:39 isFireArrow || _alwaysDrawTrail → EnableTrail）常开拖尾；
+            // EnableTrail（Arrow.cs:67）在 alwaysDraw 且非 perfect 时用
+            // _notPerfectTrailLength（原生默认 0.1）而非 _originalTrailTime——设 0.25s
+            // 光痕拖尾，与普通箭一眼区分。
+            boltArrow._alwaysDrawTrail = true;
+            boltArrow._notPerfectTrailLength = BoltTrailLength;
+            // 重力保持原生：弹道形状由 SO 参数决定（见下方克隆段），prefab 侧只做外观。
             ApplyBoltSprite(boltArrow);
 
             // 3) 克隆 ArrowAttack SO（禁止改原资产——全体弓箭手共享，改了就全弓生效）
@@ -395,10 +425,18 @@ public static class PatchRoles_Crossbowman
             }
             clonedSO.name = AttackSoName;
             UnityEngine.Object.DontDestroyOnLoad(clonedSO);
-            // 弹道只做一件事：射程 ×1.5。Range = v²/g → 初速 ×√1.5、重力不动，
-            // SO 内部 Range=12 与 shootRange/扫描器一致，抛物线形状与原生弓箭相同。
+            // 弹道（弩矢观感改造定稿）：
+            // - 初速 ×2：Range=v²/g → 射程包络 8×4=32（SO 内部 Range=32），索敌仍由
+            //   shootRange/扫描器钳在 12——12 步内目标用 32 步的力气打，又平又快；
+            //   Archer.cs:1116 推进判断读 SO Range → 12 步内站桩狙击不冒进（旧行为）。
+            //   _boosted 同乘保持原生比例。
+            // - 出膛点前移 (2.5,1.0)：原生默认 (0.15,0.5) 时墙后弩手的 ParabolaCast
+            //   （ArrowAttack.cs:134，BestShotInternal 低弹道解的门槛）被自家墙挡
+            //   → 原生被迫选高抛解——此前"平直弹道失败"的真凶。前移后出膛点≈墙沿，
+            //   不被自家墙挡 → 原生选低弹道解 → 真正平直（快弹+前移双管齐下）。
             clonedSO._shotMagnitude *= ShotMagnitudeMultiplier;
             clonedSO._boostedShotMagnitude *= ShotMagnitudeMultiplier;
+            clonedSO._arrowOriginOffset = BoltOriginOffset;
             clonedSO._arrowPrefab = boltArrow;
 
             // 4) 死地动画控制器（可选：解析失败只缺皮肤，弩手功能继续）
@@ -821,6 +859,119 @@ public static class PatchRoles_Crossbowman
         _loggedKnightExclusion = true;
         KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
             "[Crossbowman] excluded from knight recruitment");
+    }
+
+    // ============================================================
+    // H. 死地骑士随从"无标记弩手化"轻量包（knight-style-026 联动，消费方
+    //    PatchRoles_KnightStyle.ApplyFollowerSkinTo）
+    // ============================================================
+
+    private static bool _loggedSquadPackageAborted;
+
+    /// <summary>
+    /// 死地风格骑士的随从专用"无标记弩手化"战斗包：弩矢/伤害/射程/间隔/体型与
+    /// 弩手一致（ActiveArrowAttack=克隆 SO KEM_CrossbowAttack、shootRange=12+
+    /// 扫描器 12、间隔 ×2、y=1.15），但绝不挂 CrossbowmanMarker——标记语义=
+    /// 拒绝骑士招募，而这些随从就是骑士队员；弩手本体永不入队
+    /// （IsAvailableForJob 排除），两个群体不相交，无冲突。不复用 Apply()
+    /// 的 marker/旗帜染色完整路径，只动战斗数值与缩放。
+    /// 幂等：ActiveArrowAttack 已是克隆 SO → 只补缩放；间隔仅首次 ×2
+    /// （SO 指针判重防 ×4/×8 叠加，同 Apply 的 already 判据）。
+    /// </summary>
+    internal static void ApplySquadCrossbowPackage(Archer archer)
+    {
+        if (archer == null || archer.gameObject == null) return;
+        try
+        {
+            EnsureAssets();
+            if (_crossbowAttackSO == null)
+            {
+                if (!_loggedSquadPackageAborted)
+                {
+                    _loggedSquadPackageAborted = true;
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                        "[Crossbowman] squad crossbow package skipped: cloned ArrowAttack missing");
+                }
+                return;
+            }
+
+            bool already = archer.ActiveArrowAttack != null
+                && archer.ActiveArrowAttack.Pointer == _crossbowAttackSO.Pointer;
+            if (!already)
+            {
+                archer.ActiveArrowAttack = _crossbowAttackSO;
+                archer.shootRange = CrossbowShootRange;
+                Scanner scanner = archer._enemyScanner;
+                if (scanner != null)
+                {
+                    scanner.range = CrossbowShootRange;
+                    scanner.rangeBehind = CrossbowShootRange;
+                }
+                // 读现值乘（不读缓存）：buff 可能已改过冷却；重入由 SO 指针判重挡住
+                Vector2 interval = archer._shootIntervalRange;
+                interval.x *= IntervalMultiplier;
+                interval.y *= IntervalMultiplier;
+                archer._shootIntervalRange = interval;
+                Vector2 intervalFormation = archer._shootIntervalRangeFormation;
+                intervalFormation.x *= IntervalMultiplier;
+                intervalFormation.y *= IntervalMultiplier;
+                archer._shootIntervalRangeFormation = intervalFormation;
+            }
+
+            // 体型 1.15（坑11：只动 y）+ ScaleRegistry 每帧守卫；Restore 必须
+            // Unregister，否则池复用给普通弓箭手时被错误守卫在 1.15
+            Vector3 scale = archer.transform.localScale;
+            scale.y = CrossbowmanScaleY;
+            archer.transform.localScale = scale;
+            ScaleRegistryHolder.Register(archer.GetComponent<Mover>(), CrossbowmanScaleY);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Crossbowman/squad-apply] " + e);
+        }
+    }
+
+    /// <summary>
+    /// 撤随从弩手化包（幂等 no-op）：仅当 ActiveArrowAttack 指向克隆 SO 才动
+    /// （否则说明不是我们写的包/SO 未构建，直接返回）。恢复原生箭/射程/扫描器/
+    /// 间隔（基值缓存来自 EnsureAssets 的 Archer prefab 读取），注销缩放守卫并
+    /// 回 y=1。塔位恢复分支与 Strip 同款（防御：随从理论上不上塔，但按所在
+    /// 位置还原无害）。
+    /// </summary>
+    internal static void RestoreSquadCrossbowPackage(Archer archer)
+    {
+        if (archer == null || archer.gameObject == null) return;
+        try
+        {
+            if (_crossbowAttackSO == null
+                || archer.ActiveArrowAttack == null
+                || archer.ActiveArrowAttack.Pointer != _crossbowAttackSO.Pointer)
+                return;
+
+            archer.ActiveArrowAttack = archer._arrowAttack;
+            if (_baseShootRangeCached)
+            {
+                archer.shootRange = _baseShootRange;
+                Scanner scanner = archer._enemyScanner;
+                if (scanner != null)
+                {
+                    float restoreRange = archer.inGuardSlot ? archer.towerShootRange : _baseShootRange;
+                    scanner.range = restoreRange;
+                    scanner.rangeBehind = restoreRange;
+                }
+            }
+            if (_baseIntervalCached) archer._shootIntervalRange = _baseInterval;
+            if (_baseIntervalFormationCached) archer._shootIntervalRangeFormation = _baseIntervalFormation;
+
+            ScaleRegistryHolder.Unregister(archer.GetComponent<Mover>());
+            Vector3 scale = archer.transform.localScale;
+            scale.y = 1f;
+            archer.transform.localScale = scale;
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Crossbowman/squad-restore] " + e);
+        }
     }
 }
 
