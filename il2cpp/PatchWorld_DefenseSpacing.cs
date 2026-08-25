@@ -183,29 +183,35 @@ public static class PatchWorld_DefenseSpacing
         return changed;
     }
 
-    // ---- daytime knight assemble spread ------------------------------------
-    // Ground truth (Knight.cs Assemble, 2.1.0 lines 662-680): the daytime idle
-    // assembly walks EVERY knight to the SAME point — banner.x + side*3 (or
-    // border + side*4 with no banner) plus Random.Range(-1,1) — then re-walks
-    // every ~10s (WaitForSeconds(10) at the coroutine tail).  It never reads
-    // rank: rank only positions the NIGHT wall lineup (GetTargetPos,
-    // Knight.cs:656), and RemapKnightRanks above is the v2.1.0 all-day
-    // compression (1..KnightRankCap) restored verbatim so the night compact
-    // defense keeps its accepted semantics.  With 19 knights the same-point
-    // walk is a single clump with follower skins buried (user report:
-    // knights clump by day, no follower skin visible).  Fix at the movement
-    // layer: intercept the Mover.SetGoal(float,float) call Assemble issues
-    // and push x out to a per-knight EXCLUSIVE slot.  First attempt used
-    // rank*0.75, but measured live (knightstyle session) the compressed
+    // ---- SetGoal(float,float) host: day knight spread + night archer mirror --
+    // Knight path ground truth (Knight.cs Assemble, 2.1.0 lines 662-680): the
+    // daytime idle assembly walks EVERY knight to the SAME point — banner.x +
+    // side*3 (or border + side*4 with no banner) plus Random.Range(-1,1) —
+    // then re-walks every ~10s (WaitForSeconds(10) at the coroutine tail).
+    // It never reads rank: rank only positions the NIGHT wall lineup
+    // (GetTargetPos, Knight.cs:656), and RemapKnightRanks above is the v2.1.0
+    // all-day compression (1..KnightRankCap) restored verbatim so the night
+    // compact defense keeps its accepted semantics.  With 19 knights the
+    // same-point walk is a single clump with follower skins buried (user
+    // report: knights clump by day, no follower skin visible).  Fix at the
+    // movement layer: intercept the Mover.SetGoal(float,float) call Assemble
+    // issues and push x out to a per-knight EXCLUSIVE slot.  First attempt
+    // used rank*0.75, but measured live (knightstyle session) the compressed
     // ranks are shared ~3-per-slot — still a small clump with ±1 jitter.  Now
     // each side hands out stable first-seen indexes 0..N-1 (instanceID-keyed,
     // per world) and the slot depth is dayIndex*1.2: ~10 knights per side =
     // a ~12-unit strolling band, visually distinguishable, and every 10s
     // native re-walk re-rolls the ±0.5 for an idle-strolling look.
+    // Archer path (night goal mirror, measured follow-up): with friendly
+    // collision already off, side=R still had outside=15 parked in a narrow
+    // band at wall+1.5..2.0 (side=L clean) — that residue is NOT push-out:
+    // the native guard-goal ASSIGNMENT itself places those archers just
+    // outside the wall.  Mirror such goals to the same depth inside.
     // Mover.SetGoal(float,float) is a shared hot path (archer hunting etc.),
-    // so a static mover-instanceID -> is-knight cache gates it: one
-    // GetComponent<Knight> probe per mover, non-knights permanently skipped.
-    private static readonly System.Collections.Generic.Dictionary<int, int> _moverIsKnight =
+    // so a static mover-instanceID -> unit-type cache gates it (0=other,
+    // 1=knight, 2=archer): one GetComponent probe pair per mover, everyone
+    // else permanently skipped after the first verdict.
+    private static readonly System.Collections.Generic.Dictionary<int, int> _moverUnitType =
         new System.Collections.Generic.Dictionary<int, int>();
     private static bool _loggedDaySpread;
     private static readonly System.Collections.Generic.Dictionary<int, int> _dayIndexLeft =
@@ -215,92 +221,37 @@ public static class PatchWorld_DefenseSpacing
     // True while our own redirected SetGoal call is in flight, so the prefix
     // passes it through instead of re-intercepting (index-0 slots land at
     // dayZone ±0.5 — inside the 1.6 intercept band — and would otherwise
-    // recurse forever; see the redirect site).
-    private static bool _inDaySpreadRedirect;
+    // recurse forever; also guards the night mirror redirect).
+    private static bool _inSetGoalRedirect;
+    private static readonly Side[] MirrorSides = { Side.Left, Side.Right };
+    private static bool _loggedNightMirror;
 
     /// <summary>
-    /// Prefix body for Mover.SetGoal(float, float).  Returns false (skip the
-    /// native call, goal replaced) only for a daytime knight Assemble walk;
-    /// true (native call untouched) for everything else.
+    /// Prefix body for Mover.SetGoal(float, float).  Dispatches by cached
+    /// mover unit type: knights take the daytime Assemble spread, archers
+    /// take the night guard-goal mirror.  Returns false (skip the native
+    /// call, goal replaced) only when a branch rewrote the goal; true
+    /// (native call untouched) for everything else.
     /// </summary>
     internal static bool DayAssembleSpreadPrefix(Mover mover, float goal, float speed)
     {
         try
         {
             if (!ModConfig.Enabled.Value || mover == null) return true;
-            if (_inDaySpreadRedirect) return true; // our own redirected call
+            if (_inSetGoalRedirect) return true; // our own redirected call
 
-            // Fast path: cached is-knight verdict per mover instance.  Pooled
+            // Fast path: cached unit-type verdict per mover instance.  Pooled
             // movers keep their components, so the verdict never flips.
             int id = mover.GetInstanceID();
-            if (!_moverIsKnight.TryGetValue(id, out int isKnight))
+            if (!_moverUnitType.TryGetValue(id, out int unitType))
             {
-                isKnight = mover.GetComponent<Knight>() != null ? 1 : 0;
-                _moverIsKnight[id] = isKnight;
+                if (mover.GetComponent<Knight>() != null) unitType = 1;
+                else if (mover.GetComponent<Archer>() != null) unitType = 2;
+                _moverUnitType[id] = unitType;
             }
-            if (isKnight == 0) return true;
-
-            Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
-            if (kingdom == null || !kingdom.isDaytime) return true;
-
-            Knight knight = mover.GetComponent<Knight>();
-            if (knight == null || knight.gameObject == null) return true;
-            float side = (float)knight.side;
-            if (side == 0f) return true;
-
-            // dayZone mirrors Assemble's own target (Knight.cs): banner.x +
-            // side*3, falling back to border + side*4 when the banner slot is
-            // missing or the access throws.
-            float dayZone;
-            try
-            {
-                PayableBorder banner = kingdom.borderBanner != null
-                    ? kingdom.borderBanner[knight.side] : null;
-                dayZone = banner != null && banner.transform != null
-                    ? banner.transform.position.x + side * 3f
-                    : kingdom.GetBorderSide(knight.side) + side * 4f;
-            }
-            catch
-            {
-                dayZone = kingdom.GetBorderSide(knight.side) + side * 4f;
-            }
-
-            // Only intercept the Assemble walk: |goal - dayZone| <= 1.6 (the
-            // native target is dayZone ±1).  Night wall targets sit at wall -
-            // depth and fall outside this band.
-            if (Math.Abs(goal - dayZone) > 1.6f) return true;
-
-            // Per-side stable exclusive slot index (first-seen assignment
-            // 0..N-1, keyed by knight instanceID, reset per world): with
-            // ranks shared ~3-per-slot after the all-day compression, rank
-            // cannot give each knight its own strolling depth — the index
-            // does.  ~10 knights per side at 1.2 spacing = ~12-unit band.
-            System.Collections.Generic.Dictionary<int, int> indexes =
-                knight.side == Side.Left ? _dayIndexLeft : _dayIndexRight;
-            int knightId = knight.gameObject.GetInstanceID();
-            if (!indexes.TryGetValue(knightId, out int dayIndex))
-            {
-                dayIndex = indexes.Count;
-                indexes[knightId] = dayIndex;
-            }
-            float newX = dayZone - side * (dayIndex * 1.2f)
-                + UnityEngine.Random.Range(-0.5f, 0.5f);
-            if (!_loggedDaySpread)
-            {
-                _loggedDaySpread = true;
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[DefenseSpacing] day assemble spread active: dayIndex="
-                    + dayIndex + " newX=" + newX.ToString("F2"));
-            }
-            // Guard: index-0 slots land at dayZone ±0.5, INSIDE the 1.6 band,
-            // so our own redirected SetGoal would re-enter this prefix and
-            // re-roll forever (index 1 recursed ~90% of calls too).  The
-            // guard passes our redirect straight through; the 10s native
-            // re-walk still re-rolls ±0.5 every cycle.
-            _inDaySpreadRedirect = true;
-            try { mover.SetGoal(newX, speed); }
-            finally { _inDaySpreadRedirect = false; }
-            return false; // skip the native SetGoal
+            if (unitType == 1) return KnightDayAssembleSpread(mover, goal, speed);
+            if (unitType == 2) return MirrorNightArcherGoal(mover, goal, speed);
+            return true;
         }
         catch (Exception e)
         {
@@ -308,6 +259,124 @@ public static class PatchWorld_DefenseSpacing
                 "[DefenseSpacing/day-spread] " + e);
             return true;
         }
+    }
+
+    /// <summary>
+    /// Knight branch of the SetGoal(float,float) prefix: the daytime
+    /// Assemble spread (see the section comment for grounds).
+    /// </summary>
+    private static bool KnightDayAssembleSpread(Mover mover, float goal, float speed)
+    {
+        Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
+        if (kingdom == null || !kingdom.isDaytime) return true;
+
+        Knight knight = mover.GetComponent<Knight>();
+        if (knight == null || knight.gameObject == null) return true;
+        float side = (float)knight.side;
+        if (side == 0f) return true;
+
+        // dayZone mirrors Assemble's own target (Knight.cs): banner.x +
+        // side*3, falling back to border + side*4 when the banner slot is
+        // missing or the access throws.
+        float dayZone;
+        try
+        {
+            PayableBorder banner = kingdom.borderBanner != null
+                ? kingdom.borderBanner[knight.side] : null;
+            dayZone = banner != null && banner.transform != null
+                ? banner.transform.position.x + side * 3f
+                : kingdom.GetBorderSide(knight.side) + side * 4f;
+        }
+        catch
+        {
+            dayZone = kingdom.GetBorderSide(knight.side) + side * 4f;
+        }
+
+        // Only intercept the Assemble walk: |goal - dayZone| <= 1.6 (the
+        // native target is dayZone ±1).  Night wall targets sit at wall -
+        // depth and fall outside this band.
+        if (Math.Abs(goal - dayZone) > 1.6f) return true;
+
+        // Per-side stable exclusive slot index (first-seen assignment
+        // 0..N-1, keyed by knight instanceID, reset per world): with
+        // ranks shared ~3-per-slot after the all-day compression, rank
+        // cannot give each knight its own strolling depth — the index
+        // does.  ~10 knights per side at 1.2 spacing = ~12-unit band.
+        System.Collections.Generic.Dictionary<int, int> indexes =
+            knight.side == Side.Left ? _dayIndexLeft : _dayIndexRight;
+        int knightId = knight.gameObject.GetInstanceID();
+        if (!indexes.TryGetValue(knightId, out int dayIndex))
+        {
+            dayIndex = indexes.Count;
+            indexes[knightId] = dayIndex;
+        }
+        float newX = dayZone - side * (dayIndex * 1.2f)
+            + UnityEngine.Random.Range(-0.5f, 0.5f);
+        if (!_loggedDaySpread)
+        {
+            _loggedDaySpread = true;
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                "[DefenseSpacing] day assemble spread active: dayIndex="
+                + dayIndex + " newX=" + newX.ToString("F2"));
+        }
+        // Guard: index-0 slots land at dayZone ±0.5, INSIDE the 1.6 band,
+        // so our own redirected SetGoal would re-enter this prefix and
+        // re-roll forever (index 1 recursed ~90% of calls too).  The
+        // guard passes our redirect straight through; the 10s native
+        // re-walk still re-rolls ±0.5 every cycle.
+        _inSetGoalRedirect = true;
+        try { mover.SetGoal(newX, speed); }
+        finally { _inSetGoalRedirect = false; }
+        return false; // skip the native SetGoal
+    }
+
+    /// <summary>
+    /// Archer branch of the SetGoal(float,float) prefix: night guard-goal
+    /// mirror.  The native guard assignment itself places some archers in a
+    /// narrow band JUST outside the intact wall (measured with collision
+    /// already off: side=R outside=15 at wall+1.5..2.0, side=L clean).  A
+    /// goal whose depth relative to EITHER wall sits in the outside narrow
+    /// band (0.2..2.5 steps, i.e. depth in (−2.5, −0.2]) is mirrored to the
+    /// same depth plus 0.5 INSIDE the wall (0.7..3.0 steps).  Only the
+    /// narrow band matches: daytime hunting goals and night chase/coin goals
+    /// farther outside are untouched.
+    /// </summary>
+    private static bool MirrorNightArcherGoal(Mover mover, float goal, float speed)
+    {
+        Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
+        if (kingdom == null) return true;
+        Director director = Managers.Inst.director;
+        if (director == null) return true;
+        float t = director.currentTime;
+        if (!(t >= 17.5f || t <= 5.5f)) return true; // 白天狩猎目标不碰
+
+        for (int i = 0; i < MirrorSides.Length; i++)
+        {
+            Side side = MirrorSides[i];
+            float sign = (float)side;
+            if (sign == 0f) continue;
+            float wall = kingdom.GetBorderSideIntact(side);
+            float depth = (wall - goal) * sign;
+            if (depth <= -2.5f || depth > -0.2f) continue; // 不在墙外窄带
+
+            // 镜像到墙内同深+0.5（0.7~3.0 步）。墙内 N 步 = wall − side×N
+            //（与 Knight.GetTargetPos / 锚点拉回同一符号约定）。
+            float newX = wall - sign * (0.5f + Math.Abs(depth));
+            if (!_loggedNightMirror)
+            {
+                _loggedNightMirror = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[DefenseSpacing] night archer goal mirrored inside: "
+                    + goal.ToString("F2") + " -> " + newX.ToString("F2"));
+            }
+            // 递归保护：镜像后目标在墙内（depth +0.7..+3.0），不再落入
+            // (−2.5,−0.2] 窄带，重入天然出套；redirect 标志再兜一层。
+            _inSetGoalRedirect = true;
+            try { mover.SetGoal(newX, speed); }
+            finally { _inSetGoalRedirect = false; }
+            return false; // skip the native SetGoal
+        }
+        return true;
     }
 
     // ---- night follower anchor pullback ------------------------------------
@@ -507,8 +576,15 @@ public static class PatchWorld_DefenseSpacing
     // The flag deliberately does NOT reset per world: Physics2D's
     // IgnoreLayerCollision state is global and survives scene loads, so the
     // day-restore branch must stay reachable across island hops.
+    // Mechanism layering (measured follow-up): collision-off cures PUSH-OUT,
+    // but the native guard-goal ASSIGNMENT itself still places some archers
+    // just outside the wall — that residue is cured by the night archer goal
+    // MIRROR in the SetGoal(float,float) prefix host above; the deep
+    // relocation sweep below stays as the final fallback.  Three mechanisms
+    // run in parallel, each covering a distinct cause.
     private static bool _friendlyCollisionIgnored;
     private static int _friendlyUnitsLayer = -1;
+    private static bool _loggedColliderLayers;
 
     private static void ToggleFriendlyCollision(Archer[] archers)
     {
@@ -525,20 +601,48 @@ public static class PatchWorld_DefenseSpacing
                 // (layer name is prefab-serialized, not code-visible).
                 if (archers == null) return;
                 int layer = -1;
+                Archer sample = null;
                 for (int i = 0; i < archers.Length; i++)
                 {
                     Archer archer = archers[i];
                     if (archer == null || archer.gameObject == null
                         || !archer.gameObject.activeInHierarchy) continue;
+                    sample = archer;
                     layer = archer.gameObject.layer;
                     break;
                 }
-                if (layer < 0) return; // 本拍无可采样 active 弓箭手，下拍再试
+                if (layer < 0 || sample == null) return; // 本拍无可采样，下拍再试
                 _friendlyUnitsLayer = layer; // 关时记下，开时用同值
                 Physics2D.IgnoreLayerCollision(layer, layer, true);
                 _friendlyCollisionIgnored = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
                     "[DefenseSpacing] night friendly collision off (layer=" + layer + ")");
+                // 层采样自检（一次性）：碰撞体可能在子对象/异层——若
+                // distinct 层列表含 root 之外的值，说明层采错，下一步应把
+                // 那些层也纳入 Ignore（本次只记数据）。
+                if (!_loggedColliderLayers)
+                {
+                    _loggedColliderLayers = true;
+                    var distinct = new System.Collections.Generic.List<int>();
+                    System.Text.StringBuilder layers = new System.Text.StringBuilder();
+                    Collider2D[] colliders = sample.GetComponentsInChildren<Collider2D>();
+                    if (colliders != null)
+                    {
+                        for (int j = 0; j < colliders.Length; j++)
+                        {
+                            Collider2D collider = colliders[j];
+                            if (collider == null || collider.gameObject == null) continue;
+                            int colliderLayer = collider.gameObject.layer;
+                            if (distinct.Contains(colliderLayer)) continue;
+                            distinct.Add(colliderLayer);
+                            if (layers.Length > 0) layers.Append(',');
+                            layers.Append(colliderLayer);
+                        }
+                    }
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                        "[DefenseSpacing] archer collider layers: root=" + layer
+                        + " colliders=[" + layers + "]");
+                }
             }
             else if (!isNight && _friendlyCollisionIgnored)
             {

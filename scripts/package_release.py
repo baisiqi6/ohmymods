@@ -111,7 +111,7 @@ def main():
             if src.is_file():
                 zf.write(src, name)
                 count += 1
-        notes = rel / "release-notes-il2cpp.md"
+        notes = REPO / "release-notes-il2cpp.md"  # 该文件在仓库根（runbook 口径）
         if notes.is_file():
             zf.write(notes, "INSTALL.md")
             count += 1
