@@ -204,3 +204,33 @@ public static class HermitScale_Patch
         }
     }
 }
+
+/// <summary>
+/// 狗 y=1.3（用户拍板试用值）。守卫注册同款，坑11 只动 y。
+/// </summary>
+[HarmonyPatch(typeof(Dog), "OnEnable")]
+public static class DogScale_Patch
+{
+    private const float DogY = 1.3f;
+
+    [HarmonyPostfix]
+    private static void OnEnable_Postfix(Dog __instance)
+    {
+        if (!ModConfig.Enabled.Value || __instance == null || __instance.gameObject == null) return;
+
+        try
+        {
+            Mover mover = __instance.GetComponent<Mover>();
+            if (mover == null) return;
+
+            Vector3 s = __instance.transform.localScale;
+            s.y = DogY;
+            __instance.transform.localScale = s;
+            ScaleRegistryHolder.Register(mover, DogY);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[DogScale] " + e);
+        }
+    }
+}
