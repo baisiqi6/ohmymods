@@ -863,6 +863,37 @@ public static class PatchRoles_KnightStyle
         }
     }
 
+    // ---- 夜间随从锚点拉回量（DefenseSpacing 消费 API）-------------------------
+    // 依据：死地随从=弩手（射程 12）——站深处不打折，且用户实锤贴墙触发高抛，
+    // 应更深 → 6.5f；普通随从是弓（射程 8）——不能再深，锚点 4.2f 让编队前排
+    // ≈墙内 2、后排 ≈墙内 6，全部留在射程 8 内（v2.1 "后排射程外" 老问题的
+    // 教训：锚点再深会把后排推出射程）。查不到风格/无状态记录一律回落 4.2f。
+    internal const float DefaultFollowerAnchorPullback = 4.2f;
+    private const float DeadlandsFollowerAnchorPullback = 6.5f;
+
+    /// <summary>
+    /// 查该骑士风格对应的夜间随从编队锚点拉回量（墙内步数）：死地 → 6.5f，
+    /// 其余（含查不到/无状态记录/入参为空）→ 4.2f。纯读、无副作用、不抛出。
+    /// </summary>
+    internal static float GetFollowerAnchorPullback(Knight knight)
+    {
+        try
+        {
+            if (knight == null || knight.gameObject == null)
+                return DefaultFollowerAnchorPullback;
+            if (!States.TryGetValue(knight.gameObject.GetInstanceID(),
+                out KnightStyleState state) || !state.HasStyle)
+                return DefaultFollowerAnchorPullback;
+            return state.StyleIndex == DeadlandsStyleIndex
+                ? DeadlandsFollowerAnchorPullback
+                : DefaultFollowerAnchorPullback;
+        }
+        catch
+        {
+            return DefaultFollowerAnchorPullback;
+        }
+    }
+
     /// <summary>
     /// 随从联动（反向归属 + 队籍判定，5s 巡检兜底）：彻底放弃枚举 knight._archers——
     /// Il2Cpp 非泛型枚举器对 HashSet 运行时不可靠，纯读快照段的 MoveNext 也抛

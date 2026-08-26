@@ -396,13 +396,15 @@ public static class PatchWorld_DefenseSpacing
     // wall the formation's front slots (4 followers x unit spacing) cross to
     // the OUTSIDE and the squad's bows stand beyond the wall.  Fix: at night,
     // when a knight-following Archer's formation anchor is closer to the
-    // intact wall than FollowerAnchorPullback, replace the formation goal
-    // with a plain position goal 4.2 units inside — front slots ~2 inside,
-    // rear ~6 inside, every bow inside the 8-unit range the v2.1.0 depth
-    // clamp protects.  Daytime following is untouched (isDaytime gate) and
-    // non-Archer Formation callers (Knight.OnEmbarkStart boat boarding etc.)
-    // never match the Archer gate.
-    private const float FollowerAnchorPullback = 4.2f;
+    // intact wall than the pullback, replace the formation goal with a plain
+    // position goal pulled inside by a PER-STYLE depth (KnightStyle API):
+    // deadlands squads are crossbowmen (range 12 — standing deeper costs
+    // nothing and the user confirmed wall-hugging triggers lob shots) → 6.5;
+    // every other squad (and unknown style → null-safe fallback) → 4.2, which
+    // keeps front slots ~2 and rear slots ~6 inside, all within the 8-unit
+    // range the v2.1.0 depth clamp protects.  Daytime following is untouched
+    // (isDaytime gate) and non-Archer Formation callers
+    // (Knight.OnEmbarkStart boat boarding etc.) never match the Archer gate.
     private static readonly System.Collections.Generic.Dictionary<int, int> _moverIsArcher =
         new System.Collections.Generic.Dictionary<int, int>();
     private static bool _loggedNightPull;
@@ -446,9 +448,13 @@ public static class PatchWorld_DefenseSpacing
             // offset by the goal's localScale.x facing sign, Mover.cs:161; the
             // plain sum is within 0.3 of that — close enough for the band test).
             float anchorX = goal.transform.position.x + offset;
-            if ((wall - anchorX) * side < FollowerAnchorPullback)
+            // 拉回量按骑士风格取（KnightStyle API，判空/查不到回落 4.2）：
+            // 死地随从=弩手（射程 12，站深不打折、避开贴墙高抛）→ 6.5；
+            // 普通弓随从（射程 8）→ 4.2，再深会把后排推出射程。
+            float pullback = PatchRoles_KnightStyle.GetFollowerAnchorPullback(knight);
+            if ((wall - anchorX) * side < pullback)
             {
-                float newAnchor = wall - side * FollowerAnchorPullback;
+                float newAnchor = wall - side * pullback;
                 if (!_loggedNightPull)
                 {
                     _loggedNightPull = true;
@@ -581,10 +587,15 @@ public static class PatchWorld_DefenseSpacing
     // Fix: ignore the units-self layer pair during the night window — the
     // wall-front crowd stops being expelled, and the deep-relocation sweep
     // below degrades to a rare no-op fallback.  Accepted cost (user knows and
-    // accepts): crowded defenders may visually overlap at night.  Day
-    // restores the collision to keep the town look.  Projectiles and enemies
-    // live on separate layers: IgnoreLayerCollision(layer, layer) edits only
-    // the units-self pair, so arrows and enemy hits are unaffected.
+    // accepts): crowded defenders may visually overlap at night.  Restore is
+    // DELAYED to 8:00 (not dawn 5.5): units overlap freely all night, and a
+    // dawn-instant restore made the physics engine blast every interpenetrating
+    // pair apart proportional to overlap depth (measured: "人山", units shoved
+    // onto each other's heads at morning dispersal) — the 5.5~8.0 window keeps
+    // collisions off as a morning dispersal grace, and by 8:00 the crowd has
+    // spread out so the separation is a gentle native push.  Projectiles and
+    // enemies live on separate layers: IgnoreLayerCollision(layer, layer)
+    // edits only the units-self pair, so arrows and enemy hits are unaffected.
     // The flag deliberately does NOT reset per world: Physics2D's
     // IgnoreLayerCollision state is global and survives scene loads, so the
     // day-restore branch must stay reachable across island hops.
@@ -671,10 +682,16 @@ public static class PatchWorld_DefenseSpacing
                     "[DefenseSpacing] night friendly collision off: layers=["
                     + layersText + "] ignored=[" + pairsText + "]");
             }
-            else if (!isNight && _friendlyCollisionIgnored)
+            else if (t >= 8.0f && t < 17.5f && _friendlyCollisionIgnored)
             {
-                // 白天恢复：遍历关时记下的同一层集合的全部层对（无需再
-                // 采样，即使弓箭手已清零也能恢复）。
+                // 恢复窗口=8:00 起（晨间散场缓冲后）：实测"天亮散场时挤成
+                // 人山、有人被挤到别人头顶"——夜间关碰撞期间墙下单位自由
+                // 重叠堆叠，天亮（5.5）瞬间恢复碰撞，所有穿插碰撞体被物理
+                // 引擎按重叠深度强行弹开（力度∝重叠深度，极端者垂直弹出
+                // 骑到头顶）。5.5~8.0 保持碰撞关闭作散场缓冲：大家有 2.5
+                // 游戏小时散开去打猎/回城，8 点恢复时密度已低，分离只是
+                // 温和的原生推挤。上界 t<17.5 必需：夜间（flag 已 true）
+                // 若无上界会反复 on/off 抖动。
                 for (int a = 0; a < _friendlyCollisionLayers.Count; a++)
                 {
                     for (int b = 0; b < _friendlyCollisionLayers.Count; b++)
@@ -685,7 +702,7 @@ public static class PatchWorld_DefenseSpacing
                 }
                 _friendlyCollisionIgnored = false;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[DefenseSpacing] day friendly collision on");
+                    "[DefenseSpacing] day friendly collision on (morning dispersal grace elapsed)");
             }
         }
         catch (Exception e)

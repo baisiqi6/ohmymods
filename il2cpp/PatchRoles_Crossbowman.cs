@@ -76,6 +76,13 @@ public static class PatchRoles_Crossbowman
     private const int PromoteCycle = 4;                    // 3:1 交替
     private const float RecomputeDelaySeconds = 15f;       // 等单位恢复完成
     private const float IntegrityIntervalSeconds = 5f;
+    // 夜间站位靠后（弩矢观感收尾）：贴墙→低弹道擦墙→强制高抛（用户观察实锤），
+    // 夜间把 depth<3.5 的过浅弩手挪到墙内 4~8 步深处（射程 12 仍全覆盖墙前敌人）
+    private const float NightStartHour = 17.5f;
+    private const float NightEndHour = 5.5f;
+    private const float NightShallowDepth = 3.5f;
+    private const float NightPullbackMin = 4f;
+    private const float NightPullbackMax = 8f;
 
     private const string BoltPrefabName = "KEM_CrossbowBolt";
     private const string AttackSoName = "KEM_CrossbowAttack";
@@ -802,6 +809,11 @@ public static class PatchRoles_Crossbowman
                 // _isWearingBannerColor；标记被清说明衣色丢了，补染回旗帜色（幂等）。
                 ApplyBannerColors(archer);
 
+                // 夜间站位靠后（弩矢观感收尾）：内部自带夜间窗口/塔位豁免/深度
+                // 门槛，非命中条件零开销；与 DefenseSpacing 夜间规则域不相交
+                // （见方法注释）
+                ApplyNightPullback(archer);
+
                 // 缩放漂移诊断（用户报告"地面弩手有的高有的低"）：只统计不改——
                 // 守卫每帧都在断言仍有漂移，说明存在更晚的写入者（怀疑动画器
                 // scale 曲线，其在 Mover.Update 之后评估）。记录首个样本的动画器
@@ -841,6 +853,75 @@ public static class PatchRoles_Crossbowman
     private static int _scaleDriftCount;
     private static int _loggedScaleDrift = -1;
     private static string _scaleDriftSample;
+
+    /// <summary>
+    /// 夜间站位靠后（弩矢观感收尾，用户观察实锤）：守家时弩手站太贴墙，
+    /// 避障算法（ParabolaCast 低弹道解擦墙沿，ArrowAttack.cs:134）会强制
+    /// 高抛——出膛前移 (2.5,1.0) 已解决"被自家墙挡"，但贴墙站位仍让低弹道
+    /// 解擦墙。修法：夜间窗口内对 depth&lt;3.5 的过浅弩手下发墙内 4~8 步深处
+    /// 的位置目标（walkSpeed 自行走过去；射程 12 依然全覆盖墙前敌人，深处
+    /// 也让 2.5 出膛前移的观感更自然）。天然限流：走到 depth>=3.5 即不再触发，
+    /// 同一弩手两次下发间隔 >= 巡检周期 5s。
+    ///
+    /// 与 PatchWorld_DefenseSpacing 夜间规则域不相交：那边只碰"墙外/墙外窄带"
+    /// 目标（depth &lt; -0.5 的 parked re-goal 与 deep relocate），本规则只碰
+    /// "墙内过浅"（depth &lt; 3.5）；DefenseSpacing 镜像规则无类型区分但窄带
+    /// 判定不会命中墙内目标。若 DefenseSpacing 未跑而弩手滞留墙外（depth&lt;0
+    /// 落入本规则区间），本规则同样向墙内拉——方向一致，行为兼容无冲突。
+    /// 塔位豁免两道防线与 DefenseSpacing 同款（inGuardSlot / y&gt;2.5 塔上高度）。
+    /// </summary>
+    private static void ApplyNightPullback(Archer archer)
+    {
+        try
+        {
+            // 夜间窗口（NightVolley/DefenseSpacing 同款访问 + 判空跳过）
+            Director director = Managers.Inst != null ? Managers.Inst.director : null;
+            if (director == null) return;
+            float t = director.currentTime;
+            if (!(t >= NightStartHour || t <= NightEndHour)) return;
+
+            // 塔位豁免：塔守位在墙外窄带/高处，重定位会让塔上弩手在天上走
+            if (archer.inGuardSlot) return;
+            if (archer.transform.position.y > 2.5f) return;
+
+            Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
+            if (kingdom == null) return;
+
+            // side：_guardSide（DefenseSpacing 同款判定写法）；中性则按近墙侧
+            Side side = archer._guardSide;
+            float x = archer.transform.position.x;
+            if (side != Side.Left && side != Side.Right)
+            {
+                float wallLeft = kingdom.GetBorderSideIntact(Side.Left);
+                float wallRight = kingdom.GetBorderSideIntact(Side.Right);
+                side = Mathf.Abs(x - wallLeft) <= Mathf.Abs(x - wallRight)
+                    ? Side.Left : Side.Right;
+            }
+            float sideSign = (float)side;
+            if (sideSign == 0f) return;
+
+            float wall = kingdom.GetBorderSideIntact(side);
+            float depth = (wall - x) * sideSign;
+            if (depth >= NightShallowDepth) return; // 够深：天然限流，零写入
+
+            float deep = UnityEngine.Random.Range(NightPullbackMin, NightPullbackMax);
+            if (!_loggedNightPullback)
+            {
+                _loggedNightPullback = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[Crossbowman] night pullback: x=" + x.ToString("F1")
+                    + " -> depth " + deep.ToString("F1"));
+            }
+            // SetGoal(float, float) 同 DefenseSpacing 深处重定位；walkSpeed 步行
+            archer._mover.SetGoal(wall - sideSign * deep, archer.walkSpeed);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Crossbowman/night-pullback] " + e);
+        }
+    }
+
+    private static bool _loggedNightPullback;
 
     // ============================================================
     // G. 骑士招募排除
