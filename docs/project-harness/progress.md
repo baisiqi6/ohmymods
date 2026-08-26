@@ -1,3 +1,15 @@
+## 2026-08-26（二） — 3.0.1-dev4：神器/坐骑CD倍率滑块进控制面板
+
+- 用户需求：两滑块进 Ctrl+F10 面板，最短缩到原版1/5。落地：ModConfig Cooldown 组两项
+  （Staff 默认0.375=现状11.25s/Steed 默认1.0=原生），ModPanel 两组 HorizontalSlider
+  （0.2~1.0，5%步进吸附+Approximately 防抖），SettingChanged 即时重算在场对象。
+- 坐骑侧 worker 实证偏离：SteedAbility 在 2.4.0 无 OnEnable 声明（反射 interop 核实），
+  硬挂会拖垮 PatchAll——改为基类 Activate 读取点前缀（12 个消费 CD 的派生类全调
+  base.Activate，5 个不读 CD 的空实现天然不命中）；原生值按实例缓存幂等不叠乘；
+  三头犬 GhostSteed 固定 profile 排除防叠乘。
+- 神器侧：11.25 常量改 30×倍率（默认等价现状）。
+- 编译 0W/0E，build=3.0.1-dev4 已部署 E 盘（SHA 前16=cc69e0d4e6c825f2）。
+
 ## 2026-08-26 — 3.0.1-dev 批次：幕府0.95/狗1.3/弩手靠后/死地锚点6.5/天亮碰撞缓冲
 
 - v3.0.0 后调参与修复批次（均未发布，攒 v3.0.1）：幕府骑士 0.95（表{0.95,1.05,0.95,0.9}）；

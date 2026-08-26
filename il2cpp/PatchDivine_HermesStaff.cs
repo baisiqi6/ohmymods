@@ -10,7 +10,9 @@ namespace KingdomEnhancedMod;
 ///      见 Mono 版 Patch_HermesStaff 对 `+8` 余量的分析）。
 ///   2. 控制永久：FriendlyTroll.ShouldRevertToTroll() prefix 强制返回 false 并跳过原方法
 ///      （revert 永不触发）；mod 关闭时返回 true 走原逻辑（可开关）。
-///   3. 2.4.0 基础冷却 30 秒 → 11.25 秒（用户拍板：现行 22.5 减半）；关闭 mod 恢复 30 秒。
+///   3. 基础冷却 30 秒 → 30 秒 × 面板倍率（2026-08-24 由固定 11.25 改为倍率制，
+///      StaffCooldownMultiplier 默认 0.375 → 11.25 秒，与旧常量行为一致；0.2 最短 = 1/5）；
+///      关闭 mod 恢复原版 30 秒。
 ///
 /// 2.4.0 签名验证（E:/QQ/.../BepInEx/interop/Assembly-CSharp.dll）：
 ///   - HermesStaff.Awake()                存在 ✓ public override void
@@ -23,14 +25,40 @@ namespace KingdomEnhancedMod;
 public static class PatchDivine_HermesStaff
 {
     private const float OriginalCooldownSeconds = 30f;
-    private const float EnhancedCooldownSeconds = 11.25f;
 
     private static void ApplyCooldownProfile(HermesStaff staff)
     {
         if (staff == null) return;
+        // 倍率制（2026-08-24）：强化 CD = 原版 30s × StaffCooldownMultiplier（面板滑块，
+        // 默认 0.375 → 11.25s，等价旧常量 EnhancedCooldownSeconds=11.25）；
+        // mod 关闭时走原版 30s 分支保持不变。
         staff._itemCooldown = ModConfig.Enabled.Value
-            ? EnhancedCooldownSeconds
+            ? OriginalCooldownSeconds * ModConfig.StaffCooldownMultiplier.Value
             : OriginalCooldownSeconds;
+    }
+
+    /// <summary>
+    /// 倍率改动回调（ModConfig.Init 接线，InfiniteMoney 同款模式）：
+    /// 对在场 HermesStaff 重跑 profile，运行中的权杖即时换算。事件低频，
+    /// FindObjectsOfType 全量扫可接受。若 BepInEx 从文件监视线程触发 SettingChanged，
+    /// Unity API 会抛异常 —— try/catch 兜住，主线程（面板滑块）路径不受影响；
+    /// 且 Awake/CanActivate/TriggerItemAbility 三个读取点每次使用都会重算，
+    /// 正确性本就不依赖本回调。
+    /// </summary>
+    internal static void OnStaffCooldownMultiplierChanged(object sender, EventArgs e)
+    {
+        try
+        {
+            var staffs = UnityEngine.Object.FindObjectsOfType<HermesStaff>();
+            foreach (var staff in staffs)
+            {
+                ApplyCooldownProfile(staff);
+            }
+        }
+        catch (Exception ex)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError($"[HermesStaff] staff cooldown reapply failed: {ex}");
+        }
     }
 
     [HarmonyPatch(nameof(HermesStaff.Awake))]

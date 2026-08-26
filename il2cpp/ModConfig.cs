@@ -16,6 +16,8 @@ public static class ModConfig
     public static ConfigEntry<float> MapSizeMultiplier;
     public static ConfigEntry<float> EnemyCountMultiplier;
     public static ConfigEntry<float> EnemyTimelineSpeed;
+    public static ConfigEntry<float> StaffCooldownMultiplier;
+    public static ConfigEntry<float> SteedCooldownMultiplier;
 
     public static void Init(ConfigFile config)
     {
@@ -40,10 +42,26 @@ public static class ModConfig
         EnemyTimelineSpeed = config.Bind("Enemy", "EnemyTimelineSpeed", 1f,
             "怪物时间线推进速度倍率（1-5x）");
 
+        // ---- Cooldown（2026-08-24 需求：神器/坐骑 CD 各一个面板滑块，最多缩到原版 1/5）----
+        // 神器默认 0.375 = 现行强化值 11.25/30：装上即维持既有手感；1.0 = 原版 30 秒。
+        StaffCooldownMultiplier = config.Bind("Cooldown", "StaffCooldownMultiplier", 0.375f,
+            "神器权杖CD倍率（0.2=最短，为原版1/5；1.0=原版30秒）");
+
+        // 坐骑默认 1.0（原版）：各坐骑原生 CD 不同（prefab 序列化值），倍率统一乘在原生值上。
+        SteedCooldownMultiplier = config.Bind("Cooldown", "SteedCooldownMultiplier", 1.0f,
+            "坐骑技能CD倍率（0.2=最短，为原生1/5；1.0=原生）");
+
         // 接线无限金币（2.4.0 Wallet.InfiniteMoney 为 public static 属性）：
         // 配置改动即时生效 + 启动应用初值。Mono 版由 OnGUI toggle 驱动，此处等价迁移。
         InfiniteMoney.SettingChanged += OnInfiniteMoneyChanged;
         Wallet.InfiniteMoney = InfiniteMoney.Value;
+
+        // CD 倍率改动 → 对在场实例重跑 profile（InfiniteMoney 同款接线模式）。
+        // 面板滑块在主线程（OnGUI）触发；事件低频，patch 侧 FindObjectsOfType 全量扫可接受。
+        // 两个 patch 本身都有读取点前缀（每次使用时重算），此处仅让字段即时一致并留日志，
+        // 正确性不依赖本回调。
+        StaffCooldownMultiplier.SettingChanged += PatchDivine_HermesStaff.OnStaffCooldownMultiplierChanged;
+        SteedCooldownMultiplier.SettingChanged += PatchRide_SteedCooldown.OnMultiplierChanged;
     }
 
     private static void OnInfiniteMoneyChanged(object sender, System.EventArgs e)

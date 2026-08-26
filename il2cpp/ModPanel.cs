@@ -103,6 +103,30 @@ public class ModPanel : MonoBehaviour
         GUILayout.Label("怪物时间线 EnemyTimelineSpeed: " + ModConfig.EnemyTimelineSpeed.Value.ToString("0.0") + "x", GUILayout.Height(24));
         ModConfig.EnemyTimelineSpeed.Value = GUILayout.HorizontalSlider(ModConfig.EnemyTimelineSpeed.Value, 1f, 5f, GUILayout.Height(26));
 
+        // ---- CD 倍率滑块（2026-08-24 需求：神器/坐骑各一个，0.2~1.0，最多缩到 1/5）----
+        // 滑块离散化到 5% 步进（Round(v*20)/20）：IMGUI 每帧 Repaint 会有亚像素抖动，
+        // 直接写回会把微小浮点噪声写脏 cfg 并反复触发 SettingChanged；吸附步进后
+        // 仅在值真正变化时写回（Mathf.Approximately 守门），cfg 安静、回调低频。
+        GUILayout.Space(12);
+        GUILayout.Label("神器CD倍率 " + PercentText(ModConfig.StaffCooldownMultiplier.Value)
+            + "（" + (30f * ModConfig.StaffCooldownMultiplier.Value).ToString("0.#") + "秒/30秒）", GUILayout.Height(24));
+        float staffCd = SnapToPercentStep(GUILayout.HorizontalSlider(ModConfig.StaffCooldownMultiplier.Value, 0.2f, 1f, GUILayout.Height(26)));
+        if (!Mathf.Approximately(staffCd, ModConfig.StaffCooldownMultiplier.Value))
+        {
+            ModConfig.StaffCooldownMultiplier.Value = staffCd;
+        }
+
+        GUILayout.Space(12);
+        // 坐骑原生 CD 因坐骑而异（prefab 序列化），无法像神器那样给固定秒数，
+        // 只展示倍率；1.0 时标注"原生"。
+        GUILayout.Label("坐骑技能CD倍率 " + PercentText(ModConfig.SteedCooldownMultiplier.Value)
+            + (Mathf.Approximately(ModConfig.SteedCooldownMultiplier.Value, 1f) ? "（原生）" : ""), GUILayout.Height(24));
+        float steedCd = SnapToPercentStep(GUILayout.HorizontalSlider(ModConfig.SteedCooldownMultiplier.Value, 0.2f, 1f, GUILayout.Height(26)));
+        if (!Mathf.Approximately(steedCd, ModConfig.SteedCooldownMultiplier.Value))
+        {
+            ModConfig.SteedCooldownMultiplier.Value = steedCd;
+        }
+
         GUILayout.Space(16);
         if (GUILayout.Button("关闭面板（Ctrl+F10 / F5）", GUILayout.Height(36)))
         {
@@ -110,5 +134,17 @@ public class ModPanel : MonoBehaviour
         }
 
         GUILayout.EndVertical();
+    }
+
+    /// <summary>倍率 → 百分比文案："0.375"→"37.5%"，"1.0"→"100%"（整数不带小数点）。</summary>
+    private static string PercentText(float multiplier)
+    {
+        return (multiplier * 100f).ToString("0.#") + "%";
+    }
+
+    /// <summary>滑块值吸附到 5% 步进（0.20/0.25/.../1.00）：Round(v*20)/20。</summary>
+    private static float SnapToPercentStep(float value)
+    {
+        return Mathf.Round(value * 20f) / 20f;
     }
 }
