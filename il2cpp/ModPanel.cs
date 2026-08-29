@@ -110,17 +110,34 @@ public class ModPanel : MonoBehaviour
         GUILayout.Label("快速建造 FastBuild", GUILayout.Height(LabelH));
         ModConfig.FastBuild.Value = GUILayout.Toggle(ModConfig.FastBuild.Value, " 建筑约 2 秒建成", GUILayout.Height(ToggleH));
 
+        // ---- 老浮点滑块步进吸附（2026-08-29）：三个浮点倍率此前把拖出的原始值
+        // （如 1.5436893）直接写进 cfg。与 CD 滑块同款（SnapToPercentStep 5% 步进
+        // + Approximately 守门）：IMGUI 每帧 Repaint 有亚像素抖动，吸附后仅在值
+        // 真正变化时写回，cfg 干净、SettingChanged 低频。SpeedMultiplier 是 int
+        // 滑块（RoundToInt 天然离散），保持原样。----
         GUILayout.Space(20);
         GUILayout.Label("地图大小 MapSizeMultiplier: " + ModConfig.MapSizeMultiplier.Value.ToString("0.0") + "x", GUILayout.Height(LabelH));
-        ModConfig.MapSizeMultiplier.Value = GUILayout.HorizontalSlider(ModConfig.MapSizeMultiplier.Value, 1f, 5f, GUILayout.Height(SliderH));
+        float mapSize = SnapToPercentStep(GUILayout.HorizontalSlider(ModConfig.MapSizeMultiplier.Value, 1f, 5f, GUILayout.Height(SliderH)));
+        if (!Mathf.Approximately(mapSize, ModConfig.MapSizeMultiplier.Value))
+        {
+            ModConfig.MapSizeMultiplier.Value = mapSize;
+        }
 
         GUILayout.Space(20);
         GUILayout.Label("怪物数量 EnemyCountMultiplier: " + ModConfig.EnemyCountMultiplier.Value.ToString("0.0") + "x", GUILayout.Height(LabelH));
-        ModConfig.EnemyCountMultiplier.Value = GUILayout.HorizontalSlider(ModConfig.EnemyCountMultiplier.Value, 1f, 5f, GUILayout.Height(SliderH));
+        float enemyCount = SnapToPercentStep(GUILayout.HorizontalSlider(ModConfig.EnemyCountMultiplier.Value, 1f, 5f, GUILayout.Height(SliderH)));
+        if (!Mathf.Approximately(enemyCount, ModConfig.EnemyCountMultiplier.Value))
+        {
+            ModConfig.EnemyCountMultiplier.Value = enemyCount;
+        }
 
         GUILayout.Space(20);
         GUILayout.Label("怪物时间线 EnemyTimelineSpeed: " + ModConfig.EnemyTimelineSpeed.Value.ToString("0.0") + "x", GUILayout.Height(LabelH));
-        ModConfig.EnemyTimelineSpeed.Value = GUILayout.HorizontalSlider(ModConfig.EnemyTimelineSpeed.Value, 1f, 5f, GUILayout.Height(SliderH));
+        float enemyTimeline = SnapToPercentStep(GUILayout.HorizontalSlider(ModConfig.EnemyTimelineSpeed.Value, 1f, 5f, GUILayout.Height(SliderH)));
+        if (!Mathf.Approximately(enemyTimeline, ModConfig.EnemyTimelineSpeed.Value))
+        {
+            ModConfig.EnemyTimelineSpeed.Value = enemyTimeline;
+        }
 
         // ---- CD 倍率滑块（2026-08-24 需求：神器/坐骑各一个，0.2~1.0，最多缩到 1/5）----
         // 滑块离散化到 5% 步进（Round(v*20)/20）：IMGUI 每帧 Repaint 会有亚像素抖动，
@@ -161,7 +178,8 @@ public class ModPanel : MonoBehaviour
         return (multiplier * 100f).ToString("0.#") + "%";
     }
 
-    /// <summary>滑块值吸附到 5% 步进（0.20/0.25/.../1.00）：Round(v*20)/20。</summary>
+    /// <summary>滑块值吸附到 5% 步进（0.05 粒度，CD 的 0.20/0.25/.../1.00 与
+    /// 倍率的 1.00/1.05/.../5.00 通用）：Round(v*20)/20。</summary>
     private static float SnapToPercentStep(float value)
     {
         return Mathf.Round(value * 20f) / 20f;

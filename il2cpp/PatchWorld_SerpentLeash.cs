@@ -22,14 +22,30 @@ namespace KingdomEnhancedMod;
 /// - 弱点锚点按世界跨度均分（CalculateWeakPointAnchors 用 worldBounds），
 ///   与蛇锚点无关，战斗布局不动。
 /// 城墙会持续右扩，用低频协程复扫；OnEnable postfix 保证大蛇一激活就位。
+///
+/// 远程吐怪（回归修复，2026-08-29）：蛇被推到墙+100 后夜间不再吐怪——原生
+/// OnSpawningStateRoutine（WorldEatingSerpent.cs:507-533，2.1.0 源）的吐怪门 =
+/// 夜间 && _cachedTime - _lastAttackTime >= _attackCooldown && _longRangeScanner.IsAny()，
+/// 而 IsAny 是 6 步警戒圈（_warnDistance=6），蛇在 +100 时恒 false → 整夜零波次
+/// （最终岛夜怪主力就是蛇的吐怪 mouthPortal.SpawnProximityWave）。修法：复扫协程
+/// 里补一条同语义的远程吐怪路径，去掉 IsAny 项（TryRemoteProximityWave）。
 /// </summary>
 public static class PatchWorld_SerpentLeash
 {
     private const float MinDistanceFromWall = 100f;  // 用户两次要求再远：60→100（世界右界336余量足，蛇警戒圈只覆盖墙+86外）
     private const float RescanIntervalSeconds = 10f; // 城墙右扩后复推（只向右，幂等）
+    // 远程吐怪巡检粒度：原生 _attackCooldown 源码默认 10f
+    // （game-source/Assembly-CSharp-2.1.0/WorldEatingSerpent.cs:1565
+    //   [SerializeField] private float _attackCooldown = 10f;
+    // 注意是 SerializeField，prefab 可能覆写——冷却门读运行时字段而非硬编码 10）。
+    // 10s 复扫粒度粗于冷却：命中点最坏落在冷却结束后第 10s，波次间隔被拉到 10~20s；
+    // 拆成 5 x 2s 子节拍后间隔收紧到 10~12s，接近原生节奏，复扫节奏不变。
+    private const float SpawnCheckIntervalSeconds = 2f;
+    private const int SpawnChecksPerRescan = 5;      // RescanIntervalSeconds / SpawnCheckIntervalSeconds
     private static IntPtr _supervisorWorld;
     private static bool _loggedLeash;
     private static bool _loggedClampUnavailable;
+    private static bool _loggedRemoteWave;
 
     internal static void LeashAnchorToBorder(WorldEatingSerpent serpent)
     {
@@ -154,6 +170,60 @@ public static class PatchWorld_SerpentLeash
     }
 
     /// <summary>
+    /// 远程吐怪：复刻原生 OnSpawningStateRoutine 的吐怪分支
+    /// （WorldEatingSerpent.cs:516-519，逐字对照）：
+    ///   if (_cachedTime - _lastAttackTime >= _attackCooldown && _longRangeScanner.IsAny())
+    ///       _mouthPortal.SpawnProximityWave(); _lastAttackTime = _cachedTime;
+    /// 去掉 IsAny 项（蛇被缰绳推到墙+100 后 6 步警戒圈恒空，这正是回归根因），
+    /// 其余判据全部保留。
+    ///
+    /// 与原生门的互斥（天然不叠加）：本方法与原生循环共用同一 _lastAttackTime
+    /// 字段做冷却门——蛇离墙近、IsAny 可命中时原生每帧先检查先吐并写回
+    /// _lastAttackTime，本方法的冷却门随即关闭；反之本方法先吐亦然。Unity
+    /// 协程单线程顺序执行且"检查→写回"之间无 yield，不存在同帧双过门的窗口。
+    ///
+    /// 状态判定：嘴部门 _mouthPortal.gameObject 只在 Spawning 例程内
+    /// SetActive(true)/SetActive(false)（511/522 行），activeInHierarchy 即
+    /// "正在 Spawning 态"的代理判据——比读 fsm.Current 更稳（State 是私有嵌套
+    /// 类，数值只能硬编码，坑：状态数值硬编码）。
+    /// </summary>
+    private static void TryRemoteProximityWave(WorldEatingSerpent serpent)
+    {
+        if (!ModConfig.Enabled.Value || serpent == null) return;
+        try
+        {
+            // 夜间判据：原生 Spawning 循环同款（director.IsNight，513 行）。
+            Director director = Managers.Inst != null ? Managers.Inst.director : null;
+            if (director == null || !director.IsNight) return;
+            // 吐怪=刷兵，仅世界权威端执行（原生 FixedUpdate 同款门）。
+            if (!NetworkBigBoss.HasWorldAuth) return;
+
+            WorldEatingSerpentPortal portal = serpent._mouthPortal;
+            if (portal == null || portal.gameObject == null || !portal.gameObject.activeInHierarchy) return;
+
+            // 冷却门复刻（字段私有但 interop 暴露，_fsm/_mtOlympusGate 先例）。
+            float cachedTime = serpent._cachedTime; // 原生 FixedUpdate 每物理帧刷新
+            float elapsed = cachedTime - serpent._lastAttackTime;
+            if (elapsed < serpent._attackCooldown) return;
+
+            portal.SpawnProximityWave();
+            serpent._lastAttackTime = cachedTime; // 与原生 519 行同一行语义
+
+            if (!_loggedRemoteWave)
+            {
+                _loggedRemoteWave = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[SerpentLeash] remote proximity wave: t=" + cachedTime.ToString("F1")
+                    + " cooldown gate=" + elapsed.ToString("F1") + "/" + serpent._attackCooldown.ToString("F1"));
+            }
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[SerpentLeash/remote-wave] " + e);
+        }
+    }
+
+    /// <summary>
     /// 低频复扫宿主（范式同 PatchWorld_DefenseSpacing）：城墙右扩/读档后保持
     /// 锚点离墙距离。大蛇只在最终岛存在，FindObjectsOfType 每轮最多命中一个。
     /// 墙被毁后 borderIntact 回退内侧 → targetX 下降 → no-op，锚点停在原远处
@@ -167,6 +237,7 @@ public static class PatchWorld_SerpentLeash
         UnitScanCache.InvalidateAll();
         _loggedLeash = false;
         _loggedBodySnap = false;
+        _loggedRemoteWave = false;
         bool loggedDiag = false;
 
         while (world != null && world.gameObject != null)
@@ -192,7 +263,22 @@ public static class PatchWorld_SerpentLeash
                     }
                 }
             }
-            yield return new WaitForSeconds(RescanIntervalSeconds);
+
+            // 10s 复扫周期拆成 5 x 2s 子节拍：缰绳复推仍 10s 一次，
+            // 远程吐怪门每 2s 巡检（见 SpawnCheckIntervalSeconds 注释，
+            // 原生冷却默认 10f，10s 粒度会把波次间隔拉到 10~20s）。
+            // 蛇引用复用本轮扫描结果（单蛇游戏，最终岛最多一条）；
+            // 期间被销毁的引用由 TryRemoteProximityWave 内部的 null/异常门兜住。
+            for (int tick = 0; tick < SpawnChecksPerRescan; tick++)
+            {
+                yield return new WaitForSeconds(SpawnCheckIntervalSeconds);
+                if (serpents == null) break;
+                for (int i = 0; i < serpents.Length; i++)
+                {
+                    if (serpents[i] == null) continue;
+                    TryRemoteProximityWave(serpents[i]);
+                }
+            }
         }
     }
 }
