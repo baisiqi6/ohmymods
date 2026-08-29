@@ -1101,6 +1101,35 @@
         "decision": null
       },
       "selected_in_session": "zcode-2026-08-26-shieldwall"
+    },
+    {
+      "id": "tower-spots-029",
+      "title": "箭塔基底增密（TowerSpotMultiplier）",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "zcode",
+      "updated_at": "2026-08-29",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "读档后按原生间距/倍数补放可购买基底；同一存档连续3次读档added=0（幂等）；买的塔持久化不复活基底",
+      "verification": "worker两轮（初版+reviewer P0修复：双层集合=参考集只收未购原生基底/占用集全量；守卫移到就绪检查后）。reviewer(subagent)深审：注册与原生DestroyTower逐字等价/存档往返ObjectData.name保留/边界公式复刻。默认2x cfg-only（用户拍板不进面板：棘轮语义）。build=3.2.0-dev4已部署(SHA前16=1ac64d0f296d101a)。待实测：连读3档added=0/购买往返/坡地吸附",
+      "handoff": "场景点位为关卡资产；towerLocationPrefab自包含（PayableUpgrade+Persistent+CRPCStamp），原生塔毁回退即运行时实例化先例；联机fail-closed",
+      "workflow": {
+        "status": "review_approved",
+        "updated_at": "2026-08-29"
+      },
+      "artifacts": {
+        "implementation": "il2cpp/PatchWorld_TowerSpots.cs"
+      },
+      "review": {
+        "decision": "approved",
+        "reviewer": "subagent/GLM-max",
+        "rounds": 1,
+        "date": "2026-08-29",
+        "note": "P0密度棘轮必修已按处方落地"
+      },
+      "selected_in_session": "zcode-2026-08-29-towerspots"
     }
   ]
 }

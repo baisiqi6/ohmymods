@@ -14,6 +14,7 @@ public static class ModConfig
     public static ConfigEntry<int> SpeedMultiplier;
     public static ConfigEntry<bool> FastBuild;
     public static ConfigEntry<float> MapSizeMultiplier;
+    public static ConfigEntry<float> TowerSpotMultiplier;
     public static ConfigEntry<float> EnemyCountMultiplier;
     public static ConfigEntry<float> EnemyTimelineSpeed;
     public static ConfigEntry<float> StaffCooldownMultiplier;
@@ -35,6 +36,13 @@ public static class ModConfig
 
         MapSizeMultiplier = config.Bind("World", "MapSizeMultiplier", 2f,
             "地图大小倍率（1-5x）");
+
+        // 箭塔基底（可购买塔位）密度倍数：1=原生密度（不补点），2=目标间距减半
+        // （约两倍点位），上限 4。对原生参考集幂等补放（间距估计/铺点范围只取
+        // 原生基底，反复读档密度不爬升），现有存档读档即生效。
+        TowerSpotMultiplier = config.Bind("World", "TowerSpotMultiplier", 2f,
+            new ConfigDescription("箭塔基底密度倍数（1=原生密度，最大4）",
+                new AcceptableValueRange<float>(1f, 4f)));
 
         EnemyCountMultiplier = config.Bind("Enemy", "EnemyCountMultiplier", 1f,
             "每波怪物数量倍率（1-5x）");
