@@ -1048,27 +1048,59 @@
     {
       "id": "norse-squad-027",
       "title": "北境骑士小队完整引入（预制体级）",
-      "status": "todo",
+      "status": "doing",
       "priority": "p2",
-      "owner": null,
-      "updated_at": "2026-08-24",
+      "owner": "zcode",
+      "updated_at": "2026-08-26",
       "dependencies": [
         "knight-style-026"
       ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "北境风格骑士的随从为真北境弓箭手(Archer_norselands预制体,带NpcShieldUser盾牌组件+近战逻辑)；跨生物群系替换走Holder注册+同步池+完整池依赖审计(AGENTS坑14)",
-      "verification": "",
+      "verification": "worker两轮（初版552行+reviewer三修587行）+Operator池接线（ReRegisterModPools希腊门控前）。reviewer(subagent)深审：无崩溃缺陷批准进测试——窗口并发安全（比Worker先例更窄）/池恢复三路兜底/联机主机侧先例一致/Q1跨队回收北境皮已修(helper+两消费点)/Persistent存档语义静态成立。build=3.1.0-dev1已部署E盘(SHA前16=916c79ceb63bf108)。待实测五点：转化链端到端/读档回归/Q1场景/联机/换脸一致",
       "handoff": "用户拍板(2026-08-24):北境不进四风格随机池,作独立任务完整引入。机制实锤:北境随从是prefab级差异(IsAvailableForJob有'带盾组件必须有盾才入队'判定;北境士兵动画多attack/defend/getshield/retreat四套)。先例:PatchRoles希腊Worker/Peasant换北境预制体。北境骑士本体控制器knight_norselands已实锤存在可先做视觉",
       "workflow": {
+        "status": "review_approved",
+        "updated_at": "2026-08-26"
+      },
+      "artifacts": {
+        "worker_brief": "docs/project-harness/tasks/norse-squad-027/worker-brief.md",
+        "implementation": "il2cpp/PatchRoles_NorseSquad.cs"
+      },
+      "review": {
+        "decision": "approved",
+        "reviewer": "subagent/GLM-max",
+        "rounds": 1,
+        "date": "2026-08-26",
+        "note": "深审通过含Q1必修已落地;五点实测清单"
+      },
+      "selected_in_session": "zcode-2026-08-24-norse-squad"
+    },
+    {
+      "id": "shieldwall-totem-028",
+      "title": "盾墙激活雕像移植（PayableShieldWallActivator）",
+      "status": "todo",
+      "priority": "p1",
+      "owner": null,
+      "updated_at": "2026-08-26",
+      "dependencies": [
+        "norse-squad-027"
+      ],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "希腊城墙内1币激活盾墙编队（墙外站位），北境随从为兵源；与夜间目标镜像的编队成员豁免",
+      "verification": "",
+      "handoff": "用户指认机制实锤:PayableShieldWallActivator.Pay→TrySpawnActiveShieldWall(side,pos,offsetFromOuterWall);CanJoinFormation盾墙门=NpcShieldUser+HasShield(北境随从是唯一兵源);必修交互:夜间墙外目标镜像会拉盾墙成员回墙内,需IsInFormation豁免。北境小队验收后开侦查(资产per-biome/坑14池/网络)",
+      "workflow": {
         "status": "todo",
-        "updated_at": "2026-08-24"
+        "updated_at": "2026-08-26"
       },
       "artifacts": {},
       "review": {
         "decision": null
       },
-      "selected_in_session": "zcode-2026-08-24-norse-squad"
+      "selected_in_session": "zcode-2026-08-26-shieldwall"
     }
   ]
 }

@@ -8,12 +8,15 @@ using UnityEngine;
 namespace KingdomEnhancedMod;
 
 /// <summary>
-/// 骑士随机风格（knight-style-026）：招募骑士（Armor 转职）时，每个骑士按确定性哈希
-/// 随机定为 中世纪/死亡之地/幕府/希腊 四种形象之一（纯外观，不动战斗数值）；
-/// 其随从士兵（跟随骑士的 Archer，原生 ConvertToSoldier 已把它们换成当前世界的
-/// 士兵控制器）覆盖为"骑士风格对应"的士兵控制器。缩放（坑11：只动 y）：
-/// 骑士按风格查表（中世纪 0.95/死地 1.0/幕府 1.0/希腊 0.9，Strip 恒回 1）；
-/// 中世纪风格的随从士兵 y=1.05（其余 1.0，无骑士/骑士无风格时回 1）。
+/// 骑士随机风格（knight-style-026 + norse-squad-027）：招募骑士（Armor 转职）时，
+/// 每个骑士按确定性哈希随机定为 中世纪/死亡之地/幕府/希腊/北境 五种形象之一
+/// （纯外观，不动战斗数值）；其随从士兵（跟随骑士的 Archer，原生
+/// ConvertToSoldier 已把它们换成当前世界的士兵控制器）覆盖为"骑士风格对应"的
+/// 士兵控制器。北境风格额外联动 PatchRoles_NorseSquad：随从转化为真北境弓箭手
+/// 预制体（带盾组件的近战/盾墙原生逻辑）并程序化装盾，见该文件。
+/// 缩放（坑11：只动 y）：骑士按风格查表（中世纪 0.95/死地 1.05/幕府 0.95/
+/// 希腊 0.9/北境 1.0，Strip 恒回 1）；中世纪风格的随从士兵 y=1.05
+/// （其余含北境 1.0，无骑士/骑士无风格时回 1）。
 ///
 /// 机制要点：
 /// - 转职入口：Character.Promote(DroppableTool, IUnitController) postfix，
@@ -58,13 +61,15 @@ namespace KingdomEnhancedMod;
 /// - Knight.OnEnable() —— 私有，用字符串名打补丁（Worker/Crossbowman 的 nameof
 ///   先例不适用：Knight.OnEnable 非公开）
 /// - Archer._animator : Animator —— interop 已暴露（免 GetComponentInChildren）
-/// - Knight/士兵四套控制器（resources.assets 实测存在）：knight / knight_deadlands /
-///   knight_bamboo / knight_greece；archer_soldier / archer_soldier_deadlands /
-///   archer_soldier_bamboo / archer_soldier_greece。
-///   另解析 archer_soldier_norselands（北境世界随从的原生士兵控制器，
-///   ConvertToSoldier 按 biome swap 得到）——队籍判定后写入条件不再消费
-///   识别集，但解析保留（资产存在性实锤、供回归诊断与未来判定），绝不进
-///   AvailableStyles 风格池，也不计入完整性/收缩判定（Reviewer MF-1 沿革）
+/// - Knight/士兵五套控制器（2.4.0 资产实测存在）：knight / knight_deadlands /
+///   knight_bamboo / knight_greece / knight_norselands；archer_soldier /
+///   archer_soldier_deadlands / archer_soldier_bamboo / archer_soldier_greece /
+///   archer_soldier_norselands（第五套"北境"由 norse-squad-027 转正进风格池，
+///   取代 Reviewer MF-1 时代的"只解析不消费"特殊字段；北境款含 attack/defend/
+///   getshield/retreat 全套近战 clip，其他风格族没有——北境随从的近战/盾墙
+///   表现来自真北境弓箭手预制体的 NpcShieldUser 组件，士兵皮只管外观）。
+///   哈希取模池长从 4 变 5：存量骑士上线的第一次巡检会换脸一次（任务书接受，
+///   双端确定性哈希保证换脸后双端一致），此后稳定。
 /// - Archer._knight : Knight（私有，interop 已暴露）——随从联动反向归属用
 ///   （PatchRoles_Crossbowman.cs:687 同字段先例）。不枚举 Knight._archers：
 ///   Il2CppSystem HashSet 的枚举器运行时不可靠（knightstyle2 实测纯读 MoveNext
@@ -76,34 +81,30 @@ namespace KingdomEnhancedMod;
 public static class PatchRoles_KnightStyle
 {
     // ---- 常量 ----
-    private const int StyleCount = 4;
+    private const int StyleCount = 5;
     private const int MedievalStyleIndex = 0; // 随从缩放特判用（中世纪随从 1.05）
     private const int DeadlandsStyleIndex = 1; // 死地随从"无标记弩手化"包特判用
+    internal const int NorseStyleIndex = 4;   // 北境风格（PatchRoles_NorseSquad 联动判定用）
     private const float IntegrityIntervalSeconds = 5f;
     private const float AssetRetryIntervalSeconds = 30f;
 
     // 每风格骑士 y 缩放（坑11：只动 y），index 对齐 StyleNames：
-    // 中世纪 0.95 / 死地 1.05 / 幕府 1.0 / 希腊 0.9（原"希腊特例"泛化为表驱动；
-    // 死地 1.05 由 Operator 2026-08 实测定稿）
-    private static readonly float[] KnightStyleScaleY = { 0.95f, 1.05f, 0.95f, 0.9f };
-    // 中世纪风格的随从士兵 y 缩放（其余风格 1.0；用户可从身高认出中世纪队）
+    // 中世纪 0.95 / 死地 1.05 / 幕府 0.95 / 希腊 0.9 / 北境 1.0（原"希腊特例"泛化为
+    // 表驱动；死地 1.05 由 Operator 2026-08 实测定稿；北境走真北境 prefab 原生身材）
+    private static readonly float[] KnightStyleScaleY = { 0.95f, 1.05f, 0.95f, 0.9f, 1.0f };
+    // 中世纪风格的随从士兵 y 缩放（其余风格含北境 1.0；用户可从身高认出中世纪队）
     private const float FollowerMedievalScaleY = 1.05f;
 
     private const uint FnvOffset = 2166136261u;
     private const uint FnvPrime = 16777619u;
     private const uint DesignationSchema = 0x4B535431u; // "KST1"，与 FriendlyTroll 的 schema 区分
 
-    // 风格表：index 0..3 = 中世纪/死亡之地/幕府（bamboo）/希腊
-    private static readonly string[] StyleNames = { "medieval", "deadlands", "shogun", "greece" };
+    // 风格表：index 0..4 = 中世纪/死亡之地/幕府（bamboo）/希腊/北境
+    private static readonly string[] StyleNames = { "medieval", "deadlands", "shogun", "greece", "norse" };
     private static readonly string[] KnightControllerNames =
-        { "knight", "knight_deadlands", "knight_bamboo", "knight_greece" };
+        { "knight", "knight_deadlands", "knight_bamboo", "knight_greece", "knight_norselands" };
     private static readonly string[] SoldierControllerNames =
-        { "archer_soldier", "archer_soldier_deadlands", "archer_soldier_bamboo", "archer_soldier_greece" };
-    // 北境士兵皮肤（Reviewer MF-1 沿革）：北境世界随从的原生士兵控制器。
-    // 队籍判定（follower diag 实测修订）后写入条件不再按皮肤族判定，本解析
-    // 无行为消费点，仅保留资产解析（存在性已实锤，供回归诊断与未来判定）。
-    // 绝不加入 AvailableStyles（可选风格仍四种），也不计入完整性/收缩判定。
-    private const string NorselandsSoldierControllerName = "archer_soldier_norselands";
+        { "archer_soldier", "archer_soldier_deadlands", "archer_soldier_bamboo", "archer_soldier_greece", "archer_soldier_norselands" };
 
     // ---- 每骑士状态（instanceID 键控，范式同 FriendlyTroll TrollState）----
     private sealed class KnightStyleState
@@ -123,12 +124,9 @@ public static class PatchRoles_KnightStyle
     // ---- 惰性静态资产（解析一次；未解析全时按间隔重试）----
     private static readonly RuntimeAnimatorController[] KnightControllers = new RuntimeAnimatorController[StyleCount];
     private static readonly RuntimeAnimatorController[] SoldierControllers = new RuntimeAnimatorController[StyleCount];
-    // 北境士兵皮肤（MF-1 沿革）：解析保留（队籍判定后无行为消费点，见常量区
-    // 注释）；解析失败仅静默降级，不告警、不阻塞 _assetsComplete
-    private static RuntimeAnimatorController _norselandsSoldierController;
     private static readonly List<int> AvailableStyles = new(); // 收缩后的可用风格池（hash % count 均匀重映射）
     private static bool _poolBuilt;
-    private static bool _assetsComplete;      // 8/8 全解析：停止重试
+    private static bool _assetsComplete;      // 10/10 全解析（5 骑士 + 5 士兵）：停止重试
     private static float _nextAssetRetryAt;
     private static bool _loggedPoolShrunk;
     private static bool _loggedPoolEmpty;
@@ -185,10 +183,12 @@ public static class PatchRoles_KnightStyle
     }
 
     /// <summary>
-    /// 解析四套骑士 + 四套士兵控制器。先查已加载资产（FindObjectsOfTypeAll），
+    /// 解析五套骑士 + 五套士兵控制器。先查已加载资产（FindObjectsOfTypeAll），
     /// 仍缺走一次 Resources.LoadAll("") 兜底（强制全量加载，Crossbowman 同款）。
     /// 未解析全时按 AssetRetryIntervalSeconds 重试（LoadAll 是穷举，正常首试即全中；
-    /// 重试只兜"资产随世界内容渐进加载"的边角）。解析失败只影响对应风格。
+    /// 重试只兜"资产随世界内容渐进加载"的边角）。解析失败只影响对应风格
+    /// （BuildAvailablePool 收缩）；北境款解析失败则北境小队功能随风格池收缩
+    /// 一起停用（PatchRoles_NorseSquad 依赖 NorseStyleIndex 在池内）。
     /// </summary>
     private static void EnsureStyleAssets()
     {
@@ -198,9 +198,7 @@ public static class PatchRoles_KnightStyle
         try
         {
             ResolveFromSet(Resources.FindObjectsOfTypeAll<RuntimeAnimatorController>());
-            // 兜底触发条件含北境皮肤（MF-1）：四套全中但北境未加载时也要 LoadAll，
-            // 否则 _assetsComplete 置位后再不重试，北境随从识别永久缺失
-            if (HasMissingControllers() || _norselandsSoldierController == null)
+            if (HasMissingControllers())
                 ResolveFromSet(Resources.LoadAll<RuntimeAnimatorController>(""));
             BuildAvailablePool();
         }
@@ -232,20 +230,6 @@ public static class PatchRoles_KnightStyle
                     KnightControllers[i] = candidate;
                 else if (SoldierControllers[i] == null && candidateName == SoldierControllerNames[i])
                     SoldierControllers[i] = candidate;
-            }
-        }
-
-        // 北境士兵皮肤（MF-1）：只识别不选中，同两遍解析里捎带查找；失败静默降级
-        if (_norselandsSoldierController == null)
-        {
-            for (int j = 0; j < set.Length; j++)
-            {
-                RuntimeAnimatorController candidate = set[j];
-                if (candidate != null && candidate.name == NorselandsSoldierControllerName)
-                {
-                    _norselandsSoldierController = candidate;
-                    break;
-                }
             }
         }
     }
@@ -324,10 +308,7 @@ public static class PatchRoles_KnightStyle
                 soldierText.Append(SoldierControllerNames[i]).Append('=')
                     .Append(SoldierControllers[i] != null ? SoldierControllers[i].name : "<null>");
             }
-            LogInfo("resolution: knight[" + knightText + "] soldier[" + soldierText
-                + "] norse[" + NorselandsSoldierControllerName + "="
-                + (_norselandsSoldierController != null ? _norselandsSoldierController.name : "<null>")
-                + "]");
+            LogInfo("resolution: knight[" + knightText + "] soldier[" + soldierText + "]");
         }
         catch (Exception e)
         {
@@ -451,6 +432,9 @@ public static class PatchRoles_KnightStyle
         int id = knight.gameObject.GetInstanceID();
         if (!TryComputeIdentity(knight, out uint hash, out bool usedNetId)) return;
 
+        // 取模基数 = 当前可用风格池长度（正常 5，资产缺失收缩时更小）。
+        // 池长变化（4→5 引入北境）会让存量骑士的哈希槽位重映射、换脸一次——
+        // 双端确定性哈希保证换脸后双端一致，任务书明示接受
         int slot = (int)(hash % (uint)AvailableStyles.Count);
         int styleIndex = AvailableStyles[slot];
 
@@ -776,6 +760,12 @@ public static class PatchRoles_KnightStyle
 
             // ---- 第二段：随从联动（反向归属，全场一次扫描）----
             StyleFollowersByLookup();
+
+            // ---- 第三段：北境小队巡检（norse-squad-027，复用本 5s 节奏）----
+            // 北境骑士的随从：非北境 prefab → 补转化（读档后骑士重新 Fetch 拉来的
+            // 普通随从/存量场景）；北境 prefab 无盾 → 幂等装盾（盾门：带盾组件无盾
+            // 不能入队）。实现与失败降级见 PatchRoles_NorseSquad.PatrolPass。
+            PatchRoles_NorseSquad.PatrolPass();
         }
         catch (Exception e)
         {
@@ -785,7 +775,9 @@ public static class PatchRoles_KnightStyle
 
     /// <summary>
     /// 单随从换皮（统一写入路径）：读 archer._knight，队籍骑士在状态表且有风格
-    /// → 把 SoldierControllers[styleIndex] 写到 archer._animator。
+    /// → 把（有效风格的，见 ResolveEffectiveFollowerStyleIndex）SoldierController
+    /// 写到 archer._animator——跨队回收的北境随从（有 NpcShieldUser）一律用
+    /// 北境款，近战行为与士兵皮自洽（Reviewer Q1）。
     /// 写入条件沿用：animator/current 非空、指针不等才写（幂等零写入）。
     ///
     /// 死地随从"无标记弩手化"（用户拍板）：骑士风格==死地 → 追加
@@ -806,6 +798,35 @@ public static class PatchRoles_KnightStyle
     /// 目标集合里。治本：ConvertToSoldier/ConvertToHunter 的 postfix 即时重涂
     /// （见文件尾两个 patch 类），本方法就是它们的重涂实现；5s 巡检仅兜底。
     /// </summary>
+    /// <summary>
+    /// 随从的有效风格 index（Reviewer Q1 修订）：跨队回收的北境随从——北境骑士
+    /// 战死后随从保留北境 prefab+盾组件（NpcShieldUser 原生只在 Archer_norselands
+    /// 上），被非北境骑士原生路径收编——一律按北境款（NorseStyleIndex）处理：
+    /// attack/defend/getshield/retreat 近战 clip 只存在于北境士兵控制器族，写非
+    /// 北境皮会在近战时视觉冻结。跨队回收北境随从永远穿北境士兵皮，与近战/盾墙
+    /// 行为自洽；死地弩手化包/中世纪缩放等同用有效 index 判定（北境 prefab 不吃
+    /// 弩手包——盾墙近战与 12 射程弩投射互斥；缩放回北境原生 1.0）。
+    /// 北境款士兵控制器未解析（风格池收缩时）回落骑士风格（现行逻辑）。
+    /// 判定成本：GetComponent&lt;NpcShieldUser&gt; 只在骑士风格非北境且控制器已解析
+    /// 时才发生（5s×随从数，reviewer 认定可接受；北境骑士名下的随从零额外开销）。
+    /// </summary>
+    private static int ResolveEffectiveFollowerStyleIndex(Archer archer, KnightStyleState state)
+    {
+        try
+        {
+            if (state.StyleIndex != NorseStyleIndex
+                && SoldierControllers[NorseStyleIndex] != null
+                && archer != null
+                && archer.GetComponent<NpcShieldUser>() != null)
+                return NorseStyleIndex;
+            return state.StyleIndex;
+        }
+        catch
+        {
+            return state.StyleIndex;
+        }
+    }
+
     internal static bool ApplyFollowerSkinTo(Archer archer)
     {
         try
@@ -835,14 +856,18 @@ public static class PatchRoles_KnightStyle
                 return false;
             }
 
+            // 有效风格（Reviewer Q1）：跨队回收的北境随从按北境款，近战行为自洽
+            int styleIndex = ResolveEffectiveFollowerStyleIndex(archer, state);
+
             // 死地随从弩手化包：Apply 幂等（SO 指针判重）；非死地随从撤包（换队到
-            // 非死地骑士时战斗数值跟随还原）
-            if (state.StyleIndex == DeadlandsStyleIndex)
+            // 非死地骑士时战斗数值跟随还原）。北境 prefab 随从走有效 index → 永不
+            // Apply（近战/盾墙与弩包互斥），回收进死地骑士队时自动撤包
+            if (styleIndex == DeadlandsStyleIndex)
                 PatchRoles_Crossbowman.ApplySquadCrossbowPackage(archer);
             else
                 PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
 
-            RuntimeAnimatorController target = SoldierControllers[state.StyleIndex];
+            RuntimeAnimatorController target = SoldierControllers[styleIndex];
             if (target == null) return false;
 
             Animator animator = archer._animator;
@@ -873,7 +898,9 @@ public static class PatchRoles_KnightStyle
 
     /// <summary>
     /// 查该骑士风格对应的夜间随从编队锚点拉回量（墙内步数）：死地 → 6.5f，
-    /// 其余（含查不到/无状态记录/入参为空）→ 4.2f。纯读、无副作用、不抛出。
+    /// 其余（含北境=普通弓随从语义、查不到/无状态记录/入参为空）→ 4.2f。
+    /// 北境随从虽是近战/盾墙双模式，默认仍按普通随从站位（用户未提出更深入
+    /// 需求前不做特判）。纯读、无副作用、不抛出。
     /// </summary>
     internal static float GetFollowerAnchorPullback(Knight knight)
     {
@@ -891,6 +918,26 @@ public static class PatchRoles_KnightStyle
         catch
         {
             return DefaultFollowerAnchorPullback;
+        }
+    }
+
+    /// <summary>
+    /// 该骑士是否已被定为北境风格（norse-squad-027 联动判定）：状态表有记录、
+    /// 已上风格且 StyleIndex==NorseStyleIndex。纯读、无副作用、不抛出。
+    /// PatchRoles_NorseSquad 用它决定"随从是否要转化/装盾/巡检"。
+    /// </summary>
+    internal static bool IsNorseStyleKnight(Knight knight)
+    {
+        try
+        {
+            if (knight == null || knight.gameObject == null) return false;
+            if (!States.TryGetValue(knight.gameObject.GetInstanceID(),
+                out KnightStyleState state) || !state.HasStyle) return false;
+            return state.StyleIndex == NorseStyleIndex;
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -1006,29 +1053,37 @@ public static class PatchRoles_KnightStyle
                         continue;
                     }
                     diagInStates++;
-                    if (state.StyleIndex >= 0 && state.StyleIndex < StyleCount)
-                        diagStyleTargets[state.StyleIndex]++;
+
+                    // 有效风格（Reviewer Q1）：跨队回收的北境随从（保留北境 prefab+
+                    // 盾组件，被非北境骑士收编）按北境款——近战 clip 只在北境族，
+                    // 写非北境皮近战时视觉冻结。后续 diag 计数/缩放/弩包/目标控制器
+                    // 全部走有效 index；北境款未解析时回落骑士风格（现行逻辑）
+                    int effectiveStyleIndex = ResolveEffectiveFollowerStyleIndex(archer, state);
+                    if (effectiveStyleIndex >= 0 && effectiveStyleIndex < StyleCount)
+                        diagStyleTargets[effectiveStyleIndex]++; // 按实际穿的皮计（reviewer 拍板）
 
                     // 随从缩放（[2]）：中世纪 1.05，其余 1.0；随从换队（骑士死了
                     // 改投他人）时每轮幂等重算，缩放自动跟随新骑士风格。
                     // 死地随从例外：缩放（1.15）由 ApplySquadCrossbowPackage 作为
-                    // 弩手化包的一部分统一管理，此处跳过避免两个写入者互相覆盖
-                    if (state.StyleIndex != DeadlandsStyleIndex)
+                    // 弩手化包的一部分统一管理，此处跳过避免两个写入者互相覆盖。
+                    // 回收北境随从走有效 index：缩放回北境原生 1.0（不吃弩包 1.15）
+                    if (effectiveStyleIndex != DeadlandsStyleIndex)
                     {
                         EnsureFollowerScale(archer,
-                            state.StyleIndex == MedievalStyleIndex ? FollowerMedievalScaleY : 1f);
+                            effectiveStyleIndex == MedievalStyleIndex ? FollowerMedievalScaleY : 1f);
                     }
 
                     // 死地随从弩手化包：与皮肤写入独立调用（均幂等）——皮肤已是
                     // 目标（skippedFamily）或资产缺失（skippedOther）的分支不会走
                     // ApplyFollowerSkinTo，包仍需按风格上/撤；死地世界里死地随从的
-                    // 原生皮恰好就是目标皮，皮写入路径不可靠，包必须独立保证
-                    if (state.StyleIndex == DeadlandsStyleIndex)
+                    // 原生皮恰好就是目标皮，皮写入路径不可靠，包必须独立保证。
+                    // 回收北境随从走有效 index → 永不 Apply（近战/盾墙与弩包互斥）
+                    if (effectiveStyleIndex == DeadlandsStyleIndex)
                         PatchRoles_Crossbowman.ApplySquadCrossbowPackage(archer);
                     else
                         PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
 
-                    RuntimeAnimatorController target = SoldierControllers[state.StyleIndex];
+                    RuntimeAnimatorController target = SoldierControllers[effectiveStyleIndex];
                     if (target == null) { diagSkippedOther++; continue; }
 
                     Animator animator = diagAnimator; // 复用上面的查询结果
@@ -1060,7 +1115,8 @@ public static class PatchRoles_KnightStyle
             LogFollowerDiag(diagArchers, diagWithKnight, diagInStates, diagStyled,
                 diagSkippedFamily, diagSkippedOther, diagSampleX, diagSampleController,
                 "med:" + diagStyleTargets[0] + " dead:" + diagStyleTargets[1]
-                + " shog:" + diagStyleTargets[2] + " gree:" + diagStyleTargets[3],
+                + " shog:" + diagStyleTargets[2] + " gree:" + diagStyleTargets[3]
+                + " norse:" + diagStyleTargets[4],
                 BuildTopControllerNames(diagCurrentNames));
         }
         catch (Exception e)

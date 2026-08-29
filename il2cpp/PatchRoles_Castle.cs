@@ -305,6 +305,11 @@ public static class PatchRoles_Castle
     {
         try
         {
+            // 北境随从池（norse-squad-027）：放 Greece 早退之前——任意 biome 的
+            // PoolManager 重建后立即恢复；EnsureNorseArcherPool 内部自带
+            // Holder 就绪/prefab 解析/池已存在三重幂等门，未就绪静默跳过。
+            PatchRoles_NorseSquad.EnsureNorseArcherPool();
+
             if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
 
             // Cerberus' two Norselands-behaviour clone pools do not depend on

@@ -1,3 +1,15 @@
+## 2026-08-26（三） — norse-squad-027 北境小队完成（3.1.0-dev1 部署）
+
+- 全链：worker初版（五风格/窗口技巧转化/三层装盾兜底/巡检）→ Operator接线
+  （ReRegisterModPools希腊门控前）→ reviewer深审（窗口并发比Worker先例更窄/池恢复三路/
+  联机主机侧先例/Persistent语义静态成立）→ 三修（Q1跨队回收北境皮helper+消费点收口：
+  回收随从永不上弩手包/缩放回1.0；巡检per-archer try；装盾日志每世界一条）。
+- 机制沉淀：近战钥匙=NpcShieldUser（无组件永远Ranged，Archer.cs:770早退）；程序化装盾
+  SetShieldEnabled(true,0)无需商店；读档回队走ArcherData.PersistentLink不经盾门。
+- 盾墙雕像立项 shieldwall-totem-028（用户指认PayableShieldWallActivator=北境1币守家雕像，
+  与夜间目标镜像的豁免交互已记录）。北境小队留v3.1.0；3.0.1攒批仍待用户验收。
+- 编译 0W/0E，build=3.1.0-dev1 已部署 E 盘（SHA 前16=916c79ceb63bf108）。
+
 ## 2026-08-26（二） — 3.0.1-dev4：神器/坐骑CD倍率滑块进控制面板
 
 - 用户需求：两滑块进 Ctrl+F10 面板，最短缩到原版1/5。落地：ModConfig Cooldown 组两项
