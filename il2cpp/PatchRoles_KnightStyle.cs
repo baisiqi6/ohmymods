@@ -15,7 +15,7 @@ namespace KingdomEnhancedMod;
 /// 士兵控制器。北境风格额外联动 PatchRoles_NorseSquad：随从转化为真北境弓箭手
 /// 预制体（带盾组件的近战/盾墙原生逻辑）并程序化装盾，见该文件。
 /// 缩放（坑11：只动 y）：骑士按风格查表（中世纪 0.95/死地 1.05/幕府 0.95/
-/// 希腊 0.9/北境 1.0，Strip 恒回 1）；中世纪风格的随从士兵 y=1.05
+/// 希腊 0.9/北境 1.15，Strip 恒回 1）；中世纪随从 1.05、北境随从 1.15
 /// （其余含北境 1.0，无骑士/骑士无风格时回 1）。
 ///
 /// 机制要点：
@@ -89,11 +89,12 @@ public static class PatchRoles_KnightStyle
     private const float AssetRetryIntervalSeconds = 30f;
 
     // 每风格骑士 y 缩放（坑11：只动 y），index 对齐 StyleNames：
-    // 中世纪 0.95 / 死地 1.05 / 幕府 0.95 / 希腊 0.9 / 北境 1.0（原"希腊特例"泛化为
-    // 表驱动；死地 1.05 由 Operator 2026-08 实测定稿；北境走真北境 prefab 原生身材）
-    private static readonly float[] KnightStyleScaleY = { 0.95f, 1.05f, 0.95f, 0.9f, 1.0f };
+    // 中世纪 0.95 / 死地 1.05 / 幕府 0.95 / 希腊 0.9 / 北境 1.15（原"希腊特例"泛化为
+    // 表驱动；死地/北境 1.05/1.15 由用户拍板定稿）
+    private static readonly float[] KnightStyleScaleY = { 0.95f, 1.05f, 0.95f, 0.9f, 1.15f };
     // 中世纪风格的随从士兵 y 缩放（其余风格含北境 1.0；用户可从身高认出中世纪队）
     private const float FollowerMedievalScaleY = 1.05f;
+    private const float FollowerNorseScaleY = 1.15f; // 用户拍板：北境骑士与其随从同步 1.15
 
     private const uint FnvOffset = 2166136261u;
     private const uint FnvPrime = 16777619u;
@@ -1066,11 +1067,12 @@ public static class PatchRoles_KnightStyle
                     // 改投他人）时每轮幂等重算，缩放自动跟随新骑士风格。
                     // 死地随从例外：缩放（1.15）由 ApplySquadCrossbowPackage 作为
                     // 弩手化包的一部分统一管理，此处跳过避免两个写入者互相覆盖。
-                    // 回收北境随从走有效 index：缩放回北境原生 1.0（不吃弩包 1.15）
+                    // 回收北境随从走有效 index：缩放 1.15（不吃弩包的独立 1.15 写入者）
                     if (effectiveStyleIndex != DeadlandsStyleIndex)
                     {
                         EnsureFollowerScale(archer,
-                            effectiveStyleIndex == MedievalStyleIndex ? FollowerMedievalScaleY : 1f);
+                            effectiveStyleIndex == MedievalStyleIndex ? FollowerMedievalScaleY
+                            : effectiveStyleIndex == NorseStyleIndex ? FollowerNorseScaleY : 1f);
                     }
 
                     // 死地随从弩手化包：与皮肤写入独立调用（均幂等）——皮肤已是
