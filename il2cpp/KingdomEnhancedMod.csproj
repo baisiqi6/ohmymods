@@ -9,7 +9,7 @@
         <RootNamespace>KingdomEnhancedMod</RootNamespace>
         <Configurations>Debug;BIE6_IL2CPP;BIE6_Mono</Configurations>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-        <Version>3.0.0</Version>
+        <Version>3.1.0</Version>
         <!-- 并行 worker 各用独立 obj/<组>/ 时，默认通配会把其他组的生成代码（MyPluginInfo/AssemblyInfo）
              卷进来导致 CS0579/CS0101/CS0229 重复定义。排除一切 obj/ 目录。 -->
         <DefaultItemExcludes>$(DefaultItemExcludes);**/obj/**</DefaultItemExcludes>
