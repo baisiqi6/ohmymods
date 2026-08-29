@@ -691,6 +691,150 @@ public static class PatchWorld_DefenseSpacing
         }
     }
 
+    // ---- day crowd spread: native hunt-position re-roll ----------------------
+    // 用户方案：友军碰撞永久关闭（上一节）根治了墙外推挤+天弹，代价是拥挤
+    // 时单位视觉互穿——碰撞关了就没有"物理散开"，本机制用**原生站位分配
+    // 公式**补位散开：白天密度过大时对重叠的弓箭手重掷一次原生白天狩猎
+    // 位，让它们按原生逻辑自行走开。公式出处 game-source/
+    // Assembly-CSharp-2.1.0/Archer.cs:597（狩猎路径原生自用）：
+    //   x = kingdom.GetBorderSide(_guardSide)
+    //       + (float)_guardSide * Random.Range(borderHuntRange.min,
+    //                                         borderHuntRange.max)
+    // 同行 num4 = this.walkSpeed（Archer.cs:598）。照抄原生：狩猎在墙外
+    // 方向随机，且原生狩猎公式用的就是 GetBorderSide（本文件夜间 lineup
+    // 用的 GetBorderSideIntact 是另一语义，不混用）。borderHuntRange 是
+    // Archer 公开 FloatRange 字段，interop 直接暴露。
+    // 跳过项：
+    //   - _knight 非空：骑士随从的编队位由原生跟队目标（Archer.cs:486
+    //     SetGoal(knight.gameObject, ..., Formation)）统一管理，重掷会与
+    //     编队目标打架（走一半被拉回队），不碰；
+    //   - inGuardSlot / y>2.5：塔守位是原生指派的固定岗——实测塔守位 x
+    //     本就落在墙外带、且单位在塔高度（见 MirrorNightArcherGoal 的
+    //     误伤记录"箭塔弓箭手在天上走"），重掷会让塔上弓箭手在空中横走。
+    // 冷却（防抖）：巡检 3s 一拍，而走动途中两两位置仍会重叠——不冷却会
+    // 每 3s 对同一对单位连续重掷造成抖动（刚要走开又被重掷到别处）。
+    // instanceID → 下次可重掷时刻（Time.time），冷却 20 秒，每世界 Clear。
+    // 与夜间规则互斥：本节只在白天窗口跑（currentTime 非夜间）；夜间的
+    // goal 镜像/深定位（MirrorNightArcherGoal / NightParkedFollowerSweep）
+    // 各自判夜窗口，白天不动，反之亦然。
+    private static bool _loggedDayCrowdSpread;
+    private const float CrowdOverlapDy = 1.5f;   // 同层判定（|dy| 阈值）
+    private const float CrowdOverlapDx = 0.55f;  // 半身位重叠（|dx| 阈值）
+    private const float DaySpreadCooldown = 20f; // 同单位重掷冷却（秒）
+    private static readonly System.Collections.Generic.Dictionary<int, float>
+        _daySpreadNextRollAt = new System.Collections.Generic.Dictionary<int, float>();
+
+    private static void DayCrowdSpread(Kingdom kingdom, Archer[] archers, int count)
+    {
+        try
+        {
+            // 白天窗口：director 非空且非夜间（夜间 = t>=17.5 || t<=5.5）
+            Director director = Managers.Inst != null ? Managers.Inst.director : null;
+            if (director == null) return;
+            float t = director.currentTime;
+            if (t >= 17.5f || t <= 5.5f) return; // 夜间：本节不跑
+
+            // 预取 active 单位与位置到托管数组（interop 封送 O(n) 化：
+            // transform.position 每次访问都过封送层，pairwise 探测必须在
+            // 纯托管 Vector3[] 上做，不能每对重复封送）。
+            int n = 0;
+            for (int i = 0; i < count; i++)
+            {
+                Archer probe = archers[i];
+                if (probe == null || probe.gameObject == null
+                    || !probe.gameObject.activeInHierarchy) continue;
+                n++;
+            }
+            if (n < 2) return;
+            Archer[] active = new Archer[n];
+            Vector3[] positions = new Vector3[n];
+            int fill = 0;
+            for (int i = 0; i < count && fill < n; i++)
+            {
+                Archer archer = archers[i];
+                if (archer == null || archer.gameObject == null
+                    || !archer.gameObject.activeInHierarchy) continue;
+                active[fill] = archer;
+                positions[fill] = archer.transform.position;
+                fill++;
+            }
+
+            // pairwise 重叠探测（散开触发器）：|dy|<1.5 同层 && |dx|<0.55
+            // 半身位 → 该对重叠，双方 overlapCount 各 +1。
+            int[] overlapCount = new int[n];
+            int crowdedPairs = 0;
+            for (int i = 0; i < n; i++)
+            {
+                Vector3 a = positions[i];
+                for (int j = i + 1; j < n; j++)
+                {
+                    Vector3 b = positions[j];
+                    float dy = a.y - b.y;
+                    if (dy > CrowdOverlapDy || dy < -CrowdOverlapDy) continue;
+                    float dx = a.x - b.x;
+                    if (dx > CrowdOverlapDx || dx < -CrowdOverlapDx) continue;
+                    overlapCount[i]++;
+                    overlapCount[j]++;
+                    crowdedPairs++;
+                }
+            }
+            if (crowdedPairs == 0) return;
+
+            // 对 overlapCount>0 的弓箭手重掷原生狩猎位（跳过项见节注释）。
+            float now = Time.time;
+            int rerolled = 0;
+            for (int i = 0; i < n; i++)
+            {
+                if (overlapCount[i] <= 0) continue;
+                Archer archer = active[i];
+                if (archer._knight != null) continue;  // 随从：编队位原生管理
+                if (archer.inGuardSlot) continue;      // 塔位：原生固定岗
+                if (positions[i].y > 2.5f) continue;   // 塔上高度
+
+                int id = archer.gameObject.GetInstanceID();
+                if (_daySpreadNextRollAt.TryGetValue(id, out float nextAt)
+                    && now < nextAt) continue;         // 冷却防抖
+
+                Side side = archer._guardSide;
+                if (side != Side.Left && side != Side.Right)
+                {
+                    // _guardSide 中性（实测常见）：按近墙侧归属（同
+                    // NightParkedFollowerSweep 的位置判定）。
+                    float x = positions[i].x;
+                    side = Mathf.Abs(x - kingdom.GetBorderSideIntact(Side.Left))
+                        <= Mathf.Abs(x - kingdom.GetBorderSideIntact(Side.Right))
+                        ? Side.Left : Side.Right;
+                }
+                float sideSign = (float)side;
+                if (sideSign == 0f) continue;
+
+                // 原生公式照抄（Archer.cs:597-598）：墙外方向随机狩猎位，
+                // walkSpeed 步行前往。SetGoal(float,float) 过自家 prefix：
+                // 该 mover 缓存为 archer → MirrorNightArcherGoal → 白天
+                // 窗口直接放行，无递归、目标不被夜间镜像改写。
+                FloatRange huntRange = archer.borderHuntRange;
+                float goal = kingdom.GetBorderSide(side)
+                    + sideSign * UnityEngine.Random.Range(huntRange.min, huntRange.max);
+                archer._mover.SetGoal(goal, archer.walkSpeed);
+                _daySpreadNextRollAt[id] = now + DaySpreadCooldown;
+                rerolled++;
+            }
+
+            if (!_loggedDayCrowdSpread)
+            {
+                _loggedDayCrowdSpread = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[DefenseSpacing] day crowd spread: crowded=" + crowdedPairs
+                    + " re-rolled=" + rerolled);
+            }
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[DefenseSpacing/day-crowd] " + e);
+        }
+    }
+
     // ---- night parked follower sweep + deep relocation -----------------------
     // Measured: the anchor pullback above only acts when a follower ISSUES a
     // follow goal (a SetGoal call).  Followers restored from a save park at
@@ -837,6 +981,10 @@ public static class PatchWorld_DefenseSpacing
         // 夜间弓箭手列队诊断：每世界每侧重新武装
         _loggedArcherLineupLeft = false;
         _loggedArcherLineupRight = false;
+        // 白天拥挤散开：一次性日志重新武装 + 重掷冷却字典清空
+        //（新世界单位集合全新，旧 instanceID 的冷却时间无意义）
+        _loggedDayCrowdSpread = false;
+        _daySpreadNextRollAt.Clear();
         while (world != null && world.gameObject != null)
         {
             yield return new WaitForSeconds(3f);
@@ -881,6 +1029,10 @@ public static class PatchWorld_DefenseSpacing
             // 友军碰撞永久关闭（治本，一次性）：units-self 全层对 Ignore，
             // 不再恢复——墙外推挤与天弹同源，根治即不再开。
             ToggleFriendlyCollision(archers, knights);
+
+            // 白天拥挤重分配：碰撞已关=无物理散开，密度过大时对重叠弓箭手
+            // 重掷原生狩猎位补位散开（内部自判白天窗口，与夜间规则互斥）。
+            DayCrowdSpread(kingdom, archers, count);
 
             if (count == 0) return;
 
