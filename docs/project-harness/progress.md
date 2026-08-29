@@ -1,3 +1,14 @@
+## 2026-08-29 — v3.1.0 发布（版本线重划：攒批=3.1.0，北境=3.2.0）
+
+- 用户拍板版本线：3.0.1 攒批概念取消，已验证批次发 v3.1.0，北境小队留 v3.2.0。
+- 发布执行：release/3.1.0 工作树取 cdc3442（北境合并前快照）+版本号/戳+V3.1 文档五件套
+  （worker 起草，含 Cerberus 不受坐骑滑块影响的核实标注）。包 313 项 39.4MB，
+  commit f26e185，DLL SHA256 c8cd2070…。
+- GitHub Release v3.1.0 已创建并 Latest：https://github.com/baisiqi6/ohmymods/releases/tag/v3.1.0
+- 主线（agent/post-release-candidate，含北境 3.1.0-dev1）继续为 v3.2.0 线；北境五点实测
+  为发布门槛；盾墙雕像 028 在其后。
+- 群公告：release/MOD_V3.1版本更新说明.txt 待用户贴群。
+
 ## 2026-08-26（三） — norse-squad-027 北境小队完成（3.1.0-dev1 部署）
 
 - 全链：worker初版（五风格/窗口技巧转化/三层装盾兜底/巡检）→ Operator接线
