@@ -374,6 +374,50 @@ swap 在任意早期钩子都已就绪。Ready 日志必须列出全部已配置
 （弩手：v×1.5/g×0.5 平直快弹 + shootRange=12 硬约束）。私有方法（如 `HasKnight()`）
 不进 interop，但等价的私有字段（`_knight`）直接可读。
 
+
+### 26. Il2Cpp HashSet 枚举器运行时不可靠——用反查字段替代集合遍历
+
+**症状（knightstyle1/2 两轮实锤）：** 遍历 `knight._archers`（Il2Cpp HashSet）先在循环体内写控制器抛
+"Collection was modified"，改纯读快照后 **MoveNext 本身就抛**——非泛型枚举器路径对该集合类型运行时
+不可靠，与用法无关。且异常被日志去重吞掉后每轮静默失败，表象是"功能整体没生效"。
+
+**规则：** 需要"集合里都有谁"时，优先**反向归属**——扫描全场目标类型（FindObjectsOfType）+ 读
+对方的回引字段（如 `archer._knight`）判归属；不枚举原生集合。回引私有字段 interop 可靠（坑25 同族）。
+
+### 27. 泛型游戏结构体经 interop marshal 可能读出垃圾值——用原生公式复刻
+
+**症状：** `world.worldBounds.right` 读出 4.7e19（Sided<float> 泛型结构体封送损坏），上界钳制静默失效。
+
+**规则：** 对泛型游戏结构体属性，静态无法判读数是否可靠；关键数值改**复刻原生计算公式**从
+基础组件取（如 worldBounds.right = ground.transform.position.x + collider.size.x/2 − 8，
+World.cs OnLevelLoaded 同式），并在日志里输出实测值对账。
+
+### 28. 与原生系统的对抗要用"目标"不要用"位置"，且恢复碰撞必然爆炸
+
+**症状（三轮教训）：** ①瞬移钳位 vs 推挤系统 = "弹回又挤出"拉锯；②定时恢复友军碰撞 = 深穿插对被
+物理按重叠深度弹飞上天；③条件式恢复（探测无人重叠才开）仍是给恢复动作叠补丁。
+
+**规则：** 给单位下发**它自己会走过去的目标**（SetGoal），永不如物理/推挤系统硬碰位置写
+transform。友军密度问题根治=关碰撞就别恢复（恢复瞬间必有无解的穿插对）；代价是视觉互穿，
+用站位分配类机制补散开（见坑28附：白天拥挤按原生狩猎公式重掷）。
+
+### 29. 私有 Unity 消息 patch 前必须反射确认该类声明了它
+
+**症状：** 给 `SteedAbility` 挂 "OnEnable" 补丁——反射核实该类 **DeclaredOnly 里没有 OnEnable**
+（只有 Awake/OnDisable/OnDestroy）。硬挂会让 `harmony.PatchAll` 抛异常、**整个 mod 加载失败**。
+
+**规则：** 字符串名补丁私有 Unity 消息前，反射 DeclaredOnly 方法表确认存在（Dog/Banker 有 OnEnable
+不代表基类有）；不存在时改挂消费点（如 SteedAbility.Activate 读取点前缀）。PatchAll 是全有或全无。
+
+### 30. 墙后射击的平直弹道被自家墙挡——出膛点前移解 ParabolaCast
+
+**症状：** 弩手平直弹道参数怎么调都是高抛——原生 BestShot 的 ParabolaCast 发现直线路径被自家
+城墙挡住会主动选高抛解。
+
+**规则：** 射击单位在掩体后时，平直弹道的钥匙是 SO 的 `_arrowOriginOffset`（Vector2 序列化字段，
+按目标方向侧移）——出膛点前移过掩体沿，低弹道解自然被选中；配合初速放大（射程包络>索敌距离）
+得到"近距平直快弹"。
+
 ## 当前 mod 功能清单
 
 | Patch 类 | 功能 | 状态 |
@@ -399,7 +443,9 @@ swap 在任意早期钩子都已就绪。Ready 日志必须列出全部已配置
 | Patch_HermesStaff | 权杖控制 16（_maximumConvertedTrolls 8→16） | ✅ |
 | PatchDivine_FriendlyTroll | 候选阶段只排除 Squid + 约10% TrollWeak 反制友好巨魔 | 🧪 静态通过，待实机 |
 | PatchWorld_FleetBoatRecovery | 死亡换君主后按四个神像交付任务幂等恢复小船所有权 | 🧪 静态通过，待实机 |
-| PatchRoles_KnightStyle | 骑士随机四风格（中世纪/死地/幕府/希腊，确定性哈希）+随从联动+希腊y0.9 | 🧪 编译+review通过，待实机 |
+| PatchRoles_KnightStyle | 骑士随机五风格（+北境）确定性哈希+随从联动翻牌治理+体型表+死地随从弩手化 | 🧪 3.2.0-dev2 待实机 |
+| PatchRoles_NorseSquad | 北境小队：随从窗口技巧转真北境prefab+程序化装盾+读档巡检兜底 | 🧪 3.2.0-dev2 待实机 |
+| PatchRide_SteedCooldown | 坐骑技能CD倍率（Activate读取点前缀，实例缓存原生值幂等） | 🧪 待实机 |
 | PatchRoles_Crossbowman | 弩手：每第4个弓转职换皮强化（deadlands皮肤/射程12/冷却×2/伤害×2/平直弩矢/骑士排除/读档25%重算） | 🧪 编译+review通过，待实机 |
 
 > 状态与 `docs/project-harness/harness-checklist.json` 同步维护。
