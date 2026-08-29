@@ -42,7 +42,12 @@ public static class PatchWorld_DefenseSpacing
     private static bool _loggedKnightSample;
     private static bool _loggedKnightLineup;
 
-    private static void ScanKnights()
+    /// <summary>
+    /// 骑士扫描/诊断/rank 压缩（原逻辑不变）。返回本拍 FindObjectsOfType 的
+    /// Knight[]（供同 pass 复用的数组返回；碰撞恢复探测已随 always-off 移除）
+    /// 不为此再扫一遍场景。
+    /// </summary>
+    private static Knight[] ScanKnights()
     {
         Knight[] knights = UnityEngine.Object.FindObjectsOfType<Knight>();
         int count = knights != null ? knights.Length : 0;
@@ -73,9 +78,9 @@ public static class PatchWorld_DefenseSpacing
         // every pass below: native RankKnights() rewrites 1..N on every hire
         // or loss, so a one-shot remap would silently stop working as the
         // roster grows or changes.
-        if (count < 3) return;
+        if (count < 3) return knights;
         Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
-        if (kingdom == null) return;
+        if (kingdom == null) return knights;
 
         var lined = new System.Collections.Generic.List<Knight>();
         for (int i = 0; i < count; i++)
@@ -117,6 +122,7 @@ public static class PatchWorld_DefenseSpacing
         // leaves ranks untouched until native RankKnights() exceeds the cap
         // again after a hire or a loss.
         if (NetworkBigBoss.HasWorldAuth) RemapKnightRanks(knights, kingdom);
+        return knights;
     }
 
     private const int KnightRankCap = 7;
@@ -587,39 +593,35 @@ public static class PatchWorld_DefenseSpacing
     // Fix: ignore the units-self layer pair during the night window — the
     // wall-front crowd stops being expelled, and the deep-relocation sweep
     // below degrades to a rare no-op fallback.  Accepted cost (user knows and
-    // accepts): crowded defenders may visually overlap at night.  Restore is
-    // DELAYED to 8:00 (not dawn 5.5): units overlap freely all night, and a
-    // dawn-instant restore made the physics engine blast every interpenetrating
-    // pair apart proportional to overlap depth (measured: "人山", units shoved
-    // onto each other's heads at morning dispersal) — the 5.5~8.0 window keeps
-    // collisions off as a morning dispersal grace, and by 8:00 the crowd has
-    // spread out so the separation is a gentle native push.  Projectiles and
-    // enemies live on separate layers: IgnoreLayerCollision(layer, layer)
-    // edits only the units-self pair, so arrows and enemy hits are unaffected.
+    // accepts): friendly units may visually overlap when crowded — day or
+    // night.  ALWAYS-OFF (v3 final): the timed restore (dawn, then 8:00
+    // grace) and even the conditional restore (re-enable only when the crowd
+    // probe found no overlapping pair) each still measured units blasted
+    // skyward by day ("白天仍有人被挤上天") — every re-enable instant risks
+    // meeting an interpenetrating pair, and physics depenetration force is
+    // proportional to overlap depth.  User ruling: the wall push-out and the
+    // sky-launch share ONE root cause (friendly collision), so the collision
+    // stays off permanently — no restore branch, no probe, no scan cost.
+    // Trade-off (accepted): crowded units pass through each other visually.
+    // Projectiles and enemies live on separate layers: IgnoreLayerCollision
+    // edits only the units-self pairs, so arrows and enemy hits unaffected.
     // The flag deliberately does NOT reset per world: Physics2D's
-    // IgnoreLayerCollision state is global and survives scene loads, so the
-    // day-restore branch must stay reachable across island hops.
+    // IgnoreLayerCollision state is global and survives scene loads.
     // Mechanism layering (measured follow-up): collision-off cures PUSH-OUT,
     // but the native guard-goal ASSIGNMENT itself still places some archers
     // just outside the wall — that residue is cured by the night archer goal
     // MIRROR in the SetGoal(float,float) prefix host above; the deep
-    // relocation sweep below stays as the final fallback.  Three mechanisms
-    // run in parallel, each covering a distinct cause.
+    // relocation sweep below stays as the final fallback.
     private static bool _friendlyCollisionIgnored;
     private static readonly System.Collections.Generic.List<int> _friendlyCollisionLayers =
         new System.Collections.Generic.List<int>();
 
-    private static void ToggleFriendlyCollision(Archer[] archers)
+    private static void ToggleFriendlyCollision(Archer[] archers, Knight[] knights)
     {
         try
         {
-            Director director = Managers.Inst != null ? Managers.Inst.director : null;
-            if (director == null) return;
-            float t = director.currentTime;
-            bool isNight = t >= 17.5f || t <= 5.5f;
+            if (_friendlyCollisionIgnored) return; // 一次性：全局矩阵跨场景存活
 
-            if (isNight && !_friendlyCollisionIgnored)
-            {
                 // Sample any active archer this pass (layer names are
                 // prefab-serialized, not code-visible).
                 if (archers == null) return;
@@ -679,31 +681,8 @@ public static class PatchWorld_DefenseSpacing
                 }
                 _friendlyCollisionIgnored = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[DefenseSpacing] night friendly collision off: layers=["
+                    "[DefenseSpacing] friendly collision permanently off: layers=["
                     + layersText + "] ignored=[" + pairsText + "]");
-            }
-            else if (t >= 8.0f && t < 17.5f && _friendlyCollisionIgnored)
-            {
-                // 恢复窗口=8:00 起（晨间散场缓冲后）：实测"天亮散场时挤成
-                // 人山、有人被挤到别人头顶"——夜间关碰撞期间墙下单位自由
-                // 重叠堆叠，天亮（5.5）瞬间恢复碰撞，所有穿插碰撞体被物理
-                // 引擎按重叠深度强行弹开（力度∝重叠深度，极端者垂直弹出
-                // 骑到头顶）。5.5~8.0 保持碰撞关闭作散场缓冲：大家有 2.5
-                // 游戏小时散开去打猎/回城，8 点恢复时密度已低，分离只是
-                // 温和的原生推挤。上界 t<17.5 必需：夜间（flag 已 true）
-                // 若无上界会反复 on/off 抖动。
-                for (int a = 0; a < _friendlyCollisionLayers.Count; a++)
-                {
-                    for (int b = 0; b < _friendlyCollisionLayers.Count; b++)
-                    {
-                        Physics2D.IgnoreLayerCollision(_friendlyCollisionLayers[a],
-                            _friendlyCollisionLayers[b], false);
-                    }
-                }
-                _friendlyCollisionIgnored = false;
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[DefenseSpacing] day friendly collision on (morning dispersal grace elapsed)");
-            }
         }
         catch (Exception e)
         {
@@ -893,14 +872,15 @@ public static class PatchWorld_DefenseSpacing
                     + " foundByType=" + (found != null ? found.Length : -1));
             }
 
-            ScanKnights();
+            // knights 数组传参复用本拍扫描（骑士诊断/压缩也消费）
+            Knight[] knights = ScanKnights();
             if (kingdom.Archers == null) return;
             Archer[] archers = UnityEngine.Object.FindObjectsOfType<Archer>();
             int count = archers != null ? archers.Length : 0;
 
-            // 夜间友军碰撞开关（治本）：夜间关 units-self 碰撞、白天恢复；
-            // 置于 count==0 早退之前，弓箭手清零后的白天恢复分支仍可达。
-            ToggleFriendlyCollision(archers);
+            // 友军碰撞永久关闭（治本，一次性）：units-self 全层对 Ignore，
+            // 不再恢复——墙外推挤与天弹同源，根治即不再开。
+            ToggleFriendlyCollision(archers, knights);
 
             if (count == 0) return;
 
