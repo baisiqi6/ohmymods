@@ -455,7 +455,7 @@ public static class PatchRoles_NorseSquad
         if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth) return;
         try
         {
-            Archer[] archers = UnityEngine.Object.FindObjectsOfType<Archer>();
+            Archer[] archers = UnitScanCache.GetArchers();
             if (archers == null) return;
 
             int converted = 0, equipped = 0;

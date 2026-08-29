@@ -43,13 +43,16 @@ public static class PatchWorld_DefenseSpacing
     private static bool _loggedKnightLineup;
 
     /// <summary>
-    /// 骑士扫描/诊断/rank 压缩（原逻辑不变）。返回本拍 FindObjectsOfType 的
-    /// Knight[]（供同 pass 复用的数组返回；碰撞恢复探测已随 always-off 移除）
-    /// 不为此再扫一遍场景。
+    /// 骑士扫描/诊断/rank 压缩（原逻辑不变）。返回本拍（共享缓存，抖动治理）
+    /// 的 Knight[]——走 UnitScanCache.GetKnights()（3s 窗口，与 KnightStyle 的
+    /// 5s 巡检共用一份，同帧叠扫退化为一次；供同 pass 复用的数组返回语义不变；
+    /// 碰撞恢复探测已随 always-off 移除）不为此再扫一遍场景。
     /// </summary>
     private static Knight[] ScanKnights()
     {
-        Knight[] knights = UnityEngine.Object.FindObjectsOfType<Knight>();
+        // 共享缓存，抖动治理：多套巡检协程同帧叠扫 FindObjectsOfType → 统一走
+        // UnitScanCache（窗口内复用同一份扫描结果）。
+        Knight[] knights = UnitScanCache.GetKnights();
         int count = knights != null ? knights.Length : 0;
 
         if (count > 0 && !_loggedKnightSample)
@@ -968,6 +971,9 @@ public static class PatchWorld_DefenseSpacing
     {
         if (world == null || _supervisorWorld == world.Pointer) yield break;
         _supervisorWorld = world.Pointer;
+        // 共享扫描缓存（抖动治理）：世界边界整体失效，新世界首轮 pass 必须拿到
+        // 全新扫描（杜绝跨世界残影/读档恢复路径的首拍数据陈旧）。
+        UnitScanCache.InvalidateAll();
         // New world (island hop / new campaign): re-arm every one-shot
         // report so coverage and logging restart.
         _loggedHeartbeat = false;
@@ -1013,7 +1019,9 @@ public static class PatchWorld_DefenseSpacing
                     propCount = list == null ? -1 : list.Count;
                 }
                 catch (Exception ex) { propError = ex.GetType().Name; }
-                Archer[] found = UnityEngine.Object.FindObjectsOfType<Archer>();
+                // 共享缓存，抖动治理：心跳诊断的扫描也走缓存（同帧稍后的正式
+                // archers 扫描复用同一份，首拍两连扫退化为一次）。
+                Archer[] found = UnitScanCache.GetArchers();
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
                     "[DefenseSpacing] heartbeat: archersProp=" + propCount
                     + (propError != null ? " propError=" + propError : "")
@@ -1023,7 +1031,9 @@ public static class PatchWorld_DefenseSpacing
             // knights 数组传参复用本拍扫描（骑士诊断/压缩也消费）
             Knight[] knights = ScanKnights();
             if (kingdom.Archers == null) return;
-            Archer[] archers = UnityEngine.Object.FindObjectsOfType<Archer>();
+            // 共享缓存，抖动治理：archers 扫描走缓存（3s 窗口，与 KnightStyle 的
+            // 5s 随从联动共用一份；本拍内其余消费点全部复用传入数组不动）。
+            Archer[] archers = UnitScanCache.GetArchers();
             int count = archers != null ? archers.Length : 0;
 
             // 友军碰撞永久关闭（治本，一次性）：units-self 全层对 Ignore，

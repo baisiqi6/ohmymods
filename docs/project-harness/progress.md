@@ -1,3 +1,14 @@
+## 2026-08-29（五） — 扫描缓存治理帧率尖刺（3.2.0-dev5）
+
+- 用户实测 dev4：四项全过（塔位增密/无天弹/白天散开/北境）；新反馈帧率波动——探针数据
+  avg 6.7-7.0ms（≈145fps）健康，max 37-56ms 单帧尖刺=体感不稳。元凶=5 套监督协程各自
+  FindObjectsOfType 叠帧+GC。
+- 修：UnitScanCache 共享缓存（Archer/Knight 3s、marker 5s、Serpent 10s，过期才真扫、
+  同帧去重、世界边界 InvalidateAll 保守清空）；四消费文件接线+Operator 补 NorseSquad
+  最后一处（一行）。RecomputeOnLoad 有意保持直扫（25%守恒需精确快照）。
+- 编译 0W/0E，build=3.2.0-dev5 已部署 E 盘（SHA 前16=6f13930e00f4e79b）。
+  待实测：拉高怪物数量后夜间 maxFrame 尖刺是否收窄。
+
 ## 2026-08-29（四） — tower-spots-029 箭塔基底增密（3.2.0-dev4）
 
 - 用户需求"生成倍数"+确认现有世界即生效（场景资产点位非种子生成）。实现：读档+5s 按原生

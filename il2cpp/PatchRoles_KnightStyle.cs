@@ -702,6 +702,10 @@ public static class PatchRoles_KnightStyle
         _followerDiagHasBaseline = false;
         _nextFollowerDiagAt = 0f;
 
+        // 共享扫描缓存（抖动治理）：世界边界整体失效——首轮 IntegrityPass 的
+        // 读档恢复路径必须看到全新扫描的全部存量骑士/随从。
+        UnitScanCache.InvalidateAll();
+
         while (world != null && world.gameObject != null)
         {
             IntegrityPass();
@@ -729,7 +733,10 @@ public static class PatchRoles_KnightStyle
             if (!HasUsablePool()) return;
 
             // ---- 第一段：骑士 ----
-            Knight[] knights = UnityEngine.Object.FindObjectsOfType<Knight>();
+            // 共享缓存，抖动治理：骑士扫描走 UnitScanCache（3s 窗口，与
+            // DefenseSpacing 的 3s 拍共用一份；本 5s 巡检的新鲜度要求——新招募
+            // 骑士——由 Promote postfix 即时上风格保证，缓存 3s < 原 5s 节奏）。
+            Knight[] knights = UnitScanCache.GetKnights();
             if (knights != null)
             {
                 for (int i = 0; i < knights.Length; i++)
@@ -965,7 +972,12 @@ public static class PatchRoles_KnightStyle
     {
         try
         {
-            Archer[] archers = UnityEngine.Object.FindObjectsOfType<Archer>();
+            // 共享缓存，抖动治理：随从反查的 Archer 扫描走 UnitScanCache（3s 窗口，
+            // 与 DefenseSpacing 的 3s 拍共用一份——同一 IntegrityPass 内本调用与
+            // 第一段的 Knight 扫描不再各扫各的）。新鲜度：随从换皮/缩放/弩包的
+            // 即时性由 ConvertToSoldier/Hunter postfix 事件路径保证，本 5s 巡检
+            // 只是兜底，缓存 3s < 原 5s 节奏。
+            Archer[] archers = UnitScanCache.GetArchers();
             if (archers == null) return;
 
             // 管线诊断计数（只记录不改行为，输出见 LogFollowerDiag）：

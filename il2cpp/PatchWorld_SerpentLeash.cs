@@ -163,13 +163,18 @@ public static class PatchWorld_SerpentLeash
     {
         if (world == null || _supervisorWorld == world.Pointer) yield break;
         _supervisorWorld = world.Pointer;
+        // 共享扫描缓存（抖动治理）：世界边界整体失效，新世界首轮复扫拿全新扫描。
+        UnitScanCache.InvalidateAll();
         _loggedLeash = false;
         _loggedBodySnap = false;
         bool loggedDiag = false;
 
         while (world != null && world.gameObject != null)
         {
-            WorldEatingSerpent[] serpents = UnityEngine.Object.FindObjectsOfType<WorldEatingSerpent>();
+            // 共享缓存，抖动治理：蛇扫描走 UnitScanCache（10s 窗口=本复扫节奏；
+            // 激活即上缰绳由 OnEnable postfix 保证，本扫描只管城墙右扩后复推，
+            // 10s 缓存新鲜度等价于原节奏）。
+            WorldEatingSerpent[] serpents = UnitScanCache.GetSerpents();
             if (serpents != null)
             {
                 for (int i = 0; i < serpents.Length; i++)

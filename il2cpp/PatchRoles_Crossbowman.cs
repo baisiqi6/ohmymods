@@ -690,6 +690,9 @@ public static class PatchRoles_Crossbowman
         if (world == null || _supervisorWorld == world.Pointer) yield break;
         _supervisorWorld = world.Pointer;
 
+        // 共享扫描缓存（抖动治理）：世界边界整体失效，新世界首轮巡检拿全新扫描。
+        UnitScanCache.InvalidateAll();
+
         // 等单位恢复完成（readback 生成单位 + 原生 promote 流程走完）再重算
         yield return new WaitForSeconds(RecomputeDelaySeconds);
         RecomputeOnLoad();
@@ -768,7 +771,14 @@ public static class PatchRoles_Crossbowman
         {
             // 防御：FindObjectsOfType 也要求类型已注册，未注册时抛异常（每 5s 日志刷屏）
             EnsureMarkerRegistered();
-            CrossbowmanMarker[] markers = UnityEngine.Object.FindObjectsOfType<CrossbowmanMarker>();
+            // 共享缓存，抖动治理：marker 扫描走 UnitScanCache（5s 窗口=原巡检节奏；
+            // 新弩手的 marker+战斗包在 OnBowPromoted/Apply 即时挂好，本巡检只兜底，
+            // 5s 缓存新鲜度等价于原 5s 节奏）。RecomputeOnLoad 批量增删 marker 后
+            // 如需立即可见可调 UnitScanCache.InvalidateCrossbowmanMarkers()（预留，
+            // 暂不接：重算已同步 Apply/Strip 完毕，巡检无需立刻看到新集合）。
+            // 注：RecomputeOnLoad 自己的 Archer 全量扫有意保持直扫——25% 数量
+            // 守恒重算依赖精确的当下快照，不吃缓存新鲜度。
+            CrossbowmanMarker[] markers = UnitScanCache.GetCrossbowmanMarkers();
             if (markers == null) return;
 
             for (int i = 0; i < markers.Length; i++)
