@@ -39,6 +39,31 @@ namespace KingdomEnhancedMod;
 ///   联机会分叉（对端看不到、自己跑出未注册副本）。单机/同机分屏
 ///   （IsOnline=false）语义完整。
 ///
+/// prefab 解析与生成方式（2026-08-30 返修，实机日志实锤后对齐原生）：
+/// - **prefab 主路径 = Holder.catPrefab**（Holder 公开字段）。初版走北境 BiomeData
+///   的 uniqueCharacters/prefabSwapPool 双机制（照搬 Mono 线），实机日志实锤
+///   "[FarmCats] norse cat prefab not resolved"——2.4.0 资产里两处均解析不到猫。
+///   原生消费者正规路径：BombablePortal / GreedBuybackTrader 赎回被偷猫均直接
+///   `Pool.Spawn<OrInstantiate><Cat>(Managers.Inst.holder.catPrefab, ...)` 且不做
+///   biome swap——猫只有一个变体（_norselands 动画），Holder 字段就是它。
+///   原 BiomeData 双机制降为兜底（防御性保留，正常永不应命中）。
+/// - **生成 = Pool.SpawnOrInstantiate&lt;Cat&gt;(catPrefab, pos, rot, gameLayer)**
+///   （GreedBuybackTrader 原生逐字同款）：池化取出/扩容、NetID 注册
+///   （CRPCType.Dynamic，AttemptSpawnSync 原生一体）、激活（activateAfterRegistration）、
+///   _activeCache 登记全部由原生处理；无池时 SpawnGO(allowInstantiate:true) 原生
+///   回退 Instantiate。初版的 Object.Instantiate + 手动 RegisterObject(Dynamic)
+///   已删（手动注册仅在"无池 Instantiate"分支才与原生等价，池化路径反而会与
+///   FastSpawn 内建注册重复依赖查重保护）。SpawnGO 会先对 prefab 做
+///   GetAssetSwapForThis（当前希腊 biome swap）：希腊 swap 表无猫条目（猫唯一
+///   变体），GetPrefabSwap miss 原生返回 originalObject，不变形。AOT 依据：原生
+///   GreedBuybackTrader 已实例化 SpawnOrInstantiate&lt;Cat&gt;，interop 泛型可调。
+/// - **KEM_FarmCat 命名保留**：池机制不依赖实例名——回收按 Pool.origin 对象引用
+///   反查池，存档重建按 prefab 资产名（GetPoolByPrefabName 输入是 Resources.Load
+///   出的资产名）+ ObjectData.name 回放；SpawnGO 尾部
+///   ImproveCharacterNameReadability 只对带 Character 的 GO 去 "(Clone)"，且我们
+///   在拿到返回值之后才命名（覆盖时序安全）。幂等本来就靠 farmHouse 计数，
+///   不依赖名字，标记仅用于日志/场景识别。
+///
 /// 存档语义（侦查结论，Cat.cs / Persistent.cs / IslandSaveData.cs 2.1.0 源 + interop 验证）：
 /// - Cat 实现 Persistent.IBehaviour：RetrieveData 存 CatSaveData{farmHouse=
 ///   PersistentLink, domesticated, color}；Persistent.OnEnable →
@@ -51,10 +76,10 @@ namespace KingdomEnhancedMod;
 /// - **双保险**：即使持久化 wiring 对补放实例失效（如 prefab 无 Persistent），
 ///   本补丁每次读档（OnLevelLoaded 重放）都按现存数补齐到 3，玩家无感——
 ///   幂等重放本身即兜底，不额外做存档写入。
-/// - 网络注册：原生池化猫经 RegisterPoolInstance 用 CRPCType.Dynamic；本补丁
-///   照抄该类型在权威端 RegisterObject（TowerSpots SpawnSpot 配方；RegisterObject
-///   内部查重）。未注册时 Cat 也能安全运行（AnimationSync.SendAnimation 对
-///   parentHeaderRef==null 早退），注册只为 NetID/存档口径与原生一致。
+/// - 网络注册：随生成方式一并原生化（见上）：池化路径由 AttemptSpawnSync 以
+///   CRPCType.Dynamic 注册，与原生池化猫同口径；无池回退分支无注册（原生
+///   SpawnOrInstantiate 语义如此，未注册时 Cat 本地行为也完整——
+///   AnimationSync.SendAnimation 对 parentHeaderRef==null 早退）。
 ///
 /// 已知限制（与 Mono 版对齐，未扩权）：会话中途新买的农舍本次不补猫，
 /// 下一次关卡加载（换岛/读档）才补——Mono 版 Kingdom.OnLevelLoaded 一次性
@@ -200,10 +225,11 @@ public static class PatchWorld_FarmCats
     }
 
     /// <summary>
-    /// 实例化一只驯化北境猫（Mono 版 SpawnCatsInGreece 内循环体照搬）：
-    /// 位置农舍 ±4、y+0.5；domesticated/farmHouse/白色 interop 直写；
-    /// 权威端 RegisterObject(CRPCType.Dynamic)（原生池化猫同款类型）。
-    /// 任何一步失败销毁半成品猫（fail-closed，不留非驯化流浪北境猫）。
+    /// 生成一只驯化北境猫（Mono 版 SpawnCatsInGreece 内循环体语义 + 原生生成配方）：
+    /// 位置农舍 ±4、y+0.5；Pool.SpawnOrInstantiate&lt;Cat&gt;（GreedBuybackTrader.cs
+    /// 原生逐字同款——池化/NetID 注册(Dynamic)/激活全部原生一体）；随后
+    /// domesticated/farmHouse/白色 interop 直写。任何一步失败销毁半成品猫
+    /// （fail-closed，不留非驯化流浪北境猫）。
     /// </summary>
     private static bool TrySpawnFarmCat(Cat prefab, Farmhouse farmhouse, Transform layer)
     {
@@ -211,62 +237,75 @@ public static class PatchWorld_FarmCats
         position.x += UnityEngine.Random.Range(-4f, 4f);
         position.y += 0.5f;
 
-        GameObject catGO = UnityEngine.Object.Instantiate(
-            prefab.gameObject, position, Quaternion.identity, layer);
-        if (catGO == null) return false;
+        // 原生生成：池路径 FastSpawn（取出/扩容 + AttemptSpawnSync 注册激活），
+        // 无池路径 SpawnGO(allowInstantiate:true) 原生回退 Instantiate。
+        // 池复用实例可能带上一场的旧状态（domesticated/farmHouse/颜色），
+        // 下面的驯化三件套全量覆盖。
+        Cat cat = Pool.SpawnOrInstantiate<Cat>(prefab, position, Quaternion.identity, layer);
+        if (cat == null) return false;
 
         try
         {
+            GameObject catGO = cat.gameObject;
+            if (catGO == null) return false;
+
             // 标记名：识别本补丁放的猫（幂等计数走 farmHouse 回引，不依赖名字；
-            // 存档 ObjectData.name 保留，读档重建后仍可辨认）。
+            // 池机制不依赖实例名——回收按 Pool.origin 引用、重建按 prefab 资产名，
+            // 见类注释；原生 ImproveCharacterNameReadability 在返回前已跑完）。
             catGO.name = MarkerPrefix + "_" + position.x.ToString("F1");
 
-            Cat cat = catGO.GetComponent<Cat>();
-            if (cat == null)
-            {
-                // 纯防御：prefab 解析已验证带 Cat 组件，走到这里说明实例异常——
-                // 销毁以免留下无 AI 的角色空壳。
-                UnityEngine.Object.Destroy(catGO);
-                return false;
-            }
-
-            // 驯化三件套（interop 直访，见类注释；Instantiate 时 OnEnable 已把猫
+            // 驯化三件套（interop 直访，见类注释；池化激活时 OnEnable 已把猫
             // 登记进 kingdom.cats 并随机上色，此处覆盖语义与 Mono 版一致）。
             cat.domesticated = true;        // interop 暴露的属性 setter（原生私有 set）
             cat.farmHouse = farmhouse;      // 私有字段 interop 直写 → ShouldFarmCat 立即成立
             cat.SetColor(Color.white);      // 白色标记（Mono 版 SetFromSavedState 兜底同值）
-
-            if (!catGO.activeSelf) catGO.SetActive(true);
-
-            // 网络注册（原生 RegisterPoolInstance 同款 Dynamic；RegisterObject
-            // 内部查重，安全）。仅权威端；未注册时猫本地行为完整（见类注释）。
-            if (NetworkBigBoss.HasWorldAuth && NetworkPostbox.Instance != null)
-            {
-                NetworkPostbox.Instance.RegisterObject(catGO, CRPCType.Dynamic);
-            }
             return true;
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(
                 "[FarmCats] spawn setup failed at x=" + position.x.ToString("F1") + ": " + e);
-            try { UnityEngine.Object.Destroy(catGO); } catch { }
+            try { if (cat.gameObject != null) UnityEngine.Object.Destroy(cat.gameObject); } catch { }
             return false;
         }
     }
 
     /// <summary>
-    /// 北境猫 prefab 解析（Mono 版 GetNorseCatPrefab 语义照搬，读取方式 interop 化）：
-    /// 机制一：北境 BiomeData（biomePathStrings[NorselandsBiomeIndex] 经
-    /// Resources.Load）→ biomeSpecificAssets.uniqueCharacters 里 tag=="Cat" 的角色；
-    /// 机制二（兜底）：同 BiomeData.swapData.prefabSwapPool 里 swap 带 Cat 组件的
-    /// 条目。北境索引用静态 NorselandsBiomeIndex（PatchRoles_NorseSquad 同款），
-    /// 替代 Mono 版硬编码 3。集合全部 for+索引器遍历（坑26：不用枚举器）。
+    /// 猫 prefab 解析（2026-08-30 返修：主路径换原生正规路径）。
+    /// 主路径：Holder.catPrefab（Holder 公开字段）——原生消费者
+    /// BombablePortal / GreedBuybackTrader 赎回被偷猫均直接
+    /// Pool.Spawn&lt;OrInstantiate&gt;&lt;Cat&gt;(holder.catPrefab, ...) 不做 biome swap；
+    /// 猫只有一个变体（_norselands 动画），Holder 字段就是它。
+    /// 兜底（防御性，正常永不应命中）：初版的北境 BiomeData 双机制——实机日志
+    /// 实锤 "[FarmCats] norse cat prefab not resolved"，2.4.0 资产里
+    /// uniqueCharacters/prefabSwapPool 均解析不到猫，降级保留只为 holder 字段
+    /// 意外缺失时有二线。集合全部 for+索引器遍历（坑26：不用枚举器）。
     /// </summary>
     private static Cat ResolveNorseCatPrefab()
     {
         if (_norseCatPrefab != null) return _norseCatPrefab;
 
+        // ---- 主路径：Holder.catPrefab（原生正规路径） ----
+        try
+        {
+            Managers managers = Managers.Inst;
+            Holder holder = managers != null ? managers.holder : null;
+            Cat holderCat = holder != null ? holder.catPrefab : null;
+            if (holderCat != null)
+            {
+                _norseCatPrefab = holderCat;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[FarmCats] resolved cat prefab via Holder.catPrefab (native path)");
+                return _norseCatPrefab;
+            }
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[FarmCats] Holder.catPrefab resolution failed: " + e);
+        }
+
+        // ---- 兜底：北境 BiomeData 双机制（实机已证空，防御性保留） ----
         try
         {
             var biomePathStrings = BiomeHolder.Inst.biomePathStrings;
@@ -281,7 +320,7 @@ public static class PatchWorld_FarmCats
             BiomeData norseBiomeData = Resources.Load<BiomeData>(norsePath);
             if (norseBiomeData == null) return null;
 
-            // 机制一：uniqueCharacters（原生 List<Character>，interop 索引器直访）
+            // 兜底机制一：uniqueCharacters（原生 List<Character>，interop 索引器直访）
             if (norseBiomeData.biomeSpecificAssets != null)
             {
                 var uniqueCharacters = norseBiomeData.biomeSpecificAssets.uniqueCharacters;
@@ -297,15 +336,16 @@ public static class PatchWorld_FarmCats
                         if (cat != null)
                         {
                             _norseCatPrefab = cat;
-                            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                                "[FarmCats] resolved norse cat prefab via uniqueCharacters");
+                            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                                "[FarmCats] resolved cat prefab via uniqueCharacters " +
+                                "(fallback; Holder.catPrefab was missing)");
                             return _norseCatPrefab;
                         }
                     }
                 }
             }
 
-            // 机制二兜底：prefabSwapPool（List&lt;PrefabSwapData&gt;，swap 是北境变体）
+            // 兜底机制二：prefabSwapPool（List&lt;PrefabSwapData&gt;，swap 是北境变体）
             if (norseBiomeData.swapData != null)
             {
                 var prefabSwapPool = norseBiomeData.swapData.prefabSwapPool;
@@ -320,8 +360,9 @@ public static class PatchWorld_FarmCats
                         if (cat != null)
                         {
                             _norseCatPrefab = cat;
-                            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                                "[FarmCats] resolved norse cat prefab via prefabSwapPool");
+                            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                                "[FarmCats] resolved cat prefab via prefabSwapPool " +
+                                "(fallback; Holder.catPrefab was missing)");
                             return _norseCatPrefab;
                         }
                     }
