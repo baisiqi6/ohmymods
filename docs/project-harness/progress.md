@@ -1,3 +1,14 @@
+## 2026-08-29（七） — 农舍猫移植（3.2.0-dev7）
+
+- 用户确认移植 Mono 线遗留的"北境猫"（IL2CPP 迁移时被落下的功能）。worker 交付
+  PatchWorld_FarmCats.cs：北境 BiomeData 双机制解析 prefab；每农舍幂等补到 3 只驯化猫
+  （domesticated/farmHouse interop 直写——元数据 dump 实证 setter 暴露）；坑26 反查计数
+  （FindObjectsOfType<Cat>+farmHouse 匹配，不枚举 kingdom.cats）；原生 Persistent 存档语义
+  + 幂等重放双保险；RegisterObject(Dynamic) 照原生池化配方；联机 fail-closed。
+- 已知限制：会话中途新买农舍下次加载才补（与 Mono 版对齐）。
+- 编译 0W/0E，build=3.2.0-dev7 已部署 E 盘（SHA 前16=47518350900f010b）。
+- v3.2.0 七件套集齐待终验：北境小队/塔位增密/白天散开/碰撞永久关/扫描缓存/蛇远程吐怪/农舍猫。
+
 ## 2026-08-29（六） — 蛇缰绳回归修复：远程吐怪（3.2.0-dev6）
 
 - 用户实锤夜间不出怪——排除滑块（探针佐证 arrows=0 早于拖拽）后定位：蛇+100 使吐怪门的
