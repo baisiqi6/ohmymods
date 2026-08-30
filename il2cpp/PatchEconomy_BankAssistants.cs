@@ -1334,10 +1334,18 @@ public class BankAssistantCoordinator : MonoBehaviour
         if (helper.UncreditedCoins == 0) helper.CarriedCoins = 0;
     }
 
+    // 用户拍板（2026-08-31）：原版容量=银行家钱包容量（资产个位数），投掷量上来后
+    // 助手几个币就瞬移回家一趟，观感碎。保底 100 + 原生×10（回家是瞬移清账，
+    // 大容量零额外成本；4 助手×100 ≈ 2000 币投掷量约 5 趟/人）。
+    private const int AssistantCapacityFloor = 100;
+    private const int AssistantCapacityMultiplier = 10;
+
     private static int GetAssistantCapacity()
     {
         Wallet wallet = _mainBanker != null ? _mainBanker._wallet : null;
-        return wallet != null ? Math.Max(1, wallet.TotalCapacity) : 1;
+        return wallet != null
+            ? Math.Max(AssistantCapacityFloor, wallet.TotalCapacity * AssistantCapacityMultiplier)
+            : AssistantCapacityFloor;
     }
 
     private static Vector3 GetHomePosition(int index)
