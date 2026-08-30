@@ -90,6 +90,7 @@ public static class PatchWorld_FarmCats
     private const string MarkerPrefix = "KEM_FarmCat";
     private const float DelaySeconds = 5f;   // 等场景物体/读档重建猫就绪
     private const int CatsPerFarmhouse = 3;  // Mono 版同款目标数
+    private const float CatScaleY = 1.2f; // 用户拍板：小猫体型 1.2（坑11 只动 y）
 
     // per-world 指针守卫：在全部就绪检查（biome/联机/kingdom/农舍/prefab）通过
     // 之后、实际放猫之前才消费。换世界/换岛/读档（scene 重建，gameLayer 指针
@@ -208,7 +209,10 @@ public static class PatchWorld_FarmCats
                 {
                     Cat cat = cats[i];
                     if (cat != null && cat.domesticated && cat.farmHouse == farmhouse)
+                    {
                         existing++;
+                        EnsureCatScale(cat); // 读档恢复的猫没走生成路径，幂等补缩放
+                    }
                 }
             }
 
@@ -222,6 +226,29 @@ public static class PatchWorld_FarmCats
         KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
             "[FarmCats] spawned " + spawned + " cats at " + farmhouses.Length
             + " farmhouses (norse prefab)");
+    }
+
+
+    /// <summary>
+    /// 小猫 y=1.2（用户拍板）：绝对值写入（坑11 只动 y）+ ScaleRegistry 守卫
+    /// （有 Mover 则注册，池复用/原生重置自愈；无 Mover 时绝对值写一次即持久——
+    /// 池 respawn 不重拷序列化字段，坑：见 patch-patterns 坑11 相关沉淀）。
+    /// </summary>
+    private static void EnsureCatScale(Cat cat)
+    {
+        try
+        {
+            Vector3 s = cat.transform.localScale;
+            if (Mathf.Abs(s.y - CatScaleY) <= 0.0001f) return;
+            s.y = CatScaleY;
+            cat.transform.localScale = s;
+            Mover mover = cat.GetComponent<Mover>();
+            if (mover != null) ScaleRegistryHolder.Register(mover, CatScaleY);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[FarmCats/scale] " + e);
+        }
     }
 
     /// <summary>
@@ -259,6 +286,7 @@ public static class PatchWorld_FarmCats
             cat.domesticated = true;        // interop 暴露的属性 setter（原生私有 set）
             cat.farmHouse = farmhouse;      // 私有字段 interop 直写 → ShouldFarmCat 立即成立
             cat.SetColor(Color.white);      // 白色标记（Mono 版 SetFromSavedState 兜底同值）
+            EnsureCatScale(cat);
             return true;
         }
         catch (Exception e)
