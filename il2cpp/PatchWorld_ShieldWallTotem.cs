@@ -27,6 +27,12 @@ namespace KingdomEnhancedMod;
 ///   冲锋 → RushEnd 回墙解散，全程原生零接线。
 /// - 网络注册常量：activator.Setup(side) 内部自动 RegisterObject(gameObject,
 ///   974/975, CRPCType.Dynamic)（原生常量）——直接调原生 Setup，不手工注册。
+/// - 返修实锤（2026-08-30 实机日志）：LoadAll&lt;PayableShieldWallActivator&gt; 按
+///   根组件类型找不到图腾（"totem prefab not resolved"）——图腾是
+///   border_norselands（北境 PayableBorder 换皮变体）的子物体，非独立根
+///   prefab。解析改为 LoadAll&lt;PayableBorder&gt; 找北境旗帜候选 → 取其
+///   GetComponentInChildren(true) 子组件（见 ResolveTotemPrefab）；挂载时
+///   Instantiate 该子物体的 gameObject（不克隆整个 border 再摘子物体）。
 /// - 付费语义：付一次拉一队（非开关），墙存活期间 IsPayable 恒 false 不可再付，
 ///   墙自毁后恢复可付；价格/冷却/交互全部原生继承。
 ///
@@ -45,7 +51,10 @@ namespace KingdomEnhancedMod;
 /// </summary>
 public static class PatchWorld_ShieldWallTotem
 {
-    private const string TotemPrefabNamePart = "ActiveShieldWallTotem";
+    // 名字匹配统一小写比较（资产名大小写惯例不作假设，日志仍打原始名）
+    private const string TotemNameMatchLower = "activeshieldwalltotem";
+    private const string BorderNameMatchLower = "border";
+    private const string NorseNameMatchLower = "norselands";
     private const string ActiveFormationNamePart = "ActiveShieldWallFormation";
     private const string PassiveFormationNamePart = "PassiveShieldWallFormation";
     private const float PrefabRetryIntervalSeconds = 30f; // LoadAll 兜底限频（穷举重，NorseSquad 先例）
@@ -107,10 +116,19 @@ public static class PatchWorld_ShieldWallTotem
         }
 
         // 原生层级复现：totem 为 PayableBorder 根的子物体（原生
-        // GetComponentInChildren 级联语义依赖此结构）。失败即销毁半成品
-        // （fail-closed，不留无 Setup 的死图腾）。
+        // GetComponentInChildren 级联语义依赖此结构）。totem 引用来自北境旗帜
+        // prefab 的子物体（见 ResolveTotemPrefab）——直接 Instantiate 该子物体
+        // 的 gameObject（Unity 允许克隆资产内子物体，克隆仅含该子树、组件与子
+        // 引用完整；比"克隆整个 border 再摘子物体"少触发北境旗帜全套
+        // Awake/OnEnable 副作用）。失败即销毁半成品（fail-closed，不留无
+        // Setup 的死图腾）。
         GameObject totemGO = UnityEngine.Object.Instantiate(
             totem.gameObject, border.transform, false);
+        // 防御性激活：图腾子物体若在北境旗帜 prefab 里被序列化为 inactive，
+        // 克隆会保持 inactive → OnEnable 不跑 → WaitForIsPayable 协程不启动。
+        // 正常资产应为 active（原生北境图腾依赖同一 OnEnable 路径工作），此行
+        // 恒 no-op，纯保险。
+        if (totemGO != null && !totemGO.activeSelf) totemGO.SetActive(true);
         PayableShieldWallActivator activator = totemGO != null
             ? totemGO.GetComponent<PayableShieldWallActivator>() : null;
         if (activator == null)
@@ -207,9 +225,23 @@ public static class PatchWorld_ShieldWallTotem
     // ============================================================
 
     /// <summary>
-    /// 解析北境 totem prefab（资产名含 "ActiveShieldWallTotem"，任务书实锤 2）。
-    /// 缓存 static；未命中 30s 限频重试（LoadAll 穷举重，跨资产解析先例
-    /// FarmCats/KnightStyle/NorseSquad）。
+    /// 解析北境 totem（2026-08-30 返修：图腾不是独立根 prefab）。
+    /// 实机日志实锤 "[ShieldWallTotem] totem prefab not resolved yet"——
+    /// LoadAll&lt;PayableShieldWallActivator&gt; 按根组件类型找不到图腾：图腾是
+    /// border_norselands（北境 PayableBorder 换皮变体）的子物体，不是独立根
+    /// 资产。改为从北境旗帜 prefab 取子组件：
+    /// - 主路径：LoadAll&lt;PayableBorder&gt; 名含 "border" 且 "norselands" 的候选
+    ///   逐个试 GetComponentInChildren&lt;PayableShieldWallActivator&gt;(true)（含
+    ///   inactive 子物体——图腾在旗帜 prefab 里可能被序列化为默认隐藏），命中
+    ///   即缓存该子物体上的 activator 组件引用（Resources 资产引用跨场景稳定，
+    ///   NorseSquad 先例）；
+    /// - 兜底：LoadAll&lt;GameObject&gt; 名含 "activeshieldwalltotem" 或
+    ///   "border_norselands"（LoadAll 只返回根资产：前者理论命中独立 totem
+    ///   prefab——若存在；后者命中北境旗帜 prefab 根），同 GetComponentInChildren。
+    /// Instantiate 策略（最简可靠，见 HandleBorderSetup）：挂载时 Instantiate 该
+    /// totem 子物体的 gameObject——不克隆整个 border prefab 再摘子物体（那会
+    /// 触发北境旗帜全套 Awake/OnEnable 副作用再销毁，多风险零收益）。
+    /// 缓存 static；未命中 30s 限频重试（NorseSquad 先例）。
     /// </summary>
     private static PayableShieldWallActivator ResolveTotemPrefab()
     {
@@ -218,16 +250,45 @@ public static class PatchWorld_ShieldWallTotem
         _nextTotemRetryAt = Time.time + PrefabRetryIntervalSeconds;
         try
         {
-            var all = Resources.LoadAll<PayableShieldWallActivator>("");
-            for (int i = 0; i < all.Length; i++)
+            // ---- 主路径：北境旗帜 prefab（border_norselands）的 totem 子物体 ----
+            var borders = Resources.LoadAll<PayableBorder>("");
+            for (int i = 0; i < borders.Length; i++)
             {
-                PayableShieldWallActivator candidate = all[i];
+                PayableBorder candidate = borders[i];
                 if (candidate == null || candidate.gameObject == null) continue;
-                if (!candidate.gameObject.name.Contains(TotemPrefabNamePart)) continue;
+                string borderName = candidate.gameObject.name;
+                string lower = borderName.ToLowerInvariant();
+                if (!lower.Contains(BorderNameMatchLower)
+                    || !lower.Contains(NorseNameMatchLower)) continue;
 
-                _totemPrefab = candidate;
-                LogInfo("resolved totem prefab: " + candidate.gameObject.name);
-                break;
+                PayableShieldWallActivator activator =
+                    candidate.GetComponentInChildren<PayableShieldWallActivator>(true);
+                if (activator == null || activator.gameObject == null) continue; // 该候选无图腾，试下一个
+
+                _totemPrefab = activator;
+                LogInfo("resolved totem prefab: border '" + borderName
+                    + "' child '" + activator.gameObject.name + "'");
+                return _totemPrefab;
+            }
+
+            // ---- 兜底：LoadAll<GameObject> 按名（独立 totem prefab 或北境旗帜根）----
+            var objects = Resources.LoadAll<GameObject>("");
+            for (int i = 0; i < objects.Length; i++)
+            {
+                GameObject candidate = objects[i];
+                if (candidate == null) continue;
+                string lower = candidate.name.ToLowerInvariant();
+                if (!lower.Contains(TotemNameMatchLower)
+                    && !lower.Contains(BorderNameMatchLower + "_" + NorseNameMatchLower)) continue;
+
+                PayableShieldWallActivator activator =
+                    candidate.GetComponentInChildren<PayableShieldWallActivator>(true);
+                if (activator == null || activator.gameObject == null) continue;
+
+                _totemPrefab = activator;
+                LogInfo("resolved totem prefab (fallback): object '" + candidate.name
+                    + "' child '" + activator.gameObject.name + "'");
+                return _totemPrefab;
             }
         }
         catch (Exception e)
