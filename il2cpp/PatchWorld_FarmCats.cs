@@ -89,7 +89,7 @@ public static class PatchWorld_FarmCats
 {
     private const string MarkerPrefix = "KEM_FarmCat";
     private const float DelaySeconds = 5f;   // 等场景物体/读档重建猫就绪
-    private const int CatsPerFarmhouse = 3;  // Mono 版同款目标数
+    private const int CatsPerFarmhouse = 6;  // 用户拍板翻倍（原 Mono 版 3）
     private const float CatScaleY = 1.2f; // 用户拍板：小猫体型 1.2（坑11 只动 y）
 
     // per-world 指针守卫：在全部就绪检查（biome/联机/kingdom/农舍/prefab）通过
