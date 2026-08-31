@@ -1,3 +1,16 @@
+## 2026-08-31（二） — 盾墙雕像+农田币+银行余额（3.5.1-dev2 部署）
+
+- shieldwall-totem-028 worker 交付：PayableBorder.Setup postfix 挂图腾（原生级联复刻，
+  双保险幂等）+ TrySpawnShieldWall prefix 绕希腊 biome 门（方法体逐字复刻，其他 biome 零影响）
+  + prefab 双兜底（Kingdom 字段→Resources 按名）+ 镜像豁免（GetFormation+IsShieldWall 精确
+  判据）。interop 元数据 pwsh 反射全量复核。
+- 农田币+银行余额 worker 交付（重大偏差修正）：农田币无专属 DropType（落 Wildlife 桶，与
+  狩猎/宝箱/银行取款混装）——改精确来源标记法（Drop postfix 检查 dropper 归属 Farmland），
+  12s 独立成熟期；发现并同步任务书遗漏的第三个过滤点+银行领域豁免；面板顶部实时银行存款。
+- 已知待实测：shieldWalls fake-null 判活、希腊 Kingdom.prefab 序列化态、Instantiate<Formation>
+  interop 泛型首调、联机。
+- 编译 0W/0E，build=3.5.1-dev2 已部署 E 盘（SHA 前16=d2af6b2f27a1ce56）。
+
 ## 2026-08-31 — v3.5.0 发布（北境小队特色波）
 
 - 用户拍板版本号 3.5.0（内容量超小版本、未到 v4.0，节奏均匀：3.0 大波→3.1 打磨→3.5 特色波）。

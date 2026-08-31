@@ -1080,21 +1080,21 @@
     {
       "id": "shieldwall-totem-028",
       "title": "盾墙激活雕像移植（PayableShieldWallActivator）",
-      "status": "todo",
+      "status": "doing",
       "priority": "p1",
-      "owner": null,
-      "updated_at": "2026-08-26",
+      "owner": "zcode",
+      "updated_at": "2026-08-31",
       "dependencies": [
         "norse-squad-027"
       ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "希腊城墙内1币激活盾墙编队（墙外站位），北境随从为兵源；与夜间目标镜像的编队成员豁免",
-      "verification": "",
+      "verification": "worker交付（346行新文件+镜像豁免7行），编译0W/0E，含农田金币/银行余额/猫6只。PayableBorder.Setup postfix放置+TrySpawnShieldWall biome门prefix+prefab双兜底。build=3.5.1-dev2已部署E盘(SHA前16=d2af6b2f27a1ce56)。reviewer审核中，待实测",
       "handoff": "用户指认机制实锤:PayableShieldWallActivator.Pay→TrySpawnActiveShieldWall(side,pos,offsetFromOuterWall);CanJoinFormation盾墙门=NpcShieldUser+HasShield(北境随从是唯一兵源);必修交互:夜间墙外目标镜像会拉盾墙成员回墙内,需IsInFormation豁免。北境小队验收后开侦查(资产per-biome/坑14池/网络)",
       "workflow": {
-        "status": "todo",
-        "updated_at": "2026-08-26"
+        "status": "review_requested",
+        "updated_at": "2026-08-31"
       },
       "artifacts": {},
       "review": {

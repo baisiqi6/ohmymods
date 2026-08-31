@@ -95,6 +95,16 @@ public class ModPanel : MonoBehaviour
         GUILayout.BeginVertical();
 
         GUILayout.Space(8);
+        // ---- 银行存款实时显示（2026-08-30 需求2）----
+        // OnGUI 每帧 Repaint：只做静态引用直读（BankAssistantCoordinator.
+        // GetStashedCoinsForPanel，零分配零查找）；未就绪（非希腊 biome / 银行家
+        // 未出生）显示占位文案，不在面板侧触发任何解析。
+        int stashed = BankAssistantCoordinator.GetStashedCoinsForPanel();
+        GUILayout.Label(stashed < 0
+            ? "银行存款：未就绪"
+            : "银行存款：" + stashed + " 币", GUILayout.Height(LabelH));
+
+        GUILayout.Space(20);
         GUILayout.Label("总开关 Enabled", GUILayout.Height(LabelH));
         ModConfig.Enabled.Value = GUILayout.Toggle(ModConfig.Enabled.Value, " 启用 mod（关闭后全部走原版逻辑）", GUILayout.Height(ToggleH));
 

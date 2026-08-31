@@ -376,6 +376,13 @@ public static class PatchWorld_DefenseSpacing
             if (archer != null && archer.inGuardSlot) return true;
             if (mover.transform.position.y > 2.5f) return true; // 塔上高度，地面单位 y 通常 <2
 
+            // 盾墙成员豁免（shieldwall-totem 侦查 §7：Active 盾墙的集结/冲锋目标
+            // 原生就在墙外窄带，镜像会把结阵武士的目标改写进墙内致阵型解体）。
+            // 判据精确 GetFormation()+IsShieldWall——不用 IsInFormation()（过宽，
+            // 骑士队/玩家队也命中）。
+            Formation shieldWall = archer != null ? archer.GetFormation() : null;
+            if (shieldWall != null && shieldWall.IsShieldWall) return true;
+
             // 镜像到墙内同深+0.5（0.7~3.0 步）。墙内 N 步 = wall − side×N
             //（与 Knight.GetTargetPos / 锚点拉回同一符号约定）。
             float newX = wall - sign * (0.5f + Math.Abs(depth));

@@ -21,6 +21,11 @@ public static class PatchEconomy_BankAssistants
 {
     internal const float SCAN_INTERVAL = 0.3f;
     internal const float COIN_MATURITY_SECONDS = 3f;
+    // 农田币独立成熟时长（2026-08-30 需求）：农田币在玩家脚边成串弹出
+    // （Farmland.DropCoins 每 0.1s 一枚），且原生 pickUpPolicy=Nobody 只有玩家能捡。
+    // 3s 会在玩家弯腰捡币半途就吸走；取 4×3s=12s，约一个完整收获-捡币周期，
+    // 给玩家留出自己捡的明显窗口。Wildlife 类币不会自动消失，晚吸无经济损失。
+    internal const float FARM_COIN_MATURITY_SECONDS = 12f;
     internal const float SWEEP_RADIUS = 0.35f;
     internal const float ACTIVE_SCALING_STEP = 8f;
     // Registrar already iterates its central dropped-item list. Using the full float
@@ -416,6 +421,7 @@ public class BankAssistantCoordinator : MonoBehaviour
 {
     private const float SCAN_INTERVAL = PatchEconomy_BankAssistants.SCAN_INTERVAL;
     private const float COIN_MATURITY_SECONDS = PatchEconomy_BankAssistants.COIN_MATURITY_SECONDS;
+    private const float FARM_COIN_MATURITY_SECONDS = PatchEconomy_BankAssistants.FARM_COIN_MATURITY_SECONDS;
     private const float WORLD_SCAN_RANGE = PatchEconomy_BankAssistants.WORLD_SCAN_RANGE;
     private const float TELEPORT_APPROACH_DISTANCE = PatchEconomy_BankAssistants.TELEPORT_APPROACH_DISTANCE;
     private const float PICKUP_DISTANCE = PatchEconomy_BankAssistants.PICKUP_DISTANCE;
@@ -433,6 +439,9 @@ public class BankAssistantCoordinator : MonoBehaviour
     {
         public DroppableCurrency Coin;
         public float FirstObservedAt;
+        // 该币适用的成熟等待时长：玩家投掷币 COIN_MATURITY_SECONDS，农田币
+        // FARM_COIN_MATURITY_SECONDS（首次观测时按来源定型，见 IsFarmOriginCoin）。
+        public float MaturitySeconds;
     }
 
     private sealed class AssistantState
@@ -464,6 +473,13 @@ public class BankAssistantCoordinator : MonoBehaviour
     private static readonly HashSet<int> SeenThisScan = new();
     private static readonly List<int> RemovalBuffer = new();
     private static readonly List<ObservedCoin> MatureBuffer = new();
+    // 农田币来源标记（由本文件 Droppable_FarmCoinOrigin_Mark_Patch 写入）：
+    // Droppable.Drop 只按 dropper tag 分类（Player/Archer/Worker/Farmer 之外一律
+    // Wildlife），农田币与狩猎奖励/宝箱/灌木/树/罐子/骡子/银行家吐币/钓鱼竿共用
+    // DropType.Wildlife，没有独立枚举值。只能用"dropper 属于 Farmland"这一精确
+    // 来源标记圈定农田，不能放开整个 Wildlife 门槛（否则会抢弓箭手狩猎收入、
+    // 把银行家取款吐币又吸回银行）。
+    private static readonly HashSet<int> FarmOriginCoinIds = new();
     private static readonly HashSet<string> LoggedDiagnosticStates = new();
     private static readonly Il2CppReferenceArray<DroppableCurrency> ScanBuffer =
         new Il2CppReferenceArray<DroppableCurrency>(SCAN_BUFFER_SIZE);
@@ -486,6 +502,42 @@ public class BankAssistantCoordinator : MonoBehaviour
 
     public BankAssistantCoordinator(IntPtr ptr) : base(ptr) { }
     public static bool HasMainBanker => _instance != null && _mainBanker != null;
+
+    // ---- 农田币来源标记（Droppable_FarmCoinOrigin_*_Patch 调用）----
+    internal static void MarkFarmCoin(int instanceId)
+    {
+        FarmOriginCoinIds.Add(instanceId);
+    }
+
+    internal static void ClearFarmCoin(int instanceId)
+    {
+        FarmOriginCoinIds.Remove(instanceId);
+    }
+
+    private static bool IsFarmOriginCoin(DroppableCurrency coin)
+    {
+        return coin != null && coin.gameObject != null
+            && FarmOriginCoinIds.Contains(coin.gameObject.GetInstanceID());
+    }
+
+    /// <summary>
+    /// 面板只读直查主银行家存款（2026-08-30 需求2，ModPanel.OnGUI 每帧调用）。
+    /// 零分配、直字段读（先例 PatchEconomy_Banker L261/293）；_mainBanker 未就绪
+    /// 一律返回 -1——绝不在 OnGUI 里触发查找/解析，银行家解析交给现有 AttachTo 链。
+    /// </summary>
+    internal static int GetStashedCoinsForPanel()
+    {
+        try
+        {
+            Banker banker = _mainBanker;
+            if (banker == null) return -1;
+            return Math.Max(0, banker._stashedCoins);
+        }
+        catch
+        {
+            return -1;
+        }
+    }
 
     public static void AttachTo(Banker banker)
     {
@@ -668,6 +720,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             Claims.Clear();
             MatureBuffer.Clear();
             SweepPolicies.Clear();
+            FarmOriginCoinIds.Clear();
             return;
         }
 
@@ -682,6 +735,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         int ordinaryPlayerCoins = 0;
         int outsideCoins = 0;
         int externallyClaimed = 0;
+        int farmCoins = 0;
         for (int i = 0; i < count; i++)
         {
             DroppableCurrency coin = ScanBuffer[i];
@@ -699,13 +753,23 @@ public class BankAssistantCoordinator : MonoBehaviour
                         externallyClaimed++;
                 }
             }
-            if (!IsTrackableCoin(coin, domainLeft, domainRight)) continue;
+            bool farmOrigin = IsFarmOriginCoin(coin);
+            if (!IsTrackableCoin(coin, domainLeft, domainRight, farmOrigin)) continue;
+            if (farmOrigin) farmCoins++;
 
             int id = coin.gameObject.GetInstanceID();
             SeenThisScan.Add(id);
             if (!Observed.TryGetValue(id, out ObservedCoin observation))
             {
-                observation = new ObservedCoin { Coin = coin, FirstObservedAt = now };
+                observation = new ObservedCoin
+                {
+                    Coin = coin,
+                    FirstObservedAt = now,
+                    // 农田币走独立更长成熟期（给玩家留出自己捡的窗口，见常量注释）。
+                    MaturitySeconds = farmOrigin
+                        ? FARM_COIN_MATURITY_SECONDS
+                        : COIN_MATURITY_SECONDS
+                };
                 Observed[id] = observation;
             }
             else
@@ -714,7 +778,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             }
 
             if (!Claims.ContainsKey(id)
-                && now - observation.FirstObservedAt >= COIN_MATURITY_SECONDS)
+                && now - observation.FirstObservedAt >= observation.MaturitySeconds)
                 MatureBuffer.Add(observation);
         }
 
@@ -724,7 +788,11 @@ public class BankAssistantCoordinator : MonoBehaviour
             if (!SeenThisScan.Contains(pair.Key) && !Claims.ContainsKey(pair.Key))
                 RemovalBuffer.Add(pair.Key);
         }
-        for (int i = 0; i < RemovalBuffer.Count; i++) Observed.Remove(RemovalBuffer[i]);
+        for (int i = 0; i < RemovalBuffer.Count; i++)
+        {
+            Observed.Remove(RemovalBuffer[i]);
+            FarmOriginCoinIds.Remove(RemovalBuffer[i]);
+        }
 
         MatureBuffer.Sort(CompareObservedCoins);
 
@@ -787,21 +855,27 @@ public class BankAssistantCoordinator : MonoBehaviour
         {
             _nextDiagnosticsAt = now + 5f;
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                $"[BankAssistants] scan observed={count}, playerCoins={ordinaryPlayerCoins}, outside={outsideCoins}, tracked={Observed.Count}, mature={MatureBuffer.Count}, assigned={Claims.Count}, externallyClaimed={externallyClaimed}, collectors={CountActiveCollectors()}");
+                $"[BankAssistants] scan observed={count}, playerCoins={ordinaryPlayerCoins}, farmCoins={farmCoins}, outside={outsideCoins}, tracked={Observed.Count}, mature={MatureBuffer.Count}, assigned={Claims.Count}, externallyClaimed={externallyClaimed}, collectors={CountActiveCollectors()}");
         }
     }
 
     private static bool IsTrackableCoin(DroppableCurrency coin,
-        float domainLeft, float domainRight)
+        float domainLeft, float domainRight, bool farmOrigin = false)
     {
         if (coin == null || !coin.isActiveAndEnabled || coin.gameObject == null) return false;
-        if (coin.droppedBy != DropType.Player || coin.CurrencyType != CurrencyType.Coins) return false;
+        // 玩家投掷币按 DropType；农田币没有独立枚举值（2.1.0 源码 DropType 只有
+        // Player/Wildlife/Citizen，农田币落 Wildlife 桶，与狩猎/宝箱等混同），走
+        // Droppable_FarmCoinOrigin_Mark_Patch 的精确来源标记准入。
+        if (coin.droppedBy != DropType.Player && !farmOrigin) return false;
+        if (coin.CurrencyType != CurrencyType.Coins) return false;
         if (coin.IsFake()) return false;
 
         float x = coin.transform.position.x;
-        // The main Banker owns the symmetric second-wall domain (with safe fallbacks).
-        // Assistants also collect from built outer layers beyond that inner domain.
-        if (PatchEconomy_Banker.IsInMainBankerDomain(x, domainLeft, domainRight))
+        // 主银行家领域排除的目的是避免与原生银行家抢币——但原生银行家只认
+        // DropType.Player（Banker.ClaimCoins），领域内的农田币没有任何原生收集者，
+        // 不豁免就永远没人捡。故农田币豁免领域排除，玩家投掷币照旧。
+        if (!farmOrigin
+            && PatchEconomy_Banker.IsInMainBankerDomain(x, domainLeft, domainRight))
             return false;
         // A temporary native claim must not reset the three-second maturity clock.
         // TryFriendlyClaim remains the atomic assignment gate below.
@@ -1079,6 +1153,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             Pool.Despawn(collected.gameObject, true);
             Claims.Remove(id);
             Observed.Remove(id);
+            FarmOriginCoinIds.Remove(id);
             helper.Target = null;
             helper.CarriedCoins++;
 
@@ -1132,6 +1207,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             SweepPolicies.Remove(id);
             Claims.Remove(id);
             Observed.Remove(id);
+            FarmOriginCoinIds.Remove(id);
             helper.CarriedCoins++;
 
             // 链式补位；失败（含满容）意味着收工/回家，停止本帧继续扫。
@@ -1258,15 +1334,21 @@ public class BankAssistantCoordinator : MonoBehaviour
         if (!NetworkBigBoss.HasWorldAuth || helper == null || helper.Actor == null
             || coin == null || coin.gameObject == null || !coin.isActiveAndEnabled
             || coin.pickedUp || coin.IsFake()) return false;
-        if (coin.droppedBy != DropType.Player || coin.CurrencyType != CurrencyType.Coins)
+        // 与 IsTrackableCoin 同步：农田币走来源标记准入（droppedBy 与扫描侧一致放宽）。
+        if (coin.droppedBy != DropType.Player && !IsFarmOriginCoin(coin))
+            return false;
+        if (coin.CurrencyType != CurrencyType.Coins)
             return false;
 
         Managers managers = Managers.Inst;
         Kingdom kingdom = managers != null ? managers.kingdom : null;
-        if (!PatchEconomy_Banker.TryGetMainBankerDomain(
-                kingdom, out float domainLeft, out float domainRight)
-            || PatchEconomy_Banker.IsInMainBankerDomain(
-                coin.transform.position.x, domainLeft, domainRight)) return false;
+        // 农田币同样豁免领域排除（原生银行家不捡农田币，领域内无收集者），
+        // 否则扫描侧放行、结算侧拒绝会造成认领/回滚 RPC 抖动。
+        if (!IsFarmOriginCoin(coin)
+            && (!PatchEconomy_Banker.TryGetMainBankerDomain(
+                    kingdom, out float domainLeft, out float domainRight)
+                || PatchEconomy_Banker.IsInMainBankerDomain(
+                    coin.transform.position.x, domainLeft, domainRight))) return false;
 
         int id = coin.gameObject.GetInstanceID();
         if (!Claims.TryGetValue(id, out int owner) || owner != helper.Index
@@ -1414,6 +1496,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         MatureBuffer.Clear();
         RemovalBuffer.Clear();
         SweepPolicies.Clear();
+        FarmOriginCoinIds.Clear();
         _lastLoggedActiveCount = -1;
         _nextActiveCountLogAt = 0f;
         _nextScanAt = Time.time + SCAN_INTERVAL;
@@ -1442,6 +1525,49 @@ public static class PoolManager_BankAssistants_Init_Patch
     public static void Postfix(PoolManager __instance)
     {
         PatchEconomy_BankAssistants.HandlePoolManagerRebuilt(__instance);
+    }
+}
+
+/// <summary>
+/// 农田币来源标记（2026-08-30 需求1）。Droppable.Drop 只按 dropper tag 分类
+/// （Player→Player；Archer/Worker/Farmer→Citizen；其余一律 Wildlife），农田币
+/// （Farmland.DropCoins 以 backgroundRenderer 为 dropper）因此落入 Wildlife 桶，
+/// 与野猪/鹿狩猎奖励、宝箱、灌木、树、罐子、骡子、银行家取款吐币、钓鱼竿共用
+/// 同一枚举值——不存在"农田专属 DropType"。为满足"只纳入农田"，这里以
+/// "dropper 属于 Farmland"精确打标；每次 Drop 重新评估，池化复用的币实例
+/// 不可能携带过期农田标。打标只在 authority 侧 Drop 调用时发生，而扫描/认领/
+/// 结算也只在 authority 侧运行，天然对齐。
+/// </summary>
+[HarmonyPatch(typeof(Droppable), nameof(Droppable.Drop),
+    new[] { typeof(GameObject), typeof(Vector2), typeof(Vector2),
+        typeof(PickUpPolicy), typeof(bool), typeof(bool), typeof(bool) })]
+public static class Droppable_FarmCoinOrigin_Mark_Patch
+{
+    [HarmonyPostfix]
+    public static void Postfix(Droppable __instance, GameObject dropper)
+    {
+        if (__instance == null || __instance.gameObject == null) return;
+        int id = __instance.gameObject.GetInstanceID();
+        if (dropper != null && dropper.GetComponentInParent<Farmland>() != null)
+            BankAssistantCoordinator.MarkFarmCoin(id);
+        else
+            BankAssistantCoordinator.ClearFarmCoin(id);
+    }
+}
+
+/// <summary>
+/// 两参 Drop(force, policy) 重载不传 dropper（坐骑技能掉币），必须清掉池化实例
+/// 上一次农田掉落残留的标记，否则坐骑技掉出的币会被当农田币延迟吸走。
+/// </summary>
+[HarmonyPatch(typeof(Droppable), nameof(Droppable.Drop),
+    new[] { typeof(Vector2), typeof(PickUpPolicy) })]
+public static class Droppable_FarmCoinOrigin_Clear_Patch
+{
+    [HarmonyPostfix]
+    public static void Postfix(Droppable __instance)
+    {
+        if (__instance == null || __instance.gameObject == null) return;
+        BankAssistantCoordinator.ClearFarmCoin(__instance.gameObject.GetInstanceID());
     }
 }
 
