@@ -25,7 +25,7 @@ public static class PatchEconomy_BankAssistants
     // （Farmland.DropCoins 每 0.1s 一枚），且原生 pickUpPolicy=Nobody 只有玩家能捡。
     // 3s 会在玩家弯腰捡币半途就吸走；取 4×3s=12s，约一个完整收获-捡币周期，
     // 给玩家留出自己捡的明显窗口。Wildlife 类币不会自动消失，晚吸无经济损失。
-    internal const float FARM_COIN_MATURITY_SECONDS = 12f;
+    internal const float FARM_COIN_MATURITY_SECONDS = 3f;
     internal const float SWEEP_RADIUS = 0.35f;
     internal const float ACTIVE_SCALING_STEP = 8f;
     // Registrar already iterates its central dropped-item list. Using the full float
