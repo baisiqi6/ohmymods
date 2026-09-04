@@ -104,6 +104,7 @@ public static class PatchRoles_NorseSquad
 
     private static int _loadRestoreGeneration;
     private static IntPtr _loadRestoreWorldPointer;
+    private static IntPtr _loadRestoreSceneRootPointer;
     private const int LoadRestoreMaxAttempts = 24;
     private const float LoadRestoreRetrySeconds = 0.25f;
 
@@ -279,8 +280,10 @@ public static class PatchRoles_NorseSquad
     internal static IEnumerator RestoreLoadedFollowersRoutine(World world)
     {
         if (world == null || world.gameObject == null || world.gameLayer == null
-            || _loadRestoreWorldPointer == world.Pointer) yield break;
+            || (_loadRestoreWorldPointer == world.Pointer
+                && _loadRestoreSceneRootPointer == world.gameLayer.Pointer)) yield break;
         _loadRestoreWorldPointer = world.Pointer;
+        _loadRestoreSceneRootPointer = world.gameLayer.Pointer;
         var context = new LoadRestoreContext(world, ++_loadRestoreGeneration);
 
         // Native Campaign/Kingdom ApplyToScene and KnightStyle.OnLevelLoaded may still
@@ -313,6 +316,7 @@ public static class PatchRoles_NorseSquad
         {
             return context != null && context.World != null && context.World.gameObject != null
                 && context.SceneRoot != null && _loadRestoreWorldPointer == context.World.Pointer
+                && _loadRestoreSceneRootPointer == context.SceneRoot.Pointer
                 && context.Generation == _loadRestoreGeneration;
         }
         catch { return false; }
@@ -404,7 +408,10 @@ public static class PatchRoles_NorseSquad
                     if (replacement == null) { context.UncertainConversions.Remove(id); continue; }
                     Archer newArcher = replacement.GetComponent<Archer>();
                     if (newArcher == null) { context.Pending.Remove(id); continue; }
+                    if (!IsCurrentLoadArcher(newArcher, context)
+                        || !IsCurrentLoadKnight(knight, context)) return;
                     newArcher.SetKnight(knight);
+                    if (!IsLoadRestoreReady(context)) return;
                     EquipShieldSafely(newArcher);
                     NpcShieldUser newShield = newArcher.GetComponent<NpcShieldUser>();
                     if (newShield != null && newShield.HasShield()) context.ShieldReady++;
