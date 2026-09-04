@@ -1129,7 +1129,7 @@
       "status": "doing",
       "priority": "p1",
       "owner": "zcode",
-      "updated_at": "2026-09-02",
+      "updated_at": "2026-09-05",
       "dependencies": [
         "norse-squad-027"
       ],
@@ -1159,11 +1159,11 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "读档后按原生间距/倍数补放可购买基底；同一存档连续3次读档added=0（幂等）；买的塔持久化不复活基底",
-      "verification": "V3.5.0增密曾通过基础验收；后续发现部分补放塔基与建筑重叠。已复用模板ScatteredObject.AvoidOverlapWith的非Tower标签、同层/非船过滤和原生region，Spawn注册前FixedTransform.Fix；对历史未建KEM塔基加严格门禁退役。worker/reviewer REVIEW_APPROVED，构建0W/0E，E盘候选SHA前16=0C874B1DE6CBAF97，待实测清理与连续读档幂等",
-      "handoff": "保留自有Tower间距以实现增密，非Tower建筑避障沿用原生元数据。只清理自有命名、level0且Persistent/CRPC/SemiStatic完整的重叠实例；原生/已建塔基/检查异常均fail closed。需观察template scatter/retired overlap日志，并回归存读档、换岛和联机",
+      "verification": "V3.5.0增密曾通过基础验收；后续发现补放塔基与建筑及彼此视觉重叠。现已将ScatteredObject.GetHalfWidth/Renderer.bounds与原生Payable region取并集，并把视觉宽度作为目标间距下限；历史KEM塔基按X稳定排序清理彼此重叠。只清理自有命名、level0且Persistent/CRPC/SemiStatic完整的对象。worker/reviewer REVIEW_APPROVED，Debug构建0W/0E（commit 2e85449），待E盘关卡实测",
+      "handoff": "保留自有Tower间距以实现增密，非Tower建筑避障沿用原生元数据并补上视觉边界。历史KEM塔基只在离线world-authority且身份完整时按Deregister→DontPersist→Disable→Destroy退役；原生/已建塔基/检查异常均fail closed。需观察scan native/generatedUnbuilt/retired日志，并回归存读档、换岛和联机",
       "workflow": {
         "status": "review_approved",
-        "updated_at": "2026-09-02"
+        "updated_at": "2026-09-05"
       },
       "artifacts": {
         "implementation": "il2cpp/PatchWorld_TowerSpots.cs"
