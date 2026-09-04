@@ -1,30 +1,62 @@
-using System;
 using HarmonyLib;
 
 namespace KingdomEnhancedMod;
 
 /// <summary>
-/// 乞丐帐篷生成间隔 90 秒。游戏 SlowUpdate 公式为 (spawnInterval - 119f) 秒，
-/// 默认 spawnInterval=120 → 实际等待 1 秒。目标 90 秒需设 spawnInterval = 90 + 119 = 209f
-/// （设置型，非乘法叠加）。
+/// 每帐篷乞丐上限入口。中央协调器使原生 SlowUpdate 保持存活，
+/// 但在正常工作时以 maxBeggars=0 抑制它生成，改由 world-authority
+/// 按稳定营地归属与约 6 秒节拍补员。
 ///
 /// 2.4.0 签名验证（interop Assembly-CSharp.dll）：
 /// - BeggarCamp.Awake() : void —— 存在（private，interop 公开）
 /// - BeggarCamp.spawnInterval : float（公开属性）—— 存在（免反射 SetValue）
-/// - 协程 SlowUpdate 语义未变（仍读 spawnInterval - 119f），字段设置方案最稳。
+/// - BeggarCamp.maxBeggars : int（公开属性）—— 存在（免反射 SetValue）
+/// - SpawnBeggar() : void —— 2.4 interop 公开wrapper，中央协调器可直接调用。
 /// </summary>
 [HarmonyPatch(typeof(BeggarCamp))]
 public static class BeggarCamp_Awake_Patch
 {
-    // 目标：生成间隔 90 秒。游戏公式 (spawnInterval - 119f)，故设 90 + 119 = 209f
-    private const float TargetSpawnInterval = 209f;
+    [HarmonyPatch(nameof(BeggarCamp.Awake))]
+    [HarmonyPrefix]
+    public static void Awake_Prefix(BeggarCamp __instance)
+    {
+        PopulationPerformanceCoordinator.CaptureProfile(__instance);
+    }
 
     [HarmonyPatch(nameof(BeggarCamp.Awake))]
     [HarmonyPostfix]
     public static void Awake_Postfix(BeggarCamp __instance)
     {
-        if (!ModConfig.Enabled.Value) return;
         if (__instance == null) return;
-        __instance.spawnInterval = TargetSpawnInterval;
+        if (ModConfig.Enabled.Value)
+        {
+            PopulationPerformanceCoordinator.ConfigureCamp(__instance);
+            PatchRoles_Ninja.EnsureBeggarCampHidingSpots(__instance);
+        }
+    }
+
+    [HarmonyPatch(nameof(BeggarCamp.OnDestroy))]
+    [HarmonyPrefix]
+    public static void OnDestroy_Prefix(BeggarCamp __instance)
+    {
+        PopulationPerformanceCoordinator.ForgetCamp(__instance);
+    }
+}
+
+[HarmonyPatch(typeof(Beggar))]
+public static class Beggar_PopulationLifecycle_Patch
+{
+    [HarmonyPatch(nameof(Beggar.OnEnable))]
+    [HarmonyPrefix]
+    public static void OnEnable_Prefix(Beggar __instance)
+    {
+        PopulationPerformanceCoordinator.BeginBeggarIncarnation(__instance);
+    }
+
+    [HarmonyPatch(nameof(Beggar.OnDisable))]
+    [HarmonyPrefix]
+    public static void OnDisable_Prefix(Beggar __instance)
+    {
+        PopulationPerformanceCoordinator.ForgetBeggar(__instance);
     }
 }

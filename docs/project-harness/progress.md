@@ -1,3 +1,1018 @@
+## 2026-09-04 — v4.0.0 正式大版本发布门禁
+
+- 已发布：独立 reviewer 在补齐 Norse 加载恢复、KnightStyle 池复用和 TowerSpots 延迟上下文门禁后 APPROVED。源码 tag v4.0.0 指向 0b71a527；clean Debug build 0W/0E；313 项发布包和 E 盘 DLL 哈希已核对，备份保留。联机、权威迁移、换岛/读档与守家边界继续由用户实测。
+
+- 用户明确指定本次为 v4.0.0，上一正式版为 v3.5.0；最初准备的 v3.5.1 编号已撤销，尚未创建对应标签或Release。历史开发记录保留原始时间/版本证据，不代表当前公开版本。
+- 当前版本标识已统一至4.0.0，包含北境守家与加载恢复、弩炮弹速、塔基避障/局部高度、巨魔卸载清理、工具分配空候选放行、只读时钟诊断及农田币/银行余额/农舍猫增量。
+- 已完成独立审查、禁部署构建、checklist 校验、干净 worktree 打包和最终哈希审计。存档、备份、反编译源码、旧 ZIP 和 worker-wt-20260901 均未加入 Git。
+- 用户授权退出门禁后的E盘备份部署及path-scoped commit/push、v4.0.0 tag、GitHub Release Latest；G盘、Steam目录和存档不修改。联机、权威迁移、换岛/读档与守家边界持续验证，未逐项完成的事项不置done。
+
+## 2026-08-31（二） — 盾墙雕像+农田币+银行余额（3.5.1-dev2 部署）
+
+- shieldwall-totem-028 worker 交付：PayableBorder.Setup postfix 挂图腾（原生级联复刻，
+  双保险幂等）+ TrySpawnShieldWall prefix 绕希腊 biome 门（方法体逐字复刻，其他 biome 零影响）
+  + prefab 双兜底（Kingdom 字段→Resources 按名）+ 镜像豁免（GetFormation+IsShieldWall 精确
+  判据）。interop 元数据 pwsh 反射全量复核。
+- 农田币+银行余额 worker 交付（重大偏差修正）：农田币无专属 DropType（落 Wildlife 桶，与
+  狩猎/宝箱/银行取款混装）——改精确来源标记法（Drop postfix 检查 dropper 归属 Farmland），
+  12s 独立成熟期；发现并同步任务书遗漏的第三个过滤点+银行领域豁免；面板顶部实时银行存款。
+- 已知待实测：shieldWalls fake-null 判活、希腊 Kingdom.prefab 序列化态、Instantiate<Formation>
+  interop 泛型首调、联机。
+- 编译 0W/0E，build=3.5.1-dev2 已部署 E 盘（SHA 前16=d2af6b2f27a1ce56）。
+
+## 2026-08-31 — v3.5.0 发布（北境小队特色波）
+
+- 用户拍板版本号 3.5.0（内容量超小版本、未到 v4.0，节奏均匀：3.0 大波→3.1 打磨→3.5 特色波）。
+- 终验全过后发布：csproj/戳 3.5.0-release；文档五件套（worker 起草，含北境小队两条已知提醒：
+  随从不还原、存量重掷一次）；包 313 项/39.4MB，commit 0115b9a，DLL SHA256 9f43d6e9…。
+- GitHub Release v3.5.0 已创建并 Latest：https://github.com/baisiqi6/ohmymods/releases/tag/v3.5.0
+- 交付：北境小队（五风格/真北境随从近战/1.15）、塔位增密2x、农舍猫1.2、碰撞永久关+白天
+  散开、蛇远程吐怪修复、助手容量100+、扫描缓存、滑块步进。norse-squad-027/tower-spots-029 closed。
+- 群公告：release/MOD_V3.5版本更新说明.txt 待用户贴群+传ZIP。
+
+## 2026-08-29（七） — 农舍猫移植（3.2.0-dev7）
+
+- 用户确认移植 Mono 线遗留的"北境猫"（IL2CPP 迁移时被落下的功能）。worker 交付
+  PatchWorld_FarmCats.cs：北境 BiomeData 双机制解析 prefab；每农舍幂等补到 3 只驯化猫
+  （domesticated/farmHouse interop 直写——元数据 dump 实证 setter 暴露）；坑26 反查计数
+  （FindObjectsOfType<Cat>+farmHouse 匹配，不枚举 kingdom.cats）；原生 Persistent 存档语义
+  + 幂等重放双保险；RegisterObject(Dynamic) 照原生池化配方；联机 fail-closed。
+- 已知限制：会话中途新买农舍下次加载才补（与 Mono 版对齐）。
+- 编译 0W/0E，build=3.2.0-dev7 已部署 E 盘（SHA 前16=47518350900f010b）。
+- v3.2.0 七件套集齐待终验：北境小队/塔位增密/白天散开/碰撞永久关/扫描缓存/蛇远程吐怪/农舍猫。
+
+## 2026-08-29（六） — 蛇缰绳回归修复：远程吐怪（3.2.0-dev6）
+
+- 用户实锤夜间不出怪——排除滑块（探针佐证 arrows=0 早于拖拽）后定位：蛇+100 使吐怪门的
+  IsAny(6步)恒false，最终岛夜怪主力（嘴部传送门波次）全灭。修：TryRemoteProximityWave
+  复刻原生门去掉距离项（冷却门共用 _lastAttackTime 防叠加；嘴部门 activeInHierarchy 作
+  状态代理；10s巡检拆5x2s子节拍匹配10s冷却默认值）。顺带：老滑块5%步进吸附。
+- 坑31沉淀：挪单位审全部行为门的距离条件。
+- 编译 0W/0E，build=3.2.0-dev6 已部署 E 盘（SHA 前16=1f66c17353e5f60a）。
+
+## 2026-08-29（五） — 扫描缓存治理帧率尖刺（3.2.0-dev5）
+
+- 用户实测 dev4：四项全过（塔位增密/无天弹/白天散开/北境）；新反馈帧率波动——探针数据
+  avg 6.7-7.0ms（≈145fps）健康，max 37-56ms 单帧尖刺=体感不稳。元凶=5 套监督协程各自
+  FindObjectsOfType 叠帧+GC。
+- 修：UnitScanCache 共享缓存（Archer/Knight 3s、marker 5s、Serpent 10s，过期才真扫、
+  同帧去重、世界边界 InvalidateAll 保守清空）；四消费文件接线+Operator 补 NorseSquad
+  最后一处（一行）。RecomputeOnLoad 有意保持直扫（25%守恒需精确快照）。
+- 编译 0W/0E，build=3.2.0-dev5 已部署 E 盘（SHA 前16=6f13930e00f4e79b）。
+  待实测：拉高怪物数量后夜间 maxFrame 尖刺是否收窄。
+
+## 2026-08-29（四） — tower-spots-029 箭塔基底增密（3.2.0-dev4）
+
+- 用户需求"生成倍数"+确认现有世界即生效（场景资产点位非种子生成）。实现：读档+5s 按原生
+  间距中位数/multiplier 补放 towerLocationPrefab（自包含 PayableUpgrade，零接线；原生塔毁
+  回退=运行时实例化先例；注册 RegisterObject(SemiStatic) 与原生逐字等价；NotBuildable 点检；
+  联机 fail-closed）。默认 2x cfg-only——用户拍板不进面板（已建塔虽不丢但空点会随存档棘轮，
+  布局参数非运行时可调）。
+- reviewer 拦下 P0：间距估计混入自产点位=每读档密度×2 到 3 步地板+外沿逐档外推（比配置棘轮
+  更糟的自增强回路）。修：双层集合——参考集（估计/anchor/朝向）只收未购原生基底（name 非
+  KEM+level==0），占用集全量防贴脸；守卫移到就绪检查后。验证判据：同一存档连读 3 次 added=0。
+- 编译 0W/0E，build=3.2.0-dev4 已部署 E 盘（SHA 前16=1ac64d0f296d101a，含北境1.15/白天
+  散开/碰撞永久关）。
+
+## 2026-08-29（三） — 白天拥挤重分配（原生狩猎公式复用，3.2.0-dev2）
+
+- 用户方案落地：碰撞永久关后无物理散开，白天密度过大时用原生站位分配散开——
+  pairwise 重叠探测（同层1.5/半身位0.55，复活为散开触发器）命中贴叠的自由弓箭手
+  → 按原生狩猎公式重掷（GetBorderSide+side×Random(borderHuntRange)，Archer.cs:597
+  逐字复刻）→ SetGoal 走过去。随从/塔位/夜间规则不碰；20s/单位防抖；白天窗口互斥。
+- worker 推演递归安全（SetGoal prefix 链白天放行）。编译 0W/0E，build=3.2.0-dev2
+  已部署 E 盘（SHA 前16=5451a5e1b2bb18f9）。
+
+## 2026-08-29（二） — 友军碰撞永久关闭（用户拍板：同源根治，去恢复分支）
+
+- 用户连环追问点破过度设计：墙外推挤与白天天弹同源（友军物理碰撞），条件式恢复
+  （worker 已落盘的 CrowdStillOverlapped 探测）仍是给"恢复动作"叠补丁+新增扫描成本。
+- 拍板 always-off：ToggleFriendlyCollision 简化为一次性全层对 Ignore（任何时刻首拍执行，
+  全局矩阵跨场景存活），删除恢复分支/拥挤探测/相关字段；夜间镜像与深定位保留为
+  目标分配型残留的治理（非碰撞型）。代价=拥挤时单位视觉互穿（用户知情接受）。
+- 顺带清理 worker 条件版残留引用。编译 0W/0E，build=3.2.0-dev1 已部署 E 盘
+  （SHA 前16=2fa400a95371e870，含北境小队）。
+
+## 2026-08-29 — v3.1.0 发布（版本线重划：攒批=3.1.0，北境=3.2.0）
+
+- 用户拍板版本线：3.0.1 攒批概念取消，已验证批次发 v3.1.0，北境小队留 v3.2.0。
+- 发布执行：release/3.1.0 工作树取 cdc3442（北境合并前快照）+版本号/戳+V3.1 文档五件套
+  （worker 起草，含 Cerberus 不受坐骑滑块影响的核实标注）。包 313 项 39.4MB，
+  commit f26e185，DLL SHA256 c8cd2070…。
+- GitHub Release v3.1.0 已创建并 Latest：https://github.com/baisiqi6/ohmymods/releases/tag/v3.1.0
+- 主线（agent/post-release-candidate，含北境 3.1.0-dev1）继续为 v3.2.0 线；北境五点实测
+  为发布门槛；盾墙雕像 028 在其后。
+- 群公告：release/MOD_V3.1版本更新说明.txt 待用户贴群。
+
+## 2026-08-26（三） — norse-squad-027 北境小队完成（3.1.0-dev1 部署）
+
+- 全链：worker初版（五风格/窗口技巧转化/三层装盾兜底/巡检）→ Operator接线
+  （ReRegisterModPools希腊门控前）→ reviewer深审（窗口并发比Worker先例更窄/池恢复三路/
+  联机主机侧先例/Persistent语义静态成立）→ 三修（Q1跨队回收北境皮helper+消费点收口：
+  回收随从永不上弩手包/缩放回1.0；巡检per-archer try；装盾日志每世界一条）。
+- 机制沉淀：近战钥匙=NpcShieldUser（无组件永远Ranged，Archer.cs:770早退）；程序化装盾
+  SetShieldEnabled(true,0)无需商店；读档回队走ArcherData.PersistentLink不经盾门。
+- 盾墙雕像立项 shieldwall-totem-028（用户指认PayableShieldWallActivator=北境1币守家雕像，
+  与夜间目标镜像的豁免交互已记录）。北境小队留v3.1.0；3.0.1攒批仍待用户验收。
+- 编译 0W/0E，build=3.1.0-dev1 已部署 E 盘（SHA 前16=916c79ceb63bf108）。
+
+## 2026-08-26（二） — 3.0.1-dev4：神器/坐骑CD倍率滑块进控制面板
+
+- 用户需求：两滑块进 Ctrl+F10 面板，最短缩到原版1/5。落地：ModConfig Cooldown 组两项
+  （Staff 默认0.375=现状11.25s/Steed 默认1.0=原生），ModPanel 两组 HorizontalSlider
+  （0.2~1.0，5%步进吸附+Approximately 防抖），SettingChanged 即时重算在场对象。
+- 坐骑侧 worker 实证偏离：SteedAbility 在 2.4.0 无 OnEnable 声明（反射 interop 核实），
+  硬挂会拖垮 PatchAll——改为基类 Activate 读取点前缀（12 个消费 CD 的派生类全调
+  base.Activate，5 个不读 CD 的空实现天然不命中）；原生值按实例缓存幂等不叠乘；
+  三头犬 GhostSteed 固定 profile 排除防叠乘。
+- 神器侧：11.25 常量改 30×倍率（默认等价现状）。
+- 编译 0W/0E，build=3.0.1-dev4 已部署 E 盘（SHA 前16=cc69e0d4e6c825f2）。
+
+## 2026-08-26 — 3.0.1-dev 批次：幕府0.95/狗1.3/弩手靠后/死地锚点6.5/天亮碰撞缓冲
+
+- v3.0.0 后调参与修复批次（均未发布，攒 v3.0.1）：幕府骑士 0.95（表{0.95,1.05,0.95,0.9}）；
+  狗 y=1.3（Dog.OnEnable+Registry 试用值）；弩手夜间站位靠后（贴墙→ParabolaCast 擦墙强制
+  高抛——用户实锤，IntegrityPass 巡检 depth<3.5 重定位 4~8 步深处，塔位豁免）；死地随从锚点
+  4.2→6.5（弩手射程12站深不打折，普通随从维持4.2 保射程8，per-style API）；天亮碰撞恢复延迟
+  到 8 点（夜间重叠堆叠+天亮瞬间恢复=物理弹开人山/骑头顶——用户实锤，晨间散场缓冲 2.5h）。
+- build=3.0.1-dev3 已部署 E 盘（SHA 前16=c5c804d810e418e0）。
+
+## 2026-08-25（十三） — V3.0.0 发布
+
+- 用户终验通过（"可以了，好像没什么问题了"）。打包 313 项/39.4MB，泄漏检查修正
+  （Mono.Cecil.Pdb.dll 误杀），BUILD-MANIFEST commit=42016b6，DLL SHA256
+  =2008184b727adf5f…（与 E 盘部署一致）。
+- GitHub Release v3.0.0 已创建并标记 Latest：
+  https://github.com/baisiqi6/ohmymods/releases/tag/v3.0.0
+- 交付内容：弩手（3:1/死地士兵皮+旗帜色/伤2程12间隔x2体型1.15/平直快弹+拖尾/死地随从弩手化）、
+  骑士四风格（确定性哈希/随从联动翻牌治理/体型表0.95-1.05-1.0-0.9）、昼夜布阵（白天独占踱步/
+  夜间紧凑/墙外三因三治=关碰撞全层对+目标镜像塔位豁免+深定位兜底）、蛇缰绳墙+60、
+  巨魔反制5%/法杖11.25s。
+- 群公告：release/MOD_V3版本更新说明.txt 待用户贴群。
+- 后续队列：knight-squad-023（需用户5规则确认）/samurai战斗特化/norse-squad-027/错峰齐射。
+
+## 2026-08-25（十二） — 塔位天上走+碰撞层全对三修（发版前最后严重 bug）
+
+- 用户实锤"箭塔弓箭手在天上走"：塔守位 x 落墙外窄带，目标镜像把塔上弓箭手目标改写成
+  墙内地面 x，mover 在塔高度横走。修：镜像+深定位双加 inGuardSlot/y>2.5 豁免。
+- 诊断立功：colliders=[10,17]——友军碰撞体跨两层，只关 10-10 留 17 层推挤。修：
+  ToggleFriendlyCollision 升级为采样层集合全对 Ignore（自对+互对），日志列全部层对。
+- 编译 0W/0E，build=3.0.0-release 部署 E 盘（SHA 前16=2008184b727adf5f）。
+
+## 2026-08-25（十一） — 夜间墙外三因齐治 + V3.0.0 待发版
+
+- collision off(layer=10)后 side=R 仍 outside=15@墙+1.5~2.0 窄带（side=L 清零）——非推挤，
+  是原生守位目标分配在贴墙外。目标镜像落地：SetGoal(float,float) prefix 类型分发
+  （骑士白天散布/弓箭手夜间镜像），窄带目标镜像到墙内0.7~3.0步；worker 纠正任务书符号错
+  （墙内=wall−side×depth）。层自检诊断（collider layers distinct 列表）待数据。
+- 夜间墙外三因三治：推挤→关碰撞；分配墙外→目标镜像；滞留→深定位兜底。
+- 玩家文档五件套完成并入库；打包脚本路径修正（release-notes 在仓库根）。
+- 最终构建 build=3.0.0-release 部署 E 盘（SHA 前16=9850dfee518dec60），待用户终验后打包发版。
+
+## 2026-08-25（十） — 夜间关闭友军碰撞（用户治本方案）落地
+
+- 用户提出"取消/调高密度上限"——实锤游戏无此数值，友军互挤本质=同层 2D 物理碰撞。
+  落地 ToggleFriendlyCollision：入夜 IgnoreLayerCollision(units层,self,on)（层值运行时
+  采样自 active Archer，代码不写死），黎明恢复。状态跨世界不复位（全局矩阵跨场景存活，
+  per-world 复位会永久关死——worker 自查出的坑）。代价=夜间拥挤视觉重叠（用户知情）。
+- 三层防线成型：关碰撞（治本）→ 编队锚点归位（随从）→ 深处重定位（兜底，退化为稀有 no-op）。
+- 编译 0W/0E，build=3.0.0-release 重新部署 E 盘（SHA 前16=2126acb988bafd1b）。
+
+## 2026-08-25（九） — 瞬移拉锯治本（深处重定位）+ v3.0.0 版本切换
+
+- 用户实锤抽象 bug：硬地板瞬移钳回 vs 推挤密度上限挤出 = "瞬移回来又走出去均匀分布"。
+  治本：Part2 瞬移删除，改 mover.SetGoal(wall−side×Random(8,18), walkSpeed) 深处重定位
+  ——弓箭手自行步行进墙内深处（低密度不再被挤）；原生守位拉回再被挤则 3s 循环缓步
+  （走动观感，预期兜底）。教训沉淀：与原生推挤系统打架要用"目标"而非"位置"。
+- 版本切换：csproj 3.0.0、构建戳 3.0.0-release（用户拍板 v3.0.0 一次发，两头部功能
+  对标 v1→v2 跨度）；打包脚本入库 scripts/package_release.py（带泄漏检查+MANIFEST，
+  不再用临时目录）。玩家文档 worker 起草中。
+- 编译 0W/0E，build=3.0.0-release 已部署 E 盘（SHA 前16=f71a4570b46dc530）。
+
+## 2026-08-25（八） — knightstyle11：死地随从弩手化+夜间硬地板+弩矢观感
+
+- 死地随从弩手化：无标记轻量包（SO/射程12/间隔×2/1.15），ApplyFollowerSkinTo 统一路径
+  消费，换队/离队 Restore 幂等；worker 自查堵两洞（真弩手上塔误拆包→IsCrossbowman 防御；
+  死地世界皮判重饿死包→巡检按风格独立调用）。
+- 夜间硬地板：随从清零后普通弓箭手仍被推挤挤出墙外——NightParkedFollowerSweep 扩全单位
+  （随从优先重发跟队 continue，其余 depth<-0.5 钳回墙内0.6步，_guardSide 中性按近墙侧判）。
+- 弩矢观感（用户实锤弩矢与箭无区别；平直失败真凶=ParabolaCast 被自家墙挡选高抛解）：
+  SO._arrowOriginOffset=(2.5,1.0) 出膛前移过墙沿→原生选低弹道解；初速×2（包络32/索敌12，
+  站桩狙击旧行为）；弩矢 _alwaysDrawTrail+尾0.25s 常显拖尾+体型0.85。死地随从共享 SO 自动受益。
+- 编译 0W/0E，build=2.2.0-knightstyle11 已部署 E 盘（SHA 前16=c9ec84848a8449f8）。
+
+## 2026-08-25（七） — knightstyle10：随从换皮翻牌治本 + 死地骑士1.05
+
+- knightstyle9 日志：墙外随从清零（两侧 outside=0，原31/24）；dayIndex 独占踱步运行；
+  幕府之谜解——夜间 curTop=archer_soldier_greece×56+archer_soldier×20，56=dead28+shog8+gree20
+  全停原生希腊皮：原生 ConvertToSoldier（跟队例程重入）每~10s 刷回世界皮 vs 我们5s重写=翻牌，
+  视觉长期停留原生皮；中世纪幸存因基底 archer_soldier 不在刷回目标集合。
+- 治本：Archer.ConvertToSoldier/ConvertToHunter 双 postfix（私有按名补丁）——原生转换同栈
+  立即重涂风格皮（ApplyFollowerSkinTo 统一写入路径）；离队时 RemoveFromKnight 先置 _knight=null
+  （源码927-938核实）故猎人皮正确保留。StyleFollowersByLookup 降级为5s兜底。
+- 死地骑士缩放 0.95→1.05（用户拍板，Operator 直改常数：表 {0.95,1.05,1,0.9}）。
+- 编译 0W/0E，build=2.2.0-knightstyle10 已部署 E 盘（SHA 前16=186eff6f22ddeebf）。
+
+## 2026-08-25（六） — knightstyle9：每风格缩放+幕府诊断+夜间滞留纠偏
+
+- 用户三项反馈落地：
+  1) 每风格骑士缩放表：中世纪 0.95/死地幕府 1.0/希腊 0.9（表驱动，Strip 恒回 1）；
+     中世纪随从 y=1.05（随从换队每轮幂等重算自动跟随新骑士风格，离队回 1，弩手 1.15 不碰）。
+  2) 幕府随从未换皮：加双诊断——解析终态一次性快照（请求名=解析对象名，暴露重名/错配）
+     + follower diag 追加 per-style 目标分布与当前控制器 top2。待数据定位。
+  3) 夜间滞留墙外随从（怪物来才逃跑回来）：3s 巡检发现墙外随从重发原生跟队目标
+     （Archer.cs:486 同参），走锚点钳制路径回墙内。读档滞留态 ≤3s 自愈。
+- 编译 0W/0E，build=2.2.0-knightstyle9 已部署 E 盘（SHA 前16=7efb029fc58d2374）。
+
+## 2026-08-25（五） — knightstyle8：夜间随从锚点拉回墙内 + 白天独占踱步位
+
+- lineup 实锂数据：side=R 42 带内 followers=40 outside=24 样本 x=墙+3.0~3.6；骑士自身
+  r3@0.6..r7@1.8 贴墙内侧——随从编队（前排≈锚点前4步）以贴墙骑士为锚，前排越墙。
+  v2.1.0 压缩贴墙+19队满编放大了原生编队半宽的越界。
+- 修1：Mover.SetGoal(GameObject,...) prefix——夜间 Archer+Formation+有骑士命中时，
+  锚点拉回 wall−side×4.2（前排≈墙内2/后排≈墙内6，全在弓射程8内）；骑士 rank 不动。
+- 修2：白天踱步改每骑士独占索引（dayIndex×1.2±0.5，两侧≈12步带）；worker 发现并修掉
+  dayIndex=0 落点必在拦截带内的无限重入（_inDaySpreadRedirect 静态重入保护）。
+- follower diag 夜间 styled 皮肤确认（44 跟队中士兵皮在身）。
+- 编译 0W/0E，build=2.2.0-knightstyle8 已部署 E 盘（SHA 前16=7bf10080ea1ad1fc）。
+
+## 2026-08-25（四） — knightstyle7：白天骑士散布（Assemble目标拦截）+回滚rank分治
+
+- 好消息先记：knightstyle6 实测 styled=76/skippedFamily=0——随从队籍换皮确认生效。
+- 白天聚堆根因更正：Knight.Assemble（Knight.cs:662-680）全员同点（banner+3 或 wall+4）±1
+  随机、每10s重走——与 rank 无关。上一版 rank 昼夜分治基于错误假设，已回滚（且其白天
+  铺开的 rank 会被黄昏墙前列队消费，破坏夜间紧凑）。
+- 新方案：Mover.SetGoal(float,float) prefix——Knight 缓存判定（非骑士零影响）+ isDaytime +
+  目标落 dayZone±1.6 带内才命中；newX=dayZone−side×rank×0.75±1（19骑士散在~5.25带内，
+  原生10s重走自动变各自踱步）。夜间墙前目标出带不受影响。
+- 追加：夜间弓箭手 lineup 诊断放宽（knightstyle6 整夜零输出——_guardSide 过滤太严；
+  改纯位置归属[-6,10]，≥5触发）。
+- 编译 0W/0E，build=2.2.0-knightstyle7 已部署 E 盘（SHA 前16=60133c8487098cc1）。
+
+## 2026-08-25（三） — knightstyle6：随从换皮改队籍判定（diag 实锤断点修复）
+
+- follower diag 硬数据：archers=131 withKnight=76 inStates=76 styled=0 skippedFamily=76，
+  样本 controller=archer_greece——原生随从白天分散时穿猎人皮，"当前∈士兵族才写"条件
+  永不命中。worker 改为队籍判定：_knight 指向已风格化骑士即覆盖（猎人皮/士兵皮/北境款
+  一律），离队原生 ConvertToHunter 自动恢复。IsSoldierFamilyController 删除，北境款解析
+  保留无消费点。diag 行结构保留，skippedFamily 语义更新为幂等跳过计数。
+- 人口注意：131 弓箭手/19 骑士满编 76 随从。knight spread 日志确认触发（count=19），
+  用户"没散开"观察时间待确认（夜间压缩态=正确行为；白天为 1..19 单列纵队）。
+- 编译 0W/0E，build=2.2.0-knightstyle6 已部署 E 盘（SHA 前16=3d8518f0779094b3）。
+
+## 2026-08-25（二） — knightstyle5：骑士 rank 昼夜分治（修白天聚堆）
+
+- 用户实锤：骑士白天聚堆看不到随从。根因：GetTargetPos=守位−side×(_distanceFromWall×rank)
+  （Knight.cs:656），白天 ShouldAssemble（isDaytime&&isSafe，Knight.cs:950）就按 rank 集合；
+  v2.1.0 紧凑列队每 3s 不分昼夜压缩到 7 档，19 骑士 3 个一叠。
+- worker 修：RemapKnightRanks 昼夜分治——夜间（17.5-5.5）压缩 1..7（v2.1.0 语义不变），
+  白天 SpreadSide 按 instanceID 稳定排序铺开 1..N 全宽（每人独立档，幂等无抖动）。
+- 编译 0W/0E，build=2.2.0-knightstyle5 已部署 E 盘（SHA 前16=72c651970ffc0a58）。
+  预期日志：白天 "knight ranks spread for daytime: count=N"，黄昏后 "compressed to cap=7"。
+
+## 2026-08-25 — knightstyle4：随从管线+夜间站位双诊断部署
+
+- knightstyle3 实测：随从反查零报错（枚举器问题终结）但用户观感仍未换皮；另报新问题
+  "守家时部分弓箭手站在城墙外"+"白天也拥挤"。夜间探针抓到 287ms 单帧尖刺（t=0.5h，
+  均值6.7ms）与"卡挺久"量级吻合。
+- worker 加双诊断（只记录不改行为）：[KnightStyle] follower diag 每60s输出管线计数
+  （archers/withKnight/inStates/styled/skippedFamily/skippedOther+样本控制器名）；
+  [DefenseSpacing] archer lineup 夜间每侧一次输出墙外弓箭手按身份分类
+  （xbow/followers/plain）+坐标采样。下次运行三问题一次定位。
+- 编译 0W/0E，build=2.2.0-knightstyle4 已部署 E 盘（SHA 前16=59565a71d56a0fc4）。
+
+## 2026-08-24（十三） — knightstyle3：随从反查重写 + 天亮顿挫排查
+
+- knightstyle2 实测随从仍失效：堆栈实锤纯读快照段的 HashSet Enumerator.MoveNext 就抛
+  InvalidOperationException——Il2Cpp 非泛型枚举器对 HashSet 运行时不可靠（reviewer 疑点成真），
+  非写入副作用问题。worker 重写：删除全部枚举器代码，StyleFollowersByLookup 用
+  FindObjectsOfType<Archer> + archer._knight 反向归属（不碰 _archers），IntegrityPass 两段化。
+- 天亮卡顿排查（用户报告"每天天刚亮卡挺久"）：mod 无任何天亮触发逻辑（三监督协程均固定
+  5/10s 节奏）；Player.log 的 83688 资产大卸载（85ms）在读档时刻非每日；首要嫌疑=原生每日
+  自动存档（序列化+gzip 整个世界），被地图扩展与大人口放大。dawn 帧率探针已由 worker 加入
+  PatchPerformance_NightVolley.cs（5.5-7.0h 独立累计器，[DefensePerf] dawn: 行），下次运行量化。
+- 编译 0W/0E，build=2.2.0-knightstyle3 已部署 E 盘（SHA 前16=48440425768e31cb）。
+
+## 2026-08-24（十二） — knightstyle2：随从联动枚举并发修复 + 北境小队立项
+
+- knightstyle1 实测：骑士四风格生效（19 只 styled），随从全灭——根因=枚举 _archers 循环内写
+  控制器触发原生重入改集合，HashSet 版本检查抛 InvalidOperationException（LogErrorOnce 去重
+  后每轮静默失败）。worker 修复：StyleFollowers 两段式快照（纯读枚举收集托管 List 再写入，
+  范式对齐原生 Knight.cs:312 的 new List 快照）。
+- 北境裁决（用户拍板）：不进四风格随机池，作独立任务 norse-squad-027 完整引入——北境随从是
+  预制体级差异（Archer_norselands 带 NpcShieldUser 盾牌组件+近战逻辑），需走跨生物群系替换
+  基建（Holder+同步池+坑14全链审计），先例=希腊 Worker/Peasant 换北境预制体。
+- 编译 0W/0E，build=2.2.0-knightstyle2 已部署 E 盘（SHA 前16=86940f886cfbae3a）。
+
+## 2026-08-24（十一） — knight-style-026 骑士随机风格（knightstyle1 部署）
+
+- 需求：招募骑士随机中世纪/死地/幕府/希腊四形象，随从士兵联动对应形象，希腊骑士 y=0.9；
+  存量骑士读档自动补风格（用户确认）。
+- 全程 subagent 协作通道：worker 初版 764 行（Squire 过滤/HashSet 非泛型枚举器绕法/
+  NetID 退化+收敛/Knight.OnEnable 字符串补丁兜池复用）→ reviewer 一审 must-fix 一项：
+  北境随从联动静默失效（原生士兵皮 archer_soldier_norselands 不在判定集）→ worker 二轮
+  800 行（北境款"只识别不选中"/重算分支补 StyleFollowers/注释修正）。
+- reviewer 关键背书：弩手互斥三层闭合（IsAvailableForJob 排除→无 marker→巡检不碰）；
+  哈希收敛时序源码实锤（Pool.AttemptSpawnSync 先 Register 后 SetActivate，单机/双端首
+  1-2 轮即 NetID 真值）；希腊 0.9 上船与船 scale 归一化无冲突。
+- 编译 0W/0E，build=2.2.0-knightstyle1 已部署 E 盘（SHA 前16=66c307e2d27d41ca）。
+
+## 2026-08-24（十） — 协作流程纠偏 + 直写增量补审收口（balance2）
+
+- 用户指出流程漂移：皮肤/弹道/缩放/蛇缰绳迭代/平衡调整由 Operator 直写，未走 worker/reviewer。
+  纠偏：worker 与 reviewer 改用本 agent subagent（GLM max）通道。
+- 补审：reviewer subagent 对全部直写增量交叉审核 = approve（0 must-fix）。关键佐证：
+  State 常量表补全（diag state=7=Stunned，{1,2}=Idle/Moving 硬编码正确且失败开放）；
+  ConvertToHunter 权威端无条件重掷衣色（Strip 不还原衣色的污染面≤原生同型）；
+  Range=v²/g 与双门控自洽；borderIntact 语义、坑11/25 合规均逐行核对。
+- worker subagent 落地三项加固：LeashBodyToAnchor 加 !IsAny() 行为判据（状态编号无关双保险）、
+  陈旧注释统一墙+60 口径、worldRight 钳制 catch 一次性警告；弩矢乘数 1.2247→1.224745。
+- 编译 0W/0E，build=2.2.0-balance2 已部署 E 盘。
+
+## 2026-08-24（九） — balance1：巨魔反制 10%→5% + 法杖冷却减半
+
+- 友好巨魔被反制概率：DesignateFromStableIdentity 的 hash % 10 == 0 → % 20 == 0（确定性
+  判定，长期≈5%），头注释同步。
+- 神器权杖冷却：EnhancedCooldownSeconds 22.5 → 11.25（用户拍板"现行减半"），关闭 mod
+  恢复原版 30 秒逻辑不变。
+- 编译 0W/0E，build=2.2.0-balance1 已部署 E 盘（SHA 前16=3ffc851b135ebcd1，含 serpent6
+  蛇墙+60）。
+
+## 2026-08-24（八） — serpent6：大蛇推到墙+60（问题定性修正）
+
+- serpent5 日志：锚点 159.1/蛇体 164.9/状态值 7 —— 缰绳全部生效。用户澄清真问题：
+  不是蛇离墙视觉近，是白天狩猎小兵游走进蛇的攻击圈。定性从"离墙距离"改为
+  "离狩猎活动范围距离"，拍板墙+60（蛇警戒 6+咬击 8 只覆盖墙+46 外，狩猎不走那么远；
+  世界右界 336 余量充足）。
+- serpent6 = 常量 60，编译 0W/0E；游戏运行中，退出哨兵自动部署。
+
+## 2026-08-24（七） — serpent5：大蛇30+弩手缩放漂移诊断+Player.log报错诊断
+
+- 用户反馈：大蛇仍偏近（拍板墙+30）；地面弩手"有的高有的低"（塔位假人缩放不需要，已撤销
+  ——那轮只编译未部署）。
+- Player.log 报错诊断（BepInEx 日志零错误，报错全在 Unity Player.log）：
+  1) Curl error 7 连 127.0.0.1:7890 —— 游戏遥测/PlayFab 走系统代理（代理没开），无害；
+  2) Game:Awake 的 LogErrorFormat 打的是版本信息（2.4.0 自己用 error 级别打 info），无害；
+  3) Invalid NetID from CRPCStamp on 'CastleShieldShop(Clone)' x6 —— 狂战士商店槽位改写的
+     存档恢复戳校验抱怨（TryPopObjectsToScene），商店功能正常，历史已知权衡，跟踪不阻断。
+- 弩手高度不一致：日志零错误+Apply全走完 → 漂移必有更晚写入者。怀疑动画器 scale 曲线
+  （评估晚于 Mover.Update postfix 守卫，守卫永远输）。IntegrityPass 加只统计不改的漂移诊断
+  （drifted 计数+样本动画器位置/控制器名），下轮实测定位后决定改子节点缩放还是别的方案。
+- 额外收获：DefensePerf 血月数据到手 arrows=39 avgFrame=10.2ms maxFrame=56.3ms t=3.4h
+  （staggered-volley-024 决策输入，avg健康、max尖刺支持分批方向）。
+- serpent5 编译0W/0E；游戏运行中，部署哨兵等待退出（stamp=2.2.0-serpent5）。
+
+## 2026-08-24（六） — 大蛇缰绳 serpent2 实测返修（serpent3）
+
+- 用户实测：蛇仍在墙边。日志实锤 [SerpentLeash] anchor pushed wall=129.1 anchor=143.1
+  worldRight=4.78e19 —— 锚点确实推了，但两个问题：
+  1) worldBounds.right 垃圾值：Sided<float> 泛型结构体经 interop marshal 损坏（坑26候选），
+     F1 钳制失效。改用 GroundCollider 复刻原生公式 ground.x+size.x/2-8（World.cs OnLevelLoaded）。
+  2) 读档蛇保留存档位置（fromSave 不瞬移），原生回巢=Moving 慢速爬行（10s+ 窗口），
+     用户看到的就是爬行窗口里的蛇。新增 LeashBodyToAnchor：休息态（fsm.Current∈{Idle=1,
+     Moving=2}，State 私有嵌套类按源码数值比较）且位置<目标位时直接 RepX 归位——与原生
+     UpdatePosition 的 transform.x 写法等价；充电/攻击/下潜不碰。supervisor 改立即首扫。
+- 编译0W/0E，build=2.2.0-serpent3 已部署 E 盘（SHA 前16=d7275fcc481decda）。
+
+## 2026-08-24（五） — 大蛇缰绳 reviewer 收口（F1+F2 落地，serpent2）
+
+- reviewer(kimi-k3)一审 must-fix 两项（核心随迁论证1-5全部逐条背书）：
+  F1 targetX 缺上界——墙+14可越可玩陆域右界，破坏 Submerged 跟随点不变量与头部弱点可达
+  → 钳制 min(墙+14, worldBounds.right-10)，日志补记 worldRight；
+  F2 OnEnable postfix 首次激活空转——_mtOlympusGate 懒加载（TryFindGate 私有，
+  仅 DistanceToGate/GatePosition getter 填充），蛇先瞬移到未右移锚点再慢爬10-20s
+  → 复刻懒加载（FindWithTag+GetComponent 写回字段，私有方法不进 interop 坑25先例），
+  附带消除客户端木马锁 UI 分歧窗口。
+- nit 顺手：新世界重置 _loggedLeash；注释补"墙毁不回拉有意为之"。
+- 编译0W/0E，build=2.2.0-serpent2 已部署 E 盘（SHA 前16=099558ffde986292）。
+  git push 因本机代理(127.0.0.1:7890)不通暂缓，代理恢复后补推。
+
+## 2026-08-24（四） — 大蛇离墙缰绳（用户需求：最终岛大蛇刷新太贴墙）
+
+- 问题：希腊最终岛城墙推近奥林匹斯山门后，大蛇休息位=SerpentAnchor 落在墙外很近处，白天墙边
+  小兵被它的警戒扫描(warn=6)/咬击(ShouldAttack→DynamicTargetChomp)覆盖。
+- 侦查实锤：休息位由锚点唯一决定（关卡加载瞬移+Moving回巢 SetGoal 都指向锚点）；原生已有
+  冲锋线限制 GetMinChargePositionX=max(锚点-0.55,墙+_minChargeTargetDistanceFromBorder(4)+warn(6))，
+  但墙近山门时锚点本身就是贴墙的，调该字段无效。
+- 修法：PatchWorld_SerpentLeash.cs——锚点右推到 墙+14（只向右幂等；OnEnable postfix 即时 +
+  10s 协程复扫应对城墙右扩）。随迁论证：冲锋线锚点项主导→扫描只够到墙+8，墙边白天安全，主动
+  推进部队照常触发冲锋；IsBlockingGate=蛇与锚点相对距离(<=8)不变；弱点锚点按 worldBounds
+  均分与蛇锚点无关。
+- build=2.2.0-serpent1 已部署 E 盘（SHA 前16=18bb7b3f2eb31d9f）。reviewer 审核中+游戏内待实测。
+
+## 2026-08-24（三） — 弩手本体缩放 y×1.15（用户拍板）
+
+- Apply：y 绝对值 1.15 + ScaleRegistryHolder.Register（复用现有 Mover.Update postfix 每帧
+  y 守卫，坑11 只动 y）；Strip：先 Unregister 再回 y=1（顺序反了会被守卫顶回；注册按
+  gameObject ID 键控，池复用不撤会把普通弓箭手错误守卫在 1.15）。
+- build=2.2.0-xbow4 已部署 E 盘（SHA 前16=3f38ad4d49922630）。
+
+## 2026-08-24（二） — 弩手弹道二次简化：只做 1.5 倍射程（用户拍板）
+
+- 用户实测反馈高抛线 + 拍板简化：放弃平直弹道改造。实锤原因：守城时弩手在墙后，原生
+  BestShot 的 ParabolaCast 避障发现直线路径被自家墙挡住会主动选高抛解越墙——平直参数
+  在主场景（守城）根本展示不出来。
+- 最终弹道：射程×1.5 = 初速×√1.5（Range=v²/g），重力/prefab gravityScale 全部原生不动；
+  弹道形状与普通弓箭一致，SO 内部 Range=12 与 shootRange/扫描器自然一致（原 Range≈36
+  站桩狙击的特设逻辑随之消失，更原生）。其余不变（伤害2/冷却×2/士兵皮肤/旗帜色/弩矢外观）。
+- build=2.2.0-xbow3 已部署 E 盘（SHA 前16=028514ec48af0704）。游戏内验收仍待实测。
+
+## 2026-08-24 — 弩手皮肤修正：死地士兵（用户指正）
+
+- 用户指正：弩手皮肤应为死地骑士小队随从（士兵姿态），非死地猎人。侦查实锤原生机制：Archer.ConvertToSoldier
+  （入队/EnterGuardSlot上塔/OnEmbarkStart上船三路调用）= 动画控制器换成 soldierAnimator 的 biome 换皮
+  + 权威端旗帜色染衣（CoatOfArms 主/副色）；ConvertToHunter（离队/下塔/死亡清理）反向。资产确认
+  archer_soldier_deadlands 控制器+全套士兵动画（idle/walk/run/shoot/shoot_prep）在 2.4.0 resources.assets。
+- 冲突核实结论（答用户"白天打猎会不会冲突"）：不冲突——行为（_knight==null 猎人例程）与控制器（外观）解耦，
+  原生塔上弓箭手就是"猎人行为+士兵皮肤"；两套控制器由同一 Archer.cs 驱动，触发器接口一致。
+- 实现：常量改 archer_soldier_deadlands；Apply/IntegrityPass 加 ApplyBannerColors（复刻原生染衣块，
+  直接写 outfitColor 属性带 spriteFX 刷新，_isWearingBannerColor 幂等标记与原生共用）；Strip 改走原生
+  biome swap（GetAssetSwapForThis(hunterAnimator)，顺带修掉跨世界恢复错控制器的隐患）。
+- build=2.2.0-xbow2 已部署 E 盘（SHA 前16=7b4201b19b340679）。游戏内验收仍待实测。
+
+## 2026-08-23（夜） — crossbowman-021 弩手实现完成（编译+review 通过，待实机）
+
+- V2.x ①号任务开工：Operator 侦查实锤全部挂点（Promote(DroppableTool) postfix / ActiveArrowAttack 可写但四路重置 / ArrowAttack 共享 SO 必须 clone / Range=v²/g 三参数不独立 / 索敌=shootRange 扫描器+SO Range 双门控 / 伤害在 Arrow prefab hitDamage / Bolt 非 Arrow 子类仅取外观 / IsAvailableForJob=骑士招募排除点）。
+- Operator 数值裁决：保留用户弹道参数（初速×1.5/重力×0.5→SO Range≈36 站桩狙击不冒进），交战距离 12 由 shootRange 硬约束——弹道观感与射程解耦。
+- 协作：OMP worker（deepseek-v4-flash）3 轮（初版 766 行→冷却膨胀/塔位扫描器/弩矢缩小 3 修→reviewer 必修 3 项），OMP reviewer（kimi-k3）2 轮 must-fix→收口。轮次要点：
+  1) worker 修复：Apply 幂等（already 门防间隔×2 叠加）、Strip 塔位恢复 towerShootRange、弩矢 0.65 缩放；
+  2) reviewer 阻断：CrossbowmanMarker 缺 ClassInjector 显式注册（任务书"自动注册"说法是我的错误，9/9 先例全显式注册）→ EnsureMarkerRegistered 前置到全部 5 接触点；Q1 syncID 30130 段会被 Castle 爬升分配器撞车→31000；Q2 读档重算会把骑士小队成员转弩手→跳过 _knight!=null（不计分母）；
+  3) reviewer 二轮再拦一处漏网（RecomputeOnLoad 的 GetComponent 早于注册，读档主路径全静默中止）→ Operator 直接补一行收口（reviewer 预授权），坑 25 沉淀。
+- 交付：il2cpp/PatchRoles_Crossbowman.cs（824 行），编译 0W/0E，build=2.2.0-xbow1，已部署 E 盘测试副本（DLL SHA-256 前16=d1e4895ce4c0690e，哈希核对一致）。
+- 待实机验收：4 出 1 弩（deadlands 皮肤）/射程 12 平直快弹/伤害 2/骑士不招募/读档 25% 守恒日志/骑士小队成员不转弩。
+
+## 2026-08-23 — V2.1.0 发布：骑士小队夜战紧凑列队
+
+- 问题与实测：骑士夜晚墙后列队深度=rank×1.0（r15@15步实锤），后排小队侍从在射程8外整晚划水；弓箭手在2.4.0已被官方紧凑化（s=0.11实测，无需干预）。
+- 排障长跑：2.4.0的GetWallTargetPos/GetTargetPos为死代码、Director.Update钩不住（AOT内联，性能探针同因无声）；最终模式=World.OnLevelLoaded协程宿主+字段直写（rank重映射1..7，幂等守卫防抖）。
+- reviewer两轮：首轮changes_requested（remap被一次性日志标志锁死→自然成长/雇佣损员/换岛三场景静默失效；跨世界标志不重置）——用户验证场景恰好掩盖了此bug；修复后approved（每拍幂等remap+maxRank守卫+HasWorldAuth门控+新世界重置五标志）。
+- 发布物：v2.1.0 tag+Latest，DLL 217,600字节 SHA-256=EA156F87…，build=2.1.0-release2，manifest commit 1037a04；四份玩家文档+群公告（MOD_V2.1版本更新说明.txt）；E盘同步。V2.0.0本地包曾被打包脚本误覆盖，已从GitHub资产还原。
+
+## 2026-08-22 — V2.0.0 正式发布
+
+- 发布内容：弩箭塔+火焰塔重建（火焰塔门控=燃料满+无工匠）、Cerberus四队亡灵（含边界驻守修复）、
+  银行助手链式顺吸+积压扩容、旗帜小船编队、小船恢复、忍者伏击/狂战士进阶/隐士防绑架转正、
+  主船扩容、巨魔平衡、性能优化全套。
+- 发布门禁：未验证的队列深度监督器主动摘除（PatchWorld_DefenseSpacing.cs 移除，保留历史待V2.x）；
+  reviewer 发布审查 APPROVED（六项PASS）；构建号 build=2.0.0-release。
+- 发布物：ZIP 312项泄漏检查CLEAN，DLL 211,968 bytes SHA-256=
+  `B92601D9109D27B389E3C70AF021531F9D48DCE90679245AC5F8ED84A7B4AA78`，manifest commit 66c3017。
+  四份玩家文档补入火焰塔重建。E盘测试副本同步发布版DLL。
+- 幽灵驻守获实机日志确认（holding多例）；弩箭塔重建获用户全流程确认。
+- 队列紧凑化（弓箭手排队过深）未进本版：2.4.0站位重构为守位字段制，深度字段直写方案待心跳数据验证，
+  连同错峰射击设计一起排入V2.x。
+
+## 2026-08-17 — V2.0.0 发布打包完成（GitHub 草稿待实测后公开）
+
+- 用户拍板打 V2.0 正式版。csproj 版本 2.4.0→2.0.0（Mod 自身版本号，游戏兼容仍 2.4.0 IL2CPP），
+  重建 0W/0E，DLL 204,800 bytes、SHA-256=`BFAF0AC6D623055ED870A836BBFEECBC32B23089B1A9026F4CB401444450E823`。
+- 玩家侧文档全部重写为 V2.0 口径（不再用"测试候选"措辞，未验证边界诚实标注在"持续观察"节）：
+  `MOD_UPDATE_AND_FIX_LOG_ZH.txt`（V2.0 更新说明：银行助手重做/四队亡灵/箭塔重建/旗帜编队/小船恢复/
+  忍者伏击转正/狂战士进阶转正/隐士防绑架/主船扩容/巨魔平衡/性能优化+修复清单+比例汇总）、
+  `MOD_USER_GUIDE_ZH.txt`（V2.0 使用指南+新功能FAQ）、`MOD_CAPABILITIES_AND_ROADMAP_ZH.txt`、
+  `release-notes-il2cpp.md`（兼作包内 INSTALL.md）。提交`0f77f61`。
+- 发布 ZIP `KingdomEnhancedMod_v2.0.0_IL2CPP.zip` 从 E 盘基座重打包：312 项（doorstop/winhttp/dotnet/
+  BepInEx core+unity-libs+config(cfg)+plugins(新DLL)+四份文档+manifest），39,345,832 bytes；
+  泄漏检查 CLEAN（无日志/缓存/interop/备份/SKIDROW 痕迹）；manifest=commit 0f77f61、dirty=false。
+- 按既有决策（避免 Git 历史膨胀）ZIP 移出版本库：`git rm --cached` 旧 v2.4.0 ZIP + gitignore `release/*.zip`，
+  提交`33c2c59`；新 ZIP 只作为 GitHub Release 资产。
+- GitHub 草稿 release 已建（v2.0.0 标签占位、资产=V2.0 ZIP、说明=V2.0 更新速览），待用户实测
+  银行助手顺吸/箭塔重建/幽灵驻守后一键公开发布。E 盘测试副本已同步部署 2.0.0 发布 DLL（备份
+  `before-v2.0.0-release.bak`）。
+
+## 2026-08-17 — bank-assistants-005：捡币改链式顺吸（reviewer 两轮通过，待部署）
+
+- 用户反馈：助手逐枚"定位→走→捡→停→等下个扫描节拍"卡顿严重，跟不上扔币节奏；原生银行家是
+  批量认领+Wallet接触吸附一路连吸。根因三层：结算后`Target=null`+动画归零停死；下一枚分配只在
+  `ScanAndDispatch`节拍（0.5s）；单收集者+逐枚0.22精确定位。
+- 修复三件套（只改`PatchEconomy_BankAssistants.cs`，助手无Wallet/仅权威侧/Deposit原子入账等
+  不变量全保）：**链式目标**——每枚结算当帧`TryChainNextTarget`接最近未认领成熟币（认领失败退让
+  次近候选），奔跑动画全程不停；**顺路扫吸**——移动中`SWEEP_RADIUS=0.35`内成熟币走与目标币完全
+  相同的认领→`CanCommitPickup`→`SetFake/pickedUp`→`DepositFromAssistant`→池回收事务，多币认领
+  原策略用独立`SweepPolicies`字典按币记录回滚；**积压扩容**——`_collectorIndex`单值改
+  `ActiveCollector[4]`集合，目标活跃数=1+成熟币/8上限4，轮转补位。`SCAN_INTERVAL`0.5→0.3。
+- 委派链：worker=OMP deepseek-v4-flash thinking=max；reviewer=GLM5.3 subagent（kimi K3当月
+  配额403耗尽按协作规范回落）——首轮**changes_requested**揪出两个真bug：①`AssignNextTarget`
+  单候选穿透（最近币被村民原生认领时每0.3s回家瞬移循环最长20s）②`SelectNextCollectors`轮转
+  跳位（3-4并发只激活3个）。Operator各≤10行修复后复核**approved**；另按WARN加了联机门禁
+  预检（防client未追上时O(N²)空转帧尖峰）。经济原子性/认领一致性/状态机首轮即全PASS。
+- 独立构建0 warning/0 error；DLL 204,800 bytes、SHA-256=
+  `7E1E9B80BE388FB763F349F08025FD7D02DAE5E0B4CAC9580AD2D363B143A161`；checklist validator
+  0 warning。待用户退出后部署E盘实测：沿币串一路跑一路吸无停顿、积压≥8出第二助手、
+  主银行家行为不变。
+
+## 2026-08-16 — special-tower-rebuild-018：交互不出现根因=源prefab解析到基座资产（候选集修复待部署）
+
+- 用户实测驻守工匠修复版（A05A6551）仍无重建交互；23:50会话日志仅开局一条
+  `Ready source=Tower Ballista`，全程无Blocked——CanSelect从未作用于重建payable。
+- 根因实证：存档（`Release/global-v35`，gzip解压grep）已建弩箭塔prefabPath=
+  `Prefabs/Buildings and Interactive/greece/Tower Ballista_greece`（2座），而补丁在
+  PoolManager.Init前缀经Tower6基座模板route+GetAssetSwap解析到**基座资产**`Tower Ballista`
+  ——组件加错资产，真实建造/恢复实例全来自`_greece`变体（坑24：PayableManager只对已注册
+  payable调CanSelect，故静默无日志）。上轮"驻守工匠阻断"修复非主因，保留。
+- 修复：EnsurePrefabLayout改候选集——GetAssetSwap结果（try/catch）+`Resources.LoadAll<Ballista>`
+  按名含"Tower Ballista"扫描，安全检查（无FireTower/OilFireArcherTower/TowerKnight）通过的
+  全部候选幂等配置（HashSet+biome重置）；Ready日志列出全部源名，跳过候选汇总输出。惰性克隆
+  （FastSpawn→FastClone→Instantiate(_prefab)）保证Init时配好即遗传给恢复实例。
+- worker=OMP deepseek-v4-flash thinking=max；Operator逐行审查（46行删除全属旧单源段，网关/
+  token/prepare逻辑零改动）；独立构建0 warning/0 error。本增量未启用独立reviewer（仅prefab解析、
+  不触付款/RPC契约，协议规则2裁量）。坑24沉淀；checklist validator 0 warning。禁部署Debug构建DLL为
+  201,216 bytes、SHA-256=`CC3EC9F59C70D2218228B50FE7A17D02A7C8AB112C1D01F03483B63B0B2ADD8D`；
+  修改后源码SHA-256=`C1CE18B2B88E0B2B0174F0EF591E1AD202F888342CC2C480C4E8F367D2741159`。
+- 待用户退出游戏后部署E盘副本；实测验收点：启动日志`Ready sources=[... Tower Ballista_greece ...]`、
+  已建弩箭塔出现18金币提示、付款回六级塔。
+
+## 2026-08-16 — ghost-squads-013：希腊幽灵leash处决改边界驻守候选编译通过（待部署）
+
+- 用户报告希腊亡灵小队一直向外冲锋、超距即集体死亡。根因为原生设计：`WarriorGhostLeaderGreece`/
+  `WarriorGhostGreece` 的 `StartDeathCountdown` 即"离召唤者超`_maxPlayerDistance`处决"，而其冲锋AI
+  无敌人时每秒向营火反方向推进，站桩玩家必然看到小队冲出边界自杀（D22，非mod引入，四队扩展放大了暴露面）。
+- 修复=边界驻守+定时消亡：Prefix拦截两个Greece类的`StartDeathCountdown`（mod关闭/无世界权威走原版），
+  监督协程每0.5s检查，`|dx|>=上限−1`时`ForceStop()+Pause(0.75)`钉住驻守（砍击/射箭照常，玩家回接近
+  自动恢复冲锋）；60s到期`KillUnit()`补消耗机制，否则`HasGhosts`门会锁死技能。Summoner丢失/异常/
+  启动失败均兜底，不留永生幽灵。北境行为与GhostSquads既有逻辑零改动。
+- 委派链（新协作规范首次执行）：worker=OMP `deepseek-v4-flash` thinking=max（沙箱只读无法自建，
+  AST+逐符号语义核对后由Operator独立构建0 warning/0 error）；reviewer首选OMP `kimi-code/k3`因
+  当月配额403耗尽，按备选顺位回落GLM5.3 subagent thinking=max，结论approved——核对Mover暂停
+  Max语义下0.5s+0.75s钉住节奏数学无间隙、`yield break`在try-with-catch内合法、KillUnit回收链完整、
+  联机parity；两个非阻塞观察项（弓箭手Shoot收尾UnPause的有界抖动、HelsHead若接希腊prefab同样驻守）。
+- 新增仅`il2cpp/PatchDivine_GhostLeashHold.cs`（源码SHA-256=
+  `8CFC3101AB89831A5411E63579CBDCE65284153DAB28775D89BA4EF46436A478`）；禁部署Debug构建DLL为
+  200,192 bytes、SHA-256=`06AE5B2D4DF9D55CF533225FB00E4385C0E693D27C0DD23B31FB0C1D0EE86ADF`。
+  同步D22、checklist validator 0 warning。用户退出后已于23:58部署E盘独立副本（旧DLL备份
+  `KingdomEnhancedMod.dll.before-ghost-leash-hold-20260816-2358.bak`），待用户实机反馈
+  （驻守距离、60s消亡、北境不变、HasGhosts解锁）。
+
+## 2026-08-16 — special-tower-rebuild-018：驻守工匠交互修复静态通过
+
+- 实机日志只有`Ready source=Tower Ballista target=Tower6 price=18 biome=5`而没有`Rebuilding`；根因是旧候选
+  把正常常驻工匠视为阻断。现已移除人数门禁，不清actor、不改职业/钱包/存档；旧塔由原生Pay销毁后，
+  当前与排队工匠在下一次工作循环观察Unity-null并走原生清理。
+- bolt可失败回收已移到离线最终CanPay成功之后、TransactionComplete之前。失败取消并退币；成功用同帧
+  payable/player/world/scene token进入原生Pay。部分回收不会重新挂失活bolt，而是归一Reloading/currentWork0。
+- 在线首版整体fail closed，避免付款RPC批准后的主客分叉；本地分屏仍支持。新增按实例与原因变化、30秒
+  限流的阻断诊断。worker构建0 warning/0 error，reviewer最终APPROVED；源码SHA-256=
+  `C7FF31FFD1E6D025D63CCD615AB582D9B2A3A7E88C57C784B42374B461CA3F78`，禁部署DLL SHA-256=
+  `113BE01ED8F8ABAAD52571DCEF74829A14CB7B7B4F5210191AE8F804CF0D6696`（196,608 bytes）。
+- 代码与首轮文档已由提交`1f9f988`推送；从干净提交重建0 warning/0 error。确认游戏进程为0后只部署
+  E盘独立副本，构建/部署DLL均为196,608 bytes、SHA-256=
+  `A05A6551061C48DE4ADB20BCC6290D1948638F27C06DB6B19D5026F48E82514E`；原192,000-byte DLL已备份为
+  `KingdomEnhancedMod.dll.before-special-tower-worker-20260816-2225.bak`。当前ZIP未刷新。
+
+## 2026-08-16 — special-tower-rebuild-018：首版已部署，刷新ZIP待生成
+
+- 用户退出后确认游戏进程为0；从已推送提交`703be83`重新构建0 warning/0 error，并只部署E盘独立
+  测试副本。构建/部署DLL均为181,760 bytes、SHA-256=
+  `947131C76EF465B35AC21862E273E29D87AB0A8C2D97136E9CA15062F97E9CBD`，覆盖前旧DLL已保留备份。
+- 本轮仍只开放安全空闲Ballista付费重建为当前biome原生六级普通箭塔；Fire/OilFire/Knight/
+  Berserker/Baker/Mead来源继续fail closed。静态与部署门禁通过，保存往返、跨岛、分屏和联机待实测。
+
+## 2026-08-16 — 刷新测试候选：友好巨魔闭环与视觉比例
+
+- 用户退出游戏后确认 `KingdomTwoCrowns` 进程为0；当前IL2CPP源码重新构建0 warning/0 error，
+  只覆盖E盘独立测试副本。构建与部署DLL均为174,080 bytes，SHA-256=
+  `116972F641D20C2801F3113C12F7B94B6DEF23B33F29684786994321071A5749`；旧DLL另存为非DLL扩展名备份。
+- 本次刷新候选收录已获实机核心闭环的友好巨魔反制：7次友好目标注入、6次真实原生伤害，六个目标
+  均降至0生命；仍保留关闭恢复、Squid/CrownStealer、换岛和联机边界为待回归项。
+- 同包收录Dead Lands银行助手绝对y=1.25（北境仍1.2）与火焰塔隐士绝对y=1.25；只改视觉y，
+  不改变经济、调度、朝向、Passenger/Roaming或网络逻辑。玩家说明已从“下一候选/待部署”更新为
+  “本次刷新候选已包含”，待干净提交后生成直装ZIP并校验三方DLL哈希。
+
+## 2026-08-16 — friendly-troll-balance-008：反制追击修复静态通过，待部署
+
+- 最新实机日志已经确认反制单位的稳定 10% 指定阶段生效，本轮共观察到 9 个被指定的 TrollWeak；但没有出现候选注入或原生伤害证据，因此当前只能确认“标记成功”，不能确认“已经攻击友好巨魔”。
+- 新增一次性四阶段诊断：友好巨魔登记、反制巨魔进入原生目标查询、友好目标被临时注入、友好巨魔收到该反制巨魔的原生伤害。每阶段按实例或稳定身份去重，不做每帧日志、不全场扫描，也不改变概率、AI、目标、伤害、RPC 或对象池。
+- 伤害诊断只订阅活动 FriendlyTroll 自己的 OnReceiveDamage，并在回池、失活、组件指针变化时精确解绑；未使用全局 Damageable 热路径 Harmony patch。worker 构建 0 warning / 0 error，独立 reviewer 静态 APPROVED；提交 `045994d` 已推送。确认进程为0后已只部署独立测试副本，构建/部署 DLL SHA-256 均为`33C23C6C780B26550453C4320D4C35B980B4E391BF8802C757EF2A40FD2C34C5`（167,936 bytes）；release zip 未刷新，待实测四阶段日志。
+- 实机四阶段结果定位到设计缺口：41个友好巨魔与8个反制巨魔都正确进入登记/索敌，但原生查询半径只有2，注入与伤害均为0。新修订增加单一0.25秒中央追击器，只在普通行走态和2～10格外圈内朝最近友好巨魔移动；2格内完全交回原版冲撞。当前8×41规模约每秒1,312次简单距离比较，无全场扫描、LINQ、RPC或新池。源码SHA-256=`12700B854332A2CB8F12A21BD8669731321C5AD2358C6F9CFE1626A99375574E`；提交`3ee2be7`已推送。确认进程为0后只部署独立副本，构建/部署DLL均为`8F122777143698C2FD0F51D0BE1E388849C4802C1DE299F93A2CA2918AAB72BF`（172,032 bytes）；release zip未刷新，待实测。
+
+## 2026-08-16 — save-repair-017：当前存档火焰塔隐士Passenger恢复已原子执行
+
+- 用户授权修复当前Call of Olympus存档中未生成的火焰塔隐士。原生证据确认Fire=index6、
+  Passenger=5，且规范Passenger状态为`player=0/land=0`；用户同意只将campaign/currentReign两份
+  Fire `position`从0改为5，不创建第六座小屋、不插入Hermit/CRPC/NetID对象。
+- 游戏退出后锁定输入817,111 bytes / SHA-256=`C3A8CEF5B3B59B0C4A763235B138381ED6327ABAAA2311F95530624AC17E55E8`。
+  全campaign 11,665对象中无Dynamic/non-Dynamic netID980、无三种Fire名称、无既有Passenger。
+- 专用默认dry-run脚本经worker/reviewer逐行审查；真实dry-run得到candidate SHA-256=
+  `5C43780197C30F2B2F843D7139A5281A76CD836C9295F9307310F9A24FEE0DFE`。reviewer明确`APPLY_APPROVED`
+  后原子执行，新备份保持原输入hash，最终源818,055 bytes且hash与candidate一致。
+- 写后独立复读：before两份Fire均0/0/0，after均5/0/0；归一两处position后整root DeepEquals=True，
+  reviewer最终`EXECUTION_APPROVED`。尚待首次读档携带、放下变Roaming、火焰塔升级与重复读档/换岛验收。
+
+## 2026-08-16 — 隐士视觉与友好巨魔追击微调已部署，待实机
+
+- 希腊弩箭塔隐士按 `HermitType.Ballista` 精确设为 y=1.20，骑士塔隐士按
+  `HermitType.Knight` 精确设为 y=1.05；两者沿用现有 OnEnable/ScaleRegistry/OnDestroy 生命周期，
+  只改变 y，保留 x 朝向、z、能力与其他隐士。
+- 友好巨魔只把原生追击速度从 2 提高到 3（1.5倍），把索敌距离从 10 提高到 20（2倍）。
+  冲撞速度、冲撞距离、伤害、冷却、Squid/CrownStealer 筛选与约10%反制巨魔机制均不变。
+  每个对象池实例从原 profile 计算目标值；关闭 Mod 与回池前恢复，避免重复累乘。
+- 独立 reviewer 静态 APPROVED；Debug 构建 0 warning / 0 error。用户退出后确认游戏进程为0，
+  只覆盖独立测试副本；构建/部署 DLL SHA-256 均为
+  `8571E740D8CD4C94E5552D13B7CD1AC5D3124FF863733191257A864B4E92FB94`（164,352 bytes）。未写Steam、
+  未重打zip；待实测两类隐士朝向、巨魔3/20、关闭恢复与回池复用。
+
+## 2026-08-16 — crash-unload-016：出航卸载栈溢出首修候选
+
+- 02:45 与 02:54 两次崩溃的 `Player.log` / `Player-prev.log` 均以同一末链结束：旧岛保存完成后进入
+  `Managers.PrepareUnload`，level 层级禁用触发持盾 Worker 的 `NpcShieldUser.SetShieldEnabled(false)`，
+  随后在 `pickupShieldSound -> AudioPool/AudioEmitter.ResetAndPlay` 出现 disabled audio source，Windows WER
+  均记录 `0xc00000fd` 栈溢出。相同 StackHash 在稀疏工具分配部署前已经出现，不能归因于工具优化。
+- 最窄首修只在 Mod 启用且 `PrepareUnload` 同步作用域内，临时屏蔽带盾 Worker 的收盾音效；原生盾牌状态、
+  子物体、事件、再生、编队、碰撞力和 RPC 全部继续执行。正常/异常路径分别由 Postfix/Finalizer 幂等恢复，
+  下一场景还会无条件清除任何陈旧作用域；关闭 Mod 时完整走原版。
+- 当前源码已禁部署构建 0 warning / 0 error，DLL SHA-256=`ACC466D928534F7620F7610A9C20590F301FAA617DA33EF96B53DBAEDD21D0A9`。
+  这是高置信、可逆的因果候选，不是已完成的运行时证明。用户退出后已确认游戏进程消失，并已只覆盖
+  独立测试副本；构建与部署 DLL SHA-256 均为
+  `ACC466D928534F7620F7610A9C20590F301FAA617DA33EF96B53DBAEDD21D0A9`（162,816 bytes）。
+- 运行时门禁保持：高人口岛连续至少两次完整出航并进入新岛、无新增 WER 栈溢出、卸载摘要
+  `suppressed > 0` 且不再出现对应 disabled-audio 末链；平时拾盾/破盾声音与联机盾牌状态不得回归。
+
+## 2026-08-16 — tool-assignment-015：先部署零行为探针，再决定稀疏替换
+
+- 高人口岛的原生工具分配每约3秒运行一次，并以注册居民数构建大矩阵；当居民远多于工具时，
+  这是清理多余人口后仍值得优先处理的周期性性能尖峰。
+- 2.4虽公开化`DroppableRegistrar.ReassignClaimers`包装器，但原生内部调用可能绕过Harmony thunk。
+  因此第一阶段只加入完全放行原版的Prefix/Postfix探针，每个Registrar最多记录前4次居民数、工具数、
+  调用间隔和原算法耗时；不写目标、不写claim、不替换算法，也不会持续刷屏。
+- 探针源码提交`20c457b`已推送。用户退出后从该提交Debug重建0 warning/0 error，并只部署独立测试副本；
+  构建/部署DLL SHA-256均为`BDC91E72BF5B287E4BF3DD8BDEEB3CCF57B6B2C32D03FA742074024855F3E723`。
+  实机日志连续命中：582 carriers、7～8 droppables，后三次间隔约3秒，原版耗时约9～10毫秒。
+- 第二阶段现已实现：只在carriers不少于128且eligible tools不超过四分之一时，用原生评分缓存与补丁私有
+  JobAssigner求解工具×居民小矩阵；目标仍经居民自身接口两阶段更新。全局JobAssigner、其他工作系统、
+  资格与claim协议不改。与Horn隐士y=1.15一起提交为`147ea44`并推送；用户退出后从该提交重建
+  0 warning/0 error并只部署独立测试副本，构建/部署DLL SHA-256均为
+  `2CE66091A760E0ECE0455B5B2599371156CB295EDC8E2522FEE7F292D72ADF09`。
+- 本轮一次切岛闪退由Windows记录为`coreclr.dll / 0xc00000fd`栈溢出，末尾位于场景卸载；探针4次后已停止且
+  没有相关异常，当前不能归因于探针。后续必须重复切岛；若复现则先停发并单独定位。
+
+## 2026-08-16 — role-qol-001：号角隐士 y=1.15
+
+- 2.4枚举确认号角隐士为`HermitType.Horn`，与Horse马厩隐士是两个独立类型。
+- 沿用Baker/Horse现有生命周期，只在Horn启用时绝对设置localScale.y=1.15并登记ScaleRegistry，
+  OnDestroy精确注销；x朝向、z、能力、其他隐士及存档均不改。已随上方候选部署独立副本，待观感确认。
+
+## 2026-08-16 — ability-cooldowns-014：两项30秒冷却微调为22.5秒
+
+- 2.4资源实读确认 HermesStaff 基础冷却为30秒且每只转化目标附加值为0；Cerberus 召唤冷却也为30秒，
+  并在最后一名亡灵消失后才开始计时。本候选统一缩短25%，目标均为22.5秒。
+- 只修改冷却配置：法杖控制范围/上限/永久性与四支亡灵小队的数量、希腊/北境行为、持续时间、
+  回收、对象池和RPC均不改变。源码提交`14ebb6f`已推送；游戏退出后干净Debug重建0 warning/0 error并只部署
+  独立测试副本；最终刷新后的构建/部署DLL SHA-256均为
+  `0744BC6B6A55D1792EB95391988D9D9400091255F7D934AD1DF1D16437BA037F`。刷新候选包已通过结构、UTF-8、
+  源码排除与三方DLL哈希门禁；功能保持doing，等待用户实机计时。
+
+## 2026-08-16 — 希腊北境外观居民统一 y=1.125
+
+- 用户确认希腊世界的北境外观居民 y=1.05 视觉上过于接近原尺寸，要求与真正北境居民统一。
+- 普通 `Peasant_norselands` 与乞丐晋升生成的 `WarriorPeasant` 两条路径现在都绝对设置 y=1.125，继续只保留 x 朝向与 z，不改角色行为、转职、配色或网络逻辑。
+- 游戏当前运行中，因此本轮只进行源码/文档修改与禁部署构建；提交推送后等待退出再部署独立副本和刷新候选包。
+
+## 2026-08-16 — 主银行家提款目标 39 → 100
+
+- 当前2.4资源的`playerMaxCoins=39`与Mod钱包容量2000不匹配；原生提款量为`min(ceil(国库*0.25)+银行家随身金币, playerMaxCoins-玩家金币)`，并以每0.15秒1枚生成物理金币。
+- 为避免直接提高到2000导致最长约5分钟持续吐币和大量物理对象，本候选只把Enabled状态下的目标提高到100；25%比例、逐枚节奏、账本与助手逻辑不改。
+- WorkProfile新增原`playerMaxCoins`捕获，Mod Disabled时与扫描/速度参数一并恢复，避免同一Banker实例残留增强值。Debug构建0 warning/0 error，独立静态审查APPROVED；等待干净提交重建、独立副本部署与提款实测。
+
+## 2026-08-15 — fleetboat-recovery-009：候选已部署，等待实机验证
+
+- 用户提供的异常存档显示四个 `GodIsland*` 神像交付任务均 completed，但 carryForward 小船数为 0、
+  所有岛无 FleetBoatSaveData，且最近载入为死亡换君主后的 sailingIn。已在游戏未运行时备份原始
+  `global-v35` 至 `Release/KEM-backups/global-v35.before-fleetboat-recovery-20260815-162933`，
+  767,054 bytes，SHA-256=`1D50D6CE1B0DD49D30F85C0BB8B57BB88C0AFE599FC718B18F705E93D7359822`。
+- 新增 `PatchWorld_FleetBoatRecovery`：只在非 challenge 的 Greece campaign/scene 与 world-authority
+  生效；ApplyToScene 前捕获 carry 所有权目标，原生完整返回后按 active 优先、否则 standby 的唯一表示
+  计算缺口。四个 GodIsland 交付任务给出 0～4 所有权下限，绝不把 active/standby/carry 相加。
+- standby 与 active 严格互斥恢复；riverless/前置不完整或首个生成失败时才在零 active 状态回退 standby，
+  active 部分成功后不混写 standby。生成只复用当前 biome 原生同步池，无新 RPC/syncID/sidecar。
+- worker 与独立 reviewer 静态 APPROVED；源码提交 `7710977` 已推送。随后从干净提交重新 Debug 构建，
+  0 warning / 0 error，并在确认游戏未运行后只覆盖独立测试副本。构建与部署 DLL SHA-256 均为
+  `774F5ACFF413C76493456596ADE35D905C58CC9299F054747266FF2CF09607F3`。当前公开 zip 未刷新，
+  运行时任务保持 doing，等待异常档首次恢复、重复读档、换岛和死亡重生门禁。
+- 用户首次载入后体感未看到四艘船，但只读证据确认恢复已实际发生：日志唯一摘要为
+  `expected=4 active=0 standby=0 carry=0 desired=4 missing=4 recovered=4 mode=spawned-from-zero`，之后无
+  FleetBoat/unknown pool/duplicate syncID/RPC异常；20:08 autosave 的当前第3岛含4个 `FleetBoatSaveData`，
+  BoatNumber=1～4、CurrentState=Idle，位置 x约38.31～41.26。当前不重复补船，避免制造8艘；先沿登陆点、
+  水道和左右外墙确认视觉位置，必要时下一候选只加一次延迟位置诊断。
+- 随后换岛日志确认原生 carry-forward 已生成4艘、恢复补丁未补船，但新岛四个 Idle 实例最终停在完全相同的
+  x=37.96。死亡前旧正常档证明四船本应保持同一侧并按 BoatNumber 约1单位错开，问题是原生换岛生成后没有完成横向归位。
+- 第二阶段已实现并经独立 reviewer 静态 APPROVED：ApplyToScene 后由单批次runner等待2～4艘船全部 Idle、编号唯一、
+  原生side/base及Mover/FSM有效，再仅调用一次原生 `UpdateBase(true)`。不改side、状态、坐标、数量、任务、standby、
+  carryForward、对象池或RPC；活动/编队/航行状态只等待或超时。提交`e643d9f`已推送；从干净提交重建0 warning/0 error，
+  并在游戏未运行时只部署独立测试副本。构建/部署DLL SHA-256=`8A829791422A575A4157DC036F943DC7446FE8C98600D080BA686A57E5A6F039`，待实机。
+
+## 2026-08-15 — role-qol-001：马厩隐士 y=1.10 已部署独立副本
+
+- 2.1/2.4 双端核对确认吹笛解锁、用于马厩升级的隐士是 `HermitType.Horse`（标签
+  `HermitHorsekeeper`），不是 `HermitType.Horn`。沿用既有缩放守护：Horse OnEnable 绝对设置 y=1.10，
+  保留x/z；OnDestroy精确注销，Baker仍为1.15，其他类型零写入。
+- worker实现与独立reviewer静态APPROVED；源码提交 `82333a1` 已推送。用户退出后从该干净提交重新
+  Debug构建0 warning/0 error，并只覆盖独立测试副本；构建/部署DLL SHA-256均为
+  `BAF335AF932260819F01AAC3F9C93D4B3C4E1F22FF0FDA58075A8DE339E435D6`。未打包或启动游戏，
+  等待Horse=1.10、Horn/其他隐士不变的观感验证，任务保持doing/review_approved。
+
+## 2026-08-15 — candidate-package-007：友好巨魔与视觉微调候选已刷新
+
+- 用户退出游戏后，从干净提交 `b875c10ca421fe96106c83dfac913c1bd4778f9f` 重新构建并仅部署到
+  独立测试副本；Debug 构建 0 warning / 0 error。构建、独立副本和 zip 内 DLL SHA-256 三方均为
+  `E8B06EC90772390262F5D3B1325059097391EBE0D04E6CC5E479BE66DBECB8BD`。
+- 刷新后的 zip SHA-256=`4C44CDCC79B4CF30E58EE6CA20087692B797FA629055D02D61CACC436744832C`，
+  40,565,824 bytes / 312 entries；manifest commit 与构建提交一致、Dirty=false。插件 DLL 恰 1、
+  root dotnet 187、BepInEx/dotnet 0、版本顶层目录 0、required entries 无缺失、反编译源码条目 0，
+  包内 20 个常规文本项及 `.doorstop_version` 严格 UTF-8 通过；独立 reviewer 最终 APPROVED。
+- 本包新增包含：友好巨魔只排除 Squid 并恢复 CrownStealer 为正常目标、约 10% TrollWeak 反制单位、
+  Dead Lands/北境银行助手 y=1.2、希腊普通居民及乞丐晋升居民 y=1.05。静态审查已通过；战斗 canary、
+  实际冲撞与视觉观感仍是运行时门禁，相关功能任务继续保持 doing。Steam、共享存档、Mono 未修改。
+
+## 2026-08-15 — 视觉微调：Dead Lands 助手 y=1.2、希腊居民 y=1.05
+
+- Dead Lands 银行助手从上一测试包的 y=1.25 调回绝对 y=1.2，与北境助手一致；只改双方确定性
+  prefab 的 y，欧洲/幕府比例、x 朝向、收币调度和经济逻辑均不变。
+- 希腊世界的普通 Peasant（包括映射使用的北境外观）与乞丐晋升得到的 WarriorPeasant 统一为
+  绝对 y=1.05；真正北境世界的 Peasant_norselands 仍保持 y=1.125。只改 y 并继续登记现有
+  ScaleRegistry，不改变转职、配色、网络或行为。
+- 初始源码构建 DLL SHA-256=`E13F6836F79DBEE630FC3ED3FCB3CC2848B3CE6A7C3015C0102EDF7F13A0A02A`；
+  游戏退出后已随上方综合候选重新构建、部署并打包，等待实机观感确认。
+
+## 2026-08-15 — friendly-troll-balance-008：候选已部署，待实机验证
+
+- 友好巨魔选敌现只精确排除长期悬空的 Squid；旧的 CrownStealer 排除已删除，未使用当前高度阈值。
+  过滤发生在公开 StateMachine 推进中、候选枚举之前，并在正常/异常路径逐项恢复敌人集合；已有 Squid
+  目标也会被清空。全局状态机入口对非友好巨魔仅做 O(1) 字典旁路。
+- 普通 TrollWeak 中约 10% 按存档/岛屿/统治期与动态 NetID 的稳定哈希成为反制单位；只有世界权威端
+  在其原生目标查询期间临时加入 active FriendlyTroll，随后恢复目标缓存。未新增 RPC、序列化、pool、
+  prefab、碰撞体或全场扫描。概率是大量同步池槽的长期平均，同统治期复用同一槽保持相同结果。
+- 独立 reviewer 静态 APPROVED；初始源码构建 DLL SHA-256=
+  `084981C255AE05EA7EBB9A3F8199E2D3B8DEDE6EB321A7F5F05BB0FEF6317F50`。游戏退出后已随上方综合候选
+  重新构建、部署并打包；待验证两个公开 IL2CPP hook canary、真实冲撞伤害、CrownStealer 与普通 Troll
+  边界。税收助手调度零改动。
+
+## 2026-08-15 — bank-assistants-005：Dead Lands 助手 y=1.25
+
+- Dead Lands 外观对应固定 controller index 2，本轮在双方确定性 prefab 构建时把 localScale.y 绝对设为
+  1.25；北境 index 3 继续为 1.2。两者都继承 source x/z，朝向逻辑仍只改 x，不会对象池累乘。
+- 调度与经济逻辑零改动：助手按欧洲→幕府→Dead Lands→北境轮转，不随机；同一时刻严格只有一个
+  collector。满载回城是同步传送/收尾，完成后若仍有成熟金币才轮到下一位，不存在返程期间并发收币。
+- 独立 reviewer APPROVED；Debug构建0 warning/0 error，构建、独立副本与刷新后zip内DLL SHA-256均为
+  `9E71AFF5B155EF6D50DCD9EB0CFBA1098824382CF2C0547FEE431D485F8376BB`。刷新后zip SHA-256=
+  `7F736F339F22AFBC7FCD00659863167753A91B566643CD4818F6401CCFB42ADC`，结构与UTF-8门禁均通过；
+  待实机观感确认。
+
+## 2026-08-15 — candidate-package-007：综合测试候选包已生成
+
+- 重新打包当前综合候选，包含酿酒师 y=1.15、银行助手行为版、主船原生兵种扩容及此前候选改动；
+  包内文档已统一说明“本测试候选包已包含、仍待实机门禁、尚未转为公开稳定能力”。
+- 最终 zip SHA-256=`952FB1ECF3EEE011FA2AF8FC0956D13069D24EA5777C31EAA980692497D2087F`，
+  40,558,266 bytes / 312 entries；manifest commit=`8ea703b1c9f4ed045608cc0b1594b773e849cfbb`、Dirty=false。
+  构建、独立副本、包内 DLL SHA-256 三方均为
+  `C4003C445EAC67037C1BD295BBAD7E21B8A68E00C3DA900037E26F0BF8C683E0`。
+- 插件 DLL 恰 1、root dotnet 187、BepInEx/dotnet 0、版本顶层目录 0、required entries 无缺失、
+  20 个文本项严格 UTF-8 全通过；独立 reviewer APPROVED。Steam、共享存档、Mono 未修改。
+
+## 2026-08-15 — role-qol-001：酿酒师隐士 1.15 倍候选已构建
+
+- 当前版本的酿酒师外观对应 `HermitType.Baker`。新补丁只在该隐士启用或对象池复用时，把 y 轴
+  绝对设为 1.15，并登记到现有缩放守护机制；x 朝向、z、能力和其他隐士均不修改，也没有资源扫描或累乘。
+- 为避免真实销毁后的 Unity instanceID 在同一进程复用并把 1.15 误套给其他单位，缩放注册表新增
+  单对象注销；只在酿酒师 OnDestroy 时移除，OnDisable 不移除，保持对象池复用语义。
+- IL2CPP Debug 构建 0 warning / 0 error，DLL SHA-256=
+  `C4003C445EAC67037C1BD295BBAD7E21B8A68E00C3DA900037E26F0BF8C683E0`，独立 reviewer 静态
+  APPROVED。游戏退出后已部署独立副本，构建/部署哈希一致；等待游戏内外观/对象池复用验证，不进入当前正式 zip。
+
+## 2026-08-15 — boat-capacity-006：主船原生兵种扩容（进行中）
+
+- 用户最终要求仅调整大船：独立弓箭手保持 4，工匠 8、骑士/侍从小队 6、长矛兵/重装步兵 8、
+  农民保持 3；奥林匹斯小船保持原生容量。
+- 2.4.0 静态核对确认原生五类已有登船所有者与乘客组件，容量字段可在主船注册前安全调整；
+  狂战士与忍者没有该原生接口，因此不能只加两个数字。当前按高风险跨岛/联网任务设计为两类独立
+  轻量适配器，必须在网络组件注册前进入 prefab，并完整复用原生登船、换岛存档与下船链。
+- 深入核对发现狂战士/忍者不仅缺乘客接口，还缺上船 AI 分支，原生跨岛清单也只硬编码五类；
+  用户判断收益不高并明确取消这两类登船。此前未完成的 adapter、RPC 与 sidecar 方案已全部撤销，
+  不会进入构建或存档。
+- 最终最小补丁仅在 `Boat.OnEnable` 原生注册调用期间临时写四个容量，注册完成或异常时恢复原字段，
+  避免同一主船对象在关闭 Mod 后继续残留增强值。Debug 构建 0 warning / 0 error，
+  DLL SHA-256=`DF1B21214D487F7AFEBFCD2E606301B1B4CB8BA40ED773BAE2DC58594A0B5772`；
+  独立 reviewer 静态 APPROVED；代码提交 `c27d244` 已推送候选分支并进入现有 Draft PR #1，尚待
+  独立副本实测。小船、Mono、Steam、共享存档和当前正式 zip 均未修改。
+
+## 2026-08-15 — 银行助手系统（进行中）
+
+- 用户进一步明确主银行家的固定活动区是左右从城堡向外数第二道墙之间，而不是全部领地或第一道墙。
+  最新实现用两侧有序墙列表的 index 1 定义该区；第二墙未同时就绪时对称回退第一墙，再回退有效外墙，
+  并让主银行家的扫描前后距离精确止于当前管辖边界。该区外（包括外层领地内）的玩家金币满 3 秒后归助手。
+- 当前收集助手对同批后续金币采用 6 单位阈值：首枚或远目标才近距传送，6 单位内直接跑去，避免逐枚闪现；
+  北境外观助手仅把 y 设为 1.2。独立 reviewer 静态 APPROVED；Debug 构建 0 warning / 0 error，
+  DLL SHA-256=`51BFFEEF87FCC6846AF4FB253270DD0F6FE50C814DF7EBD3596A5320F8C8013B`。独立副本当前运行中，
+  因此本轮尚未部署，等待安全退出后覆盖并实测。
+- 四套外观与四助手生成已在独立副本确认。用户随后调整产品契约：主银行家应保持增强移速、安全期全天工作并
+  覆盖扩张后的全部墙内区域；四名助手空闲时不应僵站，同一批墙外金币也不应四人一起行动。
+- 当前行为版已实现唯一 collector 与批次轮转：只有当前助手会近距传送并连续收取成熟墙外金币，其余三名在
+  城堡附近的独立墙内走廊巡逻，到端点分别停留 2/3/4/5 秒。主银行家保留原生状态机，walk=1.95、run=3.6，
+  scanner 每 1 秒工作且低频跟随左右墙更新；墙外认领门禁不变。夜间不隐藏，运行中重新启用时仅在领地安全
+  才立即出现，避免攻城时主动开门。独立 reviewer 静态 APPROVED；Debug 构建 0 warning / 0 error，
+  构建与独立测试副本 DLL SHA-256 均为
+  `91B6FDB52831BAA15B14E54B047F989E3B7639FC3DCE856A0522F4472AF41B62`。待游戏内实测。
+- 首次候选已部署独立副本。实机日志确认四名助手池和实例都成功生成，但旧的动画资源入口无法取得
+  `banker`、`banker_bamboo`、`banker_deadlands`、`banker_norselands` 四套控制器，代码又统一回退到
+  当前世界控制器，造成四名助手外观相同。调度器还会在成熟列表第一枚金币暂不可认领时放弃后续候选，
+  固定 800 距离也不覆盖所有加宽地图。
+- 修复版沿 `BiomeHolder` 的世界风格替换表取得控制器 direct reference，并要求四套 exact name 与实例 ID
+  全部唯一；缺失时整套助手 fail closed，不再复制相同外观。扫描改为统一掉落列表的全岛范围、逐候选尝试，
+  临时原生认领不再重置 3 秒观察计时；诊断日志按状态去重，只保留首次分配和首次入账事件。
+- 双端在资源稍晚就绪时都会以 2 秒退避重试固定池注册，客户端随后仍立即退出，不生成助手、不认领金币、
+  不写国库。修复版 Debug 构建 0 warning / 0 error，DLL SHA-256=
+  `F3BAB6CB492335D23E9CA3D958315545EE679100B0460EE511E8B160E5B99409`，独立 reviewer 静态 APPROVED；
+  自动部署因当前桌面无 E 盘写权限而被拒绝，旧测试 DLL `0203BC71...` 保持不变；待 operator 手动部署
+  独立副本复测。Steam、共享存档与当前正式 zip 均未修改。
+- 2.4.0 资源实证：游戏只有一个完整 `Banker` prefab，通过 `banker`、`banker_bamboo`、
+  `banker_deadlands`、`banker_norselands`、`banker_greece` 五套动画控制器形成五种世界外观。
+- 用户拍板采用“1 名主银行家 + 4 名助手”：希腊外观主银行家继续独占国库、利息、提款、城堡门和
+  存档；另外四套外观只作为无 `Banker` 行为的收币助手，避免固定 NetID 903 冲突和重复计息。
+- 新任务 `bank-assistants-005` 已完成候选代码与 Debug 构建；边界为 world-authority 单写、金币单目标认领、统一低频扫描、
+  墙外落地 3 秒后才分配；墙内金币继续留给主银行家/原生单位。为避免换岛时在途金币丢失，成功拾取即原子记入主银行家，满载/无目标回城只作
+  视觉与容量节奏；同时修正旧共享账本可能覆盖日息/回滚提款的同步时点。四名助手使用轻量同步外观，
+  不复制完整银行家、钱包或持久化身份；中央扫描频率为 2 Hz。最新构建 0 warning / 0 error，
+  首次部署 DLL SHA-256=`0203BC714DCE13A20B6E9F753FF8D21E13083316DA936085F41DC758869A164C`。
+  该首次版本的外观与调度回归已由上方修复版取代；候选仍不属于当前正式 zip 能力。
+
+## 2026-08-15 — role-qol-001：狂战士公开 Promote 修复获用户实机验收
+
+- 用户使用最新综合候选再次招募狂战士，确认当前招募序列没有问题；这证明从未命中的私有
+  `Worker.TryPickupBerserkerTool` 迁移到公开 `Character.Promote(DroppableTool,IUnitController)` 后，
+  1–5 普通、第 6 名长柄斧队长的循环已在游戏内生效。
+- 本次运行的构建/独立副本 DLL SHA-256 均为
+  `6E0C474B9D665CB2649F00071C2D02C09B44A0DACF3E49057D462E3D9EAE5AE0`。换岛延续和完整退出后重置
+  尚未单独留证，可作为后续回归项，不再视为当前已发现缺陷。
+- `role-qol-001` 仍保持 doing，因为同一组合任务中的隐士防绑架尚未取得游戏内命中证据；不把
+  狂战士通过自动扩写为隐士也通过。
+
+## 2026-08-15 — ninja-runtime-003：最新综合候选已部署并获用户体验验收
+
+- 核对发现用户上一轮实际加载的是旧 DLL `88CE41D4...`，因此灌木半间距尚未生效；游戏退出后已将
+  最新构建仅部署到独立测试副本。构建产物与测试副本 DLL SHA-256 均为
+  `6E0C474B9D665CB2649F00071C2D02C09B44A0DACF3E49057D462E3D9EAE5AE0`。
+- 用户重新运行后确认本轮忍者行为没有明显问题、整体逻辑自洽，灌木三槽
+  `-0.55/0/+0.55` 的视觉间距合适。该反馈作为当前综合候选的游戏内体验验收证据。
+- 仍未逐项留证的边界是树被砍、帐篷摧毁后的占用解绑，以及灌木跨侧池复用；任务暂保持 doing，
+  后续回归补齐这些边界后再关闭并重打正式 zip。Steam 与共享存档未修改。
+
+## 2026-08-15 — ninja-runtime-003：灌木三槽间距按实机观感减半
+
+- 用户反馈当前忍者表现良好，且实机能看到灌木左右两个独立蹲守位置；但原 local x=`±1.1` 视觉上
+  过宽，左右忍者接近灌木边缘。按用户要求改为 `-0.55/0/+0.55`，容量仍为 3、每槽仍单占用，
+  不改变树 1 槽、乞丐帐篷 5 槽或原生近墙选择顺序。
+- IL2CPP Debug 构建 0 warning/0 error，DLL SHA-256=
+  `6E0C474B9D665CB2649F00071C2D02C09B44A0DACF3E49057D462E3D9EAE5AE0`；`git diff --check` 通过。
+  当时尚未部署；随后已在游戏退出后只更新独立测试副本，并由用户确认新间距合适。正式 zip、
+  Steam 与共享存档未修改。
+
+## 2026-08-15 — ninja-runtime-003：伏击点扩展为灌木 3 / 树 1 / 乞丐帐篷 5
+
+- 用户补充：若墙外未砍树，成熟灌木可能不足；Greece 忍者还应能在树下与乞丐帐篷蹲守。
+  静态核对原生选择逻辑：`Kingdom.RegisterHidingSpot` 会把同侧列表按靠城墙方向排序，
+  `Ninja.GetHidingSpot` 选择第一个墙外且未占用的槽，所以三种载体统一登记即可自然实现
+  “谁离城墙近且没人就选谁”，无需自定义类型优先级。
+- `PatchRoles_Ninja` 已抽出通用奇数槽锚点：成熟宽灌木最初使用 local x=`-1.1/0/+1.1` 三槽，
+  后续按实机观感收紧为 `-0.55/0/+0.55`；
+  每棵 Greece `PayableTree` 增加中心一槽；每个 Greece `BeggarCamp` 增加
+  local x=`-2/-1/0/+1/+2` 五槽。每槽仍是原生单占用，父灌木禁用、树砍伐或帐篷摧毁时
+  由原生 `OnDisable` 注销并通知占用 Ninja；仅 world-authority 创建。
+- 帐篷只复用已实机命中的 `BeggarCamp.Awake` 一次补槽，未叠加同帧权限/Start 入口，避免新组件
+  在原生 `Start` 前被手工登记、随后二次登记。树走 `PayableTree.OnEnable`，池复用时仅在 sided list
+  缺失才清旧占用并补登记。
+- IL2CPP Debug 构建 0 warning/0 error，DLL SHA-256=
+  `68149B124362F823B265BD7A0CF25B3B390B4C566026269FADB3E0182AE0C55A`；checklist validator 与
+  `git diff --check` 通过。本轮未部署、未启动游戏、未修改 Steam/共享存档/正式 zip；上一轮 reviewer
+  approval 不覆盖新增树/帐篷范围，任务保持 doing，待静态复核与独立副本实测。
+
+## 2026-08-15 — 玩家更新日志与 Git 归档审计
+
+- 新增 `release/MOD_UPDATE_AND_FIX_LOG_ZH.txt`，以第一次正式发布包为基线，用玩家可理解的语言
+  汇总首发后的忍者战斗修复、设置面板/终端降噪，以及三槽草丛、角色缩放、5+1 狂战士和隐士
+  防绑架候选能力；明确区分“日志已确认”和“仍待实机”，不把当前候选误写成正式 zip 已包含。
+- `pack-il2cpp.ps1` 已将该 TXT 加入未来候选包的复制与必备条目门禁；本次未运行打包脚本，
+  当前正式 zip 未修改。使用说明、能力路线图与安装说明同步为每个成熟宽灌木三个错开忍者伏击位。
+- Git 审计时，当前分支 `master` 的最后一次本地提交为 `02037fb`（2026-08-13 20:31 +08:00）；
+  首发最终 zip 的生成时间以及此后全部候选修改均晚于该提交，说明此前并非每次更新后都有提交。
+- 用户已明确授权以后每次项目改动完成后 commit + push。已创建私有 GitHub 仓库
+  `https://github.com/baisiqi6/ohmymods` 并配置为 `origin`；首次 push 被历史中的 123.77 MB
+  `ktc-il.txt` 拒绝。按用户补充要求，`game-source/`、`Assembly-CSharp/` 与 `ktc-il.txt` 只保留
+  本机并加入 `.gitignore`，首次上传前从可推送历史中移除，不上传反编译参考源码。
+- 清理后的 `master` 与 `agent/post-release-candidate` 已推送成功，草稿 PR 为
+  `https://github.com/baisiqi6/ohmymods/pull/1`。`master` 保存首发前历史基线，候选分支保存当前全部
+  改动；PR 保持 Draft，直到三个 doing 项的游戏内门禁通过。历史中的旧发布 ZIP 约 67.85 MB，
+  GitHub 仅给出大文件警告，未阻断；后续正式包优先考虑转入 GitHub Releases，避免 Git 历史膨胀。
+
+## 2026-08-15 — log-hygiene-004：候选已部署，待实机验证
+
+- 旧 `Player.log` 约 39 MB，主要由设置面板注入静态 `Zpix` 后触发的 IMGUI/TextCore 字体转换
+  级联造成：`Unable to find a font file` 与 `Unable to load font face` 各 17,482 次。
+  已删除 `Resources.LoadAll<Font>("")`、`TryLoadCjkFont` 和 `_skin.font=Zpix`，改为复用 Unity
+  默认 `GUI.skin`；F5/Ctrl+F10、英文配置名、数值与全部控件保持，中文 glyph 可能降级为方框。
+- 钱包容量保障和四类左右商店队列的幂等业务写入保持不变，仅将重复成功日志从 Info 降为 Debug。
+  PlayFab/证书、原生商店选址、游戏 uGUI BestFit 和卸载音频警告不做屏蔽。
+- 独立 reviewer 静态 APPROVED；operator 复建 Debug 0 warning/0 error，构建与独立副本 DLL
+  SHA-256 均为 `EC651F6C43C06E1BA41ED7A16BE6BD8E01EBC44C2EF3939EA95021BF60E9CEF3`。
+  游戏未运行，Steam、共享存档和当前发布 zip 均未修改；待完整重启后打开面板/切场景复核新日志。
+- 随后的新运行日志为 74 KB：两类 `Unable to find/load font ... Zpix` 均为 0，钱包/商店重复 Info
+  也为 0；仅剩游戏原生 TextMesh/BestFit 静态字体提示。尚未取得用户对中文显示和控件操作的明确
+  口头验收，因此保持 doing，不提前关闭。
+- 后续合并三槽灌木与狂战士 Promote 修复后，当前构建/独立副本 DLL SHA-256 已更新为
+  `88CE41D4D27C21F0B7BDB1D90A1286F9A0FAF1964225338E8487F7FD90B3821F`；字体实现未变。
+
+## 2026-08-15 — ninja-runtime-003：对象池运行通过，三槽灌木已构建待部署
+
+- 用户实测忍者攻击数次后停住、敌人不再攻击、天亮不恢复钓鱼形态。最新独立副本
+  `Player.log` 给出直接因果链：`ThrowingStar` 池缺失导致 `Ninja.ThrowStar()` NRE；
+  `Smokebomb` 池缺失导致 `Ninja.SmokebombRoutine()` NRE，并向上中断 `Ninja.Behaviour`。
+  根因是跨 biome 迁移只注册了 Ninja/ToolNinja 主池，遗漏随角色使用的投射物和烟雾池。
+- 原版 Ninja 并不按竹子名称选点，而是读取 Kingdom 的 `HidingSpot` 列表，再只接受城墙外且未占用的点。
+  希腊 Grass 本身不带 HidingSpot；当前设计只在实际生成的成熟 thicket 实例上幂等补 HidingSpot，
+  保留原生城墙过滤、单点占用、禁用解绑和昼夜状态机，不给每片 Grass 增加组件。
+- 忍者夜行攻击形态 y=1.1、白天钓鱼形态 y=1.0，以及希腊银行家 y=1.075 已按现有
+  `ScaleRegistryHolder` 实现，只写 localScale.y。对象池、草丛伏击和缩放最终独立 reviewer 静态
+  APPROVED；Debug 构建 0 warning/0 error。构建与独立副本 DLL SHA-256 均为
+  `EC651F6C43C06E1BA41ED7A16BE6BD8E01EBC44C2EF3939EA95021BF60E9CEF3`（仅叠加
+  log-hygiene-004 的面板/日志降噪，忍者实现未变）；Steam、共享存档和当前发布 zip均未修改，
+  等待用户执行完整战斗/昼夜/草丛日志门禁。
+- 新一轮独立副本日志已运行候选 `EC651F...`：ThrowingStar/Smokebomb 注册成功，相关
+  `Pool not found`、`NullReferenceException` 均为 0；字体大刷屏也为 0。用户要求一个宽灌木可让
+  多名忍者错开蹲守，已扩展为 Left/Center/Right 三个独立子锚点（local x=-1.1/0/+1.1），仍保持
+  一槽一人。三槽实现获独立 reviewer 静态 APPROVED，operator Debug 构建 0 warning/0 error，
+  三槽实现与随后狂战士 Promote 修复合并后，operator Debug 构建 0 warning/0 error；游戏退出后
+  已仅部署独立副本，构建与部署 DLL SHA-256 均为
+  `88CE41D4D27C21F0B7BDB1D90A1286F9A0FAF1964225338E8487F7FD90B3821F`。
+
+## 2026-08-15 — role-qol-001：候选已部署，待实机验证
+
+- 新增狂战士招募序列：只统计 world-authority 下工匠使用普通 `BerserkerTool` 最终成功的转职，
+  第 1–5 名为普通狂战士，第 6 名为 `BerserkerLeader`，随后循环。临时 Holder 映射由
+  Postfix/Finalizer 恢复；购买、失败、读档/对象池生成及 `BerserkerLeaderTool` 升级不计数。
+  序号按用户批准设计在当前进程内跨岛延续，完整退出后重置，不写 PlayerPrefs。
+- 新增隐士防绑架：仅将隐士的 `Droppable.CanBePickedUpByEnemy()` 结果改为 false，同时覆盖 Troll
+  的选目标和最终抓取门禁；不修改伤害、移动、乘骑、其他 NPC/物品或网络状态。已被抓住的隐士
+  不会被主动释放。
+- 最终独立 reviewer 静态 APPROVED；已随 ninja-runtime-003 候选构建部署独立副本，构建与部署 DLL
+  SHA-256=`EC651F6C43C06E1BA41ED7A16BE6BD8E01EBC44C2EF3939EA95021BF60E9CEF3`（仅叠加
+  log-hygiene-004 的面板/日志降噪）。未启动、未打包；必须以
+  `slot 1..6` 和首次 `Prevented an enemy from kidnapping a hermit` 日志证明两个 IL2CPP hook 实机命中后
+  才能关闭任务。
+- 用户随后实测招募了大量狂战士但没有二级队长；同一 `LogOutput.log` 已确认普通 Berserker 与
+  BerserkerLeader pool 都注册成功，但 `Berserker recruitment slot` 为 0。根因不是第六次 prefab，
+  而是私有 `Worker.TryPickupBerserkerTool` 的原生内部调用绕过 Harmony thunk，序列从未进入。
+- 已删除私有 helper hook/context，迁移到 Hammer 路径已证明命中的公开
+  `Character.Promote(DroppableTool,IUnitController)`；用 active Worker + active、未拾取的普通
+  BerserkerTool 收窄，且仅返回 tag/effective prefab 匹配后推进。独立 reviewer 静态 APPROVED，
+  operator Debug 构建 0 warning/0 error；游戏退出后已仅部署独立副本，构建与部署 DLL SHA-256
+  均为 `88CE41D4D27C21F0B7BDB1D90A1286F9A0FAF1964225338E8487F7FD90B3821F`。
+
+## 2026-08-13 — 当前权威状态（取代下方同日早期记录）
+
+- 最终 IL2CPP 发布包已生成：钱包偏移 X=+3.70/Y=-1.50；Debug 构建 0 warning/0 error；构建、
+  独立副本、zip 内 DLL SHA-256 三方一致为
+  `1D989035EDC066D3671E64A59330F8D205DAD83DD41F1A8BDBC91838CDE299CD`。加入中文使用说明，以及面向玩家的
+  当前能力、骑士小队等未来计划与共创邀请 TXT 后，最终 zip SHA-256=
+  `30E3853FCC43BE62C4D8944FD652D1A2DB4E96FD05AFF0E75D038C1E13563690`，40,532,301 bytes；
+  目录结构、单份根 dotnet runtime、UTF-8 安装/使用/未来计划说明与构建 manifest 门禁通过。Steam 正式目录未修改。
+- 首发门禁收口：用户确认钱包扩容可用并要求沿用原版物理溢出，不再以“2000 停止拾取”为验收；
+  北境原生 Worker 判别/盾牌回归与神器法杖超过原版 5 秒仍不恢复均通过。双人分屏由用户明确降级为
+  发布后反馈观察项，不再阻断首发。钱包最终 UI 偏移为 X=+3.70、Y=-1.50；进入最终打包。
+- 用户实测确认：Hammer 拾取卡顿完全消失；每个乞丐帐篷约 6 秒补员、5 人停止；狂战士商店出现。
+  忍者商店仍未出现。新 `Player.log` 证明 NinjaLeft/NinjaRight 均已入队并反复尝试摆放，但两者都从
+  同一个右侧边界开始搜索，说明旧队列中的 NinjaLeft side 已损坏。已启动 `ninja-placement-002`：
+  显式写入 Left/Right、修复存档既有队列并重新规划；暂不绕过原生 CanShopFit 或降低科技门槛。
+- `ninja-placement-002` 已获最终 reviewer APPROVED；修复覆盖 Ninja/Shield 左右四种新旧队列，IL2CPP
+  Debug 构建 0 warning/0 error。构建与独立副本 DLL SHA-256 均为
+  `06EA69A3DC0A9F339661B729FD361586697FF67C02B65560BB8C987F5AF4C7F7`；等待用户实机确认左右搜索区间。
+- 第二轮实机复测仍未出现忍者商店；新日志定位到旧空 `shopSide` 的 IL2CPP 生成 getter在
+  `Nullable<Side>(IntPtr)`/`CreateGCHandle` 直接 NRE，且 Start 阶段手动 Trigger 早于 core 初始化。
+  第三轮已改为按类型直接 setter 覆盖四类 side、完全不读旧 getter，并移除过早 Trigger；reviewer
+  APPROVED，Debug 构建 0 warning/0 error，SHA-256=`6E3537383F26E3F897ACEB955040779BB18A9CE128A0D8B97C61DD5ED9E87701`。
+  游戏退出后已部署第三轮 DLL；构建与独立副本 SHA-256 均为
+  `6E3537383F26E3F897ACEB955040779BB18A9CE128A0D8B97C61DD5ED9E87701`，等待复测。
+- 第三轮实机通过：LogOutput 记录两次 sided-shop 规范化且无 Error/Exception，用户确认忍者商店出现；
+  `ninja-placement-002` 关闭。Player.log 仅剩 NinjaRight 受原生选址条件限制继续排队，不属于队列方向故障。
+- 运行时 hotfix-002：Hammer 卡顿定位为每次转职同步 `Resources.LoadAll<Character>`，已改为每世界初始化缓存；
+  忍者商店 NRE 定位为 IL2CPP `Nullable<Side>` 默认 null 解包，左右商店现显式传 Side 并在 ShopPlanner.Start 后补建；
+  删除希腊全商店 CreateItem 接管，恢复已注册 sync pool 的原生产出。每个乞丐帐篷临时设
+  `spawnInterval=1f/maxBeggars=5`，原生扫描段使实际约 6 秒补一个。
+- hotfix-002 已获 reviewer APPROVED，IL2CPP Debug 构建 0 warning/0 error；构建、独立测试副本、候选 zip
+  内 DLL SHA-256 均为 `95C0F2DE6CD7285BC639D6691287F70DA99CCA1476D71E6702F21F12C6F57944`，已进入实机复测。
+- 用户确认后续只打开 IL2CPP 版本做端到端验证；Mono 降级为冻结历史/自用线，不再是发布门禁。
+- 独立副本 20:26 日志仍有 7 组 `NpcShieldUser.SetShieldEnabled` NRE；根因是 Worker.OnEnable
+  早于 CRPC/NetworkPostbox 注册完成。下方“异常 32→0”只代表更早一轮问题，不代表当前候选通过。
+- 当前发布 zip 不是候选：包内 DLL 为旧构建（54,784 bytes，SHA-256
+  `5C045D73CDD9D91A9675C8B19F468D2B52EB23497208F8A778A6D098C0BEEB19`），且同时包含根
+  `dotnet/` 与重复的 `BepInEx/dotnet/`。旧的 7.6MB/39MB 描述均为 historical/superseded。
+- **历史门禁（已取代）**：本轮早期曾把容量 2000、双人分屏和北境世界判别全部列为首发门禁；
+  当前以本节顶部的最终收口为准——容量采用用户确认的原版物理溢出语义，北境验证已通过，分屏降为发布后观察。
+  Steam 正式目录与共享存档仍禁止自动修改。
+- 安全说明：历史“无反作弊/零封号、风险实质为零”不是发布保证。联机/平台风险不能用绝对表述；
+  玩家应只在接受 mod 风险的环境中使用，并保持双方版本一致。
+- 盾牌/锤子修复已获独立 reviewer APPROVED；IL2CPP Debug 构建 0 warning/0 error，候选 DLL
+  SHA-256=`48A022CA45B14050031CA8F339543D4EEDD5A1CD5D044DB2F21EDBC3D2854CC6`。候选 zip 的
+  根目录结构、单份 dotnet runtime 与 DLL 哈希门禁通过；构建、独立副本、zip 内 DLL 三方哈希一致，
+  已进入独立副本实机验收阶段。
+
 ## 2026-08-12 — 2.1.0 两个 bug 修复（乞丐拾取 + 友好巨魔永久控制）
 
 ## 2026-08-13 — Steam 实机验证与修复
@@ -112,3 +1127,107 @@
 2. maint-002 ✅（Patch_Probe.cs 已删除，arch-002）。
 3. maint-003 ✅（build.bat 通配化 + 自动部署，arch-002）。
 4. 完整回归测试。
+## 2026-08-15 — population-performance-010：硬上限与旧档清理静态通过
+
+- 当前异常岛只读统计为1,132名角色，其中Worker 458、Peasant 301、Beggar 158；全岛只有2个BeggarCamp与2座面包房。原生营地只重算附近乞丐，面包房又会清除camp引用，导致旧的“附近最多5人”不断释放名额并积累人口。
+- 新候选保留原生营地协程，但在world-authority协调器健康时由中央调度按稳定营地归属约6秒补1、每营地硬上限5；去面包房或走远不再释放该营地名额。异常、失权和Mod关闭都有原生参数fallback。
+- ApplyToScene稳定后只由authority建立一次scene清理批次，每帧最多同步回收1名超额普通Beggar；settler、面包房/进食、控制、被抓、inert/石化、DespawnOnLoad及pool/header不安全对象一律保护，受保护者超过5时允许可解释残余。
+- worker与独立reviewer静态APPROVED；Debug构建0 warning/0 error，当前候选DLL SHA-256=`085D84C644D6C48E046A87AAD5BE3BFCFB6154929EE8B47914533DCDF572D9DA`。游戏已退出，等待干净提交重建、存档备份、独立副本部署与实机。
+- 后续工具分配优化另开切片：原版每3秒会让约922个carrier参与近方阵匹配；必须先做放行原版的hook探针，确认命中后才考虑稀疏反向矩阵，禁止全局替换JobAssigner。
+## 2026-08-15 — save-repair-011：land 7 乞丐158→10已原子修复
+
+- 人口候选首次实机确实命中，但摘要为`before=158 assigned=158 protected=158 removed=0 residual=148`；运行时安全身份门禁过严，因此内置旧档清理不能算通过。用户随后明确授权对当前异常存档做一次性直接修复。
+- 强校验脚本经worker/reviewer多轮审查与真实dry-run后APPLY_APPROVED：锁定输入SHA/长度/schema/campaign/land/对象数/精确营地prefab与坐标；只删除无外部引用的普通Beggar；非目标root/island与幸存对象内容/顺序DeepEquals；同卷File.Replace并有已验证backup/rollback。
+- dry-run和Apply均为`before=158 removed=148 after=10 groups=5/5`。原始备份`global-v35.before-direct-beggar-prune-20260815-232403`为751,068 bytes/SHA=`68D4F779DA3CFA45A659D2082B2B15F135777699EC4A309F1F6AEAE14C724B16`；最终存档748,730 bytes/SHA=`2C681C5C2CA01E6BBCBB5F05BDEA32FC63A0D86EA563F68325D12C08D088F87A`。
+- 写后独立复读确认version16/currentCampaign1/currentLand7/objects2046/Beggar10/左右5+5，临时文件0。等待独立副本实际读档；若失败必须退出不保存并恢复上述备份。
+
+## 2026-08-15 — save-repair-012：land 7 普通居民删除350名
+
+- 纠正此前人口统计：真正带WorkerData的工匠只有14名；421个名称以Worker开头的对象实际是Peasant prefab的对象池残留名。用户确认应删除350名普通居民，不删除真正工匠。
+- 从383名组件/profile完全一致、未被抓/石化/inert、钱包全0、无外部引用的希腊Peasant中，按确定性createOrder加载顺序保留最低33并删除最高350；createOrder不表示年龄且未重编号。
+- worker/reviewer逐行审查、真实dry-run与独立只读内存复算后APPLY_APPROVED。原始备份`global-v35.before-direct-peasant-prune-20260815-235118`为748,730 bytes/SHA=`2C681C5C2CA01E6BBCBB5F05BDEA32FC63A0D86EA563F68325D12C08D088F87A`；最终存档728,071 bytes/SHA=`63884D91421A7B74AD0049C8FB00BFD3E910857F05005490B2704E856FE93FED`。
+- 写后独立复读确认land7 objects1696、Worker14、Peasant383（Greek288/Norse95）、Beggar10/左右5+5，临时文件0。等待独立副本实际读档和卡顿体感；失败时退出不保存并恢复本任务备份。
+## 2026-08-16 — ghost-squads-013：改为保留两套原生行为
+
+- 2.4资源确认 Cerberus 原生只生成1名希腊亡灵骑士与4名弓箭手；原生协程只有一个共享队长引用，不能仅把数量字段改成4/16，否则成员归队关系错误。
+- 北境神器亡灵与希腊坐骑亡灵只共享编队接口，实际AI不同。用户明确要求保留差异：最终仍为四个独立
+  1+4编队，但两支希腊队主动向外作战并按距离回收，两支北境队跟随君主并按原生30秒Duration消亡。
+- 两个北境完整行为克隆池固定预留syncID30130/30131，主客同序注册；不新增RPC，不改原生冷却、雾效
+  或首队配置。第一版“北境仅视觉”部署包已被该决定取代。
+- 修订源码提交 `0cd629e` 已推送；从该干净提交重建0 warning / 0 error并部署独立副本，构建/部署
+  DLL SHA-256均为`024ADAC72A4D2D76B63827C19C6D9511105CDDBA977EBE196D2FF62354564A39`。正在刷新候选包。
+## 2026-08-16 — friendly-troll-balance-008：解除无敌后反制攻击实机闭环通过
+
+- 最新独立副本日志出现54次友好巨魔登记与12个反制弱巨魔查询，但候选注入、真实伤害仍为0；没有相关异常。
+- 当前存档只读复核发现54个 `Troll_friendly` 的 Damageable 全部保持 `invulnerable=true`。原生索敌与受伤入口
+  均会拒绝无敌目标，因此此前的稳定标记与10格追击虽已运行，仍不可能进入原生冲撞伤害闭环。
+- 新修复只在 world-authority、Playing、活动实例和原生指针一致时通过公开属性解除无敌；以
+  `currentAtFirstCapture || isInvulnerableInitially` 保存可逆基线，关闭Mod和正常回池前恢复。加载、卸载、
+  失权与失活对象不写；联机header/catch-up未就绪时只挂起一次，随后用公开属性补发一次，不扩RPC协议。
+- worker禁部署构建0 warning / 0 error，独立reviewer最终APPROVED；源码SHA-256=`73934E38B3C1DB59CA27C14C9FF3F64F310C7F9E6697DC6A6E64AAF691D32542`，
+  Debug DLL SHA-256=`BDF1FB4415E05E8F9596D19A024D020210ECCCEE7B6291D72D68CECBA9A4AB4B`。
+  源码与记录提交 `0495a68` 已推送。再次确认游戏进程为0后只部署E盘独立测试副本；构建/部署DLL均为
+  173,568 bytes且SHA-256一致。G盘当前未挂载，未写G盘；release zip未刷新。下一步实测真实注入与伤害。
+- 20:03后的当前E盘实机日志给出完整闭环：`friendly-active=56`、`counter-query=8`、
+  `friendly-injected=7`、`native-damage=6`。六次原生Troll伤害的`hpAfterEvent=0`，证明反制弱巨魔已把
+  友好巨魔选为目标并实际击杀，而不只是追到附近或写日志。
+- 同一BepInEx日志没有Exception/Error/unknown pool/duplicate sync/RPC异常；Player.log也没有
+  NullReference、StackOverflow、ArgumentException或Pool/RPC相关异常。Player.log另有原生Stats保存路径的
+  `gse orca` LogError栈，与FriendlyTroll目标/伤害链无关。本任务核心攻击能力通过，Disabled恢复、联机catch-up/
+  authority迁移、换岛与Squid/CrownStealer边界仍待回归。
+## 2026-08-16 — 视觉微调：Dead Lands助手与Fire隐士 y=1.25
+
+- Dead Lands银行助手对应固定controller index 2，本轮由绝对y=1.20改为1.25；北境index 3仍为1.20。
+  只写prefab初始y，继承原x朝向/z，调度、经济、同步与对象池逻辑零改。
+- 火焰塔隐士按`HermitType.Fire`精确设为绝对y=1.25，沿用现有OnEnable/ScaleRegistry/OnDestroy生命周期；
+  乘骑时原生会临时写回单位缩放，注册器会继续恢复目标y，需作为实机观感门禁。
+- 原生2.4资源确认Fire可离岛且可上船，因此已拥有的Passenger/Roaming状态正常读档、放下与换岛不依赖Cabin。
+  但其`lostOnCrownLost=true`，失冠/死亡换君主会按原生规则转为CoinLocked/land0；当前又没有Fire小屋，
+  所以不能承诺死亡后仍可重新获得，后续需单独决定是否修复这一所有权缺口。
+- 两处代码经worker构建与独立reviewer最终APPROVED；初始Debug候选DLL SHA-256=
+  `7A75716A8748A09497314C7DAE32B1B760B81A1416520C7509C5BD958E691208`（174,080 bytes）。随后已随综合候选
+  提交、推送，并在确认游戏退出后部署E盘独立副本；当前综合部署DLL为181,760 bytes、SHA-256=
+  `947131C76EF465B35AC21862E273E29D87AB0A8C2D97136E9CA15062F97E9CBD`，实机观感仍待验证。
+
+## 2026-08-16 — special-tower-rebuild-018：首版安全重建已编译
+
+- 完成态Ballista/Fire/Knight/OilFire/Berserker等资源均无原生PayableUpgrade，不能靠改nextPrefab实现互换；直接替换还会绕过next NetID、Persistent、隐士和驻员清理链。
+- 用户接受“两步重建”：先把旧专精塔付费恢复为当前世界六级普通箭塔，再携目标隐士走原版专精。首版只开放安全空闲的Ballista来源，目标价格从运行时原生六级塔读取；重建本身不消耗隐士、不计特种塔统计。
+- 新补丁在PoolManager建池前为当前biome安全Ballista prefab确定性追加原生PayableUpgrade和无状态marker；Disabled仍保留CRPC/Persistent组件布局，只关闭选择/付款。最终付款前回收已装填bolt，再完整执行原生Pay。
+- Fire/OilFire/TowerKnight/Baker/Mead因库存、隐藏驻员或同级PayableShield生命周期未审清，首版保持fail closed。禁部署Debug构建0 warning/0 error；随后已提交、推送并在游戏退出后部署独立测试副本，实机门禁仍待完成。
+- 当前源码SHA-256=`DB882F8A43BC56A58C901B7101535738B2288E0114119046D6414B45BD755023`，Debug DLL SHA-256=`D41870F063085B1852410393ACE358B42D8A81334948F5ED787D2C166B52A0A7`；checklist validator 0 warning、相关文本严格UTF-8通过。
+
+## 2026-08-16 — fleetboat-formation-019：动态同侧小船编队候选已编译
+
+- 2.4 Player Formation资源确认原生只有一个FleetBoat槽且该类型间距为0；候选实现只在world-authority举旗时按原生Side与完整可加入门禁快照0～4艘小船，多船间距绝对设为1。
+- 原生`TryRecruit`、`UnregisterUnit`与`OnDisable`生命周期保持主导；空船槽即时封为Gap，解除旗帜后在单位清空时恢复该Player独立捕获的原版数组。协调器仅每0.5秒检查最多4个预留槽，不改FleetBoat Side/FSM/RPC/容量。
+- 禁部署Debug构建0 warning / 0 error；源码SHA-256=`8550F056A982A7FAD570EBBC77929F65C99957F1F86993BC9D5D19DF66CEFCDF`，独立reviewer已APPROVED。游戏进程为0后，192,000-byte DLL SHA-256=`3595BEB72A7CD30871FD778F7F7FCCFBD6ED6AF36C9181AC1BFF634DBD54B3F3`已只部署到E盘独立副本，并保留部署前备份；仍需1/2/4船、N=0、离队、分屏/联机及native Hook canary回归。
+
+## 2026-09-01 — v3.5.1 crash audit：FriendlyTroll 生命周期递归修复
+
+- 审计同步到远端 `64ce116`（v3.5.1-dev4）；E 盘独立副本仍运行 dev3，未覆盖运行时 DLL。日志确认 `ErrorLog.log` 存在 `Troll.OnDestroy` 递归导致的 `Stack overflow`，与此前小岛/切岛闪退风险一致。
+- 仅移除 FriendlyTroll 补丁内三个私有 `OnDestroy` Harmony 钩子（Troll、Squid、追踪协调器），保留公开 `OnDisable` 生命周期清理；追踪 tick 增加惰性 registry prune，覆盖卸载时缺失回调而不改变目标、伤害、RPC 或对象池逻辑。
+- worker 构建 0 warning/0 error，独立 reviewer `REVIEW_APPROVED`。最终源码 SHA-256=`98C8BF44BFB47843DB111D17EB5B9FD4246798492FBB438008DDEE02B29698E5`，重新构建 Debug DLL（300,544 bytes）SHA-256=`8CD2A9F74D0229ABEFF87357F2B8DE8659556F28108F0AA63946650D8BE68EE4`。待游戏退出门禁复核后部署 E 盘，并实测切岛/卸载无 StackOverflow。
+- 同轮审计确认 FleetBoatBerth 的 `timeout-unsafe-state` 是有界等待后不写状态；SpecialTower 已做全层级诊断，当前没有可证明的低风险额外改动。FriendlyTroll identity/header 缺失仍按 fail-closed 处理，避免错误指定普通巨魔。
+
+## 2026-09-01 — v3.5.1 known-bugs audit：农民停工、夜怪迟到、空白塔基与守家图腾
+
+- 本轮不改存档、不覆盖运行中的 E 盘 DLL；ZCode 0.16.5 已确认，但 headless CLI 因用户 CLI 配置缺少 model provider 被安全阻断，四个隔离 worktree 仍保留用于后续 worker 接入。
+- `PatchPerformance_ToolAssignment` 的稀疏替换在 `eligibleDroppables==0` 时会把全部 carrier 的目标清成 null；新增放行原生分配的 fail-open 门，避免昼夜切换期间农民/农夫被整体清空到闲置聚集。
+- `PatchWorld_TowerSpots` 改用最近原生塔基的地表 Y（全岛中位数仅作回退），并仅规范化补放根对象 active 状态；新增一次性 renderer 健康日志，用于区分“无视觉子树”和“地形/Z遮挡”，不强开子渲染器。
+- `PatchPerformance_NightVolley` 新增限频 `[ClockDiag]` 只读采样（Director.currentTime/IsNight、Kingdom.isDaytime、CurrentIslandDays、Time.timeScale），用于验证农民、夜怪、存档异常是否同源时钟失配；不写入任何原生时间状态。当前 Debug 构建0 warning/0 error，候选 DLL SHA-256=`06CD4A49BDB281658C49BA880BD47FEA1B87ED4692D517D08E174EC5028175B7`（302,080 bytes）。
+- 游戏退出后已部署到 E 盘独立副本，部署 hash 与候选完全一致；旧 DLL 已备份为 `KingdomEnhancedMod.dll.before-known-bugs-20260901-230425.bak`（300,544 bytes/SHA=`70DAD3B55C0BB23FCFAE3C00B5CAD4E6557FD35FA40E881DA4BEE2698FE342F9`）。守家图腾与蛇吐怪暂未做无证据的行为放宽，下一步先采样 `[ClockDiag]`、`[TowerSpots] visual health` 及图腾付款路径，再决定最小修复。
+
+## 2026-09-02 — 弩炮弹速、守家编队与塔基避障修复候选
+
+- 实机 `[ClockDiag]` 显示昼夜状态按原生顺序推进，农民停工/夜怪迟到不是全局时钟损坏；守家雕像左右两侧均已正确挂载。混用外观的根因是原生 `Knight.CanJoinFormation` 对盾墙编队不限制北境风格，而普通骑士随从又没有 `NpcShieldUser+HasShield`，导致队长能守家、随从不能进入原生 Shield 近战状态。
+- 希腊盾墙现在只在原结果为 true 时进一步排除非北境风格 Knight；不改随从、盾牌、职业或其它编队。北境带盾弓手仍由原生 `Archer.TryRecruit` 进入 `AttackMode.Shield`，该状态包含近身攻击，不要求动画状态名必须叫 Melee。
+- 弩炮塔原生瞄准和发射共同读取 `BoltData.ShootForce`；通过 getter postfix 将其从默认20统一放大到25（×1.25），避免只改发射速度导致瞄准解与真实弹道不一致，也不修改自定义弩手。
+- 补放塔基现在复用 `ScatteredObject.AvoidOverlapWith` 的非 Tower 标签避障、同层/非船过滤和原生 overlap region；仍由自有塔间距实现增密。注册前补 `FixedTransform.Fix()`。既有未建 `KEM_TowerSpot` 若与建筑重叠，只在离线 world-authority、level0、SemiStatic/Persistent/CRPC 完整门禁下按 Deregister→DontPersist→Disable→Destroy 退役；原生塔基、已建塔和检查异常均不删除。
+- worker 静态核对与独立 reviewer 最终 `REVIEW_APPROVED`；Debug 构建0 warning/0 error。确认游戏进程为0后已部署 E 盘独立副本，DLL为306,688 bytes、SHA-256=`0C874B1DE6CBAF97C8AD686EBFA7A3733FF28DD2BB08B9017D4F1BCB1DD090A2`；部署前备份为 `KingdomEnhancedMod.dll.before-bolt-shield-tower-20260902-210000.bak`，SHA-256=`06CD4A49BDB281658C49BA880BD47FEA1B87ED4692D517D08E174EC5028175B7`。待实测弩炮弹道、1币守家成员/近战、重叠塔基清理与存读档。
+
+## 2026-09-03 — norse-follower-load-restore：读档后立即原生替换北境随从
+
+- 复核确认旧逻辑只有 `Archer.AssignJob` 和 5s `PatrolPass` 会调用真实 `Archer_norselands` `Promote`；`KnightStyle.ApplyFollowerSkinTo` 另有只改 `RuntimeAnimatorController` 的换皮路径。因此读档后的守家窗口可能出现“北境动画、无盾组件”的混合状态。
+- 新增 `World.OnLevelLoaded` 安全恢复协程：下一帧登记场上 Archer，等待 Knight 风格状态、Holder/Pool/CRPC 就绪后，在 world-authority 侧立即把北境风格骑士名下的非真实 `Archer_norselands` 随从换成原生 prefab，并调用原生 `SetShieldEnabled`；风格尚未解析、池/RPC 未就绪时最多 24 次×0.25s 有界重试，普通风格随从移出队列，客户端不写。
+- 新增 `TryGetResolvedStyleIndex` 区分“尚未解析”与“非北境”，避免恢复协程过早丢弃候选；新增一次性 `load restore summary`（converted/shieldReady/pending）诊断；保留原有 AssignJob/5s巡检作为后续招募和池复用兜底。Debug 构建0 warning/0 error，DLL 309,760 bytes、SHA-256=`EFBB0B0F98F4719280363ABAEBDBB8768758B3F8BE190F85009758DFA0A4DA26`。确认游戏进程为0后已部署 E盘；上一版已备份为 `KingdomEnhancedMod.dll.before-norse-load-restore-20260903-205511.bak`，最新部署前版本另备份为 `KingdomEnhancedMod.dll.before-norse-load-restore-diag-20260903-205643.bak`。待实测“读档即替换、盾牌/AttackMode.Shield、再次读档幂等”。

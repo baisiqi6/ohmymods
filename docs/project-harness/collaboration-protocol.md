@@ -1,24 +1,26 @@
 # 协作模式规范（Collaboration Protocol）
 
 > 约定日期：2026-08-12。本项目的固定协作流程，所有 session/agent 遵守。
-> 不调用外部 coding agent CLI（Claude Code/Qoder 等）——**只用当前 agent 的 subagent**。
 >
-> **2026-08-13 增补——双端验证约定**：本 mod 同时维护 Mono 2.1.0（GOG 自用/开发）
-> 与 IL2CPP 2.4.0（Steam 发布）两条线。**任何功能/修复合入前必须双端验证**：
-> ① Mono 端：csc 编译零错误 + 启动加载无异常（GOG 2.1.0 实机日志）
-> ② IL2CPP 端：dotnet8 build 零错误 + BepInEx 加载零异常（E:/QQ 2.4.0 或 Steam 实机日志）
-> 游戏内行为冒烟由用户在双端分别执行；Operator 负责双端启动级验证与证据记录。
+> **2026-08-16 最新约定——委派通道改为 OMP 优先**：Worker/Reviewer 第一顺位统一走本机已注册的
+> **OMP CLI**（Oh My Pi，非交互 `omp -p` 模式，调用纪律见 `~/.agents/skills/invoke-coding-agents/`）；
+> 备选（OMP 不可用或模型路由异常时）回落到当前 agent 的 subagent（GLM 5.3，thinking 强度 max）。
+>
+> **2026-08-13 约定——IL2CPP 单主线**：IL2CPP 2.4.0 是唯一发布与端到端验收目标；
+> Mono 2.1.0 降级为冻结的历史/自用线。默认只要求 IL2CPP `dotnet8 build` 与独立副本实测。
+> 只有用户明确要求维护 Mono，或任务直接修改 Mono 源码时，才追加 Mono 编译/行为验证。
 
 ## 角色与模型顺位
 
-| 角色 | 职责 | 第一顺位 | 第二顺位 |
+| 角色 | 职责 | 第一顺位（OMP CLI） | 第二顺位（本 agent subagent） |
 |------|------|----------|----------|
 | **Operator** | 主控：分解任务、审查 worker 产出、裁决采纳、交叉审核 reviewer 结论 | 当前主 agent | — |
-| **Worker** | 实现：按任务规范编码、自测 | deepseek V4 flash（thinking=max） | GLM 5.2（thinking=max）、minimax m3（thinking=high） |
-| **Reviewer** | 审查：验证验收标准、找越界/缺陷/测试缺口 | kimi K3（thinking=max） | GLM 5.2（thinking=max） |
+| **Worker** | 实现：按任务规范编码、自测 | OMP `deepseek/deepseek-v4-flash`（thinking=max） | subagent GLM 5.3（thinking=max） |
+| **Reviewer** | 审查：验证验收标准、找越界/缺陷/测试缺口 | OMP `kimi-code/k3`（thinking=max） | subagent GLM 5.3（thinking=max） |
 
-> 模型参数（thinking=max/high）在委派任务时随 prompt 指定；subagent 实际运行模型由
-> harness 环境决定，本表是**意图约定**。
+> OMP 模型标识以 `omp models` 实时输出为准，不硬编码历史路由；调用前先核验。
+> 委派 prompt 附带 OMP 参数：`--model=... --thinking=max --mode=json --cwd=<worktree>`，
+> worker 用 `--approval-mode=write`（仅限授权 worktree），reviewer 用 `--approval-mode=always-ask`。
 
 ## 流程
 
@@ -55,17 +57,21 @@ Operator 分解为 2-3 个独立 slice
    不接受口头自述。
 6. **冲突裁决**：Operator 与 reviewer 结论冲突时，Operator 裁决，但必须记录理由
    （写入任务 plan 或 events）。
-7. **checklist 同步**：任务完成更新 `harness-checklist.json`，进展写 `progress.md`。
+7. **验证分流**：IL2CPP 是默认且唯一必测端；Mono 只在用户明确要求或直接触及 Mono 源码时验证。
+8. **checklist 同步**：任务完成更新 `harness-checklist.json`，进展写 `progress.md`；
+   “待实测/审核中”的 item 不得置为 done。
 
 ## 委派模板（worker）
 
 ```
 任务：<slice 描述>
-源码参考：game-source/Assembly-CSharp/<相关文件>（版本 2.0.1 mono）
+源码参考：game-source/Assembly-CSharp-2.1.0/<相关文件>（Mono 2.1.0 参考版）；
+il2cpp 补丁主线在 il2cpp/（.NET 8 / BepInEx 6 / Il2CppInterop / HarmonyX，现代 C# 语法）
 契约：<输入/输出/接口签名，由 Operator 定死>
 验收：<可观察结果 + 验证命令>
-约束：跳过构建/测试以外的仪式；C# 5 语法；Harmony 1.2；不引入依赖
-模型：deepseek V4 flash thinking=max（或第二顺位）
+约束：跳过构建/测试以外的仪式；IL2CPP 主线不引入新依赖；仅当任务触及根目录 Mono 源码时
+才追加 C# 5 语法 + Harmony 1.2 约束
+模型：OMP deepseek-v4-flash thinking=max（备选：subagent GLM 5.3 thinking=max）
 ```
 
 ## 委派模板（reviewer）
@@ -74,5 +80,5 @@ Operator 分解为 2-3 个独立 slice
 审查对象：<worker 产出/任务 id>
 重点：<验收标准逐条核对 / 越界检查 / 风险点>
 输出：approved / changes_requested（附证据）/ blocked
-模型：kimi K3 thinking=max（或第二顺位 GLM 5.2）
+模型：OMP kimi-code k3 thinking=max（备选：subagent GLM 5.3 thinking=max）
 ```

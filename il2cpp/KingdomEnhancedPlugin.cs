@@ -49,7 +49,8 @@ public class KingdomEnhancedPlugin :
         try
         {
             Instance = this;
-            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} loading...");
+            // 手动构建戳：日志里区分不同部署（改完记得更新）
+            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=4.0.0 loading...");
 
             // 配置（BepInConfig，替代 UMM Settings）
             ModConfig.Init(Config);

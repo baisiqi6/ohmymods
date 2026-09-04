@@ -9,3 +9,9 @@ il2cpp/obj/
 **/obj/
 # 开发残留
 原始备份/
+
+# 反编译/逆向参考资料仅保留在本机，不上传 GitHub
+game-source/
+Assembly-CSharp/
+ktc-il.txt
+release/*.zip

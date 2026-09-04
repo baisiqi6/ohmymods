@@ -9,7 +9,7 @@
         <RootNamespace>KingdomEnhancedMod</RootNamespace>
         <Configurations>Debug;BIE6_IL2CPP;BIE6_Mono</Configurations>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-        <Version>2.4.0</Version>
+        <Version>4.0.0</Version>
         <!-- 并行 worker 各用独立 obj/<组>/ 时，默认通配会把其他组的生成代码（MyPluginInfo/AssemblyInfo）
              卷进来导致 CS0579/CS0101/CS0229 重复定义。排除一切 obj/ 目录。 -->
         <DefaultItemExcludes>$(DefaultItemExcludes);**/obj/**</DefaultItemExcludes>
@@ -50,12 +50,20 @@
             <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\interop\Il2Cppmscorlib.dll</HintPath>
             <Private>False</Private>
         </Reference>
+        <Reference Include="Il2CppSystem.Core">
+            <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\interop\Il2CppSystem.Core.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
         <Reference Include="UnityEngine">
             <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\interop\UnityEngine.dll</HintPath>
             <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.CoreModule">
             <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\interop\UnityEngine.CoreModule.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+        <Reference Include="UnityEngine.AnimationModule">
+            <HintPath>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\interop\UnityEngine.AnimationModule.dll</HintPath>
             <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.IMGUIModule">
