@@ -1,10 +1,10 @@
 ## 2026-09-04 — v4.0.0 正式大版本发布门禁
 
-- 发布暂停：最终静态检查发现Norse随从恢复重试缺少当前world/gameLayer、Game.Playing及Enabled复核，且待处理队列为共享静态状态。未获审查批准，不执行commit/push/tag/Release或E盘部署；详见tasks/release-400-20260904/review.md。4.0.0禁部署构建通过（0W/0E），源码/文档准备保留，E盘仍保持用户已有EFBB0B0F…候选。
+- 已发布：独立 reviewer 在补齐 Norse 加载恢复、KnightStyle 池复用和 TowerSpots 延迟上下文门禁后 APPROVED。源码 tag v4.0.0 指向 0b71a527；clean Debug build 0W/0E；313 项发布包和 E 盘 DLL 哈希已核对，备份保留。联机、权威迁移、换岛/读档与守家边界继续由用户实测。
 
 - 用户明确指定本次为 v4.0.0，上一正式版为 v3.5.0；最初准备的 v3.5.1 编号已撤销，尚未创建对应标签或Release。历史开发记录保留原始时间/版本证据，不代表当前公开版本。
 - 当前版本标识已统一至4.0.0，包含北境守家与加载恢复、弩炮弹速、塔基避障/局部高度、巨魔卸载清理、工具分配空候选放行、只读时钟诊断及农田币/银行余额/农舍猫增量。
-- 正在执行独立OMP审查、禁部署构建、checklist校验、干净worktree打包和最终哈希审计。禁止将存档、备份、反编译源码、旧ZIP或worker-wt-20260901加入Git。
+- 已完成独立审查、禁部署构建、checklist 校验、干净 worktree 打包和最终哈希审计。存档、备份、反编译源码、旧 ZIP 和 worker-wt-20260901 均未加入 Git。
 - 用户授权退出门禁后的E盘备份部署及path-scoped commit/push、v4.0.0 tag、GitHub Release Latest；G盘、Steam目录和存档不修改。联机、权威迁移、换岛/读档与守家边界持续验证，未逐项完成的事项不置done。
 
 ## 2026-08-31（二） — 盾墙雕像+农田币+银行余额（3.5.1-dev2 部署）
