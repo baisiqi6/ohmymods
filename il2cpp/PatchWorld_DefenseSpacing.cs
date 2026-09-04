@@ -769,24 +769,47 @@ public static class PatchWorld_DefenseSpacing
                 fill++;
             }
 
-            // pairwise 重叠探测（散开触发器）：|dy|<1.5 同层 && |dx|<0.55
-            // 半身位 → 该对重叠，双方 overlapCount 各 +1。
+            // 空间分桶重叠探测（散开触发器）：|dy|<1.5 同层 && |dx|<0.55
+            // 半身位 → 该对重叠，双方 overlapCount 各 +1。以阈值为桶宽，
+            // 只检查当前桶及八邻格；等价覆盖所有可能命中的 pair，避免
+            // 人口上百时 O(n²) 的全量比较尖峰。
             int[] overlapCount = new int[n];
             int crowdedPairs = 0;
+            var buckets = new System.Collections.Generic.Dictionary<(int X, int Y),
+                System.Collections.Generic.List<int>>();
             for (int i = 0; i < n; i++)
             {
                 Vector3 a = positions[i];
-                for (int j = i + 1; j < n; j++)
+                int cellX = Mathf.FloorToInt(a.x / CrowdOverlapDx);
+                int cellY = Mathf.FloorToInt(a.y / CrowdOverlapDy);
+                for (int dxCell = -1; dxCell <= 1; dxCell++)
                 {
-                    Vector3 b = positions[j];
-                    float dy = a.y - b.y;
-                    if (dy > CrowdOverlapDy || dy < -CrowdOverlapDy) continue;
-                    float dx = a.x - b.x;
-                    if (dx > CrowdOverlapDx || dx < -CrowdOverlapDx) continue;
-                    overlapCount[i]++;
-                    overlapCount[j]++;
-                    crowdedPairs++;
+                    for (int dyCell = -1; dyCell <= 1; dyCell++)
+                    {
+                        if (!buckets.TryGetValue((cellX + dxCell, cellY + dyCell),
+                            out System.Collections.Generic.List<int> nearby)) continue;
+                        for (int k = 0; k < nearby.Count; k++)
+                        {
+                            int j = nearby[k];
+                            Vector3 b = positions[j];
+                            float dy = a.y - b.y;
+                            if (dy > CrowdOverlapDy || dy < -CrowdOverlapDy) continue;
+                            float dx = a.x - b.x;
+                            if (dx > CrowdOverlapDx || dx < -CrowdOverlapDx) continue;
+                            overlapCount[i]++;
+                            overlapCount[j]++;
+                            crowdedPairs++;
+                        }
+                    }
                 }
+
+                if (!buckets.TryGetValue((cellX, cellY),
+                    out System.Collections.Generic.List<int> bucket))
+                {
+                    bucket = new System.Collections.Generic.List<int>();
+                    buckets[(cellX, cellY)] = bucket;
+                }
+                bucket.Add(i);
             }
             if (crowdedPairs == 0) return;
 

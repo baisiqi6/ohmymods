@@ -697,6 +697,11 @@ public static class PatchRoles_Crossbowman
         yield return new WaitForSeconds(RecomputeDelaySeconds);
         RecomputeOnLoad();
 
+        // Keep the 5s cadence, but offset its first integrity pass from the
+        // 3s DefenseSpacing heartbeat and the KnightStyle phase.
+        yield return new WaitForSeconds(2.5f);
+        IntegrityPass();
+
         while (world != null && world.gameObject != null)
         {
             yield return new WaitForSeconds(IntegrityIntervalSeconds);

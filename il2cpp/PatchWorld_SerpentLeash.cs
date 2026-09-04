@@ -42,10 +42,18 @@ public static class PatchWorld_SerpentLeash
     // 拆成 5 x 2s 子节拍后间隔收紧到 10~12s，接近原生节奏，复扫节奏不变。
     private const float SpawnCheckIntervalSeconds = 2f;
     private const int SpawnChecksPerRescan = 5;      // RescanIntervalSeconds / SpawnCheckIntervalSeconds
+    // A remote mouth is intentionally far outside the wall.  Give only the
+    // first wave of each island night a bounded head start in the final
+    // pre-night window, preserving the native 10s cadence for every later wave.
+    private const float CompensationTravelSpeed = 4f;
+    private const float MaxSpawnCompensationSeconds = 8f;
+    private const float NightStartTime = 17.5f;
     private static IntPtr _supervisorWorld;
     private static bool _loggedLeash;
     private static bool _loggedClampUnavailable;
     private static bool _loggedRemoteWave;
+    private static readonly System.Collections.Generic.Dictionary<int, int>
+        _compensatedIslandDay = new System.Collections.Generic.Dictionary<int, int>();
 
     internal static void LeashAnchorToBorder(WorldEatingSerpent serpent)
     {
@@ -175,7 +183,8 @@ public static class PatchWorld_SerpentLeash
     ///   if (_cachedTime - _lastAttackTime >= _attackCooldown && _longRangeScanner.IsAny())
     ///       _mouthPortal.SpawnProximityWave(); _lastAttackTime = _cachedTime;
     /// 去掉 IsAny 项（蛇被缰绳推到墙+100 后 6 步警戒圈恒空，这正是回归根因），
-    /// 其余判据全部保留。
+    /// 其余判据全部保留。额外距离只在夜幕前最后一小段窗口给首波有限
+    /// 提前量；口门仍由原生 PrepareForSpawning/风起动画打开。
     ///
     /// 与原生门的互斥（天然不叠加）：本方法与原生循环共用同一 _lastAttackTime
     /// 字段做冷却门——蛇离墙近、IsAny 可命中时原生每帧先检查先吐并写回
@@ -194,27 +203,71 @@ public static class PatchWorld_SerpentLeash
         {
             // 夜间判据：原生 Spawning 循环同款（director.IsNight，513 行）。
             Director director = Managers.Inst != null ? Managers.Inst.director : null;
-            if (director == null || !director.IsNight) return;
+            if (director == null) return;
             // 吐怪=刷兵，仅世界权威端执行（原生 FixedUpdate 同款门）。
             if (!NetworkBigBoss.HasWorldAuth) return;
 
             WorldEatingSerpentPortal portal = serpent._mouthPortal;
-            if (portal == null || portal.gameObject == null || !portal.gameObject.activeInHierarchy) return;
+            if (portal == null || portal.gameObject == null) return;
+            bool portalActive = portal.gameObject.activeInHierarchy;
 
             // 冷却门复刻（字段私有但 interop 暴露，_fsm/_mtOlympusGate 先例）。
             float cachedTime = serpent._cachedTime; // 原生 FixedUpdate 每物理帧刷新
             float elapsed = cachedTime - serpent._lastAttackTime;
-            if (elapsed < serpent._attackCooldown) return;
+            float cooldown = Mathf.Max(0.1f, serpent._attackCooldown);
+            bool normalReady = elapsed >= cooldown;
+
+            // The leash adds distance only for this serpent's mouth.  Estimate
+            // the extra walk time from the farther of body/mouth to the intact
+            // right wall, clamp it below one cooldown, and consume it at most
+            // once per island day.  This shifts the first wave earlier without
+            // increasing the steady-state wave rate or affecting normal portals.
+            int islandDay = director.CurrentIslandDays;
+            int serpentId = serpent.gameObject.GetInstanceID();
+            bool alreadyCompensated = _compensatedIslandDay.TryGetValue(serpentId,
+                out int compensatedDay) && compensatedDay == islandDay;
+            float wallX = 0f;
+            try { wallX = Managers.Inst.kingdom.GetBorderSideIntact(Side.Right); }
+            catch { wallX = serpent.transform.position.x; }
+            float sourceX = serpent.transform.position.x;
+            if (portal.transform != null)
+                sourceX = Mathf.Max(sourceX, portal.transform.position.x);
+            float extraDistance = Mathf.Max(0f, sourceX - wallX);
+            float compensation = Mathf.Clamp(extraDistance / CompensationTravelSpeed,
+                0f, MaxSpawnCompensationSeconds);
+            bool isNight = director.IsNight;
+            bool preNightWindow = !isNight
+                && director.currentTime >= NightStartTime - compensation
+                && director.currentTime < NightStartTime;
+            bool compensatedReady = !alreadyCompensated && compensation > 0.01f
+                && elapsed >= Mathf.Max(0f, cooldown - compensation)
+                && (isNight || preNightWindow);
+            if ((!isNight || !normalReady) && !compensatedReady) return;
+
+            // During the narrow pre-night window, request the native spawning
+            // state once so its own wind-up opens the mouth portal.  We never
+            // call SpawnProximityWave until the portal is actually active, and
+            // the one-per-island-day guard prevents duplicate waves.
+            if (preNightWindow && !portalActive)
+            {
+                serpent.PrepareForSpawning();
+                return;
+            }
+            if (!portalActive) return;
 
             portal.SpawnProximityWave();
             serpent._lastAttackTime = cachedTime; // 与原生 519 行同一行语义
+            _compensatedIslandDay[serpentId] = islandDay;
 
             if (!_loggedRemoteWave)
             {
                 _loggedRemoteWave = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
                     "[SerpentLeash] remote proximity wave: t=" + cachedTime.ToString("F1")
-                    + " cooldown gate=" + elapsed.ToString("F1") + "/" + serpent._attackCooldown.ToString("F1"));
+                    + " cooldown gate=" + elapsed.ToString("F1") + "/" + cooldown.ToString("F1")
+                    + " extraDistance=" + extraDistance.ToString("F1")
+                    + " compensation=" + compensation.ToString("F1") + "s"
+                    + " early=" + compensatedReady);
             }
         }
         catch (Exception e)
@@ -238,6 +291,7 @@ public static class PatchWorld_SerpentLeash
         _loggedLeash = false;
         _loggedBodySnap = false;
         _loggedRemoteWave = false;
+        _compensatedIslandDay.Clear();
         bool loggedDiag = false;
 
         while (world != null && world.gameObject != null)

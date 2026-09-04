@@ -702,6 +702,11 @@ public static class PatchRoles_KnightStyle
         _followerDiagHasBaseline = false;
         _nextFollowerDiagAt = 0f;
 
+        // Offset the first 5s integrity pass from DefenseSpacing's 3s pass.
+        // The cadence remains 5s; only the initial phase moves off the common
+        // level-load boundary so the two full-field scans do not land together.
+        yield return new WaitForSeconds(1.5f);
+
         // 共享扫描缓存（抖动治理）：世界边界整体失效——首轮 IntegrityPass 的
         // 读档恢复路径必须看到全新扫描的全部存量骑士/随从。
         UnitScanCache.InvalidateAll();

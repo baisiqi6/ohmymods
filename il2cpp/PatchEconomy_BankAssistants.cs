@@ -19,7 +19,9 @@ namespace KingdomEnhancedMod;
 /// </summary>
 public static class PatchEconomy_BankAssistants
 {
-    internal const float SCAN_INTERVAL = 0.3f;
+    // 0.6s keeps the same deterministic round-robin semantics while halving
+    // whole-island registrar scans on crowded islands.
+    internal const float SCAN_INTERVAL = 0.6f;
     internal const float COIN_MATURITY_SECONDS = 3f;
     // 农田币独立成熟时长（2026-08-30 需求）：农田币在玩家脚边成串弹出
     // （Farmland.DropCoins 每 0.1s 一枚），且原生 pickUpPolicy=Nobody 只有玩家能捡。
@@ -730,6 +732,12 @@ public class BankAssistantCoordinator : MonoBehaviour
         int count;
         registrar.GetDroppablesInRange<DroppableCurrency>(
             kingdom.campfirePosition, WORLD_SCAN_RANGE, ScanBuffer, out count, null);
+
+        // No registered droppables means there is no candidate work to assign.
+        // Leave currently moving helpers alone (their per-frame transaction still
+        // completes independently), and skip all snapshot sorting/collector
+        // arbitration until the registrar reports an item again.
+        if (count <= 0) return;
 
         float now = Time.time;
         int ordinaryPlayerCoins = 0;
