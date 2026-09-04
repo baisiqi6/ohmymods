@@ -66,6 +66,12 @@ public static class PatchWorld_TowerSpots
     private const string MarkerPrefix = "KEM_TowerSpot";
     private const float DelaySeconds = 5f;      // 等场景/PayableManager/池就绪
     private const float MinTargetSpacing = 3f;  // 塔宽约 2-3 单位，4x 时防贴脸下限
+    // Use the rendered footprint as a lower bound.  The native tower spot uses
+    // Payable.playerPayDistance for placement checks, but that radius is much
+    // smaller than the location sprite (MinSpacing=8 on the current asset).
+    // Without this floor, a 2x grid (20 -> 10) visibly intersects neighbouring
+    // tower bases even though the native payable rectangles do not overlap.
+    private const float VisualSpacingPadding = 0.25f;
     private const float OccupiedRatio = 0.6f;   // 距离守卫 = 0.6×目标间距
     private const float OutwardExtension = 1f;  // 越过最外侧原生基底再外扩 1 个原生间距
     private const int MaxPerSide = 40;          // 网格点数硬上限（防御性）
@@ -233,6 +239,11 @@ public static class PatchWorld_TowerSpots
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
                 "[TowerSpots] retired overlapping unbuilt KEM bases=" + retired);
         }
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+            "[TowerSpots] scan native=" + refGos.Count
+            + " generatedUnbuilt=" + generatedBases.Count
+            + " occupied=" + allX.Count
+            + " retired=" + retired);
 
         // 地表吸附：取原生基底 y/z 中位数（原生塔位全部贴地，等价于地面线 y；
         // 取舍：假设地面平直——KTC 建造带基本如此，高地/特殊地形由
@@ -355,7 +366,11 @@ public static class PatchWorld_TowerSpots
                 ? prefab.GetComponent<ScatteredObject>() : null;
             if (scatter == null || scatter.AvoidOverlapWith == null) return false;
 
-            Rect candidate = GetOverlapRegion(prefab, x, false);
+            // Keep the native Payable rectangle, then conservatively union it
+            // with the rendered footprint.  This catches the real visual
+            // overlap reported by players while preserving native metadata as
+            // the first source of truth.
+            Rect candidate = GetCombinedOverlapRegion(prefab, x, false);
             var avoidTags = scatter.AvoidOverlapWith;
             for (int tagIndex = 0; tagIndex < avoidTags.Count; tagIndex++)
             {
@@ -379,7 +394,8 @@ public static class PatchWorld_TowerSpots
                     if (layer != null && other.scene.handle
                         != layer.gameObject.scene.handle) continue;
 
-                    Rect occupied = GetOverlapRegion(other, other.transform.position.x, false);
+                    Rect occupied = GetCombinedOverlapRegion(other,
+                        other.transform.position.x, false);
                     if (!candidate.Overlaps(occupied)) continue;
                     blockedTag = tag;
                     return true;
@@ -417,6 +433,61 @@ public static class PatchWorld_TowerSpots
         }
 
         return new Rect(new Vector2(x - 0.5f, 50f), new Vector2(1f, 100f));
+    }
+
+    private static Rect GetCombinedOverlapRegion(GameObject go, float x, bool sameObject)
+    {
+        Rect native = GetOverlapRegion(go, x, sameObject);
+        if (!TryGetVisualBounds(go, x, out float visualMin, out float visualMax))
+            return native;
+
+        float min = Mathf.Min(native.xMin, visualMin);
+        float max = Mathf.Max(native.xMax, visualMax);
+        return Rect.MinMaxRect(min, 50f, max, 150f);
+    }
+
+    private static bool TryGetVisualBounds(GameObject go, float x,
+        out float minX, out float maxX)
+    {
+        minX = maxX = x;
+        try
+        {
+            if (go == null || go.transform == null) return false;
+            Renderer[] renderers = go.GetComponentsInChildren<Renderer>(true);
+            bool found = false;
+            float rootX = go.transform.position.x;
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null) continue;
+                Bounds bounds = renderer.bounds;
+                if (!found)
+                {
+                    minX = bounds.min.x;
+                    maxX = bounds.max.x;
+                    found = true;
+                }
+                else
+                {
+                    minX = Mathf.Min(minX, bounds.min.x);
+                    maxX = Mathf.Max(maxX, bounds.max.x);
+                }
+            }
+            if (!found) return false;
+
+            // Runtime objects already report world-space bounds.  For the
+            // prefab candidate, translate the measured bounds by the proposed
+            // x while retaining any authored child offset.
+            float delta = x - rootX;
+            minX += delta;
+            maxX += delta;
+            return maxX > minX;
+        }
+        catch
+        {
+            minX = maxX = x;
+            return false;
+        }
     }
 
     private static bool IsSameHierarchy(GameObject candidate, GameObject root)
@@ -528,6 +599,12 @@ public static class PatchWorld_TowerSpots
         float nativeSpacing, float multiplier, int notBuildableMask)
     {
         float target = nativeSpacing / multiplier;
+        float visualHalfWidth = GetVisualHalfWidth(prefab);
+        if (visualHalfWidth > 0f)
+        {
+            target = Mathf.Max(target,
+                visualHalfWidth * 2f + VisualSpacingPadding);
+        }
         if (target < MinTargetSpacing) target = MinTargetSpacing;
         float occupied = target * OccupiedRatio;
 
@@ -668,6 +745,50 @@ public static class PatchWorld_TowerSpots
             if (Mathf.Abs(allX[i] - x) <= occupied) return false;
         }
         return true;
+    }
+
+    private static float GetVisualHalfWidth(GameObject go)
+    {
+        try
+        {
+            float halfWidth = 0f;
+            ScatteredObject scatter = go != null
+                ? go.GetComponent<ScatteredObject>() : null;
+            if (scatter != null)
+            {
+                float half = scatter.GetHalfWidth();
+                if (half > 0f && !float.IsNaN(half) && !float.IsInfinity(half))
+                    halfWidth = half;
+            }
+
+            Renderer[] renderers = go != null
+                ? go.GetComponentsInChildren<Renderer>(true) : null;
+            if (renderers == null || renderers.Length == 0) return halfWidth;
+            bool found = false;
+            float min = 0f;
+            float max = 0f;
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null) continue;
+                Bounds bounds = renderer.bounds;
+                if (!found)
+                {
+                    min = bounds.min.x;
+                    max = bounds.max.x;
+                    found = true;
+                }
+                else
+                {
+                    min = Mathf.Min(min, bounds.min.x);
+                    max = Mathf.Max(max, bounds.max.x);
+                }
+            }
+            if (found)
+                halfWidth = Mathf.Max(halfWidth, (max - min) * 0.5f);
+            return halfWidth;
+        }
+        catch { return 0f; }
     }
 
     /// <summary>
