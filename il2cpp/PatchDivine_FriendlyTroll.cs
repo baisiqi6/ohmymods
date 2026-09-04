@@ -194,6 +194,11 @@ public static class PatchDivine_FriendlyTroll
         }
         if (Time.timeScale <= 0f || Time.time < _nextPursuitTickAt) return;
         _nextPursuitTickAt = Time.time + PursuitTickInterval;
+        // Lifecycle hooks intentionally use public OnDisable only. Objects can still
+        // disappear without a callback during scene teardown, so prune stale entries
+        // lazily before consuming either registry.
+        PruneFriendlyRegistries();
+        PruneTrollRegistries();
         ReconcileFriendlyInvulnerability();
 
         if (!ModConfig.Enabled.Value)
@@ -736,6 +741,22 @@ public static class PatchDivine_FriendlyTroll
         foreach (IntPtr pointer in staleFsms) FriendlyByFsm.Remove(pointer);
     }
 
+    private static void PruneTrollRegistries()
+    {
+        var staleIds = new List<int>();
+        foreach (KeyValuePair<int, TrollState> pair in TrollStates)
+        {
+            TrollState state = pair.Value;
+            if (state == null || !IsUsable(state.Troll)) staleIds.Add(pair.Key);
+        }
+
+        foreach (int id in staleIds)
+        {
+            TrollStates.Remove(id);
+            ActiveCounterTrolls.Remove(id);
+        }
+    }
+
     private static void DeregisterFriendly(FriendlyTroll friendly)
     {
         try
@@ -775,7 +796,9 @@ public static class PatchDivine_FriendlyTroll
                 return false;
 
             CRPCHeader header = postbox.GetHeaderFromDynamicObject(troll.gameObject, true);
-            if (header == null) return false;
+            // A zero/negative dynamic id is the native "unregistered" sentinel;
+            // never turn it into a valid-looking ushort hash designation.
+            if (header == null || header.NetID <= 0) return false;
             netId = header.NetID;
 
             uint hash = FnvOffset;
@@ -968,17 +991,6 @@ public static class PatchDivine_FriendlyTroll
         {
             try { ActiveSquids.Remove(__instance.GetInstanceID()); }
             catch (Exception e) { LogErrorOnce("Squid deregistration failed", e); }
-        }
-    }
-
-    [HarmonyPatch(typeof(Squid), "OnDestroy")]
-    private static class SquidOnDestroyPatch
-    {
-        [HarmonyPrefix]
-        private static void Prefix(Squid __instance)
-        {
-            try { ActiveSquids.Remove(__instance.GetInstanceID()); }
-            catch { }
         }
     }
 
@@ -1194,22 +1206,6 @@ public static class PatchDivine_FriendlyTroll
         }
     }
 
-    [HarmonyPatch(typeof(Troll), "OnDestroy")]
-    private static class TrollOnDestroyPatch
-    {
-        [HarmonyPrefix]
-        private static void Prefix(Troll __instance)
-        {
-            try
-            {
-                int id = __instance.GetInstanceID();
-                ActiveCounterTrolls.Remove(id);
-                TrollStates.Remove(id);
-            }
-            catch { }
-        }
-    }
-
     [HarmonyPatch(typeof(EnemyBlueprint), nameof(EnemyBlueprint.Instantiate))]
     private static class EnemyBlueprintInstantiatePatch
     {
@@ -1359,12 +1355,7 @@ public sealed class FriendlyTrollPursuitCoordinator : MonoBehaviour
         PatchDivine_FriendlyTroll.TickPursuit(this);
     }
 
-    private void OnDisable()
-    {
-        PatchDivine_FriendlyTroll.DisablePursuitCoordinator(this);
-    }
-
-    private void OnDestroy()
+    public void OnDisable()
     {
         PatchDivine_FriendlyTroll.DisablePursuitCoordinator(this);
     }

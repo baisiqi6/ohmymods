@@ -39,6 +39,14 @@ public static class PatchPerformance_NightVolley
     private static float _dawnFrameSum;
     private static float _dawnFrameMax;
     private static int _dawnFrameCount;
+    // Low-frequency state probe for reports that workers stay in night posture
+    // and enemy waves arrive late.  This is diagnostics only: it never writes
+    // Director/Kingdom time or changes the native scheduler.
+    private static float _nextClockSampleAt;
+    private static bool _lastClockNight;
+    private static bool _lastClockDaytime;
+    private static int _lastClockDay = -1;
+    private static bool _clockStateInitialized;
     private static System.Collections.Generic.HashSet<string> _loggedBands
         = new System.Collections.Generic.HashSet<string>();
 
@@ -51,10 +59,15 @@ public static class PatchPerformance_NightVolley
         _dawnFrameSum = 0f;
         _dawnFrameMax = 0f;
         _dawnFrameCount = 0;
+        _nextClockSampleAt = 0f;
+        _clockStateInitialized = false;
+        _lastClockDay = -1;
         while (world != null && world.gameObject != null)
         {
             yield return null;
             if (!ModConfig.Enabled.Value) continue;
+
+            EmitClockSample();
 
             float dt = Time.deltaTime;
             if (dt > 0f && dt < 1f)
@@ -84,6 +97,44 @@ public static class PatchPerformance_NightVolley
                 KingdomEnhancedPlugin.Instance?.LogSource.LogError("[DefensePerf] " + e);
             }
         }
+    }
+
+    /// <summary>
+    /// Emits a bounded, state-change/30-second snapshot of the native clock.
+    /// The three values are intentionally logged together because peasants use
+    /// Kingdom.isDaytime while serpent/enemy scheduling uses Director.IsNight.
+    /// A mismatch or a frozen currentTime is actionable evidence; changing any
+    /// of them here would corrupt save, farming, and wave scheduling.
+    /// </summary>
+    private static void EmitClockSample()
+    {
+        Managers managers = Managers.Inst;
+        Director director = managers != null ? managers.director : null;
+        Kingdom kingdom = managers != null ? managers.kingdom : null;
+        if (director == null || kingdom == null) return;
+
+        float now = Time.unscaledTime;
+        bool isNight = director.IsNight;
+        bool isDaytime = kingdom.isDaytime;
+        int islandDays = director.CurrentIslandDays;
+        bool changed = !_clockStateInitialized
+            || isNight != _lastClockNight
+            || isDaytime != _lastClockDaytime
+            || islandDays != _lastClockDay;
+        if (!changed && now < _nextClockSampleAt) return;
+
+        _clockStateInitialized = true;
+        _lastClockNight = isNight;
+        _lastClockDaytime = isDaytime;
+        _lastClockDay = islandDays;
+        _nextClockSampleAt = now + 30f;
+
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+            "[ClockDiag] t=" + director.currentTime.ToString("F2")
+            + " isNight=" + isNight
+            + " kingdomDaytime=" + isDaytime
+            + " islandDays=" + islandDays
+            + " timeScale=" + Time.timeScale.ToString("F2"));
     }
 
     // The staggered-volley design targets night wall defense only; daytime

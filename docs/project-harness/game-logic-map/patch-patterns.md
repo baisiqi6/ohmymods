@@ -461,3 +461,27 @@ arrows=0 早于滑块改动）。根因：吐怪门=夜间&&冷却&&警戒圈6�
 | PatchRoles_Crossbowman | 弩手：每第4个弓转职换皮强化（deadlands皮肤/射程12/冷却×2/伤害×2/平直弩矢/骑士排除/读档25%重算） | 🧪 编译+review通过，待实机 |
 
 > 状态与 `docs/project-harness/harness-checklist.json` 同步维护。
+
+### 32. IL2CPP 对象池对象禁止挂私有 OnDestroy Harmony 钩子
+
+**症状：** 对 `Troll`/`Squid` 或自定义协调器的私有 `OnDestroy` 做 Harmony patch，在 IL2CPP 卸载或对象池回收时进入 `DMD<...OnDestroy>` 递归，`ErrorLog.log` 最终出现 `Stack overflow`。
+
+**规则：** Unity 生命周期清理优先使用公开 `OnDisable`（对象池回收和销毁前均会触发）；若场景卸载仍可能漏回调，使用低频/有界的惰性 prune 删除不可用 registry 项，不要再以私有 `OnDestroy` 作为兜底，也不要在 prune 中写网络、存档或对象池状态。
+
+### 33. 稀疏分配与场景增密必须先保留原生空集语义
+
+**症状：** 高人口岛的工具扫描可能在昼夜切换或注册器短暂重建时得到 `eligible=0`；若自定义稀疏分配把所有 carrier 目标写成 null，农民/农夫会集中闲置。塔基增密若所有点共用全岛 Y，则斜坡处可能出现“可交互但视觉被地形遮住”。
+
+**规则：** 稀疏替换遇到空 eligible 集合应放行原生重分配，不要清空现有 claim；新塔基优先取最近原生基底的局部地表高度，并只规范化根对象 active 状态。必须用一次性 renderer/时钟诊断区分资源缺失、遮挡与昼夜状态失配，不能直接强开所有子渲染器或写 Director 时间。
+
+### 34. 后生成散布物必须复用原生非同类避障元数据
+
+**症状：** 只按同类 X 间距补放塔基，会绕过关卡生成阶段 `ScatteredObject.AvoidOverlapWith` 对墙基、农舍等建筑的矩形排斥，形成空地交互点或与建筑叠放。
+
+**规则：** 运行时增密应复用模板 `AvoidOverlapWith`、`MinSpacing`、`UsePayableForSpacing` 和原生 overlap region；若需求本身是增加同类密度，可以跳过同类标签并由独立、可审计的同类间距控制。只比较当前关卡层级和场景、排除船体，并在网络注册前调用 `FixedTransform.Fix()`。清理历史补放对象必须限定自有命名、未建 level0、完整 Persistent/CRPC/SemiStatic 和 world-authority；任何元数据或检查异常都 fail closed。
+
+### 35. 读档恢复的原生替换要晚于对象激活、早于交互
+
+**症状：** 只在 `AssignJob` 或慢速巡检里做预制体替换，会让读档后的单位先以普通对象存在；若玩家在巡检前触发编队/技能，就会出现“换了北境动画但没有北境组件”的混合行为。
+
+**规则：** `OnEnable` 只登记候选，不在过早调用栈里 `Promote`。在 `World.OnLevelLoaded` 下一帧、且 Holder/Pool/CRPC 与身份状态已就绪后，由 world-authority 处理登记队列；严格区分“身份尚未解析”和“已解析为非目标”，对池/RPC未就绪做有界重试。真实 prefab、关键组件和原生状态确认后才出队，AssignJob/慢速巡检仅作后续池复用兜底。

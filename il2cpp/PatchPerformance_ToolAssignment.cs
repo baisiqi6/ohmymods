@@ -72,6 +72,15 @@ internal static class PatchPerformance_ToolAssignment
                 int[,] scores = BuildScoreMatrix(__instance, carrierCount, rawDroppableCount);
                 int eligibleCount = EligibleDroppableIndices.Count;
 
+                // An empty eligible set is not a sparse assignment to apply: the
+                // native registrar may still own valid claims that its scoring
+                // pass temporarily cannot expose (notably farm tools during a
+                // day/night transition).  Falling through preserves those
+                // claims instead of clearing every carrier target and parking
+                // the entire peasant/farmer population in one idle cluster.
+                if (eligibleCount == 0)
+                    return true;
+
                 // Dense cases keep the native implementation.
                 if (eligibleCount * 4 > carrierCount)
                     return true;

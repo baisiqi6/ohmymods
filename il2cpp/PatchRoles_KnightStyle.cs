@@ -940,11 +940,39 @@ public static class PatchRoles_KnightStyle
         {
             if (knight == null || knight.gameObject == null) return false;
             if (!States.TryGetValue(knight.gameObject.GetInstanceID(),
-                out KnightStyleState state) || !state.HasStyle) return false;
+                out KnightStyleState state) || !state.HasStyle
+                || state.NeedsRederive || state.Knight == null
+                || state.Knight.Pointer != knight.Pointer) return false;
             return state.StyleIndex == NorseStyleIndex;
         }
         catch
         {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 区分“风格尚未解析”和“已解析且不是北境”。读档恢复阶段不能把前者
+    /// 当成非北境，否则随从会在 KnightStyle 首轮之前被错误移出待处理队列。
+    /// </summary>
+    internal static bool TryGetResolvedStyleIndex(Knight knight, out int styleIndex)
+    {
+        styleIndex = -1;
+        try
+        {
+            if (knight == null || knight.gameObject == null) return false;
+            if (!States.TryGetValue(knight.gameObject.GetInstanceID(), out KnightStyleState state)
+                || !state.HasStyle) return false;
+            // Instance IDs are recycled across pooled objects and scene loads.  Never
+            // let a stale style record authorize a different Knight instance.
+            if (state.Knight == null || state.Knight.Pointer != knight.Pointer
+                || state.NeedsRederive) return false;
+            styleIndex = state.StyleIndex;
+            return styleIndex >= 0 && styleIndex < StyleCount;
+        }
+        catch
+        {
+            styleIndex = -1;
             return false;
         }
     }

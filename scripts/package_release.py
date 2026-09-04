@@ -10,6 +10,7 @@ import hashlib
 import subprocess
 import sys
 import zipfile
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -59,6 +60,9 @@ def main():
         print(__doc__)
         sys.exit(2)
     version = sys.argv[1].strip()
+    project_version = ET.parse(REPO / "il2cpp/KingdomEnhancedMod.csproj").findtext(".//Version")
+    if version != project_version:
+        sys.exit(f"ERROR: requested version {version} differs from project {project_version}")
     dll = REPO / "il2cpp/bin/Debug/KingdomEnhancedMod.dll"
     if not dll.is_file():
         print("ERROR: 先构建 il2cpp（dotnet build -c Debug）")
@@ -80,6 +84,7 @@ def main():
     dll_sha = sha256(dll)
     manifest = (
         f"ModVersion: {version}\n"
+        "GameCompatibility: Kingdom Two Crowns 2.4.0 IL2CPP / BepInEx 6\n"
         f"GitCommit: {commit}\n"
         f"DllSHA256: {dll_sha}\n"
         f"DllSize: {dll.stat().st_size}\n"
@@ -87,7 +92,7 @@ def main():
     )
 
     count = 0
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+    with zipfile.ZipFile(out, "x", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         # 根级引导三件套
         for name in (".doorstop_version", "doorstop_config.ini", "winhttp.dll"):
             src = GAME / name
@@ -100,6 +105,8 @@ def main():
         add_dir(zf, GAME / "BepInEx/core", "BepInEx/core/")
         add_dir(zf, GAME / "BepInEx/unity-libs", "BepInEx/unity-libs/")
         for cfg in sorted((GAME / "BepInEx/config").glob("*.cfg")):
+            if cfg.name != "BepInEx.cfg":
+                continue  # Never distribute the tester's personal gameplay settings.
             zf.write(cfg, f"BepInEx/config/{cfg.name}")
             count += 1
         zf.write(dll, "BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll")
@@ -107,7 +114,8 @@ def main():
         # 玩家文档
         rel = REPO / "release"
         for name in ("MOD_UPDATE_AND_FIX_LOG_ZH.txt", "MOD_USER_GUIDE_ZH.txt",
-                     "MOD_CAPABILITIES_AND_ROADMAP_ZH.txt"):
+                     "MOD_CAPABILITIES_AND_ROADMAP_ZH.txt",
+                     f"MOD_V{version}版本更新说明.txt"):
             src = rel / name
             if src.is_file():
                 zf.write(src, name)
@@ -117,7 +125,7 @@ def main():
             zf.write(notes, "INSTALL.md")
             count += 1
         zf.writestr("BUILD-MANIFEST.txt", manifest)
-        count += 1
+        count = len(zf.infolist())
 
     print(f"OK: {out}  items={count}  size={out.stat().st_size}")
     print(manifest)

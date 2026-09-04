@@ -38,9 +38,10 @@ namespace KingdomEnhancedMod;
 ///
 /// 与 NorseSquad 的联动：Archer 盾墙入队门 = _npcShieldUser != null &&
 /// HasShield()（Archer.cs:748）——NorseSquad 转化的北境随从带 NpcShieldUser 且
-/// 程序化装盾，合格兵源；Knight 无盾门也能入（原生行为，接受）；希腊 Worker
-/// 未装盾不入。原生 Recruit 遍历 Knights+Archers+Workers 候选，我们的随从在
-/// kingdom._archers 在册，天然可见（不加验证钩子，验收观察项走 diag 日志）。
+/// 程序化装盾，合格兵源。原生 Knight.CanJoinFormation 对盾墙没有盾/风格门，
+/// 会按高生命排序优先拉走普通骑士，而其普通无盾随从随后被 Archer 门拒绝，形成
+/// “非北境骑士单独守家”。本补丁在希腊盾墙候选阶段只允许北境风格骑士；其余
+/// Archer/Worker 仍走原生 HasShield 门，Recruit/盾牌姿态/Rush 生命周期不改。
 ///
 /// 已知风险（任务书 §9，验收观察项）：
 /// - shieldWalls[side] 判活依赖 Unity fake-null 在 Il2CppInterop 下的行为待实测
@@ -76,6 +77,7 @@ public static class PatchWorld_ShieldWallTotem
     private static bool _loggedActiveFallback;
     private static bool _loggedPassiveFallback;
     private static bool _loggedNoFormationPrefab;
+    private static bool _loggedNonNorseKnightBlocked;
 
     private static void LogInfo(string message)
     {
@@ -218,6 +220,30 @@ public static class PatchWorld_ShieldWallTotem
         kingdom.shieldWalls[side] = formation;
         result = formation;
         return false;
+    }
+
+    /// <summary>
+    /// 希腊移植盾墙只接受北境风格骑士。原生 Knight 对所有骑士都返回可加入，
+    /// 但普通骑士的无盾随从随后会被 Archer.CanJoinFormation 拒绝；在候选入口
+    /// 收紧骑士类型即可让原生 Formation 继续完整负责排序、招募和回收。
+    /// </summary>
+    internal static void FilterShieldWallKnight(
+        Knight knight, Formation.FormationType type, ref bool result)
+    {
+        if (!result || knight == null || BiomeHolder.Inst == null
+            || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex)
+            return;
+        if (type != Formation.FormationType.ActiveShieldWall
+            && type != Formation.FormationType.PassiveShieldWall)
+            return;
+        if (PatchRoles_KnightStyle.IsNorseStyleKnight(knight)) return;
+
+        result = false;
+        if (!_loggedNonNorseKnightBlocked)
+        {
+            _loggedNonNorseKnightBlocked = true;
+            LogInfo("non-norse knight excluded from greece shield-wall recruitment");
+        }
     }
 
     // ============================================================
@@ -402,6 +428,31 @@ public static class Kingdom_TrySpawnShieldWall_ShieldWallTotem_Patch
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(
                 "[ShieldWallTotem/spawn] " + e);
             return true; // 异常放行原生（希腊下原生 biome 门 return null，降级不炸）
+        }
+    }
+}
+
+/// <summary>
+/// 修正希腊守家图腾的骑士候选：只改盾墙两种 FormationType，普通集结、冲锋、
+/// 船队和原生北境完全不受影响。Postfix 只会把 true 收紧为 false。
+/// </summary>
+[HarmonyPatch(typeof(Knight), nameof(Knight.CanJoinFormation))]
+public static class Knight_CanJoinFormation_ShieldWallTotem_Patch
+{
+    [HarmonyPostfix]
+    private static void Postfix(Knight __instance, Formation.FormationType formationType,
+        ref bool __result)
+    {
+        if (ModConfig.Enabled?.Value != true) return;
+        try
+        {
+            PatchWorld_ShieldWallTotem.FilterShieldWallKnight(
+                __instance, formationType, ref __result);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[ShieldWallTotem/knight-filter] " + e);
         }
     }
 }

@@ -1,5 +1,7 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using BepInEx.Unity.IL2CPP.Utils.Collections;
 using HarmonyLib;
 using UnityEngine;
 
@@ -78,6 +80,32 @@ public static class PatchRoles_NorseSquad
     // 血月夜多随从时逐次 LogInfo 会刷屏——装盾成功每世界只记一条，后续静默
     // （重装仍在发生，只是不再逐次打日志；世界切换由 Holder postfix 复位）
     private static bool _loggedShieldEquip;
+
+    // 读档/换岛后先登记，再等原生对象归属、风格状态和同步池完成；不在
+    // Archer.OnEnable 的过早调用栈内 Promote，避免对象池/CRPC 未就绪时重入。
+    private sealed class LoadRestoreContext
+    {
+        internal readonly World World;
+        internal readonly Transform SceneRoot;
+        internal readonly int Generation;
+        internal readonly Dictionary<int, Archer> Pending = new();
+        internal readonly HashSet<int> UncertainConversions = new();
+        internal int Converted;
+        internal int ShieldReady;
+        internal int Attempts;
+
+        internal LoadRestoreContext(World world, int generation)
+        {
+            World = world;
+            SceneRoot = world != null ? world.gameLayer : null;
+            Generation = generation;
+        }
+    }
+
+    private static int _loadRestoreGeneration;
+    private static IntPtr _loadRestoreWorldPointer;
+    private const int LoadRestoreMaxAttempts = 24;
+    private const float LoadRestoreRetrySeconds = 0.25f;
 
     // ---- 一次性日志 ----
     private static readonly HashSet<string> LoggedErrors = new();
@@ -246,6 +274,177 @@ public static class PatchRoles_NorseSquad
         {
             LogErrorOnce("pool registration failed", e.ToString());
         }
+    }
+
+    internal static IEnumerator RestoreLoadedFollowersRoutine(World world)
+    {
+        if (world == null || world.gameObject == null || world.gameLayer == null
+            || _loadRestoreWorldPointer == world.Pointer) yield break;
+        _loadRestoreWorldPointer = world.Pointer;
+        var context = new LoadRestoreContext(world, ++_loadRestoreGeneration);
+
+        // Native Campaign/Kingdom ApplyToScene and KnightStyle.OnLevelLoaded may still
+        // be finishing this frame. One frame is the smallest safe barrier; retries are
+        // bounded and only touch queued archers, not a per-frame global scan.
+        yield return null;
+        if (!IsLoadRestoreContextCurrent(context)) yield break;
+        UnitScanCache.InvalidateAll();
+        QueueActiveArchers(context);
+
+        for (int attempt = 0; attempt < LoadRestoreMaxAttempts
+            && IsLoadRestoreContextCurrent(context); attempt++)
+        {
+            context.Attempts = attempt + 1;
+            if (IsLoadRestoreReady(context)) ProcessPendingLoadRestores(context);
+            if (context.Pending.Count == 0) break;
+            yield return new WaitForSeconds(LoadRestoreRetrySeconds);
+        }
+
+        if (IsLoadRestoreContextCurrent(context))
+            LogInfo("load restore summary: converted=" + context.Converted
+                + " shieldReady=" + context.ShieldReady
+                + " pending=" + context.Pending.Count
+                + " attempts=" + context.Attempts);
+    }
+
+    private static bool IsLoadRestoreContextCurrent(LoadRestoreContext context)
+    {
+        try
+        {
+            return context != null && context.World != null && context.World.gameObject != null
+                && context.SceneRoot != null && _loadRestoreWorldPointer == context.World.Pointer
+                && context.Generation == _loadRestoreGeneration;
+        }
+        catch { return false; }
+    }
+
+    private static bool IsLoadRestoreReady(LoadRestoreContext context)
+    {
+        if (!IsLoadRestoreContextCurrent(context) || !ModConfig.Enabled.Value
+            || !NetworkBigBoss.HasWorldAuth) return false;
+        if (NetworkBigBoss.IsOnline && !NetworkBigBoss.HasClientCaughtUp) return false;
+        Managers managers = Managers.Inst;
+        if (managers == null || managers.game == null || managers.kingdom == null
+            || managers.holder == null || managers.pools == null
+            || managers.world == null || managers.world.Pointer != context.World.Pointer
+            || managers.world.gameLayer == null
+            || managers.world.gameLayer.Pointer != context.SceneRoot.Pointer
+            || managers.game.state != Game.State.Playing) return false;
+        return true;
+    }
+
+    private static bool IsCurrentLoadArcher(Archer archer, LoadRestoreContext context)
+    {
+        try
+        {
+            return IsLoadRestoreReady(context) && archer != null && archer.gameObject != null
+                && archer.gameObject.activeInHierarchy && archer.enabled
+                && archer.transform != null && archer.transform.IsChildOf(context.SceneRoot);
+        }
+        catch { return false; }
+    }
+
+    private static bool IsCurrentLoadKnight(Knight knight, LoadRestoreContext context)
+    {
+        try
+        {
+            return IsLoadRestoreReady(context) && knight != null && knight.gameObject != null
+                && knight.gameObject.activeInHierarchy && knight.enabled
+                && knight.transform != null && knight.transform.IsChildOf(context.SceneRoot);
+        }
+        catch { return false; }
+    }
+
+    private static void QueueActiveArchers(LoadRestoreContext context)
+    {
+        Archer[] archers = UnitScanCache.GetArchers(0f);
+        if (archers == null) return;
+        for (int i = 0; i < archers.Length; i++)
+        {
+            Archer archer = archers[i];
+            if (archer == null || archer.gameObject == null
+                || !archer.gameObject.activeInHierarchy || archer.transform == null
+                || context.SceneRoot == null || !archer.transform.IsChildOf(context.SceneRoot)) continue;
+            context.Pending[archer.gameObject.GetInstanceID()] = archer;
+        }
+    }
+
+    private static void ProcessPendingLoadRestores(LoadRestoreContext context)
+    {
+        if (!IsLoadRestoreReady(context) || context.Pending.Count == 0) return;
+        var snapshot = new List<KeyValuePair<int, Archer>>(context.Pending);
+        for (int i = 0; i < snapshot.Count; i++)
+        {
+            int id = snapshot[i].Key;
+            Archer archer = snapshot[i].Value;
+            try
+            {
+                if (!IsCurrentLoadArcher(archer, context))
+                {
+                    if (archer == null || archer.gameObject == null) context.Pending.Remove(id);
+                    continue;
+                }
+
+                Knight knight = archer._knight;
+                if (!IsCurrentLoadKnight(knight, context)) continue;
+                if (!PatchRoles_KnightStyle.TryGetResolvedStyleIndex(knight, out int styleIndex))
+                    continue; // 风格尚未就绪，保留到下一尝试
+                if (styleIndex != PatchRoles_KnightStyle.NorseStyleIndex)
+                {
+                    context.Pending.Remove(id);
+                    continue;
+                }
+
+                NpcShieldUser shieldUser = archer.GetComponent<NpcShieldUser>();
+                if (shieldUser == null || !IsNorseArcherInstance(archer))
+                {
+                    if (!context.UncertainConversions.Add(id)) continue;
+                    if (!IsLoadRestoreReady(context)) return;
+                    Character replacement = ConvertToNorseArcher(archer);
+                    if (replacement == null) { context.UncertainConversions.Remove(id); continue; }
+                    Archer newArcher = replacement.GetComponent<Archer>();
+                    if (newArcher == null) { context.Pending.Remove(id); continue; }
+                    newArcher.SetKnight(knight);
+                    EquipShieldSafely(newArcher);
+                    NpcShieldUser newShield = newArcher.GetComponent<NpcShieldUser>();
+                    if (newShield != null && newShield.HasShield()) context.ShieldReady++;
+                    context.Converted++;
+                    context.Pending.Remove(id);
+                    if (newArcher.gameObject != null
+                        && newArcher.gameObject.activeInHierarchy
+                        && (newShield == null || !newShield.HasShield()))
+                        context.Pending[newArcher.gameObject.GetInstanceID()] = newArcher;
+                    continue;
+                }
+
+                if (!IsLoadRestoreReady(context)) return;
+                EquipShieldSafely(archer);
+                if (shieldUser.HasShield())
+                {
+                    context.ShieldReady++;
+                    context.Pending.Remove(id);
+                }
+            }
+            catch (Exception e)
+            {
+                context.UncertainConversions.Add(id);
+                LogErrorOnce("load follower restore failed", e.ToString());
+            }
+        }
+    }
+
+    private static bool IsNorseArcherInstance(Archer archer)
+    {
+        try
+        {
+            Character prefab = ResolveNorseArcherPrefab(Managers.Inst?.holder);
+            if (prefab == null || prefab.gameObject == null || archer == null
+                || archer.gameObject == null) return false;
+            Pool expected = Pool.GetPoolFromPrefabAsset(prefab.gameObject);
+            Pool actual = Pool.GetPoolFromPrefabInstance(archer.gameObject);
+            return expected != null && actual != null && expected.Pointer == actual.Pointer;
+        }
+        catch { return false; }
     }
 
     // ============================================================
@@ -582,6 +781,30 @@ public static class Holder_InitializeTagCharacterPairs_NorseSquadPool_Patch
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError("[NorseSquad/holder-init] " + e);
+        }
+    }
+}
+
+/// <summary>
+/// 读档/换岛恢复宿主：在原生场景应用完成后的下一帧，把已存在的北境风格骑士
+/// 随从收敛到真实 Archer_norselands + 盾牌；不会等待守家雕像交互。
+/// </summary>
+[HarmonyPatch(typeof(World), nameof(World.OnLevelLoaded))]
+public static class World_OnLevelLoaded_NorseSquadRestoreHost_Patch
+{
+    [HarmonyPostfix]
+    private static void Postfix(World __instance)
+    {
+        if (!ModConfig.Enabled.Value || __instance == null) return;
+        try
+        {
+            __instance.StartCoroutine(
+                PatchRoles_NorseSquad.RestoreLoadedFollowersRoutine(__instance).WrapToIl2Cpp());
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[NorseSquad] load restore start failed: " + e);
         }
     }
 }

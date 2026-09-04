@@ -1,8 +1,26 @@
 {
   "project": "ohmymods",
   "harness_root": "docs/project-harness",
-  "updated_at": "2026-08-31",
+  "updated_at": "2026-09-04",
   "items": [
+    {
+      "id": "release-400-20260904",
+      "title": "v4.0.0 正式大版本发布（承接 v3.5.0）",
+      "selected_in_session": "codex-release-400-20260904",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-04",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "最终静态审查、0 warning/0 error构建、checklist校验、干净提交打包、E盘退出备份部署与哈希核对、push、tag v4.0.0、GitHub Release Latest；不得发布存档、备份、参考源码或worker目录。",
+      "verification": "4.0.0版本/玩家文档已同步；Norse加载恢复与TowerSpots延迟上下文安全修复完成；Debug构建0 warning/0 error，待最终review后进行clean worktree package、E盘退出备份部署、commit/push/tag/release。",
+      "handoff": "联机、权威迁移、换岛、读档与守家编队边界继续由用户实测。历史v351任务目录仅保留开发证据；当前公开版本统一4.0.0。",
+      "workflow": { "status": "review_approved", "updated_at": "2026-09-04" },
+      "artifacts": { "plan": "docs/project-harness/tasks/release-400-20260904/plan.md" },
+      "review": { "decision": "approved" }
+    },
     {
       "id": "fleetboat-formation-019",
       "title": "城墙旗帜动态小船编队",
@@ -10,7 +28,7 @@
       "priority": "p1",
       "owner": "codex",
       "selected_in_session": "codex-2026-08-16-fleetboat-formation",
-      "updated_at": "2026-08-16",
+      "updated_at": "2026-09-01",
       "dependencies": [
         "fleetboat-recovery-009"
       ],
@@ -79,14 +97,14 @@
       "priority": "p1",
       "owner": "codex",
       "selected_in_session": "codex-2026-08-16-tool-assignment-015",
-      "updated_at": "2026-08-16",
+      "updated_at": "2026-09-01",
       "dependencies": [
         "population-performance-010"
       ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "先以完全放行原版、每Registrar最多4条日志的ReassignClaimers探针证明2.4原生调用真实命中并记录居民/工具规模与耗时；只有连续约3秒命中后，才以独立JobAssigner和原生评分实现高人口稀疏反向分配，不改全局JobAssigner及其他工作系统。",
-      "verification": "探针实机命中582 carriers、7～8 droppables，原版耗时10.352/9.678/9.051ms。第二阶段按原生评分、独立JobAssigner、高人口/稀疏门槛及两阶段SetDroppableTarget实现，提交147ea44已推送；用户退出后从该提交重建0 warning/0 error并只部署独立副本，构建/部署DLL SHA-256均为2CE66091A760E0ECE0455B5B2599371156CB295EDC8E2522FEE7F292D72ADF09。",
+      "verification": "探针实机命中582 carriers、7～8 droppables，原版耗时10.352/9.678/9.051ms。第二阶段按原生评分、独立JobAssigner、高人口/稀疏门槛及两阶段SetDroppableTarget实现，当前候选在eligibleDroppables==0时放行原生重分配，避免昼夜切换清空全部carrier目标；Debug构建0 warning/0 error，DLL SHA-256=06CD4A49BDB281658C49BA880BD47FEA1B87ED4692D517D08E174EC5028175B7。",
       "handoff": "第二阶段已部署。验证唯一replacement摘要耗时、工具一对一/资格/claim/开关，并重点重复切岛；此前一次切岛WER为coreclr栈溢出但无探针异常，不能仅凭一次事件归因。",
       "workflow": {
         "status": "running",
@@ -104,7 +122,10 @@
         "code": "il2cpp/PatchPerformance_ToolAssignment.cs"
       },
       "review": {
-        "decision": null
+        "decision": "approved",
+        "reviewer": "subagent/bank_assistant_reviewer",
+        "date": "2026-09-01",
+        "note": "ToolAssignment空eligible放行原生、TowerSpots局部Y与root active/visual诊断、ClockDiag只读均静态通过"
       }
     },
     {
@@ -327,7 +348,7 @@
       "blocked_reason": null,
       "acceptance": "FriendlyTroll候选枚举精确排除Squid但允许CrownStealer；约10% TrollWeak稳定反制并在10格外圈主动接近。活动友好巨魔在Mod启用时只由world-authority解除原生无敌，关闭Mod与正常回池恢复可逆基线；加载、卸载、失权零写，联机仅一次延迟同步；不改HP、damage mask、冲撞、RPC协议、对象池或存档。构建、审查、独立副本query→injected→native-damage实测通过。",
       "verification": "历史断点为friendly-active=54、counter-query=12、injected/damage=0，且54个Troll_friendly存档均invulnerable=true。解除无敌修复经reviewer APPROVED，提交0495a68已推送，E盘部署DLL 173568 bytes/SHA256=BDF1FB4415E05E8F9596D19A024D020210ECCCEE7B6291D72D68CECBA9A4AB4B。最新实机完整闭环：friendly-active=56、counter-query=8、friendly-injected=7、native-damage=6，六次原生Troll伤害均hpAfterEvent=0；相关日志无Exception/Error、unknown pool、duplicate sync或RPC异常。",
-      "handoff": "核心平衡能力已实机通过：反制TrollWeak会主动接近、注入并以原生伤害击杀FriendlyTroll。任务保持doing，继续验证Squid排除/CrownStealer保留、Disabled恢复原生无敌、联机catch-up与authority迁移、换岛卸载无重复RPC或状态残留；release zip尚未刷新。",
+      "handoff": "核心平衡能力已实机通过；2026-09-01审计发现ErrorLog.log含Troll.OnDestroy递归Stack overflow，已移除Troll/Squid/Coordinator三个私有OnDestroy钩子，改为公开OnDisable+惰性prune；最终源码SHA256=98C8BF44BFB47843DB111D17EB5B9FD4246798492FBB438008DDEE02B29698E5，Debug DLL SHA256=8CD2A9F74D0229ABEFF87357F2B8DE8659556F28108F0AA63946650D8BE68EE4，reviewer REVIEW_APPROVED。待部署后实测切岛/卸载无StackOverflow；继续验证Squid排除/CrownStealer保留、Disabled恢复、联机与authority迁移。",
       "workflow": {
         "status": "running",
         "updated_at": "2026-08-16",
@@ -1083,18 +1104,18 @@
       "status": "doing",
       "priority": "p1",
       "owner": "zcode",
-      "updated_at": "2026-08-31",
+      "updated_at": "2026-09-02",
       "dependencies": [
         "norse-squad-027"
       ],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "希腊城墙内1币激活盾墙编队（墙外站位），北境随从为兵源；与夜间目标镜像的编队成员豁免",
-      "verification": "worker交付（346行新文件+镜像豁免7行），编译0W/0E，含农田金币/银行余额/猫6只。PayableBorder.Setup postfix放置+TrySpawnShieldWall biome门prefix+prefab双兜底。build=3.5.1-dev2已部署E盘(SHA前16=d2af6b2f27a1ce56)。reviewer审核中，待实测",
-      "handoff": "用户指认机制实锤:PayableShieldWallActivator.Pay→TrySpawnActiveShieldWall(side,pos,offsetFromOuterWall);CanJoinFormation盾墙门=NpcShieldUser+HasShield(北境随从是唯一兵源);必修交互:夜间墙外目标镜像会拉盾墙成员回墙内,需IsInFormation豁免。北境小队验收后开侦查(资产per-biome/坑14池/网络)",
+      "verification": "E盘日志确认左右ActiveShieldWallTotem均已挂载；原生Knight.CanJoinFormation不限制风格，导致非北境队长可入盾墙而普通随从因缺NpcShieldUser+HasShield无法进入Shield近战。已在Greece的Active/PassiveShieldWall上仅收紧非Norse Knight；新增World.OnLevelLoaded下一帧恢复：北境风格名下非真实Archer_norselands立即走原生Promote并补盾，风格/池/RPC未就绪有界重试；worker/reviewer REVIEW_APPROVED，最新构建0W/0E，待部署实测",
+      "handoff": "原生Archer.TryRecruit在带Knight的盾墙进入AttackMode.Shield，该状态仍会近身攻击；不要以动画名不是Melee误判。加载恢复只在world-authority执行，按实际对象名+NpcShieldUser确认真北境，不手工改随从职业、盾牌或编队；需回归读档、换岛、守家交互、昼夜、分屏/联机",
       "workflow": {
-        "status": "review_requested",
-        "updated_at": "2026-08-31"
+        "status": "review_approved",
+        "updated_at": "2026-09-02"
       },
       "artifacts": {},
       "review": {
@@ -1105,19 +1126,19 @@
     {
       "id": "tower-spots-029",
       "title": "箭塔基底增密（TowerSpotMultiplier）",
-      "status": "done",
+      "status": "doing",
       "priority": "p1",
       "owner": "zcode",
-      "updated_at": "2026-08-31",
+      "updated_at": "2026-09-02",
       "dependencies": [],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "读档后按原生间距/倍数补放可购买基底；同一存档连续3次读档added=0（幂等）；买的塔持久化不复活基底",
-      "verification": "V3.5.0已发布(2026-08-31,GitHub Latest,commit 0115b9a,DLL SHA256前16=9f43d6e9946b2b85,313项39.4MB)。用户终验通过(猫/北境/塔位/散开/碰撞/蛇吐怪/助手容量)",
-      "handoff": "场景点位为关卡资产；towerLocationPrefab自包含（PayableUpgrade+Persistent+CRPCStamp），原生塔毁回退即运行时实例化先例；联机fail-closed",
+      "verification": "V3.5.0增密曾通过基础验收；后续发现部分补放塔基与建筑重叠。已复用模板ScatteredObject.AvoidOverlapWith的非Tower标签、同层/非船过滤和原生region，Spawn注册前FixedTransform.Fix；对历史未建KEM塔基加严格门禁退役。worker/reviewer REVIEW_APPROVED，构建0W/0E，E盘候选SHA前16=0C874B1DE6CBAF97，待实测清理与连续读档幂等",
+      "handoff": "保留自有Tower间距以实现增密，非Tower建筑避障沿用原生元数据。只清理自有命名、level0且Persistent/CRPC/SemiStatic完整的重叠实例；原生/已建塔基/检查异常均fail closed。需观察template scatter/retired overlap日志，并回归存读档、换岛和联机",
       "workflow": {
-        "status": "closed",
-        "updated_at": "2026-08-31"
+        "status": "review_approved",
+        "updated_at": "2026-09-02"
       },
       "artifacts": {
         "implementation": "il2cpp/PatchWorld_TowerSpots.cs"

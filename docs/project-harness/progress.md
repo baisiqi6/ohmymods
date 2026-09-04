@@ -1,3 +1,12 @@
+## 2026-09-04 — v4.0.0 正式大版本发布门禁
+
+- 发布暂停：最终静态检查发现Norse随从恢复重试缺少当前world/gameLayer、Game.Playing及Enabled复核，且待处理队列为共享静态状态。未获审查批准，不执行commit/push/tag/Release或E盘部署；详见tasks/release-400-20260904/review.md。4.0.0禁部署构建通过（0W/0E），源码/文档准备保留，E盘仍保持用户已有EFBB0B0F…候选。
+
+- 用户明确指定本次为 v4.0.0，上一正式版为 v3.5.0；最初准备的 v3.5.1 编号已撤销，尚未创建对应标签或Release。历史开发记录保留原始时间/版本证据，不代表当前公开版本。
+- 当前版本标识已统一至4.0.0，包含北境守家与加载恢复、弩炮弹速、塔基避障/局部高度、巨魔卸载清理、工具分配空候选放行、只读时钟诊断及农田币/银行余额/农舍猫增量。
+- 正在执行独立OMP审查、禁部署构建、checklist校验、干净worktree打包和最终哈希审计。禁止将存档、备份、反编译源码、旧ZIP或worker-wt-20260901加入Git。
+- 用户授权退出门禁后的E盘备份部署及path-scoped commit/push、v4.0.0 tag、GitHub Release Latest；G盘、Steam目录和存档不修改。联机、权威迁移、换岛/读档与守家边界持续验证，未逐项完成的事项不置done。
+
 ## 2026-08-31（二） — 盾墙雕像+农田币+银行余额（3.5.1-dev2 部署）
 
 - shieldwall-totem-028 worker 交付：PayableBorder.Setup postfix 挂图腾（原生级联复刻，
@@ -1193,3 +1202,32 @@
 - 2.4 Player Formation资源确认原生只有一个FleetBoat槽且该类型间距为0；候选实现只在world-authority举旗时按原生Side与完整可加入门禁快照0～4艘小船，多船间距绝对设为1。
 - 原生`TryRecruit`、`UnregisterUnit`与`OnDisable`生命周期保持主导；空船槽即时封为Gap，解除旗帜后在单位清空时恢复该Player独立捕获的原版数组。协调器仅每0.5秒检查最多4个预留槽，不改FleetBoat Side/FSM/RPC/容量。
 - 禁部署Debug构建0 warning / 0 error；源码SHA-256=`8550F056A982A7FAD570EBBC77929F65C99957F1F86993BC9D5D19DF66CEFCDF`，独立reviewer已APPROVED。游戏进程为0后，192,000-byte DLL SHA-256=`3595BEB72A7CD30871FD778F7F7FCCFBD6ED6AF36C9181AC1BFF634DBD54B3F3`已只部署到E盘独立副本，并保留部署前备份；仍需1/2/4船、N=0、离队、分屏/联机及native Hook canary回归。
+
+## 2026-09-01 — v3.5.1 crash audit：FriendlyTroll 生命周期递归修复
+
+- 审计同步到远端 `64ce116`（v3.5.1-dev4）；E 盘独立副本仍运行 dev3，未覆盖运行时 DLL。日志确认 `ErrorLog.log` 存在 `Troll.OnDestroy` 递归导致的 `Stack overflow`，与此前小岛/切岛闪退风险一致。
+- 仅移除 FriendlyTroll 补丁内三个私有 `OnDestroy` Harmony 钩子（Troll、Squid、追踪协调器），保留公开 `OnDisable` 生命周期清理；追踪 tick 增加惰性 registry prune，覆盖卸载时缺失回调而不改变目标、伤害、RPC 或对象池逻辑。
+- worker 构建 0 warning/0 error，独立 reviewer `REVIEW_APPROVED`。最终源码 SHA-256=`98C8BF44BFB47843DB111D17EB5B9FD4246798492FBB438008DDEE02B29698E5`，重新构建 Debug DLL（300,544 bytes）SHA-256=`8CD2A9F74D0229ABEFF87357F2B8DE8659556F28108F0AA63946650D8BE68EE4`。待游戏退出门禁复核后部署 E 盘，并实测切岛/卸载无 StackOverflow。
+- 同轮审计确认 FleetBoatBerth 的 `timeout-unsafe-state` 是有界等待后不写状态；SpecialTower 已做全层级诊断，当前没有可证明的低风险额外改动。FriendlyTroll identity/header 缺失仍按 fail-closed 处理，避免错误指定普通巨魔。
+
+## 2026-09-01 — v3.5.1 known-bugs audit：农民停工、夜怪迟到、空白塔基与守家图腾
+
+- 本轮不改存档、不覆盖运行中的 E 盘 DLL；ZCode 0.16.5 已确认，但 headless CLI 因用户 CLI 配置缺少 model provider 被安全阻断，四个隔离 worktree 仍保留用于后续 worker 接入。
+- `PatchPerformance_ToolAssignment` 的稀疏替换在 `eligibleDroppables==0` 时会把全部 carrier 的目标清成 null；新增放行原生分配的 fail-open 门，避免昼夜切换期间农民/农夫被整体清空到闲置聚集。
+- `PatchWorld_TowerSpots` 改用最近原生塔基的地表 Y（全岛中位数仅作回退），并仅规范化补放根对象 active 状态；新增一次性 renderer 健康日志，用于区分“无视觉子树”和“地形/Z遮挡”，不强开子渲染器。
+- `PatchPerformance_NightVolley` 新增限频 `[ClockDiag]` 只读采样（Director.currentTime/IsNight、Kingdom.isDaytime、CurrentIslandDays、Time.timeScale），用于验证农民、夜怪、存档异常是否同源时钟失配；不写入任何原生时间状态。当前 Debug 构建0 warning/0 error，候选 DLL SHA-256=`06CD4A49BDB281658C49BA880BD47FEA1B87ED4692D517D08E174EC5028175B7`（302,080 bytes）。
+- 游戏退出后已部署到 E 盘独立副本，部署 hash 与候选完全一致；旧 DLL 已备份为 `KingdomEnhancedMod.dll.before-known-bugs-20260901-230425.bak`（300,544 bytes/SHA=`70DAD3B55C0BB23FCFAE3C00B5CAD4E6557FD35FA40E881DA4BEE2698FE342F9`）。守家图腾与蛇吐怪暂未做无证据的行为放宽，下一步先采样 `[ClockDiag]`、`[TowerSpots] visual health` 及图腾付款路径，再决定最小修复。
+
+## 2026-09-02 — 弩炮弹速、守家编队与塔基避障修复候选
+
+- 实机 `[ClockDiag]` 显示昼夜状态按原生顺序推进，农民停工/夜怪迟到不是全局时钟损坏；守家雕像左右两侧均已正确挂载。混用外观的根因是原生 `Knight.CanJoinFormation` 对盾墙编队不限制北境风格，而普通骑士随从又没有 `NpcShieldUser+HasShield`，导致队长能守家、随从不能进入原生 Shield 近战状态。
+- 希腊盾墙现在只在原结果为 true 时进一步排除非北境风格 Knight；不改随从、盾牌、职业或其它编队。北境带盾弓手仍由原生 `Archer.TryRecruit` 进入 `AttackMode.Shield`，该状态包含近身攻击，不要求动画状态名必须叫 Melee。
+- 弩炮塔原生瞄准和发射共同读取 `BoltData.ShootForce`；通过 getter postfix 将其从默认20统一放大到25（×1.25），避免只改发射速度导致瞄准解与真实弹道不一致，也不修改自定义弩手。
+- 补放塔基现在复用 `ScatteredObject.AvoidOverlapWith` 的非 Tower 标签避障、同层/非船过滤和原生 overlap region；仍由自有塔间距实现增密。注册前补 `FixedTransform.Fix()`。既有未建 `KEM_TowerSpot` 若与建筑重叠，只在离线 world-authority、level0、SemiStatic/Persistent/CRPC 完整门禁下按 Deregister→DontPersist→Disable→Destroy 退役；原生塔基、已建塔和检查异常均不删除。
+- worker 静态核对与独立 reviewer 最终 `REVIEW_APPROVED`；Debug 构建0 warning/0 error。确认游戏进程为0后已部署 E 盘独立副本，DLL为306,688 bytes、SHA-256=`0C874B1DE6CBAF97C8AD686EBFA7A3733FF28DD2BB08B9017D4F1BCB1DD090A2`；部署前备份为 `KingdomEnhancedMod.dll.before-bolt-shield-tower-20260902-210000.bak`，SHA-256=`06CD4A49BDB281658C49BA880BD47FEA1B87ED4692D517D08E174EC5028175B7`。待实测弩炮弹道、1币守家成员/近战、重叠塔基清理与存读档。
+
+## 2026-09-03 — norse-follower-load-restore：读档后立即原生替换北境随从
+
+- 复核确认旧逻辑只有 `Archer.AssignJob` 和 5s `PatrolPass` 会调用真实 `Archer_norselands` `Promote`；`KnightStyle.ApplyFollowerSkinTo` 另有只改 `RuntimeAnimatorController` 的换皮路径。因此读档后的守家窗口可能出现“北境动画、无盾组件”的混合状态。
+- 新增 `World.OnLevelLoaded` 安全恢复协程：下一帧登记场上 Archer，等待 Knight 风格状态、Holder/Pool/CRPC 就绪后，在 world-authority 侧立即把北境风格骑士名下的非真实 `Archer_norselands` 随从换成原生 prefab，并调用原生 `SetShieldEnabled`；风格尚未解析、池/RPC 未就绪时最多 24 次×0.25s 有界重试，普通风格随从移出队列，客户端不写。
+- 新增 `TryGetResolvedStyleIndex` 区分“尚未解析”与“非北境”，避免恢复协程过早丢弃候选；新增一次性 `load restore summary`（converted/shieldReady/pending）诊断；保留原有 AssignJob/5s巡检作为后续招募和池复用兜底。Debug 构建0 warning/0 error，DLL 309,760 bytes、SHA-256=`EFBB0B0F98F4719280363ABAEBDBB8768758B3F8BE190F85009758DFA0A4DA26`。确认游戏进程为0后已部署 E盘；上一版已备份为 `KingdomEnhancedMod.dll.before-norse-load-restore-20260903-205511.bak`，最新部署前版本另备份为 `KingdomEnhancedMod.dll.before-norse-load-restore-diag-20260903-205643.bak`。待实测“读档即替换、盾牌/AttackMode.Shield、再次读档幂等”。
