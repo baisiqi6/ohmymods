@@ -507,6 +507,13 @@ public static class PatchWorld_TowerSpots
     {
         if (!TryGetReadyContext(world, layer, out _)) return 0;
 
+        // Stable x-order makes cleanup deterministic and keeps the older base
+        // when two historical KEM spots overlap one another.  The previous
+        // pass only compared against non-Tower native tags, so the 15 saved
+        // KEM spots at 10-unit spacing could survive while visibly intersecting
+        // each other.
+        generatedBases.Sort((a, b) => XOf(a).CompareTo(XOf(b)));
+        var keptGenerated = new List<GameObject>();
         int retired = 0;
         for (int i = 0; i < generatedBases.Count; i++)
         {
@@ -515,9 +522,31 @@ public static class PatchWorld_TowerSpots
             if (!TryGetReadyContext(world, layer, out _)) break;
             GameObject spot = generatedBases[i];
             if (spot == null || spot.transform == null) continue;
-            if (!OverlapsNativePlacement(prefab, layer,
+            bool overlaps = OverlapsNativePlacement(prefab, layer,
                 spot.transform.position.x, spot, out string blockedTag)
-                || blockedTag == "check-error") continue;
+                && blockedTag != "check-error";
+            if (!overlaps && CanRetireGeneratedBase(spot))
+            {
+                Rect candidate = GetCombinedOverlapRegion(prefab,
+                    spot.transform.position.x, false);
+                for (int k = 0; k < keptGenerated.Count; k++)
+                {
+                    GameObject previous = keptGenerated[k];
+                    if (previous == null || previous.transform == null
+                        || !CanRetireGeneratedBase(previous)) continue;
+                    Rect occupied = GetCombinedOverlapRegion(previous,
+                        previous.transform.position.x, false);
+                    if (!candidate.Overlaps(occupied)) continue;
+                    overlaps = true;
+                    blockedTag = "KEM_TowerSpot";
+                    break;
+                }
+            }
+            if (!overlaps || blockedTag == "check-error")
+            {
+                if (CanRetireGeneratedBase(spot)) keptGenerated.Add(spot);
+                continue;
+            }
 
             try
             {
@@ -546,6 +575,20 @@ public static class PatchWorld_TowerSpots
             }
         }
         return retired;
+    }
+
+    private static bool CanRetireGeneratedBase(GameObject spot)
+    {
+        try
+        {
+            Tower tower = spot != null ? spot.GetComponent<Tower>() : null;
+            Persistent persistent = spot != null ? spot.GetComponent<Persistent>() : null;
+            CRPCHeader header = NetworkPostbox.Instance != null
+                ? NetworkPostbox.Instance.GetHeaderFromObject(spot, true) : null;
+            return tower != null && tower.level == 0 && persistent != null
+                && header != null && header.HeaderType == CRPCType.SemiStatic;
+        }
+        catch { return false; }
     }
 
     private static void LogScatterMetadataOnce(GameObject prefab)
