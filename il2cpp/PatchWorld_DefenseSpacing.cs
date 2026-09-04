@@ -733,6 +733,15 @@ public static class PatchWorld_DefenseSpacing
     private const float DaySpreadCooldown = 20f; // 同单位重掷冷却（秒）
     private static readonly System.Collections.Generic.Dictionary<int, float>
         _daySpreadNextRollAt = new System.Collections.Generic.Dictionary<int, float>();
+    // Reuse bucket lists across the 3s supervisor pass.  Rebuilding a fresh
+    // Dictionary<List<int>> every pass would trade O(n²) work for periodic GC
+    // spikes on crowded islands.
+    private static readonly System.Collections.Generic.Dictionary<(int X, int Y),
+        System.Collections.Generic.List<int>> _crowdBuckets =
+        new System.Collections.Generic.Dictionary<(int X, int Y), System.Collections.Generic.List<int>>();
+    private static readonly System.Collections.Generic.List<System.Collections.Generic.List<int>>
+        _crowdBucketPool = new System.Collections.Generic.List<System.Collections.Generic.List<int>>();
+    private static int _crowdBucketCursor;
 
     private static void DayCrowdSpread(Kingdom kingdom, Archer[] archers, int count)
     {
@@ -775,8 +784,10 @@ public static class PatchWorld_DefenseSpacing
             // 人口上百时 O(n²) 的全量比较尖峰。
             int[] overlapCount = new int[n];
             int crowdedPairs = 0;
-            var buckets = new System.Collections.Generic.Dictionary<(int X, int Y),
-                System.Collections.Generic.List<int>>();
+            foreach (System.Collections.Generic.List<int> oldBucket in _crowdBucketPool)
+                oldBucket.Clear();
+            _crowdBuckets.Clear();
+            _crowdBucketCursor = 0;
             for (int i = 0; i < n; i++)
             {
                 Vector3 a = positions[i];
@@ -786,7 +797,7 @@ public static class PatchWorld_DefenseSpacing
                 {
                     for (int dyCell = -1; dyCell <= 1; dyCell++)
                     {
-                        if (!buckets.TryGetValue((cellX + dxCell, cellY + dyCell),
+                        if (!_crowdBuckets.TryGetValue((cellX + dxCell, cellY + dyCell),
                             out System.Collections.Generic.List<int> nearby)) continue;
                         for (int k = 0; k < nearby.Count; k++)
                         {
@@ -803,11 +814,18 @@ public static class PatchWorld_DefenseSpacing
                     }
                 }
 
-                if (!buckets.TryGetValue((cellX, cellY),
+                if (!_crowdBuckets.TryGetValue((cellX, cellY),
                     out System.Collections.Generic.List<int> bucket))
                 {
-                    bucket = new System.Collections.Generic.List<int>();
-                    buckets[(cellX, cellY)] = bucket;
+                    if (_crowdBucketCursor < _crowdBucketPool.Count)
+                        bucket = _crowdBucketPool[_crowdBucketCursor];
+                    else
+                    {
+                        bucket = new System.Collections.Generic.List<int>();
+                        _crowdBucketPool.Add(bucket);
+                    }
+                    _crowdBucketCursor++;
+                    _crowdBuckets[(cellX, cellY)] = bucket;
                 }
                 bucket.Add(i);
             }

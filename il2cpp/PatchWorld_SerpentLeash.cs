@@ -218,10 +218,9 @@ public static class PatchWorld_SerpentLeash
             bool normalReady = elapsed >= cooldown;
 
             // The leash adds distance only for this serpent's mouth.  Estimate
-            // the extra walk time from the farther of body/mouth to the intact
-            // right wall, clamp it below one cooldown, and consume it at most
-            // once per island day.  This shifts the first wave earlier without
-            // increasing the steady-state wave rate or affecting normal portals.
+            // the extra walk time in Unity seconds and consume it at most once
+            // per island day.  The pre-night window below converts those seconds
+            // to director game-hours before comparing with currentTime.
             int islandDay = director.CurrentIslandDays;
             int serpentId = serpent.gameObject.GetInstanceID();
             bool alreadyCompensated = _compensatedIslandDay.TryGetValue(serpentId,
@@ -235,9 +234,13 @@ public static class PatchWorld_SerpentLeash
             float extraDistance = Mathf.Max(0f, sourceX - wallX);
             float compensation = Mathf.Clamp(extraDistance / CompensationTravelSpeed,
                 0f, MaxSpawnCompensationSeconds);
+            float secondsPerGameHour = director.secondsPerInGameHour;
+            if (float.IsNaN(secondsPerGameHour) || float.IsInfinity(secondsPerGameHour)
+                || secondsPerGameHour <= 0.01f) return;
+            float compensationGameHours = compensation / secondsPerGameHour;
             bool isNight = director.IsNight;
             bool preNightWindow = !isNight
-                && director.currentTime >= NightStartTime - compensation
+                && director.currentTime >= NightStartTime - compensationGameHours
                 && director.currentTime < NightStartTime;
             bool compensatedReady = !alreadyCompensated && compensation > 0.01f
                 && elapsed >= Mathf.Max(0f, cooldown - compensation)
@@ -267,6 +270,7 @@ public static class PatchWorld_SerpentLeash
                     + " cooldown gate=" + elapsed.ToString("F1") + "/" + cooldown.ToString("F1")
                     + " extraDistance=" + extraDistance.ToString("F1")
                     + " compensation=" + compensation.ToString("F1") + "s"
+                    + " compensationGameHours=" + compensationGameHours.ToString("F2")
                     + " early=" + compensatedReady);
             }
         }

@@ -1154,7 +1154,7 @@
       "status": "doing",
       "priority": "p1",
       "owner": "zcode",
-      "updated_at": "2026-09-02",
+      "updated_at": "2026-09-05",
       "dependencies": [],
       "blocked_by": [],
       "blocked_reason": null,

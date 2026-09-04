@@ -472,6 +472,7 @@ public class BankAssistantCoordinator : MonoBehaviour
     };
     private static readonly Dictionary<int, ObservedCoin> Observed = new();
     private static readonly Dictionary<int, int> Claims = new();
+    private static readonly HashSet<int> LiveClaimIds = new();
     private static readonly HashSet<int> SeenThisScan = new();
     private static readonly List<int> RemovalBuffer = new();
     private static readonly List<ObservedCoin> MatureBuffer = new();
@@ -734,10 +735,15 @@ public class BankAssistantCoordinator : MonoBehaviour
             kingdom.campfirePosition, WORLD_SCAN_RANGE, ScanBuffer, out count, null);
 
         // No registered droppables means there is no candidate work to assign.
-        // Leave currently moving helpers alone (their per-frame transaction still
-        // completes independently), and skip all snapshot sorting/collector
-        // arbitration until the registrar reports an item again.
-        if (count <= 0) return;
+        // Still run the small ownership cleanup below: a pooled coin may have
+        // disappeared between scans, and returning here would leave its claim
+        // behind until an instance id was reused.  Skip sorting/arbitration once
+        // stale targets and claims have been retired.
+        if (count <= 0)
+        {
+            CleanupNoCandidates();
+            return;
+        }
 
         float now = Time.time;
         int ordinaryPlayerCoins = 0;
@@ -888,6 +894,40 @@ public class BankAssistantCoordinator : MonoBehaviour
         // A temporary native claim must not reset the three-second maturity clock.
         // TryFriendlyClaim remains the atomic assignment gate below.
         return true;
+    }
+
+    private static void CleanupNoCandidates()
+    {
+        LiveClaimIds.Clear();
+        for (int i = 0; i < Assistants.Length; i++)
+        {
+            AssistantState helper = Assistants[i];
+            if (helper.Target != null && !IsValidOwnedTarget(helper))
+                ReleaseTarget(helper);
+            if (!ActiveCollector[i] && helper.Target != null)
+                ReleaseTarget(helper);
+
+            if (ActiveCollector[i] && helper.Target == null)
+            {
+                if (helper.CarriedCoins > 0) TeleportHomeAndDeposit(helper);
+                DeactivateCollector(i);
+            }
+
+            if (ActiveCollector[i] && helper.Target != null)
+                LiveClaimIds.Add(helper.Target.gameObject.GetInstanceID());
+        }
+
+        RemovalBuffer.Clear();
+        foreach (KeyValuePair<int, int> pair in Claims)
+        {
+            if (!LiveClaimIds.Contains(pair.Key)) RemovalBuffer.Add(pair.Key);
+        }
+        for (int i = 0; i < RemovalBuffer.Count; i++) Claims.Remove(RemovalBuffer[i]);
+
+        Observed.Clear();
+        MatureBuffer.Clear();
+        SweepPolicies.Clear();
+        FarmOriginCoinIds.Clear();
     }
 
     private static int CompareCoinsDeterministically(DroppableCurrency left, DroppableCurrency right)
