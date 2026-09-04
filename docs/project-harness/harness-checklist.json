@@ -4,6 +4,24 @@
   "updated_at": "2026-09-04",
   "items": [
     {
+      "id": "norse-follower-style-20260905",
+      "title": "修复非北境骑士随从被误换成北境外观",
+      "selected_in_session": "codex-20260905-norse-follower-style",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-05",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "只有真正的北境随从保留北境外观和盾牌；中世纪、死地、幕府、希腊骑士的随从保持各自风格；读档、换岛、分屏与联机不产生重复转换。",
+      "verification": "E盘日志显示 88 名有骑士归属的随从中 84 名被误判为北境；根因是仅检查盾牌组件。修复改为原生对象池身份核对；独立审查 APPROVED，Debug 构建 0 warning/0 error。待退出游戏后部署并实机回归。",
+      "handoff": "用户退出后部署最终 DLL，重点观察五种骑士风格对应随从外观、盾牌和换岛/读档幂等。",
+      "workflow": { "status": "review_approved", "updated_at": "2026-09-05" },
+      "artifacts": { "code": "il2cpp/PatchRoles_NorseSquad.cs", "related": "il2cpp/PatchRoles_KnightStyle.cs" },
+      "review": { "decision": "approved" }
+    },
+    {
       "id": "release-400-20260904",
       "title": "v4.0.0 正式大版本发布（承接 v3.5.0）",
       "selected_in_session": "codex-release-400-20260904",
@@ -15,7 +33,7 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "最终静态审查、0 warning/0 error构建、checklist校验、干净提交打包、E盘退出备份部署与哈希核对、push、tag v4.0.0、GitHub Release Latest；不得发布存档、备份、参考源码或worker目录。",
-      "verification": "v4.0.0 source commit 0b71a52734b787e30105ae8570adaf4f00a337e5; clean detached Debug build 0 warning/0 error; DLL SHA256 B0BFCD68B293D6E128F708308C05FB72D5E8CE193F57E27CF41FB18053767466, 312320 bytes; package 313 entries SHA256 FEA5E0CEA6C7ED92ECE907A9A947C078EAC56A11FD100FD347ABF75CCDA9025B; E DLL hash matches; backup hash preserved; GitHub Release v4.0.0 Latest published.",
+      "verification": "Correction 2026-09-04 23:55 +08:00: previous E deployment remained at 06f98f9 (SHA256 5B55E669229CE09193138BEFAF9DD5B24093DC470F9774165387322882A48A5A); the earlier E hash-equality claim was incorrect. After game-exit checks, installed the exact DLL from the canonical final ZIP (manifest commit 7fb005c996c664b6672985203d21b00318320d2e). ZIP SHA256 C413BCBD587DEED4D8A090FC3F5C12FA94899D7E520ADCFAAB843481BD04B169; embedded and deployed DLL SHA256 1DB33FD50487AC392E17CE5E0CB121581B2B57C092F3B066A426D76D9A315C73, 312320 bytes. New backup and atomic replacement rollback hashes equal the old DLL. See deployment receipt; runtime acceptance remains pending.",
       "handoff": "联机、权威迁移、换岛、读档与守家编队边界继续由用户实测。历史v351任务目录仅保留开发证据；当前公开版本统一4.0.0。",
       "workflow": {
         "status": "closed",

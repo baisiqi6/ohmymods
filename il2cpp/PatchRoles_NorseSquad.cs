@@ -440,7 +440,10 @@ public static class PatchRoles_NorseSquad
         }
     }
 
-    private static bool IsNorseArcherInstance(Archer archer)
+    // Authoritative identity check for a real Northlands archer.  A shield
+    // component alone is not sufficient: other biome archers may carry the
+    // same component for unrelated combat behavior.
+    internal static bool IsNorseArcherInstance(Archer archer)
     {
         try
         {

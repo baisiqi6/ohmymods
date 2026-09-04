@@ -825,7 +825,7 @@ public static class PatchRoles_KnightStyle
             if (state.StyleIndex != NorseStyleIndex
                 && SoldierControllers[NorseStyleIndex] != null
                 && archer != null
-                && archer.GetComponent<NpcShieldUser>() != null)
+                && PatchRoles_NorseSquad.IsNorseArcherInstance(archer))
                 return NorseStyleIndex;
             return state.StyleIndex;
         }
