@@ -7,7 +7,7 @@
       "id": "release-400-20260904",
       "title": "v4.0.0 正式大版本发布（承接 v3.5.0）",
       "selected_in_session": "codex-release-400-20260904",
-      "status": "done",
+      "status": "closed",
       "priority": "p1",
       "owner": "codex",
       "updated_at": "2026-09-04",
@@ -18,7 +18,7 @@
       "verification": "v4.0.0 source commit 0b71a52734b787e30105ae8570adaf4f00a337e5; clean detached Debug build 0 warning/0 error; DLL SHA256 B0BFCD68B293D6E128F708308C05FB72D5E8CE193F57E27CF41FB18053767466, 312320 bytes; package 313 entries SHA256 FEA5E0CEA6C7ED92ECE907A9A947C078EAC56A11FD100FD347ABF75CCDA9025B; E DLL hash matches; backup hash preserved; GitHub Release v4.0.0 Latest published.",
       "handoff": "联机、权威迁移、换岛、读档与守家编队边界继续由用户实测。历史v351任务目录仅保留开发证据；当前公开版本统一4.0.0。",
       "workflow": {
-        "status": "released",
+        "status": "closed",
         "updated_at": "2026-09-04"
       },
       "artifacts": {
