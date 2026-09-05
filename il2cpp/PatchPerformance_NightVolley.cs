@@ -29,6 +29,11 @@ public static class PatchPerformance_NightVolley
     private const float SlowFrameMs = 25f;
 
     private static IntPtr _probeWorld;
+    // OnLevelLoaded can be raised more than once while a scene is settling and
+    // the wrapper pointer is not guaranteed to be stable across those raises.
+    // A generation token lets the newest probe retire every older coroutine at
+    // its next yield, so diagnostics never accumulate across reloads.
+    private static int _probeGeneration;
     private static float _nextSampleAt;
     private static float _frameSum;
     private static float _frameMax;
@@ -50,21 +55,39 @@ public static class PatchPerformance_NightVolley
     private static System.Collections.Generic.HashSet<string> _loggedBands
         = new System.Collections.Generic.HashSet<string>();
 
-    internal static IEnumerator ProbeRoutine(World world)
+    internal static bool TryStartProbe(World world, out int generation)
     {
-        if (world == null || _probeWorld == world.Pointer) yield break;
-        _probeWorld = world.Pointer;
+        generation = 0;
+        if (world == null) return false;
+
+        IntPtr pointer;
+        try { pointer = world.Pointer; }
+        catch { return false; }
+        if (pointer == IntPtr.Zero || _probeWorld == pointer) return false;
+
+        _probeWorld = pointer;
+        generation = unchecked(++_probeGeneration);
         _loggedBands.Clear();
         _nextSampleAt = 0f;
+        _frameSum = 0f;
+        _frameMax = 0f;
+        _frameCount = 0;
         _dawnFrameSum = 0f;
         _dawnFrameMax = 0f;
         _dawnFrameCount = 0;
         _nextClockSampleAt = 0f;
         _clockStateInitialized = false;
         _lastClockDay = -1;
+        return true;
+    }
+
+    internal static IEnumerator ProbeRoutine(World world, int generation)
+    {
+        if (!IsCurrentProbe(world, generation)) yield break;
         while (world != null && world.gameObject != null)
         {
             yield return null;
+            if (!IsCurrentProbe(world, generation)) yield break;
             if (!ModConfig.Enabled.Value) continue;
 
             EmitClockSample();
@@ -97,6 +120,16 @@ public static class PatchPerformance_NightVolley
                 KingdomEnhancedPlugin.Instance?.LogSource.LogError("[DefensePerf] " + e);
             }
         }
+    }
+
+    private static bool IsCurrentProbe(World world, int generation)
+    {
+        try
+        {
+            return world != null && generation == _probeGeneration
+                && _probeWorld == world.Pointer;
+        }
+        catch { return false; }
     }
 
     /// <summary>
@@ -225,8 +258,10 @@ public static class World_NightVolley_Probe_Host_Patch
         if (!ModConfig.Enabled.Value || __instance == null) return;
         try
         {
+            if (!PatchPerformance_NightVolley.TryStartProbe(__instance, out int generation))
+                return;
             __instance.StartCoroutine(
-                PatchPerformance_NightVolley.ProbeRoutine(__instance).WrapToIl2Cpp());
+                PatchPerformance_NightVolley.ProbeRoutine(__instance, generation).WrapToIl2Cpp());
         }
         catch (Exception e)
         {
