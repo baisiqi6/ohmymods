@@ -7,7 +7,7 @@
       "id": "release-450-20260906",
       "title": "v4.5.0完整安装包与GitHub发布",
       "selected_in_session": "codex-release-450-20260906",
-      "status": "doing",
+      "status": "done",
       "priority": "p1",
       "owner": "codex",
       "updated_at": "2026-09-06",
@@ -15,16 +15,19 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "版本号/build/tag/ZIP一致；全量运行时与loader完整；干净提交构建；ZIP CRC、DLL版本哈希和manifest核验；GitHub资产digest与本地一致；不含个人配置/日志/存档/备份。",
-      "verification": "用户反馈当前游玩未见异常并要求发布4.5。代码基于已启动测试版，Version/build=4.5.0；复核另修复幕府OnDisable清理的Enabled门控（仅一行，不改Update/战斗数值）；0W/0E，日历95702断言、骑士27场景、弩手9场景1462断言通过；Cecil确认4.5.0及无危险Dispose patch。独立release review和最终package/publish待完成。",
-      "handoff": "按tasks/release-450-20260906/plan.md完成scoped commit、clean worktree构建打包、远端新tag和Release资产核验；不改master/旧tag，不覆盖游戏运行中DLL。",
+      "verification": "用户授权4.5发布；ZCode GLM-5.3复核PASS，修复幕府禁用清理门控；clean commit c2032185a5bc213f085a5831abedbbaacfab8b36构建0W/0E；日历95702断言/骑士27场景/弩手9场景1462断言。ZIP313项CRC/allowlist/manifest/metadata校验通过；实际包内DLL受控启动48.4秒并恢复场景，存档hash一致。GitHub stable Latest v4.5.0，remote asset SHA256 658c68074e6a618e0eb78b4a8b6a7618b77bbddf71260dd90e25774f43539e06 与release本地包完全相同。",
+      "handoff": "发布完成。玩家使用release/KingdomEnhancedMod_v4.5.0_IL2CPP.zip完整解压到exe同级；E本机已为同一发布DLL AA4B1959...。后续联机/换岛/长期性能反馈在原功能任务跟进，不覆盖此tag或release资产。",
       "artifacts": {
         "plan": "docs/project-harness/tasks/release-450-20260906/plan.md",
         "notes": "release/MOD_V4.5.0版本更新说明.txt",
-        "review": "docs/project-harness/tasks/release-450-20260906/review.md"
+        "review": "docs/project-harness/tasks/release-450-20260906/review.md",
+        "publication": "docs/project-harness/tasks/release-450-20260906/publication.md",
+        "package": "docs/project-harness/tasks/release-450-20260906/package-receipt.json",
+        "startup": "docs/project-harness/tasks/release-450-20260906/startup-deployment.json"
       },
       "review": {
         "decision": "approved",
-        "notes": "ZCode GLM-5.3复核PASS；P1证据误判已撤销，幕府清理一行修复已确认。最终clean build/startup/package/remote gates由operator执行。"
+        "notes": "ZCode GLM-5.3复核PASS；P1证据误判已撤销，幕府清理一行修复已确认。最终clean build/startup/package/remote gates由operator执行。 Operator已完成最终clean build、exact-package启动、ZIP验证和远端digest核验。"
       }
     },
     {

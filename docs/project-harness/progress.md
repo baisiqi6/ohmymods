@@ -1,3 +1,7 @@
+## 2026-09-06 — v4.5.0已正式发布
+
+完整包已生成到release并发布为GitHub Latest：https://github.com/baisiqi6/ohmymods/releases/tag/v4.5.0。clean source commit `c2032185a5bc213f085a5831abedbbaacfab8b36`，ZIP SHA256 `658c68074e6a618e0eb78b4a8b6a7618b77bbddf71260dd90e25774f43539e06`，远端digest一致；E本机DLL为`aa4b1959c16e1dbbdcc5546437f559725e029ba4386b456a55ad6c5b09e3bd8a`。包内DLL已受控启动并恢复场景，存档哈希未变；源码版本/启动build戳一致，另外补了幕府关闭Mod后的回收清理门控。用户已反馈一般游玩正常；联机等专项检查继续doing。发布记录见tasks/release-450-20260906/publication.md。
+
 ## 2026-09-06 — v4.5.0发布准备
 
 用户正常游玩反馈后授权发布当前版本为4.5。只更新版本元数据，保留8390AF已测候选全部游戏逻辑；同步完整玩家说明并将现有骑士/弩手回归移入tests。canonical构建0W/0E；日历95702断言、骑士27场景、弩手9场景1462断言通过。发布审核/clean-worktree包/远端digest核验待完成；未宣称全部联机已测。

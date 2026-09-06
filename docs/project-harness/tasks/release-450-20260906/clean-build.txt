@@ -1,0 +1,9 @@
+  正在确定要还原的项目…
+  已还原 C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\release-450-clean\il2cpp\KingdomEnhancedMod.csproj (用时 5.4 秒)。
+  KingdomEnhancedMod -> C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\release-450-clean\il2cpp\bin\Debug\KingdomEnhancedMod.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:07.32

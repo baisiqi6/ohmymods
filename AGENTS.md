@@ -57,7 +57,7 @@
 ## 常用路径
 
 ### 2026-09-06 启动事故临时门禁
-- E测试副本现为已通过受控启动的修复版8390AF...（14:58），canonical已同步强root取消守卫；此前A9回退和DB诊断为历史。不得重新引入共享Dispose钩子。玩法/联机仍待实测，见`docs/project-harness/tasks/startup-crash-20260906/incident.md`。
+- E测试副本现为正式v4.5.0包内DLL AA4B1959...（15:56已通过受控启动），发布commit c203218，canonical同步强root取消守卫和幕府禁用清理修复。此前8390AF/A9/DB部署为历史；不得重新引入共享Dispose钩子。发布记录见`docs/project-harness/tasks/release-450-20260906/publication.md`；联机等边界仍待实测。
 - 检查IL2CPP编译器生成的Dispose等短方法时，managed wrapper名字唯一不等于原生地址唯一；未核实地址折叠前不要把其detour视为已安全验收。
 - WindowsPowerShell5.1不要把`Get-Content -Raw`/原始Provider对象直接放入高Depth的ConvertTo-Json；改用`[IO.File]::ReadAllText`与显式纯值投影，输出有界。事故进程有8.28GB提交量；不要重跑该脚本压测。
 

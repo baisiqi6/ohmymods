@@ -514,3 +514,6 @@ Knight被玩家操控时_wallet指向玩家，数值强化只可写验证同GO�
 取消守卫不能仅超时删除或使用有限墓碑/grace环：旧owner可在记录消失后迟到恢复。强wrapper持有真实native GC handle，先state=-1再移除；Prefix早拒绝终止态。OnDisable可能在原生MoveNext中重入，原生返回前仍可能写state=1，需逐调用__state.Retired让postfix再次终止并ref result=false。测试须实际计数body调用并模拟尾部写入，不能把旧owner恢复当作通过。
 
 发布版本号变更应对比已实测候选的全部编译输入，明确只有Version/build stamp差异；干净提交的构建包必须核验plugin metadata、CRC、manifest与远端asset digest，不能只修改ZIP文件名。
+
+
+配置总开关不能挡住已经生效过的效果回收。幕府OnDisable保留null和自有Active/NextScan判定，但不读Enabled；发布时核验实际包内DLL的该路径，并用同一DLL做启动检查再上传。
