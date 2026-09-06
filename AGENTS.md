@@ -56,6 +56,11 @@
 
 ## 常用路径
 
+### 2026-09-06 启动事故临时门禁
+- E测试副本现为已通过受控启动的修复版8390AF...（14:58），canonical已同步强root取消守卫；此前A9回退和DB诊断为历史。不得重新引入共享Dispose钩子。玩法/联机仍待实测，见`docs/project-harness/tasks/startup-crash-20260906/incident.md`。
+- 检查IL2CPP编译器生成的Dispose等短方法时，managed wrapper名字唯一不等于原生地址唯一；未核实地址折叠前不要把其detour视为已安全验收。
+- WindowsPowerShell5.1不要把`Get-Content -Raw`/原始Provider对象直接放入高Depth的ConvertTo-Json；改用`[IO.File]::ReadAllText`与显式纯值投影，输出有界。事故进程有8.28GB提交量；不要重跑该脚本压测。
+
 | 项 | 路径 |
 |---|---|
 | IL2CPP 开发环境 | `E:/QQ/QQ下载文件/Kingdom Two Crowns (1)/Kingdom Two Crowns` |

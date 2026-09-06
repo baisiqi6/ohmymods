@@ -1,0 +1,98 @@
+{
+  "label": "no-dispose",
+  "start": "2026-09-06T14:46:31.5197207+08:00",
+  "end": "2026-09-06T14:47:05.6957257+08:00",
+  "pid": 18660,
+  "reason": "test deadline reached",
+  "dll": "DB5542B1E83BDE3E1F2A1388F2EAA0F9DBA7B7B1C0FD33E695C399E3FF048B76",
+  "previousDll": "A9B115D201889A56C045A14F859C03E1EB662374651334B723C562E0471CEC04",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-no-dispose-20260906-144631-373.bak",
+  "saveBefore": "FAC4F3803451CEFC4A94CA76D963CAF02CAA659CDABFB778FD8111A28FCDDF46",
+  "saveAfter": "FAC4F3803451CEFC4A94CA76D963CAF02CAA659CDABFB778FD8111A28FCDDF46",
+  "samples": [
+    {
+      "seconds": 2.3,
+      "privateBytes": 522776576,
+      "freeCommitBytes": 25278963712,
+      "responding": true
+    },
+    {
+      "seconds": 6.6,
+      "privateBytes": 1043578880,
+      "freeCommitBytes": 24668090368,
+      "responding": true
+    },
+    {
+      "seconds": 8.9,
+      "privateBytes": 1044549632,
+      "freeCommitBytes": 24720842752,
+      "responding": true
+    },
+    {
+      "seconds": 11.2,
+      "privateBytes": 1902231552,
+      "freeCommitBytes": 23821365248,
+      "responding": true
+    },
+    {
+      "seconds": 13.5,
+      "privateBytes": 2175315968,
+      "freeCommitBytes": 23589937152,
+      "responding": true
+    },
+    {
+      "seconds": 15.7,
+      "privateBytes": 2175590400,
+      "freeCommitBytes": 23642423296,
+      "responding": true
+    },
+    {
+      "seconds": 18.0,
+      "privateBytes": 2175619072,
+      "freeCommitBytes": 23657164800,
+      "responding": true
+    },
+    {
+      "seconds": 20.3,
+      "privateBytes": 2175635456,
+      "freeCommitBytes": 24191139840,
+      "responding": true
+    },
+    {
+      "seconds": 22.6,
+      "privateBytes": 2175131648,
+      "freeCommitBytes": 24431689728,
+      "responding": true
+    },
+    {
+      "seconds": 24.9,
+      "privateBytes": 2175840256,
+      "freeCommitBytes": 24417308672,
+      "responding": true
+    },
+    {
+      "seconds": 27.2,
+      "privateBytes": 2175864832,
+      "freeCommitBytes": 24342355968,
+      "responding": true
+    },
+    {
+      "seconds": 29.4,
+      "privateBytes": 2175836160,
+      "freeCommitBytes": 24438960128,
+      "responding": true
+    },
+    {
+      "seconds": 31.7,
+      "privateBytes": 2175762432,
+      "freeCommitBytes": 24440901632,
+      "responding": true
+    },
+    {
+      "seconds": 34.0,
+      "privateBytes": 2175836160,
+      "freeCommitBytes": 24444960768,
+      "responding": true
+    }
+  ]
+}

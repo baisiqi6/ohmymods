@@ -22,12 +22,14 @@ public static class PopulationPerformanceApplyPatch
 /// </summary>
 public sealed class PopulationPerformanceCoordinator : MonoBehaviour
 {
-    internal const int CampCapacity = 5;
-    internal const float FallbackSpawnInterval = 1f;
+    private static int CampCapacity = 5;
+    private static float ReplenishPeriod = 6f;
+    // Native SlowUpdate adds five seconds after its spawnInterval wait.
+    // Keep a positive native wait: fallback cadence is max(6, configured seconds).
+    private static float FallbackSpawnInterval => Mathf.Max(1f, ReplenishPeriod - 5f);
 
     private const float ReconcileInterval = 0.5f;
     private const float StableDelay = 3f;
-    private const float ReplenishPeriod = 6f;
 
     private sealed class CampProfile
     {
@@ -57,20 +59,9 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
         public bool Seen;
     }
 
-    private sealed class CleanupCandidate
-    {
-        public Beggar Beggar;
-        public IntPtr Pointer;
-        public int InstanceId;
-        public int NetId;
-        public int Epoch;
-        public CampState Camp;
-    }
-
     private enum Phase
     {
         Waiting,
-        Cleaning,
         Complete,
         Suspended,
         Faulted
@@ -80,7 +71,6 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
     private static readonly Dictionary<IntPtr, CampState> Camps = new();
     private static readonly Dictionary<IntPtr, Ownership> Owners = new();
     private static readonly Dictionary<IntPtr, int> BeggarEpochs = new();
-    private static readonly List<CleanupCandidate> Cleanup = new();
     private static readonly List<IntPtr> ScratchKeys = new();
     private static readonly HashSet<IntPtr> SpawnBefore = new();
 
@@ -100,12 +90,6 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
     private static float _nextReconcileAt;
     private static float _retryAt;
     private static float _awaitSceneUntil;
-    private static int _cleanupIndex;
-    private static int _cleanupBefore;
-    private static int _cleanupAssigned;
-    private static int _cleanupProtected;
-    private static int _cleanupRemoved;
-    private static int _cleanupSkipped;
     private static bool _faultLogged;
     private static bool _spawnFailureLogged;
 
@@ -135,6 +119,8 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
     internal static void ConfigureCamp(BeggarCamp camp)
     {
         if (!IsObjectValid(camp)) return;
+        // Awake runs on the main thread; seed persisted values even if attachment fails.
+        RefreshSettings();
         CaptureProfile(camp);
         if (!TryEnsureAttached())
         {
@@ -180,6 +166,7 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
 
     internal static void BeginScene(CampaignSaveData campaign)
     {
+        RefreshSettings();
         if (!TryEnsureAttached())
         {
             RestoreFallbackProfiles();
@@ -208,16 +195,12 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
         _phase = Phase.Waiting;
         _stableAt = Time.time + StableDelay;
         _nextReconcileAt = Time.time;
-        _cleanupIndex = 0;
-        _cleanupRemoved = 0;
-        _cleanupSkipped = 0;
         _faultLogged = false;
         _spawnFailureLogged = false;
         _awaitSceneUntil = 0f;
         Camps.Clear();
         Owners.Clear();
         BeggarEpochs.Clear();
-        Cleanup.Clear();
     }
 
     private static bool TryEnsureAttached()
@@ -260,6 +243,14 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
 
         try
         {
+            // Settings are read on the Unity thread at the existing reconciliation cadence.
+            bool reconcileDue = Time.time >= _nextReconcileAt;
+            if (reconcileDue)
+            {
+                _nextReconcileAt = Time.time + ReconcileInterval;
+                RefreshSettings();
+            }
+
             if (!ModConfig.Enabled.Value)
             {
                 RestoreOriginalProfiles();
@@ -289,7 +280,7 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
                 return;
             }
 
-            // Native Haglet waits use scaled game time. Do not clean or replenish while the
+            // Native Haglet waits use scaled game time. Do not replenish while the
             // pause/menu time scale is zero.
             if (Time.timeScale <= 0f) return;
 
@@ -307,26 +298,17 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
                 _stableAt = Time.time + StableDelay;
             }
 
-            if (Time.time >= _nextReconcileAt)
+            if (reconcileDue)
             {
-                _nextReconcileAt = Time.time + ReconcileInterval;
                 ReconcileOwnership();
                 ConfigureCurrentCampsForCentralMode();
             }
 
-            switch (_phase)
+            if (_phase == Phase.Waiting && Time.time >= _stableAt && NetworkReady())
             {
-                case Phase.Waiting:
-                    if (Time.time >= _stableAt && NetworkReady())
-                    {
-                        ReconcileOwnership();
-                        _phase = Phase.Cleaning;
-                        BuildCleanupQueue();
-                    }
-                    break;
-                case Phase.Cleaning:
-                    ProcessOneCleanup();
-                    break;
+                ReconcileOwnership();
+                // Capacity limits future spawning only. Never despawn excess loaded NPCs.
+                _phase = Phase.Complete;
             }
 
             if (_phase != Phase.Suspended && _phase != Phase.Faulted)
@@ -341,7 +323,8 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
             {
                 _faultLogged = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
-                    "[Population] governor failed; fallback=5/1 error="
+                    "[Population] governor failed; fallback capacity=" + CampCapacity
+                    + " cadence=" + (FallbackSpawnInterval + 5f) + " error="
                     + e.GetType().Name);
             }
         }
@@ -602,154 +585,16 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
             "[Population] replenish deferred: " + reason);
     }
 
-    private static void BuildCleanupQueue()
+    private static void RefreshSettings()
     {
-        Cleanup.Clear();
-        _cleanupIndex = 0;
-        _cleanupRemoved = 0;
-        _cleanupSkipped = 0;
-        _cleanupBefore = Owners.Count;
-        _cleanupAssigned = 0;
-        _cleanupProtected = 0;
-
-        foreach (CampState camp in Camps.Values)
-        {
-            var protectedOwners = new List<Ownership>();
-            var safeOwners = new List<Ownership>();
-            foreach (Ownership owner in Owners.Values)
-            {
-                if (owner.Camp != camp || !owner.Seen) continue;
-                _cleanupAssigned++;
-                if (IsProtected(owner.Beggar)) protectedOwners.Add(owner);
-                else safeOwners.Add(owner);
-            }
-
-            _cleanupProtected += protectedOwners.Count;
-            safeOwners.Sort((a, b) =>
-            {
-                float ax = Mathf.Abs(a.Beggar.transform.position.x
-                    - camp.Profile.Camp.transform.position.x);
-                float bx = Mathf.Abs(b.Beggar.transform.position.x
-                    - camp.Profile.Camp.transform.position.x);
-                int compare = ax.CompareTo(bx);
-                return compare != 0 ? compare : a.Pointer.ToInt64().CompareTo(b.Pointer.ToInt64());
-            });
-
-            int safeKeep = Mathf.Max(0, CampCapacity - protectedOwners.Count);
-            for (int i = safeKeep; i < safeOwners.Count; i++)
-            {
-                Ownership owner = safeOwners[i];
-                Cleanup.Add(new CleanupCandidate
-                {
-                    Beggar = owner.Beggar,
-                    Pointer = owner.Pointer,
-                    InstanceId = owner.InstanceId,
-                    NetId = owner.NetId,
-                    Epoch = owner.Epoch,
-                    Camp = camp
-                });
-            }
-        }
-
-        if (Cleanup.Count == 0) FinishCleanup();
-    }
-
-    private static void ProcessOneCleanup()
-    {
-        if (_cleanupIndex >= Cleanup.Count)
-        {
-            FinishCleanup();
-            return;
-        }
-
-        CleanupCandidate candidate = Cleanup[_cleanupIndex++];
-        if (!NetworkBigBoss.HasWorldAuth || !NetworkReady()
-            || !ValidateScene() || !CanDespawnCandidate(candidate))
-        {
-            _cleanupSkipped++;
-            return;
-        }
-
-        ReconcileOwnership();
-        if (!Owners.TryGetValue(candidate.Pointer, out Ownership owner)
-            || owner.InstanceId != candidate.InstanceId || owner.Epoch != candidate.Epoch
-            || (owner.NetId != int.MinValue && candidate.NetId != int.MinValue
-                && owner.NetId != candidate.NetId)
-            || owner.Camp != candidate.Camp
-            || candidate.Camp.Owned <= CampCapacity || IsProtected(candidate.Beggar))
-        {
-            _cleanupSkipped++;
-            return;
-        }
-
-        try
-        {
-            Pool.Despawn(candidate.Beggar.gameObject, true);
-            Owners.Remove(candidate.Pointer);
-            candidate.Camp.Owned = Mathf.Max(0, candidate.Camp.Owned - 1);
-            _cleanupRemoved++;
-        }
-        catch
-        {
-            _cleanupSkipped++;
-        }
-    }
-
-    private static bool CanDespawnCandidate(CleanupCandidate candidate)
-    {
-        Beggar beggar = candidate.Beggar;
-        if (beggar == null || beggar.Pointer != candidate.Pointer
-            || beggar.gameObject == null
-            || !beggar.gameObject.activeInHierarchy
-            || beggar.gameObject.GetInstanceID() != candidate.InstanceId
-            || GetBeggarEpoch(candidate.Pointer) != candidate.Epoch
-            || (candidate.NetId != int.MinValue && GetBeggarNetId(beggar) != candidate.NetId)
-            || !IsCurrentSceneBeggar(beggar) || IsProtected(beggar)) return false;
-        Pool pool = Pool.GetPoolFromPrefabInstance(beggar.gameObject);
-        if (pool == null || !pool.sync) return false;
-        if (NetworkBigBoss.IsOnline)
-        {
-            if (beggar.parentHeaderRef == null || NetworkPostbox.Instance == null) return false;
-            CRPCHeader header = NetworkPostbox.Instance.GetHeaderFromDynamicObject(
-                beggar.gameObject, false);
-            if (header == null || header.NetID != beggar.parentHeaderRef.NetID) return false;
-        }
-        return true;
-    }
-
-    private static bool IsProtected(Beggar beggar)
-    {
-        if (beggar == null || !IsCurrentSceneBeggar(beggar)) return true;
-        try
-        {
-            return beggar.settler || beggar._baker != null || beggar._isEating
-                || beggar.ShouldPlayerControl() || beggar.DespawnOnLoad
-                || beggar._character == null || beggar._character.grabbed
-                || beggar._character.inert
-                || (beggar._petrifiable != null && beggar._petrifiable.IsPetrified)
-                || !HasSafeDespawnIdentity(beggar);
-        }
-        catch { return true; }
-    }
-
-    private static void FinishCleanup()
-    {
-        ReconcileOwnership();
-        int residual = 0;
-        foreach (CampState camp in Camps.Values)
-            residual += Mathf.Max(0, camp.Owned - CampCapacity);
-
-        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-            "[PopulationCleanup] before=" + _cleanupBefore
-            + " assigned=" + _cleanupAssigned
-            + " protected=" + _cleanupProtected
-            + " removed=" + _cleanupRemoved
-            + " skipped=" + _cleanupSkipped
-            + " residual=" + residual
-            + " camps=" + Camps.Count);
-
-        Cleanup.Clear();
-        _phase = Phase.Complete;
+        int capacity = Mathf.Clamp(ModConfig.BeggarCampCapacity?.Value ?? 5, 1, 20);
+        int seconds = Mathf.Clamp(ModConfig.BeggarSpawnIntervalSeconds?.Value ?? 6, 1, 120);
+        if (capacity == CampCapacity && seconds == ReplenishPeriod) return;
+        CampCapacity = capacity;
+        ReplenishPeriod = seconds;
+        // Moving either slider starts one new interval; no catch-up burst or deletion.
+        float next = Time.time + ReplenishPeriod;
+        foreach (CampState state in Camps.Values) state.NextSpawnAt = next;
     }
 
     private static bool IsRegisteredCamp(BeggarCamp camp)
@@ -841,24 +686,11 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
         return epoch;
     }
 
-    private static bool HasSafeDespawnIdentity(Beggar beggar)
-    {
-        if (beggar == null || beggar.gameObject == null) return false;
-        Pool pool = Pool.GetPoolFromPrefabInstance(beggar.gameObject);
-        if (pool == null || !pool.sync) return false;
-        if (!NetworkBigBoss.IsOnline) return true;
-        if (beggar.parentHeaderRef == null || NetworkPostbox.Instance == null) return false;
-        CRPCHeader header = NetworkPostbox.Instance.GetHeaderFromDynamicObject(
-            beggar.gameObject, false);
-        return header != null && header.NetID == beggar.parentHeaderRef.NetID;
-    }
-
     private static void SuspendWork()
     {
         _phase = Phase.Suspended;
         Camps.Clear();
         Owners.Clear();
-        Cleanup.Clear();
         SpawnBefore.Clear();
         BeggarEpochs.Clear();
     }
@@ -868,7 +700,6 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
         _phase = phase;
         Camps.Clear();
         Owners.Clear();
-        Cleanup.Clear();
         SpawnBefore.Clear();
         BeggarEpochs.Clear();
         _campaign = null;

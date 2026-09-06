@@ -13,6 +13,9 @@ public static class ModConfig
     public static ConfigEntry<bool> InfiniteMoney;
     public static ConfigEntry<int> SpeedMultiplier;
     public static ConfigEntry<bool> FastBuild;
+    public static ConfigEntry<bool> ShowCalendarHud;
+    public static ConfigEntry<int> BeggarSpawnIntervalSeconds;
+    public static ConfigEntry<int> BeggarCampCapacity;
     public static ConfigEntry<float> MapSizeMultiplier;
     public static ConfigEntry<float> TowerSpotMultiplier;
     public static ConfigEntry<float> EnemyCountMultiplier;
@@ -30,6 +33,9 @@ public static class ModConfig
 
         SpeedMultiplier = config.Bind("Player", "SpeedMultiplier", 2,
             "君主移动速度倍率（1-5x）");
+
+        ShowCalendarHud = config.Bind("Display", "ShowCalendarHud", false,
+            "常驻时间显示：总天数、整点、季节图标、季内天数和下一季开始日；只读游戏时间");
 
         FastBuild = config.Bind("Build", "FastBuild", false,
             "快速建造：建筑约 2 秒建成");
@@ -59,6 +65,14 @@ public static class ModConfig
         SteedCooldownMultiplier = config.Bind("Cooldown", "SteedCooldownMultiplier", 1.0f,
             "坐骑技能CD倍率（0.2=最短，为原生1/5；1.0=原生）");
 
+        BeggarSpawnIntervalSeconds = config.Bind("Population", "BeggarSpawnIntervalSeconds", 6,
+            new ConfigDescription("乞丐刷新间隔（游戏秒，1-120）；正常协调器按此间隔补员，原生回退最短约6秒",
+                new AcceptableValueRange<int>(1, 120)));
+        BeggarCampCapacity = config.Bind("Population", "BeggarCampCapacity", 5,
+            new ConfigDescription("每个帐篷的补员上限（1-20）；仅影响后续刷新，降低上限或读档不删除已有乞丐",
+                new AcceptableValueRange<int>(1, 20)));
+
+        // 人口设置由中央协调器在主线程的现有0.5秒核对周期读取，不订阅Unity事件。
         // 接线无限金币（2.4.0 Wallet.InfiniteMoney 为 public static 属性）：
         // 配置改动即时生效 + 启动应用初值。Mono 版由 OnGUI toggle 驱动，此处等价迁移。
         InfiniteMoney.SettingChanged += OnInfiniteMoneyChanged;

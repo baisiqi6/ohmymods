@@ -485,3 +485,32 @@ arrows=0 早于滑块改动）。根因：吐怪门=夜间&&冷却&&警戒圈6�
 **症状：** 只在 `AssignJob` 或慢速巡检里做预制体替换，会让读档后的单位先以普通对象存在；若玩家在巡检前触发编队/技能，就会出现“换了北境动画但没有北境组件”的混合行为。
 
 **规则：** `OnEnable` 只登记候选，不在过早调用栈里 `Promote`。在 `World.OnLevelLoaded` 下一帧、且 Holder/Pool/CRPC 与身份状态已就绪后，由 world-authority 处理登记队列；严格区分“身份尚未解析”和“已解析为非目标”，对池/RPC未就绪做有界重试。真实 prefab、关键组件和原生状态确认后才出队，AssignJob/慢速巡检仅作后续池复用兜底。
+
+### 36. 人口容量设置必须与存量清理解耦
+
+固定人口上限改成玩家滑块时，先审查读档清理链，不能把同一可调上限同时当作Despawn目标。配置变更只修改补员门槛和下一次调度，避免每次Repaint重设计时或写配置。GUI滑块先比较原始返回值，再吸附步长，保持0.375等历史值在未交互时不变。
+
+### 37. 日历HUD须读真实周期并保证有界
+
+Director.CurrentSeasonDay与CurrentSeasonStartDay有首季0起点/总天数1起点差异，首日显示应验证。LandData末年循环与零长度数据可能使原生搜索无法终止；HUD应校验和有界计算，缺季不伪造日期。图标使用缓存纹理，避免emoji缺字或每帧初始化字体。
+
+### 38. IL2CPP可编译的GUI重载仍可能是不可运行的恢复桩
+
+E测试interop中的GUI.DrawTexture简版层层转发到抛出Method unstripping failed的完整重载；换另一个重载无效。纹理装饰改用缓存无边框GUIStyle.normal.background和真实原生GUI.Box(Rect,GUIContent,GUIStyle)，检查全部调用链并保留运行时验收。背景属性要求Texture2D；工厂使用命名委托以避开当前net6/interop下匿名工厂NullableAttribute编译冲突。OnGUI异常要关闭面板且限一次日志，避免每个GUI事件刷屏；样式全部构建成功后再提交缓存。
+
+### 39. 风格数值强化要区分自身资产、调用作用域和对象池生命期
+
+Knight被玩家操控时_wallet指向玩家，数值强化只可写验证同GO的_originalWallet。Wallet禁用会清币但不重置容量；风格消失时保留现币不能代替离场恢复序列化容量，否则下次池复用继承高上限。Awake基线只捕获一次，活实例跨读档不清表。攻击迭代器在MoveNext才读取等待参数，Harmony __state/finalizer必须在开关/风格变化及异常后仍恢复；原生Slash共享_hitObjects，提速需守卫整个枚举器生命期并处理取消；禁止直接钩共享原生Dispose入口（见41）。Archer.shoot实际是IHaglet，started需缓存Haglet包装；射击运行期不额外衰减5秒哨兵冷却。客户端Knight.Update可能关闭，视觉收尾应由仅活动期启用的缓存组件负责。
+
+### 40. 守位纠偏必须统一入口并按生命周期回收塔射程
+
+原生每3s重发守墙目标，独立5s后拉会被覆盖；通用8..18纠偏还会与弩手4..7目标争用。将有资格的原生SetGoal与巡检统一到稳定目标，其他移动状态不落通用镜像。ShouldGoToWall单独不排除逃跑/玩家控制，须核对当前Haglet守墙态。旧goal位于目标带不等于仍在移动，要读取_movingToGoal.value；窄地到位后也须epsilon早退。塔位SetGuardSlot会先写扫描范围，而客户端可能直接EnterGuardSlot，塔判据需inGuardSlot OR _guardSlot!=null；OnDisable可能先清塔标志，扫描器清理仍须恢复自有boost到地面shootRange，防对象池把塔18带到地面。
+
+### 41. 原生hook元数据检查与真实启动验收分开
+
+方法名唯一、il2cpp_runtime_invoke包装存在以及Finalizer类型合法只证明静态绑定。Dispose等短实现可能被native编译器折叠共享地址，detour再按特定迭代器类型读字段有潜在风险；需实际地址/调用栈证明，不能凭候选崩溃就宣布此假设成立。开关只门控函数体时仍有PatchAll安装，隔离测试须排除patch注册。启动AV与后续系统commit耗尽/蓝屏分别记录时间线；事故先备份并回退，不自动重复触发系统崩溃。
+
+2026-09-06实物补证：实际Slash.Dispose RVA0x4A40F0为RET且共用1098个Assembly-CSharp方法槽，含不同接收者/签名的启动回调；其余24条新注册在此表内地址唯一。移除此类注册的单变量版本成功越过原闪退点，保存哈希一致；原生地址审计+受控启动应并列留证，不能将此结果扩张为蓝屏根因证明。
+取消守卫不能仅超时删除或使用有限墓碑/grace环：旧owner可在记录消失后迟到恢复。强wrapper持有真实native GC handle，先state=-1再移除；Prefix早拒绝终止态。OnDisable可能在原生MoveNext中重入，原生返回前仍可能写state=1，需逐调用__state.Retired让postfix再次终止并ref result=false。测试须实际计数body调用并模拟尾部写入，不能把旧owner恢复当作通过。
+
+发布版本号变更应对比已实测候选的全部编译输入，明确只有Version/build stamp差异；干净提交的构建包必须核验plugin metadata、CRC、manifest与远端asset digest，不能只修改ZIP文件名。

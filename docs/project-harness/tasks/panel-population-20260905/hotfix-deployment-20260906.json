@@ -1,0 +1,12 @@
+{
+  "time": "2026-09-06T01:36:21.0845710+08:00",
+  "source": "C:\\Users\\ADMIN\\projects\\ohmymods\\il2cpp\\bin\\Debug\\KingdomEnhancedMod.dll",
+  "target": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "sha256": "A9B115D201889A56C045A14F859C03E1EB662374651334B723C562E0471CEC04",
+  "size": 342528,
+  "previousSha256": "A86D036741EF61F6301485ACABAFA20864BAEC37D790C660291D2509F1F0858C",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-imgui-hotfix-20260906-013620-745.bak",
+  "rollback": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.rollback-imgui-hotfix-20260906-013620-745.bak",
+  "gameExitedVerified": true,
+  "runtimeVerified": false
+}

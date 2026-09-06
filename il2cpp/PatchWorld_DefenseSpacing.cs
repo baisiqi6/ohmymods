@@ -352,6 +352,17 @@ public static class PatchWorld_DefenseSpacing
     /// </summary>
     private static bool MirrorNightArcherGoal(Mover mover, float goal, float speed)
     {
+        Archer crossbow = mover.GetComponent<Archer>();
+        if (PatchRoles_CrossbowDefense.TryGetNightGoal(crossbow, goal, out float crossbowGoal))
+        {
+            _inSetGoalRedirect = true;
+            try { mover.SetGoal(crossbowGoal, speed); }
+            finally { _inSetGoalRedirect = false; }
+            return false;
+        }
+        // Crossbow movement outside its wall-defense state remains native (flee,
+        // embark, formation, player control); never fall through into generic mirroring.
+        if (crossbow != null && PatchRoles_Crossbowman.IsCrossbowman(crossbow)) return true;
         Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
         if (kingdom == null) return true;
         Director director = Managers.Inst.director;
@@ -961,8 +972,14 @@ public static class PatchWorld_DefenseSpacing
                     continue; // 有骑士随从只走重发路径，绝不再叠硬地板
                 }
 
-                // Part 2: knight-less archers (plain bows AND crossbowmen —
-                // both are defenders that belong inside at night).
+                // Independent crossbows use one policy across native goals and both
+                // supervisors; generic8..18 relocation must not undo their4..7 band.
+                if (PatchRoles_Crossbowman.IsCrossbowman(archer))
+                {
+                    PatchRoles_CrossbowDefense.TryPullBack(archer);
+                    continue;
+                }
+                // Part 2: remaining knight-less ordinary archers.
                 // 塔位弓箭手跳过（同 MirrorNightArcherGoal 的两道防线：实测
                 // 日志 re-located deep: x=130.8 疑似同因——塔守位在墙外窄
                 // 带/塔高度，不属于墙外滞留，重定位会让塔上弓箭手在天上走）。

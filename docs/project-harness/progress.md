@@ -1,3 +1,32 @@
+## 2026-09-06 — v4.5.0发布准备
+
+用户正常游玩反馈后授权发布当前版本为4.5。只更新版本元数据，保留8390AF已测候选全部游戏逻辑；同步完整玩家说明并将现有骑士/弩手回归移入tests。canonical构建0W/0E；日历95702断言、骑士27场景、弩手9场景1462断言通过。发布审核/clean-worktree包/远端digest核验待完成；未宣称全部联机已测。
+
+## 2026-09-06 14:58 — 启动崩溃修复已部署并通过受控加载
+
+- 实际 GameAssembly 审计确认新 Slash.Dispose 钩子与1098个空方法槽共用原生地址，包含启动回调；完全移除这处钩子的单变量构建越过原闪退位置。其余新增注册在Assembly-CSharp表内没有同类地址折叠。
+- 永久修复用每骑士一个强引用lease，2秒scaled心跳用于允许接管；先终止旧枚举器再移除记录，__state.Retired覆盖原生body内OnDisable重入后的状态覆写。无扫描/计时器/释放历史环。ZCode两轮方案未通过复核且未集成，备用worker实现经独立review PASS。
+- 候选与canonical源码一致、各自build0W/0E；27项managed回归通过，24条剩余新hook静态绑定核验通过。E部署保留已经实际测试的隔离构建DLL `8390AF2755151D52CEF31FD3DEBCDA79F11BC251543925C083D8B3E8D9B5D7E9`。50.6秒受控启动抵达RunningGame/场景恢复和ClockDiag，DeadlandsAnimObserver注册成功，无新崩溃转储；存档前后SHA256一致。最高采样私有提交2.34GB，最低系统剩余commit19.62GB。未做战斗/联机/UI视觉验收，功能checklist继续doing。
+- 原骑士强化与弩手守位/塔射程均保留。此次修复有原生地址和启动对照证据；后续系统内存耗尽及cdd蓝屏仍不能宣布由此钩子单独导致。详见tasks/startup-crash-20260906/incident.md。公开release ZIP未更新，SteamD/G未写入。
+
+## 2026-09-06 14:25 — 启动闪退后已回退，根因待查
+
+- 用户实测今日候选启动闪退并报告后续蓝屏。3份用户转储/事件同coreclr.dll+0x1d1fdd访问冲突，首发14:13早于14:14项目检查PowerShell。14:18系统2004记录commit42.55/42.78GB、PowerShell8.28GB；随后0x3B/cdd蓝屏，不能混为单一已证实因果。
+- E盘已原子回退A9B115D201889A56C045A14F859C03E1EB662374651334B723C562E0471CEC04（今日三骑士强化/弩手站位射程之前），故障DLL和日志保留；存档未动，未自动启动复现。此前两项“已部署”记录为历史，现候选撤回。canonical仍保留候选源码，禁止把直接build/deploy误当回退版。
+- 独立复核无确定源码根因；Slash.Dispose原生地址共用/折叠是优先待证假设，managed wrapper检查不能证明原生detour安全。先验证回退版启动，再做隔离诊断；功能状态保持doing。详见tasks/startup-crash-20260906/incident.md。
+
+## 2026-09-06 — 弩手守位与塔射程已部署，待实机
+
+- 独立弩手夜間守墙稳定分散到墙内4..7，原生SetGoal与原5s/3s巡检统一规则；不再与8..18通用后拉争用。排除逃跑/骑士/编队/塔位/玩家操控/登船；窄领地边界收缩与停步推离纠偏已覆盖。
+- 塔弩手射程按自身原值1.5倍（通常12→18），地面12及伤害/冷却/弩矢不变。进出塔、Strip、池禁用清理，双端支持；修复禁用先清塔标志导致scanner18残留。
+- ZCode GLM-5.3 worker + operator集成 + 独立crossbow_defense_review通过；0W/0E，9场景1462断言、4个native事件hook和26个Unity可达方法检查通过。14:09 E测试副本双退出检查、备份、原子替换/哈希核验完成；DLL FA7D697B1A918322598ADF54DBED7FC224906489D0736F172A9BD551C7B5D52E，373760 bytes。实机站位/弹道改善、18范围射击和读档联机待验证，公开ZIP未更新。详见tasks/crossbow-defense-20260906/acceptance.md。
+
+## 2026-09-06 — 三风格骑士强化已部署，待实机
+
+- 中世纪射程/前向命中范围1.5倍与缓存短剑风；北境自身容量和留币阈值2倍（含神像，不赠币/不动玩家钱包）；死地骑士及当前随从攻击节奏2倍、移速1.5倍，叠加当前弩手参数。
+- 两路ZCode GLM-5.3 worker、独立scout/回归subagent及ZCode最终复核。Operator修复首击剑风、对象池溢出容量、消失目标速度残留、动画外部改速覆盖；16组托管回归通过，canonical构建0W/0E，21个实际原生hook/176个Unity可达方法审计通过。
+- 13:53双退出检查、备份和原子部署E副本完成，DLL SHA256=2109204D33FA011914B45ECCC8D807AA4E16DEA328B6561CB86C493CE684D7C6，369152 bytes。未修改公开ZIP或存档；原面板/HUD热修保留。实机伤害/动画/速度、换岛读档和联机仍待确认，checklist保持doing。详见tasks/knight-powers-20260906/acceptance.md。
+
 ## 2026-09-04 — v4.0.0 正式大版本发布门禁
 
 - 2026-09-05 00:11 已部署“非北境随从误换北境外观”修复。游戏退出后从权威发布包提取 DLL，E 盘目标 SHA256=714B51D3B9532A897FCA6D6F6D0D37B8F5E6C7BA6307419D423FB71A300B1D00，旧版备份和原子替换回滚副本均核验；待用户重新启动后观察五种骑士风格随从是否恢复各自外观。
@@ -1240,3 +1269,11 @@
 - 2026-09-05：用户实测仍有塔基视觉重叠。隔离 worker 定位为补放网格只按 Payable 交互半径避障，未覆盖塔基 Renderer/ScatteredObject 视觉宽度，且历史 KEM 塔基彼此重叠时原逻辑不会回收。commit `2e85449` 已将视觉 bounds 与原生区域取并集、以视觉宽度抬高最小间距，并按 X 稳定顺序回收合法的自有未建造重叠基底；worker/reviewer `REVIEW_APPROVED`，Debug 0W/0E。待游戏退出后部署 E 盘测试副本并观察 `[TowerSpots] scan ... generatedUnbuilt=... retired=...`。
 - 2026-09-05：针对高人口岛每隔数秒掉帧和大蛇吐怪晚到，完成性能/行军补偿候选：3秒、5秒巡检错峰；白天弓箭手拥挤检测改为可复用空间分桶；税收助手扫描间隔改为0.6秒且无候选时只做最小所有权清理；大蛇嘴部首波在夜幕前按额外距离（秒→游戏小时换算）有限预置，普通传送门不变。worker 初版遇 ZCode provider 缺失后按授权回退，reviewer `REVIEW_APPROVED`，主树 Debug 0W/0E；待实机验证吐怪提前量、夜间波次和卡顿是否改善。
 - 2026-09-05 部署：游戏进程确认退出后，commit `7836358` 构建的 DLL（316,928 bytes，SHA-256 `7349F7017AC7687F832A5A634A1248041873D85961B7E562DB3FD17EDD805966`）已部署到 E 盘独立测试副本；部署前备份 `KingdomEnhancedMod.dll.before-perf-serpent-20260905-005305-677.bak`，备份哈希与原 DLL `714B51D3...` 一致，目标哈希与构建哈希一致。未改存档/G盘。
+
+- 2026-09-06 00:31：权限恢复，面板/人口滑块/常驻日历HUD已同步主仓库并部署E独立副本；游戏退出、备份/回滚及目标hash核验通过，SHA256=A86D036741EF61F6301485ACABAFA20864BAEC37D790C660291D2509F1F0858C。HUD默认关闭，F5→世界开启；0W/0E编译、95702日历断言与独立审查完成，实机仍待验证。
+
+## 2026-09-06 — 面板与日历HUD的IMGUI兼容热修
+- 用户反馈F5面板无法调出。E测试副本日志有358次`NotSupportedException: Method unstripping failed`，堆栈明确到`GUI.DrawTexture(Rect,Texture)`→`ModPanel.DrawPanel`→`OnGUI`；快捷键并非根因。
+- Cecil遍历实际目标interop发现全部DrawTexture重载最终转到throw桩，HUD三处调用同样潜伏此问题。ZCode worker独立快照实现缓存GUIStyle背景+原生GUI.Box绘制，面板失败关闭并只记录一次，样式缓存成功后才提交；Operator修正Texture2D类型和命名工厂委托以通过net6/IL2CPP编译。
+- Worker session=`sess_d9becb8c-8fbf-4b15-8131-3080deb46483`，ZCode0.16.5；本轮native `model.sdk.stream.completed`证明bigmodel/GLM-5.3，max仅请求、无独立effort证明。候选构建0W/0E；175个可达Unity包装方法检查无unstripping失败桩，仍需实机视觉验收。
+- 01:36热修部署完成：独立复核通过，HUD readiness覆盖全部样式；canonical0W/0E、175方法interop检查、allowlist/diff通过。E副本DLL SHA256=A9B115D201889A56C045A14F859C03E1EB662374651334B723C562E0471CEC04（342528 bytes），退出门禁/备份/原子替换/目标hash核验完成；用户实机视觉与交互待复验，release压缩包未更新。

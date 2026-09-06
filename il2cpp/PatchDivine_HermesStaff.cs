@@ -6,8 +6,10 @@ namespace KingdomEnhancedMod;
 
 /// <summary>
 /// 神器权杖（HermesStaff）数值 patch：
-///   1. 控制数量：Awake 后把 _maximumConvertedTrolls 8 → 16（有效上限 16 + 8 = 24，保证至少控 16 个；
-///      见 Mono 版 Patch_HermesStaff 对 `+8` 余量的分析）。
+///   1. 控制数量：Awake 后把 _maximumConvertedTrolls 写为 32（StartAbilityRoutine 以
+///      Mathf.Min(命中数, _maximumConvertedTrolls) 硬截断，字段即有效上限）。
+///   1b. 扫描范围：Awake postfix 把 _abilityRange 与 _trollScanner.range/rangeBehind
+///      扩为序列化原始值的 2 倍，原始值按实例缓存，重复 Awake 幂等不叠加。
 ///   2. 控制永久：FriendlyTroll.ShouldRevertToTroll() prefix 强制返回 false 并跳过原方法
 ///      （revert 永不触发）；mod 关闭时返回 true 走原逻辑（可开关）。
 ///   3. 基础冷却 30 秒 → 30 秒 × 面板倍率（2026-08-24 由固定 11.25 改为倍率制，
@@ -25,6 +27,17 @@ namespace KingdomEnhancedMod;
 public static class PatchDivine_HermesStaff
 {
     private const float OriginalCooldownSeconds = 30f;
+
+    /// <summary>有效转化上限：StartAbilityRoutine 用 Mathf.Min(命中数, _maximumConvertedTrolls) 硬截断，
+    /// 字段值即有效上限，直接写 32。</summary>
+    private const int EffectiveMaxConvertedTrolls = 32;
+
+    /// <summary>扫描范围倍率：_abilityRange 与 Scanner.range/rangeBehind 同为原生值 × 2。</summary>
+    private const float AbilityRangeMultiplier = 2f;
+
+    /// <summary>记录每个 staff 实例的序列化原始 _abilityRange（Awake 可能重复触发），
+    /// 每次都从原始值重算 ×2，保证幂等，不会 4x/8x 叠加。实例销毁后由 GC 回收键值。</summary>
+    private static readonly System.Collections.Generic.Dictionary<HermesStaff, float> OriginalAbilityRanges = new();
 
     private static void ApplyCooldownProfile(HermesStaff staff)
     {
@@ -69,7 +82,26 @@ public static class PatchDivine_HermesStaff
         {
             ApplyCooldownProfile(__instance);
             if (!ModConfig.Enabled.Value) return;
-            __instance._maximumConvertedTrolls = 16;
+            __instance._maximumConvertedTrolls = EffectiveMaxConvertedTrolls;
+
+            // 幂等扩程：原生 Awake 已用原范围构造 _trollScanner，postfix 里同步把字段和
+            // scanner 的 range/rangeBehind 一起扩到 原始值 × 2（Scanner 构造时两者同值）。
+            // 重复 Awake 时原始 Awake 会用（已扩大的）_abilityRange 重建 scanner，这里再以
+            // 保存的原始值重算，字段与 scanner 始终收敛到 原始 × 2，不会叠加。
+            if (!OriginalAbilityRanges.TryGetValue(__instance, out float originalRange))
+            {
+                originalRange = __instance._abilityRange;
+                OriginalAbilityRanges[__instance] = originalRange;
+            }
+
+            float doubledRange = originalRange * AbilityRangeMultiplier;
+            __instance._abilityRange = doubledRange;
+            Scanner trollScanner = __instance._trollScanner;
+            if (trollScanner != null)
+            {
+                trollScanner.range = doubledRange;
+                trollScanner.rangeBehind = doubledRange;
+            }
         }
         catch (Exception e)
         {

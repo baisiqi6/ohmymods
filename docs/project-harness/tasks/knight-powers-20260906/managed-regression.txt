@@ -1,0 +1,25 @@
+PASS Norse possession own-wallet isolation, idempotence, and load
+PASS Norse statue targets, config disable, pool reuse, style loss
+PASS Norse rejects foreign GO original wallet
+PASS Norse client deterministic statue and saturation
+PASS Medieval forward hitbox geometry and repeated lifecycle
+PASS Medieval qualification and native harm/cooldown/pusher/authority gates
+PASS Deadlands movement per-call restore, no stacking, config change, callback
+PASS Deadlands shoot intervals scope, exception/config restore, follower isolation
+PASS Deadlands animation repeated triggers do not stack; disable restores
+PASS Deadlands slash overlap suppressed and exception cleans owner
+PASS Deadlands slash guard survives style/config loss until disposal
+PASS Deadlands Haglet cadence gate and pointer replacement
+PASS Medieval first visual trigger visible and fade completes
+PASS Norse surplus survives style loss but capacity cannot leak across pool reuse
+PASS Deadlands vanished movement target cannot retain temporary scale
+PASS Deadlands repeated animation rebases external positive speed
+RESULT: 16 passed, 0 failed
+
+Algorithm : SHA256
+Hash      : 5D194692980E7DACCE1D1999071A8E5CF9710212756167550B719706087086F2
+Path      : C:\Users\ADMIN\projects\ohmymods\il2cpp\PatchRoles_DeadlandsPowers.cs
+
+Algorithm : SHA256
+Hash      : A233453D5200230857B79CBCF57869464DE0BDE014E32603D40AE24FA19383D5
+Path      : C:\Users\ADMIN\projects\ohmymods\il2cpp\PatchRoles_MedievalNorsePowers.cs

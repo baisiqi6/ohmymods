@@ -1,0 +1,1 @@
+Managed regression linked directly to production source. Run `dotnet run -c Release --project Regression.csproj`. Stubs verify logic only; actual IL2CPP detours, GC and game startup require separate runtime evidence.

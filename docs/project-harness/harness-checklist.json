@@ -1,8 +1,135 @@
 {
   "project": "ohmymods",
   "harness_root": "docs/project-harness",
-  "updated_at": "2026-09-04",
+  "updated_at": "2026-09-06",
   "items": [
+    {
+      "id": "release-450-20260906",
+      "title": "v4.5.0完整安装包与GitHub发布",
+      "selected_in_session": "codex-release-450-20260906",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-06",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "版本号/build/tag/ZIP一致；全量运行时与loader完整；干净提交构建；ZIP CRC、DLL版本哈希和manifest核验；GitHub资产digest与本地一致；不含个人配置/日志/存档/备份。",
+      "verification": "用户反馈当前游玩未见异常并要求发布4.5。代码基于已启动测试版，Version/build=4.5.0；复核另修复幕府OnDisable清理的Enabled门控（仅一行，不改Update/战斗数值）；0W/0E，日历95702断言、骑士27场景、弩手9场景1462断言通过；Cecil确认4.5.0及无危险Dispose patch。独立release review和最终package/publish待完成。",
+      "handoff": "按tasks/release-450-20260906/plan.md完成scoped commit、clean worktree构建打包、远端新tag和Release资产核验；不改master/旧tag，不覆盖游戏运行中DLL。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/release-450-20260906/plan.md",
+        "notes": "release/MOD_V4.5.0版本更新说明.txt",
+        "review": "docs/project-harness/tasks/release-450-20260906/review.md"
+      },
+      "review": {
+        "decision": "approved",
+        "notes": "ZCode GLM-5.3复核PASS；P1证据误判已撤销，幕府清理一行修复已确认。最终clean build/startup/package/remote gates由operator执行。"
+      }
+    },
+    {
+      "id": "crossbow-defense-20260906",
+      "title": "弩手夜间中后排守位与塔上射程",
+      "selected_in_session": "codex-crossbow-defense-20260906",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-06",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "独立弩手夜间守墙目标稳定在墙内4..7并适配窄地，排除其他移动任务；塔弩手射程1.5倍（通常18），地面12，正确恢复且不残留池单位；实际高抛改善、进出塔、读档和联机验收。",
+      "verification": "ZCode GLM-5.3 worker，operator集成、独立review通过；canonical0W/0E，9场景1462断言，4个native hook、26个Unity可达方法审计通过。14:09双退出检查/备份/原子部署E副本，DLL FA7D697B1A918322598ADF54DBED7FC224906489D0736F172A9BD551C7B5D52E，373760 bytes。 14:25启动事故：候选因用户APPCRASH撤回E部署，已回退A9B115...；此前静态通过不等于运行时通过。 14:58修复集成并重新部署：删除共享Dispose钩子、强引用取消守卫；27回归、独立复核、0W/0E通过，24剩余新hook地址/绑定核查。实际受控启动50.6秒抵达RunningGame，存档哈希一致。E当前DLL 8390AF2755151D52CEF31FD3DEBCDA79F11BC251543925C083D8B3E8D9B5D7E9。 用户后续反馈游玩似乎没有问题并授权4.5发布；这是一般游玩反馈，不扩张为所有联机/换岛边界验收。",
+      "handoff": "E已部署通过启动/场景恢复的修复版8390AF...；canonical已同步。下一步实际战斗、进出塔、读档/换岛和联机验收，不能把启动通过等同功能全部完成。公开ZIP未更新。",
+      "artifacts": {
+        "deployment": "docs/project-harness/tasks/crossbow-defense-20260906/deployment-receipt.json",
+        "acceptance": "docs/project-harness/tasks/crossbow-defense-20260906/acceptance.md",
+        "incident": "docs/project-harness/tasks/startup-crash-20260906/incident.md",
+        "startup_fix": "docs/project-harness/tasks/startup-crash-20260906/rooted-final-startup.json"
+      },
+      "review": {
+        "decision": "approved",
+        "notes": "仅源码/回归与启动修复通过；完整玩法与联机验收仍待完成。拒绝的ZCode中间方案未集成。"
+      }
+    },
+    {
+      "id": "knight-powers-20260906",
+      "title": "中世纪射程、北境容量、死地攻速移速",
+      "selected_in_session": "codex-knight-powers-20260906",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-06",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "中世纪攻击距离1.5倍且命中/视觉一致；北境骑士自身金币容量和留币上限2倍、无赠币/吞币/污染玩家钱包；死亡之地骑士和当前随从攻击频率2倍、移速1.5倍，正确叠加弩手/原生buff，复用/换队/关闭无残留；实机验收。",
+      "verification": "两路ZCode GLM-5.3实现，独立scout、生产文件链接回归与ZCode最终复核通过。canonical Debug 0W/0E；16组托管场景通过；实际2.4 interop 21个native hook唯一可达，176个Unity方法无unstripping失败桩。13:53已双退出检查/备份/原子部署E副本，DLL SHA256=2109204D33FA011914B45ECCC8D807AA4E16DEA328B6561CB86C493CE684D7C6，369152 bytes。 14:25启动事故：候选因用户APPCRASH撤回E部署，已回退A9B115...；此前静态通过不等于运行时通过。 14:58修复集成并重新部署：删除共享Dispose钩子、强引用取消守卫；27回归、独立复核、0W/0E通过，24剩余新hook地址/绑定核查。实际受控启动50.6秒抵达RunningGame，存档哈希一致。E当前DLL 8390AF2755151D52CEF31FD3DEBCDA79F11BC251543925C083D8B3E8D9B5D7E9。 用户后续反馈游玩似乎没有问题并授权4.5发布；这是一般游玩反馈，不扩张为所有联机/换岛边界验收。",
+      "handoff": "E已部署通过启动/场景恢复的修复版8390AF...；canonical已同步。下一步实际战斗、进出塔、读档/换岛和联机验收，不能把启动通过等同功能全部完成。公开ZIP未更新。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/knight-powers-20260906/plan.md",
+        "acceptance": "docs/project-harness/tasks/knight-powers-20260906/acceptance.md",
+        "deployment": "docs/project-harness/tasks/knight-powers-20260906/deployment-receipt.json",
+        "incident": "docs/project-harness/tasks/startup-crash-20260906/incident.md",
+        "startup_fix": "docs/project-harness/tasks/startup-crash-20260906/rooted-final-startup.json"
+      },
+      "review": {
+        "decision": "approved",
+        "notes": "仅源码/回归与启动修复通过；完整玩法与联机验收仍待完成。拒绝的ZCode中间方案未集成。"
+      }
+    },
+    {
+      "id": "calendar-hud-20260905",
+      "title": "可开关常驻小时与季节HUD",
+      "selected_in_session": "codex-calendar-hud-20260905",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-06",
+      "dependencies": [
+        "panel-population-20260905"
+      ],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "关闭默认HUD不出现；开启在画面上方常驻，显示游戏总天数/整小时/当前季节图标与季内天数/下一季图标与总开始日；不显示分钟、汉字季节名或依赖emoji字体。运行时季节周期表读数，处理首日/跨年/零长度/无下一季，有界运算且不改变游戏时间或存档；UI缓存资源，无周期全场扫描。",
+      "verification": "Operator完整IL2CPP Debug构建0W/0E；日历实际读取器95702断言通过（80随机日历独立oracle、首日、跨年、缺季、永久冬、负数/零年/溢出）。静态独立审查通过，无P0/P1/P2阻断。DLL SHA256=A86D036741EF61F6301485ACABAFA20864BAEC37D790C660291D2509F1F0858C。未部署；真实字体、顶部重叠与IL2CPP性能待实机。 2026-09-06：权限恢复后已同步canonical，重建0W/0E；确认游戏退出，备份/原子替换/目标哈希全部核验。已部署完整候选SHA256=A86D036741EF61F6301485ACABAFA20864BAEC37D790C660291D2509F1F0858C，341504 bytes。 2026-09-06热修：用户实测面板不显示，E日志358次GUI.DrawTexture Method unstripping failed。已定位实际interop所有DrawTexture重载最终进入throw桩；ZCode候选改用缓存GUIStyle背景+原生GUI.Box，修复面板与HUD全部5处调用并限制面板异常日志。Operator隔离构建0W/0E，实际interop可达175方法审计无unstripping失败桩；待最终审查、部署及实机复验。 最终独立复核通过；HUD readiness补齐全部3个样式；canonical 0W/0E、接口175方法审计、allowlist、diff检查通过。01:36已部署E盘DLL SHA256=A9B115D201889A56C045A14F859C03E1EB662374651334B723C562E0471CEC04（342528 bytes），双退出检查/备份/原子替换/目标hash核验通过。",
+      "handoff": "热修已部署E测试副本；F5/Ctrl+F10打开、四分类与滑块、Esc关闭、世界页启用HUD；确认视觉/透明图标/无错误刷屏。实机通过前保留doing。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/calendar-hud-20260905/plan.md",
+        "code": "il2cpp/CalendarSnapshot.cs; il2cpp/CalendarHud.cs; il2cpp/ModPanel.cs; il2cpp/ModConfig.cs",
+        "deployment": "docs/project-harness/tasks/calendar-hud-20260905/deployment-20260906.md",
+        "hotfix": "docs/project-harness/tasks/panel-population-20260905/hotfix-acceptance-20260906.md"
+      },
+      "review": {
+        "decision": "approved",
+        "notes": "静态和纯计算验收通过，游戏内验收待完成。"
+      }
+    },
+    {
+      "id": "panel-population-20260905",
+      "title": "人口补员滑块与设置面板改版",
+      "selected_in_session": "codex-panel-population-20260905",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-06",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "人口刷新间隔1-120秒、每帐篷上限1-20人，默认6秒/5人；读取/保存配置；调低容量及读档不删除已有乞丐；保留世界权威/池安全；面板分类、清晰数值、可滚动、自适应，未交互不改配置；编译和审查通过后E副本实测。",
+      "verification": "候选4个源文件通过独立worker/reviewer静态审查；Operator隔离构建0警告0错误，差异空白检查/allowlist/baseline检查通过。DLL SHA256=9C3DAABAC6CE3195E9C2BF0764D640B391BD70A3D5E5FEA9C8DA89953336FE0F。未部署；游戏视觉、保存读档/主机联机实测待完成。 2026-09-06：权限恢复后已同步canonical，重建0W/0E；确认游戏退出，备份/原子替换/目标哈希全部核验。已部署完整候选SHA256=A86D036741EF61F6301485ACABAFA20864BAEC37D790C660291D2509F1F0858C，341504 bytes。 2026-09-06热修：用户实测面板不显示，E日志358次GUI.DrawTexture Method unstripping failed。已定位实际interop所有DrawTexture重载最终进入throw桩；ZCode候选改用缓存GUIStyle背景+原生GUI.Box，修复面板与HUD全部5处调用并限制面板异常日志。Operator隔离构建0W/0E，实际interop可达175方法审计无unstripping失败桩；待最终审查、部署及实机复验。 最终独立复核通过；HUD readiness补齐全部3个样式；canonical 0W/0E、接口175方法审计、allowlist、diff检查通过。01:36已部署E盘DLL SHA256=A9B115D201889A56C045A14F859C03E1EB662374651334B723C562E0471CEC04（342528 bytes），双退出检查/备份/原子替换/目标hash核验通过。",
+      "handoff": "热修已部署E测试副本；F5/Ctrl+F10打开、四分类与滑块、Esc关闭、世界页启用HUD；确认视觉/透明图标/无错误刷屏。实机通过前保留doing。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/panel-population-20260905/plan.md",
+        "code": "il2cpp/ModPanel.cs; il2cpp/ModConfig.cs; il2cpp/PatchPerformance_Population.cs",
+        "deployment": "docs/project-harness/tasks/panel-population-20260905/deployment-20260906.md",
+        "hotfix": "docs/project-harness/tasks/panel-population-20260905/hotfix-acceptance-20260906.md"
+      },
+      "review": {
+        "decision": "approved",
+        "notes": "静态检查无P0/P1阻断；运行时验收待完成。"
+      }
+    },
     {
       "id": "norse-follower-style-20260905",
       "title": "修复非北境骑士随从被误换成北境外观",
@@ -17,9 +144,17 @@
       "acceptance": "只有真正的北境随从保留北境外观和盾牌；中世纪、死地、幕府、希腊骑士的随从保持各自风格；读档、换岛、分屏与联机不产生重复转换。",
       "verification": "E盘日志显示 88 名有骑士归属的随从中 84 名被误判为北境；根因是仅检查盾牌组件。修复改为原生对象池身份核对；独立审查 APPROVED，Debug 构建 0 warning/0 error。游戏退出后已部署修复 DLL，E盘 SHA256=714B51D3B9532A897FCA6D6F6D0D37B8F5E6C7BA6307419D423FB71A300B1D00，与 v4.0.0 修复包一致；备份与回滚副本已核验。",
       "handoff": "启动后重点观察五种骑士风格对应随从外观、盾牌和换岛/读档幂等；日志应不再出现 84/88 全部北境。",
-      "workflow": { "status": "closed", "updated_at": "2026-09-05" },
-      "artifacts": { "code": "il2cpp/PatchRoles_NorseSquad.cs", "related": "il2cpp/PatchRoles_KnightStyle.cs" },
-      "review": { "decision": "approved" }
+      "workflow": {
+        "status": "closed",
+        "updated_at": "2026-09-05"
+      },
+      "artifacts": {
+        "code": "il2cpp/PatchRoles_NorseSquad.cs",
+        "related": "il2cpp/PatchRoles_KnightStyle.cs"
+      },
+      "review": {
+        "decision": "approved"
+      }
     },
     {
       "id": "release-400-20260904",

@@ -1,0 +1,10 @@
+PASS both sides stable middle/rear band with wall reach
+PASS night and movement ownership exclusions
+PASS narrow territory and unrelated destinations
+PASS pullback no teleport or repeated in-flight orders; displaced stopped unit resumes
+PASS tower18 ground12 idempotence pending-slot and client
+PASS tower config/marker removal and fresh reuse baseline
+PASS removal preserves external field/scanner writes independently
+PASS native disable clears tower flags before owned scan cleanup
+PASS narrow-territory arrived unit does not repeat orders
+RESULT: 9 passed, 0 failed; 1462 assertions

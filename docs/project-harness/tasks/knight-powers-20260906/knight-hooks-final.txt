@@ -1,0 +1,2 @@
+Native hook targets checked: 21
+PASS: all declared feature hooks resolve uniquely to actual target native wrappers; finalizer return types valid. This does not replace runtime hook execution checks.

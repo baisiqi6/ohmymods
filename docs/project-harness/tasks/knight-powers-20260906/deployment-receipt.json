@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-09-06T13:53:46.6849287+08:00",
+  "source": "C:\\Users\\ADMIN\\projects\\ohmymods\\il2cpp\\bin\\Debug\\KingdomEnhancedMod.dll",
+  "target": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "previousSha256": "A9B115D201889A56C045A14F859C03E1EB662374651334B723C562E0471CEC04",
+  "deployedSha256": "2109204D33FA011914B45ECCC8D807AA4E16DEA328B6561CB86C493CE684D7C6",
+  "bytes": 369152,
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-knight-powers-20260906-135346-377.bak",
+  "rollback": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.rollback-knight-powers-20260906-135346-377.bak",
+  "gameExitChecks": 2,
+  "atomicReplace": true,
+  "runtimeVerified": false
+}

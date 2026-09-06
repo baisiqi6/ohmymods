@@ -199,6 +199,7 @@ public static class PatchRoles_KnightStyle
         try
         {
             ResolveFromSet(Resources.FindObjectsOfTypeAll<RuntimeAnimatorController>());
+            ResolveFromBiomeSwapPools();
             if (HasMissingControllers())
                 ResolveFromSet(Resources.LoadAll<RuntimeAnimatorController>(""));
             BuildAvailablePool();
@@ -233,6 +234,82 @@ public static class PatchRoles_KnightStyle
                     SoldierControllers[i] = candidate;
             }
         }
+    }
+
+    /// <summary>
+    /// 跨世界风格的控制器通常不是独立的 Resources 根对象，而是挂在对应
+    /// BiomeData 的 animatorSwapPool 中。希腊世界只加载当前 biome 时，单靠
+    /// FindObjectsOfTypeAll/Resources.LoadAll 会漏掉死地、幕府和北境控制器，
+    /// 于是错误地把风格池收缩成 3/5。BiomeHolder 保留了各 biome 的预加载
+    /// swap 表，优先从那里按原生基座控制器取出对应的 AnimatorOverrideController，
+    /// 不实例化、不修改原资源；未准备好时下次 30 秒重试。
+    /// </summary>
+    private static void ResolveFromBiomeSwapPools()
+    {
+        try
+        {
+            BiomeHolder holder = BiomeHolder.Inst;
+            if (holder == null || holder.biomePathStrings == null) return;
+
+            RuntimeAnimatorController baseKnight = FindControllerByName("knight");
+            RuntimeAnimatorController baseSoldier = FindControllerByName("archer_soldier");
+            // index 0 is the base medieval controller; the other styles come from
+            // their native biome swap tables (Bamboo=1, Deadlands=2, Norse=3,
+            // Greece=5).
+            int[] sourceBiomeByStyle = { 0, BiomeHolder.DeadlandsBiomeIndex,
+                BiomeHolder.BambooBiomeIndex, BiomeHolder.GreeceBiomeIndex,
+                BiomeHolder.NorselandsBiomeIndex };
+
+            for (int style = 1; style < StyleCount; style++)
+            {
+                int biomeIndex = sourceBiomeByStyle[style];
+                if (biomeIndex < 0 || biomeIndex >= holder.biomePathStrings.Length) continue;
+
+                BiomeSwapData swapData = holder.GetBiomeSwapDataForIndex(biomeIndex);
+                // biomePreloadData can be a lightweight table with no animator
+                // entries. In that case load the full BiomeData asset; treating
+                // an empty preload table as authoritative was the reason the
+                // Deadlands/Bamboo controllers stayed unresolved in Greece.
+                if (swapData == null || swapData.animatorSwapPool == null
+                    || swapData.animatorSwapPool.Count == 0)
+                {
+                    string path = holder.biomePathStrings[biomeIndex];
+                    if (!string.IsNullOrEmpty(path))
+                    {
+                        BiomeData data = Resources.Load<BiomeData>(path);
+                        swapData = data != null ? data.swapData : null;
+                    }
+                }
+                if (swapData == null || swapData.animatorSwapPool == null) continue;
+
+                for (int j = 0; j < swapData.animatorSwapPool.Count; j++)
+                {
+                    BiomeSwapData.AnimatorSwapData entry = swapData.animatorSwapPool[j];
+                    if (entry == null || entry.original == null || entry.swap == null) continue;
+                    bool isKnight = (baseKnight != null && entry.original.Pointer == baseKnight.Pointer)
+                        || entry.original.name == "knight";
+                    bool isSoldier = (baseSoldier != null && entry.original.Pointer == baseSoldier.Pointer)
+                        || entry.original.name == "archer_soldier";
+                    if (isKnight && KnightControllers[style] == null)
+                        KnightControllers[style] = entry.swap;
+                    if (isSoldier && SoldierControllers[style] == null)
+                        SoldierControllers[style] = entry.swap;
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            LogErrorOnce("biome swap controller resolution failed", e);
+        }
+    }
+
+    private static RuntimeAnimatorController FindControllerByName(string name)
+    {
+        RuntimeAnimatorController[] all = Resources.FindObjectsOfTypeAll<RuntimeAnimatorController>();
+        if (all == null) return null;
+        for (int i = 0; i < all.Length; i++)
+            if (all[i] != null && all[i].name == name) return all[i];
+        return null;
     }
 
     /// <summary>
