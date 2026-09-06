@@ -2,12 +2,13 @@
 
 `docs/project-harness/harness-checklist.json` 和任务 plan 是本项目的文件 authority；Coordinate 管理执行 job、lease、event 和 completion receipt。已有游戏条目保留其原状态，不因注册 workspace 自动成为已采纳或已验收的 managed task。
 
-`scripts/harness/` 来自公开 EXharness `8449a797b3a15d66f024cf030bf46b44a6423fdf` 模板，仅替换项目名、harness root 和脚本目录深度；MIT notice 随文件保留。配置不自动运行游戏 build、test 或 deploy。
+`scripts/harness/` 来自公开 EXharness `3a030fdbeef03615a948b9d6da11f3508d36d91a` 模板，仅替换项目名、harness root 和脚本目录深度；MIT notice 随文件保留。配置不自动运行游戏 build、test 或 deploy。
 
 在项目根目录可用 Python 验证与查看状态：
 
 ```powershell
 python scripts/harness/validate_checklist.py docs/project-harness/harness-checklist.json
+python scripts/harness/harness_common.py --check-locators docs/project-harness/harness-checklist.json
 python scripts/harness/session_init.py
 ```
 
