@@ -1281,3 +1281,9 @@
 - Cecil遍历实际目标interop发现全部DrawTexture重载最终转到throw桩，HUD三处调用同样潜伏此问题。ZCode worker独立快照实现缓存GUIStyle背景+原生GUI.Box绘制，面板失败关闭并只记录一次，样式缓存成功后才提交；Operator修正Texture2D类型和命名工厂委托以通过net6/IL2CPP编译。
 - Worker session=`sess_d9becb8c-8fbf-4b15-8131-3080deb46483`，ZCode0.16.5；本轮native `model.sdk.stream.completed`证明bigmodel/GLM-5.3，max仅请求、无独立effort证明。候选构建0W/0E；175个可达Unity包装方法检查无unstripping失败桩，仍需实机视觉验收。
 - 01:36热修部署完成：独立复核通过，HUD readiness覆盖全部样式；canonical0W/0E、175方法interop检查、allowlist/diff通过。E副本DLL SHA256=A9B115D201889A56C045A14F859C03E1EB662374651334B723C562E0471CEC04（342528 bytes），退出门禁/备份/原子替换/目标hash核验完成；用户实机视觉与交互待复验，release压缩包未更新。
+
+
+## 2026-09-06 — Coordinate 接入与发布材料审计（准备中）
+- 在隔离工作树补齐 EXharness 标准实例工具，新增 `coordinate-release-audit-20260906`。既有游戏条目保持不变。
+- 当前只完成 initial file half，尚未向服务器 record，尚未执行发布材料审计或完成 Gate F。
+- 未运行游戏、构建、部署或存档操作；原 Operator 的游戏开发继续独立进行。

@@ -15,3 +15,6 @@ game-source/
 Assembly-CSharp/
 ktc-il.txt
 release/*.zip
+
+# Harness Python cache
+/scripts/harness/__pycache__/

@@ -1,0 +1,20 @@
+{
+  "deployment_profile": "coordinate-managed",
+  "commands": {
+    "typecheck": null,
+    "test": null,
+    "build": null
+  },
+  "runtime": {
+    "session_init_commands": [],
+    "lease_ttl_minutes": 120
+  },
+  "git": {
+    "base_branch": "master",
+    "branch_namespace": "codex/{owner}/{item_id}"
+  },
+  "message_bus": {
+    "event_log": "docs/project-harness/events.jsonl",
+    "visible_bus": "coordinator"
+  }
+}
