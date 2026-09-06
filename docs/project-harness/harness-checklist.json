@@ -1314,6 +1314,69 @@
         "note": "P0密度棘轮必修已按处方落地"
       },
       "selected_in_session": "zcode-2026-08-29-towerspots"
+    },
+    {
+      "id": "coordinate-release-audit-20260906",
+      "title": "v4.5.0 发布材料一致性审计",
+      "status": "done",
+      "phase": "todo",
+      "priority": "p1",
+      "owner": null,
+      "human_gate_required": true,
+      "plan_path": "docs/project-harness/tasks/coordinate-release-audit-20260906/plan.md",
+      "artifact_path": "docs/project-harness/tasks/coordinate-release-audit-20260906/plan.md",
+      "acceptance": "Use the plan acceptance criteria as source of truth: docs/project-harness/tasks/coordinate-release-audit-20260906/plan.md",
+      "blocked_by": [],
+      "blocked_reason": "",
+      "dependencies": [],
+      "handoff": {
+        "from": null,
+        "to": null,
+        "reason": null
+      },
+      "selected_in_session": null,
+      "updated_at": "2026-09-06T18:55:03Z",
+      "workflow": {
+        "status": "closed",
+        "branch": null,
+        "updated_at": "2026-09-06T18:55:03Z"
+      },
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/coordinate-release-audit-20260906/plan.md",
+        "closeout_packet": "docs/project-harness/current/closeout-packet.md"
+      },
+      "verification": "Windows release-material audit and independent review; normal MCP completion.",
+      "review": {
+        "decision": "approved",
+        "reviewer": "omp-k3-r5f-result-reviewer",
+        "phase": "closeout_requested",
+        "updated_at": "2026-09-06T18:43:39Z",
+        "reviewed_packet_sha256": "d9369c6b40f2e9f4f314bde95dd0559b17dfa9f3a3381af3b887efb28780c2da",
+        "source_plan_sha256": "eefc016e9f5dcd96a48c704eee7e5e18e866d98c31478b72eada05d31a654b56",
+        "reviewed_packet_locator": "docs/project-harness/current/closeout-packet.md",
+        "summary": "Correct the timezone typo and six source-attribution/coverage assertions identified by the independent reviewer. No game changes.",
+        "artifact": "docs/project-harness/tasks/coordinate-release-audit-20260906/review-r3.md"
+      },
+      "split_operation": {
+        "contract_version": 1,
+        "operation_id": "4ccf45bc-6174-4778-a7dd-cb87d42d8a81",
+        "operation_kind": "task.create",
+        "workspace_id": "ohmymods",
+        "target_kind": "checklist_task",
+        "target_id": "coordinate-release-audit-20260906",
+        "source_kind": null,
+        "source_id": null,
+        "input_fingerprint": "9860a89f9b34a107b533e1f7a62be3293bc93b6cfbd15f6c1888dee9217e5380",
+        "before_fingerprint": "292fddef7dea5c49b79a81b9353cab9e61bf5702a83b0ae70211245d10b1daf1",
+        "after_fingerprint": "fe1480a026830567f658dfc45ab1ac8185c270751556b75915eb0d8ee83f4a28",
+        "files_applied_at": "2026-09-06T14:12:28Z"
+      },
+      "completion_receipt": {
+        "receipt_id": "2ef032bb-a167-4f5f-8c42-c650a7347d40",
+        "before_fingerprint": "b758c9560499cfffe1074d38e521490b80eb34ac7689627a77922fc2de8230df",
+        "after_fingerprint": "6f158f6c8f5b46b4396229c7fae3ada9eae3e3b4fa4a2ed81733fd2ac61ecf04",
+        "applied_at": "2026-09-06T18:55:03Z"
+      }
     }
   ]
 }

@@ -1,0 +1,6 @@
+# Stable canonical harness bytes across Windows and server readback.
+.gitattributes text eol=lf
+/scripts/harness/** text eol=lf
+/docs/project-harness/**/*.md text eol=lf
+/docs/project-harness/**/*.json text eol=lf
+/docs/project-harness/**/*.jsonl text eol=lf
