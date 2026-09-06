@@ -1287,3 +1287,8 @@
 - 在隔离工作树补齐 EXharness 标准实例工具，新增 `coordinate-release-audit-20260906`。既有游戏条目保持不变。
 - 当前只完成 initial file half，尚未向服务器 record，尚未执行发布材料审计或完成 Gate F。
 - 未运行游戏、构建、部署或存档操作；原 Operator 的游戏开发继续独立进行。
+
+
+### 2026-09-06 — Coordinate 静态审计结果待审
+- Windows native MCP 完成 initial record 与同参数幂等重放；win-omp 已完成唯一 result.md 产出。
+- Operator 复算 27 个输入 Git blob 的 SHA-256/字节数全部一致；结果结论仍待独立审查。未运行游戏构建、游戏测试、DLL 部署或存档操作。
