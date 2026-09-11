@@ -7,7 +7,7 @@
       "id": "release-500-20260912",
       "title": "发布v5.0.0完整IL2CPP安装包",
       "selected_in_session": "codex-release-500-20260912",
-      "status": "doing",
+      "status": "done",
       "priority": "p1",
       "owner": "codex",
       "updated_at": "2026-09-12",
@@ -15,10 +15,12 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "精确clean commit构建完整5.0.0包，包版本/manifest/CRC/allowlist/内嵌DLL启动通过，GitHub stable Latest及assetdigest核对；如实保留待实测边界。",
-      "verification": "本机已完成上轮154测试及启动，版本与发布文档已更新；clean发布包待构建和验收。",
-      "handoff": "用户授权发布，按完整安装包流程完成检查后推送正式Release。",
+      "verification": "5.0.0从clean commit abf4eb3构建0W/0E；7套repo回归PASS；完整313文件ZIP与metadata/allowlist/CRC及独立审查通过；精确内嵌0549C166 DLL启动恢复，存档一致。GitHub稳定Latest发布并比对远端大小/digest及tag目标通过。",
+      "handoff": "发布完成。ZIP DD7C26FA...；E为正式5.0.0 DLL0549C166...。后续仍观察功能实战/联机，相关doing项不变。",
       "artifacts": {
-        "plan": "docs/project-harness/tasks/release-500-20260912/plan.md"
+        "plan": "docs/project-harness/tasks/release-500-20260912/plan.md",
+        "publication": "docs/project-harness/tasks/release-500-20260912/publication.md",
+        "package_receipt": "docs/project-harness/tasks/release-500-20260912/package-receipt.json"
       }
     },
     {

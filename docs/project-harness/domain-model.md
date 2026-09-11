@@ -301,3 +301,6 @@ Formation offset凭据用managed stored key退役已销毁Mover，清理先于�
 
 ### 2026-09-12 发布与功能验收分开
 v5.0.0发布授权包括必要commit/tag/push/Release；不把发布状态等同所有功能边界已实测。包只包含正式runtime/插件/玩家文档，个人配置与本机运行证据不分发。
+
+### 2026-09-12 v5.0.0发布身份
+发行身份固定于abf4eb3及ZIP DD7C26FA.../DLL0549C166...，后续回执提交不移动tag或替换同名资产。公开receipt只含必要构建身份和验证层级，私有日志保留本机。

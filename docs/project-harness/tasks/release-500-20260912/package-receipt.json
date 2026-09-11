@@ -1,0 +1,32 @@
+{
+  "version": "5.0.0",
+  "sourceCommit": "abf4eb315f6c01aa9dc433792a71676ae40ce9c0",
+  "tag": "v5.0.0",
+  "releaseUrl": "https://github.com/baisiqi6/ohmymods/releases/tag/v5.0.0",
+  "downloadUrl": "https://github.com/baisiqi6/ohmymods/releases/download/v5.0.0/KingdomEnhancedMod_v5.0.0_IL2CPP.zip",
+  "publishedAt": "2026-09-11T16:20:57Z",
+  "stable": true,
+  "latestVerified": true,
+  "zipName": "KingdomEnhancedMod_v5.0.0_IL2CPP.zip",
+  "zipBytes": 39458470,
+  "zipSha256": "dd7c26faf5a0395bfb9836e4a700c9827f4cbcfd16473f2a0cb8e3a8a65c12e9",
+  "entries": 313,
+  "dllBytes": 411136,
+  "dllSha256": "0549c1663db2a49520d90a17fdd9ea08c29db8e0e6ac637033e0c18c23b44aef",
+  "assemblyVersion": "5.0.0.0",
+  "pluginVersion": "5.0.0",
+  "startup": "PASS: exact embedded DLL, scene restored paused; no new mod exception",
+  "saveUnchangedDuringStartup": true,
+  "cleanBuild": "0 warnings / 0 errors",
+  "regressions": {
+    "samuraiRetreat": 43,
+    "farmCats": 20,
+    "fleetGreekSquads": 91,
+    "expeditionFollow": 49,
+    "knightPowers": 27,
+    "crossbowScenarios": 9,
+    "crossbowAssertions": 1462,
+    "calendarAssertions": 95702
+  },
+  "runtimeLimits": "Actual combat, boarding, cats adjustment and online/island/long-play edge behavior remains under observation."
+}

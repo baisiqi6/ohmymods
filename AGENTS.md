@@ -57,6 +57,7 @@
 ## 常用路径
 
 ### 2026-09-06 启动事故临时门禁
+- 2026-09-12正式v5.0.0已发布并为GitHub Latest；tag/source abf4eb3，ZIP DD7C26FA...（39458470 bytes/313entries），E正式DLL0549C166...（5.0.0/build5.0.0）。clean构建、7套repo回归、精确包启动与远端digest均通过。下方F32及更早为历史本机版本；功能实战/联机边界仍doing。见tasks/release-500-20260912/publication.md。
 - 2026-09-11 23:59最新本机：F32CBE8C...，build=4.5.0-fleet-retreat-cats-20260911；希腊舰队仅新Greek配队min/仅武士defensive retreat3x/每farm4猫含旧mod回收。154tests+review+启动通过，存档一致；实际登船/退速/猫/残影/联机待验收。见tasks/fleet-retreat-cats-20260912/acceptance.md，下方C176及更早均历史。
 - 2026-09-11 23:31最新本机：C1763E2F...，build=4.5.0-expedition-follow-20260911；修复守墙把随从动态Object跟随降为固定Position，改临时offset及任务门/可靠归还。49tests/review/启动通过，存档一致；实际出征/联机待验收，详见tasks/expedition-follow-20260911/acceptance.md。下方7F及更早均历史本机基线。
 - 2026-09-11 23:03最新本机：7F0CBE8D...，build=4.5.0-combat-visuals-20260911；本机武士浅白残影45/25/10+.2s，Greek空fireSO恢复，Medieval sortingLayerID修复。170tests/review/启动通过，日志实证fire资源补齐；视觉实战待验收，新客机残影同步未做。见tasks/combat-visuals-20260911/acceptance.md。

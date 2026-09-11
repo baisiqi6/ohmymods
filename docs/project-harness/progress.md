@@ -1341,3 +1341,6 @@ E已部署F32CBE8C（4.5.0-fleet-retreat-cats-20260911）。希腊FleetBoat一�
 
 ### 2026-09-12 v5.0.0发布准备
 用户明确要求发布。将4.5后已集成改动与当前玩家说明封装为5.0.0，从clean提交构建并验证精确ZIP内嵌DLL，待发布读回；功能实战/联机边界继续doing。
+
+### 2026-09-12 v5.0.0发布完成
+正式Latest已发布，tag abf4eb3，完整ZIP DD7C26FA...、E内嵌DLL0549C166...；7套repo tests/clean build/独立包审查/精确启动/远端digest及tag核验通过。release任务done，实际战斗/船/猫/残影/联机等功能doing不变。详见tasks/release-500-20260912/publication.md。

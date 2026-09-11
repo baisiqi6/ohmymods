@@ -549,3 +549,6 @@ FleetBoat Idle先TryRecruit转InFormation才开放骑士boarding；不能要求�
 
 ### 2026-09-12 5.0发布构建一致性
 版本升号不改变战斗实现。必须从精确clean commit构建，外部核验实际DLL的assembly/plugin版本而非只相信csproj；发布前测试ZIP内嵌DLL，同一ZIP上传后比对digest。旧硬编码pack脚本不用。
+
+### 2026-09-12 GitHub草稿读回
+草稿上传后tag端点可能404，需先从release列表解析确定的release id，再按id读回并验证asset digest；验证后PATCH该id为正式Latest，随后tag端点再读回。不得把404当作上传失败而创建重复release。
