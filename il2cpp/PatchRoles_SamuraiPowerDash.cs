@@ -7,232 +7,360 @@ using UnityEngine;
 
 namespace KingdomEnhancedMod;
 
-/// <summary>
-/// 幕府骑士 PowerDash 候选（style index 2 限定）。Reviewer P1/P2 修订版：
-///
-/// - P1（可验证命中/伤害）：不再只触发动画。冲刺位移期间每帧对骑士周围的
-///   Enemies|Wildlife 层做 OverlapCircleNonAlloc 窗口，对每个未命中过的
-///   Damageable 调 ReceiveDamage(knight._attackDamage, knight.gameObject,
-///   DamageSource.Knight)——逐字镜像原生 Knight.Slash 的伤害路径
-///   （Knight.cs Slash()：_hitObjects 去重 + IsDamagedBy(DamageSource.Knight)
-///   + ReceiveDamage(_attackDamage, ...)），伤害数值与普攻完全一致，可实测验证。
-/// - P2（扫描成本）：删掉每骑士 0.2s 的 Physics2D.OverlapCircleAll 全场扫描和
-///   TryHasSquadLeashViolation 里的 FindObjectsOfType&lt;Archer&gt;。目标获取改用
-///   原生 knight._enemyScanner.GetClosest()（骑士自带的层过滤扫描器，原生
-///   ShouldSlash 同款，零额外全场景扫描）；随从距离判定改用共享 UnitScanCache.
-///   GetArchers()（3s 窗口一份缓存，与 DefenseSpacing/KnightStyle 共用）。
-/// - 位移本体：Mover.SetGoal 仍承担移动（原生 Charge/GrabArmor 同款机制，
-///   走 Rigidbody/PositionSync，无瞬移 desync），但冲刺不再以"到达目标"结束，
-///   而是以命中窗口 + 行程上限（≤MaxRange 格）+ 超时结束；SetGoal 只是位移
-///   载体，伤害与命中判定才是冲刺本体。
-/// - 池复用/协程死亡清理：协程随宿主禁用被 Unity 静默终止时 finally 不会执行，
-///   invulnerable/trail 可能残留。Knight.OnDisable postfix 强制复位
-///   invulnerable/trail 并清 Active/NextScan 记录（despawn=禁用，池复用即自愈；
-///   字典不跨世界清理也不会泄漏——按 instanceID 键控，OnDisable 逐骑士清除）。
-/// - 网络限制（明示）：Knight.Update 在无世界权威端被原生禁用（OnEnable
-///   base.enabled=false），Tick 仅在主机/单机运行；冲刺位移经 PositionSync
-///   同步，伤害走原生 Damageable 主机权威路径，联机行为与原生 Slash 一致。
-///   动画触发是本地 animator.SetTrigger（不走 AnimationSync RPC）——客户端
-///   上该触发可能不播放，纯视觉差异，不影响伤害判定。
-/// - 保留约束：仅 style 2；冷却约 3s；行程 5-7 格（MinRange..MaxRange 发起，
-///   行程硬上限 MaxRange）；冲刺期间无敌（damageable.invulnerable）+ 白光
-///   （Character.spriteFX.GlowOverlay 白色）+ PowerSlash 动画 + 原生拖尾
-///   （knight._trail）；随从距离 &gt; FollowLeash 时不发起新冲刺、冲刺中超出即
-///   提前收招；不复用狂战士跳劈（无 Berserker 交互）。
-/// </summary>
+/// <summary>One motion lease per knight. A retired lease can never write again.</summary>
 internal static class PatchRoles_SamuraiPowerDash
 {
-    private const int ShogunStyleIndex = 2;
-    private const float ScanInterval = 0.2f;   // 仅冷却/随从距离复查节奏，无全场景扫描
-    private const float Cooldown = 3f;          // 约 3 秒冷却
-    private const float MinRange = 1.5f;        // 太近不冲（普攻够得着）
-    private const float MaxRange = 7f;          // 发起距离上限 = 行程硬上限（5-7 格短冲刺）
-    private const float FollowLeash = 10f;      // 超过随从 10 格不继续脱离
-    private const float DashSpeed = 18f;        // 冲刺移动速度（短时间覆盖长距离）
-    private const float DashTimeout = 0.6f;     // 位移超时（防 mover 卡死）
-    private const float HitWindowRadius = 1.2f; // 冲刺路径伤害窗口半径（镜像原生 Slash 判定盒量级）
-    private const int MaxHitsPerWindow = 16;
-
-    private static readonly Dictionary<int, float> NextScan = new();
-    private static readonly HashSet<int> Active = new();
+    private const float ScanInterval = .2f, Cooldown = 3f, MaxRange = 7f;
+    private const float DashSpeed = 18f, DashTimeout = .6f, FollowLeash = 10f, ReturnStop = 4f;
+    private static readonly Dictionary<int, ActorState> Actors = new();
     private static readonly int PowerSlash = Animator.StringToHash("PowerSlash");
-    private static int _hitLayerMask; // Enemies|Wildlife（懒加载，镜像原生 Slash 的层并集）
+    private static readonly HashSet<string> Logged = new();
+    private static int HitLayerMask;
+
+    private sealed class ActorState
+    {
+        internal Knight Owner;
+        internal Archer Follower;
+        internal float NextFollowerScan, NextAttack, RetryAt;
+        internal int Failures;
+        internal MotionLease Motion;
+    }
+
+    private sealed class MotionLease
+    {
+        internal ActorState Actor;
+        internal Mover Mover;
+        internal Damageable Damageable;
+        internal TrailRenderer Trail;
+        internal SamuraiDashVisuals.Token Visual;
+        internal bool Returning, Retired, Effects, OldInvulnerable, OldTrail, HasGoal, Running;
+        internal float GoalX, GoalSpeed, StartedAt, StartX, LastProgressAt, BestDistance, NextGoal;
+        // Per-lease hit bookkeeping: one hit per Damageable per dash, no per-frame allocations.
+        internal readonly HashSet<IntPtr> HitObjects = new();
+        internal readonly Collider2D[] Colliders = new Collider2D[16];
+    }
+
+    private static bool Same(UnityEngine.Object a, UnityEngine.Object b) =>
+        a != null && b != null && a.Pointer == b.Pointer;
+
+    private static bool Eligible(Knight k)
+    {
+        if (k == null || k.gameObject == null || !k.gameObject.activeInHierarchy ||
+            !ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth ||
+            !PatchRoles_KnightStyle.TryGetResolvedStyleIndex(k, out int style) || style != 2)
+            return false;
+        if (k.ShouldPlayerControl() || k._beingControlled || k.isRetreating || k.isCharging ||
+            k._shouldCharge || k.GetFormation() != null || k.helPuzzlePillar != null || k._harmless)
+            return false;
+        var embarkee = k._embarkee;
+        if (embarkee != null && (embarkee.IsEmbarked || embarkee.IsTargetingEmbarkable || embarkee.EmbarkableTarget != null))
+            return false;
+        var c = k._character;
+        if (c == null || c.inert || c.grabbed || c.isStationary || k._damageable == null || k._damageable.isDead || k._mover == null)
+            return false;
+        if (k._fsm == null) return false;
+        int state = k._fsm.Current;
+        return state == Knight.State.Stand || state == Knight.State.GoToWall || state == Knight.State.Assemble;
+    }
+
+    private static bool ValidFollower(Knight k, Archer a) => a != null && a.gameObject != null &&
+        a.gameObject.activeInHierarchy && Same(a._knight, k) && a._damageable != null && !a._damageable.isDead;
+
+    private static float Distance(ActorState a) => Mathf.Abs(a.Owner.transform.position.x - a.Follower.transform.position.x);
+
+    private static void RefreshFollower(ActorState a)
+    {
+        if (Time.time < a.NextFollowerScan) return;
+        a.NextFollowerScan = Time.time + ScanInterval;
+        Archer nearest = null;
+        float distance = float.MaxValue;
+        // Keep the shared cache's default three-second scene scan; only this selection runs at .2 s.
+        foreach (Archer archer in UnitScanCache.GetArchers())
+        {
+            if (!ValidFollower(a.Owner, archer)) continue;
+            float d = Mathf.Abs(archer.transform.position.x - a.Owner.transform.position.x);
+            if (d < distance) { nearest = archer; distance = d; }
+        }
+        if (!Same(a.Follower, nearest)) { a.Failures = 0; a.RetryAt = 0; }
+        a.Follower = nearest;
+    }
+
+    private static bool Current(MotionLease m) => !m.Retired && ReferenceEquals(m.Actor.Motion, m);
+    private static bool OwnGoal(MotionLease m) => m.HasGoal && Same(m.Actor.Owner._mover, m.Mover) &&
+        m.Mover.goalMode == Mover.GoalMode.Position && m.Mover._goalObject == null &&
+        Mathf.Approximately(m.Mover._goalPosition, m.GoalX) && Mathf.Approximately(m.Mover._goalSpeed, m.GoalSpeed);
+
+    private static bool ValidMotion(MotionLease m) => Current(m) && Eligible(m.Actor.Owner) &&
+        Same(m.Actor.Owner._mover, m.Mover) && Same(m.Actor.Owner._damageable, m.Damageable) &&
+        ((m.Trail == null && m.Actor.Owner._trail == null) || Same(m.Actor.Owner._trail, m.Trail)) &&
+        OwnGoal(m) && m.Mover._pauseTimeout <= 0;
+
+    private static void RestoreEffects(MotionLease m)
+    {
+        if (!Current(m) || !m.Effects) return;
+        m.Effects = false;
+        SamuraiDashVisuals.End(m.Visual);
+        // A bool cannot identify an external true -> true rewrite. Restore only our still-present values.
+        if (m.Damageable != null && m.Damageable.invulnerable) m.Damageable.invulnerable = m.OldInvulnerable;
+        if (m.Trail != null && m.Trail.enabled) m.Trail.enabled = m.OldTrail;
+    }
+
+    private static void Finish(MotionLease m, bool failure = false)
+    {
+        if (!Current(m)) return;
+        try
+        {
+            RestoreEffects(m);
+            // Never restore a previous goal, clear an external pause, or stop a replacement mover.
+            if (OwnGoal(m)) m.Mover.Stop();
+        }
+        catch (Exception e) { Log("finish", e); }
+        finally
+        {
+            // Stop/RestoreEffects may synchronously re-enter and replace the lease; only clear ours.
+            bool owned = Current(m);
+            m.Retired = true;
+            if (owned)
+            {
+                if (m.Returning)
+                {
+                    if (failure) { m.Actor.Failures++; m.Actor.RetryAt = Time.time + 2f; }
+                    else { m.Actor.Failures = 0; m.Actor.RetryAt = 0; }
+                }
+                else m.Actor.NextAttack = Time.time + Cooldown;
+                m.Actor.Motion = null;
+            }
+        }
+    }
+
+    private static void Goal(MotionLease m, float x, float speed)
+    {
+        // Caller validates lifecycle/ownership before every update, including burst -> run.
+        if (!Current(m)) return;
+        m.Mover.SetGoalNoHaglet(x, speed);
+        m.GoalX = x; m.GoalSpeed = speed; m.HasGoal = true;
+    }
+
+    private static MotionLease Begin(ActorState a, bool returning, float goal)
+    {
+        Knight k = a.Owner;
+        var m = new MotionLease { Actor = a, Mover = k._mover, Damageable = k._damageable,
+            Trail = k._trail, Returning = returning, StartedAt = Time.time,
+            StartX = k.transform.position.x, LastProgressAt = Time.time,
+            BestDistance = returning ? Distance(a) : 0 };
+        a.Motion = m;
+        m.OldInvulnerable = m.Damageable.invulnerable;
+        m.OldTrail = m.Trail != null && m.Trail.enabled;
+        m.Effects = true;
+        m.Damageable.invulnerable = true;
+        if (m.Trail != null) m.Trail.enabled = true;
+        if (k._animator != null) k._animator.SetTrigger(PowerSlash);
+        m.Visual = SamuraiDashVisuals.Begin(k);
+        Goal(m, goal, DashSpeed);
+        return m;
+    }
+
+    private static float StationX(ActorState a)
+    {
+        float x = a.Owner.transform.position.x, target = a.Follower.transform.position.x;
+        return target - Mathf.Sign(target - x) * 2.5f;
+    }
 
     internal static void Tick(Knight knight)
     {
-        if (knight == null || !knight.gameObject.activeInHierarchy) return;
-        if (!NetworkBigBoss.HasWorldAuth) return; // 无权威端 Knight.Update 原生禁用，双保险
-        if (!PatchRoles_KnightStyle.TryGetResolvedStyleIndex(knight, out int style) || style != ShogunStyleIndex) return;
+        if (knight == null || knight.gameObject == null) return;
         int id = knight.gameObject.GetInstanceID();
-        if (Active.Contains(id)) return;
-        float now = Time.time;
-        if (NextScan.TryGetValue(id, out float next) && now < next) return;
-        NextScan[id] = now + ScanInterval;
-
+        Actors.TryGetValue(id, out ActorState a);
         try
         {
-            // 原生扫描器取最近敌人（层过滤、随骑士视角），替代全场 OverlapCircleAll
-            Scanner scanner = knight._enemyScanner;
-            GameObject target = scanner != null ? scanner.GetClosest() : null;
+            if (a != null && (!Same(a.Owner, knight) || !Eligible(knight)))
+            {
+                if (a.Motion != null) Finish(a.Motion);
+                Actors.Remove(id); a = null;
+            }
+            if (!Eligible(knight)) return;
+            if (a == null) { a = new ActorState { Owner = knight }; Actors[id] = a; }
+            if (a.Motion != null)
+            {
+                MotionLease m = a.Motion;
+                if (!ValidMotion(m)) { Finish(m, m.Returning); return; }
+                if (m.Returning)
+                {
+                    // Verify this reference each frame before periodic reselection, never mask its loss.
+                    if (!ValidFollower(knight, a.Follower)) { Finish(m); a.Follower = null; return; }
+                    RefreshFollower(a);
+                    AdvanceReturn(m);
+                }
+                else if (ValidFollower(knight, a.Follower) && Distance(a) > FollowLeash) Finish(m);
+                return; // Attack and Return are mutually exclusive, including the 4..10 band.
+            }
+            RefreshFollower(a);
+            bool follower = ValidFollower(knight, a.Follower);
+            if (!follower) { a.Follower = null; a.Failures = 0; a.RetryAt = 0; }
+            float distance = follower ? Distance(a) : 0;
+            if (distance <= ReturnStop) { a.Failures = 0; a.RetryAt = 0; }
+            if (distance > FollowLeash || (a.Failures > 0 && distance > ReturnStop))
+            {
+                if (Time.timeScale <= 0 || knight._mover._pauseTimeout > 0 ||
+                    Time.time < a.RetryAt || a.Failures >= 3) return;
+                float x = knight.transform.position.x;
+                var burst = Begin(a, true, x + Mathf.Clamp(StationX(a) - x, -MaxRange, MaxRange));
+                HitScan(burst); // entry frame hits, same as the attack dash's first coroutine step
+                if (Current(burst) && (!ValidMotion(burst) || !ValidFollower(knight, a.Follower)))
+                    Finish(burst, true);
+                return;
+            }
+            if (Time.timeScale <= 0 || knight._mover._pauseTimeout > 0 || Time.time < a.NextAttack) return;
+            a.NextAttack = Time.time + ScanInterval;
+            GameObject target = knight._enemyScanner != null ? knight._enemyScanner.GetClosest() : null;
             if (target == null) return;
-            Damageable targetDamageable = target.GetComponent<Damageable>();
-            if (targetDamageable == null || !targetDamageable.IsDamagedBy(DamageSource.Knight)) return;
-            float dx = Mathf.Abs(target.transform.position.x - knight.transform.position.x);
-            if (dx < MinRange || dx > MaxRange) return;
-            // 随从距离（共享 3s 缓存反查，无 FindObjectsOfType）
-            if (IsBeyondFollowerLeash(knight)) return;
-
-            knight.StartCoroutine(DashRoutine(knight, target).WrapToIl2Cpp());
+            Damageable enemy = target.GetComponent<Damageable>();
+            if (enemy == null || !enemy.IsDamagedBy(DamageSource.Knight)) return;
+            float dx = target.transform.position.x - knight.transform.position.x;
+            if (Mathf.Abs(dx) < 1.5f || Mathf.Abs(dx) > MaxRange) return;
+            var attack = Begin(a, false, target.transform.position.x - Mathf.Sign(dx) * .5f);
+            knight.StartCoroutine(AttackRoutine(attack).WrapToIl2Cpp());
         }
         catch (Exception e)
         {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[SamuraiDash/tick] " + e);
+            if (a?.Motion != null) Finish(a.Motion, a.Motion.Returning);
+            Log("tick", e);
         }
     }
 
-    /// <summary>随从最近距离是否超过 FollowLeash（反查共享缓存，不枚举 knight._archers）。</summary>
-    private static bool IsBeyondFollowerLeash(Knight knight)
+    private static void AdvanceReturn(MotionLease m)
     {
-        try
+        if (!ValidMotion(m)) { Finish(m, true); return; }
+        var a = m.Actor;
+        if (!ValidFollower(a.Owner, a.Follower)) { Finish(m); return; }
+        float distance = Distance(a), now = Time.time;
+        if (!m.Running && Time.timeScale > 0 && now - m.StartedAt < DashTimeout &&
+            Mathf.Abs(a.Owner.transform.position.x - m.StartX) < MaxRange)
+            HitScan(m);
+        // A hit callback may synchronously disable the knight or replace this lease; never touch the new one.
+        if (!Current(m)) return;
+        if (!ValidMotion(m)) { Finish(m, true); return; }
+        if (!ValidFollower(a.Owner, a.Follower)) { Finish(m); return; }
+        distance = Distance(a); now = Time.time;
+        if (distance <= ReturnStop) { Finish(m); return; }
+        if (distance < m.BestDistance - .1f) { m.BestDistance = distance; m.LastProgressAt = now; }
+        if (now - m.StartedAt >= 3f || now - m.LastProgressAt >= .5f) { Finish(m, true); return; }
+        if (Time.timeScale <= 0) return;
+        if (!m.Running && (now - m.StartedAt >= DashTimeout ||
+            Mathf.Abs(a.Owner.transform.position.x - m.StartX) >= MaxRange - .05f))
         {
-            float knightX = knight.transform.position.x;
-            float nearest = float.MaxValue;
-            Archer[] archers = UnitScanCache.GetArchers();
-            for (int i = 0; i < archers.Length; i++)
-            {
-                Archer archer = archers[i];
-                if (archer == null || archer._knight != knight) continue;
-                nearest = Mathf.Min(nearest, Mathf.Abs(archer.transform.position.x - knightX));
-            }
-            return nearest != float.MaxValue && nearest > FollowLeash;
+            RestoreEffects(m);
+            m.Running = true;
+            Goal(m, StationX(a), a.Owner._runSpeed);
+            m.NextGoal = now + ScanInterval;
         }
-        catch
+        else if (m.Running && now >= m.NextGoal)
         {
-            return false; // 判定失败不阻塞冲刺（宁可冲刺也不永久哑火）
+            m.NextGoal = now + ScanInterval;
+            float target = StationX(a);
+            if (Mathf.Abs(target - m.GoalX) > .25f) Goal(m, target, a.Owner._runSpeed);
         }
     }
 
-    private static IEnumerator DashRoutine(Knight knight, GameObject target)
+    private static bool CanHit(MotionLease m) => !m.Running && Time.timeScale > 0 &&
+        ValidMotion(m) && Time.time - m.StartedAt < DashTimeout &&
+        Mathf.Abs(m.Actor.Owner.transform.position.x - m.StartX) < MaxRange &&
+        (m.Returning ? ValidFollower(m.Actor.Owner, m.Actor.Follower) :
+            !ValidFollower(m.Actor.Owner, m.Actor.Follower) || Distance(m.Actor) <= FollowLeash);
+
+    /// <summary>Shared burst hit scan used by both the attack dash and the return dash.</summary>
+    private static void HitScan(MotionLease m)
     {
-        int id = knight.gameObject.GetInstanceID();
-        Active.Add(id);
-        Damageable damageable = null;
-        TrailRenderer trail = null;
+        if (!CanHit(m)) return;
+        if (HitLayerMask == 0) HitLayerMask = LayerMask.GetMask("Enemies", "Wildlife");
+        var a = m.Actor;
+        int count = Physics2D.OverlapCircleNonAlloc(a.Owner.transform.position, 1.2f, m.Colliders, HitLayerMask);
+        for (int i = 0; i < count && CanHit(m); i++)
+        {
+            Collider2D hit = m.Colliders[i];
+            if (hit == null) continue;
+            Damageable enemy = hit.GetComponent<Damageable>();
+            if (enemy == null || !enemy.IsDamagedBy(DamageSource.Knight)) continue;
+            if (!CanHit(m)) return;
+            if (!m.HitObjects.Add(enemy.Pointer)) continue;
+            // Continue through distinct enemies only while synchronous callbacks leave this burst valid.
+            enemy.ReceiveDamage(a.Owner._attackDamage, a.Owner.gameObject, DamageSource.Knight);
+            if (!CanHit(m)) return;
+        }
+    }
+
+    private static IEnumerator AttackRoutine(MotionLease m)
+    {
         try
         {
-            Mover mover = knight._mover;
-            if (mover == null) mover = knight.GetComponent<Mover>();
-            damageable = knight._damageable;
-            if (damageable == null) damageable = knight.GetComponent<Damageable>();
-            Animator animator = knight._animator;
-            if (animator == null) animator = knight.GetComponent<Animator>();
-            trail = knight._trail; // 原生冲锋拖尾（Awake/OnEnable 默认关闭，仅冲刺开启）
-            if (mover == null || damageable == null || target == null) yield break;
-
-            // 冲刺视觉包：无敌 + 白光 + PowerSlash 动画 + 拖尾
-            damageable.invulnerable = true;
-            if (trail != null) trail.enabled = true;
-            if (animator != null) animator.SetTrigger(PowerSlash);
-            try
+            while (ValidMotion(m) && Time.time - m.StartedAt < DashTimeout &&
+                Mathf.Abs(m.Actor.Owner.transform.position.x - m.StartX) < MaxRange)
             {
-                Character character = knight.GetComponent<Character>();
-                if (character != null && character.spriteFX != null)
-                    character.spriteFX.GlowOverlay(Color.white, DashTimeout);
-            }
-            catch { /* 白光是视觉增益，失败不阻断冲刺 */ }
-
-            // 位移：朝目标前方 0.5 格处冲刺（保持短兵接触距离），原生 SetGoal 机制
-            float dir = Mathf.Sign(target.transform.position.x - knight.transform.position.x);
-            float goalX = target.transform.position.x - dir * 0.5f;
-            mover.SetGoal(goalX, DashSpeed);
-
-            // 冲刺本体：命中窗口 + 行程/超时上限（不以到达目标为结束条件）
-            if (_hitLayerMask == 0)
-                _hitLayerMask = LayerMask.GetMask("Enemies", "Wildlife");
-            float startX = knight.transform.position.x;
-            float deadline = Time.time + DashTimeout;
-            var hitObjects = new HashSet<int>();
-            var colliders = new Collider2D[MaxHitsPerWindow];
-            while (Time.time < deadline && knight != null && knight.gameObject.activeInHierarchy
-                && Mathf.Abs(knight.transform.position.x - startX) < MaxRange)
-            {
-                // 随从被甩开超限：立即收招（不继续脱离）
-                if (IsBeyondFollowerLeash(knight)) break;
-                int count = Physics2D.OverlapCircleNonAlloc(
-                    knight.transform.position, HitWindowRadius, colliders, _hitLayerMask);
-                for (int i = 0; i < count; i++)
+                var a = m.Actor;
+                if (ValidFollower(a.Owner, a.Follower) && Distance(a) > FollowLeash) break;
+                if (Time.timeScale > 0)
                 {
-                    Collider2D hit = colliders[i];
-                    if (hit == null) continue;
-                    Damageable enemy = hit.GetComponent<Damageable>();
-                    if (enemy == null || !enemy.IsDamagedBy(DamageSource.Knight)) continue;
-                    int enemyId = hit.gameObject.GetInstanceID();
-                    if (!hitObjects.Add(enemyId)) continue;
-                    // 原生 Knight.Slash 同款伤害调用（同数值、同伤害源）
-                    enemy.ReceiveDamage(knight._attackDamage, knight.gameObject, DamageSource.Knight);
+                    RefreshFollower(a);
+                    if (ValidFollower(a.Owner, a.Follower) && Distance(a) > FollowLeash) break;
+                    HitScan(m);
                 }
                 yield return null;
             }
-            if (mover != null && mover.movingToGoal) mover.Stop();
         }
-        finally
-        {
-            if (knight != null && knight.gameObject != null)
-            {
-                // 池对象禁用时协程被静默终止、finally 不执行——OnDisable postfix 兜底
-                if (damageable != null) damageable.invulnerable = false;
-                if (trail != null) trail.enabled = false;
-            }
-            Active.Remove(id);
-            NextScan[id] = Time.time + Cooldown;
-        }
+        finally { Finish(m); }
     }
 
-    /// <summary>
-    /// 池复用/协程死亡清理：despawn（=禁用）时 Unity 会静默终止骑士身上的协程，
-    /// DashRoutine 的 finally 不会执行。此 postfix 强制复位无敌/拖尾并清簿记，
-    /// 保证池对象复用时不携带 invulnerable=true 或残留 Active 锁。
-    /// </summary>
-    internal static void OnKnightDisabled(Knight knight)
+    internal static bool IsReturning(Knight knight)
     {
         try
         {
-            if (knight == null || knight.gameObject == null) return;
-            int id = knight.gameObject.GetInstanceID();
-            if (!Active.Remove(id) && !NextScan.ContainsKey(id)) return;
-            Damageable damageable = knight._damageable;
-            if (damageable == null) damageable = knight.GetComponent<Damageable>();
-            if (damageable != null) damageable.invulnerable = false;
-            TrailRenderer trail = knight._trail;
-            if (trail != null) trail.enabled = false;
-            NextScan.Remove(id);
+            if (knight == null || knight.gameObject == null) return false;
+            if (!Actors.TryGetValue(knight.gameObject.GetInstanceID(), out var a) || !Same(a.Owner, knight)) return false;
+            var m = a.Motion;
+            return m != null && m.Returning && ValidMotion(m) && ValidFollower(knight, a.Follower) && Distance(a) > ReturnStop;
         }
-        catch (Exception e)
-        {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[SamuraiDash/on-disable] " + e);
-        }
+        catch (Exception e) { Log("should-slash", e); return false; }
+    }
+
+    internal static void OnKnightDisabled(Knight knight)
+    {
+        if (knight == null || knight.gameObject == null) return;
+        int id = knight.gameObject.GetInstanceID();
+        if (!Actors.TryGetValue(id, out var a) || !Same(a.Owner, knight)) return;
+        if (a.Motion != null) Finish(a.Motion);
+        Actors.Remove(id);
+    }
+
+    private static void Log(string where, Exception e)
+    {
+        if (Logged.Add(where)) KingdomEnhancedPlugin.Instance?.LogSource.LogError("[SamuraiDash/" + where + "] " + e);
     }
 }
 
 [HarmonyPatch(typeof(Knight), "Update")]
 internal static class Knight_Update_SamuraiPowerDash_Patch
 {
-    private static void Postfix(Knight __instance)
-    {
-        if (!ModConfig.Enabled.Value || __instance == null) return;
-        try { PatchRoles_SamuraiPowerDash.Tick(__instance); }
-        catch (Exception e) { KingdomEnhancedPlugin.Instance?.LogSource.LogError("[SamuraiDash] " + e); }
-    }
+    private static void Postfix(Knight __instance) => PatchRoles_SamuraiPowerDash.Tick(__instance);
 }
 
-/// <summary>池复用/协程死亡清理（私有 OnDisable 按名字符串补丁，先例：KnightStyle 的 OnEnable）。</summary>
 [HarmonyPatch(typeof(Knight), "OnDisable")]
 internal static class Knight_OnDisable_SamuraiPowerDash_Patch
 {
+    [HarmonyPrefix]
+    private static void Prefix(Knight __instance) => SamuraiDashVisuals.Clear(__instance);
+
     [HarmonyPostfix]
-    private static void Postfix(Knight __instance)
+    private static void Postfix(Knight __instance) => PatchRoles_SamuraiPowerDash.OnKnightDisabled(__instance);
+}
+
+[HarmonyPatch(typeof(Knight), "ShouldSlash")]
+internal static class Knight_ShouldSlash_SamuraiReturn_Patch
+{
+    [HarmonyPrefix]
+    private static bool Prefix(Knight __instance, ref bool __result)
     {
-        if (__instance == null) return;
-        PatchRoles_SamuraiPowerDash.OnKnightDisabled(__instance);
+        if (!PatchRoles_SamuraiPowerDash.IsReturning(__instance)) return true;
+        __result = false;
+        return false;
     }
 }

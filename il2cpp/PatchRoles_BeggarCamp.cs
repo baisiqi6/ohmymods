@@ -5,7 +5,7 @@ namespace KingdomEnhancedMod;
 /// <summary>
 /// 每帐篷乞丐上限入口。中央协调器使原生 SlowUpdate 保持存活，
 /// 但在正常工作时以 maxBeggars=0 抑制它生成，改由 world-authority
-/// 按稳定营地归属与面板配置节拍补员（默认 6 秒、每营地 5 人）。
+/// 按稳定营地归属与面板配置节拍补员（默认 120 秒、每营地 4 人）。
 /// 容量仅限制后续补员，降低上限或读档均不清除已有乞丐；原生回退最短约 6 秒。
 ///
 /// 2.4.0 签名验证（interop Assembly-CSharp.dll）：

@@ -517,3 +517,35 @@ Knight被玩家操控时_wallet指向玩家，数值强化只可写验证同GO�
 
 
 配置总开关不能挡住已经生效过的效果回收。幕府OnDisable保留null和自有Active/NextScan判定，但不读Enabled；发布时核验实际包内DLL的该路径，并用同一DLL做启动检查再上传。
+
+
+### 42. 常驻信息复用缓存与默认值单一来源
+增加HUD银行栏须在既有低频Tick读取已解析银行家，OnGUI仅画缓存字符串；未就绪与0余额区分，切场景清缓存。信息栏变宽时单独保留季节进度区域，校验最大int与窄屏几何。新默认须同时覆盖Config.Bind、协调器静态初始值及空值fallback，并保留已保存自定义配置，不能只改一个Bind字面量。
+
+
+### 43. 共享缓存的消费频率与动作租约必须分开
+GetArchers(.2)不是只加快本地筛选，会将共享FindObjectsOfType周期从3s缩至.2s。使用默认缓存，再给消费者单独.2s择目标节拍。运动不能混用独立Active/Returns账本：每actor一个motion lease，Tick状态机处理返队，攻击协程每步及finally核对lease。阶段切换也必须先检查外部目标与资格，再写新目标；旧协程Dispose不能还原新动作的无敌/拖尾或覆盖新CD。不能只依靠编译及文档宣称有限，需黑盒检查效果截止、并发动作、移动接管和重试次数。
+
+回冲复用伤害时应只抽取共同命中段，不把整套攻击导航复用成追敌。HashSet按Damageable身份归lease，数组一次分配；仅失效的同步伤害回调才退出扫描，不能错误退化为每帧一个敌人。finally不能return跳出，且Stop后须确认仍拥有当前motion再清理，避免同步重入清掉新动作。
+
+### 2026-09-07 FireAttacks时长与换队兼容
+首次附魔必须传独立8s BuffData克隆，不能先用原版长时资产再改expiry（原到期协程初次等待可能过长）。保留原ID供客户端原版视觉查表，不注册克隆ID。已有expiry>=now+8时直接保留。2.4新增Buffable.OnDisable/TryDeactivateBuff，API存在已审计，详细生命周期仍须实测。
+Greek施火前同步Restore仍可识别的旧squad弩包；ApplySquadCrossbowPackage在原生FireAttacks/fireSO期间暂缓，避免带火换队覆盖。已带死地包再被原神器施火的旧SO所有权缺口是独立待修项，本轮不宣称解决。火箭沿用实际Archer的_fireArrowAttack prefab，需现有Pool及sync资格，不因换皮便假定跨biome投射物池齐全。
+
+### 2026-09-11 补员观测与原生嵌套调用
+实物2.4 Knight.Update=0x5b7430、FetchArchersForJob=0x59de90、IsAvailableForJob=0x4b2880、Archer.OnDisable=0x4b2c10各1slot。Fetch→Norse Promote→旧Archer.OnDisable→DistributeFreeArchers可能嵌套Fetch；单全局当前请求会串计数，必须每层保存/屏蔽/异常finally恢复。不要读取Fetch前的_availableArchersCache当本次候选，也不要二次调用资格函数当只读。OnDisable是回收事件，不自动等同战死；缓存名册差异不是删除凭据。撤除旧CrossbowTowerDiag逐命中LogInfo，不能把原生被测耗时误归因为探针成本。
+
+### 2026-09-11 Unity恢复字符串shim与空fireSO
+Renderer.sortingLayerName wrapper可存在但在运行中调用不存在Il2CppSystem.ReadOnlySpan.GetPinnableReference；先前仅unstripping-stub审计不足。numeric sortingLayerID native API绕开此缺陷。Norse Archer serialized fireSO为空而同名fire资源存在，角色换皮不保证攻击依赖齐全。恢复以当前BiomeData映射和Pool.Spawn有效prefab为准；不能因为guard拒绝就移除guard。SpriteRendererFX.GlowRoutine短时duration/2系数会淡化白光且抢共用overlay协程，独立自有renderer可规避。
+
+### 2026-09-11 动态跟随不可降为固定坐标
+Archer跟队状态只SetGoal一次，接着等HasKnight false/骑士登船；静态Position替换会永久失去移动目标。形成offset原生表达式是goal.x+offset*goal.localScale.x，忽略朝向可差数格。ref offset保留原nativeObject/Wait，ownedrecord不比较动态_goalPosition。恢复必须在day/night/config早退前；Mover目标未存进ArcherData，重启重建无需按旧固定墙坐标猜ownership。
+
+### 2026-09-11 offset凭据的重申与销毁
+同目标/速度/Formation offset精确重申时需保留original，且先判断离墙/配置关闭再进入新借用gate；否则旧写入变成新baseline导致间距不归还。Destroyed Unity fake-null不能阻止managed ledger删除，应存Key。先退役后native SetGoal避免callback抹掉新凭据；快照与reentry flag均finally清理。本次49回归覆盖这些边界。
+
+### 2026-09-11 原生异步登船与部分异常
+FleetBoat Idle先TryRecruit转InFormation才开放骑士boarding；不能要求候选已有assigned。原生StartRecruiting先yield，所以预留须跨帧。Knight.OnEmbarkStart先BecomeStationary再完成IsEmbarked，own-target过渡不可当外部占用。Native ActivateFormation异常跳过Postfix，Finalizer必须结束pending；半完成注册以实际formation membership收尾，不抢另一formation。评分内不改Registrar集合，先队列取消，再既有coordinator原生Unregister。猫Pool/SetActive在副作用后可能抛：已inactive仍计成功，结果不确定则停止该farm删除，避免误删至低于4。
+
+### 2026-09-12 5.0发布构建一致性
+版本升号不改变战斗实现。必须从精确clean commit构建，外部核验实际DLL的assembly/plugin版本而非只相信csproj；发布前测试ZIP内嵌DLL，同一ZIP上传后比对digest。旧硬编码pack脚本不用。

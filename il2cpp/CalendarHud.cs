@@ -6,7 +6,7 @@ namespace KingdomEnhancedMod;
 /// <summary>Passive, cached calendar overlay. No controls, scene searches or game-state writes.</summary>
 internal static class CalendarHud
 {
-    private const float Width = 688f, Height = 86f;
+    private const float Width = 900f, CalendarWidth = 688f, Height = 86f;
     private static readonly Color Gold = new Color(0.96f, 0.81f, 0.50f);
     private static readonly Color Ink = new Color(0.94f, 0.96f, 0.98f);
     private static readonly Color Muted = new Color(0.66f, 0.73f, 0.80f);
@@ -16,13 +16,14 @@ internal static class CalendarHud
         new Color(1f, 0.59f, 0.35f), new Color(0.64f, 0.85f, 1f)
     };
     private static Texture2D _back, _white;
-    private static readonly Texture2D[] Icons = new Texture2D[6];
+    private static readonly Texture2D[] Icons = new Texture2D[7];
     private static GUIStyle _large, _small, _number;
     private static IntPtr _world, _scene, _director;
     private static float _nextRead, _retryAfter;
     private static bool _valid, _faultLogged;
     private static CalendarSnapshot _snapshot;
     private static string _dayText = "", _hourText = "", _seasonText = "", _nextText = "";
+    private static string _bankText = "—";
 
     private static bool Enabled => ModConfig.Enabled != null && ModConfig.Enabled.Value
         && ModConfig.ShowCalendarHud != null && ModConfig.ShowCalendarHud.Value;
@@ -54,6 +55,9 @@ internal static class CalendarHud
             float now = Time.unscaledTime;
             if (now < _nextRead) return;
             _nextRead = now + 0.5f;
+            // Same source as the main panel; sampled only by this half-second cache, never during Draw.
+            int stashed = BankAssistantCoordinator.GetStashedCoinsForPanel();
+            _bankText = stashed < 0 ? "—" : stashed.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " 币";
             _valid = CalendarReader.TryRead(director, out _snapshot);
             if (!_valid) return;
             _dayText = "第 " + _snapshot.TotalDay + " 天";
@@ -69,6 +73,7 @@ internal static class CalendarHud
         _valid = false;
         _world = _scene = _director = IntPtr.Zero;
         _nextRead = 0f;
+        _bankText = "—";
     }
 
     internal static void Draw()
@@ -86,6 +91,7 @@ internal static class CalendarHud
             GUI.enabled = true;
             GUI.depth = -20;
             float scale = Mathf.Clamp(Mathf.Min(Screen.width / 1280f, Screen.height / 720f), 0.45f, 1f);
+            scale = Mathf.Min(scale, Mathf.Max(1f, Screen.width - 24f) / Width);
             float x = (Screen.width / scale - Width) * 0.5f;
             const float y = 18f;
             GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
@@ -109,9 +115,13 @@ internal static class CalendarHud
             if (_snapshot.HasNextSeason && next >= 0)
                 Icon(next, x + 504, y + 35, 31, SeasonColors[next]);
             Label(x + 542, y + 35, 132, 31, _nextText, _small, Ink);
-            Line(x + 22, y + Height - 10, Width - 44, 3, new Color(1, 1, 1, 0.10f));
+            Line(x + 692, y + 18, 1, 45, new Color(1, 1, 1, 0.12f));
+            Label(x + 708, y + 12, 90, 19, "银行", _small, Muted);
+            Icon(6, x + 706, y + 35, 26, Gold);
+            Label(x + 740, y + 33, 142, 34, _bankText, _number, Gold);
+            Line(x + 22, y + Height - 10, CalendarWidth - 44, 3, new Color(1, 1, 1, 0.10f));
             if (_snapshot.HasNextSeason)
-                Line(x + 22, y + Height - 10, (Width - 44) * Mathf.Clamp01(_snapshot.Progress), 3, currentColor);
+                Line(x + 22, y + Height - 10, (CalendarWidth - 44) * Mathf.Clamp01(_snapshot.Progress), 3, currentColor);
         }
         catch (Exception ex) { _valid = false; _retryAfter = Time.unscaledTime + 1f; LogOnce(ex); }
         finally
@@ -258,9 +268,12 @@ internal static class CalendarHud
             return Mathf.Abs(radius - 0.37f) < 0.029f
                 || Segment(x, y, 0.5f, 0.5f, 0.5f, 0.75f, 0.031f)
                 || Segment(x, y, 0.5f, 0.5f, 0.69f, 0.42f, 0.031f);
-        return Segment(x, y, 0.18f, 0.5f, 0.80f, 0.5f, 0.04f)
-            || Segment(x, y, 0.56f, 0.73f, 0.80f, 0.5f, 0.04f)
-            || Segment(x, y, 0.56f, 0.27f, 0.80f, 0.5f, 0.04f);
+        if (index == 5) // Arrow pointing at the upcoming season.
+            return Segment(x, y, 0.18f, 0.5f, 0.80f, 0.5f, 0.04f)
+                || Segment(x, y, 0.56f, 0.73f, 0.80f, 0.5f, 0.04f)
+                || Segment(x, y, 0.56f, 0.27f, 0.80f, 0.5f, 0.04f);
+        // index 6: coin — thick ring with a solid core, stays legible at HUD icon size.
+        return Mathf.Abs(radius - 0.34f) < 0.085f || radius < 0.12f;
     }
 
     private static bool Leaf(float x, float y, float cx, float cy, float angle, float length, float width)

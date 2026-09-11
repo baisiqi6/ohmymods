@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion><Nullable>disable</Nullable>
+    <ExtractionMode>fleet</ExtractionMode>
+    <ExtractionInput>$(MSBuildProjectDirectory)/../../il2cpp/PatchWorld_FleetBoatFormation.cs</ExtractionInput>
+  </PropertyGroup>
+  <Import Project="../ExtractSource.targets" />
+  <ItemGroup>
+    <Compile Include="../../il2cpp/FleetGreekSquads.cs" Link="Production/FleetGreekSquads.cs" />
+    <Compile Include="$(GeneratedSourceDir)/CandidateSource.cs" />
+    <Compile Include="$(GeneratedSourceDir)/FinalizerSource.cs" />
+  </ItemGroup>
+</Project>

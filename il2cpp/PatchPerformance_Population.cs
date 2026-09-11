@@ -22,8 +22,8 @@ public static class PopulationPerformanceApplyPatch
 /// </summary>
 public sealed class PopulationPerformanceCoordinator : MonoBehaviour
 {
-    private static int CampCapacity = 5;
-    private static float ReplenishPeriod = 6f;
+    private static int CampCapacity = ModConfig.DefaultBeggarCampCapacity;
+    private static float ReplenishPeriod = ModConfig.DefaultBeggarSpawnIntervalSeconds;
     // Native SlowUpdate adds five seconds after its spawnInterval wait.
     // Keep a positive native wait: fallback cadence is max(6, configured seconds).
     private static float FallbackSpawnInterval => Mathf.Max(1f, ReplenishPeriod - 5f);
@@ -587,8 +587,8 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
 
     private static void RefreshSettings()
     {
-        int capacity = Mathf.Clamp(ModConfig.BeggarCampCapacity?.Value ?? 5, 1, 20);
-        int seconds = Mathf.Clamp(ModConfig.BeggarSpawnIntervalSeconds?.Value ?? 6, 1, 120);
+        int capacity = Mathf.Clamp(ModConfig.BeggarCampCapacity?.Value ?? ModConfig.DefaultBeggarCampCapacity, 1, 20);
+        int seconds = Mathf.Clamp(ModConfig.BeggarSpawnIntervalSeconds?.Value ?? ModConfig.DefaultBeggarSpawnIntervalSeconds, 1, 120);
         if (capacity == CampCapacity && seconds == ReplenishPeriod) return;
         CampCapacity = capacity;
         ReplenishPeriod = seconds;

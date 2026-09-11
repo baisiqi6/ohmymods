@@ -242,7 +242,7 @@ public static class PatchWorld_DefenseSpacing
     /// call, goal replaced) only when a branch rewrote the goal; true
     /// (native call untouched) for everything else.
     /// </summary>
-    internal static bool DayAssembleSpreadPrefix(Mover mover, float goal, float speed)
+    internal static bool DayAssembleSpreadPrefix(Mover mover, float goal, ref float speed)
     {
         try
         {
@@ -258,7 +258,11 @@ public static class PatchWorld_DefenseSpacing
                 else if (mover.GetComponent<Archer>() != null) unitType = 2;
                 _moverUnitType[id] = unitType;
             }
-            if (unitType == 1) return KnightDayAssembleSpread(mover, goal, speed);
+            if (unitType == 1)
+            {
+                SamuraiRetreatSpeed.Adjust(mover.GetComponent<Knight>(), mover, ref speed);
+                return KnightDayAssembleSpread(mover, goal, speed);
+            }
             if (unitType == 2) return MirrorNightArcherGoal(mover, goal, speed);
             return true;
         }
@@ -280,7 +284,7 @@ public static class PatchWorld_DefenseSpacing
         if (kingdom == null || !kingdom.isDaytime) return true;
 
         Knight knight = mover.GetComponent<Knight>();
-        if (knight == null || knight.gameObject == null) return true;
+        if (knight == null || knight.gameObject == null || !SquadFollowGuard.IsDayAssemblingKnight(knight)) return true;
         float side = (float)knight.side;
         if (side == 0f) return true;
 
@@ -363,6 +367,7 @@ public static class PatchWorld_DefenseSpacing
         // Crossbow movement outside its wall-defense state remains native (flee,
         // embark, formation, player control); never fall through into generic mirroring.
         if (crossbow != null && PatchRoles_Crossbowman.IsCrossbowman(crossbow)) return true;
+        if (!SquadFollowGuard.IsOrdinaryWallArcher(crossbow)) return true;
         Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
         if (kingdom == null) return true;
         Director director = Managers.Inst.director;
@@ -432,79 +437,18 @@ public static class PatchWorld_DefenseSpacing
     // range the v2.1.0 depth clamp protects.  Daytime following is untouched
     // (isDaytime gate) and non-Archer Formation callers
     // (Knight.OnEmbarkStart boat boarding etc.) never match the Archer gate.
-    private static readonly System.Collections.Generic.Dictionary<int, int> _moverIsArcher =
-        new System.Collections.Generic.Dictionary<int, int>();
-    private static bool _loggedNightPull;
 
     /// <summary>
     /// Prefix body for Mover.SetGoal(GameObject, float, float, OffsetMode).
-    /// Returns false (skip the native call, anchor pulled inside the wall)
-    /// only for a nighttime knight-following Archer formation walk; true
-    /// (native call untouched) for everything else.
+    /// Always retains the native call and dynamic Object target; a wall defender may
+    /// receive a temporary formation offset that is released when its task changes.
     /// </summary>
     internal static bool NightFollowerAnchorPrefix(Mover mover, GameObject goal,
-        float speed, float offset, Mover.OffsetMode offsetMode)
+        float speed, ref float offset, Mover.OffsetMode offsetMode)
     {
-        try
-        {
-            if (!ModConfig.Enabled.Value || mover == null || goal == null) return true;
-            if (offsetMode != Mover.OffsetMode.Formation) return true;
-
-            // Fast path: cached is-archer verdict per mover instance (same
-            // pattern as the is-knight cache above).
-            int id = mover.GetInstanceID();
-            if (!_moverIsArcher.TryGetValue(id, out int isArcher))
-            {
-                isArcher = mover.GetComponent<Archer>() != null ? 1 : 0;
-                _moverIsArcher[id] = isArcher;
-            }
-            if (isArcher == 0) return true;
-
-            Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
-            if (kingdom == null || kingdom.isDaytime) return true;
-
-            Archer archer = mover.GetComponent<Archer>();
-            if (archer == null || archer._knight == null) return true;
-            Knight knight = archer._knight;
-            if (knight.gameObject == null) return true;
-            float side = (float)knight.side;
-            if (side == 0f) return true;
-
-            float wall = kingdom.GetBorderSideIntact(knight.side);
-            // Formation target = goal object x + offset (native multiplies the
-            // offset by the goal's localScale.x facing sign, Mover.cs:161; the
-            // plain sum is within 0.3 of that — close enough for the band test).
-            float anchorX = goal.transform.position.x + offset;
-            // 拉回量按骑士风格取（KnightStyle API，判空/查不到回落 4.2）：
-            // 死地随从=弩手（射程 12，站深不打折、避开贴墙高抛）→ 6.5；
-            // 普通弓随从（射程 8）→ 4.2，再深会把后排推出射程。
-            float pullback = PatchRoles_KnightStyle.GetFollowerAnchorPullback(knight);
-            if ((wall - anchorX) * side < pullback)
-            {
-                float newAnchor = wall - side * pullback;
-                if (!_loggedNightPull)
-                {
-                    _loggedNightPull = true;
-                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                        "[DefenseSpacing] night follower anchor pulled inside: knight@"
-                        + goal.transform.position.x.ToString("F1")
-                        + " anchor " + anchorX.ToString("F1")
-                        + "->" + newAnchor.ToString("F1"));
-                }
-                // Float overload; this mover is an Archer, so the day-spread
-                // prefix's is-knight cache passes it straight through (no
-                // recursion), and it is night anyway.
-                mover.SetGoal(newAnchor, speed);
-                return false; // skip the native formation goal
-            }
-            return true; // anchor already deep enough inside — native follow
-        }
-        catch (Exception e)
-        {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
-                "[DefenseSpacing/night-anchor] " + e);
-            return true;
-        }
+        // Keep native Object following and its original Wait. Only a defender's temporary offset changes.
+        SquadFollowGuard.AdjustAnchor(mover, goal, speed, ref offset, offsetMode);
+        return true;
     }
 
     // ---- night archer lineup report ----------------------------------------
@@ -951,7 +895,8 @@ public static class PatchWorld_DefenseSpacing
                 Knight knight = archer._knight;
                 if (knight != null && knight.gameObject != null)
                 {
-                    // Part 1: knight-follower — re-goal path ONLY.
+                    if (!SquadFollowGuard.IsWallFollower(archer, kingdom)) continue;
+                    // Part 1: actual wall defender only; expeditions and higher-priority missions retain native goals.
                     float knightSide = (float)knight.side;
                     if (knightSide == 0f) continue;
                     float followerDepth = (kingdom.GetBorderSideIntact(knight.side)
@@ -966,7 +911,7 @@ public static class PatchWorld_DefenseSpacing
                             + archer.transform.position.x.ToString("F1"));
                     }
                     // 原生跟队目标重发（与 Archer.cs:486 完全同参）；随后的
-                    // NightFollowerAnchorPrefix 会把锚点钳到墙内 4.2 步。
+                    // NightFollowerAnchorPrefix 仅调整守墙偏移，保留持续跟踪骑士的 Object 目标。
                     archer._mover.SetGoal(knight.gameObject, archer.runSpeed,
                         -archer.knightFollowDistance, Mover.OffsetMode.Formation);
                     continue; // 有骑士随从只走重发路径，绝不再叠硬地板
@@ -979,7 +924,8 @@ public static class PatchWorld_DefenseSpacing
                     PatchRoles_CrossbowDefense.TryPullBack(archer);
                     continue;
                 }
-                // Part 2: remaining knight-less ordinary archers.
+                if (!SquadFollowGuard.IsOrdinaryWallArcher(archer)) continue;
+                // Part 2: remaining knight-less ordinary wall defenders.
                 // 塔位弓箭手跳过（同 MirrorNightArcherGoal 的两道防线：实测
                 // 日志 re-located deep: x=130.8 疑似同因——塔守位在墙外窄
                 // 带/塔高度，不属于墙外滞留，重定位会让塔上弓箭手在天上走）。
@@ -1036,6 +982,8 @@ public static class PatchWorld_DefenseSpacing
     {
         if (world == null || _supervisorWorld == world.Pointer) yield break;
         _supervisorWorld = world.Pointer;
+        SquadFollowGuard.Clear();
+        FleetGreekSquads.Clear();
         // 共享扫描缓存（抖动治理）：世界边界整体失效，新世界首轮 pass 必须拿到
         // 全新扫描（杜绝跨世界残影/读档恢复路径的首拍数据陈旧）。
         UnitScanCache.InvalidateAll();
@@ -1070,6 +1018,8 @@ public static class PatchWorld_DefenseSpacing
             float now = Time.unscaledTime;
             if (now < _nextDepthClampAt) return;
             _nextDepthClampAt = now + 3f;
+            // Release our own temporary follower offsets before day/night, empty-world or config gates.
+            SquadFollowGuard.Reconcile();
 
             Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
             if (kingdom == null) return;
@@ -1115,7 +1065,7 @@ public static class PatchWorld_DefenseSpacing
             ScanNightArcherLineup(kingdom, archers);
 
             // 夜间滞留墙外纠偏：骑士随从重发原生跟队目标（被
-            // NightFollowerAnchorPrefix 拉回墙内 4.2 步锚点）；无骑士的
+            // NightFollowerAnchorPrefix 保留 Object 跟随，仅临时调整守墙偏移）；无骑士的
             // 弓箭手/弩手重定位到墙内 8~18 步深处步行回位。
             NightParkedFollowerSweep(kingdom, archers);
 
@@ -1212,9 +1162,9 @@ public static class World_DefenseSpacing_Supervisor_Host_Patch
 public static class Mover_DefenseSpacing_DayAssemble_Spread_Patch
 {
     [HarmonyPrefix]
-    private static bool Prefix(Mover __instance, float goal, float speed)
+    private static bool Prefix(Mover __instance, float goal, ref float speed)
     {
-        return PatchWorld_DefenseSpacing.DayAssembleSpreadPrefix(__instance, goal, speed);
+        return PatchWorld_DefenseSpacing.DayAssembleSpreadPrefix(__instance, goal, ref speed);
     }
 }
 
@@ -1230,9 +1180,9 @@ public static class Mover_DefenseSpacing_NightFollowerAnchor_Patch
 {
     [HarmonyPrefix]
     private static bool Prefix(Mover __instance, GameObject goal, float speed,
-        float offset, Mover.OffsetMode offsetMode)
+        ref float offset, Mover.OffsetMode offsetMode)
     {
         return PatchWorld_DefenseSpacing.NightFollowerAnchorPrefix(
-            __instance, goal, speed, offset, offsetMode);
+            __instance, goal, speed, ref offset, offsetMode);
     }
 }

@@ -738,6 +738,7 @@ public static class PatchRoles_KnightStyle
         try
         {
             if (knight == null || knight.gameObject == null) return;
+            FleetGreekSquads.ReleaseKnight(knight); // Retire any previous pooled lifetime reservation.
             int id = knight.gameObject.GetInstanceID();
             if (States.TryGetValue(id, out KnightStyleState state))
             {
@@ -759,6 +760,7 @@ public static class PatchRoles_KnightStyle
     {
         if (world == null || _supervisorWorld == world.Pointer) yield break;
         _supervisorWorld = world.Pointer;
+        PatchRoles_GreekFireAssets.ResetWorld();
 
         // 新世界：旧骑士已销毁、池重建。尽力注销缩放守卫（防 instanceID 复用后
         // 错误守卫新对象），再清状态表。已销毁包装的成员访问会抛，逐项兜住。
@@ -849,7 +851,7 @@ public static class PatchRoles_KnightStyle
             }
 
             // ---- 第二段：随从联动（反向归属，全场一次扫描）----
-            StyleFollowersByLookup();
+            StyleFollowersByLookup(knights);
 
             // ---- 第三段：北境小队巡检（norse-squad-027，复用本 5s 节奏）----
             // 北境骑士的随从：非北境 prefab → 补转化（读档后骑士重新 Fetch 拉来的
@@ -922,6 +924,7 @@ public static class PatchRoles_KnightStyle
         try
         {
             if (archer == null || archer.gameObject == null) return false;
+            PatchRoles_GreekFireAssets.RestoreMissing(archer);
 
             // 真弩手（marker 群体）绝不碰 squad 包：其 ActiveArrowAttack 同样指向
             // 克隆 SO，RestoreSquadCrossbowPackage 的指针判据无法区分群体，会把
@@ -1078,7 +1081,7 @@ public static class PatchRoles_KnightStyle
     /// 注意：_knight 是 Il2Cpp 对象，fake-null 语义下判空可用重载 == null，
     /// 取 ID 前再判一次；只按 instanceID 查表，不做托管等值比较。
     /// </summary>
-    private static void StyleFollowersByLookup()
+    private static void StyleFollowersByLookup(Knight[] knights)
     {
         try
         {
@@ -1089,6 +1092,7 @@ public static class PatchRoles_KnightStyle
             // 只是兜底，缓存 3s < 原 5s 节奏。
             Archer[] archers = UnitScanCache.GetArchers();
             if (archers == null) return;
+            SquadRosterSnapshot.Observe(knights, archers);
 
             // 管线诊断计数（只记录不改行为，输出见 LogFollowerDiag）：
             // archers=active Archer 总数；withKnight=_knight 非空；inStates=withKnight
@@ -1115,6 +1119,7 @@ public static class PatchRoles_KnightStyle
                     if (archer == null || archer.gameObject == null
                         || !archer.gameObject.activeInHierarchy) continue;
                     diagArchers++;
+                    PatchRoles_GreekFireAssets.RestoreMissing(archer);
 
                     // 弩手按设计不入骑士队（IsAvailableForJob 已排除），防御性跳过；
                     // 诊断计入 skippedOther（"其他原因"之一）。内部有注册防御，安全。

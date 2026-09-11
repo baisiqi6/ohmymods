@@ -9,8 +9,10 @@ namespace KingdomEnhancedMod;
 /// <summary>
 /// 农舍猫（北境猫移植，Mono 线 Patch_Kingdom.SpawnCatsInGreece 的 IL2CPP 迁移）。
 ///
-/// 语义（照搬 Mono 版）：仅希腊 biome，把北境猫 prefab 补进每个 Farmhouse——
-/// 每农舍驯化猫补齐到 3 只（位置农舍 ±4、y+0.5）；驯化 = domesticated=true +
+/// 语义（Mono 版基础上两轮调整）：仅希腊 biome，把北境猫 prefab 补进每个
+/// Farmhouse——每农舍驯化猫维持在 CatsPerFarmhouse=4 只（不足补齐：位置农舍
+/// ±4、y+0.5；旧存档 6 只超额时按 KEM_FarmCat 前缀甄别回收本 mod 多放的猫，
+/// 见 TryRetireFarmCat）；驯化 = domesticated=true +
 /// farmHouse 绑定 + 白色（Mono 版 SetFromSavedState 兜底先例用 Color.white）。
 ///
 /// IL2CPP 化要点：
@@ -33,7 +35,7 @@ namespace KingdomEnhancedMod;
 /// - **宿主**：World.OnLevelLoaded postfix 延迟协程（PatchWorld_TowerSpots 同款
 ///   一次性范式）：per-world+gameLayer 指针守卫，且守卫在全部就绪检查通过之后、
 ///   实际放猫之前才消费（瞬时未就绪只跳过本次，不永久吞掉该世界）。
-/// - **幂等**：每农舍按"现存驯化且绑定该农舍"的猫数补齐（上限 3），重放安全。
+/// - **幂等**：每农舍按"现存驯化且绑定该农舍"的猫数补齐/瘦身（目标 4），重放安全。
 /// - **联机 fail-closed**（TowerSpots 同款纪律）：NetworkBigBoss.IsOnline 整体
 ///   跳过——本补丁只有权威端 Instantiate+注册，没有让对端生成同款猫的 RPC 通道，
 ///   联机会分叉（对端看不到、自己跑出未注册副本）。单机/同机分屏
@@ -74,8 +76,8 @@ namespace KingdomEnhancedMod;
 ///   读档 TryCreateOrFind 按 Resources.Load(prefabPath) 重建（无池则 Instantiate，
 ///   有池 FastSpawn），再经 ApplyData 恢复 farmHouse/domesticated/color。
 /// - **双保险**：即使持久化 wiring 对补放实例失效（如 prefab 无 Persistent），
-///   本补丁每次读档（OnLevelLoaded 重放）都按现存数补齐到 3，玩家无感——
-///   幂等重放本身即兜底，不额外做存档写入。
+///   本补丁每次读档（OnLevelLoaded 重放）都按现存数补齐到 4、超额瘦到 4，
+///   玩家无感——幂等重放本身即兜底，不额外做存档写入。
 /// - 网络注册：随生成方式一并原生化（见上）：池化路径由 AttemptSpawnSync 以
 ///   CRPCType.Dynamic 注册，与原生池化猫同口径；无池回退分支无注册（原生
 ///   SpawnOrInstantiate 语义如此，未注册时 Cat 本地行为也完整——
@@ -89,7 +91,7 @@ public static class PatchWorld_FarmCats
 {
     private const string MarkerPrefix = "KEM_FarmCat";
     private const float DelaySeconds = 5f;   // 等场景物体/读档重建猫就绪
-    private const int CatsPerFarmhouse = 6;  // 用户拍板翻倍（原 Mono 版 3）
+    private const int CatsPerFarmhouse = 4;  // 用户拍板（2026-09-11 由 6 下调；原 Mono 版 3）
     private const float CatScaleY = 1.2f; // 用户拍板：小猫体型 1.2（坑11 只动 y）
 
     // per-world 指针守卫：在全部就绪检查（biome/联机/kingdom/农舍/prefab）通过
@@ -132,7 +134,7 @@ public static class PatchWorld_FarmCats
         }
     }
 
-    /// <summary>补齐入口（幂等：每农舍按现存数补到 3，每次关卡加载重放）。</summary>
+    /// <summary>补齐/瘦身入口（幂等：每农舍维持 4 只，每次关卡加载重放）。</summary>
     private static void StockFarmCats(World world)
     {
         // 已就绪检查通过并放过的 world+gameLayer 不重跑（同 TowerSpots）。
@@ -197,26 +199,51 @@ public static class PatchWorld_FarmCats
         var cats = UnityEngine.Object.FindObjectsOfType<Cat>();
 
         int spawned = 0;
+        int retired = 0;
         for (int f = 0; f < farmhouses.Length; f++)
         {
             Farmhouse farmhouse = farmhouses[f];
             if (farmhouse == null || farmhouse.transform == null) continue;
 
-            int existing = 0;
+            // 先分两类：非 mod 猫（保留优先级最高）与可辨认的本 mod 猫
+            // （KEM_FarmCat 前缀名——旧存档猫经 ObjectData.name 回放保留命名，
+            // 见类注释；计数口径不依赖名字，仅回收甄别用）。
+            int existing = 0;          // 该农舍现存驯化绑定猫总数
+            int nativeCount = 0;       // 其中非 mod 猫数
+            var modCats = new System.Collections.Generic.List<Cat>();
             if (cats != null)
             {
                 for (int i = 0; i < cats.Length; i++)
                 {
                     Cat cat = cats[i];
-                    if (cat != null && cat.domesticated && cat.farmHouse == farmhouse)
-                    {
-                        existing++;
-                        EnsureCatScale(cat); // 读档恢复的猫没走生成路径，幂等补缩放
-                    }
+                    if (cat == null || cat.gameObject == null || !cat.gameObject.activeInHierarchy || !cat.domesticated || cat.farmHouse != farmhouse)
+                        continue;
+                    existing++;
+                    EnsureCatScale(cat); // 读档恢复的猫没走生成路径，幂等补缩放
+                    if (IsRetirableModCat(cat)) modCats.Add(cat);
+                    else nativeCount++;
                 }
             }
 
-            int toSpawn = CatsPerFarmhouse - existing;
+            // 旧存档瘦身（6→4）：只回收可辨认的本 mod 猫，凑到总数 4 为止。
+            // 非mod猫一律不删；只从本mod猫中减少，多余原生猫保留。
+            int surplus = existing - CatsPerFarmhouse;
+            int toRetire = modCats.Count < surplus ? modCats.Count : surplus;
+            if (surplus > 0 && toRetire == 0)
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                    "[FarmCats] farmhouse has " + existing + " cats (" + nativeCount
+                    + " native), target " + CatsPerFarmhouse
+                    + "; no removable mod-marked cats, leaving untouched");
+            }
+            int removedHere = 0;
+            for (int r = modCats.Count - 1; r >= 0 && toRetire > 0; r--)
+            {
+                if (TryRetireFarmCat(modCats[r], farmhouse, out bool uncertain)) { retired++; removedHere++; toRetire--; }
+                if (uncertain) break; // Don't delete another cat while a partial native failure may still retire this one.
+            }
+
+            int toSpawn = CatsPerFarmhouse - (existing - removedHere);
             for (int n = 0; n < toSpawn; n++)
             {
                 if (TrySpawnFarmCat(catPrefab, farmhouse, layer)) spawned++;
@@ -224,8 +251,76 @@ public static class PatchWorld_FarmCats
         }
 
         KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-            "[FarmCats] spawned " + spawned + " cats at " + farmhouses.Length
-            + " farmhouses (norse prefab)");
+            "[FarmCats] spawned " + spawned + ", retired " + retired
+            + " cats at " + farmhouses.Length + " farmhouses (norse prefab)");
+    }
+
+    /// <summary>
+    /// 回收甄别：仅限本 mod 可辨认的猫（KEM_FarmCat 前缀命名，旧存档回放保留）
+    /// 且明确绑定该农舍、驯化、active（FindObjectsOfType 口径已保证）。
+    /// </summary>
+    private static bool IsRetirableModCat(Cat cat)
+    {
+        try
+        {
+            GameObject catGO = cat.gameObject;
+            if (catGO == null) return false;
+            return catGO.name != null && catGO.name.StartsWith(MarkerPrefix, StringComparison.Ordinal);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// 安全回收一只本 mod 补放的驯化猫（旧存档 6→4 瘦身路径）。
+    /// 不收：被抓（Droppable.pickedUp，Cat.GrabbedRoutine 依赖态）、
+    /// 正在跟随猫车玩家（followingPlayer，Cat 私有字段 interop 直读，坑25 同族）。
+    /// 回收走原生 Pool.DespawnOrDestroy（Pool.cs 2.1.0 实证）：
+    /// 池路径 FastDespawn → SetActive(false)，级联触发 Cat.OnDisable（出
+    /// kingdom.cats，后续计数不再算活猫）与 Persistent.OnDisable（自动
+    /// UnregisterPersistent，存档不再收集该实例——不手工改存档/unregister）；
+    /// 无池回退 Destroy。回收后复核 GO 已失活/销毁，仍 active 视为失败：
+    /// 不计入已回收数（补齐数不受污染），留有限日志。
+    /// </summary>
+    private static bool TryRetireFarmCat(Cat cat, Farmhouse farmhouse, out bool uncertain)
+    {
+        uncertain = false;
+        try
+        {
+            if (cat == null || !cat.domesticated || cat.farmHouse != farmhouse || !IsRetirableModCat(cat)) return false;
+            GameObject catGO = cat.gameObject;
+            if (catGO == null || !catGO.activeInHierarchy) return false;
+
+            Droppable droppable = catGO.GetComponent<Droppable>();
+            if (droppable != null && droppable.pickedUp) return false; // 被抓着，不收
+            if (cat.followingPlayer != null) return false;             // 跟猫车中，不收
+
+            Pool.DespawnOrDestroy(catGO);
+            // A non-pooled Destroy is deferred to frame end. Retire it synchronously so
+            // later candidates do not also get removed while this deletion is pending.
+            if (catGO != null && catGO.activeInHierarchy) catGO.SetActive(false);
+
+            bool gone = cat == null || cat.gameObject == null
+                || !cat.gameObject.activeInHierarchy;
+            if (!gone)
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                    "[FarmCats] retire failed (still active): " + catGO.name);
+            }
+            return gone;
+        }
+        catch (Exception e)
+        {
+            try { KingdomEnhancedPlugin.Instance?.LogSource.LogError("[FarmCats] retire failed: " + e); } catch { }
+            // Native callbacks can throw AFTER deactivation. Count the actual completed
+            // retirement, otherwise conservatively stop this farm's deletion pass.
+            try
+            {
+                if (cat == null || cat.gameObject == null || !cat.gameObject.activeInHierarchy) return true;
+            }
+            catch { }
+            uncertain = true;
+            return false;
+        }
     }
 
 

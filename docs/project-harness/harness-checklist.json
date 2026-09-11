@@ -1,8 +1,209 @@
 {
   "project": "ohmymods",
   "harness_root": "docs/project-harness",
-  "updated_at": "2026-09-06",
+  "updated_at": "2026-09-12",
   "items": [
+    {
+      "id": "release-500-20260912",
+      "title": "发布v5.0.0完整IL2CPP安装包",
+      "selected_in_session": "codex-release-500-20260912",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-12",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "精确clean commit构建完整5.0.0包，包版本/manifest/CRC/allowlist/内嵌DLL启动通过，GitHub stable Latest及assetdigest核对；如实保留待实测边界。",
+      "verification": "本机已完成上轮154测试及启动，版本与发布文档已更新；clean发布包待构建和验收。",
+      "handoff": "用户授权发布，按完整安装包流程完成检查后推送正式Release。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/release-500-20260912/plan.md"
+      }
+    },
+    {
+      "id": "fleet-retreat-cats-20260912",
+      "title": "希腊小船配队、武士防御退速与每农场四猫",
+      "selected_in_session": "codex-fleet-retreat-cats-20260912",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-11",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "FleetBoat Greek小队一对一min可用数量，安全保留既有航程/主Boat；仅武士原生防御后退3x；每农场4猫含旧mod猫收敛；区分残影部署与实战证据。",
+      "verification": "154/154独立回归+final review PASS，实际依赖0W/0E、70Unity API/4hook wrapper+float ref签名通过。23:59 E部署F32CBE8C并恢复day61暂停场景，存档hash一致；实际登船/后退/残影/猫调整待验收。",
+      "handoff": "最新F32CBE8C，build=4.5.0-fleet-retreat-cats-20260911。下一步玩家真实举旗按同侧Greek队/船配对，战斗看武士退速/残影，读档取消暂停5秒后检查农场猫；联机仍待验收。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/fleet-retreat-cats-20260912/plan.md",
+        "acceptance": "docs/project-harness/tasks/fleet-retreat-cats-20260912/acceptance.md",
+        "review": "docs/project-harness/tasks/fleet-retreat-cats-20260912/review.md",
+        "startup": "docs/project-harness/tasks/fleet-retreat-cats-20260912/startup.json",
+        "release_summary": "docs/project-harness/tasks/fleet-retreat-cats-20260912/release-summary.md"
+      }
+    },
+    {
+      "id": "expedition-follow-20260911",
+      "title": "出征随从跟随与守墙移动规则冲突修复",
+      "selected_in_session": "codex-expedition-follow-20260911",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-11",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "五style骑士出征随从保留原生动态Object跟随，守墙仅临时offset且可靠归还，不抢编队/登船/手控/逃跑任务；原生Wait/招募/伤害不改，无额外扫描。",
+      "verification": "49/49独立回归与review通过；实际依赖build 0W/0E，34Unity API与既有Object hook核验通过。23:31 E部署C1763E2F并恢复第61天暂停场景，存档hash一致；真实出征/联机尚待验收。",
+      "handoff": "最新本机C1763E2F，build=4.5.0-expedition-follow-20260911；出征保留动态Object目标，守墙临时offset归还。请玩家白天/夜间五style实测，尚勿置done。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/expedition-follow-20260911/plan.md",
+        "acceptance": "docs/project-harness/tasks/expedition-follow-20260911/acceptance.md",
+        "review": "docs/project-harness/tasks/expedition-follow-20260911/review.md",
+        "tests": "docs/project-harness/tasks/expedition-follow-20260911/tests.md",
+        "startup": "docs/project-harness/tasks/expedition-follow-20260911/startup.json",
+        "release_summary": "docs/project-harness/tasks/expedition-follow-20260911/release-summary.md"
+      }
+    },
+    {
+      "id": "combat-visuals-20260911",
+      "title": "武士浅白残影与希腊火/中世纪剑风修复",
+      "selected_in_session": "codex-combat-visuals-20260911",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-11",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "武士前回冲3道浅白残影45/25/10与0.2秒淡出，白色本体仅burst；修Norse prefab fireSO空导致Greek随从buff跳过、剑风sortingLayerName兼容错误；保持原伤害/CD/范围及原生buff。",
+      "verification": "独立170case及operator最终170case通过，0W/0E、163Unity/3existingHooks、最终review PASS。已部署7F0CBE8D并受控启动恢复场景无Error，日志实证Greek缺fire资源成功恢复，存档hash一致。真战斗视觉和联机边界待验收。",
+      "handoff": "本机build4.5.0-combat-visuals-20260911，可开玩。主机/本地残影已实现；客机新残影未接信号需另设计。Greek资产补齐成功，观察实际随从火焰/剑风/残影；公开ZIP未变。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/combat-visuals-20260911/plan.md",
+        "acceptance": "docs/project-harness/tasks/combat-visuals-20260911/acceptance.md",
+        "review": "docs/project-harness/tasks/combat-visuals-20260911/review.md",
+        "deployment": "docs/project-harness/tasks/combat-visuals-20260911/startup-deployment.json",
+        "release_summary": "docs/project-harness/tasks/combat-visuals-20260911/release-summary.md"
+      },
+      "review": {
+        "decision": "approved",
+        "notes": "最终170 tests及review PASS；渲染观感/联机保持待验收，未夸大覆盖。"
+      }
+    },
+    {
+      "id": "squad-refill-20260911",
+      "title": "跨风格随从补员排查与低开销诊断",
+      "selected_in_session": "codex-squad-refill-20260911",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-11",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "查明白天附近有弓手仍缺员的实际阻断并修复；先移除高频旧弩箭日志，有界事件/缓存名册证据无额外场景扫描，不改既有兵种/招募限制。",
+      "verification": "只读原生2.4与9/9日志/存档排查未定根因。诊断4180F6C3.../Roster90D6D750...独立36/36与operator复跑、0W/0E、26Unity/3hook及native地址审查通过；移除旧逐箭日志。已部署8BA3448F...并受控启动恢复场景通过，存档hash相同。 首次玩家日志：一个未截断快照22骑士，名册88/88、活着归属88、mismatch0；med3+shog4距主人>10。无Fetch事件，早期Norse disable deadFalse。该样本未复现缺员，仍需稳定/伤亡证据。 第二轮sample2各style人数一致且far10全部0；北境style4明确roster3->4、accepted29 within27，Norse转换成功。未复现其它style缺员失败。",
+      "handoff": "本机build4.5.0-squad-refill-diag-20260911；等待玩家缺员现场日志(SquadRefill/SquadRoster)判断名册/过滤/距离/转化，尚未修复已确认根因，status仍doing。公开ZIP不变。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/squad-refill-20260911/plan.md",
+        "acceptance": "docs/project-harness/tasks/squad-refill-20260911/acceptance.md",
+        "review": "docs/project-harness/tasks/squad-refill-20260911/review.md",
+        "deployment": "docs/project-harness/tasks/squad-refill-20260911/startup-deployment.json",
+        "first_observation": "docs/project-harness/tasks/squad-refill-20260911/first-observation.md",
+        "second_observation": "docs/project-harness/tasks/squad-refill-20260911/second-observation.md",
+        "release_summary": "docs/project-harness/tasks/squad-refill-20260911/release-summary.md"
+      },
+      "review": {
+        "decision": "approved",
+        "notes": "诊断代码独立review PASS，36tests通过；这不是补员功能最终验收。"
+      }
+    },
+    {
+      "id": "greek-fire-20260907",
+      "title": "希腊骑士小队火焰附魔8秒/15秒",
+      "selected_in_session": "codex-greek-fire-20260907",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-07",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "实际敌人触发自己及当前随从8s原版FireAttacks，15s冷却不受状态切换重置，不缩短神器已有附魔，host authority与原版同步兼容；无高频场景扫描；实战及联机验收。",
+      "verification": "ZCode GLM-5.3原案14/70失败未集成；operator候选BF7254...独立及重跑70/70，0W/0E，39Unity/2hooks审计通过，独立review PASS。已部署EA5D1001...并受控启动恢复暂停场景，存档hash一致；实际战斗及联机待验证。 9/11实战日志确认原资产id5 duration3/clone8，但archer fire-arrow asset/pool not ready，三次施放recipients1；实际随从附魔未生效，需定位修复，不能据启动/managed tests宣称此功能运行完整。 9/11本轮已修Norse prefab fireSO=NULL，通过当前Biome原生资源映射补空实例字段；部署7F0CBE8D启动日志确认恢复Greece FireSO，实际技能随从攻击仍待后续战斗验证。",
+      "handoff": "资源缺失已由combat-visuals-20260911修复并部署；下一轮实战查GreekFire recipients及火焰攻击，不再把旧pool缺失当未修代码现状。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/greek-fire-20260907/plan.md",
+        "acceptance": "docs/project-harness/tasks/greek-fire-20260907/acceptance.md",
+        "review": "docs/project-harness/tasks/greek-fire-20260907/review.md",
+        "tests": "docs/project-harness/tasks/greek-fire-20260907/regression.txt",
+        "deployment": "docs/project-harness/tasks/greek-fire-20260907/startup-deployment.json",
+        "release_summary": "docs/project-harness/tasks/greek-fire-20260907/release-summary.md"
+      },
+      "review": {
+        "decision": "approved",
+        "notes": "独立源码PASS，70行为测试通过；保留实际战斗/联机验收为doing。"
+      }
+    },
+    {
+      "id": "samurai-return-20260907",
+      "title": "幕府骑士主动冲刺返队与回冲伤害",
+      "selected_in_session": "codex-samurai-return-20260907",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-07",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "自由行动幕府骑士离有效随从>10优先返队、不受攻击CD/无敌人限制，<=4结束；正常距离单次短回冲（与前冲共用伤害与单目标去重，普通跑步不伤害），至多7格/.6秒无敌，过远有限普通跑步，整轮3s/卡住.5s/失败退避且有限重试；外部任务/生命周期接管正确释放，不引入全场扫描加频；实机战斗观察。",
+      "verification": "用户选择可直接冲刺返队，烟雾可后续。ZCode首版编译通过但独立review/44case测试失败，未集成。备用单MotionLease候选4E69DF...与独立测试48case通过，operator重跑通过；实际依赖0W/0E，3hook/58Unity方法审计通过，GameAssembly哈希未变且ShouldSlash原生地址唯一。等待最终review/部署启动与实际战斗。 最终4E69DF源复核PASS，canonical0W/0E；E已部署53E9A1DE...，64.3秒受控启动恢复场景且无Samurai异常，存档hash一致。实战回冲/联机仍待观察。 用户后续要求回冲正常伤害：共享CanHit/HitScan源48CF5C58...，独立76case/复核PASS、0W/0E与60Unity方法通过。已部署2F089BA8...，51.4秒受控启动正常，存档hash一致。",
+      "handoff": "本机build=4.5.0-samurai-return-hit-20260907，DLL2F089BA8...；当前回冲burst有普通冲刺伤害，前/回冲共享去重helper，普通跑步不伤害。观察实战/联机，旧无伤害描述仅为历史。bankHUD/1204保留，公开4.5.0包未更新；希腊buff待用户设计。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/samurai-return-20260907/plan.md",
+        "native": "docs/project-harness/tasks/samurai-return-20260907/native-scout.md",
+        "anvil": "docs/project-harness/tasks/samurai-return-20260907/anvil-research.md",
+        "tests": "docs/project-harness/tasks/samurai-return-20260907/regression-final.txt",
+        "review": "docs/project-harness/tasks/samurai-return-20260907/final-review.md",
+        "acceptance": "docs/project-harness/tasks/samurai-return-20260907/acceptance.md",
+        "deployment": "docs/project-harness/tasks/samurai-return-20260907/startup-deployment.json",
+        "hit_update": "docs/project-harness/tasks/samurai-return-20260907/hit-update-acceptance.md",
+        "hit_deployment": "docs/project-harness/tasks/samurai-return-20260907/hit-startup-deployment.json",
+        "release_summary": "docs/project-harness/tasks/samurai-return-20260907/release-summary.md"
+      },
+      "review": {
+        "decision": "approved",
+        "notes": "独立最终76case同源hash复核PASS；旧Finish Stop重入边界已本次owned guard修复并有同步回调测试。实际战斗未宣称全部验收。"
+      }
+    },
+    {
+      "id": "hud-bank-defaults-20260906",
+      "title": "常驻银行余额与120秒/4人默认",
+      "selected_in_session": "codex-hud-bank-defaults-20260906",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-06",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "常驻HUD显示主银行存款、区分0与未就绪、无逐帧扫描；大额与窄屏不越界；新装/回退默认120秒4人，既有玩家配置保留；本机按明确确认同步120/4。实际绘图/存取款刷新验收。",
+      "verification": "ZCode GLM-5.3 worker，operator布局集成；build0W/0E，实际IL2CPP175个HUD/面板可达Unity方法无unstripping桩；5屏宽与int.MaxValue排版计算通过；独立review PASS。本机cfg原60/4，经明确回复备份后更新120/4，HUD=true。受控启动进行中，真实绘图待玩家确认。 最终E部署6C6BA423...，53.3s受控启动恢复场景，无HUD/面板错误，存档hash一致；启动后cfg120/4且HUD=true，语义比较仅间隔60→120，其余设置未变。",
+      "handoff": "本机已部署候选6C6BA423...，可由用户观察银行栏与实际存取款刷新；checklist保持doing直到视觉验收。公开4.5.0ZIP/tag未变；后续发布须新版本流程。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/hud-bank-defaults-20260906/plan.md",
+        "review": "docs/project-harness/tasks/hud-bank-defaults-20260906/review.md",
+        "acceptance": "docs/project-harness/tasks/hud-bank-defaults-20260906/acceptance.md",
+        "deployment": "docs/project-harness/tasks/hud-bank-defaults-20260906/startup-deployment.json",
+        "release_summary": "docs/project-harness/tasks/hud-bank-defaults-20260906/release-summary.md"
+      },
+      "review": {
+        "decision": "approved",
+        "notes": "只读源码/布局/配置语义复核通过；截图及实际存取款显示仍待用户确认。"
+      }
+    },
     {
       "id": "release-450-20260906",
       "title": "v4.5.0完整安装包与GitHub发布",

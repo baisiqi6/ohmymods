@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
+    <ExtractionMode>follow</ExtractionMode>
+    <ExtractionInput>$(MSBuildProjectDirectory)/../../il2cpp/PatchWorld_DefenseSpacing.cs</ExtractionInput>
+  </PropertyGroup>
+  <Import Project="../ExtractSource.targets" />
+  <ItemGroup>
+    <Compile Include="../../il2cpp/SquadFollowGuard.cs" Link="Production/SquadFollowGuard.cs" />
+    <Compile Include="$(GeneratedSourceDir)/ExtractedDefenseSpacing.cs" />
+  </ItemGroup>
+</Project>

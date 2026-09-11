@@ -64,6 +64,7 @@ public static class PatchWorld_FleetBoatFormation
     private static void RemoveProfile(FormationProfile profile)
     {
         if (profile == null) return;
+        FleetGreekSquads.Release(profile.Formation);
         Profiles.Remove(profile.FormationInstanceId);
         if (ProfilesByGameObject.TryGetValue(profile.GameObjectInstanceId,
                 out FormationProfile mapped)
@@ -315,8 +316,7 @@ public static class PatchWorld_FleetBoatFormation
                     || boat._fsm == null
                     || !FleetBoat.State.CanJoinFormation(boat._fsm.Current)
                     || !boat.IsAccessible
-                    || !boat.CanJoinFormation(Formation.FormationType.PlayerFormation,
-                        requestedSide))
+                    || !FleetGreekSquads.NativeCandidateCanJoin(boat, requestedSide))
                 {
                     continue;
                 }
@@ -481,6 +481,7 @@ public static class PatchWorld_FleetBoatFormation
         catch { return; }
         if (Time.unscaledTime < profile.NextMaintenanceAt) return;
         profile.NextMaintenanceAt = Time.unscaledTime + MaintenanceInterval;
+        FleetGreekSquads.Maintain();
 
         if (!IsCurrentScene(profile))
         {
@@ -580,13 +581,19 @@ public static class PatchWorld_FleetBoatFormation
                     return;
                 }
 
-                if (!TryExpand(profile, __state.Candidates.Count)) return;
+                FleetGreekSquads.Select(formation, sceneRoot, requestedSide, __state.Candidates);
+                if (!TryExpand(profile, __state.Candidates.Count))
+                {
+                    FleetGreekSquads.Release(formation);
+                    return;
+                }
                 __state.Profile = profile;
                 __state.RequestedSide = requestedSide;
                 __state.Expanded = true;
             }
             catch (Exception e)
             {
+                FleetGreekSquads.Release(formation);
                 LogFailureOnce("activate-prefix", e);
             }
         }
@@ -624,6 +631,7 @@ public static class PatchWorld_FleetBoatFormation
             }
             finally
             {
+                FleetGreekSquads.Complete(profile.Formation);
                 ConvertEmptyReservedSlotsToGaps(profile);
             }
         }
@@ -631,10 +639,13 @@ public static class PatchWorld_FleetBoatFormation
         [HarmonyFinalizer]
         private static Exception Finalizer(Exception __exception, ActivationState __state)
         {
-            if (__exception != null && __state != null && __state.Expanded
-                && __state.Profile != null && AllUnitsEmpty(__state.Profile.Formation))
+            if (__exception != null && __state != null && __state.Expanded && __state.Profile != null)
             {
-                TryRestoreBaseline(__state.Profile, false);
+                // Native exceptions skip Postfix. End pending reservations even when the
+                // candidate was already embarked (which intentionally has no boarding timeout).
+                try { FleetGreekSquads.Complete(__state.Profile.Formation); }
+                catch (Exception e) { LogFailureOnce("activation-plan-finalizer", e); }
+                if (AllUnitsEmpty(__state.Profile.Formation)) TryRestoreBaseline(__state.Profile, false);
             }
             return __exception;
         }

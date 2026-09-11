@@ -57,6 +57,14 @@
 ## 常用路径
 
 ### 2026-09-06 启动事故临时门禁
+- 2026-09-11 23:59最新本机：F32CBE8C...，build=4.5.0-fleet-retreat-cats-20260911；希腊舰队仅新Greek配队min/仅武士defensive retreat3x/每farm4猫含旧mod回收。154tests+review+启动通过，存档一致；实际登船/退速/猫/残影/联机待验收。见tasks/fleet-retreat-cats-20260912/acceptance.md，下方C176及更早均历史。
+- 2026-09-11 23:31最新本机：C1763E2F...，build=4.5.0-expedition-follow-20260911；修复守墙把随从动态Object跟随降为固定Position，改临时offset及任务门/可靠归还。49tests/review/启动通过，存档一致；实际出征/联机待验收，详见tasks/expedition-follow-20260911/acceptance.md。下方7F及更早均历史本机基线。
+- 2026-09-11 23:03最新本机：7F0CBE8D...，build=4.5.0-combat-visuals-20260911；本机武士浅白残影45/25/10+.2s，Greek空fireSO恢复，Medieval sortingLayerID修复。170tests/review/启动通过，日志实证fire资源补齐；视觉实战待验收，新客机残影同步未做。见tasks/combat-visuals-20260911/acceptance.md。
+- 2026-09-11 最新本机：8BA3448F...，build=4.5.0-squad-refill-diag-20260911；撤旧逐箭日志，新增有界补员事件和既有缓存名册采样（最多36行），36tests/review/启动通过。补员根因尚待现场日志，不得宣称已修。见tasks/squad-refill-20260911/acceptance.md。
+- 2026-09-07 最新本机：EA5D1001...，build=4.5.0-greek-fire-20260907（希腊火8s/15s+火buff换队弩包保护+既有银行HUD/1204/幕府回冲伤害）；70case、独立review、受控启动通过，实战/联机待观察。见tasks/greek-fire-20260907/acceptance.md。
+- 2026-09-07 21:46本机最新：2F089BA8...，build=4.5.0-samurai-return-hit-20260907（回冲也有正常伤害，前/回共用命中）；76case及受控启动通过，实战待反馈。旧53E9无伤害版仅历史；见tasks/samurai-return-20260907/hit-update-acceptance.md。
+- 2026-09-07最新本机：53E9A1DE...，build=4.5.0-samurai-return-20260907（主动返队+银行HUD+120/4）；21:31受控启动通过，实战待反馈。下方6C6/AA4B是历史候选/发布基线。见tasks/samurai-return-20260907/acceptance.md。
+- 最新本机迭代：16:11已部署6C6BA423...，build=4.5.0-hudbank-20260906（银行HUD、人口默认120/4；本机明确授权同步120/4），受控启动通过。公开4.5.0包仍为AA4B1959...，下条是发布基线记录。见tasks/hud-bank-defaults-20260906/acceptance.md。
 - E测试副本现为正式v4.5.0包内DLL AA4B1959...（15:56已通过受控启动），发布commit c203218，canonical同步强root取消守卫和幕府禁用清理修复。此前8390AF/A9/DB部署为历史；不得重新引入共享Dispose钩子。发布记录见`docs/project-harness/tasks/release-450-20260906/publication.md`；联机等边界仍待实测。
 - 检查IL2CPP编译器生成的Dispose等短方法时，managed wrapper名字唯一不等于原生地址唯一；未核实地址折叠前不要把其detour视为已安全验收。
 - WindowsPowerShell5.1不要把`Get-Content -Raw`/原始Provider对象直接放入高Depth的ConvertTo-Json；改用`[IO.File]::ReadAllText`与显式纯值投影，输出有界。事故进程有8.28GB提交量；不要重跑该脚本压测。

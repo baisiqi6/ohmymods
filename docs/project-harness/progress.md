@@ -1,3 +1,15 @@
+## 2026-09-07 — 回冲共用前冲伤害，已本机部署
+
+按用户新要求，前/回冲burst共用CanHit/HitScan；每motion同Damageable只命中一次，同帧多个敌正常受伤，普通跑步不伤害，伤害回调失效后不再操作旧动作。76case、独立review、0W/0E与60Unity方法审计通过，E DLL2F089BA8...已受控启动51.4秒并恢复场景，存档hash未变。dev build=4.5.0-samurai-return-hit-20260907，实战待反馈；希腊铁砧能力仅解释机制、未实施。
+
+## 2026-09-07 — 幕府主动返队候选
+
+用户选择先做幕府返队，混编小队推迟，希腊铁砧增益仅研究。候选采用单MotionLease互斥攻击/返队，>10触发<=4退出，正常距离单次7格/.6s保护回冲；极远跑步尾段有3s总截止，卡住.5s退出/2s退避/同目标3次失败封顶。首版ZCode的重复协程、无敌残留和共享扫描加频问题被测试拦下，未集成。备用源4E69DF...通过48case、0W/0E、3hook与58Unity方法审计及独立review。已部署E DLL53E9A1DE...并通过64.3秒受控启动/场景恢复，存档hash未变；实际战斗/联机仍待反馈。银行HUD/default候选保留，公开4.5.0包不变。
+
+## 2026-09-06 — 时间条银行余额与人口默认值
+
+HUD新增独立金色银行栏，同主面板读取主银行家存款，0.5秒缓存，未就绪显示—；布局扩为900逻辑像素，大额自动缩字，季节进度保留在日历区域。默认值统一120秒/4人，已有玩家配置不自动迁移；用户明确同意本机60/4同步120/4，已备份应用。ZCode实现/独立review PASS，构建0W/0E与175方法interop检查通过；已部署6C6BA423...并通过53.3秒受控加载，存档hash一致、无HUD绘制异常日志，真实视觉待确认。build=4.5.0-hudbank-20260906，公开4.5.0包保持发布时内容。
+
 ## 2026-09-06 — v4.5.0已正式发布
 
 完整包已生成到release并发布为GitHub Latest：https://github.com/baisiqi6/ohmymods/releases/tag/v4.5.0。clean source commit `c2032185a5bc213f085a5831abedbbaacfab8b36`，ZIP SHA256 `658c68074e6a618e0eb78b4a8b6a7618b77bbddf71260dd90e25774f43539e06`，远端digest一致；E本机DLL为`aa4b1959c16e1dbbdcc5546437f559725e029ba4386b456a55ad6c5b09e3bd8a`。包内DLL已受控启动并恢复场景，存档哈希未变；源码版本/启动build戳一致，另外补了幕府关闭Mod后的回收清理门控。用户已反馈一般游玩正常；联机等专项检查继续doing。发布记录见tasks/release-450-20260906/publication.md。
@@ -1298,3 +1310,34 @@
 - Windows 原生 MCP 授权 receipt `2ef032bb-a167-4f5f-8c42-c650a7347d40`；本机使用正常 MCP preflight/claim/apply 完成文件半部，重复执行后 checklist 字节和 mtime 均不变。
 - 既有 43 项未改变；报告输入 27 份 hash/size 复算通过。未执行游戏、构建、DLL 部署或存档操作。
 - 本提交为 done 文件读回 gate；服务端 consume、PR 合入与原 Windows 目录安全同步仍待后续独立核验，本段不宣称 Gate F 已完成。
+
+## 2026-09-07 希腊骑士火焰附魔（实施中）
+用户确认持续8秒、冷却15秒并授权实施。实际敌人触发自己及触发快照随从；复用原生BuffData克隆、Buffable到期/RPC，不改共享资产或新建ID，不缩短已有更长附魔。ZCode worker 首版审查发现计数与RPC资格问题，已纠正中；独立API/测试/review并行。当前游戏部署仍2F089BA8幕府回冲伤害候选，新希腊功能尚未部署。见tasks/greek-fire-20260907/plan.md。
+
+2026-09-07 Greek本轮收口：源码BF7254...，70/70与独立review PASS；本机部署EA5D1001...（build4.5.0-greek-fire-20260907），受控启动恢复暂停场景通过，存档hash一致；实际交战/联机待玩家游玩。前文“尚未部署”为过程记录。
+
+## 2026-09-11 跨风格补员排查
+用户确认白天回城附近弓手仍不补。实际2.4各style共用10s/10range原生流程；9/9存档22骑士各4随从，旧日志481行中280行弩箭诊断，没有现场补员原因。开发撤除旧逐箭日志+有界原生事件/现有缓存名册汇总，待实战证据再对症修复；不猜改规则。见tasks/squad-refill-20260911/plan.md。
+
+2026-09-11 补员诊断本轮收口：本机8BA3448F...已部署并启动通过，存档hash相同；36/36测试与独立review通过。移除逐箭旧日志；新诊断有界且复用已有数组，无新场景扫描。待玩家实际缺员日志后修根因，checklist保持doing。
+
+2026-09-11 22:28首轮玩家诊断：22骑士名册88/88、alive88且mismatch0；中世纪3+幕府4随从距骑士>10（读档早期快照，不能判持续走散）。无Fetch事件，当前暂停。尚未复现缺员，保持doing。
+
+2026-09-11 22:35第二轮：sample2人数88/88、mismatch0、far10全0；北境明确补员3→4并转换成功。另发现Greek随从fire资源/poolguard失败（recipients1）、中世纪剑风sortingLayerName/ReadOnlySpan缺失异常，已记second-observation待修。本次未写游戏。
+
+## 2026-09-11 武士视觉与两错误
+用户批准浅白45/25/10残影/.2s淡出及Greek随从fire、Medieval剑风修复。数字sortingLayerID避开已坏字符串shim；实际Norse Archer prefab fireSO=NULL，准备补当前世界安全实例资源并双端一致。ZCode视觉worker、资产worker和独立测试/review进行中；游戏运行不部署。
+
+2026-09-11 23:03三项修复本机部署7F0CBE8D...完成；170case/实际build0W0E/163Unity/review通过，启动日志确认Greek缺fireSO恢复成功，存档hash相同。武士残影及中世纪剑风实际视觉待下一轮，客机残影信号尚未实现；详见combat-visuals-20260911/acceptance.md。
+
+## 2026-09-11 出征随从留墙
+确认守墙NightFollowerAnchor将原生动态Object跟随改固定Position，原生follow等待不重发，NightParked又反复拉回；五style共用。改为ref临时offset保留Object/Wait，加ownedoffset归还及实际守墙/Assemble任务门，隔离worker/test/review中。见tasks/expedition-follow-20260911/plan.md。
+
+### 2026-09-11 23:31 出征跟随本机修复就绪
+已部署C1763E2F（4.5.0-expedition-follow-20260911），保留动态Object/Wait、临时守墙offset可靠归还及任务门。49/49独立回归、review、实际依赖构建与受控启动通过，存档hash一致；day61暂停场景不等于实际出征验收，任务doing。详细证据见tasks/expedition-follow-20260911/acceptance.md。
+
+### 2026-09-11 23:59 希腊舰队配队/武士退速/四猫
+E已部署F32CBE8C（4.5.0-fleet-retreat-cats-20260911）。希腊FleetBoat一对一Greek预留并取同侧可用min；仅武士原生防御后退3x；猫目标4含旧mod猫收敛。154tests+review+实际build与暂停startup通过，存档一致；实际登船/战斗/猫调整/联机待验收。残影接线无静态缺陷，未获得真实画面证据。详见tasks/fleet-retreat-cats-20260912/acceptance.md。
+
+### 2026-09-12 v5.0.0发布准备
+用户明确要求发布。将4.5后已集成改动与当前玩家说明封装为5.0.0，从clean提交构建并验证精确ZIP内嵌DLL，待发布读回；功能实战/联机边界继续doing。

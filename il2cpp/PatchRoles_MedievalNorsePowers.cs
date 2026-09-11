@@ -594,7 +594,8 @@ internal static class PatchRoles_MedievalNorsePowers
             SpriteRenderer knightSprite = knight.GetComponent<SpriteRenderer>();
             if (knightSprite != null)
             {
-                lr.sortingLayerName = knightSprite.sortingLayerName;
+                // Numeric native API avoids the broken ReadOnlySpan string shim in this game runtime.
+                lr.sortingLayerID = knightSprite.sortingLayerID;
                 lr.sortingOrder = knightSprite.sortingOrder + 1;
                 sortingCopied = true;
             }

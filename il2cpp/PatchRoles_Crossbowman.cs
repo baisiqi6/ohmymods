@@ -912,6 +912,13 @@ public static class PatchRoles_Crossbowman
         if (archer == null || archer.gameObject == null) return;
         try
         {
+            // A Greek follower may change squads while its native fire buff is still active.
+            // Defer the crossbow package until expiry, preserving fire arrows and avoiding a
+            // premature interval multiplier when the active attack is the temporary fire SO.
+            if ((archer._buffable != null && archer._buffable.IsBuffActive(BuffType.FireAttacks))
+                || (archer.ActiveArrowAttack != null && archer._fireArrowAttack != null
+                    && archer.ActiveArrowAttack.Pointer == archer._fireArrowAttack.Pointer))
+                return;
             EnsureAssets();
             if (_crossbowAttackSO == null)
             {

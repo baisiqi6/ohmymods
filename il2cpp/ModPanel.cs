@@ -240,8 +240,8 @@ public class ModPanel : MonoBehaviour
                     "仅影响后续补员 · 调低或重新读档都不会删除已有乞丐。");
                 break;
             case 2:
-                Toggle(ref y, width, "常驻时间显示", ModConfig.ShowCalendarHud,
-                    "关闭面板后显示总天数、整点和季节进度；关闭此项恢复原本界面。");
+                Toggle(ref y, width, "常驻时间与银行", ModConfig.ShowCalendarHud,
+                    "显示总天数、整点、季节进度和银行金币；关闭此项恢复原本界面。");
                 FloatSlider(ref y, width, "地图大小", ModConfig.MapSizeMultiplier, 1, 5, false,
                     "生成新地图时生效。");
                 FloatSlider(ref y, width, "箭塔基底密度", ModConfig.TowerSpotMultiplier, 1, 4, false,

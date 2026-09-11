@@ -26,7 +26,7 @@ namespace UnityEngine {
  public static class Time {public static float time,deltaTime=0.02f;}
  public class WaitForSeconds {public WaitForSeconds(float seconds){}}
  public class Shader {public static Shader Find(string s)=>new();} public class Material {public Material(Shader s){}}
- public class Renderer:Component {public bool enabled;public int sortingOrder;public string sortingLayerName;public Material material,sharedMaterial;}
+ public class Renderer:Component {public bool enabled;public int sortingOrder,sortingLayerID;public string sortingLayerName;public Material material,sharedMaterial;}
  public class SpriteRenderer:Renderer{} public class TrailRenderer:Renderer{}
  public class LineRenderer:Renderer {public bool useWorldSpace,loop;public float widthMultiplier;public int numCapVertices,numCornerVertices,positionCount;public Color startColor,endColor;public Vector3[] positions;public void SetPositions(Vector3[] p)=>positions=p;}
  public struct AnimatorStateInfo {public int shortNameHash;public float normalizedTime;}

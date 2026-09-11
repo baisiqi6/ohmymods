@@ -9,6 +9,9 @@ namespace KingdomEnhancedMod;
 /// </summary>
 public static class ModConfig
 {
+    internal const int DefaultBeggarSpawnIntervalSeconds = 120;
+    internal const int DefaultBeggarCampCapacity = 4;
+
     public static ConfigEntry<bool> Enabled;
     public static ConfigEntry<bool> InfiniteMoney;
     public static ConfigEntry<int> SpeedMultiplier;
@@ -35,7 +38,7 @@ public static class ModConfig
             "君主移动速度倍率（1-5x）");
 
         ShowCalendarHud = config.Bind("Display", "ShowCalendarHud", false,
-            "常驻时间显示：总天数、整点、季节图标、季内天数和下一季开始日；只读游戏时间");
+            "常驻时间与银行：总天数、整点、季节图标、季内天数、下一季开始日和银行存款；只读显示");
 
         FastBuild = config.Bind("Build", "FastBuild", false,
             "快速建造：建筑约 2 秒建成");
@@ -65,10 +68,10 @@ public static class ModConfig
         SteedCooldownMultiplier = config.Bind("Cooldown", "SteedCooldownMultiplier", 1.0f,
             "坐骑技能CD倍率（0.2=最短，为原生1/5；1.0=原生）");
 
-        BeggarSpawnIntervalSeconds = config.Bind("Population", "BeggarSpawnIntervalSeconds", 6,
+        BeggarSpawnIntervalSeconds = config.Bind("Population", "BeggarSpawnIntervalSeconds", DefaultBeggarSpawnIntervalSeconds,
             new ConfigDescription("乞丐刷新间隔（游戏秒，1-120）；正常协调器按此间隔补员，原生回退最短约6秒",
                 new AcceptableValueRange<int>(1, 120)));
-        BeggarCampCapacity = config.Bind("Population", "BeggarCampCapacity", 5,
+        BeggarCampCapacity = config.Bind("Population", "BeggarCampCapacity", DefaultBeggarCampCapacity,
             new ConfigDescription("每个帐篷的补员上限（1-20）；仅影响后续刷新，降低上限或读档不删除已有乞丐",
                 new AcceptableValueRange<int>(1, 20)));
 
