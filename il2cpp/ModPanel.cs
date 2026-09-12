@@ -43,6 +43,8 @@ public class ModPanel : MonoBehaviour
             _shown = false;
         try { CalendarHud.Tick(); }
         catch { /* CalendarHud backs off internally; input toggles have already been handled. */ }
+        try { PopulationHud.Tick(); }
+        catch { /* Counts are an independent read-only overlay; settings shortcuts remain available. */ }
     }
 
     private static bool _faultLogged;
@@ -52,6 +54,7 @@ public class ModPanel : MonoBehaviour
         if (!_shown)
         {
             CalendarHud.Draw();
+            PopulationHud.Draw();
             return;
         }
         GUISkin savedSkin = GUI.skin;
@@ -211,7 +214,7 @@ public class ModPanel : MonoBehaviour
         }
 
         float viewHeight = height - 224f;
-        int cards = _category == 4 ? 5 : (_category == 0 || _category == 3 ? 4 : (_category == 2 ? 3 : 2));
+        int cards = _category == 4 ? 5 : (_category == 0 || _category == 3 ? 4 : 3);
         float contentHeight = cards * (CardHeight + 12f);
         Rect viewport = new Rect(24, 176, width - 48, viewHeight);
         Rect content = new Rect(0, 0, width - 74, Mathf.Max(viewHeight, contentHeight));
@@ -234,6 +237,8 @@ public class ModPanel : MonoBehaviour
                 Toggle(ref y, width, "快速建造", ModConfig.FastBuild, "建造时生效 · 建筑约 2 秒建成。");
                 break;
             case 1:
+                Toggle(ref y, width, "常驻职业与骑士人数", ModConfig.ShowPopulationHud,
+                    "单机/主机左上角显示本岛存活人数和五世界骑士；不含装备，客机暂无名册。");
                 IntegerSlider(ref y, width, "乞丐刷新间隔", ModConfig.BeggarSpawnIntervalSeconds, 1, 120, "秒",
                     "约 0.5 秒内应用，重新计时；每次补 1 人。原生回退最短约 6 秒。");
                 IntegerSlider(ref y, width, "每座乞丐帐篷上限", ModConfig.BeggarCampCapacity, 1, 20, "人",

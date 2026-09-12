@@ -57,6 +57,8 @@
 ## 常用路径
 
 ### 2026-09-06 启动事故临时门禁
+- 2026-09-13本机人数HUD：E FFDD0E89 / build=6.0.0-population-hud-20260913；左上八职业+骑士五风格，F5人口独立开关默认on。30+81回归/build0W0E/177Unity/review及原生截图通过；临时capture已移除，save/config/bank保持。单机/主机有效、客机提示不可用；公开6.0不变。见tasks/population-hud-20260913/acceptance.md。
+- 2026-09-13本机剑风热修：E DLL 3399c131 / build=6.0.0-wind-arc-interop-20260913；SetPositions数组/Span改13点SetPosition，31回归/build0W0E/109Unity/review通过。实际E游戏已完成13点SetPosition剑风构建，成功日志出现，无原异常。save/config/bank保留，公开6.0.0不变。见tasks/wind-arc-interop-20260913/acceptance.md。
 - 2026-09-13正式v6.0.0已发布并为Latest；tag/source356078c，ZIP416b6c79 / E正式DLLcdf5f61f。双倍采购、HUD/塔位/猫1.25及交战锚点修复，10套回归/clean完整包/自然夜间锚点与退速观测/远端digest通过；用户状态保留。完整攻门/大蛇/联机与全世界隔离边界仍追踪。见tasks/release-600-20260912/publication.md。
 - 2026-09-12最新本机：B33D56B8 build=5.0.0-cat-scale-125-20260912；希腊农舍猫y缩放1.2→1.25，其他逻辑保留。build0W0E、DLL常量与安装哈希通过，save/bank未动，公开5.0不变。见tasks/cat-scale-125-20260912/acceptance.md。
 - 2026-09-12最新本机：BC504C61 build=5.0.0-restock-double-cost-20260912；五职业原价双倍投币/扣款，手动价保留，实机忍者4/狂战士6且离店成功。服务回归/63bank/226Unity/build/review通过，save/config/bank5408恢复；公开5.0不变。其他世界旧全局补丁隔离仍未完成。见tasks/restock-double-cost-20260912/acceptance.md。

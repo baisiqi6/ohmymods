@@ -17,6 +17,7 @@ public static class ModConfig
     public static ConfigEntry<int> SpeedMultiplier;
     public static ConfigEntry<bool> FastBuild;
     public static ConfigEntry<bool> ShowCalendarHud;
+    public static ConfigEntry<bool> ShowPopulationHud;
     public static ConfigEntry<int> BeggarSpawnIntervalSeconds;
     public static ConfigEntry<int> BeggarCampCapacity;
     public static ConfigEntry<float> MapSizeMultiplier;
@@ -59,6 +60,9 @@ public static class ModConfig
 
         ShowCalendarHud = config.Bind("Display", "ShowCalendarHud", false,
             "常驻时间与银行：总天数、整点、季节图标、季内天数、下一季开始日和银行存款；只读显示");
+
+        ShowPopulationHud = config.Bind("Display", "ShowPopulationHud", true,
+            "常驻人数：单机或联机主机显示本岛存活职业和五世界骑士人数，不含待领装备；客机名册不可用时显示提示");
 
         FastBuild = config.Bind("Build", "FastBuild", false,
             "快速建造：建筑约 2 秒建成");

@@ -1,3 +1,15 @@
+## 2026-09-13 — 6.1.5发布准备
+
+用户授权发布当前人数HUD和剑风修复；版本/玩家文档同步中，clean源码与完整包验证后发布。运行中的用户游戏不打断。
+
+## 2026-09-13 — 常驻职业与五世界骑士人数
+
+默认左上角八职业与骑士总数/五风格，F5→人口独立开关，原生名册事件缓存与每秒活性/风格采样。30+81回归、build0W0E、177实际Unity API与独立review通过，原生截图确认中文与布局及22骑士五风格完整。E FFDD0E89 build=6.0.0-population-hud-20260913，临时截图代码已移除，save/config/bank恢复；公开6.0.0未更新。实际2.4客户端无权威不登记名册，因此只支持单机/主机，客机明确提示暂不可用。见tasks/population-hud-20260913/acceptance.md。
+
+## 2026-09-13 — 剑风IL2CPP数组异常本地热修
+
+已将SetPositions临时数组/Span路径改为13次SetPosition，保留原几何/复用/清理；完整构建、31回归、109实际Unity API与独立review通过。实际E游戏已完成13点SetPosition剑风构建，成功日志出现，无原异常。 E DLL 3399c131 build=6.0.0-wind-arc-interop-20260913；存档/config/bank原值恢复。公开6.0.0未覆盖，未commit/push；Griffin网络登记未定位，目视/联机仍待。见tasks/wind-arc-interop-20260913/acceptance.md。
+
 ## 2026-09-07 — 回冲共用前冲伤害，已本机部署
 
 按用户新要求，前/回冲burst共用CanHit/HitScan；每motion同Damageable只命中一次，同帧多个敌正常受伤，普通跑步不伤害，伤害回调失效后不再操作旧动作。76case、独立review、0W/0E与60Unity方法审计通过，E DLL2F089BA8...已受控启动51.4秒并恢复场景，存档hash未变。dev build=4.5.0-samurai-return-hit-20260907，实战待反馈；希腊铁砧能力仅解释机制、未实施。

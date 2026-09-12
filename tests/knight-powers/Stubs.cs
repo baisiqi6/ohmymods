@@ -6,7 +6,7 @@ namespace HarmonyLib {
 namespace Il2CppInterop.Runtime.Injection { public static class ClassInjector { public static bool IsTypeRegisteredInIl2Cpp(Type t)=>true; public static void RegisterTypeInIl2Cpp(Type t){} } }
 namespace BepInEx.Unity.IL2CPP.Utils.Collections { public static class Extensions { public static IEnumerator WrapToIl2Cpp(this IEnumerator e)=>e; } }
 namespace UnityEngine {
- public class Object { static long next; public IntPtr Pointer {get;set;} = (IntPtr)Interlocked.Increment(ref next); public static void Destroy(Object o) { if(o is Component c) c.gameObject?.Remove(c); } }
+ public class Object { static long next; public static readonly List<Object> DestroyRequests=new(); public IntPtr Pointer {get;set;} = (IntPtr)Interlocked.Increment(ref next); public static void Destroy(Object o) { DestroyRequests.Add(o); if(o is Component c) c.gameObject?.Remove(c); } }
  public class GameObject:Object {
   readonly List<Component> components=new(); public int Id {get;set;} public Transform transform; public int layer; public bool activeSelf=true;
   public GameObject(string name="unit"){Id=(int)Pointer; transform=new Transform {gameObject=this};}
@@ -28,7 +28,18 @@ namespace UnityEngine {
  public class Shader {public static Shader Find(string s)=>new();} public class Material {public Material(Shader s){}}
  public class Renderer:Component {public bool enabled;public int sortingOrder,sortingLayerID;public string sortingLayerName;public Material material,sharedMaterial;}
  public class SpriteRenderer:Renderer{} public class TrailRenderer:Renderer{}
- public class LineRenderer:Renderer {public bool useWorldSpace,loop;public float widthMultiplier;public int numCapVertices,numCornerVertices,positionCount;public Color startColor,endColor;public Vector3[] positions;public void SetPositions(Vector3[] p)=>positions=p;}
+ public class LineRenderer:Renderer {
+  public static readonly List<LineRenderer> Created=new();
+  public static int BulkCalls, FailAtIndex=-1;
+  public bool useWorldSpace,loop;public float widthMultiplier;public int numCapVertices,numCornerVertices;
+  public int positionCount {get=>positions.Length;set{PositionCountWrites++;positions=new Vector3[value];}}
+  public int PositionCountWrites,SingleCalls;public Color startColor,endColor;public Vector3[] positions=Array.Empty<Vector3>();
+  public LineRenderer()=>Created.Add(this);
+  // Fault-boundary injection only: this does not model IL2CPP GC or reproduce a native failure.
+  public void SetPositions(Vector3[] p){BulkCalls++;throw new InvalidOperationException("Injected bulk interop fault: SetPositions / Span / ObjectCollectedException boundary");}
+  public void SetPosition(int index,Vector3 p){SingleCalls++;if(index==FailAtIndex)throw new InvalidOperationException("Injected SetPosition fault at "+index);positions[index]=p;}
+  public static void ResetProbe(){Created.Clear();BulkCalls=0;FailAtIndex=-1;Object.DestroyRequests.Clear();}
+ }
  public struct AnimatorStateInfo {public int shortNameHash;public float normalizedTime;}
  public class Animator:Component {public float speed=1;public AnimatorStateInfo State;public AnimatorStateInfo GetCurrentAnimatorStateInfo(int i)=>State;public static int StringToHash(string s)=>s.GetHashCode();}
 }

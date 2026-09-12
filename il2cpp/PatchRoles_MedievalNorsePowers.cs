@@ -609,18 +609,17 @@ internal static class PatchRoles_MedievalNorsePowers
             float front = state.BaseHitBox.xMax > 0f
                 ? state.BaseHitBox.xMax * SlashRangeMultiplier
                 : state.BaseSlashRange * SlashRangeMultiplier;
-            Vector3[] points = new Vector3[ArcSegments + 1];
+            // Indexed native calls avoid the SetPositions array-to-Span interop path.
+            lr.positionCount = ArcSegments + 1;
             float startX = state.BaseHitBox.xMin > 0f ? state.BaseHitBox.xMin : 0.25f;
             for (int i = 0; i <= ArcSegments; i++)
             {
                 float t = (float)i / ArcSegments;
-                points[i] = new Vector3(
+                lr.SetPosition(i, new Vector3(
                     Mathf.Lerp(startX, front, t),
                     -0.05f + 0.55f * Mathf.Sin(Mathf.PI * t),
-                    0f);
+                    0f));
             }
-            lr.positionCount = points.Length;
-            lr.SetPositions(points);
             lr.enabled = false;
 
             KnightWindArcBehaviour behaviour = go.AddComponent<KnightWindArcBehaviour>();
@@ -630,6 +629,7 @@ internal static class PatchRoles_MedievalNorsePowers
 
             state.ArcObject = go;
             state.ArcBehaviour = behaviour;
+            LogInfoOnce("arc-built-scalar", "wind arc built: 13 points via SetPosition");
         }
         catch (Exception e)
         {

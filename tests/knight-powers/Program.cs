@@ -4,7 +4,7 @@ using UnityEngine;
 using MN=KingdomEnhancedMod.PatchRoles_MedievalNorsePowers;
 using DL=KingdomEnhancedMod.PatchRoles_DeadlandsPowers;
 
-static class Program {
+static partial class Program {
  static int passed,failed;
  static void Eq<T>(T expected,T actual,string label) {if(!EqualityComparer<T>.Default.Equals(expected,actual))throw new Exception($"{label}: expected {expected}, got {actual}");}
  static void Test(string name,Action action) {ModConfig.Enabled.Value=true;NetworkBigBoss.HasWorldAuth=true;CampaignSaveData.current=null;CampaignSaveData.Status=Statue.DeityStatus.Inactive;Time.time=0;Time.deltaTime=.02f;KingdomEnhancedPlugin.Logger.Errors.Clear();try{action();Eq(0,KingdomEnhancedPlugin.Logger.Errors.Count,"production errors");passed++;Console.WriteLine("PASS "+name);}catch(Exception e){failed++;Console.WriteLine("FAIL "+name+": "+e.GetBaseException().Message);}}
@@ -127,6 +127,7 @@ static class Program {
   Test("Norse surplus survives style loss but capacity cannot leak across pool reuse",()=>{var k=NewKnight(4);MN.Reconcile(k);k._originalWallet.NativeLoadCoins(10);MN.OnKnightAwake(k);k.Style=0;MN.Reconcile(k);Eq(10,k._originalWallet.TotalCapacity,"live surplus retained");MN.OnKnightDisabled(k);Eq(5,k._originalWallet.TotalCapacity,"serialized pool capacity");Eq(10,k._originalWallet.Coins,"mod does not remove surplus");k._originalWallet.NativeLoadCoins(0);MN.Reconcile(k);Eq(5,k._originalWallet.TotalCapacity,"new medieval life no leftover capacity");Eq(0,k._originalWallet.CoinWrites,"no currency mutation");});
   Test("Deadlands vanished movement target cannot retain temporary scale",()=>{var k=NewKnight(1);DL.Register(k);var m=k._mover;m.goalMode=Mover.GoalMode.Object;object[] args={default(DL.MoverBoost),m};Hook(typeof(Mover_Update_DeadlandsSpeed_Patch),"Prefix",args);m.goalMode=Mover.GoalMode.Off;Hook(typeof(Mover_Update_DeadlandsSpeed_Patch),"Finalizer",args[0],null,m);Eq(2f,m._goalSpeed,"goal restored");Eq(4f,m._moveSpeed,"unwritten speed restored");m.goalMode=Mover.GoalMode.Object;object[] next={default(DL.MoverBoost),m};Hook(typeof(Mover_Update_DeadlandsSpeed_Patch),"Prefix",next);m.goalMode=Mover.GoalMode.Off;m._moveSpeed=9;Hook(typeof(Mover_Update_DeadlandsSpeed_Patch),"Finalizer",next[0],null,m);Eq(9f,m._moveSpeed,"distinct callback speed retained");});
   Test("Deadlands repeated animation rebases external positive speed",()=>{var k=NewKnight(1);var owner=new DL.UnitRef{Knight=k,UnitPtr=k.Pointer};DL.HandleAnimTrigger(k._animator,Animator.StringToHash("Slash"),owner);k._animator.speed=1.25f;DL.HandleAnimTrigger(k._animator,Animator.StringToHash("Slash"),owner);Eq(2.5f,k._animator.speed,"new native speed boosted");DL.OnKnightDisabled(k);Eq(1.25f,k._animator.speed,"new native speed restored");});
+  RunWindArcTests();
   Console.WriteLine($"RESULT: {passed} passed, {failed} failed");Environment.ExitCode=failed==0?0:1;
  }
 }

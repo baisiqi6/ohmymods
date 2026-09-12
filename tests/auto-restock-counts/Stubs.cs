@@ -251,3 +251,5 @@ public static class Fabric
         return go;
     }
 }
+
+namespace KingdomEnhancedMod { internal static class PopulationCounts { internal static void NotifyRosterChanged() { } } }

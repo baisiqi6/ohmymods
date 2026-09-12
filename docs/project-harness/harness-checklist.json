@@ -1,8 +1,62 @@
 {
   "project": "ohmymods",
   "harness_root": "docs/project-harness",
-  "updated_at": "2026-09-12",
+  "updated_at": "2026-09-13",
   "items": [
+    {
+      "id": "release-615-20260913",
+      "title": "发布6.1.5人数HUD与剑风修复",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "selected_in_session": "codex-release-615-20260913",
+      "updated_at": "2026-09-13",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "clean6.1.5源码/构建/11回归/完整包及GitHub稳定Latest与digest核对",
+      "verification": "前序功能测试与实机已通过，当前准备发布；运行中用户游戏不打断。",
+      "handoff": "发布不覆盖6.0；人数只支持单机/主机，狮鹫问题尚未定位。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/release-615-20260913/plan.md"
+      }
+    },
+    {
+      "id": "population-hud-20260913",
+      "title": "常驻职业与五世界骑士人数HUD",
+      "status": "done",
+      "priority": "p1",
+      "owner": "codex",
+      "selected_in_session": "codex-population-hud-20260913",
+      "updated_at": "2026-09-13",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "当前岛屿实际职业/骑士风格计数，独立开关，缓存读取与换岛清理，回归/API/build/实机显示验收",
+      "verification": "30人数/HUD+81原计数回归，build0W0E，177实际Unity API，独立reviewPASS；正式候选真实名册读取，等同HUD源码临时原生截图中文/布局目视通过。",
+      "handoff": "E FFDD0E89已安装并移除临时截图代码；单机/主机支持，客机明确提示不可用。存档/config/bank保持；未提交或发布。",
+      "artifacts": {
+        "release_summary": "docs/project-harness/tasks/population-hud-20260913/release-summary.md"
+      }
+    },
+    {
+      "id": "wind-arc-interop-20260913",
+      "title": "剑风IL2CPP数组传递异常修复",
+      "status": "done",
+      "priority": "p1",
+      "owner": "codex",
+      "selected_in_session": "codex-wind-arc-interop-20260913",
+      "updated_at": "2026-09-12T17:12:23.6710288Z",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "原失败调用对照，新13点标量写入及清理重试回归，实际2.4 API审计/IL2CPP构建/E受控运行",
+      "verification": "31回归；build0W0E；实际2.4 API109方法；独立reviewPASS；实际E游戏已完成13点SetPosition剑风构建，成功日志出现，无原异常。",
+      "handoff": "本机E热修已安装；公开6.0.0未更新。目视/联机及Griffin问题单独待验证。",
+      "artifacts": {
+        "release_summary": "docs/project-harness/tasks/wind-arc-interop-20260913/release-summary.md"
+      }
+    },
     {
       "id": "samurai-defense-anchor-20260912",
       "title": "武士与随从守家/停驻交战锚点修复",

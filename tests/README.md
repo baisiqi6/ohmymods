@@ -13,13 +13,14 @@ dotnet run -c Release --project tests/expedition-follow/Regression.csproj
 dotnet run -c Release --project tests/samurai-motion/Regression.csproj
 dotnet run -c Release --project tests/auto-restock/AutoRestockTests.csproj
 dotnet run -c Release --project tests/auto-restock-counts/CountTests.csproj
+dotnet run -c Release --project tests/population-hud/Regression.csproj
 ```
 
 | Project | Coverage |
 |---|---|
 | `calendar` | Calendar arithmetic and display data |
 | `crossbow-defense` | Defensive positions, tower range and ownership cleanup |
-| `knight-powers` | Knight combat modifiers and native iterator cleanup |
+| `knight-powers` | 31 cases: knight combat modifiers, native iterator cleanup and scalar wind-arc construction/recovery |
 | `samurai-retreat` | Native defensive retreat speed and ref argument propagation |
 | `farm-cats` | Four-cat target, protected/native cats and partial retirement failures |
 | `fleet-greek-squads` | Greek fleet reservations, candidate selection and deferred cleanup |
@@ -27,6 +28,7 @@ dotnet run -c Release --project tests/auto-restock-counts/CountTests.csproj
 | `samurai-motion` | Dash cooldown/hits, follower leash, native wall handoff and motion ownership |
 | `auto-restock` | 96 cases: five-role procurement, double-price budgets and coin timing, native payment guards, approach/departure and cleanup |
 | `auto-restock-counts` | 81 cases: event-driven population and shop stock caches, world/pool identity, bakery registration and incoming peasants |
+| `population-hud` | 30 cases: component classification, live roster caching, world/authority boundaries, style resolution and passive HUD rendering |
 
 Production helpers are linked directly from `il2cpp/`. Where a large integration file needs a small compilation shell, the .NET 8 `source-extractor` tool copies the selected methods unchanged during the build. Generated files stay under `obj/`; do not commit them. The extractor uses the invoking .NET host when available. Sequential runs avoid concurrent builds of the shared extraction tool.
 

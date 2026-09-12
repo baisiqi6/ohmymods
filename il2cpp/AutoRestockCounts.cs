@@ -857,7 +857,10 @@ internal static class AutoRestockCountsHooks
     {
         [HarmonyPostfix]
         internal static void Postfix(Kingdom __instance, Character __0)
-            => AutoRestockCounts.HookAddCharacter(__instance, __0);
+        {
+            PopulationCounts.NotifyRosterChanged();
+            AutoRestockCounts.HookAddCharacter(__instance, __0);
+        }
     }
 
     [HarmonyPatch(typeof(Kingdom), nameof(Kingdom.RemoveCharacter))]
@@ -865,7 +868,10 @@ internal static class AutoRestockCountsHooks
     {
         [HarmonyPrefix]
         internal static void Prefix(Character __0)
-            => AutoRestockCounts.HookRemoveCharacter(__0);
+        {
+            PopulationCounts.NotifyRosterChanged();
+            AutoRestockCounts.HookRemoveCharacter(__0);
+        }
     }
 
     [HarmonyPatch(typeof(PayableShop), nameof(PayableShop.AddItem))]

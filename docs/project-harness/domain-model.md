@@ -340,3 +340,9 @@ Kingdom.banker原生引用可为null，不能据此否定已恢复的903主银�
 
 ## 2026-09-13 v6.0发行身份
 正式标签固定精确源码/构建，发布回执提交不移动标签或覆盖同名资产。实机夜间证据与完整攻门/大蛇/联机范围分开陈述。
+
+## 2026-09-13 剑风顶点的互操作边界
+固定13点剑风使用LineRenderer.SetPosition逐点传值；实际2.4 API直接native invoke，避开SetPositions临时Il2CppStructArray→Span路径。玩家ObjectCollectedException证明旧路径发生过包装器失效，不能据此推断所有Unity对象的GC或Griffin网络登记根因。几何只在首次构建时写入，后续攻击继续复用。
+
+## 2026-09-13 显示统计与采购容量分离
+人数HUD用独立只读当前岛名册，按真实组件而非池对象名分类；骑士未解析风格不默认中世纪。装备/订单不作为人数，显示不依赖采购配置。实际2.4 Character只在HasWorldAuth注册kingdom名册，客机空表不可解释为零；无权威清旧数并提示不可用，恢复主机重建。

@@ -588,3 +588,9 @@ Object goal每帧随leader位置/朝向变动，单次SetGoal改offset不足；�
 
 ### 2026-09-13 完整包逐文件复核
 v6.0对306项loader/runtime/config与已验证v5包做名称集及SHA双重比对，验证确切ZIP内嵌DLL并读回GitHub资产digest；不只检查几项代表DLL。
+
+### 2026-09-13 LineRenderer数组与Span桥接
+玩家日志ObjectCollectedException位于SetPositions→Il2CppSystem.Span构造。实际2.4互操作层同样含此链，SetPosition(int,Vector3)直接native invoke。少量固定顶点优先预设positionCount再逐点写入，避免临时IL2CPP数组/Span边界；保留原子清理和显式错误。模拟旧边界抛错可证明调用被移除，不能冒充真实GC或实机视觉复现。详见tasks/wind-arc-interop-20260913。
+
+### 2026-09-13 人数名册、客户端假零与缓存显示
+原生AddCharacter/RemoveCharacter已有hook只追加dirty bool；首次/上下文/事件重建并有界延迟，稳态每秒检查缓存活性与骑士解析，不在OnGUI扫描。普通dirty保留上一完整快照，避免招募时HUD闪灭；读取失败隐藏部分结果。2.4实际OnEnable的HasWorldAuth门证明客户端kingdom名册不完整，必须显示不可用而非全0。GUI沿用skin.label中文fallback并finally恢复全局状态。详见tasks/population-hud-20260913。
