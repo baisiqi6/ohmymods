@@ -1,0 +1,20 @@
+{
+  "version": "6.1.5",
+  "tag": "v6.1.5",
+  "commit": "4aebcd0eaf4cac044576c03340844655da083c15",
+  "url": "https://github.com/baisiqi6/ohmymods/releases/tag/v6.1.5",
+  "asset": "KingdomEnhancedMod_v6.1.5_IL2CPP.zip",
+  "bytes": 39501007,
+  "sha256": "487089ec4b8f1d87659328799a8e768920f7323b0bbdfeb3496b4fed2f7084e8",
+  "dllSha256": "2ce32e3438a9e129c64407572c48b94a171c49c7eb2707d2dcdbd2b3337fc519",
+  "entryCount": 313,
+  "cleanBuild": "0 warnings / 0 errors",
+  "regressionProjects": 11,
+  "runtimeFilesComparedTo600": 306,
+  "artifactReview": "PASS",
+  "priorTestedMethodBodies": 1309,
+  "changedMethods": "Plugin.Init version/build log only",
+  "exactReleaseStartup": "not run while user game is active",
+  "localInstallation": "pending user game exit",
+  "previousInstalledDll": "ffdd0e89a1401cd58ac4d1ce7dbd0c535b6a56a1fd649e9df56d50b63847e82f"
+}

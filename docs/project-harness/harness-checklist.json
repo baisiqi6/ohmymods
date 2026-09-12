@@ -6,7 +6,7 @@
     {
       "id": "release-615-20260913",
       "title": "发布6.1.5人数HUD与剑风修复",
-      "status": "doing",
+      "status": "done",
       "priority": "p1",
       "owner": "codex",
       "selected_in_session": "codex-release-615-20260913",
@@ -15,10 +15,10 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "clean6.1.5源码/构建/11回归/完整包及GitHub稳定Latest与digest核对",
-      "verification": "前序功能测试与实机已通过，当前准备发布；运行中用户游戏不打断。",
-      "handoff": "发布不覆盖6.0；人数只支持单机/主机，狮鹫问题尚未定位。",
+      "verification": "Clean build0W0E;11regression suites;313entry ZIP/306runtime hashes match6.0;metadata and 1309method equivalence;independent reviewPASS;GitHub Latest/tag/size/digest verified.",
+      "handoff": "Published https://github.com/baisiqi6/ohmymods/releases/tag/v6.1.5；本机安装待用户正常退出游戏，未打断进度。",
       "artifacts": {
-        "plan": "docs/project-harness/tasks/release-615-20260913/plan.md"
+        "publication": "docs/project-harness/tasks/release-615-20260913/publication.md"
       }
     },
     {

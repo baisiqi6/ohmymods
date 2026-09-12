@@ -57,6 +57,7 @@
 ## 常用路径
 
 ### 2026-09-06 启动事故临时门禁
+- 2026-09-13正式v6.1.5已发布Latest；tag4aebcd0，ZIP487089ec / 正式DLL2ce32e34，人数HUD+剑风修复，11回归/clean完整包/独立审核/远端digest通过。用户游戏运行中，本机仍FFDD0E89未替换或新版本启动；待退出后安装。单机/主机人数、客机提示不可用；狮鹫仍待定位。见tasks/release-615-20260913/publication.md。
 - 2026-09-13本机人数HUD：E FFDD0E89 / build=6.0.0-population-hud-20260913；左上八职业+骑士五风格，F5人口独立开关默认on。30+81回归/build0W0E/177Unity/review及原生截图通过；临时capture已移除，save/config/bank保持。单机/主机有效、客机提示不可用；公开6.0不变。见tasks/population-hud-20260913/acceptance.md。
 - 2026-09-13本机剑风热修：E DLL 3399c131 / build=6.0.0-wind-arc-interop-20260913；SetPositions数组/Span改13点SetPosition，31回归/build0W0E/109Unity/review通过。实际E游戏已完成13点SetPosition剑风构建，成功日志出现，无原异常。save/config/bank保留，公开6.0.0不变。见tasks/wind-arc-interop-20260913/acceptance.md。
 - 2026-09-13正式v6.0.0已发布并为Latest；tag/source356078c，ZIP416b6c79 / E正式DLLcdf5f61f。双倍采购、HUD/塔位/猫1.25及交战锚点修复，10套回归/clean完整包/自然夜间锚点与退速观测/远端digest通过；用户状态保留。完整攻门/大蛇/联机与全世界隔离边界仍追踪。见tasks/release-600-20260912/publication.md。

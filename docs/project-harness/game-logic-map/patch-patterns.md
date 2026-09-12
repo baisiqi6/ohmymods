@@ -594,3 +594,7 @@ v6.0对306项loader/runtime/config与已验证v5包做名称集及SHA双重比�
 
 ### 2026-09-13 人数名册、客户端假零与缓存显示
 原生AddCharacter/RemoveCharacter已有hook只追加dirty bool；首次/上下文/事件重建并有界延迟，稳态每秒检查缓存活性与骑士解析，不在OnGUI扫描。普通dirty保留上一完整快照，避免招募时HUD闪灭；读取失败隐藏部分结果。2.4实际OnEnable的HasWorldAuth门证明客户端kingdom名册不完整，必须显示不可用而非全0。GUI沿用skin.label中文fallback并finally恢复全局状态。详见tasks/population-hud-20260913。
+
+### 2026-09-13 6.1.5完整包身份
+
+发布前检查内嵌DLL的Assembly/plugin/build版本、人数类型与剑风标量路径，并确认临时截图类型不存在；完整运行库306文件与6.0逐项一致。仅版本变动的DLL方法对比需包含插值日志长度常量，不误判为游戏逻辑变更。

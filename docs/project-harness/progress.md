@@ -1398,3 +1398,7 @@ B33D56B8已安装，唯一行为差异CatScaleY1.2→1.25；build0W0E、DLL常�
 
 ### 2026-09-13 v6.0.0正式发布
 356078c固定源码，ZIP416b6c79 / DLLcdf5f61f；clean构建、10套回归、完整runtime/包检查、精确DLL自然夜间锚点与原生退速观测、GitHubLatest/tag/digest读回通过。两项发布前P2已修；真实攻门/大蛇/联机等边界继续跟踪。见tasks/release-600-20260912/publication.md。
+
+## 2026-09-13 — v6.1.5正式发布
+
+标签4aebcd0，ZIP487089ec / 正式DLL2ce32e34；人数HUD与剑风修复。clean构建/11回归/完整包/独立审核及远端Latest与digest通过。1309方法仅启动版本日志变化。用户游戏运行中，本机仍FFDD0E89，本次未替换/启动6.1.5，存档配置不动。见tasks/release-615-20260913/publication.md。
