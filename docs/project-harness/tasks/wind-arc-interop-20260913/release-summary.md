@@ -1,0 +1,4 @@
+# 剑风数组互操作修复
+
+6.1.5将EnsureArcBuilt的SetPositions数组/Span调用改为13次SetPosition，保留原坐标、材质、排序、伤害、缓存与失败清理。实际2.4接口核查表明标量方法直接调用native入口。
+31项直接源码回归覆盖几何、重复攻击复用、途中失败清理及重试；实机观察到13点构建成功。模拟异常测试不等同真实GC模型，本修复不代表所有ObjectCollectedException或狮鹫网络问题均已解决。

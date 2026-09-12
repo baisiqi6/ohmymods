@@ -1,0 +1,38 @@
+# Startup crashes / later system bugcheck — 2026-09-06
+
+Current status: unsafe shared-native Dispose hook removed; repaired candidate deployed and controlled startup passed. Historical rollback/investigation entries below are chronological. BSOD causation remains unproven. User reported startup flash-crash after today's knight and crossbow deployments, then BSOD. Do not describe prior managed/native-wrapper audits as runtime safety acceptance.
+
+Confirmed timeline (+08:00):
+-14:09 candidate FA7D697B1A918322598ADF54DBED7FC224906489D0736F172A9BD551C7B5D52E deployed to E test.
+-14:13:37 APPCRASH KingdomTwoCrowns.exe PID9728, coreclr.dll6.0.7,0xc0000005,offset0x1d1fdd. User dump preserved in AppData/Local/CrashDumps/KingdomTwoCrowns.exe.9728.dmp.
+-14:14:02.948 Windows PowerShell PID29540 created. Event400 at14:14:03 records an ohmymods repository inventory script, including Get-Content -Raw values passed to ConvertTo-Json -Depth8. It began AFTER the first APPCRASH; it cannot explain that first crash.
+-14:18:31 System event2004 confirms commit exhaustion: system42,546,200,576 bytes used of42,778,230,784 limit; PowerShell PID29540 uses8,284,418,048 bytes; ShopTitan.exe4,760,055,808; ChatGPT.exe696,938,496. Process creation time matches the inventory script. Its exact allocation mechanism is not profiled; WindowsPowerShell5.1 ETS serialization expansion is a plausible mechanism. Do not rerun it to prove memory exhaustion.
+-14:18:55 same Kingdom coreclr AV signature; further user dumps26528 and24508 retained. All3 bounded mmap dump summaries show the same exception address. Raw stack pointers were scanned, NOT unwound; they do not identify a responsible patch.
+-14:20 reboot, bugcheck0x3B parameter0xc0000005; WER bucket AV_cdd!CddBitmap::RemoveFromCddBitmapList, kernel dump C:/Windows/Minidump/090626-6453-01.dmp. This identifies the reported fault location, not a proven driver/root cause.
+-Latest Player.log ends D3D11 RenderTexture3836x1560 allocation failures0x8007000e. BepInEx logs complete chainloader initialization; no logged gameplay patches or successful new knight component injection afterward.
+
+Containment at14:25:23: verified game exited, archived failing DLL/logs, atomically restored pre-today-combat baseline A9B115D201889A56C045A14F859C03E1EB662374651334B723C562E0471CEC04 from before-knight-powers backup. Failed DLL retained in E plugins folder as .failed-startup-20260906-142523.bak (not .dll), plus operator incident folder. Target/backup hashes verified. Restored baseline runtime startup has NOT yet been tested. Saves/config/releaseZIP/SteamD/G untouched. Canonical source retains withdrawn feature candidates for diagnosis; do not automatically rebuild/deploy it as though it were the restored version.
+
+Independent read-only startup_crash_review: no proven source-level cause. Highest-priority native hypothesis is Knight._Slash_d__168.System_IDisposable_Dispose detour sharing a compiler-folded native address with unrelated iterators; callback assumes Knight iterator and reads __4__this. Actual sharing remains unverified. Wrapper-name/native-invoke audits do NOT check implementation address uniqueness/trampoline execution. Mod Enabled=false still installs these patches, so it is not a registration isolation test. General Harmony finalizers are supported; replacing them wholesale is not justified. Component injection and cross-biome resource loading are later possible pressure paths, but no incident evidence establishes they ran.
+
+Next gate: preserve rollback. A controlled baseline-only menu startup when system commit pressure is normal is needed to separate candidate failure from environment; do not automatically launch/repeat a BSOD reproduction. Then inspect native target address uniqueness or prepare a diagnostic build excluding only the Slash.Dispose patch from registration, keeping it undeployed until an isolated startup check is appropriate. Do not claim that rollback or memory recovery proves root-cause repair.
+
+Evidence folder: C:/Users/ADMIN/Documents/Codex/2026-09-05/ohmymods-operator-2/outputs/startup-crash-20260906 (logs,failed DLL,rollback receipt,event2004 XML,mmap dump summaries). Kernel/user dumps remain local; not uploaded.
+
+Primary reference: Microsoft PowerShell docs explain that7.2 removed serialization of extended String/DateTime properties: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/convertto-json?view=powershell-7.6 . This supports the investigation hypothesis, not proof of this process's allocations.
+
+## Controlled isolation evidence (14:36–14:47, supersedes pending baseline gate above)
+User authorized continuing. Baseline A9B115... started successfully, automatically restored the current scene, and was stopped without UI inputs or intentional gameplay. Save timestamp remained 01:16. Native UI is unavailable; no visual/menu acceptance was claimed. Actual save is a FILE at Release/global-v35.
+
+Offline actual-binary audit proved Slash.Dispose RVA0x4A40F0 starts RET and shares 1098 Assembly-CSharp method slots, including unrelated AppleManager/AndroidManager lifecycle callbacks. All25 new registrations matched failed-DLL attributes; only this target shares its native address. Knight/Archer.OnDisable and remaining new hooks each have unique native entries within this table. See native-address-audit.json and operator incident/native-audit scripts; wrapper uniqueness alone was inadequate.
+
+One-variable candidate (entire Dispose patch class removed, remaining candidate source unchanged) built0W/0E. SHA256 DB5542B1E83BDE3E1F2A1388F2EAA0F9DBA7B7B1C0FD33E695C399E3FF048B76. Fresh-process launch14:46:31–14:47:05 ran34s without early exit, reached main-scene/roles/pool initialization beyond previous crash position. Peak sampled private bytes2,175,864,832, minimum free commit23,589,937,152. Save before/after SHA256 FAC4F3803451CEFC4A94CA76D963CAF02CAA659CDABFB778FD8111A28FCDDF46 identical. This supports the Dispose hypothesis but is bounded startup evidence, not complete gameplay/blue-screen causation proof. No new dump observed. Diagnostic DLL is temporary; permanent cancellation guard fix and final startup still pending.
+
+## 2026-09-06 14:58 — 启动崩溃修复已部署并通过受控加载
+
+- 实际 GameAssembly 审计确认新 Slash.Dispose 钩子与1098个空方法槽共用原生地址，包含启动回调；完全移除这处钩子的单变量构建越过原闪退位置。其余新增注册在Assembly-CSharp表内没有同类地址折叠。
+- 永久修复用每骑士一个强引用lease，2秒scaled心跳用于允许接管；先终止旧枚举器再移除记录，__state.Retired覆盖原生body内OnDisable重入后的状态覆写。无扫描/计时器/释放历史环。ZCode两轮方案未通过复核且未集成，备用worker实现经独立review PASS。
+- 候选与canonical源码一致、各自build0W/0E；27项managed回归通过，24条剩余新hook静态绑定核验通过。E部署保留已经实际测试的隔离构建DLL `8390AF2755151D52CEF31FD3DEBCDA79F11BC251543925C083D8B3E8D9B5D7E9`。50.6秒受控启动抵达RunningGame/场景恢复和ClockDiag，DeadlandsAnimObserver注册成功，无新崩溃转储；存档前后SHA256一致。最高采样私有提交2.34GB，最低系统剩余commit19.62GB。未做战斗/联机/UI视觉验收，功能checklist继续doing。
+- 原骑士强化与弩手守位/塔射程均保留。此次修复有原生地址和启动对照证据；后续系统内存耗尽及cdd蓝屏仍不能宣布由此钩子单独导致。详见tasks/startup-crash-20260906/incident.md。公开release ZIP未更新，SteamD/G未写入。
+
+Final receipt: rooted-final-startup.json; final source SHA256 C133EC3D0643E47A86FCA5BE4DE791EC901E0A9EBEF6825F0423BA74EAF38783. Test session PID5780 was stopped by the operator guard when ClockDiag appeared; observed timeScale=0 at the final sample. Player.log reached ProgramDirector RunningGame. This is log/process-based startup/scene evidence, not a visual menu inspection or a completed combat round. Existing FriendlyTrollBalance identity/header warning remains outside this repair; no new Deadlands exception logged. Save SHA256 FAC4F3803451CEFC4A94CA76D963CAF02CAA659CDABFB778FD8111A28FCDDF46 unchanged. Canonical was integrated after tested-source hash comparison and built with deployment disabled; the deployed DLL remains the exactly tested snapshot artifact.

@@ -5,16 +5,32 @@
 | 项 | 路径 |
 |---|---|
 | 本仓库 | `C:/Users/ADMIN/Projects/ohmymods` |
-| **当前目标游戏（GOG 2.1.0 x86，2026-08-12 起）** | `E:/Kingdom Two Crowns/`（Mono 最后版本之一，官方后续已转 IL2CPP） |
+| **IL2CPP 开发环境** | `E:/QQ/QQ下载文件/Kingdom Two Crowns (1)/Kingdom Two Crowns` |
+| **IL2CPP 独立测试副本（唯一实测目标）** | `E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091` |
+| **Steam 正式版（禁止写入）** | `D:/Steam/steamapps/common/Kingdom Two Crowns` |
+| Mono 自用环境 | `E:/Kingdom Two Crowns/`（GOG 2.1.0 x86） |
 | 旧目标游戏（2.0.1 x64，已弃用） | `E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Call.of.Olympus-P2P` |
-| 游戏反编译源码（只读参考） | 本仓库 `game-source/Assembly-CSharp/`（带注释版，版本 2.0.1 mono；2.1.0 差异见 git 记录/待用户提供反编译） |
-| mod 安装目录 | `E:/Kingdom Two Crowns/Mods/MyMod/` |
+| 2.1.0 逻辑说明书（只读） | `game-source/Assembly-CSharp-2.1.0/` |
+| 共享存档（禁止自动修改） | `%USERPROFILE%/AppData/LocalLow/noio/KingdomTwoCrowns/Release/global-v35` |
 
 > 版本差异记录：2.0.1→2.1.0 仅发现 `Pool.syncID` int→short（Patch_Castle 已加显式转换）。
 > 切换目标游戏只需改 build.bat 的 `GAME_DIR`。
 | UMM | `E:/.../KingdomTwoCrowns_Data/Managed/UnityModManager/` |
 
-## 编译
+## 编译与验证
+
+### IL2CPP 发布线
+
+```powershell
+cd C:/Users/ADMIN/Projects/ohmymods/il2cpp
+C:/Users/ADMIN/dotnet8/dotnet.exe build -c Debug
+```
+
+产物为 `il2cpp/bin/Debug/KingdomEnhancedMod.dll`。Debug 配置默认可自动复制到开发环境；
+只做编译验证时应覆盖/清空 `BepInExPluginsPath`，部署则只复制到独立测试副本。
+日志在 `<测试副本>/BepInEx/LogOutput.log`。首次启动可能只生成 interop；退出后第二次启动再确认插件加载。
+
+### Mono 自用线
 
 ```bash
 cd C:/Users/ADMIN/Projects/ohmymods
@@ -27,13 +43,13 @@ UnityModManager/0Harmony-1.2）+ 全部 Patch_*.cs。
 
 注意：**csc 是 C# 5 编译器**——不能用字符串插值、null 条件运算符等新语法。
 
-## 安装 / 更新
+## [Mono-only] 安装 / 更新
 
 1. 编译 → 拷贝 `MyMod.dll` 到 `E:/Kingdom Two Crowns/Mods/MyMod/`。
 2. 游戏必须通过 UMM 启动（doorstop 注入，见下方"注入方案"）。
 3. 启动游戏，UMM 菜单（Ctrl+F10）确认 MyMod 启用（Main.Enabled）。
 
-## 注入方案（GOG 2.1.0 x86，2026-08-12 踩坑记录）
+## [Mono-only] 注入方案（GOG 2.1.0 x86，2026-08-12 踩坑记录）
 
 ```
 游戏根/
@@ -61,6 +77,7 @@ doorstop_config.ini 两个文件（不需要 BepInEx 目录）；BepInEx 目录�
 
 - Unity Player.log：`%USERPROFILE%/AppData/LocalLow/noio/KingdomTwoCrowns/Player.log`
 - mod 日志前缀 `[MyMod]`（Patch_Probe 探测日志已随 maint-002 删除）。
+- IL2CPP 插件日志应出现 `KingdomEnhancedMod` 版本与 patch 激活信息，且无 Error/Exception。
 - 检查 patch 是否挂上：搜 `[MyMod] Patched ...`（Worker.OnEnable / Mover.Update / Kingdom.OnLevelLoaded 等）。
 
 ## 常见调参入口
@@ -70,15 +87,27 @@ doorstop_config.ini 两个文件（不需要 BepInEx 目录）；BepInEx 目录�
 | 北境工匠缩放 1.175 | `Patch_Worker.cs` ApplyWorkerScale + OnEnable_Postfix 登记 |
 | 希腊工匠缩放 1.075 | 同上（非北境分支） |
 | 北境居民缩放 1.125 | `Patch_WorkerScale` Peasant_OnEnable_Postfix |
-| 狂战士缩放 1.2 | `Patch_WorkerScale` WarriorPeasant_OnEnable_Postfix |
+| 希腊北境外观居民缩放 1.125 | `Patch_WorkerScale` Peasant/WarriorPeasant OnEnable + `Patch_Character` Promote |
 | 鹿 0.55 / 小动物 1.8 | `Patch_WorkerScale` Deer/Critter OnEnable |
 | 猫生成 | `Patch_Kingdom.SpawnCatsInGreece` |
 | 地图扩展倍率 | `Main.mapSizeMultiplier` |
 
 ## 规则（踩过的坑）
 
-1. **hook 点必须用 OnEnable**——Worker/Peasant 没有 Start 方法；池复用只触发 OnEnable。
+1. **本地池复用初始化用 OnEnable**——Worker/Peasant 没有 Start；但 RPC 必须等网络注册完成。
 2. **缩放只动 y**——x 是朝向符号，动它会改变移动速度（Mover.cs:405）。
 3. **Holder 替换必须配 sync 池**（EnsurePoolForCharacter），否则 Pool.Spawn 崩/联机 desync。
 4. **Resources.Load 按名字找不到子目录资源**——必须 LoadAll 扫。
 5. 反编译源码是参考，别往里写代码——它不可编译。
+6. 实机只在独立测试副本进行；测试前备份共享存档，禁止把 Steam 目录当测试环境。
+
+## 发布物命名规范（2026-08-22 定案）
+
+- 文件名只承载 **Mod 自身版本**：`KingdomEnhancedMod_v{ModVersion}_IL2CPP.zip`（例：`_v2.0.0_`）。
+  早期用游戏版本号命名（`_v2.4.0_`）是历史错误，禁止再犯。
+- 架构后缀保留（`IL2CPP`/未来如需 Mono 线区分），防止用户下错包。
+- 游戏兼容性（当前 2.4.0）只放三处：BUILD-MANIFEST 的 GameCompatibility、INSTALL.md/README、
+  GitHub Release 标题；不进文件名。
+- 版本号四处必须一致：csproj `<Version>`、git tag `v{版本}`、启动日志 `build=`、ZIP 文件名。
+- 每次改版记得手改启动日志的 build 戳（`KingdomEnhancedPlugin.cs` 中 `build=` 字符串）。
+- 社区分发：GitHub Release 为主渠道，QQ 群文件同步；旧版本包在群内删除或标注"旧版"。

@@ -33,7 +33,31 @@ public static class PatchEconomy_CurrencyBag
     private const int BagCapacity = 1000;
     private const int VisualCoinLimit = 600;          // 原版硬编码 300
     private const float BagScaleMultiplier = 2.0f;    // 钱袋 UI 放大倍率
+    private const float BagPositionOffsetX = 3.70f;   // 钱袋 UI 向屏幕右侧微移
+    private const float BagPositionOffsetY = -1.50f;  // 钱袋 UI 向屏幕下方微移
     private static float _baseBagScale = -1f;         // 首次记录的原始基准（-1=未记录）
+
+    /// <summary>
+    /// 原生每次重算位置后施加固定视觉偏移。由于原生 RecalcPosition 会先覆盖基准位置，
+    /// 此处不会累积漂移，也不触碰金币容器、物理或钱包容量。
+    /// </summary>
+    [HarmonyPatch(typeof(CurrencyBag), nameof(CurrencyBag.RecalcPosition))]
+    [HarmonyPostfix]
+    public static void RecalcPosition_Postfix(CurrencyBag __instance)
+    {
+        if (!ModConfig.Enabled.Value) return;
+        try
+        {
+            Vector3 position = __instance.transform.position;
+            position.x += BagPositionOffsetX;
+            position.y += BagPositionOffsetY;
+            __instance.transform.position = position;
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+        }
+    }
 
     /// <summary>开局强制解锁 Hermes 钱袋（两名玩家）。</summary>
     [HarmonyPatch(typeof(CurrencyBagHandler), nameof(CurrencyBagHandler.OnGameStartHandler))]
@@ -130,7 +154,7 @@ public static class PatchEconomy_CurrencyBag
             kingdom.playerOne.wallet.TotalCapacity = HermesCapacity;
         if (kingdom.playerTwo != null && kingdom.playerTwo.wallet != null)
             kingdom.playerTwo.wallet.TotalCapacity = HermesCapacity;
-        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+        KingdomEnhancedPlugin.Instance?.LogSource.LogDebug(
             "[Economy] Wallet capacity ensured = " + HermesCapacity + " (save-load path)");
     }
 

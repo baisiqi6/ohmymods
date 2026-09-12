@@ -1,0 +1,8 @@
+{
+  "time": "2026-09-06T14:25:23.2148374+08:00",
+  "target": "E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll",
+  "restoredSha256": "A9B115D201889A56C045A14F859C03E1EB662374651334B723C562E0471CEC04",
+  "failedSha256": "FA7D697B1A918322598ADF54DBED7FC224906489D0736F172A9BD551C7B5D52E",
+  "failedBackup": "E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll.failed-startup-20260906-142523.bak",
+  "runtimeVerified": false
+}

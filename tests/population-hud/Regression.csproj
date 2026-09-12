@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../il2cpp/PopulationCounts.cs" Link="Production/PopulationCounts.cs" />
+    <Compile Include="../../il2cpp/PopulationHud.cs" Link="Production/PopulationHud.cs" />
+  </ItemGroup>
+</Project>

@@ -68,6 +68,13 @@
 - **注意**："2.4.0 钱包重做为 CurrencyMap"也是误判——CurrencyMap 2.1.0 就存在。
 - **验证方式**：实机把袋装满超 2000，确认拾取在 2000 停止。
 
+## 15. 跨 biome 迁移角色时必须迁移传递依赖池
+- **现象**：希腊忍者能成功转职并开始战斗，但数次攻击后停止；怪物不再攻击它，天亮也不恢复钓鱼形态。`Player.log` 同时出现 `Pool not found for ThrowingStar` / `Ninja.ThrowStar()` NRE，以及 `Pool not found for Smokebomb` / `Ninja.SmokebombRoutine()` NRE。
+- **根因**：只注册了 `ToolNinja` 与 `char:Ninja` 主池，漏掉 Ninja prefab 字段引用的投射物和视觉对象。烟雾 NRE 发生在死亡分支已经 `Stop()`、`damagedBy=0` 之后，却早于恢复受伤状态和 `Character.Demote()`，因此整个 `Ninja.Behaviour` 协程中断并留下无敌僵尸状态。
+- **原始资源证据**：2.4.0 `Object Pools/bamboo` 中 `ThrowingStar` 为 `sync=true, syncID=41`；`Smokebomb` 为 `sync=false`。希腊原生池未占用 41。烟雾由动画 RPC 在各端本地生成，禁止错误注册为 sync 池。
+- **解法**：从有效 Ninja prefab 的 `arrowPrefab` / `smokebombPrefab` 取得真实资产，在 Holder 稳定初始化以及每次强制 `InitPools()` 后按固定顺序预注册；飞镖进入 sync 缓存，烟雾只进入普通池/name 缓存。不要依赖攻击热路径临时建池，也不要通过 `allowInstantiate=true` 绕开池生命周期。
+- **通用规则**：跨 biome 单位的依赖闭包不止“角色+工具”；还要审计 projectile、VFX、掉落物、召唤物和动画事件触发对象，并逐项复刻原池的 sync/local 语义。⚠️ 代码已实现并静态构建通过，仍待独立副本实机验证。
+
 ## 待办 issue
 - **#1 钱袋 Awake 不触发**：✅ 已解决（坑 #13 类级注解）。经济域全部激活（2026-08-13）。
 - **#2 容量上限验证**：TotalCapacity=2000 应为正确杠杆（坑 #14 已纠正）——实机装满超 2000 验证拾取停在 2000。

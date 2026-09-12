@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-09-06T14:09:14.2302005+08:00",
+  "source": "C:\\Users\\ADMIN\\projects\\ohmymods\\il2cpp\\bin\\Debug\\KingdomEnhancedMod.dll",
+  "target": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "previousSha256": "2109204D33FA011914B45ECCC8D807AA4E16DEA328B6561CB86C493CE684D7C6",
+  "deployedSha256": "FA7D697B1A918322598ADF54DBED7FC224906489D0736F172A9BD551C7B5D52E",
+  "bytes": 373760,
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-crossbow-defense-20260906-140913-938.bak",
+  "rollback": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.rollback-crossbow-defense-20260906-140913-938.bak",
+  "gameExitChecks": 2,
+  "atomicReplace": true,
+  "runtimeVerified": false
+}

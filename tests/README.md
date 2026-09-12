@@ -1,0 +1,37 @@
+# Managed regression tests
+
+Install the .NET 8 SDK. No game installation, Unity assemblies, Python or PowerShell is required by these projects. Run the commands below sequentially from the repository root:
+
+```sh
+dotnet run -c Release --project tests/calendar/CalendarTests.csproj
+dotnet run -c Release --project tests/crossbow-defense/Regression.csproj
+dotnet run -c Release --project tests/knight-powers/Regression.csproj
+dotnet run -c Release --project tests/samurai-retreat/Regression.csproj
+dotnet run -c Release --project tests/farm-cats/Regression.csproj
+dotnet run -c Release --project tests/fleet-greek-squads/Regression.csproj
+dotnet run -c Release --project tests/expedition-follow/Regression.csproj
+dotnet run -c Release --project tests/samurai-motion/Regression.csproj
+dotnet run -c Release --project tests/auto-restock/AutoRestockTests.csproj
+dotnet run -c Release --project tests/auto-restock-counts/CountTests.csproj
+dotnet run -c Release --project tests/population-hud/Regression.csproj
+```
+
+| Project | Coverage |
+|---|---|
+| `calendar` | Calendar arithmetic and display data |
+| `crossbow-defense` | Defensive positions, tower range and ownership cleanup |
+| `knight-powers` | 31 cases: knight combat modifiers, native iterator cleanup and scalar wind-arc construction/recovery |
+| `samurai-retreat` | Native defensive retreat speed and ref argument propagation |
+| `farm-cats` | Four-cat target, protected/native cats and partial retirement failures |
+| `fleet-greek-squads` | Greek fleet reservations, candidate selection and deferred cleanup |
+| `expedition-follow` | Dynamic follow, night wall anchors, stationary Charge positions, world boundaries and task ownership |
+| `samurai-motion` | Dash cooldown/hits, follower leash, native wall handoff and motion ownership |
+| `auto-restock` | 96 cases: five-role procurement, double-price budgets and coin timing, native payment guards, approach/departure and cleanup |
+| `auto-restock-counts` | 81 cases: event-driven population and shop stock caches, world/pool identity, bakery registration and incoming peasants |
+| `population-hud` | 30 cases: component classification, live roster caching, world/authority boundaries, style resolution and passive HUD rendering |
+
+Production helpers are linked directly from `il2cpp/`. Where a large integration file needs a small compilation shell, the .NET 8 `source-extractor` tool copies the selected methods unchanged during the build. Generated files stay under `obj/`; do not commit them. The extractor uses the invoking .NET host when available. Sequential runs avoid concurrent builds of the shared extraction tool.
+
+`expedition-follow/LegacyDefenseSpacing.cs` intentionally preserves the old fixed-position prefix as a negative control. It reproduces the original bug alongside the current production helper.
+
+The stubs model Unity and native API boundaries for deterministic managed logic tests. Passing them does not establish IL2CPP detour compatibility, actual native callback ordering, rendering, saves, multiplayer or in-game behavior; those require separate runtime validation.

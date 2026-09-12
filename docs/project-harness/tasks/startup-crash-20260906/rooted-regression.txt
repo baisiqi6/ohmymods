@@ -1,0 +1,28 @@
+PASS Norse possession own-wallet isolation, idempotence, and load
+PASS Norse statue targets, config disable, pool reuse, style loss
+PASS Norse rejects foreign GO original wallet
+PASS Norse client deterministic statue and saturation
+PASS Medieval forward hitbox geometry and repeated lifecycle
+PASS Medieval qualification and native harm/cooldown/pusher/authority gates
+PASS Deadlands movement per-call restore, no stacking, config change, callback
+PASS Deadlands shoot intervals scope, exception/config restore, follower isolation
+PASS Deadlands animation repeated triggers do not stack; disable restores
+PASS Slash overlap suppressed; exception preserves error and retires rooted owner
+PASS Slash guard heartbeat survives style config and authority loss until normal completion
+PASS Slash expired A is permanently canceled after B takeover and completion
+PASS Slash expired A cannot resume when config-off B never registers
+PASS Slash expired A retires for style or authority loss without registering B
+PASS Slash OnDisable pool reuse cannot revive old iterator
+PASS Slash reentrant native disable then state1 write is forced terminal in postfix
+PASS Slash reentrant disable and B registration cannot be undone by old A postfix
+PASS Slash reentrant retirement and old exception cannot erase new owner
+PASS Slash paused scaled clock does not expire owner
+PASS Slash heartbeat prevents timeout even after lifetime exceeds lease
+PASS Slash non-deadlands iterator keeps vanilla execution and is not rooted
+PASS Slash same owner may renew after silence if no new iterator took over
+PASS Deadlands Haglet cadence gate and pointer replacement
+PASS Medieval first visual trigger visible and fade completes
+PASS Norse surplus survives style loss but capacity cannot leak across pool reuse
+PASS Deadlands vanished movement target cannot retain temporary scale
+PASS Deadlands repeated animation rebases external positive speed
+RESULT: 27 passed, 0 failed

@@ -1,0 +1,7 @@
+# v4.5.0 release
+
+User reported normal play after the startup fix and explicitly requested publishing the current version as4.5. This authorizes the established release workflow: scoped commit, candidate-branch push, a new v4.5.0 tag, full ZIP and GitHub Release. Preserve master, existing tags/releases and unrelated worktrees. Do not send group messages or alter saves/SteamD/G. Do not replace an active game DLL. User runtime report is general acceptance, not proof of all online edges.
+
+Only code behavior already in the tested candidate is shipped. Release code changes are project version and log build stamp4.0.0→4.5.0. Synchronize player docs and promote existing production-linked regressions. Required gates: independent release review, no-deploy build/tests, scoped commit; clean detached worktree build/package; ZIP CRC/bootstrap/runtime/config allowlist/DLL metadata/hash/manifest validation; nonforce tag and branch push; publish and compare remote asset digest. No personal config, saves, logs, backup DLLs, interop or reference source in the package.
+
+Review found one concrete release cleanup issue: remove Enabled gate ONLY from Samurai OnDisable postfix, preserving null guard and existing owned-record checks. This necessary one-line cleanup fix supplements version metadata changes and requires final compile/source review/startup. No attack/movement values or other behavior are retuned. See user-acceptance.md for direct user feedback evidence.

@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <GeneratedSourceDir>$(MSBuildProjectDirectory)/obj/$(Configuration)/$(TargetFramework)/generated</GeneratedSourceDir>
+    <RegressionDotNetHost Condition="'$(DOTNET_HOST_PATH)' != ''">$(DOTNET_HOST_PATH)</RegressionDotNetHost>
+    <RegressionDotNetHost Condition="'$(RegressionDotNetHost)' == ''">dotnet</RegressionDotNetHost>
+  </PropertyGroup>
+  <Target Name="ExtractRegressionSource" BeforeTargets="BeforeCompile">
+    <Exec Command="&quot;$(RegressionDotNetHost)&quot; run --project &quot;$(MSBuildThisFileDirectory)source-extractor/SourceExtractor.csproj&quot; --configuration Release --no-launch-profile -- $(ExtractionMode) &quot;$(ExtractionInput)&quot; &quot;$(GeneratedSourceDir)&quot;" />
+  </Target>
+</Project>

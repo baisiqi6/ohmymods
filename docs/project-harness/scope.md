@@ -2,7 +2,8 @@
 
 ## 项目是什么
 
-《王国：两位君主：奥林匹斯的召唤》(Kingdom Two Crowns: Call of Olympus) 的 UnityModManager (UMM) + Harmony mod。
+《王国：两位君主：奥林匹斯的召唤》(Kingdom Two Crowns: Call of Olympus) 的双架构 mod：
+Steam 发布与端到端验收主线使用 IL2CPP 2.4.0 + BepInEx 6；Mono 2.1.0 + UMM 是冻结历史/自用线。
 以希腊世界为基准，把北境（norselands）的兵种体系引入希腊：狂战士、忍者、北境工匠（带盾）、北境居民，
 同时保持两种形象的视觉一致性和原生行为（盾牌防御、挥砍、拾取）。
 
@@ -19,8 +20,8 @@
 - 不改游戏资源文件（prefab/贴图/动画），一切通过运行时 Harmony patch + 代码逻辑。
 - 不做联机专用的新协议（沿用游戏原生 RPC/序列化，必要时仅注册 sync 池）。
 - 不碰希腊原版兵种的行为（除缩放对齐外）。
-- 不引入第三方依赖（当前 UMM + Harmony v1.2 + 游戏原生 API）。
-- 不做 UI/菜单（mod 开关在 UMM 的 Main.Enabled）。
+- 不引入两条技术栈以外的新运行时依赖（IL2CPP：BepInEx 6/Il2CppInterop/HarmonyX；Mono：UMM/Harmony v1.2）。
+- 不另做独立 UI；IL2CPP 使用现有 ModPanel，Mono 使用 UMM 面板。
 
 ## IL2CPP 适配（2026-08-12 启动，执行中）
 
@@ -35,9 +36,10 @@
 
 ## 环境约束
 
-- 语言：C# 5（Framework 4.7.2 csc.exe 命令行编译，无 NuGet）。
-- 框架：UnityModManager + Harmony v1.2（不是 BepInEx）。
-- 游戏版本：Kingdom Two Crowns: Call of Olympus 2.0.1（P2P 版，Mono，Revision 21960，coo-day0）。
-- 编译：build.bat → MyMod.dll → 拷贝到游戏 Mods/MyMod/。
-- 源码参考：`game-source/Assembly-CSharp/`（版本标注见 game-source/README.md）。
+- **[IL2CPP 发布线]** 游戏兼容版本 2.4.0；.NET 8 SDK；BepInEx 6 + Il2CppInterop + HarmonyX；
+  `il2cpp/KingdomEnhancedMod.csproj` → `KingdomEnhancedMod.dll`。
+- **[Mono 自用线]** 游戏版本 2.1.0；C# 5 / Framework csc.exe；UMM + Harmony v1.2；
+  `build.bat` → `MyMod.dll`。
+- 2.1.0 反编译源码只作为业务逻辑说明书；IL2CPP API 必须再用 2.4.0 interop 壳核对。
+- 实机只在独立测试副本进行；Steam 正式目录和共享存档都不作为自动化测试目标。
 - 协作流程：见 `collaboration-protocol.md`（Operator/Worker/Reviewer 顺位与模型约定）。

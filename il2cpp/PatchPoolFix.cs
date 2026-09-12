@@ -143,6 +143,25 @@ public static class PoolManager_Init_Patch
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
         }
     }
+
+    [HarmonyPatch(nameof(PoolManager.Init))]
+    [HarmonyPostfix]
+    public static void Init_Postfix(PoolManager __instance)
+    {
+        if (!ModConfig.Enabled.Value || __instance == null) return;
+        try
+        {
+            // Native Init may call InitPools() again after our prefix and clear
+            // every pool restored there.  Restore once more only after native Init
+            // has fully returned; if Holder is not ready yet, ReRegisterModPools
+            // deliberately returns and the Holder postfix remains the final hook.
+            PatchRoles_Castle.ReRegisterModPools();
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+        }
+    }
 }
 
 [HarmonyPatch(typeof(Pool))]

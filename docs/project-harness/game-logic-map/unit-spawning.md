@@ -2,7 +2,7 @@
 
 ## 两条完全不同的产生链
 
-### 1. 商店直接产出（Bow/Hammer/Ninja/Scythe 等）
+### 1. 商店产出工具（Bow/Hammer/Katana/Scythe 等）
 
 ```
 玩家投币 → PayableShop.HandlePayment()
@@ -11,7 +11,8 @@
       → Worker 路过拾取 → Character.Promote(tool, controller)
 ```
 
-部分商店直接生成 Character（如 Ninja 商店直接 spawn Ninja）。
+忍者商店生成 `ToolNinja`（Katana），再由 Peasant 拾取并经 `Character.Promote` 转为 Ninja；
+不是商店直接生成 Character。
 
 ### 2. 工具转化（Berserker/PikeKnight/ShieldKnight）
 
@@ -114,13 +115,14 @@ BerserkerTool 商店没有自己的 `ShopType` 枚举值。它是北境 `uniqueS
 
 ---
 
-## Ninja（忍者）— 商店直接产出
+## Ninja（忍者）— 商店工具转职
 
 ### 完整链路
 
 ```
 NinjaLeft/NinjaRight 商店（幕府 biome=1 独有）
-  → 玩家投币 → 直接 spawn Ninja (Character)
+  → 玩家投币 → ToolNinja/Katana
+  → Peasant 拾取 → Character.Promote → Ninja
 ```
 
 ### ShopType 完整支持
@@ -136,6 +138,36 @@ Ninja 有完整的 `ShopType.NinjaLeft(7)` / `NinjaRight(8)` 枚举值，走标�
 
 1. **注册 prefab**：`Patch_ShopPlanner.Prefix` 全量替换 InitializeShopTypePrefabPairs（return false），遍历所有 biomePathStrings，注册全部 uniqueShopPrefabs（包括幕府的 Ninja 商店 prefab）
 2. **入队摆放**：`Patch_Castle` patch `CatchupToLevel` + `ReQueueAllBuildings`，在希腊(biome=5) Castle5 时入队 NinjaLeft/NinjaRight
+
+### 跨 biome 运行时依赖（2.4.0 实机补充）
+
+只注册 `ToolNinja` 与 `char:Ninja` 不足以让忍者完整运行。Ninja 的动画事件和死亡分支还会直接使用：
+
+- `arrowPrefab.gameObject` → `ThrowingStar`：原生 bamboo 池为 sync，`syncID=41`。
+- `smokebombPrefab` → `Smokebomb`：原生为 local pool；通过 `APSmokeout` 动画 RPC 让各端分别生成，不能改为 sync。
+
+这两个依赖必须在 Holder/PoolManager 稳定初始化后、Ninja 首次使用前预注册，并在任何强制 `InitPools()` 清空缓存后重新注册。缺失 ThrowingStar 会让 `ThrowStar()` NRE；缺失 Smokebomb 会在忍者死亡烟遁期间中断整个 `Behaviour`，留下 `damagedBy=0`、无法降级和无法切回白天形态的卡死实例。
+
+### 希腊多载体伏击点（候选实现，待实机）
+
+原版 `Ninja.GetHidingSpot()` 不识别竹子名称，只读取 `Kingdom.GetHidingSpotList(side)`，再筛选城墙外且未占用的点。2.4.0 资源中只有 `bambooTree` 自带 `HidingSpot`；希腊 Grass/Shrub 没有。
+
+候选实现为三类载体补原生 `HidingSpot`：
+
+- `World.AddThicket(Grass)` 成功生成实际 thicket 后，为每个宽灌木创建 Left/Center/Right 三槽，
+  local x 为 `-0.55/0/+0.55`；最初的 `±1.1` 经实机观察视觉过宽，已将左右距离减半。
+- `PayableTree.OnEnable` 为每棵 Greece 可砍伐树创建一个中心槽。
+- 已实机命中的 `BeggarCamp.Awake` 为每个 Greece 乞丐帐篷创建五槽，local x 为
+  `-2/-1/0/+1/+2`。
+
+每个锚点仍保持原生单人占用，不能让多人共享同一 `HidingSpot`。三类槽进入同一个 sided list；
+`Kingdom.RegisterHidingSpot` 按坐标把左侧列表由内向外、右侧列表由内向外排序，Ninja 随后取第一个
+墙外且未占用的槽。因此选择顺序只由“离当前城墙多近、有没有人”决定，不会跨过更近且有空位的
+帐篷去找远树，也不需要自定义载体优先级。墙扩张后落入墙内的槽由原生验证排除。
+
+父灌木禁用、树被砍、帐篷摧毁时，各子 `HidingSpot.OnDisable()` 分别注销并通知占用 Ninja。
+灌木池复用时 `Start()` 不会重跑，只在对应 sided list 缺失时清旧 hider 并手工重新登记；已经登记
+且正在占用的锚点不得被清除。三类补点只在 Greece world-authority 端执行。
 
 ---
 
@@ -169,3 +201,21 @@ Ninja 有完整的 `ShopType.NinjaLeft(7)` / `NinjaRight(8)` 枚举值，走标�
 Ninja hack 版本里替换的目标是 `WarriorPeasant`（武装农民/民兵），不是 `Worker`。这是 mod 演进过程中选择的替换目标。
 
 **自洽方案不需要替换任何单位**——玩家在忍者商店花钱购买即可。
+
+---
+
+## Cerberus 亡灵小队（IL2CPP 候选）
+
+2.4 Cerberus 的 `SummonGhostSteedAbility` 原生配置是一名 Greece leader 加四名 Greece archer。
+原生队长与弓箭手协程共享一个 `_spawnedLeader`，因此不能把字段直接改成4/16；那样只有最后一名队长
+能稳定成为十六名弓箭手的归属目标。
+
+实现保留原生1+4，等首队完成后再生成三支独立1+4，每支用自己的局部leader引用调用
+`AddToFormation`。补充单位仍设置原能力为GhostHolder、原骑手为Summoner、启动原生死亡倒计时并加入
+`_activeGhosts`，所以能力的原生回收入口仍覆盖全部20名单位。
+
+北境神器的亡灵虽然使用相同编队接口，AI并不相同：北境版本跟随玩家并按Duration回收，Greece子类
+主动向外作战并按离玩家距离回收。用户要求保留差异，因此两支北境队完整克隆inactive北境prefab，
+保持北境具体行为组件，并使用HelsHead资源的原生30秒Duration；两支希腊队继续按距离回收。两个北境
+行为池固定使用syncID30130/30131；原生北境弓箭手池在2.4资源中与FleetBoat存在syncID冲突，不得直接
+跨世界注册。
