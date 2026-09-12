@@ -1,0 +1,21 @@
+{
+  "version": "6.0.0",
+  "tag": "v6.0.0",
+  "commit": "356078c938248ef74b1322fa37b1e9390e62d512",
+  "url": "https://github.com/baisiqi6/ohmymods/releases/tag/v6.0.0",
+  "asset": "KingdomEnhancedMod_v6.0.0_IL2CPP.zip",
+  "bytes": 39493770,
+  "sha256": "416b6c7925dfcdb799ff5ce30ee2ada957b9fea21e4bf9f4f6e9ed9ba0f6e4cc",
+  "dllSha256": "cdf5f61f049ba07eb7682d2eb4bf575a9cadf78f24eb513b682a14c4f513ffec",
+  "entryCount": 313,
+  "completeRuntimeBaseline": "306 files match v5.0.0 byte-for-byte",
+  "cleanBuild": "0 warnings / 0 errors",
+  "regressionProjects": 10,
+  "runtime": {
+    "nightFollowerClampObserved": true,
+    "nativeSamuraiRetreatObserved": true,
+    "nightLeashQueueObserved": false,
+    "chargeStationObserved": false,
+    "userStatePreserved": true
+  }
+}

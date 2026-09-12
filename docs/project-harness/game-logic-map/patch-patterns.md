@@ -585,3 +585,6 @@ PatchWorld_FarmCats.CatScaleY=1.25（此前1.2）；继续遵守坑11只改y轴�
 
 ### 2026-09-13 动态跟随不能把交战锚点拖走
 Object goal每帧随leader位置/朝向变动，单次SetGoal改offset不足；已有Mover.Update中先于死地临时speed倍率维护exact-owned offset。ArcherFollow2可能在OnLevelLoaded前就SetGoal并长期Wait；BeginWorld须保留当前World/layer有效Original，既有名册seed不得将此前Written当Native。nativeGoToState是排队，安全交还在Knight.Update Prefix后同次nativeUpdate消费，不能从别的队列随意撤销。
+
+### 2026-09-13 完整包逐文件复核
+v6.0对306项loader/runtime/config与已验证v5包做名称集及SHA双重比对，验证确切ZIP内嵌DLL并读回GitHub资产digest；不只检查几项代表DLL。

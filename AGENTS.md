@@ -57,6 +57,7 @@
 ## 常用路径
 
 ### 2026-09-06 启动事故临时门禁
+- 2026-09-13正式v6.0.0已发布并为Latest；tag/source356078c，ZIP416b6c79 / E正式DLLcdf5f61f。双倍采购、HUD/塔位/猫1.25及交战锚点修复，10套回归/clean完整包/自然夜间锚点与退速观测/远端digest通过；用户状态保留。完整攻门/大蛇/联机与全世界隔离边界仍追踪。见tasks/release-600-20260912/publication.md。
 - 2026-09-12最新本机：B33D56B8 build=5.0.0-cat-scale-125-20260912；希腊农舍猫y缩放1.2→1.25，其他逻辑保留。build0W0E、DLL常量与安装哈希通过，save/bank未动，公开5.0不变。见tasks/cat-scale-125-20260912/acceptance.md。
 - 2026-09-12最新本机：BC504C61 build=5.0.0-restock-double-cost-20260912；五职业原价双倍投币/扣款，手动价保留，实机忍者4/狂战士6且离店成功。服务回归/63bank/226Unity/build/review通过，save/config/bank5408恢复；公开5.0不变。其他世界旧全局补丁隔离仍未完成。见tasks/restock-double-cost-20260912/acceptance.md。
 - 2026-09-12 15:55最新本机：8929889C build=5.0.0-peasant-hud-motion-20260912；无边框HUD默认字体用户确认、Peasant面包采购本机开启15、税收官附近出现跑近付款/走开返城。206检查/309Unity/nativehook/review与正确E实机采购位置日志通过；save与bank5423恢复。公开5.0不变，见tasks/peasant-bread-hud-20260912/acceptance.md。

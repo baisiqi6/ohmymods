@@ -1383,3 +1383,6 @@ B33D56B8已安装，唯一行为差异CatScaleY1.2→1.25；build0W0E、DLL常�
 
 ### 2026-09-13 交战阵位源码修复通过
 夜守家动态offset/Charge到站锚点、原生超距归位及加载期Original保留已整合。199随从/123运动、负对照、build/API/native、独立review通过；进入6.0精确包实机检查。
+
+### 2026-09-13 v6.0.0正式发布
+356078c固定源码，ZIP416b6c79 / DLLcdf5f61f；clean构建、10套回归、完整runtime/包检查、精确DLL自然夜间锚点与原生退速观测、GitHubLatest/tag/digest读回通过。两项发布前P2已修；真实攻门/大蛇/联机等边界继续跟踪。见tasks/release-600-20260912/publication.md。

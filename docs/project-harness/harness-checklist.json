@@ -6,17 +6,17 @@
     {
       "id": "samurai-defense-anchor-20260912",
       "title": "武士与随从守家/停驻交战锚点修复",
-      "status": "doing",
+      "status": "done",
       "priority": "p1",
       "owner": "codex",
       "selected_in_session": "codex-samurai-defense-anchor-20260912",
-      "updated_at": "2026-09-12T15:55:40.343794+00:00",
+      "updated_at": "2026-09-12T16:28:12.599932+00:00",
       "dependencies": [],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "守家墙内随从锚点，停驻攻门现场阵位，行军不受阻；武士原10距离/3秒CD及超距原生后退流程；对应代码/native/实机证据。",
-      "verification": "199 follow +123 motion PASS; two P2 fixed with negative controls; build0W0E/109Unity/actual2.4API+nativeflow; final source reviewPASS. Exact package live check pending.",
-      "handoff": "修复已整合，进入6.0正式包实机检查。",
+      "verification": "199follow+123motion/negativecontrols;actual2.4API/nativeflow;finalsource reviewPASS;exact6.0package naturalnight wallanchor+nativeRetreat observed;statepreserved.",
+      "handoff": "已随6.0发布；完整攻门/大蛇与联机继续作为验证边界。",
       "artifacts": {
         "release_summary": "docs/project-harness/tasks/samurai-defense-anchor-20260912/release-summary.md"
       }
@@ -24,19 +24,19 @@
     {
       "id": "release-600-20260912",
       "title": "发布v6.0.0完整IL2CPP安装包",
-      "status": "doing",
+      "status": "done",
       "priority": "p1",
       "owner": "codex",
       "selected_in_session": "codex-release-600-20260912",
-      "updated_at": "2026-09-12T15:32:48.017987+00:00",
+      "updated_at": "2026-09-12T16:28:12.599932+00:00",
       "dependencies": [],
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "clean6.0.0构建与包核验，精确包启动，GitHub稳定Latest和digest/tag核对。",
-      "verification": "发布前交战阵位修复已审查并整合，准备最终clean构建/包/实机。",
-      "handoff": "用户发布授权继续有效；最终检查后推送stable6.0。",
+      "verification": "Clean build0W0E;10regression suites;313entry ZIP CRC/allowlist/manifest;306runtime hashes match;exactDLL native night check;GitHubstableLatest/tag/size/digest verified.",
+      "handoff": "Published https://github.com/baisiqi6/ohmymods/releases/tag/v6.0.0",
       "artifacts": {
-        "plan": "docs/project-harness/tasks/release-600-20260912/plan.md"
+        "publication": "docs/project-harness/tasks/release-600-20260912/publication.md"
       }
     },
     {
