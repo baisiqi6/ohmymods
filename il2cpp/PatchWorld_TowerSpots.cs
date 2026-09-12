@@ -16,6 +16,13 @@ namespace KingdomEnhancedMod;
 /// - 塔位与已建塔共用 "Tower" 标签（Tags.cs:169；Castle.cs:624
 ///   FindGameObjectsWithTag("Tower") 同时吃两者）。脚手架是独立标签
 ///   "ScaffoldingTower"（Castle.cs:625），不污染扫描。
+/// - 特殊升级塔（如 Tower Knight）是无标签（Untagged）对象：root 上是
+///   WorkableBuilding + ConstructionBuildingComponent + PayableBlocker，
+///   没有普通 Tower 组件、不挂 Tower tag——tag 扫描对它全盲。因此占用
+///   集在 tag 扫描外，另做一次 FindObjectsOfType&lt;WorkableBuilding&gt;() 与
+///   一次 &lt;Scaffolding&gt;()（活跃施工脚手架的 Building 可能 inactive，
+///   仅当 activeScaffolding.Building 明确指向它时计入占用；绝不把
+///   prefab/inactive pool 对象当建筑）。
 /// - 基底预制体 Holder.towerLocationPrefab（Holder.cs:182）是自包含的：
 ///   自带 PayableUpgrade（价格/nextPrefab=1级塔/区域限制都在资产里序列化）、
 ///   Persistent（IslandSaveData.RegisterPersistent 经 OnEnable 自动登记）、
@@ -41,7 +48,8 @@ namespace KingdomEnhancedMod;
 /// 本补丁语义：
 /// - World.OnLevelLoaded postfix 协程宿主（PatchWorld_DefenseSpacing 范式，
 ///   per-world 指针守卫），延迟 5 秒（等场景物体/PayableManager 就绪）后补放；
-///   每次关卡加载重放。
+///   每次关卡加载重放。修复（旧 KEM 重叠回收 + 补点避障）在下一次重启/读档
+///   的这一入口内完成，无新增 native hook/周期扫描/scene mutation 插件。
 /// - **对原生参考集幂等**（reviewer P0 修正）：间距估计（中位数）与铺点范围
 ///   （anchor/outermost/外推终点）只从"未购买的原生基底"参考集取——tag Tower
 ///   + 本层 + 非船 + 名字无 KEM 标记 + Tower.level==0。补放点（有 KEM 标记）
@@ -49,8 +57,12 @@ namespace KingdomEnhancedMod;
 ///   target 跟着缩为 S/m²，每读档密度×2 直到 3 步地板，outermost 也会随补放
 ///   点逐档外推。参考集在反复读档间不变（补放点重建后仍带 KEM 标记被排除），
 ///   大量购买后剩余原生样本 gap 恒为 S 或 2S，中位数稳定。
-/// - 距离守卫的占用集保持全量（原生基底+补放点+已建塔）：防与任何现有结构
-///   贴脸，也保证重放时旧补放点把同位网格点全部拦截（added=0）。
+/// - 占用集（距离+footprint 双守卫的数据源）保持全量：原生基底、补放点、
+///   已建普通塔（tag Tower）、特殊升级塔（WorkableBuilding）、施工脚手架
+///   （active Scaffolding 及其 Building）。防与任何现有结构贴脸，也保证重放时
+///   旧补放点把同位网格点全部拦截（added=0）。footprint 比较一律用
+///   sameObject=false（Payable 真实范围 + 视觉 bounds 并集），塔对塔绝不套
+///   原生 MinSpacing（模板资产 MinSpacing=8，套用会把增密全禁）。
 /// - 新实例命名含 "KEM_TowerSpot" 标记（识别自己的放点：参考集排除 + 日志）。
 /// - 现有存档读档即生效的依据：补放完全发生在运行时（场景加载后），不改
 ///   关卡资产、不改存档结构；读档后照常执行。
@@ -66,11 +78,9 @@ public static class PatchWorld_TowerSpots
     private const string MarkerPrefix = "KEM_TowerSpot";
     private const float DelaySeconds = 5f;      // 等场景/PayableManager/池就绪
     private const float MinTargetSpacing = 3f;  // 塔宽约 2-3 单位，4x 时防贴脸下限
-    // Use the rendered footprint as a lower bound.  The native tower spot uses
-    // Payable.playerPayDistance for placement checks, but that radius is much
-    // smaller than the location sprite (MinSpacing=8 on the current asset).
-    // Without this floor, a 2x grid (20 -> 10) visibly intersects neighbouring
-    // tower bases even though the native payable rectangles do not overlap.
+    // A live native base supplies the rendered width for the new-base spacing floor.
+    // ScatteredObject.MinSpacing is layout clearance, not sprite half-width (the
+    // current Greek root sprites are 96px at 32 pixels/unit = 3 world units).
     private const float VisualSpacingPadding = 0.25f;
     private const float OccupiedRatio = 0.6f;   // 距离守卫 = 0.6×目标间距
     private const float OutwardExtension = 1f;  // 越过最外侧原生基底再外扩 1 个原生间距
@@ -87,6 +97,43 @@ public static class PatchWorld_TowerSpots
     private static bool _loggedVisualHealth;
     private static bool _loggedScatterMetadata;
     private static bool _loggedOverlapRetirement;
+
+    /// <summary>
+    /// 一次 Expand 内的局部占用快照：同 scene、非船、distinct root。
+    /// 数据源=tag Tower 扫描（普通塔/已建塔/KEM 基底）+ 一次
+    /// FindObjectsOfType&lt;WorkableBuilding&gt;（无标签特殊升级塔）+ 一次
+    /// &lt;Scaffolding&gt;（活跃施工脚手架及其 Building）。新生成的 spot 也即时
+    /// 加入，保证同轮新点之间做实际 footprint 校验。
+    /// </summary>
+    private sealed class OccupancySnapshot
+    {
+        public readonly List<GameObject> Roots = new List<GameObject>();
+        public readonly List<float> AllX = new List<float>();
+        // 只被 activeScaffolding.Building 明确指向的（可能 inactive 的）建筑
+        // root 到脚手架关联；每次占用复查重新核实活动脚手架仍指向该 root。
+        public readonly Dictionary<IntPtr, Scaffolding> ScaffoldingBuildings = new Dictionary<IntPtr, Scaffolding>();
+        private readonly HashSet<IntPtr> _seen = new HashSet<IntPtr>();
+
+        public bool Add(GameObject go)
+        {
+            if (go == null || go.transform == null) return false;
+            if (!_seen.Add(go.Pointer)) return false;
+            Roots.Add(go);
+            AllX.Add(go.transform.position.x);
+            return true;
+        }
+
+        public bool Remove(GameObject go)
+        {
+            if (go == null) return false;
+            if (!_seen.Remove(go.Pointer)) return false;
+            Roots.RemoveAll(r => r == null || r.Pointer == go.Pointer);
+            float x = XOf(go);
+            AllX.Remove(x); // Remove only this root: a different building may have the same x.
+            ScaffoldingBuildings.Remove(go.Pointer);
+            return true;
+        }
+    }
 
     /// <summary>OnLevelLoaded postfix 入口：调度延迟协程。</summary>
     public static void Schedule(World world)
@@ -148,6 +195,7 @@ public static class PatchWorld_TowerSpots
 
             currentLayer = managers.world.gameLayer;
             if (currentLayer == null || currentLayer.Pointer != capturedLayer.Pointer
+                || currentLayer.gameObject == null || !currentLayer.gameObject.activeInHierarchy
                 || NetworkPostbox.Instance == null)
                 return false;
             return true;
@@ -167,23 +215,6 @@ public static class PatchWorld_TowerSpots
         Transform layer = world != null ? world.gameLayer : null;
         if (!TryGetReadyContext(world, layer, out layer)) return;
         if (_expandedWorld == world.Pointer && _expandedLayer == layer.Pointer) return;
-
-        float multiplier = ModConfig.TowerSpotMultiplier != null
-            ? ModConfig.TowerSpotMultiplier.Value : 2f;
-        if (multiplier <= 1f) return; // 1=原生密度，不补点
-
-        // 联机 fail-closed（见类注释）；单机 HasWorldAuth 恒真。
-        if (NetworkBigBoss.IsOnline)
-        {
-            if (!_loggedOnlineSkip)
-            {
-                _loggedOnlineSkip = true;
-                KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
-                    "[TowerSpots] online session detected; tower spot expansion " +
-                    "is single-player/splitscreen only, skipping");
-            }
-            return;
-        }
 
         // ---- 就绪检查（瞬时态：未就绪只跳过本次，不消费 per-world 守卫）----
         Managers managers = Managers.Inst;
@@ -205,34 +236,32 @@ public static class PatchWorld_TowerSpots
         if (prefab == null) prefab = holder.towerLocationPrefab;
         if (prefab == null) return;
 
-        // ---- 扫描 "Tower" 标签：占用集（全量）与参考集（原生基底） ----
-        // 占用集：tag Tower + 本层 + 非船（距离守卫数据源，含补放点/已建塔）。
-        // 参考集：再加 名字无 KEM 标记 + Tower.level==0（=未购买的原生基底；
-        // 间距估计/铺点范围/朝向模板数据源，绝不混入补放点与已建塔）。
-        Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<GameObject> tagged =
-            GameObject.FindGameObjectsWithTag("Tower");
-        if (tagged == null || tagged.Length == 0) return;
-
-        var allX = new List<float>();          // 占用集（全量 x）
-        var refGos = new List<GameObject>();   // 参考集（原生基底对象）
-        var generatedBases = new List<GameObject>(); // 未购买 KEM 基底（旧重叠收敛）
-        for (int i = 0; i < tagged.Length; i++)
-        {
-            GameObject go = tagged[i];
-            if (go == null || go.transform == null || !go.transform.IsChildOf(layer)) continue;
-            if (IsOnBoat(go.transform)) continue;
-            allX.Add(go.transform.position.x);
-            if (IsNativeBase(go)) refGos.Add(go);
-            else if (IsGeneratedBase(go)) generatedBases.Add(go);
-        }
-        if (refGos.Count < 2) return; // 原生基底参照不足（<2 无法估计间距），不动
+        // ---- 占用快照：tag Tower + WorkableBuilding + Scaffolding（各扫一次）----
+        // 占用集：全量（原生基底/补放点/已建普通塔/特殊升级塔/施工脚手架）。
+        // 参考集：tag Tower + 本层 + 非船 + 名字无 KEM 标记 + Tower.level==0
+        // （=未购买的原生基底；间距估计/铺点范围/朝向模板数据源，绝不混入
+        // 补放点与已建塔；特殊塔不据名称猜身份，只进占用集）。
+        var snapshot = new OccupancySnapshot();
+        var refGos = new List<GameObject>();           // 参考集（原生基底对象）
+        var generatedBases = new List<GameObject>();   // 未购买 KEM 基底（旧重叠收敛）
+        BuildOccupancySnapshot(layer, snapshot, refGos, generatedBases);
 
         LogScatterMetadataOnce(prefab);
 
-        // 对已经随存档恢复的旧 KEM 空基底做同一避障收敛。仅移除仍为
-        // level=0、身份完整且命中塔位原生非 Tower 避障标签的实例；已建塔、
-        // 原生塔位、联机与网络/持久化身份不完整对象全部 fail closed。
-        int retired = RetireOverlappingGeneratedBases(world, prefab, layer, generatedBases, allX);
+        // User-authorized same-site duplicates may already be upgraded and have
+        // lost the KEM name. Only an independent completed special tower is a
+        // witness; release native occupants before deleting any ordinary root.
+        var duplicateRoots = SpecialTowerDuplicateCleanup.RemoveDuplicates(world, layer, snapshot.Roots);
+        foreach (var removedRoot in duplicateRoots) snapshot.Remove(removedRoot);
+        refGos.RemoveAll(go => go == null || !go.activeInHierarchy);
+        generatedBases.RemoveAll(go => go == null || !go.activeInHierarchy);
+
+        // 先清旧重叠，再决定是否补新：即使 multiplier<=1 或原生参照不足，
+        // 已随存档恢复的、与真实占用（含无标签特殊塔/已建普通塔/施工）重叠的
+        // 旧 KEM 空基底也要回收。modDisabled/online/noauth/invalid world 已由
+        // TryGetReadyContext 整体拦截。
+        int retired = RetireOverlappingGeneratedBases(
+            world, layer, prefab, generatedBases, snapshot);
         if (retired > 0 && !_loggedOverlapRetirement)
         {
             _loggedOverlapRetirement = true;
@@ -242,8 +271,27 @@ public static class PatchWorld_TowerSpots
         KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
             "[TowerSpots] scan native=" + refGos.Count
             + " generatedUnbuilt=" + generatedBases.Count
-            + " occupied=" + allX.Count
+            + " occupied=" + snapshot.Roots.Count
             + " retired=" + retired);
+
+        float multiplier = ModConfig.TowerSpotMultiplier != null
+            ? ModConfig.TowerSpotMultiplier.Value : 2f;
+        if (multiplier <= 1f) return; // 1=原生密度，不补点（cleanup 已完成）
+
+        // 联机 fail-closed（见类注释）；单机 HasWorldAuth 恒真。
+        if (NetworkBigBoss.IsOnline)
+        {
+            if (!_loggedOnlineSkip)
+            {
+                _loggedOnlineSkip = true;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                    "[TowerSpots] online session detected; tower spot expansion " +
+                    "is single-player/splitscreen only, skipping");
+            }
+            return;
+        }
+
+        if (refGos.Count < 2) return; // 原生基底参照不足（<2 无法估计间距），不动
 
         // 地表吸附：取原生基底 y/z 中位数（原生塔位全部贴地，等价于地面线 y；
         // 取舍：假设地面平直——KTC 建造带基本如此，高地/特殊地形由
@@ -288,13 +336,13 @@ public static class PatchWorld_TowerSpots
         int added = 0;
         if (leftRef.Count > 0)
         {
-            added += ExpandSide(world, prefab, layer, leftRef, allX,
+            added += ExpandSide(world, prefab, layer, leftRef, snapshot,
                 -1f, worldLeft, worldRight, groundY, planeZ,
                 leftNative ?? fallback.Value, multiplier, notBuildableMask);
         }
         if (rightRef.Count > 0)
         {
-            added += ExpandSide(world, prefab, layer, rightRef, allX,
+            added += ExpandSide(world, prefab, layer, rightRef, snapshot,
                 1f, worldLeft, worldRight, groundY, planeZ,
                 rightNative ?? fallback.Value, multiplier, notBuildableMask);
         }
@@ -312,7 +360,130 @@ public static class PatchWorld_TowerSpots
             "[TowerSpots] added " + added + " spots (multiplier=" + multiplier.ToString("F2")
             + ", native spacing=" + fallback.Value.ToString("F1")
             + ", native bases=" + refGos.Count
-            + ", occupied total=" + allX.Count + ")");
+            + ", occupied total=" + snapshot.Roots.Count + ")");
+    }
+
+    /// <summary>
+    /// 占用快照采集：tag Tower 扫描（普通塔位/已建塔/KEM 基底，须为本层子物体、
+    /// 非船）+ 一次 FindObjectsOfType&lt;WorkableBuilding&gt;（无标签特殊升级塔，
+    /// 须 active、与 gameLayer 同 scene、非船）+ 一次 &lt;Scaffolding&gt;（活跃
+    /// 脚手架及其 Building 引用；Building 可能 inactive，只在被活跃脚手架明确
+    /// 指向时计入并记录指针）。不做名称猜测。
+    /// </summary>
+    private static void BuildOccupancySnapshot(Transform layer,
+        OccupancySnapshot snapshot, List<GameObject> refGos, List<GameObject> generatedBases)
+    {
+        Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<GameObject> tagged =
+            GameObject.FindGameObjectsWithTag("Tower");
+        if (tagged != null)
+        {
+            for (int i = 0; i < tagged.Length; i++)
+            {
+                GameObject go = tagged[i];
+                if (go == null || go.transform == null
+                    || !go.transform.IsChildOf(layer)) continue;
+                if (IsOnBoat(go.transform)) continue;
+                snapshot.Add(go);
+                if (IsNativeBase(go)) refGos.Add(go);
+                else if (IsGeneratedBase(go)) generatedBases.Add(go);
+            }
+        }
+
+        // FindObjectsOfType 只返回 active 对象，天然排除 prefab/inactive pool。
+        var workableBuildings = UnityEngine.Object.FindObjectsOfType<WorkableBuilding>();
+        if (workableBuildings != null)
+        {
+            for (int i = 0; i < workableBuildings.Length; i++)
+            {
+                WorkableBuilding wb = workableBuildings[i];
+                if (wb == null) continue;
+                GameObject go = wb.gameObject;
+                if (go == null || go.transform == null) continue;
+                if (!go.activeInHierarchy) continue;
+                if (!IsInLayerScene(go, layer)) continue;
+                if (IsOnBoat(go.transform)) continue;
+                snapshot.Add(go);
+            }
+        }
+
+        var scaffoldings = UnityEngine.Object.FindObjectsOfType<Scaffolding>();
+        if (scaffoldings != null)
+        {
+            for (int i = 0; i < scaffoldings.Length; i++)
+            {
+                Scaffolding scaffold = scaffoldings[i];
+                if (scaffold == null) continue;
+                GameObject go = scaffold.gameObject;
+                if (go == null || go.transform == null) continue;
+                if (!go.activeInHierarchy) continue;
+                if (!IsInLayerScene(go, layer)) continue;
+                if (IsOnBoat(go.transform)) continue;
+                snapshot.Add(go);
+
+                // Building 可能 inactive（脚手架 Setup 期间），只有这条明确
+                // 引用能把它计入占用——其余 inactive 对象一律不算建筑。
+                GameObject building = scaffold.Building;
+                if (building == null || building.transform == null) continue;
+                if (!IsInLayerScene(building, layer)) continue;
+                if (IsOnBoat(building.transform)) continue;
+                snapshot.Add(building);
+                snapshot.ScaffoldingBuildings[building.Pointer] = scaffold;
+            }
+        }
+    }
+
+    /// <summary>对象与 gameLayer 属同一 scene（防御 Resources/DDOL 资产混入）。</summary>
+    private static bool IsInLayerScene(GameObject go, Transform layer)
+    {
+        if (go == null || layer == null || layer.gameObject == null) return false;
+        return go.transform != null && go.transform.IsChildOf(layer)
+                && go.scene.handle == layer.gameObject.scene.handle;
+    }
+
+    /// <summary>
+    /// footprint 占用检查：candidate（实例或 prefab+建议 x）与快照中每个占用
+    /// root 的 TryGetCombinedOverlapRegion（sameObject=false：Payable 真实范围 +
+    /// 视觉 bounds 并集；塔对塔绝不套原生 MinSpacing）比较。逐对象复查
+    /// active 与同 scene/层级；inactive root 必须仍有关联活动脚手架。
+    /// 不可判定返回 Unknown：禁止新放，但不能据此删除旧对象。
+    /// </summary>
+    private enum OverlapResult { Clear, Overlap, Unknown }
+
+    private static bool IsLiveOccupant(OccupancySnapshot snapshot, GameObject root, Transform layer)
+    {
+        if (root == null || !IsInLayerScene(root, layer) || IsOnBoat(root.transform)) return false;
+        if (root.activeInHierarchy) return true;
+        if (!snapshot.ScaffoldingBuildings.TryGetValue(root.Pointer, out Scaffolding scaffold)
+            || scaffold == null || scaffold.gameObject == null || !scaffold.gameObject.activeInHierarchy
+            || !IsInLayerScene(scaffold.gameObject, layer) || IsOnBoat(scaffold.transform)) return false;
+        return scaffold.Building != null && scaffold.Building.Pointer == root.Pointer;
+    }
+
+    private static OverlapResult OverlapsOccupiedRoots(OccupancySnapshot snapshot,
+        GameObject candidate, float x, GameObject ignoreRoot, Transform layer,
+        World world = null, bool skipRemovablePeers = false)
+    {
+        try
+        {
+            if (!TryGetCombinedOverlapRegion(candidate, x, false, out Rect candidateRect)) return OverlapResult.Unknown;
+            bool unknown = false;
+            for (int i = 0; i < snapshot.Roots.Count; i++)
+            {
+                GameObject root = snapshot.Roots[i];
+                if (root == null || IsSameHierarchy(root, ignoreRoot)) continue;
+                try
+                {
+                    if (!IsLiveOccupant(snapshot, root, layer)) continue;
+                    if (skipRemovablePeers && IsGeneratedBase(root) && CanRetireGeneratedBaseInSnapshot(root, world, layer, snapshot)) continue;
+                    if (!TryGetCombinedOverlapRegion(root, root.transform.position.x, false, out Rect occupied))
+                    { unknown = true; continue; }
+                    if (candidateRect.Overlaps(occupied)) return OverlapResult.Overlap;
+                }
+                catch { unknown = true; }
+            }
+            return unknown ? OverlapResult.Unknown : OverlapResult.Clear;
+        }
+        catch { return OverlapResult.Unknown; }
     }
 
     /// <summary>
@@ -352,12 +523,12 @@ public static class PatchWorld_TowerSpots
 
     /// <summary>
     /// 复刻 Level.PopulateRegionWithScatteredObjects 的 AvoidOverlapWith 横向矩形
-    /// 判定。Tower 标签有意跳过：同类塔位距离仍由本补丁的目标倍数/allX 管理，
-    /// 否则原生 MinSpacing 会把所有增密点重新全部挡掉；建筑/墙/农场等其余标签
-    /// 完整保留原生避障语义。
+    /// 判定。Tower 标签有意跳过：同类塔位距离仍由本补丁的目标倍数/占用快照
+    /// 管理，否则原生 MinSpacing 会把所有增密点重新全部挡掉；建筑/墙/农场等
+    /// 其余标签完整保留原生避障语义。
     /// </summary>
     private static bool OverlapsNativePlacement(GameObject prefab, Transform layer,
-        float x, GameObject ignoreRoot, out string blockedTag)
+        float x, GameObject ignoreRoot, out string blockedTag, GameObject footprintSource = null)
     {
         blockedTag = null;
         try
@@ -370,7 +541,8 @@ public static class PatchWorld_TowerSpots
             // with the rendered footprint.  This catches the real visual
             // overlap reported by players while preserving native metadata as
             // the first source of truth.
-            Rect candidate = GetCombinedOverlapRegion(prefab, x, false);
+            if (!TryGetCombinedOverlapRegion(footprintSource ?? prefab, x, false, out Rect candidate))
+            { blockedTag = "check-error"; return true; }
             var avoidTags = scatter.AvoidOverlapWith;
             for (int tagIndex = 0; tagIndex < avoidTags.Count; tagIndex++)
             {
@@ -394,8 +566,8 @@ public static class PatchWorld_TowerSpots
                     if (layer != null && other.scene.handle
                         != layer.gameObject.scene.handle) continue;
 
-                    Rect occupied = GetCombinedOverlapRegion(other,
-                        other.transform.position.x, false);
+                    if (!TryGetCombinedOverlapRegion(other, other.transform.position.x, false, out Rect occupied))
+                    { blockedTag = "check-error"; return true; }
                     if (!candidate.Overlaps(occupied)) continue;
                     blockedTag = tag;
                     return true;
@@ -426,6 +598,8 @@ public static class PatchWorld_TowerSpots
         Payable payable = go != null ? go.GetComponent<Payable>() : null;
         if (payable != null)
         {
+            if (!float.IsFinite(payable.playerPayDistance) || !float.IsFinite(payable.playerPayPointOffset.x))
+                throw new InvalidOperationException("Invalid payable footprint");
             float distance = Mathf.Max(0.5f, payable.playerPayDistance);
             return new Rect(new Vector2(
                 x + payable.playerPayPointOffset.x - distance, 50f),
@@ -435,59 +609,47 @@ public static class PatchWorld_TowerSpots
         return new Rect(new Vector2(x - 0.5f, 50f), new Vector2(1f, 100f));
     }
 
-    private static Rect GetCombinedOverlapRegion(GameObject go, float x, bool sameObject)
+    private static bool TryGetCombinedOverlapRegion(GameObject go, float x, bool sameObject, out Rect result)
     {
-        Rect native = GetOverlapRegion(go, x, sameObject);
-        if (!TryGetVisualBounds(go, x, out float visualMin, out float visualMax))
-            return native;
-
-        float min = Mathf.Min(native.xMin, visualMin);
-        float max = Mathf.Max(native.xMax, visualMax);
-        return Rect.MinMaxRect(min, 50f, max, 150f);
+        result = default;
+        try
+        {
+            if (!TryGetVisualBounds(go, x, out float visualMin, out float visualMax)) return false;
+            Rect native = GetOverlapRegion(go, x, sameObject);
+            if (!float.IsFinite(native.xMin) || !float.IsFinite(native.xMax) || native.xMax <= native.xMin) return false;
+            float min = Mathf.Min(native.xMin, visualMin), max = Mathf.Max(native.xMax, visualMax);
+            result = Rect.MinMaxRect(min, 50f, max, 150f);
+            return float.IsFinite(min) && float.IsFinite(max) && max > min;
+        }
+        catch { return false; }
     }
 
-    private static bool TryGetVisualBounds(GameObject go, float x,
-        out float minX, out float maxX)
+    private static bool TryGetVisualBounds(GameObject go, float x, out float minX, out float maxX)
     {
         minX = maxX = x;
         try
         {
-            if (go == null || go.transform == null) return false;
+            if (go == null || go.transform == null || !float.IsFinite(x)) return false;
+            float rootX = go.transform.position.x;
+            if (!float.IsFinite(rootX)) return false;
             Renderer[] renderers = go.GetComponentsInChildren<Renderer>(true);
             bool found = false;
-            float rootX = go.transform.position.x;
-            for (int i = 0; i < renderers.Length; i++)
+            foreach (Renderer renderer in renderers)
             {
-                Renderer renderer = renderers[i];
                 if (renderer == null) continue;
                 Bounds bounds = renderer.bounds;
-                if (!found)
-                {
-                    minX = bounds.min.x;
-                    maxX = bounds.max.x;
-                    found = true;
-                }
-                else
-                {
-                    minX = Mathf.Min(minX, bounds.min.x);
-                    maxX = Mathf.Max(maxX, bounds.max.x);
-                }
+                float lo = bounds.min.x, hi = bounds.max.x;
+                if (!float.IsFinite(lo) || !float.IsFinite(hi)) return false;
+                if (hi <= lo) continue; // Disabled/empty child bounds must not drag a building's span to world zero.
+                if (!found) { minX = lo; maxX = hi; found = true; }
+                else { minX = Mathf.Min(minX, lo); maxX = Mathf.Max(maxX, hi); }
             }
             if (!found) return false;
-
-            // Runtime objects already report world-space bounds.  For the
-            // prefab candidate, translate the measured bounds by the proposed
-            // x while retaining any authored child offset.
             float delta = x - rootX;
-            minX += delta;
-            maxX += delta;
-            return maxX > minX;
+            minX += delta; maxX += delta;
+            return float.IsFinite(minX) && float.IsFinite(maxX) && maxX > minX;
         }
-        catch
-        {
-            minX = maxX = x;
-            return false;
-        }
+        catch { minX = maxX = x; return false; }
     }
 
     private static bool IsSameHierarchy(GameObject candidate, GameObject root)
@@ -499,97 +661,174 @@ public static class PatchWorld_TowerSpots
             return candidate.transform.IsChildOf(root.transform)
                 || root.transform.IsChildOf(candidate.transform);
         }
-        catch { return false; }
+        catch { throw; }
     }
 
-    private static int RetireOverlappingGeneratedBases(World world, GameObject prefab, Transform layer,
-        List<GameObject> generatedBases, List<float> allX)
+    /// <summary>
+    /// 旧 KEM 空基底重叠回收。障碍=占用快照中除"可安全删除的 generated peer"
+    /// 外的全部 root（原生基底、已建普通塔、无标签特殊塔、施工脚手架/Building、
+    /// 不可删除 KEM）；可安全删除的 generated peer 之间用 keptGenerated 稳定
+    /// x 顺序保留先者。candidate 用 spot 实际范围（非 prefab 范围）。每个
+    /// 删除动作前用 CanRetireGeneratedBase 全面重验。
+    /// </summary>
+    private static int RetireOverlappingGeneratedBases(World world, Transform layer,
+        GameObject prefab, List<GameObject> generatedBases, OccupancySnapshot snapshot)
     {
         if (!TryGetReadyContext(world, layer, out _)) return 0;
-
-        // Stable x-order makes cleanup deterministic and keeps the older base
-        // when two historical KEM spots overlap one another.  The previous
-        // pass only compared against non-Tower native tags, so the 15 saved
-        // KEM spots at 10-unit spacing could survive while visibly intersecting
-        // each other.
         generatedBases.Sort((a, b) => XOf(a).CompareTo(XOf(b)));
         var keptGenerated = new List<GameObject>();
         int retired = 0;
-        for (int i = 0; i < generatedBases.Count; i++)
+        foreach (GameObject spot in generatedBases)
         {
-            // Recheck immediately before each deregistration: a scene unload or
-            // authority transition must leave the remaining objects untouched.
             if (!TryGetReadyContext(world, layer, out _)) break;
-            GameObject spot = generatedBases[i];
-            if (spot == null || spot.transform == null) continue;
-            bool overlaps = OverlapsNativePlacement(prefab, layer,
-                spot.transform.position.x, spot, out string blockedTag)
-                && blockedTag != "check-error";
-            if (!overlaps && CanRetireGeneratedBase(spot))
+            if (!CanRetireGeneratedBaseInSnapshot(spot, world, layer, snapshot)) continue;
+            float oldX = spot.transform.position.x;
+            OverlapResult collision = OverlapsOccupiedRoots(snapshot, spot, oldX, spot, layer, world, true);
+            bool nativeCollision = OverlapsNativePlacement(prefab, layer, oldX, spot, out string blockedTag, spot);
+            bool confirmed = collision == OverlapResult.Overlap || (nativeCollision && blockedTag != "check-error");
+            if (!confirmed && TryGetCombinedOverlapRegion(spot, oldX, false, out Rect candidate))
             {
-                Rect candidate = GetCombinedOverlapRegion(prefab,
-                    spot.transform.position.x, false);
-                for (int k = 0; k < keptGenerated.Count; k++)
+                foreach (GameObject previous in keptGenerated)
                 {
-                    GameObject previous = keptGenerated[k];
-                    if (previous == null || previous.transform == null
-                        || !CanRetireGeneratedBase(previous)) continue;
-                    Rect occupied = GetCombinedOverlapRegion(previous,
-                        previous.transform.position.x, false);
+                    if (!IsLiveOccupant(snapshot, previous, layer)) continue;
+                    if (!TryGetCombinedOverlapRegion(previous, previous.transform.position.x, false, out Rect occupied)) continue;
                     if (!candidate.Overlaps(occupied)) continue;
-                    overlaps = true;
-                    blockedTag = "KEM_TowerSpot";
-                    break;
+                    confirmed = true; blockedTag = MarkerPrefix; break;
                 }
             }
-            if (!overlaps || blockedTag == "check-error")
-            {
-                if (CanRetireGeneratedBase(spot)) keptGenerated.Add(spot);
-                continue;
-            }
-
+            if (!confirmed) { keptGenerated.Add(spot); continue; }
+            if (!CanRetireGeneratedBaseInSnapshot(spot, world, layer, snapshot)) continue;
+            bool counted = false;
             try
             {
-                Tower tower = spot.GetComponent<Tower>();
                 Persistent persistent = spot.GetComponent<Persistent>();
                 CRPCHeader header = NetworkPostbox.Instance.GetHeaderFromObject(spot, true);
-                if (tower == null || tower.level != 0 || persistent == null
-                    || header == null || header.HeaderType != CRPCType.SemiStatic) continue;
-
-                float oldX = spot.transform.position.x;
+                // All ownership and payment checks run directly before the first mutation.
+                if (!CanRetireGeneratedBaseInSnapshot(spot, world, layer, snapshot)) continue;
                 NetworkPostbox.Instance.DeregisterObject(header);
                 persistent.DontPersistInstance(true);
                 spot.SetActive(false);
+                if (spot.activeInHierarchy) continue;
+                snapshot.Remove(spot); retired++; counted = true;
                 UnityEngine.Object.Destroy(spot);
-                allX.Remove(oldX);
-                retired++;
-
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[TowerSpots] retired overlap x=" + oldX.ToString("F1")
-                    + " tag=" + blockedTag);
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[TowerSpots] retired overlap x=" + oldX.ToString("F1")
+                    + " cause=" + (blockedTag ?? "occupied-building"));
             }
             catch (Exception e)
             {
-                KingdomEnhancedPlugin.Instance?.LogSource.LogError(
-                    "[TowerSpots] overlap retirement failed: " + e);
+                // Keep an unresolved live root as an obstacle. Count a completed deactivation even if a callback threw.
+                try
+                {
+                    if (!counted && (spot == null || !spot.activeInHierarchy))
+                    { snapshot.Remove(spot); retired++; }
+                }
+                catch { }
+                try { KingdomEnhancedPlugin.Instance?.LogSource.LogError("[TowerSpots] overlap retirement failed: " + e); } catch { }
+                break; // Do not continue a deletion pass after a partial native failure.
             }
         }
         return retired;
     }
 
-    private static bool CanRetireGeneratedBase(GameObject spot)
+    /// <summary>
+    /// KEM 空基底的全面可删性重验：marker 名、active、仍在当前世界 scene、
+    /// 非船、Tower.level==0、Persistent、SemiStatic 网络头、带 PayableUpgrade、
+    /// Payable 未被任何玩家选中/交互（selectedByP1/P2/interactingPlayer/
+    /// PlayerSelecting）、无 ConstructionBuildingComponent/WorkableBuilding/
+    /// Scaffolding（保守跳过），且 playerOne/playerTwo 的 selectedPayable 与
+    /// _completingPayable 均与本 root 无同层级关联。任一条不满足即 fail-closed。
+    /// </summary>
+    private static bool CanRetireGeneratedBaseInSnapshot(GameObject spot, World world, Transform layer, OccupancySnapshot snapshot)
     {
         try
         {
-            Tower tower = spot != null ? spot.GetComponent<Tower>() : null;
-            Persistent persistent = spot != null ? spot.GetComponent<Persistent>() : null;
-            CRPCHeader header = NetworkPostbox.Instance != null
-                ? NetworkPostbox.Instance.GetHeaderFromObject(spot, true) : null;
-            return tower != null && tower.level == 0 && persistent != null
-                && header != null && header.HeaderType == CRPCType.SemiStatic;
+            return CanRetireGeneratedBase(spot, world, layer)
+                && !SpecialTowerDuplicateCleanup.HasAssociatedScaffolding(snapshot.Roots, spot);
         }
         catch { return false; }
     }
+
+    private static bool CanRetireGeneratedBase(GameObject spot, World world, Transform layer)
+    {
+        try
+        {
+            if (!TryGetReadyContext(world, layer, out _) || spot == null || spot.transform == null) return false;
+            string n = spot.name;
+            if (n == null || !n.StartsWith(MarkerPrefix)) return false;
+            if (!spot.activeInHierarchy) return false;
+            if (IsOnBoat(spot.transform)) return false;
+            if (!IsInLayerScene(spot, layer)) return false;
+            Managers managers = Managers.Inst;
+            if (managers == null || managers.world == null
+                || managers.world.Pointer != world.Pointer) return false;
+
+            Tower tower = spot.GetComponent<Tower>();
+            Persistent persistent = spot.GetComponent<Persistent>();
+            CRPCHeader header = NetworkPostbox.Instance != null
+                ? NetworkPostbox.Instance.GetHeaderFromObject(spot, true) : null;
+            if (tower == null || tower.level != 0 || persistent == null
+                || header == null || header.HeaderType != CRPCType.SemiStatic)
+                return false;
+            if (spot.GetComponent<PayableUpgrade>() == null) return false;
+            if (SpecialTowerDuplicateCleanup.IsProtectedHierarchy(spot, layer)) return false;
+            if (!SpecialTowerDuplicateCleanup.IsPaymentClear(spot)) return false;
+            // The broad legacy empty-base path must not bypass the new helper's
+            // occupant or special-hierarchy protection if that helper retained it.
+            if (spot.GetComponentsInChildren<Archer>(true).Length != 0
+                || spot.GetComponentsInChildren<GuardSlot>(true).Length != 0
+                || spot.GetComponentsInChildren<SpecialTowerRebuildMarker>(true).Length != 0
+                || spot.GetComponentsInChildren<TowerKnight>(true).Length != 0
+                || spot.GetComponentsInChildren<Ballista>(true).Length != 0
+                || spot.GetComponentsInChildren<FireTower>(true).Length != 0
+                || spot.GetComponentsInChildren<Baker>(true).Length != 0
+                || spot.GetComponentsInChildren<OilFireArcherTower>(true).Length != 0) return false;
+
+            // 施工/可作业组件在场：一律保守跳过（不能删半付费/施工对象）。
+            if (spot.GetComponent<ConstructionBuildingComponent>() != null
+                || spot.GetComponent<WorkableBuilding>() != null
+                || spot.GetComponent<Scaffolding>() != null)
+                return false;
+
+            Payable payable = spot.GetComponent<Payable>();
+            if (payable != null
+                && (payable.selectedByP1 || payable.selectedByP2
+                    || payable.interactingPlayer != null
+                    || payable.PlayerSelecting != null))
+                return false;
+            if (IsPlayerEngagedWith(spot)) return false;
+            return true;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// playerOne/playerTwo 的 selectedPayable（公开属性）与
+    /// _completingPayable（已核实的实际interop属性，直读失败则保守保留）是否与 spot 同 root/层级关联。
+    /// </summary>
+    private static bool IsPlayerEngagedWith(GameObject spot)
+    {
+        try
+        {
+            Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
+            if (kingdom == null) return true;
+            Player[] players = new Player[] { kingdom.playerOne, kingdom.playerTwo };
+            for (int i = 0; i < players.Length; i++)
+            {
+                Player player = players[i];
+                if (player == null) continue;
+                Payable selected = player.selectedPayable;
+                if (selected != null && IsSameHierarchy(selected.gameObject, spot))
+                    return true;
+                Payable completing = player._completingPayable;
+                if (completing != null && IsSameHierarchy(completing.gameObject, spot))
+                    return true;
+            }
+        }
+        catch { return true; } // 不可判定=可能正被付款，fail-closed
+        return false;
+    }
+
+
 
     private static void LogScatterMetadataOnce(GameObject prefab)
     {
@@ -630,19 +869,23 @@ public static class PatchWorld_TowerSpots
     /// <summary>
     /// 单侧补点：把该侧原生基底参考集按"原生间距/倍数"的目标网格在内侧锚点
     /// 与外侧延长线（最外侧原生基底再外扩 1 个原生间距，钳到世界边界）之间
-    /// 铺开。anchor/outermost/间距只来自参考集（幂等根基）；每个网格点过两道
-    /// 放置守卫（与占用集全量 any 点距离 &gt; 0.6×目标间距；NotBuildable 点检
-    /// 为空），通过才实例化。新点实时追加进占用集，保证同轮铺开的相邻新点也
-    /// 满足间距（永不进参考集）。
+    /// 铺开。anchor/outermost/间距只来自参考集（幂等根基）；每个网格点过三道
+    /// 放置守卫（与占用集全量 any 点距离 &gt; 0.6×目标间距；对占用快照的实际
+    /// footprint 复核，sameObject=false；NotBuildable 点检为空），通过才实例化。
+    /// 新点实时追加进占用快照，保证同轮铺开的相邻新点也满足间距与 footprint
+    /// 校验（永不进参考集）。
     /// </summary>
     private static int ExpandSide(
         World world, GameObject prefab, Transform layer, List<GameObject> sideRef,
-        List<float> allX, float dir,
+        OccupancySnapshot snapshot, float dir,
         float worldLeft, float worldRight, float groundY, float planeZ,
         float nativeSpacing, float multiplier, int notBuildableMask)
     {
+        float anchor = XOf(sideRef[dir < 0f ? sideRef.Count - 1 : 0]);
+        GameObject template = NearestGo(sideRef, anchor);
+        if (template == null || !TryGetVisualBounds(template, anchor, out float left, out float right)) return 0;
         float target = nativeSpacing / multiplier;
-        float visualHalfWidth = GetVisualHalfWidth(prefab);
+        float visualHalfWidth = (right - left) * 0.5f;
         if (visualHalfWidth > 0f)
         {
             target = Mathf.Max(target,
@@ -654,7 +897,6 @@ public static class PatchWorld_TowerSpots
         // 锚点=该侧最靠近营火的原生基底；终点=最外侧原生基底向外再延 1 个
         // 原生间距（方向=离开营火），钳到世界边界（留 2 单位余量）。
         // 两者都取自参考集：补放点再靠外也不推进终点（幂等根基）。
-        float anchor = XOf(sideRef[dir < 0f ? sideRef.Count - 1 : 0]);            // 最内
         float outermost = XOf(sideRef[dir < 0f ? 0 : sideRef.Count - 1]);         // 最外
         float rawEnd = outermost + dir * nativeSpacing * OutwardExtension;
         float end = Mathf.Clamp(rawEnd,
@@ -662,8 +904,6 @@ public static class PatchWorld_TowerSpots
             worldRight == float.MaxValue ? rawEnd : worldRight - 2f);
 
         // 朝向/缩放模板：最近的原生基底（左右两侧贴图镜像一致）
-        GameObject template = NearestGo(sideRef, anchor);
-
         int added = 0;
         int steps = 0;
         for (float x = anchor + dir * target; ; x += dir * target)
@@ -671,7 +911,7 @@ public static class PatchWorld_TowerSpots
             if ((dir < 0f && x < end) || (dir > 0f && x > end)) break;
             if (++steps > MaxPerSide) break;
 
-            if (!IsFree(allX, x, occupied)) continue;
+            if (!IsFree(snapshot.AllX, x, occupied)) continue;
             // Native tower locations follow the local ground height.  Using a
             // single island-wide median puts generated bases below/above the
             // terrain on sloped sections: the Payable/CRPC components remain
@@ -680,9 +920,12 @@ public static class PatchWorld_TowerSpots
             // defensive fallback when a transform is unavailable.
             float spawnY = GroundYForX(sideRef, x, groundY);
             if (!TryPlaceX(x, spawnY, notBuildableMask)) continue;
-            if (OverlapsNativePlacement(prefab, layer, x, null, out _)) continue;
+            if (OverlapsNativePlacement(prefab, layer, x, null, out _, template)) continue;
+            // 占用快照（含已建普通塔/无标签特殊塔/施工/同轮新点）的实际
+            // footprint 复核；异常 fail-closed=不放。
+            if (OverlapsOccupiedRoots(snapshot, template, x, null, layer) != OverlapResult.Clear) continue;
 
-            if (SpawnSpot(world, prefab, layer, template, x, spawnY, planeZ, allX))
+            if (SpawnSpot(world, prefab, layer, template, x, spawnY, planeZ, snapshot))
                 added++;
         }
         return added;
@@ -704,10 +947,11 @@ public static class PatchWorld_TowerSpots
     /// 实例化一个基底：照抄 Tower.DestroyTower 配方（Instantiate 资产换皮
     /// 预制体 → 挂 gameLayer → 权威端 RegisterObject(SemiStatic) 分配新
     /// NetID）。朝向/缩放抄该侧最近原生基底（镜像一致）；命名带 KEM 标记。
+    /// 成功后即时加入占用快照（同轮 footprint/距离校验的数据源）。
     /// </summary>
     private static bool SpawnSpot(
         World world, GameObject prefab, Transform layer, GameObject template,
-        float x, float y, float z, List<float> allX)
+        float x, float y, float z, OccupancySnapshot snapshot)
     {
         // Never create an object that cannot be registered into the current
         // authoritative scene.  This is intentionally checked immediately
@@ -766,9 +1010,9 @@ public static class PatchWorld_TowerSpots
                     + " y=" + y.ToString("F1"));
             }
 
-            // 新点立即进占用集（仅占用集！进参考集会破坏幂等）：同轮后续网格
-            // 点/另一侧扫描都会避开它。
-            allX.Add(x);
+            // 新点立即进占用快照（仅占用集！进参考集会破坏幂等）：同轮后续
+            // 网格点/另一侧扫描都会避开它。
+            snapshot.Add(spot);
             return true;
         }
         catch (Exception e)
@@ -931,7 +1175,7 @@ public static class PatchWorld_TowerSpots
                 walker = walker.parent;
             }
         }
-        catch { }
+        catch { throw; }
         return false;
     }
 }

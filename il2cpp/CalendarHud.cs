@@ -3,21 +3,23 @@ using UnityEngine;
 
 namespace KingdomEnhancedMod;
 
-/// <summary>Passive, cached calendar overlay. No controls, scene searches or game-state writes.</summary>
+/// <summary>Passive cached calendar overlay; one-time font discovery, no controls or game-state writes.</summary>
 internal static class CalendarHud
 {
-    private const float Width = 900f, CalendarWidth = 688f, Height = 86f;
-    private static readonly Color Gold = new Color(0.96f, 0.81f, 0.50f);
-    private static readonly Color Ink = new Color(0.94f, 0.96f, 0.98f);
-    private static readonly Color Muted = new Color(0.66f, 0.73f, 0.80f);
+    private const float Width = 552f, Height = 54f;
+    private static readonly Color Gold = new Color(0.93f, 0.78f, 0.47f);
+    private static readonly Color Ivory = new Color(0.95f, 0.92f, 0.84f);
+    private static readonly Color Muted = new Color(0.68f, 0.62f, 0.52f);
+    // Subdued seasonal tints for the pixel strip.
     private static readonly Color[] SeasonColors =
     {
-        new Color(0.55f, 0.89f, 0.64f), new Color(1f, 0.79f, 0.35f),
-        new Color(1f, 0.59f, 0.35f), new Color(0.64f, 0.85f, 1f)
+        new Color(0.55f, 0.75f, 0.58f), new Color(0.85f, 0.70f, 0.42f),
+        new Color(0.82f, 0.56f, 0.38f), new Color(0.58f, 0.72f, 0.85f)
     };
-    private static Texture2D _back, _white;
+    private static Texture2D _white;
     private static readonly Texture2D[] Icons = new Texture2D[7];
     private static GUIStyle _large, _small, _number;
+    private static bool _presentationLogged;
     private static IntPtr _world, _scene, _director;
     private static float _nextRead, _retryAfter;
     private static bool _valid, _faultLogged;
@@ -57,13 +59,16 @@ internal static class CalendarHud
             _nextRead = now + 0.5f;
             // Same source as the main panel; sampled only by this half-second cache, never during Draw.
             int stashed = BankAssistantCoordinator.GetStashedCoinsForPanel();
-            _bankText = stashed < 0 ? "—" : stashed.ToString("N0", System.Globalization.CultureInfo.InvariantCulture) + " 币";
+            // The coin icon plus the 主城金库 caption already identify the currency; keep the bare number.
+            _bankText = stashed < 0 ? "—" : stashed.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
             _valid = CalendarReader.TryRead(director, out _snapshot);
             if (!_valid) return;
             _dayText = "第 " + _snapshot.TotalDay + " 天";
             _hourText = _snapshot.Hour + " 点";
-            _seasonText = "第 " + _snapshot.SeasonDay + " 天";
-            _nextText = _snapshot.HasNextSeason ? "第 " + _snapshot.NextSeasonDay + " 天开始" : "未定";
+            _seasonText = SeasonName(_snapshot.CurrentSeason) + " 第 " + _snapshot.SeasonDay + " 天";
+            _nextText = _snapshot.HasNextSeason
+                ? SeasonName(_snapshot.NextSeason) + " 第 " + _snapshot.NextSeasonDay + " 天开始"
+                : "下一季未定";
         }
         catch (Exception ex) { Clear(); _retryAfter = Time.unscaledTime + 1f; LogOnce(ex); }
     }
@@ -90,38 +95,28 @@ internal static class CalendarHud
             GUI.color = GUI.contentColor = GUI.backgroundColor = Color.white;
             GUI.enabled = true;
             GUI.depth = -20;
-            float scale = Mathf.Clamp(Mathf.Min(Screen.width / 1280f, Screen.height / 720f), 0.45f, 1f);
+            float scale = Mathf.Clamp(Mathf.Min(Screen.width / 1280f, Screen.height / 720f), 0.45f, 2f);
             scale = Mathf.Min(scale, Mathf.Max(1f, Screen.width - 24f) / Width);
-            float x = (Screen.width / scale - Width) * 0.5f;
-            const float y = 18f;
+            float x = Mathf.Round((Screen.width / scale - Width) * 0.5f);
+            const float y = 12f;
             GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
-            ImGuiCompat.DrawTexture(new Rect(x, y, Width, Height), _back);
-            Line(x + 22, y + 1, Width - 44, 1, new Color(Gold.r, Gold.g, Gold.b, 0.45f));
-            Label(x + 23, y + 12, 156, 19, "王国历", _small, Muted);
-            Label(x + 21, y + 33, 160, 34, _dayText, _large, Gold);
-            Line(x + 183, y + 18, 1, 45, new Color(1, 1, 1, 0.12f));
-            Icon(4, x + 199, y + 36, 27, Muted);
-            Label(x + 232, y + 33, 77, 34, _hourText, _number, Ink);
-            Label(x + 201, y + 12, 104, 19, "时刻", _small, Muted);
-            Line(x + 309, y + 18, 1, 45, new Color(1, 1, 1, 0.12f));
+            // Floating overlay: no panel frame, no background, no divider — just text, icons, track.
+            // Row 1 (primary, ~18px): day | clock+hour | current season | separator | coin+balance.
+            Label(x + 14, y + 6, 96, 22, _dayText, _large, Gold);
+            Icon(4, x + 112, y + 7, 16, Muted);
+            Label(x + 134, y + 6, 50, 22, _hourText, _number, Ivory);
             int season = SeasonIndex(_snapshot.CurrentSeason);
             Color currentColor = season >= 0 ? SeasonColors[season] : Muted;
-            Label(x + 327, y + 12, 133, 19, "本季", _small, Muted);
-            if (season >= 0) Icon(season, x + 323, y + 34, 34, currentColor);
-            Label(x + 363, y + 34, 109, 32, _seasonText, _number, currentColor);
-            Icon(5, x + 475, y + 42, 22, Muted);
-            Label(x + 512, y + 12, 149, 19, "下一季", _small, Muted);
-            int next = SeasonIndex(_snapshot.NextSeason);
-            if (_snapshot.HasNextSeason && next >= 0)
-                Icon(next, x + 504, y + 35, 31, SeasonColors[next]);
-            Label(x + 542, y + 35, 132, 31, _nextText, _small, Ink);
-            Line(x + 692, y + 18, 1, 45, new Color(1, 1, 1, 0.12f));
-            Label(x + 708, y + 12, 90, 19, "银行", _small, Muted);
-            Icon(6, x + 706, y + 35, 26, Gold);
-            Label(x + 740, y + 33, 142, 34, _bankText, _number, Gold);
-            Line(x + 22, y + Height - 10, CalendarWidth - 44, 3, new Color(1, 1, 1, 0.10f));
+            if (season >= 0) Icon(season, x + 196, y + 8, 16, currentColor);
+            Label(x + 218, y + 6, 158, 22, _seasonText, _number, currentColor);
+            Icon(6, x + 400, y + 8, 16, Gold);
+            Label(x + 424, y + 6, 114, 22, _bankText, _number, Gold);
+            // Row 2 (secondary, ~12px): next season | progress track | bank caption.
+            Label(x + 14, y + 31, 205, 20, _nextText, _small, Ivory);
+            Line(x + 236, y + 39, 136, 3, new Color(1, 1, 1, 0.12f));
             if (_snapshot.HasNextSeason)
-                Line(x + 22, y + Height - 10, (CalendarWidth - 44) * Mathf.Clamp01(_snapshot.Progress), 3, currentColor);
+                Line(x + 236, y + 39, 136 * Mathf.Clamp01(_snapshot.Progress), 3, currentColor);
+            Label(x + 400, y + 31, 132, 20, "主城金库", _small, Muted);
         }
         catch (Exception ex) { _valid = false; _retryAfter = Time.unscaledTime + 1f; LogOnce(ex); }
         finally
@@ -134,19 +129,27 @@ internal static class CalendarHud
 
     private static void Label(float x, float y, float w, float h, string text, GUIStyle style, Color color)
     {
+        if (w <= 0 || h <= 0) return;
         GUI.contentColor = color;
-        // Keep unusually long reign dates inside their own columns without allocating styles.
+        // Keep unusually long reign dates and bank balances inside their own columns without allocating styles.
         int originalSize = style.fontSize;
         float units = 0f;
         foreach (char c in text) units += c > 127 ? 1f : c == ' ' ? 0.3f : 0.65f;
-        style.fontSize = Mathf.Min(originalSize, Mathf.Max(8, Mathf.FloorToInt((w - 4f) / Mathf.Max(1f, units))));
-        try { GUI.Label(new Rect(x, y, w, h), text, style); }
+        style.fontSize = Mathf.Min(originalSize, Mathf.Max(10, Mathf.FloorToInt((w - 4f) / Mathf.Max(1f, units))));
+        try
+        {
+            // 1px dark shadow pass first for contrast on any background.
+            GUI.contentColor = new Color(0f, 0f, 0f, 0.55f);
+            GUI.Label(new Rect(x + 1, y + 1, w, h), text, style);
+            GUI.contentColor = color;
+            GUI.Label(new Rect(x, y, w, h), text, style);
+        }
         finally { style.fontSize = originalSize; GUI.contentColor = Color.white; }
     }
 
     private static void Line(float x, float y, float w, float h, Color color)
     {
-        if (w <= 0) return;
+        if (w <= 0 || h <= 0) return;
         GUI.color = color;
         ImGuiCompat.DrawTexture(new Rect(x, y, w, h), _white);
         GUI.color = Color.white;
@@ -164,43 +167,43 @@ internal static class CalendarHud
         Season.Spring => 0, Season.Summer => 1, Season.Autumn => 2, Season.Winter => 3, _ => -1
     };
 
+    private static string SeasonName(Season season) => season switch
+    {
+        Season.Spring => "春", Season.Summer => "夏", Season.Autumn => "秋", Season.Winter => "冬", _ => "季"
+    };
+
     private static void EnsureResources()
     {
-        bool ready = _back != null && _white != null && _large != null
-            && _number != null && _small != null;
+        bool ready = _white != null && _large != null && _number != null && _small != null;
         for (int i = 0; i < Icons.Length; i++) ready &= Icons[i] != null;
         if (ready) return;
         // Unity may destroy hidden resources during a reload. Recreate as one bounded cache.
-        Destroy(_back); Destroy(_white);
+        Destroy(_white);
         for (int i = 0; i < Icons.Length; i++) { Destroy(Icons[i]); Icons[i] = null; }
-        _back = MakeTexture(344, 43, (x, y) =>
-        {
-            float px = x * 344f, py = y * 43f;
-            float dx = Mathf.Max(Mathf.Abs(px - 172f) - 166f, 0f);
-            float dy = Mathf.Max(Mathf.Abs(py - 21.5f) - 15.5f, 0f);
-            float edge = Mathf.Clamp01(6.5f - Mathf.Sqrt(dx * dx + dy * dy));
-            return new Color(0.045f + y * 0.022f, 0.06f + y * 0.023f, 0.08f + y * 0.03f, edge * 0.90f);
-        });
         _white = MakeTexture(1, 1, (x, y) => Color.white);
         for (int i = 0; i < Icons.Length; i++)
         {
             int index = i;
-            Icons[i] = MakeTexture(64, 64, (x, y) =>
-            {
-                int samples = 0;
-                for (int sx = 0; sx < 3; sx++)
-                    for (int sy = 0; sy < 3; sy++)
-                        if (IconShape(index, x + (sx - 1) / 192f, y + (sy - 1) / 192f)) samples++;
-                return new Color(1, 1, 1, samples / 9f);
-            });
+            // Binary 16x16: one sample per pixel, no supersampling, rendered point-filtered.
+            Icons[i] = MakeTexture(16, 16, (u, v) =>
+                IconShape(index, u, v) ? new Color(1, 1, 1, 1) : new Color(0, 0, 0, 0));
         }
-        _large = TextStyle(26, FontStyle.Bold);
-        _number = TextStyle(22, FontStyle.Normal);
-        _small = TextStyle(17, FontStyle.Normal);
+        _large = TextStyle(18, FontStyle.Normal);
+        _number = TextStyle(17, FontStyle.Normal);
+        _small = TextStyle(12, FontStyle.Normal);
+        if (!_presentationLogged)
+        {
+            _presentationLogged = true;
+            Font skinFont = GUI.skin != null ? GUI.skin.font : null;
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[CalendarHUD] floating strip ready; style=GUI.skin.label font="
+                + (skinFont != null ? skinFont.name : "null") + " sizes=18/17/12 shadow=1px");
+        }
     }
 
     private static GUIStyle TextStyle(int size, FontStyle weight)
     {
+        // Own a copy of the default label style so its native fallback font chain renders CJK
+        // exactly as ModPanel does; never assign an explicit font or load external fonts.
         var style = new GUIStyle(GUI.skin.label);
         style.fontSize = size; style.fontStyle = weight;
         style.alignment = TextAnchor.MiddleLeft;
@@ -218,7 +221,7 @@ internal static class CalendarHud
         var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
         texture.hideFlags = HideFlags.HideAndDontSave;
         texture.wrapMode = TextureWrapMode.Clamp;
-        texture.filterMode = FilterMode.Bilinear;
+        texture.filterMode = FilterMode.Point;
         var pixels = new Color[width * height];
         for (int y = 0; y < height; y++)
             for (int x = 0; x < width; x++) pixels[y * width + x] = sample((x + 0.5f) / width, (y + 0.5f) / height);

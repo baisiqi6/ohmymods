@@ -459,6 +459,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         public bool Moving;
         public bool PatrolRight;
         public float PatrolResumeAt;
+        public bool RestockReserved;
 
         public AssistantState(int index) { Index = index; }
     }
@@ -496,6 +497,7 @@ public class BankAssistantCoordinator : MonoBehaviour
     // AssignNextTarget 单次尝试内已试过的候选币 id（认领失败退让次近候选用）。
     private static readonly HashSet<int> TriedThisChain = new();
     private static int _nextCollectorIndex;
+    private static int _nextRestockAssistant;
     // 顺吸认领会同时占据多枚币，各自原始拾取策略必须按币记录，不能用单槽
     // OriginalPolicy 覆盖（否则回滚会把错误策略还原到别的币上）。
     private static readonly Dictionary<int, PickUpPolicy> SweepPolicies = new();
@@ -540,6 +542,150 @@ public class BankAssistantCoordinator : MonoBehaviour
         {
             return -1;
         }
+    }
+
+    /// <summary>
+    /// 共享窄身份判定：传入的 banker 必须就是当前协调器绑定的主银行家本体。
+    /// 原生 kingdom.banker 允许为 null（存档载入的 fixedID903 银行家不会被
+    /// Castle 重新赋引用，canonical ledger 的 IsCanonicalAuthorityBanker 同样容忍）；
+    /// null 只在精确控制器/已知主银行家/当前世界证据齐全时放行。非 null 且指向
+    /// 他人、协调器缺失/换绑、银行家死亡、旧层、异场景、菜单/暂停/失权一律拒绝。
+    /// 不调用 RestockContextReady，避免递归。
+    /// </summary>
+    internal static bool IsCurrentRestockBanker(Banker banker)
+    {
+        try
+        {
+            if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth
+                || Time.timeScale <= 0f) return false;
+            BankAssistantCoordinator coordinator = _instance;
+            Banker main = _mainBanker;
+            if (banker == null || coordinator == null || main == null) return false;
+            if (banker.Pointer != main.Pointer) return false;
+            GameObject coordinatorGO = coordinator.gameObject;
+            GameObject bankerGO = banker.gameObject;
+            if (coordinatorGO == null || bankerGO == null
+                || coordinatorGO.Pointer != bankerGO.Pointer) return false;
+            if (!bankerGO.activeInHierarchy) return false;
+            var m = Managers.Inst;
+            if (m == null || m.world == null || m.world.gameLayer == null
+                || m.kingdom == null || m.game == null
+                || m.game.state != Game.State.Playing) return false;
+            Transform layer = m.world.gameLayer;
+            if (layer == null || layer.gameObject == null || !layer.gameObject.activeInHierarchy
+                || !bankerGO.transform.IsChildOf(layer)
+                || bankerGO.scene.handle != layer.gameObject.scene.handle) return false;
+            Banker nativeKingdomBanker = m.kingdom.banker;
+            if (nativeKingdomBanker != null
+                && nativeKingdomBanker.Pointer != banker.Pointer) return false;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool RestockContextReady(out Transform layer)
+    {
+        layer = null;
+        if (!IsCurrentRestockBanker(_mainBanker)) return false;
+        // 谓词已验证 Managers/world/gameLayer 非空且 Playing。
+        layer = Managers.Inst.world.gameLayer;
+        return layer != null && layer.gameObject != null && layer.gameObject.activeInHierarchy;
+    }
+
+    internal static bool RestockReservationValid(int index, GameObject actor)
+    {
+        if (index < 0 || index >= Assistants.Length || !RestockContextReady(out var layer)) return false;
+        var helper = Assistants[index];
+        return helper.RestockReserved && actor != null && helper.Actor != null
+            && actor.Pointer == helper.Actor.Pointer && actor.activeInHierarchy
+            && actor.scene.handle == layer.gameObject.scene.handle && actor.transform.IsChildOf(layer)
+            && helper.Target == null && !ActiveCollector[index]
+            && (!NetworkBigBoss.IsOnline || (NetworkBigBoss.HasClientCaughtUp
+                && helper.PositionSync != null && helper.PositionSync.parentHeaderRef != null));
+    }
+
+    internal static bool TryReserveForRestock(out int index, out GameObject actor)
+    {
+        index = -1; actor = null;
+        if (!RestockContextReady(out var layer)) return false;
+        int reserved = 0;
+        foreach (var helper in Assistants) if (helper.RestockReserved) reserved++;
+        if (reserved >= 2) return false;
+        for (int pass = 0; pass < 2; pass++)
+        for (int offset = 0; offset < Assistants.Length; offset++)
+        {
+            int i = (_nextRestockAssistant + offset) % Assistants.Length;
+            var helper = Assistants[i];
+            var candidate = helper.Actor;
+            if (helper.RestockReserved || candidate == null || !candidate.activeInHierarchy
+                || candidate.scene.handle != layer.gameObject.scene.handle || !candidate.transform.IsChildOf(layer)
+                || (NetworkBigBoss.IsOnline && (!NetworkBigBoss.HasClientCaughtUp
+                    || helper.PositionSync == null || helper.PositionSync.parentHeaderRef == null))) continue;
+            if (pass == 0 && (ActiveCollector[i] || helper.Target != null)) continue;
+            if (helper.Target != null) ReleaseTarget(helper);
+            if (helper.CarriedCoins > 0 || helper.UncreditedCoins > 0) TeleportHomeAndDeposit(helper);
+            if (helper.UncreditedCoins != 0 || helper.CarriedCoins != 0 || helper.Target != null) continue;
+            if (!RestockContextReady(out var currentLayer) || currentLayer.Pointer != layer.Pointer
+                || helper.Actor == null || helper.Actor.Pointer != candidate.Pointer || !candidate.activeInHierarchy) return false;
+            ActiveCollector[i] = false;
+            helper.Moving = false;
+            SetAnimationSpeed(helper, 0f);
+            helper.RestockReserved = true;
+            index = i; actor = candidate; _nextRestockAssistant = (i + 1) % Assistants.Length;
+            return true;
+        }
+        return false;
+    }
+
+    internal static bool PlaceRestockAssistant(int index, GameObject actor, Vector3 position, float faceX)
+    {
+        if (!RestockReservationValid(index, actor) || !float.IsFinite(position.x)
+            || !float.IsFinite(position.y) || !float.IsFinite(position.z) || !float.IsFinite(faceX)) return false;
+        var helper = Assistants[index];
+        actor.transform.position = position;
+        FaceTowards(actor.transform, faceX);
+        SetAnimationSpeed(helper, 0f);
+        SendFullPosition(helper);
+        return RestockReservationValid(index, actor);
+    }
+
+    // Only the exact leased actor may move here; normal collection/patrol skips this lease.
+    // X-only motion keeps the actor's ground Y/Z, including shops on raised scenery.
+    internal static bool MoveRestockAssistant(int index, GameObject actor, float targetX,
+        float speed, float deltaTime, out bool arrived)
+    {
+        arrived = false;
+        if (!RestockReservationValid(index, actor) || !float.IsFinite(targetX)
+            || !float.IsFinite(speed) || speed <= 0f || !float.IsFinite(deltaTime)
+            || deltaTime < 0f || !float.IsFinite(speed * deltaTime)) return false;
+        var helper = Assistants[index];
+        Transform actorT = actor.transform;
+        Vector3 position = actorT.position;
+        if (!float.IsFinite(position.x) || !float.IsFinite(position.y)
+            || !float.IsFinite(position.z)) return false;
+        if (Mathf.Abs(position.x - targetX) > 0.02f) FaceTowards(actorT, targetX);
+        position.x = Mathf.MoveTowards(position.x, targetX, speed * deltaTime);
+        actorT.position = position;
+        arrived = Mathf.Abs(actorT.position.x - targetX) <= 0.02f;
+        helper.Moving = !arrived;
+        SetAnimationSpeed(helper, arrived ? 0f : speed);
+        SendFullPosition(helper);
+        return RestockReservationValid(index, actor);
+    }
+
+    internal static void ReleaseRestockAssistant(int index, GameObject actor, bool returnHome)
+    {
+        if (index < 0 || index >= Assistants.Length || actor == null) return;
+        var helper = Assistants[index];
+        if (helper.Actor == null || helper.Actor.Pointer != actor.Pointer || !helper.RestockReserved) return;
+        bool canReturn = false;
+        try { canReturn = returnHome && RestockReservationValid(index, actor); }
+        catch { } // Invalid native context must still relinquish the local lease.
+        finally { helper.RestockReserved = false; helper.Moving = false; }
+        if (canReturn) TeleportHomeAndDeposit(helper);
     }
 
     public static void AttachTo(Banker banker)
@@ -604,6 +750,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         if (poolManager == null || managers.world == null || managers.kingdom == null) return;
 
         EnsureFourActors(managers.world.gameLayer);
+        PatchEconomy_AutoRestock.Tick(_mainBanker, managers, Time.time >= _nextScanAt);
 
         if (Time.time >= _nextScanAt)
         {
@@ -633,6 +780,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         {
             AssistantState helper = Assistants[i];
             if (helper.Actor != null && helper.Actor.activeInHierarchy) continue;
+            helper.RestockReserved = false;
             if (helper.Target != null) ReleaseTarget(helper);
             ActiveCollector[i] = false;
             if (existingActors == null) existingActors = UnityEngine.Object.FindObjectsOfType<PositionSync>();
@@ -971,7 +1119,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         {
             int index = (start + offset) % Assistants.Length;
             AssistantState helper = Assistants[index];
-            if (ActiveCollector[index] || helper.Actor == null
+            if (helper.RestockReserved || ActiveCollector[index] || helper.Actor == null
                 || !helper.Actor.activeInHierarchy || helper.CarriedCoins >= capacity) continue;
 
             ActiveCollector[index] = true;
@@ -994,7 +1142,7 @@ public class BankAssistantCoordinator : MonoBehaviour
 
     private static bool TryAssign(AssistantState helper, DroppableCurrency coin)
     {
-        if (helper.Actor == null || coin == null) return false;
+        if (helper.RestockReserved || helper.Actor == null || coin == null) return false;
         if (NetworkBigBoss.IsOnline
             && (!NetworkBigBoss.HasClientCaughtUp || helper.PositionSync == null
                 || helper.PositionSync.parentHeaderRef == null
@@ -1109,6 +1257,7 @@ public class BankAssistantCoordinator : MonoBehaviour
     // 回家清账。成功路径 Moving/动画速度全程保持奔跑，无停顿帧。
     private static bool TryChainNextTarget(AssistantState helper)
     {
+        if (helper.RestockReserved) return false;
         if (helper.CarriedCoins >= GetAssistantCapacity())
         {
             TeleportHomeAndDeposit(helper);
@@ -1137,7 +1286,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         for (int i = 0; i < Assistants.Length; i++)
         {
             AssistantState helper = Assistants[i];
-            if (helper.Actor == null || helper.Target == null) continue;
+            if (helper.RestockReserved || helper.Actor == null || helper.Target == null) continue;
             if (!IsValidOwnedTarget(helper))
             {
                 ReleaseTarget(helper);
@@ -1267,7 +1416,7 @@ public class BankAssistantCoordinator : MonoBehaviour
 
     private static bool TryClaimSweepCoin(AssistantState helper, DroppableCurrency coin)
     {
-        if (helper.Actor == null || coin == null) return false;
+        if (helper.RestockReserved || helper.Actor == null || coin == null) return false;
         if (NetworkBigBoss.IsOnline
             && (!NetworkBigBoss.HasClientCaughtUp || helper.PositionSync == null
                 || helper.PositionSync.parentHeaderRef == null
@@ -1310,7 +1459,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         for (int i = 0; i < Assistants.Length; i++)
         {
             AssistantState helper = Assistants[i];
-            if (ActiveCollector[i] || helper.Target != null || helper.Actor == null
+            if (helper.RestockReserved || ActiveCollector[i] || helper.Target != null || helper.Actor == null
                 || !helper.Actor.activeInHierarchy) continue;
 
             float center = Mathf.Clamp(kingdom.campfirePosition + HomeOffsets[i],
@@ -1513,6 +1662,9 @@ public class BankAssistantCoordinator : MonoBehaviour
 
     private static void ResetAll(bool releaseClaims, bool destroyActors, bool syncDespawn = false)
     {
+        PatchEconomy_AutoRestock.Reset(false);
+        AutoRestockCounts.Reset();
+        foreach (var helper in Assistants) helper.RestockReserved = false;
         for (int i = 0; i < Assistants.Length; i++)
         {
             AssistantState helper = Assistants[i];

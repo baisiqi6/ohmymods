@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Behavior tests for PatchEconomy_AutoRestock.
+       Links the UNMODIFIED production file via Compile Include; all game/native
+       and sibling-mod APIs are stubbed in Stubs.cs. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>AutoRestockTests</AssemblyName>
+    <RootNamespace>AutoRestockTests</RootNamespace>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+    <GeneratePropertiesFile>false</GeneratePropertiesFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/PatchEconomy_AutoRestock.cs" Link="PatchEconomy_AutoRestock.cs" />
+  </ItemGroup>
+
+</Project>

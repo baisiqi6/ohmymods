@@ -57,6 +57,14 @@
 ## 常用路径
 
 ### 2026-09-06 启动事故临时门禁
+- 2026-09-12最新本机：B33D56B8 build=5.0.0-cat-scale-125-20260912；希腊农舍猫y缩放1.2→1.25，其他逻辑保留。build0W0E、DLL常量与安装哈希通过，save/bank未动，公开5.0不变。见tasks/cat-scale-125-20260912/acceptance.md。
+- 2026-09-12最新本机：BC504C61 build=5.0.0-restock-double-cost-20260912；五职业原价双倍投币/扣款，手动价保留，实机忍者4/狂战士6且离店成功。服务回归/63bank/226Unity/build/review通过，save/config/bank5408恢复；公开5.0不变。其他世界旧全局补丁隔离仍未完成。见tasks/restock-double-cost-20260912/acceptance.md。
+- 2026-09-12 15:55最新本机：8929889C build=5.0.0-peasant-hud-motion-20260912；无边框HUD默认字体用户确认、Peasant面包采购本机开启15、税收官附近出现跑近付款/走开返城。206检查/309Unity/nativehook/review与正确E实机采购位置日志通过；save与bank5423恢复。公开5.0不变，见tasks/peasant-bread-hud-20260912/acceptance.md。
+- 2026-09-12 14:17最新本机：654051E9 build=5.0.0-restock-allhours-20260912；允许全天采购，修读档kingdom.banker=null误拒绝税收官借调/扣款。42service+51counts+49integration/build212Unity/review通过；FF9D真实忍者2金币/狂战士3金币购买成功，最终只改全天帮助文案。save与bank5423恢复，HUD/塔修复保留；公开5.0不变。见tasks/auto-restock-live-20260912/acceptance.md。
+- 2026-09-12 13:53最新本机：2BD2055C build=5.0.0-hud-tower-refill-20260912；时间/金库像素条（左上人口暂空）+同步补岗重入修复/停用后注销空岗。109tests、144Unity路径、native唯一hook、review和E实际removed=2通过save一致。正常保存再读/HUD目视仍待；自动补货采购仍未证实。公开5.0不变。见tasks/hud-pixel-style-20260912与tower-residual-20260912/acceptance.md。
+- 2026-09-12最新本机：A309B08E build=5.0.0-auto-restock-20260912；四职业税收官金库采购/事件库存缓存/独立阈值页，默认off/15。127tests/build326Unity路径/4nativehooks/review/暂停启动通过save一致；真正启用采购及联机待测，公开5.0不变。见tasks/auto-restock-20260912/acceptance.md。
+- 2026-09-12最新本机：6DE8F6CB build=5.0.0-combat-home-towers-20260912；同址升级普通重复塔安全撤员清理、Berserker12/2原生返程、B/N黎明不追撤怪、Greek守家自身scanner兜底。288tests/build/API/hook/暂停启动通过、save一致；实机清塔与战斗待确认，公开5.0仍0549。见tasks/combat-home-towers-20260912/acceptance.md。
+- 2026-09-12 00:59最新本机热修：73B11F7D... build=5.0.0-tower-overlap-20260912；修特殊升级塔无Tower标签漏检/旧空KEM重叠，46tests/review/build/启动通过。当前day63暂停未实机清旧，需恢复运行5秒并避开付款/选择保护。公开5.0 ZIP和DLL0549仍未更新，未commit/push新修复。详见tasks/tower-overlap-20260912/acceptance.md。
 - 2026-09-12正式v5.0.0已发布并为GitHub Latest；tag/source abf4eb3，ZIP DD7C26FA...（39458470 bytes/313entries），E正式DLL0549C166...（5.0.0/build5.0.0）。clean构建、7套repo回归、精确包启动与远端digest均通过。下方F32及更早为历史本机版本；功能实战/联机边界仍doing。见tasks/release-500-20260912/publication.md。
 - 2026-09-11 23:59最新本机：F32CBE8C...，build=4.5.0-fleet-retreat-cats-20260911；希腊舰队仅新Greek配队min/仅武士defensive retreat3x/每farm4猫含旧mod回收。154tests+review+启动通过，存档一致；实际登船/退速/猫/残影/联机待验收。见tasks/fleet-retreat-cats-20260912/acceptance.md，下方C176及更早均历史。
 - 2026-09-11 23:31最新本机：C1763E2F...，build=4.5.0-expedition-follow-20260911；修复守墙把随从动态Object跟随降为固定Position，改临时offset及任务门/可靠归还。49tests/review/启动通过，存档一致；实际出征/联机待验收，详见tasks/expedition-follow-20260911/acceptance.md。下方7F及更早均历史本机基线。

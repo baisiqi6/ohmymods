@@ -389,6 +389,53 @@ public static class PatchEconomy_Banker
         return accepted;
     }
 
+    /// <summary>One synchronous procurement debit; native shop PerformPay records CoinsSpent.</summary>
+    internal static bool TrySpendForAutoRestock(Banker banker, int amount)
+    {
+        if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth || Time.timeScale <= 0f
+            || banker == null || amount <= 0 || amount > 200) return false;
+        var managers = Managers.Inst;
+        var kingdom = managers != null ? managers.kingdom : null;
+        if (managers == null || managers.game == null || managers.game.state != Game.State.Playing
+            || kingdom == null
+            || !BankAssistantCoordinator.IsCurrentRestockBanker(banker)
+            || !TryPrimeSharedLedger(banker)) return false;
+        int current = banker._stashedCoins;
+        if (current < amount) return false;
+        int updated = current - amount;
+        try
+        {
+            banker._stashedCoins = updated; // commit; no fallible presentation work until after this block
+            _sharedStash = updated;
+            _lastObservedStash = updated;
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[AutoRestock] treasury debit failed: " + e);
+            return false;
+        }
+        try
+        {
+            PlayerPrefs.SetInt(SHARED_STASH_KEY, updated);
+            _sharedLedgerDirty = true;
+        }
+        catch (Exception e)
+        {
+            _lastObservedStash = int.MinValue; // existing Update retries staging this committed debit
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[AutoRestock] debit committed; ledger staging failed: " + e);
+        }
+        try
+        {
+            if (kingdom.castle != null) kingdom.castle.SetStash(updated);
+            if (managers.stats != null) managers.stats.SetStat(Stat.CoinsInBank, updated, false);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[AutoRestock] debit committed; display refresh failed: " + e);
+        }
+        return true;
+    }
+
     // IEnumerator 完成时点不靠 Harmony postfix 猜测。FinaliseEmerge/DayStart 只做可靠
     // priming；之后由 Update 在真实 _stashedCoins 变化后同步存入/提款结果。
     [HarmonyPatch(typeof(Banker), nameof(Banker.FinaliseEmerge))]

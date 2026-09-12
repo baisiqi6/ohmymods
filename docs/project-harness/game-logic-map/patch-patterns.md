@@ -552,3 +552,33 @@ FleetBoat Idle先TryRecruit转InFormation才开放骑士boarding；不能要求�
 
 ### 2026-09-12 GitHub草稿读回
 草稿上传后tag端点可能404，需先从release列表解析确定的release id，再按id读回并验证asset digest；验证后PATCH该id为正式Latest，随后tag端点再读回。不得把404当作上传失败而创建重复release。
+
+### 2026-09-12 特化塔避障漏检
+Tower0/普通已建Tower有Tower标签，特殊升级根会丢该标签和组件。原tagTower allX不能保护这些建筑，sameX新塔基可通过。一次WB+Scaffolding快照补漏洞；MinSpacing布局余量不是sprite半宽，实际根sprite宽3，必须用当前实例有效bounds，而非凭prefab世界bounds猜宽度。
+
+### 2026-09-12 快照与删除证据
+复制root集合却丢Scaffolding关联会漏施工占用；保留关联对象并逐次核ref/scene/active。interop私有字段通常生成public属性，GetField会假缺失；_completingPayable应直接访问，失败不能降为无付款。Unknown与Overlap共用bool可误授权删除，应显式三态。删除同x一个root不可RemoveAll该x，否则会丢另一真实建筑的占用。
+
+### 2026-09-12 新旧清理路径保护必须共享
+新helper保护候选后，旧KEM cleanup仍可绕过child Payable和外置Scaffolding.Building关联，需共享原子操作前检查并在真实完整pipeline测试。slot.archer清空可能早于Archer脱离parent/_guardSlot，必须保存Archer并二次核验，否则DontPersist/Destroy会删除角色。Scanner.Refresh(bool)实际2.4需指定重载；scanner替换时只移除旧key，不丢整个actor return lease；GoToState是排队，fixture不能假定立即Current变化。
+
+### 2026-09-12 自动补货的事件计数与native购买边界
+Kingdom.AddCharacter早于Pool.Spawn挂最终parent，使用pending批量核验；Remove/Death要Counted幂等并校验当前entry引用，native指针复用不等于新身份。订阅native事件须保存精确Il2Cpp delegate转换实例。异常首次seed要先记requestedMask，否则每帧视作新配置而无限恢复扫描；最多初始+一次恢复，然后等待新证据。Payable.PerformPay涨价可主动Select最近玩家，自动购买后要清理合成选择且保留真实selectedPayable/_completingPayable。扣款后的未知native异常封锁店实例，不退款/重试，fault dict必须更新复用pointer的新instanceID。
+
+### 2026-09-12 ExitGuardSlot同步重新补岗（当前2.4实证）
+ExitGuardSlot末尾清_guardSlot不能保证批量退出后仍为空：GuardSlot.ExitArcher调用Kingdom.AddGuardSlot，后者tailcall DistributeTowerArchers，为刚空岗位马上找人。真实日志逐人public/private清空但最终三岗又满。单元stub必须模型化同步回调；本次负对照抑制关掉即2测试失败。同步scope仅暂缓精确Kingdom分配、finally必清，撤员后保留所有存活/层级/引用门；SetActive(false)之后立刻native RemoveGuardSlot，不能仅等待Object.Destroy帧末OnDestroy，因为native分配无统一activeInHierarchy保护。最终实际removed=2；详见tower-residual任务。
+
+### 2026-09-12 非空原生缓存不是读档对象存在性证明
+旧banker测试fixture永远把kingdom.banker填好，漏掉存档恢复引用null。实机4助手和主banker全在，两个新guard硬性nonnull导致永久等待采购。修复必须同时覆盖借调与真正扣款，且用exact当前控制器/主banker/世界身份证明替代，不能一律null放行。诊断status应来自实际门条件而非仅库存/余额。真实采购测试的PlayerPrefs共享bank会单独持久化：无存档装备时须在自建进程退出、savehash一致后精确恢复对应DWORD，不能仅宣称global-v35没变就算无测试状态残留。
+
+### 2026-09-12 Baker登记、字体链与离店订单
+Baker塔无ShopTag可能缺于ShopPlanner._placedShops，应读原生shops注册表并由AddShop/RemoveShop事件置脏。Beggar当前2.4是_isEating/BreadPromotionRoutine，不能照抄2.1_eatingState或固定4秒信用；仅真实TryEatBread成功加在途，精确身份与native状态消除。视觉订单新增Departing必须从预算/库存预留及surplus取消中剔除，仍占助手和店铺直到走开；付款前再核传入banker与当前控制器同身份。Zpix资源可令IMGUI文字全空，默认GUI.skin.label/LegacyRuntime经用户确认可见。
+
+## 2026-09-12 原生店价与代购费用分离
+采购倍率不能修改shop.Price，否则会污染手动交易、原生递增价与进行中订单校验。Order保留NativePrice并统一计算TotalCost；扫描预留、进行中余额、投币数、最终账本扣款同步使用TotalCost。修改倍率需配套审计bank支出范围。见tasks/restock-double-cost-20260912。
+
+### 2026-09-12 猫缩放参数更新
+PatchWorld_FarmCats.CatScaleY=1.25（此前1.2）；继续遵守坑11只改y轴，避免朝向/移动受影响。未新增钩子或缩放路径。
+
+### 2026-09-12 v6.0构建来源
+继续从精确clean提交构建，版本/包内DLL/远端digest一致；不提交本机原始日志、私人配置或worker会话。

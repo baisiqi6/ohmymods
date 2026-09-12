@@ -25,6 +25,10 @@ public static class ModConfig
     public static ConfigEntry<float> EnemyTimelineSpeed;
     public static ConfigEntry<float> StaffCooldownMultiplier;
     public static ConfigEntry<float> SteedCooldownMultiplier;
+    public static ConfigEntry<bool> AutoRestockWorkersEnabled, AutoRestockArchersEnabled,
+        AutoRestockNinjasEnabled, AutoRestockBerserkersEnabled, AutoRestockPeasantsEnabled;
+    public static ConfigEntry<int> AutoRestockWorkersTarget, AutoRestockArchersTarget,
+        AutoRestockNinjasTarget, AutoRestockBerserkersTarget, AutoRestockPeasantsTarget;
 
     public static void Init(ConfigFile config)
     {
@@ -33,6 +37,22 @@ public static class ModConfig
 
         InfiniteMoney = config.Bind("Economy", "InfiniteMoney", false,
             "无限金币：开启后玩家金币用不完");
+
+        AutoRestockWorkersEnabled = config.Bind("AutoRestock", "WorkersEnabled", false, "税收官从金库自动购买工匠锤子");
+        AutoRestockArchersEnabled = config.Bind("AutoRestock", "ArchersEnabled", false, "税收官从金库自动购买弓箭手道具");
+        AutoRestockNinjasEnabled = config.Bind("AutoRestock", "NinjasEnabled", false, "税收官从金库自动购买忍者道具");
+        AutoRestockBerserkersEnabled = config.Bind("AutoRestock", "BerserkersEnabled", false, "税收官从金库自动购买狂战士药水");
+        AutoRestockPeasantsEnabled = config.Bind("AutoRestock", "PeasantsEnabled", false,
+            "无业村民不足时，税收官全天从金库到面包房购买面包，按原生流程吸引流浪者吃面包入籍");
+        var targetDescription = new ConfigDescription("职业目标：现有人数、店内待领道具与在途采购合计，店满等待；全天从金库按店价的2倍采购",
+            new AcceptableValueRange<int>(1, 200));
+        AutoRestockWorkersTarget = config.Bind("AutoRestock", "WorkersTarget", 15, targetDescription);
+        AutoRestockArchersTarget = config.Bind("AutoRestock", "ArchersTarget", 15, targetDescription);
+        AutoRestockNinjasTarget = config.Bind("AutoRestock", "NinjasTarget", 15, targetDescription);
+        AutoRestockBerserkersTarget = config.Bind("AutoRestock", "BerserkersTarget", 15, targetDescription);
+        AutoRestockPeasantsTarget = config.Bind("AutoRestock", "PeasantsTarget", 15,
+            new ConfigDescription("无业村民目标：现有Peasant、面包库存、吃面包后招募中的村民及在途采购合计；满架等待，不包含工匠或其他职业",
+                new AcceptableValueRange<int>(1, 200)));
 
         SpeedMultiplier = config.Bind("Player", "SpeedMultiplier", 2,
             "君主移动速度倍率（1-5x）");

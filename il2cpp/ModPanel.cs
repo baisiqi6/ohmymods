@@ -14,7 +14,7 @@ public class ModPanel : MonoBehaviour
     private static Texture2D _back, _cardBack, _gold, _track, _thumb;
     private static Vector2 _scroll;
     private static int _category;
-    private static readonly string[] Categories = { "王国", "人口", "世界", "战斗" };
+    private static readonly string[] Categories = { "王国", "人口", "世界", "战斗", "自动补货" };
     private static readonly Color Gold = new Color(0.91f, 0.75f, 0.43f);
     private static readonly Color Text = new Color(0.94f, 0.94f, 0.91f);
     private static readonly Color Muted = new Color(0.65f, 0.71f, 0.77f);
@@ -199,7 +199,7 @@ public class ModPanel : MonoBehaviour
             stashed < 0 ? "银行 · 未就绪" : "银行 · " + stashed + " 币", _value);
         if (GUI.Button(new Rect(width - 84, 27, 58, 44), "关闭", _button)) _shown = false;
 
-        float tabWidth = (width - 72f) / 4f;
+        float tabWidth = (width - 48f - 8f * (Categories.Length - 1)) / Categories.Length;
         for (int i = 0; i < Categories.Length; i++)
         {
             if (GUI.Button(new Rect(24 + i * (tabWidth + 8), 110, tabWidth, 46),
@@ -211,7 +211,7 @@ public class ModPanel : MonoBehaviour
         }
 
         float viewHeight = height - 224f;
-        int cards = _category == 0 || _category == 3 ? 4 : (_category == 2 ? 3 : 2);
+        int cards = _category == 4 ? 5 : (_category == 0 || _category == 3 ? 4 : (_category == 2 ? 3 : 2));
         float contentHeight = cards * (CardHeight + 12f);
         Rect viewport = new Rect(24, 176, width - 48, viewHeight);
         Rect content = new Rect(0, 0, width - 74, Mathf.Max(viewHeight, contentHeight));
@@ -257,7 +257,38 @@ public class ModPanel : MonoBehaviour
                 FloatSlider(ref y, width, "坐骑技能冷却", ModConfig.SteedCooldownMultiplier, 0.2f, 1, true,
                     "使用时生效 · 原生冷却因坐骑而异。");
                 break;
+            case 4:
+                RestockControl(ref y, width, "工匠", 0, ModConfig.AutoRestockWorkersEnabled, ModConfig.AutoRestockWorkersTarget);
+                RestockControl(ref y, width, "弓箭手", 1, ModConfig.AutoRestockArchersEnabled, ModConfig.AutoRestockArchersTarget);
+                RestockControl(ref y, width, "忍者", 2, ModConfig.AutoRestockNinjasEnabled, ModConfig.AutoRestockNinjasTarget);
+                RestockControl(ref y, width, "狂战士", 3, ModConfig.AutoRestockBerserkersEnabled, ModConfig.AutoRestockBerserkersTarget);
+                RestockControl(ref y, width, "无业村民 · 面包", 4, ModConfig.AutoRestockPeasantsEnabled, ModConfig.AutoRestockPeasantsTarget);
+                break;
         }
+    }
+
+    private static void RestockControl(ref float y, float width, string title, int role,
+        ConfigEntry<bool> enabled, ConfigEntry<int> target)
+    {
+        Card(y, width, title + "自动补货", "目标 " + target.Value + " 人",
+            "双倍金库付款 · " + PatchEconomy_AutoRestock.GetSummary(role));
+        if (GUI.Button(new Rect(22, y + 51, 104, 31), enabled.Value ? "已开启" : "已关闭",
+                enabled.Value ? _activeTab : _button)) enabled.Value = !enabled.Value;
+        if (GUI.Button(new Rect(138, y + 51, 34, 31), "−", _button)) target.Value = Math.Max(1, target.Value - 1);
+        if (GUI.Button(new Rect(width - 52, y + 51, 34, 31), "+", _button)) target.Value = Math.Min(200, target.Value + 1);
+        EventType eventType = Event.current.type;
+        bool input = eventType == EventType.MouseDown || eventType == EventType.MouseDrag || eventType == EventType.KeyDown;
+        bool previousChanged = GUI.changed;
+        GUI.changed = false;
+        float raw = GUI.HorizontalSlider(new Rect(188, y + 59, width - 258, 28), target.Value, 1, 200);
+        bool interacted = input && GUI.changed;
+        GUI.changed |= previousChanged;
+        if (interacted)
+        {
+            int value = Mathf.Clamp(Mathf.RoundToInt(raw), 1, 200);
+            if (value != target.Value) target.Value = value;
+        }
+        y += CardHeight + 12;
     }
 
     private static void Card(float y, float width, string title, string value, string help)

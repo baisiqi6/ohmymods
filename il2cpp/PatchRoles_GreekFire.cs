@@ -53,7 +53,9 @@ internal static class PatchRoles_GreekFire
 
     private static bool Target(GameObject target, float x, float range, DamageSource source)
     {
-        if (target == null || !target.activeInHierarchy || range <= 0) return false;
+        if (target == null || !target.activeInHierarchy || range <= 0
+            || !float.IsFinite(range) || !float.IsFinite(x) || target.transform == null
+            || !float.IsFinite(target.transform.position.x)) return false;
         if (EnemyLayer < 0) EnemyLayer = LayerMask.NameToLayer("Enemies");
         if (EnemyLayer < 0 || target.layer != EnemyLayer || Mathf.Abs(target.transform.position.x - x) > range) return false;
         var d = target.GetComponent<Damageable>();
@@ -65,8 +67,27 @@ internal static class PatchRoles_GreekFire
         if (scanner != null && Target(scanner.GetClosest(), k.transform.position.x,
             Mathf.Max(scanner.range, scanner.rangeBehind), DamageSource.Knight)) return true;
         foreach (var a in archers)
-            if (Follower(k, a) && a.ActiveArrowAttack != null &&
-                Target(a._shootingTarget, a.transform.position.x, a.ActiveArrowAttack.Range, DamageSource.Arrow)) return true;
+        {
+            if (!Follower(k, a) || a.ActiveArrowAttack == null) continue;
+            float range = a.ActiveArrowAttack.Range;
+            if (Target(a._shootingTarget, a.transform.position.x, range, DamageSource.Arrow)) return true;
+            // Cached target can be stale/dead while the same follower's native scanner buffer
+            // holds another shootable enemy: bounded GetAll fallback, never only GetClosest.
+            // The array is not retained past this call; Target re-measures from the Archer.
+            Scanner followerScanner = a._enemyScanner;
+            if (followerScanner == null) continue;
+            int count = followerScanner.GetAll(out Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<GameObject> results);
+            // Native calls can change membership or the active attack; only current
+            // owned followers and their current scanner/range supply trigger evidence.
+            if (!Eligible(k) || !Follower(k, a) || a._enemyScanner == null
+                || a._enemyScanner.Pointer != followerScanner.Pointer
+                || a.ActiveArrowAttack == null) continue;
+            range = a.ActiveArrowAttack.Range;
+            if (results == null || count <= 0) continue;
+            int limit = Math.Min(64, Math.Min(count, results.Length));
+            for (int i = 0; i < limit; i++)
+                if (Target(results[i], a.transform.position.x, range, DamageSource.Arrow)) return true;
+        }
         return false;
     }
 

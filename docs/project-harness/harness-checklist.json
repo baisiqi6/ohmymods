@@ -4,6 +4,186 @@
   "updated_at": "2026-09-12",
   "items": [
     {
+      "id": "release-600-20260912",
+      "title": "发布v6.0.0完整IL2CPP安装包",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "selected_in_session": "codex-release-600-20260912",
+      "updated_at": "2026-09-12T15:32:48.017987+00:00",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "clean6.0.0构建与包核验，精确包启动，GitHub稳定Latest和digest/tag核对。",
+      "verification": "准备版本和文档，发布检查进行中。",
+      "handoff": "用户授权发布；功能剩余边界不因发布改done。",
+      "artifacts": {
+        "plan": "docs/project-harness/tasks/release-600-20260912/plan.md"
+      }
+    },
+    {
+      "id": "cat-scale-125-20260912",
+      "title": "希腊农舍猫缩放1.25",
+      "status": "done",
+      "priority": "p2",
+      "owner": "codex",
+      "selected_in_session": "codex-cat-scale-125-20260912",
+      "updated_at": "2026-09-12T15:20:48.713473+00:00",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "CatScaleY改为1.25，沿用既有读档/新增猫缩放逻辑。",
+      "verification": "build0W0E; DLL constant=1.25; only allowed delta; installed hash verified; save/bank unchanged.",
+      "handoff": "已安装；下次加载希腊存档生效。",
+      "artifacts": {
+        "release_summary": "docs/project-harness/tasks/cat-scale-125-20260912/release-summary.md"
+      }
+    },
+    {
+      "id": "restock-double-cost-20260912",
+      "title": "税收官自动补货双倍费用与动画",
+      "status": "done",
+      "priority": "p1",
+      "owner": "codex",
+      "selected_in_session": "codex-restock-double-cost-20260912",
+      "updated_at": "2026-09-12T15:16:16.714848+00:00",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "五职业自动补货原价2倍扣款与动画，单次原生出货，手动不变，保留资金与订单安全。",
+      "verification": "Service regression PASS;63 actual bank/lease assertions;build0W0E;226Unity;independentreviewPASS;native Ninja4coins/Berserker6coins purchases and departure logged;save/config/bankrestored.",
+      "handoff": "Installed BC504C618C1EA422FF753477BEA0EAC7B48322253CE037615A6FF82F6CF7BCC5; no public release. World isolation still separate.",
+      "artifacts": {
+        "release_summary": "docs/project-harness/tasks/restock-double-cost-20260912/release-summary.md"
+      }
+    },
+    {
+      "id": "peasant-bread-hud-20260912",
+      "title": "无边框HUD修复与无业村民面包采购",
+      "status": "done",
+      "priority": "p1",
+      "owner": "codex",
+      "selected_in_session": "codex-peasant-bread-hud-20260912",
+      "updated_at": "2026-09-12T07:57:10Z",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "HUD文字可靠显示并去边框；Peasant独立阈值通过原生面包店补员，实际在途防重复，保留全天采购和财务安全。",
+      "verification": "206 checks/build0W0E/309Unity/nativeuniquehooks/reviewPASS; actual bakery purchase+approach/arrival/walkout logged; userconfirmedHUDtext/frame. 8929889C installed; save/bankrestored.",
+      "handoff": "已完成；Peasant本机开启15，原4配置不变。长期联机等边界仍单独追踪。",
+      "artifacts": {
+        "release_summary": "docs/project-harness/tasks/peasant-bread-hud-20260912/release-summary.md"
+      }
+    },
+    {
+      "id": "auto-restock-live-20260912",
+      "title": "自动补货夜间采购与实际卡点修复",
+      "status": "done",
+      "priority": "p1",
+      "owner": "codex",
+      "selected_in_session": "codex-auto-restock-live-20260912",
+      "updated_at": "2026-09-12T06:20:13Z",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "全天采购；核对狂战士名册；定位并解决忍者/狂战士等待采购；保留财务安全与事件缓存，真实E受控采购证据。",
+      "verification": "42service+51counts+49integration PASS/build212Unity/reviewPASS; E actual Ninja price2 +Berserker price3 success; bank restored5423/save unchanged. final654051E9 help-only delta from testedFF9D.",
+      "handoff": "本次问题关闭；原auto-restock长期联机/换岛等仍待。不更改用户目标，5普通+2队长=7。",
+      "artifacts": {
+        "release_summary": "docs/project-harness/tasks/auto-restock-live-20260912/release-summary.md"
+      }
+    },
+    {
+      "id": "hud-pixel-style-20260912",
+      "title": "常驻时间与金库HUD贴近像素游戏风格",
+      "status": "done",
+      "priority": "p1",
+      "owner": "codex",
+      "selected_in_session": "codex-hud-pixel-style-20260912",
+      "updated_at": "2026-09-12T07:57:10Z",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "保持日期季节金库数据/缓存行为，紧凑像素样式，左上角预留人口空间，不增加人口显示和周期扫描；IL2CPP构建/API/布局核验。",
+      "verification": "用户截图揭示Zpix文字缺失，已在peasant-bread-hud后续修复；正确副本GUI.skin.label/LegacyRuntime，用户确认文字完整显示且边框消失。",
+      "handoff": "新无边框HUD取代旧像素底板；见peasant-bread-hud验收。",
+      "artifacts": {
+        "release_summary": "docs/project-harness/tasks/hud-pixel-style-20260912/release-summary.md"
+      }
+    },
+    {
+      "id": "tower-residual-20260912",
+      "title": "弩炮与喷火塔下已升级普通箭塔残留",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "selected_in_session": "codex-tower-residual-20260912",
+      "updated_at": "2026-09-12T05:56:00Z",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "以实际对象跳过证据修复剩余两组重叠，保护特殊塔/弓手/支付施工/存档；保留无全场周期扫描原则。",
+      "verification": "2BD2055C source/build/review/deploy PASS;144 Unity paths;109 tower tests;controlled runtime removed=2;save unchanged. See acceptance.md.",
+      "handoff": "仅正常游玩保存再读/画面验收待确认；不再等待用户退出或probe。HUD字体视觉未捕获，自动补货真实采购未确认。",
+      "artifacts": {
+        "release_summary": "docs/project-harness/tasks/tower-residual-20260912/release-summary.md"
+      }
+    },
+    {
+      "id": "auto-restock-20260912",
+      "title": "税收官按四职业目标从金库自动采购道具",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "selected_in_session": "codex-auto-restock-20260912",
+      "updated_at": "2026-09-12T06:20:13Z",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "每职业独立开关/阈值；人数+库存/转职在途防超买；满店/无钱等待；金库实际扣款和native投币出货；不新增全场扫描；原收币与actor生命周期安全。",
+      "verification": "初始127checks之外，本次修正null native banker读档拒绝和全天采购；42+51+49检查/两职业真实采购通过；详见auto-restock-live-20260912/acceptance.md。",
+      "handoff": "真实启用采购已有证明（忍者2金币/狂战士3金币，8活体+2待领达10）；不再等待采购诊断。长期联机/换岛/保存再读边界仍doing。",
+      "artifacts": {
+        "release_summary": "docs/project-harness/tasks/auto-restock-20260912/release-summary.md"
+      }
+    },
+    {
+      "id": "combat-home-towers-20260912",
+      "title": "清理隐士塔下升级重叠塔并修复追击和守家希腊火",
+      "selected_in_session": "codex-combat-home-towers-20260912",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-11T17:45:49Z",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "同址独立特殊塔保留、重复普通塔安全撤员后清理；狂战士超距原生返程、狂战士/忍者天亮不追shouldRetreat敌人；本队弓手守家scanner触发Greek整队火焰。",
+      "verification": "288 tests PASS；实际build0W0E/182Unity API/8hook wrapper+7native unique；E本机启动通过savehash一致，真实清塔与战斗待验证。",
+      "handoff": "E最新6DE8F6CB build5.0.0-combat-home-towers-20260912；读档恢复约5游戏秒清理同址普通重复塔，保留隐士塔。实战及联机待验收；公开5.0未更新。",
+      "artifacts": {
+        "release_summary": "docs/project-harness/tasks/combat-home-towers-20260912/release-summary.md"
+      }
+    },
+    {
+      "id": "tower-overlap-20260912",
+      "title": "修复空塔基与已建特殊箭塔的漏检重叠",
+      "selected_in_session": "codex-tower-overlap-20260912",
+      "status": "doing",
+      "priority": "p1",
+      "owner": "codex",
+      "updated_at": "2026-09-12",
+      "dependencies": [],
+      "blocked_by": [],
+      "blocked_reason": null,
+      "acceptance": "实际sameX特殊骑士塔占位可识别，安全旧KEM收敛且新补点绕开普通/特殊/施工建筑；native/已建/已投币/施工对象不删；不增周期扫描。",
+      "verification": "sameX真实存档与4类特殊塔资源确认漏检；46/46完整源码回归+review PASS，实际依赖0W/0E、95Unity API/既有1hook验证。E部署73B11F7D，day63暂停启动通过，savehash一致；实机清旧待恢复运行后验证。",
+      "handoff": "最新E5.0.0-tower-overlap-20260912 DLL73B11F7D；下次读档离开重叠空基底并恢复约5游戏秒，观察日志retired和实际画面。不能动已付款/native/built；公开5.0包仍0549。",
+      "artifacts": {
+        "release_summary": "docs/project-harness/tasks/tower-overlap-20260912/release-summary.md"
+      }
+    },
+    {
       "id": "release-500-20260912",
       "title": "发布v5.0.0完整IL2CPP安装包",
       "selected_in_session": "codex-release-500-20260912",

@@ -92,7 +92,7 @@ public static class PatchWorld_FarmCats
     private const string MarkerPrefix = "KEM_FarmCat";
     private const float DelaySeconds = 5f;   // 等场景物体/读档重建猫就绪
     private const int CatsPerFarmhouse = 4;  // 用户拍板（2026-09-11 由 6 下调；原 Mono 版 3）
-    private const float CatScaleY = 1.2f; // 用户拍板：小猫体型 1.2（坑11 只动 y）
+    private const float CatScaleY = 1.25f; // 用户拍板：小猫体型 1.25（坑11 只动 y）
 
     // per-world 指针守卫：在全部就绪检查（biome/联机/kingdom/农舍/prefab）通过
     // 之后、实际放猫之前才消费。换世界/换岛/读档（scene 重建，gameLayer 指针
@@ -325,7 +325,7 @@ public static class PatchWorld_FarmCats
 
 
     /// <summary>
-    /// 小猫 y=1.2（用户拍板）：绝对值写入（坑11 只动 y）+ ScaleRegistry 守卫
+    /// 小猫 y=1.25（用户拍板）：绝对值写入（坑11 只动 y）+ ScaleRegistry 守卫
     /// （有 Mover 则注册，池复用/原生重置自愈；无 Mover 时绝对值写一次即持久——
     /// 池 respawn 不重拷序列化字段，坑：见 patch-patterns 坑11 相关沉淀）。
     /// </summary>

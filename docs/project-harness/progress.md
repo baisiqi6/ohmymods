@@ -1344,3 +1344,36 @@ E已部署F32CBE8C（4.5.0-fleet-retreat-cats-20260911）。希腊FleetBoat一�
 
 ### 2026-09-12 v5.0.0发布完成
 正式Latest已发布，tag abf4eb3，完整ZIP DD7C26FA...、E内嵌DLL0549C166...；7套repo tests/clean build/独立包审查/精确启动/远端digest及tag核验通过。release任务done，实际战斗/船/猫/残影/联机等功能doing不变。详见tasks/release-500-20260912/publication.md。
+
+### 2026-09-12 塔基已定位特殊升级塔漏检
+5.0当前存档同址KEM_TowerSpot156.64与Tower Knight_greece；特殊塔无Tower标签/组件但有WB，原占位扫描漏。隔离修复加入建筑/施工占用并保护已付款对象，游戏运行暂未部署。
+
+### 2026-09-12 00:59 塔基修复本机已部署
+73B11F7D（5.0.0-tower-overlap-20260912），特殊WB与施工占位、实际template bounds、unknown不删/不生、付款保护已补；46tests/review/build/启动通过。day63暂停未执行5秒清旧，需下次游戏确认；公开5.0不变。另5.0实战日志已证残影ready/退速3x/猫retired8且存档当前岛16猫，记录为运行分支证据。
+
+### 2026-09-12 重叠升级塔/追击/守家Greek本机热修
+6DE8F6CB，build5.0.0-combat-home-towers-20260912。288tests、实际build/API/nativehook核验及受控暂停启动通过；存档一致。实际读档5秒清塔、狂战士完成跳劈后返程、Ninja黎明返程与守家火箭仍待实战。公开5.0不变，doing。
+
+### 2026-09-12 税收官自动补货本机部署
+A309B08E / 5.0.0-auto-restock-20260912：四职业独立目标，金库付款，现存+全店待领+预留防超买，最多2税收官采购；满店等待，默认off/15。事件维护角色/库存，无稳定期全体枚举。127tests/build/API/native hooks/review/暂停启动通过，save一致。实际开启投币/出货/转职/联机待测，doing；公开5.0未变。
+
+### 2026-09-12 午后：特殊塔下普通已升级塔仍残留
+用户实机证实Ballista/FireTower下残留两座，首次清理只移除Knight处Tower0。临时只读诊断5F26FF5D已105tests/build/API/review通过但未部署，等待用户保存退出E游戏。A309仍在运行；原删除规则和存档未手动修改。见tasks/tower-residual-20260912/probe-status.md。
+
+### 2026-09-12 13:53 HUD像素改版与两处塔残留修复
+2BD2055C已集成源码并部署E；顶部中央紧凑时间/金库条，左上人口暂不加。查明ExitGuardSlot触发同步重新补岗，改同Kingdom同步暂缓分配+停用后立刻注销空岗；109tests/负对照/review/native/build通过，实际清Tower4@166.66和Tower2@176.68两座，保留Ballista/Fire。受控save不变。HUD目视与正常保存再读待验收；AutoRestock实际采购未确认。未commit/push/release。
+
+### 2026-09-12 14:17 全天采购与读档银行家引用修复
+用户截图忍者4/15与狂战士7/10等待；真实卡点是kingdom.banker为空而控制器已绑定现有903银行家、4助手全空闲。共享精确控制器/银行家/世界判定替代错误nonnull假定，派工与扣款都修。夜间门按用户要求删除。42+51+49验证与独立review通过，实际忍者2金币/狂战士3金币采购成功、狂战士8活体+2待领达10；存档与测试bank恢复。654051E9已部署保留HUD/塔，未commit/push/release。
+
+### 2026-09-12 15:55 无边框HUD、面包补员与采购进出场完成
+8929889C已部署/源码同步。206检查、309Unity路径与review通过，正确E实机面包购买及出现→跑近→走开日志通过，用户确认HUD文字完整/边框消失。Peasant本机启用15；原四项保持。受控两次save不变，bank均恢复5423。误启动旧同名拷贝一次已停止，不作为验收；正确可见进程完整路径核验。未commit/push/release。
+
+### 2026-09-12 自动补货双倍费用
+BC504C61已安装/4源码同步；五职业含面包原价2倍投币和扣款、单份原生出货、卡片明示双倍。服务回归/63bank/226Unity/build/review通过；实机忍者4、狂战士6金币并完成离店。保存/配置/金库恢复，无公开发布。见tasks/restock-double-cost-20260912/acceptance.md。
+
+### 2026-09-12 猫缩放1.25
+B33D56B8已安装，唯一行为差异CatScaleY1.2→1.25；build0W0E、DLL常量与安装哈希核验通过，save/bank未动。见tasks/cat-scale-125-20260912/acceptance.md。
+
+### 2026-09-12 v6.0.0发布准备
+用户授权发布，整理5.0之后的自动补货/双倍费用/HUD/塔位/猫1.25等修改，从clean提交构建正式包并读回GitHub验证。

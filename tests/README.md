@@ -10,6 +10,8 @@ dotnet run -c Release --project tests/samurai-retreat/Regression.csproj
 dotnet run -c Release --project tests/farm-cats/Regression.csproj
 dotnet run -c Release --project tests/fleet-greek-squads/Regression.csproj
 dotnet run -c Release --project tests/expedition-follow/Regression.csproj
+dotnet run -c Release --project tests/auto-restock/AutoRestockTests.csproj
+dotnet run -c Release --project tests/auto-restock-counts/CountTests.csproj
 ```
 
 | Project | Coverage |
@@ -21,6 +23,8 @@ dotnet run -c Release --project tests/expedition-follow/Regression.csproj
 | `farm-cats` | Four-cat target, protected/native cats and partial retirement failures |
 | `fleet-greek-squads` | Greek fleet reservations, candidate selection and deferred cleanup |
 | `expedition-follow` | Dynamic Object following, wall offsets and task ownership |
+| `auto-restock` | 96 cases: five-role procurement, double-price budgets and coin timing, native payment guards, approach/departure and cleanup |
+| `auto-restock-counts` | 81 cases: event-driven population and shop stock caches, world/pool identity, bakery registration and incoming peasants |
 
 Production helpers are linked directly from `il2cpp/`. Where a large integration file needs a small compilation shell, the .NET 8 `source-extractor` tool copies the selected methods unchanged during the build. Generated files stay under `obj/`; do not commit them. The extractor uses the invoking .NET host when available. Sequential runs avoid concurrent builds of the shared extraction tool.
 
