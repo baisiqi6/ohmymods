@@ -10,6 +10,7 @@ dotnet run -c Release --project tests/samurai-retreat/Regression.csproj
 dotnet run -c Release --project tests/farm-cats/Regression.csproj
 dotnet run -c Release --project tests/fleet-greek-squads/Regression.csproj
 dotnet run -c Release --project tests/expedition-follow/Regression.csproj
+dotnet run -c Release --project tests/samurai-motion/Regression.csproj
 dotnet run -c Release --project tests/auto-restock/AutoRestockTests.csproj
 dotnet run -c Release --project tests/auto-restock-counts/CountTests.csproj
 ```
@@ -22,7 +23,8 @@ dotnet run -c Release --project tests/auto-restock-counts/CountTests.csproj
 | `samurai-retreat` | Native defensive retreat speed and ref argument propagation |
 | `farm-cats` | Four-cat target, protected/native cats and partial retirement failures |
 | `fleet-greek-squads` | Greek fleet reservations, candidate selection and deferred cleanup |
-| `expedition-follow` | Dynamic Object following, wall offsets and task ownership |
+| `expedition-follow` | Dynamic follow, night wall anchors, stationary Charge positions, world boundaries and task ownership |
+| `samurai-motion` | Dash cooldown/hits, follower leash, native wall handoff and motion ownership |
 | `auto-restock` | 96 cases: five-role procurement, double-price budgets and coin timing, native payment guards, approach/departure and cleanup |
 | `auto-restock-counts` | 81 cases: event-driven population and shop stock caches, world/pool identity, bakery registration and incoming peasants |
 

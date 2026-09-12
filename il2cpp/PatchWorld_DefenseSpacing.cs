@@ -982,7 +982,9 @@ public static class PatchWorld_DefenseSpacing
     {
         if (world == null || _supervisorWorld == world.Pointer) yield break;
         _supervisorWorld = world.Pointer;
-        SquadFollowGuard.Clear();
+        // Loading actors may already have issued their persistent native follow goals.
+        // Retain verified current-layer baselines without writing into departing actors.
+        SquadFollowGuard.BeginWorld(world);
         FleetGreekSquads.Clear();
         // 共享扫描缓存（抖动治理）：世界边界整体失效，新世界首轮 pass 必须拿到
         // 全新扫描（杜绝跨世界残影/读档恢复路径的首拍数据陈旧）。
@@ -1076,6 +1078,9 @@ public static class PatchWorld_DefenseSpacing
                 Archer archer = archers[i];
                 if (archer == null || archer.gameObject == null
                     || !archer.gameObject.activeInHierarchy) continue;
+                // Follow2 can set its one persistent Object goal before the load-time
+                // ledger clear. Seed that current intent from this existing cached pass.
+                SquadFollowGuard.ObserveCurrentFollow(archer);
                 float side = (float)archer._guardSide;
                 if (side == 0f) continue;
 

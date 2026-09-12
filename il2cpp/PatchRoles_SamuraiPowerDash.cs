@@ -21,6 +21,7 @@ internal static class PatchRoles_SamuraiPowerDash
     {
         internal Knight Owner;
         internal Archer Follower;
+        internal Mover ObservedMover;
         internal float NextFollowerScan, NextAttack, RetryAt;
         internal int Failures;
         internal MotionLease Motion;
@@ -45,7 +46,7 @@ internal static class PatchRoles_SamuraiPowerDash
 
     private static bool Eligible(Knight k)
     {
-        if (k == null || k.gameObject == null || !k.gameObject.activeInHierarchy ||
+        if (k == null || !k.enabled || k.gameObject == null || !k.gameObject.activeInHierarchy ||
             !ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth ||
             !PatchRoles_KnightStyle.TryGetResolvedStyleIndex(k, out int style) || style != 2)
             return false;
@@ -58,9 +59,36 @@ internal static class PatchRoles_SamuraiPowerDash
         var c = k._character;
         if (c == null || c.inert || c.grabbed || c.isStationary || k._damageable == null || k._damageable.isDead || k._mover == null)
             return false;
-        if (k._fsm == null) return false;
+        if (k._fsm == null || k._fsm._executeQueuedState) return false;
         int state = k._fsm.Current;
         return state == Knight.State.Stand || state == Knight.State.GoToWall || state == Knight.State.Assemble;
+    }
+
+    private static bool NightGuard(Knight k)
+    {
+        var managers = Managers.Inst;
+        return managers != null && managers.kingdom != null && !managers.kingdom.isDaytime &&
+            (k._fsm.Current == Knight.State.Stand || k._fsm.Current == Knight.State.GoToWall);
+    }
+
+    internal static void BeforeNativeUpdate(Knight knight)
+    {
+        try
+        {
+            // Queue immediately before the native Update consumes it. Never retain/cancel a
+            // queued state across frames or overwrite a goal belonging to another system.
+            if (!Eligible(knight) || !NightGuard(knight) || Time.timeScale <= 0 ||
+                knight._mover._pauseTimeout > 0 || knight._mover.goalMode != Mover.GoalMode.Off ||
+                !Actors.TryGetValue(knight.gameObject.GetInstanceID(), out var a) ||
+                !Same(a.Owner, knight) || !Same(a.ObservedMover, knight._mover) || a.Motion != null ||
+                !ValidFollower(knight, a.Follower) || Distance(a) <= FollowLeash) return;
+            knight._fsm.GoToState(Knight.State.GoToWall);
+            if (Logged.Add("night-wall-queue"))
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/night-wall-queue] x=" +
+                    knight.transform.position.x + " follower=" + a.Follower.transform.position.x +
+                    " goal=" + knight._mover.goalMode + " state=" + knight._fsm.Current);
+        }
+        catch (Exception e) { Log("night-wall", e); }
     }
 
     private static bool ValidFollower(Knight k, Archer a) => a != null && a.gameObject != null &&
@@ -173,19 +201,26 @@ internal static class PatchRoles_SamuraiPowerDash
         Actors.TryGetValue(id, out ActorState a);
         try
         {
+            if (a != null && Same(a.Owner, knight) && !Same(a.ObservedMover, knight._mover))
+            {
+                if (a.Motion != null) Finish(a.Motion);
+                a.ObservedMover = knight._mover;
+                return; // A replacement mover's first observed goal belongs to its new owner.
+            }
             if (a != null && (!Same(a.Owner, knight) || !Eligible(knight)))
             {
                 if (a.Motion != null) Finish(a.Motion);
                 Actors.Remove(id); a = null;
             }
             if (!Eligible(knight)) return;
-            if (a == null) { a = new ActorState { Owner = knight }; Actors[id] = a; }
+            if (a == null) { a = new ActorState { Owner = knight, ObservedMover = knight._mover }; Actors[id] = a; }
             if (a.Motion != null)
             {
                 MotionLease m = a.Motion;
                 if (!ValidMotion(m)) { Finish(m, m.Returning); return; }
                 if (m.Returning)
                 {
+                    if (NightGuard(knight)) { Finish(m); return; }
                     // Verify this reference each frame before periodic reselection, never mask its loss.
                     if (!ValidFollower(knight, a.Follower)) { Finish(m); a.Follower = null; return; }
                     RefreshFollower(a);
@@ -199,6 +234,13 @@ internal static class PatchRoles_SamuraiPowerDash
             if (!follower) { a.Follower = null; a.Failures = 0; a.RetryAt = 0; }
             float distance = follower ? Distance(a) : 0;
             if (distance <= ReturnStop) { a.Failures = 0; a.RetryAt = 0; }
+            // At night the wall coroutine supplies its current destination and defensive
+            // facing. Keep the follower leash, but never turn this homeward leg into an attack.
+            if (NightGuard(knight))
+            {
+                a.Failures = 0; a.RetryAt = 0;
+                if (distance > FollowLeash) return;
+            }
             if (distance > FollowLeash || (a.Failures > 0 && distance > ReturnStop))
             {
                 if (Time.timeScale <= 0 || knight._mover._pauseTimeout > 0 ||
@@ -340,6 +382,7 @@ internal static class PatchRoles_SamuraiPowerDash
 [HarmonyPatch(typeof(Knight), "Update")]
 internal static class Knight_Update_SamuraiPowerDash_Patch
 {
+    private static void Prefix(Knight __instance) => PatchRoles_SamuraiPowerDash.BeforeNativeUpdate(__instance);
     private static void Postfix(Knight __instance) => PatchRoles_SamuraiPowerDash.Tick(__instance);
 }
 

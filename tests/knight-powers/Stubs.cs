@@ -63,6 +63,8 @@ public static class NetworkBigBoss {public static bool HasWorldAuth=true;}
 public class World:UnityEngine.MonoBehaviour {public void OnLevelLoaded(){}}
 public static class AnimationSync {public static void SetAndSendAnimationTrigger(){}}
 namespace KingdomEnhancedMod {
+ // Follow ownership is exercised by expedition-follow; this fixture isolates knight powers.
+ internal static class SquadFollowGuard { internal static void BeforeMoverUpdate(Mover mover) {} }
  public static class ModConfig {public static BoolConfig Enabled=new();public class BoolConfig{public bool Value=true;}}
  public static class PatchRoles_KnightStyle {public static bool TryGetResolvedStyleIndex(Knight k,out int style){style=k.Style;return k.Qualified;}}
  public static class UnitScanCache {public static Knight[] Knights=Array.Empty<Knight>();public static Knight[] GetKnights()=>Knights;}

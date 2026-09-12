@@ -24,7 +24,7 @@ namespace UnityEngine
   public T AddComponent<T>() where T:Component,new(){var c=new T{gameObject=this};components.Add(c);return c;}
   public T GetComponent<T>() where T:class=>components.OfType<T>().FirstOrDefault();
  }
- public class Transform:Component{public Vector3 position,localScale=Vector3.one;}
+ public class Transform:Component{public Vector3 position,localScale=Vector3.one;public Transform parent;public bool IsChildOf(Transform root){for(var t=this;t!=null;t=t.parent)if(t.Pointer==root.Pointer)return true;return false;}}
  public struct Vector3{public float x,y,z;public Vector3(float x,float y=0,float z=0){this.x=x;this.y=y;this.z=z;}public static Vector3 one=>new(1,1,1);}
  public static class Mathf{public static float Abs(float a)=>MathF.Abs(a);public static float Min(float a,float b)=>MathF.Min(a,b);public static float Max(float a,float b)=>MathF.Max(a,b);public static bool Approximately(float a,float b)=>MathF.Abs(a-b)<.00001f;public static float Clamp(float a,float min,float max)=>Math.Clamp(a,min,max);public static float Sign(float a)=>a<0?-1:1;}
  public static class Time{public static float time=100,timeScale=1;}
@@ -57,8 +57,9 @@ public class Archer:UnityEngine.MonoBehaviour
  public Formation Formation;public Formation GetFormation()=>Formation;public bool ShouldPlayerControl()=>ControlRequested;public bool ShouldGoToWall()=>GoToWall;
  public bool IsGrabbed()=>_character?.grabbed??false;public bool HasEmbarkableTarget()=>_embarkee?.EmbarkableTarget!=null;public bool IsInFormation()=>Formation!=null;
 }
-public class Kingdom:UnityEngine.MonoBehaviour{public bool isDaytime;public float Left=-100,Right=100;public float GetBorderSideIntact(Side side)=>side==Side.Left?Left:Right;}
-public class Managers{public static Managers Inst=new();public Kingdom kingdom=new GameObjectHolder().Kingdom;private class GameObjectHolder{public Kingdom Kingdom=new UnityEngine.GameObject().AddComponent<Kingdom>();}}
+public class Kingdom:UnityEngine.MonoBehaviour{public bool isDaytime,ThrowBorder;public float Left=-100,Right=100;public float GetBorderSideIntact(Side side)=>ThrowBorder?throw new InvalidOperationException("wall unavailable"):side==Side.Left?Left:Right;}
+public class World:UnityEngine.MonoBehaviour{public UnityEngine.Transform gameLayer=new UnityEngine.GameObject().transform;}
+public class Managers{public World world=new UnityEngine.GameObject().AddComponent<World>();public static Managers Inst=new();public Kingdom kingdom=new GameObjectHolder().Kingdom;private class GameObjectHolder{public Kingdom Kingdom=new UnityEngine.GameObject().AddComponent<Kingdom>();}}
 public static class NetworkBigBoss{public static bool HasWorldAuth=true;}
 public class Mover:UnityEngine.Component
 {
@@ -66,12 +67,13 @@ public class Mover:UnityEngine.Component
  public static ObjectPrefixDelegate Intercept;
  public enum GoalMode{Off,Position,Object}public enum OffsetMode{Distance,Formation,Strict}
  public GoalMode goalMode;public UnityEngine.GameObject _goalObject;public float _goalPosition,_goalSpeed,_goalOffset,_pauseTimeout;public OffsetMode _goalOffsetMode;
+ public float _moveSpeed;public bool movingToGoal;
  public int ObjectCalls,PositionCalls,Stops,Unpauses;public Action OnObjectGoal;public bool ThrowOnObjectGoal;
  public Coatsink.Common.Wait LastWait;
  public Coatsink.Common.Wait SetGoal(UnityEngine.GameObject goal,float speed,float offset=0,OffsetMode mode=OffsetMode.Distance)
  {if(Intercept!=null&&!Intercept(this,goal,speed,ref offset,mode))return null;ObjectCalls++;if(ThrowOnObjectGoal)throw new InvalidOperationException("Injected native goal failure");_goalObject=goal;_goalSpeed=speed;_goalOffset=offset;_goalOffsetMode=mode;goalMode=GoalMode.Object;LastWait=new();OnObjectGoal?.Invoke();return LastWait;}
- public Coatsink.Common.Wait SetGoal(float goal,float speed){PositionCalls++;_goalPosition=goal;_goalSpeed=speed;_goalObject=null;goalMode=GoalMode.Position;return LastWait=new();}
- public void Stop(){Stops++;goalMode=GoalMode.Off;}public void UnPause(){Unpauses++;_pauseTimeout=0;}
+ public Coatsink.Common.Wait SetGoal(float goal,float speed){PositionCalls++;_goalPosition=goal;_goalSpeed=speed;_goalObject=null;goalMode=GoalMode.Position;movingToGoal=true;return LastWait=new();}
+ public void Stop(){Stops++;SetSpeed(0);}public void SetSpeed(float speed){goalMode=GoalMode.Off;movingToGoal=false;_moveSpeed=speed;}public void UnPause(){Unpauses++;_pauseTimeout=0;}
  public float DynamicDestination=>goalMode==GoalMode.Object?_goalObject.transform.position.x+_goalOffset*(_goalOffsetMode==OffsetMode.Formation?_goalObject.transform.localScale.x:1):_goalPosition;
 }
 namespace KingdomEnhancedMod

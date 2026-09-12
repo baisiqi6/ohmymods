@@ -677,6 +677,9 @@ public static class Mover_Update_DeadlandsSpeed_Patch
     private static void Prefix(ref PatchRoles_DeadlandsPowers.MoverBoost __state, Mover __instance)
     {
         __state = default;
+        // Resolve owned wall-follow offsets before this prefix temporarily boosts
+        // goal speed. The guard compares the unmodified native writer tuple.
+        SquadFollowGuard.BeforeMoverUpdate(__instance);
         if (__instance == null || !PatchRoles_DeadlandsPowers.GameplayActive()) return;
         try
         {
