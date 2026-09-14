@@ -51,9 +51,11 @@ namespace AutoRestockTests
             Run("role_fairness_rotation_serves_other_roles", RoleFairness);
 
             Additional.Run();
+            AmmoAndFarmer.Run();
             NightDiagnostics.Run();
             MotionAndPeasants.Run();
             DoubleCost.Run();
+            GreekScope.Run();
             Console.WriteLine();
             Console.WriteLine($"==== {Passed} passed, {Failed} failed, {Passed + Failed} total ====");
             foreach (string f in Failures) Console.WriteLine("FAIL: " + f);
@@ -131,11 +133,36 @@ namespace AutoRestockTests
             {
                 Droppable prefab = new Droppable { tag = AutoRestockCounts.Tags[role], gameObject = Fake.NewGO("prefab" + role) };
                 GameObject go = Fake.NewGO("shop" + role + "_" + (++ShopSeq), Layer);
+                if (role == 5) go.Tag = "ShopScythe"; // production identifies the scythe shop by its native GO tag
                 PayableShop shop = role==4 ? new PayableShopBaker() : new PayableShop();
                 shop.itemPrefab=prefab; shop.Price=price;
                 Fake.Attach(shop, go);
                 AutoRestockCounts._shops.Add(shop);
                 return shop;
+            }
+
+            /// <summary>Ammo target: role 6 = PayableWorkshopBarrel, role 7 = FireTower PayableComponent.</summary>
+            public Payable MakeAmmo(int role, int price, int countAt)
+            {
+                GameObject go = Fake.NewGO("ammo" + role + "_" + (++ShopSeq), Layer);
+                Payable payable;
+                if (role == 6) payable = new PayableWorkshopBarrel();
+                else
+                {
+                    var tower = new FireTower();
+                    Fake.Attach(tower, go);
+                    payable = new PayableComponent { Owner = tower };
+                }
+                payable.Price = price;
+                Fake.Attach(payable, go);
+                (role == 6 ? SiegeAmmoCounts.Targets6 : SiegeAmmoCounts.Targets7).Add(payable);
+                SiegeAmmoCounts.SetLocal(payable, countAt);
+                payable.TransactionCompleteF = p =>
+                {
+                    SiegeAmmoCounts.SetNative(role, SiegeAmmoCounts.Native[role] + 1);
+                    SiegeAmmoCounts.SetLocal(p, SiegeAmmoCounts.CountAt(p) + 1);
+                };
+                return payable;
             }
         }
 
@@ -160,12 +187,13 @@ namespace AutoRestockTests
             }
 
             public static T Attach<T>(T c, GameObject go) where T : Component
-            { c.gameObject = go; c.transform = go.Transform; return c; }
+            { c.gameObject = go; c.transform = go.Transform; go.Components.Add(c); return c; }
         }
 
         // ---------------------------------------------------------- reset
         internal static void HardReset()
         {
+            GreekBankScope.IsActive = true;
             Time.time = 0f; Time.timeScale = 1f; Time.deltaTime=0f;
             NetworkBigBoss.HasWorldAuth = true;
             NetworkBigBoss.IsOnline = false;
@@ -174,6 +202,7 @@ namespace AutoRestockTests
             Pool.ResetPool();
             ModConfig.ResetConfig();
             AutoRestockCounts.ResetCounts();
+            SiegeAmmoCounts.ResetAmmo();
             BankAssistantCoordinator.ResetCoord();
             PatchEconomy_Banker.ResetLedger();
             KingdomEnhancedPlugin.Instance = new KingdomEnhancedPlugin();
@@ -213,6 +242,9 @@ namespace AutoRestockTests
                 case 2: ModConfig.AutoRestockNinjasEnabled.Value = on; ModConfig.AutoRestockNinjasTarget.Value = target; break;
                 case 3: ModConfig.AutoRestockBerserkersEnabled.Value = on; ModConfig.AutoRestockBerserkersTarget.Value = target; break;
                 case 4: ModConfig.AutoRestockPeasantsEnabled.Value = on; ModConfig.AutoRestockPeasantsTarget.Value = target; break;
+                case 5: ModConfig.AutoRestockFarmersEnabled.Value = on; ModConfig.AutoRestockFarmersTarget.Value = target; break;
+                case 6: ModConfig.AutoRestockCatapultBarrelsEnabled.Value = on; ModConfig.AutoRestockCatapultBarrelsTarget.Value = target; break;
+                case 7: ModConfig.AutoRestockFireTowerAmmoEnabled.Value = on; ModConfig.AutoRestockFireTowerAmmoTarget.Value = target; break;
             }
         }
 
@@ -904,7 +936,9 @@ namespace AutoRestockTests
                 PatchEconomy_AutoRestock.GetSummary(0);
             Eq(s.GetItemCountCalls, reads, "summary getter must not read native shop state");
             Eq(PatchEconomy_AutoRestock.GetSummary(-1), "", "out-of-range role");
-            Eq(PatchEconomy_AutoRestock.GetSummary(5), "", "out-of-range role");
+            Eq(PatchEconomy_AutoRestock.GetSummary(8), "", "out-of-range role");
+            for (int r = 5; r < 8; r++)
+                Ok(PatchEconomy_AutoRestock.GetSummary(r) != "", "role " + r + " has a summary");
             string before = PatchEconomy_AutoRestock.GetSummary(0);
             Eq(PatchEconomy_AutoRestock.GetSummary(0), before, "cached summary stable");
         }

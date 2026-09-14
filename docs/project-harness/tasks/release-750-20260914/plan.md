@@ -1,0 +1,5 @@
+# Publish v7.5.0
+
+User explicitly authorized release7.5 after local island restoration. Publish stable v7.5.0 as a new tag and Latest release, retaining old releases. Include current IL2CPP features and fixes since6.1.5, exact allowlisted source/tests/player documentation. Exclude private save repair, raw logs, game files, temporary helpers, caches, personal config and unrelated untracked artifacts. Current game stays running; no local install or restart.
+
+OMP deepseek/deepseek-v4-flash max drafts player docs; independent reviewer checks release code/notes/package. Root bumps version, selects source paths, commits authorized changes, builds exact clean worktree with copy-to-game disabled, runs all current regression projects, verifies behavioral equivalence to319418A0 aside from version/build string, DLL metadata and package allowlist/CRC/manifest/runtime hashes. Create draft+upload, read back size/digest, publish stable Latest, verify URL/tag/latest. Current runtime and coop gaps remain explicitly pending; no false crash cure or hat fix claim. No requirement to wait for every feature's future gameplay matrix before user's authorized release.

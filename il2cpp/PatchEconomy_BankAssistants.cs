@@ -16,6 +16,13 @@ namespace KingdomEnhancedMod;
 ///   SpriteRenderer, Animator, Rigidbody2D and PositionSync;
 /// - only world-authority scans, claims, despawns coins and calls the atomic deposit entry;
 /// - peers receive the four deterministic synced-pool objects and PositionSync updates only.
+///
+/// World boundary: every entry point (creation, fixed-pool registration, Update,
+/// claims, pickups and restock reservations) is gated by GreekBankScope — the current
+/// world only. Leaving Greece/loading/disabled freezes procurement, releases local
+/// reservations and drops this mod's actor/claim references; native rollback is applied
+/// only to objects still inside the current gameLayer, so nothing from an unloaded
+/// scene can receive an RPC or a write while another world is active.
 /// </summary>
 public static class PatchEconomy_BankAssistants
 {
@@ -55,6 +62,9 @@ public static class PatchEconomy_BankAssistants
     internal static readonly float[] HomeOffsets = { -1.65f, -0.75f, 1.05f, 1.95f };
 
     private static readonly GameObject[] Prefabs = new GameObject[4];
+    // Preserve source-derived Greek sizes for the first two styles without baking
+    // an already-scaled live banker into the cross-world cached pool templates.
+    private static readonly float[] GreekVisualScaleY = new float[4];
     private static readonly Pool[] Pools = new Pool[4];
     private static Il2CppArrayBase<Banker> _allBankerPrefabs;
     private static bool _registeredCoordinatorType;
@@ -64,9 +74,8 @@ public static class PatchEconomy_BankAssistants
 
     public static void EnsureForMainBanker(Banker banker)
     {
-        if (!ModConfig.Enabled.Value || banker == null) return;
-        if (BiomeHolder.Inst == null
-            || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
+        // 唯一世界判定：只有当前世界明确为希腊时才创建/绑定助手与固定池。
+        if (!GreekBankScope.IsCurrentBanker(banker)) return;
 
         EnsureInjectedTypes();
 
@@ -80,11 +89,25 @@ public static class PatchEconomy_BankAssistants
             EnsurePools(banker, managers.pools);
     }
 
+    /// <summary>
+    /// 供 Banker.Update 低频重试：当前希腊本体是否已经绑定协调器。Awake 可能早于
+    /// 当前世界/层就绪，那时 EnsureForMainBanker 会被身份闸门挡下。
+    /// 纯静态判定，不做 GetComponent（协调器类型注入前不能查组件）。
+    /// </summary>
+    internal static bool IsBound(Banker banker)
+    {
+        BankAssistantCoordinator coordinator = BankAssistantCoordinator.Instance;
+        Banker main = BankAssistantCoordinator.MainBanker;
+        return banker != null && coordinator != null && main != null
+            && banker.Pointer == main.Pointer;
+    }
+
     public static void HandlePoolManagerRebuilt(PoolManager poolManager)
     {
-        if (!ModConfig.Enabled.Value || poolManager == null) return;
-        if (BiomeHolder.Inst == null
-            || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
+        // PoolManager 重建后所有缓存句柄都失效：无论当前世界，先无条件失效，
+        // 否则旧世界的 Pool 句柄会被带回新世界继续使用。
+        ClearPoolHandles();
+        if (!GreekBankScope.IsActive || poolManager == null) return;
 
         EnsureInjectedTypes();
         BankAssistantCoordinator.HandlePoolRebuild(poolManager);
@@ -115,7 +138,8 @@ public static class PatchEconomy_BankAssistants
 
     internal static void EnsurePools(Banker banker, PoolManager poolManager)
     {
-        if (banker == null || poolManager == null) return;
+        // 固定 synced pool 只属于希腊世界：其他世界不得把本 mod 的池塞进原生池表。
+        if (!GreekBankScope.IsActive || banker == null || poolManager == null) return;
 
         EnsurePrefabs(banker);
         for (int i = 0; i < Prefabs.Length; i++)
@@ -197,13 +221,8 @@ public static class PatchEconomy_BankAssistants
             prefab.SetActive(false);
             prefab.hideFlags = HideFlags.HideAndDontSave;
             prefab.layer = banker.gameObject.layer;
-            prefab.transform.localScale = banker.transform.localScale;
-            if (i == 2 || i == 3)
-            {
-                Vector3 visualScale = prefab.transform.localScale;
-                visualScale.y = i == 2 ? 1.25f : 1.2f;
-                prefab.transform.localScale = visualScale;
-            }
+            GreekVisualScaleY[i] = i == 2 ? 1.25f : i == 3 ? 1.2f : banker.transform.localScale.y;
+            prefab.transform.localScale = GreekScaleScope.NativeScale(banker.transform);
 
             SpriteRenderer renderer = prefab.AddComponent<SpriteRenderer>();
             if (sourceRenderer != null)
@@ -409,6 +428,21 @@ public static class PatchEconomy_BankAssistants
         return index >= 0 && index < Prefabs.Length ? Prefabs[index] : null;
     }
 
+    internal static void ApplyAssistantScale(GameObject actor)
+    {
+        if (actor == null) return;
+        string actorName = actor.name;
+        for (int i = 0; i < Prefabs.Length; i++)
+        {
+            if (!actorName.StartsWith(ASSISTANT_PREFIX + i + "_", StringComparison.Ordinal)) continue;
+            // Templates stay neutral. OnEnable runs locally on either peer, with
+            // no network operation and no world-authority requirement.
+            if (Prefabs[i] != null && actor.Pointer != Prefabs[i].Pointer)
+                GreekScaleScope.ApplyY(actor.transform, GreekVisualScaleY[i]);
+            return;
+        }
+    }
+
     internal static void ClearPoolHandles()
     {
         for (int i = 0; i < Pools.Length; i++) Pools[i] = null;
@@ -501,12 +535,18 @@ public class BankAssistantCoordinator : MonoBehaviour
     // 顺吸认领会同时占据多枚币，各自原始拾取策略必须按币记录，不能用单槽
     // OriginalPolicy 覆盖（否则回滚会把错误策略还原到别的币上）。
     private static readonly Dictionary<int, PickUpPolicy> SweepPolicies = new();
+    private static readonly Dictionary<int, DroppableCurrency> SweepCoins = new();
+    private static bool _cleanupPending, _cleanupDestroyActors, _cleanupSyncDespawn;
     private static int _lastLoggedActiveCount = -1;
     private static float _nextActiveCountLogAt;
     private static readonly int SpeedParameter = Animator.StringToHash("Speed");
 
     public BankAssistantCoordinator(IntPtr ptr) : base(ptr) { }
-    public static bool HasMainBanker => _instance != null && _mainBanker != null;
+    public static bool HasMainBanker => _instance != null && GreekBankScope.IsCurrentBanker(_mainBanker);
+
+    /// <summary>当前绑定的协调器与主银行家（同一程序集读取；避免外部 GetComponent）。</summary>
+    internal static BankAssistantCoordinator Instance => _instance;
+    internal static Banker MainBanker => _mainBanker;
 
     // ---- 农田币来源标记（Droppable_FarmCoinOrigin_*_Patch 调用）----
     internal static void MarkFarmCoin(int instanceId)
@@ -527,15 +567,17 @@ public class BankAssistantCoordinator : MonoBehaviour
 
     /// <summary>
     /// 面板只读直查主银行家存款（2026-08-30 需求2，ModPanel.OnGUI 每帧调用）。
-    /// 零分配、直字段读（先例 PatchEconomy_Banker L261/293）；_mainBanker 未就绪
-    /// 一律返回 -1——绝不在 OnGUI 里触发查找/解析，银行家解析交给现有 AttachTo 链。
+    /// 零分配、直字段读（先例 PatchEconomy_Banker L261/293）；当前不是希腊世界、
+    /// _mainBanker 未就绪、或引用已属旧层/旧场景时一律返回 -1——绝不在 OnGUI 里触发
+    /// 查找/解析，银行家解析交给现有 AttachTo 链。其他世界由 HUD 侧隐藏自定义银行栏。
     /// </summary>
     internal static int GetStashedCoinsForPanel()
     {
         try
         {
+            if (!GreekBankScope.IsActive) return -1;
             Banker banker = _mainBanker;
-            if (banker == null) return -1;
+            if (!GreekBankScope.IsCurrentBanker(banker)) return -1;
             return Math.Max(0, banker._stashedCoins);
         }
         catch
@@ -556,11 +598,12 @@ public class BankAssistantCoordinator : MonoBehaviour
     {
         try
         {
-            if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth
-                || Time.timeScale <= 0f) return false;
+            // 希腊 scope + world auth + 本体身份/当前 gameLayer/scene 一次验证；
+            // 其他世界与其他世界的银行家一律不是采购主体。
+            if (!GreekBankScope.IsAuthorityBanker(banker) || Time.timeScale <= 0f) return false;
             BankAssistantCoordinator coordinator = _instance;
             Banker main = _mainBanker;
-            if (banker == null || coordinator == null || main == null) return false;
+            if (coordinator == null || main == null) return false;
             if (banker.Pointer != main.Pointer) return false;
             GameObject coordinatorGO = coordinator.gameObject;
             GameObject bankerGO = banker.gameObject;
@@ -690,13 +733,21 @@ public class BankAssistantCoordinator : MonoBehaviour
 
     public static void AttachTo(Banker banker)
     {
-        if (banker == null) return;
+        // 直接入口也走同一个世界/身份闸门：换世界/加载中不在这里绑定，
+        // 由 Banker.Update 的低频重试在世界就绪后再绑。
+        if (!GreekBankScope.IsCurrentBanker(banker)) return;
+
+        TickPendingCleanup();
+        if (_cleanupPending) return;
         BankAssistantCoordinator component = banker.GetComponent<BankAssistantCoordinator>();
         if (component == null) return;
 
+        // 换绑（新银行家/新层）：旧记账整表清空，原生回滚只作用于仍属当前 gameLayer
+        // 的对象；旧场景残留只丢引用，绝不向新世界发旧 actor 的 RPC。
         if (_instance != null && _instance != component)
             ResetAll(releaseClaims: NetworkBigBoss.HasWorldAuth, destroyActors: false);
 
+        if (_cleanupPending) return;
         _instance = component;
         _mainBanker = banker;
         _nextScanAt = Time.time + SCAN_INTERVAL;
@@ -705,6 +756,10 @@ public class BankAssistantCoordinator : MonoBehaviour
 
     public static void HandlePoolRebuild(PoolManager poolManager)
     {
+        // 直接入口的 scope 闸门：非希腊世界不 flush、不回收、不注册（池句柄已由
+        // PatchEconomy_BankAssistants.HandlePoolManagerRebuilt 无条件失效）。
+        if (!GreekBankScope.IsActive) return;
+
         PatchEconomy_BankAssistants.ClearPoolHandles();
         if (_instance == null || _mainBanker == null) return;
 
@@ -716,14 +771,23 @@ public class BankAssistantCoordinator : MonoBehaviour
     private void Update()
     {
         if (_instance != this || _mainBanker == null) return;
-        if (!ModConfig.Enabled.Value)
+        TickPendingCleanup();
+        if (_cleanupPending) return;
+
+        // 唯一世界判定。Unknown（加载中/读取异常）冻结但保留一切 receipt：加载图可能
+        // 还不完整，此时回收会丢认领、把旧对象当新对象。已知非希腊（其他世界/关闭）
+        // 才回收本 mod 的本地状态，且不再像旧实现那样直接 return 让助手/认领/采购单残留。
+        GreekBankScope.Scope scope = GreekBankScope.Current();
+        if (scope == GreekBankScope.Scope.Unknown)
         {
-            if (NetworkBigBoss.HasWorldAuth) FlushUncreditedCoins();
-            ResetAll(releaseClaims: NetworkBigBoss.HasWorldAuth, destroyActors: true, syncDespawn: true);
+            ResetAll(true, false);
             return;
         }
-        if (BiomeHolder.Inst == null
-            || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
+        if (scope != GreekBankScope.Scope.Active)
+        {
+            SuspendForScopeExit();
+            return;
+        }
 
         Managers managers = Managers.Inst;
         PoolManager poolManager = managers != null ? managers.pools : null;
@@ -747,8 +811,16 @@ public class BankAssistantCoordinator : MonoBehaviour
         _hadAuthority = true;
         if (Mathf.Approximately(Time.timeScale, 0f)) return;
 
-        if (poolManager == null || managers.world == null || managers.kingdom == null) return;
+        // 经济动作前再验证“当前希腊权威本体”（换岛加载中、本体身份失效时本帧不动，
+        // 绝不对旧层对象发 RPC、绝不向旧银行家入账）。
+        if (!GreekBankScope.IsAuthorityBanker(_mainBanker)) return;
+        if (managers.game == null || managers.game.state != Game.State.Playing) return;
+        if (poolManager == null || managers.world == null || managers.world.gameLayer == null
+            || managers.kingdom == null) return;
 
+        // 换岛/场景卸载后旧 actor 引用必须在本帧工作前丢弃，避免向新世界发送旧对象 RPC。
+        DropStaleWorldState(managers.world.gameLayer);
+        if (_cleanupPending) return;
         EnsureFourActors(managers.world.gameLayer);
         PatchEconomy_AutoRestock.Tick(_mainBanker, managers, Time.time >= _nextScanAt);
 
@@ -757,15 +829,155 @@ public class BankAssistantCoordinator : MonoBehaviour
             _nextScanAt = Time.time + SCAN_INTERVAL;
             ScanAndDispatch(managers);
         }
+        if (_cleanupPending) return;
         UpdateMovingAssistants();
         UpdateIdlePatrols(managers.kingdom);
+    }
+
+    /// <summary>
+    /// 已知离开希腊世界 / 关闭总开关：冻结并清理本 mod 的本地状态。
+    /// - 停采购：PatchEconomy_AutoRestock.Reset(false) 只释放本地 reservation，
+    ///   不回家瞬移、不向旧 actor 发位置 RPC；
+    /// - 释放本地 reservation、清本 mod 助手与 claim 记账；
+    /// - 原生回滚（恢复拾取策略、清友好认领、池回收）只在“仍持有 world auth 且对象仍属
+    ///   当前 world/gameLayer”时执行：客机不能替主机发认领/回收 RPC；旧场景对象更不碰，
+    ///   只丢引用，绝不把旧 actor 的状态带进新世界；
+    /// - 不向任何银行家入账：入账口本身已按希腊 scope + 权威身份闸门。
+    /// CarriedCoins 只是“拾取时已入账”的视觉/容量计数，不当作待存真实币；
+    /// UncreditedCoins 保留原语义（失败补记），此处不凭空增加也不当作已入账。
+    /// </summary>
+    private static void SuspendForScopeExit()
+    {
+        ResetAll(releaseClaims: true, destroyActors: true, syncDespawn: true);
+        _hadAuthority = false;
+    }
+
+    private static bool CleanupContextReady()
+    {
+        if (GreekBankScope.Current() == GreekBankScope.Scope.Unknown) return false;
+        Managers m = Managers.Inst;
+        return m != null && m.world != null && m.world.gameLayer != null
+            && m.world.gameLayer.gameObject != null && m.world.gameLayer.gameObject.activeInHierarchy
+            && m.game != null && (m.game.state == Game.State.Playing
+                || m.game.state == Game.State.NetworkClientPlaying || m.game.state == Game.State.Menu);
+    }
+
+    // Also called by the existing panel update, so disabled/destroyed coordinators
+    // cannot strand an owned coin policy. Unknown/loading/authority loss defer.
+    internal static void TickPendingCleanup()
+    {
+        if (!_cleanupPending) return;
+        bool foreign = GreekBankScope.Current() == GreekBankScope.Scope.Inactive;
+        ResetAll(true, _cleanupDestroyActors || foreign, _cleanupSyncDespawn || foreign);
+    }
+
+    private static bool TryRestoreClaim(DroppableCurrency coin, GameObject actor, PickUpPolicy original)
+    {
+        try
+        {
+            if (coin == null || coin.gameObject == null || !coin.isActiveAndEnabled) return true;
+            if (!CleanupContextReady()) return false;
+            // Read directly inside this try: a failed native read is not proof that
+            // the coin left the world. Keep its receipt and retry on read failure.
+            Transform layer = Managers.Inst.world.gameLayer;
+            if (!coin.transform.IsChildOf(layer)
+                || coin.gameObject.scene.handle != layer.gameObject.scene.handle) return true;
+            // The actor may have left the layer. We restore only the current coin;
+            // ClearFriendlyClaimIfClaimer and SendPolicyRPC target the coin, never
+            // the old actor's PositionSync or pool.
+            if (coin.friendlyClaimer != null && coin.friendlyClaimer != actor) return true;
+            if (coin.pickUpPolicy != PickUpPolicy.OnlyClaimer && coin.pickUpPolicy != original) return true;
+            if (!NetworkBigBoss.HasWorldAuth || (NetworkBigBoss.IsOnline
+                && (!NetworkBigBoss.HasClientCaughtUp || coin.parentHeaderRef == null))) return false;
+            coin.ClearFriendlyClaimIfClaimer(actor);
+            coin.pickUpPolicy = original;
+            coin.SendPolicyRPC();
+            return true;
+        }
+        catch { return false; } // retain receipt, including a failed final RPC
+    }
+
+    /// <summary>
+    /// 归还本补丁仍持有的顺吸认领：按币恢复原始拾取策略并清友好认领。只处理“仍在当前
+    /// world/gameLayer”的活币；旧场景/已销毁的币只丢本地记账，绝不触碰原生对象。
+    /// </summary>
+    private static bool RollbackOwnedClaimPolicies()
+    {
+        bool complete = true;
+        RemovalBuffer.Clear();
+        RemovalBuffer.AddRange(SweepPolicies.Keys);
+        foreach (int id in RemovalBuffer)
+        {
+            if (!SweepPolicies.TryGetValue(id, out PickUpPolicy original)) continue;
+            SweepCoins.TryGetValue(id, out DroppableCurrency coin);
+            GameObject actor = null;
+            if (Claims.TryGetValue(id, out int owner) && owner >= 0 && owner < Assistants.Length)
+                actor = Assistants[owner].Actor;
+            if (!TryRestoreClaim(coin, actor, original)) { complete = false; continue; }
+            SweepPolicies.Remove(id);
+            SweepCoins.Remove(id);
+            Claims.Remove(id);
+        }
+        RemovalBuffer.Clear();
+        return complete;
+    }
+
+    /// <summary>
+    /// 换岛/重建后旧场景对象只做本地清理：清掉本 mod 的认领记账与引用，绝不触碰
+    /// 可能已被卸载的原生对象，也绝不向新世界发送它们的 RPC。
+    /// </summary>
+    private static void DropStaleWorldState(Transform gameLayer)
+    {
+        foreach (var helper in Assistants)
+        {
+            if ((helper.Actor != null && (!helper.Actor.activeInHierarchy
+                    || !GreekBankScope.IsInCurrentLayer(helper.Actor)))
+                || (helper.Target != null && !GreekBankScope.IsInCurrentLayer(helper.Target)))
+            {
+                ResetAll(true, false);
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 只清本地认领记账，不触碰目标对象：用于对象已属旧场景（可能已卸载）的场合。
+    /// </summary>
+    private static void ForgetTargetLocally(AssistantState helper)
+    {
+        DroppableCurrency coin = helper.Target;
+        helper.Target = null;
+        helper.Moving = false;
+        if (coin == null) return;
+        try
+        {
+            if (coin.gameObject == null) return;
+            int id = coin.gameObject.GetInstanceID();
+            Claims.Remove(id);
+            SweepPolicies.Remove(id);
+            Observed.Remove(id);
+            FarmOriginCoinIds.Remove(id);
+        }
+        catch
+        {
+            // 已销毁对象取不到 id：这些记账随 SuspendForScopeExit/DropStaleWorldState
+            // 的整表清空一起丢弃，不会指到活对象上。
+        }
     }
 
     private void OnDestroy()
     {
         if (_instance != this) return;
-        if (NetworkBigBoss.HasWorldAuth) FlushUncreditedCoins();
-        ResetAll(releaseClaims: NetworkBigBoss.HasWorldAuth, destroyActors: false);
+        if (GreekBankScope.IsAuthorityBanker(_mainBanker))
+        {
+            FlushUncreditedCoins();
+            ResetAll(releaseClaims: true, destroyActors: false);
+        }
+        else
+        {
+            // 失权/非希腊/旧层：只丢本地引用，不向其他世界的对象发 RPC、不入账。
+            ResetAll(releaseClaims: false, destroyActors: false);
+        }
         _instance = null;
         _mainBanker = null;
         _loggedReady = false;
@@ -779,9 +991,16 @@ public class BankAssistantCoordinator : MonoBehaviour
         for (int i = 0; i < Assistants.Length; i++)
         {
             AssistantState helper = Assistants[i];
-            if (helper.Actor != null && helper.Actor.activeInHierarchy) continue;
+            if (helper.Actor != null && GreekBankScope.IsInCurrentLayer(helper.Actor)) continue;
+            // 旧场景/已销毁的 actor 引用：只丢本地记账，绝不触碰旧对象。
+            if (helper.Actor != null) ForgetTargetLocally(helper);
+            else if (helper.Target != null) ReleaseTarget(helper);
+            helper.Actor = null;
+            helper.Animator = null;
+            helper.PositionSync = null;
+            helper.CarriedCoins = 0;
+            helper.UncreditedCoins = 0;
             helper.RestockReserved = false;
-            if (helper.Target != null) ReleaseTarget(helper);
             ActiveCollector[i] = false;
             if (existingActors == null) existingActors = UnityEngine.Object.FindObjectsOfType<PositionSync>();
             string marker = ASSISTANT_PREFIX + i + "_";
@@ -790,8 +1009,10 @@ public class BankAssistantCoordinator : MonoBehaviour
                 PositionSync candidate = existingActors[j];
                 if (candidate == null || candidate.gameObject == null
                     || !candidate.gameObject.activeInHierarchy
-                    || !candidate.gameObject.name.StartsWith(marker, StringComparison.Ordinal)) continue;
+                    || !candidate.gameObject.name.StartsWith(marker, StringComparison.Ordinal)
+                    || !GreekBankScope.IsInCurrentLayer(candidate.gameObject)) continue;
                 helper.Actor = candidate.gameObject;
+                PatchEconomy_BankAssistants.ApplyAssistantScale(helper.Actor);
                 helper.Animator = helper.Actor.GetComponent<Animator>();
                 helper.PositionSync = candidate;
                 helper.PatrolRight = (i & 1) == 0;
@@ -805,7 +1026,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         for (int i = 0; i < Assistants.Length; i++)
         {
             AssistantState helper = Assistants[i];
-            if (helper.Actor != null && helper.Actor.activeInHierarchy) continue;
+            if (helper.Actor != null && GreekBankScope.IsInCurrentLayer(helper.Actor)) continue;
 
             GameObject prefab = PatchEconomy_BankAssistants.GetPrefab(i);
             if (prefab == null || Pool.GetPoolFromPrefabAsset(prefab) == null) continue;
@@ -817,6 +1038,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             if (actor == null) continue;
 
             helper.Actor = actor;
+            PatchEconomy_BankAssistants.ApplyAssistantScale(actor);
             helper.Animator = actor.GetComponent<Animator>();
             helper.PositionSync = actor.GetComponent<PositionSync>();
             helper.Target = null;
@@ -1046,6 +1268,7 @@ public class BankAssistantCoordinator : MonoBehaviour
 
     private static void CleanupNoCandidates()
     {
+        if (!RollbackOwnedClaimPolicies()) { _cleanupPending = true; return; }
         LiveClaimIds.Clear();
         for (int i = 0; i < Assistants.Length; i++)
         {
@@ -1075,6 +1298,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         Observed.Clear();
         MatureBuffer.Clear();
         SweepPolicies.Clear();
+        SweepCoins.Clear();
         FarmOriginCoinIds.Clear();
     }
 
@@ -1142,6 +1366,9 @@ public class BankAssistantCoordinator : MonoBehaviour
 
     private static bool TryAssign(AssistantState helper, DroppableCurrency coin)
     {
+        if (_cleanupPending || !GreekBankScope.IsAuthorityBanker(_mainBanker)
+            || helper == null || !GreekBankScope.IsInCurrentLayer(helper.Actor)
+            || !GreekBankScope.IsInCurrentLayer(coin) || helper.Target != null) return false;
         if (helper.RestockReserved || helper.Actor == null || coin == null) return false;
         if (NetworkBigBoss.IsOnline
             && (!NetworkBigBoss.HasClientCaughtUp || helper.PositionSync == null
@@ -1152,10 +1379,14 @@ public class BankAssistantCoordinator : MonoBehaviour
         if (!coin.TryFriendlyClaim(helper.Actor, 20f)) return false;
 
         helper.OriginalPolicy = coin.pickUpPolicy;
-        coin.pickUpPolicy = PickUpPolicy.OnlyClaimer;
-        coin.SendPolicyRPC();
         Claims[id] = helper.Index;
         helper.Target = coin;
+        try
+        {
+            coin.pickUpPolicy = PickUpPolicy.OnlyClaimer;
+            coin.SendPolicyRPC();
+        }
+        catch { _cleanupPending = true; return false; }
 
         float coinX = coin.transform.position.x;
         bool needsApproachTeleport = helper.CarriedCoins == 0
@@ -1303,6 +1534,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             // 顺路扫吸：移动后先吸收 SWEEP_RADIUS 内未认领的成熟币（目标币已在
             // Claims 中，天然跳过）。结算路径与目标币完全一致，一路跑一路吸。
             SweepNearbyCoins(helper);
+            if (_cleanupPending) return;
             if (helper.Actor == null || helper.Target == null) continue;
 
             current = helper.Actor.transform.position;
@@ -1402,6 +1634,7 @@ public class BankAssistantCoordinator : MonoBehaviour
 
             Pool.Despawn(coin.gameObject, true);
             SweepPolicies.Remove(id);
+            SweepCoins.Remove(id);
             Claims.Remove(id);
             Observed.Remove(id);
             FarmOriginCoinIds.Remove(id);
@@ -1416,6 +1649,9 @@ public class BankAssistantCoordinator : MonoBehaviour
 
     private static bool TryClaimSweepCoin(AssistantState helper, DroppableCurrency coin)
     {
+        if (_cleanupPending || !GreekBankScope.IsAuthorityBanker(_mainBanker)
+            || helper == null || !GreekBankScope.IsInCurrentLayer(helper.Actor)
+            || !GreekBankScope.IsInCurrentLayer(coin)) return false;
         if (helper.RestockReserved || helper.Actor == null || coin == null) return false;
         if (NetworkBigBoss.IsOnline
             && (!NetworkBigBoss.HasClientCaughtUp || helper.PositionSync == null
@@ -1427,9 +1663,14 @@ public class BankAssistantCoordinator : MonoBehaviour
 
         // 顺吸可能同时持有多个认领，原始策略按币记录，绝不覆盖单槽 OriginalPolicy。
         SweepPolicies[id] = coin.pickUpPolicy;
-        coin.pickUpPolicy = PickUpPolicy.OnlyClaimer;
-        coin.SendPolicyRPC();
+        SweepCoins[id] = coin;
         Claims[id] = helper.Index;
+        try
+        {
+            coin.pickUpPolicy = PickUpPolicy.OnlyClaimer;
+            coin.SendPolicyRPC();
+        }
+        catch { _cleanupPending = true; return false; }
         return true;
     }
 
@@ -1439,15 +1680,12 @@ public class BankAssistantCoordinator : MonoBehaviour
     {
         if (coin == null || coin.gameObject == null) return;
         int id = coin.gameObject.GetInstanceID();
-        if (SweepPolicies.TryGetValue(id, out PickUpPolicy original))
-        {
-            coin.pickUpPolicy = original;
-            coin.SendPolicyRPC();
-        }
+        if (SweepPolicies.TryGetValue(id, out PickUpPolicy original)
+            && !TryRestoreClaim(coin, helper.Actor, original))
+        { _cleanupPending = true; return; }
         SweepPolicies.Remove(id);
+        SweepCoins.Remove(id);
         Claims.Remove(id);
-        if (coin.friendlyClaimer == helper.Actor || coin.friendlyClaimer == null)
-            coin.ClearFriendlyClaimIfClaimer(helper.Actor);
     }
 
     private static void UpdateIdlePatrols(Kingdom kingdom)
@@ -1528,9 +1766,14 @@ public class BankAssistantCoordinator : MonoBehaviour
 
     private static bool CanCommitPickup(AssistantState helper, DroppableCurrency coin)
     {
-        if (!NetworkBigBoss.HasWorldAuth || helper == null || helper.Actor == null
+        // 结算（含 SetFake/入账）只在希腊世界权威侧发生；其他世界一律拒绝。
+        if (!GreekBankScope.IsActive || !NetworkBigBoss.HasWorldAuth
+            || helper == null || helper.Actor == null
             || coin == null || coin.gameObject == null || !coin.isActiveAndEnabled
             || coin.pickedUp || coin.IsFake()) return false;
+        if (!GreekBankScope.IsAuthorityBanker(_mainBanker)
+            || !GreekBankScope.IsInCurrentLayer(helper.Actor)
+            || !GreekBankScope.IsInCurrentLayer(coin)) return false;
         // 与 IsTrackableCoin 同步：农田币走来源标记准入（droppedBy 与扫描侧一致放宽）。
         if (coin.droppedBy != DropType.Player && !IsFarmOriginCoin(coin))
             return false;
@@ -1567,30 +1810,23 @@ public class BankAssistantCoordinator : MonoBehaviour
         return coin.friendlyClaimer == helper.Actor;
     }
 
-    private static void ReleaseTarget(AssistantState helper)
+    private static bool ReleaseTarget(AssistantState helper)
     {
         DroppableCurrency coin = helper.Target;
+        if (!TryRestoreClaim(coin, helper.Actor, helper.OriginalPolicy))
+        { _cleanupPending = true; return false; }
+        if (coin != null && coin.gameObject != null) Claims.Remove(coin.gameObject.GetInstanceID());
         helper.Target = null;
         helper.Moving = false;
-        SetAnimationSpeed(helper, 0f);
+        if (helper.Actor != null && GreekBankScope.IsInCurrentLayer(helper.Actor)) SetAnimationSpeed(helper, 0f);
         helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(helper.Index);
-        if (coin == null || coin.gameObject == null) return;
-
-        int id = coin.gameObject.GetInstanceID();
-        Claims.Remove(id);
-        if (coin.isActiveAndEnabled
-            && (coin.friendlyClaimer == helper.Actor || coin.friendlyClaimer == null))
-        {
-            coin.ClearFriendlyClaimIfClaimer(helper.Actor);
-            coin.pickUpPolicy = helper.OriginalPolicy;
-            coin.SendPolicyRPC();
-        }
+        return true;
     }
 
     private static void TeleportHomeAndDeposit(AssistantState helper)
     {
         if (helper.Actor == null) return;
-        if (helper.Target != null) ReleaseTarget(helper);
+        if (helper.Target != null && !ReleaseTarget(helper)) return;
 
         Vector3 home = GetHomePosition(helper.Index);
         if (Vector3.Distance(helper.Actor.transform.position, home) > 0.05f)
@@ -1665,47 +1901,65 @@ public class BankAssistantCoordinator : MonoBehaviour
         PatchEconomy_AutoRestock.Reset(false);
         AutoRestockCounts.Reset();
         foreach (var helper in Assistants) helper.RestockReserved = false;
-        for (int i = 0; i < Assistants.Length; i++)
+        _cleanupPending = true;
+        _cleanupDestroyActors |= destroyActors;
+        _cleanupSyncDespawn |= syncDespawn;
+        // Never discard live claim ownership merely because auth/biome is temporarily unknown.
+        bool authority = NetworkBigBoss.HasWorldAuth;
+        bool ready = CleanupContextReady();
+        bool ownsNative = false;
+        foreach (var helper in Assistants) ownsNative |= helper.Target != null || helper.Actor != null;
+        foreach (var coin in SweepCoins.Values) ownsNative |= coin != null;
+        // Idle actors still belong to this cleanup operation. Do not forget them
+        // while loading or on a client; once every native object is gone, clearing
+        // only these local records is safe even without authority.
+        if (ownsNative && (!authority || !ready)) return;
+        bool released = RollbackOwnedClaimPolicies();
+        foreach (var helper in Assistants)
+            if (helper.Target != null && !ReleaseTarget(helper)) released = false;
+        if (!released) return;
+        foreach (var helper in Assistants)
         {
-            AssistantState helper = Assistants[i];
-            if (releaseClaims && helper.Target != null) ReleaseTarget(helper);
-            else helper.Target = null;
-
-            if (destroyActors && helper.Actor != null)
+            bool current = helper.Actor != null && GreekBankScope.IsInCurrentLayer(helper.Actor);
+            if (_cleanupDestroyActors && current && authority && ready)
             {
-                if (syncDespawn && Pool.GetPoolByInstance(helper.Actor) != null)
-                    Pool.Despawn(helper.Actor, true);
-                else
-                    UnityEngine.Object.Destroy(helper.Actor);
+                if (NetworkBigBoss.IsOnline && (!NetworkBigBoss.HasClientCaughtUp
+                    || helper.PositionSync == null || helper.PositionSync.parentHeaderRef == null)) return;
+                try
+                {
+                    if (_cleanupSyncDespawn && Pool.GetPoolByInstance(helper.Actor) != null)
+                        Pool.Despawn(helper.Actor, true);
+                    else UnityEngine.Object.Destroy(helper.Actor);
+                }
+                catch { return; }
             }
-
             helper.Actor = null;
             helper.Animator = null;
             helper.PositionSync = null;
-            helper.CarriedCoins = 0;
+            helper.CarriedCoins = 0; // already credited at pickup; never deposit twice
             helper.UncreditedCoins = 0;
             helper.Moving = false;
-            helper.PatrolRight = (i & 1) == 0;
-            helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(i);
+            helper.PatrolRight = (helper.Index & 1) == 0;
+            helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(helper.Index);
         }
         for (int i = 0; i < ActiveCollector.Length; i++) ActiveCollector[i] = false;
         _nextCollectorIndex = 0;
-        Claims.Clear();
-        Observed.Clear();
-        SeenThisScan.Clear();
-        MatureBuffer.Clear();
-        RemovalBuffer.Clear();
-        SweepPolicies.Clear();
-        FarmOriginCoinIds.Clear();
+        Claims.Clear(); Observed.Clear(); SeenThisScan.Clear(); MatureBuffer.Clear();
+        RemovalBuffer.Clear(); SweepPolicies.Clear(); SweepCoins.Clear(); FarmOriginCoinIds.Clear();
         _lastLoggedActiveCount = -1;
         _nextActiveCountLogAt = 0f;
         _nextScanAt = Time.time + SCAN_INTERVAL;
         _nextDiagnosticsAt = Time.time;
+        _cleanupPending = _cleanupDestroyActors = _cleanupSyncDespawn = false;
     }
 
+    /// <summary>
+    /// 只处理“上次提交失败遗留的补记”。希腊入账在拾取时已完成，CarriedCoins 不是
+    /// 待存金币，绝不能在这里当作真实币再入一次账（会复制钱）。非希腊/非权威一律不动。
+    /// </summary>
     private static void FlushUncreditedCoins()
     {
-        if (!NetworkBigBoss.HasWorldAuth || _mainBanker == null) return;
+        if (_mainBanker == null || !GreekBankScope.IsAuthorityBanker(_mainBanker)) return;
         for (int i = 0; i < Assistants.Length; i++)
         {
             AssistantState helper = Assistants[i];
@@ -1748,7 +2002,10 @@ public static class Droppable_FarmCoinOrigin_Mark_Patch
     {
         if (__instance == null || __instance.gameObject == null) return;
         int id = __instance.gameObject.GetInstanceID();
-        if (dropper != null && dropper.GetComponentInParent<Farmland>() != null)
+        // 只在当前希腊世界打新标记；其他世界绝不新增。清标始终允许（池复用必须清掉
+        // 上一个实例的残留标记，否则坐骑技/狩猎掉币会被误当农田币）。
+        if (dropper != null && dropper.GetComponentInParent<Farmland>() != null
+            && GreekBankScope.IsActive)
             BankAssistantCoordinator.MarkFarmCoin(id);
         else
             BankAssistantCoordinator.ClearFarmCoin(id);
@@ -1771,15 +2028,23 @@ public static class Droppable_FarmCoinOrigin_Clear_Patch
     }
 }
 
-/// <summary>Pool lifecycle bridge for clearing client-side visual interpolation caches.</summary>
+/// <summary>Pool lifecycle bridge for scoped sizing and client-side interpolation caches.</summary>
 public class BankAssistantVisualLifecycle : MonoBehaviour
 {
     public BankAssistantVisualLifecycle(IntPtr ptr) : base(ptr) { }
 
+    private void OnEnable()
+    {
+        PatchEconomy_BankAssistants.ApplyAssistantScale(gameObject);
+    }
+
     private void OnDisable()
     {
         if (gameObject != null)
+        {
+            GreekScaleScope.Restore(transform);
             PositionSync_BankAssistantAnimation_Patch.Forget(gameObject.GetInstanceID());
+        }
     }
 }
 
@@ -1804,7 +2069,9 @@ public static class PositionSync_BankAssistantAnimation_Patch
     [HarmonyPostfix]
     public static void Postfix(PositionSync __instance)
     {
-        if (!ModConfig.Enabled.Value || NetworkBigBoss.HasWorldAuth
+        // 纯本地视觉补间，只作用于本 mod 的助手 actor（只可能在希腊世界存在）；
+        // 不因无主机权限关闭，但离开希腊后不再驱动旧对象。
+        if (!GreekBankScope.IsActive || NetworkBigBoss.HasWorldAuth
             || !PatchEconomy_BankAssistants.IsAssistantPositionSync(__instance)) return;
 
         GameObject actor = __instance.gameObject;

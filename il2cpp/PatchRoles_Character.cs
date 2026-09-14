@@ -55,9 +55,7 @@ public static class Character_Promote_Patch
             newChar.transform.parent = __instance.transform.parent;
             newChar.transform.position = position;
             // 希腊居民缩放：只改 y，保留 x 朝向符号与 z。
-            Vector3 scale = newChar.transform.localScale;
-            scale.y = 1.125f;
-            newChar.transform.localScale = scale;
+            GreekScaleScope.ApplyY(newChar.transform, 1.125f);
 
             newChar.skinColor = skinColor;
             newChar.outfitColor = outfitColor;

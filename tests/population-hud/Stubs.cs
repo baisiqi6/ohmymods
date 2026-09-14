@@ -95,6 +95,7 @@ namespace KingdomEnhancedMod
  {
   public class Flag {public bool Value=true;}
   public static Flag Enabled=new(),ShowPopulationHud=new(),AutoRestockWorkersEnabled=new(){Value=false};
+  public static Flag AutoRestockCatapultBarrelsEnabled=new(){Value=false},AutoRestockFireTowerAmmoEnabled=new(){Value=false};
  }
  public static class PatchRoles_KnightStyle
  {

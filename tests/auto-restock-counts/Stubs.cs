@@ -43,11 +43,13 @@ namespace UnityEngine
     public class GameObject
     {
         public IntPtr Pointer;
+        public string tag;
         public bool activeInHierarchy = true;
         public bool throwOnGetComponent;
-        public Scene scene;
+        public UnityEngine.Scene scene;
         public Transform transform;
         public readonly List<Component> components = new List<Component>();
+        public bool CompareTag(string t) => tag == t;
         public T GetComponent<T>() where T : Component
         {
             if (throwOnGetComponent) throw new InvalidOperationException("GetComponent failed");
@@ -101,6 +103,7 @@ namespace KingdomEnhancedMod
         public static BepInEx.Configuration.ConfigEntry<bool> AutoRestockNinjasEnabled;
         public static BepInEx.Configuration.ConfigEntry<bool> AutoRestockBerserkersEnabled;
         public static BepInEx.Configuration.ConfigEntry<bool> AutoRestockPeasantsEnabled;
+        public static BepInEx.Configuration.ConfigEntry<bool> AutoRestockFarmersEnabled;
     }
 }
 
@@ -139,6 +142,7 @@ public class Ninja : UnityEngine.Component { public bool _isFisher; }
 public class Archer : UnityEngine.Component { }
 public class Worker : UnityEngine.Component { }
 public class Peasant : UnityEngine.Component { }
+public class Farmer : UnityEngine.Component { }
 public class Beggar : UnityEngine.Component
 {
     public Character _character;

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Direct-linked combat tests for il2cpp/PatchArcher_Options.cs.
+    Only the native boundary is stubbed (UnityEngine / HarmonyLib / game types / root-owned
+    ModConfig+ArcherOptionsScope). The production source itself is compiled into this assembly
+    unchanged, so the tests exercise the real code paths.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>KingdomArcherOptions.Combat.Tests</AssemblyName>
+    <RootNamespace>KingdomArcherOptions.Combat.Tests</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);CS0649;CS0169</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <Compile Include="Stubs/*.cs" />
+    <Compile Include="../../../il2cpp/PatchArcher_Options.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+</Project>

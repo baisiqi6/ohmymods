@@ -9,12 +9,13 @@ namespace KingdomEnhancedMod;
 public class ModPanel : MonoBehaviour
 {
     private static bool _shown;
+    internal static bool IsShown => _shown;
     private static GUISkin _skin;
     private static GUIStyle _title, _label, _muted, _value, _tab, _activeTab, _button, _card;
     private static Texture2D _back, _cardBack, _gold, _track, _thumb;
     private static Vector2 _scroll;
     private static int _category;
-    private static readonly string[] Categories = { "王国", "人口", "世界", "战斗", "自动补货" };
+    private static readonly string[] Categories = { "王国", "人口", "世界", "战斗", "自动补货", "便捷", "弓箭" };
     private static readonly Color Gold = new Color(0.91f, 0.75f, 0.43f);
     private static readonly Color Text = new Color(0.94f, 0.94f, 0.91f);
     private static readonly Color Muted = new Color(0.65f, 0.71f, 0.77f);
@@ -45,6 +46,17 @@ public class ModPanel : MonoBehaviour
         catch { /* CalendarHud backs off internally; input toggles have already been handled. */ }
         try { PopulationHud.Tick(); }
         catch { /* Counts are an independent read-only overlay; settings shortcuts remain available. */ }
+        PatchRoles_Hermit.Tick();
+        GreekScaleScope.Tick();
+        PatchEconomy_Banker.TickOwnedProfiles();
+        BankAssistantCoordinator.TickPendingCleanup();
+        PatchPlayer_HoldPurchase.Tick();
+        PatchWorld_OptionalVegetation.Tick();
+        PatchArcher_Options.Tick();
+        PatchArcher_Impact.Tick();
+        PatchDivine_HermesHeadwear.Tick();
+        PatchRoles_Crossbowman.Tick();
+        ShopCleanupQueue.TickPendingCleanup();
     }
 
     private static bool _faultLogged;
@@ -197,9 +209,12 @@ public class ModPanel : MonoBehaviour
         ImGuiCompat.DrawTexture(new Rect(0, 0, width, 3), _gold);
         GUI.Label(new Rect(24, 18, 520, 42), "王国 · 增强设置", _title);
         GUI.Label(new Rect(26, 62, 560, 28), "KINGDOM ENHANCED  /  调整你的王国", _muted);
-        int stashed = BankAssistantCoordinator.GetStashedCoinsForPanel();
-        GUI.Box(new Rect(width - 334, 27, 230, 44),
-            stashed < 0 ? "银行 · 未就绪" : "银行 · " + stashed + " 币", _value);
+        if (GreekBankScope.IsActive)
+        {
+            int stashed = BankAssistantCoordinator.GetStashedCoinsForPanel();
+            GUI.Box(new Rect(width - 334, 27, 230, 44),
+                stashed < 0 ? "银行 · 未就绪" : "银行 · " + stashed + " 币", _value);
+        }
         if (GUI.Button(new Rect(width - 84, 27, 58, 44), "关闭", _button)) _shown = false;
 
         float tabWidth = (width - 48f - 8f * (Categories.Length - 1)) / Categories.Length;
@@ -214,7 +229,7 @@ public class ModPanel : MonoBehaviour
         }
 
         float viewHeight = height - 224f;
-        int cards = _category == 4 ? 5 : (_category == 0 || _category == 3 ? 4 : 3);
+        int cards = _category == 4 ? 8 : (_category == 3 ? 5 : (_category == 0 ? 4 : 3));
         float contentHeight = cards * (CardHeight + 12f);
         Rect viewport = new Rect(24, 176, width - 48, viewHeight);
         Rect content = new Rect(0, 0, width - 74, Mathf.Max(viewHeight, contentHeight));
@@ -238,7 +253,7 @@ public class ModPanel : MonoBehaviour
                 break;
             case 1:
                 Toggle(ref y, width, "常驻职业与骑士人数", ModConfig.ShowPopulationHud,
-                    "单机/主机左上角显示本岛存活人数和五世界骑士；不含装备，客机暂无名册。");
+                    "单机/主机左上角显示本岛存活人数、五世界骑士和两类弹药数量；客机暂无可靠统计。");
                 IntegerSlider(ref y, width, "乞丐刷新间隔", ModConfig.BeggarSpawnIntervalSeconds, 1, 120, "秒",
                     "约 0.5 秒内应用，重新计时；每次补 1 人。原生回退最短约 6 秒。");
                 IntegerSlider(ref y, width, "每座乞丐帐篷上限", ModConfig.BeggarCampCapacity, 1, 20, "人",
@@ -246,7 +261,7 @@ public class ModPanel : MonoBehaviour
                 break;
             case 2:
                 Toggle(ref y, width, "常驻时间与银行", ModConfig.ShowCalendarHud,
-                    "显示总天数、整点、季节进度和银行金币；关闭此项恢复原本界面。");
+                    "显示总天数、整点和季节进度；希腊世界额外显示银行金币。");
                 FloatSlider(ref y, width, "地图大小", ModConfig.MapSizeMultiplier, 1, 5, false,
                     "生成新地图时生效。");
                 FloatSlider(ref y, width, "箭塔基底密度", ModConfig.TowerSpotMultiplier, 1, 4, false,
@@ -259,6 +274,8 @@ public class ModPanel : MonoBehaviour
                     "后续进攻计算时生效 · 倍率越高，敌军成长越快。");
                 FloatSlider(ref y, width, "法杖神器冷却", ModConfig.StaffCooldownMultiplier, 0.2f, 1, true,
                     "当前 " + (30f * ModConfig.StaffCooldownMultiplier.Value).ToString("0.##") + " 秒 / 原生 30 秒 · 使用时生效。");
+                Toggle(ref y, width, "法杖随机头饰", ModConfig.HermesHeadwearEnabled,
+                    "新转化小怪有 " + ModConfig.HermesHeadwearChancePercent.Value + "% 概率戴跨世界面具或周年头饰；纯外观，读档不重抽。");
                 FloatSlider(ref y, width, "坐骑技能冷却", ModConfig.SteedCooldownMultiplier, 0.2f, 1, true,
                     "使用时生效 · 原生冷却因坐骑而异。");
                 break;
@@ -268,14 +285,71 @@ public class ModPanel : MonoBehaviour
                 RestockControl(ref y, width, "忍者", 2, ModConfig.AutoRestockNinjasEnabled, ModConfig.AutoRestockNinjasTarget);
                 RestockControl(ref y, width, "狂战士", 3, ModConfig.AutoRestockBerserkersEnabled, ModConfig.AutoRestockBerserkersTarget);
                 RestockControl(ref y, width, "无业村民 · 面包", 4, ModConfig.AutoRestockPeasantsEnabled, ModConfig.AutoRestockPeasantsTarget);
+                RestockControl(ref y, width, "农民 · 镰刀", 5, ModConfig.AutoRestockFarmersEnabled, ModConfig.AutoRestockFarmersTarget);
+                RestockControl(ref y, width, "投石车 · 火药桶", 6, ModConfig.AutoRestockCatapultBarrelsEnabled, ModConfig.AutoRestockCatapultBarrelsTarget);
+                RestockControl(ref y, width, "希腊火焰塔 · 弹药", 7, ModConfig.AutoRestockFireTowerAmmoEnabled, ModConfig.AutoRestockFireTowerAmmoTarget);
+                break;
+            case 5:
+                Toggle(ref y, width, "长按连续购买", ModConfig.HoldPurchaseEnabled,
+                    "所有世界 · 起初正常，持续按住后快速投币并连续购买同店商品；松开即停。");
+                DenseThicketControl(ref y, width);
+                Toggle(ref y, width, "森林快速消退", ModConfig.FastForestRecedeEnabled,
+                    "所有世界 · 砍树后的森林消退等待缩至三分之一；关闭后的新消退使用原版速度。");
+                break;
+            case 6:
+                ModConfig.ArcherVolleyCount.Value = (int)ArcherControl(ref y, width, "弓箭散射", ModConfig.ArcherScatterEnabled,
+                    ModConfig.ArcherVolleyCount.Value, 1, 5, 1, ModConfig.ArcherVolleyCount.Value + " 支 / 发",
+                    "所有世界 · 总数包含原生主箭；密集齐射时自动限制额外箭，减少卡顿。");
+                ModConfig.ArcherRateMultiplier.Value = ArcherControl(ref y, width, "弓箭手射速", ModConfig.ArcherRateEnabled,
+                    ModConfig.ArcherRateMultiplier.Value, 1, 2, 0.25f, ModConfig.ArcherRateMultiplier.Value.ToString("0.##") + " 倍",
+                    "所有世界 · 最高 2 倍，关闭恢复原版；不加快移动和游戏时间。");
+                Toggle(ref y, width, "弓箭命中火焰特效", ModConfig.ArcherImpactEnabled,
+                    "单机 / 主机画面 · 短暂火焰冲击，限制同屏数量；不额外增加火焰伤害。");
                 break;
         }
+    }
+
+    private static float ArcherControl(ref float y, float width, string title, ConfigEntry<bool> enabled,
+        float value, float min, float max, float step, string display, string help)
+    {
+        Card(y, width, title, display, help);
+        if (GUI.Button(new Rect(22, y + 51, 104, 31), enabled.Value ? "已开启" : "已关闭",
+                enabled.Value ? _activeTab : _button)) enabled.Value = !enabled.Value;
+        if (GUI.Button(new Rect(138, y + 51, 34, 31), "−", _button)) value = Mathf.Max(min, value - step);
+        if (GUI.Button(new Rect(width - 52, y + 51, 34, 31), "+", _button)) value = Mathf.Min(max, value + step);
+        EventType type = Event.current.type;
+        bool input = type == EventType.MouseDown || type == EventType.MouseDrag || type == EventType.KeyDown;
+        bool changed = GUI.changed;
+        GUI.changed = false;
+        float raw = GUI.HorizontalSlider(new Rect(188, y + 59, width - 258, 28), value, min, max);
+        if (input && GUI.changed) value = Mathf.Clamp(Mathf.RoundToInt(raw / step) * step, min, max);
+        GUI.changed |= changed;
+        y += CardHeight + 12;
+        return value;
+    }
+
+    private static void DenseThicketControl(ref float y, float width)
+    {
+        bool cleaning = PatchWorld_OptionalVegetation.IsCleaning;
+        bool enabled = ModConfig.DenseThicketsEnabled.Value;
+        Card(y, width, "灌木双倍密度", cleaning ? "额外灌木枯萎中" : (enabled ? "已开启" : "已关闭"),
+            "所有世界 · 关闭只清理额外生长的灌木，全部枯萎后才能再次开启。");
+        bool wasEnabled = GUI.enabled;
+        try
+        {
+            GUI.enabled = wasEnabled && !cleaning;
+            if (GUI.Button(new Rect(22, y + 51, 145, 31), cleaning ? "等待枯萎完成" : (enabled ? "关闭" : "开启"),
+                    enabled ? _activeTab : _button))
+                PatchWorld_OptionalVegetation.TrySetDenseThickets(!enabled);
+        }
+        finally { GUI.enabled = wasEnabled; }
+        y += CardHeight + 12;
     }
 
     private static void RestockControl(ref float y, float width, string title, int role,
         ConfigEntry<bool> enabled, ConfigEntry<int> target)
     {
-        Card(y, width, title + "自动补货", "目标 " + target.Value + " 人",
+        Card(y, width, title + "自动补货", "目标 " + target.Value + (role >= 6 ? " 份" : " 人"),
             "双倍金库付款 · " + PatchEconomy_AutoRestock.GetSummary(role));
         if (GUI.Button(new Rect(22, y + 51, 104, 31), enabled.Value ? "已开启" : "已关闭",
                 enabled.Value ? _activeTab : _button)) enabled.Value = !enabled.Value;

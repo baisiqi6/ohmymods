@@ -12,12 +12,21 @@ public static class ModConfig
     internal const int DefaultBeggarSpawnIntervalSeconds = 120;
     internal const int DefaultBeggarCampCapacity = 4;
 
+    private static void OnHermesHeadwearSettingsChanged(object sender, System.EventArgs args)
+        => PatchDivine_HermesHeadwear.OnSettingsChanged();
+
     public static ConfigEntry<bool> Enabled;
     public static ConfigEntry<bool> InfiniteMoney;
     public static ConfigEntry<int> SpeedMultiplier;
     public static ConfigEntry<bool> FastBuild;
     public static ConfigEntry<bool> ShowCalendarHud;
     public static ConfigEntry<bool> ShowPopulationHud;
+    public static ConfigEntry<bool> HoldPurchaseEnabled, DenseThicketsEnabled, FastForestRecedeEnabled;
+    public static ConfigEntry<bool> ArcherScatterEnabled, ArcherRateEnabled, ArcherImpactEnabled;
+    public static ConfigEntry<int> ArcherVolleyCount;
+    public static ConfigEntry<float> ArcherRateMultiplier;
+    public static ConfigEntry<bool> HermesHeadwearEnabled;
+    public static ConfigEntry<int> HermesHeadwearChancePercent;
     public static ConfigEntry<int> BeggarSpawnIntervalSeconds;
     public static ConfigEntry<int> BeggarCampCapacity;
     public static ConfigEntry<float> MapSizeMultiplier;
@@ -28,8 +37,10 @@ public static class ModConfig
     public static ConfigEntry<float> SteedCooldownMultiplier;
     public static ConfigEntry<bool> AutoRestockWorkersEnabled, AutoRestockArchersEnabled,
         AutoRestockNinjasEnabled, AutoRestockBerserkersEnabled, AutoRestockPeasantsEnabled;
+    public static ConfigEntry<bool> AutoRestockFarmersEnabled, AutoRestockCatapultBarrelsEnabled, AutoRestockFireTowerAmmoEnabled;
     public static ConfigEntry<int> AutoRestockWorkersTarget, AutoRestockArchersTarget,
         AutoRestockNinjasTarget, AutoRestockBerserkersTarget, AutoRestockPeasantsTarget;
+    public static ConfigEntry<int> AutoRestockFarmersTarget, AutoRestockCatapultBarrelsTarget, AutoRestockFireTowerAmmoTarget;
 
     public static void Init(ConfigFile config)
     {
@@ -39,18 +50,46 @@ public static class ModConfig
         InfiniteMoney = config.Bind("Economy", "InfiniteMoney", false,
             "无限金币：开启后玩家金币用不完");
 
+        HoldPurchaseEnabled = config.Bind("Convenience", "HoldPurchaseEnabled", false,
+            "所有世界：开始按原版投币，持续按住后加快投槽并连续购买同店商品；关闭保留原版操作");
+        DenseThicketsEnabled = config.Bind("Convenience", "DenseThicketsEnabled", false,
+            "所有世界：灌木生长间距减半；关闭后额外灌木快速枯萎，清理完成前不能重新开启");
+        FastForestRecedeEnabled = config.Bind("Convenience", "FastForestRecedeEnabled", false,
+            "所有世界：砍树后的原生森林消退等待缩至三分之一；关闭后的新消退按原版等待");
+        ArcherScatterEnabled = config.Bind("Archer", "ScatterEnabled", false, "所有世界：弓箭手射击时增加扇形散射箭；保留原生主箭，密集射击时自动限流");
+        ArcherVolleyCount = config.Bind("Archer", "VolleyCount", 3,
+            new ConfigDescription("每发箭的总数量（含原生主箭），上限5支；高负载时额外箭受全场限额约束", new AcceptableValueRange<int>(1, 5)));
+        ArcherRateEnabled = config.Bind("Archer", "RateEnabled", false, "所有世界：加快弓箭手准备、连射和冷却节奏，关闭恢复原版节奏");
+        ArcherRateMultiplier = config.Bind("Archer", "RateMultiplier", 1.5f,
+            new ConfigDescription("弓箭手射速倍率，上限2倍；不改变移动和全局时间", new AcceptableValueRange<float>(1f, 2f)));
+        ArcherImpactEnabled = config.Bind("Archer", "ImpactEnabled", false, "所有世界：单机/主机画面显示短暂火焰冲击；仅视觉效果，复用并限制同屏数量");
+        HermesHeadwearEnabled = config.Bind("HermesHeadwear", "Enabled", true,
+            "法杖新转化的小怪有概率获得跨世界面具或周年头饰；纯外观，关闭隐藏，重新开启保持原选择");
+        HermesHeadwearChancePercent = config.Bind("HermesHeadwear", "ChancePercent", 30,
+            new ConfigDescription("只影响此后法杖新转化的小怪，已有小怪和读档不重新抽选", new AcceptableValueRange<int>(0, 100)));
+        HermesHeadwearEnabled.SettingChanged += OnHermesHeadwearSettingsChanged;
+        Enabled.SettingChanged += OnHermesHeadwearSettingsChanged;
+
         AutoRestockWorkersEnabled = config.Bind("AutoRestock", "WorkersEnabled", false, "税收官从金库自动购买工匠锤子");
         AutoRestockArchersEnabled = config.Bind("AutoRestock", "ArchersEnabled", false, "税收官从金库自动购买弓箭手道具");
         AutoRestockNinjasEnabled = config.Bind("AutoRestock", "NinjasEnabled", false, "税收官从金库自动购买忍者道具");
         AutoRestockBerserkersEnabled = config.Bind("AutoRestock", "BerserkersEnabled", false, "税收官从金库自动购买狂战士药水");
         AutoRestockPeasantsEnabled = config.Bind("AutoRestock", "PeasantsEnabled", false,
             "无业村民不足时，税收官全天从金库到面包房购买面包，按原生流程吸引流浪者吃面包入籍");
+        AutoRestockFarmersEnabled = config.Bind("AutoRestock", "FarmersEnabled", false, "希腊世界：农民不足时，税收官从金库购买镰刀");
+        AutoRestockCatapultBarrelsEnabled = config.Bind("AutoRestock", "CatapultBarrelsEnabled", false, "希腊世界：税收官从金库为已有投石车采购火药桶");
+        AutoRestockFireTowerAmmoEnabled = config.Bind("AutoRestock", "FireTowerAmmoEnabled", false, "希腊世界：税收官从金库为已有希腊火焰塔补充弹药");
         var targetDescription = new ConfigDescription("职业目标：现有人数、店内待领道具与在途采购合计，店满等待；全天从金库按店价的2倍采购",
             new AcceptableValueRange<int>(1, 200));
         AutoRestockWorkersTarget = config.Bind("AutoRestock", "WorkersTarget", 15, targetDescription);
         AutoRestockArchersTarget = config.Bind("AutoRestock", "ArchersTarget", 15, targetDescription);
         AutoRestockNinjasTarget = config.Bind("AutoRestock", "NinjasTarget", 15, targetDescription);
         AutoRestockBerserkersTarget = config.Bind("AutoRestock", "BerserkersTarget", 15, targetDescription);
+        AutoRestockFarmersTarget = config.Bind("AutoRestock", "FarmersTarget", 15, targetDescription);
+        var ammoDescription = new ConfigDescription("全岛弹药目标：现有未消耗弹药（含运输和已装填）与在途采购合计；原生容量不足时等待。自动采购按原价2倍扣款",
+            new AcceptableValueRange<int>(1, 200));
+        AutoRestockCatapultBarrelsTarget = config.Bind("AutoRestock", "CatapultBarrelsTarget", 15, ammoDescription);
+        AutoRestockFireTowerAmmoTarget = config.Bind("AutoRestock", "FireTowerAmmoTarget", 15, ammoDescription);
         AutoRestockPeasantsTarget = config.Bind("AutoRestock", "PeasantsTarget", 15,
             new ConfigDescription("无业村民目标：现有Peasant、面包库存、吃面包后招募中的村民及在途采购合计；满架等待，不包含工匠或其他职业",
                 new AcceptableValueRange<int>(1, 200)));

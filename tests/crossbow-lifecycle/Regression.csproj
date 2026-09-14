@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    弩手 marker 生命周期回归（destroy-lifecycle-20260914）：
+    只编译生产文件 il2cpp/CrossbowmanLifecycle.cs（原件，未改一行）+ 边界替身（Stubs.cs）。
+    无 NuGet 依赖，控制台串行执行，运行方式见 WORKER.md（dotnet run 指定本工程目录）。
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>CrossbowLifecycle.Tests</AssemblyName>
+    <RootNamespace>CrossbowLifecycle.Tests</RootNamespace>
+    <NoWarn>$(NoWarn);CS0649;CS0169</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/CrossbowmanLifecycle.cs" Link="Production/CrossbowmanLifecycle.cs" />
+  </ItemGroup>
+
+</Project>

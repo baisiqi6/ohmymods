@@ -13,6 +13,8 @@ internal static class PopulationHud
     private static readonly string[] StyleNames = { "中世纪", "死地", "幕府", "希腊", "北境" };
     private static readonly string[] RoleText = new string[8], StyleText = new string[6];
     private static string _knightsText = "";
+    private static string _barrelsText = "火药桶  —", _fireAmmoText = "希腊火弹药  —";
+    private static int _barrels = -1, _fireAmmo = -1;
     private static GUIStyle _style;
     private static long _version = -1;
     private static bool _valid, _clientUnavailable, _snapshotLogged, _faultLogged;
@@ -27,7 +29,16 @@ internal static class PopulationHud
         {
             bool enabled = Enabled;
             if (enabled && Time.unscaledTime < _tickRetryAfter) { _valid = false; return; }
-            bool ready = PopulationCounts.Refresh(enabled ? Managers.Inst : null, enabled, Time.unscaledTime);
+            bool ammoDemand = enabled || (ModConfig.Enabled != null && ModConfig.Enabled.Value
+                && ((ModConfig.AutoRestockCatapultBarrelsEnabled != null && ModConfig.AutoRestockCatapultBarrelsEnabled.Value)
+                    || (ModConfig.AutoRestockFireTowerAmmoEnabled != null && ModConfig.AutoRestockFireTowerAmmoEnabled.Value)));
+            var managers = enabled || ammoDemand ? Managers.Inst : null;
+            bool ammoReady = SiegeAmmoCounts.Refresh(managers, ammoDemand, Time.unscaledTime);
+            int barrels = ammoReady ? SiegeAmmoCounts.Count(6) : -1;
+            int fireAmmo = ammoReady ? SiegeAmmoCounts.Count(7) : -1;
+            if (_barrels != barrels) { _barrels = barrels; _barrelsText = barrels >= 0 ? "火药桶  " + barrels : "火药桶  —"; }
+            if (_fireAmmo != fireAmmo) { _fireAmmo = fireAmmo; _fireAmmoText = fireAmmo >= 0 ? "希腊火弹药  " + fireAmmo : "希腊火弹药  —"; }
+            bool ready = PopulationCounts.Refresh(enabled ? managers : null, enabled, Time.unscaledTime);
             _clientUnavailable = enabled && PopulationCounts.ClientUnavailable;
             _valid = enabled && (ready || _clientUnavailable);
             if (_clientUnavailable) return;
@@ -78,6 +89,8 @@ internal static class PopulationHud
             for (int i = 0; i < StyleText.Length; i++)
                 if (!string.IsNullOrEmpty(StyleText[i]))
                     Label(x + (i % 2) * 165f, y + 5 * Row + 6f + (i / 2) * Row, StyleText[i], Ivory);
+            Label(x, y + 8 * Row + 12f, _barrelsText, Ivory);
+            Label(x + 165f, y + 8 * Row + 12f, _fireAmmoText, Ivory);
         }
         catch (Exception ex) { _style = null; _retryAfter = Time.unscaledTime + 1f; LogOnce(ex); }
         finally

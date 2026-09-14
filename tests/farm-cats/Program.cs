@@ -45,6 +45,21 @@ internal static class Program
   Test("SetActive deactivation followed by callback exception counts actual completed retirement",()=>{var f=Farm();var cats=Cats(f,6);foreach(var cat in cats)cat.gameObject.ThrowAfterDeactivate=true;Pool.Deferred=true;Stock(World());Eq(4,Alive(f),"exactly four remain after deferred Destroy and SetActive error");Eq(2,Pool.Retired.Count,"two completed retirements only");Eq(0,Pool.Spawned,"no extra supplementation");});
   Test("Still-active partial failure stops only its farmhouse and cannot over-delete after frame end",()=>{var uncertainFarm=Farm();Cats(uncertainFarm,6);var healthyFarm=Farm();Cats(healthyFarm,6);Pool.RetireOverride=go=>{if(go.GetComponent<Cat>().farmHouse==uncertainFarm){UnityEngine.Object.Destroy(go);throw new InvalidOperationException("Deferred native deletion queued before failure");}go.SetActive(false);};Stock(World());Eq(6,Alive(uncertainFarm),"pending deletion was not falsely counted");Eq(4,Alive(healthyFarm),"unrelated farmhouse still completes");Eq(1,Pool.Retired.Count(go=>go.GetComponent<Cat>().farmHouse==uncertainFarm),"no second uncertain candidate");Eq(2,Pool.Retired.Count(go=>go.GetComponent<Cat>().farmHouse==healthyFarm),"healthy farm retires exactly surplus");foreach(var go in Pool.Retired.Where(go=>go.PendingDestroy))go.SetActive(false);Eq(5,Alive(uncertainFarm),"later deferred completion cannot drop below four");Eq(0,Pool.Spawned,"no extra cats generated from uncertainty");});
   Test("Unobservable post-exception state is explicitly uncertain",()=>{var f=Farm();var cat=Cat(f);Pool.RetireOverride=go=>{go.ThrowOnActiveRead=true;throw new InvalidOperationException("Native state became unreadable");};bool result=Retire(cat,f,out bool uncertain);Check(!result&&uncertain,"cannot claim success when state cannot be observed");Eq(1,Pool.Retired.Count,"one attempted native operation");});
+  Test("Cat scale restores native axes outside Greece and returns without Mover",()=>{
+   var cat=Cat(Farm());cat.transform.localScale=new Vector3(-1.3f,.8f,.9f);
+   var scale=Production.GetMethod("EnsureCatScale",BindingFlags.Static|BindingFlags.NonPublic);
+   GreekScaleScope.Tick();scale.Invoke(null,new object[]{cat});Eq(1.25f,cat.transform.localScale.y,"Greek cat target");
+   BiomeHolder.Inst.BiomeIndex=0;GreekScaleScope.Tick();Eq(.8f,cat.transform.localScale.y,"foreign baseline restored");Eq(-1.3f,cat.transform.localScale.x,"facing magnitude retained");Eq(.9f,cat.transform.localScale.z,"z retained");
+   BiomeHolder.Inst.BiomeIndex=5;GreekScaleScope.Tick();Eq(1.25f,cat.transform.localScale.y,"Greek return reapplies no-Mover cat");
+  });
+  Test("Foreign-first cat stays native and equal-target cat still registers",()=>{
+   var scale=Production.GetMethod("EnsureCatScale",BindingFlags.Static|BindingFlags.NonPublic);
+   var foreign=Cat(Farm());foreign.transform.localScale=new Vector3(-.7f,.6f,1.4f);BiomeHolder.Inst.BiomeIndex=0;GreekScaleScope.Tick();
+   scale.Invoke(null,new object[]{foreign});Eq(.6f,foreign.transform.localScale.y,"foreign does not scale");
+   BiomeHolder.Inst.BiomeIndex=5;GreekScaleScope.Tick();Eq(1.25f,foreign.transform.localScale.y,"deferred request applies in Greece");
+   var equal=Cat(Farm());equal.transform.localScale=new Vector3(-1,1.25f,1);var mover=equal.gameObject.AddComponent<Mover>();
+   scale.Invoke(null,new object[]{equal});Check(GreekScaleScope.TryGet(mover,out var desired)&&desired==1.25f,"target equality still registers guard");
+  });
   Console.WriteLine($"RESULT {passed} passed, {failed} failed");Environment.ExitCode=failed==0?0:1;
  }
 }

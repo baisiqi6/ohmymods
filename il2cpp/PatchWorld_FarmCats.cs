@@ -333,10 +333,7 @@ public static class PatchWorld_FarmCats
     {
         try
         {
-            Vector3 s = cat.transform.localScale;
-            if (Mathf.Abs(s.y - CatScaleY) <= 0.0001f) return;
-            s.y = CatScaleY;
-            cat.transform.localScale = s;
+            GreekScaleScope.ApplyY(cat.transform, CatScaleY);
             Mover mover = cat.GetComponent<Mover>();
             if (mover != null) ScaleRegistryHolder.Register(mover, CatScaleY);
         }

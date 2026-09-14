@@ -26,6 +26,12 @@ namespace KingdomEnhancedMod;
 /// - PoolManager.CreatePoolFor(GameObject) : Pool —— 存在
 /// - PoolManager.cachedPools/cachedNamePoolPairs/cachedSyncIdPoolPairs —— 存在（公开属性，免反射）
 /// - Pool.sync : bool / Pool.syncID : short / Pool.prefab : GameObject —— 存在
+///
+/// 错误商店清理（2026-09-14）：本文件不再就地 DestroyImmediate。回调只把具体对象登记进
+/// <see cref="ShopCleanupQueue"/>，注销/停用/延迟销毁以及"销毁后再补位"都在 ModPanel.Update
+/// 的安全阶段完成。实际 2.4 的 ShopPlanner.RemoveShop 自带槽位身份门（槽位不是本对象时直接
+/// 返回，不 SetPlacedShop(null)），所以对象销毁时 PayableShop.OnDestroy 的第二次 RemoveShop
+/// 不会清掉新店；本文件依赖该原生门，不新增 RemoveShop/OnDestroy 钩子。
 /// </summary>
 
 [HarmonyPatch(typeof(Castle))]
@@ -191,28 +197,34 @@ public static class PatchRoles_Castle
     // ============================================================
     // 狂战士工具商店：ShieldShop 槽位原生刷新
     // ============================================================
-    public static void EnsureBerserkerToolShopInGreece(Castle castle)
+    /// <summary>
+    /// 狂战士工具商店：ShieldShop 槽位原生刷新。
+    /// 旧的错误商店只登记进 <see cref="ShopCleanupQueue"/>，就地不销毁；有槽位清理未完成时
+    /// 明确不补位（返回 true），等队列等到对象真正销毁后回调 <see cref="NotifyShopCleanupCompleted"/>。
+    /// </summary>
+    /// <returns>true = 至少有一个槽位的清理尚未完成，本次没有补位。</returns>
+    public static bool EnsureBerserkerToolShopInGreece(Castle castle)
     {
-        if (!ModConfig.Enabled.Value) return;
+        if (!ModConfig.Enabled.Value) return false;
         try
         {
-            if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != GREECE_BIOME) return;
-            if (castle == null || castle.level < Castle.Level.Castle4) return;
-            if (!NetworkBigBoss.HasWorldAuth) return;
+            if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != GREECE_BIOME) return false;
+            if (castle == null || castle.level < Castle.Level.Castle4) return false;
+            if (!NetworkBigBoss.HasWorldAuth) return false;
 
             var managers = Managers.Inst;
             var sp = managers != null ? managers.shopPlanner : null;
-            if (sp == null || _initializedShopPlanner != sp) return;
+            if (sp == null || _initializedShopPlanner != sp) return false;
             if (sp.raisingShops == null || sp._placedShops == null || sp._queuedShopPlacements == null)
             {
                 KingdomEnhancedPlugin.Instance?.LogSource.LogError(
                     "[Roles] Berserker shop queue state is unavailable after ShopPlanner.Start");
-                return;
+                return false;
             }
 
             RepairQueuedSidedShopValues(sp);
 
-            // 清理旧版克隆残留（MyMod_BerserkerShop，卖 ToolBow 的 bug 版）
+            // 清理旧版克隆残留（MyMod_BerserkerShop，卖 ToolBow 的 bug 版）：回调只登记具体对象。
             GameObject stale = GameObject.Find(BERSERKER_SHOP_MARKER);
             if (stale != null)
             {
@@ -220,32 +232,24 @@ public static class PatchRoles_Castle
                 bool isRealBerserker = staleShop != null && staleShop.itemPrefab != null
                     && staleShop.itemPrefab.CompareTag("BerserkerTool");
                 if (!isRealBerserker)
-                {
-                    var staleSp = Managers.Inst.shopPlanner;
-                    if (staleSp != null)
-                    {
-                        ShopTag staleTag = stale.GetComponent<ShopTag>();
-                        if (staleTag != null && staleSp.HasPlacedShop(staleTag.type, stale))
-                        {
-                            staleSp.RemoveShop(stale);
-                        }
-                    }
-                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[Roles] Found stale Berserker shop, destroying");
-                    GameObject.DestroyImmediate(stale);
-                }
+                    ShopCleanupQueue.EnqueueLegacyMarker(sp, stale, BERSERKER_SHOP_MARKER);
             }
 
-            ReplacePlacedShopIfWrong(sp, PayableShop.ShopType.ShieldShopLeft);
-            ReplacePlacedShopIfWrong(sp, PayableShop.ShopType.ShieldShopRight);
+            bool leftPending = ShopCleanupQueue.IsPending(sp, PayableShop.ShopType.ShieldShopLeft)
+                || ReplacePlacedShopIfWrong(sp, PayableShop.ShopType.ShieldShopLeft);
+            bool rightPending = ShopCleanupQueue.IsPending(sp, PayableShop.ShopType.ShieldShopRight)
+                || ReplacePlacedShopIfWrong(sp, PayableShop.ShopType.ShieldShopRight);
 
-            if (!sp.IsPlacedOrQueued(PayableShop.ShopType.ShieldShopLeft))
+            // 清理未完成前不得补位：原生 AttemptPlaceShop 看不到槽位为空，IsPlacedOrQueued 也仍把
+            // 旧店当成已放置；此刻入队只会在槽位空出来后再叠一家店。等实际销毁后由队列回调重进。
+            if (!leftPending && !sp.IsPlacedOrQueued(PayableShop.ShopType.ShieldShopLeft))
             {
                 sp.QueueNewShopForPlacement(
                     PayableShop.ShopType.ShieldShopLeft,
                     new Il2CppSystem.Nullable<Side>(Side.Left));
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[Roles] Queued Berserker shop (ShieldShopLeft) for Greece");
             }
-            if (!sp.IsPlacedOrQueued(PayableShop.ShopType.ShieldShopRight))
+            if (!rightPending && !sp.IsPlacedOrQueued(PayableShop.ShopType.ShieldShopRight))
             {
                 sp.QueueNewShopForPlacement(
                     PayableShop.ShopType.ShieldShopRight,
@@ -256,41 +260,69 @@ public static class PatchRoles_Castle
             EnsurePoolForDroppableTool("ToolBerserker");
             EnsurePoolForCharacter("Berserker");
             EnsurePoolForCharacter("BerserkerLeader");
+            return leftPending || rightPending;
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(
                 "[Roles] Berserker shop queue failed after readiness checks: " + e);
+            return false;
         }
     }
 
     /// <summary>
-    /// 槽位已放置商店但卖的不是 BerserkerTool（旧版盾牌商店残留）→ 销毁并清空槽位。
+    /// ShopCleanupQueue 完成一次清理（对象已实际销毁）后回调：此时才重新走 Ensure 补位。
+    /// 世界/权威/城堡等级等前置条件仍在 Ensure 内部复核，换世界后这里天然不发动作。
     /// </summary>
-    private static void ReplacePlacedShopIfWrong(ShopPlanner sp, PayableShop.ShopType type)
+    internal static void NotifyShopCleanupCompleted()
     {
         try
         {
-            if (sp == null || !sp.HasPlacedShop(type)) return;
-
-            GameObject placed = null;
-            var placedArr = sp._placedShops;
-            if (placedArr != null && (int)type < placedArr.Length)
-                placed = placedArr[(int)type];
-            if (placed == null) return;
-
-            PayableShop ps = placed.GetComponent<PayableShop>();
-            bool isBerserker = ps != null && ps.itemPrefab != null
-                && ps.itemPrefab.CompareTag("BerserkerTool");
-            if (isBerserker) return;
-
-            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[Roles] Replacing wrong shop in slot " + type + " (" + placed.name + ")");
-            sp.RemoveShop(placed);
-            GameObject.DestroyImmediate(placed);
+            var managers = Managers.Inst;
+            Castle castle = managers != null && managers.kingdom != null ? managers.kingdom.castle : null;
+            EnsureBerserkerToolShopInGreece(castle);
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+        }
+    }
+
+    /// <summary>
+    /// 槽位已放置商店但卖的不是 BerserkerTool（旧版盾牌商店残留）→ 登记安全清理，不在回调里
+    /// 就地销毁。注销/停用/延迟销毁由 <see cref="ShopCleanupQueue.TickPendingCleanup"/> 在安全阶段
+    /// 执行；那之前 <see cref="EnsureBerserkerToolShopInGreece"/> 不会补位。
+    /// </summary>
+    /// <returns>true = 该槽位有清理未完成（含本次登记），调用方不得补位。</returns>
+    private static bool ReplacePlacedShopIfWrong(ShopPlanner sp, PayableShop.ShopType type)
+    {
+        try
+        {
+            if (sp == null) return false;
+
+            GameObject placed = null;
+            var placedArr = sp._placedShops;
+            if (placedArr != null && (int)type >= 0 && (int)type < placedArr.Length)
+                placed = placedArr[(int)type];
+            if (placed == null) return false;
+
+            PayableShop ps = placed.GetComponent<PayableShop>();
+            bool isBerserker = ps != null && ps.itemPrefab != null
+                && ps.itemPrefab.CompareTag("BerserkerTool");
+            if (isBerserker)
+            {
+                // 槽位内容已经正确：清掉循环保护计数，让后续真的又出现错误商店时仍能清理。
+                ShopCleanupQueue.NotifySlotHealthy(sp, type);
+                return false;
+            }
+
+            ShopCleanupQueue.EnqueuePlacedShop(sp, type, placed);
+            return ShopCleanupQueue.IsPending(sp, type);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+            return false;
         }
     }
 
@@ -305,6 +337,11 @@ public static class PatchRoles_Castle
     {
         try
         {
+            // 注意：这里**不能**清空 ShopCleanupQueue 的 owned 记录。ReRegisterModPools 会被
+            // Holder.Init / PoolFix 在同一 world 里多次调用，无条件 Clear 会丢掉"已注销、已停用、
+            // Destroy 暂时失败"的残留责任。队列自己按真实 world 身份与对象 liveness 处理换岛：
+            // 未动过手的条目在换世界后安全取消，已经开始的条目保留到旧对象被确认销毁。
+
             // 北境随从池（norse-squad-027）：放 Greece 早退之前——任意 biome 的
             // PoolManager 重建后立即恢复；EnsureNorseArcherPool 内部自带
             // Holder 就绪/prefab 解析/池已存在三重幂等门，未就绪静默跳过。

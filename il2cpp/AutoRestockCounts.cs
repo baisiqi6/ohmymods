@@ -11,8 +11,10 @@ namespace KingdomEnhancedMod;
 /// PayableShop.AddItem + ShopPlanner 生命周期维护库存；Baker.TryEatBread 维护晋升中数。无周期遍历 /
 /// FindObjects / Resources 扫描；seed 仅在首次启用 / 王国·世界·层上下文变化 /
 /// enabledMask 变化 / 一次性异常恢复时对 kingdom.characters 做一次枚举。
-/// 索引 0=Worker,1=Archer,2=Ninja,3=Berserker,4=Peasant（Ninja 含 _isFisher；Pikeman 无
-/// Ninja 组件不计；Berserker leader 同计）。Unity 主线程模型：无锁无 Volatile。
+/// 索引 0=Worker,1=Archer,2=Ninja,3=Berserker,4=Peasant,5=Farmer（Ninja 含 _isFisher；Pikeman 无
+/// Ninja 组件不计；Berserker leader 同计；Farmer 按 Farmer 组件，与 Peasant 不混）。
+/// 6/7（投石车油桶、火塔罐弹药）由 SiegeAmmoCounts 独立维护，本类 API 对 role>=6 一律返回 0。
+/// Unity 主线程模型：无锁无 Volatile。
 /// 订阅/读取失败一律 fail-closed：一次恢复 reseed，仍失败则 latch 不可用，
 /// 直到新上下文/配置或新相关事件，绝不静默发布低计数。
 /// </summary>
@@ -23,7 +25,8 @@ internal static class AutoRestockCounts
     private const int RoleNinja = 2;
     private const int RoleBerserker = 3;
     private const int RolePeasant = 4;
-    private const int RoleCount = 5;
+    private const int RoleFarmer = 5;
+    private const int RoleCount = 6;
 
     // pending 角色最多重试的 Refresh 轮数（Pool.Spawn 后 parent/gameLayer 尚未就绪）
     private const int MaxPendingAttempts = 6;
@@ -248,7 +251,7 @@ internal static class AutoRestockCounts
 
     // The existing plugin-wide Harmony.PatchAll installs these patch classes once.
 
-    // === 配置读取（cheap：5 个 bool + 总开关，无 SettingChanged 订阅） ===
+    // === 配置读取（cheap：6 个 bool + 总开关，无 SettingChanged 订阅） ===
 
     private static bool IsEnabled() => ModConfig.Enabled == null || ModConfig.Enabled.Value;
 
@@ -260,6 +263,7 @@ internal static class AutoRestockCounts
         if (On(ModConfig.AutoRestockNinjasEnabled)) mask |= 1 << RoleNinja;
         if (On(ModConfig.AutoRestockBerserkersEnabled)) mask |= 1 << RoleBerserker;
         if (On(ModConfig.AutoRestockPeasantsEnabled)) mask |= 1 << RolePeasant;
+        if (On(ModConfig.AutoRestockFarmersEnabled)) mask |= 1 << RoleFarmer;
         return mask;
     }
 
@@ -338,7 +342,7 @@ internal static class AutoRestockCounts
         }
     }
 
-    /// <summary>角色分类：0..4；Beggar 不计活农民。Pikeman 无 Ninja 组件不计。</summary>
+    /// <summary>角色分类：0..5；Beggar 不计活农民。Pikeman 无 Ninja 组件不计。</summary>
     private static int Classify(Character c)
     {
         try
@@ -348,6 +352,8 @@ internal static class AutoRestockCounts
             if (go.GetComponent<Ninja>() != null) return RoleNinja;       // 含 _isFisher 白天样式
             if (go.GetComponent<Archer>() != null) return RoleArcher;     // 含随从/塔上
             if (go.GetComponent<Worker>() != null) return RoleWorker;
+            // 农夫先于 Peasant 判定：持镰刀的农民即使模型残留 Peasant 组件也只计农夫，不混入无业村民。
+            if (go.GetComponent<Farmer>() != null) return RoleFarmer;
             if (go.GetComponent<Peasant>() != null && go.GetComponent<Beggar>() == null) return RolePeasant;
             return -1;
         }
@@ -714,7 +720,8 @@ internal static class AutoRestockCounts
         if (membershipChanged) _version++; // 集合成员变化即版本变化（即使 stock 全 0）
     }
 
-    /// <summary>四工具沿用 prefab tag；同 GO 的 Baker + 非空 itemPrefab 识别面包店。</summary>
+    /// <summary>四工具沿用 prefab tag；镰刀店用店原生标签 "ShopScythe"
+    ///（PayableShop.GetShopTag(Scythe) 与 Pay() 同源）；同 GO 的 Baker + 非空 itemPrefab 识别面包店。</summary>
     internal static int ClassifyShop(PayableShop shop)
     {
         try
@@ -725,6 +732,8 @@ internal static class AutoRestockCounts
             if (prefab.CompareTag("Katana")) return RoleNinja;
             if (prefab.CompareTag("Bow")) return RoleArcher;
             if (prefab.CompareTag("Hammer")) return RoleWorker;
+            // 农夫镰刀店：按店自身原生标签识别，绝不与面包房（Baker）混。
+            if (shop.gameObject.CompareTag("ShopScythe")) return RoleFarmer;
             if (shop.gameObject.GetComponent<Baker>() != null) return RolePeasant;
             return -1;
         }

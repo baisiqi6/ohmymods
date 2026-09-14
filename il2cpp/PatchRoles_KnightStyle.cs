@@ -599,21 +599,16 @@ public static class PatchRoles_KnightStyle
 
     /// <summary>
     /// 骑士缩放（坑11：只动 y，x 是朝向符号）：按风格查 KnightStyleScaleY 表
-    /// （中世纪 0.95/死地 1.0/幕府 1.0/希腊 0.9）。y≠1 注册 ScaleRegistry 每帧
+    /// （中世纪 0.95/死地 1.05/幕府 0.95/希腊 0.9/北境 1.15）。y≠1 注册 ScaleRegistry 每帧
     /// 守卫（池 respawn/原生重置能自愈），y=1 注销守卫。Apply/Reassert 共用；
-    /// Strip 不走此表，恒回 1（恢复原生身材）。
+    /// Strip 不走此表，仅归还本 mod 拥有的缩放。
     /// </summary>
     private static void ApplyScale(Knight knight, int styleIndex)
     {
         try
         {
             float targetY = KnightStyleScaleY[styleIndex];
-            Vector3 scale = knight.transform.localScale;
-            if (Mathf.Abs(scale.y - targetY) > 0.0001f)
-            {
-                scale.y = targetY;
-                knight.transform.localScale = scale;
-            }
+            GreekScaleScope.ApplyY(knight.transform, targetY);
 
             Mover mover = knight._mover;
             if (mover == null) mover = knight.GetComponent<Mover>();
@@ -628,19 +623,15 @@ public static class PatchRoles_KnightStyle
 
     /// <summary>
     /// 随从缩放（坑11：只动 y）：中世纪风格的随从士兵 y=1.05，其余（含骑士无
-    /// 风格/随从无骑士的清理路径传 1）回 1.0。y≠1 注册守卫，y=1 注销。
+    /// 风格/随从无骑士的清理路径传 1）归还原生缩放。y≠1 注册守卫，y=1 注销。
     /// 每轮幂等重算：随从换队（骑士死了改投他人）时缩放自动跟随新骑士风格。
     /// </summary>
     private static void EnsureFollowerScale(Archer archer, float targetY)
     {
         try
         {
-            Vector3 scale = archer.transform.localScale;
-            if (Mathf.Abs(scale.y - targetY) > 0.0001f)
-            {
-                scale.y = targetY;
-                archer.transform.localScale = scale;
-            }
+            if (targetY != 1f) GreekScaleScope.ApplyY(archer.transform, targetY);
+            else GreekScaleScope.Restore(archer.transform);
 
             Mover mover = archer._mover;
             if (mover == null) mover = archer.GetComponent<Mover>();
@@ -687,7 +678,7 @@ public static class PatchRoles_KnightStyle
     // ============================================================
 
     /// <summary>
-    /// 恢复缓存的原生控制器；注销缩放守卫并回 y=1；移出状态表。
+    /// 恢复缓存的原生控制器；注销缩放守卫并归还原生缩放；移出状态表。
     /// 死亡/离场不显式清理（inactive 对象 FindObjectsOfType 扫不到），
     /// 池复用由 OnKnightPromoted 的清污与 OnEnable 的 NeedsRederive 兜底。
     /// </summary>
@@ -709,12 +700,7 @@ public static class PatchRoles_KnightStyle
                 Mover mover = knight._mover;
                 if (mover == null) mover = knight.GetComponent<Mover>();
                 ScaleRegistryHolder.Unregister(mover);
-                Vector3 scale = knight.transform.localScale;
-                if (Mathf.Abs(scale.y - 1f) > 0.0001f)
-                {
-                    scale.y = 1f;
-                    knight.transform.localScale = scale;
-                }
+                GreekScaleScope.Restore(knight.transform);
             }
         }
         catch (Exception e)
@@ -772,6 +758,7 @@ public static class PatchRoles_KnightStyle
                 Mover mover = knight != null ? knight._mover : null;
                 if (mover == null && knight != null) mover = knight.GetComponent<Mover>();
                 if (mover != null) ScaleRegistryHolder.Unregister(mover);
+                if (knight != null) GreekScaleScope.Restore(knight.transform);
             }
             catch { }
         }

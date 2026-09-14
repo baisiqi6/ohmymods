@@ -58,7 +58,8 @@ internal static class CalendarHud
             if (now < _nextRead) return;
             _nextRead = now + 0.5f;
             // Same source as the main panel; sampled only by this half-second cache, never during Draw.
-            int stashed = BankAssistantCoordinator.GetStashedCoinsForPanel();
+            int stashed = GreekBankScope.IsActive
+                ? BankAssistantCoordinator.GetStashedCoinsForPanel() : -1;
             // The coin icon plus the 主城金库 caption already identify the currency; keep the bare number.
             _bankText = stashed < 0 ? "—" : stashed.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
             _valid = CalendarReader.TryRead(director, out _snapshot);
@@ -95,9 +96,12 @@ internal static class CalendarHud
             GUI.color = GUI.contentColor = GUI.backgroundColor = Color.white;
             GUI.enabled = true;
             GUI.depth = -20;
+            // Other worlds retain the calendar without the Greek treasury extension.
+            bool showBank = GreekBankScope.IsActive;
+            float width = showBank ? Width : 386f;
             float scale = Mathf.Clamp(Mathf.Min(Screen.width / 1280f, Screen.height / 720f), 0.45f, 2f);
-            scale = Mathf.Min(scale, Mathf.Max(1f, Screen.width - 24f) / Width);
-            float x = Mathf.Round((Screen.width / scale - Width) * 0.5f);
+            scale = Mathf.Min(scale, Mathf.Max(1f, Screen.width - 24f) / width);
+            float x = Mathf.Round((Screen.width / scale - width) * 0.5f);
             const float y = 12f;
             GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
             // Floating overlay: no panel frame, no background, no divider — just text, icons, track.
@@ -109,14 +113,17 @@ internal static class CalendarHud
             Color currentColor = season >= 0 ? SeasonColors[season] : Muted;
             if (season >= 0) Icon(season, x + 196, y + 8, 16, currentColor);
             Label(x + 218, y + 6, 158, 22, _seasonText, _number, currentColor);
-            Icon(6, x + 400, y + 8, 16, Gold);
-            Label(x + 424, y + 6, 114, 22, _bankText, _number, Gold);
+            if (showBank)
+            {
+                Icon(6, x + 400, y + 8, 16, Gold);
+                Label(x + 424, y + 6, 114, 22, _bankText, _number, Gold);
+            }
             // Row 2 (secondary, ~12px): next season | progress track | bank caption.
             Label(x + 14, y + 31, 205, 20, _nextText, _small, Ivory);
             Line(x + 236, y + 39, 136, 3, new Color(1, 1, 1, 0.12f));
             if (_snapshot.HasNextSeason)
                 Line(x + 236, y + 39, 136 * Mathf.Clamp01(_snapshot.Progress), 3, currentColor);
-            Label(x + 400, y + 31, 132, 20, "主城金库", _small, Muted);
+            if (showBank) Label(x + 400, y + 31, 132, 20, "主城金库", _small, Muted);
         }
         catch (Exception ex) { _valid = false; _retryAfter = Time.unscaledTime + 1f; LogOnce(ex); }
         finally

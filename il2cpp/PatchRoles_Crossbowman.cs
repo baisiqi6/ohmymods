@@ -27,13 +27,26 @@ namespace KingdomEnhancedMod;
 /// 原生在塔/船场景会把控制器换成当前世界的士兵皮肤，巡检 5s 内换回死地士兵；
 /// 死亡清理切回猎人皮肤播死亡动画（纯观感差异，接受）。
 ///
+/// 身份与生命周期（destroy-lifecycle-20260914 修订）：
+/// - 身份/战斗包/清污的实现在 CrossbowmanLifecycle：可复用 CrossbowmanMarker +
+///   显式身份（Selected=本 life 选择 / Active=当前有效身份）。组件存在不算弩手，
+///   读取器一律经 IsCrossbowman（即时读 ModConfig.Enabled）。
+///   旧实现 Strip 里的 DestroyImmediate 已删除：它是确认存在的生命周期风险——
+///   在物理触发器回调（捡弓转职发生处）里立即销毁组件的行为，Unity 文档明确不允许，
+///   且销毁不生效会留下失效身份与已乘冷却。本修复只消除这种风险，不代表已证实玩家闪退根因。
+/// - life 边界靠三个钩子（native 实锤见下方签名表）：
+///   `Pool.FastSpawn` 作用域（prefix/finalizer）+ 真实 `Archer.OnEnable`（prefix/postfix）
+///   = 池激活新 life（同 NetID 回执返回已 active 对象时不触发 OnEnable，因此不误清职业）；
+///   `Archer.OnDisable` prefix 只失效 Active、保留 Selected（隐藏≠池归还）。
+/// - 本文件另负责资产构建（EnsureAssets）、Harmony 入口、5s 巡检批次交接与面板 Tick 入口。
+///
 /// 与原生契约：
 /// - ActiveArrowAttack 可写；原生 Awake/OnEnable/火矢 buff/网络收包都会重置它——
 ///   完整性巡检只兜"等于原生 _arrowAttack"的实例，火矢 buff（_fireArrowAttack）期间绝不动。
 /// - 地面 shootRange 保持12；塔位射程由 CrossbowDefense 按实例原生值×1.5，
 ///   进出塔、Apply、巡检和池复用统一收敛，不重复叠加。
-/// - 射击间隔（_shootIntervalRange/_shootIntervalRangeFormation）只在 Apply 时按现值 ×2，
-///   巡检不检查（buff/阵形可能合法修改它们）。
+/// - 射击间隔（_shootIntervalRange/_shootIntervalRangeFormation）只在 Apply 时按现值 ×2
+///   （借用账本保证重试/同帧复用不二次乘），巡检不检查（buff/阵形可能合法修改它们）。
 ///
 /// 2.4.0 签名验证（Operator 侦查：2.1.0 源码 + 2.4.0 interop 二进制双验证，实锤直接采用）：
 /// - Character.Promote(DroppableTool, IUnitController) : Character —— 存在；弓映射 {"Bow","Archer"}
@@ -48,20 +61,27 @@ namespace KingdomEnhancedMod;
 /// - Bolt : MonoBehaviour（DamageSource.Bolt，非 Arrow 子类）—— 仅取 SpriteRenderer.sprite 外观
 /// - Archer.IsAvailableForJob(GameObject) : bool —— 实例方法，存在
 /// - PoolManager.cachedPools / cachedNamePoolPairs / cachedSyncIdPoolPairs —— 公开属性
+/// - Archer.OnEnable() / Archer.OnDisable() —— 存在（actual-api token 100663789 / 100663790；
+///   root 核 native 0x4b32d0 / 0x4b2c10）。OnEnable 内部 AddArcher(0x4b34c7)/DistributeFreeArchers
+///   (0x4b3604) 会立刻做招募判定；OnDisable 会把 `_arrowAttack` 写回 ActiveArrowAttack(0x4b2ffc)
+///   但不恢复 shootRange/interval，且非权威/非主场景会提前 return → 清理责任不能依赖原生。
+/// - Pool.FastSpawn(Vector3,Quaternion,Transform,Int16,Boolean) : GameObject —— 存在
+///   （actual-api token 100676196；root 核 native 0x6c10a0，唯一）。真实池激活走
+///   `_cache` → SetActive(true) → OnEnable；syncReceipt 命中 `_activeCache` 同 NetID 时
+///   直接返回已 active 对象（Pool.cs:506）→ 不触发 OnEnable（因此不能只靠 FastSpawn 判定新 life）。
 /// </summary>
 public static class PatchRoles_Crossbowman
 {
     // ---- 数值定稿（Operator 裁决，勿改） ----
-    private const float CrossbowShootRange = 12f;          // 基础弓 8
-    internal const float CrossbowmanScaleY = 1.15f;         // 本体 y 缩放（坑11：只动 y，x 是朝向符号）
-    private const float IntervalMultiplier = 2f;           // 装填冷却 ×2
+    // 弩手包数值（射程 12 / y 缩放 1.15 / 冷却 ×2）单一来源在 CrossbowmanLifecycle
+    // （身份与战斗包生命周期归它管，含随从包复用）；本文件不再各自定义一份。
     private const int BoltHitDamage = 2;                   // 原生 1；perfect 自动 ×2 = 4
     private const float RangeMultiplier = 1.5f;            // 射程 ×1.5（8→12）；索敌钳制用（shootRange/扫描器）
     // 初速 ×2（弩矢观感改造）：Range=v²/g → 射程包络=8×4=32，但索敌仍由 shootRange/
     // 扫描器钳在 12——12 步内目标用 32 步的力气打，又平又快。Archer.cs:1116 的
     // 推进判断读 SO Range=32 → 弩手 12 步内站桩狙击不冒进（用户早已接受的旧行为）
     private const float ShotMagnitudeMultiplier = 2f;
-    private const float BoltVisualScale = 0.85f;           // 弩矢醒目化（原 0.65 缩小观感弱）；连带碰撞体等比缩放，快弹判定影响可忽略
+    internal const float BoltVisualScale = 0.85f;          // 弩矢醒目化（原 0.65 缩小观感弱）；连带碰撞体等比缩放，快弹判定影响可忽略
     // 出膛点前移（弩矢观感改造核心）：原生 _arrowOriginOffset 默认 (0.15,0.5)，
     // 弩手在墙后射击时 ParabolaCast 从出膛点出发被自家墙挡 → BestShotInternal
     // （ArrowAttack.cs:134）被迫选高抛解——这是此前"平直弹道失败"的真凶。
@@ -99,7 +119,6 @@ public static class PatchRoles_Crossbowman
     // ---- 进程级状态 ----
     private static int _bowPromoteCount;        // 弓转职计数：跨岛延续、完整退出重置（狂战士进阶序列同款惯例）
     private static IntPtr _supervisorWorld;     // per-world 巡检守卫（World 指针，范式同 DefenseSpacing）
-    private static bool _markerRegistered;      // CrossbowmanMarker 的 ClassInjector 注册完成标记
 
     // ---- 惰性静态资产（构建一次，DontDestroyOnLoad，跨场景存活） ----
     private static bool _assetsReady;
@@ -149,14 +168,13 @@ public static class PatchRoles_Crossbowman
 
         try
         {
-            // 先于清污检查里的 GetComponent<CrossbowmanMarker>()（未注册即抛异常）
-            EnsureMarkerRegistered();
-
-            // 池复用清污：带皮肤/参数的旧弩手实例被池发给普通弓箭手时先恢复原生。
-            // DestroyImmediate（而非 Destroy）：清污后本帧可能立即 Apply 重新
-            // AddComponent，延迟销毁会让 GetComponent 继续命中旧 marker，导致
-            // 新弩手实例丢失标记（骑士排除/巡检随之失效）。
-            if (archer.GetComponent<CrossbowmanMarker>() != null) Strip(archer);
+            // 池复用清污（marker 类型注册由 CrossbowmanLifecycle 各入口自保）。
+            // 旧实现在这里 DestroyImmediate(marker)：捡弓转职发生在物理触发器回调
+            // （OnTriggerStay/OnTriggerEnter2D）里，Unity 拒绝立即销毁组件——报错
+            // 且销毁不生效，旧 marker 仍被 GetComponent 命中（资格/招募排除/巡检
+            // 强化继续作用在普通弓箭手上），冷却也已乘过。现在改为"身份立即失效 +
+            // 属性还原"，组件留给下一生命周期复用；无身份无残留时零写入。
+            Strip(archer);
 
             _bowPromoteCount++;
             if (_bowPromoteCount % PromoteCycle == 0)
@@ -173,7 +191,9 @@ public static class PatchRoles_Crossbowman
     }
 
     // ============================================================
-    // C. Apply：弩手打包（幂等）
+    // C. Apply：弩手打包（幂等）——实现在 CrossbowmanLifecycle，
+    //    这里只做资产惰性构建 + 组装 profile（身份/账本/属性写都在核心文件里，
+    //    便于测试直链生产逻辑）。
     // ============================================================
 
     private static void Apply(Archer archer)
@@ -190,68 +210,29 @@ public static class PatchRoles_Crossbowman
             }
             return;
         }
-
-        try
-        {
-            // 类型注册必须先于任何 GetComponent<CrossbowmanMarker>()——未注册时
-            // GetComponent/AddComponent 都会抛异常被吞，marker 永不存在（MUST-FIX #1）。
-            EnsureMarkerRegistered();
-
-            // 幂等标记：RecomputeOnLoad 会对已是弩手（带 marker）的单位重复 Apply。
-            // 间隔是"读现值×2"，重复 Apply 会让冷却 ×4、×8 无限膨胀——只在首次
-            // （!already）乘系数；其余字段均为绝对赋值，重复执行天然幂等。
-            // OnBowPromoted 的 Strip→Apply 路径：Strip 已恢复基础值 → already=false，
-            // 仍然 ×2，天然正确。
-            bool already = archer.GetComponent<CrossbowmanMarker>() != null;
-            if (!already)
-                archer.gameObject.AddComponent<CrossbowmanMarker>();
-
-            archer.ActiveArrowAttack = _crossbowAttackSO;
-            archer.shootRange = CrossbowShootRange;
-            Scanner scanner = archer._enemyScanner;
-            if (scanner != null)
-            {
-                scanner.range = CrossbowShootRange;
-                scanner.rangeBehind = CrossbowShootRange;
-            }
-            PatchRoles_CrossbowDefense.ReconcileTowerRange(archer);
-
-            if (!already)
-            {
-                // 读现值乘（不读缓存）：buff 可能已改过冷却
-                Vector2 interval = archer._shootIntervalRange;
-                interval.x *= IntervalMultiplier;
-                interval.y *= IntervalMultiplier;
-                archer._shootIntervalRange = interval;
-                Vector2 intervalFormation = archer._shootIntervalRangeFormation;
-                intervalFormation.x *= IntervalMultiplier;
-                intervalFormation.y *= IntervalMultiplier;
-                archer._shootIntervalRangeFormation = intervalFormation;
-            }
-
-            if (_deadlandsController != null)
-            {
-                Animator animator = archer.GetComponentInChildren<Animator>();
-                if (animator != null && animator.runtimeAnimatorController != null)
-                    animator.runtimeAnimatorController = _deadlandsController;
-            }
-
-            // 士兵皮肤的第二半：王国旗帜色染衣（骑士随从同款辨识度）
-            ApplyBannerColors(archer);
-
-            // 本体放大 1.15：y 轴绝对值 + ScaleRegistry 每帧守卫（Mover.Update postfix
-            // 重断言，池 respawn/原生重置都能自愈）；Strip 必须 Unregister，否则池复用
-            // 给普通弓箭手时会被错误守卫在 1.15（注册按 gameObject ID 键控）。
-            Vector3 scale = archer.transform.localScale;
-            scale.y = CrossbowmanScaleY;
-            archer.transform.localScale = scale;
-            ScaleRegistryHolder.Register(archer.GetComponent<Mover>(), CrossbowmanScaleY);
-        }
-        catch (Exception e)
-        {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Crossbowman/apply] " + e);
-        }
+        CrossbowmanLifecycle.Apply(archer, BuildProfile());
     }
+
+    /// <summary>
+    /// 宿主侧资产/原生基线快照（无堆分配：染衣委托静态持有一次，避免每次转职/巡检都新建委托）。
+    /// Strip 不触发资产构建（与旧实现一致：资产没建好时只走 marker 借用账本与实例原生字段，
+    /// 回落分支自动跳过）。
+    /// </summary>
+    private static CrossbowmanProfile BuildProfile() => new CrossbowmanProfile
+    {
+        Attack = _crossbowAttackSO,
+        Skin = _deadlandsController,
+        ReapplyBanner = BannerStep,
+        BaseShootRange = _baseShootRange,
+        BaseShootRangeKnown = _baseShootRangeCached,
+        BaseInterval = _baseInterval,
+        BaseIntervalKnown = _baseIntervalCached,
+        BaseIntervalFormation = _baseIntervalFormation,
+        BaseIntervalFormationKnown = _baseIntervalFormationCached,
+        BaseSkin = _baseAnimatorController,
+    };
+
+    private static readonly Action<Archer> BannerStep = ApplyBannerColors;
 
     /// <summary>
     /// 旗帜色染衣：复刻原生 ConvertToSoldier 的权威端染衣块（Archer.cs:859-867）——
@@ -281,71 +262,14 @@ public static class PatchRoles_Crossbowman
     }
 
     // ============================================================
-    // E. Strip：清污，恢复原生（对象池 respawn 不重拷序列化字段，必须显式恢复）
+    // E. Strip：清污/还原（实现在 CrossbowmanLifecycle）
+    //    身份立即失效 + 还原 owned 属性；绝不 DestroyImmediate/Destroy marker
+    //    （池实例复用同一组件；对象池 respawn 不重拷序列化字段，属性必须显式恢复）。
     // ============================================================
 
     private static void Strip(Archer archer)
     {
-        if (archer == null || archer.gameObject == null) return;
-        try
-        {
-            EnsureMarkerRegistered(); // 防御：GetComponent<CrossbowmanMarker> 要求类型已注册
-            PatchRoles_CrossbowDefense.Remove(archer);
-            CrossbowmanMarker marker = archer.GetComponent<CrossbowmanMarker>();
-            if (marker != null) UnityEngine.Object.DestroyImmediate(marker);
-
-            // 恢复该实例的原生箭（直接读实例私有字段，不读缓存）
-            archer.ActiveArrowAttack = archer._arrowAttack;
-
-            if (_baseIntervalCached) archer._shootIntervalRange = _baseInterval;
-            if (_baseIntervalFormationCached) archer._shootIntervalRangeFormation = _baseIntervalFormation;
-            if (_baseShootRangeCached)
-            {
-                archer.shootRange = _baseShootRange;
-                Scanner scanner = archer._enemyScanner;
-                if (scanner != null)
-                {
-                    // 塔位 guard slot 上的扫描器由原生设为 towerShootRange
-                    // （Archer.cs:848 EnterGuardSlot；1390 ExitGuardSlot 恢复 shootRange），
-                    // 清污时按所在位置还原，否则塔上被恢复的弩手索敌范围被压回地面值。
-                    float restoreRange = archer.inGuardSlot || archer._guardSlot != null ? archer.towerShootRange : _baseShootRange;
-                    scanner.range = restoreRange;
-                    scanner.rangeBehind = restoreRange;
-                }
-            }
-
-            // 恢复猎人控制器：走原生 ConvertToHunter 同款 biome swap（Archer.cs:889），
-            // 跨世界也能还原对应世界的猎人皮肤；swap 不可用时回落缓存基座控制器。
-            RuntimeAnimatorController hunter = null;
-            try
-            {
-                hunter = archer.hunterAnimator != null && BiomeData.Current != null
-                    ? BiomeData.Current.GetAssetSwapForThis<RuntimeAnimatorController>(archer.hunterAnimator)
-                    : null;
-            }
-            catch (Exception) { /* swap 表未就绪等：走缓存回落 */ }
-            Animator stripAnimator = archer.GetComponentInChildren<Animator>();
-            if (stripAnimator != null && stripAnimator.runtimeAnimatorController != null)
-            {
-                if (hunter != null) stripAnimator.runtimeAnimatorController = hunter;
-                else if (_baseAnimatorController != null)
-                    stripAnimator.runtimeAnimatorController = _baseAnimatorController;
-            }
-
-            // 衣服颜色不还原：原生路径会自然重掷（Promote 换装继承来源颜色、
-            // ConvertToHunter 重随机），手动复刻反而要拷贝 _useOutfitGradient 分支。
-            archer._isWearingBannerColor = false;
-
-            // 缩放还原：先撤守卫再回基准 y=1（原生弓箭手即 1），顺序反了会被守卫顶回。
-            ScaleRegistryHolder.Unregister(archer.GetComponent<Mover>());
-            Vector3 stripScale = archer.transform.localScale;
-            stripScale.y = 1f;
-            archer.transform.localScale = stripScale;
-        }
-        catch (Exception e)
-        {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Crossbowman/strip] " + e);
-        }
+        CrossbowmanLifecycle.Strip(archer, BuildProfile());
     }
 
     // ============================================================
@@ -457,21 +381,6 @@ public static class PatchRoles_Crossbowman
         }
     }
 
-    /// <summary>
-    /// CrossbowmanMarker 显式 ClassInjector 注册（先例 SpecialTowerRebuild.EnsureMarkerRegistered，
-    /// 本仓库 9/9 自定义 MonoBehaviour 全部显式注册）。不注册则 AddComponent/GetComponent/
-    /// FindObjectsOfType 抛异常被吞，marker 永不存在，骑士排除/巡检/清污全链失效。
-    /// </summary>
-    private static void EnsureMarkerRegistered()
-    {
-        if (_markerRegistered) return;
-        if (!ClassInjector.IsTypeRegisteredInIl2Cpp(typeof(CrossbowmanMarker)))
-        {
-            ClassInjector.RegisterTypeInIl2Cpp(typeof(CrossbowmanMarker));
-        }
-        _markerRegistered = true;
-    }
-
     private static void LogCriticalFailure(string detail)
     {
         if (_criticalFailureLogged) return;
@@ -500,9 +409,11 @@ public static class PatchRoles_Crossbowman
                 if (target == null) return; // 无外观可换：保留原样
                 target.sprite = renderer.sprite;
                 // 弩炮弹矢原生 sprite 比箭大：只换皮会渲染成超大箭。
-                // 整体等比缩小（碰撞体连带缩小，快弹判定影响可忽略）；
-                // 换皮失败的降级路径不缩放（保持原箭比例）。
-                boltArrow.transform.localScale *= BoltVisualScale;
+                // The cached template stays neutral across worlds. Only successfully
+                // reskinned runtime clones receive the Greek visual compensation.
+                if (!ClassInjector.IsTypeRegisteredInIl2Cpp(typeof(CrossbowBoltScaleLifecycle)))
+                    ClassInjector.RegisterTypeInIl2Cpp<CrossbowBoltScaleLifecycle>();
+                boltArrow.gameObject.AddComponent<CrossbowBoltScaleLifecycle>();
                 return;
             }
             if (!_loggedBoltSpriteMissing)
@@ -717,10 +628,16 @@ public static class PatchRoles_Crossbowman
     {
         try
         {
+            // 配置关：不复算、不补回（否则关模组仍会被"重算"回弩手），改走解除路径。
+            if (!ModConfig.Enabled.Value)
+            {
+                CrossbowmanLifecycle.UnwindAll(BuildProfile());
+                return;
+            }
             // 读档重算常是进程内第一个 marker 接触点（尚未发生任何弓转职）：
             // 循环里的 GetComponent<CrossbowmanMarker> 在类型未注册时会抛，
             // 整个重算被吞——必须在遍历前完成注册。
-            EnsureMarkerRegistered();
+            CrossbowmanLifecycle.EnsureMarkerRegistered();
             Archer[] archers = UnityEngine.Object.FindObjectsOfType<Archer>();
             if (archers == null) return;
 
@@ -748,6 +665,8 @@ public static class PatchRoles_Crossbowman
                 }
                 else if (list[i].GetComponent<CrossbowmanMarker>() != null)
                 {
+                    // 非弩手分位：清掉旧身份/残余参数（无身份无残留时零写入）。
+                    // 组件存在即调用——身份无效也可能带着未完成还原（Residue）。
                     Strip(list[i]);
                 }
             }
@@ -762,97 +681,32 @@ public static class PatchRoles_Crossbowman
     }
 
     /// <summary>
-    /// 完整性巡检：兜住一切重置路径（池 respawn/OnEnable/换皮被池路径重置）。
-    /// 只碰 ActiveArrowAttack（等于原生基础值才修复）、shootRange、Animator；
-    /// 塔位扫描器只由CrossbowDefense收敛；不碰射击间隔。
+    /// 完整性巡检（5s 一拍，兜住一切重置路径：池 respawn/OnEnable/换皮被池路径重置）。
+    /// 逐 marker 的判定与写入都在 CrossbowmanLifecycle.Reconcile：有效身份只兜原生
+    /// 重置的字段（火矢 buff 期间绝不动箭、不碰射击间隔；塔位射程归 CrossbowDefense），
+    /// 配置关或有未完成写入（Residue）则 Strip 收尾/解除——失效 marker 不会得到
+    /// 巡检强化；停用/池中对象既不强化也不清理。本方法只做扫描缓存与批次交接。
     /// </summary>
     private static void IntegrityPass()
     {
         try
         {
-            // 防御：FindObjectsOfType 也要求类型已注册，未注册时抛异常（每 5s 日志刷屏）
-            EnsureMarkerRegistered();
+            // 配置关：不强化、只解除（registry 含 inactive；不依赖扫描缓存与 5s 窗口）。
+            if (!ModConfig.Enabled.Value)
+            {
+                CrossbowmanLifecycle.UnwindAll(BuildProfile());
+                return;
+            }
+            // 防御：FindObjectsOfType 要求类型已注册，未注册时抛异常（每 5s 日志刷屏）
+            CrossbowmanLifecycle.EnsureMarkerRegistered();
             // 共享缓存，抖动治理：marker 扫描走 UnitScanCache（5s 窗口=原巡检节奏；
             // 新弩手的 marker+战斗包在 OnBowPromoted/Apply 即时挂好，本巡检只兜底，
-            // 5s 缓存新鲜度等价于原 5s 节奏）。RecomputeOnLoad 批量增删 marker 后
-            // 如需立即可见可调 UnitScanCache.InvalidateCrossbowmanMarkers()（预留，
-            // 暂不接：重算已同步 Apply/Strip 完毕，巡检无需立刻看到新集合）。
+            // 5s 缓存新鲜度等价于原 5s 节奏）。
             // 注：RecomputeOnLoad 自己的 Archer 全量扫有意保持直扫——25% 数量
             // 守恒重算依赖精确的当下快照，不吃缓存新鲜度。
             CrossbowmanMarker[] markers = UnitScanCache.GetCrossbowmanMarkers();
             if (markers == null) return;
-
-            for (int i = 0; i < markers.Length; i++)
-            {
-                CrossbowmanMarker marker = markers[i];
-                if (marker == null) continue;
-                Archer archer = marker.GetComponent<Archer>();
-                if (archer == null || archer.gameObject == null)
-                {
-                    UnityEngine.Object.Destroy(marker);
-                    continue;
-                }
-
-                if (_crossbowAttackSO != null)
-                {
-                    ArrowAttack current = archer.ActiveArrowAttack;
-                    ArrowAttack native = archer._arrowAttack;
-                    // 仅当被重置回原生基础箭（OnEnable/Awake/网络收包路径）时修复；
-                    // 火矢 buff（_fireArrowAttack）期间绝不动——与原生 buff 的兼容契约。
-                    if (current != null && native != null && current.Pointer == native.Pointer)
-                        archer.ActiveArrowAttack = _crossbowAttackSO;
-                }
-
-                if (archer.shootRange != CrossbowShootRange)
-                    archer.shootRange = CrossbowShootRange;
-                PatchRoles_CrossbowDefense.ReconcileTowerRange(archer);
-
-                if (_deadlandsController != null)
-                {
-                    Animator animator = archer.GetComponentInChildren<Animator>();
-                    if (animator != null && animator.runtimeAnimatorController != null
-                        && animator.runtimeAnimatorController.Pointer != _deadlandsController.Pointer)
-                    {
-                        animator.runtimeAnimatorController = _deadlandsController;
-                    }
-                }
-
-                // 原生 ConvertToHunter（下塔/下船/离队/死亡清理）会重掷随机衣色并清
-                // _isWearingBannerColor；标记被清说明衣色丢了，补染回旗帜色（幂等）。
-                ApplyBannerColors(archer);
-
-                // 使用同一夜间守墙策略兜底，不与原生/DefenseSpacing反复拉扯。
-                ApplyNightPullback(archer);
-
-                // 缩放漂移诊断（用户报告"地面弩手有的高有的低"）：只统计不改——
-                // 守卫每帧都在断言仍有漂移，说明存在更晚的写入者（怀疑动画器
-                // scale 曲线，其在 Mover.Update 之后评估）。记录首个样本的动画器
-                // 位置与当前 y，用于定位真正写入者。
-                if (Mathf.Abs(archer.transform.localScale.y - CrossbowmanScaleY) > 0.02f)
-                {
-                    _scaleDriftCount++;
-                    if (_scaleDriftSample == null)
-                    {
-                        Animator a = archer.GetComponentInChildren<Animator>();
-                        _scaleDriftSample = "y=" + archer.transform.localScale.y.ToString("F3")
-                            + " animatorOnRoot=" + (a != null && a.transform == archer.transform)
-                            + " controller="
-                            + (a != null && a.runtimeAnimatorController != null
-                                ? a.runtimeAnimatorController.name : "<null>");
-                    }
-                }
-            }
-
-            if (_scaleDriftCount > 0 && _loggedScaleDrift != _scaleDriftCount)
-            {
-                _loggedScaleDrift = _scaleDriftCount;
-                KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
-                    "[Crossbowman] scale drift: marked=" + markers.Length
-                    + " drifted=" + _scaleDriftCount
-                    + " sample[" + (_scaleDriftSample ?? "<none>") + "]");
-            }
-            _scaleDriftCount = 0;
-            _scaleDriftSample = null;
+            CrossbowmanLifecycle.ReconcileScan(markers, BuildProfile());
         }
         catch (Exception e)
         {
@@ -860,27 +714,17 @@ public static class PatchRoles_Crossbowman
         }
     }
 
-    private static int _scaleDriftCount;
-    private static int _loggedScaleDrift = -1;
-    private static string _scaleDriftSample;
-
-    /// <summary>旧5s巡检仅兜底；原生守墙目标在DefenseSpacing入口统一改写。
-    /// 稳定4..7深度，不重掷随机目标；避让塔/编队/逃跑/玩家操控和登船。</summary>
-    private static void ApplyNightPullback(Archer archer)
-    {
-        PatchRoles_CrossbowDefense.TryPullBack(archer);
-    }
-
     // ============================================================
     // G. 骑士招募排除
     // ============================================================
 
-    internal static bool IsCrossbowman(Archer archer)
-    {
-        // 防御：GetComponent 要求类型已注册，未注册时抛异常（IsAvailableForJob 每调用一次刷一次）
-        EnsureMarkerRegistered();
-        return archer != null && archer.GetComponent<CrossbowmanMarker>() != null;
-    }
+    /// <summary>
+    /// 宿主转发（PatchRoles_CrossbowDefense / KnightStyle / NorseSquad /
+    /// DefenseSpacing / SquadRefillDiag 的既有调用点保持不变）。真实判据在
+    /// <see cref="CrossbowmanLifecycle.IsCrossbowman"/>：marker 组件存在不算，
+    /// 必须带有效身份（Active）。
+    /// </summary>
+    internal static bool IsCrossbowman(Archer archer) => CrossbowmanLifecycle.IsCrossbowman(archer);
 
     internal static void LogKnightExclusionOnce()
     {
@@ -888,6 +732,58 @@ public static class PatchRoles_Crossbowman
         _loggedKnightExclusion = true;
         KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
             "[Crossbowman] excluded from knight recruitment");
+    }
+
+    // ============================================================
+    // I. life 边界钩子（Pool.FastSpawn 作用域 / Archer.OnEnable / Archer.OnDisable）
+    //    与面板 Tick。全部经 CrossbowmanLifecycle 的同一状态机，无新扫描、无逐帧遍历。
+    // ============================================================
+
+    /// <summary>Pool.FastSpawn prefix：进入池生成作用域（供 OnEnable 判定"真池激活"）。</summary>
+    internal static void BeginPoolSpawnScope() => CrossbowmanLifecycle.BeginPoolSpawnScope();
+
+    /// <summary>Pool.FastSpawn finalizer：退出作用域（异常路径也会执行）。</summary>
+    internal static void EndPoolSpawnScope() => CrossbowmanLifecycle.EndPoolSpawnScope();
+
+    /// <summary>
+    /// Archer.OnEnable prefix：池作用域内=新 life，**在原生主体之前**用 profile 清掉旧 life 的
+    /// owned 包（原生 AddArcher/DistributeFreeArchers 随后可能给这个对象分配骑士随从并写新的
+    /// 战斗包/皮肤/缩放，晚一步清就会覆盖它们）；作用域外=普通隐藏重开，按本 life 选择恢复 Active。
+    /// </summary>
+    internal static void OnArcherEnablePrefix(Archer archer)
+    {
+        if (!ModConfig.Enabled.Value) return; // 配置关：读者已即时失效，交由 Tick/巡检解除
+        CrossbowmanLifecycle.OnArcherEnablePrefix(archer, BuildProfile());
+    }
+
+    /// <summary>Archer.OnEnable postfix：原生重置后收尾（配置关解除 / 残留还原 / 有效身份自愈）。</summary>
+    internal static void OnArcherEnablePostfix(Archer archer)
+        => CrossbowmanLifecycle.OnArcherEnablePostfix(archer, BuildProfile());
+
+    /// <summary>Archer.OnDisable prefix：身份立即失效、保留本 life 选择（隐藏≠池归还）。</summary>
+    internal static void OnArcherDisablePrefix(Archer archer)
+    {
+        if (!ModConfig.Enabled.Value) return;
+        CrossbowmanLifecycle.OnArcherDisablePrefix(archer);
+    }
+
+    /// <summary>
+    /// 面板 Tick（root 接线：`ModPanel.Update()` 里与其它 `X.Tick()` 同列）。
+    /// 常态 O(1)：配置开或 registry 为空直接返回；全局关闭时遍历**自有 registry（含
+    /// inactive 池中实例）**立即还原解除，不等 5s 巡检窗口。唯一新增的工作入口，
+    /// 不做逐帧全场扫描。
+    /// </summary>
+    internal static void Tick()
+    {
+        try
+        {
+            if (ModConfig.Enabled.Value || !CrossbowmanLifecycle.HasPendingWork) return;
+            CrossbowmanLifecycle.UnwindAll(BuildProfile());
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Crossbowman/tick] " + e);
+        }
     }
 
     // ============================================================
@@ -936,30 +832,28 @@ public static class PatchRoles_Crossbowman
             if (!already)
             {
                 archer.ActiveArrowAttack = _crossbowAttackSO;
-                archer.shootRange = CrossbowShootRange;
+                archer.shootRange = CrossbowmanLifecycle.ShootRange;
                 Scanner scanner = archer._enemyScanner;
                 if (scanner != null)
                 {
-                    scanner.range = CrossbowShootRange;
-                    scanner.rangeBehind = CrossbowShootRange;
+                    scanner.range = CrossbowmanLifecycle.ShootRange;
+                    scanner.rangeBehind = CrossbowmanLifecycle.ShootRange;
                 }
                 // 读现值乘（不读缓存）：buff 可能已改过冷却；重入由 SO 指针判重挡住
                 Vector2 interval = archer._shootIntervalRange;
-                interval.x *= IntervalMultiplier;
-                interval.y *= IntervalMultiplier;
+                interval.x *= CrossbowmanLifecycle.IntervalMultiplier;
+                interval.y *= CrossbowmanLifecycle.IntervalMultiplier;
                 archer._shootIntervalRange = interval;
                 Vector2 intervalFormation = archer._shootIntervalRangeFormation;
-                intervalFormation.x *= IntervalMultiplier;
-                intervalFormation.y *= IntervalMultiplier;
+                intervalFormation.x *= CrossbowmanLifecycle.IntervalMultiplier;
+                intervalFormation.y *= CrossbowmanLifecycle.IntervalMultiplier;
                 archer._shootIntervalRangeFormation = intervalFormation;
             }
 
             // 体型 1.15（坑11：只动 y）+ ScaleRegistry 每帧守卫；Restore 必须
             // Unregister，否则池复用给普通弓箭手时被错误守卫在 1.15
-            Vector3 scale = archer.transform.localScale;
-            scale.y = CrossbowmanScaleY;
-            archer.transform.localScale = scale;
-            ScaleRegistryHolder.Register(archer.GetComponent<Mover>(), CrossbowmanScaleY);
+            GreekScaleScope.ApplyY(archer.transform, CrossbowmanLifecycle.ScaleY);
+            ScaleRegistryHolder.Register(archer.GetComponent<Mover>(), CrossbowmanLifecycle.ScaleY);
         }
         catch (Exception e)
         {
@@ -1000,9 +894,7 @@ public static class PatchRoles_Crossbowman
             if (_baseIntervalFormationCached) archer._shootIntervalRangeFormation = _baseIntervalFormation;
 
             ScaleRegistryHolder.Unregister(archer.GetComponent<Mover>());
-            Vector3 scale = archer.transform.localScale;
-            scale.y = 1f;
-            archer.transform.localScale = scale;
+            GreekScaleScope.Restore(archer.transform);
         }
         catch (Exception e)
         {
@@ -1011,15 +903,20 @@ public static class PatchRoles_Crossbowman
     }
 }
 
-/// <summary>
-/// 弩手标记（挂在弩手 Archer 的 gameObject 上）：骑士招募排除、完整性巡检遍历、
-/// 池复用清污。无字段——存在即身份。按 SpecialTowerRebuildMarker 先例显式
-/// ClassInjector 注册（PatchRoles_Crossbowman.EnsureMarkerRegistered）。
-/// </summary>
-public sealed class CrossbowmanMarker : MonoBehaviour
+/// <summary>Local pooled visual lifecycle; attached only to our reskinned arrow clone.</summary>
+public sealed class CrossbowBoltScaleLifecycle : MonoBehaviour
 {
-    public CrossbowmanMarker(IntPtr pointer) : base(pointer)
+    public CrossbowBoltScaleLifecycle(IntPtr pointer) : base(pointer) { }
+
+    private void OnEnable()
     {
+        GreekScaleScope.ApplyScale(transform,
+            GreekScaleScope.NativeScale(transform) * PatchRoles_Crossbowman.BoltVisualScale);
+    }
+
+    private void OnDisable()
+    {
+        GreekScaleScope.Restore(transform);
     }
 }
 
@@ -1116,4 +1013,53 @@ public static class PoolManager_Init_CrossbowBoltPool_Patch
             KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Crossbowman/pool] " + e);
         }
     }
+}
+
+/// <summary>
+/// I-a. 池生成作用域：Pool.FastSpawn（native 唯一，0x6c10a0）prefix 进入、finalizer 退出
+/// （异常路径也退出）。作用域本身**不**清职业：native 的 syncReceipt 命中 `_activeCache`
+/// 同 NetID 时会直接返回已 active 对象、不触发 OnEnable，若仅凭"返回值"或"进入作用域"判定
+/// 新 life 就会误清重复回执对象的职业。真实新 life 由作用域内发生的 `Archer.OnEnable` 确认。
+/// 成本：仅一次静态深度自增/自减，不做 GetComponent、不扫描。
+/// </summary>
+[HarmonyPatch(typeof(Pool), nameof(Pool.FastSpawn), new[]
+{
+    typeof(Vector3), typeof(Quaternion), typeof(Transform), typeof(short), typeof(bool)
+})]
+public static class Pool_FastSpawn_CrossbowmanLifecycleScope_Patch
+{
+    [HarmonyPrefix]
+    private static void Prefix() => PatchRoles_Crossbowman.BeginPoolSpawnScope();
+
+    [HarmonyFinalizer]
+    private static void Finalizer() => PatchRoles_Crossbowman.EndPoolSpawnScope();
+}
+
+/// <summary>
+/// I-b. Archer.OnEnable prefix/postfix（native 0x4b32d0）：
+/// - prefix：池作用域内 = 真池激活 → 在原生 `AddArcher`/`DistributeFreeArchers` 做招募判定
+///   之前清掉旧选择；作用域外 = 普通隐藏重开 → 按本 life 选择恢复有效身份；
+/// - postfix：原生重置之后收尾（配置关解除 / 残留还原 / 有效身份自愈）。
+/// </summary>
+[HarmonyPatch(typeof(Archer), "OnEnable")]
+public static class Archer_OnEnable_CrossbowmanLifecycle_Patch
+{
+    [HarmonyPrefix]
+    private static void Prefix(Archer __instance) => PatchRoles_Crossbowman.OnArcherEnablePrefix(__instance);
+
+    [HarmonyPostfix]
+    private static void Postfix(Archer __instance) => PatchRoles_Crossbowman.OnArcherEnablePostfix(__instance);
+}
+
+/// <summary>
+/// I-c. Archer.OnDisable prefix（native 0x4b2c10）：身份立即失效，保留本 life 选择。
+/// （原生 OnDisable 会把 `_arrowAttack` 写回 ActiveArrowAttack、ConvertToHunter，但不恢复
+/// shootRange/interval，且非权威/非主场景会提前 return——所以失效必须由我们自己在
+/// prefix 完成，不能依赖原生主体执行。）
+/// </summary>
+[HarmonyPatch(typeof(Archer), "OnDisable")]
+public static class Archer_OnDisable_CrossbowmanLifecycle_Patch
+{
+    [HarmonyPrefix]
+    private static void Prefix(Archer __instance) => PatchRoles_Crossbowman.OnArcherDisablePrefix(__instance);
 }

@@ -51,14 +51,12 @@ public static class NinjaStyleScale_Patch
 
     private static void Apply(Ninja ninja, bool isFisher)
     {
-        if (!ModConfig.Enabled.Value || ninja == null || ninja.gameObject == null) return;
+        if (ninja == null || ninja.gameObject == null) return;
 
         try
         {
             float targetY = isFisher ? FisherStyleY : AttackStyleY;
-            Vector3 scale = ninja.transform.localScale;
-            scale.y = targetY;
-            ninja.transform.localScale = scale;
+            GreekScaleScope.ApplyY(ninja.transform, targetY);
             ScaleRegistryHolder.Register(ninja.GetComponent<Mover>(), targetY);
         }
         catch (Exception e)
@@ -69,7 +67,7 @@ public static class NinjaStyleScale_Patch
 }
 
 /// <summary>
-/// 希腊 Banker y=1.075；其他世界只在同一对象曾被本补丁注册过时恢复基准 1。
+/// 希腊 Banker y=1.075；其他世界由公共作用域恢复本补丁实际写入前的缩放。
 /// </summary>
 [HarmonyPatch(typeof(Banker), nameof(Banker.OnEnable))]
 public static class GreeceBankerScale_Patch
@@ -79,31 +77,15 @@ public static class GreeceBankerScale_Patch
     [HarmonyPostfix]
     private static void OnEnable_Postfix(Banker __instance)
     {
-        if (!ModConfig.Enabled.Value || __instance == null || __instance.gameObject == null) return;
+        if (__instance == null || __instance.gameObject == null) return;
 
         try
         {
             Mover mover = __instance._mover != null ? __instance._mover : __instance.GetComponent<Mover>();
             if (mover == null) return;
 
-            bool isGreece = BiomeHolder.Inst != null
-                && BiomeHolder.Inst.BiomeIndex == BiomeHolder.GreeceBiomeIndex;
-            float targetY;
-            if (isGreece)
-            {
-                targetY = GreeceBankerY;
-            }
-            else
-            {
-                float registeredY;
-                if (!ScaleRegistryHolder.TryGet(mover, out registeredY)
-                    || Mathf.Abs(registeredY - GreeceBankerY) > 0.0001f) return;
-                targetY = 1f;
-            }
-
-            Vector3 scale = __instance.transform.localScale;
-            scale.y = targetY;
-            __instance.transform.localScale = scale;
+            float targetY = GreeceBankerY;
+            GreekScaleScope.ApplyY(__instance.transform, targetY);
             ScaleRegistryHolder.Register(mover, targetY);
         }
         catch (Exception e)
@@ -132,7 +114,7 @@ public static class HermitScale_Patch
     [HarmonyPostfix]
     private static void OnEnable_Postfix(Hermit __instance)
     {
-        if (!ModConfig.Enabled.Value || __instance == null || __instance.gameObject == null) return;
+        if (__instance == null || __instance.gameObject == null) return;
 
         try
         {
@@ -169,9 +151,7 @@ public static class HermitScale_Patch
             Mover mover = __instance.mover != null ? __instance.mover : __instance.GetComponent<Mover>();
             if (mover == null) return;
 
-            Vector3 scale = __instance.transform.localScale;
-            scale.y = targetY;
-            __instance.transform.localScale = scale;
+            GreekScaleScope.ApplyY(__instance.transform, targetY);
             ScaleRegistryHolder.Register(mover, targetY);
         }
         catch (Exception e)
@@ -216,16 +196,14 @@ public static class DogScale_Patch
     [HarmonyPostfix]
     private static void OnEnable_Postfix(Dog __instance)
     {
-        if (!ModConfig.Enabled.Value || __instance == null || __instance.gameObject == null) return;
+        if (__instance == null || __instance.gameObject == null) return;
 
         try
         {
             Mover mover = __instance.GetComponent<Mover>();
             if (mover == null) return;
 
-            Vector3 s = __instance.transform.localScale;
-            s.y = DogY;
-            __instance.transform.localScale = s;
+            GreekScaleScope.ApplyY(__instance.transform, DogY);
             ScaleRegistryHolder.Register(mover, DogY);
         }
         catch (Exception e)

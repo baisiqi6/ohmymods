@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 控制台回归：把生产核心（PatchRoles_Castle / ShopCleanupQueue）原样编译进来，配边界替身
+       （UnityEngine 帧末销毁与 fake-null、2.4 核验过的 ShopPlanner.RemoveShop/AddShop、
+       PayableShop.OnDestroy、Il2CppInterop 数组/Nullable、Harmony 特性、ModConfig/日志与兄弟模块）。
+       共享静态，故 Program.Main 顺序执行、每例前复位（Runner）。
+       生产工程（il2cpp/KingdomEnhancedMod.csproj）不引用本目录，也不受本目录影响。
+       Object.DestroyImmediate 在本工程中**不存在**：生产清理一旦回退到立即销毁就无法编译。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AssemblyName>ShopCleanupTests</AssemblyName>
+    <RootNamespace>ShopCleanupTests</RootNamespace>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+    <GeneratePropertiesFile>false</GeneratePropertiesFile>
+    <NoWarn>$(NoWarn);CS0649;CS0414;CS0169</NoWarn>
+    <CastleSource Condition="'$(CastleSource)' == ''">$(MSBuildThisFileDirectory)../../il2cpp/PatchRoles_Castle.cs</CastleSource>
+    <QueueSource Condition="'$(QueueSource)' == ''">$(MSBuildThisFileDirectory)../../il2cpp/ShopCleanupQueue.cs</QueueSource>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(CastleSource)" Link="Production/PatchRoles_Castle.cs" />
+    <Compile Include="$(QueueSource)" Link="Production/ShopCleanupQueue.cs" />
+  </ItemGroup>
+
+</Project>

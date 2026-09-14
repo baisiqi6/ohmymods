@@ -21,7 +21,7 @@ namespace UnityEngine
  public class MonoBehaviour:Component{public void StartCoroutine(System.Collections.IEnumerator routine){Scene.Routines.Add(routine);}}
  public class GameObject:Object
  {
-  readonly List<Component> components=new();public bool activeSelf=true,ThrowAfterDeactivate,ThrowOnActiveRead;private bool activeInHierarchyValue=true;public Transform transform;
+  readonly List<Component> components=new();public bool activeSelf=true,ThrowAfterDeactivate,ThrowOnActiveRead;private bool activeInHierarchyValue=true;public Transform transform;public TestScene scene=new();
   public bool activeInHierarchy {get{if(ThrowOnActiveRead)throw new InvalidOperationException("Injected active-state observation failure");return activeInHierarchyValue;}set=>activeInHierarchyValue=value;}
   public GameObject(){transform=new Transform{gameObject=this};}
   public T AddComponent<T>() where T:Component,new(){var c=new T{gameObject=this};components.Add(c);return c;}
@@ -30,9 +30,10 @@ namespace UnityEngine
   public void SetActive(bool active){activeSelf=activeInHierarchy=active;if(!active&&ThrowAfterDeactivate)throw new InvalidOperationException("Injected callback failure after SetActive(false)");}
  }
  public class Transform:Component{public Vector3 position,localScale=Vector3.one;}
- public struct Vector3{public float x,y,z;public Vector3(float x,float y=0,float z=0){this.x=x;this.y=y;this.z=z;}public static Vector3 one=>new(1,1,1);}
+ public struct Vector3{public float x,y,z;public Vector3(float x,float y=0,float z=0){this.x=x;this.y=y;this.z=z;}public static Vector3 one=>new(1,1,1);public float this[int i]{get=>i==0?x:i==1?y:z;set{if(i==0)x=value;else if(i==1)y=value;else z=value;}}}
+ public class TestScene{public bool IsValid()=>true;}
  public static class Mathf{public static float Abs(float a)=>MathF.Abs(a);public static float Min(float a,float b)=>MathF.Min(a,b);public static float Max(float a,float b)=>MathF.Max(a,b);public static bool Approximately(float a,float b)=>MathF.Abs(a-b)<.00001f;public static float Clamp(float a,float min,float max)=>Math.Clamp(a,min,max);public static float Sign(float a)=>a<0?-1:1;}
- public static class Time{public static float time=100,timeScale=1;}
+ public static class Time{public static float time=100,timeScale=1;public static int frameCount;}
  public struct Color{public static Color white=>new();}
  public struct Quaternion{public static Quaternion identity=>new();}
  public static class Random{public static float Range(float min,float max)=>(min+max)/2;}
@@ -103,7 +104,7 @@ public static class Pool
  {Spawned++;var go=new UnityEngine.GameObject();go.transform.position=pos;var cat=go.AddComponent<Cat>();Scene.Cats.Add(cat);return (T)cat;}
 }
 namespace BepInEx.Unity.IL2CPP.Utils.Collections{public static class Extensions{public static System.Collections.IEnumerator WrapToIl2Cpp(this System.Collections.IEnumerator source)=>source;}}
-namespace KingdomEnhancedMod{public static class ScaleRegistryHolder{public static void Register(Mover mover,float scale){}}}
+namespace KingdomEnhancedMod{public static class ScaleRegistryHolder{public static void Register(Mover mover,float scale)=>GreekScaleScope.Register(mover,scale);}}
 namespace KingdomEnhancedMod
 {
  public static class ModConfig{public class Option{public bool Value=true;}public static Option Enabled=new();}

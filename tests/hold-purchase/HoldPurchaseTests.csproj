@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Behavior tests for PatchPlayer_HoldPurchase.
+       Links the UNMODIFIED production file via Compile Include; every game/native/mod
+       API surface is stubbed in Stubs.cs and the vanilla 2.1.0 pay state machine is
+       reproduced in NativeSim.cs. Nothing here reimplements the production algorithm. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>HoldPurchaseTests</AssemblyName>
+    <RootNamespace>HoldPurchaseTests</RootNamespace>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+    <GeneratePropertiesFile>false</GeneratePropertiesFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/PatchPlayer_HoldPurchase.cs" Link="PatchPlayer_HoldPurchase.cs" />
+  </ItemGroup>
+
+</Project>

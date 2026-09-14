@@ -11,7 +11,7 @@
 | PatchRoles_Castle.cs | 希腊忍者/狂战士商店队列 + 工具池/角色池 + CreateItem 安全产出 | Castle.CatchupToLevel / ReQueueAllBuildings postfix；PayableShop.CreateItem prefix |
 | PatchRoles_Knight.cs | 狂战士跨世界跟随骑士 | Knight.TryRecruitAdditionalFollowers prefix |
 | PatchRoles_Character.cs | 希腊乞丐变北欧平民 | Character.Promote(string, IUnitController) prefix |
-| PatchRoles_Worker.cs | 单位缩放注册表（Worker/Deer/Critter/Berserker/Peasant）+ 盾牌/拾取 | Worker/Mover/WarriorPeasant/Deer/Critter/Peasant OnEnable/Update postfix |
+| PatchRoles_Worker.cs | 单位缩放注册表（Worker/Deer/Berserker/Peasant）+ 盾牌/拾取；Critter恢复原版大小 | Worker/Mover/WarriorPeasant/Deer/Peasant OnEnable/Update postfix |
 | PatchRoles_World.cs | 希腊世界自动生成草地 | World.OnLevelLoaded postfix |
 | PatchRoles_BeggarCamp.cs | 乞丐生成间隔 90 秒 | BeggarCamp.Awake postfix |
 

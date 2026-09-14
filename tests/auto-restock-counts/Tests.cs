@@ -45,13 +45,14 @@ internal sealed class Env
         Mask(true, true, true, true);
     }
 
-    public void Mask(bool w, bool a, bool n, bool b, bool p = false)
+    public void Mask(bool w, bool a, bool n, bool b, bool p = false, bool f = false)
     {
         ModConfig.AutoRestockWorkersEnabled = ConfigEntry<bool>.On(w);
         ModConfig.AutoRestockArchersEnabled = ConfigEntry<bool>.On(a);
         ModConfig.AutoRestockNinjasEnabled = ConfigEntry<bool>.On(n);
         ModConfig.AutoRestockBerserkersEnabled = ConfigEntry<bool>.On(b);
         ModConfig.AutoRestockPeasantsEnabled = ConfigEntry<bool>.On(p);
+        ModConfig.AutoRestockFarmersEnabled = ConfigEntry<bool>.On(f);
     }
 
     public bool R() => AutoRestockCounts.Refresh(Managers);
@@ -72,6 +73,7 @@ internal sealed class Env
             case "Fisher": go.Add(new Ninja { Pointer = Next(), _isFisher = true }); break;
             case "Berserker": go.Add(new Berserker { Pointer = Next() }); break;
             case "Peasant": go.Add(new Peasant { Pointer = Next() }); break;
+            case "Farmer": go.Add(new Farmer { Pointer = Next() }); break;
             case "Beggar": go.Add(new Beggar { Pointer = Next(), _character = ch }); break;
             // "Pikeman": no Ninja component -> unclassified
         }
@@ -81,9 +83,10 @@ internal sealed class Env
 
     public Droppable MakeItem(string tag) => new Droppable { tag = tag, Pointer = Next() };
 
-    public PayableShop MakeShop(string tag, int itemCount)
+    public PayableShop MakeShop(string tag, int itemCount, string goTag = null)
     {
         GameObject go = Fabric.NewGo(Next(), LayerGo.scene.handle, Layer);
+        go.tag = goTag;
         var shop = new PayableShop { Pointer = Next(), itemPrefab = new Droppable { tag = tag, Pointer = Next() }, itemCountOverride = itemCount };
         go.Add(shop);
         var items = new Droppable[itemCount];
@@ -848,6 +851,67 @@ internal static class Tests
         Test.Eq(e.Enums, en, "getters do not enumerate roster");
         Test.Eq(s.ItemsReadCount, reads, "getters do not read _items");
     }
+
+    // ---------- farmer (role 5) ----------
+
+    internal static void t49_farmer_live_separate_from_peasant()
+    {
+        var e = new Env();
+        e.Mask(true, true, true, true, false, true); // farmer on, peasant off
+        Character plain = e.MakeCharacter("Farmer");
+        Character skin = e.MakeCharacter("Farmer");
+        skin.gameObject.Add(new Peasant { Pointer = Env.Next() }); // promoted farmer keeps the peasant model
+        e.MakeCharacter("Peasant");
+        Test.Eq(e.R(), true, "seed with the farmer mask");
+        Test.Eq(Live(5), 2, "farmers counted; residual peasant component does not split the role");
+        Test.Eq(Live(4), 0, "peasant role disabled");
+        plain._damageable.isDead = true;
+        plain._damageable.FireDeath();
+        Test.Eq(Live(5), 1, "farmer death decrements role 5");
+        e.Mask(true, true, true, true, true, true);
+        Test.Eq(e.R(), true, "both roles on");
+        Test.Eq(Live(5), 1, "surviving farmer stays role 5");
+        Test.Eq(Live(4), 1, "only the actual peasant counts for role 4");
+    }
+
+    internal static void t50_scythe_shop_is_the_farmer_stock()
+    {
+        var e = new Env();
+        e.Mask(true, true, true, true, false, true);
+        PayableShop scythe = e.MakeShop("Scythe", 3, "ShopScythe");
+        PayableShop impostor = e.MakeShop("Scythe", 9);            // no native scythe tag
+        PayableShop bakery = e.MakeShop("Bread", 2, "ShopBakery");
+        bakery.gameObject.Add(new Baker { Pointer = Env.Next() });
+        e.SetPlaced(scythe, impostor, bakery);
+        Test.Eq(e.R(), true, "seed");
+        Test.Eq(Stock(5), 3, "scythe stock summed for the farmer role");
+        Test.Eq(Stock(4), 0, "bakery not summed while the peasant role is off");
+        Test.Eq(AutoRestockCounts.Shops.Count, 1, "only the scythe shop is a farmer target here");
+        Test.Eq(AutoRestockCounts.ClassifyShop(impostor), -1, "matching prefab tag without the native scythe tag is not a farmer shop");
+        Test.Eq(AutoRestockCounts.ClassifyShop(bakery), 4, "typed bakery is classified as the peasant shop");
+        e.Mask(true, true, true, true, true, true);
+        Test.Eq(e.R(), true, "both roles on");
+        Test.Eq(Stock(4), 2, "bakery stock counted for the peasant role");
+        Test.Eq(Stock(5), 3, "farmer stock unchanged and never mixed with bread");
+    }
+
+    internal static void t51_ammo_roles_read_zero_here()
+    {
+        var e = new Env();
+        e.Mask(true, true, true, true, true, true);
+        e.MakeCharacter("Farmer");
+        e.SetPlaced(e.MakeShop("Scythe", 2, "ShopScythe"));
+        Test.Eq(e.R(), true, "seed");
+        Test.Eq(Live(5), 1, "farmer live is cached here");
+        Test.Eq(Stock(5), 2, "farmer stock is cached here");
+        for (int role = 6; role <= 8; role++)
+        {
+            Test.Eq(Live(role), 0, "role " + role + " never reports live here");
+            Test.Eq(Stock(role), 0, "role " + role + " never reports stock here");
+            Test.Eq(AutoRestockCounts.IncomingCount(role), 0, "role " + role + " never reports incoming here");
+        }
+        Test.Eq(Live(-1), 0, "negative role reads 0");
+    }
 }
 
 internal static class Program
@@ -904,6 +968,9 @@ internal static class Program
             ("t46_reset_detaches_all", Tests.t46_reset_detaches_all),
             ("t47_native_transition_sync_before_refresh", Tests.t47_native_transition_sync_before_refresh),
             ("t48_getters_pure_cached", Tests.t48_getters_pure_cached),
+            ("t49_farmer_live_separate_from_peasant", Tests.t49_farmer_live_separate_from_peasant),
+            ("t50_scythe_shop_is_the_farmer_stock", Tests.t50_scythe_shop_is_the_farmer_stock),
+            ("t51_ammo_roles_read_zero_here", Tests.t51_ammo_roles_read_zero_here),
         };
         foreach ((string name, Action a) in tests) Test.Run(name, a);
         Additional.Run();

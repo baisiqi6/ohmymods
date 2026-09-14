@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Behavior tests for SiegeAmmoCounts.
+       Links the UNMODIFIED production file via Compile Include; every game/native/Harmony
+       API it touches is stubbed in Stubs.cs. No ModConfig/GreekBankScope stubs exist here on
+       purpose: the cache must compile and work driven only by the Refresh `enabled` argument. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>SiegeAmmoTests</AssemblyName>
+    <RootNamespace>SiegeAmmoTests</RootNamespace>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+    <GeneratePropertiesFile>false</GeneratePropertiesFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/SiegeAmmoCounts.cs" Link="SiegeAmmoCounts.cs" />
+  </ItemGroup>
+
+</Project>

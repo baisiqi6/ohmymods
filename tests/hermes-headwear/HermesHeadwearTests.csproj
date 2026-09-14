@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 控制台测试程序集：把生产核心（PatchDivine_HermesHeadwear / HermesHeadwearCodec）
+       直接编译进来，配边界替身（HarmonyLib 特性、Il2CppInterop 委托桥、root 的
+       ModConfig/日志、世界 scope、视觉层 API）与原生替身（UnityEngine / 游戏原生类型 /
+       ByteBuffer 语义）。共享静态，故单线程串行跑（Program.Main 顺序调用）。
+       生产工程（il2cpp/KingdomEnhancedMod.csproj）不引用本目录，也不受本目录影响。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <DefineConstants>$(DefineConstants);HERMES_HEADWEAR_TEST</DefineConstants>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>HermesHeadwearTests</AssemblyName>
+    <RootNamespace>HermesHeadwearTests</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0649;CS0414</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/PatchDivine_HermesHeadwear.cs"
+             Link="Production/PatchDivine_HermesHeadwear.cs" />
+    <Compile Include="../../il2cpp/HermesHeadwearCodec.cs"
+             Link="Production/HermesHeadwearCodec.cs" />
+  </ItemGroup>
+
+</Project>

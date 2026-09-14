@@ -11,6 +11,8 @@ static class Program
   Counts.Reset();Managers.ThrowInst=false;Managers.Inst=new();Time.unscaledTime=0;
   NetworkBigBoss.HasWorldAuth=true;
   ModConfig.Enabled.Value=ModConfig.ShowPopulationHud.Value=true;ModConfig.AutoRestockWorkersEnabled.Value=false;
+  ModConfig.AutoRestockCatapultBarrelsEnabled.Value=ModConfig.AutoRestockFireTowerAmmoEnabled.Value=false;
+  SiegeAmmoCounts.Ready=true;SiegeAmmoCounts.Barrels=SiegeAmmoCounts.FireAmmo=0;
   GUI.Labels.Clear();GUI.ThrowLabel=false;Event.current=new(){type=EventType.Repaint};Screen.width=1280;Screen.height=720;
   try{action();passed++;Console.WriteLine("PASS "+name);}catch(Exception ex){failed++;Console.WriteLine("FAIL "+name+": "+ex.Message);}
  }
@@ -180,14 +182,14 @@ static class Program
   {
    Actor<Worker>(Managers.Inst);PopulationHud.Tick();int scans=Managers.Inst.kingdom._characters.Enumerations;
    Event.current.type=EventType.Layout;PopulationHud.Draw();Eq(0,GUI.Labels.Count,"layout does not draw");Event.current.type=EventType.MouseDown;PopulationHud.Draw();Eq(0,GUI.Labels.Count,"input does not draw");
-   Event.current.type=EventType.Repaint;PopulationHud.Draw();Eq(30,GUI.Labels.Count,"15 labels with shadows, unknown omitted");
+   Event.current.type=EventType.Repaint;PopulationHud.Draw();Eq(34,GUI.Labels.Count,"17 labels with shadows, unknown omitted");
    Eq("本岛人数",GUI.Labels[1].Text,"scope title");Eq(54f,GUI.Labels[1].Rect.y,"title above roster");
    Eq("工匠  1",GUI.Labels[3].Text,"cached worker label");Eq(16f,GUI.Labels[3].Rect.x,"left position");Eq(76f,GUI.Labels[3].Rect.y,"top position");
    Eq(GUI.skin.label.FontChain,GUI.Labels[1].Style.FontChain,"native CJK font chain inherited");Eq(15,GUI.Labels[1].Style.fontSize,"font size");Eq(scans,Managers.Inst.kingdom._characters.Enumerations,"Draw never enumerates");
   });
   Test("HUD unknown knight fills only spare cell and independent display switch hides it",()=>
   {
-   Actor<Knight>(Managers.Inst);PopulationHud.Tick();PopulationHud.Draw();Eq(32,GUI.Labels.Count,"unknown extra label");Eq("待识别  1",GUI.Labels[^1].Text,"unknown text");
+   Actor<Knight>(Managers.Inst);PopulationHud.Tick();PopulationHud.Draw();Eq(36,GUI.Labels.Count,"unknown extra label");Eq(true,GUI.Labels.Any(x=>x.Text=="待识别  1"),"unknown text");
    GUI.Labels.Clear();ModConfig.ShowPopulationHud.Value=false;PopulationHud.Tick();PopulationHud.Draw();Eq(0,GUI.Labels.Count,"disabled HUD hidden");Eq(false,Counts.Ready,"disabled counts clear");
   });
   Test("Client HUD paints only title and unavailable notice and clears notice on disable",()=>
@@ -229,6 +231,21 @@ static class Program
    Time.unscaledTime=.5f;PopulationHud.Tick();Eq(reads,Managers.InstReads,"no subsecond singleton retries");
    ModConfig.ShowPopulationHud.Value=false;PopulationHud.Tick();Eq(false,Counts.Ready,"disable overrides backoff and clears cache");Eq(reads,Managers.InstReads,"no singleton access on disable");
    Managers.ThrowInst=false;
+  });
+  Test("Ammo HUD refreshes without population changes and automatic buying stays off",()=>
+  {
+   Time.unscaledTime=100;Actor<Farmer>(Managers.Inst);SiegeAmmoCounts.Barrels=7;SiegeAmmoCounts.FireAmmo=9;
+   PopulationHud.Tick();PopulationHud.Draw();Eq(true,GUI.Labels.Any(x=>x.Text=="火药桶  7"),"barrel total");Eq(true,GUI.Labels.Any(x=>x.Text=="希腊火弹药  9"),"tower total");
+   long version=Counts.Version;GUI.Labels.Clear();SiegeAmmoCounts.Barrels=6;Time.unscaledTime=100.1f;
+   PopulationHud.Tick();PopulationHud.Draw();Eq(version,Counts.Version,"population version unchanged");Eq(true,GUI.Labels.Any(x=>x.Text=="火药桶  6"),"consumption changes only ammo row");
+   Eq(false,ModConfig.AutoRestockCatapultBarrelsEnabled.Value,"HUD never enables purchase");
+   GUI.Labels.Clear();SiegeAmmoCounts.Ready=false;PopulationHud.Tick();PopulationHud.Draw();Eq(true,GUI.Labels.Any(x=>x.Text=="火药桶  —"),"unavailable is not fake zero");
+  });
+  Test("Hiding HUD retains ammo cache demand for active automatic restock",()=>
+  {
+   Time.unscaledTime=200;ModConfig.ShowPopulationHud.Value=false;ModConfig.AutoRestockFireTowerAmmoEnabled.Value=true;
+   PopulationHud.Tick();Eq(true,SiegeAmmoCounts.LastEnabled,"auto still needs cache");PopulationHud.Draw();Eq(0,GUI.Labels.Count,"HUD hidden");
+   ModConfig.Enabled.Value=false;PopulationHud.Tick();Eq(false,SiegeAmmoCounts.LastEnabled,"whole mod disables demand");
   });
   Console.WriteLine($"RESULT: {passed} passed, {failed} failed");Environment.ExitCode=failed==0?0:1;
  }

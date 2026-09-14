@@ -35,7 +35,6 @@ public static class PatchEconomy_CurrencyBag
     private const float BagScaleMultiplier = 2.0f;    // 钱袋 UI 放大倍率
     private const float BagPositionOffsetX = 3.70f;   // 钱袋 UI 向屏幕右侧微移
     private const float BagPositionOffsetY = -1.50f;  // 钱袋 UI 向屏幕下方微移
-    private static float _baseBagScale = -1f;         // 首次记录的原始基准（-1=未记录）
 
     /// <summary>
     /// 原生每次重算位置后施加固定视觉偏移。由于原生 RecalcPosition 会先覆盖基准位置，
@@ -45,7 +44,7 @@ public static class PatchEconomy_CurrencyBag
     [HarmonyPostfix]
     public static void RecalcPosition_Postfix(CurrencyBag __instance)
     {
-        if (!ModConfig.Enabled.Value) return;
+        if (!GreekScaleScope.IsActive) return;
         try
         {
             Vector3 position = __instance.transform.position;
@@ -114,10 +113,8 @@ public static class PatchEconomy_CurrencyBag
         if (!ModConfig.Enabled.Value) return;
         try
         {
-            // 金币 Instantiate 时父级是 scale=2 的钱袋 → 世界 scale 被带成 2；此处强制 localScale=1，
-            // 世界 scale = 袋子2 × 容器0.5 × 金币1 = 1（原大小）。
-            __instance.transform.localScale = Vector3.one;
             stack = nthCoin < VisualCoinLimit;
+            ApplyCoinScale(__instance);
         }
         catch (Exception e)
         {
@@ -175,27 +172,73 @@ public static class PatchEconomy_CurrencyBag
     }
 
     /// <summary>
-    /// 绝对设置（非乘法累积）：首次记录原始基准，之后恒为 基准 × 倍率。
+    /// 每实例从本 mod 缩放前的向量计算目标，重复调用不会累乘或跨钱袋污染。
     /// 金币容器（_container）反向缩放 1/倍率——抵消父级继承，金币保持原大小。
     /// 2.4.0：_container 字段由 interop 暴露为 public 属性，直接访问替代 Mono 反射。
     /// </summary>
     private static void ApplyBagScale(CurrencyBag bag)
     {
         if (bag == null) return;
-        Vector3 s = bag.transform.localScale;
-        if (_baseBagScale < 0f)
-        {
-            _baseBagScale = Mathf.Max(s.x, s.y);  // 首次记录原始基准
-        }
-        float target = _baseBagScale * BagScaleMultiplier;
-        s.x = Mathf.Sign(s.x) * target;
-        s.y = Mathf.Sign(s.y) * target;
-        bag.transform.localScale = s;
+        Vector3 s = GreekScaleScope.NativeScale(bag.transform);
+        s.x *= BagScaleMultiplier;
+        s.y *= BagScaleMultiplier;
+        GreekScaleScope.ApplyScale(bag.transform, s);
 
         Transform container = bag._container;
         if (container != null)
         {
-            container.localScale = new Vector3(1f / BagScaleMultiplier, 1f / BagScaleMultiplier, 1f);
+            GreekScaleScope.ApplyScale(container,
+                new Vector3(1f / BagScaleMultiplier, 1f / BagScaleMultiplier, 1f));
         }
+    }
+
+    private static void ApplyCoinScale(BagCurrency coin)
+    {
+        if (coin == null) return;
+        CurrencyBag bag = coin.bag;
+        Transform container = bag != null ? bag._container : null;
+        if (container == null)
+        {
+            GreekScaleScope.ApplyScale(coin.transform, Vector3.one);
+            return;
+        }
+        Vector3 nativeContainer = GreekScaleScope.NativeScale(container);
+        Vector3 actualContainer = container.localScale;
+        if (nativeContainer.x == actualContainer.x && nativeContainer.y == actualContainer.y
+            && nativeContainer.z == actualContainer.z)
+        {
+            // No parent scale owned by this mod: preserve this instance's native
+            // or third-party scale instead of replacing it with a prefab guess.
+            GreekScaleScope.ApplyScale(coin.transform, Vector3.one);
+            return;
+        }
+        var currency = Managers.Inst != null ? Managers.Inst.currency : null;
+        if (currency == null || BiomeHolder.Inst == null
+            || !currency.TryGetData(coin.CurrencyType, out CurrencyConfig config)
+            || config == null || config.BagPrefab == null) return;
+        BagCurrency prefab = BiomeData.GetPrefabSwap(config.BagPrefab);
+        if (prefab == null) return;
+
+        // SpawnCurrency instantiates under the bag, then reparents to _container
+        // with worldPositionStays. Our enlarged parent can already have doubled
+        // this incoming local scale, so it is not a valid native-size snapshot.
+        Vector3 nativeCoin = prefab.transform.localScale;
+        Vector3 incoming = coin.transform.localScale;
+        bool matchesInheritedScale = true;
+        for (int axis = 0; axis < 3; axis++)
+        {
+            if (!float.IsFinite(nativeContainer[axis]) || nativeContainer[axis] == 0f
+                || !float.IsFinite(actualContainer[axis]) || actualContainer[axis] == 0f) return;
+            float expectedIncoming = nativeCoin[axis] / actualContainer[axis];
+            matchesInheritedScale &= Mathf.Approximately(incoming[axis], expectedIncoming);
+            nativeCoin[axis] /= nativeContainer[axis];
+            if (!float.IsFinite(nativeCoin[axis])) return;
+        }
+        if (matchesInheritedScale)
+            // The parent discrepancy proves our contribution. Record even during
+            // loading so a later foreign-world transition can undo that inheritance.
+            GreekScaleScope.ApplyInheritedScale(coin.transform, Vector3.one, nativeCoin);
+        else
+            GreekScaleScope.ApplyScale(coin.transform, Vector3.one);
     }
 }

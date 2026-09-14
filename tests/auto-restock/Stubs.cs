@@ -32,6 +32,7 @@ namespace UnityEngine
     public static class Time
     {
         public static float time;
+        public static float unscaledTime => time;
         public static float deltaTime;
         public static float timeScale = 1f;
     }
@@ -59,13 +60,17 @@ namespace UnityEngine
 
     public class GameObject
     {
+        public readonly List<Component> Components = new();
+        public T GetComponent<T>() where T : class => Components.OfType<T>().FirstOrDefault();
         public string Name;
+        public string Tag;
         public bool Active = true;
         public IntPtr Pointer;
         public int Id;
         public Scene Scene;
         public Transform Transform;
         public string name { get => Name; set => Name = value; }
+        public bool CompareTag(string t) => Tag == t;
         public bool activeInHierarchy
         {
             get
@@ -105,7 +110,44 @@ public class Player
     public Payable _completingPayable;
 }
 
-public class Payable : Component { private IntPtr _ptr; public IntPtr Pointer { get => gameObject?.Pointer ?? _ptr; set=>_ptr=value; } }
+// Payable models the native surface both shop and ammo targets expose to the
+// service: price/currency/selection/network fields plus the single native
+// TransactionComplete purchase path. PayableShop adds only the shop-only slots.
+public class Payable : Component
+{
+    public bool enabled = true;
+    private IntPtr _ptr;
+    public IntPtr Pointer { get => gameObject?.Pointer ?? _ptr; set => _ptr = value; }
+    public int Price = 1, priceIncrease;
+    public CurrencyType Currency = CurrencyType.Coins;
+    public bool forceBlockPayment;
+    public bool selectedByP1, selectedByP2;
+    public Player PlayerSelecting, interactingPlayer;
+    public object parentHeaderRef = new object();
+    public int _payRPCIndex = 1;
+    public Func<Player, bool> CanPayF = _ => true;
+    public int TransactionCompleteCalls;
+    public float TransactionCompleteTime;
+    public int BalanceAtPay = int.MinValue; // balance observed inside native purchase
+    public int DeselectCalls;
+    public bool DeselectThrows;
+    public Action<Payable> TransactionCompleteF;
+
+    public virtual bool CanPay(Player p) => CanPayF(p);
+    public Vector3 GetApproximateGameLayerPosition() => new Vector3(0f, 0f, 0f);
+    public virtual void TransactionComplete()
+    {
+        TransactionCompleteCalls++;
+        TransactionCompleteTime = Time.time;
+        TransactionCompleteF?.Invoke(this);
+    }
+    public void Deselect(Player player)
+    {
+        DeselectCalls++;
+        if (DeselectThrows) throw new InvalidOperationException("cleanup failed");
+        selectedByP1 = selectedByP2 = false; PlayerSelecting = null;
+    }
+}
 
 public class WorkableBuilding { public bool UnderConstruction; }
 
@@ -156,43 +198,37 @@ public class Banker : Component { public int _stashedCoins; }
 
 public class PayableShop : Payable
 {
-    public bool enabled = true;
     public Droppable itemPrefab;
-    public int Price = 1, priceIncrease;
-    public int DeselectCalls;
-    public bool DeselectThrows;
-    public void Deselect(Player player) { DeselectCalls++; if(DeselectThrows) throw new InvalidOperationException("cleanup failed"); selectedByP1=selectedByP2=false; PlayerSelecting=null; }
     public int maxItems = 99;
     public int _limitedNumItems = 99;
-    public CurrencyType Currency = CurrencyType.Coins;
-    public bool forceBlockPayment;
-    public bool selectedByP1, selectedByP2;
-    public Player PlayerSelecting, interactingPlayer;
-    public object parentHeaderRef = new object();
-    public int _payRPCIndex = 1;
     public WorkableBuilding _workableBuilding = new WorkableBuilding();
 
     public int Items;                       // native stock
     public int GetItemCountCalls;
-    public int TransactionCompleteCalls;
-    public float TransactionCompleteTime;
-    public int BalanceAtPay = int.MinValue; // balance observed inside native purchase
-    public Func<Player, bool> CanPayF = _ => true;
-    public Action<PayableShop> TransactionCompleteF;
-
-    public Vector3 GetApproximateGameLayerPosition() => new Vector3(0f, 0f, 0f);
     public int GetItemCount() { GetItemCountCalls++; return Items; }
-    public bool CanPay(Player p) => CanPayF(p);
-    public void TransactionComplete()
+    public override void TransactionComplete()
     {
-        TransactionCompleteCalls++;
-        TransactionCompleteTime = Time.time;
-        TransactionCompleteF?.Invoke(this);
+        base.TransactionComplete();
         Items++;
     }
 }
 
 public class PayableShopBaker : PayableShop { }
+
+// Ammo targets: PayableWorkshopBarrel (role 6) and the FireTower's
+// PayableComponent (role 7, same GameObject as its owner).
+public class FireTower : Component { public object _parentHeaderRef = new object(); public int _fireJarsActiveIndex = 1; }
+
+public class PayableWorkshopBarrel : Payable { public RollableOilBarrel rollableBarrelPrefab = new() { gameObject = new GameObject() }; }
+public class RollableOilBarrel : Component { }
+public class BiomeData
+{
+    public static BiomeData Current = new();
+    public static GameObject Swap;
+    public T GetAssetSwapForThis<T>(T original) where T : class => Swap as T ?? original;
+}
+
+public class PayableComponent : Payable { public FireTower Owner; }
 
 public static class NetworkBigBoss
 {
@@ -225,7 +261,8 @@ public static class Pool
         return (T)(Droppable)coin;
     }
 
-    public static object GetPoolFromPrefabAsset(GameObject go) => PoolAssetAvailable ? new object() : null;
+    public static GameObject RequiredPoolPrefab;
+    public static object GetPoolFromPrefabAsset(GameObject go) => PoolAssetAvailable && (RequiredPoolPrefab == null || RequiredPoolPrefab == go) ? new object() : null;
     public static void Despawn(GameObject go, bool destroy) { DespawnCalls++; }
 
     public static void ResetPool()
@@ -233,6 +270,7 @@ public static class Pool
         SpawnCalls = DespawnCalls = 0;
         SpawnThrows = MoveToFails = false;
         PoolAssetAvailable = true;
+        RequiredPoolPrefab = null; BiomeData.Current = new(); BiomeData.Swap = null;
         Despawned.Clear();
         LastCoin = null;
     }
@@ -257,6 +295,13 @@ public class KingdomEnhancedPlugin
 // ---------------------------------------------------------------------------
 namespace KingdomEnhancedMod
 {
+    // The bank scope itself is exercised by the direct bank regression suite.
+    internal static class GreekBankScope
+    {
+        internal enum Scope { Unknown, Inactive, Active }
+        internal static bool IsActive = true;
+        internal static Scope Current() => IsActive ? Scope.Active : Scope.Inactive;
+    }
     public class ConfigEntry<T> { public T Value; }
 
     public static class ModConfig
@@ -267,11 +312,17 @@ namespace KingdomEnhancedMod
         public static ConfigEntry<bool> AutoRestockNinjasEnabled = new();
         public static ConfigEntry<bool> AutoRestockBerserkersEnabled = new();
         public static ConfigEntry<bool> AutoRestockPeasantsEnabled = new();
+        public static ConfigEntry<bool> AutoRestockFarmersEnabled = new();
+        public static ConfigEntry<bool> AutoRestockCatapultBarrelsEnabled = new();
+        public static ConfigEntry<bool> AutoRestockFireTowerAmmoEnabled = new();
         public static ConfigEntry<int> AutoRestockPeasantsTarget = new() { Value = 15 };
         public static ConfigEntry<int> AutoRestockWorkersTarget = new() { Value = 15 };
         public static ConfigEntry<int> AutoRestockArchersTarget = new() { Value = 15 };
         public static ConfigEntry<int> AutoRestockNinjasTarget = new() { Value = 15 };
         public static ConfigEntry<int> AutoRestockBerserkersTarget = new() { Value = 15 };
+        public static ConfigEntry<int> AutoRestockFarmersTarget = new() { Value = 15 };
+        public static ConfigEntry<int> AutoRestockCatapultBarrelsTarget = new() { Value = 15 };
+        public static ConfigEntry<int> AutoRestockFireTowerAmmoTarget = new() { Value = 15 };
 
         public static void ResetConfig()
         {
@@ -281,22 +332,29 @@ namespace KingdomEnhancedMod
             AutoRestockNinjasEnabled = new ConfigEntry<bool>();
             AutoRestockBerserkersEnabled = new ConfigEntry<bool>();
             AutoRestockPeasantsEnabled = new ConfigEntry<bool>();
+            AutoRestockFarmersEnabled = new ConfigEntry<bool>();
+            AutoRestockCatapultBarrelsEnabled = new ConfigEntry<bool>();
+            AutoRestockFireTowerAmmoEnabled = new ConfigEntry<bool>();
             AutoRestockPeasantsTarget = new ConfigEntry<int> { Value = 15 };
             AutoRestockWorkersTarget = new ConfigEntry<int> { Value = 15 };
             AutoRestockArchersTarget = new ConfigEntry<int> { Value = 15 };
             AutoRestockNinjasTarget = new ConfigEntry<int> { Value = 15 };
             AutoRestockBerserkersTarget = new ConfigEntry<int> { Value = 15 };
+            AutoRestockFarmersTarget = new ConfigEntry<int> { Value = 15 };
+            AutoRestockCatapultBarrelsTarget = new ConfigEntry<int> { Value = 15 };
+            AutoRestockFireTowerAmmoTarget = new ConfigEntry<int> { Value = 15 };
         }
     }
 
     /// <summary>Fake counts cache. Tests mutate counts (which bump Version,
-    /// mimicking counter events) and observe Refresh/Reset call patterns.</summary>
+    /// mimicking counter events) and observe Refresh/Reset call patterns.
+    /// Role 5 (Farmer) mirrors production identification: ShopScythe GO tag.</summary>
     internal static class AutoRestockCounts
     {
-        internal static readonly string[] Tags = { "Hammer", "Bow", "Katana", "BerserkerTool", "Bread" };
-        internal static readonly int[] Live = new int[5];
-        internal static readonly int[] Stock = new int[5];
-        internal static readonly int[] Incoming = new int[5];
+        internal static readonly string[] Tags = { "Hammer", "Bow", "Katana", "BerserkerTool", "Bread", "Scythe" };
+        internal static readonly int[] Live = new int[6];
+        internal static readonly int[] Stock = new int[6];
+        internal static readonly int[] Incoming = new int[6];
         internal static bool RefreshResult = true;
         internal static long _version;
         internal static readonly List<PayableShop> _shops = new();
@@ -304,14 +362,15 @@ namespace KingdomEnhancedMod
 
         internal static long Version => _version;
         internal static List<PayableShop> Shops => _shops;
-        internal static int LiveCount(int role) => Live[role];
-        internal static int StockCount(int role) => Stock[role];
-        internal static int IncomingCount(int role) => Incoming[role];
+        internal static int LiveCount(int role) => (uint)role < Live.Length ? Live[role] : 0;
+        internal static int StockCount(int role) => (uint)role < Stock.Length ? Stock[role] : 0;
+        internal static int IncomingCount(int role) => role == 4 && (uint)role < Incoming.Length ? Incoming[role] : 0;
         internal static int ClassifyShop(PayableShop shop)
         {
             if(shop == null || shop.itemPrefab == null) return -1;
-            if(shop is PayableShopBaker) return 4;
             for(int r=0;r<4;r++) if(shop.itemPrefab.tag == Tags[r]) return r;
+            if(shop.gameObject.CompareTag("ShopScythe")) return 5;
+            if(shop is PayableShopBaker) return 4;
             return -1;
         }
         internal static bool Refresh(Managers managers) { RefreshCalls++; return RefreshResult; }
@@ -333,6 +392,69 @@ namespace KingdomEnhancedMod
             Array.Clear(Live); Array.Clear(Stock); Array.Clear(Incoming);
             RefreshResult = true; _version = 0; _shops.Clear();
             RefreshCalls = ResetCalls = HookCalls = 0;
+        }
+    }
+
+    /// <summary>Contract stub for the ammo worker (SiegeAmmoCounts). Cached Counts
+    /// are only published by Refresh (mirroring the cached-target read model):
+    /// native ammo changes made by a pay land in Native and become visible on the
+    /// next successful refresh, which is why the final commit force-refreshes.</summary>
+    internal static class SiegeAmmoCounts
+    {
+        internal static readonly int[] Native = new int[8];
+        internal static readonly int[] Counts = new int[8];
+        internal static readonly Dictionary<Payable,int> Local = new();
+        internal static readonly List<Payable> Targets6 = new();
+        internal static readonly List<Payable> Targets7 = new();
+        internal static bool Ready = true, Unavailable = false, RefreshResult = true;
+        internal static bool LastForce;
+        internal static int RefreshCalls, ForceCalls, GetPayablesCalls;
+        internal static long _version;
+
+        internal static long Version => _version;
+        internal static bool IsReady => Ready;
+        internal static bool ClientUnavailable => Unavailable;
+        internal static int Count(int role) => role == 6 || role == 7 ? Counts[role] : 0;
+        internal static void GetPayables(int role, List<Payable> output)
+        {
+            GetPayablesCalls++;
+            output.Clear(); // contract: clear/fill cached targets
+            if(role == 6) output.AddRange(Targets6);
+            else if(role == 7) output.AddRange(Targets7);
+        }
+        internal static int Classify(Payable payable)
+        {
+            if(payable is PayableWorkshopBarrel) return 6;
+            if(payable is PayableComponent c && c.Owner != null
+                && ReferenceEquals(c.Owner.gameObject, c.gameObject)) return 7;
+            return -1;
+        }
+        internal static int CountAt(Payable payable)
+            => payable != null && Local.TryGetValue(payable, out int v) ? v : 0;
+        internal static bool Refresh(Managers managers, bool enabled, float now, bool force = false)
+        {
+            RefreshCalls++;
+            LastForce = force;
+            if(force) ForceCalls++;
+            if(!enabled || !RefreshResult) return false;
+            bool moved = false;
+            for(int role=6;role<=7;role++)
+                if(Counts[role] != Native[role]) { Counts[role] = Native[role]; moved = true; }
+            if(moved) _version++;
+            return true;
+        }
+
+        // Native-side writes (what the game itself would do) vs published cache.
+        internal static void SetNative(int role, int v) { Native[role] = v; }
+        internal static void SetCount(int role, int v) { Native[role] = v; Counts[role] = v; _version++; }
+        internal static void SetLocal(Payable payable, int v) { Local[payable] = v; _version++; }
+
+        internal static void ResetAmmo()
+        {
+            Array.Clear(Native); Array.Clear(Counts); Local.Clear();
+            Targets6.Clear(); Targets7.Clear();
+            Ready = true; Unavailable = false; RefreshResult = true; LastForce = false;
+            RefreshCalls = ForceCalls = GetPayablesCalls = 0; _version = 0;
         }
     }
 
