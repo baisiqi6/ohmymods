@@ -229,7 +229,7 @@ public class ModPanel : MonoBehaviour
         }
 
         float viewHeight = height - 224f;
-        int cards = _category == 4 ? 8 : (_category == 3 ? 5 : (_category == 0 ? 4 : 3));
+        int cards = _category == 4 ? 8 : (_category == 3 ? 5 : (_category == 0 || _category == 5 ? 4 : 3));
         float contentHeight = cards * (CardHeight + 12f);
         Rect viewport = new Rect(24, 176, width - 48, viewHeight);
         Rect content = new Rect(0, 0, width - 74, Mathf.Max(viewHeight, contentHeight));
@@ -290,6 +290,8 @@ public class ModPanel : MonoBehaviour
                 RestockControl(ref y, width, "希腊火焰塔 · 弹药", 7, ModConfig.AutoRestockFireTowerAmmoEnabled, ModConfig.AutoRestockFireTowerAmmoTarget);
                 break;
             case 5:
+                Toggle(ref y, width, "坐骑无限体力", ModConfig.InfiniteSteedStamina,
+                    "所有世界 · 本机控制的坐骑奔跑与滑翔不耗体力；关闭恢复自然消耗，技能冷却不变。");
                 Toggle(ref y, width, "长按连续购买", ModConfig.HoldPurchaseEnabled,
                     "所有世界 · 起初正常，持续按住后快速投币并连续购买同店商品；松开即停。");
                 DenseThicketControl(ref y, width);
@@ -304,7 +306,7 @@ public class ModPanel : MonoBehaviour
                     ModConfig.ArcherRateMultiplier.Value, 1, 2, 0.25f, ModConfig.ArcherRateMultiplier.Value.ToString("0.##") + " 倍",
                     "所有世界 · 最高 2 倍，关闭恢复原版；不加快移动和游戏时间。");
                 Toggle(ref y, width, "弓箭命中火焰特效", ModConfig.ArcherImpactEnabled,
-                    "单机 / 主机画面 · 短暂火焰冲击，限制同屏数量；不额外增加火焰伤害。");
+                    "单机 / 主机画面 · 原作者像素火焰，限制同屏数量；不额外增加火焰伤害。");
                 break;
         }
     }

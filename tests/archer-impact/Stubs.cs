@@ -4,6 +4,24 @@
 
 using System.Collections.Generic;
 
+namespace Il2CppInterop.Runtime.InteropTypes.Arrays
+{
+    /// <summary>Mirror of the real Il2CppInterop array: ctor(long), indexer, Length, implicit from T[].
+    /// The implicit is instrumented so a regression that copies managed arrays into native ones
+    /// per frame shows up as allocation growth.</summary>
+    public class Il2CppStructArray<T>
+    {
+        public static int Allocations, ManagedCopies;
+        private readonly T[] items;
+        public Il2CppStructArray(long size) { items = new T[size]; Allocations++; }
+        public Il2CppStructArray(T[] source) { items = (T[])source.Clone(); ManagedCopies++; Allocations++; }
+        public int Length => items.Length;
+        public T this[int index] { get => items[index]; set => items[index] = value; }
+        public static implicit operator Il2CppStructArray<T>(T[] array) => new(array);
+        public static implicit operator T[](Il2CppStructArray<T> array) => array.items;
+    }
+}
+
 namespace HarmonyLib
 {
     [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Method, AllowMultiple = true)]
@@ -91,6 +109,9 @@ namespace UnityEngine
         }
 
         public T GetComponent<T>() where T : class => components.Find(c => c is T) as T;
+
+        /// <summary>Test-only: drop a component the way a pooled/destroyed target loses it mid-hit.</summary>
+        public void RemoveComponent<T>() where T : class => components.RemoveAll(c => c is T);
 
         public bool TryGetComponent<T>(out T component) where T : class
         {
@@ -182,8 +203,9 @@ namespace UnityEngine
 
     public struct Quaternion
     {
+        public static int EulerCalls;
         public static Quaternion identity => new();
-        public static Quaternion Euler(float x, float y, float z) => new();
+        public static Quaternion Euler(float x, float y, float z) { EulerCalls++; return new(); }
     }
 
     public struct Color
@@ -192,6 +214,31 @@ namespace UnityEngine
         public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
         public static Color white => new(1f, 1f, 1f, 1f);
         public float Luminance => (r + g + b) / 3f;
+
+        /// <summary>Unity's Color.HSVToRGB: v may exceed 1 and is not clamped.</summary>
+        public static Color HSVToRGB(float h, float s, float v)
+        {
+            float r = v, g = v, b = v;
+            if (s > 0f)
+            {
+                h = (h - System.MathF.Floor(h)) * 6f;
+                int sector = (int)System.MathF.Floor(h);
+                float f = h - sector;
+                float p = v * (1f - s);
+                float q = v * (1f - s * f);
+                float t = v * (1f - s * (1f - f));
+                switch (sector)
+                {
+                    case 0: r = v; g = t; b = p; break;
+                    case 1: r = q; g = v; b = p; break;
+                    case 2: r = p; g = v; b = t; break;
+                    case 3: r = p; g = q; b = v; break;
+                    case 4: r = t; g = p; b = v; break;
+                    default: r = v; g = p; b = q; break;
+                }
+            }
+            return new Color(r, g, b, 1f);
+        }
     }
 
     public static class Mathf
@@ -202,7 +249,18 @@ namespace UnityEngine
         public static float Abs(float value) => System.MathF.Abs(value);
         public static float Min(float a, float b) => System.MathF.Min(a, b);
         public static float Max(float a, float b) => System.MathF.Max(a, b);
+        public static float Pow(float f, float p) => System.MathF.Pow(f, p);
         public static float Clamp(float value, float min, float max) => System.Math.Clamp(value, min, max);
+        public static float Clamp01(float value) => System.Math.Clamp(value, 0f, 1f);
+        public static float Lerp(float a, float b, float t) => a + (b - a) * System.Math.Clamp(t, 0f, 1f);
+        public static float Round(float value) => System.MathF.Round(value, System.MidpointRounding.ToEven);
+
+        /// <summary>Deterministic stand-in for Unity's Perlin noise, returning [0,1].</summary>
+        public static float PerlinNoise(float x, float y)
+        {
+            float value = System.MathF.Sin(x * 12.9898f + y * 78.233f) * 43758.5453f;
+            return value - System.MathF.Floor(value);
+        }
     }
 
     public static class Time
@@ -221,22 +279,89 @@ namespace UnityEngine
 
     public class Shader : Object
     {
-        public static bool Available = true;
+        public static bool Available = true, BlockPrimary;
         public static int Finds;
-        private static Shader instance;
+        public static readonly List<string> FindLog = new();
+        private static readonly Dictionary<string, Shader> instances = new();
+
         public static Shader Find(string name)
         {
             Finds++;
-            if (!Available || name != "Sprites/Default") return null;
-            return instance ??= new Shader { name = name };
+            FindLog.Add(name);
+            if (!Available) return null;
+            if (BlockPrimary && name == "Sprites/Default") return null;
+            if (name != "Sprites/Default" && name != "Unlit/Texture") return null;
+            if (!instances.TryGetValue(name, out Shader instance)) instances[name] = instance = new Shader { name = name };
+            return instance;
+        }
+
+        public override string ToString() => name;
+    }
+
+    public enum FilterMode { Point, Bilinear, Trilinear }
+
+    public class Texture : Object
+    {
+        public FilterMode filterMode = FilterMode.Bilinear;
+    }
+
+    public class Texture2D : Texture
+    {
+        public static int CreatedCount, SetPixelCalls, ApplyCalls;
+        public static bool ThrowOnSetPixel, ThrowOnApply;
+        public readonly int width, height;
+        public Color LastPixel = Color.white;
+        public Vector2 LastPixelCoord = new(-1f, -1f);
+        public bool Applied;
+
+        public Texture2D(int width, int height)
+        {
+            this.width = width;
+            this.height = height;
+            CreatedCount++;
+        }
+
+        public void SetPixel(int x, int y, Color color)
+        {
+            SetPixelCalls++;
+            if (ThrowOnSetPixel) throw new System.InvalidOperationException("injected SetPixel failure");
+            LastPixel = color;
+            LastPixelCoord = new Vector2(x, y);
+        }
+
+        public void Apply()
+        {
+            ApplyCalls++;
+            if (ThrowOnApply) throw new System.InvalidOperationException("injected Apply failure");
+            Applied = true;
         }
     }
 
     public class Material : Object
     {
         public static int CreatedCount;
+        public int InstanceWrites;
         public Shader shader;
+        public Texture mainTexture;
+        public int renderQueue;
+        public readonly List<(string Name, int Value)> IntSets = new();
+        private Color colorValue = Color.white;
+
         public Material(Shader shader) { this.shader = shader; CreatedCount++; }
+
+        public Color color
+        {
+            get => colorValue;
+            set { colorValue = value; InstanceWrites++; }
+        }
+
+        public void SetInt(string name, int value)
+        {
+            IntSets.Add((name, value));
+            InstanceWrites++;
+        }
+
+        public Texture GetMainTexture() => mainTexture;
     }
 
     public class Renderer : Component
@@ -260,45 +385,79 @@ namespace UnityEngine
         public Material material => throw new System.NotSupportedException("material cloning is forbidden; use sharedMaterial");
     }
 
-    public class LineRenderer : Renderer
+    public class MeshRenderer : Renderer { }
+
+    public class Mesh : Object
     {
-        public static bool ThrowOnPositionCountWrite, ThrowOnPositionWrite;
-        public static int SetPositionCalls, PositionCountWrites;
-        public readonly List<Vector3> Positions = new();
-        public readonly List<float> WidthHistory = new();
-        public readonly List<Color> ColorHistory = new();
-        private int points;
-        private float widthScale;
-        public bool useWorldSpace, loop;
-        public int numCapVertices, numCornerVertices;
+        public static int CreatedCount, VertexUploads, BoundsRecalculations, NormalRecalculations, Clears;
+        public static int RejectedGeometryWrites;
+        public static bool ThrowOnVertexWrite, ThrowOnUvWrite, ThrowOnTriangleWrite;
+        public Bounds bounds;
+        private Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<Vector3> vertexBuffer;
+        private Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<Vector2> uvBuffer;
+        private Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<int> triangleBuffer;
 
-        public int positionCount
+        public Mesh() { CreatedCount++; }
+
+        public Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<Vector3> vertices
         {
-            get => points;
-            set { points = value; PositionCountWrites++; if (ThrowOnPositionCountWrite) throw new System.InvalidOperationException("injected positionCount failure"); }
+            get => vertexBuffer;
+            set
+            {
+                if (ThrowOnVertexWrite) throw new System.InvalidOperationException("injected mesh vertices failure");
+                vertexBuffer = value;
+                VertexUploads++;
+            }
         }
 
-        public float widthMultiplier
+        public static int UvWrites, TriangleWrites;
+
+        /// <summary>Unity rejects uv/indices on a mesh with no vertices; model that.</summary>
+        public int vertexCount => vertexBuffer == null ? 0 : vertexBuffer.Length;
+
+        public Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<Vector2> uv
         {
-            get => widthScale;
-            set { widthScale = value; WidthHistory.Add(value); }
+            get => uvBuffer;
+            set
+            {
+                if (ThrowOnUvWrite) throw new System.InvalidOperationException("injected mesh uv failure");
+                if (vertexCount == 0) { RejectedGeometryWrites++; throw new System.InvalidOperationException("mesh has no vertices: uv rejected"); }
+                uvBuffer = value;
+                UvWrites++;
+            }
         }
 
-        public Color startColor
+        public Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<int> triangles
         {
-            get => ColorHistory.Count > 0 ? ColorHistory[^1] : default;
-            set { ColorHistory.Add(value); }
+            get => triangleBuffer;
+            set
+            {
+                if (ThrowOnTriangleWrite) throw new System.InvalidOperationException("injected mesh triangles failure");
+                if (vertexCount == 0) { RejectedGeometryWrites++; throw new System.InvalidOperationException("mesh has no vertices: indices rejected"); }
+                triangleBuffer = value;
+                TriangleWrites++;
+            }
         }
 
-        public Color endColor { get; set; }
+        public void RecalculateBounds() { BoundsRecalculations++; }
+        public void RecalculateNormals() { NormalRecalculations++; }
+        public void Clear() { Clears++; }
 
-        public void SetPosition(int index, Vector3 position)
-        {
-            SetPositionCalls++;
-            if (ThrowOnPositionWrite) throw new System.InvalidOperationException("injected SetPosition failure");
-            while (Positions.Count <= index) Positions.Add(default);
-            Positions[index] = position;
-        }
+        public void ResetCounter() { }
+    }
+
+    public struct Bounds
+    {
+        public Vector3 center, size;
+        public Bounds(Vector3 center, Vector3 size) { this.center = center; this.size = size; }
+    }
+
+    public class MeshFilter : Component
+    {
+        public Mesh sharedMesh;
+        public Mesh mesh { get => sharedMesh; set { sharedMesh = value; MeshInstantiations++; } }
+        public static int MeshInstantiations;
+        public static bool ThrowOnMeshWrite;
     }
 
     public class SpriteRenderer : Renderer { }

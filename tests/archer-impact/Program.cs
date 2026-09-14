@@ -8,11 +8,14 @@
 //   * native return        -> _hasHit true        -> burst allowed
 //   * native throw         -> postfix is skipped  -> no burst, no leak
 // Unity types are stubbed (Stubs.cs); nothing here is a real-game assertion.
+// The visual contract under test is the real DLL's pixel-fire (5x5 grid mesh +
+// Perlin pixel snapping + growth/fade), not the older LineRenderer ring.
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using KingdomEnhancedMod;
 using UnityEngine;
 
@@ -25,6 +28,7 @@ internal static class Program
     private static Dictionary<FieldInfo, object> InitialFields;
     private static Material TrailMaterial;
     private static int NativeRuns;
+    private static Action<GameObject> DuringNativeHit;
     private static readonly List<string> Failures = new();
 
     private static void Main()
@@ -37,9 +41,12 @@ internal static class Program
         PrefixMethod = HookType.GetMethod("Prefix", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
         PostfixMethod = HookType.GetMethod("Postfix", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
         TrailMaterial = new Material(Shader.Find("Sprites/Default"));
+        TrailMaterial.color = new Color(.25f, .5f, .75f, 1f);
+        TrailMaterial.mainTexture = null;
 
         HookSurface();
         NativeAcceptance();
+        PixelFireVisuals();
         Budgets();
         PoolAndFailures();
 
@@ -59,10 +66,23 @@ internal static class Program
 
     private static void Check(bool condition, string why) { if (!condition) throw new Exception(why); }
 
+    private static void Near(float want, float got, string why, float tolerance = .001f)
+    {
+        if (MathF.Abs(want - got) > tolerance)
+            throw new Exception($"{why}: expected {want}, got {got}");
+    }
+
     private static void Same(Vector3 want, Vector3 got, string why)
     {
         if (MathF.Abs(want.x - got.x) > .001f || MathF.Abs(want.y - got.y) > .001f || MathF.Abs(want.z - got.z) > .001f)
             throw new Exception($"{why}: expected ({want.x},{want.y},{want.z}), got ({got.x},{got.y},{got.z})");
+    }
+
+    private static void SameColor(Color want, Color got, string why)
+    {
+        if (MathF.Abs(want.r - got.r) > .0001f || MathF.Abs(want.g - got.g) > .0001f
+            || MathF.Abs(want.b - got.b) > .0001f || MathF.Abs(want.a - got.a) > .0001f)
+            throw new Exception($"{why}: expected ({want.r},{want.g},{want.b},{want.a}), got ({got.r},{got.g},{got.b},{got.a})");
     }
 
     private static void Test(string name, Action action)
@@ -100,21 +120,40 @@ internal static class Program
         foreach (GameObject go in UnityEngine.Object.Created.OfType<GameObject>()) go.DestroyDeep();
         UnityEngine.Object.Created.Clear();
         TrailMaterial.Destroyed = false;
+        TrailMaterial.InstanceWrites = 0;
         UnityEngine.Object.DestroyedObjects.Clear();
         UnityEngine.Object.DestroyRequests = 0;
         UnityEngine.Object.DoubleDestroys = 0;
         GameObject.Activations.Clear();
         GameObject.SetActiveTrueCalls = 0;
-        LineRenderer.SetPositionCalls = 0;
-        LineRenderer.PositionCountWrites = 0;
-        LineRenderer.ThrowOnPositionCountWrite = false;
-        LineRenderer.ThrowOnPositionWrite = false;
         Renderer.SortingWrites = 0;
         Renderer.ThrowOnSortingWrite = false;
         Transform.ThrowOnSetParent = false;
         Material.CreatedCount = 0;
         Shader.Finds = 0;
+        Shader.FindLog.Clear();
         Shader.Available = true;
+        Shader.BlockPrimary = false;
+        Quaternion.EulerCalls = 0;
+        Texture2D.CreatedCount = 0;
+        Texture2D.SetPixelCalls = 0;
+        Texture2D.ApplyCalls = 0;
+        Texture2D.ThrowOnSetPixel = false;
+        Texture2D.ThrowOnApply = false;
+        Mesh.RejectedGeometryWrites = 0;
+        DuringNativeHit = null;
+        Mesh.CreatedCount = 0;
+        Mesh.VertexUploads = 0;
+        Mesh.UvWrites = 0;
+        Mesh.TriangleWrites = 0;
+        Mesh.BoundsRecalculations = 0;
+        Mesh.NormalRecalculations = 0;
+        Mesh.ThrowOnVertexWrite = false;
+        Mesh.ThrowOnUvWrite = false;
+        Mesh.ThrowOnTriangleWrite = false;
+        MeshFilter.MeshInstantiations = 0;
+        Il2CppStructArray<Vector3>.Allocations = 0;
+        Il2CppStructArray<Vector3>.ManagedCopies = 0;
         ParticleSystem.Plays = 0;
         ParticleSystem.MainAccesses = 0;
         ParticleSystem.ThrowOnPlay = false;
@@ -149,11 +188,23 @@ internal static class Program
         UnityEngine.Object.DestroyRequests = 0;
         UnityEngine.Object.DoubleDestroys = 0;
         UnityEngine.Object.DestroyedObjects.Clear();
-        LineRenderer.SetPositionCalls = 0;
-        LineRenderer.PositionCountWrites = 0;
         Renderer.SortingWrites = 0;
         Material.CreatedCount = 0;
         Shader.Finds = 0;
+        Shader.FindLog.Clear();
+        Quaternion.EulerCalls = 0;
+        Texture2D.CreatedCount = 0;
+        Texture2D.SetPixelCalls = 0;
+        Texture2D.ApplyCalls = 0;
+        Mesh.RejectedGeometryWrites = 0;
+        Mesh.CreatedCount = 0;
+        Mesh.VertexUploads = 0;
+        Mesh.UvWrites = 0;
+        Mesh.TriangleWrites = 0;
+        Mesh.BoundsRecalculations = 0;
+        MeshFilter.MeshInstantiations = 0;
+        Il2CppStructArray<Vector3>.Allocations = 0;
+        Il2CppStructArray<Vector3>.ManagedCopies = 0;
         ParticleSystem.Plays = 0;
         ParticleSystem.MainAccesses = 0;
         Rigidbody2D.TorqueCalls = 0;
@@ -183,16 +234,16 @@ internal static class Program
     /// <summary>Prefix -> native Arrow.HitObject -> postfix, with Harmony's skip-on-throw semantics.</summary>
     private static void NativeHit(Arrow arrow, GameObject target, bool physicalHit = false)
     {
-        object[] prefixArgs = { arrow, null };
+        object[] prefixArgs = { arrow, target, physicalHit, null };
         try { PrefixMethod.Invoke(null, prefixArgs); }
         catch (TargetInvocationException e) { throw e.InnerException ?? e; }
-        object state = prefixArgs[1];
+        object state = prefixArgs[3];
         NativeHitObject(arrow, target, physicalHit); // native throw propagates: postfix skipped, as in Harmony
         try { PostfixMethod.Invoke(null, new object[] { arrow, state }); }
         catch (TargetInvocationException e) { throw e.InnerException ?? e; }
     }
 
-    // -------- mirrored native Arrow.HitObject (reference/Arrow.cs, observation only) --------
+    // -------- mirrored native Arrow.HitObject (author-Arrow.cs, observation only) --------
 
     private static void NativeHitObject(Arrow arrow, GameObject target, bool physicalHit)
     {
@@ -246,6 +297,7 @@ internal static class Program
             arrow._rigidbody.angularVelocity = Vector2.zero;
         }
 
+        DuringNativeHit?.Invoke(target); // modelled native side effects on the target (kill / pool / component loss)
         arrow._hasHit = true;
         arrow._orientToVelocity = false;
         if (arrow._impactSpawner != null)
@@ -308,6 +360,13 @@ internal static class Program
         return (go, go.AddComponent<Damageable>());
     }
 
+    private static GameObject NewGround(Vector3 at)
+    {
+        var go = new GameObject("Ground") { tag = "Ground" };
+        go.transform.position = at;
+        return go;
+    }
+
     private static List<GameObject> BuiltRoots() =>
         UnityEngine.Object.Created.OfType<GameObject>().Where(g => g.name == "KEM_ArcherImpact").ToList();
 
@@ -316,20 +375,31 @@ internal static class Program
     private static List<GameObject> KEMObjects() =>
         UnityEngine.Object.Created.OfType<GameObject>().Where(g => g.name.StartsWith("KEM_")).ToList();
 
-    private static List<LineRenderer> LayersOf(GameObject root) =>
-        root.transform.children.Select(t => t.gameObject.GetComponent<LineRenderer>()).ToList();
+    private static List<MeshRenderer> LayersOf(GameObject root) =>
+        root.transform.children.Select(t => t.gameObject.GetComponent<MeshRenderer>()).ToList();
 
-    private static LineRenderer LayerOf(GameObject root, string name) =>
-        root.transform.children.First(t => t.gameObject.name == name).gameObject.GetComponent<LineRenderer>();
+    private static MeshRenderer LayerRenderer(GameObject root, string name) =>
+        root.transform.children.First(t => t.gameObject.name == name).gameObject.GetComponent<MeshRenderer>();
+
+    private static Mesh LayerMesh(GameObject root, string name) =>
+        root.transform.children.First(t => t.gameObject.name == name).gameObject.GetComponent<MeshFilter>().sharedMesh;
 
     private static GameObject LayerGo(GameObject root, string name) =>
         root.transform.children.First(t => t.gameObject.name == name).gameObject;
 
-    private static Material OwnedMaterial() =>
-        UnityEngine.Object.Created.OfType<Material>().FirstOrDefault(m => !ReferenceEquals(m, TrailMaterial));
+    /// <summary>Live module-owned materials (every material except the borrowed trail reference).</summary>
+    private static List<Material> OwnedMaterials() =>
+        UnityEngine.Object.Created.OfType<Material>().Where(m => !ReferenceEquals(m, TrailMaterial) && !m.Destroyed).ToList();
 
-    private static float MaxRadius(LineRenderer lr) => lr.Positions.Max(p => MathF.Sqrt(p.x * p.x + p.y * p.y));
-    private static float MinRadius(LineRenderer lr) => lr.Positions.Min(p => MathF.Sqrt(p.x * p.x + p.y * p.y));
+    private static List<Mesh> OwnedMeshes() => UnityEngine.Object.Created.OfType<Mesh>().Where(m => !m.Destroyed).ToList();
+
+    private static List<Texture2D> OwnedTextures() =>
+        UnityEngine.Object.Created.OfType<Texture2D>().Where(t => !t.Destroyed).ToList();
+
+    private static float Luminance(Color color) => (color.r + color.g + color.b) / 3f;
+
+    private static bool IsPixelAligned(float value) =>
+        MathF.Abs(value / PatchArcher_Impact.PixelSize - MathF.Round(value / PatchArcher_Impact.PixelSize)) < .001f;
 
     private static int ActivationsInFrame(int frame) => GameObject.Activations.Count(a => a.Frame == frame);
 
@@ -356,6 +426,9 @@ internal static class Program
             Check(PrefixMethod != null && PostfixMethod != null, "prefix and postfix present");
             Check(PrefixMethod.GetParameters().Any(p => p.Name == "__state" && p.IsOut), "prefix captures __state");
             Check(PostfixMethod.GetParameters().Any(p => p.Name == "__state"), "postfix consumes __state");
+            Check(PrefixMethod.GetParameters().Any(p => p.Name == "target"), "prefix sees the native target");
+            Check(PrefixMethod.GetParameters().Any(p => p.Name == "physicalHit"), "prefix sees physicalHit");
+            Eq(2, PostfixMethod.GetParameters().Length, "postfix reads no live target: category comes from the cached state");
             Check(Production.GetMethod("Prefix", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static) == null,
                 "module type must not expose a bare Prefix helper");
             Check(Production.GetMethod("Postfix", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static) == null,
@@ -373,7 +446,7 @@ internal static class Program
 
     private static void NativeAcceptance()
     {
-        Test("Accepted hit spawns one three-layer burst at the hit point with the arrow renderer sorting", () =>
+        Test("Accepted hit spawns one three-layer pixel burst at the hit point with arrow renderer sorting", () =>
         {
             var archer = NewArcher();
             var arrow = NewArrow(archer, new Vector3(3f, 2f, 0f), sortingLayer: 7, sortingOrder: 123, goLayer: 6);
@@ -395,30 +468,53 @@ internal static class Program
             GameObject root = roots[0];
             Check(root.activeSelf, "burst visible without waiting for a tick");
             Same(new Vector3(3f, 2f, 0f), root.transform.position, "burst at the native hit position");
+            Eq(0, Quaternion.EulerCalls, "pixel grid stays axis aligned (author random z-rotation not migrated)");
             Check(root.transform.parent == null, "burst is not parented into the arrow");
             Eq(6, root.layer, "burst copies the arrow GameObject layer");
             Eq(1, BuiltRoots().Count, "exactly one pool root built");
 
-            var lrs = LayersOf(root);
-            Eq(PatchArcher_Impact.LayerCount, lrs.Count, "three fire layers");
-            foreach (LineRenderer lr in lrs)
+            var renderers = LayersOf(root);
+            Eq(PatchArcher_Impact.LayerCount, renderers.Count, "three fire layers");
+            Eq(3, Mesh.CreatedCount, "one mesh per layer, built with the slot");
+            Eq(3, Material.CreatedCount, "one owned material per layer");
+            Eq(1, Texture2D.CreatedCount, "exactly one shared white texture");
+            Eq(1, Texture2D.SetPixelCalls, "white texture pixel written once");
+            Eq(1, Texture2D.ApplyCalls, "white texture applied once");
+            Eq(0, MeshFilter.MeshInstantiations, "sharedMesh used: no mesh clone");
+
+            foreach (MeshRenderer renderer in renderers)
             {
-                Eq(PatchArcher_Impact.RingPoints, lr.Positions.Count, "13 indexed ring points per layer");
-                Eq(true, lr.loop, "rings are closed");
-                Eq(false, lr.useWorldSpace, "rings follow their own transform");
-                Eq(true, lr.enabled, "layer renderer enabled");
-                Check(ReferenceEquals(lr.sharedMaterial, TrailMaterial), "shared arrow line material reused");
-                Eq(6, lr.gameObject.layer, "layer GameObject follows the arrow layer");
+                Check(renderer.enabled, "layer renderer enabled");
+                Check(!ReferenceEquals(renderer.sharedMaterial, TrailMaterial), "trail material never borrowed");
+                Check(OwnedMaterials().Contains(renderer.sharedMaterial), "renderer uses a module-owned material");
+                Check(ReferenceEquals(renderer.sharedMaterial.mainTexture, OwnedTextures().Single()),
+                    "all layers sample the single owned white texture");
+                Eq(6, renderer.gameObject.layer, "layer GameObject follows the arrow layer");
             }
-            Eq(7, lrs[0].sortingLayerID, "sorting layer from arrow renderer");
-            Eq(125, lrs[0].sortingOrder, "core draws above the arrow order");
-            Eq(124, lrs[1].sortingOrder, "mid layer order");
-            Eq(123, lrs[2].sortingOrder, "outer layer keeps the arrow order");
-            Check(lrs.All(l => l.sortingOrder != 30000), "no hardcoded 30000 sorting order");
-            Eq(0, Material.CreatedCount, "no material created when the arrow shares a line material");
-            Eq(0, Shader.Finds, "no shader probe when a shared material exists");
-            Eq(39, LineRenderer.SetPositionCalls, "geometry built once (13 points x 3 layers)");
-            Check(lrs[0].ColorHistory.Count > 0 && lrs[2].ColorHistory.Count > 0, "vertex colors written on spawn");
+            Eq(7, renderers[0].sortingLayerID, "sorting layer from arrow renderer");
+            Eq(125, renderers[0].sortingOrder, "core draws above the arrow order");
+            Eq(124, renderers[1].sortingOrder, "mid layer order");
+            Eq(123, renderers[2].sortingOrder, "outer layer keeps the arrow order");
+            Check(renderers.All(l => l.sortingOrder != 30000), "no hardcoded 30000 sorting order");
+            Eq(0, TrailMaterial.InstanceWrites, "borrowed trail material never written");
+            Check(!TrailMaterial.Destroyed, "borrowed trail material never destroyed");
+
+            Eq(1, Shader.Finds, "shader resolved once for the pool");
+            Eq("Sprites/Default", Shader.FindLog[0], "primary shader probed first");
+            Eq(1, Log.Warnings.Count(w => w.Contains("Sprites/Default")), "resolved shader recorded once for root");
+            Check(Log.Infos.Any(i => i.Contains("pixel fire ready") && i.Contains("indices=150")
+                && i.Contains("vertexCount=36") && i.Contains("texture=1x1") && i.Contains("Point")),
+                "one-shot log records shader, uploaded vertex/index counts and the 1x1 Point texture");
+
+            Mesh core = LayerMesh(root, "KEM_ImpactCore");
+            Eq(PatchArcher_Impact.VertexCount, core.vertices.Length, "36 grid vertices per layer");
+            Eq(PatchArcher_Impact.IndexCount, core.triangles.Length, "150 triangle indices per layer");
+            Eq(6, Mesh.VertexUploads, "3 build writes (empty-mesh seed) + 3 spawn writes");
+            Eq(0, Mesh.RejectedGeometryWrites, "no uv/index write rejected for a vertex-less mesh");
+            Eq(PatchArcher_Impact.VertexCount, core.vertexCount, "native vertexCount is 36 after the seed write");
+            Eq(PatchArcher_Impact.VertexCount, core.uv.Length, "uv uploaded for all 36 vertices");
+            Eq(3, Il2CppStructArray<Vector3>.Allocations, "one cached native vertex array per layer");
+            Eq(0, Il2CppStructArray<Vector3>.ManagedCopies, "no managed array copied into a native array");
         });
 
         Test("Duplicate HitObject call on the same arrow cannot spawn a second burst", () =>
@@ -515,19 +611,21 @@ internal static class Program
 
             Eq(2, damageable.HitCount, "second native hit accepted");
             Eq(1, EffectRoots().Count, "burst after the world transition");
-            Eq(39, LineRenderer.SetPositionCalls, "geometry built for the new pool slot");
+            Eq(3, Mesh.CreatedCount, "meshes built for the new pool slot");
+            Eq(1, Texture2D.CreatedCount, "one white texture for the new pool");
         });
 
         Test("Replacing the live world identity releases the old pool while the scope stays active", () =>
         {
             var archerA = NewArcher();
-            var arrowA = NewArrow(archerA, new Vector3(1f, 1f, 0f), trailMaterial: false);
+            var arrowA = NewArrow(archerA, new Vector3(1f, 1f, 0f));
             var (targetA, _) = NewTarget(new Vector3(1.2f, 1f, 0f));
             NativeHit(arrowA, targetA);
             GameObject firstRoot = EffectRoots().Single();
-            Material owned = OwnedMaterial();
-            Eq(1, Material.CreatedCount, "world A material created");
-            Check(owned != null, "world A material tracked");
+            List<Mesh> ownedMeshes = OwnedMeshes();
+            List<Material> ownedMaterials = OwnedMaterials();
+            Texture2D ownedTexture = OwnedTextures().Single();
+            Eq(PatchArcher_Impact.LayerCount, ownedMeshes.Count, "one owned mesh per layer");
             Check(ArcherOptionsScope.IsCurrent(arrowA), "fixture arrow starts current");
 
             // World A -> B with the scope still active: real identity replacement.
@@ -538,23 +636,28 @@ internal static class Program
             Tick();
 
             Check(!firstRoot, "old-world burst destroyed on identity change");
-            Check(!owned, "old-world material destroyed on identity change");
+            Check(ownedMeshes.All(m => !m), "old-world meshes destroyed on identity change");
+            Check(ownedMaterials.All(m => !m), "old-world materials destroyed on identity change");
+            Check(!ownedTexture, "old-world white texture destroyed on identity change");
             Eq(0, EffectRoots().Count, "no burst survives the world replacement");
             Eq(0, UnityEngine.Object.DoubleDestroys, "no duplicate destroy requests");
+            Eq(0, OwnedMeshes().Count, "no orphan mesh survives the release");
+            Eq(0, OwnedMaterials().Count, "no orphan material survives the release");
 
             arrowA._hasHit = false;
             NativeHit(arrowA, targetA);
             Eq(0, EffectRoots().Count, "stale-world arrow draws no flame in the new world");
 
             var archerB = NewArcher();
-            var arrowB = NewArrow(archerB, new Vector3(3f, 3f, 0f), trailMaterial: false);
+            var arrowB = NewArrow(archerB, new Vector3(3f, 3f, 0f));
             var (targetB, _) = NewTarget(new Vector3(3.2f, 3f, 0f));
             ResetCounts();
             NativeHit(arrowB, targetB);
 
             Eq(1, EffectRoots().Count, "burst in the new world");
-            Eq(1, Material.CreatedCount, "fresh material for the new world pool");
-            Eq(39, LineRenderer.SetPositionCalls, "fresh geometry for the new world pool");
+            Eq(3, Mesh.CreatedCount, "fresh meshes for the new world pool");
+            Eq(1, Texture2D.CreatedCount, "fresh white texture for the new world pool");
+            Eq(0, UnityEngine.Object.DoubleDestroys, "no double destroy across the rebuild");
         });
 
         Test("Replacing only the layer inside the same world also releases the pool", () =>
@@ -629,7 +732,7 @@ internal static class Program
             var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
             var (targetGo, _) = NewTarget(new Vector3(1.2f, 1f, 0f));
             NativeHit(arrow, targetGo);
-            Advance(PatchArcher_Impact.EffectLifetime + .1f);
+            Advance(PatchArcher_Impact.MaxEffectLifetime + .1f);
             arrow._hasHit = false; // Arrow.OnEnable pool reuse
             ResetCounts();
 
@@ -637,7 +740,9 @@ internal static class Program
 
             Eq(1, EffectRoots().Count, "pooled arrow hit again spawns one burst");
             Eq(1, BuiltRoots().Count, "slot reused instead of a new pool root");
-            Eq(0, LineRenderer.SetPositionCalls, "reused slot keeps its static geometry");
+            Eq(0, Mesh.CreatedCount, "reused slot keeps its meshes");
+            Eq(0, Material.CreatedCount, "reused slot keeps its materials");
+            Eq(3, Mesh.VertexUploads, "reused slot rewrites its grid for the new hit");
         });
 
         Test("Native exception skips the postfix and leaves no partial burst, later hits recover", () =>
@@ -751,28 +856,31 @@ internal static class Program
             Eq(0, BuiltRoots().Count, "nothing built while idle");
             Eq(0, UnityEngine.Object.DestroyRequests, "nothing destroyed while idle");
             Eq(0, Material.CreatedCount, "no material while idle");
+            Eq(0, Mesh.CreatedCount, "no mesh while idle");
         });
 
-        Test("Disabling destroys live bursts and own material; re-enabling rebuilds fresh", () =>
+        Test("Disabling destroys live bursts, owned meshes/materials and the texture; re-enabling rebuilds fresh", () =>
         {
             var archer = NewArcher();
-            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f), trailMaterial: false); // forces the owned fallback material
+            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
             var (targetGo, _) = NewTarget(new Vector3(1.2f, 1f, 0f));
             NativeHit(arrow, targetGo);
             GameObject firstRoot = EffectRoots().Single();
-            Eq(1, Material.CreatedCount, "one fallback material created");
-            Material owned = OwnedMaterial();
-            Check(owned != null, "fallback material tracked");
-            Check(!ReferenceEquals(owned, TrailMaterial), "fallback material is module owned");
+            List<Mesh> ownedMeshes = OwnedMeshes();
+            List<Material> ownedMaterials = OwnedMaterials();
+            Texture2D ownedTexture = OwnedTextures().Single();
+            Eq(PatchArcher_Impact.LayerCount, ownedMeshes.Count, "one owned mesh per layer");
 
             ModConfig.ArcherImpactEnabled.Value = false;
             Tick();
 
             Check(!firstRoot, "live burst destroyed on disable");
-            Check(!owned, "own material destroyed on disable");
+            Check(ownedMeshes.All(m => !m), "owned meshes destroyed on disable");
+            Check(ownedMaterials.All(m => !m), "owned materials destroyed on disable");
+            Check(!ownedTexture, "owned white texture destroyed on disable");
             Eq(0, EffectRoots().Count, "no live burst remains");
             Eq(0, UnityEngine.Object.DoubleDestroys, "no duplicate destroy requests");
-            Check(!TrailMaterial.Destroyed, "borrowed materials are never destroyed");
+            Check(!TrailMaterial.Destroyed, "borrowed material never destroyed");
 
             ModConfig.ArcherImpactEnabled.Value = true;
             arrow._hasHit = false;
@@ -782,8 +890,256 @@ internal static class Program
             var rebuilt = EffectRoots();
             Eq(1, rebuilt.Count, "fresh burst after re-enable");
             Check(!ReferenceEquals(rebuilt[0], firstRoot), "a new pool root was built");
-            Eq(1, Material.CreatedCount, "one fresh material for the new enable");
-            Eq(39, LineRenderer.SetPositionCalls, "geometry rebuilt once for the new pool slot");
+            Eq(3, Mesh.CreatedCount, "fresh meshes for the new enable");
+            Eq(3, Material.CreatedCount, "fresh owned materials for the new enable");
+            Eq(1, Texture2D.CreatedCount, "one fresh white texture");
+        });
+    }
+
+    // ============================================================
+    // Real-DLL pixel fire visual contract
+    // ============================================================
+
+    private static void PixelFireVisuals()
+    {
+        Test("Layer mesh is the author's 5x5 pixel grid: 36 vertices, 150 indices, uv=(k/5,j/5) fan of quads", () =>
+        {
+            var archer = NewArcher();
+            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
+            var (targetGo, _) = NewTarget(new Vector3(1.2f, 1f, 0f));
+
+            NativeHit(arrow, targetGo);
+
+            GameObject root = EffectRoots().Single();
+            foreach (string layerName in new[] { "KEM_ImpactCore", "KEM_ImpactMid", "KEM_ImpactOuter" })
+            {
+                Mesh mesh = LayerMesh(root, layerName);
+                Eq(PatchArcher_Impact.VertexCount, mesh.vertices.Length, layerName + ": (5+1)^2 vertices");
+                Eq(PatchArcher_Impact.IndexCount, mesh.triangles.Length, layerName + ": 25 cells x 6 indices");
+
+                // UV=(k/5, j/5) and the exact grid coordinates the DLL writes at spawn
+                for (int j = 0; j <= PatchArcher_Impact.GridCells; j++)
+                {
+                    for (int k = 0; k <= PatchArcher_Impact.GridCells; k++)
+                    {
+                        int vertex = j * PatchArcher_Impact.GridPoints + k;
+                        Near((float)k / PatchArcher_Impact.GridCells, mesh.uv[vertex].x, "uv.x", .0001f);
+                        Near((float)j / PatchArcher_Impact.GridCells, mesh.uv[vertex].y, "uv.y", .0001f);
+                        // the author grid sits on half-pixel lines, so Round() moves each vertex
+                        // by up to half a pixel onto the nearest lattice line.
+                        Near(k * PatchArcher_Impact.PixelSize - PatchArcher_Impact.HalfExtent, mesh.vertices[vertex].x,
+                            "grid x for (" + k + "," + j + ")", PatchArcher_Impact.PixelSize * .5f + .0001f);
+                        Near(j * PatchArcher_Impact.PixelSize - PatchArcher_Impact.HalfExtent, mesh.vertices[vertex].y,
+                            "grid y for (" + k + "," + j + ")", PatchArcher_Impact.PixelSize * .5f + .0001f);
+                        Check(IsPixelAligned(mesh.vertices[vertex].x), "grid x snapped to the pixel lattice");
+                        Check(IsPixelAligned(mesh.vertices[vertex].y), "grid y snapped to the pixel lattice");
+                        Near(0f, mesh.vertices[vertex].z, "grid is flat on z");
+                    }
+                }
+
+                // author winding per cell: (v00,v10,v01) then (v01,v10,v11)
+                for (int cell = 0; cell < PatchArcher_Impact.GridCells * PatchArcher_Impact.GridCells; cell++)
+                {
+                    int l = cell / PatchArcher_Impact.GridCells, m = cell % PatchArcher_Impact.GridCells;
+                    int v00 = l * PatchArcher_Impact.GridPoints + m;
+                    Eq(v00, mesh.triangles[cell * 6], "cell " + cell + " first index");
+                    Eq(v00 + PatchArcher_Impact.GridPoints, mesh.triangles[cell * 6 + 1], "cell " + cell + " second index");
+                    Eq(v00 + 1, mesh.triangles[cell * 6 + 2], "cell " + cell + " third index");
+                    Eq(v00 + 1, mesh.triangles[cell * 6 + 3], "cell " + cell + " fourth index");
+                    Eq(v00 + PatchArcher_Impact.GridPoints, mesh.triangles[cell * 6 + 4], "cell " + cell + " fifth index");
+                    Eq(v00 + PatchArcher_Impact.GridPoints + 1, mesh.triangles[cell * 6 + 5], "cell " + cell + " sixth index");
+                }
+            }
+            Eq(3, Mesh.UvWrites, "uv written once per layer build");
+            Eq(3, Mesh.TriangleWrites, "indices written once per layer build");
+        });
+
+        Test("Live burst rewrites its grid every tick, pixel snapping to 0.22 keeps it aligned", () =>
+        {
+            var archer = NewArcher();
+            var arrow = NewArrow(archer, new Vector3(-2f, 4f, 0f));
+            var (targetGo, _) = NewTarget(new Vector3(-1.8f, 4f, 0f));
+
+            NativeHit(arrow, targetGo);
+            GameObject root = EffectRoots().Single();
+            Mesh core = LayerMesh(root, "KEM_ImpactCore");
+            int uploadsAtSpawn = Mesh.VertexUploads;
+
+            Tick(.05f);
+            Check(Mesh.VertexUploads > uploadsAtSpawn, "vertex grid animated on the production tick");
+            Eq(3, Mesh.VertexUploads - uploadsAtSpawn, "all three layers rewrite their grid");
+            Check(Mesh.BoundsRecalculations >= 3, "bounds refreshed after the vertex rewrite");
+
+            for (int i = 0; i < core.vertices.Length; i++)
+            {
+                Check(IsPixelAligned(core.vertices[i].x), "snapped x stays on the pixel grid");
+                Check(IsPixelAligned(core.vertices[i].y), "snapped y stays on the pixel grid");
+                Check(MathF.Abs(core.vertices[i].x) <= PatchArcher_Impact.HalfExtent + PatchArcher_Impact.PixelSize,
+                    "vertex stays inside the pixel envelope");
+                Check(MathF.Abs(core.vertices[i].y) <= PatchArcher_Impact.HalfExtent + PatchArcher_Impact.PixelSize,
+                    "vertex stays inside the pixel envelope");
+            }
+            Eq(3, Il2CppStructArray<Vector3>.Allocations, "animation allocates no native vertex arrays");
+            Eq(PatchArcher_Impact.LayerCount, Mesh.CreatedCount, "animation allocates no meshes");
+            Eq(PatchArcher_Impact.LayerCount, Material.CreatedCount, "animation allocates no materials");
+
+            // A quiet tick well past the core duration must stop rewriting the mesh.
+            Advance(PatchArcher_Impact.MaxEffectLifetime + .1f);
+            int uploadsAfterLife = Mesh.VertexUploads;
+            Tick(.05f);
+            Eq(uploadsAfterLife, Mesh.VertexUploads, "no vertex writes after the burst returned to the pool");
+        });
+
+        Test("A frame that skips past a layer's duration cannot leave that layer rendering", () =>
+        {
+            var archer = NewArcher();
+            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
+            GameObject ground = NewGround(new Vector3(1.2f, 1f, 0f));
+
+            NativeHit(arrow, ground);
+            GameObject root = EffectRoots().Single();
+            MeshRenderer core = LayerRenderer(root, "KEM_ImpactCore");
+            MeshRenderer mid = LayerRenderer(root, "KEM_ImpactMid");
+            MeshRenderer outer = LayerRenderer(root, "KEM_ImpactOuter");
+            Check(core.enabled && mid.enabled && outer.enabled, "all three layers start lit");
+            float outerAlphaAtSpawn = outer.sharedMaterial.color.a;
+            Check(outerAlphaAtSpawn > .5f, "outer layer spawns with the author alpha");
+
+            Tick(1.2f); // single long frame: crosses the outer (<=0.8s) and mid (1.0s) durations
+
+            Check(!outer.enabled, "outer layer switched off although the frame jumped past its duration");
+            Check(!mid.enabled, "mid layer switched off although the frame jumped past its duration");
+            Check(core.enabled, "core layer keeps burning (author animSpeed 1.5-2)");
+            Check(root.activeSelf, "burst stays alive while the core layer burns");
+            Check(outer.sharedMaterial.color.a > .5f,
+                "outer layer still carried alpha: the switch-off came from the renderer state, not from a fade");
+
+            Tick(1.2f); // crosses the core duration as well
+            Check(!core.enabled, "core layer switched off once its own duration elapsed");
+            Check(!root.activeSelf, "burst returned to the pool");
+
+            arrow._hasHit = false;
+            NativeHit(arrow, ground);
+            Check(LayersOf(root).All(l => l.enabled), "reused slot re-lights every layer on spawn");
+        });
+
+        Test("Hit category is cached by the prefix: a target killed during the native hit keeps the enemy timing", () =>
+        {
+            var archer = NewArcher();
+            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
+            var (targetGo, damageable) = NewTarget(new Vector3(1.2f, 1f, 0f));
+            DuringNativeHit = go => go.RemoveComponent<Damageable>(); // native kill / pool release drops the component
+            NativeHit(arrow, targetGo);
+            DuringNativeHit = null;
+
+            Eq(1, damageable.HitCount, "native damage applied before the target lost its component");
+            Check(targetGo.GetComponent<Damageable>() == null, "postfix-time classification could no longer see an enemy");
+            GameObject root = EffectRoots().Single();
+            Check(LayersOf(root).All(l => l.enabled), "burst spawned for the cached enemy category");
+
+            Advance(PatchArcher_Impact.DurationEnemy * 2f + .05f);
+            Check(!root.activeSelf, "0.5s enemy base honoured from the prefix cache, not the post-hit Ground fallback");
+        });
+
+        Test("Author growth then fade: scale grows to 80% of life, then alpha and scale shrink", () =>
+        {
+            var archer = NewArcher();
+            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
+            GameObject ground = NewGround(new Vector3(1.2f, 1f, 0f));
+
+            NativeHit(arrow, ground);
+            GameObject root = EffectRoots().Single();
+            MeshRenderer coreRenderer = LayerRenderer(root, "KEM_ImpactCore");
+            Transform coreTransform = LayerGo(root, "KEM_ImpactCore").transform;
+            float spawnScale = coreTransform.localScale.x;
+            float spawnAlpha = coreRenderer.sharedMaterial.color.a;
+            Check(spawnScale > 0f, "spawn scale is non-zero (author startSize)");
+            Check(spawnAlpha > 0f, "spawn tint carries the layer alpha");
+
+            var scales = new List<float>();
+            var alphas = new List<float>();
+            for (int i = 0; i < 80 && root.activeSelf; i++)
+            {
+                Tick(.05f);
+                scales.Add(coreTransform.localScale.x);
+                alphas.Add(coreRenderer.sharedMaterial.color.a);
+            }
+
+            Check(scales.Count > 10, "burst lived long enough to sample");
+            Check(!root.activeSelf, "burst returned to the pool when its core duration elapsed");
+            Check(scales[0] > spawnScale, "scale grows away from the spawn size");
+            float peak = scales.Max();
+            int peakAt = scales.IndexOf(peak);
+            Check(peakAt > 0 && peakAt < scales.Count - 1, "scale peaks before the burst ends");
+            for (int i = peakAt + 1; i < scales.Count; i++)
+                Check(scales[i] <= scales[i - 1] + .0001f, "scale never grows again after the peak (fade shrink)");
+            Check(scales[^1] < peak, "fade shrinks the burst after the growth peak");
+            for (int i = 1; i < alphas.Count; i++)
+                Check(alphas[i] <= alphas[i - 1] + .0001f, "alpha never rises again (EaseOutCubic fade)");
+            Check(alphas[^1] < alphas[0] * .25f, "alpha collapses towards 0 by the end of the duration");
+        });
+
+        Test("Author layer parameters: core burns longest and brightest, outer layer stops first", () =>
+        {
+            var archer = NewArcher();
+            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
+            GameObject ground = NewGround(new Vector3(1.2f, 1f, 0f));
+
+            NativeHit(arrow, ground);
+            GameObject root = EffectRoots().Single();
+            MeshRenderer coreRenderer = LayerRenderer(root, "KEM_ImpactCore");
+            MeshRenderer midRenderer = LayerRenderer(root, "KEM_ImpactMid");
+            MeshRenderer outerRenderer = LayerRenderer(root, "KEM_ImpactOuter");
+
+            // author tint * intensity ordering is deterministic: core > mid > outer
+            Check(Luminance(coreRenderer.sharedMaterial.color) > Luminance(midRenderer.sharedMaterial.color),
+                "core glow is brighter than the mid layer (intensity 4-6 vs 2.5-3.5)");
+            Check(Luminance(midRenderer.sharedMaterial.color) > Luminance(outerRenderer.sharedMaterial.color),
+                "mid glow is brighter than the outer layer (intensity 2.5-3.5 vs 1.8-2.5)");
+            Check(coreRenderer.sharedMaterial.color.r >= coreRenderer.sharedMaterial.color.b
+                && coreRenderer.sharedMaterial.color.g >= coreRenderer.sharedMaterial.color.b,
+                "warm flame tint (no purple statue hue)");
+            Eq(0, UnityEngine.Object.DestroyedObjects.Count, "nothing destroyed while the burst lives");
+
+            // author animSpeed [1.5,2] core > 1.0 mid > [0.6,0.8] outer: layers freeze in that order.
+            Advance(.9f); // ground base 1s: past the outer duration, inside mid and core
+            Color outerBefore = outerRenderer.sharedMaterial.color;
+            Color midBefore = midRenderer.sharedMaterial.color;
+            Color coreBefore = coreRenderer.sharedMaterial.color;
+            Tick(.05f);
+            SameColor(outerBefore, outerRenderer.sharedMaterial.color, "outer layer stops rewriting first");
+            Check(midRenderer.sharedMaterial.color.a < midBefore.a, "mid layer still fading");
+            Check(coreRenderer.sharedMaterial.color.a < coreBefore.a, "core layer still fading");
+
+            Advance(.35f); // past the mid duration (1.0s), before the core duration (1.5s min)
+            Color midLate = midRenderer.sharedMaterial.color;
+            Color coreLate = coreRenderer.sharedMaterial.color;
+            Check(root.activeSelf, "core layer keeps the slot alive last");
+            Tick(.05f);
+            SameColor(midLate, midRenderer.sharedMaterial.color, "mid layer stops second");
+            Check(coreRenderer.sharedMaterial.color.a < coreLate.a, "core layer keeps fading longest");
+        });
+
+        Test("Enemy hits use the author's 0.5s delay base, ground hits use 1s", () =>
+        {
+            var archer = NewArcher();
+            var enemyArrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
+            var (enemyTarget, _) = NewTarget(new Vector3(1.2f, 1f, 0f));
+            NativeHit(enemyArrow, enemyTarget);
+            GameObject enemyRoot = EffectRoots().Single();
+
+            Advance(PatchArcher_Impact.DurationEnemy * 2f + .05f); // past the enemy core duration (0.5 * 2.0)
+            Check(!enemyRoot.activeSelf, "enemy burst finished inside the 0.5s delay window");
+
+            var groundArrow = NewArrow(archer, new Vector3(3f, 1f, 0f));
+            GameObject groundTarget = NewGround(new Vector3(3.2f, 1f, 0f));
+            NativeHit(groundArrow, groundTarget);
+            GameObject groundRoot = EffectRoots().Single(r => r.activeSelf);
+
+            Tick(.05f);
+            Check(groundRoot.activeSelf, "ground burst still burning after the enemy lifetime (1s base)");
+            Advance(PatchArcher_Impact.DurationDefault * 2f + .1f);
+            Check(!groundRoot.activeSelf, "ground burst finishes inside the 1s delay window");
         });
     }
 
@@ -811,7 +1167,7 @@ internal static class Program
             Check(ActivationsInFrame(frame + 3) == 0, "no deferred catch-up spawning on later frames");
         });
 
-        Test("At most 24 bursts start within any rolling second", () =>
+        Test("Spawn window stays under the 24/s ceiling; author durations make the pool bind first", () =>
         {
             var archer = NewArcher();
             var (targetGo, _) = NewTarget(new Vector3(1f, 1f, 0f));
@@ -819,21 +1175,24 @@ internal static class Program
             for (int i = 0; i < 30; i++) arrows.Add(NewArrow(archer, new Vector3(1f + i * .01f, 1f, 0f)));
             ResetCounts();
 
-            foreach (Arrow arrow in arrows)
+            for (int i = 0; i < 30; i++)
             {
-                NativeHit(arrow, targetGo);
+                NativeHit(arrows[i], targetGo);
                 Tick(1f / 30f);
             }
 
             List<(int Frame, float Time, string Name)> spawns = GameObject.Activations;
-            Eq(PatchArcher_Impact.MaxSpawnsPerSecond, spawns.Count, "rolling-second spawn cap");
+            Check(spawns.Count < 30, "hits beyond pool turnover are dropped, never queued");
             foreach (var spawn in spawns)
             {
                 int withinWindow = spawns.Count(s => s.Time >= spawn.Time && s.Time < spawn.Time + 1f);
                 Check(withinWindow <= PatchArcher_Impact.MaxSpawnsPerSecond, "no rolling second exceeds 24 spawns");
             }
+            // Author layer durations (>= 0.75s per enemy hit) cap turnover near 16 slots / 0.75s,
+            // so the pool bound is reached before the 24/s window bound in this scenario.
+            Check(EffectRoots().Count(r => r.activeSelf) <= PatchArcher_Impact.MaxEffects, "live bursts stay inside the pool");
 
-            Advance(1.1f); // quiet second empties the window
+            Advance(PatchArcher_Impact.MaxEffectLifetime + .1f); // quiet stretch empties the pool and the window
             int before = GameObject.Activations.Count;
             foreach (Arrow arrow in arrows.Take(10))
             {
@@ -844,7 +1203,7 @@ internal static class Program
             Eq(10, GameObject.Activations.Count - before, "window recovers after a quiet second");
         });
 
-        Test("Pool is bounded: at most 16 live bursts and 48 ring renderers, extra hits are dropped", () =>
+        Test("Pool is bounded: at most 16 live bursts and 48 pixel layers, extra hits are dropped", () =>
         {
             var archer = NewArcher();
             var (targetGo, _) = NewTarget(new Vector3(1f, 1f, 0f));
@@ -862,11 +1221,13 @@ internal static class Program
             Eq(PatchArcher_Impact.MaxEffects, GameObject.Activations.Count, "sixteenth-slot cap reached, extras dropped");
             Check(BuiltRoots().Count <= PatchArcher_Impact.MaxEffects, "pool never grows beyond 16 slots");
             int renderers = BuiltRoots().Sum(r => r.transform.children.Count);
-            Check(renderers <= PatchArcher_Impact.MaxEffects * PatchArcher_Impact.LayerCount, "at most 48 ring renderers");
-            Check(UnityEngine.Object.Created.OfType<LineRenderer>().Count() <= PatchArcher_Impact.MaxEffects * PatchArcher_Impact.LayerCount,
-                "bounded LineRenderer count");
+            Check(renderers <= PatchArcher_Impact.MaxEffects * PatchArcher_Impact.LayerCount, "at most 48 pixel layers");
+            Check(Mesh.CreatedCount <= PatchArcher_Impact.MaxEffects * PatchArcher_Impact.LayerCount, "bounded mesh count");
+            Check(Material.CreatedCount <= PatchArcher_Impact.MaxEffects * PatchArcher_Impact.LayerCount, "bounded material count");
+            Eq(1, Texture2D.CreatedCount, "single shared white texture for the whole pool");
+            Eq(0, Il2CppStructArray<Vector3>.ManagedCopies, "no managed geometry arrays copied");
 
-            Advance(PatchArcher_Impact.EffectLifetime + .1f);
+            Advance(PatchArcher_Impact.MaxEffectLifetime + .1f);
             Eq(0, EffectRoots().Count(r => r.activeSelf), "all bursts finished");
             int rootsBefore = BuiltRoots().Count;
             int before = GameObject.Activations.Count;
@@ -880,50 +1241,24 @@ internal static class Program
             Eq(rootsBefore, BuiltRoots().Count, "no new pool roots after reuse");
         });
 
-        Test("Burst lifetime stays within the contract bound and fades out", () =>
+        Test("Burst lifetime never exceeds the author bound and the mesh is recycled, not destroyed", () =>
         {
             var archer = NewArcher();
             var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
-            var (targetGo, _) = NewTarget(new Vector3(1.2f, 1f, 0f));
-            NativeHit(arrow, targetGo);
+            GameObject ground = NewGround(new Vector3(1.2f, 1f, 0f));
+            NativeHit(arrow, ground);
             GameObject root = EffectRoots().Single();
-            LineRenderer core = LayerOf(root, "KEM_ImpactCore");
+            Mesh core = LayerMesh(root, "KEM_ImpactCore");
+            Material coreMaterial = LayerRenderer(root, "KEM_ImpactCore").sharedMaterial;
 
-            Check(PatchArcher_Impact.EffectLifetime <= .6f, "lifetime within 0.6s");
-            float scaleAtSpawn = LayerGo(root, "KEM_ImpactCore").transform.localScale.x;
-            float alphaAtSpawn = core.ColorHistory[^1].a;
+            Check(PatchArcher_Impact.MaxEffectLifetime <= 2f, "lifetime inside the author bound (delay2 1 x animSpeed 2)");
+            Advance(PatchArcher_Impact.MaxEffectLifetime + .1f);
 
-            Tick(.2f);
-            Check(LayerGo(root, "KEM_ImpactCore").transform.localScale.x > scaleAtSpawn, "ring grows after spawn");
-            Check(core.WidthHistory[^1] > core.WidthHistory[0], "core line thickens during growth");
-
-            Tick(.24f);
-            Check(core.ColorHistory[^1].a < alphaAtSpawn, "fade reduces alpha");
-            Check(root.activeSelf, "still visible just before the lifetime ends");
-
-            Tick(.1f);
-            Check(!root.activeSelf, "hidden after the lifetime");
-            Check(root.transform.children.All(t => ReferenceEquals(t.gameObject.GetComponent<LineRenderer>().sharedMaterial, TrailMaterial)),
-                "geometry and material retained for reuse after fading");
-        });
-
-        Test("Outer ring stays thinner, wider and more jagged than the bright core", () =>
-        {
-            var archer = NewArcher();
-            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
-            var (targetGo, _) = NewTarget(new Vector3(1.2f, 1f, 0f));
-            NativeHit(arrow, targetGo);
-            GameObject root = EffectRoots().Single();
-            LineRenderer core = LayerOf(root, "KEM_ImpactCore");
-            LineRenderer outer = LayerOf(root, "KEM_ImpactOuter");
-
-            Check(core.WidthHistory[^1] > outer.WidthHistory[^1], "core is thicker than the outer ring");
-            Check(core.ColorHistory[^1].Luminance > outer.ColorHistory[^1].Luminance, "core is brighter than the outer ring");
-            Check(MaxRadius(outer) > MaxRadius(core), "outer ring reaches further");
-
-            float coreSpread = (MaxRadius(core) - MinRadius(core)) / MaxRadius(core);
-            float outerSpread = (MaxRadius(outer) - MinRadius(outer)) / MaxRadius(outer);
-            Check(outerSpread > coreSpread, "outer ring is more jagged than the core");
+            Check(!root.activeSelf, "hidden after the author duration");
+            Eq(0, UnityEngine.Object.DestroyedObjects.OfType<Mesh>().Count(), "geometry kept for reuse after fading");
+            Eq(0, UnityEngine.Object.DestroyedObjects.OfType<Material>().Count(), "material kept for reuse after fading");
+            Check(ReferenceEquals(LayerMesh(root, "KEM_ImpactCore"), core), "same mesh instance reused");
+            Check(ReferenceEquals(LayerRenderer(root, "KEM_ImpactCore").sharedMaterial, coreMaterial), "same material reused");
         });
     }
 
@@ -933,13 +1268,13 @@ internal static class Program
 
     private static void PoolAndFailures()
     {
-        Test("Slots are reused across hits: no per-hit objects, materials or geometry writes", () =>
+        Test("Slots are reused across hits: no per-hit meshes, materials, textures or geometry rebuild", () =>
         {
             var archer = NewArcher();
             var (targetGo, _) = NewTarget(new Vector3(1f, 1f, 0f));
             var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
             NativeHit(arrow, targetGo); // warm the single-slot pool
-            Advance(PatchArcher_Impact.EffectLifetime + .1f);
+            Advance(PatchArcher_Impact.MaxEffectLifetime + .1f);
             ResetCounts();
 
             for (int i = 0; i < 10; i++)
@@ -947,13 +1282,17 @@ internal static class Program
                 arrow._hasHit = false;
                 arrow.transform.position = new Vector3(1f + i, 2f, 0f);
                 NativeHit(arrow, targetGo);
-                Advance(PatchArcher_Impact.EffectLifetime + .1f);
+                Advance(PatchArcher_Impact.MaxEffectLifetime + .1f);
             }
 
             Eq(1, BuiltRoots().Count, "single slot serves all hits");
+            Eq(0, Mesh.CreatedCount, "no mesh per hit");
             Eq(0, Material.CreatedCount, "no material per hit");
-            Eq(0, LineRenderer.SetPositionCalls, "no geometry rebuild per hit");
-            Eq(0, LineRenderer.PositionCountWrites, "no positionCount writes per hit");
+            Eq(0, Texture2D.CreatedCount, "no texture per hit");
+            Eq(0, Il2CppStructArray<Vector3>.Allocations, "no native geometry arrays per hit");
+            Eq(0, Mesh.UvWrites, "no uv rebuild per hit");
+            Eq(0, Mesh.TriangleWrites, "no index rebuild per hit");
+            Check(Mesh.VertexUploads > 0, "reused slot still animates its grid");
         });
 
         Test("Reused slot follows the new hit position and renderer sorting", () =>
@@ -962,7 +1301,7 @@ internal static class Program
             var (targetGo, _) = NewTarget(new Vector3(1f, 1f, 0f));
             var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f), sortingLayer: 4, sortingOrder: 10);
             NativeHit(arrow, targetGo);
-            Advance(PatchArcher_Impact.EffectLifetime + .1f);
+            Advance(PatchArcher_Impact.MaxEffectLifetime + .1f);
 
             arrow._hasHit = false;
             arrow.transform.position = new Vector3(-6f, 5f, 0f);
@@ -987,18 +1326,19 @@ internal static class Program
 
             Tick();
 
-            Eq(0, UnityEngine.Object.DestroyRequests, "no duplicate destroy request for the already-dead root");
             Eq(0, UnityEngine.Object.DoubleDestroys, "no double destroy");
+            Eq(0, OwnedMeshes().Count, "orphan meshes reclaimed with the lost slot");
+            Eq(0, OwnedMaterials().Count, "orphan materials reclaimed with the lost slot");
             arrow._hasHit = false;
             NativeHit(arrow, targetGo);
             Eq(1, EffectRoots().Count, "next hit rebuilds the slot");
             Eq(2, BuiltRoots().Count, "the destroyed root is replaced by a new one");
         });
 
-        Test("Shader and arrow material both missing: burst skipped, backed off, then recovered", () =>
+        Test("Both candidate shaders missing: burst skipped, backed off, then recovered", () =>
         {
             var archer = NewArcher();
-            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f), trailMaterial: false);
+            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
             var (targetGo, damageable) = NewTarget(new Vector3(1.2f, 1f, 0f));
             Shader.Available = false;
             ResetCounts();
@@ -1007,32 +1347,103 @@ internal static class Program
             arrow._hasHit = false;
             NativeHit(arrow, targetGo);
 
-            Eq(2, damageable.HitCount, "native damage kept while the material is unavailable");
-            Eq(0, EffectRoots().Count, "no burst without a usable material");
-            Eq(0, BuiltRoots().Count, "no pool allocation without a material");
-            Eq(1, Log.Warnings.Count(w => w.Contains("impact burst disabled")), "warning logged once");
-            Eq(1, Shader.Finds, "not probed again inside the backoff window");
+            Eq(2, damageable.HitCount, "native damage kept while no shader resolves");
+            Eq(0, EffectRoots().Count, "no burst without a usable shader");
+            Eq(0, BuiltRoots().Count, "no pool allocation without a shader");
+            Eq(2, Shader.Finds, "both author shader names probed once");
+            Eq(1, Log.Warnings.Count(w => w.Contains("impact fire disabled")), "warning logged once");
+            Eq(0, Material.CreatedCount, "no material without a shader");
+            Eq(0, Texture2D.CreatedCount, "no texture without a shader");
+            Eq(0, TrailMaterial.InstanceWrites, "borrowed trail material untouched");
 
             Shader.Available = true;
             Tick(1f);
             arrow._hasHit = false;
             NativeHit(arrow, targetGo);
             Eq(0, EffectRoots().Count, "no retry inside the backoff window");
-            Eq(1, Shader.Finds, "no shader probing during backoff");
+            Eq(2, Shader.Finds, "no shader probing during backoff");
 
             Tick(5f);
             arrow._hasHit = false;
             NativeHit(arrow, targetGo);
-            Eq(1, EffectRoots().Count, "burst appears once the shader is available again");
-            Eq(1, Material.CreatedCount, "exactly one fallback material created");
+            Eq(1, EffectRoots().Count, "burst appears once a shader is available again");
+            Eq(PatchArcher_Impact.LayerCount, Mesh.CreatedCount, "geometry built after recovery");
         });
 
-        Test("Fallback material is created once and shared by every pool slot", () =>
+        Test("White texture failure leaks no owned resource and recovers after the backoff", () =>
+        {
+            var archer = NewArcher();
+            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
+            var (targetGo, damageable) = NewTarget(new Vector3(1.2f, 1f, 0f));
+            Texture2D.ThrowOnSetPixel = true;
+            ResetCounts();
+
+            NativeHit(arrow, targetGo);
+
+            Eq(1, damageable.HitCount, "native damage unaffected by the texture failure");
+            Eq(0, EffectRoots().Count, "no burst without a usable texture");
+            Eq(0, KEMObjects().Count(g => !g.Destroyed), "no orphan KEM objects");
+            Eq(0, OwnedMeshes().Count, "no orphan mesh from the aborted build");
+            Eq(0, OwnedMaterials().Count, "no orphan material from the aborted build");
+            Eq(1, Texture2D.CreatedCount, "one white texture attempted");
+            Eq(0, OwnedTextures().Count, "half-initialised white texture destroyed instead of leaked");
+            Eq(1, Log.Warnings.Count(w => w.Contains("white texture creation failed")), "failure logged once");
+
+            Texture2D.ThrowOnSetPixel = false;
+            Tick(5f);
+            arrow._hasHit = false;
+            NativeHit(arrow, targetGo);
+            Eq(1, EffectRoots().Count, "recovers once SetPixel succeeds");
+            Eq(1, OwnedTextures().Count, "single live white texture after recovery");
+            Eq(0, UnityEngine.Object.DoubleDestroys, "no double destroy requests");
+
+            // Apply failure through the same path: still nothing may leak.
+            ArcherOptionsScope.World = new GameObject("WorldB");
+            ArcherOptionsScope.Layer = new GameObject("LayerB");
+            ArcherOptionsScope.Scene = 8;
+            Tick(); // identity change releases the pool (and its texture)
+            Eq(0, OwnedTextures().Count, "world change released the live white texture");
+            var archerB = NewArcher();
+            var arrowB = NewArrow(archerB, new Vector3(3f, 1f, 0f));
+            Texture2D.ThrowOnApply = true;
+            NativeHit(arrowB, targetGo);
+            Eq(0, EffectRoots().Count, "no burst while Apply fails");
+            Eq(0, OwnedTextures().Count, "failed Apply texture destroyed instead of leaked");
+            Eq(0, KEMObjects().Count(g => !g.Destroyed), "no orphan geometry from the Apply failure");
+            Texture2D.ThrowOnApply = false;
+            Tick(5f);
+            arrowB._hasHit = false;
+            NativeHit(arrowB, targetGo);
+            Eq(1, EffectRoots().Count, "recovers after the Apply failure clears");
+            Eq(0, UnityEngine.Object.DoubleDestroys, "no double destroy requests after recovery");
+        });
+
+        Test("Sprites/Default unavailable: Unlit/Texture fallback is used and recorded", () =>
+        {
+            var archer = NewArcher();
+            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
+            var (targetGo, _) = NewTarget(new Vector3(1.2f, 1f, 0f));
+            Shader.Available = true;
+            Shader.BlockPrimary = true;
+            ResetCounts();
+
+            NativeHit(arrow, targetGo);
+
+            Eq(1, EffectRoots().Count, "fallback shader still draws the burst");
+            Eq(2, Shader.Finds, "primary probed, then the author's fallback");
+            Eq("Sprites/Default", Shader.FindLog[0], "primary probed first");
+            Eq("Unlit/Texture", Shader.FindLog[1], "author fallback probed second");
+            Eq(1, Log.Warnings.Count(w => w.Contains("Unlit/Texture")), "fallback shader name recorded for root");
+            Check(LayersOf(EffectRoots().Single()).All(l => ReferenceEquals(l.sharedMaterial.shader, Shader.Find("Unlit/Texture"))),
+                "layers use the fallback shader");
+        });
+
+        Test("Owned materials and the single white texture are shared, never the arrow trail material", () =>
         {
             var archer = NewArcher();
             var (targetGo, _) = NewTarget(new Vector3(1f, 1f, 0f));
             var arrows = new List<Arrow>();
-            for (int i = 0; i < 18; i++) arrows.Add(NewArrow(archer, new Vector3(1f + i * .01f, 1f, 0f), trailMaterial: false));
+            for (int i = 0; i < 18; i++) arrows.Add(NewArrow(archer, new Vector3(1f + i * .01f, 1f, 0f)));
             ResetCounts();
 
             for (int frame = 0; frame < 5; frame++)
@@ -1041,12 +1452,16 @@ internal static class Program
                 Tick(1f / 60f);
             }
 
-            Eq(PatchArcher_Impact.MaxEffects, EffectRoots().Count(r => r.activeSelf), "sixteen live bursts share the fallback");
-            Eq(1, Material.CreatedCount, "exactly one material for the whole pool");
-            Material material = OwnedMaterial();
-            Check(material != null, "fallback material exists");
-            Check(EffectRoots().SelectMany(LayersOf).All(l => ReferenceEquals(l.sharedMaterial, material)),
-                "all ring renderers share one material");
+            Eq(PatchArcher_Impact.MaxEffects, EffectRoots().Count(r => r.activeSelf), "sixteen live bursts");
+            Eq(1, Texture2D.CreatedCount, "exactly one white texture for the whole pool");
+            Check(Material.CreatedCount > 1, "each layer owns its own tinted material");
+            Check(EffectRoots().SelectMany(LayersOf).All(l => !ReferenceEquals(l.sharedMaterial, TrailMaterial)),
+                "no layer borrows the arrow trail material");
+            Check(EffectRoots().SelectMany(LayersOf)
+                .All(l => ReferenceEquals(l.sharedMaterial.mainTexture, OwnedTextures().Single())),
+                "every layer samples the single owned texture");
+            Eq(0, TrailMaterial.InstanceWrites, "borrowed trail material never written");
+            Eq(1, Texture2D.ApplyCalls, "texture applied once");
         });
 
         Test("Pool build failure cleans up partial objects, keeps the native path intact, recovers later", () =>
@@ -1054,7 +1469,7 @@ internal static class Program
             var archer = NewArcher();
             var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
             var (targetGo, damageable) = NewTarget(new Vector3(1.2f, 1f, 0f));
-            LineRenderer.ThrowOnPositionCountWrite = true;
+            Mesh.ThrowOnUvWrite = true;
             ResetCounts();
 
             NativeHit(arrow, targetGo);
@@ -1062,9 +1477,9 @@ internal static class Program
             Eq(1, damageable.HitCount, "native damage unaffected by the visual failure");
             Eq(1, Pool.DespawnCalls, "native despawn unaffected");
             Eq(0, EffectRoots().Count, "no live burst after a build failure");
-            Eq(0, BuiltRoots().Count(g => !g.Destroyed), "partial pool root destroyed");
             Eq(0, KEMObjects().Count(g => !g.Destroyed), "no orphan KEM object survives the failure");
-            Eq(2, UnityEngine.Object.DestroyRequests, "partial root and its orphaned child destroyed individually");
+            Eq(0, OwnedMeshes().Count, "partial meshes released");
+            Eq(0, OwnedMaterials().Count, "partial materials released");
             Eq(1, Log.Warnings.Count(w => w.Contains("pool build failed")), "build failure logged once");
 
             arrow._hasHit = false;
@@ -1072,7 +1487,7 @@ internal static class Program
             Eq(1, Log.Warnings.Count(w => w.Contains("pool build failed")), "repeated failure does not spam the log");
             Eq(0, EffectRoots().Count, "still no burst while the failure persists");
 
-            LineRenderer.ThrowOnPositionCountWrite = false;
+            Mesh.ThrowOnUvWrite = false;
             Tick(5f);
             arrow._hasHit = false;
             NativeHit(arrow, targetGo);
@@ -1093,7 +1508,8 @@ internal static class Program
             Eq(1, damageable.HitCount, "native damage unaffected");
             Eq(1, Pool.DespawnCalls, "native despawn unaffected");
             Eq(0, EffectRoots().Count, "half-spawned burst destroyed");
-            Eq(1, UnityEngine.Object.DestroyRequests, "own partial objects cleaned up exactly once");
+            Eq(0, OwnedMeshes().Count, "owned mesh from the aborted spawn released");
+            Eq(0, OwnedMaterials().Count, "owned material from the aborted spawn released");
             Eq(1, Log.Warnings.Count(w => w.Contains("spawn failed")), "spawn failure logged once");
 
             Renderer.ThrowOnSortingWrite = false;
@@ -1105,41 +1521,29 @@ internal static class Program
             Eq(0, UnityEngine.Object.DoubleDestroys, "no double destroy requests");
         });
 
-        Test("Build failure with a borrowed material cannot rebuild repeatedly inside one frame", () =>
+        Test("Vertex upload failure during animation releases the slot instead of leaving a frozen burst", () =>
         {
             var archer = NewArcher();
-            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f)); // trail material -> borrowed shared material
+            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
             var (targetGo, damageable) = NewTarget(new Vector3(1.2f, 1f, 0f));
             NativeHit(arrow, targetGo);
-            Eq(1, EffectRoots().Count, "first burst");
-            Eq(0, Material.CreatedCount, "borrowed material, nothing created");
-            int hitsBefore = damageable.HitCount;
-            UnityEngine.Object.Destroy(EffectRoots().Single()); // geometry lost (scene unload)
-            LineRenderer.ThrowOnPositionCountWrite = true;
+            Eq(1, EffectRoots().Count, "burst alive");
+            Mesh.ThrowOnVertexWrite = true;
             ResetCounts();
 
-            for (int i = 0; i < 6; i++)
-            {
-                arrow._hasHit = false;
-                NativeHit(arrow, targetGo);
-            }
+            Tick(.05f);
 
-            Eq(6, damageable.HitCount - hitsBefore, "native damage kept through every failed attempt");
-            Eq(0, EffectRoots().Count, "no live burst while the build fails");
-            Eq(2, BuiltRoots().Count, "single failed rebuild attempt: frame budget plus backoff hold");
-            Eq(1, Log.Warnings.Count(w => w.Contains("pool build failed")), "failure logged once");
+            Eq(0, EffectRoots().Count, "failed animation releases the slot");
+            Eq(0, OwnedMeshes().Count, "mesh released with the failed slot");
+            Eq(1, Log.Warnings.Count(w => w.Contains("animation failed")), "animation failure logged once");
+            Eq(1, damageable.HitCount, "native damage untouched by the visual failure");
 
-            ModConfig.ArcherImpactEnabled.Value = false;
-            Tick();
-            Check(!TrailMaterial.Destroyed, "pool release never destroys a borrowed material");
-            ModConfig.ArcherImpactEnabled.Value = true;
-
-            LineRenderer.ThrowOnPositionCountWrite = false;
-            Tick(5f); // past the failure backoff
+            Mesh.ThrowOnVertexWrite = false;
+            Tick(5f);
             arrow._hasHit = false;
             NativeHit(arrow, targetGo);
             Eq(1, EffectRoots().Count, "recovers after the backoff");
-            Check(!TrailMaterial.Destroyed, "borrowed material still intact after recovery");
+            Eq(0, UnityEngine.Object.DoubleDestroys, "no double destroy requests");
         });
 
         Test("Pool build that fails while parenting destroys the unparented orphan child", () =>
@@ -1156,7 +1560,8 @@ internal static class Program
             Eq(1, Pool.DespawnCalls, "native despawn unaffected");
             Eq(0, EffectRoots().Count, "no live burst after the parenting failure");
             Eq(0, KEMObjects().Count(g => !g.Destroyed), "the never-parented child and root are destroyed");
-            Eq(2, UnityEngine.Object.DestroyRequests, "orphan child and partial root destroyed individually");
+            Eq(0, OwnedMeshes().Count, "meshes from the aborted build released");
+            Eq(0, OwnedMaterials().Count, "materials from the aborted build released");
             Eq(1, Log.Warnings.Count(w => w.Contains("pool build failed")), "failure logged once");
 
             Transform.ThrowOnSetParent = false;
@@ -1174,7 +1579,7 @@ internal static class Program
 
             NativeHit(arrow, targetGo);
             GameObject root = EffectRoots().Single();
-            Advance(PatchArcher_Impact.EffectLifetime + .1f);
+            Advance(PatchArcher_Impact.MaxEffectLifetime + .1f);
             Tick();
 
             Check(arrow._hasHit, "_hasHit owned by native");
@@ -1182,6 +1587,8 @@ internal static class Program
             Check(arrow._rigidbody.isKinematic, "rigidbody state owned by native");
             Check(!root.activeSelf, "no orphaned visible burst after the fade");
             Eq(0, EffectRoots().Count(r => r.activeSelf), "module leaves nothing visible behind");
+            Eq(1, ParticleSystem.Plays, "native particle effect still owned by the native path");
+            Check(!arrow._spriteRenderer.enabled, "arrow sprite hidden by the native path, not by the module");
         });
     }
 }

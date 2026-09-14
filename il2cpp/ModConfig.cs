@@ -17,6 +17,7 @@ public static class ModConfig
 
     public static ConfigEntry<bool> Enabled;
     public static ConfigEntry<bool> InfiniteMoney;
+    public static ConfigEntry<bool> InfiniteSteedStamina;
     public static ConfigEntry<int> SpeedMultiplier;
     public static ConfigEntry<bool> FastBuild;
     public static ConfigEntry<bool> ShowCalendarHud;
@@ -62,7 +63,7 @@ public static class ModConfig
         ArcherRateEnabled = config.Bind("Archer", "RateEnabled", false, "所有世界：加快弓箭手准备、连射和冷却节奏，关闭恢复原版节奏");
         ArcherRateMultiplier = config.Bind("Archer", "RateMultiplier", 1.5f,
             new ConfigDescription("弓箭手射速倍率，上限2倍；不改变移动和全局时间", new AcceptableValueRange<float>(1f, 2f)));
-        ArcherImpactEnabled = config.Bind("Archer", "ImpactEnabled", false, "所有世界：单机/主机画面显示短暂火焰冲击；仅视觉效果，复用并限制同屏数量");
+        ArcherImpactEnabled = config.Bind("Archer", "ImpactEnabled", false, "所有世界：单机/主机画面显示原作者像素火焰；仅视觉效果，复用并限制同屏数量");
         HermesHeadwearEnabled = config.Bind("HermesHeadwear", "Enabled", true,
             "法杖新转化的小怪有概率获得跨世界面具或周年头饰；纯外观，关闭隐藏，重新开启保持原选择");
         HermesHeadwearChancePercent = config.Bind("HermesHeadwear", "ChancePercent", 30,
@@ -93,6 +94,9 @@ public static class ModConfig
         AutoRestockPeasantsTarget = config.Bind("AutoRestock", "PeasantsTarget", 15,
             new ConfigDescription("无业村民目标：现有Peasant、面包库存、吃面包后招募中的村民及在途采购合计；满架等待，不包含工匠或其他职业",
                 new AcceptableValueRange<int>(1, 200)));
+
+        InfiniteSteedStamina = config.Bind("Player", "InfiniteSteedStamina", false,
+            "所有世界：本机控制的坐骑奔跑与滑翔不消耗体力；关闭恢复自然消耗，不改变坐骑技能冷却");
 
         SpeedMultiplier = config.Bind("Player", "SpeedMultiplier", 2,
             "君主移动速度倍率（1-5x）");
