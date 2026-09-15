@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable><DefineConstants>HERMES_HEADWEAR_TEST;HERMES_CYCLE_TEST</DefineConstants><NoWarn>CS0649;CS0414</NoWarn></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../il2cpp/HermesHeadwearCycle.cs" />
+    <Compile Include="../../il2cpp/PatchDivine_HermesHeadwear.cs" />
+    <Compile Include="../../il2cpp/HermesHeadwearCodec.cs" />
+    <Compile Include="../hermes-headwear/Doubles/BoundaryDoubles.cs" />
+    <Compile Include="../hermes-headwear/Doubles/NativeDoubles.cs" />
+    <Compile Include="../hermes-headwear/Doubles/UnityDoubles.cs" />
+    <Compile Include="../hermes-headwear/Doubles/DiagnosticsDouble.cs" />
+  </ItemGroup>
+</Project>

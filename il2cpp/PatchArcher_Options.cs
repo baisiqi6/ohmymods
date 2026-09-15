@@ -6,10 +6,10 @@ using UnityEngine;
 namespace KingdomEnhancedMod;
 
 /// <summary>
-/// 弓箭手可选增强（combat 模块）：散射箭矢 + 射速倍率，默认全关、单文件独立。
+/// 弓箭手可选增强（combat 模块）：中世纪随从散射 + 射速倍率，默认全关。
 ///
 /// 契约（本文件只依赖，不在此实现）：ModConfig.ArcherScatterEnabled(bool)、
-/// ArcherVolleyCount(int，1..5 含原箭总数)、ArcherRateEnabled(bool)、
+/// ArcherVolleyCount(int，1..3 含原箭总数)、ArcherRateEnabled(bool)、
 /// ArcherRateMultiplier(float，1..2) 为 ConfigEntry；ArcherOptionsScope.IsActive 决定可用世界；
 /// ArcherOptionsScope.IsCurrent(Component) 判断组件属于当前 world 层/场景；
 /// ModPanel.Update 每帧调用 <see cref="Tick"/>。火矢特效属于独立 visual 模块，本文件不涉及。
@@ -24,17 +24,19 @@ namespace KingdomEnhancedMod;
 ///    prefix 临时按用户倍率缩小、finalizer 归还原值，绝不跨帧常驻（因此弩手 Apply/ApplySquad 永远
 ///    读到原生间隔，不会把缩短值 ×2 后当新 base）。不新 hook 其它 iterator/Dispose。
 /// ShouldPlayerControl（共享 16B/3 slots）只调用不 hook；NetSendVelocity（unique 240B）按原生
-/// boolean payload + 冲量序列发送。
+/// boolean payload + 冲量序列发送；染色额外箭由 ScatterArrowTint 追加版本标记，联机需双端同版本。
 ///
 /// 一、散射 Scatter（ModConfig.ArcherScatterEnabled）
 ///   范围：只对「当前世界、存活、enabled 的原生 Archer 发出的箭」生效，且必须 HasWorldAuth
 ///   （主机/离线）；存活含 Damageable 存在且 !isDead（未知 fail-closed），死亡弓箭手不再新增散射，
-///   不做阵营等额外限制。在线但客户端尚未 ready（IsOnline 且 !HasClientCaughtUp）时整体跳过：既不多发
+///   MedievalScatterPolicy 另限当前中世纪骑士随从攻击敌人，打猎及其他类型不散射。
+///   在线但客户端尚未 ready（IsOnline 且 !HasClientCaughtUp）时整体跳过：既不多发
 ///   箭也不发网络同步。客户端（无世界权威）永不多发，避免与主机同步重复。
 ///   生成：与原生同序 —— Pool.Spawn&lt;Arrow&gt;(原 ActiveArrowAttack._arrowPrefab, 原箭位置,
 ///   Quaternion.identity, world.gameLayer, true) → archer=source → 完美箭同步 PerfectShot() →
 ///   先登记账本凭据，再 AddForce(扇射力度) → 仅 HasWorldAuth 且 HasClientCaughtUp 时按原生顺序
-///   ByteBuffer.PrepWriteBuffer(); ByteBuffer.Write(perfect); NetworkSoftSimulator.SendVelocity(...)。
+///   ByteBuffer.PrepWriteBuffer(); ScatterArrowTint.WriteInitialisePayload(perfect, tinted);
+///   NetworkSoftSimulator.SendVelocity(...)。原箭继续使用原生单字节载荷。
 ///   Spawn 仍传原 prefab（resolved 只用于容量检查，避免二次 swap）。
 ///   随机：+/-10 度扇形、0.9–1.1 倍力度（私有 System.Random，不动 Unity 全局随机序列），
 ///   不复刻原生的落水随机与力度误差（额外箭不额外减员，也不重复音效）。
@@ -47,7 +49,7 @@ namespace KingdomEnhancedMod;
 ///   非激活实例才允许生成。actual Pool.FastSpawn 在容量用尽且 cache 为空时会把 _cycleCache 里的
 ///   活箭重定位（非 expendable 亦异常），所以此门为硬条件：不满足直接跳过额外箭，绝不挪/删原箭，
 ///   也绝不新建/注册任何池（未知 pool/世界一律 fail-closed）。
-///   预算（压力下少发或不发，绝不触碰原箭）：单次原箭最多 4 支、每帧最多 8 支、每秒最多 40 支
+///   预算（压力下少发或不发，绝不触碰原箭）：单次原箭最多额外 2 支、每帧最多 8 支、每秒最多 40 支
 ///   （世界唯一，全局窗口等价 per-world）、同时存活租约最多 64 条。
 ///   账本：只登记自己生成的额外箭；绝不删除任何箭（含原箭与自己的额外箭），清理只退休标记。
 ///   租约只在「确证事件」时释放：显式退休（池复用 / 无刚体）、已命中(_hasHit)、已销毁、自身
@@ -81,6 +83,18 @@ namespace KingdomEnhancedMod;
 ///   !ShouldPlayerControl()（只调用）、inert/grabbed/dead 排除；计时器另加 !shoot.started
 ///   （协程运行期 _cooldown=5f 是射击哨兵，不能加速它）。
 ///
+/// 三、英雄覆盖层（runtime 契约 HeroArcherRuntime，读写集中在 <see cref="HeroArcherCombat"/>）
+///   开关/身份/战斗资格全部由 <c>HeroArcherRuntime</c> 回答（Enabled / IsHero / IsCombatEligible），
+///   本文件只读这些答案，不重复判定、不写任何英雄状态：
+///   1) 射速：每 actor 计算 —— 普通开关关闭且非英雄 = 1、英雄 = 1.5；普通开关打开 = clamp(原倍率)、
+///      英雄 = max(1.5, 原倍率)（绝不相乘：普通 2 倍不会让英雄变慢，也不会叠成 3 倍）。
+///      GameplayActive 可宽松（任一条射速路径可用即可），数值守卫严格（按 actor 判定后再决定是否缩）；
+///   2) 散射：英雄只在「本次确实射击敌人」（IsCombatEligible）时固定 3 箭（含原生主箭，即额外 2 支），
+///      打猎/无敌人目标一律保持主箭；hero 分支命中时不再走 MedievalScatterPolicy，绝不与中世纪散射叠加；
+///   3) 火焰：英雄箭的 0.25 半径 / 1 点命中爆发由 PatchArcher_GreekImpact 的 hero 来源负责，本文件不参与伤害；
+///   4) 只有主机/离线（HasWorldAuth，且在线时 HasClientCaughtUp）才发额外箭与网络包。
+///   既有预算（单发 ≤2 额外箭、每帧/每秒/存活租约上限）与池容量门对英雄同样生效：原生主箭与 pool 预算不变。
+///
 /// 未实机验证（operator 需在实际 interop 复核；本文件按 2.4 反编译签名书写）：
 /// Pool.Spawn&lt;Arrow&gt; 泛型实例化、Pool.capacity/_total/_cache 私有字段可读性、
 /// Il2CppSystem 列表索引、Archer._Shoot_d__225 与 __4__this 可达性、archer.shoot.Cast&lt;Haglet&gt;()
@@ -90,8 +104,8 @@ namespace KingdomEnhancedMod;
 internal static class PatchArcher_Options
 {
     // ---------- 预算/上限（全部为硬上限，压力下退化为少发/不发） ----------
-    /// <summary>单次原箭最多额外箭数（VolleyCount 上限 5 含原箭）。</summary>
-    internal const int MaxExtrasPerShot = 4;
+    /// <summary>单次原箭最多额外箭数（VolleyCount 上限 3 含原箭）。</summary>
+    internal const int MaxExtrasPerShot = 2;
     /// <summary>每秒最多额外箭数（当前世界唯一，全局窗口等价 per-world）。</summary>
     internal const int MaxExtrasPerSecond = 40;
     /// <summary>同时存活租约上限（账本容量）。</summary>
@@ -99,7 +113,7 @@ internal static class PatchArcher_Options
     /// <summary>每帧最多额外箭数。</summary>
     internal const int MaxExtrasPerFrame = 8;
     private const int VolleyMin = 1;
-    private const int VolleyMax = 5;
+    private const int VolleyMax = 3;
     /// <summary>每次 Tick 最多重试的归还回执数（常驻开销有界）。</summary>
     private const int MaxReceiptRetriesPerTick = 4;
     private const float FanHalfAngleDegrees = 10f;
@@ -188,6 +202,13 @@ internal static class PatchArcher_Options
         catch (Exception) { return RateMin; }
     }
 
+    /// <summary>
+    /// 单个 actor 的射速倍率（覆盖层已按 actor 判定）：普通开关关闭且非英雄 = 1、英雄 = 1.5；
+    /// 普通开关打开 = clamp(原倍率)、英雄 = max(1.5, 原倍率)。绝不相乘。
+    /// </summary>
+    private static float MultiplierFor(Archer archer)
+        => HeroArcherCombat.EffectiveMultiplier(RateMultiplier(), RateOn(), HeroArcherCombat.IsHeroActor(archer));
+
     private static float Now() => Time.unscaledTime;
 
     // ============================================================
@@ -220,9 +241,10 @@ internal static class PatchArcher_Options
         try
         {
             if (data == null || source == null) return;
-            if (!ScatterOn()) return;
-            int wanted = VolleyCount() - 1;
-            if (wanted <= 0) return;
+            HeroArcherCombat.NotifyShot(source);      // 视觉 release：每次 FireArrowInternal 恰好一次
+            bool heroPossible = HeroArcherCombat.HeroPossible;
+            bool scatterOn = ScatterOn();
+            if (!heroPossible && !scatterOn) return;  // 两条路径都关：不读任何 actor
 
             // 世界权威：客户端不多发（主机同步负责表现）；在线但客户端未 ready 时整体跳过。
             if (!NetworkBigBoss.HasWorldAuth) return;
@@ -231,6 +253,13 @@ internal static class PatchArcher_Options
 
             if (!TryResolveSource(source, out Archer archer)) return;
             if (!ArcherOptionsScope.IsCurrent(archer)) return;
+
+            // 英雄优先：只有「本次确实射击敌人」的英雄才固定 3 箭（含主箭）；打猎与无敌人目标保持主箭，
+            // 且 hero 分支命中时不再走中世纪政策（绝不叠加第二份额外箭）。
+            bool heroCombat = HeroArcherCombat.IsHeroCombatEligible(archer);
+            if (!heroCombat && !MedievalScatterPolicy.IsEligible(archer)) return;
+            int wanted = HeroArcherCombat.WantedExtras(heroCombat, scatterOn, VolleyCount());
+            if (wanted <= 0) return;
 
             Arrow prefab = data._arrowPrefab;
             Transform layer = WorldLayer();
@@ -274,6 +303,8 @@ internal static class PatchArcher_Options
                     spawned++;
                     extra.archer = source;
                     if (perfectShot) extra.PerfectShot();
+                    // Hero arrows use the Artemis sprite and gold color, including the main arrow.
+                    bool tinted = !heroCombat && ScatterArrowTint.Apply(extra);
 
                     Rigidbody2D body = extra.GetComponent<Rigidbody2D>();
                     if (body == null)
@@ -287,7 +318,7 @@ internal static class PatchArcher_Options
                     if (softSim != null && NetworkBigBoss.HasWorldAuth && NetworkBigBoss.HasClientCaughtUp)
                     {
                         ByteBuffer.PrepWriteBuffer();
-                        ByteBuffer.Write(perfectShot);
+                        ScatterArrowTint.WriteInitialisePayload(perfectShot, tinted);
                         softSim.SendVelocity(force, body.angularVelocity);
                     }
                 }
@@ -466,6 +497,7 @@ internal static class PatchArcher_Options
     /// <summary>OnEnable（池复用/新生命）先结束上一份租约，之后新生成才登记新租约。</summary>
     internal static void OnArrowEnable(Arrow arrow)
     {
+        ScatterArrowTint.ResetArrow(arrow);
         try
         {
             if (arrow == null || arrow.gameObject == null) return;
@@ -572,10 +604,10 @@ internal static class PatchArcher_Options
         try
         {
             if (iterator == null || !GameplayActive()) return;
-            float mult = RateMultiplier();
-            if (mult <= RateMin) return;
             Archer archer = iterator.__4__this;
             if (!CadenceTarget(archer)) return;
+            float mult = MultiplierFor(archer);
+            if (mult <= RateMin) return;
 
             IntPtr pointer = archer.Pointer;
             // 上一笔尚未归还（回执在案）或仍有重入 lease：拒绝再缩，绝不在残留值上二次缩放。
@@ -916,9 +948,9 @@ internal static class PatchArcher_Options
         {
             if (archer == null || archer.gameObject == null) return;
             if (!GameplayActive()) return;
-            float mult = RateMultiplier();
-            if (mult <= RateMin) return;
             if (!TimerTarget(archer)) return;
+            float mult = MultiplierFor(archer);
+            if (mult <= RateMin) return;
             TimerProbes[archer.Pointer] = new TimerProbe { Frame = Time.frameCount, Before = archer._cooldown };
         }
         catch (Exception e) { Fail("update-prefix", "timer snapshot failed: " + e); }
@@ -936,9 +968,9 @@ internal static class PatchArcher_Options
             TimerProbes.Remove(pointer);
             if (probe.Frame != Time.frameCount) return;          // 过期快照
             if (!GameplayActive()) return;
-            float mult = RateMultiplier();
-            if (mult <= RateMin) return;
             if (!TimerTarget(archer)) return;                     // 第二次守卫（含 AttackMode 复核）
+            float mult = MultiplierFor(archer);
+            if (mult <= RateMin) return;
 
             float before = probe.Before;
             float after = archer._cooldown;
@@ -966,12 +998,16 @@ internal static class PatchArcher_Options
 
     // ---------- 共享门控 ----------
 
-    /// <summary>玩法门控：配置+世界范围（root scope）+ 世界权威 + 未暂停（对齐 DL GameplayActive 语义）。</summary>
+    /// <summary>
+    /// 玩法门控：世界范围（root scope）+ 至少一条射速路径可用（普通开关或英雄覆盖层）+ 世界权威 + 未暂停。
+    /// 这里刻意宽松，真正的数值守卫在 <see cref="MultiplierFor"/>（逐 actor 判定后才决定是否缩）。
+    /// </summary>
     private static bool GameplayActive()
     {
         try
         {
-            if (!RateOn()) return false;
+            if (!ArcherOptionsScope.IsActive) return false;
+            if (!RateOn() && !HeroArcherCombat.HeroPossible) return false;
             if (!NetworkBigBoss.HasWorldAuth) return false;
             return Time.timeScale > 0f;
         }
@@ -1041,6 +1077,7 @@ internal static class PatchArcher_Options
     /// </summary>
     internal static void Tick()
     {
+        ScatterArrowTint.Tick();
         try
         {
             float now = Now();
@@ -1138,7 +1175,12 @@ internal static class Arrow_OnEnable_ExtraLedger_Patch
 internal static class Archer_OnEnable_RateLifetime_Patch
 {
     [HarmonyPrefix]
-    private static void Prefix(Archer __instance) => PatchArcher_Options.OnArcherEnable(__instance);
+    private static void Prefix(Archer __instance)
+    {
+        PatchArcher_GreekImpact.OnArcherEnable(__instance);
+        PatchArcher_Options.OnArcherEnable(__instance);
+        HeroArcherCombat.OnEnable(__instance);          // 池复用/新生命：runtime 撤销旧身份
+    }
 }
 
 /// <summary>
@@ -1150,7 +1192,11 @@ internal static class Archer_Update_RateCadence_Patch
 {
     [HarmonyPriority(Priority.First)]
     [HarmonyPrefix]
-    private static void Prefix(Archer __instance) => PatchArcher_Options.OnArcherUpdateEnter(__instance);
+    private static void Prefix(Archer __instance)
+    {
+        HeroArcherCombat.Observe(__instance);           // 英雄身份/选主观察（既有 Update prefix，不额外扫描）
+        PatchArcher_Options.OnArcherUpdateEnter(__instance);
+    }
 
     [HarmonyPriority(Priority.Last)]
     [HarmonyPostfix]

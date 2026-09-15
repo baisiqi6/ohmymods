@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 控制台测试程序集：把生产核心 il2cpp/KnightIdentityArchive.cs 直接编译进来（单文件、无 Unity 依赖）。
+       临时文件只写在 worker 目录内的 bin/<cfg>/kid-tmp/<guid>/ 下，逐例删除。
+       生产工程不会引用本目录，本目录也不改动任何原生存档或游戏文件。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>KnightIdentityArchiveTests</AssemblyName>
+    <RootNamespace>KnightIdentityArchiveTests</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/KnightIdentityArchive.cs" Link="Production/KnightIdentityArchive.cs" />
+  </ItemGroup>
+
+</Project>

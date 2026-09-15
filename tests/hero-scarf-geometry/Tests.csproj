@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems><NoWarn>CS0649</NoWarn><ClothSource Condition="'$(ClothSource)'==''">../../il2cpp/HeroArcherClothPhysics.cs</ClothSource></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(ClothSource)" />
+    <Compile Include="../../il2cpp/HeroArcherCloth.cs" />
+    <Compile Include="../../il2cpp/HeroArcherScarfGeometry.cs" />
+    <Compile Include="../hero-archer/cloth-view/UnityStubs.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+</Project>

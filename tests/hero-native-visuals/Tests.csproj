@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems><NoWarn>CS0649;CS0108</NoWarn></PropertyGroup><ItemGroup>
+<!-- HeroArcherAtlas.png 引用实际生产资源（384x128，像素另由Pillow核验）；
+     替身 ImageConversion 不解码像素。真实素材由 operator 生成，本目录不参与发布。 -->
+<Compile Include="../../il2cpp/HeroArcherVisuals.cs" /><Compile Include="../../il2cpp/HeroArcherNativePose.cs" /><Compile Include="../../il2cpp/HeroArcherAnimation.cs" /><Compile Include="../../il2cpp/HeroArcherMotion.cs" /><Compile Include="Program.cs" /><Compile Include="UnityStubs.cs" /><Compile Include="GameStubs.cs" /><EmbeddedResource Include="../../il2cpp/Assets/HeroArcherAtlas.png" LogicalName="KingdomEnhancedMod.HeroArcherAtlas.png" /></ItemGroup></Project>

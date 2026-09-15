@@ -42,6 +42,19 @@ internal static class AmmoAndFarmer
             tower._fireJarsActiveIndex = 1; Time.time += 3; e.Tick(); Eq(Reserved, 1, "both RPC chains ready");
             tower._parentHeaderRef = null; e.Tick(); Eq(Reserved, 0, "late RPC loss cancels"); Eq(Spend, 0, "no debit before actual jar sync ready");
         });
+        Program.Run("full_fire_tower_waits_then_buys_only_one_after_consumption", () =>
+        {
+            var e = NewEnv(); Role(7, true, 12); var tower = e.MakeAmmo(7, 2, 9);
+            SiegeAmmoCounts.SetCount(7, 9); e.Banker._stashedCoins = 100;
+            e.Tick(); Eq(Reserved, 0, "full tower cannot reserve an assistant despite unmet target");
+            Has(PatchEconomy_AutoRestock.GetSummary(7), "等待消耗", "explicit capacity wait reason");
+            SiegeAmmoCounts.SetLocal(tower, 8); SiegeAmmoCounts.SetCount(7, 8); Time.time += 3; e.Tick();
+            Eq(Reserved, 1, "consumption reopens exactly one purchase");
+            Ok(PumpUntil(e, () => tower.TransactionCompleteCalls == 1 && Reserved == 0), "refill completed and assistant released");
+            for (int i = 0; i < 10; i++) { Time.time += 3; e.Tick(); }
+            Eq(tower.TransactionCompleteCalls, 1, "no purchases above capacity");
+            Eq(Spend, 1, "one debit only");
+        });
         FarmerSuite();
         AmmoSuite();
     }

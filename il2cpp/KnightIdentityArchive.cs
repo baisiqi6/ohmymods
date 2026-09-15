@@ -1,0 +1,943 @@
+// 骑士身份附加存档（sidecar）核心：GUID + 固定风格(0..4) 的独立持久化与均衡分配。
+// 契约：
+//  * 不读写任何原生存档字段；原生 uniqueID 只作为“某一份精确原生岛快照”里的索引。
+//  * scopeKey = 战役/挑战/岛上下文的 SHA256；snapshotHash = 完整原生岛 JSON + 上下文的 SHA256。
+//    建议配方：scopeKey = KnightIdentityFingerprint.Sha256(scopeContext, "scope")，
+//              snapshotHash = KnightIdentityFingerprint.Sha256(rawIslandJson, scopeKey)。
+//  * 只有 scopeKey + snapshotHash 完全一致才允许 uniqueID→收据 恢复；任何失配一律拒绝，
+//    绝不按位置/金币/名字/NetID 猜。原版重存后失配 → 建立新身份，旧记录继续留在历史里。
+//  * schemaVersion != 1 一律拒绝（不降级、不覆盖）；损坏主文件永不覆盖一份有效备份。
+//  * root 未知字段原样保留；scope/snapshot/entry 里出现未知字段或重复字段即判 Corrupt（本 schema 是封闭的）。
+//  * I/O 只发生在显式 Load / Save / RecoverMainFromBackup 调用：无后台线程、无 tick。
+
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+
+namespace KingdomEnhancedMod
+{
+    /// <summary>稳定身份收据：GUID 非空 + 固定风格 0..4。</summary>
+    internal readonly struct KnightIdentityReceipt : IEquatable<KnightIdentityReceipt>
+    {
+        internal const int MinStyle = 0;
+        internal const int MaxStyle = 4;
+        internal const int StyleCount = MaxStyle - MinStyle + 1;
+
+        internal readonly Guid Id;
+        internal readonly int Style;
+
+        internal KnightIdentityReceipt(Guid id, int style)
+        {
+            Id = id;
+            Style = style;
+        }
+
+        internal static bool IsValidStyle(int style) { return style >= MinStyle && style <= MaxStyle; }
+
+        internal bool IsValid { get { return Id != Guid.Empty && IsValidStyle(Style); } }
+
+        public bool Equals(KnightIdentityReceipt other) { return Id == other.Id && Style == other.Style; }
+
+        public override bool Equals(object obj) { return obj is KnightIdentityReceipt other && Equals(other); }
+
+        public override int GetHashCode() { return unchecked((Id.GetHashCode() * 397) ^ Style); }
+
+        public override string ToString()
+        {
+            return Id.ToString("N", CultureInfo.InvariantCulture) + "/" + Style.ToString(CultureInfo.InvariantCulture);
+        }
+    }
+
+    /// <summary>一份快照里的一条记录：native uniqueID（只作索引，最长 256） → 收据。</summary>
+    internal readonly struct KnightIdentitySnapshotEntry
+    {
+        internal const int MaxNativeUniqueIdLength = 256;
+
+        internal readonly string NativeUniqueId;
+        internal readonly KnightIdentityReceipt Receipt;
+
+        internal KnightIdentitySnapshotEntry(string nativeUniqueId, KnightIdentityReceipt receipt)
+        {
+            NativeUniqueId = nativeUniqueId;
+            Receipt = receipt;
+        }
+    }
+
+    /// <summary>一份成功记录的原生岛快照索引：hash 强绑定，条目 uniqueID 唯一、GUID 唯一。</summary>
+    internal sealed class KnightIdentitySnapshot
+    {
+        private readonly Dictionary<string, KnightIdentityReceipt> _entries;
+        private readonly string[] _orderedUniqueIds;
+
+        internal readonly string Hash;
+        internal readonly string SavedAtUtc;
+
+        private KnightIdentitySnapshot(string hash, string savedAtUtc, Dictionary<string, KnightIdentityReceipt> entries, string[] orderedUniqueIds)
+        {
+            Hash = hash;
+            SavedAtUtc = savedAtUtc;
+            _entries = entries;
+            _orderedUniqueIds = orderedUniqueIds;
+        }
+
+        internal int Count { get { return _entries.Count; } }
+
+        /// <summary>落盘顺序（uniqueID 序数升序），与插入顺序无关，保证字节稳定。</summary>
+        internal IReadOnlyList<string> OrderedUniqueIds { get { return _orderedUniqueIds; } }
+
+        internal bool TryGet(string nativeUniqueId, out KnightIdentityReceipt receipt)
+        {
+            receipt = default;
+            return nativeUniqueId != null && _entries.TryGetValue(nativeUniqueId, out receipt);
+        }
+
+        /// <summary>hash + 全部条目逐一相等（时间戳不参与）。</summary>
+        internal bool HasSameEntries(KnightIdentitySnapshot other)
+        {
+            if (other == null || other._entries.Count != _entries.Count) return false;
+            if (!string.Equals(Hash, other.Hash, StringComparison.Ordinal)) return false;
+            foreach (KeyValuePair<string, KnightIdentityReceipt> pair in _entries)
+            {
+                if (!other._entries.TryGetValue(pair.Key, out KnightIdentityReceipt receipt)) return false;
+                if (!receipt.Equals(pair.Value)) return false;
+            }
+            return true;
+        }
+
+        /// <summary>hash + 时间戳 + 全部条目逐一相等。</summary>
+        internal bool HasSameContent(KnightIdentitySnapshot other)
+        {
+            return HasSameEntries(other) && string.Equals(SavedAtUtc, other.SavedAtUtc, StringComparison.Ordinal);
+        }
+
+        /// <summary>时间戳按 UTC 归一化后存储的版本。</summary>
+        internal static bool TryCreate(string hash, DateTimeOffset savedAtUtc, IReadOnlyList<KnightIdentitySnapshotEntry> entries,
+            out KnightIdentitySnapshot snapshot, out string error)
+        {
+            return TryCreateCore(hash, savedAtUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture), entries, out snapshot, out error);
+        }
+
+        /// <summary>
+        /// 唯一校验入口。拒绝：hash 非 64-hex、时间戳非 ISO-8601、条目超 512、uniqueID 空/超 256、
+        /// GUID 为空、风格越界、同快照内重复 uniqueID 或重复 GUID。
+        /// </summary>
+        internal static bool TryCreateCore(string hash, string savedAtUtc, IReadOnlyList<KnightIdentitySnapshotEntry> entries,
+            out KnightIdentitySnapshot snapshot, out string error)
+        {
+            snapshot = null;
+            error = null;
+            string normalizedHash = KnightIdentityFingerprint.NormalizeHex64(hash);
+            if (normalizedHash == null) return Fail("hash is not 64 hex chars", out error);
+            if (savedAtUtc == null || !IsIsoTimestamp(savedAtUtc)) return Fail("savedAtUtc is not an ISO-8601 timestamp", out error);
+            if (entries == null || entries.Count > KnightIdentityArchive.MaxEntriesPerSnapshot)
+                return Fail("entry count must be 0.." + KnightIdentityArchive.MaxEntriesPerSnapshot, out error);
+
+            Dictionary<string, KnightIdentityReceipt> map = new Dictionary<string, KnightIdentityReceipt>(entries.Count, StringComparer.Ordinal);
+            HashSet<Guid> identities = new HashSet<Guid>();
+            for (int i = 0; i < entries.Count; i++)
+            {
+                KnightIdentitySnapshotEntry entry = entries[i];
+                if (!IsValidUniqueId(entry.NativeUniqueId))
+                    return Fail("uniqueID must be 1.." + KnightIdentitySnapshotEntry.MaxNativeUniqueIdLength + " chars (index " + i + ")", out error);
+                if (!entry.Receipt.IsValid)
+                    return Fail("receipt needs non-empty GUID and style 0.." + KnightIdentityReceipt.MaxStyle + " (uniqueID " + entry.NativeUniqueId + ")", out error);
+                if (map.ContainsKey(entry.NativeUniqueId)) return Fail("duplicate uniqueID " + entry.NativeUniqueId, out error);
+                if (!identities.Add(entry.Receipt.Id)) return Fail("duplicate GUID " + entry.Receipt.Id.ToString("N", CultureInfo.InvariantCulture), out error);
+                map.Add(entry.NativeUniqueId, entry.Receipt);
+            }
+
+            string[] ordered = new string[map.Count];
+            map.Keys.CopyTo(ordered, 0);
+            Array.Sort(ordered, StringComparer.Ordinal);
+            snapshot = new KnightIdentitySnapshot(normalizedHash, savedAtUtc, map, ordered);
+            return true;
+        }
+
+        internal static bool IsValidUniqueId(string value)
+        {
+            return !string.IsNullOrEmpty(value) && value.Length <= KnightIdentitySnapshotEntry.MaxNativeUniqueIdLength;
+        }
+
+        internal static bool IsIsoTimestamp(string value)
+        {
+            return !string.IsNullOrEmpty(value) && DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+        }
+
+        private static bool Fail(string message, out string error)
+        {
+            error = message;
+            return false;
+        }
+    }
+
+    /// <summary>盘上状态：Unsupported（未知 schemaVersion）绝不能被当作 Missing。</summary>
+    internal enum KnightIdentityArchiveStatus
+    {
+        Missing,
+        Valid,
+        Corrupt,
+        UnsupportedVersion,
+    }
+
+    /// <summary>
+    /// 附加存档纯模型。每 scope 保留最近 <see cref="MaxSnapshotsPerScope"/> 份成功记录快照，按 hash
+    /// 去重替换（幂等）；超容量一律拒绝 mutation，绝不淘汰别的 scope，只淘汰本 scope 最老历史。
+    /// </summary>
+    internal sealed class KnightIdentityArchive
+    {
+        internal const int SchemaVersion = 1;
+        internal const int MaxScopes = 128;
+        internal const int MaxSnapshotsPerScope = 8;
+        internal const int MaxEntriesPerSnapshot = 512;
+        internal const int MaxTotalEntries = 32768;
+
+        /// <summary>root 对象字段总数上限（含未知字段）：防止恶意 root 拖垮解析。</summary>
+        internal const int MaxRootFieldCount = 256;
+
+        private const string SchemaVersionField = "schemaVersion";
+        private const string ScopesField = "scopes";
+        private const string ScopeKeyField = "scopeKey";
+        private const string SnapshotsField = "snapshots";
+        private const string HashField = "hash";
+        private const string SavedAtField = "savedAtUtc";
+        private const string EntriesField = "entries";
+        private const string UniqueIdField = "u";
+        private const string IdField = "id";
+        private const string StyleField = "style";
+
+        private static readonly string[] RootFields = { SchemaVersionField, ScopesField };
+        private static readonly string[] ScopeFields = { ScopeKeyField, SnapshotsField };
+        private static readonly string[] SnapshotFields = { HashField, SavedAtField, EntriesField };
+        private static readonly string[] EntryFields = { UniqueIdField, IdField, StyleField };
+
+        private static readonly JsonDocumentOptions ParseOptions = new JsonDocumentOptions
+        {
+            AllowTrailingCommas = false,
+            CommentHandling = JsonCommentHandling.Disallow,
+            MaxDepth = KnightIdentityArchiveStore.MaxJsonDepth,
+        };
+
+        private readonly Dictionary<string, ScopeNode> _scopes = new Dictionary<string, ScopeNode>(StringComparer.Ordinal);
+        private List<KeyValuePair<string, JsonElement>> _unknownRootFields;
+
+        private KnightIdentityArchive() { }
+
+        internal static KnightIdentityArchive CreateEmpty() { return new KnightIdentityArchive(); }
+
+        internal int ScopeCount { get { return _scopes.Count; } }
+
+        /// <summary>全部 scope×快照 的条目总数（含历史）。</summary>
+        internal int TotalEntryCount
+        {
+            get
+            {
+                int total = 0;
+                foreach (ScopeNode node in _scopes.Values)
+                {
+                    for (int i = 0; i < node.Snapshots.Count; i++) total += node.Snapshots[i].Count;
+                }
+                return total;
+            }
+        }
+
+        internal enum MutationStatus
+        {
+            Applied,
+            Unchanged,
+            RejectedInvalid,
+            RejectedCapacity,
+
+            /// <summary>同 scope 已有同 hash 但内容不同的记录：绝不覆写，原记录保持不变。</summary>
+            RejectedConflict,
+        }
+
+        /// <summary>
+        /// 记录一份成功快照。同 scope 同 hash 且内容相同 → 幂等（顶到最近）；同 hash 但内容不同 →
+        /// <see cref="MutationStatus.RejectedConflict"/>（原记录不动）；满 8 份只淘汰本 scope 最老一份；
+        /// scope 数或总条目超上限一律 <see cref="MutationStatus.RejectedCapacity"/>（不删别的 scope）。
+        /// </summary>
+        internal MutationStatus RecordSnapshot(string scopeKey, KnightIdentitySnapshot snapshot)
+        {
+            string key = KnightIdentityFingerprint.NormalizeHex64(scopeKey);
+            if (key == null || snapshot == null) return MutationStatus.RejectedInvalid;
+
+            if (!_scopes.TryGetValue(key, out ScopeNode node))
+            {
+                if (_scopes.Count >= MaxScopes) return MutationStatus.RejectedCapacity;
+                if (TotalEntryCount + snapshot.Count > MaxTotalEntries) return MutationStatus.RejectedCapacity;
+                _scopes.Add(key, new ScopeNode(new List<KnightIdentitySnapshot> { snapshot }));
+                return MutationStatus.Applied;
+            }
+
+            List<KnightIdentitySnapshot> snapshots = node.Snapshots;
+            int existing = -1;
+            for (int i = 0; i < snapshots.Count; i++)
+            {
+                if (string.Equals(snapshots[i].Hash, snapshot.Hash, StringComparison.Ordinal)) { existing = i; break; }
+            }
+
+            if (existing >= 0)
+            {
+                KnightIdentitySnapshot known = snapshots[existing];
+                if (!known.HasSameEntries(snapshot)) return MutationStatus.RejectedConflict;
+                if (existing == 0 && known.HasSameContent(snapshot)) return MutationStatus.Unchanged;
+                snapshots.RemoveAt(existing);
+                snapshots.Insert(0, snapshot);   // 同一份快照重新上报：只刷新顺序/时间戳，条目总数不变
+                return MutationStatus.Applied;
+            }
+
+            int evicted = snapshots.Count >= MaxSnapshotsPerScope ? snapshots[snapshots.Count - 1].Count : 0;
+            if (TotalEntryCount - evicted + snapshot.Count > MaxTotalEntries) return MutationStatus.RejectedCapacity;
+            if (snapshots.Count >= MaxSnapshotsPerScope) snapshots.RemoveAt(snapshots.Count - 1);
+            snapshots.Insert(0, snapshot);
+            return MutationStatus.Applied;
+        }
+
+        /// <summary>按 scopeKey + snapshotHash 精确取快照；任一不匹配返回 false。</summary>
+        internal bool TryGetSnapshot(string scopeKey, string snapshotHash, out KnightIdentitySnapshot snapshot)
+        {
+            snapshot = null;
+            string key = KnightIdentityFingerprint.NormalizeHex64(scopeKey);
+            string hash = KnightIdentityFingerprint.NormalizeHex64(snapshotHash);
+            if (key == null || hash == null || !_scopes.TryGetValue(key, out ScopeNode node)) return false;
+            for (int i = 0; i < node.Snapshots.Count; i++)
+            {
+                if (string.Equals(node.Snapshots[i].Hash, hash, StringComparison.Ordinal)) { snapshot = node.Snapshots[i]; return true; }
+            }
+            return false;
+        }
+
+        /// <summary>恢复入口：只有 scope + hash 完全一致且 uniqueID 存在时才给回收据。</summary>
+        internal bool TryRestore(string scopeKey, string snapshotHash, string nativeUniqueId, out KnightIdentityReceipt receipt)
+        {
+            receipt = default;
+            return KnightIdentitySnapshot.IsValidUniqueId(nativeUniqueId)
+                && TryGetSnapshot(scopeKey, snapshotHash, out KnightIdentitySnapshot snapshot)
+                && snapshot.TryGet(nativeUniqueId, out receipt);
+        }
+
+        /// <summary>某 scope 的快照（新→旧）；不存在返回 false。</summary>
+        internal bool TryGetSnapshots(string scopeKey, out IReadOnlyList<KnightIdentitySnapshot> snapshots)
+        {
+            snapshots = null;
+            string key = KnightIdentityFingerprint.NormalizeHex64(scopeKey);
+            if (key == null || !_scopes.TryGetValue(key, out ScopeNode node)) return false;
+            snapshots = node.Snapshots;
+            return true;
+        }
+
+        // ------------------------------------------------------------------ 落盘（确定性字节）
+
+        /// <summary>确定性 UTF-8 JSON：scope 按 key 升序、entry 按 uniqueID 升序、root 未知字段原样追加。</summary>
+        internal byte[] SerializeToUtf8()
+        {
+            using (MemoryStream stream = new MemoryStream())
+            {
+                using (Utf8JsonWriter writer = new Utf8JsonWriter(stream))
+                {
+                    writer.WriteStartObject();
+                    writer.WriteNumber(SchemaVersionField, SchemaVersion);
+                    writer.WriteStartArray(ScopesField);
+                    string[] keys = new string[_scopes.Count];
+                    _scopes.Keys.CopyTo(keys, 0);
+                    Array.Sort(keys, StringComparer.Ordinal);
+                    for (int i = 0; i < keys.Length; i++)
+                    {
+                        ScopeNode node = _scopes[keys[i]];
+                        writer.WriteStartObject();
+                        writer.WriteString(ScopeKeyField, keys[i]);
+                        writer.WriteStartArray(SnapshotsField);
+                        for (int s = 0; s < node.Snapshots.Count; s++) WriteSnapshot(writer, node.Snapshots[s]);
+                        writer.WriteEndArray();
+                        writer.WriteEndObject();
+                    }
+                    writer.WriteEndArray();
+                    WriteExtras(writer, _unknownRootFields);
+                    writer.WriteEndObject();
+                }
+                return stream.ToArray();
+            }
+        }
+
+        private static void WriteSnapshot(Utf8JsonWriter writer, KnightIdentitySnapshot snapshot)
+        {
+            writer.WriteStartObject();
+            writer.WriteString(HashField, snapshot.Hash);
+            writer.WriteString(SavedAtField, snapshot.SavedAtUtc);
+            writer.WriteStartArray(EntriesField);
+            IReadOnlyList<string> ids = snapshot.OrderedUniqueIds;
+            for (int i = 0; i < ids.Count; i++)
+            {
+                snapshot.TryGet(ids[i], out KnightIdentityReceipt receipt);
+                writer.WriteStartObject();
+                writer.WriteString(UniqueIdField, ids[i]);
+                writer.WriteString(IdField, receipt.Id.ToString("N", CultureInfo.InvariantCulture));
+                writer.WriteNumber(StyleField, receipt.Style);
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }
+
+        private static void WriteExtras(Utf8JsonWriter writer, List<KeyValuePair<string, JsonElement>> extras)
+        {
+            if (extras == null) return;
+            for (int i = 0; i < extras.Count; i++)
+            {
+                writer.WritePropertyName(extras[i].Key);
+                extras[i].Value.WriteTo(writer);
+            }
+        }
+
+        // ------------------------------------------------------------------ 解析
+
+        /// <summary>解析一份 UTF-8 JSON。未知 schemaVersion 返回 UnsupportedVersion（永不降级）。</summary>
+        internal static KnightIdentityArchiveStatus Parse(byte[] utf8, out KnightIdentityArchive archive, out string error)
+        {
+            archive = null;
+            error = null;
+            if (utf8 == null) { error = "bytes are null"; return KnightIdentityArchiveStatus.Corrupt; }
+            if (utf8.Length == 0) { error = "bytes are empty"; return KnightIdentityArchiveStatus.Corrupt; }
+            if (utf8.Length > KnightIdentityArchiveStore.MaxFileBytes)
+            {
+                error = "input is " + utf8.Length.ToString(CultureInfo.InvariantCulture) + " bytes, above " + KnightIdentityArchiveStore.MaxFileBytes.ToString(CultureInfo.InvariantCulture);
+                return KnightIdentityArchiveStatus.Corrupt;
+            }
+
+            JsonDocument document;
+            try
+            {
+                document = JsonDocument.Parse(utf8, ParseOptions);
+            }
+            catch (JsonException e)
+            {
+                error = "invalid json: " + e.Message;
+                return KnightIdentityArchiveStatus.Corrupt;
+            }
+
+            using (document)
+            {
+                JsonElement root = document.RootElement;
+                if (root.ValueKind != JsonValueKind.Object) { error = "root is not an object"; return KnightIdentityArchiveStatus.Corrupt; }
+
+                // 先独立判定版本：未知版本的文件体不按本 schema 解释，否则“更高版本”会因字段不认识而被误判
+                // 成 Corrupt，而 Corrupt 拒绝普通 Save 覆盖。
+                bool sawVersion = false;
+                foreach (JsonProperty property in root.EnumerateObject())
+                {
+                    if (!property.NameEquals(SchemaVersionField)) continue;
+                    if (sawVersion) { error = "duplicate root field " + SchemaVersionField; return KnightIdentityArchiveStatus.Corrupt; }
+                    sawVersion = true;
+                    if (property.Value.ValueKind != JsonValueKind.Number || !property.Value.TryGetInt32(out int version))
+                    {
+                        error = SchemaVersionField + " is not an integer";
+                        return KnightIdentityArchiveStatus.Corrupt;
+                    }
+                    if (version != SchemaVersion)
+                    {
+                        error = "unsupported schemaVersion " + version.ToString(CultureInfo.InvariantCulture);
+                        return KnightIdentityArchiveStatus.UnsupportedVersion;
+                    }
+                }
+                if (!sawVersion) { error = "missing " + SchemaVersionField; return KnightIdentityArchiveStatus.Corrupt; }
+
+                KnightIdentityArchive result = CreateEmpty();
+                if (!TryReadFields(root, RootFields, "root", MaxRootFieldCount, out JsonElement[] fields, out result._unknownRootFields, out error))
+                    return KnightIdentityArchiveStatus.Corrupt;
+                if (fields[1].ValueKind != JsonValueKind.Undefined && !TryReadScopes(fields[1], result, out error))
+                    return KnightIdentityArchiveStatus.Corrupt;
+                if (result.TotalEntryCount > MaxTotalEntries)
+                {
+                    error = "more than " + MaxTotalEntries + " entries";
+                    return KnightIdentityArchiveStatus.Corrupt;
+                }
+
+                archive = result;
+                return KnightIdentityArchiveStatus.Valid;
+            }
+        }
+
+        private static bool TryReadScopes(JsonElement value, KnightIdentityArchive result, out string error)
+        {
+            error = null;
+            if (value.ValueKind != JsonValueKind.Array) return Fail("scopes is not an array", out error);
+            if (value.GetArrayLength() > MaxScopes) return Fail("more than " + MaxScopes + " scopes", out error);
+            foreach (JsonElement element in value.EnumerateArray())
+            {
+                if (!TryReadScope(element, result, out error)) return false;
+            }
+            return true;
+        }
+
+        private static bool TryReadScope(JsonElement element, KnightIdentityArchive result, out string error)
+        {
+            if (!TryReadClosedFields(element, ScopeFields, "scope", out JsonElement[] fields, out error)) return false;
+            string scopeKey = fields[0].ValueKind == JsonValueKind.String ? KnightIdentityFingerprint.NormalizeHex64(fields[0].GetString()) : null;
+            if (scopeKey == null) return Fail("scopeKey is not 64 hex chars", out error);
+            if (fields[1].ValueKind == JsonValueKind.Undefined) return Fail("scope is missing " + SnapshotsField, out error);
+            if (!TryReadSnapshots(fields[1], out List<KnightIdentitySnapshot> snapshots, out error)) return false;
+            if (result._scopes.ContainsKey(scopeKey)) return Fail("duplicate scopeKey " + scopeKey, out error);
+            result._scopes.Add(scopeKey, new ScopeNode(snapshots));
+            return true;
+        }
+
+        private static bool TryReadSnapshots(JsonElement value, out List<KnightIdentitySnapshot> snapshots, out string error)
+        {
+            snapshots = null;
+            error = null;
+            if (value.ValueKind != JsonValueKind.Array) return Fail("snapshots is not an array", out error);
+            if (value.GetArrayLength() > MaxSnapshotsPerScope) return Fail("more than " + MaxSnapshotsPerScope + " snapshots in one scope", out error);
+
+            List<KnightIdentitySnapshot> list = new List<KnightIdentitySnapshot>(value.GetArrayLength());
+            HashSet<string> hashes = new HashSet<string>(StringComparer.Ordinal);
+            foreach (JsonElement element in value.EnumerateArray())
+            {
+                if (!TryReadSnapshot(element, out KnightIdentitySnapshot snapshot, out error)) return false;
+                if (!hashes.Add(snapshot.Hash)) return Fail("duplicate snapshot hash in one scope", out error);
+                list.Add(snapshot);
+            }
+            snapshots = list;
+            return true;
+        }
+
+        private static bool TryReadSnapshot(JsonElement element, out KnightIdentitySnapshot snapshot, out string error)
+        {
+            snapshot = null;
+            if (!TryReadClosedFields(element, SnapshotFields, "snapshot", out JsonElement[] fields, out error)) return false;
+            if (fields[0].ValueKind != JsonValueKind.String) return Fail("snapshot " + HashField + " is not a string", out error);
+            if (fields[1].ValueKind != JsonValueKind.String) return Fail("snapshot " + SavedAtField + " is not a string", out error);
+
+            IReadOnlyList<KnightIdentitySnapshotEntry> entries = Array.Empty<KnightIdentitySnapshotEntry>();
+            if (fields[2].ValueKind != JsonValueKind.Undefined && !TryReadEntries(fields[2], out entries, out error)) return false;
+            return KnightIdentitySnapshot.TryCreateCore(fields[0].GetString(), fields[1].GetString(), entries, out snapshot, out error);
+        }
+
+        private static bool TryReadEntries(JsonElement value, out IReadOnlyList<KnightIdentitySnapshotEntry> entries, out string error)
+        {
+            entries = null;
+            error = null;
+            if (value.ValueKind != JsonValueKind.Array) return Fail("entries is not an array", out error);
+            if (value.GetArrayLength() > MaxEntriesPerSnapshot) return Fail("more than " + MaxEntriesPerSnapshot + " entries in one snapshot", out error);
+
+            List<KnightIdentitySnapshotEntry> list = new List<KnightIdentitySnapshotEntry>(value.GetArrayLength());
+            foreach (JsonElement element in value.EnumerateArray())
+            {
+                if (!TryReadClosedFields(element, EntryFields, "entry", out JsonElement[] fields, out error)) return false;
+                if (fields[0].ValueKind != JsonValueKind.String) return Fail("entry " + UniqueIdField + " is not a string", out error);
+                if (fields[1].ValueKind != JsonValueKind.String || !Guid.TryParse(fields[1].GetString(), out Guid id))
+                    return Fail("entry " + IdField + " is not a GUID", out error);
+                if (fields[2].ValueKind != JsonValueKind.Number || !fields[2].TryGetInt32(out int style))
+                    return Fail("entry " + StyleField + " is not an integer", out error);
+                list.Add(new KnightIdentitySnapshotEntry(fields[0].GetString(), new KnightIdentityReceipt(id, style)));
+            }
+            entries = list;
+            return true;
+        }
+
+        /// <summary>
+        /// 读一个对象：已知字段去重收集，未知字段进入 <paramref name="extras"/>（调用方决定保留还是拒绝）。
+        /// 未知字段名用 HashSet 去重（不随字段数退化），字段总数超过 <paramref name="maxFields"/> 即失败，
+        /// 因此恶意对象不会让解析退化成 O(n²) 或吃掉无界内存。缺失字段在返回数组里是 Undefined。
+        /// </summary>
+        private static bool TryReadFields(JsonElement element, string[] known, string where, int maxFields,
+            out JsonElement[] fields, out List<KeyValuePair<string, JsonElement>> extras, out string error)
+        {
+            fields = null;
+            extras = null;
+            error = null;
+            if (element.ValueKind != JsonValueKind.Object) return Fail(where + " is not an object", out error);
+
+            JsonElement[] found = new JsonElement[known.Length];
+            HashSet<string> extraNames = null;
+            int seen = 0;
+            int count = 0;
+            foreach (JsonProperty property in element.EnumerateObject())
+            {
+                if (++count > maxFields) return Fail(where + " has more than " + maxFields + " fields", out error);
+                int index = -1;
+                for (int i = 0; i < known.Length; i++)
+                {
+                    if (string.Equals(known[i], property.Name, StringComparison.Ordinal)) { index = i; break; }
+                }
+                if (index < 0)
+                {
+                    if (extraNames == null)
+                    {
+                        extraNames = new HashSet<string>(StringComparer.Ordinal);
+                        extras = new List<KeyValuePair<string, JsonElement>>();
+                    }
+                    if (!extraNames.Add(property.Name)) return Fail(where + " has duplicate field '" + property.Name + "'", out error);
+                    extras.Add(new KeyValuePair<string, JsonElement>(property.Name, property.Value.Clone()));
+                    continue;
+                }
+                int bit = 1 << index;
+                if ((seen & bit) != 0) return Fail(where + " has duplicate field '" + property.Name + "'", out error);
+                seen |= bit;
+                found[index] = property.Value;
+            }
+            fields = found;
+            return true;
+        }
+
+        /// <summary>封闭 schema 的对象读取：出现任何未知字段即 Corrupt（最多容忍 1 个以便报出字段名）。</summary>
+        private static bool TryReadClosedFields(JsonElement element, string[] known, string where, out JsonElement[] fields, out string error)
+        {
+            if (!TryReadFields(element, known, where, known.Length + 1, out fields, out List<KeyValuePair<string, JsonElement>> extras, out error)) return false;
+            return extras == null || Fail(where + " has unknown field '" + extras[0].Key + "'", out error);
+        }
+
+        private static bool Fail(string message, out string error)
+        {
+            error = message;
+            return false;
+        }
+
+        private sealed class ScopeNode
+        {
+            /// <summary>新 → 旧。</summary>
+            internal readonly List<KnightIdentitySnapshot> Snapshots;
+
+            internal ScopeNode(List<KnightIdentitySnapshot> snapshots)
+            {
+                Snapshots = snapshots;
+            }
+        }
+    }
+
+    /// <summary>原子落盘/读取。只有显式调用才 I/O；原生存档一概不碰。</summary>
+    internal static class KnightIdentityArchiveStore
+    {
+        internal const long MaxFileBytes = 16L * 1024 * 1024;
+        internal const int MaxJsonDepth = 32;
+
+        internal enum SaveStatus
+        {
+            Created,
+            Replaced,
+            Unchanged,
+            RefusedUnknownVersion,
+            RefusedCorruptMain,
+            Failed,
+        }
+
+        internal sealed class LoadResult
+        {
+            internal readonly KnightIdentityArchiveStatus Status;
+            internal readonly KnightIdentityArchive Archive;
+            internal readonly bool RecoveredBackup;
+            internal readonly string Detail;
+
+            internal LoadResult(KnightIdentityArchiveStatus status, KnightIdentityArchive archive, bool recoveredBackup, string detail)
+            {
+                Status = status;
+                Archive = archive;
+                RecoveredBackup = recoveredBackup;
+                Detail = detail;
+            }
+
+            internal bool IsUsable { get { return Status == KnightIdentityArchiveStatus.Valid && Archive != null; } }
+        }
+
+        internal sealed class SaveResult
+        {
+            internal readonly SaveStatus Status;
+            internal readonly string Detail;
+
+            internal SaveResult(SaveStatus status, string detail)
+            {
+                Status = status;
+                Detail = detail;
+            }
+
+            internal bool Ok
+            {
+                get { return Status != SaveStatus.Failed && Status != SaveStatus.RefusedUnknownVersion && Status != SaveStatus.RefusedCorruptMain; }
+            }
+        }
+
+        internal static string BackupPath(string path) { return path + ".bak"; }
+
+        /// <summary>主文件优先；主文件损坏时读有效备份并置 RecoveredBackup。未知主版本不降级读备份。</summary>
+        internal static LoadResult Load(string path)
+        {
+            if (string.IsNullOrEmpty(path)) throw new ArgumentException("path is required", nameof(path));
+
+            KnightIdentityArchiveStatus mainStatus = Inspect(path, out KnightIdentityArchive mainArchive, out _, out string mainDetail);
+            if (mainStatus == KnightIdentityArchiveStatus.Valid) return new LoadResult(mainStatus, mainArchive, false, null);
+            if (mainStatus == KnightIdentityArchiveStatus.UnsupportedVersion) return new LoadResult(mainStatus, null, false, mainDetail);
+
+            KnightIdentityArchiveStatus backupStatus = Inspect(BackupPath(path), out KnightIdentityArchive backupArchive, out _, out string backupDetail);
+            if (backupStatus == KnightIdentityArchiveStatus.Valid) return new LoadResult(KnightIdentityArchiveStatus.Valid, backupArchive, true, "main: " + mainDetail);
+            if (mainStatus == KnightIdentityArchiveStatus.Missing && backupStatus == KnightIdentityArchiveStatus.Missing)
+                return new LoadResult(KnightIdentityArchiveStatus.Missing, null, false, mainDetail);
+            if (backupStatus == KnightIdentityArchiveStatus.UnsupportedVersion)
+                return new LoadResult(KnightIdentityArchiveStatus.UnsupportedVersion, null, false, backupDetail);
+            return new LoadResult(KnightIdentityArchiveStatus.Corrupt, null, false, "main: " + mainDetail + "; backup: " + backupDetail);
+        }
+
+        /// <summary>
+        /// 原子保存：同目录 temp → 完整写 + Flush(true) → File.Replace（保留上一份有效 bak）或 Move。
+        /// 拒绝写的情形（一律不产生任何字节变化）：序列化结果超 16 MiB；主文件版本未知；**备份版本未知**
+        /// （覆盖/遮蔽它都会毁掉更高版本的数据）；主文件损坏（只能由显式 RecoverMainFromBackup 修复）。
+        /// 主文件缺失 → 只新建主文件，绝不碰已有备份。内容与现文件逐字节相同 → Unchanged 不写盘。
+        /// </summary>
+        internal static SaveResult Save(string path, KnightIdentityArchive archive)
+        {
+            if (string.IsNullOrEmpty(path)) throw new ArgumentException("path is required", nameof(path));
+            if (archive == null) throw new ArgumentNullException(nameof(archive));
+
+            byte[] bytes = archive.SerializeToUtf8();
+            if (bytes.Length > MaxFileBytes)
+            {
+                return new SaveResult(SaveStatus.Failed,
+                    "serialized archive is " + bytes.Length.ToString(CultureInfo.InvariantCulture) + " bytes, above " + MaxFileBytes.ToString(CultureInfo.InvariantCulture));
+            }
+
+            string backupPath = BackupPath(path);
+            KnightIdentityArchiveStatus mainStatus = Inspect(path, out _, out byte[] mainBytes, out string mainDetail);
+            if (mainStatus == KnightIdentityArchiveStatus.UnsupportedVersion) return new SaveResult(SaveStatus.RefusedUnknownVersion, mainDetail);
+
+            KnightIdentityArchiveStatus backupStatus = Inspect(backupPath, out _, out _, out string backupDetail);
+            if (backupStatus == KnightIdentityArchiveStatus.UnsupportedVersion)
+                return new SaveResult(SaveStatus.RefusedUnknownVersion, backupDetail);
+
+            if (mainStatus == KnightIdentityArchiveStatus.Corrupt)
+                return new SaveResult(SaveStatus.RefusedCorruptMain, mainDetail + (backupStatus == KnightIdentityArchiveStatus.Valid ? "; valid backup kept at " + backupPath : null));
+            if (mainStatus == KnightIdentityArchiveStatus.Valid && mainBytes != null && mainBytes.AsSpan().SequenceEqual(bytes))
+                return new SaveResult(SaveStatus.Unchanged, null);
+
+            bool keepBackup = mainStatus == KnightIdentityArchiveStatus.Valid;
+            SaveResult written = WriteAtomically(path, bytes, keepBackup ? backupPath : null);
+            if (written.Status == SaveStatus.Created && mainStatus != KnightIdentityArchiveStatus.Missing) written = new SaveResult(SaveStatus.Created, mainDetail);
+            return written;
+        }
+
+        /// <summary>
+        /// 显式修复：主文件损坏而备份有效时用备份内容原子重建主文件（备份本身不动）。Load 从不自动调用它。
+        /// </summary>
+        internal static SaveResult RecoverMainFromBackup(string path)
+        {
+            if (string.IsNullOrEmpty(path)) throw new ArgumentException("path is required", nameof(path));
+
+            KnightIdentityArchiveStatus mainStatus = Inspect(path, out _, out _, out string mainDetail);
+            if (mainStatus == KnightIdentityArchiveStatus.Valid) return new SaveResult(SaveStatus.Unchanged, "main is valid");
+            if (mainStatus == KnightIdentityArchiveStatus.UnsupportedVersion) return new SaveResult(SaveStatus.RefusedUnknownVersion, mainDetail);
+            if (!File.Exists(path)) return new SaveResult(SaveStatus.Unchanged, "main is missing; Save creates it from the loaded archive");
+
+            if (Inspect(BackupPath(path), out _, out byte[] backupBytes, out string backupDetail) != KnightIdentityArchiveStatus.Valid)
+                return new SaveResult(SaveStatus.Failed, "backup is not usable: " + backupDetail);
+            return WriteAtomically(path, backupBytes, null);
+        }
+
+        /// <summary>同目录 temp → 完整写 + Flush(true) → File.Replace（可选保留 bak）或 Move；失败保持旧文件。</summary>
+        private static SaveResult WriteAtomically(string path, byte[] bytes, string backupPath)
+        {
+            string tempPath = null;
+            try
+            {
+                // GetFullPath 会抛（非法路径/超长路径），因此放在异常边界内一起降级成 Failed。
+                string directory = Path.GetDirectoryName(Path.GetFullPath(path));
+                if (string.IsNullOrEmpty(directory)) return new SaveResult(SaveStatus.Failed, "path has no directory");
+                tempPath = Path.Combine(directory, Path.GetFileName(path) + ".tmp-" + Guid.NewGuid().ToString("N"));
+
+                Directory.CreateDirectory(directory);
+                using (FileStream stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    stream.Write(bytes, 0, bytes.Length);
+                    stream.Flush(true);
+                }
+                if (File.Exists(path))
+                {
+                    File.Replace(tempPath, path, backupPath, true);
+                    return new SaveResult(SaveStatus.Replaced, null);
+                }
+                File.Move(tempPath, path);
+                return new SaveResult(SaveStatus.Created, null);
+            }
+            catch (Exception e) when (IsIoFailure(e))
+            {
+                return new SaveResult(SaveStatus.Failed, e.GetType().Name + ": " + e.Message);
+            }
+            finally
+            {
+                // 只清自己那一个 exact temp；绝不扫描或删除目录内其他文件。
+                if (tempPath != null)
+                {
+                    try
+                    {
+                        if (File.Exists(tempPath)) File.Delete(tempPath);
+                    }
+                    catch (Exception e) when (IsIoFailure(e))
+                    {
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 单个 FileStream 上一次性定长读取：不再 FileInfo 后再 ReadAllBytes，读取上限是「实际读到的字节」。
+        /// 文件在读过程中变短 → Corrupt（绝不冒充 Missing）；不存在 → Missing；其余 I/O 失败 → Corrupt。
+        /// </summary>
+        private static KnightIdentityArchiveStatus Inspect(string path, out KnightIdentityArchive archive, out byte[] raw, out string detail)
+        {
+            archive = null;
+            raw = null;
+            detail = null;
+            try
+            {
+                using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.SequentialScan))
+                {
+                    long length = stream.Length;
+                    if (length == 0) { detail = path + " is empty"; return KnightIdentityArchiveStatus.Corrupt; }
+                    if (length > MaxFileBytes)
+                    {
+                        detail = path + " exceeds " + MaxFileBytes.ToString(CultureInfo.InvariantCulture) + " bytes";
+                        return KnightIdentityArchiveStatus.Corrupt;
+                    }
+
+                    byte[] bytes = new byte[(int)length];
+                    int read = 0;
+                    while (read < bytes.Length)
+                    {
+                        int chunk = stream.Read(bytes, read, bytes.Length - read);
+                        if (chunk <= 0) break;
+                        read += chunk;
+                    }
+                    if (read != bytes.Length || stream.ReadByte() != -1 || stream.Length != bytes.Length)
+                    {
+                        detail = path + " shrank while being read (" + read + " of " + bytes.Length + " bytes)";
+                        return KnightIdentityArchiveStatus.Corrupt;
+                    }
+
+                    KnightIdentityArchiveStatus status = KnightIdentityArchive.Parse(bytes, out archive, out string error);
+                    detail = status == KnightIdentityArchiveStatus.Valid ? null : path + ": " + error;
+                    if (status == KnightIdentityArchiveStatus.Valid) raw = bytes;
+                    return status;
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                detail = path + " is missing";
+                return KnightIdentityArchiveStatus.Missing;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                detail = path + " is missing";
+                return KnightIdentityArchiveStatus.Missing;
+            }
+            catch (Exception e) when (IsIoFailure(e))
+            {
+                detail = path + " is unreadable: " + e.GetType().Name + ": " + e.Message;
+                return KnightIdentityArchiveStatus.Corrupt;
+            }
+        }
+
+        private static bool IsIoFailure(Exception e)
+        {
+            return e is IOException
+                || e is UnauthorizedAccessException
+                || e is NotSupportedException
+                || e is ArgumentException
+                || e is System.Security.SecurityException;
+        }
+    }
+
+    /// <summary>指纹纯函数：SHA256(长度前缀(context) ‖ 长度前缀(rawSnapshot))，小写 64 hex。</summary>
+    internal static class KnightIdentityFingerprint
+    {
+        internal const int HexLength = 64;
+
+        internal static string Sha256(string rawSnapshot, string context)
+        {
+            if (rawSnapshot == null) throw new ArgumentNullException(nameof(rawSnapshot));
+            if (context == null) throw new ArgumentNullException(nameof(context));
+
+            byte[] contextBytes = Encoding.UTF8.GetBytes(context);
+            byte[] snapshotBytes = Encoding.UTF8.GetBytes(rawSnapshot);
+            using (IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
+            {
+                Span<byte> length = stackalloc byte[8];
+                WriteUInt64(length, (ulong)contextBytes.Length);
+                hash.AppendData(length);
+                hash.AppendData(contextBytes);
+                WriteUInt64(length, (ulong)snapshotBytes.Length);
+                hash.AppendData(length);
+                hash.AppendData(snapshotBytes);
+                return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+            }
+        }
+
+        internal static bool IsHex64(string value) { return NormalizeHex64(value) != null; }
+
+        /// <summary>64 位十六进制归一化为小写；不合法返回 null。</summary>
+        internal static string NormalizeHex64(string value)
+        {
+            if (value == null || value.Length != HexLength) return null;
+            for (int i = 0; i < value.Length; i++)
+            {
+                char c = value[i];
+                if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) return null;
+            }
+            return value.ToLowerInvariant();
+        }
+
+        private static void WriteUInt64(Span<byte> destination, ulong value)
+        {
+            for (int i = 0; i < 8; i++) destination[i] = (byte)(value >> (i * 8));
+        }
+    }
+
+    /// <summary>
+    /// 新招募的风格分配：只在 available 内取 counts 最少的风格，同数用调用方私有 entropy 确定性 tie-break。
+    /// 不改输入、不用 Unity random。已有 GUID/风格与当前数量、资源缺失无关，永不被本函数改动。
+    /// </summary>
+    internal static class KnightIdentityBalance
+    {
+        /// <summary>
+        /// 返回必属于 available 的风格码。非法输入抛 ArgumentException：
+        /// counts 为 null / 长度非 5 / 含负数；available 为 null / 空 / 含越界码或重复码。
+        /// </summary>
+        internal static int ChooseLeast(int[] counts, IReadOnlyList<int> available, uint entropy)
+        {
+            if (counts == null) throw new ArgumentNullException(nameof(counts));
+            if (counts.Length != KnightIdentityReceipt.StyleCount)
+                throw new ArgumentException("counts must have " + KnightIdentityReceipt.StyleCount + " entries", nameof(counts));
+            if (available == null) throw new ArgumentNullException(nameof(available));
+            if (available.Count == 0) throw new ArgumentException("available must not be empty", nameof(available));
+            for (int i = 0; i < counts.Length; i++)
+            {
+                if (counts[i] < 0) throw new ArgumentException("counts must be non-negative", nameof(counts));
+            }
+
+            int bestCount = int.MaxValue;
+            int ties = 0;
+            for (int i = 0; i < available.Count; i++)
+            {
+                int style = available[i];
+                if (!KnightIdentityReceipt.IsValidStyle(style))
+                    throw new ArgumentException("available contains style outside 0.." + KnightIdentityReceipt.MaxStyle, nameof(available));
+                for (int j = 0; j < i; j++)
+                {
+                    if (available[j] == style) throw new ArgumentException("available contains duplicate style " + style.ToString(CultureInfo.InvariantCulture), nameof(available));
+                }
+                int count = counts[style];
+                if (count < bestCount) { bestCount = count; ties = 1; }
+                else if (count == bestCount) { ties++; }
+            }
+
+            // 并列只在“最少”集合里按 entropy 取第 N 个：一次取模选一个下标，整周期频次完全均匀。
+            int pick = (int)(entropy % (uint)ties);
+            for (int i = 0; i < available.Count; i++)
+            {
+                if (counts[available[i]] != bestCount) continue;
+                if (pick == 0) return available[i];
+                pick--;
+            }
+            return available[0];
+        }
+    }
+}

@@ -62,6 +62,9 @@ public class Archer : MonoBehaviour
 
     /// <summary>Set by the modeled native Update body so tests can assert the early return ran.</summary>
     public bool NativeBodyRan;
+    public Knight _knight;
+    public GameObject _shootingTarget;
+    public bool harmless, IsCrossbowForTests, IsNorseForTests;
 
     public bool ShouldPlayerControl() => _unitController != null;
 
@@ -81,11 +84,15 @@ public class Character : MonoBehaviour
 public class Damageable : MonoBehaviour
 {
     public bool isDead;
+    public bool DamagedByArrows = true;
+    public bool IsDamagedBy(DamageSource source) => DamagedByArrows;
 }
 
 public class Arrow : MonoBehaviour
 {
     public GameObject archer;
+    public SpriteRenderer _spriteRenderer;
+    public void ReceiveInitialise() { }
     public bool isFireArrow;
     public bool Perfect;
     public bool ThrowOnPerfectShot;
@@ -122,12 +129,14 @@ public class NetworkSoftSimulator : MonoBehaviour
     public Vector2 LastVelocity;
     public float LastAngularVelocity;
     public int SendCount;
+    public byte[] LastPayload;
 
     public void SendVelocity(Vector2 vel, float angularVelocity)
     {
         LastVelocity = vel;
         LastAngularVelocity = angularVelocity;
         SendCount++;
+        LastPayload = ByteBuffer.Written.ToArray();
         FakeOps.Add("send");
     }
 }
@@ -177,7 +186,16 @@ public static class NetworkBigBoss
 /// <summary>Ordered log of native boundary calls, used to assert the native call sequences.</summary>
 public static class ByteBuffer
 {
-    public static void PrepWriteBuffer() => FakeOps.Add("prep");
-
-    public static void Write(bool value) => FakeOps.Add("write:" + value);
+    public static readonly List<byte> Written = new List<byte>();
+    public static byte[] Incoming = Array.Empty<byte>();
+    public static int Position;
+    public static short index { get => (short)Position; set => Position = value; }
+    public static void PrepWriteBuffer() { Written.Clear(); FakeOps.Add("prep"); }
+    public static void Write(bool value) { Written.Add(value ? (byte)1 : (byte)0); FakeOps.Add("write:" + value); }
+    public static void Write(byte value) { Written.Add(value); FakeOps.Add("write-byte:" + value); }
+    public static int PollDataAvailableLength() => Incoming.Length - Position;
+    public static int PollIndex() => Position;
+    public static byte bufferAccess(int index) => Incoming[index];
+    public static byte ReadByte() => Incoming[Position++];
+    public static bool ReadBool() => ReadByte() != 0;
 }

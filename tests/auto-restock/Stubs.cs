@@ -133,6 +133,7 @@ public class Payable : Component
     public bool DeselectThrows;
     public Action<Payable> TransactionCompleteF;
 
+    public T TryCast<T>() where T : class => this as T;
     public virtual bool CanPay(Player p) => CanPayF(p);
     public Vector3 GetApproximateGameLayerPosition() => new Vector3(0f, 0f, 0f);
     public virtual void TransactionComplete()
@@ -217,7 +218,15 @@ public class PayableShopBaker : PayableShop { }
 
 // Ammo targets: PayableWorkshopBarrel (role 6) and the FireTower's
 // PayableComponent (role 7, same GameObject as its owner).
-public class FireTower : Component { public object _parentHeaderRef = new object(); public int _fireJarsActiveIndex = 1; }
+public interface IPayableComponentOwner { IntPtr Pointer { get; } }
+public class FireTower : Component, IPayableComponentOwner
+{
+    public object _parentHeaderRef = new object(); public int _fireJarsActiveIndex = 1;
+    public bool enabled = true;
+    public IntPtr Pointer => gameObject?.Pointer ?? IntPtr.Zero;
+    public int _maxFireJars = 9, _fireJarsActiveNum;
+    public GameObject[] _fakeFireJars = Enumerable.Range(0,9).Select(_ => new GameObject()).ToArray();
+}
 
 public class PayableWorkshopBarrel : Payable { public RollableOilBarrel rollableBarrelPrefab = new() { gameObject = new GameObject() }; }
 public class RollableOilBarrel : Component { }
@@ -228,7 +237,7 @@ public class BiomeData
     public T GetAssetSwapForThis<T>(T original) where T : class => Swap as T ?? original;
 }
 
-public class PayableComponent : Payable { public FireTower Owner; }
+public class PayableComponent : Payable { public FireTower Owner; public IPayableComponentOwner _owner => Owner; }
 
 public static class NetworkBigBoss
 {
@@ -447,7 +456,7 @@ namespace KingdomEnhancedMod
         // Native-side writes (what the game itself would do) vs published cache.
         internal static void SetNative(int role, int v) { Native[role] = v; }
         internal static void SetCount(int role, int v) { Native[role] = v; Counts[role] = v; _version++; }
-        internal static void SetLocal(Payable payable, int v) { Local[payable] = v; _version++; }
+        internal static void SetLocal(Payable payable, int v) { Local[payable] = v; if (payable is PayableComponent c && c.Owner != null) c.Owner._fireJarsActiveNum = v; _version++; }
 
         internal static void ResetAmmo()
         {

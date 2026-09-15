@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 控制台回归程序集：把生产 il2cpp/HermesHeadwearDiagnostics.cs 直接编译进来，
+       Unity/BepInEx 边界用本目录 Stubs（同 Il2CppInterop 形状：字段→属性、销毁后 gameObject 为 null、
+       渲染器字段读取计数、material 单独计数）。
+       跨签名硬核对见 interop-check/（直接引用 E 2.4 真实 interop 编译）。
+       生产工程（canonical il2cpp/KingdomEnhancedMod.csproj）不引用本目录。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>HermesHeadwearDiagnosticsTests</AssemblyName>
+    <RootNamespace>HermesHeadwearDiagnosticsTests</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/HermesHeadwearDiagnostics.cs" Link="Production/HermesHeadwearDiagnostics.cs" />
+    <Compile Remove="interop-check/**" />
+  </ItemGroup>
+
+</Project>

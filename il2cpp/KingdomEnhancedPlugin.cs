@@ -50,7 +50,7 @@ public class KingdomEnhancedPlugin :
         {
             Instance = this;
             // 手动构建戳：日志里区分不同部署（改完记得更新）
-            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=7.6.5 loading...");
+            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=8.0.0 loading...");
 
             // 配置（BepInConfig，替代 UMM Settings）
             ModConfig.Init(Config);
@@ -61,6 +61,7 @@ public class KingdomEnhancedPlugin :
 
             // 游戏内设置面板（Ctrl+F10 / F5 呼出）
             ModPanel.EnsureCreated();
+            LogSource.LogInfo("[SamuraiDiag] event=armed passive=true burst=8 refill=1/game-second maxLinesPerDash=12; renderer-state logs do not prove screen visibility");
 
             LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} loaded. Enabled={ModConfig.Enabled.Value}");
         }

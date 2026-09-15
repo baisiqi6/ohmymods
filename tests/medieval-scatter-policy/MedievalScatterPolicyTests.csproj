@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 控制台测试程序集：把生产 il2cpp/MedievalScatterPolicy.cs 直接编译进来，并补边界 stub
+       （Stubs.cs：Unity/interop 最小面 + 生产协作类 ArcherOptionsScope / PatchRoles_* 的测试替身）。
+       判定必须纯读：每个用例在调用前后核对 Evidence.Writes 不变。
+       生产工程不引用本目录；本目录不改动任何原生对象、游戏文件或配置。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>MedievalScatterPolicyTests</AssemblyName>
+    <RootNamespace>MedievalScatterPolicyTests</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/MedievalScatterPolicy.cs" Link="Production/MedievalScatterPolicy.cs" />
+  </ItemGroup>
+
+</Project>

@@ -52,7 +52,10 @@ public class ModPanel : MonoBehaviour
         BankAssistantCoordinator.TickPendingCleanup();
         PatchPlayer_HoldPurchase.Tick();
         PatchWorld_OptionalVegetation.Tick();
+        HeroArcherRuntime.Tick();
+        HeroArcherArrowVisuals.Tick();
         PatchArcher_Options.Tick();
+        PatchArcher_GreekImpact.Tick();
         PatchArcher_Impact.Tick();
         PatchDivine_HermesHeadwear.Tick();
         PatchRoles_Crossbowman.Tick();
@@ -60,6 +63,12 @@ public class ModPanel : MonoBehaviour
     }
 
     private static bool _faultLogged;
+
+    private void LateUpdate()
+    {
+        // Read the native Animator after its update; the optional hero driver shares the same frame guard.
+        HeroArcherVisuals.Sync("panel-late");
+    }
 
     private void OnGUI()
     {
@@ -229,7 +238,7 @@ public class ModPanel : MonoBehaviour
         }
 
         float viewHeight = height - 224f;
-        int cards = _category == 4 ? 8 : (_category == 3 ? 5 : (_category == 0 || _category == 5 ? 4 : 3));
+        int cards = _category == 4 ? 8 : (_category == 3 ? 5 : (_category == 0 || _category == 5 || _category == 6 ? 4 : 3));
         float contentHeight = cards * (CardHeight + 12f);
         Rect viewport = new Rect(24, 176, width - 48, viewHeight);
         Rect content = new Rect(0, 0, width - 74, Mathf.Max(viewHeight, contentHeight));
@@ -274,8 +283,8 @@ public class ModPanel : MonoBehaviour
                     "后续进攻计算时生效 · 倍率越高，敌军成长越快。");
                 FloatSlider(ref y, width, "法杖神器冷却", ModConfig.StaffCooldownMultiplier, 0.2f, 1, true,
                     "当前 " + (30f * ModConfig.StaffCooldownMultiplier.Value).ToString("0.##") + " 秒 / 原生 30 秒 · 使用时生效。");
-                Toggle(ref y, width, "法杖随机头饰", ModConfig.HermesHeadwearEnabled,
-                    "新转化小怪有 " + ModConfig.HermesHeadwearChancePercent.Value + "% 概率戴跨世界面具或周年头饰；纯外观，读档不重抽。");
+                Toggle(ref y, width, "法杖轮换头饰", ModConfig.HermesHeadwearEnabled,
+                    "新转化按累计 " + ModConfig.HermesHeadwearChancePercent.Value + "% 配额轮流戴44款头饰（30%即每10只3只）；戴头饰免主动选敌，仍可受范围伤害；已有外观保持。");
                 FloatSlider(ref y, width, "坐骑技能冷却", ModConfig.SteedCooldownMultiplier, 0.2f, 1, true,
                     "使用时生效 · 原生冷却因坐骑而异。");
                 break;
@@ -299,14 +308,16 @@ public class ModPanel : MonoBehaviour
                     "所有世界 · 砍树后的森林消退等待缩至三分之一；关闭后的新消退使用原版速度。");
                 break;
             case 6:
-                ModConfig.ArcherVolleyCount.Value = (int)ArcherControl(ref y, width, "弓箭散射", ModConfig.ArcherScatterEnabled,
-                    ModConfig.ArcherVolleyCount.Value, 1, 5, 1, ModConfig.ArcherVolleyCount.Value + " 支 / 发",
-                    "所有世界 · 总数包含原生主箭；密集齐射时自动限制额外箭，减少卡顿。");
+                Toggle(ref y, width, "英雄弓箭手", ModConfig.HeroArcherEnabled,
+                    "所有世界·单机候选：每侧至多1名，关闭恢复；射速1.5倍、射程1.25倍、对敌3箭、火焰半径0.25。");
+                ModConfig.ArcherVolleyCount.Value = (int)ArcherControl(ref y, width, "中世纪随从散射", ModConfig.ArcherScatterEnabled,
+                    Mathf.Clamp(ModConfig.ArcherVolleyCount.Value, 1, 3), 1, 3, 1, Mathf.Clamp(ModConfig.ArcherVolleyCount.Value, 1, 3) + " 支 / 发",
+                    "所有世界 · 仅中世纪骑士的弓箭手随从对敌散射；打猎单发，额外箭淡金色，总数含主箭。");
                 ModConfig.ArcherRateMultiplier.Value = ArcherControl(ref y, width, "弓箭手射速", ModConfig.ArcherRateEnabled,
                     ModConfig.ArcherRateMultiplier.Value, 1, 2, 0.25f, ModConfig.ArcherRateMultiplier.Value.ToString("0.##") + " 倍",
                     "所有世界 · 最高 2 倍，关闭恢复原版；不加快移动和游戏时间。");
-                Toggle(ref y, width, "弓箭命中火焰特效", ModConfig.ArcherImpactEnabled,
-                    "单机 / 主机画面 · 原作者像素火焰，限制同屏数量；不额外增加火焰伤害。");
+                Toggle(ref y, width, "希腊随从火矢爆发", ModConfig.ArcherImpactEnabled,
+                    "随从火矢以半径 0.25、一次 1 点范围伤害替代灼烧；直击不叠加，同轮散射去重。关闭恢复原版。");
                 break;
         }
     }

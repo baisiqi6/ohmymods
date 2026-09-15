@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- actualinterop 编译核对：把生产文件 FriendlyTrollDisguise.cs 直接对着真实 E interop
+       （Build 22992091）编译 —— gameTypes（FriendlyTroll / Damageable / TargetCacher /
+       NetworkBigBoss / UnityEngine / HarmonyX 特性）全部用真实程序集，只有 canonical 协作
+       API（ModConfig / OptionalQoLScope / PatchDivine_HermesHeadwear）用同签名替身。
+       目的：字段名、属性可读写性、方法签名、泛型 GetComponent 约束、Harmony 特性构造
+       全部按 2.4 真实元数据硬核对；不运行、不加载 IL2CPP 运行时。
+       IL2CPP_DEPS 可覆盖依赖根（默认取本机 E 盘安装）。 -->
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>FriendlyTrollDisguiseInteropCheck</AssemblyName>
+    <RootNamespace>KingdomEnhancedMod</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0649;CS0414;CS0169</NoWarn>
+    <IL2CPP_DEPS Condition="'$(IL2CPP_DEPS)'==''">E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx</IL2CPP_DEPS>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../il2cpp/FriendlyTrollDisguise.cs"
+             Link="Production/FriendlyTrollDisguise.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(IL2CPP_DEPS)\interop\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>$(IL2CPP_DEPS)\interop\Il2Cppmscorlib.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(IL2CPP_DEPS)\core\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(IL2CPP_DEPS)\core\0Harmony.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

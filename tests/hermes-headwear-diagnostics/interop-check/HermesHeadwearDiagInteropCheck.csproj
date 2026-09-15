@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- actualinterop 编译核对：把生产 il2cpp/HermesHeadwearDiagnostics.cs 直接对着 E 2.4 真实 interop
+       （Build 22992091）编译 —— UnityEngine（Bounds.center/size、SpriteRenderer、Material、Shader、
+       Transform、GameObject）与游戏类型 FriendlyTroll._mask/_maskPrefab/_maskIndex 全部用真实程序集；
+       只有 canonical 日志入口 KingdomEnhancedPlugin 用同形状替身。
+       目的：字段名、属性可读写性、方法签名按真实元数据硬核对；不运行、不加载 IL2CPP 运行时。
+       IL2CPP_DEPS 可覆盖依赖根（默认取本机 E 盘测试副本）。 -->
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>HermesHeadwearDiagInteropCheck</AssemblyName>
+    <RootNamespace>KingdomEnhancedMod</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0649</NoWarn>
+    <IL2CPP_DEPS Condition="'$(IL2CPP_DEPS)'==''">E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx</IL2CPP_DEPS>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../il2cpp/HermesHeadwearDiagnostics.cs" Link="Production/HermesHeadwearDiagnostics.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(IL2CPP_DEPS)\interop\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>$(IL2CPP_DEPS)\interop\Il2Cppmscorlib.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(IL2CPP_DEPS)\core\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="BepInEx.Core">
+      <HintPath>$(IL2CPP_DEPS)\core\BepInEx.Core.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

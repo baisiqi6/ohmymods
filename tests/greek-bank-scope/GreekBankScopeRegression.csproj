@@ -18,6 +18,7 @@
     <Compile Include="../../il2cpp/GreekBankScope.cs" Link="Production/GreekBankScope.cs" />
     <Compile Include="../../il2cpp/PatchEconomy_Banker.cs" Link="Production/PatchEconomy_Banker.cs" />
     <Compile Include="../../il2cpp/PatchEconomy_AutoRestock.cs" Link="Production/PatchEconomy_AutoRestock.cs" />
+    <Compile Include="../../il2cpp/FireTowerRestockCapacity.cs" Link="Production/FireTowerRestockCapacity.cs" />
   </ItemGroup>
 
 </Project>

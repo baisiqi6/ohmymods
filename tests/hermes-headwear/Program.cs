@@ -14,6 +14,7 @@ namespace HermesHeadwearTests
             SaveBridgeTests.Run();
             NetworkTests.Run();
             LifecycleTests.Run();
+            DisguiseCycleIntegrationTests.Run();
 
             Console.WriteLine();
             Console.WriteLine("total: passed=" + Case.Passed + " failed=" + Case.Failed);

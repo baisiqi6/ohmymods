@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 控制台回归程序集：把生产核心（FriendlyTrollDisguise）直接编译进来，
+       配原生替身（UnityEngine / 游戏类型 / Il2Cpp 列表）与协作 API 替身
+       （ModConfig / NetworkBigBoss / OptionalQoLScope / PatchDivine_HermesHeadwear）。
+       共享静态，Program.Main 顺序串行跑。
+       原生替身的签名与语义按真实 E interop（Build 22992091）核对：
+       用 tools/InteropDump 逐字段打印过 FriendlyTroll / Troll / TargetCacher / Damageable；
+       跨方法签名的硬核对见 interop-check/（直接引用真实 interop 程序集编译）。
+       生产工程（canonical il2cpp/KingdomEnhancedMod.csproj）不引用本目录。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>FriendlyTrollDisguiseTests</AssemblyName>
+    <RootNamespace>FriendlyTrollDisguiseTests</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0649;CS0414;CS0169</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/FriendlyTrollDisguise.cs"
+             Link="Production/FriendlyTrollDisguise.cs" />
+    <Compile Remove="interop-check/**" />
+    <Compile Remove="tools/**" />
+  </ItemGroup>
+
+</Project>

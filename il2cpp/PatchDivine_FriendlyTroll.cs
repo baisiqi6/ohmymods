@@ -313,6 +313,7 @@ public static class PatchDivine_FriendlyTroll
     private static bool IsPursuitTarget(FriendlyEntry friendly, Troll troll)
     {
         if (friendly == null || !IsUsable(friendly.Troll)) return false;
+        if (FriendlyTrollDisguise.IsProtected(friendly.Troll)) return false;
         Damageable damageable = friendly.Damageable;
         try
         {
@@ -1292,7 +1293,8 @@ public static class PatchDivine_FriendlyTroll
                         continue;
                     }
 
-                    if (Mathf.Abs(entry.Troll.transform.position.x - pos) > range
+                    if (FriendlyTrollDisguise.IsProtected(entry.Troll)
+                        || Mathf.Abs(entry.Troll.transform.position.x - pos) > range
                         || !damageable.IsDamagedBy(troll.damageSource)
                         || __instance._trollPriorityTargets.Contains(damageable))
                         continue;

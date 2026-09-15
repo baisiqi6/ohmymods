@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 真实 2.4 interop 编译门：把生产 helper 直接对游戏自带的 interop 程序集编译一次，
+       证明所用成员（_owner/_maxFireJars/_fireJarsActiveNum/_fakeFireJars/GetComponent/TryCast）
+       在发行 interop 表面上存在；不产出可部署插件。 -->
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>FireTowerRestockCapacity.ActualInteropCheck</AssemblyName>
+    <InteropDir Condition="'$(InteropDir)' == ''">E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx\interop</InteropDir>
+    <CoreDir Condition="'$(CoreDir)' == ''">E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx\core</CoreDir>
+    <ProductionSource Condition="'$(ProductionSource)' == ''">../../../il2cpp/FireTowerRestockCapacity.cs</ProductionSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(ProductionSource)" />
+    <Reference Include="Assembly-CSharp"><HintPath>$(InteropDir)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cppmscorlib"><HintPath>$(InteropDir)\Il2Cppmscorlib.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppSystem.Core"><HintPath>$(InteropDir)\Il2CppSystem.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(InteropDir)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(InteropDir)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppInterop.Runtime"><HintPath>$(CoreDir)\Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

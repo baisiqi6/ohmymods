@@ -207,6 +207,7 @@ namespace KingdomArcherOptions.Combat.Tests
 
             LayerGo = new GameObject("gameLayer");
             ArcherOptionsScope.Layer = LayerGo.transform;
+            ScatterArrowTint.Tick();
 
             ManagersInst = new Managers();
             ManagersInst.world = new World { gameLayer = LayerGo.transform };
@@ -231,7 +232,9 @@ namespace KingdomArcherOptions.Combat.Tests
             go.transform.SetParent(LayerGo.transform);
             go.AddComponent<Rigidbody2D>();
             go.AddComponent<NetworkSoftSimulator>();
-            return go.AddComponent<Arrow>();
+            Arrow arrow = go.AddComponent<Arrow>();
+            arrow._spriteRenderer = go.AddComponent<SpriteRenderer>();
+            return arrow;
         }
 
         internal Archer NewArcher(bool currentLayer = true)
@@ -243,6 +246,13 @@ namespace KingdomArcherOptions.Combat.Tests
             Archer archer = go.AddComponent<Archer>();
             archer._character = character;
             archer._damageable = damageable;
+            GameObject leader = new GameObject("Knight") { tag = "Knight" };
+            leader.transform.SetParent(LayerGo.transform);
+            archer._knight = leader.AddComponent<Knight>();
+            archer._knight._damageable = leader.AddComponent<Damageable>();
+            GameObject enemy = new GameObject("Enemy") { layer = 8, tag = "Enemy" };
+            enemy.transform.SetParent(LayerGo.transform); enemy.AddComponent<Damageable>();
+            archer._shootingTarget = enemy;
             return archer;
         }
 

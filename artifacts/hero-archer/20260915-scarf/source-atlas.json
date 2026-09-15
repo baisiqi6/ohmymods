@@ -1,0 +1,544 @@
+{
+  "columns": 8,
+  "rows": 4,
+  "cell": [
+    48,
+    32
+  ],
+  "pixels_per_unit": 32,
+  "valid_frames": 31,
+  "runtime_scale": 0.9,
+  "fixed_pivot": [
+    31,
+    2
+  ],
+  "frames": [
+    {
+      "index": 0,
+      "action": "Stand",
+      "phase": 0,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "dc52cc4f6d03d2c04dbe2f3f167118a9a4705963b02c3fa10a949b53b4f5d03b"
+    },
+    {
+      "index": 1,
+      "action": "Stand",
+      "phase": 1,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "dc52cc4f6d03d2c04dbe2f3f167118a9a4705963b02c3fa10a949b53b4f5d03b"
+    },
+    {
+      "index": 2,
+      "action": "Stand",
+      "phase": 2,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "dc52cc4f6d03d2c04dbe2f3f167118a9a4705963b02c3fa10a949b53b4f5d03b"
+    },
+    {
+      "index": 3,
+      "action": "Stand",
+      "phase": 3,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "dc52cc4f6d03d2c04dbe2f3f167118a9a4705963b02c3fa10a949b53b4f5d03b"
+    },
+    {
+      "index": 4,
+      "action": "Stand",
+      "phase": 4,
+      "bbox": [
+        23,
+        5,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 1,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "1b32f2d48c29570c061b06160a71f8ef25fa653d1ee944090dfbb9ded7ba340b"
+    },
+    {
+      "index": 5,
+      "action": "Stand",
+      "phase": 5,
+      "bbox": [
+        23,
+        5,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 1,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "1b32f2d48c29570c061b06160a71f8ef25fa653d1ee944090dfbb9ded7ba340b"
+    },
+    {
+      "index": 6,
+      "action": "Stand",
+      "phase": 6,
+      "bbox": [
+        23,
+        5,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 1,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "1b32f2d48c29570c061b06160a71f8ef25fa653d1ee944090dfbb9ded7ba340b"
+    },
+    {
+      "index": 7,
+      "action": "Stand",
+      "phase": 7,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "dc52cc4f6d03d2c04dbe2f3f167118a9a4705963b02c3fa10a949b53b4f5d03b"
+    },
+    {
+      "index": 8,
+      "action": "Stand",
+      "phase": 8,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "dc52cc4f6d03d2c04dbe2f3f167118a9a4705963b02c3fa10a949b53b4f5d03b"
+    },
+    {
+      "index": 9,
+      "action": "Stand",
+      "phase": 9,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "dc52cc4f6d03d2c04dbe2f3f167118a9a4705963b02c3fa10a949b53b4f5d03b"
+    },
+    {
+      "index": 10,
+      "action": "Walk",
+      "phase": 0,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "a1fd5b4abc7b51835d6f5e58bcccb216c92702e4f85b05f32d2c6c73b12d5b91"
+    },
+    {
+      "index": 11,
+      "action": "Walk",
+      "phase": 1,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "0e3f94a058d198347b72e7a93020151499edc593b1b9906916f9a8f0a9a2d4c3"
+    },
+    {
+      "index": 12,
+      "action": "Walk",
+      "phase": 2,
+      "bbox": [
+        23,
+        5,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 1,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "07c52227aa03d0baa0639c2392462ab28d034356847c5da05e3aa3a1129cc4b6"
+    },
+    {
+      "index": 13,
+      "action": "Walk",
+      "phase": 3,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "16a91a70518c58d72cffcd02ee6a90ceadd860ce06cf6d0f3003646c3fde7015"
+    },
+    {
+      "index": 14,
+      "action": "Walk",
+      "phase": 4,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "3edf24fb71721f5fc21c509f63abdd1e592ab0b856caa15968f5cadf6a9f694e"
+    },
+    {
+      "index": 15,
+      "action": "Walk",
+      "phase": 5,
+      "bbox": [
+        23,
+        5,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 1,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "a4c8732d5b0050bfe5913f5141f7b71f6d2438208c38a77c69963666a058f321"
+    },
+    {
+      "index": 16,
+      "action": "Run",
+      "phase": 0,
+      "bbox": [
+        24,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "f42bcf41a9a9d10d3e5d14c9cca29e35b23704f1562930d9ad614cc977161d05"
+    },
+    {
+      "index": 17,
+      "action": "Run",
+      "phase": 1,
+      "bbox": [
+        24,
+        4,
+        44,
+        28
+      ],
+      "torso_lift_pixels": 2,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "1315bcd20184d6d9089a109c453565819e0f7bae046dd5359c1620fb979a8773"
+    },
+    {
+      "index": 18,
+      "action": "Run",
+      "phase": 2,
+      "bbox": [
+        24,
+        5,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 1,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "775c6e4c49c6e20c3f30562683f52cf04cbe85de302e9b1253ff2074eb7e5d4f"
+    },
+    {
+      "index": 19,
+      "action": "Run",
+      "phase": 3,
+      "bbox": [
+        24,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "46f92e37a805863256063b1cc22ffe65e74cbadfda67ef1ec57ea566052d4dce"
+    },
+    {
+      "index": 20,
+      "action": "Run",
+      "phase": 4,
+      "bbox": [
+        24,
+        4,
+        44,
+        28
+      ],
+      "torso_lift_pixels": 2,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "c0a8113e86e884dd824a9c417a0d49145da3ac3f43620c27edb5c0b61482d758"
+    },
+    {
+      "index": 21,
+      "action": "Run",
+      "phase": 5,
+      "bbox": [
+        24,
+        5,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 1,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "b9fcb84734ce1c9795bf526c7810dab8231bba380fdd89df41bcabb72aa34b94"
+    },
+    {
+      "index": 22,
+      "action": "Prepare",
+      "phase": 0,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "9d9deffac8546fbd04844fa5556e50c0c2ea67b66ecc71dbe5142cd921ddf753"
+    },
+    {
+      "index": 23,
+      "action": "Prepare",
+      "phase": 1,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "d34272e9533c6da6838173522f6a9e86ac358639e6aa92260d68e8aec9490222"
+    },
+    {
+      "index": 24,
+      "action": "Prepare",
+      "phase": 2,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "257da70a57961d39f65677b6a1e4c0e9bc512e01c915da2a4a1732e3d4380d97"
+    },
+    {
+      "index": 25,
+      "action": "Prepare",
+      "phase": 3,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "02defe1e657fef59d41f5bea55de8e422155a4f364545d83f78d33f4065f7dd3"
+    },
+    {
+      "index": 26,
+      "action": "Shoot",
+      "phase": 0,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "02defe1e657fef59d41f5bea55de8e422155a4f364545d83f78d33f4065f7dd3"
+    },
+    {
+      "index": 27,
+      "action": "Shoot",
+      "phase": 1,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "257da70a57961d39f65677b6a1e4c0e9bc512e01c915da2a4a1732e3d4380d97"
+    },
+    {
+      "index": 28,
+      "action": "Shoot",
+      "phase": 2,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "d34272e9533c6da6838173522f6a9e86ac358639e6aa92260d68e8aec9490222"
+    },
+    {
+      "index": 29,
+      "action": "Shoot",
+      "phase": 3,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "9d9deffac8546fbd04844fa5556e50c0c2ea67b66ecc71dbe5142cd921ddf753"
+    },
+    {
+      "index": 30,
+      "action": "Shoot",
+      "phase": 4,
+      "bbox": [
+        23,
+        6,
+        44,
+        30
+      ],
+      "torso_lift_pixels": 0,
+      "pivot_pixels": [
+        31,
+        2
+      ],
+      "sha256": "9d9deffac8546fbd04844fa5556e50c0c2ea67b66ecc71dbe5142cd921ddf753"
+    }
+  ]
+}

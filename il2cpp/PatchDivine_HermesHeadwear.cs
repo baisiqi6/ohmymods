@@ -11,8 +11,8 @@ namespace KingdomEnhancedMod;
 ///
 /// 范围：只有 “HermesStaff 权杖转化出的新 FriendlyTroll” 才有收据与外观。
 /// 抽选在主机（world auth）侧、转化上下文内、Init 时一次性完成：30%（可配）命中
-/// 则随机取固定码 0..43 之一，未命中/功能关闭时显式写 choice=-1。原生
-/// maskIndex/trollHealth/toughTroll、stats、永久控制/计数资格一律不改。
+/// 则通过独立游标轮流取固定码 0..43，未命中/功能关闭时显式写 choice=-1。原生
+/// maskIndex/trollHealth/toughTroll、stats、永久控制一律不改；头饰伪装选敌由独立规则读取当前外观。
 ///
 /// 所有权边界：
 /// - 收据（receipt：Guid token + choice，可落盘、可上网）归本类所有；
@@ -264,6 +264,7 @@ internal static class PatchDivine_HermesHeadwear
         state.Sealed = true;
         state.HostEnabled = EffectiveHostEnabled();
         state.VisualRetryDelay = VisualRetryInitialSeconds;
+        HermesHeadwearDiagnostics.Decision(troll, state.Choice, state.HostEnabled);
         state.OpaqueMetadataJson = null; // 新收据取代旧的未知 schema 记录
         ClearRetiredToken(instanceId);
 
@@ -325,6 +326,7 @@ internal static class PatchDivine_HermesHeadwear
     {
         TrollState state = FindState(troll);
         if (state == null) return;
+        HermesHeadwearDiagnostics.Removed(troll, state.Choice, "native-reset-despawn");
         DropState(state, clearVisual: true);
     }
 
@@ -346,6 +348,7 @@ internal static class PatchDivine_HermesHeadwear
             return;
         }
 
+        HermesHeadwearDiagnostics.Removed(state.Troll, state.Choice, "pool-fast-spawn");
         DropState(state, clearVisual: true);
     }
 
@@ -372,6 +375,7 @@ internal static class PatchDivine_HermesHeadwear
         }
 
         // 暂停/失活/池缓存：先撤外观，收据与盘上元数据保持（下次原生触发再重放）。
+        HermesHeadwearDiagnostics.Removed(state.Troll, state.Choice, "persistent-disable");
         DetachVisual(state);
     }
 
@@ -702,17 +706,31 @@ internal static class PatchDivine_HermesHeadwear
 
     // ------------------------------------------------------------------ 决策与外观
 
-    /// <summary>命中则取 0..43 之一，否则显式 choice=-1（关闭/未命中都写收据）。</summary>
+    /// <summary>按独立配额累计发放0..43轮换头饰；默认每10只3只，旧收据不消耗配额。</summary>
     internal static int RollChoice()
     {
         if (!EffectiveHostEnabled()) return HermesHeadwearCodec.ChoiceNone;
         int chance = ReadChancePercent();
         if (chance <= 0) return HermesHeadwearCodec.ChoiceNone;
-        if (chance < 100 && SampleCosmeticInt(0, 100) >= chance)
+        return HermesHeadwearCycle.TryAssign(chance, out int choice) ? choice : HermesHeadwearCodec.ChoiceNone;
+    }
+
+    /// <summary>只读当前世代已显示的主机头饰；供伪装选敌规则使用，不创建收据或重抽。</summary>
+    internal static bool HasDisguiseHeadwear(FriendlyTroll troll)
+    {
+        try
         {
-            return HermesHeadwearCodec.ChoiceNone;
+            if (!IsHostAuthority() || !EffectiveHostEnabled() || troll == null) return false;
+            GameObject owner = SafeGameObject(troll);
+            if (owner == null || !States.TryGetValue(SafeInstanceId(owner), out TrollState state)) return false;
+            return IsSameGeneration(state, owner) && state.Troll != null
+                && state.Troll.Pointer == troll.Pointer && state.WorldPointer == CurrentWorldPointer()
+                && state.Token != Guid.Empty && state.OpaqueMetadataJson == null && state.Sealed
+                && state.HostEnabled && state.VisualApplied && state.Choice >= 0
+                && state.Choice <= HermesHeadwearCodec.MaxChoice
+                && HermesHeadwearVisuals.IsApplied(troll, state.Choice);
         }
-        return SampleCosmeticInt(0, HermesHeadwearCodec.MaxChoice + 1);
+        catch { return false; }
     }
 
 #if HERMES_HEADWEAR_TEST
@@ -766,6 +784,7 @@ internal static class PatchDivine_HermesHeadwear
 
         if (!wantHeadwear)
         {
+            HermesHeadwearDiagnostics.Removed(troll, state.Choice, "disabled-or-no-choice");
             // 关闭/未命中：不需要外观（也不需要重试），但收据与盘上元数据照旧保留。
             try
             {
@@ -784,6 +803,7 @@ internal static class PatchDivine_HermesHeadwear
         bool applied = false;
         try
         {
+            HermesHeadwearDiagnostics.Decision(troll, state.Choice, state.HostEnabled);
             applied = HermesHeadwearVisuals.Apply(troll, state.Choice);
         }
         catch (Exception e)
@@ -791,6 +811,8 @@ internal static class PatchDivine_HermesHeadwear
             LogOnce("visual-apply", e);
         }
 
+        if (!applied)
+            HermesHeadwearDiagnostics.Visual(troll, state.Choice, false, null, null, "apply-failed");
         if (applied)
         {
             state.VisualApplied = true;
@@ -1198,6 +1220,7 @@ internal static class PatchDivine_HermesHeadwear
                 if (States.TryGetValue(SweepScratch[i], out TrollState stale))
                 {
                     // 旧世界/已死对象也要撤掉自有外观，否则换世界后残影会常驻视觉层。
+                    HermesHeadwearDiagnostics.Removed(stale.Troll, stale.Choice, "sweep-world-or-layer");
                     DropState(stale, clearVisual: true);
                 }
             }
@@ -1348,6 +1371,7 @@ internal static class PatchDivine_HermesHeadwear
 
         foreach (TrollState state in States.Values)
         {
+            HermesHeadwearDiagnostics.Removed(state.Troll, state.Choice, "release-all");
             state.InSendQueue = false;
             state.InVisualQueue = false;
             state.SendPending = false;

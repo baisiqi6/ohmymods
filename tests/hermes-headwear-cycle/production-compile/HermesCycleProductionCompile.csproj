@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 编译校验工程（不产出可执行）：把生产分支（无 HERMES_CYCLE_TEST）对着真实 IL2CPP 依赖
+       （BepInEx.Core + Assembly-CSharp interop）编译，验证 NetworkBigBoss.HasWorldAuth /
+       BepInEx.Paths.ConfigPath / root 日志入口的形状。KingdomEnhancedPlugin 用同形状替身
+       （真实类型在 canonical il2cpp/KingdomEnhancedPlugin.cs）。
+       本工程不属于回归测试，只跑 `dotnet build` 验证生产分支可编译。 -->
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <DefineConstants>IL2CPP;BIE;BIE6</DefineConstants>
+    <AssemblyName>HermesCycleProductionCompile</AssemblyName>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ModDevLibs>E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP</ModDevLibs>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../il2cpp/HermesHeadwearCycle.cs" Link="Production/HermesHeadwearCycle.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="BepInEx.Core">
+      <HintPath>$(ModDevLibs)\core\BepInEx.Core.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(ModDevLibs)\interop\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(ModDevLibs)\core\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>$(ModDevLibs)\interop\Il2Cppmscorlib.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2CppSystem.Core">
+      <HintPath>$(ModDevLibs)\interop\Il2CppSystem.Core.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(ModDevLibs)\interop\UnityEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(ModDevLibs)\interop\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

@@ -77,6 +77,7 @@ internal static class HermesHeadwearVisuals
         internal FriendlyTroll Troll;
         internal Transform Head;
         internal int Choice;
+        internal bool DiagnosticTickReported;
         internal GameObject Root;
         internal SpriteRenderer Renderer;
         internal MaskOwnership Mask;
@@ -167,6 +168,7 @@ internal static class HermesHeadwearVisuals
             {
                 // 重复 Apply（含原生 SpawnMask 重建之后）：只重新同步，不重复创建
                 Sync(state);
+                HermesHeadwearDiagnostics.Visual(troll, choice, true, state.Renderer, head, "reapply");
                 return true;
             }
 
@@ -186,6 +188,7 @@ internal static class HermesHeadwearVisuals
                 }
                 ApplyReference(state, sprite);
                 SuppressNativeMask(state);
+                HermesHeadwearDiagnostics.Visual(troll, choice, true, state.Renderer, head, "apply");
             }
             catch (Exception e)
             {
@@ -327,6 +330,12 @@ internal static class HermesHeadwearVisuals
                         }
 
                         Sync(state);
+                        if (!state.DiagnosticTickReported)
+                        {
+                            state.DiagnosticTickReported = true;
+                            HermesHeadwearDiagnostics.Visual(state.Troll, state.Choice, true,
+                                state.Renderer, state.Head, "first-tick");
+                        }
                     }
                     catch (Exception e)
                     {
@@ -339,6 +348,7 @@ internal static class HermesHeadwearVisuals
                     if (!Tracked.TryGetValue(id, out VisualState state)) continue;
                     try
                     {
+                        HermesHeadwearDiagnostics.Removed(state.Troll, state.Choice, "visual-tick-retire");
                         Release(state);
                         if (FullyReleased(state)) Tracked.Remove(id);
                     }
@@ -546,6 +556,7 @@ internal static class HermesHeadwearVisuals
         {
             go = new GameObject(ChildObjectName);
             state.Root = go;
+            state.DiagnosticTickReported = false;
             state.Renderer = go.AddComponent<SpriteRenderer>();
             return true;
         }

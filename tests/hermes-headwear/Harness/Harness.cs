@@ -351,6 +351,8 @@ namespace HermesHeadwearTests
             UnityEngine.Random.SetSequence();
             // Controlled test sampler only; production uses an independent cryptographic RNG.
             PatchDivine_HermesHeadwear.SampleOverride = UnityEngine.Random.Range;
+            HermesHeadwearCycle.Calls = 0;
+            HermesHeadwearCycle.Succeed = true;
             _clock += 10000f;
             UnityEngine.Time.time = _clock;
             NetworkBigBoss.HasWorldAuth = host;

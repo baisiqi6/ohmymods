@@ -24,6 +24,7 @@ public static class ModConfig
     public static ConfigEntry<bool> ShowPopulationHud;
     public static ConfigEntry<bool> HoldPurchaseEnabled, DenseThicketsEnabled, FastForestRecedeEnabled;
     public static ConfigEntry<bool> ArcherScatterEnabled, ArcherRateEnabled, ArcherImpactEnabled;
+    public static ConfigEntry<bool> HeroArcherEnabled;
     public static ConfigEntry<int> ArcherVolleyCount;
     public static ConfigEntry<float> ArcherRateMultiplier;
     public static ConfigEntry<bool> HermesHeadwearEnabled;
@@ -57,17 +58,19 @@ public static class ModConfig
             "所有世界：灌木生长间距减半；关闭后额外灌木快速枯萎，清理完成前不能重新开启");
         FastForestRecedeEnabled = config.Bind("Convenience", "FastForestRecedeEnabled", false,
             "所有世界：砍树后的原生森林消退等待缩至三分之一；关闭后的新消退按原版等待");
-        ArcherScatterEnabled = config.Bind("Archer", "ScatterEnabled", false, "所有世界：弓箭手射击时增加扇形散射箭；保留原生主箭，密集射击时自动限流");
+        ArcherScatterEnabled = config.Bind("Archer", "ScatterEnabled", false, "所有世界：仅中世纪骑士的弓箭手随从攻击敌人时散射；打猎单发，额外箭呈淡金色，密集射击时自动限流");
+        HeroArcherEnabled = config.Bind("Archer", "HeroArcherEnabled", false,
+            "英雄弓箭手：每侧最多1名现有弓箭手，关闭恢复普通外观与数值。射速1.5倍、射程1.25倍、对敌3箭，火焰范围半径0.25/额外1点；当前候选限单机，联机同步尚未开放。");
         ArcherVolleyCount = config.Bind("Archer", "VolleyCount", 3,
-            new ConfigDescription("每发箭的总数量（含原生主箭），上限5支；高负载时额外箭受全场限额约束", new AcceptableValueRange<int>(1, 5)));
+            new ConfigDescription("中世纪随从每发箭的总数量（含原生主箭），上限3支；高负载时额外箭受全场限额约束", new AcceptableValueRange<int>(1, 3)));
         ArcherRateEnabled = config.Bind("Archer", "RateEnabled", false, "所有世界：加快弓箭手准备、连射和冷却节奏，关闭恢复原版节奏");
         ArcherRateMultiplier = config.Bind("Archer", "RateMultiplier", 1.5f,
             new ConfigDescription("弓箭手射速倍率，上限2倍；不改变移动和全局时间", new AcceptableValueRange<float>(1f, 2f)));
-        ArcherImpactEnabled = config.Bind("Archer", "ImpactEnabled", false, "所有世界：单机/主机画面显示原作者像素火焰；仅视觉效果，复用并限制同屏数量");
+        ArcherImpactEnabled = config.Bind("Archer", "ImpactEnabled", false, "希腊骑士火焰状态下的随从火矢：以半径0.25、一次1点范围伤害替代持续灼烧；直接命中者不重复受伤，同轮散射去重。单机/主机显示作者像素火焰；关闭恢复原版");
         HermesHeadwearEnabled = config.Bind("HermesHeadwear", "Enabled", true,
-            "法杖新转化的小怪有概率获得跨世界面具或周年头饰；纯外观，关闭隐藏，重新开启保持原选择");
+            "法杖新转化小怪按累计配额获得44款轮换头饰；佩戴面具或派对帽时不被主动选敌，范围伤害保留；关闭隐藏新增头饰，重开保持选择");
         HermesHeadwearChancePercent = config.Bind("HermesHeadwear", "ChancePercent", 30,
-            new ConfigDescription("只影响此后法杖新转化的小怪，已有小怪和读档不重新抽选", new AcceptableValueRange<int>(0, 100)));
+            new ConfigDescription("累计头饰配额百分比，30表示每新转化10只发放3顶，跨技能与重启接续；已有小怪和读档不重新分配", new AcceptableValueRange<int>(0, 100)));
         HermesHeadwearEnabled.SettingChanged += OnHermesHeadwearSettingsChanged;
         Enabled.SettingChanged += OnHermesHeadwearSettingsChanged;
 

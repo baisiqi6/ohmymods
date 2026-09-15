@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AssemblyName>SamuraiDiagnosticsTests</AssemblyName>
+    <RootNamespace>SamuraiDiagnosticsTests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../il2cpp/SamuraiDashDiagnostics.cs" Link="Production/SamuraiDashDiagnostics.cs" />
+  </ItemGroup>
+</Project>

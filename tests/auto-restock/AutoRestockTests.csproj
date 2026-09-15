@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <Compile Include="../../il2cpp/PatchEconomy_AutoRestock.cs" Link="PatchEconomy_AutoRestock.cs" />
+    <Compile Include="../../il2cpp/FireTowerRestockCapacity.cs" Link="FireTowerRestockCapacity.cs" />
   </ItemGroup>
 
 </Project>

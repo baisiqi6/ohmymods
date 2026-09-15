@@ -1,0 +1,1 @@
+namespace KingdomEnhancedMod { internal static class HeroArcherRuntime { internal static bool Enabled=>false; internal static bool IsHero(Archer a)=>false; internal static bool IsCombatEligible(Archer a)=>false; internal static void Observe(Archer a){} internal static void OnEnable(Archer a){} internal static void OnShot(Archer a){} } }

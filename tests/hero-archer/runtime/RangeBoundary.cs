@@ -1,0 +1,1 @@
+namespace KingdomEnhancedMod; internal static class HeroArcherRange { internal static bool ApplyAllowed=true; internal static bool Apply(Archer a)=>ApplyAllowed; internal static bool Tick(Archer a)=>true; internal static void Restore(Archer a){} internal static void Clear(){} internal static void RetryCleanup(){} }

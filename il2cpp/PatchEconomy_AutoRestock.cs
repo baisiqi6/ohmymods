@@ -521,6 +521,8 @@ namespace KingdomEnhancedMod
                 int capacity = Mathf.Min(shop.maxItems, shop._limitedNumItems);
                 if (shop.GetItemCount() >= capacity) return false;
             }
+            if (s.Role == RoleFireTowerAmmo && !FireTowerRestockCapacity.CanPurchase(payable, out reason))
+                return false;
             reason = "原生付款暂不可用";
             return payable.CanPay(null);
         }
@@ -927,7 +929,7 @@ namespace KingdomEnhancedMod
         private static readonly string[] ReasonOrder =
             { "店铺失效", "店铺故障", "店铺建造中", "非金币交易", "价格异常", "支付被阻止",
                 "玩家支付占用", "网络未就绪", "无持冠玩家", "统计未就绪", "对象池未就绪",
-                "店铺已满", "原生付款暂不可用" };
+                "店铺已满", FireTowerRestockCapacity.ReasonNotReady, FireTowerRestockCapacity.ReasonFull, "原生付款暂不可用" };
 
         private static int ReasonRank(string reason)
         {

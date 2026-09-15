@@ -118,7 +118,9 @@ namespace UnityEngine
 
         public Transform transform => Owner != null ? Owner.transform : null;
 
+        public string tag => Owner?.tag;
         public T GetComponent<T>() where T : class => Owner != null ? Owner.GetComponent<T>() : null;
+        public T GetComponentInParent<T>() where T : class => Owner?.GetComponentInParent<T>();
 
         public bool TryGetComponent<T>(out T component) where T : class
         {
@@ -145,6 +147,15 @@ namespace UnityEngine
         internal readonly List<Component> Components = new List<Component>();
 
         public bool activeSelf = true;
+        public int layer;
+        public string tag = "Untagged";
+        public bool CompareTag(string value) => tag == value;
+        public T GetComponentInParent<T>() where T : class
+        {
+            for (Transform cur = transform; cur != null; cur = cur.parent)
+            { T found = cur.gameObject.GetComponent<T>(); if (found != null) return found; }
+            return null;
+        }
 
         public Transform transform;
 

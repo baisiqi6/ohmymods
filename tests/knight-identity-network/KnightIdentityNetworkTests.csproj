@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Console test assembly: compiles the REAL production sources (network module + archive core)
+       together with mock substitutes for the Unity / IL2CPP / native RPC boundary.
+       No Unity, Harmony, BepInEx or game files are touched. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>KnightIdentityNetworkTests</AssemblyName>
+    <RootNamespace>KnightIdentityNetworkTests</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/KnightIdentityNetwork.cs" Link="Production/KnightIdentityNetwork.cs" />
+    <Compile Include="../../il2cpp/KnightIdentityArchive.cs" Link="Production/KnightIdentityArchive.cs" />
+  </ItemGroup>
+
+</Project>

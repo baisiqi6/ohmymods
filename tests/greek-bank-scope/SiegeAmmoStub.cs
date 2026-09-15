@@ -1,7 +1,14 @@
 
 public class RollableOilBarrel : UnityEngine.Component { }
 public class PayableWorkshopBarrel : Payable { public RollableOilBarrel rollableBarrelPrefab; }
-public class FireTower : UnityEngine.Component { public object _parentHeaderRef; public int _fireJarsActiveIndex; }
+public class IPayableComponentOwner : UnityEngine.Behaviour { }
+public class PayableComponent : Payable { public IPayableComponentOwner _owner; }
+public class FireTower : IPayableComponentOwner
+{
+ public object _parentHeaderRef; public int _fireJarsActiveIndex;
+ public int _maxFireJars; public int _fireJarsActiveNum;
+ public UnityEngine.GameObject[] _fakeFireJars;
+}
 namespace KingdomEnhancedMod
 {
  internal static class SiegeAmmoCounts

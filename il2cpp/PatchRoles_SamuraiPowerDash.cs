@@ -34,6 +34,7 @@ internal static class PatchRoles_SamuraiPowerDash
         internal Damageable Damageable;
         internal TrailRenderer Trail;
         internal SamuraiDashVisuals.Token Visual;
+        internal SamuraiDashDiagnostics.Trace Diagnostics;
         internal bool Returning, Retired, Effects, OldInvulnerable, OldTrail, HasGoal, Running;
         internal float GoalX, GoalSpeed, StartedAt, StartX, LastProgressAt, BestDistance, NextGoal;
         // Per-lease hit bookkeeping: one hit per Damageable per dash, no per-frame allocations.
@@ -131,6 +132,7 @@ internal static class PatchRoles_SamuraiPowerDash
         // A bool cannot identify an external true -> true rewrite. Restore only our still-present values.
         if (m.Damageable != null && m.Damageable.invulnerable) m.Damageable.invulnerable = m.OldInvulnerable;
         if (m.Trail != null && m.Trail.enabled) m.Trail.enabled = m.OldTrail;
+        LogTrailState(m, "effects-restored");
     }
 
     private static void Finish(MotionLease m, bool failure = false)
@@ -150,6 +152,7 @@ internal static class PatchRoles_SamuraiPowerDash
             m.Retired = true;
             if (owned)
             {
+                LogMotionEnd(m, failure);
                 if (m.Returning)
                 {
                     if (failure) { m.Actor.Failures++; m.Actor.RetryAt = Time.time + 2f; }
@@ -177,15 +180,47 @@ internal static class PatchRoles_SamuraiPowerDash
             StartX = k.transform.position.x, LastProgressAt = Time.time,
             BestDistance = returning ? Distance(a) : 0 };
         a.Motion = m;
+        m.Diagnostics = SamuraiDashDiagnostics.Begin(k, returning, m.StartedAt);
         m.OldInvulnerable = m.Damageable.invulnerable;
         m.OldTrail = m.Trail != null && m.Trail.enabled;
         m.Effects = true;
         m.Damageable.invulnerable = true;
         if (m.Trail != null) m.Trail.enabled = true;
+        LogTrailState(m, "trail-state");
         if (k._animator != null) k._animator.SetTrigger(PowerSlash);
-        m.Visual = SamuraiDashVisuals.Begin(k);
+        m.Visual = SamuraiDashVisuals.Begin(k, m.Diagnostics);
         Goal(m, goal, DashSpeed);
         return m;
+    }
+
+    // Diagnostic reads are admitted per motion; failures never interrupt gameplay or cleanup.
+    private static void LogTrailState(MotionLease m, string eventName)
+    {
+        if (m.Diagnostics == null) return;
+        try
+        {
+            var trail = m.Trail;
+            string details = "elapsed=" + (Time.time - m.StartedAt).ToString("0.###") + " present=" + (trail != null);
+            if (trail != null)
+                details += " active=" + trail.gameObject.activeInHierarchy + " enabled=" + trail.enabled
+                    + " emitting=" + trail.emitting + " points=" + trail.positionCount
+                    + " lifetime=" + trail.time + " width=" + trail.widthMultiplier
+                    + " layer=" + trail.sortingLayerID + " order=" + trail.sortingOrder;
+            SamuraiDashDiagnostics.Write(m.Diagnostics, eventName, details);
+        }
+        catch (Exception e) { SamuraiDashDiagnostics.Write(m.Diagnostics, eventName, "state-read-failed=" + e.GetType().Name); }
+    }
+
+    private static void LogMotionEnd(MotionLease m, bool failure)
+    {
+        if (m.Diagnostics == null) return;
+        try
+        {
+            SamuraiDashDiagnostics.Write(m.Diagnostics, "end", "failure=" + failure
+                + " elapsed=" + (Time.time - m.StartedAt).ToString("0.###") + " returning=" + m.Returning
+                + " effectsActive=" + m.Effects + " returnRunning=" + m.Running);
+        }
+        catch { }
     }
 
     private static float StationX(ActorState a)

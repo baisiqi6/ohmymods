@@ -96,6 +96,13 @@ namespace KingdomEnhancedMod
 {
     using UnityEngine;
 
+    // The independent Greek-impact suite exercises this lifecycle observer.
+    internal static class PatchArcher_GreekImpact
+    {
+        internal const float Radius=.25f;
+        internal const int BurstDamage=1;
+        internal static void OnArcherEnable(Archer archer) { }
+    }
     /// <summary>Root-owned config surface (documented contract), stubbed so the module compiles standalone.</summary>
     public static class ModConfig
     {
@@ -116,6 +123,13 @@ namespace KingdomEnhancedMod
         internal static Transform Layer;
 
         internal static bool IsActive => Active;
+        internal static bool TryGetContext(out IntPtr world, out IntPtr layer, out int scene)
+        {
+            world = Managers.Inst?.world?.Pointer ?? IntPtr.Zero;
+            layer = Layer?.Pointer ?? IntPtr.Zero;
+            scene = Layer?.gameObject?.scene.handle ?? 0;
+            return Active && world != IntPtr.Zero && layer != IntPtr.Zero;
+        }
 
         internal static bool IsCurrent(Component component)
         {

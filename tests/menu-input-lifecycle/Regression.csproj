@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <ProductionSource Condition="'$(ProductionSource)' == ''">../../il2cpp/PatchLifecycle_MenuInput.cs</ProductionSource>
+    <!-- 同级 actual-interop 子项目的 obj 生成码不得被卷进本测试程序集 -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);actual-interop/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(ProductionSource)" Link="Production/PatchLifecycle_MenuInput.cs" />
+  </ItemGroup>
+</Project>

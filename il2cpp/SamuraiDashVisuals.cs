@@ -36,8 +36,11 @@ internal static class SamuraiDashVisuals
         internal GameObject Root;
         internal Ghost[] Ghosts = new Ghost[3];
         internal Token Current;
+        internal SamuraiDashDiagnostics.Trace Diagnostics;
+        internal string RetireReason;
         internal bool Emitting, Tail;
         internal int NextSlot;
+        internal int Samples;
         internal float NextSample, LastX;
     }
     private static bool Same(UnityEngine.Object a, UnityEngine.Object b) => a != null && b != null && a.Pointer == b.Pointer;
@@ -121,11 +124,12 @@ internal static class SamuraiDashVisuals
         ghost.Alive = s.Tail = true;
         ghost.Renderer.color = new Color(1, 1, 1, Opacity[0]);
         ghost.Renderer.enabled = true;
+        s.Samples++; // Count only samples whose renderer was successfully enabled.
         s.NextSlot = (s.NextSlot + 1) % 3;
         s.LastX = s.Source.transform.position.x;
         s.NextSample = now + SampleInterval;
     }
-    private static void Hide(OwnerState s)
+    private static void Hide(OwnerState s, string reason = "replaced")
     {
         s.Current = null;
         s.Emitting = s.Tail = false;
@@ -136,21 +140,79 @@ internal static class SamuraiDashVisuals
             ghost.Alive = false;
             if (ghost.Renderer != null) ghost.Renderer.enabled = false;
         }
+        LogVisual(s, "visual-cleared", reason);
+        s.Diagnostics = null;
     }
     private static void Remove(int id, OwnerState s)
     {
         if (Owners.TryGetValue(id, out var current) && ReferenceEquals(current, s)) Owners.Remove(id);
-        Hide(s);
+        Hide(s, s.RetireReason ?? "owner-or-renderer-replaced");
         if (s.Root != null) UnityEngine.Object.Destroy(s.Root);
     }
 
-    internal static Token Begin(Knight owner)
+    private static void CompleteTailDiagnostic(OwnerState s)
+    {
+        if (s.Diagnostics == null || s.Emitting || s.Tail) return;
+        if (!s.Diagnostics.TailLogged)
+        { s.Diagnostics.TailLogged = true; LogVisual(s, "tail-cleared", "all-ghosts-expired"); }
+        s.Diagnostics = null;
+    }
+
+    private static void LogSourceSkip(SamuraiDashDiagnostics.Trace trace, SpriteRenderer source)
+    {
+        if (trace == null) return;
+        try
+        {
+            string reason = source == null ? "missing-source" : source.gameObject == null ? "missing-source-object"
+                : !source.gameObject.activeInHierarchy ? "source-inactive" : !source.enabled ? "source-disabled"
+                : source.sprite == null ? "missing-sprite" : source.sharedMaterial == null ? "missing-material"
+                : !source.sharedMaterial.HasProperty(OverlayId) ? "missing-overlay-property" : "source-changed";
+            SamuraiDashDiagnostics.Write(trace, "visual-skipped", "reason=" + reason);
+        }
+        catch (Exception e) { SamuraiDashDiagnostics.Write(trace, "visual-skipped", "reason=state-read-failed type=" + e.GetType().Name); }
+    }
+
+    private static void LogVisual(OwnerState s, string eventName, string reason)
+    {
+        if (s.Diagnostics == null) return;
+        try
+        {
+            int enabledGhosts = 0;
+            foreach (var ghost in s.Ghosts)
+                if (ghost != null && ghost.Renderer != null && ghost.Renderer.enabled) enabledGhosts++;
+            var body = s.Body;
+            var source = s.Source;
+            string details = "reason=" + reason + " elapsed=" + (Time.time - s.Diagnostics.StartedAt).ToString("0.###")
+                + " ghostSamples=" + s.Samples + " emitting=" + s.Emitting + " ghostSlots=3 enabledGhosts=" + enabledGhosts
+                + " whitePresent=" + (body != null) + " whiteEnabled=" + (body != null && body.enabled);
+            if (source != null)
+            {
+                details += " sourceEnabled=" + source.enabled + " sprite=" + (source.sprite != null ? source.sprite.name : "null")
+                    + " sourceLayer=" + source.sortingLayerID + " sourceOrder=" + source.sortingOrder;
+                var material = source.sharedMaterial;
+                details += " material=" + (material != null ? material.name : "null")
+                    + " shader=" + (material != null && material.shader != null ? material.shader.name : "null");
+            }
+            if (eventName == "visual-first-update" && s.Owner != null)
+            {
+                var trail = s.Owner._trail;
+                details += " trailPresent=" + (trail != null);
+                if (trail != null) details += " trailEnabled=" + trail.enabled + " trailEmitting=" + trail.emitting + " trailPoints=" + trail.positionCount;
+            }
+            SamuraiDashDiagnostics.Write(s.Diagnostics, eventName, details);
+        }
+        catch (Exception e) { SamuraiDashDiagnostics.Write(s.Diagnostics, eventName, "state-read-failed=" + e.GetType().Name); }
+    }
+
+    internal static Token Begin(Knight owner, SamuraiDashDiagnostics.Trace diagnostics = null)
     {
         OwnerState state = null;
         int id = 0;
         try
         {
-            if (!Valid(owner) || Time.timeScale <= 0 || Time.time < RetryAt) return null;
+            if (!Valid(owner)) { SamuraiDashDiagnostics.Write(diagnostics, "visual-skipped", "reason=invalid-owner"); return null; }
+            if (Time.timeScale <= 0) { SamuraiDashDiagnostics.Write(diagnostics, "visual-skipped", "reason=paused"); return null; }
+            if (Time.time < RetryAt) { SamuraiDashDiagnostics.Write(diagnostics, "visual-skipped", "reason=retry-backoff"); return null; }
             if (!OverlayIdReady) { OverlayId = Shader.PropertyToID("_Overlay"); OverlayIdReady = true; }
             id = owner.gameObject.GetInstanceID();
             var source = owner.GetComponent<SpriteRenderer>();
@@ -158,6 +220,7 @@ internal static class SamuraiDashVisuals
             {
                 RetryAt = Time.time + 5f;
                 Log("source-overlay-unavailable", new InvalidOperationException());
+                LogSourceSkip(diagnostics, source);
                 return null;
             }
             EnsureDriver();
@@ -165,6 +228,9 @@ internal static class SamuraiDashVisuals
             { Remove(id, state); state = null; }
             if (state == null) { state = Build(owner, source); Owners[id] = state; }
             Hide(state);
+            state.Diagnostics = diagnostics;
+            state.Samples = 0;
+            state.RetireReason = null;
             var token = new Token { Owner = owner, Id = id };
             state.Current = token;
             state.Emitting = true;
@@ -172,6 +238,7 @@ internal static class SamuraiDashVisuals
             Pose(state.Body, source, true);
             state.Body.color = new Color(1, 1, 1, .85f);
             state.Body.enabled = true;
+            LogVisual(state, "visual-ready", "created-or-reused; renderer-state-not-screen-proof");
             if (Logged.Add("ready"))
             {
                 try { KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiVisuals] ready: 3 ghosts alpha=.45/.25/.10 lifetime=.2s; body overlay follows burst"); }
@@ -183,6 +250,7 @@ internal static class SamuraiDashVisuals
         {
             RetryAt = Time.time + 5f;
             if (state != null) { try { Remove(id, state); } catch { } }
+            SamuraiDashDiagnostics.Write(diagnostics, "visual-skipped", "reason=exception type=" + e.GetType().Name);
             Log("begin", e);
             return null;
         }
@@ -196,7 +264,12 @@ internal static class SamuraiDashVisuals
             s.Current = null;
             s.Emitting = false;
             if (s.Body != null) s.Body.enabled = false;
-            if (immediate) Hide(s);
+            if (immediate) Hide(s, "immediate");
+            else
+            {
+                LogVisual(s, "visual-stop", "burst-ended; remaining-ghosts-fade");
+                CompleteTailDiagnostic(s);
+            }
         }
         catch (Exception e) { Log("end", e); }
     }
@@ -206,7 +279,8 @@ internal static class SamuraiDashVisuals
         {
             if (owner == null || owner.gameObject == null) return;
             int id = owner.gameObject.GetInstanceID();
-            if (Owners.TryGetValue(id, out var s) && Same(s.Owner, owner)) Remove(id, s);
+            if (Owners.TryGetValue(id, out var s) && Same(s.Owner, owner))
+            { s.RetireReason = "owner-disabled-or-cleared"; Remove(id, s); }
         }
         catch (Exception e) { Log("clear", e); }
     }
@@ -216,7 +290,7 @@ internal static class SamuraiDashVisuals
         Owners.Clear();
         foreach (var s in snapshot)
         {
-            try { Hide(s); if (s.Root != null) UnityEngine.Object.Destroy(s.Root); }
+            try { Hide(s, "driver-disabled-or-destroyed"); if (s.Root != null) UnityEngine.Object.Destroy(s.Root); }
             catch (Exception e) { Log("clear-all", e); }
         }
     }
@@ -230,9 +304,9 @@ internal static class SamuraiDashVisuals
             try
             {
                 // Cleanup gates precede pause: disabling the mod or despawning never leaves a white actor.
-                if (!Valid(s.Owner) || s.Root == null) { Retire.Add(pair.Key); continue; }
+                if (!Valid(s.Owner) || s.Root == null) { s.RetireReason = "owner-invalid-or-root-gone"; Retire.Add(pair.Key); continue; }
                 if (!s.Emitting && !s.Tail) continue; // No renderer/material/property reads for an idle owner.
-                if (!SourceReady(s.Source)) { Retire.Add(pair.Key); continue; }
+                if (!SourceReady(s.Source)) { s.RetireReason = "source-unavailable"; Retire.Add(pair.Key); continue; }
                 if (Time.timeScale <= 0) continue;
                 float now = Time.time;
                 if (s.Emitting)
@@ -251,8 +325,14 @@ internal static class SamuraiDashVisuals
                     if (remaining <= 0) { ghost.Alive = false; ghost.Renderer.enabled = false; }
                     else s.Tail = true;
                 }
+                if (s.Diagnostics != null)
+                {
+                    if (!s.Diagnostics.FirstUpdateLogged)
+                    { s.Diagnostics.FirstUpdateLogged = true; LogVisual(s, "visual-first-update", "existing-LateUpdate-ran"); }
+                    CompleteTailDiagnostic(s);
+                }
             }
-            catch (Exception e) { Retire.Add(pair.Key); Log("tick", e); }
+            catch (Exception e) { s.RetireReason = "tick-exception:" + e.GetType().Name; Retire.Add(pair.Key); Log("tick", e); }
         }
         foreach (int id in Retire)
             if (Owners.TryGetValue(id, out var s)) { try { Remove(id, s); } catch (Exception e) { Log("retire", e); } }

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 发行 2.4 interop 编译门：把生产补丁直接对游戏自带的 interop 程序集编译一次，
+       证明 Menu / Rewired.ReInput.isReady / HarmonyPatch 这些成员在发行表面上存在；
+       不产出可部署插件，不拷贝任何东西。 -->
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>MenuInputLifecycle.ActualInteropCheck</AssemblyName>
+    <InteropDir Condition="'$(InteropDir)' == ''">E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx\interop</InteropDir>
+    <CoreDir Condition="'$(CoreDir)' == ''">E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx\core</CoreDir>
+    <!-- 仅用于负向对照：指向不存在的目录必须 CS0246，证明 Rewired 面确实来自发行 interop -->
+    <RewiredRefDir Condition="'$(RewiredRefDir)' == ''">$(InteropDir)</RewiredRefDir>
+    <ProductionSource Condition="'$(ProductionSource)' == ''">../../../il2cpp/PatchLifecycle_MenuInput.cs</ProductionSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(ProductionSource)" />
+    <Compile Include="PluginShell.cs" />
+    <Reference Include="Assembly-CSharp"><HintPath>$(InteropDir)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Rewired_Core"><HintPath>$(RewiredRefDir)\Rewired_Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cppmscorlib"><HintPath>$(InteropDir)\Il2Cppmscorlib.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(InteropDir)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(InteropDir)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppInterop.Runtime"><HintPath>$(CoreDir)\Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(CoreDir)\0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BepInEx.Core"><HintPath>$(CoreDir)\BepInEx.Core.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

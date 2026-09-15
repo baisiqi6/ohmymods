@@ -7,7 +7,8 @@ using UnityEngine;
 namespace KingdomEnhancedMod;
 
 /// <summary>
-/// 弓箭命中火焰特效（纯装饰，默认关闭；ArcherImpactEnabled）。
+/// 希腊随从火矢的像素火焰渲染（本模块只负责视觉，默认关闭；ArcherImpactEnabled）。
+/// 发射资格与一次范围伤害由 PatchArcher_GreekImpact 管理，不受本模块的渲染预算影响。
 ///
 /// 视觉来源：原作者真实 DLL（<c>Arrow.HitObject</c> 的内联 delegate + 嵌套
 /// <c>PixelFireAnimator</c>）的几何/动画按源码迁移；排序继承箭矢 renderer、保持
@@ -99,6 +100,7 @@ internal static class PatchArcher_Impact
         internal GameObject Root;
         internal float Born = -1f;
         internal float Lifetime;
+        internal bool HeroOrigin;      // 该槽当前特效的来源（false=Greek、true=Hero）；按来源清理用
         internal readonly GameObject[] Layers = new GameObject[LayerCount];
         internal readonly Transform[] Transforms = new Transform[LayerCount];
         internal readonly Mesh[] Meshes = new Mesh[LayerCount];
@@ -151,6 +153,7 @@ internal static class PatchArcher_Impact
         internal int Scene;
         internal IntPtr ArrowPtr;
         internal int ArrowGoId;
+        internal bool HeroOrigin;      // 命中时由 PatchArcher_GreekImpact 只读来源查询给出（false=Greek、true=Hero）
     }
 
     /// <summary>作者按命中对象分流的火焰时长/色偏类别（wall/crusher/structure/enemy/ground）。</summary>
@@ -192,11 +195,14 @@ internal static class PatchArcher_Impact
         try
         {
             // 先做便宜且与命中对象无关的关卡，再读取 arrow 属性。
-            if (!IsEnabled || !ArcherOptionsScope.IsActive) return candidate;
+            if (!ArcherOptionsScope.IsActive) return candidate;
             if (!ArcherOptionsScope.TryGetContext(out IntPtr world, out IntPtr layer, out int scene)) return candidate;
             if (arrow == null) return candidate;
             if (!ArcherOptionsScope.IsCurrent(arrow)) return candidate; // 旧世界/旧层残留箭矢
             if (arrow._hasHit) return candidate;                        // 原生随即早退，不可能产生接受命中
+            // 只认「合资格箭」并带上其不可变来源：任何其它 actor/箭都不会因此拿到 FX（不做 OR 全局放行）。
+            if (!PatchArcher_GreekImpact.TryGetEligibleOrigin(arrow, out bool heroOrigin)) return candidate;
+            candidate.HeroOrigin = heroOrigin;
 
             GameObject ownerGo = arrow.archer;
             Archer owner = ownerGo != null ? ownerGo.GetComponent<Archer>() : null;
@@ -239,9 +245,10 @@ internal static class PatchArcher_Impact
         try
         {
             if (!candidate.Valid || arrow == null || !arrow._hasHit) return;
-            if (!IsEnabled || !ArcherOptionsScope.IsActive)
+            if (!ArcherOptionsScope.IsActive || !PatchArcher_GreekImpact.IsOriginEnabledFor(candidate.HeroOrigin))
             {
-                ReleaseAll(); // 关模组/无世界：命中路径同样立即释放旧池
+                // 该来源已关（或没有世界）：只清该来源自己的特效，另一来源继续
+                ReleaseOriginSlots(candidate.HeroOrigin ? 1 : 0);
                 return;
             }
             if (!TryBindCurrentContext())
@@ -311,14 +318,15 @@ internal static class PatchArcher_Impact
     {
         try
         {
-            if (!IsEnabled || !ArcherOptionsScope.IsActive)
+            if (!PatchArcher_GreekImpact.AnyOriginEnabled || !ArcherOptionsScope.IsActive)
             {
                 ReleaseAll();
                 return;
             }
+            ReleaseOriginSlots(-1);        // 任一来源被关：只清该来源的 pending/active 特效
             if (!TryBindCurrentContext())
             {
-                ReleaseAll();
+                ReleaseAll();              // 无世界/换世界：整池释放（两个来源都不留旧世界资源）
                 return;
             }
         }
@@ -373,6 +381,7 @@ internal static class PatchArcher_Impact
             float delay2 = kind == HitKind.Enemy ? DurationEnemy : DurationDefault;
 
             slot.Born = now;
+            slot.HeroOrigin = candidate.HeroOrigin;
             slot.Lifetime = delay2 * LayerSpeedMax[0]; // 按核心层时长上界回池；各层按实际时长提前隐藏
             for (int layer = 0; layer < LayerCount; layer++)
             {
@@ -745,10 +754,31 @@ internal static class PatchArcher_Impact
     {
         Slot slot = Slots[index];
         slot.Born = -1f;
+        slot.HeroOrigin = false;
         GameObject root = slot.Root;
         slot.Root = null;
         for (int layer = 0; layer < LayerCount; layer++) ReleaseLayer(slot, layer);
         DestroyOwn(root);
+    }
+
+    /// <summary>
+    /// 按来源清理特效槽：<paramref name="heroOrigin"/> 为 -1 时只清「来源开关已关」的槽，
+    /// 为 0/1 时清该来源的槽。关英雄不动希腊、关希腊不动英雄；池资源留在原地供另一来源复用。
+    /// </summary>
+    private static void ReleaseOriginSlots(int heroOrigin)
+    {
+        bool heroOn = PatchArcher_GreekImpact.IsOriginEnabledFor(true);
+        bool greekOn = PatchArcher_GreekImpact.IsOriginEnabledFor(false);
+        if (heroOrigin < 0 && heroOn && greekOn) return;
+        for (int i = 0; i < Slots.Length; i++)
+        {
+            Slot slot = Slots[i];
+            if (slot.Born < 0f) continue;
+            bool wantsHero = heroOrigin > 0;
+            if (heroOrigin >= 0 && slot.HeroOrigin != wantsHero) continue;          // 指定来源：只清该来源
+            if (heroOrigin < 0 && (slot.HeroOrigin ? heroOn : greekOn)) continue;   // -1：只清已关来源
+            ReleaseSlot(i);
+        }
     }
 
     private static void ReleaseAll()
@@ -829,20 +859,35 @@ internal static class PatchArcher_Impact
     private static float NextRange(float min, float max) => min + (max - min) * Next01();
 }
 
-/// <summary>Arrow.HitObject 观测宿主：前缀捕获（含命中当刻的类别）、后缀在原生接受命中后
-/// 生成特效。前缀不改写原方法执行（无 __runOriginal），原生方法与其 Finalizer 语义不变。</summary>
+/// <summary>同一次原生命中的外观快照与伤害事务；异常只清理本次事务并保留原异常。</summary>
 [HarmonyPatch(typeof(Arrow), "HitObject")]
 public static class Arrow_HitObject_ArcherImpact_Patch
 {
-    [HarmonyPrefix]
-    private static void Prefix(Arrow __instance, GameObject target, bool physicalHit, out PatchArcher_Impact.HitCandidate __state)
+    internal struct HitState
     {
-        __state = PatchArcher_Impact.Capture(__instance, target, physicalHit);
+        internal PatchArcher_Impact.HitCandidate Visual;
+        internal PatchArcher_GreekImpact.HitTicket Combat;
+    }
+
+    [HarmonyPrefix]
+    private static void Prefix(Arrow __instance, GameObject target, bool physicalHit, out HitState __state)
+    {
+        __state = default;
+        __state.Visual = PatchArcher_Impact.Capture(__instance, target, physicalHit);
+        __state.Combat = PatchArcher_GreekImpact.BeginHit(__instance, target);
     }
 
     [HarmonyPostfix]
-    private static void Postfix(Arrow __instance, PatchArcher_Impact.HitCandidate __state)
+    private static void Postfix(Arrow __instance, HitState __state)
     {
-        PatchArcher_Impact.OnNativeHit(__instance, __state);
+        if (PatchArcher_GreekImpact.EndHit(__instance, __state.Combat))
+            PatchArcher_Impact.OnNativeHit(__instance, __state.Visual);
+    }
+
+    [HarmonyFinalizer]
+    private static Exception Finalizer(Arrow __instance, HitState __state, Exception __exception)
+    {
+        PatchArcher_GreekImpact.AbortHit(__instance, __state.Combat);
+        return __exception;
     }
 }

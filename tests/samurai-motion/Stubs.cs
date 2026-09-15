@@ -82,7 +82,7 @@ namespace UnityEngine
         public static int StringToHash(string name) => name.GetHashCode();
         public void SetTrigger(int hash) => TriggerCount++;
     }
-    public class TrailRenderer : Component { public bool enabled; }
+    public class TrailRenderer : Component { public bool enabled, emitting; public int positionCount, sortingLayerID, sortingOrder; public float time, widthMultiplier; }
     public class Collider2D : Component { }
     public static class LayerMask { public static int GetMask(params string[] names) => 1; }
     public static class Physics2D

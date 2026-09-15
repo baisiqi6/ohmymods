@@ -9,7 +9,7 @@ namespace KingdomEnhancedMod;
 
 /// <summary>
 /// 骑士随机风格（knight-style-026 + norse-squad-027）：招募骑士（Armor 转职）时，
-/// 每个骑士按确定性哈希随机定为 中世纪/死亡之地/幕府/希腊/北境 五种形象之一
+/// 每个骑士固定为 中世纪/死亡之地/幕府/希腊/北境 五种形象之一
 /// （纯外观，不动战斗数值）；其随从士兵（跟随骑士的 Archer，原生
 /// ConvertToSoldier 已把它们换成当前世界的士兵控制器）覆盖为"骑士风格对应"的
 /// 士兵控制器。北境风格额外联动 PatchRoles_NorseSquad：随从转化为真北境弓箭手
@@ -23,18 +23,11 @@ namespace KingdomEnhancedMod;
 ///   tool.tag == "Armor" → Professions{"Armor","Knight"}。__result 是新骑士
 ///   （ReplaceBy 内部已做过 biome swap，原生控制器=当前世界骑士皮肤）。
 ///   Squire（Shield 转职的侍从）按任务书明确不处理——tag != "Knight" 全部早退。
-/// - 确定性风格：照抄 PatchDivine_FriendlyTroll.TryComputeDesignation 的 FNV 哈希
-///   mix(campaign/challenge/land/reign/islandTicks + NetID)。读档/联机双端各自算出
-///   同一风格（外观级一致，无需网络同步）。NetID 不可用时退化 GetInstanceID()
-///   （联机读档后可能换风格，任务书接受），并保持 NetIdResolved=false 让巡检在
-///   网络头出现后重算收敛双端。
-/// - 读档恢复：读档不重跑转职，World 巡检（OnLevelLoaded postfix 起协程，5s 一轮）
-///   首轮扫描全部 Knight：状态表无记录的直接按哈希上风格（客户端无 Promote 机会，
-///   同样靠这条路收敛到与服务端一致的风格）。
-/// - 池复用清污：对象池 respawn 不重拷序列化字段，带风格皮肤的旧骑士实例被复用时，
-///   Promote postfix 先 StripKnight（恢复缓存的原生控制器 + 注销缩放守卫 + y=1）
-///   再重摇；Knight.OnEnable postfix 标记 NeedsRederive 兜住"复用不经 Promote"
-///   的路径（读档重生），巡检重算。
+/// - 身份由 KnightIdentityRuntime 管理：已有类型固定，旧档首次迁移采用原分配结果，
+///   新招募优先补当前岛数量最少的类型；GUID/style 只写独立附加档。
+/// - 读档只在完整原生快照匹配时恢复；客户端只使用主机确认的收据，不自行 hash。
+///   缺资产时等待，不按资源池长度重映射已有类型。
+/// - OnEnable 清理上一生命的本地身份和渲染；转职与现有 5 秒巡检接入新身份。
 /// - 随从联动（反向归属 + 队籍判定 + 翻牌治理）：不枚举 knight._archers——
 ///   Il2Cpp 非泛型枚举器对 HashSet 运行时不可靠（knightstyle2 实测：纯读快照段
 ///   的 MoveNext 也抛 InvalidOperationException），改为全场
@@ -68,8 +61,7 @@ namespace KingdomEnhancedMod;
 ///   取代 Reviewer MF-1 时代的"只解析不消费"特殊字段；北境款含 attack/defend/
 ///   getshield/retreat 全套近战 clip，其他风格族没有——北境随从的近战/盾墙
 ///   表现来自真北境弓箭手预制体的 NpcShieldUser 组件，士兵皮只管外观）。
-///   哈希取模池长从 4 变 5：存量骑士上线的第一次巡检会换脸一次（任务书接受，
-///   双端确定性哈希保证换脸后双端一致），此后稳定。
+///   可用风格池只影响新分配；已有身份保持原类型。
 /// - Archer._knight : Knight（私有，interop 已暴露）——随从联动反向归属用
 ///   （PatchRoles_Crossbowman.cs:687 同字段先例）。不枚举 Knight._archers：
 ///   Il2CppSystem HashSet 的枚举器运行时不可靠（knightstyle2 实测纯读 MoveNext
@@ -115,8 +107,7 @@ public static class PatchRoles_KnightStyle
         internal bool HasStyle;
         internal RuntimeAnimatorController NativeKnightController; // 首次覆盖前缓存，Strip 恢复用
         internal bool NativeControllerCached;
-        internal bool NetIdResolved; // 哈希身份是否已用上 NetID；false 时巡检持续尝试收敛
-        internal bool NeedsRederive; // 池对象新生命周期（OnEnable 标记）：旧风格记录待重算
+        internal bool NeedsRederive; // 池对象新生命周期：等待独立身份档或主机收据
         internal bool Logged;
     }
 
@@ -125,7 +116,7 @@ public static class PatchRoles_KnightStyle
     // ---- 惰性静态资产（解析一次；未解析全时按间隔重试）----
     private static readonly RuntimeAnimatorController[] KnightControllers = new RuntimeAnimatorController[StyleCount];
     private static readonly RuntimeAnimatorController[] SoldierControllers = new RuntimeAnimatorController[StyleCount];
-    private static readonly List<int> AvailableStyles = new(); // 收缩后的可用风格池（hash % count 均匀重映射）
+    private static readonly List<int> AvailableStyles = new(); // 新分配可用池；已有收据不重映射
     private static bool _poolBuilt;
     private static bool _assetsComplete;      // 10/10 全解析（5 骑士 + 5 士兵）：停止重试
     private static float _nextAssetRetryAt;
@@ -414,9 +405,8 @@ public static class PatchRoles_KnightStyle
 
     /// <summary>
     /// 风格身份哈希：mix 当前战役上下文 + 岛起始时间 + 骑士网络身份。
-    /// NetID（CRPCHeader，池同步槽位身份）不可用时退化 GetInstanceID()——
-    /// 不跨存档稳定，联机/读档后可能换风格（任务书接受）；usedNetId=false
-    /// 让上层保持可收敛状态，等网络头出现后重算。
+    /// 仅用于没有附加记录的旧档首次迁移；NetID 和 instanceID 均不是永久标识。
+    /// 收据建立后不再重算，客户端等待主机确认。
     /// 存档上下文缺失（战役未加载等）→ 返回 false，本轮跳过（绝不随机摇——
     /// 会破坏双端确定性），巡检下轮重试。
     /// </summary>
@@ -447,7 +437,7 @@ public static class PatchRoles_KnightStyle
                 : null;
             if (header != null)
             {
-                // 动态 NetID 视为稳定同步槽位身份（FriendlyTroll 同款取舍）
+                // 旧分配公式只用于首次迁移，不能作为跨读档身份。
                 value = Mix(value, unchecked((uint)(ushort)header.NetID));
                 usedNetId = true;
             }
@@ -480,8 +470,14 @@ public static class PatchRoles_KnightStyle
             // Squire（tag "Squire"）也是 Knight 组件，任务书明确不处理
             if (knight.tag != "Knight") return;
 
+            KnightIdentityRuntime.MarkPromoted(knight);
+            if (!ModConfig.Enabled.Value) return;
+
             EnsureStyleAssets();
             if (!HasUsablePool()) return;
+            KnightIdentityRuntime.Poll();
+            KnightIdentityRuntime.PrimeExisting(UnitScanCache.GetKnights(), GetLegacyStyleForMigration);
+            KnightIdentityLoadSeed.Flush();
 
             // 池复用清污：同实例带旧风格 → 先恢复原生再重摇（对象池 respawn
             // 不重拷序列化字段，不清污会把上一个骑士的皮肤/缩放带进新骑士）
@@ -498,7 +494,7 @@ public static class PatchRoles_KnightStyle
     }
 
     /// <summary>
-    /// 给骑士上风格（幂等）：算哈希 → 风格 index；首次覆盖前缓存原生控制器；
+    /// 给骑士上风格（幂等）：读取固定身份；首次覆盖前缓存原生控制器；
     /// 设风格控制器；希腊 → 缩放守卫 0.9，非希腊确保 y=1 且注销守卫。
     /// </summary>
     private static void ApplyKnightStyle(Knight knight)
@@ -508,13 +504,15 @@ public static class PatchRoles_KnightStyle
         if (knight.tag != "Knight") return;
 
         int id = knight.gameObject.GetInstanceID();
-        if (!TryComputeIdentity(knight, out uint hash, out bool usedNetId)) return;
-
-        // 取模基数 = 当前可用风格池长度（正常 5，资产缺失收缩时更小）。
-        // 池长变化（4→5 引入北境）会让存量骑士的哈希槽位重映射、换脸一次——
-        // 双端确定性哈希保证换脸后双端一致，任务书明示接受
-        int slot = (int)(hash % (uint)AvailableStyles.Count);
-        int styleIndex = AvailableStyles[slot];
+        uint migrationHash = 0;
+        bool hasReceipt = KnightIdentityRuntime.TryGetReceipt(knight, out _);
+        if (!hasReceipt && KnightIdentityRuntime.IsHostAuthority()
+            && !TryComputeIdentity(knight, out migrationHash, out _)) return;
+        int existingStyle = GetCurrentLifeStyle(knight);
+        if (!KnightIdentityRuntime.TryResolve(knight, existingStyle, migrationHash,
+                AvailableStyles, out int styleIndex)) return;
+        // 固定类型缺资产时等待；不能因可用资源数量变化把已有骑士改成另一类。
+        if (styleIndex < 0 || styleIndex >= StyleCount || !AvailableStyles.Contains(styleIndex)) return;
 
         KnightStyleState state = GetStyleState(knight, id);
         bool styleChanged = state.HasStyle && state.StyleIndex != styleIndex;
@@ -545,20 +543,36 @@ public static class PatchRoles_KnightStyle
 
         state.StyleIndex = styleIndex;
         state.HasStyle = true;
-        if (usedNetId) state.NetIdResolved = true;
         state.NeedsRederive = false;
 
         if (!state.Logged)
         {
             state.Logged = true;
-            LogInfo("knight styled as " + StyleNames[styleIndex]
-                + (usedNetId ? string.Empty : " (identity fallback: instance id)"));
+            LogInfo("knight styled as " + StyleNames[styleIndex] + " (identity assigned)");
         }
         else if (styleChanged)
         {
-            // 身份收敛（网络头后到）或池复用重摇导致的换风格
+            // 恢复或主机确认后，渲染与固定收据对齐。
             LogInfo("knight restyled as " + StyleNames[styleIndex]);
         }
+    }
+
+    private static int GetCurrentLifeStyle(Knight knight)
+    {
+        if (knight == null || knight.gameObject == null) return -1;
+        if (!States.TryGetValue(knight.gameObject.GetInstanceID(), out KnightStyleState state)
+            || !state.HasStyle || state.NeedsRederive || state.Knight == null
+            || state.Knight.Pointer != knight.Pointer) return -1;
+        return state.StyleIndex;
+    }
+
+    // 仅供没有附加档的旧骑士首次迁移；后续读档、资源补齐和网络头变化不再重算类型。
+    private static int GetLegacyStyleForMigration(Knight knight)
+    {
+        int current = GetCurrentLifeStyle(knight);
+        if (current >= 0) return current;
+        if (!HasUsablePool() || !TryComputeIdentity(knight, out uint hash, out _)) return -1;
+        return AvailableStyles[(int)(hash % (uint)AvailableStyles.Count)];
     }
 
     private static KnightStyleState GetStyleState(Knight knight, int id)
@@ -715,7 +729,7 @@ public static class PatchRoles_KnightStyle
 
     /// <summary>
     /// 池对象新生命周期标记（读档重生/池复用，读档不重跑转职）：
-    /// 旧风格记录不可信，待巡检按哈希重算（身份源可能已变）。
+    /// 撤销旧生命的渲染记录，待读档恢复或招募路径取得本次身份。
     /// 注意 OnEnable 先于 Promote postfix（Pool.Spawn 激活在前），
     /// 标记会被随后的 Strip+Apply 覆盖，顺序天然正确。
     /// </summary>
@@ -728,8 +742,7 @@ public static class PatchRoles_KnightStyle
             int id = knight.gameObject.GetInstanceID();
             if (States.TryGetValue(id, out KnightStyleState state))
             {
-                state.Knight = knight;
-                state.NeedsRederive = true;
+                StripKnight(knight, state);
             }
         }
         catch (Exception e)
@@ -787,8 +800,8 @@ public static class PatchRoles_KnightStyle
     /// <summary>
     /// 完整性巡检（两段结构）：
     /// 第一段——处理所有 Knight：
-    /// 1) 读档/客户端同步恢复的存量骑士（无 Promote 机会）→ 直接按哈希上风格；
-    /// 2) NeedsRederive（池复用重生）或身份未收敛（NetID 后到）→ 重算，幂等；
+    /// 1) 读档/客户端同步恢复的存量骑士（无 Promote 机会）→ 读取固定收据；
+    /// 2) 收据与渲染尚未对齐 → 幂等应用；
     /// 3) 已定风格骑士 → 重断言控制器/缩放（被原生重置则重设）。
     /// 第二段——随从联动（反向归属）：全场扫 Archer 读 _knight 查状态，
     /// 把随从的士兵控制器覆盖成风格对应款。放在骑士段之后：本轮新上风格/
@@ -797,6 +810,7 @@ public static class PatchRoles_KnightStyle
     /// </summary>
     private static void IntegrityPass()
     {
+        KnightIdentityRuntime.Poll();
         if (!ModConfig.Enabled.Value) return;
         try
         {
@@ -808,6 +822,7 @@ public static class PatchRoles_KnightStyle
             // DefenseSpacing 的 3s 拍共用一份；本 5s 巡检的新鲜度要求——新招募
             // 骑士——由 Promote postfix 即时上风格保证，缓存 3s < 原 5s 节奏）。
             Knight[] knights = UnitScanCache.GetKnights();
+            KnightIdentityRuntime.PrimeExisting(knights, GetLegacyStyleForMigration);
             if (knights != null)
             {
                 for (int i = 0; i < knights.Length; i++)
@@ -820,15 +835,16 @@ public static class PatchRoles_KnightStyle
                     int id = knight.gameObject.GetInstanceID();
                     if (!States.TryGetValue(id, out KnightStyleState state))
                     {
-                        // 读档恢复：读档不重跑转职，按确定性哈希直接上风格（双端一致）
+                        // 读档恢复或首次迁移；客户端等待主机收据。
                         ApplyKnightStyle(knight);
                         continue;
                     }
 
-                    if (state.NeedsRederive || !state.NetIdResolved)
+                    if (state.NeedsRederive
+                        || !KnightIdentityRuntime.TryGetReceipt(knight, out KnightIdentityReceipt receipt)
+                        || state.StyleIndex != receipt.Style)
                     {
-                        // 重算收敛：池复用新生命周期，或首次哈希用的退化身份（网络头后到）。
-                        // 哈希不变时 ApplyKnightStyle 内部零写入，天然幂等。
+                        // 仅对齐固定身份与渲染，不因网络头或资源池变化重新抽类型。
                         ApplyKnightStyle(knight);
                         continue;
                     }
@@ -836,6 +852,8 @@ public static class PatchRoles_KnightStyle
                     ReassertKnight(knight, state);
                 }
             }
+
+            KnightIdentityLoadSeed.Flush();
 
             // ---- 第二段：随从联动（反向归属，全场一次扫描）----
             StyleFollowersByLookup(knights);
@@ -845,6 +863,7 @@ public static class PatchRoles_KnightStyle
             // 普通随从/存量场景）；北境 prefab 无盾 → 幂等装盾（盾门：带盾组件无盾
             // 不能入队）。实现与失败降级见 PatchRoles_NorseSquad.PatrolPass。
             PatchRoles_NorseSquad.PatrolPass();
+            KnightIdentityNetwork.Sync(knights);
         }
         catch (Exception e)
         {
@@ -1323,7 +1342,7 @@ public static class PatchRoles_KnightStyle
 
 /// <summary>
 /// B. 转职主入口：捡护甲成功转职骑士（Character.Promote → ReplaceBy → Pool.Spawn）
-/// 后按确定性哈希上风格。同签名多 postfix 先例：PatchRoles_Worker / Crossbowman。
+/// 后优先补少并冻结类型。同签名多 postfix 先例：PatchRoles_Worker / Crossbowman。
 /// </summary>
 [HarmonyPatch(typeof(Character), nameof(Character.Promote),
     new[] { typeof(DroppableTool), typeof(IUnitController) })]
@@ -1332,7 +1351,6 @@ public static class Character_Promote_KnightStyle_Patch
     [HarmonyPostfix]
     private static void Postfix(Character __result, DroppableTool tool)
     {
-        if (!ModConfig.Enabled.Value) return;
         // 非护甲零开销早退（不碰 try）
         if (tool == null || tool.tag != "Armor") return;
         try
@@ -1357,9 +1375,10 @@ public static class Knight_OnEnable_KnightStyleRederive_Patch
     [HarmonyPostfix]
     private static void Postfix(Knight __instance)
     {
-        if (!ModConfig.Enabled.Value || __instance == null) return;
+        if (__instance == null) return;
         try
         {
+            KnightIdentityRuntime.OnEnable(__instance);
             PatchRoles_KnightStyle.OnKnightActivated(__instance);
         }
         catch (Exception e)

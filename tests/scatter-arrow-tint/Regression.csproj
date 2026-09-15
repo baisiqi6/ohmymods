@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ScatterArrowTint 直接链接回归：只桩 Unity / 游戏类型 / Harmony 属性 / root 配置边界，
+    生产源码 ScatterArrowTint.cs 与真实 ArcherOptionsScope.cs、OptionalQoLScope.cs 原样编译进本程序集。
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>KingdomScatterTint.Tests</AssemblyName>
+    <RootNamespace>KingdomScatterTint.Tests</RootNamespace>
+    <ProductionSource Condition="'$(ProductionSource)' == ''">../../il2cpp/ScatterArrowTint.cs</ProductionSource>
+    <!-- 同级 actual-interop 子项目的 obj 生成码不得被卷进本测试程序集 -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);actual-interop/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Harness.cs" />
+    <Compile Include="Stubs/*.cs" />
+    <Compile Include="$(ProductionSource)" Link="Production/ScatterArrowTint.cs" />
+    <Compile Include="../../il2cpp/ArcherOptionsScope.cs" Link="Production/ArcherOptionsScope.cs" />
+    <Compile Include="../../il2cpp/OptionalQoLScope.cs" Link="Production/OptionalQoLScope.cs" />
+  </ItemGroup>
+
+</Project>
