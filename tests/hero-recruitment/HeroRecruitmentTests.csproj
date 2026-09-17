@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../il2cpp/HeroRecruitment.cs" Link="HeroRecruitment.cs" />
+    <Compile Include="../../il2cpp/HeroRecruitmentArchive.cs" Link="HeroRecruitmentArchive.cs" />
+    <Compile Include="../../il2cpp/HeroRecruitmentContext.cs" Link="HeroRecruitmentContext.cs" />
+    <Compile Include="../../il2cpp/HeroRecruitmentFingerprint.cs" Link="HeroRecruitmentFingerprint.cs" />
+    <Compile Include="Stubs.cs" /><Compile Include="Program.cs" />
+  </ItemGroup>
+</Project>

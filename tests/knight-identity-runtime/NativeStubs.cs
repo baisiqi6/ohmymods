@@ -275,6 +275,8 @@ namespace KingdomEnhancedMod
 
     internal class CampaignSaveData
     {
+        internal IntPtr Pointer = new IntPtr(0x666);
+        internal void ApplyToScene() { }
         internal static CampaignSaveData current;
         internal IslandSaveData CurrentIsland;
     }
@@ -282,6 +284,8 @@ namespace KingdomEnhancedMod
     /// <summary>原生岛存档 stub：字段名与 2.4 interop 一致（objects/land/realStartDateTime/static 状态）。</summary>
     internal class IslandSaveData
     {
+        private static long nextIslandPointer;
+        internal IntPtr Pointer { get; } = new IntPtr(System.Threading.Interlocked.Increment(ref nextIslandPointer));
         internal class ObjectData
         {
             private static long nextPointer;
@@ -307,7 +311,7 @@ namespace KingdomEnhancedMod
                     if (i > 0) builder.Append(',');
                     ComponentData component = componentData2[i];
                     builder.Append("{\"name\":\"").Append(component.name).Append("\",\"type\":\"").Append(component.type)
-                        .Append("\",\"data\":\"").Append(component.data).Append("\"}");
+                        .Append("\",\"data\":").Append(System.Text.Json.JsonSerializer.Serialize(component.data)).Append("}");
                 }
                 builder.Append("]}");
             }
@@ -316,6 +320,11 @@ namespace KingdomEnhancedMod
         internal int land;
         internal bool isNew;
         internal DateTime realStartDateTime = new DateTime(638000000000000000L, DateTimeKind.Utc);
+        internal double playTimeDays;
+        internal double lastPlayedTimeDays;
+        internal double islandTimePlayed; // 原生私有 _islandTimePlayed
+        internal int lastPlayedReign = -1;
+        internal int biome;
         internal Il2CppSystem.Collections.Generic.List<ObjectData> objects;
 
         internal static IslandSaveData CurrentlySavingIsland;
@@ -351,12 +360,19 @@ namespace KingdomEnhancedMod
             throw new NotSupportedException("stub: 用 NativeSim.RunLoad 驱动 bridge");
         }
 
+        /// <summary>
+        /// 只序列化原生 JsonUtility 实际持久化的字段（实测 2.4：realStartDateTime 不在岛 JSON 里，
+        /// 每次读取都会重建；playTimeDays/lastPlayedTimeDays/_islandTimePlayed 是三个活时钟）。
+        /// </summary>
         internal string Json()
         {
             StringBuilder builder = new StringBuilder(256);
-            builder.Append("{\"land\":").Append(land.ToString(CultureInfo.InvariantCulture));
-            builder.Append(",\"isNew\":").Append(isNew ? "true" : "false");
-            builder.Append(",\"realStartDateTime\":").Append(realStartDateTime.Ticks.ToString(CultureInfo.InvariantCulture));
+            builder.Append("{\"playTimeDays\":").Append(playTimeDays.ToString("R", CultureInfo.InvariantCulture));
+            builder.Append(",\"lastPlayedTimeDays\":").Append(lastPlayedTimeDays.ToString("R", CultureInfo.InvariantCulture));
+            builder.Append(",\"_islandTimePlayed\":").Append(islandTimePlayed.ToString("R", CultureInfo.InvariantCulture));
+            builder.Append(",\"lastPlayedReign\":").Append(lastPlayedReign.ToString(CultureInfo.InvariantCulture));
+            builder.Append(",\"biome\":").Append(biome.ToString(CultureInfo.InvariantCulture));
+            builder.Append(",\"land\":").Append(land.ToString(CultureInfo.InvariantCulture));
             builder.Append(",\"objects\":[");
             if (objects != null)
             {
@@ -466,7 +482,7 @@ namespace KingdomEnhancedMod
             worldGo.scene = new UnityEngine.Scene { handle = sceneHandle };
             UnityEngine.Transform worldRoot = new UnityEngine.Transform { name = "World", gameObject = worldGo };
             worldGo.transform = worldRoot;
-            UnityEngine.Transform layer = new UnityEngine.Transform { name = "gameLayer", gameObject = worldGo, parent = worldRoot };
+            UnityEngine.Transform layer = new UnityEngine.Transform { name = "gameLayer", gameObject = worldGo, parent = worldRoot, Pointer = new IntPtr(sceneHandle + 1) };
             Managers.Inst = new Managers
             {
                 world = new World { name = "World", gameObject = worldGo, gameLayer = layer, Pointer = new IntPtr(sceneHandle) },
@@ -554,6 +570,11 @@ namespace KingdomEnhancedMod
                 land = source.land,
                 isNew = source.isNew,
                 realStartDateTime = source.realStartDateTime,
+                playTimeDays = source.playTimeDays,
+                lastPlayedTimeDays = source.lastPlayedTimeDays,
+                islandTimePlayed = source.islandTimePlayed,
+                lastPlayedReign = source.lastPlayedReign,
+                biome = source.biome,
                 objects = new Il2CppSystem.Collections.Generic.List<IslandSaveData.ObjectData>(),
             };
             for (int i = 0; i < source.objects.Count; i++)

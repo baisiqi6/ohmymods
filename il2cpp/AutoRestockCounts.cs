@@ -129,6 +129,12 @@ internal static class AutoRestockCounts
     /// </summary>
     public static bool Refresh(Managers managers)
     {
+        if (!_identitySubscribed)
+        {
+            MusketeerIdentity.CareerChanged += OnCareerChanged;
+            MusketeerIdentity.GunChanged += OnGunChanged;
+            _identitySubscribed = true;
+        }
         try
         {
             Kingdom kingdom; World world; Transform gameLayer;
@@ -350,7 +356,8 @@ internal static class AutoRestockCounts
             var go = c.gameObject;
             if (go.GetComponent<Berserker>() != null) return RoleBerserker;
             if (go.GetComponent<Ninja>() != null) return RoleNinja;       // 含 _isFisher 白天样式
-            if (go.GetComponent<Archer>() != null) return RoleArcher;     // 含随从/塔上
+            var archer = go.GetComponent<Archer>();
+            if (archer != null) return MusketeerIdentity.IsUnit(archer) ? -1 : RoleArcher;
             if (go.GetComponent<Worker>() != null) return RoleWorker;
             // 农夫先于 Peasant 判定：持镰刀的农民即使模型残留 Peasant 组件也只计农夫，不混入无业村民。
             if (go.GetComponent<Farmer>() != null) return RoleFarmer;
@@ -533,6 +540,31 @@ internal static class AutoRestockCounts
             WakeRecovery(); // new roster event
         }
         catch (Exception) { RequestRecovery(); }
+    }
+
+    private static bool _identitySubscribed;
+    private static void OnGunChanged(DroppableTool tool)
+    {
+        if (!_active || tool == null) return;
+        foreach (var entry in _shops.Values)
+        {
+            if (!entry.Valid || entry.Role != RoleArcher) continue;
+            foreach (var sub in entry.Subs)
+                if (sub.Item != null && sub.Item.Pointer == tool.Pointer)
+                { _dirtyShops.Add(entry.GoPtr); break; }
+        }
+        WakeRecovery();
+    }
+    private static void OnCareerChanged(Character character)
+    {
+        if (!_active || character == null) return;
+        // The same native Archer root may acquire/lose a career without AddCharacter.
+        // Reclassify exactly that root on the next refresh; no roster reseed/scene scan.
+        if (_tracked.TryGetValue(character.Pointer, out var entry)) RetireEntry(entry);
+        _pending[character.Pointer] = character;
+        _pendingAttempts[character.Pointer] = 0;
+        _version++;
+        WakeRecovery();
     }
 
     internal static void HookRemoveCharacter(Character character)
@@ -764,6 +796,11 @@ internal static class AutoRestockCounts
             {
                 Droppable item = items[i];
                 if (item == null) continue;
+                if (entry.Role == RoleArcher)
+                {
+                    var tool = item.GetComponent<DroppableTool>();
+                    if (tool != null && MusketeerIdentity.IsGun(tool)) entry.Stock = Math.Max(0, entry.Stock - 1);
+                }
                 var sub = new ToolSub { ItemPtr = item.Pointer, Item = item };
                 entry.Subs.Add(sub); // 先登记成员身份，回调据此验证
                 ShopEntry captured = entry;

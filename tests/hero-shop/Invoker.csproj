@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><OutputType>Exe</OutputType><AllowUnsafeBlocks>true</AllowUnsafeBlocks><ImplicitUsings>enable</ImplicitUsings><EnableDefaultCompileItems>false</EnableDefaultCompileItems><DefineConstants>HERO_SHOP_CORE_ONLY</DefineConstants></PropertyGroup>
+  <ItemGroup><Compile Include="../../il2cpp/HeroShop.cs"/><Compile Include="InvokerProgram.cs"/></ItemGroup>
+</Project>

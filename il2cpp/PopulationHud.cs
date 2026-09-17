@@ -9,9 +9,9 @@ internal static class PopulationHud
     private const float Width = 330f, Row = 20f;
     private static readonly Color Ivory = new(0.95f, 0.92f, 0.84f);
     private static readonly Color Gold = new(0.93f, 0.78f, 0.47f);
-    private static readonly string[] RoleNames = { "工匠", "弓箭手", "农民", "长枪兵", "忍者", "狂战士", "无业村民", "乞丐" };
+    private static readonly string[] RoleNames = { "工匠", "弓箭手", "农民", "长枪兵", "忍者", "狂战士", "无业村民", "乞丐", "火枪手" };
     private static readonly string[] StyleNames = { "中世纪", "死地", "幕府", "希腊", "北境" };
-    private static readonly string[] RoleText = new string[8], StyleText = new string[6];
+    private static readonly string[] RoleText = new string[PopulationCounts.RoleCount], StyleText = new string[6];
     private static string _knightsText = "";
     private static string _barrelsText = "火药桶  —", _fireAmmoText = "希腊火弹药  —";
     private static int _barrels = -1, _fireAmmo = -1;
@@ -85,12 +85,14 @@ internal static class PopulationHud
             }
             for (int i = 0; i < RoleText.Length; i++)
                 Label(x + (i % 2) * 165f, y + (i / 2) * Row, RoleText[i], Ivory);
-            Label(x, y + 4 * Row + 6f, _knightsText, Gold);
+            int roleRows = (RoleText.Length + 1) / 2;
+            Label(x, y + roleRows * Row + 6f, _knightsText, Gold);
             for (int i = 0; i < StyleText.Length; i++)
                 if (!string.IsNullOrEmpty(StyleText[i]))
-                    Label(x + (i % 2) * 165f, y + 5 * Row + 6f + (i / 2) * Row, StyleText[i], Ivory);
-            Label(x, y + 8 * Row + 12f, _barrelsText, Ivory);
-            Label(x + 165f, y + 8 * Row + 12f, _fireAmmoText, Ivory);
+                    Label(x + (i % 2) * 165f, y + (roleRows + 1) * Row + 6f + (i / 2) * Row, StyleText[i], Ivory);
+            float ammoY = y + (roleRows + 1 + (StyleText.Length + 1) / 2) * Row + 12f;
+            Label(x, ammoY, _barrelsText, Ivory);
+            Label(x + 165f, ammoY, _fireAmmoText, Ivory);
         }
         catch (Exception ex) { _style = null; _retryAfter = Time.unscaledTime + 1f; LogOnce(ex); }
         finally

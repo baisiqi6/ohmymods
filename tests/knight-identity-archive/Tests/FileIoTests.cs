@@ -11,6 +11,26 @@ namespace KnightIdentityArchiveTests
     {
         internal static void Run()
         {
+            Case.Run("io.v1UpgradeWithReservedUnknownFieldOrFullRootRefusesWithoutWriting", () =>
+            {
+                foreach (bool fullRoot in new[] { false, true })
+                {
+                    using (TempDir dir = new TempDir())
+                    {
+                        var json = new System.Text.StringBuilder("{\"schemaVersion\":1,\"scopes\":[]");
+                        if (fullRoot) for (int i = 0; i < 254; i++) json.Append(",\"extra").Append(i).Append("\":0");
+                        else json.Append(",\"contexts\":{\"futureData\":1}");
+                        json.Append('}');
+                        byte[] original = System.Text.Encoding.UTF8.GetBytes(json.ToString());
+                        Check.Equal(KnightIdentityArchiveStatus.Valid, KnightIdentityArchive.Parse(original, out var archive, out _), "v1 input remains valid");
+                        string path = dir.File("archive.json"), backup = KnightIdentityArchiveStore.BackupPath(path);
+                        File.WriteAllBytes(path, original); File.WriteAllBytes(backup, original);
+                        Check.False(KnightIdentityArchiveStore.Save(path, archive).Ok, "unreadable upgrade refused");
+                        Check.True(original.AsSpan().SequenceEqual(File.ReadAllBytes(path)), "main untouched");
+                        Check.True(original.AsSpan().SequenceEqual(File.ReadAllBytes(backup)), "backup untouched");
+                    }
+                }
+            });
             Console.WriteLine("File I/O (atomic save / backup / corruption / unknown schema / unknown fields)");
 
             Case.Run("io.missingThenCreatedThenByteExactRoundTrip", () =>
@@ -154,7 +174,7 @@ namespace KnightIdentityArchiveTests
                     first.RecordSnapshot(scope, Build.Snapshot(Build.Hex('b'), Build.E("knight-2", 2, 1)));
                     KnightIdentityArchiveStore.Save(path, first);
 
-                    string newerSchema = "{\"schemaVersion\":2,\"scopes\":[]}";
+                    string newerSchema = "{\"schemaVersion\":3,\"scopes\":[]}";
                     Build.WriteText(path, newerSchema);
                     byte[] mainBytes = File.ReadAllBytes(path);
                     byte[] backupBytes = File.ReadAllBytes(backup);
@@ -179,7 +199,7 @@ namespace KnightIdentityArchiveTests
                 using (TempDir dir = new TempDir())
                 {
                     string path = dir.File("archive.json");
-                    string foreign = "{\"scopes\":[{\"weird\":1}],\"schemaVersion\":2}";
+                    string foreign = "{\"scopes\":[{\"weird\":1}],\"schemaVersion\":3}";
                     Build.WriteText(path, foreign);
                     byte[] before = File.ReadAllBytes(path);
 
@@ -404,7 +424,7 @@ namespace KnightIdentityArchiveTests
                     string path = dir.File("archive.json");
                     string backup = KnightIdentityArchiveStore.BackupPath(path);
                     string scope = Build.Hex64(1);
-                    string futureSchema = "{\"schemaVersion\":2,\"scopes\":[{\"weird\":1}]}";
+                    string futureSchema = "{\"schemaVersion\":3,\"scopes\":[{\"weird\":1}]}";
 
                     KnightIdentityArchiveStore.Save(path, Build.Archive(scope, Build.Hex('a'), "knight-1", 1, 0));
                     KnightIdentityArchive second = KnightIdentityArchiveStore.Load(path).Archive;
@@ -552,6 +572,77 @@ namespace KnightIdentityArchiveTests
                     Check.Equal(3, Build.FilesIn(dir.Path).Length, "only archive, backup and the native file exist");
                 }
             });
+            Case.Run("io.legacyV1FileUpgradesToV2WithKindsAndContexts", () =>
+            {
+                using (TempDir dir = new TempDir())
+                {
+                    string path = dir.File("archive.json");
+                    string backup = KnightIdentityArchiveStore.BackupPath(path);
+                    string scope = Build.Hex64(1);
+                    string legacyHash = Build.Hex('a');
+                    string entry = "{\"u\":\"knight-1\",\"id\":\"" + Build.Seed(1).ToString("N") + "\",\"style\":3}";
+                    Build.WriteText(path,
+                        "{\"schemaVersion\":1,\"scopes\":[{\"scopeKey\":\"" + scope + "\",\"snapshots\":[{\"hash\":\"" + legacyHash
+                        + "\",\"savedAtUtc\":\"2026-09-14T00:00:00+00:00\",\"entries\":[" + entry + "]}]}]}");
+                    byte[] legacyBytes = File.ReadAllBytes(path);
+
+                    KnightIdentityArchiveStore.LoadResult loaded = KnightIdentityArchiveStore.Load(path);
+                    Check.Equal(KnightIdentityArchiveStatus.Valid, loaded.Status, "v1 file still loads");
+                    Check.Equal(0, loaded.Archive.ContextCount, "v1 has no contexts");
+                    Check.True(loaded.Archive.TryGetSnapshot(scope, legacyHash, out KnightIdentitySnapshot legacy), "legacy snapshot readable");
+                    Check.Equal(KnightIdentityFingerprint.KindLegacy, legacy.Kind, "legacy snapshots are kind 1");
+                    Check.True(loaded.Archive.TryRestore(scope, legacyHash, "knight-1", out KnightIdentityReceipt legacyReceipt), "legacy receipt restorable");
+                    Check.Equal(3, legacyReceipt.Style, "legacy style kept");
+
+                    string contextKey = Build.Hex64(9);
+                    string normalizedHash = Build.Hex('b');
+                    Check.Equal(
+                        KnightIdentityArchive.MutationStatus.Applied,
+                        loaded.Archive.RecordSnapshot(scope, Build.Snapshot(KnightIdentityFingerprint.KindNormalized, normalizedHash, DateTimeOffset.UnixEpoch, new[] { Build.E("knight-1", 1, 3) })),
+                        "kind2 snapshot recorded");
+                    Check.True(loaded.Archive.EnsureContext(contextKey, scope, true), "context registered");
+                    Check.Equal(SaveStatus.Replaced, KnightIdentityArchiveStore.Save(path, loaded.Archive).Status, "v2 written");
+                    Check.True(File.ReadAllBytes(backup).AsSpan().SequenceEqual(legacyBytes), "backup keeps the legacy v1 bytes for rollback");
+
+                    KnightIdentityArchiveStore.LoadResult again = KnightIdentityArchiveStore.Load(path);
+                    Check.True(again.IsUsable, "v2 file readable");
+                    Check.True(again.Archive.TryGetContext(contextKey, out KnightIdentityContext context), "context persisted");
+                    Check.Equal(scope, context.Active, "active epoch persisted");
+                    Check.True(again.Archive.TryGetSnapshot(scope, legacyHash, out KnightIdentitySnapshot keptLegacy), "legacy snapshot preserved");
+                    Check.Equal(KnightIdentityFingerprint.KindLegacy, keptLegacy.Kind, "legacy kind preserved");
+                    Check.True(again.Archive.ScopeHasKind(scope, KnightIdentityFingerprint.KindNormalized), "kind2 presence tracked");
+                    Check.Contains(Encoding.UTF8.GetString(again.Archive.SerializeToUtf8()), "\"contexts\":[{\"context\":\"" + contextKey + "\"", "context is serialized deterministically");
+                }
+            });
+
+            Case.Run("io.contextsAreClosedAndValidated", () =>
+            {
+                using (TempDir dir = new TempDir())
+                {
+                    string path = dir.File("archive.json");
+                    string scope = Build.Hex64(1);
+                    string other = Build.Hex64(2);
+                    string contextA = Build.Hex64(9);
+                    string contextB = Build.Hex64(10);
+                    string hash = Build.Hex('a');
+                    string entry = "{\"u\":\"k\",\"id\":\"" + Build.Seed(1).ToString("N") + "\",\"style\":0}";
+                    string snapshot = "{\"hash\":\"" + hash + "\",\"kind\":2,\"savedAtUtc\":\"2026-09-14T00:00:00+00:00\",\"entries\":[" + entry + "]}";
+                    string scopes = "\"scopes\":[{\"scopeKey\":\"" + scope + "\",\"snapshots\":[" + snapshot + "]}]";
+                    string ok = "{\"schemaVersion\":2," + scopes + ",\"contexts\":[{\"context\":\"" + contextA + "\",\"active\":\"" + scope + "\",\"epochs\":[\"" + scope + "\"]}]}";
+                    Check.Equal(KnightIdentityArchiveStatus.Valid, LoadText(path, ok), "well formed v2 document is valid");
+                    Check.Equal(KnightIdentityArchiveStatus.Corrupt, LoadText(path, "{\"schemaVersion\":2," + scopes + "}"), "missing contexts is Corrupt");
+                    Check.Equal(KnightIdentityArchiveStatus.Corrupt, LoadText(path, ok.Replace("\"active\":\"" + scope + "\"", "\"active\":\"" + other + "\"")), "active outside epochs is Corrupt");
+                    Check.Equal(KnightIdentityArchiveStatus.Corrupt, LoadText(path, ok.Replace("\"epochs\":[\"" + scope + "\"]", "\"epochs\":[\"" + other + "\"]")), "epoch without a scope is Corrupt");
+                    Check.Equal(KnightIdentityArchiveStatus.Corrupt, LoadText(path, ok.Replace("\"kind\":2,", "\"kind\":2,\"kind\":2,")), "duplicate kind is Corrupt");
+                    Check.Equal(KnightIdentityArchiveStatus.Corrupt, LoadText(path, ok.Replace("\"kind\":2", "\"kind\":3")), "unknown kind is Corrupt");
+                    Check.Equal(KnightIdentityArchiveStatus.Corrupt, LoadText(path, ok.Replace("{\"context\":", "{\"customCtx\":1,\"context\":")), "unknown context field is Corrupt");
+                    Check.Equal(
+                        KnightIdentityArchiveStatus.Corrupt,
+                        LoadText(path, "{\"schemaVersion\":2," + scopes + ",\"contexts\":[{\"context\":\"" + contextA + "\",\"active\":\"" + scope + "\",\"epochs\":[\"" + scope + "\"]},{\"context\":\"" + contextB + "\",\"active\":\"" + scope + "\",\"epochs\":[\"" + scope + "\"]}]}"),
+                        "one epoch owned by two contexts is Corrupt");
+                }
+            });
+
         }
 
         private static KnightIdentityArchiveStatus LoadText(string path, string document)

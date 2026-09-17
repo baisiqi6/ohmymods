@@ -154,6 +154,7 @@ public static class PatchRoles_Crossbowman
     internal static void OnBowPromoted(Character result)
     {
         if (result == null || result.gameObject == null) return;
+        if (MusketeerIdentity.GunPromotionInProgress || MusketeerIdentity.IsMarked(result.gameObject)) return;
         Archer archer = result.GetComponent<Archer>();
         if (archer == null)
         {
@@ -646,6 +647,7 @@ public static class PatchRoles_Crossbowman
             {
                 Archer a = archers[i];
                 if (a == null || a.gameObject == null || !a.gameObject.activeInHierarchy) continue;
+                if (MusketeerIdentity.IsUnit(a)) continue;
                 // 骑士小队成员（关系随存档恢复）：跳过——不进 25% 分母、不可被选中；
                 // 已在队里的弩手不动，等小队解散后下轮重算收口。
                 // HasKnight() 是私有方法不进 interop，等价判 _knight 字段
@@ -933,6 +935,7 @@ public static class Character_Promote_CrossbowmanAlternation_Patch
         if (!ModConfig.Enabled.Value) return;
         // 非弓工具零开销早退（不碰 try）
         if (tool == null || tool.tag != "Bow") return;
+        if (MusketeerIdentity.GunPromotionInProgress || MusketeerIdentity.IsGun(tool)) return;
         try
         {
             PatchRoles_Crossbowman.OnBowPromoted(__result);

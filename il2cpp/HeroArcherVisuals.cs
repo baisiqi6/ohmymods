@@ -16,10 +16,19 @@
 //       归还失败（瞬时异常）保留凭据下次重试，绝不丢归还责任。
 //       原生本来已隐藏（enabled=false / forceRenderingOff=true）→ 英雄视觉不出现（不接管）。
 //
-// 帧选择（2026-09-15 native-follow 修订）：不再自建时钟/六状态机，而是每帧读原生 Animator 当前
-//       current state 的 shortNameHash + normalizedTime（HeroArcherNativePose），转场时也不预取 next ——
-//       Stand 0..9 / Walk 10..15 / Run 16..21 循环取相位小数；Prepare 22..25 / Shoot 26..30 单次 clamp 末帧。
-//       原生相位停住时姿势自然冻结；Animator 停用或采样非法时归还原生。本文件不按 Time.time 重新计时。
+// 帧选择（2026-09-15 native-follow 修订 + 同日 live-fix）：不再自建时钟/六状态机，而是每帧读原生
+//       Animator 当前 current state 的 shortNameHash + normalizedTime + clip 长度（HeroArcherNativePose），
+//       转场时也不预取 next —— Stand 0..9 / Walk 10..15 / Run 16..21 循环取相位小数；
+//       Shoot 26..30 按整段 clip 归一（原生会播完整 clip 再退出）。Prepare 22..25 用「clip 时间 /
+//       有效窗口」归一：原生只播 shootPrepTime 那么长的前缀，而希腊 prepare clip 长 2.167s，按全局
+//       相位归一会让拉弓 4 帧全挤进 clip 前缀（只显示 22 号帧 → 看不到拉弓）。窗口只来自 operator 桥的
+//       RecordPrepareWindow（原生同一步 MoveNext 读到的临时 shootPrepTime，rate/DL 效果已含）：
+//       pending 记录、Prepare 进入/同状态回绕时锁入 active，缺失 → 回退原始相位；
+//       locomotion/防守/撤退永远只跟原生相位，绝不用自有时钟。
+//       释放表现（自有帧 26..30）由真实放箭事件锚定、0.18s 有界：覆盖 perfect 弹跳过原生 Shoot 状态时
+//       「没有释放动作」的观感；进入 Walk/Run/Shoot/Unknown/新 Prepare 或超时立即取消。
+//       它只覆盖自有 sprite，不写 Animator、不动位置/朝向、不推进布料，两个英雄各自独立。
+//       Animator 停用或采样非法时归还原生。
 //       未绘状态（Ghost Die / Spawn 及世界其它状态名）= Unknown → 自有 body/cloth 隐藏、归还原生
 //       forceRenderingOff 让原生显现；保留 VisualState/身份，回到支持状态再安全接管（不 Remove/Apply 重建）。
 //       旧 HeroArcherAnimation（16 帧六状态草稿机）保留给旧测试，不再是当前视觉权威。
@@ -63,10 +72,24 @@ internal static class HeroArcherVisuals
     private const float PivotPixelY = HeroArcherPoseAtlas.PivotPixelY;
 
     /// <summary>
+    /// 事件锚定释放表现的时长（秒）：真实放箭事件触发一次，自有帧 26..30 在此时长内播完，
+    /// 覆盖原生 perfect 弹跳过 Shoot 状态时"没有释放动作"的观感。有界、只改自有 sprite、
+    /// 不写 Animator/不动位置朝向、不驱动 Stand/Walk/Run/Shoot 的相位。
+    /// </summary>
+    internal const float ReleasePresentationSeconds = 0.18f;
+
+    /// <summary>
     /// 有界全局 transition 诊断（≤120 行，按事件变化；每 actor 固定槽去重）：
     /// 核心日志失败不破坏渲染（Log 内部吞异常）。
     /// </summary>
     private static readonly HeroArcherNativeEventLog _events = new HeroArcherNativeEventLog();
+
+    /// <summary>单次动作访问（Prepare/Shoot）诊断行上限：自 Clear 起计，事件触发（非逐帧）。</summary>
+    internal const int VisitLogCapacity = 60;
+    /// <summary>挂载/卸载事件诊断行上限：自 Clear 起计（暴露身份抖动导致的原生/自有交替）。</summary>
+    internal const int LifeLogCapacity = 60;
+    private static int _visitLines;
+    private static int _lifeLines;
 
     private enum AtlasState
     {
@@ -91,8 +114,35 @@ internal static class HeroArcherVisuals
         internal float NativeNormalizedTime;
         internal HeroArcherNativeFallback LastFallback;
         // 放箭事件标记（原生 FireArrowInternal → NotifyRelease）：只并入下一条有界诊断行；
-        // 绝不重置/覆盖原生姿势，也不推进布料（旧 Anim.NotifyRelease/Tick 路径已废弃）。
+        // 绝不重置/覆盖原生姿势（相位与动作只跟原生 Animator），也不推进布料。
         internal bool ShotPending;
+        // Prepare 可见窗口（秒）：pending 由 operator 桥记录（原生同一步 MoveNext 读到的临时 shootPrepTime，
+        // 含 rate/DL 效果）；active 在 Prepare 进入或同状态回绕时从 pending 锁入。进行中的拉弓不会被
+        // 中途改窗口，池/换世界重建后 pending/active 归零（不沿用旧值）。
+        internal float PendingWindow;
+        internal float ActiveWindow;
+        // 事件锚定的释放表现（仅自有帧 26..30）：0.18s 有界恢复，独立于原生是否跳过 Shoot 状态；
+        // 只改自有 sprite，不写 Animator、不动位置/朝向、不驱动 locomotion。
+        internal bool ReleaseActive;
+        internal bool ReleaseFirstFrame;
+        internal float ReleaseElapsed;
+        internal int ReleaseStartFrame = int.MinValue;
+        // 单次动作（Prepare/Shoot）访问跟踪：**只做诊断证据**（帧区间/时长/放箭时刻），绝不喂计时。
+        internal HeroArcherNativeAction VisitAction = HeroArcherNativeAction.Unknown;
+        internal float VisitElapsed;
+        internal float VisitMaxClipTime;
+        internal int VisitMinFrame = int.MaxValue;
+        internal int VisitMaxFrame = -1;
+        internal int VisitShotCount;
+        internal float VisitShotCtMax;
+        /// <summary>本帧检测到 Prepare 同状态回绕（normalizedTime 递减）→ 重新锁窗口并取消释放。</summary>
+        internal bool PrepareRestarted;
+        // 最近一次采样载荷（诊断用；不参与渲染决策）。
+        internal float LastClipLength;
+        internal float LastClipTime;
+        internal float LastNt;
+        /// <summary>本帧原生采样帧（诊断/访问区间用；显示帧可能是释放表现的覆盖值，见 LastFrame）。</summary>
+        internal int LastNativeFrame = -1;
         internal HeroArcherCloth.Handle Cloth;
         internal float LastWorldX;
         internal float NextWindSample, WindDrive;
@@ -143,7 +193,7 @@ internal static class HeroArcherVisuals
         if (_visuals.TryGetValue(goId, out VisualState existing))
         {
             if (SameObject(existing, archer)) return;
-            RemoveByKey(goId);
+            RemoveByKey(goId, "replace");
             if (_visuals.ContainsKey(goId)) return;
         }
 
@@ -219,6 +269,9 @@ internal static class HeroArcherVisuals
             // 视觉全部就绪后压共享英雄深度；失败（参考层非法/写入/恢复异常）→ 整组回滚，
             // 绝不带半套深度或声称已还原的自有对象继续运行。
             if (!ApplyHeroPlane(state)) { Rollback(state); return; }
+
+            // 有界生命周期诊断：与 detach 行配对，暴露「身份抖动静默重建」导致原生/自有交替的节奏。
+            LogLife("attach actor=" + goId + " life=" + life + " action=" + state.LastAction);
         }
         catch (Exception e)
         {
@@ -297,7 +350,7 @@ internal static class HeroArcherVisuals
             if (goId == 0) return;
             if (!_visuals.TryGetValue(goId, out VisualState state)) return;
             if (!SameObject(state, archer)) return; // 换主/换 life 的包装引用不动别人的凭据
-            RemoveByKey(goId);
+            RemoveByKey(goId, "remove");
         }
         catch (Exception)
         {
@@ -305,9 +358,10 @@ internal static class HeroArcherVisuals
     }
 
     /// <summary>
-    /// 放箭事件（原生 FireArrowInternal 每发一次）：**只**打一个标记并进下一条有界诊断行，
-    /// 绝不重置/覆盖原生姿势（相位与动作只跟原生 Animator），也不推进布料 dt。
-    /// 旧 Anim.NotifyRelease/Tick/RefreshSprite 路径已废弃。
+    /// 放箭事件（原生 FireArrowInternal 每发恰好一次；散射补箭会在同一帧多发）：
+    /// 1) 诊断标记 ShotPending（并入下一条有界转场行）+ 当前访问内的放箭计数与时刻证据（只做证据）；
+    /// 2) 启动自有释放表现（帧 26..30，0.18s 有界）：同帧重复调用不重启，隔帧的真实放箭重启；
+    /// 绝不重置/覆盖原生姿势（相位与动作只跟原生 Animator）、不写 Animator、不推进布料。
     /// </summary>
     internal static void NotifyRelease(Archer archer)
     {
@@ -318,6 +372,42 @@ internal static class HeroArcherVisuals
             if (goId == 0 || !_visuals.TryGetValue(goId, out VisualState state)) return;
             if (!SameObject(state, archer)) return;
             state.ShotPending = true;
+            if (state.VisitAction != HeroArcherNativeAction.Unknown)
+            {
+                state.VisitShotCount++;
+                if (state.LastClipTime > state.VisitShotCtMax) state.VisitShotCtMax = state.LastClipTime;
+            }
+            int frame = FrameCount();
+            if (state.ReleaseActive && state.ReleaseStartFrame == frame) return;   // 同帧散射多发：不重启
+            state.ReleaseActive = true;
+            state.ReleaseFirstFrame = true;
+            state.ReleaseElapsed = 0f;
+            state.ReleaseStartFrame = frame;
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Prepare 可见窗口的旁路记录（operator 桥在既有 Priority.Last cadence prefix 借用之后调用）：
+    /// 传入的 seconds 就是原生同一次 MoveNext 里读到的临时 <c>archer.shootPrepTime</c>（rate/DL 效果已含），
+    /// 因此它是 Prepare 可见窗口的精确来源：本模块不测量、不加 getter hook。
+    /// 只在同一个已知自有视觉（GO id + pointer + 当前 life 全同）上生效；非有限/非正 → 忽略。
+    /// 窗口只在 Prepare 进入（或同状态回绕）时从 pending 锁入 active；池/换世界重建后两者归零，
+    /// 因此绝不会沿用上一生命的窗口。
+    /// </summary>
+    internal static void RecordPrepareWindow(Archer archer, float seconds)
+    {
+        try
+        {
+            if (!(seconds > 0f) || !float.IsFinite(seconds)) return;
+            if (archer == null || archer.gameObject == null) return;
+            int goId = SafeGoId(archer);
+            if (goId == 0 || !_visuals.TryGetValue(goId, out VisualState state)) return;
+            if (!SameObject(state, archer)) return;
+            if (state.Life == 0 || state.Life != HeroArcherRuntime.CurrentActorLife(archer)) return;
+            state.PendingWindow = seconds;
         }
         catch (Exception)
         {
@@ -343,7 +433,7 @@ internal static class HeroArcherVisuals
             for (int i = 0; i < _scratch.Count; i++)
             {
                 if (!_visuals.TryGetValue(_scratch[i], out VisualState state)) continue;
-                if (!Valid(state)) { RemoveByKey(state.GoId); continue; }
+                if (!Valid(state)) { RemoveByKey(state.GoId, "invalid"); continue; }
                 CopyRendererLook(state);
                 ApplyNativePose(state, source);
                 TickPresentation(state);
@@ -361,6 +451,8 @@ internal static class HeroArcherVisuals
     private static void TickPresentation(VisualState state)
     {
         float dt = Time.deltaTime;
+        // 单次动作访问跟踪（有界诊断 + Prepare 有效窗口测量）：必须在本帧原生采样之后。
+        TrackNativeVisit(state, dt);
         float worldX = state.Ref.transform.position.x;
         float velocity = dt > 0f ? (worldX - state.LastWorldX) / dt : 0f;
         state.LastWorldX = worldX;
@@ -386,10 +478,10 @@ internal static class HeroArcherVisuals
         HeroArcherCloth.Tick(state.Cloth, dt, localVelocity, state.Own.enabled);
         // Tick/Reorient/ApplyFlip 每帧把 cloth root 重写回全尺寸：之后统一重断言绝对 0.9
         // （不乘当前 scale，重复调用幂等；flip 符号按 reference.flipX 重取，z 保持 1 不动深度）。
-        if (!ApplyVisualScale(state)) { RemoveByKey(state.GoId); return; }
+        if (!ApplyVisualScale(state)) { RemoveByKey(state.GoId, "scale"); return; }
         // Tick 内 ApplyFlip 会按 reference.localPosition 重建布料 z、ApplySorting 会写回旧 -1/-2
         // → 每帧在最后重压共享英雄深度并覆盖自有 cloth 排序；失败（含参考层失效）→ 撤销整组自有表现。
-        if (!ApplyHeroPlane(state)) { RemoveByKey(state.GoId); return; }
+        if (!ApplyHeroPlane(state)) { RemoveByKey(state.GoId, "plane"); return; }
     }
 
     /// <summary>全量移除（模组关闭 / world 切换 / Clear）：归还全部原生 renderer；诊断预算重置。</summary>
@@ -397,14 +489,20 @@ internal static class HeroArcherVisuals
     {
         try
         {
-            _events.Reset();   // 换 world / 关功能：有界诊断预算与去重槽重新开始
+            // 换 world / 关功能：有界诊断预算与去重槽重新开始（含单次动作访问与生命周期两类上限）。
             if (_visuals.Count == 0) return;
             _scratch.Clear();
             foreach (KeyValuePair<int, VisualState> pair in _visuals) _scratch.Add(pair.Key);
-            for (int i = 0; i < _scratch.Count; i++) RemoveByKey(_scratch[i]);
+            for (int i = 0; i < _scratch.Count; i++) RemoveByKey(_scratch[i], "clear");
         }
         catch (Exception)
         {
+        }
+        finally
+        {
+            _events.Reset();
+            _visitLines = 0;
+            _lifeLines = 0;
         }
     }
 
@@ -412,8 +510,11 @@ internal static class HeroArcherVisuals
     // 内部实现
     // ============================================================
 
-    /// <summary>释放凭据；瞬时失败（探测/写入抛错）保留条目，下一次 LateUpdate/Remove 重试。</summary>
-    private static void RemoveByKey(int goId)
+    /// <summary>
+    /// 释放凭据；瞬时失败（探测/写入抛错）保留条目，下一次 LateUpdate/Remove 重试。
+    /// reason 只进有界生命周期诊断（invalid/scale/plane/clear/remove），不改变归还语义。
+    /// </summary>
+    private static void RemoveByKey(int goId, string reason)
     {
         if (!_visuals.TryGetValue(goId, out VisualState state)) return;
         if (!TryReleaseNative(state)) return;
@@ -422,7 +523,9 @@ internal static class HeroArcherVisuals
         state.Own = null;
         state.Native = null;
         state.ShotPending = false;
+        state.VisitAction = HeroArcherNativeAction.Unknown;
         state.Ref = null;
+        LogLife("detach actor=" + goId + " reason=" + reason);
     }
 
     /// <summary>
@@ -585,7 +688,29 @@ internal static class HeroArcherVisuals
         SpriteRenderer own = state.Own;
         if (native == null || own == null) return;
 
-        HeroArcherNativePoseSample sample = HeroArcherNativeSampler.Sample(ReadAnimator(state.Ref));
+        HeroArcherNativeAction previousAction = state.LastAction;
+        float previousNt = state.LastNt;
+        HeroArcherNativePoseSample sample = HeroArcherNativeSampler.Sample(ReadAnimator(state.Ref), state.ActiveWindow);
+        // 诊断载荷（不参与渲染决策）：本帧 clip 长度 / clip 时间 / 相位（Prepare 归一窗口与访问证据）。
+        state.LastClipLength = sample.ClipLength;
+        float clipTime = sample.NormalizedTime * sample.ClipLength;
+        state.LastClipTime = float.IsFinite(clipTime) ? clipTime : 0f;
+        state.LastNt = sample.NormalizedTime;
+        state.LastNativeFrame = sample.Frame;
+        // 同状态回绕：Prepare 相位倒退（换皮/重置重建同一状态）→ 视作新一次拉弓。
+        state.PrepareRestarted = sample.Action == HeroArcherNativeAction.Prepare
+            && previousAction == HeroArcherNativeAction.Prepare
+            && float.IsFinite(previousNt) && float.IsFinite(sample.NormalizedTime)
+            && sample.NormalizedTime < previousNt - PrepareRollbackEpsilon;
+        if (sample.Action == HeroArcherNativeAction.Prepare
+            && (previousAction != HeroArcherNativeAction.Prepare || state.PrepareRestarted))
+        {
+            state.ActiveWindow = state.PendingWindow;
+            sample = new HeroArcherNativePoseSample(sample.Action, sample.StateHash, sample.NormalizedTime,
+                sample.ClipLength, HeroArcherNativePose.FrameFor(sample.Action, sample.NormalizedTime,
+                    sample.ClipLength, state.ActiveWindow), sample.Fallback);
+            state.LastNativeFrame = sample.Frame;
+        }
         bool nativeEnabled;
         bool nativeForceOff;
         try
@@ -597,6 +722,10 @@ internal static class HeroArcherVisuals
         {
             return;   // 原生 renderer 不可读：本帧完全不动（保留上次帧/可见性/凭据），下一帧重试
         }
+
+        // 事件锚定的释放表现：只在允许的动作上覆盖自有帧（Walk/Run/Shoot/Unknown/新 Prepare 立即取消）。
+        UpdateRelease(state, in sample, previousAction);
+        int frame = state.ReleaseActive ? ReleaseFrameFor(state.ReleaseElapsed) : sample.Frame;
 
         // 「原生不可见」= 原生 renderer 被关，或被**第三方** forceRenderingOff。
         // 我们自己写下的隐藏（state.HidNative）不算原生不可见，否则会把自己也一起藏掉。
@@ -625,10 +754,10 @@ internal static class HeroArcherVisuals
         {
             try
             {
-                if (state.LastFrame != sample.Frame || state.LastAction != sample.Action)
+                if (state.LastFrame != frame || state.LastAction != sample.Action)
                 {
-                    Sprite sprite = _sprites != null && sample.Frame >= 0 && sample.Frame < _sprites.Length
-                        ? _sprites[sample.Frame]
+                    Sprite sprite = _sprites != null && frame >= 0 && frame < _sprites.Length
+                        ? _sprites[frame]
                         : null;
                     if (sprite == null)
                     {
@@ -638,7 +767,7 @@ internal static class HeroArcherVisuals
                     else
                     {
                         own.sprite = sprite;   // 先有 sprite 才允许可见：绝不留「可见但空帧」的半个对象
-                        state.LastFrame = sample.Frame;
+                        state.LastFrame = frame;
                         state.LastAction = sample.Action;
                     }
                 }
@@ -675,16 +804,17 @@ internal static class HeroArcherVisuals
         state.NativeStateHash = sample.StateHash;
         state.NativeNormalizedTime = sample.NormalizedTime;
         state.LastFallback = reason;
-        ReportNativeEvent(state, in sample, !nativeHidden, nativeForceOff, show, source);
+        ReportNativeEvent(state, in sample, frame, !nativeHidden, nativeForceOff, show, source);
     }
 
     /// <summary>
     /// 有界诊断（全局 ≤120 行；按 actor 的转场/可见性/原因变化记一行，非逐帧）：
-    /// 时间/帧号/来源 phase/actor/life/native state hash/相位/pose 帧/原生可用性+隐藏位/自有可见性/
-    /// 挂起原因/放箭标记。日志失败由 Log 吞掉，绝不影响渲染；每 actor 只占固定去重槽，不随 actor 数增长。
+    /// 时间/帧号/来源 phase/actor/life/native state hash/相位/clip 长度与 clip 时间/显示帧与原生帧/
+    /// 有效窗口/朝向证据/世界 y/原生可用性+隐藏位/自有可见性/挂起原因/放箭标记。
+    /// 日志失败由 Log 吞掉，绝不影响渲染；每 actor 只占固定去重槽，不随 actor 数增长。
     /// </summary>
     private static void ReportNativeEvent(VisualState state, in HeroArcherNativePoseSample sample,
-        bool nativeVisible, bool nativeForceOff, bool heroVisible, string source)
+        int displayFrame, bool nativeVisible, bool nativeForceOff, bool heroVisible, string source)
     {
         if (_events.Exhausted) return;
         HeroArcherNativeEventKey key = new HeroArcherNativeEventKey(
@@ -694,10 +824,177 @@ internal static class HeroArcherVisuals
         state.ShotPending = false;
         Log("[HeroArcherNative] t=" + Now().ToString("F3") + " frame=" + FrameCount() + " src=" + source
             + " actor=" + state.GoId + " life=" + state.Life + " hash=" + sample.StateHash
-            + " nt=" + FormatPhase(sample.NormalizedTime) + " pose=" + sample.Frame
+            + " nt=" + FormatPhase(sample.NormalizedTime) + " len=" + FormatPhase(sample.ClipLength)
+            + " ct=" + FormatPhase(state.LastClipTime) + " pose=" + displayFrame + " nat=" + sample.Frame
+            + " win=" + state.ActiveWindow.ToString("F3")
             + " native=" + (nativeVisible ? 1 : 0) + " forceoff=" + (nativeForceOff ? 1 : 0)
             + " hero=" + (heroVisible ? 1 : 0)
-            + " reason=" + state.LastFallback + (shot ? " shot=1" : ""));
+            + " reason=" + state.LastFallback
+            + " y=" + NativeWorldY(state) + " face=" + FacingEvidence(state)
+            + (shot ? " shot=1" : ""));
+    }
+
+    /// <summary>
+    /// 朝向证据（诊断，只读）：原生父链世界 x 缩放符号 / 自有 renderer 世界 x 缩放符号 / 原生 flipX。
+    /// 自有 sprite 是原生 renderer 的子物体且逐帧复制 flipX，两者符号必须一致；不一致即真实回归。
+    /// </summary>
+    private static string FacingEvidence(VisualState state)
+    {
+        try
+        {
+            Transform anchor = state.Root != null ? state.Root.transform.parent : null;
+            float rootLossy = anchor != null ? anchor.lossyScale.x : 0f;
+            float ownLossy = state.Own != null ? state.Own.transform.lossyScale.x : 0f;
+            bool flip = state.Native != null && state.Native.flipX;
+            return SignOf(rootLossy) + "/" + SignOf(ownLossy) + (flip ? "f1" : "f0");
+        }
+        catch (Exception)
+        {
+            return "?";
+        }
+    }
+
+    /// <summary>原生 renderer 的世界 y（诊断：墙位/塔位与地面高度差异的证据）。</summary>
+    private static string NativeWorldY(VisualState state)
+    {
+        try
+        {
+            return state.Native != null ? state.Native.transform.position.y.ToString("F2") : "?";
+        }
+        catch (Exception)
+        {
+            return "?";
+        }
+    }
+
+    private static string SignOf(float value)
+        => !float.IsFinite(value) ? "?" : (value < 0f ? "-1" : "1");
+
+    // ---- 单次动作访问跟踪（Prepare/Shoot，**只做诊断**）--------------------------------
+    // 原诊断只在转场瞬间记一行，无法证明「短状态内相位是否在推进」（nt=0.000 只是转场那一刻）。
+    // 本跟踪在访问期间累计时长、clip 时间峰值、帧区间与放箭时刻，动作结束时写一行
+    // （事件触发；自 Clear 起 ≤60 行）。这些数字**不参与任何计时**：Prepare 窗口只来自
+    // operator 桥的 RecordPrepareWindow（原生同一步读到的临时 shootPrepTime），
+    // 释放表现只来自真实放箭事件 + 0.18s 有界呈现时长。
+
+    /// <summary>Prepare 同状态回绕判定阈值（normalizedTime 递减超过该值 = 状态重启）。</summary>
+    private const float PrepareRollbackEpsilon = 0.0005f;
+
+    /// <summary>
+    /// 每帧一次（TickPresentation 顶部，本帧原生采样之后）：动作进入/同状态回绕 → 结算上一个访问、
+    /// 从 pending 锁定 Prepare 窗口；Prepare/Shoot 访问期间累计时长、clip 时间峰值与帧区间。
+    /// **只做诊断证据**：访问时长不参与任何计时或姿势决策（窗口只来自 operator 桥的 RecordPrepareWindow）。
+    /// </summary>
+    private static void TrackNativeVisit(VisualState state, float dt)
+    {
+        HeroArcherNativeAction action = state.LastAction;
+        bool entered = action != state.VisitAction;
+        bool rolledBack = state.PrepareRestarted
+            && action == HeroArcherNativeAction.Prepare
+            && state.VisitAction == HeroArcherNativeAction.Prepare;
+        if (entered || rolledBack)
+        {
+            CloseVisit(state, action);
+            if (action == HeroArcherNativeAction.Prepare || action == HeroArcherNativeAction.Shoot)
+            {
+                state.VisitAction = action;
+                state.VisitElapsed = 0f;
+                state.VisitMaxClipTime = 0f;
+                state.VisitMinFrame = int.MaxValue;
+                state.VisitMaxFrame = -1;
+                state.VisitShotCount = 0;
+                state.VisitShotCtMax = 0f;
+            }
+        }
+        if (state.VisitAction == HeroArcherNativeAction.Unknown) return;
+        if (dt > 0f) state.VisitElapsed += dt;
+        if (state.LastClipTime > state.VisitMaxClipTime) state.VisitMaxClipTime = state.LastClipTime;
+        if (state.LastNativeFrame >= 0)
+        {
+            if (state.LastNativeFrame < state.VisitMinFrame) state.VisitMinFrame = state.LastNativeFrame;
+            if (state.LastNativeFrame > state.VisitMaxFrame) state.VisitMaxFrame = state.LastNativeFrame;
+        }
+    }
+
+    /// <summary>
+    /// 结算访问（**只写诊断行**）：时长/帧区间/clip 时间峰值/放箭计数与放箭时刻/当前有效窗口/下一个动作。
+    /// 放箭证据归属「事件发生时打开的那个访问」，不会被随后开启的新访问吞掉；
+    /// 访问时长包含放箭后的状态尾巴，因此它只是证据，不是 Prepare 窗口（窗口见 RecordPrepareWindow）。
+    /// </summary>
+    private static void CloseVisit(VisualState state, HeroArcherNativeAction next)
+    {
+        if (state.VisitAction == HeroArcherNativeAction.Unknown) return;
+        HeroArcherNativeAction action = state.VisitAction;
+        state.VisitAction = HeroArcherNativeAction.Unknown;
+        if (_visitLines >= VisitLogCapacity) return;
+        _visitLines++;
+        string frames = state.VisitMaxFrame >= 0 && state.VisitMinFrame <= state.VisitMaxFrame
+            ? state.VisitMinFrame + "-" + state.VisitMaxFrame
+            : "-";
+        Log("[HeroArcherPoseVisit] t=" + Now().ToString("F3") + " frame=" + FrameCount()
+            + " actor=" + state.GoId + " action=" + action
+            + " dur=" + state.VisitElapsed.ToString("F3")
+            + " ctMax=" + FormatPhase(state.VisitMaxClipTime) + "/" + FormatPhase(state.LastClipLength)
+            + " frames=" + frames
+            + " win=" + state.ActiveWindow.ToString("F3")
+            + " next=" + next
+            + (state.VisitShotCount > 0
+                ? " shots=" + state.VisitShotCount + "@" + FormatPhase(state.VisitShotCtMax)
+                : ""));
+    }
+
+    /// <summary>
+    /// 事件锚定的释放表现：只在允许的原生动作上覆盖自有帧，其他情况立即取消。
+    /// - 取消：Walk/Run（不冻结移动）、Shoot（原生自己就播 26..30，优先原生）、Unknown（含停用/非法/回退）、
+    ///   新的 Prepare 进入（新一次拉弓接管），以及时长走完（0.18s 有界）。
+    /// - 保留：Prepare 尾巴（放箭当帧原生可能还没切状态）与 Stand（perfect 弹跳过 Shoot 时的落点）。
+    /// 不写 Animator、不动位置/朝向、不驱动 locomotion；两个英雄各自独立。
+    /// </summary>
+    private static void UpdateRelease(VisualState state, in HeroArcherNativePoseSample sample,
+        HeroArcherNativeAction previousAction)
+    {
+        if (!state.ReleaseActive) return;
+        bool cancel = sample.Action == HeroArcherNativeAction.Unknown
+            || sample.Action == HeroArcherNativeAction.Shoot
+            || sample.Action == HeroArcherNativeAction.Walk
+            || sample.Action == HeroArcherNativeAction.Run
+            || (sample.Action == HeroArcherNativeAction.Prepare
+                && (sample.Action != previousAction || state.PrepareRestarted));   // 新一次拉弓（含同状态回绕）
+        if (cancel)
+        {
+            state.ReleaseActive = false;
+            return;
+        }
+        if (state.ReleaseFirstFrame)
+        {
+            state.ReleaseFirstFrame = false;
+            return; // Show the release key pose before advancing, including slow frames.
+        }
+        float dt = Time.deltaTime;   // 只用游戏时间：暂停(dt=0)时释放表现一起冻结
+        if (dt <= 0f) return;
+        state.ReleaseElapsed += dt;
+        if (state.ReleaseElapsed >= ReleasePresentationSeconds) state.ReleaseActive = false;
+    }
+
+    /// <summary>释放表现帧：0.18s 内从 26（拉满）走到 30（收势），越界钳制、非法输入取首帧。</summary>
+    internal static int ReleaseFrameFor(float elapsedSeconds)
+    {
+        int index = 0;
+        if (float.IsFinite(elapsedSeconds) && elapsedSeconds > 0f)
+        {
+            index = (int)(elapsedSeconds / ReleasePresentationSeconds * HeroArcherNativePose.ShootFrameCount);
+            if (index >= HeroArcherNativePose.ShootFrameCount) index = HeroArcherNativePose.ShootFrameCount - 1;
+            if (index < 0) index = 0;
+        }
+        return HeroArcherNativePose.ShootFirstFrame + index;
+    }
+
+    /// <summary>有界生命周期诊断（≤60 行/自 Clear 起）：attach/detach 配对暴露身份抖动导致的重建节奏。</summary>
+    private static void LogLife(string message)
+    {
+        if (_lifeLines >= LifeLogCapacity) return;
+        _lifeLines++;
+        Log("[HeroArcherVisualLife] t=" + Now().ToString("F3") + " frame=" + FrameCount() + " " + message);
     }
 
     private static string FormatPhase(float value)

@@ -50,10 +50,11 @@ public class KingdomEnhancedPlugin :
         {
             Instance = this;
             // 手动构建戳：日志里区分不同部署（改完记得更新）
-            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=8.0.0 loading...");
+            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=9.0.0 loading...");
 
             // 配置（BepInConfig，替代 UMM Settings）
             ModConfig.Init(Config);
+            PatchArcher_Options.PrepareWindowObserver = HeroArcherVisuals.RecordPrepareWindow;
 
             // 全程序集 [HarmonyPatch] 自动注册
             var harmony = new HarmonyLib.Harmony(MyPluginInfo.PLUGIN_GUID);

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 火铳铺性能回归：把生产文件 MusketeerShopAssets.cs（缓存状态策略）原样编译进来，
+       纯值语义、无 Unity 依赖。支付路径「只读不发现」的契约、世界/池重建失效、
+       缓存不可用先拒绝付款、以及有界重试都在这里被断言。
+       真实 2.4 interop 的成员形状核对在 actual-interop/（引用 E 盘 interop 编译，不运行）。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>MusketeerShopPerfTests</AssemblyName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/MusketeerShopAssets.cs" Link="Production/MusketeerShopAssets.cs" />
+    <Compile Remove="actual-interop/**" />
+  </ItemGroup>
+
+</Project>

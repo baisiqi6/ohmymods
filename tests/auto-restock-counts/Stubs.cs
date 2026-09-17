@@ -257,3 +257,6 @@ public static class Fabric
 }
 
 namespace KingdomEnhancedMod { internal static class PopulationCounts { internal static void NotifyRosterChanged() { } } }
+
+public class DroppableTool : Droppable { }
+namespace KingdomEnhancedMod { internal static class MusketeerIdentity { internal static event System.Action<Character> CareerChanged; internal static event System.Action<DroppableTool> GunChanged; internal static void NotifyGun(DroppableTool t) => GunChanged?.Invoke(t); internal static readonly System.Collections.Generic.HashSet<Archer> Units = new(); internal static readonly System.Collections.Generic.HashSet<DroppableTool> Guns = new(); internal static bool IsUnit(Archer a) => Units.Contains(a); internal static bool IsGun(DroppableTool t) => Guns.Contains(t); internal static void Notify(Character c) => CareerChanged?.Invoke(c); } }

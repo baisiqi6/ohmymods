@@ -9,7 +9,8 @@ namespace KingdomEnhancedMod
     /// 目标 = 现有职业人数 + 店内待领取道具 + 已预留尚未出货的订单；
     /// 角色 0..5 读取事件维护的 AutoRestockCounts 缓存（5=农夫，含存活农夫与 Scythe 店库存）；
     /// 角色 6=投石车油桶、7=火塔罐 读取 SiegeAmmoCounts 弹药缓存（全岛未用弹药）；
-    /// 两类计数各自就绪：弹药-only 时职业缓存不可用也不阻断弹药；
+    /// role 8=火枪手，独立读取本世界已绑定职业/枪具快照并使用显式枪铺银行入口。
+    /// 各类计数各自就绪：弹药-only 时职业缓存不可用也不阻断弹药；
     /// 复用税收官调度，无周期全角色扫描，订单最多2并发，每帧step最多处理2单。
     /// 经济commit只走 PatchEconomy_Banker.TrySpendForAutoRestock，随后
     /// 原生 Payable.TransactionComplete()（PerformPay→Pay/CreateItem/RollableOilBarrel…）。
@@ -29,7 +30,8 @@ namespace KingdomEnhancedMod
         private const int RoleFarmer = 5;           // 农夫（Scythe 店）
         private const int RoleCatapultBarrel = 6;   // 投石车油桶（PayableWorkshopBarrel）
         private const int RoleFireTowerAmmo = 7;    // 火塔罐（FireTower 上的 PayableComponent）
-        private const int RoleCount = 8;
+        private const int RoleMusketeer = 8;
+        private const int RoleCount = 9;
         private const int MaxOrders = 2;
         private const float ScanInterval = 2f;
         private const float StartDelay = 0.15f;
@@ -46,7 +48,7 @@ namespace KingdomEnhancedMod
         private const int AutoRestockCostMultiplier = 2;
 
         private static readonly string[] RoleNames =
-            { "工人", "弓箭手", "忍者", "狂战士", "无业村民", "农夫", "投石车油桶", "火塔罐" };
+            { "工人", "弓箭手", "忍者", "狂战士", "无业村民", "农夫", "投石车油桶", "火塔罐", "火枪手" };
 
         // Approach through FinalWait owns budget/incoming stock. Departing owns only
         // the assistant and shop slot: the debit already happened and is never retried.
@@ -97,6 +99,8 @@ namespace KingdomEnhancedMod
         private const int SummaryLogBudget = 24;
         private static bool _needsPlan = true;
         private static bool _countsReady;                   // 0..5：AutoRestockCounts 名册/店库存
+        private static bool _musketeerReady;
+        private static int _musketeerLive, _musketeerGuns;
         private static bool _ammoReady;                     // 6..7：SiegeAmmoCounts 弹药
         private static readonly int[] _roster = new int[RoleCount];
         private static readonly int[] _stock = new int[RoleCount];
@@ -111,7 +115,7 @@ namespace KingdomEnhancedMod
         {
             try
             {
-                if (!AnyRoleEnabled() && _orders.Count == 0 && !_countsReady && !_ammoReady) return;
+                if (!AnyRoleEnabled() && _orders.Count == 0 && !_countsReady && !_ammoReady && !_musketeerReady) return;
                 // 只有当前世界明确为希腊时才采购。其他世界/加载中一律停采购并释放
                 // 本地 reservation（不回家瞬移、不向旧 actor 发位置 RPC、不向任何
                 // 银行家扣款），并清掉旧订单摘要文字。
@@ -121,6 +125,7 @@ namespace KingdomEnhancedMod
                     AutoRestockCounts.Reset();
                     _countsReady = false;
                     _ammoReady = false;
+                    _musketeerReady = false;
                     ClearSummaryState();
                     return;
                 }
@@ -130,6 +135,7 @@ namespace KingdomEnhancedMod
                     AutoRestockCounts.Reset();
                     _countsReady = false;
                     _ammoReady = false;
+                    _musketeerReady = false;
                     return;
                 }
                 World world = managers?.world;
@@ -143,6 +149,7 @@ namespace KingdomEnhancedMod
                     Reset(true); AutoRestockCounts.Reset();
                     _countsReady = false;
                     _ammoReady = false;
+                    _musketeerReady = false;
                     for (int r = 0; r < RoleCount; r++) { _summary[r] = "已关闭"; _summaryKey[r] = null; }
                     return;
                 }
@@ -153,15 +160,17 @@ namespace KingdomEnhancedMod
                     // 两类计数各自独立就绪：弹药-only 时职业缓存即使不可用也不阻断弹药。
                     bool shopReady = ShopRolesEnabled() && AutoRestockCounts.Refresh(managers);
                     bool ammoReady = AmmoRolesEnabled() && RefreshedAmmo(managers, false);
+                    bool musketeerReady = RoleEnabled(RoleMusketeer) && RefreshMusketeers();
                     // 就绪翻转即重规划，摘要随该族真实状态刷新（不残留旧世界的达标文案）。
-                    if (shopReady != _countsReady || ammoReady != _ammoReady) _needsPlan = true;
+                    if (shopReady != _countsReady || ammoReady != _ammoReady || musketeerReady != _musketeerReady) _needsPlan = true;
                     _countsReady = shopReady;
                     _ammoReady = ammoReady;
+                    _musketeerReady = musketeerReady;
                     if (!AnyReady())
                     {
                         Reset(true);
                         for (int r = 0; r < RoleCount; r++)
-                        { _summary[r] = RoleEnabled(r) ? "计数初始化中" : "已关闭"; _summaryKey[r] = null; }
+                        { _summary[r] = !RoleEnabled(r) ? "已关闭" : r == RoleMusketeer && !ModConfig.MusketeerEnabled.Value ? "请先开启火铳铺" : r == RoleMusketeer && NetworkBigBoss.IsOnline ? "火枪补货仅单机可用" : r == RoleMusketeer ? "火枪人数或身份尚未确认" : "计数初始化中"; _summaryKey[r] = null; }
                         return;
                     }
                 }
@@ -200,6 +209,7 @@ namespace KingdomEnhancedMod
                 Reset(true);
                 _countsReady = false;
                 _ammoReady = false;
+                    _musketeerReady = false;
                 if (!_faultLoggedWorld)
                 {
                     _faultLoggedWorld = true;
@@ -268,10 +278,20 @@ namespace KingdomEnhancedMod
         private static bool AmmoRolesEnabled()
             => RoleEnabled(RoleCatapultBarrel) || RoleEnabled(RoleFireTowerAmmo);
 
-        private static bool RoleReady(int role) => ShopRole(role) ? _countsReady : _ammoReady;
+        private static bool RoleReady(int role) => role == RoleMusketeer ? _musketeerReady : ShopRole(role) ? _countsReady : _ammoReady;
+
+        private static bool RefreshMusketeers()
+        {
+            bool ready = MusketeerIdentity.TryGetRestockCounts(out int live, out int guns);
+            if (ready != _musketeerReady || (ready && (live != _musketeerLive || guns != _musketeerGuns))) _needsPlan = true;
+            _musketeerLive = live; _musketeerGuns = guns;
+            _musketeerReady = ready;
+            return ready;
+        }
 
         private static bool AnyReady()
-            => (ShopRolesEnabled() && _countsReady) || (AmmoRolesEnabled() && _ammoReady);
+            => (ShopRolesEnabled() && _countsReady) || (AmmoRolesEnabled() && _ammoReady)
+                || (RoleEnabled(RoleMusketeer) && _musketeerReady);
 
         /// <summary>刷新弹药快照：失败或客机/未就绪一律视为不可用，绝不兜底成低计数。</summary>
         private static bool RefreshedAmmo(Managers managers, bool force)
@@ -282,7 +302,7 @@ namespace KingdomEnhancedMod
 
         /// <summary>按角色族刷新计数快照；force 只用于弹药的最终 commit。</summary>
         private static bool RefreshRoleCounts(int role, bool force)
-            => ShopRole(role)
+            => role == RoleMusketeer ? RefreshMusketeers() : ShopRole(role)
                 ? AutoRestockCounts.Refresh(Managers.Inst)
                 : RefreshedAmmo(Managers.Inst, force);
 
@@ -298,6 +318,7 @@ namespace KingdomEnhancedMod
                 case RoleFarmer: return ModConfig.AutoRestockFarmersEnabled.Value;
                 case RoleCatapultBarrel: return ModConfig.AutoRestockCatapultBarrelsEnabled.Value;
                 case RoleFireTowerAmmo: return ModConfig.AutoRestockFireTowerAmmoEnabled.Value;
+                case RoleMusketeer: return ModConfig.AutoRestockMusketeersEnabled.Value;
                 default: return false;
             }
         }
@@ -314,6 +335,7 @@ namespace KingdomEnhancedMod
                 case RoleFarmer: return ModConfig.AutoRestockFarmersTarget.Value;
                 case RoleCatapultBarrel: return ModConfig.AutoRestockCatapultBarrelsTarget.Value;
                 case RoleFireTowerAmmo: return ModConfig.AutoRestockFireTowerAmmoTarget.Value;
+                case RoleMusketeer: return ModConfig.AutoRestockMusketeersTarget.Value;
                 default: return 0;
             }
         }
@@ -342,6 +364,7 @@ namespace KingdomEnhancedMod
             AutoRestockCounts.Reset();
             _countsReady = false;
             _ammoReady = false;
+            _musketeerReady = false;
             _layerPtr = world.gameLayer.Pointer;
             _faultedTargets.Clear();
             Array.Clear(_retryAfter, 0, RoleCount);
@@ -389,6 +412,15 @@ namespace KingdomEnhancedMod
                 // Already satisfied roles require no target queries.
                 if (ExistingCoverage(role) >= RoleTarget(role)) continue;
                 if (ShopRole(role)) CollectShopTargets(managers, role, output);
+                else if (role == RoleMusketeer)
+                {
+                    if (MusketeerShop.TryGetAutoRestockTarget(out var target))
+                    {
+                        var go = target.gameObject;
+                        output.Add(new ShopSnapshot { GO = go, Ptr = go.Pointer,
+                            InstanceId = go.GetInstanceID(), Target = target, Role = role, Price = MusketeerShop.Price });
+                    }
+                }
                 else CollectAmmoTargets(managers, role, output);
             }
         }
@@ -445,14 +477,14 @@ namespace KingdomEnhancedMod
 
         /// <summary>实时可用量：0..5 活体+待领+招募中；6..7 全岛未用弹药。</summary>
         private static int ExistingCoverage(int role)
-            => ShopRole(role)
+            => role == RoleMusketeer ? _musketeerLive + _musketeerGuns : ShopRole(role)
                 ? AutoRestockCounts.LiveCount(role) + AutoRestockCounts.StockCount(role)
                     + AutoRestockCounts.IncomingCount(role)
                 : SiegeAmmoCounts.Count(role);
 
         /// <summary>本 tick 快照可用量（摘要/规划用，不读原生）。</summary>
         private static int SnapshotCoverage(int role)
-            => ShopRole(role) ? _roster[role] + _stock[role] + _incoming[role] : _ammo[role];
+            => (ShopRole(role) || role == RoleMusketeer) ? _roster[role] + _stock[role] + _incoming[role] : _ammo[role];
 
         // 同一门控评估，可选输出真实阻塞原因；门控顺序与含义保持不变。
         // 真店（0..5）保留 slots/_items/maxItems 与对象池门；弹药（6..7）只走
@@ -469,8 +501,8 @@ namespace KingdomEnhancedMod
             if (shop != null && !shop.enabled) return false;
             var world = Managers.Inst?.world;
             if (world?.gameLayer == null || !s.GO.transform.IsChildOf(world.gameLayer)) return false;
-            if (shop != null ? AutoRestockCounts.ClassifyShop(shop) != s.Role
-                             : SiegeAmmoCounts.Classify(payable) != s.Role) return false;
+            if (s.Role != RoleMusketeer && (shop != null ? AutoRestockCounts.ClassifyShop(shop) != s.Role
+                             : SiegeAmmoCounts.Classify(payable) != s.Role)) return false;
             reason = "店铺故障";
             if (_faultedTargets.TryGetValue(s.Ptr, out int faultId) && faultId == s.InstanceId) return false;
             if (shop != null)
@@ -523,6 +555,7 @@ namespace KingdomEnhancedMod
             }
             if (s.Role == RoleFireTowerAmmo && !FireTowerRestockCapacity.CanPurchase(payable, out reason))
                 return false;
+            if (s.Role == RoleMusketeer) return MusketeerShop.CanAutoRestock(payable, out reason);
             reason = "原生付款暂不可用";
             return payable.CanPay(null);
         }
@@ -736,6 +769,25 @@ namespace KingdomEnhancedMod
                 return;
             }
             int price = o.TotalCost;
+            if (o.Role == RoleMusketeer)
+            {
+                var result = MusketeerShop.PurchaseForAutoRestock(o.Target, banker, () =>
+                {
+                    o.Phase = Phase.Departing;
+                    o.MovementElapsed = 0f;
+                    _needsPlan = true;
+                }, out string reason);
+                if (result == MusketeerShop.AutoPurchaseResult.Rejected)
+                { CancelOrder(orderIndex, reason); return; }
+                // Even an exception in the paid callback cannot leave this order chargeable.
+                o.Phase = Phase.Departing;
+                o.MovementElapsed = 0f;
+                _needsPlan = true;
+                if (result == MusketeerShop.AutoPurchaseResult.PaidUncertain)
+                    MarkFault(o, new InvalidOperationException("paid gun shipment unconfirmed: " + reason));
+                else RefreshMusketeers();
+                return;
+            }
             // 唯一经济commit：原子扣款，同步ledger/Castle/Stats。
             if (!PatchEconomy_Banker.TrySpendForAutoRestock(banker, price))
             {
@@ -851,7 +903,11 @@ namespace KingdomEnhancedMod
         {
             for (int r = 0; r < RoleCount; r++)
             {
-                if (ShopRole(r))
+                if (r == RoleMusketeer)
+                {
+                    _roster[r] = _musketeerLive; _stock[r] = _musketeerGuns; _incoming[r] = 0;
+                }
+                else if (ShopRole(r))
                 {
                     _roster[r] = AutoRestockCounts.LiveCount(r);
                     _stock[r] = AutoRestockCounts.StockCount(r);
@@ -895,7 +951,7 @@ namespace KingdomEnhancedMod
                 if (_orders.Count >= MaxOrders) { _blockReason[role] = "订单已满"; continue; }
                 if (Time.time < _retryAfter[role]) { _blockReason[role] = "冷却中"; continue; }
                 if (!NetworkReady()) { _blockReason[role] = "网络未就绪"; continue; }
-                bool ammo = !ShopRole(role);
+                bool ammo = AmmoRole(role);
                 ShopSnapshot best = null;
                 string bestReason = null;
                 foreach (ShopSnapshot s in _candidateCache)
@@ -1046,13 +1102,15 @@ namespace KingdomEnhancedMod
             {
                 string text, status;
                 if (!RoleEnabled(r)) { text = "已关闭"; status = text; }
-                else if (!RoleReady(r)) { text = "计数初始化中"; status = text; }
+                else if (r == RoleMusketeer && !ModConfig.MusketeerEnabled.Value) { text = "请先开启火铳铺"; status = text; }
+                else if (r == RoleMusketeer && NetworkBigBoss.IsOnline) { text = "火枪补货仅单机可用"; status = text; }
+                else if (!RoleReady(r)) { text = r == RoleMusketeer ? "火枪人数或身份尚未确认" : "计数初始化中"; status = text; }
                 else
                 {
                     string head;
                     if (r == RolePeasant)
                         head = "现有 " + _roster[r] + " · 面包 " + _stock[r] + " · 招募中 " + _incoming[r] + " · 采购 " + reserved[r];
-                    else if (ShopRole(r))
+                    else if (ShopRole(r) || r == RoleMusketeer)
                         head = "现有 " + _roster[r] + " · 待领 " + _stock[r] + " · 采购 " + reserved[r];
                     else
                         head = "弹药 " + _ammo[r] + " · 采购 " + reserved[r];

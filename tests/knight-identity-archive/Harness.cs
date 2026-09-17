@@ -151,7 +151,12 @@ namespace KnightIdentityArchiveTests
 
         internal static KnightIdentitySnapshot Snapshot(string hash, DateTimeOffset savedAt, KnightIdentitySnapshotEntry[] entries)
         {
-            if (!KnightIdentitySnapshot.TryCreate(hash, savedAt, entries, out KnightIdentitySnapshot snapshot, out string error))
+            return Snapshot(KnightIdentityFingerprint.KindLegacy, hash, savedAt, entries);
+        }
+
+        internal static KnightIdentitySnapshot Snapshot(int kind, string hash, DateTimeOffset savedAt, KnightIdentitySnapshotEntry[] entries)
+        {
+            if (!KnightIdentitySnapshot.TryCreate(kind, hash, savedAt, entries, out KnightIdentitySnapshot snapshot, out string error))
             {
                 throw new Exception("snapshot build failed: " + error);
             }

@@ -91,11 +91,28 @@ public class Managers
 }
 namespace KingdomEnhancedMod
 {
+ // Contract double for the existing registry query; production identity tests own its lifecycle.
+ public static class MusketeerIdentity
+ {
+  static readonly Dictionary<Archer,World> bound=new();
+  public static bool Ready=true,Online;
+  public static int Reads;
+  public static void Reset(){bound.Clear();Ready=true;Online=false;Reads=0;}
+  public static void Bind(Archer actor)=>bound[actor]=Managers.Inst.world;
+  public static void Unbind(Archer actor)=>bound.Remove(actor);
+  public static bool IsUnit(Archer actor)
+  {
+   Reads++;
+   return Ready&&!Online&&NetworkBigBoss.HasWorldAuth&&actor!=null
+    &&bound.TryGetValue(actor,out var world)&&ReferenceEquals(world,Managers.Inst.world);
+  }
+ }
  public static class ModConfig
  {
   public class Flag {public bool Value=true;}
   public static Flag Enabled=new(),ShowPopulationHud=new(),AutoRestockWorkersEnabled=new(){Value=false};
   public static Flag AutoRestockCatapultBarrelsEnabled=new(){Value=false},AutoRestockFireTowerAmmoEnabled=new(){Value=false};
+  public static Flag MusketeerShopEnabled=new(){Value=false};
  }
  public static class PatchRoles_KnightStyle
  {

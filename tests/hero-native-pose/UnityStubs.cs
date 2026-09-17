@@ -9,16 +9,18 @@ using System;
 
 namespace UnityEngine
 {
-    /// <summary>AnimatorStateInfo 替身：只保留桥读取的两个字段。</summary>
+    /// <summary>AnimatorStateInfo 替身：只保留桥读取的三个字段（length = 当前 clip 长度，秒）。</summary>
     public struct AnimatorStateInfo
     {
         public int shortNameHash;
         public float normalizedTime;
+        public float length;
 
-        public AnimatorStateInfo(int shortNameHash, float normalizedTime)
+        public AnimatorStateInfo(int shortNameHash, float normalizedTime, float length = 0f)
         {
             this.shortNameHash = shortNameHash;
             this.normalizedTime = normalizedTime;
+            this.length = length;
         }
     }
 

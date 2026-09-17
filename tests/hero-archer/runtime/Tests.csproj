@@ -13,8 +13,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../../il2cpp/HeroArcherRuntime.cs" />
+    <Compile Include="../../../il2cpp/HeroArcherMovement.cs" />
     <Compile Include="../../../il2cpp/HeroArcherNetwork.cs" />
     <Compile Include="Stubs.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="RecruitmentBoundary.cs" />
   </ItemGroup>
-<ItemGroup><Compile Include="RangeBoundary.cs" /></ItemGroup></Project>
+<ItemGroup><Compile Include="RangeBoundary.cs" /></ItemGroup><ItemGroup><Compile Include="../../musketeer-boundary/MusketeerIdentityStub.cs" /></ItemGroup></Project>

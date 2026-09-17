@@ -975,6 +975,7 @@ internal static class Program
         foreach ((string name, Action a) in tests) Test.Run(name, a);
         Additional.Run();
         BreadTests.Run();
+        MusketeerCountsTests.Run();
         Console.WriteLine($"TOTAL pass={Test.Pass} fail={Test.Fail} of {Test.Pass+Test.Fail}");
         return Test.Fail == 0 ? 0 : 1;
     }

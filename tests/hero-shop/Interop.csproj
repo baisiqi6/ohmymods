@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><LangVersion>latest</LangVersion><EnableDefaultCompileItems>false</EnableDefaultCompileItems><AssemblyName>HeroShop.Interop</AssemblyName></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../il2cpp/HeroShop.cs"/><Compile Include="InteropStubs.cs"/>
+    <Compile Include="../../il2cpp/HeroShopBannerVisuals.cs"/>
+    <Reference Include="E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/BepInEx/interop/*.dll"><Private>false</Private></Reference>
+    <Reference Include="E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/BepInEx/core/Il2CppInterop.Runtime.dll"><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

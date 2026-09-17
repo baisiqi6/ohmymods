@@ -6,7 +6,7 @@ using Xunit;
 namespace KingdomArcherOptions.Combat.Tests
 {
     /// <summary>
-    /// 英雄 1.25 射程：私有 SO 克隆（只放两个 magnitude）、活跃指针/火矢 buff 切换、
+    /// 英雄 2 倍射程：私有 SO 克隆（只放两个 magnitude）、活跃指针/火矢 buff 切换、
     /// CAS 归还（第三方改动不覆盖）、扫描器镜像与归还、上限 2 名、失败必须上报 false。
     /// 弹道数学与原生一致（Range = force²/-gravity），不在这里声称实机命中已验证。
     /// </summary>
@@ -71,7 +71,7 @@ namespace KingdomArcherOptions.Combat.Tests
             Assert.True(HeroArcherRange.Apply(archer));
 
             Assert.Same(first, archer._arrowAttack);                                // 不换克隆
-            Assert.Equal(scaled, archer._arrowAttack._shotMagnitude, 4);            // 不二次 ×1.118
+            Assert.Equal(scaled, archer._arrowAttack._shotMagnitude, 4);            // 不二次 ×1.414
             Assert.Equal(1, HeroArcherRange.AppliedCount);
         }
 
@@ -145,10 +145,10 @@ namespace KingdomArcherOptions.Combat.Tests
             Assert.Equal(8f, scanner.range, 4);
             Assert.Equal(8f, scanner.rangeBehind, 4);
 
-            archer.shootRange = 10f;                                                // runtime 的 ×1.25 生效后
+            archer.shootRange = 16f;                                                // runtime 的 ×2 生效后
             HeroArcherRange.Tick(archer);
-            Assert.Equal(10f, scanner.range, 4);
-            Assert.Equal(10f, scanner.rangeBehind, 4);
+            Assert.Equal(16f, scanner.range, 4);
+            Assert.Equal(16f, scanner.rangeBehind, 4);
 
             scanner.range = 7f;                                                     // 第三方改写这一个字段
             HeroArcherRange.Restore(archer);
@@ -444,11 +444,11 @@ namespace KingdomArcherOptions.Combat.Tests
         }
 
         [Fact]
-        public void ScaledRange_ExtendsTheNativeEnvelopeByExactlyOnePointTwoFive()
+        public void ScaledRange_ExtendsTheNativeEnvelopeByExactlyTheHeroFactor()
         {
             float baseRange = 12f * 12f / 30f;                                      // Util.GetProjectileRange(12, -30)
             Assert.Equal(4.8f, baseRange, 4);
-            Assert.Equal(baseRange * 1.25f, HeroArcherRange.ScaledRange(12f, -30f), 3);
+            Assert.Equal(baseRange * HeroArcherRange.RangeFactor, HeroArcherRange.ScaledRange(12f, -30f), 3);
 
             // 原生 BestShotInternal 末尾 ClampMagnitude(solution, magnitude)：目标 5.5 需要 v=sqrt(5.5*30)。
             float required = Mathf.Sqrt(5.5f * 30f);

@@ -192,6 +192,7 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
         _worldPointer = world.Pointer;
         _sceneRootPointer = sceneRoot.Pointer;
         _generation++;
+        PopulationGrounding.Begin(world, sceneRoot, _generation);
         _phase = Phase.Waiting;
         _stableAt = Time.time + StableDelay;
         _nextReconcileAt = Time.time;
@@ -377,6 +378,7 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
                 int instanceId = beggar.gameObject.GetInstanceID();
                 int netId = GetBeggarNetId(beggar);
                 int epoch = GetBeggarEpoch(pointer);
+                bool firstObserved = false;
                 if (!Owners.TryGetValue(pointer, out Ownership owner)
                     || owner.InstanceId != instanceId
                     || owner.Epoch != epoch
@@ -392,6 +394,7 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
                         Epoch = epoch
                     };
                     Owners[pointer] = owner;
+                    firstObserved = true;
                 }
 
                 owner.Beggar = beggar;
@@ -405,6 +408,7 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
                     owner.Camp = FindNearestCamp(beggar);
                 }
                 if (owner.Camp != null) owner.Camp.Owned++;
+                PopulationGrounding.Observe(beggar, owner.Camp?.Profile?.Camp, epoch, firstObserved);
             }
         }
 
@@ -556,6 +560,7 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
         };
         state.Owned++;
         state.LastOwned = state.Owned;
+        PopulationGrounding.Observe(added, camp, GetBeggarEpoch(added.Pointer), false, true);
     }
 
     private static bool HasSyncedBeggarPool()
@@ -697,6 +702,7 @@ public sealed class PopulationPerformanceCoordinator : MonoBehaviour
 
     private static void ClearRuntimeState(Phase phase)
     {
+        PopulationGrounding.Reset();
         _phase = phase;
         Camps.Clear();
         Owners.Clear();

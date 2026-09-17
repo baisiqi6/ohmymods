@@ -23,6 +23,7 @@
     <Compile Include="../../il2cpp/KnightIdentityLoadSeed.cs" Link="Production/KnightIdentityLoadSeed.cs" />
     <Compile Include="../../il2cpp/KnightIdentityRuntime.cs" Link="Production/KnightIdentityRuntime.cs" />
     <Compile Include="../../il2cpp/KnightIdentityArchive.cs" Link="Production/KnightIdentityArchive.cs" />
+    <Compile Include="../../il2cpp/KnightIdentityContext.cs" Link="Production/KnightIdentityContext.cs" />
   </ItemGroup>
 
 </Project>

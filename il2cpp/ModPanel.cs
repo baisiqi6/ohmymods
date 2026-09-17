@@ -52,7 +52,11 @@ public class ModPanel : MonoBehaviour
         BankAssistantCoordinator.TickPendingCleanup();
         PatchPlayer_HoldPurchase.Tick();
         PatchWorld_OptionalVegetation.Tick();
+        try { MusketeerIdentity.Tick(); MusketeerRuntime.Tick(); MusketeerShop.Tick(); }
+        catch { /* One optional career cannot disable the settings panel or unrelated systems. */ }
+        HeroRecruitment.Tick();
         HeroArcherRuntime.Tick();
+        HeroShop.Tick();
         HeroArcherArrowVisuals.Tick();
         PatchArcher_Options.Tick();
         PatchArcher_GreekImpact.Tick();
@@ -68,6 +72,7 @@ public class ModPanel : MonoBehaviour
     {
         // Read the native Animator after its update; the optional hero driver shares the same frame guard.
         HeroArcherVisuals.Sync("panel-late");
+        try { MusketeerVisuals.Sync(); MusketeerGunVisuals.Sync(); } catch { }
     }
 
     private void OnGUI()
@@ -238,7 +243,7 @@ public class ModPanel : MonoBehaviour
         }
 
         float viewHeight = height - 224f;
-        int cards = _category == 4 ? 8 : (_category == 3 ? 5 : (_category == 0 || _category == 5 || _category == 6 ? 4 : 3));
+        int cards = _category == 4 ? 9 : (_category == 3 ? 5 : (_category == 0 || _category == 5 || _category == 6 ? 4 : 3));
         float contentHeight = cards * (CardHeight + 12f);
         Rect viewport = new Rect(24, 176, width - 48, viewHeight);
         Rect content = new Rect(0, 0, width - 74, Mathf.Max(viewHeight, contentHeight));
@@ -291,6 +296,7 @@ public class ModPanel : MonoBehaviour
             case 4:
                 RestockControl(ref y, width, "工匠", 0, ModConfig.AutoRestockWorkersEnabled, ModConfig.AutoRestockWorkersTarget);
                 RestockControl(ref y, width, "弓箭手", 1, ModConfig.AutoRestockArchersEnabled, ModConfig.AutoRestockArchersTarget);
+                RestockControl(ref y, width, "火枪手 · 火枪", 8, ModConfig.AutoRestockMusketeersEnabled, ModConfig.AutoRestockMusketeersTarget);
                 RestockControl(ref y, width, "忍者", 2, ModConfig.AutoRestockNinjasEnabled, ModConfig.AutoRestockNinjasTarget);
                 RestockControl(ref y, width, "狂战士", 3, ModConfig.AutoRestockBerserkersEnabled, ModConfig.AutoRestockBerserkersTarget);
                 RestockControl(ref y, width, "无业村民 · 面包", 4, ModConfig.AutoRestockPeasantsEnabled, ModConfig.AutoRestockPeasantsTarget);
@@ -308,8 +314,12 @@ public class ModPanel : MonoBehaviour
                     "所有世界 · 砍树后的森林消退等待缩至三分之一；关闭后的新消退使用原版速度。");
                 break;
             case 6:
-                Toggle(ref y, width, "英雄弓箭手", ModConfig.HeroArcherEnabled,
-                    "所有世界·单机候选：每侧至多1名，关闭恢复；射速1.5倍、射程1.25倍、对敌3箭、火焰半径0.25。");
+                Toggle(ref y, width, "火铳铺", ModConfig.MusketeerEnabled,
+                    "所有世界·单机：4金币购买火枪，居民领取转职；地面平射、首个敌人阻挡，不上塔。关闭保留职业记录。");
+                GUI.Label(new Rect(190, y - CardHeight - 12 + 51, width - 222, 31), MusketeerShop.StatusText, _muted);
+                Toggle(ref y, width, "英雄驿站", ModConfig.HeroArcherEnabled,
+                    "所有世界·单机：投8金币训练地面英雄，不上箭塔；每侧1名，死亡才空位。商店红旗表示占位，关闭保留已购名额。");
+                GUI.Label(new Rect(190, y - CardHeight - 12 + 51, width - 222, 31), HeroShop.StatusText, _muted);
                 ModConfig.ArcherVolleyCount.Value = (int)ArcherControl(ref y, width, "中世纪随从散射", ModConfig.ArcherScatterEnabled,
                     Mathf.Clamp(ModConfig.ArcherVolleyCount.Value, 1, 3), 1, 3, 1, Mathf.Clamp(ModConfig.ArcherVolleyCount.Value, 1, 3) + " 支 / 发",
                     "所有世界 · 仅中世纪骑士的弓箭手随从对敌散射；打猎单发，额外箭淡金色，总数含主箭。");
@@ -362,7 +372,7 @@ public class ModPanel : MonoBehaviour
     private static void RestockControl(ref float y, float width, string title, int role,
         ConfigEntry<bool> enabled, ConfigEntry<int> target)
     {
-        Card(y, width, title + "自动补货", "目标 " + target.Value + (role >= 6 ? " 份" : " 人"),
+        Card(y, width, title + "自动补货", "目标 " + target.Value + (role == 6 || role == 7 ? " 份" : " 人"),
             "双倍金库付款 · " + PatchEconomy_AutoRestock.GetSummary(role));
         if (GUI.Button(new Rect(22, y + 51, 104, 31), enabled.Value ? "已开启" : "已关闭",
                 enabled.Value ? _activeTab : _button)) enabled.Value = !enabled.Value;

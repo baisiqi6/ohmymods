@@ -27,4 +27,4 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
 
-<ItemGroup><Compile Include="../../../il2cpp/HeroArcherCombat.cs" /><Compile Include="../../hero-archer/DisabledRuntime.cs" /></ItemGroup></Project>
+<ItemGroup><Compile Include="../../../il2cpp/HeroArcherCombat.cs" /><Compile Include="../../hero-archer/DisabledRuntime.cs" /></ItemGroup><ItemGroup><Compile Include="../../musketeer-boundary/MusketeerIdentityStub.cs" /></ItemGroup></Project>

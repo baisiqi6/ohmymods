@@ -1,12 +1,14 @@
 // 英雄弓箭手·身份/生命周期/射程 slice（契约 operator 2026-09-14 锁定）。
 //
 // 职责边界（本文件只做这些）：
-//   * 身份：把既有普通 Archer 选成「英雄」（每侧最多 1 名），F5 开关 ModConfig.HeroArcherEnabled
+//   * 身份：仅激活 HeroRecruitment 已购买的 Archer（每侧最多 1 名），F5 开关 ModConfig.HeroArcherEnabled
 //     默认 off、全 world 生效；关闭/失活/死亡/role 变/side 变/换 world 一律撤销并恢复原状。
-//   * 射程：只写英雄自身的 Archer.shootRange = 基准 ×1.25；归还带 CAS（第三方改过就不覆盖）。
+//   * 射程：只写英雄自身的 Archer.shootRange = 基准 ×2；归还带 CAS（第三方改过就不覆盖）。
 //     不写 Scanner.range/rangeBehind（原生每条路径自行从 shootRange 同步，见 result.md 待核项），
 //     不碰射击间隔/箭数/伤害等其他攻击字段，不碰共享 ArrowAttack SO。
 //   * 动画：HeroArcherVisuals 负责像素表现，这里只在 hero 状态变化与每帧 Tick 时驱动它。
+//   * 移动：HeroArcherMovement 认领英雄本人 Archer.walkSpeed/runSpeed = 基准 ×1.5（逐字段 CAS 归还；
+//     死地随从让位给 DL 的同倍率 Mover 提升）。本文件只在当选/每帧/退役漏斗/关闭处驱动它，不写速度字段。
 //
 // 锁定 API（其它 slice 只认这 8 个）：
 //   bool Enabled { get; }            - 配置开关的即时读数（含所有 gate）
@@ -21,7 +23,7 @@
 // 本文件**不含任何 Harmony 挂钩**：Observe/OnEnable/OnShot 由 combat worker 在既有原生钩子上桥接，
 // Tick 由 operator 直接调用 —— 因此这里绝不 patch 自有 ModPanel.Update，也不新增任何 native 入口。
 //
-// 射程现状（**未完成，不得当成已满足**）：本 slice 只做 Archer.shootRange 的 ×1.25 CAS 写入/归还。
+// 射程现状（**未完成，不得当成已满足**）：本 slice 只做 Archer.shootRange 的 ×2 CAS 写入/归还。
 //   原生的索敌并非只读 shootRange——ShouldShootEnemy 还比较 ActiveArrowAttack.Range，Scanner.range/rangeBehind
 //   也不会在每条路径上跟着字段自动更新；且发射力度（FireArrowInternal 已算好的 shootForce）不受本 slice 影响。
 //   这些由「每 actor 自有 ArrowAttack 克隆（先解算初速再交给原生弹道）」的独立 slice 负责，本文件不碰、
@@ -268,8 +270,8 @@ internal sealed class HeroArcherCore
 /// </summary>
 internal static class HeroArcherRuntime
 {
-    /// <summary>英雄射程倍率（只乘自身 shootRange）。</summary>
-    internal const float RangeMultiplier = 1.25f;
+    /// <summary>英雄射程倍率（只乘自身 shootRange；必须与 <see cref="HeroArcherRange.RangeFactor"/> 同步）。</summary>
+    internal const float RangeMultiplier = 2f;
 
     /// <summary>失联多久（游戏秒）后从注册表剔除（对象被销毁/场景卸载后的兜底，正常路径靠失活即撤）。</summary>
     private const float ActorStaleSeconds = 30f;
@@ -335,7 +337,7 @@ internal static class HeroArcherRuntime
     {
         try
         {
-            if (!Enabled || !ArcherOptionsScope.IsActive) return false;
+            if (!Enabled || !ArcherOptionsScope.IsActive || !HeroRecruitment.IsPurchased(archer)) return false;
             ActorState state = Find(archer);
             if (state == null || !state.Hero || !_core.IsHero(state.GoId)) return false;
             if (state.Side != SideKey(archer)) return false;
@@ -371,6 +373,8 @@ internal static class HeroArcherRuntime
         try
         {
             if (archer == null || archer.gameObject == null) return;
+            HeroRecruitment.Observe(archer);
+            HeroArcherTowerPolicy.Observe(archer);
             if (!Enabled)
             {
                 // 关闭时不做任何登记；残留由 Tick 统一回收（配置关→当帧即撤）。
@@ -434,7 +438,7 @@ internal static class HeroArcherRuntime
             state.LastSeen = Now();
             state.Alive = Alive(archer);
 
-            bool eligible = state.Alive && !state.RangeBlocked && ImmediateEligible(archer);
+            bool eligible = state.Alive && !state.RangeBlocked && HeroRecruitment.IsPurchased(archer) && ImmediateEligible(archer);
             // 资格在两次 Tick 之间失效（换 role/上船/被玩家控制/换 side）：先归还我们的射程与视觉，
             // 再让 core 更新行——绝不留在英雄位上（core 的撤销不带归还责任）。
             if (state.Hero && !eligible) RetireHero(state, "role-change");
@@ -455,6 +459,7 @@ internal static class HeroArcherRuntime
         try
         {
             if (archer == null || archer.gameObject == null) return;
+            HeroRecruitment.OnEnable(archer);
             int goId = SafeGoId(archer);
             if (goId == 0) return;
             IntPtr pointer = SafePointer(archer);
@@ -500,6 +505,8 @@ internal static class HeroArcherRuntime
         try
         {
             HeroArcherRange.RetryCleanup();
+            HeroArcherMovement.RetryCleanup();   // 关闭状态下也要先把移动提速的 pending 归还服务完
+            HeroArcherGuardFacing.Tick();
             if (!Enabled)
             {
                 if (_actors.Count > 0 || _core.TrackedCount > 0) ClearInternal("disabled");
@@ -560,7 +567,7 @@ internal static class HeroArcherRuntime
                     continue;
                 }
 
-                bool eligible = !state.RangeBlocked && ImmediateEligible(archer);
+                bool eligible = !state.RangeBlocked && HeroRecruitment.IsPurchased(archer) && ImmediateEligible(archer);
                 if (state.Hero)
                 {
                     if (!_core.TryGetClaim(goId, out HeroRangeClaim claim))
@@ -585,6 +592,10 @@ internal static class HeroArcherRuntime
                         RetireHero(state, "role-change");
                         continue;
                     }
+
+                    // 移动提速：DL 让位 / 幂等维持；Pending 未归还不提升；失败只记一次日志，不影响其它效果。
+                    HeroArcherMovement.Reconcile(archer);
+                    HeroArcherGuardFacing.Evaluate(archer);
                 }
                 // 所有 actor（含未当选者）每帧刷新 core 的资格行；撤销永远先归还再让 core 更新。
                 _core.Observe(goId, liveSide, eligible);
@@ -669,6 +680,9 @@ internal static class HeroArcherRuntime
         }
         if (_actors.Count == 0) { _lives.Clear(); _core.Clear(); }
         HeroArcherRange.Clear();
+        HeroArcherMovement.Clear();
+        HeroArcherGuardFacing.Clear();
+        HeroArcherLiveDiagnostics.Clear();
         HeroArcherVisuals.Clear();
         _visualsRetryCount = 0;
     }
@@ -682,7 +696,7 @@ internal static class HeroArcherRuntime
         if (state.RangeBlocked) { _core.Forget(state.GoId); return; }       // 本 life 已被第三方抢过字段
         if (SafePointer(archer) != state.Pointer) return;                  // 换主：等 Tick 重开
         if (state.Life != CurrentLife(state.GoId, state.Pointer)) return;   // 换 life：旧包装不放行
-        if (!ImmediateEligible(archer)) { _core.Forget(state.GoId); return; } // 当选前再核一次即时资格
+        if (!HeroRecruitment.IsPurchased(archer) || !ImmediateEligible(archer)) { _core.Forget(state.GoId); return; } // 已购身份与即时资格都须成立
 
         HeroRangeClaim claim = HeroRangeClaim.Create(archer.shootRange, RangeMultiplier);
         if (!float.IsFinite(claim.Original) || !float.IsFinite(claim.Written) || claim.Original <= 0f)
@@ -697,6 +711,8 @@ internal static class HeroArcherRuntime
         state.Hero = true;
         state.VisualRetryAt = 0f;
         HeroArcherVisuals.Apply(archer);
+        HeroArcherMovement.Reconcile(archer);
+        if (HeroArcherVisuals.HasVisual(archer)) HeroArcherLiveDiagnostics.OnHeroSetup(archer);
         try { KingdomEnhancedPlugin.Instance?.LogSource?.LogInfo("[HeroArcher] selected side=" + state.Side + " actor=" + state.GoId + " range=" + archer.shootRange + " visual=" + HeroArcherVisuals.HasVisual(archer) + " cloth=dynamic offline=true"); } catch { }
     }
 
@@ -720,6 +736,9 @@ internal static class HeroArcherRuntime
     {
         if (state == null || state.GoId == 0) return true;
         HeroArcherRange.Restore(state.Ref);
+        HeroArcherMovement.Restore(state.Ref);
+        HeroArcherGuardFacing.Restore(state.Ref);
+        if (HeroArcherGuardFacing.HasOutstanding(state.GoId)) return false;
         if (!_core.TryGetClaim(state.GoId, out HeroRangeClaim existing)) return true;
 
         Archer archer = state.Ref;
@@ -860,9 +879,41 @@ internal static class HeroArcherRuntime
     /// （Damageable 存在且 !isDead）、非 inert/grabbed、非 embarked、非玩家控制、非塔位岗哨、
     /// 当前 world/场景、非弩手、非北境近战随从。任何未知状态 → false。
     /// </summary>
+    internal static bool IsRecruitable(Archer archer)
+    {
+        try
+        {
+            ActorState state = Find(archer);
+            return Enabled && !HeroArcherVisuals.AtlasUnavailable
+                && (state == null || !state.RangeBlocked) && ImmediateEligible(archer);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>The shop commits its receipt only after actual effect setup succeeds.</summary>
+    internal static bool TryActivatePurchased(Archer archer)
+    {
+        try
+        {
+            if (!IsRecruitable(archer) || !HeroRecruitment.IsPurchased(archer)) return false;
+            Observe(archer);
+            Tick();
+            if (IsHero(archer) && HeroArcherVisuals.HasVisual(archer)) return true;
+        }
+        catch { }
+        try
+        {
+            ActorState state = Find(archer);
+            if (state != null) RetireHero(state, "purchase-setup-failed");
+        }
+        catch { }
+        return false;
+    }
+
     private static bool ImmediateEligible(Archer archer)
     {
         if (archer == null || archer.gameObject == null || !archer.gameObject.activeInHierarchy) return false;
+        if (MusketeerIdentity.IsUnit(archer)) return false;
         if (!archer.enabled || archer.harmless) return false;
         if (SideKey(archer) == 0) return false;
         if (archer._attackMode != Archer.AttackMode.Ranged
@@ -917,7 +968,12 @@ internal static class HeroArcherRuntime
 
     private static int SideKey(Archer archer)
     {
-        try { return HeroArcherCore.SideKey((float)archer.side); }
+        try
+        {
+            // 购买名额的归属不随原版临时重新分配 side 改变。
+            int purchasedSide = HeroRecruitment.SeatSide(archer);
+            return purchasedSide != 0 ? purchasedSide : HeroArcherCore.SideKey((float)archer.side);
+        }
         catch (Exception) { return 0; }
     }
 

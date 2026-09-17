@@ -106,6 +106,8 @@ public class World
 
 public class Player
 {
+    public IntPtr Pointer;
+    public System.Collections.Generic.List<DroppableCurrency> _floatingCurrency = new();
     public Payable selectedPayable;
     public Payable _completingPayable;
 }
@@ -183,7 +185,7 @@ public class Managers
     public World world;
     public Kingdom kingdom;
     public Game game;
-    public object stats;
+    public Stats stats;
     public CurrencyManager currency;
 }
 
@@ -315,6 +317,9 @@ namespace KingdomEnhancedMod
 
     public static class ModConfig
     {
+        public static ConfigEntry<bool> MusketeerEnabled = new();
+        public static ConfigEntry<bool> AutoRestockMusketeersEnabled = new();
+        public static ConfigEntry<int> AutoRestockMusketeersTarget = new() { Value = 15 };
         public static ConfigEntry<bool> Enabled = new() { Value = true };
         public static ConfigEntry<bool> AutoRestockWorkersEnabled = new();
         public static ConfigEntry<bool> AutoRestockArchersEnabled = new();
@@ -336,6 +341,7 @@ namespace KingdomEnhancedMod
         public static void ResetConfig()
         {
             Enabled = new ConfigEntry<bool> { Value = true };
+            MusketeerEnabled.Value = false; AutoRestockMusketeersEnabled.Value = false; AutoRestockMusketeersTarget.Value = 15;
             AutoRestockWorkersEnabled = new ConfigEntry<bool>();
             AutoRestockArchersEnabled = new ConfigEntry<bool>();
             AutoRestockNinjasEnabled = new ConfigEntry<bool>();
@@ -592,3 +598,6 @@ namespace KingdomEnhancedMod
         }
     }
 }
+
+public enum Stat { CoinsSpent }
+public class Stats { public int Calls; public float Spent; public bool Throws; public void Increment(Stat stat,float amount) { Calls++; if(Throws) throw new Exception("stats"); Spent+=amount; } }

@@ -28,34 +28,34 @@ namespace KnightIdentityArchiveTests
                 string hash = Build.Hex('a');
                 DateTimeOffset stamp = DateTimeOffset.UnixEpoch;
 
-                Check.True(KnightIdentitySnapshot.TryCreate(hash, stamp, new[] { Build.E("k1", 1, 0) }, out _, out _), "baseline valid");
-                Check.False(KnightIdentitySnapshot.TryCreate(Build.Hex('a').Substring(0, 63), stamp, Array.Empty<KnightIdentitySnapshotEntry>(), out _, out _), "63-hex hash rejected");
-                Check.False(KnightIdentitySnapshot.TryCreate("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", stamp, Array.Empty<KnightIdentitySnapshotEntry>(), out _, out _), "non-hex hash rejected");
-                Check.False(KnightIdentitySnapshot.TryCreate(null, stamp, Array.Empty<KnightIdentitySnapshotEntry>(), out _, out _), "null hash rejected");
+                Check.True(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, hash, stamp, new[] { Build.E("k1", 1, 0) }, out _, out _), "baseline valid");
+                Check.False(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, Build.Hex('a').Substring(0, 63), stamp, Array.Empty<KnightIdentitySnapshotEntry>(), out _, out _), "63-hex hash rejected");
+                Check.False(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", stamp, Array.Empty<KnightIdentitySnapshotEntry>(), out _, out _), "non-hex hash rejected");
+                Check.False(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, null, stamp, Array.Empty<KnightIdentitySnapshotEntry>(), out _, out _), "null hash rejected");
 
-                Check.False(KnightIdentitySnapshot.TryCreate(hash, stamp, new[] { Build.E("k1", 1, 0), Build.E("k1", 2, 1) }, out _, out string duplicateKey), "duplicate uniqueID rejected");
+                Check.False(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, hash, stamp, new[] { Build.E("k1", 1, 0), Build.E("k1", 2, 1) }, out _, out string duplicateKey), "duplicate uniqueID rejected");
                 Check.Contains(duplicateKey, "duplicate uniqueID", "reason names the key collision");
-                Check.False(KnightIdentitySnapshot.TryCreate(hash, stamp, new[] { Build.E("k1", 1, 0), Build.E("k2", 1, 1) }, out _, out string duplicateId), "duplicate GUID rejected");
+                Check.False(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, hash, stamp, new[] { Build.E("k1", 1, 0), Build.E("k2", 1, 1) }, out _, out string duplicateId), "duplicate GUID rejected");
                 Check.Contains(duplicateId, "duplicate GUID", "reason names the GUID collision");
 
-                Check.False(KnightIdentitySnapshot.TryCreate(hash, stamp, new[] { Build.E(string.Empty, 1, 0) }, out _, out _), "empty uniqueID rejected");
-                Check.False(KnightIdentitySnapshot.TryCreate(hash, stamp, new[] { Build.E(new string('x', 257), 1, 0) }, out _, out _), "257-char uniqueID rejected");
-                Check.True(KnightIdentitySnapshot.TryCreate(hash, stamp, new[] { Build.E(new string('x', 256), 1, 0) }, out _, out _), "256-char uniqueID allowed");
+                Check.False(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, hash, stamp, new[] { Build.E(string.Empty, 1, 0) }, out _, out _), "empty uniqueID rejected");
+                Check.False(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, hash, stamp, new[] { Build.E(new string('x', 257), 1, 0) }, out _, out _), "257-char uniqueID rejected");
+                Check.True(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, hash, stamp, new[] { Build.E(new string('x', 256), 1, 0) }, out _, out _), "256-char uniqueID allowed");
 
-                Check.False(KnightIdentitySnapshot.TryCreate(hash, stamp, new[] { new KnightIdentitySnapshotEntry("k1", new KnightIdentityReceipt(Guid.Empty, 0)) }, out _, out _), "empty receipt GUID rejected");
-                Check.False(KnightIdentitySnapshot.TryCreate(hash, stamp, new[] { new KnightIdentitySnapshotEntry("k1", new KnightIdentityReceipt(Build.Seed(1), 5)) }, out _, out _), "receipt style 5 rejected");
-                Check.False(KnightIdentitySnapshot.TryCreate(hash, stamp, new[] { new KnightIdentitySnapshotEntry(null, new KnightIdentityReceipt(Build.Seed(1), 0)) }, out _, out _), "null uniqueID rejected");
+                Check.False(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, hash, stamp, new[] { new KnightIdentitySnapshotEntry("k1", new KnightIdentityReceipt(Guid.Empty, 0)) }, out _, out _), "empty receipt GUID rejected");
+                Check.False(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, hash, stamp, new[] { new KnightIdentitySnapshotEntry("k1", new KnightIdentityReceipt(Build.Seed(1), 5)) }, out _, out _), "receipt style 5 rejected");
+                Check.False(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, hash, stamp, new[] { new KnightIdentitySnapshotEntry(null, new KnightIdentityReceipt(Build.Seed(1), 0)) }, out _, out _), "null uniqueID rejected");
             });
 
             Case.Run("model.snapshotEnforcesEntryCap512AndNormalizesHash", () =>
             {
                 KnightIdentitySnapshotEntry[] atCap = Entries(512);
-                Check.True(KnightIdentitySnapshot.TryCreate(Build.Hex('a'), DateTimeOffset.UnixEpoch, atCap, out KnightIdentitySnapshot capped, out _), "512 entries allowed");
-                Check.False(KnightIdentitySnapshot.TryCreate(Build.Hex('a'), DateTimeOffset.UnixEpoch, Entries(513), out _, out _), "513 entries rejected");
+                Check.True(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, Build.Hex('a'), DateTimeOffset.UnixEpoch, atCap, out KnightIdentitySnapshot capped, out _), "512 entries allowed");
+                Check.False(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, Build.Hex('a'), DateTimeOffset.UnixEpoch, Entries(513), out _, out _), "513 entries rejected");
                 Check.Equal(Build.Hex('a'), capped.Hash, "hash stored as given");
-                Check.True(KnightIdentitySnapshot.TryCreate(Build.Hex('a').ToUpperInvariant().Replace('A', 'B'), DateTimeOffset.UnixEpoch, atCap, out KnightIdentitySnapshot upper, out _), "uppercase hash accepted");
+                Check.True(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, Build.Hex('a').ToUpperInvariant().Replace('A', 'B'), DateTimeOffset.UnixEpoch, atCap, out KnightIdentitySnapshot upper, out _), "uppercase hash accepted");
                 Check.Equal(Build.Hex('b'), upper.Hash, "uppercase hash normalized to lowercase");
-                Check.False(KnightIdentitySnapshot.TryCreate(Build.Hex('a'), DateTimeOffset.UnixEpoch, null, out _, out _), "null entries rejected");
+                Check.False(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, Build.Hex('a'), DateTimeOffset.UnixEpoch, null, out _, out _), "null entries rejected");
             });
 
             Case.Run("model.snapshotHashIsBindingEvenWhenItCountsAreRebalanced", () =>
@@ -68,6 +68,27 @@ namespace KnightIdentityArchiveTests
                 Check.True(archive.TryRestore(Build.Hex('a'), Build.Hex('b'), "knight-7", out KnightIdentityReceipt kept), "existing receipt still restorable");
                 Check.Equal(Build.Seed(1), kept.Id, "existing GUID unchanged by counts/availability");
                 Check.Equal(3, kept.Style, "existing style unchanged by counts/availability");
+            });
+
+            Case.Run("model.kindBindsTheSnapshotHash", () =>
+            {
+                string scope = Build.Hex('a');
+                string hash = Build.Hex('b');
+                KnightIdentityArchive archive = KnightIdentityArchive.CreateEmpty();
+                Check.Equal(
+                    KnightIdentityArchive.MutationStatus.Applied,
+                    archive.RecordSnapshot(scope, Build.Snapshot(KnightIdentityFingerprint.KindLegacy, hash, DateTimeOffset.UnixEpoch, new[] { Build.E("k1", 1, 2) })),
+                    "kind1 record applies");
+                Check.Equal(
+                    KnightIdentityArchive.MutationStatus.RejectedConflict,
+                    archive.RecordSnapshot(scope, Build.Snapshot(KnightIdentityFingerprint.KindNormalized, hash, DateTimeOffset.UnixEpoch, new[] { Build.E("k1", 1, 2) })),
+                    "same hash with another kind is a conflict");
+                Check.True(archive.TryGetSnapshot(scope, hash, out KnightIdentitySnapshot kept), "original snapshot kept");
+                Check.Equal(KnightIdentityFingerprint.KindLegacy, kept.Kind, "original kind kept");
+
+                Check.False(KnightIdentitySnapshot.TryCreate(3, hash, DateTimeOffset.UnixEpoch, Array.Empty<KnightIdentitySnapshotEntry>(), out _, out string badKind), "kind 3 rejected");
+                Check.Contains(badKind, "kind", "reason names the kind field");
+                Check.False(KnightIdentitySnapshot.TryCreate(0, hash, DateTimeOffset.UnixEpoch, Array.Empty<KnightIdentitySnapshotEntry>(), out _, out _), "kind 0 rejected");
             });
 
             Case.Run("model.sameHashIsIdempotentWhileConflictingContentIsRejected", () =>

@@ -12,6 +12,25 @@ namespace KingdomEnhancedMod
     {
         internal Animator _animator;
         internal IntPtr Pointer;
+        internal Mover _mover;
+        internal float walkSpeed=.975f,runSpeed=2.4f;
+    }
+
+    internal sealed class Mover : Behaviour
+    {
+        internal enum GoalMode { Off, Position, Object }
+        internal GoalMode goalMode;
+        internal Rigidbody2D rigidbody;
+        internal float _goalSpeed,_moveSpeed,_multiplier=1f,_goalPosition,_pauseTimeout;
+    }
+    internal static class NetworkBigBoss
+    {
+        internal static bool HasWorldAuth=true,IsOnline;
+    }
+    internal sealed class Game
+    {
+        internal enum State { Playing, Menu, Loading }
+        internal State state;
     }
 
     internal sealed class World
@@ -26,6 +45,7 @@ namespace KingdomEnhancedMod
     {
         internal static Managers Inst;
         internal World world;
+        internal Game game;
     }
 
     /// <summary>HeroArcherRuntime 替身：测试可切换 life/IsHero 来模拟池复用、死亡与功能关闭。</summary>

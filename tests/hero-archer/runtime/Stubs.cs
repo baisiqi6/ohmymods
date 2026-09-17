@@ -154,6 +154,7 @@ namespace KingdomEnhancedMod
 
     internal class Mover : UnityEngine.Component
     {
+        public IntPtr Pointer;
         public float ActualSpeed;
     }
 
@@ -189,6 +190,7 @@ namespace KingdomEnhancedMod
         public bool inGuardSlot;
         public Damageable _guardSlot;
         public float walkSpeed = 4f;
+        public float runSpeed = 6f;
         public AttackMode _attackMode = AttackMode.Ranged;
         public AttackMode _desiredAttackMode = AttackMode.Ranged;
         public Character _character;
@@ -251,9 +253,30 @@ namespace KingdomEnhancedMod
         internal static Archer NorseTarget;
     }
 
+    /// <summary>PatchRoles_DeadlandsPowers 的边界替身：只供 HeroArcherMovement 的让位探针（默认关闭）。</summary>
+    internal static class PatchRoles_DeadlandsPowers
+    {
+        internal sealed class UnitRef
+        {
+            internal object Knight;
+            internal Archer Archer;
+        }
+
+        internal static bool Enabled;
+        internal static readonly System.Collections.Generic.Dictionary<IntPtr, UnitRef> ByMover =
+            new System.Collections.Generic.Dictionary<IntPtr, UnitRef>();
+
+        internal static bool GameplayActive() => Enabled;
+        internal static bool IsDeadlandsFollower(Archer archer) => false;
+    }
+
     internal sealed class ManualLogSource
     {
         internal void LogInfo(string message)
+        {
+        }
+
+        internal void LogWarning(string message)
         {
         }
     }

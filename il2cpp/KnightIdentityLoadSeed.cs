@@ -1,6 +1,9 @@
 // 骑士身份「首次迁移来源种子」（Load 期）：Load 时 sidecar 里没有本 scope/hash 的精确快照（首装/旧档迁移）时，
 // 把「原始原生岛快照」里的精确 Knight/KnightData 记录与实际加载出来的 root 上当前生效的收据，一次性写回
-// sidecar 的精确快照（scopeKey + snapshotHash 都用 LoadBridge 在原生排序/Decay 之前算出的原值）。
+// sidecar 的精确快照（ScopeKey = LoadBridge 解析出的稳定上下文 epoch，SnapshotHash = 该 epoch 下的
+// 时钟无关指纹 kind2，都是原生排序/Decay 之前算出的原值）。
+// 只有解析为「真正无历史的新上下文」才会开始批次；unresolved（冲突/已知历史对不上/仍有未归属历史）时
+// LoadScope.ScopeKey 为 null，本模块绝不开始、绝不覆盖历史。
 // 这样玩家即使一次原生 Save 都不调用（甚至不重启游戏），下次进入同一座岛也能按同一份快照恢复同样的 GUID/style。
 //
 // 契约（与 KnightIdentityArchive/KnightIdentityRuntime 严格配套）：
@@ -64,8 +67,11 @@ namespace KingdomEnhancedMod
         private sealed class SeedBatch
         {
             internal long ScopeId;
+            internal long TransactionScopeId; // 成功内层转移给父层；0才是整个事务已提交
+            internal string ContextKey;   // 稳定上下文：与快照同一次原子写入里登记 epoch 映射
             internal string ScopeKey;
             internal string SnapshotHash;
+            internal bool NewEpoch;       // 本代 epoch 尚未被上下文拥有（写路径需登记）
             internal Dictionary<string, IntPtr> Frozen;      // uniqueID → 冻结的 ObjectData.Pointer
             internal Dictionary<string, OwnerState> Owners;  // uniqueID → 捕获的真实 Knight root
             internal Dictionary<string, OwnerState> Excluded; // uniqueID → 明确 tagSquire 的已知排除
@@ -144,6 +150,7 @@ namespace KingdomEnhancedMod
                 if (scope.Island == null) return;
                 if (string.IsNullOrEmpty(scope.ScopeKey) || string.IsNullOrEmpty(scope.SnapshotHash)) return;
                 if (scope.Receipts != null) return; // 已有精确快照：走既有绑定桥，不种
+                if (string.IsNullOrEmpty(scope.ContextKey)) return; // 解析不出稳定上下文：不种
                 if (!KnightIdentityRuntime.IsHostAuthority()) { KnightIdentityLog.Once("seed-client", null); return; }
 
                 if (Batches.Count >= MaxBatches)
@@ -163,8 +170,11 @@ namespace KingdomEnhancedMod
                 Batches.Add(new SeedBatch
                 {
                     ScopeId = scope.Id,
+                    TransactionScopeId = scope.Id,
+                    ContextKey = scope.ContextKey,
                     ScopeKey = scope.ScopeKey,
                     SnapshotHash = scope.SnapshotHash,
+                    NewEpoch = scope.NewEpoch,
                     Frozen = frozen,
                     Owners = new Dictionary<string, OwnerState>(frozen.Count, StringComparer.Ordinal),
                     Excluded = new Dictionary<string, OwnerState>(StringComparer.Ordinal),
@@ -293,6 +303,18 @@ namespace KingdomEnhancedMod
         {
             try
             {
+                if (scope == null) return;
+                for (int i = 0; i < Batches.Count; i++)
+                {
+                    SeedBatch owned = Batches[i];
+                    if (owned.TransactionScopeId != scope.Id) continue;
+                    owned.TransactionScopeId = succeeded && scope.Previous != null ? scope.Previous.Id : 0;
+                    if (!succeeded)
+                    {
+                        owned.Pending = false;
+                        RejectBatch(owned, "native-failed");
+                    }
+                }
                 SeedBatch batch = FindBatch(scope != null ? scope.Id : 0);
                 if (batch == null || batch.Completed) return; // 重复 Complete：幂等
                 batch.Completed = true;
@@ -329,12 +351,13 @@ namespace KingdomEnhancedMod
         /// </summary>
         internal static void Flush()
         {
+            if (!KnightIdentityRuntime.CanFlushSeed) return;
             try
             {
                 for (int i = Batches.Count - 1; i >= 0; i--)
                 {
                     SeedBatch batch = Batches[i];
-                    if (!batch.Pending) continue;
+                    if (!batch.Pending || batch.TransactionScopeId != 0) continue;
 
                     // 退避只针对「真的尝试过后失败」的批次；未就绪（收据/层级）只是等待，不消耗退避窗口。
                     if (batch.Attempted && DateTime.UtcNow.Ticks - batch.LastAttemptTicks < RetryBackoffTicks) continue;
@@ -503,6 +526,12 @@ namespace KingdomEnhancedMod
         /// <summary>整批复核 + 一次 TryCreate/AppendSnapshot + 读回校验；任何不确定都只是等待，绝不写半张表。</summary>
         private static FlushOutcome TryFlush(SeedBatch batch)
         {
+            if (KnightIdentityContexts.TryGetBinding(batch.ContextKey, out string epoch, out bool unresolved, out _)
+                && (unresolved || !string.Equals(epoch, batch.ScopeKey, StringComparison.Ordinal)))
+            {
+                batch.RejectReason = "context-changed";
+                return FlushOutcome.Dropped;
+            }
             if (batch.Owners.Count + batch.Excluded.Count != batch.Frozen.Count) return FlushOutcome.Waiting; // 不应发生
             if (batch.Owners.Count == 0) return FlushOutcome.Waiting;                                          // 不写空表
 
@@ -548,7 +577,7 @@ namespace KingdomEnhancedMod
             if (wait) return FlushOutcome.Waiting;
             if (entries.Count != batch.Owners.Count) return FlushOutcome.Waiting;
 
-            if (!KnightIdentitySnapshot.TryCreate(batch.SnapshotHash, DateTimeOffset.UtcNow, entries, out KnightIdentitySnapshot snapshot, out string error))
+            if (!KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindNormalized, batch.SnapshotHash, DateTimeOffset.UtcNow, entries, out KnightIdentitySnapshot snapshot, out string error))
             {
                 KnightIdentityLog.Once("seed-snapshot:" + error, null);
                 return FlushOutcome.Waiting;
@@ -557,7 +586,8 @@ namespace KingdomEnhancedMod
             batch.Attempted = true;
             batch.LastAttemptTicks = DateTime.UtcNow.Ticks;
 
-            KnightIdentitySidecar.AppendSnapshot(batch.ScopeKey, snapshot); // 唯一 I/O 入口；坏文件/未知版本/冲突一律保持保护
+            // 唯一 I/O 入口；坏文件/未知版本/冲突一律保持保护；context 映射与快照同一次原子写入。
+            KnightIdentitySidecar.AppendSnapshot(batch.ScopeKey, snapshot, batch.ContextKey, batch.NewEpoch);
 
             if (!VerifyPersisted(batch, snapshot))
             {

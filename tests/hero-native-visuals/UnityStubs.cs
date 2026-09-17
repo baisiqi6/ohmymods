@@ -421,15 +421,25 @@ namespace UnityEngine
     {
         public int shortNameHash;
         public float normalizedTime;
+        public float length;
 
-        public AnimatorStateInfo(int shortNameHash, float normalizedTime)
+        public AnimatorStateInfo(int shortNameHash, float normalizedTime, float length = 0f)
         {
             this.shortNameHash = shortNameHash;
             this.normalizedTime = normalizedTime;
+            this.length = length;
         }
     }
 
     /// <summary>Animator 替身：脚本化 current/next/转场/异常；StringToHash 为任意稳定映射（见 native-pose 说明）。</summary>
+    public enum RigidbodyType2D { Dynamic, Kinematic, Static }
+    public class Rigidbody2D : Component
+    {
+        public Vector3 velocity;
+        public RigidbodyType2D bodyType;
+        public bool simulated=true;
+    }
+
     public class Animator : Behaviour
     {
         public bool isActiveAndEnabled = true;
@@ -439,6 +449,16 @@ namespace UnityEngine
         public bool ThrowOnRead;
         public int NextReads;
         public int LastLayer = -1;
+        public float SpeedParameter;
+        public int SpeedReads;
+        public bool ThrowOnSpeedRead;
+        public float GetFloat(string name)
+        {
+            SpeedReads++;
+            if (ThrowOnSpeedRead) throw new InvalidOperationException("speed unreadable");
+            if (name != "Speed") throw new InvalidOperationException("unexpected parameter");
+            return SpeedParameter;
+        }
 
         public AnimatorStateInfo GetCurrentAnimatorStateInfo(int layer)
         {

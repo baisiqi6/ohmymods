@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><LangVersion>latest</LangVersion><EnableDefaultCompileItems>false</EnableDefaultCompileItems><OutputType>Exe</OutputType><DefineConstants>HERO_SHOP_CORE_ONLY</DefineConstants><AssemblyName>HeroShop.Core</AssemblyName></PropertyGroup>
+  <ItemGroup><Compile Include="../../il2cpp/HeroShop.cs"/><Compile Include="Program.cs"/></ItemGroup>
+</Project>

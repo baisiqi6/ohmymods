@@ -1,13 +1,16 @@
 // 骑士身份附加存档（sidecar）核心：GUID + 固定风格(0..4) 的独立持久化与均衡分配。
 // 契约：
 //  * 不读写任何原生存档字段；原生 uniqueID 只作为“某一份精确原生岛快照”里的索引。
-//  * scopeKey = 战役/挑战/岛上下文的 SHA256；snapshotHash = 完整原生岛 JSON + 上下文的 SHA256。
-//    建议配方：scopeKey = KnightIdentityFingerprint.Sha256(scopeContext, "scope")，
-//              snapshotHash = KnightIdentityFingerprint.Sha256(rawIslandJson, scopeKey)。
-//  * 只有 scopeKey + snapshotHash 完全一致才允许 uniqueID→收据 恢复；任何失配一律拒绝，
-//    绝不按位置/金币/名字/NetID 猜。原版重存后失配 → 建立新身份，旧记录继续留在历史里。
-//  * schemaVersion != 1 一律拒绝（不降级、不覆盖）；损坏主文件永不覆盖一份有效备份。
-//  * root 未知字段原样保留；scope/snapshot/entry 里出现未知字段或重复字段即判 Corrupt（本 schema 是封闭的）。
+//  * v2：scope 是不透明 epoch（legacy 内嵌运行时 ticks，新的为随机 64-hex），contexts 记录
+//    「稳定上下文（文件名 + campaign/challenge + land 的 SHA256）→ epoch 列表」；一个 scope 最多属于一个 context。
+//  * snapshotHash 两种 kind：kind1 = 完整原生岛 JSON + scope 的 SHA256（legacy 配方）；
+//    kind2 = 只剔除 3 个实测活时钟的时钟无关指纹（KnightIdentityFingerprint.Normalized）。
+//    同 hash 不同 kind 视为冲突，绝不覆写。
+//  * 只有 scope + hash 完全一致才允许 uniqueID→收据 恢复；任何失配一律拒绝，
+//    绝不按位置/金币/名字/NetID 猜。旧档迁移由 KnightIdentityContexts 用两种精确 hash 做有界匹配。
+//  * schemaVersion 只接受 1（legacy 只读兼容：快照一律 kind1、无 contexts）与 2；更高版本一律拒绝（不降级、不覆盖）；
+//    损坏主文件永不覆盖一份有效备份。
+//  * root 未知字段原样保留；scope/snapshot/entry/context 里出现未知字段或重复字段即判 Corrupt（本 schema 是封闭的）。
 //  * I/O 只发生在显式 Load / Save / RecoverMainFromBackup 调用：无后台线程、无 tick。
 
 using System;
@@ -76,8 +79,12 @@ namespace KingdomEnhancedMod
         internal readonly string Hash;
         internal readonly string SavedAtUtc;
 
-        private KnightIdentitySnapshot(string hash, string savedAtUtc, Dictionary<string, KnightIdentityReceipt> entries, string[] orderedUniqueIds)
+        /// <summary>哈希函数（1 = legacy 全量 JSON，2 = 时钟无关指纹）；同 hash 不同 kind 视为不同快照。</summary>
+        internal readonly int Kind;
+
+        private KnightIdentitySnapshot(int kind, string hash, string savedAtUtc, Dictionary<string, KnightIdentityReceipt> entries, string[] orderedUniqueIds)
         {
+            Kind = kind;
             Hash = hash;
             SavedAtUtc = savedAtUtc;
             _entries = entries;
@@ -95,10 +102,11 @@ namespace KingdomEnhancedMod
             return nativeUniqueId != null && _entries.TryGetValue(nativeUniqueId, out receipt);
         }
 
-        /// <summary>hash + 全部条目逐一相等（时间戳不参与）。</summary>
+        /// <summary>hash + kind + 全部条目逐一相等（时间戳不参与）。</summary>
         internal bool HasSameEntries(KnightIdentitySnapshot other)
         {
             if (other == null || other._entries.Count != _entries.Count) return false;
+            if (Kind != other.Kind) return false;
             if (!string.Equals(Hash, other.Hash, StringComparison.Ordinal)) return false;
             foreach (KeyValuePair<string, KnightIdentityReceipt> pair in _entries)
             {
@@ -115,21 +123,22 @@ namespace KingdomEnhancedMod
         }
 
         /// <summary>时间戳按 UTC 归一化后存储的版本。</summary>
-        internal static bool TryCreate(string hash, DateTimeOffset savedAtUtc, IReadOnlyList<KnightIdentitySnapshotEntry> entries,
+        internal static bool TryCreate(int kind, string hash, DateTimeOffset savedAtUtc, IReadOnlyList<KnightIdentitySnapshotEntry> entries,
             out KnightIdentitySnapshot snapshot, out string error)
         {
-            return TryCreateCore(hash, savedAtUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture), entries, out snapshot, out error);
+            return TryCreateCore(kind, hash, savedAtUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture), entries, out snapshot, out error);
         }
 
         /// <summary>
-        /// 唯一校验入口。拒绝：hash 非 64-hex、时间戳非 ISO-8601、条目超 512、uniqueID 空/超 256、
+        /// 唯一校验入口。拒绝：kind 非 1/2、hash 非 64-hex、时间戳非 ISO-8601、条目超 512、uniqueID 空/超 256、
         /// GUID 为空、风格越界、同快照内重复 uniqueID 或重复 GUID。
         /// </summary>
-        internal static bool TryCreateCore(string hash, string savedAtUtc, IReadOnlyList<KnightIdentitySnapshotEntry> entries,
+        internal static bool TryCreateCore(int kind, string hash, string savedAtUtc, IReadOnlyList<KnightIdentitySnapshotEntry> entries,
             out KnightIdentitySnapshot snapshot, out string error)
         {
             snapshot = null;
             error = null;
+            if (!KnightIdentityFingerprint.IsValidKind(kind)) return Fail("kind must be 1 or 2", out error);
             string normalizedHash = KnightIdentityFingerprint.NormalizeHex64(hash);
             if (normalizedHash == null) return Fail("hash is not 64 hex chars", out error);
             if (savedAtUtc == null || !IsIsoTimestamp(savedAtUtc)) return Fail("savedAtUtc is not an ISO-8601 timestamp", out error);
@@ -153,7 +162,7 @@ namespace KingdomEnhancedMod
             string[] ordered = new string[map.Count];
             map.Keys.CopyTo(ordered, 0);
             Array.Sort(ordered, StringComparer.Ordinal);
-            snapshot = new KnightIdentitySnapshot(normalizedHash, savedAtUtc, map, ordered);
+            snapshot = new KnightIdentitySnapshot(kind, normalizedHash, savedAtUtc, map, ordered);
             return true;
         }
 
@@ -174,6 +183,26 @@ namespace KingdomEnhancedMod
         }
     }
 
+    /// <summary>
+    /// 一个稳定岛上下文（存档文件名 + campaign/challenge + land）拥有的不透明 epoch 作用域列表。
+    /// Active 恒为 Epochs[0]；epoch 作用域彼此不透明（legacy 内嵌运行时 ticks，新的为随机值），
+    /// 一个 scope 最多属于一个 context。
+    /// </summary>
+    internal sealed class KnightIdentityContext
+    {
+        internal string Active;
+        internal readonly List<string> Epochs = new List<string>();
+
+        internal bool Owns(string scope)
+        {
+            for (int i = 0; i < Epochs.Count; i++)
+            {
+                if (string.Equals(Epochs[i], scope, StringComparison.Ordinal)) return true;
+            }
+            return false;
+        }
+    }
+
     /// <summary>盘上状态：Unsupported（未知 schemaVersion）绝不能被当作 Missing。</summary>
     internal enum KnightIdentityArchiveStatus
     {
@@ -186,33 +215,45 @@ namespace KingdomEnhancedMod
     /// <summary>
     /// 附加存档纯模型。每 scope 保留最近 <see cref="MaxSnapshotsPerScope"/> 份成功记录快照，按 hash
     /// 去重替换（幂等）；超容量一律拒绝 mutation，绝不淘汰别的 scope，只淘汰本 scope 最老历史。
+    /// v2 起额外持久化「稳定上下文 → 不透明 epoch 作用域」映射（legacy v1 文件按只读兼容解析）。
     /// </summary>
     internal sealed class KnightIdentityArchive
     {
-        internal const int SchemaVersion = 1;
+        internal const int SchemaVersion = 2;
+        internal const int LegacySchemaVersion = 1;
         internal const int MaxScopes = 128;
         internal const int MaxSnapshotsPerScope = 8;
         internal const int MaxEntriesPerSnapshot = 512;
         internal const int MaxTotalEntries = 32768;
+        internal const int MaxContexts = 64;
+        internal const int MaxEpochs = 8;
 
         /// <summary>root 对象字段总数上限（含未知字段）：防止恶意 root 拖垮解析。</summary>
         internal const int MaxRootFieldCount = 256;
 
         private const string SchemaVersionField = "schemaVersion";
         private const string ScopesField = "scopes";
+        private const string ContextsField = "contexts";
+        private const string ContextField = "context";
+        private const string ActiveField = "active";
+        private const string EpochsField = "epochs";
         private const string ScopeKeyField = "scopeKey";
         private const string SnapshotsField = "snapshots";
         private const string HashField = "hash";
+        private const string KindField = "kind";
         private const string SavedAtField = "savedAtUtc";
         private const string EntriesField = "entries";
         private const string UniqueIdField = "u";
         private const string IdField = "id";
         private const string StyleField = "style";
 
-        private static readonly string[] RootFields = { SchemaVersionField, ScopesField };
+        private static readonly string[] RootFieldsV1 = { SchemaVersionField, ScopesField };
+        private static readonly string[] RootFieldsV2 = { SchemaVersionField, ScopesField, ContextsField };
         private static readonly string[] ScopeFields = { ScopeKeyField, SnapshotsField };
-        private static readonly string[] SnapshotFields = { HashField, SavedAtField, EntriesField };
+        private static readonly string[] SnapshotFieldsV1 = { HashField, SavedAtField, EntriesField };
+        private static readonly string[] SnapshotFieldsV2 = { HashField, KindField, SavedAtField, EntriesField };
         private static readonly string[] EntryFields = { UniqueIdField, IdField, StyleField };
+        private static readonly string[] ContextFields = { ContextField, ActiveField, EpochsField };
 
         private static readonly JsonDocumentOptions ParseOptions = new JsonDocumentOptions
         {
@@ -222,6 +263,7 @@ namespace KingdomEnhancedMod
         };
 
         private readonly Dictionary<string, ScopeNode> _scopes = new Dictionary<string, ScopeNode>(StringComparer.Ordinal);
+        private readonly Dictionary<string, KnightIdentityContext> _contexts = new Dictionary<string, KnightIdentityContext>(StringComparer.Ordinal);
         private List<KeyValuePair<string, JsonElement>> _unknownRootFields;
 
         private KnightIdentityArchive() { }
@@ -229,6 +271,123 @@ namespace KingdomEnhancedMod
         internal static KnightIdentityArchive CreateEmpty() { return new KnightIdentityArchive(); }
 
         internal int ScopeCount { get { return _scopes.Count; } }
+
+        internal int ContextCount { get { return _contexts.Count; } }
+
+        /// <summary>
+        /// 稳定岛上下文键：存档文件名 + campaign/challenge + land 的 SHA256。
+        /// 刻意不包含 realStartDateTime/NetID/instanceID 等每次读取都会重建的运行时值。
+        /// </summary>
+        internal static string ContextKey(string file, int campaign, int challenge, int land)
+        {
+            StringBuilder builder = new StringBuilder(192);
+            AppendField(builder, "file", file);
+            AppendField(builder, "campaign", campaign.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "challenge", challenge.ToString(CultureInfo.InvariantCulture));
+            AppendField(builder, "land", land.ToString(CultureInfo.InvariantCulture));
+            return KnightIdentityFingerprint.Sha256(builder.ToString(), "knight-context");
+        }
+
+        /// <summary>新世代的不透明 epoch 作用域：私有随机 64-hex，绝不由运行时状态派生。</summary>
+        internal static string NewScope()
+        {
+            return Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        }
+
+        private static void AppendField(StringBuilder builder, string name, string value)
+        {
+            if (value == null) value = string.Empty;
+            builder.Append(name).Append('=').Append(value.Length.ToString(CultureInfo.InvariantCulture)).Append(':').Append(value).Append('\n');
+        }
+
+        internal bool TryGetContext(string contextKey, out KnightIdentityContext context)
+        {
+            context = null;
+            return contextKey != null && _contexts.TryGetValue(contextKey, out context) && context != null;
+        }
+
+        /// <summary>scope 是否被任何 context 拥有。</summary>
+        internal bool ScopeClaimed(string scopeKey)
+        {
+            if (scopeKey == null) return false;
+            foreach (KnightIdentityContext context in _contexts.Values)
+            {
+                if (context.Owns(scopeKey)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>scope 是否被除 <paramref name="exceptContextKey"/> 之外的 context 拥有。</summary>
+        internal bool ScopeClaimedBy(string scopeKey, string exceptContextKey)
+        {
+            if (scopeKey == null) return false;
+            foreach (KeyValuePair<string, KnightIdentityContext> pair in _contexts)
+            {
+                if (string.Equals(pair.Key, exceptContextKey, StringComparison.Ordinal)) continue;
+                if (pair.Value.Owns(scopeKey)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>scope 里是否存在指定 kind 的快照。</summary>
+        internal bool ScopeHasKind(string scopeKey, int kind)
+        {
+            string key = KnightIdentityFingerprint.NormalizeHex64(scopeKey);
+            if (key == null || !_scopes.TryGetValue(key, out ScopeNode node)) return false;
+            for (int i = 0; i < node.Snapshots.Count; i++)
+            {
+                if (node.Snapshots[i].Kind == kind) return true;
+            }
+            return false;
+        }
+
+        /// <summary>全部 scope 键的稳定升序副本（解析/迁移的确定性扫描顺序）。</summary>
+        internal string[] OrderedScopeKeys()
+        {
+            string[] keys = new string[_scopes.Count];
+            _scopes.Keys.CopyTo(keys, 0);
+            Array.Sort(keys, StringComparer.Ordinal);
+            return keys;
+        }
+
+        /// <summary>
+        /// 注册或刷新 context → epoch。scope 必须已存在且未被别的 context 拥有；
+        /// <paramref name="allowNewEpoch"/> 只为「已确认的匹配/新世代」放行新 epoch；
+        /// 容量一律 fail closed（丢弃旧 epoch 会静默丢历史）。
+        /// </summary>
+        internal bool EnsureContext(string contextKey, string scopeKey, bool allowNewEpoch)
+        {
+            string key = KnightIdentityFingerprint.NormalizeHex64(contextKey);
+            string scope = KnightIdentityFingerprint.NormalizeHex64(scopeKey);
+            if (key == null || scope == null) return false;
+            if (!_scopes.ContainsKey(scope)) return false;
+            if (ScopeClaimedBy(scope, key)) return false;
+
+            if (!_contexts.TryGetValue(key, out KnightIdentityContext context))
+            {
+                if (_contexts.Count >= MaxContexts) return false;
+                context = new KnightIdentityContext();
+                context.Epochs.Add(scope);
+                context.Active = scope;
+                _contexts.Add(key, context);
+                return true;
+            }
+            if (string.Equals(context.Active, scope, StringComparison.Ordinal)) return true;
+            int index = context.Epochs.IndexOf(scope);
+            if (index >= 0)
+            {
+                // 本 context 的旧 epoch：active 回退到该代（保留更新的历史）。
+                context.Epochs.RemoveAt(index);
+                context.Epochs.Insert(0, scope);
+                context.Active = scope;
+                return true;
+            }
+            if (!allowNewEpoch) return false;
+            if (context.Epochs.Count >= MaxEpochs) return false;
+            context.Epochs.Insert(0, scope);
+            context.Active = scope;
+            return true;
+        }
 
         /// <summary>全部 scope×快照 的条目总数（含历史）。</summary>
         internal int TotalEntryCount
@@ -251,12 +410,12 @@ namespace KingdomEnhancedMod
             RejectedInvalid,
             RejectedCapacity,
 
-            /// <summary>同 scope 已有同 hash 但内容不同的记录：绝不覆写，原记录保持不变。</summary>
+            /// <summary>同 scope 已有同 hash 但内容不同（或 kind 不同）的记录：绝不覆写，原记录保持不变。</summary>
             RejectedConflict,
         }
 
         /// <summary>
-        /// 记录一份成功快照。同 scope 同 hash 且内容相同 → 幂等（顶到最近）；同 hash 但内容不同 →
+        /// 记录一份成功快照。同 scope 同 hash 且内容相同 → 幂等（顶到最近）；同 hash 但内容不同（kind 也算内容）→
         /// <see cref="MutationStatus.RejectedConflict"/>（原记录不动）；满 8 份只淘汰本 scope 最老一份；
         /// scope 数或总条目超上限一律 <see cref="MutationStatus.RejectedCapacity"/>（不删别的 scope）。
         /// </summary>
@@ -332,7 +491,7 @@ namespace KingdomEnhancedMod
 
         // ------------------------------------------------------------------ 落盘（确定性字节）
 
-        /// <summary>确定性 UTF-8 JSON：scope 按 key 升序、entry 按 uniqueID 升序、root 未知字段原样追加。</summary>
+        /// <summary>确定性 UTF-8 JSON：scope/context 按 key 升序、entry 按 uniqueID 升序、root 未知字段原样追加。</summary>
         internal byte[] SerializeToUtf8()
         {
             using (MemoryStream stream = new MemoryStream())
@@ -356,6 +515,22 @@ namespace KingdomEnhancedMod
                         writer.WriteEndObject();
                     }
                     writer.WriteEndArray();
+                    writer.WriteStartArray(ContextsField);
+                    string[] contextKeys = new string[_contexts.Count];
+                    _contexts.Keys.CopyTo(contextKeys, 0);
+                    Array.Sort(contextKeys, StringComparer.Ordinal);
+                    for (int i = 0; i < contextKeys.Length; i++)
+                    {
+                        KnightIdentityContext context = _contexts[contextKeys[i]];
+                        writer.WriteStartObject();
+                        writer.WriteString(ContextField, contextKeys[i]);
+                        writer.WriteString(ActiveField, context.Active);
+                        writer.WriteStartArray(EpochsField);
+                        for (int e = 0; e < context.Epochs.Count; e++) writer.WriteStringValue(context.Epochs[e]);
+                        writer.WriteEndArray();
+                        writer.WriteEndObject();
+                    }
+                    writer.WriteEndArray();
                     WriteExtras(writer, _unknownRootFields);
                     writer.WriteEndObject();
                 }
@@ -367,6 +542,7 @@ namespace KingdomEnhancedMod
         {
             writer.WriteStartObject();
             writer.WriteString(HashField, snapshot.Hash);
+            writer.WriteNumber(KindField, snapshot.Kind);
             writer.WriteString(SavedAtField, snapshot.SavedAtUtc);
             writer.WriteStartArray(EntriesField);
             IReadOnlyList<string> ids = snapshot.OrderedUniqueIds;
@@ -425,35 +601,40 @@ namespace KingdomEnhancedMod
                 if (root.ValueKind != JsonValueKind.Object) { error = "root is not an object"; return KnightIdentityArchiveStatus.Corrupt; }
 
                 // 先独立判定版本：未知版本的文件体不按本 schema 解释，否则“更高版本”会因字段不认识而被误判
-                // 成 Corrupt，而 Corrupt 拒绝普通 Save 覆盖。
-                bool sawVersion = false;
+                // 成 Corrupt，而 Corrupt 拒绝普通 Save 覆盖。v1（legacy）仍按原封闭 schema 解析：其快照一律 kind=1。
+                int version = -1;
                 foreach (JsonProperty property in root.EnumerateObject())
                 {
                     if (!property.NameEquals(SchemaVersionField)) continue;
-                    if (sawVersion) { error = "duplicate root field " + SchemaVersionField; return KnightIdentityArchiveStatus.Corrupt; }
-                    sawVersion = true;
-                    if (property.Value.ValueKind != JsonValueKind.Number || !property.Value.TryGetInt32(out int version))
+                    if (version != -1) { error = "duplicate root field " + SchemaVersionField; return KnightIdentityArchiveStatus.Corrupt; }
+                    if (property.Value.ValueKind != JsonValueKind.Number || !property.Value.TryGetInt32(out version))
                     {
                         error = SchemaVersionField + " is not an integer";
                         return KnightIdentityArchiveStatus.Corrupt;
                     }
-                    if (version != SchemaVersion)
+                    if (version != SchemaVersion && version != LegacySchemaVersion)
                     {
                         error = "unsupported schemaVersion " + version.ToString(CultureInfo.InvariantCulture);
                         return KnightIdentityArchiveStatus.UnsupportedVersion;
                     }
                 }
-                if (!sawVersion) { error = "missing " + SchemaVersionField; return KnightIdentityArchiveStatus.Corrupt; }
+                if (version == -1) { error = "missing " + SchemaVersionField; return KnightIdentityArchiveStatus.Corrupt; }
+                bool legacy = version == LegacySchemaVersion;
 
                 KnightIdentityArchive result = CreateEmpty();
-                if (!TryReadFields(root, RootFields, "root", MaxRootFieldCount, out JsonElement[] fields, out result._unknownRootFields, out error))
+                if (!TryReadFields(root, legacy ? RootFieldsV1 : RootFieldsV2, "root", MaxRootFieldCount, out JsonElement[] fields, out result._unknownRootFields, out error))
                     return KnightIdentityArchiveStatus.Corrupt;
-                if (fields[1].ValueKind != JsonValueKind.Undefined && !TryReadScopes(fields[1], result, out error))
+                if (fields[1].ValueKind != JsonValueKind.Undefined && !TryReadScopes(fields[1], legacy, result, out error))
                     return KnightIdentityArchiveStatus.Corrupt;
                 if (result.TotalEntryCount > MaxTotalEntries)
                 {
                     error = "more than " + MaxTotalEntries + " entries";
                     return KnightIdentityArchiveStatus.Corrupt;
+                }
+                if (!legacy)
+                {
+                    if (fields[2].ValueKind == JsonValueKind.Undefined) { error = "missing " + ContextsField; return KnightIdentityArchiveStatus.Corrupt; }
+                    if (!TryReadContexts(fields[2], result, out error)) return KnightIdentityArchiveStatus.Corrupt;
                 }
 
                 archive = result;
@@ -461,31 +642,31 @@ namespace KingdomEnhancedMod
             }
         }
 
-        private static bool TryReadScopes(JsonElement value, KnightIdentityArchive result, out string error)
+        private static bool TryReadScopes(JsonElement value, bool legacy, KnightIdentityArchive result, out string error)
         {
             error = null;
             if (value.ValueKind != JsonValueKind.Array) return Fail("scopes is not an array", out error);
             if (value.GetArrayLength() > MaxScopes) return Fail("more than " + MaxScopes + " scopes", out error);
             foreach (JsonElement element in value.EnumerateArray())
             {
-                if (!TryReadScope(element, result, out error)) return false;
+                if (!TryReadScope(element, legacy, result, out error)) return false;
             }
             return true;
         }
 
-        private static bool TryReadScope(JsonElement element, KnightIdentityArchive result, out string error)
+        private static bool TryReadScope(JsonElement element, bool legacy, KnightIdentityArchive result, out string error)
         {
             if (!TryReadClosedFields(element, ScopeFields, "scope", out JsonElement[] fields, out error)) return false;
             string scopeKey = fields[0].ValueKind == JsonValueKind.String ? KnightIdentityFingerprint.NormalizeHex64(fields[0].GetString()) : null;
             if (scopeKey == null) return Fail("scopeKey is not 64 hex chars", out error);
             if (fields[1].ValueKind == JsonValueKind.Undefined) return Fail("scope is missing " + SnapshotsField, out error);
-            if (!TryReadSnapshots(fields[1], out List<KnightIdentitySnapshot> snapshots, out error)) return false;
+            if (!TryReadSnapshots(fields[1], legacy, out List<KnightIdentitySnapshot> snapshots, out error)) return false;
             if (result._scopes.ContainsKey(scopeKey)) return Fail("duplicate scopeKey " + scopeKey, out error);
             result._scopes.Add(scopeKey, new ScopeNode(snapshots));
             return true;
         }
 
-        private static bool TryReadSnapshots(JsonElement value, out List<KnightIdentitySnapshot> snapshots, out string error)
+        private static bool TryReadSnapshots(JsonElement value, bool legacy, out List<KnightIdentitySnapshot> snapshots, out string error)
         {
             snapshots = null;
             error = null;
@@ -496,7 +677,7 @@ namespace KingdomEnhancedMod
             HashSet<string> hashes = new HashSet<string>(StringComparer.Ordinal);
             foreach (JsonElement element in value.EnumerateArray())
             {
-                if (!TryReadSnapshot(element, out KnightIdentitySnapshot snapshot, out error)) return false;
+                if (!TryReadSnapshot(element, legacy, out KnightIdentitySnapshot snapshot, out error)) return false;
                 if (!hashes.Add(snapshot.Hash)) return Fail("duplicate snapshot hash in one scope", out error);
                 list.Add(snapshot);
             }
@@ -504,16 +685,64 @@ namespace KingdomEnhancedMod
             return true;
         }
 
-        private static bool TryReadSnapshot(JsonElement element, out KnightIdentitySnapshot snapshot, out string error)
+        private static bool TryReadSnapshot(JsonElement element, bool legacy, out KnightIdentitySnapshot snapshot, out string error)
         {
             snapshot = null;
-            if (!TryReadClosedFields(element, SnapshotFields, "snapshot", out JsonElement[] fields, out error)) return false;
+            if (!TryReadClosedFields(element, legacy ? SnapshotFieldsV1 : SnapshotFieldsV2, "snapshot", out JsonElement[] fields, out error)) return false;
             if (fields[0].ValueKind != JsonValueKind.String) return Fail("snapshot " + HashField + " is not a string", out error);
-            if (fields[1].ValueKind != JsonValueKind.String) return Fail("snapshot " + SavedAtField + " is not a string", out error);
+
+            int kind = KnightIdentityFingerprint.KindLegacy;
+            int savedAtIndex = 1;
+            int entriesIndex = 2;
+            if (!legacy)
+            {
+                if (fields[1].ValueKind != JsonValueKind.Number || !fields[1].TryGetInt32(out kind))
+                    return Fail("snapshot " + KindField + " is not an integer", out error);
+                savedAtIndex = 2;
+                entriesIndex = 3;
+            }
+            if (fields[savedAtIndex].ValueKind != JsonValueKind.String) return Fail("snapshot " + SavedAtField + " is not a string", out error);
 
             IReadOnlyList<KnightIdentitySnapshotEntry> entries = Array.Empty<KnightIdentitySnapshotEntry>();
-            if (fields[2].ValueKind != JsonValueKind.Undefined && !TryReadEntries(fields[2], out entries, out error)) return false;
-            return KnightIdentitySnapshot.TryCreateCore(fields[0].GetString(), fields[1].GetString(), entries, out snapshot, out error);
+            if (fields[entriesIndex].ValueKind != JsonValueKind.Undefined && !TryReadEntries(fields[entriesIndex], out entries, out error)) return false;
+            return KnightIdentitySnapshot.TryCreateCore(kind, fields[0].GetString(), fields[savedAtIndex].GetString(), entries, out snapshot, out error);
+        }
+
+        /// <summary>
+        /// v2 contexts：稳定上下文 → epoch 列表。active 恒为 epochs[0]；每个 epoch 必须已存在且只属于一个 context。
+        /// </summary>
+        private static bool TryReadContexts(JsonElement value, KnightIdentityArchive result, out string error)
+        {
+            error = null;
+            if (value.ValueKind != JsonValueKind.Array) return Fail("contexts is not an array", out error);
+            if (value.GetArrayLength() > MaxContexts) return Fail("more than " + MaxContexts + " contexts", out error);
+            foreach (JsonElement element in value.EnumerateArray())
+            {
+                if (!TryReadClosedFields(element, ContextFields, "context", out JsonElement[] fields, out error)) return false;
+                string contextKey = fields[0].ValueKind == JsonValueKind.String ? KnightIdentityFingerprint.NormalizeHex64(fields[0].GetString()) : null;
+                if (contextKey == null) return Fail("context is not 64 hex chars", out error);
+                if (result._contexts.ContainsKey(contextKey)) return Fail("duplicate context " + contextKey, out error);
+                if (fields[2].ValueKind != JsonValueKind.Array) return Fail("context " + EpochsField + " is not an array", out error);
+                if (fields[2].GetArrayLength() < 1 || fields[2].GetArrayLength() > MaxEpochs)
+                    return Fail("context epoch count must be 1.." + MaxEpochs, out error);
+
+                KnightIdentityContext context = new KnightIdentityContext();
+                foreach (JsonElement epochValue in fields[2].EnumerateArray())
+                {
+                    string epoch = epochValue.ValueKind == JsonValueKind.String ? KnightIdentityFingerprint.NormalizeHex64(epochValue.GetString()) : null;
+                    if (epoch == null) return Fail("context epoch is not 64 hex chars", out error);
+                    if (context.Owns(epoch)) return Fail("duplicate context epoch " + epoch, out error);
+                    if (!result._scopes.ContainsKey(epoch)) return Fail("context epoch has no scope " + epoch, out error);
+                    if (result.ScopeClaimed(epoch)) return Fail("epoch owned by two contexts: " + epoch, out error);
+                    context.Epochs.Add(epoch);
+                }
+                if (fields[1].ValueKind != JsonValueKind.String) return Fail("context " + ActiveField + " is not a string", out error);
+                context.Active = KnightIdentityFingerprint.NormalizeHex64(fields[1].GetString());
+                if (context.Active == null || !string.Equals(context.Active, context.Epochs[0], StringComparison.Ordinal))
+                    return Fail("active epoch must be the newest context epoch", out error);
+                result._contexts.Add(contextKey, context);
+            }
+            return true;
         }
 
         private static bool TryReadEntries(JsonElement value, out IReadOnlyList<KnightIdentitySnapshotEntry> entries, out string error)
@@ -691,6 +920,9 @@ namespace KingdomEnhancedMod
             if (archive == null) throw new ArgumentNullException(nameof(archive));
 
             byte[] bytes = archive.SerializeToUtf8();
+            // v1未知字段可能与v2新增contexts重名，或升级后超过字段上限。拒写而不丢失未知数据。
+            if (KnightIdentityArchive.Parse(bytes, out _, out string serializedError) != KnightIdentityArchiveStatus.Valid)
+                return new SaveResult(SaveStatus.Failed, "serialized archive is not readable: " + serializedError);
             if (bytes.Length > MaxFileBytes)
             {
                 return new SaveResult(SaveStatus.Failed,
@@ -851,13 +1083,80 @@ namespace KingdomEnhancedMod
     {
         internal const int HexLength = 64;
 
+        /// <summary>hash kind 1：legacy 全量岛 JSON（含全部顶层时钟）。</summary>
+        internal const int KindLegacy = 1;
+
+        /// <summary>hash kind 2：排除 3 个已实测时钟的时钟无关指纹（与 HeroRecruitmentFingerprint 同一实测结论）。</summary>
+        internal const int KindNormalized = 2;
+
+        internal static bool IsValidKind(int kind) { return kind == KindLegacy || kind == KindNormalized; }
+
+        /// <summary>kind2 指纹的域分隔前缀：保证 kind1/kind2 的盐空间可分。</summary>
+        private const string NormalizedContextPrefix = "knight-normalized-v2\n";
+
         internal static string Sha256(string rawSnapshot, string context)
         {
             if (rawSnapshot == null) throw new ArgumentNullException(nameof(rawSnapshot));
             if (context == null) throw new ArgumentNullException(nameof(context));
+            return Sha256Bytes(Encoding.UTF8.GetBytes(rawSnapshot), context);
+        }
 
-            byte[] contextBytes = Encoding.UTF8.GetBytes(context);
-            byte[] snapshotBytes = Encoding.UTF8.GetBytes(rawSnapshot);
+        /// <summary>已编码 payload 的 legacy 指纹（迁移扫描每个 scope 复用同一份字节，避免逐 scope 复制）。</summary>
+        internal static string Sha256Bytes(byte[] snapshotBytes, string context)
+        {
+            if (snapshotBytes == null) throw new ArgumentNullException(nameof(snapshotBytes));
+            if (context == null) throw new ArgumentNullException(nameof(context));
+            return Sha256Core(Encoding.UTF8.GetBytes(context), snapshotBytes);
+        }
+
+        /// <summary>
+        /// 时钟无关指纹：只剔除 playTimeDays / lastPlayedTimeDays / _islandTimePlayed 三个顶层时钟
+        /// （实测：这三个活时钟可能在 IslandSaveData.Save 与 global 落盘之间前进；其余字段全部参与）。
+        /// 非法 JSON（非对象 / 重复顶层字段）抛异常，调用方自行降级。
+        /// </summary>
+        internal static string Normalized(string rawSnapshot, string context)
+        {
+            if (rawSnapshot == null) throw new ArgumentNullException(nameof(rawSnapshot));
+            if (context == null) throw new ArgumentNullException(nameof(context));
+            return NormalizedFromPayload(NormalizedPayload(rawSnapshot), context);
+        }
+
+        /// <summary>过滤后的 payload 字节（每个 rawJson 只解析/重写一次，供多 scope 复用）。</summary>
+        internal static byte[] NormalizedPayload(string rawSnapshot)
+        {
+            if (rawSnapshot == null) throw new ArgumentNullException(nameof(rawSnapshot));
+            using (JsonDocument document = JsonDocument.Parse(rawSnapshot))
+            {
+                if (document.RootElement.ValueKind != JsonValueKind.Object) throw new FormatException("island object required");
+                using (MemoryStream stream = new MemoryStream())
+                {
+                    HashSet<string> names = new HashSet<string>(StringComparer.Ordinal);
+                    using (Utf8JsonWriter writer = new Utf8JsonWriter(stream))
+                    {
+                        writer.WriteStartObject();
+                        foreach (JsonProperty property in document.RootElement.EnumerateObject())
+                        {
+                            if (!names.Add(property.Name)) throw new FormatException("duplicate island property");
+                            if (property.Name is "playTimeDays" or "lastPlayedTimeDays" or "_islandTimePlayed") continue;
+                            property.WriteTo(writer);
+                        }
+                        writer.WriteEndObject();
+                    }
+                    return stream.ToArray();
+                }
+            }
+        }
+
+        /// <summary>已过滤 payload 的时钟无关指纹（迁移扫描每个 scope 复用，不重复解析 JSON）。</summary>
+        internal static string NormalizedFromPayload(byte[] normalizedPayload, string context)
+        {
+            if (normalizedPayload == null) throw new ArgumentNullException(nameof(normalizedPayload));
+            if (context == null) throw new ArgumentNullException(nameof(context));
+            return Sha256Core(Encoding.UTF8.GetBytes(NormalizedContextPrefix + context), normalizedPayload);
+        }
+
+        private static string Sha256Core(byte[] contextBytes, byte[] snapshotBytes)
+        {
             using (IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256))
             {
                 Span<byte> length = stackalloc byte[8];

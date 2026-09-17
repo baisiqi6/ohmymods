@@ -51,6 +51,7 @@ internal static class MedievalScatterPolicy
     private static bool ShooterReady(Archer archer)
     {
         if (archer == null || archer.gameObject == null || !archer.gameObject.activeInHierarchy) return false;
+        if (MusketeerIdentity.IsUnit(archer)) return false;
         if (!archer.enabled || archer.harmless) return false;
         if (archer._attackMode != Archer.AttackMode.Ranged
             || archer._desiredAttackMode != Archer.AttackMode.Ranged) return false;

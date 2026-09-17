@@ -9,6 +9,7 @@ static class Program
  static void Test(string name,Action action)
  {
   Counts.Reset();Managers.ThrowInst=false;Managers.Inst=new();Time.unscaledTime=0;
+  MusketeerIdentity.Reset();ModConfig.MusketeerShopEnabled.Value=false;
   NetworkBigBoss.HasWorldAuth=true;
   ModConfig.Enabled.Value=ModConfig.ShowPopulationHud.Value=true;ModConfig.AutoRestockWorkersEnabled.Value=false;
   ModConfig.AutoRestockCatapultBarrelsEnabled.Value=ModConfig.AutoRestockFireTowerAmmoEnabled.Value=false;
@@ -28,14 +29,68 @@ static class Program
  }
  static bool Read(float time,bool enabled=true){Time.unscaledTime=time;return Counts.Refresh(Managers.Inst,enabled,time);}
  static void Settle(){Eq(true,Read(0),"first sample");Eq(true,Read(1),"delayed seed one");Eq(true,Read(2),"delayed seed two");}
- static int Total(){int n=Counts.Knights;for(int i=0;i<8;i++)n+=Counts.Role(i);return n;}
+ static int Total(){int n=Counts.Knights;for(int i=0;i<Counts.RoleCount;i++)n+=Counts.Role(i);return n;}
  static void Main()
  {
+  Test("Musketeer identity binds and unbinds after delayed seeds without rebuilding or double counting",()=>
+  {
+   var m=Managers.Inst;var c=Actor<Archer>(m);var archer=c.gameObject.GetComponent<Archer>();Settle();
+   int scans=m.kingdom._characters.Enumerations,components=c.gameObject.ComponentReads,reads=MusketeerIdentity.Reads;
+   MusketeerIdentity.Bind(archer);Read(2.1f);Eq(reads,MusketeerIdentity.Reads,"no per-frame identity query");
+   Eq(1,Counts.Role(Counts.ArcherRole),"prior complete snapshot retained");Read(3);
+   Eq(0,Counts.Role(Counts.ArcherRole),"marked actor removed from archers");Eq(1,Counts.Role(Counts.MusketeerRole),"late identity promoted");Eq(1,Total(),"no duplicate actor");
+   MusketeerIdentity.Unbind(archer);Read(4);Eq(1,Counts.Role(Counts.ArcherRole),"identity removal restores archer");Eq(0,Counts.Role(Counts.MusketeerRole),"musketeer removed");
+   Eq(scans,m.kingdom._characters.Enumerations,"no rebuild for either identity transition");Eq(components,c.gameObject.ComponentReads,"cached archer avoids component searches");
+  });
+  Test("Delayed confirmed identity survives shop disable and known pause",()=>
+  {
+   var m=Managers.Inst;var c=Actor<Archer>(m);var archer=c.gameObject.GetComponent<Archer>();MusketeerIdentity.Bind(archer);MusketeerIdentity.Ready=false;
+   Settle();Eq(0,Counts.Role(Counts.MusketeerRole),"unconfirmed identity omitted");MusketeerIdentity.Ready=true;Read(3);
+   Eq(false,ModConfig.MusketeerShopEnabled.Value,"shop disabled");Eq(1,Counts.Role(Counts.MusketeerRole),"confirmed career independent of shop flag");
+   m.game.state=Game.State.Menu;Read(4);Eq(1,Counts.Role(Counts.MusketeerRole),"pause retains confirmed population");
+   ModConfig.MusketeerShopEnabled.Value=true;Read(5);ModConfig.MusketeerShopEnabled.Value=false;Read(6);
+   Eq(1,Counts.Role(Counts.MusketeerRole),"turning shop off retains profession");Eq(0,Counts.Role(Counts.ArcherRole),"no archer duplicate");
+  });
+  Test("Musketeer death inactive pool reuse and foreign layer exclude stale careers",()=>
+  {
+   var m=Managers.Inst;var c=Actor<Archer>(m);var archer=c.gameObject.GetComponent<Archer>();MusketeerIdentity.Bind(archer);Settle();
+   c._damageable.isDead=true;Read(3);Eq(0,Total(),"dead musketeer excluded");c._damageable.isDead=false;c.gameObject.activeInHierarchy=false;Read(4);Eq(0,Total(),"pooled inactive excluded");
+   MusketeerIdentity.Unbind(archer);c.gameObject.activeInHierarchy=true;Counts.NotifyRosterChanged();Read(5);
+   Eq(0,Counts.Role(Counts.MusketeerRole),"pool life no stale career");Eq(1,Counts.Role(Counts.ArcherRole),"reused ordinary archer counted once");
+   MusketeerIdentity.Bind(archer);Read(6);c.transform.parent=new GameObject().transform;Read(7);Eq(0,Total(),"foreign layer excluded");
+   c.transform.parent=m.world.gameLayer;c.gameObject.scene=new(){handle=99};Read(8);Eq(0,Total(),"foreign scene excluded");
+  });
+  Test("World switch clears former musketeer and only counts newly confirmed current-world identities",()=>
+  {
+   var m=Managers.Inst;var c=Actor<Archer>(m);var old=c.gameObject.GetComponent<Archer>();MusketeerIdentity.Bind(old);Settle();
+   m.world=new();var next=Actor<Archer>(m).gameObject.GetComponent<Archer>();Read(2.1f);
+   Eq(0,Counts.Role(Counts.MusketeerRole),"old island profession absent");Eq(1,Counts.Role(Counts.ArcherRole),"new island ordinary actor");
+   c.transform.parent=m.world.gameLayer;Counts.NotifyRosterChanged();Read(3.1f);Eq(0,Counts.Role(Counts.MusketeerRole),"foreign identity not exposed even when attached");
+   MusketeerIdentity.Bind(next);Read(4.1f);Eq(1,Counts.Role(Counts.MusketeerRole),"new current identity confirmed");Eq(1,Counts.Role(Counts.ArcherRole),"old unknown actor remains ordinary archer");
+  });
+  Test("Online authority does not manufacture unsupported musketeer recognition and clients remain unavailable",()=>
+  {
+   var m=Managers.Inst;var a=Actor<Archer>(m).gameObject.GetComponent<Archer>();MusketeerIdentity.Bind(a);MusketeerIdentity.Online=true;
+   Read(0);Eq(0,Counts.Role(Counts.MusketeerRole),"online registry does not expose career");Eq(1,Counts.Role(Counts.ArcherRole),"native host archer rule preserved");
+   NetworkBigBoss.HasWorldAuth=false;m.game.state=Game.State.NetworkClientPlaying;Read(1);Eq(false,Counts.Ready,"client not ready");Eq(true,Counts.ClientUnavailable,"existing client boundary");
+  });
   Test("All eight component professions, unknown NPC exclusion and stale Peasant names",()=>
   {
    var m=Managers.Inst;Actor<Worker>(m);Actor<Archer>(m);Actor<Farmer>(m);Actor<Pikeman>(m);
    Actor<Ninja>(m).gameObject.GetComponent<Ninja>()._isFisher=true;Actor<Berserker>(m);Actor<Peasant>(m);Actor<Beggar>(m);Unknown(m);
    Eq(true,Read(0),"ready");for(int i=0;i<8;i++)Eq(1,Counts.Role(i),"role "+i);Eq(8,Total(),"no unknown default villager");
+  });
+  Test("Original eight indices knight styles and native archer subclasses stay unchanged beside musketeer",()=>
+  {
+   var m=Managers.Inst;Actor<Worker>(m);Actor<Archer>(m);Actor<Farmer>(m);Actor<Pikeman>(m);Actor<Ninja>(m);Actor<Berserker>(m);Actor<Peasant>(m);Actor<Beggar>(m);
+   // Ordinary crossbow/hero appearance does not provide a confirmed musketeer identity.
+   Actor<Archer>(m).gameObject.name="Crossbowman";Actor<Archer>(m).gameObject.name="HeroArcher";
+   MusketeerIdentity.Bind(Actor<Archer>(m).gameObject.GetComponent<Archer>());
+   var k=Actor<Knight>(m).gameObject.GetComponent<Knight>();k.Style=3;k.Resolved=true;
+   MusketeerIdentity.Bind(k.gameObject.AddComponent<Archer>());Read(0);
+   Eq(9,Counts.RoleCount,"contiguous role array");Eq(8,Counts.MusketeerRole,"new role appended");Eq(9,Counts.KnightRole,"separate knight sentinel");
+   for(int i=0;i<8;i++)Eq(i==1?3:1,Counts.Role(i),"preserved role "+i);
+   Eq(1,Counts.Role(Counts.MusketeerRole),"only original archer entry reclassified");Eq(1,Counts.Knights,"knight precedence retained");Eq(1,Counts.Style(3),"Greek style retained");Eq(12,Total(),"exclusive complete total");
   });
   Test("Component precedence is exclusive, including Beggar before Peasant and Knight before Berserker",()=>
   {
@@ -182,15 +237,31 @@ static class Program
   {
    Actor<Worker>(Managers.Inst);PopulationHud.Tick();int scans=Managers.Inst.kingdom._characters.Enumerations;
    Event.current.type=EventType.Layout;PopulationHud.Draw();Eq(0,GUI.Labels.Count,"layout does not draw");Event.current.type=EventType.MouseDown;PopulationHud.Draw();Eq(0,GUI.Labels.Count,"input does not draw");
-   Event.current.type=EventType.Repaint;PopulationHud.Draw();Eq(34,GUI.Labels.Count,"17 labels with shadows, unknown omitted");
+   Event.current.type=EventType.Repaint;PopulationHud.Draw();Eq(36,GUI.Labels.Count,"18 labels with shadows, unknown omitted");
    Eq("本岛人数",GUI.Labels[1].Text,"scope title");Eq(54f,GUI.Labels[1].Rect.y,"title above roster");
    Eq("工匠  1",GUI.Labels[3].Text,"cached worker label");Eq(16f,GUI.Labels[3].Rect.x,"left position");Eq(76f,GUI.Labels[3].Rect.y,"top position");
    Eq(GUI.skin.label.FontChain,GUI.Labels[1].Style.FontChain,"native CJK font chain inherited");Eq(15,GUI.Labels[1].Style.fontSize,"font size");Eq(scans,Managers.Inst.kingdom._characters.Enumerations,"Draw never enumerates");
   });
   Test("HUD unknown knight fills only spare cell and independent display switch hides it",()=>
   {
-   Actor<Knight>(Managers.Inst);PopulationHud.Tick();PopulationHud.Draw();Eq(36,GUI.Labels.Count,"unknown extra label");Eq(true,GUI.Labels.Any(x=>x.Text=="待识别  1"),"unknown text");
+   Actor<Knight>(Managers.Inst);PopulationHud.Tick();PopulationHud.Draw();Eq(38,GUI.Labels.Count,"unknown extra label");Eq(true,GUI.Labels.Any(x=>x.Text=="待识别  1"),"unknown text");
    GUI.Labels.Clear();ModConfig.ShowPopulationHud.Value=false;PopulationHud.Tick();PopulationHud.Draw();Eq(0,GUI.Labels.Count,"disabled HUD hidden");Eq(false,Counts.Ready,"disabled counts clear");
+  });
+  Test("Ninth profession has its own row before knight styles and ammunition with no label collisions",()=>
+  {
+   var m=Managers.Inst;MusketeerIdentity.Bind(Actor<Archer>(m).gameObject.GetComponent<Archer>());Actor<Knight>(m);
+   PopulationHud.Tick();PopulationHud.Draw();var labels=GUI.Labels.Where((_,i)=>i%2==1).ToList();
+   Eq(19,labels.Count,"complete layout including unresolved knight");
+   Eq(156f,labels.Single(x=>x.Text=="火枪手  1").Rect.y,"fifth profession row");
+   Eq(182f,labels.Single(x=>x.Text=="骑士  1").Rect.y,"knight below all professions");
+   Eq(202f,labels.Single(x=>x.Text=="中世纪  0").Rect.y,"styles below knight");
+   Eq(242f,labels.Single(x=>x.Text=="待识别  1").Rect.y,"last style row");
+   Eq(268f,labels.Single(x=>x.Text=="火药桶  0").Rect.y,"ammo after final style");
+   for(int i=0;i<labels.Count;i++)for(int j=i+1;j<labels.Count;j++)
+   {
+    var a=labels[i].Rect;var b=labels[j].Rect;
+    Eq(false,a.x<b.x+b.width&&b.x<a.x+a.width&&a.y<b.y+b.height&&b.y<a.y+a.height,"labels do not overlap");
+   }
   });
   Test("Client HUD paints only title and unavailable notice and clears notice on disable",()=>
   {

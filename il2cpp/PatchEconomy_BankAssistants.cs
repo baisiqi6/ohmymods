@@ -30,6 +30,15 @@ public static class PatchEconomy_BankAssistants
     // whole-island registrar scans on crowded islands.
     internal const float SCAN_INTERVAL = 0.6f;
     internal const float COIN_MATURITY_SECONDS = 3f;
+    // 每趟收集目标（2026-09-15 用户反馈：连续投币时助手每趟只收几枚就回家。真实原因是
+    // 成熟快照一断流就 TeleportHome，与容量无关——容量下限是 100）。容量 helper 语义与
+    // 下限不动，TripTarget 只是“这一趟收够了”的阈值：20 恒低于容量下限，完成检查
+    // （扫描收工 / 链式补位 / 选择收集者）全部以它为准。
+    internal const int TRIP_TARGET = 20;
+    // 断流等待：活跃且本趟已收 >0 但未满趟、又找不到下一枚合法成熟币时，原地静止等一个
+    // 有界时长 = 首个成熟币观察期 + 2 个扫描周期（3 + 2×0.6 = 4.2s）：断流当帧新落的币
+    // 3s 成熟，再给一个扫描周期找到它；到点仍无币才回家收工。deadline 只建立一次、不续期。
+    internal const float WAIT_GAP_SECONDS = COIN_MATURITY_SECONDS + 2f * SCAN_INTERVAL;
     // 农田币独立成熟时长（2026-08-30 需求）：农田币在玩家脚边成串弹出
     // （Farmland.DropCoins 每 0.1s 一枚），且原生 pickUpPolicy=Nobody 只有玩家能捡。
     // 3s 会在玩家弯腰捡币半途就吸走；取 4×3s=12s，约一个完整收获-捡币周期，
@@ -458,6 +467,8 @@ public class BankAssistantCoordinator : MonoBehaviour
     private const float SCAN_INTERVAL = PatchEconomy_BankAssistants.SCAN_INTERVAL;
     private const float COIN_MATURITY_SECONDS = PatchEconomy_BankAssistants.COIN_MATURITY_SECONDS;
     private const float FARM_COIN_MATURITY_SECONDS = PatchEconomy_BankAssistants.FARM_COIN_MATURITY_SECONDS;
+    private const int TRIP_TARGET = PatchEconomy_BankAssistants.TRIP_TARGET;
+    private const float WAIT_GAP_SECONDS = PatchEconomy_BankAssistants.WAIT_GAP_SECONDS;
     private const float WORLD_SCAN_RANGE = PatchEconomy_BankAssistants.WORLD_SCAN_RANGE;
     private const float TELEPORT_APPROACH_DISTANCE = PatchEconomy_BankAssistants.TELEPORT_APPROACH_DISTANCE;
     private const float PICKUP_DISTANCE = PatchEconomy_BankAssistants.PICKUP_DISTANCE;
@@ -494,6 +505,9 @@ public class BankAssistantCoordinator : MonoBehaviour
         public bool PatrolRight;
         public float PatrolResumeAt;
         public bool RestockReserved;
+        // 断流等待 deadline（Time.time，>0 表示正在等下一枚成熟币）。首次断流建立，后续
+        // 扫描不续期；新目标/新成功拾取/回家/借用/换世界/整表重置一律清零，防止残留。
+        public float WaitDeadline;
 
         public AssistantState(int index) { Index = index; }
     }
@@ -676,6 +690,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             ActiveCollector[i] = false;
             helper.Moving = false;
             SetAnimationSpeed(helper, 0f);
+            helper.WaitDeadline = 0f;
             helper.RestockReserved = true;
             index = i; actor = candidate; _nextRestockAssistant = (i + 1) % Assistants.Length;
             return true;
@@ -727,7 +742,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         bool canReturn = false;
         try { canReturn = returnHome && RestockReservationValid(index, actor); }
         catch { } // Invalid native context must still relinquish the local lease.
-        finally { helper.RestockReserved = false; helper.Moving = false; }
+        finally { helper.RestockReserved = false; helper.Moving = false; helper.WaitDeadline = 0f; }
         if (canReturn) TeleportHomeAndDeposit(helper);
     }
 
@@ -1001,6 +1016,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             helper.CarriedCoins = 0;
             helper.UncreditedCoins = 0;
             helper.RestockReserved = false;
+            helper.WaitDeadline = 0f;
             ActiveCollector[i] = false;
             if (existingActors == null) existingActors = UnityEngine.Object.FindObjectsOfType<PositionSync>();
             string marker = ASSISTANT_PREFIX + i + "_";
@@ -1045,6 +1061,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             helper.CarriedCoins = 0;
             helper.UncreditedCoins = 0;
             helper.Moving = false;
+            helper.WaitDeadline = 0f;
             helper.PatrolRight = (i & 1) == 0;
             helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(i);
             SetAnimationSpeed(helper, 0f);
@@ -1085,6 +1102,7 @@ public class BankAssistantCoordinator : MonoBehaviour
                 if (helper.Target != null) ReleaseTarget(helper);
                 if (ActiveCollector[i])
                 {
+                    ClearWaitDeadline(helper);
                     TeleportHomeAndDeposit(helper);
                     ActiveCollector[i] = false;
                 }
@@ -1190,7 +1208,7 @@ public class BankAssistantCoordinator : MonoBehaviour
                 ReleaseTarget(helper);
         }
 
-        // 满容量或演员消失的活跃收集者收工：回家清账并退出活跃集合。
+        // 满趟或演员消失的活跃收集者收工：回家清账并退出活跃集合。
         for (int i = 0; i < Assistants.Length; i++)
         {
             AssistantState helper = Assistants[i];
@@ -1198,10 +1216,12 @@ public class BankAssistantCoordinator : MonoBehaviour
             if (helper.Actor == null || !helper.Actor.activeInHierarchy)
             {
                 if (helper.Target != null) ReleaseTarget(helper);
+                ClearWaitDeadline(helper);
                 ActiveCollector[i] = false;
             }
-            else if (helper.CarriedCoins >= GetAssistantCapacity())
+            else if (TripComplete(helper))
             {
+                ClearWaitDeadline(helper);
                 TeleportHomeAndDeposit(helper);
                 ActiveCollector[i] = false;
             }
@@ -1280,6 +1300,10 @@ public class BankAssistantCoordinator : MonoBehaviour
 
             if (ActiveCollector[i] && helper.Target == null)
             {
+                // count<=0 的短暂空快照与成熟断流同义：本趟已收>0 且未满趟时原地等待有界
+                // gap（绝不从已清空的旧快照重新指派），到点仍无币才回家退出活跃集合。
+                if (TryStartWaitForNextCoin(helper)) continue;
+                ClearWaitDeadline(helper);
                 if (helper.CarriedCoins > 0) TeleportHomeAndDeposit(helper);
                 DeactivateCollector(i);
             }
@@ -1333,7 +1357,6 @@ public class BankAssistantCoordinator : MonoBehaviour
 
     private static void SelectNextCollectors(int targetActive)
     {
-        int capacity = GetAssistantCapacity();
         int selected = CountActiveCollectors();
         // 轮转起点必须在循环外定格：循环体内推进 _nextCollectorIndex 再用它算
         // index 会在 3-4 并发时跳位（只激活 3 个且顺序偏离轮转）。
@@ -1344,7 +1367,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             int index = (start + offset) % Assistants.Length;
             AssistantState helper = Assistants[index];
             if (helper.RestockReserved || ActiveCollector[index] || helper.Actor == null
-                || !helper.Actor.activeInHierarchy || helper.CarriedCoins >= capacity) continue;
+                || !helper.Actor.activeInHierarchy || TripComplete(helper)) continue;
 
             ActiveCollector[index] = true;
             selected++;
@@ -1482,15 +1505,17 @@ public class BankAssistantCoordinator : MonoBehaviour
         return false;
     }
 
-    // 每枚结算成功后的链式补位：满容→回家清账并退出活跃集合；当前目标仍有效且
-    // 就是最近的未认领币→保持（避免释放-重认领的 RPC 抖动）；否则释放旧目标后
-    // 就近补链；补链失败（快照空/全被认领/在线门禁）→收工：动画归零，有携币则
-    // 回家清账。成功路径 Moving/动画速度全程保持奔跑，无停顿帧。
+    // 每枚结算成功后的链式补位：满趟→回家清账并退出活跃集合；当前目标仍有效且
+    // 就是最近的未认领币→保持（避免释放-重认领的 RPC 抖动）；否则释放旧目标后就近补链；
+    // 补链失败：本趟已收>0 且未到 20 时原地等待一个断流 gap（保持 active，下一轮扫描
+    // 继续找币），空手或等待到期才回家清账并退出。成功路径 Moving/动画速度全程保持
+    // 奔跑，无停顿帧。
     private static bool TryChainNextTarget(AssistantState helper)
     {
         if (helper.RestockReserved) return false;
-        if (helper.CarriedCoins >= GetAssistantCapacity())
+        if (TripComplete(helper))
         {
+            ClearWaitDeadline(helper);
             TeleportHomeAndDeposit(helper);
             DeactivateCollector(helper.Index);
             return false;
@@ -1502,10 +1527,16 @@ public class BankAssistantCoordinator : MonoBehaviour
                 return true;
             ReleaseTarget(helper);
         }
-        if (AssignNextTarget(helper)) return true;
+        if (AssignNextTarget(helper))
+        {
+            ClearWaitDeadline(helper);
+            return true;
+        }
 
         helper.Moving = false;
         SetAnimationSpeed(helper, 0f);
+        if (TryStartWaitForNextCoin(helper)) return false;
+        ClearWaitDeadline(helper);
         if (helper.CarriedCoins > 0) TeleportHomeAndDeposit(helper);
         DeactivateCollector(helper.Index);
         return false;
@@ -1585,8 +1616,10 @@ public class BankAssistantCoordinator : MonoBehaviour
             FarmOriginCoinIds.Remove(id);
             helper.Target = null;
             helper.CarriedCoins++;
+            // 新成功拾取=这一趟仍在继续：断流 deadline 清零，下一次断流重新计时。
+            ClearWaitDeadline(helper);
 
-            // 链式补位（当帧）：满容→回家清账；失败→收工；成功→保持奔跑无停顿。
+            // 链式补位（当帧）：满趟→回家清账；断流→原地等待/收工；成功→保持奔跑无停顿。
             TryChainNextTarget(helper);
         }
     }
@@ -1639,8 +1672,10 @@ public class BankAssistantCoordinator : MonoBehaviour
             Observed.Remove(id);
             FarmOriginCoinIds.Remove(id);
             helper.CarriedCoins++;
+            // 新成功拾取=这一趟仍在继续：断流 deadline 清零，下一次断流重新计时。
+            ClearWaitDeadline(helper);
 
-            // 链式补位；失败（含满容）意味着收工/回家，停止本帧继续扫。
+            // 链式补位；失败（含满趟/断流等待）意味着本帧停止继续扫。
             if (!TryChainNextTarget(helper)) return;
             if (helper.Actor == null) return;
             actorX = helper.Actor.transform.position.x;
@@ -1826,6 +1861,8 @@ public class BankAssistantCoordinator : MonoBehaviour
     private static void TeleportHomeAndDeposit(AssistantState helper)
     {
         if (helper.Actor == null) return;
+        // 回家=这一趟结束：断流 deadline 一律清零，绝不带进下一趟。
+        ClearWaitDeadline(helper);
         if (helper.Target != null && !ReleaseTarget(helper)) return;
 
         Vector3 home = GetHomePosition(helper.Index);
@@ -1861,6 +1898,37 @@ public class BankAssistantCoordinator : MonoBehaviour
         return wallet != null
             ? Math.Max(AssistantCapacityFloor, wallet.TotalCapacity * AssistantCapacityMultiplier)
             : AssistantCapacityFloor;
+    }
+
+    /// <summary>
+    /// 本趟收集上限：每趟目标 TRIP_TARGET，但绝不超过真实容量（容量 helper 语义与下限
+    /// 100 不动，20 恒成立）。扫描收工、链式补位、选择收集者共用同一个完成判定。
+    /// </summary>
+    private static int GetTripCapacity() => Math.Min(TRIP_TARGET, GetAssistantCapacity());
+
+    private static bool TripComplete(AssistantState helper)
+        => helper != null && helper.CarriedCoins >= GetTripCapacity();
+
+    /// <summary>
+    /// 断流等待：活跃收集者本趟已入账 &gt;0、未满趟，又找不到下一枚合法成熟币时，原地静止
+    /// 等一个有界 gap。首个 deadline 一旦建立后续扫描不再续期；返回 true = 保持 active
+    /// 让下一轮扫描继续找币。到点仍无币返回 false，调用方回家清 carried 并退出活跃集合。
+    /// 空手（本趟未收过币）不等待，维持立即收工的原语义。
+    /// </summary>
+    private static bool TryStartWaitForNextCoin(AssistantState helper)
+    {
+        // 演员已消失/失活时没有可等待的收集者：保持原“立即收工”语义（扫描侧本就
+        // 会把这类活跃收集者移出集合，这里覆盖 count<=0 的 CleanupNoCandidates 路径）。
+        if (helper == null || helper.Actor == null || !helper.Actor.activeInHierarchy
+            || helper.CarriedCoins <= 0 || TripComplete(helper)) return false;
+        if (helper.WaitDeadline <= 0f)
+            helper.WaitDeadline = Time.time + WAIT_GAP_SECONDS;
+        return Time.time < helper.WaitDeadline;
+    }
+
+    private static void ClearWaitDeadline(AssistantState helper)
+    {
+        if (helper != null) helper.WaitDeadline = 0f;
     }
 
     private static Vector3 GetHomePosition(int index)
@@ -1900,7 +1968,9 @@ public class BankAssistantCoordinator : MonoBehaviour
     {
         PatchEconomy_AutoRestock.Reset(false);
         AutoRestockCounts.Reset();
-        foreach (var helper in Assistants) helper.RestockReserved = false;
+        // RestockReserved 与断流 deadline 都必须在失权/上下文未知的提前 return 之前清掉：
+        // 残留 deadline 会把下一次收集当成同一趟等待。
+        foreach (var helper in Assistants) { helper.RestockReserved = false; helper.WaitDeadline = 0f; }
         _cleanupPending = true;
         _cleanupDestroyActors |= destroyActors;
         _cleanupSyncDespawn |= syncDespawn;

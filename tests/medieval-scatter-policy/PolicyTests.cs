@@ -20,6 +20,13 @@ namespace MedievalScatterPolicyTests
 
         internal static void Run()
         {
+            Case.Run("musketeer_never_inherits_medieval_scatter", () =>
+            {
+                Rig rig = NewRig();
+                MusketeerIdentity.Marked = rig.Archer;
+                try { AssertEligible(rig, false, "paid musketeer remains single bullet"); }
+                finally { MusketeerIdentity.Marked = null; }
+            });
             MedievalOnlyScatters();
             UnresolvedStyleNeverScatters();
             KnightlessArcherNeverScatters();

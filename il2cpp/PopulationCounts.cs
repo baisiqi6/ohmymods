@@ -9,7 +9,7 @@ internal static class PopulationCounts
 {
     internal const int WorkerRole = 0, ArcherRole = 1, FarmerRole = 2, PikemanRole = 3;
     internal const int NinjaRole = 4, BerserkerRole = 5, PeasantRole = 6, BeggarRole = 7;
-    internal const int RoleCount = 8, KnightRole = 8, StyleCount = 5;
+    internal const int MusketeerRole = 8, RoleCount = 9, KnightRole = 9, StyleCount = 5;
     private const int MaxFailures = 3, DelayedRebuilds = 2;
 
     private sealed class Entry
@@ -18,6 +18,7 @@ internal static class PopulationCounts
         internal GameObject Object;
         internal Damageable Damageable;
         internal Knight Knight;
+        internal Archer Archer;
         internal IntPtr CharacterPtr, ObjectPtr;
         internal int ObjectId, Role;
     }
@@ -178,6 +179,7 @@ internal static class PopulationCounts
             Entries.Add(new Entry
             {
                 Character = character, Object = go, Damageable = damageable, Knight = knight,
+                Archer = role == ArcherRole ? go.GetComponent<Archer>() : null,
                 CharacterPtr = pointer, ObjectPtr = objectPtr, ObjectId = go.GetInstanceID(), Role = role
             });
         }
@@ -211,7 +213,16 @@ internal static class PopulationCounts
             // Missing liveness data must not turn an incompletely initialized profession into a false zero.
             if (entry.Damageable == null) throw new InvalidOperationException("Population damageable is not ready");
             if (entry.Damageable.isDead) continue;
-            if (entry.Role != KnightRole) { Roles[entry.Role]++; continue; }
+            if (entry.Role != KnightRole)
+            {
+                // AddCharacter can precede promotion/load identity binding. Recheck the cached
+                // Archer at the existing sample cadence, including when the shop is disabled.
+                // IsUnit exposes only confirmed current-world, offline authority identities.
+                int role = entry.Role == ArcherRole && MusketeerIdentity.IsUnit(entry.Archer)
+                    ? MusketeerRole : entry.Role;
+                Roles[role]++;
+                continue;
+            }
             Knights++;
             if (entry.Knight != null && PatchRoles_KnightStyle.TryGetResolvedStyleIndex(entry.Knight, out int style)
                 && (uint)style < StyleCount) Styles[style]++;

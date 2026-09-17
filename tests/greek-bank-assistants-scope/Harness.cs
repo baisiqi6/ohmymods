@@ -222,6 +222,7 @@ static class Harness
             SetField(state, "PatrolRight", false);
             SetField(state, "PatrolResumeAt", 0f);
             SetField(state, "RestockReserved", false);
+            SetField(state, "WaitDeadline", 0f);
         }
 
         ClearStatic(RestockType, "_orders");

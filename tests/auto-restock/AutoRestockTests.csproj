@@ -9,6 +9,7 @@
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <DefineConstants>MUSKETEER_SHOP_CORE_ONLY</DefineConstants>
     <AssemblyName>AutoRestockTests</AssemblyName>
     <RootNamespace>AutoRestockTests</RootNamespace>
     <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
@@ -17,6 +18,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../../il2cpp/MusketeerShop.cs" Link="MusketeerShop.cs" />
+    <Compile Include="../../il2cpp/MusketeerRestock.cs" Link="MusketeerRestock.cs" />
     <Compile Include="../../il2cpp/PatchEconomy_AutoRestock.cs" Link="PatchEconomy_AutoRestock.cs" />
     <Compile Include="../../il2cpp/FireTowerRestockCapacity.cs" Link="FireTowerRestockCapacity.cs" />
   </ItemGroup>

@@ -16,10 +16,24 @@ internal static class Program
 
     private static int Main()
     {
+        Reset(); ModConfig.HeroArcherEnabled.Value = true;
+        Archer musketeer = NewArcher(Archer.Side.Left);
+        MusketeerIdentity.Marked = musketeer;
+        try
+        {
+            Step(musketeer);
+            AssertFalse("musketeer cannot become hero", HeroArcherRuntime.IsHero(musketeer));
+            AssertEqual("musketeer range not borrowed by hero", 8f, musketeer.shootRange);
+        }
+        finally { MusketeerIdentity.Marked = null; }
         RootScopeOffAndFailedClearRestore();
+        UnpaidArchersNeverBecomeHeroes();
+        PaidTemporarySuspensionDoesNotPromoteReplacement();
+        PurchaseActivationChecksRealEffectSetup();
         ProjectileSetupFailureRestoresNative();
         EnableAfterNativeOnEnable();
         NoDoubleMultiplyAcrossFrames();
+        HeroMovementSpeedClaim();
         EligibilityFlipRetiresBeforeTick();
         SideChangeWithoutTickRestoresThenRepromotes();
         PoolReuseDoesNotInheritHeroOrDoubleMultiply();
@@ -53,7 +67,7 @@ internal static class Program
         Reset(); ModConfig.HeroArcherEnabled.Value=true; Archer a=NewArcher(Archer.Side.Left); Step(a);
         ArcherOptionsScope.IsActive=false; HeroArcherRuntime.Tick();
         AssertEqual("root off restores range",8f,a.shootRange); AssertFalse("root off revokes hero",HeroArcherRuntime.IsHero(a));
-        ArcherOptionsScope.IsActive=true; Step(a); AssertEqual("root on reestablishes once",10f,a.shootRange);
+        ArcherOptionsScope.IsActive=true; Step(a); AssertEqual("root on reestablishes once",16f,a.shootRange);
         a.ThrowOnShootRangeWrite=true;ModConfig.HeroArcherEnabled.Value=false;HeroArcherRuntime.Tick();
         AssertFalse("failed clear still revokes",HeroArcherRuntime.IsHero(a));
         a.ThrowOnShootRangeWrite=false;HeroArcherRuntime.Tick();AssertEqual("failed clear retries original",8f,a.shootRange);
@@ -75,7 +89,7 @@ internal static class Program
 
         Step(a);
         AssertTrue("enable-later: hero promoted", HeroArcherRuntime.IsHero(a));
-        AssertEqual("enable-later: range x1.25", 10f, a.shootRange);
+        AssertEqual("enable-later: range x2", 16f, a.shootRange);
         AssertEqual("enable-later: visual applied", 1, HeroArcherVisuals.ApplyCount);
     }
 
@@ -86,8 +100,48 @@ internal static class Program
         Archer a = NewArcher(Archer.Side.Left);
         Step(a);
         for (int i = 0; i < 5; i++) Step(a);
-        AssertEqual("no-double: range stays x1.25 once", 10f, a.shootRange);
+        AssertEqual("no-double: range stays x2 once", 16f, a.shootRange);
         AssertEqual("no-double: visual applied once", 1, HeroArcherVisuals.ApplyCount);
+    }
+
+    /// <summary>移动提速认领：当选 ×1.5（walk/run 各一次）、关闭/池复用先归还、普通弓手不动。</summary>
+    private static void HeroMovementSpeedClaim()
+    {
+        Reset();
+        ModConfig.HeroArcherEnabled.Value = true;
+        Archer a = NewArcher(Archer.Side.Left);
+        AssertEqual("move: native walk speed", 4f, a.walkSpeed);
+        AssertEqual("move: native run speed", 6f, a.runSpeed);
+
+        Step(a);
+        AssertTrue("move: promoted", HeroArcherRuntime.IsHero(a));
+        AssertEqual("move: walk ×1.5", 6f, a.walkSpeed);
+        AssertEqual("move: run ×1.5", 9f, a.runSpeed);
+
+        for (int i = 0; i < 5; i++) Step(a);
+        AssertEqual("move: no double boost across frames", 6f, a.walkSpeed);
+        AssertEqual("move: run stays ×1.5 once", 9f, a.runSpeed);
+
+        Archer plain = NewArcher(Archer.Side.Right);
+        HeroRecruitment.Revoke(plain);
+        Step(plain);
+        AssertEqual("move: unpaid archer walk untouched", 4f, plain.walkSpeed);
+        AssertEqual("move: unpaid archer run untouched", 6f, plain.runSpeed);
+
+        ModConfig.HeroArcherEnabled.Value = false;
+        Step(a);
+        AssertEqual("move: toggle off restores walk", 4f, a.walkSpeed);
+        AssertEqual("move: toggle off restores run", 6f, a.runSpeed);
+
+        ModConfig.HeroArcherEnabled.Value = true;
+        Step(a);
+        AssertEqual("move: re-promotion re-claims walk", 6f, a.walkSpeed);
+        AssertEqual("move: re-promotion re-claims run", 9f, a.runSpeed);
+
+        HeroRecruitment.Revoke(a);
+        HeroArcherRuntime.OnEnable(a);            // 池复用：新 life 在归还之后
+        AssertEqual("move: pool reuse restores walk before life bump", 4f, a.walkSpeed);
+        AssertEqual("move: pool reuse restores run", 6f, a.runSpeed);
     }
 
     /// <summary>资格在两次 Tick 之间失效：Observe 当帧就要归还射程与视觉（不能等 Tick）。</summary>
@@ -97,7 +151,7 @@ internal static class Program
         ModConfig.HeroArcherEnabled.Value = true;
         Archer a = NewArcher(Archer.Side.Left);
         Step(a);
-        AssertEqual("flip: promoted", 10f, a.shootRange);
+        AssertEqual("flip: promoted", 16f, a.shootRange);
 
         a._attackMode = Archer.AttackMode.Melee;
         HeroArcherRuntime.Observe(a);            // 不 Tick
@@ -107,7 +161,7 @@ internal static class Program
 
         a._attackMode = Archer.AttackMode.Ranged;
         Step(a);
-        AssertEqual("flip: re-promoted", 10f, a.shootRange);
+        AssertEqual("flip: re-promoted", 16f, a.shootRange);
     }
 
     private static void SideChangeWithoutTickRestoresThenRepromotes()
@@ -116,15 +170,16 @@ internal static class Program
         ModConfig.HeroArcherEnabled.Value = true;
         Archer a = NewArcher(Archer.Side.Left);
         Step(a);
-        AssertEqual("side: promoted left", 10f, a.shootRange);
+        AssertEqual("side: promoted left", 16f, a.shootRange);
 
         a.side = Archer.Side.Right;
         HeroArcherRuntime.Observe(a);
-        AssertEqual("side: range restored on side change", 8f, a.shootRange);
-        AssertFalse("side: not hero after side change", HeroArcherRuntime.IsHero(a));
+        AssertEqual("side: purchased hero keeps range on native side change", 16f, a.shootRange);
+        AssertTrue("side: purchased seat remains active", HeroArcherRuntime.IsHero(a));
+        AssertEqual("side: original purchase seat remains left", -1, HeroRecruitment.SeatSide(a));
 
         Step(a);
-        AssertEqual("side: re-promoted on new side", 10f, a.shootRange);
+        AssertEqual("side: re-promoted on new side", 16f, a.shootRange);
         AssertTrue("side: hero again", HeroArcherRuntime.IsHero(a));
     }
 
@@ -134,15 +189,16 @@ internal static class Program
         ModConfig.HeroArcherEnabled.Value = true;
         Archer a = NewArcher(Archer.Side.Right);
         Step(a);
-        AssertEqual("pool: promoted", 10f, a.shootRange);
+        AssertEqual("pool: promoted", 16f, a.shootRange);
 
+        HeroRecruitment.Revoke(a);              // Ledger confirms old owner death; reused actor has no purchase.
         HeroArcherRuntime.OnEnable(a);           // 池复用：新 life 在归还之后
         AssertEqual("pool: range restored before life bump", 8f, a.shootRange);
         AssertFalse("pool: not hero in new life (before tick)", HeroArcherRuntime.IsHero(a));
 
         Step(a);
-        AssertEqual("pool: re-promoted from baseline (no double multiply)", 10f, a.shootRange);
-        AssertEqual("pool: visual applied twice overall", 2, HeroArcherVisuals.ApplyCount);
+        AssertEqual("pool: new unpaid life remains native", 8f, a.shootRange);
+        AssertEqual("pool: no inherited visual", 1, HeroArcherVisuals.ApplyCount);
     }
 
     private static void ExclusionsBlockPromotion()
@@ -201,7 +257,7 @@ internal static class Program
         ModConfig.HeroArcherEnabled.Value = true;
         Archer a = NewArcher(Archer.Side.Left);
         Step(a);
-        AssertEqual("steal: promoted", 10f, a.shootRange);
+        AssertEqual("steal: promoted", 16f, a.shootRange);
 
         a.shootRange = 15f;                       // 第三方写入
         Step(a);
@@ -216,7 +272,7 @@ internal static class Program
         HeroArcherRuntime.OnEnable(a);            // 新 life：解除封锁
         Step(a);
         AssertTrue("steal: new life re-promoted", HeroArcherRuntime.IsHero(a));
-        AssertEqual("steal: new baseline is the live value", 18.75f, a.shootRange);
+        AssertEqual("steal: new baseline is the live value", 30f, a.shootRange);
     }
 
     private static void DisabledClearsAndRestores()
@@ -225,7 +281,7 @@ internal static class Program
         ModConfig.HeroArcherEnabled.Value = true;
         Archer a = NewArcher(Archer.Side.Right);
         Step(a);
-        AssertEqual("disable: promoted", 10f, a.shootRange);
+        AssertEqual("disable: promoted", 16f, a.shootRange);
 
         ModConfig.HeroArcherEnabled.Value = false;
         AssertFalse("disable: IsHero immediate false", HeroArcherRuntime.IsHero(a));
@@ -241,12 +297,12 @@ internal static class Program
         ModConfig.HeroArcherEnabled.Value = true;
         Archer a = NewArcher(Archer.Side.Right);
         Step(a);
-        AssertEqual("retry: promoted", 10f, a.shootRange);
+        AssertEqual("retry: promoted", 16f, a.shootRange);
 
         a.ThrowOnShootRangeWrite = true;
         a.gameObject.activeInHierarchy = false;   // 触发撤销路径
         Step(a);
-        AssertEqual("retry: write failed so value stays boosted", 10f, a.shootRange);
+        AssertEqual("retry: write failed so value stays boosted", 16f, a.shootRange);
         AssertFalse("retry: not re-promoted while claim pending", HeroArcherRuntime.IsHero(a));
 
         a.ThrowOnShootRangeWrite = false;
@@ -269,7 +325,7 @@ internal static class Program
         AssertTrue("world: visuals removed", HeroArcherVisuals.RemoveCount >= 1);
 
         Step(a);
-        AssertEqual("world: fresh promotion in the new world uses live baseline", 10f, a.shootRange);
+        AssertEqual("world: fresh promotion in the new world uses live baseline", 16f, a.shootRange);
     }
 
     private static void IsCombatEligibleNeedsEnemyTarget()
@@ -335,6 +391,7 @@ internal static class Program
         Time.time = 10f;
         Time.frameCount = 1;
         HeroArcherRuntime.Clear();
+        HeroRecruitment.Reset();
         HeroArcherVisuals.Reset();
     }
 
@@ -344,6 +401,7 @@ internal static class Program
         Archer archer = new Archer();
         archer.Init(go, new IntPtr(go.InstanceId * 16));
         archer.side = side;
+        HeroRecruitment.Grant(archer); // Explicit boundary receipt for pre-existing effects tests.
         if (crossbow)
         {
             PatchRoles_Crossbowman.CrossbowFlag = true;
@@ -355,6 +413,51 @@ internal static class Program
             PatchRoles_NorseSquad.NorseTarget = archer;
         }
         return archer;
+    }
+
+    private static void UnpaidArchersNeverBecomeHeroes()
+    {
+        Reset(); ModConfig.HeroArcherEnabled.Value = true;
+        Archer archer = NewArcher(Archer.Side.Left);
+        HeroRecruitment.Revoke(archer);
+        Step(archer);
+        AssertTrue("unpaid is recruitable", HeroArcherRuntime.IsRecruitable(archer));
+        AssertFalse("toggle does not grant unpaid hero", HeroArcherRuntime.IsHero(archer));
+        AssertEqual("unpaid retains range", 8f, archer.shootRange);
+        AssertEqual("unpaid gets no custom visual", 0, HeroArcherVisuals.ApplyCount);
+    }
+
+    private static void PurchaseActivationChecksRealEffectSetup()
+    {
+        Reset(); ModConfig.HeroArcherEnabled.Value = true;
+        Archer archer = NewArcher(Archer.Side.Left);
+        HeroArcherRange.ApplyAllowed = false;
+        AssertFalse("purchase fails if projectile setup fails", HeroArcherRuntime.TryActivatePurchased(archer));
+        AssertFalse("failed setup leaves no hero effects", HeroArcherRuntime.IsHero(archer));
+        AssertEqual("failed setup restores native range", 8f, archer.shootRange);
+        HeroArcherRange.ApplyAllowed = true;
+        Reset(); ModConfig.HeroArcherEnabled.Value = true;
+        archer = NewArcher(Archer.Side.Left);
+        AssertTrue("purchase succeeds after effects really activate", HeroArcherRuntime.TryActivatePurchased(archer));
+        AssertTrue("successful purchase has hero visual", HeroArcherVisuals.HasVisual(archer));
+        AssertEqual("successful purchase has hero range", 16f, archer.shootRange);
+    }
+
+    private static void PaidTemporarySuspensionDoesNotPromoteReplacement()
+    {
+        Reset(); ModConfig.HeroArcherEnabled.Value = true;
+        Archer paid = NewArcher(Archer.Side.Left);
+        Archer unpaid = NewArcher(Archer.Side.Left);
+        HeroRecruitment.Revoke(unpaid);
+        Step(paid); Step(unpaid);
+        paid.inGuardSlot = true; Step(paid); Step(unpaid);
+        AssertFalse("tower suspends paid effects", HeroArcherRuntime.IsHero(paid));
+        AssertTrue("tower does not delete receipt", HeroRecruitment.IsPurchased(paid));
+        AssertFalse("tower gives no free replacement", HeroArcherRuntime.IsHero(unpaid));
+        ModConfig.HeroArcherEnabled.Value = false; Step(paid);
+        AssertTrue("toggle off keeps purchase", HeroRecruitment.IsPurchased(paid));
+        ModConfig.HeroArcherEnabled.Value = true; paid.inGuardSlot = false; Step(paid);
+        AssertTrue("paid hero resumes effects", HeroArcherRuntime.IsHero(paid));
     }
 
     private static void Step(Archer archer)

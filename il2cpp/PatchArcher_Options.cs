@@ -103,6 +103,21 @@ namespace KingdomEnhancedMod;
 /// </summary>
 internal static class PatchArcher_Options
 {
+    // Optional presentation observer. Publish after the LAST cadence prefix, while
+    // native MoveNext still sees the actual temporary prep value. No timing writes.
+    internal static Action<Archer, float> PrepareWindowObserver;
+
+    internal static void PublishPrepareWindow(Archer._Shoot_d__225 iterator)
+    {
+        try
+        {
+            var observer = PrepareWindowObserver;
+            if (observer == null || iterator == null) return;
+            var archer = iterator.__4__this;
+            if (archer != null) observer(archer, archer.shootPrepTime);
+        }
+        catch { } // Presentation must never change coroutine/payment/gameplay behavior.
+    }
     // ---------- 预算/上限（全部为硬上限，压力下退化为少发/不发） ----------
     /// <summary>单次原箭最多额外箭数（VolleyCount 上限 3 含原箭）。</summary>
     internal const int MaxExtrasPerShot = 2;
@@ -353,6 +368,7 @@ internal static class PatchArcher_Options
             if (source.activeInHierarchy == false) return false;
             if (!source.TryGetComponent<Archer>(out archer)) return false;
             if (archer == null || archer.gameObject == null) return false;
+            if (MusketeerIdentity.IsUnit(archer)) return false;
             if (!archer.enabled || !archer.gameObject.activeInHierarchy) return false;
             Damageable damageable = archer._damageable;
             if (damageable == null || damageable.isDead) return false;
@@ -1018,6 +1034,7 @@ internal static class PatchArcher_Options
     private static bool CadenceTarget(Archer archer)
     {
         if (archer == null || archer.gameObject == null || !archer.gameObject.activeInHierarchy) return false;
+        if (MusketeerIdentity.IsUnit(archer)) return false;
         if (!archer.enabled) return false;
         if (!Ranged(archer)) return false;
         Character character = archer._character;
@@ -1217,7 +1234,10 @@ internal static class Archer_ShootCoroutine_OptionsCadence_Patch
     [HarmonyPriority(Priority.Last)]
     [HarmonyPrefix]
     private static void Prefix(ref PatchArcher_Options.CadenceBorrow __state, Archer._Shoot_d__225 __instance)
-        => PatchArcher_Options.OnShootMoveNextEnter(__instance, ref __state);
+    {
+        PatchArcher_Options.OnShootMoveNextEnter(__instance, ref __state);
+        PatchArcher_Options.PublishPrepareWindow(__instance);
+    }
 
     [HarmonyPriority(Priority.First)]
     [HarmonyFinalizer]

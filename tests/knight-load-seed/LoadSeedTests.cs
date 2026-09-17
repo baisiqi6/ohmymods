@@ -77,13 +77,14 @@ namespace KnightLoadSeedTests
                     Check.Equal(0, KnightIdentityLoadSeed.PendingCount, "persisted batch recycled");
                     Check.True(Logged("seed scope="), "seed receipt logged | " + Dump());
 
-                    Check.True(KnightIdentitySidecar.TryBuildScopeKey("0", "0", island.land, island.realStartDateTime.Ticks, out string scopeKey),
-                        "scope key from the same island context");
-                    string hash = KnightIdentityFingerprint.Sha256(originalJson, scopeKey);
                     KnightIdentityArchiveStore.LoadResult loaded = KnightIdentityArchiveStore.Load(f.SidecarPath);
                     Check.Equal(KnightIdentityArchiveStatus.Valid, loaded.Status, "sidecar readable");
+                    Check.True(loaded.Archive.TryGetContext(Sidecar.ContextKey(island.land), out KnightIdentityContext context),
+                        "stable context registered for the island");
+                    string scopeKey = context.Active;
+                    string hash = KnightIdentityFingerprint.Normalized(originalJson, scopeKey);
                     Check.True(loaded.Archive.TryGetSnapshot(scopeKey, hash, out KnightIdentitySnapshot snapshot),
-                        "snapshot stored under the ORIGINAL native hash");
+                        "kind2 snapshot stored under the stable epoch");
                     Check.Equal(22, snapshot.Count, "all 22 knights stored in one table");
                     Check.True(loaded.Archive.TryGetSnapshots(scopeKey, out IReadOnlyList<KnightIdentitySnapshot> scoped), "scope history readable");
                     Check.Equal(1, scoped.Count, "exactly one snapshot for this scope");
@@ -194,8 +195,9 @@ namespace KnightLoadSeedTests
                     IntegrityPass(units, LegacyOf(units, i => 1));
                     Check.True(f.SidecarExists, "duplicate captures do not block the seed");
                     KnightIdentityArchiveStore.LoadResult loaded = KnightIdentityArchiveStore.Load(f.SidecarPath);
-                    Check.True(KnightIdentitySidecar.TryBuildScopeKey("0", "0", island.land, island.realStartDateTime.Ticks, out string scopeKey), "scope key");
-                    Check.True(loaded.Archive.TryGetSnapshot(scopeKey, KnightIdentityFingerprint.Sha256(originalJson, scopeKey), out KnightIdentitySnapshot snapshot),
+                    Check.True(loaded.Archive.TryGetContext(Sidecar.ContextKey(island.land), out KnightIdentityContext context), "stable context registered");
+                    string scopeKey = context.Active;
+                    Check.True(loaded.Archive.TryGetSnapshot(scopeKey, KnightIdentityFingerprint.Normalized(originalJson, scopeKey), out KnightIdentitySnapshot snapshot),
                         "exact snapshot stored");
                     Check.Equal(2, snapshot.Count, "both knights stored exactly once");
                 }
@@ -236,9 +238,10 @@ namespace KnightLoadSeedTests
 
                     IntegrityPass(units, LegacyOf(units, i => 1));
                     Check.True(f.SidecarExists, "seed written");
-                    Check.True(KnightIdentitySidecar.TryBuildScopeKey("0", "0", island.land, island.realStartDateTime.Ticks, out string scopeKey), "scope key");
                     KnightIdentityArchiveStore.LoadResult loaded = KnightIdentityArchiveStore.Load(f.SidecarPath);
-                    Check.True(loaded.Archive.TryGetSnapshot(scopeKey, KnightIdentityFingerprint.Sha256(originalJson, scopeKey), out KnightIdentitySnapshot snapshot),
+                    Check.True(loaded.Archive.TryGetContext(Sidecar.ContextKey(island.land), out KnightIdentityContext context), "stable context registered");
+                    string scopeKey = context.Active;
+                    Check.True(loaded.Archive.TryGetSnapshot(scopeKey, KnightIdentityFingerprint.Normalized(originalJson, scopeKey), out KnightIdentitySnapshot snapshot),
                         "exact snapshot stored");
                     Check.Equal(2, snapshot.Count, "both knights stored");
                     Check.Equal(0, KnightIdentityLoadSeed.BatchCount, "persisted batch recycled");
@@ -513,9 +516,10 @@ namespace KnightLoadSeedTests
                     IntegrityPass(knights, LegacyOf(knights, i => 1)); // 只有真实 Knight 需要收据
                     Check.True(f.SidecarExists, "the mixed island still seeds");
 
-                    Check.True(KnightIdentitySidecar.TryBuildScopeKey("0", "0", island.land, island.realStartDateTime.Ticks, out string scopeKey), "scope key");
                     KnightIdentityArchiveStore.LoadResult loaded = KnightIdentityArchiveStore.Load(f.SidecarPath);
-                    Check.True(loaded.Archive.TryGetSnapshot(scopeKey, KnightIdentityFingerprint.Sha256(originalJson, scopeKey), out KnightIdentitySnapshot snapshot),
+                    Check.True(loaded.Archive.TryGetContext(Sidecar.ContextKey(island.land), out KnightIdentityContext context), "stable context registered");
+                    string scopeKey = context.Active;
+                    Check.True(loaded.Archive.TryGetSnapshot(scopeKey, KnightIdentityFingerprint.Normalized(originalJson, scopeKey), out KnightIdentitySnapshot snapshot),
                         "exact snapshot stored");
                     Check.Equal(2, snapshot.Count, "only the two real knights are stored");
                     for (int i = 0; i < 2; i++) Check.True(snapshot.TryGet(knightIds[i], out _), "knight stored " + i);
@@ -864,22 +868,25 @@ namespace KnightLoadSeedTests
                     Check.True(KnightIdentityLoadBridge.End(null, innerScope) == null, "inner finalizer passes no exception");
                     KnightIdentityLoadSeed.Complete(innerScope, true);
                     Check.Equal(1, KnightIdentityLoadSeed.PendingCount, "inner batch pending");
+                    Check.False(KnightIdentityContexts.TryGetBinding(innerScope.ContextKey, out _, out _, out _), "inner binding not committed before outer succeeds");
                     Check.True(KnightIdentityLoadBridge.End(null, outerScope) == null, "outer finalizer passes no exception");
                     KnightIdentityLoadSeed.Complete(outerScope, true);
                     Check.Equal(2, KnightIdentityLoadSeed.PendingCount, "outer batch pending too");
+                    Check.True(KnightIdentityContexts.TryGetBinding(innerScope.ContextKey, out string committedInner, out bool innerUnresolved, out _) && committedInner == innerScope.ScopeKey && !innerUnresolved, "successful outer commits inner scope unchanged");
 
                     List<KnightUnit> all = new List<KnightUnit> { outerUnit, innerUnit };
                     IntegrityPass(all, LegacyOf(all, i => 3));
                     Check.True(f.SidecarExists, "both nested batches written");
 
-                    Check.True(KnightIdentitySidecar.TryBuildScopeKey("0", "0", outerIsland.land, outerIsland.realStartDateTime.Ticks, out string outerKey), "outer scope key");
-                    Check.True(KnightIdentitySidecar.TryBuildScopeKey("0", "0", innerIsland.land, innerIsland.realStartDateTime.Ticks, out string innerKey), "inner scope key");
-                    Check.NotEqual(outerKey, innerKey, "nested islands are different scopes");
+                    string outerKey = Sidecar.ActiveEpoch(f.SidecarPath, outerIsland.land);
+                    string innerKey = Sidecar.ActiveEpoch(f.SidecarPath, innerIsland.land);
+                    Check.True(outerKey != null && innerKey != null, "both stable contexts registered");
+                    Check.NotEqual(outerKey, innerKey, "nested islands are different contexts");
                     KnightIdentityArchiveStore.LoadResult loaded = KnightIdentityArchiveStore.Load(f.SidecarPath);
-                    Check.True(loaded.Archive.TryGetSnapshot(outerKey, KnightIdentityFingerprint.Sha256(outerJson, outerKey), out KnightIdentitySnapshot outerSnapshot),
+                    Check.True(loaded.Archive.TryGetSnapshot(outerKey, KnightIdentityFingerprint.Normalized(outerJson, outerKey), out KnightIdentitySnapshot outerSnapshot),
                         "outer snapshot stored");
                     Check.Equal(1, outerSnapshot.Count, "outer snapshot carries only its own knight");
-                    Check.True(loaded.Archive.TryGetSnapshot(innerKey, KnightIdentityFingerprint.Sha256(innerJson, innerKey), out KnightIdentitySnapshot innerSnapshot),
+                    Check.True(loaded.Archive.TryGetSnapshot(innerKey, KnightIdentityFingerprint.Normalized(innerJson, innerKey), out KnightIdentitySnapshot innerSnapshot),
                         "inner snapshot stored");
                     Check.Equal(1, innerSnapshot.Count, "inner snapshot carries only its own knight");
                     Check.Equal(0, KnightIdentityLoadSeed.PendingCount, "all batches recycled");
@@ -933,7 +940,7 @@ namespace KnightLoadSeedTests
 
                     // 第一次 Flush 之前外部放入未知 schema 的 sidecar：批次保留，文件绝不覆盖
                     Directory.CreateDirectory(System.IO.Path.GetDirectoryName(f.SidecarPath));
-                    string protectedJson = "{\"schemaVersion\":2,\"scopes\":{}}";
+                    string protectedJson = "{\"schemaVersion\":3,\"scopes\":{}}";
                     File.WriteAllText(f.SidecarPath, protectedJson);
 
                     KnightIdentityLoadSeed.Flush(); // Flush #1：写入被拒（未知版本）
@@ -980,7 +987,7 @@ namespace KnightLoadSeedTests
 
         private static void ExistingHistoryIsPreserved()
         {
-            Case.Run("an_original_resave_keeps_history_and_seeds_the_new_snapshot", () =>
+            Case.Run("an_unmatched_original_resave_preserves_history_without_seeding", () =>
             {
                 using (Fixture f = new Fixture())
                 {
@@ -993,33 +1000,35 @@ namespace KnightLoadSeedTests
                         island.objects.Add(unit.ToRecord());
                     }
 
-                    Check.True(KnightIdentitySidecar.TryBuildScopeKey("0", "0", island.land, island.realStartDateTime.Ticks, out string scopeKey), "scope key");
-                    string oldHash = KnightIdentityFingerprint.Sha256("an older native island json", scopeKey);
+                    // 旧档：一个未归属的 legacy scope（raw hash 指向另一份 native json），属于某个曾经的世代
+                    string legacyScope = new string('a', KnightIdentityFingerprint.HexLength);
+                    string oldHash = KnightIdentityFingerprint.Sha256("an older native island json", legacyScope);
                     Guid oldGuid = Guid.NewGuid();
                     List<KnightIdentitySnapshotEntry> oldEntries = new List<KnightIdentitySnapshotEntry>
                     {
                         new KnightIdentitySnapshotEntry("old-unique-id", new KnightIdentityReceipt(oldGuid, 2)),
                     };
-                    Check.True(KnightIdentitySnapshot.TryCreate(oldHash, DateTimeOffset.UtcNow, oldEntries, out KnightIdentitySnapshot oldSnapshot, out string error),
+                    Check.True(KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindLegacy, oldHash, DateTimeOffset.UtcNow, oldEntries, out KnightIdentitySnapshot oldSnapshot, out string error),
                         "old snapshot built: " + error);
 
                     KnightIdentityArchive archive = KnightIdentityArchive.CreateEmpty();
-                    Check.Equal(KnightIdentityArchive.MutationStatus.Applied, archive.RecordSnapshot(scopeKey, oldSnapshot), "old snapshot recorded");
+                    Check.Equal(KnightIdentityArchive.MutationStatus.Applied, archive.RecordSnapshot(legacyScope, oldSnapshot), "old snapshot recorded");
                     Directory.CreateDirectory(System.IO.Path.GetDirectoryName(f.SidecarPath));
                     Check.True(KnightIdentityArchiveStore.Save(f.SidecarPath, archive).Ok, "old snapshot written");
+                    byte[] before = File.ReadAllBytes(f.SidecarPath);
 
-                    // 原版重存后失配（uniqueID 全变）：按旧档迁移新身份，并种下新快照
-                    string islandJson = island.Json(); // Begin 算 hash 用的那份（列表随后被原生清空）
+                    // 原版重存后失配（uniqueID 全变）：仍有未归属历史 → unresolved —— 不种、不覆盖、不迁移
                     RunSeededLoad(island, units);
+                    Check.Equal(0, KnightIdentityLoadSeed.BatchCount, "unclaimed legacy history blocks the seed");
+                    Check.True(Logged("load-unresolved:legacy-pending"), "reason logged | " + Dump());
                     IntegrityPass(units, LegacyOf(units, i => 4));
-                    Check.True(f.SidecarExists, "new snapshot seeded");
+                    KnightIdentityLoadSeed.Flush();
+                    Check.True(before.AsSpan().SequenceEqual(File.ReadAllBytes(f.SidecarPath)), "sidecar preserved byte-for-byte");
 
                     KnightIdentityArchiveStore.LoadResult loaded = KnightIdentityArchiveStore.Load(f.SidecarPath);
-                    Check.True(loaded.Archive.TryGetSnapshot(scopeKey, oldHash, out KnightIdentitySnapshot preserved), "old snapshot preserved");
-                    Check.Same(oldGuid, SnapshotReceipt(preserved, "old-unique-id"), "old guid untouched");
-                    string newHash = KnightIdentityFingerprint.Sha256(islandJson, scopeKey);
-                    Check.True(loaded.Archive.TryGetSnapshot(scopeKey, newHash, out KnightIdentitySnapshot added), "new snapshot stored");
-                    Check.Equal(2, added.Count, "new snapshot carries the migrated knights");
+                    Check.True(loaded.Archive.TryRestore(legacyScope, oldHash, "old-unique-id", out KnightIdentityReceipt preserved), "old snapshot preserved");
+                    Check.Same(oldGuid, preserved.Id, "old guid untouched");
+                    Check.Equal(2, preserved.Style, "old style untouched");
                 }
             });
         }
@@ -1052,9 +1061,11 @@ namespace KnightLoadSeedTests
                     IntegrityPass(units, LegacyOf(units, i => 1));
                     KnightIdentityLoadSeed.Flush();
 
-                    Check.True(KnightIdentitySidecar.TryBuildScopeKey("0", "0", island.land, island.realStartDateTime.Ticks, out string scopeKey), "scope key");
-                    string seedHash = KnightIdentityFingerprint.Sha256(originalJson, scopeKey);
-                    Check.True(KnightIdentityArchiveStore.Load(f.SidecarPath).Archive.TryGetSnapshot(scopeKey, seedHash, out KnightIdentitySnapshot seeded),
+                    KnightIdentityArchiveStore.LoadResult seededLoad = KnightIdentityArchiveStore.Load(f.SidecarPath);
+                    Check.True(seededLoad.Archive.TryGetContext(Sidecar.ContextKey(island.land), out KnightIdentityContext context), "stable context registered");
+                    string scopeKey = context.Active;
+                    string seedHash = KnightIdentityFingerprint.Normalized(originalJson, scopeKey);
+                    Check.True(seededLoad.Archive.TryGetSnapshot(scopeKey, seedHash, out KnightIdentitySnapshot seeded),
                         "original source table still there");
                     Check.Equal(3, seeded.Count, "no recruit added to the original source table");
 
@@ -1069,7 +1080,7 @@ namespace KnightLoadSeedTests
                     KnightIdentityArchiveStore.LoadResult after = KnightIdentityArchiveStore.Load(f.SidecarPath);
                     Check.True(after.Archive.TryGetSnapshot(scopeKey, seedHash, out KnightIdentitySnapshot untouched), "seed untouched by the save");
                     Check.Equal(3, untouched.Count, "seed still carries exactly its own knights");
-                    string saveHash = KnightIdentityFingerprint.Sha256(saveJson, scopeKey);
+                    string saveHash = KnightIdentityFingerprint.Normalized(saveJson, scopeKey);
                     Check.True(after.Archive.TryGetSnapshot(scopeKey, saveHash, out KnightIdentitySnapshot savedSnapshot), "save snapshot stored separately");
                     Check.Equal(4, savedSnapshot.Count, "save snapshot carries the recruit");
                 }
@@ -1152,12 +1163,12 @@ namespace KnightLoadSeedTests
                     KnightIdentityArchiveStore.LoadResult loaded = KnightIdentityArchiveStore.Load(f.SidecarPath);
                     for (int i = 0; i < 4; i++)
                     {
-                        Check.True(KnightIdentitySidecar.TryBuildScopeKey("0", "0", islands[i].land, islands[i].realStartDateTime.Ticks, out string key), "scope key " + i);
-                        Check.True(loaded.Archive.TryGetSnapshot(key, KnightIdentityFingerprint.Sha256(islands[i].Json(), key), out _), "scope " + i + " stored");
+                        string key = Sidecar.ActiveEpoch(f.SidecarPath, islands[i].land);
+                        Check.True(key != null, "context " + i + " registered");
+                        Check.True(loaded.Archive.TryGetSnapshot(key, KnightIdentityFingerprint.Normalized(islands[i].Json(), key), out _), "scope " + i + " stored");
                     }
-                    Check.True(KnightIdentitySidecar.TryBuildScopeKey("0", "0", islands[4].land, islands[4].realStartDateTime.Ticks, out string rejected), "rejected scope key");
-                    Check.False(loaded.Archive.TryGetSnapshot(rejected, KnightIdentityFingerprint.Sha256(islands[4].Json(), rejected), out _),
-                        "the rejected fifth scope is never written");
+                    Check.False(loaded.Archive.TryGetContext(Sidecar.ContextKey(islands[4].land), out _),
+                        "the rejected fifth context is never written");
                 }
             });
         }
@@ -1284,12 +1295,6 @@ namespace KnightLoadSeedTests
             int limit = count < 0 ? units.Count : Math.Min(count, units.Count);
             for (int i = 0; i < limit; i++) legacy[units[i].Knight] = style(i);
             return legacy;
-        }
-
-        private static Guid SnapshotReceipt(KnightIdentitySnapshot snapshot, string uniqueId)
-        {
-            Check.True(snapshot.TryGet(uniqueId, out KnightIdentityReceipt receipt), "snapshot entry " + uniqueId);
-            return receipt.Id;
         }
 
         private static string Sha256File(string path)

@@ -17,6 +17,14 @@
 // 何时读：必须发生在原生 Animator 产出本帧结果之后（调用方入口 = 自有驱动/面板的 LateUpdate 同阶段入口）。
 //         本文件不对「本机实际执行顺序」作任何断言，只记录来源标签。
 //
+// Prepare 的相位归一（2026-09-15 live-fix）：原生 Prepare 状态只持续 shootPrepTime，而它播放的 clip 是
+//         基础 0.5s / 希腊覆盖 2.167s。按全局 normalizedTime 归一会让 4 张拉弓帧全部落在 clip 的
+//         极小前缀里（希腊世界只可能显示 22 号帧），用户因此看不到拉弓动作。
+//         现用「clip 时间（= normalizedTime × clipLength）/ 有效窗口」归一。窗口不由本文件测量：
+//         operator 桥在 native cadence 借用之后调用 RecordPrepareWindow，传入的正是原生同一步
+//         MoveNext 里读到的临时 shootPrepTime（rate/DL 效果已含）；调用方未给出窗口时确定性回退原始相位。
+//         无 clip 信息（length 不可读）时同样回退。
+//
 // 不做：写 Animator（无 Play/CrossFade/Update/参数/speed 写入）、加 Harmony 钩子、扫描场景或全部角色、
 //       逐帧日志、按 actor 无界增长的记录；材质/染色仍由调用方只读复制原生。
 //
@@ -68,24 +76,27 @@ internal readonly struct HeroArcherNativePoseSample
     internal readonly HeroArcherNativeAction Action;
     internal readonly int StateHash;
     internal readonly float NormalizedTime;
+    /// <summary>当前状态 clip 的长度（秒）；0 = 不可读/非法（Prepare 回退到原始相位）。</summary>
+    internal readonly float ClipLength;
     internal readonly int Frame;
     internal readonly HeroArcherNativeFallback Fallback;
 
     internal HeroArcherNativePoseSample(HeroArcherNativeAction action, int stateHash, float normalizedTime,
-        int frame, HeroArcherNativeFallback fallback)
+        float clipLength, int frame, HeroArcherNativeFallback fallback)
     {
         Action = action;
         StateHash = stateHash;
         NormalizedTime = normalizedTime;
+        ClipLength = clipLength;
         Frame = frame;
         Fallback = fallback;
     }
 
-    /// <summary>可绘制 = 动作已绘制且帧号有效（可见性仍须原生 renderer 可见）。</summary>
+    /// <summary>可绘制 = 动作已绘且帧号有效（可见性仍须原生 renderer 可见）。</summary>
     internal bool Drawn => Action != HeroArcherNativeAction.Unknown && Frame >= 0;
 
     internal static HeroArcherNativePoseSample Failed(HeroArcherNativeFallback fallback)
-        => new HeroArcherNativePoseSample(HeroArcherNativeAction.Unknown, 0, 0f, -1, fallback);
+        => new HeroArcherNativePoseSample(HeroArcherNativeAction.Unknown, 0, 0f, 0f, -1, fallback);
 }
 
 /// <summary>五个已绘状态的 shortNameHash（由 Unity 侧 Animator.StringToHash 一次性取得；不手抄魔数）。</summary>
@@ -214,20 +225,46 @@ internal static class HeroArcherNativePose
 
     /// <summary>
     /// 相位 → atlas 帧号。循环动作取 normalizedTime 小数部分（原生多圈累积 3.7 → 0.7；负值安全归一化）；
-    /// 单次动作 clamp 到 [0,1]（&gt;1 停在末帧）；NaN/±Inf → 该动作首帧（确定性，不抛、不跳帧）；
-    /// Unknown → -1。帧末边界（phase 舍入到 1）夹到最后帧，绝不越界。
+    /// Shoot clamp 到 [0,1]（&gt;1 停在末帧）；Prepare 见 <see cref="PreparePhase"/>；
+    /// NaN/±Inf → 该动作首帧（确定性，不抛、不跳帧）；Unknown → -1；绝不越界。
+    /// clipLength ≤ 0 / 非有限 = 无 clip 信息 → Prepare 回退到原始相位（退化路径：只用于测试与异常读取）。
     /// </summary>
-    internal static int FrameFor(HeroArcherNativeAction action, float normalizedTime)
+    internal static int FrameFor(HeroArcherNativeAction action, float normalizedTime,
+        float clipLength = 0f, float prepareWindowSeconds = 0f)
     {
         int count = FrameCount(action);
         if (count <= 0) return -1;
         int first = FirstFrame(action);
         if (!float.IsFinite(normalizedTime)) return first;
-        float phase = IsLooping(action) ? Fraction(normalizedTime) : Clamp01(normalizedTime);
+        float phase;
+        if (IsLooping(action)) phase = Fraction(normalizedTime);
+        else if (action == HeroArcherNativeAction.Prepare) phase = PreparePhase(normalizedTime, clipLength, prepareWindowSeconds);
+        else phase = Clamp01(normalizedTime);
         int index = (int)(phase * count);
         if (index >= count) index = count - 1;
         if (index < 0) index = 0;
         return first + index;
+    }
+
+    // ---- 原生 Prepare 可见窗口（秒）------------------------------------------
+    // 原生 Prepare 状态只持续 shootPrepTime，而它播放的 clip 远长于此（基础弓手 0.5s、
+    // 希腊覆盖 2.167s 的投掷旋转）。直接用全局 normalizedTime 归一，4 张拉弓帧会全部挤在 clip 的
+    // 极小前缀里（希腊世界只可能显示 22 号帧 → 用户看不到拉弓）。故单次 Prepare 用
+    // 「clip 时间 / 有效窗口」归一。
+    // 窗口由调用方给出（operator 桥在 native cadence 借用之后记录同一步的原生读值）；
+    // 调用方未给出（≤0/非有限）→ 回退原始相位，行为与旧实现一致（确定性、不抛）。
+
+    /// <summary>
+    /// Prepare 相位 = clip 时间 / 有效窗口（两者任一非法/非正 → 回退原始相位，确定性、不抛）。
+    /// clip 时间 = normalizedTime × clipLength（状态速度 1 下即该 clip 内的秒数）。
+    /// </summary>
+    internal static float PreparePhase(float normalizedTime, float clipLength, float prepareWindowSeconds)
+    {
+        if (!(clipLength > 0f) || !float.IsFinite(clipLength)) return Clamp01(normalizedTime);
+        if (!(prepareWindowSeconds > 0f) || !float.IsFinite(prepareWindowSeconds)) return Clamp01(normalizedTime);
+        float clipTime = normalizedTime * clipLength;
+        if (!float.IsFinite(clipTime)) return Clamp01(normalizedTime);
+        return Clamp01(clipTime / prepareWindowSeconds);
     }
 
     /// <summary>小数部分 ∈ [0,1)：对负值、多圈、超大幅度都成立；非有限/舍入异常 → 0。</summary>
@@ -359,8 +396,9 @@ internal static class HeroArcherNativeSampler
 
     /// <summary>
     /// 采样当前姿势（含转场策略）。任何异常都收敛成 Fallback（Unreadable），绝不向外抛。
+    /// <paramref name="prepareWindowSeconds"/> 为 Prepare 可见窗口（秒；≤0 = 无窗口信息 → 原始相位）。
     /// </summary>
-    internal static HeroArcherNativePoseSample Sample(Animator animator)
+    internal static HeroArcherNativePoseSample Sample(Animator animator, float prepareWindowSeconds = 0f)
     {
         if (animator == null) return HeroArcherNativePoseSample.Failed(HeroArcherNativeFallback.NoAnimator);
         try
@@ -377,8 +415,9 @@ internal static class HeroArcherNativeSampler
             float normalizedTime = chosen.normalizedTime;
             if (!float.IsFinite(normalizedTime))
                 return HeroArcherNativePoseSample.Failed(HeroArcherNativeFallback.Unreadable);
-            int frame = HeroArcherNativePose.FrameFor(action, normalizedTime);
-            return new HeroArcherNativePoseSample(action, hash, normalizedTime, frame,
+            float clipLength = ReadClipLength(in chosen);
+            int frame = HeroArcherNativePose.FrameFor(action, normalizedTime, clipLength, prepareWindowSeconds);
+            return new HeroArcherNativePoseSample(action, hash, normalizedTime, clipLength, frame,
                 action == HeroArcherNativeAction.Unknown
                     ? HeroArcherNativeFallback.UnknownState
                     : HeroArcherNativeFallback.None);
@@ -386,6 +425,20 @@ internal static class HeroArcherNativeSampler
         catch (Exception)
         {
             return HeroArcherNativePoseSample.Failed(HeroArcherNativeFallback.Unreadable);
+        }
+    }
+
+    /// <summary>当前状态 clip 长度（秒）：不可读/非法/非正 → 0（= 无 clip 信息，Prepare 回退原始相位）。</summary>
+    private static float ReadClipLength(in AnimatorStateInfo state)
+    {
+        try
+        {
+            float length = state.length;
+            return float.IsFinite(length) && length > 0f ? length : 0f;
+        }
+        catch (Exception)
+        {
+            return 0f;
         }
     }
 

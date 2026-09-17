@@ -12,6 +12,21 @@ namespace KingdomArcherOptions.Combat.Tests
     /// </summary>
     public class CadenceIdentityTests
     {
+        [Fact]
+        public void PaidMusketeerNeverBorrowsOptionalArcherSpeed()
+        {
+            Fixture f = Rate(2f);
+            Archer actor = f.NewArcher();
+            MusketeerIdentity.Marked = actor;
+            try
+            {
+                var state = PatchBridge.ShootMoveNextEnter(actor.NewShootIterator());
+                Assert.False(state.Entered);
+                Assert.Equal(0.4f, actor.shootPrepTime, 5);
+                Assert.Equal(new Vector2(0.35f, 0.65f), actor._shootIntervalRange);
+            }
+            finally { MusketeerIdentity.Marked = null; }
+        }
         private static Fixture Rate(float multiplier = 2f)
         {
             Fixture fixture = new Fixture();

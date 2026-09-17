@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- actualinterop 编译核对：4 个生产文件直接对着真实 E 盘 2.4 interop（Build 22992091）编译。
+       原生类型（Archer / Scanner / ArrowAttack / Damageable / Enemy / Crusher / Squid / Holder /
+       Physics2D / Animator / SpriteRenderer / HarmonyX 特性 / Il2CppStructArray）全部用真实程序集，
+       只有 canonical 协作 API（MusketeerAccess / MusketeerIdentity / PatchRoles_Crossbowman /
+       KingdomEnhancedPlugin）用同签名替身。
+       目的：字段名、属性可读写性（含 Scanner.additionalRequirements / SetExtraCondition 与
+       Scanner.ObjectCondition 的托管委托转换）、方法签名、Physics2D.LinecastNonAlloc 的
+       Il2CppStructArray<RaycastHit2D> 形状、Harmony 特性构造全部按 2.4 真实元数据硬核对；
+       不运行、不加载 IL2CPP 运行时。
+       IL2CPP_DEPS 可覆盖依赖根（默认取本机 E 盘安装）。 -->
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>MusketeerInteropCheck</AssemblyName>
+    <RootNamespace>KingdomEnhancedMod</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0649;CS0414;CS0169</NoWarn>
+    <IL2CPP_DEPS Condition="'$(IL2CPP_DEPS)'==''">E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx</IL2CPP_DEPS>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../il2cpp/MusketeerAnimation.cs" Link="Production/MusketeerAnimation.cs" />
+    <Compile Include="../../../il2cpp/MusketeerCombat.cs" Link="Production/MusketeerCombat.cs" />
+    <Compile Include="../../../il2cpp/MusketeerRuntime.cs" Link="Production/MusketeerRuntime.cs" />
+    <Compile Include="../../../il2cpp/MusketeerVisuals.cs" Link="Production/MusketeerVisuals.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(IL2CPP_DEPS)\interop\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.Physics2DModule">
+      <HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.Physics2DModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.AnimationModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>$(IL2CPP_DEPS)\interop\Il2Cppmscorlib.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(IL2CPP_DEPS)\core\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(IL2CPP_DEPS)\core\0Harmony.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

@@ -132,4 +132,34 @@ namespace KnightIdentityRuntimeTests
             return values;
         }
     }
+
+    /// <summary>稳定上下文/epoch 测试 helper：按生产配方读 sidecar，测试不复制生产解析逻辑。</summary>
+    internal static class Sidecar
+    {
+        internal static string ContextKey(int land, int campaign = 0, int challenge = 0)
+        {
+            return KnightIdentityArchive.ContextKey(GlobalSaveData.filename, campaign, challenge, land);
+        }
+
+        internal static KnightIdentityArchive Load(string path)
+        {
+            KnightIdentityArchiveStore.LoadResult loaded = KnightIdentityArchiveStore.Load(path);
+            return loaded.Status == KnightIdentityArchiveStatus.Valid ? loaded.Archive : null;
+        }
+
+        /// <summary>该上下文的 active epoch；没有登记返回 null。</summary>
+        internal static string ActiveEpoch(string path, int land, int campaign = 0, int challenge = 0)
+        {
+            KnightIdentityArchive archive = Load(path);
+            if (archive == null || !archive.TryGetContext(ContextKey(land, campaign, challenge), out KnightIdentityContext context)) return null;
+            return context.Active;
+        }
+
+        /// <summary>该上下文是否拥有某个 scope。</summary>
+        internal static bool Owns(string path, int land, string scope, int campaign = 0, int challenge = 0)
+        {
+            KnightIdentityArchive archive = Load(path);
+            return archive != null && archive.TryGetContext(ContextKey(land, campaign, challenge), out KnightIdentityContext context) && context.Owns(scope);
+        }
+    }
 }

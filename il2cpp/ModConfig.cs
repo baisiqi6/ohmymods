@@ -25,6 +25,7 @@ public static class ModConfig
     public static ConfigEntry<bool> HoldPurchaseEnabled, DenseThicketsEnabled, FastForestRecedeEnabled;
     public static ConfigEntry<bool> ArcherScatterEnabled, ArcherRateEnabled, ArcherImpactEnabled;
     public static ConfigEntry<bool> HeroArcherEnabled;
+    public static ConfigEntry<bool> MusketeerEnabled;
     public static ConfigEntry<int> ArcherVolleyCount;
     public static ConfigEntry<float> ArcherRateMultiplier;
     public static ConfigEntry<bool> HermesHeadwearEnabled;
@@ -40,9 +41,11 @@ public static class ModConfig
     public static ConfigEntry<bool> AutoRestockWorkersEnabled, AutoRestockArchersEnabled,
         AutoRestockNinjasEnabled, AutoRestockBerserkersEnabled, AutoRestockPeasantsEnabled;
     public static ConfigEntry<bool> AutoRestockFarmersEnabled, AutoRestockCatapultBarrelsEnabled, AutoRestockFireTowerAmmoEnabled;
+    public static ConfigEntry<bool> AutoRestockMusketeersEnabled;
     public static ConfigEntry<int> AutoRestockWorkersTarget, AutoRestockArchersTarget,
         AutoRestockNinjasTarget, AutoRestockBerserkersTarget, AutoRestockPeasantsTarget;
     public static ConfigEntry<int> AutoRestockFarmersTarget, AutoRestockCatapultBarrelsTarget, AutoRestockFireTowerAmmoTarget;
+    public static ConfigEntry<int> AutoRestockMusketeersTarget;
 
     public static void Init(ConfigFile config)
     {
@@ -59,8 +62,10 @@ public static class ModConfig
         FastForestRecedeEnabled = config.Bind("Convenience", "FastForestRecedeEnabled", false,
             "所有世界：砍树后的原生森林消退等待缩至三分之一；关闭后的新消退按原版等待");
         ArcherScatterEnabled = config.Bind("Archer", "ScatterEnabled", false, "所有世界：仅中世纪骑士的弓箭手随从攻击敌人时散射；打猎单发，额外箭呈淡金色，密集射击时自动限流");
+        MusketeerEnabled = config.Bind("Musketeer", "Enabled", false,
+            "火铳铺：所有世界可选。4金币购买火枪，居民拾取成为地面火铳手；基础伤害2、射程为原生普通弓手1.5倍、较慢装填，直线命中前排，不上箭塔。第一版仅单机；关闭恢复原生外观与行为，职业记录保留。");
         HeroArcherEnabled = config.Bind("Archer", "HeroArcherEnabled", false,
-            "英雄弓箭手：每侧最多1名现有弓箭手，关闭恢复普通外观与数值。射速1.5倍、射程1.25倍、对敌3箭，火焰范围半径0.25/额外1点；当前候选限单机，联机同步尚未开放。");
+            "英雄驿站：领地中段花8金币升级现有弓箭手，每侧最多1名，购买占位直到英雄死亡。关闭暂停商店与英雄效果，已购名额保留。英雄移速1.5倍、射速1.5倍、射程2倍、对敌3箭，火焰半径0.25/额外1点；仅单机。");
         ArcherVolleyCount = config.Bind("Archer", "VolleyCount", 3,
             new ConfigDescription("中世纪随从每发箭的总数量（含原生主箭），上限3支；高负载时额外箭受全场限额约束", new AcceptableValueRange<int>(1, 3)));
         ArcherRateEnabled = config.Bind("Archer", "RateEnabled", false, "所有世界：加快弓箭手准备、连射和冷却节奏，关闭恢复原版节奏");
@@ -83,6 +88,8 @@ public static class ModConfig
         AutoRestockFarmersEnabled = config.Bind("AutoRestock", "FarmersEnabled", false, "希腊世界：农民不足时，税收官从金库购买镰刀");
         AutoRestockCatapultBarrelsEnabled = config.Bind("AutoRestock", "CatapultBarrelsEnabled", false, "希腊世界：税收官从金库为已有投石车采购火药桶");
         AutoRestockFireTowerAmmoEnabled = config.Bind("AutoRestock", "FireTowerAmmoEnabled", false, "希腊世界：税收官从金库为已有希腊火焰塔补充弹药");
+        AutoRestockMusketeersEnabled = config.Bind("AutoRestock", "MusketeersEnabled", false,
+            "希腊单机：启用火铳铺后，税收官按目标人数从金库自动采购火枪；每把8金币，手动价仍为4金币");
         var targetDescription = new ConfigDescription("职业目标：现有人数、店内待领道具与在途采购合计，店满等待；全天从金库按店价的2倍采购",
             new AcceptableValueRange<int>(1, 200));
         AutoRestockWorkersTarget = config.Bind("AutoRestock", "WorkersTarget", 15, targetDescription);
@@ -90,6 +97,9 @@ public static class ModConfig
         AutoRestockNinjasTarget = config.Bind("AutoRestock", "NinjasTarget", 15, targetDescription);
         AutoRestockBerserkersTarget = config.Bind("AutoRestock", "BerserkersTarget", 15, targetDescription);
         AutoRestockFarmersTarget = config.Bind("AutoRestock", "FarmersTarget", 15, targetDescription);
+        AutoRestockMusketeersTarget = config.Bind("AutoRestock", "MusketeersTarget", 15,
+            new ConfigDescription("火枪手目标：存活火枪手、已购可用待拾火枪及在途订单合计；满架等待，不计入普通弓箭手目标",
+                new AcceptableValueRange<int>(1, 200)));
         var ammoDescription = new ConfigDescription("全岛弹药目标：现有未消耗弹药（含运输和已装填）与在途采购合计；原生容量不足时等待。自动采购按原价2倍扣款",
             new AcceptableValueRange<int>(1, 200));
         AutoRestockCatapultBarrelsTarget = config.Bind("AutoRestock", "CatapultBarrelsTarget", 15, ammoDescription);

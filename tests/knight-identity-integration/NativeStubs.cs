@@ -281,6 +281,8 @@ namespace KingdomEnhancedMod
 
     internal class CampaignSaveData
     {
+        internal IntPtr Pointer = new IntPtr(0x666);
+        internal void ApplyToScene() { }
         internal static CampaignSaveData current;
         internal IslandSaveData CurrentIsland;
     }
@@ -288,6 +290,8 @@ namespace KingdomEnhancedMod
     /// <summary>原生岛存档 stub：字段名与 2.4 interop 一致（objects/land/realStartDateTime/static 状态）。</summary>
     internal class IslandSaveData
     {
+        private static long nextIslandPointer;
+        internal IntPtr Pointer { get; } = new IntPtr(System.Threading.Interlocked.Increment(ref nextIslandPointer));
         internal class ObjectData
         {
             private static long nextPointer;
@@ -313,7 +317,7 @@ namespace KingdomEnhancedMod
                     if (i > 0) builder.Append(',');
                     ComponentData component = componentData2[i];
                     builder.Append("{\"name\":\"").Append(component.name).Append("\",\"type\":\"").Append(component.type)
-                        .Append("\",\"data\":\"").Append(component.data).Append("\"}");
+                        .Append("\",\"data\":").Append(System.Text.Json.JsonSerializer.Serialize(component.data)).Append("}");
                 }
                 builder.Append("]}");
             }
@@ -321,6 +325,7 @@ namespace KingdomEnhancedMod
 
         internal int land;
         internal bool isNew;
+        internal double playTimeDays;
         internal DateTime realStartDateTime = new DateTime(638000000000000000L, DateTimeKind.Utc);
         internal Il2CppSystem.Collections.Generic.List<ObjectData> objects;
 
@@ -472,7 +477,7 @@ namespace KingdomEnhancedMod
             worldGo.scene = new UnityEngine.Scene { handle = sceneHandle };
             UnityEngine.Transform worldRoot = new UnityEngine.Transform { name = "World", gameObject = worldGo };
             worldGo.transform = worldRoot;
-            UnityEngine.Transform layer = new UnityEngine.Transform { name = "gameLayer", gameObject = worldGo, parent = worldRoot };
+            UnityEngine.Transform layer = new UnityEngine.Transform { name = "gameLayer", gameObject = worldGo, parent = worldRoot, Pointer = new IntPtr(sceneHandle + 1) };
             Managers.Inst = new Managers
             {
                 world = new World { name = "World", gameObject = worldGo, gameLayer = layer, Pointer = new IntPtr(sceneHandle) },

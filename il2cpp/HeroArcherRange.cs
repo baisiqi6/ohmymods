@@ -5,7 +5,7 @@ using UnityEngine;
 namespace KingdomEnhancedMod;
 
 /// <summary>
-/// 英雄弓箭手 1.25 倍射程（combat slice；只给**当选英雄本人**用，绝不改共享 SO）。
+/// 英雄弓箭手 2 倍射程（combat slice；只给**当选英雄本人**用，绝不改共享 SO）。
 ///
 /// 为什么不是"发射后再补冲量"：`ArrowAttack.BestShotInternal` 先按目标解弹道角/速度（用 SO 的初速上限），
 /// 最后 `Vector2.ClampMagnitude(solution, _shotMagnitude)` 截断，再由 `FireArrowInternal` 施加冲量。
@@ -28,16 +28,16 @@ namespace KingdomEnhancedMod;
 /// 绝不用 ReferenceEquals 认人）；写字段前复核 actor 的当前身份与登记一致。扫描器记录其 Pointer，
 /// 身份不符即放弃认领，绝不覆盖。
 ///
-/// 边界：最多 <see cref="MaxHeroes"/> 个 actor；每 actor 幂等（绝不二次 ×1.118、绝不克隆自己的克隆）；
+/// 边界：最多 <see cref="MaxHeroes"/> 个 actor；每 actor 幂等（绝不二次 ×1.414、绝不克隆自己的克隆）；
 /// 条目在**完全归还**（字段脱钩 + 自有克隆销毁）之前不会被再次出租，也绝不被 Clear 丢弃；
 /// 所有入口异常隔离，绝不外抛进原生调用链。实机命中/观感未经本 slice 验证。
 /// </summary>
 internal static class HeroArcherRange
 {
-    /// <summary>索敌/射程倍率（用户确认 1.25）。</summary>
-    internal const float RangeFactor = 1.25f;
-    /// <summary>初速倍率 = sqrt(1.25)：Range = force²/-gravity，射程 ∝ v²。</summary>
-    internal const float SpeedFactor = 1.118033988749895f;
+    /// <summary>索敌/射程倍率（2026-09-15 用户拍板：普通弓手射程 ×2，替代旧 1.25）。</summary>
+    internal const float RangeFactor = 2f;
+    /// <summary>初速倍率 = sqrt(2)：Range = force²/-gravity，射程 ∝ v²。</summary>
+    internal const float SpeedFactor = 1.4142135623730951f;
     /// <summary>同时受管的英雄上限（每侧 1 名 → 最多 2）。</summary>
     internal const int MaxHeroes = 2;
     private const string CloneName = "KEM_HeroAttack";
@@ -477,7 +477,7 @@ internal static class HeroArcherRange
                 return false;
             }
 
-            float target = archer.shootRange;                          // runtime 拥有 shootRange（已 ×1.25），这里只镜像
+            float target = archer.shootRange;                          // runtime 拥有 shootRange（已 ×2），这里只镜像
             entry.RangeClaim = AssertField(entry.RangeClaim, scanner.range, target,
                 entry.BaseScanRange, entry.ClaimedScanRange, out float writtenRange, "range");
             if (entry.RangeClaim)

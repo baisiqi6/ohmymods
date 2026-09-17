@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    火铳手 drop 边界 interop 审计（musketeer-live-fixes-20260917 drop worker）：
+    只读检查 E 盘 2.4 interop 元数据，复现"Character.DropItem 的 nullable 参数在
+    HarmonyX IL2CPP detour 里不可搬运"的证据链（为什么身份转移改挂 Droppable.Drop）。
+    进入本目录执行 C:/Users/ADMIN/dotnet8/dotnet.exe run
+    （可用第一个参数或 KEM_IL2CPP_DEPS 指定 BepInEx 目录；缺 interop 时 exit code 2 = 未验证）
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>MusketeerDropInterop</AssemblyName>
+    <RootNamespace>MusketeerDropInterop</RootNamespace>
+    <NoWarn>$(NoWarn);CS0649</NoWarn>
+    <CecilLib Condition="'$(CecilLib)'==''">E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\core\Mono.Cecil.dll</CecilLib>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Mono.Cecil">
+      <HintPath>$(CecilLib)</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

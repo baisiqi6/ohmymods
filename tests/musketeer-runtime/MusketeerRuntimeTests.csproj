@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 控制台测试程序集：把 4 个生产文件（MusketeerAnimation/Combat/Runtime/Visuals）直接编译进来，
+       配 Unity/原生/协作 API 替身（UnityStubs.cs / NativeStubs.cs）。
+       纯逻辑（动画时钟/冷却闸/命中选择/借用账本）用真实生产代码路径验证；
+       真实 interop 签名核对在 interop-check/（引用 E 盘 2.4 interop 程序集编译）。
+       生产工程（il2cpp/KingdomEnhancedMod.csproj）不引用本目录。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>MusketeerRuntimeTests</AssemblyName>
+    <RootNamespace>MusketeerRuntimeTests</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0649;CS0414;CS0169</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/MusketeerAnimation.cs" Link="Production/MusketeerAnimation.cs" />
+    <Compile Include="../../il2cpp/MusketeerCombat.cs" Link="Production/MusketeerCombat.cs" />
+    <Compile Include="../../il2cpp/MusketeerRuntime.cs" Link="Production/MusketeerRuntime.cs" />
+    <Compile Include="../../il2cpp/MusketeerVisuals.cs" Link="Production/MusketeerVisuals.cs" />
+    <Compile Remove="interop-check/**" />
+  </ItemGroup>
+
+</Project>

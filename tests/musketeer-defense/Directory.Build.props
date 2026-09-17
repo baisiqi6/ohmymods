@@ -1,0 +1,11 @@
+<Project>
+  <!-- obj/bin isolation for the two test projects in this folder. Tests.csproj and Interop.csproj
+       otherwise share obj/project.assets.json (whichever restore runs last wins, and the next
+       build of the other project fails or resolves the wrong references). Directory.Build.props is
+       the supported place for BaseIntermediateOutputPath; the SDK rejects setting it inside a
+       project file. A command-line -p:BaseIntermediateOutputPath=... still overrides this. -->
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)bin/$(MSBuildProjectName)/</BaseOutputPath>
+  </PropertyGroup>
+</Project>

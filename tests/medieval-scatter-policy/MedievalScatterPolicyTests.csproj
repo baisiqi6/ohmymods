@@ -21,4 +21,4 @@
     <Compile Include="../../il2cpp/MedievalScatterPolicy.cs" Link="Production/MedievalScatterPolicy.cs" />
   </ItemGroup>
 
-</Project>
+<ItemGroup><Compile Include="../musketeer-boundary/MusketeerIdentityStub.cs" /></ItemGroup></Project>

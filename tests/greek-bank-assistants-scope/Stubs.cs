@@ -826,6 +826,10 @@ namespace KingdomEnhancedMod
 
     public static class ModConfig
     {
+        public static ConfigEntry<bool> MusketeerEnabled = new();
+        public static ConfigEntry<bool> AutoRestockMusketeersEnabled = new();
+        public static ConfigEntry<int> AutoRestockMusketeersTarget = new() { Value = 15 };
+
         public static ConfigEntry<bool> AutoRestockFarmersEnabled = new ConfigEntry<bool>(false), AutoRestockCatapultBarrelsEnabled = new ConfigEntry<bool>(false), AutoRestockFireTowerAmmoEnabled = new ConfigEntry<bool>(false);
         public static ConfigEntry<int> AutoRestockFarmersTarget = new ConfigEntry<int>(15), AutoRestockCatapultBarrelsTarget = new ConfigEntry<int>(15), AutoRestockFireTowerAmmoTarget = new ConfigEntry<int>(15);
         public static ConfigEntry<bool> Enabled = new ConfigEntry<bool>(true);
@@ -898,3 +902,12 @@ public class PayableShop : Payable
 public class PayableShopBaker : PayableShop { }
 
 namespace KingdomEnhancedMod { internal static class GreekScaleScope { internal static Vector3 NativeScale(Transform t) => t.localScale; internal static void ApplyY(Transform t, float value) { } internal static void Restore(Transform t) { } } }
+
+namespace KingdomEnhancedMod {
+internal static class MusketeerIdentity { internal static bool TryGetRestockCounts(out int live,out int guns) { live=guns=0; return false; } }
+internal static class MusketeerShop {
+ internal const int Price=4; internal enum AutoPurchaseResult { Rejected,Purchased,PaidUncertain }
+ internal static bool TryGetAutoRestockTarget(out Payable target) { target=null;return false; }
+ internal static bool CanAutoRestock(Payable target,out string reason) { reason="disabled in bank scope fixture"; return false; }
+ internal static AutoPurchaseResult PurchaseForAutoRestock(Payable target,Banker banker,System.Action onDebited,out string reason) { throw new System.InvalidOperationException("unexpected musketeer call in bank scope fixture"); }
+} }

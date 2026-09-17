@@ -56,6 +56,7 @@ namespace AutoRestockTests
             MotionAndPeasants.Run();
             DoubleCost.Run();
             GreekScope.Run();
+            MusketeerCases.RunAll();
             Console.WriteLine();
             Console.WriteLine($"==== {Passed} passed, {Failed} failed, {Passed + Failed} total ====");
             foreach (string f in Failures) Console.WriteLine("FAIL: " + f);
@@ -112,7 +113,7 @@ namespace AutoRestockTests
                 Banker = new Banker();
                 Fake.Attach(Banker, Fake.NewGO("banker", Layer));
                 M = new Managers
-                { world = World, kingdom = Kingdom, game = Game, currency = Currency, stats = new object() };
+                { world = World, kingdom = Kingdom, game = Game, currency = Currency, stats = new Stats() };
                 Managers.Inst = M;
                 BankAssistantCoordinator.MainBanker=Banker;
             }
@@ -936,7 +937,7 @@ namespace AutoRestockTests
                 PatchEconomy_AutoRestock.GetSummary(0);
             Eq(s.GetItemCountCalls, reads, "summary getter must not read native shop state");
             Eq(PatchEconomy_AutoRestock.GetSummary(-1), "", "out-of-range role");
-            Eq(PatchEconomy_AutoRestock.GetSummary(8), "", "out-of-range role");
+            Eq(PatchEconomy_AutoRestock.GetSummary(9), "", "out-of-range role");
             for (int r = 5; r < 8; r++)
                 Ok(PatchEconomy_AutoRestock.GetSummary(r) != "", "role " + r + " has a summary");
             string before = PatchEconomy_AutoRestock.GetSummary(0);

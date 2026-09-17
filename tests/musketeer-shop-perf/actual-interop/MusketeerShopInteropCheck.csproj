@@ -1,0 +1,71 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- actualinterop 编译核对：生产 MusketeerShop.cs / MusketeerShopAssets.cs / MusketeerShopRules.cs /
+       HeroShop.cs（HERO_SHOP_CORE_ONLY）直接对着真实 E 盘 2.4 interop（Build 22992091）编译。
+       目的：新支付路径用到的原生成员形状按 2.4 真实元数据硬核对——
+         * PayableShop.itemPrefab / Payable.transform.IsChildOf / PayableManager.AllPayables
+         * PoolManager.GetPoolByPrefabName(string) 与 Pool.prefab / Pool.Pointer（池绑定重验证）
+         * Droppable.TryCast<DroppableTool>()、GameObject.tag、GameObject.GetInstanceID()
+         * BiomeHolder.Inst / BiomeIndex、Persistent.persistObject/path、Pool.Spawn/Despawn 签名
+       只编译、不运行、不加载 IL2CPP 运行时；协作 API（MusketeerIdentity/MusketeerAccess/
+       ModConfig/KingdomEnhancedPlugin）用同形替身（Stubs.cs）。 -->
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>MusketeerShopInteropCheck</AssemblyName>
+    <RootNamespace>KingdomEnhancedMod</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <DefineConstants>HERO_SHOP_CORE_ONLY</DefineConstants>
+    <NoWarn>$(NoWarn);CS0649;CS0414;CS0169</NoWarn>
+    <IL2CPP_DEPS Condition="'$(IL2CPP_DEPS)'==''">E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx</IL2CPP_DEPS>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../il2cpp/MusketeerRestock.cs" Link="Production/MusketeerRestock.cs" />
+    <Compile Include="../../../il2cpp/MusketeerShop.cs" Link="Production/MusketeerShop.cs" />
+    <Compile Include="../../../il2cpp/MusketeerShopAssets.cs" Link="Production/MusketeerShopAssets.cs" />
+    <Compile Include="../../../il2cpp/MusketeerShopRules.cs" Link="Production/MusketeerShopRules.cs" />
+    <Compile Include="../../../il2cpp/HeroShop.cs" Link="Production/HeroShop.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(IL2CPP_DEPS)\interop\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.Physics2DModule">
+      <HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.Physics2DModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>$(IL2CPP_DEPS)\interop\Il2Cppmscorlib.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2CppSystem">
+      <HintPath>$(IL2CPP_DEPS)\interop\Il2CppSystem.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(IL2CPP_DEPS)\core\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

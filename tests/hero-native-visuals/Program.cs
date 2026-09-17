@@ -1,7 +1,9 @@
 // HeroArcherVisuals 原生跟随控制流测试（替身 Unity + 替身游戏类型；真实 interop 由 operator 编译复核）。
 //
 // 覆盖：接管/挂起/再接管的交接、未知状态与不可读不丢凭据、池/换 life/功能关的归还、第三方隐藏不被覆盖、
-// 写失败不持有并重试、同帧双入口只执行一次、放箭事件不重启相位、诊断有界（上限 120 且不随帧数增长）。
+// 写失败不持有并重试、同帧双入口只执行一次、放箭事件不重启相位、诊断有界（上限 120 且不随帧数增长）、
+// Prepare 窗口（桥记录 pending/active、进入与回绕锁入、进行中不改、非法/陌生/life 拒绝、重建不沿用）、
+// 事件锚定释放表现（同帧散射去重、隔帧重启、Walk/Run/Shoot/新 Prepare 取消、暂停冻结、0.18s 有界、双英雄独立）。
 // 运行： C:/Users/ADMIN/dotnet8/dotnet.exe run --project tests/visuals-native-stub/Tests.csproj
 //
 // 不覆盖（须由 operator 真机复核）：真实 Animator 的 shortNameHash/相位语义、IL2CPP interop 注入与
@@ -44,6 +46,9 @@ internal static class Program
         PoolLifeChangeRemovesAndRestores();
         DoubleEntrySameFrameRunsOnceAndPanelWins();
         DiagnosticsBoundedAndResetOnClear();
+        PrepareWindowComesOnlyFromRecordedCadence();
+        ReleasePresentationFollowsShotEvent();
+        VisitAndLifecycleDiagnosticsAreBoundedAndEventTriggered();
 
         Console.WriteLine();
         Console.WriteLine(_failed == 0
@@ -86,8 +91,8 @@ internal static class Program
         return fixture;
     }
 
-    private static void SetState(Fixture fixture, string stateName, float normalizedTime)
-        => fixture.Animator.Current = new AnimatorStateInfo(Animator.StringToHash(stateName), normalizedTime);
+    private static void SetState(Fixture fixture, string stateName, float normalizedTime, float clipLength = 0f)
+        => fixture.Animator.Current = new AnimatorStateInfo(Animator.StringToHash(stateName), normalizedTime, clipLength);
 
     private static void FreshWorld()
     {
@@ -125,6 +130,19 @@ internal static class Program
         return root != null ? root.GetComponent<SpriteRenderer>() : null;
     }
 
+    /// <summary>按挂点父对象定位某个 fixture 的自有 renderer（两个英雄共存时 OwnBody 不够用）。</summary>
+    private static SpriteRenderer OwnOf(Fixture fixture)
+    {
+        if (fixture == null || fixture.Native == null) return null;
+        for (int i = 0; i < GameObject.All.Count; i++)
+        {
+            GameObject root = GameObject.All[i];
+            if (root == null || root.Destroyed || root.name != "KEM_HeroArcherSprite") continue;
+            if (root.transform.parent == fixture.Native.transform) return root.GetComponent<SpriteRenderer>();
+        }
+        return null;
+    }
+
     private static GameObject OwnRoot() => FindLive("KEM_HeroArcherSprite");
 
     /// <summary>从 sprite 的 atlas rect 反推帧号（测试独立重算 8x4 / 48x32 布局，不复用生产帧映射）。</summary>
@@ -140,11 +158,17 @@ internal static class Program
 
     private static int NativeLines() => LogSourceStub.CountContaining("[HeroArcherNative]");
 
-    private static string LastNativeLine()
+    private static int VisitLines() => LogSourceStub.CountContaining("[HeroArcherPoseVisit]");
+
+    private static int LifeLines() => LogSourceStub.CountContaining("[HeroArcherVisualLife]");
+
+    private static string LastNativeLine() => LastLine("[HeroArcherNative]");
+
+    private static string LastLine(string tag)
     {
         for (int i = LogSourceStub.Lines.Count - 1; i >= 0; i--)
         {
-            if (LogSourceStub.Lines[i].Contains("[HeroArcherNative]")) return LogSourceStub.Lines[i];
+            if (LogSourceStub.Lines[i].Contains(tag)) return LogSourceStub.Lines[i];
         }
         return "";
     }
@@ -489,5 +513,302 @@ internal static class Program
         HeroArcherVisuals.Apply(next.Archer);
         Check("clear.resetsBudget", NativeLines() == HeroArcherNativeEventLog.Capacity + 1,
             "Clear 后诊断预算必须重置（新事件可再记一行），got " + NativeLines());
+    }
+
+    /// <summary>
+    /// Prepare 窗口只来自 operator 桥的 RecordPrepareWindow（原生同一步 MoveNext 读到的临时 shootPrepTime）：
+    /// pending 记录、Prepare 进入/同状态回绕时锁入 active、进行中的拉弓不改窗口、缺失回退原生相位、
+    /// 非法/陌生/life 不符被忽略、池/换世界重建后不沿用。
+    /// </summary>
+    private static void PrepareWindowComesOnlyFromRecordedCadence()
+    {
+        FreshWorld();
+        Fixture fixture = CreateFixture();
+        HeroArcherVisuals.Apply(fixture.Archer);
+        SpriteRenderer own = OwnBody();
+        if (own == null) { Check("window.ownExists", false); return; }
+
+        // 未记录窗口 → 原生相位回退（ct 0.108 但无窗口：nt 0.05 → 帧 22）。
+        SetState(fixture, "Prepare", 0.05f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("window.missingFallsBack", FrameOf(own) == 22, "无窗口必须回退原生相位，got " + FrameOf(own));
+
+        // 记录 0.2s → 下一次 Prepare 进入时锁入（锁定发生在采样之后，故进入帧本身还用旧窗口）。
+        SetState(fixture, "Stand", 0f, 1.6666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        HeroArcherVisuals.RecordPrepareWindow(fixture.Archer, 0.2f);
+        SetState(fixture, "Prepare", 0.05f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("window.entryFrameUsesNewWindow", FrameOf(own) == 24,
+            "进入帧在锁定之前采样（仍回退原生相位），got " + FrameOf(own));
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("window.recordedLocksAtEntry", FrameOf(own) == 24, "记录 0.2 → ct 0.108/0.2=0.54 → 帧 24，got " + FrameOf(own));
+
+        // 进行中的拉弓不被中途改窗口（pending 0.5 不影响 active 0.2）。
+        HeroArcherVisuals.RecordPrepareWindow(fixture.Archer, 0.5f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("window.activeLockedMidPrepare", FrameOf(own) == 24,
+            "进行中的拉弓必须保持锁定窗口 0.2（否则会跳到 22），got " + FrameOf(own));
+
+        // 下一次 Prepare 进入才用新 pending（进入帧仍用旧 active，次帧起 0.5 生效：ct 0.108/0.5=0.217 → 22）。
+        SetState(fixture, "Shoot", 0f, 0.3f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        SetState(fixture, "Prepare", 0.05f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("window.nextPrepareUsesPending", FrameOf(own) == 22, "新 pending 0.5 → 帧 22，got " + FrameOf(own));
+
+        // 同状态回绕（nt 从 0.10 递减到 0.05）→ 重新锁入 pending 0.2（回绕帧本身仍用旧窗口）。
+        HeroArcherVisuals.RecordPrepareWindow(fixture.Archer, 0.2f);
+        SetState(fixture, "Prepare", 0.10f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        SetState(fixture, "Prepare", 0.05f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("window.rollbackUsesNewWindowImmediately", FrameOf(own) == 24,
+            "回绕帧仍用旧窗口（锁定发生在采样之后），got " + FrameOf(own));
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("window.rollbackRelocks", FrameOf(own) == 24, "回绕后必须锁入 pending 0.2 → 帧 24，got " + FrameOf(own));
+
+        // 非法秒数 / 陌生 archer / life 不符全部忽略（仍用 0.2 → 帧 24）。
+        HeroArcherVisuals.RecordPrepareWindow(fixture.Archer, float.NaN);
+        HeroArcherVisuals.RecordPrepareWindow(fixture.Archer, 0f);
+        HeroArcherVisuals.RecordPrepareWindow(fixture.Archer, -1f);
+        Fixture foreign = CreateFixture();
+        HeroArcherVisuals.RecordPrepareWindow(foreign.Archer, 0.9f);
+        HeroArcherRuntime.Life = 7;
+        HeroArcherVisuals.RecordPrepareWindow(fixture.Archer, 0.9f);
+        HeroArcherRuntime.Life = 1;
+        SetState(fixture, "Stand", 0f, 1.6666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        SetState(fixture, "Prepare", 0.05f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("window.invalidForeignAndLifeIgnored", FrameOf(own) == 24,
+            "非法/陌生/life 不符的记录必须被忽略（仍 0.2 → 24），got " + FrameOf(own));
+
+        // 池复用/换世界：重建后 pending/active 归零，绝不沿用旧窗口。
+        HeroArcherRuntime.Life = 2;
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("window.poolRemoved", HeroArcherVisuals.Count == 0 && !fixture.Native.forceRenderingOff);
+        HeroArcherRuntime.Life = 3;
+        HeroArcherVisuals.Apply(fixture.Archer);
+        SpriteRenderer fresh = OwnOf(fixture);
+        SetState(fixture, "Prepare", 0.05f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("window.notReusedAfterPool", fresh != null && FrameOf(fresh) == 22,
+            "重建后必须回退原生相位（不沿用 0.2），got " + (fresh != null ? FrameOf(fresh) : -1));
+    }
+
+    /// <summary>
+    /// 事件锚定释放表现：真实放箭事件驱动自有帧 26..30（0.18s 有界），覆盖 perfect 弹跳过原生 Shoot 状态的
+    /// 观感；同帧散射多发不重启、隔帧放箭重启；Walk/Run/Shoot/Unknown/新 Prepare 立即取消；
+    /// 暂停冻结、超时回原生；关闭/池复用后不残留；两个英雄独立。
+    /// </summary>
+    private static void ReleasePresentationFollowsShotEvent()
+    {
+        FreshWorld();
+        Fixture fixture = CreateFixture();
+        HeroArcherVisuals.Apply(fixture.Archer);
+        SpriteRenderer own = OwnBody();
+        if (own == null) { Check("release.ownExists", false); return; }
+
+        // perfect→Stand：原生直接回 Stand（跳过 Shoot），自有释放仍必须可见。
+        SetState(fixture, "Prepare", 0.107f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        HeroArcherVisuals.NotifyRelease(fixture.Archer);
+        HeroArcherVisuals.NotifyRelease(fixture.Archer);   // 同帧散射多发：不得重启
+        SetState(fixture, "Stand", 0f, 1.6666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("release.firstFrame", FrameOf(own) == 26, "放箭帧必须显示 26，got " + FrameOf(own));
+
+        // 每 Sync = 1/60s：放箭帧起走 26,26,27,27,28,28,29,29,30,30，第 11 帧超时回原生 Stand(0)。
+        // 同一帧里的两次 NotifyRelease 必须给出与单次完全一致的进度（不重启、不跳帧）。
+        int[] expected = { 26, 26, 27, 27, 28, 28, 29, 29, 30, 30 };
+        for (int i = 0; i < expected.Length; i++)
+        {
+            AdvanceFrame();
+            HeroArcherVisuals.Sync("panel");
+            Check("release.step" + i, FrameOf(own) == expected[i],
+                "释放第 " + (i + 1) + " 帧应为 " + expected[i] + "，got " + FrameOf(own));
+        }
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("release.boundedEnd", FrameOf(own) == 0,
+            "0.18s 上限后必须结束释放并回原生 Stand，got " + FrameOf(own));
+        HeroArcherVisuals.NotifyRelease(fixture.Archer);
+        AdvanceFrame(0.2f); HeroArcherVisuals.Sync("panel");
+        Check("release.slowFrameStillShowsKeyPose", FrameOf(own) == 26);
+        AdvanceFrame(0.2f); HeroArcherVisuals.Sync("panel");
+        Check("release.slowFrameExpires", FrameOf(own) == 0);
+
+        // 隔帧的真实放箭：重新开始（1 帧 → 26）。
+        HeroArcherVisuals.NotifyRelease(fixture.Archer);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("release.restartAfterEnd", FrameOf(own) == 26, "got " + FrameOf(own));
+
+        // 释放进行到 27 时再来一发（隔帧）：必须回到 26（若继续推进会停在 27）。
+        AdvanceFrame(); HeroArcherVisuals.Sync("panel");   // 0.033 → 26
+        AdvanceFrame(); HeroArcherVisuals.Sync("panel");   // 0.05 → 27
+        HeroArcherVisuals.NotifyRelease(fixture.Archer);
+        AdvanceFrame(); HeroArcherVisuals.Sync("panel");   // 重启 → 0.017 → 26
+        Check("release.restartFromMidRelease", FrameOf(own) == 26, "重启第一帧必须是 26，got " + FrameOf(own));
+
+        // 原生 Shoot 可靠存在：优先原生相位（不走自有释放时钟）。
+        AdvanceFrame(); HeroArcherVisuals.Sync("panel");   // 让上个释放继续一帧
+        SetState(fixture, "Prepare", 0.107f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        HeroArcherVisuals.NotifyRelease(fixture.Archer);
+        SetState(fixture, "Shoot", 0.9f, 0.3f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("release.nativeShootWins", FrameOf(own) == 30,
+            "原生 Shoot nt 0.9 → 帧 30（自有释放时钟若生效会给 26），got " + FrameOf(own));
+        SetState(fixture, "Stand", 0f, 1.6666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("release.noReplayAfterNativeShoot", FrameOf(own) == 0,
+            "原生已播完释放：不得再冒出 26..30，got " + FrameOf(own));
+
+        // 放箭后进入 Walk：立即取消，绝不冻结 locomotion。
+        SetState(fixture, "Prepare", 0.107f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        HeroArcherVisuals.NotifyRelease(fixture.Archer);
+        SetState(fixture, "Walk", 0.3f, 1.5f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("release.walkCancels", FrameOf(own) == 11, "Walk 必须立即取消释放并跟原生相位，got " + FrameOf(own));
+
+        // 新的 Prepare 进入：立即取消（新一次拉弓接管）。
+        SetState(fixture, "Prepare", 0.107f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        HeroArcherVisuals.NotifyRelease(fixture.Archer);
+        SetState(fixture, "Stand", 0f, 1.6666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        SetState(fixture, "Prepare", 0.05f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("release.newPrepareCancels", FrameOf(own) == 22,
+            "新 Prepare 必须取消释放并显示拉弓帧（若释放仍生效会给 26），got " + FrameOf(own));
+
+        // 暂停（dt=0）：释放冻结，不推进也不超时。
+        SetState(fixture, "Prepare", 0.107f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        HeroArcherVisuals.NotifyRelease(fixture.Archer);
+        SetState(fixture, "Stand", 0f, 1.6666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("release.pausePrecondition", FrameOf(own) == 26);
+        for (int i = 0; i < 30; i++) { AdvanceFrame(0f); HeroArcherVisuals.Sync("panel"); }
+        Check("release.pauseFreezes", FrameOf(own) == 26, "dt=0 时释放不得推进/超时，got " + FrameOf(own));
+        AdvanceFrame(); HeroArcherVisuals.Sync("panel");
+        Check("release.resumesAfterPause", FrameOf(own) == 26, "恢复第一帧仍 26（0.033s），got " + FrameOf(own));
+        AdvanceFrame(); HeroArcherVisuals.Sync("panel");
+        Check("release.resumesProgress", FrameOf(own) == 26, "恢复两帧累计0.033s，仍为26，got " + FrameOf(own));
+        AdvanceFrame(); HeroArcherVisuals.Sync("panel");
+        Check("release.resumesThirdFrame", FrameOf(own) == 27, "恢复三帧累计0.05s，进入27，got " + FrameOf(own));
+
+        // 关闭：视觉被移除，释放随之消失且不残留。
+        HeroArcherRuntime.Hero = false;
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Check("release.offRemovesVisual", HeroArcherVisuals.Count == 0 && !fixture.Native.forceRenderingOff);
+        HeroArcherRuntime.Hero = true;
+        HeroArcherVisuals.Apply(fixture.Archer);
+        SetState(fixture, "Stand", 0f, 1.6666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        SpriteRenderer fresh = OwnOf(fixture);
+        Check("release.noStaleAfterReapply", fresh != null && FrameOf(fresh) == 0,
+            "重新挂载后不得带旧释放状态（旧对象已销毁，引用作废），got " + (fresh != null ? FrameOf(fresh) : -1));
+
+        // 两个英雄独立：A 释放时 B 仍跟自身原生相位。
+        Fixture other = CreateFixture();
+        HeroArcherVisuals.Apply(other.Archer);
+        SetState(other, "Walk", 0.3f, 1.5f);
+        SetState(fixture, "Prepare", 0.107f, 2.1666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        HeroArcherVisuals.NotifyRelease(fixture.Archer);
+        SetState(fixture, "Stand", 0f, 1.6666665f);
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        SpriteRenderer otherOwn = OwnOf(other);
+        Check("release.twoHeroesIndependent", FrameOf(OwnOf(fixture)) == 26 && otherOwn != null && FrameOf(otherOwn) == 11,
+            "A 释放(26) 与 B 原生 Walk(11) 必须互不影响，got A=" + FrameOf(OwnOf(fixture))
+            + " B=" + (otherOwn != null ? FrameOf(otherOwn) : -1));
+    }
+
+    /// <summary>访问行（相位推进证据）与生命周期行的有界性/事件触发契约。</summary>
+    private static void VisitAndLifecycleDiagnosticsAreBoundedAndEventTriggered()
+    {
+        FreshWorld();
+        Fixture fixture = CreateFixture();
+        Check("visit.noLinesBeforeApply", LifeLines() == 0 && VisitLines() == 0);
+
+        HeroArcherVisuals.Apply(fixture.Archer);
+        Check("lifecycle.attachLogged", LifeLines() == 1 && LastLine("[HeroArcherVisualLife]").Contains("attach"),
+            "line=" + LastLine("[HeroArcherVisualLife]"));
+
+        // 转场行现在带 clip 长度/clip 时间/朝向证据/世界 y（实测诊断的字段契约）。
+        string native = LastNativeLine();
+        Check("diagnostics.clipAndFacingFields", native.Contains(" len=") && native.Contains(" ct=")
+            && native.Contains(" face=") && native.Contains(" y="), "line=" + native);
+
+        // Stand 停留 5 帧：不产生访问行（事件触发，非逐帧）。
+        int visits = VisitLines();
+        for (int i = 0; i < 5; i++) { AdvanceFrame(); HeroArcherVisuals.Sync("panel"); }
+        Check("visit.eventTriggeredNotPerFrame", VisitLines() == visits);
+
+        // Prepare 访问 → 动作结束时一行，含时长/clip 时间峰值/帧区间/窗口。
+        SetState(fixture, "Prepare", 0.05f, 2.1666665f);
+        AdvanceFrame(); HeroArcherVisuals.Sync("panel");
+        AdvanceFrame(); HeroArcherVisuals.Sync("panel");
+        SetState(fixture, "Stand", 0f, 1.6666665f);
+        AdvanceFrame(); HeroArcherVisuals.Sync("panel");
+        string visit = LastLine("[HeroArcherPoseVisit]");
+        Check("visit.prepareLineLogged", VisitLines() == visits + 1
+            && visit.Contains("action=Prepare") && visit.Contains("ctMax=")
+            && visit.Contains("frames=") && visit.Contains("win=") && visit.Contains("next=Stand"),
+            "line=" + visit);
+
+        // 卸载：detach 行带原因（与 attach 配对暴露重建节奏）。
+        HeroArcherVisuals.Remove(fixture.Archer);
+        string detach = LastLine("[HeroArcherVisualLife]");
+        Check("lifecycle.detachLogged", LifeLines() == 2 && detach.Contains("detach") && detach.Contains("reason=remove"),
+            "line=" + detach);
+
+        // 上限：70 次挂载/卸载（140 个事件）必须恰好停在 LifeLogCapacity，不随次数增长。
+        for (int i = 0; i < 70; i++)
+        {
+            Fixture churn = CreateFixture();
+            HeroArcherVisuals.Apply(churn.Archer);
+            HeroArcherVisuals.Remove(churn.Archer);
+        }
+        Check("lifecycle.capacity", LifeLines() == HeroArcherVisuals.LifeLogCapacity,
+            "生命周期行必须恰好停在上限 " + HeroArcherVisuals.LifeLogCapacity + "，got " + LifeLines());
+        Check("visit.capacityNotExceeded", VisitLines() <= HeroArcherVisuals.VisitLogCapacity,
+            "got " + VisitLines());
     }
 }

@@ -13,6 +13,7 @@ namespace KnightIdentityRuntimeTests
             OperatorRegression.Run();
             SaveLoadTests.Run();
             LoadSeedWiringTests.Run();
+            ContextFollowupTests.Run();
 
             Console.WriteLine();
             Console.WriteLine("total: passed=" + Case.Passed + " failed=" + Case.Failed);
