@@ -20,6 +20,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../../il2cpp/CombatDamage.cs" Link="Production/CombatDamage.cs" />
     <Compile Include="../../il2cpp/MusketeerAnimation.cs" Link="Production/MusketeerAnimation.cs" />
     <Compile Include="../../il2cpp/MusketeerCombat.cs" Link="Production/MusketeerCombat.cs" />
     <Compile Include="../../il2cpp/MusketeerRuntime.cs" Link="Production/MusketeerRuntime.cs" />

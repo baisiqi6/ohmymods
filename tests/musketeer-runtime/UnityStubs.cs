@@ -33,6 +33,49 @@ namespace Il2CppInterop.Runtime.InteropTypes.Arrays
     }
 }
 
+namespace Il2CppSystem.Collections.Generic
+{
+    /// <summary>
+    /// interop List&lt;T&gt; 的最小替身（Count + 索引器 + 测试写入面）。写入语义按官方文档
+    /// "按需扩容、不裁剪"的严格解读：本次结果只有 [0, 返回的 count) 有效，Count 保持高水位——
+    /// 生产必须只信 Linecast 的返回值，替身刻意保留陈旧尾巴来盯住"按 Count 遍历/读旧结果"。
+    /// </summary>
+    public class List<T>
+    {
+        private T[] _items = new T[0];
+
+        /// <summary>测试用：创建的 List 实例数（验证生产复用同一个结果列表、不逐次分配）。</summary>
+        public static int CreatedForTests;
+
+        public List() { CreatedForTests++; }
+
+        public int Count { get; private set; }
+
+        public T this[int index]
+        {
+            get => _items[index];
+            set => _items[index] = value;
+        }
+
+        /// <summary>测试桩写入前置：保证至少 count 个槽（模拟原生 binding 的按需扩容）。</summary>
+        internal void EnsureSlotsForTests(int count)
+        {
+            if (count <= _items.Length) return;
+            int capacity = _items.Length > 0 ? _items.Length : 4;
+            while (capacity < count) capacity *= 2;
+            var grown = new T[capacity];
+            Array.Copy(_items, grown, _items.Length);
+            _items = grown;
+        }
+
+        /// <summary>测试桩写入后置：把 Count 抬到本次结果数（只增不减，刻意不裁剪）。</summary>
+        internal void PublishCountForTests(int count)
+        {
+            if (count > Count) Count = count;
+        }
+    }
+}
+
 namespace UnityEngine
 {
     public class Object
@@ -141,9 +184,13 @@ namespace UnityEngine
         }
     }
 
+    /// <summary>Unity Bounds 替身：center/extents 可写，min/max 为派生只读（与真实属性同义）。</summary>
     public struct Bounds
     {
-        public Vector3 max;
+        public Vector3 center;
+        public Vector3 extents;
+        public Vector3 min => new Vector3(center.x - extents.x, center.y - extents.y, center.z - extents.z);
+        public Vector3 max => new Vector3(center.x + extents.x, center.y + extents.y, center.z + extents.z);
     }
 
     public enum TextureFormat { RGBA32 = 4 }
@@ -376,11 +423,12 @@ namespace UnityEngine
 
     public class Collider2D : Component
     {
+        /// <summary>真实 Collider2D.bounds（鹿弹微调只用它；绝不硬编码生物尺寸）。</summary>
+        public Bounds bounds;
     }
 
     public class BoxCollider2D : Collider2D
     {
-        public Bounds bounds;
     }
 
     public struct RaycastHit2D
@@ -389,15 +437,39 @@ namespace UnityEngine
         public float distance;
     }
 
+    /// <summary>Unity ContactFilter2D 的最小替身：只覆盖生产写入/测试断言的字段。</summary>
+    public struct ContactFilter2D
+    {
+        public bool useTriggers;
+        public bool useLayerMask;
+        public bool useDepth;
+        public bool useOutsideDepth;
+        public bool useNormalAngle;
+        public bool useOutsideNormalAngle;
+        public LayerMask layerMask;
+        public float minDepth;
+        public float maxDepth;
+        public float minNormalAngle;
+        public float maxNormalAngle;
+    }
+
     public static class Physics2D
     {
         /// <summary>测试排队的命中（按加入顺序；生产按 distance 取最近，与顺序无关）。</summary>
         public static readonly List<RaycastHit2D> QueuedHits = new();
         public static int LastLayerMask;
-        /// <summary>测试用：无论容量多大都填满并返回容量（模拟"命中数量饱和"）。</summary>
+        /// <summary>测试用：无论容量多大都填满并返回容量（模拟"命中数量饱和"，逼生产走完整 List）。</summary>
         public static bool Saturate;
         public static bool ThrowOnCast;
         public static int CastCount;
+
+        /// <summary>全局 queriesHitTriggers（旧 LinecastNonAlloc 的 CreateLegacyFilter 会读它）。</summary>
+        public static bool queriesHitTriggers = true;
+        /// <summary>测试用：List overload 抛异常（模拟真实 AOT/icall 故障）。</summary>
+        public static bool ThrowOnListCast;
+        public static int ListCastCount;
+        public static ContactFilter2D LastListFilter;
+        public static int LastListLayerMask;
 
         public static int LinecastNonAlloc(Vector2 start, Vector2 end,
             Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<RaycastHit2D> results, int layerMask)
@@ -415,10 +487,34 @@ namespace UnityEngine
             for (int i = 0; i < count; i++) results[i] = QueuedHits[i];
             return count;
         }
+
+        /// <summary>
+        /// 数组饱和后的完整结果（真实 2.4 interop 同形：ContactFilter2D + Il2Cpp List&lt;RaycastHit2D&gt;）。
+        /// 写入模拟官方"按需扩容、不裁剪"：Count 抬到高水位，本次结果数由返回值给出。
+        /// </summary>
+        public static int Linecast(Vector2 start, Vector2 end, ContactFilter2D contactFilter,
+            Il2CppSystem.Collections.Generic.List<RaycastHit2D> results)
+        {
+            ListCastCount++;
+            LastListFilter = contactFilter;
+            LastListLayerMask = contactFilter.layerMask;
+            if (ThrowOnListCast) throw new InvalidOperationException("injected list physics query failure");
+            int count = QueuedHits.Count;
+            results.EnsureSlotsForTests(count);
+            for (int i = 0; i < count; i++) results[i] = QueuedHits[i];
+            results.PublishCountForTests(count);
+            return count;
+        }
     }
 
-    public static class LayerMask
+    /// <summary>Unity LayerMask 形状（int 隐式互转 + NameToLayer），供 ContactFilter2D.layerMask 赋值。</summary>
+    public struct LayerMask
     {
+        public int value;
+
+        public static implicit operator int(LayerMask mask) => mask.value;
+        public static implicit operator LayerMask(int value) => new LayerMask { value = value };
+
         public static readonly Dictionary<string, int> LayersByName = new()
         {
             { "Enemies", 10 },

@@ -1,3 +1,4 @@
+using System;
 using KingdomEnhancedMod;
 using UnityEngine;
 
@@ -6,7 +7,8 @@ namespace MusketeerRuntimeTests
     /// <summary>
     /// 射击契约：单一确定的射速权威、显式闸（一发一颗、合法周期不被吞）、最近有效命中、
     /// 友军/飞行不阻挡、Crusher 免疫消费、消费闩先于伤害（重入不二次命中）、
-    /// 射程边界、物理饱和保守终止、弹丸池容量、贴图资产缺失 fail-closed。
+    /// 射程/寿命边界与完整 dt（大帧不慢弹也不越界）、数组饱和升级完整 List（不再吞弹）、
+    /// 记录池化清理与复用、共同 Submit 异常隔离、弹丸池容量、贴图资产缺失 fail-closed。
     /// </summary>
     internal static class CombatTests
     {
@@ -34,13 +36,24 @@ namespace MusketeerRuntimeTests
             Case.Run("armed musketeer always suppresses even without a valid target", SuppressWithoutTarget);
             Case.Run("one gate one bullet (second native call in the window emits nothing)", OneShotOneBullet);
             Case.Run("a legitimate attempt right after the gate is never swallowed", LegitimateAttemptNotSwallowed);
+            Case.Run("muzzle origin carries the shared appearance scale; facing rules unchanged", MuzzleOriginCarriesAppearanceScale);
             Case.Run("nearest valid foe wins regardless of callback order", NearestWins);
             Case.Run("friendly unit in front is skipped and does not block", FriendlySkipped);
             Case.Run("flying foe in front is denied and does not block", FlyingSkipped);
             Case.Run("Crusher !IsStunned consumes the bullet without damage", CrusherImmunity);
             Case.Run("consumed latch prevents double damage on reentrant tick", ReentrancyLatch);
             Case.Run("bullet stops at the exact range boundary and never damages beyond it", RangeBoundary);
-            Case.Run("saturated casts terminate conservatively without damage", SaturatedCasts);
+            Case.Run("array saturation escalates to the complete list and never swallows the hit", ArraySaturationEscalates);
+            Case.Run("hits beyond the array cap: nearest valid foe at the list tail still wins", HugeHitListSelectsNearestAtTail);
+            Case.Run("complete-list results are read by the returned count (stale tail is never re-consumed)", CompleteListUsesReturnedCount);
+            Case.Run("complete-list failure consumes the bullet conservatively (never a fake hit)", CompleteListFailureConsumesWithoutFakeHit);
+            Case.Run("the complete-list filter keeps legacy queriesHitTriggers/layer semantics", CompleteListKeepsLegacySemantics);
+            Case.Run("pooled records clear old visual/source references and are reused", RecordsArePooledAndCleared);
+            Case.Run("a native callback failure cannot stall other bullets and is never retried", NativeCallbackFailureNoRetry);
+            Case.Run("a nested Tick inside a damage callback never double-advances any bullet", NestedTickNeverDoubleAdvances);
+            Case.Run("multi-collider target with invalid front rows: nearest valid foe only, exactly once", MultiColliderAndFrontInvalids);
+            Case.Run("a Crusher front row consumes the bullet without piercing to the foe behind", CrusherFrontBlocksTheFoeBehind);
+            Case.Run("large dt sweeps the full segment: no wall-clock slowdown, no overshoot", LargeDeltaSweep);
             Case.Run("bullet pool holds 40+ concurrent shots without losing any", ManyConcurrentBullets);
             Case.Run("missing bullet sprite fails visible construction (no invisible damage)", MissingSpriteFailsClosed);
         }
@@ -224,6 +237,31 @@ namespace MusketeerRuntimeTests
             Check.Equal(2, MusketeerCombat.LiveCount, "duplicate native callback cannot create a duplicate bullet");
         }
 
+        private static void MuzzleOriginCarriesAppearanceScale()
+        {
+            Archer archer = ArmedMusketeer(out _);
+            MusketeerAtlas.PreparedMuzzleLocal(out float localX, out float localY);
+            float scale = MusketeerAtlas.AppearanceScale;
+            Vector3 root = archer.transform.position;
+
+            Check.True(MusketeerCombat.TryComputeMuzzle(archer, out Vector2 origin, out float direction),
+                "muzzle computes for a plain armed musketeer");
+            Check.Near(root.x + localX * scale, origin.x, 1e-4d, "origin x = anchor x × shared appearance scale");
+            Check.Near(root.y + localY * scale, origin.y, 1e-4d, "origin y = anchor y × shared appearance scale");
+            Check.Near(1d, direction, 1e-6d, "facing right stays +1");
+
+            archer._spriteRenderer.flipX = true;   // 原生 renderer 翻转：镜像 + 方向取反（原规则）
+            Check.True(MusketeerCombat.TryComputeMuzzle(archer, out origin, out direction), "flipped muzzle computes");
+            Check.Near(root.x - localX * scale, origin.x, 1e-4d, "renderer flipX mirrors the scaled anchor");
+            Check.Near(-1d, direction, 1e-6d, "flipX keeps the original direction rule");
+
+            archer._spriteRenderer.flipX = false;
+            archer.transform.lossyScale = new Vector3(-1f, 1f, 1f);   // 父链朝向（左向）
+            Check.True(MusketeerCombat.TryComputeMuzzle(archer, out origin, out direction), "left-facing muzzle computes");
+            Check.Near(root.x - localX * scale, origin.x, 1e-4d, "root facing mirrors the scaled anchor");
+            Check.Near(-1d, direction, 1e-6d, "root facing keeps the original direction rule");
+        }
+
         private static void NearestWins()
         {
             Archer archer = ArmedMusketeer(out GameObject target);
@@ -331,27 +369,330 @@ namespace MusketeerRuntimeTests
             Check.Equal(1, MusketeerCombat.LiveCount, "and never blocks the bullet");
         }
 
-        private static void SaturatedCasts()
+        private static void ArraySaturationEscalates()
         {
             Archer archer = ArmedMusketeer(out GameObject target);
-            Physics2D.Saturate = true;
+            Physics2D.Saturate = true;                    // 数组每档都满 → 强制走完整 List（不再吞弹）
             Fixture.QueueHit(target, 0.5f);
-            MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject);
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
             MusketeerCombat.Tick(0.05f, true);
-            Check.Equal(0, target.GetComponent<Damageable>().DamageLog.Count, "ambiguous first-hit proof never damages");
-            Check.Equal(0, MusketeerCombat.LiveCount, "bullet terminated conservatively");
-            Check.Equal(256, MusketeerCombat.HitCapacity, "buffer grew to the hard limit before giving up");
-            Check.True(Physics2D.CastCount >= 4, "growth re-casts instead of guessing");
+            Check.Equal(1, target.GetComponent<Damageable>().DamageLog.Count,
+                "array saturation escalates to the complete list: the near foe is still hit");
+            Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed on complete evidence");
+            Check.Equal(256, MusketeerCombat.HitCapacity, "the reusable array grew to the soft cap first");
+            Check.True(Physics2D.CastCount >= 4, "array growth re-casts instead of swallowing damage");
+            Check.Equal(1, Physics2D.ListCastCount, "the complete-list overload produced the authoritative results");
+            Check.Equal(1, Il2CppSystem.Collections.Generic.List<RaycastHit2D>.CreatedForTests,
+                "the result list is allocated once");
 
+            // 第二次饱和：复用同一个 List（不逐次分配），仍然命中。
+            Time.time = 5f;
+            Physics2D.QueuedHits.Clear();
+            Fixture.QueueHit(target, 0.5f);
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed again");
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(2, Physics2D.ListCastCount, "the second saturated segment used the list overload again");
+            Check.Equal(1, Il2CppSystem.Collections.Generic.List<RaycastHit2D>.CreatedForTests,
+                "the same result list is reused (never re-allocated per cast)");
+            Check.Equal(2, target.GetComponent<Damageable>().DamageLog.Count, "second bullet also lands");
+
+            // 低密度常态：只走数组、不再碰 List，容量保留。
             Physics2D.Saturate = false;
             Physics2D.QueuedHits.Clear();
             Physics2D.CastCount = 0;
-            Time.time = 5.0f;
+            Time.time = 10f;
             Fixture.QueueHit(target, 0.5f);
-            MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject);
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(1, Physics2D.CastCount, "one array cast per segment in the common case");
+            Check.Equal(2, Physics2D.ListCastCount, "no list call for a normal-density segment");
+            Check.Equal(256, MusketeerCombat.HitCapacity, "the enlarged array is retained (never re-grown)");
+            Check.Equal(3, target.GetComponent<Damageable>().DamageLog.Count, "normal casts still damage");
+        }
+
+        private static void HugeHitListSelectsNearestAtTail()
+        {
+            Archer archer = ArmedMusketeer(out _);
+            GameObject near = Fixture.NewEnemy();
+            for (int i = 0; i < 300; i++)
+            {
+                var decoy = new GameObject("decoy");
+                decoy.layer = Fixture.EnemiesLayer;
+                decoy.AddComponent<Collider2D>();     // 无 Damageable → 非法候选：不阻挡、不伤害
+                Fixture.QueueHit(decoy, 1.2f);
+            }
+            Fixture.QueueHit(near, 0.5f);             // 近敌排在返回列表尾部
+
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(1, near.GetComponent<Damageable>().DamageLog.Count,
+                "the nearest valid foe wins even at the tail of an unordered 300-hit result");
+            Check.Equal(1, Physics2D.ListCastCount, "300 hits exceed the array soft cap → the complete list is authoritative");
+            Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed");
+            Check.Equal(1, near.GetComponent<Damageable>().DamageLog.Count, "exactly one damage application for the whole result list");
+        }
+
+        private static void CompleteListUsesReturnedCount()
+        {
+            // 第一次饱和（真实 301 命中）：结果写入列表，陈旧尾巴里留一个 0.4 的近敌。
+            Archer archer = ArmedMusketeer(out GameObject stale);
+            for (int i = 0; i < 300; i++)
+            {
+                var decoy = new GameObject("decoy");
+                decoy.layer = Fixture.EnemiesLayer;
+                decoy.AddComponent<Collider2D>();
+                Fixture.QueueHit(decoy, 1.2f);
+            }
+            Fixture.QueueHit(stale, 0.4f);
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(1, stale.GetComponent<Damageable>().DamageLog.Count, "the first complete-list result hits the stale foe");
+            Check.Equal(1, Il2CppSystem.Collections.Generic.List<RaycastHit2D>.CreatedForTests, "one result list for the whole component");
+
+            // 第二次只有 1 条结果（数组饱和 → 仍走 List）：List 未裁剪（Count 仍是 301），
+            // 生产必须只读返回的 count，绝不能再消费陈旧尾巴里的近敌。
+            Time.time = 5f;
+            Physics2D.QueuedHits.Clear();
+            Physics2D.Saturate = true;
+            GameObject fresh = Fixture.NewEnemy();
+            Fixture.QueueHit(fresh, 0.9f);
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(1, fresh.GetComponent<Damageable>().DamageLog.Count, "the fresh single result is used");
+            Check.Equal(1, stale.GetComponent<Damageable>().DamageLog.Count, "the stale tail is never re-consumed");
+            Check.Equal(2, Physics2D.ListCastCount, "the second saturated segment also used the list overload");
+            Check.Equal(1, Il2CppSystem.Collections.Generic.List<RaycastHit2D>.CreatedForTests, "the same result list is reused");
+            Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed");
+        }
+
+        private static void CompleteListFailureConsumesWithoutFakeHit()
+        {
+            Archer archer = ArmedMusketeer(out GameObject target);
+            Physics2D.Saturate = true;                // 数组饱和 → 必须走 List
+            Physics2D.ThrowOnListCast = true;         // List overload 失败（真实 AOT/icall 故障）
+            Fixture.QueueHit(target, 0.5f);
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(0, target.GetComponent<Damageable>().DamageLog.Count,
+                "a failed complete-list cast never fabricates a hit");
+            Check.Equal(0, MusketeerCombat.LiveCount, "the bullet terminates conservatively");
+
+            Physics2D.Saturate = false;
+            Physics2D.ThrowOnListCast = false;
+            Physics2D.QueuedHits.Clear();
+            Time.time = 5f;
+            Fixture.QueueHit(target, 0.5f);
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
             MusketeerCombat.Tick(0.05f, true);
             Check.Equal(1, target.GetComponent<Damageable>().DamageLog.Count, "normal casts keep working afterwards");
-            Check.Equal(1, Physics2D.CastCount, "capacities are reused, not re-grown");
+        }
+
+        private static void CompleteListKeepsLegacySemantics()
+        {
+            Archer archer = ArmedMusketeer(out GameObject target);
+            Physics2D.Saturate = true;
+            Physics2D.queriesHitTriggers = false;     // 旧 LinecastNonAlloc 会继承这个全局开关
+            Fixture.QueueHit(target, 0.5f);
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            MusketeerCombat.Tick(0.05f, true);
+            Check.False(Physics2D.LastListFilter.useTriggers,
+                "the complete-list filter keeps the legacy queriesHitTriggers semantics");
+            Check.True(Physics2D.LastListFilter.useLayerMask, "the layer mask is an explicit filter");
+            int combatMask = (1 << Fixture.EnemiesLayer) | (1 << Fixture.WildlifeLayer);   // 鹿在 Wildlife 层
+            Check.Equal(combatMask, Physics2D.LastListLayerMask, "enemies + wildlife layers are queried");
+            Check.Equal(combatMask, Physics2D.LastLayerMask, "same layer mask as the array path");
+            Check.False(Physics2D.LastListFilter.useDepth, "no depth filtering (legacy infinity bounds)");
+        }
+
+        private static void RecordsArePooledAndCleared()
+        {
+            Archer archer = ArmedMusketeer(out GameObject target);
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            MusketeerBullet record = MusketeerCombat.LiveRecordForTests(0);
+            Check.True(record != null, "the live bullet exposes its record");
+            Check.True(ReferenceEquals(record.ShooterRoot, archer.gameObject), "the record carries the shooter while live");
+
+            Fixture.QueueHit(target, 0.5f);
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed");
+            Check.False(record.Alive, "the released record is no longer alive");
+            Check.True(record.Visual == null, "the old visual reference is cleared before pooling");
+            Check.True(record.Renderer == null, "the old renderer reference is cleared");
+            Check.True(record.ShooterRoot == null, "the old source/world reference is cleared (never re-consumed)");
+            Check.Near(0d, record.Travelled, 1e-6d, "travel is cleared");
+            Check.Near(0d, record.Age, 1e-6d, "age is cleared");
+
+            Time.time = 5f;
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed again");
+            MusketeerBullet reused = MusketeerCombat.LiveRecordForTests(0);
+            Check.True(ReferenceEquals(record, reused), "the record instance is reused (no per-shot allocation)");
+            Check.True(ReferenceEquals(reused.ShooterRoot, archer.gameObject), "the reused record carries the current shooter");
+            Check.True(reused.Visual != null && reused.Visual.activeSelf, "the reused record has an active visual");
+            Check.Equal(1, MusketeerCombat.LiveCount, "exactly one live record: a pooled record is never double-consumed");
+        }
+
+        private static void NativeCallbackFailureNoRetry()
+        {
+            // 原生伤害回调抛异常（真实 helper 会恰捕获一次 → Faulted）：同帧其它弹继续，且绝不重试。
+            Archer archer = ArmedMusketeer(out GameObject target);
+            Damageable damageable = target.GetComponent<Damageable>();
+            damageable.OnReceiveDamage = (multiplier, damager, source) => throw new InvalidOperationException("native callback failed");
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "first shot suppressed");
+            Time.time = 5f;
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "second shot suppressed");
+            Check.Equal(2, MusketeerCombat.LiveCount, "two bullets in flight");
+            Fixture.QueueHit(target, 0.5f);
+
+            bool escaped = false;
+            try { MusketeerCombat.Tick(0.05f, true); }
+            catch (Exception) { escaped = true; }
+            Check.False(escaped, "a native callback exception never escapes Tick");
+            Check.Equal(0, MusketeerCombat.LiveCount, "both bullets were consumed despite the failing callback");
+            Check.Equal(2, damageable.DamageLog.Count,
+                "exactly one native application per bullet: the second bullet still landed and nothing was re-applied");
+            Check.Equal("2:Arrow", damageable.DamageLog[0], "damage stays 2 from DamageSource.Arrow");
+        }
+
+        private static void NestedTickNeverDoubleAdvances()
+        {
+            // 评审反例：B 在 index0（本帧未命中）、A 在 index1 命中；A 的伤害回调里嵌套 Tick(dt)
+            // 并在回调中再租一发 C。生产 `_ticking` 门让嵌套 Tick 彻底 no-op：同一颗弹一帧只推进
+            // 一次，回调期间新租的记录也不被嵌套 Tick / 本帧提前推进。
+            Archer first = ArmedMusketeer(out GameObject target);
+            Archer second = Fixture.NewArcher("second");
+            MusketeerIdentity.Units.Add(second);
+            MusketeerRuntime.Tick();                     // 装第二把枪（Time.deltaTime = 0 → 不推进任何弹）
+            second._shootingTarget = target;
+
+            Check.True(MusketeerCombat.TryHandleShot(first.ActiveArrowAttack, first.gameObject), "B fired");
+            Time.time = 5f;
+            Check.True(MusketeerCombat.TryHandleShot(first.ActiveArrowAttack, first.gameObject), "A fired");
+            Check.Equal(2, MusketeerCombat.LiveCount, "B at index 0, A at index 1");
+
+            Damageable damageable = target.GetComponent<Damageable>();
+            damageable.OnReceiveDamage = (multiplier, damager, source) =>
+            {
+                Physics2D.QueuedHits.Clear();            // B 的后续段没有命中证据：B 必须存活到推进断言
+                Check.True(MusketeerCombat.TryHandleShot(second.ActiveArrowAttack, second.gameObject),
+                    "C fired inside the callback");
+                MusketeerCombat.Tick(0.05f, true);       // 嵌套 Tick 必须 no-op
+            };
+            Fixture.QueueHit(target, 0.5f);
+            MusketeerCombat.Tick(0.05f, true);
+
+            Check.Equal(1, damageable.DamageLog.Count, "only A landed");
+            Check.Equal(2, MusketeerCombat.LiveCount, "B is still flying and C was rented during the callback");
+            MusketeerBullet b = MusketeerCombat.LiveRecordForTests(0);
+            Check.True(b != null, "B is the first live record");
+            Check.Near(1.5d, b.Travelled, 1e-4d,
+                "B advanced exactly one frame step: the nested Tick did not pre-advance it");
+            MusketeerBullet c = MusketeerCombat.LiveRecordForTests(1);
+            Check.True(c != null && ReferenceEquals(c.ShooterRoot, second.gameObject),
+                "C is the record rented inside the callback");
+            Check.Near(0d, c.Travelled, 1e-4d, "a record rented inside the callback is never advanced by this frame");
+        }
+
+        private static void MultiColliderAndFrontInvalids()
+        {
+            Archer archer = ArmedMusketeer(out GameObject target);
+            Damageable targetDamageable = target.GetComponent<Damageable>();
+
+            var friendly = new GameObject("peasant");     // 前排友军：不阻挡、不伤害
+            friendly.layer = 11;                          // Citizens
+            friendly.AddComponent<Collider2D>();
+            friendly.AddComponent<Character>();
+            friendly.AddComponent<Damageable>();
+            Fixture.QueueHit(friendly, 0.2f);
+
+            GameObject dead = Fixture.NewEnemy();         // 前排已死地面敌人：不阻挡、绝不回调
+            dead.GetComponent<Damageable>().isDead = true;
+            Fixture.QueueHit(dead, 0.25f);
+
+            GameObject squid = Fixture.NewEnemy(addSquidComponent: true);   // 前排飞行：不阻挡
+            Fixture.QueueHit(squid, 0.3f);
+
+            Collider2D first = target.AddComponent<Collider2D>();           // 同一个目标两个 collider
+            Collider2D second = target.AddComponent<Collider2D>();
+            Fixture.QueueHit(first, 0.5f);
+            Fixture.QueueHit(second, 0.55f);
+
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(0, friendly.GetComponent<Damageable>().DamageLog.Count, "the friendly front row is skipped, not blocking");
+            Check.Equal(0, dead.GetComponent<Damageable>().DamageLog.Count, "the dead front row never gets a callback");
+            Check.Equal(0, squid.GetComponent<Damageable>().DamageLog.Count, "the flying front row is denied");
+            Check.Equal(1, targetDamageable.DamageLog.Count, "the multi-collider target is hit exactly once, never per collider");
+            Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed on the nearest valid foe");
+        }
+
+        private static void CrusherFrontBlocksTheFoeBehind()
+        {
+            Archer archer = ArmedMusketeer(out GameObject target);
+            GameObject crusher = NewCrusher(stunned: false);
+            Fixture.QueueHit(crusher, 0.3f);
+            Fixture.QueueHit(target, 0.6f);
+
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(0, crusher.GetComponent<Damageable>().DamageLog.Count, "the !IsStunned crusher consumes without damage");
+            Check.Equal(0, target.GetComponent<Damageable>().DamageLog.Count, "the foe behind an immunity front is never hit (no pierce)");
+            Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed on the front crusher");
+        }
+
+        private static void LargeDeltaSweep()
+        {
+            // 同一个墙钟时间：单帧 0.2s 与 4×0.05s 必须推进同样距离（旧代码把 dt 截断到 0.1 会慢一半）。
+            Archer big = ArmedMusketeer(out _);
+            Check.True(MusketeerCombat.TryHandleShot(big.ActiveArrowAttack, big.gameObject), "suppressed");
+            MusketeerCombat.Tick(0.2f, true);
+            Check.Equal(1, MusketeerCombat.LiveCount, "6.0 < 12: still flying after one 0.2s frame");
+            Vector3 one = MusketeerCombat.VisualForTests(0).transform.position;
+
+            Archer small = ArmedMusketeer(out _);
+            Check.True(MusketeerCombat.TryHandleShot(small.ActiveArrowAttack, small.gameObject), "suppressed");
+            for (int i = 0; i < 4; i++) MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(1, MusketeerCombat.LiveCount, "4×0.05s: same endpoint");
+            Vector3 stepped = MusketeerCombat.VisualForTests(0).transform.position;
+            Check.Near(one.x, stepped.x, 1e-4d, "full dt sweeps exactly as far as the same wall clock in small steps");
+            Check.Near(one.y, stepped.y, 1e-4d, "same y");
+
+            // 大 dt 端点/寿命钳制：0.5s 单帧绝不越过射程 12/寿命 0.4s，打不到 12.5 的敌人。
+            Archer clamped = ArmedMusketeer(out _);
+            GameObject beyond = Fixture.NewEnemy();
+            Fixture.QueueHit(beyond, 12.5f);
+            Check.True(MusketeerCombat.TryHandleShot(clamped.ActiveArrowAttack, clamped.gameObject), "suppressed");
+            MusketeerCombat.Tick(0.5f, true);
+            Check.Equal(0, beyond.GetComponent<Damageable>().DamageLog.Count, "a 0.5s frame never damages beyond range/lifetime");
+            Check.Equal(0, MusketeerCombat.LiveCount, "the bullet terminates at the clamped endpoint");
+
+            // 同一段墙钟时间的小步版本：一致地在射程界终止，同样不打 12.5。
+            Archer normal = ArmedMusketeer(out _);
+            GameObject beyond2 = Fixture.NewEnemy();
+            Fixture.QueueHit(beyond2, 12.5f);
+            Check.True(MusketeerCombat.TryHandleShot(normal.ActiveArrowAttack, normal.gameObject), "suppressed");
+            for (int i = 0; i < 10; i++) MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(0, beyond2.GetComponent<Damageable>().DamageLog.Count, "normal frames agree: out-of-range is never hit");
+            Check.Equal(0, MusketeerCombat.LiveCount, "normal frames also end at the range boundary");
+
+            // 界内敌人：大 dt 与小步都必须命中一次（连续线段，无隧穿）。
+            Archer bigHit = ArmedMusketeer(out GameObject inRangeBig);
+            Fixture.QueueHit(inRangeBig, 11f);
+            Check.True(MusketeerCombat.TryHandleShot(bigHit.ActiveArrowAttack, bigHit.gameObject), "suppressed");
+            MusketeerCombat.Tick(0.5f, true);
+            Check.Equal(1, inRangeBig.GetComponent<Damageable>().DamageLog.Count, "an 11.0 foe inside range is hit by a single 0.5s frame");
+            Check.Equal(0, MusketeerCombat.LiveCount, "and the bullet is consumed");
+
+            Archer stepHit = ArmedMusketeer(out GameObject inRangeStep);
+            Check.True(MusketeerCombat.TryHandleShot(stepHit.ActiveArrowAttack, stepHit.gameObject), "suppressed");
+            for (int i = 0; i < 10 && MusketeerCombat.LiveCount > 0; i++)
+            {
+                // Hit distances are relative to this sweep's origin, not the original muzzle.
+                Physics2D.QueuedHits.Clear();
+                Fixture.QueueHit(inRangeStep, 11f - MusketeerCombat.LiveRecordForTests(0).Travelled);
+                MusketeerCombat.Tick(0.05f, true);
+            }
+            Check.Equal(1, inRangeStep.GetComponent<Damageable>().DamageLog.Count, "small steps land the same hit");
+            Check.Equal(0, MusketeerCombat.LiveCount, "and consume it as well");
         }
 
         private static void ManyConcurrentBullets()

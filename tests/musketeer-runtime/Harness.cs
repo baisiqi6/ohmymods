@@ -57,6 +57,7 @@ namespace MusketeerRuntimeTests
         {
             AnimationTests.Run();
             CombatTests.Run();
+            DeerHuntTests.Run();
             RuntimeTests.Run();
             WorldTests.Run();
             VisualTests.Run();

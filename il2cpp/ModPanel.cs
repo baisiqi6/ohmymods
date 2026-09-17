@@ -308,14 +308,14 @@ public class ModPanel : MonoBehaviour
                 Toggle(ref y, width, "坐骑无限体力", ModConfig.InfiniteSteedStamina,
                     "所有世界 · 本机控制的坐骑奔跑与滑翔不耗体力；关闭恢复自然消耗，技能冷却不变。");
                 Toggle(ref y, width, "长按连续购买", ModConfig.HoldPurchaseEnabled,
-                    "所有世界 · 起初正常，持续按住后快速投币并连续购买同店商品；松开即停。");
+                    "所有世界 · 起初正常，长按后加速续买；支持火药桶与火塔弹药，松开即停。");
                 DenseThicketControl(ref y, width);
                 Toggle(ref y, width, "森林快速消退", ModConfig.FastForestRecedeEnabled,
                     "所有世界 · 砍树后的森林消退等待缩至三分之一；关闭后的新消退使用原版速度。");
                 break;
             case 6:
                 Toggle(ref y, width, "火铳铺", ModConfig.MusketeerEnabled,
-                    "所有世界·单机：4金币购买火枪，居民领取转职；地面平射、首个敌人阻挡，不上塔。关闭保留职业记录。");
+                    "所有世界·单机：4金币买枪转职，不上塔；举旗另带最多4名火枪手，白天猎鹿、不伤小动物。关闭保留职业记录。");
                 GUI.Label(new Rect(190, y - CardHeight - 12 + 51, width - 222, 31), MusketeerShop.StatusText, _muted);
                 Toggle(ref y, width, "英雄驿站", ModConfig.HeroArcherEnabled,
                     "所有世界·单机：投8金币训练地面英雄，不上箭塔；每侧1名，死亡才空位。商店红旗表示占位，关闭保留已购名额。");
@@ -373,7 +373,7 @@ public class ModPanel : MonoBehaviour
         ConfigEntry<bool> enabled, ConfigEntry<int> target)
     {
         Card(y, width, title + "自动补货", "目标 " + target.Value + (role == 6 || role == 7 ? " 份" : " 人"),
-            "双倍金库付款 · " + PatchEconomy_AutoRestock.GetSummary(role));
+            "白天补货 · 双倍金库付款 · " + PatchEconomy_AutoRestock.GetSummary(role));
         if (GUI.Button(new Rect(22, y + 51, 104, 31), enabled.Value ? "已开启" : "已关闭",
                 enabled.Value ? _activeTab : _button)) enabled.Value = !enabled.Value;
         if (GUI.Button(new Rect(138, y + 51, 34, 31), "−", _button)) target.Value = Math.Max(1, target.Value - 1);

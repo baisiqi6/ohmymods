@@ -9,7 +9,7 @@ using System.Text;
 using KingdomEnhancedMod;
 using UnityEngine;
 
-internal static class Program
+internal static partial class Program
 {
     private static int _passed;
     private static int _failed;
@@ -42,6 +42,7 @@ internal static class Program
         Run("panel_open_cancels_the_hold", PanelOpenCancels);
         Run("pending_restore_survives_release_and_repress_without_compounding", PendingAcrossRepress);
 
+        AmmoScenarios();
         Console.WriteLine();
         Console.WriteLine(_failed == 0
             ? "ALL PASS (" + _passed + " scenarios)"

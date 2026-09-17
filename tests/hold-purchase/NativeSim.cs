@@ -311,6 +311,17 @@ internal sealed class Env
         return shop;
     }
 
+    internal Shop AddAmmo(bool fire, int limit = 20)
+    {
+        Transform transform = NewTransform(30f, Layer, out GameObject go);
+        go.Scene = Layer.gameObject.Scene; go.Tag = fire ? "FireTower" : "WorkshopBarrel";
+        Shop ammo = fire ? new PayableComponent() : new PayableWorkshopBarrel();
+        ammo.Price = fire ? 2 : 5; ammo.Limit = limit; ammo.PayPointX = 30f;
+        ammo.Pointer = Ptr(0x60000 + _nextId * 0x10); go.Attach(ammo);
+        if (fire) { var tower = new FireTower { Pointer = Ptr(0x70000 + _nextId * 0x10) }; go.Attach(tower); ((PayableComponent)ammo)._owner = tower; }
+        Managers.payables.All.Add(ammo); return ammo;
+    }
+
     /// <summary>Moves a player onto a shop's pay point.</summary>
     internal static void StandAt(Player player, Payable shop)
     {

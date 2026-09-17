@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>MusketeerFormationInteropCheck</AssemblyName>
+    <RootNamespace>KingdomEnhancedMod</RootNamespace>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0649;CS0414;CS0169</NoWarn>
+    <IL2CPP_DEPS Condition="'$(IL2CPP_DEPS)'==''">E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx</IL2CPP_DEPS>
+  </PropertyGroup>
+
+  <!-- Compile-only gate: il2cpp/Patch_MusketeerFormation.cs plus the fleet-side interop probe must
+       build against the real 2.4 interop assemblies. Proves the members this slice depends on:
+       Formation.UnitTypes (Gap/Archer/AnyShieldedUnit/FleetBoat), Formation.startOffset/unitTypes/
+       units read+write, Archer.TryRecruit(Formation) as a Harmony patch target, the Archer fields
+       (_knight/_guardSlot/embarkee/character/damageable/harmless/GetFormation/ShouldPlayerControl)
+       and GameObject/Transform/Mathf usage. Mod-owned collaborators are stubbed in CollabStubs.cs. -->
+  <ItemGroup>
+    <Reference Include="0Harmony"><HintPath>$(IL2CPP_DEPS)\core\0Harmony.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(IL2CPP_DEPS)\interop\Assembly-CSharp.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="Assembly-CSharp-firstpass"><HintPath>$(IL2CPP_DEPS)\interop\Assembly-CSharp-firstpass.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(IL2CPP_DEPS)\interop\UnityEngine.CoreModule.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="Il2Cppmscorlib"><HintPath>$(IL2CPP_DEPS)\interop\Il2Cppmscorlib.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="Il2CppSystem"><HintPath>$(IL2CPP_DEPS)\interop\Il2CppSystem.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="Il2CppInterop.Runtime"><HintPath>$(IL2CPP_DEPS)\core\Il2CppInterop.Runtime.dll</HintPath><Private>False</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../il2cpp/Patch_MusketeerFormation.cs" Link="Production/Patch_MusketeerFormation.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 直接源测试：编译生产文件 il2cpp/Patch_MusketeerFormation.cs（后排资格/原生招募守卫 +
+       纯布局规划 MusketeerFormationLayout），配最小 Unity/游戏类型替身（Stubs.cs）。
+       真实 interop 签名（Archer 字段、Formation.UnitTypes、Harmony 挂钩）由 Operator 构建核对。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>MusketeerFormationTests</AssemblyName>
+    <RootNamespace>MusketeerFormationTests</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0649;CS0414;CS0169</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/Patch_MusketeerFormation.cs" Link="Production/Patch_MusketeerFormation.cs" />
+    <Compile Remove="interop-check/**" />
+    <Compile Remove="e2e/**" />
+  </ItemGroup>
+
+</Project>

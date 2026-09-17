@@ -16,6 +16,20 @@ namespace MusketeerRuntimeTests
             Case.Run("reuse then reapply shows a fresh idle frame (old phase does not carry)", ReuseThenReapply);
             Case.Run("reuse without a new career never leaves the native hidden", ReuseWithoutNewCareer);
             Case.Run("native-hide release failure keeps a receipt and retries on Sync", ReleaseFailureKeepsReceipt);
+            Case.Run("own visual carries the shared 0.9 appearance scale (absolute; Z stays 1)", OwnVisualAppearanceScale);
+        }
+
+        private static void OwnVisualAppearanceScale()
+        {
+            Archer archer = ArmedMusketeerWithVisuals(out _);
+            SpriteRenderer own = FindOwn(archer);
+            Check.True(own != null, "own renderer exists");
+            Transform ownRoot = own.transform;
+            Check.Near(MusketeerAtlas.AppearanceScale, ownRoot.localScale.x, 1e-6d, "X = shared appearance scale");
+            Check.Near(MusketeerAtlas.AppearanceScale, ownRoot.localScale.y, 1e-6d, "Y = shared appearance scale");
+            Check.Near(1d, ownRoot.localScale.z, 1e-6d, "Z stays 1 (depth untouched)");
+            Check.True(ReferenceEquals(ownRoot.parent, archer._spriteRenderer.transform),
+                "still mounted under the native renderer (foot-pivot anchor)");
         }
 
         private static void ReuseResetsOldPhase()

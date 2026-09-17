@@ -26,6 +26,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../../../il2cpp/MusketeerGunVisuals.cs" Link="Production/MusketeerGunVisuals.cs" />
     <Compile Include="../../../il2cpp/MusketeerRestock.cs" Link="Production/MusketeerRestock.cs" />
     <Compile Include="../../../il2cpp/MusketeerShop.cs" Link="Production/MusketeerShop.cs" />
     <Compile Include="../../../il2cpp/MusketeerShopAssets.cs" Link="Production/MusketeerShopAssets.cs" />
@@ -34,6 +35,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="0Harmony"><HintPath>$(IL2CPP_DEPS)\core\0Harmony.dll</HintPath><Private>False</Private></Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>$(IL2CPP_DEPS)\interop\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>

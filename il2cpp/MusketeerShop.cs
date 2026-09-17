@@ -122,6 +122,7 @@ internal static partial class MusketeerShop
                 {
                     if (VisualSelectionDiagnostics) ObserveVisualSelection();
                     MaintainBowCache();
+                    MaintainRackLayout();
                     if (_menuSuspended) { _menuSuspended = false; Log("resume: retained same shop"); }
                     float ambientPhase = Time.time % 4f;
                     int frame = ambientPhase < 2f ? 0 : ambientPhase < 2.5f ? 1 : ambientPhase < 3.5f ? 2 : 3;
@@ -210,7 +211,7 @@ internal static partial class MusketeerShop
             // native Bow prefab must still be exact before any coin may be accepted: an
             // unavailable asset blocks payment up front instead of taking and refunding 4 coins.
             if (_clearing || _retiring || _object == null || _payable == null || _owner == null
-                || IslandSaveData.isSavingGame || !MusketeerIdentity.CanPurchase || RackCount() >= 3) return false;
+                || IslandSaveData.isSavingGame || !_rackLayoutReady || !MusketeerIdentity.CanPurchase || RackCount() >= 3) return false;
             if (!HeroShopRetention.CanServe(Observe(out _, out _))) return false;
             return BowReady();
         }
@@ -253,12 +254,13 @@ internal static partial class MusketeerShop
         _createStage = "load-art";
         if (!LoadArt()) { _status = "火铳铺素材尚未就绪"; return; }
         var payables = Managers.Inst.payables;
-        float halfWidth = Math.Max(1f, _sprite.bounds.size.x * 0.5f);
+        float halfWidth = MusketeerShopRules.HalfWidth;
         _createStage = "find-position";
         if (!HeroShopPlacement.Find(kingdom.GetBorderSideIntact(Side.Left), kingdom.GetBorderSideIntact(Side.Right),
-            halfWidth, p => !payables.OverlapsAnyExclusions(p, halfWidth, false), out float position))
+            halfWidth, p => !payables.OverlapsAnyExclusions(p, halfWidth, false), out float layoutCenter))
         { _status = "领地中段暂时没有商店空位"; return; }
 
+        float position = layoutCenter - MusketeerShopRules.LayoutCenterX;
         _createStage = "ground-reference";
         if (!TryNativeGroundAnchor(layer, out float rootY, out float groundY))
         {
@@ -305,7 +307,7 @@ internal static partial class MusketeerShop
         _payable.repositionInSplitScreen = false;
         _payable.playerPayPointOffset = Vector2.zero;
         _payable.playerPayDistance = 1f;
-        _payable.payablePlacementExclusionOffset = Vector2.zero;
+        _payable.payablePlacementExclusionOffset = new Vector2(MusketeerShopRules.LayoutCenterX, 0f);
         _payable.payablePlacementExclusionDistance = halfWidth;
         _payable.glowOnSelect = false;
         _payable.needsNewNetId = false;
@@ -467,6 +469,8 @@ internal static partial class MusketeerShop
                 _object = null; _payable = null; _owner = null; _kingdom = null; _layer = null;
                 _postbox = null; _header = null; _started = null;
                 _renderer = null; _frame = -1; _retiring = false;
+                RackLayout.Reset(); _rackLayoutReady = false; _nextRackLayoutAt = 0f; RackItems.Clear();
+                Array.Clear(RackItemCache, 0, RackItemCache.Length); SlotNumbers.Clear();
                 _cleanupRetryAt = 0f; _cleanupFailureLogged = false; _menuSuspended = false;
                 // One bounded line per real cleanup, never per frame with nothing to clean.
                 if (hadState && !wasRetrying) Log("clear reason=" + reason);
@@ -564,8 +568,12 @@ internal static partial class MusketeerShop
     }
 
 
-    private static readonly System.Collections.Generic.List<DroppableTool> Guns = new();
-    private static readonly System.Collections.Generic.List<float> SlotPositions = new();
+    private static readonly System.Collections.Generic.List<int> SlotNumbers = new();
+    private static readonly System.Collections.Generic.List<MusketeerRackLayout.Item> RackItems = new(3);
+    private static readonly MusketeerRackLayout.Item[] RackItemCache = new MusketeerRackLayout.Item[3];
+    private static readonly MusketeerRackLayout RackLayout = new();
+    private static bool _rackLayoutReady;
+    private static float _nextRackLayoutAt;
 
     /// <summary>Tick-only maintenance of the native Bow prefab cache. Discovery runs here - never
     /// on the payment path - at most once per bounded retry window, and any capture that stopped
@@ -786,13 +794,104 @@ internal static partial class MusketeerShop
     }
     private static int RackCount()
     {
-        if (_object == null) return 3;
-        MusketeerIdentity.CopyGuns(Guns);
-        int count = 0;
-        foreach (var gun in Guns)
-            if (gun != null && !gun.pickedUp && MusketeerAccess.InWorld(gun)
-                && MusketeerIdentity.StockSlot(gun) >= 0) count++;
-        return count;
+        if (!ReadRackItems()) return MusketeerShopRules.RackCapacity;
+        foreach (var item in RackItems)
+            if (!item.Unclaimed || !RackLayout.IsPlaced(item)) return MusketeerShopRules.RackCapacity;
+        return RackItems.Count;
+    }
+
+    private static bool RackContextReady()
+    {
+        if (_clearing || _retiring || _object == null || _layer == null || IslandSaveData.isSavingGame
+            || Time.timeScale <= 0f || !HeroShopRetention.CanServe(Observe(out _, out _))) return false;
+        var state = MusketeerIdentity.Current;
+        if (state == null || !state.Ready || state.ReadOnly || state.Unresolved || !state.HasBaseline
+            || state.Epoch == null || state.StockRestores.Count != 0) return false;
+        // Match the manual shop's existing state gates, not automatic population coverage.
+        // An unrelated unbound historical unit must neither trigger native roster reads here
+        // nor newly lock manual purchases. TryContext uses Identity's existing per-frame cache.
+        return MusketeerIdentity.TryContext(out string context, out long world)
+            && context == state.ContextKey && world == state.World;
+    }
+
+    // Read only the already-bound identity registry; no scene/resource discovery and no writes
+    // until every slot has been checked for duplicate/invalid metadata.
+    private static bool ReadRackItems()
+    {
+        RackItems.Clear(); SlotNumbers.Clear();
+        if (!RackContextReady()) return false;
+        var state = MusketeerIdentity.Current;
+        if (state == null) return false;
+        int occupied = 0;
+        foreach (var career in state.Careers)
+        {
+            if (career == null) return false;
+            if (career.Kind != MusketeerCareer.KindGun || career.StockSlot == MusketeerCareer.NoStockSlot) continue;
+            // Check managed slot metadata before native proof: even malformed duplicate
+            // records can never expand this path beyond three native gun inspections.
+            if (!MusketeerShopRules.ValidSlot(career.StockSlot)
+                || (occupied & (1 << career.StockSlot)) != 0) return false;
+            occupied |= 1 << career.StockSlot;
+            if (!MusketeerIdentity.StockClaimProven(career)) return false;
+            var gun = career.Tool;
+            if (gun == null || gun.gameObject == null) return false;
+            var stamp = new MusketeerRackLayout.Stamp(career, state, career.Life, gun.Pointer.ToInt64(),
+                gun.gameObject.GetInstanceID(), _object.GetInstanceID(), _layer.Pointer.ToInt64());
+            int slot = career.StockSlot;
+            var item = RackItemCache[slot];
+            if (item == null)
+            {
+                item = new MusketeerRackLayout.Item { Slot = slot };
+                var captured = item;
+                item.MoveAndVerify = (x, y, z) => AnchorRackGun((MusketeerIdentity.Career)captured.Identity.Career,
+                    captured.Identity, captured.Slot, x, y, z);
+                RackItemCache[slot] = item;
+            }
+            item.Identity = stamp;
+            item.Unclaimed = gun.friendlyClaimer == null && gun.enemyClaimer == null && !gun.pickedUp;
+            RackItems.Add(item);
+            SlotNumbers.Add(slot);
+        }
+        return MusketeerShopRules.TryMask(SlotNumbers, out _);
+    }
+
+    private static bool AnchorRackGun(MusketeerIdentity.Career career, MusketeerRackLayout.Stamp stamp,
+        int slot, float x, float y, float z)
+    {
+        if (!RackContextReady() || !ReferenceEquals(MusketeerIdentity.Current, stamp.State)
+            || career.Life != stamp.Life || career.StockSlot != slot
+            || !MusketeerIdentity.StockClaimProven(career)) return false;
+        var gun = career.Tool;
+        if (gun == null || gun.Pointer.ToInt64() != stamp.Pointer || gun.gameObject == null
+            || gun.gameObject.GetInstanceID() != stamp.Instance || _object.GetInstanceID() != stamp.Shop
+            || _layer.Pointer.ToInt64() != stamp.Layer || gun.pickedUp
+            || gun.friendlyClaimer != null || gun.enemyClaimer != null) return false;
+        var body = gun.GetComponent<Rigidbody2D>();
+        if (body == null || !body.isKinematic) return false; // native load must finish its own stock-physics restore
+        Vector3 target = _object.transform.position + new Vector3(x, y, z);
+        if (!SamePosition(gun.transform.position, target)) gun.transform.position = target;
+        return SamePosition(gun.transform.position, target);
+    }
+
+    private static bool SamePosition(Vector3 actual, Vector3 target)
+        => float.IsFinite(actual.x) && float.IsFinite(actual.y) && float.IsFinite(actual.z)
+            && Mathf.Abs(actual.x - target.x) < 0.001f && Mathf.Abs(actual.y - target.y) < 0.001f
+            && Mathf.Abs(actual.z - target.z) < 0.001f;
+
+    private static void MaintainRackLayout()
+    {
+        if (Time.unscaledTime < _nextRackLayoutAt) return;
+        _nextRackLayoutAt = Time.unscaledTime + 0.5f;
+        try { _rackLayoutReady = ReadRackItems() && RackLayout.Reconcile(true, RackItems); }
+        catch { _rackLayoutReady = false; } // do not destroy a paid gun or clear its identity on a layout read failure
+    }
+
+    internal static bool TryGetRackSorting(DroppableTool gun, out int layer, out int order)
+    {
+        layer = order = 0;
+        if (_renderer == null || !IsRackGun(gun)) return false;
+        layer = _renderer.sortingLayerID; order = Math.Min(32767, _renderer.sortingOrder + 1);
+        return true;
     }
     internal static bool IsRackGun(DroppableTool gun)
     {
@@ -817,16 +916,11 @@ internal static partial class MusketeerShop
             if (RackCount() >= 3) { reason = "枪架已满"; return false; }
             // Spawn from the real native Bow pool, retaining origin and the valid persistent path.
             // The shop itself is transient; the paid gun is parented directly beneath GameLayer.
-            MusketeerIdentity.CopyGuns(Guns);
-            SlotPositions.Clear();
-            foreach (var existing in Guns)
-                if (existing != null && !existing.pickedUp && MusketeerAccess.InWorld(existing)
-                    && MusketeerIdentity.StockSlot(existing) >= 0)
-                    SlotPositions.Add(MusketeerShopRules.SlotX(MusketeerIdentity.StockSlot(existing)));
-            int slot = MusketeerShopRules.FirstFreeSlot(SlotPositions);
+            if (!ReadRackItems()) { reason = "枪架身份尚未确认"; return false; }
+            int slot = MusketeerShopRules.FirstFreeSlot(SlotNumbers);
             if (slot < 0) { reason = "枪架已满"; return false; }
             rackMs = watch.Elapsed.TotalMilliseconds;
-            var position = _object.transform.position + new Vector3(MusketeerShopRules.SlotX(slot), 0.55f, -0.002f);
+            var position = _object.transform.position + new Vector3(MusketeerShopRules.SlotX(slot), MusketeerShopRules.SlotY(slot), MusketeerShopRules.SlotZ);
             DroppableTool gun = null;
             bool marked = false;
             try
@@ -896,12 +990,13 @@ internal static partial class MusketeerShop
         using var bytes = new MemoryStream(); stream.CopyTo(bytes);
         var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
         if (!ImageConversion.LoadImage(texture, bytes.ToArray(), false)) { UnityEngine.Object.Destroy(texture); return false; }
-        if (texture.width != 512 || texture.height != 80) { UnityEngine.Object.Destroy(texture); return false; }
+        if (texture.width != MusketeerShopRules.AtlasWidth || texture.height != MusketeerShopRules.FrameHeight) { UnityEngine.Object.Destroy(texture); return false; }
         texture.filterMode = FilterMode.Point; texture.wrapMode = TextureWrapMode.Clamp; texture.anisoLevel = 0;
         _texture = texture;
         _frames = new Sprite[4];
         for (int i = 0; i < 4; i++)
-            _frames[i] = Sprite.Create(texture, new Rect(i * 128, 0, 128, 80), new Vector2(0.5f, 0.025f),
+            _frames[i] = Sprite.Create(texture, new Rect(i * MusketeerShopRules.FrameWidth, 0, MusketeerShopRules.FrameWidth, MusketeerShopRules.FrameHeight),
+                new Vector2(MusketeerShopRules.PivotX, MusketeerShopRules.PivotY),
                 32f, 0u, SpriteMeshType.FullRect);
         _sprite = _frames[0];
         return _sprite != null;

@@ -57,9 +57,10 @@ internal static class MusketeerGunVisuals
                 bool visible = !tool.pickedUp && !tool.IsFake() && entry.Native != null && entry.Native.enabled;
                 if (entry.View != null) entry.View.enabled = visible;
                 if (!visible) { Restore(entry); continue; }
-                entry.Child.transform.localPosition = new Vector3(0f, MusketeerShop.IsRackGun(tool) ? 0.23f : 0f, -0.001f);
-                entry.View.sortingLayerID = entry.Native.sortingLayerID;
-                entry.View.sortingOrder = entry.Native.sortingOrder;
+                entry.Child.transform.localPosition = new Vector3(0f, 0f, -0.001f);
+                bool onRack = MusketeerShop.TryGetRackSorting(tool, out int rackLayer, out int rackOrder);
+                entry.View.sortingLayerID = onRack ? rackLayer : entry.Native.sortingLayerID;
+                entry.View.sortingOrder = onRack ? rackOrder : entry.Native.sortingOrder;
                 if (entry.Native.sharedMaterial != null) entry.View.sharedMaterial = entry.Native.sharedMaterial;
                 entry.View.color = entry.Native.color;
                 if (!entry.Owned)

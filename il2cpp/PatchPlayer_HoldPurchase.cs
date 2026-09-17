@@ -45,7 +45,8 @@ namespace KingdomEnhancedMod;
 /// ShopNinjaLeft、ShopNinjaRight、ShopPikeLeft、ShopPikeRight、LeftShieldShop、
 /// RightShieldShop；面包店按同一 GameObject 上的 Baker 组件识别
 /// （沿用 AutoRestockCounts.ClassifyShop 的既有识别法）。ChangeRuler、ChangeItem、
-/// Workshop、Forge 以及一切非 PayableShop 的 payable（祭坛、换坐骑等）全部排除。
+/// Workshop、Forge、祭坛、换坐骑等仍排除。额外只开放 PayableWorkshopBarrel，及同GO
+/// FireTower精确拥有的PayableComponent；这两类每次加速/续买/回执均重验，禁止资格缓存串用。
 ///
 /// 2.1.0 源与 interop API 核对（actual-api.json / Player.cs / Payable.cs / PayableShop.cs）：
 ///   Player.UpdatePayState(bool,bool,bool)：存在（token 100675566）。
@@ -111,6 +112,8 @@ public static class PatchPlayer_HoldPurchase
         internal IntPtr ShopPtr;
         internal int ShopInstanceId;
         internal bool ShopIsGoods;
+        internal bool RecheckAmmoGoods;
+        internal IntPtr AmmoOwnerPtr;
         internal float HeldElapsed;
         internal float LastUnscaledTime;
         internal bool ContinuationArmed;
@@ -261,6 +264,7 @@ public static class PatchPlayer_HoldPurchase
             {
                 Session session = pair.Value;
                 if (!SessionUsable(pair.Key, session)
+                    || !AmmoGoodsStillValid(session)
                     || (session.AwaitingReceipt && Time.unscaledTime > session.AwaitDeadline))
                     _scratchKeys.Add(pair.Key);
             }
@@ -356,6 +360,11 @@ public static class PatchPlayer_HoldPurchase
             session.LastUnscaledTime = now;
             receipt.Session = session;
 
+            if (!AmmoGoodsStillValid(session))
+            {
+                Drop(session); receipt.Session = null; return;
+            }
+
             // 客机等待回包：保留 sameShop 身份，不合成、不加速；成功、拒绝与超时在这里定论。
             if (session.AwaitingReceipt)
             {
@@ -394,6 +403,10 @@ public static class PatchPlayer_HoldPurchase
                 Drop(session);
                 receipt.Session = null;
                 return;
+            }
+            if (!AmmoGoodsStillValid(session))
+            {
+                Drop(session); receipt.Session = null; return;
             }
 
             if (state == StateCompleted && session.Shop != null
@@ -479,6 +492,8 @@ public static class PatchPlayer_HoldPurchase
 
             if (session.Shop == null && after != StateNone)
                 Bind(session, player.selectedPayable);
+
+            if (!AmmoGoodsStillValid(session)) { Drop(session); return; }
 
             if (!ShopSelectionAcceptable(session, player))
             {
@@ -575,6 +590,7 @@ public static class PatchPlayer_HoldPurchase
             {
                 Session session = _scratchSessions[i];
                 if (session.Shop == null || session.ShopPtr != shopPointer) continue;
+                if (!AmmoGoodsStillValid(session)) { Drop(session); continue; }
 
                 Player payer = payable.interactingPlayer;
                 if (payer == null || payer.Pointer != session.PlayerPtr) continue;
@@ -883,9 +899,15 @@ public static class PatchPlayer_HoldPurchase
             session.ShopPtr = pointer;
             session.ShopInstanceId = go.GetInstanceID();
             session.ShopIsGoods = IsSafeGoods(payable);
+            var component = payable.TryCast<PayableComponent>();
+            session.RecheckAmmoGoods = component != null || payable.TryCast<PayableWorkshopBarrel>() != null;
+            session.AmmoOwnerPtr = component?._owner != null ? component._owner.Pointer : IntPtr.Zero;
         }
         catch (Exception e)
         {
+            // Classification may have succeeded before a later native owner/type read failed.
+            // Never leave cached goods=true without the corresponding live-owner proof.
+            session.ShopIsGoods = false;
             Note("bind", e);
         }
     }
@@ -906,14 +928,24 @@ public static class PatchPlayer_HoldPurchase
         }
     }
 
-    /// <summary>白名单：安全的可反复补货商品店（工具店与面包店），其余一律不加速不续买。</summary>
+    /// <summary>白名单：原工具/面包店、火药桶、精确火塔owner的弹药付款点；其余不加速不续买。</summary>
     private static bool IsSafeGoods(Payable payable)
     {
         try
         {
-            if (payable == null) return false;
+            if (payable == null || !payable.enabled) return false;
             GameObject go = payable.gameObject;
             if (go == null || !go.activeInHierarchy) return false;
+            if (payable.TryCast<PayableWorkshopBarrel>() != null) return true;
+            var component = payable.TryCast<PayableComponent>();
+            if (component != null)
+            {
+                var tower = go.GetComponent<FireTower>();
+                // FireTower AI may be disabled on a client while its payment owner remains
+                // valid. Native CanPay/CanSelect retain capacity/readiness/RPC decisions.
+                return tower != null && tower.gameObject != null && tower.gameObject.activeInHierarchy
+                    && component._owner != null && component._owner.Pointer == tower.Pointer;
+            }
             for (int i = 0; i < GoodsShopTags.Length; i++)
             {
                 if (go.CompareTag(GoodsShopTags[i])) return true;
@@ -925,6 +957,23 @@ public static class PatchPlayer_HoldPurchase
         {
             return false;
         }
+    }
+
+    private static bool AmmoGoodsStillValid(Session session)
+    {
+        if (session == null || !session.RecheckAmmoGoods) return true;
+        try
+        {
+            if (!session.ShopIsGoods || !ShopAlive(session) || !OptionalQoLScope.IsCurrent(session.Shop)
+                || !Context.TryCapture(session.Shop, out var context) || !context.Equals(session.Scope)
+                || !IsSafeGoods(session.Shop)) return false;
+            var component = session.Shop.TryCast<PayableComponent>();
+            // Even a replacement owner that is another valid FireTower cannot inherit this
+            // hold or an in-flight receipt from the previous native payment owner.
+            return component == null ? session.AmmoOwnerPtr == IntPtr.Zero
+                : component._owner != null && component._owner.Pointer == session.AmmoOwnerPtr;
+        }
+        catch { return false; }
     }
 
     /// <summary>

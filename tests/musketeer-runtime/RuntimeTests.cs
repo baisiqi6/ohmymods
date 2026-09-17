@@ -60,9 +60,13 @@ namespace MusketeerRuntimeTests
             Check.Near(8d * System.Math.Sqrt(1.5d), archer._arrowAttack._shotMagnitude, 1e-4d,
                 "range envelope scales the SO magnitude (never gravity)");
 
+            // 打猎目标收窄为"白天普通鹿"（判据行为详见 DeerHuntTests）：敌人/兔子等照旧被拒。
+            Fixture.SetDaytime(true);
             Scanner.ObjectCondition wildlife = archer._wildlifeScanner.additionalRequirements;
-            Check.True(wildlife != null, "wildlife scanner filter installed (hunting suppressed)");
-            Check.False(wildlife.Invoke(Fixture.NewEnemy(EnemyType.TrollWeak)), "hunting suppressed");
+            Check.True(wildlife != null, "wildlife scanner filter installed (deer-only narrowing)");
+            Check.True(wildlife.Invoke(Fixture.NewDeer()), "a daytime deer is a hunt target");
+            Check.False(wildlife.Invoke(Fixture.NewEnemy(EnemyType.TrollWeak)), "enemies are never wildlife targets");
+            Check.False(wildlife.Invoke(Fixture.NewCritter()), "rabbits and other small animals stay excluded");
         }
 
         private static void ApplyIdempotent()

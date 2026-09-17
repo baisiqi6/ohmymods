@@ -17,12 +17,15 @@ namespace MusketeerRuntimeTests
             Case.Run("world change (previous layer merely inactive) resets and the first new shot works", InactivePreviousLayer);
             Case.Run("inactive current world never fires and never consumes the gate", InactiveCurrentWorld);
             Case.Run("no old live bullet damages the new world", OldBulletNeverHitsNewWorld);
+            Case.Run("a damage callback that switches world aborts the rest of the frame and drops old bullets", CallbackBoundaryAbortsOldWorldBullets);
+            Case.Run("a damage callback that pauses (or loses authority) stops the rest of the frame", CallbackBoundaryHonoursPause);
+            Case.Run("a damage callback that disables the feature stops the rest of the frame", CallbackBoundaryHonoursDisable);
             Case.Run("pause inside the same world keeps pool and live bullets", PauseKeepsPool);
             Case.Run("feature toggle inside the same world keeps the pool reusable", ToggleKeepsPool);
             Case.Run("stale pool entries are skipped and the same call still rents a working visual", StalePoolEntriesDoNotEatShots);
             Case.Run("pooled visual with a foreign parent is reparented to the current layer", ReuseReparentsToCurrentLayer);
             Case.Run("destroy failure keeps a retirement receipt and retries later", RetireReceiptRetried);
-            Case.Run("physics capacity is retained (saturation then normal casts stay at 256)", CapacityRetainedAfterSaturation);
+            Case.Run("physics capacity is retained (saturation falls back to the complete list, then the array is reused)", CapacityRetainedAfterSaturation);
         }
 
         private static void DestroyedPreviousLayer()
@@ -105,6 +108,65 @@ namespace MusketeerRuntimeTests
                 "the old bullet never damages anything after the world change");
         }
 
+        private static void CallbackBoundaryAbortsOldWorldBullets()
+        {
+            // 评审门：伤害回调里换 world → 本帧剩余弹（旧 world）绝不继续结算，并立即收尾旧弹/旧池。
+            Archer archer = Armed(out GameObject target);
+            Fire(archer);                                            // B（index0，本帧稍后才轮到）
+            Time.time = 5f;
+            Fire(archer);                                            // A（index1，先命中并触发回调）
+            Check.Equal(2, MusketeerCombat.LiveCount, "B and A in flight");
+
+            Damageable damageable = target.GetComponent<Damageable>();
+            damageable.OnReceiveDamage = (multiplier, damager, source) => Fixture.NewWorld();
+            Fixture.QueueHit(target, 0.5f);                          // B 若继续推进也会命中 → 必须被中止
+            MusketeerCombat.Tick(0.05f, true);
+
+            Check.Equal(1, damageable.DamageLog.Count, "only A landed before the world change");
+            Check.Equal(0, MusketeerCombat.LiveCount,
+                "the old world's remaining bullets are dropped at the callback boundary");
+            Check.Equal(0, MusketeerCombat.PooledVisualCount, "and the old world's pooled visuals were released with it");
+        }
+
+        private static void CallbackBoundaryHonoursPause()
+        {
+            // 评审门：伤害回调里暂停/失权 → 本帧剩余弹不推进（暂停原语义：弹保留）。
+            Archer archer = Armed(out GameObject target);
+            Fire(archer);
+            Time.time = 5f;
+            Fire(archer);
+
+            Damageable damageable = target.GetComponent<Damageable>();
+            damageable.OnReceiveDamage = (multiplier, damager, source) => MusketeerAccess.PlayingValue = false;
+            Fixture.QueueHit(target, 0.5f);
+            MusketeerCombat.Tick(0.05f, true);
+
+            Check.Equal(1, damageable.DamageLog.Count, "only A landed before the pause");
+            Check.Equal(1, MusketeerCombat.LiveCount, "paused frames keep live bullets");
+            MusketeerBullet b = MusketeerCombat.LiveRecordForTests(0);
+            Check.True(b != null && ReferenceEquals(b.ShooterRoot, archer.gameObject), "B stays (pause semantics)");
+            Check.Near(0d, b.Travelled, 1e-4d, "B is not advanced after the callback paused / lost authority");
+        }
+
+        private static void CallbackBoundaryHonoursDisable()
+        {
+            // 评审门：伤害回调里关闭功能 → 本帧剩余弹不推进、不结算（清理由 runtime reconcile 负责）。
+            Archer archer = Armed(out GameObject target);
+            Fire(archer);
+            Time.time = 5f;
+            Fire(archer);
+
+            Damageable damageable = target.GetComponent<Damageable>();
+            damageable.OnReceiveDamage = (multiplier, damager, source) => MusketeerAccess.EnabledValue = false;
+            Fixture.QueueHit(target, 0.5f);
+            MusketeerCombat.Tick(0.05f, true);
+
+            Check.Equal(1, damageable.DamageLog.Count, "only A landed before the toggle");
+            Check.Equal(1, MusketeerCombat.LiveCount, "the frame aborts; the next runtime reconcile clears bullets");
+            MusketeerBullet b = MusketeerCombat.LiveRecordForTests(0);
+            Check.Near(0d, b.Travelled, 1e-4d, "B is not advanced after the callback disabled the feature");
+        }
+
         private static void PauseKeepsPool()
         {
             Archer archer = Armed(out GameObject target);
@@ -120,6 +182,12 @@ namespace MusketeerRuntimeTests
             Check.Equal(1, MusketeerCombat.LiveCount, "paused bullets stay");
             Check.Equal(pooled, MusketeerCombat.PooledVisualCount, "paused pool is untouched");
             Check.Equal(0, MusketeerCombat.RetiredVisualCount, "no retirement while paused");
+
+            // 暂停时 dt 再大也不推进（playing=false 门在完整 dt 之前）。
+            Vector3 before = MusketeerCombat.VisualForTests(0).transform.position;
+            MusketeerCombat.Tick(0.25f, false);
+            Vector3 after = MusketeerCombat.VisualForTests(0).transform.position;
+            Check.Near(before.x, after.x, 1e-6d, "a paused tick never advances a live bullet");
         }
 
         private static void ToggleKeepsPool()
@@ -209,11 +277,13 @@ namespace MusketeerRuntimeTests
         private static void CapacityRetainedAfterSaturation()
         {
             Archer archer = Armed(out GameObject target);
-            Physics2D.Saturate = true;
+            Physics2D.Saturate = true;                    // 数组饱和 → 完整 List 兜底（不再吞弹）
             Fixture.QueueHit(target, 0.5f);
             Fire(archer);
             MusketeerCombat.Tick(0.05f, true);
-            Check.Equal(256, MusketeerCombat.HitCapacity, "buffer grew to the hard limit");
+            Check.Equal(256, MusketeerCombat.HitCapacity, "buffer grew to the soft cap");
+            Check.Equal(1, target.GetComponent<Damageable>().DamageLog.Count,
+                "the complete-list fallback still lands the hit");
 
             Physics2D.Saturate = false;
             Physics2D.QueuedHits.Clear();
@@ -222,9 +292,9 @@ namespace MusketeerRuntimeTests
             Fixture.QueueHit(target, 0.5f);
             Fire(archer);
             MusketeerCombat.Tick(0.05f, true);
-            Check.Equal(1, Physics2D.CastCount, "one cast per segment again");
+            Check.Equal(1, Physics2D.CastCount, "one array cast per segment again");
             Check.Equal(256, MusketeerCombat.HitCapacity, "the enlarged buffer is retained (never shrunk back to 32)");
-            Check.Equal(1, target.GetComponent<Damageable>().DamageLog.Count, "normal casts still damage");
+            Check.Equal(2, target.GetComponent<Damageable>().DamageLog.Count, "normal casts still damage");
         }
 
         // ---------- helpers ----------

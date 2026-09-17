@@ -55,6 +55,21 @@ namespace KingdomEnhancedMod;
 /// 并发 lease ≤ <see cref="MaxLeases"/>、并发 volley ≤ <see cref="MaxVolleys"/>、
 /// 嵌套深度 ≤ <see cref="MaxStack"/>（溢出掩蔽且对称回收）、单 volley 去重目标 ≤
 /// <see cref="MaxVolleyTargets"/>、query 缓冲固定 <see cref="MaxOverlap"/>。
+///
+/// 目标生命（修复「同对象回池后新 life 被旧指针账本误去重」）：
+/// - 去重账本按 <see cref="CombatTargetToken"/>（GO 身份 + Damageable 身份 + 全局单调 life）判定：
+///   同一 life 同一 volley 仅一次；同一对象回池（停用/启用）拿到新 life 后可在**后续 burst** 再吃一次。
+/// - 每次 burst 先对本次物理查询的全部候选做「目标 + life」快照（与查询同界 ≤ <see cref="MaxOverlap"/>，
+///   不提交、不占账本、不按 32 名额截断，只做 burst 内局部去重），再逐项重跑完整复核（世代/权限/world、
+///   完整 <see cref="TryResolveTarget"/>、同一目标、同一 life、半径、本 volley 已结算）—— 只有通过者才消耗
+///   32 提交名额并**紧贴提交前**登记 volley 去重：上一目标回调造成的身份/资格/位置变化不会误伤后续目标，
+///   复核失效而未提交的目标既不记账也不白占名额（同一 volley 的后续箭仍可在其恢复有效后命中），
+///   本次查询的旧 collider 也不会打到该 burst 中才回池重生的新 life（新 life 留给后续 burst 判定）。
+/// - life 证据不可用（注册/创建/取号失败，或 marker 仍禁用/处于观察缺口）时**显式放弃该目标**
+///   （计数 + 限频日志），绝不退回 Damageable 指针去重、绝不用假 token；原生直接伤害与其余目标不受影响
+///   （见 <see cref="CombatTargetLife"/>）。
+/// - AoE 伤害统一经 <see cref="CombatDamage.Submit"/> 提交（原生 ReceiveDamage + 异常隔离，见该文件）；
+///   Faulted 视为已消费不重试。
 /// </summary>
 internal static class PatchArcher_GreekImpact
 {
@@ -91,7 +106,7 @@ internal static class PatchArcher_GreekImpact
     internal static int StatBursts, StatDamage, StatBufferFull, StatVolleyCap, StatLeaseCap,
         StatScopeCap, StatStackOverflow, StatReentry, StatLeaseRetired, StatArcherInvalidated,
         StatSourceInvalidated, StatNoTarget, StatStaleTicket, StatSubstituted, StatSubstituteFailed,
-        StatSubstituteReentry;
+        StatSubstituteReentry, StatLifeDegraded, StatDamageFaulted;
 
     // ============================================================
     // 账本
@@ -113,7 +128,7 @@ internal static class PatchArcher_GreekImpact
         internal bool Closed;
         internal int RefCount;
         internal int TargetCount;
-        internal IntPtr[] Targets;           // 懒建，长度 MaxVolleyTargets
+        internal CombatTargetToken[] Targets;   // 懒建，长度 MaxVolleyTargets（本 volley 已结算的 life token）
     }
 
     /// <summary>一支箭的一次存活（pool 复用即新世代）。身份 = <see cref="Epoch"/> + GO 身份。</summary>
@@ -192,6 +207,7 @@ internal static class PatchArcher_GreekImpact
     private static bool ContextSet;
 
     private static Il2CppReferenceArray<Collider2D> Buffer;
+    private static StagedTarget[] Staging;      // burst 快照（懒建，长度 MaxOverlap = 物理查询上限），BurstDepth 保证不可重入
     private static ContactFilter2D Filter;
     private static bool FilterReady;
     private static int EnemyLayer = -1;
@@ -571,6 +587,7 @@ internal static class PatchArcher_GreekImpact
         ResetEpoch++;                              // 旧 ShotTicket/HitTicket 全部失效
         ContextSet = false; ContextWorld = IntPtr.Zero; ContextLayer = IntPtr.Zero; ContextScene = 0;
         ClearBuffer();
+        ClearStaging(Staging != null ? Staging.Length : 0);
     }
 
     /// <summary>有界清理：轮转扫描固定数量 lease/volley，退役已销毁/回池/命中/超期条目。</summary>
@@ -1088,7 +1105,7 @@ internal static class PatchArcher_GreekImpact
                 if (failed) StatSubstituteFailed++;
                 return false;
             }
-            if (BurstStillValid(arrow, ticket, out Lease live)) ApplyBurst(arrow, ticket, live);
+            if (BurstStillValid(arrow, ticket, out _)) ApplyBurst(arrow, ticket);
             if (LeaseMatchesTicket(ticket, out Lease again)) RetireLease(ticket.LeaseSlot);
             return true;
         }
@@ -1196,11 +1213,33 @@ internal static class PatchArcher_GreekImpact
         catch { }
     }
 
-    /// <summary>一次爆发：命中点快照 + 固定缓冲查询 + 每目标重核/去重/距离复核 + 重入保护。</summary>
-    private static void ApplyBurst(Arrow arrow, HitTicket ticket, Lease lease)
+    /// <summary>burst 快照条目：本次物理查询当刻的目标 + life token + 其 collider（阶段 2 复核对）。</summary>
+    private struct StagedTarget
+    {
+        internal Collider2D Collider;
+        internal Damageable Target;
+        internal CombatTargetToken Token;
+    }
+
+    /// <summary>
+    /// 一次爆发：命中点快照 + 固定缓冲查询 + 两阶段处理。
+    ///
+    /// 阶段 1「快照」只做过滤 / 跳过本 volley 已结算 / burst 内**局部**去重 / 取 life token，
+    /// 存进与物理查询同界（<see cref="MaxOverlap"/> = 64）的复用数组，**不提交、不登记 volley 账本、
+    /// 也不按 32 提交名额截断**；
+    /// 阶段 2「提交」逐条重新跑完整复核 —— <see cref="BurstStillValid"/>（世代/权限/world/来源）、
+    /// 完整 <see cref="TryResolveTarget"/>（原 collider、active、Enemy.enabled、friendly、免疫、直接目标、world）、
+    /// 同一 target、同一 life token、半径、本 volley 已结算 —— 全部通过后才消耗 32 名额并**紧贴
+    /// <see cref="CombatDamage.Submit"/> 之前**登记 volley 去重。
+    /// 这样：上一目标回调造成的身份/资格/位置变化不会让后续目标受伤；失效而未提交的目标既不记账
+    /// 也不白占最后一个名额（同一 volley 的后续箭仍可在其恢复有效后命中）；同一次查询的旧 collider
+    /// 也不会打到本 burst 中才回池重生的新 life（新 life 留给后续 burst 判定）；Faulted 已消费不重试。
+    /// </summary>
+    private static void ApplyBurst(Arrow arrow, HitTicket ticket)
     {
         if (BurstDepth > 0) { StatReentry++; Count("reentry"); return; }
         BurstDepth++;                                              // 只有本层最外 finally 递减
+        int staged = 0;
         try
         {
             if (!ticket.HasPoint) return;
@@ -1216,33 +1255,73 @@ internal static class PatchArcher_GreekImpact
             if (count <= 0) return;
             if (count >= MaxOverlap) { StatBufferFull++; Count("buffer-full"); }
             if (count > MaxOverlap) count = MaxOverlap;
-            int applied = 0;
+            if (Staging == null) Staging = new StagedTarget[MaxOverlap];
+
+            // 阶段 1（快照）：过滤 + 跳过本 volley 已结算 + burst 内局部去重 + life 记录。
+            // 顺序要求：先解析 token 并跳过 VolleyContains/StagingContains（旧目标/重复目标不占快照），
+            // **不按 32 提交名额截断** —— 名额留给阶段 2 在“确认真实有效”之后再消耗，否则前面失效的
+            // 快照项会白占最后一个名额、把后面的新目标挤掉。staged ≤ count ≤ MaxOverlap（现成查询上限）。
             for (int i = 0; i < count; i++)
             {
-                if (!BurstStillValid(arrow, ticket, out Lease live)) break;    // 逐目标重核
+                if (!BurstStillValid(arrow, ticket, out _)) break;              // 逐目标重核
                 int volleySlot = ticket.VolleySlot;
                 Volley volley = volleySlot >= 0 && volleySlot < MaxVolleys ? Volleys[volleySlot] : null;
                 if (volley == null || volley.Epoch != ticket.VolleyEpoch) { Count("volley-recycled"); break; }
-                if (volley.Targets == null) volley.Targets = new IntPtr[MaxVolleyTargets];
                 Collider2D collider = Buffer[i];
                 if (collider == null) continue;
-                if (!WithinRadius(collider, point)) continue;                  // 回调可能已让目标移出圈
+                if (!WithinRadius(collider, point)) continue;                   // 查询缓冲可能已被回调改变
                 Damageable target;
                 if (!TryResolveTarget(collider, ticket.DirectDamageable, out target)) continue;
+                CombatTargetToken token;
+                if (!CombatTargetLife.TryResolve(target, out token))
+                {
+                    StatLifeDegraded++;                                         // 显式放弃：绝不退回指针去重
+                    Count("life-degraded");
+                    continue;
+                }
+                if (VolleyContains(volley, token)) continue;                    // 已结算目标不占快照（阶段 2 仍会终检）
+                if (StagingContains(staged, token)) continue;                   // 局部去重（不占 volley 账本）
+                Staging[staged].Collider = collider;
+                Staging[staged].Target = target;
+                Staging[staged].Token = token;
+                staged++;
+            }
+            if (staged == 0) { StatNoTarget++; return; }
+
+            // 阶段 2（提交）：先跳掉所有失效/旧 token 的快照项 —— 世代/权限/world（BurstStillValid）、
+            // 完整 TryResolveTarget、同一目标、同一 life、半径、本 volley 已结算 —— 通过者才消耗 32 名额
+            // （名额不足则计数并停止本次爆发，原策略不变）。因此名额不会被“打不到的目标”白占；
+            // Faulted 不阻塞后续独立目标。
+            int applied = 0;
+            for (int i = 0; i < staged; i++)
+            {
+                if (!BurstStillValid(arrow, ticket, out Lease live)) break;
+                int volleySlot = ticket.VolleySlot;
+                Volley volley = volleySlot >= 0 && volleySlot < MaxVolleys ? Volleys[volleySlot] : null;
+                if (volley == null || volley.Epoch != ticket.VolleyEpoch) { Count("volley-recycled"); break; }
+                Collider2D collider = Staging[i].Collider;
+                Damageable stagedTarget = Staging[i].Target;
+                if (collider == null || stagedTarget == null) continue;
+                Damageable target;
+                if (!TryResolveTarget(collider, ticket.DirectDamageable, out target)) continue;   // 完整既有过滤
+                if (!Same(target, stagedTarget)) continue;                                       // 同快照目标
+                CombatTargetToken now;
+                if (!CombatTargetLife.TryResolve(target, out now))
+                {
+                    StatLifeDegraded++;
+                    Count("life-degraded");
+                    continue;
+                }
+                if (!CombatTargetToken.Matches(Staging[i].Token, now)) continue;   // 本 burst 中回池重生 → 后续 burst 判定
+                if (!WithinRadius(collider, point)) continue;                      // 每次实际伤害前复核距离
+                if (volley.Targets == null) volley.Targets = new CombatTargetToken[MaxVolleyTargets];
+                if (VolleyContains(volley, now)) continue;                         // 本 volley 已结算过该 life
                 if (volley.TargetCount >= MaxVolleyTargets) { StatVolleyCap++; Count("volley-cap"); break; }
-                if (VolleyContains(volley, target.Pointer)) continue;
-                volley.Targets[volley.TargetCount++] = target.Pointer;
+                volley.Targets[volley.TargetCount++] = now;                        // 紧贴提交前登记
                 GameObject source = live.Source;
-                try
-                {
-                    target.ReceiveDamage(BurstDamage, source, DamageSource.Fire);
-                    applied++;
-                }
-                catch (Exception e)
-                {
-                    Count("damage:" + e.GetType().Name);
-                    break;
-                }
+                CombatDamageResult outcome = CombatDamage.Submit(target, BurstDamage, source, DamageSource.Fire);
+                if (outcome == CombatDamageResult.Submitted) applied++;
+                else if (outcome == CombatDamageResult.Faulted) StatDamageFaulted++;
             }
             if (applied > 0) { StatBursts++; StatDamage += applied; }
             else StatNoTarget++;
@@ -1253,9 +1332,28 @@ internal static class PatchArcher_GreekImpact
         }
         finally
         {
+            ClearStaging(staged);                                   // 不跨 burst 持有 Unity 引用
             ClearBuffer();                                          // 查询抛错/部分写入也必须清引用
             BurstDepth--;
         }
+    }
+
+    /// <summary>burst 局部去重（只查本 burst 快照，不占 volley 账本）。</summary>
+    private static bool StagingContains(int count, in CombatTargetToken token)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            if (CombatTargetToken.Matches(Staging[i].Token, token)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>清掉 burst 快照里的目标/collider 引用（销毁/回池后绝不留旧引用）。</summary>
+    private static void ClearStaging(int count)
+    {
+        if (Staging == null || count <= 0) return;
+        if (count > Staging.Length) count = Staging.Length;
+        for (int i = 0; i < count; i++) Staging[i] = default;
     }
 
     private static bool WithinRadius(Collider2D collider, Vector2 point)
@@ -1273,10 +1371,13 @@ internal static class PatchArcher_GreekImpact
         }
     }
 
-    private static bool VolleyContains(Volley volley, IntPtr pointer)
+    private static bool VolleyContains(Volley volley, in CombatTargetToken token)
     {
         if (volley.Targets == null) return false;
-        for (int i = 0; i < volley.TargetCount; i++) if (volley.Targets[i] == pointer) return true;
+        for (int i = 0; i < volley.TargetCount; i++)
+        {
+            if (CombatTargetToken.Matches(volley.Targets[i], token)) return true;
+        }
         return false;
     }
 

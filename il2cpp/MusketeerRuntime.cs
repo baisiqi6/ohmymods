@@ -18,6 +18,9 @@
 //   ×2（区间收敛到中值，冷却按 E[N] 摊分），原生周期精确等于闸值；闸只作安全网并带帧量化容差。
 // * 敌人扫描器**完全不改**（谓词/缓存都不动，ShouldFlee 的威胁视野原样保留）；射击决策改为在
 //   原生 `ShouldShootEnemy` 返回边界上按原生候选顺序重选地面敌人（不装过滤、无缓存残留）。
+// * 打猎目标收窄（不是放行白名单）：`_wildlifeScanner.additionalRequirements` 叠加"白天可猎普通鹿"
+//   判据并与第三方先验 **AND**（任一侧异常 fail-closed）；兔子等小动物/夜猎/编队狩猎一概不放行，
+//   `ShouldShootWildlife` 的编队/骑士/乘船门与 `ShouldHunt` 追猎返城行为原样保留。
 // * 所有字段写入都有 before/applied 回执 + CAS 归还；回归失败保留回执重试，第三方接管则让位。
 
 using System;
@@ -91,7 +94,7 @@ internal sealed class MusketeerUnit
     // 射击决策：地面目标重选（原生 ShouldShootEnemy 边界；不改扫描器谓词/缓存）
     internal bool ReselectionLogged;
 
-    // 打猎抑制（常驻，与第三方谓词 AND 组合）
+    // 打猎目标收窄（常驻：白天普通鹿；与第三方先验谓词 AND 组合）
     internal bool WildlifeFilterApplied;
     internal Scanner.ObjectCondition WildlifeFilterBefore;
     internal Scanner.ObjectCondition WildlifeFilterOurs;
@@ -100,6 +103,13 @@ internal sealed class MusketeerUnit
     internal float NextEligibleShotTime;
     internal int NativeAttempts;
     internal float LastShotTime;
+
+    /// <summary>
+    /// 绑定 lease（单调、绝不重用）：每成功装包一次 + 每次原生 OnEnable 回收（新 life）时递增。
+    /// 自有子弹发射时快照它；命中鹿时比对——同 GO/Pointer 回池再生成新火铳手的旧弹绝不伤鹿。
+    /// 只用于鹿资格，不改敌弹旧语义；不写存档 schema。
+    /// </summary>
+    internal long BindingLease;
 
     // 槽位收口（骑士/塔位）
     internal int EvictAttempts;
@@ -138,6 +148,45 @@ internal static class MusketeerRuntime
     private static MusketeerBaseline _baseline;
     private static int _baselineWorldId;
     private static bool _loggedCapacity;
+    /// <summary>绑定 lease 计数（进程内单调递增、绝不重用；<see cref="MusketeerUnit.BindingLease"/>）。</summary>
+    private static long _bindingLeaseCounter;
+
+    /// <summary>下一个绑定 lease（单调；Clear/换世界都不重置，只有测试钩子归零）。</summary>
+    private static long NextBindingLease() => ++_bindingLeaseCounter;
+
+    /// <summary>
+    /// 该 Archer 当前绑定 lease（0 = 未装包/失权/未知）。供弹丸发射时快照。
+    /// </summary>
+    internal static long BindingLease(Archer archer)
+    {
+        try
+        {
+            MusketeerUnit unit = Find(archer);
+            return unit != null && unit.Applied && !unit.ClaimLost ? unit.BindingLease : 0L;
+        }
+        catch (Exception)
+        {
+            return 0L;
+        }
+    }
+
+    /// <summary>
+    /// 快照的绑定 lease 是否仍是**同一 life**（0/未装包/已失权/被回收重用 → false）。
+    /// 鹿命中专属：命中时用它证明射手与发射时是同一 life（InstanceID/Pointer 会被池复用）。
+    /// </summary>
+    internal static bool MatchesBindingLease(Archer archer, long lease)
+    {
+        try
+        {
+            if (lease == 0L || archer == null) return false;
+            MusketeerUnit unit = Find(archer);
+            return unit != null && unit.Applied && !unit.ClaimLost && unit.BindingLease == lease;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
 
     // ============================================================
     // 契约导出
@@ -272,6 +321,7 @@ internal static class MusketeerRuntime
     {
         Active.Clear();
         Table.Clear();
+        _bindingLeaseCounter = 0L;   // 仅测试：生产单调不重置（子弹会随 Clear/ResetPool 一并丢弃）
         Logged.Clear();
         _baseline = default;
         _baselineWorldId = 0;
@@ -493,10 +543,11 @@ internal static class MusketeerRuntime
                 return;
             }
 
-            // 4) 打猎抑制（常驻；与第三方谓词 AND）。射击决策的地面过滤是**临时**的（ShouldShootEnemy 期间）。
+            // 4) 打猎目标收窄（常驻：白天普通鹿；与第三方先验谓词 AND）。射击决策的地面重选是**临时**的。
             ApplyWildlifeFilter(unit, archer);
 
             unit.NextEligibleShotTime = 0f;    // 装好即可射第一发（由显式闸接管后续节奏）
+            unit.BindingLease = NextBindingLease();   // 新 life：单调 lease（旧弹的鹿资格随即失效）
             unit.Applied = true;
             unit.Archer = archer;
         }
@@ -576,8 +627,20 @@ internal static class MusketeerRuntime
     }
 
     /// <summary>
-    /// 打猎抑制：wildlife 扫描器叠加 deny-all（与既有谓词 AND）。只在狩猎决策里被读，
-    /// 与生存（ShouldFlee 用敌人扫描器）无关。回执先记后写。
+    /// 打猎目标收窄：wildlife 扫描器叠加"白天可猎普通鹿"判据，并与**原生先验条件 AND**
+    /// （第三方 mod 的条件仍在链上；不是放行白名单，兔子等小动物一律被拒）。
+    ///
+    /// 原生证据（Archer.cs `ShouldShootWildlife`）：扫描器只负责挑目标（`GetClosest`），
+    /// 编队/骑士/乘船/昼夜（含 tutorial 夜间例外）等门由原生方法自己把；`additionalRequirements`
+    /// 是扫描器唯一的过滤位。所以这里只把候选收窄到普通鹿（Deer 根组件 + 鹿自己的 Damageable +
+    /// 白天），绝不触碰敌人扫描器（`ShouldFlee` 的威胁视野零改动）。
+    ///
+    /// 组合判据任一侧抛异常 → false（fail-closed：绝不把异常泄进原生扫描器调用链）。
+    /// 闭包入口先判**射手 root 快照**（存活/活动/world）再判先验：池复用旧 life / 失活射手
+    /// 直接拒绝，且绝不在 predicate 入口外读 `archer.gameObject`（对象销毁时该 getter 可能抛异常，
+    /// 绕过内部 fail-closed 直接泄进原生链）。第三方 `scanner.AdditionalRequirements` 原样保留。
+    /// 扫描器缓存 ≤1s（maxRate=1）且可能跨昼夜：发射前由 `MusketeerFoeFilter.IsDeerShotAllowed`
+    /// 再复核一次（弹道命中侧同样复核）。回执先记后写；归还路径保持字段级 CAS + 第三方接管让位。
     /// </summary>
     private static void ApplyWildlifeFilter(MusketeerUnit unit, Archer archer)
     {
@@ -586,9 +649,13 @@ internal static class MusketeerRuntime
         {
             Scanner scanner = archer._wildlifeScanner;
             if (scanner == null) return;
+            // 快照射手 root：闭包只读这个快照（不触碰 archer 的 getter），世界/生命周期门由组合判据内部判。
+            GameObject sourceRoot = archer.gameObject;
+            if (sourceRoot == null) return;
             Scanner.ObjectCondition prior = scanner.additionalRequirements;
-            // deny-all：打猎扫描器找不到任何目标（ShouldShootWildlife/ShouldHunt 自然不再触发）。
-            System.Func<GameObject, bool> predicate = _ => false;
+            // source 有效 AND 先验 AND 白天普通鹿：猎杀目标只会比第三方条件更窄，绝不会更宽。
+            System.Func<GameObject, bool> predicate = candidate =>
+                MusketeerFoeFilter.PassesWildlifeCondition(prior, candidate, sourceRoot);
             Scanner.ObjectCondition composed = predicate;
             if (composed == null) return;
 
@@ -606,7 +673,7 @@ internal static class MusketeerRuntime
         catch (Exception e)
         {
             // 回执已在：留给 Tick/回归路径继续归还（绝不假装没装过）。
-            Once("wildlife-filter", "hunting suppression install failed; receipt kept for retry: " + e.GetType().Name);
+            Once("wildlife-filter", "hunting filter install failed; receipt kept for retry: " + e.GetType().Name);
         }
     }
 
@@ -1089,6 +1156,7 @@ internal static class MusketeerRuntime
         unit.ScannerPointer = IntPtr.Zero;
         unit.Range = 0f;
         unit.GateSeconds = 0f;
+        unit.BindingLease = 0L;   // 归还即无 life 资格（即使对象被池化复用也绝不复用旧 lease）
         unit.NextEligibleShotTime = 0f;
         unit.NativeAttempts = 0;
         unit.EvictAttempts = 0;
@@ -1209,6 +1277,9 @@ internal static class MusketeerRuntime
                 try { MusketeerVisuals.BeforeReuse(__instance); } catch (Exception) { }
                 MusketeerUnit unit = Find(__instance);
                 if (unit == null) return;
+                // 原生 OnEnable 回收点 = 新 life：单调 lease 递增（即使同 GO/Pointer 被池复用，
+                // 旧弹快照的 lease 也再不会匹配——鹿资格只在同一 life 内有效）。
+                unit.BindingLease = NextBindingLease();
                 if (IsMusketeer(__instance)) return;
                 Strip(unit, destroyAllowed: false);
             }

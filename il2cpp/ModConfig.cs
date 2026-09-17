@@ -56,14 +56,14 @@ public static class ModConfig
             "无限金币：开启后玩家金币用不完");
 
         HoldPurchaseEnabled = config.Bind("Convenience", "HoldPurchaseEnabled", false,
-            "所有世界：开始按原版投币，持续按住后加快投槽并连续购买同店商品；关闭保留原版操作");
+            "所有世界：起初正常投币，持续按住后加速续买；支持投石车火药桶和火塔弹药，关闭保留原版操作");
         DenseThicketsEnabled = config.Bind("Convenience", "DenseThicketsEnabled", false,
             "所有世界：灌木生长间距减半；关闭后额外灌木快速枯萎，清理完成前不能重新开启");
         FastForestRecedeEnabled = config.Bind("Convenience", "FastForestRecedeEnabled", false,
             "所有世界：砍树后的原生森林消退等待缩至三分之一；关闭后的新消退按原版等待");
         ArcherScatterEnabled = config.Bind("Archer", "ScatterEnabled", false, "所有世界：仅中世纪骑士的弓箭手随从攻击敌人时散射；打猎单发，额外箭呈淡金色，密集射击时自动限流");
         MusketeerEnabled = config.Bind("Musketeer", "Enabled", false,
-            "火铳铺：所有世界可选。4金币购买火枪，居民拾取成为地面火铳手；基础伤害2、射程为原生普通弓手1.5倍、较慢装填，直线命中前排，不上箭塔。第一版仅单机；关闭恢复原生外观与行为，职业记录保留。");
+            "火铳铺：所有世界可选。4金币购买火枪，居民拾取成为地面火铳手；基础伤害2、射程为原生普通弓手1.5倍、较慢装填，直线命中前排，不上箭塔。举旗另带最多4名现有火铳手；白天猎普通鹿，不伤兔子等小动物。第一版仅单机；关闭恢复原生外观与行为，职业记录保留。");
         HeroArcherEnabled = config.Bind("Archer", "HeroArcherEnabled", false,
             "英雄驿站：领地中段花8金币升级现有弓箭手，每侧最多1名，购买占位直到英雄死亡。关闭暂停商店与英雄效果，已购名额保留。英雄移速1.5倍、射速1.5倍、射程2倍、对敌3箭，火焰半径0.25/额外1点；仅单机。");
         ArcherVolleyCount = config.Bind("Archer", "VolleyCount", 3,

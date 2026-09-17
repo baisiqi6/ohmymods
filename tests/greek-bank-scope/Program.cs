@@ -327,6 +327,76 @@ static class Program
             Harness.Eq(100, clientBanker._stashedCoins, "client stash untouched");
         });
 
+        Harness.Test("restock debit refuses night while day debit and normal banking still work", () =>
+        {
+            Fixture f = Fixture.BuildGreek();
+            Banker banker = f.AddBanker();
+            banker._stashedCoins = 100;
+            BankAssistantCoordinator.MainBanker = banker;
+
+            f.Kingdom.isDaytime = false;
+            int staged = PlayerPrefs.SetIntCalls;
+            Harness.False(PatchEconomy_Banker.TrySpendForAutoRestock(banker, 20), "night debit refused");
+            Harness.Eq(100, banker._stashedCoins, "night balance untouched");
+            Harness.Eq(staged, PlayerPrefs.SetIntCalls, "night refusal stages nothing");
+            Harness.Eq(0, f.Kingdom.castle.StashCalls.Count, "night refusal touches no castle");
+            // 常规银行操作不经过白天门：夜间存入照常入账。
+            Harness.Eq(5, PatchEconomy_Banker.DepositFromAssistant(banker, 5), "night deposit still accepted");
+            Harness.Eq(105, banker._stashedCoins, "night deposit credited");
+
+            f.Kingdom.isDaytime = true;
+            Harness.True(PatchEconomy_Banker.TrySpendForAutoRestock(banker, 20), "day debit works");
+            Harness.Eq(85, banker._stashedCoins, "day debit commits once");
+            Harness.Eq(85, f.Kingdom.castle.StashCalls[f.Kingdom.castle.StashCalls.Count - 1],
+                "day debit refreshes castle");
+        });
+
+        Harness.Test("night flip during prime refuses the debit before any balance write", () =>
+        {
+            Fixture f = Fixture.BuildGreek();
+            Banker banker = f.AddBanker();
+            banker._stashedCoins = 100;
+            BankAssistantCoordinator.MainBanker = banker;
+            PlayerPrefs.Ints[Harness.SharedKey] = 100; // prime 读取共享账本
+            PlayerPrefs.OnGet = key => { if (key == Harness.SharedKey) f.Kingdom.isDaytime = false; };
+            Harness.False(PatchEconomy_Banker.TrySpendForAutoRestock(banker, 20),
+                "night flip inside prime refuses the debit");
+            Harness.Eq(1, PlayerPrefs.GetIntCalls, "prime read actually happened before the refusal");
+            Harness.Eq(100, banker._stashedCoins, "no debit written after prime-time flip");
+            Harness.Eq(0, f.Kingdom.castle.StashCalls.Count, "no castle write after prime-time flip");
+            Harness.Eq(0, f.Stats.StatCalls.Count, "no stats write after prime-time flip");
+            Harness.Eq(0, PlayerPrefs.SetIntCalls, "no ledger staging after prime-time flip");
+        });
+
+        Harness.Test("night tick releases the pending order without debit and reports pause", () =>
+        {
+            Fixture f = Fixture.BuildGreek();
+            Banker banker = f.AddBanker();
+            banker._stashedCoins = 100;
+            BankAssistantCoordinator.MainBanker = banker;
+            Harness.EnableRoles(0);
+            GameObject actor = Sim.NewActor("Assistant", f.Layer);
+            Harness.InjectOrder(0, 0, actor, 10, 3f, 3f);
+            Harness.PrepareWorldPointers();
+
+            f.Kingdom.isDaytime = false;
+            PatchEconomy_AutoRestock.Tick(banker, Managers.Inst, false);
+            Harness.Eq(0, Harness.OrderCount(), "night releases the pending order");
+            Harness.Eq(100, banker._stashedCoins, "night tick debits nothing");
+            Harness.Eq(1, BankAssistantCoordinator.Releases.Count, "assistant released once");
+            Harness.True(BankAssistantCoordinator.Releases[0].ReturnHome, "night release sends the assistant home");
+            Harness.Eq(1, BankAssistantCoordinator.Teleports, "assistant teleported home at night");
+            Harness.EqStr("夜间暂停，等待天亮", PatchEconomy_AutoRestock.GetSummary(0), "night pause summary");
+
+            // 白天同一注入订单保持（白天调度不受影响）。
+            GameObject dayActor = Sim.NewActor("AssistantDay", f.Layer);
+            Harness.InjectOrder(0, 1, dayActor, 10, 3f, 3f);
+            f.Kingdom.isDaytime = true;
+            PatchEconomy_AutoRestock.Tick(banker, Managers.Inst, false);
+            Harness.Eq(1, Harness.OrderCount(), "daylight keeps the pending order");
+            PatchEconomy_AutoRestock.Reset(false);
+        });
+
         // -------------------------------------------------------- work profile
         Harness.Test("greek applies work profile and disable restores captured values", () =>
         {

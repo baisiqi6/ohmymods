@@ -154,15 +154,18 @@ namespace UnityEngine
         public static readonly Dictionary<string, int> Ints = new Dictionary<string, int>();
         public static readonly List<string> SetKeys = new List<string>();
         public static int HasKeyCalls, GetIntCalls, SetIntCalls, SaveCalls;
+        /// <summary>Test hook: models a native callback landing inside the shared-ledger read.</summary>
+        public static Action<string> OnGet;
 
         public static bool HasKey(string key) { HasKeyCalls++; return Ints.ContainsKey(key); }
-        public static int GetInt(string key) { GetIntCalls++; return Ints.TryGetValue(key, out int value) ? value : 0; }
+        public static int GetInt(string key) { GetIntCalls++; OnGet?.Invoke(key); return Ints.TryGetValue(key, out int value) ? value : 0; }
         public static void SetInt(string key, int value) { SetIntCalls++; SetKeys.Add(key); Ints[key] = value; }
         public static void Save() { SaveCalls++; }
         public static void ResetAll()
         {
             Ints.Clear(); SetKeys.Clear();
             HasKeyCalls = GetIntCalls = SetIntCalls = SaveCalls = 0;
+            OnGet = null;
         }
     }
 
@@ -508,6 +511,7 @@ public class Kingdom : Object
     public float campfirePosition;
     public bool HasBorderLoaded = true;
     public bool isSafe = true;
+    public bool isDaytime = true; // 原生 Kingdom.isDaytime（居民作息）；测试默认白天
     public Player playerOne, playerTwo;
     public OrderedWalls _orderedWalls = new OrderedWalls();
     public readonly Dictionary<Side, float> Borders = new Dictionary<Side, float>();

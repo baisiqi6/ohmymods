@@ -17,6 +17,8 @@
     <Compile Include="*.cs" />
     <Compile Include="Stubs/*.cs" />
     <Compile Include="../../il2cpp/PatchArcher_GreekImpact.cs" />
+    <Compile Include="../../il2cpp/CombatDamage.cs" />
+    <Compile Include="../../il2cpp/CombatTargetLife.cs" />
   </ItemGroup>
 
   <ItemGroup>

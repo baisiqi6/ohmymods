@@ -17,7 +17,9 @@ namespace KingdomEnhancedMod;
 /// 每层 5x5 像素格 → 36 顶点 / 150 索引，格点 x=k*.22-.55、y=j*.22-.55 加
 /// ±.022 抖动，UV=(k/5,j/5)，每格两三角 (v00,v10,v01)+(v01,v10,v11)；
 /// 逐帧 PerlinNoise(i*.1,Time.time*5) 与 PerlinNoise(i*.1+100,Time.time*5)
-/// 取 ±1 后乘 (1-t)*.1*.22 偏移，再 Round(coord/.22)*.22 像素对齐；
+/// 取 ±1 后乘 (1-t)*.1*.22 偏移，再 Round(coord/.22)*.22 像素对齐；噪声输入只
+/// 依赖 i 与 Time.time*5、与槽/层无关，按实际 time 值缓存 36 对（每时刻 72 次
+/// Perlin 跨全部效果与层共享，绝不按效果/层重复计算）；
 /// EaseOutQuad(min(t,.8)) 把 scale 从 .01 长到 maxSize=.2*sizeRandom*layerSize；
 /// 寿命 40% 后 EaseOutCubic 透明、RGB×Lerp(1,.5,f)、scale×Lerp(1,.8,f)。
 /// 每层时长 = 命中类别 delay2（敌人 .5 / 其余 1）× 作者 animSpeed（核心 1.5-2、
@@ -43,9 +45,12 @@ namespace KingdomEnhancedMod;
 /// 预算：本地固定 16 槽池（&lt;=16 同时存活），&lt;=24 个/秒（滑动窗口），
 /// &lt;=4 次尝试/帧（失败也占额度），单次寿命 &lt;= 2s（delay2 1 × 核心 animSpeed 2）。
 /// 任何失败（shader/纹理解析、池构建、复用时写入）自清理并退避 5s，绝不在同帧
-/// 反复重建。网格/UV/索引/材质/纹理在槽建立时构造一次并复用；逐帧只做
-/// Il2CppStructArray&lt;Vector3&gt; 索引填充 + mesh.vertices 原生 invoke
-/// setter，无逐帧托管数组、无 Mesh/材质/纹理分配、无 Resources.Load、
+/// 反复重建。网格/UV/索引/材质/纹理在槽建立时构造一次并复用；逐帧顶点只做量化
+/// 计算（System.MathF.Round 与 Unity Mathf.Round 的 (float)Math.Round 同为
+/// ties-even，等价，且 float 运算顺序不变），量化结果与上次上传完全一致时跳过
+/// mesh.vertices 上传（颜色/缩放/寿命照常逐帧更新），局部包围盒在槽建立时一次
+/// 设定（覆盖 base+jitter+drift+quantize 的全部极值，含一格有效 Z 厚度），不再
+/// 逐帧 RecalculateBounds；无逐帧托管数组、无 Mesh/材质/纹理分配、无 Resources.Load、
 /// 无 IL2CPP MonoBehaviour 子类（根面板 Update 驱动 <see cref="Tick"/>）。
 /// </summary>
 internal static class PatchArcher_Impact
@@ -81,6 +86,12 @@ internal static class PatchArcher_Impact
     private const string FallbackShader = "Unlit/Texture";
     private const string RootName = "KEM_ArcherImpact";
     private const string TextureName = "KEM_ImpactPixel";
+    /// <summary>局部顶点原始极值：格点 |x| ≤ .55，加抖动 ±.022 与漂移 ±.022 → |x| ≤ .594。</summary>
+    private static readonly float RawVertexExtent = HalfExtent + PixelSize * (Jitter + Drift);
+    /// <summary>保守局部包围盒半幅（一次设定，不再逐帧 RecalculateBounds）：Round 只会把坐标
+    /// 移到最近的 .22 格点，.594/.22 = 2.7 → 上取整 3 格 = .66，覆盖 base+jitter+drift+quantize；
+    /// 平铺网格 z=0，包围盒另保留一格 Z 厚度避免退化。</summary>
+    private static readonly float MaxVertexExtent = PixelSize * MathF.Ceiling(RawVertexExtent / PixelSize);
     private static readonly string[] LayerNames = { "KEM_ImpactCore", "KEM_ImpactMid", "KEM_ImpactOuter" };
 
     // 作者逐层参数（PixelFireAnimator 调用点）：强度、尺寸、时长倍率、RGB 乘子。
@@ -109,6 +120,9 @@ internal static class PatchArcher_Impact
         internal readonly Material[] Materials = new Material[LayerCount];
         internal readonly Il2CppStructArray<Vector3>[] Vertices = new Il2CppStructArray<Vector3>[LayerCount];
         internal readonly float[][] BaseXY = new float[LayerCount][];
+        internal readonly float[][] UploadedX = new float[LayerCount][];   // 上次上传的量化 x（未变则跳过 mesh.vertices）
+        internal readonly float[][] UploadedY = new float[LayerCount][];   // 上次上传的量化 y
+        internal readonly bool[] VertexDirty = new bool[LayerCount];       // 建槽/复用槽强制首帧上传
         internal readonly float[] LayerLifetime = new float[LayerCount];
         internal readonly bool[] LayerDone = new bool[LayerCount];
         internal readonly float[] LayerMaxSize = new float[LayerCount];
@@ -127,6 +141,13 @@ internal static class PatchArcher_Impact
     private static uint Rng = 0x9E3779B9u;
     private static int SpawnHead, SpawnCount, FrameStamp = int.MinValue, FrameAttempts;
     private static bool AnyBuilt;
+
+    // 顶点噪声缓存：Perlin 输入只含 i 与 time（Time.time*PerlinRate），跨槽/跨层完全相同。
+    // 键是实际 time 输入值（不是 frameCount）：FixedUpdate 与 Update 同帧不同 Time.time
+    // 各自重算，绝不互相串用；NaN 哨兵 + ReleaseAll 失效保证首次使用必然重算。
+    private static float NoiseCacheInput = float.NaN;
+    private static readonly float[] NoiseOffsetX = new float[VertexCount];
+    private static readonly float[] NoiseOffsetY = new float[VertexCount];
 
     // 池身份：world/layer/scene 指针快照（与候选命中携带的身份比对）。
     private static IntPtr ContextWorld, ContextLayer;
@@ -416,8 +437,8 @@ internal static class PatchArcher_Impact
                         baseXY[vertex * 2 + 1] = j * PixelSize - HalfExtent + NextRange(-PixelSize * Jitter, PixelSize * Jitter);
                     }
                 }
+                slot.VertexDirty[layer] = true; // 复用槽按本次命中的新格点强制重传，绝不沿用上一效果的量化缓存
                 WriteVertices(slot, layer, 0f);
-                slot.Meshes[layer].RecalculateBounds();
                 slot.Materials[layer].color = layerColor;                          // 作者在构建点即写 material.color
                 slot.Transforms[layer].localScale = new Vector3(StartSize * sizeRandomness * layerSize,
                                                                StartSize * sizeRandomness * layerSize, 1f);
@@ -508,10 +529,17 @@ internal static class PatchArcher_Impact
                 slot.Meshes[layer] = mesh;
                 slot.Vertices[layer] = new Il2CppStructArray<Vector3>(VertexCount); // 逐帧复用的原生数组（强 root）
                 slot.BaseXY[layer] = new float[VertexCount * 2];
+                float[] uploadedX = slot.UploadedX[layer] = new float[VertexCount];
+                float[] uploadedY = slot.UploadedY[layer] = new float[VertexCount];
+                for (int i = 0; i < VertexCount; i++) { uploadedX[i] = float.NaN; uploadedY[i] = float.NaN; } // NaN 永不等于计算值
+                slot.VertexDirty[layer] = true; // 首建槽强制首帧上传（与 NaN 缓存双保险，绝不漏首帧）
                 // 空网格 vertexCount 为 0 时 uv/indices 会被拒绝：先喂入 36 个顶点（零值，命中时再写实际格点）。
                 mesh.vertices = slot.Vertices[layer];
                 FillUv(mesh);
                 FillTriangles(mesh);
+                // 局部包围盒一次设定：严格覆盖全部 base+jitter+drift+Round 顶点（推导见 MaxVertexExtent）；
+                // 之后顶点只可能落在盒内，不再逐帧 RecalculateBounds；动态 transform 缩放由 Unity 维护世界包围盒。
+                mesh.bounds = new Bounds(Vector3.zero, new Vector3(MaxVertexExtent * 2f, MaxVertexExtent * 2f, PixelSize));
 
                 Material material = new Material(shader);
                 slot.Materials[layer] = material; // 立刻登记：后续 name/mainTexture/SetInt 抛异常也能被 cleanup
@@ -638,29 +666,61 @@ internal static class PatchArcher_Impact
 
     /// <summary>
     /// 作者逐帧顶点式（PixelFireAnimator.Update）：Perlin 噪声 ±1 × (1-t)*.1*.22 偏移，
-    /// 加到原格点上再 Round(coord/.22)*.22 对齐像素。写入缓存的 Il2CppStructArray，
-    /// 再由 mesh.vertices 原生 invoke setter 上传；无托管数组、无 Mesh/材质分配。
+    /// 加到原格点上再 Round(coord/.22)*.22 对齐像素。噪声输入只含 i 与 Time.time*5，
+    /// 与槽/层无关 → 按实际 time 值缓存 36 对，同一时刻全部效果/层共享；量化用
+    /// System.MathF.Round（与 Unity Mathf.Round 的 (float)Math.Round 同为 ties-even，
+    /// float 运算顺序不变）。量化结果与上次上传一致时跳过 mesh.vertices 上传（原生数组
+    /// 继续复用）；新建/复用槽先置 dirty 强制上传，绝不漏首帧。无托管数组、无 Mesh 分配。
     /// </summary>
     private static void WriteVertices(Slot slot, int layer, float drift)
     {
         float[] baseXY = slot.BaseXY[layer];
         Il2CppStructArray<Vector3> vertices = slot.Vertices[layer];
-        float time = Time.time * PerlinRate;
+        float[] uploadedX = slot.UploadedX[layer];
+        float[] uploadedY = slot.UploadedY[layer];
+        bool changed = slot.VertexDirty[layer];
+        if (drift != 0f) EnsureNoise(Time.time * PerlinRate);
+        float[] noiseX = NoiseOffsetX, noiseY = NoiseOffsetY;
         for (int i = 0; i < VertexCount; i++)
         {
             float x = baseXY[i * 2];
             float y = baseXY[i * 2 + 1];
             if (drift != 0f)
             {
-                x += (Mathf.PerlinNoise(i * PerlinStep, time) * 2f - 1f) * drift;
-                y += (Mathf.PerlinNoise(i * PerlinStep + PerlinOffsetY, time) * 2f - 1f) * drift;
+                x += noiseX[i] * drift;
+                y += noiseY[i] * drift;
             }
-            vertices[i] = new Vector3(Mathf.Round(x / PixelSize) * PixelSize, Mathf.Round(y / PixelSize) * PixelSize, 0f);
+            // 与作者一致的量化：先除 PixelSize、ties-even Round、再乘回 PixelSize（全程 float 不升级）。
+            float quantX = MathF.Round(x / PixelSize) * PixelSize;
+            float quantY = MathF.Round(y / PixelSize) * PixelSize;
+            if (!changed && (quantX != uploadedX[i] || quantY != uploadedY[i])) changed = true;
+            if (!changed) continue; // 该顶点与已上传值完全一致：不写托管数组、不碰原生内存
+            uploadedX[i] = quantX;
+            uploadedY[i] = quantY;
+            vertices[i] = new Vector3(quantX, quantY, 0f);
         }
-        slot.Meshes[layer].vertices = vertices;
+        slot.VertexDirty[layer] = false; // 原生的顶点内容已被核验与当前量化一致（有变则下方立刻重传）
+        if (changed) slot.Meshes[layer].vertices = vertices;
     }
 
-    /// <summary>逐帧只写网格顶点（原生数组）+ 缩放/材质色；无分配。</summary>
+    /// <summary>
+    /// 同一 time 输入（Time.time*PerlinRate）下 36 对 Perlin 值跨全部槽/层共享：每时刻
+    /// 72 次 Perlin，替代按效果/层各算的 3456 次。键是实际 time 值而非 frameCount：
+    /// FixedUpdate/Update 同帧不同 Time.time 各自重算、绝不互相串用；写入成功后才更新键
+    /// （异常不留下半缓存）；NaN 哨兵 + ReleaseAll 失效保证首次/重建后首帧必然重算。
+    /// </summary>
+    private static void EnsureNoise(float time)
+    {
+        if (time == NoiseCacheInput) return;
+        for (int i = 0; i < VertexCount; i++)
+        {
+            NoiseOffsetX[i] = Mathf.PerlinNoise(i * PerlinStep, time) * 2f - 1f;
+            NoiseOffsetY[i] = Mathf.PerlinNoise(i * PerlinStep + PerlinOffsetY, time) * 2f - 1f;
+        }
+        NoiseCacheInput = time;
+    }
+
+    /// <summary>逐帧更新量化顶点（未变不上传）+ 缩放/材质色；无分配。</summary>
     private static void Pose(Slot slot, float elapsed)
     {
         for (int layer = 0; layer < LayerCount; layer++)
@@ -678,7 +738,6 @@ internal static class PatchArcher_Impact
             }
 
             WriteVertices(slot, layer, (1f - t) * Drift * PixelSize);
-            slot.Meshes[layer].RecalculateBounds();
 
             float grow = t < GrowEnd ? t : GrowEnd;
             grow = EaseOutQuad(grow);
@@ -743,6 +802,9 @@ internal static class PatchArcher_Impact
         slot.Meshes[layer] = null;
         slot.Vertices[layer] = null;
         slot.BaseXY[layer] = null;
+        slot.UploadedX[layer] = null;
+        slot.UploadedY[layer] = null;
+        slot.VertexDirty[layer] = false;
         DestroyOwn(child);
         DestroyOwn(material); // 自有材质：只有本模组销毁（本模组从不借用共享材质）
         DestroyOwn(mesh);     // 自有网格：new Mesh() 不随 GameObject 释放
@@ -796,6 +858,7 @@ internal static class PatchArcher_Impact
         SpawnCount = 0;
         FrameStamp = int.MinValue;
         FrameAttempts = 0;
+        NoiseCacheInput = float.NaN; // 换世界/关闭：噪声缓存失效，重建后首帧重算而不是复用旧值
         DestroyOwn(texture); // 唯一自有纹理：随池一起释放
     }
 

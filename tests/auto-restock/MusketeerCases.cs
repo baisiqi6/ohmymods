@@ -113,5 +113,44 @@ internal static class MusketeerCases
             Eq(PatchEconomy_Banker.TrySpendCalls,1,"ready zero wakes planner with unchanged balance");
             Eq(MusketeerShop.SpawnCalls,1,"one gun after readiness");
         });
+        Run("musketeer_night_pauses_then_dawn_buys_once",()=>
+        {
+            var(e,p)=Setup();
+            e.Kingdom.isDaytime=false; Advance(e,60);
+            Eq(PatchEconomy_Banker.TrySpendCalls,0,"night never debits");
+            Eq(MusketeerShop.SpawnCalls,0,"night ships no gun");
+            Eq(e.Banker._stashedCoins,100,"night balance untouched");
+            Has(PatchEconomy_AutoRestock.GetSummary(8),"夜间暂停，等待天亮","gun shop role waits for dawn");
+            e.Kingdom.isDaytime=true; Advance(e);
+            Eq(PatchEconomy_Banker.TrySpendCalls,1,"dawn buys exactly once");
+            Eq(MusketeerShop.SpawnCalls,1,"one gun after dawn");
+            Eq(e.Banker._stashedCoins,92,"single 8-coin debit");
+            Advance(e); Eq(PatchEconomy_Banker.TrySpendCalls,1,"completed order cannot debit twice");
+        });
+        Run("musketeer_nightfall_mid_order_cancels_without_debit",()=>
+        {
+            var(e,p)=Setup(); Advance(e,15); // 订单已派出、尚未扣款
+            Eq(PatchEconomy_Banker.TrySpendCalls,0,"order still in flight before nightfall");
+            e.Kingdom.isDaytime=false; Advance(e,40);
+            Eq(PatchEconomy_Banker.TrySpendCalls,0,"mid-order nightfall never debits");
+            Eq(MusketeerShop.SpawnCalls,0,"no gun after nightfall");
+            Eq(e.Banker._stashedCoins,100,"balance untouched");
+        });
+        Run("musketeer_final_gate_rejects_direct_night_call",()=>
+        {
+            // 直接调用适配器（不经过规划）：最终钱口的只读 day 门必须在扣款前拒绝。
+            var(e,p)=Setup();
+            e.Kingdom.isDaytime=false;
+            var night=MusketeerShop.PurchaseForAutoRestock(p,e.Banker,()=>{},out _);
+            Eq(night,MusketeerShop.AutoPurchaseResult.Rejected,"night direct call rejected");
+            Eq(PatchEconomy_Banker.TrySpendCalls,1,"final gate consulted");
+            Eq(PatchEconomy_Banker.SpendAmounts.Count,0,"no ledger debit at night");
+            Eq(MusketeerShop.SpawnCalls,0,"no shipment at night");
+            Eq(e.Banker._stashedCoins,100,"night balance untouched");
+            e.Kingdom.isDaytime=true;
+            var day=MusketeerShop.PurchaseForAutoRestock(p,e.Banker,()=>{},out _);
+            Eq(day,MusketeerShop.AutoPurchaseResult.Purchased,"day direct call still purchases");
+            Eq(MusketeerShop.SpawnCalls,1,"one gun in daylight");
+        });
     }
 }

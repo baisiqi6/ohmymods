@@ -8,9 +8,12 @@ namespace MusketeerRuntimeTests
     internal static class Fixture
     {
         internal const int EnemiesLayer = 10;
+        internal const int CitizensLayer = 11;
+        internal const int WildlifeLayer = 12;
 
         internal static void Reset()
         {
+            NetworkBigBoss.HasWorldAuth = true;
             Time.time = 0f;
             Time.deltaTime = 0f;
             Time.unscaledTime = 0f;
@@ -22,6 +25,13 @@ namespace MusketeerRuntimeTests
             Physics2D.Saturate = false;
             Physics2D.ThrowOnCast = false;
             Physics2D.CastCount = 0;
+            Physics2D.ThrowOnListCast = false;
+            Physics2D.ListCastCount = 0;
+            Physics2D.queriesHitTriggers = true;
+            Physics2D.LastLayerMask = 0;
+            Physics2D.LastListFilter = default;
+            Physics2D.LastListLayerMask = 0;
+            Il2CppSystem.Collections.Generic.List<RaycastHit2D>.CreatedForTests = 0;
             MusketeerAccess.Reset();
             MusketeerIdentity.Reset();
             MusketeerVisuals.Clear();
@@ -82,7 +92,7 @@ namespace MusketeerRuntimeTests
         internal static Archer NewArcher(string name = "archer")
         {
             var go = new GameObject(name);
-            go.transform.position = new Vector3(0f, 0.5f, 0f);   // 真实游戏里脚点在 y≈0.5（枪口 y≈0.98）
+            go.transform.position = new Vector3(0f, 0.5f, 0f);   // 真实游戏里脚点在 y≈0.5（0.9 外观缩放后枪口 y≈0.936）
             var archer = go.AddComponent<Archer>();
             archer._character = go.AddComponent<Character>();
             archer._damageable = go.AddComponent<Damageable>();
@@ -120,12 +130,93 @@ namespace MusketeerRuntimeTests
             return archer;
         }
 
+        /// <summary>白天开关（Kingdom.isDaytime）：鹿猎判据/发射门读它；未设置时判据 fail-closed。</summary>
+        internal static void SetDaytime(bool daytime)
+        {
+            if (Managers.Inst == null) Managers.Inst = new Managers();
+            if (Managers.Inst.kingdom == null) Managers.Inst.kingdom = new Kingdom();
+            Managers.Inst.kingdom.isDaytime = daytime;
+        }
+
+        /// <summary>普通鹿根：Wildlife 层 + "Wildlife" tag + Deer 组件 + 鹿根自己的 Damageable/Petrifiable。</summary>
+        internal static GameObject NewDeer(string name = "deer")
+        {
+            var go = new GameObject(name);
+            go.layer = WildlifeLayer;
+            go.tag = "Wildlife";
+            go.SetActive(true);
+            go.AddComponent<Deer>();
+            go.AddComponent<Damageable>();
+            go.AddComponent<Petrifiable>();
+            return go;
+        }
+
+        /// <summary>兔子等小动物：Wildlife 层 + tag + Damageable，但没有 Deer 根组件。</summary>
+        internal static GameObject NewCritter(string name = "rabbit")
+        {
+            var go = new GameObject(name);
+            go.layer = WildlifeLayer;
+            go.tag = "Wildlife";
+            go.SetActive(true);
+            go.AddComponent<Critter>();
+            go.AddComponent<Damageable>();
+            return go;
+        }
+
+        /// <summary>坐骑（Hind）：同在 Wildlife 层/tag，但组件是 Hind，绝不是鹿。</summary>
+        internal static GameObject NewHind(string name = "hind")
+        {
+            var go = new GameObject(name);
+            go.layer = WildlifeLayer;
+            go.tag = "Wildlife";
+            go.SetActive(true);
+            go.AddComponent<Hind>();
+            go.AddComponent<Damageable>();
+            return go;
+        }
+
+        /// <summary>安装一个顶面为 top 的世界地面（弹道的地面裁剪/终止都读 World.GroundCollider.bounds.max.y）。</summary>
+        internal static void SetGroundTop(float top)
+        {
+            var ground = new GameObject("ground").AddComponent<BoxCollider2D>();
+            ground.bounds = new Bounds { center = new Vector3(0f, top - 0.2f, 0f), extents = new Vector3(40f, 0.2f, 0f) };
+            World.GroundCollider = ground;
+        }
+
+        /// <summary>鹿根自己的 body collider：枪口水平线（测试夹具 y≈0.894）穿过其 bounds → 平射可命中。</summary>
+        internal static Collider2D AddFlatBody(GameObject deer, float centerX = 3f)
+        {
+            Collider2D body = deer.AddComponent<Collider2D>();
+            body.bounds = new Bounds
+            {
+                center = new Vector3(centerX, 0.90f, 0f),
+                extents = new Vector3(0.45f, 0.20f, 0f),
+            };
+            return body;
+        }
+
+        /// <summary>鹿根自己的 body collider：模拟资源几何推算的低于枪口情形（非游戏实测）→ 需要直线微调。</summary>
+        internal static Collider2D AddLowBody(GameObject deer, float centerX = 3f)
+        {
+            Collider2D body = deer.AddComponent<Collider2D>();
+            body.bounds = new Bounds
+            {
+                center = new Vector3(centerX, 0.60f, 0f),
+                extents = new Vector3(0.45f, 0.18f, 0f),
+            };
+            return body;
+        }
+
         /// <summary>向 physics 桩排队一条命中（距离 = 沿本段计算的距离）。</summary>
         internal static void QueueHit(GameObject target, float distance)
+            => QueueHit(target.GetComponent<Collider2D>() ?? AddCollider(target), distance);
+
+        /// <summary>向 physics 桩排队一条命中（指定 collider；多 collider/重复命中场景用）。</summary>
+        internal static void QueueHit(Collider2D collider, float distance)
         {
             Physics2D.QueuedHits.Add(new RaycastHit2D
             {
-                collider = target.GetComponent<Collider2D>() ?? AddCollider(target),
+                collider = collider,
                 distance = distance,
             });
         }

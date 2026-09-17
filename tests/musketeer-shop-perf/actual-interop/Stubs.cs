@@ -10,6 +10,7 @@ namespace KingdomEnhancedMod
     /// <summary>Operator 契约同形（MusketeerAccess.cs 的导出面）。</summary>
     internal static class MusketeerAccess
     {
+        internal static bool Enabled => throw new NotSupportedException();
         internal static bool InWorld(GameObject root) { throw new NotSupportedException("核对工程不运行"); }
         internal static bool InWorld(Component component) { throw new NotSupportedException("核对工程不运行"); }
     }
@@ -17,6 +18,14 @@ namespace KingdomEnhancedMod
     /// <summary>Identity worker 契约同形（MusketeerIdentity 的导出面）。</summary>
     internal static class MusketeerIdentity
     {
+        internal sealed class IslandState {
+            internal readonly List<Career> Careers = new(); internal readonly List<object> StockRestores = new();
+            internal bool Ready, ReadOnly, Unresolved, HasBaseline; internal string Epoch, ContextKey; internal long World;
+        }
+        internal static bool TryContext(out string context, out long world, bool fresh = false) => throw new NotSupportedException();
+        internal sealed class Career { internal int Kind, StockSlot; internal long Life; internal DroppableTool Tool; }
+        internal static IslandState Current => throw new NotSupportedException();
+        internal static bool StockClaimProven(Career career) => throw new NotSupportedException();
         internal static bool TryGetRestockCounts(out int live, out int guns) { throw new NotSupportedException(); }
         internal static bool CanPurchase { get { throw new NotSupportedException("核对工程不运行"); } }
         internal static string StatusText { get { throw new NotSupportedException("核对工程不运行"); } }
@@ -44,3 +53,5 @@ namespace KingdomEnhancedMod
 }
 
 namespace KingdomEnhancedMod { internal static class GreekBankScope { internal static bool IsActive => throw new NotSupportedException(); } internal static class PatchEconomy_Banker { internal static bool TrySpendForAutoRestock(Banker banker,int price) => throw new NotSupportedException(); } }
+
+namespace KingdomEnhancedMod { internal static class MusketeerCareer { internal const int KindGun=2, NoStockSlot=-1; } }

@@ -14,6 +14,7 @@ namespace KingdomGreekImpact.Tests
             Env.Reset();
             Arrow.TryDamageDispatch = Harness.DispatchTryDamage;   // native HitObject → TryDamage 分派
             ModConfig.ArcherImpactEnabled.Value = true;
+            CombatTargetLife.Initialize();                         // root 在 Plugin.Init 的接入点（幂等）
             World = Env.NewWorld(1);
         }
 

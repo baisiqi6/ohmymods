@@ -79,6 +79,14 @@ internal static class Program
             throw new Exception($"{why}: expected ({want.x},{want.y},{want.z}), got ({got.x},{got.y},{got.z})");
     }
 
+    /// <summary>逐位相等（含 -0/NaN），用于「与旧公式输出完全一致」的证据。</summary>
+    private static void SameBits(float want, float got, string why)
+    {
+        int expected = BitConverter.SingleToInt32Bits(want), actual = BitConverter.SingleToInt32Bits(got);
+        if (expected != actual)
+            throw new Exception($"{why}: expected 0x{expected:X8} ({want}), got 0x{actual:X8} ({got})");
+    }
+
     private static void SameColor(Color want, Color got, string why)
     {
         if (MathF.Abs(want.r - got.r) > .0001f || MathF.Abs(want.g - got.g) > .0001f
@@ -151,7 +159,10 @@ internal static class Program
         Mesh.UvWrites = 0;
         Mesh.TriangleWrites = 0;
         Mesh.BoundsRecalculations = 0;
+        Mesh.BoundsWrites = 0;
         Mesh.NormalRecalculations = 0;
+        Mathf.RoundCalls = 0;
+        Mathf.PerlinCalls = 0;
         Mesh.ThrowOnVertexWrite = false;
         Mesh.ThrowOnUvWrite = false;
         Mesh.ThrowOnTriangleWrite = false;
@@ -206,7 +217,10 @@ internal static class Program
         Mesh.UvWrites = 0;
         Mesh.TriangleWrites = 0;
         Mesh.BoundsRecalculations = 0;
+        Mesh.BoundsWrites = 0;
         MeshFilter.MeshInstantiations = 0;
+        Mathf.RoundCalls = 0;
+        Mathf.PerlinCalls = 0;
         Il2CppStructArray<Vector3>.Allocations = 0;
         Il2CppStructArray<Vector3>.ManagedCopies = 0;
         ParticleSystem.Plays = 0;
@@ -406,6 +420,101 @@ internal static class Program
         MathF.Abs(value / PatchArcher_Impact.PixelSize - MathF.Round(value / PatchArcher_Impact.PixelSize)) < .001f;
 
     private static int ActivationsInFrame(int frame) => GameObject.Activations.Count(a => a.Frame == frame);
+
+    // -------- 生产内部只读访问 + 作者旧公式 oracle（直链对比用） --------
+
+    /// <summary>Unity Mathf.Round 的实现形状：(float)Math.Round(double)（2022.3 官方 C# 参考源码）。</summary>
+    private static float UnityRound(float value) => (float)Math.Round((double)value);
+
+    private static object SlotAt(int index) =>
+        ((Array)Production.GetField("Slots", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null)).GetValue(index);
+
+    private static T SlotField<T>(object slot, string name) =>
+        (T)slot.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public).GetValue(slot);
+
+    /// <summary>作者旧公式的单个顶点值：噪声输入 i*.1 / i*.1+100、Time.time*5，量化 (float)Math.Round(v/.22)*.22。</summary>
+    private static float LegacyVertex(object slot, int layer, int vertex, bool yAxis, float now)
+    {
+        float[] baseXY = SlotField<float[][]>(slot, "BaseXY")[layer];
+        float[] lifetimes = SlotField<float[]>(slot, "LayerLifetime");
+        float born = SlotField<float>(slot, "Born");
+        float t = (now - born) / lifetimes[layer];
+        float drift = (1f - t) * .1f * PatchArcher_Impact.PixelSize;
+        float value = baseXY[vertex * 2 + (yAxis ? 1 : 0)];
+        value += (Mathf.PerlinNoise(vertex * .1f + (yAxis ? 100f : 0f), now * 5f) * 2f - 1f) * drift;
+        return UnityRound(value / PatchArcher_Impact.PixelSize) * PatchArcher_Impact.PixelSize;
+    }
+
+    /// <summary>
+    /// 推进一帧并按作者旧公式逐顶点 bit-exact 核对三层，同时核对「该层上传次数增量 == 旧公式判定是否变化」。
+    /// 返回本帧是否有任意一层上传。
+    /// </summary>
+    private static bool TickChecked(GameObject root, int slotIndex, float delta)
+    {
+        if (delta > 0f) { Time.time += delta; Time.frameCount++; }
+        object slot = SlotAt(slotIndex);
+        float born = SlotField<float>(slot, "Born");
+        float[] lifetimes = SlotField<float[]>(slot, "LayerLifetime");
+        float elapsed = Time.time - born;
+        string[] names = { "KEM_ImpactCore", "KEM_ImpactMid", "KEM_ImpactOuter" };
+        var meshes = new Mesh[PatchArcher_Impact.LayerCount];
+        var before = new Vector3[PatchArcher_Impact.LayerCount][];
+        var expected = new float[PatchArcher_Impact.LayerCount][];
+        var live = new bool[PatchArcher_Impact.LayerCount];
+        var uploadsBefore = new int[PatchArcher_Impact.LayerCount];
+        for (int layer = 0; layer < PatchArcher_Impact.LayerCount; layer++)
+        {
+            meshes[layer] = LayerMesh(root, names[layer]);
+            uploadsBefore[layer] = meshes[layer].InstanceUploads;
+            live[layer] = elapsed / lifetimes[layer] < 1f;
+            if (!live[layer]) continue;
+            before[layer] = new Vector3[PatchArcher_Impact.VertexCount];
+            expected[layer] = new float[PatchArcher_Impact.VertexCount * 2];
+            for (int i = 0; i < PatchArcher_Impact.VertexCount; i++)
+            {
+                before[layer][i] = meshes[layer].vertices[i];
+                expected[layer][i * 2] = LegacyVertex(slot, layer, i, false, Time.time);
+                expected[layer][i * 2 + 1] = LegacyVertex(slot, layer, i, true, Time.time);
+            }
+        }
+
+        PatchArcher_Impact.Tick();
+
+        bool anyUpload = false;
+        for (int layer = 0; layer < PatchArcher_Impact.LayerCount; layer++)
+        {
+            bool uploaded = meshes[layer].InstanceUploads != uploadsBefore[layer];
+            if (uploaded) anyUpload = true;
+            if (!live[layer])
+            {
+                Check(!uploaded, names[layer] + ": no upload after its own duration");
+                continue;
+            }
+            float[] values = expected[layer];
+            bool changed = false;
+            for (int i = 0; i < PatchArcher_Impact.VertexCount; i++)
+            {
+                SameBits(values[i * 2], meshes[layer].vertices[i].x, names[layer] + " legacy x bit-match, vertex " + i);
+                SameBits(values[i * 2 + 1], meshes[layer].vertices[i].y, names[layer] + " legacy y bit-match, vertex " + i);
+                if (!changed && (values[i * 2] != before[layer][i].x || values[i * 2 + 1] != before[layer][i].y)) changed = true;
+            }
+            Eq(changed, uploaded, names[layer] + ": uploads exactly when the quantized grid changes");
+        }
+        return anyUpload;
+    }
+
+    /// <summary>该层当前顶点必须全部落在一次性设定的局部包围盒内（含 z 平面）。</summary>
+    private static void CheckBoundsCoverLayer(Mesh mesh, string name)
+    {
+        Bounds bounds = mesh.bounds;
+        for (int i = 0; i < mesh.vertices.Length; i++)
+        {
+            Vector3 vertex = mesh.vertices[i];
+            Check(MathF.Abs(vertex.x - bounds.center.x) <= bounds.size.x * .5f + .0001f, name + ": vertex x inside local bounds");
+            Check(MathF.Abs(vertex.y - bounds.center.y) <= bounds.size.y * .5f + .0001f, name + ": vertex y inside local bounds");
+            Check(MathF.Abs(vertex.z - bounds.center.z) <= bounds.size.z * .5f + .0001f, name + ": vertex z inside local bounds");
+        }
+    }
 
     /// <summary>Observable native state: everything the module must leave alone.</summary>
     private static string Snapshot(Arrow arrow, Damageable damageable) => string.Join("|",
@@ -967,7 +1076,7 @@ internal static class Program
             Eq(3, Mesh.TriangleWrites, "indices written once per layer build");
         });
 
-        Test("Live burst rewrites its grid every tick, pixel snapping to 0.22 keeps it aligned", () =>
+        Test("Every posed frame matches the author's legacy vertex formula bit-for-bit; uploads only on quantization change", () =>
         {
             var archer = NewArcher();
             var arrow = NewArrow(archer, new Vector3(-2f, 4f, 0f));
@@ -975,32 +1084,190 @@ internal static class Program
 
             NativeHit(arrow, targetGo);
             GameObject root = EffectRoots().Single();
-            Mesh core = LayerMesh(root, "KEM_ImpactCore");
-            int uploadsAtSpawn = Mesh.VertexUploads;
+            Eq(6, Mesh.VertexUploads, "3 build seeds + 3 spawn writes with the author's spawn values");
 
-            Tick(.05f);
-            Check(Mesh.VertexUploads > uploadsAtSpawn, "vertex grid animated on the production tick");
-            Eq(3, Mesh.VertexUploads - uploadsAtSpawn, "all three layers rewrite their grid");
-            Check(Mesh.BoundsRecalculations >= 3, "bounds refreshed after the vertex rewrite");
-
-            for (int i = 0; i < core.vertices.Length; i++)
+            int uploadedFrames = 0, skippedFrames = 0;
+            for (int step = 0; step < 200 && root.activeSelf; step++)
             {
-                Check(IsPixelAligned(core.vertices[i].x), "snapped x stays on the pixel grid");
-                Check(IsPixelAligned(core.vertices[i].y), "snapped y stays on the pixel grid");
-                Check(MathF.Abs(core.vertices[i].x) <= PatchArcher_Impact.HalfExtent + PatchArcher_Impact.PixelSize,
-                    "vertex stays inside the pixel envelope");
-                Check(MathF.Abs(core.vertices[i].y) <= PatchArcher_Impact.HalfExtent + PatchArcher_Impact.PixelSize,
-                    "vertex stays inside the pixel envelope");
+                if (TickChecked(root, 0, .03f)) uploadedFrames++;
+                if (root.activeSelf && !TickChecked(root, 0, 0f)) skippedFrames++; // 同一 Time.time：量化必然未变
             }
-            Eq(3, Il2CppStructArray<Vector3>.Allocations, "animation allocates no native vertex arrays");
+
+            Check(!root.activeSelf, "burst returned to the pool inside the author lifetime");
+            Check(uploadedFrames > 0, "frames whose quantization changed uploaded the grid");
+            Check(skippedFrames > 0, "same-time frames with identical quantization skipped the upload");
+            Eq(0, Mesh.BoundsRecalculations, "no per-frame bounds recalculation anywhere in the burst");
+            Eq(0, Mesh.RejectedGeometryWrites, "skipped uploads never reject geometry");
+            Eq(0, Mathf.RoundCalls, "the vertex path never calls Unity Mathf.Round");
+            Eq(3, Il2CppStructArray<Vector3>.Allocations, "one native vertex array per layer, allocated once");
             Eq(PatchArcher_Impact.LayerCount, Mesh.CreatedCount, "animation allocates no meshes");
             Eq(PatchArcher_Impact.LayerCount, Material.CreatedCount, "animation allocates no materials");
 
-            // A quiet tick well past the core duration must stop rewriting the mesh.
-            Advance(PatchArcher_Impact.MaxEffectLifetime + .1f);
+            foreach (string name in new[] { "KEM_ImpactCore", "KEM_ImpactMid", "KEM_ImpactOuter" })
+            {
+                Mesh mesh = LayerMesh(root, name);
+                for (int i = 0; i < mesh.vertices.Length; i++)
+                {
+                    Check(IsPixelAligned(mesh.vertices[i].x), name + ": snapped x stays on the pixel grid");
+                    Check(IsPixelAligned(mesh.vertices[i].y), name + ": snapped y stays on the pixel grid");
+                    Check(MathF.Abs(mesh.vertices[i].x) <= PatchArcher_Impact.HalfExtent + PatchArcher_Impact.PixelSize,
+                        name + ": vertex stays inside the pixel envelope");
+                    Check(MathF.Abs(mesh.vertices[i].y) <= PatchArcher_Impact.HalfExtent + PatchArcher_Impact.PixelSize,
+                        name + ": vertex stays inside the pixel envelope");
+                }
+            }
+
+            // A quiet tick well past the core duration must not touch the mesh at all.
             int uploadsAfterLife = Mesh.VertexUploads;
             Tick(.05f);
             Eq(uploadsAfterLife, Mesh.VertexUploads, "no vertex writes after the burst returned to the pool");
+        });
+
+        Test("Unchanged quantization skips the upload while colour and scale keep updating every tick", () =>
+        {
+            var archer = NewArcher();
+            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
+            var (targetGo, _) = NewTarget(new Vector3(1.2f, 1f, 0f));
+
+            NativeHit(arrow, targetGo);
+            GameObject root = EffectRoots().Single();
+            Tick(); // 同帧第一次驱动：drift 从 0 变为 (1-t)*.022，可能上传
+            var materials = LayersOf(root).Select(l => l.sharedMaterial).ToList();
+            int writes = materials.Sum(m => m.InstanceWrites);
+            int uploads = Mesh.VertexUploads;
+            Transform core = LayerGo(root, "KEM_ImpactCore").transform;
+            float scale = core.localScale.x;
+
+            Tick(); // 同一 Time.time：量化必然未变 → 不上传
+
+            Eq(uploads, Mesh.VertexUploads, "same Time.time: identical quantization, no mesh upload");
+            Check(materials.Sum(m => m.InstanceWrites) > writes, "layer colours are still written on a skipped-upload pose");
+            Eq(0, Mathf.RoundCalls, "the vertex path never calls Unity Mathf.Round");
+            Near(scale, core.localScale.x, "same elapsed: scale value unchanged", .0001f);
+
+            Tick(.05f); // 新的一帧：颜色/缩放/寿命更新照旧
+            Check(core.localScale.x > scale, "scale keeps growing after a skipped-upload frame");
+            Check(LayersOf(root).All(l => l.sharedMaterial.color.a > 0f), "layer colours stay valid after a skipped frame");
+        });
+
+        Test("Posed colour and scale follow the author formula bit-for-bit at every sampled frame", () =>
+        {
+            var archer = NewArcher();
+            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
+            var (targetGo, _) = NewTarget(new Vector3(1.2f, 1f, 0f));
+
+            NativeHit(arrow, targetGo);
+            GameObject root = EffectRoots().Single();
+            string[] names = { "KEM_ImpactCore", "KEM_ImpactMid", "KEM_ImpactOuter" };
+
+            int compared = 0;
+            for (int step = 0; step < 60 && root.activeSelf; step++)
+            {
+                Tick(.02f);
+                object slot = SlotAt(0);
+                float born = SlotField<float>(slot, "Born");
+                float[] lifetimes = SlotField<float[]>(slot, "LayerLifetime");
+                float[] maxSizes = SlotField<float[]>(slot, "LayerMaxSize");
+                Color[] colors = SlotField<Color[]>(slot, "LayerColor");
+                float elapsed = Time.time - born;
+                for (int layer = 0; layer < PatchArcher_Impact.LayerCount; layer++)
+                {
+                    float t = elapsed / lifetimes[layer];
+                    if (t >= 1f) continue; // 作者 animator：超过自身 duration 即停写
+
+                    // 旧公式：EaseOutQuad(min(t,.8)) 生长、40% 后 EaseOutCubic 淡出、scale×Lerp(1,.8,f)。
+                    float grow = t < .8f ? t : .8f;
+                    grow = grow * (2f - grow);
+                    float size = PatchArcher_Impact.StartSize + (maxSizes[layer] - PatchArcher_Impact.StartSize) * grow;
+                    float fade = t > .4f ? (t - .4f) / .6f : 0f;
+                    if (fade > 1f) fade = 1f;
+                    float inverse = 1f - fade;
+                    float alpha = 1f - (1f - inverse * inverse * inverse);
+                    float brightness = 1f - .5f * fade;
+                    float reduction = 1f - .2f * fade;
+                    float scale = size * reduction;
+
+                    Transform transform = LayerGo(root, names[layer]).transform;
+                    Material material = LayerRenderer(root, names[layer]).sharedMaterial;
+                    SameBits(scale, transform.localScale.x, names[layer] + ": author scale at t=" + t);
+                    SameBits(reduction, transform.localScale.z, names[layer] + ": author z-reduction at t=" + t);
+
+                    Color expected = colors[layer];
+                    expected.r *= brightness;
+                    expected.g *= brightness;
+                    expected.b *= brightness;
+                    expected.a *= alpha;
+                    SameBits(expected.r, material.color.r, names[layer] + ": author colour r at t=" + t);
+                    SameBits(expected.g, material.color.g, names[layer] + ": author colour g at t=" + t);
+                    SameBits(expected.b, material.color.b, names[layer] + ": author colour b at t=" + t);
+                    SameBits(expected.a, material.color.a, names[layer] + ": author colour a at t=" + t);
+                    compared++;
+                }
+            }
+            Check(compared > 30, "sampled every live layer through the burst");
+        });
+
+        Test("Local bounds are set once per mesh, never recalculated, and cover every jitter/drift/rounded vertex", () =>
+        {
+            var archer = NewArcher();
+            var arrow = NewArrow(archer, new Vector3(1f, 1f, 0f));
+            var (targetGo, _) = NewTarget(new Vector3(1.2f, 1f, 0f));
+
+            NativeHit(arrow, targetGo);
+            GameObject root = EffectRoots().Single();
+            string[] names = { "KEM_ImpactCore", "KEM_ImpactMid", "KEM_ImpactOuter" };
+
+            Eq(PatchArcher_Impact.LayerCount, Mesh.BoundsWrites, "bounds written exactly once per layer mesh at build");
+            foreach (string name in names) CheckBoundsCoverLayer(LayerMesh(root, name), name);
+
+            int samples = 0;
+            for (int step = 0; step < 120 && root.activeSelf; step++)
+            {
+                Tick(.02f);
+                foreach (string name in names) { CheckBoundsCoverLayer(LayerMesh(root, name), name); samples++; }
+            }
+            Check(samples > 30, "sampled the animation long enough to cover the drift range");
+            Check(!root.activeSelf, "burst finished inside the sampled window");
+            Eq(PatchArcher_Impact.LayerCount, Mesh.BoundsWrites, "bounds never rewritten while the burst animates");
+            Eq(0, Mesh.BoundsRecalculations, "no per-frame RecalculateBounds anywhere");
+
+            // 保守极值证明（与生产同一常量）：|格点| ≤ .55、抖动 ±.022、漂移 ±.022 → 原始 |x| ≤ .594；
+            // Round 只会移到最近的 .22 格点 → |量化| ≤ 3 格 = .66，包围盒半幅必须不小于它。
+            float rawLimit = PatchArcher_Impact.HalfExtent + PatchArcher_Impact.PixelSize * (.1f + .1f);
+            Check(rawLimit <= .594f + .0001f, "author raw coordinate envelope (half extent + jitter + drift)");
+            foreach (string name in names)
+            {
+                Bounds bounds = LayerMesh(root, name).bounds;
+                Check(bounds.size.x * .5f >= PatchArcher_Impact.PixelSize * 3f - .0001f,
+                    name + ": box covers the ±3-pixel quantization envelope");
+                Check(bounds.size.y * .5f >= PatchArcher_Impact.PixelSize * 3f - .0001f,
+                    name + ": box covers the vertical envelope too");
+                Check(bounds.size.x * .5f <= PatchArcher_Impact.HalfExtent + PatchArcher_Impact.PixelSize,
+                    name + ": box stays inside the old per-vertex pixel envelope");
+                Check(bounds.size.z > 0f, name + ": keeps a non-degenerate Z thickness for the flat grid");
+            }
+        });
+
+        Test("System.MathF.Round is bit-identical to Unity's Mathf.Round for ties, negatives and boundaries", () =>
+        {
+            float[] values =
+            {
+                0f, -0f, .49999997f, -.49999997f, .5f, -.5f, 1.5f, -1.5f, 2.5f, -2.5f, 3.5f, -3.5f,
+                10.5f, -10.5f, 11.5f, -11.5f, .5000001f, -.5000001f, 1e-8f, -1e-8f,
+                PatchArcher_Impact.PixelSize * 2.5f, -PatchArcher_Impact.PixelSize * 2.5f,
+                123456.5f, -123456.5f, 8388607.5f, -8388607.5f, 8388608f, -8388608f,
+                1e7f, -1e7f, float.MaxValue, float.MinValue,
+            };
+            foreach (float value in values)
+            {
+                SameBits(UnityRound(value), MathF.Round(value), "MathF.Round(" + value + ") vs Unity Mathf.Round");
+                SameBits(UnityRound(value / PatchArcher_Impact.PixelSize) * PatchArcher_Impact.PixelSize,
+                    MathF.Round(value / PatchArcher_Impact.PixelSize) * PatchArcher_Impact.PixelSize,
+                    "pixel quantize(" + value + ")");
+            }
+            SameBits(UnityRound(float.NaN), MathF.Round(float.NaN), "NaN");
+            SameBits(UnityRound(float.PositiveInfinity), MathF.Round(float.PositiveInfinity), "Infinity");
+            SameBits(UnityRound(float.NegativeInfinity), MathF.Round(float.NegativeInfinity), "-Infinity");
         });
 
         Test("A frame that skips past a layer's duration cannot leave that layer rendering", () =>
@@ -1631,14 +1898,20 @@ internal static class Program
             var (targetGo, damageable) = NewTarget(new Vector3(1.2f, 1f, 0f));
             NativeHit(arrow, targetGo);
             Eq(1, EffectRoots().Count, "burst alive");
+            // 量化未变的帧不会上传，因此注入的失败只有在第一次真实变化的帧才生效：驱动到该帧。
             Mesh.ThrowOnVertexWrite = true;
             ResetCounts();
 
-            Tick(.05f);
+            bool failed = false;
+            for (int step = 0; step < 200 && !failed; step++)
+            {
+                Tick(.01f);
+                failed = Log.Warnings.Count(w => w.Contains("animation failed")) == 1;
+            }
 
+            Check(failed, "an upload-preparing frame hit the injected failure inside the burst lifetime");
             Eq(0, EffectRoots().Count, "failed animation releases the slot");
             Eq(0, OwnedMeshes().Count, "mesh released with the failed slot");
-            Eq(1, Log.Warnings.Count(w => w.Contains("animation failed")), "animation failure logged once");
             Eq(1, damageable.HitCount, "native damage untouched by the visual failure");
 
             Mesh.ThrowOnVertexWrite = false;

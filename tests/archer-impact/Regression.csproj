@@ -9,6 +9,9 @@
     <ProductionSource Condition="'$(ProductionSource)' == ''">../../il2cpp/PatchArcher_Impact.cs</ProductionSource>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="actual-interop/**" />
     <Compile Include="$(ProductionSource)" Link="Production/PatchArcher_Impact.cs" />
+    <!-- actual-interop/ 是独立的真实 2.4 接口编译门（有自己的合作者替身），不能进本回归工程。 -->
+    <Compile Remove="actual-interop/**" />
   </ItemGroup>
 </Project>

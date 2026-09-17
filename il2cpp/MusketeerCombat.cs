@@ -4,14 +4,24 @@
 // 1. 原生箭的**无条件压制**入口：Operator 的 ArrowAttack.FireArrowInternal prefix 调
 //    <see cref="MusketeerCombat.TryHandleShot"/>。活动火铳手（身份 + 战斗包已装）**一律压制**
 //    原生箭（即使目标非法/还在冷却/未装填），绝不出现"火铳手射出弓矢"。
-// 2. 自有直线子弹：显式时间闸 + 合法地面目标 → 从「已举枪」Aim 枪口锚点 [48,14] 出膛；
-//    平飞、有限射程/寿命、命中首个有效地面敌人即停。不生成原生 Arrow 组件（因此不继承原生
+// 2. 自有直线子弹：显式时间闸 + 合法目标 → 从「已举枪」Aim 枪口锚点 [48,14] 出膛；
+//    默认平飞（敌方/其它目标永远水平），**仅**合法鹿且枪口水平线不穿它自己的真实 Collider2D 时，
+//    朝该碰撞体中部做一次固定直线微调（实际 bounds 计算、无 homing/曲线/加射程——2.4 Greek 鹿
+//    低于枪口线，普通世界本来可平射命中）；有限射程/寿命、命中最近有效目标即停（兔/鸟等小动物完全透明）。
+//    推进一步用**完整有效 dt**（低帧不再慢弹），
+//    扫掠端点按剩余射程/寿命钳制（Linecast 本身即连续线段，大 dt 既不隧穿也不越界）。
+//    弹道证据：可复用数组（稳态零 List 开销）→ 数组在软上限仍饱和时走官方
+//    Physics2D.Linecast(ContactFilter2D, Il2CppSystem.Collections.Generic.List<RaycastHit2D>) 全量结果
+//    （Unity 自动扩容并复用该 List）；流式取**最近有效**命中，绝不假设返回顺序、绝不因饱和吞伤。
+//    弹丸记录池化复用（清旧 source/visual/world 引用）。不生成原生 Arrow 组件（因此不继承原生
 //    Crusher 反弹/canBounce/随机火矢，也不继承原生箭/火焰材质与染色），不调用任何 SO 发声回调。
-// 3. 地面判定与原生等价门：目标校验与弹道碰撞过滤**同一套判据**。
+// 3. 类型门（射击/命中分开但共用判据）：敌人仍用原生等价的地面敌人判据；鹿用"Deer 根组件 +
+//    鹿根自己的 Damageable + 白天"判据（发射前再复核编队/骑士/乘船）；兔子等小动物两侧都不放行。
 //
 // 明确的"不做"：无穿透、无 AOE、无灼烧、无 perfect 倍率、无随机散射/误差、无落水概率、
-// 不写任何原生 HP 字段（伤害只经 Damageable.ReceiveDamage(2, source, DamageSource.Arrow)，
-// 原生 shield/preDamage 处理原样保留）、不新增 RPC、不碰池。
+// 不写任何原生 HP 字段（伤害只经共同 CombatDamage.Submit(target, 2, source, DamageSource.Arrow)
+// → 原生 ReceiveDamage；原生 shield/preDamage 处理原样保留；单目标异常隔离、绝不重试）、
+// 不新增 RPC、不碰原生箭池。
 //
 // 射速权威（评审修订：单一、确定、可证）：
 // * 基线取**未修改的原生 Archer prefab**（runtime 读取并传进来，min/max attempts 也在内），
@@ -231,9 +241,16 @@ internal static class MusketeerCadence
 }
 
 /// <summary>
-/// 地面敌人判据（目标选择与弹道碰撞**共用**，保证两处一致）。
+/// 射击/命中类型门（两处共用，保证一致）：
+/// * **敌人**（地面）：原生等价判据（飞行/未验证拒绝、Enemies 层、tag/Damageable/invulnerable 门），
+///   目标选择与弹道碰撞同用 <see cref="IsValidGroundFoe"/>——鹿绝不走这条门。
+/// * **普通鹿**（白天狩猎）：`Deer` 根组件 + 鹿根自己的 Damageable + 白天；兔子等小动物、
+///   Hind 坐骑、石化物一律拒绝。发射用 <see cref="IsDeerShotAllowed"/>（再复核原生猎鹿前置），
+///   弹道用 <see cref="TryResolveShotTarget"/>（与敌人分支合流成"有效命中目标"解析）。
+/// * 不采信名字/tag：候选可能挂在鹿根的子 collider 上（其他 mod 可能改层/加子碰撞），
+///   身份只看原生组件。
 ///
-/// 判据来源与边界：
+/// 敌人判据来源与边界：
 /// * 飞行/未验证一律拒绝：目标(或父级)带 <c>Squid</c> 组件 → false（Call of Olympus 的空中抓人单位，
 ///   仓库已有组件级排除先例 PatchDivine_FriendlyTroll）；带 <c>Enemy</c> 组件时 <c>Enemy.Type</c>
 ///   必须在**地面白名单**（TrollWeak/TrollMedium/ToughTroll/Ogre/Stealer/Crusher/Knight/Archer，
@@ -247,11 +264,13 @@ internal static class MusketeerCadence
 internal static class MusketeerFoeFilter
 {
     private const string EnemiesLayerName = "Enemies";
+    private const string WildlifeLayerName = "Wildlife";
     private const string EnemySpawnTag = "EnemySpawn";
     private const string UnspittableTag = "Unspittable";
     private const string QuestStructureTag = "QuestStructure";
 
     private static int _enemiesLayer = -1;
+    private static int _wildlifeLayer = -1;
 
     /// <summary>Enemies 层索引（惰性缓存一次；解析失败返回 -1 → 调用方 fail-closed 且下次重试）。</summary>
     internal static int EnemiesLayerIndex()
@@ -268,6 +287,30 @@ internal static class MusketeerFoeFilter
             _enemiesLayer = -1;
         }
         return _enemiesLayer;
+    }
+
+    /// <summary>Wildlife 层索引（惰性缓存一次；解析失败返回 -1 → 弹道退回纯敌方层，绝不破坏夜战）。</summary>
+    internal static int WildlifeLayerIndex()
+    {
+        if (_wildlifeLayer >= 0) return _wildlifeLayer;
+        try { _wildlifeLayer = LayerMask.NameToLayer(WildlifeLayerName); }
+        catch (Exception) { _wildlifeLayer = -1; }
+        return _wildlifeLayer;
+    }
+
+    /// <summary>
+    /// 弹道查询层掩码：Enemies | Wildlife（鹿在 Wildlife 层）。
+    /// 敌方层解析失败 → 0（调用方 fail-closed：本段无命中证据，与旧行为一致）；
+    /// Wildlife 层解析失败 → 只查敌方层（鹿打不到，但夜战/敌人弹道一个字节不变）。
+    /// </summary>
+    internal static int CombatLayerMask()
+    {
+        int enemies = EnemiesLayerIndex();
+        if (enemies < 0) return 0;
+        int mask = 1 << enemies;
+        int wildlife = WildlifeLayerIndex();
+        if (wildlife >= 0) mask |= 1 << wildlife;
+        return mask;
     }
 
     /// <summary>EnemyType 地面白名单（2.1 枚举逐值；Squid/Boss 系一律拒绝）。</summary>
@@ -346,6 +389,268 @@ internal static class MusketeerFoeFilter
         }
     }
 
+    /// <summary>
+    /// source（射手）有效门：**活着**（Damageable 未死/未禁用、Character 非 inert/grabbed）、
+    /// 所属 GO 活动、当前 world。只判 GO active 不够（死亡/被抓/石化期间 GO 仍可能是 active）。
+    /// 读不到 → false。放在**先验之前**求值：池复用旧射手/旧世界绝不再参与。
+    /// </summary>
+    internal static bool IsUsableSource(Archer archer)
+    {
+        try
+        {
+            if (archer == null || archer.gameObject == null) return false;
+            if (!archer.enabled || !archer.gameObject.activeInHierarchy) return false;
+            // Identity can be released synchronously before Runtime.Tick strips its package.
+            if (!MusketeerRuntime.IsMusketeer(archer)) return false;
+            Damageable damageable = archer._damageable;
+            if (damageable == null || !damageable.enabled || damageable.isDead) return false;
+            Character character = archer._character;
+            if (character == null || character.inert || character.grabbed) return false;
+            return MusketeerAccess.InWorld(archer);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 子弹记录的 shooter root → 当前 Archer 实例（命中时才解析；拿不到 = null，鹿门 fail-closed）。
+    /// 不缓存实例：池复用/换 life 后必须按当前对象重新判定。
+    /// </summary>
+    internal static Archer ResolveSourceArcher(GameObject shooterRoot)
+    {
+        try
+        {
+            if (shooterRoot == null) return null;
+            return shooterRoot.TryGetComponent<Archer>(out Archer archer) ? archer : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// "白天可猎普通鹿"判据（打猎扫描器与弹道命中共用，发射前另有 <see cref="IsDeerShotAllowed"/> 复核）：
+    /// * source（射手）必须**活着**/活动/当前 world（先判它，池复用旧身份直接拒绝；由调用方传入已解析的实例）；
+    /// * 候选 → 父链必须找到原生 `Deer` 根组件（绝不认名字或 tag；其他 mod 加的子 collider 也认得），
+    ///   且鹿根必须**当前 world**（旧世界/池化残留的鹿绝不参与）；
+    /// * 只认**鹿根自己的** Damageable：启用/未死/接受箭伤/非"无敌且被忽略"；
+    /// * 鹿根石化（Petrifiable.IsPetrified）→ 拒绝（石化雕像不碰）；
+    /// * 白天（`Kingdom.isDaytime`）：原生 tutorial 夜间例外**不适用**于火铳手，读不到一律拒绝（fail-closed）；
+    /// * Hind 坐骑没有 Deer 根组件 → 自然拒绝；兔子/鸟/鱼等小动物同理。
+    /// 返回 true 时输出可提交的原生 Damageable（鹿根上的那一个），且绝不指向射手自己。
+    /// </summary>
+    internal static bool TryGetHuntableDeer(Archer shooter, GameObject candidate, out Damageable damageable)
+    {
+        damageable = null;
+        try
+        {
+            if (!IsUsableSource(shooter)) return false;
+            if (candidate == null || !candidate.activeInHierarchy) return false;
+            GameObject shooterRoot = shooter.gameObject;
+            if (shooterRoot.transform == null) return false;
+
+            Deer deer = candidate.GetComponentInParent<Deer>();
+            if (deer == null || deer.gameObject == null || !deer.gameObject.activeInHierarchy) return false;
+            if (!MusketeerAccess.InWorld(deer.gameObject)) return false;   // 鹿根必须当前 world
+            Transform root = deer.transform;
+            if (root == null) return false;
+            // 绝不打自己（枪口在身前，几何上仍可能与本体重叠）。
+            if (root == shooterRoot.transform || root.IsChildOf(shooterRoot.transform)) return false;
+
+            Petrifiable petrifiable = deer.GetComponent<Petrifiable>();
+            if (petrifiable != null && petrifiable.IsPetrified) return false;
+            // 骑乘用坐骑（Steed/Hind）绝不当猎物：仓库既有"普通鹿"判据同款组件排除
+            // （PatchWorld_DeerPopulation：Deer 且非 Steed/Hind 才算普通鹿）。
+            if (deer.GetComponent<Steed>() != null || deer.GetComponent<Hind>() != null) return false;
+
+            Damageable own = deer.GetComponent<Damageable>();
+            if (own == null || !own.enabled || own.isDead) return false;
+            if (own.invulnerable && own.ignoredWhenInvulnerable) return false;
+            if (!own.IsDamagedBy(DamageSource.Arrow)) return false;
+            if (!IsDaytimeNow()) return false;
+
+            damageable = own;
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>当前是否白天（`Kingdom.isDaytime`）。读不到一律 false（fail-closed：绝不夜猎）。</summary>
+    internal static bool IsDaytimeNow()
+    {
+        try
+        {
+            Managers managers = Managers.Inst;
+            Kingdom kingdom = managers != null ? managers.kingdom : null;
+            return kingdom != null && kingdom.isDaytime;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 鹿猎适用性（发射与**命中**共用）：source 有效（活着/活动/world）+ 身份/战斗包仍在
+    /// （<see cref="MusketeerRuntime.IsArmedMusketeer"/>，池复用旧 life/失权后绝不再猎鹿）+
+    /// 原生 `ShouldShootWildlife` 同类前置（不在编队 / 不是骑士随从 / 未乘船）。
+    /// 敌人分支**绝不调用这里**（夜战/编队射击不受影响）。任一读不到 → false。
+    /// </summary>
+    internal static bool IsDeerHuntApplicable(Archer archer)
+    {
+        try
+        {
+            if (!IsUsableSource(archer)) return false;
+            if (!MusketeerRuntime.IsArmedMusketeer(archer)) return false;
+            if (archer.GetFormation() != null) return false;      // 原生猎鹿排除：编队（含 PlayerFormation）
+            if (archer._knight != null) return false;             // 原生猎鹿排除：骑士随从
+            Embarkee embarkee = archer._embarkee;
+            if (embarkee != null && embarkee.IsEmbarked) return false;   // 原生猎鹿排除：乘船
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 鹿目标解析（发射/命中共用）：适用性（source/身份/编队/骑士/乘船）**且**白天普通鹿有效。
+    /// 返回可提交的鹿根 Damageable。
+    /// </summary>
+    internal static bool TryResolveDeerTarget(Archer archer, GameObject candidate, out Damageable damageable)
+    {
+        damageable = null;
+        try
+        {
+            if (!IsDeerHuntApplicable(archer)) return false;
+            return TryGetHuntableDeer(archer, candidate, out damageable);
+        }
+        catch (Exception)
+        {
+            damageable = null;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// wildlife 扫描器的组合判据：**source 有效 AND 原生先验（其他 mod 的条件，可为 null）AND 白天普通鹿**。
+    /// 先解析并判 source（捕获时快照的射手 root；**绝不在入口外读 `archer.gameObject`**，
+    /// 也绝不让异常泄出闭包），再判先验、再判鹿；任一侧抛异常 → false（fail-closed：
+    /// 宁可本次无目标，绝不把异常泄进原生扫描器调用链，也不放宽第三方条件）。
+    /// 缓存/昼夜/编队变化由发射与命中侧再复核。
+    /// </summary>
+    internal static bool PassesWildlifeCondition(Scanner.ObjectCondition prior, GameObject candidate,
+        GameObject sourceRoot)
+    {
+        Archer source;
+        try
+        {
+            source = ResolveSourceArcher(sourceRoot);
+            if (!IsUsableSource(source)) return false;       // 池复用旧身份/死亡/失活射手：先拒，再谈先验
+            if (prior != null && !prior.Invoke(candidate)) return false;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        return TryGetHuntableDeer(source, candidate, out _);
+    }
+
+    /// <summary>
+    /// 猎鹿发射最终门（扫描器缓存可能跨昼夜/编队/身份变化，发射前必须复核）：
+    /// source 有效 + 身份/战斗包仍在 + 白天普通鹿 + 原生 `ShouldShootWildlife` 同类前置
+    /// （不在编队 / 不是骑士随从 / 未乘船）。
+    /// 敌人**不走这里**（敌人继续用 <see cref="IsValidGroundFoe"/>）。任一读不到 → false。
+    /// </summary>
+    internal static bool IsDeerShotAllowed(Archer archer, GameObject target)
+        => TryResolveDeerTarget(archer, target, out _);
+
+    /// <summary>候选父链上的原生 `Deer` 根组件（鹿身份的唯一入口；不认名字/tag/层）。null = 不是鹿。</summary>
+    internal static Deer GetDeerRoot(GameObject candidate)
+    {
+        try
+        {
+            return candidate != null ? candidate.GetComponentInParent<Deer>() : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>候选父链上是否有原生 `Deer` 根组件（鹿语义的入口；不认名字/tag/层）。</summary>
+    internal static bool IsDeerCandidate(GameObject candidate) => GetDeerRoot(candidate) != null;
+
+    /// <summary>
+    /// 发射/命中共用的"有效目标"总门（类型门分开）：
+    /// * 鹿候选（父链带 Deer，**不管它在哪一层**）→ 一律走鹿门 <see cref="IsDeerShotAllowed"/>：
+    ///   白天 + 原生猎鹿前置 + 鹿根自有 Damageable。夜里的鹿绝不当敌人打（不发弹、也不浪费子弹）。
+    /// * 其余候选 → 原生等价的地面敌人门 <see cref="IsValidGroundFoe"/>。
+    /// * 兔子等小动物两条门都进不去（不在这里开白名单）。
+    /// 弹道侧用 <see cref="TryResolveShotTarget"/> 复用同一套判据并解析出可提交的 Damageable。
+    /// </summary>
+    internal static bool IsValidShotTarget(Archer archer, GameObject target)
+    {
+        try
+        {
+            if (archer == null || archer.gameObject == null) return false;
+            if (IsDeerCandidate(target)) return IsDeerShotAllowed(archer, target);
+            return IsValidGroundFoe(target, archer.gameObject);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 弹道命中的统一解析（发射/命中同一套判据）：返回 false = 该候选对火铳弹完全透明
+    /// （不伤害也不阻挡——兔子等小动物正是这条路径）。
+    /// * 鹿优先：候选父链带 `Deer` → 必须整体通过鹿门（**命中时重新复核** source 活着/活动/world、
+    ///   身份/战斗包、**发射时快照的绑定 lease**、白天、编队/骑士/乘船、鹿根自有 Damageable）。
+    ///   射手发射后加入编队/骑士、被停用/死亡/失权、或同一 GO 回池后作为新 life 重新武装
+    ///   （lease 变化）→ 本次鹿命中作废（透明），等下一次决策。
+    /// * 其余候选走原生等价的地面敌人判据（**不加昼夜/编队/身份/lease 门**：敌弹旧语义不变）；
+    ///   Crusher 免疫位照旧消费子弹、不掉血。
+    /// </summary>
+    internal static bool TryResolveShotTarget(GameObject candidate, GameObject shooterRoot, long shooterLease,
+        out Damageable target, out bool immunityConsume)
+    {
+        target = null;
+        immunityConsume = false;
+        try
+        {
+            if (candidate == null || !candidate.activeInHierarchy) return false;
+            if (IsDeerCandidate(candidate))
+            {
+                Archer shooter = ResolveSourceArcher(shooterRoot);
+                // 同一 life 证明：InstanceID/Pointer 会被池复用，只有单调 lease 能证明"就是发射那一发的那条命"。
+                if (!MusketeerRuntime.MatchesBindingLease(shooter, shooterLease)) return false;
+                if (!TryResolveDeerTarget(shooter, candidate, out Damageable deerDamageable)) return false;
+                target = deerDamageable;
+                return true;
+            }
+            if (!IsValidGroundFoe(candidate, shooterRoot)) return false;
+            target = GetFoeDamageable(candidate);
+            if (target == null) return false;
+            immunityConsume = IsImmunityConsume(candidate);
+            return true;
+        }
+        catch (Exception)
+        {
+            target = null;
+            immunityConsume = false;
+            return false;
+        }
+    }
+
     /// <summary>命中即被消费但不掉血的免疫态：Crusher 且 !IsStunned（原生 Arrow.HitObject 同判据）。</summary>
     internal static bool IsImmunityConsume(GameObject candidate)
     {
@@ -374,50 +679,17 @@ internal static class MusketeerFoeFilter
     }
 }
 
-/// <summary>弹道候选（Unity 侧填充，纯选择器消费）：距离 + 是否可命中 + 是否免疫消费。</summary>
-internal struct MusketeerHitCandidate
-{
-    internal float Distance;
-    internal bool Valid;
-    internal bool ImmunityConsume;
-    internal Damageable Target;
-}
-
 /// <summary>
-/// 最近有效命中的纯选择器：与回调顺序无关（遍历取严格更近者）。
-/// 非法候选（友军/飞行/死亡/自己）不阻挡、不伤害；返回 -1 = 本段无有效命中。
+/// 一条自有子弹（纯托管对象 + 池化可视化；不入原生池、不挂原生组件）。记录本身也池化复用：
+/// 归还前会清空视觉/射击者等全部引用，绝不把旧发射者、旧世界或已归还的视觉二次消费。
 /// </summary>
-internal static class MusketeerHitSelection
-{
-    internal static int SelectNearest(MusketeerHitCandidate[] candidates, int count, out bool immunityConsume)
-    {
-        immunityConsume = false;
-        if (candidates == null) return -1;
-        int best = -1;
-        float bestDistance = float.MaxValue;
-        for (int i = 0; i < count && i < candidates.Length; i++)
-        {
-            if (!candidates[i].Valid) continue;
-            float distance = candidates[i].Distance;
-            if (!float.IsFinite(distance)) continue;
-            if (distance < bestDistance)
-            {
-                bestDistance = distance;
-                best = i;
-            }
-        }
-        if (best >= 0) immunityConsume = candidates[best].ImmunityConsume;
-        return best;
-    }
-}
-
-/// <summary>一条自有子弹（纯托管对象 + 池化可视化；不入原生池、不挂原生组件）。</summary>
 internal sealed class MusketeerBullet
 {
     internal GameObject Visual;
     internal SpriteRenderer Renderer;
     internal Vector2 Position;
-    internal float Direction;
+    /// <summary>单位方向向量：默认水平 (±1, 0)；仅合法鹿的"水平线不穿其碰撞体"时朝鹿身中部微倾。</summary>
+    internal Vector2 Direction;
     internal float Speed;
     internal float MaxDistance;
     internal float Travelled;
@@ -425,11 +697,17 @@ internal sealed class MusketeerBullet
     internal float Lifetime;
     internal bool Alive;
     internal GameObject ShooterRoot;
+    /// <summary>发射时快照的射手绑定 lease（鹿命中用它证明"同一 life"；0 = 未装包快照）。</summary>
+    internal long ShooterLease;
+    /// <summary>租约序号（每次从池中租出时递增；long 不会在正常玩法下溢出，生产路径无需重置）：
+    /// 重入回调后的旧帧绝不推进新租的同一条记录。</summary>
+    internal long Lease;
 }
 
 /// <summary>
 /// 火铳手射击实现（Unity 侧）：一次射击的完整事务 + 有界可增长子弹表。
-/// 所有入口异常隔离（绝不外抛进原生调用链）；物理缓冲按需增长且可复用，稳态零逐帧分配。
+/// 所有入口异常隔离（绝不外抛进原生调用链）；物理缓冲按需增长且可复用（数组饱和由完整 List 兜底），
+/// 弹丸记录/视觉池化复用，稳态零逐帧分配；共同伤害提交一次、绝不重试。
 /// </summary>
 internal static class MusketeerCombat
 {
@@ -440,8 +718,6 @@ internal static class MusketeerCombat
     /// </summary>
     internal const int MaxLiveBullets = MusketeerRuntime.MaxUnits;
 
-    /// <summary>单帧最大推进步长：长卡帧也把扫掠段限制在 Speed×MaxStep 之内。</summary>
-    internal const float MaxStepSeconds = 0.1f;
     /// <summary>子弹直线速度（units/s；本地显示常量，非随机、非原生 SO 参数）。</summary>
     internal const float BulletSpeed = 30f;
     /// <summary>寿命安全上限（秒）：射程/速度之外的第二道界。</summary>
@@ -449,13 +725,25 @@ internal static class MusketeerCombat
     /// <summary>子弹伤害（用户拍板基础伤害 2；无 perfect 倍率、无 AOE、无灼烧）。</summary>
     internal const int BulletDamage = 2;
 
-    /// <summary>物理命中缓冲/候选的初始容量与硬上限（饱和即保守终止，绝不在证据不全时打远处敌人）。</summary>
+    /// <summary>
+    /// 物理命中数组的初始容量与软上限：数组按需 32→256 扩容并复用（低密度场景零 List 索引开销）；
+    /// 到软上限仍饱和 → 换官方 List overload 拿**完整**结果，绝不再有"到硬上限直接吞弹"的路径。
+    /// </summary>
     private const int InitialHitCapacity = 32;
-    private const int MaxHitCapacity = 256;
+    private const int MaxArrayCapacity = 256;
 
     /// <summary>退休回执上限与重试间隔：Destroy 抛异常时保留自有引用，绝不因为一次异常丢掉所有权。</summary>
     private const int MaxRetiredVisuals = 64;
     private const float RetiredRetrySeconds = 1f;
+
+    /// <summary>
+    /// 鹿弹微调的最小水平距（几何退化保护：枪口几乎正对鹿身时不做近垂直/反向射击，
+    /// 留给原生转身后的下一次决策）。这是几何退化阈值，不是任何世界/生物的尺寸常量。
+    /// </summary>
+    private const float MinDeerAimDx = 0.05f;
+
+    /// <summary>鹿相关被动事件日志上限（每世界前 N 条；换世界重置，绝不每帧刷屏、无全场扫描）。</summary>
+    private const int MaxDeerLogsPerWorld = 8;
 
     /// <summary>Operator 提供的弹丸贴图（5x3、Point、PPU32、pivot 居中）。</summary>
     private const string BulletResourceName = "KingdomEnhancedMod.MusketeerBullet.png";
@@ -471,8 +759,11 @@ internal static class MusketeerCombat
     }
 
     private static readonly MusketeerBullet[] Bullets = new MusketeerBullet[MaxLiveBullets];
-    private static MusketeerHitCandidate[] _candidates = new MusketeerHitCandidate[InitialHitCapacity];
+    /// <summary>空闲弹丸记录（LIFO 复用；归还前已清空全部引用），避免每发 new MusketeerBullet。</summary>
+    private static readonly List<MusketeerBullet> RecordPool = new List<MusketeerBullet>(16);
     private static Il2CppStructArray<RaycastHit2D> _hitBuffer;
+    /// <summary>数组饱和时的完整结果列表（惰性创建一次；官方 List overload 会自动扩容并复用该 List）。</summary>
+    private static Il2CppSystem.Collections.Generic.List<RaycastHit2D> _hitList;
     private static readonly List<GameObject> VisualPool = new List<GameObject>(16);
     /// <summary>Destroy 抛异常时保留的自有弹丸引用（退休回执）：下次机会继续销毁，绝不静默丢引用。</summary>
     private static readonly List<GameObject> RetiredVisuals = new List<GameObject>(4);
@@ -482,14 +773,20 @@ internal static class MusketeerCombat
     private static float _nextRetiredRetryAt;
 
     private static int _count;
+    /// <summary>租约计数器（<see cref="MusketeerBullet.Lease"/> 用 long：正常玩法不可能溢出，
+    /// 生产路径无需重置，也就不会出现“重置后旧租约大于新帧边界”的判定混淆）。</summary>
+    private static long _leaseCounter;
+    /// <summary>推进重入门：伤害回调里的嵌套 Tick 一律 no-op（同一颗弹一帧只推进一次）。</summary>
+    private static bool _ticking;
     private static int _suppressedShots;
     private static int _skippedFullTableShots;
     private static bool _loggedMissingVisual;
     private static bool _loggedPhysicsUnavailable;
-    private static bool _loggedSaturatedCasts;
     private static bool _loggedTableFull;
     private static BulletSpriteState _bulletSpriteState;
     private static Sprite _bulletSprite;
+    /// <summary>本世界已输出的鹿事件日志条数（上限 <see cref="MaxDeerLogsPerWorld"/>；随世界身份重置）。</summary>
+    private static int _deerLogs;
 
     /// <summary>当前存活子弹数（只读诊断）。</summary>
     internal static int LiveCount => _count;
@@ -500,7 +797,7 @@ internal static class MusketeerCombat
     /// <summary>因子弹表满而跳过的射击次数（诊断；绝不静默）。</summary>
     internal static int SkippedFullTableShots => _skippedFullTableShots;
 
-    /// <summary>物理缓冲容量（诊断/测试）。</summary>
+    /// <summary>物理命中数组容量（诊断/测试；饱和时由完整 List 兜底，不再是吞伤上限）。</summary>
     internal static int HitCapacity => _hitBuffer != null ? _hitBuffer.Length : 0;
 
     /// <summary>池中空闲弹丸视觉数（诊断/测试）。</summary>
@@ -515,6 +812,10 @@ internal static class MusketeerCombat
     /// <summary>测试钩子：取第 index 条在场子弹的可视化（越界返回 null）。</summary>
     internal static GameObject VisualForTests(int index)
         => index >= 0 && index < _count ? Bullets[index].Visual : null;
+
+    /// <summary>测试钩子：取第 index 条在场子弹的记录（越界返回 null）；验证池化复用与字段清理。</summary>
+    internal static MusketeerBullet LiveRecordForTests(int index)
+        => index >= 0 && index < _count ? Bullets[index] : null;
 
     /// <summary>测试钩子：把一条视觉塞进空闲池（模拟跨世界/失活父层留下的旧池条目）。</summary>
     internal static void InjectPooledVisualForTests(GameObject visual)
@@ -584,6 +885,7 @@ internal static class MusketeerCombat
             _worldGoId = goId;
             if (_count > 0) DespawnAll();   // 先在旧世界里丢弹，再丢掉承载它们的池对象
             ResetPoolObjects();
+            _deerLogs = 0;                  // 每世界重置鹿事件日志预算（复用同一处世界身份检测）
         }
         RetryRetired();
         return world;
@@ -681,7 +983,10 @@ internal static class MusketeerCombat
     }
 
     /// <summary>
-    /// 一次自有射击：显式时间闸 + 合法地面目标 + 出膛。任一前置不满足都不消耗闸（下一发重试）。
+    /// 一次自有射击：显式时间闸 + 合法目标 + 出膛。任一前置不满足都不消耗闸（下一发重试）。
+    /// 类型门分开：敌人走原生等价的 <see cref="MusketeerFoeFilter.IsValidGroundFoe"/>；
+    /// 鹿只在"白天 + 原生猎鹿前置（无编队/无骑士/未乘船）"下放行（<see cref="MusketeerFoeFilter.IsDeerShotAllowed"/>），
+    /// 兔子等小动物不在这两条门里（弹道侧同样透明）。
     /// </summary>
     internal static bool TryFireOwnBullet(Archer archer)
     {
@@ -694,11 +999,14 @@ internal static class MusketeerCombat
         GameObject target;
         try { target = archer._shootingTarget; }
         catch (Exception) { return false; }
-        GameObject shooterRoot = archer.gameObject;
-        if (!MusketeerFoeFilter.IsValidGroundFoe(target, shooterRoot)) return false;
+        // 发射门：鹿候选一律走鹿门（白天 + 原生猎鹿前置），其余走原生等价敌人门；
+        // 兔子等小动物两条门都进不去（弹道侧同样透明）。
+        if (!MusketeerFoeFilter.IsValidShotTarget(archer, target)) return false;
         if (!ShooterReady(archer)) return false;
 
-        if (!TryComputeMuzzle(archer, out Vector2 origin, out float direction)) return false;
+        if (!TryComputeMuzzle(archer, out Vector2 origin, out float facing)) return false;
+        // 鹿瞄准证据不足/几何退化 → 本次不开火（敌人恒水平发射，完全不受影响）。
+        if (!TryComputeShotDirection(target, origin, facing, out Vector2 direction)) return false;
         float range = MusketeerRuntime.ConfiguredRange(archer);
         if (!(range > 0f) || !float.IsFinite(range)) return false;
 
@@ -713,8 +1021,12 @@ internal static class MusketeerCombat
             return false;
         }
 
-        if (!TryCreateBullet(archer, archer.ActiveArrowAttack, origin, direction, range, world)) return false;
+        // 绑定 lease 快照（鹿资格命中时比对；敌方命中不使用）：同 GO 回池再武装的新 life 与旧弹分离。
+        long shooterLease = MusketeerRuntime.BindingLease(archer);
+        if (!TryCreateBullet(archer, archer.ActiveArrowAttack, origin, direction, range, world, shooterLease))
+            return false;
 
+        LogDeerShot(target, origin, direction, range);   // 被动、每世界有界；非鹿直接 no-op
         float nextEligible = MusketeerRuntime.ConsumeShotGate(archer);
         MusketeerRuntime.ObserveOwnShot(archer, nextEligible);
         MusketeerVisuals.NotifyShot(archer, nextEligible);
@@ -722,76 +1034,192 @@ internal static class MusketeerCombat
     }
 
     /// <summary>
+    /// 本次出膛方向（单位向量）；**false = 本次不开火**（鹿缺瞄准证据/几何退化 → 等原生转身或下一轮决策）。
+    /// * 非鹿目标（含一切敌人）：恒 `(facing, 0)` 平射并返回 true——敌方弹道绝不受影响；
+    /// * 鹿候选：只认**鹿根自身**的 `Collider2D`（**绝不**用 `GetComponentInChildren`：可能拿到物理脚圈
+    ///   而不是 Wildlife body），要求 collider enabled、所在 GO 活动、bounds 有限且非空；鹿根必须
+    ///   当前 world、且非 `Steed`/`Hind` 坐骑。枪口水平线穿其 bounds 且目标在面向一侧 → 平射
+    ///   （原尺寸鹿的常态）；否则朝 bounds 中心做一次固定直线微调——但目标在枪口背后，或
+    ///   `|Δx| < MinDeerAimDx` 时**拒绝**（绝不反向背射、绝不近垂直猜射）。
+    /// 方向在**发射时快照**：不追踪移动的鹿、无 homing、无曲线、不增加射程（Travelled/MaxDistance
+    /// 仍是同一欧氏预算）。
+    /// </summary>
+    private static bool TryComputeShotDirection(GameObject target, Vector2 origin, float facing,
+        out Vector2 direction)
+    {
+        direction = new Vector2(facing, 0f);
+        try
+        {
+            Deer deer = MusketeerFoeFilter.GetDeerRoot(target);
+            if (deer == null) return true;                                   // 非鹿：恒平射
+            if (deer.gameObject == null) return false;
+            if (!MusketeerAccess.InWorld(deer.gameObject)) return false;     // 鹿根必须当前 world
+            if (deer.GetComponent<Steed>() != null || deer.GetComponent<Hind>() != null) return false;
+
+            Collider2D body = deer.GetComponent<Collider2D>();               // 只认鹿根自身的 body collider
+            if (body == null || !body.enabled) return false;
+            if (body.gameObject == null || !body.gameObject.activeInHierarchy) return false;
+            Bounds bounds = body.bounds;
+            float minX = bounds.min.x;
+            float maxX = bounds.max.x;
+            float minY = bounds.min.y;
+            float maxY = bounds.max.y;
+            if (!float.IsFinite(minX) || !float.IsFinite(maxX)
+                || !float.IsFinite(minY) || !float.IsFinite(maxY))
+                return false;
+            if (!(maxX > minX) || !(maxY > minY)) return false;              // 空 bounds：无瞄准证据
+
+            float dx = bounds.center.x - origin.x;
+            bool ahead = facing >= 0f ? dx > 0f : dx < 0f;
+            if (!ahead) return false;                                        // 目标在枪口背后：不背射，等原生转身
+            if (origin.y >= minY && origin.y <= maxY) return true;           // 平射本来穿身：照旧水平
+            if (Mathf.Abs(dx) < MinDeerAimDx) return false;                  // Δx 近 0（退化）：不猜
+
+            float dy = bounds.center.y - origin.y;
+            float length = Mathf.Sqrt(dx * dx + dy * dy);
+            if (!(length > 1e-4f) || !float.IsFinite(length)) return false;  // 归一化必须有限非零
+            direction = new Vector2(dx / length, dy / length);
+            return true;
+        }
+        catch (Exception)
+        {
+            direction = new Vector2(facing, 0f);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// 每帧推进（runtime Tick 调用；暂停/关闭/离线不推进、不伤害）。
-    /// 步长在**施法前**按剩余射程与剩余寿命钳制；扫掠段 [prev,next]、最近有效命中即消费
-    /// （先丢子弹再做伤害，重入不可能二次命中）。
+    /// 步长在**施法前**按剩余射程与剩余寿命钳制（用完整有效 dt，低帧不再慢弹；大 dt 由连续
+    /// Linecast 线段保证不隧穿/不越界）；扫掠段 [prev,next]、最近有效命中即消费。
+    /// 重入与边界（评审门）：
+    /// * 同步伤害回调里的嵌套 Tick 一律 no-op（<c>_ticking</c> + try/finally）：同一颗弹一帧只推进一次，
+    ///   回调期间新租的记录也绝不被嵌套 Tick 或本帧推进；
+    /// * 每次**真实伤害回调**返回时最小复核 world 身份/可用性、功能开关与暂停/失权门（不做逐单位扫描），
+    ///   任一已变 → 中止本帧剩余推进（旧 world 的其它弹绝不在新状态下继续结算）；
+    /// * 租约序号保证表被回调重排后旧帧不碰新租记录。
     /// </summary>
     internal static void Tick(float deltaSeconds, bool playing)
     {
-        // 世界作用域守卫先跑：换岛/失活旧层时先丢掉自有池与在场子弹（同世界的暂停/开关切换不动它）。
-        EnsureWorldScope();
-        if (_count == 0) return;
-        if (!playing) return;
-        if (!(deltaSeconds > 0f) || !float.IsFinite(deltaSeconds)) return;
-        if (deltaSeconds > MaxStepSeconds) deltaSeconds = MaxStepSeconds;
-
-        for (int i = _count - 1; i >= 0; i--)
+        if (_ticking) return;   // 嵌套 Tick（伤害回调内）：本帧推进已在进行，绝不二次推进任何弹
+        _ticking = true;
+        try
         {
-            MusketeerBullet bullet = Bullets[i];
-            if (bullet == null || !bullet.Alive)
-            {
-                RemoveAt(i);
-                continue;
-            }
+            // 世界作用域守卫先跑：换岛/失活旧层时先丢掉自有池与在场子弹（同世界的暂停/开关切换不动它）。
+            EnsureWorldScope();
+            if (_count == 0) return;
+            if (!playing) return;
+            if (!(deltaSeconds > 0f) || !float.IsFinite(deltaSeconds)) return;
 
-            float remaining = bullet.MaxDistance - bullet.Travelled;
-            float lifeLeft = bullet.Lifetime - bullet.Age;
-            float step = bullet.Speed * deltaSeconds;
-            float allowed = Mathf.Min(step, Mathf.Min(remaining, bullet.Speed * lifeLeft));
-            if (!(allowed > 0f) || !float.IsFinite(allowed))
+            // 本帧边界：world 身份 + 此刻已租出的记录（Lease ≤ frameLease）才属于本帧。
+            IntPtr frameWorldPointer = _worldPointer;
+            int frameWorldGoId = _worldGoId;
+            long frameLease = _leaseCounter;
+            for (int i = _count - 1; i >= 0; i--)
             {
-                // 射程/寿命已到：绝不再向前施法。
-                bullet.Alive = false;
-                DespawnVisual(bullet);
-                RemoveAt(i);
-                continue;
-            }
-
-            Vector2 from = bullet.Position;
-            Vector2 to = new Vector2(from.x + bullet.Direction * allowed, from.y);
-
-            if (TryResolveSegment(from, to, bullet.ShooterRoot, out Damageable hitTarget, out bool immunityConsume))
-            {
-                // 消费闩先于伤害：先把子弹从表里摘掉并归还可视化，再调用 ReceiveDamage。
-                bullet.Alive = false;
-                DespawnVisual(bullet);
-                RemoveAt(i);
-                if (!immunityConsume && hitTarget != null)
+                if (i >= _count) continue;                              // 回调重入收缩了表：该槽已不存在
+                MusketeerBullet bullet = Bullets[i];
+                if (bullet == null || !bullet.Alive)
                 {
-                    // 原生 shield/preDamage/Invulnerable 处理全部保留；本模块不写任何 HP 字段。
-                    hitTarget.ReceiveDamage(BulletDamage, bullet.ShooterRoot, DamageSource.Arrow);
+                    RemoveAt(i);
+                    continue;
                 }
-                continue;
-            }
+                if (bullet.Lease > frameLease) continue;                // 新租记录：不属于本帧
 
-            bullet.Position = to;
-            bullet.Travelled += allowed;
-            bullet.Age += deltaSeconds;
+                float remaining = bullet.MaxDistance - bullet.Travelled;
+                float lifeLeft = bullet.Lifetime - bullet.Age;
+                float step = bullet.Speed * deltaSeconds;
+                float allowed = Mathf.Min(step, Mathf.Min(remaining, bullet.Speed * lifeLeft));
+                if (!(allowed > 0f) || !float.IsFinite(allowed))
+                {
+                    // 射程/寿命已到：绝不再向前施法。
+                    bullet.Alive = false;
+                    DespawnVisual(bullet);
+                    RemoveAt(i);
+                    continue;
+                }
 
-            if (bullet.Travelled >= bullet.MaxDistance || bullet.Age >= bullet.Lifetime
-                || bullet.Position.y <= GroundSurfaceY())
-            {
-                bullet.Alive = false;
-                DespawnVisual(bullet);
-                RemoveAt(i);
-                continue;
-            }
+                Vector2 from = bullet.Position;
+                Vector2 to = new Vector2(from.x + bullet.Direction.x * allowed, from.y + bullet.Direction.y * allowed);
 
-            try
-            {
-                if (bullet.Visual != null) bullet.Visual.transform.position = bullet.Position;
+                // 斜向弹先裁到**实际地面交点**，只扫地上段（水平弹/敌方弹完全不受影响）：
+                // 绝不先把整段扫完再"落到地下才消失"——那会穿过地面命中地下单位。
+                float groundY = GroundSurfaceY();
+                bool reachedGround = false;
+                if (bullet.Direction.y < 0f && to.y < groundY)
+                {
+                    if (from.y <= groundY)
+                    {
+                        // 起点已在地面之下（异常几何）：立即终止，绝不下扫。
+                        bullet.Alive = false;
+                        DespawnVisual(bullet);
+                        RemoveAt(i);
+                        continue;
+                    }
+                    float t = (groundY - from.y) / (to.y - from.y);
+                    if (!(t > 0f)) t = 0f;
+                    if (t > 1f) t = 1f;
+                    to = new Vector2(from.x + (to.x - from.x) * t, groundY);
+                    reachedGround = true;
+                }
+
+                if (TryResolveSegment(from, to, bullet.ShooterRoot, bullet.ShooterLease,
+                        out Damageable hitTarget, out bool immunityConsume))
+                {
+                    // 消费闩先于伤害：先把子弹从表里摘掉并归还可视化/记录，再调用共同 Submit。
+                    // 归还记录会清空 source 引用 —— 先快照提交参数（评审门：清字段后绝不再读）。
+                    GameObject source = bullet.ShooterRoot;
+                    bool deerHit = hitTarget != null && MusketeerFoeFilter.GetDeerRoot(hitTarget.gameObject) != null;
+                    bullet.Alive = false;
+                    DespawnVisual(bullet);
+                    RemoveAt(i);
+                    if (!immunityConsume && hitTarget != null)
+                    {
+                        SubmitBulletDamage(hitTarget, source);
+                        if (deerHit) LogDeerSubmit(hitTarget);
+                        // 伤害回调同步返回边界：状态可能已变（换世界/关闭/失权/暂停）→
+                        // 旧 world 的本轮剩余弹绝不再继续推进（world 变化/失活时顺手完成收尾）。
+                        if (!FrameStillAdvancing(frameWorldPointer, frameWorldGoId))
+                        {
+                            EnsureWorldScope();
+                            return;
+                        }
+                    }
+                    continue;
+                }
+
+                if (reachedGround)
+                {
+                    // 该步只扫到地面交点且没有命中有效目标：子弹落在真实地面上，终止。
+                    bullet.Alive = false;
+                    DespawnVisual(bullet);
+                    RemoveAt(i);
+                    continue;
+                }
+
+                bullet.Position = to;
+                bullet.Travelled += allowed;
+                bullet.Age += deltaSeconds;                              // 完整有效 dt（不再截断为 0.1s）
+
+                if (bullet.Travelled >= bullet.MaxDistance || bullet.Age >= bullet.Lifetime
+                    || bullet.Position.y <= GroundSurfaceY())
+                {
+                    bullet.Alive = false;
+                    DespawnVisual(bullet);
+                    RemoveAt(i);
+                    continue;
+                }
+
+                try
+                {
+                    if (bullet.Visual != null) bullet.Visual.transform.position = bullet.Position;
+                }
+                catch (Exception) { }
             }
-            catch (Exception) { }
+        }
+        finally
+        {
+            _ticking = false;
         }
     }
 
@@ -807,6 +1235,7 @@ internal static class MusketeerCombat
                 DespawnVisual(bullet);
             }
             Bullets[i] = null;
+            ReleaseRecord(bullet);
         }
         _count = 0;
     }
@@ -827,17 +1256,20 @@ internal static class MusketeerCombat
     {
         ResetPool();
         RetiredVisuals.Clear();
+        RecordPool.Clear();
         _worldPointer = IntPtr.Zero;
         _worldGoId = 0;
         _nextRetiredRetryAt = 0f;
+        _leaseCounter = 0;
+        _ticking = false;
         _suppressedShots = 0;
         _skippedFullTableShots = 0;
         _loggedMissingVisual = false;
         _loggedPhysicsUnavailable = false;
-        _loggedSaturatedCasts = false;
         _loggedTableFull = false;
-        _candidates = new MusketeerHitCandidate[InitialHitCapacity];
+        _deerLogs = 0;
         _hitBuffer = null;
+        _hitList = null;
     }
 
     /// <summary>测试钩子：注入弹丸精灵（测试程序集没有嵌入资源；生产走 EnsureBulletSprite）。</summary>
@@ -870,7 +1302,9 @@ internal static class MusketeerCombat
 
     /// <summary>
     /// 出膛原点/朝向：已举枪 Aim 枪口锚点 [48,14] → 角色本地 → 世界（TransformPoint 自带朝向符号）；
-    /// 翻转沿用原生 renderer.flipX 的符号修正，绝不使用原生 2.5 前移或别的硬编码偏移。
+    /// 锚点本地偏移乘共用外观缩放 <see cref="MusketeerAtlas.AppearanceScale"/>（与自有 sprite 的
+    /// localScale 同源：出膛点与所见的人物+手持枪严格一致）；翻转沿用原生 renderer.flipX 的符号修正，
+    /// 绝不使用原生 2.5 前移或别的硬编码偏移。
     /// </summary>
     internal static bool TryComputeMuzzle(Archer archer, out Vector2 origin, out float direction)
     {
@@ -886,7 +1320,9 @@ internal static class MusketeerCombat
             SpriteRenderer native = archer._spriteRenderer;
             bool flip = native != null && native.flipX;
             float artSign = flip ? -1f : 1f;
-            Vector3 local = new Vector3(localX * artSign, localY, 0f);
+            // 与自有 sprite 的 localScale 同一常量：枪口随 0.9 外观缩放一起收，方向规则不变。
+            Vector3 local = new Vector3(localX * artSign * MusketeerAtlas.AppearanceScale,
+                localY * MusketeerAtlas.AppearanceScale, 0f);
             Vector3 world = root.TransformPoint(local);
             if (!float.IsFinite(world.x) || !float.IsFinite(world.y)) return false;
 
@@ -902,132 +1338,225 @@ internal static class MusketeerCombat
         }
     }
 
-    /// <summary>
-    /// 本段是否消费了子弹（命中有效地面敌人 → 输出目标与免疫位；否则 false = 继续飞）。
-    /// 最近有效命中由纯选择器决定（与命中回调顺序无关）；友军/飞行/未知/死亡/自己为非法候选。
-    /// 物理缓冲饱和（即使扩到硬上限）时**保守终止**：消费子弹但不造成任何伤害——
-    /// 绝不把"证据不全"变成"打中更远的敌人"。
-    /// </summary>
-    private static bool TryResolveSegment(Vector2 from, Vector2 to, GameObject shooterRoot,
+    /// <summary>本段是否消费子弹（true = 消费：命中有效目标，或证据不完整时保守终止；false = 继续飞）。</summary>
+    private static bool TryResolveSegment(Vector2 from, Vector2 to, GameObject shooterRoot, long shooterLease,
         out Damageable hitTarget, out bool immunityConsume)
     {
         hitTarget = null;
         immunityConsume = false;
-        int count = Sweep(from, to, shooterRoot, out bool saturated);
-        if (saturated)
-        {
-            if (!_loggedSaturatedCasts)
-            {
-                _loggedSaturatedCasts = true;
-                Log("physics cast saturated at the hard limit; bullets terminate without damage instead of guessing");
-            }
-            return true;
-        }
-        int best = MusketeerHitSelection.SelectNearest(_candidates, count, out immunityConsume);
-        if (best < 0)
-        {
-            ClearCandidates(count);
-            return false;
-        }
-        hitTarget = _candidates[best].Target;
-        ClearCandidates(count);
-        return true;
-    }
-
-    private static void ClearCandidates(int count)
-    {
-        for (int i = 0; i < count && i < _candidates.Length; i++) _candidates[i] = default;
+        int mask = MusketeerFoeFilter.CombatLayerMask();
+        if (mask == 0) return false;   // 敌方层解析失败：本段无命中证据（fail-closed：继续飞，与旧行为一致）
+        if (!TryQuerySegment(from, to, mask, shooterRoot, shooterLease, out hitTarget, out immunityConsume))
+            return true;               // 证据不完整（已限频记录）：保守消费，绝不伪造命中
+        return hitTarget != null;
     }
 
     /// <summary>
-    /// 扫掠一次（本段）并填充候选表：Enemies 层；最近有效命中由纯选择器决定（与命中回调顺序无关）。
-    /// 缓冲按需倍增（32→256）并复用；到硬上限仍饱和 → saturated=true（调用方保守终止）。
-    /// **唯一的物理调用点**：若 2.4 实际 interop 签名与此不同，只需改这一个方法。
+    /// 查询本段并流式选最近有效命中：true = 证据完整（target 可为 null = 本段无有效目标）；
+    /// false = 物理证据不完整（真实 API 故障）——调用方保守消费、不伤害。
+    /// 查询层 = Enemies | Wildlife（鹿所在层；解析不到 Wildlife 时退回纯敌方层）；
+    /// 常态走可复用数组（低密度场景零 List 索引开销）；数组到软上限仍饱和 → 官方 List overload
+    /// 拿全量结果（Unity 自动扩容并复用；不设第二个吞伤上限，也绝不无限循环）。
+    /// 选择策略：流式遍历全部结果取严格更近者（与返回顺序无关；友军/飞行/小动物/未知/死亡/自己只跳过）；
+    /// 鹿候选另需发射时快照的绑定 lease 仍是同一 life。
     /// </summary>
-    private static int Sweep(Vector2 from, Vector2 to, GameObject shooterRoot, out bool saturated)
+    private static bool TryQuerySegment(Vector2 from, Vector2 to, int layerMask, GameObject shooterRoot,
+        long shooterLease, out Damageable target, out bool immunityConsume)
     {
-        saturated = false;
-        int layer = MusketeerFoeFilter.EnemiesLayerIndex();
-        if (layer < 0) return 0;
-
-        // Once enlarged, keep the nonalloc buffer instead of allocating 32/64/... again
-        // for every crowded segment. Only active bullets are iterated.
+        target = null;
+        immunityConsume = false;
+        float segmentX = to.x - from.x;
+        float segmentY = to.y - from.y;
+        // 段长必须按整段算（鹿弹可能微倾；水平时等价于旧的 |Δx|）。
+        float segmentLength = Mathf.Sqrt(segmentX * segmentX + segmentY * segmentY);
         int capacity = _hitBuffer != null ? _hitBuffer.Length : InitialHitCapacity;
         while (true)
         {
-            EnsureHitCapacity(capacity);
+            EnsureHitArrayCapacity(capacity);
             int hits;
             try
             {
-                hits = Physics2D.LinecastNonAlloc(from, to, _hitBuffer, 1 << layer);
+                hits = Physics2D.LinecastNonAlloc(from, to, _hitBuffer, layerMask);
             }
             catch (Exception)
             {
-                if (!_loggedPhysicsUnavailable)
-                {
-                    _loggedPhysicsUnavailable = true;
-                    Log("physics sweep unavailable; musketeer bullets deal no damage until fixed");
-                }
-                saturated = true; // unknown segment: consume without damage, never skip a possible front enemy
-                return 0;
+                LogPhysicsUnavailableOnce();
+                return false;
             }
-            if (hits < capacity) return Classify(hits, from, to, shooterRoot);
-            if (capacity >= MaxHitCapacity)
+            if (hits < 0 || hits > _hitBuffer.Length)
             {
-                saturated = true;
-                return 0;
+                LogPhysicsUnavailableOnce();   // 越界返回值：证据不可信
+                return false;
             }
-            capacity = Mathf.Min(MaxHitCapacity, capacity * 2);
+            if (hits < capacity)
+            {
+                SelectNearestFromArray(_hitBuffer, hits, segmentLength, shooterRoot, shooterLease,
+                    out target, out immunityConsume);
+                return true;
+            }
+            if (capacity >= MaxArrayCapacity) break;
+            capacity = Mathf.Min(MaxArrayCapacity, capacity * 2);
+        }
+
+        // 数组在软上限仍饱和：换官方完整 List overload（结果完整、可复用；只信返回的 count）。
+        try
+        {
+            EnsureHitList();
+            ContactFilter2D filter = BuildLegacyContactFilter(layerMask);
+            int hits = Physics2D.Linecast(from, to, filter, _hitList);
+            if (hits < 0 || hits > _hitList.Count)
+            {
+                LogPhysicsUnavailableOnce();   // 返回值超出列表内容：证据不可信
+                return false;
+            }
+            SelectNearestFromList(_hitList, hits, segmentLength, shooterRoot, shooterLease,
+                out target, out immunityConsume);
+            return true;
+        }
+        catch (Exception)
+        {
+            LogPhysicsUnavailableOnce();
+            return false;
         }
     }
 
-    private static void EnsureHitCapacity(int capacity)
+    /// <summary>
+    /// 与旧 `LinecastNonAlloc(..., layerMask)` 内部 `ContactFilter2D.CreateLegacyFilter` 同语义：
+    /// triggers 由全局 `Physics2D.queriesHitTriggers` 决定、层掩码与数组路径完全一致
+    /// （Enemies | Wildlife）、不做深度/法线过滤。
+    /// </summary>
+    private static ContactFilter2D BuildLegacyContactFilter(int layerMask)
+    {
+        ContactFilter2D filter = new ContactFilter2D();
+        filter.useTriggers = Physics2D.queriesHitTriggers;
+        filter.useLayerMask = true;
+        filter.layerMask = layerMask;
+        filter.useDepth = false;
+        filter.useNormalAngle = false;
+        return filter;
+    }
+
+    private static void SelectNearestFromArray(Il2CppStructArray<RaycastHit2D> hits, int count,
+        float segmentLength, GameObject shooterRoot, long shooterLease,
+        out Damageable target, out bool immunityConsume)
+    {
+        float bestDistance = float.MaxValue;
+        Damageable bestTarget = null;
+        bool bestImmunity = false;
+        for (int i = 0; i < count && i < hits.Length; i++)
+            ConsiderHit(hits[i], segmentLength, shooterRoot, shooterLease,
+                ref bestDistance, ref bestTarget, ref bestImmunity);
+        target = bestTarget;
+        immunityConsume = bestImmunity;
+    }
+
+    private static void SelectNearestFromList(Il2CppSystem.Collections.Generic.List<RaycastHit2D> hits, int count,
+        float segmentLength, GameObject shooterRoot, long shooterLease,
+        out Damageable target, out bool immunityConsume)
+    {
+        float bestDistance = float.MaxValue;
+        Damageable bestTarget = null;
+        bool bestImmunity = false;
+        for (int i = 0; i < count; i++)
+            ConsiderHit(hits[i], segmentLength, shooterRoot, shooterLease,
+                ref bestDistance, ref bestTarget, ref bestImmunity);
+        target = bestTarget;
+        immunityConsume = bestImmunity;
+    }
+
+    /// <summary>
+    /// 流式最近命中（绝不重建候选对象）：段外/透明候选只跳过，不阻挡也不伤害。
+    /// 透明 = 友军/飞行/死亡/自己 + **兔子等小动物**（有 Damageable 但既不是敌人也不是白天可猎鹿）；
+    /// 鹿命中必须通过鹿根组件 + 鹿根自己的 Damageable 校验（被其他 mod 改层/加子 collider 也照此），
+    /// 且发射时快照的绑定 lease 仍是同一 life（池复用旧弹绝不伤鹿）；
+    /// 严格更近才替换（同距保持先遇到的，结果与回调顺序无关）。
+    /// </summary>
+    private static void ConsiderHit(RaycastHit2D hit, float segmentLength, GameObject shooterRoot, long shooterLease,
+        ref float bestDistance, ref Damageable bestTarget, ref bool bestImmunity)
+    {
+        float distance = hit.distance;
+        if (!float.IsFinite(distance) || distance < 0f || distance > segmentLength + 1e-4f) return;
+        if (!(distance < bestDistance)) return;
+
+        Collider2D collider = hit.collider;
+        if (collider == null) return;
+        GameObject candidate = collider.gameObject;
+        if (candidate == null) return;
+        if (!MusketeerFoeFilter.TryResolveShotTarget(candidate, shooterRoot, shooterLease,
+                out Damageable target, out bool immunityConsume))
+            return;
+
+        bestDistance = distance;
+        bestTarget = target;
+        bestImmunity = immunityConsume;
+    }
+
+    private static void EnsureHitArrayCapacity(int capacity)
     {
         if (_hitBuffer == null || _hitBuffer.Length != capacity)
             _hitBuffer = new Il2CppStructArray<RaycastHit2D>(capacity);
-        if (_candidates.Length < capacity)
-            _candidates = new MusketeerHitCandidate[capacity];
     }
 
-    private static int Classify(int hits, Vector2 from, Vector2 to, GameObject shooterRoot)
+    private static void EnsureHitList()
     {
-        if (hits <= 0) return 0;
-        if (hits > _hitBuffer.Length) hits = _hitBuffer.Length;
-        if (hits > _candidates.Length) hits = _candidates.Length;
-
-        float segmentLength = Mathf.Abs(to.x - from.x);
-        int used = 0;
-        for (int i = 0; i < hits; i++)
-        {
-            RaycastHit2D hit = _hitBuffer[i];
-            Collider2D collider = hit.collider;
-            if (collider == null) continue;
-            GameObject candidate = collider.gameObject;
-            if (candidate == null) continue;
-
-            float distance = hit.distance;
-            // 段外/非法命中：本段证据不成立 → 直接跳过（绝不把"更远的敌人"当最近命中）。
-            if (!float.IsFinite(distance) || distance < 0f || distance > segmentLength + 1e-4f) continue;
-
-            bool valid = MusketeerFoeFilter.IsValidGroundFoe(candidate, shooterRoot);
-            _candidates[used] = new MusketeerHitCandidate
-            {
-                Distance = distance,
-                Valid = valid,
-                ImmunityConsume = valid && MusketeerFoeFilter.IsImmunityConsume(candidate),
-                Target = valid ? MusketeerFoeFilter.GetFoeDamageable(candidate) : null,
-            };
-            used++;
-        }
-        return used;
+        if (_hitList == null) _hitList = new Il2CppSystem.Collections.Generic.List<RaycastHit2D>();
     }
 
-    private static bool TryCreateBullet(Archer archer, ArrowAttack attack, Vector2 origin, float direction,
-        float range, Transform world)
+    private static void LogPhysicsUnavailableOnce()
+    {
+        if (_loggedPhysicsUnavailable) return;
+        _loggedPhysicsUnavailable = true;
+        Log("physics sweep unavailable; musketeer bullets deal no damage until fixed");
+    }
+
+    /// <summary>
+    /// 共同伤害入口（唯一伤害调用点）：同步 Submit 到原生 ReceiveDamage 路径；异常绝不外抛、
+    /// 绝不重试（已部分生效的伤害不补打），同帧其它子弹继续；返回值语义（Skipped/Submitted/Faulted）
+    /// 由共享 helper 负责，调用方不把它当 HP 必减。
+    /// </summary>
+    private static void SubmitBulletDamage(Damageable target, GameObject source)
+    {
+        try
+        {
+            CombatDamage.Submit(target, BulletDamage, source, DamageSource.Arrow);
+        }
+        catch (Exception)
+        {
+            // 共享 helper 契约内已捕获单目标回调异常；这里只做最后一道隔离（契约被破坏也不阻塞同帧其它弹）。
+        }
+    }
+
+    /// <summary>
+    /// 伤害回调返回边界的最小复核（评审门，不做逐单位扫描）：功能开关、暂停/失权门、本轮 world
+    /// 身份与可用性。任一已变（含状态读取异常 = 无法证明仍有效）→ false，调用方中止本帧剩余推进，
+    /// 旧 world 的其它弹绝不在新状态下继续结算。
+    /// </summary>
+    private static bool FrameStillAdvancing(IntPtr frameWorldPointer, int frameWorldGoId)
+    {
+        try
+        {
+            if (!MusketeerAccess.Enabled) return false;
+            if (!MusketeerAccess.Playing) return false;      // 暂停/失权：保持原语义（不推进、不伤害）
+            if (!TryGetUsableWorld(out _, out IntPtr pointer, out int goId)) return false;
+            return pointer == frameWorldPointer && goId == frameWorldGoId;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryCreateBullet(Archer archer, ArrowAttack attack, Vector2 origin, Vector2 direction,
+        float range, Transform world, long shooterLease)
     {
         if (world == null) return false;
-        if (!TryAcquireVisual(direction, attack, world, out GameObject visual, out SpriteRenderer renderer))
+
+        MusketeerBullet bullet = AcquireRecord();
+        if (!TryAcquireVisual(direction.x < 0f ? -1f : 1f, attack, world, out GameObject visual, out SpriteRenderer renderer))
+        {
+            ReleaseRecord(bullet);   // 租到但没用上：立刻归还，绝不把记录留在池外
             return false;
+        }
 
         try
         {
@@ -1040,27 +1569,60 @@ internal static class MusketeerCombat
         catch (Exception)
         {
             ReleaseVisual(visual);
+            ReleaseRecord(bullet);
             return false;
         }
 
-        MusketeerBullet bullet = new MusketeerBullet
-        {
-            Visual = visual,
-            Renderer = renderer,
-            Position = origin,
-            Direction = direction,
-            Speed = BulletSpeed,
-            MaxDistance = range,
-            Travelled = 0f,
-            Age = 0f,
-            Lifetime = Mathf.Min(MaxLifetimeSeconds, Mathf.Max(0.05f, range / BulletSpeed)),
-            Alive = true,
-            ShooterRoot = archer.gameObject,
-        };
+        bullet.Visual = visual;
+        bullet.Renderer = renderer;
+        bullet.Position = origin;
+        bullet.Direction = direction;
+        bullet.Speed = BulletSpeed;
+        bullet.MaxDistance = range;
+        bullet.Travelled = 0f;
+        bullet.Age = 0f;
+        bullet.Lifetime = Mathf.Min(MaxLifetimeSeconds, Mathf.Max(0.05f, range / BulletSpeed));
+        bullet.Alive = true;
+        bullet.ShooterRoot = archer.gameObject;
+        bullet.ShooterLease = shooterLease;
+        bullet.Lease = ++_leaseCounter;   // 本帧边界之后的租约：重入回调里的旧帧不会推进它
 
         Bullets[_count] = bullet;
         _count++;
         return true;
+    }
+
+    /// <summary>租一条弹丸记录（优先复用池内记录，稳态零逐发分配；池空才新建，总量 ≤ 4096）。</summary>
+    private static MusketeerBullet AcquireRecord()
+    {
+        int last = RecordPool.Count - 1;
+        if (last < 0) return new MusketeerBullet();
+        MusketeerBullet pooled = RecordPool[last];
+        RecordPool.RemoveAt(last);
+        return pooled;
+    }
+
+    /// <summary>
+    /// 归还记录前清空全部引用/状态：旧视觉、旧 renderer、旧射击者（=旧世界来源）、位置与进度，
+    /// 绝不让池内记录被二次消费或把旧发射者带进下一发。
+    /// </summary>
+    private static void ReleaseRecord(MusketeerBullet bullet)
+    {
+        if (bullet == null) return;
+        bullet.Alive = false;
+        bullet.Visual = null;
+        bullet.Renderer = null;
+        bullet.ShooterRoot = null;
+        bullet.ShooterLease = 0L;
+        bullet.Position = default;
+        bullet.Direction = default;
+        bullet.Speed = 0f;
+        bullet.MaxDistance = 0f;
+        bullet.Travelled = 0f;
+        bullet.Age = 0f;
+        bullet.Lifetime = 0f;
+        bullet.Lease = 0;
+        RecordPool.Add(bullet);
     }
 
     /// <summary>
@@ -1068,7 +1630,7 @@ internal static class MusketeerCombat
     /// 贴图资产缺失 → **不构造可见弹丸**（fail-closed：绝不打隐形伤害），并限频记录一次。
     /// 材质保持 SpriteRenderer 默认（不继承原生箭/火焰材质与染色），只复制排序层/序。
     /// </summary>
-    private static bool TryAcquireVisual(float direction, ArrowAttack attack, Transform world,
+    private static bool TryAcquireVisual(float facing, ArrowAttack attack, Transform world,
         out GameObject visual, out SpriteRenderer renderer)
     {
         visual = null;
@@ -1115,7 +1677,7 @@ internal static class MusketeerCombat
             }
             renderer.sprite = _bulletSprite;
             renderer.color = Color.white;
-            renderer.flipX = direction < 0f;
+            renderer.flipX = facing < 0f;
             ApplyBulletSorting(renderer, attack);
             return true;
         }
@@ -1200,9 +1762,11 @@ internal static class MusketeerCombat
     private static void RemoveAt(int index)
     {
         if (index < 0 || index >= _count) return;
+        MusketeerBullet removed = Bullets[index];
         Bullets[index] = Bullets[_count - 1];
         Bullets[_count - 1] = null;
         _count--;
+        ReleaseRecord(removed);   // 记录回池并清字段（旧 source/visual 引用绝不残留）
     }
 
     /// <summary>
@@ -1286,7 +1850,8 @@ internal static class MusketeerCombat
 
     /// <summary>
     /// 地面表面高度：优先取世界 GroundCollider 顶面；取不到时退回原生 Arrow 的"地下"阈值 0.875。
-    /// 直线弹在枪口高度平飞时通常不会触发；这是"世界地面终止"的确定性兜底。
+    /// 水平弹在枪口高度平飞时通常不会触发；这是"世界地面终止"的确定性兜底（斜向鹿弹在
+    /// <see cref="Tick"/> 里先按它裁剪步段，绝不穿地）。
     /// </summary>
     private static float GroundSurfaceY()
     {
@@ -1300,6 +1865,72 @@ internal static class MusketeerCombat
         }
         return 0.875f;
     }
+
+    /// <summary>
+    /// 鹿**发射**被动日志（非鹿直接 no-op）：枪口 Y、鹿根自身 body bounds、快照瞄准方向、射程。
+    /// 供用户实机核对几何（例如 Greek 鹿低于枪口线时的实际倾角）。
+    /// </summary>
+    private static void LogDeerShot(GameObject target, Vector2 origin, Vector2 direction, float range)
+    {
+        if (_deerLogs >= MaxDeerLogsPerWorld) return;
+        try
+        {
+            Deer deer = MusketeerFoeFilter.GetDeerRoot(target);
+            if (deer == null) return;
+            string band = "bodyY=n/a";
+            Collider2D body = deer.GetComponent<Collider2D>();
+            if (body != null)
+            {
+                Bounds bounds = body.bounds;
+                band = "bodyY=[" + F(bounds.min.y) + ".." + F(bounds.max.y) + "]";
+            }
+            LogDeerOnce("deer shot: muzzleY=" + F(origin.y) + " " + band
+                + " aim=(" + F(direction.x) + "," + F(direction.y) + ") range=" + F(range));
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    /// <summary>
+    /// 鹿**命中提交**被动日志：只报告尝试提交伤害，不断言原生 ReceiveDamage 已执行或 HP 实际扣减
+    /// （invulnerable/护盾/已结算等原生分支可能早退）；掉钱/死亡仍归原生。
+    /// </summary>
+    private static void LogDeerSubmit(Damageable damageable)
+    {
+        if (_deerLogs >= MaxDeerLogsPerWorld) return;
+        try
+        {
+            string state = "n/a";
+            if (damageable != null)
+            {
+                state = damageable.isDead ? "dead" : "alive";
+                if (!damageable.enabled) state += "/disabled";
+            }
+            LogDeerOnce("deer hit: attempted damage submission of 2 (DamageSource.Arrow);"
+                + " damageable=" + state + " (HP/death/coins are native-owned, submit is not a HP promise)");
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    /// <summary>鹿事件日志（有界：每世界前 <see cref="MaxDeerLogsPerWorld"/> 条；被动触发，绝无逐帧扫描）。</summary>
+    private static void LogDeerOnce(string message)
+    {
+        try
+        {
+            if (_deerLogs >= MaxDeerLogsPerWorld) return;
+            _deerLogs++;
+            KingdomEnhancedPlugin.Instance?.LogSource?.LogInfo("[Musketeer] " + message);
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    /// <summary>日志数值格式化（invariant：不随系统区域变小数点）。</summary>
+    private static string F(float value) => value.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
 
     private static void Log(string message)
     {

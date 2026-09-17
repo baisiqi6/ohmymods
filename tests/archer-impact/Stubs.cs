@@ -245,6 +245,7 @@ namespace UnityEngine
     public static class Mathf
     {
         public const float PI = 3.1415927f;
+        public static int RoundCalls, PerlinCalls; // 观测计数器：顶点路径不得再调用 Mathf.Round，也不得按层重复 Perlin
         public static float Sin(float value) => System.MathF.Sin(value);
         public static float Cos(float value) => System.MathF.Cos(value);
         public static float Abs(float value) => System.MathF.Abs(value);
@@ -254,11 +255,16 @@ namespace UnityEngine
         public static float Clamp(float value, float min, float max) => System.Math.Clamp(value, min, max);
         public static float Clamp01(float value) => System.Math.Clamp(value, 0f, 1f);
         public static float Lerp(float a, float b, float t) => a + (b - a) * System.Math.Clamp(t, 0f, 1f);
-        public static float Round(float value) => System.MathF.Round(value, System.MidpointRounding.ToEven);
+        public static float Round(float value)
+        {
+            RoundCalls++;
+            return System.MathF.Round(value, System.MidpointRounding.ToEven);
+        }
 
         /// <summary>Deterministic stand-in for Unity's Perlin noise, returning [0,1].</summary>
         public static float PerlinNoise(float x, float y)
         {
+            PerlinCalls++;
             float value = System.MathF.Sin(x * 12.9898f + y * 78.233f) * 43758.5453f;
             return value - System.MathF.Floor(value);
         }
@@ -391,9 +397,15 @@ namespace UnityEngine
     public class Mesh : Object
     {
         public static int CreatedCount, VertexUploads, BoundsRecalculations, NormalRecalculations, Clears;
-        public static int RejectedGeometryWrites;
+        public static int BoundsWrites, RejectedGeometryWrites;
         public static bool ThrowOnVertexWrite, ThrowOnUvWrite, ThrowOnTriangleWrite;
-        public Bounds bounds;
+        public int InstanceUploads, InstanceBoundsWrites;
+        private Bounds boundsValue;
+        public Bounds bounds
+        {
+            get => boundsValue;
+            set { boundsValue = value; BoundsWrites++; InstanceBoundsWrites++; }
+        }
         private Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<Vector3> vertexBuffer;
         private Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<Vector2> uvBuffer;
         private Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<int> triangleBuffer;
@@ -408,6 +420,7 @@ namespace UnityEngine
                 if (ThrowOnVertexWrite) throw new System.InvalidOperationException("injected mesh vertices failure");
                 vertexBuffer = value;
                 VertexUploads++;
+                InstanceUploads++;
             }
         }
 

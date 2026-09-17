@@ -5,6 +5,12 @@ using UnityEngine;
 // PatchRoles_Crossbowman.cs / KingdomEnhancedPlugin.cs 提供）。gameTypes 一律用真实 interop。
 namespace KingdomEnhancedMod
 {
+    /// <summary>
+    /// 共享伤害提交契约（root 将在 canonical 集成真实 CombatDamage.cs）：核对工程只做签名同形替换，
+    /// 不运行。MusketeerCombat 唯一伤害调用点 CombatDamage.Submit(...) 按真实 2.4 interop 编译核对。
+    /// </summary>
+
+
     /// <summary>Operator 契约同形（MusketeerAccess.cs 的真实形状）。</summary>
     internal static class MusketeerAccess
     {

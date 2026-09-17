@@ -2,12 +2,15 @@
 
   <!-- actualinterop 编译核对：4 个生产文件直接对着真实 E 盘 2.4 interop（Build 22992091）编译。
        原生类型（Archer / Scanner / ArrowAttack / Damageable / Enemy / Crusher / Squid / Holder /
-       Physics2D / Animator / SpriteRenderer / HarmonyX 特性 / Il2CppStructArray）全部用真实程序集，
+       Physics2D / Animator / SpriteRenderer / HarmonyX 特性 / Il2CppStructArray /
+       Il2CppSystem.Collections.Generic.List）全部用真实程序集，
        只有 canonical 协作 API（MusketeerAccess / MusketeerIdentity / PatchRoles_Crossbowman /
-       KingdomEnhancedPlugin）用同签名替身。
+       KingdomEnhancedPlugin / CombatDamage 契约）用同签名替身。
        目的：字段名、属性可读写性（含 Scanner.additionalRequirements / SetExtraCondition 与
-       Scanner.ObjectCondition 的托管委托转换）、方法签名、Physics2D.LinecastNonAlloc 的
-       Il2CppStructArray<RaycastHit2D> 形状、Harmony 特性构造全部按 2.4 真实元数据硬核对；
+       Scanner.ObjectCondition 的托管委托转换）、方法签名（Physics2D.LinecastNonAlloc 的
+       Il2CppStructArray<RaycastHit2D> 形状、数组饱和兜底用的
+       Physics2D.Linecast(Vector2, Vector2, ContactFilter2D, Il2CppSystem.Collections.Generic.List<RaycastHit2D>)
+       与 Physics2D.queriesHitTriggers）、Harmony 特性构造全部按 2.4 真实元数据硬核对；
        不运行、不加载 IL2CPP 运行时。
        IL2CPP_DEPS 可覆盖依赖根（默认取本机 E 盘安装）。 -->
 
@@ -26,6 +29,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../../../il2cpp/CombatDamage.cs" Link="Production/CombatDamage.cs" />
     <Compile Include="../../../il2cpp/MusketeerAnimation.cs" Link="Production/MusketeerAnimation.cs" />
     <Compile Include="../../../il2cpp/MusketeerCombat.cs" Link="Production/MusketeerCombat.cs" />
     <Compile Include="../../../il2cpp/MusketeerRuntime.cs" Link="Production/MusketeerRuntime.cs" />

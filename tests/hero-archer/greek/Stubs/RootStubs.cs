@@ -111,6 +111,14 @@ namespace KingdomEnhancedMod
             PatchArcher_GreekImpact.StatSubstituted = 0;
             PatchArcher_GreekImpact.StatSubstituteFailed = 0;
             PatchArcher_GreekImpact.StatSubstituteReentry = 0;
+            PatchArcher_GreekImpact.StatLifeDegraded = 0;
+            PatchArcher_GreekImpact.StatDamageFaulted = 0;
+            CombatDamage.StatSubmitted = 0;
+            CombatDamage.StatSkipped = 0;
+            CombatDamage.StatFaulted = 0;
+            CombatTargetLife.StatResolved = 0;
+            CombatTargetLife.StatMarkerCreated = 0;
+            CombatTargetLife.StatDegraded = 0;
             Colliders.Clear();
             ModConfig.ArcherImpactEnabled.Value = false;
             NetworkBigBoss.HasWorldAuth = true;
@@ -126,6 +134,7 @@ namespace KingdomEnhancedMod
             KingdomEnhancedPlugin.Instance.LogSource.Lines.Clear();
             Physics2D.QueryCount = 0;
             Physics2D.OverflowIgnored = false;
+            UnityEngine.Object.HideFlagsWrites = 0;      // 任何 hideFlags 写入都会计数（生产不得写）
         }
 
         /// <summary>建立（或切换）当前世界：layer root 变化 = 换 world。</summary>

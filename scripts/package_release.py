@@ -124,6 +124,10 @@ def main():
         if notes.is_file():
             zf.write(notes, "INSTALL.md")
             count += 1
+        versioning = REPO / "VERSIONING.md"
+        if versioning.is_file():
+            zf.write(versioning, "VERSIONING.md")
+            count += 1
         zf.writestr("BUILD-MANIFEST.txt", manifest)
         count = len(zf.infolist())
 

@@ -600,6 +600,7 @@ public class Kingdom : Object
     public float campfirePosition;
     public bool HasBorderLoaded = true;
     public bool isSafe = true;
+    public bool isDaytime = true;
     public Player playerOne, playerTwo;
     public Func<Vector3, Player> CrownFinder;
     public OrderedWalls _orderedWalls = new OrderedWalls();

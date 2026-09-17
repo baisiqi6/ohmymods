@@ -11,8 +11,8 @@ namespace MusketeerRuntimeTests
     {
         internal static void Run()
         {
-            Case.Run("clip table matches the approved manifest (66 frames, holds, loops)", ClipTableMatchesManifest);
-            Case.Run("atlas anchors carry all 66 keys incl. prepared muzzle [48,14]", AnchorsMatchManifest);
+            Case.Run("clip table matches the approved manifest (67 frames, holds, loops)", ClipTableMatchesManifest);
+            Case.Run("atlas anchors carry all 67 keys incl. prepared muzzle [48,14]", AnchorsMatchManifest);
             Case.Run("muzzle pixel converts to actor-local coordinates", MuzzleAnchorConversion);
             Case.Run("idle clock uses authored holds and wraps at 4.81s", IdleHoldsAndWrap);
             Case.Run("locomotion phase uses unwrapped nt*clipLength, not Fraction first", LocomotionGreekWrap);
@@ -31,7 +31,7 @@ namespace MusketeerRuntimeTests
 
         private static void ClipTableMatchesManifest()
         {
-            Check.Equal(66, MusketeerAtlas.FrameCount, "66 authored frames");
+            Check.Equal(67, MusketeerAtlas.FrameCount, "67 authored frames");
             Check.Equal(12, MusketeerAtlas.Columns, "columns");
             Check.Equal(6, MusketeerAtlas.Rows, "rows");
             Check.Equal(56, MusketeerAtlas.CellWidth, "cell width");
@@ -45,10 +45,10 @@ namespace MusketeerRuntimeTests
             AssertClip(MusketeerAction.Run, 20, 8, 0.75d, true);
             AssertClip(MusketeerAction.Raise, 28, 6, 0.33d, false);
             AssertClip(MusketeerAction.Aim, 34, 2, 0.3d, false);
-            AssertClip(MusketeerAction.Fire, 36, 4, 0.25d, false);
-            AssertClip(MusketeerAction.Reload, 40, 12, 1.4d, false);
-            AssertClip(MusketeerAction.Lower, 52, 6, 0.39d, false);
-            AssertClip(MusketeerAction.Retreat, 58, 8, 0.84d, true);
+            AssertClip(MusketeerAction.Fire, 36, 5, 0.25d, false);
+            AssertClip(MusketeerAction.Reload, 41, 12, 1.4d, false);
+            AssertClip(MusketeerAction.Lower, 53, 6, 0.39d, false);
+            AssertClip(MusketeerAction.Retreat, 59, 8, 0.84d, true);
 
             int total = 0;
             for (int action = 0; action <= (int)MusketeerAction.Retreat; action++)
@@ -56,7 +56,7 @@ namespace MusketeerRuntimeTests
                 MusketeerAtlas.TryGetClip((MusketeerAction)action, out MusketeerClip clip);
                 total += clip.FrameCount;
             }
-            Check.Equal(66, total, "clip frame counts sum to 66");
+            Check.Equal(67, total, "clip frame counts sum to 67");
         }
 
         private static void AssertClip(MusketeerAction action, int first, int count, double duration, bool loops)
@@ -70,19 +70,19 @@ namespace MusketeerRuntimeTests
 
         private static void AnchorsMatchManifest()
         {
-            Check.Equal(66, MusketeerAtlas.Anchors.Length, "anchors cover every key");
+            Check.Equal(67, MusketeerAtlas.Anchors.Length, "anchors cover every key");
             MusketeerAnchor aim = MusketeerAtlas.Anchors[35];
             Check.Equal((byte)48, aim.MuzzleX, "aim muzzle x");
             Check.Equal((byte)14, aim.MuzzleY, "aim muzzle y");
             MusketeerAnchor idle5 = MusketeerAtlas.Anchors[5];
             Check.Equal((byte)1, idle5.TorsoLift, "idle breath torso lift");
             Check.Equal((byte)29, idle5.RearGripX, "idle breath rear grip");
-            MusketeerAnchor reload6 = MusketeerAtlas.Anchors[46];
+            MusketeerAnchor reload6 = MusketeerAtlas.Anchors[47];
             Check.Equal((byte)44, reload6.MuzzleX, "reload muzzle");
-            Check.True(MusketeerAtlas.FrameToCell(65, out int column, out int row), "frame 65 maps to a cell");
-            Check.Equal(5, column, "frame 65 column");
-            Check.Equal(5, row, "frame 65 row");
-            Check.False(MusketeerAtlas.FrameToCell(66, out _, out _), "frame 66 out of range");
+            Check.True(MusketeerAtlas.FrameToCell(66, out int column, out int row), "frame 66 maps to a cell");
+            Check.Equal(6, column, "frame 66 column");
+            Check.Equal(5, row, "frame 66 row");
+            Check.False(MusketeerAtlas.FrameToCell(67, out _, out _), "frame 67 out of range");
         }
 
         private static void MuzzleAnchorConversion()
@@ -176,13 +176,14 @@ namespace MusketeerRuntimeTests
             Check.Equal(35, state.Tick(0.34d), "raise completes into aim");
 
             state.NotifyShot(1d, 6d);
-            Check.Equal(36, state.Tick(1d), "fire first frame");
-            Check.Equal(36, state.Tick(1.044d), "fire hold 1");
-            Check.Equal(37, state.Tick(1.045d), "fire frame 2");
-            Check.Equal(38, state.Tick(1.1d), "fire frame 3");
-            Check.Equal(39, state.Tick(1.17d), "fire frame 4");
-            Check.Equal(40, state.Tick(1.3d), "reload begins after fire (0.25s)");
-            Check.Equal(50, state.Tick(2.5d), "reload near end");
+            Check.Equal(36, state.Tick(1d), "fire frame 1 (ignite)");
+            Check.Equal(36, state.Tick(1.049d), "fire hold 1");
+            Check.Equal(37, state.Tick(1.05d), "fire frame 2 (jet)");
+            Check.Equal(38, state.Tick(1.1d), "fire frame 3 (lengthen)");
+            Check.Equal(39, state.Tick(1.15d), "fire frame 4 (contract)");
+            Check.Equal(40, state.Tick(1.2d), "fire frame 5 (residual)");
+            Check.Equal(41, state.Tick(1.3d), "reload begins after fire (0.25s)");
+            Check.Equal(51, state.Tick(2.5d), "reload near end");
             Check.Equal(35, state.Tick(2.7d), "completed reload holds aim");
             Check.Equal(35, state.Tick(5.0d), "aim holds until the next shot");
             Check.Equal(MusketeerAction.Aim, state.CurrentAction, "action is aim");
@@ -193,8 +194,8 @@ namespace MusketeerRuntimeTests
             var state = new MusketeerAnimationState();
             state.SetMotion(MusketeerMotion.Idle, 0d, 0d, 0.5d, 0d);
             state.NotifyShot(0d, 0.75d);   // window = 0.5s → 1.4s 的装填被压缩
-            Check.Equal(41, state.Tick(0.3d), "compressed reload first frames");
-            Check.Equal(45, state.Tick(0.5d), "compressed reload mid frame");
+            Check.Equal(42, state.Tick(0.3d), "compressed reload first frames");
+            Check.Equal(46, state.Tick(0.5d), "compressed reload mid frame");
             Check.Equal(35, state.Tick(0.76d), "window elapsed → aim");
         }
 

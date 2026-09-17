@@ -10,15 +10,15 @@ Check(!pay.Consume(1,true,8),"hero price cannot enter firearm transaction");
 Check(pay.Consume(1,true,4),"four paid coins accepted");
 Check(!pay.Consume(1,true,4)&&pay.AlreadySettled(1),"duplicate completion cannot spawn another gun");
 pay.Clear();Check(!pay.AlreadySettled(1)&&!pay.IsArmed(1),"cancel clears receipt");
-Check(MusketeerShopRules.FirstFreeSlot(Array.Empty<float>())==0,"first rack position");
-Check(MusketeerShopRules.FirstFreeSlot(new[]{-0.9f,0f,0.9f})==-1,"full rack");
+Check(MusketeerShopRules.FirstFreeSlot(Array.Empty<int>())==0,"first rack position");
+Check(MusketeerShopRules.FirstFreeSlot(new[]{0,1,2})==-1,"full rack");
 for(int gap=0;gap<3;gap++)
 {
-    var remaining=Enumerable.Range(0,3).Where(i=>i!=gap).Select(MusketeerShopRules.SlotX).ToArray();
+    var remaining=Enumerable.Range(0,3).Where(i=>i!=gap).ToArray();
     Check(MusketeerShopRules.FirstFreeSlot(remaining)==gap,"replenish actual missing slot "+gap);
 }
-Check(MusketeerShopRules.FirstFreeSlot(new[]{float.NaN})==-1,"unreadable slot prevents charge");
-Check(MusketeerShopRules.FirstFreeSlot(new[]{6f,-4f})==0,"distant dropped guns do not occupy rack slots");
+Check(MusketeerShopRules.FirstFreeSlot(new[]{3})==-1,"unreadable slot prevents charge");
+Check(MusketeerShopRules.FirstFreeSlot(new[]{1,1})==-1,"duplicate slot rejects purchase");
 var probe=new HeroShopRetention.Probe{FeatureEnabled=true,Offline=true,HasShop=true,SameScene=true,SameWorld=true,SceneAlive=true,HeaderOk=true,Menu=true};
 Check(HeroShopRetention.Decide(probe)==HeroShopRetention.Outcome.Keep&&!HeroShopRetention.CanServe(probe),"pause retains shop but prevents payment");
 probe.Menu=false;probe.Playing=true;Check(HeroShopRetention.CanServe(probe),"playing permits eligible native transaction");

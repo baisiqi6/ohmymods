@@ -176,7 +176,13 @@ public class DroppableCurrency : Droppable
 public class CurrencyManager
 {
     public DroppableCurrency CoinPrefab;
-    public T GetCurrencyTypePrefab<T>(CurrencyType type) where T : Droppable => CoinPrefab as T;
+    /// <summary>Test hook: models a native callback landing inside the prefab lookup.</summary>
+    public Action OnGetPrefab;
+    public T GetCurrencyTypePrefab<T>(CurrencyType type) where T : Droppable
+    {
+        OnGetPrefab?.Invoke();
+        return CoinPrefab as T;
+    }
 }
 
 public class Managers
@@ -257,6 +263,8 @@ public static class Pool
     public static bool PoolAssetAvailable = true;
     public static readonly List<DroppableCurrency> Despawned = new();
     public static DroppableCurrency LastCoin;
+    /// <summary>Test hook: models a native callback landing inside Pool.Spawn.</summary>
+    public static Action OnSpawn;
 
     public static T Spawn<T>(T prefab, Vector3 pos, Quaternion rot, Transform parent = null, bool active = true) where T : Droppable
     {
@@ -269,6 +277,7 @@ public static class Pool
         var coin = new DroppableCurrency { tag = "Coin", gameObject = go, MoveToFails = MoveToFails };
         coin.transform = t;
         LastCoin = coin;
+        OnSpawn?.Invoke();
         return (T)(Droppable)coin;
     }
 
@@ -284,6 +293,7 @@ public static class Pool
         RequiredPoolPrefab = null; BiomeData.Current = new(); BiomeData.Swap = null;
         Despawned.Clear();
         LastCoin = null;
+        OnSpawn = null;
     }
 }
 
@@ -388,7 +398,9 @@ namespace KingdomEnhancedMod
             if(shop is PayableShopBaker) return 4;
             return -1;
         }
-        internal static bool Refresh(Managers managers) { RefreshCalls++; return RefreshResult; }
+        /// <summary>Test hook: models a native callback landing inside the tax-tick refresh.</summary>
+        internal static Action OnRefresh;
+        internal static bool Refresh(Managers managers) { RefreshCalls++; OnRefresh?.Invoke(); return RefreshResult; }
         internal static void Reset() { ResetCalls++; }
 
         internal static void HookShopAddItem(PayableShop shop)
@@ -407,6 +419,7 @@ namespace KingdomEnhancedMod
             Array.Clear(Live); Array.Clear(Stock); Array.Clear(Incoming);
             RefreshResult = true; _version = 0; _shops.Clear();
             RefreshCalls = ResetCalls = HookCalls = 0;
+            OnRefresh = null;
         }
     }
 
@@ -489,6 +502,10 @@ namespace KingdomEnhancedMod
         internal static int MoveCalls, HomeTeleports, MaxActive;
         internal static readonly Dictionary<GameObject, Vector3> Homes = new();
         internal static readonly List<(float Time,float X,float Speed)> Moves = new();
+        /// <summary>Test hooks modelling native/cooperative callbacks inside the lease lifecycle:
+        /// OnReserve fires after the helper is leased (carry deposit/teleport included),
+        /// OnPlace after the placement RPC, OnMove inside the movement step.</summary>
+        internal static Action OnReserve, OnPlace, OnMove;
 
         internal static bool IsCurrentRestockBanker(Banker banker) => banker != null && ReferenceEquals(banker,MainBanker)
             && ModConfig.Enabled.Value && NetworkBigBoss.HasWorldAuth && Time.timeScale>0f
@@ -509,6 +526,7 @@ namespace KingdomEnhancedMod
             index = ReserveCalls * 7 + Active.Count + 1;
             Active.Add(new Res { Index = index, Actor = actor });
             MaxActive=Math.Max(MaxActive,Active.Count);
+            OnReserve?.Invoke();
             return true;
         }
 
@@ -530,6 +548,7 @@ namespace KingdomEnhancedMod
                 || !float.IsFinite(position.x)) return false;
             actor.transform.position = position;
             foreach (Res r in Active) if (r.Index == index) r.Placed = true;
+            OnPlace?.Invoke();
             return true;
         }
 
@@ -541,6 +560,7 @@ namespace KingdomEnhancedMod
                 || speed<=0 || !float.IsFinite(delta) || delta<0 || !float.IsFinite(speed*delta)) return false;
             var p=actor.transform.position;
             if(!float.IsFinite(p.x)||!float.IsFinite(p.y)||!float.IsFinite(p.z)) return false;
+            OnMove?.Invoke();
             if(!FreezeMovement) p.x=Mathf.MoveTowards(p.x,targetX,speed*delta);
             actor.transform.position=p;
             arrived=Math.Abs(actor.transform.position.x-targetX)<=0.02f;
@@ -568,6 +588,7 @@ namespace KingdomEnhancedMod
             ReserveCalls = PlaceCalls = 0; FailReserve = FailPlace = false;
             MoveCalls=HomeTeleports=MaxActive=0; InvalidLease=FreezeMovement=MoveThrows=false;
             MainBanker=null; Homes.Clear(); Moves.Clear();
+            OnReserve = OnPlace = OnMove = null;
         }
     }
 
@@ -584,8 +605,10 @@ namespace KingdomEnhancedMod
         {
             TrySpendCalls++;
             Attempts.Add((amount, banker._stashedCoins));
+            // Mirror the production final gate: no auto-restock debit outside Kingdom daylight.
             if (FailNext || !BankAssistantCoordinator.IsCurrentRestockBanker(banker)
                 || amount <= 0 || amount > 200
+                || !PatchEconomy_AutoRestock.IsDaytimeNow()
                 || banker._stashedCoins < amount) return false;
             banker._stashedCoins -= amount;
             SpendAmounts.Add(amount);

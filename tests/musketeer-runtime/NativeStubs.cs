@@ -70,6 +70,49 @@ namespace KingdomEnhancedMod
     {
     }
 
+    /// <summary>原生普通鹿（Deer）：身份只看这个根组件，绝不认名字/tag。</summary>
+    public class Deer : MonoBehaviour
+    {
+    }
+
+    /// <summary>兔子等小动物（Critter）：在 Wildlife 层但没有 Deer 根组件 → 永远不是猎杀目标。</summary>
+    public class Critter : MonoBehaviour
+    {
+    }
+
+    /// <summary>坐骑（Hind）：与 Deer 无继承关系 → 永远不是猎杀目标。</summary>
+    public class Hind : MonoBehaviour
+    {
+    }
+
+    /// <summary>骑乘坐骑（Steed）：普通鹿判据排除它（PatchWorld_DeerPopulation 同款）。</summary>
+    public class Steed : MonoBehaviour
+    {
+    }
+
+    /// <summary>石化组件（鹿可被石化）：IsPetrified 是原生公开只读属性。</summary>
+    public class Petrifiable : MonoBehaviour
+    {
+        public bool IsPetrified;
+    }
+
+    public class Embarkee : MonoBehaviour
+    {
+        public bool IsEmbarked;
+        public GameObject EmbarkableTarget;
+    }
+
+    /// <summary>编队（仅用于"编队中不狩猎"的最终门断言）。</summary>
+    public class Formation : MonoBehaviour
+    {
+    }
+
+    /// <summary>原生 Kingdom 的最小替身（鹿猎只读 isDaytime）。</summary>
+    public class Kingdom : MonoBehaviour
+    {
+        public bool isDaytime;
+    }
+
     public class Damageable : MonoBehaviour
     {
         public bool isDead;
@@ -182,6 +225,7 @@ namespace KingdomEnhancedMod
     {
         public static Managers Inst;
         public Holder holder;
+        public Kingdom kingdom;
     }
 
     public class World : MonoBehaviour
@@ -193,6 +237,15 @@ namespace KingdomEnhancedMod
     {
         public const string Enemies = "Enemies";
         public const string Citizens = "Citizens";
+    }
+
+    /// <summary>
+    /// 共享 helper（真实 `il2cpp/CombatDamage.cs`）引用的网络权威门替身：测试可控。
+    /// root 把真实 helper 编入测试工程后即被使用；若 root 侧另有同名替身，保留其一。
+    /// </summary>
+    public static class NetworkBigBoss
+    {
+        public static bool HasWorldAuth { get; set; } = true;
     }
 
     public class Archer : MonoBehaviour
@@ -208,6 +261,9 @@ namespace KingdomEnhancedMod
         public Damageable _damageable;
         public GuardSlot _guardSlot;
         public bool inGuardSlot;
+        public Formation _currentFormation;
+        public Knight _knight;
+        public Embarkee _embarkee;
         public GameObject _shootingTarget;
         public float shootRange = 8f;
         public float shootPrepTime = 0.5f;
@@ -236,6 +292,9 @@ namespace KingdomEnhancedMod
         public void EnterGuardSlot(GuardSlot slot) => Calls.Add("EnterGuardSlot");
 
         public void ExitGuardSlot() => Calls.Add("ExitGuardSlot");
+
+        /// <summary>原生公开访问器（IsInFormation 为私有；生产读 _currentFormation 的等价面）。</summary>
+        public Formation GetFormation() => _currentFormation;
     }
 
     public static class PatchRoles_Crossbowman

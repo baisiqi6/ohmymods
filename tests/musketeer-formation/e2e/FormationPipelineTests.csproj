@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 端到端 stub 接线（真正编译并调用当前生产 PatchWorld_FleetBoatFormation.cs +
+       Patch_MusketeerFormation.cs）：Stubs.cs 用 2.1 game-source 语义实现 native 入口
+       （Player.ActivateFormation / Formation.RegisterUnit/UnregisterUnit/OnDisable /
+       Archer.TryRecruit / 0.5s coordinator tick），并通过 Harness.ProductionHooks 反射调用生产
+       Harmony 钩子体，因此激活、TopUp、TryDirected、cleanup 都跑真实生产代码。
+       可注入 native 失败点（Convert 抛、Register 后 false、Unregister 抛、数组替换）。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>MusketeerFormationPipelineTests</AssemblyName>
+    <RootNamespace>MusketeerFormationE2E</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0649;CS0414;CS0169</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../il2cpp/Patch_MusketeerFormation.cs" Link="Production/Patch_MusketeerFormation.cs" />
+    <Compile Include="../../../il2cpp/PatchWorld_FleetBoatFormation.cs" Link="Production/PatchWorld_FleetBoatFormation.cs" />
+  </ItemGroup>
+
+</Project>

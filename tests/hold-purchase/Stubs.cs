@@ -140,6 +140,10 @@ public enum PlayerAction { Walk, Run, Stand, Transformed }
 
 public class Payable : UnityEngine.Component
 {
+    public bool enabled = true;
+    public int CastCalls, ThrowOnCastCall;
+    public T TryCast<T>() where T : class
+    { if (++CastCalls == ThrowOnCastCall) throw new InvalidOperationException("native cast"); return this as T; }
     public bool forceBlockPayment;
     public int Price = 4;
     public CurrencyType Currency = CurrencyType.Coins;
@@ -180,7 +184,6 @@ public class Shop : Payable
     public int Limit = 4;
     public int maxItems = 4;
     public int _limitedNumItems = 4;
-    public bool enabled = true;
     public bool Blocked;
     public int PriceIncrease;
     public int TransactionCompleteCalls;
@@ -477,3 +480,14 @@ namespace KingdomEnhancedMod
         public ManualLogSource LogSource = new ManualLogSource();
     }
 }
+
+// These types reuse only the native payment simulator, not production classification logic.
+public class PayableWorkshopBarrel : Shop { }
+public class PayableComponent : Shop
+{
+    private UnityEngine.Component owner;
+    public bool ThrowOwnerRead;
+    public UnityEngine.Component _owner { get { if (ThrowOwnerRead) throw new InvalidOperationException("native owner read"); return owner; } set => owner = value; }
+}
+public class FireTower : UnityEngine.Component { public bool enabled = true; }
+public class PayableWorkshop : Shop { }

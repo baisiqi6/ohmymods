@@ -1,8 +1,8 @@
 // 火铳手·自有动画状态（runtime slice，纯逻辑：无 Unity 依赖、无原生调用、无分配）。
 //
-// 权威数据 = artifacts/musketeer/20260916/atlas.json（用户已确认 v8 外观，66 帧 12x6、
+// 权威数据 = artifacts/musketeer/20260917-red-muzzle/atlas.json（用户已确认 v8 外观 + 红焰 5 帧，67 帧 12x6、
 // 单格 56x32、PPU 32、脚点 pivot (31,2)）。本文件把清单里的帧区间/时长/holds/锚点抄成
-// 编译期常量（"copied approved keys, not missing anchors"：66 个 key 的 rearGrip/frontGrip/
+// 编译期常量（"copied approved keys, not missing anchors"：67 个 key 的 rearGrip/frontGrip/
 // muzzle/torsoLift 全部在表里，测试逐项与清单值核对）。
 //
 // 时钟契约（清单 clocks 字段，逐字翻译）：
@@ -21,7 +21,7 @@
 // movement interrupts gun presentation"）——Raise/Aim/Reload/Lower 一律让位，但真实射击的
 // Fire（0.25s 确认事件）播完；Unknown 原生状态（Ghost Die/Spawn/其它世界状态名）挂起自有渲染，
 // 归还原生，绝不把"身体显示不出来"当成身份丢失。
-// Retreat 帧（58..65）已画但**未接线**（清单 clock 明说 reserved until verified behavior routing）。
+// Retreat 帧（59..66）已画但**未接线**（清单 clock 明说 reserved until verified behavior routing）。
 
 using System;
 
@@ -113,17 +113,24 @@ internal readonly struct MusketeerAnchor
     internal byte TorsoLift { get; }
 }
 
-/// <summary>atlas 布局与时钟常量（artifacts/musketeer/20260916/atlas.json，v8 定稿）。</summary>
+/// <summary>atlas 布局与时钟常量（artifacts/musketeer/20260917-red-muzzle/atlas.json，v8 定稿）。</summary>
 internal static class MusketeerAtlas
 {
     internal const int Columns = 12;
     internal const int Rows = 6;
-    internal const int FrameCount = 66;
+    internal const int FrameCount = 67;
     internal const int CellWidth = 56;
     internal const int CellHeight = 32;
     internal const float PixelsPerUnit = 32f;
     internal const float PivotPixelX = 31f;
     internal const float PivotPixelY = 2f;
+
+    /// <summary>
+    /// 自有外观统一缩放（XY = 0.9、Z = 1；以既有脚点 pivot 为锚，绝对值赋值，绝不逐次自乘）：
+    /// <see cref="MusketeerVisuals"/> 的 KEM_MusketeerSprite localScale 与
+    /// <see cref="MusketeerCombat.TryComputeMuzzle"/> 的枪口本地偏移共用同一常量，所见与出膛严格一致。
+    /// </summary>
+    internal const float AppearanceScale = 0.9f;
 
     internal const int IdleFirstFrame = 0;
     internal const int WalkFirstFrame = 12;
@@ -131,9 +138,9 @@ internal static class MusketeerAtlas
     internal const int RaiseFirstFrame = 28;
     internal const int AimFirstFrame = 34;
     internal const int FireFirstFrame = 36;
-    internal const int ReloadFirstFrame = 40;
-    internal const int LowerFirstFrame = 52;
-    internal const int RetreatFirstFrame = 58;
+    internal const int ReloadFirstFrame = 41;
+    internal const int LowerFirstFrame = 53;
+    internal const int RetreatFirstFrame = 59;
 
     /// <summary>已举枪枪口像素（Aim key [48,14]）：出膛原点来源，绝不使用动画帧或原生 2.5 偏移。</summary>
     internal const int PreparedMuzzlePixelX = 48;
@@ -156,7 +163,7 @@ internal static class MusketeerAtlas
     private static readonly double[] RunHolds = { 0.09375, 0.09375, 0.09375, 0.09375, 0.09375, 0.09375, 0.09375, 0.09375 };
     private static readonly double[] RaiseHolds = { 0.055, 0.055, 0.055, 0.055, 0.055, 0.055 };
     private static readonly double[] AimHolds = { 0.15, 0.15 };
-    private static readonly double[] FireHolds = { 0.045, 0.055, 0.07, 0.08 };
+    private static readonly double[] FireHolds = { 0.05, 0.05, 0.05, 0.05, 0.05 };
     private static readonly double[] ReloadHolds = { 0.1, 0.1, 0.12, 0.13, 0.13, 0.14, 0.13, 0.13, 0.12, 0.1, 0.1, 0.1 };
     private static readonly double[] LowerHolds = { 0.065, 0.065, 0.065, 0.065, 0.065, 0.065 };
     private static readonly double[] RetreatHolds = { 0.105, 0.105, 0.105, 0.105, 0.105, 0.105, 0.105, 0.105 };
@@ -172,7 +179,7 @@ internal static class MusketeerAtlas
     private static readonly MusketeerClip RetreatClip = new MusketeerClip(MusketeerAction.Retreat, RetreatFirstFrame, RetreatHolds, true);
 
     /// <summary>
-    /// 66 个 key 的锚点（清单逐帧值，按帧号 0..65 升序）。索引即 atlas 帧号。
+    /// 67 个 key 的锚点（清单逐帧值，按帧号 0..66 升序）。索引即 atlas 帧号。
     /// 运行时只用到 [48,14]（已举枪枪口）与 torsoLift；其余是契约完整性（测试核对清单值）。
     /// </summary>
     internal static readonly MusketeerAnchor[] Anchors =
@@ -218,12 +225,13 @@ internal static class MusketeerAtlas
         // Aim 34..35
         new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
         new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
-        // Fire 36..39
+        // Fire 36..40（第 5 帧 = old39 的 Aim 锚点副本；红焰 5 帧、每帧 0.05s）
         new MusketeerAnchor(29, 17, 36, 16, 47, 14, 0),
         new MusketeerAnchor(29, 17, 36, 16, 47, 14, 0),
         new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
         new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
-        // Reload 40..51
+        new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
+        // Reload 41..52
         new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
         new MusketeerAnchor(30, 18, 36, 16, 46, 12, 0),
         new MusketeerAnchor(29, 19, 35, 17, 45, 10, 0),
@@ -236,14 +244,14 @@ internal static class MusketeerAtlas
         new MusketeerAnchor(30, 18, 36, 16, 46, 11, 0),
         new MusketeerAnchor(30, 17, 36, 16, 47, 13, 0),
         new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
-        // Lower 52..57
+        // Lower 53..58
         new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
         new MusketeerAnchor(30, 18, 36, 16, 47, 12, 0),
         new MusketeerAnchor(30, 18, 35, 16, 46, 11, 0),
         new MusketeerAnchor(29, 19, 35, 17, 44, 10, 0),
         new MusketeerAnchor(29, 19, 34, 17, 43, 9, 0),
         new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        // Retreat 58..65（未接线）
+        // Retreat 59..66（未接线）
         new MusketeerAnchor(28, 20, 32, 18, 40, 8, 0),
         new MusketeerAnchor(28, 20, 32, 18, 40, 8, 0),
         new MusketeerAnchor(29, 19, 33, 17, 41, 7, 1),

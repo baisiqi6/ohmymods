@@ -37,7 +37,9 @@ namespace AutoRestockTests
             Run("native_throw_fault_sticky_same_world_no_refund_no_blind_retry", NativeThrowSticky);
             Run("native_throw_retried_after_world_change", NativeThrowWorldChange);
             Run("pause_and_notplaying_freeze_authloss_releases", PauseNotPlayingAuth);
-            Run("night_preserves_and_completes_order", NightCancels);
+            Run("nightfall_withdraws_unpaid_inflight_order_no_debit", NightCancels);
+            Run("nightfall_paid_order_releases_home_without_retry_or_refund", NightPaidRelease);
+            Run("dawn_replans_once_without_duplicate_shipment", DawnReplan);
             Run("layer_change_drops_orders_without_returnhome_teleport", LayerChange);
             Run("reset_false_releases_reservation_without_returnhome", ResetFalseDirect);
             Run("shop_block_conditions_prevent_any_order", BlockConditions);
@@ -246,6 +248,7 @@ namespace AutoRestockTests
                 case 5: ModConfig.AutoRestockFarmersEnabled.Value = on; ModConfig.AutoRestockFarmersTarget.Value = target; break;
                 case 6: ModConfig.AutoRestockCatapultBarrelsEnabled.Value = on; ModConfig.AutoRestockCatapultBarrelsTarget.Value = target; break;
                 case 7: ModConfig.AutoRestockFireTowerAmmoEnabled.Value = on; ModConfig.AutoRestockFireTowerAmmoTarget.Value = target; break;
+                case 8: ModConfig.AutoRestockMusketeersEnabled.Value = on; ModConfig.AutoRestockMusketeersTarget.Value = target; break;
             }
         }
 
@@ -695,12 +698,67 @@ namespace AutoRestockTests
 
         internal static void NightCancels()
         {
+            // 产品规则：只有白天采购。夜幕降临时，未扣款订单立即撤回并释放助手/预算——
+            // 不发新动画币、不扣款、不发货；已发出的动画币只是表现，随原生生命周期回收。
             Env e=NewEnv();Role(0,true,3);AutoRestockCounts.SetLive(0,2);
             PayableShop shop=e.MakeShop(0,2);e.Banker._stashedCoins=10;e.Tick();
-            e.SetTime(Time.time+.3f);e.Kingdom.isDaytime=false;e.Tick();
-            Eq(Reserved,1,"night preserves in-flight order");
-            Ok(PumpUntil(e,()=>shop.TransactionCompleteCalls==1),"purchase finishes after nightfall");
-            Eq(e.Banker._stashedCoins,6,"night purchase charges exactly once");
+            float t0=Arrive(e);
+            e.SetTime(t0+.30f); // 动画币已发出 1 枚（SendingCoins），尚未扣款
+            Eq(Pool.SpawnCalls,1,"one presentation coin in daylight");
+            e.Kingdom.isDaytime=false;e.Tick();
+            Eq(Reserved,0,"nightfall withdraws the unpaid order");
+            Eq(Spend,0,"withdrawal never debits");
+            Eq(shop.TransactionCompleteCalls,0,"withdrawal never buys");
+            Ok(BankAssistantCoordinator.Releases.Count>0
+                && BankAssistantCoordinator.Releases[BankAssistantCoordinator.Releases.Count-1].ReturnHome,
+                "withdrawn assistant returns home");
+            int coins=Pool.SpawnCalls;
+            for(int i=0;i<30;i++) e.Frame(); // 夜间帧：订单不会复活，也不会再发补货币
+            Eq(Pool.SpawnCalls,coins,"no further coin after nightfall");
+            Eq(Spend,0,"still no debit across night frames");
+            Eq(shop.TransactionCompleteCalls,0,"still no purchase across night frames");
+        }
+
+        internal static void NightPaidRelease()
+        {
+            // 已扣款订单在夜幕降临时只释放/回家收尾：不重复交易、不退款、不盲重试。
+            Env e=NewEnv();Role(0,true,3);AutoRestockCounts.SetLive(0,2);
+            PayableShop shop=e.MakeShop(0,2);e.Banker._stashedCoins=10;e.Tick();
+            float t0=Arrive(e);
+            e.SetTime(t0+.151f);e.SetTime(t0+.352f);e.SetTime(t0+.553f);e.SetTime(t0+.754f); // 动画完成
+            e.SetTime(t0+1.05f); // FinalWait→扣款，订单进入 Departing
+            Eq(shop.TransactionCompleteCalls,1,"day purchase completed");
+            Eq(Spend,1,"single debit before nightfall");
+            Eq(Reserved,1,"paid order still departing");
+            int teleports=BankAssistantCoordinator.HomeTeleports;
+            e.Kingdom.isDaytime=false;e.Tick();
+            Eq(Reserved,0,"paid order released at nightfall");
+            Ok(BankAssistantCoordinator.HomeTeleports==teleports+1,"paid assistant sent home");
+            Eq(Spend,1,"no retry debit");
+            Eq(shop.TransactionCompleteCalls,1,"no second native purchase");
+            Eq(e.Banker._stashedCoins,6,"no refund of the committed debit");
+            Time.time+=3f;e.Tick();Time.time+=3f;e.Tick();
+            Eq(Spend,1,"night frames never retry the paid order");
+            Eq(shop.TransactionCompleteCalls,1,"no blind retry on the same shop");
+        }
+
+        internal static void DawnReplan()
+        {
+            // 夜间撤回后，天亮在原有 taxTick 调度上重算缺口：只补一次，不重复下单/扣款。
+            Env e=NewEnv();Role(0,true,3);AutoRestockCounts.SetLive(0,2);
+            PayableShop shop=e.MakeShop(0,2);e.Banker._stashedCoins=10;e.Tick();
+            float t0=Arrive(e);e.SetTime(t0+.30f);
+            e.Kingdom.isDaytime=false;e.Tick();
+            Eq(Reserved,0,"night withdrew the unpaid order");
+            Eq(Spend,0,"no debit at night");
+            e.Kingdom.isDaytime=true;e.SetTime(t0+2.6f);e.Tick(); // 天亮 + 下一次调度
+            Eq(Reserved,1,"dawn replans the same deficit");
+            Ok(PumpUntil(e,()=>shop.TransactionCompleteCalls==1&&Reserved==0),"single dawn purchase");
+            Eq(PatchEconomy_Banker.SpendAmounts.Count,1,"no duplicate debit");
+            Eq(e.Banker._stashedCoins,6,"single doubled price");
+            Time.time+=3f;e.Tick();
+            Eq(Spend,1,"no further purchase once covered");
+            Eq(shop.TransactionCompleteCalls,1,"no duplicate shipment");
         }
 
         internal static void LayerChange()

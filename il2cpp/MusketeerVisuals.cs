@@ -6,9 +6,11 @@
 //       尺寸或内容校验失败 → 整块 fail-closed（保持原版外观，绝不留半个对象）。
 //
 // 挂点：自有 SpriteRenderer 挂在**原生 renderer 的 Transform 之下**，localPosition 零 /
-//       localRotation identity / localScale one —— 位置、朝向（父链 localScale.x 符号）、
-//       缩放全部自然继承，绝不复制一次性的世界坐标、不改父链任何 local 值、
-//       **不做任何额外缩放**（普通量产职业，不套英雄的 0.9/置前平面）。
+//       localRotation identity / localScale = (MusketeerAtlas.AppearanceScale, …, 1)（绝对值赋值）——
+//       位置、朝向（父链 localScale.x 符号）自然继承；0.9 外观缩放（人物与手持枪同帧一起缩小）
+//       以既有脚点 pivot 为锚、Z 保持 1 不动深度、绝不逐次自乘递减；
+//       枪口偏移（MusketeerCombat.TryComputeMuzzle）乘同一常量，所见与出膛一致；
+//       绝不复制一次性的世界坐标、不改父链任何 local 值。
 //
 // 原生隐藏：native.forceRenderingOff = true（CAS：凭据 HidNative，只写我们写过的 true，
 //       归还只写 false）。任何一步失败整组回滚（销毁自有子物体 + 归还原生渲染）。
@@ -340,7 +342,9 @@ internal static class MusketeerVisuals
             state.Root.transform.SetParent(anchor, false);
             state.Root.transform.localPosition = Vector3.zero;
             state.Root.transform.localRotation = Quaternion.identity;
-            state.Root.transform.localScale = Vector3.one;
+            // 外观统一 0.9（XY；Z 保持 1 不动深度）：绝对值赋值，绝不逐次自乘。
+            state.Root.transform.localScale = new Vector3(
+                MusketeerAtlas.AppearanceScale, MusketeerAtlas.AppearanceScale, 1f);
 
             CopyRendererLook(state);
             Visuals[goId] = state;
@@ -596,14 +600,14 @@ internal static class MusketeerVisuals
         return MusketeerMotion.Unknown;
     }
 
-    /// <summary>本帧是否处于"举枪姿态"：原生射击状态，或当前瞄准的是合法地面敌人。</summary>
+    /// <summary>本帧是否处于"举枪姿态"：原生射击状态，或当前瞄准的是合法敌人／白天可猎鹿。</summary>
     private static bool HasGroundTarget(Archer archer)
     {
         try
         {
             if (archer == null || archer.gameObject == null) return false;
             GameObject target = archer._shootingTarget;
-            return MusketeerFoeFilter.IsValidGroundFoe(target, archer.gameObject);
+            return MusketeerFoeFilter.IsValidShotTarget(archer, target);
         }
         catch (Exception)
         {
