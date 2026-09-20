@@ -1,0 +1,17 @@
+# 希腊普通野鹿刷新密度与补充速度3倍
+
+用户要求增加可狩猎普通鹿的刷新数量，并明确选择3倍。沿用现有希腊项目范围，只调整单机/主机的普通Deer生成器，保持原单只掉落、鹿缩放、树林/季节/区域限制、池和网络机制。
+
+实际2.4 PopulationController.Update为长且唯一的入口（RVA6c5990、sameSlots=1）；根据原生季节分支读取density/winterDensityDefault/winterDensitySpecial并重算_targetDensity，读取_actualUpdateInterval检查间隔。每到期最多生成一只，原SpawnCreature继续核authority并走原生Pool.SpawnGO。
+
+在原Update调用期间，将三个密度输入临时乘3、实际间隔临时除3，Postfix/Finalizer归还本次仍自有的写入。负值/非有限值/溢出输入不参与；原生零密度不变。实例级重入避免叠乘。Mod关闭、客机、其他世界、季节Critter、非Deer和特殊鹿/坐骑走原版。禁止直接生成循环、新driver/全场扫描或修改掉落数量。
+
+实际资源已确认Forest与PopulationController同GO，prefab为numCoinsDropped=3的Deer；Thicket/BerryBush控制器使用季节Critter。实际World.FindOrCreateForest将Forest挂至当前gameLayer，因此同时检查场景和父层级。游戏状态门对齐原生playingOrInMenuWithClient，保留主机菜单而客机继续游戏的行为。
+
+最终实现将调用栈内Active与异常待恢复Pending分离。只有清理失败的字段继续保留原值；下一次先排除嵌套，再重试旧清理，未成功则不重新放大；关闭Mod或失权也可归还。外部接管、身份更换、同token重试和旧Finalizer不干扰新调用均有回归。源码冻结80FE4C2F13209B73244E17E114FF3A6E96FE9D7CC4A8B66C4CC440E54130BCE4，27专属回归、0W0E构建、23实际Unity方法审计、1317旧方法体不变与独立源审已通过。精确4113B3DD于9月14日受控运行约110秒，加载完成后新入口与原隐士getter机器码均核对，存档/config/bank保持，已安装本机。
+
+本次存档未出现普通鹿生成器的成功日志，森林区域实际增量观察仍待。首次80秒采样早于插件完成加载，随后一次采样脚本遇日志共享锁，均未作为完成证据；最终采样等待Chainloader启动完成再核对FF25入口，正常完成。详见acceptance.md及本机原始回执。
+
+验收：生产直链回归覆盖资格门、季节零值、原生时间/密度行为、异常归还/外部写者/重入；完整IL2CPP构建、其余方法体等价、实际2.4 native/Unity API审计及独立复核。条件允许时受控启动观察生成器日志和新hook，使用新采集的存档/config/bank基线，保护用户进程。没有当前场景生成正例时明确记录，不把模拟或仅启动当作实战已验。
+
+密度乘3受原生Ceil取整和当前森林面积影响，不承诺屏幕每时刻固定出现精确三倍鹿。公开6.1.5资产不覆盖，不commit/push。

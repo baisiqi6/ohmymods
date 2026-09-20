@@ -1,0 +1,25 @@
+PASS Only long Droppable OnEnable and OnDisable methods are Harmony targets
+PASS Anybody and EnemyOnly become Nobody and restore exact original policy
+PASS Coins tools and a named Hermit without same-object Hermit component are untouched
+PASS All originally non-enemy-pickable policies remain unchanged
+PASS Disabled registration permits later enabling and repeated ticks do not stack
+PASS Repeated OnEnable preserves Original including after disable toggle
+PASS OnDisable only retires receipt and native reset owns pool restoration
+PASS External Blocked policy survives disable and subsequent toggles
+PASS External change relinquishes this generation even when it later permits pickup
+PASS Client registers without even reading policy then host takeover protects
+PASS Authority loss suspends Original and host return with mod disabled restores it
+PASS Host regain while enabled keeps protection and its original receipt
+PASS External policy during authority suspension is retained after host regain
+PASS Initial missing context and late parent remain pending until attached
+PASS Bound object leaving layer retires without restoring while pending attachment differs
+PASS Inactive and other-scene generations prune without native writes
+PASS Changed world retires bound receipt even when same object joins new layer
+PASS Loading suspends existing ownership and permits pending enable for later playing
+PASS Temporary Loading managers world or layer loss retains originals through playing or pause recovery
+PASS Known pause keeps live ownership and permits host config restore
+PASS Exact component and GO identities reject reused pointers before policy writes
+PASS Mounted nested parent remains in current layer without touching general policy
+PASS Tick and hooks contain failures and emit bounded diagnostic warning
+PASS First successful protection log includes native original policy and object id
+RESULT: 24 passed, 0 failed

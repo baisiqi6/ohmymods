@@ -1,0 +1,35 @@
+{
+  "changedMethods": [
+    "System.Boolean KingdomEnhancedMod.BankAssistantCoordinator::TryChainNextTarget(KingdomEnhancedMod.BankAssistantCoordinator/AssistantState)",
+    "System.Boolean KingdomEnhancedMod.BankAssistantCoordinator::TryReserveForRestock(System.Int32&,UnityEngine.GameObject&)",
+    "System.Void KingdomEnhancedMod.BankAssistantCoordinator::CleanupNoCandidates()",
+    "System.Void KingdomEnhancedMod.BankAssistantCoordinator::EnsureFourActors(UnityEngine.Transform)",
+    "System.Void KingdomEnhancedMod.BankAssistantCoordinator::ReleaseRestockAssistant(System.Int32,UnityEngine.GameObject,System.Boolean)",
+    "System.Void KingdomEnhancedMod.BankAssistantCoordinator::ResetAll(System.Boolean,System.Boolean,System.Boolean)",
+    "System.Void KingdomEnhancedMod.BankAssistantCoordinator::ScanAndDispatch(Managers)",
+    "System.Void KingdomEnhancedMod.BankAssistantCoordinator::SelectNextCollectors(System.Int32)",
+    "System.Void KingdomEnhancedMod.BankAssistantCoordinator::SweepNearbyCoins(KingdomEnhancedMod.BankAssistantCoordinator/AssistantState)",
+    "System.Void KingdomEnhancedMod.BankAssistantCoordinator::TeleportHomeAndDeposit(KingdomEnhancedMod.BankAssistantCoordinator/AssistantState)",
+    "System.Void KingdomEnhancedMod.BankAssistantCoordinator::UpdateMovingAssistants()",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()"
+  ],
+  "removedMethods": [],
+  "unchangedMethods": 3017,
+  "version": "8.0.0.0",
+  "actionAtlasVerified": true,
+  "baselineSha256": "AD57EB7527F649CE431AAE023943419CF5C742041D1A2F860278667D4F9867BD",
+  "candidateSha256": "084ACEC85585D3C8C5CC101F2ABF5D1FF4AFE978E02C80532FD05D6C75BE70A6",
+  "harmonyPatchTypesUnchanged": true,
+  "addedMethods": [
+    "System.Boolean KingdomEnhancedMod.BankAssistantCoordinator::TripComplete(KingdomEnhancedMod.BankAssistantCoordinator/AssistantState)",
+    "System.Boolean KingdomEnhancedMod.BankAssistantCoordinator::TryStartWaitForNextCoin(KingdomEnhancedMod.BankAssistantCoordinator/AssistantState)",
+    "System.Int32 KingdomEnhancedMod.BankAssistantCoordinator::GetTripCapacity()",
+    "System.Void KingdomEnhancedMod.BankAssistantCoordinator::ClearWaitDeadline(KingdomEnhancedMod.BankAssistantCoordinator/AssistantState)"
+  ],
+  "unchangedResources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png",
+    "KingdomEnhancedMod.ArtemisArrow.png",
+    "KingdomEnhancedMod.HeroShop.png",
+    "KingdomEnhancedMod.HeroShopSeats.png"
+  ]
+}

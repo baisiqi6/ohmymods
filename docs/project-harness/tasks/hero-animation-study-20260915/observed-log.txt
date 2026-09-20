@@ -1,0 +1,240 @@
+[Message: Preloader] BepInEx 6.0.0-be.752 - KingdomTwoCrowns (2026/5/4 21:04:42)
+[Message: Preloader] Built from commit dd0655fe9d7473b18b0af759448adaf272878fcf
+[Info   :   BepInEx] System platform: Windows 10 64-bit
+[Info   :   BepInEx] Process bitness: 64-bit (x64)
+[Info   :   BepInEx] Running under Unity 6000.0.61f1
+[Info   :   BepInEx] Runtime version: 6.0.7
+[Info   :   BepInEx] Runtime information: .NET 6.0.7
+[Info   : Preloader] 0 patcher plugins loaded
+[Info   : Preloader] 0 assemblies discovered
+[Message:AssemblyPatcher] Executing 0 patch(es)
+[Message:   BepInEx] Chainloader initialized
+[Warning:Il2CppInterop] Class::Init signatures have been exhausted, using a substitute!
+[Info   :Il2CppInterop] Registered mono type Il2CppInterop.Runtime.DelegateSupport+Il2CppToMonoDelegateReference in il2cpp domain
+[Info   :   BepInEx] 1 plugin to load
+[Info   :   BepInEx] Loading [KingdomEnhancedMod 7.6.5]
+[Info   :KingdomEnhancedMod] Plugin KingdomEnhancedMod v7.6.5 build=7.6.5-hero-walk-scale-20260915 loading...
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.ModPanel in il2cpp domain
+[Info   :KingdomEnhancedMod] [Panel] ModPanel created (Ctrl+F10 / F5 to toggle)
+[Info   :KingdomEnhancedMod] [SamuraiDiag] event=armed passive=true burst=8 refill=1/game-second maxLinesPerDash=12; renderer-state logs do not prove screen visibility
+[Info   :KingdomEnhancedMod] Plugin KingdomEnhancedMod loaded. Enabled=True
+[Message:   BepInEx] Chainloader startup complete
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.SpecialTowerRebuildMarker in il2cpp domain
+[Info   :KingdomEnhancedMod] [SpecialTowerRebuild] Ready ballista=[Tower Ballista, Tower Ballista_greece, Tower Ballista_bamboo, Tower Ballista_deadlands] fire=[Tower_upgrade_Fire_greece] target=Tower6 price=18 biome=5
+[Info   :KingdomEnhancedMod] [PoolFix] Force InitPools() executed (native pools rebuilt)
+[Info   :KingdomEnhancedMod] [NorseSquad] resolved Archer_norselands via loadall
+[Info   :KingdomEnhancedMod] [GhostSquads] Norse native-behaviour pools ready (syncIDs=30130/30131, duration=30s)
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.BankAssistantCoordinator in il2cpp domain
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.BankAssistantVisualLifecycle in il2cpp domain
+[Info   :KingdomEnhancedMod] [BankAssistants] Resolved unique banker controllers: banker, banker_bamboo, banker_deadlands, banker_norselands
+[Info   :Il2CppInterop] Registered mono type BepInEx.Unity.IL2CPP.Utils.Collections.Il2CppManagedEnumerator in il2cpp domain
+[Info   :KingdomEnhancedMod] [ScaleScope] Greek scale applied; first target=CurrencyBag P1 nativeY=1 targetY=2
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for char:Archer (syncID=30000)
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for ToolNinja (syncID=30001)
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for ToolBerserker (syncID=30002)
+[Info   :KingdomEnhancedMod] [Ninja] Registered synced pool for ThrowingStar (syncID=41)
+[Info   :KingdomEnhancedMod] [Ninja] Registered local pool for Smokebomb
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for char:Ninja (syncID=30003)
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for char:Berserker (syncID=30004)
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for char:BerserkerLeader (syncID=30005)
+[Info   :KingdomEnhancedMod] [Roles] Added 4 characters to Holder
+[Info   :KingdomEnhancedMod] [Roles] Greece: Worker replaced with Worker_norselands
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for char:Worker (syncID=30006)
+[Info   :KingdomEnhancedMod] [Roles] Greece: Peasant replaced with Peasant_norselands
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for char:Peasant (syncID=30007)
+[Info   :KingdomEnhancedMod] [Economy] Base shops loaded: 9 entries
+[Info   :KingdomEnhancedMod] [Economy] Cross-biome shops added: 5 entries
+[Info   :KingdomEnhancedMod] [Economy] Greece: ShieldShop slot -> ShopBerserker_norselands (native refresh, Pike kept)
+[Info   :KingdomEnhancedMod] [Economy] Shop loading complete, total 14 entries
+[Warning:KingdomEnhancedMod] [KnightIdentity] load-mismatch:149cc0bf
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.PopulationPerformanceCoordinator in il2cpp domain
+[Info   :KingdomEnhancedMod] [Ninja] Prepared 5 Greece beggar-camp hiding anchors (side=Left, x=-72)
+[Info   :KingdomEnhancedMod] [SerpentLeash] anchor pushed to wall+100 (wall=0.0 anchor=100.0 worldRight=-1.0)
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.DeadlandsAnimObserver in il2cpp domain
+[Info   :KingdomEnhancedMod] [Ninja] Prepared 1 Greece tree hiding anchor (side=Right, x=271.59375)
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.CrossbowmanMarker in il2cpp domain
+[Info   :KingdomEnhancedMod] [Economy] Banker.Awake_Prefix: current=Banker(Clone) inLayer=True total=1 live=1 all=[Banker(Clone)]
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.ScaleRegistryHolder in il2cpp domain
+[Info   :KingdomEnhancedMod] [Roles] Added NpcShieldUser to Greek worker (pickup capability)
+[Info   :KingdomEnhancedMod] [ScanCache] shared scans active
+[Info   :KingdomEnhancedMod] [SerpentLeash] diag serpent x=281.3 state=1
+[Warning:KingdomEnhancedMod] [FriendlyTrollBalance] TrollWeak identity/header unavailable; designation failed closed for this activation.
+[Info   :KingdomEnhancedMod] [FleetBoatRecovery] expected=4 active=4 standby=0 carry=0 desired=4 materialized=4 missing=0 recovered=0 mode=complete
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.FleetBoatBerthCoordinator in il2cpp domain
+[Info   :KingdomEnhancedMod] [GreekFireAssets] restored missing instance fire attack=Archer_Greece_FireArrowAttack repairs=1
+[Info   :KingdomEnhancedMod] [GreekFireAssets] restored missing instance fire attack=Archer_Greece_FireArrowAttack repairs=2
+[Info   :KingdomEnhancedMod] [GreekFireAssets] restored missing instance fire attack=Archer_Greece_FireArrowAttack repairs=3
+[Info   :KingdomEnhancedMod] [DefenseSpacing] day assemble spread active: dayIndex=0 newX=185.26
+[Info   :KingdomEnhancedMod] [FleetBoatBerth] boats=4 updated=0 waited=22.81 mode=timeout-unsafe-state
+[Info   :KingdomEnhancedMod] [ClockDiag] t=16.35 isNight=False kingdomDaytime=True islandDays=74 timeScale=0.00
+[Info   :KingdomEnhancedMod] [OptionalVegetation] 密灌木开启：CanSpawnThicket 调用窗口内 thicketSpacing 6 -> 3，调用结束立即还原；额外灌木仍由原生 Grass.SpawnThicket 生成
+[Info   :KingdomEnhancedMod] [Ninja] World.AddThicket hook entered (side=Right, x=190.5)
+[Info   :KingdomEnhancedMod] [Ninja] Prepared 3 Greece thicket hiding anchors (side=Right, x=190.5)
+[Info   :KingdomEnhancedMod] [Economy] Player1 wallet capacity = 2000 (Hermes)
+[Info   :KingdomEnhancedMod] [Economy] Player1 wallet capacity = 2000 (Hermes)
+[Info   :KingdomEnhancedMod] [Economy] Player2 wallet capacity = 2000 (Hermes)
+[Info   :KingdomEnhancedMod] [Economy] Hermes currency bag unlocked
+[Info   :KingdomEnhancedMod] [DeerPopulation] prefab=Deer density=0.027->0.081 winterDefault=0.013->0.039 winterSpecial=0.013->0.039 interval=9.9003525->3.3001175
+[Info   :KingdomEnhancedMod] [BankAssistants] Authority spawned deterministic 4-assistant pool
+[Info   :KingdomEnhancedMod] [SiegeAmmoCounts] ready=true sites=2 barrels=23 fireJars=9
+[Info   :KingdomEnhancedMod] [AutoRestock] role=工人 现有 30 · 待领 0 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [AutoRestock] role=弓箭手 现有 120 · 待领 0 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [AutoRestock] role=忍者 现有 20 · 待领 0 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [AutoRestock] role=狂战士 现有 15 · 待领 0 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [AutoRestock] role=无业村民 现有 33 · 面包 0 · 招募中 0 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [AutoRestock] role=农夫 已关闭
+[Info   :KingdomEnhancedMod] [AutoRestock] role=投石车油桶 弹药 23 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [AutoRestock] role=火塔罐 弹药 9 · 采购 0 · 弹药已满，等待消耗
+[Info   :KingdomEnhancedMod] [BankAssistants] active collectors=0 (mature=0)
+[Info   :KingdomEnhancedMod] [PopulationHUD] ready=true 工匠  30; 弓箭手  120; 农民  25; 长枪兵  20; 忍者  20; 狂战士  15; 无业村民  33; 乞丐  15; 骑士  22; 中世纪  0; 死地  0; 幕府  0; 希腊  0; 北境  0; 待识别  22
+[Info   :KingdomEnhancedMod] [Roles] Hermit enemy pickup protected: id=-101510 original=0 current=4
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Run frame=8 prepare=False speed=1.60
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.HeroArcherVisualDriver in il2cpp domain
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=-1 actor=-108608 range=8.125 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-137488 life=1 motion=Walk frame=4 prepare=False speed=0.60
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=1 actor=-137488 range=8.125 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [CalendarHUD] floating strip ready; style=GUI.skin.label font=LegacyRuntime sizes=18/17/12 shadow=1px
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-137488 life=1 motion=Run frame=8 prepare=False speed=0.73
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Run frame=11 prepare=False speed=1.12
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-137488 life=1 motion=Idle frame=0 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [KnightStyle] resolution: knight[knight=knight knight_deadlands=knight_deadlands knight_bamboo=knight_bamboo knight_greece=knight_greece knight_norselands=knight_norselands] soldier[archer_soldier=archer_soldier archer_soldier_deadlands=archer_soldier_deadlands archer_soldier_bamboo=archer_soldier_bamboo archer_soldier_greece=archer_soldier_greece archer_soldier_norselands=archer_soldier_norselands]
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as greece (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as shogun (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as greece (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as deadlands (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as shogun (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as deadlands (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as medieval (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as deadlands (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as greece (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as shogun (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as shogun (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as deadlands (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as norse (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as greece (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as norse (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as greece (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as norse (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as shogun (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as medieval (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as norse (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as shogun (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as deadlands (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightIdentity] save scope=0f0830e2 hash=149cc0bf entries=22
+[Info   :KingdomEnhancedMod] [KnightIdentity] seed scope=0f0830e2 hash=149cc0bf entries=22 excluded=0
+[Info   :KingdomEnhancedMod] [SquadRoster] cached<=3s s0{knights=2 roster=8/8 alive=8 mismatch=0 far10=0} s1{knights=5 roster=20/20 alive=20 mismatch=0 far10=0} s2{knights=6 roster=24/24 alive=24 mismatch=0 far10=0} s3{knights=5 roster=20/20 alive=20 mismatch=0 far10=0} s4{knights=4 roster=16/16 alive=16 mismatch=0 far10=0} truncated=False readMs=2.50 sample=1/5
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.CrossbowBoltScaleLifecycle in il2cpp domain
+[Info   :KingdomEnhancedMod] [Crossbowman] registered synced pool for KEM_CrossbowBolt (syncID=31000)
+[Info   :KingdomEnhancedMod] [KnightStyle] follower diag: archers=120 withKnight=88 inStates=88 styled=69 skippedFamily=19 skippedOther=0 sample=archer@185.2 controller=archer_soldier_norselands styleTargets=med:8 dead:20 shog:24 gree:20 norse:16 curTop=archer_soldier_norselands:x82 archer_soldier_greece:x6
+[Info   :KingdomEnhancedMod] [MedievalNorse] norse wallet boost applied (capacity base 12, taxes base 12; targets x2 incl statue)
+[Info   :KingdomEnhancedMod] [MedievalNorse] medieval range boost applied (slash 0.52 -> 0.78, hitbox xMax x1.5)
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Run frame=10 prepare=False speed=0.77
+[Info   :KingdomEnhancedMod] [SquadRefill] disabled style=4 owner#-106068 rosterBefore=4/4 dead=False disableIsNotAlwaysDeath=true
+[Info   :KingdomEnhancedMod] [NorseSquad] norse follower shield equip active (subsequent re-equips silent)
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Walk frame=4 prepare=False speed=0.63
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Run frame=9 prepare=False speed=0.83
+[Info   :KingdomEnhancedMod] [KnightAnimatorDiag] controller=knight_greece clips=11 dashLike=knight_charge_greece parameters=Speed,Slash,Retreat,Rally,PowerSlash,Land,Idleness,Die,Spawn,Block
+[Info   :KingdomEnhancedMod] [KnightAnimatorDiag] controller=knight_bamboo clips=11 dashLike=knight_charge_bamboo parameters=Speed,Slash,Retreat,Rally,PowerSlash,Land,Idleness,Die,Spawn,Block
+[Info   :KingdomEnhancedMod] [KnightAnimatorDiag] controller=knight_deadlands clips=11 dashLike=knight_charge_deadlands parameters=Speed,Slash,Retreat,Rally,PowerSlash,Land,Idleness,Die,Spawn,Block
+[Info   :KingdomEnhancedMod] [KnightAnimatorDiag] controller=knight clips=11 dashLike=knight_charge parameters=Speed,Slash,Retreat,Rally,PowerSlash,Land,Idleness,Die,Spawn,Block
+[Info   :KingdomEnhancedMod] [KnightAnimatorDiag] controller=knight_norselands clips=10 dashLike=knight_charge_norselands parameters=Speed,Slash,Retreat,Rally,PowerSlash,Land,Idleness,Block
+[Info   :KingdomEnhancedMod] [KnightAnimatorDiag] completed knights=22 uniqueControllers=5
+[Info   :KingdomEnhancedMod] [DefenseSpacing] heartbeat: archersProp=120 foundByType=120
+[Info   :KingdomEnhancedMod] [DefenseSpacing] knight sample: count=22 [rank=1 dfw=1.00 side=1 | rank=5 dfw=1.00 side=1 | rank=5 dfw=1.00 side=1]
+[Info   :KingdomEnhancedMod] [DefenseSpacing] knight lineup: r1@13.3; r1@12.2; r1@8.0; r2@4.7; r2@3.8; r3@5.8; r4@14.8; r4@7.2; r6@11.0; r7@9.6; r7@2.2; r7@1.1
+[Info   :KingdomEnhancedMod] [DefenseSpacing] friendly collision permanently off: layers=[10,17] ignored=[10-10,10-17,17-10,17-17]
+[Info   :KingdomEnhancedMod] [DefenseSpacing] day crowd spread: crowded=148 re-rolled=11
+[Info   :KingdomEnhancedMod] [DefenseSpacing] first scan: archers=120 maxDepth=44 clamped=0 sample=[d=4 s=0.11 min=1.75 rnd=0.01 side=1 | d=4 s=0.11 min=1.75 rnd=0.06 side=1 | d=4 s=0.11 min=1.75 rnd=-0.01 side=1]
+[Info   :KingdomEnhancedMod] [BankAssistants] scan observed=18, playerCoins=0, farmCoins=1, outside=0, tracked=1, mature=0, assigned=0, externallyClaimed=0, collectors=0
+[Warning:KingdomEnhancedMod] [OptionalVegetation] 首个额外灌木已登记（对象由原生 SpawnThicket 生成，这里只登记归属）
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Idle frame=0 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Idle frame=1 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Idle frame=2 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Idle frame=3 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [ShieldWallTotem] resolved totem prefab: border 'Border_norselands' child 'ActiveShieldWallTotem'
+[Info   :KingdomEnhancedMod] [ShieldWallTotem] totem attached to Left border banner
+[Info   :KingdomEnhancedMod] [ShieldWallTotem] totem attached to Right border banner
+[Info   :KingdomEnhancedMod] [FarmCats] resolved cat prefab via Holder.catPrefab (native path)
+[Info   :KingdomEnhancedMod] [FarmCats] spawned 0, retired 0 cats at 4 farmhouses (norse prefab)
+[Info   :KingdomEnhancedMod] [TowerSpots] template scatter usePayable=True minSpacing=8.0 avoid=[Farmhouse,WallFoundation,Tower,HermesShade]
+[Info   :KingdomEnhancedMod] [TowerDupCleanup] removed=0
+[Info   :KingdomEnhancedMod] [TowerSpots] scan native=19 generatedUnbuilt=1 occupied=68 retired=0
+[Info   :KingdomEnhancedMod] [TowerSpots] added 0 spots (multiplier=2.00, native spacing=20.0, native bases=19, occupied total=68)
+[Info   :KingdomEnhancedMod] [BankAssistants] first assignment helper=0, coin=-142464, x=62.11, age=3.05s
+[Info   :KingdomEnhancedMod] [NorseSquad] load restore summary: converted=16 shieldReady=16 pending=32 attempts=24
+[Info   :KingdomEnhancedMod] [BankAssistants] first submission helper=0, coin=-142464, accepted=1
+[Info   :KingdomEnhancedMod] [SerpentLeash] remote proximity wave: t=13.8 cooldown gate=13.8/1.5 extraDistance=101.0 compensation=8.0s compensationGameHours=0.80 early=True
+[Info   :KingdomEnhancedMod] [SpecialTowerRebuildDiag] [t+10s] sceneBallistas=5 sceneFireTowers=1 registeredRebuildPayables=3
+[Info   :KingdomEnhancedMod] [SpecialTowerRebuildDiag] [t+10s] chain=Tower Ballista_greece(Clone) <- GameLayer[m=0,p=0,P=0,B=0] <- Level[m=0,p=0,P=0,B=0] selfMarker=True payable=present locked=False reason=NotLocked blockPay=False regionRestrict=False
+[Info   :KingdomEnhancedMod] [SpecialTowerRebuildDiag] [t+10s] Tower_upgrade_Fire_greece(Clone) active=True jars=9/9 actors=1 marker=True payable=present locked=False reason=NotLocked blockPay=False regionRestrict=False
+[Info   :KingdomEnhancedMod] [SerpentLeash] anchor pushed to wall+100 (wall=180.9 anchor=280.9 worldRight=336.0)
+[Info   :KingdomEnhancedMod] [BankAssistants] scan observed=28, playerCoins=0, farmCoins=6, outside=0, tracked=6, mature=1, assigned=1, externallyClaimed=0, collectors=1
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Idle frame=0 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=-1 actor=-108608 range=8.125 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-137488 life=1 motion=Walk frame=4 prepare=False speed=0.46
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=1 actor=-137488 range=8.125 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-137488 life=1 motion=Run frame=8 prepare=False speed=0.73
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Idle frame=1 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Idle frame=2 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Idle frame=3 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [CrossbowDefense] tower range boosted: 8.2 -> 12.4
+[Info   :KingdomEnhancedMod] [Crossbowman] recompute on load: total=32 crossbowmen=8
+[Info   :KingdomEnhancedMod] [DefenseSpacing] archer lineup: side=R total=58 outside=14 xbow=1 followers=52 plain=5 outsideSample=[186.1,185.8,185.5]
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Run frame=8 prepare=False speed=0.72
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Walk frame=4 prepare=False speed=0.59
+[Info   :KingdomEnhancedMod] [ClockDiag] t=18.36 isNight=False kingdomDaytime=True islandDays=74 timeScale=1.00
+[Info   :KingdomEnhancedMod] [DefensePerf] arrows=0 avgFrame=16.6ms maxFrame=56.2ms t=18.4h
+[Info   :KingdomEnhancedMod] [FleetGreekSquads] excluded ineligible fleet-boat squad assignment
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-137488 life=1 motion=Run frame=9 prepare=False speed=1.60
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-137488 life=1 motion=Run frame=10 prepare=False speed=1.60
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-137488 life=1 motion=Run frame=11 prepare=False speed=1.60
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-137422 life=1 motion=Run frame=8 prepare=False speed=0.74
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=1 actor=-137422 range=8.125 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-135068 life=1 motion=Idle frame=0 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=1 actor=-135068 range=15 visual=True cloth=dynamic offline=true
+[Warning:KingdomEnhancedMod] [HeroRange] a base arrow attack field no longer points at the hero clone; ownership lost
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-135002 life=1 motion=Idle frame=0 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=1 actor=-135002 range=15 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-134936 life=1 motion=Idle frame=0 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=1 actor=-134936 range=15 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-134870 life=1 motion=Idle frame=0 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=1 actor=-134870 range=15 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-134804 life=1 motion=Idle frame=0 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=1 actor=-134804 range=15 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-134738 life=1 motion=Idle frame=0 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=1 actor=-134738 range=15 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-134672 life=1 motion=Idle frame=0 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=1 actor=-134672 range=15 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-133892 life=1 motion=Idle frame=0 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=1 actor=-133892 range=15 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-130496 life=1 motion=Idle frame=0 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=1 actor=-130496 range=8.125 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-130496 life=1 motion=Idle frame=1 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-130496 life=1 motion=Idle frame=2 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-130496 life=1 motion=Idle frame=3 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [ShieldWallTotem] non-norse knight excluded from greece shield-wall recruitment
+[Info   :KingdomEnhancedMod] [SpecialTowerRebuild] Blocked instance=-93680 reason=FireWorkerPresent
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Run frame=9 prepare=False speed=1.60
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Run frame=10 prepare=False speed=1.60
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Run frame=11 prepare=False speed=1.60
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Idle frame=0 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=-1 actor=-108608 range=8.125 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-137488 life=1 motion=Run frame=8 prepare=False speed=0.73
+[Info   :KingdomEnhancedMod] [HeroArcher] selected side=1 actor=-137488 range=8.125 visual=True cloth=dynamic offline=true
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-137488 life=1 motion=Walk frame=4 prepare=False speed=0.59
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Idle frame=1 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Idle frame=2 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherMotion] actor=-108608 life=1 motion=Idle frame=3 prepare=False speed=0.00
+[Info   :KingdomEnhancedMod] [DefensePerf] arrows=4 avgFrame=17.4ms maxFrame=50.0ms t=19.8h
+[Info   :KingdomEnhancedMod] [BankAssistants] active collectors=1 (mature=4)
+[Info   :KingdomEnhancedMod] [ClockDiag] t=19.98 isNight=False kingdomDaytime=True islandDays=74 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=19.98 isNight=False kingdomDaytime=True islandDays=74 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=19.98 isNight=False kingdomDaytime=True islandDays=74 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=19.98 isNight=False kingdomDaytime=True islandDays=74 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=19.98 isNight=False kingdomDaytime=True islandDays=74 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=19.98 isNight=False kingdomDaytime=True islandDays=74 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=19.98 isNight=False kingdomDaytime=True islandDays=74 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=19.98 isNight=False kingdomDaytime=True islandDays=74 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=19.98 isNight=False kingdomDaytime=True islandDays=74 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=19.98 isNight=False kingdomDaytime=True islandDays=74 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=19.98 isNight=False kingdomDaytime=True islandDays=74 timeScale=0.00

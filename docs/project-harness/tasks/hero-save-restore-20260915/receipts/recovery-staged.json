@@ -1,0 +1,21 @@
+{
+  "stagedOnly": true,
+  "nativeFileSha256": "30ecd5cd568107b06c2f125546f29884cf5cb15cdd1ae3d5e8c112c0dce7a844",
+  "originalSidecarSha256": "e7cba6abd6d3c4e42fb6832810f949cf00af555834b83be9c25e2e491e30e890",
+  "recoveredSidecarSha256": "0caae25b7223944d8a482c13a03175a8d6a272a74dc144d9c6abfade8eb8870a",
+  "context": "bcf454ca1bd54429058649f933b52d65ef6d2278c8976b65a73f8125298f7af6",
+  "epoch": "7035fbcbdde7df0699652c6d527b075bd3471304c96d4a33bd32506d8dd1ffd5",
+  "hash": "f1a9e93050016b0f7fe5384d1ee53ac9f2e0bebb20c3860360781ff8341fa949",
+  "sourceHash": "caeade28664e5d47edadc6cbea2f9a0c095c3a6daad09bf0e1a2e26c99afc807",
+  "seatIds": [
+    "93c12776d70445c8a9441258bc927cdb",
+    "9265e66e9f2e42f38a06bea45fd01f5d"
+  ],
+  "nativeIds": [
+    "Archer P41 [52E]--95524",
+    "Archer P17 [26]--64196"
+  ],
+  "oldScopesPreserved": 6,
+  "nativeFilesWritten": false,
+  "runtimeAliveNotClaimed": true
+}

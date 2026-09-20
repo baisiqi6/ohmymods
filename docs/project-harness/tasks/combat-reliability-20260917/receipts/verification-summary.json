@@ -1,0 +1,60 @@
+{
+  "passed": 392,
+  "suites": [
+    {
+      "suite": "damage",
+      "passed": 26,
+      "failed": 0,
+      "log": "receipts\\damage.log",
+      "logSha256": "c807db1c635571cc6787c58e65b5f348d57728a1c7d2d71ed7635842afc240ad"
+    },
+    {
+      "suite": "greek",
+      "passed": 88,
+      "failed": 0,
+      "log": "receipts\\greek.log",
+      "logSha256": "a40a8ffc7694020b6fe6e078e1be68ebbec9a641bcd0e7506ba83500c784fdbd"
+    },
+    {
+      "suite": "herogreek",
+      "passed": 85,
+      "failed": 0,
+      "log": "receipts\\herogreek.log",
+      "logSha256": "9af5a9206a71ac6f85890e2511ca484218ae595d314e3ac2e785c125efabc61f"
+    },
+    {
+      "suite": "bullet",
+      "passed": 77,
+      "failed": 0,
+      "log": "receipts\\bullet.log",
+      "logSha256": "7d0331543ae282028ae244a281271ff8c8a4b46931c43862ccff8a190ec20468"
+    },
+    {
+      "suite": "fx",
+      "passed": 54,
+      "failed": 0,
+      "log": "receipts\\fx.log",
+      "logSha256": "423d797fdc776cc065f8a345b414ce4ae6cd01b3366d66c6cba432a578767976"
+    },
+    {
+      "suite": "herofx",
+      "passed": 54,
+      "failed": 0,
+      "log": "receipts\\herofx.log",
+      "logSha256": "423d797fdc776cc065f8a345b414ce4ae6cd01b3366d66c6cba432a578767976"
+    },
+    {
+      "suite": "fxperf",
+      "passed": 8,
+      "failed": 0,
+      "log": "receipts\\fxperf.log",
+      "logSha256": "8b4f5b7b02374ee1a2661d01cd8c53ad44f694a043688018587119de16c1c76c"
+    }
+  ],
+  "fullBuild": "build.log",
+  "interop": [
+    "bullet-interop.log",
+    "fx-interop.log"
+  ],
+  "inGameValidation": false
+}

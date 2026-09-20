@@ -1,0 +1,56 @@
+[
+  {
+    "role": "deer",
+    "path": "il2cpp/MusketeerCombat.cs",
+    "before": "45162839ac91a2becbb8c369c02cc19f01f9f867bef443115c9cd00190f95ace",
+    "after": "1e164ed3058884ae3bff614c9d56c16f76fe02aa13290e3cc48e51d50a2d8564"
+  },
+  {
+    "role": "deer",
+    "path": "il2cpp/MusketeerRuntime.cs",
+    "before": "ff0cd7e7af1ba16242201cf42ac62c0aa3ac0abaea18a2e29c6fe5b48e43105f",
+    "after": "a6a91d90dc432c1256e528107820f06d71a2df8bf7e777702d1bbe1dbb3fc46e"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/CombatTests.cs",
+    "before": "406192026143caaeade6de9c520b0329e2a6fca7af895fd597a5a8d9452730af",
+    "after": "1496d163348bd1a56d23a3085d6d1587e29e0bb2bc9a774d5560f0c103e701ca"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/DeerHuntTests.cs",
+    "before": null,
+    "after": "8cfceb21b2a734a9ad3a74813206a43a16df976602d94d962e8b39c31551d912"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/Fixture.cs",
+    "before": "8d325ebb524fbef3ba6539171911eeff9e3d63785372da4c2427d4f4bed09c8a",
+    "after": "6958c4db1418e28e1087e81028cbb098b784c52c2586abf5390be127c25506de"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/Harness.cs",
+    "before": "b3456b049e8f6f5f16df8bd2297f791412fc47be66e5c717f498215c97db7be3",
+    "after": "c96a6acdf353dcba5e31e832b19692acc1fe7da3d7ea071407cc3f609cce1410"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/NativeStubs.cs",
+    "before": "f67e3f75e253786e5f2a653e0d9c23233f86cadacda5f7494f7f16c7596275a4",
+    "after": "320ab00958d3af465ced80c0a2a1acc1588a9beb3358cce6fdfa5aa8ced2ce22"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/RuntimeTests.cs",
+    "before": "92c99b7771be0034a3b8c0ad3f09e6040d1d600be845b8561d5e40474b24395a",
+    "after": "60857faba62532892beeb9b963d2835167d52005d475a37ad51acc33bb563c82"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/UnityStubs.cs",
+    "before": "2b56af572588b8217e2b0ad8406e03999b6b926134030d77007eb5ad3a19fca8",
+    "after": "ae6296f22c9e8db45d8c0fc7a187df01184cf83bba7af66c4d631036f66ca07e"
+  }
+]

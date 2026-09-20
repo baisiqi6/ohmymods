@@ -1,0 +1,47 @@
+{
+  "nativeFileSha256": "b7f2e4caf500ee64c670ce78e1e8df7447e0162a2e55abbf07792c6806c31a4d",
+  "campaign": 1,
+  "challenge": 0,
+  "land": 9,
+  "biome": 0,
+  "islandSerializedFields": [
+    "playTimeDays",
+    "lastPlayedTimeDays",
+    "_islandTimePlayed",
+    "repopGrassHack",
+    "biome",
+    "_levelEdges",
+    "savedWithRevisions",
+    "land",
+    "objects",
+    "lastPlayedReign"
+  ],
+  "islandRuntimeCreationTimePersisted": false,
+  "exactRawIslandMatches": [
+    {
+      "scope": "651e4cc8e0f821c8a372a41380ad16b840d73ee0862bcfb73534456c5ea0f01d",
+      "hash": "007efd038542105003c4d20e360b923d190d270278a6fdf4c11c27347666fc09",
+      "seats": [
+        {
+          "id": "b66c9c4fc1ba409586782960809995bb",
+          "side": -1,
+          "nativeId": "Archer P41 [52E]--95640"
+        },
+        {
+          "id": "fd69b793f3414765b03279aa2f5f4442",
+          "side": 1,
+          "nativeId": "Archer P17 [26]--64196"
+        }
+      ]
+    },
+    {
+      "scope": "7035fbcbdde7df0699652c6d527b075bd3471304c96d4a33bd32506d8dd1ffd5",
+      "hash": "fa999014f2514da9eaf3e641a49efade0df3407d8f62ff863089966298f957a9",
+      "seats": []
+    }
+  ],
+  "matchingPaidOwnerIds": [
+    "Archer P41 [52E]--95640",
+    "Archer P17 [26]--64196"
+  ]
+}

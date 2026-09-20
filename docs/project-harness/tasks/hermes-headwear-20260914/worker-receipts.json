@@ -1,0 +1,64 @@
+{
+  "workers": [
+    {
+      "sessionFile": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hermes-headwear-20260914\\core-sessions\\2026-09-13T21-14-43-877Z_01a09c9f-5925-72b4-a2d3-e32cab34caae.jsonl",
+      "publicMetadata": [
+        {
+          "type": "session",
+          "id": "01a09c9f-5925-72b4-a2d3-e32cab34caae",
+          "timestamp": "2026-09-13T21:14:43.877Z",
+          "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hermes-headwear-20260914\\worker"
+        },
+        {
+          "type": "model_change",
+          "id": "8dc7e91b",
+          "timestamp": "2026-09-13T21:14:44.377Z",
+          "model": "deepseek/deepseek-v4-flash",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "thinking_level_change",
+          "id": "2f678050",
+          "timestamp": "2026-09-13T21:14:44.378Z",
+          "thinkingLevel": "max"
+        }
+      ]
+    },
+    {
+      "sessionFile": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hermes-headwear-20260914\\visual-sessions\\2026-09-13T21-14-54-213Z_01a09c9f-8185-76e4-9b80-c380eeb0749b.jsonl",
+      "publicMetadata": [
+        {
+          "type": "session",
+          "id": "01a09c9f-8185-76e4-9b80-c380eeb0749b",
+          "timestamp": "2026-09-13T21:14:54.213Z",
+          "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hermes-headwear-20260914\\visual-worker"
+        },
+        {
+          "type": "model_change",
+          "id": "437a63d9",
+          "timestamp": "2026-09-13T21:14:54.712Z",
+          "model": "deepseek/deepseek-v4-flash",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "thinking_level_change",
+          "id": "04b9bb91",
+          "timestamp": "2026-09-13T21:14:54.712Z",
+          "thinkingLevel": "max"
+        }
+      ]
+    }
+  ],
+  "canonicalChangedProduction": [
+    "HermesHeadwearCodec.cs",
+    "HermesHeadwearVisuals.cs",
+    "KingdomEnhancedPlugin.cs",
+    "ModConfig.cs",
+    "ModPanel.cs",
+    "PatchDivine_HermesHeadwear.cs"
+  ],
+  "reviewer": "/root/hermes_hats_reviewer",
+  "rootIntegration": "Configuration/UI, crypto RNG, actual sprite enumeration, partial construction cleanup, final native validation; worker implementation stayed isolated.",
+  "coreFinalRun": "core-savebridge-events.jsonl; completed exit 0",
+  "visualFinalRun": "visual-cleanup-events.jsonl; completed exit 0"
+}

@@ -1,0 +1,43 @@
+﻿{
+    "candidateSha256":  "0B1AD4E149A0BF1BBAD90DE62A574A87F68B33E2A607CDBB7B46122EF695E55D",
+    "addedMethods":  [
+                         "System.Boolean KingdomEnhancedMod.PatchPlayer_HoldPurchase::AmmoGoodsStillValid(KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session)"
+                     ],
+    "unchangedResources":  [
+                               "KingdomEnhancedMod.HeroArcherAtlas.png",
+                               "KingdomEnhancedMod.ArtemisArrow.png",
+                               "KingdomEnhancedMod.HeroShop.png",
+                               "KingdomEnhancedMod.HeroShopSeats.png",
+                               "KingdomEnhancedMod.MusketeerAtlas.png",
+                               "KingdomEnhancedMod.MusketeerShop.png",
+                               "KingdomEnhancedMod.MusketeerGun.png",
+                               "KingdomEnhancedMod.MusketeerBullet.png"
+                           ],
+    "version":  "9.0.0.0",
+    "changedMethods":  [
+                           "System.Boolean KingdomEnhancedMod.PatchPlayer_HoldPurchase::IsSafeGoods(Payable)",
+                           "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+                           "System.Void KingdomEnhancedMod.ModConfig::Init(BepInEx.Configuration.ConfigFile)",
+                           "System.Void KingdomEnhancedMod.ModPanel::DrawControls(System.Single)",
+                           "System.Void KingdomEnhancedMod.PatchPlayer_HoldPurchase::AfterPayUpdate(Player,System.Boolean,KingdomEnhancedMod.PatchPlayer_HoldPurchase/FrameReceipt)",
+                           "System.Void KingdomEnhancedMod.PatchPlayer_HoldPurchase::BeforePayUpdate(Player,System.Boolean,System.Boolean\u0026,KingdomEnhancedMod.PatchPlayer_HoldPurchase/FrameReceipt\u0026)",
+                           "System.Void KingdomEnhancedMod.PatchPlayer_HoldPurchase::Bind(KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session,Payable)",
+                           "System.Void KingdomEnhancedMod.PatchPlayer_HoldPurchase::OnPerformPay(Payable)",
+                           "System.Void KingdomEnhancedMod.PatchPlayer_HoldPurchase::Tick()"
+                       ],
+    "removedHarmonyPatchTypes":  [
+
+                                 ],
+    "baselineSha256":  "6E2D89F1B0F35A504257CA187828C7B09C01336A7E2E3A2ADFE590D0934AA8BE",
+    "actionAtlasVerified":  true,
+    "changedResources":  [
+
+                         ],
+    "newHarmonyPatchTypes":  [
+
+                             ],
+    "unchangedMethods":  3618,
+    "removedMethods":  [
+
+                       ]
+}

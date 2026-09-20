@@ -1,0 +1,1 @@
+PASS 118 integration assertions (real Defense + Identity + Persistence + Archive; modeled native OnEnable ordering)

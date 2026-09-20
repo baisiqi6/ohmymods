@@ -1,0 +1,44 @@
+PASS eligible free musketeer accepted
+PASS identity gate rejects unmarked archers
+PASS feature switch rejects everything
+PASS foreign world rejected
+PASS inactive or disabled unit rejected
+PASS hidden unit rejected
+PASS formation member rejected
+PASS knight follower rejected
+PASS tower and guard post rejected
+PASS boarding and embarked rejected
+PASS grabbed or inert rejected
+PASS dead unit rejected
+PASS player-controlled unit rejected
+PASS hero archer rejected
+PASS nearest candidates fill the free seats
+PASS row capacity hard caps at four
+PASS no free seats collects nothing
+PASS ineligible candidates are skipped, never waited on
+PASS distance ties break by instance id
+PASS disabled feature collects nothing
+PASS marked musketeer cannot take a native bow seat on a managed row
+PASS directed recruit is allowed, then the guard is restored
+PASS directed bypass is pointer-exact
+PASS no reserved row stays native
+PASS non player formation stays native
+PASS disabled feature stays native
+PASS unmarked archer stays native
+PASS null inputs stay native
+PASS dirty temporary types refuse every archer on that formation
+PASS a directed transaction refuses every other archer
+PASS the row is inserted after the lead block and before the first archer
+PASS the real 2.4 baseline keeps its gaps and puts the row before the bow line
+PASS zero boats leaves one closed gap at the native fleet seat
+PASS feature off keeps the fleet-only layout
+PASS baseline without an archer slot skips the row but keeps the fleet plan
+PASS malformed baselines fail closed
+PASS compose never mutates the baseline array
+PASS a full row leaves the bow line on the baseline and moves the fleet block back
+PASS an unfilled row compacts toward the fleet and stays one step off the bow line
+PASS any row occupancy keeps the nearest musketeer one row step from the bow line
+PASS directed plan closes empty native bow seats only
+PASS directed plan refuses occupied or malformed targets
+
+passed=42 failed=0

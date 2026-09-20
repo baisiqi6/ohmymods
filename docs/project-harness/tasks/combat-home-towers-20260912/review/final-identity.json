@@ -1,0 +1,23 @@
+{
+  "sessionId": "sess_d1b6f937-19b9-4733-bf21-b05573c1789a",
+  "model": {
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "role": "main",
+    "source": "config"
+  },
+  "responseModelId": "GLM-5.3",
+  "requestedReasoning": "max",
+  "actualReasoning": "unverified",
+  "permissionMode": "plan",
+  "blockedTools": [
+    "Bash",
+    "Write",
+    "Edit",
+    "MultiEdit",
+    "WebSearch",
+    "WebFetch",
+    "Task",
+    "NotebookEdit"
+  ]
+}

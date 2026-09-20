@@ -1,0 +1,1 @@
+最终只读archer_reviewer：无阻断。FileInfo.Exists误判缺失已修；IsChildOf核面具当前归属，保护不写伤害。实际游戏仍待验证。

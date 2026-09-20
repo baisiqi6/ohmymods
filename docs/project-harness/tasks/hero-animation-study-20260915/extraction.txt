@@ -1,0 +1,24 @@
+{"game": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\KingdomTwoCrowns_Data", "controllers": 8, "decoded_clips": 15, "keys": 164, "unity_versions": {"resources.assets": "6000.0.61f1", "sharedassets0.assets": "6000.0.61f1"}, "sources": {"resources.assets": "b80394a7961425ea6cf7c55e7493ff648ea558fbc46ec575febf35569f2c195d", "sharedassets0.assets": "65bd6d7a27ad2c561ccac9f42599cda84957c584a45377a7e6bc7b51256e0b3f"}, "condition_modes": {"If": 1, "IfNot": 2, "Greater": 3, "Less": 4, "Equals": 6, "NotEqual": 7}}
+base_male idle 6.0 1.6667 10 True
+base_male walk 6.0 1.0 6 True
+base_male run 8.0 0.75 6 True
+base_male shoot_prep 8.0 0.5 4 True
+base_male shoot 8.0 0.625 5 True
+female_greece idle 6.0 9.3333 18 True
+female_greece walk 6.0 1.5 9 True
+female_greece run 8.0 1.25 10 True
+female_greece shoot_prep 12.0 2.1667 26 True
+female_greece shoot 10.0 0.3 3 True
+male_greece idle 6.0 8.0 19 True
+male_greece walk 6.0 1.5 9 True
+male_greece run 8.0 1.25 10 True
+male_greece shoot_prep 12.0 2.1667 26 True
+male_greece shoot 10.0 0.3 3 True
+archer ['Stand', 'Shoot', 'Prepare', 'Walk', 'Run', 'Ghost Die', 'Spawn']
+knight ['Stand', 'Walk', 'Slash', 'Retreat', 'Block', 'Run', 'Rally', 'PowerSlash', 'Land', 'Die', 'Spawn']
+archer_norselands ['Stand', 'Shoot', 'Walk', 'Run', 'Prepare', 'Stand (Defend)', 'Run (Defend)', 'Attack (Defend)', 'Walk (Defend)', 'Get Spear', 'Get Bow', 'Get Shield', 'Get Bow2', 'Stand (Soldier)', 'Walk (Solder)', 'Attack (Soldier)']
+archer_soldier_norselands ['Stand', 'Shoot', 'Prepare 2', 'Walk', 'Run', 'GetShield', 'Retreat', 'GetBow']
+knight_norselands ['Stand', 'Walk', 'Slash', 'Defend', 'Block', 'Run', 'Rally', 'PowerSlash', 'Land', 'knight_idle_alert', 'Retreat']
+peasant ['Stand', 'Walk', 'Bumped', 'Run', 'Get Up', 'Ground']
+worker ['Stand', 'Walk', 'Hammer', 'Push', 'Stunned', 'Run']
+troll_peasant ['troll_peasant_birth', 'Die', 'Holding Walk', 'Stand', 'Walk', 'troll_peasant_idle']

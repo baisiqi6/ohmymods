@@ -1,0 +1,33 @@
+{
+  "gameAssemblySHA256": "CD8C2B822B12F5416E73234D6D1052EFB499FE324ACEFF6264E0C87C6F8EDFC1",
+  "targets": [
+    {
+      "token": 100671542,
+      "name": "Kingdom.AddCharacter",
+      "va": 6448322496,
+      "rva": "0x5997c0",
+      "same_slots": 1
+    },
+    {
+      "token": 100671543,
+      "name": "Kingdom.RemoveCharacter",
+      "va": 6448374016,
+      "rva": "0x5a6100",
+      "same_slots": 1
+    },
+    {
+      "token": 100674989,
+      "name": "PayableShop.AddItem",
+      "va": 6449235184,
+      "rva": "0x6784f0",
+      "same_slots": 1
+    },
+    {
+      "token": 100678817,
+      "name": "ShopPlanner.SetPlacedShop",
+      "va": 6450196864,
+      "rva": "0x763180",
+      "same_slots": 1
+    }
+  ]
+}

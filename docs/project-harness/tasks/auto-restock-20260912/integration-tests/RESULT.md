@@ -1,0 +1,5 @@
+# Operator verification
+
+38 behavioral cases/assertions PASS. Production sources were linked directly (counts/service) or new methods extracted verbatim (ledger/reservation); game and existing mod collaborator APIs are fixtures. Source identity is recorded in build/source-receipt.json and review/final-input-hashes.json; integration extraction has its own source-receipt.json. This does not prove IL2CPP gameplay/online visuals.
+
+External authors generated tests, and Operator compiled and completed the fixture corrections. Preserved *.cs.worker files show original artifacts. Corrections fixed namespace and native delegate wrapper/property surfaces, readonly static reset, collection value equality, test-triggered native read accounting, native AddCharacter-before-postfix ordering, valid-world assistant selection, and simulated frame timing. No production body was copied into the service/counter expected-value logic. Additional Operator cases cover synthetic native selection, pointer reuse fault IDs, first-seed exception retry bounds and missing component/registry readiness.

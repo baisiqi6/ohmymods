@@ -1,0 +1,9 @@
+{
+  "structural_checks": 48,
+  "production_source_unchanged": true,
+  "installed_dll_unchanged": true,
+  "installed_sha256": "FAE6FBDDCEF13DCE3D84120989087CB2972528097325EABF7FD987BC3BC50674",
+  "game_operated": false,
+  "game_visual_validation": false,
+  "fixed_flicker": false
+}

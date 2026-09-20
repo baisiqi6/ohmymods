@@ -1,0 +1,45 @@
+PASS payload: no tint is strictly the native 1 byte
+PASS payload: tint appends magic 'SCT1' + version, total 6
+PASS payload: module never preps or sends anything
+PASS apply: extra arrow gets the gold mix with alpha kept
+PASS apply: untinted arrows are never touched without Apply
+PASS apply: config off stops new tints (no write, no receipt)
+PASS apply: no world context is fail-closed
+PASS apply: an arrow outside the current layer is refused
+PASS apply: another arrow component on the same GO cannot inherit a receipt
+PASS apply: repeat Apply neither re-tints nor overwrites external color
+PASS apply: cap 128 refuses the 129th arrow and evicts nothing
+PASS apply: arrow without renderer is refused
+PASS reset: restores the base color and clears the receipt
+PASS reset: still restores after the feature config is turned off
+PASS reuse: pooled arrow tinted again after ResetArrow accumulates nothing
+PASS reset: CAS never overwrites an external color
+PASS reset: a replaced renderer is never written
+PASS reset: destroyed renderer drops the receipt without writing
+PASS reset: restores through the receipt's renderer when the Arrow component was replaced
+PASS scatter off keeps fired arrows gold until recycle
+PASS write failure: receipt stays restore-only, Tick never re-tints
+PASS write landed then threw: pending receipt restores, repeat Apply is refused
+PASS reset failure: receipt survives, a new life cannot be re-tinted, Tick restores
+PASS identity read failure is unknown: receipt kept, restores after recovery
+PASS tick: live arrows keep their tint
+PASS tick: despawned (pool recycle) arrow is restored and dropped
+PASS tick: world exit is restored and dropped
+PASS tick: layer-only switch inside the same world restores
+PASS tick: unknown world context restores
+PASS tick: destroyed objects drop the receipt without writing
+PASS receive: native 1-byte payload runs the original body untouched
+PASS receive: own 6 bytes on a client keeps perfect and tints
+PASS receive: own 6 bytes on the host never tints
+PASS receive: fire arrow gets no perfect but the packet is taken over
+PASS receive: malformed own-format packets are handed to native unconsumed
+PASS receive: transport peek failure falls back to native with the cursor intact
+PASS receive: PerfectShot failure after consume neither rewinds nor replays
+PASS receive: unreadable isFireArrow keeps the packet consumed and never perfects
+PASS receive: client tints host-tagged extras even with local Scatter off
+PASS receive: client path still honours the master mod/world guards
+PASS receive: read failure mid-consume never falls back to native
+PASS end-to-end: tinted extra arrow survives the softsim motion prefix
+PASS end-to-end: untinted payload keeps the native 1-byte semantics
+PASS patch: single hook on Arrow.ReceiveInitialise with a bool prefix
+RESULT checks=44 failed=0

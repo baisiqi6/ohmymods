@@ -38,13 +38,30 @@ namespace KingdomEnhancedMod
 
         internal static void Once(string key, Exception exception)
         {
-            if (OnceKeys.Count >= MaxKeys && !OnceKeys.Contains(key)) return; // 动态 key 不撑爆内存
-            if (!OnceKeys.Add(key)) return;
+            if (!TryAddKey(key)) return;
             Warning(key + (exception != null ? ": " + exception.Message : string.Empty));
+        }
+
+        /// <summary>一次性 Info（与 Once 共用有界 key 预算；"info:" 前缀避免与警告 key 冲突）。</summary>
+        internal static void InfoOnce(string key, string message)
+        {
+            if (!TryAddKey("info:" + key)) return;
+            Info(message);
         }
 
         /// <summary>事件级简洁回执（每次成功 save / load 命中各一条，绝不逐帧）。</summary>
         internal static void Receipt(string message)
+        {
+            Info(message);
+        }
+
+        private static bool TryAddKey(string key)
+        {
+            if (OnceKeys.Count >= MaxKeys && !OnceKeys.Contains(key)) return false; // 动态 key 不撑爆内存
+            return OnceKeys.Add(key);
+        }
+
+        private static void Info(string message)
         {
             try
             {
@@ -984,10 +1001,12 @@ namespace KingdomEnhancedMod
             try
             {
                 if (capture == null || capture.Island == null) return; // 无完整可信 scope：不写
-                if (!KnightIdentityRuntime.CanFlushSeed) return; // context未知时连已有收据也不得写入旧epoch
                 if (KnightIdentityLoadBridge.Current != null || KnightIdentityGeneration.Active) return;
-                if (capture.Owners.Count == 0) return;
                 if (!KnightIdentityRuntime.IsHostAuthority()) return; // 仅主机
+                // 吸收态自愈（B）必须排在 CanFlushSeed / Owners 早退之前：该会话无任何收据且 context unresolved。
+                if (TryRebaselineAbsorbingContext(capture)) return;
+                if (!KnightIdentityRuntime.CanFlushSeed) return; // context未知时连已有收据也不得写入旧epoch
+                if (capture.Owners.Count == 0) return;
 
                 IslandSaveData island = capture.Island;
                 string json;
@@ -1051,6 +1070,81 @@ namespace KingdomEnhancedMod
             {
                 KnightIdentityLog.Once("save-apply", e);
             }
+        }
+
+        /// <summary>
+        /// 吸收态自愈（B）：本会话装载解析为精确 known-mismatch（历史对不上当前岛、此后所有 save 都被
+        /// save-preserve-unresolved 拒写）时，若当前盘骑士个体全部来自历史并集（严格子集证据门），
+        /// 以当前盘 JSON 新建 epoch 的 kind2 基线快照。不依赖 capture.Owners——该会话没有任何收据。
+        /// 返回 true = 本 save 已由本路径处理（无论成功/门拒绝/fail-closed），不再回落旧路径。
+        /// </summary>
+        private static bool TryRebaselineAbsorbingContext(SaveCapture capture)
+        {
+            try
+            {
+                IslandSaveData island = capture.Island;
+                if (!KnightIdentitySidecar.TryBuildContextKey(capture.Campaign, capture.Challenge, SafeIslandLand(island), out string contextKey)) return false;
+                if (!KnightIdentityContexts.TryGetBindingKind(contextKey, out string kind)
+                    || !string.Equals(kind, "known-mismatch", StringComparison.Ordinal)) return false;
+
+                string json;
+                try
+                {
+                    json = JsonUtility.ToJson(island, false);
+                }
+                catch (Exception e)
+                {
+                    KnightIdentityLog.Once("rebaseline-json", e);
+                    return true;
+                }
+                if (string.IsNullOrEmpty(json)) return true;
+
+                if (!TryEnumerateDiskKnightUniqueIds(island, out List<string> diskUniqueIds)) return true; // 枚举失败：fail-closed
+
+                if (!KnightIdentitySidecar.TryRebaseline(contextKey, json, diskUniqueIds, out string rebaselinedEpoch))
+                    return true; // 证据门拒绝/容量耗尽/写入失败：日志在写路径，本 save 保持 fail-closed
+
+                // 防同会话后续自动保存重复过门、重复建 epoch（MaxEpochs=8 会被撑爆）。
+                KnightIdentityContexts.RememberBinding(contextKey, rebaselinedEpoch, false, true, "rebaseline");
+                KnightIdentityRuntime.ConfirmContext(false);
+                return true;
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("rebaseline", e);
+                return true;
+            }
+        }
+
+        /// <summary>当前盘骑士 uniqueID 枚举：island.objects + 精确 Knight/KnightData（同 Save 快照口径）。</summary>
+        private static bool TryEnumerateDiskKnightUniqueIds(IslandSaveData island, out List<string> uniqueIds)
+        {
+            uniqueIds = null;
+            Il2CppSystem.Collections.Generic.List<IslandSaveData.ObjectData> records;
+            try
+            {
+                records = island.objects;
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("rebaseline-records", e);
+                return false;
+            }
+            if (records == null) return false;
+
+            List<string> ids = new List<string>(records.Count);
+            HashSet<string> seen = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < records.Count; i++)
+            {
+                IslandSaveData.ObjectData record = records[i];
+                if (record == null) continue;
+                string uniqueId = record.uniqueID;
+                if (!KnightIdentitySnapshot.IsValidUniqueId(uniqueId)) continue;
+                if (!RecordIsKnight(record)) continue;
+                if (seen.Add(uniqueId)) ids.Add(uniqueId);
+            }
+            uniqueIds = ids;
+            return true;
         }
 
         /// <summary>
@@ -1394,6 +1488,11 @@ namespace KingdomEnhancedMod
                     KnightIdentityLog.Once("load-sidecar-readonly:" + loaded.Status, null);
                     return scope;
                 }
+                if (loaded.Status == KnightIdentityArchiveStatus.Missing)
+                {
+                    // 取证：把「主备皆缺，按无历史重种」与普通 load-fresh 区分开（一次性 Info）。
+                    KnightIdentityLog.InfoOnce("load-sidecar-missing", "load-sidecar-missing（主备皆缺，重种）");
+                }
                 KnightIdentityArchive archive = loaded.Status == KnightIdentityArchiveStatus.Missing
                     ? KnightIdentityArchive.CreateEmpty()
                     : loaded.Archive;
@@ -1419,7 +1518,8 @@ namespace KingdomEnhancedMod
                     scope.Snapshot = resolution.Matched;
                     scope.Receipts = resolution.Receipts;
                     KnightIdentityLog.Receipt("load-match scope=" + ShortHash(resolution.Epoch) + " hash=" + ShortHash(resolution.MatchHash)
-                        + " entries=" + resolution.Receipts.Count.ToString(CultureInfo.InvariantCulture));
+                        + " entries=" + resolution.Receipts.Count.ToString(CultureInfo.InvariantCulture)
+                        + " kind=" + (resolution.MatchKind == KnightIdentityFingerprint.KindNormalized ? "exact" : "legacy"));
                     return scope;
                 }
 
@@ -1451,7 +1551,7 @@ namespace KingdomEnhancedMod
                 if (exception == null && succeeded && scope.Previous == null && KnightIdentityRuntime.IsHostAuthority())
                 {
                     foreach (LoadScope child in scope.CompletedChildren) CommitBinding(child);
-                    KnightIdentityContexts.RememberBinding(scope.ContextKey, scope.ScopeKey, scope.Unresolved, scope.NewEpoch);
+                    KnightIdentityContexts.RememberBinding(scope.ContextKey, scope.ScopeKey, scope.Unresolved, scope.NewEpoch, scope.Kind);
                     KnightIdentityRuntime.ConfirmContext(scope.Unresolved);
                 }
                 KnightIdentityLoadSeed.Complete(scope, exception == null && succeeded);
@@ -1467,7 +1567,7 @@ namespace KingdomEnhancedMod
 
         private static void CommitBinding(LoadScope scope)
         {
-            KnightIdentityContexts.RememberBinding(scope.ContextKey, scope.ScopeKey, scope.Unresolved, scope.NewEpoch);
+            KnightIdentityContexts.RememberBinding(scope.ContextKey, scope.ScopeKey, scope.Unresolved, scope.NewEpoch, scope.Kind);
             if (scope.Receipts != null && scope.NewEpoch && !string.IsNullOrEmpty(scope.ContextKey) && !string.IsNullOrEmpty(scope.ScopeKey))
                 KnightIdentitySidecar.ClaimContext(scope.ContextKey, scope.ScopeKey);
         }
@@ -1613,6 +1713,7 @@ namespace KingdomEnhancedMod
                 if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
 
                 KnightIdentityArchiveStore.SaveResult saved = KnightIdentityArchiveStore.Save(path, archive);
+                LogRetryOutcome(saved);
                 if (!saved.Ok)
                 {
                     KnightIdentityLog.Once("sidecar-save:" + saved.Status, null);
@@ -1650,6 +1751,7 @@ namespace KingdomEnhancedMod
                 }
 
                 KnightIdentityArchiveStore.SaveResult saved = KnightIdentityArchiveStore.Save(path, archive);
+                LogRetryOutcome(saved);
                 if (!saved.Ok)
                 {
                     KnightIdentityLog.Once("sidecar-claim-save:" + saved.Status, null);
@@ -1661,6 +1763,122 @@ namespace KingdomEnhancedMod
             catch (Exception e)
             {
                 KnightIdentityLog.Once("sidecar-claim", e);
+            }
+        }
+
+        /// <summary>
+        /// 吸收态再基线化写路径（B，仅 knight 侧）：严格子集证据门通过后，以当前盘 JSON 新建 epoch 的
+        /// kind2 快照，历史同一 uniqueID 在多处收据全一致才携带，否则丢弃走 fresh。旧 epoch/快照全保留；
+        /// 容量耗尽与门拒绝一律 fail-closed（不写盘）。复刻 AppendSnapshot 的单写者纪律（重读磁盘→合并→原子写）。
+        /// </summary>
+        internal static bool TryRebaseline(string contextKey, string rawJson, List<string> diskUniqueIds, out string newEpoch)
+        {
+            newEpoch = null;
+            try
+            {
+                string path = Path;
+                if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(contextKey))
+                {
+                    KnightIdentityLog.Once("rebaseline-path", null);
+                    return false;
+                }
+                if (!TryOpenWritableArchive(path, true, out KnightIdentityArchive archive, out string blocked))
+                {
+                    KnightIdentityLog.Once(blocked, null);
+                    return false;
+                }
+                if (archive == null || !archive.TryGetContext(contextKey, out KnightIdentityContext context))
+                {
+                    KnightIdentityLog.Once("rebaseline-context", null);
+                    return false;
+                }
+
+                // 历史并集：本 context 全部 epoch 的全部快照条目按 uniqueID；同 id 收据不一致则记 conflicted。
+                Dictionary<string, KnightIdentityReceipt> history = new Dictionary<string, KnightIdentityReceipt>(StringComparer.Ordinal);
+                HashSet<string> conflicted = new HashSet<string>(StringComparer.Ordinal);
+                for (int i = 0; i < context.Epochs.Count; i++)
+                {
+                    if (!archive.TryGetSnapshots(context.Epochs[i], out IReadOnlyList<KnightIdentitySnapshot> snapshots)) continue;
+                    for (int s = 0; s < snapshots.Count; s++)
+                    {
+                        IReadOnlyList<string> ids = snapshots[s].OrderedUniqueIds;
+                        for (int e = 0; e < ids.Count; e++)
+                        {
+                            if (!snapshots[s].TryGet(ids[e], out KnightIdentityReceipt receipt)) continue;
+                            if (history.TryGetValue(ids[e], out KnightIdentityReceipt known))
+                            {
+                                if (!known.Equals(receipt)) conflicted.Add(ids[e]);
+                            }
+                            else
+                            {
+                                history.Add(ids[e], receipt);
+                            }
+                        }
+                    }
+                }
+
+                int unknown = 0;
+                for (int i = 0; i < diskUniqueIds.Count; i++)
+                {
+                    if (!history.ContainsKey(diskUniqueIds[i])) unknown++;
+                }
+                if (unknown > 0)
+                {
+                    // 历史外新个体（可能是别人的档/超历史回滚）：拒绝并维持 fail-closed。
+                    KnightIdentityLog.Once("rebaseline-gate-reject:" + unknown.ToString(CultureInfo.InvariantCulture), null);
+                    return false;
+                }
+
+                List<KnightIdentitySnapshotEntry> entries = new List<KnightIdentitySnapshotEntry>(diskUniqueIds.Count);
+                for (int i = 0; i < diskUniqueIds.Count; i++)
+                {
+                    string uniqueId = diskUniqueIds[i];
+                    if (conflicted.Contains(uniqueId)) continue; // 历史收据不一致：绝不猜，走 fresh
+                    if (!history.TryGetValue(uniqueId, out KnightIdentityReceipt carried)) continue; // 门已保证不可达，保守跳过
+                    entries.Add(new KnightIdentitySnapshotEntry(uniqueId, carried));
+                }
+
+                string epoch = KnightIdentityArchive.NewScope();
+                string hash = KnightIdentityFingerprint.Normalized(rawJson, epoch);
+                if (!KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindNormalized, hash, DateTimeOffset.UtcNow, entries,
+                        out KnightIdentitySnapshot snapshot, out string error))
+                {
+                    KnightIdentityLog.Once("rebaseline-snapshot:" + error, null);
+                    return false;
+                }
+
+                KnightIdentityArchive.MutationStatus status = archive.RecordSnapshot(epoch, snapshot);
+                if (status != KnightIdentityArchive.MutationStatus.Applied)
+                {
+                    KnightIdentityLog.Once("rebaseline-capacity-scope", null); // 容量耗尽：不牺牲别的 scope
+                    return false;
+                }
+                if (!archive.EnsureContext(contextKey, epoch, true))
+                {
+                    KnightIdentityLog.Once("rebaseline-capacity-context", null); // MaxContexts/MaxEpochs 耗尽：fail-closed
+                    return false;
+                }
+
+                string directory = System.IO.Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+                KnightIdentityArchiveStore.SaveResult saved = KnightIdentityArchiveStore.Save(path, archive);
+                LogRetryOutcome(saved);
+                if (!saved.Ok)
+                {
+                    KnightIdentityLog.Once("rebaseline-save:" + saved.Status, null);
+                    return false;
+                }
+                KnightIdentityLog.Receipt("rebaseline: context=" + ShortHash(contextKey)
+                    + " entries=" + diskUniqueIds.Count.ToString(CultureInfo.InvariantCulture)
+                    + " carried=" + entries.Count.ToString(CultureInfo.InvariantCulture)
+                    + " epoch=" + ShortHash(epoch));
+                newEpoch = epoch;
+                return true;
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("rebaseline", e); // 任何 I/O 异常都不影响原生保存
+                return false;
             }
         }
 
@@ -1710,7 +1928,9 @@ namespace KingdomEnhancedMod
                 || !archive.EnsureContext(contextKey, epoch, true)) return false;
             string directory = System.IO.Path.GetDirectoryName(Path);
             if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-            return KnightIdentityArchiveStore.Save(Path, archive).Ok;
+            KnightIdentityArchiveStore.SaveResult saved = KnightIdentityArchiveStore.Save(Path, archive);
+            LogRetryOutcome(saved);
+            return saved.Ok;
         }
 
         /// <summary>
@@ -1732,6 +1952,7 @@ namespace KingdomEnhancedMod
                 if (loaded.RecoveredBackup && recoverBackup)
                 {
                     KnightIdentityArchiveStore.SaveResult recovered = KnightIdentityArchiveStore.RecoverMainFromBackup(path);
+                    LogRetryOutcome(recovered);
                     if (!recovered.Ok)
                     {
                         blocked = "sidecar-recover:" + recovered.Status;
@@ -1744,6 +1965,14 @@ namespace KingdomEnhancedMod
             }
             blocked = loaded.Status == KnightIdentityArchiveStatus.Corrupt ? "sidecar-corrupt-readonly" : "sidecar-version-readonly";
             return false;
+        }
+
+        /// <summary>写失败重试的统一诊断：发生重试才落日志（恢复=事件级 Info，仍失败=一次性 Warning 附 retry=1）。</summary>
+        private static void LogRetryOutcome(KnightIdentityArchiveStore.SaveResult result)
+        {
+            if (result == null || !result.Retried) return;
+            if (result.Ok) KnightIdentityLog.Receipt("write-retry=1 recovered");
+            else KnightIdentityLog.Once("write-retry=1 failed", null);
         }
 
         private static string ShortHash(string value)

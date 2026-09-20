@@ -1,0 +1,10 @@
+  Determining projects to restore...
+  Restored C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\medieval-scatter-20260914\verify\tests\greek-impact\GreekImpact.Tests.csproj (in 162 ms).
+  GreekImpact.Tests -> C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\medieval-scatter-20260914\verify\tests\greek-impact\bin\Release\net8.0\KingdomGreekImpact.Tests.dll
+Test run for C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\medieval-scatter-20260914\verify\tests\greek-impact\bin\Release\net8.0\KingdomGreekImpact.Tests.dll (.NETCoreApp,Version=v8.0)
+VSTest version 17.11.1 (x64)
+
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    73, Skipped:     0, Total:    73, Duration: 36 ms - KingdomGreekImpact.Tests.dll (net8.0)

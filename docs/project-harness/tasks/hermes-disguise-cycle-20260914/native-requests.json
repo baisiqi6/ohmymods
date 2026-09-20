@@ -1,0 +1,22 @@
+[
+  {
+    "name": "System.Boolean GreedArcher::HasValidTarget()",
+    "token": 100670273
+  },
+  {
+    "name": "Damageable TargetCacher::GetClosestPriorityTargetWithinRange(System.Single,System.Single,TargetCacher/SearchConditionDelegate,TargetCacher/SearchConditionDelegate)",
+    "token": 100680309
+  },
+  {
+    "name": "Damageable TargetCacher::GetClosestLowPriorityTargetWithinRange(System.Single,System.Single,TargetCacher/SearchConditionDelegate)",
+    "token": 100680310
+  },
+  {
+    "name": "System.Boolean Troll::FindPriorityChargeTarget(UnityEngine.GameObject&)",
+    "token": 100680722
+  },
+  {
+    "name": "System.Boolean Troll::FindOtherChargeTarget(UnityEngine.GameObject&)",
+    "token": 100680723
+  }
+]

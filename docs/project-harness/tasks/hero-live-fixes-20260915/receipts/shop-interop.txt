@@ -1,0 +1,7 @@
+  Interop -> C:\Users\ADMIN\projects\ohmymods\tests\hero-shop\bin\Interop\Debug\net8.0\HeroShop.Interop.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:00.54

@@ -1,0 +1,25 @@
+{
+  "passed": 220,
+  "suites": [
+    {
+      "suite": "restock",
+      "passed": 161,
+      "failed": 0,
+      "logSha256": "13cff8107d0c7be79f0f991c75cf74bb93c0a142f88fb22f849836fb8e58a32a"
+    },
+    {
+      "suite": "bank",
+      "passed": 35,
+      "failed": 0,
+      "logSha256": "1a798ec57dd6640a29f615849716a2f6aece6dd09368f8a734df751b4d4a3f57"
+    },
+    {
+      "suite": "assistants",
+      "passed": 24,
+      "failed": 0,
+      "logSha256": "bc192d32736fc774902b425be9f9468a53edabbe7852b5a0f03e85f12838b26a"
+    }
+  ],
+  "build": "build.log",
+  "inGameValidation": false
+}

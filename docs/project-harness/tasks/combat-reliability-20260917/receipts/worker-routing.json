@@ -1,0 +1,132 @@
+[
+  {
+    "slice": "life",
+    "sessions": [
+      {
+        "sessionFile": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-reliability-20260917\\life\\sessions\\2026-09-17T10-31-12-080Z_01a0aeeb-9dd0-7102-8e57-d171e5ddae2c.jsonl",
+        "models": [
+          [
+            "deepseek",
+            "deepseek-flash"
+          ]
+        ],
+        "thinkingLevels": [
+          "max"
+        ]
+      }
+    ],
+    "restrictedRounds": [
+      {
+        "file": "events-fileonly.jsonl",
+        "tools": [
+          "edit",
+          "grep",
+          "read",
+          "write"
+        ]
+      },
+      {
+        "file": "events-round3.jsonl",
+        "tools": [
+          "edit",
+          "grep",
+          "read",
+          "write"
+        ]
+      },
+      {
+        "file": "events-round4.jsonl",
+        "tools": [
+          "edit",
+          "read"
+        ]
+      },
+      {
+        "file": "events-round5.jsonl",
+        "tools": [
+          "edit",
+          "grep",
+          "read"
+        ]
+      },
+      {
+        "file": "events-round6.jsonl",
+        "tools": [
+          "edit",
+          "grep",
+          "read"
+        ]
+      }
+    ],
+    "workerApprovalOverridePresent": false
+  },
+  {
+    "slice": "bullet",
+    "sessions": [
+      {
+        "sessionFile": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-reliability-20260917\\bullet\\sessions\\2026-09-17T10-31-12-090Z_01a0aeeb-9dda-71f7-b79b-e9d63b000f25.jsonl",
+        "models": [
+          [
+            "deepseek",
+            "deepseek-flash"
+          ]
+        ],
+        "thinkingLevels": [
+          "max"
+        ]
+      }
+    ],
+    "restrictedRounds": [
+      {
+        "file": "events-fileonly.jsonl",
+        "tools": [
+          "edit",
+          "glob",
+          "grep",
+          "read",
+          "write"
+        ]
+      },
+      {
+        "file": "events-round3.jsonl",
+        "tools": [
+          "edit",
+          "grep",
+          "read",
+          "write"
+        ]
+      }
+    ],
+    "workerApprovalOverridePresent": false
+  },
+  {
+    "slice": "fx",
+    "sessions": [
+      {
+        "sessionFile": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-reliability-20260917\\fx\\sessions\\2026-09-17T10-31-12-059Z_01a0aeeb-9dbb-77ba-84a1-c0f06d6599dc.jsonl",
+        "models": [
+          [
+            "deepseek",
+            "deepseek-flash"
+          ]
+        ],
+        "thinkingLevels": [
+          "max"
+        ]
+      }
+    ],
+    "restrictedRounds": [
+      {
+        "file": "events-fileonly.jsonl",
+        "tools": [
+          "edit",
+          "glob",
+          "grep",
+          "read",
+          "write"
+        ]
+      }
+    ],
+    "workerApprovalOverridePresent": false
+  }
+]

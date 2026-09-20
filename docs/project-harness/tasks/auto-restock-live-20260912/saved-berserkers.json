@@ -1,0 +1,397 @@
+{
+  "saveHash": "52def381398be2af8c235b9538b41df081730e139ef857f52a14cee7174867dd",
+  "objects": [
+    {
+      "name": "ShopBerserker_norselands(Clone)",
+      "parentObject": {
+        "linkedObjectID": ""
+      },
+      "hierarchyPath": "Level/GameLayer/",
+      "prefabPath": "Prefabs/Buildings and Interactive/norselands/ShopBerserker_norselands",
+      "uniqueID": "ShopBerserker_norselands(Clone)--65304",
+      "mode": 0,
+      "createOrder": 20657,
+      "linkOrder": 0,
+      "decayHint": 0,
+      "decayResistanceDays": -1,
+      "decayedVersionPrefabPath": "",
+      "netID": 1442,
+      "crpcType": 2,
+      "localPosition": {
+        "x": 20.25,
+        "y": 0.875,
+        "z": 2.0
+      },
+      "localScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "componentData2": [
+        {
+          "name": "PayableSidedShop",
+          "type": "PayableShopData",
+          "data": "{\"items\":[]}"
+        },
+        {
+          "name": "WorkableBuilding",
+          "type": "WorkableBuildingData",
+          "data": "{\"currentBuildPoints\":0.0,\"usesConstructionBuildingComponent\":true}"
+        },
+        {
+          "name": "CRPCStamp",
+          "type": "CRPCSaveData",
+          "data": "{\"NetID\":1442,\"SemiStatic\":true}"
+        },
+        {
+          "name": "ConstructionBuildingComponent",
+          "type": "ConstructionBuildingComponentSaveData",
+          "data": "{\"CurrentBuildPoints\":4.0}"
+        }
+      ]
+    },
+    {
+      "name": "Berserker_leader_norselands P3 [49F]",
+      "parentObject": {
+        "linkedObjectID": ""
+      },
+      "hierarchyPath": "Level/GameLayer/",
+      "prefabPath": "Prefabs/Characters/norselands/Berserker_leader_norselands",
+      "uniqueID": "Berserker_leader_norselands P3 [49F]--136544",
+      "mode": 0,
+      "createOrder": 21320,
+      "linkOrder": 0,
+      "decayHint": 32,
+      "decayResistanceDays": 8,
+      "decayedVersionPrefabPath": "Prefabs/Characters/Peasant",
+      "netID": 1606,
+      "crpcType": 1,
+      "localPosition": {
+        "x": 191.1349639892578,
+        "y": 0.8799997568130493,
+        "z": 0.752487301826477
+      },
+      "localScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "componentData2": [
+        {
+          "name": "Berserker",
+          "type": "BerserkerData",
+          "data": "{\"leaderShop\":{\"linkedObjectID\":\"\"},\"despawnOnLoad\":false}"
+        },
+        {
+          "name": "Character",
+          "type": "CharacterData",
+          "data": "{\"isGrabbed\":false,\"inert\":false}"
+        },
+        {
+          "name": "Wallet",
+          "type": "WalletData",
+          "data": "{\"coins\":0,\"gems\":0,\"usesCurrencySystem\":true,\"currency\":{\"Coins\":0,\"Gems\":0,\"Crown\":0,\"Skulls\":0,\"Shades\":0,\"Merchandise\":0,\"Candle\":0,\"Egg\":0}}"
+        },
+        {
+          "name": "Damageable",
+          "type": "DamageableData",
+          "data": "{\"hitPoints\":16,\"invulnerable\":false}"
+        }
+      ]
+    },
+    {
+      "name": "Berserker_leader_norselands P1 [479]",
+      "parentObject": {
+        "linkedObjectID": ""
+      },
+      "hierarchyPath": "Level/GameLayer/",
+      "prefabPath": "Prefabs/Characters/norselands/Berserker_leader_norselands",
+      "uniqueID": "Berserker_leader_norselands P1 [479]--137790",
+      "mode": 0,
+      "createOrder": 21342,
+      "linkOrder": 0,
+      "decayHint": 32,
+      "decayResistanceDays": 8,
+      "decayedVersionPrefabPath": "Prefabs/Characters/Peasant",
+      "netID": 1627,
+      "crpcType": 1,
+      "localPosition": {
+        "x": 174.51760864257812,
+        "y": 0.8799997568130493,
+        "z": 0.7519521713256836
+      },
+      "localScale": {
+        "x": -1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "componentData2": [
+        {
+          "name": "Berserker",
+          "type": "BerserkerData",
+          "data": "{\"leaderShop\":{\"linkedObjectID\":\"\"},\"despawnOnLoad\":false}"
+        },
+        {
+          "name": "Character",
+          "type": "CharacterData",
+          "data": "{\"isGrabbed\":false,\"inert\":false}"
+        },
+        {
+          "name": "Wallet",
+          "type": "WalletData",
+          "data": "{\"coins\":0,\"gems\":0,\"usesCurrencySystem\":true,\"currency\":{\"Coins\":0,\"Gems\":0,\"Crown\":0,\"Skulls\":0,\"Shades\":0,\"Merchandise\":0,\"Candle\":0,\"Egg\":0}}"
+        },
+        {
+          "name": "Damageable",
+          "type": "DamageableData",
+          "data": "{\"hitPoints\":16,\"invulnerable\":false}"
+        }
+      ]
+    },
+    {
+      "name": "Berserker_norselands P9 [47E]",
+      "parentObject": {
+        "linkedObjectID": ""
+      },
+      "hierarchyPath": "Level/GameLayer/",
+      "prefabPath": "Prefabs/Characters/norselands/Berserker_norselands",
+      "uniqueID": "Berserker_norselands P9 [47E]--138074",
+      "mode": 0,
+      "createOrder": 21347,
+      "linkOrder": 0,
+      "decayHint": 32,
+      "decayResistanceDays": 8,
+      "decayedVersionPrefabPath": "Prefabs/Characters/Peasant",
+      "netID": 1632,
+      "crpcType": 1,
+      "localPosition": {
+        "x": 176.2406463623047,
+        "y": 0.8799997568130493,
+        "z": 0.7594373226165771
+      },
+      "localScale": {
+        "x": -1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "componentData2": [
+        {
+          "name": "Berserker",
+          "type": "BerserkerData",
+          "data": "{\"leaderShop\":{\"linkedObjectID\":\"\"},\"despawnOnLoad\":false}"
+        },
+        {
+          "name": "Character",
+          "type": "CharacterData",
+          "data": "{\"isGrabbed\":false,\"inert\":false}"
+        },
+        {
+          "name": "Wallet",
+          "type": "WalletData",
+          "data": "{\"coins\":0,\"gems\":0,\"usesCurrencySystem\":true,\"currency\":{\"Coins\":0,\"Gems\":0,\"Crown\":0,\"Skulls\":0,\"Shades\":0,\"Merchandise\":0,\"Candle\":0,\"Egg\":0}}"
+        },
+        {
+          "name": "Damageable",
+          "type": "DamageableData",
+          "data": "{\"hitPoints\":8,\"invulnerable\":false}"
+        }
+      ]
+    },
+    {
+      "name": "Berserker_norselands P3 [473]",
+      "parentObject": {
+        "linkedObjectID": ""
+      },
+      "hierarchyPath": "Level/GameLayer/",
+      "prefabPath": "Prefabs/Characters/norselands/Berserker_norselands",
+      "uniqueID": "Berserker_norselands P3 [473]--135954",
+      "mode": 0,
+      "createOrder": 21436,
+      "linkOrder": 0,
+      "decayHint": 32,
+      "decayResistanceDays": 8,
+      "decayedVersionPrefabPath": "Prefabs/Characters/Peasant",
+      "netID": 1597,
+      "crpcType": 1,
+      "localPosition": {
+        "x": 143.40672302246094,
+        "y": 0.8799997568130493,
+        "z": 0.7595628499984741
+      },
+      "localScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "componentData2": [
+        {
+          "name": "Berserker",
+          "type": "BerserkerData",
+          "data": "{\"leaderShop\":{\"linkedObjectID\":\"\"},\"despawnOnLoad\":false}"
+        },
+        {
+          "name": "Character",
+          "type": "CharacterData",
+          "data": "{\"isGrabbed\":false,\"inert\":false}"
+        },
+        {
+          "name": "Wallet",
+          "type": "WalletData",
+          "data": "{\"coins\":0,\"gems\":0,\"usesCurrencySystem\":true,\"currency\":{\"Coins\":0,\"Gems\":0,\"Crown\":0,\"Skulls\":0,\"Shades\":0,\"Merchandise\":0,\"Candle\":0,\"Egg\":0}}"
+        },
+        {
+          "name": "Damageable",
+          "type": "DamageableData",
+          "data": "{\"hitPoints\":8,\"invulnerable\":false}"
+        }
+      ]
+    },
+    {
+      "name": "Berserker_norselands P2 [471]",
+      "parentObject": {
+        "linkedObjectID": ""
+      },
+      "hierarchyPath": "Level/GameLayer/",
+      "prefabPath": "Prefabs/Characters/norselands/Berserker_norselands",
+      "uniqueID": "Berserker_norselands P2 [471]--136132",
+      "mode": 0,
+      "createOrder": 21415,
+      "linkOrder": 0,
+      "decayHint": 32,
+      "decayResistanceDays": 8,
+      "decayedVersionPrefabPath": "Prefabs/Characters/Peasant",
+      "netID": 1598,
+      "crpcType": 1,
+      "localPosition": {
+        "x": 33.74997329711914,
+        "y": 0.8799997568130493,
+        "z": 0.758107602596283
+      },
+      "localScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "componentData2": [
+        {
+          "name": "Berserker",
+          "type": "BerserkerData",
+          "data": "{\"leaderShop\":{\"linkedObjectID\":\"\"},\"despawnOnLoad\":false}"
+        },
+        {
+          "name": "Character",
+          "type": "CharacterData",
+          "data": "{\"isGrabbed\":false,\"inert\":false}"
+        },
+        {
+          "name": "Wallet",
+          "type": "WalletData",
+          "data": "{\"coins\":0,\"gems\":0,\"usesCurrencySystem\":true,\"currency\":{\"Coins\":0,\"Gems\":0,\"Crown\":0,\"Skulls\":0,\"Shades\":0,\"Merchandise\":0,\"Candle\":0,\"Egg\":0}}"
+        },
+        {
+          "name": "Damageable",
+          "type": "DamageableData",
+          "data": "{\"hitPoints\":8,\"invulnerable\":false}"
+        }
+      ]
+    },
+    {
+      "name": "Berserker_norselands P5 [477]",
+      "parentObject": {
+        "linkedObjectID": ""
+      },
+      "hierarchyPath": "Level/GameLayer/",
+      "prefabPath": "Prefabs/Characters/norselands/Berserker_norselands",
+      "uniqueID": "Berserker_norselands P5 [477]--137958",
+      "mode": 0,
+      "createOrder": 21432,
+      "linkOrder": 0,
+      "decayHint": 32,
+      "decayResistanceDays": 8,
+      "decayedVersionPrefabPath": "Prefabs/Characters/Peasant",
+      "netID": 1630,
+      "crpcType": 1,
+      "localPosition": {
+        "x": 35.21826934814453,
+        "y": 0.8799997568130493,
+        "z": 0.7505959272384644
+      },
+      "localScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "componentData2": [
+        {
+          "name": "Berserker",
+          "type": "BerserkerData",
+          "data": "{\"leaderShop\":{\"linkedObjectID\":\"\"},\"despawnOnLoad\":false}"
+        },
+        {
+          "name": "Character",
+          "type": "CharacterData",
+          "data": "{\"isGrabbed\":false,\"inert\":false}"
+        },
+        {
+          "name": "Wallet",
+          "type": "WalletData",
+          "data": "{\"coins\":0,\"gems\":0,\"usesCurrencySystem\":true,\"currency\":{\"Coins\":0,\"Gems\":0,\"Crown\":0,\"Skulls\":0,\"Shades\":0,\"Merchandise\":0,\"Candle\":0,\"Egg\":0}}"
+        },
+        {
+          "name": "Damageable",
+          "type": "DamageableData",
+          "data": "{\"hitPoints\":8,\"invulnerable\":false}"
+        }
+      ]
+    },
+    {
+      "name": "Berserker_norselands P10 [49B]",
+      "parentObject": {
+        "linkedObjectID": ""
+      },
+      "hierarchyPath": "Level/GameLayer/",
+      "prefabPath": "Prefabs/Characters/norselands/Berserker_norselands",
+      "uniqueID": "Berserker_norselands P10 [49B]--135672",
+      "mode": 0,
+      "createOrder": 21421,
+      "linkOrder": 0,
+      "decayHint": 32,
+      "decayResistanceDays": 8,
+      "decayedVersionPrefabPath": "Prefabs/Characters/Peasant",
+      "netID": 1594,
+      "crpcType": 1,
+      "localPosition": {
+        "x": 34.46143341064453,
+        "y": 0.8799997568130493,
+        "z": 0.7532690167427063
+      },
+      "localScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "componentData2": [
+        {
+          "name": "Berserker",
+          "type": "BerserkerData",
+          "data": "{\"leaderShop\":{\"linkedObjectID\":\"\"},\"despawnOnLoad\":false}"
+        },
+        {
+          "name": "Character",
+          "type": "CharacterData",
+          "data": "{\"isGrabbed\":false,\"inert\":false}"
+        },
+        {
+          "name": "Wallet",
+          "type": "WalletData",
+          "data": "{\"coins\":0,\"gems\":0,\"usesCurrencySystem\":true,\"currency\":{\"Coins\":0,\"Gems\":0,\"Crown\":0,\"Skulls\":0,\"Shades\":0,\"Merchandise\":0,\"Candle\":0,\"Egg\":0}}"
+        },
+        {
+          "name": "Damageable",
+          "type": "DamageableData",
+          "data": "{\"hitPoints\":8,\"invulnerable\":false}"
+        }
+      ]
+    }
+  ]
+}

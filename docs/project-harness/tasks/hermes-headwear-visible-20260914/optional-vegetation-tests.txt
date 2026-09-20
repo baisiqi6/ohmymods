@@ -1,0 +1,32 @@
+PASS 颜色恢复失败后同指针重生的自然灌木不得再被旧记录触碰
+PASS 淡出和归还均保留外部第三色
+PASS 原生中途回收先恢复三层颜色，失败的池中归还保留并重试
+PASS 默认关闭：判定与原生一致、零写入、零登记
+PASS 开启：半间距放行且每次还原，不叠乘
+PASS 开启不绕过城墙与 auth
+PASS 额外实例按原始间距与原生锚点判定，自然灌木不误标
+PASS 无锚点时生成的新灌木不登记为额外
+PASS 开启不删除既有原生灌木
+PASS 关闭只回收额外实例并保留原生灌木
+PASS 淡出覆盖所有子层 renderer 并在回收前整色还原
+PASS 存在 SpriteRendererFX 的实例走原生淡出
+PASS 回收期内拒绝再次开启并纠正外部强设
+PASS TrySet 关闭只落配置，回收由 Tick 推进
+PASS authority 丢失与未知 world 保留所有权，恢复后继续回收
+PASS 关闭 Mod(scope 停用) 后停止新增并清理既有额外实例
+PASS 回收未生效时保留登记并重试，不以计时器判定清完
+PASS 换 world 后旧对象不被触碰、密度不叠乘
+PASS 森林退缩：off 原版、on 三分之一、非退缩链路不变
+PASS 森林退缩：世界与场景身份不符时不缩放
+PASS 异常路径仍还原临时标量且不覆盖外部写入
+PASS Postfix 与 Finalizer 都失败时转入待恢复，下次进入先交还再取新基线
+PASS Tick 归还失败待恢复的临时 scalar（关闭与失权同样）
+PASS 重入继承外层租约：不重复改写、不提前交还
+PASS 旧租约 finalizer 不覆写更新的 lease
+PASS 池化复用：原生解除作废登记，Add 事件重建生命周期
+PASS 池化复用：重建为自然灌木时不误收、不再触碰
+PASS Stage 低于 7 的原生清除会同步更新登记
+PASS 回收动作有界：多个额外实例分批处理
+PASS hook 面仅限审计过的目标方法
+PASS 无世界权威时不写 world
+RESULT passed=31 failed=0

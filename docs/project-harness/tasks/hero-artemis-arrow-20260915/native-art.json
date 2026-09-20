@@ -1,0 +1,22 @@
+{
+  "asset": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\KingdomTwoCrowns_Data\\resources.assets",
+  "spriteId": 9867,
+  "name": "artemis_bow_arrow",
+  "size": [
+    30,
+    5
+  ],
+  "ppu": 32,
+  "pivot": [
+    0.5,
+    0.5
+  ],
+  "gold": [
+    0.99215686,
+    0.90196079,
+    0.44705883
+  ],
+  "goldReference": "native material42 _Highlight; visual tint choice, not a full shader emulation",
+  "opaquePixels": 52,
+  "spriteSha256": "5317f8a795ba506136ab51c68384f4e1151ee74229649556eaa8a57a338b35a8"
+}

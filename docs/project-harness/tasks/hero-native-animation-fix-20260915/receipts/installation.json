@@ -1,0 +1,14 @@
+{
+  "saveUnchanged": true,
+  "saveSha256": "0CDCBCFD0F866293F269F31ED907A06F286274B8429CB17C4BAC446161235D87",
+  "sha256": "EFD44621BD86166979DC620D19BA7D91BAD3D960735405D64F517AC751D56C0E",
+  "build": "7.6.5-hero-native-animation-20260915",
+  "configSha256": "5584D1DC51792AD57B83ADA5B479579ED532B073CDE555CA904EE07514A72A71",
+  "gameStarted": false,
+  "installedAt": "2026-09-15T13:15:06.8491078+08:00",
+  "configUnchanged": true,
+  "installed": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "published": false,
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-hero-native-animation-20260915-131506-700.bak",
+  "oldSha256": "FAE6FBDDCEF13DCE3D84120989087CB2972528097325EABF7FD987BC3BC50674"
+}

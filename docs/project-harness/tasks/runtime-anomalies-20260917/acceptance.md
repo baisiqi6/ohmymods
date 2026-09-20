@@ -1,0 +1,13 @@
+# 本轮定位与人口取证候选
+
+没有将三项新异常宣称已修。英雄走/跑切态、乞丐穿地、弩手采样漂移仍缺足够运行现场来唯一定位。具体证据见population-result.md、population-asset-evidence.json及blocked-branches.md；旧会话日志始终是13:44旧musketeer-20260916，不当作现候选实测。
+
+本轮唯一新增生产内容为PopulationGrounding只读限量取证及已有Coordinator四个生命周期接线：3类各12条/上下文，异常读取另最多1条，不增scene/resource扫描或Hook、不写physics/位置/缩放、不改4人/120秒。Root检查预算、sameworld/actor/life/暂停/权限门、异常隔离及明细读取时机；worker17行为回归和实际2.4编译通过，root已重跑。
+
+Hero/Crossbow自动安全审查阻断后没有重试或绕过；Hero未完成MovementEvidence已归档并撤回。DLL审计：3576旧方法保持，5修改仅Plugin.Init与Coordinator.BeginScene/ClearRuntimeState/ReconcileOwnership/TrySpawnOne，7新增仅PopulationGrounding，0移除；全部Hero/Crossbow旧方法保持，所有8PNG和Harmony类型集保持。103Hero原生显示回归通过。
+
+此前DropItem钩子撤除、Knight稳定context/generation门在实际安装基线存在；Dropinterop审计与37Knight runtime回归通过。这只核代码覆盖，不能冒称旧异常在新版实机已消失。
+
+actual2.4完整主构建与Population诊断interop均0警告0错误。最终DLL SHA256 135825E1F62652B1538DA3803C8AA923B4B0358449018FE3AAEAB176620E17C8，build=8.0.0-population-ground-diagnostics-20260917。已闭游戏备份069527B6后安装既定E盘测试副本；28份原生档/附加档/配置hash保持，未启动游戏/提交/发布。见receipts/install.json。
+
+下一轮用户正常游戏日志用于将central-spawn/first-observed与below-layer的netID+epoch对上，判断生成即异常还是后续状态变化。原英雄和弩手取证修改仍受自动审查阻断；不能在新任务换工具/agent实现同一被拒步骤。任务保持doing，保留未完成与工具限制。

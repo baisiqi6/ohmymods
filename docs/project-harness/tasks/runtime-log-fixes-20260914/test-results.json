@@ -1,0 +1,62 @@
+[
+  {
+    "project": "auto-restock/AutoRestockTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "tail": [
+      "PASS leaving_greek_cancels_in_flight_purchase_before_debit",
+      "",
+      "==== 120 passed, 0 failed, 120 total ===="
+    ]
+  },
+  {
+    "project": "siege-ammo/SiegeAmmoTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "tail": [
+      "PASS hooks_bound_to_payable_registry",
+      "",
+      "==== 36 passed, 0 failed, 36 total ===="
+    ]
+  },
+  {
+    "project": "fire-tower-restock-capacity/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "tail": [
+      "PASS \u7981\u7528 / \u975e\u6fc0\u6d3b / \u9500\u6bc1 fail-closed",
+      "PASS \u53ea\u8bfb\uff1a\u8fde\u7eed\u95e8\u63a7\u8c03\u7528\u4e0d\u6539\u52a8\u4efb\u4f55\u539f\u751f\u5f39\u836f\u5b57\u6bb5",
+      "RESULT passed=14 failed=0"
+    ]
+  },
+  {
+    "project": "fire-tower-restock-capacity/actual-interop/ActualInterop.csproj",
+    "kind": "build",
+    "exit": 0,
+    "tail": [
+      "    0 Error(s)",
+      "",
+      "Time Elapsed 00:00:00.72"
+    ]
+  },
+  {
+    "project": "menu-input-lifecycle/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "tail": [
+      "PASS OnDisable model: only the input write is skipped, remaining cleanup runs",
+      "PASS ShouldRun truth table agrees with the prefix decision",
+      "RESULT passed=8 failed=0"
+    ]
+  },
+  {
+    "project": "menu-input-lifecycle/actual-interop/ActualInterop.csproj",
+    "kind": "build",
+    "exit": 0,
+    "tail": [
+      "    0 Error(s)",
+      "",
+      "Time Elapsed 00:00:00.74"
+    ]
+  }
+]

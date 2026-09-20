@@ -1,0 +1,14 @@
+{
+  "old": "9F1F61A0AE5C6475CF61FADF4E8BBFAE026E9E686B0DFE9804EE7ED4CD32B918",
+  "candidate": "9881275DCE3A5FF9BB04471B08EAD72AB04CF1EE15728B7AF126713D5F056072",
+  "unchanged": 2004,
+  "expectedChanged": [
+    "System.Void KingdomEnhancedMod.PatchRoles_KnightStyle::IntegrityPass()",
+    "System.Void KingdomEnhancedMod.PatchRoles_KnightStyle::ApplyKnightStyle(Knight)",
+    "System.Void KingdomEnhancedMod.Character_Promote_KnightStyle_Patch::Postfix(Character,DroppableTool)",
+    "System.Void KingdomEnhancedMod.PatchRoles_KnightStyle::OnKnightPromoted(Character)",
+    "System.Void KingdomEnhancedMod.PatchRoles_KnightStyle::OnKnightActivated(Knight)",
+    "System.Void KingdomEnhancedMod.Knight_OnEnable_KnightStyleRederive_Patch::Postfix(Knight)",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()"
+  ]
+}

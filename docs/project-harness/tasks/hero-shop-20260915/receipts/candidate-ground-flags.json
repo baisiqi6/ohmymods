@@ -1,0 +1,28 @@
+{
+  "build": "8.0.0-hero-shop-flags-ground-20260915",
+  "dllSha256": "a6b5d90b12c46020e844b55ab7d22eb185618a30a868b255173c15e4b32fc9b3",
+  "status": "local-candidate-not-installed-not-published",
+  "verified": {
+    "IL2CPP": "0 warnings 0 errors",
+    "recruitmentAssertions": 109,
+    "towerAssertions": 31,
+    "heroEffectsAssertions": 81,
+    "shopCoreAssertions": 31,
+    "shopBannerInterop": "0 warnings 0 errors",
+    "oldMethodsUnchanged": 2665,
+    "oldIntegrationMethodsChanged": 10,
+    "oldHeroPngs": "unchanged",
+    "independentReview": "passed: native knight state mapping, tower policy and no-text banners"
+  },
+  "pending": [
+    "campaign-vs-island slot rule",
+    "cross-island identity transport",
+    "actual game test"
+  ],
+  "tornFlagPersistence": "session-only feedback, never purchase authority",
+  "inWorldTextLabels": false,
+  "userDataModified": false,
+  "gameStarted": false,
+  "sourceState": "uncommitted workspace",
+  "createdAt": "2026-09-15T18:15:21.443984+08:00"
+}

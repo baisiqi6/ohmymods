@@ -1,0 +1,12 @@
+{
+  "build": "7.6.5-medieval-scatter-20260914",
+  "dll": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "sha256": "C6B71AA694980B2958B87E768C469E75D030F5F55C2616A407E9EE36F342674F",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-medieval-scatter-20260914-181752-350.bak",
+  "saveBefore": "57E54166C813EEA47B85AC44DC47D779A7AAA5D41B73651B1F00AED33C4E2AAB",
+  "saveAfter": "57E54166C813EEA47B85AC44DC47D779A7AAA5D41B73651B1F00AED33C4E2AAB",
+  "configBefore": "A3E3A0B876BB5D421B681FFF5919FCE100BBAAEC043F083A36933F3114EA5439",
+  "configAfter": "A3E3A0B876BB5D421B681FFF5919FCE100BBAAEC043F083A36933F3114EA5439",
+  "gameStarted": false,
+  "published": false
+}

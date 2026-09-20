@@ -1,6 +1,7 @@
-// 原生边界替身（Unity 侧）：只提供 HeroArcherArrowVisuals.cs 真正引用的 API 面，
-// 并把「可观察写入」变成测试证据：sprite/color 的每次读写都记账，其它成员（material/sorting/
-// collider/trail/damage…）只有只读探针，模块若能编过就等于声明它不碰那些字段。
+// 原生边界替身（Unity 侧）：只提供 HeroArcherArrowVisuals.cs + HeroArcherWallPierce.cs 真正引用的 API 面，
+// 并把「可观察写入」变成测试证据：sprite/color 的每次读写都记账，Physics2D.IgnoreCollision 的每次调用
+// （含箭/墙两侧身份与 true/false 方向）都记账，其它成员（material/sorting/trail/damage…）只有只读探针，
+// 模块若能编过就等于声明它不碰那些字段。
 //
 // 这不是 Unity：绝不用于任何游戏内验证；真实 API 面由 ../interop-compile 的真实 2.4 interop 编译门负责。
 
@@ -28,6 +29,42 @@ namespace UnityEngine
         {
             DestroyCalls++;
             if (target != null) target.Destroyed = true;
+        }
+
+        // ---------- 场景替身：FindObjectsOfType<T> 只认登记过、未销毁且所在 GO 活动的对象 ----------
+        // （HeroArcherWallPierce 用它对活动 Wall 做有界快照；无登记 = 0 面墙，行为等价。）
+
+        internal static readonly List<Object> AllObjects = new List<Object>();
+        internal static bool FindObjectsOfTypeThrows;
+        internal static int FindObjectsOfTypeCalls;
+
+        /// <summary>镜像 Unity 语义：只回活动对象（组件按其 GameObject.activeSelf 判定），销毁对象不可见。</summary>
+        public static T[] FindObjectsOfType<T>() where T : Object
+        {
+            FindObjectsOfTypeCalls++;
+            if (FindObjectsOfTypeThrows) throw new InvalidOperationException("stub: FindObjectsOfType threw");
+            List<T> found = new List<T>();
+            for (int i = 0; i < AllObjects.Count; i++)
+            {
+                Object candidate = AllObjects[i];
+                if (candidate == null || candidate.Destroyed) continue;
+                Component component = candidate as Component;
+                if (component != null)
+                {
+                    GameObject go = component.gameObject;
+                    if (go == null || !go.activeSelf) continue;
+                }
+                if (candidate is T match) found.Add(match);
+            }
+            return found.ToArray();
+        }
+
+        internal static void ResetScene()
+        {
+            AllObjects.Clear();
+            FindObjectsOfTypeThrows = false;
+            FindObjectsOfTypeCalls = 0;
+            DestroyCalls = 0;
         }
     }
 
@@ -237,6 +274,67 @@ namespace UnityEngine
 
         public int SpriteWrites { get { int n = 0; foreach (string w in Writes) if (w == "sprite") n++; return n; } }
         public int ColorWrites { get { int n = 0; foreach (string w in Writes) if (w == "color") n++; return n; } }
+    }
+
+    /// <summary>原生 Collider2D 替身：生产只允许把它作为 IgnoreCollision 的参数/null 判断/缓存条目；
+    /// Label 仅供测试断言，生产代码读它就会在真实 interop 里编不过。</summary>
+    public class Collider2D : Component
+    {
+        /// <summary>测试标签。</summary>
+        public string Label;
+    }
+
+    /// <summary>Physics2D 替身：完整记录每次 IgnoreCollision 的 (箭碰撞体, 墙碰撞体, ignore) 序列，
+    /// 并允许测试按对注入异常。计数助手按侧/方向显式命名，避免把墙碰撞体传进箭侧计数而恒 0。</summary>
+    public static class Physics2D
+    {
+        internal struct IgnoreCall
+        {
+            internal Collider2D Arrow;
+            internal Collider2D Wall;
+            internal bool Ignore;
+        }
+
+        internal static readonly List<IgnoreCall> Calls = new List<IgnoreCall>();
+        internal delegate void IgnoreHandler(Collider2D collider1, Collider2D collider2, bool ignore);
+        /// <summary>测试注入：可按 (collider1, collider2, ignore) 抛异常；抛出的对不会记入 Calls。</summary>
+        internal static IgnoreHandler OnIgnore;
+        /// <summary>true 时所有调用都抛（测试全局失败面）。</summary>
+        internal static bool Throws;
+
+        public static void IgnoreCollision(Collider2D collider1, Collider2D collider2, bool ignore)
+        {
+            if (collider1 == null || collider2 == null)
+                throw new ArgumentNullException("stub: IgnoreCollision called with a null collider");
+            if (Throws) throw new InvalidOperationException("stub: IgnoreCollision threw");
+            if (OnIgnore != null) OnIgnore(collider1, collider2, ignore);
+            Calls.Add(new IgnoreCall { Arrow = collider1, Wall = collider2, Ignore = ignore });
+        }
+
+        /// <summary>按箭一侧计数（calls[i].Arrow == arrow）：误把墙碰撞体传进来会恒 0——请改用 CountWallPair。</summary>
+        internal static int CountArrowPair(Collider2D arrow, bool ignore)
+        {
+            int n = 0;
+            for (int i = 0; i < Calls.Count; i++)
+                if (ReferenceEquals(Calls[i].Arrow, arrow) && Calls[i].Ignore == ignore) n++;
+            return n;
+        }
+
+        /// <summary>按墙一侧计数（calls[i].Wall == wall）：必须同时过滤 ignore 方向（true=穿透 / false=归还）。</summary>
+        internal static int CountWallPair(Collider2D wall, bool ignore)
+        {
+            int n = 0;
+            for (int i = 0; i < Calls.Count; i++)
+                if (ReferenceEquals(Calls[i].Wall, wall) && Calls[i].Ignore == ignore) n++;
+            return n;
+        }
+
+        internal static void Reset()
+        {
+            Calls.Clear();
+            OnIgnore = null;
+            Throws = false;
+        }
     }
 
     public static class ImageConversion

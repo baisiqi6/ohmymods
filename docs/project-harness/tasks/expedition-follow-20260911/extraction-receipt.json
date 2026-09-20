@@ -1,0 +1,14 @@
+[
+  {
+    "source": "C:\\Users\\ADMIN\\projects\\ohmymods\\il2cpp\\PatchWorld_DefenseSpacing.cs",
+    "source_sha256": "8dddb1810793f9d748eb657ede7b3cb1c01d2ca18e1a478755b8c7c58b0e0476",
+    "method_sha256": "5441d7e5c18efe810a18bea31d28185c7aca37a1c1535730b2f7ebac15d8178f",
+    "output": "LegacyDefenseSpacing.cs"
+  },
+  {
+    "source": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\expedition-follow-20260911\\build\\PatchWorld_DefenseSpacing.cs",
+    "source_sha256": "840a009c51484d164f03667c13bcdd7b724b4b0e1b3106d8b99d8f04c254802c",
+    "method_sha256": "a409a551b670018120ef10549f23f185a40bc697d3bf2775e54ac4a1497c8e04",
+    "output": "ExtractedDefenseSpacing.cs"
+  }
+]

@@ -1,0 +1,22 @@
+{
+  "nativeFileSha256": "30ecd5cd568107b06c2f125546f29884cf5cb15cdd1ae3d5e8c112c0dce7a844",
+  "campaign": 1,
+  "challenge": 0,
+  "land": 9,
+  "biome": 0,
+  "islandSerializedFields": [
+    "playTimeDays",
+    "lastPlayedTimeDays",
+    "_islandTimePlayed",
+    "repopGrassHack",
+    "biome",
+    "_levelEdges",
+    "savedWithRevisions",
+    "land",
+    "objects",
+    "lastPlayedReign"
+  ],
+  "islandRuntimeCreationTimePersisted": false,
+  "exactRawIslandMatches": [],
+  "matchingPaidOwnerIds": []
+}

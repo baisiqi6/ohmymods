@@ -1,0 +1,121 @@
+{
+  "keyMessages": [
+    {
+      "line": 12,
+      "text": "[Warning:Il2CppInterop] Class::Init signatures have been exhausted, using a substitute!"
+    },
+    {
+      "line": 49,
+      "text": "[Warning:KingdomEnhancedMod] [KnightIdentity] load-mismatch:85ad9fec"
+    },
+    {
+      "line": 63,
+      "text": "[Warning:KingdomEnhancedMod] [FriendlyTrollBalance] TrollWeak identity/header unavailable; designation failed closed for this activation."
+    },
+    {
+      "line": 588,
+      "text": "[Error  :Il2CppInterop] During invoking native->managed trampoline"
+    },
+    {
+      "line": 593,
+      "text": "[Error  :Il2CppInterop] During invoking native->managed trampoline"
+    },
+    {
+      "line": 602,
+      "text": "[Error  :Il2CppInterop] During invoking native->managed trampoline"
+    },
+    {
+      "line": 613,
+      "text": "[Warning:KingdomEnhancedMod] [Crossbowman] scale drift: marked=7 drifted=1 sample[y=1.000 animatorOnRoot=True controller=archer_soldier_deadlands]"
+    },
+    {
+      "line": 645,
+      "text": "[Info   :KingdomEnhancedMod] [Musketeer] saved:records=4:bound=4"
+    },
+    {
+      "line": 1099,
+      "text": "[Info   :KingdomEnhancedMod] [Musketeer] saved:records=15:bound=15"
+    },
+    {
+      "line": 1256,
+      "text": "[Info   :KingdomEnhancedMod] [Musketeer] saved:records=18:bound=18"
+    }
+  ],
+  "rapidWalkRunZeroPhase": [
+    {
+      "actor": "-93020",
+      "start": {
+        "line": 646,
+        "t": 253.897,
+        "actor": "-93020",
+        "nt": 0.0,
+        "pose": 10
+      },
+      "end": {
+        "line": 750,
+        "t": 262.453,
+        "actor": "-93020",
+        "nt": 0.0,
+        "pose": 10
+      },
+      "transitions": 102
+    },
+    {
+      "actor": "-93020",
+      "start": {
+        "line": 1102,
+        "t": 487.566,
+        "actor": "-93020",
+        "nt": 0.0,
+        "pose": 10
+      },
+      "end": {
+        "line": 1188,
+        "t": 494.691,
+        "actor": "-93020",
+        "nt": 0.0,
+        "pose": 10
+      },
+      "transitions": 84
+    },
+    {
+      "actor": "-93020",
+      "start": {
+        "line": 1191,
+        "t": 494.854,
+        "actor": "-93020",
+        "nt": 0.0,
+        "pose": 10
+      },
+      "end": {
+        "line": 1219,
+        "t": 497.128,
+        "actor": "-93020",
+        "nt": 0.0,
+        "pose": 10
+      },
+      "transitions": 28
+    }
+  ],
+  "playerLogErrorWarningHeads": {
+    "Got AppID: 2769240": 1,
+    "Unknown Character Tag: Archer": 1,
+    "Game created. Version: 2.4.0 Revision: 23488 Hash: a436110bb9 Branch: origin/twocrowns/spring-edict": 1,
+    "HagletEvent Default Update automatically increased its responder capacity to 150": 1,
+    "HagletEvent Default Update automatically increased its responder capacity to 225": 1,
+    "HagletEvent Default Update automatically increased its responder capacity to 338": 1,
+    "Time is paused so 'ignorePause' must be set to 'true' for fade out to work.": 5,
+    "Invalid NetID from CRPCStamp on 'CastleShieldShop(Clone)'!": 11,
+    "gse orca": 4,
+    "HagletEvent Default Update automatically increased its responder capacity to 507": 1,
+    "Fixing fallen through object Beggar P11 [555] by moving it to origin above ground level": 1,
+    "Fixing fallen through object Beggar P12 [556] by moving it to origin above ground level": 1,
+    "Fixing fallen through object Beggar P15 [5F3] by moving it to origin above ground level": 1,
+    "Fixing fallen through object Beggar P9 [551] by moving it to origin above ground level": 1,
+    "Fixing fallen through object Beggar P10 [554] by moving it to origin above ground level": 1,
+    "Fixing fallen through object Beggar P13 [557] by moving it to origin above ground level": 1,
+    "BestFit is only supported for dynamic fonts. Font 'Zpix' is not dynamic.": 20,
+    "HagletEvent Default Update automatically increased its responder capacity to 761": 1,
+    "Enemy 'CrownStealer P9' of wave 148 does not have a wave mid assigned!": 1
+  }
+}

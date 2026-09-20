@@ -1,0 +1,10 @@
+{
+  "old": "9881275DCE3A5FF9BB04471B08EAD72AB04CF1EE15728B7AF126713D5F056072",
+  "candidate": "1D63533A4D74B9F8B60572FD595A58D8FC228C28DC860BEEB4179916C1665B1A",
+  "unchanged": 2242,
+  "expectedChanged": [
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "System.Void KingdomEnhancedMod.PatchEconomy_AutoRestock::.cctor()",
+    "System.Boolean KingdomEnhancedMod.PatchEconomy_AutoRestock::ShopBuyable(KingdomEnhancedMod.PatchEconomy_AutoRestock/ShopSnapshot,System.Boolean,System.String&)"
+  ]
+}

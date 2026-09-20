@@ -1,0 +1,92 @@
+PASS min boats=0 Greek=0
+PASS min boats=0 Greek=1
+PASS min boats=0 Greek=2
+PASS min boats=0 Greek=3
+PASS min boats=0 Greek=4
+PASS min boats=0 Greek=5
+PASS min boats=0 Greek=6
+PASS min boats=0 Greek=7
+PASS min boats=1 Greek=0
+PASS min boats=1 Greek=1
+PASS min boats=1 Greek=2
+PASS min boats=1 Greek=3
+PASS min boats=1 Greek=4
+PASS min boats=1 Greek=5
+PASS min boats=1 Greek=6
+PASS min boats=1 Greek=7
+PASS min boats=2 Greek=0
+PASS min boats=2 Greek=1
+PASS min boats=2 Greek=2
+PASS min boats=2 Greek=3
+PASS min boats=2 Greek=4
+PASS min boats=2 Greek=5
+PASS min boats=2 Greek=6
+PASS min boats=2 Greek=7
+PASS min boats=3 Greek=0
+PASS min boats=3 Greek=1
+PASS min boats=3 Greek=2
+PASS min boats=3 Greek=3
+PASS min boats=3 Greek=4
+PASS min boats=3 Greek=5
+PASS min boats=3 Greek=6
+PASS min boats=3 Greek=7
+PASS min boats=4 Greek=0
+PASS min boats=4 Greek=1
+PASS min boats=4 Greek=2
+PASS min boats=4 Greek=3
+PASS min boats=4 Greek=4
+PASS min boats=4 Greek=5
+PASS min boats=4 Greek=6
+PASS min boats=4 Greek=7
+PASS same side and Greek styles
+PASS other boat and mainboat targets not stolen
+PASS existing formation not stolen
+PASS preassigned prioritized over lower id free
+PASS all own assignments protected before free fill
+PASS two players global unique
+PASS legacy nonGreek embarked preserved and not candidate
+PASS new nonGreek rejected100000
+PASS other units and mainboat scores unchanged
+PASS native probe bypass restored
+PASS pending survives frame before membership
+PASS complete failed boat clears
+PASS external formation deferred cancellation
+PASS external mainboat target deferred cancellation
+PASS charge mission cancels
+PASS player control cancels
+PASS puzzle mission cancels
+PASS death cancels
+PASS side change cancels
+PASS authority loss no writes
+PASS world change no old world writes
+PASS timeout60 deferred cancellation
+PASS embarked survives deadline
+PASS release does not unregister native memberships
+PASS cancel queue skips external boat formation
+PASS new plan supersedes old cancellation
+PASS score failure queues without collection mutation
+PASS native rejection unchanged
+PASS disabled qualification stays native
+PASS client qualification stays native
+PASS actual upstream boat snapshot same side and max4
+PASS actual upstream skips oldworld disabled occupied inaccessible
+PASS actual upstream duplicate boat numbers fails closed
+PASS unknown or multi squad prefab skipped
+PASS disabled knight cancels
+PASS harmless knight cancels
+PASS CanEmbark loss cancels
+PASS unassigned external FSM mission cancels
+PASS native targeting embark FSM remains valid
+PASS pooled knight release clears previous lifetime
+PASS pooled release cannot cancel replacement pair
+PASS world ledger clear drops queued writes
+PASS cancel queue world transition no old writes
+PASS cancel queue authority loss no writes
+PASS actual finalizer native throw before postfix releases embarked pending
+PASS actual finalizer partial native membership null current is deferred removed
+PASS actual finalizer partial membership other formation preserved
+PASS actual finalizer completed native member no longer pending
+PASS actual finalizer successful native return does not alter pending
+PASS native embark tween stationary own target survives maintenance
+PASS stationary without embark target cancels
+RESULT passed=91 failed=0

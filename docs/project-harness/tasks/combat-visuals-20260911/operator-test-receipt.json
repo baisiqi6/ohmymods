@@ -1,0 +1,37 @@
+{
+  "sources": [
+    "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-visuals-20260911\\tests/../build/PatchRoles_SamuraiPowerDash.cs",
+    "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-visuals-20260911\\tests/../build/PatchRoles_GreekFire.cs",
+    "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-visuals-20260911\\tests/../build/PatchRoles_GreekFireAssets.cs",
+    "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-visuals-20260911\\tests/../build/SamuraiDashVisuals.cs"
+  ],
+  "before": [
+    "3D35E55C021A16AB2242E2A9E4911735585B0F4712590546A4A6E13DB4ECD715",
+    "3607BA796CF1D0D384124C9F075761C427EB1310DF3ABAD0F65BF1B9E907E1A4",
+    "958CE9EBC92774C42833DE7C7BE78647A486E8700E085B56413A615EF9A65117",
+    "980137C8606D27ABDAAC47D91ABBFEDC5D4F475AD44DD4D5A1C781BDBDEB8173"
+  ],
+  "after": [
+    "3D35E55C021A16AB2242E2A9E4911735585B0F4712590546A4A6E13DB4ECD715",
+    "3607BA796CF1D0D384124C9F075761C427EB1310DF3ABAD0F65BF1B9E907E1A4",
+    "958CE9EBC92774C42833DE7C7BE78647A486E8700E085B56413A615EF9A65117",
+    "980137C8606D27ABDAAC47D91ABBFEDC5D4F475AD44DD4D5A1C781BDBDEB8173"
+  ],
+  "results": [
+    {
+      "suite": "motion",
+      "exit": 0,
+      "log": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-visuals-20260911\\tests\\operator-final-motion.log"
+    },
+    {
+      "suite": "greek",
+      "exit": 0,
+      "log": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-visuals-20260911\\tests\\operator-final-greek.log"
+    },
+    {
+      "suite": "visuals",
+      "exit": 0,
+      "log": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-visuals-20260911\\tests\\operator-final-visuals.log"
+    }
+  ]
+}

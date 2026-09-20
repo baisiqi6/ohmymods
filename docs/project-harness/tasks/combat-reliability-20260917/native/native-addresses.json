@@ -1,0 +1,72 @@
+[
+  {
+    "type": "Damageable",
+    "method": "NativeMethodInfoPtr_OnEnable_Private_Void_0",
+    "token": 100667230,
+    "rva": "0x9bcc10",
+    "same_slots": 1
+  },
+  {
+    "type": "Damageable",
+    "method": "NativeMethodInfoPtr_OnDisable_Private_Void_0",
+    "token": 100667231,
+    "rva": "0x9bcbd0",
+    "same_slots": 2
+  },
+  {
+    "type": "Damageable",
+    "method": "NativeMethodInfoPtr_Reset_Public_Void_0",
+    "token": 100667232,
+    "rva": "0x9bcbd0",
+    "same_slots": 2
+  },
+  {
+    "type": "Damageable",
+    "method": "NativeMethodInfoPtr_ReceiveDamage_Public_Void_Int32_GameObject_DamageSource_0",
+    "token": 100667240,
+    "rva": "0x9bce60",
+    "same_slots": 1
+  },
+  {
+    "type": "Damageable",
+    "method": "NativeMethodInfoPtr_ReceiveDamage_Public_Virtual_New_Void_Int32_GameObject_DamageSource_Vector2_0",
+    "token": 100667241,
+    "rva": "0x9bcf00",
+    "same_slots": 1
+  },
+  {
+    "type": "Pool",
+    "method": "NativeMethodInfoPtr_AttemptSpawnSync_Private_CRPCHeader_GameObject_Int16_Boolean_Boolean_0",
+    "token": 100676195,
+    "rva": "0x6bf0a0",
+    "same_slots": 1
+  },
+  {
+    "type": "Pool",
+    "method": "NativeMethodInfoPtr_FastSpawn_Public_GameObject_Vector3_Quaternion_Transform_Int16_Boolean_0",
+    "token": 100676196,
+    "rva": "0x6c10a0",
+    "same_slots": 1
+  },
+  {
+    "type": "Pool",
+    "method": "NativeMethodInfoPtr_FastDespawn_Public_Void_GameObject_Single_Boolean_0",
+    "token": 100676197,
+    "rva": "0x6c0660",
+    "same_slots": 1
+  },
+  {
+    "type": "Pool",
+    "method": "NativeMethodInfoPtr_OnDisable_Private_Void_0",
+    "token": 100676201,
+    "rva": "0x6c2f10",
+    "same_slots": 1
+  },
+  {
+    "type": "Pool",
+    "method": "NativeMethodInfoPtr_Reset_Public_Void_0",
+    "token": 100676205,
+    "rva": "0x6c3360",
+    "same_slots": 1
+  }
+]

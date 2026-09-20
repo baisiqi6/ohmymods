@@ -1,19 +1,23 @@
 // 原生边界替身测试：用最近似原生顺序的调用序列驱动**生产文件** hero-archer-arrow 视觉模块
-// （tests/stub-run/HeroArrowVisuals.StubTests.csproj 直接编译 ../../HeroArcherArrowVisuals.cs）。
+// （Tests.csproj 直接编译 ../../il2cpp/HeroArcherArrowVisuals.cs + ../../il2cpp/HeroArcherWallPierce.cs）。
 //
 // 模拟的原生顺序（2.1/2.4 反编译一致）：
 //   FireArrowInternal:
 //     [Prefix] HeroArcherArrowVisuals.BeginShot(source)
-//     Pool.Spawn → Arrow.OnEnable: [Prefix Priority.First] ResetArrow → 原生 OnEnable → [Postfix Priority.Last] OnSpawn
+//     Pool.Spawn → Arrow.OnEnable:
+//         [Prefix Priority.First]  ResetArrow → HeroArcherWallPierce.Restore（无条件归还墙碰撞）
+//         原生 OnEnable body
+//         [Postfix Priority.Last]  OnSpawn → 外观写入成功 → HeroArcherWallPierce.Apply（无视墙碰撞）
 //     arrow.archer = source                       ← 原生在 OnEnable 之后才写 owner
 //     散射额外箭（本模组 postfix 内）同样走 OnEnable 后再写 archer
 //     [Finalizer] EndShot
 //   每帧：ModPanel.Update → Tick()
 //
 // 模式：
-//   gold    = 资源为 operator 提供的真实 ArtemisArrow.png（形状/尺寸/像素/PPU/pivot 全核）
-//   missing = csproj 不嵌入资源 → 必须 fail-closed 保持原生外观
-//   invalid = 嵌入非 PNG 字节 → 必须 fail-closed 保持原生外观
+//   gold      = 资源为 operator 提供的真实 ArtemisArrow.png（形状/像素/pivot 全核；显示尺寸 = 原生 × 0.65）
+//   missing   = csproj 不嵌入资源 → 必须 fail-closed 保持原生外观且不挂穿墙
+//   invalid   = 嵌入非 PNG 字节 → 必须 fail-closed 保持原生外观且不挂穿墙
+//   wrongsize = 嵌入尺寸不符的 PNG → 必须 fail-closed 保持原生外观且不挂穿墙
 
 using System;
 using System.Collections.Generic;
@@ -88,6 +92,7 @@ internal static class Program
                 Pointer = Arrow.Pointer,
                 gameObject = go,
                 _spriteRenderer = renderer,
+                _collider = Arrow._collider,               // 同一 native 对象：别名共享同一碰撞体引用
             };
             go.Components.Add(renderer);
             go.Components.Add(arrow);
@@ -119,6 +124,7 @@ internal static class Program
             Pointer = new IntPtr(pointerBase + 2),
             gameObject = go,
             _spriteRenderer = renderer,
+            _collider = new Collider2D { Pointer = new IntPtr(pointerBase + 3), gameObject = go, Label = "arrow" },
             colliderEnabled = true,
             trailEnabled = false,
             rootX = 3f,
@@ -148,6 +154,7 @@ internal static class Program
             Pointer = new IntPtr(pointerBase + 2),
             gameObject = arrowGo,
             _spriteRenderer = renderer,
+            _collider = new Collider2D { Pointer = new IntPtr(pointerBase + 3), gameObject = arrowGo, Label = "arrow" },
         };
         arrowGo.Components.Add(arrow);
         childGo.Components.Add(renderer);
@@ -163,6 +170,26 @@ internal static class Program
         go.Components.Add(archer);
         HeroArcherRuntime.HeroPointers.Add(new IntPtr(pointer));
         return go;
+    }
+
+    /// <summary>活动墙 + N 个活动子碰撞体（登记进 FindObjectsOfType 场景替身），供穿墙挂点核对。</summary>
+    private static Wall NewWall(int pointerBase, int colliderCount)
+    {
+        GameObject wallGo = NewGo(pointerBase);
+        Wall wall = new Wall { gameObject = wallGo };
+        for (int i = 0; i < colliderCount; i++)
+        {
+            GameObject colliderGo = NewGo(pointerBase + 10 + i);
+            wall.Colliders.Add(new Collider2D
+            {
+                Pointer = new IntPtr(pointerBase + 20 + i),
+                gameObject = colliderGo,
+                Label = "wall#" + i,
+            });
+        }
+        wallGo.Components.Add(wall);
+        UnityEngine.Object.AllObjects.Add(wall);
+        return wall;
     }
 
     private static GameObject NewPlainGo(int pointer) => NewGo(pointer);
@@ -208,10 +235,12 @@ internal static class Program
     private static void ResetWorld()
     {
         HeroArcherArrowVisuals.ResetForTests();
+        HeroArcherWallPierce.ResetForTests();
         HeroArcherRuntime.Reset();
         ArcherOptionsScope.Reset();
         KingdomEnhancedPlugin.Instance = new KingdomEnhancedPluginStub();
-        UnityEngine.Object.DestroyCalls = 0;
+        Physics2D.Reset();
+        UnityEngine.Object.ResetScene();                              // 清场景登记 + FindObjectsOfType 计数 + DestroyCalls
         Time.unscaledTime = 1000f;
         _vanilla = new Sprite
         {
@@ -260,9 +289,22 @@ internal static class Program
             List<string> prefixFirst = new List<string>();
             List<string> postfixLast = new List<string>();
             List<string> finalizers = new List<string>();
+            bool pierceHasHarmony = false;
             for (int i = 0; i < types.Length; i++)
             {
                 Type type = types[i];
+                if (type.Name == "HeroArcherWallPierce")
+                {
+                    // 穿墙 slice 必须只搭既有作用域的分支，绝不新增 Harmony 入口。
+                    if (type.GetCustomAttributes(typeof(HarmonyLib.HarmonyPatch), false).Length > 0) pierceHasHarmony = true;
+                    MethodInfo[] pierceMethods = type.GetMethods(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+                    for (int m = 0; m < pierceMethods.Length; m++)
+                    {
+                        if (pierceMethods[m].GetCustomAttributes(typeof(HarmonyLib.HarmonyPrefix), false).Length > 0) pierceHasHarmony = true;
+                        if (pierceMethods[m].GetCustomAttributes(typeof(HarmonyLib.HarmonyPostfix), false).Length > 0) pierceHasHarmony = true;
+                        if (pierceMethods[m].GetCustomAttributes(typeof(HarmonyLib.HarmonyFinalizer), false).Length > 0) pierceHasHarmony = true;
+                    }
+                }
                 if (type.Namespace != "KingdomEnhancedMod" || !type.Name.EndsWith("HeroArrowArt_Patch", StringComparison.Ordinal)) continue;
                 object[] patches = type.GetCustomAttributes(typeof(HarmonyLib.HarmonyPatch), false);
                 for (int p = 0; p < patches.Length; p++)
@@ -292,6 +334,7 @@ internal static class Program
             Check(prefixFirst.Count == 2, "both prefixes are Priority.First (reset before other OnEnable prefixes; scope opened first)");
             Check(postfixLast.Count == 1, "the OnEnable postfix is Priority.Last (our color wins over other postfixes)");
             Check(finalizers.Count == 1, "one finalizer on FireArrowInternal (scope end + ownership recheck, original exception rethrown)");
+            Check(!pierceHasHarmony, "HeroArcherWallPierce declares no Harmony patch attributes (pierce rides the existing scope branches)");
         }
         catch (Exception e) { _failures++; Console.WriteLine("  FAIL  hook contract threw: " + e); }
     }
@@ -342,7 +385,7 @@ internal static class Program
             Check(main.Renderer.Writes.Count == writesBefore, "Tick never re-asserts colors/sprites every frame");
         });
 
-        Test("gold: sprite identity matches the operator's verified native art (30x5 / PPU32 / pivot .5,.5 / 52 opaque)", () =>
+        Test("gold: sprite identity — native 30x5 art at the 0.65 display scale (PPU 32/scale / pivot .5,.5 / 52 opaque)", () =>
         {
             HeroArcherRuntime.EnabledState = true;
             GameObject hero = NewHero(1201, out _);
@@ -352,7 +395,12 @@ internal static class Program
 
             Sprite sprite = rig.Renderer.sprite;
             Check(sprite.rect.width == 30f && sprite.rect.height == 5f, "sprite rect 30x5 (native artemis_bow_arrow)");
-            Check(Math.Abs(sprite.pixelsPerUnit - 32f) <= 1e-4f, "PPU 32");
+            Check(Math.Abs(sprite.pixelsPerUnit - 32f / HeroArcherArrowVisuals.HeroArrowDisplayScale) <= 1e-3f,
+                "PPU = 32 / HeroArrowDisplayScale (≈49.23; user-locked 0.65 display scale)");
+            Check(Math.Abs(sprite.WorldWidth - (30f / 32f) * HeroArcherArrowVisuals.HeroArrowDisplayScale) <= 1e-4f,
+                "world width = 0.9375 * HeroArrowDisplayScale (0.609375; 65% of the native arrow)");
+            Check(Math.Abs(sprite.WorldHeight - (5f / 32f) * HeroArcherArrowVisuals.HeroArrowDisplayScale) <= 1e-4f,
+                "world height = 5/32 * HeroArrowDisplayScale (65% of native)");
             Check(Math.Abs(sprite.pivot.x - 0.5f) <= 1e-6f && Math.Abs(sprite.pivot.y - 0.5f) <= 1e-6f, "pivot (0.5,0.5)");
             Check(sprite.extrude == 0u && sprite.meshType == SpriteMeshType.FullRect, "no extrude, FullRect");
             Check(sprite.texture.filterMode == FilterMode.Point && sprite.texture.wrapMode == TextureWrapMode.Clamp
@@ -363,6 +411,24 @@ internal static class Program
             for (int i = 0; i < pixels.Length; i++) if (pixels[i].a != 0) opaque++;
             Check(pixels.Length == 150 && opaque == 52, "real asset decodes to 150 px with 52 opaque (native shape)");
             Check(FindResource() != null, "embedded resource present");
+        });
+
+        Test("gold: 0.65-scaled hero arrow ignores a registered wall; pool reuse hands the pairs back", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(1251, out _);
+            Wall wall = NewWall(2400, 2);                                 // 登记进 FindObjectsOfType 场景替身
+            Rig rig = NewRig(2500, _vanilla);
+            SimulateShot(hero, rig);
+            Check(IsGold(rig), "painted at the display scale");
+            Check(Physics2D.CountArrowPair(rig.Arrow._collider, true) == 2, "both wall colliders ignored for this hero arrow");
+            Check(Physics2D.CountWallPair(wall.Colliders[0], true) == 1 && Physics2D.CountWallPair(wall.Colliders[1], true) == 1,
+                "true pairs are exactly the wall colliders");
+            Check(Physics2D.CountArrowPair(rig.Arrow._collider, false) == 0, "fresh spawn: nothing to restore yet");
+
+            HeroArcherArrowVisuals.ResetArrow(rig.Arrow);                 // 池复用归还（OnEnable Prefix，先于原生 body）
+            Check(Physics2D.CountArrowPair(rig.Arrow._collider, false) == 2, "pool reuse restores both pairs unconditionally");
+            Check(IsBase(rig), "appearance is handed back by the same prefix");
         });
 
         Test("gold: non-hero / disabled shots stay native; other archers unchanged", () =>
@@ -923,6 +989,7 @@ internal static class Program
         {
             HeroArcherRuntime.EnabledState = true;
             GameObject hero = NewHero(3101, out _);
+            Wall wall = NewWall(3150, 2);                                 // 注册面墙：让"不挂穿墙"成为非空断言
             Rig rig = NewRig(41000, _vanilla, new Color(1f, 1f, 1f, 0.7f));
             SimulateShot(hero, rig);
             Check(IsBase(rig), "arrow keeps native sprite and color");
@@ -943,6 +1010,13 @@ internal static class Program
             Rig nonHero = NewRig(41200, _vanilla);
             SimulateShot(NewPlainGo(3102), nonHero);
             Check(IsBase(nonHero), "non-hero shots unaffected");
+
+            // 三条箭（英雄/后续/非英雄）跑完后统一核对：本模式下穿墙一刻都没发生（含登记过的墙）。
+            Check(Physics2D.Calls.Count == 0, "no wall pierce without a successful paint");
+            Check(Physics2D.CountWallPair(wall.Colliders[0], true) == 0 && Physics2D.CountWallPair(wall.Colliders[1], true) == 0,
+                "the registered wall colliders stay untouched");
+            Check(HeroArcherWallPierce.CachedColliderCount == 0, "no wall snapshot built");
+            Check(!log.Contains("[HeroArcherWallPierce]"), "no pierce activity in the fail-closed logs");
         });
     }
 }

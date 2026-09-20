@@ -1,0 +1,449 @@
+{
+  "selected_records": 16,
+  "unique_selected_actors": 12,
+  "selected_sequence": [
+    [
+      93,
+      -1,
+      -108608
+    ],
+    [
+      95,
+      1,
+      -137488
+    ],
+    [
+      173,
+      -1,
+      -108608
+    ],
+    [
+      175,
+      1,
+      -137488
+    ],
+    [
+      192,
+      1,
+      -137422
+    ],
+    [
+      194,
+      1,
+      -135068
+    ],
+    [
+      197,
+      1,
+      -135002
+    ],
+    [
+      199,
+      1,
+      -134936
+    ],
+    [
+      201,
+      1,
+      -134870
+    ],
+    [
+      203,
+      1,
+      -134804
+    ],
+    [
+      205,
+      1,
+      -134738
+    ],
+    [
+      207,
+      1,
+      -134672
+    ],
+    [
+      209,
+      1,
+      -133892
+    ],
+    [
+      211,
+      1,
+      -130496
+    ],
+    [
+      221,
+      -1,
+      -108608
+    ],
+    [
+      223,
+      1,
+      -137488
+    ]
+  ],
+  "motion_first_seen_records": [
+    {
+      "line": 91,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Run",
+      "frame": 8,
+      "speed": 1.6
+    },
+    {
+      "line": 94,
+      "actor": -137488,
+      "life": 1,
+      "motion": "Walk",
+      "frame": 4,
+      "speed": 0.6
+    },
+    {
+      "line": 97,
+      "actor": -137488,
+      "life": 1,
+      "motion": "Run",
+      "frame": 8,
+      "speed": 0.73
+    },
+    {
+      "line": 98,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Run",
+      "frame": 11,
+      "speed": 1.12
+    },
+    {
+      "line": 99,
+      "actor": -137488,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 0,
+      "speed": 0.0
+    },
+    {
+      "line": 131,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Run",
+      "frame": 10,
+      "speed": 0.77
+    },
+    {
+      "line": 134,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Walk",
+      "frame": 4,
+      "speed": 0.63
+    },
+    {
+      "line": 135,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Run",
+      "frame": 9,
+      "speed": 0.83
+    },
+    {
+      "line": 150,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 0,
+      "speed": 0.0
+    },
+    {
+      "line": 151,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 1,
+      "speed": 0.0
+    },
+    {
+      "line": 152,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 2,
+      "speed": 0.0
+    },
+    {
+      "line": 153,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 3,
+      "speed": 0.0
+    },
+    {
+      "line": 172,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 0,
+      "speed": 0.0
+    },
+    {
+      "line": 174,
+      "actor": -137488,
+      "life": 1,
+      "motion": "Walk",
+      "frame": 4,
+      "speed": 0.46
+    },
+    {
+      "line": 176,
+      "actor": -137488,
+      "life": 1,
+      "motion": "Run",
+      "frame": 8,
+      "speed": 0.73
+    },
+    {
+      "line": 177,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 1,
+      "speed": 0.0
+    },
+    {
+      "line": 178,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 2,
+      "speed": 0.0
+    },
+    {
+      "line": 179,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 3,
+      "speed": 0.0
+    },
+    {
+      "line": 183,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Run",
+      "frame": 8,
+      "speed": 0.72
+    },
+    {
+      "line": 184,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Walk",
+      "frame": 4,
+      "speed": 0.59
+    },
+    {
+      "line": 188,
+      "actor": -137488,
+      "life": 1,
+      "motion": "Run",
+      "frame": 9,
+      "speed": 1.6
+    },
+    {
+      "line": 189,
+      "actor": -137488,
+      "life": 1,
+      "motion": "Run",
+      "frame": 10,
+      "speed": 1.6
+    },
+    {
+      "line": 190,
+      "actor": -137488,
+      "life": 1,
+      "motion": "Run",
+      "frame": 11,
+      "speed": 1.6
+    },
+    {
+      "line": 191,
+      "actor": -137422,
+      "life": 1,
+      "motion": "Run",
+      "frame": 8,
+      "speed": 0.74
+    },
+    {
+      "line": 193,
+      "actor": -135068,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 0,
+      "speed": 0.0
+    },
+    {
+      "line": 196,
+      "actor": -135002,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 0,
+      "speed": 0.0
+    },
+    {
+      "line": 198,
+      "actor": -134936,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 0,
+      "speed": 0.0
+    },
+    {
+      "line": 200,
+      "actor": -134870,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 0,
+      "speed": 0.0
+    },
+    {
+      "line": 202,
+      "actor": -134804,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 0,
+      "speed": 0.0
+    },
+    {
+      "line": 204,
+      "actor": -134738,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 0,
+      "speed": 0.0
+    },
+    {
+      "line": 206,
+      "actor": -134672,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 0,
+      "speed": 0.0
+    },
+    {
+      "line": 208,
+      "actor": -133892,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 0,
+      "speed": 0.0
+    },
+    {
+      "line": 210,
+      "actor": -130496,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 0,
+      "speed": 0.0
+    },
+    {
+      "line": 212,
+      "actor": -130496,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 1,
+      "speed": 0.0
+    },
+    {
+      "line": 213,
+      "actor": -130496,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 2,
+      "speed": 0.0
+    },
+    {
+      "line": 214,
+      "actor": -130496,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 3,
+      "speed": 0.0
+    },
+    {
+      "line": 217,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Run",
+      "frame": 9,
+      "speed": 1.6
+    },
+    {
+      "line": 218,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Run",
+      "frame": 10,
+      "speed": 1.6
+    },
+    {
+      "line": 219,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Run",
+      "frame": 11,
+      "speed": 1.6
+    },
+    {
+      "line": 220,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 0,
+      "speed": 0.0
+    },
+    {
+      "line": 222,
+      "actor": -137488,
+      "life": 1,
+      "motion": "Run",
+      "frame": 8,
+      "speed": 0.73
+    },
+    {
+      "line": 224,
+      "actor": -137488,
+      "life": 1,
+      "motion": "Walk",
+      "frame": 4,
+      "speed": 0.59
+    },
+    {
+      "line": 225,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 1,
+      "speed": 0.0
+    },
+    {
+      "line": 226,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 2,
+      "speed": 0.0
+    },
+    {
+      "line": 227,
+      "actor": -108608,
+      "life": 1,
+      "motion": "Idle",
+      "frame": 3,
+      "speed": 0.0
+    }
+  ],
+  "warning": "Log is first-seen per VisualState, not a timestamped per-frame trace; no frequency/root-cause claim."
+}

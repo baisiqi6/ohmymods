@@ -1,0 +1,16 @@
+{
+  "sources": [
+    "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\squad-refill-20260911\\tests\\..\\build\\PatchRoles_SquadRefillDiag.cs",
+    "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\squad-refill-20260911\\tests\\..\\build\\SquadRosterSnapshot.cs"
+  ],
+  "before": [
+    "4180F6C3246F178D354F12734088FF11C3CC8BA6CC8E4C7A35EF0ED3475A6731",
+    "90D6D750FD16E485D67D431F0261DD77EA513228D57D3774B0EF170CBEF4D98D"
+  ],
+  "after": [
+    "4180F6C3246F178D354F12734088FF11C3CC8BA6CC8E4C7A35EF0ED3475A6731",
+    "90D6D750FD16E485D67D431F0261DD77EA513228D57D3774B0EF170CBEF4D98D"
+  ],
+  "exit": 0,
+  "log": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\squad-refill-20260911\\tests\\final.log"
+}

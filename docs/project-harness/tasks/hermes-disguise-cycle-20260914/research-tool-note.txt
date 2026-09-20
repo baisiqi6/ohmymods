@@ -1,0 +1,1 @@
+Initial recursive project discovery also ran the OMP one-off Cecil API dumper, which needs its task-specific CecilPath property and is not a test. Moved it out of canonical tests into operator research-tools. All 48 actual regression/interop projects passed on their first run. Initial discovery and error log preserved. No production changes made for this tooling issue.

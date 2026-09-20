@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Threading;
 using KingdomEnhancedMod;
 using SaveStatus = KingdomEnhancedMod.KnightIdentityArchiveStore.SaveStatus;
 
@@ -262,6 +263,7 @@ namespace KnightIdentityArchiveTests
                         KnightIdentityArchiveStore.SaveResult failed = KnightIdentityArchiveStore.Save(path, third);
                         Check.Equal(SaveStatus.Failed, failed.Status, "save fails while the backup file is locked");
                         Check.False(failed.Ok, "failure is not ok");
+                        Check.True(failed.Retried, "the failed write is flagged as retried");
                     }
 
                     Check.True(File.ReadAllBytes(path).AsSpan().SequenceEqual(mainBytes), "old file kept after failure");
@@ -270,6 +272,61 @@ namespace KnightIdentityArchiveTests
 
                     Check.Equal(SaveStatus.Replaced, KnightIdentityArchiveStore.Save(path, third).Status, "retry succeeds once the lock is gone");
                     Check.True(KnightIdentityArchiveStore.Load(path).Archive.TryRestore(scope, Build.Hex('c'), "knight-3", out _), "newest identity persisted");
+                }
+            });
+
+            Case.Run("io.transientIoFailureHealsWithinOneRetry", () =>
+            {
+                using (TempDir dir = new TempDir())
+                {
+                    string path = dir.File("archive.json");
+                    string backup = KnightIdentityArchiveStore.BackupPath(path);
+                    string scope = Build.Hex64(1);
+
+                    KnightIdentityArchive first = Build.Archive(scope, Build.Hex('a'), "knight-1", 1, 0);
+                    Check.Equal(SaveStatus.Created, KnightIdentityArchiveStore.Save(path, first).Status, "first save");
+                    first.RecordSnapshot(scope, Build.Snapshot(Build.Hex('b'), Build.E("knight-2", 2, 1)));
+                    Check.Equal(SaveStatus.Replaced, KnightIdentityArchiveStore.Save(path, first).Status, "second save creates the backup");
+                    KnightIdentityArchive third = KnightIdentityArchiveStore.Load(path).Archive;
+                    third.RecordSnapshot(scope, Build.Snapshot(Build.Hex('c'), Build.E("knight-3", 3, 2)));
+
+                    FileStream locked = new FileStream(backup, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                    try
+                    {
+                        Thread release = new Thread(() => { Thread.Sleep(80); locked.Dispose(); }) { IsBackground = true };
+                        release.Start();
+                        KnightIdentityArchiveStore.SaveResult healed = KnightIdentityArchiveStore.Save(path, third);
+                        Check.Equal(SaveStatus.Replaced, healed.Status, "one retry heals a transient lock");
+                        Check.True(healed.Retried, "the healed write is flagged as retried");
+                        release.Join();
+                    }
+                    finally
+                    {
+                        locked.Dispose();
+                    }
+
+                    Check.True(KnightIdentityArchiveStore.Load(path).Archive.TryRestore(scope, Build.Hex('c'), "knight-3", out _), "newest identity persisted");
+                    Check.False(Array.Exists(Build.FilesIn(dir.Path), name => name.Contains(".tmp-")), "no temp files after the healed retry");
+                }
+            });
+
+            Case.Run("io.protectiveRefusalsAreNeverRetried", () =>
+            {
+                using (TempDir dir = new TempDir())
+                {
+                    string path = dir.File("archive.json");
+                    KnightIdentityArchive archive = Build.Archive(Build.Hex64(1), Build.Hex('a'), "knight-1", 1, 0);
+
+                    Build.WriteText(path, "{ this is not json");
+                    KnightIdentityArchiveStore.SaveResult corrupt = KnightIdentityArchiveStore.Save(path, archive);
+                    Check.Equal(SaveStatus.RefusedCorruptMain, corrupt.Status, "corrupt main refused");
+                    Check.False(corrupt.Retried, "a corrupt-main refusal is never retried");
+
+                    Build.WriteText(path, "{\"schemaVersion\":99,\"scopes\":[]}");
+                    KnightIdentityArchiveStore.SaveResult version = KnightIdentityArchiveStore.Save(path, archive);
+                    Check.Equal(SaveStatus.RefusedUnknownVersion, version.Status, "unknown schema refused");
+                    Check.False(version.Retried, "an unknown-schema refusal is never retried");
+                    Check.Equal("{\"schemaVersion\":99,\"scopes\":[]}", File.ReadAllText(path), "refused files stay untouched");
                 }
             });
 
@@ -486,6 +543,7 @@ namespace KnightIdentityArchiveTests
                     KnightIdentityArchiveStore.SaveResult result = KnightIdentityArchiveStore.Save(path, oversized);
                     Check.Equal(SaveStatus.Failed, result.Status, "serialization above 16 MiB is refused before any write");
                     Check.False(result.Ok, "refusal is not ok");
+                    Check.False(result.Retried, "a size refusal is never retried");
                     Check.Contains(result.Detail, "above", "detail names the byte cap");
                     Check.True(File.ReadAllBytes(path).AsSpan().SequenceEqual(paddedBytes), "main file kept byte-for-byte");
                     Check.True(File.ReadAllBytes(backup).AsSpan().SequenceEqual(backupBytes), "backup kept byte-for-byte");

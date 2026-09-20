@@ -1,0 +1,11 @@
+{
+  "label": "restock-purchase-20260912",
+  "registry": "HKCU:/Software/noio/KingdomTwoCrowns",
+  "valueName": "MyMod_SharedBankStash_h3956124378",
+  "bankBefore": 5423,
+  "bankAfterRun": 5406,
+  "bankRestored": 5423,
+  "saveBefore": "52DEF381398BE2AF8C235B9538B41DF081730E139EF857F52A14CEE7174867DD",
+  "saveAfter": "52DEF381398BE2AF8C235B9538B41DF081730E139EF857F52A14CEE7174867DD",
+  "recovery": "Initial read-only RegistryKey handle could not SetValue; exact-value Set-ItemProperty recovery verified after owned process stopped."
+}

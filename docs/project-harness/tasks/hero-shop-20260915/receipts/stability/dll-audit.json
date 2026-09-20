@@ -1,0 +1,37 @@
+{
+  "unchangedResources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png",
+    "KingdomEnhancedMod.ArtemisArrow.png",
+    "KingdomEnhancedMod.HeroShop.png",
+    "KingdomEnhancedMod.HeroShopSeats.png"
+  ],
+  "candidateSha256": "CFE8E50AD80B11E0495FB11C4646EB3E2E48A3346AA10452696257841FA66F58",
+  "unchangedMethods": 2861,
+  "addedMethods": [
+    "KingdomEnhancedMod.HeroShopRetention/Outcome KingdomEnhancedMod.HeroShopRetention::Decide(KingdomEnhancedMod.HeroShopRetention/Probe&)",
+    "KingdomEnhancedMod.HeroShopRetention/Probe KingdomEnhancedMod.HeroShop::Observe(Kingdom&,UnityEngine.Transform&)",
+    "System.Boolean KingdomEnhancedMod.HeroShop::Pending(Player)",
+    "System.Boolean KingdomEnhancedMod.HeroShop/<>c__DisplayClass33_0::<Create>b__0(System.Single)",
+    "System.Boolean KingdomEnhancedMod.HeroShopRetention::CanServe(KingdomEnhancedMod.HeroShopRetention/Probe&)",
+    "System.Void KingdomEnhancedMod.HeroShop::Clear(System.String)",
+    "System.Void KingdomEnhancedMod.HeroShop::SuspendPendingTransaction()",
+    "System.Void KingdomEnhancedMod.HeroShop/<>c__DisplayClass33_0::.ctor()"
+  ],
+  "baselineSha256": "D005C4E161B4B97F4F4B14D90943FDC36B8AE46F36A3C23CA4B9C4EFC5D2D8D3",
+  "version": "8.0.0.0",
+  "removedMethods": [
+    "System.Boolean KingdomEnhancedMod.HeroShop/<>c__DisplayClass30_0::<Create>b__0(System.Single)",
+    "System.Void KingdomEnhancedMod.HeroShop::Clear()",
+    "System.Void KingdomEnhancedMod.HeroShop/<>c__DisplayClass30_0::.ctor()"
+  ],
+  "changedMethods": [
+    "System.Boolean KingdomEnhancedMod.HeroShop::CanPurchase()",
+    "System.Boolean KingdomEnhancedMod.HeroShop::HeaderMatches()",
+    "System.Boolean KingdomEnhancedMod.HeroShop::TryContext(Kingdom&,UnityEngine.Transform&)",
+    "System.Void KingdomEnhancedMod.HeroShop::.cctor()",
+    "System.Void KingdomEnhancedMod.HeroShop::Create(Kingdom,UnityEngine.Transform)",
+    "System.Void KingdomEnhancedMod.HeroShop::Tick()",
+    "System.Void KingdomEnhancedMod.HeroShopOwner::OnDisable()",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()"
+  ]
+}

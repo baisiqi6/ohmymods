@@ -1,0 +1,86 @@
+[
+  {
+    "type": "Knight",
+    "method": "NativeMethodInfoPtr_OnDisable_Private_Void_0",
+    "token": 100671750,
+    "rva": "0x5b3500",
+    "same_slots": 1
+  },
+  {
+    "type": "Knight",
+    "method": "NativeMethodInfoPtr_Update_Private_Void_0",
+    "token": 100671754,
+    "rva": "0x5b7430",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_OnDisable_Private_Void_0",
+    "token": 100663790,
+    "rva": "0x4b2c10",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_HasKnight_Private_Boolean_0",
+    "token": 100663792,
+    "rva": "0x4b1f60",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_Update_Private_Void_0",
+    "token": 100663811,
+    "rva": "0x4b82f0",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_IsAvailableForJob_Public_Boolean_GameObject_0",
+    "token": 100663812,
+    "rva": "0x4b2880",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_AssignJob_Public_Void_GameObject_0",
+    "token": 100663813,
+    "rva": "0x4af340",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_SetKnight_Public_Void_Knight_0",
+    "token": 100663825,
+    "rva": "0x4b5ef0",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_RemoveFromKnight_Public_Void_Boolean_0",
+    "token": 100663826,
+    "rva": "0x4b4d00",
+    "same_slots": 1
+  },
+  {
+    "type": "Kingdom",
+    "method": "NativeMethodInfoPtr_OnDisable_Private_Void_0",
+    "token": 100671485,
+    "rva": "0x5a2d80",
+    "same_slots": 1
+  },
+  {
+    "type": "Kingdom",
+    "method": "NativeMethodInfoPtr_Update_Private_Void_0",
+    "token": 100671502,
+    "rva": "0x5aa790",
+    "same_slots": 1
+  },
+  {
+    "type": "Kingdom",
+    "method": "NativeMethodInfoPtr_FetchArchersForJob_Public_Void_GameObject_Int32_Single_Func_2_Single_Boolean_0",
+    "token": 100671637,
+    "rva": "0x59de90",
+    "same_slots": 1
+  }
+]

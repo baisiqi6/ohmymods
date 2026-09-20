@@ -1,0 +1,25 @@
+PASS activation composes the 2.4 seat map for 0..4 boats and 0..4 musketeers
+PASS a full row keeps the bow line exact and moves the fleet block back one row
+PASS an unfilled row pulls the bow line toward the fleet and stays one step away
+PASS directed recruits land in the row and native bow/pike seats stay free
+PASS an extra musketeer cannot take a native bow seat while the row is full
+PASS ordinary archers keep filling the native bow seats
+PASS native throw after RegisterUnit rolls the seat back and releases the archer
+PASS false with a partial registration rolls back through native leave
+PASS false with a full binding is verified by state and kept
+PASS rollback failure leaves a receipt and the next pass completes it
+PASS a throw in the type write is rolled back; a failed restore is finished by the next pass
+PASS an array replaced mid-transaction is never overwritten
+PASS dirty temporary types refuse every other recruit until the restore lands
+PASS a re-armed same-GO life is never sent through OnLeave by an old receipt
+PASS a failed seatless leave is retried by the maintenance pass
+PASS a seatless receipt never releases a re-armed same-GO life
+PASS native exception in ActivateFormation restores the empty baseline
+PASS consecutive activate is idempotent and furl restores the exact baseline
+PASS death frees the row seat and the maintenance pass refills it
+PASS feature off releases own members without shrinking the formation
+PASS a paused world defers the feature-off release
+PASS ghost seats are cleaned per owner rules
+PASS authority loss and scene change never write
+
+passed=23 failed=0

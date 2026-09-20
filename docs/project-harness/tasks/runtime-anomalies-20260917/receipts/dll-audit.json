@@ -1,0 +1,37 @@
+{
+  "newHarmonyPatchTypes": [],
+  "addedMethods": [
+    "System.String KingdomEnhancedMod.PopulationGrounding::Camp(BeggarCamp)",
+    "System.String KingdomEnhancedMod.PopulationGrounding::F(System.Single)",
+    "System.String KingdomEnhancedMod.PopulationGrounding::V(UnityEngine.Vector3)",
+    "System.Void KingdomEnhancedMod.PopulationGrounding::.cctor()",
+    "System.Void KingdomEnhancedMod.PopulationGrounding::Begin(World,UnityEngine.Transform,System.Int32)",
+    "System.Void KingdomEnhancedMod.PopulationGrounding::Observe(Beggar,BeggarCamp,System.Int32,System.Boolean,System.Boolean)",
+    "System.Void KingdomEnhancedMod.PopulationGrounding::Reset()"
+  ],
+  "changedResources": [],
+  "actionAtlasVerified": true,
+  "changedMethods": [
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "System.Void KingdomEnhancedMod.PopulationPerformanceCoordinator::BeginScene(CampaignSaveData)",
+    "System.Void KingdomEnhancedMod.PopulationPerformanceCoordinator::ClearRuntimeState(KingdomEnhancedMod.PopulationPerformanceCoordinator/Phase)",
+    "System.Void KingdomEnhancedMod.PopulationPerformanceCoordinator::ReconcileOwnership()",
+    "System.Void KingdomEnhancedMod.PopulationPerformanceCoordinator::TrySpawnOne(KingdomEnhancedMod.PopulationPerformanceCoordinator/CampState)"
+  ],
+  "removedMethods": [],
+  "version": "8.0.0.0",
+  "removedHarmonyPatchTypes": [],
+  "candidateSha256": "135825E1F62652B1538DA3803C8AA923B4B0358449018FE3AAEAB176620E17C8",
+  "unchangedResources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png",
+    "KingdomEnhancedMod.ArtemisArrow.png",
+    "KingdomEnhancedMod.HeroShop.png",
+    "KingdomEnhancedMod.HeroShopSeats.png",
+    "KingdomEnhancedMod.MusketeerAtlas.png",
+    "KingdomEnhancedMod.MusketeerShop.png",
+    "KingdomEnhancedMod.MusketeerGun.png",
+    "KingdomEnhancedMod.MusketeerBullet.png"
+  ],
+  "unchangedMethods": 3576,
+  "baselineSha256": "069527B6529AD86C9D29F472186F0B2EE037A91E62956C6E927B34A5CFBEB3C2"
+}

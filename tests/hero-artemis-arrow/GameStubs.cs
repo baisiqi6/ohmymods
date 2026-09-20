@@ -11,10 +11,12 @@ using UnityEngine;
 
 namespace KingdomEnhancedMod
 {
-    /// <summary>原生 Arrow 替身：模块只允许读 gameObject/_spriteRenderer/archer/Pointer，写外观仅经 renderer。</summary>
+    /// <summary>原生 Arrow 替身：模块只允许读 gameObject/_spriteRenderer/_collider/archer/Pointer，
+    /// 写外观仅经 renderer，写碰撞仅经 Physics2D.IgnoreCollision。</summary>
     internal sealed class Arrow : Component
     {
         public SpriteRenderer _spriteRenderer;
+        public Collider2D _collider;
 
         private GameObject _archer;
         /// <summary>true 时读 archer 抛异常（测试归属复核的「未知」分支）。</summary>
@@ -148,5 +150,35 @@ namespace KingdomEnhancedMod
     internal static class KingdomEnhancedPlugin
     {
         internal static KingdomEnhancedPluginStub Instance = new KingdomEnhancedPluginStub();
+    }
+}
+
+/// <summary>
+/// 原生 Wall 替身（全局命名空间，与真实 Assembly-CSharp 一致）：生产只允许对活动子碰撞体做
+/// GetComponentsInChildren（includeInactive=false 时过滤掉停用 GO 上的碰撞体），
+/// 以及测试注入的枚举异常。多一个成员都没有。
+/// </summary>
+internal class Wall : UnityEngine.Component
+{
+    internal readonly List<UnityEngine.Collider2D> Colliders = new List<UnityEngine.Collider2D>();
+    /// <summary>true 时 GetComponentsInChildren 抛异常（测试单墙枚举失败隔离）。</summary>
+    internal bool EnumerationThrows;
+
+    public T[] GetComponentsInChildren<T>(bool includeInactive) where T : UnityEngine.Component
+    {
+        if (EnumerationThrows) throw new InvalidOperationException("stub: wall collider enumeration threw");
+        List<T> found = new List<T>();
+        for (int i = 0; i < Colliders.Count; i++)
+        {
+            UnityEngine.Collider2D collider = Colliders[i];
+            if (collider == null) continue;
+            if (!includeInactive)
+            {
+                UnityEngine.GameObject go = collider.gameObject;
+                if (go == null || !go.activeSelf) continue;
+            }
+            if (collider is T match) found.Add(match);
+        }
+        return found.ToArray();
     }
 }

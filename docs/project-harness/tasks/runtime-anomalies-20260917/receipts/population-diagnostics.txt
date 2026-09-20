@@ -1,0 +1,1 @@
+PASS 17 grounding diagnostics assertions; physics and positions unchanged

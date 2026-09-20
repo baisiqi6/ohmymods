@@ -1,0 +1,20 @@
+knight stable-context resolver tests (console / serial)
+
+  PASS  context_key_is_stable_and_separates_file_campaign_challenge_land
+  PASS  fresh_context_gets_one_opaque_epoch_and_a_kind2_fresh_hash
+  PASS  same_island_content_restores_the_same_receipts
+  PASS  top_level_clock_drift_matches_while_any_object_change_is_rejected
+  PASS  legacy_raw_snapshot_is_migrated_by_exact_match_and_keeps_guid_and_style
+  PASS  two_disagreeing_exact_matches_are_unresolved_and_write_nothing
+  PASS  agreeing_matches_pick_deterministically_with_kind2_preference
+  PASS  a_scope_claimed_by_one_context_is_never_migrated_into_another
+  PASS  known_context_that_never_recorded_this_snapshot_is_unresolved
+  PASS  unclaimed_history_blocks_a_fresh_context_until_exact_evidence
+  PASS  native_rollback_to_an_older_recorded_snapshot_restores_that_generation
+  PASS  an_exact_empty_snapshot_matches_without_receipts_and_is_not_unresolved
+  PASS  invalid_or_unusable_inputs_fail_closed
+  PASS  resolve_never_mutates_the_archive
+  PASS  empty_active_epoch_does_not_hide_older_history
+  PASS  snapshot_kind_must_match_the_hash_recipe
+
+total: passed=16 failed=0

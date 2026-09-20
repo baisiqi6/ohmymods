@@ -20,6 +20,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 
 namespace KingdomEnhancedMod
 {
@@ -876,10 +877,14 @@ namespace KingdomEnhancedMod
             internal readonly SaveStatus Status;
             internal readonly string Detail;
 
-            internal SaveResult(SaveStatus status, string detail)
+            /// <summary>是否发生过 IO 失败后的重试（结果也可能是成功；供调用方落一次性诊断日志）。</summary>
+            internal readonly bool Retried;
+
+            internal SaveResult(SaveStatus status, string detail, bool retried = false)
             {
                 Status = status;
                 Detail = detail;
+                Retried = retried;
             }
 
             internal bool Ok
@@ -944,7 +949,8 @@ namespace KingdomEnhancedMod
 
             bool keepBackup = mainStatus == KnightIdentityArchiveStatus.Valid;
             SaveResult written = WriteAtomically(path, bytes, keepBackup ? backupPath : null);
-            if (written.Status == SaveStatus.Created && mainStatus != KnightIdentityArchiveStatus.Missing) written = new SaveResult(SaveStatus.Created, mainDetail);
+            if (written.Status == SaveStatus.Created && mainStatus != KnightIdentityArchiveStatus.Missing)
+                written = new SaveResult(SaveStatus.Created, mainDetail, written.Retried);
             return written;
         }
 
@@ -965,9 +971,32 @@ namespace KingdomEnhancedMod
             return WriteAtomically(path, backupBytes, null);
         }
 
-        /// <summary>同目录 temp → 完整写 + Flush(true) → File.Replace（可选保留 bak）或 Move；失败保持旧文件。</summary>
+        /// <summary>写失败（IO 类）后的一次重试延迟：真实时钟，只重试一次。</summary>
+        internal const int RetryDelayMs = 250;
+
+        /// <summary>
+        /// 同目录 temp → 完整写 + Flush(true) → File.Replace（可选保留 bak）或 Move；失败保持旧文件。
+        /// IO 类失败在真实时钟延迟后重试一次；仍失败返回既有 Failed（重试与否由 <see cref="SaveResult.Retried"/> 标记，
+        /// 诊断日志由调用方落一次）。
+        /// </summary>
         private static SaveResult WriteAtomically(string path, byte[] bytes, string backupPath)
         {
+            SaveResult first = WriteAtomicallyOnce(path, bytes, backupPath, out bool retryable);
+            if (first.Status != SaveStatus.Failed || !retryable) return first; // 保护性拒写在 Save 层，不会到这里
+            SleepRetryDelay();
+            SaveResult second = WriteAtomicallyOnce(path, bytes, backupPath, out _);
+            return new SaveResult(second.Status, second.Detail, retried: true);
+        }
+
+        private static void SleepRetryDelay()
+        {
+            try { Thread.Sleep(RetryDelayMs); } catch (ThreadInterruptedException) { }
+        }
+
+        /// <summary>单次原子写；ioFailure 只在捕获 IO 异常时为真（用于决定是否重试）。</summary>
+        private static SaveResult WriteAtomicallyOnce(string path, byte[] bytes, string backupPath, out bool ioFailure)
+        {
+            ioFailure = false;
             string tempPath = null;
             try
             {
@@ -992,6 +1021,7 @@ namespace KingdomEnhancedMod
             }
             catch (Exception e) when (IsIoFailure(e))
             {
+                ioFailure = true;
                 return new SaveResult(SaveStatus.Failed, e.GetType().Name + ": " + e.Message);
             }
             finally

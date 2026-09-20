@@ -1,0 +1,20 @@
+HeroArcherWallPierce + HeroArcherArrowVisuals stub tests (native-boundary stubs), mode=missing
+resource embedded: False
+
+== hook contract: the pierce slice adds no native hooks; the two authorized arrow entry points are unchanged
+  PASS  patched native methods are still exactly Arrow.OnEnable + ArrowAttack.FireArrowInternal
+  PASS  HeroArcherWallPierce declares no Harmony patch attributes (it only rides the existing scope branches)
+  PASS  both prefixes are Priority.First (pierce restore runs in the reset prefix)
+  PASS  the OnEnable postfix is Priority.Last (pierce apply rides the paint success path)
+  PASS  one finalizer on FireArrowInternal (unchanged)
+== fail-closed: missing gold sprite means no pierce either; exactly one diagnostic, no side effects
+  PASS  arrow keeps native sprite and color
+  PASS  no wall pierce without a successful paint
+  PASS  no snapshot built at all
+  PASS  no appearance receipt created
+  PASS  no wall snapshot created
+  PASS  at most the module's own throwaway texture is destroyed (got 0)
+  PASS  zero pierce activity in the logs
+  PASS  exactly one appearance diagnostic, got 1
+
+ALL PASS: pass=13 fail=0

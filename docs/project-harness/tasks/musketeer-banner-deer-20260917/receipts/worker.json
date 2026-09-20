@@ -1,0 +1,48 @@
+[
+  {
+    "role": "deer",
+    "sessionFile": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\musketeer-banner-deer-20260917\\deer\\sessions\\2026-09-17T12-56-44-498Z_01a0af70-dcd2-75ff-a9a3-40c5f2cf0ea1.jsonl",
+    "requestedAndResolvedModels": [
+      "deepseek/deepseek-flash"
+    ],
+    "thinking": [
+      "max"
+    ],
+    "actualPublicMetadataModels": [
+      [
+        "deepseek",
+        "deepseek-flash"
+      ]
+    ],
+    "tools": [
+      "edit",
+      "grep",
+      "read",
+      "write"
+    ],
+    "scopeAudit": "integrate.py rejects out-of-allowlist files and unexpected canonical changes"
+  },
+  {
+    "role": "banner",
+    "sessionFile": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\musketeer-banner-deer-20260917\\banner\\sessions\\2026-09-17T12-56-54-664Z_01a0af71-0488-761c-8a1f-6da450fcf74d.jsonl",
+    "requestedAndResolvedModels": [
+      "deepseek/deepseek-flash"
+    ],
+    "thinking": [
+      "max"
+    ],
+    "actualPublicMetadataModels": [
+      [
+        "deepseek",
+        "deepseek-flash"
+      ]
+    ],
+    "tools": [
+      "edit",
+      "grep",
+      "read",
+      "write"
+    ],
+    "scopeAudit": "integrate.py rejects out-of-allowlist files and unexpected canonical changes"
+  }
+]

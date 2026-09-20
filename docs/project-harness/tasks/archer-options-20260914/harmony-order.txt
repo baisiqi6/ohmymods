@@ -1,0 +1,3 @@
+PASS installed Harmony sort plus composed MoveNext simulation, native failure=False
+PASS installed Harmony sort plus composed MoveNext simulation, native failure=True
+PASS installed Harmony sort plus Update simulation and existing boost composition

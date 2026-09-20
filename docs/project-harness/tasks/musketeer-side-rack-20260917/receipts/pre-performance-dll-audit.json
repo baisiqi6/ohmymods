@@ -1,0 +1,83 @@
+﻿{
+    "candidateSha256":  "FDBE10FA89BB0F11F63A989E00D67A16AA9C7EA29F7E3456DED11C345E149676",
+    "addedMethods":  [
+                         "System.Boolean KingdomEnhancedMod.MusketeerRackLayout/Stamp::Equals(KingdomEnhancedMod.MusketeerRackLayout/Stamp)",
+                         "System.Boolean KingdomEnhancedMod.MusketeerRackLayout/Stamp::Equals(System.Object)",
+                         "System.Boolean KingdomEnhancedMod.MusketeerRackLayout/Stamp::op_Equality(KingdomEnhancedMod.MusketeerRackLayout/Stamp,KingdomEnhancedMod.MusketeerRackLayout/Stamp)",
+                         "System.Boolean KingdomEnhancedMod.MusketeerRackLayout/Stamp::op_Inequality(KingdomEnhancedMod.MusketeerRackLayout/Stamp,KingdomEnhancedMod.MusketeerRackLayout/Stamp)",
+                         "System.Boolean KingdomEnhancedMod.MusketeerRackLayout/Stamp::PrintMembers(System.Text.StringBuilder)",
+                         "System.Boolean KingdomEnhancedMod.MusketeerRackLayout::IsPlaced(KingdomEnhancedMod.MusketeerRackLayout/Item)",
+                         "System.Boolean KingdomEnhancedMod.MusketeerRackLayout::Reconcile(System.Boolean,System.Collections.Generic.IReadOnlyList`1\u003cKingdomEnhancedMod.MusketeerRackLayout/Item\u003e)",
+                         "System.Boolean KingdomEnhancedMod.MusketeerShop/\u003c\u003ec__DisplayClass85_0::\u003cReadRackItems\u003eb__0(System.Single,System.Single,System.Single)",
+                         "System.Boolean KingdomEnhancedMod.MusketeerShop::AnchorRackGun(KingdomEnhancedMod.MusketeerIdentity/Career,KingdomEnhancedMod.MusketeerRackLayout/Stamp,System.Int32,System.Single,System.Single,System.Single)",
+                         "System.Boolean KingdomEnhancedMod.MusketeerShop::RackContextReady()",
+                         "System.Boolean KingdomEnhancedMod.MusketeerShop::ReadRackItems()",
+                         "System.Boolean KingdomEnhancedMod.MusketeerShop::SamePosition(UnityEngine.Vector3,UnityEngine.Vector3)",
+                         "System.Boolean KingdomEnhancedMod.MusketeerShop::TryGetRackSorting(DroppableTool,System.Int32\u0026,System.Int32\u0026)",
+                         "System.Boolean KingdomEnhancedMod.MusketeerShopRules::TryMask(System.Collections.Generic.IEnumerable`1\u003cSystem.Int32\u003e,System.Int32\u0026)",
+                         "System.Boolean KingdomEnhancedMod.MusketeerShopRules::ValidSlot(System.Int32)",
+                         "System.Int32 KingdomEnhancedMod.MusketeerRackLayout/Stamp::get_Instance()",
+                         "System.Int32 KingdomEnhancedMod.MusketeerRackLayout/Stamp::get_Shop()",
+                         "System.Int32 KingdomEnhancedMod.MusketeerRackLayout/Stamp::GetHashCode()",
+                         "System.Int32 KingdomEnhancedMod.MusketeerShopRules::FirstFreeSlot(System.Collections.Generic.IEnumerable`1\u003cSystem.Int32\u003e)",
+                         "System.Int64 KingdomEnhancedMod.MusketeerRackLayout/Stamp::get_Layer()",
+                         "System.Int64 KingdomEnhancedMod.MusketeerRackLayout/Stamp::get_Life()",
+                         "System.Int64 KingdomEnhancedMod.MusketeerRackLayout/Stamp::get_Pointer()",
+                         "System.Object KingdomEnhancedMod.MusketeerRackLayout/Stamp::get_Career()",
+                         "System.Object KingdomEnhancedMod.MusketeerRackLayout/Stamp::get_State()",
+                         "System.Single KingdomEnhancedMod.MusketeerShopRules::SlotY(System.Int32)",
+                         "System.String KingdomEnhancedMod.MusketeerRackLayout/Stamp::ToString()",
+                         "System.Void KingdomEnhancedMod.MusketeerRackLayout/Item::.ctor()",
+                         "System.Void KingdomEnhancedMod.MusketeerRackLayout/Stamp::.ctor(System.Object,System.Object,System.Int64,System.Int64,System.Int32,System.Int32,System.Int64)",
+                         "System.Void KingdomEnhancedMod.MusketeerRackLayout/Stamp::Deconstruct(System.Object\u0026,System.Object\u0026,System.Int64\u0026,System.Int64\u0026,System.Int32\u0026,System.Int32\u0026,System.Int64\u0026)",
+                         "System.Void KingdomEnhancedMod.MusketeerRackLayout::.ctor()",
+                         "System.Void KingdomEnhancedMod.MusketeerRackLayout::Reset()",
+                         "System.Void KingdomEnhancedMod.MusketeerShop/\u003c\u003ec__DisplayClass85_0::.ctor()",
+                         "System.Void KingdomEnhancedMod.MusketeerShop::MaintainRackLayout()",
+                         "System.Void modreq(System.Runtime.CompilerServices.IsExternalInit) KingdomEnhancedMod.MusketeerRackLayout/Stamp::set_Career(System.Object)",
+                         "System.Void modreq(System.Runtime.CompilerServices.IsExternalInit) KingdomEnhancedMod.MusketeerRackLayout/Stamp::set_Instance(System.Int32)",
+                         "System.Void modreq(System.Runtime.CompilerServices.IsExternalInit) KingdomEnhancedMod.MusketeerRackLayout/Stamp::set_Layer(System.Int64)",
+                         "System.Void modreq(System.Runtime.CompilerServices.IsExternalInit) KingdomEnhancedMod.MusketeerRackLayout/Stamp::set_Life(System.Int64)",
+                         "System.Void modreq(System.Runtime.CompilerServices.IsExternalInit) KingdomEnhancedMod.MusketeerRackLayout/Stamp::set_Pointer(System.Int64)",
+                         "System.Void modreq(System.Runtime.CompilerServices.IsExternalInit) KingdomEnhancedMod.MusketeerRackLayout/Stamp::set_Shop(System.Int32)",
+                         "System.Void modreq(System.Runtime.CompilerServices.IsExternalInit) KingdomEnhancedMod.MusketeerRackLayout/Stamp::set_State(System.Object)"
+                     ],
+    "unchangedResources":  [
+                               "KingdomEnhancedMod.HeroArcherAtlas.png",
+                               "KingdomEnhancedMod.ArtemisArrow.png",
+                               "KingdomEnhancedMod.HeroShop.png",
+                               "KingdomEnhancedMod.HeroShopSeats.png",
+                               "KingdomEnhancedMod.MusketeerAtlas.png",
+                               "KingdomEnhancedMod.MusketeerGun.png",
+                               "KingdomEnhancedMod.MusketeerBullet.png"
+                           ],
+    "version":  "9.0.0.0",
+    "changedMethods":  [
+                           "System.Boolean KingdomEnhancedMod.MusketeerShop::CanPurchase()",
+                           "System.Boolean KingdomEnhancedMod.MusketeerShop::LoadArt()",
+                           "System.Boolean KingdomEnhancedMod.MusketeerShop::TryCreateGun(System.String\u0026)",
+                           "System.Int32 KingdomEnhancedMod.MusketeerShop::RackCount()",
+                           "System.Single KingdomEnhancedMod.MusketeerShopRules::SlotX(System.Int32)",
+                           "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+                           "System.Void KingdomEnhancedMod.MusketeerGunVisuals::Sync()",
+                           "System.Void KingdomEnhancedMod.MusketeerShop::.cctor()",
+                           "System.Void KingdomEnhancedMod.MusketeerShop::Clear(System.String)",
+                           "System.Void KingdomEnhancedMod.MusketeerShop::Create(Kingdom,UnityEngine.Transform)",
+                           "System.Void KingdomEnhancedMod.MusketeerShop::Tick()"
+                       ],
+    "removedHarmonyPatchTypes":  [
+
+                                 ],
+    "baselineSha256":  "641E79A938B16EE5A64962225F5BF36181A38760DD4931DD92383AD11756D7ED",
+    "actionAtlasVerified":  true,
+    "changedResources":  [
+                             "KingdomEnhancedMod.MusketeerShop.png"
+                         ],
+    "newHarmonyPatchTypes":  [
+
+                             ],
+    "unchangedMethods":  3576,
+    "removedMethods":  [
+                           "System.Int32 KingdomEnhancedMod.MusketeerShopRules::FirstFreeSlot(System.Collections.Generic.IEnumerable`1\u003cSystem.Single\u003e)"
+                       ]
+}

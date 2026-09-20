@@ -1,0 +1,29 @@
+{
+  "unchangedMethods": 2626,
+  "unexpectedMissing": [],
+  "newMethods": 2640,
+  "baselineSha": "758B5990DFD6B4404E52398CBA02B6F5940421AAE3FA63FF6DF9671B4F08741F",
+  "resources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png",
+    "KingdomEnhancedMod.ArtemisArrow.png"
+  ],
+  "oldMethods": 2635,
+  "allowedRemovedPrivateMethods": [
+    "KingdomEnhancedMod.HeroArcherAnimation KingdomEnhancedMod.HeroArcherVisuals::MotionOf(Archer)"
+  ],
+  "changedMethods": [
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::RefreshSprite(KingdomEnhancedMod.HeroArcherVisuals/VisualState,System.Single)",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::Apply(Archer)",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::Advance(KingdomEnhancedMod.HeroArcherVisuals/VisualState,System.Single)",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::Sync()",
+    "System.Void KingdomEnhancedMod.ModPanel::Update()",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::.cctor()",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals/VisualState::.ctor()"
+  ],
+  "unexpected": [],
+  "missing": [
+    "KingdomEnhancedMod.HeroArcherAnimation KingdomEnhancedMod.HeroArcherVisuals::MotionOf(Archer)"
+  ],
+  "candidateSha": "FAE6FBDDCEF13DCE3D84120989087CB2972528097325EABF7FD987BC3BC50674"
+}

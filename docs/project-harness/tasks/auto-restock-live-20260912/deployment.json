@@ -1,0 +1,9 @@
+{
+  "finalDll": "654051E9103321D5EF23F6F995A3A433A4EE75935AEDDF7C44F0D87D7DEE8363",
+  "previousRuntimeTestedDll": "FF9D07FA850632A66E0A240F2EB798C6880093BDF91F76748A528306D677DAB2",
+  "backup": "E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll.before-description-20260912-141723.bak",
+  "time": "2026-09-12T14:17:23.7184090+08:00",
+  "save": "52DEF381398BE2AF8C235B9538B41DF081730E139EF857F52A14CEE7174867DD",
+  "bank": 5423,
+  "verification": "Only config help wording differs from runtime-tested build; all other method bodies identical"
+}

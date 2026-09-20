@@ -1,0 +1,35 @@
+# Implementation contracts (Operator-owned)
+
+All modifications isolated to native Archer/Bow instances with exact MOD identity. **Reject scout count-only restore, disposable paid guns, custom persistent paths, fast parabolic arrows and hardcoded range12.** Keep native prefabPaths/tag/Bow pool origin. Mark native Bow objects, neverclonepersistentBowprefab.
+
+## Access (Operator-owned MusketeerAccess.cs)
+`internal static class MusketeerAccess`:
+- `Transform World`: current world.gameLayer or null.
+- `bool TrackAllowed`: singleplayer/worldauthority/currentknownworld; independent of feature toggle so closed-feature career transfers/saves retain metadata.
+- `bool Enabled`: globalEnabled+MusketeerEnabled+TrackAllowed.
+- `bool Playing`: Enabled+Game.State.Playing+timeScale>0.
+- `bool InWorld(GameObject root)`; `bool InWorld(Component component)` currentactive/scene/IsChildOf.
+
+## Identity/persistence worker (owns MusketeerIdentity.cs, MusketeerArchive.cs, MusketeerPersistence.cs)
+Exports `internal static class MusketeerIdentity`:
+- `void Tick()` before Runtime/Shop each panel Update.
+- `bool CanPurchase` proven context+archive writable+MusketeerAccess.Playing.
+- `bool HasUnresolved` and `string StatusText` for panel/shop.
+- `bool IsMarked(GameObject root)`, `bool IsUnit(Archer actor)`, `bool IsGun(DroppableTool tool)` independent of feature flag; identity/life/world safe.
+- `bool TryRegisterPaidGun(DroppableTool tool, int stockSlot=-1)` creates one GUID career only after validated native spawned Bow, before handing to player. False means shop must despawn and refund normal transaction. Exact rack slots are 0..2; dropped guns and units use -1. `StockSlot(tool)`/`ReleaseStock(tool)` expose and revoke this claim without position guesses.
+- `void CopyUnits(System.Collections.Generic.List<Archer> destination)` and `void CopyGuns(List<DroppableTool> destination)`: clear destination and add currentvalidboundinstances; no fullscenescan.
+- `void ForgetUnpaidGun(DroppableTool tool)` onlyforfailedcreationcleanup.
+Identity owns nativehooks for Save/GetID/Load/TryCreateOrFind, native newislandApply baseline, confirmedimmediatePool.FastDespawn/FastSpawn life boundaries, Promote(DroppableTool,IUnitController) prefixcapture/postfixtransfer and Character.DropItem postfix exactdroppedBow transfer; no count reassignment/no disk writes outside ownsidecar. CaptureGuid before nesteddespawn. Mark result before othermodpromote postfix where possible plusOperator exclusions independentcapturedGun flag iftoolnative lifecycleerased; expose `bool GunPromotionInProgress` scope forotherprefixes. One career onexactgun ORunit, neverboth, neveronPeasant.
+AfterDrop markreturnednativeToolBow; oldUnit identityends, nativeDemote proceeds. Persistence sidecar unboundedordinaryrole(boundedreasonable4096records),nothero2seatconstraints. NativeIDs only exact snapshotreferences, stablecontext+randomnewepoch, properoldsave rollback/pinnedbaseline/CAS/durablebackup, newempty history authoritative. Missingfilefresh okay; unknown snapshot whenpaidrecords exists preservenocharge. Do not embed modcomponent serializeddata in nativecompressedfile.
+
+## Runtime worker (owns MusketeerRuntime.cs, MusketeerCombat.cs, MusketeerVisuals.cs, MusketeerAnimation.cs)
+Exports `MusketeerRuntime.Tick()`, `MusketeerRuntime.IsMusketeer(Archer)` (Identity.IsUnit), `MusketeerVisuals.Sync()` LateUpdate, `MusketeerCombat.TryHandleShot(ArrowAttack attack,GameObject source)` calledOperatorPrefix: ifmarkedunit (even disabled still passthroughfalse? contract: return false fornotactivefeature; true iffactiveMusketeer suppression applied). Onmarkedactive source **always suppress original arrow**, even noeligibleenemy/cooldown; actualbullet emittedonlyvalidated.
+`MusketeerRuntime.StatusText` optional. Use originalArcher AI/nativeMover+ownvisualclock, scope onlymarkedactors; ownperactor fields/SO viaCAS. Need actualvanillarange fromunmodifiedsourceasset notglobalhardcoded,1.5target. Cadence: own minnextShot gate with derivedunmodified ordinary cadence*2; nativecadencefieldborrow ifused mustaccountprepare/burst/cooldown andtestactualtiming. Do not silentlypromise exact2x merelydoublingonefield. Showinitialinterval evidence toOperator.
+No ownunitprefab/no customnetwork RPC. Offlinegameplayonlyexplicit. Stopatclient/invalidlayer. Existingnativehunting/tower/knight roles mustnotstealmarkedunit: supportscannerfilter_groundEnemy (nativeScanner.additionalRequirements ownership/CAS), suppresswildlife,targetchosenfromgroundonly, no unexplainedshortgetterhooks. Tower/knight long methodsIsAvailableForJob/AssignJob, existingattachedslot ExitGuardSlot safetynative. Nativebehavior/goto stillownsday/night/guard. UntestedNorse shieldstates nativevisualfallback.
+**Bullet**: ownfinite-lived unmanagedpurevisualobject or pooledmanagedlist, straight horizontal sweptsegment eachtick, nearest validcollisionregardlesscallbackorder; targetandcollisionbothgroundenemyfilter, skipfriendlyunits andfriendlywalls, worldGround terminates, underground/no matchingheight stopsatfiniteRange. Use currentpreparedmuzzle fromatlas+actortransform(56x32 pivot31,2PPU32), no2.5units offset. Damage2 viaDamageable.ReceiveDamage(2,source,DamageSource.Arrow) preservingnativeOnPreReceiveDamage/shields; explicitCrusher!IsStunned immunity (stopwithoutdamage), noperfect/fire/AOE. Consume latch BEFORE damagecallback; noArrow projectile means no nativeArrow bounce/randomfire. Bound bulletcount/lifetime, no no-hitshootcost/unsafeRPC, zero scene-wideperframe scans (Physicscastcurrentsegmentokay). VerifyactualinteropPhysics2D signatures orreportneededOperatorchecks.
+Visuals embedresource `KingdomEnhancedMod.MusketeerAtlas.png`, manifestcodedconstants matchingartifacts/musketeer/20260916/atlas.json. All66framesanchors. Animationclockcontract there authoritative; copiedapprovedkeysnotmissinganchors. UsecurrentAnimator+unwrappednt*length forlocomotion, notfractionfirst; pausefreeze; gunsequencetime drivenbyconfirmedshot andnexteligibletime, onevisualeventneverdamage. Ownchildrenderer andrestore originalforceRenderingOff withownership. Mirror/inheritnativehitmaterial+colors carefullyoriginalapprovedpalette remains; unknown/hidden/inert/petrified givebacknative. Death/demotionhandlednativePeasant; noarmedknockdownframe.
+
+## Operator owns
+MusketeerShop.cs + sprites originalChinesestore/openrack, nativeToolBow spawning undergameLayer(no transientcustomshop parent), 3rackcapacity default countedmarkedgunsnearstore, 4coin nativePayable transaction. Reuse HeroShop stablegrounding/retention+IntPtrOwnerABI principles, notHero paidseatlogic.
+ModConfig/ModPanel/plugin/resourceproject hooks, allcrossfeatureexclusions (Crossbow promotion/recompute, Hero recruitment/runtime, optionalarchercadence/scatter/impact sources), bulletshotprefix FireArrowInternal. Contracts avoidnewordinaryArcher effects. Globalenableoff/online featureoff restoreownwrites/renderers, identitysidecarpreserved.
+Allworkers read/edit/write only, no configuration/secondarydelegation/Git/install/gameoperations. Operator runs tests/build. Actualgameverification separate.

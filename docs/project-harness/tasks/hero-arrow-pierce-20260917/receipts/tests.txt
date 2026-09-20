@@ -1,0 +1,107 @@
+HeroArcherWallPierce + HeroArcherArrowVisuals stub tests (native-boundary stubs), mode=gold
+resource embedded: True
+
+== hook contract: the pierce slice adds no native hooks; the two authorized arrow entry points are unchanged
+  PASS  patched native methods are still exactly Arrow.OnEnable + ArrowAttack.FireArrowInternal
+  PASS  HeroArcherWallPierce declares no Harmony patch attributes (it only rides the existing scope branches)
+  PASS  both prefixes are Priority.First (pierce restore runs in the reset prefix)
+  PASS  the OnEnable postfix is Priority.Last (pierce apply rides the paint success path)
+  PASS  one finalizer on FireArrowInternal (unchanged)
+== gold: hero shot paints gold at 0.65 and ignores every active wall collider; non-hero/disabled stay native
+  PASS  hero arrow painted with the shared gold sprite
+  PASS  display scale constant is 0.65
+  PASS  sprite PPU = 32/0.65 (≈49.23), pure display path
+  PASS  world width = 65% of the native 30px/PPU32 arrow (0.609375)
+  PASS  rect stays 30x5 (native shape, no crop/resample)
+  PASS  texture stays 30x5
+  PASS  pivot (0.5,0.5) unchanged
+  PASS  all 3 active wall colliders ignored for this arrow
+  PASS  true pairs are exactly the wall colliders
+  PASS  fresh spawn: no restore calls before any snapshot existed
+  PASS  nothing destroyed
+  PASS  one-time sprite load logs the display ppu/scale
+  PASS  non-hero arrow keeps native appearance
+  PASS  non-hero arrow is never given wall pierce
+  PASS  yet its spawn still runs the unconditional restore (same snapshot)
+  PASS  feature disabled: no paint, no pierce
+== gold: pool reuse restores wall collisions in the OnEnable prefix; next hero life re-pierces at the same scale
+  PASS  first life: both wall pairs ignored (true)
+  PASS  paint still writes exactly sprite + color (scale came from the sprite, not the transform)
+  PASS  restore wrote false for both cached wall pairs
+  PASS  restore calls follow the apply calls (true…false order on the same pairs)
+  PASS  appearance is handed back by the same prefix (no residual)
+  PASS  second life reuses the identical scaled sprite (no scale stacking)
+  PASS  same PPU after reuse
+  PASS  second life re-applied the wall pairs (2 more true calls)
+  PASS  each life writes only sprite + color twice (paint + restore)
+  PASS  restore is unconditional even while the feature is disabled
+== gold: snapshot lifecycle — one scan within TTL, rescan on TTL/world generation; restore never rescans
+  PASS  first hero shot scans the walls exactly once
+  PASS  applied to the only wall collider
+  PASS  fresh spawn had no snapshot to restore against
+  PASS  within TTL: snapshot reused, no rescan
+  PASS  reused snapshot still applies
+  PASS  TTL expiry triggers exactly one rescan
+  PASS  rescan picked up the new wall (1 + 2 colliders)
+  PASS  its spawn restore used the pre-refresh snapshot (restore never scans)
+  PASS  world generation change forces a rescan even inside the TTL
+  PASS  new world snapshot applied
+  PASS  restore before the rescan used the previous snapshot, no extra scan
+  PASS  inactive wall excluded from the refreshed snapshot
+  PASS  its spawn restore still reached the previous snapshot (no rescan in ResetArrow)
+== gold: scan failure is fail-closed (no pierce, no throw, bounded log) and keeps the old snapshot for restore
+  PASS  warm snapshot applied
+  PASS  query failure: no pierce this cycle (native collisions kept)
+  PASS  old snapshot kept (restore path still reachable)
+  PASS  restore still reached the kept snapshot
+  PASS  failure logged once
+  PASS  recovered on the next attempt
+  PASS  pierce logs bounded per world generation
+== gold: per-pair failures are isolated in both directions and never escape
+  PASS  apply: failing pair skipped, the other wall still ignored
+  PASS  the failing pair was never recorded in either direction
+  PASS  restore: failing pair skipped, the other wall restored
+  PASS  appearance unaffected by pierce failures
+  PASS  direct Apply/Restore calls never throw out
+== gold: collider cap — at most 256 pairs per arrow, truncation logged once
+  PASS  snapshot capped at 256 colliders
+  PASS  apply calls bounded to the cap
+  PASS  truncation logged exactly once
+  PASS  cap holds for later arrows without extra logging
+== gold: no pierce without a fully written appearance (fail-closed coupling)
+  PASS  sprite half-applied before the color write threw
+  PASS  no wall pierce when the appearance was not fully written
+  PASS  and no snapshot was ever built by this arrow
+  PASS  half-applied appearance still rolled back by the existing machinery
+== gold: restore is a no-op before any snapshot and uses TTL-expired snapshots without rescanning
+  PASS  no snapshot: restore is a no-op and never scans
+  PASS  restore never rescans
+  PASS  stale snapshot still restored the pairs it could have written
+== gold: pierce touches nothing but the wall pairs (physics/damage/root untouched, nothing destroyed)
+  PASS  physics/collider/trail/damage/root transform/component set byte-identical
+  PASS  native shared material instance untouched
+  PASS  renderer enable/sorting untouched
+  PASS  paint + restore wrote only sprite/color (2 each)
+  PASS  nothing destroyed
+  PASS  arrow root scale stays native 1 (no transform route)
+== gold: main + extra arrows of one shot are all pierced; pierce logs stay bounded per world
+  PASS  main + extras all ignore the walls (same shot scope)
+  PASS  bounded pierce logs after the first shot (got 2)
+  PASS  no per-arrow log spam within a generation
+  PASS  new world generation still pierced
+  PASS  a new generation may log its own snapshot summary (budget reset)
+== gold: fail-closed without a world context or without a readable arrow collider
+  PASS  warm snapshot applied
+  PASS  no world context: arrow keeps native appearance
+  PASS  no world context: no pierce (fail-closed)
+  PASS  restore is context-free and still hands the pairs back
+  PASS  arrow without a readable collider still paints
+  PASS  no collider: no pierce, no exception
+== gold: native artemis asset identity unchanged (30x5 / 52 opaque / Point-Clamp)
+  PASS  embedded resource present
+  PASS  no extrude, FullRect
+  PASS  Point / Clamp / no mip-aniso
+  PASS  texture created without mipmaps
+  PASS  real asset still decodes to 150 px with 52 opaque pixels
+
+ALL PASS: pass=89 fail=0

@@ -1,0 +1,12 @@
+{
+  "changed": [
+    "il2cpp/KingdomEnhancedPlugin.cs",
+    "il2cpp/MusketeerAnimation.cs",
+    "il2cpp/Assets/MusketeerAtlas.png"
+  ],
+  "sourceSha256": {
+    "il2cpp/KingdomEnhancedPlugin.cs": "cf82e3edaf85e09ec00b9033e91e8c1934eda2b8e8905786509e8db9c270c68b",
+    "il2cpp/MusketeerAnimation.cs": "24c2e1a493b7c538982f4f20a4f876f99ab233b4f514528e2a21ac544216f31c",
+    "il2cpp/Assets/MusketeerAtlas.png": "9d7b39c23b314cabbc03274729bf4b40492a6f3a29b7ecb8d2d0e9ebb728305b"
+  }
+}

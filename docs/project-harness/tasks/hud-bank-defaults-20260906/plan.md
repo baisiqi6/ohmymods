@@ -1,0 +1,7 @@
+# HUD bank balance and beggar defaults
+
+User requests bank gold on the persistent calendar strip, default beggar interval120 seconds and camp capacity4. User explicitly confirmed updating this E installation from its saved60 seconds/4 to120/4. Other existing player settings must not be migrated or overridden automatically.
+
+Reuse the existing BankAssistantCoordinator main-bank stash accessor and CalendarHud's0.5s unscaled cache tick. No extra scene scans, bank writes or OnGUI reads; distinct not-ready and zero balance, gold coin icon, responsive bounded columns. Keep calendar option and seasonal progress semantics. Default constants centralized in ModConfig and used for coordinator initialization/fallback. No change to spawn scheduler semantics or deletion of existing beggars.
+
+ZCode worker restricted to isolated CalendarHud.cs/RESULT; operator integrates defaults, tooltip, local cfg update and dev build stamp4.5.0-hudbank-20260906. Independent source/interop review and no-deploy build precede reversible E deployment/startup. No new commit/push/tag/release requested, so existing v4.5.0 release ZIP stays immutable. Native UI automation unavailable; layout math/actual interop/startup logs can be checked but are not visual screenshot acceptance.

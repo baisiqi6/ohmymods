@@ -1,0 +1,1 @@
+PASS 155 assertions (real guard-facing and diagnostics code paths)

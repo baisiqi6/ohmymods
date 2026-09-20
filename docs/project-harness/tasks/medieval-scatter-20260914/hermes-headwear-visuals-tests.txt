@@ -1,0 +1,28 @@
+PASS cold start: no scan before demand, failed scan retried at most every 30s, cache reused afterwards
+PASS codes 0..43 map to the exact 30 world + 14 party whitelist, index 6 and lookalikes never elected
+PASS choice -1 preserves the native look and needs no resources
+PASS own child hangs on this troll's Head, inherits facing, and never rewrites the animated parent chain
+PASS missing Head fails closed; a rebuilt Head is rebound on the next apply
+PASS layout comes from the body (+1 order) while appearance comes from the native mask prefab
+PASS appearance falls back to the live mask when the prefab template is absent
+PASS bare head uses the body renderer only and never writes a hidden native mask
+PASS repeat apply creates once and follows a rebuilt mask instance
+PASS tick re-hides native re-enables and adopts a fresh instance baseline
+PASS disabled client still renders; inactive/destroyed GO and a reused instance id drop the owned visual (core owns despawn logic)
+PASS native SpawnMask notify refreshes the real enabled baseline (false included) on the same instance
+PASS native SpawnMask notify adopts a replacement renderer and drops the old ownership
+PASS native SpawnMask notify without an owned visual is a no-op
+PASS a failed restore keeps the ownership and retries instead of dropping it
+PASS a foreign-parented mask renderer is never written (no cross-unit restore)
+PASS identity getter failures (enabled/parent) keep ownership instead of assuming a swap
+PASS a failed Destroy keeps the tracked root hidden and retries without per-frame churn
+PASS a failed SetParent leaves no orphan and the native mask untouched
+PASS ClearAll isolates per-item cleanup failures
+PASS native restore retries beyond three attempts until it succeeds
+PASS IsApplied reports the displayed choice and drives the resource-loss recovery flow
+PASS ClearAll restores every owned visual and stays silent when idle
+PASS failed child creation leaves no orphan and recovers on retry
+PASS combined creation and Destroy failures keep an unparented child tracked for cleanup
+PASS missing or destroyed sprite refreshes at most once per global cooldown and keeps the choice
+PASS null/inactive inputs fail closed without touching resources or native objects
+RESULT: 27 passed, 0 failed

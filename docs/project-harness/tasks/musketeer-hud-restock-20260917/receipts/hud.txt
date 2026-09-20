@@ -1,0 +1,40 @@
+PASS Musketeer identity binds and unbinds after delayed seeds without rebuilding or double counting
+PASS Delayed confirmed identity survives shop disable and known pause
+PASS Musketeer death inactive pool reuse and foreign layer exclude stale careers
+PASS World switch clears former musketeer and only counts newly confirmed current-world identities
+PASS Online authority does not manufacture unsupported musketeer recognition and clients remain unavailable
+PASS All eight component professions, unknown NPC exclusion and stale Peasant names
+PASS Original eight indices knight styles and native archer subclasses stay unchanged beside musketeer
+PASS Component precedence is exclusive, including Beggar before Peasant and Knight before Berserker
+PASS Native Character and GameObject identities both deduplicate roster aliases
+PASS Dead inactive outside-layer and outside-scene entries are excluded
+PASS Cached active death and parent changes update each second without roster enumeration
+PASS Damageable component fallback is captured once and not queried in stable samples
+PASS All five knight worlds plus unresolved remain separate and late style resolves from cache
+PASS Resolved out-of-range knight style is unknown rather than Medieval
+PASS Steady frames perform at most one cached sample per second and never rebuild
+PASS Dirty roster updates add remove and pooled reclassification without restock enabled
+PASS Late components after AddCharacter are picked up by bounded delayed seeds
+PASS Dirty roster preserves last complete snapshot until next sample without HUD flicker
+PASS Late parent attachment is recognized from the cached Entry
+PASS Missing live damageable hides data and retries to recover
+PASS Roster fault retries are bounded and a new event unlocks recovery
+PASS Partial roster exceptions do not publish partial totals
+PASS Cached native identity changes cannot keep an old actor counted
+PASS New scene handle and new layer immediately replace old island population
+PASS New kingdom or world identity reseeds before one second expires
+PASS Known paused world retains counts while loading and fresh menu clear them
+PASS Client empty native roster is explicitly unavailable instead of a ready zero snapshot
+PASS Host to client clears cached numbers and regained authority immediately reseeds
+PASS Disable releases roster and re-enable rebuilds without consulting restock
+PASS HUD Draw uses cached text, inherits font chain, and only paints on Repaint
+PASS HUD unknown knight fills only spare cell and independent display switch hides it
+PASS Ninth profession has its own row before knight styles and ammunition with no label collisions
+PASS Client HUD paints only title and unavailable notice and clears notice on disable
+PASS Disabling HUD or whole mod resets cache without touching Managers singleton
+PASS HUD global GUI state restores on successful and failing draw
+PASS HUD scales within narrow screen bounds
+PASS HUD singleton faults back off and disable still resets immediately during retry delay
+PASS Ammo HUD refreshes without population changes and automatic buying stays off
+PASS Hiding HUD retains ammo cache demand for active automatic restock
+RESULT: 39 passed, 0 failed

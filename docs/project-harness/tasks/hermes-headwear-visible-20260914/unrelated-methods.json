@@ -1,0 +1,27 @@
+{
+  "old": "7D3D2926FCC3E5EADA491771617F737C2C246899CED181A741B9E8EDCDCC5E7E",
+  "candidate": "63105375E9CEB0478C679CAEFE5D31E573BE78DC6F4F3F68298D4E987407A56E",
+  "unchanged": 2287,
+  "expectedChanged": [
+    "System.Void KingdomEnhancedMod.PatchDivine_HermesHeadwear::HandlePersistentDisable(Persistent)",
+    "System.Byte[] KingdomEnhancedMod.HermesHeadwearCycle::Serialize(System.Int32)",
+    "System.Void KingdomEnhancedMod.ModConfig::Init(BepInEx.Configuration.ConfigFile)",
+    "System.Boolean KingdomEnhancedMod.HermesHeadwearCycle::TryReadCurrent(System.String,System.Int32&,System.Boolean&,System.String&)",
+    "System.Boolean KingdomEnhancedMod.HermesHeadwearVisuals::Apply(FriendlyTroll,System.Int32)",
+    "System.Void KingdomEnhancedMod.PatchDivine_HermesHeadwear::HandleNativeResetAndDespawn(FriendlyTroll)",
+    "System.Void KingdomEnhancedMod.HermesHeadwearVisuals::Tick()",
+    "System.Void KingdomEnhancedMod.ModPanel::DrawControls(System.Single)",
+    "System.Boolean KingdomEnhancedMod.HermesHeadwearCycle::TryParse(System.Byte[],System.Int32&,System.String&)",
+    "System.Void KingdomEnhancedMod.PatchDivine_HermesHeadwear::ApplyVisual(FriendlyTroll,KingdomEnhancedMod.PatchDivine_HermesHeadwear/TrollState)",
+    "System.Void KingdomEnhancedMod.PatchDivine_HermesHeadwear::ReleaseAllStates()",
+    "System.Boolean KingdomEnhancedMod.HermesHeadwearCycle::TryNext(System.Int32&)",
+    "System.Void KingdomEnhancedMod.PatchDivine_HermesHeadwear::Sweep(System.Single)",
+    "System.Int32 KingdomEnhancedMod.PatchDivine_HermesHeadwear::RollChoice()",
+    "System.Void KingdomEnhancedMod.PatchDivine_HermesHeadwear::HandleNativeInit(FriendlyTroll)",
+    "System.String KingdomEnhancedMod.HermesHeadwearCycle::ResolvePath()",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "System.Void KingdomEnhancedMod.PatchDivine_HermesHeadwear::HandlePoolSpawn(UnityEngine.GameObject)",
+    "System.Boolean KingdomEnhancedMod.HermesHeadwearCycle::TryWriteAtomic(System.String,System.Int32,System.Boolean)",
+    "System.Boolean KingdomEnhancedMod.HermesHeadwearVisuals::EnsureChild(KingdomEnhancedMod.HermesHeadwearVisuals/VisualState)"
+  ]
+}

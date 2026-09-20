@@ -1,0 +1,187 @@
+{
+  "source": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\KingdomTwoCrowns_Data\\resources.assets",
+  "sha256": "B80394A7961425EA6CF7C55E7493FF648EA558FBC46EC575FEBF35569F2C195D",
+  "method": "UnityPy reads standard MonoBehaviour header with check_read=False because custom typetrees are stripped; only explicitly checked scalar/PPtr payload offsets decoded. No media resources loaded.",
+  "archer_instances": [
+    {
+      "component_path_id": 85879,
+      "game_object": 19686,
+      "name": "Archer_norselands",
+      "payload_offset": 40,
+      "arrow_attack": [
+        0,
+        84408
+      ],
+      "fire_arrow_attack": [
+        0,
+        0
+      ],
+      "first_two_pptrs_hex": "00000000b849010000000000000000000000000000000000"
+    },
+    {
+      "component_path_id": 85880,
+      "game_object": 19810,
+      "name": "Archer_Soldier_norselands",
+      "payload_offset": 40,
+      "arrow_attack": [
+        0,
+        84408
+      ],
+      "fire_arrow_attack": [
+        0,
+        0
+      ],
+      "first_two_pptrs_hex": "00000000b849010000000000000000000000000000000000"
+    },
+    {
+      "component_path_id": 85881,
+      "game_object": 19817,
+      "name": "Archer",
+      "payload_offset": 40,
+      "arrow_attack": [
+        0,
+        84410
+      ],
+      "fire_arrow_attack": [
+        0,
+        84411
+      ],
+      "first_two_pptrs_hex": "00000000ba4901000000000000000000bb49010000000000"
+    }
+  ],
+  "attack_assets": [
+    {
+      "path_id": 84407,
+      "name": "Archer_Greece_FireArrowAttack",
+      "arrow_component": [
+        0,
+        85236
+      ],
+      "arrow_game_object": 19807,
+      "arrow_name": "Fire Sling Bullet"
+    },
+    {
+      "path_id": 84408,
+      "name": "Archer_Norselands_ArrowAttack",
+      "arrow_component": [
+        0,
+        85215
+      ],
+      "arrow_game_object": 19774,
+      "arrow_name": "Arrow"
+    },
+    {
+      "path_id": 84409,
+      "name": "Archer_Norselands_FireArrowAttack",
+      "arrow_component": [
+        0,
+        85158
+      ],
+      "arrow_game_object": 19691,
+      "arrow_name": "Fire Arrow"
+    },
+    {
+      "path_id": 84410,
+      "name": "Archer_OakAndBirch_ArrowAttack",
+      "arrow_component": [
+        0,
+        85215
+      ],
+      "arrow_game_object": 19774,
+      "arrow_name": "Arrow"
+    },
+    {
+      "path_id": 84411,
+      "name": "Archer_OakAndBirch_FireArrowAttack",
+      "arrow_component": [
+        0,
+        85158
+      ],
+      "arrow_game_object": 19691,
+      "arrow_name": "Fire Arrow"
+    }
+  ],
+  "pools": [
+    {
+      "path_id": 100397,
+      "prefab": [
+        0,
+        19807
+      ],
+      "prefab_name": "Fire Sling Bullet",
+      "preload": 0,
+      "sync": true,
+      "sync_id": 113,
+      "in_greece_collection": true
+    },
+    {
+      "path_id": 100400,
+      "prefab": [
+        0,
+        19691
+      ],
+      "prefab_name": "Fire Arrow",
+      "preload": 0,
+      "sync": true,
+      "sync_id": 91,
+      "in_greece_collection": false
+    }
+  ],
+  "greece_swaps": {
+    "prefab": {
+      "count": 83,
+      "relevant_pairs": []
+    },
+    "sprite": {
+      "count": 372,
+      "relevant_pairs": []
+    },
+    "animator": {
+      "count": 34,
+      "relevant_pairs": []
+    },
+    "scriptable": {
+      "count": 2,
+      "relevant_pairs": [
+        {
+          "original": [
+            0,
+            84411
+          ],
+          "swap": [
+            0,
+            84407
+          ]
+        }
+      ]
+    }
+  },
+  "greece_swaps_trailing_bytes_not_interpreted": 4,
+  "greece_pool_count": 90,
+  "resource_paths": {
+    "data/arrowdata/archer_greece_firearrowattack": {
+      "m_FileID": 6,
+      "m_PathID": 84407
+    },
+    "data/arrowdata/archer_norselands_firearrowattack": {
+      "m_FileID": 6,
+      "m_PathID": 84409
+    },
+    "data/arrowdata/archer_oakandbirch_firearrowattack": {
+      "m_FileID": 6,
+      "m_PathID": 84411
+    },
+    "data/arrowdata/warrior_ghost_greece_firearrowattack": {
+      "m_FileID": 6,
+      "m_PathID": 84414
+    },
+    "data/arrowdata/warrior_ghost_norselands_firearrowattack": {
+      "m_FileID": 6,
+      "m_PathID": 84416
+    },
+    "data/buffdata/buff_fire_attacks_hephaestus_anvil": {
+      "m_FileID": 6,
+      "m_PathID": 84422
+    }
+  }
+}

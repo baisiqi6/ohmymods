@@ -1,0 +1,10 @@
+# 5.0后塔基与已建特殊塔重叠
+用户明确反馈空塔基与已建箭塔重叠。实际当前campaign1/currentLand9存档：KEM_TowerSpot_156.6位置156.6399536，Tower Knight_greece位置156.6399994，均Level/GameLayer，分别独立持久化对象。游戏5.0日志扫描native19/generatedUnbuilt6/occupied31/retired0，随后又补1点。
+
+资源实证：希腊Knight/Ballista/Fire特殊升级塔无Tower标签/普通Tower组件；Bread升级塔也不带普通Tower。四者都有WorkableBuilding与ConstructionBuildingComponent。原tagTower扫描完全漏掉这些建筑；旧OverlapsNativePlacement跳Tower，cleanup只非Tower标签+keptGenerated，另漏普通已建塔。原根sprite96px/32PPU宽3；3.34邻距不能仅凭根sprite断言重叠，sameX例证明确。
+
+修复范围：既有WorldLoad延迟扫描，增加一次WB和一次Scaffolding局部快照，与普通Tower去重。特殊/普通已建/原生空位/有效施工建筑占地参与生成与旧空KEM清理。inactive建筑只有仍活动且同场景的Scaffolding.Building关联可作为占位；生成footprint用与实际Spawn复制变换一致的活nativebase template，拒绝无效/非finite bounds。仅marker+level0+SemiStatic+Persistent且未选中/未付款关联/未施工的空KEM可删；删除前重验身份/世界/付款，先前已投资或原生建筑保留。清旧不依赖增密倍率>1或至少两原生参考；新增仍按既有密度与就绪门。
+
+不加新nativehook/周期全场扫描、不直接改save，不删现有建成塔和原生空位；一次扫描不承诺之后任何升级都永不重叠。本机游戏当前运行，构建review/test在隔离目录，待用户保存退出再部署。公开5.0包/tag不变，未获新的发布授权不自动发布5.0.1或修改资产。
+
+附带现场证据：5.0这次实战日志已出现SamuraiVisuals ready、SamuraiRetreat x3命中、FarmCats 4farm retired8、SquadFollowGuard apply/release；这些是运行分支证据，不是残影肉眼视觉验收。

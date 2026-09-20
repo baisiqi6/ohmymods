@@ -1,0 +1,18 @@
+{
+  "oldMethods": 2590,
+  "changedMethods": [
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "System.Void KingdomEnhancedMod.PatchArcher_Options::OnArrowSpawnedByAttack(ArrowAttack,UnityEngine.GameObject,UnityEngine.Vector3,System.Boolean,UnityEngine.Vector2)",
+    "System.Void KingdomEnhancedMod.ModPanel::Update()"
+  ],
+  "newMethods": 2630,
+  "resources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png",
+    "KingdomEnhancedMod.ArtemisArrow.png"
+  ],
+  "candidateSha": "301FF296B2BF534EC384F8825A0E7D9792843DEF14D1EBE8B00162A4CC90CDB8",
+  "baselineSha": "DE72F01FD22ADFC1F4940B4652F85CF4B54AE9785214A8BB94EB5AC2D79B5559",
+  "missing": [],
+  "unchangedMethods": 2587,
+  "unexpected": []
+}

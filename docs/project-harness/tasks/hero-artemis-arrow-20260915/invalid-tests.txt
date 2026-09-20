@@ -1,0 +1,22 @@
+HeroArcherArrowVisuals stub tests (native-boundary stubs), mode=invalid
+resource embedded: True
+
+== hook contract: exactly the two authorized native entry points, with the agreed priorities
+  PASS  exactly 2 patched native methods (got Arrow.OnEnable, ArrowAttack.FireArrowInternal)
+  PASS  targets are exactly Arrow.OnEnable + ArrowAttack.FireArrowInternal (no new native address, no short getter)
+  PASS  both prefixes are Priority.First (reset before other OnEnable prefixes; scope opened first)
+  PASS  the OnEnable postfix is Priority.Last (our color wins over other postfixes)
+  PASS  one finalizer on FireArrowInternal (scope end + ownership recheck, original exception rethrown)
+== fail-closed: hero shot keeps native appearance, one diagnostic, no side effects
+  PASS  arrow keeps native sprite and color
+  PASS  no receipt created (nothing to roll back)
+  PASS  no arrow object destroyed
+  PASS  at most the module's own throwaway texture is destroyed (got 1)
+  PASS  exactly one diagnostic (FailOnce), got 1
+        log: ERROR [HeroArrowArt] gold arrow appearance disabled (native arrow appearance kept): ImageConversion.LoadImage returned false
+  PASS  log names the cause: ImageConversion.LoadImage returned false
+  PASS  still fail-closed for later arrows
+  PASS  failure is logged once, not per arrow
+  PASS  non-hero shots unaffected
+
+ALL PASS: pass=14 fail=0

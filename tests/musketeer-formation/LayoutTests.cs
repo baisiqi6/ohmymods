@@ -4,8 +4,26 @@ namespace MusketeerFormationTests
 {
     internal static class LayoutTests
     {
-        private const float GapStep = 1.3f;
-        private static readonly float[] StepSpacing = BuildStepSpacing();
+        private const int RowLength = PatchMusketeerFormation.MaxMusketeers;
+        private const int FirstArcherRead = 3;   // RealBaseline: FleetBoat, Gap, Gap, then the bow line
+
+        // Operator-provided real 2.4 Player formation resource (tasks/.../geometry-notes.md):
+        // unitTypes [FleetBoat, Gap, Gap, Archer x4, Gap, Pikemen x4] and its authored spacing.
+        private static readonly Formation.UnitTypes[] RealBaseline =
+        {
+            Formation.UnitTypes.FleetBoat, Formation.UnitTypes.Gap, Formation.UnitTypes.Gap,
+            Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
+            Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
+            Formation.UnitTypes.Gap,
+            Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen,
+            Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen
+        };
+
+        private static readonly float[] RealSpacing =
+        {
+            0.21875f, 0.25f, 0.25f, 0.21875f, 1f, 0.34375f, 1f,
+            1f, 0.21875f, 0.21875f, 0.21875f, 0f, 0f
+        };
 
         internal static void Run()
         {
@@ -16,7 +34,7 @@ namespace MusketeerFormationTests
 
         private static void Composition()
         {
-            Case.Run("row sits at the rear and the baseline keeps its order", () =>
+            Case.Run("the row is inserted after the lead block and before the first archer", () =>
             {
                 var baseline = new[]
                 {
@@ -30,17 +48,43 @@ namespace MusketeerFormationTests
                     out Formation.UnitTypes[] types, out int[] boats, out int[] musketeers, out int row),
                     "compose");
                 Check.Equal(4, row, "row length");
-                Check.Sequence(new[] { 0, 1, 2, 3 }, musketeers, "row slots");
-                Check.Sequence(new[] { 4, 5, 6 }, boats, "boat slots");
+                Check.Sequence(new[] { 3, 4, 5, 6 }, musketeers, "row slots follow the boat block");
+                Check.Sequence(new[] { 0, 1, 2 }, boats, "boat slots");
                 Check.Equal(15, types.Length, "composite length");
-                for (int i = 0; i < 4; i++)
-                    Check.Equal(Formation.UnitTypes.Gap, types[i], "row slot type");
-                for (int i = 0; i < 3; i++)
-                    Check.Equal(Formation.UnitTypes.FleetBoat, types[4 + i], "boat slot type");
-                for (int i = 0; i < 4; i++)
-                    Check.Equal(Formation.UnitTypes.Archer, types[7 + i], "archer order");
-                for (int i = 0; i < 4; i++)
-                    Check.Equal(Formation.UnitTypes.Pikemen, types[11 + i], "pikemen order");
+                Check.Sequence(new[]
+                {
+                    Formation.UnitTypes.FleetBoat, Formation.UnitTypes.FleetBoat,
+                    Formation.UnitTypes.FleetBoat,
+                    Formation.UnitTypes.Squire, Formation.UnitTypes.Squire,
+                    Formation.UnitTypes.Squire, Formation.UnitTypes.Squire,
+                    Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
+                    Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
+                    Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen,
+                    Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen
+                }, types, "composite order");
+            });
+
+            Case.Run("the real 2.4 baseline keeps its gaps and puts the row before the bow line", () =>
+            {
+                Check.True(MusketeerFormationLayout.TryCompose(RealBaseline, 2, true,
+                    out Formation.UnitTypes[] types, out int[] boats, out int[] musketeers, out int row),
+                    "compose");
+                Check.Equal(4, row, "row length");
+                Check.Sequence(new[] { 4, 5, 6, 7 }, musketeers, "row slots between the gaps and the bow line");
+                Check.Sequence(new[] { 0, 1 }, boats, "boat slots");
+                Check.Equal(17, types.Length, "composite length");
+                Check.Sequence(new[]
+                {
+                    Formation.UnitTypes.FleetBoat, Formation.UnitTypes.FleetBoat,
+                    Formation.UnitTypes.Gap, Formation.UnitTypes.Gap,
+                    Formation.UnitTypes.Squire, Formation.UnitTypes.Squire,
+                    Formation.UnitTypes.Squire, Formation.UnitTypes.Squire,
+                    Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
+                    Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
+                    Formation.UnitTypes.Gap,
+                    Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen,
+                    Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen
+                }, types, "real 2.4 composite order");
             });
 
             Case.Run("zero boats leaves one closed gap at the native fleet seat", () =>
@@ -55,13 +99,15 @@ namespace MusketeerFormationTests
                     "compose");
                 Check.Equal(4, row, "row length");
                 Check.Equal(0, boats.Length, "no boat slots");
-                Check.Equal(4, musketeers.Length, "row slots");
+                Check.Sequence(new[] { 1, 2, 3, 4 }, musketeers, "row slots after the closed fleet seat");
                 Check.Equal(7, types.Length, "composite length");
                 Check.Sequence(new[]
                 {
-                    Formation.UnitTypes.Gap, Formation.UnitTypes.Gap, Formation.UnitTypes.Gap, Formation.UnitTypes.Gap,
-                    Formation.UnitTypes.Gap, Formation.UnitTypes.Archer, Formation.UnitTypes.Pikemen
-                }, types, "closed fleet seat");
+                    Formation.UnitTypes.Gap,
+                    Formation.UnitTypes.Squire, Formation.UnitTypes.Squire,
+                    Formation.UnitTypes.Squire, Formation.UnitTypes.Squire,
+                    Formation.UnitTypes.Archer, Formation.UnitTypes.Pikemen
+                }, types, "closed fleet seat order");
             });
 
             Case.Run("feature off keeps the fleet-only layout", () =>
@@ -138,121 +184,188 @@ namespace MusketeerFormationTests
 
         private static void Placement()
         {
-            Case.Run("row compensation preserves every original coordinate", () =>
+            Case.Run("a full row leaves the bow line on the baseline and moves the fleet block back", () =>
             {
-                var baseline = new[]
-                {
-                    Formation.UnitTypes.FleetBoat,
-                    Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
-                    Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
-                    Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen,
-                    Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen
-                };
-                Check.True(MusketeerFormationLayout.TryCompose(baseline, 1, true,
-                    out Formation.UnitTypes[] types, out _, out _, out int row), "compose");
+                float rowStep = RealSpacing[(int)Formation.UnitTypes.Archer];   // 0.21875
+                float fleetShift = RowLength * rowStep;                        // 0.875
 
-                float baselineOffset = 2.5f;
-                float expandedOffset = baselineOffset - row * GapStep;
-                var baselineOccupied = new bool[baseline.Length];
-                var expandedOccupied = new bool[types.Length];
-                for (int i = 0; i < baseline.Length; i++) baselineOccupied[i] = true;
-                for (int i = 0; i < baseline.Length; i++) expandedOccupied[i + row] = true;
-
-                foreach (bool left in new[] { false, true })
+                foreach (int boats in new[] { 0, 1, 2, 4 })
                 {
-                    for (int i = 0; i < baseline.Length; i++)
+                    Check.True(MusketeerFormationLayout.TryCompose(RealBaseline, boats, true,
+                        out Formation.UnitTypes[] typesWith, out _, out int[] seats, out int row),
+                        "compose with row");
+                    Check.Equal(RowLength, row, "row length");
+                    Check.True(MusketeerFormationLayout.TryCompose(RealBaseline, boats, false,
+                        out Formation.UnitTypes[] typesWithout, out _, out _, out int noRow),
+                        "compose without row");
+                    Check.Equal(0, noRow, "fleet-only layout");
+
+                    float[] spacingWith = ExpandedSpacing(RealSpacing, boats, true);
+                    float[] spacingWithout = ExpandedSpacing(RealSpacing, boats, false);
+                    Check.Near(RealSpacing[(int)Formation.UnitTypes.Archer],
+                        spacingWith[(int)Formation.UnitTypes.Squire], 1e-6,
+                        "row step is written to the Squire entry");
+                    Check.Near(RealSpacing[(int)Formation.UnitTypes.Squire],
+                        spacingWithout[(int)Formation.UnitTypes.Squire], 1e-6,
+                        "no row leaves the Squire entry authored");
+
+                    var occupiedWith = new bool[typesWith.Length];
+                    var occupiedWithout = new bool[typesWithout.Length];
+                    for (int i = 0; i < typesWith.Length; i++) occupiedWith[i] = true;
+                    for (int i = 0; i < typesWithout.Length; i++) occupiedWithout[i] = true;
+
+                    foreach (bool left in new[] { false, true })
                     {
-                        Check.Near(
-                            NativeX(baseline, baselineOccupied, baselineOffset, left, i),
-                            NativeX(types, expandedOccupied, expandedOffset, left, i + row), 1e-4,
-                            "original coordinate must not move (left=" + left + ", slot=" + i + ")");
-                    }
-                }
-            });
+                        float reference(int index, Formation.UnitTypes[] source, bool[] occupied,
+                                          float[] spacing, int boatsCount, bool withRow)
+                            => Frontward(NativeX(source, occupied, spacing,
+                                withRow ? -fleetShift : 0f, left, Mapped(index, boatsCount, withRow)), left);
 
-            Case.Run("real 2.4 player baseline keeps every original coordinate", () =>
-            {
-                // Operator-provided 2.4 Player formation resource:
-                // unitTypes [FleetBoat, Gap, Gap, Archer x4, Gap, Pikemen x4] with the spacing below.
-                var baseline = new[]
-                {
-                    Formation.UnitTypes.FleetBoat, Formation.UnitTypes.Gap, Formation.UnitTypes.Gap,
-                    Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
-                    Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
-                    Formation.UnitTypes.Gap,
-                    Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen,
-                    Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen
-                };
-                var spacing = new[]
-                {
-                    0.21875f, 0.25f, 0.25f, 0.21875f, 1f, 0.34375f, 1f,
-                    1f, 0.21875f, 0.21875f, 0.21875f, 0f, 0f
-                };
-                Check.True(MusketeerFormationLayout.TryCompose(baseline, 1, true,
-                    out Formation.UnitTypes[] types, out _, out int[] musketeers, out int row), "compose");
-                Check.Equal(4, row, "row length");
-                Check.Sequence(new[] { 0, 1, 2, 3 }, musketeers, "row slots");
-
-                float baselineOffset = 0f;                                 // real prefab startOffset
-                float rowStep = spacing[(int)Formation.UnitTypes.Gap];     // 0.34375
-                float expandedOffset = baselineOffset - row * rowStep;
-                var baselineOccupied = new bool[baseline.Length];
-                var expandedOccupied = new bool[types.Length];
-                for (int i = 0; i < baseline.Length; i++) baselineOccupied[i] = true;
-                for (int i = 0; i < baseline.Length; i++) expandedOccupied[i + row] = true;
-                expandedOccupied[musketeers[0]] = true;                    // one musketeer in the rear seat
-
-                foreach (bool left in new[] { false, true })
-                {
-                    for (int i = 0; i < baseline.Length; i++)
-                    {
-                        Check.Near(
-                            NativeX(baseline, baselineOccupied, spacing, baselineOffset, left, i),
-                            NativeX(types, expandedOccupied, spacing, expandedOffset, left, i + row), 1e-4,
-                            "2.4 original coordinate must not move (left=" + left + ", slot=" + i + ")");
-                    }
-                    for (int r = 0; r < musketeers.Length; r++)
-                    {
-                        float seat = Frontward(NativeX(types, expandedOccupied, spacing,
-                            expandedOffset, left, musketeers[r]), left);
-                        float rear = Frontward(NativeX(types, expandedOccupied, spacing,
-                            expandedOffset, left, row), left);
-                        Check.True(seat < rear - 1e-4f,
-                            "2.4 seat " + r + " must stay behind the native rear line (left=" + left + ")");
-                    }
-                }
-            });
-
-            Case.Run("row stays behind archers and infantry on both sides", () =>
-            {
-                var baseline = new[]
-                {
-                    Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
-                    Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
-                    Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen,
-                    Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen,
-                    Formation.UnitTypes.FleetBoat
-                };
-                Check.True(MusketeerFormationLayout.TryCompose(baseline, 1, true,
-                    out Formation.UnitTypes[] types, out _, out int[] musketeers, out int row), "compose");
-
-                float baselineOffset = 1.5f;
-                float expandedOffset = baselineOffset - row * GapStep;
-                var occupied = new bool[types.Length];
-                for (int i = row; i < types.Length; i++) occupied[i] = true;   // every original unit present
-                occupied[musketeers[2]] = true;                                 // two musketeers in the row
-                occupied[musketeers[3]] = true;
-
-                foreach (bool left in new[] { false, true })
-                {
-                    for (int r = 0; r < musketeers.Length; r++)
-                    {
-                        float seat = Frontward(NativeX(types, occupied, expandedOffset, left, musketeers[r]), left);
-                        for (int i = row; i < types.Length; i++)
+                        for (int read = FirstArcherRead; read < RealBaseline.Length; read++)
                         {
-                            Check.True(
-                                seat < Frontward(NativeX(types, occupied, expandedOffset, left, i), left) - 1e-4f,
-                                "row seat " + r + " must stay behind slot " + i + " (left=" + left + ")");
+                            Check.Near(
+                                reference(read, typesWithout, occupiedWithout, spacingWithout, boats, false),
+                                reference(read, typesWith, occupiedWith, spacingWith, boats, true), 1e-4,
+                                "full row must keep the bow line on the baseline (left=" + left
+                                + ", boats=" + boats + ", slot=" + read + ")");
+                        }
+                        for (int read = 0; read < FirstArcherRead; read++)
+                        {
+                            Check.Near(
+                                reference(read, typesWithout, occupiedWithout, spacingWithout, boats, false) - fleetShift,
+                                reference(read, typesWith, occupiedWith, spacingWith, boats, true), 1e-4,
+                                "fleet block must move back one row (left=" + left
+                                + ", boats=" + boats + ", slot=" + read + ")");
+                        }
+
+                        float archer1 = Frontward(NativeX(typesWith, occupiedWith, spacingWith,
+                            -fleetShift, left, Mapped(FirstArcherRead, boats, true)), left);
+                        float nearest = Frontward(NativeX(typesWith, occupiedWith, spacingWith,
+                            -fleetShift, left, seats[RowLength - 1]), left);
+                        Check.Near(rowStep, archer1 - nearest, 1e-4,
+                            "full row boundary is one row step (left=" + left + ", boats=" + boats + ")");
+                        for (int i = 0; i < RowLength - 1; i++)
+                        {
+                            float step = Frontward(NativeX(typesWith, occupiedWith, spacingWith,
+                                -fleetShift, left, seats[i + 1]), left)
+                                - Frontward(NativeX(typesWith, occupiedWith, spacingWith,
+                                    -fleetShift, left, seats[i]), left);
+                            Check.Near(rowStep, step, 1e-4,
+                                "musketeers are spaced like archers (left=" + left + ", boats=" + boats + ")");
+                        }
+                    }
+                }
+            });
+
+            Case.Run("an unfilled row compacts toward the fleet and stays one step off the bow line", () =>
+            {
+                float rowStep = RealSpacing[(int)Formation.UnitTypes.Archer];
+                float fleetShift = RowLength * rowStep;
+
+                foreach (int boats in new[] { 0, 1, 2, 4 })
+                {
+                    Check.True(MusketeerFormationLayout.TryCompose(RealBaseline, boats, true,
+                        out Formation.UnitTypes[] typesWith, out _, out int[] seats, out _),
+                        "compose with row");
+                    Check.True(MusketeerFormationLayout.TryCompose(RealBaseline, boats, false,
+                        out Formation.UnitTypes[] typesWithout, out _, out _, out _),
+                        "compose without row");
+
+                    float[] spacingWith = ExpandedSpacing(RealSpacing, boats, true);
+                    float[] spacingWithout = ExpandedSpacing(RealSpacing, boats, false);
+                    var originalsWith = new bool[typesWith.Length];
+                    var originalsWithout = new bool[typesWithout.Length];
+                    for (int i = 0; i < typesWith.Length; i++) originalsWith[i] = true;
+                    for (int i = 0; i < typesWithout.Length; i++) originalsWithout[i] = true;
+                    for (int i = 0; i < seats.Length; i++) originalsWith[seats[i]] = false;
+
+                    foreach (bool left in new[] { false, true })
+                    {
+                        float baselineArcher1 = Frontward(NativeX(typesWithout, originalsWithout,
+                            spacingWithout, 0f, left, Mapped(FirstArcherRead, boats, false)), left);
+                        for (int count = 0; count <= RowLength; count++)
+                        {
+                            var occupied = (bool[])originalsWith.Clone();
+                            for (int filled = 0; filled < count; filled++)
+                                occupied[seats[RowLength - 1 - filled]] = true;   // production fill: bow side first
+
+                            float archer1 = Frontward(NativeX(typesWith, occupied, spacingWith,
+                                -fleetShift, left, Mapped(FirstArcherRead, boats, true)), left);
+                            Check.Near(baselineArcher1 - (RowLength - count) * rowStep, archer1, 1e-4,
+                                "missing seats pull the bow line toward the fleet (left=" + left
+                                + ", boats=" + boats + ", count=" + count + ")");
+                            if (count == 0) continue;
+
+                            float nearest = Frontward(NativeX(typesWith, occupied, spacingWith,
+                                -fleetShift, left, seats[RowLength - 1]), left);
+                            Check.Near(rowStep, archer1 - nearest, 1e-4,
+                                "nearest musketeer stays one step from the bow line (left=" + left
+                                + ", boats=" + boats + ", count=" + count + ")");
+                            for (int filled = 1; filled < count; filled++)
+                            {
+                                int seat = RowLength - 1 - filled;
+                                float gap = Frontward(NativeX(typesWith, occupied, spacingWith,
+                                    -fleetShift, left, seats[seat + 1]), left)
+                                    - Frontward(NativeX(typesWith, occupied, spacingWith,
+                                        -fleetShift, left, seats[seat]), left);
+                                Check.Near(rowStep, gap, 1e-4,
+                                    "filled musketeers keep the row step (left=" + left
+                                    + ", boats=" + boats + ", count=" + count + ")");
+                            }
+                        }
+                    }
+                }
+            });
+
+            Case.Run("any row occupancy keeps the nearest musketeer one row step from the bow line", () =>
+            {
+                float rowStep = RealSpacing[(int)Formation.UnitTypes.Archer];
+                float fleetShift = RowLength * rowStep;
+
+                foreach (int boats in new[] { 0, 1, 2, 4 })
+                {
+                    Check.True(MusketeerFormationLayout.TryCompose(RealBaseline, boats, true,
+                        out Formation.UnitTypes[] types, out _, out int[] seats, out _),
+                        "compose with row");
+                    Check.True(MusketeerFormationLayout.TryCompose(RealBaseline, boats, false,
+                        out Formation.UnitTypes[] typesWithout, out _, out _, out _),
+                        "compose without row");
+
+                    float[] spacing = ExpandedSpacing(RealSpacing, boats, true);
+                    float[] spacingWithout = ExpandedSpacing(RealSpacing, boats, false);
+                    var originals = new bool[types.Length];
+                    var originalsWithout = new bool[typesWithout.Length];
+                    for (int i = 0; i < types.Length; i++) originals[i] = true;
+                    for (int i = 0; i < typesWithout.Length; i++) originalsWithout[i] = true;
+                    for (int i = 0; i < seats.Length; i++) originals[seats[i]] = false;
+
+                    foreach (bool left in new[] { false, true })
+                    {
+                        float baselineArcher1 = Frontward(NativeX(typesWithout, originalsWithout,
+                            spacingWithout, 0f, left, Mapped(FirstArcherRead, boats, false)), left);
+                        for (int subset = 1; subset < (1 << RowLength); subset++)
+                        {
+                            var occupied = (bool[])originals.Clone();
+                            int count = 0;
+                            int nearest = -1;
+                            for (int seat = 0; seat < RowLength; seat++)
+                            {
+                                if ((subset & (1 << seat)) == 0) continue;
+                                occupied[seats[seat]] = true;
+                                count++;
+                                nearest = seat;
+                            }
+
+                            float archer1 = Frontward(NativeX(types, occupied, spacing,
+                                -fleetShift, left, Mapped(FirstArcherRead, boats, true)), left);
+                            float nearestX = Frontward(NativeX(types, occupied, spacing,
+                                -fleetShift, left, seats[nearest]), left);
+                            Check.Near(rowStep, archer1 - nearestX, 1e-4,
+                                "one row step for any occupancy (left=" + left + ", boats=" + boats
+                                + ", subset=" + subset + ")");
+                            Check.Near(baselineArcher1 - (RowLength - count) * rowStep, archer1, 1e-4,
+                                "bow line shift counts occupied seats only (left=" + left
+                                + ", boats=" + boats + ", subset=" + subset + ")");
                         }
                     }
                 }
@@ -265,27 +378,34 @@ namespace MusketeerFormationTests
             {
                 var types = new[]
                 {
-                    Formation.UnitTypes.Gap, Formation.UnitTypes.Gap, Formation.UnitTypes.Gap, Formation.UnitTypes.Gap,
-                    Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
+                    Formation.UnitTypes.Gap, Formation.UnitTypes.Gap, Formation.UnitTypes.Gap,
+                    Formation.UnitTypes.Squire, Formation.UnitTypes.Squire,
+                    Formation.UnitTypes.Squire, Formation.UnitTypes.Squire,
                     Formation.UnitTypes.Archer, Formation.UnitTypes.Archer,
                     Formation.UnitTypes.AnyShieldedUnit,
-                    Formation.UnitTypes.Pikemen, Formation.UnitTypes.FleetBoat
+                    Formation.UnitTypes.Gap,
+                    Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen,
+                    Formation.UnitTypes.Pikemen, Formation.UnitTypes.Pikemen
                 };
                 var occupied = new bool[types.Length];
-                for (int i = 4; i < 8; i++) occupied[i] = true;   // native bow seats already held by ordinary archers
-                for (int i = 9; i < 11; i++) occupied[i] = true;
+                for (int i = 7; i < 9; i++) occupied[i] = true;     // native bow seats already held
+                for (int i = 11; i < 15; i++) occupied[i] = true;   // pikemen seated
                 var copy = (Formation.UnitTypes[])types.Clone();
 
-                Check.True(MusketeerFormationLayout.TryPlanDirected(types, occupied, 3,
+                Check.True(MusketeerFormationLayout.TryPlanDirected(types, occupied, 5,
                     out Formation.UnitTypes[] temporary), "plan");
-                Check.Equal(Formation.UnitTypes.Archer, temporary[3], "target advertises Archer");
-                for (int i = 0; i < 3; i++)
-                    Check.Equal(Formation.UnitTypes.Gap, temporary[i], "empty row seats stay closed");
-                for (int i = 4; i < 8; i++)
+                Check.Equal(Formation.UnitTypes.Archer, temporary[5], "target advertises Archer");
+                for (int i = 3; i <= 6; i++)
+                {
+                    Check.Equal(i == 5 ? Formation.UnitTypes.Archer : Formation.UnitTypes.Squire,
+                        temporary[i], "empty row seat keeps Squire");
+                }
+                for (int i = 7; i < 9; i++)
                     Check.Equal(Formation.UnitTypes.Archer, temporary[i], "occupied bow seat keeps its type");
-                Check.Equal(Formation.UnitTypes.Gap, temporary[8], "empty AnyShieldedUnit seat closed");
-                Check.Equal(Formation.UnitTypes.Pikemen, temporary[9], "pikemen seat untouched");
-                Check.Equal(Formation.UnitTypes.FleetBoat, temporary[10], "fleet seat untouched");
+                Check.Equal(Formation.UnitTypes.Gap, temporary[9], "empty AnyShieldedUnit seat closed");
+                Check.Equal(Formation.UnitTypes.Gap, temporary[10], "native gap untouched");
+                for (int i = 11; i < 15; i++)
+                    Check.Equal(Formation.UnitTypes.Pikemen, temporary[i], "pikemen seat untouched");
                 Check.Sequence(copy, types, "input array not mutated");
             });
 
@@ -303,15 +423,32 @@ namespace MusketeerFormationTests
         }
 
         /// <summary>
+        /// Effective live spacing the fleet owner writes for one expansion (mirrors TryExpand):
+        /// the baseline copy, MultiBoatSpacing on the fleet entry for 2+ boats, and the row step
+        /// (the Archer entry) on Squire whenever the composite carries row slots.
+        /// </summary>
+        private static float[] ExpandedSpacing(float[] baseline, int boatCount, bool rowPresent)
+        {
+            var spacing = (float[])baseline.Clone();
+            if (boatCount >= 2) spacing[(int)Formation.UnitTypes.FleetBoat] = 1f;
+            if (rowPresent)
+                spacing[(int)Formation.UnitTypes.Squire] = baseline[(int)Formation.UnitTypes.Archer];
+            return spacing;
+        }
+
+        /// <summary>Composite index of one RealBaseline slot (the row is inserted before the first Archer).</summary>
+        private static int Mapped(int read, int boatCount, bool row)
+        {
+            int fleetFootprint = boatCount > 0 ? boatCount : 1;
+            int before = read == 0 ? 0 : fleetFootprint + (read - 1);
+            return before + (row && read >= FirstArcherRead ? RowLength : 0);
+        }
+
+        /// <summary>
         /// Native Formation.GetXPosForIndex replica (game-source Formation.cs:319-332): the offset
         /// accumulates startOffset + UnitSpacing[type] for every earlier slot that holds a unit or
-        /// is a Gap, and the Left side mirrors the sign. Used to pin that the rear row does not
-        /// move the original units and always sits behind them.
+        /// is a Gap, and the Left side mirrors the sign.
         /// </summary>
-        private static float NativeX(Formation.UnitTypes[] types, bool[] occupied,
-            float startOffset, bool left, int index)
-            => NativeX(types, occupied, StepSpacing, startOffset, left, index);
-
         private static float NativeX(Formation.UnitTypes[] types, bool[] occupied, float[] spacing,
             float startOffset, bool left, int index)
         {
@@ -324,23 +461,5 @@ namespace MusketeerFormationTests
         }
 
         private static float Frontward(float x, bool left) => left ? -x : x;
-
-        private static float[] BuildStepSpacing()
-        {
-            var spacing = new float[(int)Formation.UnitTypes.Total];
-            spacing[(int)Formation.UnitTypes.Archer] = 0.7f;
-            spacing[(int)Formation.UnitTypes.Knight] = 0.7f;
-            spacing[(int)Formation.UnitTypes.Squire] = 0.7f;
-            spacing[(int)Formation.UnitTypes.Pikemen] = 0.7f;
-            spacing[(int)Formation.UnitTypes.Bomb] = 0.5f;
-            spacing[(int)Formation.UnitTypes.Gap] = GapStep;
-            spacing[(int)Formation.UnitTypes.Player] = 0f;
-            spacing[(int)Formation.UnitTypes.Catapult] = 1f;
-            spacing[(int)Formation.UnitTypes.Ninja] = 0.7f;
-            spacing[(int)Formation.UnitTypes.Worker] = 0.7f;
-            spacing[(int)Formation.UnitTypes.AnyShieldedUnit] = 0.7f;
-            spacing[(int)Formation.UnitTypes.FleetBoat] = 1f;
-            return spacing;
-        }
     }
 }

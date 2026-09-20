@@ -1,0 +1,17 @@
+[
+  {
+    "project": "C:\\Users\\ADMIN\\projects\\ohmymods\\tests\\hold-purchase\\HoldPurchaseTests.csproj",
+    "exit": 0,
+    "result": "ALL PASS (25 scenarios)"
+  },
+  {
+    "project": "C:\\Users\\ADMIN\\projects\\ohmymods\\tests\\optional-vegetation\\Regression.csproj",
+    "exit": 0,
+    "result": "RESULT passed=31 failed=0"
+  },
+  {
+    "project": "C:\\Users\\ADMIN\\projects\\ohmymods\\tests\\optional-scope\\Regression.csproj",
+    "exit": 0,
+    "result": "PASS actual all-world scope: 17 checks"
+  }
+]

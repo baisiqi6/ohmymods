@@ -1,0 +1,20 @@
+[
+  {
+    "sessionFile": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\musketeer-scale-20260917\\sessions\\2026-09-17T11-42-04-363Z_01a0af2c-804b-7451-943b-a09450327408.jsonl",
+    "actualModels": [
+      [
+        "deepseek",
+        "deepseek-flash"
+      ]
+    ],
+    "thinking": [
+      "max"
+    ],
+    "tools": [
+      "edit",
+      "grep",
+      "read",
+      "write"
+    ]
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "session": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hero-archer-art-20260914\\sessions\\2026-09-14T14-03-04-796Z_01a0a03a-84dc-7350-b2ff-ffd7cab0cda5.jsonl",
+    "events": [
+      {
+        "type": "session",
+        "id": "01a0a03a-84dc-7350-b2ff-ffd7cab0cda5",
+        "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hero-archer-art-20260914\\worker"
+      },
+      {
+        "type": "model_change",
+        "id": "c6c40dcb",
+        "model": "deepseek/deepseek-v4-flash",
+        "resolvedModelIsFallback": false
+      },
+      {
+        "type": "thinking_level_change",
+        "id": "41ad1a4a",
+        "thinkingLevel": "max"
+      }
+    ]
+  }
+]

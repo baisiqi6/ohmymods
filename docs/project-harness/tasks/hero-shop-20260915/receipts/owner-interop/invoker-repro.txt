@@ -1,0 +1,19 @@
+C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\hero-shop-20260915\interop-fix\reviewer-invoker-probe\Program.cs(33,22): warning CA2014: 潜在的堆栈溢出。将 stackalloc 移出循环。 (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2014) [C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\hero-shop-20260915\interop-fix\reviewer-invoker-probe\Probe.csproj]
+C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\hero-shop-20260915\interop-fix\reviewer-invoker-probe\Program.cs(34,23): warning CA2014: 潜在的堆栈溢出。将 stackalloc 移出循环。 (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2014) [C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\hero-shop-20260915\interop-fix\reviewer-invoker-probe\Probe.csproj]
+System.IntPtr CreateDelegate OK
+System.IntPtr Marshal OK
+System.IntPtr PrepareDelegate OK
+IntPtr ABI invoke PASS; writes 4 bytes, adjacent sentinels unchanged
+System.Int32 CreateDelegate OK
+System.Int32 Marshal OK
+System.Int32 PrepareDelegate OK
+Program+Reason& CreateDelegate OK
+Program+Reason& Marshal OK
+Program+Reason& PrepareDelegate FAIL System.InvalidProgramException: Common Language Runtime detected an invalid program.
+   at System.Runtime.CompilerServices.RuntimeHelpers.PrepareDelegate(Delegate d)
+   at Program.Main() in C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\hero-shop-20260915\interop-fix\reviewer-invoker-probe\Program.cs:line 28
+System.Int32& CreateDelegate OK
+System.Int32& Marshal OK
+System.Int32& PrepareDelegate FAIL System.InvalidProgramException: Common Language Runtime detected an invalid program.
+   at System.Runtime.CompilerServices.RuntimeHelpers.PrepareDelegate(Delegate d)
+   at Program.Main() in C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\hero-shop-20260915\interop-fix\reviewer-invoker-probe\Program.cs:line 28

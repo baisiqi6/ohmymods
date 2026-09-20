@@ -1,0 +1,34 @@
+{
+  "service": {
+    "allowedProductionChanges": [
+      "AutoRestockCounts.cs",
+      "PatchEconomy_AutoRestock.cs"
+    ],
+    "publicProviderModelMetadata": [
+      "None/deepseek/deepseek-v4-flash",
+      "deepseek/deepseek-v4-flash"
+    ],
+    "sessions": [
+      "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\restock-supplies-20260914\\service-sessions\\2026-09-13T18-52-23-909Z_01a09c1d-09e5-75f7-87e2-8a3a1401002a.jsonl"
+    ],
+    "finalSource": {
+      "PatchEconomy_AutoRestock.cs": "3efe85ceb2d16fa558472d08f13ae28a923976ebcc2b3fc75b12f54722588259",
+      "AutoRestockCounts.cs": "db5bbae7c09e43ceabc4a7413322a13fac8985128568c7e44a4cbfbe675ec28b"
+    }
+  },
+  "ammo": {
+    "allowedProductionChanges": [
+      "SiegeAmmoCounts.cs"
+    ],
+    "publicProviderModelMetadata": [
+      "None/deepseek/deepseek-v4-flash",
+      "deepseek/deepseek-v4-flash"
+    ],
+    "sessions": [
+      "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\restock-supplies-20260914\\ammo-sessions\\2026-09-13T18-52-34-251Z_01a09c1d-324b-7582-be4f-1bb95e1cf0ea.jsonl"
+    ],
+    "finalSource": {
+      "SiegeAmmoCounts.cs": "fdf6a26fad41338e11b498d6df8c42c6a25b4375cc9061fbbaf120109422e6f6"
+    }
+  }
+}

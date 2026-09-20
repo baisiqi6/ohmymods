@@ -1,0 +1,136 @@
+--- a/il2cpp/PatchEconomy_AutoRestock.cs
++++ b/il2cpp/PatchEconomy_AutoRestock.cs
+@@ -28,6 +28,7 @@
+         private const float MovementTimeout = 8f;
+         private const int MinPrice = 1;
+         private const int MaxPrice = 100;
++        private const int AutoRestockCostMultiplier = 2;
+ 
+         private static readonly string[] RoleNames =
+             { "工人", "弓箭手", "忍者", "狂战士", "无业村民" };
+@@ -43,7 +44,8 @@
+             public IntPtr ShopPtr;
+             public int ShopInstanceId;
+             public PayableShop Shop;
+-            public int Price;
++            public int NativePrice;
++            public int TotalCost => AutoRestockCost(NativePrice);
+             public int AssistantIndex;
+             public GameObject Assistant;
+             public Phase Phase;
+@@ -391,7 +393,7 @@
+                             CancelOrder(i, "coin");
+                             continue;
+                         }
+-                        if (o.CoinsSent >= o.Price)
++                        if (o.CoinsSent >= o.TotalCost)
+                         {
+                             o.Phase = Phase.FinalWait;
+                             o.NextActionTime = now + FinalDelay;
+@@ -466,10 +468,10 @@
+             float shopX = o.ShopGO.transform.position.x;
+             if (!float.IsFinite(shopX) || Mathf.Abs(shopX - o.ShopX) > 0.02f) return false;
+             // 店价变化：取消，下一轮重读价再买。
+-            if (shop.Price != o.Price || !o.ShopGO.transform.IsChildOf(world.gameLayer)) return false;
++            if (shop.Price != o.NativePrice || !o.ShopGO.transform.IsChildOf(world.gameLayer)) return false;
+             if (!AutoRestockCounts.Refresh(Managers.Inst)) return false;
+             if (RoleTarget(o.Role) <= ExistingCoverage(o.Role)) return false;
+-            return ShopBuyableSnapshot(o) && banker._stashedCoins >= o.Price;
++            return ShopBuyableSnapshot(o) && banker._stashedCoins >= o.TotalCost;
+         }
+ 
+         private static bool EmitCoin(Order o, Managers managers, World world)
+@@ -532,7 +534,7 @@
+                 CancelOrder(orderIndex, "gate");
+                 return;
+             }
+-            int price = o.Shop.Price;
++            int price = o.TotalCost;
+             // 唯一经济commit：原子扣款，同步ledger/Castle/Stats。
+             if (!PatchEconomy_Banker.TrySpendForAutoRestock(banker, price))
+             {
+@@ -553,7 +555,8 @@
+                 {
+                     _successLogged[o.Role] = true;
+                     KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+-                        "[AutoRestock] " + RoleNames[o.Role] + " 补货成功 price=" + price);
++                        "[AutoRestock] " + RoleNames[o.Role] + " 补货成功 price=" + price
++                        + " nativePrice=" + o.NativePrice + " coins=" + o.CoinsSent);
+                 }
+             }
+             catch (Exception e)
+@@ -663,7 +666,7 @@
+             long stashed = banker._stashedCoins;
+             long held = 0;
+             foreach (Order o in _orders)
+-                if (o.Phase != Phase.Departing) held += o.Price;
++                if (o.Phase != Phase.Departing) held += o.TotalCost;
+ 
+             int startRole = _roleCursor;
+             for (int probe = 0; probe < RoleCount; probe++)
+@@ -696,9 +699,10 @@
+                     _blockReason[role] = bestReason ?? "无可用店铺";
+                     continue;
+                 }
+-                if (stashed - held < best.Price) { _blockReason[role] = "金币不足"; continue; } // 预留价从预算中扣除
++                int totalCost = AutoRestockCost(best.Price);
++                if (stashed - held < totalCost) { _blockReason[role] = "金币不足"; continue; } // 预留双倍采购费
+                 if (TryCreateOrder(banker, best, role, out string fail))
+-                { held += best.Price; reserved[role]++; _blockReason[role] = null; _roleCursor = (role + 1) % RoleCount; }
++                { held += totalCost; reserved[role]++; _blockReason[role] = null; _roleCursor = (role + 1) % RoleCount; }
+                 else _blockReason[role] = fail;
+             }
+             UpdateSummaries(roster, shopItems, reserved, banker);
+@@ -722,6 +726,10 @@
+                 if (o.ShopPtr == shopPtr) return true;
+             return false;
+         }
++
++        // Only validated native prices (1..100) reach an order. Never modify shop.Price:
++        // the surcharge belongs to automatic procurement, with one native purchase.
++        private static int AutoRestockCost(int nativePrice) => nativePrice * AutoRestockCostMultiplier;
+ 
+         private static bool TryCreateOrder(Banker banker, ShopSnapshot s, int role,
+             out string failReason)
+@@ -754,7 +762,7 @@
+                     ShopPtr = s.Ptr,
+                     ShopInstanceId = s.InstanceId,
+                     Shop = s.Shop,
+-                    Price = s.Price,
++                    NativePrice = s.Price,
+                     AssistantIndex = index,
+                     Assistant = actor,
+                     Phase = Phase.Approach,
+--- a/il2cpp/PatchEconomy_Banker.cs
++++ b/il2cpp/PatchEconomy_Banker.cs
+@@ -393,7 +393,7 @@
+     internal static bool TrySpendForAutoRestock(Banker banker, int amount)
+     {
+         if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth || Time.timeScale <= 0f
+-            || banker == null || amount <= 0 || amount > 100) return false;
++            || banker == null || amount <= 0 || amount > 200) return false;
+         var managers = Managers.Inst;
+         var kingdom = managers != null ? managers.kingdom : null;
+         if (managers == null || managers.game == null || managers.game.state != Game.State.Playing
+--- a/il2cpp/ModPanel.cs
++++ b/il2cpp/ModPanel.cs
+@@ -271,7 +271,7 @@
+         ConfigEntry<bool> enabled, ConfigEntry<int> target)
+     {
+         Card(y, width, title + "自动补货", "目标 " + target.Value + " 人",
+-            "金库付款 · " + PatchEconomy_AutoRestock.GetSummary(role));
++            "双倍金库付款 · " + PatchEconomy_AutoRestock.GetSummary(role));
+         if (GUI.Button(new Rect(22, y + 51, 104, 31), enabled.Value ? "已开启" : "已关闭",
+                 enabled.Value ? _activeTab : _button)) enabled.Value = !enabled.Value;
+         if (GUI.Button(new Rect(138, y + 51, 34, 31), "−", _button)) target.Value = Math.Max(1, target.Value - 1);
+--- a/il2cpp/KingdomEnhancedPlugin.cs
++++ b/il2cpp/KingdomEnhancedPlugin.cs
+@@ -50,7 +50,7 @@
+         {
+             Instance = this;
+             // 手动构建戳：日志里区分不同部署（改完记得更新）
+-            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=5.0.0-peasant-hud-motion-20260912 loading...");
++            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=5.0.0-restock-double-cost-20260912 loading...");
+ 
+             // 配置（BepInConfig，替代 UMM Settings）
+             ModConfig.Init(Config);

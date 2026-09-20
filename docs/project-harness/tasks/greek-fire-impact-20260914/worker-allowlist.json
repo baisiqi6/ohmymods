@@ -1,0 +1,8 @@
+{
+  "existingCsChanges": [],
+  "newModuleSha256": "c66002a3fcb722c37d05f7be35c4899a31e3bc8599b8e940e8c2551a2c33037d",
+  "session": "01a09e87-25fe-73e2-a2a6-b8dfb8a16540",
+  "actualModel": "deepseek/deepseek-v4-flash",
+  "thinking": "max",
+  "providerFallback": false
+}

@@ -75,7 +75,7 @@ Patch_HermesStaff.cs    权杖控制 16（_maximumConvertedTrolls 8→16；控�
 - 解法：`UnitScaleRegistry`（ConditionalWeakTable<Mover,float>）登记目标 y 缩放，
   `Mover_Update_Postfix` 每帧恢复 y。x 不动（朝向 + `velocity.x *= localScale.x` 依赖）。
 - 所有单位 OnEnable（对象池复用也触发）时登记；弱引用无泄漏。
-- 缩放值：北境工匠 1.175、希腊工匠 1.075、北境与希腊北境外观居民统一 1.125、鹿 0.55、小动物 1.8。
+- 缩放值：北境工匠 1.175、希腊工匠 1.075、北境与希腊北境外观居民统一 1.125、鹿 0.55。IL2CPP主线已取消Critter小动物1.8缩放，兔子等使用原版大小；冻结Mono历史线不变。
 
 ### 4. 北境工匠带盾
 - 希腊 12/13 槽位被狂战士商店占用 → 无盾牌商店 → 工匠买不到盾。
@@ -87,3 +87,14 @@ Patch_HermesStaff.cs    权杖控制 16（_maximumConvertedTrolls 8→16；控�
 - 禁止每帧 FindObjectsOfType / 多次 GetComponent（旧版掉帧源，已删）。
 - Mover.Update postfix 是唯一每帧 hook：一次字典查找 + 一次比较，未变零写入。
 - OnEnable 是池复用本地初始化点（Awake/Start 只在首次创建触发），不是网络注册完成事件。
+
+### 2026-09-14 IL2CPP统一缩放作用域
+
+GreekScaleScope取代裸intID缩放缓存的所有权语义，ScaleRegistryHolder保留兼容入口和盾牌队列；共享helper由现有Mover postfix与ModPanel.Tick消费，使用当前世界而非角色来源。新mod弩矢组件只有OnEnable/Disable，不增加native detour或Update driver。全量入口与模板/钱袋特殊基线见tasks/greek-scale-scope-20260914/acceptance.md。
+
+### 2026-09-14 银行仅当前希腊
+
+GreekBankScope统一银行世界/身份门。既有Banker.Update增加managed prefix，仅用于scope/world再入时在原生工作前prime，不新增detour目标；初次加载仍走原生既有prime时点。ModPanel已有Update维护Banker已见实例与owned profile，并推进BankAssistantCoordinator pending清理。没有额外全场景per-frame扫描或新的native生命周期钩子。
+
+
+2026-09-14本机5CED0D25/build7.6.5-greek-impact-20260914：希腊style3骑士火焰窗口的随从火矢，半径0.25/1点Fire/直接目标排除/同轮散射去重，沿用F5弓箭ImpactEnabled默认off与作者像素动画。窄TryDamage保留原生直接伤害且不写原生字段；73核心+45FX+75散射及30测试项目/1interopbuild、0W0E/2354API/1937无关方法保持/独立review通过。闭游戏安装到正确E，旧DLL已备份，save/config哈希保持，未启动游戏或发布；实机/压力/联机仍待。见tasks/greek-fire-impact-20260914/acceptance.md。

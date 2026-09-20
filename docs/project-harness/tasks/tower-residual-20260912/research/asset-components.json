@@ -1,0 +1,504 @@
+[
+  {
+    "name": "Tower0_greece",
+    "gameObjectId": 19822,
+    "components": [
+      {
+        "type": "PayableUpgrade",
+        "componentId": 85355
+      },
+      {
+        "type": "FixedTransform",
+        "componentId": 85452
+      },
+      {
+        "type": "SpriteRendererFX",
+        "componentId": 85536
+      },
+      {
+        "type": "ScatteredObject",
+        "componentId": 88910
+      },
+      {
+        "type": "Persistent",
+        "componentId": 88309
+      },
+      {
+        "type": "Tower",
+        "componentId": 87044
+      },
+      {
+        "type": "PrefabID",
+        "componentId": 91987
+      },
+      {
+        "type": "CRPCStamp",
+        "componentId": 93138
+      }
+    ]
+  },
+  {
+    "name": "Tower1_greece",
+    "gameObjectId": 20019,
+    "components": [
+      {
+        "type": "WorkableBuilding",
+        "componentId": 85582
+      },
+      {
+        "type": "PayableUpgrade",
+        "componentId": 85651
+      },
+      {
+        "type": "FixedTransform",
+        "componentId": 85690
+      },
+      {
+        "type": "SpriteRendererFX",
+        "componentId": 85733
+      },
+      {
+        "type": "Persistent",
+        "componentId": 88463
+      },
+      {
+        "type": "Tower",
+        "componentId": 88553
+      },
+      {
+        "type": "PrefabID",
+        "componentId": 92559
+      },
+      {
+        "type": "CRPCStamp",
+        "componentId": 91466
+      },
+      {
+        "type": "UnitSlotSyncer",
+        "componentId": 90335
+      },
+      {
+        "type": "ConstructionBuildingComponent",
+        "componentId": 98892,
+        "buildPoints": 30,
+        "payloadFirst8": "1e00000000000000"
+      }
+    ]
+  },
+  {
+    "name": "Tower4_greece",
+    "gameObjectId": 20290,
+    "components": [
+      {
+        "type": "WorkableBuilding",
+        "componentId": 85985
+      },
+      {
+        "type": "PayableUpgrade",
+        "componentId": 88484
+      },
+      {
+        "type": "FixedTransform",
+        "componentId": 87902
+      },
+      {
+        "type": "Persistent",
+        "componentId": 85849
+      },
+      {
+        "type": "Tower",
+        "componentId": 88473
+      },
+      {
+        "type": "SpriteRendererFX",
+        "componentId": 87310
+      },
+      {
+        "type": "PrefabID",
+        "componentId": 90446
+      },
+      {
+        "type": "CRPCStamp",
+        "componentId": 92500
+      },
+      {
+        "type": "UnitSlotSyncer",
+        "componentId": 90359
+      },
+      {
+        "type": "ConstructionBuildingComponent",
+        "componentId": 119791,
+        "buildPoints": 120,
+        "payloadFirst8": "7800000000000000"
+      }
+    ]
+  },
+  {
+    "name": "Tower_upgrade_Fire_greece",
+    "gameObjectId": 20797,
+    "components": [
+      {
+        "type": "FixedTransform",
+        "componentId": 86795
+      },
+      {
+        "type": "WorkableBuilding",
+        "componentId": 86258
+      },
+      {
+        "type": "Persistent",
+        "componentId": 88009
+      },
+      {
+        "type": "CRPCStamp",
+        "componentId": 94066
+      },
+      {
+        "type": "PrefabID",
+        "componentId": 91358
+      },
+      {
+        "type": "PayableBlocker",
+        "componentId": 90364
+      },
+      {
+        "type": "BiomeSpriteSwapper",
+        "componentId": 89634
+      },
+      {
+        "type": "ConstructionBuildingComponent",
+        "componentId": 85020,
+        "buildPoints": 80,
+        "payloadFirst8": "5000000000000000"
+      },
+      {
+        "type": "FireTower",
+        "componentId": 84990
+      },
+      {
+        "type": "PayableComponent",
+        "componentId": 84956
+      },
+      {
+        "type": "SpriteRendererFX",
+        "componentId": 107639
+      }
+    ]
+  },
+  {
+    "name": "Tower Ballista_greece",
+    "gameObjectId": 29254,
+    "components": [
+      {
+        "type": "FixedTransform",
+        "componentId": 103013
+      },
+      {
+        "type": "Ballista",
+        "componentId": 103020
+      },
+      {
+        "type": "WorkableBuilding",
+        "componentId": 103014
+      },
+      {
+        "type": "Persistent",
+        "componentId": 103019
+      },
+      {
+        "type": "CRPCStamp",
+        "componentId": 102956
+      },
+      {
+        "type": "PrefabID",
+        "componentId": 102958
+      },
+      {
+        "type": "PayableBlocker",
+        "componentId": 102946
+      },
+      {
+        "type": "BiomeSpriteSwapper",
+        "componentId": 102961
+      },
+      {
+        "type": "ConstructionBuildingComponent",
+        "componentId": 97705,
+        "buildPoints": 120,
+        "payloadFirst8": "7800000000000000"
+      }
+    ]
+  },
+  {
+    "name": "Tower0_greece",
+    "gameObjectId": 30939,
+    "components": [
+      {
+        "type": "PayableUpgrade",
+        "componentId": 106120
+      },
+      {
+        "type": "FixedTransform",
+        "componentId": 106118
+      },
+      {
+        "type": "SpriteRendererFX",
+        "componentId": 106119
+      },
+      {
+        "type": "ScatteredObject",
+        "componentId": 106116
+      },
+      {
+        "type": "Persistent",
+        "componentId": 106115
+      },
+      {
+        "type": "Tower",
+        "componentId": 106117
+      },
+      {
+        "type": "PrefabID",
+        "componentId": 106239
+      },
+      {
+        "type": "CRPCStamp",
+        "componentId": 106238
+      }
+    ]
+  },
+  {
+    "name": "Tower0_greece",
+    "gameObjectId": 32661,
+    "components": [
+      {
+        "type": "PayableUpgrade",
+        "componentId": 109640
+      },
+      {
+        "type": "FixedTransform",
+        "componentId": 109639
+      },
+      {
+        "type": "SpriteRendererFX",
+        "componentId": 109638
+      },
+      {
+        "type": "ScatteredObject",
+        "componentId": 109636
+      },
+      {
+        "type": "Persistent",
+        "componentId": 109637
+      },
+      {
+        "type": "Tower",
+        "componentId": 109635
+      },
+      {
+        "type": "PrefabID",
+        "componentId": 109570
+      },
+      {
+        "type": "CRPCStamp",
+        "componentId": 109569
+      }
+    ]
+  },
+  {
+    "name": "Tower0_greece",
+    "gameObjectId": 33071,
+    "components": [
+      {
+        "type": "PayableUpgrade",
+        "componentId": 110456
+      },
+      {
+        "type": "FixedTransform",
+        "componentId": 110454
+      },
+      {
+        "type": "SpriteRendererFX",
+        "componentId": 110455
+      },
+      {
+        "type": "ScatteredObject",
+        "componentId": 110458
+      },
+      {
+        "type": "Persistent",
+        "componentId": 110457
+      },
+      {
+        "type": "Tower",
+        "componentId": 110459
+      },
+      {
+        "type": "PrefabID",
+        "componentId": 110936
+      },
+      {
+        "type": "CRPCStamp",
+        "componentId": 110935
+      }
+    ]
+  },
+  {
+    "name": "Tower0_greece",
+    "gameObjectId": 35298,
+    "components": [
+      {
+        "type": "PayableUpgrade",
+        "componentId": 114515
+      },
+      {
+        "type": "FixedTransform",
+        "componentId": 114517
+      },
+      {
+        "type": "SpriteRendererFX",
+        "componentId": 114519
+      },
+      {
+        "type": "ScatteredObject",
+        "componentId": 114513
+      },
+      {
+        "type": "Persistent",
+        "componentId": 114511
+      },
+      {
+        "type": "Tower",
+        "componentId": 114509
+      },
+      {
+        "type": "PrefabID",
+        "componentId": 114456
+      },
+      {
+        "type": "CRPCStamp",
+        "componentId": 114454
+      }
+    ]
+  },
+  {
+    "name": "Tower0_greece",
+    "gameObjectId": 35299,
+    "components": [
+      {
+        "type": "PayableUpgrade",
+        "componentId": 114516
+      },
+      {
+        "type": "FixedTransform",
+        "componentId": 114518
+      },
+      {
+        "type": "SpriteRendererFX",
+        "componentId": 114520
+      },
+      {
+        "type": "ScatteredObject",
+        "componentId": 114514
+      },
+      {
+        "type": "Persistent",
+        "componentId": 114512
+      },
+      {
+        "type": "Tower",
+        "componentId": 114510
+      },
+      {
+        "type": "PrefabID",
+        "componentId": 114457
+      },
+      {
+        "type": "CRPCStamp",
+        "componentId": 114455
+      }
+    ]
+  },
+  {
+    "name": "Tower0_greece",
+    "gameObjectId": 36327,
+    "components": [
+      {
+        "type": "PayableUpgrade",
+        "componentId": 116235
+      },
+      {
+        "type": "FixedTransform",
+        "componentId": 116233
+      },
+      {
+        "type": "SpriteRendererFX",
+        "componentId": 116234
+      },
+      {
+        "type": "ScatteredObject",
+        "componentId": 116231
+      },
+      {
+        "type": "Persistent",
+        "componentId": 116230
+      },
+      {
+        "type": "Tower",
+        "componentId": 116232
+      },
+      {
+        "type": "PrefabID",
+        "componentId": 116129
+      },
+      {
+        "type": "CRPCStamp",
+        "componentId": 116130
+      }
+    ]
+  },
+  {
+    "name": "Tower Knight_greece",
+    "gameObjectId": 38415,
+    "components": [
+      {
+        "type": "FixedTransform",
+        "componentId": 120125
+      },
+      {
+        "type": "WorkableBuilding",
+        "componentId": 120127
+      },
+      {
+        "type": "TowerKnight",
+        "componentId": 120124
+      },
+      {
+        "type": "Persistent",
+        "componentId": 120120
+      },
+      {
+        "type": "CRPCStamp",
+        "componentId": 120031
+      },
+      {
+        "type": "PrefabID",
+        "componentId": 120024
+      },
+      {
+        "type": "PayableBlocker",
+        "componentId": 120030
+      },
+      {
+        "type": "BiomeSpriteSwapper",
+        "componentId": 120028
+      },
+      {
+        "type": "ConstructionBuildingComponent",
+        "componentId": 109344,
+        "buildPoints": 20,
+        "payloadFirst8": "1400000000000000"
+      }
+    ]
+  }
+]

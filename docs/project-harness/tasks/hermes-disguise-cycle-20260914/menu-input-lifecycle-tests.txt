@@ -1,0 +1,9 @@
+PASS enabled=true stays vanilla and never probes Rewired
+PASS ready close still runs the vanilla input write
+PASS not-ready close skips only the dead input write
+PASS repeated not-ready closes keep the log bounded
+PASS negative control: the unguarded not-ready write is the observed failure
+PASS readiness read failure fails open to vanilla with one diagnostic
+PASS OnDisable model: only the input write is skipped, remaining cleanup runs
+PASS ShouldRun truth table agrees with the prefix decision
+RESULT passed=8 failed=0

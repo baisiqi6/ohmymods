@@ -1,0 +1,50 @@
+PASS callback registers the wrong shop and touches nothing
+PASS safe-phase tick deregisters, deactivates and defers the destroy
+PASS late OnDestroy cannot clear the replacement shop
+PASS replacement is queued only after the real destruction
+PASS slot swapped by a third party retires without action
+PASS object moved to another scene retires without action
+PASS world change retires an untouched entry without action
+PASS planner replacement retires an untouched entry without action
+PASS authority loss keeps the owned record and acts after restore
+PASS disabled mod keeps the owned record and acts after re-enable
+PASS leaving Greece keeps the owned record and acts after return
+PASS unreachable Managers keeps the owned record
+PASS deactivate fault blocks the destroy until inactive is confirmed
+PASS destroy fault retries with backoff and finally succeeds
+PASS RemoveShop write followed by a throw completes without a second deregistration
+PASS RemoveShop throwing before the write never destroys
+PASS same-frame duplicate requests dedupe to one cleanup
+PASS a correct replacement shop is never touched
+PASS cleanup stops after the bounded number of rounds
+PASS slot cleanup counters do not leak across worlds
+PASS same-world re-register keeps an untouched record
+PASS native reclaim completes without a double action
+PASS re-entrant registration waits for the next tick
+PASS item fixed to a Berserker shop after enqueue retires without action
+PASS tag change after enqueue retires without action
+PASS a deregistered leftover is finished even if the slot is taken
+PASS native despawn before any tick retires an untouched entry
+PASS deregistered leftover survives a disabled window
+PASS deregistered leftover survives an unreadable world
+PASS same-world pool re-registration keeps the owned record
+PASS started leftover is held across a world change until destroyed
+PASS unreadable shop registry is unknown, never deregistered
+PASS unreadable slot array is unknown, never an empty slot
+PASS Remove callback changing the item blocks the destroy in the same tick
+PASS Remove callback changing the tag blocks the destroy in the same tick
+PASS Remove callback changing the scene blocks the destroy in the same tick
+PASS Remove callback swapping the world blocks the destroy in the same tick
+PASS SetActive callback changing the item blocks the destroy in the same tick
+PASS SetActive callback re-registering the target blocks the destroy
+PASS below Castle4 nothing is registered
+PASS outside Greece nothing is registered
+PASS without authority nothing is registered
+PASS legacy marker is registered then cleaned exactly once
+PASS marker whose slot belongs to another shop retires
+PASS marker without ShopTag is cleaned without slot writes
+PASS a real Berserker marker is left alone
+PASS marker cleanup refills only after the real destruction
+PASS legacy entry upgrades to a slot entry for the same object
+PASS legacy marker with a changed live tag retires without action
+RESULT 49/49 passed

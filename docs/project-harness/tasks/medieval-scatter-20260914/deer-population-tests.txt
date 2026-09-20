@@ -1,0 +1,28 @@
+PASS Only PopulationController.Update is hooked with prefix postfix and finalizer
+PASS Eligible Update temporarily scales three densities and interval, then restores exactly once
+PASS Native refill decisions reach 3x same-window replenishment and stop at 3x capacity
+PASS Native winter zero remains no-spawn and special winter uses the same native selection
+PASS Native minimum region and three-coin deer prefab remain unchanged
+PASS Disabled mod client and non-Greek worlds have no temporary writes
+PASS Biome critters non-Deer Steed and Hind prefabs are excluded by components
+PASS Inactive disabled different-scene and same-scene old-layer controllers are excluded
+PASS Missing world layer or playing context never adjusts inputs
+PASS Native menu-with-client eligibility is respected instead of a narrower state enum gate
+PASS Same-controller nested Update sees 3x not 9x and nested cleanup cannot restore outer lease
+PASS Different controllers have independent nested leases
+PASS Native exception is preserved and Finalizer restores fields then permits next Update
+PASS External different field values survive both cleanup hooks while other fields restore
+PASS Cleanup restores exact live controller despite config authority world and active-state changes
+PASS Controller or GO identity replacement makes cleanup retire without writing to replacement
+PASS All invalid inputs are rejected before any write including overflow and underflow
+PASS Input read failure leaves every field untouched
+PASS Partial setter failure rolls back own completed writes before native Update
+PASS One cleanup accessor failure does not skip other fields or swallow native exception
+PASS Persistent cleanup failure cannot compound density and mod-off Update retries restoration
+PASS Pending external field takeover clears ownership without overriding writer
+PASS Pending receipt for a reused controller identity is discarded without a restore write
+PASS Old pending finalizer cannot restore a newer active lease
+PASS Same-token finalizer can immediately finish a failed postfix cleanup
+PASS Temporary pending identity accessor fault retains ownership until identity can be checked
+PASS Applied evidence log is bounded and identifies prefab plus density and interval change
+RESULT: 27 passed, 0 failed

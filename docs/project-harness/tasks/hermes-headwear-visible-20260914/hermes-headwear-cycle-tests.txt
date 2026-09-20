@@ -1,0 +1,30 @@
+hermes headwear cycle cursor tests (console / serial)
+
+  PASS  fresh start: 30% records credit only, assigns at mobs 4/7/10
+  PASS  100 mobs at 30%: exactly 30 assignments, 3 per decade, offsets 4/7/10
+  PASS  restart and batching never shift the 30% positions
+  PASS  100% assigns every mob in exact 0..43 order across two cycles
+  PASS  0% (and negative) never advances, never writes, never creates
+  PASS  1%/25%/50% positions, mid-run config change, out-of-range clamp
+  PASS  v1 next=8 migrates on the first 100% call; old file byte-identical
+  PASS  v1 next=8 credit build-up migrates on first credit write
+  PASS  existing v2 wins over v1; bad v1 beside valid v2 is ignored
+  PASS  bad v2 never falls back to a valid v1, neither is overwritten
+  PASS  bad v1 refuses: no v2 created, v1 byte-identical
+  PASS  bad/corrupt/oversized/unknown-schema v2 refused byte-identical
+  PASS  v2 bytes are the exact schema2 contract; bak holds previous state
+  PASS  non-host refuses and never writes
+  PASS  authority probe exception refuses
+  PASS  no injected path refuses (no arbitrary write surface)
+  PASS  denied read refuses; denied write consumes no credit and retries same code
+  PASS  locked legacy v1 refuses instead of starting fresh at 0
+  PASS  file appearing after a missing read is never overwritten
+  PASS  file vanishing after an existing read fails instead of recreating
+  PASS  external valid change adopted; corruption preserved; deletion restarts
+  PASS  44 concurrent 100% calls hand out each code exactly once
+  PASS  v2 path occupied by a directory refuses, leaves no temp
+  PASS  unwritable parent refused, user file untouched
+  PASS  missing nested parent directory is created on first credit write
+  PASS  constants and parser bounds
+
+total: passed=26 failed=0

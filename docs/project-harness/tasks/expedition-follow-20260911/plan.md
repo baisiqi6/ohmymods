@@ -1,0 +1,10 @@
+# 出征随从留墙修复
+用户报告多玩家骑士出征不带随从、弓手仍守墙甚至卡住，质疑只换皮未接行为。
+
+已确认因果：原生Archer nativefollow2进入一次Mover.SetGoal(knightGO,run,-followDistance,Formation)后等待HasKnight=false或KnightEmbarked；Mover.Object每帧追踪目标。当前DefenseSpacing夜间prefix把它改为float Position固定墙锚并returnfalse，出征无须解除队籍因而不重发；夜间扫墙外随从又无出征/高任务排除。另KnightDaySpread仅按坐标猜Assemble，普通Archer镜像只跳盾墙/塔，均可能覆盖其它任务。该冲突与皮肤无关，五style共用。
+
+修复：始终保留原nativeObject跟随与Wait。夜间明确普通守墙且follow2/目标==所属KnightGO时，仅ref调整offset到墙内；正确使用goal.localScale.x计算，拒绝非有限/零scale。保存自有offset改写receipt，既有3s巡检最先Reconcile：已不守墙且Archer自身仍原生follow无高任务、目标对象/offsetmode/offset/speed/身份都吻合自有receipt时恢复originaloffset。骑士本身出征/formation不能挡恢复；玩家直接控制弓手、船、编队、逃跑、外部目标优先，退役receipt不抢写；暂停不UnPause。无全场新增扫描/每帧重发/强制FSM/招募/传送/改属性。
+
+普通镜像和NightParked只处理确认守墙者；有队籍的镜像禁改，NightParked的跟队分支须明确双方普通守墙。KnightDaySpread必须原生Assemble。关配置仍先恢复ownedoffset，世界边界清record。已保存ArcherData不含Mover目标，部署重启由nativeSetKnight重建Object，不按旧墙坐标猜迁移/接管外部Position。
+
+ZCode优先worker helper，operator接线DefenseSpacing，独立native/review/tests。只IL2CPP与E独立副本，不替换运行游戏，保留7F0CBE8D的三项视觉/资产修复及补员诊断等未提交内容；不发布/commit/推送，不改存档/配置。runtime实际出征仍需玩家验收。

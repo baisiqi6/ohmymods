@@ -1,0 +1,47 @@
+{
+  "metadataVersion": 31,
+  "metadataSha256": "e837a826dd2036e37a3a1dc07a90847afd250dd3c609471b709b1fa2e3af8d78",
+  "ctorToken": 100678276,
+  "ctorRva": "0x73f3b0",
+  "references": [
+    {
+      "va": "0x183d1c0e8",
+      "encoded": "0x20019e69",
+      "usageKind": 1,
+      "index": 53044,
+      "name": "IBehaviour",
+      "namespace": "",
+      "token": "0x20005da"
+    },
+    {
+      "va": "0x183cef078",
+      "encoded": "0x20010aaf",
+      "usageKind": 1,
+      "index": 34135,
+      "name": "IRPCable",
+      "namespace": "",
+      "token": "0x200051e"
+    },
+    {
+      "va": "0x183ceb778",
+      "encoded": "0x2001c2f7",
+      "usageKind": 1,
+      "index": 57723,
+      "name": "ComponentData",
+      "namespace": "",
+      "token": "0x2000780"
+    },
+    {
+      "va": "0x183d6fac0",
+      "encoded": "0xc004ba33",
+      "usageKind": 6,
+      "index": 154905
+    },
+    {
+      "va": "0x183d6f8f8",
+      "encoded": "0xc004ba2f",
+      "usageKind": 6,
+      "index": 154903
+    }
+  ]
+}

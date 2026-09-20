@@ -1,0 +1,152 @@
+[
+  {
+    "role": "deer",
+    "path": "il2cpp/MusketeerCombat.cs",
+    "before": "45162839ac91a2becbb8c369c02cc19f01f9f867bef443115c9cd00190f95ace",
+    "after": "1e164ed3058884ae3bff614c9d56c16f76fe02aa13290e3cc48e51d50a2d8564"
+  },
+  {
+    "role": "deer",
+    "path": "il2cpp/MusketeerRuntime.cs",
+    "before": "ff0cd7e7af1ba16242201cf42ac62c0aa3ac0abaea18a2e29c6fe5b48e43105f",
+    "after": "a6a91d90dc432c1256e528107820f06d71a2df8bf7e777702d1bbe1dbb3fc46e"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/CombatTests.cs",
+    "before": "406192026143caaeade6de9c520b0329e2a6fca7af895fd597a5a8d9452730af",
+    "after": "1496d163348bd1a56d23a3085d6d1587e29e0bb2bc9a774d5560f0c103e701ca"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/DeerHuntTests.cs",
+    "before": null,
+    "after": "8cfceb21b2a734a9ad3a74813206a43a16df976602d94d962e8b39c31551d912"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/Fixture.cs",
+    "before": "8d325ebb524fbef3ba6539171911eeff9e3d63785372da4c2427d4f4bed09c8a",
+    "after": "6958c4db1418e28e1087e81028cbb098b784c52c2586abf5390be127c25506de"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/Harness.cs",
+    "before": "b3456b049e8f6f5f16df8bd2297f791412fc47be66e5c717f498215c97db7be3",
+    "after": "c96a6acdf353dcba5e31e832b19692acc1fe7da3d7ea071407cc3f609cce1410"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/NativeStubs.cs",
+    "before": "f67e3f75e253786e5f2a653e0d9c23233f86cadacda5f7494f7f16c7596275a4",
+    "after": "320ab00958d3af465ced80c0a2a1acc1588a9beb3358cce6fdfa5aa8ced2ce22"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/RuntimeTests.cs",
+    "before": "92c99b7771be0034a3b8c0ad3f09e6040d1d600be845b8561d5e40474b24395a",
+    "after": "60857faba62532892beeb9b963d2835167d52005d475a37ad51acc33bb563c82"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/UnityStubs.cs",
+    "before": "2b56af572588b8217e2b0ad8406e03999b6b926134030d77007eb5ad3a19fca8",
+    "after": "ae6296f22c9e8db45d8c0fc7a187df01184cf83bba7af66c4d631036f66ca07e"
+  },
+  {
+    "role": "banner",
+    "path": "il2cpp/PatchWorld_FleetBoatFormation.cs",
+    "before": "ee3c98da1af02242ba2e6dc50522e6b5e6409fcdc66345775e7b18ad94e27178",
+    "after": "9bda1a1bc8165811f2efeea76ed07b8c18265beb33d3c2746264950ea59eabd7"
+  },
+  {
+    "role": "banner",
+    "path": "il2cpp/Patch_MusketeerFormation.cs",
+    "before": null,
+    "after": "bfdf2d497a1c0a227e5d5f0005c8a37e37165356f8a4549e0a979c326ee2f3c1"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/Harness.cs",
+    "before": null,
+    "after": "32ac5752486d49e4da84cdc10b213f733615840de9d7f41bba0a8af178aca652"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/LayoutTests.cs",
+    "before": null,
+    "after": "09c47ca992e94c3088b2310083b8d13e98f1a44a8bad2e9e7369af1c84c173bb"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/MusketeerFormationTests.csproj",
+    "before": null,
+    "after": "bd8d712e43d29be1477cccceaea03a07e5bb51c85484068bf9f013c2f47b61d4"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/PolicyTests.cs",
+    "before": null,
+    "after": "a8c7eb7517cc35250368d0fbc2b7686c5be318f6044f9b266bf2267a8f18ff56"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/Program.cs",
+    "before": null,
+    "after": "13396747a2bc5fba75cd03ae20370fe33698ef52fdd31765cf106c93d1ed78cd"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/Stubs.cs",
+    "before": null,
+    "after": "bc93e64204f19ab71df00056c30f81bcdc5140faaacc701892e70a4c9db12aa2"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/e2e/FormationPipelineTests.csproj",
+    "before": null,
+    "after": "59655f322f3c4c992103e6a9f3d953c01926c74ca846f4ac342793a9fd331712"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/e2e/Harness.cs",
+    "before": null,
+    "after": "8729d7514d2f8560113dab5cbcbcfc04c31d836719c020930256828b6f904cc4"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/e2e/PipelineTests.cs",
+    "before": null,
+    "after": "79c5747fe01754bf17748637397c12b1fa0cb42afc2d62954c0ec5d3f5a01952"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/e2e/Program.cs",
+    "before": null,
+    "after": "c56eebeded653bbbd64e4aac5bf86a648d30690a5c3eaab0fd6353ac64128314"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/e2e/Stubs.cs",
+    "before": null,
+    "after": "6ab2e8c5872c1cb23650464f605d04f2cafc7f97f5bce976578f0246f9b952c6"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/interop-check/CollabStubs.cs",
+    "before": null,
+    "after": "34b60c471101ab725658fd253a90f466baf66daed276882b5cb8af033528c4d6"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/interop-check/MusketeerFormationInteropCheck.csproj",
+    "before": null,
+    "after": "0a7671e3cb4cf188bc0148ab323acf95aa26c4ed81d891ec8c8a78a1af3d2b70"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/interop-check/SignatureProbe.cs",
+    "before": null,
+    "after": "c8d76d6e2e936ca211ee56f52a8be406515f80b6cdf202181e277c93a0be455d"
+  }
+]

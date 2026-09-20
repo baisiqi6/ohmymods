@@ -25,7 +25,7 @@ Check(stable,"stable full rack ready across repeated maintenance");
 Check(moves==3,"each proven life reanchors only once, external displacement not pulled back");
 Check(!layout.Reconcile(false,full)&&moves==3,"pause/save/off/foreign/unknown context gate cannot move");
 Check(layout.Reconcile(true,full)&&moves==3,"resume same shop retains receipts");
-full[0].Unclaimed=false;Check(!layout.Reconcile(true,full)&&moves==3,"player/enemy/picked claim gate even with existing receipt");
+full[0].Unclaimed=false;Check(layout.Reconcile(true,full)&&moves==3&&layout.IsPlaced(full[0]),"claimed gun keeps receipt, layout stays complete during claim window");
 full[0].Unclaimed=true;
 foreach(string change in new[]{"life","career","state","pointer","instance","shop","layer"})
 {
@@ -39,7 +39,7 @@ foreach(string change in new[]{"life","career","state","pointer","instance","sho
 }
 layout.Reset();moves=0;
 var claimed=Item(1);claimed.Unclaimed=false;
-Check(!layout.Reconcile(true,new[]{claimed})&&moves==0,"claimed old stock never moves");
+Check(layout.Reconcile(true,new[]{claimed})&&moves==0,"claimed old stock skipped, never moved, layout stays complete");
 claimed.Unclaimed=true;Check(layout.Reconcile(true,new[]{claimed})&&moves==1,"released claim can safely retry once");
 Check(layout.Reconcile(true,Array.Empty<MusketeerRackLayout.Item>()),"empty snapshot retires old slot receipt");
 Check(layout.Reconcile(true,new[]{claimed})&&moves==2,"removed stock cannot carry slot receipt into reused slot");
@@ -54,4 +54,24 @@ Check(layout.Reconcile(true,new[]{fail})&&attempts==2,"no second successful move
 // This is a geometric compatibility bound, not a claim of a live-game pickup test.
 float shopY=.875f,peasantTop=1.5f,toolRadius=.25f;
 Check(peasantTop-(shopY+MusketeerShopRules.SlotY(2)-toolRadius)==.125f,"highest rack trigger overlaps serialized ordinary peasant by .125");
+layout.Reset();moves=0;
+// Mirror of MusketeerShop.RackCount's per-item predicate over ReadRackItems output: a claimed
+// gun physically occupies its slot; only an unclaimed gun without a placed receipt fails closed.
+int RackCount(IReadOnlyList<MusketeerRackLayout.Item> items)
+{
+ foreach(var item in items)
+  if(item.Unclaimed&&!layout.IsPlaced(item))return MusketeerShopRules.RackCapacity;
+ return items.Count;
+}
+var rack=new List<MusketeerRackLayout.Item>();
+var gunA=Item(0);gunA.Unclaimed=false;rack.Add(gunA);
+Check(RackCount(rack)==1,"claimed uncollected gun occupies one slot instead of locking the shop");
+Check(layout.Reconcile(true,rack)&&moves==0,"claim window keeps layout complete even before first anchor");
+var gunB=Item(1);rack.Add(gunB);
+Check(layout.Reconcile(true,rack)&&moves==1&&RackCount(rack)==2,"second gun anchors and counts while first stays claimed");
+gunA.Unclaimed=true;
+Check(RackCount(rack)==MusketeerShopRules.RackCapacity,"released claim without receipt still fails the count closed");
+Check(layout.Reconcile(true,rack)&&moves==2&&RackCount(rack)==2,"recovery: anchor after claim release restores counting");
+gunA.Unclaimed=gunB.Unclaimed=false;var gunC=Item(2);gunC.Unclaimed=false;rack.Add(gunC);
+Check(layout.Reconcile(true,rack)&&moves==2&&RackCount(rack)==3,"three claimed guns fill capacity and lock the shop");
 Console.WriteLine($"PASS {checks} side-rack slot/layout/receipt assertions; live pickup remains untested");

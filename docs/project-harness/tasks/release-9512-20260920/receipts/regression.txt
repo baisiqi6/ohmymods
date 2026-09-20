@@ -1,0 +1,37 @@
+=== hero-arrow-pierce ===
+ALL PASS: pass=89 fail=0
+=== hero-artemis-arrow ===
+ALL PASS: pass=153 fail=0
+=== musketeer-side-rack ===
+PASS 60 side-rack slot/layout/receipt assertions; live pickup remains untested
+=== musketeer-formation ===
+passed=42 failed=0
+=== knight-identity-runtime ===
+total: passed=45 failed=0
+=== knight-identity-archive ===
+total: passed=42 failed=0
+=== knight-stable-context ===
+total: passed=16 failed=0
+=== knight-load-seed ===
+total: passed=34 failed=0
+=== knight-identity-integration ===
+PASS integrated real Archive/Runtime/Network: 9 assertions; native boundary is simulated
+=== knight-identity-network ===
+total: passed=48 failed=0
+=== musketeer-identity ===
+PASS 303 assertions (real musketeer archive/identity/persistence)
+=== fleet-greek-squads ===
+RESULT passed=91 failed=0
+=== musketeer-restock ===
+PASS 72 real identity/restock assertions; no archive writes
+=== musketeer-defense ===
+执行要使用的项目文件，因为 C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\release-9512-20260920\clean\tests\musketeer-defense 包含多个项目文件。
+=== musketeer-shop ===
+PASS 18 shop payment/rack/retention assertions
+=== hero-arrow-pierce gold ===
+ALL PASS: pass=89 fail=0
+=== hero-arrow-pierce missing ===
+ALL PASS: pass=13 fail=0
+=== formation e2e ===
+passed=23 failed=0
+生成失败。请修复生成错误并重新运行。

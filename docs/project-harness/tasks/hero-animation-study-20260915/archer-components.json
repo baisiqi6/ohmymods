@@ -1,0 +1,108 @@
+{
+  "components": [
+    {
+      "id": 40367,
+      "type": "Transform",
+      "children": 2
+    },
+    {
+      "id": 68174,
+      "type": "SpriteRenderer"
+    },
+    {
+      "id": 64341,
+      "type": "Animator"
+    },
+    {
+      "id": 59566,
+      "type": "Rigidbody2D"
+    },
+    {
+      "id": 85801,
+      "type": "MonoBehaviour",
+      "script": "Wallet"
+    },
+    {
+      "id": 85736,
+      "type": "MonoBehaviour",
+      "script": "Character"
+    },
+    {
+      "id": 85881,
+      "type": "MonoBehaviour",
+      "script": "Archer"
+    },
+    {
+      "id": 85806,
+      "type": "MonoBehaviour",
+      "script": "FixedTransform"
+    },
+    {
+      "id": 85769,
+      "type": "MonoBehaviour",
+      "script": "SpriteRendererFX"
+    },
+    {
+      "id": 88866,
+      "type": "MonoBehaviour",
+      "script": "Damageable"
+    },
+    {
+      "id": 86056,
+      "type": "MonoBehaviour",
+      "script": "Mover"
+    },
+    {
+      "id": 88768,
+      "type": "MonoBehaviour",
+      "script": "Persistent"
+    },
+    {
+      "id": 92010,
+      "type": "MonoBehaviour",
+      "script": "PositionSync"
+    },
+    {
+      "id": 89599,
+      "type": "MonoBehaviour",
+      "script": "AnimationSync"
+    },
+    {
+      "id": 91301,
+      "type": "MonoBehaviour",
+      "script": "BiomeAnimationSwapper"
+    },
+    {
+      "id": 114600,
+      "type": "MonoBehaviour",
+      "script": "GenderAnimatorSelector"
+    },
+    {
+      "id": 104120,
+      "type": "MonoBehaviour",
+      "script": "Buffable"
+    },
+    {
+      "id": 94900,
+      "type": "MonoBehaviour",
+      "script": "Petrifiable"
+    },
+    {
+      "id": 63045,
+      "type": "CapsuleCollider2D"
+    },
+    {
+      "id": 107974,
+      "type": "MonoBehaviour",
+      "script": "Embarkee"
+    }
+  ],
+  "sprite": {
+    "bones": 0,
+    "pivot": [
+      0.5,
+      0.0
+    ],
+    "PPU": 32.0
+  }
+}

@@ -1,0 +1,554 @@
+
+System.Boolean GreedArcher::HasValidTarget() 0x569f50 slots=1 bytes=704
+569f50: push rbx
+569f52: sub rsp, 0x60
+569f56: cmp byte ptr [rip + 0x3a560ad], 0
+569f5d: mov rbx, rcx
+569f60: jne 0x569fa5
+569f62: lea rcx, [rip + 0x379aa6f]
+569f69: call 0x3de0c0
+569f6e: lea rcx, [rip + 0x37a8af3]
+569f75: call 0x3de0c0
+569f7a: lea rcx, [rip + 0x37fad87]
+569f81: call 0x3de0c0
+569f86: lea rcx, [rip + 0x37eaa6b]
+569f8d: call 0x3de0c0
+569f92: lea rcx, [rip + 0x37cd20f]
+569f99: call 0x3de0c0
+569f9e: mov byte ptr [rip + 0x3a56065], 1
+569fa5: mov rcx, qword ptr [rbx + 0x120]
+569fac: mov qword ptr [rsp + 0x70], rsi
+569fb1: mov qword ptr [rsp + 0x78], rdi
+569fb6: movaps xmmword ptr [rsp + 0x50], xmm6
+569fbb: movaps xmmword ptr [rsp + 0x40], xmm7
+569fc0: test rcx, rcx
+569fc3: je 0x56a203
+569fc9: xor edx, edx
+569fcb: call 0x742580
+569fd0: test rax, rax
+569fd3: je 0x56a052
+569fd5: mov rdx, qword ptr [rip + 0x379a9fc]
+569fdc: mov rcx, rax
+569fdf: call 0xc8fad0
+569fe4: mov rdi, rax
+569fe7: test rax, rax
+569fea: je 0x56a052
+569fec: mov rcx, qword ptr [rip + 0x37fad15]
+569ff3: cmp dword ptr [rcx + 0xe4], 0
+569ffa: jne 0x56a008
+569ffc: call 0x3de400
+56a001: mov rcx, qword ptr [rip + 0x37fad00]
+56a008: mov rcx, qword ptr [rcx + 0xb8]
+56a00f: xor r8d, r8d
+56a012: mov edx, dword ptr [rcx + 0xc]
+56a015: mov rcx, rdi
+56a018: call 0x9bca50
+56a01d: test al, al
+56a01f: je 0x56a052
+56a021: xor edx, edx
+56a023: mov rcx, rdi
+56a026: call 0x2c77620
+56a02b: test al, al
+56a02d: je 0x56a052
+56a02f: mov qword ptr [rbx + 0xf0], rdi
+56a036: mov al, 1
+56a038: movaps xmm7, xmmword ptr [rsp + 0x40]
+56a03d: movaps xmm6, xmmword ptr [rsp + 0x50]
+56a042: mov rdi, qword ptr [rsp + 0x78]
+56a047: mov rsi, qword ptr [rsp + 0x70]
+56a04c: add rsp, 0x60
+56a050: pop rbx
+56a051: ret 
+56a052: mov rcx, qword ptr [rip + 0x37cd14f]
+56a059: call 0x10dc160
+56a05e: test rax, rax
+56a061: je 0x56a203
+56a067: mov rdi, qword ptr [rax + 0xc8]
+56a06e: xor edx, edx
+56a070: mov rcx, rbx
+56a073: call 0x2c784a0
+56a078: test rax, rax
+56a07b: je 0x56a203
+56a081: xor r8d, r8d
+56a084: lea rcx, [rsp + 0x30]
+56a089: mov rdx, rax
+56a08c: call 0x2cc0270
+56a091: mov rcx, qword ptr [rip + 0x37ea960]
+56a098: movss xmm7, dword ptr [rbx + 0x88]
+56a0a0: movss xmm6, dword ptr [rax]
+56a0a4: call 0x3de320
+56a0a9: mov r8, qword ptr [rip + 0x37a89b8]
+56a0b0: xor r9d, r9d
+56a0b3: xor edx, edx
+56a0b5: mov rcx, rax
+56a0b8: mov rsi, rax
+56a0bb: call 0x7946d0
+56a0c0: test rdi, rdi
+56a0c3: je 0x56a203
+56a0c9: mov r9, rsi
+56a0cc: mov qword ptr [rsp + 0x20], 0
+56a0d5: movaps xmm2, xmm7
+56a0d8: movaps xmm1, xmm6
+56a0db: mov rcx, rdi
+56a0de: call 0x7a16a0
+56a0e3: mov qword ptr [rbx + 0xf0], rax
+56a0ea: test rax, rax
+56a0ed: jne 0x56a194
+56a0f3: mov rcx, qword ptr [rip + 0x37cd0ae]
+56a0fa: call 0x10dc160
+56a0ff: test rax, rax
+56a102: je 0x56a203
+56a108: mov rdi, qword ptr [rax + 0xc8]
+56a10f: xor edx, edx
+56a111: mov rcx, rbx
+56a114: call 0x2c784a0
+56a119: test rax, rax
+56a11c: je 0x56a203
+56a122: xor r8d, r8d
+56a125: lea rcx, [rsp + 0x30]
+56a12a: mov rdx, rax
+56a12d: call 0x2cc0270
+56a132: mov rcx, qword ptr [rip + 0x37ea8bf]
+56a139: movss xmm7, dword ptr [rbx + 0x88]
+56a141: movss xmm6, dword ptr [rax]
+56a145: call 0x3de320
+56a14a: mov r8, qword ptr [rip + 0x37a8917]
+56a151: xor r9d, r9d
+56a154: xor edx, edx
+56a156: mov rcx, rax
+56a159: mov rsi, rax
+56a15c: call 0x7946d0
+56a161: test rdi, rdi
+56a164: je 0x56a203
+56a16a: mov qword ptr [rsp + 0x28], 0
+56a173: mov r9, rsi
+56a176: movaps xmm2, xmm7
+56a179: mov qword ptr [rsp + 0x20], 0
+56a182: movaps xmm1, xmm6
+56a185: mov rcx, rdi
+56a188: call 0x7a1820
+56a18d: mov qword ptr [rbx + 0xf0], rax
+56a194: cmp qword ptr [rbx + 0xf0], 0
+56a19c: je 0x56a1fc
+56a19e: mov rcx, qword ptr [rbx + 0xf0]
+56a1a5: xor edx, edx
+56a1a7: call 0x2c784a0
+56a1ac: test rax, rax
+56a1af: je 0x56a203
+56a1b1: xor r8d, r8d
+56a1b4: lea rcx, [rsp + 0x30]
+56a1b9: mov rdx, rax
+56a1bc: call 0x2cc0270
+56a1c1: xor edx, edx
+56a1c3: mov rcx, rbx
+56a1c6: movss xmm6, dword ptr [rax]
+56a1ca: call 0x2c784a0
+56a1cf: test rax, rax
+56a1d2: je 0x56a203
+56a1d4: xor r8d, r8d
+56a1d7: lea rcx, [rsp + 0x30]
+56a1dc: mov rdx, rax
+56a1df: call 0x2cc0270
+56a1e4: subss xmm6, dword ptr [rax]
+56a1e8: andps xmm6, xmmword ptr [rip + 0x2b3aa41]
+56a1ef: comiss xmm6, dword ptr [rbx + 0x88]
+56a1f6: jbe 0x56a036
+56a1fc: xor al, al
+56a1fe: jmp 0x56a038
+56a203: call 0x3de370
+56a208: int3 
+56a209: int3 
+56a20a: int3 
+56a20b: int3 
+56a20c: int3 
+56a20d: int3 
+56a20e: int3 
+56a20f: int3 
+
+Damageable TargetCacher::GetClosestPriorityTargetWithinRange(System.Single,System.Single,TargetCacher/SearchConditionDelegate,TargetCacher/SearchConditionDelegate) 0x7a1820 slots=1 bytes=464
+7a1820: mov qword ptr [rsp + 0x10], rbx
+7a1825: mov qword ptr [rsp + 0x18], rbp
+7a182a: mov qword ptr [rsp + 0x20], rsi
+7a182f: push rdi
+7a1830: sub rsp, 0x70
+7a1834: cmp byte ptr [rip + 0x381fd3a], 0
+7a183b: mov rsi, r9
+7a183e: movaps xmmword ptr [rsp + 0x50], xmm7
+7a1843: mov rbx, rcx
+7a1846: movaps xmmword ptr [rsp + 0x30], xmm9
+7a184c: movaps xmm7, xmm2
+7a184f: movaps xmm9, xmm1
+7a1853: jne 0x7a1874
+7a1855: lea rcx, [rip + 0x35affcc]
+7a185c: call 0x3de0c0
+7a1861: lea rcx, [rip + 0x35b00a0]
+7a1868: call 0x3de0c0
+7a186d: mov byte ptr [rip + 0x381fd01], 1
+7a1874: mov rax, qword ptr [rbx + 0x20]
+7a1878: xor ebp, ebp
+7a187a: mov qword ptr [rsp + 0x80], r14
+7a1882: mov edi, ebp
+7a1884: movaps xmmword ptr [rsp + 0x60], xmm6
+7a1889: mov ecx, ebp
+7a188b: movaps xmmword ptr [rsp + 0x40], xmm8
+7a1891: test rax, rax
+7a1894: je 0x7a19e3
+7a189a: mov r14, qword ptr [rsp + 0xa0]
+7a18a2: movss xmm8, dword ptr [rip + 0x2903385]
+7a18ab: nop dword ptr [rax + rax]
+7a18b0: cmp ecx, dword ptr [rax + 0x18]
+7a18b3: jge 0x7a19ad
+7a18b9: mov rcx, qword ptr [rbx + 0x20]
+7a18bd: test rcx, rcx
+7a18c0: je 0x7a19e3
+7a18c6: mov r8, qword ptr [rip + 0x35b003b]
+7a18cd: mov edx, edi
+7a18cf: call 0xe94d20
+7a18d4: test rax, rax
+7a18d7: je 0x7a19e3
+7a18dd: xor edx, edx
+7a18df: mov rcx, rax
+7a18e2: call 0x2c784a0
+7a18e7: test rax, rax
+7a18ea: je 0x7a19e3
+7a18f0: xor r8d, r8d
+7a18f3: lea rcx, [rsp + 0x20]
+7a18f8: mov rdx, rax
+7a18fb: call 0x2cc0270
+7a1900: movss xmm6, dword ptr [rax]
+7a1904: subss xmm6, xmm9
+7a1909: andps xmm6, xmm8
+7a190d: test r14, r14
+7a1910: je 0x7a1943
+7a1912: mov rcx, qword ptr [rbx + 0x20]
+7a1916: test rcx, rcx
+7a1919: je 0x7a19e3
+7a191f: mov r8, qword ptr [rip + 0x35affe2]
+7a1926: mov edx, edi
+7a1928: call 0xe94d20
+7a192d: mov r9, qword ptr [r14 + 0x18]
+7a1931: mov rdx, rax
+7a1934: mov r8, qword ptr [r14 + 0x28]
+7a1938: mov rcx, qword ptr [r14 + 0x40]
+7a193c: call r9
+7a193f: test al, al
+7a1941: jne 0x7a199b
+7a1943: comiss xmm7, xmm6
+7a1946: jbe 0x7a199b
+7a1948: test rsi, rsi
+7a194b: je 0x7a197e
+7a194d: mov rcx, qword ptr [rbx + 0x20]
+7a1951: test rcx, rcx
+7a1954: je 0x7a19e3
+7a195a: mov r8, qword ptr [rip + 0x35affa7]
+7a1961: mov edx, edi
+7a1963: call 0xe94d20
+7a1968: mov r9, qword ptr [rsi + 0x18]
+7a196c: mov rdx, rax
+7a196f: mov r8, qword ptr [rsi + 0x28]
+7a1973: mov rcx, qword ptr [rsi + 0x40]
+7a1977: call r9
+7a197a: test al, al
+7a197c: je 0x7a199b
+7a197e: mov rcx, qword ptr [rbx + 0x20]
+7a1982: movaps xmm7, xmm6
+7a1985: test rcx, rcx
+7a1988: je 0x7a19e3
+7a198a: mov r8, qword ptr [rip + 0x35aff77]
+7a1991: mov edx, edi
+7a1993: call 0xe94d20
+7a1998: mov rbp, rax
+7a199b: mov rax, qword ptr [rbx + 0x20]
+7a199f: inc edi
+7a19a1: mov ecx, edi
+7a19a3: test rax, rax
+7a19a6: je 0x7a19e3
+7a19a8: jmp 0x7a18b0
+7a19ad: movaps xmm8, xmmword ptr [rsp + 0x40]
+7a19b3: lea r11, [rsp + 0x70]
+7a19b8: mov rbx, qword ptr [r11 + 0x18]
+7a19bc: mov rax, rbp
+7a19bf: mov rbp, qword ptr [r11 + 0x20]
+7a19c3: mov rsi, qword ptr [r11 + 0x28]
+7a19c7: movaps xmm9, xmmword ptr [r11 - 0x40]
+7a19cc: movaps xmm6, xmmword ptr [rsp + 0x60]
+7a19d1: mov r14, qword ptr [rsp + 0x80]
+7a19d9: movaps xmm7, xmmword ptr [rsp + 0x50]
+7a19de: mov rsp, r11
+7a19e1: pop rdi
+7a19e2: ret 
+7a19e3: call 0x3de370
+7a19e8: int3 
+7a19e9: int3 
+7a19ea: int3 
+7a19eb: int3 
+7a19ec: int3 
+7a19ed: int3 
+7a19ee: int3 
+7a19ef: int3 
+
+Damageable TargetCacher::GetClosestLowPriorityTargetWithinRange(System.Single,System.Single,TargetCacher/SearchConditionDelegate) 0x7a16a0 slots=1 bytes=384
+7a16a0: mov qword ptr [rsp + 8], rbx
+7a16a5: mov qword ptr [rsp + 0x10], rbp
+7a16aa: mov qword ptr [rsp + 0x18], rsi
+7a16af: push rdi
+7a16b0: sub rsp, 0x70
+7a16b4: cmp byte ptr [rip + 0x381febb], 0
+7a16bb: mov rsi, r9
+7a16be: movaps xmmword ptr [rsp + 0x50], xmm7
+7a16c3: mov rdi, rcx
+7a16c6: movaps xmmword ptr [rsp + 0x30], xmm9
+7a16cc: movaps xmm7, xmm2
+7a16cf: movaps xmm9, xmm1
+7a16d3: jne 0x7a16f4
+7a16d5: lea rcx, [rip + 0x35b014c]
+7a16dc: call 0x3de0c0
+7a16e1: lea rcx, [rip + 0x35b0220]
+7a16e8: call 0x3de0c0
+7a16ed: mov byte ptr [rip + 0x381fe82], 1
+7a16f4: mov rax, qword ptr [rdi + 0x28]
+7a16f8: xor ebp, ebp
+7a16fa: movaps xmmword ptr [rsp + 0x60], xmm6
+7a16ff: mov ebx, ebp
+7a1701: movaps xmmword ptr [rsp + 0x40], xmm8
+7a1707: mov ecx, ebp
+7a1709: test rax, rax
+7a170c: je 0x7a1815
+7a1712: movss xmm8, dword ptr [rip + 0x2903515]
+7a171b: nop dword ptr [rax + rax]
+7a1720: cmp ecx, dword ptr [rax + 0x18]
+7a1723: jge 0x7a17e7
+7a1729: mov rcx, qword ptr [rdi + 0x28]
+7a172d: test rcx, rcx
+7a1730: je 0x7a1815
+7a1736: mov r8, qword ptr [rip + 0x35b01cb]
+7a173d: mov edx, ebx
+7a173f: call 0xe94d20
+7a1744: test rax, rax
+7a1747: je 0x7a1815
+7a174d: xor edx, edx
+7a174f: mov rcx, rax
+7a1752: call 0x2c784a0
+7a1757: test rax, rax
+7a175a: je 0x7a1815
+7a1760: xor r8d, r8d
+7a1763: lea rcx, [rsp + 0x20]
+7a1768: mov rdx, rax
+7a176b: call 0x2cc0270
+7a1770: movss xmm6, dword ptr [rax]
+7a1774: subss xmm6, xmm9
+7a1779: andps xmm6, xmm8
+7a177d: comiss xmm7, xmm6
+7a1780: jbe 0x7a17d5
+7a1782: test rsi, rsi
+7a1785: je 0x7a17b8
+7a1787: mov rcx, qword ptr [rdi + 0x28]
+7a178b: test rcx, rcx
+7a178e: je 0x7a1815
+7a1794: mov r8, qword ptr [rip + 0x35b016d]
+7a179b: mov edx, ebx
+7a179d: call 0xe94d20
+7a17a2: mov r9, qword ptr [rsi + 0x18]
+7a17a6: mov rdx, rax
+7a17a9: mov r8, qword ptr [rsi + 0x28]
+7a17ad: mov rcx, qword ptr [rsi + 0x40]
+7a17b1: call r9
+7a17b4: test al, al
+7a17b6: je 0x7a17d5
+7a17b8: mov rcx, qword ptr [rdi + 0x28]
+7a17bc: movaps xmm7, xmm6
+7a17bf: test rcx, rcx
+7a17c2: je 0x7a1815
+7a17c4: mov r8, qword ptr [rip + 0x35b013d]
+7a17cb: mov edx, ebx
+7a17cd: call 0xe94d20
+7a17d2: mov rbp, rax
+7a17d5: mov rax, qword ptr [rdi + 0x28]
+7a17d9: inc ebx
+7a17db: mov ecx, ebx
+7a17dd: test rax, rax
+7a17e0: je 0x7a1815
+7a17e2: jmp 0x7a1720
+7a17e7: movaps xmm8, xmmword ptr [rsp + 0x40]
+7a17ed: lea r11, [rsp + 0x70]
+7a17f2: mov rbx, qword ptr [r11 + 0x10]
+7a17f6: mov rax, rbp
+7a17f9: mov rbp, qword ptr [r11 + 0x18]
+7a17fd: mov rsi, qword ptr [r11 + 0x20]
+7a1801: movaps xmm9, xmmword ptr [r11 - 0x40]
+7a1806: movaps xmm6, xmmword ptr [rsp + 0x60]
+7a180b: movaps xmm7, xmmword ptr [rsp + 0x50]
+7a1810: mov rsp, r11
+7a1813: pop rdi
+7a1814: ret 
+7a1815: call 0x3de370
+7a181a: int3 
+7a181b: int3 
+7a181c: int3 
+7a181d: int3 
+7a181e: int3 
+7a181f: int3 
+
+System.Boolean Troll::FindPriorityChargeTarget(UnityEngine.GameObject&) 0x7b8470 slots=1 bytes=320
+7b8470: mov qword ptr [rsp + 0x10], rbx
+7b8475: push rdi
+7b8476: sub rsp, 0x40
+7b847a: cmp byte ptr [rip + 0x38091c7], 0
+7b8481: mov rdi, rdx
+7b8484: mov rbx, rcx
+7b8487: jne 0x7b849c
+7b8489: lea rcx, [rip + 0x357ed18]
+7b8490: call 0x3de0c0
+7b8495: mov byte ptr [rip + 0x38091ac], 1
+7b849c: mov rcx, qword ptr [rip + 0x357ed05]
+7b84a3: mov qword ptr [rsp + 0x50], rsi
+7b84a8: call 0x10dc160
+7b84ad: test rax, rax
+7b84b0: je 0x7b85a5
+7b84b6: mov rsi, qword ptr [rax + 0xc8]
+7b84bd: xor edx, edx
+7b84bf: mov rcx, rbx
+7b84c2: call 0x2c784a0
+7b84c7: test rax, rax
+7b84ca: je 0x7b85a5
+7b84d0: xor r8d, r8d
+7b84d3: lea rcx, [rsp + 0x30]
+7b84d8: mov rdx, rax
+7b84db: call 0x2cc0270
+7b84e0: test rsi, rsi
+7b84e3: je 0x7b85a5
+7b84e9: mov rdx, qword ptr [rbx + 0x258]
+7b84f0: mov rcx, rsi
+7b84f3: mov r9, qword ptr [rbx + 0x250]
+7b84fa: movss xmm2, dword ptr [rbx + 0xcc]
+7b8502: movss xmm1, dword ptr [rax]
+7b8506: mov qword ptr [rsp + 0x28], 0
+7b850f: mov qword ptr [rsp + 0x20], rdx
+7b8514: call 0x7a1820
+7b8519: mov rsi, rax
+7b851c: test rax, rax
+7b851f: je 0x7b8555
+7b8521: mov edx, dword ptr [rbx + 0x154]
+7b8527: xor r8d, r8d
+7b852a: mov rcx, rax
+7b852d: call 0x9bca50
+7b8532: test al, al
+7b8534: je 0x7b8555
+7b8536: xor edx, edx
+7b8538: mov rcx, rsi
+7b853b: call 0x2c78320
+7b8540: mov qword ptr [rdi], rax
+7b8543: mov al, 1
+7b8545: mov rsi, qword ptr [rsp + 0x50]
+7b854a: mov rbx, qword ptr [rsp + 0x58]
+7b854f: add rsp, 0x40
+7b8553: pop rdi
+7b8554: ret 
+7b8555: mov rcx, qword ptr [rbx + 0x1d8]
+7b855c: test rcx, rcx
+7b855f: je 0x7b85a5
+7b8561: xor edx, edx
+7b8563: call 0x742580
+7b8568: test rax, rax
+7b856b: jne 0x7b8580
+7b856d: mov rsi, qword ptr [rsp + 0x50]
+7b8572: mov rbx, qword ptr [rsp + 0x58]
+7b8577: mov qword ptr [rdi], rax
+7b857a: add rsp, 0x40
+7b857e: pop rdi
+7b857f: ret 
+7b8580: xor edx, edx
+7b8582: mov rcx, rax
+7b8585: call 0x2c7c8b0
+7b858a: test rax, rax
+7b858d: je 0x7b85a5
+7b858f: xor edx, edx
+7b8591: mov rcx, rax
+7b8594: call 0x2cbd970
+7b8599: test rax, rax
+7b859c: je 0x7b85a5
+7b859e: xor edx, edx
+7b85a0: mov rcx, rax
+7b85a3: jmp 0x7b853b
+7b85a5: call 0x3de370
+7b85aa: int3 
+7b85ab: int3 
+7b85ac: int3 
+7b85ad: int3 
+7b85ae: int3 
+7b85af: int3 
+
+System.Boolean Troll::FindOtherChargeTarget(UnityEngine.GameObject&) 0x7b8370 slots=1 bytes=256
+7b8370: mov qword ptr [rsp + 0x10], rbx
+7b8375: push rdi
+7b8376: sub rsp, 0x40
+7b837a: cmp byte ptr [rip + 0x38092c8], 0
+7b8381: mov rdi, rdx
+7b8384: mov rbx, rcx
+7b8387: jne 0x7b839c
+7b8389: lea rcx, [rip + 0x357ee18]
+7b8390: call 0x3de0c0
+7b8395: mov byte ptr [rip + 0x38092ad], 1
+7b839c: mov rcx, qword ptr [rip + 0x357ee05]
+7b83a3: mov qword ptr [rsp + 0x50], rsi
+7b83a8: call 0x10dc160
+7b83ad: test rax, rax
+7b83b0: je 0x7b845e
+7b83b6: mov rsi, qword ptr [rax + 0xc8]
+7b83bd: xor edx, edx
+7b83bf: mov rcx, rbx
+7b83c2: call 0x2c784a0
+7b83c7: test rax, rax
+7b83ca: je 0x7b845e
+7b83d0: xor r8d, r8d
+7b83d3: lea rcx, [rsp + 0x30]
+7b83d8: mov rdx, rax
+7b83db: call 0x2cc0270
+7b83e0: test rsi, rsi
+7b83e3: je 0x7b845e
+7b83e5: mov r9, qword ptr [rbx + 0x250]
+7b83ec: mov rcx, rsi
+7b83ef: movss xmm2, dword ptr [rbx + 0xcc]
+7b83f7: movss xmm1, dword ptr [rax]
+7b83fb: mov qword ptr [rsp + 0x20], 0
+7b8404: call 0x7a16a0
+7b8409: mov rsi, rax
+7b840c: test rax, rax
+7b840f: je 0x7b8445
+7b8411: mov edx, dword ptr [rbx + 0x154]
+7b8417: xor r8d, r8d
+7b841a: mov rcx, rax
+7b841d: call 0x9bca50
+7b8422: test al, al
+7b8424: je 0x7b8445
+7b8426: xor edx, edx
+7b8428: mov rcx, rsi
+7b842b: call 0x2c78320
+7b8430: mov qword ptr [rdi], rax
+7b8433: mov al, 1
+7b8435: mov rsi, qword ptr [rsp + 0x50]
+7b843a: mov rbx, qword ptr [rsp + 0x58]
+7b843f: add rsp, 0x40
+7b8443: pop rdi
+7b8444: ret 
+7b8445: mov rsi, qword ptr [rsp + 0x50]
+7b844a: xor al, al
+7b844c: mov rbx, qword ptr [rsp + 0x58]
+7b8451: mov qword ptr [rdi], 0
+7b8458: add rsp, 0x40
+7b845c: pop rdi
+7b845d: ret 
+7b845e: call 0x3de370
+7b8463: int3 
+7b8464: int3 
+7b8465: int3 
+7b8466: int3 
+7b8467: int3 
+7b8468: int3 
+7b8469: int3 
+7b846a: int3 
+7b846b: int3 
+7b846c: int3 
+7b846d: int3 
+7b846e: int3 
+7b846f: int3 

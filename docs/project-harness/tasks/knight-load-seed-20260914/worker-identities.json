@@ -1,0 +1,23 @@
+[
+  {
+    "session": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\knight-load-seed-20260914\\sessions\\2026-09-14T13-03-34-979Z_01a0a004-0c43-7041-b19c-0cf0c04f73f5.jsonl",
+    "events": [
+      {
+        "type": "session",
+        "id": "01a0a004-0c43-7041-b19c-0cf0c04f73f5",
+        "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\knight-load-seed-20260914\\worker"
+      },
+      {
+        "type": "model_change",
+        "id": "2af960bf",
+        "model": "deepseek/deepseek-v4-flash",
+        "resolvedModelIsFallback": false
+      },
+      {
+        "type": "thinking_level_change",
+        "id": "6a96f53e",
+        "thinkingLevel": "max"
+      }
+    ]
+  }
+]

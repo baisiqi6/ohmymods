@@ -1,0 +1,28 @@
+{
+  "sheet": [
+    80,
+    160
+  ],
+  "cell": [
+    16,
+    40
+  ],
+  "columns": 5,
+  "rows": 4,
+  "ppu": 32,
+  "states": [
+    "empty-disabled",
+    "empty-payable",
+    "occupied-banner",
+    "reserved-banner",
+    "torn-banner"
+  ],
+  "labels": false,
+  "runtimeFonts": false,
+  "alpha": [
+    0,
+    255
+  ],
+  "nativeReference": "PayableShield Empty -> Taken -> Broken; direct training has no pending shield pickup state",
+  "decorationMovedToOccupancy": true
+}

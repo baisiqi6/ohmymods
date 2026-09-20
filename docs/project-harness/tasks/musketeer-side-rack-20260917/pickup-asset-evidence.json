@@ -1,0 +1,156 @@
+[
+  {
+    "id": 19747,
+    "name": "ToolBow",
+    "layer": 14,
+    "components": [
+      {
+        "type": "Transform",
+        "fields": {
+          "m_LocalPosition": {
+            "x": 22.650798797607422,
+            "y": 1.3595086336135864,
+            "z": 1.25
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "Rigidbody2D",
+        "fields": {
+          "m_BodyType": 0
+        }
+      },
+      {
+        "type": "CircleCollider2D",
+        "fields": {
+          "m_Enabled": 1,
+          "m_IsTrigger": true,
+          "m_Offset": {
+            "x": 0.0625,
+            "y": 0.0
+          },
+          "m_Radius": 0.25
+        }
+      }
+    ]
+  },
+  {
+    "id": 19871,
+    "name": "Physical Collider",
+    "layer": 17,
+    "components": [
+      {
+        "type": "Transform",
+        "fields": {
+          "m_LocalPosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "CapsuleCollider2D",
+        "fields": {
+          "m_Enabled": 1,
+          "m_IsTrigger": false,
+          "m_Offset": {
+            "x": 0.0625,
+            "y": 0.0
+          },
+          "m_Size": {
+            "x": 0.125,
+            "y": 0.5
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": 19832,
+    "name": "Peasant",
+    "layer": 10,
+    "components": [
+      {
+        "type": "Transform",
+        "fields": {
+          "m_LocalPosition": {
+            "x": 0.0,
+            "y": 0.875,
+            "z": 0.75
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "Rigidbody2D",
+        "fields": {
+          "m_BodyType": 0
+        }
+      },
+      {
+        "type": "CapsuleCollider2D",
+        "fields": {
+          "m_Enabled": 1,
+          "m_IsTrigger": true,
+          "m_Offset": {
+            "x": 0.0,
+            "y": 0.3125
+          },
+          "m_Size": {
+            "x": 0.1875,
+            "y": 0.625
+          }
+        }
+      }
+    ]
+  },
+  {
+    "id": 20095,
+    "name": "Physical Collider",
+    "layer": 17,
+    "components": [
+      {
+        "type": "Transform",
+        "fields": {
+          "m_LocalPosition": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "CircleCollider2D",
+        "fields": {
+          "m_Enabled": 1,
+          "m_IsTrigger": false,
+          "m_Offset": {
+            "x": 0.0,
+            "y": 0.15625
+          },
+          "m_Radius": 0.15625
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,27 @@
+{
+  "actionAtlasVerified": true,
+  "unchangedResources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png",
+    "KingdomEnhancedMod.ArtemisArrow.png",
+    "KingdomEnhancedMod.HeroShop.png",
+    "KingdomEnhancedMod.HeroShopSeats.png",
+    "KingdomEnhancedMod.MusketeerAtlas.png",
+    "KingdomEnhancedMod.MusketeerShop.png",
+    "KingdomEnhancedMod.MusketeerGun.png",
+    "KingdomEnhancedMod.MusketeerBullet.png"
+  ],
+  "changedResources": [],
+  "changedMethods": [
+    "System.Boolean KingdomEnhancedMod.MusketeerCombat::TryComputeMuzzle(Archer,UnityEngine.Vector2&,System.Single&)",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "System.Void KingdomEnhancedMod.MusketeerVisuals::Apply(Archer)"
+  ],
+  "removedHarmonyPatchTypes": [],
+  "baselineSha256": "284B78A0DC4D17D83D40712E157DF1E21FB20EB2E15D981D0371488016740C1F",
+  "candidateSha256": "63EA50ADDE922CC1600EF11B8D2C4CFE10FBB12C555D83914CED55DA7DBD354A",
+  "newHarmonyPatchTypes": [],
+  "version": "9.0.0.0",
+  "unchangedMethods": 3653,
+  "addedMethods": [],
+  "removedMethods": []
+}

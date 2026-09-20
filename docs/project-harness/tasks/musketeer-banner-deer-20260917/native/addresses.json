@@ -1,0 +1,34 @@
+[
+  {
+    "type": "Formation",
+    "method": "NativeMethodInfoPtr_RegisterUnit_Public_Boolean_IFormationUnit_0",
+    "token": 100669516,
+    "rva": "0x531b10",
+    "sameAssemblyCSharpSlots": 1,
+    "spanToNextDistinctEntryBytes": 640
+  },
+  {
+    "type": "Formation",
+    "method": "NativeMethodInfoPtr_Recruit_Private_Void_0",
+    "token": 100669531,
+    "rva": "0x5311d0",
+    "sameAssemblyCSharpSlots": 1,
+    "spanToNextDistinctEntryBytes": 2272
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_TryRecruit_Public_Virtual_Final_New_Boolean_Formation_0",
+    "token": 100663874,
+    "rva": "0x4b80b0",
+    "sameAssemblyCSharpSlots": 1,
+    "spanToNextDistinctEntryBytes": 560
+  },
+  {
+    "type": "Player",
+    "method": "NativeMethodInfoPtr_ActivateFormation_Public_Void_0",
+    "token": 100675592,
+    "rva": "0x68fc00",
+    "sameAssemblyCSharpSlots": 1,
+    "spanToNextDistinctEntryBytes": 224
+  }
+]

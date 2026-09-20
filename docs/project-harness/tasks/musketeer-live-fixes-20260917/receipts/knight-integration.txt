@@ -1,0 +1,1 @@
+PASS integrated real Archive/Runtime/Network: 9 assertions; native boundary is simulated

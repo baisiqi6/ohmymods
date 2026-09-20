@@ -1,0 +1,9 @@
+# Operator final verification
+
+Final code and independent review inputs match final-input-hashes.json and build/source-receipt.json. Reviewer final PASS applies to final two feature modules; integration methods were reviewed via diff/source and verified by 38 extracted production-method assertions. Full result totals: counters51 + service38 + integration38 = 127. Build0W0E, 326Unity paths no unstrip stub, 4 hook wrappers/native slots unique, E startup passed with unchanged save. No enabled-game purchase or visual/network claim.
+
+External worker outputs were not accepted on self-report: first counter prototype had wrong Kingdom identity, unassigned mask, repeating shop registry rebuild and delegate/API errors. Operator corrected these in isolated build, then validated behavior. External test files initially did not compile; isolated edit-mode Bash lacked a permission client for some commands. Operator stopped only owned worker processes after files were generated, corrected fixtures against actual IL2CPP APIs/native sequencing, ran the tests and added targeted regressions. Workers never deployed or changed canonical sources. Provider runtime/model evidence below records actual GLM-5.3; requested max is not verified.
+
+First review's synthetic Select defect was fixed and covered by repeated-purchase tests. Assumed asynchronous promotion gap and request to continue after invalid context were withdrawn after native evidence. Final review's statement that retry permits 3 enumerations is an off-by-one description: code stops before third seed, actual tests prove two. No code change needed.
+
+The brief cooldown after cancellation and updated shop fault instance identity are covered by source-linked tests. Default config stays off with all goals15. Public v5.0 release and repository HEAD unchanged; no commit/push. Enabled gameplay acceptance remains doing as required by AGENTS.md.

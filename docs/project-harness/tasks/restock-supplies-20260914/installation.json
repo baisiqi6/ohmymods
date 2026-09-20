@@ -1,0 +1,15 @@
+{
+  "time": "2026-09-14T03:41:03.3028750+08:00",
+  "target": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-restock-supplies-20260914-034103-160.bak",
+  "installed": "00FA75CA35FB2B54E5F02D3E71D9C25FB2F45E736CFB522F05F02B6AF58CEE9B",
+  "build": "6.1.5-restock-supplies-20260914",
+  "saveBefore": "3DE1786460A74262F58D2C18772E91722BD7D50CBCF04517F2526BCAD3C5571A",
+  "saveAfter": "3DE1786460A74262F58D2C18772E91722BD7D50CBCF04517F2526BCAD3C5571A",
+  "configBefore": "4CE570229201E9D6AFA77ED66B89C7628A3C34C2DDF506844A6E77B50C9BD398",
+  "configAfter": "4CE570229201E9D6AFA77ED66B89C7628A3C34C2DDF506844A6E77B50C9BD398",
+  "bankBefore": 5709,
+  "bankAfter": 5709,
+  "gameLaunched": false,
+  "published615Unchanged": true
+}

@@ -1,0 +1,194 @@
+{
+  "frames": 31,
+  "changes": [
+    {
+      "index": 0,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 1,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 2,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 3,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 4,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 5,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 6,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 7,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 8,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 9,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 10,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 11,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 12,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 13,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 14,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 15,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 16,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 17,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 18,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 19,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 20,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 21,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 22,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 23,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 24,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 25,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 26,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 27,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 28,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 29,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    },
+    {
+      "index": 30,
+      "changed_pixels": 25,
+      "allowed_neck_patch_only": true,
+      "pivot_and_bbox_unchanged": true
+    }
+  ],
+  "binary_alpha": true,
+  "unchanged_outside_neck": true,
+  "atlas_sha256": "de17f3ba373e9662883a729230c6b4ef00ed332789d9c63370aeb558dc253d7a"
+}

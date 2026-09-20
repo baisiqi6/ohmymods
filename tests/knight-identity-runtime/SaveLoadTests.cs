@@ -13,6 +13,7 @@ namespace KnightIdentityRuntimeTests
             SaveWritesExactSnapshotAndLoadRestoresGuid();
             RuntimeStartDateAndClocksDoNotChangeIdentity();
             LegacyExactMatchClaimsTheContext();
+            MissingSidecarIsLogged();
             SaveCaptureNeedsGetIdWindow();
             NestedScopesRestorePreviousContext();
             MismatchKeepsArchiveWithoutAllocating();
@@ -20,6 +21,7 @@ namespace KnightIdentityRuntimeTests
             SaveUsesActualTargetIsland();
             OwnerLifeChangeSkipsSnapshotEntry();
             LoadScopeProtectsReceiptUntilScopeEnds();
+            RetryFailureIsLoggedOnce();
         }
 
         private static void SaveWritesExactSnapshotAndLoadRestoresGuid()
@@ -74,6 +76,7 @@ namespace KnightIdentityRuntimeTests
                     Check.True(Logged("save scope="), "save receipt logged");
                     Check.True(Logged("entries=2"), "save receipt carries the entry count");
                     Check.True(Logged("load-match scope="), "load match logged");
+                    Check.True(Logged("kind=exact"), "load match records the clock-free fingerprint kind");
                 }
             });
         }
@@ -152,6 +155,7 @@ namespace KnightIdentityRuntimeTests
                     Check.Same(oldGuid, restored.Id, "legacy Guid preserved");
                     Check.Equal(3, restored.Style, "legacy style preserved");
                     Check.True(Logged("load-match scope="), "legacy match logged as an exact match");
+                    Check.True(Logged("kind=legacy"), "legacy match records the legacy fingerprint kind");
                     Check.True(Logged("claim scope="), "the context mapping is persisted once");
 
                     KnightIdentityArchiveStore.LoadResult after = KnightIdentityArchiveStore.Load(f.SidecarPath);
@@ -159,6 +163,24 @@ namespace KnightIdentityRuntimeTests
                     Check.Equal(legacyScope, context.Active, "the legacy scope became the context epoch");
                     Check.True(after.Archive.TryRestore(legacyScope, legacyHash, island.objects[0].uniqueID, out KnightIdentityReceipt kept), "legacy record preserved on disk");
                     Check.Same(oldGuid, kept.Id, "legacy Guid on disk unchanged");
+                }
+            });
+        }
+
+        private static void MissingSidecarIsLogged()
+        {
+            Case.Run("missing_sidecar_load_is_logged_as_a_reseed", () =>
+            {
+                using (Fixture f = new Fixture())
+                {
+                    KnightUnit unit = NativeSim.NewKnight(24001);
+                    IslandSaveData island = new IslandSaveData { land = 10, objects = new Il2CppSystem.Collections.Generic.List<IslandSaveData.ObjectData>() };
+                    island.objects.Add(unit.ToRecord());
+                    NativeSim.RunLoad(island, (index, uniqueId) => unit);
+
+                    Check.True(Logged("load-sidecar-missing"), "main+backup missing is logged once");
+                    Check.True(Logged("load-fresh scope="), "the fresh path still proceeds");
+                    Check.False(f.SidecarExists, "a plain load never writes the sidecar");
                 }
             });
         }
@@ -442,6 +464,36 @@ namespace KnightIdentityRuntimeTests
             return log == null ? "<no log>" : string.Join(" | ", log.Messages);
         }
 
+        private static void RetryFailureIsLoggedOnce()
+        {
+            Case.Run("a_failed_write_retry_is_logged_once_and_keeps_the_previous_file", () =>
+            {
+                using (Fixture f = new Fixture())
+                {
+                    KnightUnit unit = NativeSim.NewKnight(25001);
+                    ResolveHost(unit, 1);
+                    IslandSaveData island = new IslandSaveData { land = 11 };
+                    NativeSim.RunSave(island, 0, 11, 0, new List<KnightUnit> { unit });
+                    island.biome++;
+                    NativeSim.RunSave(island, 0, 11, 0, new List<KnightUnit> { unit });
+                    Check.True(File.Exists(f.SidecarPath + ".bak"), "second save creates the backup used by the write path");
+
+                    byte[] before = File.ReadAllBytes(f.SidecarPath);
+                    using (FileStream locked = new FileStream(f.SidecarPath + ".bak", FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                    {
+                        island.biome++;
+                        NativeSim.RunSave(island, 0, 11, 0, new List<KnightUnit> { unit });
+                        island.biome++;
+                        NativeSim.RunSave(island, 0, 11, 0, new List<KnightUnit> { unit });
+                    }
+
+                    Check.True(before.AsSpan().SequenceEqual(File.ReadAllBytes(f.SidecarPath)), "a failed retry keeps the previous file");
+                    Check.True(Logged("sidecar-save:Failed"), "the existing failed path still runs");
+                    Check.Equal(1, LoggedCount("write-retry=1 failed"), "the failed retry is logged exactly once");
+                }
+            });
+        }
+
         private static KnightIdentityReceipt ResolveHost(KnightUnit unit, int existingStyle)
         {
             KnightIdentityRuntime.OnEnable(unit.Knight);
@@ -453,13 +505,19 @@ namespace KnightIdentityRuntimeTests
 
         private static bool Logged(string fragment)
         {
+            return LoggedCount(fragment) > 0;
+        }
+
+        private static int LoggedCount(string fragment)
+        {
             LogSource log = KingdomEnhancedPlugin.Instance != null ? KingdomEnhancedPlugin.Instance.LogSource : null;
-            if (log == null) return false;
+            if (log == null) return 0;
+            int count = 0;
             for (int i = 0; i < log.Messages.Count; i++)
             {
-                if (log.Messages[i].IndexOf(fragment, StringComparison.Ordinal) >= 0) return true;
+                if (log.Messages[i].IndexOf(fragment, StringComparison.Ordinal) >= 0) count++;
             }
-            return false;
+            return count;
         }
     }
 }

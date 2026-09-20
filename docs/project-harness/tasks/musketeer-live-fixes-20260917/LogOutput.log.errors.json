@@ -1,0 +1,80 @@
+[
+  {
+    "line": 588,
+    "context": [
+      "[Info   :KingdomEnhancedMod] [ClockDiag] t=21.50 isNight=False kingdomDaytime=False islandDays=81 timeScale=1.00",
+      "[Error  :Il2CppInterop] During invoking native->managed trampoline",
+      "Exception: System.NullReferenceException: Object reference not set to an instance of an object.",
+      "   at DMD<Character::DropItem>(Character this, Nullable`1 direction)",
+      "   at (il2cpp -> managed) DropItem(IntPtr , IntPtr , Il2CppMethodInfo* )",
+      "[Info   :KingdomEnhancedMod] [AutoRestock] 火塔罐 补货成功 price=4 nativePrice=2 coins=4",
+      "[Error  :Il2CppInterop] During invoking native->managed trampoline",
+      "Exception: System.NullReferenceException: Object reference not set to an instance of an object."
+    ]
+  },
+  {
+    "line": 589,
+    "context": [
+      "[Error  :Il2CppInterop] During invoking native->managed trampoline",
+      "Exception: System.NullReferenceException: Object reference not set to an instance of an object.",
+      "   at DMD<Character::DropItem>(Character this, Nullable`1 direction)",
+      "   at (il2cpp -> managed) DropItem(IntPtr , IntPtr , Il2CppMethodInfo* )",
+      "[Info   :KingdomEnhancedMod] [AutoRestock] 火塔罐 补货成功 price=4 nativePrice=2 coins=4",
+      "[Error  :Il2CppInterop] During invoking native->managed trampoline",
+      "Exception: System.NullReferenceException: Object reference not set to an instance of an object.",
+      "   at DMD<Character::DropItem>(Character this, Nullable`1 direction)"
+    ]
+  },
+  {
+    "line": 593,
+    "context": [
+      "[Info   :KingdomEnhancedMod] [AutoRestock] 火塔罐 补货成功 price=4 nativePrice=2 coins=4",
+      "[Error  :Il2CppInterop] During invoking native->managed trampoline",
+      "Exception: System.NullReferenceException: Object reference not set to an instance of an object.",
+      "   at DMD<Character::DropItem>(Character this, Nullable`1 direction)",
+      "   at (il2cpp -> managed) DropItem(IntPtr , IntPtr , Il2CppMethodInfo* )",
+      "[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=173.801 frame=43871 src=panel-late actor=-61856 life=1 hash=765711723 nt=0.000 len=1.500 ct=0.000 pose=10 nat=10 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.88 face=1/1f0",
+      "[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=173.838 frame=43872 src=panel-late actor=-61856 life=1 hash=1748754976 nt=0.000 len=1.250 ct=0.000 pose=16 nat=16 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.88 face=1/1f0",
+      "[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=173.970 frame=43875 src=panel-late actor=-61856 life=1 hash=765711723 nt=0.000 len=1.500 ct=0.000 pose=10 nat=10 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.88 face=1/1f0"
+    ]
+  },
+  {
+    "line": 594,
+    "context": [
+      "[Error  :Il2CppInterop] During invoking native->managed trampoline",
+      "Exception: System.NullReferenceException: Object reference not set to an instance of an object.",
+      "   at DMD<Character::DropItem>(Character this, Nullable`1 direction)",
+      "   at (il2cpp -> managed) DropItem(IntPtr , IntPtr , Il2CppMethodInfo* )",
+      "[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=173.801 frame=43871 src=panel-late actor=-61856 life=1 hash=765711723 nt=0.000 len=1.500 ct=0.000 pose=10 nat=10 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.88 face=1/1f0",
+      "[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=173.838 frame=43872 src=panel-late actor=-61856 life=1 hash=1748754976 nt=0.000 len=1.250 ct=0.000 pose=16 nat=16 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.88 face=1/1f0",
+      "[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=173.970 frame=43875 src=panel-late actor=-61856 life=1 hash=765711723 nt=0.000 len=1.500 ct=0.000 pose=10 nat=10 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.88 face=1/1f0",
+      "[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=174.138 frame=43879 src=panel-late actor=-61856 life=1 hash=-1518848078 nt=0.000 len=9.333 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.88 face=1/1f0"
+    ]
+  },
+  {
+    "line": 602,
+    "context": [
+      "[Info   :KingdomEnhancedMod] [RestockMotion] role=火塔罐 phase=walked-out x=172.68 shopX=176.68 gameTime=175.04",
+      "[Error  :Il2CppInterop] During invoking native->managed trampoline",
+      "Exception: System.NullReferenceException: Object reference not set to an instance of an object.",
+      "   at DMD<Character::DropItem>(Character this, Nullable`1 direction)",
+      "   at (il2cpp -> managed) DropItem(IntPtr , IntPtr , Il2CppMethodInfo* )",
+      "[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=177.144 frame=43951 src=panel-late actor=-61856 life=1 hash=765711723 nt=0.000 len=1.500 ct=0.000 pose=10 nat=10 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.88 face=1/1f0",
+      "[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=177.201 frame=43952 src=panel-late actor=-61856 life=1 hash=1748754976 nt=0.000 len=1.250 ct=0.000 pose=16 nat=16 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.88 face=1/1f0",
+      "[Info   :KingdomEnhancedMod] [ClockDiag] t=22.00 isNight=True kingdomDaytime=False islandDays=81 timeScale=1.00"
+    ]
+  },
+  {
+    "line": 603,
+    "context": [
+      "[Error  :Il2CppInterop] During invoking native->managed trampoline",
+      "Exception: System.NullReferenceException: Object reference not set to an instance of an object.",
+      "   at DMD<Character::DropItem>(Character this, Nullable`1 direction)",
+      "   at (il2cpp -> managed) DropItem(IntPtr , IntPtr , Il2CppMethodInfo* )",
+      "[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=177.144 frame=43951 src=panel-late actor=-61856 life=1 hash=765711723 nt=0.000 len=1.500 ct=0.000 pose=10 nat=10 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.88 face=1/1f0",
+      "[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=177.201 frame=43952 src=panel-late actor=-61856 life=1 hash=1748754976 nt=0.000 len=1.250 ct=0.000 pose=16 nat=16 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.88 face=1/1f0",
+      "[Info   :KingdomEnhancedMod] [ClockDiag] t=22.00 isNight=True kingdomDaytime=False islandDays=81 timeScale=1.00",
+      "[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=177.338 frame=43955 src=panel-late actor=-61856 life=1 hash=765711723 nt=0.000 len=1.500 ct=0.000 pose=10 nat=10 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.88 face=1/1f0"
+    ]
+  }
+]

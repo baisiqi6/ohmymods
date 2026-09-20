@@ -26,6 +26,7 @@ internal static class Program
         {
             ArchiveTests();
             StoreTests();
+            StoreReliabilityTests();
             ContextTests();
             TransferTests();
             DropBoundaryTests();
@@ -73,6 +74,8 @@ internal static class Program
     static void ClearStatics()
     {
         MusketeerIdentity.Islands.Clear();
+        Logger.Lines.Clear();
+        MusketeerArchiveLog.ResetForTests();
         foreach (string name in new[] { "Roots", "Bound", "Logged" })
         {
             var field = typeof(MusketeerIdentity).GetField(name, BindingFlags.NonPublic | BindingFlags.Static);
@@ -269,6 +272,97 @@ internal static class Program
         File.WriteAllText(path, "{\"schemaVersion\":99,\"scopes\":[],\"contexts\":[]}");
         Check(MusketeerArchiveStore.Load(path).Status == MusketeerArchiveStore.State.Unsupported, "future main not downgraded to the backup");
     }
+
+    // ---- 读失败回退 / 写失败重试（A 加固，2026-09-20；不改变任何身份语义） ----
+
+    static void StoreReliabilityTests()
+    {
+        Logger.Lines.Clear();
+        MusketeerArchiveLog.ResetForTests();
+
+        string path = Path.Combine(Root, "reliability.json");
+        if (File.Exists(path)) File.Delete(path);
+        if (File.Exists(path + ".bak")) File.Delete(path + ".bak");
+
+        var archive = new MusketeerArchive();
+        Check(archive.Record(H("scope"), H("snapshot"), new[] { new MusketeerCareer { Id = Guid.NewGuid(), Kind = MusketeerCareer.KindGun } }), "reliability snapshot");
+        Check(MusketeerArchiveStore.Save(path, MusketeerArchiveStore.Load(path), archive), "reliability first save");
+        Check(archive.Record(H("scope"), H("snapshot-2"), new[] { new MusketeerCareer { Id = Guid.NewGuid(), Kind = MusketeerCareer.KindGun } }), "reliability second snapshot");
+        Check(MusketeerArchiveStore.Save(path, MusketeerArchiveStore.Load(path), archive), "reliability replacement save keeps a backup");
+
+        // 读主文件 IO 失败 → 依然查备份；降级只读并落一次性 Warning（此前该路径全程静默）
+        byte[] main = File.ReadAllBytes(path);
+        using (var locked = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            var io = MusketeerArchiveStore.Load(path);
+            Check(io.Status == MusketeerArchiveStore.State.Valid && io.RecoveredBackup && !io.Writable,
+                "an unreadable main falls back to the read-only backup");
+        }
+        Check(main.SequenceEqual(File.ReadAllBytes(path)), "the fallback never rewrites the main file");
+        Check(Warned("sidecar load RecoveredBackup"), "the backup fallback is logged once | " + Dump());
+
+        // 备份也不可用：保持 IoError 降级，并记录状态与异常摘要
+        File.Delete(path + ".bak");
+        using (var locked = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            var ioOnly = MusketeerArchiveStore.Load(path);
+            Check(ioOnly.Status == MusketeerArchiveStore.State.IoError && !ioOnly.Writable, "an unreadable main without a backup stays IoError");
+        }
+        Check(Warned("sidecar load IoError"), "the plain IO failure is logged with its status | " + Dump());
+
+        // 重建备份供写路径使用
+        var staged = MusketeerArchiveStore.Load(path).Archive;
+        Check(staged.Record(H("scope"), H("snapshot-3"), new[] { new MusketeerCareer { Id = Guid.NewGuid(), Kind = MusketeerCareer.KindGun } }), "third snapshot staged");
+        Check(MusketeerArchiveStore.Save(path, MusketeerArchiveStore.Load(path), staged), "backup recreated");
+
+        // 写失败（IO 类）在锁持续时重试一次仍失败 → false + 一次性 retry=1 警告；释放锁后同一保存立即成功
+        var expected = MusketeerArchiveStore.Load(path);
+        Check(expected.Writable, "writable expected state");
+        var fourth = expected.Archive;
+        Check(fourth.Record(H("scope"), H("snapshot-4"), new[] { new MusketeerCareer { Id = Guid.NewGuid(), Kind = MusketeerCareer.KindGun } }), "fourth snapshot staged");
+        byte[] beforeFailure = File.ReadAllBytes(path);
+        using (var lockedBackup = new FileStream(path + ".bak", FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            Check(!MusketeerArchiveStore.Save(path, expected, fourth), "save fails while the backup stays locked");
+        }
+        Check(Warned("write-retry=1 failed"), "the failed retry is logged once | " + Dump());
+        Check(beforeFailure.SequenceEqual(File.ReadAllBytes(path)), "a failed retry keeps the previous file");
+        Check(!Directory.GetFiles(Path.GetDirectoryName(path)).Any(f => f.Contains(".tmp-")), "no temp file is left behind");
+        Check(MusketeerArchiveStore.Save(path, expected, fourth), "the same save succeeds once the lock is gone");
+
+        // 瞬态失败：重试窗口内锁释放 → 单次重试内恢复
+        var expected2 = MusketeerArchiveStore.Load(path);
+        Check(expected2.Writable, "writable expected state (second)");
+        var fifth = expected2.Archive;
+        Check(fifth.Record(H("scope"), H("snapshot-5"), new[] { new MusketeerCareer { Id = Guid.NewGuid(), Kind = MusketeerCareer.KindGun } }), "fifth snapshot staged");
+        FileStream releaseLock = new FileStream(path + ".bak", FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        try
+        {
+            var releaser = new System.Threading.Thread(() => { System.Threading.Thread.Sleep(80); releaseLock.Dispose(); }) { IsBackground = true };
+            releaser.Start();
+            Check(MusketeerArchiveStore.Save(path, expected2, fifth), "one retry heals a transient lock");
+            releaser.Join();
+        }
+        finally
+        {
+            releaseLock.Dispose();
+        }
+        Check(Logged("write-retry=1 recovered"), "the healed retry is logged | " + Dump());
+        Check(MusketeerArchiveStore.Load(path).Archive.TryGet(H("scope"), H("snapshot-5"), out _), "the fifth snapshot persisted");
+
+        // 保护性拒绝（compare-and-swap 预检）绝不重试
+        Logger.Lines.Clear();
+        var stale = MusketeerArchiveStore.Load(path);
+        var sixth = stale.Archive;
+        Check(sixth.Record(H("scope"), H("snapshot-6"), new[] { new MusketeerCareer { Id = Guid.NewGuid(), Kind = MusketeerCareer.KindGun } }), "sixth snapshot staged");
+        Check(MusketeerArchiveStore.Save(path, MusketeerArchiveStore.Load(path), sixth), "another writer advances the disk state");
+        Check(!MusketeerArchiveStore.Save(path, stale, sixth), "a stale writer is refused (compare and swap)");
+        Check(!Logged("retry"), "refusals are never retried | " + Dump());
+    }
+
+    static bool Logged(string fragment) => Logger.Lines.Exists(line => line.Contains(fragment));
+    static bool Warned(string fragment) => Logger.Lines.Exists(line => line.StartsWith("W:", StringComparison.Ordinal) && line.Contains(fragment));
+    static string Dump() => string.Join(" | ", Logger.Lines);
 
     // ---- island contexts, generation, authority ----
 
@@ -519,6 +613,11 @@ internal static class Program
         Check(MusketeerIdentity.HasUnresolved && !MusketeerIdentity.CanPurchase, "unknown paid snapshot blocks new charges");
         Check(MusketeerIdentity.StatusText.Contains("暂停购买"), "status explains the blocked purchase");
         Check(DiskBytes().SequenceEqual(beforeUnknown), "unknown snapshot writes nothing");
+        // 盘面继续前进（自动保存）也绝不自动再基线：musketeer 侧没有 B，unknown-paid 保持 unresolved
+        Save(IslandJson("renamed-unit", "native-gun"), Row("renamed-unit", l3.go), Row("native-gun", l4.go));
+        Check(DiskBytes().SequenceEqual(beforeUnknown), "a further save cannot rewrite the unknown-paid sidecar");
+        Check(MusketeerIdentity.HasUnresolved && !MusketeerIdentity.CanPurchase, "unknown-paid state stays unresolved (no musketeer rebaseline)");
+        Check(Logged("save-preserve-unresolved"), "the refuse-to-write path is logged | " + Dump());
         // an exact snapshot whose row object never materialized: nothing binds, nothing is
         // guessed, no baseline is inherited and charges stay blocked
         Reset(true);

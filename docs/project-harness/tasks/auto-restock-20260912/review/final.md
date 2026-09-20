@@ -1,0 +1,15 @@
+## Final verdict: **PASS**
+
+Reviewed the exact current revisions of `build/AutoRestockCounts.cs` and `build/PatchEconomy_AutoRestock.cs` (read at finalization; SHA recorded by Operator). All four claimed fixes verified in place and correct:
+
+1. **First-seed mask ordering** (`AutoRestockCounts.cs:147-154`): `_seededMask = mask` is now assigned in the configuration-change branch before the seed attempt, so a persistently throwing first seed no longer masquerades as a new mask on every `Refresh`. The recovery counter now increments monotonically and latches after 3 attempts — worst case is the initial enumeration plus two bounded recoveries, never an unbounded reseed loop. The `_seededMask` re-assignment after a successful `Reseed` (line 176) remains harmless since `Reseed` itself sets it from the same mask.
+
+2. **StartDelay fall-through** (`PatchEconomy_AutoRestock.cs:336-338`): `goto case Phase.SendingCoins` emits the first coin in the same due frame (~0.15 s after creation). Per-step budget is unchanged — each order still emits at most one coin per `StepOrders` call and at most 2 orders are stepped, so the coin rate cap holds.
+
+3. **Role retry cooldown**: `_retryAfter` is set in `CancelOrder` (line 509) and in the tick-exception handler before `Reset` clears the list (line 131 — ordering correct so the roles are still readable), gated in `ScanAndAssign` (line 564), and cleared on world change (`DetectWorldChange`, line 214). This closes the same-frame cancel/recreate loop. Benign cancels ("met"/"surplus") also incur the 2-second delay, which is latency only.
+
+4. **MarkFault instance-ID update** (`PatchEconomy_AutoRestock.cs:496-504`): the previous `ContainsKey` early-return kept the stale instance ID when a new `GameObject` reused a pooled pointer, so a repeatedly-faulting new instance would be retried without limit — each retry debiting the treasury before the faulting purchase. The new `TryGetValue`/compare/update stores the current instance's ID, so each distinct instance gets exactly one attempt, matching the test's two-instances-each-attempted-once behavior.
+
+Previously accepted elements are unchanged in the current sources: the synthetic-`Select` `Deselect` cleanup and offline `priceIncrease` crowned-player preflight in `FinalizePurchase`/`ShopBuyable`, the single synchronous `TrySpendForAutoRestock` → `TransactionComplete` commit with no-refund fault latching, the fail-closed counter cache, and the assistant reservation gating.
+
+**Scope qualification (per FINAL-CHECK):** this PASS certifies the reviewed implementation logic and the 127 passing linked/extracted tests as described. No in-game procurement has run; gameplay behavior, online visuals, and native runtime integration beyond the audited API surface remain uncertified, with startup defaults-off as stated. No P0-P2 defects remain in the exact sources reviewed.

@@ -1,0 +1,172 @@
+HeroArcherArrowVisuals stub tests (native-boundary stubs), mode=gold
+resource embedded: True
+
+== hook contract: exactly the two authorized native entry points, with the agreed priorities
+  PASS  exactly 2 patched native methods (got Arrow.OnEnable, ArrowAttack.FireArrowInternal)
+  PASS  targets are exactly Arrow.OnEnable + ArrowAttack.FireArrowInternal (no new native address, no short getter)
+  PASS  both prefixes are Priority.First (reset before other OnEnable prefixes; scope opened first)
+  PASS  the OnEnable postfix is Priority.Last (our color wins over other postfixes)
+  PASS  one finalizer on FireArrowInternal (scope end + ownership recheck, original exception rethrown)
+== gold: hero main + extras painted; scope decides, stale pooled owner ignored; hunting identical
+  PASS  scope pushed for the hero shot
+  PASS  eligibility = exactly the IsHero seam (no target/combat guard: hunting takes the same path)
+  PASS  main arrow still carried the stale pooled owner while OnEnable ran
+  PASS  main arrow painted although arrow.archer was stale (scope, not arrow.archer)
+  PASS  gold keeps the arrow's original alpha (0.6)
+  PASS  extra arrows of the same shot painted (same scope)
+  PASS  one shared gold sprite for all arrows
+  PASS  3 receipts tracked
+  PASS  one-time sprite load logged
+  PASS  scope unwound by the finalizer
+  PASS  one sprite write + one color write per arrow
+  PASS  confirmed appearance persists while arrows fly
+  PASS  Tick never re-asserts colors/sprites every frame
+== gold: sprite identity matches the operator's verified native art (30x5 / PPU32 / pivot .5,.5 / 52 opaque)
+  PASS  arrow painted with the embedded real asset
+  PASS  sprite rect 30x5 (native artemis_bow_arrow)
+  PASS  PPU 32
+  PASS  pivot (0.5,0.5)
+  PASS  no extrude, FullRect
+  PASS  Point / Clamp / no mip-aniso
+  PASS  texture created without mipmaps
+  PASS  real asset decodes to 150 px with 52 opaque (native shape)
+  PASS  embedded resource present
+== gold: non-hero / disabled shots stay native; other archers unchanged
+  PASS  non-hero archer's arrow unchanged
+  PASS  no receipt for a non-hero shot
+  PASS  disabled hero layer leaves arrows native
+  PASS  no receipt while disabled
+  PASS  arrow whose archer field points at the hero is still untouched outside a hero shot
+== gold: nested non-hero masks outer hero; overflow masks then finalizer restores visibility
+  PASS  nested scope depth 2
+  PASS  arrow spawned in the nested non-hero shot is NOT painted (mask beats outer hero)
+  PASS  inner scope popped
+  PASS  arrow spawned after the inner finalizer is painted again (outer hero restored)
+  PASS  depth back to 0
+  PASS  stack filled to MaxStack
+  PASS  overflow shot (depth 17) is masked: arrow keeps native appearance
+  PASS  overflow finalizer pops symmetrically
+  PASS  outer scope visible again after the overflow finalizer
+  PASS  all nested scopes unwound
+  PASS  stale overflow/first tokens stay inert at depth 0
+== gold: appearance only — material/physics/damage/root/transform untouched, nothing destroyed
+  PASS  painted (control)
+  PASS  physics/collider/trail/damage/root transform/component set byte-identical
+  PASS  native shared material instance untouched
+  PASS  renderer enable/sorting untouched
+  PASS  only sprite + color were ever written on the renderer
+  PASS  no object destroyed
+== gold: unreadable activeSelf/despawn is unknown (backoff), despawn retires without waiting for OnEnable
+  PASS  painted (control)
+  PASS  unknown active state is not treated as active/confirmed: receipt kept, nothing written
+  PASS  readable + still active: appearance kept, no churn
+  PASS  despawn restores on the tick itself (no OnEnable needed)
+== gold: confirm needs a real owner match — transient read failures are retried, not assumed
+  PASS  owner read failed at shot end: neither confirmed nor restored (kept unconfirmed)
+  PASS  first-failure-then-match confirms (appearance kept)
+  PASS  first-failure-then-mismatch restores
+  PASS  only the confirmed receipt remains
+== gold: unreadable sprite pointer is unknown, not foreign (receipt kept, then recovered)
+  PASS  unknown sprite ownership keeps the receipt (never assumed foreign)
+  PASS  nothing written while unknown
+  PASS  readable again -> restore completes
+== gold: module owns RGB only — alpha is the game's (fade preserved, foreign RGB untouched)
+  PASS  restore writes base RGB with the CURRENT alpha (0.2), not the base alpha
+  PASS  receipt retired after the RGB hand-back
+  PASS  foreign RGB (and its alpha) untouched
+  PASS  our sprite still restored
+  PASS  receipt retired
+== gold: scope tokens are generation-checked (stale / duplicate / out-of-order finalizers are inert)
+  PASS  duplicate stale finalizer does not pop the new scope
+  PASS  scope still live: arrow painted normally
+  PASS  proper finalizer unwinds
+  PASS  out-of-order finalizer leaves the stack untouched
+  PASS  masked top still masks the outer hero scope
+  PASS  masked inner scope pops by serial
+  PASS  outer hero scope visible again after the LIFO unwind
+  PASS  second stale finalizer inert
+== gold: renderer on a child GameObject is rejected before any write
+  PASS  child renderer never painted (GO identity could not be re-checked)
+  PASS  no receipt for an unverifiable renderer
+== gold: post-shot ownership check (after FireArrowInternal returns) — only a proven foreign owner is undone
+  PASS  arrow of the shooter stays gold
+  PASS  arrow whose owner is proven foreign is restored
+  PASS  owner still null after the shot: not an incorrect rejection
+  PASS  owner read threw: treated as unknown, appearance kept
+  PASS  late owner assignment confirms the receipt (no churn)
+  PASS  proven foreign owner after the shot triggers the restore on the next tick
+  PASS  restored receipt retired, the shooter's receipts remain
+== gold: pool reuse restores in the OnEnable prefix (before native init); second life repaints once
+  PASS  first life painted
+  PASS  prefix already restored sprite+color — i.e. before the native OnEnable body ran
+  PASS  restore = one sprite write + one color write
+  PASS  receipt retired after the restore
+  PASS  non-hero reuse never repaints
+  PASS  second hero shot paints exactly one receipt (no leak)
+== gold: repeated apply is idempotent (double postfix, same arrow)
+  PASS  repeat OnSpawn writes nothing
+  PASS  still exactly one receipt
+  PASS  still gold
+== gold: toggle off / world retire / context loss / despawn all restore promptly
+  PASS  2 receipts live
+  PASS  feature off restores arrows already in flight
+  PASS  restored receipts retired
+  PASS  world change restores
+  PASS  world-changed receipt retired
+  PASS  context loss restores
+  PASS  context-lost receipt retired
+  PASS  painted again after the context returns
+  PASS  despawned arrow restored before reuse
+== gold: foreign sprite/color are never clobbered (per-property CAS)
+  PASS  third-party sprite+color untouched
+  PASS  no write attempted once both properties are foreign
+  PASS  receipt retired (ownership given up)
+  PASS  foreign sprite kept
+  PASS  our color still restored
+  PASS  receipt retired after the property we still owned was restored
+== gold: half-applied paint and failed restore are retried, never silently dropped
+  PASS  half apply: sprite went through before the color write threw
+  PASS  half-applied receipt kept for rollback
+  PASS  backoff honoured: no retry before RetrySeconds
+  PASS  retry restored the half-applied sprite
+  PASS  failed restore keeps the receipt
+  PASS  sprite still gold (write failed)
+  PASS  later tick completes the ownership hand-back
+  PASS  read failure keeps the receipt (unknown != destroyed)
+  PASS  nothing written while the state was unknown
+  PASS  readable again -> restore completes
+== gold: native wrapper churn (aliases) still matches by GO pointer + InstanceID
+  PASS  painted
+  PASS  one receipt
+  PASS  unrelated wrapper does not touch/claim the receipt
+  PASS  aliased wrapper restores: identity is pointer+InstanceID, not ReferenceEquals
+== gold: receipt cap 128 + fair bounded cleanup (one bad receipt cannot starve the rest)
+  PASS  cap reached with owned receipts
+  PASS  129th arrow left native (no eviction, no arrow moved)
+  PASS  cap not exceeded
+  PASS  nothing destroyed
+  PASS  bad receipt kept, all others retired
+  PASS  the bad receipt did not starve the rest of the table
+  PASS  bad receipt completed on the next tick
+== gold: Clear() restores everything, keeps what it could not restore
+  PASS  clean receipt restored by Clear
+  PASS  unrestorable receipt is NOT silently dropped
+  PASS  responsibility completed on the retry
+== gold: exceptions never escape the native entry points
+  PASS  IsHero throwing -> masked shot, no exception, depth symmetric
+  PASS  context read throwing -> masked shot, no exception
+  PASS  component lookup throwing -> masked shot, no exception
+  PASS  arrow pointer throwing -> no exception, nothing painted
+  PASS  renderer read throwing -> no exception, no receipt
+  PASS  sanity: nothing destroyed
+  PASS  stale/duplicate finalizer tickets are inert
+  PASS  sanity
+== gold: shared sprite is loaded once (no per-arrow allocation of texture/sprite)
+  PASS  first paint loaded the sprite
+  PASS  no further Sprite.Create — one shared sprite for all arrows
+  PASS  same shared instance
+  PASS  same shared texture
+  PASS  no per-arrow log spam
+  PASS  no fail-closed diagnostic (shared sprite stays live)
+
+ALL PASS: pass=144 fail=0

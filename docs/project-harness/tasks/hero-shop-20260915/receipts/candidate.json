@@ -1,0 +1,27 @@
+{
+  "status": "local-development-candidate-not-installed-not-published",
+  "build": "8.0.0-hero-shop-20260915",
+  "dllSha256": "70d53395f2b31a7ed2d54dd39a1f148ed9802d5845233f22163033b10f523352",
+  "installedDllSha256": "80522bf18952fe609c4f6f91fd6b52c26ab79cbf87ee918159770306953348f4",
+  "assemblyVersion": "8.0.0.0",
+  "sourceState": "uncommitted-canonical-workspace",
+  "verified": [
+    "IL2CPP build 0 warnings 0 errors",
+    "recruitment runtime/archive 87 assertions",
+    "independent review 93 assertions (87 plus 6)",
+    "hero effects 81 assertions",
+    "shop core 31 assertions",
+    "shop actual 2.4 interop compile",
+    "combat xUnit 146",
+    "Greek impact xUnit 85",
+    "2665 old methods unchanged; 10 reviewed integration changes; two old PNG resources unchanged"
+  ],
+  "pending": [
+    "campaign-vs-island seat scope selection",
+    "cross-island transport identity bridge",
+    "actual game injection, payment/refund, positioning, visual and save/load validation"
+  ],
+  "userDataModified": false,
+  "gameStarted": false,
+  "createdAt": "2026-09-15T17:50:43.271798+08:00"
+}

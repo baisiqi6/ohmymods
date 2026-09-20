@@ -1,0 +1,117 @@
+[
+  {
+    "project": "tests/calendar/CalendarTests.csproj",
+    "exit": 0,
+    "result": "Calendar tests passed: 95702 assertions."
+  },
+  {
+    "project": "tests/crossbow-defense/Regression.csproj",
+    "exit": 0,
+    "result": "PASS narrow-territory arrived unit does not repeat orders\nRESULT: 9 passed, 0 failed; 1462 assertions"
+  },
+  {
+    "project": "tests/knight-powers/Regression.csproj",
+    "exit": 0,
+    "result": "PASS Wind arc partial indexed failure destroys only new child and permits retry\nRESULT: 31 passed, 0 failed"
+  },
+  {
+    "project": "tests/samurai-retreat/Regression.csproj",
+    "exit": 0,
+    "result": "PASS Real cached Archer branch never receives knight retreat adjustment\nRESULT 43 passed, 0 failed"
+  },
+  {
+    "project": "tests/farm-cats/Regression.csproj",
+    "exit": 0,
+    "result": "PASS Foreign-first cat stays native and equal-target cat still registers\nRESULT 22 passed, 0 failed"
+  },
+  {
+    "project": "tests/fleet-greek-squads/Regression.csproj",
+    "exit": 0,
+    "result": "PASS stationary without embark target cancels\nRESULT passed=91 failed=0"
+  },
+  {
+    "project": "tests/expedition-follow/Regression.csproj",
+    "exit": 0,
+    "result": "PASS Dormant current-world receipt survives BeginWorld and later night activation\nRESULT 199 passed, 0 failed"
+  },
+  {
+    "project": "tests/auto-restock/AutoRestockTests.csproj",
+    "exit": 0,
+    "result": "\n==== 119 passed, 0 failed, 119 total ===="
+  },
+  {
+    "project": "tests/auto-restock-counts/CountTests.csproj",
+    "exit": 0,
+    "result": "PASS bread30_reset_clears_pending_and_version\nTOTAL pass=84 fail=0 of 84"
+  },
+  {
+    "project": "tests/samurai-motion/Regression.csproj",
+    "exit": 0,
+    "result": "PASS OnDisable prefix clears visuals before mover cleanup callbacks\nRESULT: 123 passed, 0 failed"
+  },
+  {
+    "project": "tests/population-hud/Regression.csproj",
+    "exit": 0,
+    "result": "PASS Hiding HUD retains ammo cache demand for active automatic restock\nRESULT: 32 passed, 0 failed"
+  },
+  {
+    "project": "tests/HermitPickupPolicyRegression/Regression.csproj",
+    "exit": 0,
+    "result": "PASS First successful protection log includes native original policy and object id\nRESULT: 24 passed, 0 failed"
+  },
+  {
+    "project": "tests/deer-population/Regression.csproj",
+    "exit": 0,
+    "result": "PASS Applied evidence log is bounded and identifies prefab plus density and interval change\nRESULT: 27 passed, 0 failed"
+  },
+  {
+    "project": "tests/greek-scale-scope/GreekScaleScopeRegression.csproj",
+    "exit": 0,
+    "result": "PASS indirect repeated ownership preserves first original\n68 passed, 0 failed"
+  },
+  {
+    "project": "tests/greek-scale-adapters/Regression.csproj",
+    "exit": 0,
+    "result": "PASS two bag types retain independent signed nonuniform native vectors\nRESULT 9 passed, 0 failed"
+  },
+  {
+    "project": "tests/greek-bank-scope/GreekBankScopeRegression.csproj",
+    "exit": 0,
+    "result": "PASS coordinator bind retries once the world is ready\n32 passed, 0 failed"
+  },
+  {
+    "project": "tests/greek-bank-assistants-scope/Regression.csproj",
+    "exit": 0,
+    "result": "PASS panel tick binds disabled client after Awake before SetParent\n17 passed, 0 failed"
+  },
+  {
+    "project": "tests/hold-purchase/HoldPurchaseTests.csproj",
+    "exit": 0,
+    "result": "\nALL PASS (25 scenarios)"
+  },
+  {
+    "project": "tests/optional-vegetation/Regression.csproj",
+    "exit": 0,
+    "result": "PASS 无世界权威时不写 world\nRESULT passed=31 failed=0"
+  },
+  {
+    "project": "tests/optional-scope/Regression.csproj",
+    "exit": 0,
+    "result": "PASS actual all-world scope: 17 checks"
+  },
+  {
+    "project": "tests/siege-ammo/SiegeAmmoTests.csproj",
+    "exit": 0,
+    "result": "\n==== 36 passed, 0 failed, 36 total ===="
+  },
+  {
+    "project": "tests/archer-impact/Regression.csproj",
+    "exit": 0,
+    "result": "PASS A burst never mutates arrow state or leaves an orphaned visible slot\nRESULT 36 passed, 0 failed"
+  },
+  {
+    "project": "tests/archer-scope/Regression.csproj",
+    "exit": 0,
+    "result": "PASS actual archer scope: 27 checks"
+  }
+]

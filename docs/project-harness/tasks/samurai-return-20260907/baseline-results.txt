@@ -1,0 +1,37 @@
+FAIL No enemy and native attack cooldown do not prevent >10 return: return issued position goal: expected Position, got Off
+FAIL Return takes priority over still-running attack cooldown: Expected narrow ShouldSlash hook during return
+FAIL 10/4 hysteresis and ordinary completion: above 10 enters
+FAIL Return never damages even with enemies inside hit window: return issued position goal: expected Position, got Off
+FAIL Long return ends invulnerable burst within 0.6 seconds then runs normally: return issued position goal: expected Position, got Off
+FAIL Return interruption: config: return issued position goal: expected Position, got Off
+FAIL Return interruption: style: return issued position goal: expected Position, got Off
+FAIL Return interruption: authority: return issued position goal: expected Position, got Off
+FAIL Return interruption: manual control: return issued position goal: expected Position, got Off
+FAIL Return interruption: already controlled: return issued position goal: expected Position, got Off
+FAIL Return interruption: retreating: return issued position goal: expected Position, got Off
+FAIL Return interruption: embarked: return issued position goal: expected Position, got Off
+FAIL Return interruption: embark target: return issued position goal: expected Position, got Off
+FAIL Return interruption: formation: return issued position goal: expected Position, got Off
+FAIL Return interruption: dead: return issued position goal: expected Position, got Off
+FAIL Return interruption: charging: return issued position goal: expected Position, got Off
+FAIL Return interruption: charge pending: return issued position goal: expected Position, got Off
+FAIL Return interruption: inert: return issued position goal: expected Position, got Off
+FAIL Return interruption: grabbed: return issued position goal: expected Position, got Off
+FAIL Return interruption: stationary: return issued position goal: expected Position, got Off
+FAIL Return interruption: other FSM task: return issued position goal: expected Position, got Off
+FAIL Config-off OnDisable is reachable and restores preexisting flags: return issued position goal: expected Position, got Off
+FAIL Ordinary end of burst preserves preexisting invulnerability and trail: return issued position goal: expected Position, got Off
+FAIL External new position goal is never stopped or overwritten by cleanup: return issued position goal: expected Position, got Off
+FAIL External object goal and replacement mover survive cleanup: return issued position goal: expected Position, got Off
+PASS No followers means no invented return destination
+FAIL Active follower invalidation: death: return issued position goal: expected Position, got Off
+FAIL Active follower invalidation: leaves squad: return issued position goal: expected Position, got Off
+FAIL Active follower invalidation: inactive: return issued position goal: expected Position, got Off
+FAIL Active follower invalidation: destroyed: return issued position goal: expected Position, got Off
+FAIL Nearest alive owned follower selected; active target follows changing position: return issued position goal: expected Position, got Off
+FAIL Stuck return times out and backs off instead of restarting each frame: return issued position goal: expected Position, got Off
+FAIL Pause starts no burst; active pause consumes neither scaled time nor deadline: return issued position goal: expected Position, got Off
+PASS External mover pause is not cleared
+FAIL Late old coroutine cleanup cannot erase pool-reused new owner: return issued position goal: expected Position, got Off
+FAIL Whole follower cache is not searched every active return frame: return issued position goal: expected Position, got Off
+RESULT: 2 passed, 34 failed

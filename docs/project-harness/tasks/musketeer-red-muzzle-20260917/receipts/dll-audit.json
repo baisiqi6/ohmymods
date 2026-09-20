@@ -1,0 +1,30 @@
+{
+  "removedHarmonyPatchTypes": [],
+  "unchangedResources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png",
+    "KingdomEnhancedMod.ArtemisArrow.png",
+    "KingdomEnhancedMod.HeroShop.png",
+    "KingdomEnhancedMod.HeroShopSeats.png",
+    "KingdomEnhancedMod.MusketeerShop.png",
+    "KingdomEnhancedMod.MusketeerGun.png",
+    "KingdomEnhancedMod.MusketeerBullet.png"
+  ],
+  "version": "9.0.0.0",
+  "changedResources": [
+    "KingdomEnhancedMod.MusketeerAtlas.png"
+  ],
+  "changedMethods": [
+    "System.Boolean KingdomEnhancedMod.MusketeerAtlas::FrameToCell(System.Int32,System.Int32&,System.Int32&)",
+    "System.Boolean KingdomEnhancedMod.MusketeerVisuals::DecodeAtlas(System.Byte[])",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "System.Void KingdomEnhancedMod.MusketeerAtlas::.cctor()",
+    "System.Void KingdomEnhancedMod.MusketeerVisuals::SetAtlasForTests(UnityEngine.Sprite[])"
+  ],
+  "addedMethods": [],
+  "candidateSha256": "BCA6AAEBC09BA17487B3802CAD5C95C845788E7A3FD8E7566A0B2FE7716BC5ED",
+  "unchangedMethods": 3657,
+  "baselineSha256": "96566DEF78BC6F990234BA1FEAB2CA45273B539118FA8B86FFF4EEE9B23DA202",
+  "newHarmonyPatchTypes": [],
+  "removedMethods": [],
+  "actionAtlasVerified": true
+}

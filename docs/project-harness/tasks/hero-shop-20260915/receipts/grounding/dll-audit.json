@@ -1,0 +1,23 @@
+﻿{
+    "version":  "8.0.0.0",
+    "candidateSha256":  "D005C4E161B4B97F4F4B14D90943FDC36B8AE46F36A3C23CA4B9C4EFC5D2D8D3",
+    "unchangedMethods":  2868,
+    "addedMethods":  [
+                         "System.Boolean KingdomEnhancedMod.HeroShop::TryNativeGroundAnchor(UnityEngine.Transform,System.Single\u0026,System.Single\u0026)",
+                         "System.Boolean KingdomEnhancedMod.HeroShopGrounding::TryResolve(System.Boolean,System.Boolean,System.Single,System.Single\u0026)"
+                     ],
+    "baselineSha256":  "F8C2509587122C920C39B635DB2D26956F3293545CC178F33EE441925C1E0B60",
+    "unchangedResources":  [
+                               "KingdomEnhancedMod.HeroArcherAtlas.png",
+                               "KingdomEnhancedMod.ArtemisArrow.png",
+                               "KingdomEnhancedMod.HeroShop.png",
+                               "KingdomEnhancedMod.HeroShopSeats.png"
+                           ],
+    "changedMethods":  [
+                           "System.Void KingdomEnhancedMod.HeroShop::Create(Kingdom,UnityEngine.Transform)",
+                           "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()"
+                       ],
+    "removedMethods":  [
+
+                       ]
+}

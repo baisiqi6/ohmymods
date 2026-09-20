@@ -1,0 +1,130 @@
+[
+  {
+    "go": 20797,
+    "name": "Tower_upgrade_Fire_greece",
+    "components": [
+      "Transform",
+      "SpriteRenderer",
+      "FixedTransform",
+      "WorkableBuilding",
+      "Persistent",
+      "CRPCStamp",
+      "PrefabID",
+      "PayableBlocker",
+      "BiomeSpriteSwapper",
+      "ConstructionBuildingComponent",
+      "FireTower",
+      "PayableComponent",
+      "SpriteRendererFX"
+    ]
+  },
+  {
+    "go": 21231,
+    "name": "Catapult",
+    "components": [
+      "Transform",
+      "Rigidbody2D",
+      "Animator",
+      "Catapult",
+      "FixedTransform",
+      "WorkableBuilding",
+      "Persistent",
+      "Damageable",
+      "PositionSync",
+      "CRPCRouter",
+      "ConstructionBuildingComponent",
+      "Buffable"
+    ]
+  },
+  {
+    "go": 22416,
+    "name": "Barrel",
+    "components": [
+      "Transform",
+      "PayableWorkshopBarrel"
+    ]
+  },
+  {
+    "go": 22417,
+    "name": "Barrel",
+    "components": [
+      "Transform",
+      "PayableWorkshopBarrel"
+    ]
+  },
+  {
+    "go": 22717,
+    "name": "PrebuiltCatapult",
+    "components": [
+      "Transform",
+      "Rigidbody2D",
+      "Animator",
+      "Catapult",
+      "FixedTransform",
+      "WorkableBuilding",
+      "Persistent",
+      "Damageable",
+      "PositionSync",
+      "CRPCRouter",
+      "BiomeAnimationSwapper",
+      "ConstructionBuildingComponent",
+      "Buffable"
+    ]
+  },
+  {
+    "go": 23385,
+    "name": "Rollable Oil Barrel",
+    "components": [
+      "Transform",
+      "Rigidbody2D",
+      "RollableOilBarrel",
+      "BoxCollider2D",
+      "PositionSync",
+      "Persistent"
+    ]
+  },
+  {
+    "go": 23411,
+    "name": "Barrel",
+    "components": [
+      "Transform",
+      "PayableWorkshopBarrel"
+    ]
+  },
+  {
+    "go": 23601,
+    "name": "Oil Barrel",
+    "components": [
+      "Transform",
+      "SpriteRenderer",
+      "Rigidbody2D",
+      "OilBarrel",
+      "CircleCollider2D",
+      "SpriteRendererFX",
+      "ParentSync",
+      "NetworkSoftSimulator"
+    ]
+  },
+  {
+    "go": 25774,
+    "name": "Barrel",
+    "components": [
+      "Transform",
+      "PayableWorkshopBarrel"
+    ]
+  },
+  {
+    "go": 35819,
+    "name": "Greek Fire Jar Greece",
+    "components": [
+      "Transform",
+      "SpriteRenderer",
+      "Rigidbody2D",
+      "OilBarrel",
+      "CircleCollider2D",
+      "SpriteRendererFX",
+      "ParentSync",
+      "NetworkSoftSimulator"
+    ]
+  }
+]

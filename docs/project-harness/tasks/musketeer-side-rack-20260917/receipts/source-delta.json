@@ -1,0 +1,18 @@
+{
+  "baseline": "v9.0.0",
+  "changed": [
+    "il2cpp/Assets/MusketeerShop.png",
+    "il2cpp/KingdomEnhancedPlugin.cs",
+    "il2cpp/MusketeerGunVisuals.cs",
+    "il2cpp/MusketeerShop.cs",
+    "il2cpp/MusketeerShopRules.cs"
+  ],
+  "newProductionFiles": [],
+  "sourceSha256": {
+    "il2cpp/Assets/MusketeerShop.png": "3bf36bb268c0726ae49ca546bc9ed4a290f75d82bca7a79dc1558d1719e6ca2c",
+    "il2cpp/KingdomEnhancedPlugin.cs": "cfe9d4286e87cf766865378e98f5e8b29da206ad0ee10165d44f77e2c586bd1f",
+    "il2cpp/MusketeerGunVisuals.cs": "a41d1d74d77e70bbd371a837d5e9c672bb5d7836950c63ad712e6581b7175907",
+    "il2cpp/MusketeerShop.cs": "d3ef223bee8395ab2bc3b8e3ee4adcebfd56516fc4ef569568a159ea3b3a09c7",
+    "il2cpp/MusketeerShopRules.cs": "f9df5de73ea727e2812fc80f3b9702fc56ca24983df8651fcefdc43e93d7cab1"
+  }
+}

@@ -1,0 +1,794 @@
+[
+  {
+    "project": "tests/HermitPickupPolicyRegression/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "HermitPickupPolicyRegression.txt",
+    "tail": [
+      "PASS Mounted nested parent remains in current layer without touching general policy",
+      "PASS Tick and hooks contain failures and emit bounded diagnostic warning",
+      "PASS First successful protection log includes native original policy and object id",
+      "RESULT: 24 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/archer-impact/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "archer-impact.txt",
+    "tail": [
+      "PASS Vertex upload failure during animation releases the slot instead of leaving a frozen burst",
+      "PASS Pool build that fails while parenting destroys the unparented orphan child",
+      "PASS A burst never mutates arrow state or leaves an orphaned visible slot",
+      "RESULT 50 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/archer-options/combat/CombatArcherOptions.Tests.csproj",
+    "kind": "test",
+    "exit": 0,
+    "log": "archer-options-combat.txt",
+    "tail": [
+      "A total of 1 test files matched the specified pattern.",
+      "Results File: C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\package-800-20260915\\tests\\archer-options\\combat\\ADMIN_PC-GTCHXGAMSLNS_2026-09-15_16_27_16.trx",
+      "",
+      "Passed!  - Failed:     0, Passed:    88, Skipped:     0, Total:    88, Duration: 47 ms - KingdomArcherOptions.Combat.Tests.dll (net8.0)"
+    ]
+  },
+  {
+    "project": "tests/archer-scope/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "archer-scope.txt",
+    "tail": [
+      "PASS actual archer scope: 27 checks"
+    ]
+  },
+  {
+    "project": "tests/auto-restock-counts/CountTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "auto-restock-counts.txt",
+    "tail": [
+      "PASS bread28_missing_actor_identity_fails_closed",
+      "PASS bread29_registry_excludes_inactive_foreign_scene_and_layer_bakeries",
+      "PASS bread30_reset_clears_pending_and_version",
+      "TOTAL pass=84 fail=0 of 84"
+    ]
+  },
+  {
+    "project": "tests/auto-restock/AutoRestockTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "auto-restock.txt",
+    "tail": [
+      "PASS foreign_world_never_assigns_or_spends",
+      "PASS leaving_greek_cancels_in_flight_purchase_before_debit",
+      "",
+      "==== 120 passed, 0 failed, 120 total ===="
+    ]
+  },
+  {
+    "project": "tests/calendar/CalendarTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "calendar.txt",
+    "tail": [
+      "Calendar tests passed: 95702 assertions."
+    ]
+  },
+  {
+    "project": "tests/crossbow-defense/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "crossbow-defense.txt",
+    "tail": [
+      "PASS removal preserves external field/scanner writes independently",
+      "PASS native disable clears tower flags before owned scan cleanup",
+      "PASS narrow-territory arrived unit does not repeat orders",
+      "RESULT: 9 passed, 0 failed; 1462 assertions"
+    ]
+  },
+  {
+    "project": "tests/crossbow-lifecycle/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "crossbow-lifecycle.txt",
+    "tail": [
+      "PASS missing crossbow asset refuses to half apply",
+      "PASS skin restore survives missing or throwing biome swap",
+      "PASS error logs stay bounded per path",
+      "RESULT: 31 passed, 0 failed; 410 assertions"
+    ]
+  },
+  {
+    "project": "tests/deer-population/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "deer-population.txt",
+    "tail": [
+      "PASS Same-token finalizer can immediately finish a failed postfix cleanup",
+      "PASS Temporary pending identity accessor fault retains ownership until identity can be checked",
+      "PASS Applied evidence log is bounded and identifies prefab plus density and interval change",
+      "RESULT: 27 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/expedition-follow/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "expedition-follow.txt",
+    "tail": [
+      "PASS Unavailable scope followed by genuinely new World retires old receipt without writes",
+      "PASS Current-layer nested hierarchy counts as current live actors",
+      "PASS Dormant current-world receipt survives BeginWorld and later night activation",
+      "RESULT 199 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/farm-cats/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "farm-cats.txt",
+    "tail": [
+      "PASS Unobservable post-exception state is explicitly uncertain",
+      "PASS Cat scale restores native axes outside Greece and returns without Mover",
+      "PASS Foreign-first cat stays native and equal-target cat still registers",
+      "RESULT 22 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/fire-tower-restock-capacity/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "fire-tower-restock-capacity.txt",
+    "tail": [
+      "PASS current \u8d1f\u503c / \u8d85\u9650\u5747\u5c5e\u975e\u6cd5\u6570\u636e",
+      "PASS \u7981\u7528 / \u975e\u6fc0\u6d3b / \u9500\u6bc1 fail-closed",
+      "PASS \u53ea\u8bfb\uff1a\u8fde\u7eed\u95e8\u63a7\u8c03\u7528\u4e0d\u6539\u52a8\u4efb\u4f55\u539f\u751f\u5f39\u836f\u5b57\u6bb5",
+      "RESULT passed=14 failed=0"
+    ]
+  },
+  {
+    "project": "tests/fire-tower-restock-capacity/actual-interop/ActualInterop.csproj",
+    "kind": "build",
+    "exit": 0,
+    "log": "fire-tower-restock-capacity-actual-interop.txt",
+    "tail": [
+      "    0 Warning(s)",
+      "    0 Error(s)",
+      "",
+      "Time Elapsed 00:00:00.95"
+    ]
+  },
+  {
+    "project": "tests/fleet-greek-squads/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "fleet-greek-squads.txt",
+    "tail": [
+      "PASS actual finalizer successful native return does not alter pending",
+      "PASS native embark tween stationary own target survives maintenance",
+      "PASS stationary without embark target cancels",
+      "RESULT passed=91 failed=0"
+    ]
+  },
+  {
+    "project": "tests/friendly-troll-disguise/FriendlyTrollDisguiseTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "friendly-troll-disguise.txt",
+    "tail": [
+      "  ok   condition \u59d4\u6258\u629b\u9519 \u2192 null",
+      "  ok   ignore \u59d4\u6258\u629b\u9519 \u2192 null",
+      "",
+      "total: passed=48 failed=0"
+    ]
+  },
+  {
+    "project": "tests/friendly-troll-disguise/interop-check/InteropSignatureCheck.csproj",
+    "kind": "build",
+    "exit": 0,
+    "log": "friendly-troll-disguise-interop-check.txt",
+    "tail": [
+      "    0 Warning(s)",
+      "    0 Error(s)",
+      "",
+      "Time Elapsed 00:00:00.93"
+    ]
+  },
+  {
+    "project": "tests/greek-bank-assistants-scope/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "greek-bank-assistants-scope.txt",
+    "tail": [
+      "PASS foreign destroy without an intervening update cannot contaminate ledger",
+      "PASS disabled banker's reentry primes before native work",
+      "PASS panel tick binds disabled client after Awake before SetParent",
+      "17 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/greek-bank-scope/GreekBankScopeRegression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "greek-bank-scope.txt",
+    "tail": [
+      "PASS summary text follows the world scope",
+      "PASS finalize purchase is gated and debits only in greek",
+      "PASS coordinator bind retries once the world is ready",
+      "32 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/greek-impact/GreekImpact.Tests.csproj",
+    "kind": "test",
+    "exit": 0,
+    "log": "greek-impact.txt",
+    "tail": [
+      "A total of 1 test files matched the specified pattern.",
+      "Results File: C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\package-800-20260915\\tests\\greek-impact\\ADMIN_PC-GTCHXGAMSLNS_2026-09-15_16_27_21.trx",
+      "",
+      "Passed!  - Failed:     0, Passed:    73, Skipped:     0, Total:    73, Duration: 46 ms - KingdomGreekImpact.Tests.dll (net8.0)"
+    ]
+  },
+  {
+    "project": "tests/greek-scale-adapters/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "greek-scale-adapters.txt",
+    "tail": [
+      "PASS missing currency source changes no coin and stacklimit remains600",
+      "PASS null biome source preserves existing ownership until known world",
+      "PASS two bag types retain independent signed nonuniform native vectors",
+      "RESULT 9 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/greek-scale-scope/GreekScaleScopeRegression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "greek-scale-scope.txt",
+    "tail": [
+      "PASS indirect parent scaling during unknown restored in foreign",
+      "PASS indirect scale restores nonunit native baseline",
+      "PASS indirect repeated ownership preserves first original",
+      "68 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/hermes-headwear-cycle/HermesHeadwearCycleTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hermes-headwear-cycle.txt",
+    "tail": [
+      "  PASS  missing nested parent directory is created on first credit write",
+      "  PASS  constants and parser bounds",
+      "",
+      "total: passed=26 failed=0"
+    ]
+  },
+  {
+    "project": "tests/hermes-headwear-cycle/production-compile/HermesCycleProductionCompile.csproj",
+    "kind": "build",
+    "exit": 0,
+    "log": "hermes-headwear-cycle-production-compile.txt",
+    "tail": [
+      "    1 Warning(s)",
+      "    0 Error(s)",
+      "",
+      "Time Elapsed 00:00:00.95"
+    ]
+  },
+  {
+    "project": "tests/hermes-headwear-diagnostics/HermesHeadwearDiagnosticsTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hermes-headwear-diagnostics.txt",
+    "tail": [
+      "ok   a new life on the identical native identity is sampled again after removal",
+      "ok   revived lives still count against the hard sample budget",
+      "",
+      "total: passed=16 failed=0"
+    ]
+  },
+  {
+    "project": "tests/hermes-headwear-diagnostics/interop-check/HermesHeadwearDiagInteropCheck.csproj",
+    "kind": "build",
+    "exit": 0,
+    "log": "hermes-headwear-diagnostics-interop-check.txt",
+    "tail": [
+      "    0 Warning(s)",
+      "    0 Error(s)",
+      "",
+      "Time Elapsed 00:00:00.98"
+    ]
+  },
+  {
+    "project": "tests/hermes-headwear-visuals/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hermes-headwear-visuals.txt",
+    "tail": [
+      "PASS combined creation and Destroy failures keep an unparented child tracked for cleanup",
+      "PASS missing or destroyed sprite refreshes at most once per global cooldown and keeps the choice",
+      "PASS null/inactive inputs fail closed without touching resources or native objects",
+      "RESULT: 27 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/hermes-headwear/HermesHeadwearTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hermes-headwear.txt",
+    "tail": [
+      "  PASS  configuration and authority guard protection",
+      "  PASS  pool retirement discards disguise receipt",
+      "",
+      "total: passed=62 failed=0"
+    ]
+  },
+  {
+    "project": "tests/hermes-quota-integration/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hermes-quota-integration.txt",
+    "tail": [
+      "PASS 36 real core+cycle integration checks"
+    ]
+  },
+  {
+    "project": "tests/hero-archer/animation/Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hero-archer-animation.txt",
+    "tail": [
+      "[PASS] RandomizedSequencesStayInAtlasBounds (12515 checks, 0 failures)",
+      "",
+      "13281 checks, 0 failures",
+      "ALL TESTS PASSED"
+    ]
+  },
+  {
+    "project": "tests/hero-archer/cloth-logic/Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hero-archer-cloth-logic.txt",
+    "tail": [
+      "PASS  WindInputIsClampedAndFiniteSafe.clamp",
+      "PASS  WindInputIsClampedAndFiniteSafe.nanIgnored",
+      "",
+      "ALL TESTS PASSED (68)"
+    ]
+  },
+  {
+    "project": "tests/hero-archer/cloth-view/Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hero-archer-cloth-view.txt",
+    "tail": [
+      "PASS  NullAndDeadHandlesAreSafe.dead",
+      "PASS  NullAndDeadHandlesAreSafe.missingReference",
+      "",
+      "ALL VIEW TESTS PASSED (33)"
+    ]
+  },
+  {
+    "project": "tests/hero-archer/combat/Tests.csproj",
+    "kind": "test",
+    "exit": 0,
+    "log": "hero-archer-combat.txt",
+    "tail": [
+      "A total of 1 test files matched the specified pattern.",
+      "Results File: C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\package-800-20260915\\tests\\hero-archer\\combat\\ADMIN_PC-GTCHXGAMSLNS_2026-09-15_16_27_28.trx",
+      "",
+      "Passed!  - Failed:     0, Passed:   146, Skipped:     0, Total:   146, Duration: 80 ms - KingdomArcherOptions.Combat.Tests.dll (net8.0)"
+    ]
+  },
+  {
+    "project": "tests/hero-archer/greek/Tests.csproj",
+    "kind": "test",
+    "exit": 0,
+    "log": "hero-archer-greek.txt",
+    "tail": [
+      "A total of 1 test files matched the specified pattern.",
+      "Results File: C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\package-800-20260915\\tests\\hero-archer\\greek\\ADMIN_PC-GTCHXGAMSLNS_2026-09-15_16_27_28.trx",
+      "",
+      "Passed!  - Failed:     0, Passed:    85, Skipped:     0, Total:    85, Duration: 52 ms - KingdomGreekImpact.Tests.dll (net8.0)"
+    ]
+  },
+  {
+    "project": "tests/hero-archer/impact/Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hero-archer-impact.txt",
+    "tail": [
+      "PASS Vertex upload failure during animation releases the slot instead of leaving a frozen burst",
+      "PASS Pool build that fails while parenting destroys the unparented orphan child",
+      "PASS A burst never mutates arrow state or leaves an orphaned visible slot",
+      "RESULT 50 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/hero-archer/runtime/Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hero-archer-runtime.txt",
+    "tail": [
+      "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\package-800-20260915\\source\\tests\\hero-archer\\runtime\\Stubs.cs(136,21): warning CS0649: Field 'Character.grabbed' is never assigned to, and will always have its default value false [C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\package-800-20260915\\source\\tests\\hero-archer\\runtime\\Tests.csproj]",
+      "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\package-800-20260915\\source\\tests\\hero-archer\\runtime\\Stubs.cs(151,22): warning CS0649: Field 'Scanner.rangeBehind' is never assigned to, and will always have its default value 0 [C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\package-800-20260915\\source\\tests\\hero-archer\\runtime\\Tests.csproj]",
+      "",
+      "ALL WIRING TESTS PASSED (65 assertions)"
+    ]
+  },
+  {
+    "project": "tests/hero-artemis-arrow/Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hero-artemis-arrow.txt",
+    "tail": [
+      "  PASS  no per-arrow log spam",
+      "  PASS  no fail-closed diagnostic (shared sprite stays live)",
+      "",
+      "ALL PASS: pass=144 fail=0"
+    ]
+  },
+  {
+    "project": "tests/hero-cloth-flight/Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hero-cloth-flight.txt",
+    "tail": [
+      "PASS  invariant.bounded-and-finite",
+      "PASS  long-run.stable",
+      "",
+      "ALL TESTS PASSED (45)"
+    ]
+  },
+  {
+    "project": "tests/hero-cloth-turn/Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hero-cloth-turn.txt",
+    "tail": [
+      "Turn-stop scenarios: 72 passed, 0 failed (2 chains x 4 speeds x 3 winds x 3 stop delays)."
+    ]
+  },
+  {
+    "project": "tests/hero-native-pose/Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hero-native-pose.txt",
+    "tail": [
+      "",
+      "ALL NATIVE-POSE TESTS PASSED (73)"
+    ]
+  },
+  {
+    "project": "tests/hero-native-visuals/Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hero-native-visuals.txt",
+    "tail": [
+      "",
+      "ALL VISUALS-NATIVE-STUB TESTS PASSED (57)"
+    ]
+  },
+  {
+    "project": "tests/hero-scarf-geometry/Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hero-scarf-geometry.txt",
+    "tail": [
+      "PASS both actual wide ribbons visibly clear ground at 1.2 and 1.6 steady run",
+      "PASS actual configured chains keep per-axis startup and stop simulation steps below 2px",
+      "PASS actual configured tails settle near ground within three seconds after stop",
+      "ALL SCARF GEOMETRY TESTS PASSED (35)"
+    ]
+  },
+  {
+    "project": "tests/hero-visual-priority/Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hero-visual-priority.txt",
+    "tail": [
+      "PASS RepeatedApplicationDoesNotAccumulate.body",
+      "PASS RepeatedApplicationDoesNotAccumulate.cloth",
+      "",
+      "ALL PRIORITY TESTS PASSED (29)"
+    ]
+  },
+  {
+    "project": "tests/hero-walk-scale/Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hero-walk-scale.txt",
+    "tail": [
+      "PASS flip \u65f6 x \u504f\u79fb\u53d6\u53cd\uff08\u80a9\u90e8\u951a\u70b9\u968f\u671d\u5411\uff09\uff0cy \u4e0d\u53d8",
+      "PASS \u975e\u96f6 body \u539f\u70b9\uff1a\u951a\u70b9 = \u539f\u70b9 + \u504f\u79fb\u00d70.9",
+      "PASS \u91cd\u590d\u8c03\u7528\u5e42\u7b49\uff08\u4e0d\u9010\u5e27\u9012\u51cf\uff09",
+      "ALL PASS"
+    ]
+  },
+  {
+    "project": "tests/hold-purchase/HoldPurchaseTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "hold-purchase.txt",
+    "tail": [
+      "PASS panel_open_cancels_the_hold",
+      "PASS pending_restore_survives_release_and_repress_without_compounding",
+      "",
+      "ALL PASS (25 scenarios)"
+    ]
+  },
+  {
+    "project": "tests/infinite-stamina/InfiniteStamina.Tests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "infinite-stamina.txt",
+    "tail": [
+      "PASS Postfix \u5f52\u8fd8\u540e\u5916\u90e8\u628a\u901f\u7387\u6539 0\uff1aFinalizer \u4e0d\u518d\u6b21\u8986\u76d6",
+      "PASS \u6280\u80fd\u5165\u53e3 off\u2192on\uff1aPrefix \u672a\u4ecb\u5165\u5219 Postfix \u4e0d\u65e0\u7aef\u8865\u6ee1",
+      "PASS \u6280\u80fd\u4e2d\u9014\u6362 steed\uff1a\u53ea\u8865\u524d\u7f00\u6355\u83b7\u7684\u5750\u9a91\uff0c\u4e0d\u78b0\u65b0 target",
+      "RESULT: 25 passed, 0 failed; 254 assertions"
+    ]
+  },
+  {
+    "project": "tests/infinite-stamina/interop-compile/InteropCompile.csproj",
+    "kind": "build",
+    "exit": 0,
+    "log": "infinite-stamina-interop-compile.txt",
+    "tail": [
+      "    0 Warning(s)",
+      "    0 Error(s)",
+      "",
+      "Time Elapsed 00:00:00.98"
+    ]
+  },
+  {
+    "project": "tests/knight-identity-archive/KnightIdentityArchiveTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "knight-identity-archive.txt",
+    "tail": [
+      "  PASS  function.balanceTieBreakIsUniformOverFullCycles",
+      "  PASS  function.balanceKeepsRecruitSequenceBalanced",
+      "",
+      "total: passed=36 failed=0"
+    ]
+  },
+  {
+    "project": "tests/knight-identity-integration/KnightIdentityIntegrationTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "knight-identity-integration.txt",
+    "tail": [
+      "PASS integrated real Archive/Runtime/Network: 9 assertions; native boundary is simulated"
+    ]
+  },
+  {
+    "project": "tests/knight-identity-network/KnightIdentityNetworkTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "knight-identity-network.txt",
+    "tail": [
+      "  PASS  \u5e8f\u5217\u5316\uff1a\u65e0\u6536\u636e / Runtime \u629b\u9519\u65f6\u4e00\u4e2a\u5b57\u8282\u90fd\u4e0d\u8ffd\u52a0",
+      "  PASS  Harmony \u8865\u4e01\u53ea\u9489\u5728\u5df2\u5ba1\u8ba1\u7684 4 \u4e2a\u539f\u751f\u65b9\u6cd5\u4e0a",
+      "",
+      "total: passed=48 failed=0"
+    ]
+  },
+  {
+    "project": "tests/knight-identity-runtime/KnightIdentityRuntimeTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "knight-identity-runtime.txt",
+    "tail": [
+      "  PASS  load_binding_holds_until_a_new_life_reenable_clears_it",
+      "  PASS  real_load_bridge_seeds_22_without_native_save_then_restores_all",
+      "",
+      "total: passed=26 failed=0"
+    ]
+  },
+  {
+    "project": "tests/knight-load-seed/KnightLoadSeedTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "knight-load-seed.txt",
+    "tail": [
+      "  PASS  clear_drops_memory_and_writes_nothing",
+      "  PASS  at_most_four_batches_and_the_fifth_is_rejected",
+      "",
+      "total: passed=34 failed=0"
+    ]
+  },
+  {
+    "project": "tests/knight-load-seed/interop/InteropCompile.csproj",
+    "kind": "build",
+    "exit": 0,
+    "log": "knight-load-seed-interop.txt",
+    "tail": [
+      "Build succeeded after adding the missing ImageConversion reference to the legacy compile-only project."
+    ],
+    "initial_failure": "Missing UnityEngine.ImageConversionModule reference in test project"
+  },
+  {
+    "project": "tests/knight-powers/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "knight-powers.txt",
+    "tail": [
+      "PASS Wind arc builder preserves positive start and slash-range fallback geometry",
+      "PASS Wind arc repeated attacks reuse geometry after fade and disable",
+      "PASS Wind arc partial indexed failure destroys only new child and permits retry",
+      "RESULT: 31 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/medieval-scatter-policy/MedievalScatterPolicyTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "medieval-scatter-policy.txt",
+    "tail": [
+      "PASS target_damageable_gates",
+      "PASS read_failure_fails_closed",
+      "",
+      "total: passed=16 failed=0"
+    ]
+  },
+  {
+    "project": "tests/menu-input-lifecycle/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "menu-input-lifecycle.txt",
+    "tail": [
+      "PASS readiness read failure fails open to vanilla with one diagnostic",
+      "PASS OnDisable model: only the input write is skipped, remaining cleanup runs",
+      "PASS ShouldRun truth table agrees with the prefix decision",
+      "RESULT passed=8 failed=0"
+    ]
+  },
+  {
+    "project": "tests/menu-input-lifecycle/actual-interop/ActualInterop.csproj",
+    "kind": "build",
+    "exit": 0,
+    "log": "menu-input-lifecycle-actual-interop.txt",
+    "tail": [
+      "    0 Warning(s)",
+      "    0 Error(s)",
+      "",
+      "Time Elapsed 00:00:00.83"
+    ]
+  },
+  {
+    "project": "tests/optional-scope/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "optional-scope.txt",
+    "tail": [
+      "PASS actual all-world scope: 17 checks"
+    ]
+  },
+  {
+    "project": "tests/optional-vegetation/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "optional-vegetation.txt",
+    "tail": [
+      "PASS \u56de\u6536\u52a8\u4f5c\u6709\u754c\uff1a\u591a\u4e2a\u989d\u5916\u5b9e\u4f8b\u5206\u6279\u5904\u7406",
+      "PASS hook \u9762\u4ec5\u9650\u5ba1\u8ba1\u8fc7\u7684\u76ee\u6807\u65b9\u6cd5",
+      "PASS \u65e0\u4e16\u754c\u6743\u5a01\u65f6\u4e0d\u5199 world",
+      "RESULT passed=31 failed=0"
+    ]
+  },
+  {
+    "project": "tests/population-hud/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "population-hud.txt",
+    "tail": [
+      "PASS HUD singleton faults back off and disable still resets immediately during retry delay",
+      "PASS Ammo HUD refreshes without population changes and automatic buying stays off",
+      "PASS Hiding HUD retains ammo cache demand for active automatic restock",
+      "RESULT: 32 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/samurai-diagnostics/SamuraiDiagnosticsTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "samurai-diagnostics.txt",
+    "tail": [
+      "PASS native context failures are swallowed and degrade the line",
+      "PASS Trace keeps only primitive state and no Unity object",
+      "PASS events append after the shared header",
+      "ALL PASS: 9 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/samurai-motion/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "samurai-motion.txt",
+    "tail": [
+      "PASS Motion begins one visual token without old GlowOverlay call",
+      "PASS Return running tail ends its visual burst token",
+      "PASS OnDisable prefix clears visuals before mover cleanup callbacks",
+      "RESULT: 123 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/samurai-retreat/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "samurai-retreat.txt",
+    "tail": [
+      "PASS Non-authoritative client leaves arguments unchanged",
+      "PASS Real Harmony float prefix propagates ref speed and preserves native goal and Wait",
+      "PASS Real cached Archer branch never receives knight retreat adjustment",
+      "RESULT 43 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/samurai-visuals/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "samurai-visuals.txt",
+    "tail": [
+      "PASS Diagnostic chain records enabled state, first update once, stop and final tail",
+      "PASS Diagnostic skipped source distinguishes missing sprite",
+      "PASS Stationary dash whose ghosts expired before End still logs tail-cleared once",
+      "RESULT 15 passed, 0 failed"
+    ]
+  },
+  {
+    "project": "tests/scatter-arrow-tint/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "scatter-arrow-tint.txt",
+    "tail": [
+      "PASS end-to-end: tinted extra arrow survives the softsim motion prefix",
+      "PASS end-to-end: untinted payload keeps the native 1-byte semantics",
+      "PASS patch: single hook on Arrow.ReceiveInitialise with a bool prefix",
+      "RESULT checks=44 failed=0"
+    ]
+  },
+  {
+    "project": "tests/scatter-arrow-tint/actual-interop/ActualInterop.csproj",
+    "kind": "build",
+    "exit": 0,
+    "log": "scatter-arrow-tint-actual-interop.txt",
+    "tail": [
+      "    0 Warning(s)",
+      "    0 Error(s)",
+      "",
+      "Time Elapsed 00:00:00.80"
+    ]
+  },
+  {
+    "project": "tests/shop-cleanup/Regression.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "shop-cleanup.txt",
+    "tail": [
+      "PASS marker cleanup refills only after the real destruction",
+      "PASS legacy entry upgrades to a slot entry for the same object",
+      "PASS legacy marker with a changed live tag retires without action",
+      "RESULT 49/49 passed"
+    ]
+  },
+  {
+    "project": "tests/siege-ammo/SiegeAmmoTests.csproj",
+    "kind": "run",
+    "exit": 0,
+    "log": "siege-ammo.txt",
+    "tail": [
+      "PASS enabled_parameter_only_gating",
+      "PASS hooks_bound_to_payable_registry",
+      "",
+      "==== 36 passed, 0 failed, 36 total ===="
+    ]
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "sessionId": "sess_4f85a489-0bfc-4f16-92cd-73ff9f5165ed",
+  "traceId": "75bf6824-f958-4a23-afc0-32bbfdef4333",
+  "turnId": "turn_cd8a5287-cbf9-4968-bb15-00f31818d186",
+  "response": "worker-brief-v2 已按 allowlist 执行完毕，四份交付物全部落盘，未越界（未构建、未碰游戏/E盘/DLL、未 commit）。\n\n**交付物**\n1. **`release/MOD_FEATURES_OVERVIEW_ZH.txt`**（重写，270 行）——自足发群版：删除 v1 定位声明/文档指引/深入阅读/候选节；结构为速览(10条+跳读锚)→角色图鉴→世界与经营→战斗增强→便捷与HUD(含默认开关速览镜像)→修复与稳定性要点(兜底句)→已知限制(8条)→安装最小步骤。新补齐了 v1 缺的大批条目：弩手全条目（3:1 获取、伤害 2、塔位射程 ×1.5、初速 ×2 平直弹道、不入骑士队）、忍者夜间伏击（灌木3/树1/帐篷5）、狂战士第 6 次出队长、银行家提款 39→100 与助手增派机制、幕府冲刺细节（3秒CD/7格/无敌/残影/退速3×）、希腊火 8s/15s、特种箭塔重建条件、守家布阵间距与友军碰撞、Cerberus 四队、舰队配队、隐士防绑架、修复节 12 组历史修复等。\n2. **`receipts/provenance.md`**——追加 v2 增补节：所有新条目逐条溯源（源码文件:行），修复节每条核验机制文件仍在，v1 六项陷阱全部复核。\n3. **`receipts/coverage-matrix.md`**——15 份 MOD_V* 说明（实际 15 份，任务书写 13）逐章节对账 + 143 个 il2cpp 源文件归簇对账，历史中间值（大蛇60步、猫3/6只、散射1–5、英雄1.25、头饰30%随机）全部按现行值书写并记录排除理由。\n4. **`worker-result-v2.md`**——改动摘要、陷阱执行清单、待裁决项、自检结果。\n\n**任务书点名的源码核验全部通过**：弩手 3:1 与数值（PatchRoles_Crossbowman.cs）、希腊火 8f/15f（PatchRoles_GreekFire.cs:12）、武士退速 3f（SamuraiRetreatSpeed.cs:27）、忍者伏击锚点常量、银行家 100、农田币 3f（陈旧注释再次确认按值不按注释）。\n\n**自检**：候选关键词（65%/无视城墙/穿墙/WallPierce）与内部痕迹（docs/project-harness、tasks/、VERSIONING、il2cpp/、候选、待实机）双 grep 均 0 出现；默认开关速览与 USER_GUIDE 第二节逐条一致。\n\n**留给你裁决的两项**（详见 worker-result-v2.md）：①特种塔重建“约 18 金币”沿用 V2 历史观测值（源码复制原生六级付款档不硬编码）；②V2 旧警告“跨存档余额不隔离”改写为现行保守口径“长期一致性仍在验证”。另外 270 行低于 300–330 软目标，按“完整性优先、宁可精炼不注水”取舍，对账矩阵证明无漏项。",
+  "usage": {
+    "source": "provider",
+    "modelRequestCount": 33,
+    "inputTokens": 2642603,
+    "outputTokens": 24763,
+    "totalTokens": 2667366,
+    "cacheReadTokens": 2540224,
+    "cacheWriteTokens": 0,
+    "reasoningTokens": 0,
+    "webFetchRequests": 0,
+    "webSearchRequests": 0
+  },
+  "eventCount": 8059,
+  "projection": {
+    "status": "idle",
+    "turnCount": 1,
+    "totalTokenCount": 2667366,
+    "contextUsed": 111936,
+    "contextWindow": 1000000
+  }
+}

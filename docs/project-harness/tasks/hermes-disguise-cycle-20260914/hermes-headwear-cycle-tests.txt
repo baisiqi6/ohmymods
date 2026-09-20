@@ -1,0 +1,30 @@
+hermes headwear cycle cursor tests (console / serial)
+
+  PASS  fresh start: 0 then persist next=1, restart continues
+  PASS  first 44 hits are unique 0..43, then wrap to 0
+  PASS  88 hits = two full cycles, file back to 0
+  PASS  restart mid-cycle resumes, nothing skipped
+  PASS  on-disk schema1 bytes are exact and minimal
+  PASS  unknown schema version refused, bytes untouched
+  PASS  out-of-range / wrong-typed nextChoice refused
+  PASS  corrupt json / empty / non-object refused
+  PASS  unknown, duplicate and missing fields refused
+  PASS  oversized file refused without reading
+  PASS  non-host refused, no file created
+  PASS  authority probe exception refused
+  PASS  no injected path refuses (no arbitrary write surface)
+  PASS  unwritable parent path refused, nothing touched
+  PASS  write failure (target is a directory) leaves no temp
+  PASS  locked file refused, progress preserved, retried after unlock
+  PASS  read denial never resets persisted progress
+  PASS  file appearing after a missing read is never overwritten
+  PASS  file vanishing after an existing read fails instead of recreating
+  PASS  corrupt file never overwritten, no bak/temp added
+  PASS  backup kept on replace and holds previous next
+  PASS  external valid change adopted, not clobbered
+  PASS  external corruption after progress refused and preserved
+  PASS  external deletion restarts at 0
+  PASS  44 concurrent hits hand out each code exactly once
+  PASS  wrapper constants stay in 0..43
+
+total: passed=26 failed=0

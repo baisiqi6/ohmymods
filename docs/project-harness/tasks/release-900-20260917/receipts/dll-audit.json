@@ -1,0 +1,36 @@
+﻿{
+    "behaviorEquivalent":  true,
+    "unchangedEmbeddedResources":  [
+                                       "KingdomEnhancedMod.HeroArcherAtlas.png",
+                                       "KingdomEnhancedMod.ArtemisArrow.png",
+                                       "KingdomEnhancedMod.HeroShop.png",
+                                       "KingdomEnhancedMod.HeroShopSeats.png",
+                                       "KingdomEnhancedMod.MusketeerAtlas.png",
+                                       "KingdomEnhancedMod.MusketeerShop.png",
+                                       "KingdomEnhancedMod.MusketeerGun.png",
+                                       "KingdomEnhancedMod.MusketeerBullet.png"
+                                   ],
+    "build":  "9.0.0",
+    "baselineSha":  "135825E1F62652B1538DA3803C8AA923B4B0358449018FE3AAEAB176620E17C8",
+    "version":  "9.0.0",
+    "changedMethods":  [
+                           "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()"
+                       ],
+    "unchangedMethods":  3587,
+    "assemblyVersion":  "9.0.0.0",
+    "instructionChanges":  [
+                               {
+                                   "before":  "IL_000f: ldc.i4.s 71",
+                                   "after":  "IL_000f: ldc.i4.s 32"
+                               },
+                               {
+                                   "before":  "IL_0042: ldstr \"8.0.0\"",
+                                   "after":  "IL_0042: ldstr \"9.0.0\""
+                               },
+                               {
+                                   "before":  "IL_004e: ldstr \" build=8.0.0-population-ground-diagnostics-20260917 loading...\"",
+                                   "after":  "IL_004e: ldstr \" build=9.0.0 loading...\""
+                               }
+                           ],
+    "dllSha256":  "641E79A938B16EE5A64962225F5BF36181A38760DD4931DD92383AD11756D7ED"
+}

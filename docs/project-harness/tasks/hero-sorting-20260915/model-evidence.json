@@ -1,0 +1,548 @@
+[
+  {
+    "timestamp": "2026-09-15T01:30:08.237Z",
+    "event": "model.request.started",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "started",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "messageCount",
+      "iteration"
+    ],
+    "metadata": {}
+  },
+  {
+    "timestamp": "2026-09-15T01:30:12.049Z",
+    "event": "model.sdk.stream.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "attempt",
+      "baseURL",
+      "maxAttempts",
+      "maxRetries",
+      "modelId",
+      "providerId",
+      "providerKind",
+      "querySource",
+      "requestId",
+      "transport",
+      "chunkCounts",
+      "emittedError",
+      "emittedEvent",
+      "errorChunkCount",
+      "finishReason",
+      "lastChunkType",
+      "rawFinishReason",
+      "reasoningDeltaChars",
+      "textDeltaChars",
+      "toolCallCount",
+      "usage"
+    ],
+    "metadata": {
+      "modelId": "GLM-5.3",
+      "providerId": "bigmodel",
+      "finishReason": "tool-calls"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:12.050Z",
+    "event": "model.network.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "model",
+      "iteration",
+      "querySource",
+      "attempt",
+      "baseURL",
+      "maxAttempts",
+      "modelId",
+      "providerId",
+      "providerKind",
+      "requestId",
+      "transport",
+      "finishReason"
+    ],
+    "metadata": {
+      "model": "bigmodel/GLM-5.3",
+      "modelId": "GLM-5.3",
+      "providerId": "bigmodel",
+      "finishReason": "tool-calls"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:22.745Z",
+    "event": "tool.call.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "model",
+      "iteration",
+      "querySource",
+      "toolName"
+    ],
+    "metadata": {
+      "model": "bigmodel/GLM-5.3",
+      "toolName": "Bash"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:22.752Z",
+    "event": "model.request.started",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "started",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "messageCount",
+      "iteration"
+    ],
+    "metadata": {}
+  },
+  {
+    "timestamp": "2026-09-15T01:30:26.694Z",
+    "event": "tool.call.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "model",
+      "iteration",
+      "querySource",
+      "toolName"
+    ],
+    "metadata": {
+      "model": "bigmodel/GLM-5.3",
+      "toolName": "Read"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:27.120Z",
+    "event": "model.sdk.stream.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "attempt",
+      "baseURL",
+      "maxAttempts",
+      "maxRetries",
+      "modelId",
+      "providerId",
+      "providerKind",
+      "querySource",
+      "requestId",
+      "transport",
+      "chunkCounts",
+      "emittedError",
+      "emittedEvent",
+      "errorChunkCount",
+      "finishReason",
+      "lastChunkType",
+      "rawFinishReason",
+      "reasoningDeltaChars",
+      "textDeltaChars",
+      "toolCallCount",
+      "usage"
+    ],
+    "metadata": {
+      "modelId": "GLM-5.3",
+      "providerId": "bigmodel",
+      "finishReason": "tool-calls"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:27.120Z",
+    "event": "model.network.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "model",
+      "iteration",
+      "querySource",
+      "attempt",
+      "baseURL",
+      "maxAttempts",
+      "modelId",
+      "providerId",
+      "providerKind",
+      "requestId",
+      "transport",
+      "finishReason"
+    ],
+    "metadata": {
+      "model": "bigmodel/GLM-5.3",
+      "modelId": "GLM-5.3",
+      "providerId": "bigmodel",
+      "finishReason": "tool-calls"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:27.140Z",
+    "event": "tool.call.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "model",
+      "iteration",
+      "querySource",
+      "toolName"
+    ],
+    "metadata": {
+      "model": "bigmodel/GLM-5.3",
+      "toolName": "Read"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:27.147Z",
+    "event": "model.request.started",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "started",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "messageCount",
+      "iteration"
+    ],
+    "metadata": {}
+  },
+  {
+    "timestamp": "2026-09-15T01:30:44.616Z",
+    "event": "model.sdk.stream.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "attempt",
+      "baseURL",
+      "maxAttempts",
+      "maxRetries",
+      "modelId",
+      "providerId",
+      "providerKind",
+      "querySource",
+      "requestId",
+      "transport",
+      "chunkCounts",
+      "emittedError",
+      "emittedEvent",
+      "errorChunkCount",
+      "finishReason",
+      "lastChunkType",
+      "rawFinishReason",
+      "reasoningDeltaChars",
+      "textDeltaChars",
+      "toolCallCount",
+      "usage"
+    ],
+    "metadata": {
+      "modelId": "GLM-5.3",
+      "providerId": "bigmodel",
+      "finishReason": "tool-calls"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:44.616Z",
+    "event": "model.network.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "model",
+      "iteration",
+      "querySource",
+      "attempt",
+      "baseURL",
+      "maxAttempts",
+      "modelId",
+      "providerId",
+      "providerKind",
+      "requestId",
+      "transport",
+      "finishReason"
+    ],
+    "metadata": {
+      "model": "bigmodel/GLM-5.3",
+      "modelId": "GLM-5.3",
+      "providerId": "bigmodel",
+      "finishReason": "tool-calls"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:49.540Z",
+    "event": "tool.call.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "model",
+      "iteration",
+      "querySource",
+      "toolName"
+    ],
+    "metadata": {
+      "model": "bigmodel/GLM-5.3",
+      "toolName": "Bash"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:49.544Z",
+    "event": "model.request.started",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "started",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "messageCount",
+      "iteration"
+    ],
+    "metadata": {}
+  },
+  {
+    "timestamp": "2026-09-15T01:30:51.825Z",
+    "event": "model.sdk.stream.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "attempt",
+      "baseURL",
+      "maxAttempts",
+      "maxRetries",
+      "modelId",
+      "providerId",
+      "providerKind",
+      "querySource",
+      "requestId",
+      "transport",
+      "chunkCounts",
+      "emittedError",
+      "emittedEvent",
+      "errorChunkCount",
+      "finishReason",
+      "lastChunkType",
+      "rawFinishReason",
+      "reasoningDeltaChars",
+      "textDeltaChars",
+      "toolCallCount",
+      "usage"
+    ],
+    "metadata": {
+      "modelId": "GLM-5.3",
+      "providerId": "bigmodel",
+      "finishReason": "tool-calls"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:51.826Z",
+    "event": "model.network.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "model",
+      "iteration",
+      "querySource",
+      "attempt",
+      "baseURL",
+      "maxAttempts",
+      "modelId",
+      "providerId",
+      "providerKind",
+      "requestId",
+      "transport",
+      "finishReason"
+    ],
+    "metadata": {
+      "model": "bigmodel/GLM-5.3",
+      "modelId": "GLM-5.3",
+      "providerId": "bigmodel",
+      "finishReason": "tool-calls"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:51.844Z",
+    "event": "model.request.started",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "started",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "messageCount",
+      "iteration"
+    ],
+    "metadata": {}
+  },
+  {
+    "timestamp": "2026-09-15T01:30:54.625Z",
+    "event": "model.sdk.stream.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "attempt",
+      "baseURL",
+      "maxAttempts",
+      "maxRetries",
+      "modelId",
+      "providerId",
+      "providerKind",
+      "querySource",
+      "requestId",
+      "transport",
+      "chunkCounts",
+      "emittedError",
+      "emittedEvent",
+      "errorChunkCount",
+      "finishReason",
+      "lastChunkType",
+      "rawFinishReason",
+      "reasoningDeltaChars",
+      "textDeltaChars",
+      "toolCallCount",
+      "usage"
+    ],
+    "metadata": {
+      "modelId": "GLM-5.3",
+      "providerId": "bigmodel",
+      "finishReason": "tool-calls"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:54.626Z",
+    "event": "model.network.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "model",
+      "iteration",
+      "querySource",
+      "attempt",
+      "baseURL",
+      "maxAttempts",
+      "modelId",
+      "providerId",
+      "providerKind",
+      "requestId",
+      "transport",
+      "finishReason"
+    ],
+    "metadata": {
+      "model": "bigmodel/GLM-5.3",
+      "modelId": "GLM-5.3",
+      "providerId": "bigmodel",
+      "finishReason": "tool-calls"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:58.927Z",
+    "event": "tool.call.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "model",
+      "iteration",
+      "querySource",
+      "toolName"
+    ],
+    "metadata": {
+      "model": "bigmodel/GLM-5.3",
+      "toolName": "Bash"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:30:58.931Z",
+    "event": "model.request.started",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "started",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "messageCount",
+      "iteration"
+    ],
+    "metadata": {}
+  },
+  {
+    "timestamp": "2026-09-15T01:31:01.652Z",
+    "event": "model.sdk.stream.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "attempt",
+      "baseURL",
+      "maxAttempts",
+      "maxRetries",
+      "modelId",
+      "providerId",
+      "providerKind",
+      "querySource",
+      "requestId",
+      "transport",
+      "chunkCounts",
+      "emittedError",
+      "emittedEvent",
+      "errorChunkCount",
+      "finishReason",
+      "lastChunkType",
+      "rawFinishReason",
+      "reasoningDeltaChars",
+      "textDeltaChars",
+      "toolCallCount",
+      "usage"
+    ],
+    "metadata": {
+      "modelId": "GLM-5.3",
+      "providerId": "bigmodel",
+      "finishReason": "tool-calls"
+    }
+  },
+  {
+    "timestamp": "2026-09-15T01:31:01.652Z",
+    "event": "model.network.completed",
+    "sessionId": "sess_3b7413ef-2ebb-46dd-8ae1-df6e74905f1e",
+    "status": "completed",
+    "contextKeys": [
+      "queryId",
+      "turnNumber",
+      "model",
+      "iteration",
+      "querySource",
+      "attempt",
+      "baseURL",
+      "maxAttempts",
+      "modelId",
+      "providerId",
+      "providerKind",
+      "requestId",
+      "transport",
+      "finishReason"
+    ],
+    "metadata": {
+      "model": "bigmodel/GLM-5.3",
+      "modelId": "GLM-5.3",
+      "providerId": "bigmodel",
+      "finishReason": "tool-calls"
+    }
+  }
+]

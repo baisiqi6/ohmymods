@@ -1,0 +1,473 @@
+{
+  "version": "8.0.0",
+  "files": [
+    {
+      "path": "il2cpp/ArcherOptionsScope.cs",
+      "sha256": "d686a9b82edf1dc5bbb7ed859517aa680899be3bb3fe915c8f516aa6d0e612a5"
+    },
+    {
+      "path": "il2cpp/Assets/ArtemisArrow.png",
+      "sha256": "5317f8a795ba506136ab51c68384f4e1151ee74229649556eaa8a57a338b35a8"
+    },
+    {
+      "path": "il2cpp/Assets/HeroArcherAtlas.png",
+      "sha256": "de17f3ba373e9662883a729230c6b4ef00ed332789d9c63370aeb558dc253d7a"
+    },
+    {
+      "path": "il2cpp/AutoRestockCounts.cs",
+      "sha256": "db5bbae7c09e43ceabc4a7413322a13fac8985128568c7e44a4cbfbe675ec28b"
+    },
+    {
+      "path": "il2cpp/CalendarHud.cs",
+      "sha256": "a04684f27e01189afd34e90a385bfd05ba9138c3017520463f50f8f2a8e274aa"
+    },
+    {
+      "path": "il2cpp/CalendarSnapshot.cs",
+      "sha256": "14129613cdf6f9352d0be9f2187ea2f2c4d7880fa54079de54b5b246cc6170f7"
+    },
+    {
+      "path": "il2cpp/CrossbowmanLifecycle.cs",
+      "sha256": "53d86bd49b3ae26c6d4509a700fbb0ae7eb3658d5d997b19f26a3545a25c9def"
+    },
+    {
+      "path": "il2cpp/Directory.Build.props",
+      "sha256": "4b220272a8ba01bc67a4854c0a27056f00398f4fe8f21be8153cdd8423d75fd0"
+    },
+    {
+      "path": "il2cpp/FireTowerRestockCapacity.cs",
+      "sha256": "d0e41e20c5b2c656f3d751f784d43aa826d23500e66c6644c8dbb0e3fe5a3ba9"
+    },
+    {
+      "path": "il2cpp/FleetGreekSquads.cs",
+      "sha256": "8457993075b76c089e211fc41028fde0772a6dffd002b3fb51e31838deae31af"
+    },
+    {
+      "path": "il2cpp/FriendlyTrollDisguise.cs",
+      "sha256": "3f4ba5d2997004fae281991bc140742d953818362390686edb51afcebcbda1c4"
+    },
+    {
+      "path": "il2cpp/GreekBankScope.cs",
+      "sha256": "46cdec4701e3bbbcf59bd78dc02c893637ff719a50914a47ab601ae835ade7bb"
+    },
+    {
+      "path": "il2cpp/GreekScaleScope.cs",
+      "sha256": "f8f321d5b3a0f89587d88ccc4ca44212543735fbcf9d0bebbff2ca315375f30b"
+    },
+    {
+      "path": "il2cpp/HermesHeadwearCodec.cs",
+      "sha256": "f5b3734c93ec973d4de932101451628da97c35d65bb4eac4feac141546233506"
+    },
+    {
+      "path": "il2cpp/HermesHeadwearCycle.cs",
+      "sha256": "cf3e00ee2c05d5fc8f5eae2762f58a4a9abe7d4a15f56644caac324e94072d5f"
+    },
+    {
+      "path": "il2cpp/HermesHeadwearDiagnostics.cs",
+      "sha256": "23bc009bf11ec5c5ff230545ba7853f9c2d7f84af25fe2ea94fe79d3a64484eb"
+    },
+    {
+      "path": "il2cpp/HermesHeadwearVisuals.cs",
+      "sha256": "3b6cd4047cb05373cda1dba599da88e2dd59295cae6bd3a20de02426af09a8c5"
+    },
+    {
+      "path": "il2cpp/HeroArcherAnimation.cs",
+      "sha256": "2406960b23401f5f02d77063862e86860a8bb57614c9d221a5821d69e8a792ab"
+    },
+    {
+      "path": "il2cpp/HeroArcherArrowVisuals.cs",
+      "sha256": "5398694afe4674be69629c1bc4d8ea0d74f1a3ee386cac5681462e4ffa3db1c1"
+    },
+    {
+      "path": "il2cpp/HeroArcherCloth.cs",
+      "sha256": "2b53eb46d51a9716ed3c3855d32a2041fc8f93b803978caefefadbd92056740b"
+    },
+    {
+      "path": "il2cpp/HeroArcherClothPhysics.cs",
+      "sha256": "d7974c2627332cfc0dd1683467b60c18ac6f387db97ba5c4846a3c4b43670903"
+    },
+    {
+      "path": "il2cpp/HeroArcherCombat.cs",
+      "sha256": "d3c0b76631069a2f481736de08cb99379469d9dbb6dba75cb51d898077067fe8"
+    },
+    {
+      "path": "il2cpp/HeroArcherMotion.cs",
+      "sha256": "9eccb0efb4c27e59374e70ea3dd6dcb5c52efa57d7c6b599f95224de4f3dac06"
+    },
+    {
+      "path": "il2cpp/HeroArcherNativePose.cs",
+      "sha256": "a2af9049f137624364bd94838299a212b5c620312620b1175a58884692ae8350"
+    },
+    {
+      "path": "il2cpp/HeroArcherNetwork.cs",
+      "sha256": "e77a1c868ba9f3722c4ef9dbd60459e588dc2f68ec27e7cdc8f6847d4076c0fb"
+    },
+    {
+      "path": "il2cpp/HeroArcherRange.cs",
+      "sha256": "6d146bbdf4d43e2be23881596536028bf93d331b83c9994be7da819ddda8916f"
+    },
+    {
+      "path": "il2cpp/HeroArcherRuntime.cs",
+      "sha256": "f33e615c2484278e36fdd609221a685d1bc34e15e8be97b16e6b0a4b43514a37"
+    },
+    {
+      "path": "il2cpp/HeroArcherScarfGeometry.cs",
+      "sha256": "09fd978d0423bc1af34a4ef660ccf16f6b0efd65e6fdc4486b3c63af4a22538e"
+    },
+    {
+      "path": "il2cpp/HeroArcherVisuals.cs",
+      "sha256": "cb2f5009539ce0c6f259f9a12ec263845620e09fd4f49f68c87024faa09eb90d"
+    },
+    {
+      "path": "il2cpp/HeroVisualPriority.cs",
+      "sha256": "d1299459b32e03abb8f8d5156a4cda0e5e13b04861cff7fb064d70389ac5aff0"
+    },
+    {
+      "path": "il2cpp/ImGuiCompat.cs",
+      "sha256": "e3772bab5225fea458c233f46fa787ea74b194514e9675f7e813e2b10477aff1"
+    },
+    {
+      "path": "il2cpp/KingdomEnhancedMod.csproj",
+      "sha256": "814cf955f9ae577d521bcae8f7daf3d5ab829fbabac266b152674c8dffa00774"
+    },
+    {
+      "path": "il2cpp/KingdomEnhancedPlugin.cs",
+      "sha256": "8c67d64e6b31da329b9e78bad0814b2d3f6c78f970d6e1e3e69ccfd0f5ac0033"
+    },
+    {
+      "path": "il2cpp/KnightIdentityArchive.cs",
+      "sha256": "080b7c4797deddea7bbe87fa90d97e22a78b67473b379badc9a195177b8664e4"
+    },
+    {
+      "path": "il2cpp/KnightIdentityLoadSeed.cs",
+      "sha256": "ada1e467e272eb9707c0f61af839097d43e8cfc5b6d8c2a4607fa1eec5c31b96"
+    },
+    {
+      "path": "il2cpp/KnightIdentityNetwork.cs",
+      "sha256": "b1a0d5a81dfe734ca83541eadc727eb635709d61f5a4ab91dd2f381c495ae079"
+    },
+    {
+      "path": "il2cpp/KnightIdentityRuntime.cs",
+      "sha256": "661bf41c88fb542f5aaaa7a69743adfd14346736c04cb435647b0fd12a436881"
+    },
+    {
+      "path": "il2cpp/MedievalScatterPolicy.cs",
+      "sha256": "9eb60bab0f6b5c210be0c41658c097642271252cd34077887ac699234897658c"
+    },
+    {
+      "path": "il2cpp/ModConfig.cs",
+      "sha256": "c0f341660480facdf0a018dfc36c626275af97a016265007bd3afb663d6af938"
+    },
+    {
+      "path": "il2cpp/ModPanel.cs",
+      "sha256": "9dc4d90f7cadb59fe9807aef1797b98bb2ce26a1b358f27f8e08f9796380d8ff"
+    },
+    {
+      "path": "il2cpp/OptionalQoLScope.cs",
+      "sha256": "0a5e62c44984ba675131031f371f91f185debb39cb8efbb3e2ffda50933a606b"
+    },
+    {
+      "path": "il2cpp/PatchArcher_GreekImpact.cs",
+      "sha256": "dbf1e4d1254f4674d79dc550acb92b2fb695bc27a93e3ba649f157ba7fcbe892"
+    },
+    {
+      "path": "il2cpp/PatchArcher_Impact.cs",
+      "sha256": "5e1a2fdd64094d37cc43871de94e24334e6b6faac4e1c139be0fad4b0313d4f4"
+    },
+    {
+      "path": "il2cpp/PatchArcher_Options.cs",
+      "sha256": "c815d04f2d89584296ff4cab8e1fee13058a40ae33e6d93d7b9b1822aa72e80c"
+    },
+    {
+      "path": "il2cpp/PatchCombatChaseGuard.cs",
+      "sha256": "7116927dbe305d7b20e3b586901a351b536d9a9c4449d097978b6b454ea18023"
+    },
+    {
+      "path": "il2cpp/PatchDivine_Artemis.cs",
+      "sha256": "ace96e72550e889e6e1b2e69158a6938cd17a916e7d7fd6075e83b5159f2ec48"
+    },
+    {
+      "path": "il2cpp/PatchDivine_FriendlyTroll.cs",
+      "sha256": "fc217e2010fa5f99381df99b7d86a76b978257cad18c102344793e93c1a82012"
+    },
+    {
+      "path": "il2cpp/PatchDivine_GhostLeashHold.cs",
+      "sha256": "8cfc3101ab89831a5411e63579cbdce65284153dab28775d89ba4ef46436a478"
+    },
+    {
+      "path": "il2cpp/PatchDivine_GhostSquads.cs",
+      "sha256": "577088acf9ce94b0de961a02ec903a59066604b7ef5fd9b895d9dde95538b19d"
+    },
+    {
+      "path": "il2cpp/PatchDivine_HermesHeadwear.cs",
+      "sha256": "115e518a1ee2aec92538b2affbe2c984dcc3e62cf70fe2401eaad06a92a01619"
+    },
+    {
+      "path": "il2cpp/PatchDivine_HermesStaff.cs",
+      "sha256": "8f237ed7d0fb2a1742db1308c079bffeb5ca9090df0bca5eb397415816092858"
+    },
+    {
+      "path": "il2cpp/PatchEconomy_AutoRestock.cs",
+      "sha256": "9e22e2d19c94a156139612474b1e14f9502a79df16d4974a184fb6bd64cd5f60"
+    },
+    {
+      "path": "il2cpp/PatchEconomy_BankAssistants.cs",
+      "sha256": "568c2924eef25b1befb852b6c85c77541c2b5f85769c7c7ce7eafc7d464ea87c"
+    },
+    {
+      "path": "il2cpp/PatchEconomy_Banker.cs",
+      "sha256": "1689c78025599bdcfcbe2a5a7d7674f273ec5b24f96fa21a382974256080407a"
+    },
+    {
+      "path": "il2cpp/PatchEconomy_CurrencyBag.cs",
+      "sha256": "e934e79f599a9a8c8cf1836b06a7def43431350f7b9a1fe5dc42d7cc659bfd6f"
+    },
+    {
+      "path": "il2cpp/PatchEconomy_Shops.cs",
+      "sha256": "fb7c6624a8a022a2fa06262e37fc21c95c14c4726a706056a2232f0d3d92054a"
+    },
+    {
+      "path": "il2cpp/PatchLifecycle_MenuInput.cs",
+      "sha256": "19ecf5b119051408df6358ed619a838a0fd88d0bb9a2fe73740fb67a1eb28a2c"
+    },
+    {
+      "path": "il2cpp/PatchLifecycle_UnloadShieldAudio.cs",
+      "sha256": "9d6c2dc4d08cb61282fa7781ed43c97b7eeb8a83a91f26115148323744d51a3e"
+    },
+    {
+      "path": "il2cpp/PatchPerformance_NightVolley.cs",
+      "sha256": "95c46ac129c387ad19fe564b4ce28ac9e43e8ab4418980ed6b0821180cd691d3"
+    },
+    {
+      "path": "il2cpp/PatchPerformance_Population.cs",
+      "sha256": "f75cbfdafe0b22935e8cf123e6d76b393d18df354dc13a3e980d4989a83b91c5"
+    },
+    {
+      "path": "il2cpp/PatchPerformance_ToolAssignment.cs",
+      "sha256": "4069dab5fb81da207b338b69c0568e1b52f22d875d9a404ad3d5da332c9290ce"
+    },
+    {
+      "path": "il2cpp/PatchPlayer_HoldPurchase.cs",
+      "sha256": "e74e6427ff3d036b654d615338a22276dfce69d4cb1854ac1806a9d7c073ec42"
+    },
+    {
+      "path": "il2cpp/PatchPoolFix.cs",
+      "sha256": "1fd71ca88102fe7ba73d769210ff3d605db4bb0140383ebea9a591a78d6d947a"
+    },
+    {
+      "path": "il2cpp/PatchRide_InfiniteStamina.cs",
+      "sha256": "8d69c5390f034127ea607c82fe584ef0d907ebe423cd8392655ca38ae757e597"
+    },
+    {
+      "path": "il2cpp/PatchRide_SteedCooldown.cs",
+      "sha256": "94c4ac2dc3a0ff30504cd59bd4c25de625543d8d43ac0b3a35fa16dab914c498"
+    },
+    {
+      "path": "il2cpp/PatchRoles_BeggarCamp.cs",
+      "sha256": "337cee2fb53a5b3cdb43aa63f2c5f6601c9e190beab0deb09e8b19e278e8b4f4"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Berserker.cs",
+      "sha256": "37c475f6a14ddd13f396843082b6753bab6f12a408cc85f371021ebc7bf21668"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Castle.cs",
+      "sha256": "6d57d453016b5ab4f7d9f0e7190f5f020fea81d6f68b061398c6fdb9dab0a781"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Character.cs",
+      "sha256": "960933798584bffaf1afaa1346e9a304a53828fa7cccbe9067e735e0d9544538"
+    },
+    {
+      "path": "il2cpp/PatchRoles_CrossbowDefense.cs",
+      "sha256": "b10ed43aab6e4f9c46a3617207e2180d1f6c7a6539d3335a6b2484346717402d"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Crossbowman.cs",
+      "sha256": "7dbf9a005a38d1f4c3705dbcf333b659412b561f765a53b69fb8f2a75e326afe"
+    },
+    {
+      "path": "il2cpp/PatchRoles_DeadlandsPowers.cs",
+      "sha256": "682d3b523d9dfc73811294c8d646e75344f21e063de5513a14da14818e23190a"
+    },
+    {
+      "path": "il2cpp/PatchRoles_GreekFire.cs",
+      "sha256": "90b2002dcb801007565dfc2866e75c7bcf8fff1e02824d55295bd98475e60287"
+    },
+    {
+      "path": "il2cpp/PatchRoles_GreekFireAssets.cs",
+      "sha256": "958ce9ebc92774c42833de7c7be78647a486e8700e085b56413a615ef9a65117"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Hermit.cs",
+      "sha256": "9a797393d2d7fb188749d2d5a337df37188147f80d57ed886fd36ec329cb0ce8"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Holder.cs",
+      "sha256": "2360b08ec2d44a151c0d92b50987572fd8f59d59ccab10b6a2232fbf0545f78b"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Knight.cs",
+      "sha256": "2f0b58a890ac05958200e5c729c4862dfcb506cd30d12b2c9d7fc4db6f1d0a6a"
+    },
+    {
+      "path": "il2cpp/PatchRoles_KnightAnimatorDiag.cs",
+      "sha256": "95658d1996224c20f5edfb05db97b79d52bd900f4a94381dbbf8d3dfcea002fc"
+    },
+    {
+      "path": "il2cpp/PatchRoles_KnightStyle.cs",
+      "sha256": "ccfa6e3e7838f27e85306a9915e05c3e26f42be1b0c6453eaaa6dfa022516e70"
+    },
+    {
+      "path": "il2cpp/PatchRoles_MedievalNorsePowers.cs",
+      "sha256": "21704f9663d854b92663cd3432326cb304a444b48a7bb131a67851d3d2b61369"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Ninja.cs",
+      "sha256": "d0d3146c283a552ceb237bd77d86e3e7a2781181303f8544e8340d308c076a34"
+    },
+    {
+      "path": "il2cpp/PatchRoles_NorseSquad.cs",
+      "sha256": "fa631b23df8fe74fc38decb432fb02d9064365a47feb24f64468d9ce21adb7a4"
+    },
+    {
+      "path": "il2cpp/PatchRoles_SamuraiPowerDash.cs",
+      "sha256": "1de50381fb586762033f30e152069fbb46010388a0d96f0ece84626ce3ecfd69"
+    },
+    {
+      "path": "il2cpp/PatchRoles_ScaleAdjustments.cs",
+      "sha256": "f400a9b422d8e51cc990f62fd6526035e3c8c674b45506d881838fa5a8e6a68b"
+    },
+    {
+      "path": "il2cpp/PatchRoles_SquadRefillDiag.cs",
+      "sha256": "4180f6c3246f178d354f12734088ff11c3cc8ba6cc8e4c7a35ef0ed3475a6731"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Worker.cs",
+      "sha256": "ca4c5599840dc026525452df9a27eb0ca2af0382774d22f2e49e6cfdc7d5dfd0"
+    },
+    {
+      "path": "il2cpp/PatchRoles_World.cs",
+      "sha256": "bd338d43cf1ae23550082a4d0dd33e126777bb7cbb01fc56fe24a848638f69ff"
+    },
+    {
+      "path": "il2cpp/PatchShared_ScanCache.cs",
+      "sha256": "5ef317cd49dcf28945fbe317658cce5c9bc2adbf7f2587838a8161c701fc7e08"
+    },
+    {
+      "path": "il2cpp/PatchWorld_BallistaBolt.cs",
+      "sha256": "a52756de72595a1dcf4e22aef8530e98d633e6872bb5e692840cc18724624576"
+    },
+    {
+      "path": "il2cpp/PatchWorld_BoatCapacity.cs",
+      "sha256": "9ac8aa1c88cf4ab1b2c44e5d61d87175b773fa1bf0f24c5d3dfbec021de542da"
+    },
+    {
+      "path": "il2cpp/PatchWorld_Construction.cs",
+      "sha256": "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79"
+    },
+    {
+      "path": "il2cpp/PatchWorld_DeerPopulation.cs",
+      "sha256": "80fe4c2f13209b73244e17e114ff3a6e96fe9d7cc4a8b66c4cc440e54130bce4"
+    },
+    {
+      "path": "il2cpp/PatchWorld_DefenseSpacing.cs",
+      "sha256": "9367afc0f0321839226297d8ab52f5436feb8315dfd5fd65cadbb190e72e45eb"
+    },
+    {
+      "path": "il2cpp/PatchWorld_EnemyManager.cs",
+      "sha256": "27b5b348b6b7ac20c9aa5eccdbac3f6082928125b5c5893300dd212763bab5b5"
+    },
+    {
+      "path": "il2cpp/PatchWorld_FarmCats.cs",
+      "sha256": "513eaa20f66552f3580aed8b1fc8e9fc82ffe0c84ca2a09070727ab397dc7e51"
+    },
+    {
+      "path": "il2cpp/PatchWorld_FleetBoatFormation.cs",
+      "sha256": "ee3c98da1af02242ba2e6dc50522e6b5e6409fcdc66345775e7b18ad94e27178"
+    },
+    {
+      "path": "il2cpp/PatchWorld_FleetBoatRecovery.cs",
+      "sha256": "68cdf4c012069be9ba1eac0bbda6cda84f0eab307d08a24f3fcc487d57dcb49e"
+    },
+    {
+      "path": "il2cpp/PatchWorld_Kingdom.cs",
+      "sha256": "82bbb4bdd529a8b6ebe74b59efa718fa0e22ceb23bfb485a21b529e8d61ca0d1"
+    },
+    {
+      "path": "il2cpp/PatchWorld_Level.cs",
+      "sha256": "5aa90fd4cdf43aa936e36a5a4e494cc2f55d62d7c29618dc4b8064ecd6e968bd"
+    },
+    {
+      "path": "il2cpp/PatchWorld_Mover.cs",
+      "sha256": "7d6f41e1df27fdc51a3278052839f4dab8c7f5c11e2f994995c2c8b6f4bb2c24"
+    },
+    {
+      "path": "il2cpp/PatchWorld_OptionalVegetation.cs",
+      "sha256": "62b7e942dfc30dc27d4ec3bb68836a093f91f488b4d4c8be35823906e13f22ba"
+    },
+    {
+      "path": "il2cpp/PatchWorld_SerpentLeash.cs",
+      "sha256": "824a5f5bf7cd2789a4204f9bc736ed2fa74820b380edeba28434b6fcfb63202f"
+    },
+    {
+      "path": "il2cpp/PatchWorld_ShieldWallTotem.cs",
+      "sha256": "2a260f0735a67ac4c724a9312cd453aee8da1ed14b16eb1c4c94f0feec164a55"
+    },
+    {
+      "path": "il2cpp/PatchWorld_SpecialTowerRebuild.cs",
+      "sha256": "59b016632b6ad154bb8ba1fdbef1c3c6b28a1f84473173a6a4691c9f9cfe86c8"
+    },
+    {
+      "path": "il2cpp/PatchWorld_TowerSpots.cs",
+      "sha256": "78b27914f1222b3e9229965f1eb23f79f99de8fcb9793a6bf1b07b91045c54ae"
+    },
+    {
+      "path": "il2cpp/PopulationCounts.cs",
+      "sha256": "d7ef0576c6b9a1190823f815c2bbb44bcf2c19be70f54ef1d705a82bdaf01694"
+    },
+    {
+      "path": "il2cpp/PopulationHud.cs",
+      "sha256": "a8b39bda5f25858e65f2387dcebda0f3b0dc32603885204681b3f659bd58784b"
+    },
+    {
+      "path": "il2cpp/ProjectSettings.shared.props",
+      "sha256": "fd15c39e5c047c10f917557e50ac559472e305712bd8d5a151539097bb9ed57e"
+    },
+    {
+      "path": "il2cpp/SamuraiDashDiagnostics.cs",
+      "sha256": "26edd76e7fa073d6c2d9a7c0d2f8754bd6ab556318606bb9df9a952f935d8343"
+    },
+    {
+      "path": "il2cpp/SamuraiDashVisuals.cs",
+      "sha256": "9251e84ee18fffed6e05bd8dd1d454bd718a08d90ce0cc7316d9c4e6711a7a0a"
+    },
+    {
+      "path": "il2cpp/SamuraiRetreatSpeed.cs",
+      "sha256": "3e5cc530619ecd0b601b09b15399ee2241bc02b3ac91503398cb2c6d9689b14d"
+    },
+    {
+      "path": "il2cpp/ScatterArrowTint.cs",
+      "sha256": "694e2014aea6a6752c61a4d1dafba2f7e14f2665bc9efddc4013dd5e6855e800"
+    },
+    {
+      "path": "il2cpp/ShopCleanupQueue.cs",
+      "sha256": "470a7ccd7adada360700cfde8c97c7a8f813895d01166993cadb17961db02bd0"
+    },
+    {
+      "path": "il2cpp/SiegeAmmoCounts.cs",
+      "sha256": "fdf6a26fad41338e11b498d6df8c42c6a25b4375cc9061fbbaf120109422e6f6"
+    },
+    {
+      "path": "il2cpp/SpecialTowerDuplicateCleanup.cs",
+      "sha256": "6528491bd7422a5a74ddbced4a5e31edfd1f528f19a5e14112fc53e2a479c7f0"
+    },
+    {
+      "path": "il2cpp/SquadFollowGuard.cs",
+      "sha256": "80f68d6450af171503ad21d774c99411bdaba40a438cefe7767c061ecbb73604"
+    },
+    {
+      "path": "il2cpp/SquadRosterSnapshot.cs",
+      "sha256": "90d6d750fd16e485d67d431f0261dd77ea513228d57d3774b0ef170cbef4d98d"
+    }
+  ]
+}

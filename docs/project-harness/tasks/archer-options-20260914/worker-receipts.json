@@ -1,0 +1,42 @@
+[
+  {
+    "role": "combat",
+    "sourceChanges": [
+      "PatchArcher_Options.cs"
+    ],
+    "models": [
+      [
+        "deepseek",
+        "deepseek-v4-flash"
+      ]
+    ],
+    "thinkingLevels": [
+      "max"
+    ],
+    "sessions": [
+      "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\archer-options-20260914\\combat-sessions\\2026-09-13T19-48-56-655Z_01a09c50-cecf-7568-9b40-b4b078ac5740.jsonl"
+    ],
+    "workerSource": "b531815c1f23b61ca154598f6bce4c9b611a8270cc4a5808d21d106bdfcff954",
+    "canonicalSource": "678d4f8f5f59d49f1a08b349c8b44ace75943d4174fb8410df7223644e9e6557"
+  },
+  {
+    "role": "visual",
+    "sourceChanges": [
+      "PatchArcher_Impact.cs"
+    ],
+    "models": [
+      [
+        "deepseek",
+        "deepseek-v4-flash"
+      ]
+    ],
+    "thinkingLevels": [
+      "max"
+    ],
+    "sessions": [
+      "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\archer-options-20260914\\visual-sessions\\2026-09-13T19-49-07-065Z_01a09c50-f779-76eb-9798-254d62580fed.jsonl"
+    ],
+    "workerSource": "eed6a2b262d0512219530cefaf5db7e48129aee4ec162a5f2d2dd6d33e55bb5d",
+    "canonicalSource": "eed6a2b262d0512219530cefaf5db7e48129aee4ec162a5f2d2dd6d33e55bb5d"
+  }
+]

@@ -1,0 +1,100 @@
+[
+  {
+    "type": "Mover",
+    "method": "NativeMethodInfoPtr_Awake_Private_Void_0",
+    "token": 100673236,
+    "rva": "0x6135a0",
+    "same_slots": 1
+  },
+  {
+    "type": "Mover",
+    "method": "NativeMethodInfoPtr_Update_Private_Void_0",
+    "token": 100673240,
+    "rva": "0x614480",
+    "same_slots": 1
+  },
+  {
+    "type": "Mover",
+    "method": "NativeMethodInfoPtr_HasSpeedChangedDynamic_Private_Boolean_Single_Single_0",
+    "token": 100673242,
+    "rva": "0x613a10",
+    "same_slots": 1
+  },
+  {
+    "type": "Mover",
+    "method": "NativeMethodInfoPtr_HasSpeedChangedKinematic_Private_Boolean_Single_Single_0",
+    "token": 100673243,
+    "rva": "0x613a80",
+    "same_slots": 1
+  },
+  {
+    "type": "Mover",
+    "method": "NativeMethodInfoPtr_PassthroughAnimationOverride_Public_Void_Single_0",
+    "token": 100673244,
+    "rva": "0x613cb0",
+    "same_slots": 1
+  },
+  {
+    "type": "Mover",
+    "method": "NativeMethodInfoPtr_SetSpeedToGoal_Public_Void_Single_0",
+    "token": 100673249,
+    "rva": "0x614310",
+    "same_slots": 2
+  },
+  {
+    "type": "PositionSync",
+    "method": "NativeMethodInfoPtr_Awake_Private_Void_0",
+    "token": 100673388,
+    "rva": "0x6358c0",
+    "same_slots": 1
+  },
+  {
+    "type": "PositionSync",
+    "method": "NativeMethodInfoPtr_Update_Private_Void_0",
+    "token": 100673393,
+    "rva": "0x637d20",
+    "same_slots": 1
+  },
+  {
+    "type": "FixedTransform",
+    "method": "NativeMethodInfoPtr_Awake_Private_Void_0",
+    "token": 100669194,
+    "rva": "0x51dda0",
+    "same_slots": 1
+  },
+  {
+    "type": "NetworkBigBoss",
+    "method": "NativeMethodInfoPtr_Awake_Private_Void_0",
+    "token": 100673477,
+    "rva": "0x62b280",
+    "same_slots": 1
+  },
+  {
+    "type": "NetworkBigBoss",
+    "method": "NativeMethodInfoPtr_Update_Private_Void_0",
+    "token": 100673479,
+    "rva": "0x62ddb0",
+    "same_slots": 1
+  },
+  {
+    "type": "NetworkBigBoss",
+    "method": "NativeMethodInfoPtr_get_HasWorldAuth_Public_Static_get_Boolean_0",
+    "token": 100673501,
+    "rva": "0x62e1a0",
+    "same_slots": 1
+  },
+  {
+    "type": "NetworkBigBoss",
+    "method": "NativeMethodInfoPtr_get_IsClientPresent_Public_Static_get_Boolean_0",
+    "token": 100673503,
+    "rva": "0x62e330",
+    "same_slots": 1
+  },
+  {
+    "type": "NetworkBigBoss",
+    "method": "NativeMethodInfoPtr_get_HasClientCaughtUp_Public_Static_get_Boolean_0",
+    "token": 100673504,
+    "rva": "0x62e060",
+    "same_slots": 1
+  }
+]

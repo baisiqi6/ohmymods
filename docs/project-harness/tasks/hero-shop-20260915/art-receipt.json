@@ -1,0 +1,24 @@
+{
+  "source": "hero-shop-concept-01.png",
+  "asset": "C:\\Users\\ADMIN\\projects\\ohmymods\\il2cpp\\Assets\\HeroShop.png",
+  "sheet": [
+    512,
+    80
+  ],
+  "frame": [
+    128,
+    80
+  ],
+  "frames": 4,
+  "ppu": 32,
+  "pivot": [
+    0.5,
+    0.025
+  ],
+  "alpha": [
+    0,
+    255
+  ],
+  "rgba_colors": 27,
+  "note": "Concept cleaned and pixel-quantized; native game scale and appearance not yet tested."
+}

@@ -1,0 +1,46 @@
+{
+  "balanceText": "2,147,483,647 \u5e01",
+  "balanceFont": 14,
+  "cases": [
+    {
+      "screen": [
+        320,
+        240
+      ],
+      "scale": 0.3288888888888889,
+      "margin": 12.0
+    },
+    {
+      "screen": [
+        640,
+        360
+      ],
+      "scale": 0.5,
+      "margin": 95.0
+    },
+    {
+      "screen": [
+        1280,
+        720
+      ],
+      "scale": 1.0,
+      "margin": 190.0
+    },
+    {
+      "screen": [
+        1920,
+        1080
+      ],
+      "scale": 1,
+      "margin": 510.0
+    },
+    {
+      "screen": [
+        3836,
+        1560
+      ],
+      "scale": 1,
+      "margin": 1468.0
+    }
+  ]
+}

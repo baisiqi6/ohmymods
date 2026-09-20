@@ -1,0 +1,14 @@
+{
+  "changed": [
+    "il2cpp/KingdomEnhancedPlugin.cs",
+    "il2cpp/ModPanel.cs",
+    "il2cpp/PatchEconomy_AutoRestock.cs",
+    "il2cpp/PatchEconomy_Banker.cs"
+  ],
+  "sourceSha256": {
+    "il2cpp/KingdomEnhancedPlugin.cs": "f09247598e5a54e3b9fcdea08c2c188d8c0f7f52534228138ab7433bcbaefbfa",
+    "il2cpp/ModPanel.cs": "fb217c4b30e0841b42268d989a6f0020be2495efbd2108cb46eb89f82f5a2e5a",
+    "il2cpp/PatchEconomy_AutoRestock.cs": "176ef830f3d676fcffea2be02683fb0f9ee53744ba5582aa04b615c2b4e8db7a",
+    "il2cpp/PatchEconomy_Banker.cs": "58f7b297c27615bcdb37df2c2012d518b05713f0e8a2514c12375deb3364ef7c"
+  }
+}

@@ -1,0 +1,37 @@
+PASS null rejected
+PASS short array rejected
+PASS invalid segment rejected
+PASS invalid ribbon rejected
+PASS NaN position rejected
+PASS infinite position rejected
+PASS out of bounds position rejected
+PASS invalid clock uses fixed initial fold
+PASS collapsed segment rejected without invented floor movement
+PASS all 120 headings and 8 pixel phases form valid geometry
+PASS body stays 3–4px and tail 2–3px across headings
+PASS both faces retain cardinal Manhattan width >=1 source pixel and positive triangle areas
+PASS actual half width plus integer ground keeps rounded lowest edges above ground
+PASS slow fold changes both body and tail width within bounds
+PASS two chains have different fold timing on identical centerlines
+PASS pure geometry allocates zero bytes after warmup
+PASS secondary attachment bridge has no collapsed or inverted face across 120 headings
+PASS bridge lowers only drawn node0 by2px and node1 by1px within pixel rounding
+PASS bridged root sections remain well above the actual secondary -17px ground
+PASS bridge never writes simulation inputs and generic geometry stays unbridged by default
+PASS runtime creation succeeds
+PASS all mesh vertices stay on pixel grid through 40s movement and wind
+PASS lowest rendered edges remain above each chain's actual ground
+PASS actual secondary visible root meets neck top at15px with valid bridge faces every frame
+PASS secondary actual faces use stable bright fire red and shade red to distinguish the two tails
+PASS all runtime triangles nondegenerate, same winding, bounded area, valid indices
+PASS each face cardinal Manhattan width >=1 source pixel and folded edge stays small
+PASS each runtime quad has one fixed red palette color without interpolation
+PASS vertex/color/index buffers reused for full run
+PASS hidden freezes fold clock, simulation and all mesh faces
+PASS destroy returns mesh buffers while retaining shared material
+actual-view 24 phases speeds1.2/1.6 runEdgeMinPx=3.000 maxSimulationStepPx=2.4164 maxComponentStepPx=1.7980 stop3sTipClearanceMaxPx=2.3607 worstAt=speed=1.6 phase=0 frame=1 chain=0 node=4
+PASS actual view remains above ground through start, run and stop in every sampled phase
+PASS both actual wide ribbons visibly clear ground at 1.2 and 1.6 steady run
+PASS actual configured chains keep per-axis startup and stop simulation steps below 2px
+PASS actual configured tails settle near ground within three seconds after stop
+ALL SCARF GEOMETRY TESTS PASSED (35)

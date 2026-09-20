@@ -1,0 +1,448 @@
+{
+  "source": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\KingdomTwoCrowns_Data",
+  "files": {
+    "globalgamemanagers": {
+      "size": 8001172,
+      "sha256": "3615b83637dd94e59e72018fa13b29dff95b99006b618aa03519c57b3d96ef37"
+    },
+    "resources.assets": {
+      "size": 59944160,
+      "sha256": "b80394a7961425ea6cf7c55e7493ff648ea558fbc46ec575febf35569f2c195d"
+    },
+    "level2": {
+      "size": 1689624,
+      "sha256": "7374664b8ab2ac9039de786c4c4caad810aa0bdbb3bd1deda91e1b3d2ac5a235"
+    }
+  },
+  "objects": [
+    {
+      "file": "resources.assets",
+      "pathID": 19697,
+      "name": "Beggar",
+      "layer": 18,
+      "components": [
+        {
+          "type": "Transform",
+          "pathID": 40247,
+          "fields": {
+            "m_LocalPosition": {
+              "x": 0.8330000042915344,
+              "y": 1.2610000371932983,
+              "z": 0.75
+            },
+            "m_LocalScale": {
+              "x": 1.0,
+              "y": 1.0,
+              "z": 1.0
+            },
+            "m_Children": [
+              {
+                "m_FileID": 0,
+                "m_PathID": 40631
+              }
+            ],
+            "m_Father": {
+              "m_FileID": 0,
+              "m_PathID": 0
+            }
+          }
+        },
+        {
+          "type": "Rigidbody2D",
+          "pathID": 59544,
+          "fields": {
+            "m_BodyType": 0,
+            "m_Simulated": true,
+            "m_GravityScale": 1.0,
+            "m_CollisionDetection": 0,
+            "m_Constraints": 4
+          }
+        },
+        {
+          "type": "CapsuleCollider2D",
+          "pathID": 63017,
+          "fields": {
+            "m_Enabled": 1,
+            "m_IsTrigger": true,
+            "m_Offset": {
+              "x": 0.0,
+              "y": 0.3125
+            },
+            "m_Size": {
+              "x": 0.1875,
+              "y": 0.625
+            }
+          }
+        }
+      ]
+    },
+    {
+      "file": "resources.assets",
+      "pathID": 20090,
+      "name": "Physical Collider",
+      "layer": 17,
+      "components": [
+        {
+          "type": "Transform",
+          "pathID": 40631,
+          "fields": {
+            "m_LocalPosition": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0
+            },
+            "m_LocalScale": {
+              "x": 1.0,
+              "y": 1.0,
+              "z": 1.0
+            },
+            "m_Children": [],
+            "m_Father": {
+              "m_FileID": 0,
+              "m_PathID": 40247
+            }
+          }
+        },
+        {
+          "type": "CircleCollider2D",
+          "pathID": 61373,
+          "fields": {
+            "m_Enabled": 1,
+            "m_IsTrigger": false,
+            "m_Offset": {
+              "x": 0.0,
+              "y": 0.15625
+            },
+            "m_Radius": 0.15625
+          }
+        }
+      ]
+    },
+    {
+      "file": "resources.assets",
+      "pathID": 20759,
+      "name": "Ground",
+      "layer": 0,
+      "components": [
+        {
+          "type": "Transform",
+          "pathID": 40939,
+          "fields": {
+            "m_LocalPosition": {
+              "x": 10.0,
+              "y": 0.0,
+              "z": 0.0
+            },
+            "m_LocalScale": {
+              "x": 1.0,
+              "y": 1.0,
+              "z": 1.0
+            },
+            "m_Children": [],
+            "m_Father": {
+              "m_FileID": 0,
+              "m_PathID": 0
+            }
+          }
+        },
+        {
+          "type": "BoxCollider2D",
+          "pathID": 62711,
+          "fields": {
+            "m_Enabled": 1,
+            "m_IsTrigger": false,
+            "m_Offset": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "m_Size": {
+              "x": 1.0,
+              "y": 1.0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "file": "level2",
+      "pathID": 60,
+      "name": "Ground",
+      "layer": 0,
+      "components": [
+        {
+          "type": "Transform",
+          "pathID": 1965,
+          "fields": {
+            "m_LocalPosition": {
+              "x": 10.0,
+              "y": 0.0,
+              "z": 0.0
+            },
+            "m_LocalScale": {
+              "x": 1.0,
+              "y": 1.0,
+              "z": 1.0
+            },
+            "m_Children": [],
+            "m_Father": {
+              "m_FileID": 0,
+              "m_PathID": 1925
+            }
+          }
+        },
+        {
+          "type": "BoxCollider2D",
+          "pathID": 3860,
+          "fields": {
+            "m_Enabled": 1,
+            "m_IsTrigger": false,
+            "m_Offset": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "m_Size": {
+              "x": 1.0,
+              "y": 1.0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "file": "level2",
+      "pathID": 225,
+      "name": "Ground",
+      "layer": 0,
+      "components": [
+        {
+          "type": "Transform",
+          "pathID": 3373,
+          "fields": {
+            "m_LocalPosition": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0
+            },
+            "m_LocalScale": {
+              "x": 1.0,
+              "y": 1.0,
+              "z": 1.0
+            },
+            "m_Children": [],
+            "m_Father": {
+              "m_FileID": 0,
+              "m_PathID": 5262
+            }
+          }
+        }
+      ]
+    },
+    {
+      "file": "level2",
+      "pathID": 1779,
+      "name": "Ground",
+      "layer": 0,
+      "components": [
+        {
+          "type": "Transform",
+          "pathID": 3674,
+          "fields": {
+            "m_LocalPosition": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0
+            },
+            "m_LocalScale": {
+              "x": 1.0,
+              "y": 1.0,
+              "z": 1.0
+            },
+            "m_Children": [],
+            "m_Father": {
+              "m_FileID": 0,
+              "m_PathID": 5265
+            }
+          }
+        }
+      ]
+    },
+    {
+      "file": "level2",
+      "pathID": 1806,
+      "name": "Ground",
+      "layer": 0,
+      "components": [
+        {
+          "type": "Transform",
+          "pathID": 3698,
+          "fields": {
+            "m_LocalPosition": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0
+            },
+            "m_LocalScale": {
+              "x": 1.0,
+              "y": 1.0,
+              "z": 1.0
+            },
+            "m_Children": [],
+            "m_Father": {
+              "m_FileID": 0,
+              "m_PathID": 5269
+            }
+          }
+        }
+      ]
+    },
+    {
+      "file": "level2",
+      "pathID": 1825,
+      "name": "Ground",
+      "layer": 0,
+      "components": [
+        {
+          "type": "Transform",
+          "pathID": 3719,
+          "fields": {
+            "m_LocalPosition": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0
+            },
+            "m_LocalScale": {
+              "x": 1.0,
+              "y": 1.0,
+              "z": 1.0
+            },
+            "m_Children": [],
+            "m_Father": {
+              "m_FileID": 0,
+              "m_PathID": 5272
+            }
+          }
+        }
+      ]
+    },
+    {
+      "file": "level2",
+      "pathID": 1835,
+      "name": "Ground",
+      "layer": 0,
+      "components": [
+        {
+          "type": "Transform",
+          "pathID": 3721,
+          "fields": {
+            "m_LocalPosition": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0
+            },
+            "m_LocalScale": {
+              "x": 1.0,
+              "y": 1.0,
+              "z": 1.0
+            },
+            "m_Children": [],
+            "m_Father": {
+              "m_FileID": 0,
+              "m_PathID": 5273
+            }
+          }
+        }
+      ]
+    },
+    {
+      "file": "level2",
+      "pathID": 1885,
+      "name": "Ground",
+      "layer": 0,
+      "components": [
+        {
+          "type": "Transform",
+          "pathID": 3774,
+          "fields": {
+            "m_LocalPosition": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0
+            },
+            "m_LocalScale": {
+              "x": 1.0,
+              "y": 1.0,
+              "z": 1.0
+            },
+            "m_Children": [],
+            "m_Father": {
+              "m_FileID": 0,
+              "m_PathID": 5276
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "layers": {
+    "0": "Default",
+    "10": "Citizens",
+    "17": "CollideWithGround",
+    "18": "Beggars"
+  },
+  "matrix": {
+    "0": {
+      "rawMask": 12553065,
+      "collides": [
+        0,
+        3,
+        5,
+        6,
+        8,
+        9,
+        11,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        23
+      ]
+    },
+    "10": {
+      "rawMask": 88392,
+      "collides": [
+        3,
+        6,
+        8,
+        11,
+        12,
+        14,
+        16
+      ]
+    },
+    "17": {
+      "rawMask": 73,
+      "collides": [
+        0,
+        3,
+        6
+      ]
+    },
+    "18": {
+      "rawMask": 4169,
+      "collides": [
+        0,
+        3,
+        6,
+        12
+      ]
+    }
+  },
+  "gravity": {
+    "x": 0.0,
+    "y": -15.0
+  },
+  "limits": "Serialized resource evidence only. Runtime clones, their native identities, positions, parents and physics overrides at the six logged falls were not captured."
+}

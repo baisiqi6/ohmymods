@@ -1,0 +1,47 @@
+{
+  "identity": {
+    "result": "passed",
+    "assertions": 267
+  },
+  "runtime": {
+    "result": "passed",
+    "cases": 64
+  },
+  "shop": {
+    "result": "passed",
+    "assertions": 18
+  },
+  "hero_runtime": {
+    "result": "passed",
+    "assertions": 98
+  },
+  "medieval_scatter": {
+    "result": "passed",
+    "cases": 17
+  },
+  "archer_options": {
+    "result": "passed",
+    "cases": 89
+  },
+  "hero_combat": {
+    "result": "passed",
+    "cases": 146
+  },
+  "hero_recruitment": {
+    "result": "passed",
+    "assertions": 243
+  },
+  "actual_interop": "passed",
+  "full_build": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "runtime_review": "bounded final pass",
+  "identity_final_review": "blocked by safety system; not passed",
+  "live_game": "not run",
+  "installed": true,
+  "published": false,
+  "installationReceipt": "install.json",
+  "userDataUnchanged": true,
+  "gameStarted": false
+}

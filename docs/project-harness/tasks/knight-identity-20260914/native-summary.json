@@ -1,0 +1,80 @@
+[
+  {
+    "method": "System.Void Knight::OnEnable()",
+    "rva": "0x5b3e30",
+    "same_slots": 1,
+    "mapped_bytes": 2096
+  },
+  {
+    "method": "System.Void Knight::OnDisable()",
+    "rva": "0x5b3500",
+    "same_slots": 1,
+    "mapped_bytes": 1264
+  },
+  {
+    "method": "System.Void Knight::GetSerializationData(Il2CppSystem.Type&)",
+    "rva": "0x5b1c50",
+    "same_slots": 1,
+    "mapped_bytes": 368
+  },
+  {
+    "method": "System.Void Knight::DeserializeFromData()",
+    "rva": "0x5b15f0",
+    "same_slots": 1,
+    "mapped_bytes": 304
+  },
+  {
+    "method": "System.Boolean CRPCHeader::RegisterComponents(UnityEngine.GameObject)",
+    "rva": "0x6243b0",
+    "same_slots": 1,
+    "mapped_bytes": 976
+  },
+  {
+    "method": "System.Void CRPCHeader::Flush()",
+    "rva": "0x624300",
+    "same_slots": 1,
+    "mapped_bytes": 160
+  },
+  {
+    "method": "System.Void CampaignSaveData::SpawnCarryForwardUnits(Holder,CampaignSaveData/CarryForward)",
+    "rva": "0x723560",
+    "same_slots": 1,
+    "mapped_bytes": 816
+  },
+  {
+    "method": "System.Void CampaignSaveData::PopulateCarryForward(SailAwayGroup)",
+    "rva": "0x721ac0",
+    "same_slots": 1,
+    "mapped_bytes": 608
+  },
+  {
+    "method": "System.Void IslandSaveData::Save(System.Int32,System.Int32,System.Int32)",
+    "rva": "0x73aa20",
+    "same_slots": 1,
+    "mapped_bytes": 1168
+  },
+  {
+    "method": "System.Boolean IslandSaveData::TryPopObjectsToScene()",
+    "rva": "0x73cab0",
+    "same_slots": 1,
+    "mapped_bytes": 3808
+  },
+  {
+    "method": "System.Boolean IslandSaveData::TryPopObjectsToSceneClient()",
+    "rva": "0x73bc80",
+    "same_slots": 1,
+    "mapped_bytes": 3632
+  },
+  {
+    "method": "System.String IslandSaveData::GetID(Persistent)",
+    "rva": "0x739bd0",
+    "same_slots": 1,
+    "mapped_bytes": 416
+  },
+  {
+    "method": "Persistent IslandSaveData::TryCreateOrFind(IslandSaveData/ObjectData)",
+    "rva": "0x73afe0",
+    "same_slots": 1,
+    "mapped_bytes": 3232
+  }
+]

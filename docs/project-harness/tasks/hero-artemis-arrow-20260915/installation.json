@@ -1,0 +1,14 @@
+{
+  "configSha256": "30A67CDBCF901C3A29B48F57BE0F504F642732AB42FBD8D53DEC46A2D1C500D7",
+  "installedAt": "2026-09-15T08:45:13.3427068+08:00",
+  "configUnchanged": true,
+  "build": "7.6.5-hero-artemis-arrow-20260915",
+  "published": false,
+  "oldSha256": "DE72F01FD22ADFC1F4940B4652F85CF4B54AE9785214A8BB94EB5AC2D79B5559",
+  "sha256": "301FF296B2BF534EC384F8825A0E7D9792843DEF14D1EBE8B00162A4CC90CDB8",
+  "saveSha256": "83FABC3FAC15F9AF779D126F99A1F1CE8496B8E719947319B45AE97B94590DA9",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-hero-artemis-arrow-20260915-084513-195.bak",
+  "saveUnchanged": true,
+  "installed": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "gameStarted": false
+}

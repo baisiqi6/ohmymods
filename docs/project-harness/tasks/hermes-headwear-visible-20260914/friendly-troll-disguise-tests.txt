@@ -1,0 +1,52 @@
+friendly-troll-disguise core tests (静态资格判定 + 后缀重选)
+
+  ok   原生面具 index 0 → 保护
+  ok   原生面具 index 5 → 保护
+  ok   index -1 无面具且无头饰 → 不保护
+  ok   index 6 超出原生面具范围 → 不保护
+  ok   renderer disabled → 不保护
+  ok   sprite 为 null → 不保护
+  ok   mask 子对象 inactive → 不保护
+  ok   自有帽隐藏原生 mask，但 44 头饰为真 → 仍保护
+  ok   无原生面具 + 44 头饰委托为真 → 保护
+  ok   无原生面具 + 44 头饰委托为假 → 不保护
+  ok   裸面具可见时不查头饰（原生路径短路）
+  ok   ModConfig.Enabled=false → 不保护
+  ok   ModConfig.Enabled 为 null → 不保护
+  ok   无世界权威（客户端）→ 不保护
+  ok   异 world（IsCurrent=false）→ 不保护
+  ok   单位 inactive → 不保护
+  ok   组件 disabled → 不保护
+  ok   Damageable 已死 → 不保护
+  ok   Damageable 所在对象 inactive → 不保护
+  ok   无 Damageable 组件 → 不保护
+  ok   troll 已销毁 → 不保护
+  ok   池复用：同实例资格按当前字段现算，不缓存
+  ok   资格判定只读原生字段（重复调用结果一致）
+  ok   HasDisguiseHeadwear 抛错 → 回退不保护
+  ok   原生 mask 读取抛错 → 回退不保护
+  ok   null troll → 不保护
+  ok   正常子 renderer → 保护
+  ok   mask 已被别的 troll 租走（残留旧引用）→ 不保护；租走者保护
+  ok   普通原生结果原样返回（不读表、不调委托）
+  ok   未伪装友好巨魔当选 → 保持不动（仍可被敌人选中）
+  ok   原生返回受保护巨魔 → 重选最近普通候选
+  ok   受保护候选被跳过（即使更近）
+  ok   严格 distance < range：恰好等于 range 不算
+  ok   顺序 tie：同距离时列表中先出现者胜
+  ok   ignore 委托保留（被忽略的更近候选跳过）
+  ok   condition 委托保留（条件不满足的更近候选跳过）
+  ok   原生求值顺序：ignore 先于距离，condition 后于距离
+  ok   无合法候选 → null（绝不交出受保护巨魔）
+  ok   候选表只读：内容与顺序不变
+  ok   低优先级路径只读低优先表
+  ok   客户端（无世界权威）不改写结果
+  ok   ModConfig.Enabled=false 不改写结果
+  ok   原生结果为 null → null
+  ok   cache 为 null → null（已确认受保护者的兜底）
+  ok   候选表为 null → null
+  ok   候选表读取抛错 → null
+  ok   condition 委托抛错 → null
+  ok   ignore 委托抛错 → null
+
+total: passed=48 failed=0

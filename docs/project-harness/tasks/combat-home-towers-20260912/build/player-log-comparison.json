@@ -1,0 +1,17 @@
+{
+  "previousErrorMessages": {
+    "Got AppID: 2769240": 1,
+    "Unknown Character Tag: Archer": 1,
+    "Game created. Version: 2.4.0 Revision: 23488 Hash: a436110bb9 Branch: origin/twocrowns/spring-edict": 1,
+    "Invalid NetID from CRPCStamp on 'CastleShieldShop(Clone)'!": 10,
+    "gse orca": 1
+  },
+  "currentErrorMessages": {
+    "Got AppID: 2769240": 1,
+    "Unknown Character Tag: Archer": 1,
+    "Game created. Version: 2.4.0 Revision: 23488 Hash: a436110bb9 Branch: origin/twocrowns/spring-edict": 1,
+    "Invalid NetID from CRPCStamp on 'CastleShieldShop(Clone)'!": 10,
+    "gse orca": 1
+  },
+  "newMessages": {}
+}

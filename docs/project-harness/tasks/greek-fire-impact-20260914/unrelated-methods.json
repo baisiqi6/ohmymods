@@ -1,0 +1,14 @@
+{
+  "unchangedMethodCount": 1937,
+  "expectedChangedMethods": [
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "KingdomEnhancedMod.PatchArcher_Impact/HitCandidate KingdomEnhancedMod.PatchArcher_Impact::Capture(Arrow,UnityEngine.GameObject,System.Boolean)",
+    "System.Void KingdomEnhancedMod.Archer_OnEnable_RateLifetime_Patch::Prefix(Archer)",
+    "System.Void KingdomEnhancedMod.ModPanel::Update()",
+    "System.Void KingdomEnhancedMod.ModConfig::Init(BepInEx.Configuration.ConfigFile)",
+    "System.Void KingdomEnhancedMod.ModPanel::DrawControls(System.Single)"
+  ],
+  "excludedFeature": "Greek impact module and HitObject integration wrapper",
+  "old": "E1E5947CC4953D45D65B211A022739C06B4BAD1CA72C7DDEC4B5BFC3BF6C7354",
+  "candidate": "5CED0D2525D110FB42B5FBCDB8A937B62FDFE044BC175709EF0DB1C408062CC5"
+}

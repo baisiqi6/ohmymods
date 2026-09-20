@@ -1,0 +1,1 @@
+archer_reviewer只读审查已完成；mapping条数非播放帧数、tight crop范围、舍入重建、Greek投掷动作、ArrowAttack出箭点未核、长飘带画布约束等已在最终技术规格纠正。静态设计不是游戏Sprite或动态实测。

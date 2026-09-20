@@ -1,0 +1,65 @@
+[
+  {
+    "sessionFile": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\knight-identity-20260914\\sessions\\2026-09-14T07-51-37-848Z_01a09ee6-7278-7235-bb22-fcbf52a59878.jsonl",
+    "publicIdentityEvents": [
+      {
+        "type": "session",
+        "id": "01a09ee6-7278-7235-bb22-fcbf52a59878",
+        "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\knight-identity-20260914\\worker"
+      },
+      {
+        "type": "model_change",
+        "id": "86be937e",
+        "model": "deepseek/deepseek-v4-flash",
+        "resolvedModelIsFallback": false
+      },
+      {
+        "type": "thinking_level_change",
+        "id": "9971b0b1",
+        "thinkingLevel": "max"
+      }
+    ]
+  },
+  {
+    "sessionFile": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\knight-identity-20260914\\runtime-sessions\\2026-09-14T08-03-43-421Z_01a09ef1-84bd-710c-ad57-cd2ef42642d0.jsonl",
+    "publicIdentityEvents": [
+      {
+        "type": "session",
+        "id": "01a09ef1-84bd-710c-ad57-cd2ef42642d0",
+        "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\knight-identity-20260914\\runtime-worker"
+      },
+      {
+        "type": "model_change",
+        "id": "54776d14",
+        "model": "deepseek/deepseek-v4-flash",
+        "resolvedModelIsFallback": false
+      },
+      {
+        "type": "thinking_level_change",
+        "id": "86e686eb",
+        "thinkingLevel": "max"
+      }
+    ]
+  },
+  {
+    "sessionFile": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\knight-identity-20260914\\network-sessions\\2026-09-14T08-07-45-201Z_01a09ef5-3531-7571-a3c5-75e16cb2068a.jsonl",
+    "publicIdentityEvents": [
+      {
+        "type": "session",
+        "id": "01a09ef5-3531-7571-a3c5-75e16cb2068a",
+        "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\knight-identity-20260914\\network-worker"
+      },
+      {
+        "type": "model_change",
+        "id": "158726c3",
+        "model": "deepseek/deepseek-v4-flash",
+        "resolvedModelIsFallback": false
+      },
+      {
+        "type": "thinking_level_change",
+        "id": "c10b5313",
+        "thinkingLevel": "max"
+      }
+    ]
+  }
+]

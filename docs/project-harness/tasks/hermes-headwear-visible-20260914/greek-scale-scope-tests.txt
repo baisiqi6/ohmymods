@@ -1,0 +1,69 @@
+PASS Greek y only preserves facing and z
+PASS foreign Ninja never touched
+PASS foreign imported Ninja scales in Greek
+PASS Greek to foreign restores nonunit baseline
+PASS Greek foreign Greek desired survives
+PASS disabled enabled restores and reapplies
+PASS spawn while disabled queues desired
+PASS foreign first request retained for Greek
+PASS unknown first request defers
+PASS negative biome unknown defers
+PASS unknown retains owned baseline and target
+PASS unknown then foreign restores
+PASS unknown native write survives foreign exit
+PASS paused Mover restores without native setter
+PASS paused disabled Mover restores
+PASS native active Mover reset does not replace original baseline
+PASS external y survives restoration
+PASS external changed native baseline captured on reentry
+PASS ApplyY does not compound or recapture custom scale
+PASS style swap original retained and fisher exactly one
+PASS client style sync applies without authority
+PASS explicit Restore releases pending desired
+PASS Unregister only releases Mover binding
+PASS Worker historical immediate and registry sequence
+PASS instance ID reuse cannot inherit old registry
+PASS pointer reuse cannot inherit old registry
+PASS replacement Mover on same object cannot inherit registration
+PASS destroyed identity prunes without touching replacement
+PASS shared asset never written or registered
+PASS runtime inactive prefab eligible and native clone baseline returned
+PASS NativeScale external axes remain current
+PASS NativeScale external y remains current
+PASS vector axes ownership restores individually
+PASS vector foreign target never written
+PASS stable Tick does not write or reassert nonactor transforms
+PASS Banker nonGreek .8 preserved Greek 1.075 restored
+PASS Dog Greek target and foreign native
+PASS Hermit target preserved Baker
+PASS Hermit target preserved Horn
+PASS Hermit target preserved Horse
+PASS Hermit target preserved Ballista
+PASS Hermit target preserved Knight
+PASS Hermit target preserved Fire
+PASS identity read fault retains ownership for retry
+PASS scale read fault on scope exit retries
+PASS apply setter failure preserves original on retry
+PASS restore setter failure retains ownership on retry
+PASS explicit Restore setter failure retries cancellation
+PASS apply setter commits then throws keeps baseline
+PASS uncertain apply followed by read fault retains original
+PASS uncertain restore commits then throws preserves future reentry
+PASS NativeScale resolves uncertain committed write
+PASS null config scope is unknown and nonthrowing
+PASS biome read fault defers without ownership loss
+PASS uncertain cancel during unknown retains pending restoration
+PASS NativeScale identity fault does not bake custom scale
+PASS healthy ownership transaction is a value type
+PASS uncertain applied y survives facing change before readback
+PASS explicit coin native baseline replaces inherited custom parent scale
+PASS explicit baseline never writes untouched foreign coin
+PASS explicit baseline survives unknown until first Greek write
+PASS explicit repeated baseline does not replace owned original
+PASS explicit baseline remains available for neutral copy
+PASS explicit baseline respects external surviving axes
+PASS ordinary request resets pending explicit baseline selection
+PASS indirect parent scaling during unknown restored in foreign
+PASS indirect scale restores nonunit native baseline
+PASS indirect repeated ownership preserves first original
+68 passed, 0 failed

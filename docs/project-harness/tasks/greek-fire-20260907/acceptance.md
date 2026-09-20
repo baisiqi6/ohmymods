@@ -1,0 +1,10 @@
+# 本机实现及启动检查通过
+用户批准实际交战触发FireAttacks持续8s、冷却15s。Greek style3骑士及触发快照的当前随从受益；后加入者等下一次，已施加效果交原生自然到期。同类不叠加，本次施放不缩短已有更长神器附魔。
+
+源码Greek BF7254FDB0C51C031A9BE77D3B0FB70180240B342843864988590146551E1AAD，Crossbow 4C8DB21A414CBA9A92126CEDAF0B20A6EDA8576AFE8DD043C49A6CEAF2DDBD68。ZCode session sess_b984e895-0f1b-4198-8244-eb95a5a4e67c，provider-native日志证明bigmodel/GLM-5.3，requested max未单独证明。其修订案14/70失败未集成；operator补齐合同后独立及重跑70/70。实际引用构建0W/0E，39可达Unity方法无unstrip，2hooks实际wrapper通过；GameAssembly CD8C2B822B12F5416E73234D6D1052EFB499FE324ACEFF6264E0C87C6F8EDFC1未变，既有审计Knight.Update RVA0x5b7430和OnDisable0x5b3500各1slot。独立review PASS。
+
+本机DLL EA5D1001B9A6C108B950F43C608B3A5F0BE4C3D42EC482483B3BDCB5B0B35126，build=4.5.0-greek-fire-20260907；先核对旧2F089BA8...再备份原子部署。
+受控启动2026-09-07T22:42:03.2386166+08:00至2026-09-07T22:42:54.3781407+08:00，恢复场景并读到ClockDiag，测试只终止自己启动的PID 31184。存档前后95172D158C29DCE1B42790BAF20FD9B416B5D22C66F0A8446BE5AADD73DE00B1相同。
+未改用户配置/存档、未commit/push/tag/发布；保留银行HUD/120秒4人和幕府回冲伤害。公开v4.5.0ZIP仍为原包。
+
+实际启动恢复的是暂停场景（ClockDiag可显示timeScale=0），不是战斗验收。8s原生到期、15s持续交战重复触发、主客机视觉/火箭与跨岛池仍待实测；checklist保持doing。无需玩家精准盯住每个人，后续可结合前3次施放的有界GreekFire日志确认触发。原版deadlands包+神器火焰的旧包所有权缺口单独待修，不宣称本轮解决。

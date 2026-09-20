@@ -1,0 +1,116 @@
+{
+  "nativeSha256": "3744821017899F4C5C8CC9AA924B6F1F089263AE6CF61CBE40FA8DB8FBF748A1",
+  "archiveSha256": "3910EFCE73431EF94CFEA34229CD0DE307D90CD3BA24AAF94BA9C2C77988EFDB",
+  "campaign": 1,
+  "challenge": 0,
+  "land": 9,
+  "biome": 0,
+  "archiveValid": true,
+  "currentContextMatched": true,
+  "activeScope": "e3e1e3ffa474486b888c8d040353aba5eb3bbefd69124e5ab26bd569c2ab09a1",
+  "matchingSnapshots": [
+    {
+      "scope": "e3e1e3ffa474486b888c8d040353aba5eb3bbefd69124e5ab26bd569c2ab09a1",
+      "hash": "f20ff010aa78744dbb9f00bcdc866c0c391cc3e926c49078c30a69fe96a216d6",
+      "records": 18,
+      "units": 18,
+      "guns": 0,
+      "uniqueGuids": 18,
+      "uniqueNativeIds": 18,
+      "allRowsExactlyOnce": true,
+      "rows": [
+        {
+          "kind": 1,
+          "nativeId": "Archer P40 [6A4]--212262",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P38 [6A2]--211512",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P123 [1DD]--77946",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P42 [6A6]--213844",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P34 [69E]--210004",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P129 [1F0]--90240",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P31 [675]--171140",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P43 [6A7]--213908",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P33 [69D]--209304",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P39 [6A3]--211582",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P42 [52F]--93076",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P30 [673]--170222",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P41 [6A5]--212340",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P32 [677]--171916",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P36 [6A0]--210138",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P44 [6A8]--213986",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P37 [6A1]--210824",
+          "occurrences": 1
+        },
+        {
+          "kind": 1,
+          "nativeId": "Archer P35 [69F]--210068",
+          "occurrences": 1
+        }
+      ]
+    }
+  ],
+  "originalFilesUnchanged": true
+}

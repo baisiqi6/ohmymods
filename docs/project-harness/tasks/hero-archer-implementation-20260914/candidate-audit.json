@@ -1,0 +1,41 @@
+{
+  "unchangedMethods": 2357,
+  "baselineSha": "444E1611127D499B4E071B121E20336E22B1C8C1ADB7DFCDF0CDEF3B635E306E",
+  "unexpected": [],
+  "missing": [],
+  "changedMethods": [
+    "System.Void KingdomEnhancedMod.PatchArcher_Options::OnShootMoveNextEnter(Archer/_Shoot_d__225,KingdomEnhancedMod.PatchArcher_Options/CadenceBorrow&)",
+    "System.Void KingdomEnhancedMod.PatchArcher_GreekImpact::Tick()",
+    "System.Void KingdomEnhancedMod.PatchArcher_GreekImpact::FreeVolleySlot(System.Int32)",
+    "System.Void KingdomEnhancedMod.Archer_OnEnable_RateLifetime_Patch::Prefix(Archer)",
+    "System.Void KingdomEnhancedMod.ModPanel::Update()",
+    "System.Void KingdomEnhancedMod.PatchArcher_Impact::Tick()",
+    "System.Void KingdomEnhancedMod.ModPanel::DrawPanel(System.Single,System.Single)",
+    "System.Boolean KingdomEnhancedMod.PatchArcher_Impact::Spawn(KingdomEnhancedMod.PatchArcher_Impact/HitCandidate,KingdomEnhancedMod.PatchArcher_Impact/HitKind,System.Single)",
+    "System.Void KingdomEnhancedMod.PatchArcher_GreekImpact::RetireLease(System.Int32)",
+    "System.Boolean KingdomEnhancedMod.PatchArcher_GreekImpact::IsEligibleArrow(Arrow)",
+    "System.Void KingdomEnhancedMod.ModConfig::Init(BepInEx.Configuration.ConfigFile)",
+    "System.Boolean KingdomEnhancedMod.PatchArcher_Options::GameplayActive()",
+    "System.Void KingdomEnhancedMod.ModPanel::DrawControls(System.Single)",
+    "System.Boolean KingdomEnhancedMod.PatchArcher_GreekImpact::TrySubstituteDirectDamage(Arrow,Damageable,System.Boolean&)",
+    "KingdomEnhancedMod.PatchArcher_GreekImpact/ShotTicket KingdomEnhancedMod.PatchArcher_GreekImpact::BeginShot(ArrowAttack,UnityEngine.GameObject)",
+    "KingdomEnhancedMod.PatchArcher_GreekImpact/HitTicket KingdomEnhancedMod.PatchArcher_GreekImpact::BeginHit(Arrow,UnityEngine.GameObject)",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "KingdomEnhancedMod.PatchArcher_Impact/HitCandidate KingdomEnhancedMod.PatchArcher_Impact::Capture(Arrow,UnityEngine.GameObject,System.Boolean)",
+    "System.Void KingdomEnhancedMod.PatchArcher_Impact::ReleaseSlot(System.Int32)",
+    "System.Void KingdomEnhancedMod.PatchArcher_Options::OnArrowSpawnedByAttack(ArrowAttack,UnityEngine.GameObject,UnityEngine.Vector3,System.Boolean,UnityEngine.Vector2)",
+    "System.Void KingdomEnhancedMod.PatchArcher_Impact::OnNativeHit(Arrow,KingdomEnhancedMod.PatchArcher_Impact/HitCandidate)",
+    "System.Void KingdomEnhancedMod.PatchArcher_GreekImpact::Sweep()",
+    "System.Boolean KingdomEnhancedMod.PatchArcher_GreekImpact::BurstStillValid(Arrow,KingdomEnhancedMod.PatchArcher_GreekImpact/HitTicket,KingdomEnhancedMod.PatchArcher_GreekImpact/Lease&)",
+    "System.Void KingdomEnhancedMod.PatchArcher_GreekImpact::OnArrowSpawned(Arrow)",
+    "System.Void KingdomEnhancedMod.PatchArcher_Options::OnArcherUpdateExit(Archer)",
+    "System.Void KingdomEnhancedMod.PatchArcher_Options::OnArcherUpdateEnter(Archer)",
+    "System.Void KingdomEnhancedMod.Archer_Update_RateCadence_Patch::Prefix(Archer)"
+  ],
+  "candidateSha": "DE72F01FD22ADFC1F4940B4652F85CF4B54AE9785214A8BB94EB5AC2D79B5559",
+  "resources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png"
+  ],
+  "oldMethods": 2384,
+  "newMethods": 2590
+}

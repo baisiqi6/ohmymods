@@ -1,0 +1,107 @@
+PASS Same-site upgraded ordinary removed while preserving TowerKnight
+PASS Same-site upgraded ordinary removed while preserving Ballista
+PASS Same-site upgraded ordinary removed while preserving FireTower
+PASS Same-site upgraded ordinary removed while preserving Baker
+PASS Same-site upgraded ordinary removed while preserving OilFireArcherTower
+PASS Unmarked native-style level0 duplicate can be removed
+PASS Near-identical reported coordinates remain one site
+PASS Nearby ordinary outside0.1 site tolerance is retained
+PASS Vertically separate site is retained
+PASS Multiple protected special roots are all preserved
+PASS Marker-only object cannot prove special witness
+PASS Special lookup exception cannot create positive witness
+PASS Candidate with special child protected
+PASS Candidate nested under special ancestor protected
+PASS Candidate carrying marker protected
+PASS Ordinary neighbor alone is not special evidence
+PASS Context gate modoff
+PASS Context gate online
+PASS Context gate client
+PASS Context gate oldworld
+PASS Context gate inactiveLayer
+PASS Context gate foreignScene
+PASS Context gate boat
+PASS Payment protection selected1
+PASS Payment protection selected2
+PASS Payment protection interacting
+PASS Payment protection selecting
+PASS Payment protection playerSelected
+PASS Payment protection playerCompleting
+PASS Child payable engaged protects root
+PASS Construction protection workable
+PASS Construction protection needsMore
+PASS Construction protection scaffold
+PASS Construction protection witness
+PASS Missing ordinary header protects candidate
+PASS Dynamic ordinary header protects candidate
+PASS Native guard release precedes deregistration and keeps actor persistence
+PASS Exit throws after slot clear retains tower and actor
+PASS Returned native exit with actor still child blocks demolition
+PASS Untracked live Archer child blocks recursive destruction
+PASS Stale slot cannot evict another tower's archer
+PASS First exit authority loss prevents second exit and destruction
+PASS First exit world change prevents second exit
+PASS Callback reassigning later archer to special prevents its eviction
+PASS New occupant from exit callback blocks demolition
+PASS Witness moved by exit callback cancels teardown
+PASS Payment beginning from exit callback cancels teardown
+PASS Post-exit header replacement is preserved
+PASS Confirmed deactivation plus callback exception is reported and stops pass
+PASS Repeated invocation is idempotent
+PASS Pipeline real helper removes same-site level4 and keeps typed witness
+PASS Pipeline failed native guard exit cannot fall through into old KEM deletion
+PASS Pipeline child payment protection cannot be bypassed by legacy cleanup
+PASS Pipeline linked active scaffold protects old KEM root without component shortcut
+PASS Pipeline protects KEM base inside special hierarchy
+PASS Reported near-identical saved position overlaps untagged special WorkableBuilding
+PASS Ordinary built Tower blocks an old overlapping KEM base
+PASS Native unbuilt base is protected and blocks duplicate generated base
+PASS Actual footprint overlap is detected even when centers differ
+PASS Actual safe candidate footprint is used rather than oversized prefab bounds
+PASS Active scaffolding's explicitly linked inactive building remains an obstacle
+PASS Inactive pooled building without active scaffolding is not an obstacle
+PASS Wrong-scene and boat buildings do not retire current land base
+PASS Cleanup runs with fewer than two native references
+PASS Overlapping safe generated peers deterministically retain the earlier x
+PASS Equal-position generated peers retain exactly one
+PASS Protected generated object is not retired: built
+PASS Protected generated object is not retired: no persistent
+PASS Protected generated object is not retired: dynamic header
+PASS Protected generated object is not retired: no upgrade payable
+PASS Protected generated object is not retired: selected P1
+PASS Protected generated object is not retired: selected P2
+PASS Protected generated object is not retired: interacting partial payment
+PASS Protected generated object is not retired: selecting
+PASS Protected generated object is not retired: construction
+PASS Protected generated object is not retired: workable
+PASS Protected generated object is not retired: scaffolding
+PASS Player selected payable in the same hierarchy protects generated base
+PASS Player completing payable protects generated base even without selection flags
+PASS No mutation for modoff
+PASS No mutation for online
+PASS No mutation for client
+PASS Unprovable candidate visual bounds do not authorize cleanup: 0
+PASS Unprovable candidate visual bounds do not authorize cleanup: NaN
+PASS Unprovable candidate visual bounds do not authorize cleanup: ∞
+PASS Each WorkableBuilding and Scaffolding collection is scanned at most once
+PASS New spots avoid untagged building footprints without disabling all density
+PASS Live native template supplies bounds when prefab asset renderer reports zero
+PASS Invalid live native template footprint does not authorize new spots
+PASS Unknown occupied footprint cannot be silently discarded during expansion
+PASS Scene occupancy scan failure fails closed
+PASS Scaffolding deactivation invalidates its captured inactive-building evidence
+PASS Changing scaffolding Building invalidates its captured old relationship
+PASS Unknown occupied bounds do not justify retiring an old safe base
+PASS Retiring one root preserves an independent same-x building in snapshot and distance set
+PASS Payment beginning after overlap proof is rechecked before first mutation
+PASS Captured occupied hierarchy failure stays unknown for cleanup and expansion
+PASS Captured occupied scene failure stays unknown for cleanup and expansion
+PASS Player selected payable hierarchy failure protects candidate
+PASS Player completing payable hierarchy failure protects candidate
+PASS Inactive current game layer cannot be mutated by captured cleanup or expansion
+RESULT 46 passed, 0 failed
+PASS Paused loaded pair is reported without teardown
+PASS Repeated probe in same loaded layer performs no more scans
+PASS World switch cancels delayed diagnostic before reading scene
+PASS Disabled mod cancels delayed diagnostic
+RESULT 105 passed, 0 failed

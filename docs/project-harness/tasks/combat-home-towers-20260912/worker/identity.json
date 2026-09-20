@@ -1,0 +1,12 @@
+{
+  "sessionId": "sess_85aa8a1b-2e73-486a-8323-738523783801",
+  "model": {
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "role": "main",
+    "source": "config"
+  },
+  "requestedReasoning": "max",
+  "actualReasoning": "unverified",
+  "responseModelId": "GLM-5.3"
+}

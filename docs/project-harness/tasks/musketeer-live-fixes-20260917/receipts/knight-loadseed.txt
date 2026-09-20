@@ -1,0 +1,38 @@
+knight-identity load-seed tests (console / serial)
+
+  PASS  migration_seed_stabilizes_22_knights_without_any_native_save
+  PASS  partial_receipts_are_never_written_early
+  PASS  repeating_the_same_capture_pair_is_idempotent
+  PASS  repeated_begin_and_complete_are_idempotent
+  PASS  objects_removed_by_native_decay_never_get_a_half_table
+  PASS  duplicate_unique_id_rejects_the_batch
+  PASS  invalid_unique_id_rejects_the_batch
+  PASS  more_than_512_knight_records_rejects_the_batch
+  PASS  zero_record_pointer_rejects_the_batch
+  PASS  one_id_two_owners_conflicts_the_batch
+  PASS  one_owner_two_ids_conflicts_the_batch
+  PASS  a_changed_record_instance_rejects_the_whole_batch
+  PASS  a_copy_of_an_already_captured_record_rejects_the_batch
+  PASS  an_unreadable_knight_record_rejects_the_batch
+  PASS  a_mixed_knight_and_squire_island_seeds_only_the_knights
+  PASS  an_all_squire_island_never_writes_an_empty_table
+  PASS  a_squire_id_rebound_to_another_owner_conflicts
+  PASS  a_squire_promoted_to_knight_on_the_same_root_conflicts
+  PASS  a_squire_promoted_after_capture_drops_the_batch
+  PASS  a_new_life_after_capture_drops_the_batch
+  PASS  a_dead_owner_drops_the_batch
+  PASS  a_world_change_drops_the_batch
+  PASS  an_inactive_owner_waits_instead_of_dropping
+  PASS  a_read_failure_waits_instead_of_dropping
+  PASS  native_exception_never_seeds
+  PASS  native_false_result_never_seeds
+  PASS  nested_load_scopes_keep_independent_batches
+  PASS  a_client_never_seeds_the_sidecar
+  PASS  unknown_schema_is_never_overwritten_and_retries_after_backoff
+  PASS  a_corrupt_sidecar_is_never_overwritten
+  PASS  an_unmatched_original_resave_preserves_history_without_seeding
+  PASS  later_recruits_never_join_the_original_source_table
+  PASS  clear_drops_memory_and_writes_nothing
+  PASS  at_most_four_batches_and_the_fifth_is_rejected
+
+total: passed=34 failed=0

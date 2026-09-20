@@ -1,0 +1,26 @@
+[
+  {
+    "name": "System.Void Arrow::OnEnable()",
+    "token": 100663996
+  },
+  {
+    "name": "System.Void Arrow::PerfectShot()",
+    "token": 100663998
+  },
+  {
+    "name": "System.Void Arrow::ReceiveInitialise()",
+    "token": 100664011
+  },
+  {
+    "name": "System.Void ArrowAttack::FireArrowInternal(UnityEngine.GameObject,UnityEngine.Vector3,System.Boolean,UnityEngine.Vector2)",
+    "token": 100664027
+  },
+  {
+    "name": "System.Void NetworkSoftSimulator::SendVelocity(UnityEngine.Vector2,System.Single)",
+    "token": 100673363
+  },
+  {
+    "name": "System.Void NetworkSoftSimulator::ReceiveVelocity()",
+    "token": 100673364
+  }
+]

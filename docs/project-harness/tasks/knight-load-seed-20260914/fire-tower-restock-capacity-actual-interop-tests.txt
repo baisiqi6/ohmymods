@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  Restored C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\knight-load-seed-20260914\verify\tests\fire-tower-restock-capacity\actual-interop\ActualInterop.csproj (in 57 ms).
+  ActualInterop -> C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\knight-load-seed-20260914\verify\tests\fire-tower-restock-capacity\actual-interop\bin\Release\net6.0\FireTowerRestockCapacity.ActualInteropCheck.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.77

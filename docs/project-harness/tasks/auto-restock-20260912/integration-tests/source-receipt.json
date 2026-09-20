@@ -1,0 +1,20 @@
+[
+  {
+    "file": "PatchEconomy_Banker.cs",
+    "SHA256": "F6B1245324D43D7992FFA8BEAA174178A3A6532137B4A76ABA585B9E8F5560D4",
+    "extractedMethods": [
+      "TrySpendForAutoRestock"
+    ]
+  },
+  {
+    "file": "PatchEconomy_BankAssistants.cs",
+    "SHA256": "8017A2FF580134F2B40CC9FA4004EDC5012250C65A12B496FE08470CAA384754",
+    "extractedMethods": [
+      "RestockContextReady",
+      "RestockReservationValid",
+      "TryReserveForRestock",
+      "PlaceRestockAssistant",
+      "ReleaseRestockAssistant"
+    ]
+  }
+]

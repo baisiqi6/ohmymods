@@ -1,0 +1,41 @@
+knight-identity runtime + save/load bridge tests (console / serial)
+
+  PASS  lifecycle_new_life_clears_receipt_and_grows_lifetime
+  PASS  recycled_instance_id_and_pointer_do_not_inherit_identity
+  PASS  duplicate_promotion_keeps_guid_and_style
+  PASS  client_never_allocates_and_accepts_only_matching_life
+  PASS  balanced_recruits_spread_styles_across_batch
+  PASS  prime_existing_pins_legacy_before_balance
+  PASS  asset_missing_defers_without_rebranding_or_reroll
+  PASS  existing_live_style_is_frozen_and_not_remapped
+  PASS  legacy_migration_hash_applied_once_then_frozen
+  PASS  squire_gets_a_life_but_never_an_identity
+  PASS  poll_cleans_old_world_and_dead_and_defers_without_world
+  PASS  capacity_refuses_new_identity_without_dropping_live_receipts
+  PASS  recursive_try_resolve_from_legacy_callback_is_refused
+  PASS  resolve_requires_verified_current_world_membership
+  PASS  balance_ignores_inactive_knights_in_cached_world
+  PASS  balance_ignores_dead_knights_in_cached_world
+  PASS  balance_ignores_squire_knights_in_cached_world
+  PASS  save_writes_exact_snapshot_and_load_restores_same_guid
+  PASS  runtime_start_date_and_clock_drift_keep_the_same_identity
+  PASS  legacy_exact_match_restores_receipts_and_persists_the_context_mapping
+  PASS  save_capture_only_inside_getid_window_with_matching_save_args
+  PASS  nested_save_and_load_scopes_restore_previous_context
+  PASS  hash_mismatch_stays_unresolved_after_load_prime_integrity_and_save
+  PASS  unknown_schema_sidecar_is_read_only
+  PASS  save_snapshot_uses_the_actual_target_island_not_current
+  PASS  owner_life_change_before_capture_rejects_entire_snapshot
+  PASS  load_binding_holds_until_a_new_life_reenable_clears_it
+  PASS  real_load_bridge_seeds_22_without_native_save_then_restores_all
+  PASS  fresh_load_single_false_quarantines_all_new_owners
+  PASS  fresh_load_single_exception_quarantines_all_new_owners
+  PASS  fresh_load_nested_false_quarantines_all_new_owners
+  PASS  fresh_load_nested_exception_quarantines_all_new_owners
+  PASS  pending_seed_cannot_write_through_unresolved_or_replaced_context
+  PASS  generation_requires_matching_native_facts_and_world
+  PASS  failed_load_preserves_binding_and_rolls_back_only_its_receipts
+  PASS  successful_native_generation_starts_new_epoch_and_preserves_history
+  PASS  future_or_corrupt_load_stays_closed_after_load_ends
+
+total: passed=37 failed=0

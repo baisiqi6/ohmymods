@@ -35,8 +35,17 @@ namespace KingdomEnhancedMod
 
             Formation.UnitTypes gap = Formation.UnitTypes.Gap;
             Formation.UnitTypes archerType = Formation.UnitTypes.Archer;
+            Formation.UnitTypes squire = Formation.UnitTypes.Squire;
             types[0] = gap;
             types[1] = archerType;
+            types[2] = squire;
+
+            // The row step override written while a musketeer row is live
+            // (PatchWorld_FleetBoatFormation.TryExpand).
+            Il2CppStructArray<float> spacing = formation.UnitSpacing;
+            if (spacing != null && spacing.Length > (int)Formation.UnitTypes.Squire)
+                spacing[(int)Formation.UnitTypes.Squire] = baseline;
+
             formation.startOffset = baseline;
             formation.unitTypes = types;
             formation.units = units;

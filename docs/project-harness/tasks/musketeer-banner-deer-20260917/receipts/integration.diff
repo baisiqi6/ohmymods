@@ -1,0 +1,2270 @@
+--- a/il2cpp/MusketeerCombat.cs
++++ b/il2cpp/MusketeerCombat.cs
+@@ -4,15 +4,19 @@
+ // 1. 原生箭的**无条件压制**入口：Operator 的 ArrowAttack.FireArrowInternal prefix 调
+ //    <see cref="MusketeerCombat.TryHandleShot"/>。活动火铳手（身份 + 战斗包已装）**一律压制**
+ //    原生箭（即使目标非法/还在冷却/未装填），绝不出现"火铳手射出弓矢"。
+-// 2. 自有直线子弹：显式时间闸 + 合法地面目标 → 从「已举枪」Aim 枪口锚点 [48,14] 出膛；
+-//    平飞、有限射程/寿命、命中首个有效地面敌人即停。推进一步用**完整有效 dt**（低帧不再慢弹），
++// 2. 自有直线子弹：显式时间闸 + 合法目标 → 从「已举枪」Aim 枪口锚点 [48,14] 出膛；
++//    默认平飞（敌方/其它目标永远水平），**仅**合法鹿且枪口水平线不穿它自己的真实 Collider2D 时，
++//    朝该碰撞体中部做一次固定直线微调（实际 bounds 计算、无 homing/曲线/加射程——2.4 Greek 鹿
++//    低于枪口线，普通世界本来可平射命中）；有限射程/寿命、命中最近有效目标即停（兔/鸟等小动物完全透明）。
++//    推进一步用**完整有效 dt**（低帧不再慢弹），
+ //    扫掠端点按剩余射程/寿命钳制（Linecast 本身即连续线段，大 dt 既不隧穿也不越界）。
+ //    弹道证据：可复用数组（稳态零 List 开销）→ 数组在软上限仍饱和时走官方
+ //    Physics2D.Linecast(ContactFilter2D, Il2CppSystem.Collections.Generic.List<RaycastHit2D>) 全量结果
+ //    （Unity 自动扩容并复用该 List）；流式取**最近有效**命中，绝不假设返回顺序、绝不因饱和吞伤。
+ //    弹丸记录池化复用（清旧 source/visual/world 引用）。不生成原生 Arrow 组件（因此不继承原生
+ //    Crusher 反弹/canBounce/随机火矢，也不继承原生箭/火焰材质与染色），不调用任何 SO 发声回调。
+-// 3. 地面判定与原生等价门：目标校验与弹道碰撞过滤**同一套判据**。
++// 3. 类型门（射击/命中分开但共用判据）：敌人仍用原生等价的地面敌人判据；鹿用"Deer 根组件 +
++//    鹿根自己的 Damageable + 白天"判据（发射前再复核编队/骑士/乘船）；兔子等小动物两侧都不放行。
+ //
+ // 明确的"不做"：无穿透、无 AOE、无灼烧、无 perfect 倍率、无随机散射/误差、无落水概率、
+ // 不写任何原生 HP 字段（伤害只经共同 CombatDamage.Submit(target, 2, source, DamageSource.Arrow)
+@@ -237,9 +241,16 @@
+ }
+ 
+ /// <summary>
+-/// 地面敌人判据（目标选择与弹道碰撞**共用**，保证两处一致）。
++/// 射击/命中类型门（两处共用，保证一致）：
++/// * **敌人**（地面）：原生等价判据（飞行/未验证拒绝、Enemies 层、tag/Damageable/invulnerable 门），
++///   目标选择与弹道碰撞同用 <see cref="IsValidGroundFoe"/>——鹿绝不走这条门。
++/// * **普通鹿**（白天狩猎）：`Deer` 根组件 + 鹿根自己的 Damageable + 白天；兔子等小动物、
++///   Hind 坐骑、石化物一律拒绝。发射用 <see cref="IsDeerShotAllowed"/>（再复核原生猎鹿前置），
++///   弹道用 <see cref="TryResolveShotTarget"/>（与敌人分支合流成"有效命中目标"解析）。
++/// * 不采信名字/tag：候选可能挂在鹿根的子 collider 上（其他 mod 可能改层/加子碰撞），
++///   身份只看原生组件。
+ ///
+-/// 判据来源与边界：
++/// 敌人判据来源与边界：
+ /// * 飞行/未验证一律拒绝：目标(或父级)带 <c>Squid</c> 组件 → false（Call of Olympus 的空中抓人单位，
+ ///   仓库已有组件级排除先例 PatchDivine_FriendlyTroll）；带 <c>Enemy</c> 组件时 <c>Enemy.Type</c>
+ ///   必须在**地面白名单**（TrollWeak/TrollMedium/ToughTroll/Ogre/Stealer/Crusher/Knight/Archer，
+@@ -253,11 +264,13 @@
+ internal static class MusketeerFoeFilter
+ {
+     private const string EnemiesLayerName = "Enemies";
++    private const string WildlifeLayerName = "Wildlife";
+     private const string EnemySpawnTag = "EnemySpawn";
+     private const string UnspittableTag = "Unspittable";
+     private const string QuestStructureTag = "QuestStructure";
+ 
+     private static int _enemiesLayer = -1;
++    private static int _wildlifeLayer = -1;
+ 
+     /// <summary>Enemies 层索引（惰性缓存一次；解析失败返回 -1 → 调用方 fail-closed 且下次重试）。</summary>
+     internal static int EnemiesLayerIndex()
+@@ -274,6 +287,30 @@
+             _enemiesLayer = -1;
+         }
+         return _enemiesLayer;
++    }
++
++    /// <summary>Wildlife 层索引（惰性缓存一次；解析失败返回 -1 → 弹道退回纯敌方层，绝不破坏夜战）。</summary>
++    internal static int WildlifeLayerIndex()
++    {
++        if (_wildlifeLayer >= 0) return _wildlifeLayer;
++        try { _wildlifeLayer = LayerMask.NameToLayer(WildlifeLayerName); }
++        catch (Exception) { _wildlifeLayer = -1; }
++        return _wildlifeLayer;
++    }
++
++    /// <summary>
++    /// 弹道查询层掩码：Enemies | Wildlife（鹿在 Wildlife 层）。
++    /// 敌方层解析失败 → 0（调用方 fail-closed：本段无命中证据，与旧行为一致）；
++    /// Wildlife 层解析失败 → 只查敌方层（鹿打不到，但夜战/敌人弹道一个字节不变）。
++    /// </summary>
++    internal static int CombatLayerMask()
++    {
++        int enemies = EnemiesLayerIndex();
++        if (enemies < 0) return 0;
++        int mask = 1 << enemies;
++        int wildlife = WildlifeLayerIndex();
++        if (wildlife >= 0) mask |= 1 << wildlife;
++        return mask;
+     }
+ 
+     /// <summary>EnemyType 地面白名单（2.1 枚举逐值；Squid/Boss 系一律拒绝）。</summary>
+@@ -352,6 +389,268 @@
+         }
+     }
+ 
++    /// <summary>
++    /// source（射手）有效门：**活着**（Damageable 未死/未禁用、Character 非 inert/grabbed）、
++    /// 所属 GO 活动、当前 world。只判 GO active 不够（死亡/被抓/石化期间 GO 仍可能是 active）。
++    /// 读不到 → false。放在**先验之前**求值：池复用旧射手/旧世界绝不再参与。
++    /// </summary>
++    internal static bool IsUsableSource(Archer archer)
++    {
++        try
++        {
++            if (archer == null || archer.gameObject == null) return false;
++            if (!archer.enabled || !archer.gameObject.activeInHierarchy) return false;
++            // Identity can be released synchronously before Runtime.Tick strips its package.
++            if (!MusketeerRuntime.IsMusketeer(archer)) return false;
++            Damageable damageable = archer._damageable;
++            if (damageable == null || !damageable.enabled || damageable.isDead) return false;
++            Character character = archer._character;
++            if (character == null || character.inert || character.grabbed) return false;
++            return MusketeerAccess.InWorld(archer);
++        }
++        catch (Exception)
++        {
++            return false;
++        }
++    }
++
++    /// <summary>
++    /// 子弹记录的 shooter root → 当前 Archer 实例（命中时才解析；拿不到 = null，鹿门 fail-closed）。
++    /// 不缓存实例：池复用/换 life 后必须按当前对象重新判定。
++    /// </summary>
++    internal static Archer ResolveSourceArcher(GameObject shooterRoot)
++    {
++        try
++        {
++            if (shooterRoot == null) return null;
++            return shooterRoot.TryGetComponent<Archer>(out Archer archer) ? archer : null;
++        }
++        catch (Exception)
++        {
++            return null;
++        }
++    }
++
++    /// <summary>
++    /// "白天可猎普通鹿"判据（打猎扫描器与弹道命中共用，发射前另有 <see cref="IsDeerShotAllowed"/> 复核）：
++    /// * source（射手）必须**活着**/活动/当前 world（先判它，池复用旧身份直接拒绝；由调用方传入已解析的实例）；
++    /// * 候选 → 父链必须找到原生 `Deer` 根组件（绝不认名字或 tag；其他 mod 加的子 collider 也认得），
++    ///   且鹿根必须**当前 world**（旧世界/池化残留的鹿绝不参与）；
++    /// * 只认**鹿根自己的** Damageable：启用/未死/接受箭伤/非"无敌且被忽略"；
++    /// * 鹿根石化（Petrifiable.IsPetrified）→ 拒绝（石化雕像不碰）；
++    /// * 白天（`Kingdom.isDaytime`）：原生 tutorial 夜间例外**不适用**于火铳手，读不到一律拒绝（fail-closed）；
++    /// * Hind 坐骑没有 Deer 根组件 → 自然拒绝；兔子/鸟/鱼等小动物同理。
++    /// 返回 true 时输出可提交的原生 Damageable（鹿根上的那一个），且绝不指向射手自己。
++    /// </summary>
++    internal static bool TryGetHuntableDeer(Archer shooter, GameObject candidate, out Damageable damageable)
++    {
++        damageable = null;
++        try
++        {
++            if (!IsUsableSource(shooter)) return false;
++            if (candidate == null || !candidate.activeInHierarchy) return false;
++            GameObject shooterRoot = shooter.gameObject;
++            if (shooterRoot.transform == null) return false;
++
++            Deer deer = candidate.GetComponentInParent<Deer>();
++            if (deer == null || deer.gameObject == null || !deer.gameObject.activeInHierarchy) return false;
++            if (!MusketeerAccess.InWorld(deer.gameObject)) return false;   // 鹿根必须当前 world
++            Transform root = deer.transform;
++            if (root == null) return false;
++            // 绝不打自己（枪口在身前，几何上仍可能与本体重叠）。
++            if (root == shooterRoot.transform || root.IsChildOf(shooterRoot.transform)) return false;
++
++            Petrifiable petrifiable = deer.GetComponent<Petrifiable>();
++            if (petrifiable != null && petrifiable.IsPetrified) return false;
++            // 骑乘用坐骑（Steed/Hind）绝不当猎物：仓库既有"普通鹿"判据同款组件排除
++            // （PatchWorld_DeerPopulation：Deer 且非 Steed/Hind 才算普通鹿）。
++            if (deer.GetComponent<Steed>() != null || deer.GetComponent<Hind>() != null) return false;
++
++            Damageable own = deer.GetComponent<Damageable>();
++            if (own == null || !own.enabled || own.isDead) return false;
++            if (own.invulnerable && own.ignoredWhenInvulnerable) return false;
++            if (!own.IsDamagedBy(DamageSource.Arrow)) return false;
++            if (!IsDaytimeNow()) return false;
++
++            damageable = own;
++            return true;
++        }
++        catch (Exception)
++        {
++            return false;
++        }
++    }
++
++    /// <summary>当前是否白天（`Kingdom.isDaytime`）。读不到一律 false（fail-closed：绝不夜猎）。</summary>
++    internal static bool IsDaytimeNow()
++    {
++        try
++        {
++            Managers managers = Managers.Inst;
++            Kingdom kingdom = managers != null ? managers.kingdom : null;
++            return kingdom != null && kingdom.isDaytime;
++        }
++        catch (Exception)
++        {
++            return false;
++        }
++    }
++
++    /// <summary>
++    /// 鹿猎适用性（发射与**命中**共用）：source 有效（活着/活动/world）+ 身份/战斗包仍在
++    /// （<see cref="MusketeerRuntime.IsArmedMusketeer"/>，池复用旧 life/失权后绝不再猎鹿）+
++    /// 原生 `ShouldShootWildlife` 同类前置（不在编队 / 不是骑士随从 / 未乘船）。
++    /// 敌人分支**绝不调用这里**（夜战/编队射击不受影响）。任一读不到 → false。
++    /// </summary>
++    internal static bool IsDeerHuntApplicable(Archer archer)
++    {
++        try
++        {
++            if (!IsUsableSource(archer)) return false;
++            if (!MusketeerRuntime.IsArmedMusketeer(archer)) return false;
++            if (archer.GetFormation() != null) return false;      // 原生猎鹿排除：编队（含 PlayerFormation）
++            if (archer._knight != null) return false;             // 原生猎鹿排除：骑士随从
++            Embarkee embarkee = archer._embarkee;
++            if (embarkee != null && embarkee.IsEmbarked) return false;   // 原生猎鹿排除：乘船
++            return true;
++        }
++        catch (Exception)
++        {
++            return false;
++        }
++    }
++
++    /// <summary>
++    /// 鹿目标解析（发射/命中共用）：适用性（source/身份/编队/骑士/乘船）**且**白天普通鹿有效。
++    /// 返回可提交的鹿根 Damageable。
++    /// </summary>
++    internal static bool TryResolveDeerTarget(Archer archer, GameObject candidate, out Damageable damageable)
++    {
++        damageable = null;
++        try
++        {
++            if (!IsDeerHuntApplicable(archer)) return false;
++            return TryGetHuntableDeer(archer, candidate, out damageable);
++        }
++        catch (Exception)
++        {
++            damageable = null;
++            return false;
++        }
++    }
++
++    /// <summary>
++    /// wildlife 扫描器的组合判据：**source 有效 AND 原生先验（其他 mod 的条件，可为 null）AND 白天普通鹿**。
++    /// 先解析并判 source（捕获时快照的射手 root；**绝不在入口外读 `archer.gameObject`**，
++    /// 也绝不让异常泄出闭包），再判先验、再判鹿；任一侧抛异常 → false（fail-closed：
++    /// 宁可本次无目标，绝不把异常泄进原生扫描器调用链，也不放宽第三方条件）。
++    /// 缓存/昼夜/编队变化由发射与命中侧再复核。
++    /// </summary>
++    internal static bool PassesWildlifeCondition(Scanner.ObjectCondition prior, GameObject candidate,
++        GameObject sourceRoot)
++    {
++        Archer source;
++        try
++        {
++            source = ResolveSourceArcher(sourceRoot);
++            if (!IsUsableSource(source)) return false;       // 池复用旧身份/死亡/失活射手：先拒，再谈先验
++            if (prior != null && !prior.Invoke(candidate)) return false;
++        }
++        catch (Exception)
++        {
++            return false;
++        }
++        return TryGetHuntableDeer(source, candidate, out _);
++    }
++
++    /// <summary>
++    /// 猎鹿发射最终门（扫描器缓存可能跨昼夜/编队/身份变化，发射前必须复核）：
++    /// source 有效 + 身份/战斗包仍在 + 白天普通鹿 + 原生 `ShouldShootWildlife` 同类前置
++    /// （不在编队 / 不是骑士随从 / 未乘船）。
++    /// 敌人**不走这里**（敌人继续用 <see cref="IsValidGroundFoe"/>）。任一读不到 → false。
++    /// </summary>
++    internal static bool IsDeerShotAllowed(Archer archer, GameObject target)
++        => TryResolveDeerTarget(archer, target, out _);
++
++    /// <summary>候选父链上的原生 `Deer` 根组件（鹿身份的唯一入口；不认名字/tag/层）。null = 不是鹿。</summary>
++    internal static Deer GetDeerRoot(GameObject candidate)
++    {
++        try
++        {
++            return candidate != null ? candidate.GetComponentInParent<Deer>() : null;
++        }
++        catch (Exception)
++        {
++            return null;
++        }
++    }
++
++    /// <summary>候选父链上是否有原生 `Deer` 根组件（鹿语义的入口；不认名字/tag/层）。</summary>
++    internal static bool IsDeerCandidate(GameObject candidate) => GetDeerRoot(candidate) != null;
++
++    /// <summary>
++    /// 发射/命中共用的"有效目标"总门（类型门分开）：
++    /// * 鹿候选（父链带 Deer，**不管它在哪一层**）→ 一律走鹿门 <see cref="IsDeerShotAllowed"/>：
++    ///   白天 + 原生猎鹿前置 + 鹿根自有 Damageable。夜里的鹿绝不当敌人打（不发弹、也不浪费子弹）。
++    /// * 其余候选 → 原生等价的地面敌人门 <see cref="IsValidGroundFoe"/>。
++    /// * 兔子等小动物两条门都进不去（不在这里开白名单）。
++    /// 弹道侧用 <see cref="TryResolveShotTarget"/> 复用同一套判据并解析出可提交的 Damageable。
++    /// </summary>
++    internal static bool IsValidShotTarget(Archer archer, GameObject target)
++    {
++        try
++        {
++            if (archer == null || archer.gameObject == null) return false;
++            if (IsDeerCandidate(target)) return IsDeerShotAllowed(archer, target);
++            return IsValidGroundFoe(target, archer.gameObject);
++        }
++        catch (Exception)
++        {
++            return false;
++        }
++    }
++
++    /// <summary>
++    /// 弹道命中的统一解析（发射/命中同一套判据）：返回 false = 该候选对火铳弹完全透明
++    /// （不伤害也不阻挡——兔子等小动物正是这条路径）。
++    /// * 鹿优先：候选父链带 `Deer` → 必须整体通过鹿门（**命中时重新复核** source 活着/活动/world、
++    ///   身份/战斗包、**发射时快照的绑定 lease**、白天、编队/骑士/乘船、鹿根自有 Damageable）。
++    ///   射手发射后加入编队/骑士、被停用/死亡/失权、或同一 GO 回池后作为新 life 重新武装
++    ///   （lease 变化）→ 本次鹿命中作废（透明），等下一次决策。
++    /// * 其余候选走原生等价的地面敌人判据（**不加昼夜/编队/身份/lease 门**：敌弹旧语义不变）；
++    ///   Crusher 免疫位照旧消费子弹、不掉血。
++    /// </summary>
++    internal static bool TryResolveShotTarget(GameObject candidate, GameObject shooterRoot, long shooterLease,
++        out Damageable target, out bool immunityConsume)
++    {
++        target = null;
++        immunityConsume = false;
++        try
++        {
++            if (candidate == null || !candidate.activeInHierarchy) return false;
++            if (IsDeerCandidate(candidate))
++            {
++                Archer shooter = ResolveSourceArcher(shooterRoot);
++                // 同一 life 证明：InstanceID/Pointer 会被池复用，只有单调 lease 能证明"就是发射那一发的那条命"。
++                if (!MusketeerRuntime.MatchesBindingLease(shooter, shooterLease)) return false;
++                if (!TryResolveDeerTarget(shooter, candidate, out Damageable deerDamageable)) return false;
++                target = deerDamageable;
++                return true;
++            }
++            if (!IsValidGroundFoe(candidate, shooterRoot)) return false;
++            target = GetFoeDamageable(candidate);
++            if (target == null) return false;
++            immunityConsume = IsImmunityConsume(candidate);
++            return true;
++        }
++        catch (Exception)
++        {
++            target = null;
++            immunityConsume = false;
++            return false;
++        }
++    }
++
+     /// <summary>命中即被消费但不掉血的免疫态：Crusher 且 !IsStunned（原生 Arrow.HitObject 同判据）。</summary>
+     internal static bool IsImmunityConsume(GameObject candidate)
+     {
+@@ -389,7 +688,8 @@
+     internal GameObject Visual;
+     internal SpriteRenderer Renderer;
+     internal Vector2 Position;
+-    internal float Direction;
++    /// <summary>单位方向向量：默认水平 (±1, 0)；仅合法鹿的"水平线不穿其碰撞体"时朝鹿身中部微倾。</summary>
++    internal Vector2 Direction;
+     internal float Speed;
+     internal float MaxDistance;
+     internal float Travelled;
+@@ -397,6 +697,8 @@
+     internal float Lifetime;
+     internal bool Alive;
+     internal GameObject ShooterRoot;
++    /// <summary>发射时快照的射手绑定 lease（鹿命中用它证明"同一 life"；0 = 未装包快照）。</summary>
++    internal long ShooterLease;
+     /// <summary>租约序号（每次从池中租出时递增；long 不会在正常玩法下溢出，生产路径无需重置）：
+     /// 重入回调后的旧帧绝不推进新租的同一条记录。</summary>
+     internal long Lease;
+@@ -433,6 +735,15 @@
+     /// <summary>退休回执上限与重试间隔：Destroy 抛异常时保留自有引用，绝不因为一次异常丢掉所有权。</summary>
+     private const int MaxRetiredVisuals = 64;
+     private const float RetiredRetrySeconds = 1f;
++
++    /// <summary>
++    /// 鹿弹微调的最小水平距（几何退化保护：枪口几乎正对鹿身时不做近垂直/反向射击，
++    /// 留给原生转身后的下一次决策）。这是几何退化阈值，不是任何世界/生物的尺寸常量。
++    /// </summary>
++    private const float MinDeerAimDx = 0.05f;
++
++    /// <summary>鹿相关被动事件日志上限（每世界前 N 条；换世界重置，绝不每帧刷屏、无全场扫描）。</summary>
++    private const int MaxDeerLogsPerWorld = 8;
+ 
+     /// <summary>Operator 提供的弹丸贴图（5x3、Point、PPU32、pivot 居中）。</summary>
+     private const string BulletResourceName = "KingdomEnhancedMod.MusketeerBullet.png";
+@@ -474,6 +785,8 @@
+     private static bool _loggedTableFull;
+     private static BulletSpriteState _bulletSpriteState;
+     private static Sprite _bulletSprite;
++    /// <summary>本世界已输出的鹿事件日志条数（上限 <see cref="MaxDeerLogsPerWorld"/>；随世界身份重置）。</summary>
++    private static int _deerLogs;
+ 
+     /// <summary>当前存活子弹数（只读诊断）。</summary>
+     internal static int LiveCount => _count;
+@@ -572,6 +885,7 @@
+             _worldGoId = goId;
+             if (_count > 0) DespawnAll();   // 先在旧世界里丢弹，再丢掉承载它们的池对象
+             ResetPoolObjects();
++            _deerLogs = 0;                  // 每世界重置鹿事件日志预算（复用同一处世界身份检测）
+         }
+         RetryRetired();
+         return world;
+@@ -669,7 +983,10 @@
+     }
+ 
+     /// <summary>
+-    /// 一次自有射击：显式时间闸 + 合法地面目标 + 出膛。任一前置不满足都不消耗闸（下一发重试）。
++    /// 一次自有射击：显式时间闸 + 合法目标 + 出膛。任一前置不满足都不消耗闸（下一发重试）。
++    /// 类型门分开：敌人走原生等价的 <see cref="MusketeerFoeFilter.IsValidGroundFoe"/>；
++    /// 鹿只在"白天 + 原生猎鹿前置（无编队/无骑士/未乘船）"下放行（<see cref="MusketeerFoeFilter.IsDeerShotAllowed"/>），
++    /// 兔子等小动物不在这两条门里（弹道侧同样透明）。
+     /// </summary>
+     internal static bool TryFireOwnBullet(Archer archer)
+     {
+@@ -682,11 +999,14 @@
+         GameObject target;
+         try { target = archer._shootingTarget; }
+         catch (Exception) { return false; }
+-        GameObject shooterRoot = archer.gameObject;
+-        if (!MusketeerFoeFilter.IsValidGroundFoe(target, shooterRoot)) return false;
++        // 发射门：鹿候选一律走鹿门（白天 + 原生猎鹿前置），其余走原生等价敌人门；
++        // 兔子等小动物两条门都进不去（弹道侧同样透明）。
++        if (!MusketeerFoeFilter.IsValidShotTarget(archer, target)) return false;
+         if (!ShooterReady(archer)) return false;
+ 
+-        if (!TryComputeMuzzle(archer, out Vector2 origin, out float direction)) return false;
++        if (!TryComputeMuzzle(archer, out Vector2 origin, out float facing)) return false;
++        // 鹿瞄准证据不足/几何退化 → 本次不开火（敌人恒水平发射，完全不受影响）。
++        if (!TryComputeShotDirection(target, origin, facing, out Vector2 direction)) return false;
+         float range = MusketeerRuntime.ConfiguredRange(archer);
+         if (!(range > 0f) || !float.IsFinite(range)) return false;
+ 
+@@ -701,12 +1021,71 @@
+             return false;
+         }
+ 
+-        if (!TryCreateBullet(archer, archer.ActiveArrowAttack, origin, direction, range, world)) return false;
+-
++        // 绑定 lease 快照（鹿资格命中时比对；敌方命中不使用）：同 GO 回池再武装的新 life 与旧弹分离。
++        long shooterLease = MusketeerRuntime.BindingLease(archer);
++        if (!TryCreateBullet(archer, archer.ActiveArrowAttack, origin, direction, range, world, shooterLease))
++            return false;
++
++        LogDeerShot(target, origin, direction, range);   // 被动、每世界有界；非鹿直接 no-op
+         float nextEligible = MusketeerRuntime.ConsumeShotGate(archer);
+         MusketeerRuntime.ObserveOwnShot(archer, nextEligible);
+         MusketeerVisuals.NotifyShot(archer, nextEligible);
+         return true;
++    }
++
++    /// <summary>
++    /// 本次出膛方向（单位向量）；**false = 本次不开火**（鹿缺瞄准证据/几何退化 → 等原生转身或下一轮决策）。
++    /// * 非鹿目标（含一切敌人）：恒 `(facing, 0)` 平射并返回 true——敌方弹道绝不受影响；
++    /// * 鹿候选：只认**鹿根自身**的 `Collider2D`（**绝不**用 `GetComponentInChildren`：可能拿到物理脚圈
++    ///   而不是 Wildlife body），要求 collider enabled、所在 GO 活动、bounds 有限且非空；鹿根必须
++    ///   当前 world、且非 `Steed`/`Hind` 坐骑。枪口水平线穿其 bounds 且目标在面向一侧 → 平射
++    ///   （原尺寸鹿的常态）；否则朝 bounds 中心做一次固定直线微调——但目标在枪口背后，或
++    ///   `|Δx| < MinDeerAimDx` 时**拒绝**（绝不反向背射、绝不近垂直猜射）。
++    /// 方向在**发射时快照**：不追踪移动的鹿、无 homing、无曲线、不增加射程（Travelled/MaxDistance
++    /// 仍是同一欧氏预算）。
++    /// </summary>
++    private static bool TryComputeShotDirection(GameObject target, Vector2 origin, float facing,
++        out Vector2 direction)
++    {
++        direction = new Vector2(facing, 0f);
++        try
++        {
++            Deer deer = MusketeerFoeFilter.GetDeerRoot(target);
++            if (deer == null) return true;                                   // 非鹿：恒平射
++            if (deer.gameObject == null) return false;
++            if (!MusketeerAccess.InWorld(deer.gameObject)) return false;     // 鹿根必须当前 world
++            if (deer.GetComponent<Steed>() != null || deer.GetComponent<Hind>() != null) return false;
++
++            Collider2D body = deer.GetComponent<Collider2D>();               // 只认鹿根自身的 body collider
++            if (body == null || !body.enabled) return false;
++            if (body.gameObject == null || !body.gameObject.activeInHierarchy) return false;
++            Bounds bounds = body.bounds;
++            float minX = bounds.min.x;
++            float maxX = bounds.max.x;
++            float minY = bounds.min.y;
++            float maxY = bounds.max.y;
++            if (!float.IsFinite(minX) || !float.IsFinite(maxX)
++                || !float.IsFinite(minY) || !float.IsFinite(maxY))
++                return false;
++            if (!(maxX > minX) || !(maxY > minY)) return false;              // 空 bounds：无瞄准证据
++
++            float dx = bounds.center.x - origin.x;
++            bool ahead = facing >= 0f ? dx > 0f : dx < 0f;
++            if (!ahead) return false;                                        // 目标在枪口背后：不背射，等原生转身
++            if (origin.y >= minY && origin.y <= maxY) return true;           // 平射本来穿身：照旧水平
++            if (Mathf.Abs(dx) < MinDeerAimDx) return false;                  // Δx 近 0（退化）：不猜
++
++            float dy = bounds.center.y - origin.y;
++            float length = Mathf.Sqrt(dx * dx + dy * dy);
++            if (!(length > 1e-4f) || !float.IsFinite(length)) return false;  // 归一化必须有限非零
++            direction = new Vector2(dx / length, dy / length);
++            return true;
++        }
++        catch (Exception)
++        {
++            direction = new Vector2(facing, 0f);
++            return false;
++        }
+     }
+ 
+     /// <summary>
+@@ -761,19 +1140,43 @@
+                 }
+ 
+                 Vector2 from = bullet.Position;
+-                Vector2 to = new Vector2(from.x + bullet.Direction * allowed, from.y);
+-
+-                if (TryResolveSegment(from, to, bullet.ShooterRoot, out Damageable hitTarget, out bool immunityConsume))
++                Vector2 to = new Vector2(from.x + bullet.Direction.x * allowed, from.y + bullet.Direction.y * allowed);
++
++                // 斜向弹先裁到**实际地面交点**，只扫地上段（水平弹/敌方弹完全不受影响）：
++                // 绝不先把整段扫完再"落到地下才消失"——那会穿过地面命中地下单位。
++                float groundY = GroundSurfaceY();
++                bool reachedGround = false;
++                if (bullet.Direction.y < 0f && to.y < groundY)
++                {
++                    if (from.y <= groundY)
++                    {
++                        // 起点已在地面之下（异常几何）：立即终止，绝不下扫。
++                        bullet.Alive = false;
++                        DespawnVisual(bullet);
++                        RemoveAt(i);
++                        continue;
++                    }
++                    float t = (groundY - from.y) / (to.y - from.y);
++                    if (!(t > 0f)) t = 0f;
++                    if (t > 1f) t = 1f;
++                    to = new Vector2(from.x + (to.x - from.x) * t, groundY);
++                    reachedGround = true;
++                }
++
++                if (TryResolveSegment(from, to, bullet.ShooterRoot, bullet.ShooterLease,
++                        out Damageable hitTarget, out bool immunityConsume))
+                 {
+                     // 消费闩先于伤害：先把子弹从表里摘掉并归还可视化/记录，再调用共同 Submit。
+                     // 归还记录会清空 source 引用 —— 先快照提交参数（评审门：清字段后绝不再读）。
+                     GameObject source = bullet.ShooterRoot;
++                    bool deerHit = hitTarget != null && MusketeerFoeFilter.GetDeerRoot(hitTarget.gameObject) != null;
+                     bullet.Alive = false;
+                     DespawnVisual(bullet);
+                     RemoveAt(i);
+                     if (!immunityConsume && hitTarget != null)
+                     {
+                         SubmitBulletDamage(hitTarget, source);
++                        if (deerHit) LogDeerSubmit(hitTarget);
+                         // 伤害回调同步返回边界：状态可能已变（换世界/关闭/失权/暂停）→
+                         // 旧 world 的本轮剩余弹绝不再继续推进（world 变化/失活时顺手完成收尾）。
+                         if (!FrameStillAdvancing(frameWorldPointer, frameWorldGoId))
+@@ -782,6 +1185,15 @@
+                             return;
+                         }
+                     }
++                    continue;
++                }
++
++                if (reachedGround)
++                {
++                    // 该步只扫到地面交点且没有命中有效目标：子弹落在真实地面上，终止。
++                    bullet.Alive = false;
++                    DespawnVisual(bullet);
++                    RemoveAt(i);
+                     continue;
+                 }
+ 
+@@ -855,6 +1267,7 @@
+         _loggedMissingVisual = false;
+         _loggedPhysicsUnavailable = false;
+         _loggedTableFull = false;
++        _deerLogs = 0;
+         _hitBuffer = null;
+         _hitList = null;
+     }
+@@ -926,14 +1339,14 @@
+     }
+ 
+     /// <summary>本段是否消费子弹（true = 消费：命中有效目标，或证据不完整时保守终止；false = 继续飞）。</summary>
+-    private static bool TryResolveSegment(Vector2 from, Vector2 to, GameObject shooterRoot,
++    private static bool TryResolveSegment(Vector2 from, Vector2 to, GameObject shooterRoot, long shooterLease,
+         out Damageable hitTarget, out bool immunityConsume)
+     {
+         hitTarget = null;
+         immunityConsume = false;
+-        int layer = MusketeerFoeFilter.EnemiesLayerIndex();
+-        if (layer < 0) return false;   // 层解析失败：本段无命中证据（fail-closed：继续飞，与旧行为一致）
+-        if (!TryQuerySegment(from, to, layer, shooterRoot, out hitTarget, out immunityConsume))
++        int mask = MusketeerFoeFilter.CombatLayerMask();
++        if (mask == 0) return false;   // 敌方层解析失败：本段无命中证据（fail-closed：继续飞，与旧行为一致）
++        if (!TryQuerySegment(from, to, mask, shooterRoot, shooterLease, out hitTarget, out immunityConsume))
+             return true;               // 证据不完整（已限频记录）：保守消费，绝不伪造命中
+         return hitTarget != null;
+     }
+@@ -941,16 +1354,21 @@
+     /// <summary>
+     /// 查询本段并流式选最近有效命中：true = 证据完整（target 可为 null = 本段无有效目标）；
+     /// false = 物理证据不完整（真实 API 故障）——调用方保守消费、不伤害。
++    /// 查询层 = Enemies | Wildlife（鹿所在层；解析不到 Wildlife 时退回纯敌方层）；
+     /// 常态走可复用数组（低密度场景零 List 索引开销）；数组到软上限仍饱和 → 官方 List overload
+     /// 拿全量结果（Unity 自动扩容并复用；不设第二个吞伤上限，也绝不无限循环）。
+-    /// 选择策略：流式遍历全部结果取严格更近者（与返回顺序无关；友军/飞行/未知/死亡/自己只跳过）。
+-    /// </summary>
+-    private static bool TryQuerySegment(Vector2 from, Vector2 to, int layer, GameObject shooterRoot,
+-        out Damageable target, out bool immunityConsume)
++    /// 选择策略：流式遍历全部结果取严格更近者（与返回顺序无关；友军/飞行/小动物/未知/死亡/自己只跳过）；
++    /// 鹿候选另需发射时快照的绑定 lease 仍是同一 life。
++    /// </summary>
++    private static bool TryQuerySegment(Vector2 from, Vector2 to, int layerMask, GameObject shooterRoot,
++        long shooterLease, out Damageable target, out bool immunityConsume)
+     {
+         target = null;
+         immunityConsume = false;
+-        float segmentLength = Mathf.Abs(to.x - from.x);
++        float segmentX = to.x - from.x;
++        float segmentY = to.y - from.y;
++        // 段长必须按整段算（鹿弹可能微倾；水平时等价于旧的 |Δx|）。
++        float segmentLength = Mathf.Sqrt(segmentX * segmentX + segmentY * segmentY);
+         int capacity = _hitBuffer != null ? _hitBuffer.Length : InitialHitCapacity;
+         while (true)
+         {
+@@ -958,7 +1376,7 @@
+             int hits;
+             try
+             {
+-                hits = Physics2D.LinecastNonAlloc(from, to, _hitBuffer, 1 << layer);
++                hits = Physics2D.LinecastNonAlloc(from, to, _hitBuffer, layerMask);
+             }
+             catch (Exception)
+             {
+@@ -972,7 +1390,8 @@
+             }
+             if (hits < capacity)
+             {
+-                SelectNearestFromArray(_hitBuffer, hits, segmentLength, shooterRoot, out target, out immunityConsume);
++                SelectNearestFromArray(_hitBuffer, hits, segmentLength, shooterRoot, shooterLease,
++                    out target, out immunityConsume);
+                 return true;
+             }
+             if (capacity >= MaxArrayCapacity) break;
+@@ -983,14 +1402,15 @@
+         try
+         {
+             EnsureHitList();
+-            ContactFilter2D filter = BuildLegacyContactFilter(layer);
++            ContactFilter2D filter = BuildLegacyContactFilter(layerMask);
+             int hits = Physics2D.Linecast(from, to, filter, _hitList);
+             if (hits < 0 || hits > _hitList.Count)
+             {
+                 LogPhysicsUnavailableOnce();   // 返回值超出列表内容：证据不可信
+                 return false;
+             }
+-            SelectNearestFromList(_hitList, hits, segmentLength, shooterRoot, out target, out immunityConsume);
++            SelectNearestFromList(_hitList, hits, segmentLength, shooterRoot, shooterLease,
++                out target, out immunityConsume);
+             return true;
+         }
+         catch (Exception)
+@@ -1002,48 +1422,56 @@
+ 
+     /// <summary>
+     /// 与旧 `LinecastNonAlloc(..., layerMask)` 内部 `ContactFilter2D.CreateLegacyFilter` 同语义：
+-    /// triggers 由全局 `Physics2D.queriesHitTriggers` 决定、只过滤 Enemies 层、不做深度/法线过滤。
+-    /// </summary>
+-    private static ContactFilter2D BuildLegacyContactFilter(int layer)
++    /// triggers 由全局 `Physics2D.queriesHitTriggers` 决定、层掩码与数组路径完全一致
++    /// （Enemies | Wildlife）、不做深度/法线过滤。
++    /// </summary>
++    private static ContactFilter2D BuildLegacyContactFilter(int layerMask)
+     {
+         ContactFilter2D filter = new ContactFilter2D();
+         filter.useTriggers = Physics2D.queriesHitTriggers;
+         filter.useLayerMask = true;
+-        filter.layerMask = 1 << layer;
++        filter.layerMask = layerMask;
+         filter.useDepth = false;
+         filter.useNormalAngle = false;
+         return filter;
+     }
+ 
+     private static void SelectNearestFromArray(Il2CppStructArray<RaycastHit2D> hits, int count,
+-        float segmentLength, GameObject shooterRoot, out Damageable target, out bool immunityConsume)
++        float segmentLength, GameObject shooterRoot, long shooterLease,
++        out Damageable target, out bool immunityConsume)
+     {
+         float bestDistance = float.MaxValue;
+         Damageable bestTarget = null;
+         bool bestImmunity = false;
+         for (int i = 0; i < count && i < hits.Length; i++)
+-            ConsiderHit(hits[i], segmentLength, shooterRoot, ref bestDistance, ref bestTarget, ref bestImmunity);
++            ConsiderHit(hits[i], segmentLength, shooterRoot, shooterLease,
++                ref bestDistance, ref bestTarget, ref bestImmunity);
+         target = bestTarget;
+         immunityConsume = bestImmunity;
+     }
+ 
+     private static void SelectNearestFromList(Il2CppSystem.Collections.Generic.List<RaycastHit2D> hits, int count,
+-        float segmentLength, GameObject shooterRoot, out Damageable target, out bool immunityConsume)
++        float segmentLength, GameObject shooterRoot, long shooterLease,
++        out Damageable target, out bool immunityConsume)
+     {
+         float bestDistance = float.MaxValue;
+         Damageable bestTarget = null;
+         bool bestImmunity = false;
+         for (int i = 0; i < count; i++)
+-            ConsiderHit(hits[i], segmentLength, shooterRoot, ref bestDistance, ref bestTarget, ref bestImmunity);
++            ConsiderHit(hits[i], segmentLength, shooterRoot, shooterLease,
++                ref bestDistance, ref bestTarget, ref bestImmunity);
+         target = bestTarget;
+         immunityConsume = bestImmunity;
+     }
+ 
+     /// <summary>
+-    /// 流式最近命中（绝不重建候选对象）：段外/非法/友军/飞行/死亡/自己只跳过，不阻挡也不伤害；
++    /// 流式最近命中（绝不重建候选对象）：段外/透明候选只跳过，不阻挡也不伤害。
++    /// 透明 = 友军/飞行/死亡/自己 + **兔子等小动物**（有 Damageable 但既不是敌人也不是白天可猎鹿）；
++    /// 鹿命中必须通过鹿根组件 + 鹿根自己的 Damageable 校验（被其他 mod 改层/加子 collider 也照此），
++    /// 且发射时快照的绑定 lease 仍是同一 life（池复用旧弹绝不伤鹿）；
+     /// 严格更近才替换（同距保持先遇到的，结果与回调顺序无关）。
+     /// </summary>
+-    private static void ConsiderHit(RaycastHit2D hit, float segmentLength, GameObject shooterRoot,
++    private static void ConsiderHit(RaycastHit2D hit, float segmentLength, GameObject shooterRoot, long shooterLease,
+         ref float bestDistance, ref Damageable bestTarget, ref bool bestImmunity)
+     {
+         float distance = hit.distance;
+@@ -1054,13 +1482,13 @@
+         if (collider == null) return;
+         GameObject candidate = collider.gameObject;
+         if (candidate == null) return;
+-        if (!MusketeerFoeFilter.IsValidGroundFoe(candidate, shooterRoot)) return;
+-        Damageable target = MusketeerFoeFilter.GetFoeDamageable(candidate);
+-        if (target == null) return;
++        if (!MusketeerFoeFilter.TryResolveShotTarget(candidate, shooterRoot, shooterLease,
++                out Damageable target, out bool immunityConsume))
++            return;
+ 
+         bestDistance = distance;
+         bestTarget = target;
+-        bestImmunity = MusketeerFoeFilter.IsImmunityConsume(candidate);
++        bestImmunity = immunityConsume;
+     }
+ 
+     private static void EnsureHitArrayCapacity(int capacity)
+@@ -1118,13 +1546,13 @@
+         }
+     }
+ 
+-    private static bool TryCreateBullet(Archer archer, ArrowAttack attack, Vector2 origin, float direction,
+-        float range, Transform world)
++    private static bool TryCreateBullet(Archer archer, ArrowAttack attack, Vector2 origin, Vector2 direction,
++        float range, Transform world, long shooterLease)
+     {
+         if (world == null) return false;
+ 
+         MusketeerBullet bullet = AcquireRecord();
+-        if (!TryAcquireVisual(direction, attack, world, out GameObject visual, out SpriteRenderer renderer))
++        if (!TryAcquireVisual(direction.x < 0f ? -1f : 1f, attack, world, out GameObject visual, out SpriteRenderer renderer))
+         {
+             ReleaseRecord(bullet);   // 租到但没用上：立刻归还，绝不把记录留在池外
+             return false;
+@@ -1156,6 +1584,7 @@
+         bullet.Lifetime = Mathf.Min(MaxLifetimeSeconds, Mathf.Max(0.05f, range / BulletSpeed));
+         bullet.Alive = true;
+         bullet.ShooterRoot = archer.gameObject;
++        bullet.ShooterLease = shooterLease;
+         bullet.Lease = ++_leaseCounter;   // 本帧边界之后的租约：重入回调里的旧帧不会推进它
+ 
+         Bullets[_count] = bullet;
+@@ -1184,8 +1613,9 @@
+         bullet.Visual = null;
+         bullet.Renderer = null;
+         bullet.ShooterRoot = null;
++        bullet.ShooterLease = 0L;
+         bullet.Position = default;
+-        bullet.Direction = 0f;
++        bullet.Direction = default;
+         bullet.Speed = 0f;
+         bullet.MaxDistance = 0f;
+         bullet.Travelled = 0f;
+@@ -1200,7 +1630,7 @@
+     /// 贴图资产缺失 → **不构造可见弹丸**（fail-closed：绝不打隐形伤害），并限频记录一次。
+     /// 材质保持 SpriteRenderer 默认（不继承原生箭/火焰材质与染色），只复制排序层/序。
+     /// </summary>
+-    private static bool TryAcquireVisual(float direction, ArrowAttack attack, Transform world,
++    private static bool TryAcquireVisual(float facing, ArrowAttack attack, Transform world,
+         out GameObject visual, out SpriteRenderer renderer)
+     {
+         visual = null;
+@@ -1247,7 +1677,7 @@
+             }
+             renderer.sprite = _bulletSprite;
+             renderer.color = Color.white;
+-            renderer.flipX = direction < 0f;
++            renderer.flipX = facing < 0f;
+             ApplyBulletSorting(renderer, attack);
+             return true;
+         }
+@@ -1420,7 +1850,8 @@
+ 
+     /// <summary>
+     /// 地面表面高度：优先取世界 GroundCollider 顶面；取不到时退回原生 Arrow 的"地下"阈值 0.875。
+-    /// 直线弹在枪口高度平飞时通常不会触发；这是"世界地面终止"的确定性兜底。
++    /// 水平弹在枪口高度平飞时通常不会触发；这是"世界地面终止"的确定性兜底（斜向鹿弹在
++    /// <see cref="Tick"/> 里先按它裁剪步段，绝不穿地）。
+     /// </summary>
+     private static float GroundSurfaceY()
+     {
+@@ -1435,6 +1866,72 @@
+         return 0.875f;
+     }
+ 
++    /// <summary>
++    /// 鹿**发射**被动日志（非鹿直接 no-op）：枪口 Y、鹿根自身 body bounds、快照瞄准方向、射程。
++    /// 供用户实机核对几何（例如 Greek 鹿低于枪口线时的实际倾角）。
++    /// </summary>
++    private static void LogDeerShot(GameObject target, Vector2 origin, Vector2 direction, float range)
++    {
++        if (_deerLogs >= MaxDeerLogsPerWorld) return;
++        try
++        {
++            Deer deer = MusketeerFoeFilter.GetDeerRoot(target);
++            if (deer == null) return;
++            string band = "bodyY=n/a";
++            Collider2D body = deer.GetComponent<Collider2D>();
++            if (body != null)
++            {
++                Bounds bounds = body.bounds;
++                band = "bodyY=[" + F(bounds.min.y) + ".." + F(bounds.max.y) + "]";
++            }
++            LogDeerOnce("deer shot: muzzleY=" + F(origin.y) + " " + band
++                + " aim=(" + F(direction.x) + "," + F(direction.y) + ") range=" + F(range));
++        }
++        catch (Exception)
++        {
++        }
++    }
++
++    /// <summary>
++    /// 鹿**命中提交**被动日志：只报告尝试提交伤害，不断言原生 ReceiveDamage 已执行或 HP 实际扣减
++    /// （invulnerable/护盾/已结算等原生分支可能早退）；掉钱/死亡仍归原生。
++    /// </summary>
++    private static void LogDeerSubmit(Damageable damageable)
++    {
++        if (_deerLogs >= MaxDeerLogsPerWorld) return;
++        try
++        {
++            string state = "n/a";
++            if (damageable != null)
++            {
++                state = damageable.isDead ? "dead" : "alive";
++                if (!damageable.enabled) state += "/disabled";
++            }
++            LogDeerOnce("deer hit: attempted damage submission of 2 (DamageSource.Arrow);"
++                + " damageable=" + state + " (HP/death/coins are native-owned, submit is not a HP promise)");
++        }
++        catch (Exception)
++        {
++        }
++    }
++
++    /// <summary>鹿事件日志（有界：每世界前 <see cref="MaxDeerLogsPerWorld"/> 条；被动触发，绝无逐帧扫描）。</summary>
++    private static void LogDeerOnce(string message)
++    {
++        try
++        {
++            if (_deerLogs >= MaxDeerLogsPerWorld) return;
++            _deerLogs++;
++            KingdomEnhancedPlugin.Instance?.LogSource?.LogInfo("[Musketeer] " + message);
++        }
++        catch (Exception)
++        {
++        }
++    }
++
++    /// <summary>日志数值格式化（invariant：不随系统区域变小数点）。</summary>
++    private static string F(float value) => value.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
++
+     private static void Log(string message)
+     {
+         try { KingdomEnhancedPlugin.Instance?.LogSource?.LogWarning("[Musketeer] " + message); }
+--- a/il2cpp/MusketeerRuntime.cs
++++ b/il2cpp/MusketeerRuntime.cs
+@@ -18,6 +18,9 @@
+ //   ×2（区间收敛到中值，冷却按 E[N] 摊分），原生周期精确等于闸值；闸只作安全网并带帧量化容差。
+ // * 敌人扫描器**完全不改**（谓词/缓存都不动，ShouldFlee 的威胁视野原样保留）；射击决策改为在
+ //   原生 `ShouldShootEnemy` 返回边界上按原生候选顺序重选地面敌人（不装过滤、无缓存残留）。
++// * 打猎目标收窄（不是放行白名单）：`_wildlifeScanner.additionalRequirements` 叠加"白天可猎普通鹿"
++//   判据并与第三方先验 **AND**（任一侧异常 fail-closed）；兔子等小动物/夜猎/编队狩猎一概不放行，
++//   `ShouldShootWildlife` 的编队/骑士/乘船门与 `ShouldHunt` 追猎返城行为原样保留。
+ // * 所有字段写入都有 before/applied 回执 + CAS 归还；回归失败保留回执重试，第三方接管则让位。
+ 
+ using System;
+@@ -91,7 +94,7 @@
+     // 射击决策：地面目标重选（原生 ShouldShootEnemy 边界；不改扫描器谓词/缓存）
+     internal bool ReselectionLogged;
+ 
+-    // 打猎抑制（常驻，与第三方谓词 AND 组合）
++    // 打猎目标收窄（常驻：白天普通鹿；与第三方先验谓词 AND 组合）
+     internal bool WildlifeFilterApplied;
+     internal Scanner.ObjectCondition WildlifeFilterBefore;
+     internal Scanner.ObjectCondition WildlifeFilterOurs;
+@@ -100,6 +103,13 @@
+     internal float NextEligibleShotTime;
+     internal int NativeAttempts;
+     internal float LastShotTime;
++
++    /// <summary>
++    /// 绑定 lease（单调、绝不重用）：每成功装包一次 + 每次原生 OnEnable 回收（新 life）时递增。
++    /// 自有子弹发射时快照它；命中鹿时比对——同 GO/Pointer 回池再生成新火铳手的旧弹绝不伤鹿。
++    /// 只用于鹿资格，不改敌弹旧语义；不写存档 schema。
++    /// </summary>
++    internal long BindingLease;
+ 
+     // 槽位收口（骑士/塔位）
+     internal int EvictAttempts;
+@@ -138,6 +148,45 @@
+     private static MusketeerBaseline _baseline;
+     private static int _baselineWorldId;
+     private static bool _loggedCapacity;
++    /// <summary>绑定 lease 计数（进程内单调递增、绝不重用；<see cref="MusketeerUnit.BindingLease"/>）。</summary>
++    private static long _bindingLeaseCounter;
++
++    /// <summary>下一个绑定 lease（单调；Clear/换世界都不重置，只有测试钩子归零）。</summary>
++    private static long NextBindingLease() => ++_bindingLeaseCounter;
++
++    /// <summary>
++    /// 该 Archer 当前绑定 lease（0 = 未装包/失权/未知）。供弹丸发射时快照。
++    /// </summary>
++    internal static long BindingLease(Archer archer)
++    {
++        try
++        {
++            MusketeerUnit unit = Find(archer);
++            return unit != null && unit.Applied && !unit.ClaimLost ? unit.BindingLease : 0L;
++        }
++        catch (Exception)
++        {
++            return 0L;
++        }
++    }
++
++    /// <summary>
++    /// 快照的绑定 lease 是否仍是**同一 life**（0/未装包/已失权/被回收重用 → false）。
++    /// 鹿命中专属：命中时用它证明射手与发射时是同一 life（InstanceID/Pointer 会被池复用）。
++    /// </summary>
++    internal static bool MatchesBindingLease(Archer archer, long lease)
++    {
++        try
++        {
++            if (lease == 0L || archer == null) return false;
++            MusketeerUnit unit = Find(archer);
++            return unit != null && unit.Applied && !unit.ClaimLost && unit.BindingLease == lease;
++        }
++        catch (Exception)
++        {
++            return false;
++        }
++    }
+ 
+     // ============================================================
+     // 契约导出
+@@ -272,6 +321,7 @@
+     {
+         Active.Clear();
+         Table.Clear();
++        _bindingLeaseCounter = 0L;   // 仅测试：生产单调不重置（子弹会随 Clear/ResetPool 一并丢弃）
+         Logged.Clear();
+         _baseline = default;
+         _baselineWorldId = 0;
+@@ -493,10 +543,11 @@
+                 return;
+             }
+ 
+-            // 4) 打猎抑制（常驻；与第三方谓词 AND）。射击决策的地面过滤是**临时**的（ShouldShootEnemy 期间）。
++            // 4) 打猎目标收窄（常驻：白天普通鹿；与第三方先验谓词 AND）。射击决策的地面重选是**临时**的。
+             ApplyWildlifeFilter(unit, archer);
+ 
+             unit.NextEligibleShotTime = 0f;    // 装好即可射第一发（由显式闸接管后续节奏）
++            unit.BindingLease = NextBindingLease();   // 新 life：单调 lease（旧弹的鹿资格随即失效）
+             unit.Applied = true;
+             unit.Archer = archer;
+         }
+@@ -576,8 +627,20 @@
+     }
+ 
+     /// <summary>
+-    /// 打猎抑制：wildlife 扫描器叠加 deny-all（与既有谓词 AND）。只在狩猎决策里被读，
+-    /// 与生存（ShouldFlee 用敌人扫描器）无关。回执先记后写。
++    /// 打猎目标收窄：wildlife 扫描器叠加"白天可猎普通鹿"判据，并与**原生先验条件 AND**
++    /// （第三方 mod 的条件仍在链上；不是放行白名单，兔子等小动物一律被拒）。
++    ///
++    /// 原生证据（Archer.cs `ShouldShootWildlife`）：扫描器只负责挑目标（`GetClosest`），
++    /// 编队/骑士/乘船/昼夜（含 tutorial 夜间例外）等门由原生方法自己把；`additionalRequirements`
++    /// 是扫描器唯一的过滤位。所以这里只把候选收窄到普通鹿（Deer 根组件 + 鹿自己的 Damageable +
++    /// 白天），绝不触碰敌人扫描器（`ShouldFlee` 的威胁视野零改动）。
++    ///
++    /// 组合判据任一侧抛异常 → false（fail-closed：绝不把异常泄进原生扫描器调用链）。
++    /// 闭包入口先判**射手 root 快照**（存活/活动/world）再判先验：池复用旧 life / 失活射手
++    /// 直接拒绝，且绝不在 predicate 入口外读 `archer.gameObject`（对象销毁时该 getter 可能抛异常，
++    /// 绕过内部 fail-closed 直接泄进原生链）。第三方 `scanner.AdditionalRequirements` 原样保留。
++    /// 扫描器缓存 ≤1s（maxRate=1）且可能跨昼夜：发射前由 `MusketeerFoeFilter.IsDeerShotAllowed`
++    /// 再复核一次（弹道命中侧同样复核）。回执先记后写；归还路径保持字段级 CAS + 第三方接管让位。
+     /// </summary>
+     private static void ApplyWildlifeFilter(MusketeerUnit unit, Archer archer)
+     {
+@@ -586,9 +649,13 @@
+         {
+             Scanner scanner = archer._wildlifeScanner;
+             if (scanner == null) return;
++            // 快照射手 root：闭包只读这个快照（不触碰 archer 的 getter），世界/生命周期门由组合判据内部判。
++            GameObject sourceRoot = archer.gameObject;
++            if (sourceRoot == null) return;
+             Scanner.ObjectCondition prior = scanner.additionalRequirements;
+-            // deny-all：打猎扫描器找不到任何目标（ShouldShootWildlife/ShouldHunt 自然不再触发）。
+-            System.Func<GameObject, bool> predicate = _ => false;
++            // source 有效 AND 先验 AND 白天普通鹿：猎杀目标只会比第三方条件更窄，绝不会更宽。
++            System.Func<GameObject, bool> predicate = candidate =>
++                MusketeerFoeFilter.PassesWildlifeCondition(prior, candidate, sourceRoot);
+             Scanner.ObjectCondition composed = predicate;
+             if (composed == null) return;
+ 
+@@ -606,7 +673,7 @@
+         catch (Exception e)
+         {
+             // 回执已在：留给 Tick/回归路径继续归还（绝不假装没装过）。
+-            Once("wildlife-filter", "hunting suppression install failed; receipt kept for retry: " + e.GetType().Name);
++            Once("wildlife-filter", "hunting filter install failed; receipt kept for retry: " + e.GetType().Name);
+         }
+     }
+ 
+@@ -1089,6 +1156,7 @@
+         unit.ScannerPointer = IntPtr.Zero;
+         unit.Range = 0f;
+         unit.GateSeconds = 0f;
++        unit.BindingLease = 0L;   // 归还即无 life 资格（即使对象被池化复用也绝不复用旧 lease）
+         unit.NextEligibleShotTime = 0f;
+         unit.NativeAttempts = 0;
+         unit.EvictAttempts = 0;
+@@ -1209,6 +1277,9 @@
+                 try { MusketeerVisuals.BeforeReuse(__instance); } catch (Exception) { }
+                 MusketeerUnit unit = Find(__instance);
+                 if (unit == null) return;
++                // 原生 OnEnable 回收点 = 新 life：单调 lease 递增（即使同 GO/Pointer 被池复用，
++                // 旧弹快照的 lease 也再不会匹配——鹿资格只在同一 life 内有效）。
++                unit.BindingLease = NextBindingLease();
+                 if (IsMusketeer(__instance)) return;
+                 Strip(unit, destroyAllowed: false);
+             }
+--- a/tests/musketeer-runtime/CombatTests.cs
++++ b/tests/musketeer-runtime/CombatTests.cs
+@@ -498,8 +498,9 @@
+             Check.False(Physics2D.LastListFilter.useTriggers,
+                 "the complete-list filter keeps the legacy queriesHitTriggers semantics");
+             Check.True(Physics2D.LastListFilter.useLayerMask, "the layer mask is an explicit filter");
+-            Check.Equal(1 << Fixture.EnemiesLayer, Physics2D.LastListLayerMask, "only the Enemies layer is queried");
+-            Check.Equal(1 << Fixture.EnemiesLayer, Physics2D.LastLayerMask, "same layer mask as the array path");
++            int combatMask = (1 << Fixture.EnemiesLayer) | (1 << Fixture.WildlifeLayer);   // 鹿在 Wildlife 层
++            Check.Equal(combatMask, Physics2D.LastListLayerMask, "enemies + wildlife layers are queried");
++            Check.Equal(combatMask, Physics2D.LastLayerMask, "same layer mask as the array path");
+             Check.False(Physics2D.LastListFilter.useDepth, "no depth filtering (legacy infinity bounds)");
+         }
+ 
+--- a/tests/musketeer-runtime/Fixture.cs
++++ b/tests/musketeer-runtime/Fixture.cs
+@@ -8,6 +8,8 @@
+     internal static class Fixture
+     {
+         internal const int EnemiesLayer = 10;
++        internal const int CitizensLayer = 11;
++        internal const int WildlifeLayer = 12;
+ 
+         internal static void Reset()
+         {
+@@ -128,6 +130,83 @@
+             return archer;
+         }
+ 
++        /// <summary>白天开关（Kingdom.isDaytime）：鹿猎判据/发射门读它；未设置时判据 fail-closed。</summary>
++        internal static void SetDaytime(bool daytime)
++        {
++            if (Managers.Inst == null) Managers.Inst = new Managers();
++            if (Managers.Inst.kingdom == null) Managers.Inst.kingdom = new Kingdom();
++            Managers.Inst.kingdom.isDaytime = daytime;
++        }
++
++        /// <summary>普通鹿根：Wildlife 层 + "Wildlife" tag + Deer 组件 + 鹿根自己的 Damageable/Petrifiable。</summary>
++        internal static GameObject NewDeer(string name = "deer")
++        {
++            var go = new GameObject(name);
++            go.layer = WildlifeLayer;
++            go.tag = "Wildlife";
++            go.SetActive(true);
++            go.AddComponent<Deer>();
++            go.AddComponent<Damageable>();
++            go.AddComponent<Petrifiable>();
++            return go;
++        }
++
++        /// <summary>兔子等小动物：Wildlife 层 + tag + Damageable，但没有 Deer 根组件。</summary>
++        internal static GameObject NewCritter(string name = "rabbit")
++        {
++            var go = new GameObject(name);
++            go.layer = WildlifeLayer;
++            go.tag = "Wildlife";
++            go.SetActive(true);
++            go.AddComponent<Critter>();
++            go.AddComponent<Damageable>();
++            return go;
++        }
++
++        /// <summary>坐骑（Hind）：同在 Wildlife 层/tag，但组件是 Hind，绝不是鹿。</summary>
++        internal static GameObject NewHind(string name = "hind")
++        {
++            var go = new GameObject(name);
++            go.layer = WildlifeLayer;
++            go.tag = "Wildlife";
++            go.SetActive(true);
++            go.AddComponent<Hind>();
++            go.AddComponent<Damageable>();
++            return go;
++        }
++
++        /// <summary>安装一个顶面为 top 的世界地面（弹道的地面裁剪/终止都读 World.GroundCollider.bounds.max.y）。</summary>
++        internal static void SetGroundTop(float top)
++        {
++            var ground = new GameObject("ground").AddComponent<BoxCollider2D>();
++            ground.bounds = new Bounds { center = new Vector3(0f, top - 0.2f, 0f), extents = new Vector3(40f, 0.2f, 0f) };
++            World.GroundCollider = ground;
++        }
++
++        /// <summary>鹿根自己的 body collider：枪口水平线（测试夹具 y≈0.894）穿过其 bounds → 平射可命中。</summary>
++        internal static Collider2D AddFlatBody(GameObject deer, float centerX = 3f)
++        {
++            Collider2D body = deer.AddComponent<Collider2D>();
++            body.bounds = new Bounds
++            {
++                center = new Vector3(centerX, 0.90f, 0f),
++                extents = new Vector3(0.45f, 0.20f, 0f),
++            };
++            return body;
++        }
++
++        /// <summary>鹿根自己的 body collider：模拟资源几何推算的低于枪口情形（非游戏实测）→ 需要直线微调。</summary>
++        internal static Collider2D AddLowBody(GameObject deer, float centerX = 3f)
++        {
++            Collider2D body = deer.AddComponent<Collider2D>();
++            body.bounds = new Bounds
++            {
++                center = new Vector3(centerX, 0.60f, 0f),
++                extents = new Vector3(0.45f, 0.18f, 0f),
++            };
++            return body;
++        }
++
+         /// <summary>向 physics 桩排队一条命中（距离 = 沿本段计算的距离）。</summary>
+         internal static void QueueHit(GameObject target, float distance)
+             => QueueHit(target.GetComponent<Collider2D>() ?? AddCollider(target), distance);
+--- a/tests/musketeer-runtime/Harness.cs
++++ b/tests/musketeer-runtime/Harness.cs
+@@ -57,6 +57,7 @@
+         {
+             AnimationTests.Run();
+             CombatTests.Run();
++            DeerHuntTests.Run();
+             RuntimeTests.Run();
+             WorldTests.Run();
+             VisualTests.Run();
+--- a/tests/musketeer-runtime/NativeStubs.cs
++++ b/tests/musketeer-runtime/NativeStubs.cs
+@@ -70,6 +70,49 @@
+     {
+     }
+ 
++    /// <summary>原生普通鹿（Deer）：身份只看这个根组件，绝不认名字/tag。</summary>
++    public class Deer : MonoBehaviour
++    {
++    }
++
++    /// <summary>兔子等小动物（Critter）：在 Wildlife 层但没有 Deer 根组件 → 永远不是猎杀目标。</summary>
++    public class Critter : MonoBehaviour
++    {
++    }
++
++    /// <summary>坐骑（Hind）：与 Deer 无继承关系 → 永远不是猎杀目标。</summary>
++    public class Hind : MonoBehaviour
++    {
++    }
++
++    /// <summary>骑乘坐骑（Steed）：普通鹿判据排除它（PatchWorld_DeerPopulation 同款）。</summary>
++    public class Steed : MonoBehaviour
++    {
++    }
++
++    /// <summary>石化组件（鹿可被石化）：IsPetrified 是原生公开只读属性。</summary>
++    public class Petrifiable : MonoBehaviour
++    {
++        public bool IsPetrified;
++    }
++
++    public class Embarkee : MonoBehaviour
++    {
++        public bool IsEmbarked;
++        public GameObject EmbarkableTarget;
++    }
++
++    /// <summary>编队（仅用于"编队中不狩猎"的最终门断言）。</summary>
++    public class Formation : MonoBehaviour
++    {
++    }
++
++    /// <summary>原生 Kingdom 的最小替身（鹿猎只读 isDaytime）。</summary>
++    public class Kingdom : MonoBehaviour
++    {
++        public bool isDaytime;
++    }
++
+     public class Damageable : MonoBehaviour
+     {
+         public bool isDead;
+@@ -182,6 +225,7 @@
+     {
+         public static Managers Inst;
+         public Holder holder;
++        public Kingdom kingdom;
+     }
+ 
+     public class World : MonoBehaviour
+@@ -217,6 +261,9 @@
+         public Damageable _damageable;
+         public GuardSlot _guardSlot;
+         public bool inGuardSlot;
++        public Formation _currentFormation;
++        public Knight _knight;
++        public Embarkee _embarkee;
+         public GameObject _shootingTarget;
+         public float shootRange = 8f;
+         public float shootPrepTime = 0.5f;
+@@ -245,6 +292,9 @@
+         public void EnterGuardSlot(GuardSlot slot) => Calls.Add("EnterGuardSlot");
+ 
+         public void ExitGuardSlot() => Calls.Add("ExitGuardSlot");
++
++        /// <summary>原生公开访问器（IsInFormation 为私有；生产读 _currentFormation 的等价面）。</summary>
++        public Formation GetFormation() => _currentFormation;
+     }
+ 
+     public static class PatchRoles_Crossbowman
+--- a/tests/musketeer-runtime/RuntimeTests.cs
++++ b/tests/musketeer-runtime/RuntimeTests.cs
+@@ -60,9 +60,13 @@
+             Check.Near(8d * System.Math.Sqrt(1.5d), archer._arrowAttack._shotMagnitude, 1e-4d,
+                 "range envelope scales the SO magnitude (never gravity)");
+ 
++            // 打猎目标收窄为"白天普通鹿"（判据行为详见 DeerHuntTests）：敌人/兔子等照旧被拒。
++            Fixture.SetDaytime(true);
+             Scanner.ObjectCondition wildlife = archer._wildlifeScanner.additionalRequirements;
+-            Check.True(wildlife != null, "wildlife scanner filter installed (hunting suppressed)");
+-            Check.False(wildlife.Invoke(Fixture.NewEnemy(EnemyType.TrollWeak)), "hunting suppressed");
++            Check.True(wildlife != null, "wildlife scanner filter installed (deer-only narrowing)");
++            Check.True(wildlife.Invoke(Fixture.NewDeer()), "a daytime deer is a hunt target");
++            Check.False(wildlife.Invoke(Fixture.NewEnemy(EnemyType.TrollWeak)), "enemies are never wildlife targets");
++            Check.False(wildlife.Invoke(Fixture.NewCritter()), "rabbits and other small animals stay excluded");
+         }
+ 
+         private static void ApplyIdempotent()
+--- a/tests/musketeer-runtime/UnityStubs.cs
++++ b/tests/musketeer-runtime/UnityStubs.cs
+@@ -184,9 +184,13 @@
+         }
+     }
+ 
++    /// <summary>Unity Bounds 替身：center/extents 可写，min/max 为派生只读（与真实属性同义）。</summary>
+     public struct Bounds
+     {
+-        public Vector3 max;
++        public Vector3 center;
++        public Vector3 extents;
++        public Vector3 min => new Vector3(center.x - extents.x, center.y - extents.y, center.z - extents.z);
++        public Vector3 max => new Vector3(center.x + extents.x, center.y + extents.y, center.z + extents.z);
+     }
+ 
+     public enum TextureFormat { RGBA32 = 4 }
+@@ -419,11 +423,12 @@
+ 
+     public class Collider2D : Component
+     {
++        /// <summary>真实 Collider2D.bounds（鹿弹微调只用它；绝不硬编码生物尺寸）。</summary>
++        public Bounds bounds;
+     }
+ 
+     public class BoxCollider2D : Collider2D
+     {
+-        public Bounds bounds;
+     }
+ 
+     public struct RaycastHit2D
+--- a/il2cpp/PatchWorld_FleetBoatFormation.cs
++++ b/il2cpp/PatchWorld_FleetBoatFormation.cs
+@@ -28,9 +28,29 @@
+         internal Formation.UnitTypes[] BaselineTypes;
+         internal float[] BaselineSpacing;
+         internal int BaselineFleetSlot;
++        internal float BaselineStartOffset;
+         internal int[] ReservedSlots = Array.Empty<int>();
++        internal int[] MusketeerSlots = Array.Empty<int>();
++        internal bool MusketeerRow;
++        internal readonly List<MusketeerRollback> PendingRollbacks = new();
+         internal bool Expanded;
+         internal float NextMaintenanceAt;
++    }
++
++    /// <summary>
++    /// Coordinator receipt for one directed-recruit step that could not be fully unwound. It is
++    /// retried by the maintenance pass instead of being forgotten: the seat half releases a
++    /// half-registered archer, the type half returns cells this transaction still owns.
++    /// </summary>
++    private sealed class MusketeerRollback
++    {
++        internal int Slot = -1;
++        internal int GameObjectInstanceId;
++        internal long Lease;
++        internal Archer SeatlessActor;
++        internal IntPtr TypesPointer;
++        internal Formation.UnitTypes[] TypesBefore;
++        internal Formation.UnitTypes[] TypesWritten;
+     }
+ 
+     private sealed class ActivationState
+@@ -50,6 +70,9 @@
+     private static readonly Dictionary<int, FormationProfile> Profiles = new();
+     private static readonly Dictionary<int, FormationProfile> ProfilesByGameObject = new();
+     private static readonly HashSet<string> LoggedFailures = new();
++    private static readonly HashSet<string> LoggedInfo = new();
++    private static readonly List<Archer> MusketeerCandidates =
++        new(PatchMusketeerFormation.MaxMusketeers);
+     private static bool _coordinatorRegistered;
+     private static bool _unregisterCanaryLogged;
+     private static bool _disableCanaryLogged;
+@@ -59,6 +82,17 @@
+         if (!LoggedFailures.Add(key)) return;
+         KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+             "[FleetBoatFormation] " + key + ": " + exception.GetType().Name);
++    }
++
++    private static void LogInfoOnce(string key, string message)
++    {
++        if (!LoggedInfo.Add(key)) return;
++        try
++        {
++            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
++                "[MusketeerFormation] " + message);
++        }
++        catch { }
+     }
+ 
+     private static void RemoveProfile(FormationProfile profile)
+@@ -154,6 +188,7 @@
+                 BaselineTypes = baselineTypes,
+                 BaselineSpacing = baselineSpacing,
+                 BaselineFleetSlot = fleetSlot,
++                BaselineStartOffset = formation.startOffset,
+                 NextMaintenanceAt = Time.unscaledTime + MaintenanceInterval
+             };
+             Profiles[id] = profile;
+@@ -207,12 +242,16 @@
+                 spacing[i] = profile.BaselineSpacing[i];
+ 
+             var units = new Il2CppReferenceArray<Formation.IFormationUnit>(types.Length);
+-            // All three assignments are synchronous. Assign the empty units first so native
++            // All four assignments are synchronous. Assign the empty units first so native
+             // code can never observe a shorter type array paired with longer live unit data.
+             formation.units = units;
+             formation.unitTypes = types;
+             formation.UnitSpacing = spacing;
++            formation.startOffset = profile.BaselineStartOffset;
+             profile.ReservedSlots = Array.Empty<int>();
++            profile.MusketeerSlots = Array.Empty<int>();
++            profile.MusketeerRow = false;
++            profile.PendingRollbacks.Clear();
+             profile.Expanded = false;
+             return true;
+         }
+@@ -338,38 +377,28 @@
+         }
+     }
+ 
+-    private static bool TryExpand(FormationProfile profile, int count)
+-    {
+-        try
+-        {
+-            int added = Math.Max(0, count - 1);
+-            int length = profile.BaselineTypes.Length + added;
+-            var types = new Il2CppStructArray<Formation.UnitTypes>(length);
+-            var units = new Il2CppReferenceArray<Formation.IFormationUnit>(length);
+-            var reserved = count > 0 ? new int[count] : Array.Empty<int>();
+-
+-            int write = 0;
+-            for (int read = 0; read < profile.BaselineTypes.Length; read++)
+-            {
+-                if (read != profile.BaselineFleetSlot)
+-                {
+-                    types[write++] = profile.BaselineTypes[read];
+-                    continue;
+-                }
+-
+-                if (count == 0)
+-                {
+-                    types[write++] = Formation.UnitTypes.Gap;
+-                    continue;
+-                }
+-
+-                for (int boat = 0; boat < count; boat++)
+-                {
+-                    reserved[boat] = write;
+-                    types[write++] = Formation.UnitTypes.FleetBoat;
+-                }
+-            }
+-            if (write != length) return false;
++    private static bool TryExpand(FormationProfile profile, int count, bool musketeerRow)
++    {
++        try
++        {
++            // The rear row is written as Gap slots, so its per-step distance is the authored Gap
++            // spacing. A non-positive/non-finite value would collapse the row onto the rear unit:
++            // fail closed and keep the fleet-only layout instead.
++            float rowSpacing = profile.BaselineSpacing[(int)Formation.UnitTypes.Gap];
++            bool rowUsable = musketeerRow && float.IsFinite(rowSpacing) && rowSpacing > 0f;
++            if (musketeerRow && !rowUsable)
++                LogInfoOnce("row-spacing-unusable", "rear row skipped: Gap spacing is not usable");
++
++            if (!MusketeerFormationLayout.TryCompose(profile.BaselineTypes, count, rowUsable,
++                    out Formation.UnitTypes[] plannedTypes, out int[] boatSlots,
++                    out int[] musketeerSlots, out int rowLength))
++            {
++                return false;
++            }
++
++            var types = new Il2CppStructArray<Formation.UnitTypes>(plannedTypes.Length);
++            for (int i = 0; i < plannedTypes.Length; i++) types[i] = plannedTypes[i];
++            var units = new Il2CppReferenceArray<Formation.IFormationUnit>(plannedTypes.Length);
+ 
+             var spacing = new Il2CppStructArray<float>(profile.BaselineSpacing.Length);
+             for (int i = 0; i < profile.BaselineSpacing.Length; i++)
+@@ -380,15 +409,701 @@
+             profile.Formation.units = units;
+             profile.Formation.unitTypes = types;
+             profile.Formation.UnitSpacing = spacing;
+-            profile.ReservedSlots = reserved;
++            // Shift the origin by exactly the new row's gap steps: every original unit keeps its
++            // old coordinate and the row sits behind the former rear line (see layout planner).
++            profile.Formation.startOffset = profile.BaselineStartOffset - rowLength * rowSpacing;
++            profile.ReservedSlots = boatSlots;
++            profile.MusketeerSlots = musketeerSlots;
++            profile.MusketeerRow = rowLength > 0;
+             profile.Expanded = true;
+             profile.NextMaintenanceAt = Time.unscaledTime + MaintenanceInterval;
++            if (profile.MusketeerRow)
++                LogInfoOnce("row-reserved", "reserved " + rowLength + " rear slots for musketeers");
++            else if (rowUsable)
++                LogInfoOnce("row-no-archer-slot", "rear row skipped: baseline has no archer slot");
+             return true;
+         }
+         catch (Exception e)
+         {
+             LogFailureOnce("layout-expand", e);
+             if (AllUnitsEmpty(profile.Formation)) TryRestoreBaseline(profile, false);
++            return false;
++        }
++    }
++
++    /// <summary>True while this exact formation has a live reserved musketeer row.</summary>
++    internal static bool HasMusketeerRow(Formation formation)
++    {
++        try
++        {
++            return TryGetMatchingProfile(formation, out FormationProfile profile)
++                && profile.Expanded && profile.MusketeerRow;
++        }
++        catch
++        {
++            return false;
++        }
++    }
++
++    private static int CountFreeMusketeerSlots(FormationProfile profile)
++    {
++        try
++        {
++            if (profile == null || !profile.MusketeerRow || profile.Formation == null) return 0;
++            Il2CppReferenceArray<Formation.IFormationUnit> units = profile.Formation.units;
++            if (units == null) return 0;
++            int free = 0;
++            for (int i = 0; i < profile.MusketeerSlots.Length; i++)
++            {
++                int slot = profile.MusketeerSlots[i];
++                if (slot >= 0 && slot < units.Length && units[slot] == null) free++;
++            }
++            return free;
++        }
++        catch
++        {
++            return 0;
++        }
++    }
++
++    // Fill from the front of the row (highest slot index) so occupied musketeers always line up
++    // adjacent to the archers and empty seats stay at the very rear of the formation.
++    private static int NextFreeMusketeerSlot(FormationProfile profile)
++    {
++        try
++        {
++            if (profile == null || profile.Formation == null) return -1;
++            Il2CppReferenceArray<Formation.IFormationUnit> units = profile.Formation.units;
++            if (units == null) return -1;
++            for (int i = profile.MusketeerSlots.Length - 1; i >= 0; i--)
++            {
++                int slot = profile.MusketeerSlots[i];
++                if (slot >= 0 && slot < units.Length && units[slot] == null) return slot;
++            }
++        }
++        catch { }
++        return -1;
++    }
++
++    /// <summary>
++    /// Maintenance half of the rear row. Runs on the activation postfix and on the existing
++    /// half-second coordinator pass, and does exactly three bounded things:
++    ///  * retries receipts left by a directed recruit that could not be fully unwound,
++    ///  * cleans only the reserved seats (a member whose feature was switched off, died or lost
++    ///    its identity is released through native UnregisterUnit; a seat holding an archer that
++    ///    already belongs to another formation, an unmarked non-member or a stale/destroyed
++    ///    source only loses this array's reference and is never sent through OnLeave),
++    ///  * tops the row back up while the feature is on.
++    /// Authority loss and scene changes never write here; the existing inactive+empty baseline
++    /// restore stays the only path for those states.
++    /// </summary>
++    private static void ReconcileMusketeerRow(FormationProfile profile)
++    {
++        try
++        {
++            if (profile == null || !profile.Expanded || !profile.MusketeerRow) return;
++            Formation formation = profile.Formation;
++            if (formation == null || !formation.enabled || !IsCurrentScene(profile)) return;
++            if (!LiveMusketeerWorld) return;
++
++            RetryPendingMusketeerRollbacks(profile);
++
++            Il2CppReferenceArray<Formation.IFormationUnit> units = formation.units;
++            if (units != null)
++            {
++                for (int i = 0; i < profile.MusketeerSlots.Length; i++)
++                {
++                    int slot = profile.MusketeerSlots[i];
++                    if (slot < 0 || slot >= units.Length || units[slot] == null) continue;
++                    if (HasPendingMusketeerRollback(profile, slot)) continue;   // the receipt owns that seat
++                    TryCleanupMusketeerSeat(profile, slot, 0, 0L);
++                }
++            }
++
++            TopUpMusketeers(profile);
++        }
++        catch (Exception e)
++        {
++            LogFailureOnce("musketeer-reconcile", e);
++        }
++    }
++
++    /// <summary>
++    /// Live, offline, authoritative, unpaused world with the game running: the only state in which
++    /// this owner mutates unit state. Co-op and menu pause leave the row untouched until the world
++    /// is live again (or until the native furl path restores the baseline).
++    /// </summary>
++    private static bool LiveMusketeerWorld
++    {
++        get
++        {
++            try
++            {
++                Managers managers = Managers.Inst;
++                return NetworkBigBoss.HasWorldAuth && !NetworkBigBoss.IsOnline
++                    && Time.timeScale > 0f
++                    && managers != null && managers.game != null
++                    && managers.game.state == Game.State.Playing;
++            }
++            catch
++            {
++                return false;
++            }
++        }
++    }
++
++    /// <summary>The musketeer switch (or the whole mod) is definitively off in the config.</summary>
++    private static bool MusketeerFeatureOff
++    {
++        get
++        {
++            try
++            {
++                if (ModConfig.Enabled == null || ModConfig.MusketeerEnabled == null) return false;
++                return !ModConfig.Enabled.Value || !ModConfig.MusketeerEnabled.Value;
++            }
++            catch
++            {
++                return false;
++            }
++        }
++    }
++
++    /// <summary>
++    /// A live member of this row is released when the feature is off, when it died, or when the
++    /// identity registry no longer marks it (the seat belongs to musketeers, not to a ghost).
++    /// </summary>
++    private static bool ShouldReleaseMusketeerSeat(Archer archer)
++    {
++        try
++        {
++            if (MusketeerFeatureOff) return true;
++            Damageable damageable = archer._damageable;
++            if (damageable == null || damageable.isDead) return true;
++            return !MusketeerIdentity.IsUnit(archer);
++        }
++        catch
++        {
++            return false;
++        }
++    }
++
++    /// <summary>
++    /// Ownership-safe cleanup for one reserved seat. Returns true when the seat needs no further
++    /// work (already empty, released now, legitimately occupied, or held by an occupant this owner
++    /// must not touch); false keeps a pending receipt for a later maintenance retry.
++    /// expectedInstanceId 0 classifies whatever this owned seat currently holds. A seat without a
++    /// formation binding is only sent through the native leave path when the lease captured at
++    /// recruit time still matches (same life); otherwise the actor may be a pooled re-arm of the
++    /// same GameObject, so only this array's stale reference is dropped.
++    /// </summary>
++    private static bool TryCleanupMusketeerSeat(FormationProfile profile, int slot, int expectedInstanceId,
++        long capturedLease)
++    {
++        try
++        {
++            Formation formation = profile != null ? profile.Formation : null;
++            if (formation == null || formation.Pointer != profile.FormationPointer) return true;
++            if (!NetworkBigBoss.HasWorldAuth || NetworkBigBoss.IsOnline) return false;
++            if (!IsCurrentScene(profile)) return false;
++
++            Il2CppReferenceArray<Formation.IFormationUnit> units = formation.units;
++            if (units == null || slot < 0 || slot >= units.Length) return true;
++            Formation.IFormationUnit occupant = units[slot];
++            if (occupant == null) return true;
++
++            GameObject gameObject = occupant.GetGO;
++            if (gameObject == null)
++                return TryDropMusketeerSeatReference(profile, units, slot, 0);
++            int instanceId = gameObject.GetInstanceID();
++            if (expectedInstanceId > 0 && instanceId != expectedInstanceId) return true;   // seat reused: not ours
++            if (!gameObject.activeInHierarchy)
++                return TryDropMusketeerSeatReference(profile, units, slot, instanceId);
++            if (!gameObject.TryGetComponent<Archer>(out Archer archer) || archer == null)
++                return TryDropMusketeerSeatReference(profile, units, slot, instanceId);
++
++            Formation current = archer.GetFormation();
++            if (current != null)
++            {
++                if (current.Pointer != formation.Pointer)
++                    return TryDropMusketeerSeatReference(profile, units, slot, instanceId);   // foreign owner: never OnLeave
++                if (!ShouldReleaseMusketeerSeat(archer)) return true;                          // legitimate member
++            }
++            else if (!SameMusketeerLife(archer, capturedLease))
++            {
++                // No formation binding and no same-life proof: the same GameObject may have been
++                // re-armed as a new life, so only this array's stale reference goes away and the
++                // actor itself is never OnLeave-ed.
++                return TryDropMusketeerSeatReference(profile, units, slot, instanceId);
++            }
++
++            formation.UnregisterUnit(occupant);     // native leave: clears the seat + OnLeaveFormation
++            Il2CppReferenceArray<Formation.IFormationUnit> after = formation.units;
++            return after == null || slot >= after.Length || after[slot] == null;
++        }
++        catch (Exception e)
++        {
++            LogFailureOnce("musketeer-seat", e);
++            return false;
++        }
++    }
++
++    /// <summary>
++    /// Drops this array's reference to a stale occupant without touching the occupant itself.
++    /// Never writes when another owner already replaced the array or the seat content changed.
++    /// </summary>
++    private static bool TryDropMusketeerSeatReference(FormationProfile profile,
++        Il2CppReferenceArray<Formation.IFormationUnit> observed, int slot, int instanceId)
++    {
++        try
++        {
++            Formation formation = profile != null ? profile.Formation : null;
++            if (formation == null) return true;
++            Il2CppReferenceArray<Formation.IFormationUnit> current = formation.units;
++            if (current == null || observed == null || current.Pointer != observed.Pointer) return true;
++            if (slot < 0 || slot >= current.Length) return true;
++            Formation.IFormationUnit occupant = current[slot];
++            if (occupant == null) return true;
++            if (instanceId > 0)
++            {
++                GameObject gameObject = occupant.GetGO;
++                if (gameObject == null || gameObject.GetInstanceID() != instanceId) return true;
++            }
++            current[slot] = null;
++            return true;
++        }
++        catch (Exception e)
++        {
++            LogFailureOnce("musketeer-seat", e);
++            return false;
++        }
++    }
++
++    private static bool HasPendingMusketeerRollback(FormationProfile profile, int slot)
++    {
++        for (int i = 0; i < profile.PendingRollbacks.Count; i++)
++        {
++            MusketeerRollback pending = profile.PendingRollbacks[i];
++            if (pending != null && pending.Slot == slot) return true;
++        }
++        return false;
++    }
++
++    private static void QueueMusketeerRollback(FormationProfile profile, int slot, int instanceId,
++        long lease, Archer seatlessActor, IntPtr typesPointer,
++        Formation.UnitTypes[] typesBefore, Formation.UnitTypes[] typesWritten)
++    {
++        if (profile == null) return;
++        try
++        {
++            for (int i = 0; i < profile.PendingRollbacks.Count; i++)
++            {
++                MusketeerRollback existing = profile.PendingRollbacks[i];
++                if (existing.Slot == slot && existing.GameObjectInstanceId == instanceId
++                    && existing.TypesPointer == typesPointer && existing.Lease == lease)
++                {
++                    if (existing.SeatlessActor == null) existing.SeatlessActor = seatlessActor;
++                    return;
++                }
++            }
++            profile.PendingRollbacks.Add(new MusketeerRollback
++            {
++                Slot = slot,
++                GameObjectInstanceId = instanceId,
++                Lease = lease,
++                SeatlessActor = seatlessActor,
++                TypesPointer = typesPointer,
++                TypesBefore = typesBefore,
++                TypesWritten = typesWritten
++            });
++            LogInfoOnce("rollback-pending", "directed recruit rollback pending; maintenance will retry");
++        }
++        catch { }
++    }
++
++    /// <summary>
++    /// Retries every outstanding receipt (types CAS restore, then the seat, then a bound-but-seatless
++    /// actor whose direct leave failed); a resolved receipt is dropped, the rest stay queued.
++    /// </summary>
++    private static void RetryPendingMusketeerRollbacks(FormationProfile profile)
++    {
++        for (int i = profile.PendingRollbacks.Count - 1; i >= 0; i--)
++        {
++            MusketeerRollback pending = profile.PendingRollbacks[i];
++            if (pending == null)
++            {
++                profile.PendingRollbacks.RemoveAt(i);
++                continue;
++            }
++            bool resolved = true;
++            if (pending.TypesBefore != null && pending.TypesWritten != null)
++            {
++                resolved = TryRestoreDirectedTypes(profile, pending.TypesPointer,
++                    pending.TypesBefore, pending.TypesWritten, pending.TypesBefore.Length);
++            }
++            if (resolved && pending.Slot >= 0)
++                resolved = TryCleanupMusketeerSeat(profile, pending.Slot, pending.GameObjectInstanceId, pending.Lease);
++            if (resolved && pending.SeatlessActor != null)
++                resolved = TryFinishMusketeerSeatlessLeave(profile, pending);
++            if (resolved) profile.PendingRollbacks.RemoveAt(i);
++        }
++    }
++
++    /// <summary>
++    /// True while this formation still owes a temporary-type restore (a receipt with a type
++    /// snapshot is pending). While dirty, a leftover Archer-typed row seat is open, so every other
++    /// Archer recruit for this formation is refused until the CAS restore completes or the array is
++    /// confirmed to belong to another owner. Scoped to this formation only.
++    /// </summary>
++    internal static bool HasDirtyMusketeerTypes(Formation formation)
++    {
++        try
++        {
++            if (!TryGetMatchingProfile(formation, out FormationProfile profile)) return false;
++            for (int i = 0; i < profile.PendingRollbacks.Count; i++)
++            {
++                MusketeerRollback pending = profile.PendingRollbacks[i];
++                if (pending != null && pending.TypesBefore != null && pending.TypesWritten != null)
++                    return true;
++            }
++            return false;
++        }
++        catch
++        {
++            return false;
++        }
++    }
++
++    private static long BindingLeaseOf(Archer archer)
++    {
++        try { return MusketeerRuntime.BindingLease(archer); }
++        catch { return 0L; }
++    }
++
++    /// <summary>
++    /// Same-life proof for a half-registered seat: only the exact lease captured at recruit time
++    /// may be sent through the native leave path. A different (or unknown) lease may be a pooled
++    /// re-arm of the same GameObject and only loses this array's stale reference.
++    /// </summary>
++    private static bool SameMusketeerLife(Archer archer, long capturedLease)
++    {
++        try
++        {
++            return capturedLease > 0L && MusketeerRuntime.MatchesBindingLease(archer, capturedLease);
++        }
++        catch
++        {
++            return false;
++        }
++    }
++
++    private static int SafeInstanceId(Archer archer)
++    {
++        try { return archer != null && archer.gameObject != null ? archer.gameObject.GetInstanceID() : 0; }
++        catch { return 0; }
++    }
++
++    /// <summary>True while the reserved seat still holds the given GameObject instance.</summary>
++    private static bool MusketeerSeatHolds(FormationProfile profile, int slot, int instanceId)
++    {
++        try
++        {
++            Formation formation = profile != null ? profile.Formation : null;
++            Il2CppReferenceArray<Formation.IFormationUnit> units = formation != null ? formation.units : null;
++            if (units == null || instanceId <= 0 || slot < 0 || slot >= units.Length) return false;
++            Formation.IFormationUnit occupant = units[slot];
++            if (occupant == null) return false;
++            GameObject gameObject = occupant.GetGO;
++            return gameObject != null && gameObject.GetInstanceID() == instanceId;
++        }
++        catch
++        {
++            return false;
++        }
++    }
++
++    /// <summary>True while the archer's current formation is exactly the managed one.</summary>
++    private static bool MusketeerOwnsFormation(Archer archer, FormationProfile profile)
++    {
++        try
++        {
++            Formation formation = profile != null ? profile.Formation : null;
++            if (formation == null || formation.Pointer != profile.FormationPointer) return false;
++            Formation current = archer.GetFormation();
++            return current != null && current.Pointer == formation.Pointer;
++        }
++        catch
++        {
++            return false;
++        }
++    }
++
++    /// <summary>
++    /// Retries the bound-but-seatless half of a failed transaction: another owner replaced the
++    /// arrays, so native UnregisterUnit has no seat left to clear, and the direct leave failed.
++    /// The captured actor is released only while its captured lease still matches (same life) and
++    /// its current formation is exactly this one; an actor that is seated again, has a different
++    /// life, is foreign or is already free is left alone. Returns true when the receipt no longer
++    /// needs to be kept (released now, already resolved, or never ours to touch).
++    /// </summary>
++    private static bool TryFinishMusketeerSeatlessLeave(FormationProfile profile, MusketeerRollback pending)
++    {
++        try
++        {
++            Archer archer = pending.SeatlessActor;
++            if (archer == null) return true;                                 // destroyed: nothing left to release
++            Formation formation = profile != null ? profile.Formation : null;
++            if (formation == null || formation.Pointer != profile.FormationPointer) return true;
++            if (!NetworkBigBoss.HasWorldAuth || NetworkBigBoss.IsOnline) return false;
++            if (!IsCurrentScene(profile)) return false;
++            if (!SameMusketeerLife(archer, pending.Lease)) return true;      // different/unknown life: never OnLeave
++            if (MusketeerSeated(profile, pending.GameObjectInstanceId)) return true;   // seated again: keep the member
++            Formation current = archer.GetFormation();
++            if (current == null || current.Pointer != formation.Pointer) return true;  // already free / foreign
++            archer.OnLeaveFormation();
++            Formation after = archer.GetFormation();
++            return after == null || after.Pointer != formation.Pointer;
++        }
++        catch (Exception e)
++        {
++            LogFailureOnce("musketeer-seatless", e);
++            return false;
++        }
++    }
++
++    /// <summary>True while any seat of the managed formation holds the given GameObject instance.</summary>
++    private static bool MusketeerSeated(FormationProfile profile, int instanceId)
++    {
++        try
++        {
++            Formation formation = profile != null ? profile.Formation : null;
++            Il2CppReferenceArray<Formation.IFormationUnit> units = formation != null ? formation.units : null;
++            if (units == null || instanceId <= 0) return false;
++            for (int i = 0; i < units.Length; i++)
++            {
++                Formation.IFormationUnit occupant = units[i];
++                if (occupant == null) continue;
++                GameObject gameObject = occupant.GetGO;
++                if (gameObject != null && gameObject.GetInstanceID() == instanceId) return true;
++            }
++            return false;
++        }
++        catch
++        {
++            return false;
++        }
++    }
++
++    /// <summary>
++    /// Bounded top-up of the reserved rear row: the activation-time fill plus the same pass on the
++    /// existing half-second maintenance tick, so a musketeer that was grabbed/inert at banner
++    /// time can still walk in later and a dead musketeer's seat is refilled by an eligible one.
++    /// Never scans the scene: candidates come from the identity career registry only.
++    /// </summary>
++    private static void TopUpMusketeers(FormationProfile profile)
++    {
++        try
++        {
++            if (profile == null || !profile.Expanded || !profile.MusketeerRow) return;
++            if (!MusketeerAccess.Playing || !NetworkBigBoss.HasWorldAuth || !IsCurrentScene(profile))
++                return;
++            Formation formation = profile.Formation;
++            if (formation == null || !formation.enabled) return;
++
++            int free = CountFreeMusketeerSlots(profile);
++            if (free <= 0) return;
++            if (PatchMusketeerFormation.Collect(formation, free, MusketeerCandidates) <= 0) return;
++
++            for (int i = 0; i < MusketeerCandidates.Count; i++)
++            {
++                Archer archer = MusketeerCandidates[i];
++                // Re-check right before the native recruit below mutates unit state; the earlier
++                // pass was only the selection snapshot.
++                if (!PatchMusketeerFormation.IsEligible(archer)) continue;
++                if (!TryDirectedMusketeerRecruit(profile, archer)) continue;
++                if (--free <= 0) break;
++            }
++        }
++        catch (Exception e)
++        {
++            LogFailureOnce("musketeer-topup", e);
++        }
++    }
++
++    /// <summary>
++    /// One directed native recruit into a reserved row seat. The target seat is advertised as
++    /// Archer and every other empty seat an Archer could take is closed to Gap, so the marked
++    /// musketeer can only land in its own seat. Native TryRecruit writes in order
++    /// RegisterUnit -> ConvertToSoldier -> _npcShieldUser -> _currentFormation, so a throw in the
++    /// middle can leave the seat registered while the archer is not a member yet: success is
++    /// therefore decided by that final state (seat holds this archer AND its GetFormation() is
++    /// this formation), never by the return value alone. The temporary type write and the directed
++    /// bypass are one transaction - a throw in either half still restores the cells this
++    /// transaction actually wrote (only cells that still hold the written value are returned) and
++    /// drops the bypass; a step that cannot be unwound leaves a coordinator receipt for the next
++    /// maintenance pass instead of being forgotten.
++    /// </summary>
++    private static bool TryDirectedMusketeerRecruit(FormationProfile profile, Archer archer)
++    {
++        try
++        {
++            Formation formation = profile != null ? profile.Formation : null;
++            if (formation == null || archer == null) return false;
++            if (formation.Pointer != profile.FormationPointer || !IsCurrentScene(profile)) return false;
++            int slot = NextFreeMusketeerSlot(profile);
++            if (slot < 0) return false;
++
++            // Same-life proof for every rollback path: a lease of 0 means the runtime has no
++            // applied package for this actor right now, so it is never recruited (and never
++            // OnLeave-ed) on the strength of an unproven life.
++            long lease = BindingLeaseOf(archer);
++            if (lease <= 0L) return false;
++
++            Il2CppStructArray<Formation.UnitTypes> types = formation.unitTypes;
++            Il2CppReferenceArray<Formation.IFormationUnit> units = formation.units;
++            if (types == null || units == null || types.Length == 0 || types.Length != units.Length
++                || slot >= types.Length || units[slot] != null)
++            {
++                return false;
++            }
++
++            var snapshot = new Formation.UnitTypes[types.Length];
++            var occupied = new bool[types.Length];
++            for (int i = 0; i < types.Length; i++)
++            {
++                snapshot[i] = types[i];
++                occupied[i] = units[i] != null;
++            }
++            if (!MusketeerFormationLayout.TryPlanDirected(snapshot, occupied, slot,
++                    out Formation.UnitTypes[] temporary))
++            {
++                return false;
++            }
++
++            IntPtr arrayPointer = types.Pointer;
++            int applied = 0;
++            Exception failure = null;
++            try
++            {
++                // The bypass, the temporary types and the real native recruit are ONE step: the
++                // guard only lets this exact archer through while the bypass is armed, and the
++                // snapshot may only be returned after the native call has completed or thrown.
++                PatchMusketeerFormation.BeginDirected(archer, formation);
++                for (; applied < types.Length; applied++) types[applied] = temporary[applied];
++                try { archer.TryRecruit(formation); }
++                catch (Exception e) { failure = e; }
++            }
++            catch (Exception e)
++            {
++                failure = e;
++            }
++            finally
++            {
++                if (!TryRestoreDirectedTypes(profile, arrayPointer, snapshot, temporary,
++                        Math.Min(applied + 1, snapshot.Length)))
++                {
++                    QueueMusketeerRollback(profile, -1, 0, 0L, archer, arrayPointer, snapshot, temporary);
++                }
++                PatchMusketeerFormation.EndDirected();
++            }
++
++            if (DirectedSeatJoined(profile, slot, archer))
++            {
++                LogInfoOnce("row-recruit", "musketeer joined the rear row");
++                if (failure != null) LogFailureOnce("musketeer-recruit", failure);
++                return true;
++            }
++
++            int instanceId = SafeInstanceId(archer);
++            bool cleaned = TryCleanupMusketeerSeat(profile, slot, instanceId, lease);
++            if (cleaned && !MusketeerSeatHolds(profile, slot, instanceId)
++                && SameMusketeerLife(archer, lease) && MusketeerOwnsFormation(archer, profile))
++            {
++                // Another owner replaced the arrays mid-call: the seat (and therefore native
++                // UnregisterUnit) is gone while this transaction's captured life is still bound.
++                // The leave call is made directly and verified; when it does not unbind, the
++                // seatless half is queued as a receipt (a seat-only receipt would resolve on the
++                // empty seat without ever leaving, so that would otherwise be lost).
++                bool left = false;
++                try
++                {
++                    archer.OnLeaveFormation();
++                    left = !MusketeerOwnsFormation(archer, profile);
++                }
++                catch (Exception e) { LogFailureOnce("musketeer-seatless", e); }
++                if (!left)
++                    QueueMusketeerRollback(profile, slot, instanceId, lease, archer, IntPtr.Zero, null, null);
++            }
++            else if (!cleaned)
++            {
++                QueueMusketeerRollback(profile, slot, instanceId, lease, archer, IntPtr.Zero, null, null);
++            }
++            if (failure != null) LogFailureOnce("musketeer-recruit", failure);
++            return false;
++        }
++        catch (Exception e)
++        {
++            LogFailureOnce("musketeer-recruit", e);
++            return false;
++        }
++    }
++
++    /// <summary>
++    /// Returns cells this transaction wrote to their pre-transaction values. Only a cell that
++    /// still holds the value this transaction wrote is restored (a cell someone else changed is
++    /// theirs); the read-back decides completion so a failure can be retried from the coordinator
++    /// receipt, and an array another owner replaced is never written.
++    /// </summary>
++    private static bool TryRestoreDirectedTypes(FormationProfile profile, IntPtr arrayPointer,
++        Formation.UnitTypes[] before, Formation.UnitTypes[] written, int writtenCount)
++    {
++        try
++        {
++            Formation formation = profile != null ? profile.Formation : null;
++            if (formation == null || formation.Pointer != profile.FormationPointer) return true;
++            if (before == null || written == null) return true;
++            if (!IsCurrentScene(profile)) return false;
++
++            Il2CppStructArray<Formation.UnitTypes> current = formation.unitTypes;
++            if (current == null || current.Pointer != arrayPointer || current.Length != before.Length)
++                return true;   // replaced by another owner: nothing of ours is left in it
++
++            int limit = Math.Min(Math.Max(writtenCount, 0), before.Length);
++            for (int i = 0; i < limit; i++)
++            {
++                if (written[i] == before[i] || current[i] != written[i]) continue;
++                current[i] = before[i];
++            }
++            for (int i = 0; i < before.Length; i++)
++            {
++                if (written[i] == before[i]) continue;
++                if (current[i] == written[i]) return false;   // still ours: keep the receipt
++            }
++            return true;
++        }
++        catch (Exception e)
++        {
++            LogFailureOnce("directed-restore", e);
++            return false;
++        }
++    }
++
++    /// <summary>State-based success check: the seat holds this archer and the archer is bound to this formation.</summary>
++    private static bool DirectedSeatJoined(FormationProfile profile, int slot, Archer archer)
++    {
++        try
++        {
++            Formation formation = profile != null ? profile.Formation : null;
++            if (formation == null || formation.Pointer != profile.FormationPointer) return false;
++            Il2CppReferenceArray<Formation.IFormationUnit> units = formation.units;
++            if (units == null || slot < 0 || slot >= units.Length || units[slot] == null) return false;
++            GameObject seated = units[slot].GetGO;
++            if (seated == null || seated.GetInstanceID() != SafeInstanceId(archer)) return false;
++            Formation current = archer.GetFormation();
++            return current != null && current.Pointer == formation.Pointer;
++        }
++        catch
++        {
+             return false;
+         }
+     }
+@@ -503,6 +1218,7 @@
+         // Disabled or authority loss never hot-shrinks an active formation. Empty slots can
+         // still be sealed locally because that does not touch any recruited FleetBoat state.
+         ConvertEmptyReservedSlotsToGaps(profile);
++        ReconcileMusketeerRow(profile);
+     }
+ 
+     private static int FindReservedSlot(FormationProfile profile,
+@@ -582,7 +1298,8 @@
+                 }
+ 
+                 FleetGreekSquads.Select(formation, sceneRoot, requestedSide, __state.Candidates);
+-                if (!TryExpand(profile, __state.Candidates.Count))
++                if (!TryExpand(profile, __state.Candidates.Count,
++                        PatchMusketeerFormation.RowRequested))
+                 {
+                     FleetGreekSquads.Release(formation);
+                     return;
+@@ -624,6 +1341,8 @@
+                     try { boat.TryRecruit(formation); }
+                     catch (Exception e) { LogFailureOnce("try-recruit", e); }
+                 }
++
++                ReconcileMusketeerRow(profile);
+             }
+             catch (Exception e)
+             {
+--- a/tests/musketeer-formation/e2e/PipelineTests.cs
++++ b/tests/musketeer-formation/e2e/PipelineTests.cs
+@@ -369,6 +369,62 @@
+             Check.True(MusketeerRuntime.BindingLease(reused) == capturedLease + 1L, "the new life keeps its own lease");
+         });
+ 
++        Case.Run("a failed seatless leave is retried by the maintenance pass", () =>
++        {
++            Fixture.Reset(10f);
++            Archer musketeer = Fixture.AddMusketeer(20f);
++            musketeer.ThrowOnLeave = 1;                       // the direct leave fails once
++            musketeer.ReplaceArraysOnRecruit = formation =>
++            {
++                var replacement = new Il2CppStructArray<Formation.UnitTypes>(16);
++                for (int i = 0; i < 16; i++) replacement[i] = Formation.UnitTypes.Player;
++                formation.unitTypes = replacement;
++                formation.units = new Il2CppReferenceArray<Formation.IFormationUnit>(16);
++            };
++            Fixture.Player.ActivateFormation();
++
++            Check.True(ReferenceEquals(musketeer.GetFormation(), Fixture.Formation),
++                "actor stays bound while the seat is already gone");
++            Check.Equal(0, musketeer.OnLeaveCalls, "no completed leave yet");
++            Check.Equal(Formation.UnitTypes.Player, Fixture.Formation.unitTypes[3], "replacement array untouched");
++
++            musketeer._character.inert = true;                // keep the top-up out of the new array
++            Fixture.Tick();
++            Check.True(musketeer.GetFormation() == null, "maintenance finished the seatless leave");
++            Check.Equal(1, musketeer.OnLeaveCalls, "leave ran exactly once");
++            Check.Equal(Formation.UnitTypes.Player, Fixture.Formation.unitTypes[3], "new array still untouched");
++        });
++
++        Case.Run("a seatless receipt never releases a re-armed same-GO life", () =>
++        {
++            Fixture.Reset(10f);
++            Archer musketeer = Fixture.AddMusketeer(20f);
++            musketeer.ThrowOnLeave = 1;
++            musketeer.ReplaceArraysOnRecruit = formation =>
++            {
++                var replacement = new Il2CppStructArray<Formation.UnitTypes>(16);
++                for (int i = 0; i < 16; i++) replacement[i] = Formation.UnitTypes.Player;
++                formation.unitTypes = replacement;
++                formation.units = new Il2CppReferenceArray<Formation.IFormationUnit>(16);
++            };
++            Fixture.Player.ActivateFormation();
++
++            long capturedLease = MusketeerRuntime.BindingLease(musketeer);
++            Check.True(capturedLease > 0L, "the seatless receipt captured a live lease");
++            Check.True(ReferenceEquals(musketeer.GetFormation(), Fixture.Formation), "bound after the failed leave");
++
++            musketeer._character.inert = true;                // keep the top-up out
++            MusketeerRuntime.ArmNewLife(musketeer);           // same GO, new life; still marked
++            Check.True(MusketeerIdentity.IsUnit(musketeer), "counterexample needs a marked new life");
++            Check.False(MusketeerRuntime.MatchesBindingLease(musketeer, capturedLease), "the life changed");
++
++            Fixture.Tick();
++            Check.Equal(0, musketeer.OnLeaveCalls, "never OnLeave a different life");
++            Check.True(ReferenceEquals(musketeer.GetFormation(), Fixture.Formation),
++                "the different life was not touched");
++            Check.Equal(Formation.UnitTypes.Player, Fixture.Formation.unitTypes[3], "new array untouched");
++        });
++
+         Case.Run("native exception in ActivateFormation restores the empty baseline", () =>
+         {
+             Fixture.Reset(10f);
+--- a/tests/musketeer-formation/e2e/Stubs.cs
++++ b/tests/musketeer-formation/e2e/Stubs.cs
+@@ -430,6 +430,7 @@
+     public bool ThrowOnConvertToSoldier;
+     public bool ReturnFalseAfterRegister;
+     public bool ReturnFalseAfterBind;
++    public int ThrowOnLeave;
+     public Action<Formation> ReplaceArraysOnRecruit;
+     public int ConvertToSoldierCalls;
+     public int OnLeaveCalls;
+@@ -472,6 +473,11 @@
+ 
+     public void OnLeaveFormation()
+     {
++        if (ThrowOnLeave > 0)
++        {
++            ThrowOnLeave--;
++            throw new InvalidOperationException("scripted OnLeave failure");
++        }
+         _formation = null;
+         OnLeaveCalls++;
+     }

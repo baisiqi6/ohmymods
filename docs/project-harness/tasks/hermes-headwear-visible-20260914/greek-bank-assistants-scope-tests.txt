@@ -1,0 +1,18 @@
+PASS idle assistants survive unknown receipt and are removed in foreign world
+PASS idle authority-loss keeps cleanup responsibility until foreign authority returns
+PASS destroyed old actors do not block client late binding
+PASS foreign exit restores target before despawning assistant; no second credit
+PASS foreign exit restores sweep and target claims with their owner retained
+PASS authority loss sends no claim RPC; regained authority restores both claims
+PASS unknown biome defers owned cleanup until world becomes known
+PASS failed final policy RPC retains receipt and retries before actor cleanup
+PASS failed current-layer read is deferred rather than treated as old scene
+PASS old-scene target never receives cleanup RPC
+PASS current coin owned by old-layer actor is restored without actor RPC
+PASS external ownership and policy survive cleanup
+PASS foreign and old-layer coins cannot acquire new assistant claims
+PASS direct public binding cannot replace canonical banker
+PASS foreign destroy without an intervening update cannot contaminate ledger
+PASS disabled banker's reentry primes before native work
+PASS panel tick binds disabled client after Awake before SetParent
+17 passed, 0 failed

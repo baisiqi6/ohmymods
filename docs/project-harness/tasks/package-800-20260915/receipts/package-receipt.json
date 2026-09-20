@@ -1,0 +1,47 @@
+{
+  "status": "passed",
+  "sha256": "571d278bff72a9ac2c1c7989df028f5b2441d3ad569296e18e9498cd6e6d2765",
+  "size": 39642577,
+  "entries": 314,
+  "counts": {
+    "runtime": 306,
+    "documents": 5,
+    "plugin_dll": 1,
+    "manifests": 2,
+    "source_inputs": 117
+  },
+  "boundary": {
+    "packaging": "local-not-published",
+    "source_state": "uncommitted-snapshot",
+    "base_commit": "8efd1889a7333b5bbf74a2001262c5928a9c8357",
+    "base_commit_is_exact_source": false,
+    "frozen_source_and_build_evidence_retained_separately": true,
+    "gameplay_or_multiplayer_acceptance": "not established by package verification"
+  },
+  "checks": {
+    "crc": true,
+    "unique_case_insensitive_names": true,
+    "portable_relative_paths": true,
+    "no_directories_or_symlinks": true,
+    "strict_baseline_derived_allowlist": true,
+    "required_loader_runtime": true,
+    "no_personal_config_save_sidecar_log_cache_interop_pdb_or_game_binaries": true,
+    "runtime_all_306_hashes_match": true,
+    "baseline_zip_sha256": true,
+    "doorstop_bepinex6_enabled_debug_disabled": true,
+    "all_five_documents_utf8_versioned_and_match_canonical": true,
+    "dll_zip_manifest_input_agree": true,
+    "dll_version_resource_precheck": true,
+    "local_uncommitted_source_disclosed": true,
+    "manifest_fields_exact": true,
+    "utc_timestamp": true,
+    "source_manifest_raw_bytes_and_digest": true,
+    "source_paths_safe": true,
+    "frozen_and_canonical_source_hashes_match": true,
+    "frozen_source_coverage": true
+  },
+  "dll_sha256": "9c63ff5de2ea4fc7c558ee6541cd0a276db1528ae8a763784a1a73eca113ef79",
+  "source_manifest_sha256": "d40ae61924141c57137212fed7d16179e7044d226a3d5284aefac1fe4952dee3",
+  "runtime_baseline_sha256": "64e8176f0f9117b225fd8fdd59132567c7392e5f897a3670564acb1bfebe076a",
+  "verified_utc": "2026-09-15T08:35:46.632350+00:00"
+}

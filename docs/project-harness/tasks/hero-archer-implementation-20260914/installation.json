@@ -1,0 +1,14 @@
+{
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-hero-archer-20260914-233843-516.bak",
+  "installedAt": "2026-09-14T23:38:43.6664997+08:00",
+  "configSha256": "30A67CDBCF901C3A29B48F57BE0F504F642732AB42FBD8D53DEC46A2D1C500D7",
+  "configUnchanged": true,
+  "sha256": "DE72F01FD22ADFC1F4940B4652F85CF4B54AE9785214A8BB94EB5AC2D79B5559",
+  "oldSha256": "444E1611127D499B4E071B121E20336E22B1C8C1ADB7DFCDF0CDEF3B635E306E",
+  "gameStarted": false,
+  "saveSha256": "83FABC3FAC15F9AF779D126F99A1F1CE8496B8E719947319B45AE97B94590DA9",
+  "saveUnchanged": true,
+  "installed": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "build": "7.6.5-hero-archer-20260914",
+  "published": false
+}

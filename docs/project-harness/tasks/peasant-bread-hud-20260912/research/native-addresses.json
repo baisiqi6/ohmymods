@@ -1,0 +1,30 @@
+[
+  {
+    "type": "Baker",
+    "method": "NativeMethodInfoPtr_TryEatBread_Public_Boolean_Beggar_0",
+    "token": 100664214,
+    "rva": "0x4d2320",
+    "same_slots": 1
+  },
+  {
+    "type": "Beggar",
+    "method": "NativeMethodInfoPtr_BreadPromotionRoutine_Private_IEnumerator_0",
+    "token": 100664446,
+    "rva": "0x5c8d20",
+    "same_slots": 1
+  },
+  {
+    "type": "ShopPlanner",
+    "method": "NativeMethodInfoPtr_AddShop_Public_Void_GameObject_0",
+    "token": 100678813,
+    "rva": "0x75e650",
+    "same_slots": 1
+  },
+  {
+    "type": "ShopPlanner",
+    "method": "NativeMethodInfoPtr_RemoveShop_Public_Void_GameObject_0",
+    "token": 100678814,
+    "rva": "0x762ef0",
+    "same_slots": 1
+  }
+]

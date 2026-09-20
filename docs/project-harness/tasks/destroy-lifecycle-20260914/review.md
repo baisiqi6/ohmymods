@@ -1,0 +1,1 @@
+独立reviewer：/root/destroy_lifecycle_reviewer。最终无新增阻断；31项/410断言独立执行通过。曾确认并要求修复：商店callback后漏复核、unknown当empty、补池清队列，弩手隐藏缓存误Strip、pool迟到清理及共享SO新小队接管。root最终PendingPoolHandoff修改已精确复核。实际操作与闪退归因仍待。

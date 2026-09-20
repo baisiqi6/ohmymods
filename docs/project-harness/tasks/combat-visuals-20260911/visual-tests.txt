@@ -1,0 +1,13 @@
+PASS One dash allocates at most three ghosts and one body overlay
+PASS Silhouettes use numeric white overlay without source material mutation
+PASS Moving stream reuses three ghosts with recency opacity and linear fade
+PASS Ghost world pose freezes while owner moves and source pose changes
+PASS End stops body immediately and ghosts disappear within .2 seconds
+PASS Stationary dash does not emit fake repeated poses
+PASS Pause freezes ghost age and creates no emissions
+PASS Clear removes all effects immediately while paused
+PASS Late old token End cannot clear replacement dash
+PASS Configuration or style loss cleans active renderers
+PASS Owner disable cleans roots and pooled Begin does not duplicate renderers
+PASS Partial renderer construction failure cleans its owned root atomically
+RESULT 12 passed, 0 failed

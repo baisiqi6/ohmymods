@@ -1,0 +1,20 @@
+{
+  "userDataUnchanged": true,
+  "dllSha256": "80522BF18952FE609C4F6F91FD6B52C26AB79CBF87EE918159770306953348F4",
+  "version": "8.0.0",
+  "gameStarted": false,
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-v8.0.0-20260915-170249-856.bak",
+  "installed": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "userDataHashes": {
+    "C:/Users/ADMIN/AppData/LocalLow/noio/KingdomTwoCrowns/Release/global-v35": "0CDCBCFD0F866293F269F31ED907A06F286274B8429CB17C4BAC446161235D87",
+    "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\config\\KingdomEnhancedMod.cfg": "5584D1DC51792AD57B83ADA5B479579ED532B073CDE555CA904EE07514A72A71",
+    "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\config\\KingdomEnhancedMod\\ModSave\\hermes-headwear-cycle.v1.json": "0AD4E1DA0630345743AC6CD12F867A6ECB9704B47FA273DFF9CEA35B2430B7AA",
+    "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\config\\KingdomEnhancedMod\\ModSave\\hermes-headwear-cycle.v1.json.bak": "46D4274BDD9A6043D07686F6A30713ACDA575CF17952C1AE769F422E57932500",
+    "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\config\\KingdomEnhancedMod\\ModSave\\hermes-headwear-cycle.v2.json": "2414DDCBACD937B61AF76F6C58214FF02E9278FB59964E60D832496B245F1CDF",
+    "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\config\\KingdomEnhancedMod\\ModSave\\hermes-headwear-cycle.v2.json.bak": "4FB31D80C0983B596B804B36442837B9B654978CB908A49FC469E02388D2F5E8",
+    "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\config\\KingdomEnhancedMod\\ModSave\\knight-identities.v1.json": "8CF2AF05BF0CEC3D3EEE92BAD24421D378D78F165056E73CF7AEEDDD9C37245F",
+    "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\config\\KingdomEnhancedMod\\ModSave\\knight-identities.v1.json.bak": "635D04F41716B04B05B9D5AE613053F022F0AF33104C055B88122B1B1877277C"
+  },
+  "previousDllSha256": "7DD53270DA06AD11C201633C879E2A46E05169AE01FB54A50CB22C3583570026",
+  "installedAt": "2026-09-15T17:02:50.0038449+08:00"
+}

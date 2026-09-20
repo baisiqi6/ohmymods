@@ -1,0 +1,23 @@
+[
+  {
+    "sessionFile": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\musketeer-red-muzzle-20260917\\sessions\\2026-09-17T12-17-23-477Z_01a0af4c-d615-718d-a3b0-00790fd9d007.jsonl",
+    "models": [
+      [
+        "deepseek",
+        "deepseek-flash"
+      ]
+    ],
+    "thinking": [
+      "max"
+    ],
+    "tools": [
+      "edit",
+      "grep",
+      "read",
+      "write"
+    ],
+    "initialPid42088StoppedForNewFiveFrameUserRequest": true,
+    "selectedArtGenerator": "operator artifacts/musketeer/20260917-red-muzzle/draw_preview.py",
+    "workerArtGeneratorUsed": false
+  }
+]

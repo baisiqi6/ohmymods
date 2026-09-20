@@ -1,0 +1,66 @@
+{
+  "resultExitCode": 0,
+  "utc": "2026-09-11T15:56:54.1859855Z",
+  "runtime": "dotnet6.0.427",
+  "sourceHashes": [
+    {
+      "Algorithm": "SHA256",
+      "Hash": "8457993075B76C089E211FC41028FDE0772A6DFFD002B3FB51E31838DEAE31AF",
+      "Path": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\build\\FleetGreekSquads.cs"
+    },
+    {
+      "Algorithm": "SHA256",
+      "Hash": "EE3C98DA1AF02242BA2E6DC50522E6B5E6409FCDC66345775E7B18AD94E27178",
+      "Path": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\build\\PatchWorld_FleetBoatFormation.cs"
+    }
+  ],
+  "artifactHashes": [
+    {
+      "Algorithm": "SHA256",
+      "Hash": "C70CFD91EE2954BBC515C414A3C27B225EA97DB970A1D002E780A58D3E6F7AEE",
+      "Path": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\boat-tests\\Regression.csproj"
+    },
+    {
+      "Algorithm": "SHA256",
+      "Hash": "62333268C821AEA24CCE96CAC060BD81382825F6F750919656B5F140A9B0BCFC",
+      "Path": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\boat-tests\\Program.cs"
+    },
+    {
+      "Algorithm": "SHA256",
+      "Hash": "DA97A5F34BEC416075F4AFCCCB977B6041CA23F0287E48632D62956CD4BC6D84",
+      "Path": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\boat-tests\\Stubs.cs"
+    },
+    {
+      "Algorithm": "SHA256",
+      "Hash": "E7D8A68EA36AA4D3D67D7F37E11D03890BF85008FF5A3A9B82F610E992C5558F",
+      "Path": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\boat-tests\\Extract.ps1"
+    },
+    {
+      "Algorithm": "SHA256",
+      "Hash": "4E5F635A7BA3F3874D7302DC8429702CC95ACA32CB143DF42EEA7850E6DCDCB3",
+      "Path": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\boat-tests\\CandidateSource.cs"
+    },
+    {
+      "Algorithm": "SHA256",
+      "Hash": "276DDACE15704DB8E97D9030A858438F06B73E633CFE48439C22D2000F61E7EB",
+      "Path": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\boat-tests\\FinalizerSource.cs"
+    },
+    {
+      "Algorithm": "SHA256",
+      "Hash": "2B87BBC9DF5CE7FB740BD9DBA6962B54F84817D582FC78D9C6812F96B4B45787",
+      "Path": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\boat-tests\\run.log"
+    }
+  ],
+  "inspectedLifecycleSourceHashes": [
+    {
+      "Algorithm": "SHA256",
+      "Hash": "DE45BA166D1F9E84E27C6D67B8D66A4A1C52B059C2499D0A6FDDB654917D17F8",
+      "Path": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\build\\PatchRoles_KnightStyle.cs"
+    },
+    {
+      "Algorithm": "SHA256",
+      "Hash": "E981D90B67BD1190D6919A123DB015BBF82F96E8792461404BB4D322DCD5FF17",
+      "Path": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\build\\PatchWorld_DefenseSpacing.cs"
+    }
+  ]
+}

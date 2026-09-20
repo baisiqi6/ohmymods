@@ -1,0 +1,14 @@
+{
+  "changed": [
+    "il2cpp/KingdomEnhancedPlugin.cs",
+    "il2cpp/MusketeerAnimation.cs",
+    "il2cpp/MusketeerCombat.cs",
+    "il2cpp/MusketeerVisuals.cs"
+  ],
+  "sourceSha256": {
+    "il2cpp/KingdomEnhancedPlugin.cs": "4a43918827fb5c427c210de3d894d257b41ed92cce357af107d28edce9793274",
+    "il2cpp/MusketeerAnimation.cs": "8fd30bfddfc61e850fd45576f1e52ba038e896f79d0c40154668001910c962fd",
+    "il2cpp/MusketeerCombat.cs": "45162839ac91a2becbb8c369c02cc19f01f9f867bef443115c9cd00190f95ace",
+    "il2cpp/MusketeerVisuals.cs": "2306b173450590d59dde9ebce606fc95f4a9fd518c6b24cead9bddd313d9c7c3"
+  }
+}

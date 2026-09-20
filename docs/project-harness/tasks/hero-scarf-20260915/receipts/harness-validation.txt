@@ -1,0 +1,1 @@
+Checklist validation passed: C:\Users\ADMIN\projects\ohmymods\docs\project-harness\harness-checklist.json (0 warning(s)).

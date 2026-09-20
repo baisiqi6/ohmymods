@@ -1,0 +1,80 @@
+[
+  {
+    "material": "Pow-Recolor-Outline",
+    "queue": -1,
+    "shader": "Custom/PowerSprite2",
+    "states": [
+      {
+        "zTest": {
+          "val": 4.0,
+          "name": "<noninit>"
+        },
+        "zWrite": {
+          "val": 1.0,
+          "name": "<noninit>"
+        },
+        "culling": {
+          "val": 0.0,
+          "name": "<noninit>"
+        },
+        "alphaToMask": {
+          "val": 0.0,
+          "name": "<noninit>"
+        },
+        "lighting": false
+      }
+    ]
+  },
+  {
+    "material": "Pow-Diffuse",
+    "queue": -1,
+    "shader": "Custom/PowerSprite2",
+    "states": [
+      {
+        "zTest": {
+          "val": 4.0,
+          "name": "<noninit>"
+        },
+        "zWrite": {
+          "val": 1.0,
+          "name": "<noninit>"
+        },
+        "culling": {
+          "val": 0.0,
+          "name": "<noninit>"
+        },
+        "alphaToMask": {
+          "val": 0.0,
+          "name": "<noninit>"
+        },
+        "lighting": false
+      }
+    ]
+  },
+  {
+    "material": "Pow-Recolor",
+    "queue": -1,
+    "shader": "Custom/PowerSprite2",
+    "states": [
+      {
+        "zTest": {
+          "val": 4.0,
+          "name": "<noninit>"
+        },
+        "zWrite": {
+          "val": 1.0,
+          "name": "<noninit>"
+        },
+        "culling": {
+          "val": 0.0,
+          "name": "<noninit>"
+        },
+        "alphaToMask": {
+          "val": 0.0,
+          "name": "<noninit>"
+        },
+        "lighting": false
+      }
+    ]
+  }
+]

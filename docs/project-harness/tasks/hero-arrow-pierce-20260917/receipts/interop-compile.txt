@@ -1,0 +1,9 @@
+  正在确定要还原的项目…
+  已还原 C:\Users\ADMIN\projects\ohmymods\tests\hero-arrow-pierce\actual-interop\Interop.csproj (用时 40 毫秒)。
+  Interop -> C:\Users\ADMIN\projects\ohmymods\tests\hero-arrow-pierce\actual-interop\bin\Debug\net8.0\HeroArrowPierce.InteropCheck.dll
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:01.32

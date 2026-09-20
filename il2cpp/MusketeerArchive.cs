@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 
 namespace KingdomEnhancedMod;
 
@@ -384,32 +385,55 @@ internal sealed class MusketeerArchive
 // Single writer for the sidecar: the caller mutates a freshly loaded disk state, the context
 // registration rides in the same compare-and-swap, and a write only lands when the on-disk
 // bytes are still the ones that were read. Any failure leaves the previous baseline untouched.
+// Transient IO failures get exactly one real-clock retry (see RetryDelayMs); compare-and-swap
+// refusals and pre-validation failures never retry.
 internal static class MusketeerArchiveStore
 {
     internal const int MaxBytes = 16 * 1024 * 1024;
+
+    /// <summary>写失败（IO 类）后的重试延迟：真实时钟，只重试一次。</summary>
+    internal const int RetryDelayMs = 250;
+
     internal enum State { Missing, Valid, Corrupt, Unsupported, IoError }
     internal sealed class ReadResult
     {
         internal State Status;
         internal MusketeerArchive Archive;
         internal byte[] Original;
+        internal string Detail;   // 非 Valid 状态的简短原因（诊断日志用；不改任何判定）
         internal bool RecoveredBackup;
         internal bool Writable => (Status == State.Missing || Status == State.Valid) && !RecoveredBackup;
     }
 
+    /// <summary>
+    /// 主文件优先；主文件损坏/读失败（IoError）时也查备份并置 RecoveredBackup（与 knight 侧 Load 同型）。
+    /// 未知主版本不降级读备份。
+    /// </summary>
     internal static ReadResult Load(string path)
     {
         var result = ReadOne(path);
         // An unknown future schema must never be replaced by an older backup.
-        if (result.Status != State.Corrupt && result.Status != State.Missing) return result;
+        if (result.Status != State.Corrupt && result.Status != State.Missing && result.Status != State.IoError) return result;
         var backup = ReadOne(path + ".bak");
         if (backup.Status == State.Valid)
         {
             backup.RecoveredBackup = true; backup.Original = result.Original;
+            backup.Detail = "main: " + result.Detail;
+            MusketeerArchiveLog.Once("sidecar load RecoveredBackup", backup.Detail);
             return backup; // readable, deliberately read-only until explicit recovery
         }
         if (result.Status == State.Missing && backup.Status != State.Missing)
-            return new() { Status = backup.Status == State.Unsupported ? State.Unsupported : State.Corrupt };
+        {
+            var unusable = new ReadResult
+            {
+                Status = backup.Status == State.Unsupported ? State.Unsupported : State.Corrupt,
+                Detail = "backup: " + backup.Detail,
+            };
+            MusketeerArchiveLog.Once("sidecar load " + unusable.Status, unusable.Detail);
+            return unusable;
+        }
+        if (result.Status != State.Valid && result.Status != State.Missing)
+            MusketeerArchiveLog.Once("sidecar load " + result.Status, result.Detail);
         return result;
     }
 
@@ -417,23 +441,45 @@ internal static class MusketeerArchiveStore
     {
         try
         {
-            var size = new FileInfo(path).Length;
-            if (size < 2 || size > MaxBytes) return new() { Status = State.Corrupt };
+            long size = new FileInfo(path).Length;
+            if (size < 2) return new() { Status = State.Corrupt, Detail = "shorter than 2 bytes" };
+            if (size > MaxBytes) return new() { Status = State.Corrupt, Detail = size + " bytes above " + MaxBytes };
             var bytes = File.ReadAllBytes(path);
             try
             {
                 var archive = MusketeerArchive.Decode(bytes, out bool unsupported);
-                return new() { Status = unsupported ? State.Unsupported : State.Valid, Archive = archive, Original = bytes };
+                if (unsupported) return new() { Status = State.Unsupported, Detail = "unsupported schemaVersion" };
+                return new() { Status = State.Valid, Archive = archive, Original = bytes };
             }
-            catch { return new() { Status = State.Corrupt, Original = bytes }; }
+            catch (Exception e) { return new() { Status = State.Corrupt, Original = bytes, Detail = e.GetType().Name + ": " + e.Message }; }
         }
         catch (FileNotFoundException) { return new() { Status = State.Missing, Archive = new() }; }
         catch (DirectoryNotFoundException) { return new() { Status = State.Missing, Archive = new() }; }
-        catch { return new() { Status = State.IoError }; }
+        catch (Exception e) { return new() { Status = State.IoError, Detail = e.GetType().Name + ": " + e.Message }; }
     }
 
+    /// <summary>
+    /// 写失败重试一次：只有 IO 类失败（异常路径）才在真实时钟延迟 <see cref="RetryDelayMs"/>ms 后重试；
+    /// CAS/预检/序列化保护性拒绝一律立即返回。本方法也被 load 栈（ConfirmBaseline）调用，重试有界可接受。
+    /// </summary>
     internal static bool Save(string path, ReadResult expected, MusketeerArchive archive)
     {
+        if (SaveOnce(path, expected, archive, out string ioFailure)) return true;
+        if (ioFailure == null) return false; // 保护性拒绝（CAS/预检）：绝不重试
+        Thread.Sleep(RetryDelayMs);
+        if (SaveOnce(path, expected, archive, out string retryFailure))
+        {
+            MusketeerArchiveLog.Event("write-retry=1 recovered");
+            return true;
+        }
+        MusketeerArchiveLog.Once("write-retry=1 failed", retryFailure ?? ioFailure);
+        return false;
+    }
+
+    /// <summary>失败输出：null = 非 IO 失败（预检/CAS/校验），非 null = 异常摘要（IO 类，可重试）。</summary>
+    private static bool SaveOnce(string path, ReadResult expected, MusketeerArchive archive, out string ioFailure)
+    {
+        ioFailure = null;
         string temporary = null;
         try
         {
@@ -453,9 +499,43 @@ internal static class MusketeerArchiveStore
             temporary = null;
             return Equal(File.ReadAllBytes(path), bytes);
         }
-        catch { return false; }
+        catch (Exception e) { ioFailure = e.GetType().Name + ": " + e.Message; return false; }
         finally { if (temporary != null) { try { File.Delete(temporary); } catch { } } }
     }
 
     private static bool Equal(byte[] a, byte[] b) => a == null ? b == null : b != null && a.AsSpan().SequenceEqual(b);
+}
+
+// Bounded one-time diagnostics for sidecar load/write degradation ([Musketeer] tag, <=64 keys).
+// Load status was previously silent, which made the read-failure lottery (H2) invisible in logs.
+internal static class MusketeerArchiveLog
+{
+    private const int MaxKeys = 64;
+    private const int MaxText = 200;
+    private static readonly HashSet<string> OnceKeys = new(StringComparer.Ordinal);
+
+    /// <summary>一次性 Warning（key 有界；detail 只进正文）。</summary>
+    internal static void Once(string key, string detail)
+    {
+        if (OnceKeys.Count >= MaxKeys && !OnceKeys.Contains(key)) return;
+        if (!OnceKeys.Add(key)) return;
+        Emit(key, detail, warning: true);
+    }
+
+    /// <summary>事件级 Info（每次调用一条；用于重试恢复这类稀少但值得留痕的事件）。</summary>
+    internal static void Event(string message) => Emit(message, null, warning: false);
+
+    internal static void ResetForTests() { OnceKeys.Clear(); }
+
+    private static void Emit(string text, string detail, bool warning)
+    {
+        try
+        {
+            string line = string.IsNullOrEmpty(detail) ? text : text + ": " + detail;
+            if (line.Length > MaxText) line = line.Substring(0, MaxText);
+            if (warning) KingdomEnhancedPlugin.Instance?.LogSource?.LogWarning("[Musketeer] " + line);
+            else KingdomEnhancedPlugin.Instance?.LogSource?.LogInfo("[Musketeer] " + line);
+        }
+        catch { }
+    }
 }

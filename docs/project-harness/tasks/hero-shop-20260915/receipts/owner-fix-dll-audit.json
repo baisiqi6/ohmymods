@@ -1,0 +1,29 @@
+﻿{
+    "version":  "8.0.0.0",
+    "candidateSha256":  "F8C2509587122C920C39B635DB2D26956F3293545CC178F33EE441925C1E0B60",
+    "unchangedMethods":  2862,
+    "addedMethods":  [
+                         "System.Boolean KingdomEnhancedMod.HeroShop/\u003c\u003ec__DisplayClass30_0::\u003cCreate\u003eb__0(System.Single)",
+                         "System.Boolean KingdomEnhancedMod.HeroShopOwner::IsLocked(Player,System.IntPtr)",
+                         "System.Boolean KingdomEnhancedMod.HeroShopOwnerInterop::WriteUnlocked(System.IntPtr,System.Int32)",
+                         "System.Void KingdomEnhancedMod.HeroShop/\u003c\u003ec__DisplayClass30_0::.ctor()"
+                     ],
+    "baselineSha256":  "A6B5D90B12C46020E844B55AB7D22EB185618A30A868B255173C15E4B32FC9B3",
+    "unchangedResources":  [
+                               "KingdomEnhancedMod.HeroArcherAtlas.png",
+                               "KingdomEnhancedMod.ArtemisArrow.png",
+                               "KingdomEnhancedMod.HeroShop.png",
+                               "KingdomEnhancedMod.HeroShopSeats.png"
+                           ],
+    "changedMethods":  [
+                           "System.Void KingdomEnhancedMod.HeroShop::.cctor()",
+                           "System.Void KingdomEnhancedMod.HeroShop::Create(Kingdom,UnityEngine.Transform)",
+                           "System.Void KingdomEnhancedMod.HeroShop::Tick()",
+                           "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()"
+                       ],
+    "removedMethods":  [
+                           "System.Boolean KingdomEnhancedMod.HeroShop/\u003c\u003ec__DisplayClass29_0::\u003cCreate\u003eb__0(System.Single)",
+                           "System.Boolean KingdomEnhancedMod.HeroShopOwner::IsLocked(Player,LockIndicator/LockReason\u0026)",
+                           "System.Void KingdomEnhancedMod.HeroShop/\u003c\u003ec__DisplayClass29_0::.ctor()"
+                       ]
+}

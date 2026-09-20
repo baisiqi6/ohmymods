@@ -1,0 +1,26 @@
+{
+  "sessionId": "sess_c1029151-3b7a-4adb-81d7-c2e31c3d1533",
+  "traceId": "136cb658-3129-4d47-8b9e-05c0778bd2f4",
+  "turnId": "turn_5424b8e2-5e67-4ec5-b0d3-35085ccdf8f7",
+  "response": "完成。三份交付物已全部落在 allowlist 内，未触碰任何其他文件。\n\n**交付物**\n1. `release/MOD_FEATURES_OVERVIEW_ZH.txt` — 玩家视角功能总览：30 秒速览（10 条）、一句话介绍、新角色（英雄/火枪手/五骑士风格）、经济/世界/战斗/便捷/HUD 机制、默认开关速览（逐条镜像 USER_GUIDE 第二节）、已知限制（正文 10 行）、深入阅读导航。每条带范围标签。\n2. `docs/project-harness/tasks/features-overview-20260918/receipts/provenance.md` — 条目→来源对照表：主体条目指向现行三份 txt 行号；历史功能指向 `il2cpp/` 源码文件与行号。\n3. `docs/project-harness/tasks/features-overview-20260918/worker-result.md` — 改动摘要、待裁决清单、自检结果。\n\n**历史功能源码核验（均确认存在并收录）**：农田金币成熟 3 秒（`PatchEconomy_BankAssistants.cs:46`）、盾墙图腾（希腊 biome 门 + 1 金币一队，`PatchWorld_ShieldWallTotem.cs`）、大蛇缰绳（墙+100、主机权威，`PatchWorld_SerpentLeash.cs:39`）、弩箭速度 ×1.25、赫尔墨斯钱袋解锁+扩容 2000/1000、主船容量 8/6/8/3（弓手原生四槽）、北境骑士钱包 ×2、Cerberus 召唤增援 +1 希腊/+2 北境队、狂战士追击缰绳 12、中世纪劈砍 ×1.5、死地 ×2/×1.5。\n\n**历史数值陷阱**：射程写 2×（非 1.25）、获取写驿站 8 金币、补货写 9 项、Critter 写“保持原版大小”、散射默认 3 箭、头饰写累计配额——均按现行口径。候选节按任务书措辞逐字隔离在第七节，注明发布时必须移除。\n\n**待 operator 裁决（低风险，已写入 worker-result.md）**：①北境骑士钱包 ×2 的范围标签表述；②狂战士缰绳与伤害可靠性这类内部修复是否适合出现在玩家概览。两者删除均不影响其他条目。\n\n未构建、未测试、未碰游戏/E 盘/存档、未 commit。",
+  "usage": {
+    "source": "provider",
+    "modelRequestCount": 17,
+    "inputTokens": 895800,
+    "outputTokens": 10258,
+    "totalTokens": 906058,
+    "cacheReadTokens": 840512,
+    "cacheWriteTokens": 0,
+    "reasoningTokens": 0,
+    "webFetchRequests": 0,
+    "webSearchRequests": 0
+  },
+  "eventCount": 3295,
+  "projection": {
+    "status": "idle",
+    "turnCount": 1,
+    "totalTokenCount": 906058,
+    "contextUsed": 65016,
+    "contextWindow": 1000000
+  }
+}

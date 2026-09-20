@@ -1,0 +1,26 @@
+=== knight-identity-runtime ===
+total: passed=44 failed=1
+FAILED: inconsistent_history_receipts_are_dropped_and_the_individual_goes_fresh -> empty baseline resolves the context
+exit=0
+=== knight-identity-archive ===
+
+total: passed=42 failed=0
+exit=0
+=== knight-stable-context ===
+
+total: passed=16 failed=0
+exit=0
+=== knight-load-seed ===
+
+total: passed=34 failed=0
+exit=0
+=== knight-identity-integration ===
+PASS integrated real Archive/Runtime/Network: 9 assertions; native boundary is simulated
+exit=0
+=== knight-identity-network ===
+
+total: passed=48 failed=0
+exit=0
+=== musketeer-identity ===
+PASS 303 assertions (real musketeer archive/identity/persistence)
+exit=0

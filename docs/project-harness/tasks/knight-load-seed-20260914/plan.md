@@ -1,0 +1,9 @@
+# 未保存重启的骑士类型持久化缺口
+
+用户报每次进入骑士类型仍不同。实际安装63105375，上一游玩日志7D3D已加载identity但只有style日志，无[KnightIdentity] save/load-match；ModSave没有knight-identities.v1.json。原生global-v35最后写15:34早于identity16:40安装，SHA57E54166未变；当前岛camp1/land9有22KnightData rank1记录。明确缺口：仅Save写附加档，未Save退出首次迁移收据丢失，再启动重新依赖NetID/临时identity迁移。不是用户没装改动。
+
+用户已授权修复；OMP deepseek/deepseek-v4-flash thinking=max新KnightIdentityLoadSeed模块，Operator接既有LoadBridge与5秒PrimeExisting/IntegrityPass；内置knight_identity_design_review只读审查。冻结prefix完整snapshot+scope+每Knight记录ID和ObjectData指针，TryCreate后绑定真实owner与life，bool成功加载后转pending，全部既有骑士有receipt后一次写完整snapshot。拒绝partial/duplicate/owner冲突，life变更不能重新认领，新招募不塞旧snapshot。不修改Archive.RecordSnapshot不可变冲突规则，不写原生存档、不增加native hook或扫描器。
+
+核心验收：22名首次加载→分配→只生成sidecar、无nativeSave→重置运行时/换所有实例ID→读同份JSON，22GUID/style相同；原始文件SHA/mtime不变；原生返回false/异常不种、重复/池复用/层变化/部分late-ready/未知版本/文件失败均安全。正常Save和网络旧流程保留。游戏关闭才安装本机候选，不启动错误游戏、不覆盖存档、不提交发布。真实不保存退出→再进入两次验证未做前保持doing。
+
+保留上轮稳定头饰配额63105375及被动显示诊断；头饰显示根因待用户新运行日志。旁支原创英雄弓手美术准备仍排队，授权和约束见上一任务hermes-headwear-visible-20260914/plan.md，不替换本轮修复。

@@ -1,0 +1,18 @@
+[
+  {
+    "token": 100671542,
+    "name": "Kingdom.AddCharacter"
+  },
+  {
+    "token": 100671543,
+    "name": "Kingdom.RemoveCharacter"
+  },
+  {
+    "token": 100674989,
+    "name": "PayableShop.AddItem"
+  },
+  {
+    "token": 100678817,
+    "name": "ShopPlanner.SetPlacedShop"
+  }
+]

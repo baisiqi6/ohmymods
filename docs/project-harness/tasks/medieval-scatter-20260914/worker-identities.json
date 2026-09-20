@@ -1,0 +1,44 @@
+[
+  {
+    "session": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\medieval-scatter-20260914\\policy-sessions\\2026-09-14T09-54-56-528Z_01a09f57-5790-7552-b735-2b4a257c3e0e.jsonl",
+    "events": [
+      {
+        "type": "session",
+        "id": "01a09f57-5790-7552-b735-2b4a257c3e0e",
+        "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\medieval-scatter-20260914\\policy-worker"
+      },
+      {
+        "type": "model_change",
+        "id": "d2192ef5",
+        "model": "deepseek/deepseek-v4-flash",
+        "resolvedModelIsFallback": false
+      },
+      {
+        "type": "thinking_level_change",
+        "id": "b968b2b2",
+        "thinkingLevel": "max"
+      }
+    ]
+  },
+  {
+    "session": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\medieval-scatter-20260914\\tint-sessions\\2026-09-14T09-55-06-846Z_01a09f57-7fde-72a5-84c2-4a29fb1d443f.jsonl",
+    "events": [
+      {
+        "type": "session",
+        "id": "01a09f57-7fde-72a5-84c2-4a29fb1d443f",
+        "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\medieval-scatter-20260914\\tint-worker"
+      },
+      {
+        "type": "model_change",
+        "id": "a274cbaa",
+        "model": "deepseek/deepseek-v4-flash",
+        "resolvedModelIsFallback": false
+      },
+      {
+        "type": "thinking_level_change",
+        "id": "d440a55f",
+        "thinkingLevel": "max"
+      }
+    ]
+  }
+]

@@ -1,0 +1,26 @@
+FAIL chain=0 speed=0.65 wind=-1 delay=1 continuity=True restBehind=False restart=True safe=True
+FAIL chain=0 speed=0.65 wind=-1 delay=3 continuity=True restBehind=False restart=True safe=True
+FAIL chain=0 speed=0.65 wind=0 delay=0 continuity=True restBehind=False restart=True safe=True
+FAIL chain=0 speed=0.65 wind=0 delay=1 continuity=True restBehind=False restart=True safe=True
+FAIL chain=0 speed=0.65 wind=0 delay=3 continuity=True restBehind=False restart=True safe=True
+FAIL chain=0 speed=1.6 wind=-1 delay=0 continuity=True restBehind=False restart=True safe=True
+FAIL chain=0 speed=1.6 wind=0 delay=0 continuity=True restBehind=False restart=True safe=True
+FAIL chain=0 speed=2 wind=-1 delay=0 continuity=True restBehind=False restart=True safe=True
+FAIL chain=0 speed=2 wind=-1 delay=1 continuity=True restBehind=False restart=True safe=True
+FAIL chain=0 speed=2 wind=0 delay=0 continuity=True restBehind=False restart=True safe=True
+FAIL chain=0 speed=2 wind=0 delay=1 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=1.2 wind=-1 delay=0 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=1.2 wind=0 delay=0 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=1.6 wind=-1 delay=0 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=1.6 wind=-1 delay=1 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=1.6 wind=-1 delay=3 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=1.6 wind=0 delay=0 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=1.6 wind=0 delay=1 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=1.6 wind=0 delay=3 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=2 wind=-1 delay=0 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=2 wind=-1 delay=1 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=2 wind=-1 delay=3 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=2 wind=0 delay=0 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=2 wind=0 delay=1 continuity=True restBehind=False restart=True safe=True
+FAIL chain=1 speed=2 wind=0 delay=3 continuity=True restBehind=False restart=True safe=True
+Turn-stop scenarios: 47 passed, 25 failed (2 chains x 4 speeds x 3 winds x 3 stop delays).

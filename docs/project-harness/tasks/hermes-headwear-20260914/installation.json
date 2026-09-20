@@ -1,0 +1,15 @@
+{
+  "time": "2026-09-14T06:29:27.1904681+08:00",
+  "target": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-hermes-headwear-20260914-062927-027.bak",
+  "installed": "46AD1CF9095353D8F2FC32889AA707E419C41DCD15380B732203E565C1862678",
+  "build": "6.1.5-hermes-headwear-20260914",
+  "saveBefore": "3DE1786460A74262F58D2C18772E91722BD7D50CBCF04517F2526BCAD3C5571A",
+  "saveAfter": "3DE1786460A74262F58D2C18772E91722BD7D50CBCF04517F2526BCAD3C5571A",
+  "configBefore": "4CE570229201E9D6AFA77ED66B89C7628A3C34C2DDF506844A6E77B50C9BD398",
+  "configAfter": "4CE570229201E9D6AFA77ED66B89C7628A3C34C2DDF506844A6E77B50C9BD398",
+  "bankBefore": 5709,
+  "bankAfter": 5709,
+  "gameLaunched": false,
+  "published615Unchanged": true
+}

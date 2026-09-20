@@ -1,0 +1,40 @@
+{
+  "saveSha": "1d1ca083fc05769c7462292d710969c9e1deac6d55de772f08316f9adf02c4c9",
+  "campaign": 1,
+  "land": 9,
+  "sameSitePairs": [
+    {
+      "ordinary": "KEM_TowerSpot_156.6",
+      "prefab": "Prefabs/Buildings and Interactive/greece/Tower0_greece",
+      "x": 156.63995361328125,
+      "keep": "Tower Knight_greece(Clone)",
+      "keepPrefab": "Prefabs/Buildings and Interactive/greece/Tower Knight_greece",
+      "keepx": 156.63999938964844,
+      "dx": 4.57763671875e-05,
+      "net": 1613,
+      "keepNet": 1591
+    },
+    {
+      "ordinary": "Tower4_greece(Clone)",
+      "prefab": "Prefabs/Buildings and Interactive/greece/Tower4_greece",
+      "x": 166.65994262695312,
+      "keep": "Tower Ballista_greece(Clone)",
+      "keepPrefab": "Prefabs/Buildings and Interactive/greece/Tower Ballista_greece",
+      "keepx": 166.6599884033203,
+      "dx": 4.57763671875e-05,
+      "net": 1626,
+      "keepNet": 1604
+    },
+    {
+      "ordinary": "Tower1_greece(Clone)",
+      "prefab": "Prefabs/Buildings and Interactive/greece/Tower1_greece",
+      "x": 176.679931640625,
+      "keep": "Tower_upgrade_Fire_greece(Clone)",
+      "keepPrefab": "Prefabs/Buildings and Interactive/greece/Tower_upgrade_Fire_greece",
+      "keepx": 176.679931640625,
+      "dx": 0.0,
+      "net": 1638,
+      "keepNet": 1636
+    }
+  ]
+}

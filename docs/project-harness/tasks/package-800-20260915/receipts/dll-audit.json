@@ -1,0 +1,30 @@
+{
+  "dllSha256": "9C63FF5DE2EA4FC7C558EE6541CD0A276DB1528AE8A763784A1A73ECA113EF79",
+  "changedMethods": [
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()"
+  ],
+  "version": "8.0.0",
+  "behaviorEquivalent": true,
+  "assemblyVersion": "8.0.0.0",
+  "instructionChanges": [
+    {
+      "after": "IL_000f: ldc.i4.s 32",
+      "before": "IL_000f: ldc.i4.s 57"
+    },
+    {
+      "after": "IL_0042: ldstr \"8.0.0\"",
+      "before": "IL_0042: ldstr \"7.6.5\""
+    },
+    {
+      "after": "IL_004e: ldstr \" build=8.0.0 loading...\"",
+      "before": "IL_004e: ldstr \" build=7.6.5-hero-twin-scarf-20260915 loading...\""
+    }
+  ],
+  "baselineSha": "7DD53270DA06AD11C201633C879E2A46E05169AE01FB54A50CB22C3583570026",
+  "unchangedMethods": 2674,
+  "build": "8.0.0",
+  "unchangedEmbeddedResources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png",
+    "KingdomEnhancedMod.ArtemisArrow.png"
+  ]
+}

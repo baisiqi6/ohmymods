@@ -1,0 +1,12 @@
+  Determining projects to restore...
+  Restored C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\hermes-headwear-visible-20260914\verify\tests\hermes-headwear-diagnostics\interop-check\HermesHeadwearDiagInteropCheck.csproj (in 38 ms).
+C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\hermes-headwear-visible-20260914\verify\tests\hermes-headwear-diagnostics\interop-check\ProductionStubs.cs(11,47): warning CS0649: Field 'KingdomEnhancedPlugin.Instance' is never assigned to, and will always have its default value null [C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\hermes-headwear-visible-20260914\verify\tests\hermes-headwear-diagnostics\interop-check\HermesHeadwearDiagInteropCheck.csproj]
+  HermesHeadwearDiagInteropCheck -> C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\hermes-headwear-visible-20260914\verify\tests\hermes-headwear-diagnostics\interop-check\bin\Release\net8.0\HermesHeadwearDiagInteropCheck.dll
+
+Build succeeded.
+
+C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\hermes-headwear-visible-20260914\verify\tests\hermes-headwear-diagnostics\interop-check\ProductionStubs.cs(11,47): warning CS0649: Field 'KingdomEnhancedPlugin.Instance' is never assigned to, and will always have its default value null [C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\hermes-headwear-visible-20260914\verify\tests\hermes-headwear-diagnostics\interop-check\HermesHeadwearDiagInteropCheck.csproj]
+    1 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.73

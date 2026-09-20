@@ -1,0 +1,16 @@
+{
+  "sources": [
+    "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\expedition-follow-20260911\\tests/../build/SquadFollowGuard.cs",
+    "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\expedition-follow-20260911\\tests/../build/PatchWorld_DefenseSpacing.cs"
+  ],
+  "before": [
+    "282E5566C452373FD0ADE8EA491443D8DF74EE9A8C815592523082A1B397A752",
+    "840A009C51484D164F03667C13BCDD7B724B4B0E1B3106D8B99D8F04C254802C"
+  ],
+  "after": [
+    "282E5566C452373FD0ADE8EA491443D8DF74EE9A8C815592523082A1B397A752",
+    "840A009C51484D164F03667C13BCDD7B724B4B0E1B3106D8B99D8F04C254802C"
+  ],
+  "exit": 0,
+  "log": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\expedition-follow-20260911\\tests/final.log"
+}

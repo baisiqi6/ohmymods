@@ -1,0 +1,116 @@
+{
+  "label": "expedition-follow-20260911",
+  "start": "2026-09-11T23:30:59.1649816+08:00",
+  "end": "2026-09-11T23:31:40.2634315+08:00",
+  "pid": 12372,
+  "reason": "world time diagnostic reached; stop before continued play",
+  "dll": "C1763E2F6CE97DD651DC6493CF204B2FF3BD9A686BE16E3ADA6CC2A6A6CD1E61",
+  "previousDll": "7F0CBE8D00A06C916B9A13CC95B351D79AECA4265DD60500EF14443145CD57AC",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-expedition-follow-20260911-20260911-233059-000.bak",
+  "saveBefore": "0019A23A1693ECD2F992C9FCF27068A046FC47EBDB4F3B33040163D946B5E985",
+  "saveAfter": "0019A23A1693ECD2F992C9FCF27068A046FC47EBDB4F3B33040163D946B5E985",
+  "samples": [
+    {
+      "seconds": 2.3,
+      "privateBytes": 475021312,
+      "freeCommitBytes": 10021638144,
+      "responding": true
+    },
+    {
+      "seconds": 6.6,
+      "privateBytes": 1046626304,
+      "freeCommitBytes": 9429262336,
+      "responding": true
+    },
+    {
+      "seconds": 8.9,
+      "privateBytes": 1055166464,
+      "freeCommitBytes": 9448136704,
+      "responding": true
+    },
+    {
+      "seconds": 11.2,
+      "privateBytes": 1896734720,
+      "freeCommitBytes": 8704778240,
+      "responding": true
+    },
+    {
+      "seconds": 13.5,
+      "privateBytes": 2189045760,
+      "freeCommitBytes": 8394797056,
+      "responding": true
+    },
+    {
+      "seconds": 15.7,
+      "privateBytes": 2189103104,
+      "freeCommitBytes": 8401260544,
+      "responding": true
+    },
+    {
+      "seconds": 18.0,
+      "privateBytes": 2189455360,
+      "freeCommitBytes": 8388833280,
+      "responding": true
+    },
+    {
+      "seconds": 20.3,
+      "privateBytes": 2189484032,
+      "freeCommitBytes": 8369807360,
+      "responding": true
+    },
+    {
+      "seconds": 22.6,
+      "privateBytes": 2188677120,
+      "freeCommitBytes": 8326332416,
+      "responding": true
+    },
+    {
+      "seconds": 24.9,
+      "privateBytes": 2188963840,
+      "freeCommitBytes": 8396840960,
+      "responding": true
+    },
+    {
+      "seconds": 27.1,
+      "privateBytes": 2189705216,
+      "freeCommitBytes": 8381440000,
+      "responding": true
+    },
+    {
+      "seconds": 29.4,
+      "privateBytes": 2189705216,
+      "freeCommitBytes": 8416497664,
+      "responding": true
+    },
+    {
+      "seconds": 31.7,
+      "privateBytes": 2189664256,
+      "freeCommitBytes": 8388116480,
+      "responding": true
+    },
+    {
+      "seconds": 34.0,
+      "privateBytes": 2189627392,
+      "freeCommitBytes": 8411717632,
+      "responding": true
+    },
+    {
+      "seconds": 36.3,
+      "privateBytes": 2189410304,
+      "freeCommitBytes": 8426618880,
+      "responding": true
+    },
+    {
+      "seconds": 38.6,
+      "privateBytes": 2237841408,
+      "freeCommitBytes": 8367566848,
+      "responding": true
+    },
+    {
+      "seconds": 40.9,
+      "privateBytes": 2330513408,
+      "freeCommitBytes": 8280047616,
+      "responding": true
+    }
+  ]
+}

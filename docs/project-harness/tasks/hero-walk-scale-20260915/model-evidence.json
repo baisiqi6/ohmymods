@@ -1,0 +1,53 @@
+[
+  {
+    "timestamp": "2026-09-15T02:01:20.114Z",
+    "sessionId": "sess_b1a9328f-9392-4700-b5b5-87440235e853",
+    "event": "model.sdk.stream.completed",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:01:20.115Z",
+    "sessionId": "sess_b1a9328f-9392-4700-b5b5-87440235e853",
+    "event": "model.network.completed",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:01:25.837Z",
+    "sessionId": "sess_b1a9328f-9392-4700-b5b5-87440235e853",
+    "event": "model.sdk.stream.completed",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:01:25.837Z",
+    "sessionId": "sess_b1a9328f-9392-4700-b5b5-87440235e853",
+    "event": "model.network.completed",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:01:35.435Z",
+    "sessionId": "sess_b1a9328f-9392-4700-b5b5-87440235e853",
+    "event": "model.sdk.stream.completed",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:01:35.436Z",
+    "sessionId": "sess_b1a9328f-9392-4700-b5b5-87440235e853",
+    "event": "model.network.completed",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  }
+]

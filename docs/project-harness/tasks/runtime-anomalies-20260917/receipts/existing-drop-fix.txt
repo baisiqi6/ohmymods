@@ -1,0 +1,14 @@
+ok    Character type present in Assembly-CSharp interop
+ok    exactly one Character.DropItem with one parameter
+      direction parameter: Il2CppSystem.Nullable`1<UnityEngine.Vector2>
+ok    direction parameter is Il2CppSystem.Nullable<UnityEngine.Vector2>
+ok    DropItem returns Droppable
+ok    DropItem interop stub has an IL body
+      direction conversion: IL_0014: ldarg.1 -> System.IntPtr Il2CppInterop.Runtime.IL2CPP::Il2CppObjectBaseToPtrNotNull(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase)
+ok    DropItem stub converts direction with Il2CppObjectBaseToPtrNotNull (throws for a null Nullable)
+      Nullable`1 wrapper found in Il2Cppmscorlib.dll
+      base chain: Il2CppSystem.ValueType -> Il2CppSystem.Object -> Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase
+ok    Il2CppSystem.Nullable`1 wrapper exists in the interop
+ok    Nullable`1 is generated as a reference type (class), not a struct
+ok    Nullable`1 derives through its base chain from Il2CppObjectBase
+PASS drop-interop audit

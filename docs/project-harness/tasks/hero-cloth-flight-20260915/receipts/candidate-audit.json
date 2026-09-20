@@ -1,0 +1,26 @@
+{
+  "resources": [
+    {
+      "unchanged": true,
+      "name": "KingdomEnhancedMod.HeroArcherAtlas.png"
+    },
+    {
+      "unchanged": true,
+      "name": "KingdomEnhancedMod.ArtemisArrow.png"
+    }
+  ],
+  "sourceChanged": [
+    "HeroArcherClothPhysics.cs",
+    "KingdomEnhancedPlugin.cs"
+  ],
+  "changedMethods": [
+    "System.Void KingdomEnhancedMod.HeroArcherClothChain::Reset()",
+    "System.Void KingdomEnhancedMod.HeroArcherClothChain::FixedStep(System.Single,System.Single)",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()"
+  ],
+  "baselineSha": "EFD44621BD86166979DC620D19BA7D91BAD3D960735405D64F517AC751D56C0E",
+  "unexpected": [],
+  "unchangedMethods": 2664,
+  "missing": [],
+  "candidateSha": "1278D0D512211FEC7C4BC7C1D4D82D4A62205661758837D9444BABB5D7F5DAA3"
+}

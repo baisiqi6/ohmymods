@@ -1,0 +1,1 @@
+Turn-stop scenarios: 72 passed, 0 failed (2 chains x 4 speeds x 3 winds x 3 stop delays).

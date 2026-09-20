@@ -1,0 +1,1678 @@
+[
+  {
+    "name": "ShopBow_deadlands",
+    "asset": "resources.assets",
+    "id": 19741,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": -24.00261688232422,
+            "y": 0.875,
+            "z": 2.0
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      }
+    ]
+  },
+  {
+    "name": "ToolBow",
+    "asset": "resources.assets",
+    "id": 19747,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 22.650798797607422,
+            "y": 1.3595086336135864,
+            "z": 1.25
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "Rigidbody2D",
+        "data": {
+          "m_BodyType": 0
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 1644
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      },
+      {
+        "type": "CircleCollider2D",
+        "data": {
+          "m_IsTrigger": true,
+          "m_Offset": {
+            "x": 0.0625,
+            "y": 0.0
+          },
+          "m_Radius": 0.25
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow_greece",
+    "asset": "resources.assets",
+    "id": 19748,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 0.0,
+            "y": 0.875,
+            "z": 2.0
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      }
+    ]
+  },
+  {
+    "name": "ShopBow",
+    "asset": "resources.assets",
+    "id": 19805,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 0.0,
+            "y": 0.875,
+            "z": 2.0
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      }
+    ]
+  },
+  {
+    "name": "ShopBow_norselands",
+    "asset": "resources.assets",
+    "id": 19845,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 0.0,
+            "y": 0.875,
+            "z": 2.0
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 20450,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 4.5,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow_bamboo",
+    "asset": "resources.assets",
+    "id": 22534,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 0.0,
+            "y": 0.875,
+            "z": 2.0
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      }
+    ]
+  },
+  {
+    "name": "ShopBow_springEdict",
+    "asset": "resources.assets",
+    "id": 26417,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 0.0,
+            "y": 0.875,
+            "z": 2.0
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      }
+    ]
+  },
+  {
+    "name": "ShopBow_Party",
+    "asset": "resources.assets",
+    "id": 27027,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 0.0,
+            "y": 0.875,
+            "z": 2.0
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 27783,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 4.5,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 27784,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 4.5,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 28189,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 4.5,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 30068,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 4.5,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 30668,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 4.5,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 31195,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 4.5,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 31196,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 4.5,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 31197,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 4.5,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 31198,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 4.5,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 32340,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 5.0,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 33148,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 5.0,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 33149,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 5.0,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 33150,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 5.0,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 33151,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 5.0,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 35117,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 5.0,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 35118,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 5.0,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 36110,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 5.0,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ToolBow (Pool)",
+    "asset": "resources.assets",
+    "id": 36589,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": -7.849336624145508,
+            "y": -1.0547754764556885,
+            "z": -0.1015625
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 37974,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 4.5,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 38632,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 4.5,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 38663,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 5.0,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ShopBow Placeholder",
+    "asset": "resources.assets",
+    "id": 38664,
+    "components": [
+      {
+        "type": "Transform",
+        "data": {
+          "m_LocalPosition": {
+            "x": 5.0,
+            "y": 0.875,
+            "z": 1.5
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "SpriteRenderer",
+        "data": {
+          "m_Size": {
+            "x": 1.0,
+            "y": 1.0
+          }
+        }
+      },
+      {
+        "type": "MonoBehaviour",
+        "unreadableCustomTypeTree": true
+      },
+      {
+        "type": "MonoBehaviour",
+        "data": {
+          "m_Script": {
+            "m_FileID": 1,
+            "m_PathID": 450
+          }
+        }
+      }
+    ]
+  }
+]

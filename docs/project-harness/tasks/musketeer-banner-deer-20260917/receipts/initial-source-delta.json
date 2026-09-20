@@ -1,0 +1,122 @@
+[
+  {
+    "role": "deer",
+    "path": "il2cpp/MusketeerCombat.cs",
+    "before": "45162839ac91a2becbb8c369c02cc19f01f9f867bef443115c9cd00190f95ace",
+    "after": "d28e4c102683222686bd50ed99e4308e7355a0aeab937c91f489a5d09653ebbb"
+  },
+  {
+    "role": "deer",
+    "path": "il2cpp/MusketeerRuntime.cs",
+    "before": "ff0cd7e7af1ba16242201cf42ac62c0aa3ac0abaea18a2e29c6fe5b48e43105f",
+    "after": "b3863a1a49df4e1410bf8c26267a8d6e9c9f0252a324c66e3efb640dd0f03f1c"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/CombatTests.cs",
+    "before": "406192026143caaeade6de9c520b0329e2a6fca7af895fd597a5a8d9452730af",
+    "after": "1496d163348bd1a56d23a3085d6d1587e29e0bb2bc9a774d5560f0c103e701ca"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/DeerHuntTests.cs",
+    "before": null,
+    "after": "76b5e374160d93348200e56adc8cf100ab84d16332f6a6a37c7c8066d1cd8141"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/Fixture.cs",
+    "before": "8d325ebb524fbef3ba6539171911eeff9e3d63785372da4c2427d4f4bed09c8a",
+    "after": "698a094ba8d28c577916d3a6eb1e21c8ddc924fd41e0ed7356b9654a5996b30f"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/Harness.cs",
+    "before": "b3456b049e8f6f5f16df8bd2297f791412fc47be66e5c717f498215c97db7be3",
+    "after": "c96a6acdf353dcba5e31e832b19692acc1fe7da3d7ea071407cc3f609cce1410"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/NativeStubs.cs",
+    "before": "f67e3f75e253786e5f2a653e0d9c23233f86cadacda5f7494f7f16c7596275a4",
+    "after": "320ab00958d3af465ced80c0a2a1acc1588a9beb3358cce6fdfa5aa8ced2ce22"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/RuntimeTests.cs",
+    "before": "92c99b7771be0034a3b8c0ad3f09e6040d1d600be845b8561d5e40474b24395a",
+    "after": "60857faba62532892beeb9b963d2835167d52005d475a37ad51acc33bb563c82"
+  },
+  {
+    "role": "deer",
+    "path": "tests/musketeer-runtime/UnityStubs.cs",
+    "before": "2b56af572588b8217e2b0ad8406e03999b6b926134030d77007eb5ad3a19fca8",
+    "after": "ae6296f22c9e8db45d8c0fc7a187df01184cf83bba7af66c4d631036f66ca07e"
+  },
+  {
+    "role": "banner",
+    "path": "il2cpp/PatchWorld_FleetBoatFormation.cs",
+    "before": "ee3c98da1af02242ba2e6dc50522e6b5e6409fcdc66345775e7b18ad94e27178",
+    "after": "03bf05688fdee67eb7daeb8f5a5b89d8296cad3061e736905f23545eb29cea91"
+  },
+  {
+    "role": "banner",
+    "path": "il2cpp/Patch_MusketeerFormation.cs",
+    "before": null,
+    "after": "8fd212f860b0907ce92483c7fb086e8e570471042973523ae6d9347e504e2967"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/Harness.cs",
+    "before": null,
+    "after": "fcaebab3fea2ff0b0f88dd963a5e8c430019608b3e690949318eafadd24f1082"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/LayoutTests.cs",
+    "before": null,
+    "after": "a9fbd5ac39c00896820100a6a353bc571ebaa9098aa3d3a4070ce299b9905c8d"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/MusketeerFormationTests.csproj",
+    "before": null,
+    "after": "145d83fe2552c0b4211ecc2a23ccfa509b3f87c8773ed1e1da265de1398f70af"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/PolicyTests.cs",
+    "before": null,
+    "after": "fd68823ffcc8826f92552995a02a82f97dc025f1824af7dab6bbc120045c68bd"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/Program.cs",
+    "before": null,
+    "after": "13396747a2bc5fba75cd03ae20370fe33698ef52fdd31765cf106c93d1ed78cd"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/Stubs.cs",
+    "before": null,
+    "after": "106750d6805f9b2b291742be126851f6ce51267491ade54fa8d689a56e2e1ef5"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/interop-check/CollabStubs.cs",
+    "before": null,
+    "after": "3181c4029bb4820ed99289da7019db3fb316468cfd735ceb3604d084dd4f9376"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/interop-check/MusketeerFormationInteropCheck.csproj",
+    "before": null,
+    "after": "0a7671e3cb4cf188bc0148ab323acf95aa26c4ed81d891ec8c8a78a1af3d2b70"
+  },
+  {
+    "role": "banner",
+    "path": "tests/musketeer-formation/interop-check/SignatureProbe.cs",
+    "before": null,
+    "after": "a6943ab0054a0409a14cb1847dbc5275adc6f7e93d0148943fa71ae1d5b219f8"
+  }
+]

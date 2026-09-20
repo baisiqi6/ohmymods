@@ -1,0 +1,20 @@
+hermes headwear diagnostics tests (console / serial)
+
+ok   headwear budget admits eight samples then refuses the ninth without native reads
+ok   miss budget is four and never consumes the headwear quota
+ok   headwear quota exhausted still admits miss samples up to twelve objects
+ok   repeat Init on the same generation is not sampled twice
+ok   visual snapshots are capped at two per sample and later ticks read nothing
+ok   visual is refused for unsampled objects without touching renderer properties
+ok   visual line carries the compact field set and tolerates null own/head
+ok   field read failures degrade to unknown and keep the rest of the line
+ok   diagnostics never write and never read the instantiating material property
+ok   removed logs one line per sampled object and attributes destroyed wrappers
+ok   removed stays silent for unsampled objects and caps unattributed lines
+ok   decision reflects a chance miss and a disabled host as normal results
+ok   null, throwing natives and a failing log sink never break the caller
+ok   pool reuse on the same InstanceID samples anew and keeps the old pointer attributable
+ok   a new life on the identical native identity is sampled again after removal
+ok   revived lives still count against the hard sample budget
+
+total: passed=16 failed=0

@@ -1,0 +1,287 @@
+{
+  "start": "2026-09-14T05:02:00.5435426+08:00",
+  "end": "2026-09-14T05:03:52.9947277+08:00",
+  "pid": 27652,
+  "reason": "test deadline",
+  "dll": "1F111CD5AD3D4B020A9C0A27A26998B241457F96DFEF652E7F702F6E99C58A96",
+  "restoredDll": "00FA75CA35FB2B54E5F02D3E71D9C25FB2F45E736CFB522F05F02B6AF58CEE9B",
+  "saveBefore": "3DE1786460A74262F58D2C18772E91722BD7D50CBCF04517F2526BCAD3C5571A",
+  "saveAfter": "3DE1786460A74262F58D2C18772E91722BD7D50CBCF04517F2526BCAD3C5571A",
+  "bankBefore": 5709,
+  "bankAfterRun": 5709,
+  "bankRestored": 5709,
+  "configRestored": true,
+  "nativeGetterBytes": "8B414C85C07503B001C383F8060F94C0C3",
+  "nativeSampleSeconds": 20.7414688,
+  "hasRunning": true,
+  "samples": [
+    {
+      "seconds": 2.3,
+      "privateBytes": 515194880,
+      "freeCommitBytes": 17547612160
+    },
+    {
+      "seconds": 4.6,
+      "privateBytes": 720846848,
+      "freeCommitBytes": 17410760704
+    },
+    {
+      "seconds": 6.9,
+      "privateBytes": 1048588288,
+      "freeCommitBytes": 16956235776
+    },
+    {
+      "seconds": 9.2,
+      "privateBytes": 1048604672,
+      "freeCommitBytes": 17028796416
+    },
+    {
+      "seconds": 11.5,
+      "privateBytes": 1883500544,
+      "freeCommitBytes": 16246423552
+    },
+    {
+      "seconds": 13.8,
+      "privateBytes": 2196631552,
+      "freeCommitBytes": 15913377792
+    },
+    {
+      "seconds": 16.1,
+      "privateBytes": 2196652032,
+      "freeCommitBytes": 15920177152
+    },
+    {
+      "seconds": 18.3,
+      "privateBytes": 2196819968,
+      "freeCommitBytes": 15941378048
+    },
+    {
+      "seconds": 20.6,
+      "privateBytes": 2196844544,
+      "freeCommitBytes": 15946952704
+    },
+    {
+      "seconds": 23.0,
+      "privateBytes": 2196058112,
+      "freeCommitBytes": 15962710016
+    },
+    {
+      "seconds": 25.3,
+      "privateBytes": 2196140032,
+      "freeCommitBytes": 15982342144
+    },
+    {
+      "seconds": 27.6,
+      "privateBytes": 2196881408,
+      "freeCommitBytes": 16010313728
+    },
+    {
+      "seconds": 29.9,
+      "privateBytes": 2196897792,
+      "freeCommitBytes": 16008503296
+    },
+    {
+      "seconds": 32.2,
+      "privateBytes": 2196865024,
+      "freeCommitBytes": 15995617280
+    },
+    {
+      "seconds": 34.4,
+      "privateBytes": 2196869120,
+      "freeCommitBytes": 15992438784
+    },
+    {
+      "seconds": 36.7,
+      "privateBytes": 2196967424,
+      "freeCommitBytes": 15988334592
+    },
+    {
+      "seconds": 39.0,
+      "privateBytes": 2239332352,
+      "freeCommitBytes": 15935696896
+    },
+    {
+      "seconds": 41.3,
+      "privateBytes": 2241359872,
+      "freeCommitBytes": 15900622848
+    },
+    {
+      "seconds": 43.6,
+      "privateBytes": 2284494848,
+      "freeCommitBytes": 15876431872
+    },
+    {
+      "seconds": 45.9,
+      "privateBytes": 2285002752,
+      "freeCommitBytes": 15880986624
+    },
+    {
+      "seconds": 48.1,
+      "privateBytes": 2285113344,
+      "freeCommitBytes": 15849816064
+    },
+    {
+      "seconds": 50.4,
+      "privateBytes": 2285117440,
+      "freeCommitBytes": 15860711424
+    },
+    {
+      "seconds": 52.7,
+      "privateBytes": 2285142016,
+      "freeCommitBytes": 15859904512
+    },
+    {
+      "seconds": 55.0,
+      "privateBytes": 2285142016,
+      "freeCommitBytes": 15875735552
+    },
+    {
+      "seconds": 57.3,
+      "privateBytes": 2285154304,
+      "freeCommitBytes": 15812689920
+    },
+    {
+      "seconds": 59.6,
+      "privateBytes": 2285359104,
+      "freeCommitBytes": 15812861952
+    },
+    {
+      "seconds": 61.8,
+      "privateBytes": 2285338624,
+      "freeCommitBytes": 15816826880
+    },
+    {
+      "seconds": 64.1,
+      "privateBytes": 2285342720,
+      "freeCommitBytes": 15799033856
+    },
+    {
+      "seconds": 66.4,
+      "privateBytes": 2285342720,
+      "freeCommitBytes": 15802744832
+    },
+    {
+      "seconds": 68.7,
+      "privateBytes": 2285477888,
+      "freeCommitBytes": 15803084800
+    },
+    {
+      "seconds": 71.0,
+      "privateBytes": 2286256128,
+      "freeCommitBytes": 15798915072
+    },
+    {
+      "seconds": 73.3,
+      "privateBytes": 2286714880,
+      "freeCommitBytes": 15811051520
+    },
+    {
+      "seconds": 75.5,
+      "privateBytes": 2286727168,
+      "freeCommitBytes": 15817994240
+    },
+    {
+      "seconds": 77.8,
+      "privateBytes": 2286731264,
+      "freeCommitBytes": 15778254848
+    },
+    {
+      "seconds": 80.1,
+      "privateBytes": 2286755840,
+      "freeCommitBytes": 15809773568
+    },
+    {
+      "seconds": 82.4,
+      "privateBytes": 2286759936,
+      "freeCommitBytes": 15804354560
+    },
+    {
+      "seconds": 84.7,
+      "privateBytes": 2286780416,
+      "freeCommitBytes": 15810523136
+    },
+    {
+      "seconds": 87.0,
+      "privateBytes": 2286780416,
+      "freeCommitBytes": 15883120640
+    },
+    {
+      "seconds": 89.2,
+      "privateBytes": 2286780416,
+      "freeCommitBytes": 15883321344
+    },
+    {
+      "seconds": 91.5,
+      "privateBytes": 2286780416,
+      "freeCommitBytes": 15869415424
+    },
+    {
+      "seconds": 93.8,
+      "privateBytes": 2286780416,
+      "freeCommitBytes": 15869755392
+    },
+    {
+      "seconds": 96.1,
+      "privateBytes": 2286804992,
+      "freeCommitBytes": 15866216448
+    },
+    {
+      "seconds": 98.4,
+      "privateBytes": 2286804992,
+      "freeCommitBytes": 15867817984
+    },
+    {
+      "seconds": 100.7,
+      "privateBytes": 2286747648,
+      "freeCommitBytes": 15892893696
+    },
+    {
+      "seconds": 102.9,
+      "privateBytes": 2286792704,
+      "freeCommitBytes": 15900938240
+    },
+    {
+      "seconds": 105.2,
+      "privateBytes": 2286792704,
+      "freeCommitBytes": 15878610944
+    },
+    {
+      "seconds": 107.5,
+      "privateBytes": 2286747648,
+      "freeCommitBytes": 15893835776
+    },
+    {
+      "seconds": 109.8,
+      "privateBytes": 2286788608,
+      "freeCommitBytes": 15894519808
+    },
+    {
+      "seconds": 112.1,
+      "privateBytes": 2287325184,
+      "freeCommitBytes": 15815290880
+    }
+  ],
+  "lifecycleEntries": [
+    {
+      "name": "Droppable.OnEnable",
+      "rva": "4F18A0",
+      "bytes": "FF2592E83280803D2BE3AC0300488BD97513488D0DEF5884"
+    },
+    {
+      "name": "Droppable.OnDisable",
+      "rva": "4F1590",
+      "bytes": "FF25AAEB32804883EC30803D38E6AC0300488BD9751F488D"
+    },
+    {
+      "name": "PopulationController.Update",
+      "rva": "6C5990",
+      "bytes": "FF2572A81580803D4CB38F0300488BF9751F488D0D578066"
+    },
+    {
+      "name": "Mover.Update",
+      "rva": "614480",
+      "bytes": "FF2592BC2080D8000000803D20C29A0300488BD9440F295C"
+    }
+  ],
+  "runningEvidence": "ClockDiag timeScale=1"
+}

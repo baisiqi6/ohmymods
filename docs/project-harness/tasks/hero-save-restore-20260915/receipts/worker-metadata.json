@@ -1,0 +1,25 @@
+[
+  {
+    "type": "session",
+    "version": 3,
+    "id": "01a0a53b-33a5-768d-8a65-709040357ae5",
+    "timestamp": "2026-09-15T13:21:55.621Z",
+    "cwd": "C:\\Users\\ADMIN\\projects\\ohmymods"
+  },
+  {
+    "type": "model_change",
+    "id": "6151f3aa",
+    "parentId": null,
+    "timestamp": "2026-09-15T13:21:56.215Z",
+    "model": "deepseek/deepseek-v4-flash",
+    "resolvedModelIsFallback": false
+  },
+  {
+    "type": "thinking_level_change",
+    "id": "44d76e8f",
+    "parentId": "6151f3aa",
+    "timestamp": "2026-09-15T13:21:56.215Z",
+    "thinkingLevel": "max",
+    "configured": null
+  }
+]

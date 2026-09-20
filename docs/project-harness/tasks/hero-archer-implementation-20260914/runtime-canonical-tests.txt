@@ -1,0 +1,10 @@
+C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Stubs.cs(190,27): warning CS0649: 从未对字段“Archer._guardSlot”赋值，字段将一直保持其默认值 null [C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Tests.csproj]
+C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Stubs.cs(157,22): warning CS0649: 从未对字段“Mover.ActualSpeed”赋值，字段将一直保持其默认值 0 [C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Tests.csproj]
+C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Stubs.cs(151,22): warning CS0649: 从未对字段“Scanner.rangeBehind”赋值，字段将一直保持其默认值 0 [C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Tests.csproj]
+C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Stubs.cs(25,26): warning CS0649: 从未对字段“Transform.parent”赋值，字段将一直保持其默认值 null [C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Tests.csproj]
+C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Stubs.cs(188,21): warning CS0649: 从未对字段“Archer.harmless”赋值，字段将一直保持其默认值 false [C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Tests.csproj]
+C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Stubs.cs(202,23): warning CS0649: 从未对字段“Archer.ThrowOnShootRange”赋值，字段将一直保持其默认值 false [C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Tests.csproj]
+C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Stubs.cs(150,22): warning CS0649: 从未对字段“Scanner.range”赋值，字段将一直保持其默认值 0 [C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Tests.csproj]
+C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Stubs.cs(136,21): warning CS0649: 从未对字段“Character.grabbed”赋值，字段将一直保持其默认值 false [C:\Users\ADMIN\projects\ohmymods\tests\hero-archer\runtime\Tests.csproj]
+
+ALL WIRING TESTS PASSED (65 assertions)

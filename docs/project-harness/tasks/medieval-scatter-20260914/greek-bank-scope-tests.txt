@@ -1,0 +1,33 @@
+PASS greek scope active, disabled scope inactive
+PASS foreign biome inactive, unreadable biome unknown
+PASS local identity vs authority identity
+PASS stale layer banker is not the current banker
+PASS hide and emerge override only for the current greek banker
+PASS claim coins fail closed only in greek with unresolvable domain
+PASS outside wall claim patch passes through in foreign
+PASS greek primes once and native daily interest staged once
+PASS foreign banker never reads or writes the shared prefs
+PASS foreign banker never overwrites greek shared balance
+PASS scope exit suspends prime proof and reentry reprimes
+PASS world context change forces a reprime
+PASS instance id reuse cannot inherit the prime proof
+PASS unknown scope never primes
+PASS deposit commits in greek and is refused elsewhere
+PASS restock debit only in current greek authority
+PASS greek applies work profile and disable restores captured values
+PASS foreign world restores and never touches a foreign banker
+PASS unknown scope defers and keeps the restore receipt
+PASS external writes survive restoration
+PASS instance id reuse cannot inherit a work profile
+PASS failed restore setter keeps the receipt for retry
+PASS disable then re-enable reapplies the profile
+PASS greek dedupe destroys duplicate and its OnDestroy is skipped
+PASS real banker OnDestroy still runs
+PASS foreign world leaves native duplicates alive
+PASS stale layer banker cannot kill the new world banker
+PASS on destroy saves the owned tail delta in the same world
+PASS foreign tick releases orders without debit or teleport
+PASS summary text follows the world scope
+PASS finalize purchase is gated and debits only in greek
+PASS coordinator bind retries once the world is ready
+32 passed, 0 failed

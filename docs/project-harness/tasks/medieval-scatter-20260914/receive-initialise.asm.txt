@@ -1,0 +1,85 @@
+1804c93b0  push rbx
+1804c93b2  sub rsp, 0x20
+1804c93b6  cmp byte ptr [rip + 0x3af66ae], 0
+1804c93bd  mov rbx, rcx
+1804c93c0  jne 0x1804c93f9
+1804c93c2  lea rcx, [rip + 0x383fbf7]
+1804c93c9  call 0x1803de0c0
+1804c93ce  lea rcx, [rip + 0x3864a5b]
+1804c93d5  call 0x1803de0c0
+1804c93da  lea rcx, [rip + 0x38a759f]
+1804c93e1  call 0x1803de0c0
+1804c93e6  lea rcx, [rip + 0x3854c43]
+1804c93ed  call 0x1803de0c0
+1804c93f2  mov byte ptr [rip + 0x3af6672], 1
+1804c93f9  cmp byte ptr [rbx + 0x2e], 0
+1804c93fd  jne 0x1804c9457
+1804c93ff  mov qword ptr [rsp + 0x38], rdi
+1804c9404  mov rcx, qword ptr [rip + 0x383fbb5]
+1804c940b  cmp dword ptr [rcx + 0xe4], 0
+1804c9412  jne 0x1804c9419
+1804c9414  call 0x1803de400
+1804c9419  xor ecx, ecx
+1804c941b  call 0x18063d090
+1804c9420  movsx edi, ax
+1804c9423  cmp edi, 1
+1804c9426  jne 0x1804c945d
+1804c9428  mov rcx, qword ptr [rip + 0x383fb91]
+1804c942f  cmp dword ptr [rcx + 0xe4], 0
+1804c9436  jne 0x1804c943d
+1804c9438  call 0x1803de400
+1804c943d  xor ecx, ecx
+1804c943f  call 0x18063dfd0
+1804c9444  test al, al
+1804c9446  je 0x1804c9452
+1804c9448  xor edx, edx
+1804c944a  mov rcx, rbx
+1804c944d  call 0x1804c9320
+1804c9452  mov rdi, qword ptr [rsp + 0x38]
+1804c9457  add rsp, 0x20
+1804c945b  pop rbx
+1804c945c  ret 
+1804c945d  mov rcx, qword ptr [rip + 0x38a751c]
+1804c9464  mov edx, 1
+1804c9469  call 0x1803dd3d0
+1804c946e  mov rcx, qword ptr [rip + 0x3b14193]
+1804c9475  lea rdx, [rsp + 0x30]
+1804c947a  mov rbx, rax
+1804c947d  mov dword ptr [rsp + 0x30], edi
+1804c9481  call 0x1803dd350
+1804c9486  mov rdi, rax
+1804c9489  test rbx, rbx
+1804c948c  je 0x1804c94e3
+1804c948e  test rax, rax
+1804c9491  je 0x1804c94a7
+1804c9493  mov rdx, qword ptr [rbx]
+1804c9496  mov rcx, rax
+1804c9499  mov rdx, qword ptr [rdx + 0x40]
+1804c949d  call 0x1803dd370
+1804c94a2  test rax, rax
+1804c94a5  je 0x1804c94e9
+1804c94a7  cmp dword ptr [rbx + 0x18], 0
+1804c94ab  jbe 0x1804c94f9
+1804c94ad  mov qword ptr [rbx + 0x20], rdi
+1804c94b1  mov rcx, qword ptr [rip + 0x3864978]
+1804c94b8  cmp dword ptr [rcx + 0xe4], 0
+1804c94bf  jne 0x1804c94c6
+1804c94c1  call 0x1803de400
+1804c94c6  mov rcx, qword ptr [rip + 0x3854b63]
+1804c94cd  xor r8d, r8d
+1804c94d0  mov rdx, rbx
+1804c94d3  call 0x182c3be50
+1804c94d8  mov rdi, qword ptr [rsp + 0x38]
+1804c94dd  add rsp, 0x20
+1804c94e1  pop rbx
+1804c94e2  ret 
+1804c94e3  call 0x1803de370
+1804c94e8  int3 
+1804c94e9  call 0x1803ddc10
+1804c94ee  mov rcx, rax
+1804c94f1  xor edx, edx
+1804c94f3  call 0x1803de330
+1804c94f8  int3 
+1804c94f9  call 0x1803de360
+1804c94fe  int3 
+1804c94ff  int3 

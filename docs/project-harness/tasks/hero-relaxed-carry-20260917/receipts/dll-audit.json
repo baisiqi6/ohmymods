@@ -1,0 +1,26 @@
+{
+  "changedResources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png"
+  ],
+  "newHarmonyPatchTypes": [],
+  "removedMethods": [],
+  "actionAtlasVerified": true,
+  "version": "8.0.0.0",
+  "baselineSha256": "58362D475E0F8C51F4CE206CDFA3F978BBA5F84DDA73BA5C09EB806F5BA0102F",
+  "candidateSha256": "2C7FE54FCC319976E539EF55A464DAFF74AEF08E8CECE2B9473461B7BF6A0B48",
+  "unchangedMethods": 3563,
+  "removedHarmonyPatchTypes": [],
+  "changedMethods": [
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()"
+  ],
+  "addedMethods": [],
+  "unchangedResources": [
+    "KingdomEnhancedMod.ArtemisArrow.png",
+    "KingdomEnhancedMod.HeroShop.png",
+    "KingdomEnhancedMod.HeroShopSeats.png",
+    "KingdomEnhancedMod.MusketeerAtlas.png",
+    "KingdomEnhancedMod.MusketeerShop.png",
+    "KingdomEnhancedMod.MusketeerGun.png",
+    "KingdomEnhancedMod.MusketeerBullet.png"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "sources": [
+    "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\tests/../build/SamuraiRetreatSpeed.cs",
+    "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\tests/../build/PatchWorld_DefenseSpacing.cs",
+    "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\tests/../build/PatchWorld_FarmCats.cs"
+  ],
+  "before": [
+    "3E5CC530619ECD0B601B09B15399EE2241BC02B3AC91503398CB2C6D9689B14D",
+    "E981D90B67BD1190D6919A123DB015BBF82F96E8792461404BB4D322DCD5FF17",
+    "0A6C9435DAAC550CBA13939946FC401E5351ECB350EF4B398647B1E8CE2E8884"
+  ],
+  "after": [
+    "3E5CC530619ECD0B601B09B15399EE2241BC02B3AC91503398CB2C6D9689B14D",
+    "E981D90B67BD1190D6919A123DB015BBF82F96E8792461404BB4D322DCD5FF17",
+    "0A6C9435DAAC550CBA13939946FC401E5351ECB350EF4B398647B1E8CE2E8884"
+  ],
+  "results": [
+    {
+      "suite": "retreat",
+      "exit": 0,
+      "log": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\tests/partial-final-retreat.log"
+    },
+    {
+      "suite": "cats",
+      "exit": 0,
+      "log": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\fleet-retreat-cats-20260912\\tests/partial-final-cats.log"
+    }
+  ]
+}

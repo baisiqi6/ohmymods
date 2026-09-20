@@ -1,0 +1,1 @@
+Wiring OK: Tick -> HeroShopRetention.Decide, CanPurchase -> CanServe, playing read in Observe.

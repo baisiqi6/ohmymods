@@ -381,13 +381,14 @@ public static class PatchWorld_FleetBoatFormation
     {
         try
         {
-            // The rear row is written as Gap slots, so its per-step distance is the authored Gap
-            // spacing. A non-positive/non-finite value would collapse the row onto the rear unit:
-            // fail closed and keep the fleet-only layout instead.
-            float rowSpacing = profile.BaselineSpacing[(int)Formation.UnitTypes.Gap];
+            // A row slot's per-step distance is the Squire entry written below (one archer step),
+            // so the nearest musketeer is exactly one normal queue step from the bow line whatever
+            // the fleet block looks like. A non-positive/non-finite value would collapse the row
+            // onto the bow line: fail closed and keep the fleet-only layout instead.
+            float rowSpacing = profile.BaselineSpacing[(int)Formation.UnitTypes.Archer];
             bool rowUsable = musketeerRow && float.IsFinite(rowSpacing) && rowSpacing > 0f;
             if (musketeerRow && !rowUsable)
-                LogInfoOnce("row-spacing-unusable", "rear row skipped: Gap spacing is not usable");
+                LogInfoOnce("row-spacing-unusable", "rear row skipped: Archer spacing is not usable");
 
             if (!MusketeerFormationLayout.TryCompose(profile.BaselineTypes, count, rowUsable,
                     out Formation.UnitTypes[] plannedTypes, out int[] boatSlots,
@@ -405,12 +406,17 @@ public static class PatchWorld_FleetBoatFormation
                 spacing[i] = profile.BaselineSpacing[i];
             if (count >= 2)
                 spacing[(int)Formation.UnitTypes.FleetBoat] = MultiBoatSpacing;
+            // Row seats advertise Squire; that entry is the row step, so an occupied seat counts
+            // exactly one archer step (empty row seats count nothing — native compaction rule).
+            if (rowLength > 0)
+                spacing[(int)Formation.UnitTypes.Squire] = rowSpacing;
 
             profile.Formation.units = units;
             profile.Formation.unitTypes = types;
             profile.Formation.UnitSpacing = spacing;
-            // Shift the origin by exactly the new row's gap steps: every original unit keeps its
-            // old coordinate and the row sits behind the former rear line (see layout planner).
+            // Shift the origin by exactly the new row's steps: with a full row every archer-down
+            // slot keeps its old coordinate and the fleet block moves back by the row; an unfilled
+            // row compacts toward the fleet block (see layout planner).
             profile.Formation.startOffset = profile.BaselineStartOffset - rowLength * rowSpacing;
             profile.ReservedSlots = boatSlots;
             profile.MusketeerSlots = musketeerSlots;
@@ -466,8 +472,10 @@ public static class PatchWorld_FleetBoatFormation
         }
     }
 
-    // Fill from the front of the row (highest slot index) so occupied musketeers always line up
-    // adjacent to the archers and empty seats stay at the very rear of the formation.
+    // Fill from the bow side of the row (highest slot index) so occupied musketeers always line up
+    // adjacent to the archers and empty seats stay on the fleet side; an empty Squire row slot
+    // does not count in the native position accumulation, so an unfilled row compacts the bow line
+    // toward the fleet block by the missing steps instead of leaving a hole (see the planner).
     private static int NextFreeMusketeerSlot(FormationProfile profile)
     {
         try

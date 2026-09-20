@@ -1,0 +1,137 @@
+[
+  {
+    "method": "Boolean CanPurchase()",
+    "owner": "KingdomEnhancedMod.HeroShop",
+    "jit": "ok"
+  },
+  {
+    "method": "Void Create(Kingdom, UnityEngine.Transform)",
+    "owner": "KingdomEnhancedMod.HeroShop",
+    "jit": "ok"
+  },
+  {
+    "method": "Boolean HeaderMatches()",
+    "owner": "KingdomEnhancedMod.HeroShop",
+    "jit": "ok"
+  },
+  {
+    "method": "Boolean LoadArt()",
+    "owner": "KingdomEnhancedMod.HeroShop",
+    "jit": "ok"
+  },
+  {
+    "method": "Void Initialize()",
+    "owner": "KingdomEnhancedMod.HeroShopOwner",
+    "jit": "ok"
+  },
+  {
+    "method": "Il2CppSystem.Action\u00601[Player] get_OnPay()",
+    "owner": "KingdomEnhancedMod.HeroShopOwner",
+    "jit": "ok"
+  },
+  {
+    "method": "Boolean CanPay(Player)",
+    "owner": "KingdomEnhancedMod.HeroShopOwner",
+    "jit": "ok"
+  },
+  {
+    "method": "Boolean IsLocked(Player, LockReason ByRef)",
+    "owner": "KingdomEnhancedMod.HeroShopOwner",
+    "jit": "ok"
+  },
+  {
+    "method": "Il2CppSystem.Action\u00601[Player] get_OnPay()",
+    "owner": "IPayableComponentOwner",
+    "jit": "ok"
+  },
+  {
+    "method": "Boolean CanPay(Player)",
+    "owner": "IPayableComponentOwner",
+    "jit": "ok"
+  },
+  {
+    "method": "Boolean IsLocked(Player, LockReason ByRef)",
+    "owner": "IPayableComponentOwner",
+    "jit": "ok"
+  },
+  {
+    "method": "Boolean OverlapsAnyExclusions(Single, Single, Boolean)",
+    "owner": "PayableManager",
+    "jit": "ok"
+  },
+  {
+    "method": "Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray\u00601[Payable] get_AllPayables()",
+    "owner": "PayableManager",
+    "jit": "ok"
+  },
+  {
+    "method": "UnityEngine.Bounds get_bounds()",
+    "owner": "UnityEngine.Sprite",
+    "jit": "ok"
+  },
+  {
+    "method": "UnityEngine.Sprite Create(UnityEngine.Texture2D, UnityEngine.Rect, UnityEngine.Vector2, Single, UInt32, UnityEngine.SpriteMeshType, UnityEngine.Vector4, Boolean)",
+    "owner": "UnityEngine.Sprite",
+    "jit": "ok"
+  },
+  {
+    "method": "UnityEngine.Sprite Create(UnityEngine.Texture2D, UnityEngine.Rect, UnityEngine.Vector2, Single, UInt32, UnityEngine.SpriteMeshType, UnityEngine.Vector4, Boolean, Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray\u00601[UnityEngine.SecondarySpriteTexture])",
+    "owner": "UnityEngine.Sprite",
+    "jit": "ok"
+  },
+  {
+    "method": "UnityEngine.Sprite Create(UnityEngine.Texture2D, UnityEngine.Rect, UnityEngine.Vector2, Single, UInt32, UnityEngine.SpriteMeshType, UnityEngine.Vector4)",
+    "owner": "UnityEngine.Sprite",
+    "jit": "ok"
+  },
+  {
+    "method": "UnityEngine.Sprite Create(UnityEngine.Texture2D, UnityEngine.Rect, UnityEngine.Vector2, Single, UInt32, UnityEngine.SpriteMeshType)",
+    "owner": "UnityEngine.Sprite",
+    "jit": "ok"
+  },
+  {
+    "method": "UnityEngine.Sprite Create(UnityEngine.Texture2D, UnityEngine.Rect, UnityEngine.Vector2, Single, UInt32)",
+    "owner": "UnityEngine.Sprite",
+    "jit": "ok"
+  },
+  {
+    "method": "UnityEngine.Sprite Create(UnityEngine.Texture2D, UnityEngine.Rect, UnityEngine.Vector2, Single)",
+    "owner": "UnityEngine.Sprite",
+    "jit": "ok"
+  },
+  {
+    "method": "UnityEngine.Sprite Create(UnityEngine.Texture2D, UnityEngine.Rect, UnityEngine.Vector2)",
+    "owner": "UnityEngine.Sprite",
+    "jit": "ok"
+  },
+  {
+    "method": "UnityEngine.Sprite Create(UnityEngine.Rect, UnityEngine.Vector2, Single, UnityEngine.Texture2D)",
+    "owner": "UnityEngine.Sprite",
+    "jit": "ok"
+  },
+  {
+    "method": "UnityEngine.Sprite Create(UnityEngine.Rect, UnityEngine.Vector2, Single)",
+    "owner": "UnityEngine.Sprite",
+    "jit": "ok"
+  },
+  {
+    "method": "Boolean LoadImage(UnityEngine.Texture2D, Il2CppSystem.ReadOnlySpan\u00601[System.Byte], Boolean)",
+    "owner": "UnityEngine.ImageConversion",
+    "jit": "ok"
+  },
+  {
+    "method": "Boolean LoadImage(UnityEngine.Texture2D, Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray\u00601[System.Byte])",
+    "owner": "UnityEngine.ImageConversion",
+    "jit": "ok"
+  },
+  {
+    "method": "Boolean LoadImage(UnityEngine.Texture2D, Il2CppSystem.ReadOnlySpan\u00601[System.Byte])",
+    "owner": "UnityEngine.ImageConversion",
+    "jit": "ok"
+  },
+  {
+    "method": "Boolean LoadImage(UnityEngine.Texture2D, Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray\u00601[System.Byte], Boolean)",
+    "owner": "UnityEngine.ImageConversion",
+    "jit": "ok"
+  }
+]

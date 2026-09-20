@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "regressionCases": 24,
+  "existingCases": 17,
+  "newBatchCases": 7,
+  "buildWarnings": 0,
+  "buildErrors": 0,
+  "sweepTwentiethBoundaryVerified": true,
+  "nativeOtherWorldScopePreserved": true,
+  "actualGameValidated": false,
+  "operatorTestCorrections": ["missing False assertion label", "empty helper resumes original patrol instead of standing still", "explicit sweep-neighbour consumed and original target released once"],
+  "workerTestCorrection": "expiry assertion advanced beyond the actual 4.2 second deadline"
+}

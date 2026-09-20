@@ -1,0 +1,2 @@
+Audited 26 managed methods reachable from knight feature Unity calls against target interop.
+PASS: no reachable Method unstripping failed stubs; runtime rendering still requires in-game verification.

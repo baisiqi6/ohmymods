@@ -792,11 +792,13 @@ internal static partial class MusketeerShop
         if (pool.prefab.Pointer != tool.gameObject.Pointer) { reason = "同名弓具与对象池不匹配"; return false; }
         return true;
     }
+    // A claimed gun is physically on the rack until pickup and occupies its slot; only an
+    // unclaimed gun without a placed receipt is a real anomaly and keeps the shop locked.
     private static int RackCount()
     {
         if (!ReadRackItems()) return MusketeerShopRules.RackCapacity;
         foreach (var item in RackItems)
-            if (!item.Unclaimed || !RackLayout.IsPlaced(item)) return MusketeerShopRules.RackCapacity;
+            if (item.Unclaimed && !RackLayout.IsPlaced(item)) return MusketeerShopRules.RackCapacity;
         return RackItems.Count;
     }
 
@@ -939,8 +941,8 @@ internal static partial class MusketeerShop
                 if (gun._rigidbody != null) { gun._rigidbody.velocity = Vector2.zero; gun._rigidbody.angularVelocity = 0f; gun._rigidbody.isKinematic = true; }
                 spawnMs = watch.Elapsed.TotalMilliseconds - rackMs;
                 marked = MusketeerIdentity.TryRegisterPaidGun(gun, slot);
-                identityMs = watch.Elapsed.TotalMilliseconds - rackMs - spawnMs;
                 if (!marked) { reason = "职业记录暂不可写"; return false; }
+                _nextRackLayoutAt = 0f; // anchor the paid gun on the next maintenance tick: no 0.5s transient full-rack lock
                 reason = "";
                 created = true;
                 return true;

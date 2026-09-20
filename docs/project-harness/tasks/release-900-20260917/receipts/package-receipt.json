@@ -1,0 +1,25 @@
+{
+  "zip": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\release-900-20260917\\clean\\release\\KingdomEnhancedMod_v9.0.0_IL2CPP.zip",
+  "zipSha256": "43702cb6be45a8e7bb92b6b87747f265f2a18c881e2f14e8c59bf19acac1c6c2",
+  "zipBytes": 39785588,
+  "entries": 313,
+  "dllSha256": "641e79a938b16ee5a64962225f5bf36181a38760dd4931dd92383ad11756d7ed",
+  "dllBytes": 1208832,
+  "commit": "21f7ffa136d8c690993bca38c97e954c00c7fb10",
+  "version": "9.0.0",
+  "crc": "PASS",
+  "layoutAndAllowlist": "PASS",
+  "runtimeBaselineMatch": {
+    "version": "8.0.0",
+    "entries": 306,
+    "allHashesMatch": true
+  },
+  "manifest": {
+    "ModVersion": "9.0.0",
+    "GameCompatibility": "Kingdom Two Crowns 2.4.0 IL2CPP / BepInEx 6",
+    "GitCommit": "21f7ffa136d8c690993bca38c97e954c00c7fb10",
+    "DllSHA256": "641e79a938b16ee5a64962225f5bf36181a38760dd4931dd92383ad11756d7ed",
+    "DllSize": "1208832",
+    "GeneratedUtc": "2026-09-17T08:07:47.227870+00:00"
+  }
+}

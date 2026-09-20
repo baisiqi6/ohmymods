@@ -1,0 +1,30 @@
+{
+  "identity": [
+    "docs/project-harness/tasks/musketeer-20260916/identity-result.md",
+    "il2cpp/MusketeerArchive.cs",
+    "il2cpp/MusketeerIdentity.cs",
+    "il2cpp/MusketeerPersistence.cs",
+    "tests/musketeer-identity/Program.cs",
+    "tests/musketeer-identity/Stubs.cs",
+    "tests/musketeer-identity/Tests.csproj"
+  ],
+  "runtime": [
+    "C:/Users/ADMIN/projects/ohmymods/docs/project-harness/tasks/musketeer-20260916/runtime-result.md",
+    "C:/Users/ADMIN/projects/ohmymods/il2cpp/MusketeerAnimation.cs",
+    "C:/Users/ADMIN/projects/ohmymods/il2cpp/MusketeerCombat.cs",
+    "C:/Users/ADMIN/projects/ohmymods/il2cpp/MusketeerRuntime.cs",
+    "C:/Users/ADMIN/projects/ohmymods/il2cpp/MusketeerVisuals.cs",
+    "C:/Users/ADMIN/projects/ohmymods/tests/musketeer-runtime/AnimationTests.cs",
+    "C:/Users/ADMIN/projects/ohmymods/tests/musketeer-runtime/CombatTests.cs",
+    "C:/Users/ADMIN/projects/ohmymods/tests/musketeer-runtime/Fixture.cs",
+    "C:/Users/ADMIN/projects/ohmymods/tests/musketeer-runtime/Harness.cs",
+    "C:/Users/ADMIN/projects/ohmymods/tests/musketeer-runtime/MusketeerRuntimeTests.csproj",
+    "C:/Users/ADMIN/projects/ohmymods/tests/musketeer-runtime/NativeStubs.cs",
+    "C:/Users/ADMIN/projects/ohmymods/tests/musketeer-runtime/RuntimeTests.cs",
+    "C:/Users/ADMIN/projects/ohmymods/tests/musketeer-runtime/UnityStubs.cs",
+    "C:/Users/ADMIN/projects/ohmymods/tests/musketeer-runtime/VisualTests.cs",
+    "C:/Users/ADMIN/projects/ohmymods/tests/musketeer-runtime/WorldTests.cs",
+    "C:/Users/ADMIN/projects/ohmymods/tests/musketeer-runtime/interop-check/CollabStubs.cs",
+    "C:/Users/ADMIN/projects/ohmymods/tests/musketeer-runtime/interop-check/MusketeerInteropCheck.csproj"
+  ]
+}

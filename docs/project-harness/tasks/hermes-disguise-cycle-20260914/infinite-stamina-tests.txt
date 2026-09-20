@@ -1,0 +1,26 @@
+PASS hook discovery: 四个 patching site 的标注与钩子数量
+PASS off/排除条件：零接管零写入，原生照常扣减
+PASS 四个速率：只临时归零负值、原样归还，正值从不写入
+PASS Run 极端 delta：对照组会扣穿疲劳，开启后不枯竭不疲劳
+PASS Glide 极端 delta：对照组扣穿，开启后不枯竭
+PASS 已疲惫的坐骑：开启即恢复、冲刺不再被 IsTired 挡住
+PASS 步行/站立原生恢复路径不被改动
+PASS 关闭后：无干预、按现体力自然消耗、不回滚旧体力/旧疲劳
+PASS 中途换坐骑：不碰新坐骑，旧坐骑速率照还
+PASS 中途开关关闭/离开 world：不补满，但速率照还
+PASS 联机：客户端本机玩家生效、远端玩家不受影响、同机双人互不干扰
+PASS 原生异常：原样透传不吞，速率照还且随后自愈
+PASS 重入：内层看到已归零的速率不误接管，外层统一归还
+PASS 外部逻辑改写速率：CAS 保留他人写入，未被动过的照还
+PASS 技能 Activate：消耗照扣、CD/排程/消耗值保持
+PASS 滑翔 Activate：体力门槛不再挡住滑翔（独立实现不调 base）
+PASS 冲撞 OnPushedObjects：扣体力/加体力后都补满
+PASS 技能消耗发生在 UpdateActionState 内：Postfix 先补满，紧接的 Run 分支不疲劳
+PASS 技能入口的排除条件：零补满、原生消耗照常
+PASS 串线防护：远端/旧 player 的 _steed 误指本地坐骑时被拒
+PASS 中途失权：Postfix 不再补满，但借用的速率照还
+PASS prefix 写字段中途异常：已记凭据的字段归还、原生照常执行
+PASS Postfix 归还后外部把速率改 0：Finalizer 不再次覆盖
+PASS 技能入口 off→on：Prefix 未介入则 Postfix 不无端补满
+PASS 技能中途换 steed：只补前缀捕获的坐骑，不碰新 target
+RESULT: 25 passed, 0 failed; 254 assertions

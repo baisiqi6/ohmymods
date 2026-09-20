@@ -1,0 +1,36 @@
+{
+  "build": "9.4.5",
+  "unchangedEmbeddedResources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png",
+    "KingdomEnhancedMod.ArtemisArrow.png",
+    "KingdomEnhancedMod.HeroShop.png",
+    "KingdomEnhancedMod.HeroShopSeats.png",
+    "KingdomEnhancedMod.MusketeerAtlas.png",
+    "KingdomEnhancedMod.MusketeerShop.png",
+    "KingdomEnhancedMod.MusketeerGun.png",
+    "KingdomEnhancedMod.MusketeerBullet.png"
+  ],
+  "unchangedMethods": 3725,
+  "behaviorEquivalent": true,
+  "dllSha256": "0F8C1FC885ACFE0FFB3144849482EADE2D28188E8289EBFC4518699FACD4499E",
+  "instructionChanges": [
+    {
+      "after": "IL_000f: ldc.i4.s 32",
+      "before": "IL_000f: ldc.i4.s 63"
+    },
+    {
+      "after": "IL_0042: ldstr \"9.4.5\"",
+      "before": "IL_0042: ldstr \"9.0.0\""
+    },
+    {
+      "after": "IL_004e: ldstr \" build=9.4.5 loading...\"",
+      "before": "IL_004e: ldstr \" build=9.0.0-musketeer-banner-deer-20260917 loading...\""
+    }
+  ],
+  "assemblyVersion": "9.4.5.0",
+  "changedMethods": [
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()"
+  ],
+  "baselineSha": "E9D4971E62E48F19BCF3251EC61C2D4D756549883AA0A92FDA93E03FF7607FA1",
+  "version": "9.4.5"
+}

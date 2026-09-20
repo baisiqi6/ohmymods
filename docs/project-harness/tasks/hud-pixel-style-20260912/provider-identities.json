@@ -1,0 +1,42 @@
+[
+  {
+    "role": "hud-worker",
+    "session": "sess_641252c4-1045-4af9-badc-1e3af7dd3ffb",
+    "nativeLocator": "C:\\Users\\ADMIN\\.zcode\\cli\\rollout\\model-io-sess_641252c4-1045-4af9-badc-1e3af7dd3ffb.jsonl",
+    "actualResponseModels": [
+      "UNVERIFIED: native file no longer retained"
+    ],
+    "requested": "GLM-5.3 max",
+    "maxVariant": "unverified"
+  },
+  {
+    "role": "hud-review",
+    "session": "sess_30153c11-9191-4fb1-95e2-2dcfcb3aadc0",
+    "nativeLocator": "C:\\Users\\ADMIN\\.zcode\\cli\\rollout\\model-io-sess_30153c11-9191-4fb1-95e2-2dcfcb3aadc0.jsonl",
+    "actualResponseModels": [
+      "GLM-5.3"
+    ],
+    "requested": "GLM-5.3 max",
+    "maxVariant": "unverified"
+  },
+  {
+    "role": "tower-worker",
+    "session": "sess_4b6e690c-2d9b-4b71-89e4-5bb0aa99e03b",
+    "nativeLocator": "C:\\Users\\ADMIN\\.zcode\\cli\\rollout\\model-io-sess_4b6e690c-2d9b-4b71-89e4-5bb0aa99e03b.jsonl",
+    "actualResponseModels": [
+      "GLM-5.3"
+    ],
+    "requested": "GLM-5.3 max",
+    "maxVariant": "unverified"
+  },
+  {
+    "role": "tower-review",
+    "session": "sess_f98a9d6e-7b19-450d-9bfa-ad5c871cee5e",
+    "nativeLocator": "C:\\Users\\ADMIN\\.zcode\\cli\\rollout\\model-io-sess_f98a9d6e-7b19-450d-9bfa-ad5c871cee5e.jsonl",
+    "actualResponseModels": [
+      "GLM-5.3"
+    ],
+    "requested": "GLM-5.3 max",
+    "maxVariant": "unverified"
+  }
+]

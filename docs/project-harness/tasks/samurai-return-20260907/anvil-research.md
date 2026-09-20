@@ -1,0 +1,10 @@
+# Hephaestus research for later Greek-knight design
+
+User identified a ranged ally-buff anvil artifact. It is Hephaestus Hammer; the ability spawns HephaestusAnvil on the world-authority host. The native-reference anvil scansCitizens every0.1s forSquire/Knight/Archer/Pikeman/Catapult tags and calls Buffable.ActivateBuff(_buffData). Ordinary workers are not in this tag set. FireAttacks activates knight delayed fire damage and archer fire-arrow attack. FireAttacks and AttackCooldownReduction are distinct buff enums; do not promise doubled attack speed from the anvil without asset evidence.
+
+Official Steam description confirms the hammer strengthens troops: https://store.steampowered.com/app/2736340/Kingdom_Two_Crowns_Call_of_Olympus/
+Wiki describes fire enchantment and lists25s/60s, which were not verified against this installation's prefab values: https://kingdomthegame.fandom.com/wiki/Hephaestus%27_hammer
+
+Actual2.4 interop independently checked read-only by dispose_native_audit: HephaestusAnvil.BuffCitizens(float),_buffData/_range; Buffable.ActivateBuff/DeactivateBuff/IsBuffActive/_applicableBuffs; Knight/Archer/Worker buff receiver fields/methods accessible. The implementation reference is2.1 source and can differ in native2.4. Range, anvil lifetime, BuffData.EffectDuration/ID/applicable list are asset fields not inspected. Do not confuse API existence with actual runtime prefab value validation.
+
+Potential reuse should call target.Buffable.ActivateBuff(originalBuffData), preserving applicability, timed refresh/expiry and original receiver RPC. DirectKnight.ActivateBuff bypasses timer management. BuffDataStorage resolves IDs fromResources/Data/BuffData on receivers; reuse valid original assets, do not invent IDs. No Greek ability design approved or implemented in this task; wait for user's intended mechanics.

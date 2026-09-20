@@ -1,0 +1,37 @@
+PASS Native arguments/result/exception are unmodified
+PASS Available postfix executes Priority.Last
+PASS Accepted predicates, range and nearest reflect actual callbacks
+PASS Out-of-range only candidates still report nearest eligible
+PASS Exact native maxRange boundary is excluded
+PASS Reject categories overlap and effective reserve is observable
+PASS Different job pointer does not contaminate sample
+PASS Native count increase is read without assignment
+PASS Unsampled nested Fetch suppresses parent and restores it
+PASS Nested exception cleanup restores parent context
+PASS Unsampled root restores null context after nested calls
+PASS Repeated completion with cleared Harmony state emits no duplicate
+PASS Global three-second and per-style thirty-second sampling gates
+PASS Global process cap stops all new sample work at thirty
+PASS Eligibility guard disabled
+PASS Eligibility guard client
+PASS Eligibility guard paused
+PASS Eligibility guard unknown-style
+PASS Eligibility guard invalid-style
+PASS Eligibility guard inactive
+PASS Eligibility guard zero-request
+PASS Disabled archer shares global three-second budget with Fetch
+PASS Disabled event cap is the same thirty-line process cap
+PASS Paused or unassigned disable events are silent
+PASS Diagnostic errors stay bounded and do not affect native execution
+PASS Diagnostic failure in exception completion still releases active context
+PASS Error diagnostic and pending completion cannot exceed shared thirty-line cap
+PASS Validator is reported without invoking it or claiming exact effective reserve
+PASS Large native predicate stream stops extra reads after 256
+PASS Native wrapper pointer error in candidate does not escape
+PASS Logger failure still clears sampled context
+PASS Roster reports native occupancy versus actual living owned followers
+PASS Roster has a 120-second interval and five-attempt lifetime cap
+PASS Roster respects pause, client and disabled gates
+PASS Roster caps supplied arrays at 64 knights and 1024 archers
+PASS Roster warning logger failure cannot abort caller
+RESULT 36 passed, 0 failed

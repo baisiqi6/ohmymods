@@ -1,0 +1,13 @@
+{
+  "old": "C6B71AA694980B2958B87E768C469E75D030F5F55C2616A407E9EE36F342674F",
+  "candidate": "7D3D2926FCC3E5EADA491771617F737C2C246899CED181A741B9E8EDCDCC5E7E",
+  "unchanged": 2281,
+  "expectedChanged": [
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "System.Void KingdomEnhancedMod.ModPanel::DrawControls(System.Single)",
+    "System.Boolean KingdomEnhancedMod.PatchDivine_FriendlyTroll::IsPursuitTarget(KingdomEnhancedMod.PatchDivine_FriendlyTroll/FriendlyEntry,Troll)",
+    "System.Int32 KingdomEnhancedMod.PatchDivine_HermesHeadwear::RollChoice()",
+    "System.Void KingdomEnhancedMod.ModConfig::Init(BepInEx.Configuration.ConfigFile)",
+    "System.Void KingdomEnhancedMod.PatchDivine_FriendlyTroll/PriorityTargetPatch::Prefix(TargetCacher,System.Single,System.Single,TargetCacher/SearchConditionDelegate,TargetCacher/SearchConditionDelegate,KingdomEnhancedMod.PatchDivine_FriendlyTroll/TargetInjectionState&)"
+  ]
+}

@@ -14,8 +14,9 @@
 
   <!-- Compile-only gate: il2cpp/Patch_MusketeerFormation.cs plus the fleet-side interop probe must
        build against the real 2.4 interop assemblies. Proves the members this slice depends on:
-       Formation.UnitTypes (Gap/Archer/AnyShieldedUnit/FleetBoat), Formation.startOffset/unitTypes/
-       units read+write, Archer.TryRecruit(Formation) as a Harmony patch target, the Archer fields
+       Formation.UnitTypes (Gap/Archer/Squire/AnyShieldedUnit/FleetBoat), Formation.startOffset/
+       unitTypes/units/UnitSpacing read+write, Archer.TryRecruit(Formation) as a Harmony patch
+       target, the Archer fields
        (_knight/_guardSlot/embarkee/character/damageable/harmless/GetFormation/ShouldPlayerControl)
        and GameObject/Transform/Mathf usage. Mod-owned collaborators are stubbed in CollabStubs.cs. -->
   <ItemGroup>

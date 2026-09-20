@@ -1,0 +1,77 @@
+{
+  "stats": [
+    {
+      "type": "session",
+      "version": 3,
+      "id": "01a0a508-5888-7011-bd62-3dbacb68f98b",
+      "timestamp": "2026-09-15T12:26:22.728Z",
+      "cwd": "C:\\Users\\ADMIN\\projects\\ohmymods"
+    },
+    {
+      "type": "model_change",
+      "id": "e69e01ec",
+      "parentId": null,
+      "timestamp": "2026-09-15T12:26:23.274Z",
+      "model": "deepseek/deepseek-v4-flash",
+      "resolvedModelIsFallback": false
+    },
+    {
+      "type": "thinking_level_change",
+      "id": "5c800e46",
+      "parentId": "e69e01ec",
+      "timestamp": "2026-09-15T12:26:23.274Z",
+      "thinkingLevel": "max",
+      "configured": null
+    }
+  ],
+  "visual": [
+    {
+      "type": "session",
+      "version": 3,
+      "id": "01a0a508-593c-7695-9393-59106f7b722d",
+      "timestamp": "2026-09-15T12:26:22.908Z",
+      "cwd": "C:\\Users\\ADMIN\\projects\\ohmymods"
+    },
+    {
+      "type": "model_change",
+      "id": "654c16fa",
+      "parentId": null,
+      "timestamp": "2026-09-15T12:26:23.448Z",
+      "model": "deepseek/deepseek-v4-flash",
+      "resolvedModelIsFallback": false
+    },
+    {
+      "type": "thinking_level_change",
+      "id": "17c63fc7",
+      "parentId": "654c16fa",
+      "timestamp": "2026-09-15T12:26:23.449Z",
+      "thinkingLevel": "max",
+      "configured": null
+    }
+  ],
+  "guard": [
+    {
+      "type": "session",
+      "version": 3,
+      "id": "01a0a510-62b0-7363-9915-b6c6693aa6e3",
+      "timestamp": "2026-09-15T12:35:09.616Z",
+      "cwd": "C:\\Users\\ADMIN\\projects\\ohmymods"
+    },
+    {
+      "type": "model_change",
+      "id": "dd8f7d41",
+      "parentId": null,
+      "timestamp": "2026-09-15T12:35:10.210Z",
+      "model": "deepseek/deepseek-v4-flash",
+      "resolvedModelIsFallback": false
+    },
+    {
+      "type": "thinking_level_change",
+      "id": "df360414",
+      "parentId": "dd8f7d41",
+      "timestamp": "2026-09-15T12:35:10.210Z",
+      "thinkingLevel": "max",
+      "configured": null
+    }
+  ]
+}

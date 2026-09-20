@@ -1,0 +1,348 @@
+--- before/PatchEconomy_BankAssistants.cs
++++ after/PatchEconomy_BankAssistants.cs
+@@ -459,6 +459,7 @@
+         public bool Moving;
+         public bool PatrolRight;
+         public float PatrolResumeAt;
++        public bool RestockReserved;
+ 
+         public AssistantState(int index) { Index = index; }
+     }
+@@ -496,6 +497,7 @@
+     // AssignNextTarget 单次尝试内已试过的候选币 id（认领失败退让次近候选用）。
+     private static readonly HashSet<int> TriedThisChain = new();
+     private static int _nextCollectorIndex;
++    private static int _nextRestockAssistant;
+     // 顺吸认领会同时占据多枚币，各自原始拾取策略必须按币记录，不能用单槽
+     // OriginalPolicy 覆盖（否则回滚会把错误策略还原到别的币上）。
+     private static readonly Dictionary<int, PickUpPolicy> SweepPolicies = new();
+@@ -540,6 +542,86 @@
+         {
+             return -1;
+         }
++    }
++
++    private static bool RestockContextReady(out Transform layer)
++    {
++        layer = null;
++        if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth || Time.timeScale <= 0f
++            || _instance == null || _mainBanker == null) return false;
++        var m = Managers.Inst;
++        if (m == null || m.game == null || m.game.state != Game.State.Playing
++            || m.world == null || m.kingdom == null || m.kingdom.banker == null
++            || m.kingdom.banker.Pointer != _mainBanker.Pointer) return false;
++        layer = m.world.gameLayer;
++        return layer != null && layer.gameObject != null && layer.gameObject.activeInHierarchy;
++    }
++
++    internal static bool RestockReservationValid(int index, GameObject actor)
++    {
++        if (index < 0 || index >= Assistants.Length || !RestockContextReady(out var layer)) return false;
++        var helper = Assistants[index];
++        return helper.RestockReserved && actor != null && helper.Actor != null
++            && actor.Pointer == helper.Actor.Pointer && actor.activeInHierarchy
++            && actor.scene.handle == layer.gameObject.scene.handle && actor.transform.IsChildOf(layer)
++            && helper.Target == null && !ActiveCollector[index]
++            && (!NetworkBigBoss.IsOnline || (NetworkBigBoss.HasClientCaughtUp
++                && helper.PositionSync != null && helper.PositionSync.parentHeaderRef != null));
++    }
++
++    internal static bool TryReserveForRestock(out int index, out GameObject actor)
++    {
++        index = -1; actor = null;
++        if (!RestockContextReady(out var layer)) return false;
++        int reserved = 0;
++        foreach (var helper in Assistants) if (helper.RestockReserved) reserved++;
++        if (reserved >= 2) return false;
++        for (int pass = 0; pass < 2; pass++)
++        for (int offset = 0; offset < Assistants.Length; offset++)
++        {
++            int i = (_nextRestockAssistant + offset) % Assistants.Length;
++            var helper = Assistants[i];
++            var candidate = helper.Actor;
++            if (helper.RestockReserved || candidate == null || !candidate.activeInHierarchy
++                || candidate.scene.handle != layer.gameObject.scene.handle || !candidate.transform.IsChildOf(layer)
++                || (NetworkBigBoss.IsOnline && (!NetworkBigBoss.HasClientCaughtUp
++                    || helper.PositionSync == null || helper.PositionSync.parentHeaderRef == null))) continue;
++            if (pass == 0 && (ActiveCollector[i] || helper.Target != null)) continue;
++            if (helper.Target != null) ReleaseTarget(helper);
++            if (helper.CarriedCoins > 0 || helper.UncreditedCoins > 0) TeleportHomeAndDeposit(helper);
++            if (helper.UncreditedCoins != 0 || helper.CarriedCoins != 0 || helper.Target != null) continue;
++            if (!RestockContextReady(out var currentLayer) || currentLayer.Pointer != layer.Pointer
++                || helper.Actor == null || helper.Actor.Pointer != candidate.Pointer || !candidate.activeInHierarchy) return false;
++            ActiveCollector[i] = false;
++            helper.Moving = false;
++            SetAnimationSpeed(helper, 0f);
++            helper.RestockReserved = true;
++            index = i; actor = candidate; _nextRestockAssistant = (i + 1) % Assistants.Length;
++            return true;
++        }
++        return false;
++    }
++
++    internal static bool PlaceRestockAssistant(int index, GameObject actor, Vector3 position, float faceX)
++    {
++        if (!RestockReservationValid(index, actor) || !float.IsFinite(position.x)
++            || !float.IsFinite(position.y) || !float.IsFinite(position.z) || !float.IsFinite(faceX)) return false;
++        var helper = Assistants[index];
++        actor.transform.position = position;
++        FaceTowards(actor.transform, faceX);
++        SetAnimationSpeed(helper, 0f);
++        SendFullPosition(helper);
++        return RestockReservationValid(index, actor);
++    }
++
++    internal static void ReleaseRestockAssistant(int index, GameObject actor, bool returnHome)
++    {
++        if (index < 0 || index >= Assistants.Length || actor == null) return;
++        var helper = Assistants[index];
++        if (helper.Actor == null || helper.Actor.Pointer != actor.Pointer || !helper.RestockReserved) return;
++        bool canReturn = returnHome && RestockReservationValid(index, actor);
++        helper.RestockReserved = false;
++        if (canReturn) TeleportHomeAndDeposit(helper);
+     }
+ 
+     public static void AttachTo(Banker banker)
+@@ -604,6 +686,7 @@
+         if (poolManager == null || managers.world == null || managers.kingdom == null) return;
+ 
+         EnsureFourActors(managers.world.gameLayer);
++        PatchEconomy_AutoRestock.Tick(_mainBanker, managers, Time.time >= _nextScanAt);
+ 
+         if (Time.time >= _nextScanAt)
+         {
+@@ -633,6 +716,7 @@
+         {
+             AssistantState helper = Assistants[i];
+             if (helper.Actor != null && helper.Actor.activeInHierarchy) continue;
++            helper.RestockReserved = false;
+             if (helper.Target != null) ReleaseTarget(helper);
+             ActiveCollector[i] = false;
+             if (existingActors == null) existingActors = UnityEngine.Object.FindObjectsOfType<PositionSync>();
+@@ -971,7 +1055,7 @@
+         {
+             int index = (start + offset) % Assistants.Length;
+             AssistantState helper = Assistants[index];
+-            if (ActiveCollector[index] || helper.Actor == null
++            if (helper.RestockReserved || ActiveCollector[index] || helper.Actor == null
+                 || !helper.Actor.activeInHierarchy || helper.CarriedCoins >= capacity) continue;
+ 
+             ActiveCollector[index] = true;
+@@ -994,7 +1078,7 @@
+ 
+     private static bool TryAssign(AssistantState helper, DroppableCurrency coin)
+     {
+-        if (helper.Actor == null || coin == null) return false;
++        if (helper.RestockReserved || helper.Actor == null || coin == null) return false;
+         if (NetworkBigBoss.IsOnline
+             && (!NetworkBigBoss.HasClientCaughtUp || helper.PositionSync == null
+                 || helper.PositionSync.parentHeaderRef == null
+@@ -1109,6 +1193,7 @@
+     // 回家清账。成功路径 Moving/动画速度全程保持奔跑，无停顿帧。
+     private static bool TryChainNextTarget(AssistantState helper)
+     {
++        if (helper.RestockReserved) return false;
+         if (helper.CarriedCoins >= GetAssistantCapacity())
+         {
+             TeleportHomeAndDeposit(helper);
+@@ -1137,7 +1222,7 @@
+         for (int i = 0; i < Assistants.Length; i++)
+         {
+             AssistantState helper = Assistants[i];
+-            if (helper.Actor == null || helper.Target == null) continue;
++            if (helper.RestockReserved || helper.Actor == null || helper.Target == null) continue;
+             if (!IsValidOwnedTarget(helper))
+             {
+                 ReleaseTarget(helper);
+@@ -1267,7 +1352,7 @@
+ 
+     private static bool TryClaimSweepCoin(AssistantState helper, DroppableCurrency coin)
+     {
+-        if (helper.Actor == null || coin == null) return false;
++        if (helper.RestockReserved || helper.Actor == null || coin == null) return false;
+         if (NetworkBigBoss.IsOnline
+             && (!NetworkBigBoss.HasClientCaughtUp || helper.PositionSync == null
+                 || helper.PositionSync.parentHeaderRef == null
+@@ -1310,7 +1395,7 @@
+         for (int i = 0; i < Assistants.Length; i++)
+         {
+             AssistantState helper = Assistants[i];
+-            if (ActiveCollector[i] || helper.Target != null || helper.Actor == null
++            if (helper.RestockReserved || ActiveCollector[i] || helper.Target != null || helper.Actor == null
+                 || !helper.Actor.activeInHierarchy) continue;
+ 
+             float center = Mathf.Clamp(kingdom.campfirePosition + HomeOffsets[i],
+@@ -1513,6 +1598,9 @@
+ 
+     private static void ResetAll(bool releaseClaims, bool destroyActors, bool syncDespawn = false)
+     {
++        PatchEconomy_AutoRestock.Reset(false);
++        AutoRestockCounts.Reset();
++        foreach (var helper in Assistants) helper.RestockReserved = false;
+         for (int i = 0; i < Assistants.Length; i++)
+         {
+             AssistantState helper = Assistants[i];
+--- before/PatchEconomy_Banker.cs
++++ after/PatchEconomy_Banker.cs
+@@ -389,6 +389,51 @@
+         return accepted;
+     }
+ 
++    /// <summary>One synchronous procurement debit; native shop PerformPay records CoinsSpent.</summary>
++    internal static bool TrySpendForAutoRestock(Banker banker, int amount)
++    {
++        if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth || Time.timeScale <= 0f
++            || banker == null || amount <= 0 || amount > 100) return false;
++        var managers = Managers.Inst;
++        var kingdom = managers != null ? managers.kingdom : null;
++        if (managers == null || managers.game == null || managers.game.state != Game.State.Playing
++            || kingdom == null || kingdom.banker == null || kingdom.banker.Pointer != banker.Pointer
++            || !TryPrimeSharedLedger(banker)) return false;
++        int current = banker._stashedCoins;
++        if (current < amount) return false;
++        int updated = current - amount;
++        try
++        {
++            banker._stashedCoins = updated; // commit; no fallible presentation work until after this block
++            _sharedStash = updated;
++            _lastObservedStash = updated;
++        }
++        catch (Exception e)
++        {
++            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[AutoRestock] treasury debit failed: " + e);
++            return false;
++        }
++        try
++        {
++            PlayerPrefs.SetInt(SHARED_STASH_KEY, updated);
++            _sharedLedgerDirty = true;
++        }
++        catch (Exception e)
++        {
++            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[AutoRestock] debit committed; ledger staging failed: " + e);
++        }
++        try
++        {
++            if (kingdom.castle != null) kingdom.castle.SetStash(updated);
++            if (managers.stats != null) managers.stats.SetStat(Stat.CoinsInBank, updated, false);
++        }
++        catch (Exception e)
++        {
++            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[AutoRestock] debit committed; display refresh failed: " + e);
++        }
++        return true;
++    }
++
+     // IEnumerator 完成时点不靠 Harmony postfix 猜测。FinaliseEmerge/DayStart 只做可靠
+     // priming；之后由 Update 在真实 _stashedCoins 变化后同步存入/提款结果。
+     [HarmonyPatch(typeof(Banker), nameof(Banker.FinaliseEmerge))]
+--- before/ModPanel.cs
++++ after/ModPanel.cs
+@@ -14,7 +14,7 @@
+     private static Texture2D _back, _cardBack, _gold, _track, _thumb;
+     private static Vector2 _scroll;
+     private static int _category;
+-    private static readonly string[] Categories = { "王国", "人口", "世界", "战斗" };
++    private static readonly string[] Categories = { "王国", "人口", "世界", "战斗", "自动补货" };
+     private static readonly Color Gold = new Color(0.91f, 0.75f, 0.43f);
+     private static readonly Color Text = new Color(0.94f, 0.94f, 0.91f);
+     private static readonly Color Muted = new Color(0.65f, 0.71f, 0.77f);
+@@ -199,7 +199,7 @@
+             stashed < 0 ? "银行 · 未就绪" : "银行 · " + stashed + " 币", _value);
+         if (GUI.Button(new Rect(width - 84, 27, 58, 44), "关闭", _button)) _shown = false;
+ 
+-        float tabWidth = (width - 72f) / 4f;
++        float tabWidth = (width - 48f - 8f * (Categories.Length - 1)) / Categories.Length;
+         for (int i = 0; i < Categories.Length; i++)
+         {
+             if (GUI.Button(new Rect(24 + i * (tabWidth + 8), 110, tabWidth, 46),
+@@ -211,7 +211,7 @@
+         }
+ 
+         float viewHeight = height - 224f;
+-        int cards = _category == 0 || _category == 3 ? 4 : (_category == 2 ? 3 : 2);
++        int cards = _category == 0 || _category == 3 || _category == 4 ? 4 : (_category == 2 ? 3 : 2);
+         float contentHeight = cards * (CardHeight + 12f);
+         Rect viewport = new Rect(24, 176, width - 48, viewHeight);
+         Rect content = new Rect(0, 0, width - 74, Mathf.Max(viewHeight, contentHeight));
+@@ -257,7 +257,37 @@
+                 FloatSlider(ref y, width, "坐骑技能冷却", ModConfig.SteedCooldownMultiplier, 0.2f, 1, true,
+                     "使用时生效 · 原生冷却因坐骑而异。");
+                 break;
+-        }
++            case 4:
++                RestockControl(ref y, width, "工匠", 0, ModConfig.AutoRestockWorkersEnabled, ModConfig.AutoRestockWorkersTarget);
++                RestockControl(ref y, width, "弓箭手", 1, ModConfig.AutoRestockArchersEnabled, ModConfig.AutoRestockArchersTarget);
++                RestockControl(ref y, width, "忍者", 2, ModConfig.AutoRestockNinjasEnabled, ModConfig.AutoRestockNinjasTarget);
++                RestockControl(ref y, width, "狂战士", 3, ModConfig.AutoRestockBerserkersEnabled, ModConfig.AutoRestockBerserkersTarget);
++                break;
++        }
++    }
++
++    private static void RestockControl(ref float y, float width, string title, int role,
++        ConfigEntry<bool> enabled, ConfigEntry<int> target)
++    {
++        Card(y, width, title + "自动补货", "目标 " + target.Value + " 人",
++            "金库付款 · " + PatchEconomy_AutoRestock.GetSummary(role));
++        if (GUI.Button(new Rect(22, y + 51, 104, 31), enabled.Value ? "已开启" : "已关闭",
++                enabled.Value ? _activeTab : _button)) enabled.Value = !enabled.Value;
++        if (GUI.Button(new Rect(138, y + 51, 34, 31), "−", _button)) target.Value = Math.Max(1, target.Value - 1);
++        if (GUI.Button(new Rect(width - 52, y + 51, 34, 31), "+", _button)) target.Value = Math.Min(200, target.Value + 1);
++        EventType eventType = Event.current.type;
++        bool input = eventType == EventType.MouseDown || eventType == EventType.MouseDrag || eventType == EventType.KeyDown;
++        bool previousChanged = GUI.changed;
++        GUI.changed = false;
++        float raw = GUI.HorizontalSlider(new Rect(188, y + 59, width - 258, 28), target.Value, 1, 200);
++        bool interacted = input && GUI.changed;
++        GUI.changed |= previousChanged;
++        if (interacted)
++        {
++            int value = Mathf.Clamp(Mathf.RoundToInt(raw), 1, 200);
++            if (value != target.Value) target.Value = value;
++        }
++        y += CardHeight + 12;
+     }
+ 
+     private static void Card(float y, float width, string title, string value, string help)
+--- before/ModConfig.cs
++++ after/ModConfig.cs
+@@ -25,6 +25,10 @@
+     public static ConfigEntry<float> EnemyTimelineSpeed;
+     public static ConfigEntry<float> StaffCooldownMultiplier;
+     public static ConfigEntry<float> SteedCooldownMultiplier;
++    public static ConfigEntry<bool> AutoRestockWorkersEnabled, AutoRestockArchersEnabled,
++        AutoRestockNinjasEnabled, AutoRestockBerserkersEnabled;
++    public static ConfigEntry<int> AutoRestockWorkersTarget, AutoRestockArchersTarget,
++        AutoRestockNinjasTarget, AutoRestockBerserkersTarget;
+ 
+     public static void Init(ConfigFile config)
+     {
+@@ -33,6 +37,17 @@
+ 
+         InfiniteMoney = config.Bind("Economy", "InfiniteMoney", false,
+             "无限金币：开启后玩家金币用不完");
++
++        AutoRestockWorkersEnabled = config.Bind("AutoRestock", "WorkersEnabled", false, "税收官从金库自动购买工匠锤子");
++        AutoRestockArchersEnabled = config.Bind("AutoRestock", "ArchersEnabled", false, "税收官从金库自动购买弓箭手道具");
++        AutoRestockNinjasEnabled = config.Bind("AutoRestock", "NinjasEnabled", false, "税收官从金库自动购买忍者道具");
++        AutoRestockBerserkersEnabled = config.Bind("AutoRestock", "BerserkersEnabled", false, "税收官从金库自动购买狂战士药水");
++        var targetDescription = new ConfigDescription("职业目标：现有人数与店内待领道具合计，店满等待；只在白天从金库按原价采购",
++            new AcceptableValueRange<int>(1, 200));
++        AutoRestockWorkersTarget = config.Bind("AutoRestock", "WorkersTarget", 15, targetDescription);
++        AutoRestockArchersTarget = config.Bind("AutoRestock", "ArchersTarget", 15, targetDescription);
++        AutoRestockNinjasTarget = config.Bind("AutoRestock", "NinjasTarget", 15, targetDescription);
++        AutoRestockBerserkersTarget = config.Bind("AutoRestock", "BerserkersTarget", 15, targetDescription);
+ 
+         SpeedMultiplier = config.Bind("Player", "SpeedMultiplier", 2,
+             "君主移动速度倍率（1-5x）");
+--- before/KingdomEnhancedPlugin.cs
++++ after/KingdomEnhancedPlugin.cs
+@@ -50,7 +50,7 @@
+         {
+             Instance = this;
+             // 手动构建戳：日志里区分不同部署（改完记得更新）
+-            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=5.0.0-combat-home-towers-20260912 loading...");
++            LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=5.0.0-auto-restock-20260912 loading...");
+ 
+             // 配置（BepInConfig，替代 UMM Settings）
+             ModConfig.Init(Config);

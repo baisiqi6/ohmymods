@@ -1,0 +1,1289 @@
+[
+  {
+    "name": "Wall3",
+    "order": 0,
+    "chain": [
+      [
+        "Wall3",
+        [
+          0.0,
+          0.0,
+          0.10000000149011612
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Troll",
+    "order": 0,
+    "chain": [
+      [
+        "Troll",
+        [
+          0.0,
+          0.875,
+          0.6800000071525574
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse-Outline"
+  },
+  {
+    "name": "Worker",
+    "order": 0,
+    "chain": [
+      [
+        "Worker",
+        [
+          0.0,
+          0.875,
+          0.5
+        ]
+      ]
+    ],
+    "material": "Pow-Recolor"
+  },
+  {
+    "name": "Wall4_greece",
+    "order": 0,
+    "chain": [
+      [
+        "Wall4_greece",
+        [
+          0.0,
+          0.0,
+          0.10000000149011612
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Arrow",
+    "order": 0,
+    "chain": [
+      [
+        "Arrow",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Troll_friendly",
+    "order": 0,
+    "chain": [
+      [
+        "Troll_friendly",
+        [
+          0.0,
+          0.875,
+          0.6700000166893005
+        ]
+      ]
+    ],
+    "material": "Pow-TrollFriendly"
+  },
+  {
+    "name": "Archer",
+    "order": 0,
+    "chain": [
+      [
+        "Archer",
+        [
+          0.0,
+          0.875,
+          0.75
+        ]
+      ]
+    ],
+    "material": "Pow-Recolor"
+  },
+  {
+    "name": "Peasant",
+    "order": 0,
+    "chain": [
+      [
+        "Peasant",
+        [
+          0.0,
+          0.875,
+          0.75
+        ]
+      ]
+    ],
+    "material": "Pow-Recolor"
+  },
+  {
+    "name": "ForegroundStones_01_Greece",
+    "order": 0,
+    "chain": [
+      [
+        "ForegroundStones_01_Greece",
+        [
+          0.0,
+          -0.28125,
+          1.5
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Statue Knight",
+    "order": 0,
+    "chain": [
+      [
+        "Statue Knight",
+        [
+          0.0,
+          0.875,
+          2.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Tower Knight",
+    "order": 0,
+    "chain": [
+      [
+        "Tower Knight",
+        [
+          0.0,
+          0.0,
+          1.600000023841858
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Hermit Knight",
+    "order": 0,
+    "chain": [
+      [
+        "Hermit Knight",
+        [
+          0.0,
+          0.875,
+          0.6000000238418579
+        ]
+      ]
+    ],
+    "material": "Pow-Recolor"
+  },
+  {
+    "name": "Hermit House Knight_greece",
+    "order": 0,
+    "chain": [
+      [
+        "Hermit House Knight_greece",
+        [
+          0.0,
+          0.0,
+          1.399999976158142
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Hermit House Knight_norselands",
+    "order": 0,
+    "chain": [
+      [
+        "Hermit House Knight_norselands",
+        [
+          0.0,
+          0.0,
+          1.399999976158142
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Hermit House Knight",
+    "order": 0,
+    "chain": [
+      [
+        "Hermit House Knight",
+        [
+          1.125,
+          0.0,
+          1.399999976158142
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Knight_norselands",
+    "order": 0,
+    "chain": [
+      [
+        "Knight_norselands",
+        [
+          0.0,
+          0.875,
+          0.44999998807907104
+        ]
+      ]
+    ],
+    "material": "Pow-Recolor-Outline"
+  },
+  {
+    "name": "Knight",
+    "order": 0,
+    "chain": [
+      [
+        "Knight",
+        [
+          0.0,
+          0.875,
+          0.75
+        ]
+      ]
+    ],
+    "material": "Pow-Recolor"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          0.10000000149011612
+        ]
+      ],
+      [
+        "Bunny Statue",
+        [
+          0.0,
+          0.875,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          0.0010000000474974513
+        ]
+      ],
+      [
+        "Tower1",
+        [
+          -8.369999885559082,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "CaveBosshill",
+        [
+          27.780000686645508,
+          0.0,
+          1.100000023841858
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          20.040002822875977,
+          -1.6500015258789062,
+          10.0
+        ]
+      ],
+      [
+        "CaveBackground",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Unlit"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          0.0010000000474974513
+        ]
+      ],
+      [
+        "Tower1 (1)",
+        [
+          5.599999904632568,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "CaveBosshill",
+        [
+          27.780000686645508,
+          0.0,
+          1.100000023841858
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Statue Knight",
+    "order": 0,
+    "chain": [
+      [
+        "Statue Knight",
+        [
+          0.0,
+          0.875,
+          2.0
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "Statue Knight_Norselands_Blocks",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Statue Knight",
+    "order": 0,
+    "chain": [
+      [
+        "Statue Knight",
+        [
+          0.0,
+          0.875,
+          2.0
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "Statue Knight_Blocks",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Arrow",
+    "order": 0,
+    "chain": [
+      [
+        "Arrow",
+        [
+          1.3125,
+          2.3125,
+          0.9900000095367432
+        ]
+      ],
+      [
+        "Border_bamboo",
+        [
+          -30.651893615722656,
+          -2.8809304237365723,
+          0.15000000596046448
+        ]
+      ]
+    ],
+    "material": "Pow-Emissive-Wind-Sparkle"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          0.0010000000474974513
+        ]
+      ],
+      [
+        "Tower1",
+        [
+          -8.369999885559082,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "CaveBosshill",
+        [
+          27.780000686645508,
+          0.0,
+          1.100000023841858
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "CaveEndLeft_Blocks",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          0.0010000000474974513
+        ]
+      ],
+      [
+        "Tower1 (1)",
+        [
+          5.599999904632568,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "CaveBosshill",
+        [
+          27.780000686645508,
+          0.0,
+          1.100000023841858
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "CaveEndLeft_Blocks",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Knight_greece",
+    "order": 0,
+    "chain": [
+      [
+        "Knight_greece",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Recolor"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          0.0010000000474974513
+        ]
+      ],
+      [
+        "Tower1",
+        [
+          -8.369999885559082,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "CaveBosshill",
+        [
+          27.780000686645508,
+          0.0,
+          1.100000023841858
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "CaveEndRight_Blocks",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          0.0010000000474974513
+        ]
+      ],
+      [
+        "Tower1 (1)",
+        [
+          5.599999904632568,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "CaveBosshill",
+        [
+          27.780000686645508,
+          0.0,
+          1.100000023841858
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "CaveEndRight_Blocks",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Arrow",
+    "order": 0,
+    "chain": [
+      [
+        "Arrow",
+        [
+          1.3125,
+          2.3125,
+          0.9900000095367432
+        ]
+      ],
+      [
+        "Border",
+        [
+          0.0,
+          0.0,
+          0.15000000596046448
+        ]
+      ]
+    ],
+    "material": "Pow-Emissive-Wind-Sparkle"
+  },
+  {
+    "name": "Tower Knight_bamboo",
+    "order": 0,
+    "chain": [
+      [
+        "Tower Knight_bamboo",
+        [
+          0.0,
+          0.0,
+          1.600000023841858
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Hermit House Knight",
+    "order": 0,
+    "chain": [
+      [
+        "Hermit House Knight",
+        [
+          1.125,
+          0.0,
+          1.399999976158142
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "HermitHouseKnight_Blocks",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Hermit House Knight_greece",
+    "order": 0,
+    "chain": [
+      [
+        "Hermit House Knight_greece",
+        [
+          1.125,
+          0.0,
+          1.399999976158142
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "HermitHouseKnight_Blocks_Greece",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          0.10600005835294724
+        ]
+      ],
+      [
+        "Cage",
+        [
+          0.4099999964237213,
+          0.0,
+          -0.017999999225139618
+        ]
+      ],
+      [
+        "Statue Unlock Ruler",
+        [
+          0.0,
+          0.875,
+          2.0
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "UnlockNewRulerStatue_Blocks",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          -0.03125,
+          1.46875,
+          0.30000001192092896
+        ]
+      ],
+      [
+        "Door",
+        [
+          -0.125,
+          0.0,
+          0.10000000149011612
+        ]
+      ],
+      [
+        "Building",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "Steed_Cerberus_Underworld_Greece",
+        [
+          0.375,
+          0.875,
+          2.0
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "Steed_Cerberus_Greece_Blocks",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          -0.03125,
+          1.46875,
+          0.30000001192092896
+        ]
+      ],
+      [
+        "Door",
+        [
+          -0.125,
+          0.0,
+          0.10000000149011612
+        ]
+      ],
+      [
+        "Building",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "Steed_Cerberus_Underworld_Greece",
+        [
+          0.0,
+          0.0,
+          2.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          0.10000000149011612
+        ]
+      ],
+      [
+        "Bunny Statue",
+        [
+          0.0,
+          0.875,
+          2.0
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "BunnyStatue_SpringEdict_Blocks_Greece",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          2.0
+        ]
+      ],
+      [
+        "CatCartArch_norselands",
+        [
+          0.0,
+          0.0,
+          2.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          0.10000000149011612
+        ]
+      ],
+      [
+        "WebbedTrees_Greece",
+        [
+          3.5,
+          0.875,
+          2.0
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "Steed_Spider_Greece_Blocks",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          2.0
+        ]
+      ],
+      [
+        "CatCartArch_norselands",
+        [
+          0.0,
+          0.0,
+          2.0
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "Steed Freya_Norselands_Blocks",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Hermit House Knight_norselands",
+    "order": 0,
+    "chain": [
+      [
+        "Hermit House Knight_norselands",
+        [
+          0.0,
+          0.0,
+          1.399999976158142
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "HermitHouseKnight_Norselands_Blocks",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          0.10000000149011612
+        ]
+      ],
+      [
+        "Steed_Spider_WebbedTrees_Greece",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Tower Knight_greece",
+    "order": 0,
+    "chain": [
+      [
+        "Tower Knight_greece",
+        [
+          0.0,
+          0.0,
+          1.600000023841858
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "GreedKnight",
+    "order": 0,
+    "chain": [
+      [
+        "GreedKnight",
+        [
+          0.0,
+          0.875,
+          0.7649999856948853
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse-Outline"
+  },
+  {
+    "name": "HermitKnight",
+    "order": 0,
+    "chain": [
+      [
+        "HermitKnight",
+        [
+          -0.59375,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "Hermits",
+        [
+          -0.9375,
+          0.15625,
+          0.0
+        ]
+      ],
+      [
+        "Buyback tent",
+        [
+          -1.5,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "GreedMarketplace_greece",
+        [
+          8.431249618530273,
+          0.875,
+          2.0
+        ]
+      ],
+      [
+        "GameLayer",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "Steed_Donkey_Greece_Blocks",
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "material": "Pow-Recolor"
+  },
+  {
+    "name": "Background",
+    "order": 0,
+    "chain": [
+      [
+        "Background",
+        [
+          0.0,
+          0.0,
+          0.10600005835294724
+        ]
+      ],
+      [
+        "Cage",
+        [
+          0.4099999964237213,
+          0.0,
+          -0.017999999225139618
+        ]
+      ],
+      [
+        "Statue Unlock Ruler",
+        [
+          0.0,
+          0.875,
+          2.0
+        ]
+      ]
+    ],
+    "material": "Pow-Diffuse"
+  },
+  {
+    "name": "Arrow",
+    "order": 0,
+    "chain": [
+      [
+        "Arrow",
+        [
+          2.0,
+          2.5625,
+          0.9900000095367432
+        ]
+      ],
+      [
+        "Border_greece",
+        [
+          0.0,
+          0.0,
+          0.15000000596046448
+        ]
+      ]
+    ],
+    "material": "Pow-Emissive-Wind-Sparkle"
+  },
+  {
+    "name": "Arrow",
+    "order": 0,
+    "chain": [
+      [
+        "Arrow",
+        [
+          1.34375,
+          2.5,
+          0.9900000095367432
+        ]
+      ],
+      [
+        "Border_norselands",
+        [
+          0.0,
+          0.875,
+          0.15000000596046448
+        ]
+      ]
+    ],
+    "material": "Pow-Emissive-Wind-Sparkle"
+  },
+  {
+    "name": "HermitKnight",
+    "order": 0,
+    "chain": [
+      [
+        "HermitKnight",
+        [
+          -0.59375,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "Hermits",
+        [
+          -0.9375,
+          0.15625,
+          0.0
+        ]
+      ],
+      [
+        "Buyback tent",
+        [
+          -1.5,
+          0.0,
+          0.0
+        ]
+      ],
+      [
+        "GreedMarketplace_greece",
+        [
+          0.0,
+          0.875,
+          2.0
+        ]
+      ]
+    ],
+    "material": "Pow-Recolor"
+  }
+]

@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 原生边界替身运行门（本机 net8.0 控制台）：
+       直接把生产文件 ../../il2cpp/HeroArcherArrowVisuals.cs + ../../il2cpp/HeroArcherWallPierce.cs 编进来，
+       用最近似原生的调用序列（BeginShot → OnEnable Prefix/Postfix → EndShot → 池复用 → Tick）跑真实分支，
+       只把 Unity/游戏 API 换成可观察替身（UnityStubs.cs / GameStubs.cs）。真实 API 面由
+       actual-interop/Interop.csproj 对实际 2.4 interop 编译门负责；这里负责行为。
+
+       资源模式（EmbeddedResource 的 LogicalName 与生产 csproj 契约一致）：
+         默认                        = operator 提供的真实 ArtemisArrow.png
+         -p:EmbedArtemis=false       = 资源缺失分支（必须 fail-closed：不换外观、不挂穿墙）
+
+       产物只写本目录 bin/obj，绝不复制到游戏 BepInEx。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>HeroArrowPierce.StubTests</AssemblyName>
+    <RootNamespace>KingdomEnhancedMod</RootNamespace>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>CS0414;CS0169;CS0649;CS0108</NoWarn>
+    <ArtemisPng Condition="'$(ArtemisPng)' == ''">$(MSBuildThisFileDirectory)../../il2cpp/Assets/ArtemisArrow.png</ArtemisPng>
+    <EmbedArtemis Condition="'$(EmbedArtemis)' == ''">true</EmbedArtemis>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/HeroArcherArrowVisuals.cs" />
+    <Compile Include="../../il2cpp/HeroArcherWallPierce.cs" />
+    <Compile Include="UnityStubs.cs" />
+    <Compile Include="GameStubs.cs" />
+    <Compile Include="PngCodec.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(EmbedArtemis)' == 'true'">
+    <EmbeddedResource Include="$(ArtemisPng)" LogicalName="KingdomEnhancedMod.ArtemisArrow.png" />
+  </ItemGroup>
+
+  <!-- 构建日志证据：确认全局属性 EmbedArtemis 真正到达本次求值（missing 模式依赖它不嵌入资源）。 -->
+  <Target Name="EmbedArtemisSummary" BeforeTargets="BeforeBuild">
+    <Message Importance="high" Text="EmbedArtemis=$(EmbedArtemis)" />
+  </Target>
+
+</Project>

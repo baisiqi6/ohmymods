@@ -1,0 +1,2 @@
+PASS actual SetGoal Object/float/float/Formation overload: Coatsink.Common.Wait Mover::SetGoal(UnityEngine.GameObject,System.Single,System.Single,Mover/OffsetMode)
+PASS existing Harmony target retained; offset is ref Single, prefix Boolean; executable native Wait remains original.

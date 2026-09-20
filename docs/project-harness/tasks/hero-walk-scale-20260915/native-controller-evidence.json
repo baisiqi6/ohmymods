@@ -1,0 +1,26 @@
+[
+  {
+    "actor": "Archer_norselands",
+    "controller": "archer_norselands",
+    "foundParameterNames": [
+      "Speed",
+      "Prepare"
+    ]
+  },
+  {
+    "actor": "Archer_Soldier_norselands",
+    "controller": "archer_soldier_norselands",
+    "foundParameterNames": [
+      "Speed",
+      "Prepare"
+    ]
+  },
+  {
+    "actor": "Archer",
+    "controller": "archer",
+    "foundParameterNames": [
+      "Speed",
+      "Prepare"
+    ]
+  }
+]

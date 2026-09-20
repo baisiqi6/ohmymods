@@ -1,0 +1,43 @@
+knight-identity archive core tests (console / serial)
+
+Model (receipt / snapshot / retention / capacity / restore)
+  PASS  model.receiptRejectsEmptyGuidAndStyleOutside0To4
+  PASS  model.snapshotRejectsBadHashDuplicateKeyDuplicateGuidAndLongIds
+  PASS  model.snapshotEnforcesEntryCap512AndNormalizesHash
+  PASS  model.snapshotHashIsBindingEvenWhenItCountsAreRebalanced
+  PASS  model.sameHashIsIdempotentWhileConflictingContentIsRejected
+  PASS  model.keepsNewest8PerScopeAndEvictsOnlyOwnHistory
+  PASS  model.scopeCapRejectsInsteadOfDeletingOtherScopes
+  PASS  model.totalEntryCapRejectsWithoutCrossScopeEviction
+  PASS  model.restoreRequiresExactScopeAndHashNeverGuesses
+  PASS  model.serializationOrderIsCanonical
+File I/O (atomic save / backup / corruption / unknown schema / unknown fields)
+  PASS  io.missingThenCreatedThenByteExactRoundTrip
+  PASS  io.replayIsUnchangedAndRotationKeepsPreviousBackup
+  PASS  io.corruptMainRecoversFromBackupAndNeverOverwritesIt
+  PASS  io.corruptMainIsRefusedUntilExplicitRecovery
+  PASS  io.unknownSchemaIsNeitherMissingNorDowngraded
+  PASS  io.higherSchemaWithForeignBodyIsUnsupportedNotCorrupt
+  PASS  io.missingMainWithValidBackupRecoversAndCreates
+  PASS  io.ioFailureKeepsOldFileAndLeavesNoTemp
+  PASS  io.directoryTargetIsNeverWrittenInto
+  PASS  io.unreadableMainIsCorruptNeverMissing
+  PASS  io.rejectsOversizedEmptyDeepAndMalformedDocuments
+  PASS  io.rootUnknownFieldsSurviveLoadMutateSaveCycles
+  PASS  io.nestedUnknownOrDuplicateFieldsAreCorrupt
+  PASS  io.unknownBackupBlocksEveryOverwritePath
+  PASS  io.overSizedSerializationIsRefusedAndKeepsMainAndBackup
+  PASS  io.parseRejectsNullEmptyAndOverSizedInput
+  PASS  io.parseEnforcesAccumulatedEntryCap
+  PASS  io.rootFieldCountIsCappedAndUnknownNamesDeduplicated
+  PASS  io.neverTouchesUnrelatedFilesOrNativeSaves
+Pure functions (fingerprint / balance)
+  PASS  function.fingerprintMatchesLengthPrefixedEncoding
+  PASS  function.fingerprintIsStableHex64AndCollisionSafe
+  PASS  function.balancePicksOnlyTheLeastAvailableStyle
+  PASS  function.balanceTieBreaksDeterministicallyWithoutMutatingInputs
+  PASS  function.balanceRejectsInvalidInput
+  PASS  function.balanceTieBreakIsUniformOverFullCycles
+  PASS  function.balanceKeepsRecruitSequenceBalanced
+
+total: passed=36 failed=0

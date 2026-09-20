@@ -1,0 +1,19 @@
+C:\Users\ADMIN\projects\ohmymods\artifacts\hero-archer\20260915-native\verify_assets.py:11: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+  assert set(atlas.getchannel('A').getdata()) == {0, 255}
+{
+  "result": "passed",
+  "size": [
+    384,
+    128
+  ],
+  "valid_slots": 31,
+  "distinct_images": 18,
+  "walk_unique": 6,
+  "run_unique": 6,
+  "binary_alpha": true,
+  "fixed_pivot": true,
+  "flight_height_preserved": true,
+  "torso_lift_metadata_checked": true,
+  "production_atlas_identical": true,
+  "sha256": "22b4424e49aa9b7f871d4bb8b448d3daf5572e30c21949dce8be70f5343a5d62"
+}

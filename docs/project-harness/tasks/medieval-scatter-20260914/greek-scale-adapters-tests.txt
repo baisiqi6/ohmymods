@@ -1,0 +1,10 @@
+PASS fresh inherited coin 2 restores native1
+PASS repeat Reset and reuse never divide coin to .5
+PASS nonunit swapped prefab and native container are respected
+PASS foreign-first arbitrary coin2 has no transform write and survives roundtrip
+PASS Greek runtime1.7 does not match inherited scale and restores1.7
+PASS unknown index records indirect parent writes for foreign cleanup
+PASS missing currency source changes no coin and stacklimit remains600
+PASS null biome source preserves existing ownership until known world
+PASS two bag types retain independent signed nonuniform native vectors
+RESULT 9 passed, 0 failed

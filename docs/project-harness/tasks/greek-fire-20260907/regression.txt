@@ -1,0 +1,71 @@
+PASS Greek combat buffs knight and current squad natively
+PASS Shared FireAttacks asset is unchanged and clone retains ID and payload
+PASS Eight-second effect expires natively while fifteen-second cooldown remains
+PASS Empty guard wall does not trigger
+PASS No enemy does not consume cooldown
+PASS Non-Greek style 0 excluded
+PASS Non-Greek style 1 excluded
+PASS Non-Greek style 2 excluded
+PASS Non-Greek style 4 excluded
+PASS Client without world authority excluded
+PASS Disabled config excluded
+PASS Invalid owner dead excluded
+PASS Invalid owner inactive excluded
+PASS Invalid owner inert excluded
+PASS Invalid owner grabbed excluded
+PASS Invalid owner harmless excluded
+PASS Invalid owner embarked excluded
+PASS Formation and charging combat remain eligible
+PASS State switches cannot reset cooldown
+PASS Config toggle cannot reset cooldown
+PASS Authority loss cannot reset cooldown
+PASS Style loss cannot reset cooldown
+PASS Unowned, dead and inactive archers excluded
+PASS Membership uses native pointer not managed wrapper reference
+PASS Joining follower waits until next successful cast
+PASS Membership has no invented short radius
+PASS Longer existing fire effect is never shortened
+PASS Equal existing expiry is preserved
+PASS Shorter existing effect extends via Buffable without direct receiver repeat
+PASS Unregistered buff receiver not invoked
+PASS Inapplicable FireAttacks receiver not invoked
+PASS Dead enemy cannot trigger
+PASS Inactive enemy cannot trigger
+PASS Wildlife cannot trigger
+PASS Owned follower actual ranged enemy can trigger
+PASS Out-of-range stale follower target cannot trigger
+PASS Foreign follower enemy cannot trigger
+PASS Missing original asset retries at most every five seconds
+PASS Cache interval and polling remain bounded
+PASS Clone reused across casts and owners
+PASS OnDisable removes cooldown but does not directly clear native buff
+PASS Native receiver callback re-entry cannot produce duplicate cast
+PASS All inapplicable receivers do not consume cooldown
+PASS Knight header required online=False
+PASS Knight start RPC required online=False
+PASS Knight end RPC required online=False
+PASS Knight header required online=True
+PASS Knight start RPC required online=True
+PASS Knight end RPC required online=True
+PASS Unready follower skipped without blocking ready owner
+PASS Missing follower fire projectile pool skipped
+PASS Online unsynchronized projectile pool skipped
+PASS Paused game cannot start fresh buff
+PASS Knight stale distant scanner target cannot trigger
+PASS Ignored invulnerable enemy cannot trigger
+PASS Temporary load exception retries after five seconds
+PASS Follower leaving in native callback is revalidated
+PASS Follower joining in native callback waits for next cast
+PASS Owner disabled in native callback stops remaining applications
+PASS Partial native failure does not duplicate successful recipients
+PASS Old pooled owner cleanup cannot clear replacement cooldown
+PASS Knight trigger checks Knight damage source
+PASS Archer trigger checks Arrow damage source
+PASS Restore old crossbow package before native follower activation
+PASS Crossbow restoration touches only eligible own followers
+PASS Native callback authority loss stops remaining applications
+PASS No unit scans during successful cooldown
+PASS Crossbow real method preserves active native fire buff
+PASS Crossbow real method preserves fire asset even if buff table is already clear
+PASS Crossbow real method applies once normally after native expiry
+RESULT 70 passed, 0 failed

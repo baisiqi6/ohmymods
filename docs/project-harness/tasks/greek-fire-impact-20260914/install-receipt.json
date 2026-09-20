@@ -1,0 +1,11 @@
+{
+  "build": "7.6.5-greek-impact-20260914",
+  "dll": "E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll",
+  "sha256": "5CED0D2525D110FB42B5FBCDB8A937B62FDFE044BC175709EF0DB1C408062CC5",
+  "backup": "E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll.before-greek-impact-20260914-143840-372.bak",
+  "gameRunningBefore": false,
+  "gameStarted": false,
+  "savesPreserved": true,
+  "configPreserved": true,
+  "published": false
+}

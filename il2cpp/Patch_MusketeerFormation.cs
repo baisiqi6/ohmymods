@@ -8,23 +8,24 @@ namespace KingdomEnhancedMod;
 /// <summary>
 /// Musketeer half of the banner back row (Player.ActivateFormation / FormationType.PlayerFormation).
 ///
-/// The composite formation layout (native order + up to four closed Gap slots behind the archers
-/// + the expanded fleet-boat slots) is owned by <see cref="PatchWorld_FleetBoatFormation"/>: that
-/// file is the only writer of the live unitTypes/units/UnitSpacing/startOffset arrays, the only
-/// owner of the per-formation profile/coordinator, and the only restorer of the native baseline.
-/// This file owns what is musketeer-specific:
+/// The composite formation layout (native order + up to four Squire-typed musketeer row slots
+/// inserted before the bow line + the expanded fleet-boat slots) is owned by
+/// <see cref="PatchWorld_FleetBoatFormation"/>: that file is the only writer of the live
+/// unitTypes/units/UnitSpacing/startOffset arrays, the only owner of the per-formation
+/// profile/coordinator, and the only restorer of the native baseline. This file owns what is
+/// musketeer-specific:
 ///
-///  * the candidate policy for the four rear slots (identity + native free-archer gates, nearest
+///  * the candidate policy for the four row slots (identity + native free-archer gates, nearest
 ///    first, at most four, missing slots simply stay empty), and
-///  * the guard that keeps marked musketeers out of the native bow slots while a rear row is
-///    reserved, so ordinary archers keep their native four slots and musketeers never displace
-///    them (the reverse is inherent: an empty row slot is Gap-typed, which no unit matches); the
-///    guard also refuses every other Archer for that formation while a directed transaction is
-///    armed or while a temporary-type restore is still owed, because the reserved seat is open
-///    during those windows.
+///  * the guard that keeps marked musketeers out of the native bow slots while a row is reserved,
+///    so ordinary archers keep their native four slots and musketeers never displace them (the
+///    reverse is inherent: an empty row slot is Squire-typed, which no native IFormationUnit type
+///    table matches); the guard also refuses every other Archer for that formation while a
+///    directed transaction is armed or while a temporary-type restore is still owed, because the
+///    reserved seat is open during those windows.
 ///
 /// <see cref="MusketeerFormationLayout"/> is the pure planning half (array in, array out) so the
-/// composite order, the rear placement and the directed-recruit transaction are unit-testable
+/// composite order, the row placement and the directed-recruit transaction are unit-testable
 /// without the game assembly. Neither half creates, teleports or re-stats a unit: joining always
 /// goes through the native Archer.TryRecruit, and every other lifecycle (movement, enemy
 /// targeting, death, banner furl, pool reuse) stays native.
@@ -277,13 +278,15 @@ internal static class PatchMusketeerFormation
 internal static class MusketeerFormationLayout
 {
     /// <summary>
-    /// Builds the composite array. The rear musketeer row is written at index 0 because native
-    /// Formation.GetXPosForIndex accumulates spacing from index 0 and mirrors on the Left side, so
-    /// the lowest index is the rear of the formation for both sides; the four row slots are
-    /// Gap-typed, which keeps their spacing constant whether they are empty or occupied and makes
-    /// them invisible to every native recruit/registration path. The caller compensates
-    /// startOffset by exactly rowLength gap steps, which leaves every original slot at its old
-    /// coordinate and puts the row one rectangle behind the former rear line.
+    /// Builds the composite array. The four row slots are inserted immediately before the first
+    /// native Archer slot (so after the two authoring gaps) and typed Squire: no native
+    /// IFormationUnit type table and no recruit path matches Squire, and — unlike Gap — an empty
+    /// Squire slot does not count in Formation.GetXPosForIndex (game-source Formation.cs:319-332),
+    /// so an unfilled row compacts toward the fleet block under the native "empty non-Gap slot"
+    /// rule instead of pushing the bow line away. The caller compensates startOffset by exactly
+    /// rowLength row steps: a full row leaves every archer-down slot at its old coordinate while
+    /// the fleet block moves back by the row length, and the nearest musketeer is then exactly one
+    /// row step from the bow line.
     /// Returns false only for a structurally unusable baseline; a requested row that the baseline
     /// cannot carry (no archer slot) yields rowLength 0 with the remaining plan intact.
     /// </summary>
@@ -322,16 +325,22 @@ internal static class MusketeerFormationLayout
         musketeerSlots = rowLength > 0 ? new int[rowLength] : Array.Empty<int>();
 
         int write = 0;
-        for (int row = 0; row < rowLength; row++)
-        {
-            musketeerSlots[row] = write;
-            types[write++] = Formation.UnitTypes.Gap;
-        }
+        bool rowWritten = false;
         for (int read = 0; read < baselineTypes.Length; read++)
         {
+            Formation.UnitTypes type = baselineTypes[read];
+            if (rowLength > 0 && !rowWritten && type == Formation.UnitTypes.Archer)
+            {
+                rowWritten = true;
+                for (int row = 0; row < rowLength; row++)
+                {
+                    musketeerSlots[row] = write;
+                    types[write++] = Formation.UnitTypes.Squire;
+                }
+            }
             if (read != fleetSlot)
             {
-                types[write++] = baselineTypes[read];
+                types[write++] = type;
                 continue;
             }
             if (boatCount == 0)

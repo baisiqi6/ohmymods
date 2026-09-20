@@ -1,0 +1,10 @@
+{
+  "projects": 99,
+  "kinds": {
+    "run": 76,
+    "build": 18,
+    "test": 5
+  },
+  "xunitPassed": 434,
+  "allExitZero": true
+}

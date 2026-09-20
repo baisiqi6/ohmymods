@@ -1,0 +1,55 @@
+{
+  "gameAssemblySHA256": "CD8C2B822B12F5416E73234D6D1052EFB499FE324ACEFF6264E0C87C6F8EDFC1",
+  "scope": "Assembly-CSharp method pointer table; actual native wrappers independently verified by hooks-final.txt",
+  "targets": [
+    {
+      "name": "Berserker.OnEnable",
+      "token": 100664536,
+      "va": 6448534688,
+      "rva": "0x5cd4a0",
+      "same_slots": 1
+    },
+    {
+      "name": "Berserker.OnDisable",
+      "token": 100664537,
+      "va": 6448533904,
+      "rva": "0x5cd190",
+      "same_slots": 1
+    },
+    {
+      "name": "Berserker.Update",
+      "token": 100664538,
+      "va": 6448539104,
+      "rva": "0x5ce5e0",
+      "same_slots": 1
+    },
+    {
+      "name": "Ninja.OnEnable",
+      "token": 100674096,
+      "va": 6449023024,
+      "rva": "0x644830",
+      "same_slots": 1
+    },
+    {
+      "name": "Ninja.OnDisable",
+      "token": 100674097,
+      "va": 6449022720,
+      "rva": "0x644700",
+      "same_slots": 1
+    },
+    {
+      "name": "Ninja.Update",
+      "token": 100674106,
+      "va": 6449028544,
+      "rva": "0x645dc0",
+      "same_slots": 1
+    },
+    {
+      "name": "Scanner.Refresh(bool)",
+      "token": 100678384,
+      "va": 6450064096,
+      "rva": "0x742ae0",
+      "same_slots": 1
+    }
+  ]
+}

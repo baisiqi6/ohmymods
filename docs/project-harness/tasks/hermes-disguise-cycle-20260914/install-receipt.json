@@ -1,0 +1,12 @@
+{
+  "build": "7.6.5-hermes-disguise-cycle-20260914",
+  "dll": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "sha256": "7D3D2926FCC3E5EADA491771617F737C2C246899CED181A741B9E8EDCDCC5E7E",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-hermes-disguise-cycle-20260914-194240-140.bak",
+  "saveBefore": "57E54166C813EEA47B85AC44DC47D779A7AAA5D41B73651B1F00AED33C4E2AAB",
+  "saveAfter": "57E54166C813EEA47B85AC44DC47D779A7AAA5D41B73651B1F00AED33C4E2AAB",
+  "configBefore": "A3E3A0B876BB5D421B681FFF5919FCE100BBAAEC043F083A36933F3114EA5439",
+  "configAfter": "A3E3A0B876BB5D421B681FFF5919FCE100BBAAEC043F083A36933F3114EA5439",
+  "gameStarted": false,
+  "published": false
+}

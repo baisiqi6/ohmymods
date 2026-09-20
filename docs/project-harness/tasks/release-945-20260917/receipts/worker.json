@@ -1,0 +1,23 @@
+[
+  {
+    "sessionFile": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\release-945-20260917\\docs-worker\\sessions\\2026-09-17T13-52-00-074Z_01a0afa3-744a-76bd-8c9f-b4500ccbb899.jsonl",
+    "models": [
+      "deepseek/deepseek-flash"
+    ],
+    "thinking": [
+      "max"
+    ],
+    "actualModels": [
+      [
+        "deepseek",
+        "deepseek-flash"
+      ]
+    ],
+    "tools": [
+      "edit",
+      "grep",
+      "read",
+      "write"
+    ]
+  }
+]

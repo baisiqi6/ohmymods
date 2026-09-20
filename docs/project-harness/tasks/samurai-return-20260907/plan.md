@@ -1,0 +1,9 @@
+# Samurai knight return-to-squad
+
+User explicitly requests active return, defers1+2+4 mixed squad design, and is still considering a Greek knight ability inspired by Hephaestus Hammer. Later steering: direct dash back or ninja smoke are acceptable; operator chose existing direct dash visuals/movement first. Smoke is optional future visual work, not teleportation authorization. Greek buff is research only pending the user's full idea.
+
+Only world-authority style2 free-action knights. Active valid assigned follower distance>10 starts return before attack cooldown/enemy search; <=4 ends, no follower means release to native logic. Normal separation should close with one short invulnerable dash (existing18 speed, at most7 travel/0.6s), no return damage. Exceptionally large separation may use bounded ordinary running after the one protected burst; timeout/stall causes bounded retries/backoff with no permanent invulnerability. Exclude player control, retreat/charge, embark, formation, inert/grabbed/stationary/dead and non-Stand/GoToWall/Assemble tasks. Return may suppress ShouldSlash only while genuinely controlling return, never skip wholeKnight.Update or unpause foreign pauses.
+
+Track lifetime/owner identity, restore only still-owned movement and saved effect values, cancel on external goal replacement rather than fight native FSM. Cleanup survives config/style/authority loss and pooled disable; obsolete coroutine finally cannot clean a newer owner. Prefer native SetGoalNoHaglet; no teleport/new global scene search/Dispose hooks. Source/prefab uncertainty must be explicit.
+
+ZCode isolated worker; independent native scout/reviewer and managed regression author. Preserve existing dirty HUD/default changes. Build/deploy only E test copy while game is exited, with backup/hash receipt; no saves/config edits, no publicrelease/commit/push this turn. Snapshot before integration and no-deploy build first. Existing v4.5.0 package remains immutable.

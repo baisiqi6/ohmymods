@@ -1,0 +1,100 @@
+[
+  {
+    "type": "GuardSlot",
+    "method": "NativeMethodInfoPtr_AssignArcher_Public_Void_Archer_0",
+    "token": 100670759,
+    "rva": "0x57f5a0",
+    "same_slots": 1
+  },
+  {
+    "type": "GuardSlot",
+    "method": "NativeMethodInfoPtr_ExitArcher_Public_Void_0",
+    "token": 100670763,
+    "rva": "0x57f660",
+    "same_slots": 1
+  },
+  {
+    "type": "GuardSlot",
+    "method": "NativeMethodInfoPtr_IsValidGuardSlot_Public_Boolean_0",
+    "token": 100670764,
+    "rva": "0x57f920",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_get_GuardSlot_Public_get_GuardSlot_0",
+    "token": 100663770,
+    "rva": "0x4b8980",
+    "same_slots": 2
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_get_inGuardSlot_Public_get_Boolean_0",
+    "token": 100663771,
+    "rva": "0x4b8b10",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_set_inGuardSlot_Private_set_Void_Boolean_0",
+    "token": 100663772,
+    "rva": "0x4b8c60",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_HasGuardSlot_Private_Boolean_0",
+    "token": 100663794,
+    "rva": "0x4b1f50",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_SetGuardSlot_Public_Void_GuardSlot_0",
+    "token": 100663820,
+    "rva": "0x4b5d20",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_EnterGuardSlot_Private_Void_GuardSlot_0",
+    "token": 100663845,
+    "rva": "0x4b0f40",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_ExitGuardSlot_Public_Void_0",
+    "token": 100663850,
+    "rva": "0x4b13e0",
+    "same_slots": 1
+  },
+  {
+    "type": "Kingdom",
+    "method": "NativeMethodInfoPtr_AddGuardSlot_Public_Void_GuardSlot_0",
+    "token": 100671511,
+    "rva": "0x599ec0",
+    "same_slots": 1
+  },
+  {
+    "type": "Kingdom",
+    "method": "NativeMethodInfoPtr_RemoveGuardSlot_Public_Void_GuardSlot_0",
+    "token": 100671512,
+    "rva": "0x5a66d0",
+    "same_slots": 1
+  },
+  {
+    "type": "Kingdom",
+    "method": "NativeMethodInfoPtr_RemoveArcher_Public_Void_Archer_0",
+    "token": 100671547,
+    "rva": "0x5a5e80",
+    "same_slots": 1
+  },
+  {
+    "type": "Kingdom",
+    "method": "NativeMethodInfoPtr_DistributeTowerArchers_Public_Void_0",
+    "token": 100671636,
+    "rva": "0x59da10",
+    "same_slots": 1
+  }
+]

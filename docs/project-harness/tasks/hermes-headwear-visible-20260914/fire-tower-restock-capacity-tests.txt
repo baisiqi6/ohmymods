@@ -1,0 +1,15 @@
+PASS 目标槽对象缺失或销毁时禁止采购
+PASS 契约常量文案
+PASS 阈值12/单塔容量9：8/9 可买（容量门不看阈值）
+PASS 阈值12/单塔容量9：9/9 已满（不再进入采购-原生付款循环）
+PASS 多塔独立：各塔按自己的字段判定，互不影响
+PASS owner 必须是同 GO 的这座塔（Pointer 精确相等）
+PASS 其它 role 的形状（非 PayableComponent / 无塔 GO）一律未就绪
+PASS 假罐数组尚未生成 / 空数组 → 未就绪
+PASS 数组槽数 < max：有效容量取 min（数组长度是安全上界）
+PASS 数组槽数 > max：有效容量取 max
+PASS 换数组立即生效：绝不缓存旧容量
+PASS current 负值 / 超限均属非法数据
+PASS 禁用 / 非激活 / 销毁 fail-closed
+PASS 只读：连续门控调用不改动任何原生弹药字段
+RESULT passed=14 failed=0

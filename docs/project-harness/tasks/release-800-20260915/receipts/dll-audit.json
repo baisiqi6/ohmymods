@@ -1,0 +1,15 @@
+{
+  "baselineSha": "9C63FF5DE2EA4FC7C558EE6541CD0A276DB1528AE8A763784A1A73ECA113EF79",
+  "behaviorEquivalent": true,
+  "changedMethods": [],
+  "assemblyVersion": "8.0.0.0",
+  "build": "8.0.0",
+  "unchangedMethods": 2675,
+  "instructionChanges": [],
+  "version": "8.0.0",
+  "dllSha256": "80522BF18952FE609C4F6F91FD6B52C26AB79CBF87EE918159770306953348F4",
+  "unchangedEmbeddedResources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png",
+    "KingdomEnhancedMod.ArtemisArrow.png"
+  ]
+}

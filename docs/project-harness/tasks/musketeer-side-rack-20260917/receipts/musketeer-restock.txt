@@ -1,0 +1,1 @@
+PASS 72 real identity/restock assertions; no archive writes

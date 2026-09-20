@@ -1,0 +1,10 @@
+C:\Users\ADMIN\projects\ohmymods\il2cpp\HeroShop.cs(117,23): warning CS0649: 从未对字段“HeroShopRetention.Probe.HasShop”赋值，字段将一直保持其默认值 false [C:\Users\ADMIN\projects\ohmymods\tests\hero-shop\Invoker.csproj]
+C:\Users\ADMIN\projects\ohmymods\il2cpp\HeroShop.cs(120,23): warning CS0649: 从未对字段“HeroShopRetention.Probe.Menu”赋值，字段将一直保持其默认值 false [C:\Users\ADMIN\projects\ohmymods\tests\hero-shop\Invoker.csproj]
+C:\Users\ADMIN\projects\ohmymods\il2cpp\HeroShop.cs(123,23): warning CS0649: 从未对字段“HeroShopRetention.Probe.SceneAlive”赋值，字段将一直保持其默认值 false [C:\Users\ADMIN\projects\ohmymods\tests\hero-shop\Invoker.csproj]
+C:\Users\ADMIN\projects\ohmymods\il2cpp\HeroShop.cs(118,23): warning CS0649: 从未对字段“HeroShopRetention.Probe.SameScene”赋值，字段将一直保持其默认值 false [C:\Users\ADMIN\projects\ohmymods\tests\hero-shop\Invoker.csproj]
+C:\Users\ADMIN\projects\ohmymods\il2cpp\HeroShop.cs(119,23): warning CS0649: 从未对字段“HeroShopRetention.Probe.Playing”赋值，字段将一直保持其默认值 false [C:\Users\ADMIN\projects\ohmymods\tests\hero-shop\Invoker.csproj]
+C:\Users\ADMIN\projects\ohmymods\il2cpp\HeroShop.cs(116,23): warning CS0649: 从未对字段“HeroShopRetention.Probe.Offline”赋值，字段将一直保持其默认值 false [C:\Users\ADMIN\projects\ohmymods\tests\hero-shop\Invoker.csproj]
+C:\Users\ADMIN\projects\ohmymods\il2cpp\HeroShop.cs(115,23): warning CS0649: 从未对字段“HeroShopRetention.Probe.FeatureEnabled”赋值，字段将一直保持其默认值 false [C:\Users\ADMIN\projects\ohmymods\tests\hero-shop\Invoker.csproj]
+C:\Users\ADMIN\projects\ohmymods\il2cpp\HeroShop.cs(122,23): warning CS0649: 从未对字段“HeroShopRetention.Probe.HeaderOk”赋值，字段将一直保持其默认值 false [C:\Users\ADMIN\projects\ohmymods\tests\hero-shop\Invoker.csproj]
+C:\Users\ADMIN\projects\ohmymods\il2cpp\HeroShop.cs(121,23): warning CS0649: 从未对字段“HeroShopRetention.Probe.SameWorld”赋值，字段将一直保持其默认值 false [C:\Users\ADMIN\projects\ohmymods\tests\hero-shop\Invoker.csproj]
+PASS 7 invoker/JIT/production pointer adapter assertions; no game/native library loaded.

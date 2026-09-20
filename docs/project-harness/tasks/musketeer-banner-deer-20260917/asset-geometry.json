@@ -1,0 +1,525 @@
+[
+  {
+    "id": 19679,
+    "name": "Critter",
+    "layer": 9,
+    "components": [
+      {
+        "type": "Transform",
+        "fields": {
+          "m_LocalPosition": {
+            "x": 17.412803649902344,
+            "y": 1.0,
+            "z": 1.25
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "CircleCollider2D",
+        "fields": {
+          "m_Enabled": 1,
+          "m_IsTrigger": true,
+          "m_Offset": {
+            "x": 0.0,
+            "y": 0.15625
+          },
+          "m_Radius": 0.15625
+        }
+      }
+    ],
+    "children": [
+      {
+        "id": 19959,
+        "name": "Physical Collider",
+        "layer": 17,
+        "components": [
+          {
+            "type": "Transform",
+            "fields": {
+              "m_LocalPosition": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "m_LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "fields": {
+              "m_Enabled": 1,
+              "m_IsTrigger": false,
+              "m_Offset": {
+                "x": 0.0,
+                "y": 0.15625
+              },
+              "m_Radius": 0.15625
+            }
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "id": 19704,
+    "name": "Hind",
+    "layer": 9,
+    "components": [
+      {
+        "type": "Transform",
+        "fields": {
+          "m_LocalPosition": {
+            "x": 0.0,
+            "y": 0.875,
+            "z": 3.200000047683716
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "CapsuleCollider2D",
+        "fields": {
+          "m_Enabled": 1,
+          "m_IsTrigger": true,
+          "m_Offset": {
+            "x": 0.0,
+            "y": 0.34375
+          },
+          "m_Size": {
+            "x": 0.78125,
+            "y": 0.4375
+          }
+        }
+      }
+    ],
+    "children": [
+      {
+        "id": 20092,
+        "name": "Physical Collider",
+        "layer": 17,
+        "components": [
+          {
+            "type": "Transform",
+            "fields": {
+              "m_LocalPosition": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "m_LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "fields": {
+              "m_Enabled": 1,
+              "m_IsTrigger": false,
+              "m_Offset": {
+                "x": 0.0,
+                "y": 0.3125
+              },
+              "m_Radius": 0.3125
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "id": 31522,
+        "name": "[VFX] Hind Hearts",
+        "layer": 0,
+        "components": [
+          {
+            "type": "Transform",
+            "fields": {
+              "m_LocalPosition": {
+                "x": 0.6875,
+                "y": 1.0625,
+                "z": -0.0010000000474974513
+              },
+              "m_LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            }
+          }
+        ],
+        "children": [
+          {
+            "id": 30346,
+            "name": "[VFX] Hind Hearts",
+            "layer": 0,
+            "components": [
+              {
+                "type": "Transform",
+                "fields": {
+                  "m_LocalPosition": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                  },
+                  "m_LocalScale": {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": 28756,
+        "name": "[VFX] Broken Hearts",
+        "layer": 0,
+        "components": [
+          {
+            "type": "Transform",
+            "fields": {
+              "m_LocalPosition": {
+                "x": 0.625,
+                "y": 1.0625,
+                "z": -0.5
+              },
+              "m_LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            }
+          }
+        ],
+        "children": [
+          {
+            "id": 36864,
+            "name": "[VFX] Broken Hearts",
+            "layer": 0,
+            "components": [
+              {
+                "type": "Transform",
+                "fields": {
+                  "m_LocalPosition": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": 0.0
+                  },
+                  "m_LocalScale": {
+                    "x": -1.0,
+                    "y": 1.0,
+                    "z": 1.0
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 19817,
+    "name": "Archer",
+    "layer": 10,
+    "components": [
+      {
+        "type": "Transform",
+        "fields": {
+          "m_LocalPosition": {
+            "x": 0.0,
+            "y": 0.875,
+            "z": 0.75
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "CapsuleCollider2D",
+        "fields": {
+          "m_Enabled": 1,
+          "m_IsTrigger": true,
+          "m_Offset": {
+            "x": 0.0,
+            "y": 0.3125
+          },
+          "m_Size": {
+            "x": 0.1875,
+            "y": 0.625
+          }
+        }
+      }
+    ],
+    "children": [
+      {
+        "id": 20099,
+        "name": "Physical Collider",
+        "layer": 17,
+        "components": [
+          {
+            "type": "Transform",
+            "fields": {
+              "m_LocalPosition": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "m_LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "fields": {
+              "m_Enabled": 1,
+              "m_IsTrigger": false,
+              "m_Offset": {
+                "x": 0.0,
+                "y": 0.15625
+              },
+              "m_Radius": 0.15625
+            }
+          }
+        ],
+        "children": []
+      },
+      {
+        "id": 37345,
+        "name": "Pseudo Target",
+        "layer": 10,
+        "components": [
+          {
+            "type": "Transform",
+            "fields": {
+              "m_LocalPosition": {
+                "x": 1.399999976158142,
+                "y": 0.6000000238418579,
+                "z": 0.0
+              },
+              "m_LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "fields": {
+              "m_Enabled": 1,
+              "m_IsTrigger": true,
+              "m_Offset": {
+                "x": 0.0,
+                "y": 0.0
+              },
+              "m_Size": {
+                "x": 9.999999747378752e-05,
+                "y": 9.999999747378752e-05
+              }
+            }
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "id": 19820,
+    "name": "Deer",
+    "layer": 9,
+    "components": [
+      {
+        "type": "Transform",
+        "fields": {
+          "m_LocalPosition": {
+            "x": 0.0,
+            "y": 0.875,
+            "z": 0.949999988079071
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "CapsuleCollider2D",
+        "fields": {
+          "m_Enabled": 1,
+          "m_IsTrigger": true,
+          "m_Offset": {
+            "x": 0.06620090454816818,
+            "y": 0.3793029487133026
+          },
+          "m_Size": {
+            "x": 0.9136569499969482,
+            "y": 0.5086060166358948
+          }
+        }
+      }
+    ],
+    "children": [
+      {
+        "id": 20093,
+        "name": "Physical Collider",
+        "layer": 17,
+        "components": [
+          {
+            "type": "Transform",
+            "fields": {
+              "m_LocalPosition": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "m_LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            }
+          },
+          {
+            "type": "CircleCollider2D",
+            "fields": {
+              "m_Enabled": 1,
+              "m_IsTrigger": false,
+              "m_Offset": {
+                "x": 0.0,
+                "y": 0.3125
+              },
+              "m_Radius": 0.3125
+            }
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "id": 22445,
+    "name": "Deer_bamboo",
+    "layer": 9,
+    "components": [
+      {
+        "type": "Transform",
+        "fields": {
+          "m_LocalPosition": {
+            "x": 0.0,
+            "y": 0.875,
+            "z": 0.949999988079071
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      },
+      {
+        "type": "CapsuleCollider2D",
+        "fields": {
+          "m_Enabled": 1,
+          "m_IsTrigger": true,
+          "m_Offset": {
+            "x": 0.06620090454816818,
+            "y": 0.3793029487133026
+          },
+          "m_Size": {
+            "x": 0.9136569499969482,
+            "y": 0.5086060166358948
+          }
+        }
+      }
+    ],
+    "children": [
+      {
+        "id": 23821,
+        "name": "Physical Collider",
+        "layer": 17,
+        "components": [
+          {
+            "type": "Transform",
+            "fields": {
+              "m_LocalPosition": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+              },
+              "m_LocalScale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+              }
+            }
+          },
+          {
+            "type": "BoxCollider2D",
+            "fields": {
+              "m_Enabled": 1,
+              "m_IsTrigger": false,
+              "m_Offset": {
+                "x": 0.10000000149011612,
+                "y": 0.5
+              },
+              "m_Size": {
+                "x": 1.0,
+                "y": 1.0
+              }
+            }
+          }
+        ],
+        "children": []
+      }
+    ]
+  },
+  {
+    "id": 34910,
+    "name": "Deer_bamboo (Pool)",
+    "layer": 0,
+    "components": [
+      {
+        "type": "Transform",
+        "fields": {
+          "m_LocalPosition": {
+            "x": -7.849336624145508,
+            "y": -1.0547752380371094,
+            "z": -0.1015625
+          },
+          "m_LocalScale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      }
+    ],
+    "children": []
+  }
+]

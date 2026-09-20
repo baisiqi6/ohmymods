@@ -1,0 +1,255 @@
+{
+  "saveSHA256": "4A6CCAFA5813E0229A766E5880C942529D9276698D61C75EDE1A86C36ED6D214",
+  "objects": [
+    {
+      "name": "Tower Knight_greece(Clone)",
+      "parentObject": {
+        "linkedObjectID": ""
+      },
+      "hierarchyPath": "Level/GameLayer/",
+      "prefabPath": "Prefabs/Buildings and Interactive/greece/Tower Knight_greece",
+      "uniqueID": "Tower Knight_greece(Clone)--92314",
+      "mode": 0,
+      "createOrder": 21056,
+      "linkOrder": 0,
+      "decayHint": 0,
+      "decayResistanceDays": -1,
+      "decayedVersionPrefabPath": "",
+      "netID": 1591,
+      "crpcType": 2,
+      "localPosition": {
+        "x": 156.63999938964844,
+        "y": 0.0,
+        "z": 1.6040107011795044
+      },
+      "localScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "componentData2": [
+        {
+          "name": "WorkableBuilding",
+          "type": "WorkableBuildingData",
+          "data": "{\"currentBuildPoints\":0.0,\"usesConstructionBuildingComponent\":true}"
+        },
+        {
+          "name": "TowerKnight",
+          "type": "TowerKnightData",
+          "data": "{}"
+        },
+        {
+          "name": "CRPCStamp",
+          "type": "CRPCSaveData",
+          "data": "{\"NetID\":1591,\"SemiStatic\":true}"
+        },
+        {
+          "name": "ConstructionBuildingComponent",
+          "type": "ConstructionBuildingComponentSaveData",
+          "data": "{\"CurrentBuildPoints\":20.0}"
+        }
+      ]
+    },
+    {
+      "name": "Tower Ballista_greece(Clone)",
+      "parentObject": {
+        "linkedObjectID": ""
+      },
+      "hierarchyPath": "Level/GameLayer/",
+      "prefabPath": "Prefabs/Buildings and Interactive/greece/Tower Ballista_greece",
+      "uniqueID": "Tower Ballista_greece(Clone)--92684",
+      "mode": 0,
+      "createOrder": 21064,
+      "linkOrder": 0,
+      "decayHint": 0,
+      "decayResistanceDays": 10,
+      "decayedVersionPrefabPath": "",
+      "netID": 1604,
+      "crpcType": 2,
+      "localPosition": {
+        "x": 166.6599884033203,
+        "y": 0.0,
+        "z": 1.6000932455062866
+      },
+      "localScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "componentData2": [
+        {
+          "name": "WorkableBuilding",
+          "type": "WorkableBuildingData",
+          "data": "{\"currentBuildPoints\":0.0,\"usesConstructionBuildingComponent\":true}"
+        },
+        {
+          "name": "CRPCStamp",
+          "type": "CRPCSaveData",
+          "data": "{\"NetID\":1604,\"SemiStatic\":true}"
+        },
+        {
+          "name": "ConstructionBuildingComponent",
+          "type": "ConstructionBuildingComponentSaveData",
+          "data": "{\"CurrentBuildPoints\":120.0}"
+        },
+        {
+          "name": "PayableUpgrade",
+          "type": "PayableUpgradeData",
+          "data": "{\"cooldown\":0.0}"
+        }
+      ]
+    },
+    {
+      "name": "Tower4_greece(Clone)",
+      "parentObject": {
+        "linkedObjectID": ""
+      },
+      "hierarchyPath": "Level/GameLayer/",
+      "prefabPath": "Prefabs/Buildings and Interactive/greece/Tower4_greece",
+      "uniqueID": "Tower4_greece(Clone)--93906",
+      "mode": 0,
+      "createOrder": 21094,
+      "linkOrder": 0,
+      "decayHint": 0,
+      "decayResistanceDays": 8,
+      "decayedVersionPrefabPath": "",
+      "netID": 1626,
+      "crpcType": 2,
+      "localPosition": {
+        "x": 166.65994262695312,
+        "y": 0.0,
+        "z": 1.6065092086791992
+      },
+      "localScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "componentData2": [
+        {
+          "name": "WorkableBuilding",
+          "type": "WorkableBuildingData",
+          "data": "{\"currentBuildPoints\":0.0,\"usesConstructionBuildingComponent\":true}"
+        },
+        {
+          "name": "PayableUpgrade",
+          "type": "PayableUpgradeData",
+          "data": "{\"cooldown\":0.0}"
+        },
+        {
+          "name": "CRPCStamp",
+          "type": "CRPCSaveData",
+          "data": "{\"NetID\":1626,\"SemiStatic\":true}"
+        },
+        {
+          "name": "ConstructionBuildingComponent",
+          "type": "ConstructionBuildingComponentSaveData",
+          "data": "{\"CurrentBuildPoints\":120.0}"
+        }
+      ]
+    },
+    {
+      "name": "Tower_upgrade_Fire_greece(Clone)",
+      "parentObject": {
+        "linkedObjectID": ""
+      },
+      "hierarchyPath": "Level/GameLayer/",
+      "prefabPath": "Prefabs/Buildings and Interactive/greece/Tower_upgrade_Fire_greece",
+      "uniqueID": "Tower_upgrade_Fire_greece(Clone)--126632",
+      "mode": 0,
+      "createOrder": 21254,
+      "linkOrder": 0,
+      "decayHint": 0,
+      "decayResistanceDays": 10,
+      "decayedVersionPrefabPath": "",
+      "netID": 1636,
+      "crpcType": 2,
+      "localPosition": {
+        "x": 176.679931640625,
+        "y": 0.0,
+        "z": 1.603653907775879
+      },
+      "localScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "componentData2": [
+        {
+          "name": "WorkableBuilding",
+          "type": "WorkableBuildingData",
+          "data": "{\"currentBuildPoints\":0.0,\"usesConstructionBuildingComponent\":true}"
+        },
+        {
+          "name": "CRPCStamp",
+          "type": "CRPCSaveData",
+          "data": "{\"NetID\":1636,\"SemiStatic\":true}"
+        },
+        {
+          "name": "ConstructionBuildingComponent",
+          "type": "ConstructionBuildingComponentSaveData",
+          "data": "{\"CurrentBuildPoints\":80.0}"
+        },
+        {
+          "name": "FireTower",
+          "type": "FireTowerSaveData",
+          "data": "{\"FireJarsActiveNum\":2}"
+        },
+        {
+          "name": "PayableUpgrade",
+          "type": "PayableUpgradeData",
+          "data": "{\"cooldown\":0.0}"
+        }
+      ]
+    },
+    {
+      "name": "Tower2_greece(Clone)",
+      "parentObject": {
+        "linkedObjectID": ""
+      },
+      "hierarchyPath": "Level/GameLayer/",
+      "prefabPath": "Prefabs/Buildings and Interactive/greece/Tower2_greece",
+      "uniqueID": "Tower2_greece(Clone)--168394",
+      "mode": 0,
+      "createOrder": 21390,
+      "linkOrder": 0,
+      "decayHint": 0,
+      "decayResistanceDays": 4,
+      "decayedVersionPrefabPath": "",
+      "netID": 1640,
+      "crpcType": 2,
+      "localPosition": {
+        "x": 176.679931640625,
+        "y": 0.0,
+        "z": 1.6096289157867432
+      },
+      "localScale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "componentData2": [
+        {
+          "name": "WorkableBuilding",
+          "type": "WorkableBuildingData",
+          "data": "{\"currentBuildPoints\":0.0,\"usesConstructionBuildingComponent\":true}"
+        },
+        {
+          "name": "PayableUpgrade",
+          "type": "PayableUpgradeData",
+          "data": "{\"cooldown\":0.0}"
+        },
+        {
+          "name": "CRPCStamp",
+          "type": "CRPCSaveData",
+          "data": "{\"NetID\":1640,\"SemiStatic\":true}"
+        },
+        {
+          "name": "ConstructionBuildingComponent",
+          "type": "ConstructionBuildingComponentSaveData",
+          "data": "{\"CurrentBuildPoints\":60.0}"
+        }
+      ]
+    }
+  ]
+}

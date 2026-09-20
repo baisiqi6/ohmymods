@@ -1,0 +1,9 @@
+# User steering: damage during return burst
+
+User explicitly changed return to deal normal dash damage and asked for a shared implementation rather than two hit systems. This supersedes the earlier non-damaging-return contract. Return direction/10→4 leash/3s deadline/.6s/7 burst/ordinary-running tail and failure limits stay unchanged; only burst hits now share the forward-dash helper. No Greek fire skill is implemented.
+
+ZCode first isolated draft extracted HitScan but introduced CS0157(return in finally) and an unintended one-target-per-frame limit. Operator corrected these before integration: legal owned guard in finally; CanHit verifies active burst/ownership/eligibility/time/position/pause before any scan and before/after each ReceiveDamage; only invalidating synchronous callbacks stop further hits. Same-frame multiple distinct targets remain valid. Per-lease HashSet<Damageable.Pointer> handles multiple colliders once, shared Collider[16] prevents per-frame allocations. Entry and active-return hit callbacks revalidate lease/goal/follower before navigation/cleanup.
+
+Independent test author produced76/76 against final48CF5C5859868ECC2C4403F9948B462B865D4DB2BD7D9A605FD9CB3184AB87AA; operator reran76/76. Prior48 source/results preserved as history. New cases include both directions same-frame two targets, multiple colliders, burst start/end/range/time/pause, newly entering enemies, run-tail exclusion and synchronous damage/Stop callback replacement. Independent source reviewer PASS, no newP0-P2.
+
+CSharp build0W/0E; actual game interop60 reachableUnity methods without failed unstripping stubs. Existing three nativehooks unchanged, no newhook/address needed. Final local startup/deployment receipt follows; existing save/config/publicZIP remain outside mutation scope.

@@ -1,0 +1,57 @@
+{
+  "source": "C:\\Users\\ADMIN\\AppData\\LocalLow\\noio\\KingdomTwoCrowns\\Release\\global-v35",
+  "before": "3DE1786460A74262F58D2C18772E91722BD7D50CBCF04517F2526BCAD3C5571A",
+  "candidate": "2B589F87F8862180EA3F87F7182E5402DA89BDD61EB3318783106A2A822E0ACA",
+  "changes": [
+    {
+      "path": [
+        "campaigns",
+        1,
+        "currentLand"
+      ],
+      "before": 10,
+      "after": 9
+    },
+    {
+      "path": [
+        "campaigns",
+        1,
+        "currentReign",
+        "currentLand"
+      ],
+      "before": 10,
+      "after": 9
+    },
+    {
+      "path": [
+        "campaigns",
+        1,
+        "carryForward",
+        "sailAwayGroup"
+      ],
+      "before": 1,
+      "after": 0
+    },
+    {
+      "path": [
+        "campaigns",
+        1,
+        "carryForward",
+        "numFleetBoats"
+      ],
+      "before": 4,
+      "after": 0
+    }
+  ],
+  "allOtherDecodedBytesPreserved": true,
+  "allIslandRecordsPreserved": true,
+  "targetIslandObjects": 3157,
+  "targetIslandFleetRecords": 4,
+  "carryArchers": 12,
+  "carryWorkers": 12,
+  "carryMoney": [
+    134,
+    8
+  ],
+  "note": "Native Boats arrival returns travellers; zero extra fleet spawns because the target snapshot already contains all four. World stays Greece. PreviousLand remains 9 (same as destination prevents transition-position override)."
+}

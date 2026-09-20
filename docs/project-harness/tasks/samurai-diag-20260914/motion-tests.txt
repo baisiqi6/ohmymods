@@ -1,0 +1,124 @@
+PASS Night leash hands off once; native owns retreat and damage stays untouched
+PASS Night attack crossing ten stops owned dash then permits native handoff
+PASS Night in-range finish retains full cooldown and can attack again
+PASS Night handoff respects external goal before observation
+PASS Night handoff respects object goal before observation
+PASS Night handoff respects new queued task before observation
+PASS Night handoff respects charge before observation
+PASS Night handoff respects formation before observation
+PASS Night handoff respects embark before observation
+PASS Night handoff respects control before observation
+PASS Night handoff respects pillar before observation
+PASS Night handoff respects Assemble before observation
+PASS Night handoff respects dead before observation
+PASS Night handoff respects disabled before observation
+PASS Night handoff respects pause before observation
+PASS Night handoff respects mover pause before observation
+PASS Night handoff respects authority before observation
+PASS Night handoff respects mod off before observation
+PASS Night handoff respects follower lost before observation
+PASS Night handoff respects mover replacement before observation
+PASS Night handoff respects external goal after observation
+PASS Night handoff respects object goal after observation
+PASS Night handoff respects new queued task after observation
+PASS Night handoff respects charge after observation
+PASS Night handoff respects formation after observation
+PASS Night handoff respects embark after observation
+PASS Night handoff respects control after observation
+PASS Night handoff respects pillar after observation
+PASS Night handoff respects Assemble after observation
+PASS Night handoff respects dead after observation
+PASS Night handoff respects disabled after observation
+PASS Night handoff respects pause after observation
+PASS Night handoff respects mover pause after observation
+PASS Night handoff respects authority after observation
+PASS Night handoff respects mod off after observation
+PASS Night handoff respects follower lost after observation
+PASS Night handoff respects mover replacement after observation
+PASS Night no followers retains forward attack
+PASS Night refreshes stopped current wall task once with its latest native destination
+PASS Night ten is inclusive and still permits the next forward attack
+PASS Dusk retires active daytime return without further dash hits
+PASS Actor replacement with reused instance id cannot inherit old night request
+PASS In-flight new native queued task stops old hits without overwriting its queue
+PASS Night same Stop callback external goal wins over later handoff
+PASS No enemy and native attack cooldown do not prevent >10 return
+PASS Return takes priority over still-running attack cooldown
+PASS 10/4 hysteresis and ordinary completion
+PASS Return burst applies normal attack damage exactly once to an in-window target
+PASS Active return does not restart visual burst every frame
+PASS Inside hysteresis band active return cannot also start attacking
+PASS Long return ends invulnerable burst within 0.6 seconds then runs normally
+PASS Normal 10-to-11 gap closes in one bounded white-trail burst
+PASS Return interruption: config
+PASS Return interruption: style
+PASS Return interruption: authority
+PASS Return interruption: manual control
+PASS Return interruption: already controlled
+PASS Return interruption: retreating
+PASS Return interruption: embarked
+PASS Return interruption: embark target
+PASS Return interruption: formation
+PASS Return interruption: dead
+PASS Return interruption: charging
+PASS Return interruption: charge pending
+PASS Return interruption: inert
+PASS Return interruption: grabbed
+PASS Return interruption: stationary
+PASS Return interruption: other FSM task
+PASS Config-off OnDisable is reachable and restores preexisting flags
+PASS Ordinary end of burst preserves preexisting invulnerability and trail
+PASS External new position goal is never stopped or overwritten by cleanup
+PASS Cleanup respects an externally cleared preexisting invulnerability flag
+PASS External object goal and replacement mover survive cleanup
+PASS External goal installed at burst deadline survives transition to running
+PASS Replacement mover identity interrupts return without stopping old or new external owner
+PASS No followers means no invented return destination
+PASS Active follower invalidation: death
+PASS Active follower invalidation: leaves squad
+PASS Active follower invalidation: inactive
+PASS Active follower invalidation: destroyed
+PASS Nearest alive owned follower selected; active target follows changing position
+PASS Stuck return times out and backs off instead of restarting each frame
+PASS Continuously receding follower cannot keep one return episode alive indefinitely
+PASS Pause starts no burst; active pause consumes neither scaled time nor deadline
+PASS External mover pause is not cleared
+PASS Return disable and optional late coroutine cleanup cannot erase pool-reused owner
+PASS Whole follower cache is not searched every active return frame
+PASS Whole follower cache is not searched every attack dash frame
+PASS OnDisable during attack releases owned invulnerability and trail
+PASS OnDisable during attack preserves preexisting invulnerability and trail
+PASS Attack cleanup also preserves a newer external mover destination
+PASS Optional late attack coroutine finally cannot clear new return owner after reuse
+PASS Forward burst retains same-frame damage to two different valid enemies
+PASS Forward burst deduplicates multiple colliders per Damageable and reuses its scan buffer
+PASS Forward burst can hit a new target entering the supplied physics window later
+PASS Forward burst stops damage at timeout before a newly supplied target
+PASS Forward burst stops damage at seven-unit travel boundary
+PASS Forward paused burst does no scans or damage
+PASS Forward damage callback interrupts old frame: OnDisable
+PASS Forward damage callback interrupts old frame: external goal
+PASS Forward damage callback interrupts old frame: authority loss
+PASS Forward damage callback interrupts old frame: manual control
+PASS Forward damage callback interrupts old frame: config loss
+PASS Forward ReceiveDamage callback replacing the motion leaves new return goal and effects intact
+PASS Return burst retains same-frame damage to two different valid enemies
+PASS Return burst deduplicates multiple colliders per Damageable and reuses its scan buffer
+PASS Return burst can hit a new target entering the supplied physics window later
+PASS Return burst stops damage at timeout before a newly supplied target
+PASS Return burst stops damage at seven-unit travel boundary
+PASS Return paused burst does no scans or damage
+PASS Return damage callback interrupts old frame: OnDisable
+PASS Return damage callback interrupts old frame: external goal
+PASS Return damage callback interrupts old frame: authority loss
+PASS Return damage callback interrupts old frame: manual control
+PASS Return damage callback interrupts old frame: config loss
+PASS Return ReceiveDamage callback replacing the motion leaves new return goal and effects intact
+PASS Forward and subsequent independent return may each hit the same Damageable once
+PASS Ordinary return running phase has no hit scans or damage
+PASS Arrival inside four while burst still valid may hit once, never after completed return
+PASS Finish Stop callback replacing motion within same actor cannot be erased by old finally
+PASS Motion begins one visual token without old GlowOverlay call
+PASS Return running tail ends its visual burst token
+PASS OnDisable prefix clears visuals before mover cleanup callbacks
+RESULT: 123 passed, 0 failed

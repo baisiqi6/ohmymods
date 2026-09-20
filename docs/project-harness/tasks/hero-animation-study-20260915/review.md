@@ -1,0 +1,1 @@
+独立内置hero_archer_review最终实质审核通过：8控制器/15clip/164keys、AnyState/defaultStand、Greek重复Sprite与长停留、3run脚步事件、Unity6000.0.61f1与2.1参考边界、首见日志不能定频率/根因、未绘动作不自动继承，均核对。PIL包围盒排他边界术语已按建议改正。官方Unity6来源可打开、用途适当；对照表已目视。结论限学习文档与证据，不是闪烁修复或实机角色验收。

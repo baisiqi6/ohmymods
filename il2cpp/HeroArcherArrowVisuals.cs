@@ -13,8 +13,10 @@ namespace KingdomEnhancedMod;
 /// 原生主箭 + 本模组的额外箭，含打猎的那支主箭——显示 Artemis 神器箭外观；其他弓手/其他来源的箭不变。
 /// **纯外观**：不添加 ArtemisArrow 组件、不模拟 homing/20 次命中、不改伤害/池/prefab/材质/collider/
 /// root transform/trail/共享 SO；不发 RPC、不做网络同步（沿用英雄既有的离线门）。
-///   * 形状/尺寸 = 原生 artemis_bow_arrow（resources.assets sprite 9867：30x5 px、PPU 32、pivot(.5,.5)），
+///   * 形状 = 原生 artemis_bow_arrow（resources.assets sprite 9867：30x5 px、pivot(.5,.5)），
 ///     从 embedded PNG `KingdomEnhancedMod.ArtemisArrow.png` 解码，Point/Clamp/无 MipMap，只加载一次；
+///   * 显示尺寸 = 原生尺寸 × <see cref="HeroArrowDisplayScale"/>（0.65，用户 2026-09-17 锁定）：只把自建
+///     Sprite 的 PPU 从 32 提到 32/0.65（≈49.23，世界尺寸 0.609375），不动 transform/collider/弹道/伤害；
 ///   * 颜色 = 原生 ArtemisArrow SpriteRenderer(79915) 的 _Highlight 金 (.99215686,.90196079,.44705883)，
 ///     透明度保持该箭原本的 alpha（实例色，不写 sharedMaterial）。
 ///
@@ -25,9 +27,11 @@ namespace KingdomEnhancedMod;
 ///     含开关/当前 world/离线门）→ 压入自有 main-thread 作用域栈（≤<see cref="MaxStack"/> 层）；
 ///     非英雄/关闸/溢出压**掩蔽项**（屏蔽外层资格；溢出项不占栈位但 Depth 仍对称自增，出栈即恢复）。
 ///   * <see cref="ResetArrow"/>（Arrow.OnEnable Prefix，Priority.First）：先归还——池复用必须在原生
-///     OnEnable 之前恢复原样，且不受功能开关限制（关闭期间发生的复用同样要清干净）。
+///     OnEnable 之前恢复原样，且不受功能开关限制（关闭期间发生的复用同样要清干净）；同一入口先
+///     <see cref="HeroArcherWallPierce.Restore"/> 归还墙碰撞（英雄箭的穿墙例外，见该文件）。
 ///   * <see cref="OnSpawn"/>（Arrow.OnEnable Postfix，Priority.Last）：作用域内才上色（同一 shot 的主箭与
-///     额外箭天然同域）；OnEnable 时刻**绝不**读 arrow.archer。
+///     额外箭天然同域）；OnEnable 时刻**绝不**读 arrow.archer。英雄分支外观写入成功后由
+///     <see cref="HeroArcherWallPierce.Apply"/> 给该箭挂上「无视墙碰撞」——同样以既有作用域为资格门。
 ///   * <see cref="EndShot"/>（Finalizer，在所有 Postfix 之后）：出栈，并对本次 shot 回执复核
 ///     <c>arrow.archer</c> 确实是该射手（归属复核只在原生写完 owner 之后做；读不到/为 null 一律不撤）。
 ///   * <see cref="Tick"/>（operator 接 ModPanel.Update）：只扫自有 ≤<see cref="Capacity"/> 条回执——
@@ -69,6 +73,13 @@ internal static class HeroArcherArrowVisuals
     private const float ColorEpsilon = 1e-3f;
     /// <summary>读/写失败后的重试间隔（unscaled 秒），避免每帧无退避重试。</summary>
     private const float RetrySeconds = 0.5f;
+
+    /// <summary>
+    /// 英雄金箭的显示缩放（相对原生完整尺寸的比例；1 = 原生 30px/PPU32 尺寸）。用户 2026-09-17 锁定 0.65。
+    /// 只作用显示路径：自建 Sprite 的 PPU = <see cref="NativePixelsPerUnit"/> / 本值（32/0.65 ≈ 49.23，
+    /// 世界尺寸 0.609375）；不动 transform/collider/弹道/伤害，池复用换回原生 sprite 时天然还原（无乘叠）。
+    /// </summary>
+    internal const float HeroArrowDisplayScale = 0.65f;
 
     // ---------- 状态 ----------
 
@@ -322,6 +333,10 @@ internal static class HeroArcherArrowVisuals
         try
         {
             if (arrow == null || arrow.gameObject == null) return;
+            // 穿墙归还先于一切（也先于回执循环）：池复用/新生命必须在原生 OnEnable 之前恢复墙碰撞，
+            // 且不受功能开关限制（关闭期间发生的复用同样要清干净）；单点失败不阻塞回执归还。
+            try { HeroArcherWallPierce.Restore(arrow); }
+            catch (Exception e) { Fail("reset-pierce", "wall pierce restore failed: " + e); }
             IntPtr arrowPtr;
             try { arrowPtr = arrow.Pointer; }
             catch (Exception) { return; }
@@ -433,6 +448,10 @@ internal static class HeroArcherArrowVisuals
             Slots[free] = receipt;                                    // 先登记责任，再写外观
             if (!WriteAppearance(free)) return;                        // 半写失败：回执保留为待归还，Tick 重试
             receipt.PendingRestore = false;
+            // 外观写入成功才给这支英雄箭挂穿墙（资格门就是本次 shot 作用域）；失败只记日志，
+            // 绝不影响外观、绝不外抛进原生链路。
+            try { HeroArcherWallPierce.Apply(arrow); }
+            catch (Exception e) { Fail("spawn-pierce", "wall pierce apply failed: " + e); }
         }
         catch (Exception e) { Fail("spawn", "arrow appearance apply failed: " + e); }
     }
@@ -678,8 +697,11 @@ internal static class HeroArcherArrowVisuals
             texture.filterMode = FilterMode.Point;
             texture.wrapMode = TextureWrapMode.Clamp;
             texture.anisoLevel = 0;
+            // 显示缩放（纯显示层）：只抬 PPU —— 世界尺寸 = rect / (32 / 0.65) = 原生的 65%；
+            // rect/纹理/碰撞体/transform/弹道全不动，池复用换回原生 sprite 天然还原（无乘叠）。
+            float displayPixelsPerUnit = NativePixelsPerUnit / HeroArrowDisplayScale;
             Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, width, height),
-                new Vector2(PivotX, PivotY), NativePixelsPerUnit, 0u, SpriteMeshType.FullRect);
+                new Vector2(PivotX, PivotY), displayPixelsPerUnit, 0u, SpriteMeshType.FullRect);
             if (sprite == null)
             {
                 Unavailable("Sprite.Create returned null for the artemis arrow PNG");
@@ -702,7 +724,8 @@ internal static class HeroArcherArrowVisuals
             _spritePtr = spritePtr;
             _spriteState = SpriteState.Ready;
             Log("artemis arrow sprite ready: " + width + "x" + height
-                + " ppu=" + NativePixelsPerUnit + " opaque=" + opaque + "/" + pixels.Length);
+                + " ppu=" + displayPixelsPerUnit + " scale=" + HeroArrowDisplayScale
+                + " opaque=" + opaque + "/" + pixels.Length);
             return true;
         }
         catch (Exception e)

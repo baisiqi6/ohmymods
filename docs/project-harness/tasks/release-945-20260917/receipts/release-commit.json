@@ -1,0 +1,2920 @@
+{
+  "commit": "676f72041bf8688bb80bd6ffe7c19c86fe488e44",
+  "parent": "21f7ffa136d8c690993bca38c97e954c00c7fb10",
+  "tree": "98c92f9677cec60058c39a86ead0823aa513f3ca",
+  "selectedPaths": [
+    "VERSIONING.md",
+    "il2cpp/ArcherOptionsScope.cs",
+    "il2cpp/Assets/ArtemisArrow.png",
+    "il2cpp/Assets/HeroArcherAtlas.png",
+    "il2cpp/Assets/HeroShop.png",
+    "il2cpp/Assets/HeroShopSeats.png",
+    "il2cpp/Assets/MusketeerAtlas.png",
+    "il2cpp/Assets/MusketeerBullet.png",
+    "il2cpp/Assets/MusketeerGun.png",
+    "il2cpp/Assets/MusketeerShop.png",
+    "il2cpp/AutoRestockCounts.cs",
+    "il2cpp/CalendarHud.cs",
+    "il2cpp/CalendarSnapshot.cs",
+    "il2cpp/CombatDamage.cs",
+    "il2cpp/CombatTargetLife.cs",
+    "il2cpp/CrossbowmanLifecycle.cs",
+    "il2cpp/Directory.Build.props",
+    "il2cpp/FireTowerRestockCapacity.cs",
+    "il2cpp/FleetGreekSquads.cs",
+    "il2cpp/FriendlyTrollDisguise.cs",
+    "il2cpp/GreekBankScope.cs",
+    "il2cpp/GreekScaleScope.cs",
+    "il2cpp/HermesHeadwearCodec.cs",
+    "il2cpp/HermesHeadwearCycle.cs",
+    "il2cpp/HermesHeadwearDiagnostics.cs",
+    "il2cpp/HermesHeadwearVisuals.cs",
+    "il2cpp/HeroArcherAnimation.cs",
+    "il2cpp/HeroArcherArrowVisuals.cs",
+    "il2cpp/HeroArcherCloth.cs",
+    "il2cpp/HeroArcherClothPhysics.cs",
+    "il2cpp/HeroArcherCombat.cs",
+    "il2cpp/HeroArcherGuardFacing.cs",
+    "il2cpp/HeroArcherLiveDiagnostics.cs",
+    "il2cpp/HeroArcherMotion.cs",
+    "il2cpp/HeroArcherMovement.cs",
+    "il2cpp/HeroArcherNativePose.cs",
+    "il2cpp/HeroArcherNetwork.cs",
+    "il2cpp/HeroArcherRange.cs",
+    "il2cpp/HeroArcherRuntime.cs",
+    "il2cpp/HeroArcherScarfGeometry.cs",
+    "il2cpp/HeroArcherTowerPolicy.cs",
+    "il2cpp/HeroArcherVisuals.cs",
+    "il2cpp/HeroRecruitment.cs",
+    "il2cpp/HeroRecruitmentArchive.cs",
+    "il2cpp/HeroRecruitmentContext.cs",
+    "il2cpp/HeroRecruitmentFingerprint.cs",
+    "il2cpp/HeroShop.cs",
+    "il2cpp/HeroShopBannerVisuals.cs",
+    "il2cpp/HeroVisualPriority.cs",
+    "il2cpp/ImGuiCompat.cs",
+    "il2cpp/KingdomEnhancedMod.csproj",
+    "il2cpp/KingdomEnhancedPlugin.cs",
+    "il2cpp/KnightIdentityArchive.cs",
+    "il2cpp/KnightIdentityContext.cs",
+    "il2cpp/KnightIdentityLoadSeed.cs",
+    "il2cpp/KnightIdentityNetwork.cs",
+    "il2cpp/KnightIdentityRuntime.cs",
+    "il2cpp/MedievalScatterPolicy.cs",
+    "il2cpp/ModConfig.cs",
+    "il2cpp/ModPanel.cs",
+    "il2cpp/MusketeerAccess.cs",
+    "il2cpp/MusketeerAnimation.cs",
+    "il2cpp/MusketeerArchive.cs",
+    "il2cpp/MusketeerCombat.cs",
+    "il2cpp/MusketeerDefense.cs",
+    "il2cpp/MusketeerGunVisuals.cs",
+    "il2cpp/MusketeerHooks.cs",
+    "il2cpp/MusketeerIdentity.cs",
+    "il2cpp/MusketeerPersistence.cs",
+    "il2cpp/MusketeerRestock.cs",
+    "il2cpp/MusketeerRuntime.cs",
+    "il2cpp/MusketeerShop.cs",
+    "il2cpp/MusketeerShopAssets.cs",
+    "il2cpp/MusketeerShopRules.cs",
+    "il2cpp/MusketeerVisuals.cs",
+    "il2cpp/OptionalQoLScope.cs",
+    "il2cpp/PatchArcher_GreekImpact.cs",
+    "il2cpp/PatchArcher_Impact.cs",
+    "il2cpp/PatchArcher_Options.cs",
+    "il2cpp/PatchCombatChaseGuard.cs",
+    "il2cpp/PatchDivine_Artemis.cs",
+    "il2cpp/PatchDivine_FriendlyTroll.cs",
+    "il2cpp/PatchDivine_GhostLeashHold.cs",
+    "il2cpp/PatchDivine_GhostSquads.cs",
+    "il2cpp/PatchDivine_HermesHeadwear.cs",
+    "il2cpp/PatchDivine_HermesStaff.cs",
+    "il2cpp/PatchEconomy_AutoRestock.cs",
+    "il2cpp/PatchEconomy_BankAssistants.cs",
+    "il2cpp/PatchEconomy_Banker.cs",
+    "il2cpp/PatchEconomy_CurrencyBag.cs",
+    "il2cpp/PatchEconomy_Shops.cs",
+    "il2cpp/PatchLifecycle_MenuInput.cs",
+    "il2cpp/PatchLifecycle_UnloadShieldAudio.cs",
+    "il2cpp/PatchPerformance_NightVolley.cs",
+    "il2cpp/PatchPerformance_Population.cs",
+    "il2cpp/PatchPerformance_ToolAssignment.cs",
+    "il2cpp/PatchPlayer_HoldPurchase.cs",
+    "il2cpp/PatchPoolFix.cs",
+    "il2cpp/PatchRide_InfiniteStamina.cs",
+    "il2cpp/PatchRide_SteedCooldown.cs",
+    "il2cpp/PatchRoles_BeggarCamp.cs",
+    "il2cpp/PatchRoles_Berserker.cs",
+    "il2cpp/PatchRoles_Castle.cs",
+    "il2cpp/PatchRoles_Character.cs",
+    "il2cpp/PatchRoles_CrossbowDefense.cs",
+    "il2cpp/PatchRoles_Crossbowman.cs",
+    "il2cpp/PatchRoles_DeadlandsPowers.cs",
+    "il2cpp/PatchRoles_GreekFire.cs",
+    "il2cpp/PatchRoles_GreekFireAssets.cs",
+    "il2cpp/PatchRoles_Hermit.cs",
+    "il2cpp/PatchRoles_Holder.cs",
+    "il2cpp/PatchRoles_Knight.cs",
+    "il2cpp/PatchRoles_KnightAnimatorDiag.cs",
+    "il2cpp/PatchRoles_KnightStyle.cs",
+    "il2cpp/PatchRoles_MedievalNorsePowers.cs",
+    "il2cpp/PatchRoles_Ninja.cs",
+    "il2cpp/PatchRoles_NorseSquad.cs",
+    "il2cpp/PatchRoles_SamuraiPowerDash.cs",
+    "il2cpp/PatchRoles_ScaleAdjustments.cs",
+    "il2cpp/PatchRoles_SquadRefillDiag.cs",
+    "il2cpp/PatchRoles_Worker.cs",
+    "il2cpp/PatchRoles_World.cs",
+    "il2cpp/PatchShared_ScanCache.cs",
+    "il2cpp/PatchWorld_BallistaBolt.cs",
+    "il2cpp/PatchWorld_BoatCapacity.cs",
+    "il2cpp/PatchWorld_Construction.cs",
+    "il2cpp/PatchWorld_DeerPopulation.cs",
+    "il2cpp/PatchWorld_DefenseSpacing.cs",
+    "il2cpp/PatchWorld_EnemyManager.cs",
+    "il2cpp/PatchWorld_FarmCats.cs",
+    "il2cpp/PatchWorld_FleetBoatFormation.cs",
+    "il2cpp/PatchWorld_FleetBoatRecovery.cs",
+    "il2cpp/PatchWorld_Kingdom.cs",
+    "il2cpp/PatchWorld_Level.cs",
+    "il2cpp/PatchWorld_Mover.cs",
+    "il2cpp/PatchWorld_OptionalVegetation.cs",
+    "il2cpp/PatchWorld_SerpentLeash.cs",
+    "il2cpp/PatchWorld_ShieldWallTotem.cs",
+    "il2cpp/PatchWorld_SpecialTowerRebuild.cs",
+    "il2cpp/PatchWorld_TowerSpots.cs",
+    "il2cpp/Patch_MusketeerFormation.cs",
+    "il2cpp/PopulationCounts.cs",
+    "il2cpp/PopulationGrounding.cs",
+    "il2cpp/PopulationHud.cs",
+    "il2cpp/ProjectSettings.shared.props",
+    "il2cpp/SamuraiDashDiagnostics.cs",
+    "il2cpp/SamuraiDashVisuals.cs",
+    "il2cpp/SamuraiRetreatSpeed.cs",
+    "il2cpp/ScatterArrowTint.cs",
+    "il2cpp/ShopCleanupQueue.cs",
+    "il2cpp/SiegeAmmoCounts.cs",
+    "il2cpp/SpecialTowerDuplicateCleanup.cs",
+    "il2cpp/SquadFollowGuard.cs",
+    "il2cpp/SquadRosterSnapshot.cs",
+    "release-notes-il2cpp.md",
+    "release/MOD_CAPABILITIES_AND_ROADMAP_ZH.txt",
+    "release/MOD_UPDATE_AND_FIX_LOG_ZH.txt",
+    "release/MOD_USER_GUIDE_ZH.txt",
+    "release/MOD_V9.4.5版本更新说明.txt",
+    "scripts/package_release.py",
+    "tests/ExtractSource.targets",
+    "tests/HermitPickupPolicyRegression/Program.cs",
+    "tests/HermitPickupPolicyRegression/Regression.csproj",
+    "tests/HermitPickupPolicyRegression/Stubs.cs",
+    "tests/archer-impact/Program.cs",
+    "tests/archer-impact/Regression.csproj",
+    "tests/archer-impact/Stubs.cs",
+    "tests/archer-impact/actual-interop/Interop.csproj",
+    "tests/archer-impact/actual-interop/Stubs.cs",
+    "tests/archer-options/combat/CadenceIdentityTests.cs",
+    "tests/archer-options/combat/CombatArcherOptions.Tests.csproj",
+    "tests/archer-options/combat/Harness.cs",
+    "tests/archer-options/combat/MedievalScatterIntegrationTests.cs",
+    "tests/archer-options/combat/PatchContractTests.cs",
+    "tests/archer-options/combat/RateTests.cs",
+    "tests/archer-options/combat/ScatterLedgerRetentionTests.cs",
+    "tests/archer-options/combat/ScatterPoolGateTests.cs",
+    "tests/archer-options/combat/ScatterTests.cs",
+    "tests/archer-options/combat/Stubs/GameStubs.cs",
+    "tests/archer-options/combat/Stubs/InteropStubs.cs",
+    "tests/archer-options/combat/Stubs/RootAndHarmonyStubs.cs",
+    "tests/archer-options/combat/Stubs/ScatterBoundaryStubs.cs",
+    "tests/archer-options/combat/Stubs/UnityStubs.cs",
+    "tests/archer-scope/Program.cs",
+    "tests/archer-scope/Regression.csproj",
+    "tests/auto-restock-counts/Additional.cs",
+    "tests/auto-restock-counts/BreadTests.cs",
+    "tests/auto-restock-counts/CountTests.csproj",
+    "tests/auto-restock-counts/GlobalUsings.cs",
+    "tests/auto-restock-counts/MusketeerCountsTests.cs",
+    "tests/auto-restock-counts/Stubs.cs",
+    "tests/auto-restock-counts/Tests.cs",
+    "tests/auto-restock/Additional.cs",
+    "tests/auto-restock/AmmoAndFarmer.cs",
+    "tests/auto-restock/AutoRestockTests.csproj",
+    "tests/auto-restock/DoubleCost.cs",
+    "tests/auto-restock/GlobalUsings.cs",
+    "tests/auto-restock/GreekScope.cs",
+    "tests/auto-restock/MotionAndPeasants.cs",
+    "tests/auto-restock/MusketeerBackend.cs",
+    "tests/auto-restock/MusketeerCases.cs",
+    "tests/auto-restock/NightDiagnostics.cs",
+    "tests/auto-restock/Stubs.cs",
+    "tests/auto-restock/Tests.cs",
+    "tests/calendar/CalendarTests.csproj",
+    "tests/calendar/GameDataStubs.cs",
+    "tests/calendar/Program.cs",
+    "tests/combat-damage/AssemblyInfo.cs",
+    "tests/combat-damage/CombatDamage.Tests.csproj",
+    "tests/combat-damage/CombatDamageTests.cs",
+    "tests/combat-damage/Stubs/GameStubs.cs",
+    "tests/combat-damage/Stubs/UnityStubs.cs",
+    "tests/combat-damage/TargetLifeTests.cs",
+    "tests/combat-damage/TestBase.cs",
+    "tests/crossbow-defense/Program.cs",
+    "tests/crossbow-defense/Regression.csproj",
+    "tests/crossbow-defense/Stubs.cs",
+    "tests/crossbow-lifecycle/Program.cs",
+    "tests/crossbow-lifecycle/Regression.csproj",
+    "tests/crossbow-lifecycle/Stubs.cs",
+    "tests/deer-population/Program.cs",
+    "tests/deer-population/Regression.csproj",
+    "tests/deer-population/Stubs.cs",
+    "tests/expedition-follow/FrameTests.cs",
+    "tests/expedition-follow/LegacyDefenseSpacing.cs",
+    "tests/expedition-follow/Program.cs",
+    "tests/expedition-follow/Regression.csproj",
+    "tests/expedition-follow/Stubs.cs",
+    "tests/farm-cats/Program.cs",
+    "tests/farm-cats/Regression.csproj",
+    "tests/farm-cats/Stubs.cs",
+    "tests/fire-tower-restock-capacity/Program.cs",
+    "tests/fire-tower-restock-capacity/Regression.csproj",
+    "tests/fire-tower-restock-capacity/Stubs.cs",
+    "tests/fire-tower-restock-capacity/actual-interop/ActualInterop.csproj",
+    "tests/fleet-greek-squads/Program.cs",
+    "tests/fleet-greek-squads/Regression.csproj",
+    "tests/fleet-greek-squads/Stubs.cs",
+    "tests/friendly-troll-disguise/Doubles/CoopDoubles.cs",
+    "tests/friendly-troll-disguise/Doubles/GameDoubles.cs",
+    "tests/friendly-troll-disguise/Doubles/HarmonyDoubles.cs",
+    "tests/friendly-troll-disguise/Doubles/Il2CppDoubles.cs",
+    "tests/friendly-troll-disguise/Doubles/UnityDoubles.cs",
+    "tests/friendly-troll-disguise/FriendlyTrollDisguiseTests.csproj",
+    "tests/friendly-troll-disguise/Harness/Harness.cs",
+    "tests/friendly-troll-disguise/Program.cs",
+    "tests/friendly-troll-disguise/Tests/IsProtectedTests.cs",
+    "tests/friendly-troll-disguise/Tests/ReselectTests.cs",
+    "tests/friendly-troll-disguise/interop-check/CoopStubs.cs",
+    "tests/friendly-troll-disguise/interop-check/InteropSignatureCheck.csproj",
+    "tests/greek-bank-assistants-scope/Harness.cs",
+    "tests/greek-bank-assistants-scope/Program.cs",
+    "tests/greek-bank-assistants-scope/Regression.csproj",
+    "tests/greek-bank-assistants-scope/SiegeAmmoStub.cs",
+    "tests/greek-bank-assistants-scope/Stubs.cs",
+    "tests/greek-bank-scope/GreekBankScopeRegression.csproj",
+    "tests/greek-bank-scope/Harness.cs",
+    "tests/greek-bank-scope/Program.cs",
+    "tests/greek-bank-scope/SiegeAmmoStub.cs",
+    "tests/greek-bank-scope/Stubs.cs",
+    "tests/greek-impact/AssemblyInfo.cs",
+    "tests/greek-impact/BurstTests.cs",
+    "tests/greek-impact/DamageSubstitutionTests.cs",
+    "tests/greek-impact/EligibilityTests.cs",
+    "tests/greek-impact/GreekImpact.Tests.csproj",
+    "tests/greek-impact/Harness.cs",
+    "tests/greek-impact/HookContractTests.cs",
+    "tests/greek-impact/LedgerTests.cs",
+    "tests/greek-impact/OperatorRegressionTests.cs",
+    "tests/greek-impact/Stubs/GameStubs.cs",
+    "tests/greek-impact/Stubs/RootStubs.cs",
+    "tests/greek-impact/Stubs/UnityStubs.cs",
+    "tests/greek-impact/TargetLifeTests.cs",
+    "tests/greek-impact/TestBase.cs",
+    "tests/greek-scale-adapters/Program.cs",
+    "tests/greek-scale-adapters/Regression.csproj",
+    "tests/greek-scale-adapters/Stubs.cs",
+    "tests/greek-scale-scope/GreekScaleScopeRegression.csproj",
+    "tests/greek-scale-scope/Program.cs",
+    "tests/greek-scale-scope/Stubs.cs",
+    "tests/hermes-headwear-cycle/CycleTests.cs",
+    "tests/hermes-headwear-cycle/Harness.cs",
+    "tests/hermes-headwear-cycle/HermesHeadwearCycleTests.csproj",
+    "tests/hermes-headwear-cycle/Program.cs",
+    "tests/hermes-headwear-cycle/production-compile/HermesCycleProductionCompile.csproj",
+    "tests/hermes-headwear-cycle/production-compile/ProductionStubs.cs",
+    "tests/hermes-headwear-diagnostics/HermesHeadwearDiagnosticsTests.csproj",
+    "tests/hermes-headwear-diagnostics/Program.cs",
+    "tests/hermes-headwear-diagnostics/Stubs.cs",
+    "tests/hermes-headwear-diagnostics/Tests.cs",
+    "tests/hermes-headwear-diagnostics/interop-check/HermesHeadwearDiagInteropCheck.csproj",
+    "tests/hermes-headwear-diagnostics/interop-check/ProductionStubs.cs",
+    "tests/hermes-headwear-visuals/DiagnosticsDouble.cs",
+    "tests/hermes-headwear-visuals/Program.cs",
+    "tests/hermes-headwear-visuals/Regression.csproj",
+    "tests/hermes-headwear-visuals/Stubs.cs",
+    "tests/hermes-headwear/Doubles/BoundaryDoubles.cs",
+    "tests/hermes-headwear/Doubles/CycleDouble.cs",
+    "tests/hermes-headwear/Doubles/DiagnosticsDouble.cs",
+    "tests/hermes-headwear/Doubles/NativeDoubles.cs",
+    "tests/hermes-headwear/Doubles/UnityDoubles.cs",
+    "tests/hermes-headwear/Harness/Harness.cs",
+    "tests/hermes-headwear/HermesHeadwearTests.csproj",
+    "tests/hermes-headwear/Program.cs",
+    "tests/hermes-headwear/Tests/CodecTests.cs",
+    "tests/hermes-headwear/Tests/DisguiseCycleIntegrationTests.cs",
+    "tests/hermes-headwear/Tests/LifecycleTests.cs",
+    "tests/hermes-headwear/Tests/NetworkTests.cs",
+    "tests/hermes-headwear/Tests/PersistenceTests.cs",
+    "tests/hermes-headwear/Tests/SaveBridgeTests.cs",
+    "tests/hermes-quota-integration/Program.cs",
+    "tests/hermes-quota-integration/Regression.csproj",
+    "tests/hero-archer/DisabledRuntime.cs",
+    "tests/hero-archer/animation/Program.cs",
+    "tests/hero-archer/animation/Tests.csproj",
+    "tests/hero-archer/cloth-logic/Program.cs",
+    "tests/hero-archer/cloth-logic/Tests.csproj",
+    "tests/hero-archer/cloth-view/Program.cs",
+    "tests/hero-archer/cloth-view/Tests.csproj",
+    "tests/hero-archer/cloth-view/UnityStubs.cs",
+    "tests/hero-archer/combat/Boundary/HeroArcherRuntime.cs",
+    "tests/hero-archer/combat/CadenceIdentityTests.cs",
+    "tests/hero-archer/combat/Harness.cs",
+    "tests/hero-archer/combat/HeroCombatTests.cs",
+    "tests/hero-archer/combat/HeroRangeTests.cs",
+    "tests/hero-archer/combat/MedievalScatterIntegrationTests.cs",
+    "tests/hero-archer/combat/PatchContractTests.cs",
+    "tests/hero-archer/combat/RangeCleanupRegression.cs",
+    "tests/hero-archer/combat/RateTests.cs",
+    "tests/hero-archer/combat/ScatterLedgerRetentionTests.cs",
+    "tests/hero-archer/combat/ScatterPoolGateTests.cs",
+    "tests/hero-archer/combat/ScatterTests.cs",
+    "tests/hero-archer/combat/Stubs/GameStubs.cs",
+    "tests/hero-archer/combat/Stubs/InteropStubs.cs",
+    "tests/hero-archer/combat/Stubs/RootAndHarmonyStubs.cs",
+    "tests/hero-archer/combat/Stubs/ScatterBoundaryStubs.cs",
+    "tests/hero-archer/combat/Stubs/UnityStubs.cs",
+    "tests/hero-archer/combat/Tests.csproj",
+    "tests/hero-archer/greek/AssemblyInfo.cs",
+    "tests/hero-archer/greek/Boundary/HeroArcherRuntime.cs",
+    "tests/hero-archer/greek/BurstTests.cs",
+    "tests/hero-archer/greek/DamageSubstitutionTests.cs",
+    "tests/hero-archer/greek/EligibilityTests.cs",
+    "tests/hero-archer/greek/Harness.cs",
+    "tests/hero-archer/greek/HeroImpactTests.cs",
+    "tests/hero-archer/greek/HookContractTests.cs",
+    "tests/hero-archer/greek/LedgerTests.cs",
+    "tests/hero-archer/greek/OperatorRegressionTests.cs",
+    "tests/hero-archer/greek/Stubs/GameStubs.cs",
+    "tests/hero-archer/greek/Stubs/RootStubs.cs",
+    "tests/hero-archer/greek/Stubs/UnityStubs.cs",
+    "tests/hero-archer/greek/TestBase.cs",
+    "tests/hero-archer/greek/Tests.csproj",
+    "tests/hero-archer/impact/Program.cs",
+    "tests/hero-archer/impact/Stubs.cs",
+    "tests/hero-archer/impact/Tests.csproj",
+    "tests/hero-archer/runtime/Program.cs",
+    "tests/hero-archer/runtime/RangeBoundary.cs",
+    "tests/hero-archer/runtime/RecruitmentBoundary.cs",
+    "tests/hero-archer/runtime/Stubs.cs",
+    "tests/hero-archer/runtime/Tests.csproj",
+    "tests/hero-artemis-arrow/GameStubs.cs",
+    "tests/hero-artemis-arrow/PngCodec.cs",
+    "tests/hero-artemis-arrow/Program.cs",
+    "tests/hero-artemis-arrow/Tests.csproj",
+    "tests/hero-artemis-arrow/UnityStubs.cs",
+    "tests/hero-cloth-flight/ChainView.cs",
+    "tests/hero-cloth-flight/Program.cs",
+    "tests/hero-cloth-flight/Tests.csproj",
+    "tests/hero-cloth-turn/Program.cs",
+    "tests/hero-cloth-turn/Tests.csproj",
+    "tests/hero-guard-facing/Interop.csproj",
+    "tests/hero-guard-facing/InteropStubs.cs",
+    "tests/hero-guard-facing/NativeCollections.cs",
+    "tests/hero-guard-facing/Program.cs",
+    "tests/hero-guard-facing/Stubs.cs",
+    "tests/hero-guard-facing/Tests.csproj",
+    "tests/hero-movement/Program.cs",
+    "tests/hero-movement/Stubs.cs",
+    "tests/hero-movement/Tests.csproj",
+    "tests/hero-native-pose/Program.cs",
+    "tests/hero-native-pose/Tests.csproj",
+    "tests/hero-native-pose/UnityStubs.cs",
+    "tests/hero-native-visuals/GameStubs.cs",
+    "tests/hero-native-visuals/Program.cs",
+    "tests/hero-native-visuals/Tests.csproj",
+    "tests/hero-native-visuals/UnityStubs.cs",
+    "tests/hero-recruitment/HeroRecruitmentTests.csproj",
+    "tests/hero-recruitment/Program.cs",
+    "tests/hero-recruitment/Stubs.cs",
+    "tests/hero-scarf-geometry/Program.cs",
+    "tests/hero-scarf-geometry/Tests.csproj",
+    "tests/hero-shop/Core.csproj",
+    "tests/hero-shop/Directory.Build.props",
+    "tests/hero-shop/Interop.csproj",
+    "tests/hero-shop/InteropStubs.cs",
+    "tests/hero-shop/Invoker.csproj",
+    "tests/hero-shop/InvokerProgram.cs",
+    "tests/hero-shop/Program.cs",
+    "tests/hero-tower-policy/Interop.csproj",
+    "tests/hero-tower-policy/InteropStubs.cs",
+    "tests/hero-tower-policy/Program.cs",
+    "tests/hero-tower-policy/Stubs.cs",
+    "tests/hero-tower-policy/Tests.csproj",
+    "tests/hero-visual-priority/Program.cs",
+    "tests/hero-visual-priority/Tests.csproj",
+    "tests/hero-visual-priority/UnityStubs.cs",
+    "tests/hero-walk-scale/Program.cs",
+    "tests/hero-walk-scale/Tests.csproj",
+    "tests/hold-purchase/AmmoTests.cs",
+    "tests/hold-purchase/HoldPurchaseTests.csproj",
+    "tests/hold-purchase/NativeSim.cs",
+    "tests/hold-purchase/Stubs.cs",
+    "tests/hold-purchase/Tests.cs",
+    "tests/hold-purchase/actual-interop/Interop.csproj",
+    "tests/hold-purchase/actual-interop/Stubs.cs",
+    "tests/impact-performance/ImpactPerformanceTests.csproj",
+    "tests/impact-performance/Program.cs",
+    "tests/infinite-stamina/Harness.cs",
+    "tests/infinite-stamina/InfiniteStamina.Tests.csproj",
+    "tests/infinite-stamina/Program.cs",
+    "tests/infinite-stamina/Stubs.cs",
+    "tests/infinite-stamina/interop-compile/InteropCompile.csproj",
+    "tests/infinite-stamina/interop-compile/ModSideStubs.cs",
+    "tests/knight-identity-archive/Harness.cs",
+    "tests/knight-identity-archive/KnightIdentityArchiveTests.csproj",
+    "tests/knight-identity-archive/Program.cs",
+    "tests/knight-identity-archive/Tests/FileIoTests.cs",
+    "tests/knight-identity-archive/Tests/FunctionTests.cs",
+    "tests/knight-identity-archive/Tests/ModelTests.cs",
+    "tests/knight-identity-integration/KnightIdentityIntegrationTests.csproj",
+    "tests/knight-identity-integration/NativeStubs.cs",
+    "tests/knight-identity-integration/NetworkBoundary.cs",
+    "tests/knight-identity-integration/Program.cs",
+    "tests/knight-identity-network/HarmonyMocks.cs",
+    "tests/knight-identity-network/Harness.cs",
+    "tests/knight-identity-network/KnightIdentityNetworkTests.csproj",
+    "tests/knight-identity-network/MockSupport.cs",
+    "tests/knight-identity-network/NativeMocks.cs",
+    "tests/knight-identity-network/NetworkRegistrationTests.cs",
+    "tests/knight-identity-network/OperatorRegression.cs",
+    "tests/knight-identity-network/PluginMocks.cs",
+    "tests/knight-identity-network/Program.cs",
+    "tests/knight-identity-network/ReceiveTests.cs",
+    "tests/knight-identity-network/RuntimeMock.cs",
+    "tests/knight-identity-network/SendBudgetTests.cs",
+    "tests/knight-identity-network/TailCodecTests.cs",
+    "tests/knight-identity-network/UnityMocks.cs",
+    "tests/knight-identity-runtime/ContextFollowupTests.cs",
+    "tests/knight-identity-runtime/Harness.cs",
+    "tests/knight-identity-runtime/IdentityTests.cs",
+    "tests/knight-identity-runtime/KnightIdentityRuntimeTests.csproj",
+    "tests/knight-identity-runtime/LoadSeedWiringTests.cs",
+    "tests/knight-identity-runtime/NativeStubs.cs",
+    "tests/knight-identity-runtime/OperatorRegression.cs",
+    "tests/knight-identity-runtime/Program.cs",
+    "tests/knight-identity-runtime/SaveLoadTests.cs",
+    "tests/knight-load-seed/Harness.cs",
+    "tests/knight-load-seed/KnightLoadSeedTests.csproj",
+    "tests/knight-load-seed/LoadSeedTests.cs",
+    "tests/knight-load-seed/NativeStubs.cs",
+    "tests/knight-load-seed/Program.cs",
+    "tests/knight-load-seed/interop/InteropCompile.csproj",
+    "tests/knight-powers/Program.cs",
+    "tests/knight-powers/Regression.csproj",
+    "tests/knight-powers/Stubs.cs",
+    "tests/knight-powers/WindArcRegression.cs",
+    "tests/knight-stable-context/Harness.cs",
+    "tests/knight-stable-context/KnightStableContextTests.csproj",
+    "tests/knight-stable-context/Program.cs",
+    "tests/knight-stable-context/ResolveTests.cs",
+    "tests/medieval-scatter-policy/Harness.cs",
+    "tests/medieval-scatter-policy/MedievalScatterPolicyTests.csproj",
+    "tests/medieval-scatter-policy/PolicyTests.cs",
+    "tests/medieval-scatter-policy/Program.cs",
+    "tests/medieval-scatter-policy/Stubs.cs",
+    "tests/menu-input-lifecycle/Program.cs",
+    "tests/menu-input-lifecycle/Regression.csproj",
+    "tests/menu-input-lifecycle/Stubs.cs",
+    "tests/menu-input-lifecycle/actual-interop/ActualInterop.csproj",
+    "tests/menu-input-lifecycle/actual-interop/PluginShell.cs",
+    "tests/musketeer-boundary/MusketeerIdentityStub.cs",
+    "tests/musketeer-defense/Directory.Build.props",
+    "tests/musketeer-defense/Integration.csproj",
+    "tests/musketeer-defense/IntegrationProgram.cs",
+    "tests/musketeer-defense/IntegrationStubs.cs",
+    "tests/musketeer-defense/Interop.csproj",
+    "tests/musketeer-defense/InteropStubs.cs",
+    "tests/musketeer-defense/Program.cs",
+    "tests/musketeer-defense/Stubs.cs",
+    "tests/musketeer-defense/Tests.csproj",
+    "tests/musketeer-drop-interop/DropInteropTests.csproj",
+    "tests/musketeer-drop-interop/Program.cs",
+    "tests/musketeer-formation/Harness.cs",
+    "tests/musketeer-formation/LayoutTests.cs",
+    "tests/musketeer-formation/MusketeerFormationTests.csproj",
+    "tests/musketeer-formation/PolicyTests.cs",
+    "tests/musketeer-formation/Program.cs",
+    "tests/musketeer-formation/Stubs.cs",
+    "tests/musketeer-formation/e2e/FormationPipelineTests.csproj",
+    "tests/musketeer-formation/e2e/Harness.cs",
+    "tests/musketeer-formation/e2e/PipelineTests.cs",
+    "tests/musketeer-formation/e2e/Program.cs",
+    "tests/musketeer-formation/e2e/Stubs.cs",
+    "tests/musketeer-formation/interop-check/CollabStubs.cs",
+    "tests/musketeer-formation/interop-check/MusketeerFormationInteropCheck.csproj",
+    "tests/musketeer-formation/interop-check/SignatureProbe.cs",
+    "tests/musketeer-identity/Program.cs",
+    "tests/musketeer-identity/Stubs.cs",
+    "tests/musketeer-identity/Tests.csproj",
+    "tests/musketeer-restock/Program.cs",
+    "tests/musketeer-restock/Tests.csproj",
+    "tests/musketeer-runtime/AnimationTests.cs",
+    "tests/musketeer-runtime/CombatTests.cs",
+    "tests/musketeer-runtime/DeerHuntTests.cs",
+    "tests/musketeer-runtime/Fixture.cs",
+    "tests/musketeer-runtime/Harness.cs",
+    "tests/musketeer-runtime/MusketeerRuntimeTests.csproj",
+    "tests/musketeer-runtime/NativeStubs.cs",
+    "tests/musketeer-runtime/RuntimeTests.cs",
+    "tests/musketeer-runtime/UnityStubs.cs",
+    "tests/musketeer-runtime/VisualTests.cs",
+    "tests/musketeer-runtime/WorldTests.cs",
+    "tests/musketeer-runtime/interop-check/CollabStubs.cs",
+    "tests/musketeer-runtime/interop-check/MusketeerInteropCheck.csproj",
+    "tests/musketeer-shop-perf/PerfTests.csproj",
+    "tests/musketeer-shop-perf/Program.cs",
+    "tests/musketeer-shop-perf/actual-interop/MusketeerShopInteropCheck.csproj",
+    "tests/musketeer-shop-perf/actual-interop/Stubs.cs",
+    "tests/musketeer-shop/Program.cs",
+    "tests/musketeer-shop/Tests.csproj",
+    "tests/musketeer-side-rack/Program.cs",
+    "tests/musketeer-side-rack/Tests.csproj",
+    "tests/optional-scope/Program.cs",
+    "tests/optional-scope/Regression.csproj",
+    "tests/optional-vegetation/InteropCollection.cs",
+    "tests/optional-vegetation/Program.cs",
+    "tests/optional-vegetation/Regression.csproj",
+    "tests/optional-vegetation/Stubs.cs",
+    "tests/population-grounding/Program.cs",
+    "tests/population-grounding/Stubs.cs",
+    "tests/population-grounding/Tests.csproj",
+    "tests/population-grounding/actual-interop/Interop.csproj",
+    "tests/population-grounding/actual-interop/Stubs.cs",
+    "tests/population-hud/AmmoStub.cs",
+    "tests/population-hud/Program.cs",
+    "tests/population-hud/Regression.csproj",
+    "tests/population-hud/Stubs.cs",
+    "tests/samurai-diagnostics/Program.cs",
+    "tests/samurai-diagnostics/SamuraiDiagnosticsTests.csproj",
+    "tests/samurai-diagnostics/Stubs.cs",
+    "tests/samurai-motion/Program.cs",
+    "tests/samurai-motion/Regression.csproj",
+    "tests/samurai-motion/Stubs.cs",
+    "tests/samurai-motion/VisualsStub.cs",
+    "tests/samurai-retreat/Program.cs",
+    "tests/samurai-retreat/Regression.csproj",
+    "tests/samurai-retreat/Stubs.cs",
+    "tests/samurai-visuals/Program.cs",
+    "tests/samurai-visuals/Regression.csproj",
+    "tests/samurai-visuals/Stubs.cs",
+    "tests/scatter-arrow-tint/Harness.cs",
+    "tests/scatter-arrow-tint/Program.cs",
+    "tests/scatter-arrow-tint/Regression.csproj",
+    "tests/scatter-arrow-tint/Stubs/GameStubs.cs",
+    "tests/scatter-arrow-tint/Stubs/RootStubs.cs",
+    "tests/scatter-arrow-tint/Stubs/UnityStubs.cs",
+    "tests/scatter-arrow-tint/actual-interop/ActualInterop.csproj",
+    "tests/scatter-arrow-tint/actual-interop/PluginShell.cs",
+    "tests/shop-cleanup/Doubles/GameDoubles.cs",
+    "tests/shop-cleanup/Doubles/ModDoubles.cs",
+    "tests/shop-cleanup/Doubles/UnityDoubles.cs",
+    "tests/shop-cleanup/Harness.cs",
+    "tests/shop-cleanup/Program.cs",
+    "tests/shop-cleanup/Regression.csproj",
+    "tests/shop-cleanup/Tests/MarkerTests.cs",
+    "tests/shop-cleanup/Tests/SlotCleanupTests.cs",
+    "tests/siege-ammo/SiegeAmmoTests.csproj",
+    "tests/siege-ammo/Stubs.cs",
+    "tests/siege-ammo/Tests.cs",
+    "tests/source-extractor/Program.cs",
+    "tests/source-extractor/SourceExtractor.csproj"
+  ],
+  "removedPaths": [],
+  "files": [
+    {
+      "path": "VERSIONING.md",
+      "sha256": "1e08d4d5d7d54716dc68c093e9fb84975dc7da5e5d031efcd7fe8df0f75d3057"
+    },
+    {
+      "path": "il2cpp/ArcherOptionsScope.cs",
+      "sha256": "d686a9b82edf1dc5bbb7ed859517aa680899be3bb3fe915c8f516aa6d0e612a5"
+    },
+    {
+      "path": "il2cpp/Assets/ArtemisArrow.png",
+      "sha256": "5317f8a795ba506136ab51c68384f4e1151ee74229649556eaa8a57a338b35a8"
+    },
+    {
+      "path": "il2cpp/Assets/HeroArcherAtlas.png",
+      "sha256": "cea4a64924e64dd7195ec6ac3998cda2e48bb426480ada4b8c26af381b6bbf78"
+    },
+    {
+      "path": "il2cpp/Assets/HeroShop.png",
+      "sha256": "7f0df240b107ee816377ebe34f0600da4f25470aa17517ea98a62d367ef5d7be"
+    },
+    {
+      "path": "il2cpp/Assets/HeroShopSeats.png",
+      "sha256": "0af10b142972e1e36b1fadd85bbc3b1157c4f1fd8f1e6d006a03a20bc7dee657"
+    },
+    {
+      "path": "il2cpp/Assets/MusketeerAtlas.png",
+      "sha256": "9d7b39c23b314cabbc03274729bf4b40492a6f3a29b7ecb8d2d0e9ebb728305b"
+    },
+    {
+      "path": "il2cpp/Assets/MusketeerBullet.png",
+      "sha256": "ecbc14d9376f821e323e5836d0ee0dce8f73170c66e89f783a2e515c675b359a"
+    },
+    {
+      "path": "il2cpp/Assets/MusketeerGun.png",
+      "sha256": "9091aecd21d79650468db26f3995d9f55225fc1e4a99792cb3b70969b62fc20c"
+    },
+    {
+      "path": "il2cpp/Assets/MusketeerShop.png",
+      "sha256": "3bf36bb268c0726ae49ca546bc9ed4a290f75d82bca7a79dc1558d1719e6ca2c"
+    },
+    {
+      "path": "il2cpp/AutoRestockCounts.cs",
+      "sha256": "8d8db993a9d0a962bd9e9717aba8302b9d73a72c786cd723ba4a2ccbc2bfefc5"
+    },
+    {
+      "path": "il2cpp/CalendarHud.cs",
+      "sha256": "a04684f27e01189afd34e90a385bfd05ba9138c3017520463f50f8f2a8e274aa"
+    },
+    {
+      "path": "il2cpp/CalendarSnapshot.cs",
+      "sha256": "14129613cdf6f9352d0be9f2187ea2f2c4d7880fa54079de54b5b246cc6170f7"
+    },
+    {
+      "path": "il2cpp/CombatDamage.cs",
+      "sha256": "753fd3c310c466ef4fd3e9ded6dc223257b1595f3269fdc5ce18b5a1e7d1319c"
+    },
+    {
+      "path": "il2cpp/CombatTargetLife.cs",
+      "sha256": "f26d71ebe0f99e999b4d2bdf955876c23674cbfb27015c93352997e837284351"
+    },
+    {
+      "path": "il2cpp/CrossbowmanLifecycle.cs",
+      "sha256": "53d86bd49b3ae26c6d4509a700fbb0ae7eb3658d5d997b19f26a3545a25c9def"
+    },
+    {
+      "path": "il2cpp/Directory.Build.props",
+      "sha256": "4b220272a8ba01bc67a4854c0a27056f00398f4fe8f21be8153cdd8423d75fd0"
+    },
+    {
+      "path": "il2cpp/FireTowerRestockCapacity.cs",
+      "sha256": "d0e41e20c5b2c656f3d751f784d43aa826d23500e66c6644c8dbb0e3fe5a3ba9"
+    },
+    {
+      "path": "il2cpp/FleetGreekSquads.cs",
+      "sha256": "8457993075b76c089e211fc41028fde0772a6dffd002b3fb51e31838deae31af"
+    },
+    {
+      "path": "il2cpp/FriendlyTrollDisguise.cs",
+      "sha256": "3f4ba5d2997004fae281991bc140742d953818362390686edb51afcebcbda1c4"
+    },
+    {
+      "path": "il2cpp/GreekBankScope.cs",
+      "sha256": "46cdec4701e3bbbcf59bd78dc02c893637ff719a50914a47ab601ae835ade7bb"
+    },
+    {
+      "path": "il2cpp/GreekScaleScope.cs",
+      "sha256": "f8f321d5b3a0f89587d88ccc4ca44212543735fbcf9d0bebbff2ca315375f30b"
+    },
+    {
+      "path": "il2cpp/HermesHeadwearCodec.cs",
+      "sha256": "f5b3734c93ec973d4de932101451628da97c35d65bb4eac4feac141546233506"
+    },
+    {
+      "path": "il2cpp/HermesHeadwearCycle.cs",
+      "sha256": "cf3e00ee2c05d5fc8f5eae2762f58a4a9abe7d4a15f56644caac324e94072d5f"
+    },
+    {
+      "path": "il2cpp/HermesHeadwearDiagnostics.cs",
+      "sha256": "23bc009bf11ec5c5ff230545ba7853f9c2d7f84af25fe2ea94fe79d3a64484eb"
+    },
+    {
+      "path": "il2cpp/HermesHeadwearVisuals.cs",
+      "sha256": "3b6cd4047cb05373cda1dba599da88e2dd59295cae6bd3a20de02426af09a8c5"
+    },
+    {
+      "path": "il2cpp/HeroArcherAnimation.cs",
+      "sha256": "2406960b23401f5f02d77063862e86860a8bb57614c9d221a5821d69e8a792ab"
+    },
+    {
+      "path": "il2cpp/HeroArcherArrowVisuals.cs",
+      "sha256": "5398694afe4674be69629c1bc4d8ea0d74f1a3ee386cac5681462e4ffa3db1c1"
+    },
+    {
+      "path": "il2cpp/HeroArcherCloth.cs",
+      "sha256": "2b53eb46d51a9716ed3c3855d32a2041fc8f93b803978caefefadbd92056740b"
+    },
+    {
+      "path": "il2cpp/HeroArcherClothPhysics.cs",
+      "sha256": "d7974c2627332cfc0dd1683467b60c18ac6f387db97ba5c4846a3c4b43670903"
+    },
+    {
+      "path": "il2cpp/HeroArcherCombat.cs",
+      "sha256": "d3c0b76631069a2f481736de08cb99379469d9dbb6dba75cb51d898077067fe8"
+    },
+    {
+      "path": "il2cpp/HeroArcherGuardFacing.cs",
+      "sha256": "27734ea97382ff73cac43b2cb5b9c54eccaf3c07c3dadab35d59cf4e774a1cac"
+    },
+    {
+      "path": "il2cpp/HeroArcherLiveDiagnostics.cs",
+      "sha256": "b0905155fab1fdd8dbf0ddda1819645483f07251de5ca200fe58e0ceb235b0c3"
+    },
+    {
+      "path": "il2cpp/HeroArcherMotion.cs",
+      "sha256": "9eccb0efb4c27e59374e70ea3dd6dcb5c52efa57d7c6b599f95224de4f3dac06"
+    },
+    {
+      "path": "il2cpp/HeroArcherMovement.cs",
+      "sha256": "851b91b2e3004d4078b28291815e52ef3134a29738bf76518c9f6fc0d999c9ac"
+    },
+    {
+      "path": "il2cpp/HeroArcherNativePose.cs",
+      "sha256": "8968026b7d0ddcb73b45aa52a7fd8c8713aaa0b1972552bb1a6c550672c086a9"
+    },
+    {
+      "path": "il2cpp/HeroArcherNetwork.cs",
+      "sha256": "e77a1c868ba9f3722c4ef9dbd60459e588dc2f68ec27e7cdc8f6847d4076c0fb"
+    },
+    {
+      "path": "il2cpp/HeroArcherRange.cs",
+      "sha256": "fa255c8c2a8f0b3c5d296bb8f91879fd393045a5d874b29bde648f0892a0171f"
+    },
+    {
+      "path": "il2cpp/HeroArcherRuntime.cs",
+      "sha256": "8c1f431f9763d3bc87d427d8c1c80e25aed27e1caa94a0aaf33b852bd7509287"
+    },
+    {
+      "path": "il2cpp/HeroArcherScarfGeometry.cs",
+      "sha256": "09fd978d0423bc1af34a4ef660ccf16f6b0efd65e6fdc4486b3c63af4a22538e"
+    },
+    {
+      "path": "il2cpp/HeroArcherTowerPolicy.cs",
+      "sha256": "d2e8fd0f78186776222d81d991c1582ac216a03e35637c5618dabb4430f7462c"
+    },
+    {
+      "path": "il2cpp/HeroArcherVisuals.cs",
+      "sha256": "cf2a43ae85de5d7b75c304a222d6b5e125bd06856583ed5d9c6704427b811391"
+    },
+    {
+      "path": "il2cpp/HeroRecruitment.cs",
+      "sha256": "4c009a434815d0c4c7ca8b93f8ff15aa1c9f1f2109de4ae42eddae93326a0ee4"
+    },
+    {
+      "path": "il2cpp/HeroRecruitmentArchive.cs",
+      "sha256": "05cfdea48fbe95865a1806c4ce93cdfe3535c31a39f34c47044ad35143b5c129"
+    },
+    {
+      "path": "il2cpp/HeroRecruitmentContext.cs",
+      "sha256": "684cc8fd6288cb03a804ce51e45a1cd761b76950c0214bcc1fce7e487e8f26a6"
+    },
+    {
+      "path": "il2cpp/HeroRecruitmentFingerprint.cs",
+      "sha256": "71abb1a115b07b00fd97a67566673a649d8d5c83e2aa7a990426d7bd0f32aa23"
+    },
+    {
+      "path": "il2cpp/HeroShop.cs",
+      "sha256": "e821a27fcbe1d6c586dfcf8b07679c202d1ffb532d43d3f173d69fe0e0638249"
+    },
+    {
+      "path": "il2cpp/HeroShopBannerVisuals.cs",
+      "sha256": "0343801877d8c7f53e0f08bbdb5d0313045ec712ed8514955810a50176cf9c40"
+    },
+    {
+      "path": "il2cpp/HeroVisualPriority.cs",
+      "sha256": "d1299459b32e03abb8f8d5156a4cda0e5e13b04861cff7fb064d70389ac5aff0"
+    },
+    {
+      "path": "il2cpp/ImGuiCompat.cs",
+      "sha256": "e3772bab5225fea458c233f46fa787ea74b194514e9675f7e813e2b10477aff1"
+    },
+    {
+      "path": "il2cpp/KingdomEnhancedMod.csproj",
+      "sha256": "c41d383d4e5b25bb5c19954d696c57abc1e8371199166eba1118b64103999122"
+    },
+    {
+      "path": "il2cpp/KingdomEnhancedPlugin.cs",
+      "sha256": "629086e09ed8925ddf127417b6609612de76f20b3c64449e23308cf3ce4aead0"
+    },
+    {
+      "path": "il2cpp/KnightIdentityArchive.cs",
+      "sha256": "b599c47b8340c4bb14a29dedfaacb6b33d5588f0ff4f39d93c02a3e6bb76f019"
+    },
+    {
+      "path": "il2cpp/KnightIdentityContext.cs",
+      "sha256": "7c5772d3bde00dbd82ab972fc3f24d542831bf05ff05bde0126f45c359517614"
+    },
+    {
+      "path": "il2cpp/KnightIdentityLoadSeed.cs",
+      "sha256": "873aeed949234e169d446e769cb9d8efe6d11f4ccca0fcd52af1fca9e17b9f54"
+    },
+    {
+      "path": "il2cpp/KnightIdentityNetwork.cs",
+      "sha256": "b1a0d5a81dfe734ca83541eadc727eb635709d61f5a4ab91dd2f381c495ae079"
+    },
+    {
+      "path": "il2cpp/KnightIdentityRuntime.cs",
+      "sha256": "6afa936ebdb04d07e0f8ad4c5fc0bca9b75fad2250c597249674e3351b119ef6"
+    },
+    {
+      "path": "il2cpp/MedievalScatterPolicy.cs",
+      "sha256": "1d19c9152be712956f329aae4c1730e89a2f47eb3d7691396bffefd6435e9ee9"
+    },
+    {
+      "path": "il2cpp/ModConfig.cs",
+      "sha256": "6661178c5ffc12ab55de5f66ff2fb11c85f2b1ec2fae05c2395ae5233ab08a2c"
+    },
+    {
+      "path": "il2cpp/ModPanel.cs",
+      "sha256": "e4bf77078cb38c212b4b18852806063f6c96450110d152aab7e45509c5ddd1d6"
+    },
+    {
+      "path": "il2cpp/MusketeerAccess.cs",
+      "sha256": "4dd7fa4f73ecffa9349ce32c531636604abb750b3b85fd75fbf2fd8dea0aa1c7"
+    },
+    {
+      "path": "il2cpp/MusketeerAnimation.cs",
+      "sha256": "24c2e1a493b7c538982f4f20a4f876f99ab233b4f514528e2a21ac544216f31c"
+    },
+    {
+      "path": "il2cpp/MusketeerArchive.cs",
+      "sha256": "5941036781f52402afd7188ca9b9f8c252da8b5bae689eeb36ea4499e8c7a734"
+    },
+    {
+      "path": "il2cpp/MusketeerCombat.cs",
+      "sha256": "1e164ed3058884ae3bff614c9d56c16f76fe02aa13290e3cc48e51d50a2d8564"
+    },
+    {
+      "path": "il2cpp/MusketeerDefense.cs",
+      "sha256": "8ad40176f94fb3ae53268437ac432d74b160c6eee04e27119631c835cc180f73"
+    },
+    {
+      "path": "il2cpp/MusketeerGunVisuals.cs",
+      "sha256": "a41d1d74d77e70bbd371a837d5e9c672bb5d7836950c63ad712e6581b7175907"
+    },
+    {
+      "path": "il2cpp/MusketeerHooks.cs",
+      "sha256": "8eac4115a11f16131f34f457879c4cedf4d871fa6943d407982714ab887b00d1"
+    },
+    {
+      "path": "il2cpp/MusketeerIdentity.cs",
+      "sha256": "83a87e8ac523fcb614f15fdaf3548b878e6c20fe6ffdac1632e8825dfe2c2b88"
+    },
+    {
+      "path": "il2cpp/MusketeerPersistence.cs",
+      "sha256": "6423952997749146f2e987270f96c9cb4b0da2ca75acf348422a3cc453f5c79c"
+    },
+    {
+      "path": "il2cpp/MusketeerRestock.cs",
+      "sha256": "2dcd38762962bdc6c3d854bfe54051ff509816e778fe08f08900d1cebce0e949"
+    },
+    {
+      "path": "il2cpp/MusketeerRuntime.cs",
+      "sha256": "a6a91d90dc432c1256e528107820f06d71a2df8bf7e777702d1bbe1dbb3fc46e"
+    },
+    {
+      "path": "il2cpp/MusketeerShop.cs",
+      "sha256": "d3ef223bee8395ab2bc3b8e3ee4adcebfd56516fc4ef569568a159ea3b3a09c7"
+    },
+    {
+      "path": "il2cpp/MusketeerShopAssets.cs",
+      "sha256": "2ab06a7c4662cb602952d65b2a56bc91f17a45420a1565daf4789d9a466297b2"
+    },
+    {
+      "path": "il2cpp/MusketeerShopRules.cs",
+      "sha256": "f9df5de73ea727e2812fc80f3b9702fc56ca24983df8651fcefdc43e93d7cab1"
+    },
+    {
+      "path": "il2cpp/MusketeerVisuals.cs",
+      "sha256": "040590dc67d747d6998cd0c687af2eba6b27e14ae001f4ef06acec9ea7dd6f14"
+    },
+    {
+      "path": "il2cpp/OptionalQoLScope.cs",
+      "sha256": "0a5e62c44984ba675131031f371f91f185debb39cb8efbb3e2ffda50933a606b"
+    },
+    {
+      "path": "il2cpp/PatchArcher_GreekImpact.cs",
+      "sha256": "5cf75330253401a68f74d5ddce83547d8c85242a26e7f7e5d314db850d1171bf"
+    },
+    {
+      "path": "il2cpp/PatchArcher_Impact.cs",
+      "sha256": "497b7366dcc985990a8e160494a8261df21fb175b79a4e3970f229d604fc0b99"
+    },
+    {
+      "path": "il2cpp/PatchArcher_Options.cs",
+      "sha256": "f07e2e54bb6d2e53490c90a7610c51b58a21a5c7b22fd81c2f2e2eb08100a55a"
+    },
+    {
+      "path": "il2cpp/PatchCombatChaseGuard.cs",
+      "sha256": "7116927dbe305d7b20e3b586901a351b536d9a9c4449d097978b6b454ea18023"
+    },
+    {
+      "path": "il2cpp/PatchDivine_Artemis.cs",
+      "sha256": "ace96e72550e889e6e1b2e69158a6938cd17a916e7d7fd6075e83b5159f2ec48"
+    },
+    {
+      "path": "il2cpp/PatchDivine_FriendlyTroll.cs",
+      "sha256": "fc217e2010fa5f99381df99b7d86a76b978257cad18c102344793e93c1a82012"
+    },
+    {
+      "path": "il2cpp/PatchDivine_GhostLeashHold.cs",
+      "sha256": "8cfc3101ab89831a5411e63579cbdce65284153dab28775d89ba4ef46436a478"
+    },
+    {
+      "path": "il2cpp/PatchDivine_GhostSquads.cs",
+      "sha256": "577088acf9ce94b0de961a02ec903a59066604b7ef5fd9b895d9dde95538b19d"
+    },
+    {
+      "path": "il2cpp/PatchDivine_HermesHeadwear.cs",
+      "sha256": "115e518a1ee2aec92538b2affbe2c984dcc3e62cf70fe2401eaad06a92a01619"
+    },
+    {
+      "path": "il2cpp/PatchDivine_HermesStaff.cs",
+      "sha256": "8f237ed7d0fb2a1742db1308c079bffeb5ca9090df0bca5eb397415816092858"
+    },
+    {
+      "path": "il2cpp/PatchEconomy_AutoRestock.cs",
+      "sha256": "176ef830f3d676fcffea2be02683fb0f9ee53744ba5582aa04b615c2b4e8db7a"
+    },
+    {
+      "path": "il2cpp/PatchEconomy_BankAssistants.cs",
+      "sha256": "d25951b35b32630af4769fefab538e576033930fda5e58ac9f2bff15b3f8fb57"
+    },
+    {
+      "path": "il2cpp/PatchEconomy_Banker.cs",
+      "sha256": "58f7b297c27615bcdb37df2c2012d518b05713f0e8a2514c12375deb3364ef7c"
+    },
+    {
+      "path": "il2cpp/PatchEconomy_CurrencyBag.cs",
+      "sha256": "e934e79f599a9a8c8cf1836b06a7def43431350f7b9a1fe5dc42d7cc659bfd6f"
+    },
+    {
+      "path": "il2cpp/PatchEconomy_Shops.cs",
+      "sha256": "fb7c6624a8a022a2fa06262e37fc21c95c14c4726a706056a2232f0d3d92054a"
+    },
+    {
+      "path": "il2cpp/PatchLifecycle_MenuInput.cs",
+      "sha256": "19ecf5b119051408df6358ed619a838a0fd88d0bb9a2fe73740fb67a1eb28a2c"
+    },
+    {
+      "path": "il2cpp/PatchLifecycle_UnloadShieldAudio.cs",
+      "sha256": "9d6c2dc4d08cb61282fa7781ed43c97b7eeb8a83a91f26115148323744d51a3e"
+    },
+    {
+      "path": "il2cpp/PatchPerformance_NightVolley.cs",
+      "sha256": "95c46ac129c387ad19fe564b4ce28ac9e43e8ab4418980ed6b0821180cd691d3"
+    },
+    {
+      "path": "il2cpp/PatchPerformance_Population.cs",
+      "sha256": "49e1a9b3919e11debd9ee6e0425bf5c06522368a0d079ff907dc020ebcc7a337"
+    },
+    {
+      "path": "il2cpp/PatchPerformance_ToolAssignment.cs",
+      "sha256": "4069dab5fb81da207b338b69c0568e1b52f22d875d9a404ad3d5da332c9290ce"
+    },
+    {
+      "path": "il2cpp/PatchPlayer_HoldPurchase.cs",
+      "sha256": "fc85d406a72c896fff3d59baaec7922d5676c26ff947560bc8e0c9f492f79940"
+    },
+    {
+      "path": "il2cpp/PatchPoolFix.cs",
+      "sha256": "1fd71ca88102fe7ba73d769210ff3d605db4bb0140383ebea9a591a78d6d947a"
+    },
+    {
+      "path": "il2cpp/PatchRide_InfiniteStamina.cs",
+      "sha256": "8d69c5390f034127ea607c82fe584ef0d907ebe423cd8392655ca38ae757e597"
+    },
+    {
+      "path": "il2cpp/PatchRide_SteedCooldown.cs",
+      "sha256": "94c4ac2dc3a0ff30504cd59bd4c25de625543d8d43ac0b3a35fa16dab914c498"
+    },
+    {
+      "path": "il2cpp/PatchRoles_BeggarCamp.cs",
+      "sha256": "337cee2fb53a5b3cdb43aa63f2c5f6601c9e190beab0deb09e8b19e278e8b4f4"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Berserker.cs",
+      "sha256": "37c475f6a14ddd13f396843082b6753bab6f12a408cc85f371021ebc7bf21668"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Castle.cs",
+      "sha256": "6d57d453016b5ab4f7d9f0e7190f5f020fea81d6f68b061398c6fdb9dab0a781"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Character.cs",
+      "sha256": "960933798584bffaf1afaa1346e9a304a53828fa7cccbe9067e735e0d9544538"
+    },
+    {
+      "path": "il2cpp/PatchRoles_CrossbowDefense.cs",
+      "sha256": "b10ed43aab6e4f9c46a3617207e2180d1f6c7a6539d3335a6b2484346717402d"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Crossbowman.cs",
+      "sha256": "f5afed7d929d88b4d5e274d68af32a39a1f8aa858f22fe7d4e4f86dc2ac0b671"
+    },
+    {
+      "path": "il2cpp/PatchRoles_DeadlandsPowers.cs",
+      "sha256": "682d3b523d9dfc73811294c8d646e75344f21e063de5513a14da14818e23190a"
+    },
+    {
+      "path": "il2cpp/PatchRoles_GreekFire.cs",
+      "sha256": "90b2002dcb801007565dfc2866e75c7bcf8fff1e02824d55295bd98475e60287"
+    },
+    {
+      "path": "il2cpp/PatchRoles_GreekFireAssets.cs",
+      "sha256": "958ce9ebc92774c42833de7c7be78647a486e8700e085b56413a615ef9a65117"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Hermit.cs",
+      "sha256": "9a797393d2d7fb188749d2d5a337df37188147f80d57ed886fd36ec329cb0ce8"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Holder.cs",
+      "sha256": "2360b08ec2d44a151c0d92b50987572fd8f59d59ccab10b6a2232fbf0545f78b"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Knight.cs",
+      "sha256": "2f0b58a890ac05958200e5c729c4862dfcb506cd30d12b2c9d7fc4db6f1d0a6a"
+    },
+    {
+      "path": "il2cpp/PatchRoles_KnightAnimatorDiag.cs",
+      "sha256": "95658d1996224c20f5edfb05db97b79d52bd900f4a94381dbbf8d3dfcea002fc"
+    },
+    {
+      "path": "il2cpp/PatchRoles_KnightStyle.cs",
+      "sha256": "ccfa6e3e7838f27e85306a9915e05c3e26f42be1b0c6453eaaa6dfa022516e70"
+    },
+    {
+      "path": "il2cpp/PatchRoles_MedievalNorsePowers.cs",
+      "sha256": "21704f9663d854b92663cd3432326cb304a444b48a7bb131a67851d3d2b61369"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Ninja.cs",
+      "sha256": "d0d3146c283a552ceb237bd77d86e3e7a2781181303f8544e8340d308c076a34"
+    },
+    {
+      "path": "il2cpp/PatchRoles_NorseSquad.cs",
+      "sha256": "fa631b23df8fe74fc38decb432fb02d9064365a47feb24f64468d9ce21adb7a4"
+    },
+    {
+      "path": "il2cpp/PatchRoles_SamuraiPowerDash.cs",
+      "sha256": "1de50381fb586762033f30e152069fbb46010388a0d96f0ece84626ce3ecfd69"
+    },
+    {
+      "path": "il2cpp/PatchRoles_ScaleAdjustments.cs",
+      "sha256": "f400a9b422d8e51cc990f62fd6526035e3c8c674b45506d881838fa5a8e6a68b"
+    },
+    {
+      "path": "il2cpp/PatchRoles_SquadRefillDiag.cs",
+      "sha256": "4180f6c3246f178d354f12734088ff11c3cc8ba6cc8e4c7a35ef0ed3475a6731"
+    },
+    {
+      "path": "il2cpp/PatchRoles_Worker.cs",
+      "sha256": "ca4c5599840dc026525452df9a27eb0ca2af0382774d22f2e49e6cfdc7d5dfd0"
+    },
+    {
+      "path": "il2cpp/PatchRoles_World.cs",
+      "sha256": "bd338d43cf1ae23550082a4d0dd33e126777bb7cbb01fc56fe24a848638f69ff"
+    },
+    {
+      "path": "il2cpp/PatchShared_ScanCache.cs",
+      "sha256": "5ef317cd49dcf28945fbe317658cce5c9bc2adbf7f2587838a8161c701fc7e08"
+    },
+    {
+      "path": "il2cpp/PatchWorld_BallistaBolt.cs",
+      "sha256": "a52756de72595a1dcf4e22aef8530e98d633e6872bb5e692840cc18724624576"
+    },
+    {
+      "path": "il2cpp/PatchWorld_BoatCapacity.cs",
+      "sha256": "9ac8aa1c88cf4ab1b2c44e5d61d87175b773fa1bf0f24c5d3dfbec021de542da"
+    },
+    {
+      "path": "il2cpp/PatchWorld_Construction.cs",
+      "sha256": "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79"
+    },
+    {
+      "path": "il2cpp/PatchWorld_DeerPopulation.cs",
+      "sha256": "80fe4c2f13209b73244e17e114ff3a6e96fe9d7cc4a8b66c4cc440e54130bce4"
+    },
+    {
+      "path": "il2cpp/PatchWorld_DefenseSpacing.cs",
+      "sha256": "9367afc0f0321839226297d8ab52f5436feb8315dfd5fd65cadbb190e72e45eb"
+    },
+    {
+      "path": "il2cpp/PatchWorld_EnemyManager.cs",
+      "sha256": "27b5b348b6b7ac20c9aa5eccdbac3f6082928125b5c5893300dd212763bab5b5"
+    },
+    {
+      "path": "il2cpp/PatchWorld_FarmCats.cs",
+      "sha256": "513eaa20f66552f3580aed8b1fc8e9fc82ffe0c84ca2a09070727ab397dc7e51"
+    },
+    {
+      "path": "il2cpp/PatchWorld_FleetBoatFormation.cs",
+      "sha256": "9bda1a1bc8165811f2efeea76ed07b8c18265beb33d3c2746264950ea59eabd7"
+    },
+    {
+      "path": "il2cpp/PatchWorld_FleetBoatRecovery.cs",
+      "sha256": "68cdf4c012069be9ba1eac0bbda6cda84f0eab307d08a24f3fcc487d57dcb49e"
+    },
+    {
+      "path": "il2cpp/PatchWorld_Kingdom.cs",
+      "sha256": "82bbb4bdd529a8b6ebe74b59efa718fa0e22ceb23bfb485a21b529e8d61ca0d1"
+    },
+    {
+      "path": "il2cpp/PatchWorld_Level.cs",
+      "sha256": "5aa90fd4cdf43aa936e36a5a4e494cc2f55d62d7c29618dc4b8064ecd6e968bd"
+    },
+    {
+      "path": "il2cpp/PatchWorld_Mover.cs",
+      "sha256": "7d6f41e1df27fdc51a3278052839f4dab8c7f5c11e2f994995c2c8b6f4bb2c24"
+    },
+    {
+      "path": "il2cpp/PatchWorld_OptionalVegetation.cs",
+      "sha256": "62b7e942dfc30dc27d4ec3bb68836a093f91f488b4d4c8be35823906e13f22ba"
+    },
+    {
+      "path": "il2cpp/PatchWorld_SerpentLeash.cs",
+      "sha256": "824a5f5bf7cd2789a4204f9bc736ed2fa74820b380edeba28434b6fcfb63202f"
+    },
+    {
+      "path": "il2cpp/PatchWorld_ShieldWallTotem.cs",
+      "sha256": "2a260f0735a67ac4c724a9312cd453aee8da1ed14b16eb1c4c94f0feec164a55"
+    },
+    {
+      "path": "il2cpp/PatchWorld_SpecialTowerRebuild.cs",
+      "sha256": "59b016632b6ad154bb8ba1fdbef1c3c6b28a1f84473173a6a4691c9f9cfe86c8"
+    },
+    {
+      "path": "il2cpp/PatchWorld_TowerSpots.cs",
+      "sha256": "78b27914f1222b3e9229965f1eb23f79f99de8fcb9793a6bf1b07b91045c54ae"
+    },
+    {
+      "path": "il2cpp/Patch_MusketeerFormation.cs",
+      "sha256": "bfdf2d497a1c0a227e5d5f0005c8a37e37165356f8a4549e0a979c326ee2f3c1"
+    },
+    {
+      "path": "il2cpp/PopulationCounts.cs",
+      "sha256": "f0259ec7cb91ef2d08c3c796f4c705246cdb401b040cdda2946eb157cbd7b53a"
+    },
+    {
+      "path": "il2cpp/PopulationGrounding.cs",
+      "sha256": "91792750531a1b54ab1bc8bfc6d1358b7a7380640a719cabd4228dd0a178a2d7"
+    },
+    {
+      "path": "il2cpp/PopulationHud.cs",
+      "sha256": "8f3169189f25ba254ce2bb00baa1f679197b61f450da4c592ee5456718509573"
+    },
+    {
+      "path": "il2cpp/ProjectSettings.shared.props",
+      "sha256": "fd15c39e5c047c10f917557e50ac559472e305712bd8d5a151539097bb9ed57e"
+    },
+    {
+      "path": "il2cpp/SamuraiDashDiagnostics.cs",
+      "sha256": "26edd76e7fa073d6c2d9a7c0d2f8754bd6ab556318606bb9df9a952f935d8343"
+    },
+    {
+      "path": "il2cpp/SamuraiDashVisuals.cs",
+      "sha256": "9251e84ee18fffed6e05bd8dd1d454bd718a08d90ce0cc7316d9c4e6711a7a0a"
+    },
+    {
+      "path": "il2cpp/SamuraiRetreatSpeed.cs",
+      "sha256": "3e5cc530619ecd0b601b09b15399ee2241bc02b3ac91503398cb2c6d9689b14d"
+    },
+    {
+      "path": "il2cpp/ScatterArrowTint.cs",
+      "sha256": "694e2014aea6a6752c61a4d1dafba2f7e14f2665bc9efddc4013dd5e6855e800"
+    },
+    {
+      "path": "il2cpp/ShopCleanupQueue.cs",
+      "sha256": "470a7ccd7adada360700cfde8c97c7a8f813895d01166993cadb17961db02bd0"
+    },
+    {
+      "path": "il2cpp/SiegeAmmoCounts.cs",
+      "sha256": "fdf6a26fad41338e11b498d6df8c42c6a25b4375cc9061fbbaf120109422e6f6"
+    },
+    {
+      "path": "il2cpp/SpecialTowerDuplicateCleanup.cs",
+      "sha256": "6528491bd7422a5a74ddbced4a5e31edfd1f528f19a5e14112fc53e2a479c7f0"
+    },
+    {
+      "path": "il2cpp/SquadFollowGuard.cs",
+      "sha256": "80f68d6450af171503ad21d774c99411bdaba40a438cefe7767c061ecbb73604"
+    },
+    {
+      "path": "il2cpp/SquadRosterSnapshot.cs",
+      "sha256": "90d6d750fd16e485d67d431f0261dd77ea513228d57d3774b0ef170cbef4d98d"
+    },
+    {
+      "path": "release-notes-il2cpp.md",
+      "sha256": "9e1a779fe68c8cbf5e6df732773e230d28e09efcf8fe418b0b62ab8aea74f7a0"
+    },
+    {
+      "path": "release/MOD_CAPABILITIES_AND_ROADMAP_ZH.txt",
+      "sha256": "434f52c40bcb752bed0de1ff30c32d3cf08a0eda79f9e07a105b9aee6f137479"
+    },
+    {
+      "path": "release/MOD_UPDATE_AND_FIX_LOG_ZH.txt",
+      "sha256": "8dcf9ae4ee4ad5eda5d492cb0437e15bb7ab9128bd28d33b9e79dee8a11c9ccd"
+    },
+    {
+      "path": "release/MOD_USER_GUIDE_ZH.txt",
+      "sha256": "9101d7d3cf5c4cd52521b308c0d2c0b226fb7b4cf5a7f7d4fc6039edfca59e36"
+    },
+    {
+      "path": "release/MOD_V9.4.5版本更新说明.txt",
+      "sha256": "4fed6703ce5876ffbdebf428d356c8e456d754bcfba3bcff8dea0941098d47cf"
+    },
+    {
+      "path": "scripts/package_release.py",
+      "sha256": "f5532e2d6af43b2ddb4f0bf23988242bb2517c946811a7a5848c9f2c97929156"
+    },
+    {
+      "path": "tests/ExtractSource.targets",
+      "sha256": "915569f28a6ba7b3fad2d59733df7be8289b136a95b940cc85ebb3f8e9497a04"
+    },
+    {
+      "path": "tests/HermitPickupPolicyRegression/Program.cs",
+      "sha256": "68d767cf0210107a08726def364e1f13d6002771b1c6412bc11b2afd7a550040"
+    },
+    {
+      "path": "tests/HermitPickupPolicyRegression/Regression.csproj",
+      "sha256": "3f83bd6e5c22bc4f32e18394bf6a3803efa523477db847df861ea7e4ae839f25"
+    },
+    {
+      "path": "tests/HermitPickupPolicyRegression/Stubs.cs",
+      "sha256": "27a28632e41edcb4391f3f328fd0543c85c9bb02e2b32b3ad657a5134142c167"
+    },
+    {
+      "path": "tests/archer-impact/Program.cs",
+      "sha256": "1020b477775801897bf9fe8fc0091ffbef62b368adbd919a50469443f0f72582"
+    },
+    {
+      "path": "tests/archer-impact/Regression.csproj",
+      "sha256": "a05e8dc82c3da52d42aff7d3cfd805c265427e2cfa6a02d523925121ceee7bca"
+    },
+    {
+      "path": "tests/archer-impact/Stubs.cs",
+      "sha256": "6302b406158508d66d8ab374a9f9fbfeed5bfbb153716b32901dc82547e9f225"
+    },
+    {
+      "path": "tests/archer-impact/actual-interop/Interop.csproj",
+      "sha256": "50a7adfa59953687a8891bbedeb1a19b5173251b45373c6c39c46d4abddb1a3e"
+    },
+    {
+      "path": "tests/archer-impact/actual-interop/Stubs.cs",
+      "sha256": "2062a787f396099c1c0b950b4760fcdc35dc525ecf02d0e8beb625e9d0c52e77"
+    },
+    {
+      "path": "tests/archer-options/combat/CadenceIdentityTests.cs",
+      "sha256": "2bab11543bfa577e66e7d4f447907af84520955a94242ff9af56f163736c81f9"
+    },
+    {
+      "path": "tests/archer-options/combat/CombatArcherOptions.Tests.csproj",
+      "sha256": "626af4a3738f9dc0e224abe525befe67c4566b65b55ed522584977a875186068"
+    },
+    {
+      "path": "tests/archer-options/combat/Harness.cs",
+      "sha256": "296cc4a87d4e182faaf5cbd36259596cf01f51bbdcbc2a6b9a039e568b7e004d"
+    },
+    {
+      "path": "tests/archer-options/combat/MedievalScatterIntegrationTests.cs",
+      "sha256": "5944b653f1f3478ce05096c2640aa1b7a180e69ccdb995d57ce2e9ce75fd334d"
+    },
+    {
+      "path": "tests/archer-options/combat/PatchContractTests.cs",
+      "sha256": "006d15c579a50729bc6afc76b1c9dac33afe42fc60392a2216004dd6ed8f4ac7"
+    },
+    {
+      "path": "tests/archer-options/combat/RateTests.cs",
+      "sha256": "06a65b2dd4004d2f37504e66e04cd4b58b2eb9403e69a21a29627b987931c507"
+    },
+    {
+      "path": "tests/archer-options/combat/ScatterLedgerRetentionTests.cs",
+      "sha256": "909edc77d7e77be8d2b29ab5258a43a1df814eee51a1cee37584f04aefd865ff"
+    },
+    {
+      "path": "tests/archer-options/combat/ScatterPoolGateTests.cs",
+      "sha256": "8f1dc8379097cf9ae99c1dfe95688102b3c3eec9bb699645037cef2e505355c5"
+    },
+    {
+      "path": "tests/archer-options/combat/ScatterTests.cs",
+      "sha256": "ea4eb1f99994a9ae86c964858fec8d14c1a8250d44f24b100c078870d4123b16"
+    },
+    {
+      "path": "tests/archer-options/combat/Stubs/GameStubs.cs",
+      "sha256": "0d7a7ac7c3b85d3ea7a616aa739bfeba53fe58ca8a5078aa332079bbdcaec3e1"
+    },
+    {
+      "path": "tests/archer-options/combat/Stubs/InteropStubs.cs",
+      "sha256": "eb5c1601b9b6ef4cee0dca5c54f676df99217f8fc4a3b1bb49bdd20693d44abe"
+    },
+    {
+      "path": "tests/archer-options/combat/Stubs/RootAndHarmonyStubs.cs",
+      "sha256": "d1abddf06726243068ac9cbb7bf0ccbfb0cd0b9a6cc2dcaa0ad90d5aa5e5a8f2"
+    },
+    {
+      "path": "tests/archer-options/combat/Stubs/ScatterBoundaryStubs.cs",
+      "sha256": "af03733b2492c9bea1ab604d4823238a475bee22dd825553ee14d881a2599901"
+    },
+    {
+      "path": "tests/archer-options/combat/Stubs/UnityStubs.cs",
+      "sha256": "505363236f47df93589118ba1af26b34aef9b112b3fa957efede4a6468d79eb0"
+    },
+    {
+      "path": "tests/archer-scope/Program.cs",
+      "sha256": "c7cb1c4604670cadff3980d90b179a9490b9d8c4b2c91056290be53abf4e6f4e"
+    },
+    {
+      "path": "tests/archer-scope/Regression.csproj",
+      "sha256": "195be9dd37f8574a333e9e542b0704572b1191e60178727db4bb3fd1371173b6"
+    },
+    {
+      "path": "tests/auto-restock-counts/Additional.cs",
+      "sha256": "d723b2599c1f6b6e230e7826a1f91172e8cc7076daa5ad9ab33daf1828214f29"
+    },
+    {
+      "path": "tests/auto-restock-counts/BreadTests.cs",
+      "sha256": "bd676e8fc8ad1216a8fcd7d6e72b9560e39b4908331431505434bd1f6c063a47"
+    },
+    {
+      "path": "tests/auto-restock-counts/CountTests.csproj",
+      "sha256": "65f9ed6f29861e2ac97fffc7e42093e2b88b529f40ce6dccb451b3d5a49b4e4b"
+    },
+    {
+      "path": "tests/auto-restock-counts/GlobalUsings.cs",
+      "sha256": "d94e5777711ac366712132b4e8bf4a28614c2d5d27a0ccf9aa32284e937f0824"
+    },
+    {
+      "path": "tests/auto-restock-counts/MusketeerCountsTests.cs",
+      "sha256": "45d88ef5684d4ab7bf4f7b33a068e423e5ef479c1f496a3d23fd3189704d0a59"
+    },
+    {
+      "path": "tests/auto-restock-counts/Stubs.cs",
+      "sha256": "48b48a447cd32745e96a40b3e2764bff24e2dbcc9a16882691389aaabe234d99"
+    },
+    {
+      "path": "tests/auto-restock-counts/Tests.cs",
+      "sha256": "3089023ab3aa41f005ca1197eacc0177d860c6e79753caa703ce892094464c3e"
+    },
+    {
+      "path": "tests/auto-restock/Additional.cs",
+      "sha256": "50fc87bf03eae8edb4931a7029e8577f93d86cd91e3b5fb1e690311cfcf54af9"
+    },
+    {
+      "path": "tests/auto-restock/AmmoAndFarmer.cs",
+      "sha256": "79aef705ffa96ae9890cbbf2cd50663c086f799d86650a941137a6297fce64de"
+    },
+    {
+      "path": "tests/auto-restock/AutoRestockTests.csproj",
+      "sha256": "14bab33b367c73ff04594f8b69ecb27bd797052722a4edb99bf7c169c00eeb45"
+    },
+    {
+      "path": "tests/auto-restock/DoubleCost.cs",
+      "sha256": "3f5805f6b656bd1684414cfcdaaeee9ce27fd268303728b9d04da9d9521f1c6e"
+    },
+    {
+      "path": "tests/auto-restock/GlobalUsings.cs",
+      "sha256": "1ff8626791f5c3d61a567b6fe09d876d622b179058f7a242054c30fa96a6d1f1"
+    },
+    {
+      "path": "tests/auto-restock/GreekScope.cs",
+      "sha256": "597d641933877079714c9ec0ea8e0ab406d077df0e18f8fd6c596eca8b0aa9a8"
+    },
+    {
+      "path": "tests/auto-restock/MotionAndPeasants.cs",
+      "sha256": "4863269c531aace006e7788a02bde32f1561de40fa86d4c86cad74afcf6fdec9"
+    },
+    {
+      "path": "tests/auto-restock/MusketeerBackend.cs",
+      "sha256": "ec840b974a67ce4e24337cd39215d9ac0bf21b40d7472db7cb5743964a0f6836"
+    },
+    {
+      "path": "tests/auto-restock/MusketeerCases.cs",
+      "sha256": "cbaff0b203c3e7cb7ba20a6f12cf12ad0439cd23a03a6e4e1b3c32859048ca76"
+    },
+    {
+      "path": "tests/auto-restock/NightDiagnostics.cs",
+      "sha256": "87300bc3ee0e8b9667316be627b4335883d4660be915e411e40968fd5ae496b7"
+    },
+    {
+      "path": "tests/auto-restock/Stubs.cs",
+      "sha256": "873894c8ff0d1b8327c907528d27b274e33fba271dbf476b0dff504b8c600927"
+    },
+    {
+      "path": "tests/auto-restock/Tests.cs",
+      "sha256": "77c9162b4c78ea6e3eab3d54effee35efc2f8766a5710be8f313a2b20b088964"
+    },
+    {
+      "path": "tests/calendar/CalendarTests.csproj",
+      "sha256": "d49a85ca95a8ea861c8da61463585b0133bb3f8961fbe6eac7334f0c76ddf9f0"
+    },
+    {
+      "path": "tests/calendar/GameDataStubs.cs",
+      "sha256": "1769c4aaea0685141a0962ecbe663d874e6f7ebf884d938e9bcd912efd96d58e"
+    },
+    {
+      "path": "tests/calendar/Program.cs",
+      "sha256": "666f342ead05b75cd175842adc183af914eccd898d251ca1847ff9a924043a54"
+    },
+    {
+      "path": "tests/combat-damage/AssemblyInfo.cs",
+      "sha256": "d0911e03d087e2b61a7c459468aa07c45f18c3aafdfc8055640d0fde485a9668"
+    },
+    {
+      "path": "tests/combat-damage/CombatDamage.Tests.csproj",
+      "sha256": "d8cc0bd0bc6ea684f99ce24bba20cc9d555f8a1714a3be1008911831a44dbab2"
+    },
+    {
+      "path": "tests/combat-damage/CombatDamageTests.cs",
+      "sha256": "31c81f61ae221d7f04171f5df379b99dfd30ddfa5263c8385de19ab00040e76c"
+    },
+    {
+      "path": "tests/combat-damage/Stubs/GameStubs.cs",
+      "sha256": "23696bfa46919a800caa94c7f15f4e07bb31160bf7722918571a1be62932e7ef"
+    },
+    {
+      "path": "tests/combat-damage/Stubs/UnityStubs.cs",
+      "sha256": "b1e1e03c232defde20b3f036c69554078961abbb0fb2dfa918d84391bfed40f2"
+    },
+    {
+      "path": "tests/combat-damage/TargetLifeTests.cs",
+      "sha256": "36f47b75aecd93feae2f7583a4ec21ee9ac2f791dce61d576a0fb7472089d721"
+    },
+    {
+      "path": "tests/combat-damage/TestBase.cs",
+      "sha256": "af97baae51f6d2f1801bbf83fd64a1a70b22f502b0ce3c89e6aa4fe9b031b0b0"
+    },
+    {
+      "path": "tests/crossbow-defense/Program.cs",
+      "sha256": "5a565df5dbab28a77b8cdb06a6e3d10f0ac54d2d414bca4b5ee6184ce15ab06b"
+    },
+    {
+      "path": "tests/crossbow-defense/Regression.csproj",
+      "sha256": "af6d9979e03cba0f31f3bd7ec7d996be8427a6493057f4a98fc737382c2d1527"
+    },
+    {
+      "path": "tests/crossbow-defense/Stubs.cs",
+      "sha256": "7edc94efccbcf6f585844898c3fe5399bf1fc09663e5d7270f6def7bc0e1a650"
+    },
+    {
+      "path": "tests/crossbow-lifecycle/Program.cs",
+      "sha256": "9e40b6de5b899e389f58f06673af28e5298d2efd78c4fbfbf1f2e430fd731b9c"
+    },
+    {
+      "path": "tests/crossbow-lifecycle/Regression.csproj",
+      "sha256": "5f7491621387b5678b6253e588a34a5ac237805c136c0bb28b28b1cecf22fd45"
+    },
+    {
+      "path": "tests/crossbow-lifecycle/Stubs.cs",
+      "sha256": "98ad1b0203c4d1d37817b5a1ed024ae3e4ae568070f4c31416f25584f4413883"
+    },
+    {
+      "path": "tests/deer-population/Program.cs",
+      "sha256": "52e8f9c8b9be347bcaa5832b7b713870f3d9ca435153278bff03b6a3045c15af"
+    },
+    {
+      "path": "tests/deer-population/Regression.csproj",
+      "sha256": "738d1d9c312ceeb9db7f59a4d8337dac63c7395455b8bbbafc14e2287247564a"
+    },
+    {
+      "path": "tests/deer-population/Stubs.cs",
+      "sha256": "979bbcf0a34e08efcbf112a2df8719baa9c40604ce79ab42a1c526058f695d8c"
+    },
+    {
+      "path": "tests/expedition-follow/FrameTests.cs",
+      "sha256": "b9a28761e6d71999bf794af3c9e1d4ee9b137d1247a6d635fd5503abb8c7747d"
+    },
+    {
+      "path": "tests/expedition-follow/LegacyDefenseSpacing.cs",
+      "sha256": "c123f00d0e6075aab34928fd537cea78c644116127a9e78dfe86f8c3fd4a2b9f"
+    },
+    {
+      "path": "tests/expedition-follow/Program.cs",
+      "sha256": "e6fdf0b6a0171856e7b87e4793979b60d58c2a5e38549e45b8a9e6b391f23f06"
+    },
+    {
+      "path": "tests/expedition-follow/Regression.csproj",
+      "sha256": "26bf78f942be3b64633748a5349f46bf5c31e83e4c87cb328d7369921b3cf5e8"
+    },
+    {
+      "path": "tests/expedition-follow/Stubs.cs",
+      "sha256": "bf0cd5b9aa78cbb34119a6d3c305718ba73685b1c4df9be1f03a5d2174c6c1be"
+    },
+    {
+      "path": "tests/farm-cats/Program.cs",
+      "sha256": "83f03c2c16ff0b1d2a42a62494a722e7b48de939d8d350a423e64d605a4215f3"
+    },
+    {
+      "path": "tests/farm-cats/Regression.csproj",
+      "sha256": "63a44e3ea3c53239dc45cb1f548759aca64079429bc80f8b98de075fdaad98ec"
+    },
+    {
+      "path": "tests/farm-cats/Stubs.cs",
+      "sha256": "b50c2800ca0a4c7ee163be96f7e7d77b41737c3c1dddd478c326a7731b293a6a"
+    },
+    {
+      "path": "tests/fire-tower-restock-capacity/Program.cs",
+      "sha256": "da4861315560e40f50a17413101d5eae06fff829e49fe36f60688886ec16af1f"
+    },
+    {
+      "path": "tests/fire-tower-restock-capacity/Regression.csproj",
+      "sha256": "096d00d1f70fe5e61094f619142db72ad52e9cbb897baa5d08cf6ebc40abb18e"
+    },
+    {
+      "path": "tests/fire-tower-restock-capacity/Stubs.cs",
+      "sha256": "ed853b4457b3f6b1f3ea24b55457f2c97dfb278e328b318142ceeb0e089ee4e9"
+    },
+    {
+      "path": "tests/fire-tower-restock-capacity/actual-interop/ActualInterop.csproj",
+      "sha256": "2dfa245760dc6f9e8268ea6e2ac923b0ba649c85886bf041eebbef7872382a77"
+    },
+    {
+      "path": "tests/fleet-greek-squads/Program.cs",
+      "sha256": "62333268c821aea24cce96cac060bd81382825f6f750919656b5f140a9b0bcfc"
+    },
+    {
+      "path": "tests/fleet-greek-squads/Regression.csproj",
+      "sha256": "0fc2d8cfe972deeb77735f27930fa447e079362833c54d0c2220a727b83b83f3"
+    },
+    {
+      "path": "tests/fleet-greek-squads/Stubs.cs",
+      "sha256": "da97a5f34bec416075f4afcccb977b6041ca23f0287e48632d62956cd4bc6d84"
+    },
+    {
+      "path": "tests/friendly-troll-disguise/Doubles/CoopDoubles.cs",
+      "sha256": "fcb4d63ec265626f736dbc2802d4e65e68a143f14d5b64e8f12466ebf96e5b0c"
+    },
+    {
+      "path": "tests/friendly-troll-disguise/Doubles/GameDoubles.cs",
+      "sha256": "5faeefd184e64048503566610021279bbbd950f4a6ad8d6d16eb1447dabae8a1"
+    },
+    {
+      "path": "tests/friendly-troll-disguise/Doubles/HarmonyDoubles.cs",
+      "sha256": "0ddada5a8264ac5dda12e7c9cc0bc4763fac461bd20a5d04d25c237b946f0cb4"
+    },
+    {
+      "path": "tests/friendly-troll-disguise/Doubles/Il2CppDoubles.cs",
+      "sha256": "bd802d8dc7b2ad85fa69c2f7f108c291143d7953575be22c4ee2b5fe755cf1a9"
+    },
+    {
+      "path": "tests/friendly-troll-disguise/Doubles/UnityDoubles.cs",
+      "sha256": "bf7b45422919406780aeb098809f34c7ee7e7170806cec8ccf96dc04406080d9"
+    },
+    {
+      "path": "tests/friendly-troll-disguise/FriendlyTrollDisguiseTests.csproj",
+      "sha256": "04ba429ccdd33ac78b2d6448a8a06d6a2d44d752aaca9fd0290764396cfe34f8"
+    },
+    {
+      "path": "tests/friendly-troll-disguise/Harness/Harness.cs",
+      "sha256": "f1e477fc5eac8a50c9dca8e34fa44867b554784b419b296844f371e45f413c25"
+    },
+    {
+      "path": "tests/friendly-troll-disguise/Program.cs",
+      "sha256": "5ccda762db21396619caf9caa711a16137622bc8f1dde49a42900b7e6fb47749"
+    },
+    {
+      "path": "tests/friendly-troll-disguise/Tests/IsProtectedTests.cs",
+      "sha256": "ae66d1848284218f82572650268f5effb041e0cc5877aff5a495660e1797ea97"
+    },
+    {
+      "path": "tests/friendly-troll-disguise/Tests/ReselectTests.cs",
+      "sha256": "a481fe8b5ac2f034f884fa2780be9d0954958e8e9ae9267d85f26571f9f8530e"
+    },
+    {
+      "path": "tests/friendly-troll-disguise/interop-check/CoopStubs.cs",
+      "sha256": "005925451ee8a5c255b2342ba40733f34f853066408291a43ca4b981bde72ea1"
+    },
+    {
+      "path": "tests/friendly-troll-disguise/interop-check/InteropSignatureCheck.csproj",
+      "sha256": "de95cf9c681e17fb7aec60b419fee3ad07b6082164166679b999e72430b69489"
+    },
+    {
+      "path": "tests/greek-bank-assistants-scope/Harness.cs",
+      "sha256": "285a025c5fbec4863eba34994bcd4fd77a033349d6cd03b33ab0a10d246e7f6b"
+    },
+    {
+      "path": "tests/greek-bank-assistants-scope/Program.cs",
+      "sha256": "bed44f7b0996dd088b5420ad2e08aedb085522a76ea112f1739169d748f15e14"
+    },
+    {
+      "path": "tests/greek-bank-assistants-scope/Regression.csproj",
+      "sha256": "f149ba8dbc624b65de44134e266a28c1457d0b0f022cdc639c8d333acbcc08b0"
+    },
+    {
+      "path": "tests/greek-bank-assistants-scope/SiegeAmmoStub.cs",
+      "sha256": "c9148fccd4a642b1421d9569965d621f07c6bafa8db5ed7c04a2e514aab41a00"
+    },
+    {
+      "path": "tests/greek-bank-assistants-scope/Stubs.cs",
+      "sha256": "6e67beee6453a9fb1d844437468e2b26ecc54730a982f871b3ead8676cb6e09f"
+    },
+    {
+      "path": "tests/greek-bank-scope/GreekBankScopeRegression.csproj",
+      "sha256": "5b81ae7c75cbdf1290776cece6532ae3e4085855afe5dcb80def995c16fdcf9a"
+    },
+    {
+      "path": "tests/greek-bank-scope/Harness.cs",
+      "sha256": "b9ddf50b7fb2db749c3a5e39ba82e10837fb433c1c85d3d1c6486d171bbce387"
+    },
+    {
+      "path": "tests/greek-bank-scope/Program.cs",
+      "sha256": "a506bad9279292eea5170fab603aa68f7caae5c9aadf7f5a59bdf21ac4842ad3"
+    },
+    {
+      "path": "tests/greek-bank-scope/SiegeAmmoStub.cs",
+      "sha256": "c9148fccd4a642b1421d9569965d621f07c6bafa8db5ed7c04a2e514aab41a00"
+    },
+    {
+      "path": "tests/greek-bank-scope/Stubs.cs",
+      "sha256": "aaa9aa21541075683fb51db9fdf005267829871b0b47d23d5ed3641ed9b0152f"
+    },
+    {
+      "path": "tests/greek-impact/AssemblyInfo.cs",
+      "sha256": "9a53689ae2187d7e710b67f6490458999cd16fe108f43ab123650a0bcb9a4190"
+    },
+    {
+      "path": "tests/greek-impact/BurstTests.cs",
+      "sha256": "644a023428a1df0f9be5d9c12025f7feef5f158a53d92ed5797f151f33434725"
+    },
+    {
+      "path": "tests/greek-impact/DamageSubstitutionTests.cs",
+      "sha256": "ba29168feb9f8d99e6223faadc12ce37d7af0b35ec073177b1312595d442d50b"
+    },
+    {
+      "path": "tests/greek-impact/EligibilityTests.cs",
+      "sha256": "a103cd83ecae52816e7c99e7f09999e58cf2327dbc7311aefb41fbc2d05d7ebd"
+    },
+    {
+      "path": "tests/greek-impact/GreekImpact.Tests.csproj",
+      "sha256": "743d8f521b13d7234a605a13ba2be590f9171ea08e82330d7c515b75ea744e17"
+    },
+    {
+      "path": "tests/greek-impact/Harness.cs",
+      "sha256": "6901469b9daa05f845512b7dc53edca4d3816b7849eb0b0e38b3e9d036dddb90"
+    },
+    {
+      "path": "tests/greek-impact/HookContractTests.cs",
+      "sha256": "6199c3babb02a119faf8e755ce2b88f6f27c3ea3a6d9d0921fdf9a4beda606a1"
+    },
+    {
+      "path": "tests/greek-impact/LedgerTests.cs",
+      "sha256": "eb657a8eac4bf6281a21ed8b89f39b1ba68bec34dce8c1f6b2c5569ea7598931"
+    },
+    {
+      "path": "tests/greek-impact/OperatorRegressionTests.cs",
+      "sha256": "db721a10e43b7fc0e02c44b85a5a6eac4f82c47f3ffc23357433533c86ff0830"
+    },
+    {
+      "path": "tests/greek-impact/Stubs/GameStubs.cs",
+      "sha256": "0fc45a707e61b9a90e802108fde5cef79a6bdc2656e7dd6a5b055c4f42db850f"
+    },
+    {
+      "path": "tests/greek-impact/Stubs/RootStubs.cs",
+      "sha256": "f94496ba2a7248c08a59d29e892d9e50f8a337bb560a828c062763e915a33157"
+    },
+    {
+      "path": "tests/greek-impact/Stubs/UnityStubs.cs",
+      "sha256": "70e81724526d5f3922db7707410feb15f4131d2e8e78b3cfecf8158b320ea918"
+    },
+    {
+      "path": "tests/greek-impact/TargetLifeTests.cs",
+      "sha256": "45881a811ea32d39b3b12792b906d8afe6dc703192f6644a224ac151e7972047"
+    },
+    {
+      "path": "tests/greek-impact/TestBase.cs",
+      "sha256": "55a64ce83d272afe650fb905c934bf24b6980e4a1f7877439e073c0dacacc470"
+    },
+    {
+      "path": "tests/greek-scale-adapters/Program.cs",
+      "sha256": "ff6325872e434372876164f5742e5382185e3b2c54e48792526b38006a29f3b7"
+    },
+    {
+      "path": "tests/greek-scale-adapters/Regression.csproj",
+      "sha256": "cc20074be8260d865640f3a058a247380257ea3e281a4c6ba9c91f97c68845e4"
+    },
+    {
+      "path": "tests/greek-scale-adapters/Stubs.cs",
+      "sha256": "0e675a46a65036c7f18145b670d7dfd50300c7e82086598b83da0c0cd227ce57"
+    },
+    {
+      "path": "tests/greek-scale-scope/GreekScaleScopeRegression.csproj",
+      "sha256": "8540738d79d8e61126533f9cbf7d29b389ce6b56580dcbaddeabd456e6aab8a7"
+    },
+    {
+      "path": "tests/greek-scale-scope/Program.cs",
+      "sha256": "4c52639c07ccf1c9fc4052ec55e944c064d60f913f2a8b2e03055769bf521601"
+    },
+    {
+      "path": "tests/greek-scale-scope/Stubs.cs",
+      "sha256": "9d61bd55269916faff53b947d32ec5c8e202f6883852f0db962840ec0fbd6d42"
+    },
+    {
+      "path": "tests/hermes-headwear-cycle/CycleTests.cs",
+      "sha256": "7656ae41a1abbc9d2854732ba5bb30ff1e32b3341679cfdd457658a1a03faa00"
+    },
+    {
+      "path": "tests/hermes-headwear-cycle/Harness.cs",
+      "sha256": "6fd66f02c023397f63275fbb2da56e3a0580b9dd544d66d2996850f393a0e059"
+    },
+    {
+      "path": "tests/hermes-headwear-cycle/HermesHeadwearCycleTests.csproj",
+      "sha256": "2f00e0e884505442cc67b390e492278a7552f7e70bd3e61e01259e1e6069e912"
+    },
+    {
+      "path": "tests/hermes-headwear-cycle/Program.cs",
+      "sha256": "fc78cc26119a665706157486ef0bb81c8e402c430fae559856dc378acfa58581"
+    },
+    {
+      "path": "tests/hermes-headwear-cycle/production-compile/HermesCycleProductionCompile.csproj",
+      "sha256": "0a0dd9489547b8fc0e47769b3e121ab063b9545f34862dbee1bdef1cf7ed7a16"
+    },
+    {
+      "path": "tests/hermes-headwear-cycle/production-compile/ProductionStubs.cs",
+      "sha256": "014ba376f474d03fbcbf33198afb8551fa9f29fdc5f73cd733a8aa7c2380de05"
+    },
+    {
+      "path": "tests/hermes-headwear-diagnostics/HermesHeadwearDiagnosticsTests.csproj",
+      "sha256": "50742724413e19426454107a60c3ce1a445e4e53da0c381ceb125e87b0d906fc"
+    },
+    {
+      "path": "tests/hermes-headwear-diagnostics/Program.cs",
+      "sha256": "b53d53b2a866fba2a4003d40bb3282c0d67186de2fabaf0349b1dd2584b5b2a2"
+    },
+    {
+      "path": "tests/hermes-headwear-diagnostics/Stubs.cs",
+      "sha256": "1eaa85f4caf1d461b56bbd798b9152abb91850554f6c16defe8827a989ecb3b5"
+    },
+    {
+      "path": "tests/hermes-headwear-diagnostics/Tests.cs",
+      "sha256": "f6ff6155de65a2df8387ce9e25154138e2739dfa1553b9eeec65099bb86496de"
+    },
+    {
+      "path": "tests/hermes-headwear-diagnostics/interop-check/HermesHeadwearDiagInteropCheck.csproj",
+      "sha256": "9ce104ca35bc84ffc0cbd23b8e49bec65aefc35e1b075a319349dc962663df35"
+    },
+    {
+      "path": "tests/hermes-headwear-diagnostics/interop-check/ProductionStubs.cs",
+      "sha256": "384e18c64d3ee55dd784fc0eb68cdce9ffd0a2ab6f8a2cf4e51c95fb8f020e3c"
+    },
+    {
+      "path": "tests/hermes-headwear-visuals/DiagnosticsDouble.cs",
+      "sha256": "a976f154b0b928edc62529d4570041d10e77464e9ea7a181fd8294a18ce57d48"
+    },
+    {
+      "path": "tests/hermes-headwear-visuals/Program.cs",
+      "sha256": "137cd52f8c452c4d945eb964014005758fb9efbf6ae82480a6b974309f4e670d"
+    },
+    {
+      "path": "tests/hermes-headwear-visuals/Regression.csproj",
+      "sha256": "ed95c9da48329b9bcb72f421a89afad1de10a3046e8274259ea3fe3b7fcf37d9"
+    },
+    {
+      "path": "tests/hermes-headwear-visuals/Stubs.cs",
+      "sha256": "17b5329c4ec7c76d2184ff0ac28cb009371061570c83884ea9ef952e6d5f463c"
+    },
+    {
+      "path": "tests/hermes-headwear/Doubles/BoundaryDoubles.cs",
+      "sha256": "a778a250fcb4ea625db5c949fcc9a5ade0d83b45f4bb326a5d9111c6da08c34a"
+    },
+    {
+      "path": "tests/hermes-headwear/Doubles/CycleDouble.cs",
+      "sha256": "843c4ab3f56c8b222a027b6ed85a566a8fc809d01e4dd6b17aa522ef7678fa00"
+    },
+    {
+      "path": "tests/hermes-headwear/Doubles/DiagnosticsDouble.cs",
+      "sha256": "1eaf47d33a6269de703090b2116cb9d938ffa6840b8a0bd02740dd79788eaf7d"
+    },
+    {
+      "path": "tests/hermes-headwear/Doubles/NativeDoubles.cs",
+      "sha256": "5c7303eb6a46e91bd4f32f89e07864358b24a5ba2630b18c797fd6ae909f7c4e"
+    },
+    {
+      "path": "tests/hermes-headwear/Doubles/UnityDoubles.cs",
+      "sha256": "0f2dc2d4514d12638c07cc358fb07e3ff3c0c3fa511d3b070cb9bb240fb4147e"
+    },
+    {
+      "path": "tests/hermes-headwear/Harness/Harness.cs",
+      "sha256": "0bfb1ac98288368231607268ae85732aebb4d9832124f68b7c8c75ea111f03a9"
+    },
+    {
+      "path": "tests/hermes-headwear/HermesHeadwearTests.csproj",
+      "sha256": "f03ad48514ec4ffb61688cc06785133fa093c63ee818ba75aaa36cc317c0a455"
+    },
+    {
+      "path": "tests/hermes-headwear/Program.cs",
+      "sha256": "156cf9d58344bf33a2caa2224fa4942ac9efa1d26d92c810dde274fed682396d"
+    },
+    {
+      "path": "tests/hermes-headwear/Tests/CodecTests.cs",
+      "sha256": "41a34115c1dce6c65070e859acb754e583ac78a0c53a03e0b86213e48042578f"
+    },
+    {
+      "path": "tests/hermes-headwear/Tests/DisguiseCycleIntegrationTests.cs",
+      "sha256": "5db582e268f8409af86a53087256b325fedc840a616dd492f1ebe53d08ce9b2b"
+    },
+    {
+      "path": "tests/hermes-headwear/Tests/LifecycleTests.cs",
+      "sha256": "c0e6c52695a973f1123e14a41d917bc5019377286afe78b7f33fd019dd00587f"
+    },
+    {
+      "path": "tests/hermes-headwear/Tests/NetworkTests.cs",
+      "sha256": "ecbac7e7ac379b006ba398c071772ee77eaa28daf08577ea2f8bbada62d70e5d"
+    },
+    {
+      "path": "tests/hermes-headwear/Tests/PersistenceTests.cs",
+      "sha256": "e31507f187387f0c8f64d9408f4ef180b3d28451aaf3e3c4e4a833f6432e7d9c"
+    },
+    {
+      "path": "tests/hermes-headwear/Tests/SaveBridgeTests.cs",
+      "sha256": "5a32c7fbc89167c36e3de603e6d2bd7c2b6ea9d54a75acbfd940faa58e99b7e6"
+    },
+    {
+      "path": "tests/hermes-quota-integration/Program.cs",
+      "sha256": "4575a2b267989906da284f287f1247df61c4b22141a08568f416b4adde13b22a"
+    },
+    {
+      "path": "tests/hermes-quota-integration/Regression.csproj",
+      "sha256": "fad6440bad63ef3c3ec564fd891e5d9a58a76faaa76d87c4f6644f5c4df70f8d"
+    },
+    {
+      "path": "tests/hero-archer/DisabledRuntime.cs",
+      "sha256": "c01e10b0d5dba5909ae54e40745ec3aac00bb70e7ed56f089f09b70b0a5f4487"
+    },
+    {
+      "path": "tests/hero-archer/animation/Program.cs",
+      "sha256": "ec1c044379c12d72ca689161977cadd79f3d8c20bef7cdcf83173272f24f99d6"
+    },
+    {
+      "path": "tests/hero-archer/animation/Tests.csproj",
+      "sha256": "82bf755688531587b818a4fc497a84de8abfbfe945226449b5216cb812149cca"
+    },
+    {
+      "path": "tests/hero-archer/cloth-logic/Program.cs",
+      "sha256": "2ff8858c68f77e6c34810dcba7d823a5a6607973d2f5a745c6ed2848e6f33257"
+    },
+    {
+      "path": "tests/hero-archer/cloth-logic/Tests.csproj",
+      "sha256": "472d33addd912f2ddd75c2610a1b623d3e7a792a5654e86f631f8161c7d11df1"
+    },
+    {
+      "path": "tests/hero-archer/cloth-view/Program.cs",
+      "sha256": "b506e2af4e1ef2f0fe1519bafe127a7720819df741426d58219cd2fc6d358417"
+    },
+    {
+      "path": "tests/hero-archer/cloth-view/Tests.csproj",
+      "sha256": "70b1813df67752e3ba986cff1e5aca599519cfa30a90ad0cf8c7e0fd4ce2f082"
+    },
+    {
+      "path": "tests/hero-archer/cloth-view/UnityStubs.cs",
+      "sha256": "37bef241cf394b63c7f1c733fe6b764468726bbdac6a934421e73b8f4bf75697"
+    },
+    {
+      "path": "tests/hero-archer/combat/Boundary/HeroArcherRuntime.cs",
+      "sha256": "c8c530e5297285afe37887bb94b21c490f614bc9220f388f39ebf27063f35a0d"
+    },
+    {
+      "path": "tests/hero-archer/combat/CadenceIdentityTests.cs",
+      "sha256": "e6f074451378ed08996939a7244aabe40f7705518c86dc73aa88db31b9290fc4"
+    },
+    {
+      "path": "tests/hero-archer/combat/Harness.cs",
+      "sha256": "c8573e57ebf0497cda55dac9b59e4b5da77511fa09ec314f63d9158baa702afe"
+    },
+    {
+      "path": "tests/hero-archer/combat/HeroCombatTests.cs",
+      "sha256": "e45828da57b848cddbf0cba3e243403d17823be7dbfb04ca3110cc909e8c9699"
+    },
+    {
+      "path": "tests/hero-archer/combat/HeroRangeTests.cs",
+      "sha256": "23b9544252ef756fe5935b1296bc76a5e78a8f1bb9f350d89fc88ea5a4069f96"
+    },
+    {
+      "path": "tests/hero-archer/combat/MedievalScatterIntegrationTests.cs",
+      "sha256": "5944b653f1f3478ce05096c2640aa1b7a180e69ccdb995d57ce2e9ce75fd334d"
+    },
+    {
+      "path": "tests/hero-archer/combat/PatchContractTests.cs",
+      "sha256": "006d15c579a50729bc6afc76b1c9dac33afe42fc60392a2216004dd6ed8f4ac7"
+    },
+    {
+      "path": "tests/hero-archer/combat/RangeCleanupRegression.cs",
+      "sha256": "aa53868d898c9ce5d84e2b828e2fd0d184970825ede4d8e8fc9c0635fbc98570"
+    },
+    {
+      "path": "tests/hero-archer/combat/RateTests.cs",
+      "sha256": "06a65b2dd4004d2f37504e66e04cd4b58b2eb9403e69a21a29627b987931c507"
+    },
+    {
+      "path": "tests/hero-archer/combat/ScatterLedgerRetentionTests.cs",
+      "sha256": "909edc77d7e77be8d2b29ab5258a43a1df814eee51a1cee37584f04aefd865ff"
+    },
+    {
+      "path": "tests/hero-archer/combat/ScatterPoolGateTests.cs",
+      "sha256": "8f1dc8379097cf9ae99c1dfe95688102b3c3eec9bb699645037cef2e505355c5"
+    },
+    {
+      "path": "tests/hero-archer/combat/ScatterTests.cs",
+      "sha256": "ea4eb1f99994a9ae86c964858fec8d14c1a8250d44f24b100c078870d4123b16"
+    },
+    {
+      "path": "tests/hero-archer/combat/Stubs/GameStubs.cs",
+      "sha256": "316ac9aa471afdd48ac0d72f4a25c526a1763eb03322b8c49fe32aace51f4e15"
+    },
+    {
+      "path": "tests/hero-archer/combat/Stubs/InteropStubs.cs",
+      "sha256": "eb5c1601b9b6ef4cee0dca5c54f676df99217f8fc4a3b1bb49bdd20693d44abe"
+    },
+    {
+      "path": "tests/hero-archer/combat/Stubs/RootAndHarmonyStubs.cs",
+      "sha256": "a511ec044b8525f170050b44de55d260a643fe921ef0e5e9195dfeebeb1e375e"
+    },
+    {
+      "path": "tests/hero-archer/combat/Stubs/ScatterBoundaryStubs.cs",
+      "sha256": "af03733b2492c9bea1ab604d4823238a475bee22dd825553ee14d881a2599901"
+    },
+    {
+      "path": "tests/hero-archer/combat/Stubs/UnityStubs.cs",
+      "sha256": "efc26874d2798b63e470f8e5ed4bdfff691cdd4af75e631f7f2c469c78002211"
+    },
+    {
+      "path": "tests/hero-archer/combat/Tests.csproj",
+      "sha256": "615c95d5c3300f3114b757cac62094173e8342e49816767e1a8c058433bf7e08"
+    },
+    {
+      "path": "tests/hero-archer/greek/AssemblyInfo.cs",
+      "sha256": "9a53689ae2187d7e710b67f6490458999cd16fe108f43ab123650a0bcb9a4190"
+    },
+    {
+      "path": "tests/hero-archer/greek/Boundary/HeroArcherRuntime.cs",
+      "sha256": "c8c530e5297285afe37887bb94b21c490f614bc9220f388f39ebf27063f35a0d"
+    },
+    {
+      "path": "tests/hero-archer/greek/BurstTests.cs",
+      "sha256": "644a023428a1df0f9be5d9c12025f7feef5f158a53d92ed5797f151f33434725"
+    },
+    {
+      "path": "tests/hero-archer/greek/DamageSubstitutionTests.cs",
+      "sha256": "ba29168feb9f8d99e6223faadc12ce37d7af0b35ec073177b1312595d442d50b"
+    },
+    {
+      "path": "tests/hero-archer/greek/EligibilityTests.cs",
+      "sha256": "a103cd83ecae52816e7c99e7f09999e58cf2327dbc7311aefb41fbc2d05d7ebd"
+    },
+    {
+      "path": "tests/hero-archer/greek/Harness.cs",
+      "sha256": "6901469b9daa05f845512b7dc53edca4d3816b7849eb0b0e38b3e9d036dddb90"
+    },
+    {
+      "path": "tests/hero-archer/greek/HeroImpactTests.cs",
+      "sha256": "f0d8b048dd932f919a8bc6a3898501f4f462cbbcddae9414256f9c0809dc7695"
+    },
+    {
+      "path": "tests/hero-archer/greek/HookContractTests.cs",
+      "sha256": "6199c3babb02a119faf8e755ce2b88f6f27c3ea3a6d9d0921fdf9a4beda606a1"
+    },
+    {
+      "path": "tests/hero-archer/greek/LedgerTests.cs",
+      "sha256": "eb657a8eac4bf6281a21ed8b89f39b1ba68bec34dce8c1f6b2c5569ea7598931"
+    },
+    {
+      "path": "tests/hero-archer/greek/OperatorRegressionTests.cs",
+      "sha256": "db721a10e43b7fc0e02c44b85a5a6eac4f82c47f3ffc23357433533c86ff0830"
+    },
+    {
+      "path": "tests/hero-archer/greek/Stubs/GameStubs.cs",
+      "sha256": "0fc45a707e61b9a90e802108fde5cef79a6bdc2656e7dd6a5b055c4f42db850f"
+    },
+    {
+      "path": "tests/hero-archer/greek/Stubs/RootStubs.cs",
+      "sha256": "171331ef9c5c9a7aef6db5192ad19e7c20d139090dbf3b647476c81a5eb194a0"
+    },
+    {
+      "path": "tests/hero-archer/greek/Stubs/UnityStubs.cs",
+      "sha256": "9859afaf69ad892403cb0a3bf61d769f6bbfe494fc3cd99e4c2010b9022e280e"
+    },
+    {
+      "path": "tests/hero-archer/greek/TestBase.cs",
+      "sha256": "9da3d7b3f66f868a0afc6ba933a763151ee8a2d6512886a14de04fb328587e27"
+    },
+    {
+      "path": "tests/hero-archer/greek/Tests.csproj",
+      "sha256": "e75edf83f1048b74616343485b4ad8c4c11c519441b7637c30ea0199fff3cd41"
+    },
+    {
+      "path": "tests/hero-archer/impact/Program.cs",
+      "sha256": "1020b477775801897bf9fe8fc0091ffbef62b368adbd919a50469443f0f72582"
+    },
+    {
+      "path": "tests/hero-archer/impact/Stubs.cs",
+      "sha256": "6302b406158508d66d8ab374a9f9fbfeed5bfbb153716b32901dc82547e9f225"
+    },
+    {
+      "path": "tests/hero-archer/impact/Tests.csproj",
+      "sha256": "3732c4595c2c005eb240e161f1d774ae840cc13e6c759e4cc58c8a1b4878f313"
+    },
+    {
+      "path": "tests/hero-archer/runtime/Program.cs",
+      "sha256": "8c01457c6131e83ca0ce8277136c614c7a16db8f1cb6c76ebeaf9efbc8637afb"
+    },
+    {
+      "path": "tests/hero-archer/runtime/RangeBoundary.cs",
+      "sha256": "73b3b96ad878395ac21d2980e1f82be2e53eed6704919a1b8303216546a29bba"
+    },
+    {
+      "path": "tests/hero-archer/runtime/RecruitmentBoundary.cs",
+      "sha256": "7b4aaa4f775bcaa297eea85ef711d6b94874681cf8d1b1591a00eca71be341be"
+    },
+    {
+      "path": "tests/hero-archer/runtime/Stubs.cs",
+      "sha256": "0c57896a2b13202c72ae33e7de406b3b8159e302a8295d5d7636f1306904f21c"
+    },
+    {
+      "path": "tests/hero-archer/runtime/Tests.csproj",
+      "sha256": "e69ba59436a274b9044fcd88f989556fdab8afab94db1a6fa3acd627613d5c9d"
+    },
+    {
+      "path": "tests/hero-artemis-arrow/GameStubs.cs",
+      "sha256": "047988c7bc381d1a08af90e5bea1ac7ca3e92f39f8b94e35797891dbd6ffb542"
+    },
+    {
+      "path": "tests/hero-artemis-arrow/PngCodec.cs",
+      "sha256": "de12cf71979ddd69712d42fca3afdd945a7f9edad4660bca78c9337a00b32adb"
+    },
+    {
+      "path": "tests/hero-artemis-arrow/Program.cs",
+      "sha256": "7e8930eaecd4c07162784cc5f61cb1036587fea9028cfb696015a1e183038b35"
+    },
+    {
+      "path": "tests/hero-artemis-arrow/Tests.csproj",
+      "sha256": "dd2d047d4edbb02b42d65fa0ef538610c3152f414e20ab9ac719956caa5f1daa"
+    },
+    {
+      "path": "tests/hero-artemis-arrow/UnityStubs.cs",
+      "sha256": "c06d840fff37cdfc31ab582f848bac214645a8d1e36a7440bbd770647a22fb83"
+    },
+    {
+      "path": "tests/hero-cloth-flight/ChainView.cs",
+      "sha256": "9fafa40de3044175a062bc0a0afbb44cfe105e11beb6fccf88472498d2030896"
+    },
+    {
+      "path": "tests/hero-cloth-flight/Program.cs",
+      "sha256": "df6aa11c8c0c6bd63b903a9251669c0fd0bc497ea88dd09cc42be565b1094991"
+    },
+    {
+      "path": "tests/hero-cloth-flight/Tests.csproj",
+      "sha256": "709a53a85a5980fb966b34eeab2c5aca07c3ac994a8cc582c8e624ff93d2e321"
+    },
+    {
+      "path": "tests/hero-cloth-turn/Program.cs",
+      "sha256": "4b8e5743d31a590ca9de67a8c80dcd39c878787ac2fb7880b3bfb9a796c5f43d"
+    },
+    {
+      "path": "tests/hero-cloth-turn/Tests.csproj",
+      "sha256": "5711fbccddb1f24c53147f6325d62779a946442c409563d4ba01c07efffc7a0d"
+    },
+    {
+      "path": "tests/hero-guard-facing/Interop.csproj",
+      "sha256": "808da06864d118320a0f204d632c1d480e02dd18c1c607227bed383472960117"
+    },
+    {
+      "path": "tests/hero-guard-facing/InteropStubs.cs",
+      "sha256": "595343e424fffc47666d95d59ada1cd00f5ac419b50a9e996b09147e7458b51e"
+    },
+    {
+      "path": "tests/hero-guard-facing/NativeCollections.cs",
+      "sha256": "8ee354bab202f4d3b17fbcb8050cc8d352772dfc5b2ea88bf8a5dd14cbe6bde7"
+    },
+    {
+      "path": "tests/hero-guard-facing/Program.cs",
+      "sha256": "72453789436b9fdcab2d87a8cf208e68269807ab42b6d94e48aa89768dd6bc5a"
+    },
+    {
+      "path": "tests/hero-guard-facing/Stubs.cs",
+      "sha256": "c24607e768142ed3208dc35c5f2fb86dc1efea822fd88e14521921c28b482dde"
+    },
+    {
+      "path": "tests/hero-guard-facing/Tests.csproj",
+      "sha256": "e82bc69f24ef9c0b0fc9774146a895c41251d86f0a8d33a889cd49688a8ce773"
+    },
+    {
+      "path": "tests/hero-movement/Program.cs",
+      "sha256": "e4d98a0c6b542476ebd4d4fdc6e109c57426edc20fce7b6367c4d6f4fb721617"
+    },
+    {
+      "path": "tests/hero-movement/Stubs.cs",
+      "sha256": "7ef99eb98d2795807832b7854702cda1485f923ad6c333ca3ff8839c15dcb0ac"
+    },
+    {
+      "path": "tests/hero-movement/Tests.csproj",
+      "sha256": "6e9ae109f1ec32103c508f5cfa1ef80be9223606ba6eaff97c722c09408c1b14"
+    },
+    {
+      "path": "tests/hero-native-pose/Program.cs",
+      "sha256": "ebb0f347354436d83adcf3bc97d0abc31c8817f4c9e3fb16fdd4f375303cb1aa"
+    },
+    {
+      "path": "tests/hero-native-pose/Tests.csproj",
+      "sha256": "ca21a5e51f6e1770b11f585967850135adc46c37500f5eb7bda28dd79fa42d24"
+    },
+    {
+      "path": "tests/hero-native-pose/UnityStubs.cs",
+      "sha256": "410dc0d932869b6bdf53c08806fd1db099deb80b288049605ceb70c9d9d15fbf"
+    },
+    {
+      "path": "tests/hero-native-visuals/GameStubs.cs",
+      "sha256": "e1db1e627921c274e33bc0be155384a460878df5ce4639a908bdaedeb4f4731b"
+    },
+    {
+      "path": "tests/hero-native-visuals/Program.cs",
+      "sha256": "a1dcfe9d69d7413885f50f4484e6dc83ea2332998eef5ba8dd92d95ce6511c01"
+    },
+    {
+      "path": "tests/hero-native-visuals/Tests.csproj",
+      "sha256": "20663b98f44247b8785b0b5c593e50e69261723cdab927c15002298ce011b367"
+    },
+    {
+      "path": "tests/hero-native-visuals/UnityStubs.cs",
+      "sha256": "3b89c7cf7892516a2a44f9969be2f0a1812fb4e805043e8c357c14cdc9ec206e"
+    },
+    {
+      "path": "tests/hero-recruitment/HeroRecruitmentTests.csproj",
+      "sha256": "2d611a216b9972c23a70c387769e065cf924e3e63b9885c01a4a0b8d6da731b9"
+    },
+    {
+      "path": "tests/hero-recruitment/Program.cs",
+      "sha256": "038091dfc7d2863613a3e769f21038291fa8cf4b32ca4432745db1d027779923"
+    },
+    {
+      "path": "tests/hero-recruitment/Stubs.cs",
+      "sha256": "b1f414d5199d72174231c2449ddc2ff07f5fc39e5da84dcb8ce8c44480cf377a"
+    },
+    {
+      "path": "tests/hero-scarf-geometry/Program.cs",
+      "sha256": "3019625508c83800bc34495338ba8a3c56936f904a3d8bede6ecd7e80dfc7cbc"
+    },
+    {
+      "path": "tests/hero-scarf-geometry/Tests.csproj",
+      "sha256": "a550d7e3e1cb3cb93e2d7580ede68e817e32a08103e3355019f0b6b6e2b27a73"
+    },
+    {
+      "path": "tests/hero-shop/Core.csproj",
+      "sha256": "6979c9d0779cca7480a81df759d91fb40c52ea59adf7a82ec57baf00377a4ac0"
+    },
+    {
+      "path": "tests/hero-shop/Directory.Build.props",
+      "sha256": "67138f944ecde932291081a4eec27775d65bdb77014a8a369b26d5c0c0cda6fa"
+    },
+    {
+      "path": "tests/hero-shop/Interop.csproj",
+      "sha256": "9f5925cfffaab377e5c787735b57ad77f91494e76236e7767e7b01eeb637d64f"
+    },
+    {
+      "path": "tests/hero-shop/InteropStubs.cs",
+      "sha256": "7aea37ef5f4009ab29b2ed42d8250a2dbb68e344a7a861523e11b6493dc4e918"
+    },
+    {
+      "path": "tests/hero-shop/Invoker.csproj",
+      "sha256": "e0d9a349eae92c947e401cefd5be85efc9de6dc0f907100e1f0040ef821ca1e2"
+    },
+    {
+      "path": "tests/hero-shop/InvokerProgram.cs",
+      "sha256": "3ad3fa8de554a38d6d15a4cf756e4a6f938d10870dc675a9a618b3ec511969f2"
+    },
+    {
+      "path": "tests/hero-shop/Program.cs",
+      "sha256": "acac65c2eeac4888f5bcb630e2888ff7e03e8a9615f6d0277c44ab5450f96822"
+    },
+    {
+      "path": "tests/hero-tower-policy/Interop.csproj",
+      "sha256": "ed9f229e32a2bf2b35b52695c6823e56d486ff203d2ef481b46581bb57ab8d09"
+    },
+    {
+      "path": "tests/hero-tower-policy/InteropStubs.cs",
+      "sha256": "bbdf9ced56c8aeab7b4b3632209cc2cede54c686d526325bebe582aa7ee43cbb"
+    },
+    {
+      "path": "tests/hero-tower-policy/Program.cs",
+      "sha256": "531dfa2da45330cdf80a20eaae7f46e1377206130eda418c7b4b825c4534028b"
+    },
+    {
+      "path": "tests/hero-tower-policy/Stubs.cs",
+      "sha256": "800f34f33021bc801c985e37b8aecd4bc8a7eb4bb738577d04f0585697abbf63"
+    },
+    {
+      "path": "tests/hero-tower-policy/Tests.csproj",
+      "sha256": "f4654d09d24567d691721d507cf4d97123de033bd82d2ae84f524579f4c67329"
+    },
+    {
+      "path": "tests/hero-visual-priority/Program.cs",
+      "sha256": "b5bf683d74b1a0129ab605fa580ee099b98d1e27eddd07b00af37ec15ab1f5a0"
+    },
+    {
+      "path": "tests/hero-visual-priority/Tests.csproj",
+      "sha256": "bf1d23c5be1b097031b630b98a165ca5329bdf3ac862bc0ae37eac89b9d65785"
+    },
+    {
+      "path": "tests/hero-visual-priority/UnityStubs.cs",
+      "sha256": "518ff10fa9addc56c6f75e354e381ad62e431aa885327364c63725e689f51ae6"
+    },
+    {
+      "path": "tests/hero-walk-scale/Program.cs",
+      "sha256": "d8d4401735bfb75569c24bc403f04f3c3344c7d285f3a8ab607379d39174edb0"
+    },
+    {
+      "path": "tests/hero-walk-scale/Tests.csproj",
+      "sha256": "3c5888d5725eed1838189dca4b6f72971c5879370c97cf2b9cc34d8b3a5c4c91"
+    },
+    {
+      "path": "tests/hold-purchase/AmmoTests.cs",
+      "sha256": "5eea37001a166d20d43362cec09d06f6924371893dccd66123923bbb10b87bb4"
+    },
+    {
+      "path": "tests/hold-purchase/HoldPurchaseTests.csproj",
+      "sha256": "36a711e87bc24dbb5c35b4c44d5ce3a8dfaf822a8233dd78279d03314abd42ce"
+    },
+    {
+      "path": "tests/hold-purchase/NativeSim.cs",
+      "sha256": "899b9301a6871c5b52a3616e48caadc665d9868c12aab119c7818ae5de9dc814"
+    },
+    {
+      "path": "tests/hold-purchase/Stubs.cs",
+      "sha256": "a9d6672aac5233c8982568d8b657edb187770c84f1a720c74926d8a78797292d"
+    },
+    {
+      "path": "tests/hold-purchase/Tests.cs",
+      "sha256": "92effa866ab800d77566399d0bbab4300aa08f6422c59a968ff4fe3dc3299a9d"
+    },
+    {
+      "path": "tests/hold-purchase/actual-interop/Interop.csproj",
+      "sha256": "071073475da37f3dd94f5651df2b6570d3225921133b176d2d201d2739b13901"
+    },
+    {
+      "path": "tests/hold-purchase/actual-interop/Stubs.cs",
+      "sha256": "0271724024bac4aad7c541011d2eab06f2e56bbd4bf03a5d63974ff33949abde"
+    },
+    {
+      "path": "tests/impact-performance/ImpactPerformanceTests.csproj",
+      "sha256": "c74566b2486768a68c4bfafbd2d4bd81e704c249a28920b754e68d0278bcfbfa"
+    },
+    {
+      "path": "tests/impact-performance/Program.cs",
+      "sha256": "5b40cfc155795f39d094a38eec897fd837521df22b60d0a6c89be3a650128535"
+    },
+    {
+      "path": "tests/infinite-stamina/Harness.cs",
+      "sha256": "bd9e73d98c118d5ade2b91bb03c3ec8febaa41d709f115e1e67cc1cd18ecf4f7"
+    },
+    {
+      "path": "tests/infinite-stamina/InfiniteStamina.Tests.csproj",
+      "sha256": "e3fcd729720da6dfad14ff429835eaba3a26a1818c7d9ad5259e7a62092a5fa1"
+    },
+    {
+      "path": "tests/infinite-stamina/Program.cs",
+      "sha256": "fac070b2f4f4d30403730c54108dca4347e9cdebeda519fff81f3d18a44f5738"
+    },
+    {
+      "path": "tests/infinite-stamina/Stubs.cs",
+      "sha256": "d1f58a2b1977bafb3218673728389260aad21073d6db2a55bf89d70042b1112a"
+    },
+    {
+      "path": "tests/infinite-stamina/interop-compile/InteropCompile.csproj",
+      "sha256": "6936179180bae27e5df1327d52d2f1bca688ff9dc873cb59dd0d95812c979aa8"
+    },
+    {
+      "path": "tests/infinite-stamina/interop-compile/ModSideStubs.cs",
+      "sha256": "6e19639b07b17bd6ceb793741efa6a47d04d8657a01e456378070fcb51a746c2"
+    },
+    {
+      "path": "tests/knight-identity-archive/Harness.cs",
+      "sha256": "9f981fff8ce39eb23fc3bb34d6b2f3592bea7c69224c12980560e3bd9c3a10a4"
+    },
+    {
+      "path": "tests/knight-identity-archive/KnightIdentityArchiveTests.csproj",
+      "sha256": "fc15fc2fbc6e7580a2d2e7bef71dfb2e0c14e24e503f0f3b3125ece7f77455bf"
+    },
+    {
+      "path": "tests/knight-identity-archive/Program.cs",
+      "sha256": "dfe7fa0a68fb68a11f4e5c1ed6e41638c7d1cb940855571b2b171c826ad27de3"
+    },
+    {
+      "path": "tests/knight-identity-archive/Tests/FileIoTests.cs",
+      "sha256": "01ee8b65c1c6a84381ced7ea576f58e7740ae6175721ba4c07c93fea6932f35c"
+    },
+    {
+      "path": "tests/knight-identity-archive/Tests/FunctionTests.cs",
+      "sha256": "a444ba8bff07ffe117a84d59c69e014f87f27f8ac3a74ac241c5e461b2e98117"
+    },
+    {
+      "path": "tests/knight-identity-archive/Tests/ModelTests.cs",
+      "sha256": "1dd8f372b5576629b5dbd36988d21459ff55f350b872c49c28874f7f56d984c6"
+    },
+    {
+      "path": "tests/knight-identity-integration/KnightIdentityIntegrationTests.csproj",
+      "sha256": "612fbe216fefce5a7acb3e9147c6c864db0755bed58720955d00eb32396489bd"
+    },
+    {
+      "path": "tests/knight-identity-integration/NativeStubs.cs",
+      "sha256": "cf68e27a00a805f7a950b27c80823a6558ef4c26c7d6ef4858faebd9690566f2"
+    },
+    {
+      "path": "tests/knight-identity-integration/NetworkBoundary.cs",
+      "sha256": "6fa9ada5edad36e43677de12096d4bcec640053ff9a4bb9cc9fca8fe63a9cf1e"
+    },
+    {
+      "path": "tests/knight-identity-integration/Program.cs",
+      "sha256": "b27807d6ca43d74a0b36e675540f346e6beec942edc4ccc27d3138cb4224f897"
+    },
+    {
+      "path": "tests/knight-identity-network/HarmonyMocks.cs",
+      "sha256": "e920497202683adad757942a48adf998cfd22c54b2f353263a26a880fdcc44aa"
+    },
+    {
+      "path": "tests/knight-identity-network/Harness.cs",
+      "sha256": "e4d1c56a6537544ceedc58456ee4de58dd3b19e4192a248cb5d439bac7d3472e"
+    },
+    {
+      "path": "tests/knight-identity-network/KnightIdentityNetworkTests.csproj",
+      "sha256": "05aa9c118635599faff2711375a4de5974202abfc748bca3ca84be76b9a27697"
+    },
+    {
+      "path": "tests/knight-identity-network/MockSupport.cs",
+      "sha256": "6868c97184ddae27ff7efe0b046c0fc4c579dbf875637b9d71c0471d4186e630"
+    },
+    {
+      "path": "tests/knight-identity-network/NativeMocks.cs",
+      "sha256": "693e442010118ef2f558c005507059ea8fbf6a05a37b4817049f2dae6f66c006"
+    },
+    {
+      "path": "tests/knight-identity-network/NetworkRegistrationTests.cs",
+      "sha256": "ed07f2946c4618a86d13b39bf3bd95aceb91c2e7b1958439b329ec91eed46649"
+    },
+    {
+      "path": "tests/knight-identity-network/OperatorRegression.cs",
+      "sha256": "a14b60810fe44aea4fc527eae5583dc34b0fa766a85c397a79aa2509bc62d4e0"
+    },
+    {
+      "path": "tests/knight-identity-network/PluginMocks.cs",
+      "sha256": "da97586e885030fe7d70869607fafbc90be4fa4ac2b6412033df048f50b23cb5"
+    },
+    {
+      "path": "tests/knight-identity-network/Program.cs",
+      "sha256": "3c3b32e8260b8c57dbeb2a7432673f15894b6b99fd90be38134018e47d976edd"
+    },
+    {
+      "path": "tests/knight-identity-network/ReceiveTests.cs",
+      "sha256": "81afd721302290e1317735240a2b654f5fa5d899b2c316d4cc10b0a5bb8ced28"
+    },
+    {
+      "path": "tests/knight-identity-network/RuntimeMock.cs",
+      "sha256": "3635e7ecf0b52eb95d6ad10c3fd3db39f8071a214aa33f905e3bbb6a67eda2ff"
+    },
+    {
+      "path": "tests/knight-identity-network/SendBudgetTests.cs",
+      "sha256": "5c010892790cfc20f41380d2c46949c30f6881710eea2017b84e0dc91422a225"
+    },
+    {
+      "path": "tests/knight-identity-network/TailCodecTests.cs",
+      "sha256": "4d80a0921d4f5a84e84688899721f09361486a12c74316d20a12513615d5bef4"
+    },
+    {
+      "path": "tests/knight-identity-network/UnityMocks.cs",
+      "sha256": "daa76b26eb504ff71d74908357f62b2f1d4dd2d5ebbd83748502eb41298b9da7"
+    },
+    {
+      "path": "tests/knight-identity-runtime/ContextFollowupTests.cs",
+      "sha256": "ec146b8548416420307f498bb2e166b8e36c42545e11827cdeec03ce38bed598"
+    },
+    {
+      "path": "tests/knight-identity-runtime/Harness.cs",
+      "sha256": "e724adf2f012945c812317b2098abfbac534c11570c19cae7ac6b9c060ddc08e"
+    },
+    {
+      "path": "tests/knight-identity-runtime/IdentityTests.cs",
+      "sha256": "2d9a7ab1b1aff5a68d9f6ac635860f06be58ed9316b0c7cf966ba4fc261b30a4"
+    },
+    {
+      "path": "tests/knight-identity-runtime/KnightIdentityRuntimeTests.csproj",
+      "sha256": "2e5b798540a13be16d3d728f3b9b85872053dee4c14b3999e932993d3d54d3ad"
+    },
+    {
+      "path": "tests/knight-identity-runtime/LoadSeedWiringTests.cs",
+      "sha256": "3cb92305759c979c4506b1760e799de04315dcd02e58c562bb604122d3e0d9ac"
+    },
+    {
+      "path": "tests/knight-identity-runtime/NativeStubs.cs",
+      "sha256": "2ae4f12560bc968e6240d6b481ea1686b203a94725e83a85e088993a465698d4"
+    },
+    {
+      "path": "tests/knight-identity-runtime/OperatorRegression.cs",
+      "sha256": "9000d3c802aedecb8de98316506bf75dbc73e7951ef616aab227e4437b6f468f"
+    },
+    {
+      "path": "tests/knight-identity-runtime/Program.cs",
+      "sha256": "cc2625e481c9152976ac874471f716eb32f48fb0fb5f5f6b42be86180a39a5e3"
+    },
+    {
+      "path": "tests/knight-identity-runtime/SaveLoadTests.cs",
+      "sha256": "54d8afedce854084853f5f65bf5ff8d1dcb7e3f7aeb7ffd0955c50688fd4b803"
+    },
+    {
+      "path": "tests/knight-load-seed/Harness.cs",
+      "sha256": "ff86e2ab7daf6aa13ac57d0776486c6d0ef87be751e52e4014bb1ba0937b1294"
+    },
+    {
+      "path": "tests/knight-load-seed/KnightLoadSeedTests.csproj",
+      "sha256": "f393e4db869d7d37775db63114e73e9ccdd51d3419287db072f026e4e8407125"
+    },
+    {
+      "path": "tests/knight-load-seed/LoadSeedTests.cs",
+      "sha256": "86fefc372eb7f04a14a90020d27a272dad0beb6d920801d21a12bdb14b91744b"
+    },
+    {
+      "path": "tests/knight-load-seed/NativeStubs.cs",
+      "sha256": "0b8a6fc01153105c6fe8bbc9888204a426af9ea459676af8b63761bea1f54c6f"
+    },
+    {
+      "path": "tests/knight-load-seed/Program.cs",
+      "sha256": "685afe65250ef4503a53532fabe0eed1cbeebfd1c265a67ecc8301b365206fd7"
+    },
+    {
+      "path": "tests/knight-load-seed/interop/InteropCompile.csproj",
+      "sha256": "cfb50f273768425b012570453708fe142177791c5da0eebe36ca4374fc184361"
+    },
+    {
+      "path": "tests/knight-powers/Program.cs",
+      "sha256": "227cae74de63c9fbc04f66a207d7dadc1502c54639f65937eef30a625666d2ee"
+    },
+    {
+      "path": "tests/knight-powers/Regression.csproj",
+      "sha256": "1e10139b78493d2b6f6f1f16cdf70813f506148daa09e50bff2b1e27a8d19f18"
+    },
+    {
+      "path": "tests/knight-powers/Stubs.cs",
+      "sha256": "26571b33f6059919a934946a7abf45dc9d5ed2ab81d48358093a74873a52a11c"
+    },
+    {
+      "path": "tests/knight-powers/WindArcRegression.cs",
+      "sha256": "048c801a4819dc52479afbb2cdb1eb7abb55a4f7e8b99c183dd411415e90cb9d"
+    },
+    {
+      "path": "tests/knight-stable-context/Harness.cs",
+      "sha256": "eae24878c785ca97754731b234d6f04210ed5349e23906786689c5297007298e"
+    },
+    {
+      "path": "tests/knight-stable-context/KnightStableContextTests.csproj",
+      "sha256": "f839018429096fc4ff34aea498cfce895f9c4b59e5ab737fcaa23e8dbc575c87"
+    },
+    {
+      "path": "tests/knight-stable-context/Program.cs",
+      "sha256": "7203f270ef539d60c5dd6a22b107cc65f1a0fa7b05bcbf85a4e222a22bfcca21"
+    },
+    {
+      "path": "tests/knight-stable-context/ResolveTests.cs",
+      "sha256": "0457eb5e220c4fb742ce9352475d7121839d1e00af409687a931383b4f84d5fb"
+    },
+    {
+      "path": "tests/medieval-scatter-policy/Harness.cs",
+      "sha256": "5472a8e06b48036bfc4d84afa94ee7a1fd4e1e989e0d5d6bb3891640683e4c14"
+    },
+    {
+      "path": "tests/medieval-scatter-policy/MedievalScatterPolicyTests.csproj",
+      "sha256": "24cf75979d70af0f76d6fcef41aeec940bdecc5a13768bab10e5b199838a65f8"
+    },
+    {
+      "path": "tests/medieval-scatter-policy/PolicyTests.cs",
+      "sha256": "df62b164ab18918bb85b1bcd4eb4441d22ba67d58e11fd09661b6c02e0e61311"
+    },
+    {
+      "path": "tests/medieval-scatter-policy/Program.cs",
+      "sha256": "2b775cd9977297381e0631992cde36e5c5e3b925ae4052bc69c0400cd3783593"
+    },
+    {
+      "path": "tests/medieval-scatter-policy/Stubs.cs",
+      "sha256": "8fac15cc4d04605b29dc350bc5540848862707e97e2699e338e66fa9de20c745"
+    },
+    {
+      "path": "tests/menu-input-lifecycle/Program.cs",
+      "sha256": "ee75e9eee828ddaab8ea585b7b41051bfff58234de54666d7e2029b666f48c07"
+    },
+    {
+      "path": "tests/menu-input-lifecycle/Regression.csproj",
+      "sha256": "d60e95d56b9473666f414dd854cd032c4d9481c97e6fdba14a7cae515da097f3"
+    },
+    {
+      "path": "tests/menu-input-lifecycle/Stubs.cs",
+      "sha256": "37c34ae9a5684fe6ab60ec46488d6141ce24e9cf2e537af95ea1b2702924ead2"
+    },
+    {
+      "path": "tests/menu-input-lifecycle/actual-interop/ActualInterop.csproj",
+      "sha256": "412477b2c66ef03af8c1c658d7e997fed92f1375f001d2623bf3aa9510aa9b2a"
+    },
+    {
+      "path": "tests/menu-input-lifecycle/actual-interop/PluginShell.cs",
+      "sha256": "67254de992384f5b1594e4eea42d0a296cea17dd561c5b7b2a3ce5c8c5b4049f"
+    },
+    {
+      "path": "tests/musketeer-boundary/MusketeerIdentityStub.cs",
+      "sha256": "c8dd162fed01c663d5b6de9ba0c564aafb65a44a64991ea3ae36f7c285b95edc"
+    },
+    {
+      "path": "tests/musketeer-defense/Directory.Build.props",
+      "sha256": "6084700a4f27e9a3b94ab163f16baeba02fac3ec7398aa15010c9889cd858968"
+    },
+    {
+      "path": "tests/musketeer-defense/Integration.csproj",
+      "sha256": "57840fce4b5c56d1728bfdc2b49a72cf06de1c0f37c3d1bb41d5d9375a406fce"
+    },
+    {
+      "path": "tests/musketeer-defense/IntegrationProgram.cs",
+      "sha256": "38f9d347d7dc3e57c372cee7dc691373192117673fb82fa9ffc22e062a9e6bdb"
+    },
+    {
+      "path": "tests/musketeer-defense/IntegrationStubs.cs",
+      "sha256": "aa2892c5a1d41918c2800a14f8674e646d7bc2d0dde622568fadd4ee46d9a010"
+    },
+    {
+      "path": "tests/musketeer-defense/Interop.csproj",
+      "sha256": "1e2350e87ff5e8014c3383f30ae1dc2244537f2a2eba8fd84a2a354b08fcc30b"
+    },
+    {
+      "path": "tests/musketeer-defense/InteropStubs.cs",
+      "sha256": "58a9f855e157b0d2f4a17b65cf0ec801db1c0f106ec2d11f12383a13e2d1a45d"
+    },
+    {
+      "path": "tests/musketeer-defense/Program.cs",
+      "sha256": "3fb589bc2680dd158a5a4aeb5ec637b32cf2ac027da276f3d28f217587ee647f"
+    },
+    {
+      "path": "tests/musketeer-defense/Stubs.cs",
+      "sha256": "36a7e5ae1f6c1614002a385802cb0ce4b6111283cff746963a7cb579b2622632"
+    },
+    {
+      "path": "tests/musketeer-defense/Tests.csproj",
+      "sha256": "46858db70ce2a5257800c5791bbcbabb6da8b425a8810d19a4279a6a8387b818"
+    },
+    {
+      "path": "tests/musketeer-drop-interop/DropInteropTests.csproj",
+      "sha256": "d8cb6c654d213457dac733ea45daddbc580e0fde11202f128b4792124e720c37"
+    },
+    {
+      "path": "tests/musketeer-drop-interop/Program.cs",
+      "sha256": "f88f2637a0c71048edbbc18ac2d302037f64ba158cbcb1c315d5741a6b02fc06"
+    },
+    {
+      "path": "tests/musketeer-formation/Harness.cs",
+      "sha256": "32ac5752486d49e4da84cdc10b213f733615840de9d7f41bba0a8af178aca652"
+    },
+    {
+      "path": "tests/musketeer-formation/LayoutTests.cs",
+      "sha256": "09c47ca992e94c3088b2310083b8d13e98f1a44a8bad2e9e7369af1c84c173bb"
+    },
+    {
+      "path": "tests/musketeer-formation/MusketeerFormationTests.csproj",
+      "sha256": "bd8d712e43d29be1477cccceaea03a07e5bb51c85484068bf9f013c2f47b61d4"
+    },
+    {
+      "path": "tests/musketeer-formation/PolicyTests.cs",
+      "sha256": "a8c7eb7517cc35250368d0fbc2b7686c5be318f6044f9b266bf2267a8f18ff56"
+    },
+    {
+      "path": "tests/musketeer-formation/Program.cs",
+      "sha256": "13396747a2bc5fba75cd03ae20370fe33698ef52fdd31765cf106c93d1ed78cd"
+    },
+    {
+      "path": "tests/musketeer-formation/Stubs.cs",
+      "sha256": "bc93e64204f19ab71df00056c30f81bcdc5140faaacc701892e70a4c9db12aa2"
+    },
+    {
+      "path": "tests/musketeer-formation/e2e/FormationPipelineTests.csproj",
+      "sha256": "59655f322f3c4c992103e6a9f3d953c01926c74ca846f4ac342793a9fd331712"
+    },
+    {
+      "path": "tests/musketeer-formation/e2e/Harness.cs",
+      "sha256": "8729d7514d2f8560113dab5cbcbcfc04c31d836719c020930256828b6f904cc4"
+    },
+    {
+      "path": "tests/musketeer-formation/e2e/PipelineTests.cs",
+      "sha256": "79c5747fe01754bf17748637397c12b1fa0cb42afc2d62954c0ec5d3f5a01952"
+    },
+    {
+      "path": "tests/musketeer-formation/e2e/Program.cs",
+      "sha256": "c56eebeded653bbbd64e4aac5bf86a648d30690a5c3eaab0fd6353ac64128314"
+    },
+    {
+      "path": "tests/musketeer-formation/e2e/Stubs.cs",
+      "sha256": "6ab2e8c5872c1cb23650464f605d04f2cafc7f97f5bce976578f0246f9b952c6"
+    },
+    {
+      "path": "tests/musketeer-formation/interop-check/CollabStubs.cs",
+      "sha256": "34b60c471101ab725658fd253a90f466baf66daed276882b5cb8af033528c4d6"
+    },
+    {
+      "path": "tests/musketeer-formation/interop-check/MusketeerFormationInteropCheck.csproj",
+      "sha256": "0a7671e3cb4cf188bc0148ab323acf95aa26c4ed81d891ec8c8a78a1af3d2b70"
+    },
+    {
+      "path": "tests/musketeer-formation/interop-check/SignatureProbe.cs",
+      "sha256": "c8d76d6e2e936ca211ee56f52a8be406515f80b6cdf202181e277c93a0be455d"
+    },
+    {
+      "path": "tests/musketeer-identity/Program.cs",
+      "sha256": "f4dc42e35168fdec681e044af621ebe54522a5eb69cd0b9fec465760dac9c340"
+    },
+    {
+      "path": "tests/musketeer-identity/Stubs.cs",
+      "sha256": "67de118557dde1252c7a1ed6c5aa212db107a09ba0314ae1732504941ca15652"
+    },
+    {
+      "path": "tests/musketeer-identity/Tests.csproj",
+      "sha256": "297ef73602749d989cdc769ca4d64f855085e19f0d37490e7f84664f661944bb"
+    },
+    {
+      "path": "tests/musketeer-restock/Program.cs",
+      "sha256": "82c23bfd468f36e18149d2063cb627c87759d4277d3b73e8ad4edc2293bf97ba"
+    },
+    {
+      "path": "tests/musketeer-restock/Tests.csproj",
+      "sha256": "4ef17a30733588298d60763bcdeaf49fa7fc3fc7547a39dffafe4d19f89feb78"
+    },
+    {
+      "path": "tests/musketeer-runtime/AnimationTests.cs",
+      "sha256": "8290549ef22ba58a7f18bb4d0aa59972bb590749b36508ca2bad5a29489e9ce9"
+    },
+    {
+      "path": "tests/musketeer-runtime/CombatTests.cs",
+      "sha256": "1496d163348bd1a56d23a3085d6d1587e29e0bb2bc9a774d5560f0c103e701ca"
+    },
+    {
+      "path": "tests/musketeer-runtime/DeerHuntTests.cs",
+      "sha256": "8cfceb21b2a734a9ad3a74813206a43a16df976602d94d962e8b39c31551d912"
+    },
+    {
+      "path": "tests/musketeer-runtime/Fixture.cs",
+      "sha256": "6958c4db1418e28e1087e81028cbb098b784c52c2586abf5390be127c25506de"
+    },
+    {
+      "path": "tests/musketeer-runtime/Harness.cs",
+      "sha256": "c96a6acdf353dcba5e31e832b19692acc1fe7da3d7ea071407cc3f609cce1410"
+    },
+    {
+      "path": "tests/musketeer-runtime/MusketeerRuntimeTests.csproj",
+      "sha256": "94e5e14ab7fc55a6fb75f749c4c38207ee739e34bb470aff3e5b27aa018ca417"
+    },
+    {
+      "path": "tests/musketeer-runtime/NativeStubs.cs",
+      "sha256": "320ab00958d3af465ced80c0a2a1acc1588a9beb3358cce6fdfa5aa8ced2ce22"
+    },
+    {
+      "path": "tests/musketeer-runtime/RuntimeTests.cs",
+      "sha256": "60857faba62532892beeb9b963d2835167d52005d475a37ad51acc33bb563c82"
+    },
+    {
+      "path": "tests/musketeer-runtime/UnityStubs.cs",
+      "sha256": "ae6296f22c9e8db45d8c0fc7a187df01184cf83bba7af66c4d631036f66ca07e"
+    },
+    {
+      "path": "tests/musketeer-runtime/VisualTests.cs",
+      "sha256": "4aaea379c84568a7967d600b4b6a38e4768f5eb7d772a47e3be744cdd42b1981"
+    },
+    {
+      "path": "tests/musketeer-runtime/WorldTests.cs",
+      "sha256": "8e911d9394b0215c8ead4f08107b9db54737afd38638bcbbefa41ea466dd236b"
+    },
+    {
+      "path": "tests/musketeer-runtime/interop-check/CollabStubs.cs",
+      "sha256": "a4496b08bb57057baaa5a5021cc50c807ef6b49863c00ce5b36b91f20fb18f4f"
+    },
+    {
+      "path": "tests/musketeer-runtime/interop-check/MusketeerInteropCheck.csproj",
+      "sha256": "a79c30f98a8376439c8a256e3f56a293ff61f8621777d6615f77c85b03f2fef8"
+    },
+    {
+      "path": "tests/musketeer-shop-perf/PerfTests.csproj",
+      "sha256": "ba089b59063c88f09594145c1b13109908e2968f4f53a20b2f6d7d9cd0ce8845"
+    },
+    {
+      "path": "tests/musketeer-shop-perf/Program.cs",
+      "sha256": "c67969db34f7e304c0aeb44aa1c168e1f420f60d08cf4c048aec659339d657b4"
+    },
+    {
+      "path": "tests/musketeer-shop-perf/actual-interop/MusketeerShopInteropCheck.csproj",
+      "sha256": "633effceecab7253e08bb87db4b62e84c9f046f5625aaff8a6b38839a976ef87"
+    },
+    {
+      "path": "tests/musketeer-shop-perf/actual-interop/Stubs.cs",
+      "sha256": "67ee10f1ae54b14f87cfd82790724ce140bca3dcf6ac76360d28eb0416c6bc15"
+    },
+    {
+      "path": "tests/musketeer-shop/Program.cs",
+      "sha256": "6fb2993a72784dcd0451af396572f408c5a04cfa75a7a9786009792660196fd1"
+    },
+    {
+      "path": "tests/musketeer-shop/Tests.csproj",
+      "sha256": "b3b0283f3c9d107464b39dde525359b5ee960a92f34c480cfd27d1a00688b967"
+    },
+    {
+      "path": "tests/musketeer-side-rack/Program.cs",
+      "sha256": "ee3c0310cccf9a901700f688960e1b35280204fe2681dff97b40adb21dbbaff9"
+    },
+    {
+      "path": "tests/musketeer-side-rack/Tests.csproj",
+      "sha256": "f89f59cee0d798c9004e30f02a8b7fe085766555e9d561f04f1960ac14b47b26"
+    },
+    {
+      "path": "tests/optional-scope/Program.cs",
+      "sha256": "f1112c137c4a0bccd8bf98f3cdd7c9f8d9a1fae165ce6c587905a0e8002500f3"
+    },
+    {
+      "path": "tests/optional-scope/Regression.csproj",
+      "sha256": "913ea67bf5a5bca957b647b7b8073f0ffc7c2242fd46b35a31939169f6d80e45"
+    },
+    {
+      "path": "tests/optional-vegetation/InteropCollection.cs",
+      "sha256": "1277acaa4425d3dbf493e82ab8f4177794309b1344a9a9fb111a1b4b98b72290"
+    },
+    {
+      "path": "tests/optional-vegetation/Program.cs",
+      "sha256": "dcf3c5e87db105793eaf2fd00ee469bc726db6af5fa2eb6779ef43e2176aa940"
+    },
+    {
+      "path": "tests/optional-vegetation/Regression.csproj",
+      "sha256": "831f015df396490dd5b86b3ac3fb1be1b925347f89b1f84c9c83d23021dffcbe"
+    },
+    {
+      "path": "tests/optional-vegetation/Stubs.cs",
+      "sha256": "dabbe9bc5c7f920faca32e8e0655c83c0cd4fe649a87a6de4f9f825e06750109"
+    },
+    {
+      "path": "tests/population-grounding/Program.cs",
+      "sha256": "0d8f8575b60b477d48f45b7b737eb3ac43bc95c067f1dd56ea3b4b5cf2c07259"
+    },
+    {
+      "path": "tests/population-grounding/Stubs.cs",
+      "sha256": "ffff1e9618661b0a97af0aeec959c92af0cd711d2e1b3b2bf0a831bc2552634d"
+    },
+    {
+      "path": "tests/population-grounding/Tests.csproj",
+      "sha256": "326fcaa275fb58d901e3cd97dc79654c449226dadac526f442bce837d1f7f197"
+    },
+    {
+      "path": "tests/population-grounding/actual-interop/Interop.csproj",
+      "sha256": "8dc91639ba9325b46af009aab2ff48817e65406f73ea471b995fc9a1e4d50761"
+    },
+    {
+      "path": "tests/population-grounding/actual-interop/Stubs.cs",
+      "sha256": "82f496c0ae474439cb889710073fcc9fdac9b7ed12df88b1ccd1a5cd54317e97"
+    },
+    {
+      "path": "tests/population-hud/AmmoStub.cs",
+      "sha256": "6774704afa4c516ec211e419ceab507427c3d016cd8cce9ab2fed12a9d00fd95"
+    },
+    {
+      "path": "tests/population-hud/Program.cs",
+      "sha256": "51141511f834124439ce7f6e123f13710059896fcb4a59113d38f01963cae5c0"
+    },
+    {
+      "path": "tests/population-hud/Regression.csproj",
+      "sha256": "32afb138ddbaeeda95bac24418c8177c15c21f35ddbc5146244476dee346d224"
+    },
+    {
+      "path": "tests/population-hud/Stubs.cs",
+      "sha256": "4466e1e33b900d10e38dda1192d17337e1ac0cfb34bc72d1e560de8d9c936eea"
+    },
+    {
+      "path": "tests/samurai-diagnostics/Program.cs",
+      "sha256": "5eacd4768bc5003b1aa5d44303dab700a5f20b52ea22d29c34f863d6f131c3de"
+    },
+    {
+      "path": "tests/samurai-diagnostics/SamuraiDiagnosticsTests.csproj",
+      "sha256": "d380b3e6095a94c6b311417df74176ba690d17bb64af7c62b1f4cb54ef535821"
+    },
+    {
+      "path": "tests/samurai-diagnostics/Stubs.cs",
+      "sha256": "228dac3afba93245a61c227dbe12b463e4d8870187fe8da98482c475aba9faba"
+    },
+    {
+      "path": "tests/samurai-motion/Program.cs",
+      "sha256": "dd9f8775994b9034eb93a821f88b5cd9c95461dc25fab4b6abc0c11d742ac59a"
+    },
+    {
+      "path": "tests/samurai-motion/Regression.csproj",
+      "sha256": "7ba6e68256cfd4cf7fa72d591b915e80eeeb266c9b183328d556951b54b15e7c"
+    },
+    {
+      "path": "tests/samurai-motion/Stubs.cs",
+      "sha256": "dc3ed29117404648d924b4ac5c3307cfaef48c7ace93fc376ba1a1d29788c139"
+    },
+    {
+      "path": "tests/samurai-motion/VisualsStub.cs",
+      "sha256": "be042453d6cd17aa6cbe1f6bbf141a06eaee01453421c5c789ada0c99d1a73d6"
+    },
+    {
+      "path": "tests/samurai-retreat/Program.cs",
+      "sha256": "678714c3bbded7689e98b3001154ecc8a6e50c586a4b5316015cd032f847463c"
+    },
+    {
+      "path": "tests/samurai-retreat/Regression.csproj",
+      "sha256": "ea71e5cb195d158901a57514eebeaf5c0d58a4cfa8f80ba827a118df70052097"
+    },
+    {
+      "path": "tests/samurai-retreat/Stubs.cs",
+      "sha256": "802dd3e425d67132a684dc6d5d5735da32b8e38f5821e832e46252ae3931e6aa"
+    },
+    {
+      "path": "tests/samurai-visuals/Program.cs",
+      "sha256": "2860d19fadbd9afe81275083369a31450aab539277accb28f259e9a614e9f3ad"
+    },
+    {
+      "path": "tests/samurai-visuals/Regression.csproj",
+      "sha256": "310e9ec66f88dfc84e3a9dbedceaa4c44c7790568cd1bac09b3734d9efe2ea4c"
+    },
+    {
+      "path": "tests/samurai-visuals/Stubs.cs",
+      "sha256": "0ce30cce0445cb51e85f5d0b8560dad2da2b6bfb827cbced42c84997c4061a04"
+    },
+    {
+      "path": "tests/scatter-arrow-tint/Harness.cs",
+      "sha256": "7b03f2d5f12c7810c0dd155296a25267f61f02739b6635bbfc2b0ca39bda703b"
+    },
+    {
+      "path": "tests/scatter-arrow-tint/Program.cs",
+      "sha256": "d29d4d391e9e1926bbb5572b28e2807337131af1631c92f2248dbb2391994fdd"
+    },
+    {
+      "path": "tests/scatter-arrow-tint/Regression.csproj",
+      "sha256": "cde1df1517415ca65199d1b948b6db73ef48ce122d6b35a6280cf17cf818de0a"
+    },
+    {
+      "path": "tests/scatter-arrow-tint/Stubs/GameStubs.cs",
+      "sha256": "d048286e0f05b6084af26a6da168941559169e083949f68d5925db7c4013ca1a"
+    },
+    {
+      "path": "tests/scatter-arrow-tint/Stubs/RootStubs.cs",
+      "sha256": "2556c548846353ac2b48280a4ffb5c664dd7530260dfc29dd595223b2cd6ab3b"
+    },
+    {
+      "path": "tests/scatter-arrow-tint/Stubs/UnityStubs.cs",
+      "sha256": "0a19073df97a074f61d83b8ab064ec45d2ee51db5fbc09183755b075040c66ff"
+    },
+    {
+      "path": "tests/scatter-arrow-tint/actual-interop/ActualInterop.csproj",
+      "sha256": "92a6c3ca17e8187bb7d3134217e09bb50a5cdee8b84cf8b7fe5e0eb24e80b2f8"
+    },
+    {
+      "path": "tests/scatter-arrow-tint/actual-interop/PluginShell.cs",
+      "sha256": "0239a184481a966c6208a75a9197854740b1d40b969e69b96467b51192441a6a"
+    },
+    {
+      "path": "tests/shop-cleanup/Doubles/GameDoubles.cs",
+      "sha256": "d32b86ab3304c28af350116b6d7ef76553e39957453a1fdc2a557af071b600c8"
+    },
+    {
+      "path": "tests/shop-cleanup/Doubles/ModDoubles.cs",
+      "sha256": "cfbe46fe26e1ace57567cf9bf10ce3905e1bb6b34d2f4cdd476ed69206dfe0ab"
+    },
+    {
+      "path": "tests/shop-cleanup/Doubles/UnityDoubles.cs",
+      "sha256": "9aefd53924afa8c4fcaa34c8377f421da9b96736da955f9117f60c4982136171"
+    },
+    {
+      "path": "tests/shop-cleanup/Harness.cs",
+      "sha256": "69dd78eaba9d5a3fc6be126bff7cd18513255d8c037712fb958c316f7219f7e1"
+    },
+    {
+      "path": "tests/shop-cleanup/Program.cs",
+      "sha256": "351d2805a452f72c8a9653a6b9edc6f6dd3507d605a42c6bb3e331c571b5abe4"
+    },
+    {
+      "path": "tests/shop-cleanup/Regression.csproj",
+      "sha256": "3eb733314091d38ded70b2d065545322b2d2221e01a08970f1d8edb0976aef48"
+    },
+    {
+      "path": "tests/shop-cleanup/Tests/MarkerTests.cs",
+      "sha256": "b5d0adab7d55b26bfc5b2c1cac910cf80ba24f04457297c6bf429eb84bf3c79f"
+    },
+    {
+      "path": "tests/shop-cleanup/Tests/SlotCleanupTests.cs",
+      "sha256": "9208d0881c37245cdf63131b5506c5a2b953839f8331ff402621ffc749643c41"
+    },
+    {
+      "path": "tests/siege-ammo/SiegeAmmoTests.csproj",
+      "sha256": "79f6406f79c4242b08f47b611fe3fa95c8a7db7bd11e36ba6bb2008b91dc5456"
+    },
+    {
+      "path": "tests/siege-ammo/Stubs.cs",
+      "sha256": "662240fccc63a7af572b40bb00a09d7866cb4dfa673cbb97b34b7cc8c4d28ac7"
+    },
+    {
+      "path": "tests/siege-ammo/Tests.cs",
+      "sha256": "21756e3383ed2f3da17fe4487cf549302753b8ab27a2ce5ed2efcb7d4912ea6c"
+    },
+    {
+      "path": "tests/source-extractor/Program.cs",
+      "sha256": "c49866921049b3bbe7f9671169971a731597388bc882f15437c52ee66bca822b"
+    },
+    {
+      "path": "tests/source-extractor/SourceExtractor.csproj",
+      "sha256": "031da6a6f6d810b9f23ffe7818f3acefb7b0ff54b0eb8c6752735ad58d254904"
+    }
+  ]
+}

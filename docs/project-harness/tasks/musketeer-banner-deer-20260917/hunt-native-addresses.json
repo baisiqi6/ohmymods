@@ -1,0 +1,51 @@
+[
+  {
+    "type": "Deer",
+    "method": "NativeMethodInfoPtr_HandleOnDeath_Private_Void_GameObject_0",
+    "token": 100667824,
+    "rva": "0x9db430",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_ShouldGoToWall_Private_Boolean_0",
+    "token": 100663809,
+    "rva": "0x4b69a0",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_ConvertToSoldier_Private_Void_0",
+    "token": 100663822,
+    "rva": "0x4b07c0",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_ConvertToHunter_Private_Void_0",
+    "token": 100663823,
+    "rva": "0x4b0640",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_ShouldShootWildlife_Private_Boolean_0",
+    "token": 100663834,
+    "rva": "0x4b7680",
+    "same_slots": 1
+  },
+  {
+    "type": "Archer",
+    "method": "NativeMethodInfoPtr_ShouldHunt_Private_Boolean_0",
+    "token": 100663835,
+    "rva": "0x4b6ef0",
+    "same_slots": 1
+  },
+  {
+    "type": "Scanner",
+    "method": "NativeMethodInfoPtr_Refresh_Private_Void_Boolean_0",
+    "token": 100678384,
+    "rva": "0x742ae0",
+    "same_slots": 1
+  }
+]

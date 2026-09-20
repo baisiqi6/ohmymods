@@ -1,0 +1,16 @@
+{
+  "baseline": "6e2d side-rack candidate",
+  "changed": [
+    "il2cpp/KingdomEnhancedPlugin.cs",
+    "il2cpp/ModConfig.cs",
+    "il2cpp/ModPanel.cs",
+    "il2cpp/PatchPlayer_HoldPurchase.cs"
+  ],
+  "newProductionFiles": [],
+  "sourceSha256": {
+    "il2cpp/KingdomEnhancedPlugin.cs": "9795cb2314ae59900f39504db9fc3d2175344dbb96e3013d02cabebcdad46252",
+    "il2cpp/ModConfig.cs": "1c323cd46f70f5ba3f3d1d6b4315976f8cdb3a915fa00bb5f32f8e532f84cf72",
+    "il2cpp/ModPanel.cs": "f1c76cb808b1ba7e08de02b359425e0ca9dfea492a44aab87cf2fa931ef1e071",
+    "il2cpp/PatchPlayer_HoldPurchase.cs": "fc85d406a72c896fff3d59baaec7922d5676c26ff947560bc8e0c9f492f79940"
+  }
+}

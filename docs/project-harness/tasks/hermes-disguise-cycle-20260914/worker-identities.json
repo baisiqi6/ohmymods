@@ -1,0 +1,44 @@
+[
+  {
+    "session": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hermes-disguise-cycle-20260914\\protection-sessions\\2026-09-14T11-30-17-515Z_01a09fae-a32b-7435-a3ad-c8a22a314b83.jsonl",
+    "events": [
+      {
+        "type": "session",
+        "id": "01a09fae-a32b-7435-a3ad-c8a22a314b83",
+        "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hermes-disguise-cycle-20260914\\protection-worker"
+      },
+      {
+        "type": "model_change",
+        "id": "3b80ff23",
+        "model": "deepseek/deepseek-v4-flash",
+        "resolvedModelIsFallback": false
+      },
+      {
+        "type": "thinking_level_change",
+        "id": "e848acb5",
+        "thinkingLevel": "max"
+      }
+    ]
+  },
+  {
+    "session": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hermes-disguise-cycle-20260914\\sequence-sessions\\2026-09-14T11-30-27-874Z_01a09fae-cba2-709d-86a6-f8f1fd453f6e.jsonl",
+    "events": [
+      {
+        "type": "session",
+        "id": "01a09fae-cba2-709d-86a6-f8f1fd453f6e",
+        "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hermes-disguise-cycle-20260914\\sequence-worker"
+      },
+      {
+        "type": "model_change",
+        "id": "fe6c360d",
+        "model": "deepseek/deepseek-v4-flash",
+        "resolvedModelIsFallback": false
+      },
+      {
+        "type": "thinking_level_change",
+        "id": "b807cd79",
+        "thinkingLevel": "max"
+      }
+    ]
+  }
+]

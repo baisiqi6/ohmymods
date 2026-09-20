@@ -1,0 +1,18 @@
+{
+  "build": "7.6.5-samurai-diag-20260914",
+  "dll": "E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll",
+  "sha256": "9F1F61A0AE5C6475CF61FADF4E8BBFAE026E9E686B0DFE9804EE7ED4CD32B918",
+  "backup": "E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll.before-samurai-diag-20260914-150832-650.bak",
+  "protectedFiles": [
+    {
+      "Path": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\config\\KingdomEnhancedMod.cfg",
+      "Hash": "7AB251054283DD86B266CFED4ED195219E04B35052389D17671F67BEB08EF762"
+    },
+    {
+      "Path": "C:\\Users\\ADMIN\\AppData\\LocalLow\\noio\\KingdomTwoCrowns\\Release\\global-v35",
+      "Hash": "FAA426FCC85C11CFCDB6456BFCB63FDEB3A18C54A1114683D7E9FAD7920F32EA"
+    }
+  ],
+  "gameStarted": false,
+  "published": false
+}

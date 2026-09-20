@@ -1,0 +1,20 @@
+medieval-scatter policy boundary tests (production source linked, boundary stubs)
+
+PASS medieval_style0_scatters_other_styles_do_not
+PASS unresolved_identity_never_scatters
+PASS knightless_archer_never_scatters
+PASS squad_switch_reads_current_knight_only
+PASS dead_leader_never_scatters
+PASS foreign_world_units_never_scatter
+PASS wildlife_target_stays_single_shot
+PASS no_shooting_target_never_scatters
+PASS enemy_structure_without_enemy_component_scatters
+PASS friendly_troll_target_excluded
+PASS crossbowman_archer_excluded
+PASS transferred_norse_follower_excluded
+PASS ranged_mode_required_for_current_and_desired
+PASS dead_harmless_or_grabbed_archer_never_scatters
+PASS target_damageable_gates
+PASS read_failure_fails_closed
+
+total: passed=16 failed=0

@@ -1,0 +1,12 @@
+{
+  "build": "7.6.5-knight-load-seed-20260914",
+  "dll": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "sha256": "444E1611127D499B4E071B121E20336E22B1C8C1ADB7DFCDF0CDEF3B635E306E",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-knight-load-seed-20260914-212039-709.bak",
+  "saveBefore": "57E54166C813EEA47B85AC44DC47D779A7AAA5D41B73651B1F00AED33C4E2AAB",
+  "saveAfter": "57E54166C813EEA47B85AC44DC47D779A7AAA5D41B73651B1F00AED33C4E2AAB",
+  "configBefore": "AD2CB23670AF6AD858D68E779B075F49A15E225B0668D46919E811A7689EB1CF",
+  "configAfter": "AD2CB23670AF6AD858D68E779B075F49A15E225B0668D46919E811A7689EB1CF",
+  "gameStarted": false,
+  "published": false
+}

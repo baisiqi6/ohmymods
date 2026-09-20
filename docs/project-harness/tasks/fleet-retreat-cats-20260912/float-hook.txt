@@ -1,0 +1,2 @@
+PASS actual float SetGoal target: Coatsink.Common.Wait Mover::SetGoal(System.Single,System.Single)
+PASS existing Harmony target retained; speed ref Single; native Wait delegate preserved for defensive retreat.

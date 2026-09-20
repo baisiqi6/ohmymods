@@ -1,0 +1,9 @@
+{
+  "workerStopped": true,
+  "globalExactAddedBlockRemoved": true,
+  "deletedExactWorkerFiles": [
+    "C:\\Users\\ADMIN\\projects\\ohmymods\\.omp\\config.yml",
+    "C:\\Users\\ADMIN\\projects\\ohmymods\\.tmp-tool-probe.txt"
+  ],
+  "noGameWrites": true
+}

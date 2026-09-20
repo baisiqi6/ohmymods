@@ -1,0 +1,15 @@
+{
+  "time": "2026-09-14T05:05:02.4758463+08:00",
+  "target": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-archer-options-20260914-050502-325.bak",
+  "installed": "1F111CD5AD3D4B020A9C0A27A26998B241457F96DFEF652E7F702F6E99C58A96",
+  "build": "6.1.5-archer-options-20260914",
+  "saveBefore": "3DE1786460A74262F58D2C18772E91722BD7D50CBCF04517F2526BCAD3C5571A",
+  "saveAfter": "3DE1786460A74262F58D2C18772E91722BD7D50CBCF04517F2526BCAD3C5571A",
+  "configBefore": "4CE570229201E9D6AFA77ED66B89C7628A3C34C2DDF506844A6E77B50C9BD398",
+  "configAfter": "4CE570229201E9D6AFA77ED66B89C7628A3C34C2DDF506844A6E77B50C9BD398",
+  "bankBefore": 5709,
+  "bankAfter": 5709,
+  "gameLaunched": false,
+  "published615Unchanged": true
+}

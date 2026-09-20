@@ -1,0 +1,18 @@
+{
+  "oldMethods": 2630,
+  "resources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png",
+    "KingdomEnhancedMod.ArtemisArrow.png"
+  ],
+  "changedMethods": [
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::Apply(Archer)",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::Sync()"
+  ],
+  "newMethods": 2635,
+  "baselineSha": "301FF296B2BF534EC384F8825A0E7D9792843DEF14D1EBE8B00162A4CC90CDB8",
+  "candidateSha": "758B5990DFD6B4404E52398CBA02B6F5940421AAE3FA63FF6DF9671B4F08741F",
+  "unchangedMethods": 2627,
+  "unexpected": [],
+  "missing": []
+}

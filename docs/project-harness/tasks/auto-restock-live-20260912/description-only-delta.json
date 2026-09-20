@@ -1,0 +1,8 @@
+{
+  "runtimeTested": "FF9D07FA850632A66E0A240F2EB798C6880093BDF91F76748A528306D677DAB2",
+  "final": "654051E9103321D5EF23F6F995A3A433A4EE75935AEDDF7C44F0D87D7DEE8363",
+  "changedMethods": [
+    "System.Void KingdomEnhancedMod.ModConfig::Init(BepInEx.Configuration.ConfigFile)"
+  ],
+  "change": "Only ConfigDescription wording: 只在白天 -> 全天; runtime purchase implementation identical"
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "gameObject": "Troll_friendly",
+    "id": 19793,
+    "components": [
+      "Transform",
+      "SpriteRenderer",
+      "Animator",
+      "FriendlyTroll",
+      "Rigidbody2D",
+      "SpriteRendererFX",
+      "FixedTransform",
+      "Damageable",
+      "Mover",
+      "Persistent",
+      "PositionSync",
+      "AnimationSync",
+      "CapsuleCollider2D",
+      "Petrifiable"
+    ]
+  }
+]

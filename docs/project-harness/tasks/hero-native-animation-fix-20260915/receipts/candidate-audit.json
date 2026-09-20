@@ -1,0 +1,42 @@
+{
+  "unchangedMethods": 2622,
+  "unexpectedMissing": [],
+  "newMethods": 2667,
+  "changedMethods": [
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals/VisualState::.ctor()",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::Clear()",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::RemoveByKey(System.Int32)",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::Apply(Archer)",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::Sync()",
+    "System.Void KingdomEnhancedMod.HeroArcherVisualDriver::LateUpdate()",
+    "System.Boolean KingdomEnhancedMod.HeroArcherVisuals::DecodeAtlas(System.Byte[])",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::NotifyRelease(Archer)",
+    "System.Boolean KingdomEnhancedMod.HeroArcherVisuals::TryReleaseNative(KingdomEnhancedMod.HeroArcherVisuals/VisualState)",
+    "System.Void KingdomEnhancedMod.ModPanel::Update()",
+    "System.Boolean KingdomEnhancedMod.HeroArcherVisuals::ApplyVisualScale(KingdomEnhancedMod.HeroArcherVisuals/VisualState)",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::.cctor()"
+  ],
+  "missing": [
+    "KingdomEnhancedMod.HeroArcherAnimation KingdomEnhancedMod.HeroArcherVisuals::MotionOf(Archer,System.Single)",
+    "System.Boolean KingdomEnhancedMod.HeroArcherVisuals::ReadPrepare(Archer)",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::Advance(KingdomEnhancedMod.HeroArcherVisuals/VisualState,System.Single)",
+    "System.Single KingdomEnhancedMod.HeroArcherVisuals::ReadMotionSpeed(Archer)",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::RefreshSprite(KingdomEnhancedMod.HeroArcherVisuals/VisualState,System.Single)"
+  ],
+  "resources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png",
+    "KingdomEnhancedMod.ArtemisArrow.png"
+  ],
+  "oldMethods": 2640,
+  "allowedRemovedPrivateMethods": [
+    "KingdomEnhancedMod.HeroArcherAnimation KingdomEnhancedMod.HeroArcherVisuals::MotionOf(Archer,System.Single)",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::Advance(KingdomEnhancedMod.HeroArcherVisuals/VisualState,System.Single)",
+    "System.Void KingdomEnhancedMod.HeroArcherVisuals::RefreshSprite(KingdomEnhancedMod.HeroArcherVisuals/VisualState,System.Single)",
+    "System.Single KingdomEnhancedMod.HeroArcherVisuals::ReadMotionSpeed(Archer)",
+    "System.Boolean KingdomEnhancedMod.HeroArcherVisuals::ReadPrepare(Archer)"
+  ],
+  "candidateSha": "EFD44621BD86166979DC620D19BA7D91BAD3D960735405D64F517AC751D56C0E",
+  "baselineSha": "FAE6FBDDCEF13DCE3D84120989087CB2972528097325EABF7FD987BC3BC50674",
+  "unexpected": []
+}

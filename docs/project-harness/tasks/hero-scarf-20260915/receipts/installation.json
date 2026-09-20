@@ -1,0 +1,14 @@
+{
+  "saveUnchanged": true,
+  "build": "7.6.5-hero-twin-scarf-20260915",
+  "gameStarted": false,
+  "sha256": "7DD53270DA06AD11C201633C879E2A46E05169AE01FB54A50CB22C3583570026",
+  "configSha256": "5584D1DC51792AD57B83ADA5B479579ED532B073CDE555CA904EE07514A72A71",
+  "saveSha256": "0CDCBCFD0F866293F269F31ED907A06F286274B8429CB17C4BAC446161235D87",
+  "oldSha256": "1278D0D512211FEC7C4BC7C1D4D82D4A62205661758837D9444BABB5D7F5DAA3",
+  "configUnchanged": true,
+  "installedAt": "2026-09-15T15:57:50.7580567+08:00",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-hero-twin-scarf-20260915-155750-587.bak",
+  "published": false,
+  "installed": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll"
+}

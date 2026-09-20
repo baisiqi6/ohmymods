@@ -1,0 +1,9 @@
+# Rejected first candidate
+
+ZCode0.16.5 worker session sess_25a67eb2-bbc0-4b6b-9b73-c65e293fb49f, native bigmodel/GLM-5.3 events verified; requested max effort not independently verified. Isolated file; no Bash/Task/Agent/canonical/game authority. First source21:10:04 (32862bytes) compiled0W/0E but failed independent source and black-box tests. Never integrated or deployed.
+
+Independent startup_crash_review FAIL: Tick does not guard InProgress, duplicate ReturnRoutine starts each frame and attack can start in4..10 hysteresis band. Idle ReturnState masks active attack cleanup inOnDisable. PhaseB sends goal before lifetime/external-goal checks. Active episodes do not revalidate free-action state/mover identity; attack coroutine finally has no lifetime ownership. GetArchers(.2) makes the shared cache perform full scene searches15x more frequently. Run deadline has no hard cap, claimed two rounds are ineffective, outer retry remains unlimited. Managed ReferenceEquals on native wrappers is not the intended stable identity contract.
+
+Independent tests initially2/36 passed on original code (proves tests require new functionality), then18/36 on first candidate; expanded44 cases20 passed24 failed, including11 return coroutines in0.1s,21 coroutines in0.25s with nearby enemy, invulnerability remaining at0.61s/return completion, external goal100 overwritten2.5 at phase boundary, active task changes not cancelling, old attack.Dispose clearing new pooled return state. Attack-CD first timing assertion was corrected for the permitted0.2s consumer schedule and then passed; it was not an implementation defect.
+
+Fallback samurai_return_impl assigned isolatedsamurai-return-fixed, original canonical baseline, one active motion lease per actor. Independent tests/reviewer remain separate. Root preservesHUD/default changes, performs real-interop build/audit and final E deployment only after passing checks.

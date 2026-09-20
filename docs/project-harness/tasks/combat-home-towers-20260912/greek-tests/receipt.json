@@ -1,0 +1,29 @@
+{
+  "generatedAtUtc": "2026-09-11T17:21:25.7765228Z",
+  "crossbowMethodMatchesCanonical": true,
+  "crossbowSourceSha256": "4C8DB21A414CBA9A92126CEDAF0B20A6EDA8576AFE8DD043C49A6CEAF2DDBD68",
+  "runtime": "C:/Users/ADMIN/dotnet8/dotnet.exe",
+  "runs": [
+    {
+      "name": "baseline",
+      "source": "C:\\Users\\ADMIN\\projects\\ohmymods\\il2cpp\\PatchRoles_GreekFire.cs",
+      "sha256": "3607BA796CF1D0D384124C9F075761C427EB1310DF3ABAD0F65BF1B9E907E1A4",
+      "assetsSha256": "958CE9EBC92774C42833DE7C7BE78647A486E8700E085B56413A615EF9A65117",
+      "passed": 119,
+      "failed": 24,
+      "exitCode": 1,
+      "log": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-home-towers-20260912\\greek-tests\\baseline.log"
+    },
+    {
+      "name": "candidate",
+      "source": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-home-towers-20260912\\build\\PatchRoles_GreekFire.cs",
+      "sha256": "90B2002DCB801007565DFC2866E75C7BCF8FFF1E02824D55295BD98475E60287",
+      "assetsSha256": "958CE9EBC92774C42833DE7C7BE78647A486E8700E085B56413A615EF9A65117",
+      "passed": 143,
+      "failed": 0,
+      "exitCode": 0,
+      "log": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-home-towers-20260912\\greek-tests\\candidate.log"
+    }
+  ],
+  "boundary": "Managed stubs for Unity/native APIs; real production Compile Link. No game execution, save edits, RPC transport, native scanner refresh, IL2CPP or visual validation."
+}

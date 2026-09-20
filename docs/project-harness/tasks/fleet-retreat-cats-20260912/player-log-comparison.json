@@ -1,0 +1,26 @@
+[
+  {
+    "message": "Got AppID: 2769240",
+    "presentBeforeDeployment": true
+  },
+  {
+    "message": "The referenced script on this Behaviour (Game Object 'Spart Farticles') is missing!",
+    "presentBeforeDeployment": true
+  },
+  {
+    "message": "Unknown Character Tag: Archer",
+    "presentBeforeDeployment": true
+  },
+  {
+    "message": "Game created. Version: 2.4.0 Revision: 23488 Hash: a436110bb9 Branch: origin/twocrowns/spring-edict",
+    "presentBeforeDeployment": true
+  },
+  {
+    "message": "Invalid NetID from CRPCStamp on 'CastleShieldShop(Clone)'!",
+    "presentBeforeDeployment": true
+  },
+  {
+    "message": "gse orca",
+    "presentBeforeDeployment": true
+  }
+]

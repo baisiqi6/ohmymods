@@ -1,0 +1,485 @@
+MonoMod.Utils.DynamicMethodDefinition Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::PrepareOriginal()
+IL_0000: ldnull
+IL_0001: ret
+System.Reflection.MethodBase Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::DetourTo(System.Reflection.MethodBase)
+IL_0000: ldarg.0
+IL_0001: ldfld Il2CppInterop.Runtime.Injection.IDetour Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::nativeDetour
+IL_0006: brfalse.s IL_002b
+IL_0008: ldarg.0
+IL_0009: ldfld Il2CppInterop.Runtime.Runtime.VersionSpecific.MethodInfo.INativeMethodInfoStruct Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::modifiedNativeMethodInfo
+IL_000e: callvirt System.IntPtr& Il2CppInterop.Runtime.Runtime.VersionSpecific.MethodInfo.INativeMethodInfoStruct::get_MethodPointer()
+IL_0013: ldarg.0
+IL_0014: ldfld Il2CppInterop.Runtime.Runtime.VersionSpecific.MethodInfo.INativeMethodInfoStruct Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::originalNativeMethodInfo
+IL_0019: callvirt System.IntPtr& Il2CppInterop.Runtime.Runtime.VersionSpecific.MethodInfo.INativeMethodInfoStruct::get_MethodPointer()
+IL_001e: ldind.i
+IL_001f: stind.i
+IL_0020: ldarg.0
+IL_0021: ldfld Il2CppInterop.Runtime.Injection.IDetour Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::nativeDetour
+IL_0026: callvirt System.Void System.IDisposable::Dispose()
+IL_002b: ldarg.0
+IL_002c: callvirt MonoMod.Utils.DynamicMethodDefinition HarmonyLib.Public.Patching.MethodPatcher::CopyOriginal()
+IL_0031: stloc.0
+IL_0032: ldloc.0
+IL_0033: callvirt System.Reflection.MethodBase MonoMod.Utils.DynamicMethodDefinition::get_OriginalMethod()
+IL_0038: ldloc.0
+IL_0039: callvirt System.Reflection.MethodBase MonoMod.Utils.DynamicMethodDefinition::get_OriginalMethod()
+IL_003e: call HarmonyLib.PatchInfo HarmonyLib.Public.Patching.PatchManager::GetPatchInfo(System.Reflection.MethodBase)
+IL_0043: ldloc.0
+IL_0044: callvirt Mono.Cecil.MethodDefinition MonoMod.Utils.DynamicMethodDefinition::get_Definition()
+IL_0049: newobj System.Void MonoMod.Cil.ILContext::.ctor(Mono.Cecil.MethodDefinition)
+IL_004e: call System.Void HarmonyLib.Public.Patching.HarmonyManipulator::Manipulate(System.Reflection.MethodBase,HarmonyLib.PatchInfo,MonoMod.Cil.ILContext)
+IL_0053: ldloc.0
+IL_0054: callvirt System.Reflection.MethodInfo MonoMod.Utils.DynamicMethodDefinition::Generate()
+IL_0059: stloc.1
+IL_005a: ldarg.0
+IL_005b: ldloc.1
+IL_005c: call MonoMod.Utils.DynamicMethodDefinition Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::GenerateNativeToManagedTrampoline(System.Reflection.MethodInfo)
+IL_0061: callvirt System.Reflection.MethodInfo MonoMod.Utils.DynamicMethodDefinition::Generate()
+IL_0066: stloc.2
+IL_0067: ldsfld HarmonyLib.DelegateTypeFactory HarmonyLib.DelegateTypeFactory::instance
+IL_006c: ldloc.2
+IL_006d: ldc.i4.2
+IL_006e: newobj System.Void System.Nullable`1<System.Runtime.InteropServices.CallingConvention>::.ctor(!0)
+IL_0073: callvirt System.Type HarmonyLib.DelegateTypeFactory::CreateDelegateType(System.Reflection.MethodInfo,System.Nullable`1<System.Runtime.InteropServices.CallingConvention>)
+IL_0078: stloc.3
+IL_0079: ldloc.2
+IL_007a: ldloc.3
+IL_007b: callvirt System.Delegate System.Reflection.MethodInfo::CreateDelegate(System.Type)
+IL_0080: stloc.s V_4
+IL_0082: ldsfld System.Collections.Generic.List`1<System.Object> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::DelegateCache
+IL_0087: ldloc.s V_4
+IL_0089: callvirt System.Void System.Collections.Generic.List`1<System.Object>::Add(!0)
+IL_008e: ldarg.0
+IL_008f: call Il2CppInterop.Runtime.Startup.Il2CppInteropRuntime Il2CppInterop.Runtime.Startup.Il2CppInteropRuntime::get_Instance()
+IL_0094: callvirt Il2CppInterop.Runtime.Injection.IDetourProvider Il2CppInterop.Runtime.Startup.Il2CppInteropRuntime::get_DetourProvider()
+IL_0099: ldarg.0
+IL_009a: ldfld Il2CppInterop.Runtime.Runtime.VersionSpecific.MethodInfo.INativeMethodInfoStruct Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::originalNativeMethodInfo
+IL_009f: callvirt System.IntPtr& Il2CppInterop.Runtime.Runtime.VersionSpecific.MethodInfo.INativeMethodInfoStruct::get_MethodPointer()
+IL_00a4: ldind.i
+IL_00a5: ldloc.s V_4
+IL_00a7: callvirt Il2CppInterop.Runtime.Injection.IDetour Il2CppInterop.Runtime.Injection.IDetourProvider::Create<System.Delegate>(System.IntPtr,!!0)
+IL_00ac: stfld Il2CppInterop.Runtime.Injection.IDetour Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::nativeDetour
+IL_00b1: ldarg.0
+IL_00b2: ldfld Il2CppInterop.Runtime.Injection.IDetour Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::nativeDetour
+IL_00b7: callvirt System.Void Il2CppInterop.Runtime.Injection.IDetour::Apply()
+IL_00bc: ldarg.0
+IL_00bd: ldfld Il2CppInterop.Runtime.Runtime.VersionSpecific.MethodInfo.INativeMethodInfoStruct Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::modifiedNativeMethodInfo
+IL_00c2: callvirt System.IntPtr& Il2CppInterop.Runtime.Runtime.VersionSpecific.MethodInfo.INativeMethodInfoStruct::get_MethodPointer()
+IL_00c7: ldarg.0
+IL_00c8: ldfld Il2CppInterop.Runtime.Injection.IDetour Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::nativeDetour
+IL_00cd: callvirt System.IntPtr Il2CppInterop.Runtime.Injection.IDetour::get_OriginalTrampoline()
+IL_00d2: stind.i
+IL_00d3: ldarg.0
+IL_00d4: call System.Reflection.MethodBase HarmonyLib.Public.Patching.MethodPatcher::get_Original()
+IL_00d9: ldloc.1
+IL_00da: newobj System.Void MonoMod.RuntimeDetour.Detour::.ctor(System.Reflection.MethodBase,System.Reflection.MethodBase)
+IL_00df: stloc.s V_5
+IL_00e1: ldloc.s V_5
+IL_00e3: callvirt System.Void MonoMod.RuntimeDetour.Detour::Apply()
+IL_00e8: ldsfld System.Collections.Generic.List`1<System.Object> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::DetourCache
+IL_00ed: ldloc.s V_5
+IL_00ef: callvirt System.Void System.Collections.Generic.List`1<System.Object>::Add(!0)
+IL_00f4: ldloc.1
+IL_00f5: ret
+MonoMod.Utils.DynamicMethodDefinition Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::CopyOriginal()
+IL_0000: ldarg.0
+IL_0001: call System.Reflection.MethodBase HarmonyLib.Public.Patching.MethodPatcher::get_Original()
+IL_0006: newobj System.Void MonoMod.Utils.DynamicMethodDefinition::.ctor(System.Reflection.MethodBase)
+IL_000b: stloc.0
+IL_000c: ldloc.0
+IL_000d: callvirt Mono.Cecil.MethodDefinition MonoMod.Utils.DynamicMethodDefinition::get_Definition()
+IL_0012: ldstr "UnhollowedWrapper_"
+IL_0017: ldloc.0
+IL_0018: callvirt Mono.Cecil.MethodDefinition MonoMod.Utils.DynamicMethodDefinition::get_Definition()
+IL_001d: callvirt System.String Mono.Cecil.MemberReference::get_Name()
+IL_0022: call System.String System.String::Concat(System.String,System.String)
+IL_0027: callvirt System.Void Mono.Cecil.MemberReference::set_Name(System.String)
+IL_002c: ldloc.0
+IL_002d: callvirt Mono.Cecil.MethodDefinition MonoMod.Utils.DynamicMethodDefinition::get_Definition()
+IL_0032: newobj System.Void MonoMod.Cil.ILContext::.ctor(Mono.Cecil.MethodDefinition)
+IL_0037: newobj System.Void MonoMod.Cil.ILCursor::.ctor(MonoMod.Cil.ILContext)
+IL_003c: stloc.1
+IL_003d: ldloc.1
+IL_003e: ldc.i4.4
+IL_003f: newarr System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean>
+IL_0044: dup
+IL_0045: ldc.i4.0
+IL_0046: ldsfld System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9__19_0
+IL_004b: dup
+IL_004c: brtrue.s IL_0065
+IL_004e: pop
+IL_004f: ldsfld Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9
+IL_0054: ldftn System.Boolean Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<CopyOriginal>b__19_0(Mono.Cecil.Cil.Instruction)
+IL_005a: newobj System.Void System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean>::.ctor(System.Object,System.IntPtr)
+IL_005f: dup
+IL_0060: stsfld System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9__19_0
+IL_0065: stelem.ref
+IL_0066: dup
+IL_0067: ldc.i4.1
+IL_0068: ldsfld System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9__19_1
+IL_006d: dup
+IL_006e: brtrue.s IL_0087
+IL_0070: pop
+IL_0071: ldsfld Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9
+IL_0076: ldftn System.Boolean Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<CopyOriginal>b__19_1(Mono.Cecil.Cil.Instruction)
+IL_007c: newobj System.Void System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean>::.ctor(System.Object,System.IntPtr)
+IL_0081: dup
+IL_0082: stsfld System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9__19_1
+IL_0087: stelem.ref
+IL_0088: dup
+IL_0089: ldc.i4.2
+IL_008a: ldsfld System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9__19_2
+IL_008f: dup
+IL_0090: brtrue.s IL_00a9
+IL_0092: pop
+IL_0093: ldsfld Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9
+IL_0098: ldftn System.Boolean Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<CopyOriginal>b__19_2(Mono.Cecil.Cil.Instruction)
+IL_009e: newobj System.Void System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean>::.ctor(System.Object,System.IntPtr)
+IL_00a3: dup
+IL_00a4: stsfld System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9__19_2
+IL_00a9: stelem.ref
+IL_00aa: dup
+IL_00ab: ldc.i4.3
+IL_00ac: ldsfld System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9__19_3
+IL_00b1: dup
+IL_00b2: brtrue.s IL_00cb
+IL_00b4: pop
+IL_00b5: ldsfld Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9
+IL_00ba: ldftn System.Boolean Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<CopyOriginal>b__19_3(Mono.Cecil.Cil.Instruction)
+IL_00c0: newobj System.Void System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean>::.ctor(System.Object,System.IntPtr)
+IL_00c5: dup
+IL_00c6: stsfld System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9__19_3
+IL_00cb: stelem.ref
+IL_00cc: callvirt System.Boolean MonoMod.Cil.ILCursor::TryGotoNext(System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean>[])
+IL_00d1: brfalse.s IL_00dd
+IL_00d3: ldloc.1
+IL_00d4: ldc.i4.4
+IL_00d5: callvirt MonoMod.Cil.ILCursor MonoMod.Cil.ILCursor::RemoveRange(System.Int32)
+IL_00da: pop
+IL_00db: br.s IL_0106
+IL_00dd: ldloc.1
+IL_00de: ldc.i4.0
+IL_00df: ldc.i4.0
+IL_00e0: ldc.i4.0
+IL_00e1: callvirt MonoMod.Cil.ILCursor MonoMod.Cil.ILCursor::Goto(System.Int32,MonoMod.Cil.MoveType,System.Boolean)
+IL_00e6: ldc.i4.1
+IL_00e7: newarr System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean>
+IL_00ec: dup
+IL_00ed: ldc.i4.0
+IL_00ee: ldarg.0
+IL_00ef: ldftn System.Boolean Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::<CopyOriginal>b__19_4(Mono.Cecil.Cil.Instruction)
+IL_00f5: newobj System.Void System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean>::.ctor(System.Object,System.IntPtr)
+IL_00fa: stelem.ref
+IL_00fb: callvirt MonoMod.Cil.ILCursor MonoMod.Cil.ILCursor::GotoNext(System.Func`2<Mono.Cecil.Cil.Instruction,System.Boolean>[])
+IL_0100: callvirt MonoMod.Cil.ILCursor MonoMod.Cil.ILCursor::Remove()
+IL_0105: pop
+IL_0106: ldloc.1
+IL_0107: ldsfld Mono.Cecil.Cil.OpCode Mono.Cecil.Cil.OpCodes::Ldc_I8
+IL_010c: ldarg.0
+IL_010d: ldfld Il2CppInterop.Runtime.Runtime.VersionSpecific.MethodInfo.INativeMethodInfoStruct Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::modifiedNativeMethodInfo
+IL_0112: callvirt System.IntPtr Il2CppInterop.Runtime.Runtime.INativeStruct::get_Pointer()
+IL_0117: stloc.2
+IL_0118: ldloca.s V_2
+IL_011a: call System.Int64 System.IntPtr::ToInt64()
+IL_011f: callvirt MonoMod.Cil.ILCursor MonoMod.Cil.ILCursor::Emit(Mono.Cecil.Cil.OpCode,System.Int64)
+IL_0124: ldsfld Mono.Cecil.Cil.OpCode Mono.Cecil.Cil.OpCodes::Conv_I
+IL_0129: callvirt MonoMod.Cil.ILCursor MonoMod.Cil.ILCursor::Emit(Mono.Cecil.Cil.OpCode)
+IL_012e: pop
+IL_012f: ldloc.0
+IL_0130: ret
+MonoMod.Utils.DynamicMethodDefinition Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::GenerateNativeToManagedTrampoline(System.Reflection.MethodInfo)
+IL_0000: ldc.i4.0
+IL_0001: stloc.0
+IL_0002: ldarg.0
+IL_0003: call System.Reflection.MethodBase HarmonyLib.Public.Patching.MethodPatcher::get_Original()
+IL_0008: call System.Type HarmonyLib.AccessTools::GetReturnedType(System.Reflection.MethodBase)
+IL_000d: stloc.1
+IL_000e: ldloc.1
+IL_000f: call System.Type Il2CppInterop.Runtime.Injection.TrampolineHelpers::NativeType(System.Type)
+IL_0014: stloc.2
+IL_0015: call System.Int32 System.IntPtr::get_Size()
+IL_001a: stloc.3
+IL_001b: ldloc.1
+IL_001c: ldtoken Il2CppSystem.ValueType
+IL_0021: call System.Type System.Type::GetTypeFromHandle(System.RuntimeTypeHandle)
+IL_0026: callvirt System.Boolean System.Type::IsSubclassOf(System.Type)
+IL_002b: dup
+IL_002c: brfalse.s IL_003f
+IL_002e: ldc.i4.0
+IL_002f: stloc.s V_11
+IL_0031: ldloc.1
+IL_0032: call System.IntPtr Il2CppInterop.Runtime.Il2CppClassPointerStore::GetNativeClassPointer(System.Type)
+IL_0037: ldloca.s V_11
+IL_0039: call System.Int32 Il2CppInterop.Runtime.IL2CPP::il2cpp_class_value_size(System.IntPtr,System.UInt32&)
+IL_003e: stloc.3
+IL_003f: brfalse.s IL_0049
+IL_0041: ldloc.3
+IL_0042: call System.Boolean Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::IsReturnBufferNeeded(System.Int32)
+IL_0047: br.s IL_004a
+IL_0049: ldc.i4.0
+IL_004a: stloc.s V_4
+IL_004c: ldloc.s V_4
+IL_004e: brfalse.s IL_005f
+IL_0050: ldtoken System.IntPtr
+IL_0055: call System.Type System.Type::GetTypeFromHandle(System.RuntimeTypeHandle)
+IL_005a: stloc.2
+IL_005b: ldloc.0
+IL_005c: ldc.i4.1
+IL_005d: add
+IL_005e: stloc.0
+IL_005f: ldarg.0
+IL_0060: call System.Reflection.MethodBase HarmonyLib.Public.Patching.MethodPatcher::get_Original()
+IL_0065: callvirt System.Boolean System.Reflection.MethodBase::get_IsStatic()
+IL_006a: brtrue.s IL_0070
+IL_006c: ldloc.0
+IL_006d: ldc.i4.1
+IL_006e: add
+IL_006f: stloc.0
+IL_0070: ldarg.0
+IL_0071: call System.Reflection.MethodBase HarmonyLib.Public.Patching.MethodPatcher::get_Original()
+IL_0076: callvirt System.Reflection.ParameterInfo[] System.Reflection.MethodBase::GetParameters()
+IL_007b: ldsfld System.Func`2<System.Reflection.ParameterInfo,System.Type> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9__21_0
+IL_0080: dup
+IL_0081: brtrue.s IL_009a
+IL_0083: pop
+IL_0084: ldsfld Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9
+IL_0089: ldftn System.Type Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<GenerateNativeToManagedTrampoline>b__21_0(System.Reflection.ParameterInfo)
+IL_008f: newobj System.Void System.Func`2<System.Reflection.ParameterInfo,System.Type>::.ctor(System.Object,System.IntPtr)
+IL_0094: dup
+IL_0095: stsfld System.Func`2<System.Reflection.ParameterInfo,System.Type> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>c::<>9__21_0
+IL_009a: call System.Collections.Generic.IEnumerable`1<!!1> System.Linq.Enumerable::Select<System.Reflection.ParameterInfo,System.Type>(System.Collections.Generic.IEnumerable`1<!!0>,System.Func`2<!!0,!!1>)
+IL_009f: call !!0[] System.Linq.Enumerable::ToArray<System.Type>(System.Collections.Generic.IEnumerable`1<!!0>)
+IL_00a4: stloc.s V_5
+IL_00a6: ldloc.s V_5
+IL_00a8: ldlen
+IL_00a9: conv.i4
+IL_00aa: ldloc.0
+IL_00ab: add
+IL_00ac: ldc.i4.1
+IL_00ad: add
+IL_00ae: newarr System.Type
+IL_00b3: stloc.s V_6
+IL_00b5: ldloc.s V_4
+IL_00b7: brfalse.s IL_00c7
+IL_00b9: ldloc.s V_6
+IL_00bb: ldc.i4.0
+IL_00bc: ldtoken System.IntPtr
+IL_00c1: call System.Type System.Type::GetTypeFromHandle(System.RuntimeTypeHandle)
+IL_00c6: stelem.ref
+IL_00c7: ldarg.0
+IL_00c8: call System.Reflection.MethodBase HarmonyLib.Public.Patching.MethodPatcher::get_Original()
+IL_00cd: callvirt System.Boolean System.Reflection.MethodBase::get_IsStatic()
+IL_00d2: brtrue.s IL_00e4
+IL_00d4: ldloc.s V_6
+IL_00d6: ldloc.0
+IL_00d7: ldc.i4.1
+IL_00d8: sub
+IL_00d9: ldtoken System.IntPtr
+IL_00de: call System.Type System.Type::GetTypeFromHandle(System.RuntimeTypeHandle)
+IL_00e3: stelem.ref
+IL_00e4: ldloc.s V_6
+IL_00e6: dup
+IL_00e7: ldlen
+IL_00e8: conv.i4
+IL_00e9: ldc.i4.1
+IL_00ea: sub
+IL_00eb: ldtoken Il2CppInterop.Runtime.Runtime.Il2CppMethodInfo*
+IL_00f0: call System.Type System.Type::GetTypeFromHandle(System.RuntimeTypeHandle)
+IL_00f5: stelem.ref
+IL_00f6: ldloc.s V_5
+IL_00f8: ldsfld System.Func`2<System.Type,System.Type> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>O::<0>__NativeType
+IL_00fd: dup
+IL_00fe: brtrue.s IL_0113
+IL_0100: pop
+IL_0101: ldnull
+IL_0102: ldftn System.Type Il2CppInterop.Runtime.Injection.TrampolineHelpers::NativeType(System.Type)
+IL_0108: newobj System.Void System.Func`2<System.Type,System.Type>::.ctor(System.Object,System.IntPtr)
+IL_010d: dup
+IL_010e: stsfld System.Func`2<System.Type,System.Type> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher/<>O::<0>__NativeType
+IL_0113: call System.Collections.Generic.IEnumerable`1<!!1> System.Linq.Enumerable::Select<System.Type,System.Type>(System.Collections.Generic.IEnumerable`1<!!0>,System.Func`2<!!0,!!1>)
+IL_0118: call !!0[] System.Linq.Enumerable::ToArray<System.Type>(System.Collections.Generic.IEnumerable`1<!!0>)
+IL_011d: ldc.i4.0
+IL_011e: ldloc.s V_6
+IL_0120: ldloc.0
+IL_0121: ldloc.s V_5
+IL_0123: ldlen
+IL_0124: conv.i4
+IL_0125: call System.Void System.Array::Copy(System.Array,System.Int32,System.Array,System.Int32,System.Int32)
+IL_012a: ldstr "(il2cpp -> managed) "
+IL_012f: ldarg.0
+IL_0130: call System.Reflection.MethodBase HarmonyLib.Public.Patching.MethodPatcher::get_Original()
+IL_0135: callvirt System.String System.Reflection.MemberInfo::get_Name()
+IL_013a: call System.String System.String::Concat(System.String,System.String)
+IL_013f: ldloc.2
+IL_0140: ldloc.s V_6
+IL_0142: newobj System.Void MonoMod.Utils.DynamicMethodDefinition::.ctor(System.String,System.Type,System.Type[])
+IL_0147: stloc.s V_7
+IL_0149: ldloc.s V_7
+IL_014b: callvirt System.Reflection.Emit.ILGenerator MonoMod.Utils.DynamicMethodDefinition::GetILGenerator()
+IL_0150: stloc.s V_8
+IL_0152: ldloc.s V_8
+IL_0154: callvirt System.Reflection.Emit.Label System.Reflection.Emit.ILGenerator::BeginExceptionBlock()
+IL_0159: pop
+IL_015a: ldloc.s V_5
+IL_015c: ldlen
+IL_015d: conv.i4
+IL_015e: newarr System.Reflection.Emit.LocalBuilder
+IL_0163: stloc.s V_9
+IL_0165: ldarg.0
+IL_0166: call System.Reflection.MethodBase HarmonyLib.Public.Patching.MethodPatcher::get_Original()
+IL_016b: callvirt System.Boolean System.Reflection.MethodBase::get_IsStatic()
+IL_0170: brtrue.s IL_0189
+IL_0172: ldloc.s V_8
+IL_0174: ldloc.0
+IL_0175: ldc.i4.1
+IL_0176: sub
+IL_0177: ldarg.0
+IL_0178: call System.Reflection.MethodBase HarmonyLib.Public.Patching.MethodPatcher::get_Original()
+IL_017d: callvirt System.Type System.Reflection.MemberInfo::get_DeclaringType()
+IL_0182: ldloca.s V_12
+IL_0184: call System.Void Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::EmitConvertArgumentToManaged(System.Reflection.Emit.ILGenerator,System.Int32,System.Type,System.Reflection.Emit.LocalBuilder&)
+IL_0189: ldc.i4.0
+IL_018a: stloc.s V_13
+IL_018c: br.s IL_01ad
+IL_018e: ldloc.s V_8
+IL_0190: ldloc.s V_13
+IL_0192: ldloc.0
+IL_0193: add
+IL_0194: ldloc.s V_5
+IL_0196: ldloc.s V_13
+IL_0198: ldelem.ref
+IL_0199: ldloc.s V_9
+IL_019b: ldloc.s V_13
+IL_019d: ldelema System.Reflection.Emit.LocalBuilder
+IL_01a2: call System.Void Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::EmitConvertArgumentToManaged(System.Reflection.Emit.ILGenerator,System.Int32,System.Type,System.Reflection.Emit.LocalBuilder&)
+IL_01a7: ldloc.s V_13
+IL_01a9: ldc.i4.1
+IL_01aa: add
+IL_01ab: stloc.s V_13
+IL_01ad: ldloc.s V_13
+IL_01af: ldloc.s V_5
+IL_01b1: ldlen
+IL_01b2: conv.i4
+IL_01b3: blt.s IL_018e
+IL_01b5: ldloc.s V_8
+IL_01b7: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Call
+IL_01bc: ldarg.1
+IL_01bd: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode,System.Reflection.MethodInfo)
+IL_01c2: ldnull
+IL_01c3: stloc.s V_10
+IL_01c5: ldloc.1
+IL_01c6: ldtoken System.Void
+IL_01cb: call System.Type System.Type::GetTypeFromHandle(System.RuntimeTypeHandle)
+IL_01d0: call System.Boolean System.Type::op_Inequality(System.Type,System.Type)
+IL_01d5: brfalse.s IL_01ef
+IL_01d7: ldloc.s V_8
+IL_01d9: ldloc.1
+IL_01da: callvirt System.Reflection.Emit.LocalBuilder System.Reflection.Emit.ILGenerator::DeclareLocal(System.Type)
+IL_01df: stloc.s V_10
+IL_01e1: ldloc.s V_8
+IL_01e3: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Stloc
+IL_01e8: ldloc.s V_10
+IL_01ea: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode,System.Reflection.Emit.LocalBuilder)
+IL_01ef: ldc.i4.0
+IL_01f0: stloc.s V_14
+IL_01f2: br.s IL_0257
+IL_01f4: ldloc.s V_9
+IL_01f6: ldloc.s V_14
+IL_01f8: ldelem.ref
+IL_01f9: brfalse.s IL_0251
+IL_01fb: ldloc.s V_8
+IL_01fd: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Ldarg_S
+IL_0202: ldloc.s V_14
+IL_0204: ldloc.0
+IL_0205: add
+IL_0206: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode,System.Int32)
+IL_020b: ldloc.s V_8
+IL_020d: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Ldloc
+IL_0212: ldloc.s V_9
+IL_0214: ldloc.s V_14
+IL_0216: ldelem.ref
+IL_0217: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode,System.Reflection.Emit.LocalBuilder)
+IL_021c: ldloc.s V_5
+IL_021e: ldloc.s V_14
+IL_0220: ldelem.ref
+IL_0221: callvirt System.Type System.Type::GetElementType()
+IL_0226: stloc.s V_15
+IL_0228: ldloc.s V_8
+IL_022a: ldloc.s V_15
+IL_022c: call System.Void Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::EmitConvertManagedTypeToIL2CPP(System.Reflection.Emit.ILGenerator,System.Type)
+IL_0231: ldloc.s V_8
+IL_0233: ldsfld System.Collections.Generic.Dictionary`2<System.Type,System.Reflection.Emit.OpCode> Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::StIndOpcodes
+IL_0238: ldloc.s V_15
+IL_023a: ldloca.s V_16
+IL_023c: callvirt System.Boolean System.Collections.Generic.Dictionary`2<System.Type,System.Reflection.Emit.OpCode>::TryGetValue(!0,!1&)
+IL_0241: brtrue.s IL_024a
+IL_0243: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Stind_I
+IL_0248: br.s IL_024c
+IL_024a: ldloc.s V_16
+IL_024c: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode)
+IL_0251: ldloc.s V_14
+IL_0253: ldc.i4.1
+IL_0254: add
+IL_0255: stloc.s V_14
+IL_0257: ldloc.s V_14
+IL_0259: ldloc.s V_5
+IL_025b: ldlen
+IL_025c: conv.i4
+IL_025d: blt.s IL_01f4
+IL_025f: ldloc.s V_8
+IL_0261: ldtoken System.Exception
+IL_0266: call System.Type System.Type::GetTypeFromHandle(System.RuntimeTypeHandle)
+IL_026b: callvirt System.Void System.Reflection.Emit.ILGenerator::BeginCatchBlock(System.Type)
+IL_0270: ldloc.s V_8
+IL_0272: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Call
+IL_0277: ldsfld System.Reflection.MethodInfo Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::ReportExceptionMethodInfo
+IL_027c: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode,System.Reflection.MethodInfo)
+IL_0281: ldloc.s V_8
+IL_0283: callvirt System.Void System.Reflection.Emit.ILGenerator::EndExceptionBlock()
+IL_0288: ldloc.s V_10
+IL_028a: brfalse.s IL_02ff
+IL_028c: ldloc.s V_4
+IL_028e: brfalse.s IL_02e9
+IL_0290: ldloc.s V_8
+IL_0292: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Ldarg_0
+IL_0297: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode)
+IL_029c: ldloc.s V_8
+IL_029e: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Ldloc
+IL_02a3: ldloc.s V_10
+IL_02a5: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode,System.Reflection.Emit.LocalBuilder)
+IL_02aa: ldloc.s V_8
+IL_02ac: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Call
+IL_02b1: ldsfld System.Reflection.MethodInfo Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::ObjectBaseToPtrNotNullMethodInfo
+IL_02b6: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode,System.Reflection.MethodInfo)
+IL_02bb: ldloc.s V_8
+IL_02bd: call System.Void Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::EmitUnbox(System.Reflection.Emit.ILGenerator)
+IL_02c2: ldloc.s V_8
+IL_02c4: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Ldc_I4
+IL_02c9: ldloc.3
+IL_02ca: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode,System.Int32)
+IL_02cf: ldloc.s V_8
+IL_02d1: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Cpblk
+IL_02d6: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode)
+IL_02db: ldloc.s V_8
+IL_02dd: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Ldarg_0
+IL_02e2: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode)
+IL_02e7: br.s IL_02ff
+IL_02e9: ldloc.s V_8
+IL_02eb: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Ldloc
+IL_02f0: ldloc.s V_10
+IL_02f2: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode,System.Reflection.Emit.LocalBuilder)
+IL_02f7: ldloc.s V_8
+IL_02f9: ldloc.1
+IL_02fa: call System.Void Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::EmitConvertManagedTypeToIL2CPP(System.Reflection.Emit.ILGenerator,System.Type)
+IL_02ff: ldloc.s V_8
+IL_0301: ldsfld System.Reflection.Emit.OpCode System.Reflection.Emit.OpCodes::Ret
+IL_0306: callvirt System.Void System.Reflection.Emit.ILGenerator::Emit(System.Reflection.Emit.OpCode)
+IL_030b: ldloc.s V_7
+IL_030d: ret
+System.Boolean Il2CppInterop.HarmonySupport.Il2CppDetourMethodPatcher::<CopyOriginal>b__19_4(Mono.Cecil.Cil.Instruction)
+IL_0000: ldarg.1
+IL_0001: ldarg.0
+IL_0002: call System.Reflection.MethodBase HarmonyLib.Public.Patching.MethodPatcher::get_Original()
+IL_0007: call System.Reflection.FieldInfo Il2CppInterop.Common.Il2CppInteropUtils::GetIl2CppMethodInfoPointerFieldForGeneratedMethod(System.Reflection.MethodBase)
+IL_000c: call System.Boolean MonoMod.Cil.ILPatternMatchingExt::MatchLdsfld(Mono.Cecil.Cil.Instruction,System.Reflection.FieldInfo)
+IL_0011: ret

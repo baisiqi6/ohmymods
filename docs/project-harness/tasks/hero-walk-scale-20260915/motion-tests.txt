@@ -1,0 +1,41 @@
+PASS 原生暂停Speed=0优先于残留指令速度
+PASS 原生实际动画速度优先
+PASS 无Animator速度时回退SetSpeed左向指令
+PASS 非法Animator速度回退
+PASS 双非法速度安全停下
+PASS SetSpeed 生效（无 goal 门）→ Walk
+PASS 超过 walkSpeed+ε → Run
+PASS 负速度向左 → Walk
+PASS 负速度向左 → Run
+PASS 速度 0 → Idle
+PASS 死区内 → Idle
+PASS 恰好等于 ε → Idle
+PASS walkSpeed 内 → Walk
+PASS 恰好 walkSpeed+ε → Walk
+PASS 刚过 walkSpeed+ε → Run
+PASS NaN → Idle
+PASS +Inf → Idle
+PASS -Inf → Idle
+PASS walkSpeed=NaN → Walk
+PASS walkSpeed=0 → Walk
+PASS walkSpeed<0 → Walk
+PASS 双 NaN → Idle
+PASS Walk 起步帧 = walk 首帧 (expected 4, got 4)
+PASS Walk 相位推进 → 帧 +1 (expected 5, got 5)
+PASS Walk 相位推进 → 帧 +2 (expected 6, got 6)
+PASS 同值 SetMotion 不重置相位 (expected 6, got 6)
+PASS Walk 相位推进 → 帧 +3 (expected 7, got 7)
+PASS Walk 循环回卷 → walk 首帧 (expected 4, got 4)
+PASS 切换 Run → run 首帧 (expected 8, got 8)
+PASS Run 相位按 8fps 推进 (expected 9, got 9)
+PASS 切回 Idle → idle 首帧 (expected 0, got 0)
+PASS Idle 相位推进 (expected 1, got 1)
+PASS NaN 时间保持上一帧 (expected 1, got 1)
+PASS 回退时间保持上一帧 (expected 1, got 1)
+PASS 非移动枚举被 SetMotion 忽略 (expected 2, got 2)
+PASS VisualScale == 0.9
+PASS cloth 锚点 = 像素偏移 × 0.9（非全尺寸偏移）
+PASS flip 时 x 偏移取反（肩部锚点随朝向），y 不变
+PASS 非零 body 原点：锚点 = 原点 + 偏移×0.9
+PASS 重复调用幂等（不逐帧递减）
+ALL PASS

@@ -1,0 +1,32 @@
+PASS apply commits identity and full package once
+PASS second apply is idempotent (no stacked cooldown, same marker)
+PASS same-frame strip then apply activates with one multiplier
+PASS strip immediately revokes identity and restores owned fields
+PASS invalid marker gets no reinforcement and no writes
+PASS reconcile heals native resets but leaves intervals alone
+PASS fire arrow buff is never overwritten by the pass
+PASS tower position restores scanner to tower value
+PASS config off unwinds the package and never resurrects identity
+PASS plain disable invalidates identity but keeps the life selection
+PASS config off invalidates readers immediately and unwinds without the scan
+PASS pool reuse (death/bow drop) clears the old life before re-designation
+PASS hidden selected crossbowman survives a stale scan cache
+PASS pool new life keeps what the native body writes after the prefix clear
+PASS retry cleanup after a failed pool clear restores only confirmable ownership
+PASS failed pool cleanup yields to a knight package sharing the exact same SO and scale
+PASS repeated active NetID receipt is not a new life
+PASS ledger close state blocks repeated baseline fallback
+PASS synchronous re-entry: inner life wins and outer failure cannot clobber it
+PASS outer throw after re-entry does not clear the inner life
+PASS strip borrows only its own interval, foreign write survives
+PASS partial write failure rolls back identity and does not double multiply
+PASS failure before scaling then later apply multiplies once
+PASS interrupted strip keeps residue and the next pass completes it
+PASS markerless archers (deadlands follower group) are untouched
+PASS cached scan neutralizes nulls and orphan markers without destroying them
+PASS config off unwinds every cached marker
+PASS missing base values degrade safely (assets not ready)
+PASS missing crossbow asset refuses to half apply
+PASS skin restore survives missing or throwing biome swap
+PASS error logs stay bounded per path
+RESULT: 31 passed, 0 failed; 410 assertions

@@ -1,0 +1,44 @@
+[
+  {
+    "session": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\runtime-log-fixes-20260914\\sessions\\2026-09-14T08-58-03-572Z_01a09f23-43b4-738d-bcfb-13454e36ccca.jsonl",
+    "events": [
+      {
+        "type": "session",
+        "id": "01a09f23-43b4-738d-bcfb-13454e36ccca",
+        "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\runtime-log-fixes-20260914\\worker"
+      },
+      {
+        "type": "model_change",
+        "id": "fceb64af",
+        "model": "deepseek/deepseek-v4-flash",
+        "resolvedModelIsFallback": false
+      },
+      {
+        "type": "thinking_level_change",
+        "id": "b8a6686d",
+        "thinkingLevel": "max"
+      }
+    ]
+  },
+  {
+    "session": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\runtime-log-fixes-20260914\\menu-sessions\\2026-09-14T09-02-24-315Z_01a09f27-3e3b-7163-93a2-4545821ee428.jsonl",
+    "events": [
+      {
+        "type": "session",
+        "id": "01a09f27-3e3b-7163-93a2-4545821ee428",
+        "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\runtime-log-fixes-20260914\\menu-worker"
+      },
+      {
+        "type": "model_change",
+        "id": "5b46cfd1",
+        "model": "deepseek/deepseek-v4-flash",
+        "resolvedModelIsFallback": false
+      },
+      {
+        "type": "thinking_level_change",
+        "id": "4cfa104e",
+        "thinkingLevel": "max"
+      }
+    ]
+  }
+]

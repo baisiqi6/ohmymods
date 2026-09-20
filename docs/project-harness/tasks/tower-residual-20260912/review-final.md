@@ -1,0 +1,12 @@
+**Verdict: PASS — the P1 one-frame refill window is resolved.**
+
+Verification of the changed retirement block and the supporting native claim:
+
+- **Code placement is correct.** `SpecialTowerDuplicateCleanup.cs:395-399` calls `suppressionKingdom.RemoveGuardSlot` for every slot in `remaining` only after `SetActive(false)` is confirmed and `counted = true`, and before `Object.Destroy`. All pre-deactivation failure paths return through `Retained(...)` without touching registrations, so intact retained towers keep staffing normally — exactly as the correction describes.
+- **The load-bearing native claim checks out.** `RemoveGuardSlot` at RVA 0x5a66d0 (native-disassembly.txt:876-895) reads the same list at `[rbx+278h]` that `AddGuardSlot` appends to, null-checks it, and tail-jumps to 0x18185E940 — a bare `List.Remove` with no call into `DistributeTowerArchers` or any other callback. It is idempotent by construction, so the later end-of-frame slot `OnDestroy` removal is a harmless repeat, and the empty-slot removal can't strand archers because slots were verified vacated at steps 4 and 5.
+- **The failure path is coherent.** If `RemoveGuardSlot` or `Destroy` throws after deactivation, the catch retries `Destroy` so `OnDestroy` still unregisters any slots not yet removed, and returns the existing `-2` (deactivation confirmed) semantics. The scope still clears in the `finally` at `TryRemoveScoped`.
+- **Tests cover both sides of the change.** The first test now asserts all three retired slots appear in `RemovedSlots` by the time the pass returns while distribution is still gated, and the partial-failure test asserts `RemovedSlots.Count == 0` for a retained root — the exact regression each direction would produce.
+
+One minor note, not blocking: `remaining` is captured at step 4 and reused at step 6 rather than re-querying; since nothing can add slots in between (suppression blocks refill, gates re-passed at step 5), this is safe as written, but a fresh `GetComponentsInChildren` there would be marginally more robust if the block is ever edited.
+
+The window between scope exit and end-of-frame destruction no longer exists as a staffing hazard: by the time the suppression scope clears, the deactivated root's slots are already out of the Kingdom's list. No new issues introduced; remaining P2s (silent pointer-mismatch degradation, main-thread assumption) are unchanged and acceptable as fail-safe.

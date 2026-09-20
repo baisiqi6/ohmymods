@@ -1,0 +1,8 @@
+{
+  "time": "2026-09-12T15:54:42.7757040+08:00",
+  "source": "direct user confirmation",
+  "result": "文字完整显示，边框已消失",
+  "windowExe": "E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/KingdomTwoCrowns.exe",
+  "captureLimitation": "Sky get_window_state failed twice: SetIsBorderRequired E_NOINTERFACE 0x80004002",
+  "hudLog": "floating strip ready; style=GUI.skin.label font=LegacyRuntime sizes=18/17/12 shadow=1px"
+}

@@ -1,0 +1,1244 @@
+TYPE Archer : UnityEngine.MonoBehaviour
+  PROP IUnitController _unitController
+  PROP System.Int32 _PlayerId_k__BackingField
+  PROP System.Boolean _DespawnOnLoad_k__BackingField
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray`1<UnityEngine.RaycastHit2D> rayhit
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray`1<UnityEngine.Collider2D> _sharedHitColliders
+  PROP UnityEngine.ContactFilter2D _sharedAttackableFilter
+  PROP UnityEngine.ContactFilter2D _sharedObstaclesFilter
+  PROP System.Int32 _sharedEnemiesLayer
+  PROP System.Int32 _sharedWildlifeLayer
+  PROP System.Int32 _sharedObstaclesLayer
+  PROP System.Int32 APPrepare
+  PROP System.Int32 APShoot
+  PROP System.Int32 APShootPerfect
+  PROP System.Int32 APAttack
+  PROP System.Int32 APUseSpear
+  PROP System.Int32 APUseShield
+  PROP System.Int32 APIdleness
+  PROP System.Int32 APSpeed
+  PROP ArrowAttack _arrowAttack
+  PROP ArrowAttack _fireArrowAttack
+  PROP System.Int32 minAttempts
+  PROP System.Int32 maxAttempts
+  PROP System.Single shootPrepTime
+  PROP System.Single shootCooldownTime
+  PROP System.Single playerShootCooldownTime
+  PROP System.Single playerAttackCooldownTime
+  PROP System.Single shootCooldownWithKnightTime
+  PROP System.Single shootRange
+  PROP System.Single fleeRange
+  PROP System.Single towerShootRange
+  PROP UnityEngine.Vector2 _shootIntervalRange
+  PROP UnityEngine.Vector2 _shootIntervalRangeFormation
+  PROP System.Single perfectArrowProbability
+  PROP System.Single dropInWaterProbability
+  PROP UnityEngine.GameObject pseudoTarget
+  PROP System.Single _nextPlayerShootTime
+  PROP System.Single _nextPlayerAttackTime
+  PROP System.Single walkSpeed
+  PROP System.Single runSpeed
+  PROP System.Single coinPickupRange
+  PROP System.Single maxPursueDistance
+  PROP FloatRange borderHuntRange
+  PROP System.Single returnToWallTime
+  PROP System.Boolean harmless
+  PROP UnityEngine.RuntimeAnimatorController hunterAnimator
+  PROP UnityEngine.RuntimeAnimatorController soldierAnimator
+  PROP AudioEmitter climbTowerSound
+  PROP AudioEmitter shootSound
+  PROP AudioEmitter buffedShootSound
+  PROP AudioEmitter meleeSound
+  PROP System.Single _minDistanceFromWall
+  PROP System.Single _unitSpacingAtWall
+  PROP System.Single _guardRandomOffset
+  PROP FloatRange distanceFromKnight
+  PROP System.Single knightFollowDistance
+  PROP CRPCHeader parentHeaderRef
+  PROP System.Int32 _setGuardRPCIndex
+  PROP System.Int32 _handleGuardSlotIndex
+  PROP System.Int32 _requestGuardSlotIndex
+  PROP System.Int32 _absoluteFaceIndex
+  PROP System.Int32 _archerBuffIndex
+  PROP System.Int32 _archerBuffEndIndex
+  PROP System.Int32 _hideStatusIndex
+  PROP System.Int32 _sendCameraFocusRequest
+  PROP System.Int32 _sendControllerIndex
+  PROP UnityEngine.Animator _animator
+  PROP Mover _mover
+  PROP UnityEngine.Rigidbody2D _rigidbody
+  PROP UnityEngine.SpriteRenderer _spriteRenderer
+  PROP Wallet _wallet
+  PROP Wallet _originalWallet
+  PROP FixedTransform _fixedTransform
+  PROP Character _character
+  PROP Damageable _damageable
+  PROP Petrifiable _petrifiable
+  PROP Buffable _buffable
+  PROP PushablePusher _pusher
+  PROP Scanner _enemyScanner
+  PROP Scanner _wildlifeScanner
+  PROP Scanner _currencyScanner
+  PROP System.Single _cooldown
+  PROP System.Single _lastGlobalScan
+  PROP AnimationSync _animSyncRef
+  PROP System.Single _cooldownReduction
+  PROP DroppableCurrency _targetCoin
+  PROP Formation _currentFormation
+  PROP UnityEngine.GameObject _shootingTarget
+  PROP UnityEngine.GameObject _huntingTarget
+  PROP GuardSlot _guardSlot
+  PROP System.Boolean _inGuardSlot_k__BackingField
+  PROP Side _guardSide
+  PROP System.Int32 _guardDepth
+  PROP Knight _knight
+  PROP System.Boolean _isWearingBannerColor
+  PROP System.Boolean _controllableSprinting
+  PROP Coatsink.Common.IHaglet behaviour
+  PROP Coatsink.Common.IHaglet shoot
+  PROP Coatsink.Common.IHaglet attack
+  PROP TrojanHorse _trojanHorse
+  PROP PositionSync cachedPosSync
+  PROP Persistent persistent
+  PROP UnlockNewRulerStatue _newRulerStatue_k__BackingField
+  PROP HelPuzzlePillar _helPuzzlePillar_k__BackingField
+  PROP ArrowAttack _ActiveArrowAttack_k__BackingField
+  PROP System.Single _shieldSpotRange
+  PROP NpcShieldUser _npcShieldUser
+  PROP Droppable _targetShield
+  PROP Archer/AttackMode _desiredAttackMode
+  PROP Archer/AttackMode _attackMode
+  PROP System.Single _meleeAttackRange
+  PROP System.Single _meleeAttackPredictAheadTime
+  PROP System.Single _meleeCooldown
+  PROP System.Int32 _meleeDamage
+  PROP System.Int32 _meleeMaxHitsPerAttack
+  PROP Damageable _meleeTarget
+  PROP System.Boolean _meleeAttackPlaying
+  PROP UnityEngine.Rect _hitBox
+  PROP System.Single _switchWeaponsButtonDuration
+  PROP System.Boolean _downKeyPressed
+  PROP System.Boolean _playerAttackModeChanged
+  PROP System.Single _switchWeaponsTimer
+  PROP System.Single _colliderExtentSize
+  PROP System.Int32 Stand
+  PROP System.Int32 FollowKnight
+  PROP System.Int32 GoToTower
+  PROP System.Int32 GoToWall
+  PROP System.Int32 Hunt
+  PROP System.Int32 GrabCoin
+  PROP System.Int32 Flee
+  PROP System.Int32 Held
+  PROP System.Int32 Grabbed
+  PROP System.Int32 Inert
+  PROP System.Int32 InFormation
+  PROP System.Int32 FreeRuler
+  PROP System.Int32 GrabShield
+  PROP System.Int32 SwitchWeapons
+  PROP System.Int32 GoToOfferingPillar
+  PROP System.Int32 PlayerControl
+  PROP System.Int32 GoToEmbarkable
+  PROP System.Int32 Stationary
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray`1<Formation/UnitTypes> FormationUnitType
+  PROP Embarkee _embarkee
+  PROP System.Int32 PlayerId
+  PROP System.Boolean DespawnOnLoad
+  PROP UnityEngine.GameObject GetGO
+  PROP PickupAttribute PickupAttributes
+  PROP Wallet Wallet
+  PROP GuardSlot GuardSlot
+  PROP System.Boolean inGuardSlot
+  PROP System.Boolean isAvailable
+  PROP System.Boolean isKnightSoldier
+  PROP Side side
+  PROP Side KnightSide
+  PROP UnlockNewRulerStatue newRulerStatue
+  PROP HelPuzzlePillar helPuzzlePillar
+  PROP Buffable Buffable
+  PROP ArrowAttack ActiveArrowAttack
+  PROP UnityEngine.Transform CarrierTransform
+  PROP System.Single ToolSpotRange
+  PROP System.Single StateChangePenalty
+  PROP Embarkee Embarkee
+  PROP Il2CppSystem.Type UnitType
+  PROP System.Int32 EmbarkingPenalty
+  PROP System.Boolean CanEmbark
+  METHOD System.Void Archer::ReleaseRuler(UnlockNewRulerStatue) PARAMS unlockNewRulerStatue
+  METHOD System.Void Archer::CancelReleaseRuler(UnlockNewRulerStatue) PARAMS unlockNewRulerStatue
+  METHOD System.Void Archer::OfferItem(HelPuzzlePillar) PARAMS targetPillar
+  METHOD System.Void Archer::CancelItemOffering(HelPuzzlePillar) PARAMS targetPillar
+  METHOD System.Void Archer::Awake() PARAMS 
+  METHOD System.Void Archer::OnEnable() PARAMS 
+  METHOD System.Void Archer::OnDisable() PARAMS 
+  METHOD System.Void Archer::OnDestroy() PARAMS 
+  METHOD System.Boolean Archer::HasKnight() PARAMS 
+  METHOD System.Boolean Archer::IsKnightEmbarked() PARAMS 
+  METHOD System.Boolean Archer::HasGuardSlot() PARAMS 
+  METHOD System.Boolean Archer::IsInFormation() PARAMS 
+  METHOD System.Boolean Archer::HasEmbarkableTarget() PARAMS 
+  METHOD System.Boolean Archer::TargetCoinPickedUp() PARAMS 
+  METHOD System.Boolean Archer::IsInert() PARAMS 
+  METHOD System.Boolean Archer::IsGrabbed() PARAMS 
+  METHOD System.Boolean Archer::IsStationary() PARAMS 
+  METHOD System.Boolean Archer::ShouldGoToRulerStatuePosition() PARAMS 
+  METHOD System.Boolean Archer::ShouldGoToOfferingPillarPosition() PARAMS 
+  METHOD Il2CppSystem.Collections.Generic.IEnumerator`1<Coatsink.Common.Routine/Yield> Archer::Behaviour() PARAMS 
+  METHOD System.Boolean Archer::ShouldPlayerControl() PARAMS 
+  METHOD System.Boolean Archer::ShouldSwitchWeapons() PARAMS 
+  METHOD Il2CppSystem.Collections.IEnumerator Archer::DelayDemote() PARAMS 
+  METHOD Il2CppSystem.Collections.IEnumerator Archer::DelayDestroy() PARAMS 
+  METHOD System.Void Archer::OnTriggerEnter2D(UnityEngine.Collider2D) PARAMS other
+  METHOD System.Boolean Archer::ShouldGoToWall() PARAMS 
+  METHOD System.Single Archer::GetWallTargetPos() PARAMS 
+  METHOD System.Void Archer::Update() PARAMS 
+  METHOD System.Boolean Archer::IsAvailableForJob(UnityEngine.GameObject) PARAMS jobObject
+  METHOD System.Void Archer::AssignJob(UnityEngine.GameObject) PARAMS jobObject
+  METHOD System.Void Archer::SetDesiredAttackMode(Archer/AttackMode,System.Boolean) PARAMS newMode, forced
+  METHOD System.Void Archer::SetAttackModeAnimation(Archer/AttackMode) PARAMS mode
+  METHOD System.Void Archer::OnAnimAttackModeRanged() PARAMS 
+  METHOD System.Void Archer::OnAnimAttackModeMelee() PARAMS 
+  METHOD System.Void Archer::OnAnimAttackModeShield() PARAMS 
+  METHOD System.Void Archer::OnAnimAttack() PARAMS 
+  METHOD System.Void Archer::SetGuardSlot(GuardSlot) PARAMS slot
+  METHOD System.Void Archer::SetGuardSide(Side,System.Int32) PARAMS side, depth
+  METHOD System.Void Archer::ConvertToSoldier() PARAMS 
+  METHOD System.Void Archer::ConvertToHunter() PARAMS 
+  METHOD System.Void Archer::ToggleAttackMode() PARAMS 
+  METHOD System.Void Archer::SetKnight(Knight) PARAMS knight
+  METHOD System.Void Archer::RemoveFromKnight(System.Boolean) PARAMS swap
+  METHOD System.Void Archer::SetRetreatFacing(System.Boolean) PARAMS retreat
+  METHOD System.Single Archer::GetPortalPosition(Side) PARAMS side
+  METHOD System.Void Archer::Hold() PARAMS 
+  METHOD System.Void Archer::SetHideStatus(System.Boolean) PARAMS hidden
+  METHOD System.Void Archer::FireArrow(System.Int32,System.Boolean) PARAMS direction, perfectShot
+  METHOD Il2CppSystem.Collections.Generic.IEnumerator`1<Coatsink.Common.Routine/Yield> Archer::Shoot() PARAMS 
+  METHOD System.Boolean Archer::ShouldShootEnemy() PARAMS 
+  METHOD System.Boolean Archer::ShouldShootWildlife() PARAMS 
+  METHOD System.Boolean Archer::ShouldHunt() PARAMS 
+  METHOD Il2CppSystem.Collections.Generic.IEnumerator`1<Coatsink.Common.Routine/Yield> Archer::Attack() PARAMS 
+  METHOD System.Void Archer::TryMeeleDamage() PARAMS 
+  METHOD System.Void Archer::StartMeeleAttack() PARAMS 
+  METHOD System.Boolean Archer::ShouldAttackEnemy() PARAMS 
+  METHOD System.Boolean Archer::ShouldFlee() PARAMS 
+  METHOD System.Boolean Archer::ShouldGrabCoin() PARAMS 
+  METHOD System.Void Archer::HandleOnGrabbed() PARAMS 
+  METHOD System.Void Archer::HandleOnCoatOfArmsChanged() PARAMS 
+  METHOD System.Void Archer::PickOutfitColor() PARAMS 
+  METHOD System.Void Archer::EnterGuardSlot(GuardSlot) PARAMS slot
+  METHOD System.Void Archer::SendOccupyGuardSlot(CRPCType,System.Int16,System.Int16) PARAMS slotParentType, slotParentNetID, slotIndex
+  METHOD System.Void Archer::RecvOccupyGuardSlot() PARAMS 
+  METHOD System.Void Archer::SetGuardSlotClient(CRPCType,System.Int16,System.Int32) PARAMS recvType, recvNetID, recvIndex
+  METHOD Il2CppSystem.Collections.IEnumerator Archer::WaitForCatchupAndSyncGuardSlot(CRPCType,System.Int16,System.Int32) PARAMS recvType, recvNetID, recvIndex
+  METHOD System.Void Archer::ExitGuardSlot() PARAMS 
+  METHOD System.Void Archer::HandleAuthorityChange(System.Boolean) PARAMS newAuthorityState
+  METHOD System.Void Archer::RegisterWithNetworkBoss() PARAMS 
+  METHOD System.Void Archer::DeregisterWithNetworkBoss() PARAMS 
+  METHOD Il2CppSystem.Object Archer::Persistent_IBehaviour_RetrieveData() PARAMS 
+  METHOD System.Void Archer::Persistent_IBehaviour_ApplyData(Il2CppSystem.Object) PARAMS data
+  METHOD Il2CppSystem.Collections.IEnumerator Archer::DespawnOnLoadRoutine() PARAMS 
+  METHOD System.Void Archer::SetAnimation(System.Int32) PARAMS animCode
+  METHOD System.Void Archer::PassthroughAnimationSend(System.Int32) PARAMS animCode
+  METHOD System.Void Archer::SendGuardState(System.Boolean) PARAMS state
+  METHOD System.Void Archer::ReceiveGuardState() PARAMS 
+  METHOD System.Void Archer::SendHideStatus(System.Boolean) PARAMS hidden
+  METHOD System.Void Archer::RecvHideStatus() PARAMS 
+  METHOD System.Void Archer::SendAbsFace() PARAMS 
+  METHOD System.Void Archer::SendArcherBuff(System.Int32) PARAMS buffId
+  METHOD System.Void Archer::SendArcherBuffEnd(BuffType) PARAMS buffType
+  METHOD System.Void Archer::RecvAbsFace() PARAMS 
+  METHOD System.Void Archer::RecvBuffArcher() PARAMS 
+  METHOD System.Void Archer::RecvBuffEndArcher() PARAMS 
+  METHOD System.Boolean Archer::BeginRegisteringRPCs(CRPCHeader) PARAMS headerRef
+  METHOD System.Void Archer::GetSerializationData(Il2CppSystem.Type&) PARAMS compType
+  METHOD System.Void Archer::DeserializeFromData() PARAMS 
+  METHOD Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray`1<Formation/UnitTypes> Archer::GetFormationUnitTypes() PARAMS 
+  METHOD System.Boolean Archer::CanJoinFormation(Formation/FormationType,Side) PARAMS formationType, formationSide
+  METHOD System.Boolean Archer::TryRecruit(Formation) PARAMS formation
+  METHOD System.Void Archer::FormationDestroy() PARAMS 
+  METHOD System.Void Archer::OnLeaveFormation() PARAMS 
+  METHOD System.Void Archer::OnFormationInspire() PARAMS 
+  METHOD System.Void Archer::OnFormationRush() PARAMS 
+  METHOD System.Void Archer::OnFormationRushEnd() PARAMS 
+  METHOD Formation Archer::GetFormation() PARAMS 
+  METHOD System.Void Archer::OnFormationUpdate() PARAMS 
+  METHOD System.Void Archer::ActivateBuff(BuffData) PARAMS buffData
+  METHOD System.Void Archer::ActivateBuffVisuals(BuffData) PARAMS buffData
+  METHOD System.Void Archer::DeactivateBuff(BuffType) PARAMS buffType
+  METHOD System.Void Archer::DeactivateBuffVisuals(BuffType) PARAMS buffType
+  METHOD System.Void Archer::SendCameraFocusRequest(System.Int32) PARAMS playerId
+  METHOD System.Void Archer::SendControllerRequest(System.Int32) PARAMS playerId
+  METHOD System.Void Archer::RecvCameraFocusRequest() PARAMS 
+  METHOD System.Void Archer::RecvControllerRequest() PARAMS 
+  METHOD System.Void Archer::PlayerShoot() PARAMS 
+  METHOD System.Void Archer::IUnitControllable_UpdatePayState(System.Boolean,System.Boolean,System.Boolean) PARAMS payKey, payKeyDown, usingTouch
+  METHOD System.Void Archer::IUnitControllable_UpdateActionState(System.Int32,System.Boolean,System.Boolean,System.Boolean,System.Boolean) PARAMS direction, startSprint, stopSprint, sprintKeyPressed, sprintKeyDoubleTap
+  METHOD IUnitController Archer::IUnitControllable_GetCurrentController() PARAMS 
+  METHOD System.Void Archer::IUnitControllable_AssumeControl(System.Int32,IUnitController) PARAMS playerId, unitController
+  METHOD System.Void Archer::IUnitControllable_ReleaseControl() PARAMS 
+  METHOD System.Boolean Archer::CanPickupDroppable(Droppable) PARAMS droppable
+  METHOD System.Boolean Archer::IsTargetingDroppable(Droppable) PARAMS droppable
+  METHOD System.Void Archer::SetDroppableTarget(Droppable) PARAMS droppable
+  METHOD System.Void Archer::ShowEmbarkee() PARAMS 
+  METHOD System.Void Archer::HideEmbarkee() PARAMS 
+  METHOD System.Void Archer::OnEmbarkStart() PARAMS 
+  METHOD System.Void Archer::OnEmbarkComplete() PARAMS 
+  METHOD System.Void Archer::OnDisembarkStart() PARAMS 
+  METHOD System.Void Archer::OnDisembarkComplete() PARAMS 
+  METHOD System.Void Archer::StartPetrifyInternal() PARAMS 
+  METHOD System.Void Archer::EndPetrifyInternal(System.Boolean) PARAMS skipVisuals
+  METHOD System.Void Archer::CleanupEndPetrifyInternal() PARAMS 
+  METHOD System.Void Archer::CrumbleInternal() PARAMS 
+  METHOD System.Void Archer::.ctor() PARAMS 
+  METHOD System.Boolean Archer::_Attack_b__229_1() PARAMS 
+  METHOD System.Void Archer::.ctor(System.IntPtr) PARAMS pointer
+  NESTED Archer/AttackMode
+    FIELD System.Int32 value__ = 
+    FIELD Archer/AttackMode Ranged = 0
+    FIELD Archer/AttackMode Melee = 1
+    FIELD Archer/AttackMode Shield = 2
+TYPE Arrow : UnityEngine.MonoBehaviour
+  PROP System.Int32 AP_SPLASH
+  PROP UnityEngine.Vector3 SPLASH_OFFSET
+  PROP DamageSource _damageSource
+  PROP System.Int32 hitDamage
+  PROP System.Int32 perfectDamageMultiplier
+  PROP System.Boolean shouldOrientate
+  PROP System.Boolean canBounce
+  PROP System.Boolean isFireArrow
+  PROP System.Int32 damagePerTick
+  PROP System.Int32 damageTicks
+  PROP System.Single damageDelayOffset
+  PROP System.Single damageDelayTime
+  PROP System.Boolean _alwaysDrawTrail
+  PROP System.Single _notPerfectTrailLength
+  PROP AudioEmitter wallHitSound
+  PROP AudioEmitter groundHitSound
+  PROP AudioEmitter waterHitSound
+  PROP UnityEngine.ParticleSystem _impactSpawner
+  PROP UnityEngine.GameObject archer
+  PROP System.Boolean _orientToVelocity
+  PROP System.Boolean _hasHit
+  PROP UnityEngine.Rigidbody2D _rigidbody
+  PROP UnityEngine.Collider2D _collider
+  PROP UnityEngine.TrailRenderer _trail
+  PROP System.Boolean _perfect
+  PROP NetworkSoftSimulator _softSim
+  PROP System.Single _originalTrailTime
+  PROP UnityEngine.SpriteRenderer _spriteRenderer
+  PROP System.Boolean _isBelowGround
+  PROP System.Boolean authorityActive
+  METHOD System.Void Arrow::Awake() PARAMS 
+  METHOD System.Void Arrow::OnEnable() PARAMS 
+  METHOD System.Void Arrow::DropInWater() PARAMS 
+  METHOD System.Void Arrow::PerfectShot() PARAMS 
+  METHOD System.Void Arrow::EnableTrail() PARAMS 
+  METHOD System.Void Arrow::SpawnSplash() PARAMS 
+  METHOD Il2CppSystem.Collections.IEnumerator Arrow::DropInWaterInternal() PARAMS 
+  METHOD System.Void Arrow::OnDestroy() PARAMS 
+  METHOD System.Void Arrow::LateUpdate() PARAMS 
+  METHOD System.Void Arrow::OnCollisionEnter2D(UnityEngine.Collision2D) PARAMS collision
+  METHOD System.Void Arrow::OnTriggerEnter2D(UnityEngine.Collider2D) PARAMS collider
+  METHOD System.Void Arrow::HitObject(UnityEngine.GameObject,System.Boolean) PARAMS target, physicalHit
+  METHOD System.Boolean Arrow::TryDamage(Damageable) PARAMS damageable
+  METHOD System.Void Arrow::HandleAuthorityChange(System.Boolean) PARAMS newAuthorityState
+  METHOD System.Void Arrow::RegisterWithNetworkBoss() PARAMS 
+  METHOD System.Void Arrow::DeregisterWithNetworkBoss() PARAMS 
+  METHOD System.Void Arrow::ReceiveInitialise() PARAMS 
+  METHOD System.Void Arrow::PostRecvStop() PARAMS 
+  METHOD System.Void Arrow::.ctor() PARAMS 
+  METHOD System.Void Arrow::.ctor(System.IntPtr) PARAMS pointer
+TYPE ArrowAttack : UnityEngine.ScriptableObject
+  PROP System.Int32 _sharedObstaclesLayer
+  PROP System.Single _arrowLength
+  PROP System.Single _arrowGravity
+  PROP Arrow _arrowPrefab
+  PROP System.Single _shotMagnitude
+  PROP System.Single _boostedShotMagnitude
+  PROP System.Single _maxLead
+  PROP System.Single _maxForceError
+  PROP System.Single _dropInWaterProbability
+  PROP UnityEngine.Vector2 _arrowOriginOffset
+  PROP FloatRange _shotCooldownSeconds
+  PROP AudioEmitter _shotSound
+  PROP AudioEmitter _shotSoundPerfect
+  PROP AudioEmitter _prepShootSound
+  PROP System.Single Range
+  PROP System.Single ShotCooldownSeconds
+  PROP AudioEmitter PrepShootSound
+  PROP System.Int32 SharedObstaclesLayer
+  METHOD System.Void ArrowAttack::FireArrow(UnityEngine.GameObject,UnityEngine.GameObject,System.Boolean,System.Boolean,System.Boolean) PARAMS source, target, isPerfectShot, forceHighShot, isBoostedShot
+  METHOD System.Void ArrowAttack::FireArrow(UnityEngine.GameObject,UnityEngine.Vector2,System.Boolean,System.Boolean,System.Boolean) PARAMS source, targetPos, isPerfectShot, forceHighShot, isBoostedShot
+  METHOD System.Void ArrowAttack::FireArrowInternal(UnityEngine.GameObject,UnityEngine.Vector3,System.Boolean,UnityEngine.Vector2) PARAMS source, arrowPosition, isPerfectShot, shootForce
+  METHOD UnityEngine.Vector2 ArrowAttack::BestShot(UnityEngine.GameObject,UnityEngine.Vector2,System.Single,System.Boolean,System.Boolean) PARAMS target, arrowPosition, gravity, forceHighShot, isBoostedShot
+  METHOD UnityEngine.Vector2 ArrowAttack::BestShot(UnityEngine.Vector2,UnityEngine.Vector2,System.Single,System.Boolean,System.Boolean) PARAMS targetPos, arrowPosition, gravity, forceHighShot, isBoostedShot
+  METHOD UnityEngine.Vector2 ArrowAttack::BestShotInternal(UnityEngine.Vector2,UnityEngine.Vector2,System.Single,System.Boolean,System.Boolean) PARAMS targetPos, arrowPosition, gravity, forceHighShot, isBoostedShot
+  METHOD System.Void ArrowAttack::OnValidate() PARAMS 
+  METHOD System.Void ArrowAttack::.ctor() PARAMS 
+  METHOD System.Void ArrowAttack::.ctor(System.IntPtr) PARAMS pointer
+TYPE Character : UnityEngine.MonoBehaviour
+  PROP Il2CppSystem.Action OnGrabbed
+  PROP Il2CppSystem.Action OnReleased
+  PROP FloatRange bumpForce
+  PROP FloatRange originalBumpForce
+  PROP System.Boolean dropCoinsBeforeDemote
+  PROP System.Boolean skipDemote
+  PROP System.Single coinDropProbability
+  PROP System.Int32 demoteAtCoins
+  PROP DroppableTool dropItem
+  PROP System.Boolean dropToolOnDemote
+  PROP FloatRange dropForce
+  PROP UnityEngine.Vector2 dropOffset
+  PROP System.Boolean grabbable
+  PROP UnityEngine.GameObject transformSparklesPrefab
+  PROP AudioEmitter spawnSound
+  PROP AudioEmitter footstepSound
+  PROP AudioEmitter runningFootstepSound
+  PROP System.Boolean gatherAtCastlePostLoss
+  PROP System.Boolean gainStartingCoinsPostLoss
+  PROP System.Boolean autoDemote
+  PROP Wallet _wallet_k__BackingField
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<System.String,System.String> Professions
+  PROP Coatsink.Common.HagletValue`1<System.Boolean> _grabbed
+  PROP System.Boolean _grabbed_k__BackingField
+  PROP CRPCHeader parentHeaderRef
+  PROP System.Int32 _promoteRPCIndex
+  PROP System.Int32 _inspireIndex
+  PROP System.Boolean _inert_k__BackingField
+  PROP System.Boolean _isStationary_k__BackingField
+  PROP Damageable _damageable
+  PROP Mover _mover
+  PROP UnityEngine.Rigidbody2D _rigidbody
+  PROP SpriteRendererFX _spriteFX_k__BackingField
+  PROP System.Single _inspiredUntil
+  PROP UnityEngine.Color _skinColor
+  PROP UnityEngine.Color _outfitColor
+  PROP UnityEngine.Color _outfitSecondaryColor
+  PROP System.Boolean _useOutfitGradient
+  PROP UnityEngine.Gradient _outfitGradient
+  PROP UnityEngine.Color _inspiredGlowOverlayColor
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray`1<UnityEngine.ContactPoint2D> contacts
+  PROP Wallet wallet
+  PROP System.Boolean grabbed
+  PROP Coatsink.Common.HagletValue`1<System.Boolean> iGrabbed
+  PROP UnityEngine.GameObject GetGO
+  PROP System.Boolean inert
+  PROP System.Boolean isStationary
+  PROP SpriteRendererFX spriteFX
+  PROP UnityEngine.Color skinColor
+  PROP UnityEngine.Color outfitColor
+  PROP UnityEngine.Color outfitSecondaryColor
+  METHOD System.Void Character::add_OnGrabbed(Il2CppSystem.Action) PARAMS value
+  METHOD System.Void Character::remove_OnGrabbed(Il2CppSystem.Action) PARAMS value
+  METHOD System.Void Character::add_OnReleased(Il2CppSystem.Action) PARAMS value
+  METHOD System.Void Character::remove_OnReleased(Il2CppSystem.Action) PARAMS value
+  METHOD System.Void Character::Awake() PARAMS 
+  METHOD System.Void Character::OnEnable() PARAMS 
+  METHOD System.Void Character::OnDisable() PARAMS 
+  METHOD System.Void Character::MakeUngrabbable(System.Single) PARAMS waitTime
+  METHOD Il2CppSystem.Collections.IEnumerator Character::MakeUngrabbableFor(System.Single) PARAMS waitTime
+  METHOD System.Boolean Character::CanBeGrabbedNow() PARAMS 
+  METHOD Character Character::Grab() PARAMS 
+  METHOD System.Void Character::Release() PARAMS 
+  METHOD System.Void Character::BecomeInert() PARAMS 
+  METHOD System.Void Character::StopInert() PARAMS 
+  METHOD System.Void Character::BecomeStationary() PARAMS 
+  METHOD System.Void Character::StopStationary() PARAMS 
+  METHOD System.Void Character::Inspire(System.Single) PARAMS duration
+  METHOD System.Void Character::OnPreDamageInspired(System.Int32&,UnityEngine.GameObject,DamageSource) PARAMS damageMultiplier, damager, source
+  METHOD System.Boolean Character::IsInspired() PARAMS 
+  METHOD System.Void Character::SendInspire(System.Single) PARAMS duration
+  METHOD System.Void Character::RecvInspire() PARAMS 
+  METHOD System.Void Character::SetBumpForce(FloatRange) PARAMS newBumpForce
+  METHOD System.Void Character::RestoreBumpForce() PARAMS 
+  METHOD System.Void Character::HandleOnReceiveDamage(System.Int32,UnityEngine.GameObject,DamageSource) PARAMS damageMultiplier, damager, source
+  METHOD System.Void Character::DropCurrency(CurrencyType,System.Int32,Il2CppSystem.Nullable`1<UnityEngine.Vector2>) PARAMS currencyType, amountToDrop, direction
+  METHOD System.Int32 Character::GetCharacterExtraHp() PARAMS 
+  METHOD Droppable Character::DropItem(Il2CppSystem.Nullable`1<UnityEngine.Vector2>) PARAMS direction
+  METHOD System.Void Character::PickSkinColor() PARAMS 
+  METHOD System.Void Character::PickOutfitColor(System.String,Il2CppSystem.Nullable`1<UnityEngine.Color>) PARAMS forTag, overrideColor
+  METHOD Character Character::Promote(DroppableTool,IUnitController) PARAMS tool, unitController
+  METHOD Character Character::Promote(System.String,IUnitController) PARAMS newTag, unitController
+  METHOD Character Character::Demote() PARAMS 
+  METHOD System.Void Character::UpgradeTransitionFX() PARAMS 
+  METHOD Character Character::ReplaceBy(System.String) PARAMS newTag
+  METHOD Il2CppSystem.Collections.IEnumerator Character::DelayColourSync() PARAMS 
+  METHOD System.Void Character::SendSyncColours() PARAMS 
+  METHOD System.Void Character::ReceiveCharacterColours() PARAMS 
+  METHOD Il2CppSystem.Object Character::Persistent_IBehaviour_RetrieveData() PARAMS 
+  METHOD System.Void Character::Persistent_IBehaviour_ApplyData(Il2CppSystem.Object) PARAMS data
+  METHOD System.Boolean Character::BeginRegisteringRPCs(CRPCHeader) PARAMS headerRef
+  METHOD System.Boolean Character::IsTouchingGround() PARAMS 
+  METHOD System.Void Character::PlayFootstepSound() PARAMS 
+  METHOD System.Void Character::PlayRunningFootstepSound() PARAMS 
+  METHOD System.Void Character::GetSerializationData(Il2CppSystem.Type&) PARAMS compType
+  METHOD System.Void Character::DeserializeFromData() PARAMS 
+  METHOD System.Void Character::Persistent_IDecayable_ApplyDecay(System.Double) PARAMS amount
+  METHOD System.Void Character::.ctor() PARAMS 
+  METHOD System.Void Character::.ctor(System.IntPtr) PARAMS pointer
+TYPE DamageSource : System.Enum
+  FIELD System.Int32 value__ = 
+  FIELD DamageSource Troll = 1
+  FIELD DamageSource Arrow = 2
+  FIELD DamageSource BoulderFriendly = 4
+  FIELD DamageSource BoulderEnemy = 8
+  FIELD DamageSource Knight = 16
+  FIELD DamageSource Ogre = 32
+  FIELD DamageSource Bolt = 64
+  FIELD DamageSource PlayerSteed = 128
+  FIELD DamageSource Pike = 256
+  FIELD DamageSource Fire = 512
+  FIELD DamageSource Stealer = 1024
+  FIELD DamageSource Boar = 2048
+  FIELD DamageSource Trap = 4096
+  FIELD DamageSource Crusher = 8192
+  FIELD DamageSource Fleet = 16384
+  FIELD DamageSource GreedProjectile = 32768
+  FIELD DamageSource SerpentAttack = 65536
+TYPE Damageable : UnityEngine.MonoBehaviour
+  PROP UnityEngine.WaitForSeconds DESPAWN_DELAY
+  PROP System.Int32 APDie
+  PROP Damageable/PreDamageEvent OnPreReceiveDamage
+  PROP Damageable/DamageEvent OnReceiveDamage
+  PROP Il2CppSystem.Action OnReceiveRemoteDamage
+  PROP Damageable/DamageEvent OnReceiveDelayedDamage
+  PROP Il2CppSystem.Action OnDelayDamageEnd
+  PROP Damageable/DeathEvent OnDeath
+  PROP DamageSource damagedBy
+  PROP DamageSurface surface
+  PROP System.Boolean useHitPoints
+  PROP System.Int32 initialHitPoints
+  PROP System.Boolean destroyOnDeath
+  PROP AudioEmitter deathSound
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray`1<AudioEmitter> biomeAlternateDeathSounds
+  PROP UnityEngine.Color flashColor
+  PROP AudioEmitter hitSound
+  PROP AudioEmitter hitSoundArrow
+  PROP System.Boolean isLowPriority
+  PROP System.Boolean alwaysAttackable
+  PROP System.Boolean persistOnDeath
+  PROP System.Boolean ignoredWhenInvulnerable
+  PROP System.Boolean isInvulnerableInitially
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray`1<SpriteRendererFX> __spriteFXs_k__BackingField
+  PROP AnimationSync _animSync
+  PROP IAnimReceiver _otherAnimRecv
+  PROP IUnitControllable _unitControllable
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<UnityEngine.GameObject,UnityEngine.Coroutine> activeContinualDamageRoutines
+  PROP System.Boolean syncHP
+  PROP CRPCHeader parentHeaderRef
+  PROP System.Int32 _hitFlashIndex
+  PROP System.Int32 _hpIndex
+  PROP System.Int32 _invulnerableIndex
+  PROP System.Int32 _hitSoundIndex
+  PROP UnityEngine.Rigidbody2D _rb
+  PROP Player _playerRef
+  PROP Il2CppSystem.Collections.IEnumerator _delayDamageRoutine
+  PROP System.Boolean _isInvulnerable
+  PROP System.Int32 _hitPoints
+  PROP System.Boolean _IsInBlockingFormation_k__BackingField
+  PROP System.Boolean _isDead_k__BackingField
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray`1<SpriteRendererFX> _spriteFXs
+  PROP UnityEngine.GameObject GetGO
+  PROP System.Boolean invulnerable
+  PROP System.Int32 hitPoints
+  PROP System.Single HealthPercentage
+  PROP System.Single DamagePercentage
+  PROP System.Boolean IsInBlockingFormation
+  PROP System.Boolean isDead
+  METHOD System.Void Damageable::add_OnPreReceiveDamage(Damageable/PreDamageEvent) PARAMS value
+  METHOD System.Void Damageable::remove_OnPreReceiveDamage(Damageable/PreDamageEvent) PARAMS value
+  METHOD System.Void Damageable::add_OnReceiveDamage(Damageable/DamageEvent) PARAMS value
+  METHOD System.Void Damageable::remove_OnReceiveDamage(Damageable/DamageEvent) PARAMS value
+  METHOD System.Void Damageable::add_OnReceiveRemoteDamage(Il2CppSystem.Action) PARAMS value
+  METHOD System.Void Damageable::remove_OnReceiveRemoteDamage(Il2CppSystem.Action) PARAMS value
+  METHOD System.Void Damageable::add_OnReceiveDelayedDamage(Damageable/DamageEvent) PARAMS value
+  METHOD System.Void Damageable::remove_OnReceiveDelayedDamage(Damageable/DamageEvent) PARAMS value
+  METHOD System.Void Damageable::add_OnDelayDamageEnd(Il2CppSystem.Action) PARAMS value
+  METHOD System.Void Damageable::remove_OnDelayDamageEnd(Il2CppSystem.Action) PARAMS value
+  METHOD System.Void Damageable::add_OnDeath(Damageable/DeathEvent) PARAMS value
+  METHOD System.Void Damageable::remove_OnDeath(Damageable/DeathEvent) PARAMS value
+  METHOD System.Void Damageable::Awake() PARAMS 
+  METHOD System.Void Damageable::OnEnable() PARAMS 
+  METHOD System.Void Damageable::OnDisable() PARAMS 
+  METHOD System.Void Damageable::Reset() PARAMS 
+  METHOD System.Int32 Damageable::GetActualHp() PARAMS 
+  METHOD System.Void Damageable::SetSpriteFX(Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray`1<SpriteRendererFX>) PARAMS spriteFXs
+  METHOD System.Boolean Damageable::IsDamagedBy(DamageSource) PARAMS source
+  METHOD System.Boolean Damageable::ShouldPlayDeathSound() PARAMS 
+  METHOD System.Void Damageable::EnableDamagedBy(DamageSource) PARAMS source
+  METHOD System.Void Damageable::DisableDamagedBy(DamageSource) PARAMS source
+  METHOD System.Void Damageable::ReceiveFatalDamage(UnityEngine.GameObject,DamageSource) PARAMS damager, source
+  METHOD System.Void Damageable::ReceiveDamage(System.Int32,UnityEngine.GameObject,DamageSource) PARAMS damageMultiplier, damager, source
+  METHOD System.Void Damageable::ReceiveDamage(System.Int32,UnityEngine.GameObject,DamageSource,UnityEngine.Vector2) PARAMS damageMultiplier, damager, source, damageForce
+  METHOD System.Void Damageable::DestroyNow() PARAMS 
+  METHOD System.Void Damageable::HitFlash() PARAMS 
+  METHOD System.Void Damageable::ApplyDelayedDamage(System.Single,System.Single,System.Int32,System.Int32,UnityEngine.GameObject,DamageSource,System.Boolean) PARAMS delay, offset, damage, damageTicks, damager, source, repeat
+  METHOD System.Void Damageable::EndDelayedDamage() PARAMS 
+  METHOD System.Void Damageable::EndContinualDamage(UnityEngine.GameObject) PARAMS damager
+  METHOD Il2CppSystem.Collections.IEnumerator Damageable::DelayDamageApplication(System.Single,System.Int32,System.Int32,UnityEngine.GameObject,DamageSource,System.Boolean) PARAMS delay, damage, damageTicks, damager, source, repeat
+  METHOD Il2CppSystem.Collections.IEnumerator Damageable::FadeAndDestroy() PARAMS 
+  METHOD System.Void Damageable::FadeRecvDeath() PARAMS 
+  METHOD Il2CppSystem.Collections.IEnumerator Damageable::FadeNoDespawn() PARAMS 
+  METHOD Il2CppSystem.Object Damageable::Persistent_IBehaviour_RetrieveData() PARAMS 
+  METHOD System.Void Damageable::Persistent_IBehaviour_ApplyData(Il2CppSystem.Object) PARAMS data
+  METHOD System.Void Damageable::SendHitFlash() PARAMS 
+  METHOD System.Void Damageable::RecvHitFlash() PARAMS 
+  METHOD System.Void Damageable::SendInvulnerableState() PARAMS 
+  METHOD System.Void Damageable::RecvInvulnerableState() PARAMS 
+  METHOD System.Void Damageable::SendHP() PARAMS 
+  METHOD System.Void Damageable::SendHitSound(System.Boolean,System.Boolean) PARAMS arrowDamage, deathSound
+  METHOD System.Void Damageable::RecvHitSound() PARAMS 
+  METHOD System.Void Damageable::RecvHP() PARAMS 
+  METHOD System.Void Damageable::DeregisterRPCs() PARAMS 
+  METHOD System.Boolean Damageable::BeginRegisteringRPCs(CRPCHeader) PARAMS headerRef
+  METHOD System.Void Damageable::GetSerializationData(Il2CppSystem.Type&) PARAMS compType
+  METHOD System.Void Damageable::DeserializeFromData() PARAMS 
+  METHOD System.Void Damageable::Persistent_IDecayable_ApplyDecay(System.Double) PARAMS amount
+  METHOD CRPCHeader Damageable::GrabHeader() PARAMS 
+  METHOD System.Void Damageable::.ctor() PARAMS 
+  METHOD System.Void Damageable::SetSpriteFX(SpriteRendererFX[]) PARAMS spriteFXs
+  METHOD System.Void Damageable::.ctor(System.IntPtr) PARAMS pointer
+  NESTED Damageable/PreDamageEvent
+    METHOD System.Void Damageable/PreDamageEvent::.ctor(Il2CppSystem.Object,System.IntPtr) PARAMS object, method
+    METHOD System.Void Damageable/PreDamageEvent::Invoke(System.Int32&,UnityEngine.GameObject,DamageSource) PARAMS damageMultiplier, damager, source
+    METHOD Il2CppSystem.IAsyncResult Damageable/PreDamageEvent::BeginInvoke(System.Int32&,UnityEngine.GameObject,DamageSource,Il2CppSystem.AsyncCallback,Il2CppSystem.Object) PARAMS damageMultiplier, damager, source, callback, object
+    METHOD System.Void Damageable/PreDamageEvent::EndInvoke(System.Int32&,Il2CppSystem.IAsyncResult) PARAMS damageMultiplier, result
+    METHOD System.Void Damageable/PreDamageEvent::.ctor(System.IntPtr) PARAMS pointer
+  NESTED Damageable/DamageEvent
+    METHOD System.Void Damageable/DamageEvent::.ctor(Il2CppSystem.Object,System.IntPtr) PARAMS object, method
+    METHOD System.Void Damageable/DamageEvent::Invoke(System.Int32,UnityEngine.GameObject,DamageSource) PARAMS damageMultiplier, damager, source
+    METHOD Il2CppSystem.IAsyncResult Damageable/DamageEvent::BeginInvoke(System.Int32,UnityEngine.GameObject,DamageSource,Il2CppSystem.AsyncCallback,Il2CppSystem.Object) PARAMS damageMultiplier, damager, source, callback, object
+    METHOD System.Void Damageable/DamageEvent::EndInvoke(Il2CppSystem.IAsyncResult) PARAMS result
+    METHOD System.Void Damageable/DamageEvent::.ctor(System.IntPtr) PARAMS pointer
+    METHOD Damageable/DamageEvent Damageable/DamageEvent::op_Implicit(System.Action`3<System.Int32,UnityEngine.GameObject,DamageSource>) PARAMS 
+    METHOD Damageable/DamageEvent Damageable/DamageEvent::op_Addition(Damageable/DamageEvent,Damageable/DamageEvent) PARAMS , 
+    METHOD Damageable/DamageEvent Damageable/DamageEvent::op_Subtraction(Damageable/DamageEvent,Damageable/DamageEvent) PARAMS , 
+  NESTED Damageable/DeathEvent
+    METHOD System.Void Damageable/DeathEvent::.ctor(Il2CppSystem.Object,System.IntPtr) PARAMS object, method
+    METHOD System.Void Damageable/DeathEvent::Invoke(UnityEngine.GameObject) PARAMS killer
+    METHOD Il2CppSystem.IAsyncResult Damageable/DeathEvent::BeginInvoke(UnityEngine.GameObject,Il2CppSystem.AsyncCallback,Il2CppSystem.Object) PARAMS killer, callback, object
+    METHOD System.Void Damageable/DeathEvent::EndInvoke(Il2CppSystem.IAsyncResult) PARAMS result
+    METHOD System.Void Damageable/DeathEvent::.ctor(System.IntPtr) PARAMS pointer
+    METHOD Damageable/DeathEvent Damageable/DeathEvent::op_Implicit(System.Action`1<UnityEngine.GameObject>) PARAMS 
+    METHOD Damageable/DeathEvent Damageable/DeathEvent::op_Addition(Damageable/DeathEvent,Damageable/DeathEvent) PARAMS , 
+    METHOD Damageable/DeathEvent Damageable/DeathEvent::op_Subtraction(Damageable/DeathEvent,Damageable/DeathEvent) PARAMS , 
+TYPE Droppable : UnityEngine.MonoBehaviour
+  PROP System.Int32 APSplash
+  PROP Il2CppSystem.Action`1<Droppable> OnPickedUp
+  PROP Il2CppSystem.Action`1<Droppable> OnDropped
+  PROP Il2CppSystem.Action`1<Droppable> OnDisabled
+  PROP System.Boolean pauseAnimationWhenFake
+  PROP System.Single _nobodyCooldown
+  PROP System.Single _onlyReceiverCooldown
+  PROP System.Single _exceptDropperCooldown
+  PROP System.Single _timeToLive
+  PROP PickUpPolicy CurrentEnemyPolicy
+  PROP System.Boolean selfDestruct
+  PROP AudioEmitter splashSound
+  PROP UnityEngine.GameObject dropper
+  PROP UnityEngine.GameObject friendlyClaimer
+  PROP UnityEngine.GameObject enemyClaimer
+  PROP System.Boolean notDropperTarget
+  PROP System.Boolean anyPlayerTarget
+  PROP PayableShop parentShopRef
+  PROP CRPCHeader parentHeaderRef
+  PROP System.Int32 _policyRPCIndex
+  PROP System.Int32 _collectRPCIndex
+  PROP System.Int32 _blinkRPCIndex
+  PROP System.Int32 _fakeChangedRPCIndex
+  PROP System.Int32 _fadeRPCIndex
+  PROP UnityEngine.Collider2D _physicalCollider
+  PROP UnityEngine.Collider2D _collider
+  PROP UnityEngine.Animator _animator
+  PROP UnityEngine.Rigidbody2D _rigidbody
+  PROP SpriteRendererFX _spriteFX
+  PROP UnityEngine.Sprite _initialSprite
+  PROP UnityEngine.GameObject _thiefRef
+  PROP UnityEngine.Coroutine _stateMachineRoutine
+  PROP UnityEngine.Coroutine _claimCoroutine
+  PROP System.Single _originalNobodyCooldown
+  PROP PickUpPolicy _originalEnemyPolicy
+  PROP DroppableData persData
+  PROP Coatsink.Common.HagletValue`1<System.Boolean> _pickedUp
+  PROP DropType _droppedBy_k__BackingField
+  PROP System.Boolean _droppedByWildlife_k__BackingField
+  PROP PickUpPolicy _currentPolicy
+  PROP System.Boolean _fake
+  PROP Coatsink.Common.IHagletValue`1<System.Boolean> iPickedUp
+  PROP UnityEngine.GameObject GetGO
+  PROP DropType droppedBy
+  PROP System.Boolean droppedByWildlife
+  PROP System.Boolean pickedUp
+  PROP PickUpPolicy pickUpPolicy
+  METHOD System.Void Droppable::add_OnPickedUp(Il2CppSystem.Action`1<Droppable>) PARAMS value
+  METHOD System.Void Droppable::remove_OnPickedUp(Il2CppSystem.Action`1<Droppable>) PARAMS value
+  METHOD System.Void Droppable::add_OnDropped(Il2CppSystem.Action`1<Droppable>) PARAMS value
+  METHOD System.Void Droppable::remove_OnDropped(Il2CppSystem.Action`1<Droppable>) PARAMS value
+  METHOD System.Void Droppable::add_OnDisabled(Il2CppSystem.Action`1<Droppable>) PARAMS value
+  METHOD System.Void Droppable::remove_OnDisabled(Il2CppSystem.Action`1<Droppable>) PARAMS value
+  METHOD System.Void Droppable::NotifyDroppableDropped(Droppable) PARAMS droppable
+  METHOD System.Boolean Droppable::IsFake() PARAMS 
+  METHOD System.Void Droppable::SetFake(System.Boolean) PARAMS fake
+  METHOD System.Void Droppable::SetFake(System.Boolean,System.Boolean) PARAMS fake, receivedOverNet
+  METHOD System.Void Droppable::ForcePickupNotification() PARAMS 
+  METHOD System.Void Droppable::SyncPickedUpAndFake() PARAMS 
+  METHOD System.Void Droppable::ReceiveDroppableCollect() PARAMS 
+  METHOD System.Void Droppable::OnFakeChanged(System.Boolean) PARAMS receivedOverNet
+  METHOD System.Void Droppable::Awake() PARAMS 
+  METHOD System.Void Droppable::OnEnable() PARAMS 
+  METHOD System.Void Droppable::OnDisable() PARAMS 
+  METHOD System.Void Droppable::ClearFriendlyClaimIfClaimer(UnityEngine.GameObject) PARAMS possibleClaimer
+  METHOD System.Boolean Droppable::TryFriendlyClaim(UnityEngine.GameObject,System.Single) PARAMS claimer, duration
+  METHOD System.Boolean Droppable::CanFriendlyClaim(UnityEngine.GameObject) PARAMS claimer
+  METHOD Il2CppSystem.Collections.IEnumerator Droppable::TimeoutFriendlyClaim(System.Single) PARAMS duration
+  METHOD System.Boolean Droppable::CanBePickedUp(IPickupAttributeProvider) PARAMS character
+  METHOD System.Boolean Droppable::CanBePickedUpByEnemy() PARAMS 
+  METHOD Il2CppSystem.Collections.IEnumerator Droppable::RunStateMachine() PARAMS 
+  METHOD System.Void Droppable::OnPrepareDrop() PARAMS 
+  METHOD System.Void Droppable::Drop(UnityEngine.GameObject,UnityEngine.Vector2,UnityEngine.Vector2,PickUpPolicy,System.Boolean,System.Boolean,System.Boolean) PARAMS dropper, force, offset, policy, switchToAnyPlayer, syncReceipt, notDropperTarget
+  METHOD System.Void Droppable::Drop(UnityEngine.Vector2,PickUpPolicy) PARAMS force, policy
+  METHOD System.Void Droppable::DropInWater() PARAMS 
+  METHOD Il2CppSystem.Collections.IEnumerator Droppable::DropInWaterInternal() PARAMS 
+  METHOD System.Void Droppable::SendPolicyRPC() PARAMS 
+  METHOD System.Void Droppable::ReceivePolicyRPC() PARAMS 
+  METHOD System.Void Droppable::SendBlinkRequest(UnityEngine.Color) PARAMS color
+  METHOD System.Void Droppable::ReceiveBlinkRequest() PARAMS 
+  METHOD System.Void Droppable::Fade(System.Single) PARAMS duration
+  METHOD System.Void Droppable::SendFadeRequest(System.Single) PARAMS duration
+  METHOD System.Void Droppable::ReceiveFadeRequest() PARAMS 
+  METHOD System.Void Droppable::SendFakeChanged(System.Boolean) PARAMS fakeValue
+  METHOD System.Void Droppable::ReceiveFakeChanged() PARAMS 
+  METHOD System.Boolean Droppable::BeginRegisteringRPCs(CRPCHeader) PARAMS headerRef
+  METHOD System.Void Droppable::GetSerializationData(Il2CppSystem.Type&) PARAMS compType
+  METHOD System.Void Droppable::DeserializeFromData() PARAMS 
+  METHOD System.Void Droppable::OnRemoteSpawn() PARAMS 
+  METHOD Il2CppSystem.Object Droppable::Persistent_IBehaviour_RetrieveData() PARAMS 
+  METHOD System.Void Droppable::Persistent_IBehaviour_ApplyData(Il2CppSystem.Object) PARAMS data
+  METHOD System.Void Droppable::.ctor() PARAMS 
+  METHOD System.Void Droppable::.ctor(System.IntPtr) PARAMS pointer
+TYPE DroppableTool : Droppable
+  METHOD System.Void DroppableTool::OnEnable() PARAMS 
+  METHOD System.Void DroppableTool::GetSerializationData(Il2CppSystem.Type&) PARAMS compType
+  METHOD System.Void DroppableTool::.ctor() PARAMS 
+  METHOD System.Void DroppableTool::.ctor(System.IntPtr) PARAMS pointer
+TYPE Enemy : UnityEngine.MonoBehaviour
+  PROP UnityEngine.LayerMask projectileLayer
+  PROP CRPCHeader parentHeaderRef
+  PROP System.Int32 _sendOnFreezeIndex
+  PROP System.Int32 _sendCameraFocusRequest
+  PROP System.Int32 _sendControllerIndex
+  PROP Droppable loot
+  PROP Damageable damageable
+  PROP EnemyType _type
+  PROP System.Boolean despawnOnLoad
+  PROP System.Boolean retreatAtDawn
+  PROP System.Boolean usedForWaveSize
+  PROP System.Boolean fightsAlone
+  PROP UnityEngine.Color _spawnOverlayColor
+  PROP WaveType _waveType_k__BackingField
+  PROP System.UInt32 _waveID_k__BackingField
+  PROP System.Single _distanceFromWaveCenter_k__BackingField
+  PROP System.Single _WaveCenter_k__BackingField
+  PROP System.Boolean _shouldRetreat_k__BackingField
+  PROP System.Boolean _isAttacking_k__BackingField
+  PROP UnityEngine.Coroutine _despawnRoutine
+  PROP EnemyType Type
+  PROP WaveType waveType
+  PROP System.UInt32 waveID
+  PROP System.Single distanceFromWaveCenter
+  PROP System.Single unsignedDistanceFromWaveCenter
+  PROP System.Single WaveCenter
+  PROP System.Boolean shouldRetreat
+  PROP System.Boolean isAttacking
+  PROP PickupAttribute PickupAttributes
+  PROP UnityEngine.GameObject GetGO
+  PROP Damageable Damageable
+  PROP UnityEngine.Transform Transform
+  PROP System.Boolean IsDespawning
+  PROP System.Boolean CanMove
+  PROP System.Boolean IsThreat
+  METHOD System.Void Enemy::Awake() PARAMS 
+  METHOD System.Void Enemy::OnEnable() PARAMS 
+  METHOD System.Void Enemy::OnDisable() PARAMS 
+  METHOD System.Void Enemy::AttackDone() PARAMS 
+  METHOD System.Void Enemy::OnFreeze(System.Single,UnityEngine.Color) PARAMS freezeDuration, freezeColor
+  METHOD System.Void Enemy::Despawn(System.Single,System.Boolean) PARAMS despawnTime, disableColliders
+  METHOD Il2CppSystem.Collections.IEnumerator Enemy::DespawnRoutine(Portal,System.Single,System.Boolean) PARAMS retreatTo, despawnTime, destroyLootOnDespawn
+  METHOD System.Void Enemy::StartDespawnRoutine(Portal,System.Single,System.Boolean) PARAMS retreatTo, despawnTime, destroyLootOnDespawn
+  METHOD System.Void Enemy::HandleOnDayStart() PARAMS 
+  METHOD Il2CppSystem.Object Enemy::RetrieveData() PARAMS 
+  METHOD System.Void Enemy::ApplyData(Il2CppSystem.Object) PARAMS data
+  METHOD System.Void Enemy::HandleAuthorityChange(System.Boolean) PARAMS newAuthorityState
+  METHOD System.Void Enemy::RegisterWithNetworkBoss() PARAMS 
+  METHOD System.Void Enemy::DeregisterWithNetworkBoss() PARAMS 
+  METHOD System.Boolean Enemy::BeginRegisteringRPCs(CRPCHeader) PARAMS headerRef
+  METHOD System.Void Enemy::GetSerializationData(Il2CppSystem.Type&) PARAMS compType
+  METHOD System.Void Enemy::DeserializeFromData() PARAMS 
+  METHOD System.Void Enemy::SendOnFreeze(System.Single,UnityEngine.Color) PARAMS duration, color
+  METHOD System.Void Enemy::RecvOnFreeze() PARAMS 
+  METHOD System.Void Enemy::SendCameraFocusRequest(System.Int32) PARAMS playerId
+  METHOD System.Void Enemy::RecvCameraFocusRequest() PARAMS 
+  METHOD System.Void Enemy::SendControllerRequest(System.Int32) PARAMS playerId
+  METHOD System.Void Enemy::RecvControllerRequest() PARAMS 
+  METHOD System.Boolean Enemy::IsLossOnDogStolen() PARAMS 
+  METHOD System.Void Enemy::HandleCrownLoss(Damageable,Crown,IUnitController) PARAMS damageable, crown, unitController
+  METHOD System.Single Enemy::GetWaveSpeedMultiplier(System.Single,WaveType,System.Single&,System.Single) PARAMS positionX, waveType, targetPosition, waveTargetOffset
+  METHOD System.Single Enemy::GetWaveSpeedMultiplier(System.Single,WaveType,System.Single) PARAMS positionX, waveType, waveTargetOffset
+  METHOD System.Boolean Enemy::IsActiveThreat(Enemy) PARAMS enemy
+  METHOD System.Void Enemy::StartPetrifyInternal() PARAMS 
+  METHOD System.Void Enemy::EndPetrifyInternal(System.Boolean) PARAMS skipVisuals
+  METHOD System.Void Enemy::CrumbleInternal() PARAMS 
+  METHOD System.Void Enemy::.ctor() PARAMS 
+  METHOD System.Void Enemy::.ctor(System.IntPtr) PARAMS pointer
+TYPE Holder : Manager
+  PROP Grass grassPrefab
+  PROP Snow snowPrefab
+  PROP Il2CppSystem.Collections.Generic.List`1<Character> charactersList
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<System.String,Character> tagCharacterPairs
+  PROP Dog dogPrefab
+  PROP Dog wolfPupPrefab
+  PROP Cat catPrefab
+  PROP DroppableCurrency christmasPresentPrefab
+  PROP UnityEngine.GameObject splashMidPrefab
+  PROP UnityEngine.GameObject buildingDustPrefab
+  PROP LockIndicator lockIndicator
+  PROP FixedDirection fixedDirectionContainer
+  PROP Merchant merchant
+  PROP Fire firePrefab
+  PROP Fire fireNoSmokePrefab
+  PROP UnityEngine.GameObject trollPrefab
+  PROP UnityEngine.GameObject trollPeasantPrefab
+  PROP UnityEngine.GameObject promoteSparklesPrefab
+  PROP TeleporterRift teleporterRiftPrefab
+  PROP PayableTeleporter teleporterPrefab
+  PROP UnityEngine.GameObject wallLocationPrefab
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray`1<Wall> wallPrefabs
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray`1<Wall> hornWallPrefabs
+  PROP UnityEngine.GameObject towerLocationPrefab
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray`1<Tower> towerPrefabs
+  PROP Farmland farmlandPrefab
+  PROP UnityEngine.GameObject farmLocationPrefab
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray`1<Hermit> hermits
+  PROP Il2CppSystem.Collections.Generic.List`1<UnityEngine.Sprite> grassSprites
+  PROP Il2CppSystem.Collections.Generic.List`1<AudioEmitter> music
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray`1<Wave> _allWaves
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<System.String,Wave> _waves
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<System.String,AudioEmitter> _music
+  METHOD System.Void Holder::Start() PARAMS 
+  METHOD System.Void Holder::Init() PARAMS 
+  METHOD System.Void Holder::InitializeTagCharacterPairs() PARAMS 
+  METHOD Character Holder::GetCharacterByTag(System.String) PARAMS tag
+  METHOD Wave Holder::GetWave(System.String) PARAMS name
+  METHOD AudioEmitter Holder::GetMusic(System.String) PARAMS name
+  METHOD System.Void Holder::InitializePixelFonts() PARAMS 
+  METHOD System.Void Holder::SpawnRemotePromoteSparkles(UnityEngine.Vector3) PARAMS position
+  METHOD System.Void Holder::SpawnPromoteSparkles() PARAMS 
+  METHOD System.Void Holder::.ctor() PARAMS 
+  METHOD System.Void Holder::.ctor(System.IntPtr) PARAMS pointer
+TYPE PayableComponent : Payable
+  PROP IPayableComponentOwner _owner
+  PROP LockIndicator _spawnedLockIndicator
+  PROP Il2CppSystem.Action`1<Player> OnSelectCallback
+  PROP Il2CppSystem.Action`1<Player> OnTransactionStartedCallback
+  METHOD System.Void PayableComponent::add_OnSelectCallback(Il2CppSystem.Action`1<Player>) PARAMS value
+  METHOD System.Void PayableComponent::remove_OnSelectCallback(Il2CppSystem.Action`1<Player>) PARAMS value
+  METHOD System.Void PayableComponent::add_OnTransactionStartedCallback(Il2CppSystem.Action`1<Player>) PARAMS value
+  METHOD System.Void PayableComponent::remove_OnTransactionStartedCallback(Il2CppSystem.Action`1<Player>) PARAMS value
+  METHOD System.Void PayableComponent::Init(IPayableComponentOwner) PARAMS owner
+  METHOD System.Void PayableComponent::Pay() PARAMS 
+  METHOD System.Boolean PayableComponent::CanPay(Player) PARAMS player
+  METHOD System.Boolean PayableComponent::CanSelect(Player) PARAMS player
+  METHOD System.Void PayableComponent::OnTransactionStarted(Player) PARAMS player
+  METHOD System.Void PayableComponent::OnSelect(Player) PARAMS player
+  METHOD System.Void PayableComponent::OnDeselect(Player) PARAMS player
+  METHOD System.Boolean PayableComponent::IsLocked(Player,LockIndicator/LockReason&) PARAMS player, reason
+  METHOD System.Void PayableComponent::GetSerializationData(Il2CppSystem.Type&) PARAMS compType
+  METHOD System.Void PayableComponent::.ctor() PARAMS 
+  METHOD System.Void PayableComponent::.ctor(System.IntPtr) PARAMS pointer
+TYPE Peasant : UnityEngine.MonoBehaviour
+  PROP System.Int32 APBump
+  PROP System.Int32 APGetUp
+  PROP System.Int32 APGround
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStringArray toolsToPickup
+  PROP System.Single walkSpeed
+  PROP System.Single runSpeed
+  PROP System.Single toolSpotRange
+  PROP UnityEngine.Vector2 toolWanderOffset
+  PROP System.Single fleeRangeOutsideKingdom
+  PROP System.Single fleeRange
+  PROP Peasant/StunState _stunState
+  PROP UnityEngine.Transform _transform
+  PROP Mover _mover
+  PROP UnityEngine.SpriteRenderer _spriteRenderer
+  PROP Character _character
+  PROP UnityEngine.Animator _animator
+  PROP Wallet _wallet
+  PROP Damageable _damageable
+  PROP Petrifiable _petrifiable
+  PROP Buffable _buffable
+  PROP Scanner _enemyScanner
+  PROP Droppable _target
+  PROP System.Single _stunTimeout
+  PROP AnimationSync _animSync
+  PROP CRPCHeader parentHeaderRef
+  PROP System.Int32 _peasantBuffIndex
+  PROP System.Int32 _peasantBuffEndIndex
+  PROP Coatsink.Common.IHaglet behaviour
+  PROP UnityEngine.Coroutine _flyingRoutine
+  PROP System.Int32 Idling
+  PROP System.Int32 GrabbingTool
+  PROP System.Int32 Fleeing
+  PROP System.Int32 Stunned
+  PROP System.Int32 Grabbed
+  PROP System.Int32 Inert
+  PROP UnityEngine.GameObject GetGO
+  PROP PickupAttribute PickupAttributes
+  PROP System.Single BorderLeftSide
+  PROP System.Single BorderRightSide
+  PROP UnityEngine.Transform CarrierTransform
+  PROP System.Single ToolSpotRange
+  PROP System.Single StateChangePenalty
+  PROP Buffable Buffable
+  METHOD System.Void Peasant::Awake() PARAMS 
+  METHOD System.Void Peasant::OnEnable() PARAMS 
+  METHOD System.Void Peasant::OnDisable() PARAMS 
+  METHOD System.Void Peasant::OnDestroy() PARAMS 
+  METHOD System.Void Peasant::HandleOnReleased() PARAMS 
+  METHOD System.Boolean Peasant::IsInert() PARAMS 
+  METHOD Il2CppSystem.Collections.Generic.IEnumerator`1<Coatsink.Common.Routine/Yield> Peasant::Behaviour() PARAMS 
+  METHOD System.Void Peasant::Stun(System.Int32) PARAMS damageMultiplier
+  METHOD Il2CppSystem.Collections.IEnumerator Peasant::FlyingRoutine() PARAMS 
+  METHOD System.Boolean Peasant::ShouldFlee() PARAMS 
+  METHOD System.Void Peasant::OnTriggerEnter2D(UnityEngine.Collider2D) PARAMS other
+  METHOD System.Void Peasant::HandleToolPickup(DroppableTool) PARAMS tool
+  METHOD System.Void Peasant::SetAnimation(System.Int32) PARAMS animCode
+  METHOD System.Void Peasant::PassthroughAnimationSend(System.Int32) PARAMS animCode
+  METHOD System.Boolean Peasant::BeginRegisteringRPCs(CRPCHeader) PARAMS headerRef
+  METHOD System.Void Peasant::GetSerializationData(Il2CppSystem.Type&) PARAMS compType
+  METHOD System.Void Peasant::DeserializeFromData() PARAMS 
+  METHOD System.Void Peasant::HandleAuthorityChange(System.Boolean) PARAMS newAuthorityState
+  METHOD System.Void Peasant::RegisterWithNetworkBoss() PARAMS 
+  METHOD System.Void Peasant::DeregisterWithNetworkBoss() PARAMS 
+  METHOD System.Boolean Peasant::CanPickupDroppable(Droppable) PARAMS droppable
+  METHOD System.Boolean Peasant::IsTargetingDroppable(Droppable) PARAMS droppable
+  METHOD System.Void Peasant::SetDroppableTarget(Droppable) PARAMS droppable
+  METHOD System.Void Peasant::StartPetrifyInternal() PARAMS 
+  METHOD System.Void Peasant::EndPetrifyInternal(System.Boolean) PARAMS skipVisuals
+  METHOD System.Void Peasant::CleanupEndPetrifyInternal() PARAMS 
+  METHOD System.Void Peasant::CrumbleInternal() PARAMS 
+  METHOD System.Void Peasant::ActivateBuff(BuffData) PARAMS buffData
+  METHOD System.Void Peasant::ActivateBuffVisuals(BuffData) PARAMS buffData
+  METHOD System.Void Peasant::DeactivateBuff(BuffType) PARAMS buffType
+  METHOD System.Void Peasant::DeactivateBuffVisuals(BuffType) PARAMS buffType
+  METHOD System.Void Peasant::SendPeasantBuff(System.Int32) PARAMS buffId
+  METHOD System.Void Peasant::SendPeasantBuffEnd(BuffType) PARAMS buffType
+  METHOD System.Void Peasant::RecvBuffPeasant() PARAMS 
+  METHOD System.Void Peasant::RecvBuffEndPeasant() PARAMS 
+  METHOD System.Void Peasant::.ctor() PARAMS 
+  METHOD System.Void Peasant::.ctor(System.IntPtr) PARAMS pointer
+  NESTED Peasant/StunState
+    FIELD System.Int32 value__ = 
+    FIELD Peasant/StunState None = 0
+    FIELD Peasant/StunState Flying = 1
+    FIELD Peasant/StunState OnGround = 2
+TYPE Persistent : UnityEngine.MonoBehaviour
+  PROP System.Boolean persistObject
+  PROP System.Boolean persistInactive
+  PROP System.String path
+  PROP System.Boolean serializeComponents
+  PROP PersistMode mode
+  PROP System.Int32 linkOrder
+  PROP System.String cachedHierarchyPath
+  PROP Persistent cachedPersistentParent
+  PROP System.Int32 cachedCreateOrder
+  PROP IslandSaveData/DecayHint decayHint
+  PROP System.Int32 decayResistanceDays
+  PROP Persistent decayedVersion
+  PROP System.Boolean useManualMinorCreateOrder
+  PROP System.Int32 manualMinorCreateOrder
+  PROP System.Boolean _persistInstance
+  METHOD System.Boolean Persistent::ShouldPersist() PARAMS 
+  METHOD System.Void Persistent::OnEnable() PARAMS 
+  METHOD System.Void Persistent::Start() PARAMS 
+  METHOD System.Void Persistent::OnDestroy() PARAMS 
+  METHOD System.Void Persistent::OnDisable() PARAMS 
+  METHOD System.Void Persistent::DontPersistInstance(System.Boolean,Il2CppSystem.Collections.Generic.List`1<UnityEngine.GameObject>) PARAMS includeChildren, excludeObjects
+  METHOD System.Void Persistent::DoPersistInstance() PARAMS 
+  METHOD System.Void Persistent::SetPersistence(System.Boolean) PARAMS persist
+  METHOD System.Void Persistent::OnTransformParentChanged() PARAMS 
+  METHOD System.Void Persistent::RecalcCache() PARAMS 
+  METHOD System.String Persistent::GetPath(UnityEngine.Transform,UnityEngine.Transform) PARAMS transform, root
+  METHOD System.Void Persistent::.ctor() PARAMS 
+  METHOD System.Void Persistent::.ctor(System.IntPtr) PARAMS pointer
+  NESTED Persistent/IBehaviour
+    METHOD Il2CppSystem.Object Persistent/IBehaviour::RetrieveData() PARAMS 
+    METHOD System.Void Persistent/IBehaviour::ApplyData(Il2CppSystem.Object) PARAMS data
+    METHOD System.Void Persistent/IBehaviour::.ctor(System.IntPtr) PARAMS pointer
+  NESTED Persistent/IDecayable
+    METHOD System.Void Persistent/IDecayable::ApplyDecay(System.Double) PARAMS amount
+    METHOD System.Void Persistent/IDecayable::.ctor(System.IntPtr) PARAMS pointer
+TYPE Pool : UnityEngine.MonoBehaviour
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<UnityEngine.GameObject,Pool> poolsByPrefab
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<UnityEngine.GameObject,Pool> origin
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<System.String,Pool> poolsByPersistentPath
+  PROP UnityEngine.GameObject prefab
+  PROP System.Int32 preload
+  PROP System.Boolean sync
+  PROP System.Int16 syncID
+  PROP System.Int32 capacity
+  PROP System.Boolean expendable
+  PROP System.Boolean verbose
+  PROP Pool/OnSpawnDelegate onSpawnDelegates
+  PROP UnityEngine.GameObject _prefab
+  PROP Il2CppSystem.Collections.Generic.List`1<UnityEngine.GameObject> _activeCache
+  PROP Il2CppSystem.Collections.Generic.List`1<UnityEngine.GameObject> _cache
+  PROP Il2CppSystem.Collections.Generic.List`1<UnityEngine.GameObject> _cycledCache
+  PROP System.Int32 _cycleIndex
+  PROP Il2CppSystem.Collections.Generic.List`1<Pool/DelayedDestruction> _delayedDestructions
+  PROP System.Int32 _total
+  PROP System.Int32 total
+  PROP System.Int32 cached
+  METHOD System.Int16 Pool::GetIndex(UnityEngine.GameObject) PARAMS obj
+  METHOD System.Void Pool::LinkOriginIfNotLinked(UnityEngine.GameObject) PARAMS obj
+  METHOD T Pool::Spawn(T) PARAMS prefab
+  METHOD T Pool::Spawn(T,UnityEngine.Vector3,UnityEngine.Quaternion,UnityEngine.Transform,System.Boolean) PARAMS prefab, position, rotation, parent, assertNonNullPrefab
+  METHOD UnityEngine.GameObject Pool::SpawnOrInstantiateGO(UnityEngine.GameObject,UnityEngine.Vector3,UnityEngine.Quaternion,UnityEngine.Transform) PARAMS prefab, position, rotation, parent
+  METHOD T Pool::SpawnOrInstantiate(T,UnityEngine.Vector3,UnityEngine.Quaternion,UnityEngine.Transform) PARAMS prefab, position, rotation, parent
+  METHOD UnityEngine.GameObject Pool::SpawnGO(UnityEngine.GameObject,UnityEngine.Vector3,UnityEngine.Quaternion,UnityEngine.Transform,System.Boolean,System.Boolean,System.Boolean) PARAMS prefab, position, rotation, parent, allowInstantiate, allowCreatePool, assertNonNullPrefab
+  METHOD Pool Pool::GetPoolFromPrefabAsset(UnityEngine.GameObject) PARAMS prefabAsset
+  METHOD Pool Pool::GetPoolFromPrefabInstance(UnityEngine.GameObject) PARAMS prefabInstance
+  METHOD System.Void Pool::Despawn(UnityEngine.GameObject,System.Boolean) PARAMS clone, syncDespawn
+  METHOD System.Void Pool::DespawnOrDestroy(UnityEngine.GameObject,System.Single) PARAMS clone, delay
+  METHOD System.Void Pool::DespawnOrDestroyImmediate(UnityEngine.GameObject) PARAMS clone
+  METHOD System.Void Pool::Despawn(UnityEngine.GameObject,System.Single,System.Boolean) PARAMS clone, delay, syncReceipt
+  METHOD System.Void Pool::Despawn(UnityEngine.GameObject,System.Single,Pool&,System.Boolean) PARAMS clone, delay, pool, syncReceipt
+  METHOD Pool Pool::GetPoolByInstance(UnityEngine.GameObject) PARAMS clone
+  METHOD System.Boolean Pool::TryDespawn(UnityEngine.GameObject,System.Single) PARAMS clone, delay
+  METHOD System.Boolean Pool::TryDespawn(UnityEngine.GameObject,System.Single,Pool&) PARAMS clone, delay, pool
+  METHOD PoolStatus Pool::GetPoolStatus() PARAMS 
+  METHOD System.Void Pool::UpdateFromStatus(PoolStatus) PARAMS status
+  METHOD CRPCHeader Pool::RegisterPoolInstance(UnityEngine.GameObject,System.Int16) PARAMS newObj, NetIDOverride
+  METHOD CRPCHeader Pool::AttemptSpawnSync(UnityEngine.GameObject,System.Int16,System.Boolean,System.Boolean) PARAMS newObj, NetIDOverride, syncReceipt, activateAfterRegistration
+  METHOD UnityEngine.GameObject Pool::FastSpawn(UnityEngine.Vector3,UnityEngine.Quaternion,UnityEngine.Transform,System.Int16,System.Boolean) PARAMS position, rotation, parent, netID, syncReceipt
+  METHOD System.Void Pool::FastDespawn(UnityEngine.GameObject,System.Single,System.Boolean) PARAMS clone, delay, ignoreWarnings
+  METHOD System.Void Pool::FastPreload() PARAMS 
+  METHOD System.Void Pool::OnClientDisconnect() PARAMS 
+  METHOD System.Void Pool::Awake() PARAMS 
+  METHOD System.Void Pool::OnDisable() PARAMS 
+  METHOD System.Void Pool::ClearStaticReferences() PARAMS 
+  METHOD System.Void Pool::Init(UnityEngine.GameObject) PARAMS newPrefab
+  METHOD System.Void Pool::ResetOrigins() PARAMS 
+  METHOD System.Void Pool::Reset() PARAMS 
+  METHOD System.Void Pool::DoPreload() PARAMS 
+  METHOD System.Void Pool::DoUpdate() PARAMS 
+  METHOD System.Void Pool::RemoveDelayedDestruction(System.Int32) PARAMS index
+  METHOD UnityEngine.GameObject Pool::FastClone(UnityEngine.Vector3,UnityEngine.Quaternion,UnityEngine.Transform) PARAMS position, rotation, parent
+  METHOD System.Void Pool::OnValidate() PARAMS 
+  METHOD System.Void Pool::SetName() PARAMS 
+  METHOD System.Void Pool::LinkObject(UnityEngine.GameObject) PARAMS obj
+  METHOD System.Void Pool::.ctor() PARAMS 
+  METHOD System.Void Pool::.ctor(System.IntPtr) PARAMS pointer
+  NESTED Pool/DelayedDestruction
+    PROP UnityEngine.GameObject clone
+    PROP System.Single life
+    PROP System.String name
+    METHOD System.Void Pool/DelayedDestruction::.ctor() PARAMS 
+    METHOD System.Void Pool/DelayedDestruction::.ctor(System.IntPtr) PARAMS pointer
+  NESTED Pool/OnSpawnDelegate
+    METHOD System.Void Pool/OnSpawnDelegate::.ctor(Il2CppSystem.Object,System.IntPtr) PARAMS object, method
+    METHOD System.Void Pool/OnSpawnDelegate::Invoke(UnityEngine.GameObject) PARAMS spawnedObject
+    METHOD Il2CppSystem.IAsyncResult Pool/OnSpawnDelegate::BeginInvoke(UnityEngine.GameObject,Il2CppSystem.AsyncCallback,Il2CppSystem.Object) PARAMS spawnedObject, callback, object
+    METHOD System.Void Pool/OnSpawnDelegate::EndInvoke(Il2CppSystem.IAsyncResult) PARAMS result
+    METHOD System.Void Pool/OnSpawnDelegate::.ctor(System.IntPtr) PARAMS pointer
+    METHOD Pool/OnSpawnDelegate Pool/OnSpawnDelegate::op_Implicit(System.Action`1<UnityEngine.GameObject>) PARAMS 
+    METHOD Pool/OnSpawnDelegate Pool/OnSpawnDelegate::op_Addition(Pool/OnSpawnDelegate,Pool/OnSpawnDelegate) PARAMS , 
+    METHOD Pool/OnSpawnDelegate Pool/OnSpawnDelegate::op_Subtraction(Pool/OnSpawnDelegate,Pool/OnSpawnDelegate) PARAMS , 
+  NESTED Pool/MethodInfoStoreGeneric_Spawn_Public_Static_T_T_0`1
+    FIELD System.IntPtr Pointer = 
+  NESTED Pool/MethodInfoStoreGeneric_Spawn_Public_Static_T_T_Vector3_Quaternion_Transform_Boolean_0`1
+    FIELD System.IntPtr Pointer = 
+  NESTED Pool/MethodInfoStoreGeneric_SpawnOrInstantiate_Public_Static_T_T_Vector3_Quaternion_Transform_0`1
+    FIELD System.IntPtr Pointer = 
+TYPE PoolManager : Manager
+  PROP BiomeObjectPools particlePools
+  PROP PoolRequests poolRequests
+  PROP System.Boolean learningMode
+  PROP System.String OBJECT_POOLS_PATH
+  PROP Il2CppSystem.Collections.Generic.List`1<Pool> cachedPools
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<System.Int32,Pool> cachedSyncIdPoolPairs
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<System.String,Pool> cachedNamePoolPairs
+  METHOD System.Void PoolManager::Init() PARAMS 
+  METHOD System.Void PoolManager::OnDisable() PARAMS 
+  METHOD System.Void PoolManager::OnDestroy() PARAMS 
+  METHOD System.Void PoolManager::InitPools() PARAMS 
+  METHOD BiomeObjectPools PoolManager::GetBiomePools() PARAMS 
+  METHOD System.Void PoolManager::TrySwapBiomePools(BiomeObjectPools&) PARAMS biomePools
+  METHOD System.Void PoolManager::CreateAndInitializePoolsFromCollection(BiomeObjectPools) PARAMS collection
+  METHOD System.Void PoolManager::Update() PARAMS 
+  METHOD System.Void PoolManager::PrintQuickSyncStatus() PARAMS 
+  METHOD System.Void PoolManager::OnLevelLoaded() PARAMS 
+  METHOD System.Void PoolManager::ResetPools() PARAMS 
+  METHOD Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray`1<PoolStatus> PoolManager::GetPoolStatuses() PARAMS 
+  METHOD Pool PoolManager::GetPoolByPrefabName(System.String) PARAMS name
+  METHOD Pool PoolManager::GetPoolBySyncID(System.Int32) PARAMS syncID
+  METHOD System.Void PoolManager::UpdatePool(PoolStatus) PARAMS status
+  METHOD System.Void PoolManager::SpawnObjectFromNetwork(PoolSpawn) PARAMS spawnInfo
+  METHOD System.Void PoolManager::DespawnObjectFromNetwork(PoolDespawn) PARAMS despawnInfo
+  METHOD System.Void PoolManager::CreateRequestedPools() PARAMS 
+  METHOD Pool PoolManager::CreatePoolFor(UnityEngine.GameObject) PARAMS prefab
+  METHOD System.Void PoolManager::OnNetChange() PARAMS 
+  METHOD System.Void PoolManager::.ctor() PARAMS 
+  METHOD System.Void PoolManager::.ctor(System.IntPtr) PARAMS pointer
+TYPE IslandSaveData : Il2CppSystem.Object
+  PROP System.Int32 MAX_BIOME_ISLANDS
+  PROP Coatsink.Common.IHagletCallableReturn`1<System.Boolean> TryGetExists
+  PROP Il2CppSystem.DateTime realStartDateTime
+  PROP System.Double playTimeDays
+  PROP System.Double lastPlayedTimeDays
+  PROP System.UInt64 _islandTimePlayed
+  PROP System.Boolean repopGrassHack
+  PROP System.Int32 biome
+  PROP IntRange _levelEdges
+  PROP Il2CppSystem.Collections.Generic.List`1<System.Int32> savedWithRevisions
+  PROP System.Int32 land
+  PROP Il2CppSystem.Collections.Generic.List`1<IslandSaveData/ObjectData> objects
+  PROP System.Int32 lastPlayedReign
+  PROP System.String ISLAND_SAVE_FILE_NAME_DEMO
+  PROP System.String ISLAND_SAVE_FILE_NAME
+  PROP System.String ISLAND_SAVE_FILE_TITLE
+  PROP System.String ISLAND_SAVE_FILE_CHALLENGE_NAME
+  PROP System.String ISLAND_SAVE_FILE_CHALLENGE_TITLE
+  PROP System.String ISLAND_SAVE_FILE_DESCRIPTION
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<IslandSaveData/FilePropsKey,IslandSaveData/FileProps> fileProps
+  PROP System.String details
+  PROP Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray`1<System.Char> invalidChars
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<System.String,Persistent> objectsByID
+  PROP Il2CppSystem.Collections.Generic.HashSet`1<System.String> decayedIDs
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<Persistent,System.String> idsByObject
+  PROP Il2CppSystem.Collections.Generic.Dictionary`2<System.String,UnityEngine.GameObject> cachedPrefabs
+  PROP Il2CppSystem.Collections.Generic.HashSet`1<Persistent> registeredPersistents
+  PROP System.Boolean isSavingGame
+  PROP System.Boolean _poppingObjectsToScene_k__BackingField
+  PROP Coatsink.Common.IHagletCallableReturn`4<System.Int32,System.Int32,System.Int32,Coatsink.Common.SaveLoadResult> TryLoad
+  PROP IslandSaveData _currentlySavingIsland
+  PROP Coatsink.Common.IHagletCallableReturn`4<System.Int32,System.Int32,System.Int32,Coatsink.Common.SaveLoadResult> TryDelete
+  PROP System.UInt64 TimePlayedSecondsIsland
+  PROP IntRange LevelEdges
+  PROP System.Boolean isNew
+  PROP System.Boolean poppingObjectsToScene
+  PROP IslandSaveData CurrentlySavingIsland
+  METHOD System.Void IslandSaveData::AddTimePlayedIsland(System.UInt64) PARAMS time
+  METHOD System.Void IslandSaveData::Init() PARAMS 
+  METHOD System.Int32 IslandSaveData::GetSaveRevision() PARAMS 
+  METHOD System.Void IslandSaveData::UpdateSavedWithRevisions() PARAMS 
+  METHOD System.Boolean IslandSaveData::ValidateSavedWithRevisions() PARAMS 
+  METHOD System.Void IslandSaveData::UpdateFileProps() PARAMS 
+  METHOD IslandSaveData/FileProps IslandSaveData::CreateFilePropsForChallenge(System.Int32,System.Int32) PARAMS land, challengeId
+  METHOD System.Boolean IslandSaveData::IsValidPath(System.String) PARAMS path
+  METHOD System.Void IslandSaveData::ClearPersistentObjects() PARAMS 
+  METHOD System.Void IslandSaveData::RegisterPersistent(Persistent) PARAMS perst
+  METHOD System.Void IslandSaveData::UnregisterPersistent(Persistent) PARAMS perst
+  METHOD Il2CppSystem.Collections.Generic.IEnumerator`1<Coatsink.Common.Routine/Yield> IslandSaveData::_TryLoad(System.Int32,System.Int32,System.Int32,Coatsink.Common.Routine/Return`1<Coatsink.Common.SaveLoadResult>) PARAMS campaignIndex, land, challengeId, return
+  METHOD IslandSaveData IslandSaveData::CreateFromStream(Il2CppSystem.IO.Stream) PARAMS stream
+  METHOD System.Boolean IslandSaveData::TrySaveToStream(Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray`1<System.Byte>&) PARAMS outBytes
+  METHOD System.Void IslandSaveData::SerializeObjects(Il2CppSystem.Nullable`1<System.Int32>) PARAMS land
+  METHOD System.Void IslandSaveData::Save(System.Int32,System.Int32,System.Int32) PARAMS campaign, land, challengeId
+  METHOD System.Void IslandSaveData::LoadWorldFromHostStream(Il2CppSystem.IO.Stream) PARAMS stream
+  METHOD Il2CppSystem.Collections.Generic.IEnumerator`1<Coatsink.Common.Routine/Yield> IslandSaveData::_TryDelete(System.Int32,System.Int32,System.Int32,Coatsink.Common.Routine/Return`1<Coatsink.Common.SaveLoadResult>) PARAMS campaign, land, challengeId, return
+  METHOD System.Void IslandSaveData::Delete(System.Int32,System.Int32,System.Int32) PARAMS campaign, land, challengeId
+  METHOD Il2CppSystem.Collections.Generic.IEnumerator`1<Coatsink.Common.Routine/Yield> IslandSaveData::_TryGetExists(System.Int32,System.Int32,Coatsink.Common.Routine/Return`1<System.Boolean>) PARAMS campaign, land, return
+  METHOD IslandSaveData/FileProps IslandSaveData::GetFilePropsForLand(System.Int32,System.Int32,System.Int32) PARAMS campaignIndex, land, challengeId
+  METHOD System.Void IslandSaveData::InsertionSort(Il2CppSystem.Collections.Generic.List`1<T>,Il2CppSystem.Comparison`1<T>) PARAMS arr, comp
+  METHOD System.Boolean IslandSaveData::TryPopObjectsToScene() PARAMS 
+  METHOD System.Boolean IslandSaveData::TryPopObjectsToSceneClient() PARAMS 
+  METHOD System.String IslandSaveData::GetID(Persistent) PARAMS forObject
+  METHOD UnityEngine.GameObject IslandSaveData::GetGameObject(System.String) PARAMS uniqueID
+  METHOD Persistent IslandSaveData::TryCreateOrFind(IslandSaveData/ObjectData) PARAMS objectData
+  METHOD Il2CppSystem.Collections.Generic.IEnumerable`1<Il2CppSystem.Collections.Generic.KeyValuePair`2<Persistent,System.Single>> IslandSaveData::GetDecayRelevantObjects() PARAMS 
+  METHOD System.Boolean IslandSaveData::DistributeDecay(System.Double,System.Double,System.Int32,Il2CppSystem.Collections.Generic.List`1<T>,Il2CppSystem.Text.StringBuilder,System.Boolean,System.Boolean) PARAMS lastPlayedTimeDays, arrivalTimeDays, land, objects, log, forceEnable, incrementStats
+  METHOD System.Void IslandSaveData::LogCountAndXRange(Il2CppSystem.Text.StringBuilder,Il2CppSystem.Collections.Generic.List`1<IslandSaveData/IDecayableData>,IslandSaveData/DecayHint) PARAMS log, objs, hint
+  METHOD System.Boolean IslandSaveData::HasDecayResistance(IslandSaveData/DecayHint) PARAMS group
+  METHOD System.Boolean IslandSaveData::ReceiveDecay(IslandSaveData/IDecayableData,System.Double&,Il2CppSystem.Text.StringBuilder) PARAMS obj, fodderDays, log
+  METHOD System.Boolean IslandSaveData::ApplyDecay(IslandSaveData/IDecayableData) PARAMS objectData
+  METHOD System.Void IslandSaveData::.ctor() PARAMS 
+  METHOD System.Void IslandSaveData::.ctor(System.IntPtr) PARAMS pointer
+  NESTED IslandSaveData/FilePropsKey
+    FIELD System.Int32 challengeId = 
+    FIELD System.Int32 campaign = 
+    FIELD System.Int32 land = 
+    METHOD Il2CppSystem.Object IslandSaveData/FilePropsKey::BoxIl2CppObject() PARAMS 
+  NESTED IslandSaveData/FileProps
+    PROP System.String filename
+    PROP System.String title
+    METHOD System.Void IslandSaveData/FileProps::.ctor(System.IntPtr) PARAMS pointer
+    METHOD System.Void IslandSaveData/FileProps::.ctor() PARAMS 
+  NESTED IslandSaveData/IDecayableData
+    METHOD System.String IslandSaveData/IDecayableData::GetLogName() PARAMS 
+    METHOD IslandSaveData/DecayHint IslandSaveData/IDecayableData::GetDecayHint() PARAMS 
+    METHOD System.Single IslandSaveData/IDecayableData::GetXPos() PARAMS 
+    METHOD System.Single IslandSaveData/IDecayableData::GetDecayResistanceDays() PARAMS 
+    METHOD System.Void IslandSaveData/IDecayableData::SetDecay(System.Double) PARAMS days
+    METHOD System.Double IslandSaveData/IDecayableData::GetDecay() PARAMS 
+    METHOD System.String IslandSaveData/IDecayableData::GetDecayedVersionPrefabPath() PARAMS 
+    METHOD System.Void IslandSaveData/IDecayableData::SetPrefabPath(System.String) PARAMS path
+    METHOD System.Void IslandSaveData/IDecayableData::.ctor(System.IntPtr) PARAMS pointer
+  NESTED IslandSaveData/ObjectData
+    PROP System.String name
+    PROP IslandSaveData/PersistentLink parentObject
+    PROP System.String hierarchyPath
+    PROP System.String prefabPath
+    PROP System.String uniqueID
+    PROP PersistMode mode
+    PROP System.Int32 createOrder
+    PROP System.Int32 linkOrder
+    PROP IslandSaveData/DecayHint decayHint
+    PROP System.Int32 decayResistanceDays
+    PROP System.String decayedVersionPrefabPath
+    PROP System.Int32 netID
+    PROP System.Int32 crpcType
+    PROP SerializableVector3 localPosition
+    PROP SerializableVector3 localScale
+    PROP Il2CppSystem.Collections.Generic.List`1<IslandSaveData/ObjectData/ComponentData> componentData2
+    PROP System.Double daysOfDecay
+    METHOD System.Void IslandSaveData/ObjectData::.ctor(Persistent,System.Boolean) PARAMS persistent, useNetworkData
+    METHOD System.String IslandSaveData/ObjectData::GetPath(UnityEngine.Transform,UnityEngine.Transform) PARAMS transform, root
+    METHOD System.String IslandSaveData/ObjectData::IslandSaveData_IDecayableData_GetLogName() PARAMS 
+    METHOD IslandSaveData/DecayHint IslandSaveData/ObjectData::IslandSaveData_IDecayableData_GetDecayHint() PARAMS 
+    METHOD System.Single IslandSaveData/ObjectData::IslandSaveData_IDecayableData_GetXPos() PARAMS 
+    METHOD System.Single IslandSaveData/ObjectData::IslandSaveData_IDecayableData_GetDecayResistanceDays() PARAMS 
+    METHOD System.Void IslandSaveData/ObjectData::IslandSaveData_IDecayableData_SetDecay(System.Double) PARAMS days
+    METHOD System.Double IslandSaveData/ObjectData::IslandSaveData_IDecayableData_GetDecay() PARAMS 
+    METHOD System.String IslandSaveData/ObjectData::IslandSaveData_IDecayableData_GetDecayedVersionPrefabPath() PARAMS 
+    METHOD System.Void IslandSaveData/ObjectData::IslandSaveData_IDecayableData_SetPrefabPath(System.String) PARAMS path
+    METHOD System.String IslandSaveData/ObjectData::ToString() PARAMS 
+    METHOD System.Void IslandSaveData/ObjectData::.ctor(System.IntPtr) PARAMS pointer
+  NESTED IslandSaveData/DecayHint
+    FIELD System.Int32 value__ = 
+    FIELD IslandSaveData/DecayHint None = 0
+    FIELD IslandSaveData/DecayHint Wall = 1
+    FIELD IslandSaveData/DecayHint Hunter = 2
+    FIELD IslandSaveData/DecayHint Citizen = 4
+    FIELD IslandSaveData/DecayHint Squire = 8
+    FIELD IslandSaveData/DecayHint Catapult = 16
+    FIELD IslandSaveData/DecayHint Pikeman = 32
+    FIELD IslandSaveData/DecayHint Castle = 64
+    FIELD IslandSaveData/DecayHint DeleteOnDecay = 128
+    FIELD IslandSaveData/DecayHint Lighthouse = 256
+  NESTED IslandSaveData/LoadQueueItem
+    PROP IslandSaveData/ObjectData/ComponentData componentData
+    PROP Persistent persistent
+    PROP IslandSaveData/ObjectData objectData
+    METHOD System.Void IslandSaveData/LoadQueueItem::.ctor(IslandSaveData/ObjectData/ComponentData,Persistent,IslandSaveData/ObjectData) PARAMS componentData, persistent, objectData
+    METHOD System.Void IslandSaveData/LoadQueueItem::.ctor(System.IntPtr) PARAMS pointer
+  NESTED IslandSaveData/PersistentLink
+    PROP System.String linkedObjectID
+    METHOD System.Void IslandSaveData/PersistentLink::.ctor(UnityEngine.GameObject) PARAMS linkedObject
+    METHOD System.Void IslandSaveData/PersistentLink::.ctor(UnityEngine.Component) PARAMS linkedObject
+    METHOD T IslandSaveData/PersistentLink::GetComponent() PARAMS 
+    METHOD UnityEngine.GameObject IslandSaveData/PersistentLink::Get() PARAMS 
+    METHOD System.Boolean IslandSaveData/PersistentLink::IsNotNull() PARAMS 
+    METHOD System.Void IslandSaveData/PersistentLink::.ctor(System.IntPtr) PARAMS pointer
+    METHOD System.Void IslandSaveData/PersistentLink::.ctor() PARAMS 
+  NESTED IslandSaveData/MethodInfoStoreGeneric_InsertionSort_Public_Static_Void_List_1_T_Comparison_1_T_0`1
+    FIELD System.IntPtr Pointer = 
+  NESTED IslandSaveData/MethodInfoStoreGeneric_DistributeDecay_Public_Static_Boolean_Double_Double_Int32_List_1_T_StringBuilder_Boolean_Boolean_0`1
+    FIELD System.IntPtr Pointer = 

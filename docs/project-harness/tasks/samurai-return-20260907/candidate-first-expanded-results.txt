@@ -1,0 +1,45 @@
+PASS No enemy and native attack cooldown do not prevent >10 return
+PASS Return takes priority over still-running attack cooldown
+FAIL 10/4 hysteresis and ordinary completion: completion restores vulnerability: expected False, got True
+PASS Return never damages even with enemies inside hit window
+FAIL Active return starts one coroutine, not one per frame: single active coroutine owner: expected 1, got 11
+FAIL Inside hysteresis band active return cannot also start attacking: no concurrent attack or repeated return: expected 1, got 21
+FAIL Long return ends invulnerable burst within 0.6 seconds then runs normally: burst vulnerability restored: expected False, got True
+PASS Return interruption: config
+PASS Return interruption: style
+PASS Return interruption: authority
+FAIL Return interruption: manual control: interruption releases invulnerability: expected False, got True
+FAIL Return interruption: already controlled: interruption releases invulnerability: expected False, got True
+FAIL Return interruption: retreating: interruption releases invulnerability: expected False, got True
+FAIL Return interruption: embarked: interruption releases invulnerability: expected False, got True
+FAIL Return interruption: embark target: interruption releases invulnerability: expected False, got True
+FAIL Return interruption: formation: interruption releases invulnerability: expected False, got True
+PASS Return interruption: dead
+FAIL Return interruption: charging: interruption releases invulnerability: expected False, got True
+FAIL Return interruption: charge pending: interruption releases invulnerability: expected False, got True
+FAIL Return interruption: inert: interruption releases invulnerability: expected False, got True
+FAIL Return interruption: grabbed: interruption releases invulnerability: expected False, got True
+FAIL Return interruption: stationary: interruption releases invulnerability: expected False, got True
+FAIL Return interruption: other FSM task: interruption releases invulnerability: expected False, got True
+PASS Config-off OnDisable is reachable and restores preexisting flags
+PASS Ordinary end of burst preserves preexisting invulnerability and trail
+FAIL External new position goal is never stopped or overwritten by cleanup: no overwrite: expected 2, got 3
+PASS External object goal and replacement mover survive cleanup
+FAIL External goal installed at burst deadline survives transition to running: transition never overwrites external position: expected 2, got 3
+FAIL Replacement mover identity interrupts return without stopping old or new external owner: new mover goal retained: expected 100, got 2.5
+PASS No followers means no invented return destination
+PASS Active follower invalidation: death
+PASS Active follower invalidation: leaves squad
+PASS Active follower invalidation: inactive
+PASS Active follower invalidation: destroyed
+PASS Nearest alive owned follower selected; active target follows changing position
+FAIL Stuck return times out and backs off instead of restarting each frame: no permanent invulnerability while stuck: expected False, got True
+FAIL Pause starts no burst; active pause consumes neither scaled time nor deadline: burst ends after resumed scaled time: expected False, got True
+PASS External mover pause is not cleared
+PASS Late old coroutine cleanup cannot erase pool-reused new owner
+PASS Whole follower cache is not searched every active return frame
+FAIL Whole follower cache is not searched every attack dash frame: attack leash uses interval checks, not whole-array lookup each frame
+FAIL OnDisable during attack releases owned invulnerability and trail: attack disable restores invulnerability: expected False, got True
+PASS OnDisable during attack preserves preexisting invulnerability and trail
+FAIL Late attack coroutine finally cannot clear new return owner after pool reuse: old attack cannot clear new return invulnerability: expected True, got False
+RESULT: 20 passed, 24 failed

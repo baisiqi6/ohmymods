@@ -1,0 +1,11 @@
+{
+  "tests": {
+    "recruitmentAssertions": 243,
+    "realFingerprintAssertions": 9,
+    "fullBuildWarnings": 0,
+    "fullBuildErrors": 0
+  },
+  "review": "独立reviewer hero_store_flags_review最终通过：迁移回退、权威空记录、来源不洗白、单context归属、原子提交与容量、窄指纹、一次性恢复和DLL审计。Operator修正四处测试夹具/期望错误；新增真实当前恢复绑定/日期与时钟变化、同指纹冲突拒绝写入回归。恢复stager补最后saved日志前缀与来源快照一致、空alias baseline一致断言；安装前后重新解压原生JSON并核对原文和SHA。",
+  "installed": true,
+  "actualGameReloadVerified": false
+}

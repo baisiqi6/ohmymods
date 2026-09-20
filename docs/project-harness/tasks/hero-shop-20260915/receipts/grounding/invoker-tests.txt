@@ -1,0 +1,1 @@
+PASS 7 invoker/JIT/production pointer adapter assertions; no game/native library loaded.

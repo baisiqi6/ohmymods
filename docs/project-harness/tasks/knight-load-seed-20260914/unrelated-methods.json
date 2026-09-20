@@ -1,0 +1,16 @@
+{
+  "old": "63105375E9CEB0478C679CAEFE5D31E573BE78DC6F4F3F68298D4E987407A56E",
+  "candidate": "444E1611127D499B4E071B121E20336E22B1C8C1ADB7DFCDF0CDEF3B635E306E",
+  "unchanged": 2340,
+  "expectedChanged": [
+    "KingdomEnhancedMod.KnightIdentityLoadBridge/LoadScope KingdomEnhancedMod.KnightIdentityLoadBridge::Begin(IslandSaveData)",
+    "System.Void KingdomEnhancedMod.PatchRoles_KnightStyle::IntegrityPass()",
+    "System.Exception KingdomEnhancedMod.KnightIdentityLoadBridge::End(System.Exception,KingdomEnhancedMod.KnightIdentityLoadBridge/LoadScope)",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "System.Exception KingdomEnhancedMod.KnightIdentityTryPopPatch::Finally(System.Exception,KingdomEnhancedMod.KnightIdentityLoadBridge/LoadScope)",
+    "System.Void KingdomEnhancedMod.KnightIdentityLoadBridge::HandleTryCreateOrFind(IslandSaveData/ObjectData,Persistent)",
+    "System.Void KingdomEnhancedMod.PatchRoles_KnightStyle::OnKnightPromoted(Character)",
+    "System.Void KingdomEnhancedMod.KnightIdentityRuntime::ResetForTests()",
+    "System.Void KingdomEnhancedMod.PatchRoles_KnightStyle::ApplyKnightStyle(Knight)"
+  ]
+}

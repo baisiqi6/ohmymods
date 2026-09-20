@@ -1,0 +1,129 @@
+[
+  {
+    "name": "Tower Knight_greece(Clone)",
+    "parentObject": {
+      "linkedObjectID": ""
+    },
+    "hierarchyPath": "Level/GameLayer/",
+    "prefabPath": "Prefabs/Buildings and Interactive/greece/Tower Knight_greece",
+    "uniqueID": "Tower Knight_greece(Clone)--92920",
+    "mode": 0,
+    "createOrder": 21067,
+    "linkOrder": 0,
+    "decayHint": 0,
+    "decayResistanceDays": -1,
+    "decayedVersionPrefabPath": "",
+    "netID": 1591,
+    "crpcType": 2,
+    "localPosition": {
+      "x": 156.63999938964844,
+      "y": 0.0,
+      "z": 1.6008639335632324
+    },
+    "localScale": {
+      "x": 1.0,
+      "y": 1.0,
+      "z": 1.0
+    },
+    "componentData2": [
+      {
+        "name": "WorkableBuilding",
+        "type": "WorkableBuildingData",
+        "data": "{\"currentBuildPoints\":0.0,\"usesConstructionBuildingComponent\":true}"
+      },
+      {
+        "name": "TowerKnight",
+        "type": "TowerKnightData",
+        "data": "{}"
+      },
+      {
+        "name": "CRPCStamp",
+        "type": "CRPCSaveData",
+        "data": "{\"NetID\":1591,\"SemiStatic\":true}"
+      },
+      {
+        "name": "ConstructionBuildingComponent",
+        "type": "ConstructionBuildingComponentSaveData",
+        "data": "{\"CurrentBuildPoints\":20.0}"
+      }
+    ]
+  },
+  {
+    "name": "CastleShieldShop(Clone)",
+    "parentObject": {
+      "linkedObjectID": ""
+    },
+    "hierarchyPath": "Level/GameLayer/",
+    "prefabPath": "Prefabs/Buildings and Interactive/CastleShieldShop",
+    "uniqueID": "CastleShieldShop(Clone)--93092",
+    "mode": 0,
+    "createOrder": 21069,
+    "linkOrder": 0,
+    "decayHint": 0,
+    "decayResistanceDays": -1,
+    "decayedVersionPrefabPath": "",
+    "netID": -1,
+    "crpcType": 0,
+    "localPosition": {
+      "x": 156.63999938964844,
+      "y": 0.0,
+      "z": 1.6052720546722412
+    },
+    "localScale": {
+      "x": 1.0,
+      "y": 1.0,
+      "z": 1.0
+    },
+    "componentData2": [
+      {
+        "name": "PayableShield",
+        "type": "PayableShieldData",
+        "data": "{\"status\":2}"
+      },
+      {
+        "name": "CRPCStamp",
+        "type": "CRPCSaveData",
+        "data": "{\"NetID\":0,\"SemiStatic\":false}"
+      }
+    ]
+  },
+  {
+    "name": "KEM_TowerSpot_156.6",
+    "parentObject": {
+      "linkedObjectID": ""
+    },
+    "hierarchyPath": "Level/GameLayer/",
+    "prefabPath": "Prefabs/Buildings and Interactive/greece/Tower0_greece",
+    "uniqueID": "KEM_TowerSpot_156.6--94096",
+    "mode": 0,
+    "createOrder": 21098,
+    "linkOrder": 0,
+    "decayHint": 0,
+    "decayResistanceDays": -1,
+    "decayedVersionPrefabPath": "",
+    "netID": 1613,
+    "crpcType": 2,
+    "localPosition": {
+      "x": 156.63995361328125,
+      "y": 0.0,
+      "z": 1.6044946908950806
+    },
+    "localScale": {
+      "x": 1.0,
+      "y": 1.0,
+      "z": 1.0
+    },
+    "componentData2": [
+      {
+        "name": "PayableUpgrade",
+        "type": "PayableUpgradeData",
+        "data": "{\"cooldown\":0.0}"
+      },
+      {
+        "name": "CRPCStamp",
+        "type": "CRPCSaveData",
+        "data": "{\"NetID\":1613,\"SemiStatic\":true}"
+      }
+    ]
+  }
+]

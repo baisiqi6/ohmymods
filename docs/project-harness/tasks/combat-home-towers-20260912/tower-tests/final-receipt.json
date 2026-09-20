@@ -1,0 +1,18 @@
+{
+  "sources": [
+    "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-home-towers-20260912\\tower-tests\\..\\build\\SpecialTowerDuplicateCleanup.cs",
+    "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-home-towers-20260912\\tower-tests\\..\\build\\PatchWorld_TowerSpots.cs"
+  ],
+  "before": [
+    "BB6E4238216F377AA967F2935F41E581510D8228152002961EE0D0BEF8D1BAC5",
+    "78B27914F1222B3E9229965F1EB23F79F99DE8FCB9793A6BF1B07B91045C54AE"
+  ],
+  "after": [
+    "BB6E4238216F377AA967F2935F41E581510D8228152002961EE0D0BEF8D1BAC5",
+    "78B27914F1222B3E9229965F1EB23F79F99DE8FCB9793A6BF1B07B91045C54AE"
+  ],
+  "stable": true,
+  "exit": 0,
+  "log": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\combat-home-towers-20260912\\tower-tests\\final.log",
+  "utc": "2026-09-11T17:24:39.1295632Z"
+}

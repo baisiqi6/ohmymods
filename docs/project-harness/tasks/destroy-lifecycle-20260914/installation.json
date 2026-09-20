@@ -1,0 +1,15 @@
+{
+  "time": "2026-09-14T07:16:04.8974636+08:00",
+  "target": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-destroy-lifecycle-20260914-071604-744.bak",
+  "installed": "319418A073E47D943B9CA068BA8F229E231E6C1A3D8B913ABF823F34EED86E48",
+  "build": "6.1.5-destroy-lifecycle-20260914",
+  "saveBefore": "3DE1786460A74262F58D2C18772E91722BD7D50CBCF04517F2526BCAD3C5571A",
+  "saveAfter": "3DE1786460A74262F58D2C18772E91722BD7D50CBCF04517F2526BCAD3C5571A",
+  "configBefore": "4CE570229201E9D6AFA77ED66B89C7628A3C34C2DDF506844A6E77B50C9BD398",
+  "configAfter": "4CE570229201E9D6AFA77ED66B89C7628A3C34C2DDF506844A6E77B50C9BD398",
+  "bankBefore": 5709,
+  "bankAfter": 5709,
+  "gameLaunched": false,
+  "published615Unchanged": true
+}

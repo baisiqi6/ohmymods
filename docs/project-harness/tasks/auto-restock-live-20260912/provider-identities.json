@@ -1,0 +1,22 @@
+[
+  {
+    "role": "worker",
+    "session": "sess_cb3305d6-49dc-4fe0-bd57-7fdad56028be",
+    "actualResponseModels": [
+      "GLM-5.3"
+    ],
+    "requested": "GLM-5.3 max",
+    "maxVariant": "UNVERIFIED",
+    "nativeLocator": "C:\\Users\\ADMIN\\.zcode\\cli\\rollout\\model-io-sess_cb3305d6-49dc-4fe0-bd57-7fdad56028be.jsonl"
+  },
+  {
+    "role": "reviewer",
+    "session": "sess_72552ee8-d8d9-4576-8c3e-21d6ba679cae",
+    "actualResponseModels": [
+      "GLM-5.3"
+    ],
+    "requested": "GLM-5.3 max",
+    "maxVariant": "UNVERIFIED",
+    "nativeLocator": "C:\\Users\\ADMIN\\.zcode\\cli\\rollout\\model-io-sess_72552ee8-d8d9-4576-8c3e-21d6ba679cae.jsonl"
+  }
+]

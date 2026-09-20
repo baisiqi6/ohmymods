@@ -1,0 +1,46 @@
+{
+  "candidateSha256": "96566DEF78BC6F990234BA1FEAB2CA45273B539118FA8B86FFF4EEE9B23DA202",
+  "removedHarmonyPatchTypes": [],
+  "addedMethods": [
+    "System.Boolean KingdomEnhancedMod.PatchEconomy_AutoRestock::IsDaytime(Kingdom)",
+    "System.Boolean KingdomEnhancedMod.PatchEconomy_AutoRestock::IsDaytimeNow()",
+    "System.Boolean KingdomEnhancedMod.PatchEconomy_AutoRestock::TryReadDaytime(System.Boolean&)",
+    "System.Void KingdomEnhancedMod.PatchEconomy_AutoRestock::DiscardVisualCoin(DroppableCurrency)",
+    "System.Void KingdomEnhancedMod.PatchEconomy_AutoRestock::EnterNightPause()",
+    "System.Void KingdomEnhancedMod.PatchEconomy_AutoRestock::ReleaseBorrowedAssistant(System.Int32,UnityEngine.GameObject)",
+    "System.Void KingdomEnhancedMod.PatchEconomy_AutoRestock/<>c__DisplayClass101_0::.ctor()",
+    "System.Void KingdomEnhancedMod.PatchEconomy_AutoRestock/<>c__DisplayClass101_0::<FinalizePurchase>b__0()"
+  ],
+  "version": "9.0.0.0",
+  "unchangedMethods": 3644,
+  "unchangedResources": [
+    "KingdomEnhancedMod.HeroArcherAtlas.png",
+    "KingdomEnhancedMod.ArtemisArrow.png",
+    "KingdomEnhancedMod.HeroShop.png",
+    "KingdomEnhancedMod.HeroShopSeats.png",
+    "KingdomEnhancedMod.MusketeerAtlas.png",
+    "KingdomEnhancedMod.MusketeerShop.png",
+    "KingdomEnhancedMod.MusketeerGun.png",
+    "KingdomEnhancedMod.MusketeerBullet.png"
+  ],
+  "actionAtlasVerified": true,
+  "newHarmonyPatchTypes": [],
+  "changedResources": [],
+  "baselineSha256": "63EA50ADDE922CC1600EF11B8D2C4CFE10FBB12C555D83914CED55DA7DBD354A",
+  "removedMethods": [
+    "System.Void KingdomEnhancedMod.PatchEconomy_AutoRestock/<>c__DisplayClass95_0::.ctor()",
+    "System.Void KingdomEnhancedMod.PatchEconomy_AutoRestock/<>c__DisplayClass95_0::<FinalizePurchase>b__0()"
+  ],
+  "changedMethods": [
+    "System.Boolean KingdomEnhancedMod.PatchEconomy_AutoRestock::EmitCoin(KingdomEnhancedMod.PatchEconomy_AutoRestock/Order,Managers,World)",
+    "System.Boolean KingdomEnhancedMod.PatchEconomy_AutoRestock::OrderContextValid(KingdomEnhancedMod.PatchEconomy_AutoRestock/Order,Banker,Kingdom,World)",
+    "System.Boolean KingdomEnhancedMod.PatchEconomy_AutoRestock::TryCreateOrder(Banker,KingdomEnhancedMod.PatchEconomy_AutoRestock/ShopSnapshot,System.Int32,System.String&)",
+    "System.Boolean KingdomEnhancedMod.PatchEconomy_Banker::TrySpendForAutoRestock(Banker,System.Int32)",
+    "System.String KingdomEnhancedMod.PatchEconomy_AutoRestock::GetSummary(System.Int32)",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "System.Void KingdomEnhancedMod.ModPanel::RestockControl(System.Single&,System.Single,System.String,System.Int32,BepInEx.Configuration.ConfigEntry`1<System.Boolean>,BepInEx.Configuration.ConfigEntry`1<System.Int32>)",
+    "System.Void KingdomEnhancedMod.PatchEconomy_AutoRestock::FinalizePurchase(KingdomEnhancedMod.PatchEconomy_AutoRestock/Order,Banker,System.Int32)",
+    "System.Void KingdomEnhancedMod.PatchEconomy_AutoRestock::ScanAndAssign(Banker,Managers)",
+    "System.Void KingdomEnhancedMod.PatchEconomy_AutoRestock::Tick(Banker,Managers,System.Boolean)"
+  ]
+}

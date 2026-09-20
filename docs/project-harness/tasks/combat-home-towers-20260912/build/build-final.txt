@@ -1,0 +1,10 @@
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+  KingdomEnhancedMod -> C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\combat-home-towers-20260912\build\bin\Debug\KingdomEnhancedMod.dll
+  Copied output to: C:/Users/ADMIN/Documents/Codex/2026-09-05/ohmymods-operator-2/combat-home-towers-20260912/build/deploy/KingdomEnhancedMod\
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:00.74

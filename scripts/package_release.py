@@ -113,7 +113,7 @@ def main():
         count += 1
         # 玩家文档
         rel = REPO / "release"
-        for name in ("MOD_UPDATE_AND_FIX_LOG_ZH.txt", "MOD_USER_GUIDE_ZH.txt",
+        for name in ("MOD_UPDATE_AND_FIX_LOG_ZH.txt", "MOD_FEATURES_OVERVIEW_ZH.txt", "MOD_USER_GUIDE_ZH.txt",
                      "MOD_CAPABILITIES_AND_ROADMAP_ZH.txt",
                      f"MOD_V{version}版本更新说明.txt"):
             src = rel / name

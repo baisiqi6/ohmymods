@@ -1,0 +1,200 @@
+PASS Original prefix causally reproduces fixed-wall Position and missing native Wait
+PASS Night guard preserves native Object target and Wait then follows advancing knight
+PASS Wall anchor side=Left facing=-1
+PASS Wall anchor side=Left facing=1
+PASS Wall anchor side=Right facing=-1
+PASS Wall anchor side=Right facing=1
+PASS AdjustAnchor itself never invokes native SetGoal
+PASS Deep valid follower position is not needlessly clamped
+PASS Deadlands wall pullback retains its existing deeper value
+PASS Leader beyond defensive wall band is never clamped
+PASS Expedition leader gate charging
+PASS Expedition leader gate pending charge
+PASS Expedition leader gate formation
+PASS Expedition leader gate embarked
+PASS Expedition leader gate boat target
+PASS Expedition leader gate manual control
+PASS Expedition leader gate already controlled
+PASS Expedition leader gate pillar task
+PASS Expedition leader gate other FSM
+PASS Follower higher task gate tower
+PASS Follower higher task gate formation
+PASS Follower higher task gate boat target
+PASS Follower higher task gate manual control
+PASS Follower higher task gate inert
+PASS Follower higher task gate grabbed
+PASS Follower higher task gate dead
+PASS Follower higher task gate not follow2
+PASS Dawn releases only owned offset while retaining dynamic native follow
+PASS Mod disable releases owned offset without reclamping
+PASS Paused mover retains receipt and pause until motion resumes
+PASS Global pause retains owned receipt until scaled play resumes
+PASS Lost authority retires receipt without any goal write
+PASS Reconcile preserves external Position
+PASS Reconcile preserves external speed
+PASS Reconcile preserves external offset
+PASS Reconcile preserves new owner
+PASS Reconcile preserves new mover
+PASS Reconcile preserves Archer mission
+PASS Clear only drops receipts without touching native goals
+PASS Same owned native reassertion does not lose original baseline
+PASS Exact owned reassertion after leader starts charging retains releasable baseline
+PASS Exact owned reassertion after config disable retains releasable baseline
+PASS Paused exact reassertion retains original baseline until pause ends
+PASS Destroyed mover receipt releases ledger and snapshot references
+PASS New native baseline is restored instead of stale first offset
+PASS Offset restore does not invoke native goal callbacks and later external task survives
+PASS Offset restore bypasses throwing native SetGoal and permits subsequent owners
+PASS Knightless wall mirror requires native wall8 and excludes other tasks
+PASS Day knight spread requires actual Assemble state without expedition intent
+PASS Live frame clamps Stand dash across Left wall without SetGoal
+PASS Facing flips recompute original offset instead of compounded clamp Left
+PASS Native GoToWall retreat can recover initial outside save Left
+PASS Confirmed defender retains lease entering GoToWall retreat Left
+PASS Moving intact wall recomputes safe anchor Left
+PASS Initially deep unchanged offset still registers live receipt Left
+PASS Initial outside Assemble and Charge cannot acquire confirmation Left
+PASS Daytime one-shot Follow2 activates at dusk without SetGoal Left
+PASS Live frame clamps Stand dash across Right wall without SetGoal
+PASS Facing flips recompute original offset instead of compounded clamp Right
+PASS Native GoToWall retreat can recover initial outside save Right
+PASS Confirmed defender retains lease entering GoToWall retreat Right
+PASS Moving intact wall recomputes safe anchor Right
+PASS Initially deep unchanged offset still registers live receipt Right
+PASS Initial outside Assemble and Charge cannot acquire confirmation Right
+PASS Daytime one-shot Follow2 activates at dusk without SetGoal Right
+PASS Counterexample: one-time prefix alone follows leader past wall
+PASS Frame callback touches only the passed mover
+PASS Frame native new offset argument replaces old baseline while outside
+PASS Frame exact ownership protects raw new offset
+PASS Frame exact ownership protects tiny new offset
+PASS Frame exact ownership protects raw speed
+PASS Frame exact ownership protects tiny speed
+PASS Frame exact ownership protects Position goal
+PASS Frame exact ownership protects other Object goal
+PASS Frame exact ownership protects different offset mode
+PASS Frame exact ownership protects new leader
+PASS Frame exact ownership protects new mover
+PASS Frame restores owned original on Day
+PASS Frame restores owned original on mod off
+PASS Frame restores owned original on Charge
+PASS Frame restores owned original on charging flag
+PASS Frame restores owned original on pending charge
+PASS Frame restores owned original on Assemble
+PASS Frame restores owned original on knight formation
+PASS Frame restores owned original on archer formation
+PASS Frame restores owned original on knight embarked
+PASS Frame restores owned original on archer boat target
+PASS Frame restores owned original on knight manual
+PASS Frame restores owned original on archer manual
+PASS Frame restores owned original on pillar task
+PASS Frame restores owned original on tower
+PASS Frame restores owned original on archer task
+PASS Frame restores owned original on inactive pooled archer
+PASS Frame restores owned original on dead knight
+PASS Frame does not clear mover pause and releases on resume
+PASS Frame does not write during global pause
+PASS Dormant day-night-day-night follows without repeated native goals
+PASS Departure clears confirmation before outside Stand
+PASS Frame loses authority without touching owned fields
+PASS World clear drops frame receipt without world actor mutations
+PASS Frame invalid facing restores safely instead of invalid arithmetic
+PASS Frame catches missing wall failure and returns still-owned offset
+PASS Frame accepts null or unrelated mover with no work
+PASS Bounded clamp diagnostics report real crossings at most eight times
+PASS Shared Charge arrival anchor portal Left
+PASS Shared Charge arrival anchor serpent Left
+PASS Shared Charge arrival anchor portal Right
+PASS Shared Charge arrival anchor serpent Right
+PASS Station requires arrival as well as native not-moving flag
+PASS Station captures goal position within exact native arrival tolerance
+PASS Station requires completed Position rather than near-but-moving goal
+PASS En-route Block.Stop cannot invent a station
+PASS Unconfirmed Stop even at old goal requires new explicit Position arrival
+PASS Confirmed station survives native Block.Stop and leader flip
+PASS Native SetSpeed releases confirmed station before resumed march
+PASS New Position goal releases old station then captures only after new arrival
+PASS Same-position native goal reissue waits for fresh arrival
+PASS Changed goal coordinate with false moving flag still requires physical arrival
+PASS Leader Object mission immediately releases Position station
+PASS Leader mover replacement cannot retain old station
+PASS New native follower offset respects captured station baseline and facing
+PASS Exact native reassertion preserves original station offset
+PASS Station can acquire when native follow first starts after leader arrival
+PASS Station returns owned offset on enemy invalidated charge flag
+PASS Station returns owned offset on Charge state ended
+PASS Station returns owned offset on new pending mission
+PASS Station returns owned offset on knight formation
+PASS Station returns owned offset on archer formation
+PASS Station returns owned offset on knight boat
+PASS Station returns owned offset on archer boat
+PASS Station returns owned offset on knight manual
+PASS Station returns owned offset on archer manual
+PASS Station returns owned offset on follower task ended
+PASS Station returns owned offset on tower slot
+PASS Station returns owned offset on mod off
+PASS Station preserves external Position takeover
+PASS Station preserves external Object takeover
+PASS Station preserves external speed takeover
+PASS Station preserves external offset takeover
+PASS Station preserves new leader takeover
+PASS Station archer pause preserves receipt then resumes fixed target
+PASS Station leader native pause retains confirmed site
+PASS Global pause does not clear station receipt
+PASS Station remains active through day/night without wall conversion
+PASS World clear removes station receipt without native mutation
+PASS Night diagnostic budget ignores initial spacing and duplicate followers
+PASS Station diagnostics have independent strict four-message session budget
+PASS Reconcile failure returns owned large offset before retiring receipt
+PASS Loading Clear then roster observation restores night registration Left
+PASS Loading Clear then roster observation restores night registration Right
+PASS Daytime roster observation activates at night without native follow restart
+PASS Roster observation never replaces an existing active baseline
+PASS Roster observation never replaces an existing dormant baseline
+PASS Roster observer rejects Position goal
+PASS Roster observer rejects different Knight Object
+PASS Roster observer rejects new Archer task
+PASS Roster observer rejects non Formation mode
+PASS Roster observer rejects tower
+PASS Roster observer rejects archer formation
+PASS Roster observer rejects boat task
+PASS Roster observer rejects manual control
+PASS Roster observer rejects invalid offset
+PASS Roster observer rejects invalid speed
+PASS Roster observer rejects zero speed
+PASS Roster observer rejects wrong Archer Mover
+PASS Roster observer respects unprocessed external writer receipt
+PASS Roster observer cannot re-adopt retired external offset writer
+PASS Roster observer cannot re-adopt retired external speed writer
+PASS Roster observer cannot re-adopt retired external owner writer
+PASS Fresh native follow SetGoal permits registration after external takeover
+PASS World Clear drops seed suppression without touching current tuple
+PASS Roster seed can recover an already arrived Charge attack site
+PASS Paused roster seed records native tuple without clearing pause
+PASS Roster observer handles null and lacks authority without registration
+PASS Real loading Follow baseline survives same-world supervisor boundary
+PASS New World drops old actors without writes and preserves new load receipts
+PASS Same World with new gameLayer drops old actors and keeps current load baseline
+PASS Changed World with reused layer refuses stale actor rebasing
+PASS Frame retiring old World on reused layer still prevents later stale seed
+PASS World changes before BeginWorld cannot trigger old actor field writes
+PASS BeginWorld rejects inactive Archer without restoration
+PASS BeginWorld rejects dead Archer without restoration
+PASS BeginWorld rejects dead Knight without restoration
+PASS BeginWorld rejects actor outside current layer without restoration
+PASS BeginWorld rejects external offset without restoration
+PASS BeginWorld rejects external Position without restoration
+PASS BeginWorld preserves current-world external writer refusal
+PASS BeginWorld clears old-world refusal and allows legitimate new actors
+PASS Registration waits for actual World identity
+PASS Registration waits for actual gameLayer identity
+PASS Temporary missing World defers boundary and retains true original
+PASS Temporary missing gameLayer defers boundary and retains true original
+PASS Mismatched incoming World does not discard Managers current legitimate receipt
+PASS Null incoming boundary does not erase current-world receipt
+PASS Exact native reassertion while World unavailable retains baseline
+PASS External writer while World unavailable still defeats old receipt on recovery
+PASS Unavailable scope followed by genuinely new World retires old receipt without writes
+PASS Current-layer nested hierarchy counts as current live actors
+PASS Dormant current-world receipt survives BeginWorld and later night activation
+RESULT 199 passed, 0 failed

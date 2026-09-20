@@ -1,0 +1,14 @@
+[
+  {
+    "type": "model_change",
+    "model": "deepseek/deepseek-v4-flash",
+    "thinking": null,
+    "fallback": false
+  },
+  {
+    "type": "thinking_level_change",
+    "model": null,
+    "thinking": "max",
+    "fallback": null
+  }
+]

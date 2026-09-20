@@ -63,7 +63,10 @@ internal sealed class MusketeerRackLayout
         bool complete = true;
         foreach (var item in items)
         {
-            if (!item.Unclaimed) { complete = false; continue; }
+            // A gun claimed by a resident waits out its walk-to-pickup window: it needs no
+            // anchor, cannot fail the layout, and its placed receipt stays until the slot
+            // leaves the snapshot below.
+            if (!item.Unclaimed) continue;
             if (IsPlaced(item)) continue;
             bool moved = false;
             try { moved = item.MoveAndVerify != null && item.MoveAndVerify(MusketeerShopRules.SlotX(item.Slot),

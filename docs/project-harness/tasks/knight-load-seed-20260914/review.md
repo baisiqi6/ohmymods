@@ -1,0 +1,1 @@
+最终knight_identity_design_review只读通过，无代码级阻断；真实两次启动未Save验证仍待，不能把候选回归当实机结论。

@@ -1,0 +1,21 @@
+{
+  "version": "7.6.5",
+  "commit": "648ddf0417f58162ef10c42c4bfdfc5faa66edc4",
+  "zipSha256": "64e8176f0f9117b225fd8fdd59132567c7392e5f897a3670564acb1bfebe076a",
+  "zipBytes": 39591252,
+  "entries": 313,
+  "dllSha256": "e1e5947cc4953d45d65b211a022739c06b4bad1ca72c7ddec4b5bfc3bf6c7354",
+  "dllBytes": 679936,
+  "crc": "PASS",
+  "layoutAndAllowlist": "PASS",
+  "runtimeBaselineMatch": {
+    "version": "6.0.0",
+    "entries": 306,
+    "allHashesMatch": true
+  },
+  "url": "https://github.com/baisiqi6/ohmymods/releases/tag/v7.6.5",
+  "download": "https://github.com/baisiqi6/ohmymods/releases/download/v7.6.5/KingdomEnhancedMod_v7.6.5_IL2CPP.zip",
+  "releaseId": 388144452,
+  "tag": "v7.6.5",
+  "localInstalled": true
+}

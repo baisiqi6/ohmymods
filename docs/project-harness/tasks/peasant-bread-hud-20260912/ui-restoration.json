@@ -1,0 +1,10 @@
+{
+  "pid": 5632,
+  "reason": "UI observation complete",
+  "end": "2026-09-12T15:54:44.5529038+08:00",
+  "saveBefore": "52DEF381398BE2AF8C235B9538B41DF081730E139EF857F52A14CEE7174867DD",
+  "saveAfter": "52DEF381398BE2AF8C235B9538B41DF081730E139EF857F52A14CEE7174867DD",
+  "bankBefore": 5423,
+  "bankAfterRun": 5406,
+  "bankRestored": 5423
+}

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>HeroArrowPierce.InteropCheck</AssemblyName>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Compile-only gate：HeroArcherWallPierce.cs 必须能对实际 2.4 interop 编过。
+       这证明本次改动引用的原生面真实存在：Arrow._collider（私有字段经 interop 公开）、
+       Physics2D.IgnoreCollision(Collider2D,Collider2D,bool)、Object.FindObjectsOfType<Wall>()、
+       Wall.GetComponentsInChildren<Collider2D>(bool)、Time.unscaledTime、Collider2D 等。
+       只写本目录 bin/obj；链接真实开发机 interop（只读引用，不复制）。 -->
+  <ItemGroup>
+    <Compile Include="../../../il2cpp/HeroArcherWallPierce.cs" Link="Production/HeroArcherWallPierce.cs" />
+    <Compile Include="InteropStubs.cs" />
+    <Reference Include="E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/BepInEx/interop/*.dll">
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/BepInEx/core/Il2CppInterop.Runtime.dll">
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

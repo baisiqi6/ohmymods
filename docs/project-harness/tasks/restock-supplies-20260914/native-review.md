@@ -1,0 +1,15 @@
+# Actual 2.4 ABI and native review
+
+Interop original tokens extracted from generated type .cctor GetIl2CppMethodByToken calls, not wrapper MetadataToken. Mapping uses read-only GameAssembly.dll method table. All evidence under this directory; game executable was not invoked by mapping.
+
+Only two new hook targets: PayableManager.AddPayable RVA672890 unique656B; RemovePayable673b40 unique608B. Their postfixes mark membership dirty, no game writes/RPC. No hooks to short FireTower.CanPay16B, Catapult.Fire48B, shared PayableComponent.Init16B, or coroutine MoveNext.
+
+Catapult.CreateProjectile8e71c0 decrements queued at8e7342 when not under free-fire buff, stores projectile at8e7407, sets currentLaunchableIsOil at8e7411. Catapult.Fire8e7d95 clears that flag before actual release; ReleaseProjectileFromAnimation changes parent8ea3ac and clears projectile8ea405. Therefore current usable loaded stock is exact spoon-parented, active same-world OilBarrel component; current buff/boolean do not classify payment origin. Counts include one existing usable buff-generated barrel, not hypothetical infinite ammunition. Global queued/loaded stock is deduplicated by Catapult native pointer; CountAt retains local coverage for site choice.
+
+FireTower.CreateProjectile5185f0 only hides a display jar and creates a spoon preview; inventory stays included in _fireJarsActiveNum. Release519bb5 decrements that field; OnPay5194b6 increments it. Do not add another count for the preview. Resources.assets confirms FireTower and PayableComponent on Tower_upgrade_Fire_greece; actual Oil Barrel and Greek Fire Jar Greece projectiles carry OilBarrel. FireTower._owner identity must match exact tower and own payable. Network clients require tower-specific _parentHeaderRef/_fireJarsActiveIndex in addition to base Payable RPC readiness.
+
+RollableOilBarrel.Update716da2 sets delivered before delayed loading. Native MoveNext718600 retains the waiting object until synchronous QueueOilBarrel7186aa→OnBarrelComplete7186c5→Despawn718752. Count valid current-world owned _activeBarrels during that wait; don't filter delivered prematurely. Check owner before dedup. Catapult destruction can leave transported barrels waiting for native workshop rebinding; missing counterpart suspends trusted publication instead of fabricating low inventory.
+
+PayableComponent.CanPay664860 preserves base→owner→lock gate; Pay664e30 calls owner. TransactionComplete6694a0→PerformPay667d30 doesn't revalidate CanPay: service checks again at commit, plus enabled/currency/price/players/network/current Greek banker/budget/native capacity. Barrel procurement checks biome-resolved rollable prefab pool before debit; FireTower checks its separate jar RPC. Both use same assistant order queue and one bank debit, then native TransactionComplete; no direct ammo mutations or new save entries.
+
+Reference 2.1 Pool.SpawnGO uses BiomeData.Current.GetAssetSwapForThis before pool lookup; full current-interop build validates that API and dependency traversal found no Unity unstripping stub. Actual prefab and original-token native evidence corroborated independently by /root/supply_reviewer.

@@ -1,0 +1,15 @@
+# 实际2.4原生设计核验
+
+独立内置reviewer只读核对native-disassembly.txt、native-followup-disassembly.txt及GameAssembly常量，未改代码/游戏。地址用interop .cctor的原始GetIl2CppMethodByToken token映射。
+
+Player.UpdatePayState(69b2b0,2560B)完成链调用Payable.TransactionComplete后清completing、通知IPayableCurrency slot5(PayableTransactionComplete)、清floating列表，最后置None；取消则CancelTransaction转Cancelling(7)，DropFloatingCurrency调用slot4(DropFromIndicator)。不能把取消当成交。
+
+Payable.TransactionComplete(6694a0)客机发RPC后写+0x100 forceBlock字段true并return，RecvPay(6681d0)非主机分支清false；回复码2调用Wallet.AddCurrency80bbd0退款并return，正常回复才进入PerformPay667d30。主机/离线正常完成也进入PerformPay。故需该原生成功入口作回执，并容忍客机等待时CanPay/CanSelect暂false且原生selected可能被清空。HasWorldAuth62e1a0、IsOnline62e470、CallMethodRemotely623490均映射对名。
+
+World.CanSpawnThicket(831430,752B)仅：auth、严格城墙内拒绝、所有其他grass距离<thicketSpacing拒绝。GetBorderSide59e820已核；没有winter、Stage7、NotGrassable判断。GrassUpdate.MoveNext564a50先原生grow/decay，再stage7→CanSpawn，true Spawn55c130，否则Remove55bf10，并等待updateInterval，故CanSpawn既是生成门又是存活门。RemoveThicket访问当前Managers.world，不能在新world清旧grass。
+
+ForestItem.FadeAndRemove52d6e0把delay写iterator后启动协程；actual FadeAndDestroy.MoveNext53e010使用delay>0直接等待，否则removeDelay*Random.Range(0.5,1.5)，常量已从PE只读核实。后续仍FX淡出0.4秒、停止火焰、销毁事件、延迟1秒Destroy，缩短等待保留这条链。
+
+actual resources.assets：Grass GO19701有Persistent；Thicket GO21717及完整子层没有Persistent（thicket-prefabs.json），包含Foliage/PopulationController/PositionSync/ParentCRPC等。读档后thicket由原生重建，并在每次真实Spawn→Add重新分类extra；无需新增存档sidecar。thicket没有SpriteRendererFX，需验证Foliage/子SpriteRenderer的淡出回收与池复用还原。
+
+用户已确认三个新开关所有世界可启用，森林3倍；不得扩大之前银行/缩放的Greek-only范围。

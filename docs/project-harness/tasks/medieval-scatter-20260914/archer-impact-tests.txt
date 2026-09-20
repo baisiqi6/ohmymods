@@ -1,0 +1,46 @@
+PASS Hook is an explicit non-generic Arrow.HitObject wrapper without bare helper names
+PASS Unqualified projectile keeps native damage without a Greek impact visual
+PASS Accepted hit spawns one three-layer pixel burst at the hit point with arrow renderer sorting
+PASS Duplicate HitObject call on the same arrow cannot spawn a second burst
+PASS Client without world authority gets no burst and no native acceptance
+PASS Arrow without an archer owner keeps native damage but draws no burst
+PASS Arrow owned by a GameObject without an Archer component draws no burst
+PASS Archer outside the current world scope is ignored while native damage lands
+PASS Inactive scope refuses bursts and a later world transition rebuilds fresh
+PASS Replacing the live world identity releases the old pool while the scope stays active
+PASS Replacing only the layer inside the same world also releases the pool
+PASS Unresolvable context releases the pool and refuses new bursts
+PASS Arrow left in a stale scene draws no burst even with a current owner
+PASS Disabled archer owner draws no burst while native damage still lands
+PASS Recycled arrow with _hasHit cleared by OnEnable spawns a fresh burst from the same slot
+PASS Native exception skips the postfix and leaves no partial burst, later hits recover
+PASS Burst leaves the native arrow state identical to a disabled-module run
+PASS Sorting order saturates instead of overflowing at int.MaxValue
+PASS Missing arrow sprite renderer is ignored with one bounded warning and no allocation
+PASS Config off keeps accepted hits completely free of module work
+PASS Idle ticks are no-ops: no allocation, no destroy, no exception
+PASS Disabling destroys live bursts, owned meshes/materials and the texture; re-enabling rebuilds fresh
+PASS Layer mesh is the author's 5x5 pixel grid: 36 vertices, 150 indices, uv=(k/5,j/5) fan of quads
+PASS Live burst rewrites its grid every tick, pixel snapping to 0.22 keeps it aligned
+PASS A frame that skips past a layer's duration cannot leave that layer rendering
+PASS Hit category is cached by the prefix: a target killed during the native hit keeps the enemy timing
+PASS Author growth then fade: scale grows to 80% of life, then alpha and scale shrink
+PASS Author layer parameters: core burns longest and brightest, outer layer stops first
+PASS Enemy hits use the author's 0.5s delay base, ground hits use 1s
+PASS At most four bursts are started per frame under a same-frame volley
+PASS Spawn window stays under the 24/s ceiling; author durations make the pool bind first
+PASS Pool is bounded: at most 16 live bursts and 48 pixel layers, extra hits are dropped
+PASS Burst lifetime never exceeds the author bound and the mesh is recycled, not destroyed
+PASS Slots are reused across hits: no per-hit meshes, materials, textures or geometry rebuild
+PASS Reused slot follows the new hit position and renderer sorting
+PASS Externally destroyed burst (scene unload) is released without double destroy and rebuilt
+PASS Both candidate shaders missing: burst skipped, backed off, then recovered
+PASS White texture failure leaks no owned resource and recovers after the backoff
+PASS Sprites/Default unavailable: Unlit/Texture fallback is used and recorded
+PASS Owned materials and the single white texture are shared, never the arrow trail material
+PASS Pool build failure cleans up partial objects, keeps the native path intact, recovers later
+PASS Spawn-time renderer write failure cleans the half-spawned slot and drops the burst
+PASS Vertex upload failure during animation releases the slot instead of leaving a frozen burst
+PASS Pool build that fails while parenting destroys the unparented orphan child
+PASS A burst never mutates arrow state or leaves an orphaned visible slot
+RESULT 45 passed, 0 failed

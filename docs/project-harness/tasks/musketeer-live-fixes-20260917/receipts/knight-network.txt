@@ -1,0 +1,52 @@
+knight-identity network module tests (console / serial, real module + mocked native boundary)
+
+  PASS  注册失败不追加；注册成功后恰好一个自有槽
+  PASS  Knight 与 Squire 都追加槽位（rank 变化不错位）
+  PASS  不含 Knight 组件的对象不追加槽位
+  PASS  重复 RegisterComponents 不重复追加槽位
+  PASS  Flush 后旧槽失效；原生重注册追加新槽，客户端用新槽发请求
+  PASS  原生槽位达到 256 上限时拒绝注册（绝不越界调用）
+  PASS  主机槽位损坏：不追加、不发响应；Flush 后重注册才恢复发送
+  PASS  客户端槽位损坏：不追加、不发请求；Flush 后换新 nonce 再发
+  PASS  进程边界 reset 使旧 delegate 失效且清空所有权
+  PASS  bad queued header cannot delete the next healthy response
+  PASS  uncertain native append remains rooted and poisoned until Flush
+  PASS  tail: 33 字节布局 magic|version|guid|style|lifetime(LE)
+  PASS  tail: 空 guid / style 越界 / 负 lifetime / 目标过小 一律拒绝且不改目标
+  PASS  tail: 写→读 往返保持 guid/style/lifetime
+  PASS  tail: 非法 magic/version/style/guid/lifetime 一律 false
+  PASS  tail: 更长载荷只取前 33 字节（后续 mod 尾巴不被吞）
+  PASS  packet: 请求 14 字节 / 响应 47 字节 布局与往返
+  PASS  packet: 非法 magic/version/kind/长度/越界 style 一律拒绝
+  PASS  tail: 协议常量与原生槽位上限一致（防协议漂移）
+  PASS  客户端未注册不发请求；注册后发出 14 字节请求
+  PASS  客户端未追平不发请求
+  PASS  同 life 同 binding 周期重试：nonce 不变
+  PASS  每拍最多 16 条请求，且轮转不饿死后面的对象
+  PASS  已有收据（握手完成）不再请求
+  PASS  life 变化 / binding 换代 立刻换新 nonce
+  PASS  不同 managed wrapper 同 native：握手记录保留（nonce 不变）
+  PASS  同一 GO 上换 Knight 组件实例（同 GOID 不同 Knight.Pointer）：握手记录重置
+  PASS  主机收到请求只入队，绝不在回调里写 ByteBuffer；下一次 Sync 发 47 字节响应
+  PASS  无收据主机不响应；客户端下一拍重试；有收据后响应
+  PASS  主机 gate 关闭（未追平）不响应
+  PASS  重复请求按 binding+nonce 去重
+  PASS  响应队列有界（512，溢出丢最旧）
+  PASS  响应发送异常被隔离且重试有界；恢复后可继续
+  PASS  完整握手往返：请求 → 响应 → 客户端采纳（按当前 life 快照）
+  PASS  客户端初次 life：旧 nonce 响应被拒绝（不采纳）
+  PASS  池复用：旧包先到拒绝，随后合法新包接受
+  PASS  Flush：旧槽 inert，且旧 nonce 在新 binding 世代下被拒绝
+  PASS  主机不采纳响应；客户端不响应请求
+  PASS  损坏包 / 未知 kind：不消费、不采纳
+  PASS  响应结构非法（style 越界）：不消费不采纳
+  PASS  响应来自别的 world 场景：不采纳
+  PASS  Runtime 拒绝应用：不崩溃、不落身份、同 nonce 可重试
+  PASS  catchup 尾巴：校验后消费但不采纳（等握手；旧 tail 不能抢占）
+  PASS  catchup：legacy 无尾巴 / 外来尾巴 一字节都不动
+  PASS  握手包不污染既有原生游标（只消费自己的 47 字节）
+  PASS  序列化：原生字段之后追加 33 字节尾巴（不动 native out 参数）
+  PASS  序列化：无收据 / Runtime 抛错时一个字节都不追加
+  PASS  Harmony 补丁只钉在已审计的 4 个原生方法上
+
+total: passed=48 failed=0

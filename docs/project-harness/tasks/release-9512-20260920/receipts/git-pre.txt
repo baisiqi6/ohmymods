@@ -1,0 +1,517 @@
+ M AGENTS.md
+ M docs/project-harness/architecture.md
+ M docs/project-harness/collaboration-protocol.md
+ M docs/project-harness/current/closeout-packet.md
+ M docs/project-harness/current/review.md
+ M docs/project-harness/current/task_plan.md
+ M docs/project-harness/domain-model.md
+ M docs/project-harness/game-logic-map/patch-patterns.md
+ M docs/project-harness/harness-checklist.json
+ M docs/project-harness/progress.md
+ M docs/project-harness/scope.md
+ M il2cpp/AutoRestockCounts.cs
+ M il2cpp/HermesHeadwearVisuals.cs
+ M il2cpp/KingdomEnhancedMod.csproj
+ M il2cpp/KingdomEnhancedPlugin.cs
+ M il2cpp/ModConfig.cs
+ M il2cpp/ModPanel.cs
+ M il2cpp/PatchArcher_Impact.cs
+ M il2cpp/PatchArcher_Options.cs
+ M il2cpp/PatchDivine_FriendlyTroll.cs
+ M il2cpp/PatchDivine_HermesHeadwear.cs
+ M il2cpp/PatchEconomy_AutoRestock.cs
+ M il2cpp/PatchEconomy_BankAssistants.cs
+ M il2cpp/PatchEconomy_Banker.cs
+ M il2cpp/PatchPerformance_Population.cs
+ M il2cpp/PatchPlayer_HoldPurchase.cs
+ M il2cpp/PatchRoles_Crossbowman.cs
+ M il2cpp/PatchRoles_KnightStyle.cs
+ M il2cpp/PatchRoles_SamuraiPowerDash.cs
+ M il2cpp/PatchWorld_FleetBoatFormation.cs
+ M il2cpp/PopulationCounts.cs
+ M il2cpp/PopulationHud.cs
+ M il2cpp/SamuraiDashVisuals.cs
+ M release-notes-il2cpp.md
+ M release/MOD_CAPABILITIES_AND_ROADMAP_ZH.txt
+ M release/MOD_UPDATE_AND_FIX_LOG_ZH.txt
+ M release/MOD_USER_GUIDE_ZH.txt
+ M scripts/package_release.py
+ M tests/archer-impact/Program.cs
+ M tests/archer-impact/Regression.csproj
+ M tests/archer-impact/Stubs.cs
+ M tests/archer-options/combat/CadenceIdentityTests.cs
+ M tests/archer-options/combat/CombatArcherOptions.Tests.csproj
+ M tests/archer-options/combat/Harness.cs
+ M tests/archer-options/combat/ScatterLedgerRetentionTests.cs
+ M tests/archer-options/combat/ScatterTests.cs
+ M tests/archer-options/combat/Stubs/GameStubs.cs
+ M tests/archer-options/combat/Stubs/RootAndHarmonyStubs.cs
+ M tests/archer-options/combat/Stubs/UnityStubs.cs
+ M tests/auto-restock-counts/Stubs.cs
+ M tests/auto-restock-counts/Tests.cs
+ M tests/auto-restock/AmmoAndFarmer.cs
+ M tests/auto-restock/AutoRestockTests.csproj
+ M tests/auto-restock/NightDiagnostics.cs
+ M tests/auto-restock/Stubs.cs
+ M tests/auto-restock/Tests.cs
+ M tests/greek-bank-assistants-scope/Harness.cs
+ M tests/greek-bank-assistants-scope/Program.cs
+ M tests/greek-bank-assistants-scope/Regression.csproj
+ M tests/greek-bank-assistants-scope/SiegeAmmoStub.cs
+ M tests/greek-bank-assistants-scope/Stubs.cs
+ M tests/greek-bank-scope/GreekBankScopeRegression.csproj
+ M tests/greek-bank-scope/Program.cs
+ M tests/greek-bank-scope/SiegeAmmoStub.cs
+ M tests/greek-bank-scope/Stubs.cs
+ M tests/hermes-headwear/Harness/Harness.cs
+ M tests/hermes-headwear/Program.cs
+ M tests/hold-purchase/HoldPurchaseTests.csproj
+ M tests/hold-purchase/NativeSim.cs
+ M tests/hold-purchase/Stubs.cs
+ M tests/hold-purchase/Tests.cs
+ M tests/population-hud/Program.cs
+ M tests/population-hud/Stubs.cs
+ M tests/samurai-motion/Stubs.cs
+ M tests/samurai-motion/VisualsStub.cs
+?? VERSIONING.md
+?? artifacts/
+?? docs/project-harness/current/handoff-packet.md
+?? docs/project-harness/game-logic-map/character-animation-production.md
+?? docs/project-harness/tasks/archer-options-20260914/
+?? docs/project-harness/tasks/author-impact-20260914/
+?? docs/project-harness/tasks/auto-restock-20260912/LogOutput.log
+?? docs/project-harness/tasks/auto-restock-20260912/Player.log
+?? docs/project-harness/tasks/auto-restock-20260912/acceptance.md
+?? docs/project-harness/tasks/auto-restock-20260912/build/
+?? docs/project-harness/tasks/auto-restock-20260912/count-tests/
+?? docs/project-harness/tasks/auto-restock-20260912/integration-tests/
+?? docs/project-harness/tasks/auto-restock-20260912/plan.md
+?? docs/project-harness/tasks/auto-restock-20260912/research/
+?? docs/project-harness/tasks/auto-restock-20260912/review/
+?? docs/project-harness/tasks/auto-restock-20260912/service-tests/
+?? docs/project-harness/tasks/auto-restock-20260912/startup.json
+?? docs/project-harness/tasks/auto-restock-live-20260912/LogOutput.log
+?? docs/project-harness/tasks/auto-restock-live-20260912/Player.log
+?? docs/project-harness/tasks/auto-restock-live-20260912/acceptance.md
+?? docs/project-harness/tasks/auto-restock-live-20260912/bank-restoration.json
+?? docs/project-harness/tasks/auto-restock-live-20260912/banker-null-probe.log
+?? docs/project-harness/tasks/auto-restock-live-20260912/build-final.txt
+?? docs/project-harness/tasks/auto-restock-live-20260912/count-tests.txt
+?? docs/project-harness/tasks/auto-restock-live-20260912/deployment.json
+?? docs/project-harness/tasks/auto-restock-live-20260912/description-only-delta.json
+?? docs/project-harness/tasks/auto-restock-live-20260912/integration-source-receipt.json
+?? docs/project-harness/tasks/auto-restock-live-20260912/integration-tests.txt
+?? docs/project-harness/tasks/auto-restock-live-20260912/interop-final.txt
+?? docs/project-harness/tasks/auto-restock-live-20260912/plan.md
+?? docs/project-harness/tasks/auto-restock-live-20260912/player-log-comparison.json
+?? docs/project-harness/tasks/auto-restock-live-20260912/provider-identities.json
+?? docs/project-harness/tasks/auto-restock-live-20260912/review-banker.md
+?? docs/project-harness/tasks/auto-restock-live-20260912/review-service.md
+?? docs/project-harness/tasks/auto-restock-live-20260912/saved-berserkers.json
+?? docs/project-harness/tasks/auto-restock-live-20260912/service-tests.txt
+?? docs/project-harness/tasks/auto-restock-live-20260912/source-hashes.json
+?? docs/project-harness/tasks/auto-restock-live-20260912/startup.json
+?? docs/project-harness/tasks/cat-scale-125-20260912/acceptance.md
+?? docs/project-harness/tasks/cat-scale-125-20260912/build-result.txt
+?? docs/project-harness/tasks/cat-scale-125-20260912/changes.diff
+?? docs/project-harness/tasks/cat-scale-125-20260912/install-receipt.json
+?? docs/project-harness/tasks/cat-scale-125-20260912/manifest.json
+?? docs/project-harness/tasks/combat-damage-audit-20260917/
+?? docs/project-harness/tasks/combat-home-towers-20260912/LogOutput.log
+?? docs/project-harness/tasks/combat-home-towers-20260912/Player.log
+?? docs/project-harness/tasks/combat-home-towers-20260912/acceptance.md
+?? docs/project-harness/tasks/combat-home-towers-20260912/build/
+?? docs/project-harness/tasks/combat-home-towers-20260912/chase-tests/
+?? docs/project-harness/tasks/combat-home-towers-20260912/greek-tests/
+?? docs/project-harness/tasks/combat-home-towers-20260912/plan.md
+?? docs/project-harness/tasks/combat-home-towers-20260912/research/
+?? docs/project-harness/tasks/combat-home-towers-20260912/review/
+?? docs/project-harness/tasks/combat-home-towers-20260912/startup.json
+?? docs/project-harness/tasks/combat-home-towers-20260912/tower-tests/
+?? docs/project-harness/tasks/combat-home-towers-20260912/worker/
+?? docs/project-harness/tasks/combat-reliability-20260917/
+?? docs/project-harness/tasks/combat-visuals-20260911/acceptance.md
+?? docs/project-harness/tasks/combat-visuals-20260911/build-final.txt
+?? docs/project-harness/tasks/combat-visuals-20260911/fire-assets-evidence.json
+?? docs/project-harness/tasks/combat-visuals-20260911/fire-assets-research.md
+?? docs/project-harness/tasks/combat-visuals-20260911/greek-tests.txt
+?? docs/project-harness/tasks/combat-visuals-20260911/hooks-final.txt
+?? docs/project-harness/tasks/combat-visuals-20260911/interop-final.txt
+?? docs/project-harness/tasks/combat-visuals-20260911/motion-tests.txt
+?? docs/project-harness/tasks/combat-visuals-20260911/operator-test-receipt.json
+?? docs/project-harness/tasks/combat-visuals-20260911/plan.md
+?? docs/project-harness/tasks/combat-visuals-20260911/render-api.md
+?? docs/project-harness/tasks/combat-visuals-20260911/review.md
+?? docs/project-harness/tasks/combat-visuals-20260911/startup-deployment.json
+?? docs/project-harness/tasks/combat-visuals-20260911/test-author-result.md
+?? docs/project-harness/tasks/combat-visuals-20260911/visual-tests.txt
+?? docs/project-harness/tasks/crash-20260913-0211/
+?? docs/project-harness/tasks/critter-native-scale-20260913/
+?? docs/project-harness/tasks/deer-spawn-20260913/
+?? docs/project-harness/tasks/destroy-lifecycle-20260914/
+?? docs/project-harness/tasks/expedition-follow-20260911/LogOutput.log
+?? docs/project-harness/tasks/expedition-follow-20260911/Player.log
+?? docs/project-harness/tasks/expedition-follow-20260911/acceptance.md
+?? docs/project-harness/tasks/expedition-follow-20260911/build-final.txt
+?? docs/project-harness/tasks/expedition-follow-20260911/extraction-receipt.json
+?? docs/project-harness/tasks/expedition-follow-20260911/interop-final.txt
+?? docs/project-harness/tasks/expedition-follow-20260911/native-research.md
+?? docs/project-harness/tasks/expedition-follow-20260911/object-hook-audit.txt
+?? docs/project-harness/tasks/expedition-follow-20260911/operator-tests.txt
+?? docs/project-harness/tasks/expedition-follow-20260911/plan.md
+?? docs/project-harness/tasks/expedition-follow-20260911/review.md
+?? docs/project-harness/tasks/expedition-follow-20260911/startup.json
+?? docs/project-harness/tasks/expedition-follow-20260911/test-receipt.json
+?? docs/project-harness/tasks/expedition-follow-20260911/tests-final.log
+?? docs/project-harness/tasks/expedition-follow-20260911/tests.md
+?? docs/project-harness/tasks/features-overview-20260918/
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/LogOutput.log
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/Player.log
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/acceptance.md
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/boat-test-receipt.json
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/boat-tests.log
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/boat-tests.md
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/build-final.txt
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/cat-tests.log
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/float-hook.txt
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/hooks-final.txt
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/interop-final.txt
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/native-boat-research.md
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/plan.md
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/player-log-comparison.json
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/retreat-cat-test-receipt.json
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/retreat-cat-tests.md
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/retreat-tests.log
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/review.md
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/source-hashes.json
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/startup.json
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/visual-retreat-review.md
+?? docs/project-harness/tasks/fleet-retreat-cats-20260912/worker-identity.json
+?? docs/project-harness/tasks/greek-bank-scope-20260914/
+?? docs/project-harness/tasks/greek-fire-20260907/acceptance.md
+?? docs/project-harness/tasks/greek-fire-20260907/build-final.txt
+?? docs/project-harness/tasks/greek-fire-20260907/hooks-final.txt
+?? docs/project-harness/tasks/greek-fire-20260907/interop-final.txt
+?? docs/project-harness/tasks/greek-fire-20260907/native-api.md
+?? docs/project-harness/tasks/greek-fire-20260907/plan.md
+?? docs/project-harness/tasks/greek-fire-20260907/regression.txt
+?? docs/project-harness/tasks/greek-fire-20260907/review.md
+?? docs/project-harness/tasks/greek-fire-20260907/startup-deployment.json
+?? docs/project-harness/tasks/greek-fire-20260907/test-author-result.md
+?? docs/project-harness/tasks/greek-fire-20260907/worker-red-receipt.json
+?? docs/project-harness/tasks/greek-fire-20260907/worker-red.txt
+?? docs/project-harness/tasks/greek-fire-impact-20260914/
+?? docs/project-harness/tasks/greek-scale-scope-20260914/
+?? docs/project-harness/tasks/hermes-disguise-cycle-20260914/
+?? docs/project-harness/tasks/hermes-headwear-20260914/
+?? docs/project-harness/tasks/hermes-headwear-visible-20260914/
+?? docs/project-harness/tasks/hero-animation-study-20260915/
+?? docs/project-harness/tasks/hero-archer-art-20260914/
+?? docs/project-harness/tasks/hero-archer-implementation-20260914/
+?? docs/project-harness/tasks/hero-arrow-pierce-20260917/
+?? docs/project-harness/tasks/hero-artemis-arrow-20260915/
+?? docs/project-harness/tasks/hero-center-grip-20260917/
+?? docs/project-harness/tasks/hero-cloth-flight-20260915/
+?? docs/project-harness/tasks/hero-live-fixes-20260915/
+?? docs/project-harness/tasks/hero-native-animation-fix-20260915/
+?? docs/project-harness/tasks/hero-relaxed-carry-20260917/
+?? docs/project-harness/tasks/hero-save-restore-20260915/
+?? docs/project-harness/tasks/hero-scarf-20260915/
+?? docs/project-harness/tasks/hero-shop-20260915/
+?? docs/project-harness/tasks/hero-sorting-20260915/
+?? docs/project-harness/tasks/hero-walk-scale-20260915/
+?? docs/project-harness/tasks/hold-purchase-ammo-20260917/
+?? docs/project-harness/tasks/hud-bank-defaults-20260906/acceptance.md
+?? docs/project-harness/tasks/hud-bank-defaults-20260906/build.txt
+?? docs/project-harness/tasks/hud-bank-defaults-20260906/config-receipt.json
+?? docs/project-harness/tasks/hud-bank-defaults-20260906/interop-audit.txt
+?? docs/project-harness/tasks/hud-bank-defaults-20260906/layout-check.json
+?? docs/project-harness/tasks/hud-bank-defaults-20260906/plan.md
+?? docs/project-harness/tasks/hud-bank-defaults-20260906/review.md
+?? docs/project-harness/tasks/hud-bank-defaults-20260906/startup-deployment.json
+?? docs/project-harness/tasks/hud-bank-defaults-20260906/worker-result.md
+?? docs/project-harness/tasks/hud-pixel-style-20260912/LogOutput.log
+?? docs/project-harness/tasks/hud-pixel-style-20260912/Player.log
+?? docs/project-harness/tasks/hud-pixel-style-20260912/acceptance.md
+?? docs/project-harness/tasks/hud-pixel-style-20260912/build-final.txt
+?? docs/project-harness/tasks/hud-pixel-style-20260912/check-preview.cjs
+?? docs/project-harness/tasks/hud-pixel-style-20260912/check-preview.py
+?? docs/project-harness/tasks/hud-pixel-style-20260912/interop-final.txt
+?? docs/project-harness/tasks/hud-pixel-style-20260912/plan.md
+?? docs/project-harness/tasks/hud-pixel-style-20260912/player-log-comparison.json
+?? docs/project-harness/tasks/hud-pixel-style-20260912/provider-identities.json
+?? docs/project-harness/tasks/hud-pixel-style-20260912/review.md
+?? docs/project-harness/tasks/hud-pixel-style-20260912/source-hashes.json
+?? docs/project-harness/tasks/hud-pixel-style-20260912/startup.json
+?? docs/project-harness/tasks/identity-restore-hardening-20260920/
+?? docs/project-harness/tasks/identity-restore-instability-20260919/
+?? docs/project-harness/tasks/infinite-stamina-20260914/
+?? docs/project-harness/tasks/knight-identity-20260914/
+?? docs/project-harness/tasks/knight-load-seed-20260914/
+?? docs/project-harness/tasks/mac-trial-945-20260919/
+?? docs/project-harness/tasks/medieval-scatter-20260914/
+?? docs/project-harness/tasks/musketeer-20260916/
+?? docs/project-harness/tasks/musketeer-banner-deer-20260917/
+?? docs/project-harness/tasks/musketeer-banner-rowgap-20260918/
+?? docs/project-harness/tasks/musketeer-hud-restock-20260917/
+?? docs/project-harness/tasks/musketeer-live-fixes-20260917/
+?? docs/project-harness/tasks/musketeer-red-muzzle-20260917/
+?? docs/project-harness/tasks/musketeer-save-check-20260917/
+?? docs/project-harness/tasks/musketeer-scale-20260917/
+?? docs/project-harness/tasks/musketeer-shop-claimlock-20260918/
+?? docs/project-harness/tasks/musketeer-side-rack-20260917/
+?? docs/project-harness/tasks/night-hold-20260917/
+?? docs/project-harness/tasks/optional-qol-20260914/
+?? docs/project-harness/tasks/package-800-20260915/
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/LogOutput.log
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/Player.log
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/acceptance.md
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/build-final.txt
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/count-tests.txt
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/counter-test-receipt.md
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/integration-tests.txt
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/interop-final.txt
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/plan.md
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/research/
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/review.md
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/runtime-restoration.json
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/service-test-receipt.md
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/service-tests.txt
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/source-hashes.json
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/startup.json
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/ui-LogOutput.log
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/ui-restoration.json
+?? docs/project-harness/tasks/peasant-bread-hud-20260912/ui-verification.json
+?? docs/project-harness/tasks/population-hud-20260913/acceptance.md
+?? docs/project-harness/tasks/population-hud-20260913/plan.md
+?? docs/project-harness/tasks/protocol-updates-20260918/
+?? docs/project-harness/tasks/release-400-20260904/deployment-final-20260904.md
+?? docs/project-harness/tasks/release-800-20260915/
+?? docs/project-harness/tasks/release-900-20260917/
+?? docs/project-harness/tasks/release-945-20260917/
+?? docs/project-harness/tasks/release-9512-20260920/
+?? docs/project-harness/tasks/restock-daylight-20260917/
+?? docs/project-harness/tasks/restock-double-cost-20260912/REVIEW.md
+?? docs/project-harness/tasks/restock-double-cost-20260912/WORKER.md
+?? docs/project-harness/tasks/restock-double-cost-20260912/acceptance.md
+?? docs/project-harness/tasks/restock-double-cost-20260912/bank-integration-results.txt
+?? docs/project-harness/tasks/restock-double-cost-20260912/bank-source-receipt.json
+?? docs/project-harness/tasks/restock-double-cost-20260912/build-result.txt
+?? docs/project-harness/tasks/restock-double-cost-20260912/built-source-hashes.json
+?? docs/project-harness/tasks/restock-double-cost-20260912/changes.diff
+?? docs/project-harness/tasks/restock-double-cost-20260912/manifest.json
+?? docs/project-harness/tasks/restock-double-cost-20260912/plan.md
+?? docs/project-harness/tasks/restock-double-cost-20260912/runtime-LogOutput.log
+?? docs/project-harness/tasks/restock-double-cost-20260912/runtime-receipt.json
+?? docs/project-harness/tasks/restock-double-cost-20260912/service-results.txt
+?? docs/project-harness/tasks/restock-double-cost-20260912/unity-api.txt
+?? docs/project-harness/tasks/restock-supplies-20260914/
+?? docs/project-harness/tasks/restore-current-battle-20260914/
+?? docs/project-harness/tasks/return-normal-island-20260914/
+?? docs/project-harness/tasks/runtime-anomalies-20260917/
+?? docs/project-harness/tasks/runtime-log-fixes-20260914/
+?? docs/project-harness/tasks/samurai-diag-20260914/
+?? docs/project-harness/tasks/samurai-return-20260907/acceptance.md
+?? docs/project-harness/tasks/samurai-return-20260907/anvil-research.md
+?? docs/project-harness/tasks/samurai-return-20260907/baseline-results.txt
+?? docs/project-harness/tasks/samurai-return-20260907/build-final.txt
+?? docs/project-harness/tasks/samurai-return-20260907/candidate-first-expanded-results.txt
+?? docs/project-harness/tasks/samurai-return-20260907/canonical-build.txt
+?? docs/project-harness/tasks/samurai-return-20260907/final-review.md
+?? docs/project-harness/tasks/samurai-return-20260907/first-review.md
+?? docs/project-harness/tasks/samurai-return-20260907/hit-build-final.txt
+?? docs/project-harness/tasks/samurai-return-20260907/hit-interop-final.txt
+?? docs/project-harness/tasks/samurai-return-20260907/hit-regression-final.txt
+?? docs/project-harness/tasks/samurai-return-20260907/hit-startup-deployment.json
+?? docs/project-harness/tasks/samurai-return-20260907/hit-test-author-result.md
+?? docs/project-harness/tasks/samurai-return-20260907/hit-update-acceptance.md
+?? docs/project-harness/tasks/samurai-return-20260907/hit-update-plan.md
+?? docs/project-harness/tasks/samurai-return-20260907/hooks-final.txt
+?? docs/project-harness/tasks/samurai-return-20260907/native-scout.md
+?? docs/project-harness/tasks/samurai-return-20260907/plan.md
+?? docs/project-harness/tasks/samurai-return-20260907/regression-final.txt
+?? docs/project-harness/tasks/samurai-return-20260907/startup-deployment.json
+?? docs/project-harness/tasks/samurai-return-20260907/test-author-result.md
+?? docs/project-harness/tasks/samurai-return-20260907/unity-final.txt
+?? docs/project-harness/tasks/samurai-return-20260907/worker-result.md
+?? docs/project-harness/tasks/squad-refill-20260911/acceptance.md
+?? docs/project-harness/tasks/squad-refill-20260911/build-final.txt
+?? docs/project-harness/tasks/squad-refill-20260911/first-observation.md
+?? docs/project-harness/tasks/squad-refill-20260911/hooks-final.txt
+?? docs/project-harness/tasks/squad-refill-20260911/interop-final.txt
+?? docs/project-harness/tasks/squad-refill-20260911/native-addresses.json
+?? docs/project-harness/tasks/squad-refill-20260911/native-research.md
+?? docs/project-harness/tasks/squad-refill-20260911/plan.md
+?? docs/project-harness/tasks/squad-refill-20260911/regression.txt
+?? docs/project-harness/tasks/squad-refill-20260911/review.md
+?? docs/project-harness/tasks/squad-refill-20260911/second-observation.md
+?? docs/project-harness/tasks/squad-refill-20260911/startup-deployment.json
+?? docs/project-harness/tasks/squad-refill-20260911/test-author-result.md
+?? docs/project-harness/tasks/squad-refill-20260911/test-receipt.json
+?? docs/project-harness/tasks/tax-collector-batch-20260915/
+?? docs/project-harness/tasks/tower-overlap-20260912/LogOutput.log
+?? docs/project-harness/tasks/tower-overlap-20260912/Player.log
+?? docs/project-harness/tasks/tower-overlap-20260912/acceptance.md
+?? docs/project-harness/tasks/tower-overlap-20260912/build-final.txt
+?? docs/project-harness/tasks/tower-overlap-20260912/hooks-final.txt
+?? docs/project-harness/tasks/tower-overlap-20260912/interop-final.txt
+?? docs/project-harness/tasks/tower-overlap-20260912/plan.md
+?? docs/project-harness/tasks/tower-overlap-20260912/research.md
+?? docs/project-harness/tasks/tower-overlap-20260912/review.md
+?? docs/project-harness/tasks/tower-overlap-20260912/same-position-objects.json
+?? docs/project-harness/tasks/tower-overlap-20260912/startup.json
+?? docs/project-harness/tasks/tower-overlap-20260912/test-receipt.json
+?? docs/project-harness/tasks/tower-overlap-20260912/tests.log
+?? docs/project-harness/tasks/tower-overlap-20260912/tests.md
+?? docs/project-harness/tasks/tower-overlap-20260912/worker-identity.json
+?? docs/project-harness/tasks/tower-overlap-20260912/worker-red-receipt.json
+?? docs/project-harness/tasks/tower-overlap-20260912/worker-red.log
+?? docs/project-harness/tasks/tower-residual-20260912/LogOutput.log
+?? docs/project-harness/tasks/tower-residual-20260912/Player.log
+?? docs/project-harness/tasks/tower-residual-20260912/RedistributionTests.cs
+?? docs/project-harness/tasks/tower-residual-20260912/acceptance.md
+?? docs/project-harness/tasks/tower-residual-20260912/build-final.txt
+?? docs/project-harness/tasks/tower-residual-20260912/build/
+?? docs/project-harness/tasks/tower-residual-20260912/exit-reassignment-evidence.log
+?? docs/project-harness/tasks/tower-residual-20260912/interop-final.txt
+?? docs/project-harness/tasks/tower-residual-20260912/negative-control.txt
+?? docs/project-harness/tasks/tower-residual-20260912/plan.md
+?? docs/project-harness/tasks/tower-residual-20260912/player-log-comparison.json
+?? docs/project-harness/tasks/tower-residual-20260912/probe-status.md
+?? docs/project-harness/tasks/tower-residual-20260912/provider-identities.json
+?? docs/project-harness/tasks/tower-residual-20260912/research/
+?? docs/project-harness/tasks/tower-residual-20260912/review-final.md
+?? docs/project-harness/tasks/tower-residual-20260912/review-initial.md
+?? docs/project-harness/tasks/tower-residual-20260912/review/
+?? docs/project-harness/tasks/tower-residual-20260912/source-hashes.json
+?? docs/project-harness/tasks/tower-residual-20260912/startup.json
+?? docs/project-harness/tasks/tower-residual-20260912/tests-final.txt
+?? docs/project-harness/tasks/tower-residual-20260912/tests/
+?? docs/project-harness/tasks/wind-arc-interop-20260913/acceptance.md
+?? docs/project-harness/tasks/wind-arc-interop-20260913/plan.md
+?? il2cpp/Assets/
+?? il2cpp/CombatDamage.cs
+?? il2cpp/CombatTargetLife.cs
+?? il2cpp/FireTowerRestockCapacity.cs
+?? il2cpp/FriendlyTrollDisguise.cs
+?? il2cpp/HermesHeadwearCycle.cs
+?? il2cpp/HermesHeadwearDiagnostics.cs
+?? il2cpp/HeroArcherAnimation.cs
+?? il2cpp/HeroArcherArrowVisuals.cs
+?? il2cpp/HeroArcherCloth.cs
+?? il2cpp/HeroArcherClothPhysics.cs
+?? il2cpp/HeroArcherCombat.cs
+?? il2cpp/HeroArcherGuardFacing.cs
+?? il2cpp/HeroArcherLiveDiagnostics.cs
+?? il2cpp/HeroArcherMotion.cs
+?? il2cpp/HeroArcherMovement.cs
+?? il2cpp/HeroArcherNativePose.cs
+?? il2cpp/HeroArcherNetwork.cs
+?? il2cpp/HeroArcherRange.cs
+?? il2cpp/HeroArcherRuntime.cs
+?? il2cpp/HeroArcherScarfGeometry.cs
+?? il2cpp/HeroArcherTowerPolicy.cs
+?? il2cpp/HeroArcherVisuals.cs
+?? il2cpp/HeroArcherWallPierce.cs
+?? il2cpp/HeroRecruitment.cs
+?? il2cpp/HeroRecruitmentArchive.cs
+?? il2cpp/HeroRecruitmentContext.cs
+?? il2cpp/HeroRecruitmentFingerprint.cs
+?? il2cpp/HeroShop.cs
+?? il2cpp/HeroShopBannerVisuals.cs
+?? il2cpp/HeroVisualPriority.cs
+?? il2cpp/KnightIdentityArchive.cs
+?? il2cpp/KnightIdentityContext.cs
+?? il2cpp/KnightIdentityLoadSeed.cs
+?? il2cpp/KnightIdentityNetwork.cs
+?? il2cpp/KnightIdentityRuntime.cs
+?? il2cpp/MedievalScatterPolicy.cs
+?? il2cpp/MusketeerAccess.cs
+?? il2cpp/MusketeerAnimation.cs
+?? il2cpp/MusketeerArchive.cs
+?? il2cpp/MusketeerCombat.cs
+?? il2cpp/MusketeerDefense.cs
+?? il2cpp/MusketeerGunVisuals.cs
+?? il2cpp/MusketeerHooks.cs
+?? il2cpp/MusketeerIdentity.cs
+?? il2cpp/MusketeerPersistence.cs
+?? il2cpp/MusketeerRestock.cs
+?? il2cpp/MusketeerRuntime.cs
+?? il2cpp/MusketeerShop.cs
+?? il2cpp/MusketeerShopAssets.cs
+?? il2cpp/MusketeerShopRules.cs
+?? il2cpp/MusketeerVisuals.cs
+?? il2cpp/PatchArcher_GreekImpact.cs
+?? il2cpp/PatchLifecycle_MenuInput.cs
+?? il2cpp/Patch_MusketeerFormation.cs
+?? il2cpp/PopulationGrounding.cs
+?? il2cpp/SamuraiDashDiagnostics.cs
+?? il2cpp/ScatterArrowTint.cs
+?? release/KingdomEnhancedMod_v8.0.0_IL2CPP.zip.sha256
+?? release/KingdomEnhancedMod_v9.0.0_IL2CPP.sha256
+?? release/KingdomEnhancedMod_v9.4.5_IL2CPP.sha256
+?? release/MOD_FEATURES_OVERVIEW_ZH.txt
+?? "release/MOD_V8.0.0\347\211\210\346\234\254\346\233\264\346\226\260\350\257\264\346\230\216.txt"
+?? "release/MOD_V9.0.0\347\211\210\346\234\254\346\233\264\346\226\260\350\257\264\346\230\216.txt"
+?? "release/MOD_V9.4.5\347\211\210\346\234\254\346\233\264\346\226\260\350\257\264\346\230\216.txt"
+?? tests/archer-impact/actual-interop/
+?? tests/archer-options/combat/MedievalScatterIntegrationTests.cs
+?? tests/archer-options/combat/Stubs/ScatterBoundaryStubs.cs
+?? tests/auto-restock-counts/MusketeerCountsTests.cs
+?? tests/auto-restock/MusketeerBackend.cs
+?? tests/auto-restock/MusketeerCases.cs
+?? tests/combat-damage/
+?? tests/fire-tower-restock-capacity/
+?? tests/friendly-troll-disguise/
+?? tests/greek-impact/
+?? tests/hermes-headwear-cycle/
+?? tests/hermes-headwear-diagnostics/
+?? tests/hermes-headwear-visuals/DiagnosticsDouble.cs
+?? tests/hermes-headwear/Doubles/CycleDouble.cs
+?? tests/hermes-headwear/Doubles/DiagnosticsDouble.cs
+?? tests/hermes-headwear/Tests/DisguiseCycleIntegrationTests.cs
+?? tests/hermes-quota-integration/
+?? tests/hero-archer/
+?? tests/hero-arrow-pierce/
+?? tests/hero-artemis-arrow/
+?? tests/hero-cloth-flight/
+?? tests/hero-cloth-turn/
+?? tests/hero-gait/
+?? tests/hero-guard-facing/
+?? tests/hero-movement/
+?? tests/hero-native-pose/
+?? tests/hero-native-visuals/
+?? tests/hero-recruitment/
+?? tests/hero-save-fingerprint/
+?? tests/hero-save-recovery/
+?? tests/hero-scarf-geometry/
+?? tests/hero-shop/
+?? tests/hero-tower-policy/
+?? tests/hero-visual-priority/
+?? tests/hero-walk-scale/
+?? tests/hold-purchase/AmmoTests.cs
+?? tests/hold-purchase/actual-interop/
+?? tests/impact-performance/
+?? tests/knight-identity-archive/
+?? tests/knight-identity-integration/
+?? tests/knight-identity-network/
+?? tests/knight-identity-runtime/
+?? tests/knight-load-seed/
+?? tests/knight-stable-context/
+?? tests/medieval-scatter-policy/
+?? tests/menu-input-lifecycle/
+?? tests/musketeer-boundary/
+?? tests/musketeer-defense/
+?? tests/musketeer-drop-interop/
+?? tests/musketeer-formation/
+?? tests/musketeer-identity/
+?? tests/musketeer-restock/
+?? tests/musketeer-runtime/
+?? tests/musketeer-shop-perf/
+?? tests/musketeer-shop/
+?? tests/musketeer-side-rack/
+?? tests/population-grounding/
+?? tests/samurai-diagnostics/
+?? tests/samurai-visuals/
+?? tests/scatter-arrow-tint/
+?? worker-norse-style-fix-20260905/

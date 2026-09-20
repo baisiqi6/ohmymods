@@ -1,0 +1,44 @@
+[
+  {
+    "session": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hermes-headwear-visible-20260914\\sessions\\2026-09-14T12-41-31-786Z_01a09fef-db8a-75bc-8817-272e95fc1e25.jsonl",
+    "events": [
+      {
+        "type": "session",
+        "id": "01a09fef-db8a-75bc-8817-272e95fc1e25",
+        "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hermes-headwear-visible-20260914\\worker"
+      },
+      {
+        "type": "model_change",
+        "id": "3d81a57a",
+        "model": "deepseek/deepseek-v4-flash",
+        "resolvedModelIsFallback": false
+      },
+      {
+        "type": "thinking_level_change",
+        "id": "10d3b598",
+        "thinkingLevel": "max"
+      }
+    ]
+  },
+  {
+    "session": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hermes-headwear-visible-20260914\\quota-sessions\\2026-09-14T12-45-01-519Z_01a09ff3-0ecf-74c9-9b35-36117cbeec8e.jsonl",
+    "events": [
+      {
+        "type": "session",
+        "id": "01a09ff3-0ecf-74c9-9b35-36117cbeec8e",
+        "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\hermes-headwear-visible-20260914\\quota-worker"
+      },
+      {
+        "type": "model_change",
+        "id": "5fa79c3c",
+        "model": "deepseek/deepseek-v4-flash",
+        "resolvedModelIsFallback": false
+      },
+      {
+        "type": "thinking_level_change",
+        "id": "22eea03c",
+        "thinkingLevel": "max"
+      }
+    ]
+  }
+]

@@ -1,0 +1,12 @@
+  Determining projects to restore...
+  Restored C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\knight-load-seed-20260914\verify\tests\hermes-headwear-cycle\production-compile\HermesCycleProductionCompile.csproj (in 52 ms).
+C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\knight-load-seed-20260914\verify\tests\hermes-headwear-cycle\production-compile\ProductionStubs.cs(11,47): warning CS0649: Field 'KingdomEnhancedPlugin.Instance' is never assigned to, and will always have its default value null [C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\knight-load-seed-20260914\verify\tests\hermes-headwear-cycle\production-compile\HermesCycleProductionCompile.csproj]
+  HermesCycleProductionCompile -> C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\knight-load-seed-20260914\verify\tests\hermes-headwear-cycle\production-compile\bin\Release\net6.0\HermesCycleProductionCompile.dll
+
+Build succeeded.
+
+C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\knight-load-seed-20260914\verify\tests\hermes-headwear-cycle\production-compile\ProductionStubs.cs(11,47): warning CS0649: Field 'KingdomEnhancedPlugin.Instance' is never assigned to, and will always have its default value null [C:\Users\ADMIN\Documents\Codex\2026-09-05\ohmymods-operator-2\knight-load-seed-20260914\verify\tests\hermes-headwear-cycle\production-compile\HermesCycleProductionCompile.csproj]
+    1 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:04.40

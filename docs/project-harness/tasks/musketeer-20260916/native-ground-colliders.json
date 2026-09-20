@@ -1,0 +1,70 @@
+[
+  {
+    "name": "Troll",
+    "id": 19689,
+    "components": [
+      {
+        "type": "Transform",
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.875,
+          "z": 0.6800000071525574
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      {
+        "type": "Rigidbody2D"
+      },
+      {
+        "type": "CapsuleCollider2D",
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.328125
+        },
+        "m_Size": {
+          "x": 0.375,
+          "y": 0.65625
+        }
+      }
+    ]
+  },
+  {
+    "name": "Archer",
+    "id": 19817,
+    "components": [
+      {
+        "type": "Transform",
+        "m_LocalPosition": {
+          "x": 0.0,
+          "y": 0.875,
+          "z": 0.75
+        },
+        "m_LocalScale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        }
+      },
+      {
+        "type": "Rigidbody2D"
+      },
+      {
+        "type": "CapsuleCollider2D",
+        "m_IsTrigger": true,
+        "m_Offset": {
+          "x": 0.0,
+          "y": 0.3125
+        },
+        "m_Size": {
+          "x": 0.1875,
+          "y": 0.625
+        }
+      }
+    ]
+  }
+]

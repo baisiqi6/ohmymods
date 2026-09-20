@@ -1,0 +1,50 @@
+PASS Original prefix causally reproduces fixed-wall Position and missing native Wait
+PASS Night guard preserves native Object target and Wait then follows advancing knight
+PASS Wall anchor side=Left facing=-1
+PASS Wall anchor side=Left facing=1
+PASS Wall anchor side=Right facing=-1
+PASS Wall anchor side=Right facing=1
+PASS AdjustAnchor itself never invokes native SetGoal
+PASS Deep valid follower position is not needlessly clamped
+PASS Deadlands wall pullback retains its existing deeper value
+PASS Leader beyond defensive wall band is never clamped
+PASS Expedition leader gate charging
+PASS Expedition leader gate pending charge
+PASS Expedition leader gate formation
+PASS Expedition leader gate embarked
+PASS Expedition leader gate boat target
+PASS Expedition leader gate manual control
+PASS Expedition leader gate already controlled
+PASS Expedition leader gate retreat
+PASS Expedition leader gate other FSM
+PASS Follower higher task gate tower
+PASS Follower higher task gate formation
+PASS Follower higher task gate boat target
+PASS Follower higher task gate manual control
+PASS Follower higher task gate inert
+PASS Follower higher task gate grabbed
+PASS Follower higher task gate dead
+PASS Follower higher task gate not follow2
+PASS Dawn releases only owned offset while retaining dynamic native follow
+PASS Mod disable releases owned offset without reclamping
+PASS Paused mover retains receipt and pause until motion resumes
+PASS Global pause retains owned receipt until scaled play resumes
+PASS Lost authority retires receipt without any goal write
+PASS Reconcile preserves external Position
+PASS Reconcile preserves external speed
+PASS Reconcile preserves external offset
+PASS Reconcile preserves new owner
+PASS Reconcile preserves new mover
+PASS Reconcile preserves Archer mission
+PASS Clear only drops receipts without touching native goals
+PASS Same owned native reassertion does not lose original baseline
+PASS Exact owned reassertion after leader starts charging retains releasable baseline
+PASS Exact owned reassertion after config disable retains releasable baseline
+PASS Paused exact reassertion retains original baseline until pause ends
+PASS Destroyed mover receipt releases ledger and snapshot references
+PASS New native baseline is restored instead of stale first offset
+PASS Native restore callback's new external task survives old cleanup
+PASS Failed native restore resets recursion guard for subsequent owners
+PASS Knightless wall mirror requires native wall8 and excludes other tasks
+PASS Day knight spread requires actual Assemble state without expedition intent
+RESULT 49 passed, 0 failed

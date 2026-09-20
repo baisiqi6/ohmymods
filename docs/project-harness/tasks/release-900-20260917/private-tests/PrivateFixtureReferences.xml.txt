@@ -1,0 +1,7 @@
+  <ItemGroup>
+    <!-- Read-only regression fixtures: exact native island text + the v1 sidecars from the live bug reports. -->
+    <None Include="../../docs/project-harness/tasks/hero-save-restore-20260915/receipts/current-island.json" Link="current-island.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../docs/project-harness/tasks/hero-save-restore-20260915/receipts/hero-identities-before.json" Link="hero-identities-before.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../docs/project-harness/tasks/hero-save-restore-20260915/receipts/latest-current-island.json" Link="latest-current-island.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../docs/project-harness/tasks/hero-save-restore-20260915/receipts/latest-hero-identities.json" Link="latest-hero-identities.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>

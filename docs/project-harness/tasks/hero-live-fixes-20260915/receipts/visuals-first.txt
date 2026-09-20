@@ -1,0 +1,135 @@
+FAIL lifecycle.capacity :: 生命周期行必须恰好停在上限 60，got 58
+    log: [HeroArcherVisuals] [HeroArcherNative] t=7.967 frame=1208 src=apply actor=2 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=7.967 frame=1208 attach actor=2 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.067 frame=1214 src=panel actor=2 life=1 hash=1004 nt=0.050 len=2.167 ct=0.108 pose=22 nat=22 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=panel actor=2 life=1 hash=1001 nt=0.000 len=1.667 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=1 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherPoseVisit] t=8.100 frame=1216 actor=2 action=Prepare dur=0.033 ctMax=0.108/1.667 frames=22-22 win=0.000 next=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=2 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=6 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=6 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=6 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=10 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=10 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=10 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=14 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=14 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=14 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=18 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=18 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=18 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=22 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=22 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=22 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=26 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=26 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=26 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=30 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=30 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=30 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=34 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=34 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=34 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=38 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=38 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=38 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=42 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=42 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=42 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=46 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=46 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=46 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=50 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=50 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=50 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=54 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=54 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=54 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=58 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=58 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=58 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=62 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=62 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=62 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=66 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=66 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=66 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=70 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=70 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=70 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=74 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=74 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=74 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=78 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=78 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=78 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=82 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=82 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=82 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=86 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=86 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=86 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=90 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=90 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=90 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=94 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=94 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=94 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=98 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=98 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=98 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=102 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=102 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=102 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=106 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=106 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=106 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=110 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=110 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=110 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=114 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 attach actor=114 life=1 action=Stand
+    log: [HeroArcherVisuals] [HeroArcherVisualLife] t=8.100 frame=1216 detach actor=114 reason=remove
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=118 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=122 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=126 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=130 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=134 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=138 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=142 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=146 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=150 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=154 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=158 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=162 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=166 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=170 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=174 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=178 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=182 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=186 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=190 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=194 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=198 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=202 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=206 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=210 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=214 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=218 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=222 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=226 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=230 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=234 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=238 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=242 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=246 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=250 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=254 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=258 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=262 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=266 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=270 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=274 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=278 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+    log: [HeroArcherVisuals] [HeroArcherNative] t=8.100 frame=1216 src=apply actor=282 life=1 hash=1001 nt=0.000 len=0.000 ct=0.000 pose=0 nat=0 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.00 face=1/1f0
+
+1 VISUALS-NATIVE-STUB TEST(S) FAILED, 98 passed

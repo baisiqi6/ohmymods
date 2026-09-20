@@ -1,0 +1,1 @@
+HeroShop core: 31 assertions passed.

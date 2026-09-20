@@ -1,0 +1,51 @@
+{
+  "time": "2026-09-14T08:21:15.8943747+08:00",
+  "save": "C:\\Users\\ADMIN\\AppData\\LocalLow\\noio\\KingdomTwoCrowns\\Release\\global-v35",
+  "backup": "C:\\Users\\ADMIN\\AppData\\LocalLow\\noio\\KingdomTwoCrowns\\Release\\global-v35.before-return-normal-20260914-082115-863.bak",
+  "before": "3DE1786460A74262F58D2C18772E91722BD7D50CBCF04517F2526BCAD3C5571A",
+  "after": "2B589F87F8862180EA3F87F7182E5402DA89BDD61EB3318783106A2A822E0ACA",
+  "changes": [
+    {
+      "path": [
+        "campaigns",
+        1,
+        "currentLand"
+      ],
+      "before": 10,
+      "after": 9
+    },
+    {
+      "path": [
+        "campaigns",
+        1,
+        "currentReign",
+        "currentLand"
+      ],
+      "before": 10,
+      "after": 9
+    },
+    {
+      "path": [
+        "campaigns",
+        1,
+        "carryForward",
+        "sailAwayGroup"
+      ],
+      "before": 1,
+      "after": 0
+    },
+    {
+      "path": [
+        "campaigns",
+        1,
+        "carryForward",
+        "numFleetBoats"
+      ],
+      "before": 4,
+      "after": 0
+    }
+  ],
+  "config": "FDADB211700FD96CBFDF28F323F5469DD77C33BEA9490321C9105195A1FCDB66",
+  "dll": "319418A073E47D943B9CA068BA8F229E231E6C1A3D8B913ABF823F34EED86E48",
+  "bank": 5709
+}

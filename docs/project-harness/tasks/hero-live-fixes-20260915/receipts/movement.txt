@@ -1,0 +1,109 @@
+C:\Users\ADMIN\projects\ohmymods\tests\hero-movement\Stubs.cs(104,19): warning CS0108: “Mover.Pointer”隐藏继承的成员“Object.Pointer”。如果是有意隐藏，请使用关键字 new。 [C:\Users\ADMIN\projects\ohmymods\tests\hero-movement\Tests.csproj]
+PASS scale: ×1.5
+PASS scale: fractional
+PASS scale: zero rejected
+PASS scale: negative rejected
+PASS scale: NaN rejected
+PASS scale: +Inf rejected
+PASS scale: overflow to non-finite rejected
+PASS attach: claimed
+PASS attach: walk ×1.5 (expected 6, got 6)
+PASS attach: run ×1.5 (expected 9, got 9)
+PASS attach: one claimed entry (expected 1, got 1)
+PASS reentry: walk never doubles (expected 6, got 6)
+PASS reentry: run never doubles (expected 9, got 9)
+PASS reentry: still one entry (expected 1, got 1)
+PASS restore: walk original (expected 4, got 4)
+PASS restore: run original (expected 6, got 6)
+PASS restore: ownership released (expected 0, got 0)
+PASS restore: nothing pending (expected 0, got 0)
+PASS half-write: walk still claimed
+PASS half-write: walk ×1.5 (expected 6, got 6)
+PASS half-write: run left native (expected 6, got 6)
+PASS half-write: walk stays ×1.5 once (expected 6, got 6)
+PASS half-write: run still native (expected 6, got 6)
+PASS half-write: run claimed on retry
+PASS half-write: run ×1.5 after retry (expected 9, got 9)
+PASS half-write: walk restored (expected 4, got 4)
+PASS half-write: run restored (expected 6, got 6)
+PASS half-write: no residual claim (expected 0, got 0)
+PASS cas: attached
+PASS cas: run ×1.5 (expected 9, got 9)
+PASS cas: foreign run value preserved exactly (expected 2, got 2)
+PASS cas: our walk field still restored (expected 4, got 4)
+PASS cas: ownership released (expected 0, got 0)
+PASS cas: re-claim after foreign write
+PASS cas: new baseline 2.0 → 3.0 (expected 3, got 3)
+PASS cas: walk re-claimed from original 4.0 (expected 6, got 6)
+PASS cas: foreign baseline restored (expected 2, got 2)
+PASS cas: walk baseline restored (expected 4, got 4)
+PASS pending: attached
+PASS pending: failed restore keeps receipt (expected 1, got 1)
+PASS pending: failed write leaves the field (expected 6, got 6)
+PASS pending: the other field still restored (expected 6, got 6)
+PASS pending: no re-boost until restored
+PASS pending: still exactly ×1.5 once (expected 6, got 6)
+PASS pending: retry completes (no pending left)
+PASS pending: original restored on retry (expected 4, got 4)
+PASS pending: registry clean (expected 0, got 0)
+PASS pending: no residual claim (expected 0, got 0)
+PASS pending: fresh claim after clean restore
+PASS pending: fresh claim ×1.5 (expected 6, got 6)
+PASS pending: final restore (expected 4, got 4)
+PASS clear: attached
+PASS clear: pending after failed restore (expected 1, got 1)
+PASS clear: pending receipt kept (never dropped) (expected 1, got 1)
+PASS clear: retry after Clear completes
+PASS clear: original restored after Clear (expected 4, got 4)
+PASS clear: nothing claimed (expected 0, got 0)
+PASS identity: attached
+PASS identity: foreign actor untouched (expected 4, got 4)
+PASS identity: unrelated restore never touches our claim (expected 6, got 6)
+PASS identity: unreadable GO id refuses attach
+PASS identity: unreadable actor untouched (expected 4, got 4)
+PASS identity: doomed actor attached
+PASS identity: destroyed actor never writes another claim (expected 6, got 6)
+PASS identity: Clear releases detached obligation (expected 0, got 0)
+PASS identity: nothing pending after Clear (expected 0, got 0)
+PASS identity: reachable claim restored by Clear (expected 4, got 4)
+PASS identity: destroyed actor's fields left alone (no blind write) (expected 6, got 6)
+PASS identity failure: attach
+PASS identity failure: retained unknown owner (expected 1, got 1)
+PASS identity failure: no repeat boost
+PASS identity failure: no mutation while unknown (expected 6, got 6)
+PASS identity failure: walk baseline restored (expected 4, got 4)
+PASS identity failure: run baseline restored (expected 6, got 6)
+PASS identity failure: completed (expected 0, got 0)
+PASS isolation: hero claimed
+PASS isolation: hero claim unaffected (expected 6, got 6)
+PASS isolation: other actor claims its own entry only (expected 6, got 6)
+PASS isolation: hero restored (expected 4, got 4)
+PASS isolation: other claim intact (expected 6, got 6)
+PASS isolation: other restored to its own baseline (expected 4, got 4)
+PASS cap: first claimed
+PASS cap: second claimed
+PASS cap: third refused
+PASS cap: third keeps native speeds (expected 4, got 4)
+PASS cap: table stays bounded at 2 (expected 2, got 2)
+PASS cap: bounded log once (expected 1, got 1)
+PASS cap: third run untouched (expected 6, got 6)
+PASS dl: covered by DL
+PASS dl: attach refuses while covered
+PASS dl: nothing claimed while covered (expected 4, got 4)
+PASS dl: no entry while covered (expected 0, got 0)
+PASS dl: claimed after DL off (walk) (expected 6, got 6)
+PASS dl: claimed after DL off (run) (expected 9, got 9)
+PASS dl: yields back to DL (walk restored) (expected 4, got 4)
+PASS dl: yields back to DL (run restored) (expected 6, got 6)
+PASS dl: no residual claim (expected 0, got 0)
+PASS dl: probe failure yields (fail-closed)
+PASS dl: probe failure claims nothing (expected 4, got 4)
+PASS dl: bounded log once (expected 1, got 1)
+PASS dl: knight registration does not cover the hero
+PASS dl: another actor's registration does not cover the hero
+PASS dl: own registration + follower covers
+PASS evidence: first boost logged once (expected 1, got 1)
+PASS evidence: stays single across re-claims (expected 1, got 1)
+PASS evidence: nothing escalated to errors (expected 0, got 0)
+
+RESULT: 106 passed, 0 failed

@@ -1,0 +1,16 @@
+[
+  {
+    "type": "session",
+    "id": "01a09eb2-ed3d-7408-ab7c-d41046100438",
+    "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\samurai-diag-20260914\\worker"
+  },
+  {
+    "type": "model_change",
+    "model": "deepseek/deepseek-v4-flash",
+    "resolvedModelIsFallback": false
+  },
+  {
+    "type": "thinking",
+    "level": "max"
+  }
+]

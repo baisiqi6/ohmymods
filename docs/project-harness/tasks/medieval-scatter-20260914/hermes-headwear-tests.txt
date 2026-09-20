@@ -1,0 +1,64 @@
+hermes-headwear core tests (console / serial / shared statics)
+
+HermesHeadwearCodec
+  PASS  codec.tail.roundtripsChoiceAndRevision
+  PASS  codec.tail.rejectsOutOfRangeAndEmptyToken
+  PASS  codec.tail.rejectsForeignAndCorruptedBytes
+  PASS  codec.metadata.buildAndRead
+  PASS  codec.metadata.unknownSchemaKeptOpaque
+  PASS  codec.inject.preservesNativeBytesExactly
+  PASS  codec.inject.replacesInsteadOfAppendingTwice
+  PASS  codec.inject.handlesPrettyNativeJson
+  PASS  codec.inject.ignoresNestedLookalikeKeys
+  PASS  codec.inject.survivesBracesAndQuotesInsideStrings
+  PASS  codec.inject.failsClosedOnBadPayloads
+  PASS  codec.inject.handlesEmptyObject
+Persistence (ObjectData component extension)
+  PASS  persistence.conversionMintsReceiptAndKeepsNativeFields
+  PASS  persistence.missWritesExplicitChoiceNone
+  PASS  persistence.reloadKeepsChoiceAndNeverRerolls
+  PASS  persistence.legacySaveStaysNative
+  PASS  persistence.unknownSchemaNeverShowsNorRollsButStaysOpaque
+  PASS  persistence.unknownSchemaSurvivesARealResave
+  PASS  persistence.disableKeepsReceiptAndStableAfterReload
+  PASS  persistence.chanceChangeOnlyAffectsFutureConversions
+  PASS  persistence.networkDataVariantNeverTouched
+  PASS  persistence.malformedPayloadLeftUntouched
+Save bridge (scoped capture + GetID correlation + postfix inject)
+  PASS  savebridge.realSaveFlowWritesReceiptAndSurvivesIdChange
+  PASS  savebridge.nonFriendlyAndUnscopedGetIdAreSideEffectFree
+  PASS  savebridge.missAndOpaqueAreWrittenWhileFeatureOff
+  PASS  savebridge.nestedScopesDoNotCrossContaminate
+  PASS  savebridge.nativeExceptionRestoresScopeAndPropagates
+  PASS  savebridge.saveWithoutTrackedObjectsIsNoop
+Networking (tail + owned RPC slot)
+  PASS  network.tailAndLiveRpcAgreeAcrossPeers
+  PASS  network.lateJoinTailFollowsHostEnabledState
+  PASS  network.legacyPayloadNeverRollsNorClears
+  PASS  network.preRegistrationDefersThenSendsOnce
+  PASS  network.clientRejectsCrossGenerationAndStaleRevision
+  PASS  network.retiredTokenRejectedAfterPoolReuse
+  PASS  network.foreignDelegateInOldSlotNeverReceivesOurSend
+  PASS  network.bindingsSurviveWorldChangeWithoutExtendingSlots
+  PASS  network.foreignPayloadBytesNotConsumed
+  PASS  network.sendGateWaitsForCaughtUpThenResendsAfterRejoin
+  PASS  network.poolReuseClearsPendingSend
+  PASS  network.malformedTailNeverMovesCursorNorRolls
+  PASS  network.staleBufferTailIsNotRead
+  PASS  network.hostNeverAcceptsClientDecisions
+  PASS  network.flushDropsOwnershipAndReappends
+Lifecycle (generation, cleanup, bounded retry)
+  PASS  lifecycle.poolReuseResetsGeneration
+  PASS  lifecycle.resetAndDespawnDropsReceipt
+  PASS  lifecycle.persistentDisableKeepsReceiptAndReactivates
+  PASS  lifecycle.destroyedTrollSweptFromRegistry
+  PASS  lifecycle.worldChangeReleasesEverything
+  PASS  lifecycle.staleWorldGenerationVisualIsCleared
+  PASS  lifecycle.visualFailureRetriesWithBackoffThenRecovers
+  PASS  lifecycle.visualFailureNeverGivesUpOnLongOutage
+  PASS  lifecycle.loadedReceiptSurvivesPopWindow
+  PASS  lifecycle.viewLossTriggersReapplySameChoice
+  PASS  lifecycle.settingsCallbackOnlyFlagsDirty
+  PASS  lifecycle.globalSwitchOffClearsVisualKeepsReceipt
+
+total: passed=55 failed=0

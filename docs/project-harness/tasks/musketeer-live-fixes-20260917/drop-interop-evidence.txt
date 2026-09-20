@@ -1,0 +1,140 @@
+Droppable Character::DropItem(Il2CppSystem.Nullable`1<UnityEngine.Vector2>)
+IL_0000: ldarg.0
+IL_0001: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::Il2CppObjectBaseToPtrNotNull(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase)
+IL_0006: pop
+IL_0007: ldc.i4.1
+IL_0008: conv.u
+IL_0009: sizeof System.IntPtr
+IL_000f: mul.ovf.un
+IL_0010: localloc
+IL_0012: stloc.1
+IL_0013: ldloc.1
+IL_0014: ldarg.1
+IL_0015: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::Il2CppObjectBaseToPtrNotNull(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase)
+IL_001a: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::il2cpp_object_unbox(System.IntPtr)
+IL_001f: stind.i
+IL_0020: ldsfld System.IntPtr Character::NativeMethodInfoPtr_DropItem_Public_Droppable_Nullable_1_Vector2_0
+IL_0025: ldarg.0
+IL_0026: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::Il2CppObjectBaseToPtrNotNull(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase)
+IL_002b: ldloc.1
+IL_002c: ldloca.s V_0
+IL_002e: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::il2cpp_runtime_invoke(System.IntPtr,System.IntPtr,System.Void**,System.IntPtr&)
+IL_0033: stloc.2
+IL_0034: ldloc.0
+IL_0035: call System.Void Il2CppInterop.Runtime.Il2CppException::RaiseExceptionIfNecessary(System.IntPtr)
+IL_003a: ldloc.2
+IL_003b: dup
+IL_003c: brtrue.s IL_0042
+IL_003e: pop
+IL_003f: ldnull
+IL_0040: br.s IL_0047
+IL_0042: call !!0 Il2CppInterop.Runtime.Runtime.Il2CppObjectPool::Get<Droppable>(System.IntPtr)
+IL_0047: nop
+IL_0048: ret
+Character Character::Promote(DroppableTool,IUnitController)
+IL_0000: ldarg.0
+IL_0001: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::Il2CppObjectBaseToPtrNotNull(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase)
+IL_0006: pop
+IL_0007: ldc.i4.2
+IL_0008: conv.u
+IL_0009: sizeof System.IntPtr
+IL_000f: mul.ovf.un
+IL_0010: localloc
+IL_0012: stloc.1
+IL_0013: ldloc.1
+IL_0014: ldarg.1
+IL_0015: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::Il2CppObjectBaseToPtr(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase)
+IL_001a: stind.i
+IL_001b: ldloc.1
+IL_001c: ldc.i4.1
+IL_001d: conv.u
+IL_001e: sizeof System.IntPtr
+IL_0024: mul.ovf.un
+IL_0025: add
+IL_0026: ldarg.2
+IL_0027: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::Il2CppObjectBaseToPtr(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase)
+IL_002c: stind.i
+IL_002d: ldsfld System.IntPtr Character::NativeMethodInfoPtr_Promote_Public_Character_DroppableTool_IUnitController_0
+IL_0032: ldarg.0
+IL_0033: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::Il2CppObjectBaseToPtrNotNull(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase)
+IL_0038: ldloc.1
+IL_0039: ldloca.s V_0
+IL_003b: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::il2cpp_runtime_invoke(System.IntPtr,System.IntPtr,System.Void**,System.IntPtr&)
+IL_0040: stloc.2
+IL_0041: ldloc.0
+IL_0042: call System.Void Il2CppInterop.Runtime.Il2CppException::RaiseExceptionIfNecessary(System.IntPtr)
+IL_0047: ldloc.2
+IL_0048: dup
+IL_0049: brtrue.s IL_004f
+IL_004b: pop
+IL_004c: ldnull
+IL_004d: br.s IL_0054
+IL_004f: call !!0 Il2CppInterop.Runtime.Runtime.Il2CppObjectPool::Get<Character>(System.IntPtr)
+IL_0054: nop
+IL_0055: ret
+Character Character::Promote(System.String,IUnitController)
+IL_0000: ldarg.0
+IL_0001: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::Il2CppObjectBaseToPtrNotNull(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase)
+IL_0006: pop
+IL_0007: ldc.i4.2
+IL_0008: conv.u
+IL_0009: sizeof System.IntPtr
+IL_000f: mul.ovf.un
+IL_0010: localloc
+IL_0012: stloc.1
+IL_0013: ldloc.1
+IL_0014: ldarg.1
+IL_0015: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::ManagedStringToIl2Cpp(System.String)
+IL_001a: stind.i
+IL_001b: ldloc.1
+IL_001c: ldc.i4.1
+IL_001d: conv.u
+IL_001e: sizeof System.IntPtr
+IL_0024: mul.ovf.un
+IL_0025: add
+IL_0026: ldarg.2
+IL_0027: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::Il2CppObjectBaseToPtr(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase)
+IL_002c: stind.i
+IL_002d: ldsfld System.IntPtr Character::NativeMethodInfoPtr_Promote_Public_Character_String_IUnitController_0
+IL_0032: ldarg.0
+IL_0033: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::Il2CppObjectBaseToPtrNotNull(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase)
+IL_0038: ldloc.1
+IL_0039: ldloca.s V_0
+IL_003b: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::il2cpp_runtime_invoke(System.IntPtr,System.IntPtr,System.Void**,System.IntPtr&)
+IL_0040: stloc.2
+IL_0041: ldloc.0
+IL_0042: call System.Void Il2CppInterop.Runtime.Il2CppException::RaiseExceptionIfNecessary(System.IntPtr)
+IL_0047: ldloc.2
+IL_0048: dup
+IL_0049: brtrue.s IL_004f
+IL_004b: pop
+IL_004c: ldnull
+IL_004d: br.s IL_0054
+IL_004f: call !!0 Il2CppInterop.Runtime.Runtime.Il2CppObjectPool::Get<Character>(System.IntPtr)
+IL_0054: nop
+IL_0055: ret
+Character Character::Demote()
+IL_0000: ldarg.0
+IL_0001: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::Il2CppObjectBaseToPtrNotNull(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase)
+IL_0006: pop
+IL_0007: ldc.i4.0
+IL_0008: conv.u
+IL_0009: stloc.1
+IL_000a: ldsfld System.IntPtr Character::NativeMethodInfoPtr_Demote_Public_Character_0
+IL_000f: ldarg.0
+IL_0010: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::Il2CppObjectBaseToPtrNotNull(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase)
+IL_0015: ldloc.1
+IL_0016: ldloca.s V_0
+IL_0018: call System.IntPtr Il2CppInterop.Runtime.IL2CPP::il2cpp_runtime_invoke(System.IntPtr,System.IntPtr,System.Void**,System.IntPtr&)
+IL_001d: stloc.2
+IL_001e: ldloc.0
+IL_001f: call System.Void Il2CppInterop.Runtime.Il2CppException::RaiseExceptionIfNecessary(System.IntPtr)
+IL_0024: ldloc.2
+IL_0025: dup
+IL_0026: brtrue.s IL_002c
+IL_0028: pop
+IL_0029: ldnull
+IL_002a: br.s IL_0031
+IL_002c: call !!0 Il2CppInterop.Runtime.Runtime.Il2CppObjectPool::Get<Character>(System.IntPtr)
+IL_0031: nop
+IL_0032: ret

@@ -1,0 +1,14 @@
+{
+  "old": "1D63533A4D74B9F8B60572FD595A58D8FC228C28DC860BEEB4179916C1665B1A",
+  "candidate": "C6B71AA694980B2958B87E768C469E75D030F5F55C2616A407E9EE36F342674F",
+  "unchanged": 2246,
+  "expectedChanged": [
+    "System.Int32 KingdomEnhancedMod.PatchArcher_Options::VolleyCount()",
+    "System.Void KingdomEnhancedMod.PatchArcher_Options::OnArrowEnable(Arrow)",
+    "System.Void KingdomEnhancedMod.ModPanel::DrawControls(System.Single)",
+    "System.Void KingdomEnhancedMod.ModConfig::Init(BepInEx.Configuration.ConfigFile)",
+    "System.Void KingdomEnhancedMod.PatchArcher_Options::OnArrowSpawnedByAttack(ArrowAttack,UnityEngine.GameObject,UnityEngine.Vector3,System.Boolean,UnityEngine.Vector2)",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()",
+    "System.Void KingdomEnhancedMod.PatchArcher_Options::Tick()"
+  ]
+}

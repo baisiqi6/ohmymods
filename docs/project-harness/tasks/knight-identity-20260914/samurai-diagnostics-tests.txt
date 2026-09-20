@@ -1,0 +1,10 @@
+PASS bucket admits eight dashes then reports suppression on the next start
+PASS refill is one per second and capped at capacity
+PASS a backwards clock restarts the bucket
+PASS invalid timestamps are refused without corrupting the bucket
+PASS each dash is capped at twelve lines
+PASS a failing log sink never breaks the dash
+PASS native context failures are swallowed and degrade the line
+PASS Trace keeps only primitive state and no Unity object
+PASS events append after the shared header
+ALL PASS: 9 passed, 0 failed

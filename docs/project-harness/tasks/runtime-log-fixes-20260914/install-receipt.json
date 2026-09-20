@@ -1,0 +1,12 @@
+{
+  "build": "7.6.5-runtime-log-fixes-20260914",
+  "dll": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "sha256": "1D63533A4D74B9F8B60572FD595A58D8FC228C28DC860BEEB4179916C1665B1A",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.before-runtime-log-fixes-20260914-171341-863.bak",
+  "saveBefore": "57E54166C813EEA47B85AC44DC47D779A7AAA5D41B73651B1F00AED33C4E2AAB",
+  "saveAfter": "57E54166C813EEA47B85AC44DC47D779A7AAA5D41B73651B1F00AED33C4E2AAB",
+  "configBefore": "A3E3A0B876BB5D421B681FFF5919FCE100BBAAEC043F083A36933F3114EA5439",
+  "configAfter": "A3E3A0B876BB5D421B681FFF5919FCE100BBAAEC043F083A36933F3114EA5439",
+  "gameStarted": false,
+  "published": false
+}

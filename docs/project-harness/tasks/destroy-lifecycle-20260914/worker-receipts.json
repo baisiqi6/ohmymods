@@ -1,0 +1,64 @@
+{
+  "workers": [
+    {
+      "session": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\destroy-lifecycle-20260914\\crossbow-sessions\\2026-09-13T22-35-43-145Z_01a09ce9-7ea9-71f8-aeb9-aa93eec8db64.jsonl",
+      "publicMetadata": [
+        {
+          "type": "session",
+          "id": "01a09ce9-7ea9-71f8-aeb9-aa93eec8db64",
+          "timestamp": "2026-09-13T22:35:43.145Z",
+          "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\destroy-lifecycle-20260914\\crossbow-worker"
+        },
+        {
+          "type": "model_change",
+          "id": "9d1d8951",
+          "timestamp": "2026-09-13T22:35:43.687Z",
+          "model": "deepseek/deepseek-v4-flash",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "thinking_level_change",
+          "id": "b5dd4162",
+          "timestamp": "2026-09-13T22:35:43.687Z",
+          "thinkingLevel": "max"
+        }
+      ]
+    },
+    {
+      "session": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\destroy-lifecycle-20260914\\shop-sessions\\2026-09-13T22-35-53-505Z_01a09ce9-a721-7535-a977-83b39bb05ae2.jsonl",
+      "publicMetadata": [
+        {
+          "type": "session",
+          "id": "01a09ce9-a721-7535-a977-83b39bb05ae2",
+          "timestamp": "2026-09-13T22:35:53.505Z",
+          "cwd": "C:\\Users\\ADMIN\\Documents\\Codex\\2026-09-05\\ohmymods-operator-2\\destroy-lifecycle-20260914\\shop-worker"
+        },
+        {
+          "type": "model_change",
+          "id": "aea828af",
+          "timestamp": "2026-09-13T22:35:54.041Z",
+          "model": "deepseek/deepseek-v4-flash",
+          "resolvedModelIsFallback": false
+        },
+        {
+          "type": "thinking_level_change",
+          "id": "078027ec",
+          "timestamp": "2026-09-13T22:35:54.042Z",
+          "thinkingLevel": "max"
+        }
+      ]
+    }
+  ],
+  "canonicalChangedProduction": [
+    "CrossbowmanLifecycle.cs",
+    "KingdomEnhancedPlugin.cs",
+    "ModPanel.cs",
+    "PatchRoles_Castle.cs",
+    "PatchRoles_Crossbowman.cs",
+    "ShopCleanupQueue.cs"
+  ],
+  "initialRun": "write approval mode rejected shell; root stopped only owned OMP PIDs 24196/23936, then resumed same sessions with yolo only inside isolated allowlist. No initial test pass claim accepted.",
+  "finalWorkers": "crossbow-final and shop-final completed exit 0; stdout JSONL and stderr task-scoped.",
+  "rootFinalChange": "PendingPoolHandoff retires old receipt when actual native Knight owner takes over same-SO package; added exact shared-resource regression and fixture isolation. Integrated panel tick and plugin stamp.",
+  "reviewer": "/root/destroy_lifecycle_reviewer; final no blocking findings, independently executed 31 tests/410 assertions"
+}

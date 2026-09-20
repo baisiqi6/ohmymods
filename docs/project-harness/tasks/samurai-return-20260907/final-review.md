@@ -1,0 +1,5 @@
+# Independent source review PASS
+
+startup_crash_review read the complete final4E69DF3F...40E0C83E source, worker RESULT,48/48 output and same-hash receipt. No reproducible newP0/P1 blockers. SingleMotionLease eliminates repeated return/attack concurrency and stale finally cleanup; lifecycle/goal checks precede phase writes; hard3s deadline,0.5s no-progress cancellation, same-follower three failures and default3s global cache verified. Operator separately rebuilt final source0W/0E, audited3native hooks and58Unity calls. GameAssembly hashCD8C2... remains unchanged, so the recorded uniqueShouldSlash native RVA0x5B68B0 evidence applies.
+
+Known limits: identical-value external writes are indistinguishable; Finish does not recheck current lease afterStop if an unproven synchronous callback were to retire it and install a new lease in the same ActorState. No concrete native reproduction was established, so reviewer did not classify it as a blocker. Managed tests do not establish full actual-game/online behavior. No nativeDispose hook was added.

@@ -1,0 +1,17 @@
+# 本机实现、部署及启动检查通过
+用户批准本机武士残影45%/25%/10%，0.2秒寿命淡出，前冲和返队共用，人物白色叠影只在burst；修Greek随从fire依赖和Medieval剑风接口异常。本轮不发布公开ZIP。
+
+## 实现
+- SamuraiDashVisuals：每骑士固定3个历史SpriteRenderer加1个贴身白色叠影，分别独立GO，世界identity根，快照只在发射时更新并保持世界pose。重用当前sprite/sharedMaterial，白色来自自有MPB _Overlay，原角色source材质/MPB/原生buff协程不写。采样间隔>=.04s且移动>=.4，最多3ghost，线性.2s淡出，闲置不读渲染材质。Begin/End token隔离旧lease，OnDisable prefix清理；原冲刺伤害/距离/CD/返队逻辑保留。已移除旧弱GlowOverlay。
+- Medieval剑风：sortingLayerName字符串shim实际引用缺失ReadOnlySpan.GetPinnableReference，改为真实native sortingLayerID复制，未升级Runtime。
+- GreekFireAssets：离线确证Norse Archer两个prefab fireSO为空；Data/ArrowData中的baseFire经当前Biome映射到Greece Fire SO，再按Spawn同样prefab映射校验已有pool113。只补实例空字段，不改共享prefab/原非null/ActiveArrowAttack/Buffable。RestoreMissing在既有ConvertToSoldier/Hunter的ApplyFollowerSkinTo入口（owner/marker早退前）和5s已取数组巡检中执行；客户端无_knight也可准备字段，Ensure给hostcast另限制style3。原Buff8s/CD15s及长buff不缩短逻辑保留。
+
+## 验证
+ZCode session sess_8178fe85-8f2b-40fb-a161-5bc783b518c8，nativeevent bigmodel/GLM-5.3已证，requested max未单独证明。其两案仍违反独立GO/.2s/编译条件未集成；operator实现后独立170tests(79motion+79Greek+12visual)通过，最后仅once日志/闲置读取改善后operator-final重跑170通过。源hash：Motion3D35E55C021A16AB2242E2A9E4911735585B0F4712590546A4A6E13DB4ECD715；Greek3607BA796CF1D0D384124C9F075761C427EB1310DF3ABAD0F65BF1B9E907E1A4；Assets958CE9EBC92774C42833DE7C7BE78647A486E8700E085B56413A615EF9A65117；Visual980137C8606D27ABDAAC47D91ABBFEDC5D4F475AD44DD4D5A1C781BDBDEB8173。test-author早版文档EE2E视觉hash仅历史，最终operator-test-receipt为准。独立review已更新980137 PASS。
+实际依赖0W/0E，163可达Unity方法无unstrip桩，3既有Samurai hookwrapper核验。原生地址来自既有同GameAssembly审计，未新增共享Dispose或渲染全局hook。
+
+E部署DLL 7F0CBE8D00A06C916B9A13CC95B351D79AECA4265DD60500EF14443145CD57AC，build=4.5.0-combat-visuals-20260911。用户明确保存退出后核对旧8BA3448F备份原子替换，受控启动2026-09-11T23:02:33.1509092+08:00至2026-09-11T23:03:14.2821119+08:00，PID39852仅脚本自己创建并停止。恢复暂停场景到ClockDiag；实际启动日志前三条GreekFireAssets成功恢复Archer_Greece_FireArrowAttack，无Error。存档前后001E431F4A3B1D9BB32C20B7A294AA79BBE19603498B124020388E798073F86D一致。
+
+## 边界与后续
+真实残影颜色/排序/剑风需下一次交战视觉验收，启动恢复暂停场景不等于战斗渲染测试。新残影目前由local/host motion触发，客机没有新增的残影触发信号，client视觉同步明确留待独立设计，不能说已支持。Greek资源双端接线已补，但若原生首个fire反序列化包早于poolready，字段修复后需后续原生状态包重新选择Active；helper不强改Active。完整联机/跨岛仍需实测。
+当前补员诊断和之前银行HUD/120秒4人、Greek8/15、幕府回冲伤害均保留。未改配置、存档、公开ZIP，未commit/push/tag。任务保持doing直到视觉/实战边界验收。

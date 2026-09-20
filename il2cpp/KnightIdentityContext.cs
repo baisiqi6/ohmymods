@@ -44,12 +44,13 @@ namespace KingdomEnhancedMod
             internal int Kind;
         }
 
-        /// <summary>本会话的 load→save 绑定：某上下文本次加载解析出的 epoch 与 unresolved 状态。</summary>
+        /// <summary>本会话的 load→save 绑定：某上下文本次加载解析出的 epoch、unresolved 状态与解析 Kind。</summary>
         private sealed class Binding
         {
             internal string Epoch;
             internal bool Unresolved;
             internal bool NewEpoch;
+            internal string Kind;   // 本次装载解析的诊断标签（吸收态再基线化的触发锚点）
         }
 
         private static readonly Dictionary<string, Binding> Bindings = new Dictionary<string, Binding>(StringComparer.Ordinal);
@@ -140,11 +141,20 @@ namespace KingdomEnhancedMod
         // ------------------------------------------------------------------ 会话绑定（save 路径复用 load 的判定）
 
         /// <summary>记住本次加载的解析结果；容量满时拒绝新增（save 路径会退回独立解析）。</summary>
-        internal static void RememberBinding(string contextKey, string epoch, bool unresolved, bool newEpoch)
+        internal static void RememberBinding(string contextKey, string epoch, bool unresolved, bool newEpoch, string kind = null)
         {
             if (contextKey == null) return;
             if (!Bindings.ContainsKey(contextKey) && Bindings.Count >= KnightIdentityArchive.MaxContexts) return;
-            Bindings[contextKey] = new Binding { Epoch = epoch, Unresolved = unresolved, NewEpoch = newEpoch };
+            Bindings[contextKey] = new Binding { Epoch = epoch, Unresolved = unresolved, NewEpoch = newEpoch, Kind = kind };
+        }
+
+        /// <summary>本次装载解析诊断标签（如 known-mismatch）；无绑定或无标签返回 false。</summary>
+        internal static bool TryGetBindingKind(string contextKey, out string kind)
+        {
+            kind = null;
+            if (contextKey == null || !Bindings.TryGetValue(contextKey, out Binding binding) || binding == null) return false;
+            kind = binding.Kind;
+            return kind != null;
         }
 
         internal static bool TryGetBinding(string contextKey, out string epoch, out bool unresolved, out bool newEpoch)

@@ -1,0 +1,7 @@
+# Native return-control scout
+
+startup_crash_review read-only verified actual E interop members: Knight.ShouldPlayerControl(),_beingControlled,isRetreating,isCharging,_shouldCharge,GetFormation(),helPuzzlePillar; _embarkee.IsEmbarked/IsTargetingEmbarkable/EmbarkableTarget; _character.inert/grabbed/isStationary; _damageable.isDead/_harmless; _fsm.Current and namedKnight.State members. No inventedIsFleeing method.
+
+Stand/GoToWall/Assemble only. Knight.Update runs nativeFSM and StepCoroutine before postfix. Formation can reissue every frame and must be excluded; wall/assemble reissue less often but external targets always take priority. Mover.SetGoalNoHaglet(float,float),Stop(),goalMode,_goalObject,_goalPosition,_goalSpeed,_pauseTimeout present. Stop only own target tuple on same mover; value equality cannot distinguish another producer writing identical values. Do not restore stale goals orUnPause foreign pause.
+
+NativeSlash pauses0.5s; narrowShouldSlash suppression only during actively controlledreturn is preferable to skipping nativeKnight.Update. Knight.ShouldSlash native RVA0x5B68B0 has a unique Assembly-CSharp table slot in the already recorded GameAssembly hashCD8C2B822B12F5416E73234D6D1052EFB499FE324ACEFF6264E0C87C6F8EDFC1; no sharedDispose hooks permitted.

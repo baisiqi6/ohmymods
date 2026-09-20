@@ -1,0 +1,33 @@
+{
+  "missing": [],
+  "baselineSha": "1278D0D512211FEC7C4BC7C1D4D82D4A62205661758837D9444BABB5D7F5DAA3",
+  "sourceChanged": [
+    "HeroArcherCloth.cs",
+    "HeroArcherClothPhysics.cs",
+    "KingdomEnhancedPlugin.cs"
+  ],
+  "unexpected": [],
+  "candidateSha": "7DD53270DA06AD11C201633C879E2A46E05169AE01FB54A50CB22C3583570026",
+  "changedMethods": [
+    "System.Void KingdomEnhancedMod.HeroArcherCloth::.cctor()",
+    "Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray`1<UnityEngine.Color> KingdomEnhancedMod.HeroArcherCloth::BuildColors(System.Int32)",
+    "Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray`1<System.Int32> KingdomEnhancedMod.HeroArcherCloth::BuildTriangles()",
+    "KingdomEnhancedMod.HeroArcherCloth/Handle KingdomEnhancedMod.HeroArcherCloth::Create(UnityEngine.Transform,UnityEngine.SpriteRenderer)",
+    "System.Void KingdomEnhancedMod.HeroArcherCloth::WriteMesh(KingdomEnhancedMod.HeroArcherCloth/Handle,System.Int32)",
+    "System.Single KingdomEnhancedMod.HeroArcherClothMath::HalfWidthUnits(System.Int32)",
+    "System.Void KingdomEnhancedMod.KingdomEnhancedPlugin::Init()"
+  ],
+  "unchangedMethods": 2661,
+  "resources": [
+    {
+      "unchanged": false,
+      "authorizedNeckAtlas": true,
+      "name": "KingdomEnhancedMod.HeroArcherAtlas.png"
+    },
+    {
+      "unchanged": true,
+      "authorizedNeckAtlas": false,
+      "name": "KingdomEnhancedMod.ArtemisArrow.png"
+    }
+  ]
+}

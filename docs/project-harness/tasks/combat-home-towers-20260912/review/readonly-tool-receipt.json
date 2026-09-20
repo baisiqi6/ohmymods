@@ -1,0 +1,10 @@
+{
+  "sessionId": "sess_d1b6f937-19b9-4733-bf21-b05573c1789a",
+  "modelRequests": 9,
+  "toolCounts": {
+    "Read": 10,
+    "Glob": 2,
+    "Grep": 2
+  },
+  "readOnly": true
+}

@@ -111,5 +111,13 @@ namespace KingdomEnhancedMod
         internal Logger LogSource = new();
     }
 
-    internal class Logger { internal void LogInfo(string message) { } }
+    /// <summary>捕获日志行供断言（生产侧只调用 LogInfo / LogWarning / LogError）。</summary>
+    internal class Logger
+    {
+        internal static readonly List<string> Lines = new();
+
+        internal void LogInfo(string message) { Lines.Add("I: " + message); }
+        internal void LogWarning(string message) { Lines.Add("W: " + message); }
+        internal void LogError(string message) { Lines.Add("E: " + message); }
+    }
 }

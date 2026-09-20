@@ -1,0 +1,7 @@
+# 本机候选交付
+
+2026-09-15 税收助手连续收币候选已闭游戏备份安装正确E盘：084acec8 / build=8.0.0-tax-collector-batch-20260915。用户希望每趟约20枚。旧实际容量至少100，少量回家来自成熟快照暂时耗尽就立即收工。现每趟20枚，已有收获且未满时断流原地等4.2秒（3秒成熟+2次0.6秒扫描），deadline不被空扫描不断延长，续收后重置；空手无目标立即退出。场上零币CleanupNoCandidates与接链统一策略，保留认领清理门；第20枚回家后立即终止本帧扫币，不因携带计数归零再吃第21枚。只在希腊authority生效，补货租用/归还、演员替换、回池/失权/离场清等待；原入账事务不改，回家不重复入账。当前英雄保存恢复、动作、商店及4PNG保持。针对回归、实际2.4完整构建与独立复核通过，详情见本任务receipts；DLL方法审计限制银行助手与build标记，无新增Hook类型。全部原生存档/附加档/配置hash保持，未启动游戏/提交/发布。实际连续扔20枚、停扔等待回家、正常补货与暂停仍待游戏验证，公开8.0.0不变。
+
+author_impact_reviewer独立审查计划与最终实现，重点核验零币清理入口、20th归零后的终止、等待生命周期和补货租用。第一次OMP worker越界尝试配置工具权限，已停止并精确撤回创建的项目config/probe及global插入块；scope-incident.json记录。重新派发限制read/edit/write、禁扩展/技能的OMP deepseek-v4-flash max，实际native模型事件核验，无fallback。
+
+备份：E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx\plugins\KingdomEnhancedMod\KingdomEnhancedMod.dll.before-tax-collector-batch-20260915-222232-812.bak

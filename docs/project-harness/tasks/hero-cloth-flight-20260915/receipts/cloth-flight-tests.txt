@@ -1,0 +1,52 @@
+PASS  idle.hangs-and-folds.primary
+PASS  idle.hangs-and-folds.secondary
+METRIC metric.idle-clearance :: 尾部离地 均值=1.0418576px 峰值=3.603633px（肩高 14px / 链长 24px）
+PASS  idle.never-floating
+PASS  idle.ribbon-alive
+PASS  idle.wind-never-front.-1
+PASS  idle.wind-never-front.1
+PASS  run.lifts-off-ground.primary@1.2
+PASS  run.lifts-off-ground.secondary@1.2
+PASS  run.lifts-off-ground.primary@1.6
+PASS  run.lifts-off-ground.secondary@1.6
+PASS  run.lifts-off-ground.primary@2
+PASS  run.lifts-off-ground.secondary@2
+PASS  run1.6.extension.primary
+PASS  run1.6.drop.primary
+PASS  run1.6.extension.secondary
+PASS  run1.6.drop.secondary
+METRIC metric.speed-ordering :: drop idle=12.66036 walk=12.23608 run1.2=8.580917 run1.6=7.188908 run2.0=6.456603 px | ext idle=13.05726 walk=18.635891 run1.2=22.28751 run1.6=22.84296 run2.0=22.907259 px
+PASS  run.tail-lifts-monotonically
+PASS  run.never-above-shoulder.1.2
+PASS  run.never-above-shoulder.1.6
+PASS  run.never-above-shoulder.2
+PASS  run.wind-cannot-blow-front.primary.-1
+PASS  run.wind-cannot-blow-front.secondary.-1
+PASS  run.wind-cannot-blow-front.primary.1
+PASS  run.wind-cannot-blow-front.secondary.1
+METRIC metric.wind-bend :: 静止 ±1 风的平均弯曲差=0.10421285u  跑动 ±1 风的平均弯曲差=0.0045015216u
+PASS  wind.modulates-less-at-speed
+METRIC metric.start :: 起跑单步最大位移=1.9992533px 达到 drop<=8px=1.1s（静止下降 13.5px）
+PASS  start.no-instant-jump
+PASS  start.ramps-within-window
+METRIC metric.stop :: 跑动下降=6.525124px 明显回落=0.5666667s 恢复贴地=0.8333334s 回到静止下降=0.8333334s
+PASS  stop.inertia-then-settle
+PASS  turn.rebase-continuous
+PASS  turn.trails-again-after-rebase
+PASS  backpedal.mirrors-trail
+PASS  sampling-rate-independent.30Hz
+PASS  sampling-rate-independent.10Hz
+PASS  sampling-rate-independent.144Hz
+PASS  invalid.dt-ignored
+PASS  invalid.nan-inputs-safe
+PASS  invalid.wind-nan-ignored
+PASS  teleport.positive-spike-restores
+PASS  teleport.negative-spike-restores
+PASS  reset.returns-to-rest-pose
+PASS  reset.pool-reuse-matches-fresh
+PASS  invariant.segment-length
+PASS  invariant.never-below-ground
+PASS  invariant.bounded-and-finite
+PASS  long-run.stable
+
+ALL TESTS PASSED (45)

@@ -1,0 +1,71 @@
+// LOCAL PRIVATE ARCHIVE ONLY. Not part of the public test project.
+// These case methods require the historical read-only local fixtures and Program helpers.
+
+    static string Fixture(string name)=>File.ReadAllText(Path.Combine(AppContext.BaseDirectory,name));
+
+    static void FixtureMigration()
+    {
+        string islandText=Fixture("current-island.json").Replace("\r\n","\n");
+        string paidScope="651e4cc8e0f821c8a372a41380ad16b840d73ee0862bcfb73534456c5ea0f01d";
+        string bugScope="7035fbcbdde7df0699652c6d527b075bd3471304c96d4a33bd32506d8dd1ffd5";
+        Check(HeroRecruitmentArchive.Hash(islandText,paidScope)=="007efd038542105003c4d20e360b923d190d270278a6fdf4c11c27347666fc09","fixture paid epoch exact-matches the island");
+        Check(HeroRecruitmentArchive.Hash(islandText,bugScope)=="fa999014f2514da9eaf3e641a49efade0df3407d8f62ff863089966298f957a9","bug empty baseline also exact-matches the island");
+        Reset();
+        Directory.CreateDirectory(Path.GetDirectoryName(HeroRecruitment.ArchivePath));
+        File.Delete(HeroRecruitment.ArchivePath+".bak");
+        File.WriteAllText(HeroRecruitment.ArchivePath,Fixture("hero-identities-before.json"));
+        Check(HeroRecruitment.ArchivePath.StartsWith(Root,StringComparison.OrdinalIgnoreCase),"test archive path is sandboxed");
+        CampaignSaveData.current.CurrentIsland=new(){land=9,isNew=false,Json=islandText};
+        var left=Actor(-1);var right=Actor(1);
+        Load(islandText,("Archer P41 [52E]--95640",left.p),("Archer P17 [26]--64196",right.p));
+        Check(HeroRecruitment.IsPurchased(left.a)&&HeroRecruitment.SeatSide(left.a)==-1,"paid left receipt recovered from the legacy epoch");
+        Check(HeroRecruitment.IsPurchased(right.a)&&HeroRecruitment.SeatSide(right.a)==1,"paid right receipt recovered from the legacy epoch");
+        Check(!HeroRecruitment.CanPurchase,"recovered seats block a second charge");
+        Check(Seats(HeroRecruitment.DescribeForTests()).Contains("b66c9c4f")&&Seats(HeroRecruitment.DescribeForTests()).Contains("fd69b793"),"original receipt GUIDs retained");
+        Check(HeroRecruitment.DescribeForTests().Contains("kind=legacy-paid")&&HeroRecruitment.DescribeForTests().Contains("epoch=651e4cc8"),"migration reports paid, not the empty bug baseline");
+        var disk=Disk();
+        Check(disk.Contexts.Count==1&&disk.Contexts[ContextOf(1,0,9)].Active==paidScope,"context pinned to the proven paid epoch");
+        Check(disk.Scopes.ContainsKey(paidScope)&&disk.Scopes.ContainsKey(bugScope),"legacy scopes preserved");
+        Check(File.ReadAllText(HeroRecruitment.ArchivePath).Contains("\"schemaVersion\":2"),"v1 archive upgraded to schema 2 on write");
+    }
+
+    static void LatestFixture()
+    {
+        string islandText=Fixture("latest-current-island.json").Replace("\r\n","\n");
+        Reset();
+        Directory.CreateDirectory(Path.GetDirectoryName(HeroRecruitment.ArchivePath));
+        File.Delete(HeroRecruitment.ArchivePath+".bak");
+        File.WriteAllText(HeroRecruitment.ArchivePath,Fixture("latest-hero-identities.json"));
+        byte[] seeded=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        var archive=Disk();
+        bool rawMatch=false;
+        foreach(string scope in archive.Scopes.Keys) if(archive.TryGet(scope,HeroRecruitmentArchive.Hash(islandText,scope),out _)) rawMatch=true;
+        Check(!rawMatch,"latest native island has no legacy raw exact match");
+        bool unclaimedPaid=false;
+        foreach(var scope in archive.Scopes) if(!archive.ScopeClaimed(scope.Key)&&scope.Value.Any(x=>x.Seats.Count>0)) unclaimedPaid=true;
+        Check(unclaimedPaid,"latest archive still holds unclaimed paid history");
+        CampaignSaveData.current.CurrentIsland=new(){land=9,isNew=false,Json=islandText};
+        Load(islandText);
+        Check(!HeroRecruitment.CanPurchase&&HeroRecruitment.StatusText.Contains("待确认"),"latest unmatched island reserves the quota without a charge");
+        Check(HeroRecruitment.DescribeForTests().Contains("kind=unresolved"),"quarantine reported in the diagnostic");
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(seeded),"quarantined fixture stays byte-identical");
+        Check(!Disk().Contexts.ContainsKey(ContextOf(1,0,9)),"no context is fabricated for the unmatched island");
+    }
+
+    static void StagedRecovery()
+    {
+        Reset(true);
+        string staged="C:/Users/ADMIN/Documents/Codex/2026-09-05/ohmymods-operator-2/hero-save-restore-20260915/candidate/hero-identities.v2-recovered.json";
+        File.WriteAllBytes(HeroRecruitment.ArchivePath,File.ReadAllBytes(staged));
+        CampaignSaveData.current.CurrentIsland=new(){land=9,realStartDateTime=DateTime.Now};
+        var left=Actor(-1);var right=Actor(1);
+        string raw=Fixture("latest-current-island.json");
+        Load(raw,("Archer P41 [52E]--95524",left.p),("Archer P17 [26]--64196",right.p));
+        Check(HeroRecruitment.IsPurchased(left.a)&&HeroRecruitment.IsPurchased(right.a)&&!HeroRecruitment.CanPurchase,"staged current real save binds both paid heroes without a second charge");
+        Check(Seats(HeroRecruitment.DescribeForTests()).Contains("93c12776")&&Seats(HeroRecruitment.DescribeForTests()).Contains("9265e66e"),"current paid GUIDs survive actual fixture binding");
+        Reset(true);CampaignSaveData.current.CurrentIsland=new(){land=9,realStartDateTime=DateTime.Now.AddDays(30)};
+        var changed=System.Text.Json.Nodes.JsonNode.Parse(raw);changed["_islandTimePlayed"]=999999;
+        left=Actor(-1);right=Actor(1);
+        Load(changed.ToJsonString(),("Archer P41 [52E]--95524",left.p),("Archer P17 [26]--64196",right.p));
+        Check(HeroRecruitment.IsPurchased(left.a)&&HeroRecruitment.IsPurchased(right.a)&&!HeroRecruitment.CanPurchase,"staged save survives recreated runtime date and changed native clock");
+    }

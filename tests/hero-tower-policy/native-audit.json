@@ -1,0 +1,71 @@
+{
+  "game": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\GameAssembly.dll",
+  "sha256": "cd8c2b822b12f5416e73234d6d1052efb499fe324aceff6264e0c87c6f8edfc1",
+  "methods": [
+    {
+      "name": "Archer.IsAvailableForJob",
+      "token": 100663812,
+      "rva": "0x4b2880",
+      "adjacent_method_span": 320,
+      "assembly_csharp_slots": 1,
+      "first_32_bytes": "48895c2410574883ec20803d5cd1b00300488bfa488bd9751f488d0d80618503"
+    },
+    {
+      "name": "Archer.AssignJob",
+      "token": 100663813,
+      "rva": "0x4af340",
+      "adjacent_method_span": 544,
+      "assembly_csharp_slots": 1,
+      "first_32_bytes": "48895c2418574883ec20803d9d06b10300488bfa488bd9751f488d0d100d8503"
+    },
+    {
+      "name": "Archer.SetGuardSlot",
+      "token": 100663820,
+      "rva": "0x4b5d20",
+      "adjacent_method_span": 144,
+      "assembly_csharp_slots": 1,
+      "first_32_bytes": "48895c2408574883ec204883b9f001000000488bfa488bd97427488bd14533c0"
+    },
+    {
+      "name": "Archer.EnterGuardSlot",
+      "token": 100663845,
+      "rva": "0x4b0f40",
+      "adjacent_method_span": 1184,
+      "assembly_csharp_slots": 1,
+      "first_32_bytes": "48895c2410574883ec60803db3eab00300488bfa488bd9752b488d0da0ca8703"
+    },
+    {
+      "name": "Archer.ExitGuardSlot",
+      "token": 100663850,
+      "rva": "0x4b13e0",
+      "adjacent_method_span": 1008,
+      "assembly_csharp_slots": 1,
+      "first_32_bytes": "40534883ec50803d1ce6b00300488bd9754f488d0d77398303e8c2ccf2ff488d"
+    },
+    {
+      "name": "GuardSlot.ExitArcher",
+      "token": 100670763,
+      "rva": "0x57f660",
+      "adjacent_method_span": 320,
+      "assembly_csharp_slots": 1,
+      "first_32_bytes": "48895c2408574883ec20803d7c0aa40300488bd9751f488d0d4b327b03e83eea"
+    },
+    {
+      "name": "Kingdom.DistributeTowerArchers",
+      "token": 100671636,
+      "rva": "0x59da10",
+      "adjacent_method_span": 832,
+      "assembly_csharp_slots": 1,
+      "first_32_bytes": "488bc44889580848897010488978184154415641574881ecb00000000f2970d8"
+    },
+    {
+      "name": "Kingdom.FetchArchersForJob",
+      "token": 100671637,
+      "rva": "0x59de90",
+      "adjacent_method_span": 1104,
+      "assembly_csharp_slots": 1,
+      "first_32_bytes": "488bc4f30f115820448940184889501048894808535657415441554156415748"
+    }
+  ],
+  "boundary": "Static file audit only; not an installed detour or gameplay test."
+}

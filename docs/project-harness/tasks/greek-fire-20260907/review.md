@@ -1,0 +1,5 @@
+# 独立审查 PASS
+Reviewer: /root/startup_crash_review (Hilbert)，只读独立源码审查，无新增P0-P3。
+Greek BF7254FDB0C51C031A9BE77D3B0FB70180240B342843864988590146551E1AAD；Crossbow 4C8DB21A414CBA9A92126CEDAF0B20A6EDA8576AFE8DD043C49A6CEAF2DDBD68。
+确认8s克隆保留原ID/视觉、长expiry不写、native调用前保留CD避免partialRPC重复、Casting/current-state与OnDisable prefix隔离生命周期、固定随从快照并逐个复验、RPC/pool资格、旧弩包先Restore再施火、火buff期间暂缓Apply。
+独立70/70测试及operator重跑通过；旧deadlands已带包+原神器fire的SO所有权缺口仍为既有独立限制。真实IL2CPP到期和客户端视觉未宣称通过。

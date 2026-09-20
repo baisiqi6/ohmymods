@@ -1,0 +1,202 @@
+[
+  {
+    "timestamp": "2026-09-15T02:19:14.764Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:19:20.626Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:19:25.968Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:19:31.598Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:19:37.941Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:19:44.306Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:19:54.069Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:20:00.403Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:20:06.909Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:20:09.611Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:20:16.415Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:20:20.769Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:20:26.330Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:20:35.575Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:20:50.340Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:20:56.998Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:21:02.515Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:21:20.939Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:21:34.709Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:21:41.802Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:21:55.466Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:22:16.134Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:22:20.925Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:23:55.625Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "tool-calls"
+  },
+  {
+    "timestamp": "2026-09-15T02:24:06.509Z",
+    "sessionId": "sess_1d4a480e-b6f3-411e-966b-8e47dd00d1af",
+    "model": "bigmodel/GLM-5.3",
+    "modelId": "GLM-5.3",
+    "providerId": "bigmodel",
+    "finishReason": "stop"
+  }
+]

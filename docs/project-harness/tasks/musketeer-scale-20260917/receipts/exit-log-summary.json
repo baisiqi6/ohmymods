@@ -1,0 +1,16 @@
+{
+  "fallenObjects": [
+    "Archer P41 [6A5]",
+    "Archer P43 [6A7]"
+  ],
+  "shieldShopInvalidNetId": 11,
+  "bepErrorLines": 0,
+  "combatFailureLines": [],
+  "savedReports": [
+    "[Musketeer] saved:records=23:bound=23"
+  ],
+  "logs": {
+    "BepInEx-exit.log": "fc82cbaf115fa25a6dcb48c972413d8ad004072903a418badf32c9f5aa01247f",
+    "Player-exit.log": "cad24b5a1be4b11deda717d8c2e383dbad4eb8eb53b28ef3688c00c18285bcb7"
+  }
+}
