@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 原生边界替身测试（本机 net8.0 控制台）：把生产文件编进来跑真实分支——
+       ../../il2cpp/PatchRoles_Crossbowman.cs（EnsureAssets 资产构建 + BoltOriginOffset +
+       克隆 SO 指针门来源）、../../il2cpp/CrossbowmanBoltWallPierce.cs（穿墙注入组件 +
+       BestShotInternal 低弹道 prefix 主体）、../../il2cpp/HeroArcherWallPierce.cs（被复用的
+       Apply/Restore）。Unity/游戏 API 换成可观察替身（UnityStubs.cs / GameStubs.cs）：
+       GameObject.SetActive 按组件序派发 OnEnable/OnDisable 消息（镜像 Unity 语义），
+       Physics2D.IgnoreCollision 全量记账。真实 interop API 面由主 il2cpp Debug 构建负责
+       （对 E 盘 2.4 interop 编译，0W0E 门）；这里负责行为。产物只写本目录 bin/obj。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>CrossbowmanWallPierce.StubTests</AssemblyName>
+    <RootNamespace>KingdomEnhancedMod</RootNamespace>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>CS0414;CS0169;CS0649;CS0108</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/PatchRoles_Crossbowman.cs" />
+    <Compile Include="../../il2cpp/CrossbowmanBoltWallPierce.cs" />
+    <Compile Include="../../il2cpp/HeroArcherWallPierce.cs" />
+    <Compile Include="UnityStubs.cs" />
+    <Compile Include="GameStubs.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+
+</Project>

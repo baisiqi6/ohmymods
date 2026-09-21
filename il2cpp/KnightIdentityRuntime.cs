@@ -11,6 +11,11 @@
 //  * 恢复严格性：只有精确快照（kind1 全量 hash 或 kind2 时钟无关指纹，且同 scope）才允许
 //    uniqueID→收据；解析不出证明（冲突 / 已知历史对不上 / 仍有未归属历史）一律 unresolved：
 //    不恢复、不写、不种，sidecar 原样保留 —— 绝不把历史人群当新档重种。
+//  * 吸收态自愈（B）例外：精确 known-mismatch 会话的 save 可凭严格历史子集证据门新建 epoch 基线；
+//    携带身份只在本次 save 有同 life live owner 证据时才重绑，证据缺口一律维持 unresolved（写保护），
+//    绝不靠清全局标志放行会静默丢人的部分快照。
+//  * 本次 save 的捕获证据必须自洽：同一 uniqueID 只有「同 owner 同 life」的重复 GetID 才幂等，
+//    不同 owner/life、盘记录重复或证据容量截断都算缺口（两条写路径一律 fail-closed，绝不静默放行）。
 //  * life 由进程全局单调计数器分配，删除/重建/池复用都不重用；OnEnable 每次都是新 life 并清旧收据。
 //  * state 有界（MaxTrackedKnights）：满时只回收已销毁/异 world/无收据条目，绝不牺牲活收据。
 //  * world 归属必须实测（同 scene 且在 world.gameLayer 下）；无法验证一律延后，绝不 fallback 到旧 world。
@@ -475,6 +480,60 @@ namespace KingdomEnhancedMod
             _activeLoadScopeId = scopeId;
         }
 
+        /// <summary>
+        /// 再基线化重绑定：把历史携带的收据绑到本次 save 捕获的 live owner。严格复核「仍是同 life、tagKnight、
+        /// 活跃、条目还是原来那个对象」；已有不同收据绝不覆写（返回 false 由调用方按缺口处理）。不新建条目。
+        /// </summary>
+        internal static bool TryBindCarriedReceipt(Knight knight, long expectedLifetime, KnightIdentityReceipt receipt)
+        {
+            try
+            {
+                if (expectedLifetime <= 0 || !receipt.IsValid) return false;
+                if (!TryGetGameObject(knight, out GameObject go)) return false;
+                if (!IsKnightTag(go) || !IsActiveGameObject(go)) return false;
+
+                Entry entry = FindEntry(MakeKey(go), knight);
+                if (entry == null || entry.Lifetime != expectedLifetime) return false; // 未被跟踪 / 已换 life：没有证据
+                if (entry.HasReceipt) return entry.Receipt.Equals(receipt);            // 同收据幂等；不同绝不覆写
+
+                entry.HasReceipt = true;
+                entry.Receipt = receipt;
+                entry.MarkedNew = false;
+                entry.FailedLoad = false; // 身份已由本次 save 证据证实，旧的失败装载标记作废
+                TouchWorld(entry, knight);
+                return true;
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("rebaseline-bind", e);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 再基线化里被丢弃（历史不一致 / 同 GUID 输者）的 live owner：仅清 FailedLoad 交给既有 PrimeExisting/5s
+        /// 路径重铸；已有收据、换 life、未被跟踪一律不动，绝不在这里铸造收据。
+        /// </summary>
+        internal static bool TryClearFailedLoad(Knight knight, long expectedLifetime)
+        {
+            try
+            {
+                if (expectedLifetime <= 0) return false;
+                if (!TryGetGameObject(knight, out GameObject go)) return false;
+                if (!IsKnightTag(go) || !IsActiveGameObject(go)) return false;
+
+                Entry entry = FindEntry(MakeKey(go), knight);
+                if (entry == null || entry.Lifetime != expectedLifetime || entry.HasReceipt) return false;
+                entry.FailedLoad = false;
+                return true;
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("rebaseline-clear", e);
+                return false;
+            }
+        }
+
         private static bool _contextUnresolved;
         internal static bool CanFlushSeed { get { return !_contextUnresolved && !InLoadContext(); } }
 
@@ -937,7 +996,46 @@ namespace KingdomEnhancedMod
             internal int Land;
             internal int Challenge;
             internal readonly Dictionary<string, CapturedOwner> Owners = new Dictionary<string, CapturedOwner>(StringComparer.Ordinal);
+
+            /// <summary>已跟踪但尚无收据的 owner（吸收态旧骑士）：只作再基线化重绑定的 life 证据，绝不进 Owners。</summary>
+            internal readonly Dictionary<string, CapturedOwner> PendingOwners = new Dictionary<string, CapturedOwner>(StringComparer.Ordinal);
+
+            /// <summary>同一次 save 内同一 uniqueID 落到不同 owner/life 的歧义 ID（有界；这类证据不可信）。</summary>
+            internal readonly HashSet<string> AmbiguousIds = new HashSet<string>(StringComparer.Ordinal);
+
+            /// <summary>证据/歧义集合达到容量上限：截断绝不静默放行，一律当缺口。</summary>
+            internal bool EvidenceOverflow;
+
+            /// <summary>本次 save 是否存在证据缺口（歧义 ID 或容量截断）：两条写路径都必须 fail-closed。</summary>
+            internal bool HasEvidenceGap
+            {
+                get { return EvidenceOverflow || AmbiguousIds.Count > 0; }
+            }
+
+            internal void AddEvidence(string uniqueId, CapturedOwner owner, bool pending)
+            {
+                Dictionary<string, CapturedOwner> target = pending ? PendingOwners : Owners;
+                if (target.Count >= MaxCapturedEvidence)
+                {
+                    EvidenceOverflow = true; // 满：不瞎截断，整批证据作废
+                    return;
+                }
+                target[uniqueId] = owner;
+            }
+
+            internal void MarkAmbiguous(string uniqueId)
+            {
+                if (AmbiguousIds.Count >= MaxCapturedEvidence)
+                {
+                    EvidenceOverflow = true;
+                    return;
+                }
+                AmbiguousIds.Add(uniqueId);
+            }
         }
+
+        /// <summary>捕获证据（Owners/PendingOwners/歧义集）的上限；与快照条目上限同量级，超限一律当缺口。</summary>
+        internal const int MaxCapturedEvidence = KnightIdentityArchive.MaxEntriesPerSnapshot;
 
         private static SaveCapture _capture;
 
@@ -966,7 +1064,9 @@ namespace KingdomEnhancedMod
             return exception;
         }
 
-        /// <summary>GetID 后缀：捕获实际正在保存的岛（唯一可靠时点），并登记 knight owner 的 life 与收据快照。</summary>
+        /// <summary>GetID 后缀：捕获实际正在保存的岛（唯一可靠时点），登记 knight owner 的 life 与收据快照；
+        /// 无收据但已跟踪的 owner 另记 life 证据（PendingOwners），供再基线化重绑定复核；同一 uniqueID 只有
+        /// 「同 owner 同 life」的重复回调才幂等，不同 owner/life 记入有界歧义集（= 证据缺口）。</summary>
         internal static void HandleGetId(Persistent forObject, string uniqueId)
         {
             try
@@ -978,16 +1078,34 @@ namespace KingdomEnhancedMod
 
                 if (capture.Island == null && !TryCaptureIsland(capture)) return;
 
-                if (capture.Owners.ContainsKey(uniqueId)) return;
-
                 GameObject owner = SafeGameObject(forObject);
                 if (owner == null || !SafeCompareTag(owner, "Knight")) return;
 
                 Knight knight = SafeGetComponent<Knight>(owner);
                 if (knight == null) return;
-                if (!KnightIdentityRuntime.TryGetTrackedIdentity(knight, out long lifetime, out KnightIdentityReceipt receipt)) return;
 
-                capture.Owners[uniqueId] = new CapturedOwner(knight, lifetime, receipt);
+                bool hasReceipt = KnightIdentityRuntime.TryGetTrackedIdentity(knight, out long lifetime, out KnightIdentityReceipt receipt);
+                if (!hasReceipt)
+                {
+                    // 已跟踪但无收据（吸收态旧骑士）：登记 life 证据供再基线化重绑定复核；Owners 语义与 IsValidOwner 不动。
+                    lifetime = KnightIdentityRuntime.GetLifetime(knight);
+                    if (lifetime <= 0)
+                    {
+                        // 已确认为 tagKnight 却取不到 life（如条目容量满未登记）：这条证据缺失也是缺口，
+                        // 绝不静默跳过——否则第二个同 ID 的失证 owner 会被当成幂等放行。
+                        capture.MarkAmbiguous(uniqueId);
+                        return;
+                    }
+                }
+
+                // 同一 uniqueID 重复回调：只有「同 owner 同 life」才幂等；不同 owner/life 是证据冲突，绝不保留先到者。
+                if (TryGetCapturedOwner(capture, uniqueId, out CapturedOwner known))
+                {
+                    if (!ReferenceEquals(known.Knight, knight) || known.Lifetime != lifetime) capture.MarkAmbiguous(uniqueId);
+                    return;
+                }
+
+                capture.AddEvidence(uniqueId, new CapturedOwner(knight, lifetime, hasReceipt ? receipt : default), pending: !hasReceipt);
             }
             catch (Exception e)
             {
@@ -1003,6 +1121,12 @@ namespace KingdomEnhancedMod
                 if (capture == null || capture.Island == null) return; // 无完整可信 scope：不写
                 if (KnightIdentityLoadBridge.Current != null || KnightIdentityGeneration.Active) return;
                 if (!KnightIdentityRuntime.IsHostAuthority()) return; // 仅主机
+                if (capture.HasEvidenceGap)
+                {
+                    // 缺失/歧义证据必须在进入任何写路径（包括备份恢复）之前拒绝。
+                    KnightIdentityLog.Once("save-evidence-gap", null);
+                    return;
+                }
                 // 吸收态自愈（B）必须排在 CanFlushSeed / Owners 早退之前：该会话无任何收据且 context unresolved。
                 if (TryRebaselineAbsorbingContext(capture)) return;
                 if (!KnightIdentityRuntime.CanFlushSeed) return; // context未知时连已有收据也不得写入旧epoch
@@ -1075,8 +1199,12 @@ namespace KingdomEnhancedMod
         /// <summary>
         /// 吸收态自愈（B）：本会话装载解析为精确 known-mismatch（历史对不上当前岛、此后所有 save 都被
         /// save-preserve-unresolved 拒写）时，若当前盘骑士个体全部来自历史并集（严格子集证据门），
-        /// 以当前盘 JSON 新建 epoch 的 kind2 基线快照。不依赖 capture.Owners——该会话没有任何收据。
-        /// 返回 true = 本 save 已由本路径处理（无论成功/门拒绝/fail-closed），不再回落旧路径。
+        /// 以当前盘 JSON 新建 epoch 的 kind2 基线快照，并把携带身份重绑到本次 save 的 live owner；
+        /// 证据缺口（缺 owner / 换 life / 已有不同收据）时维持写保护（binding=rebaseline-incomplete），
+        /// 不依赖 capture.Owners——该会话没有任何收据。返回 true = 本 save 已由本路径处理
+        /// （无论成功/门拒绝/fail-closed），不再回落旧路径。
+        /// 已知活性边界：每会话每 context 至多消耗一个 epoch（MaxEpochs=8）；跨会话若内容持续对不上
+        /// 就会逐代再基线，直至容量耗尽后永久 fail-closed——这是本机制接受的上限，不是回归。
         /// </summary>
         private static bool TryRebaselineAbsorbingContext(SaveCapture capture)
         {
@@ -1099,10 +1227,19 @@ namespace KingdomEnhancedMod
                 }
                 if (string.IsNullOrEmpty(json)) return true;
 
-                if (!TryEnumerateDiskKnightUniqueIds(island, out List<string> diskUniqueIds)) return true; // 枚举失败：fail-closed
+                if (!TryEnumerateDiskKnightUniqueIds(island, out List<string> diskUniqueIds)) return true; // 枚举失败/盘记录重复：fail-closed
 
-                if (!KnightIdentitySidecar.TryRebaseline(contextKey, json, diskUniqueIds, out string rebaselinedEpoch))
-                    return true; // 证据门拒绝/容量耗尽/写入失败：日志在写路径，本 save 保持 fail-closed
+                if (!KnightIdentitySidecar.TryRebaseline(contextKey, json, diskUniqueIds,
+                        out string rebaselinedEpoch, out List<KnightIdentitySnapshotEntry> carried, out HashSet<string> dropped))
+                    return true; // 证据缺口/门拒绝/容量耗尽/写入失败：日志在写路径，本 save 保持 fail-closed
+
+                if (!TryRebindCarriedOwners(capture, carried, dropped))
+                {
+                    // 证据缺口（缺 live owner / 换 life / 已有不同收据）：绝不放行普通快照，否则后续 save 会静默丢人。
+                    KnightIdentityContexts.RememberBinding(contextKey, rebaselinedEpoch, true, true, "rebaseline-incomplete");
+                    KnightIdentityRuntime.ConfirmContext(true);
+                    return true;
+                }
 
                 // 防同会话后续自动保存重复过门、重复建 epoch（MaxEpochs=8 会被撑爆）。
                 KnightIdentityContexts.RememberBinding(contextKey, rebaselinedEpoch, false, true, "rebaseline");
@@ -1114,6 +1251,55 @@ namespace KingdomEnhancedMod
                 KnightIdentityLog.Once("rebaseline", e);
                 return true;
             }
+        }
+
+        /// <summary>
+        /// 再基线化重绑定事务：carried 的每个 uniqueID 必须由本次 save 捕获的 live owner 现场通过终检
+        /// （同 life + tagKnight + 活跃 + 当前收据相同；捕获时的收据不算数）才放行；任一缺口返回 false，
+        /// 由调用方维持写保护。dropped（历史不一致 / 同 GUID 输者）只清 FailedLoad 交给既有 fresh 路径，
+        /// 绝不在 save 路径内铸造收据，也绝不全局清 FailedLoad。
+        /// </summary>
+        private static bool TryRebindCarriedOwners(SaveCapture capture, List<KnightIdentitySnapshotEntry> carried, HashSet<string> dropped)
+        {
+            bool complete = true;
+            HashSet<Guid> boundIds = new HashSet<Guid>();
+            if (carried != null)
+            {
+                for (int i = 0; i < carried.Count; i++)
+                {
+                    KnightIdentitySnapshotEntry entry = carried[i];
+                    if (!boundIds.Add(entry.Receipt.Id))
+                    {
+                        complete = false; // 同 GUID 只认一个 live owner；防御性 fail-closed
+                        continue;
+                    }
+                    if (!TryGetCapturedOwner(capture, entry.NativeUniqueId, out CapturedOwner owner))
+                    {
+                        complete = false; // 本次 save 没有该 uniqueID 的任何 live 证据
+                        continue;
+                    }
+                    // 捕获值不等于现状：统一走同一终检（同 receipt 同 life 幂等；换 life/tag/active/不同收据一律拒绝）。
+                    if (!KnightIdentityRuntime.TryBindCarriedReceipt(owner.Knight, owner.Lifetime, entry.Receipt))
+                        complete = false;
+                }
+            }
+
+            if (dropped != null)
+            {
+                foreach (string uniqueId in dropped)
+                {
+                    if (!TryGetCapturedOwner(capture, uniqueId, out CapturedOwner owner)) continue;
+                    if (owner.Receipt.IsValid) continue; // 已有收据的 live owner：本事务不动
+                    KnightIdentityRuntime.TryClearFailedLoad(owner.Knight, owner.Lifetime);
+                }
+            }
+            return complete;
+        }
+
+        private static bool TryGetCapturedOwner(SaveCapture capture, string uniqueId, out CapturedOwner owner)
+        {
+            if (capture.Owners.TryGetValue(uniqueId, out owner)) return true;
+            return capture.PendingOwners.TryGetValue(uniqueId, out owner);
         }
 
         /// <summary>当前盘骑士 uniqueID 枚举：island.objects + 精确 Knight/KnightData（同 Save 快照口径）。</summary>
@@ -1142,6 +1328,12 @@ namespace KingdomEnhancedMod
                 if (!KnightIdentitySnapshot.IsValidUniqueId(uniqueId)) continue;
                 if (!RecordIsKnight(record)) continue;
                 if (seen.Add(uniqueId)) ids.Add(uniqueId);
+                else
+                {
+                    // 盘记录本身重复：这不是「唯一 live owner」的证据，绝不把去重结果当可靠输入（fail-closed）。
+                    KnightIdentityLog.Once("rebaseline-duplicate-record", null);
+                    return false;
+                }
             }
             uniqueIds = ids;
             return true;
@@ -1770,10 +1962,15 @@ namespace KingdomEnhancedMod
         /// 吸收态再基线化写路径（B，仅 knight 侧）：严格子集证据门通过后，以当前盘 JSON 新建 epoch 的
         /// kind2 快照，历史同一 uniqueID 在多处收据全一致才携带，否则丢弃走 fresh。旧 epoch/快照全保留；
         /// 容量耗尽与门拒绝一律 fail-closed（不写盘）。复刻 AppendSnapshot 的单写者纪律（重读磁盘→合并→原子写）。
+        /// <paramref name="carriedEntries"/> 只在成功时为非 null，交给调用方做同会话重绑定，禁止重读/重解析；
+        /// <paramref name="droppedUniqueIds"/> 是本盘被有意丢弃（历史不一致或同 GUID 输者）的 uniqueID。
         /// </summary>
-        internal static bool TryRebaseline(string contextKey, string rawJson, List<string> diskUniqueIds, out string newEpoch)
+        internal static bool TryRebaseline(string contextKey, string rawJson, List<string> diskUniqueIds,
+            out string newEpoch, out List<KnightIdentitySnapshotEntry> carriedEntries, out HashSet<string> droppedUniqueIds)
         {
             newEpoch = null;
+            carriedEntries = null;
+            droppedUniqueIds = null;
             try
             {
                 string path = Path;
@@ -1829,13 +2026,28 @@ namespace KingdomEnhancedMod
                     return false;
                 }
 
-                List<KnightIdentitySnapshotEntry> entries = new List<KnightIdentitySnapshotEntry>(diskUniqueIds.Count);
-                for (int i = 0; i < diskUniqueIds.Count; i++)
+                // 携带集确定性构造：uniqueID 升序；同 GUID 只由最小 uniqueID 携带（跨 uniqueID 同 GUID 可达，
+                // 绑两个同 GUID 活体会让后续每次保存整份拒写）；输者与历史不一致者同样走 fresh。
+                List<string> ordered = new List<string>(diskUniqueIds);
+                ordered.Sort(StringComparer.Ordinal);
+                HashSet<string> dropped = new HashSet<string>(conflicted, StringComparer.Ordinal);
+                List<KnightIdentitySnapshotEntry> entries = new List<KnightIdentitySnapshotEntry>(ordered.Count);
+                HashSet<Guid> seenGuids = new HashSet<Guid>();
+                for (int i = 0; i < ordered.Count; i++)
                 {
-                    string uniqueId = diskUniqueIds[i];
+                    string uniqueId = ordered[i];
                     if (conflicted.Contains(uniqueId)) continue; // 历史收据不一致：绝不猜，走 fresh
-                    if (!history.TryGetValue(uniqueId, out KnightIdentityReceipt carried)) continue; // 门已保证不可达，保守跳过
-                    entries.Add(new KnightIdentitySnapshotEntry(uniqueId, carried));
+                    if (!history.TryGetValue(uniqueId, out KnightIdentityReceipt known))
+                    {
+                        dropped.Add(uniqueId); // 门已保证不可达，保守走 fresh
+                        continue;
+                    }
+                    if (!seenGuids.Add(known.Id))
+                    {
+                        dropped.Add(uniqueId); // 同 GUID 输者：绝不写进快照
+                        continue;
+                    }
+                    entries.Add(new KnightIdentitySnapshotEntry(uniqueId, known));
                 }
 
                 string epoch = KnightIdentityArchive.NewScope();
@@ -1871,8 +2083,11 @@ namespace KingdomEnhancedMod
                 KnightIdentityLog.Receipt("rebaseline: context=" + ShortHash(contextKey)
                     + " entries=" + diskUniqueIds.Count.ToString(CultureInfo.InvariantCulture)
                     + " carried=" + entries.Count.ToString(CultureInfo.InvariantCulture)
+                    + " dropped=" + dropped.Count.ToString(CultureInfo.InvariantCulture)
                     + " epoch=" + ShortHash(epoch));
                 newEpoch = epoch;
+                carriedEntries = entries;
+                droppedUniqueIds = dropped;
                 return true;
             }
             catch (Exception e)

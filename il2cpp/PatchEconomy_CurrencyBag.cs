@@ -51,11 +51,21 @@ public static class PatchEconomy_CurrencyBag
             position.x += BagPositionOffsetX;
             position.y += BagPositionOffsetY;
             __instance.transform.position = position;
+            CurrencyBagViewport.KeepVisible(__instance);
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
         }
+    }
+
+    /// <summary>显示开始时校正视口边界，不重算原生位置或重复施加固定偏移。</summary>
+    [HarmonyPatch(typeof(CurrencyBag), nameof(CurrencyBag.StartShow))]
+    [HarmonyPostfix]
+    public static void StartShow_Postfix(CurrencyBag __instance)
+    {
+        if (!GreekScaleScope.IsActive) return;
+        CurrencyBagViewport.KeepVisible(__instance);
     }
 
     /// <summary>开局强制解锁 Hermes 钱袋（两名玩家）。</summary>

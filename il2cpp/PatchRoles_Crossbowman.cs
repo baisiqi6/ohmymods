@@ -13,11 +13,11 @@ namespace KingdomEnhancedMod;
 /// 王国旗帜色染衣 + 索敌/射击参数强化 + 独立弩矢。弩手仍是原生
 /// Archer（无新兵种、无新池、无新商店），且永远不被骑士编队招募。
 ///
-/// 弩矢观感（用户实锤"与普通弓箭手无区别"后的改造定稿）：
+/// 弩矢观感（用户实锤"与普通弓箭手无区别"后的改造定稿；2026-09-21 方案E更新）：
 /// - 平直快弹：初速 ×2（射程包络 32，索敌钳在 12 → 12 步内用 32 步的力气打）；
-/// - 出膛点前移 (2.5,1.0)：此前"平直弹道失败"的真凶=墙后弩手的 ParabolaCast
-///   （ArrowAttack.cs:134 低弹道解门槛）被自家墙挡 → 原生主动选高抛解；前移后
-///   出膛点≈墙沿，原生选低弹道解 → 真正平直；
+/// - 平直机制改为「穿墙 + 低弹道强制」（CrossbowmanBoltWallPierce.cs）：弩矢与墙
+///   碰撞互相忽略，且 BestShotInternal prefix 对克隆 SO 跳过 ParabolaCast 墙挡判定、
+///   强制低弹道解——墙后射击天然平直，不再靠出膛点前移避挡（旧 2.5 前移方案废弃）；
 /// - 常显 0.25s 光痕拖尾（_alwaysDrawTrail + _notPerfectTrailLength）+ 0.85 醒目体型，
 ///   与普通箭一眼区分。
 ///
@@ -82,13 +82,14 @@ public static class PatchRoles_Crossbowman
     // 推进判断读 SO Range=32 → 弩手 12 步内站桩狙击不冒进（用户早已接受的旧行为）
     private const float ShotMagnitudeMultiplier = 2f;
     internal const float BoltVisualScale = 0.85f;          // 弩矢醒目化（原 0.65 缩小观感弱）；连带碰撞体等比缩放，快弹判定影响可忽略
-    // 出膛点前移（弩矢观感改造核心）：原生 _arrowOriginOffset 默认 (0.15,0.5)，
-    // 弩手在墙后射击时 ParabolaCast 从出膛点出发被自家墙挡 → BestShotInternal
-    // （ArrowAttack.cs:134）被迫选高抛解——这是此前"平直弹道失败"的真凶。
-    // 前移到前方 2.5 步（墙后单位≈墙沿）后 ParabolaCast 不再被自家墙挡，
-    // 原生选低弹道解 → 真正平直。ArrowAttack.FireArrow（ArrowAttack.cs:60）按
-    // 目标方向符号侧移 x，正值=朝目标前方。
-    private static readonly Vector2 BoltOriginOffset = new Vector2(2.5f, 1.0f);
+    // 出膛点（方案E，2026-09-21）：原生 _arrowOriginOffset 默认 (0.15,0.5)。旧方案
+    // 前移 2.5 步让出膛点≈墙沿、靠位置避 ParabolaCast 的墙挡——已废弃：新机制=
+    // 弩矢穿墙（CrossbowmanBoltWallPierce 组件 → HeroArcherWallPierce.Apply）+
+    // BestShotInternal 低弹道强制（同文件 prefix 跳过 ParabolaCast 墙挡判定），
+    // 墙后射击天然平直，与出膛点位置解耦。回调到小前移 (0.6,0.7)：出膛观感贴近
+    // 弩手本体，不再依赖与墙的距离关系。ArrowAttack.FireArrow（ArrowAttack.cs:60）
+    // 按目标方向符号侧移 x，正值=朝目标前方。
+    private static readonly Vector2 BoltOriginOffset = new Vector2(0.6f, 0.7f);
     // 常显拖尾长度（秒）：Arrow.EnableTrail（Arrow.cs:67）在 _alwaysDrawTrail 且
     // 非 perfect 时用 _notPerfectTrailLength（原生默认 0.1，火矢用长尾）——0.25s
     // 光痕拖尾让弩矢与普通箭一眼区分
@@ -342,6 +343,11 @@ public static class PatchRoles_Crossbowman
             boltArrow._notPerfectTrailLength = BoltTrailLength;
             // 重力保持原生：弹道形状由 SO 参数决定（见下方克隆段），prefab 侧只做外观。
             ApplyBoltSprite(boltArrow);
+            // 弩矢穿墙件（方案E）：克隆成功即挂——不放进 ApplyBoltSprite 的换皮成功
+            // 分支，降级无 sprite 模式同样必须穿墙。池 Spawn 激活 → OnEnable →
+            // HeroArcherWallPierce.Apply；池回收 → OnDisable → Restore（先于下一次
+            // 复用归还墙碰撞）。实现与低弹道 prefix 同在 CrossbowmanBoltWallPierce.cs。
+            CrossbowmanBoltWallPierce.EnsureOn(boltArrow);
 
             // 3) 克隆 ArrowAttack SO（禁止改原资产——全体弓箭手共享，改了就全弓生效）
             ArrowAttack clonedSO = UnityEngine.Object.Instantiate(baseSO) as ArrowAttack;
@@ -358,10 +364,10 @@ public static class PatchRoles_Crossbowman
             //   shootRange/扫描器钳在 12——12 步内目标用 32 步的力气打，又平又快；
             //   Archer.cs:1116 推进判断读 SO Range → 12 步内站桩狙击不冒进（旧行为）。
             //   _boosted 同乘保持原生比例。
-            // - 出膛点前移 (2.5,1.0)：原生默认 (0.15,0.5) 时墙后弩手的 ParabolaCast
-            //   （ArrowAttack.cs:134，BestShotInternal 低弹道解的门槛）被自家墙挡
-            //   → 原生被迫选高抛解——此前"平直弹道失败"的真凶。前移后出膛点≈墙沿，
-            //   不被自家墙挡 → 原生选低弹道解 → 真正平直（快弹+前移双管齐下）。
+            // - 出膛点 (0.6,0.7)（方案E，2026-09-21）：平直不再靠出膛点前移避墙——
+            //   弩矢穿墙件（CrossbowmanBoltWallPierce，克隆成功即挂）+ BestShotInternal
+            //   低弹道强制 prefix 已让墙后场景走低解；出膛点只保留小前移的观感
+            //   （快弹+穿墙+低解三管齐下）。
             clonedSO._shotMagnitude *= ShotMagnitudeMultiplier;
             clonedSO._boostedShotMagnitude *= ShotMagnitudeMultiplier;
             clonedSO._arrowOriginOffset = BoltOriginOffset;
@@ -387,6 +393,21 @@ public static class PatchRoles_Crossbowman
         if (_criticalFailureLogged) return;
         _criticalFailureLogged = true;
         KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Crossbowman] " + detail);
+    }
+
+    /// <summary>
+    /// 克隆 SO（KEM_CrossbowAttack）的 native 指针：BestShotInternal 低弹道强制 prefix
+    /// 的唯一资格门（见 CrossbowmanBoltWallPierce）——与 ApplySquadCrossbowPackage 的
+    /// SO 判重同源。资产未构建/已销毁 → IntPtr.Zero（永不命中，全部原生 SO 一律走原生
+    /// BestShotInternal）。指针读取失败也按未构建处理（fail-closed 到原生行为）。
+    /// </summary>
+    internal static IntPtr ClonedAttackSoPointer
+    {
+        get
+        {
+            try { return _crossbowAttackSO != null ? _crossbowAttackSO.Pointer : IntPtr.Zero; }
+            catch (Exception) { return IntPtr.Zero; }
+        }
     }
 
     /// <summary>
