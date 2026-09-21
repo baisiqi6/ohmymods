@@ -15,6 +15,14 @@ namespace KingdomEnhancedMod
         }
     }
 
+    /// <summary>HeroArcherWallPierce 的账本上限 = 视觉回执容量（同一 source of truth）。本 compile-only 门
+    /// 只编穿墙 slice 一个生产文件，故只补这一个常量；两文件真正同编的核对由 tests/hero-arrow-pierce 与
+    /// tests/hero-artemis-arrow 的替身套件负责（那里 Capacity 就是真实声明）。</summary>
+    internal static class HeroArcherArrowVisuals
+    {
+        internal const int Capacity = 128;
+    }
+
     internal class KingdomEnhancedPlugin
     {
         internal static KingdomEnhancedPlugin Instance = null;

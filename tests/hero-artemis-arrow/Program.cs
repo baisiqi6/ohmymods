@@ -5,9 +5,9 @@
 //   FireArrowInternal:
 //     [Prefix] HeroArcherArrowVisuals.BeginShot(source)
 //     Pool.Spawn → Arrow.OnEnable:
-//         [Prefix Priority.First]  ResetArrow → HeroArcherWallPierce.Restore（无条件归还墙碰撞）
+//         [Prefix Priority.First]  ResetArrow → 按箭身份兜底归还墙碰撞（权威归还走回执缝合点：外观 + 账本）
 //         原生 OnEnable body
-//         [Postfix Priority.Last]  OnSpawn → 外观写入成功 → HeroArcherWallPierce.Apply（无视墙碰撞）
+//         [Postfix Priority.Last]  OnSpawn → 外观写入成功 → HeroArcherWallPierce.Apply（只接管原值 false 的对并记账）
 //     arrow.archer = source                       ← 原生在 OnEnable 之后才写 owner
 //     散射额外箭（本模组 postfix 内）同样走 OnEnable 后再写 archer
 //     [Finalizer] EndShot
@@ -427,8 +427,52 @@ internal static class Program
             Check(Physics2D.CountArrowPair(rig.Arrow._collider, false) == 0, "fresh spawn: nothing to restore yet");
 
             HeroArcherArrowVisuals.ResetArrow(rig.Arrow);                 // 池复用归还（OnEnable Prefix，先于原生 body）
-            Check(Physics2D.CountArrowPair(rig.Arrow._collider, false) == 2, "pool reuse restores both pairs unconditionally");
+            Check(Physics2D.CountArrowPair(rig.Arrow._collider, false) == 2, "pool reuse hands back exactly the pairs the ledger owned");
             Check(IsBase(rig), "appearance is handed back by the same prefix");
+            Check(HeroArcherArrowVisuals.TrackedCount == 0, "receipt retired only after the ledger settled");
+        });
+
+        Test("gold: pierce ownership follows the arrow lifecycle (veto / feature off / Clear / despawn)", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(1261, out _);
+            Wall wall = NewWall(2450, 2);
+
+            Rig vetoed = NewRig(2550, _vanilla);
+            HeroArcherArrowVisuals.ShotToken token = HeroArcherArrowVisuals.BeginShot(hero);
+            SimulateSpawn(vetoed, hero);
+            Check(IsGold(vetoed) && Physics2D.CountArrowPair(vetoed.Arrow._collider, true) == 2, "hero shot painted + pierced");
+            vetoed.Arrow.archer = NewPlainGo(1262);                       // 原生写了别的 owner
+            HeroArcherArrowVisuals.EndShot(token);
+            Check(IsBase(vetoed) && Physics2D.CountArrowPair(vetoed.Arrow._collider, false) == 2,
+                "owner veto handed the wall pairs back together with the appearance");
+
+            Rig off = NewRig(2650, _vanilla);
+            SimulateShot(hero, off);
+            Check(Physics2D.CountArrowPair(off.Arrow._collider, true) == 2, "second arrow pierced while enabled");
+            HeroArcherRuntime.EnabledState = false;
+            HeroArcherArrowVisuals.Tick();
+            Check(IsBase(off) && Physics2D.CountArrowPair(off.Arrow._collider, false) == 2,
+                "feature off handed the in-flight arrow's pairs back");
+            HeroArcherRuntime.EnabledState = true;
+
+            Rig cleared = NewRig(2750, _vanilla);
+            SimulateShot(hero, cleared);
+            Check(Physics2D.CountArrowPair(cleared.Arrow._collider, true) == 2, "third arrow pierced");
+            HeroArcherArrowVisuals.Clear();
+            Check(IsBase(cleared) && Physics2D.CountArrowPair(cleared.Arrow._collider, false) == 2,
+                "Clear() handed the pairs back too");
+            Check(HeroArcherArrowVisuals.TrackedCount == 0, "no receipt left behind after Clear");
+
+            Rig pooled = NewRig(2850, _vanilla);
+            SimulateShot(hero, pooled);
+            Check(Physics2D.CountArrowPair(pooled.Arrow._collider, true) == 2, "fourth arrow pierced");
+            pooled.Go.activeSelf = false;                                 // 池回收：引擎随之清除该碰撞体的 ignore 状态
+            Advance(1f);
+            HeroArcherArrowVisuals.Tick();
+            Check(IsBase(pooled) && HeroArcherArrowVisuals.TrackedCount == 0, "despawn restored appearance and retired the receipt");
+            Check(Physics2D.CountArrowPair(pooled.Arrow._collider, false) == 0,
+                "deactivated collider is engine-cleared: retire without stale false writes");
         });
 
         Test("gold: non-hero / disabled shots stay native; other archers unchanged", () =>

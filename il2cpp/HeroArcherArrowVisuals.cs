@@ -27,15 +27,16 @@ namespace KingdomEnhancedMod;
 ///     含开关/当前 world/离线门）→ 压入自有 main-thread 作用域栈（≤<see cref="MaxStack"/> 层）；
 ///     非英雄/关闸/溢出压**掩蔽项**（屏蔽外层资格；溢出项不占栈位但 Depth 仍对称自增，出栈即恢复）。
 ///   * <see cref="ResetArrow"/>（Arrow.OnEnable Prefix，Priority.First）：先归还——池复用必须在原生
-///     OnEnable 之前恢复原样，且不受功能开关限制（关闭期间发生的复用同样要清干净）；同一入口先
-///     <see cref="HeroArcherWallPierce.Restore"/> 归还墙碰撞（英雄箭的穿墙例外，见该文件）。
+///     OnEnable 之前恢复原样，且不受功能开关限制（关闭期间发生的复用同样要清干净）；墙碰撞按箭身份
+///     兜底归还（<see cref="HeroArcherWallPierce.Restore"/>），权威归还仍走回执缝合点（见该文件账本说明）。
 ///   * <see cref="OnSpawn"/>（Arrow.OnEnable Postfix，Priority.Last）：作用域内才上色（同一 shot 的主箭与
 ///     额外箭天然同域）；OnEnable 时刻**绝不**读 arrow.archer。英雄分支外观写入成功后由
 ///     <see cref="HeroArcherWallPierce.Apply"/> 给该箭挂上「无视墙碰撞」——同样以既有作用域为资格门。
 ///   * <see cref="EndShot"/>（Finalizer，在所有 Postfix 之后）：出栈，并对本次 shot 回执复核
 ///     <c>arrow.archer</c> 确实是该射手（归属复核只在原生写完 owner 之后做；读不到/为 null 一律不撤）。
 ///   * <see cref="Tick"/>（operator 接 ModPanel.Update）：只扫自有 ≤<see cref="Capacity"/> 条回执——
-///     功能关/世界失效或变更/箭已回收 → 归还；待归还 → 退避重试；未复核 → 复核。绝不每帧重染。
+///     功能关/世界失效或变更/箭已回收 → 归还；待归还 → 退避重试；未复核 → 复核；已确认 → 账本里
+///     未确认的 true 写入/未决探测做有界退避重试（不扫描世界）。绝不每帧重染。
 ///
 /// 回执账本（≤<see cref="Capacity"/> 条，满时不染该箭；绝不驱逐已有回执、绝不销毁任何箭）：
 /// 身份 = GO InstanceID + GO 指针 + Arrow 指针 + Renderer 指针（IL2CPP 下 C# wrapper 每帧可能是不同对象，
@@ -45,6 +46,13 @@ namespace KingdomEnhancedMod;
 /// （绝不静默丢未完成的归还责任，也绝不因一次失败就丢账）；确证换对象（指针/InstanceID 不符）或
 /// renderer/箭已销毁才退休。外观在箭退役前可以一直保持（射手死亡/退役都不撤），但功能关、世界失效或
 /// 变更、箭被回收时必须归还。所有入口异常隔离，绝不外抛进原生调用链。
+///
+/// 穿墙账本与回执同生共死：英雄分支给箭挂上的墙碰撞责任（<see cref="HeroArcherWallPierce.PierceLedger"/>）
+/// 也记在这条回执里，**只有外观归还完成 且 碰撞账本清空，回执才退休**——owner 否决、功能关闭、世界换代、
+/// 池复用、Clear、巡检任一归还路径都不会因为外观已还原/renderer 已销毁/某次写失败而丢掉仍活动的物理 pair。
+/// 同一支箭（GO 身份或 Arrow 指针身份）同一时刻只允许一条回执：旧责任未结清时，新 renderer/新生命被
+/// **封锁**（保持原生外观 + 原生碰撞，fail-closed），结清之后下一次 OnSpawn 才允许接管；因此旧账绝不会
+/// 跨生命被复用或被换成新的归还目标。
 /// </summary>
 internal static class HeroArcherArrowVisuals
 {
@@ -92,6 +100,7 @@ internal static class HeroArcherArrowVisuals
         internal IntPtr RendererPtr;
         internal Arrow Arrow;                   // 有界强引用（≤Capacity）
         internal SpriteRenderer Renderer;
+        internal HeroArcherWallPierce.PierceLedger Pierce;   // 本生命接管的墙碰撞账本（与外观同生共死）
         internal IntPtr WorldPtr;
         internal IntPtr LayerPtr;
         internal int SceneHandle;
@@ -334,7 +343,8 @@ internal static class HeroArcherArrowVisuals
         {
             if (arrow == null || arrow.gameObject == null) return;
             // 穿墙归还先于一切（也先于回执循环）：池复用/新生命必须在原生 OnEnable 之前恢复墙碰撞，
-            // 且不受功能开关限制（关闭期间发生的复用同样要清干净）；单点失败不阻塞回执归还。
+            // 且不受功能开关限制（关闭期间发生的复用同样要清干净）。这里只是按箭身份的兜底；
+            // 权威归还走下面的回执缝合点（外观 + 账本一起结算），单点失败不阻塞回执归还。
             try { HeroArcherWallPierce.Restore(arrow); }
             catch (Exception e) { Fail("reset-pierce", "wall pierce restore failed: " + e); }
             IntPtr arrowPtr;
@@ -360,7 +370,9 @@ internal static class HeroArcherArrowVisuals
 
     /// <summary>
     /// Arrow.OnEnable 后缀（Priority.Last）：只有在英雄 shot 作用域内才上色，其余一律保持原生外观。
-    /// 资格来自作用域，不读 arrow.archer；同一身份已有回执时幂等（绝不重复写、绝不二次接管）。
+    /// 资格来自作用域，不读 arrow.archer；同一身份已有回执时幂等（绝不重复写、绝不二次接管）；
+    /// 同一支箭的旧责任未结清（外观待归还 / 穿墙账本未清）时本次一律封锁：不建第二条回执、不上色、
+    /// 不挂穿墙（fail-closed），结算完成后的下一次 OnSpawn 才允许接管。
     /// </summary>
     internal static void OnSpawn(Arrow arrow)
     {
@@ -403,10 +415,23 @@ internal static class HeroArcherArrowVisuals
                 }
                 return;                                              // 已上色：幂等，不重复写
             }
-            if (HasReceiptFor(goPtr, goId, rendererPtr))
+            int other = FindOtherReceiptSlot(goPtr, goId, arrowPtr);
+            if (other >= 0)
             {
-                // 同 GO/renderer 上已有别的 arrow 组件身份的回执：绝不认领，也不新建第二条。
-                Fail("conflict", "same GO/renderer already owned by another arrow component; arrow keeps native appearance");
+                Receipt previous = Slots[other];
+                if (IsUnsettled(previous))
+                {
+                    // 旧责任未结清（外观待归还 / 穿墙账本未清）：这里再试一次结清，然后**封锁**本次接管——
+                    // 新 renderer/新生命既不能接管，也不能替旧账换归还目标；本生命保持原生外观 + 原生碰撞
+                    // （fail-closed）。结算完成后，下一次 OnSpawn 才会建新回执。
+                    previous.PendingRestore = true;
+                    try { TryRestore(other); }
+                    catch (Exception e) { Keep(other); Fail("spawn-settle", "settling the earlier receipt failed: " + e); }
+                    Fail("blocked", "an earlier receipt for this arrow is still unsettled; this life keeps native appearance and collisions");
+                    return;
+                }
+                // 已结清但 renderer/arrow 身份已变：同一支箭只允许一条回执，绝不认领第二条。
+                Fail("conflict", "same arrow already owned by another receipt; arrow keeps native appearance");
                 return;
             }
             if (!EnsureSprite()) return;                             // 资源缺失/非法/未就绪：整块 fail-closed
@@ -448,9 +473,14 @@ internal static class HeroArcherArrowVisuals
             Slots[free] = receipt;                                    // 先登记责任，再写外观
             if (!WriteAppearance(free)) return;                        // 半写失败：回执保留为待归还，Tick 重试
             receipt.PendingRestore = false;
-            // 外观写入成功才给这支英雄箭挂穿墙（资格门就是本次 shot 作用域）；失败只记日志，
-            // 绝不影响外观、绝不外抛进原生链路。
-            try { HeroArcherWallPierce.Apply(arrow); }
+            // 外观写入成功才给这支英雄箭挂穿墙（资格门就是本次 shot 作用域）；返回的账本记进回执，
+            // 归还与退休都由回执缝合点负责。失败只记日志，绝不影响外观、绝不外抛进原生链路。
+            try
+            {
+                HeroArcherWallPierce.PierceLedger pierce =
+                    HeroArcherWallPierce.Apply(arrow, receipt.GoPtr, receipt.GoId, receipt.ArrowPtr);
+                if (pierce != null) receipt.Pierce = pierce;
+            }
             catch (Exception e) { Fail("spawn-pierce", "wall pierce apply failed: " + e); }
         }
         catch (Exception e) { Fail("spawn", "arrow appearance apply failed: " + e); }
@@ -500,7 +530,10 @@ internal static class HeroArcherArrowVisuals
             {
                 if (receipt.Renderer == null || receipt.Renderer.gameObject == null)
                 {
-                    Slots[i] = null;                                  // 箭/renderer 已销毁：无处可写
+                    // 箭/renderer 已销毁：外观侧无处可写（视为了结），但碰撞账本可能还活着——
+                    // 照样过归还缝合点，绝不因为视觉侧消失就丢掉仍活动的物理 pair。
+                    receipt.PendingRestore = true;
+                    TryRestore(i);
                     continue;
                 }
                 bool despawned = false;
@@ -512,7 +545,9 @@ internal static class HeroArcherArrowVisuals
                     receipt.PendingRestore = true;                    // 池回收/功能关/世界失效或变更：必须归还
                 }
                 if (receipt.PendingRestore) { TryRestore(i); continue; }
-                if (!receipt.Confirmed) TryConfirm(i, receipt.Epoch);
+                if (!receipt.Confirmed) { TryConfirm(i, receipt.Epoch); continue; }
+                // 已确认的在飞箭：账本里未确认的 true 写入 / 未决探测做有界退避重试（不扫描世界）。
+                if (HeroArcherWallPierce.HasPendingRetry(receipt.Pierce)) HeroArcherWallPierce.RetryPending(receipt.Pierce);
             }
             catch (Exception e)
             {
@@ -585,26 +620,36 @@ internal static class HeroArcherArrowVisuals
     }
 
     /// <summary>
-    /// 逐属性 CAS 归还：只写回执里记录的 renderer（不碰可能被替换的新 renderer，也不要求 Arrow 组件还活着）。
-    /// 身份复核：仍同 renderer/GO 指针 + InstanceID 才写；identity 读异常 = 未知 → 保留回执 + 退避；
-    /// 确证换对象 / renderer 已销毁才退休。逐属性独立判定，第三方改过的那一项绝不覆盖：
-    ///   * sprite：当前 sprite 的 native 指针 == 我们写入的那份才算我们的；指针读异常 = 未知 → 保留重试。
-    ///   * color：本模块**只拥有 RGB**（永不染指 alpha）——当前 RGB == 金色才写回 base RGB，
-    ///     并保留**当前** alpha（游戏自己的淡入淡出/闪烁照旧）；RGB 已被第三方改掉则整条颜色都不碰。
-    /// 两项都不再属于本模块时才退休。
+    /// 归还缝合点（功能关闭/世界切换/owner 否决/池复用/巡检/Clear/卸载都汇到这里）：外观与穿墙账本
+    /// **一起结算**——外观归还完成 **且** 碰撞账本清空，回执才退休；否则保留回执 + 退避重试。
+    /// 绝不因为外观已还原、renderer 已销毁或某次写失败就丢掉仍活动的物理 pair 责任。
     /// </summary>
     private static void TryRestore(int slot)
     {
         Receipt receipt = Slots[slot];
-        if (receipt.Renderer == null || receipt.Renderer.gameObject == null)
-        {
-            Slots[slot] = null;                                          // renderer 已销毁：无处可写，退休
-            return;
-        }
+        if (receipt == null) return;
+        bool visualsSettled = TryRestoreVisuals(receipt);
+        bool pierceSettled = HeroArcherWallPierce.RestoreLedger(receipt.Pierce);
+        if (visualsSettled && pierceSettled) { Slots[slot] = null; return; }
+        Keep(slot);
+    }
+
+    /// <summary>
+    /// 逐属性 CAS 归还：只写回执里记录的 renderer（不碰可能被替换的新 renderer，也不要求 Arrow 组件还活着）。
+    /// 身份复核：仍同 renderer/GO 指针 + InstanceID 才写；identity 读异常 = 未知 → 保留回执 + 退避；
+    /// 确证换对象 / renderer 已销毁 = 外观侧了结（不写新对象）。逐属性独立判定，第三方改过的那一项绝不覆盖：
+    ///   * sprite：当前 sprite 的 native 指针 == 我们写入的那份才算我们的；指针读异常 = 未知 → 保留重试。
+    ///   * color：本模块**只拥有 RGB**（永不染指 alpha）——当前 RGB == 金色才写回 base RGB，
+    ///     并保留**当前** alpha（游戏自己的淡入淡出/闪烁照旧）；RGB 已被第三方改掉则整条颜色都不碰。
+    /// 返回 true = 外观侧责任已了结（已写回 / 确证换对象 / renderer·GO 明确消失 / 两项都已不是我们的）。
+    /// </summary>
+    private static bool TryRestoreVisuals(Receipt receipt)
+    {
+        if (receipt.Renderer == null || receipt.Renderer.gameObject == null) return true;   // 无处可写：外观侧了结
 
         OwnerCheck owner = CheckOwner(receipt);
-        if (owner == OwnerCheck.Different) { Slots[slot] = null; return; }    // 确证换对象：绝不写新对象
-        if (owner == OwnerCheck.Unknown) { Keep(slot); return; }              // 读异常：未知，保留回执
+        if (owner == OwnerCheck.Different) return true;                       // 确证换对象：绝不写新对象
+        if (owner == OwnerCheck.Unknown) return false;                        // 读异常：未知，保留回执
 
         Sprite currentSprite;
         Color currentColor;
@@ -613,25 +658,25 @@ internal static class HeroArcherArrowVisuals
             currentSprite = receipt.Renderer.sprite;
             currentColor = receipt.Renderer.color;
         }
-        catch (Exception) { Keep(slot); return; }
+        catch (Exception) { return false; }
 
         Ownership spriteState = SpriteOwnership(currentSprite, receipt.WrittenSpritePtr);
-        if (spriteState == Ownership.Unknown) { Keep(slot); return; }         // 指针读不到 = 未知，绝不当作别人的
+        if (spriteState == Ownership.Unknown) return false;                   // 指针读不到 = 未知，绝不当作别人的
         bool rgbOurs = SameRgb(currentColor, receipt.WrittenColor);
-        if (spriteState == Ownership.Foreign && !rgbOurs) { Slots[slot] = null; return; }   // 两项都已不是我们的
+        if (spriteState == Ownership.Foreign && !rgbOurs) return true;        // 两项都已不是我们的
 
         if (spriteState == Ownership.Ours)
         {
             try { receipt.Renderer.sprite = receipt.BaseSprite; }
-            catch (Exception) { Keep(slot); return; }                         // 写异常：保留 sprite 责任
+            catch (Exception) { return false; }                              // 写异常：保留 sprite 责任
         }
         if (rgbOurs)
         {
             Color restored = new Color(receipt.BaseColor.r, receipt.BaseColor.g, receipt.BaseColor.b, currentColor.a);
             try { receipt.Renderer.color = restored; }
-            catch (Exception) { Keep(slot); return; }                         // 写异常：保留 color 责任
+            catch (Exception) { return false; }                              // 写异常：保留 color 责任
         }
-        Slots[slot] = null;
+        return true;
     }
 
     /// <summary>回执保留：标记待归还并退避（读/写失败一律走这里，绝不丢账、绝不绕过退避）。</summary>
@@ -826,16 +871,26 @@ internal static class HeroArcherArrowVisuals
         return -1;
     }
 
-    /// <summary>同 GO + 同 renderer 上是否已有任何回执（不论 arrow 组件身份/状态）。</summary>
-    private static bool HasReceiptFor(IntPtr goPtr, int goId, IntPtr rendererPtr)
+    /// <summary>
+    /// 同一支箭（GO 身份或 Arrow 指针身份）名下已有的**另一条**回执下标（调用方已排除完全同身份的那条）；
+    /// 无 = -1。一条回执 = 一条生命：旧责任未结清前绝不允许第二条接管（renderer 换掉也不能绕过）。
+    /// </summary>
+    private static int FindOtherReceiptSlot(IntPtr goPtr, int goId, IntPtr arrowPtr)
     {
         for (int i = 0; i < Capacity; i++)
         {
             Receipt receipt = Slots[i];
-            if (receipt != null && receipt.GoPtr == goPtr && receipt.GoId == goId
-                && receipt.RendererPtr == rendererPtr) return true;
+            if (receipt == null) continue;
+            if (receipt.GoPtr == goPtr && receipt.GoId == goId) return i;
+            if (arrowPtr != IntPtr.Zero && receipt.ArrowPtr == arrowPtr) return i;
         }
-        return false;
+        return -1;
+    }
+
+    /// <summary>回执是否还有未结清责任：外观待归还，或穿墙账本里仍有未归还/未确认/待重探的 pair。</summary>
+    private static bool IsUnsettled(Receipt receipt)
+    {
+        return receipt.PendingRestore || HeroArcherWallPierce.HasUnsettled(receipt.Pierce);
     }
 
     /// <summary>取空闲槽位；满时返回 -1（绝不驱逐已有回执、绝不动任何箭）。</summary>

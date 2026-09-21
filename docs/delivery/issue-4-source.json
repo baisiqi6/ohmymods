@@ -1,0 +1,20 @@
+{
+  "base": "3b9653156c384375380906569bc3877db8a1a3c2",
+  "files": {
+    "il2cpp/HeroArcherArrowVisuals.cs": "f8ca6b3ac3bdb6c858417ef0d6164e651f847673dab7bb418be060af308e6ee5",
+    "il2cpp/HeroArcherWallPierce.cs": "87bfe6aece8a835d67628c93c28e2aefa06f0d3e527b9e9532a58b40a33d1c28",
+    "il2cpp/KnightIdentityArchive.cs": "316ac7b182170e424452f0ceaf2358743ee076a31fe858f2480b9775d3554a1b",
+    "il2cpp/KnightIdentityRuntime.cs": "34fc84d36da286a6bcd3c65fc6000bd6ecc955c86d4934d239f07675e9bce58d",
+    "il2cpp/MusketeerShop.cs": "1287f29eaa815fcb83830dec08e5f789ddd5b5f59c79a5c4abf96190b19fc2e3",
+    "tests/hero-arrow-pierce/Program.cs": "ab7e1a482cea8a3205a7652da47b0c1ff82c5adee6be8f96ad3ded8fe3cf5c86",
+    "tests/hero-arrow-pierce/UnityStubs.cs": "0d1572e8f3b1c2b71778ccab049e6551a730bf7a396bd77d0447e536191bf1fd",
+    "tests/hero-arrow-pierce/actual-interop/InteropStubs.cs": "be0513c20c9de3edf44fd9f24d6aabfea0d5d4ec56bb4612a2c938b1288c0d69",
+    "tests/hero-artemis-arrow/Program.cs": "70a3376facdd669538691457e5de7d28c3500c3a019e610eff303457f5653f3d",
+    "tests/hero-artemis-arrow/UnityStubs.cs": "13d38515d828b88f75ccb10918d736caf9db97adc9a4a18d9b6c105a83c4bb7e",
+    "tests/knight-identity-archive/Tests/FileIoTests.cs": "64cb839970f644124a4f116364b6f6ec25b7cad242291da01b7a95527f0fbf7d",
+    "tests/knight-identity-runtime/NativeStubs.cs": "1eef2ca3eea6fc948e9dd9c8959713864cc2cc8d82b89841700d10d2bc90b480",
+    "tests/knight-identity-runtime/Program.cs": "ca8eb78fcdc5b90b34f24884f0b4f7f94409525294aebbc123c588f9726c0eeb",
+    "tests/knight-identity-runtime/RebaselineTests.cs": "3e0b3ef9dd45bc5c9183be89df89f3c23b72ed6b170793f0afd40738fa0e8dd1",
+    "tests/knight-identity-runtime/RebaselineRebindTests.cs": "3c3301698fdc9647a1193f47406ff485a39611603555b5a53901c23ce9efedf4"
+  }
+}

@@ -941,6 +941,7 @@ internal static partial class MusketeerShop
                 if (gun._rigidbody != null) { gun._rigidbody.velocity = Vector2.zero; gun._rigidbody.angularVelocity = 0f; gun._rigidbody.isKinematic = true; }
                 spawnMs = watch.Elapsed.TotalMilliseconds - rackMs;
                 marked = MusketeerIdentity.TryRegisterPaidGun(gun, slot);
+                identityMs = watch.Elapsed.TotalMilliseconds - rackMs - spawnMs;
                 if (!marked) { reason = "职业记录暂不可写"; return false; }
                 _nextRackLayoutAt = 0f; // anchor the paid gun on the next maintenance tick: no 0.5s transient full-rack lock
                 reason = "";

@@ -15,6 +15,7 @@ namespace KnightIdentityRuntimeTests
             LoadSeedWiringTests.Run();
             ContextFollowupTests.Run();
             RebaselineTests.Run();
+            RebaselineRebindTests.Run();
 
             Console.WriteLine();
             Console.WriteLine("total: passed=" + Case.Passed + " failed=" + Case.Failed);
