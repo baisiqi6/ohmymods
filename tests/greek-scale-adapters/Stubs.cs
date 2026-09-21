@@ -46,7 +46,7 @@ public class CurrencyManager
  public Dictionary<CurrencyType,CurrencyConfig> Data=new();public bool Missing;
  public bool TryGetData(CurrencyType type,out CurrencyConfig config){config=null;return !Missing&&Data.TryGetValue(type,out config);}
 }
-public class CurrencyBag:UnityEngine.Component{public UnityEngine.Transform _container;public void RecalcPosition(){}public void Awake(){}}
+public class CurrencyBag:UnityEngine.Component{public UnityEngine.Transform _container;public void RecalcPosition(){}public void StartShow(){}public void Awake(){}}
 public class BagCurrency:UnityEngine.Component{public CurrencyBag bag;public CurrencyType CurrencyType;public void ResetVisuals(bool backLayer,int nthCoin,bool stack=true){}}
 public class CurrencyBagHandler
 {
@@ -54,6 +54,8 @@ public class CurrencyBagHandler
 }
 namespace KingdomEnhancedMod
 {
+ // This suite owns scale behavior only; real viewport policy is covered by currency-bag-viewport.
+ internal static class CurrencyBagViewport { internal static void KeepVisible(CurrencyBag bag) { } }
  public static class ModConfig{public static Setting Enabled=new();public class Setting{public bool Value=true;}}
  public class KingdomEnhancedPlugin
  {

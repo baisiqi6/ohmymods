@@ -1,0 +1,51 @@
+using KingdomEnhancedMod;using UnityEngine;
+int checks=0;
+void Check(bool value,string name){if(!value)throw new Exception(name);checks++;Console.WriteLine("PASS "+name);}
+void Near(float expected,float actual,string name)=>Check(MathF.Abs(expected-actual)<.00002f,name);
+CurrencyBag Bag(float y=0f){var b=new CurrencyBag();b.transform.position=new(-12.3f,y,0);b.transform.Writes=0;return b;}
+SpriteRenderer Renderer(CurrencyBag b,float left=-1.75f,float right=1.75f,float bottom=-1f,float top=1.5f)=>new(){Owner=b.transform,LocalMin=new(left,bottom,0),LocalMax=new(right,top,0)};
+var frontOnly=Bag();frontOnly._front=Renderer(frontOnly);CurrencyBagViewport.KeepVisible(frontOnly);
+Near(-16.8125f,frontOnly.transform.position.x,"front-only actual window geometry moves minimally inside right edge");
+var zeroClosed=Bag();zeroClosed._front=Renderer(zeroClosed);zeroClosed._closed=new(){EmptyWorldOrigin=true,enabled=false,alpha=0};CurrencyBagViewport.KeepVisible(zeroClosed);
+Near(frontOnly.transform.position.x,zeroClosed.transform.position.x,"valid front plus zero-origin closed equals front alone");
+Check(zeroClosed.transform.Writes==1,"valid front plus empty closed performs exactly one correction");
+var empty=Bag();empty._front=new(){EmptyWorldOrigin=true};empty._back=new(){EmptyWorldOrigin=true,enabled=false};empty._closed=new(){EmptyWorldOrigin=true,alpha=0};CurrencyBagViewport.KeepVisible(empty);
+Check(empty.transform.Writes==0,"all empty renderers leave position untouched");
+var zeroHeight=Bag();zeroHeight._front=Renderer(zeroHeight);zeroHeight._closed=Renderer(zeroHeight,-30,30,0,0);CurrencyBagViewport.KeepVisible(zeroHeight);
+Near(frontOnly.transform.position.x,zeroHeight.transform.position.x,"zero-height wide bounds are ignored");
+var zeroWidth=Bag();zeroWidth._front=Renderer(zeroWidth);zeroWidth._closed=Renderer(zeroWidth,30,30,-1,1);CurrencyBagViewport.KeepVisible(zeroWidth);
+Near(frontOnly.transform.position.x,zeroWidth.transform.position.x,"zero-width tall bounds are ignored");
+var enabled=Bag();enabled._front=Renderer(enabled);enabled._closed=Renderer(enabled,-1.5f,3f);CurrencyBagViewport.KeepVisible(enabled);
+var disabled=Bag();disabled._front=Renderer(disabled);disabled._closed=Renderer(disabled,-1.5f,3f);disabled._closed.enabled=false;disabled._closed.alpha=0;CurrencyBagViewport.KeepVisible(disabled);
+Near(enabled.transform.position.x,disabled.transform.position.x,"disabled transparent nonempty closed contributes the same bounds");
+Check(disabled.transform.position.x<frontOnly.transform.position.x,"larger hidden closed sprite genuinely participates in union");
+int written=disabled.transform.Writes;CurrencyBagViewport.KeepVisible(disabled);Check(disabled.transform.Writes==written,"repeated corrected union causes no further writes");
+var hiddenY=Bag(-100f);hiddenY._front=Renderer(hiddenY);CurrencyBagViewport.KeepVisible(hiddenY);Near(-100f,hiddenY.transform.position.y,"intentional hidden vertical position is unchanged");Near(0f,hiddenY.transform.position.z,"depth remains unchanged for unrotated camera");
+// Visible and hidden lifecycle cases run the same production adapter.
+var top=Bag(5);top.CurrentFadeState=CurrencyBag.FadeState.Open;top._front=Renderer(top);CurrencyBagViewport.KeepVisible(top);
+Near(2.8125f-1.5f-.05625f,top.transform.position.y,"visible top overflow uses height-based padding");
+Near(frontOnly.transform.position.x,top.transform.position.x,"corner overflow corrects X with Y in one write");Check(top.transform.Writes==1,"corner correction is one transform write");
+var bottom=Bag(-5);bottom.CurrentFadeState=CurrencyBag.FadeState.Opening;bottom._front=Renderer(bottom);CurrencyBagViewport.KeepVisible(bottom);
+Near(-2.8125f+1f+.05625f,bottom.transform.position.y,"visible bottom overflow corrected");
+var visible=Bag();visible.transform.position=new(-20,0,0);visible.transform.Writes=0;visible.CurrentFadeState=CurrencyBag.FadeState.Open;visible._front=Renderer(visible);CurrencyBagViewport.KeepVisible(visible);
+Check(visible.transform.Writes==0,"already-visible X and Y keep exact legacy position");
+foreach(var state in new[]{CurrencyBag.FadeState.Hidden,CurrencyBag.FadeState.Closing,CurrencyBag.FadeState.FadingOut}){var b=Bag(-100);b.CurrentFadeState=state;b._front=Renderer(b);CurrencyBagViewport.KeepVisible(b);Near(-100,b.transform.position.y,"Recalc preserves vertical "+state);}
+var showing=Bag(-100);showing.CurrentFadeState=CurrencyBag.FadeState.Hidden;showing._showingCurrency=true;showing._front=Renderer(showing);CurrencyBagViewport.KeepVisible(showing);
+Near(-100,showing.transform.position.y,"queued show that is still Hidden must not be raised");
+showing.CurrentFadeState=CurrencyBag.FadeState.FadingIn;CurrencyBagViewport.KeepVisible(showing);
+Near(-2.8125f+1f+.05625f,showing.transform.position.y,"FadingIn show notification corrects the former hidden baseline");
+Near(frontOnly.transform.position.x,showing.transform.position.x,"show request does not add fixed offset again");
+int showWrites=showing.transform.Writes;CurrencyBagViewport.KeepVisible(showing);Check(showing.transform.Writes==showWrites,"repeat show request adds no writes or offset");
+var declined=Bag(-100);declined._front=Renderer(declined);CurrencyBagViewport.KeepVisible(declined);Near(-100,declined.transform.position.y,"declined StartShow stays hidden regardless of notification");
+var inactiveP2=Bag(-100);inactiveP2._showingCurrency=true;inactiveP2.CurrentFadeState=CurrencyBag.FadeState.FadingIn;inactiveP2.player.gameObject.activeInHierarchy=false;inactiveP2._front=Renderer(inactiveP2);CurrencyBagViewport.KeepVisible(inactiveP2);Near(-100,inactiveP2.transform.position.y,"inactive P2 preserves hidden Y despite show request");
+var closing=Bag(-100);closing.CurrentFadeState=CurrencyBag.FadeState.Closing;closing._showingCurrency=true;closing._front=Renderer(closing);CurrencyBagViewport.KeepVisible(closing);Near(-100,closing.transform.position.y,"show request cannot clamp closing animation");
+var resize=Bag(1);resize.CurrentFadeState=CurrencyBag.FadeState.Open;resize._front=Renderer(resize);CurrencyBagViewport.KeepVisible(resize);resize.CachedInterfaceCam.InterfaceCam.orthographicSize=2f;resize.CachedInterfaceCam.InterfaceCam.pixelHeight=480;CurrencyBagViewport.KeepVisible(resize);
+Near(.46f,resize.transform.position.y,"resize recomputes correction from current camera and pixel height");
+int resizedWrites=resize.transform.Writes;CurrencyBagViewport.KeepVisible(resize);Check(resize.transform.Writes==resizedWrites,"resized correction is idempotent");
+Near(0f,resize.transform.position.z,"vertical correction preserves depth");
+var debugHidden=Bag(-100);debugHidden.CurrentFadeState=CurrencyBag.FadeState.Open;debugHidden._front=Renderer(debugHidden);CurrencyBag.DebugHideCurrencyBag=true;CurrencyBagViewport.KeepVisible(debugHidden);CurrencyBag.DebugHideCurrencyBag=false;Near(-100,debugHidden.transform.position.y,"DebugHide preserves hidden Y even in visible state");
+var disabledBag=Bag(-100);disabledBag.CurrentFadeState=CurrencyBag.FadeState.Open;disabledBag.enabled=false;disabledBag._front=Renderer(disabledBag);CurrencyBagViewport.KeepVisible(disabledBag);Near(-100,disabledBag.transform.position.y,"disabled bag preserves Y");
+var noPlayer=Bag(-100);noPlayer.CurrentFadeState=CurrencyBag.FadeState.Open;noPlayer.player=null;noPlayer._front=Renderer(noPlayer);CurrencyBagViewport.KeepVisible(noPlayer);Near(-100,noPlayer.transform.position.y,"missing player preserves Y");
+var unknownState=Bag(-100);unknownState.CurrentFadeState=(CurrencyBag.FadeState)999;unknownState._front=Renderer(unknownState);CurrencyBagViewport.KeepVisible(unknownState);Near(-100,unknownState.transform.position.y,"unknown fade state fails closed for Y");
+var badHeight=Bag(10);badHeight.CurrentFadeState=CurrencyBag.FadeState.Open;badHeight.CachedInterfaceCam.InterfaceCam.pixelHeight=0;badHeight._front=Renderer(badHeight);CurrencyBagViewport.KeepVisible(badHeight);Near(frontOnly.transform.position.x,badHeight.transform.position.x,"invalid camera height does not regress horizontal correction");Near(10f,badHeight.transform.position.y,"invalid camera height refuses only vertical correction");
+Console.WriteLine($"RESULT {checks} adapter geometry checks passed through actual production CurrencyBagViewport");

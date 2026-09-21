@@ -42,6 +42,7 @@ static class Program
   Test("missing currency source changes no coin and stacklimit remains600",()=>{var b=Bag();ScaleBag(b);var c=Coin(b,new(2,2,1));Managers.Inst.currency.Missing=true;int writes=c.transform.Writes;True(Reset(c,599),"stack599");True(!Reset(c,600),"no stack600");Eq(writes,c.transform.Writes,"source unavailable failclosed");});
   Test("null biome source preserves existing ownership until known world",()=>{var b=Bag();ScaleBag(b);var c=Coin(b,new(2,2,1));Reset(c);BiomeHolder.Inst=null;Scope.Tick();int writes=c.transform.Writes;True(Reset(c,599),"stack remains");Eq(writes,c.transform.Writes,"no source no write");World(1);Vector(Vector3.one,c.transform.localScale);});
   Test("two bag types retain independent signed nonuniform native vectors",()=>{var a=Bag(new(-.8f,1.2f,1));var b=Bag(new(1.4f,-.9f,.7f));ScaleBag(a);ScaleBag(b);ScaleBag(a);Vector(new(-1.6f,2.4f,1),a.transform.localScale);Vector(new(2.8f,-1.8f,.7f),b.transform.localScale);World(1);Vector(new(-.8f,1.2f,1),a.transform.localScale);Vector(new(1.4f,-.9f,.7f),b.transform.localScale);});
+  Test("StartShow notification does not reapply legacy position offset",()=>{var b=Bag();b.transform.position=new(4,5,6);BagPatch.StartShow_Postfix(b);Vector(new(4,5,6),b.transform.position);});
   Console.WriteLine($"RESULT {passed} passed, {failed} failed");Environment.ExitCode=failed==0?0:1;
  }
 }
