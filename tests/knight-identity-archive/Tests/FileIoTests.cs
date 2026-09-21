@@ -310,6 +310,286 @@ namespace KnightIdentityArchiveTests
                 }
             });
 
+            Case.Run("io.retryRecheckRefusesAFutureBackupThatAppearedDuringTheWait", () =>
+            {
+                using (TempDir dir = new TempDir())
+                {
+                    string path = dir.File("archive.json");
+                    string backup = KnightIdentityArchiveStore.BackupPath(path);
+                    string scope = Build.Hex64(1);
+
+                    KnightIdentityArchiveStore.Save(path, Build.Archive(scope, Build.Hex('a'), "knight-1", 1, 0));
+                    KnightIdentityArchive second = KnightIdentityArchiveStore.Load(path).Archive;
+                    second.RecordSnapshot(scope, Build.Snapshot(Build.Hex('b'), Build.E("knight-2", 2, 1)));
+                    KnightIdentityArchiveStore.Save(path, second);
+                    byte[] mainBytes = File.ReadAllBytes(path);
+
+                    KnightIdentityArchive third = KnightIdentityArchiveStore.Load(path).Archive;
+                    third.RecordSnapshot(scope, Build.Snapshot(Build.Hex('c'), Build.E("knight-3", 3, 2)));
+
+                    // 备份路径置目录 → 首次替换真实 IO 失败（Windows / macOS 都成立，不依赖 FileShare 锁语义）。
+                    File.Delete(backup);
+                    Directory.CreateDirectory(backup);
+                    string future = "{\"schemaVersion\":99,\"scopes\":[]}";
+                    string swapError = null;
+                    Thread swap = new Thread(() =>
+                    {
+                        try
+                        {
+                            Thread.Sleep(80); // 250ms 重试窗口内换成更高版本的备份
+                            Directory.Delete(backup, true);
+                            Build.WriteText(backup, future);
+                        }
+                        catch (Exception e)
+                        {
+                            swapError = e.GetType().Name + ": " + e.Message;
+                        }
+                    }) { IsBackground = true };
+                    swap.Start();
+                    KnightIdentityArchiveStore.SaveResult result = KnightIdentityArchiveStore.Save(path, third);
+                    swap.Join();
+
+                    Check.True(swapError == null, "the wait-window swap executed: " + swapError);
+                    Check.True(result.Retried, "the write really went through the retry path");
+                    Check.Equal(SaveStatus.RefusedUnknownVersion, result.Status, "the retry re-check refuses to rotate the future backup away");
+                    Check.Contains(result.Detail, "retry re-check", "the refusal names the retry re-check");
+                    Check.Equal(future, File.ReadAllText(backup), "the future backup that appeared during the wait is kept");
+                    Check.True(File.ReadAllBytes(path).AsSpan().SequenceEqual(mainBytes), "main kept byte-for-byte");
+                    Check.False(Array.Exists(Build.FilesIn(dir.Path), name => name.Contains(".tmp-")), "no temp left");
+                }
+            });
+
+            Case.Run("io.retryRecheckRefusesAFutureMainThatAppearedDuringTheWait", () =>
+            {
+                using (TempDir dir = new TempDir())
+                {
+                    string path = dir.File("archive.json");
+                    string backup = KnightIdentityArchiveStore.BackupPath(path);
+                    string scope = Build.Hex64(1);
+
+                    KnightIdentityArchiveStore.Save(path, Build.Archive(scope, Build.Hex('a'), "knight-1", 1, 0));
+                    KnightIdentityArchive second = KnightIdentityArchiveStore.Load(path).Archive;
+                    second.RecordSnapshot(scope, Build.Snapshot(Build.Hex('b'), Build.E("knight-2", 2, 1)));
+                    KnightIdentityArchiveStore.Save(path, second);
+
+                    KnightIdentityArchive third = KnightIdentityArchiveStore.Load(path).Archive;
+                    third.RecordSnapshot(scope, Build.Snapshot(Build.Hex('c'), Build.E("knight-3", 3, 2)));
+
+                    File.Delete(backup);
+                    Directory.CreateDirectory(backup); // 首次替换真实 IO 失败
+                    string future = "{\"schemaVersion\":99,\"scopes\":[]}";
+                    string swapError = null;
+                    Thread swap = new Thread(() =>
+                    {
+                        try
+                        {
+                            Thread.Sleep(80);
+                            Directory.Delete(backup, true);
+                            Build.WriteText(path, future); // 等待窗口内主文件换代（更高 schema）
+                        }
+                        catch (Exception e)
+                        {
+                            swapError = e.GetType().Name + ": " + e.Message;
+                        }
+                    }) { IsBackground = true };
+                    swap.Start();
+                    KnightIdentityArchiveStore.SaveResult result = KnightIdentityArchiveStore.Save(path, third);
+                    swap.Join();
+
+                    Check.True(swapError == null, "the wait-window swap executed: " + swapError);
+                    Check.True(result.Retried, "the write really went through the retry path");
+                    Check.Equal(SaveStatus.RefusedUnknownVersion, result.Status, "the retry re-check refuses to overwrite a future main");
+                    Check.Equal(future, File.ReadAllText(path), "the future main that appeared during the wait is kept");
+                    Check.False(File.Exists(backup), "nothing was rotated into the backup path");
+                    Check.False(Array.Exists(Build.FilesIn(dir.Path), name => name.Contains(".tmp-")), "no temp left");
+                }
+            });
+
+            Case.Run("io.recoverRetryRecheckRejectsEveryChangedPrecondition", () =>
+            {
+                // 首轮修复必须真实 IO 失败（Windows 独占锁主文件 / POSIX 目录 r-x），等待窗口内再改写主/备文件：
+                // 每例都断言「拒绝 + Retried + 主/备字节保持」——遮蔽危害的观测点就是目标文件没有被写出。
+                foreach (string variant in new[] { "future-main", "valid-main", "future-backup", "corrupt-backup", "changed-backup" })
+                {
+                    using (TempDir dir = new TempDir())
+                    {
+                        string path = dir.File("archive.json");
+                        string backup = KnightIdentityArchiveStore.BackupPath(path);
+                        string scope = Build.Hex64(1);
+
+                        KnightIdentityArchiveStore.Save(path, Build.Archive(scope, Build.Hex('a'), "knight-1", 1, 0));
+                        KnightIdentityArchive first = KnightIdentityArchiveStore.Load(path).Archive;
+                        first.RecordSnapshot(scope, Build.Snapshot(Build.Hex('b'), Build.E("knight-2", 2, 1)));
+                        KnightIdentityArchiveStore.Save(path, first); // 主 + 有效备份
+                        byte[] backupBytes = File.ReadAllBytes(backup);
+                        Build.WriteText(path, "{ this is not json");   // 主损坏：RecoverMainFromBackup 的正当场景
+
+                        string swapError = null;
+                        byte[] expectedMain = null, expectedBackup = null;
+                        Thread swap;
+                        FileStream locked = null;
+                        if (OperatingSystem.IsWindows())
+                        {
+                            // Windows：独占锁让首次替换失败，等待窗口内释放锁后改写现场。
+                            locked = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                            FileStream held = locked;
+                            swap = new Thread(() =>
+                            {
+                                try
+                                {
+                                    Thread.Sleep(80);
+                                    held.Dispose();
+                                    MutateRecoverSource(variant, path, backup, backupBytes, scope, out expectedMain, out expectedBackup);
+                                }
+                                catch (Exception e) { swapError = e.GetType().Name + ": " + e.Message; }
+                            }) { IsBackground = true };
+                        }
+                        else
+                        {
+                            // POSIX：目录置 r-x 让首次写入（temp 创建）真实失败；改写既有文件不需要目录写权限。
+                            File.SetUnixFileMode(dir.Path, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+                            swap = new Thread(() =>
+                            {
+                                try
+                                {
+                                    Thread.Sleep(80);
+                                    MutateRecoverSource(variant, path, backup, backupBytes, scope, out expectedMain, out expectedBackup);
+                                }
+                                catch (Exception e) { swapError = e.GetType().Name + ": " + e.Message; }
+                            }) { IsBackground = true };
+                        }
+
+                        KnightIdentityArchiveStore.SaveResult result;
+                        swap.Start();
+                        try
+                        {
+                            result = KnightIdentityArchiveStore.RecoverMainFromBackup(path);
+                        }
+                        finally
+                        {
+                            swap.Join();
+                            locked?.Dispose();
+                            if (!OperatingSystem.IsWindows())
+                            {
+                                File.SetUnixFileMode(dir.Path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+                            }
+                        }
+
+                        Check.True(swapError == null, variant + ": the wait-window swap executed: " + swapError);
+                        Check.True(result.Retried, variant + ": the repair really went through the retry path");
+                        Check.False(result.Ok, variant + ": the repair retry is refused");
+                        Check.True(File.ReadAllBytes(path).AsSpan().SequenceEqual(expectedMain), variant + ": main kept byte-for-byte");
+                        Check.True(File.ReadAllBytes(backup).AsSpan().SequenceEqual(expectedBackup), variant + ": backup kept byte-for-byte");
+                        Check.False(Array.Exists(Build.FilesIn(dir.Path), name => name.Contains(".tmp-")), variant + ": no temp left");
+                    }
+                }
+            });
+
+            Case.Run("io.recoverRetryStillHealsWhenOnlyTheTransientFailureWasTheProblem", () =>
+            {
+                using (TempDir dir = new TempDir())
+                {
+                    string path = dir.File("archive.json");
+                    string backup = KnightIdentityArchiveStore.BackupPath(path);
+                    string scope = Build.Hex64(1);
+
+                    KnightIdentityArchiveStore.Save(path, Build.Archive(scope, Build.Hex('a'), "knight-1", 1, 0));
+                    KnightIdentityArchive first = KnightIdentityArchiveStore.Load(path).Archive;
+                    first.RecordSnapshot(scope, Build.Snapshot(Build.Hex('b'), Build.E("knight-2", 2, 1)));
+                    KnightIdentityArchiveStore.Save(path, first);
+                    byte[] backupBytes = File.ReadAllBytes(backup);
+                    Build.WriteText(path, "{ this is not json"); // 主损坏：必须仍然可修
+
+                    string swapError = null;
+                    FileStream locked = null;
+                    Thread release;
+                    if (OperatingSystem.IsWindows())
+                    {
+                        locked = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                        FileStream held = locked;
+                        release = new Thread(() =>
+                        {
+                            try { Thread.Sleep(80); held.Dispose(); }
+                            catch (Exception e) { swapError = e.GetType().Name + ": " + e.Message; }
+                        }) { IsBackground = true };
+                    }
+                    else
+                    {
+                        File.SetUnixFileMode(dir.Path, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+                        release = new Thread(() =>
+                        {
+                            try { Thread.Sleep(80); File.SetUnixFileMode(dir.Path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); }
+                            catch (Exception e) { swapError = e.GetType().Name + ": " + e.Message; }
+                        }) { IsBackground = true };
+                    }
+
+                    KnightIdentityArchiveStore.SaveResult result;
+                    release.Start();
+                    try
+                    {
+                        result = KnightIdentityArchiveStore.RecoverMainFromBackup(path);
+                    }
+                    finally
+                    {
+                        release.Join();
+                        locked?.Dispose();
+                        if (!OperatingSystem.IsWindows())
+                        {
+                            File.SetUnixFileMode(dir.Path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+                        }
+                    }
+
+                    Check.True(swapError == null, "the wait-window release executed: " + swapError);
+                    Check.True(result.Retried, "the repair really went through the retry path");
+                    Check.Equal(SaveStatus.Replaced, result.Status, "a transient failure alone still heals the corrupt main");
+                    Check.True(File.ReadAllBytes(path).AsSpan().SequenceEqual(backupBytes), "main rebuilt from the unchanged source");
+                    Check.True(File.ReadAllBytes(backup).AsSpan().SequenceEqual(backupBytes), "backup untouched by the repair");
+                    Check.Equal(KnightIdentityArchiveStatus.Valid, KnightIdentityArchiveStore.Load(path).Status, "readable after the healed repair");
+                    Check.False(Array.Exists(Build.FilesIn(dir.Path), name => name.Contains(".tmp-")), "no temp left");
+                }
+            });
+
+            Case.Run("io.retryRecheckRefusesAFutureBackupWhenTheMainIsMissing", () =>
+            {
+                using (TempDir dir = new TempDir())
+                {
+                    // 主文件缺失时才走 File.Move 新建；用「temp 名单段超长、备份名仍合法」制造真实 IO 失败，
+                    // 不依赖 FileShare 锁语义（Windows / macOS 一致）。
+                    string name = new string('m', 237) + ".json";
+                    string path = dir.File(name);
+                    string backup = KnightIdentityArchiveStore.BackupPath(path);
+                    string scope = Build.Hex64(1);
+                    KnightIdentityArchive third = Build.Archive(scope, Build.Hex('c'), "knight-3", 3, 2);
+                    Check.False(File.Exists(path), "the main starts missing");
+
+                    string future = "{\"schemaVersion\":99,\"scopes\":[]}";
+                    string swapError = null;
+                    Thread swap = new Thread(() =>
+                    {
+                        try
+                        {
+                            Thread.Sleep(80); // 250ms 重试窗口内出现更高版本备份
+                            Build.WriteText(backup, future);
+                        }
+                        catch (Exception e)
+                        {
+                            swapError = e.GetType().Name + ": " + e.Message;
+                        }
+                    }) { IsBackground = true };
+                    swap.Start();
+                    KnightIdentityArchiveStore.SaveResult result = KnightIdentityArchiveStore.Save(path, third);
+                    swap.Join();
+
+                    Check.True(swapError == null, "the wait-window swap executed: " + swapError);
+                    Check.True(result.Retried, "the create really went through the retry path");
+                    Check.Equal(SaveStatus.RefusedUnknownVersion, result.Status, "the retry re-check refuses to shadow the future backup");
+                    Check.Contains(result.Detail, "retry re-check", "the refusal names the retry re-check");
+                    Check.Equal(future, File.ReadAllText(backup), "the future backup that appeared during the wait is kept");
+                    Check.False(File.Exists(path), "no lower-version main was created (the shadowing harm never happened)");
+                    Check.False(Array.Exists(Build.FilesIn(dir.Path), name => name.Contains(".tmp-")), "no temp left");
+                }
+            });
+
             Case.Run("io.protectiveRefusalsAreNeverRetried", () =>
             {
                 using (TempDir dir = new TempDir())
@@ -707,6 +987,37 @@ namespace KnightIdentityArchiveTests
         {
             Build.WriteText(path, document);
             return KnightIdentityArchiveStore.Load(path).Status;
+        }
+
+        /// <summary>
+        /// Recover 重试等待窗口内按变体改写主/备文件；写出后回读期望字节（断言「拒绝后字节保持」的观测点）。
+        /// </summary>
+        private static void MutateRecoverSource(string variant, string path, string backup, byte[] backupBytes, string scope,
+            out byte[] expectedMain, out byte[] expectedBackup)
+        {
+            string future = "{\"schemaVersion\":99,\"scopes\":[]}";
+            switch (variant)
+            {
+                case "future-main":
+                    Build.WriteText(path, future);                                  // 主文件换代：不再需要修复
+                    break;
+                case "valid-main":
+                    File.WriteAllBytes(path, backupBytes);                          // 主文件被别的写入者修好
+                    break;
+                case "future-backup":
+                    Build.WriteText(backup, future);                                // 来源备份换代：未知 schema
+                    break;
+                case "corrupt-backup":
+                    Build.WriteText(backup, "{ this is not json");                  // 来源备份失效
+                    break;
+                case "changed-backup":
+                    File.WriteAllBytes(backup, Build.Archive(scope, Build.Hex('c'), "knight-3", 3, 2).SerializeToUtf8()); // 来源有效但内容已变
+                    break;
+                default:
+                    throw new ArgumentException("unknown variant " + variant);
+            }
+            expectedMain = File.ReadAllBytes(path);
+            expectedBackup = File.ReadAllBytes(backup);
         }
 
         /// <summary>带一个 root 扩展字段、总字节数恰好为 targetBytes 的合法档（用于逼近 16 MiB 上限）。</summary>

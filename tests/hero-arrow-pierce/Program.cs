@@ -6,9 +6,9 @@
 //   FireArrowInternal:
 //     [Prefix] HeroArcherArrowVisuals.BeginShot(source)
 //     Pool.Spawn → Arrow.OnEnable:
-//         [Prefix Priority.First]  ResetArrow  → HeroArcherWallPierce.Restore（无条件归还墙碰撞）
+//         [Prefix Priority.First]  ResetArrow  → 按箭身份兜底归还墙碰撞（权威归还走回执缝合点：外观 + 账本）
 //         原生 OnEnable body（重置物理/collider/地面无视对）
-//         [Postfix Priority.Last]  OnSpawn     → 上色成功 → HeroArcherWallPierce.Apply（无视墙碰撞）
+//         [Postfix Priority.Last]  OnSpawn     → 上色成功 → HeroArcherWallPierce.Apply（只接管原值 false 的对并记账）
 //     arrow.archer = source                       ← 原生在 OnEnable 之后才写 owner
 //     [Finalizer] EndShot
 //   每帧：ModPanel.Update → Tick()
@@ -16,6 +16,11 @@
 // 模式：
 //   gold    = 资源为 operator 提供的真实 ArtemisArrow.png（尺寸/像素/PPU 全核）
 //   missing = csproj 不嵌入资源 → 必须 fail-closed（不换外观、不挂穿墙）
+//
+// 替身附加的异常注入面（用于 B1/B2 边界回归）：
+//   Object.NullCheckThrows       → 该对象的 `== null` / `!= null` 抛异常（Unity 原生 null 检查失败的外层异常面）
+//   Collider2D.PointerReadThrows → 实际 collider 的原生身份读不到（未知分支）
+//   Physics2D.OnGetIgnore / OnIgnore / Throws → 读/写按对或全局失败面
 
 using System;
 using System.Collections.Generic;
@@ -337,7 +342,7 @@ internal static class Program
             SimulateShot(NewPlainGo(), normal);
             Check(IsBase(normal), "non-hero arrow keeps native appearance");
             Check(PairsFor(normal, true) == 0, "non-hero arrow is never given wall pierce");
-            Check(PairsFor(normal, false) == 3, "yet its spawn still runs the unconditional restore (same snapshot)");
+            Check(PairsFor(normal, false) == 0, "non-hero arrow has no ledger: zero physics writes on its spawn");
 
             HeroArcherRuntime.EnabledState = false;
             Rig disabled = NewRig(_vanilla);
@@ -374,7 +379,7 @@ internal static class Program
 
             HeroArcherRuntime.EnabledState = false;
             HeroArcherArrowVisuals.ResetArrow(rig.Arrow);                 // 关闭状态下复用：仍要归还
-            Check(PairsFor(rig, false) == 6 && IsBase(rig), "restore is unconditional even while the feature is disabled");
+            Check(PairsFor(rig, false) == 4 && IsBase(rig), "restore is unconditional even while the feature is disabled");
             HeroArcherRuntime.EnabledState = true;
         });
 
@@ -403,21 +408,21 @@ internal static class Program
             SimulateShot(hero, c);
             Check(UnityEngine.Object.FindObjectsOfTypeCalls == scans + 2, "TTL expiry triggers exactly one rescan");
             Check(PairsFor(c, true) == 3, "rescan picked up the new wall (1 + 2 colliders)");
-            Check(PairsFor(c, false) == 1, "its spawn restore used the pre-refresh snapshot (restore never scans)");
+            Check(PairsFor(c, false) == 0, "a fresh arrow owns no ledger: spawn restore writes nothing");
 
             ArcherOptionsScope.WorldPtr = new IntPtr(7099);                // 换代
             Rig d = NewRig(_vanilla);
             SimulateShot(hero, d);
             Check(UnityEngine.Object.FindObjectsOfTypeCalls == scans + 3, "world generation change forces a rescan even inside the TTL");
             Check(PairsFor(d, true) == 3, "new world snapshot applied");
-            Check(PairsFor(d, false) == 3, "restore before the rescan used the previous snapshot, no extra scan");
+            Check(PairsFor(d, false) == 0, "still no ledger on a fresh arrow (and no extra scan in ResetArrow)");
 
             wall2.Go.activeSelf = false;                                   // 停用墙不再进入活动扫描
             Advance(6f);
             Rig e = NewRig(_vanilla);
             SimulateShot(hero, e);
             Check(PairsFor(e, true) == 1, "inactive wall excluded from the refreshed snapshot");
-            Check(PairsFor(e, false) == 3, "its spawn restore still reached the previous snapshot (no rescan in ResetArrow)");
+            Check(PairsFor(e, false) == 0, "fresh arrow: no ledger, no physics write");
         });
 
         Test("gold: scan failure is fail-closed (no pierce, no throw, bounded log) and keeps the old snapshot for restore", () =>
@@ -434,9 +439,13 @@ internal static class Program
             Rig b = NewRig(_vanilla);
             SimulateShot(hero, b);
             Check(PairsFor(b, true) == 0, "query failure: no pierce this cycle (native collisions kept)");
-            Check(HeroArcherWallPierce.CachedColliderCount == 2, "old snapshot kept (restore path still reachable)");
-            Check(PairsFor(b, false) == 2, "restore still reached the kept snapshot");
+            Check(HeroArcherWallPierce.CachedColliderCount == 2, "old snapshot kept (discovery state preserved)");
+            Check(PairsFor(b, false) == 0, "scan failure writes nothing for a fresh arrow (fail-closed)");
             Check(KingdomEnhancedPlugin.Instance.LogSource.Contains("scan failed"), "failure logged once");
+
+            // 归还根本不看快照：账号本（实际写过的 Collider2D）走，扫描失败/停摆也照还。
+            HeroArcherArrowVisuals.ResetArrow(a.Arrow);
+            Check(PairsFor(a, false) == 2, "the warm arrow's own ledger completes the hand-back without any scan");
 
             UnityEngine.Object.FindObjectsOfTypeThrows = false;
             Advance(6f);
@@ -464,18 +473,26 @@ internal static class Program
             Check(PairsFor(rig, true) == 1 && Physics2D.CountWallPair(w1.Colliders[0], true) == 1,
                 "apply: failing pair skipped, the other wall still ignored");
             Check(Physics2D.CountWallPair(bad, true) == 0 && Physics2D.CountWallPair(bad, false) == 0,
-                "the failing pair was never recorded in either direction");
+                "the failing pair recorded no successful write in either direction");
 
-            Rig second = NewRig(_vanilla);
-            SimulateShot(hero, second);
-            Check(PairsFor(second, false) == 1 && Physics2D.CountWallPair(w1.Colliders[0], false) == 1,
-                "restore: failing pair skipped, the other wall restored");
-            Check(IsGold(second) && IsGold(rig), "appearance unaffected by pierce failures");
+            HeroArcherArrowVisuals.ResetArrow(rig.Arrow);                   // 归还：坏对继续挂账
+            Check(Physics2D.CountWallPair(w1.Colliders[0], false) == 1, "restore: the good wall was handed back");
+            Check(Physics2D.CountWallPair(bad, false) == 0, "no false written for the pair whose hand-back also failed");
+            Check(HeroArcherArrowVisuals.TrackedCount == 1, "the unrestored pair keeps the receipt alive for retry");
+            Check(IsBase(rig), "appearance unaffected by pierce failures");
 
+            Physics2D.OnIgnore = null;
+            Advance(1f);
+            HeroArcherArrowVisuals.Tick();
+            Check(HeroArcherArrowVisuals.TrackedCount == 0 && Physics2D.CountWallPair(bad, false) == 1,
+                "backoff retry completed the hand-back and retired the receipt");
+
+            Physics2D.Throws = true;                                       // 全局写失败面：绝不外抛
             bool escaped = false;
             try { HeroArcherWallPierce.Apply(rig.Arrow); } catch (Exception) { escaped = true; }
             try { HeroArcherWallPierce.Restore(rig.Arrow); } catch (Exception) { escaped = true; }
-            Check(!escaped, "direct Apply/Restore calls never throw out");
+            Physics2D.Throws = false;
+            Check(!escaped, "direct Apply/Restore calls never throw out when every write fails");
         });
 
         Test("gold: collider cap — at most 256 pairs per arrow, truncation logged once", () =>
@@ -530,7 +547,376 @@ internal static class Program
             int scansAfterWarm = UnityEngine.Object.FindObjectsOfTypeCalls;
             HeroArcherArrowVisuals.ResetArrow(rig.Arrow);
             Check(UnityEngine.Object.FindObjectsOfTypeCalls == scansAfterWarm, "restore never rescans");
-            Check(PairsFor(rig, false) == 2, "stale snapshot still restored the pairs it could have written");
+            Check(PairsFor(rig, false) == 2, "the ledger handed back exactly the pairs it took over (snapshot age irrelevant)");
+        });
+
+        Test("gold: arrows this module never applied to are never written (no blanket false; foreign true survives)", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(out _);
+            WallRig wall = NewWall("w", 2);
+            Rig warm = NewRig(_vanilla);
+            SimulateShot(hero, warm);
+            Check(PairsFor(warm, true) == 2, "the hero arrow took both pairs over (warm ledger + snapshot)");
+
+            Rig normal = NewRig(_vanilla);
+            Physics2D.IgnoreCollision(normal.Arrow._collider, wall.Colliders[0], true);   // 别的代码设置的 true
+            int calls = Physics2D.Calls.Count;
+            HeroArcherArrowVisuals.ResetArrow(normal.Arrow);
+            Check(Physics2D.Calls.Count == calls && PairsFor(normal, false) == 0,
+                "an arrow with no ledger does zero physics writes (no blanket restore)");
+            Check(Physics2D.GetIgnoreCollision(normal.Arrow._collider, wall.Colliders[0]), "the foreign true pair is untouched");
+            Check(PairsFor(warm, true) == 2, "the unrelated reset left the owner arrow's pairs alone");
+
+            Rig hero2 = NewRig(_vanilla);
+            Physics2D.IgnoreCollision(hero2.Arrow._collider, wall.Colliders[0], true);   // 预置他方 true
+            int trueBefore = Physics2D.CountWallPair(wall.Colliders[0], true);
+            SimulateShot(hero, hero2);
+            Check(Physics2D.CountWallPair(wall.Colliders[0], true) == trueBefore,
+                "the pre-existing true pair was never rewritten by the hero shot");
+            HeroArcherArrowVisuals.ResetArrow(hero2.Arrow);
+            Check(Physics2D.GetIgnoreCollision(hero2.Arrow._collider, wall.Colliders[0]), "foreign true survives the hand-back");
+            Check(Physics2D.CountWallPair(wall.Colliders[0], false) == 0, "no false written for the foreign pair");
+            Check(!Physics2D.GetIgnoreCollision(hero2.Arrow._collider, wall.Colliders[1]),
+                "the pair we did take over was handed back");
+        });
+
+        Test("gold: an owner-vetoed arrow hands its wall pairs back with the appearance", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(out _);
+            GameObject other = NewPlainGo();
+            WallRig wall = NewWall("w", 2);
+            Rig rig = NewRig(_vanilla);
+            HeroArcherArrowVisuals.ShotToken token = HeroArcherArrowVisuals.BeginShot(hero);
+            SimulateSpawn(rig, hero);
+            Check(IsGold(rig) && PairsFor(rig, true) == 2, "hero scope painted and pierced the arrow");
+
+            rig.Arrow.archer = other;                                      // 原生写了别的 owner
+            HeroArcherArrowVisuals.EndShot(token);
+            Check(IsBase(rig), "owner veto restored the appearance");
+            Check(PairsFor(rig, false) == 2, "owner veto also handed the wall pairs back");
+            Check(!Physics2D.GetIgnoreCollision(rig.Arrow._collider, wall.Colliders[0])
+                && !Physics2D.GetIgnoreCollision(rig.Arrow._collider, wall.Colliders[1]), "both pairs are false again");
+            Check(HeroArcherArrowVisuals.TrackedCount == 0, "receipt retired only after both responsibilities settled");
+        });
+
+        Test("gold: switching the feature off hands back the pairs of arrows already in flight", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(out _);
+            NewWall("w", 2);
+            Rig rig = NewRig(_vanilla);
+            SimulateShot(hero, rig);
+            Check(PairsFor(rig, true) == 2 && HeroArcherArrowVisuals.TrackedCount == 1, "painted and pierced while enabled");
+
+            HeroArcherRuntime.EnabledState = false;
+            HeroArcherArrowVisuals.Tick();
+            Check(IsBase(rig) && HeroArcherArrowVisuals.TrackedCount == 0, "feature off restored the appearance");
+            Check(PairsFor(rig, false) == 2, "feature off handed the wall pairs back too");
+        });
+
+        Test("gold: a wall missing from the refreshed snapshot is still handed back (ledger, not snapshot)", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(out _);
+            WallRig wall = NewWall("w", 1);
+            Rig old = NewRig(_vanilla);
+            SimulateShot(hero, old);
+            Check(Physics2D.GetIgnoreCollision(old.Arrow._collider, wall.Colliders[0]), "the old arrow owns the pair");
+
+            wall.Wall.EnumerationThrows = true;                            // 单墙枚举失败 → 快照被替换为空
+            Advance(6f);
+            Rig fresh = NewRig(_vanilla);
+            SimulateShot(hero, fresh);
+            Check(HeroArcherWallPierce.CachedColliderCount == 0, "TTL rescan replaced the discovery snapshot with an empty one");
+            Check(!Physics2D.GetIgnoreCollision(fresh.Arrow._collider, wall.Colliders[0]), "the fresh arrow never claimed the unreadable wall");
+
+            HeroArcherWallPierce.Restore(old.Arrow);                       // 直接入口（反例同路径）
+            Check(!Physics2D.GetIgnoreCollision(old.Arrow._collider, wall.Colliders[0]), "the ledger still reached the dropped wall");
+            Check(HeroArcherWallPierce.LedgerCount == 0, "the settled ledger left the table");
+        });
+
+        Test("gold: repeated Apply is idempotent and never loses the hand-back accounting", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(out _);
+            NewWall("w", 2);
+            Rig rig = NewRig(_vanilla);
+            SimulateShot(hero, rig);
+            int trueCalls = PairsFor(rig, true);
+            Check(trueCalls == 2, "first apply took both pairs over");
+            Check(HeroArcherWallPierce.LedgerCount == 1, "one ledger is in the table");
+
+            HeroArcherWallPierce.PierceLedger ledger = HeroArcherWallPierce.Apply(rig.Arrow);
+            Check(ledger != null && PairsFor(rig, true) == trueCalls,
+                "second Apply wrote nothing new (owned pairs are not touched again)");
+            Check(HeroArcherWallPierce.LedgerCount == 1, "the same ledger is reused: no duplicate accounting");
+
+            HeroArcherArrowVisuals.ResetArrow(rig.Arrow);
+            Check(PairsFor(rig, false) == 2, "the ledger hands back exactly the pairs it took over");
+            Check(HeroArcherWallPierce.LedgerCount == 0, "a settled ledger frees its table slot");
+        });
+
+        Test("gold: a native write that throws afterwards keeps the hand-back responsibility (no half-write loss)", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(out _);
+            WallRig wall = NewWall("w", 1);
+            Collider2D wallCollider = wall.Colliders[0];
+            Rig rig = NewRig(_vanilla);
+            Physics2D.OnIgnore = (Collider2D collider1, Collider2D collider2, bool ignore) =>
+            {
+                if (!ignore || !ReferenceEquals(collider2, wallCollider)) return;
+                Physics2D.PairState[(collider1, collider2)] = true;        // native 侧其实已经写进去了
+                Physics2D.PairState[(collider2, collider1)] = true;
+                throw new InvalidOperationException("stub: native wrote then threw");
+            };
+            SimulateShot(hero, rig);
+            Physics2D.OnIgnore = null;
+            Check(Physics2D.GetIgnoreCollision(rig.Arrow._collider, wallCollider), "the native pair really is ignored");
+            Check(PairsFor(rig, true) == 0, "the stub recorded no successful true call (it threw after the native write)");
+
+            HeroArcherArrowVisuals.ResetArrow(rig.Arrow);
+            Check(!Physics2D.GetIgnoreCollision(rig.Arrow._collider, wallCollider), "the ledger still handed the pair back");
+            Check(HeroArcherArrowVisuals.TrackedCount == 0, "receipt retired after the hand-back");
+        });
+
+        Test("gold: an unreadable ignore state is unknown — never written, never claimed, retried later", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(out _);
+            WallRig wall = NewWall("w", 2);
+            Collider2D unreadable = wall.Colliders[1];
+            Physics2D.OnGetIgnore = (Collider2D collider1, Collider2D collider2) =>
+            {
+                if (ReferenceEquals(collider2, unreadable)) throw new InvalidOperationException("stub: get ignore threw");
+            };
+            Rig rig = NewRig(_vanilla);
+            SimulateShot(hero, rig);
+            Check(IsGold(rig), "appearance still painted (the read failure only affects the pierce slice)");
+            Check(PairsFor(rig, true) == 1 && Physics2D.CountWallPair(wall.Colliders[0], true) == 1, "the readable wall was taken over");
+            Check(Physics2D.CountWallPair(unreadable, true) == 0, "the unreadable pair was never written or claimed");
+            Check(HeroArcherWallPierce.LedgerCount == 1, "the ledger keeps the arrow bound for retry");
+
+            Physics2D.OnGetIgnore = null;
+            HeroArcherArrowVisuals.Tick();                                 // 巡检重探（不扫描世界）
+            Check(Physics2D.CountWallPair(unreadable, true) == 1, "retry read false -> the pair is taken over");
+            Check(PairsFor(rig, true) == 2, "both pairs are ignored after the retry");
+
+            HeroArcherArrowVisuals.ResetArrow(rig.Arrow);
+            Check(PairsFor(rig, false) == 2, "both pairs are handed back (the retried one included)");
+        });
+
+        Test("gold: the per-arrow pair cap holds for unreadable walls too (bounded ledger, no throw)", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(out _);
+            WallRig big = NewWall("big", 256);
+            Collider2D unreadable = big.Colliders[0];
+            Physics2D.OnGetIgnore = (Collider2D collider1, Collider2D collider2) =>
+            {
+                if (ReferenceEquals(collider2, unreadable)) throw new InvalidOperationException("stub: get ignore threw");
+            };
+            Rig rig = NewRig(_vanilla);
+            SimulateShot(hero, rig);
+            Check(PairsFor(rig, true) == 255 && Physics2D.CountWallPair(unreadable, true) == 0,
+                "255 pairs taken over, the unreadable one only probed");
+            Check(HeroArcherWallPierce.LedgerCount == 1, "the ledger holds all 256 responsibilities");
+            Physics2D.OnGetIgnore = null;
+
+            big.Go.activeSelf = false;                                     // 旧墙退出扫描 → 快照换代
+            WallRig extra = NewWall("extra", 1);
+            Collider2D extraCollider = extra.Colliders[0];
+            Physics2D.OnGetIgnore = (Collider2D collider1, Collider2D collider2) =>
+            {
+                if (ReferenceEquals(collider2, extraCollider)) throw new InvalidOperationException("stub: get ignore threw");
+            };
+            Advance(6f);
+            bool escaped = false;
+            try { HeroArcherWallPierce.Apply(rig.Arrow); } catch (Exception) { escaped = true; }
+            Physics2D.OnGetIgnore = null;
+            Check(!escaped, "a full ledger plus a newly added unreadable wall never throws out");
+            Check(Physics2D.CountWallPair(extraCollider, true) == 0, "the extra wall was neither claimed nor written");
+
+            HeroArcherArrowVisuals.ResetArrow(rig.Arrow);
+            Check(PairsFor(rig, false) == 255, "the capped ledger still hands back every pair it owned");
+            Check(HeroArcherWallPierce.LedgerCount == 0, "the settled ledger left the table");
+        });
+
+        Test("gold: a vanished renderer settles only the appearance; live wall pairs are still handed back", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(out _);
+            WallRig wall = NewWall("w", 2);
+            Rig rig = NewRig(_vanilla);
+            SimulateShot(hero, rig);
+            Check(PairsFor(rig, true) == 2, "both pairs ignored while the renderer is alive");
+
+            rig.Renderer.gameObject = null;                                // renderer 侧明确消失（外观无处可写）
+            Advance(1f);
+            HeroArcherArrowVisuals.Tick();
+            Check(PairsFor(rig, false) == 2, "the physical pairs were still handed back (renderer loss does not drop them)");
+            Check(HeroArcherArrowVisuals.TrackedCount == 0, "receipt retired only after the ledger settled");
+            Check(rig.Arrow._collider != null && !Physics2D.GetIgnoreCollision(rig.Arrow._collider, wall.Colliders[0]),
+                "the arrow collider stayed alive and its pair was written back to false");
+        });
+
+        Test("gold: a replaced renderer cannot take over while the old receipt is unsettled", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(out _);
+            WallRig wall = NewWall("w", 2);
+            Rig rig = NewRig(_vanilla);
+            SimulateShot(hero, rig);
+            Check(IsGold(rig) && PairsFor(rig, true) == 2, "first life painted + pierced");
+
+            Collider2D stubborn = wall.Colliders[1];
+            Physics2D.OnIgnore = (Collider2D collider1, Collider2D collider2, bool ignore) =>
+            {
+                if (!ignore && ReferenceEquals(collider2, stubborn)) throw new InvalidOperationException("stub: hand-back failed");
+            };
+            rig.Renderer.WriteSpriteThrows = true;                          // 外观与碰撞归还都失败 → 旧责任挂着
+            HeroArcherArrowVisuals.ResetArrow(rig.Arrow);
+            Check(HeroArcherArrowVisuals.TrackedCount == 1 && IsGold(rig), "old receipt kept, appearance still ours");
+            Check(PairsFor(rig, false) == 1 && HeroArcherWallPierce.LedgerCount == 1, "one pair still owed, ledger kept");
+
+            SpriteRenderer replacement = new SpriteRenderer
+            {
+                Pointer = new IntPtr(9801),
+                gameObject = rig.Go,
+                sprite = rig.BaseSprite,
+                color = rig.BaseColor,
+                sharedMaterial = new Material(),
+            };
+            rig.Go.Components.Add(replacement);
+            rig.Arrow._spriteRenderer = replacement;                        // renderer 换掉（同一支箭）
+            replacement.Writes.Clear();
+            Sprite replacementSprite = replacement.sprite;
+            Color replacementColor = replacement.color;
+
+            SimulateShot(hero, rig);                                        // 新 life：ResetArrow 再试结清 + OnSpawn
+            Check(HeroArcherArrowVisuals.TrackedCount == 1, "no second receipt while the old liability is unsettled");
+            Check(ReferenceEquals(replacement.sprite, replacementSprite) && SameColor(replacement.color, replacementColor),
+                "the replacement renderer stays native (this life is fail-closed)");
+            Check(PairsFor(rig, true) == 2 && PairsFor(rig, false) == 1,
+                "no new pair written and no wrong-target hand-back for the new life");
+            Check(Physics2D.GetIgnoreCollision(rig.Arrow._collider, stubborn), "the owed pair is still owed on the old collider");
+
+            Physics2D.OnIgnore = null;
+            rig.Renderer.WriteSpriteThrows = false;
+            Advance(1f);
+            HeroArcherArrowVisuals.Tick();
+            Check(HeroArcherArrowVisuals.TrackedCount == 0, "old receipt retired once both liabilities settled");
+            Check(PairsFor(rig, false) == 2 && HeroArcherWallPierce.LedgerCount == 0,
+                "the owed pair was handed back on the OLD collider and the ledger left the table");
+
+            SimulateShot(hero, rig);                                        // 结清后的新 life：正常接管当前 renderer
+            Check(ReferenceEquals(rig.Arrow._spriteRenderer, replacement) && !ReferenceEquals(replacement.sprite, replacementSprite)
+                && Math.Abs(replacement.sprite.pixelsPerUnit - ExpectedPpu) <= 1e-3f,
+                "after settlement the new life paints the current renderer with the shared 0.65-scaled sprite");
+            Check(PairsFor(rig, true) == 4 && HeroArcherArrowVisuals.TrackedCount == 1,
+                "after settlement the new life pierces again with exactly one receipt");
+        });
+
+        Test("gold: a replaced or unreadable arrow collider refuses new writes until the old ledger settles", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(out _);
+            WallRig wall = NewWall("w", 2);
+            Rig rig = NewRig(_vanilla);
+            SimulateShot(hero, rig);
+            Check(PairsFor(rig, true) == 2, "first life took both pairs over");
+
+            Collider2D stubborn = wall.Colliders[1];
+            Physics2D.OnIgnore = (Collider2D collider1, Collider2D collider2, bool ignore) =>
+            {
+                if (!ignore && ReferenceEquals(collider2, stubborn)) throw new InvalidOperationException("stub: hand-back failed");
+            };
+            HeroArcherArrowVisuals.ResetArrow(rig.Arrow);
+            Check(PairsFor(rig, false) == 1 && HeroArcherWallPierce.LedgerCount == 1, "one pair still owed, ledger kept");
+
+            Collider2D oldCollider = rig.Arrow._collider;
+            Collider2D replacement = new Collider2D { Pointer = new IntPtr(9701), gameObject = rig.Go, Label = "arrow-replacement" };
+            rig.Go.Components.Add(replacement);
+            rig.Arrow._collider = replacement;                              // 实际 collider 换掉
+            HeroArcherWallPierce.PierceLedger refused = HeroArcherWallPierce.Apply(rig.Arrow);
+            Check(refused != null && Physics2D.CountArrowPair(replacement, true) == 0,
+                "identity mismatch: the replaced collider gets zero new writes");
+            Check(HeroArcherWallPierce.LedgerCount == 1 && Physics2D.GetIgnoreCollision(oldCollider, stubborn),
+                "the old liability stays in the table and is still owed on the OLD collider");
+
+            replacement.PointerReadThrows = true;                           // 原生身份读不到 = 未知 → 同样拒新写
+            HeroArcherWallPierce.PierceLedger unknown = HeroArcherWallPierce.Apply(rig.Arrow);
+            Check(unknown != null && Physics2D.CountArrowPair(replacement, true) == 0,
+                "unknown collider identity: still zero new writes");
+            replacement.PointerReadThrows = false;
+
+            Physics2D.OnIgnore = null;
+            Advance(1f);
+            HeroArcherArrowVisuals.Tick();
+            Check(!Physics2D.GetIgnoreCollision(oldCollider, stubborn), "retry handed the old pair back on the OLD collider");
+            Check(HeroArcherWallPierce.LedgerCount == 0 && HeroArcherArrowVisuals.TrackedCount == 0,
+                "old ledger and receipt settled after the retry");
+
+            SimulateShot(hero, rig);                                        // 结清后的新 life：当前 collider 正常接管
+            Check(PairsFor(rig, true) == 2, "new life applies both pairs on the current collider");
+            Check(Physics2D.CountWallPair(stubborn, true) == 2, "including the wall that used to be owed");
+            Check(HeroArcherWallPierce.LedgerCount == 1, "a fresh ledger records the current collider");
+        });
+
+        Test("gold: an exception after the first recorded pair still returns the existing liability (no orphan ledger)", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(out _);
+            NewWall("w1", 1);
+            WallRig wall2 = NewWall("w2", 1);
+            Rig warm = NewRig(_vanilla);
+            SimulateShot(hero, warm);                                       // 建立含两面墙的快照
+            Check(PairsFor(warm, true) == 2, "warm snapshot covers both walls");
+
+            Collider2D second = wall2.Colliders[0];
+            second.NullCheckThrows = true;                                  // 第二个墙的 fake-null 检查在 Apply 外层抛出
+            Rig rig = NewRig(_vanilla);
+            bool escaped = false;
+            try { SimulateShot(hero, rig); } catch (Exception) { escaped = true; }
+            second.NullCheckThrows = false;
+            Check(!escaped, "the outer failure never escapes the native entry points");
+            Check(PairsFor(rig, true) == 1, "the first pair was recorded and written before the outer failure");
+            Check(HeroArcherWallPierce.LedgerCount == 2, "the partially applied ledger is in the table");
+            Check(HeroArcherArrowVisuals.TrackedCount == 2, "both receipts are alive (warm + partially applied)");
+
+            HeroArcherRuntime.EnabledState = false;
+            HeroArcherArrowVisuals.Tick();
+            Check(PairsFor(rig, false) == 1, "the already-recorded pair is handed back through the receipt");
+            Check(HeroArcherWallPierce.LedgerCount == 0, "no orphan ledger left after the hand-back");
+            Check(HeroArcherArrowVisuals.TrackedCount == 0, "every receipt retired");
+        });
+
+        Test("gold: the ledger cap rejects new arrows without evicting unrestored pairs", () =>
+        {
+            HeroArcherRuntime.EnabledState = true;
+            GameObject hero = NewHero(out _);
+            WallRig wall = NewWall("w", 1);
+            int cap = HeroArcherWallPierce.MaxLedgerArrows;
+            Rig[] rigs = new Rig[cap];
+            for (int i = 0; i < cap; i++)
+            {
+                rigs[i] = NewRig(_vanilla);
+                SimulateShot(hero, rigs[i]);
+            }
+            Check(HeroArcherWallPierce.LedgerCount == cap, "every pierced arrow holds its own ledger");
+            Check(Physics2D.CountWallPair(wall.Colliders[0], true) == cap, "each of them took the wall over");
+
+            Rig overflow = NewRig(_vanilla);
+            HeroArcherWallPierce.PierceLedger rejected = HeroArcherWallPierce.Apply(overflow.Arrow);
+            Check(rejected == null, "the ledger table is full: the new arrow is rejected");
+            Check(PairsFor(overflow, true) == 0, "rejection writes not a single pair");
+            Check(HeroArcherWallPierce.LedgerCount == cap, "no unrestored ledger was evicted");
+
+            HeroArcherArrowVisuals.ResetArrow(rigs[0].Arrow);
+            Check(HeroArcherWallPierce.LedgerCount == cap - 1, "only the settled ledger left the table");
+            Check(!Physics2D.GetIgnoreCollision(rigs[0].Arrow._collider, wall.Colliders[0]), "an earlier lease still hands its pair back");
         });
 
         Test("gold: pierce touches nothing but the wall pairs (physics/damage/root untouched, nothing destroyed)", () =>
@@ -598,7 +984,7 @@ internal static class Program
             SimulateShot(hero, blocked);
             Check(IsBase(blocked), "no world context: arrow keeps native appearance");
             Check(PairsFor(blocked, true) == 0, "no world context: no pierce (fail-closed)");
-            Check(PairsFor(blocked, false) == 2, "restore is context-free and still hands the pairs back");
+            Check(PairsFor(blocked, false) == 0, "a fresh arrow owns no ledger: restore is context-free and writes nothing");
             ArcherOptionsScope.ContextAvailable = true;
 
             Rig noCollider = NewRig(_vanilla);

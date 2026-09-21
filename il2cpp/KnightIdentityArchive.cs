@@ -948,7 +948,7 @@ namespace KingdomEnhancedMod
                 return new SaveResult(SaveStatus.Unchanged, null);
 
             bool keepBackup = mainStatus == KnightIdentityArchiveStatus.Valid;
-            SaveResult written = WriteAtomically(path, bytes, keepBackup ? backupPath : null);
+            SaveResult written = WriteAtomically(path, bytes, keepBackup ? backupPath : null, RetryPolicy.Save, null);
             if (written.Status == SaveStatus.Created && mainStatus != KnightIdentityArchiveStatus.Missing)
                 written = new SaveResult(SaveStatus.Created, mainDetail, written.Retried);
             return written;
@@ -968,24 +968,75 @@ namespace KingdomEnhancedMod
 
             if (Inspect(BackupPath(path), out _, out byte[] backupBytes, out string backupDetail) != KnightIdentityArchiveStatus.Valid)
                 return new SaveResult(SaveStatus.Failed, "backup is not usable: " + backupDetail);
-            return WriteAtomically(path, backupBytes, null);
+            return WriteAtomically(path, backupBytes, null, RetryPolicy.RecoverFromBackup, backupBytes);
         }
 
         /// <summary>写失败（IO 类）后的一次重试延迟：真实时钟，只重试一次。</summary>
         internal const int RetryDelayMs = 250;
 
         /// <summary>
-        /// 同目录 temp → 完整写 + Flush(true) → File.Replace（可选保留 bak）或 Move；失败保持旧文件。
-        /// IO 类失败在真实时钟延迟后重试一次；仍失败返回既有 Failed（重试与否由 <see cref="SaveResult.Retried"/> 标记，
-        /// 诊断日志由调用方落一次）。
+        /// retry 前复核的调用方前提（不是跨进程 CAS：只保证等待窗口内不覆盖新出现的受保护文件、不写入陈旧来源）。
         /// </summary>
-        private static SaveResult WriteAtomically(string path, byte[] bytes, string backupPath)
+        private enum RetryPolicy
+        {
+            /// <summary>
+            /// Save：拒绝未知 schema 主/备文件与损坏主文件。受检备份恒为 <see cref="BackupPath"/>（与本次是否轮换
+            /// 备份无关）：主文件缺失时的新建同样不得遮蔽等待窗口内出现的更高版本备份。
+            /// </summary>
+            Save,
+
+            /// <summary>
+            /// RecoverMainFromBackup：主文件未知 schema、或已不再需要修复（有效/缺失）→ 拒绝；来源备份必须仍
+            /// Valid 且与本次捕获字节逐字节一致，否则拒绝——绝不把陈旧来源写成低版本主档去遮蔽更高版本数据。
+            /// 主文件损坏本身不是拒绝条件（修复目标）。
+            /// </summary>
+            RecoverFromBackup,
+        }
+
+        /// <summary>
+        /// 同目录 temp → 完整写 + Flush(true) → File.Replace（可选保留 bak）或 Move；失败保持旧文件。
+        /// IO 类失败在真实时钟延迟后重试一次，重试前按 <paramref name="policy"/> 重新 Inspect 复核调用方前提：
+        /// 未知 schema / 损坏主文件 / 不再可修的恢复前提 / 变化的来源备份都不会被这次的陈旧 bytes 覆盖。
+        /// 保护性拒绝同样带 Retried 标记，由调用方落日志。
+        /// </summary>
+        private static SaveResult WriteAtomically(string path, byte[] bytes, string backupPath, RetryPolicy policy, byte[] sourceBytes)
         {
             SaveResult first = WriteAtomicallyOnce(path, bytes, backupPath, out bool retryable);
-            if (first.Status != SaveStatus.Failed || !retryable) return first; // 保护性拒写在 Save 层，不会到这里
+            if (first.Status != SaveStatus.Failed || !retryable) return first; // 保护性拒写在 Save/Recover 层，不会到这里
             SleepRetryDelay();
+            SaveResult refused = CheckRetryProtection(path, policy, sourceBytes);
+            if (refused != null) return new SaveResult(refused.Status, refused.Detail, retried: true);
             SaveResult second = WriteAtomicallyOnce(path, bytes, backupPath, out _);
             return new SaveResult(second.Status, second.Detail, retried: true);
+        }
+
+        /// <summary>retry 前的调用方前提复核；前提仍成立返回 null。</summary>
+        private static SaveResult CheckRetryProtection(string path, RetryPolicy policy, byte[] sourceBytes)
+        {
+            string inspectedBackup = BackupPath(path); // 受检备份与「本次是否轮换备份」的参数分离
+            KnightIdentityArchiveStatus mainStatus = Inspect(path, out _, out _, out string mainDetail);
+            KnightIdentityArchiveStatus backupStatus = Inspect(inspectedBackup, out _, out byte[] backupBytes, out string backupDetail);
+
+            if (mainStatus == KnightIdentityArchiveStatus.UnsupportedVersion)
+                return new SaveResult(SaveStatus.RefusedUnknownVersion, "retry re-check: " + mainDetail);
+            if (backupStatus == KnightIdentityArchiveStatus.UnsupportedVersion)
+                return new SaveResult(SaveStatus.RefusedUnknownVersion, "retry re-check: " + backupDetail);
+
+            if (policy == RetryPolicy.Save)
+            {
+                if (mainStatus == KnightIdentityArchiveStatus.Corrupt)
+                    return new SaveResult(SaveStatus.RefusedCorruptMain, "retry re-check: " + mainDetail);
+                return null;
+            }
+
+            // RecoverFromBackup：主文件必须仍是「存在且损坏」的修复目标，来源必须仍是这次捕获的那一份。
+            if (mainStatus == KnightIdentityArchiveStatus.Valid || mainStatus == KnightIdentityArchiveStatus.Missing)
+                return new SaveResult(SaveStatus.Failed, "retry re-check: main no longer needs a repair (" + mainStatus + ")");
+            if (backupStatus != KnightIdentityArchiveStatus.Valid)
+                return new SaveResult(SaveStatus.Failed, "retry re-check: source backup is not usable: " + backupDetail);
+            if (sourceBytes == null || backupBytes == null || !backupBytes.AsSpan().SequenceEqual(sourceBytes))
+                return new SaveResult(SaveStatus.Failed, "retry re-check: source backup changed during the wait");
+            return null;
         }
 
         private static void SleepRetryDelay()

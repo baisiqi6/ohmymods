@@ -510,8 +510,10 @@ namespace KingdomEnhancedMod
         /// 模拟原生 IslandSaveData.Save(campaign, land, challenge) 的真实次序：
         /// Prefix(空 scope，CurrentlySavingIsland 仍为 null) → 主体设置岛/isSavingGame → 逐对象 GetID（后缀捕获）
         /// → finally 清岛 → Priority.Last 后缀写 sidecar → Finalizer。
+        /// <paramref name="afterGetId"/> 只在测试需要「捕获之后、写盘之前」改变现场时使用（默认 null）。
         /// </summary>
-        internal static void RunSave(IslandSaveData target, int campaign, int land, int challenge, IList<KnightUnit> units)
+        internal static void RunSave(IslandSaveData target, int campaign, int land, int challenge, IList<KnightUnit> units,
+            Action<KnightUnit> afterGetId = null)
         {
             KnightIdentitySaveBridge.SaveCapture state = KnightIdentitySaveBridge.BeginCapture(campaign, land, challenge);
             try
@@ -527,6 +529,7 @@ namespace KingdomEnhancedMod
                     IslandSaveData.ObjectData record = units[i].ToRecord();
                     target.objects.Add(record);
                     KnightIdentitySaveBridge.HandleGetId(units[i].Persistent, record.uniqueID); // GetID 后缀
+                    if (afterGetId != null) afterGetId(units[i]);
                 }
             }
             finally

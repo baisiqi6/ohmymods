@@ -285,7 +285,9 @@ namespace UnityEngine
     }
 
     /// <summary>Physics2D 替身：完整记录每次 IgnoreCollision 的 (箭碰撞体, 墙碰撞体, ignore) 序列，
-    /// 并允许测试按对注入异常。计数助手按侧/方向显式命名，避免把墙碰撞体传进箭侧计数而恒 0。</summary>
+    /// 并维护**真实 pair 状态表**（GetIgnoreCollision 读取 / Reset 清空，对称写入，与引擎同语义）；
+    /// 还允许测试按对注入读/写异常。计数助手按侧/方向显式命名，避免把墙碰撞体传进箭侧计数而恒 0。
+    /// 夹具全程保持碰撞体/GO 活动：不模拟「停用即清 ignore」的引擎边界。</summary>
     public static class Physics2D
     {
         internal struct IgnoreCall
@@ -296,11 +298,27 @@ namespace UnityEngine
         }
 
         internal static readonly List<IgnoreCall> Calls = new List<IgnoreCall>();
+
+        /// <summary>真实 pair 状态（对称）：生产用 GetIgnoreCollision 决定「是否本模块接管」。</summary>
+        internal static readonly Dictionary<(Collider2D, Collider2D), bool> PairState =
+            new Dictionary<(Collider2D, Collider2D), bool>();
+
         internal delegate void IgnoreHandler(Collider2D collider1, Collider2D collider2, bool ignore);
-        /// <summary>测试注入：可按 (collider1, collider2, ignore) 抛异常；抛出的对不会记入 Calls。</summary>
+        /// <summary>测试注入：可按 (collider1, collider2, ignore) 抛异常；抛出的对不记入 Calls/PairState。</summary>
         internal static IgnoreHandler OnIgnore;
-        /// <summary>true 时所有调用都抛（测试全局失败面）。</summary>
+        internal delegate void GetIgnoreHandler(Collider2D collider1, Collider2D collider2);
+        /// <summary>测试注入：读取按对抛异常（「读取未知」分支）。</summary>
+        internal static GetIgnoreHandler OnGetIgnore;
+        /// <summary>true 时所有写入调用都抛（测试全局失败面）。</summary>
         internal static bool Throws;
+
+        public static bool GetIgnoreCollision(Collider2D collider1, Collider2D collider2)
+        {
+            if (collider1 == null || collider2 == null)
+                throw new ArgumentNullException("stub: GetIgnoreCollision called with a null collider");
+            if (OnGetIgnore != null) OnGetIgnore(collider1, collider2);
+            return PairState.TryGetValue((collider1, collider2), out bool ignored) && ignored;
+        }
 
         public static void IgnoreCollision(Collider2D collider1, Collider2D collider2, bool ignore)
         {
@@ -309,6 +327,8 @@ namespace UnityEngine
             if (Throws) throw new InvalidOperationException("stub: IgnoreCollision threw");
             if (OnIgnore != null) OnIgnore(collider1, collider2, ignore);
             Calls.Add(new IgnoreCall { Arrow = collider1, Wall = collider2, Ignore = ignore });
+            PairState[(collider1, collider2)] = ignore;
+            PairState[(collider2, collider1)] = ignore;
         }
 
         /// <summary>按箭一侧计数（calls[i].Arrow == arrow）：误把墙碰撞体传进来会恒 0——请改用 CountWallPair。</summary>
@@ -332,7 +352,9 @@ namespace UnityEngine
         internal static void Reset()
         {
             Calls.Clear();
+            PairState.Clear();
             OnIgnore = null;
+            OnGetIgnore = null;
             Throws = false;
         }
     }
