@@ -1,0 +1,1 @@
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework></PropertyGroup><ItemGroup><Reference Include="Mono.Cecil"><HintPath>/Applications/ohmymods-arm64-lab/BepInEx/core/Mono.Cecil.dll</HintPath></Reference></ItemGroup></Project>

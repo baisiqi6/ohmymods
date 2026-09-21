@@ -1,0 +1,24 @@
+{
+  "native_source_base": "888d971214900374edbca6206fad6ded8a2c1311",
+  "patch_files": [
+    "cmake/EarlyGlobals.cmake",
+    "source/InstructionRelocation/arm64/ARM64InstructionRelocation.cc",
+    "source/InterceptRouting/InterceptRouting.cpp",
+    "source/InterceptRouting/Routing/FunctionInlineReplace/FunctionInlineReplaceExport.cc",
+    "source/InterceptRouting/Routing/FunctionInlineReplace/function-inline-replace.cc",
+    "source/MemoryAllocator/AssemblyCodeBuilder.cc",
+    "source/MemoryAllocator/NearMemoryArena.cc",
+    "source/TrampolineBridge/Trampoline/arm64/trampoline-arm64.cc",
+    "source/UserMode/UnifiedInterface/platform-posix.cc",
+    "source/MemoryAllocator/NearGapSelection.h"
+  ],
+  "binaries": {
+    "libdobby.dylib": "e0f9cf1cd0fbcb8d886947a5b1709abd2c795cff076911358ecdbd85edefa1b5",
+    "BepInEx.Unity.IL2CPP.dll": "f12ff9c03c1b33af9c2df1771ee9aaebe6a643c86052c27e806c74315037f57e",
+    "BepInEx.Preloader.Core.dll": "d77423a81b60392cf7b21041ca539ec16c423b05cb3793cf14cd339379fc9e73",
+    "Il2CppInterop.Runtime.dll": "4dae2520ea6d36701a92f622f62a339e9c4c58b7bf5bf4744e8154f7fa0c67e2",
+    "OhMyMods.Arm64Entry.dll": "34272c8362e3d3be3102ba884d4ae51c8bcbee20bb1d40d517b79bdb263947d6",
+    "OhMyMods.Arm64Injection.dll": "3b851171ccd37e5e9da3d547bfa46c9f2027b360cf437ebf04a98abaa98570f5"
+  },
+  "nearest_gap_startup_validation": "two 35-second complete launches, third live scene verified; manual gameplay pending"
+}
