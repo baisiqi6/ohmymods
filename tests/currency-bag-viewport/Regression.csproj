@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><LangVersion>latest</LangVersion><GameInteropDir Condition="'$(GameInteropDir)'==''">/Applications/ohmymods-arm64-lab/BepInEx/interop</GameInteropDir><BepInExCoreDir Condition="'$(BepInExCoreDir)'==''">/Applications/ohmymods-arm64-lab/BepInEx/core</BepInExCoreDir></PropertyGroup>
+<ItemGroup>
+<Compile Remove="adapter/**/*.cs" />
+<Compile Include="../../il2cpp/CurrencyBagViewport.cs" Link="Production/CurrencyBagViewport.cs" />
+<Reference Include="$(GameInteropDir)/Assembly-CSharp.dll" />
+<Reference Include="$(GameInteropDir)/Assembly-CSharp-firstpass.dll" />
+<Reference Include="$(GameInteropDir)/UnityEngine.CoreModule.dll" />
+<Reference Include="$(GameInteropDir)/Il2Cppmscorlib.dll" />
+<Reference Include="$(BepInExCoreDir)/Il2CppInterop.Runtime.dll" />
+</ItemGroup></Project>

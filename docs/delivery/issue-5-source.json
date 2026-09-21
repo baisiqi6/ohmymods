@@ -1,0 +1,14 @@
+{
+  "base": "3b9653156c384375380906569bc3877db8a1a3c2",
+  "files": {
+    "il2cpp/PatchEconomy_CurrencyBag.cs": "cdc203730e0d9618506f4b08205c50c701c653a23b7936c535a163fed61bdda2",
+    "tests/greek-scale-adapters/Program.cs": "b76eabf6297c56d72ab002456742522d9602e95ca06564cdb34b35a1fe05cd10",
+    "tests/greek-scale-adapters/Stubs.cs": "f8e9d7c46ed321aa35243894a2b0ecd735d9837d1193aaf1b33d8b0e6def4420",
+    "il2cpp/CurrencyBagViewport.cs": "d59b5227ca5c39c6b3131d16f3a1fe30f4478051a3b39a59163059ad45183311",
+    "tests/currency-bag-viewport/Program.cs": "e4088569ca1cd371e19ce949206323f0f8dc32d30424255052e675f2c3263158",
+    "tests/currency-bag-viewport/Regression.csproj": "8317c7bc3f37cbae34250ab13cfd63855970c911a083cc0d5998c548ad01f5d9",
+    "tests/currency-bag-viewport/adapter/AdapterRegression.csproj": "38513c7d163402df4186a75d04c11c50aedad134edde694862897384a12ca323",
+    "tests/currency-bag-viewport/adapter/Program.cs": "e83ea4669e0f59303decc3657558e68fc5fc1269522a7f924c4fecf75ea86084",
+    "tests/currency-bag-viewport/adapter/Stubs.cs": "043041699a66a3b92da912b479c5d0dbc2beb80a0111497f56e88e5dd46084fc"
+  }
+}
