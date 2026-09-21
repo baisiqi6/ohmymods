@@ -4,10 +4,20 @@
        ../../il2cpp/PatchRoles_Crossbowman.cs（EnsureAssets 资产构建 + BoltOriginOffset +
        克隆 SO 指针门来源）、../../il2cpp/CrossbowmanBoltWallPierce.cs（穿墙注入组件 +
        BestShotInternal 低弹道 prefix 主体）、../../il2cpp/HeroArcherWallPierce.cs（被复用的
-       Apply/Restore）。Unity/游戏 API 换成可观察替身（UnityStubs.cs / GameStubs.cs）：
-       GameObject.SetActive 按组件序派发 OnEnable/OnDisable 消息（镜像 Unity 语义），
-       Physics2D.IgnoreCollision 全量记账。真实 interop API 面由主 il2cpp Debug 构建负责
-       （对 E 盘 2.4 interop 编译，0W0E 门）；这里负责行为。产物只写本目录 bin/obj。 -->
+       逐箭 owned-pair 账本 Apply/Restore）、../../il2cpp/HeroArcherArrowVisuals.cs（账本容量
+       常量与 ResetArrow 前缀归还入口的生产来源——弩手 slice 与英雄 slice 共享这两个文件）。
+       Unity/游戏 API 换成可观察替身（UnityStubs.cs / GameStubs.cs）：GameObject.SetActive 按
+       组件序派发 OnEnable/OnDisable 消息（镜像 Unity 语义），GO 停用即清除该 GO 碰撞体的
+       Physics2D pair 状态（镜像 Unity「停用即丢 ignore 状态」的引擎行为，生产 IsEngineCleared
+       的判据来源）；Physics2D.IgnoreCollision 全量记账并维护对称 pair 状态表。真实 interop API
+       面由主 il2cpp Debug 构建负责（对 E 盘 2.4 interop 编译，0W0E 门）；这里负责行为。
+
+       资源模式（EmbeddedResource 的 LogicalName 与生产/英雄套件契约一致）：
+         默认                        = 仓库内真实 ArtemisArrow.png（gold 模式；HeroArcherArrowVisuals
+                                        编入本套件，资源契约必须与英雄套件一致）
+         -p:EmbedArtemis=false       = 资源缺失分支（missing 模式；弩手行为不得依赖英雄外观资源）
+
+       产物只写本目录 bin/obj，绝不复制到游戏 BepInEx。 -->
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -20,15 +30,28 @@
     <RootNamespace>KingdomEnhancedMod</RootNamespace>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <NoWarn>CS0414;CS0169;CS0649;CS0108</NoWarn>
+    <ArtemisPng Condition="'$(ArtemisPng)' == ''">$(MSBuildThisFileDirectory)../../il2cpp/Assets/ArtemisArrow.png</ArtemisPng>
+    <EmbedArtemis Condition="'$(EmbedArtemis)' == ''">true</EmbedArtemis>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="../../il2cpp/PatchRoles_Crossbowman.cs" />
     <Compile Include="../../il2cpp/CrossbowmanBoltWallPierce.cs" />
     <Compile Include="../../il2cpp/HeroArcherWallPierce.cs" />
+    <Compile Include="../../il2cpp/HeroArcherArrowVisuals.cs" />
     <Compile Include="UnityStubs.cs" />
     <Compile Include="GameStubs.cs" />
+    <Compile Include="PngCodec.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(EmbedArtemis)' == 'true'">
+    <EmbeddedResource Include="$(ArtemisPng)" LogicalName="KingdomEnhancedMod.ArtemisArrow.png" />
+  </ItemGroup>
+
+  <!-- 构建日志证据：确认全局属性 EmbedArtemis 真正到达本次求值（missing 模式依赖它不嵌入资源）。 -->
+  <Target Name="EmbedArtemisSummary" BeforeTargets="BeforeBuild">
+    <Message Importance="high" Text="EmbedArtemis=$(EmbedArtemis)" />
+  </Target>
 
 </Project>
