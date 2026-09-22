@@ -104,6 +104,21 @@ static class Program
             Eq(100, e.B._stashedCoins); Eq(0, PlayerPrefs.SetIntCalls);
             Eq(1, Pool.DespawnCalls); Eq(-1, BankAssistantCoordinator.GetStashedCoinsForPanel());
         });
+        Test("approach teleport keeps the actor's ground Y/Z when the coin is airborne", () =>
+        {
+            // 玩家实测根因回归：扔出的币还在空中弧线（Y=飞行高度）时被分配，
+            // 接近瞬移必须保留助手自身的地面 Y/Z——旧实现整抄币坐标导致
+            // 助手悬空出生且后续 X-only 移动永不回地（"空中平移"）。
+            var e = new Env();
+            e.Actor.transform.position = new Vector3(30f, 0.5f, 0.7f);   // 助手地面位（独特 Y/Z）
+            var coin = e.F.AddCoin(8f);
+            coin.transform.position = new Vector3(8f, 5.5f, 0f);          // 空中币：|dx|>6 → 瞬移触发
+            True((bool)Invoke("TryAssign", e.Helper, coin), "native claim acquired");
+            Eq(0.5f, e.Actor.transform.position.y, "actor keeps its ground Y (not the coin's flight Y)");
+            Eq(0.7f, e.Actor.transform.position.z, "actor keeps its Z");
+            True(Mathf.Abs(e.Actor.transform.position.x - 8f) <= 2.01f,
+                "actor lands within the approach distance of the coin X");
+        });
         Test("foreign exit restores sweep and target claims with their owner retained", () =>
         {
             var e = new Env(); var target = e.Claim(); var sweep = e.Claim(true);
