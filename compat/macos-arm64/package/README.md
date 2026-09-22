@@ -20,7 +20,9 @@
   SHA256 为 `738fb98871dd6e2136474325ea3f7f4f81f2094873a6bc88f7a942d268660b1a`。
 - **当前本机 Steam 版游戏与该实验构建不同，本包不支持**（尚未适配 Steam 构建）；
   也不要假设任意 `2.4.0` 都能用——以指纹校验为准。
-- 本包**不含游戏本体**，请自行准备上述锁定构建。
+- 本包**不含游戏本体**，只分发 Mod 与所需加载依赖；请自行准备上述锁定构建，并只从
+  本项目 **GitHub Releases** 获取本包（发布说明给出 ZIP 的 SHA-256，可用
+  `shasum -a 256 <下载的.zip>` 核对）。本包当前是**未做 Developer ID 签名和 Apple 公证**的实验发行。
 - 主玩法基线：Mod 9.5.13。
 
 ### 系统要求
@@ -63,18 +65,46 @@ KingdomTwoCrowns_Data -> KingdomTwoCrowns.app/Contents/Resources/Data
 
 ### 启动
 
-双击 `launcher.command`。首次若出现 macOS 安全确认，请先核对下载来源并按系统提示处理；
-无法打开时请记录提示并联系维护者。本启动器不会清除下载隔离属性或修改系统安全设置。
+双击 `launcher.command`。**通过浏览器从 GitHub Releases 下载**的 ZIP 通常会被 macOS 打上「下载隔离」
+标记；本包是**未经过 Developer ID 签名和 Apple 公证的实验发行**，因此首次启动可能需要你明确放行：
+
+1. 直接双击试试。若系统允许，即可直接启动。
+2. 若系统提示无法打开/来源未知，请在「系统设置 → 隐私与安全性」中**只放行
+   `launcher.command` 本身**（不要把整个文件夹加入任何例外，也不要在终端里对文件夹
+   递归清除属性）。
+3. 若启动器报「检测到本包原生库带有系统下载隔离属性」，说明 dyld 会拒绝加载这些
+   动态库。启动器**不会自动清除**任何属性，而是给出一条一次性的终端命令，例如：
+
+   ```sh
+   cd /path/to/OhMyMods-Mac-ARM64
+   ./launcher.command --trust-package
+   ```
+
+   该命令会：再次列出将被处理的本包原生库、说明风险范围，并要求输入大写 `TRUST`
+   确认；确认后只清除**这些本包原生库**的 `com.apple.quarantine` 属性——不递归处理
+   目录、不 `sudo`、不清除其他扩展属性、不重签二进制、不改系统安全设置、不启动游戏。
+   完成后重新双击 `launcher.command` 即可。
+
+只有在**确认本包来自本项目 GitHub Releases（或你本机本人的构建）** 时才执行
+`--trust-package`：它会移除系统对该包原生库的下载隔离标记。包内 SHA256 只能核对包
+内容是否被混入旧文件，**不能证明来源可信**。请勿使用 `xattr -cr` / `xattr -dr` 递归
+清除整个文件夹，也不要关闭 Gatekeeper——那会波及游戏与无关文件。
+
 进入游戏后按 **F5**（部分 Mac 键盘需 **Fn+F5**）或 **Ctrl+F10** 打开 Mod 面板。
 以下终端用法仅供需要指定路径或诊断时使用：
 
 ```sh
 cd /path/to/OhMyMods-Mac-ARM64
 ./launcher.command                      # 常规启动
-./launcher.command --check-only         # 只读预检，不启动游戏
+./launcher.command --check-only         # 只读预检，不启动游戏（隔离检测同样非零退出，不清除任何属性）
+./launcher.command --trust-package      # 一次性显式信任本包原生库（需输入 TRUST 确认，不启动游戏）
 ./launcher.command --game "/path/KingdomTwoCrowns.app"   # 显式指定游戏
 ./launcher.command -screen-width 1280 -screen-height 720 # 游戏参数原样转发
 ```
+
+`--trust-package` 与 `--check-only`、游戏参数互斥（可以用 `--game` 指定目标）；同一
+命令行里重复写 `--trust-package` 会被拒绝。该模式可重复运行：已清洁时报告「无可处理
+文件」并以 0 退出，上次部分失败时只处理仍被隔离的文件。
 
 保留参数会被拒绝（防止覆盖加载器 target/runtime/interop/config/程序集指向）：
 `--doorstop` 及其任意破折/下划线变体（含 `=value` 形态）、`--unhollowed-path`
@@ -88,7 +118,11 @@ cd /path/to/OhMyMods-Mac-ARM64
    defaults/文档），防混包或旧文件残留；
 2. 校验游戏四指纹（GameAssembly / 可执行文件 / `global-metadata.dat` /
    `Info.plist`），对照 `game-lock.json`；
-3. 检查既有 `BepInEx.cfg` 的 loader 关键键兼容性（见下）。
+3. 只读检查固定名单内的本包原生库（14 个 `*.dylib`，与构建输入清单一致）：
+   必须是物理包内的真实文件（符号链接/缺失即拒绝），且不得带下载隔离属性
+   `com.apple.quarantine`（带隔离即拒绝启动并给出 `--trust-package` 指引，
+   绝不会自动清除或修改任何扩展属性）；
+4. 检查既有 `BepInEx.cfg` 的 loader 关键键兼容性（见下）。
 
 大文件哈希带来少量启动期开销，这是刻意设计：后来混入的旧 DLL 能被每次启动
 发现，而不是只在首次播种时校验。
@@ -116,6 +150,12 @@ cd /path/to/OhMyMods-Mac-ARM64
 - 包内锁文件防止同包并发启动；启动器还会检测任何正在运行的
   Kingdom Two Crowns（按进程可执行文件名精确匹配，改名后的 `.app` 或裸可执行
   文件同样命中）并要求先退出（进程枚举失败同样拒绝启动）。
+- 下载隔离（`com.apple.quarantine`）：普通启动与 `--check-only` 只做只读检测。
+  唯一的清除路径是你显式运行的 `--trust-package`：全量只读预检 → 精确输入 `TRUST`
+  确认 → 占包内锁 → 复检游戏未运行/路径真实/无硬链接/哈希未变 → 仅对固定名单内的
+  本包原生库逐个执行 `xattr -d com.apple.quarantine` 并读回。不递归、不使用 `sudo`、
+  不清除其他扩展属性（如 `com.apple.provenance`）、不重签二进制、不触碰游戏文件、
+  不自动启动游戏；部分失败会如实报告，可重跑且只处理仍被隔离的文件。
 - Ctrl-C / 终端关闭 / kill 时：先转发终止并等待游戏子进程退出，再释放锁，
   不会删除用户文件、不留假锁。游戏崩溃导致的残留锁会给出人工恢复指引，
   启动器绝不基于 PID 猜测自动删除。
@@ -133,6 +173,7 @@ cd /path/to/OhMyMods-Mac-ARM64
 
 | 现象 | 含义与处理 |
 | --- | --- |
+| 「检测到本包原生库带有系统下载隔离属性」 | 下载隔离会让 macOS 拒绝加载这些原生库。确认包来自本项目 Releases 后，按提示运行一次 `launcher.command --trust-package`（终端里输入 `TRUST` 确认），再重新双击。 |
 | 「包内文件校验失败（SHA256SUMS）」 | 包损坏或被混入旧文件。重新下载完整包。 |
 | 「游戏版本与包锁定的版本不一致」等指纹错误 | 你的游戏与锁定的 DMG 实验构建不符（本包不支持当前 Steam 版）。请更换为四指纹匹配的构建。 |
 | 「现有 BepInEx.cfg 的 … 与本包要求的不兼容」 | 你改过 loader 关键键。按提示手动改回后重试；Mod 功能配置不受影响。 |
@@ -223,18 +264,28 @@ bash tests/run_tests.sh
 测试不修改生产代码行为：需要观察启动命令时用 PATH 前置的 mock `arch(1)`
 （测试自有脚本）捕获 argv/env；构建器经 `tests/builder_driver.py` 以 import
 方式运行、契约常量 monkeypatch 为夹具哈希（生产脚本因此不含任何测试放宽
-通道，套件内有静态断言）。
+通道，套件内有静态断言）。不测「运行中游戏」门的用例还会注入一个 ps 替身
+（只在枚举进程时过滤宿主机上的同名游戏），使套件在真机有游戏在跑时同样确定；
+该门本身用真实进程单独覆盖。下载隔离用两类夹具：真实 `xattr`（合成文本文件，
+验证其他属性/字节保持、取消/EOF、部分失败与读回）与仅对合成夹具脚本副本注入的 mock `xattr`
+（严格记录 argv，可注入列举失败/删除失败/删除无效）。生产启动器固定调用
+`/usr/bin/xattr`，不接受 PATH 或环境变量替换该命令。
 
 覆盖：SHA256SUMS 每启校验（缺失/篡改 payload/篡改 game-lock）、游戏发现、
 四指纹、架构、保留参数（含 `--unhollowed-path`）、cfg 兼容检查、锁与信号
 清理（TERM 动态验证 + INT 在信号列表中的静态断言；后台作业的 SIGINT 会被
 POSIX 置为忽略，故 INT 用静态断言）、可写路径 fail-closed、别名、配置哨兵
 保全、`.app` 零改动、参数与双 `-e` DYLD 转发、`BEPINEX_PRELOADER_LOG` 包内、
-运行中游戏检测、构建器（确定性/内容/权限/SHA256SUMS/manifest/排除项/operator
-材料/各类拒绝/契约常量强制/模板）。
+运行中游戏检测、原生库下载隔离（普通/只读拒绝且零写入、固定名单防漂移、
+`suggested command` 含空格路径可直接执行、参数重复/互斥、取消/EOF 零写入、
+只清除名单内被隔离项且严格 argv、其他属性与字节保持、部分失败准确报告与
+可重入、列举失败 fail-closed、删除无效时读回判定失败、文件/父路径符号链接
+与硬链接拒绝、名单外文件不碰）、构建器（确定性/内容/权限/SHA256SUMS/manifest/
+排除项/operator 材料/各类拒绝/契约常量强制/模板）。
 
-**全部基于合成夹具，不接触真实游戏，不等于实机启动验收**——实际包冷启动、
-warm 重启、用户配置保留升级、quarantine 首次双击与最终发布是 Operator gate。
+**全部基于合成夹具，不接触真实游戏，不等于实机启动验收**——实际发布 ZIP 的
+下载、首次双击、`--trust-package` 清隔离后的真实加载与最终发布仍是 Operator
+gate。
 
 ### 已知边界（如实保留）
 
@@ -246,3 +297,10 @@ warm 重启、用户配置保留升级、quarantine 首次双击与最终发布�
 - 首启依赖 `unity.bepinex.dev` 可访问。
 - 文件内容在校验后被并发修改的竞态不构造全系统安全保证，范围限定为启动期
   一致性检查。
+- 本包**未做 Developer ID 签名和 Apple 公证**：`--trust-package` 只是把用户对「本包原生库」的一次性
+  信任决定落到删除 `com.apple.quarantine` 上，不改变来源可信性判断。启动器保留
+  其他所有扩展属性；若处理隔离后系统仍拒绝加载，请按提示把 `xattr` 完整输出反馈给维护者，
+  不要使用 `xattr -cr` / `xattr -dr` 或关闭 Gatekeeper。
+- `--trust-package` 只覆盖固定名单（14 个原生库）且要求文件为物理包内真实文件、
+  无硬链接（nlink=1）；名单同步由测试断言（launcher 名单 == build 输入清单的
+  `*.dylib` 集合）保证，漂移会在套件里直接失败。

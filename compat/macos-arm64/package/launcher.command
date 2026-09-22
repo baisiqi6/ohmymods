@@ -6,7 +6,12 @@
 #     KingdomTwoCrowns_Data -> KingdomTwoCrowns.app/Contents/Resources/Data（BepInEx
 #     GameDataPath 探测需要，见 README「数据别名」一节）。既有别名只核对正确目标，
 #     从不删除或替换未知内容。
-#   - 不修改 .app、不 sudo/chmod/chown、不清理缓存、不处理 quarantine。
+#   - 不修改 .app、不 sudo/chmod/chown、不清理缓存。
+#   - 下载隔离（com.apple.quarantine）：普通启动与 --check-only 只做只读检测，任一原生库
+#     带隔离属性即拒绝（macOS 会拒绝 dyld 加载被隔离的动态库）。清除只走用户显式发起的
+#     `--trust-package`：全量只读门 → 精确 TRUST 确认 → 仅对固定名单内的本包原生库逐文件
+#     `xattr -d com.apple.quarantine`（不递归、不 sudo、不清其他扩展属性、不重签、不自动
+#     启动游戏）。绝不静默清除、绝不清除游戏/配置/缓存/未知文件的属性。
 #   - 每次启动、任何写入之前：校验包内 SHA256SUMS（不可变 payload）与游戏四处
 #     指纹（GameAssembly / 可执行文件 / global-metadata.dat / Info.plist），对照
 #     包内 game-lock.json；缺失或不符即拒绝，无绕过开关。
@@ -50,18 +55,47 @@ DOORSTOP_REL="libdoorstop.dylib"
 CORE_DLL_REL="BepInEx/core/BepInEx.Unity.IL2CPP.dll"
 CORECLR_REL="dotnet/libcoreclr.dylib"
 
+QUARANTINE_ATTR="com.apple.quarantine"
+
+# 需要被 dyld 加载的本包原生库固定名单（与 input-lock.json 的 *.dylib 集合一一对应，
+# 测试套件有防漂移断言）。检测与信任只覆盖这些文件；游戏 .app、插件 DLL、配置、
+# 缓存、运行时生成物与未知新增文件都不在范围内。
+NATIVE_TRUST_RELS="libdoorstop.dylib
+BepInEx/core/libdobby.dylib
+dotnet/libSystem.Globalization.Native.dylib
+dotnet/libSystem.IO.Compression.Native.dylib
+dotnet/libSystem.Native.dylib
+dotnet/libSystem.Net.Security.Native.dylib
+dotnet/libSystem.Security.Cryptography.Native.Apple.dylib
+dotnet/libSystem.Security.Cryptography.Native.OpenSsl.dylib
+dotnet/libclrjit.dylib
+dotnet/libcoreclr.dylib
+dotnet/libdbgshim.dylib
+dotnet/libhostpolicy.dylib
+dotnet/libmscordaccore.dylib
+dotnet/libmscordbi.dylib"
+
+TRUST_PACKAGE=0
+NATIVE_TOTAL=0
+NATIVE_QUARANTINED=""
+
 usage() {
     cat <<'EOF'
 OhMyMods Mac ARM64 启动器
 
-用法: launcher.command [--game <路径>] [--check-only] [--help] [游戏参数...]
+用法: launcher.command [--game <路径>] [--check-only] [--trust-package] [--help] [游戏参数...]
 
 选项:
   --game <路径>     显式指定游戏：KingdomTwoCrowns.app 目录或其可执行文件。
                     不指定时，在启动器所在目录及其上级目录精确查找
                     KingdomTwoCrowns.app（两处都有则视为歧义并拒绝）。
   --check-only      只读预检：完成全部校验并打印将要执行的启动命令，
-                    不启动游戏、不加锁、不写任何文件。
+                    不启动游戏、不加锁、不写任何文件。原生库带下载隔离时
+                    同样非零退出（只检测，不清除任何扩展属性）。
+  --trust-package   一次性、显式、交互式地信任本包：清除本包固定名单内原生库的
+                    com.apple.quarantine（下载隔离）属性。需在终端运行并输入
+                    精确的 TRUST 确认；与 --check-only、游戏参数互斥（可配 --game）。
+                    不递归、不 sudo、不清除其他扩展属性、不启动游戏。
   --help, -h        显示本帮助。
 
 其余参数原样转发给游戏。以下保留参数会被拒绝（防止覆盖加载器
@@ -144,6 +178,11 @@ while [ $# -gt 0 ]; do
             CHECK_ONLY=1
             shift
             ;;
+        --trust-package)
+            [ "$TRUST_PACKAGE" -eq 0 ] || die "--trust-package 只能在同一命令行中指定一次。"
+            TRUST_PACKAGE=1
+            shift
+            ;;
         -h|--help)
             usage
             exit 0
@@ -161,6 +200,13 @@ while [ $# -gt 0 ]; do
     esac
 done
 
+# --trust-package 与 --check-only、与转发的游戏参数互斥（允许 --game 用于定位目标）：
+# 该模式只做信任一件事，绝不启动游戏，也不接受任何游戏参数。
+if [ "$TRUST_PACKAGE" -eq 1 ]; then
+    [ "$CHECK_ONLY" -eq 0 ] || die "--trust-package 与 --check-only 互斥，请只选其一。"
+    [ "${#GAME_ARGS[@]}" -eq 0 ] || die "--trust-package 不接受游戏参数（本模式不启动游戏）: ${GAME_ARGS[*]}"
+fi
+
 # ---------- 环境、工具、包根 ----------
 
 [ "$(uname -s)" = "Darwin" ] || die "本启动器仅支持 macOS。"
@@ -172,12 +218,16 @@ ARCH_BIN=$(command -v arch || true)
 PS_BIN=$(command -v ps || true)
 FIND_BIN=$(command -v find || true)
 AWK_BIN=$(command -v awk || true)
+XATTR_BIN=/usr/bin/xattr
+STAT_BIN=$(command -v stat || true)
 [ -n "$FILE_BIN" ]    || die "缺少系统工具 file，无法校验游戏架构。"
 [ -n "$SHASUM_BIN" ]  || die "缺少系统工具 shasum，无法校验指纹。"
 [ -n "$ARCH_BIN" ]    || die "缺少系统工具 arch，无法以 arm64 启动游戏。"
 [ -n "$PS_BIN" ]      || die "缺少系统工具 ps，无法检查游戏是否已在运行。"
 [ -n "$FIND_BIN" ]    || die "缺少系统工具 find，无法检查包内可写路径。"
 [ -n "$AWK_BIN" ]     || die "缺少系统工具 awk，无法检查既有配置。"
+[ -x "$XATTR_BIN" ]   || die "缺少系统工具 /usr/bin/xattr，无法检测/处理下载隔离属性。"
+[ -n "$STAT_BIN" ]    || die "缺少系统工具 stat，无法检查原生库链接数。"
 
 a="/$0"; a=${a%/*}; a=${a#/}; a=${a:-.}
 PKG=$(cd "$a" 2>/dev/null && pwd -P) || die "无法定位启动器自身目录: $0"
@@ -323,6 +373,235 @@ if [ "$ACTUAL_INFOPLIST" != "$LOCK_INFOPLIST" ]; then
 fi
 
 info "游戏指纹校验通过（四文件）。"
+
+# ---------- 原生库下载隔离属性（只读检测；先于任何 mkdir/配置/别名写入） ----------
+# 下载器会给包内文件打 com.apple.quarantine；macOS 的 dyld 会拒绝加载被隔离的动态库
+# （library load disallowed by system policy）。这里只做只读列举；读取失败按 fail-closed
+# 处理（绝不能把读取失败当成“没有属性”）。
+
+native_attr_list() { # $1=绝对路径；stdout=属性名列表（空=无属性）；失败=非 0（诊断进 stderr）
+    # 注意：本函数总是在命令替换里调用，不能用 die（die 只会退出子 shell）；
+    # 读取失败必须由调用者 fail-closed 处理（绝不能把读取失败当成“没有属性”）。
+    out=$("$XATTR_BIN" "$1" 2>&1) || {
+        printf '%s\n' "$out" >&2
+        return 1
+    }
+    printf '%s' "$out"
+}
+
+native_read_fail() { # $1=路径；打印 fail-closed 原因（由调用者在 die 消息里使用）
+    printf '无法读取扩展属性（xattr 列举失败）: %s\n按 fail-closed 处理：读取失败不视为“无隔离属性”。请修复权限/文件系统问题后重试。\n' "$1"
+}
+
+attr_present() { # $1=属性列表文本 $2=属性名；精确整行匹配（不做模糊/包含判断）
+    printf '%s\n' "$1" | "$AWK_BIN" -v want="$2" '$0 == want { found = 1 } END { exit(found ? 0 : 1) }'
+}
+
+verify_native_parents() { # $1=相对路径；父目录组件必须是真实目录（不许符号链接）
+    cur="$PKG"
+    rest=$(dirname "$1")
+    while [ -n "$rest" ] && [ "$rest" != "." ]; do
+        comp=${rest%%/*}
+        if [ "$comp" = "$rest" ]; then rest=""; else rest=${rest#*/}; fi
+        [ -n "$comp" ] || continue
+        cur="$cur/$comp"
+        [ ! -L "$cur" ] || die "原生库父路径是符号链接，拒绝: ${cur}
+只信任物理包内的真实文件。请重新解压发布包。"
+        [ -d "$cur" ] || die "原生库父路径不是真实目录，拒绝: ${cur}"
+    done
+}
+
+verify_native_rel() { # $1=相对路径；存在/类型/父路径 fail-closed 检查
+    [ ! -L "$PKG/$1" ] || die "原生库是符号链接，拒绝: ${PKG}/$1
+只信任物理包内的真实文件。请重新解压发布包。"
+    [ -f "$PKG/$1" ] || die "包内缺少原生库: $1（包不完整或已被改动）。请重新下载完整发布包。"
+    verify_native_parents "$1"
+}
+
+check_native_targets() { # 只读：固定名单逐个检查并收集带隔离属性的文件
+    NATIVE_QUARANTINED=""
+    NATIVE_TOTAL=0
+    for rel in $NATIVE_TRUST_RELS; do
+        NATIVE_TOTAL=$((NATIVE_TOTAL + 1))
+        verify_native_rel "$rel"
+        list=$(native_attr_list "$PKG/$rel") || die "$(native_read_fail "$PKG/$rel")"
+        if attr_present "$list" "$QUARANTINE_ATTR"; then
+            NATIVE_QUARANTINED="${NATIVE_QUARANTINED}${NATIVE_QUARANTINED:+
+}${rel}"
+        fi
+    done
+}
+
+format_rel_list() { # $1=换行分隔的相对路径；输出缩进的绝对路径列表
+    while IFS= read -r rel; do
+        [ -n "$rel" ] || continue
+        printf '  %s\n' "$PKG/$rel"
+    done <<EOF
+$1
+EOF
+}
+
+shell_quote() { # $1=字符串；优先单引号直引（空格/中文原样可读），仅在含单引号时退回 %q
+    # bash 3.2 的 printf %q 会把非 ASCII 字节转成八进制转义（输出不再是可读文本），
+    # 因此对路径优先用单引号；单引号内的任何字符都是字面量，语义等价且可复制。
+    case "$1" in
+        *"'"*) printf '%q' "$1" ;;
+        *) printf "'%s'" "$1" ;;
+    esac
+}
+
+trust_command_line() { # 供用户复制的一次性命令（含空格/中文路径均已正确引用）
+    printf '%s --trust-package\n' "$(shell_quote "$PKG/launcher.command")"
+}
+
+sums_hash_for() { # $1=包内相对路径；stdout=已通过校验的 SHA256SUMS 记录的哈希
+    "$AWK_BIN" -v rel="$1" '$2 == rel { h = $1 } END { if (h == "") exit 1; print h }' "$SUMS_PATH"
+}
+
+assert_native_links() { # $1=相对路径；nlink 必须为 1（xattr 属 inode，硬链接=越界改动包外）
+    links=$("$STAT_BIN" -f %l "$PKG/$1" 2>/dev/null) \
+        || die "无法读取链接数（stat）: ${PKG}/$1"
+    case "$links" in
+        ''|*[!0-9]*) die "链接数输出异常（stat）: ${PKG}/$1 → ${links}" ;;
+    esac
+    if [ "$links" -ne 1 ]; then
+        die "原生库有多个硬链接（nlink=${links}），拒绝处理: ${PKG}/$1
+扩展属性属于 inode：包内文件被硬链接到包外时，清除属性会越界改动包外内容。
+请从发布 ZIP 重新解压出干净副本后重试。"
+    fi
+}
+
+verify_trust_layout() { # 只读：名单内全部文件存在/非符号链接/父路径真实/nlink==1
+    for rel in $NATIVE_TRUST_RELS; do
+        verify_native_rel "$rel"
+        assert_native_links "$rel"
+    done
+}
+
+verify_trust_hashes() { # 只读：确认后复核名单内每个文件哈希仍与 SHA256SUMS 一致
+    for rel in $NATIVE_TRUST_RELS; do
+        expected=$(sums_hash_for "$rel") \
+            || die "信任目标不在 ${SUMS_NAME} 清单中，拒绝: ${rel}（请不要使用被改动的包）。"
+        actual=$(sha256_of "$PKG/$rel")
+        if [ "$actual" != "$expected" ]; then
+            printf '信任复核失败: %s\n  期望: %s\n  实际: %s\n' \
+                "$PKG/$rel" "$expected" "${actual:-<无法读取>}" >&2
+            die "确认后复核发现原生库内容已变化，已中止（未清除任何属性）。请重新解压发布包。"
+        fi
+    done
+}
+
+trust_package_flow() { # 显式一次性信任本包原生库；绝不启动游戏、绝不处理名单外文件
+    info ""
+    info "== 信任本包原生库（一次性、显式操作） =="
+    if [ -z "$NATIVE_QUARANTINED" ]; then
+        info "固定名单内 ${NATIVE_TOTAL} 个原生库均无 ${QUARANTINE_ATTR} 属性：无可处理文件，未做任何修改。"
+        return 0
+    fi
+    verify_trust_layout
+    info "包目录: ${PKG}"
+    info "以下原生库带有下载隔离属性（${QUARANTINE_ATTR}）:"
+    format_rel_list "$NATIVE_QUARANTINED"
+    info ""
+    info "本操作只做一件事：移除上面这些本包原生库的 ${QUARANTINE_ATTR} 属性。"
+    info "不会做：递归处理目录、清除其他扩展属性（如 com.apple.provenance）、重签二进制、"
+    info "        使用 sudo、修改系统安全设置、触碰游戏 .app/配置/缓存、自动启动游戏。"
+    info "风险说明：包内 SHA256 只能核对包内容未被混入旧文件，不能证明来源可信；"
+    info "          只有确认本包来自本项目 GitHub Releases（或你本机本人的审核构建）时才继续。"
+    info ""
+    printf '请输入大写 TRUST 后回车确认（其他输入/直接回车/EOF 均取消）: '
+    if ! IFS= read -r answer; then
+        info ""
+        info "已取消：未做任何修改。"
+        return 1
+    fi
+    if [ "$answer" != "TRUST" ]; then
+        info "已取消：未做任何修改。"
+        return 1
+    fi
+    # 确认后复核：占锁 → 复检无游戏 → 复核路径/链接数（再）+哈希 → 逐文件清除并读回
+    acquire_lock
+    trap cleanup EXIT INT TERM HUP
+    if scan_running_game; then
+        release_lock
+        die "检测到 Kingdom Two Crowns 已在运行（信任流程加锁后复检），请先完全退出游戏:
+${SCAN_HITS}"
+    fi
+    verify_trust_layout
+    verify_trust_hashes
+    TRUST_CLEANED=0
+    TRUST_SKIPPED=0
+    TRUST_FAILED=""
+    for rel in $NATIVE_TRUST_RELS; do
+        if ! list=$(native_attr_list "$PKG/$rel"); then
+            info "读取失败，未处理且状态未确认: ${rel}"
+            TRUST_FAILED="${TRUST_FAILED}${TRUST_FAILED:+
+}${rel}"
+            continue
+        fi
+        if ! attr_present "$list" "$QUARANTINE_ATTR"; then
+            TRUST_SKIPPED=$((TRUST_SKIPPED + 1))
+            continue
+        fi
+        assert_native_links "$rel"   # 变更点前再核一次：确认后到此处之间不得被换成硬链接
+        del_out=$("$XATTR_BIN" -d "$QUARANTINE_ATTR" "$PKG/$rel" 2>&1)
+        del_st=$?
+        if [ "$del_st" -ne 0 ]; then
+            info "清除失败（xattr -d 退出码 ${del_st}）: ${rel}${del_out:+
+${del_out}}"
+            TRUST_FAILED="${TRUST_FAILED}${TRUST_FAILED:+
+}${rel}"
+            continue
+        fi
+        info "删除命令返回成功: ${rel}"
+        if ! list2=$(native_attr_list "$PKG/$rel"); then
+            info "删除后读取失败，是否清除尚未确认: ${rel}"
+            TRUST_FAILED="${TRUST_FAILED}${TRUST_FAILED:+
+}${rel}"
+            continue
+        fi
+        if attr_present "$list2" "$QUARANTINE_ATTR"; then
+            info "清除后读回仍带隔离属性（未生效）: ${rel}"
+            TRUST_FAILED="${TRUST_FAILED}${TRUST_FAILED:+
+}${rel}"
+            continue
+        fi
+        TRUST_CLEANED=$((TRUST_CLEANED + 1))
+        info "已清除: ${rel}"
+    done
+    info ""
+    info "已清除隔离属性: ${TRUST_CLEANED} 个；本就无隔离属性被跳过: ${TRUST_SKIPPED} 个。"
+    if [ -n "$TRUST_FAILED" ]; then
+        info "以下文件未能确认清除（可能仍带隔离属性，或读取失败、状态未知）:"
+        format_rel_list "$TRUST_FAILED"
+        info "可以重新运行同一条 --trust-package 命令重试：只会处理仍被隔离的文件，已清者跳过。"
+        info "若反复失败，请把 \`xattr <上述文件>\` 的完整输出反馈给维护者；"
+        info "不要使用 xattr -cr/-dr 递归清除整包，也不要关闭 Gatekeeper。"
+        return 1
+    fi
+    info "全部完成：本包固定名单内 ${NATIVE_TOTAL} 个原生库已无 ${QUARANTINE_ATTR} 属性。"
+    info "未改动任何其他扩展属性，未重签二进制、未 sudo、未修改系统安全设置。"
+    info "若启动仍被系统拒绝（library load disallowed by system policy），请把 \`xattr\` 的完整输出"
+    info "反馈给维护者，以便排查其他系统策略；本启动器不会继续清除其他属性。"
+    info "请重新双击 launcher.command 启动游戏（本流程不会自动启动游戏）。"
+    return 0
+}
+
+check_native_targets
+
+if [ -n "$NATIVE_QUARANTINED" ] && [ "$TRUST_PACKAGE" -eq 0 ]; then
+    die "检测到本包原生库带有系统下载隔离属性（${QUARANTINE_ATTR}）。
+macOS 会拒绝加载被隔离的动态库（dyld: library load disallowed by system policy），本包无法启动。
+已隔离文件（固定名单 ${NATIVE_TOTAL} 个原生库中的以下项）:
+$(format_rel_list "$NATIVE_QUARANTINED")
+本启动器不会自动清除隔离属性，也不会修改系统安全设置。
+若确认本包来自本项目 GitHub Releases（或你本机本人的审核构建），请先完全退出游戏，
+然后在「终端」中一次性运行:
+  $(trust_command_line)
+该命令只移除上面这些本包原生库的 ${QUARANTINE_ATTR} 属性（不递归、不 sudo、不改系统设置），
+执行前会再次列出文件并要求输入 TRUST 确认。
+注意: 包内 SHA256 只能核对包内容未被混入旧文件，不能证明来源可信。"
+fi
 
 # ---------- 可写性检查（含包内可写路径 fail-closed 布局核验） ----------
 
@@ -694,6 +973,11 @@ print_launch_plan() {
     info "  游戏可执行文件                     = ${GAME_EXE}"
     info "  实际将执行                         = ${ARCH_BIN} -arm64 -e DYLD_INSERT_LIBRARIES=... -e DYLD_LIBRARY_PATH=... ${GAME_EXE}"
 }
+
+if [ "$TRUST_PACKAGE" -eq 1 ]; then
+    trust_package_flow
+    exit $?
+fi
 
 if [ "$CHECK_ONLY" -eq 1 ]; then
     print_launch_plan

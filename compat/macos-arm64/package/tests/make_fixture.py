@@ -35,6 +35,26 @@ CPU_X86_64 = 0x01000007
 GAME_APP = "KingdomTwoCrowns.app"
 PKG_DEFAULT = "OhMyMods-Mac-ARM64"
 
+# 需要被 dyld 加载的原生库（与 launcher.command 的固定检测/信任名单一致）。
+# 夹具必须提供这些文件，否则每个用例都会在原生库门就失败；一致性由 run_tests.sh
+# 的防漂移断言（launcher 名单 == input-lock.json 的 *.dylib 集合）覆盖。
+NATIVE_RELS = [
+    "libdoorstop.dylib",
+    "BepInEx/core/libdobby.dylib",
+    "dotnet/libSystem.Globalization.Native.dylib",
+    "dotnet/libSystem.IO.Compression.Native.dylib",
+    "dotnet/libSystem.Native.dylib",
+    "dotnet/libSystem.Net.Security.Native.dylib",
+    "dotnet/libSystem.Security.Cryptography.Native.Apple.dylib",
+    "dotnet/libSystem.Security.Cryptography.Native.OpenSsl.dylib",
+    "dotnet/libclrjit.dylib",
+    "dotnet/libcoreclr.dylib",
+    "dotnet/libdbgshim.dylib",
+    "dotnet/libhostpolicy.dylib",
+    "dotnet/libmscordaccore.dylib",
+    "dotnet/libmscordbi.dylib",
+]
+
 
 def sha256_file(path):
     h = hashlib.sha256()
@@ -135,6 +155,11 @@ def make_package_skeleton(parent, pkg_name, game_root):
           deterministic_blob("stub-core-dll", 512))
     write(os.path.join(pkg, "dotnet/libcoreclr.dylib"), deterministic_blob("stub-coreclr", 512))
     write(os.path.join(pkg, "libdoorstop.dylib"), deterministic_blob("stub-doorstop", 512))
+    # 固定名单原生库（launcher 只读检测/信任模式的检查对象；已有桩文件保持不变）
+    for rel in NATIVE_RELS:
+        full = os.path.join(pkg, rel)
+        if not os.path.exists(full):
+            write(full, deterministic_blob("native-fixture:" + rel, 512))
     os.makedirs(os.path.join(pkg, "defaults"), exist_ok=True)
     write(os.path.join(pkg, "defaults/BepInEx.cfg"),
           open(os.path.join(source_dir, "defaults/BepInEx.cfg"), "rb").read())
@@ -150,9 +175,9 @@ def make_package_skeleton(parent, pkg_name, game_root):
         f.write("\n")
     # SHA256SUMS：骨架不可变 payload + game-lock.json（与构建器约定一致，可变目录不列）
     sums = []
-    for rel in ("BepInEx/core/BepInEx.Unity.IL2CPP.dll", "defaults/BepInEx.cfg",
-                "dotnet/libcoreclr.dylib", "game-lock.json", "launcher.command",
-                "libdoorstop.dylib"):
+    for rel in sorted(set(("BepInEx/core/BepInEx.Unity.IL2CPP.dll", "defaults/BepInEx.cfg",
+                           "dotnet/libcoreclr.dylib", "game-lock.json", "launcher.command",
+                           "libdoorstop.dylib") + tuple(NATIVE_RELS))):
         sums.append("%s  %s" % (sha256_file(os.path.join(pkg, rel)), rel))
     with open(os.path.join(pkg, "SHA256SUMS"), "w", encoding="utf-8") as f:
         f.write("\n".join(sums) + "\n")

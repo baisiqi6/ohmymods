@@ -1,0 +1,73 @@
+{
+  "zip": "OhMyMods-9.5.13-mac-arm64-preview.1.zip",
+  "sha256": "06d7e15bebab95c1acbc596c938eea4f56ae932ecace50336b363a4cf6749cb5",
+  "bytes": 32171567,
+  "input_lock_sha256": "84f1b9a9693342afdfbdd9927d3103ec552506c1892a18dc2f7823e3b6080e13",
+  "byte_reproducible": true,
+  "changed_members": [
+    "OhMyMods-Mac-ARM64/README.md",
+    "OhMyMods-Mac-ARM64/SHA256SUMS",
+    "OhMyMods-Mac-ARM64/launcher.command",
+    "OhMyMods-Mac-ARM64/package-manifest.json"
+  ],
+  "runtime_payload_unchanged": true,
+  "status": "awaiting_user_confirmed_download_trust_and_runtime_acceptance",
+  "schema": 1,
+  "scope": "Apple Silicon ARM64; locked KTC 2.4.0 r23485 Universal experimental build only",
+  "steam_supported": false,
+  "predecessor_zip_sha256": "7b8073522c609e92175769587853518c68398fd6428ab4ccb9d415d233d1167c",
+  "predecessor_downloaded_first_open": "failed: dyld disallowed libdoorstop.dylib after launcher approval; exit 134",
+  "regression": {
+    "operator_complete_pass": 304,
+    "operator_complete_fail": 0,
+    "review_regression_pass": 35,
+    "independent_review": "APPROVE; no outstanding P1/P2"
+  },
+  "launcher_sha256": "c0ef7a1780fc1536b1e1a2b0cad39775db36487ac832e29c55b27133ba4c6174",
+  "readme_sha256": "3c3cce7b5c2e8e33ef399dad88b2e2837f9eb62cbc2de84f22e3cd988b8a1a07",
+  "negative_preflight": {
+    "zip_sha256": "06d7e15bebab95c1acbc596c938eea4f56ae932ecace50336b363a4cf6749cb5",
+    "finder_extracted": true,
+    "launcher_mode": "0755",
+    "quarantined_native_files": 14,
+    "runs": [
+      {
+        "mode": "check-only",
+        "exit_code": 1
+      },
+      {
+        "mode": "trust-eof",
+        "exit_code": 1
+      },
+      {
+        "mode": "trust-cancel",
+        "exit_code": 1
+      }
+    ],
+    "package_bytes_modes_mtimes_paths_unchanged": true,
+    "native_attributes_all_unchanged": true,
+    "game_file_size_mtime_tree_unchanged": true,
+    "no_config_cache_alias_lock_created": true,
+    "actual_trust_and_game_start": "pending_user_action",
+    "native_files": [
+      "BepInEx/core/libdobby.dylib",
+      "dotnet/libSystem.Globalization.Native.dylib",
+      "dotnet/libSystem.IO.Compression.Native.dylib",
+      "dotnet/libSystem.Native.dylib",
+      "dotnet/libSystem.Net.Security.Native.dylib",
+      "dotnet/libSystem.Security.Cryptography.Native.Apple.dylib",
+      "dotnet/libSystem.Security.Cryptography.Native.OpenSsl.dylib",
+      "dotnet/libclrjit.dylib",
+      "dotnet/libcoreclr.dylib",
+      "dotnet/libdbgshim.dylib",
+      "dotnet/libhostpolicy.dylib",
+      "dotnet/libmscordaccore.dylib",
+      "dotnet/libmscordbi.dylib",
+      "libdoorstop.dylib"
+    ]
+  },
+  "release_gate": "pending_user_confirmed_trust_and_actual_loading",
+  "developer_id_signed": false,
+  "apple_notarized": false,
+  "gameplay_commit": "1088b9cd981efb32aa3afb03e91eea66ad1a451b"
+}

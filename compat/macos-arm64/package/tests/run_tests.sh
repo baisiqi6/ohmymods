@@ -17,6 +17,10 @@
 # （存活/残留/正常释放/TERM 清理等待子进程）、可写路径 fail-closed（symlink/断链/
 # 非目录占位/cfg 外指不覆盖）、别名（创建/复用/冲突/悬空且不破坏）、配置哨兵保全、
 # .app 零改动、参数与双 -e DYLD 转发、BEPINEX_PRELOADER_LOG 包内、运行中游戏检测、
+# 原生库下载隔离（固定名单防漂移、普通/只读模式拒绝且零写入、提示命令含空格可直接
+# 执行、--trust-package 参数重复/互斥、取消/EOF 零写入、只清名单内被隔离项且严格
+# argv、其他属性与字节保持、部分失败如实报告与可重入、列举失败 fail-closed、删除
+# 无效时读回判失败、文件/父路径符号链接与硬链接拒绝、名单外文件不碰）、
 # 构建器（确定性/内容/权限/SHA256SUMS/manifest/排除项/operator 材料/各类拒绝/契约
 # 常量强制/模板）。
 #
@@ -99,9 +103,112 @@ phys() { # 物理路径（启动器内部一律 pwd -P 解析，断言须用同�
 
 run_launcher() { # 使用 CUR_LAUNCHER；回显 "status\noutput"
     local st out
-    out=$("$CUR_LAUNCHER" "$@" 2>&1)
+    if [ "$PS_MOCK_ENABLED" -eq 1 ]; then
+        out=$(PATH="$(ps_mock_setup):$PATH" "$CUR_LAUNCHER" "$@" 2>&1)
+    else
+        out=$("$CUR_LAUNCHER" "$@" 2>&1)
+    fi
     st=$?
     printf '%s\n%s\n' "$st" "$out"
+}
+
+run_launcher_input() { # $1=stdin 文本；其余=启动器参数；使用真实 xattr，回显 "status\noutput"
+    local input="$1" st out
+    shift
+    out=$(printf '%s' "$input" | PATH="$(ps_mock_setup):$PATH" "$CUR_LAUNCHER" "$@" 2>&1)
+    st=$?
+    printf '%s\n%s\n' "$st" "$out"
+}
+
+# ---------------- 测试隔离：ps 替身（过滤宿主真实游戏进程） ----------------
+# 「运行中游戏」门是 fail-closed：宿主机上只要有真实的 KingdomTwoCrowns 进程（例如
+# 操作员的 lab 构建在跑），不测这扇门的用例都会在门处提前退出。因此这些用例注入 ps
+# 替身：只在枚举全部进程（-axo comm=）时过滤同名进程，其它查询（-p … -o comm=）
+# 原样转发真实 ps。该门本身由 test_running_game_scan 用真实进程覆盖（那里关掉替身）。
+
+PS_MOCK_DIR=""
+PS_MOCK_ENABLED=1
+
+ps_mock_setup() { # 幂等；stdout=替身目录
+    if [ -z "$PS_MOCK_DIR" ]; then
+        PS_MOCK_DIR="$WORK_ROOT/ps-mock"
+        mkdir -p "$PS_MOCK_DIR"
+        cat > "$PS_MOCK_DIR/ps" <<EOF
+#!/bin/sh
+real_ps="$(command -v ps)"
+case " \$* " in
+    " -axo comm= "*) "\$real_ps" -axo comm= | grep -v 'KingdomTwoCrowns\$' || true ;;
+    *) exec "\$real_ps" "\$@" ;;
+esac
+EOF
+        chmod +x "$PS_MOCK_DIR/ps"
+    fi
+    printf '%s' "$PS_MOCK_DIR"
+}
+
+# ---------------- 测试替身：xattr(1) ----------------
+# 严格记录每次调用的 argv；真实模拟列举/删除语义。受控失败与“删除返回 0 但未生效”
+# 都可用环境变量注入——生产脚本不读取任何 OHMYMODS_* 变量（套件内有静态断言），
+# 这些开关只存在于替身内部。
+
+make_mock_xattr() { # $1=bin 目录 $2=调用日志 $3=状态目录（quarantined 列表）
+    mkdir -p "$1" "$3"
+    : > "$3/quarantined"
+    cat > "$1/xattr" <<'MOCKEOF'
+#!/bin/sh
+# xattr <file>            列举属性名（每行一个；无属性=空输出、退出 0）
+# xattr -d <attr> <file>  删除属性（不存在则退出 1）
+# 注入（子串匹配文件路径；"all"=全部）：OHMYMODS_MOCK_XATTR_FAIL_LIST /
+# OHMYMODS_MOCK_XATTR_FAIL_DELETE；OHMYMODS_MOCK_XATTR_NOOP_DELETE=删除返回 0 但不生效。
+log="${OHMYMODS_MOCK_XATTR_LOG:?}"
+state="${OHMYMODS_MOCK_XATTR_STATE:?}"
+qfile="$state/quarantined"
+line=""
+for a in "$@"; do line="$line|$a"; done
+printf 'CALL%s\n' "$line" >> "$log"
+matches() { # $1=注入值 $2=文件
+    case "$1" in
+        "") return 1 ;;
+        all) return 0 ;;
+        *"$2"*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+if [ "$1" = "-d" ]; then
+    attr="$2"; file="$3"
+    [ -n "$attr" ] && [ -n "$file" ] || { echo "xattr: usage" >&2; exit 2; }
+    if matches "${OHMYMODS_MOCK_XATTR_FAIL_DELETE:-}" "$file"; then
+        echo "xattr: [Errno 1] mock 注入的删除失败: $file" >&2
+        exit 1
+    fi
+    if ! grep -qxF "$file" "$qfile" 2>/dev/null; then
+        echo "xattr: No such xattr: $attr" >&2
+        exit 1
+    fi
+    if ! matches "${OHMYMODS_MOCK_XATTR_NOOP_DELETE:-}" "$file"; then
+        grep -vxF "$file" "$qfile" > "$qfile.tmp" || :
+        mv "$qfile.tmp" "$qfile"
+    fi
+    exit 0
+fi
+if [ $# -eq 1 ] && [ -f "$1" ]; then
+    if matches "${OHMYMODS_MOCK_XATTR_FAIL_LIST_AFTER_DELETE:-}" "$1" && grep -q '^CALL|-d|' "$log"; then
+        echo "xattr: mock read failure after deletion: $1" >&2
+        exit 1
+    fi
+    if matches "${OHMYMODS_MOCK_XATTR_FAIL_LIST:-}" "$1"; then
+        echo "xattr: [Errno 13] mock 注入的读取失败: $1" >&2
+        exit 1
+    fi
+    if grep -qxF "$1" "$qfile" 2>/dev/null; then
+        printf 'com.apple.quarantine\n'
+    fi
+    exit 0
+fi
+echo "xattr: unknown arguments" >&2
+exit 2
+MOCKEOF
+    chmod +x "$1/xattr"
 }
 
 make_mock_arch() { # $1=bin 目录 $2=输出文件
@@ -163,6 +270,16 @@ test_no_test_bypass_in_production() {
         ok "no-seam/signal-list-has-INT"
     else
         bad "no-seam/signal-list-has-INT（信号列表缺 INT）"
+    fi
+    if grep -q 'OHMYMODS_' "$LAUNCHER"; then
+        bad "no-seam/launcher-env（启动器引用了测试/信任环境变量）"
+    else
+        ok "no-seam/launcher-env"
+    fi
+    if [ "$(grep -c -e '--yes' -e '--assume-yes' -e '--force-trust' -e '--trust-all' "$LAUNCHER")" = "0" ]; then
+        ok "no-seam/no-trust-bypass-flag"
+    else
+        bad "no-seam/no-trust-bypass-flag（存在自动确认/绕过开关）"
     fi
 }
 
@@ -564,10 +681,12 @@ stop_fake_game() {
 }
 
 test_running_game_scan() {
-    local w f pkg r
+    local w f pkg r saved_ps_mock
     w="$WORK_ROOT/t33"; f=$(new_fixture "$w")
     pkg=$(printf '%s' "$f" | jget pkg)
     CUR_LAUNCHER="$pkg/launcher.command"
+    saved_ps_mock="$PS_MOCK_ENABLED"
+    PS_MOCK_ENABLED=0   # 本用例用真实进程列表覆盖该门本身
 
     # 场景 1：标准 bundle 路径
     start_fake_game "$WORK_ROOT/fakegame/KingdomTwoCrowns.app/Contents/MacOS/KingdomTwoCrowns"
@@ -589,6 +708,7 @@ test_running_game_scan() {
     out_contains "running-bare/fail" "${r%%$'\n'*}" "1"
     out_contains "running-bare/msg" "$r" "已在运行"
     stop_fake_game
+    PS_MOCK_ENABLED="$saved_ps_mock"
 }
 
 # ---------------- 启动器：mock-arch 完整启动（无生产测试通道） ----------------
@@ -612,7 +732,7 @@ test_mock_launch_happy_path() {
     before_md=$(shasum -a 256 "$app/Contents/Resources/Data/il2cpp_data/Metadata/global-metadata.dat" | awk '{print $1}')
     app_files_before=$(find "$app" -type f | wc -l | tr -d ' ')
 
-    OHMYMODS_MOCK_ARCH_OUT="$mock_out" PATH="$mock_bin:$PATH" \
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" PATH="$(ps_mock_setup):$mock_bin:$PATH" \
         "$CUR_LAUNCHER" -width 1280 "my arg with space" > "$w/out.txt" 2>&1
     st=$?
     if [ "$st" -eq 0 ]; then ok "happy/exit0"; else bad "happy/exit0（退出码 ${st}）"; fi
@@ -669,7 +789,7 @@ test_mock_launch_happy_path() {
         ok "happy/no-extra-dyld"
     fi
 
-    OHMYMODS_MOCK_ARCH_OUT="$mock_out" PATH="$mock_bin:$PATH" "$CUR_LAUNCHER" >/dev/null 2>&1
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" >/dev/null 2>&1
     [ $? -eq 0 ] && ok "happy/second-run" || bad "happy/second-run"
 }
 
@@ -683,7 +803,7 @@ test_term_cleanup_waits_child() {
     mock_bin="$w/mockbin"
     make_mock_arch "$mock_bin" "$mock_out"
     OHMYMODS_MOCK_ARCH_OUT="$mock_out" OHMYMODS_MOCK_ARCH_SECONDS=30 \
-        PATH="$mock_bin:$PATH" "$CUR_LAUNCHER" > "$w/out.txt" 2>&1 &
+        PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" > "$w/out.txt" 2>&1 &
     lpid=$!
     # 等待「锁已持有 且 mock arch 已执行」（launcher 先获锁后 spawn，
     # 只等锁会在子进程尚未建立时触发清理路径，测不到等待子进程的语义）。
@@ -721,7 +841,7 @@ test_cfg_sentinel_preserved() {
     i0=$(stat -f %i "$cfg")
     local mock_out="$w/mock-arch-out.txt" mock_bin="$w/mockbin"
     make_mock_arch "$mock_bin" "$mock_out"
-    OHMYMODS_MOCK_ARCH_OUT="$mock_out" PATH="$mock_bin:$PATH" "$CUR_LAUNCHER" >/dev/null 2>&1
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" >/dev/null 2>&1
     [ "$(cat "$cfg")" = '[Caching]
 EnableAssemblyCache = false ; sentinel
 [IL2CPP]
@@ -791,7 +911,7 @@ test_alias_reuse_and_conflicts() {
     m0=$(stat -f %m "$w/KingdomTwoCrowns_Data")
     mock_out="$w/mock-arch-out.txt"; mock_bin="$w/mockbin"
     make_mock_arch "$mock_bin" "$mock_out"
-    OHMYMODS_MOCK_ARCH_OUT="$mock_out" PATH="$mock_bin:$PATH" "$CUR_LAUNCHER" >/dev/null 2>&1
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" >/dev/null 2>&1
     [ "$(stat -f %i "$w/KingdomTwoCrowns_Data")" = "$i0" ] && ok "alias-reuse/inode" || bad "alias-reuse/inode"
     [ "$(stat -f %m "$w/KingdomTwoCrowns_Data")" = "$m0" ] && ok "alias-reuse/mtime" || bad "alias-reuse/mtime"
 
@@ -823,7 +943,7 @@ test_pre_spawn_failure_releases_lock() {
     CUR_LAUNCHER="$pkg/launcher.command"
     mkdir -p "$pkg/BepInEx/config"
     chmod 555 "$pkg/BepInEx/config"
-    "$CUR_LAUNCHER" > "$w/out.txt" 2>&1
+    PATH="$(ps_mock_setup):$PATH" "$CUR_LAUNCHER" > "$w/out.txt" 2>&1
     st=$?
     chmod 755 "$pkg/BepInEx/config"
     if [ "$st" -ne 0 ]; then ok "pre-spawn/nonzero"; else bad "pre-spawn/nonzero（意外成功）"; fi
@@ -837,7 +957,7 @@ test_real_spawn_failure_releases_lock() {
     w="$WORK_ROOT/t36"; f=$(new_fixture "$w")
     pkg=$(printf '%s' "$f" | jget pkg)
     CUR_LAUNCHER="$pkg/launcher.command"
-    "$CUR_LAUNCHER" > "$w/out.txt" 2>&1
+    PATH="$(ps_mock_setup):$PATH" "$CUR_LAUNCHER" > "$w/out.txt" 2>&1
     st=$?
     if [ "$st" -ne 0 ]; then ok "spawn-fail/nonzero"; else bad "spawn-fail/nonzero（意外成功）"; fi
     if [ -e "$pkg/.launcher.lock" ]; then bad "spawn-fail/lock-released"; else ok "spawn-fail/lock-released"; fi
@@ -855,6 +975,458 @@ test_unwritable_package() {
     out_contains "unwritable/fail" "${r%%$'\n'*}" "1"
     out_contains "unwritable/msg" "$r" "不可写"
 }
+
+# ---------------- 启动器：原生库下载隔离（quarantine）与显式信任 ----------------
+
+quarantine_set() { # $1...=夹具文件；打真实下载隔离属性（只用于合成夹具）
+    local f
+    for f in "$@"; do
+        xattr -w com.apple.quarantine "0081;decafbad;Safari;" "$f" || return 1
+    done
+}
+
+quarantine_has() { xattr "$1" 2>/dev/null | grep -qxF com.apple.quarantine; }
+
+attrs_without_quarantine() { xattr "$1" 2>/dev/null | grep -vxF com.apple.quarantine | sort; }
+
+mock_xattr_prepare() { # $1=工作目录；设置 XMOCK_BIN/XMOCK_LOG/XMOCK_STATE
+    XMOCK_BIN="$1/mockxattr"
+    XMOCK_LOG="$1/xattr-calls.log"
+    XMOCK_STATE="$1/xattr-state"
+    make_mock_xattr "$XMOCK_BIN" "$XMOCK_LOG" "$XMOCK_STATE"
+}
+
+mock_xattr_quarantine() { # $1...=文件；写进替身状态（不碰真实属性）
+    local f
+    for f in "$@"; do printf '%s\n' "$f" >> "$XMOCK_STATE/quarantined"; done
+}
+
+xmock_run() { # $1=stdin 文本；其余=启动器参数；PATH 前置替身 xattr；回显 "status\noutput"
+    local input="$1" st out
+    shift
+    # 只在合成夹具的额外脚本副本替换固定依赖，生产源码没有环境/CLI注入入口。
+    local mock_launcher="${CUR_LAUNCHER}.mock.command"
+    "$PY" - "$CUR_LAUNCHER" "$mock_launcher" "$XMOCK_BIN/xattr" <<'PYMOCK'
+from pathlib import Path
+import sys, shlex
+src, dst, tool = sys.argv[1:]
+s = Path(src).read_text()
+assert s.count("XATTR_BIN=/usr/bin/xattr") == 1
+Path(dst).write_text(s.replace("XATTR_BIN=/usr/bin/xattr", "XATTR_BIN=" + shlex.quote(tool)))
+Path(dst).chmod(0o755)
+PYMOCK
+    out=$(printf '%s' "$input" | OHMYMODS_MOCK_XATTR_LOG="$XMOCK_LOG" \
+        OHMYMODS_MOCK_XATTR_STATE="$XMOCK_STATE" \
+        PATH="$(ps_mock_setup):$XMOCK_BIN:$PATH" "$mock_launcher" "$@" 2>&1)
+    st=$?
+    printf '%s\n%s\n' "$st" "$out"
+}
+
+xmock_deletes() { grep '^CALL|-d|' "$XMOCK_LOG" 2>/dev/null; }
+xmock_lists() { grep '^CALL|/' "$XMOCK_LOG" 2>/dev/null; }
+
+test_trust_native_list_drift() { # 名单防漂移：launcher 固定名单 == input-lock 的 *.dylib 集合
+    local w f pkg list lock_list missing rel
+    w="$WORK_ROOT/t40"; f=$(new_fixture "$w")
+    pkg=$(printf '%s' "$f" | jget pkg)
+    cat > "$w/drift.py" <<'PYEOF'
+import json, os, re, sys
+mode = sys.argv[1]
+if mode == "launcher":
+    text = open(sys.argv[2], encoding="utf-8").read()
+    m = re.search(r'^NATIVE_TRUST_RELS="(.*?)"$', text, re.M | re.S)
+    if not m:
+        sys.exit(1)
+    print("\n".join(l for l in m.group(1).splitlines() if l))
+elif mode == "lock":
+    lock = json.load(open(sys.argv[2], encoding="utf-8"))
+    print("\n".join(sorted(e["path"] for e in lock["files"] if e["path"].endswith(".dylib"))))
+else:
+    lock = json.load(open(sys.argv[2], encoding="utf-8"))
+    print("|".join(e["path"] for e in lock["files"]
+                   if e["path"].endswith(".dylib") and e.get("source") != "input-root"))
+PYEOF
+    list=$("$PY" "$w/drift.py" launcher "$LAUNCHER")
+    lock_list=$("$PY" "$w/drift.py" lock "$PKG_DIR/input-lock.json")
+    [ "$(printf '%s\n' "$list" | grep -c .)" -eq 14 ] && ok "drift/launcher-count-14" \
+        || bad "drift/launcher-count-14（$(printf '%s\n' "$list" | grep -c .)）"
+    if [ "$(printf '%s\n' "$list" | sort)" = "$lock_list" ]; then
+        ok "drift/launcher-equals-input-lock-native-set"
+    else
+        bad "drift/launcher-equals-input-lock-native-set"
+    fi
+    [ "$("$PY" "$w/drift.py" source "$PKG_DIR/input-lock.json")" = "" ] \
+        && ok "drift/lock-natives-input-root" || bad "drift/lock-natives-input-root"
+    missing=""
+    while IFS= read -r rel; do
+        [ -n "$rel" ] || continue
+        [ -f "$pkg/$rel" ] || missing="${missing} ${rel}"
+    done <<EOF
+$list
+EOF
+    [ -z "$missing" ] && ok "drift/fixture-covers-list" || bad "drift/fixture-covers-list（缺:${missing}）"
+}
+
+test_quarantine_blocks_normal_and_checkonly() {
+    local w f pkg mock_bin mock_out st r
+    w="$WORK_ROOT/t41"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    quarantine_set "$pkg/dotnet/libcoreclr.dylib" "$pkg/libdoorstop.dylib"
+    mock_out="$w/mock-arch-out.txt"; mock_bin="$w/mockbin"
+    make_mock_arch "$mock_bin" "$mock_out"
+
+    r=$(run_launcher --check-only)
+    out_contains "quarantine/checkonly-nonzero" "${r%%$'\n'*}" "1"
+    out_contains "quarantine/checkonly-msg" "$r" "--trust-package"
+    out_contains "quarantine/checkonly-file" "$r" "$pkg/dotnet/libcoreclr.dylib"
+    quarantine_has "$pkg/dotnet/libcoreclr.dylib" && quarantine_has "$pkg/libdoorstop.dylib" \
+        && ok "quarantine/checkonly-kept-attrs" || bad "quarantine/checkonly-kept-attrs"
+
+    # 普通启动：在任何写之前拒绝（无 arch 调用、无 config/cache、无别名、无锁）
+    PATH="$(ps_mock_setup):$mock_bin:$PATH" OHMYMODS_MOCK_ARCH_OUT="$mock_out" \
+        "$CUR_LAUNCHER" > "$w/out.txt" 2>&1
+    st=$?
+    [ "$st" -ne 0 ] && ok "quarantine/launch-nonzero" || bad "quarantine/launch-nonzero（意外成功）"
+    out_contains "quarantine/launch-msg" "$(cat "$w/out.txt")" "下载隔离属性"
+    [ -s "$mock_out" ] && bad "quarantine/no-arch-call" || ok "quarantine/no-arch-call"
+    [ -e "$pkg/BepInEx/config" ] && bad "quarantine/no-config-seed" || ok "quarantine/no-config-seed"
+    [ -e "$pkg/BepInEx/cache" ] && bad "quarantine/no-cache" || ok "quarantine/no-cache"
+    [ -e "$w/KingdomTwoCrowns_Data" ] || [ -L "$w/KingdomTwoCrowns_Data" ] \
+        && bad "quarantine/no-alias" || ok "quarantine/no-alias"
+    [ -e "$pkg/.launcher.lock" ] && bad "quarantine/no-lock" || ok "quarantine/no-lock"
+    quarantine_has "$pkg/dotnet/libcoreclr.dylib" && ok "quarantine/launch-kept-attrs" \
+        || bad "quarantine/launch-kept-attrs"
+
+    # 环境变量不能当信任开关（无 env 绕过）
+    PATH="$(ps_mock_setup):$mock_bin:$PATH" OHMYMODS_MOCK_ARCH_OUT="$mock_out" \
+        TRUST_PACKAGE=1 OHMYMODS_TRUST=1 "$CUR_LAUNCHER" > "$w/out2.txt" 2>&1
+    st=$?
+    [ "$st" -ne 0 ] && ok "quarantine/env-no-bypass" || bad "quarantine/env-no-bypass"
+    [ -s "$mock_out" ] && bad "quarantine/env-no-spawn" || ok "quarantine/env-no-spawn"
+}
+
+test_quarantine_suggested_command_quoting() {
+    local w f pkg r cmd st
+    w="$WORK_ROOT/t42 with space/子目录"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    quarantine_set "$pkg/dotnet/libclrjit.dylib"
+    r=$(run_launcher --check-only)
+    cmd=$(printf '%s\n' "$r" | LC_ALL=C sed -n 's/^  \(.*--trust-package\)$/\1/p' | head -n 1)
+    if [ -z "$cmd" ]; then
+        bad "quoting/cmd-printed"
+        bad "quoting/cmd-shape"
+        bad "quoting/cmd-runs"
+        bad "quoting/cmd-cleaned"
+        return
+    fi
+    ok "quoting/cmd-printed"
+    case "$cmd" in
+        "'$pkg/launcher.command' --trust-package") ok "quoting/cmd-shape" ;;
+        *) bad "quoting/cmd-shape（实际命令: $cmd）" ;;
+    esac
+    # 打印出来的命令必须真的可执行（含空格路径按 shell 引号处理后一次跑通）
+    printf 'TRUST\n' | env PATH="$(ps_mock_setup):$PATH" bash -c "$cmd" >/dev/null 2>&1
+    st=$?
+    [ "$st" -eq 0 ] && ok "quoting/cmd-runs" || bad "quoting/cmd-runs（退出码 ${st}）"
+    quarantine_has "$pkg/dotnet/libclrjit.dylib" && bad "quoting/cmd-cleaned" \
+        || ok "quoting/cmd-cleaned"
+}
+
+test_trust_args_rules() {
+    local w f pkg app r
+    w="$WORK_ROOT/t43"; f=$(new_fixture "$w")
+    pkg=$(printf '%s' "$f" | jget pkg)
+    app=$(printf '%s' "$f" | jget app)
+    CUR_LAUNCHER="$pkg/launcher.command"
+    r=$(run_launcher --trust-package --trust-package)
+    out_contains "trust-args/dup-nonzero" "${r%%$'\n'*}" "1"
+    out_contains "trust-args/dup-msg" "$r" "只能在同一命令行中指定一次"
+    r=$(run_launcher --trust-package --check-only)
+    out_contains "trust-args/mutex-checkonly" "${r%%$'\n'*}" "1"
+    out_contains "trust-args/mutex-checkonly-msg" "$r" "互斥"
+    r=$(run_launcher --check-only --trust-package)
+    out_contains "trust-args/mutex-reversed" "${r%%$'\n'*}" "1"
+    r=$(run_launcher --trust-package -width 800)
+    out_contains "trust-args/game-args-nonzero" "${r%%$'\n'*}" "1"
+    out_contains "trust-args/game-args-msg" "$r" "不接受游戏参数"
+    r=$(run_launcher --trust-package --yes)
+    out_contains "trust-args/no-yes-flag" "${r%%$'\n'*}" "1"
+
+    # --game 允许：走完整预检后报告“无可处理文件”（替身 xattr 观察调用）
+    mock_xattr_prepare "$w"
+    r=$(xmock_run "" --game "$app" --trust-package)
+    out_contains "trust-args/game-allowed" "${r%%$'\n'*}" "0"
+    out_contains "trust-args/game-allowed-noop" "$r" "无可处理文件"
+    [ -z "$(xmock_deletes)" ] && ok "trust-args/game-allowed-no-delete" \
+        || bad "trust-args/game-allowed-no-delete"
+}
+
+test_trust_cancel_and_eof_no_writes() {
+    local w f pkg scenario input r
+    for scenario in eof empty wrong lower; do
+        case "$scenario" in
+            eof) input="" ;;
+            empty) input="
+" ;;
+            wrong) input="yes
+" ;;
+            lower) input="trust
+" ;;
+        esac
+        w="$WORK_ROOT/t44-$scenario"; f=$(new_fixture "$w")
+        pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+        CUR_LAUNCHER="$pkg/launcher.command"
+        mock_xattr_prepare "$w"
+        mock_xattr_quarantine "$pkg/dotnet/libcoreclr.dylib"
+        r=$(xmock_run "$input" --trust-package)
+        out_contains "trust-cancel/$scenario-nonzero" "${r%%$'\n'*}" "1"
+        out_contains "trust-cancel/$scenario-msg" "$r" "已取消"
+        [ -z "$(xmock_deletes)" ] && ok "trust-cancel/$scenario-no-delete" \
+            || bad "trust-cancel/$scenario-no-delete"
+        grep -qxF "$pkg/dotnet/libcoreclr.dylib" "$XMOCK_STATE/quarantined" \
+            && ok "trust-cancel/$scenario-state-kept" || bad "trust-cancel/$scenario-state-kept"
+        [ -e "$pkg/.launcher.lock" ] && bad "trust-cancel/$scenario-no-lock" \
+            || ok "trust-cancel/$scenario-no-lock"
+        [ -e "$w/KingdomTwoCrowns_Data" ] || [ -L "$w/KingdomTwoCrowns_Data" ] \
+            && bad "trust-cancel/$scenario-no-alias" || ok "trust-cancel/$scenario-no-alias"
+        [ -e "$pkg/BepInEx/config" ] && bad "trust-cancel/$scenario-no-cfg" \
+            || ok "trust-cancel/$scenario-no-cfg"
+    done
+}
+
+test_trust_cleans_only_listed_targets() {
+    local w f pkg app r got want
+    w="$WORK_ROOT/t45"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    app=$(phys "$(printf '%s' "$f" | jget app)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_xattr_prepare "$w"
+    mock_xattr_quarantine "$pkg/dotnet/libcoreclr.dylib" "$pkg/BepInEx/core/libdobby.dylib"
+    # 名单外（游戏文件/插件/配置/未知新增 dylib）即使“带隔离”也不得被列举或清除
+    mock_xattr_quarantine "$app/Contents/Frameworks/GameAssembly.dylib" \
+        "$pkg/BepInEx/core/BepInEx.Unity.IL2CPP.dll" "$pkg/defaults/BepInEx.cfg" \
+        "$pkg/unknown-extra.dylib"
+    r=$(xmock_run "TRUST
+" --trust-package)
+    out_contains "trust-only/exit0" "${r%%$'\n'*}" "0"
+    out_contains "trust-only/summary" "$r" "已清除隔离属性: 2 个"
+    got=$(xmock_deletes | sed 's/^CALL|-d|com.apple.quarantine|//' | sort)
+    want=$(printf '%s\n' "$pkg/BepInEx/core/libdobby.dylib" "$pkg/dotnet/libcoreclr.dylib" | sort)
+    [ "$got" = "$want" ] && ok "trust-only/exact-targets" || bad "trust-only/exact-targets"
+    # 严格 argv：只允许 -d（无 -r/-c/-w/-x 等），且属性名精确为 com.apple.quarantine
+    [ "$(grep -E '^CALL\|-' "$XMOCK_LOG" | grep -vc '^CALL|-d|com.apple.quarantine|')" = "0" ] \
+        && ok "trust-only/strict-argv" || bad "trust-only/strict-argv"
+    # 只列举固定名单（14 个），名单外路径一次都不碰
+    got=$(xmock_lists | sed 's/^CALL|//' | sort -u)
+    want=$(printf '%s\n' "$pkg/libdoorstop.dylib" "$pkg/BepInEx/core/libdobby.dylib" \
+        "$pkg/dotnet/libSystem.Globalization.Native.dylib" \
+        "$pkg/dotnet/libSystem.IO.Compression.Native.dylib" \
+        "$pkg/dotnet/libSystem.Native.dylib" \
+        "$pkg/dotnet/libSystem.Net.Security.Native.dylib" \
+        "$pkg/dotnet/libSystem.Security.Cryptography.Native.Apple.dylib" \
+        "$pkg/dotnet/libSystem.Security.Cryptography.Native.OpenSsl.dylib" \
+        "$pkg/dotnet/libclrjit.dylib" "$pkg/dotnet/libcoreclr.dylib" \
+        "$pkg/dotnet/libdbgshim.dylib" "$pkg/dotnet/libhostpolicy.dylib" \
+        "$pkg/dotnet/libmscordaccore.dylib" "$pkg/dotnet/libmscordbi.dylib" | sort)
+    [ "$got" = "$want" ] && ok "trust-only/only-listed-paths-probed" \
+        || bad "trust-only/only-listed-paths-probed"
+    for rel in "unknown-extra.dylib" "BepInEx/core/BepInEx.Unity.IL2CPP.dll" "defaults/BepInEx.cfg"; do
+        grep -qxF "$pkg/$rel" "$XMOCK_STATE/quarantined" && ok "trust-only/unknown-kept-$(basename "$rel")" \
+            || bad "trust-only/unknown-kept-$(basename "$rel")"
+    done
+    grep -qxF "$app/Contents/Frameworks/GameAssembly.dylib" "$XMOCK_STATE/quarantined" \
+        && ok "trust-only/game-kept" || bad "trust-only/game-kept"
+    [ -e "$pkg/.launcher.lock" ] && bad "trust-only/lock-released" || ok "trust-only/lock-released"
+    [ -e "$w/KingdomTwoCrowns_Data" ] || [ -L "$w/KingdomTwoCrowns_Data" ] \
+        && bad "trust-only/no-alias" || ok "trust-only/no-alias"
+}
+
+test_trust_real_xattr_semantics() {
+    local w f pkg app r before_attrs after_attrs rel
+    w="$WORK_ROOT/t46"; f=$(new_fixture "$w")
+    pkg=$(printf '%s' "$f" | jget pkg)
+    app=$(printf '%s' "$f" | jget app)
+    CUR_LAUNCHER="$pkg/launcher.command"
+    quarantine_set "$pkg/dotnet/libcoreclr.dylib" "$pkg/BepInEx/core/libdobby.dylib"
+    printf 'unknown' > "$pkg/unknown-extra.dylib"
+    quarantine_set "$app/Contents/Frameworks/GameAssembly.dylib" "$pkg/unknown-extra.dylib"
+    xattr -w user.ohmymods.sentinel keep "$pkg/dotnet/libcoreclr.dylib"
+    cp "$pkg/dotnet/libcoreclr.dylib" "$w/before.bin"
+    before_attrs=$(attrs_without_quarantine "$pkg/dotnet/libcoreclr.dylib")
+
+    r=$(run_launcher_input "TRUST
+" --trust-package)
+    out_contains "trust-real/exit0" "${r%%$'\n'*}" "0"
+    quarantine_has "$pkg/dotnet/libcoreclr.dylib" && bad "trust-real/cleaned-coreclr" \
+        || ok "trust-real/cleaned-coreclr"
+    quarantine_has "$pkg/BepInEx/core/libdobby.dylib" && bad "trust-real/cleaned-dobby" \
+        || ok "trust-real/cleaned-dobby"
+    after_attrs=$(attrs_without_quarantine "$pkg/dotnet/libcoreclr.dylib")
+    [ "$before_attrs" = "$after_attrs" ] && ok "trust-real/other-attrs-preserved" \
+        || bad "trust-real/other-attrs-preserved（${before_attrs} → ${after_attrs}）"
+    attrs_without_quarantine "$pkg/dotnet/libcoreclr.dylib" | grep -qxF "user.ohmymods.sentinel" \
+        && ok "trust-real/custom-attr-kept" || bad "trust-real/custom-attr-kept"
+    cmp -s "$pkg/dotnet/libcoreclr.dylib" "$w/before.bin" && ok "trust-real/bytes-unchanged" \
+        || bad "trust-real/bytes-unchanged"
+    # 名单外文件与游戏文件绝不被清除
+    quarantine_has "$app/Contents/Frameworks/GameAssembly.dylib" && ok "trust-real/game-kept" \
+        || bad "trust-real/game-kept"
+    quarantine_has "$pkg/unknown-extra.dylib" && ok "trust-real/unknown-kept" \
+        || bad "trust-real/unknown-kept"
+    for rel in libdoorstop.dylib dotnet/libclrjit.dylib dotnet/libmscordbi.dylib; do
+        quarantine_has "$pkg/$rel" && bad "trust-real/other-native-touched" \
+            || ok "trust-real/other-native-untouched"
+    done
+    [ -e "$pkg/.launcher.lock" ] && bad "trust-real/lock-released" || ok "trust-real/lock-released"
+
+    # 重入：已全部清洁时无事可做、exit 0、不调用任何删除
+    mock_xattr_prepare "$w"
+    r=$(xmock_run "" --trust-package)
+    out_contains "trust-real/rerun-noop" "${r%%$'\n'*}" "0"
+    out_contains "trust-real/rerun-msg" "$r" "无可处理文件"
+    [ -z "$(xmock_deletes)" ] && ok "trust-real/rerun-no-delete" || bad "trust-real/rerun-no-delete"
+}
+
+test_trust_partial_failure_and_rerun() {
+    local w f pkg r got
+    w="$WORK_ROOT/t47"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    quarantine_set "$pkg/dotnet/libcoreclr.dylib" "$pkg/dotnet/libclrjit.dylib"
+    chmod 444 "$pkg/dotnet/libclrjit.dylib"   # 真实失败注入：无写权限 → xattr -d 失败
+    r=$(run_launcher_input "TRUST
+" --trust-package)
+    chmod 644 "$pkg/dotnet/libclrjit.dylib"
+    out_contains "trust-partial/nonzero" "${r%%$'\n'*}" "1"
+    out_contains "trust-partial/report" "$r" "清除失败"
+    quarantine_has "$pkg/dotnet/libcoreclr.dylib" && bad "trust-partial/clean-one" \
+        || ok "trust-partial/clean-one"
+    quarantine_has "$pkg/dotnet/libclrjit.dylib" && ok "trust-partial/still-quarantined" \
+        || bad "trust-partial/still-quarantined"
+    out_contains "trust-partial/retry-hint" "$r" "--trust-package 命令重试"
+    [ -e "$pkg/.launcher.lock" ] && bad "trust-partial/lock-released" \
+        || ok "trust-partial/lock-released"
+
+    # 重入：只处理仍被隔离者（替身状态只剩 clrjit；coreclr 已清洁不得再被删除）
+    mock_xattr_prepare "$w"
+    mock_xattr_quarantine "$pkg/dotnet/libclrjit.dylib"
+    r=$(xmock_run "TRUST
+" --trust-package)
+    out_contains "trust-partial/rerun-exit0" "${r%%$'\n'*}" "0"
+    got=$(xmock_deletes | sed 's/^CALL|-d|com.apple.quarantine|//')
+    [ "$got" = "$pkg/dotnet/libclrjit.dylib" ] && ok "trust-partial/rerun-only-remaining" \
+        || bad "trust-partial/rerun-only-remaining"
+}
+
+test_trust_read_error_failclosed() {
+    local w f pkg r
+    w="$WORK_ROOT/t48"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_xattr_prepare "$w"
+    mock_xattr_quarantine "$pkg/dotnet/libcoreclr.dylib"
+    # 列举失败：读取失败 ≠ 无属性；普通启动/check-only/--trust-package 全部拒绝且不删除
+    r=$(OHMYMODS_MOCK_XATTR_FAIL_LIST=all xmock_run "" --check-only)
+    out_contains "trust-readerr/checkonly-nonzero" "${r%%$'\n'*}" "1"
+    out_contains "trust-readerr/checkonly-msg" "$r" "无法读取扩展属性"
+    r=$(OHMYMODS_MOCK_XATTR_FAIL_LIST=all xmock_run "" --trust-package)
+    out_contains "trust-readerr/trust-nonzero" "${r%%$'\n'*}" "1"
+    out_contains "trust-readerr/trust-msg" "$r" "无法读取扩展属性"
+    [ -z "$(xmock_deletes)" ] && ok "trust-readerr/no-delete" || bad "trust-readerr/no-delete"
+    grep -qxF "$pkg/dotnet/libcoreclr.dylib" "$XMOCK_STATE/quarantined" \
+        && ok "trust-readerr/state-kept" || bad "trust-readerr/state-kept"
+    # 删除返回 0 但属性仍在：读回必须发现并如实报告（不得标记成功）
+    r=$(OHMYMODS_MOCK_XATTR_NOOP_DELETE=all xmock_run "TRUST
+" --trust-package)
+    out_contains "trust-readerr/noop-nonzero" "${r%%$'\n'*}" "1"
+    out_contains "trust-readerr/noop-readback" "$r" "清除后读回仍带隔离属性"
+}
+
+test_trust_review_regressions() {
+    local w f pkg r input
+    w="$WORK_ROOT/review-trust"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_xattr_prepare "$w"
+    mock_xattr_quarantine "$pkg/libdoorstop.dylib" "$pkg/BepInEx/core/libdobby.dylib"
+    for input in $' TRUST\n' $'TRUST \n' $'TRUST\r\n'; do
+        r=$(xmock_run "$input" --trust-package)
+        [ "${r%%$'\n'*}" = 1 ] && ok "trust-exact/nonexact-rejected" || bad "trust-exact/nonexact-rejected"
+        [ -z "$(xmock_deletes)" ] && ok "trust-exact/no-deletion" || bad "trust-exact/no-deletion"
+        [ ! -e "$pkg/.launcher.lock" ] && ok "trust-exact/no-lock" || bad "trust-exact/no-lock"
+    done
+    r=$(OHMYMODS_MOCK_XATTR_FAIL_LIST_AFTER_DELETE=all xmock_run $'TRUST\n' --trust-package)
+    [ "${r%%$'\n'*}" = 1 ] && ok "trust-readback/nonzero" || bad "trust-readback/nonzero"
+    out_contains "trust-readback/deletion-receipt" "$r" "删除命令返回成功: libdoorstop.dylib"
+    out_contains "trust-readback/unverified" "$r" "删除后读取失败，是否清除尚未确认"
+    out_contains "trust-readback/later-unprocessed" "$r" "读取失败，未处理且状态未确认"
+    out_lacks "trust-readback/no-success" "$r" "全部完成"
+    out_contains "trust-readback/verified-zero" "$r" "已清除隔离属性: 0 个"
+    [ ! -e "$pkg/.launcher.lock" ] && ok "trust-readback/lock-released" || bad "trust-readback/lock-released"
+    [ "$(xmock_deletes | wc -l | tr -d ' ')" = 1 ] && ok "trust-readback/only-first-delete" || bad "trust-readback/only-first-delete"
+    grep -qxF "$pkg/BepInEx/core/libdobby.dylib" "$XMOCK_STATE/quarantined" && ok "trust-readback/remaining-kept" || bad "trust-readback/remaining-kept"
+    # 真实生产启动器即便PATH中有xattr替身，也必须使用/usr/bin/xattr。
+    r=$(OHMYMODS_MOCK_XATTR_FAIL_LIST=all OHMYMODS_MOCK_XATTR_LOG="$XMOCK_LOG" OHMYMODS_MOCK_XATTR_STATE="$XMOCK_STATE" PATH="$(ps_mock_setup):$XMOCK_BIN:$PATH" "$CUR_LAUNCHER" --check-only 2>&1)
+    [ "$?" = 0 ] && ok "trust-xattr/production-fixed-tool" || bad "trust-xattr/production-fixed-tool"
+}
+
+test_trust_symlink_and_hardlink_refusals() {
+    local w f pkg app r st
+    w="$WORK_ROOT/t49"; f=$(new_fixture "$w")
+    pkg=$(printf '%s' "$f" | jget pkg)
+    CUR_LAUNCHER="$pkg/launcher.command"
+    # (a) 文件符号链接：SHA 清单会跟随链接通过，必须由原生库检查拒绝
+    mv "$pkg/dotnet/libcoreclr.dylib" "$w/coreclr-real.dylib"
+    ln -s "$w/coreclr-real.dylib" "$pkg/dotnet/libcoreclr.dylib"
+    r=$(run_launcher --check-only)
+    out_contains "trust-link/file-nonzero" "${r%%$'\n'*}" "1"
+    out_contains "trust-link/file-msg" "$r" "符号链接"
+
+    w="$WORK_ROOT/t49b"; f=$(new_fixture "$w")
+    pkg=$(printf '%s' "$f" | jget pkg)
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mkdir -p "$w/external-native"
+    cp "$pkg/dotnet/"*.dylib "$w/external-native/"
+    rm -rf "$pkg/dotnet"
+    ln -s "$w/external-native" "$pkg/dotnet"
+    r=$(run_launcher --check-only)
+    out_contains "trust-link/parent-nonzero" "${r%%$'\n'*}" "1"
+    out_contains "trust-link/parent-msg" "$r" "父路径是符号链接"
+
+    # (b) 硬链接：xattr 属 inode，清属性会越界改动包外；trust 必须拒绝且不删除
+    w="$WORK_ROOT/t49c"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_xattr_prepare "$w"
+    mock_xattr_quarantine "$pkg/dotnet/libcoreclr.dylib" "$pkg/libdoorstop.dylib"
+    ln "$pkg/dotnet/libcoreclr.dylib" "$w/hardlink-outside.dylib"
+    ln "$pkg/libdoorstop.dylib" "$w/hardlink-outside-2.dylib"
+    r=$(xmock_run "TRUST
+" --trust-package)
+    out_contains "trust-link/hardlink-nonzero" "${r%%$'\n'*}" "1"
+    out_contains "trust-link/hardlink-msg" "$r" "硬链接"
+    [ -z "$(xmock_deletes)" ] && ok "trust-link/hardlink-no-delete" || bad "trust-link/hardlink-no-delete"
+    grep -qxF "$pkg/dotnet/libcoreclr.dylib" "$XMOCK_STATE/quarantined" \
+        && ok "trust-link/hardlink-state-kept" || bad "trust-link/hardlink-state-kept"
+    [ -e "$pkg/.launcher.lock" ] && bad "trust-link/hardlink-no-lock" \
+        || ok "trust-link/hardlink-no-lock"
+    rm -f "$w/hardlink-outside.dylib" "$w/hardlink-outside-2.dylib"
+
+    # (c) 硬链接在确认前就被拒绝：EOF 输入也必须失败在硬链接门（不消耗确认）
+    w="$WORK_ROOT/t49d"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_xattr_prepare "$w"
+    mock_xattr_quarantine "$pkg/dotnet/libcoreclr.dylib"
+    ln "$pkg/dotnet/libcoreclr.dylib" "$w/hardlink-2.dylib"
+    r=$(xmock_run "" --trust-package)
+    out_contains "trust-link/hardlink-eof-nonzero" "${r%%$'\n'*}" "1"
+    out_contains "trust-link/hardlink-eof-msg" "$r" "硬链接"
+    rm -f "$w/hardlink-2.dylib"
+}
+
 
 # ---------------- 构建器（import 驱动 + 家目录副本） ----------------
 

@@ -290,8 +290,8 @@
     {
       "mode": "0644",
       "path": "README.md",
-      "sha256": "066e72653344bbe82e61fd1d0c2c7eb98b84820d3cf1feffde23c435e7fef1fd",
-      "size": 14668,
+      "sha256": "3c3cce7b5c2e8e33ef399dad88b2e2837f9eb62cbc2de84f22e3cd988b8a1a07",
+      "size": 19911,
       "source": "package-material"
     },
     {
@@ -1634,8 +1634,8 @@
     {
       "mode": "0755",
       "path": "launcher.command",
-      "sha256": "8748410d6a7c2344e4826360c18e60c9627d5cf2ae77861817b3cf3b3c902407",
-      "size": 29932,
+      "sha256": "c0ef7a1780fc1536b1e1a2b0cad39775db36487ac832e29c55b27133ba4c6174",
+      "size": 43951,
       "source": "package-material"
     },
     {

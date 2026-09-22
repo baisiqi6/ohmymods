@@ -75,11 +75,17 @@
     "quarantine_preserved": true,
     "open_attempted": true,
     "game_started": false,
-    "status": "pending_user_observation",
-    "reason": "CUA prohibits access to com.apple.Terminal; Finder itself shows no security dialog; no alternate UI access attempted",
-    "security_settings_changed": false
+    "status": "failed_after_user_launcher_approval",
+    "reason": "User approved launcher via macOS Open Anyway; dyld then rejected libdoorstop.dylib: library load disallowed by system policy",
+    "security_settings_changed": false,
+    "launcher_executed": true,
+    "payload_hash_check": true,
+    "game_fingerprint_check": true,
+    "exit_code": 134,
+    "blocked_library": "libdoorstop.dylib",
+    "security_settings_changed_by_agent": false
   },
-  "release_gate": "pending",
+  "release_gate": "blocked_downloaded_native_library_trust",
   "limitations": [
     "Current Steam build unsupported",
     "No generic ARM64-only game support claim",
