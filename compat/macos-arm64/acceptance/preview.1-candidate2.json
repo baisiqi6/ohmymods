@@ -11,7 +11,7 @@
     "OhMyMods-Mac-ARM64/package-manifest.json"
   ],
   "runtime_payload_unchanged": true,
-  "status": "awaiting_user_confirmed_download_trust_and_runtime_acceptance",
+  "status": "local_download_trust_cold_warm_ui_verified",
   "schema": 1,
   "scope": "Apple Silicon ARM64; locked KTC 2.4.0 r23485 Universal experimental build only",
   "steam_supported": false,
@@ -66,8 +66,79 @@
       "libdoorstop.dylib"
     ]
   },
-  "release_gate": "pending_user_confirmed_trust_and_actual_loading",
+  "release_gate": "local_validation_passed; publication status tracked by GitHub Release",
   "developer_id_signed": false,
   "apple_notarized": false,
-  "gameplay_commit": "1088b9cd981efb32aa3afb03e91eea66ad1a451b"
+  "gameplay_commit": "1088b9cd981efb32aa3afb03e91eea66ad1a451b",
+  "trust_execution": {
+    "zip_sha256": "06d7e15bebab95c1acbc596c938eea4f56ae932ecace50336b363a4cf6749cb5",
+    "user_authorized": true,
+    "trust_exit_code": 0,
+    "cleared_native_count": 14,
+    "existing_non_quarantine_attrs_preserved": true,
+    "new_system_attribute_observed": "com.apple.provenance on 14 native files; recorded and retained, not removed",
+    "all_immutable_bytes_modes_match_zip": true,
+    "positive_check_only_exit": 0,
+    "positive_check_only_package_and_game_zero_writes": true,
+    "game_start_gate": "ready for new isolated invocation only; each step must inspect prior success"
+  },
+  "native_attributes_after_cold_and_warm": "equal to recorded post-trust baseline, including system-added provenance",
+  "runtime": {
+    "cold-v2-retry": {
+      "ready_after_seconds": 35.1,
+      "exit_code": 143,
+      "end_reason": "controlled_stop_after_observation",
+      "elapsed_seconds": 96.0,
+      "startup_complete": true,
+      "arm64_sample": true,
+      "remaining_game_pids": "",
+      "app_tree_unchanged": true,
+      "launcher_lock_remaining": false,
+      "download_logged": true,
+      "generation_logged": true,
+      "cache_unchanged": false,
+      "interop_files": 130
+    },
+    "warm-v2": {
+      "ready_after_seconds": 6.0,
+      "exit_code": 143,
+      "end_reason": "controlled_stop_after_observation",
+      "elapsed_seconds": 37.3,
+      "startup_complete": true,
+      "arm64_sample": true,
+      "remaining_game_pids": "",
+      "app_tree_unchanged": true,
+      "launcher_lock_remaining": false,
+      "download_logged": false,
+      "generation_logged": false,
+      "cache_unchanged": true,
+      "interop_files": 130
+    }
+  },
+  "ui": {
+    "method": "native game-window screenshots through CUA",
+    "scene_visible": true,
+    "f5_opens_and_closes": true,
+    "wallet_visible_inside_window": true
+  },
+  "known_messages": [
+    "Cpp2IL Mach-O support experimental",
+    "Class::Init signature fallback used",
+    "HarmonyX optional stack-trace fix reported Permission denied; Mod still loaded",
+    "TrollWeak stable identity/header unavailable: specific designation path skipped for this activation"
+  ],
+  "limitations": [
+    "Browser-download quarantine was simulated on the exact ZIP and unpacked by Finder; no actual GitHub browser download claim",
+    "Initial launcher Open Anyway UI was observed on predecessor; current exact package trust and game launch exercised through shell",
+    "Prior basic user gameplay is not full feature/save-load/multiplayer coverage",
+    "Current Steam build unsupported; Mac x64 and Windows acceptance separate"
+  ],
+  "aborted_attempt": {
+    "elapsed_seconds": 18.1,
+    "exit_code": 143,
+    "reason": "Operator controlled stop after prior attribute assertion failure; no readiness claim",
+    "observation": "macOS added provenance after explicit trust; existing non-quarantine attributes preserved; source marker retained",
+    "workflow_correction": "Inspect each prior step result before invoking dependent next step"
+  },
+  "publication_review": "Independent material review APPROVE for non-Latest Prerelease; actual remote artifact audit required"
 }
