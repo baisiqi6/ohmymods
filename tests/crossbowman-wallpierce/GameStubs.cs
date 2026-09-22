@@ -1,12 +1,13 @@
 // 原生边界替身（游戏/模组侧）：
 //   * 全局命名空间游戏类型（Managers/Holder/Character/Archer/ArrowAttack/Arrow/Bolt/Pool/
-//     PoolManager/Util…）只暴露三个生产文件真正读写的成员；
+//     PoolManager/Util…）只暴露被编入的生产文件真正读写的成员；Arrow 另补 HeroArcherArrowVisuals
+//     需要的 _spriteRenderer/archer 编译面（本套件不驱动英雄外观分支）；
 //   * Util.ComputeTrajectoryAngle 逐字镜像 Util.cs:429（2.1.0 反编译，算法面 2.4 相同）；
 //   * KingdomEnhancedMod 命名空间的模组联动（CrossbowmanLifecycle/UnitScanCache/
 //     GreekScaleScope/…）用记账空壳——真实行为由各自直链测试套件负责
 //     （tests/crossbow-lifecycle 等），这里只验证接线契约；
-//   * ArcherOptionsScope / KingdomEnhancedPlugin 是 HeroArcherWallPierce 的世界上下文与
-//     日志缝（与 tests/hero-arrow-pierce 同款）。
+//   * ArcherOptionsScope / HeroArcherRuntime / KingdomEnhancedPlugin 是 HeroArcherWallPierce 与
+//     HeroArcherArrowVisuals 的世界上下文/英雄身份/日志缝（与 tests/hero-arrow-pierce 同款）。
 
 using System;
 using System.Collections.Generic;
@@ -115,15 +116,23 @@ public class ArrowAttack : UnityEngine.Object
 
     public ArrowAttack() { }
     public ArrowAttack(string assetName) { name = assetName; }
+
+    /// <summary>只为 HeroArcherArrowVisuals 编译面存在（[HarmonyPatch(typeof(ArrowAttack), "FireArrowInternal")]）；
+    /// 本套件不执行英雄发射作用域。</summary>
+    public void FireArrowInternal(GameObject source) { }
 }
 
-/// <summary>原生 Arrow：弩矢本体（KEM 弩矢=原生 Arrow 克隆，非 Bolt 类）。</summary>
+/// <summary>原生 Arrow：弩矢本体（KEM 弩矢=原生 Arrow 克隆，非 Bolt 类）。弩手 slice 只读写
+/// _collider；HeroArcherArrowVisuals（同程序集生产文件）另读 _spriteRenderer/archer——本套件不驱动
+/// 英雄外观分支（作用域恒空），这两个成员只保编译面与身份复核语义。</summary>
 public class Arrow : UnityEngine.Component
 {
     public int hitDamage = 1;
     public bool _alwaysDrawTrail;
     public float _notPerfectTrailLength = 0.1f;
     public Collider2D _collider;
+    public SpriteRenderer _spriteRenderer;
+    public GameObject archer { get; set; }
 }
 
 /// <summary>原生 Bolt（弩箭塔弹矢，非 Arrow 子类）：只借 SpriteRenderer.sprite 外观。</summary>
@@ -244,6 +253,35 @@ namespace KingdomEnhancedMod
     public static class KingdomEnhancedPlugin
     {
         public static PluginStub Instance = new PluginStub();
+    }
+
+    /// <summary>英雄身份缝（HeroArcherArrowVisuals 编译面；本套件不驱动英雄分支——EnabledState 恒 false、
+    /// HeroPointers 恒空，ResetArrow 因此只走穿墙归还路径，不产生任何外观回执）。</summary>
+    internal static class HeroArcherRuntime
+    {
+        internal static bool EnabledState;
+        internal static readonly HashSet<IntPtr> HeroPointers = new HashSet<IntPtr>();
+        internal static int IsHeroCalls;
+        internal static bool IsHeroThrows;
+
+        internal static bool Enabled => EnabledState;
+
+        internal static bool IsHero(Archer archer)
+        {
+            IsHeroCalls++;
+            if (IsHeroThrows) throw new InvalidOperationException("stub: IsHero threw");
+            if (archer == null) return false;
+            try { return HeroPointers.Contains(archer.Pointer); }
+            catch (Exception) { return false; }
+        }
+
+        internal static void Reset()
+        {
+            EnabledState = false;
+            HeroPointers.Clear();
+            IsHeroCalls = 0;
+            IsHeroThrows = false;
+        }
     }
 
     /// <summary>HeroArcherWallPierce 的世界上下文缝（与 tests/hero-arrow-pierce 同款）。</summary>
