@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>OhMyMods.MacCompatibility</AssemblyName>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <!-- Iced 引用外部 BepInEx core 目录：由 build.sh 通过 -p:BepInExCoreDir=<绝对路径> 传入，
+       不复制、不内嵌；缺失或指向错误时立即失败，避免静默解析到无效路径。 -->
+  <Target Name="CheckBepInExCoreDir" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="'$(BepInExCoreDir)' == ''"
+           Text="BepInExCoreDir 未设置：请传 -p:BepInExCoreDir=/path/to/BepInEx/core（build.sh 已统一传入）。" />
+    <Error Condition="'$(BepInExCoreDir)' != '' and !Exists('$(BepInExCoreDir)/Iced.dll')"
+           Text="BepInExCoreDir 下找不到 Iced.dll：$(BepInExCoreDir)" />
+  </Target>
+  <ItemGroup>
+    <Reference Include="Iced">
+      <HintPath>$(BepInExCoreDir)/Iced.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

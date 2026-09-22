@@ -1,0 +1,9 @@
+{
+  "injection-patcher/input.dll": "9342b39fea1009a755a8fe1cb21f01e26fb923b79a58bf3ed312af0247564534",
+  "preloader-core-before.dll": "1a2824268a24d3eca2931daa7b7b378d7338a542502bcf9e2261919095b1eb97",
+  "bepinex-il2cpp-before.dll": "46cf1ef802bdf8cb6587fc1e4d98f7af1073a60487b39a64e230e6f6e4c23aec",
+  "trampoline-output/BepInEx.Unity.IL2CPP.dll": "eb2f9439633ddaa6a5b7bdd05c0acd8224b383d6be94f5e8d5088ae79e8164c2",
+  "entry-output/BepInEx.Unity.IL2CPP.dll": "c6f8d361d6715c8e92bf9e643b99d9397605557caaeb33a593318a864b93786d",
+  "injection-output/Il2CppInterop.Runtime.dll": "4dae2520ea6d36701a92f622f62a339e9c4c58b7bf5bf4744e8154f7fa0c67e2",
+  "thunk-output/BepInEx.Unity.IL2CPP.dll": "34db10f713f09a665b3a4843e7d702af717537628a4c0655d7de2be99bc52dc3"
+}

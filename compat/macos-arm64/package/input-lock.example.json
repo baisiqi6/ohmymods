@@ -1,0 +1,44 @@
+{
+  "schema": "ohmymods-arm64-package-input-lock/2",
+  "_说明": [
+    "示例/模板：展示 input-lock.json 的完整 schema 供操作员固化。正式文件位于",
+    "compat/macos-arm64/package/input-lock.json（操作员独占写入，Worker 不得创建）。",
+    "可用 build_package.py --emit-lock-template 从实际输入扫描生成候选后人工复核。",
+    "标记 <OPERATOR填入> 的哈希在正式 lock 中必须是真实 64 位十六进制；占位符会被构建器拒绝。",
+    "game.metadata_sha256 指 Contents/Resources/Data/il2cpp_data/Metadata/global-metadata.dat；",
+    "game.infoplist_sha256 指 Contents/Info.plist。两者独立锁定，缺失/错配拒绝。",
+    "package-material 类别可含 REBUILD.md / VALIDATION.md / tools/** /",
+    "metadata-sanitization-receipts/**（操作员/其他 Worker 材料，仅在显式列入清单时打包）。"
+  ],
+  "package": {
+    "folder": "OhMyMods-Mac-ARM64",
+    "version": "<OPERATOR填入，例如 9.5.13-arm64>",
+    "mod_plugin_dir": "KingdomEnhancedMod",
+    "framework_archive": "9027335",
+    "mod_dll_sha256": "<OPERATOR填入: BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll 的 SHA256>",
+    "arch": "arm64"
+  },
+  "game": {
+    "assembly_sha256": "738fb98871dd6e2136474325ea3f7f4f81f2094873a6bc88f7a942d268660b1a",
+    "executable_sha256": "<OPERATOR填入: KingdomTwoCrowns.app/Contents/MacOS/KingdomTwoCrowns 的 SHA256>",
+    "metadata_sha256": "<OPERATOR填入: Contents/Resources/Data/il2cpp_data/Metadata/global-metadata.dat 的 SHA256>",
+    "infoplist_sha256": "<OPERATOR填入: KingdomTwoCrowns.app/Contents/Info.plist 的 SHA256>",
+    "source_tag": "1088b9c",
+    "game_build": "2.4.0 r23485",
+    "unity_version": "6000.0.61f1"
+  },
+  "files": [
+    { "path": "BepInEx/core/BepInEx.Unity.IL2CPP.dll", "sha256": "<OPERATOR填入>", "mode": "0644", "source": "input-root" },
+    { "path": "BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll", "sha256": "<OPERATOR填入>", "mode": "0644", "source": "input-root" },
+    { "path": "dotnet/libcoreclr.dylib", "sha256": "<OPERATOR填入>", "mode": "0644", "source": "input-root" },
+    { "path": "libdoorstop.dylib", "sha256": "<OPERATOR填入>", "mode": "0644", "source": "input-root" },
+    { "path": "launcher.command", "sha256": "<OPERATOR填入>", "mode": "0755", "source": "package-material" },
+    { "path": "README.md", "sha256": "<OPERATOR填入>", "mode": "0644", "source": "package-material" },
+    { "path": "defaults/BepInEx.cfg", "sha256": "<OPERATOR填入>", "mode": "0644", "source": "package-material" },
+    { "path": "REBUILD.md", "sha256": "<OPERATOR填入>", "mode": "0644", "source": "package-material" },
+    { "path": "VALIDATION.md", "sha256": "<OPERATOR填入>", "mode": "0644", "source": "package-material" },
+    { "path": "tools/sanitize_codeview.py", "sha256": "<OPERATOR填入>", "mode": "0644", "source": "package-material" },
+    { "path": "metadata-sanitization-receipts/receipt.json", "sha256": "<OPERATOR填入>", "mode": "0644", "source": "package-material" },
+    { "path": "third-party/Dobby-LICENSE", "sha256": "<OPERATOR填入>", "mode": "0644", "source": "notices" }
+  ]
+}
