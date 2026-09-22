@@ -1,0 +1,12 @@
+{
+  "status": "experimental-fixed-game-build",
+  "dobby": {
+    "repository": "https://github.com/BepInEx/Dobby.git",
+    "commit": "888d971214900374edbca6206fad6ded8a2c1311"
+  },
+  "bepinex": "6.0.0-be.788+5b766a3",
+  "unity": "6000.0.61f1",
+  "game": "2.4.0 r23485",
+  "official_mod": "v9.4.5",
+  "hashes": "evidence/hashes.json"
+}
