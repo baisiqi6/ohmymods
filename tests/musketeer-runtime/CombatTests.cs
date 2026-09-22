@@ -56,6 +56,17 @@ namespace MusketeerRuntimeTests
             Case.Run("large dt sweeps the full segment: no wall-clock slowdown, no overshoot", LargeDeltaSweep);
             Case.Run("bullet pool holds 40+ concurrent shots without losing any", ManyConcurrentBullets);
             Case.Run("missing bullet sprite fails visible construction (no invisible damage)", MissingSpriteFailsClosed);
+            Case.Run("portal targeting: formation musketeers keep the native portal target (no reselect)", ReselectKeepsPortalForFormation);
+            Case.Run("portal targeting: a free-standing musketeer still strips a portal-only decision", ReselectStripsPortalWhenFreeStanding);
+            Case.Run("portal targeting: the replacement search uses the same bypass arms (EnemySpawn admitted)", ReplacementSearchUsesBypassArms);
+            Case.Run("portal targeting: the four native bypass arms admit the three tags; free-standing still excludes them", BypassArmsAlignWithNative);
+            Case.Run("portal targeting: QuestStructure stays excluded while embarked (native outer arm)", EmbarkedOuterArmExcludesPortal);
+            Case.Run("portal targeting: the Damageable gate still applies to portal targets", PortalDamageableGate);
+            Case.Run("portal targeting: an unreadable shooter state falls back to free-standing", TagStateReadFailureFallsBack);
+            Case.Run("portal targeting: the fire-time tag snapshot survives stance changes in flight", SnapshotSurvivesStanceChange);
+            Case.Run("portal targeting: an unarmed bullet never resolves a tagged target", UnarmedBulletPassesTaggedTarget);
+            Case.Run("portal targeting: a pooled record clears the tag snapshot before reuse", SnapshotPoolReuseClearsArms);
+            Case.Run("portal targeting: guard/post musketeers may target a portal (native alignment nail case)", GuardNailCaseMatchesNativeAlignment);
         }
 
         private static void CadenceBaseline()
@@ -717,6 +728,281 @@ namespace MusketeerRuntimeTests
             Fixture.QueueHit(target, 0.5f);
             MusketeerCombat.Tick(0.05f, true);
             Check.Equal(0, target.GetComponent<Damageable>().DamageLog.Count, "no invisible damage");
+        }
+
+        // ---- portal targeting (native ShouldShootEnemy bypass arms) -----------------
+
+        /// <summary>自由站立射手（真实 Archer.Awake 恒注入 Embarkee；测试显式补上以走正常状态读取路径）。</summary>
+        private static Archer FreeStandingArcher()
+        {
+            Fixture.Reset();
+            Fixture.NewWorld();
+            Archer archer = Fixture.NewArcher();
+            archer._embarkee = new Embarkee();
+            return archer;
+        }
+
+        /// <summary>带原生 tag 的敌方结构候选（Enemies 层 + Damageable，无 Enemy 组件 = 原生"静态敌方结构"）。</summary>
+        private static GameObject NewTaggedFoe(string tag)
+        {
+            var go = new GameObject("foe:" + tag);
+            go.layer = Fixture.EnemiesLayer;
+            go.tag = tag;
+            go.SetActive(true);
+            go.AddComponent<Damageable>();
+            return go;
+        }
+
+        private static void ReselectKeepsPortalForFormation()
+        {
+            Archer archer = ArmedMusketeer(out _);
+            archer._embarkee = new Embarkee();
+            GameObject portal = NewTaggedFoe("QuestStructure");
+            archer._shootingTarget = portal;                  // 原生 ShouldShootEnemy 已选中传送门
+            archer._currentFormation = new Formation();       // 举旗出征编队（原生绕过臂成立）
+
+            bool result = true;
+            MusketeerRuntime.ReselectGroundTarget(archer, ref result);
+            Check.True(result, "the native shoot decision stays on (the portal is a legal formation target)");
+            Check.True(ReferenceEquals(archer._shootingTarget, portal),
+                "the formation musketeer keeps the native portal target (never replaced by a ground re-selection)");
+        }
+
+        private static void ReselectStripsPortalWhenFreeStanding()
+        {
+            Archer archer = ArmedMusketeer(out _);
+            archer._embarkee = new Embarkee();
+            GameObject portal = NewTaggedFoe("QuestStructure");
+            archer._shootingTarget = portal;                  // 原生选中了门，但射手是自由站立
+
+            bool result = true;
+            MusketeerRuntime.ReselectGroundTarget(archer, ref result);
+            Check.False(result, "a free-standing musketeer still refuses a portal-only decision (pre-fix behaviour kept)");
+            Check.True(archer._shootingTarget == null, "the portal is stripped when no bypass arm is active");
+        }
+
+        private static void ReplacementSearchUsesBypassArms()
+        {
+            Archer archer = ArmedMusketeer(out _);
+            archer._embarkee = new Embarkee();
+            archer._currentFormation = new Formation();
+            GameObject spawn = NewTaggedFoe("EnemySpawn");
+            spawn.transform.position = new Vector3(2f, 0.5f, 0f);   // 扫描器射程内（Range = 8）
+            archer._enemyScanner.Cached.Add(spawn);                  // 原生扫描器缓存顺序
+            archer._shootingTarget = Fixture.NewEnemy(addSquidComponent: true);   // 原生选中飞行单位 → 被地面门拒绝
+
+            bool result = true;
+            MusketeerRuntime.ReselectGroundTarget(archer, ref result);
+            Check.True(result, "the shot decision stays on");
+            Check.True(ReferenceEquals(archer._shootingTarget, spawn),
+                "the replacement search admits EnemySpawn under the formation bypass arm (native order)");
+
+            // 同一缓存、自由站立：标签候选不可替换 → 无目标不开火（旧行为回归）。
+            archer._currentFormation = null;
+            archer._shootingTarget = Fixture.NewEnemy(addSquidComponent: true);
+            result = true;
+            MusketeerRuntime.ReselectGroundTarget(archer, ref result);
+            Check.False(result, "free-standing: the cached EnemySpawn is not a replacement target");
+            Check.True(archer._shootingTarget == null, "no replacement target → no shot");
+        }
+
+        private static void BypassArmsAlignWithNative()
+        {
+            Archer archer = FreeStandingArcher();
+            GameObject portal = NewTaggedFoe("QuestStructure");
+            GameObject spawn = NewTaggedFoe("EnemySpawn");
+            GameObject unspittable = NewTaggedFoe("Unspittable");
+
+            // 自由站立：三标签全部排除（旧行为）。
+            Check.False(MusketeerFoeFilter.IsValidGroundFoe(portal, archer), "free-standing: QuestStructure excluded");
+            Check.False(MusketeerFoeFilter.IsValidGroundFoe(spawn, archer), "free-standing: EnemySpawn excluded");
+            Check.False(MusketeerFoeFilter.IsValidGroundFoe(unspittable, archer), "free-standing: Unspittable excluded");
+
+            // 绕过臂 1：编队（举旗出征/盾墙等原生 Formation）→ 三标签全体放行。
+            archer._currentFormation = new Formation();
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(portal, archer), "formation: QuestStructure admitted");
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(spawn, archer), "formation: EnemySpawn admitted");
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(unspittable, archer), "formation: Unspittable admitted");
+            archer._currentFormation = null;
+
+            // 绕过臂 2：守位（塔/岗哨）。
+            archer.inGuardSlot = true;
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(portal, archer), "guard slot: QuestStructure admitted");
+            archer.inGuardSlot = false;
+
+            // 绕过臂 3：乘船可射（原生 CanShootWhileEmbarked = IsEmbarked && AllowShooting，
+            // 即该臂必然处于乘船态）→ 内层臂放行 EnemySpawn/Unspittable，
+            // 但外层臂（!QuestStructure || !IsEmbarked）仍排除 QuestStructure（原生 Archer.cs 语义）。
+            archer._embarkee = new Embarkee { IsEmbarked = true, AllowShooting = true };
+            Check.False(MusketeerFoeFilter.IsValidGroundFoe(portal, archer),
+                "can-shoot-while-embarked: QuestStructure stays excluded by the native outer arm (shooter is embarked)");
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(spawn, archer),
+                "can-shoot-while-embarked: EnemySpawn admitted");
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(unspittable, archer),
+                "can-shoot-while-embarked: Unspittable admitted");
+            archer._embarkee = new Embarkee();
+
+            // 绕过臂 4：骑士冲锋（isCharging）；非冲锋的随从不绕过。
+            archer._knight = new Knight { isCharging = true };
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(portal, archer), "charging knight follower: QuestStructure admitted");
+            archer._knight = new Knight();
+            Check.False(MusketeerFoeFilter.IsValidGroundFoe(portal, archer), "a non-charging knight follower stays free-standing");
+
+            // 不带标签的普通敌人：任何状态下都有效。
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(Fixture.NewEnemy(), archer), "untagged enemies remain valid");
+        }
+
+        private static void EmbarkedOuterArmExcludesPortal()
+        {
+            Archer archer = FreeStandingArcher();
+            GameObject portal = NewTaggedFoe("QuestStructure");
+            GameObject spawn = NewTaggedFoe("EnemySpawn");
+
+            archer._embarkee = new Embarkee { IsEmbarked = true };   // 乘船（不可射）
+            archer._currentFormation = new Formation();              // 内层臂成立
+            Check.False(MusketeerFoeFilter.IsValidGroundFoe(portal, archer),
+                "native outer arm: an embarked shooter never targets QuestStructure, bypass arm or not");
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(spawn, archer),
+                "the inner arm still admits EnemySpawn while embarked");
+            archer._embarkee = new Embarkee();
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(portal, archer), "ashore + formation: the portal is admitted again");
+        }
+
+        private static void PortalDamageableGate()
+        {
+            Archer archer = FreeStandingArcher();
+            archer._currentFormation = new Formation();
+            GameObject portal = NewTaggedFoe("QuestStructure");
+            Damageable damageable = portal.GetComponent<Damageable>();
+
+            damageable.invulnerable = true;
+            damageable.ignoredWhenInvulnerable = true;
+            Check.False(MusketeerFoeFilter.IsValidGroundFoe(portal, archer),
+                "an invulnerable+ignored portal is never a target, bypass or not (native Damageable gate)");
+            damageable.ignoredWhenInvulnerable = false;
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(portal, archer),
+                "invulnerable but not ignored still passes (native conjunction)");
+            damageable.invulnerable = false;
+            damageable.enabled = false;
+            Check.False(MusketeerFoeFilter.IsValidGroundFoe(portal, archer), "a disabled Damageable is rejected");
+            damageable.enabled = true;
+            damageable.isDead = true;
+            Check.False(MusketeerFoeFilter.IsValidGroundFoe(portal, archer), "a dead portal is rejected");
+            damageable.isDead = false;
+            damageable.acceptsArrow = false;
+            Check.False(MusketeerFoeFilter.IsValidGroundFoe(portal, archer), "a non-arrow Damageable is rejected (IsDamagedBy)");
+            damageable.acceptsArrow = true;
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(portal, archer), "a plain portal is a legal formation target");
+        }
+
+        private static void TagStateReadFailureFallsBack()
+        {
+            Archer archer = FreeStandingArcher();
+            GameObject portal = NewTaggedFoe("QuestStructure");
+            var knight = new Knight();
+            archer._knight = knight;
+            archer._currentFormation = new Formation();   // 本应绕过
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(portal, archer), "the formation bypass is live before the failure");
+
+            knight.ThrowOnChargingRead = true;            // 包装器失效：任一状态读取抛异常
+            Check.False(MusketeerFoeFilter.IsValidGroundFoe(portal, archer),
+                "a throwing state read falls back as a whole (exclusions kept — never opened by a partial read)");
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(Fixture.NewEnemy(), archer),
+                "the fallback only keeps tag exclusions; untagged enemies stay valid");
+        }
+
+        private static void SnapshotSurvivesStanceChange()
+        {
+            Archer archer = ArmedMusketeer(out _);
+            archer._embarkee = new Embarkee();
+            GameObject spawn = NewTaggedFoe("EnemySpawn");
+            spawn.transform.position = new Vector3(1.5f, 0.5f, 0f);
+            archer._currentFormation = new Formation();
+            archer._shootingTarget = spawn;
+
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            Check.Equal(1, MusketeerCombat.LiveCount, "the formation musketeer fires at the EnemySpawn");
+            MusketeerBullet record = MusketeerCombat.LiveRecordForTests(0);
+            Check.True(record != null && record.FoeTagState.TagBypassArmed, "the record snapshots the fire-time bypass arm");
+
+            archer._currentFormation = null;              // 收旗：射手状态在弹飞行中变了
+            Fixture.QueueHit(spawn, 0.5f);
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(1, spawn.GetComponent<Damageable>().DamageLog.Count,
+                "the armed bullet still resolves the tagged target after the flag is lowered (snapshot, not live re-read)");
+            Check.Equal(0, MusketeerCombat.LiveCount, "bullet consumed on the target");
+        }
+
+        private static void UnarmedBulletPassesTaggedTarget()
+        {
+            Archer archer = ArmedMusketeer(out _);
+            archer._embarkee = new Embarkee();            // 自由站立（未乘船、无编队）
+            GameObject enemy = Fixture.NewEnemy(EnemyType.TrollWeak);
+            archer._shootingTarget = enemy;
+            GameObject spawn = NewTaggedFoe("EnemySpawn");
+
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            Check.Equal(1, MusketeerCombat.LiveCount, "a free-standing musketeer fires at an untagged enemy");
+            MusketeerBullet record = MusketeerCombat.LiveRecordForTests(0);
+            Check.False(record.FoeTagState.TagBypassArmed, "the record is unarmed");
+
+            Fixture.QueueHit(spawn, 0.3f);
+            Fixture.QueueHit(enemy, 0.6f);
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(0, spawn.GetComponent<Damageable>().DamageLog.Count,
+                "an unarmed bullet never resolves a tagged target (transparent, no damage)");
+            Check.Equal(1, enemy.GetComponent<Damageable>().DamageLog.Count, "the untagged enemy still takes the hit");
+        }
+
+        private static void SnapshotPoolReuseClearsArms()
+        {
+            Archer archer = ArmedMusketeer(out _);
+            archer._embarkee = new Embarkee();
+            GameObject spawn = NewTaggedFoe("EnemySpawn");
+            spawn.transform.position = new Vector3(1.5f, 0.5f, 0f);
+            archer._currentFormation = new Formation();
+            archer._shootingTarget = spawn;
+
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            MusketeerBullet armed = MusketeerCombat.LiveRecordForTests(0);
+            Check.True(armed != null && armed.FoeTagState.TagBypassArmed, "the in-flight record carries the bypass snapshot");
+            Fixture.QueueHit(spawn, 0.5f);
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(1, spawn.GetComponent<Damageable>().DamageLog.Count, "the armed bullet resolved the spawn");
+            Check.False(armed.FoeTagState.TagBypassArmed, "the released record is cleared before pooling");
+
+            archer._currentFormation = null;              // 自由站立
+            GameObject enemy = Fixture.NewEnemy(EnemyType.TrollWeak);
+            archer._shootingTarget = enemy;
+            GameObject spawn2 = NewTaggedFoe("EnemySpawn");
+            Time.time = 5f;
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "suppressed");
+            MusketeerBullet reused = MusketeerCombat.LiveRecordForTests(0);
+            Check.True(ReferenceEquals(armed, reused), "the record instance is reused from the pool");
+            Check.False(reused.FoeTagState.TagBypassArmed, "the re-rented record is unarmed (no stale bypass bit)");
+
+            Fixture.QueueHit(spawn2, 0.3f);
+            Fixture.QueueHit(enemy, 0.6f);
+            MusketeerCombat.Tick(0.05f, true);
+            Check.Equal(0, spawn2.GetComponent<Damageable>().DamageLog.Count,
+                "the re-rented bullet passes a tagged target through (pool residue would have been fail-open)");
+            Check.Equal(1, enemy.GetComponent<Damageable>().DamageLog.Count, "and lands on its untagged enemy target");
+        }
+
+        /// <summary>
+        /// 钉子用例（有意行为，防未来被当事故"修掉"）：绕过态下放行传送门是与原生
+        /// `Archer.ShouldShootEnemy` 对齐的语义。守家火枪手的资格门（MusketeerDefense.cs:148-152）
+        /// 结构性排除编队成员/塔位/骑士随从/乘船，夜间守家火枪手恒为自由站立、三标签照旧排除——
+        /// 因此"放行门"不会改变守家行为，也不得为了"安全"把编队出征的传送门目标一并砍掉。
+        /// </summary>
+        private static void GuardNailCaseMatchesNativeAlignment()
+        {
+            Archer archer = ArmedMusketeer(out _);
+            archer._embarkee = new Embarkee();
+            GameObject portal = NewTaggedFoe("QuestStructure");
+            archer.inGuardSlot = true;                    // 塔位/岗哨 = 原生绕过臂之一
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(portal, archer),
+                "guard/post musketeers may target a portal — native alignment (defence gate keeps night guards free-standing)");
         }
 
         private static Archer ArmedMusketeer(out GameObject target)

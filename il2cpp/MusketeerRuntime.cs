@@ -682,8 +682,11 @@ internal static class MusketeerRuntime
     // ============================================================
 
     /// <summary>
-    /// 原生 `ShouldShootEnemy` 返回后：若它选中了非地面目标（飞行/未验证/无效），
-    /// 就地从**原生扫描器已缓存的候选列表**里重选第一个合法地面敌人；没有则本届不开火。
+    /// 原生 `ShouldShootEnemy` 返回后：用**同一原生等价门**复核它选中的目标；被拒绝时（飞行/未验证/无效）
+    /// 就地从**原生扫描器已缓存的候选列表**里按原生同序重选第一个合法地面敌人；没有则本届不开火。
+    /// **原生已选中且通过复核的目标绝不替换**——包括编队/守位/乘船可射/骑士冲锋态下的
+    /// EnemySpawn/Unspittable/QuestStructure（如火枪手编队出征打传送门）；
+    /// postfix 的职责是"用我们的地面门重验原生选择"，不是"永远换成小怪"。
     ///
     /// 为什么不装临时扫描器过滤：`Scanner.Refresh` 会把过滤结果**缓存** ≤0.5s，
     /// 归还谓词也擦不掉那份缓存 → `ShouldFlee` 在同窗口内仍会"看不见"飞行单位。
@@ -700,7 +703,8 @@ internal static class MusketeerRuntime
             if (unit == null || !unit.Applied || unit.ClaimLost) return;
 
             GameObject current = archer._shootingTarget;
-            if (MusketeerFoeFilter.IsValidGroundFoe(current, archer.gameObject)) return;   // 原生选的地面敌人：不动
+            // 活体射手状态（含编队绕过臂）：原生选的合法目标——含编队态下的门——原样保留。
+            if (MusketeerFoeFilter.IsValidGroundFoe(current, archer)) return;
 
             if (!unit.ReselectionLogged)
             {
@@ -726,6 +730,9 @@ internal static class MusketeerRuntime
     /// <summary>
     /// 从原生扫描器**已缓存**的候选列表里取第一个合法地面敌人（与原生 ShouldShootEnemy 的
     /// "结果顺序里第一个非低优先级候选"同序；不新增扫描、不改缓存、不装谓词）。
+    /// 判据与原生选择同一套（<see cref="MusketeerFoeFilter.IsValidGroundFoe"/> 活体重载）：
+    /// 编队/守位/乘船可射/骑士冲锋态下 EnemySpawn/Unspittable/QuestStructure 同样可被重选中，
+    /// QuestStructure 乘船（外层臂）仍被排除。
     /// </summary>
     private static GameObject FindFirstGroundFoe(Archer archer)
     {
@@ -742,7 +749,7 @@ internal static class MusketeerRuntime
             {
                 GameObject candidate = candidates[i];
                 if (candidate == null || !candidate.activeInHierarchy) continue;
-                if (!MusketeerFoeFilter.IsValidGroundFoe(candidate, archer.gameObject)) continue;
+                if (!MusketeerFoeFilter.IsValidGroundFoe(candidate, archer)) continue;
                 if (active != null)
                 {
                     float dx = Mathf.Abs(candidate.transform.position.x - selfX);
@@ -1290,8 +1297,9 @@ internal static class MusketeerRuntime
     }
 
     /// <summary>
-    /// 射击决策地面重选（评审修订）：在原生 `ShouldShootEnemy` 返回后，若它选中了非地面目标
-    /// （飞行/未验证/无效），就地按原生候选顺序重选第一个合法地面敌人；没有则本次不开火。
+    /// 射击决策地面重选（评审修订）：在原生 `ShouldShootEnemy` 返回后，用同一原生等价门复核其目标；
+    /// **原生选择通过复核就绝不替换**（含编队等绕过态下原生选中的传送门 QuestStructure），
+    /// 只有被拒绝（飞行/未验证/无效）时才按原生候选顺序重选第一个合法地面敌人；没有则本次不开火。
     /// 扫描器谓词与缓存**完全不动** → `ShouldFlee` 仍看到原始威胁列表（撤退行为保留），
     /// 也不会出现"过滤结果被 Scanner 缓存 ≤0.5s"的残留。私有 helper 若被 IL2CPP 内联（pit 17），
     /// 钩子不命中时退化为"原生选目标 + 弹道侧地面校验"（仍然安全）；命中时有一次性 entered 日志。
