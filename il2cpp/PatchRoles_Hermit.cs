@@ -9,6 +9,8 @@ namespace KingdomEnhancedMod;
 /// Host-owned hermit pickup policy receipts, registered by long native lifecycle methods.
 /// Never detour the short CanBePickedUpByEnemy getter. Only CurrentEnemyPolicy is changed;
 /// general pickup, native reset policy, damage, mounting, and networking remain native-owned.
+/// Enabled by the global switch AND ModConfig.PetGuardEnabled (F5「宠物与隐士防抓」,
+/// see PatchRoles_PetGuard for the dog half and stolen-state recovery).
 /// </summary>
 public static class PatchRoles_Hermit
 {
@@ -86,7 +88,9 @@ public static class PatchRoles_Hermit
         if (Tracked.Count == 0) return;
         try
         {
-            bool enabled = ModConfig.Enabled != null && ModConfig.Enabled.Value;
+            // 与「宠物与隐士防抓」子开关相与：子开关关闭时回到原版抓走逻辑（receipt 照常还原 Original）。
+            bool enabled = ModConfig.Enabled != null && ModConfig.Enabled.Value
+                && ModConfig.PetGuardEnabled != null && ModConfig.PetGuardEnabled.Value;
             bool authority = NetworkBigBoss.HasWorldAuth;
             bool hasScope = TryScope(out Scope scope);
             bool changed = enabled != _lastEnabled || authority != _lastAuthority || hasScope != _lastHasScope

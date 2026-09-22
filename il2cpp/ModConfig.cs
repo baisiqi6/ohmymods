@@ -23,6 +23,7 @@ public static class ModConfig
     public static ConfigEntry<bool> ShowCalendarHud;
     public static ConfigEntry<bool> ShowPopulationHud;
     public static ConfigEntry<bool> HoldPurchaseEnabled, DenseThicketsEnabled, FastForestRecedeEnabled;
+    public static ConfigEntry<bool> PetGuardEnabled;
     public static ConfigEntry<bool> ArcherScatterEnabled, ArcherRateEnabled, ArcherImpactEnabled;
     public static ConfigEntry<bool> HeroArcherEnabled;
     public static ConfigEntry<bool> MusketeerEnabled;
@@ -61,6 +62,8 @@ public static class ModConfig
             "所有世界：灌木生长间距减半；关闭后额外灌木快速枯萎，清理完成前不能重新开启");
         FastForestRecedeEnabled = config.Bind("Convenience", "FastForestRecedeEnabled", false,
             "所有世界：砍树后的原生森林消退等待缩至三分之一；关闭后的新消退按原版等待");
+        PetGuardEnabled = config.Bind("Convenience", "PetGuardEnabled", false,
+            "所有世界·单机/主机：怪物不再抓走狗与隐士；开启当刻与每次读档把已被抓走的狗/隐士找回当前岛。关闭恢复原版抓走与赎回商人路径");
         ArcherScatterEnabled = config.Bind("Archer", "ScatterEnabled", false, "所有世界：仅中世纪骑士的弓箭手随从攻击敌人时散射；打猎单发，额外箭呈淡金色，密集射击时自动限流");
         MusketeerEnabled = config.Bind("Musketeer", "Enabled", false,
             "火铳铺：所有世界可选。4金币购买火枪，居民拾取成为地面火铳手；基础伤害2、射程为原生普通弓手1.5倍、较慢装填，直线命中前排，不上箭塔。举旗另带最多4名现有火铳手；白天猎普通鹿，不伤兔子等小动物。第一版仅单机；关闭恢复原生外观与行为，职业记录保留。");
