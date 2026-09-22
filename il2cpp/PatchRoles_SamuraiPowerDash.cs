@@ -12,10 +12,16 @@ internal static class PatchRoles_SamuraiPowerDash
 {
     private const float ScanInterval = .2f, Cooldown = 3f, MaxRange = 7f;
     private const float DashSpeed = 18f, DashTimeout = .6f, FollowLeash = 10f, ReturnStop = 4f;
+    // A spent dash ladder degrades into a plain walk home. While the leash is broken the
+    // knight always has a goal: after any failed burst it walks, the burst is retried only
+    // once its escalating backoff (2 s, 4 s, ...) has elapsed, and from the third failed
+    // burst on the walk owns the way back until the samurai actually arrives.
+    private const int WalkAfterFailures = 3;
+    private const float RetryStep = 2f;
     private static readonly Dictionary<int, ActorState> Actors = new();
     private static readonly int PowerSlash = Animator.StringToHash("PowerSlash");
     private static readonly HashSet<string> Logged = new();
-    private static int HitLayerMask;
+    private static int HitLayerMask, WalkLogs;
 
     private sealed class ActorState
     {
@@ -35,12 +41,20 @@ internal static class PatchRoles_SamuraiPowerDash
         internal TrailRenderer Trail;
         internal SamuraiDashVisuals.Token Visual;
         internal SamuraiDashDiagnostics.Trace Diagnostics;
-        internal bool Returning, Retired, Effects, OldInvulnerable, OldTrail, HasGoal, Running;
+        internal bool Returning, Retired, Effects, OldInvulnerable, OldTrail, HasGoal, Running, Walking;
         internal float GoalX, GoalSpeed, StartedAt, StartX, LastProgressAt, BestDistance, NextGoal;
+        // Defensive withdrawal facing: the mode we hold while returning, and whether the
+        // mover field currently holds our value (so a foreign mode is never stomped).
+        internal Mover.FacingMode FacingWritten;
+        internal bool FacingOwned;
         // Per-lease hit bookkeeping: one hit per Damageable per dash, no per-frame allocations.
         internal readonly HashSet<IntPtr> HitObjects = new();
         internal readonly Collider2D[] Colliders = new Collider2D[16];
     }
+
+    // Why a return lease ended: Success clears the failure ladder, Failure feeds the
+    // escalating backoff, Handoff (night / actor lost / walk upgraded to a burst) keeps it.
+    private enum EndReason { Handoff, Success, Failure }
 
     private static bool Same(UnityEngine.Object a, UnityEngine.Object b) =>
         a != null && b != null && a.Pointer == b.Pointer;
@@ -135,12 +149,13 @@ internal static class PatchRoles_SamuraiPowerDash
         LogTrailState(m, "effects-restored");
     }
 
-    private static void Finish(MotionLease m, bool failure = false)
+    private static void Finish(MotionLease m, EndReason reason = EndReason.Handoff)
     {
         if (!Current(m)) return;
         try
         {
             RestoreEffects(m);
+            RestoreFacing(m);
             // Never restore a previous goal, clear an external pause, or stop a replacement mover.
             if (OwnGoal(m)) m.Mover.Stop();
         }
@@ -152,11 +167,15 @@ internal static class PatchRoles_SamuraiPowerDash
             m.Retired = true;
             if (owned)
             {
-                LogMotionEnd(m, failure);
+                LogMotionEnd(m, reason == EndReason.Failure);
                 if (m.Returning)
                 {
-                    if (failure) { m.Actor.Failures++; m.Actor.RetryAt = Time.time + 2f; }
-                    else { m.Actor.Failures = 0; m.Actor.RetryAt = 0; }
+                    if (reason == EndReason.Failure)
+                    {
+                        m.Actor.Failures++;
+                        m.Actor.RetryAt = Time.time + BackoffSeconds(m.Actor.Failures);
+                    }
+                    else if (reason == EndReason.Success) { m.Actor.Failures = 0; m.Actor.RetryAt = 0; }
                 }
                 else m.Actor.NextAttack = Time.time + Cooldown;
                 m.Actor.Motion = null;
@@ -170,6 +189,58 @@ internal static class PatchRoles_SamuraiPowerDash
         if (!Current(m)) return;
         m.Mover.SetGoalNoHaglet(x, speed);
         m.GoalX = x; m.GoalSpeed = speed; m.HasGoal = true;
+    }
+
+    private static float BackoffSeconds(int failures) => RetryStep * Math.Min(failures, WalkAfterFailures);
+
+    // Enemy side = the unit's own half: walls, portals and enemy waves sit at that outer
+    // edge, and native Knight.SetRetreating(true) faces its defensive retreat by the very
+    // same rule. Reading it needs no scan, so a return never touches the scanners.
+    private static Mover.FacingMode EnemyFacing(Knight k) =>
+        k.side == Side.Left ? Mover.FacingMode.Left : Mover.FacingMode.Right;
+
+    // Defensive withdrawal posture: keep facing the enemy side while withdrawing. Only ever
+    // takes over from Ahead; a foreign fixed facing (Target / the other side) is left alone.
+    private static void HoldFacing(MotionLease m)
+    {
+        var mover = m.Mover;
+        if (mover == null) return;
+        try
+        {
+            if (mover.facingMode == m.FacingWritten) { m.FacingOwned = true; return; }
+            if (mover.facingMode != Mover.FacingMode.Ahead) { m.FacingOwned = false; return; }
+            mover.SetFacingMode(m.FacingWritten, null);
+            m.FacingOwned = true;
+        }
+        catch (Exception e) { Log("return-facing", e); }
+    }
+
+    // Release only while the mover still holds our value: a mode written by the native code
+    // or a third party after us is never overwritten.
+    private static void RestoreFacing(MotionLease m)
+    {
+        if (m == null || !m.FacingOwned) return;
+        m.FacingOwned = false;
+        var mover = m.Mover;
+        if (mover == null) return;
+        try { if (mover.facingMode == m.FacingWritten) mover.SetFacingMode(Mover.FacingMode.Ahead, null); }
+        catch (Exception e) { Log("restore-facing", e); }
+    }
+
+    // Bounded field evidence for the walk fallback (three lines per session, never per frame).
+    private static void LogWalk(string eventName, MotionLease m)
+    {
+        if (WalkLogs >= 3) return;
+        try
+        {
+            WalkLogs++;
+            var a = m.Actor;
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/" + eventName + "] failures=" + a.Failures
+                + " x=" + a.Owner.transform.position.x.ToString("0.##")
+                + " follower=" + a.Follower.transform.position.x.ToString("0.##")
+                + " goal=" + m.GoalX.ToString("0.##") + " speed=" + m.GoalSpeed.ToString("0.##"));
+        }
+        catch { }
     }
 
     private static MotionLease Begin(ActorState a, bool returning, float goal)
@@ -187,7 +258,10 @@ internal static class PatchRoles_SamuraiPowerDash
         m.Damageable.invulnerable = true;
         if (m.Trail != null) m.Trail.enabled = true;
         LogTrailState(m, "trail-state");
-        if (k._animator != null) k._animator.SetTrigger(PowerSlash);
+        // The attack dash keeps the slash pose; the return is a defensive withdrawal, so it
+        // faces the enemy side instead of replaying the dash animation.
+        if (!returning && k._animator != null) k._animator.SetTrigger(PowerSlash);
+        if (returning) { m.FacingWritten = EnemyFacing(k); HoldFacing(m); }
         m.Visual = SamuraiDashVisuals.Begin(k, m.Diagnostics);
         Goal(m, goal, DashSpeed);
         return m;
@@ -240,6 +314,7 @@ internal static class PatchRoles_SamuraiPowerDash
             {
                 if (a.Motion != null) Finish(a.Motion);
                 a.ObservedMover = knight._mover;
+                a.Failures = 0; a.RetryAt = 0; // a replacement mover starts the ladder clean
                 return; // A replacement mover's first observed goal belongs to its new owner.
             }
             if (a != null && (!Same(a.Owner, knight) || !Eligible(knight)))
@@ -252,7 +327,7 @@ internal static class PatchRoles_SamuraiPowerDash
             if (a.Motion != null)
             {
                 MotionLease m = a.Motion;
-                if (!ValidMotion(m)) { Finish(m, m.Returning); return; }
+                if (!ValidMotion(m)) { Finish(m, m.Returning ? EndReason.Failure : EndReason.Handoff); return; }
                 if (m.Returning)
                 {
                     if (NightGuard(knight)) { Finish(m); return; }
@@ -278,13 +353,19 @@ internal static class PatchRoles_SamuraiPowerDash
             }
             if (distance > FollowLeash || (a.Failures > 0 && distance > ReturnStop))
             {
-                if (Time.timeScale <= 0 || knight._mover._pauseTimeout > 0 ||
-                    Time.time < a.RetryAt || a.Failures >= 3) return;
+                if (Time.timeScale <= 0 || knight._mover._pauseTimeout > 0) return;
+                // A burst is a privilege, walking home is the baseline: while the leash is
+                // broken the samurai never stands still -- a failed burst is answered by a
+                // plain run-speed walk, and the burst itself comes back once its backoff has
+                // elapsed (never again once WalkAfterFailures bursts have failed).
+                bool burst = a.Failures == 0 ||
+                    (a.Failures < WalkAfterFailures && Time.time >= a.RetryAt);
+                if (!burst) { BeginWalk(a); return; }
                 float x = knight.transform.position.x;
-                var burst = Begin(a, true, x + Mathf.Clamp(StationX(a) - x, -MaxRange, MaxRange));
-                HitScan(burst); // entry frame hits, same as the attack dash's first coroutine step
-                if (Current(burst) && (!ValidMotion(burst) || !ValidFollower(knight, a.Follower)))
-                    Finish(burst, true);
+                var dash = Begin(a, true, x + Mathf.Clamp(StationX(a) - x, -MaxRange, MaxRange));
+                HitScan(dash); // entry frame hits, same as the attack dash's first coroutine step
+                if (Current(dash) && (!ValidMotion(dash) || !ValidFollower(knight, a.Follower)))
+                    Finish(dash, EndReason.Failure);
                 return;
             }
             if (Time.timeScale <= 0 || knight._mover._pauseTimeout > 0 || Time.time < a.NextAttack) return;
@@ -300,28 +381,30 @@ internal static class PatchRoles_SamuraiPowerDash
         }
         catch (Exception e)
         {
-            if (a?.Motion != null) Finish(a.Motion, a.Motion.Returning);
+            if (a?.Motion != null) Finish(a.Motion, a.Motion.Returning ? EndReason.Failure : EndReason.Handoff);
             Log("tick", e);
         }
     }
 
     private static void AdvanceReturn(MotionLease m)
     {
-        if (!ValidMotion(m)) { Finish(m, true); return; }
+        if (!ValidMotion(m)) { Finish(m, EndReason.Failure); return; }
         var a = m.Actor;
-        if (!ValidFollower(a.Owner, a.Follower)) { Finish(m); return; }
+        if (!ValidFollower(a.Owner, a.Follower)) { Finish(m, EndReason.Handoff); return; }
+        if (m.Walking) { HoldFacing(m); AdvanceWalk(m); return; }
+        HoldFacing(m);
         float distance = Distance(a), now = Time.time;
         if (!m.Running && Time.timeScale > 0 && now - m.StartedAt < DashTimeout &&
             Mathf.Abs(a.Owner.transform.position.x - m.StartX) < MaxRange)
             HitScan(m);
         // A hit callback may synchronously disable the knight or replace this lease; never touch the new one.
         if (!Current(m)) return;
-        if (!ValidMotion(m)) { Finish(m, true); return; }
-        if (!ValidFollower(a.Owner, a.Follower)) { Finish(m); return; }
+        if (!ValidMotion(m)) { Finish(m, EndReason.Failure); return; }
+        if (!ValidFollower(a.Owner, a.Follower)) { Finish(m, EndReason.Handoff); return; }
         distance = Distance(a); now = Time.time;
-        if (distance <= ReturnStop) { Finish(m); return; }
+        if (distance <= ReturnStop) { Finish(m, EndReason.Success); return; }
         if (distance < m.BestDistance - .1f) { m.BestDistance = distance; m.LastProgressAt = now; }
-        if (now - m.StartedAt >= 3f || now - m.LastProgressAt >= .5f) { Finish(m, true); return; }
+        if (now - m.StartedAt >= 3f || now - m.LastProgressAt >= .5f) { Finish(m, EndReason.Failure); return; }
         if (Time.timeScale <= 0) return;
         if (!m.Running && (now - m.StartedAt >= DashTimeout ||
             Mathf.Abs(a.Owner.transform.position.x - m.StartX) >= MaxRange - .05f))
@@ -337,6 +420,44 @@ internal static class PatchRoles_SamuraiPowerDash
             float target = StationX(a);
             if (Mathf.Abs(target - m.GoalX) > .25f) Goal(m, target, a.Owner._runSpeed);
         }
+    }
+
+    // Plain run-speed walk home: the fallback that keeps a stranded samurai moving once the
+    // dash ladder is spent. No effects, no invulnerability, no hit scan, no visuals and no
+    // deadline -- only arrival, a lost follower, a stolen goal or dusk ends it.
+    private static void BeginWalk(ActorState a)
+    {
+        Knight k = a.Owner;
+        var m = new MotionLease
+        {
+            Actor = a, Mover = k._mover, Damageable = k._damageable, Trail = k._trail,
+            Returning = true, Walking = true, Running = true, // Running keeps CanHit false
+            StartedAt = Time.time, StartX = k.transform.position.x,
+            FacingWritten = EnemyFacing(k)
+        };
+        a.Motion = m;
+        HoldFacing(m);
+        Goal(m, StationX(a), k._runSpeed);
+        m.NextGoal = Time.time + ScanInterval;
+        LogWalk("walk", m);
+    }
+
+    // The walk phase carries no burst deadlines and suppresses no slash: the samurai may keep
+    // defending itself on the way back, and only real ownership loss ends the walk.
+    private static void AdvanceWalk(MotionLease m)
+    {
+        if (!ValidMotion(m)) { Finish(m, EndReason.Failure); return; }
+        var a = m.Actor;
+        float now = Time.time;
+        if (Distance(a) <= ReturnStop) { LogWalk("walk-done", m); Finish(m, EndReason.Success); return; }
+        if (now >= m.NextGoal)
+        {
+            m.NextGoal = now + ScanInterval;
+            float target = StationX(a);
+            if (Mathf.Abs(target - m.GoalX) > .25f) Goal(m, target, a.Owner._runSpeed);
+        }
+        // The backoff elapsed while walking: hand back to a fresh burst attempt (next frame).
+        if (a.Failures < WalkAfterFailures && now >= a.RetryAt) Finish(m, EndReason.Handoff);
     }
 
     private static bool CanHit(MotionLease m) => !m.Running && Time.timeScale > 0 &&
@@ -394,7 +515,10 @@ internal static class PatchRoles_SamuraiPowerDash
             if (knight == null || knight.gameObject == null) return false;
             if (!Actors.TryGetValue(knight.gameObject.GetInstanceID(), out var a) || !Same(a.Owner, knight)) return false;
             var m = a.Motion;
-            return m != null && m.Returning && ValidMotion(m) && ValidFollower(knight, a.Follower) && Distance(a) > ReturnStop;
+            // Only the invulnerable burst suppresses the native slash; a walking withdrawal is
+            // a plain retreat, so the samurai can still defend itself on the way home.
+            return m != null && m.Returning && !m.Walking && ValidMotion(m) &&
+                ValidFollower(knight, a.Follower) && Distance(a) > ReturnStop;
         }
         catch (Exception e) { Log("should-slash", e); return false; }
     }
