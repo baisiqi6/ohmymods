@@ -14,6 +14,13 @@
 //  * 吸收态自愈（B）例外：精确 known-mismatch 会话的 save 可凭严格历史子集证据门新建 epoch 基线；
 //    携带身份只在本次 save 有同 life live owner 证据时才重绑，证据缺口一律维持 unresolved（写保护），
 //    绝不靠清全局标志放行会静默丢人的部分快照。
+//  * 风格面板例外（功能 A 与设计 C，仅主机/单机、仅用户动作或既有 5s 巡检触发）：
+//    功能 A（首见均匀分配）只作用于已解析上下文里的零记录装载骑士，由既有 5s IntegrityPass 在
+//    PrimeExisting 之前批量执行（取代逐人哈希迁移）；unresolved/失配/冲突绝不自动分配。
+//    设计 C（用户锚定再基线化）由面板"应用"在 unresolved 上下文上先只铸运行时收据并挂 pending，
+//    epoch/快照写入严格发生在下一次原生 Save 的捕获作用域内（save 形态 JSON，不是 apply 时点的
+//    装载形态）；旧历史全保留，证据缺口一律 pending 保持、不写（未保存退出=零写入）。
+//    二者都绝不在 save 路径内铸造收据、绝不改既有匹配/冲突不变量。
 //  * 本次 save 的捕获证据必须自洽：同一 uniqueID 只有「同 owner 同 life」的重复 GetID 才幂等，
 //    不同 owner/life、盘记录重复或证据容量截断都算缺口（两条写路径一律 fail-closed，绝不静默放行）。
 //  * life 由进程全局单调计数器分配，删除/重建/池复用都不重用；OnEnable 每次都是新 life 并清旧收据。
@@ -97,8 +104,53 @@ namespace KingdomEnhancedMod
     }
 
     /// <summary>
+    /// 骑士风格面板（KnightStylePanel）与面板身份路径的事件日志：前缀 [KnightPanel]（与 [KnightIdentity]
+    /// 分开，便于玩家/操作者按功能归因）。只记录用户动作或一次性判定（首见批量分配、用户锚定再基线化、
+    /// 门槛缺口），绝不逐帧；日志失败绝不影响 gameplay。定义在本文件是为了保持既有身份测试套件的
+    /// 编译面（该套件同样编译本文件，不编译 UI 文件）。
+    /// </summary>
+    internal static class KnightPanelLog
+    {
+        private const int MaxKeys = 16;
+        private static readonly HashSet<string> WarnedKeys = new HashSet<string>(StringComparer.Ordinal);
+
+        internal static void Info(string message)
+        {
+            try
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[KnightPanel] " + message);
+            }
+            catch
+            {
+                // 日志不可用不影响 gameplay
+            }
+        }
+
+        internal static void WarnOnce(string key, string message)
+        {
+            if (WarnedKeys.Count >= MaxKeys && !WarnedKeys.Contains(key)) return;
+            if (!WarnedKeys.Add(key)) return;
+            try
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogWarning("[KnightPanel] " + message);
+            }
+            catch
+            {
+            }
+        }
+
+        internal static void ResetForTests()
+        {
+            WarnedKeys.Clear();
+        }
+    }
+
+    /// <summary>
     /// 骑士身份运行时：稳定 GUID + 固定 style 0..4，按 (GameObject instanceID, pointer) + 全局 life 管理。
     /// 所有入口都由既有 KnightStyle 事件/巡检路径调用，不新增 driver / 逐帧 scanner / RPC。
+    /// 风格面板（KnightStylePanel）只经本文件的显式接入点读写身份：TryVerifyPanelKnight（只读探针）、
+    /// TryPanelAssignAll（用户动作的一次性重派，允许 unresolved 上下文）、ArmPanelRebaseline（设计 C
+    /// pending，写入严格推迟到下一次原生 Save 的捕获作用域）、AssignFirstSeenUniform（功能 A 首见批量均匀）。
     /// </summary>
     internal static class KnightIdentityRuntime
     {
@@ -154,6 +206,33 @@ namespace KingdomEnhancedMod
         private static readonly Dictionary<OwnerKey, Entry> Entries = new Dictionary<OwnerKey, Entry>();
         private static readonly List<OwnerKey> SweepScratch = new List<OwnerKey>();
         private static readonly int[] CountScratch = new int[KnightIdentityReceipt.StyleCount];
+
+        // 风格面板（功能 A 首见批量 / 设计 C 用户锚定再基线化）的会话缓冲与 pending 状态。
+        // 只在用户动作或既有 5s 巡检内使用；容量全部有界（批次 ≤ MaxTrackedKnights）。
+        private static readonly List<Entry> PanelEntries = new List<Entry>();
+        private static readonly List<int> PanelStyles = new List<int>();
+        private static readonly List<PanelEntryBackup> PanelBackup = new List<PanelEntryBackup>();
+        // 设计 C pending 的铸出身份（ArmPanelRebaseline 登记；KnightIdentitySaveBridge 在 save 期复核消费）。
+        internal static readonly List<PanelMint> PanelMints = new List<PanelMint>();
+        private static string _panelRebaselineContext; // 非 null = 设计 C pending 已挂（上下文键）
+
+        /// <summary>设计 C pending 里的一条面板铸出身份（save 期按同对象同 life 复核存活性）。</summary>
+        internal sealed class PanelMint
+        {
+            internal Knight Knight;
+            internal long Lifetime;
+            internal KnightIdentityReceipt Receipt;
+        }
+
+        /// <summary>TryPanelAssignAll 的回滚快照（绝不半改）。</summary>
+        private sealed class PanelEntryBackup
+        {
+            internal Entry Entry;
+            internal bool HasReceipt;
+            internal KnightIdentityReceipt Receipt;
+            internal bool MarkedNew;
+            internal bool FailedLoad;
+        }
 
         private static long _lifetimeCounter; // 进程全局单调：删除/重建/池复用都不重用 life
         private static long _activeLoadScopeId; // 当前 Load 作用域（0 = 无）
@@ -534,6 +613,239 @@ namespace KingdomEnhancedMod
             }
         }
 
+        // ------------------------------------------------------------------ 风格面板接入（KnightStylePanel）
+
+        /// <summary>
+        /// 功能 A（首见均匀分配）：把当前 world 内「零记录装载骑士」作为一批一次均匀分配到可用风格池
+        /// （每风格数量差 ≤1，余数按私有熵随机派发），并立即写入运行时收据（持久化仍走既有 Save 桥）。
+        /// 由既有 5s IntegrityPass 在 PrimeExisting 之前调用：本批次先于任何哈希迁移拿到收据，
+        /// PrimeExisting 只保留「本会话已生效风格冻结」职责（首见哈希迁移由本批次取代）。
+        /// 只处理 tagKnight、实测属于当前 world、无收据、非 MarkedNew、非 FailedLoad 且无在场景格的条目；
+        /// 主机 authority / 非 Load 上下文 / 上下文已解析才有资格（unresolved/失配/冲突绝不自动分配，
+        /// 只能经面板 + 设计 C）。hasLiveStyle 是风格模块提供的只读探针：已在场的风格交给既有冻结路径，
+        /// 不在本批重摇。返回本批分配人数（0 = 无可分配骑士或门不满足，未做任何写入）。
+        /// </summary>
+        internal static int AssignFirstSeenUniform(Knight[] currentKnights, IReadOnlyList<int> available, Func<Knight, bool> hasLiveStyle)
+        {
+            if (currentKnights == null || currentKnights.Length == 0) return 0;
+            if (!IsUsableStylePool(available)) return 0;
+            if (_priming) return 0; // 批次执行期间拒绝重入分配（回调不得递归 TryResolve）
+            if (!TryIsHost(out bool host) || !host) return 0;
+            if (InLoadContext() || _contextUnresolved) return 0;
+
+            _priming = true;
+            try
+            {
+                PanelEntries.Clear();
+                for (int i = 0; i < currentKnights.Length; i++)
+                {
+                    Knight knight = currentKnights[i];
+                    if (knight == null) continue;
+                    if (!TryGetVerifiedEntry(knight, out Entry entry, out _)) continue;
+                    if (entry.HasReceipt || entry.MarkedNew || entry.FailedLoad) continue;
+                    bool live = false;
+                    try { live = hasLiveStyle != null && hasLiveStyle(knight); }
+                    catch (Exception e) { KnightIdentityLog.Once("first-seen-live", e); continue; }
+                    if (live) continue; // 已在场风格：PrimeExisting 的冻结路径负责
+                    PanelEntries.Add(entry);
+                }
+                if (PanelEntries.Count == 0) return 0;
+
+                for (int i = 0; i < CountScratch.Length; i++) CountScratch[i] = 0;
+                for (int i = 0; i < PanelEntries.Count; i++)
+                {
+                    Entry entry = PanelEntries[i];
+                    int style = KnightIdentityBalance.ChooseLeast(CountScratch, available, NextPanelEntropy());
+                    if (!IsValidStyle(style)) continue; // ChooseLeast 保证在池内；防御性
+                    CountScratch[style]++;
+                    entry.Receipt = new KnightIdentityReceipt(Guid.NewGuid(), style);
+                    entry.HasReceipt = true;
+                    entry.MarkedNew = false;
+                }
+
+                int total = 0;
+                StringBuilder counts = new StringBuilder(16);
+                for (int i = 0; i < CountScratch.Length; i++)
+                {
+                    total += CountScratch[i];
+                    if (i > 0) counts.Append('/');
+                    counts.Append(CountScratch[i].ToString(CultureInfo.InvariantCulture));
+                }
+                if (total == 0) return 0;
+                KnightPanelLog.Info("first-seen auto-assigned " + total.ToString(CultureInfo.InvariantCulture)
+                    + " knights (" + counts + ")");
+                return total;
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("first-seen", e);
+                return 0;
+            }
+            finally
+            {
+                PanelEntries.Clear();
+                _priming = false;
+            }
+        }
+
+        /// <summary>面板门槛探针（只读）：该骑士是否已实测属于当前 world 的活跃 tagKnight（可被面板读写身份）。</summary>
+        internal static bool TryVerifyPanelKnight(Knight knight)
+        {
+            try { return TryGetVerifiedEntry(knight, out _, out _); }
+            catch (Exception e) { KnightIdentityLog.Once("panel-verify", e); return false; }
+        }
+
+        /// <summary>
+        /// 面板一次性重派（用户显式动作；唯一允许在 unresolved 上下文上改身份的入口——自动路径绝不调用）：
+        /// 先全量验证（任何一名不在场/读不到/重复 → 整体拒绝），再就地重写/铸造收据；
+        /// 任何意外整体回滚（绝不半改）。已有收据保留 GUID 只改 style（历史留同 GUID 异 style 记录）；
+        /// 零记录才铸新 GUID；FailedLoad/MarkedNew 一并清除（身份已由用户动作确认）。
+        /// 绝不触碰 sidecar/原生存档：持久化由既有 Save 桥完成（应用后未保存退出=丢弃）。
+        /// </summary>
+        internal static bool TryPanelAssignAll(Knight[] knights, int[] styles, out int assigned)
+        {
+            assigned = 0;
+            if (knights == null || styles == null || knights.Length == 0 || knights.Length != styles.Length) return false;
+            try
+            {
+                if (!IsHostAuthority()) return false;
+                if (InLoadContext()) return false;
+
+                PanelEntries.Clear();
+                PanelStyles.Clear();
+                HashSet<Entry> seen = new HashSet<Entry>();
+                for (int i = 0; i < knights.Length; i++)
+                {
+                    if (knights[i] == null || !IsValidStyle(styles[i])) return false;
+                    if (!TryGetVerifiedEntry(knights[i], out Entry entry, out _)) return false;
+                    if (!seen.Add(entry)) return false; // 同一对象重复进入批次：fail-closed
+                    PanelEntries.Add(entry);
+                    PanelStyles.Add(styles[i]);
+                }
+
+                PanelBackup.Clear();
+                for (int i = 0; i < PanelEntries.Count; i++)
+                {
+                    Entry entry = PanelEntries[i];
+                    PanelBackup.Add(new PanelEntryBackup
+                    {
+                        Entry = entry,
+                        HasReceipt = entry.HasReceipt,
+                        Receipt = entry.Receipt,
+                        MarkedNew = entry.MarkedNew,
+                        FailedLoad = entry.FailedLoad,
+                    });
+                }
+
+                for (int i = 0; i < PanelEntries.Count; i++)
+                {
+                    Entry entry = PanelEntries[i];
+                    int style = PanelStyles[i];
+                    entry.Receipt = entry.HasReceipt && entry.Receipt.IsValid
+                        ? new KnightIdentityReceipt(entry.Receipt.Id, style) // GUID 保留：历史留同 GUID 异 style 记录
+                        : new KnightIdentityReceipt(Guid.NewGuid(), style);  // 零记录：铸新 GUID
+                    entry.HasReceipt = true;
+                    entry.MarkedNew = false;
+                    entry.FailedLoad = false;
+                    assigned++;
+                }
+                return true;
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("panel-assign", e);
+                for (int i = 0; i < PanelBackup.Count; i++)
+                {
+                    PanelEntryBackup backup = PanelBackup[i];
+                    try
+                    {
+                        backup.Entry.Receipt = backup.Receipt;
+                        backup.Entry.HasReceipt = backup.HasReceipt;
+                        backup.Entry.MarkedNew = backup.MarkedNew;
+                        backup.Entry.FailedLoad = backup.FailedLoad;
+                    }
+                    catch
+                    {
+                        // 回滚尽力而为：条目本身已不可读时保持 fail-closed
+                    }
+                }
+                assigned = 0;
+                return false;
+            }
+            finally
+            {
+                PanelEntries.Clear();
+                PanelStyles.Clear();
+                PanelBackup.Clear();
+            }
+        }
+
+        /// <summary>设计 C pending 已挂的上下文键（null = 未挂）。save 期进入用户锚定再基线化路径的开关。</summary>
+        internal static string PanelRebaselineContext { get { return _panelRebaselineContext; } }
+
+        /// <summary>面板/测试读的便捷视图：设计 C pending 是否已挂。</summary>
+        internal static bool PanelRebaselineArmed { get { return _panelRebaselineContext != null; } }
+
+        /// <summary>
+        /// 面板在 unresolved 上下文上的应用明确授权再基线化：把当前 world 内全部实测归属、持收据的
+        /// live owner 登记为本次用户锚定集合（= 面板刚铸/改的身份）。写入严格推迟到下一次原生 Save 的
+        /// 捕获作用域（save 形态 JSON）；失败=pending 保持，未保存退出=零写入。
+        /// 只在面板应用成功后调用（用户显式动作），自动路径绝不调用。
+        /// </summary>
+        internal static void ArmPanelRebaseline(string contextKey)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(contextKey)) return;
+                if (!TryGetWorldContext(out World world, out _)) return;
+                IntPtr worldPointer = SafePointer(world);
+                if (worldPointer == IntPtr.Zero) return;
+
+                PanelMints.Clear();
+                foreach (KeyValuePair<OwnerKey, Entry> pair in Entries)
+                {
+                    Entry entry = pair.Value;
+                    if (!entry.HasReceipt || entry.KnightRef == null) continue;
+                    if (entry.World != worldPointer) continue; // 只收实测归属当前 world 的条目
+                    PanelMints.Add(new PanelMint { Knight = entry.KnightRef, Lifetime = entry.Lifetime, Receipt = entry.Receipt });
+                }
+                if (PanelMints.Count == 0) return;
+                _panelRebaselineContext = contextKey;
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("panel-arm", e);
+            }
+        }
+
+        /// <summary>撤销设计 C pending（成功写入 / 已失效 / 测试复位）。</summary>
+        internal static void DisarmPanelRebaseline()
+        {
+            _panelRebaselineContext = null;
+            PanelMints.Clear();
+        }
+
+        /// <summary>池可用性预检（ChooseLeast 的输入约束）：非空、全合法、无重复；失败=整批不写。</summary>
+        private static bool IsUsableStylePool(IReadOnlyList<int> available)
+        {
+            if (available == null || available.Count == 0) return false;
+            for (int i = 0; i < available.Count; i++)
+            {
+                if (!IsValidStyle(available[i])) return false;
+                for (int j = 0; j < i; j++) if (available[j] == available[i]) return false;
+            }
+            return true;
+        }
+
+        /// <summary>私有熵（Guid 前 4 字节）：与 ChooseBalanced 同源，绝不用 Unity random。面板重派与首见批次共用。</summary>
+        internal static uint NextPanelEntropy()
+        {
+            Guid entropySource = Guid.NewGuid();
+            Span<byte> buffer = stackalloc byte[16];
+            entropySource.TryWriteBytes(buffer);
+            return (uint)(buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24));
+        }
+
         private static bool _contextUnresolved;
         internal static bool CanFlushSeed { get { return !_contextUnresolved && !InLoadContext(); } }
 
@@ -592,11 +904,16 @@ namespace KingdomEnhancedMod
             Entries.Clear();
             SweepScratch.Clear();
             KnightIdentityLog.ResetForTests();
+            KnightPanelLog.ResetForTests();
             _lifetimeCounter = 0;
             _activeLoadScopeId = 0;
             _contextUnresolved = false;
             KnightIdentityGeneration.ResetForTests();
             _priming = false;
+            PanelEntries.Clear();
+            PanelStyles.Clear();
+            PanelBackup.Clear();
+            DisarmPanelRebaseline();
         }
 
         // ------------------------------------------------------------------ 内部
@@ -1127,6 +1444,9 @@ namespace KingdomEnhancedMod
                     KnightIdentityLog.Once("save-evidence-gap", null);
                     return;
                 }
+                // 用户锚定再基线化（设计 C）排在吸收态/CanFlushSeed 早退之前：unresolved 上下文
+                // 零收据也能在本次 save 的捕获作用域内新建 epoch 基线（pending 由面板"应用"显式挂上）。
+                if (TryConsumePanelRebaseline(capture)) return;
                 // 吸收态自愈（B）必须排在 CanFlushSeed / Owners 早退之前：该会话无任何收据且 context unresolved。
                 if (TryRebaselineAbsorbingContext(capture)) return;
                 if (!KnightIdentityRuntime.CanFlushSeed) return; // context未知时连已有收据也不得写入旧epoch
@@ -1194,6 +1514,164 @@ namespace KingdomEnhancedMod
             {
                 KnightIdentityLog.Once("save-apply", e);
             }
+        }
+
+        /// <summary>
+        /// 用户锚定再基线化（设计 C）：面板"应用"在 unresolved 上下文上挂 pending（KnightIdentityRuntime.
+        /// ArmPanelRebaseline）后，本方法在下一次原生 Save 的捕获作用域内消费它——以 save 形态 JSON
+        /// （不是 apply 时点的装载形态：装载后 objects 已被原生清空/Decay，拍出来是死 hash，下次读档
+        /// 必 known-mismatch）新建 epoch 的 kind2 快照；条目 = 本次 save 捕获并现场复核过的面板铸出收据。
+        /// 严格门：上下文一致、binding 仍 unresolved、全部存活 mint 都按 uniqueID 出现在本次捕获且收据
+        /// 一致、快照只含面板铸出的收据；任何缺口 = 不写（pending 保持，下次 Save 重试；未保存退出 = 零写入，
+        /// 不产生 legacy-pending→known-mismatch 恶化边）。旧 epoch/历史记录原样保留；成功后 context 转
+        /// resolved（CanFlushSeed 恢复）。返回 true = 本 save 已由本路径处理（成功/门拒绝/fail-closed 皆是）。
+        /// </summary>
+        private static bool TryConsumePanelRebaseline(SaveCapture capture)
+        {
+            try
+            {
+                string contextKey = KnightIdentityRuntime.PanelRebaselineContext;
+                if (contextKey == null || capture == null || capture.Island == null) return false;
+                if (!KnightIdentitySidecar.TryBuildContextKey(capture.Campaign, capture.Challenge, SafeIslandLand(capture.Island), out string captureKey)) return false;
+                if (!string.Equals(contextKey, captureKey, StringComparison.Ordinal)) return false; // 别的岛：pending 保持
+
+                if (CountLivePanelMints() == 0)
+                {
+                    // 应用过的骑士已全部离场（死亡/换 world/换 life）：pending 无内容可写，交还既有路径。
+                    KnightIdentityRuntime.DisarmPanelRebaseline();
+                    KnightPanelLog.Info("user-anchored rebaseline dropped: no applied knight remains");
+                    return false;
+                }
+                if (!KnightIdentityContexts.TryGetBinding(contextKey, out _, out bool unresolved, out _)) return false;
+                if (!unresolved)
+                {
+                    // 该上下文已被其它路径解析：pending 已无意义，交还正常写路径。
+                    KnightIdentityRuntime.DisarmPanelRebaseline();
+                    return false;
+                }
+
+                string json;
+                try
+                {
+                    json = JsonUtility.ToJson(capture.Island, false); // 写入来源只能是本次 save 的整岛 JSON
+                }
+                catch (Exception e)
+                {
+                    KnightIdentityLog.Once("panel-rebaseline-json", e);
+                    return true; // pending 保持：本 save 不写
+                }
+                if (string.IsNullOrEmpty(json)) return true;
+
+                if (!TryBuildPanelEntries(capture, out List<KnightIdentitySnapshotEntry> entries, out bool complete) || !complete)
+                {
+                    KnightPanelLog.WarnOnce("panel-rebaseline-incomplete", "user-anchored rebaseline incomplete: roster changed, will retry on the next save");
+                    return true; // pending 保持：绝不写部分名单
+                }
+
+                if (!KnightIdentitySidecar.TryUserRebaseline(contextKey, json, entries, out string epoch))
+                    return true; // 写入失败：日志在写路径；pending 保持，下次 save 重试
+
+                KnightIdentityContexts.RememberBinding(contextKey, epoch, false, true, "user-rebaseline");
+                KnightIdentityRuntime.ConfirmContext(false);
+                KnightIdentityRuntime.DisarmPanelRebaseline();
+                KnightPanelLog.Info("user-anchored rebaseline: knights=" + entries.Count.ToString(CultureInfo.InvariantCulture)
+                    + " styles=" + PanelStyleSummary(entries) + ", prior records preserved");
+                return true;
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("panel-rebaseline", e);
+                return true;
+            }
+        }
+
+        /// <summary>仍在世（同对象同 life）的面板 mint 数。</summary>
+        private static int CountLivePanelMints()
+        {
+            List<KnightIdentityRuntime.PanelMint> mints = KnightIdentityRuntime.PanelMints;
+            int live = 0;
+            for (int i = 0; i < mints.Count; i++)
+            {
+                Knight knight = mints[i].Knight;
+                if (knight == null) continue;
+                if (KnightIdentityRuntime.GetLifetime(knight) != mints[i].Lifetime) continue;
+                live++;
+            }
+            return live;
+        }
+
+        /// <summary>
+        /// 再基线化条目：盘记录 ∩ 本次捕获 owner，且每张收据都必须来自面板 mint（expected），
+        /// 全部存活 mint 都必须被覆盖。未捕获的记录（侍从等非 tagKnight 对象）与正常快照路径同样跳过。
+        /// </summary>
+        private static bool TryBuildPanelEntries(SaveCapture capture, out List<KnightIdentitySnapshotEntry> entries, out bool complete)
+        {
+            entries = null;
+            complete = false;
+            List<KnightIdentityRuntime.PanelMint> mints = KnightIdentityRuntime.PanelMints;
+            if (mints.Count == 0) return false;
+
+            HashSet<Guid> expected = new HashSet<Guid>();
+            for (int i = 0; i < mints.Count; i++)
+            {
+                KnightIdentityRuntime.PanelMint mint = mints[i];
+                if (mint.Knight == null) continue;
+                if (KnightIdentityRuntime.GetLifetime(mint.Knight) != mint.Lifetime) continue; // 已换 life / 不在世
+                if (!mint.Receipt.IsValid) return false;
+                expected.Add(mint.Receipt.Id);
+            }
+            if (expected.Count == 0) return false;
+
+            Il2CppSystem.Collections.Generic.List<IslandSaveData.ObjectData> records;
+            try
+            {
+                records = capture.Island.objects;
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("panel-rebaseline-records", e);
+                return false;
+            }
+            if (records == null) return false;
+
+            List<KnightIdentitySnapshotEntry> built = new List<KnightIdentitySnapshotEntry>(expected.Count);
+            HashSet<Guid> seen = new HashSet<Guid>();
+            for (int i = 0; i < records.Count; i++)
+            {
+                IslandSaveData.ObjectData record = records[i];
+                if (record == null) continue;
+                string uniqueId = record.uniqueID;
+                if (!KnightIdentitySnapshot.IsValidUniqueId(uniqueId)) continue;
+                if (!capture.Owners.TryGetValue(uniqueId, out CapturedOwner owner)) continue; // 未捕获（侍从等）：跳过
+                if (!IsValidOwner(owner)) return false;                     // owner 换 life / 收据变了：整份拒写
+                if (!RecordIsKnight(record)) continue;
+                if (!expected.Contains(owner.Receipt.Id)) return false;     // 非面板铸出的收据：fail-closed
+                if (!seen.Add(owner.Receipt.Id)) return false;              // 同 GUID 两个 uniqueID：fail-closed
+                if (built.Count >= MaxSnapshotEntries) return false;        // 超限：整份拒写
+                built.Add(new KnightIdentitySnapshotEntry(uniqueId, owner.Receipt));
+            }
+
+            complete = built.Count > 0 && seen.IsSupersetOf(expected);
+            entries = complete ? built : null;
+            return true;
+        }
+
+        /// <summary>日志用：条目按 style 的计数 "a/b/c/d/e"。</summary>
+        private static string PanelStyleSummary(List<KnightIdentitySnapshotEntry> entries)
+        {
+            int[] counts = new int[KnightIdentityReceipt.StyleCount];
+            for (int i = 0; i < entries.Count; i++)
+            {
+                int style = entries[i].Receipt.Style;
+                if (KnightIdentityReceipt.IsValidStyle(style)) counts[style]++;
+            }
+            StringBuilder builder = new StringBuilder(16);
+            for (int i = 0; i < counts.Length; i++)
+            {
+                if (i > 0) builder.Append('/');
+                builder.Append(counts[i].ToString(CultureInfo.InvariantCulture));
+            }
+            return builder.ToString();
         }
 
         /// <summary>
@@ -2093,6 +2571,68 @@ namespace KingdomEnhancedMod
             catch (Exception e)
             {
                 KnightIdentityLog.Once("rebaseline", e); // 任何 I/O 异常都不影响原生保存
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 用户锚定再基线化写路径（设计 C，仅 knight 侧）：面板"应用"已铸出运行时收据并挂 pending，
+        /// 本方法在下一次原生 Save 内以 save 形态 JSON 新建 epoch 的 kind2 快照（条目由调用方按本次
+        /// 捕获复核后给出，绝不重读/重解析）。旧 epoch/历史记录全保留；容量耗尽/未知版本/损坏主档
+        /// 一律 fail-closed（不写盘）。复刻 AppendSnapshot 的单写者纪律（重读磁盘→合并→原子写）。
+        /// </summary>
+        internal static bool TryUserRebaseline(string contextKey, string rawJson, IReadOnlyList<KnightIdentitySnapshotEntry> entries, out string newEpoch)
+        {
+            newEpoch = null;
+            try
+            {
+                string path = Path;
+                if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(contextKey) || entries == null || entries.Count == 0)
+                {
+                    KnightIdentityLog.Once("panel-rebaseline-path", null);
+                    return false;
+                }
+                if (!TryOpenWritableArchive(path, true, out KnightIdentityArchive archive, out string blocked))
+                {
+                    KnightIdentityLog.Once(blocked, null);
+                    return false;
+                }
+                if (archive == null) return false;
+
+                string epoch = KnightIdentityArchive.NewScope();
+                string hash = KnightIdentityFingerprint.Normalized(rawJson, epoch);
+                if (!KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindNormalized, hash, DateTimeOffset.UtcNow, entries,
+                        out KnightIdentitySnapshot snapshot, out string error))
+                {
+                    KnightIdentityLog.Once("panel-rebaseline-snapshot:" + error, null);
+                    return false;
+                }
+                if (archive.RecordSnapshot(epoch, snapshot) != KnightIdentityArchive.MutationStatus.Applied)
+                {
+                    KnightIdentityLog.Once("panel-rebaseline-capacity-scope", null); // 容量耗尽：不牺牲别的 scope
+                    return false;
+                }
+                if (!archive.EnsureContext(contextKey, epoch, true))
+                {
+                    KnightIdentityLog.Once("panel-rebaseline-capacity-context", null); // MaxContexts/MaxEpochs 耗尽：fail-closed
+                    return false;
+                }
+
+                string directory = System.IO.Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+                KnightIdentityArchiveStore.SaveResult saved = KnightIdentityArchiveStore.Save(path, archive);
+                LogRetryOutcome(saved);
+                if (!saved.Ok)
+                {
+                    KnightIdentityLog.Once("panel-rebaseline-save:" + saved.Status, null);
+                    return false;
+                }
+                newEpoch = epoch;
+                return true;
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("panel-rebaseline-write", e);
                 return false;
             }
         }

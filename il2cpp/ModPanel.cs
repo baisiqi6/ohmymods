@@ -15,7 +15,7 @@ public class ModPanel : MonoBehaviour
     private static Texture2D _back, _cardBack, _gold, _track, _thumb;
     private static Vector2 _scroll;
     private static int _category;
-    private static readonly string[] Categories = { "王国", "人口", "世界", "战斗", "自动补货", "便捷", "弓箭" };
+    private static readonly string[] Categories = { "王国", "人口", "世界", "战斗", "自动补货", "便捷", "弓箭", "骑士" };
     private static readonly Color Gold = new Color(0.91f, 0.75f, 0.43f);
     private static readonly Color Text = new Color(0.94f, 0.94f, 0.91f);
     private static readonly Color Muted = new Color(0.65f, 0.71f, 0.77f);
@@ -79,6 +79,7 @@ public class ModPanel : MonoBehaviour
     {
         if (!_shown)
         {
+            KnightStylePanel.SetSectionVisible(false);
             CalendarHud.Draw();
             PopulationHud.Draw();
             return;
@@ -243,11 +244,13 @@ public class ModPanel : MonoBehaviour
         }
 
         float viewHeight = height - 224f;
-        int cards = _category == 4 ? 9 : (_category == 3 ? 5 : (_category == 0 || _category == 5 || _category == 6 ? 4 : 3));
+        int cards = _category == 7 ? 3
+            : (_category == 4 ? 9 : (_category == 3 ? 5 : (_category == 0 || _category == 5 || _category == 6 ? 4 : 3)));
         float contentHeight = cards * (CardHeight + 12f);
         Rect viewport = new Rect(24, 176, width - 48, viewHeight);
         Rect content = new Rect(0, 0, width - 74, Mathf.Max(viewHeight, contentHeight));
         _scroll = GUI.BeginScrollView(viewport, _scroll, content, false, true);
+        KnightStylePanel.SetSectionVisible(_category == 7); // 打开分区时刷新一次（不做实时跟随）
         try { DrawControls(content.width); }
         finally { GUI.EndScrollView(); }
         GUI.Label(new Rect(26, height - 40, width - 52, 28),
@@ -328,6 +331,9 @@ public class ModPanel : MonoBehaviour
                     "所有世界 · 最高 2 倍，关闭恢复原版；不加快移动和游戏时间。");
                 Toggle(ref y, width, "希腊随从火矢爆发", ModConfig.ArcherImpactEnabled,
                     "随从火矢以半径 0.25、一次 1 点范围伤害替代灼烧；直击不叠加，同轮散射去重。关闭恢复原版。");
+                break;
+            case 7:
+                KnightStylePanel.DrawSection(ref y, width, _card, _label, _muted, _value, _button, _activeTab);
                 break;
         }
     }
