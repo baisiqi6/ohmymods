@@ -1,0 +1,614 @@
+diff --git a/cmake/EarlyGlobals.cmake b/cmake/EarlyGlobals.cmake
+index 5a492ac..9ae99be 100644
+--- a/cmake/EarlyGlobals.cmake
++++ b/cmake/EarlyGlobals.cmake
+@@ -37,10 +37,14 @@ elseif(CMAKE_SYSTEM_NAME MATCHES "^macOS")
+   set(SYSTEM.macOS 1)
+   set(SYSTEM.Darwin 1)
+ elseif(CMAKE_SYSTEM_NAME MATCHES "^Darwin")
+-  if(PROCESSOR.AARCH64 OR PROCESSOR.ARM)
++  # PATCH(arm64-lab): Darwin + AARCH64 used to force CMAKE_SYSTEM_NAME=iOS, which makes a
++  # plain macOS/arm64 dylib unbuildable (CMake iOS-Initialize requires an iOS SDK).
++  # Default Darwin+arm64 to macOS; keep the iOS cross-build reachable via -DDOBBY_TARGET_IOS=ON.
++  option(DOBBY_TARGET_IOS "Target iOS when CMAKE_SYSTEM_NAME is Darwin" OFF)
++  if(DOBBY_TARGET_IOS AND (PROCESSOR.AARCH64 OR PROCESSOR.ARM))
+     set(CMAKE_SYSTEM_NAME "iOS")
+     set(SYSTEM.iOS 1)
+-  elseif(PROCESSOR.X86 OR PROCESSOR.X86_64)
++  else()
+     set(SYSTEM.macOS 1)
+   endif()
+   set(SYSTEM.Darwin 1)
+diff --git a/source/InstructionRelocation/arm64/ARM64InstructionRelocation.cc b/source/InstructionRelocation/arm64/ARM64InstructionRelocation.cc
+index f116b7b..967e926 100644
+--- a/source/InstructionRelocation/arm64/ARM64InstructionRelocation.cc
++++ b/source/InstructionRelocation/arm64/ARM64InstructionRelocation.cc
+@@ -310,6 +310,9 @@ void GenRelocateCodeAndBranch(void *buffer, AssemblyCodeChunk *origin, AssemblyC
+   {
+     AssemblyCodeChunk *code = NULL;
+     code = AssemblyCodeBuilder::FinalizeFromTurboAssembler(&turbo_assembler_);
++#if defined(__APPLE__)
++    if (!code) return; // Leave relocated start at zero; Prepare rejects the route.
++#endif
+     relocated->re_init_region_range(code->raw_instruction_start(), code->raw_instruction_size());
+     delete code;
+   }
+diff --git a/source/InterceptRouting/InterceptRouting.cpp b/source/InterceptRouting/InterceptRouting.cpp
+index 101c012..c542db3 100644
+--- a/source/InterceptRouting/InterceptRouting.cpp
++++ b/source/InterceptRouting/InterceptRouting.cpp
+@@ -65,7 +65,13 @@ void InterceptRouting::Active() {
+   void *patch_address = NULL;
+   patch_address = (void *)origin_->raw_instruction_start();
+ 
++#if defined(__APPLE__) && defined(TARGET_ARCH_ARM64)
++  if (!trampoline_buffer_ || trampoline_buffer_->getSize() != 4 ||
++      CodePatch(patch_address, (uint8_t *)trampoline_buffer_->getRawBuffer(), trampoline_buffer_->getSize()) != kMemoryOperationSuccess)
++    return;
++#else
+   CodePatch(patch_address, (uint8_t *)trampoline_buffer_->getRawBuffer(), trampoline_buffer_->getSize());
++#endif
+   entry_->is_committed = true;
+   DLOG(0, "[intercept routing] Active patch %p", patch_address);
+ }
+diff --git a/source/InterceptRouting/Routing/FunctionInlineReplace/FunctionInlineReplaceExport.cc b/source/InterceptRouting/Routing/FunctionInlineReplace/FunctionInlineReplaceExport.cc
+index 105c7ce..1208a5e 100644
+--- a/source/InterceptRouting/Routing/FunctionInlineReplace/FunctionInlineReplaceExport.cc
++++ b/source/InterceptRouting/Routing/FunctionInlineReplace/FunctionInlineReplaceExport.cc
+@@ -12,6 +12,10 @@ PUBLIC int DobbyHook(void *address, void *replace_call, void **origin_call) {
+ }
+ 
+ PUBLIC int DobbyPrepare(void *address, void *replace_call, void **origin_call) {
++#if defined(__APPLE__) && defined(TARGET_ARCH_ARM64)
++  if (!address || !replace_call || !origin_call) return RS_FAILED;
++  *origin_call = nullptr;
++#endif
+   if (!address) {
+     ERROR_LOG("function address is 0x0");
+     return RS_FAILED;
+@@ -38,6 +42,11 @@ PUBLIC int DobbyPrepare(void *address, void *replace_call, void **origin_call) {
+       // TODO: Check ARM
+       route->SetReplaceCall(replace_call);
+     }
++#if defined(__APPLE__) && defined(TARGET_ARCH_ARM64)
++    if (!route->GetTrampolineBuffer() || route->GetTrampolineBuffer()->getSize() != 4 ||
++        route->GetTrampolineTarget() != replace_call || !entry->relocated_origin_function)
++      return RS_FAILED;
++#endif
+     Interceptor::SharedInstance()->AddHookEntry(entry);
+     *origin_call = entry->relocated_origin_function;
+     return RS_SUCCESS;
+@@ -51,6 +60,14 @@ PUBLIC int DobbyPrepare(void *address, void *replace_call, void **origin_call) {
+   FunctionInlineReplaceRouting *route = new FunctionInlineReplaceRouting(entry, replace_call);
+   route->Prepare();
+   route->DispatchRouting();
++#if defined(__APPLE__) && defined(TARGET_ARCH_ARM64)
++  if (!route->GetTrampolineBuffer() || route->GetTrampolineBuffer()->getSize() != 4 ||
++      !entry->relocated_origin_function) {
++    delete route;
++    delete entry;
++    return RS_FAILED;
++  }
++#endif
+   Interceptor::SharedInstance()->AddHookEntry(entry);
+ 
+   // set origin call with relocated function
+@@ -67,7 +84,13 @@ PUBLIC int DobbyCommit(void *address) {
+ 
+   // check if already hooked
+   HookEntry *entry = Interceptor::SharedInstance()->FindHookEntry(address);
++#if defined(__APPLE__) && defined(TARGET_ARCH_ARM64)
++  if (!entry || !entry->route || !entry->relocated_origin_function) return RS_FAILED;
++#endif
+   FunctionInlineReplaceRouting *route = (FunctionInlineReplaceRouting *)entry->route;
++#if defined(__APPLE__) && defined(TARGET_ARCH_ARM64)
++  if (!route->GetTrampolineBuffer() || route->GetTrampolineBuffer()->getSize() != 4) return RS_FAILED;
++#endif
+   if (entry->is_committed) {
+     ERROR_LOG("function %p already been hooked.", address);
+     return RS_FAILED;
+@@ -75,5 +98,8 @@ PUBLIC int DobbyCommit(void *address) {
+ 
+   // code patch & hijack original control flow entry
+   route->Commit();
++#if defined(__APPLE__) && defined(TARGET_ARCH_ARM64)
++  if (!entry->is_committed) return RS_FAILED;
++#endif
+   return RS_SUCCESS;
+ }
+\ No newline at end of file
+diff --git a/source/InterceptRouting/Routing/FunctionInlineReplace/function-inline-replace.cc b/source/InterceptRouting/Routing/FunctionInlineReplace/function-inline-replace.cc
+index 8fcd43e..ebb2076 100644
+--- a/source/InterceptRouting/Routing/FunctionInlineReplace/function-inline-replace.cc
++++ b/source/InterceptRouting/Routing/FunctionInlineReplace/function-inline-replace.cc
+@@ -4,18 +4,39 @@
+ 
+ void FunctionInlineReplaceRouting::DispatchRouting() {
+   BuildReplaceRouting();
++#if defined(__APPLE__) && defined(TARGET_ARCH_ARM64)
++  if (!trampoline_buffer_ || trampoline_buffer_->getSize() != 4)
++    return;
++#endif
+ 
+   // generate relocated code which size == trampoline size
+   GenerateRelocatedCode(trampoline_buffer_->getSize());
+ }
+ 
+ void FunctionInlineReplaceRouting::SetReplaceCall(void *new_replace_call) {
++#if defined(__APPLE__) && defined(TARGET_ARCH_ARM64)
++  CodeBufferBase *previous_buffer = trampoline_buffer_;
++  void *previous_call = replace_call;
++  void *previous_target = GetTrampolineTarget();
++  trampoline_buffer_ = nullptr;
++  replace_call = new_replace_call;
++  BuildReplaceRouting();
++  if (!trampoline_buffer_ || trampoline_buffer_->getSize() != 4) {
++    delete trampoline_buffer_;
++    trampoline_buffer_ = previous_buffer;
++    replace_call = previous_call;
++    SetTrampolineTarget(previous_target);
++    return;
++  }
++  delete previous_buffer;
++#else
+   if (this->trampoline_buffer_) {
+     delete this->trampoline_buffer_;
+     this->trampoline_buffer_ = nullptr;
+   }
+   this->replace_call = new_replace_call;
+   BuildReplaceRouting();
++#endif
+ }
+ 
+ void FunctionInlineReplaceRouting::BuildReplaceRouting() {
+diff --git a/source/MemoryAllocator/AssemblyCodeBuilder.cc b/source/MemoryAllocator/AssemblyCodeBuilder.cc
+index 2e123a6..b8115f7 100644
+--- a/source/MemoryAllocator/AssemblyCodeBuilder.cc
++++ b/source/MemoryAllocator/AssemblyCodeBuilder.cc
+@@ -41,7 +41,12 @@ AssemblyCodeChunk *AssemblyCodeBuilder::FinalizeFromTurboAssembler(AssemblerBase
+ 
+   // Realize(Relocate) the buffer_code to the executable_memory_address, remove the ExternalLabels, etc, the pc-relative
+   // instructions
++#if defined(__APPLE__) && defined(TARGET_ARCH_ARM64)
++  if (CodePatch(realized_address, (uint8_t *)buffer->getRawBuffer(), buffer->getSize()) != kMemoryOperationSuccess)
++    return NULL;
++#else
+   CodePatch(realized_address, (uint8_t *)buffer->getRawBuffer(), buffer->getSize());
++#endif
+ 
+   return result;
+ }
+\ No newline at end of file
+diff --git a/source/MemoryAllocator/NearMemoryArena.cc b/source/MemoryAllocator/NearMemoryArena.cc
+index b1313fa..f23c56d 100644
+--- a/source/MemoryAllocator/NearMemoryArena.cc
++++ b/source/MemoryAllocator/NearMemoryArena.cc
+@@ -6,6 +6,15 @@
+ 
+ #include <iostream>
+ #include <vector>
++#if defined(__APPLE__) && defined(TARGET_ARCH_ARM64)
++#include "NearGapSelection.h"
++#endif
++
++#if defined(__APPLE__)
++#include <mach/mach.h>
++
++#include "UnifiedInterface/platform-darwin/mach_vm.h"
++#endif
+ 
+ using namespace zz;
+ 
+@@ -64,6 +73,170 @@ static addr_t next_page(addr_t cur, int pagesize) {
+ }
+ 
+ #if 1
++
++#if defined(__APPLE__)
++
++// A near page can only come from a gap between existing mappings: the Mach
++// reservation below refuses an address that is already mapped, so a page that
++// is part of a region is not even a candidate. The window is therefore walked
++// once against the sorted region list, keeping a cursor of the lowest page not
++// yet known to be mapped. Regions that cross either window bound are handled by
++// the cursor, which makes a hole that starts or ends outside the window, a hole
++// of exactly one page, and the free space trailing the last region reachable.
++
++// Maximum exact reservation attempts in a single search before giving up. Each
++// refused page skips to the end of the range that refused it, so this is a
++// bound on allocation attempts, not on all kernel calls. Submap queries are also bounded.
++static const int kNearBlankPageProbeBudget = 64;
++
++// Next page boundary at or after addr, 0 when the alignment overflows.
++static addr_t page_align_ceil(addr_t addr, addr_t page_size) {
++  addr_t sum = addr_add(addr, page_size - 1);
++  if (sum == (addr_t)-1)
++    return 0;
++  return ALIGN_FLOOR(sum, page_size);
++}
++
++// End of the mapped range containing addr, 0 when the address is not mapped.
++// A mapping can appear after the layout snapshot. After a refusal, ask the
++// kernel where that occupied range ends instead of stepping page by page.
++static addr_t mapped_range_end(addr_t addr) {
++  mach_vm_address_t region_addr = (mach_vm_address_t)addr;
++  mach_vm_size_t region_size = 0;
++  natural_t depth = 0;
++  struct vm_region_submap_short_info_64 submap_info;
++  while (true) {
++    mach_msg_type_number_t count = VM_REGION_SUBMAP_SHORT_INFO_COUNT_64;
++    kern_return_t kr = mach_vm_region_recurse(mach_task_self(), &region_addr, &region_size, &depth,
++                                              (vm_region_recurse_info_t)&submap_info, &count);
++    if (kr != KERN_SUCCESS)
++      return 0;
++    if (!submap_info.is_submap) {
++      addr_t end = addr_add((addr_t)region_addr, (addr_t)region_size);
++      return region_addr <= addr && addr < end ? end : 0;
++    }
++    if (depth++ >= 32)
++      return 0;
++  }
++}
++
++// Reserve one page inside the free interval [gap_lo, gap_hi). Every attempt is
++// a precise reservation and never an overwrite: a page that someone else mapped
++// in the meantime is refused, and the search moves past it.
++static addr_t try_reserve_blank_page(addr_t gap_lo, addr_t gap_hi, addr_t page_size, int *budget) {
++  if (gap_hi < page_size)
++    return 0;
++  addr_t last_page = gap_hi - page_size;
++  addr_t page = page_align_ceil(gap_lo, page_size);
++  if (page == 0 || page > last_page)
++    return 0;
++
++  while (page <= last_page && *budget > 0) {
++    --*budget;
++    void *result = OSMemory::Allocate((void *)page, (int)page_size, MemoryPermission::kReadExecute);
++    if (result)
++      return (addr_t)result;
++
++    addr_t refused_range_end = mapped_range_end(page);
++    // A refusal with no occupied range is not evidence that the next page is
++    // usable (e.g. an unmapped but restricted address interval). Skip this gap
++    // instead of exhausting the budget on consecutive pages in the same gap.
++    if (refused_range_end <= page)
++      break;
++    addr_t next_page = page_align_ceil(refused_range_end, page_size);
++    if (next_page == 0 || next_page <= page)
++      break;
++    page = next_page;
++  }
++  return 0;
++}
++
++static addr_t search_near_blank_page(addr_t pos, size_t alloc_range) {
++  const addr_t page_size = (addr_t)OSMemory::AllocPageSize();
++  if (page_size == 0 || alloc_range == 0)
++    return 0;
++
++  // Pages that keep the result within alloc_range of pos.
++  // AllocateChunk uses strict distance < alloc_range; do not reserve a page
++  // at the excluded lower boundary only to reject it when reusing the page.
++  addr_t low = addr_sub(pos, (addr_t)alloc_range);
++  if (low == (addr_t)-1) return 0;
++  addr_t first_page = page_align_ceil(low + 1, page_size);
++  addr_t window_end = ALIGN_FLOOR(addr_add(pos, (addr_t)alloc_range), page_size);
++  if (first_page == 0 || window_end < page_size || window_end - page_size < first_page)
++    return 0;
++
++  // region.start sorted
++  std::vector<MemoryRegion> process_memory_layout = ProcessRuntimeUtility::GetProcessMemoryLayout();
++  if (process_memory_layout.empty())
++    return 0;
++
++#if defined(TARGET_ARCH_ARM64)
++  // Prefer the nearest owned reservation opportunity, rather than the lowest
++  // address in a +/-128 MiB window that later game entries may not reach.
++  std::vector<arm64_near_gap::Gap> gaps;
++  addr_t gap_cursor = first_page;
++  auto add_gap = [&](addr_t lo, addr_t hi) {
++    addr_t start = page_align_ceil(lo, page_size);
++    addr_t end = ALIGN_FLOOR(hi, page_size);
++    if (start && end > start && end - start >= page_size) gaps.push_back({start, end});
++  };
++  for (const auto &region : process_memory_layout) {
++    addr_t start = (addr_t)region.address;
++    addr_t end = addr_add(start, (addr_t)region.length);
++    if (end <= gap_cursor) continue;
++    if (start >= window_end) break;
++    if (start > gap_cursor) add_gap(gap_cursor, start);
++    addr_t next = page_align_ceil(end, page_size);
++    if (!next || next >= window_end) { gap_cursor = window_end; break; }
++    if (next > gap_cursor) gap_cursor = next;
++  }
++  if (gap_cursor < window_end) add_gap(gap_cursor, window_end);
++  int budget = kNearBlankPageProbeBudget;
++  // The existing successor reservation also caps each batch at sixteen pages.
++  auto candidates = arm64_near_gap::Rank(gaps, pos, page_size, 16);
++  for (const auto &candidate : candidates) {
++    if (budget <= 0) break;
++    addr_t page = try_reserve_blank_page(candidate.start, candidate.end, page_size, &budget);
++    if (page) return page;
++  }
++  return 0;
++#else
++  int budget = kNearBlankPageProbeBudget;
++  addr_t cursor = first_page; // lowest page in the window not known to be mapped
++
++  for (size_t i = 0; i < process_memory_layout.size(); ++i) {
++    addr_t region_start = (addr_t)process_memory_layout[i].address;
++    addr_t region_end = addr_add(region_start, (addr_t)process_memory_layout[i].length);
++
++    if (region_end <= cursor)
++      continue; // region lies before the pages still under consideration
++    if (region_start >= window_end) {
++      // regions are sorted: only the free space left in the window remains
++      return try_reserve_blank_page(cursor, window_end, page_size, &budget);
++    }
++
++    // free interval this region opens inside the window
++    if (region_start > cursor) {
++      addr_t blank_page = try_reserve_blank_page(cursor, region_start, page_size, &budget);
++      if (blank_page)
++        return blank_page;
++    }
++
++    addr_t next_cursor = page_align_ceil(region_end, page_size);
++    if (next_cursor == 0 || next_cursor <= cursor)
++      return 0; // alignment overflow: stop instead of walking garbage
++    if (next_cursor >= window_end)
++      return 0; // the window ends inside this region
++    cursor = next_cursor;
++  }
++
++  // free space trailing the last region
++  return try_reserve_blank_page(cursor, window_end, page_size, &budget);
++#endif // TARGET_ARCH_ARM64
++}
++
++#else
+ static addr_t search_near_blank_page(addr_t pos, size_t alloc_range) {
+   addr_t min_page_addr, max_page_addr;
+   min_page_addr = next_page(addr_sub(pos, alloc_range), OSMemory::AllocPageSize());
+@@ -143,6 +316,8 @@ static addr_t search_near_blank_page(addr_t pos, size_t alloc_range) {
+   return resultPageAddr;
+ }
+ 
++#endif // defined(__APPLE__)
++
+ void NearMemoryArena::Destroy(MemoryChunk *chunk) {
+     if (!chunk)
+       return;
+@@ -195,6 +370,51 @@ static addr_t search_near_blank_memory_chunk(addr_t pos, size_t alloc_range, int
+ }
+ #endif
+ 
++#if defined(__APPLE__)
++
++// Upper bound of one pre-reservation batch, counting the page the search has
++// just reserved.
++static const int kNearCodeReservePageLimit = 16;
++
++// A fresh near code page is taken from the first free page of a gap, and the
++// caller reuses the page it holds instead of asking the kernel again. Try
++// to reserve still-free successors now, before another runtime fills the gap:
++// one page per OSMemory::Allocate call, fixed address, no overwrite, each page
++// pushed on its own so the arena keeps one-page granularity and the real page
++// size. The batch stops at the first page the kernel refuses, which leaves the
++// page already reserved by the search untouched, and it is bounded so a
++// foreign mapping that fills the gap costs at most one refused call.
++//
++// The offsets are checked like the search itself: no address overflow, never a
++// page at or past the strict alloc_range distance, never a page crossing the
++// full-page boundary that ends the window.
++static void reserve_near_code_successor_pages(addr_t first_page_addr, addr_t position, size_t alloc_range) {
++  const addr_t page_size = (addr_t)OSMemory::AllocPageSize();
++  if (page_size == 0 || alloc_range == 0)
++    return;
++
++  addr_t window_end = ALIGN_FLOOR(addr_add(position, (addr_t)alloc_range), page_size);
++  if (window_end < page_size)
++    return;
++  addr_t last_reservable_page = window_end - page_size;
++  if (first_page_addr > last_reservable_page)
++    return;
++
++  addr_t page = first_page_addr;
++  for (int count = 1; count < kNearCodeReservePageLimit; ++count) {
++    addr_t next = addr_add(page, page_size);
++    if (next <= page || next > last_reservable_page)
++      return; // overflow, or the next page is outside the window
++    void *result = OSMemory::Allocate((void *)next, (int)page_size, MemoryPermission::kReadExecute);
++    if (result == NULL || (addr_t)result != next)
++      return; // someone else owns it: the gap is no longer ours to extend
++    NearMemoryArena::PushPage(next, kReadExecute);
++    page = next;
++  }
++}
++
++#endif // defined(__APPLE__)
++
+ #define NEAR_PAGE_ARRAYLEN 8
+ 
+ int NearMemoryArena::PushPage(addr_t page_addr, MemoryPermission permission) {
+@@ -254,6 +474,12 @@ search_once_more:
+   if (blank_page_addr) {
+     OSMemory::SetPermission((void *)blank_page_addr, OSMemory::PageSize(), permission);
+     NearMemoryArena::PushPage(blank_page_addr, permission);
++#if defined(__APPLE__)
++    // Code chunks are what a full process exhausts first: the first page of a
++    // gap is claimed here, so the free space behind it is claimed now as well.
++    if (permission == kReadExecute)
++      reserve_near_code_successor_pages(blank_page_addr, position, alloc_range);
++#endif
+     goto search_once_more;
+   }
+ 
+@@ -262,6 +488,12 @@ search_once_more:
+     return NULL;
+   }
+ 
++#if defined(__APPLE__)
++  // Zero bytes in an existing mapping do not establish ownership. In
++  // particular, a relocated jump's pointer has zero high bytes that a later
++  // allocation can overwrite. Fail rather than borrow unreserved code caves.
++  return NULL;
++#endif
+   addr_t blank_chunk_addr = 0;
+   blank_chunk_addr = search_near_blank_memory_chunk(position, alloc_range, alloc_size);
+   if (blank_chunk_addr) {
+diff --git a/source/TrampolineBridge/Trampoline/arm64/trampoline-arm64.cc b/source/TrampolineBridge/Trampoline/arm64/trampoline-arm64.cc
+index 139ca40..0615321 100644
+--- a/source/TrampolineBridge/Trampoline/arm64/trampoline-arm64.cc
++++ b/source/TrampolineBridge/Trampoline/arm64/trampoline-arm64.cc
+@@ -12,8 +12,15 @@
+ #include "InterceptRouting/RoutingPlugin/RoutingPlugin.h"
+ 
+ using namespace zz::arm64;
++#define _ turbo_assembler_.
++
++CodeBufferBase *GenerateNearTrampolineBuffer(InterceptRouting *routing, addr_t src, addr_t dst);
+ 
+ CodeBufferBase *GenerateNormalTrampolineBuffer(addr_t from, addr_t to) {
++#if defined(__APPLE__)
++  // Every macOS ARM64 entry patch is one B instruction. Allocation failure is terminal.
++  return GenerateNearTrampolineBuffer(nullptr, from, to);
++#else
+   TurboAssembler turbo_assembler_((void *)from);
+ #define _ turbo_assembler_.
+ 
+@@ -34,12 +41,16 @@ CodeBufferBase *GenerateNormalTrampolineBuffer(addr_t from, addr_t to) {
+   CodeBufferBase *result = NULL;
+   result = turbo_assembler_.GetCodeBuffer()->Copy();
+   return result;
++#endif
+ }
+ 
+ #define ARM64_B_XXX_RANGE ((1 << 25) << 2) // signed
+ 
+ // If BranchType is B_Branch and the branch_range of `B` is not enough, build the transfer to forward the b branch, if
+ static AssemblyCodeChunk *GenerateFastForwardTrampoline(addr_t source_address, addr_t target_address) {
++#if defined(__APPLE__) && defined(DOBBY_ARM64_TEST_FORCE_NEAR_FAILURE)
++  return NULL; // Test build only: exercise failed near-allocation propagation.
++#endif
+   AssemblyCodeChunk *cchunk = NULL;
+ 
+   TurboAssembler turbo_assembler_(0);
+@@ -104,8 +115,14 @@ CodeBufferBase *GenerateNearTrampolineBuffer(InterceptRouting *routing, addr_t s
+   TurboAssembler turbo_assembler_((void *)src);
+ #define _ turbo_assembler_.
+ 
+-  // branch to trampoline_target directly
++  // B immediate is a signed 26-bit count of four-byte instructions.
++#if defined(__APPLE__)
++  if ((src & 3) || (dst & 3)) return NULL;
++  int64_t delta = (int64_t)dst - (int64_t)src;
++  if (delta >= -(1LL << 27) && delta < (1LL << 27)) {
++#else
+   if (llabs((long long)dst - (long long)src) < ARM64_B_XXX_RANGE) {
++#endif
+     _ b(dst - src);
+   } else {
+     AssemblyCodeChunk *fast_forward_trampoline = NULL;
+@@ -114,6 +131,11 @@ CodeBufferBase *GenerateNearTrampolineBuffer(InterceptRouting *routing, addr_t s
+       return NULL;
+     // trampoline => fast_forward_trampoline
+     addr_t fast_forward_trampoline_addr = fast_forward_trampoline->raw_instruction_start();
++#if defined(__APPLE__)
++    int64_t near_delta = (int64_t)fast_forward_trampoline_addr - (int64_t)src;
++    if ((fast_forward_trampoline_addr & 3) || near_delta < -(1LL << 27) || near_delta >= (1LL << 27))
++      return NULL;
++#endif
+     _ b(fast_forward_trampoline_addr - src);
+   }
+ 
+diff --git a/source/UserMode/UnifiedInterface/platform-posix.cc b/source/UserMode/UnifiedInterface/platform-posix.cc
+index e941179..bd4edcd 100644
+--- a/source/UserMode/UnifiedInterface/platform-posix.cc
++++ b/source/UserMode/UnifiedInterface/platform-posix.cc
+@@ -28,6 +28,7 @@
+ #if defined(__APPLE__)
+ #include <dlfcn.h>
+ #include <mach/mach.h>
++#include <mach/mach_vm.h>
+ #include <mach/vm_statistics.h>
+ #endif
+ 
+@@ -132,13 +133,31 @@ int OSMemory::PageSize() {
+ void *OSMemory::Allocate(void *address, int size, MemoryPermission access) {
+   int prot = GetProtectionFromMemoryPermission(access);
+ 
+-  int flags = MAP_PRIVATE | MAP_ANONYMOUS;
+-  if (address != NULL) {
+-    flags = flags | MAP_FIXED;
++#if defined(__APPLE__)
++  if (address != nullptr) {
++    // VM_FLAGS_FIXED reserves an exact free range; unlike mmap MAP_FIXED,
++    // it does not replace an existing mapping (no VM_FLAGS_OVERWRITE).
++    mach_vm_address_t reserved = (mach_vm_address_t)address;
++    kern_return_t kr = mach_vm_allocate(mach_task_self(), &reserved, size, VM_FLAGS_FIXED);
++    if (kr != KERN_SUCCESS)
++      return nullptr;
++    if (reserved != (mach_vm_address_t)address || mprotect((void *)reserved, size, prot) != 0) {
++      mach_vm_deallocate(mach_task_self(), reserved, size);
++      return nullptr;
++    }
++    return (void *)reserved;
+   }
++#endif
++  int flags = MAP_PRIVATE | MAP_ANONYMOUS;
++  // Do not replace an existing mapping while reserving a near-code page.
++  // Treat the requested address as a hint and accept only that exact free address.
+   void *result = mmap(address, size, prot, flags, kMmapFd, kMmapFdOffset);
+   if (result == MAP_FAILED)
+     return nullptr;
++  if (address != nullptr && result != address) {
++    munmap(result, size);
++    return nullptr;
++  }
+ 
+   return result;
+ }
+diff --git a/source/MemoryAllocator/NearGapSelection.h b/source/MemoryAllocator/NearGapSelection.h
+new file mode 100644
+index 0000000..1522508
+--- /dev/null
++++ b/source/MemoryAllocator/NearGapSelection.h
+@@ -0,0 +1,37 @@
++#pragma once
++#include <algorithm>
++#include <cstdint>
++#include <vector>
++
++// Policy only: inputs are full-page gaps clipped to the branch window.
++// This helper never reserves or writes memory.
++namespace arm64_near_gap {
++struct Gap { uintptr_t low, high; };
++struct Candidate { uintptr_t start, end, nearest, distance; };
++inline std::vector<Candidate> Rank(const std::vector<Gap> &gaps, uintptr_t source,
++                                   uintptr_t page_size, uintptr_t block_pages) {
++  std::vector<Candidate> result;
++  if (!page_size || !block_pages || block_pages > UINTPTR_MAX / page_size) return result;
++  uintptr_t block_size = block_pages * page_size;
++  for (const auto &gap : gaps) {
++    if (gap.high <= gap.low || gap.high - gap.low < page_size ||
++        gap.low % page_size || gap.high % page_size) continue;
++    uintptr_t start = gap.low, nearest = gap.low;
++    if (gap.high <= source) {
++      nearest = gap.high - page_size;
++      start = gap.high - std::min(block_size, gap.high - gap.low);
++    } else if (gap.low < source) {
++      // A real executable source is mapped, but keep synthetic inputs bounded.
++      nearest = source - source % page_size;
++      if (nearest > gap.high - page_size) nearest = gap.high - page_size;
++      start = std::max(gap.low, std::min(nearest, gap.high - std::min(block_size, gap.high - gap.low)));
++    }
++    uintptr_t distance = nearest >= source ? nearest - source : source - nearest;
++    result.push_back({start, gap.high, nearest, distance});
++  }
++  std::sort(result.begin(), result.end(), [](const Candidate &a, const Candidate &b) {
++    return a.distance < b.distance || (a.distance == b.distance && a.start < b.start);
++  });
++  return result;
++}
++}

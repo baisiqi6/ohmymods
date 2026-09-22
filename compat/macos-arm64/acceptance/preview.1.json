@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "package": "OhMyMods-9.5.13-mac-arm64-preview.1.zip",
+  "sha256": "7b8073522c609e92175769587853518c68398fd6428ab4ccb9d415d233d1167c",
+  "bytes": 32165141,
+  "scope": "Apple Silicon ARM64; locked KTC 2.4.0 r23485 Universal DMG build only",
+  "steam_supported": false,
+  "game_assembly_sha256": "738fb98871dd6e2136474325ea3f7f4f81f2094873a6bc88f7a942d268660b1a",
+  "gameplay_commit": "1088b9cd981efb32aa3afb03e91eea66ad1a451b",
+  "test_base_commit": "7fde1e555cda95e3acea73b1c6455116c6abd611",
+  "mod_sha256": "8f89959de555f72f6c53b71cf1d98a0da415b8577b91d825177d6f05bf6d623f",
+  "dobby_sha256": "8fbfdd239f9c1a7f277643a46e46f13d8e7e61a8997d58b5451104dbdbd404d6",
+  "host_os": "macOS 26.6.2",
+  "tests": {
+    "cold-zip": {
+      "ready_after_seconds": 45.3,
+      "exit_code": 143,
+      "end_reason": "controlled_stop_after_observation",
+      "elapsed_seconds": 106.1,
+      "startup_complete": true,
+      "arm64_sample": true,
+      "remaining_game_pids": "",
+      "app_tree_unchanged": true,
+      "launcher_lock_remaining": false,
+      "download_logged": true,
+      "generation_logged": true,
+      "cache_unchanged": false,
+      "interop_files": 130
+    },
+    "warm-zip": {
+      "ready_after_seconds": 5.0,
+      "exit_code": 143,
+      "end_reason": "controlled_stop_after_observation",
+      "elapsed_seconds": 65.6,
+      "startup_complete": true,
+      "arm64_sample": true,
+      "remaining_game_pids": "",
+      "app_tree_unchanged": true,
+      "launcher_lock_remaining": false,
+      "download_logged": false,
+      "generation_logged": false,
+      "cache_unchanged": true,
+      "interop_files": 130
+    },
+    "upgrade-zip": {
+      "ready_after_seconds": 47.2,
+      "exit_code": 143,
+      "end_reason": "controlled_stop_after_observation",
+      "elapsed_seconds": 78.5,
+      "startup_complete": true,
+      "arm64_sample": true,
+      "remaining_game_pids": "",
+      "app_tree_unchanged": true,
+      "launcher_lock_remaining": false,
+      "download_logged": true,
+      "generation_logged": true,
+      "cache_unchanged": false,
+      "interop_files": 130
+    },
+    "ui": {
+      "scene_visible": true,
+      "f5_open_close": true
+    },
+    "config_upgrade": {
+      "logging_console_sentinel_preserved": true,
+      "mod_effective_config_equal": {
+        "KingdomEnhancedMod.cfg": true
+      }
+    }
+  },
+  "quarantine_first_open": {
+    "zip_sha256": "7b8073522c609e92175769587853518c68398fd6428ab4ccb9d415d233d1167c",
+    "finder_extract": true,
+    "executable_mode": "0755",
+    "quarantine_preserved": true,
+    "open_attempted": true,
+    "game_started": false,
+    "status": "pending_user_observation",
+    "reason": "CUA prohibits access to com.apple.Terminal; Finder itself shows no security dialog; no alternate UI access attempted",
+    "security_settings_changed": false
+  },
+  "release_gate": "pending",
+  "limitations": [
+    "Current Steam build unsupported",
+    "No generic ARM64-only game support claim",
+    "Mac x64 and Windows acceptance separate",
+    "Prior basic gameplay feedback is not full feature/save-load/multiplayer acceptance"
+  ]
+}

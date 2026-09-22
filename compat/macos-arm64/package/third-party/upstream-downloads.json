@@ -1,0 +1,281 @@
+{
+  "files": [
+    {
+      "url": "https://raw.githubusercontent.com/Washi1337/AsmResolver/124e161a9bc0ebb83b4d97276ae3da3c9cfe2fc5/LICENSE.md",
+      "source_file_label": "licenses/AsmResolver.txt",
+      "source_download_sha256": "1c967bb945d9e86f79e49dda29e834d49ff3cb203c9a98878e7661b3de7a5559",
+      "source_bytes": 1108,
+      "packaged_file": "licenses/AsmResolver.txt",
+      "packaged_sha256": "1c967bb945d9e86f79e49dda29e834d49ff3cb203c9a98878e7661b3de7a5559",
+      "packaged_bytes": 1108,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/AssetRipper/AssetRipper.CIL/06216e69825ccd6536dc17e9ca81c4d539ce9321/LICENSE",
+      "source_file_label": "licenses/AssetRipper.CIL.txt",
+      "source_download_sha256": "039cd624a13919c3af1aec3ce2217c3f50d6e3053f6e9ef64d9cf37e12812a76",
+      "source_bytes": 1062,
+      "packaged_file": "licenses/AssetRipper.CIL.txt",
+      "packaged_sha256": "039cd624a13919c3af1aec3ce2217c3f50d6e3053f6e9ef64d9cf37e12812a76",
+      "packaged_bytes": 1062,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/AssetRipper/AssetRipper.Primitives/d759b3db98bf2a1cb8c2181faf5d405610aac585/License.md",
+      "source_file_label": "licenses/AssetRipper.Primitives.txt",
+      "source_download_sha256": "dae6148ff7ad3331a6380a2ce0cbb87f71b8f177891aba1661b1d3a6fe52d5de",
+      "source_bytes": 1062,
+      "packaged_file": "licenses/AssetRipper.Primitives.txt",
+      "packaged_sha256": "dae6148ff7ad3331a6380a2ce0cbb87f71b8f177891aba1661b1d3a6fe52d5de",
+      "packaged_bytes": 1062,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/BepInEx/BepInEx/5b766a3b7f6c164d4798924a93f3acf4db769d06/LICENSE",
+      "source_file_label": "licenses/BepInEx.txt",
+      "source_download_sha256": "f2ceca48af033d8adf337a8f9453e633cfad10a1f8c9fec2e5ae55a2d8ffe952",
+      "source_bytes": 25338,
+      "packaged_file": "licenses/BepInEx.txt",
+      "packaged_sha256": "f2ceca48af033d8adf337a8f9453e633cfad10a1f8c9fec2e5ae55a2d8ffe952",
+      "packaged_bytes": 25338,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ds5678/Capstone.NET/b90e380c14e857865c94a355954236e678bd557c/LICENSE",
+      "source_file_label": "licenses/Capstone.NET.txt",
+      "source_download_sha256": "79463fa3b9facda0f90e33eda09ff57c6c4d5620ba8b01e5c48a68834e20de4e",
+      "source_bytes": 1062,
+      "packaged_file": "licenses/Capstone.NET.txt",
+      "packaged_sha256": "79463fa3b9facda0f90e33eda09ff57c6c4d5620ba8b01e5c48a68834e20de4e",
+      "packaged_bytes": 1062,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/SamboyCoding/Cpp2IL/558ddd98642010897d54316b51fbaa7889fda093/LICENSE",
+      "source_file_label": "licenses/Cpp2IL.txt",
+      "source_download_sha256": "1a80d1b99e958385045da1e383a105895d1c997ef2b36448430dbfe3763fe670",
+      "source_bytes": 1066,
+      "packaged_file": "licenses/Cpp2IL.txt",
+      "packaged_sha256": "1a80d1b99e958385045da1e383a105895d1c997ef2b36448430dbfe3763fe670",
+      "packaged_bytes": 1066,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/SamboyCoding/Disarm/8574010015c8c56bb7faad7e407c50b0abe9cc72/LICENSE",
+      "source_file_label": "licenses/Disarm.txt",
+      "source_download_sha256": "dfe5ef7511938e4d23b12c80f38e966a7993aee60744ab72a947bed7b24963b8",
+      "source_bytes": 1066,
+      "packaged_file": "licenses/Disarm.txt",
+      "packaged_sha256": "dfe5ef7511938e4d23b12c80f38e966a7993aee60744ab72a947bed7b24963b8",
+      "packaged_bytes": 1066,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/BepInEx/Dobby/888d971214900374edbca6206fad6ded8a2c1311/LICENSE",
+      "source_file_label": "licenses/Dobby.txt",
+      "source_download_sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+      "source_bytes": 11356,
+      "packaged_file": "licenses/Dobby.txt",
+      "packaged_sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+      "packaged_bytes": 11356,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/NeighTools/UnityDoorstop/33dab9a6733862eb81869ff08431d9478b28784b/src/nix/plthook/plthook.h",
+      "source_file_label": "licenses/Doorstop-plthook-header.txt",
+      "source_download_sha256": "a4e6e36abfe39c616f02954bcf9f11b6bedc9556de6468415159d070a800fec4",
+      "source_bytes": 2814,
+      "packaged_file": "licenses/Doorstop-plthook-header.txt",
+      "packaged_sha256": "ea9290f8f70482260e919b796a13030d1de642cbce7e656530c572c597be4f26",
+      "packaged_bytes": 1818,
+      "extraction": "complete first copyright/license comment"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/NeighTools/UnityDoorstop/33dab9a6733862eb81869ff08431d9478b28784b/src/nix/plthook/plthook_osx.c",
+      "source_file_label": "licenses/Doorstop-plthook-osx.txt",
+      "source_download_sha256": "23ef795870762868a561684203fa55b5a7015d636923f97b291932a34ba8ec35",
+      "source_bytes": 43969,
+      "packaged_file": "licenses/Doorstop-plthook-osx.txt",
+      "packaged_sha256": "992b54e27de3cf591ae57476f277e1c1b9a4ae71229a3d77d665b9ca30cde18b",
+      "packaged_bytes": 1767,
+      "extraction": "complete first copyright/license comment"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/NeighTools/UnityDoorstop/33dab9a6733862eb81869ff08431d9478b28784b/LICENSE",
+      "source_file_label": "licenses/Doorstop.txt",
+      "source_download_sha256": "20c17d8b8c48a600800dfd14f95d5cb9ff47066a9641ddeab48dc54aec96e331",
+      "source_bytes": 26526,
+      "packaged_file": "licenses/Doorstop.txt",
+      "packaged_sha256": "20c17d8b8c48a600800dfd14f95d5cb9ff47066a9641ddeab48dc54aec96e331",
+      "packaged_bytes": 26526,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/BepInEx/HarmonyX/v2.10.2/LICENSE",
+      "source_file_label": "licenses/HarmonyX.txt",
+      "source_download_sha256": "7e54ab4766ef78637a05fb3454663a66de6bb960dbd4c7088890ed76b0844f36",
+      "source_bytes": 1063,
+      "packaged_file": "licenses/HarmonyX.txt",
+      "packaged_sha256": "7e54ab4766ef78637a05fb3454663a66de6bb960dbd4c7088890ed76b0844f36",
+      "packaged_bytes": 1063,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/icedland/iced/v1.21.0/LICENSE.txt",
+      "source_file_label": "licenses/Iced.txt",
+      "source_download_sha256": "93a47598376fd3f276b631e75149340087153c6ff1635a53c5790249e9124e2d",
+      "source_bytes": 1114,
+      "packaged_file": "licenses/Iced.txt",
+      "packaged_sha256": "93a47598376fd3f276b631e75149340087153c6ff1635a53c5790249e9124e2d",
+      "packaged_bytes": 1114,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/BepInEx/Il2CppInterop/dbda1cb353b0f4253345dc45136d170b9e50a5a0/LICENSE",
+      "source_file_label": "licenses/Il2CppInterop.txt",
+      "source_download_sha256": "5eecce16e59e24ddd9d3712012517a033f2cd0459ace22b43d5659d4624abff0",
+      "source_bytes": 42802,
+      "packaged_file": "licenses/Il2CppInterop.txt",
+      "packaged_sha256": "5eecce16e59e24ddd9d3712012517a033f2cd0459ace22b43d5659d4624abff0",
+      "packaged_bytes": 42802,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/jbevain/cecil/0.11.4/LICENSE.txt",
+      "source_file_label": "licenses/Mono.Cecil.txt",
+      "source_download_sha256": "13d58ecbed676511c0c4c4009bff107025e50007ff5e7901dc562700ec62509e",
+      "source_bytes": 1098,
+      "packaged_file": "licenses/Mono.Cecil.txt",
+      "packaged_sha256": "13d58ecbed676511c0c4c4009bff107025e50007ff5e7901dc562700ec62509e",
+      "packaged_bytes": 1098,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MonoMod/MonoMod/a1b82852b/LICENSE",
+      "source_file_label": "licenses/MonoMod.Backports.txt",
+      "source_download_sha256": "0b64833222e3c6a426ad29362d26334619fe02eaf2b89ea9c37805521896c920",
+      "source_bytes": 1080,
+      "packaged_file": "licenses/MonoMod.Backports.txt",
+      "packaged_sha256": "0b64833222e3c6a426ad29362d26334619fe02eaf2b89ea9c37805521896c920",
+      "packaged_bytes": 1080,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/MonoMod/MonoMod/v22.07.31.01/LICENSE",
+      "source_file_label": "licenses/MonoMod.txt",
+      "source_download_sha256": "0b64833222e3c6a426ad29362d26334619fe02eaf2b89ea9c37805521896c920",
+      "source_bytes": 1080,
+      "packaged_file": "licenses/MonoMod.txt",
+      "packaged_sha256": "0b64833222e3c6a426ad29362d26334619fe02eaf2b89ea9c37805521896c920",
+      "packaged_bytes": 1080,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/adamreeve/semver.net/2.0.2/LICENSE",
+      "source_file_label": "licenses/SemanticVersioning.txt",
+      "source_download_sha256": "26a00bad0d14ca2fc93c10398d477fa9609d6fd36068867de53384218c1f64a3",
+      "source_bytes": 1054,
+      "packaged_file": "licenses/SemanticVersioning.txt",
+      "packaged_sha256": "26a00bad0d14ca2fc93c10398d477fa9609d6fd36068867de53384218c1f64a3",
+      "packaged_bytes": 1054,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/dotnet/runtime/4822e3c3aa77eb82b2fb33c9321f923cf11ddde6/THIRD-PARTY-NOTICES.TXT",
+      "source_file_label": "licenses/dotnet-extensions-notices.txt",
+      "source_download_sha256": "df255d595f29db06c6d462ceb7c04b33d627e98ac2f1745e1f1fb9f08eaaecb0",
+      "source_bytes": 46051,
+      "packaged_file": "licenses/dotnet-extensions-notices.txt",
+      "packaged_sha256": "df255d595f29db06c6d462ceb7c04b33d627e98ac2f1745e1f1fb9f08eaaecb0",
+      "packaged_bytes": 46051,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/dotnet/runtime/4822e3c3aa77eb82b2fb33c9321f923cf11ddde6/LICENSE.TXT",
+      "source_file_label": "licenses/dotnet-extensions.txt",
+      "source_download_sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
+      "source_bytes": 1116,
+      "packaged_file": "licenses/dotnet-extensions.txt",
+      "packaged_sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
+      "packaged_bytes": 1116,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/dotnet/runtime/f1dd57165bfd91875761329ac3a8b17f6606ad18/THIRD-PARTY-NOTICES.TXT",
+      "source_file_label": "licenses/dotnet-runtime-notices.txt",
+      "source_download_sha256": "6cd1c020de674c8c7fb07783a26ca386e03c33be4960d0ee7d9a9005498a4284",
+      "source_bytes": 46771,
+      "packaged_file": "licenses/dotnet-runtime-notices.txt",
+      "packaged_sha256": "6cd1c020de674c8c7fb07783a26ca386e03c33be4960d0ee7d9a9005498a4284",
+      "packaged_bytes": 46771,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/dotnet/runtime/f1dd57165bfd91875761329ac3a8b17f6606ad18/LICENSE.TXT",
+      "source_file_label": "licenses/dotnet-runtime.txt",
+      "source_download_sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
+      "source_bytes": 1116,
+      "packaged_file": "licenses/dotnet-runtime.txt",
+      "packaged_sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
+      "packaged_bytes": 1116,
+      "extraction": "unchanged"
+    },
+    {
+      "url": "https://codeload.github.com/BepInEx/BepInEx/tar.gz/5b766a3b7f6c164d4798924a93f3acf4db769d06",
+      "source_file_label": "sources/BepInEx-5b766a3b7f6c164d4798924a93f3acf4db769d06.tar.gz",
+      "source_download_sha256": "2e4196f0620062a4cc38d154999aaceb35e63b4486f2246eaf2862792f91e045",
+      "source_bytes": 1121092,
+      "packaged_file": null,
+      "note": "Source archive packaging is separately documented in source-inventory.json; original downloaded archive not embedded under this name."
+    },
+    {
+      "url": "https://codeload.github.com/SamboyCoding/Cpp2IL/tar.gz/558ddd98642010897d54316b51fbaa7889fda093",
+      "source_file_label": "sources/Cpp2IL-558ddd98642010897d54316b51fbaa7889fda093.tar.gz",
+      "source_download_sha256": "2b71b5d70fe47f8f718d542fc9abffa7b461d1f3979f172487fa2e555a049e49",
+      "source_bytes": 98069554,
+      "packaged_file": null,
+      "note": "Source archive packaging is separately documented in source-inventory.json; original downloaded archive not embedded under this name."
+    },
+    {
+      "url": "https://codeload.github.com/BepInEx/Dobby/tar.gz/888d971214900374edbca6206fad6ded8a2c1311",
+      "source_file_label": "sources/Dobby-888d971214900374edbca6206fad6ded8a2c1311.tar.gz",
+      "source_download_sha256": "bf1a7b3eb76fe5cca1991f6c2e858ac385ed0a6d5701cdadcda1da203b1cb090",
+      "source_bytes": 445888,
+      "packaged_file": null,
+      "note": "Source archive packaging is separately documented in source-inventory.json; original downloaded archive not embedded under this name."
+    },
+    {
+      "url": "https://codeload.github.com/NeighTools/UnityDoorstop/tar.gz/33dab9a6733862eb81869ff08431d9478b28784b",
+      "source_file_label": "sources/Doorstop-33dab9a6733862eb81869ff08431d9478b28784b.tar.gz",
+      "source_download_sha256": "59edff07b17e82e718a4d1def6ca4e13ae01995e0627b9e118547f0ec7e99280",
+      "source_bytes": 92489,
+      "packaged_file": null,
+      "note": "Source archive packaging is separately documented in source-inventory.json; original downloaded archive not embedded under this name."
+    },
+    {
+      "url": "https://codeload.github.com/BepInEx/Il2CppInterop/tar.gz/dbda1cb353b0f4253345dc45136d170b9e50a5a0",
+      "source_file_label": "sources/Il2CppInterop-dbda1cb353b0f4253345dc45136d170b9e50a5a0.tar.gz",
+      "source_download_sha256": "477c1be02f0f13e5a3f424ee33293d50e95e1b770a6dfe1b45e5135eb172029e",
+      "source_bytes": 750997,
+      "packaged_file": null,
+      "note": "Source archive packaging is separately documented in source-inventory.json; original downloaded archive not embedded under this name."
+    }
+  ],
+  "GPL-3.0": {
+    "url": "https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-14.2.0/COPYING3",
+    "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+  },
+  "ILHelpers": {
+    "matching_entries": [
+      "lib/net6.0/MonoMod.ILHelpers.dll"
+    ],
+    "source_commit": "a1b82852b2574742776af08818487b90b0bfab93"
+  },
+  "Apple-APSL-2.0": {
+    "url": "https://github.com/apple-oss-distributions/dyld/blob/main/APPLE_LICENSE",
+    "git_blob_sha": "fe81a60cae982c042a69f97623b427666c455093",
+    "packaged_file": "licenses/Apple-APSL-2.0.txt",
+    "packaged_sha256": "e5881019d8766c1e88a5fe1dbca4ba40c78011d41fcb18f6e9f50df60182685b",
+    "packaged_bytes": 19829
+  }
+}

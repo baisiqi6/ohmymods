@@ -1,0 +1,414 @@
+diff --git a/source/InstructionRelocation/x64/X64InstructionRelocation.cc b/source/InstructionRelocation/x64/X64InstructionRelocation.cc
+index 53f6522..509174a 100644
+--- a/source/InstructionRelocation/x64/X64InstructionRelocation.cc
++++ b/source/InstructionRelocation/x64/X64InstructionRelocation.cc
+@@ -45,7 +45,9 @@ static int GenRelocateCodeFixed(void *buffer, AssemblyCodeChunk *origin, Assembl
+       DLOG(0, "[x86 relo] jc rel8, %p", buffer_cursor);
+ 
+       int8_t orig_offset = insn.immediate;
+-      int new_offset = (int)(curr_orig_ip + orig_offset - curr_relo_ip);
++      // rel8 Jcc uses its original next IP; the widened 0F 8x rel32
++      // instruction uses a six-byte next IP instead of a two-byte one.
++      int new_offset = (int)(curr_orig_ip + insn.length + orig_offset - (curr_relo_ip + 6));
+       uint8_t opcode = 0x80 | (insn.primary_opcode & 0x0f);
+ 
+       __ Emit8(0x0F);
+diff --git a/source/MemoryAllocator/NearMemoryArena.cc b/source/MemoryAllocator/NearMemoryArena.cc
+index b1313fa..3833420 100644
+--- a/source/MemoryAllocator/NearMemoryArena.cc
++++ b/source/MemoryAllocator/NearMemoryArena.cc
+@@ -7,6 +7,12 @@
+ #include <iostream>
+ #include <vector>
+ 
++#if defined(__APPLE__)
++#include <mach/mach.h>
++
++#include "UnifiedInterface/platform-darwin/mach_vm.h"
++#endif
++
+ using namespace zz;
+ 
+ #define KB (1024uLL)
+@@ -64,6 +70,138 @@ static addr_t next_page(addr_t cur, int pagesize) {
+ }
+ 
+ #if 1
++
++#if defined(__APPLE__)
++
++// A near page can only come from a gap between existing mappings: the Mach
++// reservation below refuses an address that is already mapped, so a page that
++// is part of a region is not even a candidate. The window is therefore walked
++// once against the sorted region list, keeping a cursor of the lowest page not
++// yet known to be mapped. Regions that cross either window bound are handled by
++// the cursor, which makes a hole that starts or ends outside the window, a hole
++// of exactly one page, and the free space trailing the last region reachable.
++
++// Maximum exact reservation attempts in a single search before giving up. Each
++// refused page skips to the end of the range that refused it, so this is a
++// bound on allocation attempts, not on all kernel calls. Submap queries are also bounded.
++static const int kNearBlankPageProbeBudget = 64;
++
++// Next page boundary at or after addr, 0 when the alignment overflows.
++static addr_t page_align_ceil(addr_t addr, addr_t page_size) {
++  addr_t sum = addr_add(addr, page_size - 1);
++  if (sum == (addr_t)-1)
++    return 0;
++  return ALIGN_FLOOR(sum, page_size);
++}
++
++// End of the mapped range containing addr, 0 when the address is not mapped.
++// A mapping can appear after the layout snapshot. After a refusal, ask the
++// kernel where that occupied range ends instead of stepping page by page.
++static addr_t mapped_range_end(addr_t addr) {
++  mach_vm_address_t region_addr = (mach_vm_address_t)addr;
++  mach_vm_size_t region_size = 0;
++  natural_t depth = 0;
++  struct vm_region_submap_short_info_64 submap_info;
++  while (true) {
++    mach_msg_type_number_t count = VM_REGION_SUBMAP_SHORT_INFO_COUNT_64;
++    kern_return_t kr = mach_vm_region_recurse(mach_task_self(), &region_addr, &region_size, &depth,
++                                              (vm_region_recurse_info_t)&submap_info, &count);
++    if (kr != KERN_SUCCESS)
++      return 0;
++    if (!submap_info.is_submap) {
++      addr_t end = addr_add((addr_t)region_addr, (addr_t)region_size);
++      return region_addr <= addr && addr < end ? end : 0;
++    }
++    if (depth++ >= 32)
++      return 0;
++  }
++}
++
++// Reserve one page inside the free interval [gap_lo, gap_hi). Every attempt is
++// a precise reservation and never an overwrite: a page that someone else mapped
++// in the meantime is refused, and the search moves past it.
++static addr_t try_reserve_blank_page(addr_t gap_lo, addr_t gap_hi, addr_t page_size, int *budget) {
++  if (gap_hi < page_size)
++    return 0;
++  addr_t last_page = gap_hi - page_size;
++  addr_t page = page_align_ceil(gap_lo, page_size);
++  if (page == 0 || page > last_page)
++    return 0;
++
++  while (page <= last_page && *budget > 0) {
++    --*budget;
++    void *result = OSMemory::Allocate((void *)page, (int)page_size, MemoryPermission::kReadExecute);
++    if (result)
++      return (addr_t)result;
++
++    addr_t refused_range_end = mapped_range_end(page);
++    // A refusal with no occupied range is not evidence that the next page is
++    // usable (e.g. an unmapped but restricted address interval). Skip this gap
++    // instead of exhausting the budget on consecutive pages in the same gap.
++    if (refused_range_end <= page)
++      break;
++    addr_t next_page = page_align_ceil(refused_range_end, page_size);
++    if (next_page == 0 || next_page <= page)
++      break;
++    page = next_page;
++  }
++  return 0;
++}
++
++static addr_t search_near_blank_page(addr_t pos, size_t alloc_range) {
++  const addr_t page_size = (addr_t)OSMemory::AllocPageSize();
++  if (page_size == 0 || alloc_range == 0)
++    return 0;
++
++  // Pages that keep the result within alloc_range of pos.
++  // AllocateChunk uses strict distance < alloc_range; do not reserve a page
++  // at the excluded lower boundary only to reject it when reusing the page.
++  addr_t low = addr_sub(pos, (addr_t)alloc_range);
++  if (low == (addr_t)-1) return 0;
++  addr_t first_page = page_align_ceil(low + 1, page_size);
++  addr_t window_end = ALIGN_FLOOR(addr_add(pos, (addr_t)alloc_range), page_size);
++  if (first_page == 0 || window_end < page_size || window_end - page_size < first_page)
++    return 0;
++
++  // region.start sorted
++  std::vector<MemoryRegion> process_memory_layout = ProcessRuntimeUtility::GetProcessMemoryLayout();
++  if (process_memory_layout.empty())
++    return 0;
++
++  int budget = kNearBlankPageProbeBudget;
++  addr_t cursor = first_page; // lowest page in the window not known to be mapped
++
++  for (size_t i = 0; i < process_memory_layout.size(); ++i) {
++    addr_t region_start = (addr_t)process_memory_layout[i].address;
++    addr_t region_end = addr_add(region_start, (addr_t)process_memory_layout[i].length);
++
++    if (region_end <= cursor)
++      continue; // region lies before the pages still under consideration
++    if (region_start >= window_end) {
++      // regions are sorted: only the free space left in the window remains
++      return try_reserve_blank_page(cursor, window_end, page_size, &budget);
++    }
++
++    // free interval this region opens inside the window
++    if (region_start > cursor) {
++      addr_t blank_page = try_reserve_blank_page(cursor, region_start, page_size, &budget);
++      if (blank_page)
++        return blank_page;
++    }
++
++    addr_t next_cursor = page_align_ceil(region_end, page_size);
++    if (next_cursor == 0 || next_cursor <= cursor)
++      return 0; // alignment overflow: stop instead of walking garbage
++    if (next_cursor >= window_end)
++      return 0; // the window ends inside this region
++    cursor = next_cursor;
++  }
++
++  // free space trailing the last region
++  return try_reserve_blank_page(cursor, window_end, page_size, &budget);
++}
++
++#else
+ static addr_t search_near_blank_page(addr_t pos, size_t alloc_range) {
+   addr_t min_page_addr, max_page_addr;
+   min_page_addr = next_page(addr_sub(pos, alloc_range), OSMemory::AllocPageSize());
+@@ -143,6 +281,8 @@ static addr_t search_near_blank_page(addr_t pos, size_t alloc_range) {
+   return resultPageAddr;
+ }
+ 
++#endif // defined(__APPLE__)
++
+ void NearMemoryArena::Destroy(MemoryChunk *chunk) {
+     if (!chunk)
+       return;
+@@ -195,6 +335,51 @@ static addr_t search_near_blank_memory_chunk(addr_t pos, size_t alloc_range, int
+ }
+ #endif
+ 
++#if defined(__APPLE__)
++
++// Upper bound of one pre-reservation batch, counting the page the search has
++// just reserved.
++static const int kNearCodeReservePageLimit = 16;
++
++// A fresh near code page is taken from the first free page of a gap, and the
++// caller reuses the page it holds instead of asking the kernel again. Try
++// to reserve still-free successors now, before another runtime fills the gap:
++// one page per OSMemory::Allocate call, fixed address, no overwrite, each page
++// pushed on its own so the arena keeps one-page granularity and the real page
++// size. The batch stops at the first page the kernel refuses, which leaves the
++// page already reserved by the search untouched, and it is bounded so a
++// foreign mapping that fills the gap costs at most one refused call.
++//
++// The offsets are checked like the search itself: no address overflow, never a
++// page at or past the strict alloc_range distance, never a page crossing the
++// full-page boundary that ends the window.
++static void reserve_near_code_successor_pages(addr_t first_page_addr, addr_t position, size_t alloc_range) {
++  const addr_t page_size = (addr_t)OSMemory::AllocPageSize();
++  if (page_size == 0 || alloc_range == 0)
++    return;
++
++  addr_t window_end = ALIGN_FLOOR(addr_add(position, (addr_t)alloc_range), page_size);
++  if (window_end < page_size)
++    return;
++  addr_t last_reservable_page = window_end - page_size;
++  if (first_page_addr > last_reservable_page)
++    return;
++
++  addr_t page = first_page_addr;
++  for (int count = 1; count < kNearCodeReservePageLimit; ++count) {
++    addr_t next = addr_add(page, page_size);
++    if (next <= page || next > last_reservable_page)
++      return; // overflow, or the next page is outside the window
++    void *result = OSMemory::Allocate((void *)next, (int)page_size, MemoryPermission::kReadExecute);
++    if (result == NULL || (addr_t)result != next)
++      return; // someone else owns it: the gap is no longer ours to extend
++    NearMemoryArena::PushPage(next, kReadExecute);
++    page = next;
++  }
++}
++
++#endif // defined(__APPLE__)
++
+ #define NEAR_PAGE_ARRAYLEN 8
+ 
+ int NearMemoryArena::PushPage(addr_t page_addr, MemoryPermission permission) {
+@@ -254,6 +439,12 @@ search_once_more:
+   if (blank_page_addr) {
+     OSMemory::SetPermission((void *)blank_page_addr, OSMemory::PageSize(), permission);
+     NearMemoryArena::PushPage(blank_page_addr, permission);
++#if defined(__APPLE__)
++    // Code chunks are what a full process exhausts first: the first page of a
++    // gap is claimed here, so the free space behind it is claimed now as well.
++    if (permission == kReadExecute)
++      reserve_near_code_successor_pages(blank_page_addr, position, alloc_range);
++#endif
+     goto search_once_more;
+   }
+ 
+@@ -262,6 +453,12 @@ search_once_more:
+     return NULL;
+   }
+ 
++#if defined(__APPLE__)
++  // Zero bytes in an existing mapping do not establish ownership. In
++  // particular, a relocated jump's pointer has zero high bytes that a later
++  // allocation can overwrite. Fail rather than borrow unreserved code caves.
++  return NULL;
++#endif
+   addr_t blank_chunk_addr = 0;
+   blank_chunk_addr = search_near_blank_memory_chunk(position, alloc_range, alloc_size);
+   if (blank_chunk_addr) {
+diff --git a/source/UserMode/ExecMemory/code-patch-tool-darwin.cc b/source/UserMode/ExecMemory/code-patch-tool-darwin.cc
+index 16312a8..49277cd 100644
+--- a/source/UserMode/ExecMemory/code-patch-tool-darwin.cc
++++ b/source/UserMode/ExecMemory/code-patch-tool-darwin.cc
+@@ -10,6 +10,7 @@
+ #include <mach/mach.h>
+ #include <mach/vm_map.h>
+ #include <sys/mman.h>
++#include <sys/sysctl.h>
+ #include "UserMode/UnifiedInterface/platform-darwin/mach_vm.h"
+ #endif
+ 
+@@ -73,12 +74,39 @@ int code_remap_with_substrated(uint8_t *buffer, uint32_t buffer_size, addr_t add
+ PUBLIC MemoryOperationError CodePatch(void *address, uint8_t *buffer, uint32_t buffer_size) {
+   kern_return_t kr;
+ 
++  if (buffer_size == 0)
++    return kMemoryOperationSuccess;
++
+   int page_size = (int)sysconf(_SC_PAGESIZE);
+   addr_t page_aligned_address = ALIGN_FLOOR(address, page_size);
+   int offset = (int)((addr_t)address - page_aligned_address);
+ 
++  // a patch across pages is not supported
++  if ((uint64_t)offset + buffer_size > (uint64_t)page_size)
++    return kMemoryOperationError;
++
+   static mach_port_t self_port = mach_task_self();
+ #ifdef __APPLE__
++  // the patch keeps the protection of the target page, so the page must be
++  // covered by one single region, otherwise its protection can't be preserved
++  mach_vm_address_t region_address = (mach_vm_address_t)page_aligned_address;
++  mach_vm_size_t region_size = 0;
++  vm_region_basic_info_data_64_t region_info;
++  mach_msg_type_number_t region_info_count = VM_REGION_BASIC_INFO_COUNT_64;
++  mach_port_t region_object = MACH_PORT_NULL;
++  kr = mach_vm_region(self_port, &region_address, &region_size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&region_info,
++                      &region_info_count, &region_object);
++  if (MACH_PORT_VALID(region_object))
++    mach_port_deallocate(self_port, region_object);
++  if (kr != KERN_SUCCESS)
++    return kMemoryOperationError;
++  if (region_address > (mach_vm_address_t)page_aligned_address ||
++      region_address + region_size < (mach_vm_address_t)page_aligned_address + (mach_vm_size_t)page_size)
++    return kMemoryOperationError;
++  vm_prot_t original_protection = region_info.protection;
++  if ((original_protection & VM_PROT_READ) == 0)
++    return kMemoryOperationError;
++
+   // try modify with substrated (steal from frida-gum)
+   addr_t remap_dummy_page =
+       (addr_t)mmap(0, page_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, VM_MAKE_TAG(255), 0);
+@@ -91,8 +119,12 @@ PUBLIC MemoryOperationError CodePatch(void *address, uint8_t *buffer, uint32_t b
+   // patch buffer
+   memcpy((void *)(remap_dummy_page + offset), buffer, buffer_size);
+ 
+-  // change permission
+-  mprotect((void *)remap_dummy_page, page_size, PROT_READ | PROT_WRITE);
++  // the target page inherits the protection of the page remapped to it, keep the
++  // protection of the original page: a writable dynamic code page must stay writable
++  if (mprotect((void *)remap_dummy_page, page_size, original_protection) != 0) {
++    munmap((void *)remap_dummy_page, page_size);
++    return kMemoryOperationError;
++  }
+ 
+   int ret = RT_FAILED;
+ #if 0 && defined(CODE_PATCH_WITH_SUBSTRATED) && defined(TARGET_ARCH_ARM64)
+@@ -101,13 +133,13 @@ PUBLIC MemoryOperationError CodePatch(void *address, uint8_t *buffer, uint32_t b
+     DLOG(0, "substrated failed, use vm_remap");
+ #endif
+   if (ret == RT_FAILED) {
+-    mprotect((void *)remap_dummy_page, page_size, PROT_READ | PROT_EXEC);
+     mach_vm_address_t remap_dest_page = (mach_vm_address_t)page_aligned_address;
+     vm_prot_t curr_protection, max_protection;
+     kr = mach_vm_remap(self_port, (mach_vm_address_t *)&remap_dest_page, page_size, 0,
+                        VM_FLAGS_OVERWRITE | VM_FLAGS_FIXED, self_port, (mach_vm_address_t)remap_dummy_page, TRUE,
+                        &curr_protection, &max_protection, VM_INHERIT_COPY);
+     if (kr != KERN_SUCCESS) {
++      munmap((void *)remap_dummy_page, (mach_vm_address_t)page_size);
+       return kMemoryOperationError;
+     }
+   }
+@@ -118,11 +150,24 @@ PUBLIC MemoryOperationError CodePatch(void *address, uint8_t *buffer, uint32_t b
+     return kMemoryOperationError;
+   }
+ 
+-#endif
++#if defined(__x86_64__)
++  int translated = 0;
++  size_t translated_size = sizeof(translated);
++  if (sysctlbyname("sysctl.proc_translated", &translated, &translated_size, nullptr, 0) == 0 && translated) {
++    // A remap updates bytes but leaves Rosetta executing the old translation.
++    // Refresh RX mappings through write permission and restore their protection.
++    // Keep originally writable CLR code/data pages writable throughout; briefly
++    // removing write permission here would race subsequent delegate allocations.
++    if (mprotect((void *)page_aligned_address, page_size, PROT_READ | PROT_WRITE | PROT_EXEC) != 0)
++      return kMemoryOperationError;
++    if (mprotect((void *)page_aligned_address, page_size, original_protection) != 0)
++      return kMemoryOperationError;
++  }
++#endif /* __x86_64__ */
++#endif /* __APPLE__ */
+ 
+   addr_t clear_start = (addr_t)page_aligned_address + offset;
+   DCHECK_EQ(clear_start, (addr_t)address);
+-
+   ClearCache((void *)address, (void *)((addr_t)address + buffer_size));
+   return kMemoryOperationSuccess;
+ }
+diff --git a/source/UserMode/UnifiedInterface/platform-posix.cc b/source/UserMode/UnifiedInterface/platform-posix.cc
+index e941179..bd4edcd 100644
+--- a/source/UserMode/UnifiedInterface/platform-posix.cc
++++ b/source/UserMode/UnifiedInterface/platform-posix.cc
+@@ -28,6 +28,7 @@
+ #if defined(__APPLE__)
+ #include <dlfcn.h>
+ #include <mach/mach.h>
++#include <mach/mach_vm.h>
+ #include <mach/vm_statistics.h>
+ #endif
+ 
+@@ -132,13 +133,31 @@ int OSMemory::PageSize() {
+ void *OSMemory::Allocate(void *address, int size, MemoryPermission access) {
+   int prot = GetProtectionFromMemoryPermission(access);
+ 
+-  int flags = MAP_PRIVATE | MAP_ANONYMOUS;
+-  if (address != NULL) {
+-    flags = flags | MAP_FIXED;
++#if defined(__APPLE__)
++  if (address != nullptr) {
++    // VM_FLAGS_FIXED reserves an exact free range; unlike mmap MAP_FIXED,
++    // it does not replace an existing mapping (no VM_FLAGS_OVERWRITE).
++    mach_vm_address_t reserved = (mach_vm_address_t)address;
++    kern_return_t kr = mach_vm_allocate(mach_task_self(), &reserved, size, VM_FLAGS_FIXED);
++    if (kr != KERN_SUCCESS)
++      return nullptr;
++    if (reserved != (mach_vm_address_t)address || mprotect((void *)reserved, size, prot) != 0) {
++      mach_vm_deallocate(mach_task_self(), reserved, size);
++      return nullptr;
++    }
++    return (void *)reserved;
+   }
++#endif
++  int flags = MAP_PRIVATE | MAP_ANONYMOUS;
++  // Do not replace an existing mapping while reserving a near-code page.
++  // Treat the requested address as a hint and accept only that exact free address.
+   void *result = mmap(address, size, prot, flags, kMmapFd, kMmapFdOffset);
+   if (result == MAP_FAILED)
+     return nullptr;
++  if (address != nullptr && result != address) {
++    munmap(result, size);
++    return nullptr;
++  }
+ 
+   return result;
+ }

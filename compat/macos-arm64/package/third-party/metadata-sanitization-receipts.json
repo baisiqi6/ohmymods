@@ -1,0 +1,202 @@
+[
+  {
+    "input": {
+      "file": "OhMyMods.Arm64Entry.dll",
+      "sha256": "34272c8362e3d3be3102ba884d4ae51c8bcbee20bb1d40d517b79bdb263947d6",
+      "size": 8704
+    },
+    "modified_ranges": [
+      [
+        6644,
+        6756
+      ]
+    ],
+    "notes": "byte diff confined to CodeView RSDS path fields; RSDS GUID/age, headers, IL, resources and MVID untouched",
+    "output": {
+      "file": "OhMyMods.Arm64Entry.dll",
+      "sha256": "ae6f06985784a9b3260c307d01f9fb8b7a4d46baf6fed957dcd05ce5c072e56e",
+      "size": 8704
+    },
+    "preserved_debug_entries": [
+      {
+        "data_offset": 6756,
+        "entry_index": 1,
+        "size_of_data": 39,
+        "type": 19
+      },
+      {
+        "data_offset": 0,
+        "entry_index": 2,
+        "size_of_data": 0,
+        "type": 16
+      }
+    ],
+    "records": [
+      {
+        "age": 1,
+        "data_offset": 6620,
+        "entry_index": 0,
+        "field_length": 112,
+        "guid_hex": "114da20648897f44b6ee1b2c0ed642cf",
+        "new_path": "OhMyMods.Arm64Entry.pdb",
+        "old_path_length": 111,
+        "path_offset": 6644,
+        "size_of_data": 136,
+        "type": 2
+      }
+    ],
+    "schema": 1,
+    "tool": "sanitize_codeview",
+    "package_path": "BepInEx/core/OhMyMods.Arm64Entry.dll"
+  },
+  {
+    "input": {
+      "file": "OhMyMods.Arm64Injection.dll",
+      "sha256": "3b851171ccd37e5e9da3d547bfa46c9f2027b360cf437ebf04a98abaa98570f5",
+      "size": 9728
+    },
+    "modified_ranges": [
+      [
+        7576,
+        7696
+      ]
+    ],
+    "notes": "byte diff confined to CodeView RSDS path fields; RSDS GUID/age, headers, IL, resources and MVID untouched",
+    "output": {
+      "file": "OhMyMods.Arm64Injection.dll",
+      "sha256": "d5756eeb9f5556de95d8396c7566bd1bb111762733822925454c9e4bd303e894",
+      "size": 9728
+    },
+    "preserved_debug_entries": [
+      {
+        "data_offset": 7696,
+        "entry_index": 1,
+        "size_of_data": 39,
+        "type": 19
+      },
+      {
+        "data_offset": 0,
+        "entry_index": 2,
+        "size_of_data": 0,
+        "type": 16
+      }
+    ],
+    "records": [
+      {
+        "age": 1,
+        "data_offset": 7552,
+        "entry_index": 0,
+        "field_length": 120,
+        "guid_hex": "4d7f9aa316448a469e810bc964ba01e9",
+        "new_path": "OhMyMods.Arm64Injection.pdb",
+        "old_path_length": 119,
+        "path_offset": 7576,
+        "size_of_data": 144,
+        "type": 2
+      }
+    ],
+    "schema": 1,
+    "tool": "sanitize_codeview",
+    "package_path": "BepInEx/core/OhMyMods.Arm64Injection.dll"
+  },
+  {
+    "input": {
+      "file": "OhMyMods.MacCompatibility.dll",
+      "sha256": "2111a1674439c37127e8c972bf1d2e800a45043f1f11a1df6f18f6b60169d69d",
+      "size": 12288
+    },
+    "modified_ranges": [
+      [
+        10188,
+        10301
+      ]
+    ],
+    "notes": "byte diff confined to CodeView RSDS path fields; RSDS GUID/age, headers, IL, resources and MVID untouched",
+    "output": {
+      "file": "OhMyMods.MacCompatibility.dll",
+      "sha256": "6c4bf5825b1972dbbbf8da1f8d6a5fb72bfb52a9f8c59870cf4677a040b21b83",
+      "size": 12288
+    },
+    "preserved_debug_entries": [
+      {
+        "data_offset": 10301,
+        "entry_index": 1,
+        "size_of_data": 39,
+        "type": 19
+      },
+      {
+        "data_offset": 0,
+        "entry_index": 2,
+        "size_of_data": 0,
+        "type": 16
+      }
+    ],
+    "records": [
+      {
+        "age": 1,
+        "data_offset": 10164,
+        "entry_index": 0,
+        "field_length": 113,
+        "guid_hex": "0d1de0af4c3f624ab81f7fb9787d1713",
+        "new_path": "OhMyMods.MacCompatibility.pdb",
+        "old_path_length": 112,
+        "path_offset": 10188,
+        "size_of_data": 137,
+        "type": 2
+      }
+    ],
+    "schema": 1,
+    "tool": "sanitize_codeview",
+    "package_path": "BepInEx/core/OhMyMods.MacCompatibility.dll"
+  },
+  {
+    "input": {
+      "file": "KingdomEnhancedMod.dll",
+      "sha256": "162046f77e025d90b3d6c9b5ea25d92835cb0609c26563885898ae93dfc9fb8a",
+      "size": 1156608
+    },
+    "modified_ranges": [
+      [
+        1153324,
+        1153451
+      ]
+    ],
+    "notes": "byte diff confined to CodeView RSDS path fields; RSDS GUID/age, headers, IL, resources and MVID untouched",
+    "output": {
+      "file": "KingdomEnhancedMod.dll",
+      "sha256": "8f89959de555f72f6c53b71cf1d98a0da415b8577b91d825177d6f05bf6d623f",
+      "size": 1156608
+    },
+    "preserved_debug_entries": [
+      {
+        "data_offset": 1153451,
+        "entry_index": 1,
+        "size_of_data": 39,
+        "type": 19
+      },
+      {
+        "data_offset": 0,
+        "entry_index": 2,
+        "size_of_data": 0,
+        "type": 16
+      }
+    ],
+    "records": [
+      {
+        "age": 1,
+        "data_offset": 1153300,
+        "entry_index": 0,
+        "field_length": 127,
+        "guid_hex": "44f4ff40d6fdbc468b128a153ad36acc",
+        "new_path": "KingdomEnhancedMod.pdb",
+        "old_path_length": 126,
+        "path_offset": 1153324,
+        "size_of_data": 151,
+        "type": 2
+      }
+    ],
+    "schema": 1,
+    "tool": "sanitize_codeview",
+    "package_path": "BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll"
+  }
+]
