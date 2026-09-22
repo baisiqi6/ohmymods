@@ -28,6 +28,12 @@ namespace KingdomEnhancedMod
         internal static bool IsHero(Archer archer) => throw new NotSupportedException();
     }
 
+    /// <summary>Real: il2cpp/CrossbowmanLifecycle.cs (marker-backed identity reader; fail-closed).</summary>
+    internal static class CrossbowmanLifecycle
+    {
+        internal static bool IsCrossbowman(Archer archer) => throw new NotSupportedException();
+    }
+
     /// <summary>Real: il2cpp/PatchWorld_FleetBoatFormation.cs internal queries.</summary>
     internal static class PatchWorld_FleetBoatFormation
     {

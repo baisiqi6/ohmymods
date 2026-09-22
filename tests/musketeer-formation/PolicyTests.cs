@@ -346,6 +346,86 @@ namespace MusketeerFormationTests
                 Check.False(PatchMusketeerFormation.ShouldBlockNativeRecruit(ordinary, formation),
                     "ordinary archer is native again");
             });
+
+            // ---- 弩手专职守墙、绝不进队（玩家反馈 2026-09-22）----
+
+            Case.Run("crossbowman cannot take a native bow seat on the player formation", () =>
+            {
+                Fixture.Reset();
+                Formation formation = Fixture.NewFormation(0f);
+                Archer archer = Fixture.NewArcher(1f);
+                CrossbowmanLifecycle.Crossbowmen.Add(archer);
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(archer, formation),
+                    "crossbowman must be refused");
+            });
+
+            Case.Run("crossbowman refusal is independent of the musketeer feature and row", () =>
+            {
+                // 判别性用例：修复前这两组会从火枪开关/火枪排检查（原 189/190 行）漏过并放行。
+                Fixture.Reset();
+                Formation formation = Fixture.NewFormation(0f);
+                Archer archer = Fixture.NewArcher(1f);
+                CrossbowmanLifecycle.Crossbowmen.Add(archer);
+
+                MusketeerAccess.Enabled = false;
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(archer, formation),
+                    "disabled musketeer feature must not release the crossbowman");
+
+                MusketeerAccess.Enabled = true;
+                PatchWorld_FleetBoatFormation.MusketeerRow = false;
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(archer, formation),
+                    "a missing musketeer row must not release the crossbowman");
+            });
+
+            Case.Run("the exclusion is per archer, not per formation", () =>
+            {
+                Fixture.Reset();
+                Formation formation = Fixture.NewFormation(0f);
+                Archer crossbowman = Fixture.NewArcher(1f);
+                CrossbowmanLifecycle.Crossbowmen.Add(crossbowman);
+                Archer ordinary = Fixture.NewArcher(2f, marked: false);
+
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(crossbowman, formation),
+                    "crossbowman refused");
+                Check.False(PatchMusketeerFormation.ShouldBlockNativeRecruit(ordinary, formation),
+                    "ordinary archer keeps the native bow seat");
+            });
+
+            Case.Run("crossbowman outside the player formation stays native", () =>
+            {
+                Fixture.Reset();
+                Formation formation = Fixture.NewFormation(0f, Formation.FormationType.PassiveShieldWall);
+                Archer archer = Fixture.NewArcher(1f);
+                CrossbowmanLifecycle.Crossbowmen.Add(archer);
+                Check.False(PatchMusketeerFormation.ShouldBlockNativeRecruit(archer, formation),
+                    "only the banner player formation is guarded");
+            });
+
+            Case.Run("globally disabled crossbowman identity stays native", () =>
+            {
+                Fixture.Reset();
+                Formation formation = Fixture.NewFormation(0f);
+                // 非火枪手标记：身份关后应回到纯原生路径，而不是被火枪分支拦下。
+                Archer archer = Fixture.NewArcher(1f, marked: false);
+                CrossbowmanLifecycle.Crossbowmen.Add(archer);
+                CrossbowmanLifecycle.IdentityEnabled = false;   // 真实读者：全局 Mod 开关关闭
+                Check.False(PatchMusketeerFormation.ShouldBlockNativeRecruit(archer, formation),
+                    "identity off must release the archer");
+            });
+
+            Case.Run("identity reader failure stays native (outer catch)", () =>
+            {
+                // 生产 IsCrossbowman 自身 fail-closed（内吞异常返 false），这条经该调用不可达；
+                // 本用例钉的是 ShouldBlockNativeRecruit 外层 catch 的既有容错原则——任何协作方
+                // 抛异常都不得破坏原生招募路径（仅桩可达路径，注释注明）。
+                Fixture.Reset();
+                Formation formation = Fixture.NewFormation(0f);
+                Archer archer = Fixture.NewArcher(1f);
+                CrossbowmanLifecycle.Crossbowmen.Add(archer);
+                CrossbowmanLifecycle.ThrowOnRead = true;
+                Check.False(PatchMusketeerFormation.ShouldBlockNativeRecruit(archer, formation),
+                    "a throwing reader must not block the native path");
+            });
         }
     }
 }

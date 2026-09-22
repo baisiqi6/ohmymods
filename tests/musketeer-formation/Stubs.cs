@@ -191,6 +191,23 @@ namespace KingdomEnhancedMod
         internal static bool IsHero(Archer archer) => archer != null && Heroes.Contains(archer);
     }
 
+    // 生产版是 il2cpp/CrossbowmanLifecycle.cs 的身份读者（marker 组件 + 即时读全局 Mod 开关，
+    // 读取器自身异常一律 fail closed=当作非弩手）。本测试用可开关替身代替：
+    // Crossbowmen=marker 集合，IdentityEnabled=全局开关（默认 true），ThrowOnRead 仅用于验证
+    // ShouldBlockNativeRecruit 外层 catch 的容错（生产读者不抛异常，该路径只有桩可达）。
+    internal static class CrossbowmanLifecycle
+    {
+        internal static readonly HashSet<Archer> Crossbowmen = new();
+        internal static bool IdentityEnabled = true;
+        internal static bool ThrowOnRead;
+
+        internal static bool IsCrossbowman(Archer archer)
+        {
+            if (ThrowOnRead) throw new InvalidOperationException("scripted identity read failure");
+            return IdentityEnabled && archer != null && Crossbowmen.Contains(archer);
+        }
+    }
+
     // 生产版是 PatchWorld_FleetBoatFormation.cs 的 internal 查询；本测试只编译本文件，
     // 因此用可开关的替身代替（默认 false，测试用 Fixture.Reset/直接赋值控制）。
     internal static class PatchWorld_FleetBoatFormation
