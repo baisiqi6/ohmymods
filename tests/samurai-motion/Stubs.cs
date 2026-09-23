@@ -52,7 +52,8 @@ namespace UnityEngine
     }
     public class MonoBehaviour : Component
     {
-        public bool enabled = true;
+        private bool enabledState = true;
+        public virtual bool enabled { get => enabledState; set => enabledState = value; }
         public bool isActiveAndEnabled => enabled && gameObject.activeInHierarchy;
         public Coroutine StartCoroutine(IEnumerator iterator) => Scheduler.Start(this, iterator);
         public void StopCoroutine(Coroutine coroutine) => Scheduler.StopSilently(coroutine);
@@ -75,12 +76,54 @@ namespace UnityEngine
         public static bool Approximately(float a, float b) => MathF.Abs(a - b) < 0.00001f;
     }
     public static class Time { public static float time, deltaTime = .02f, timeScale = 1; public static int frameCount; }
-    public struct Color { public static Color white => new(); }
-    public class Animator : Component
+    // Deterministic dice stub: production draws Random.value once per swallow roll only.
+    public static class Random
     {
-        public int TriggerCount;
+        public static float ForcedValue = 1f;
+        public static int Rolls;
+        public static float value { get { Rolls++; return ForcedValue; } }
+    }
+    public struct Color { public static Color white => new(); }
+    // AnimatorStateInfo stand-in: the fields the stuck-pose probe reads.
+    public struct AnimatorStateInfo
+    {
+        public int shortNameHash, fullPathHash;
+        public float normalizedTime;
+    }
+    // Animator stand-in for the stuck-pose probe: state hash, transition flag, Speed parameter and
+    // the trigger writes are all script-controlled, so the tests can pin the capture gates, the
+    // repair ladder and the trigger hygiene. Play and the enable toggle restart the state the way
+    // the engine does, unless a test hook says otherwise.
+    public class Animator : MonoBehaviour
+    {
+        public int TriggerCount, ResetCount, PlayCalls, EnabledWrites;
+        public int StateHash, FullPathHash;
+        public float NormalizedTime, Speed;
+        public bool InTransition;
+        public readonly List<string> Ops = new();
+        public Func<int, int, float, bool> OnPlay;      // return false → the replay does not take
+        public Action<bool> OnEnabledWrite;
+        private bool animatorEnabled = true;
+
+        public override bool enabled
+        {
+            get => animatorEnabled;
+            set { animatorEnabled = value; EnabledWrites++; OnEnabledWrite?.Invoke(value); }
+        }
         public static int StringToHash(string name) => name.GetHashCode();
-        public void SetTrigger(int hash) => TriggerCount++;
+        public void SetTrigger(int hash) { TriggerCount++; Ops.Add("set"); }
+        public void ResetTrigger(int hash) { ResetCount++; Ops.Add("reset"); }
+        public bool IsInTransition(int layer) => InTransition;
+        public float GetFloat(int id) => Speed;
+        public AnimatorStateInfo GetCurrentAnimatorStateInfo(int layer) =>
+            new() { shortNameHash = StateHash, fullPathHash = FullPathHash, normalizedTime = NormalizedTime };
+        public void Play(int stateNameHash, int layer, float normalizedTime)
+        {
+            PlayCalls++;
+            Ops.Add("play");
+            if (OnPlay != null && !OnPlay(stateNameHash, layer, normalizedTime)) return;
+            StateHash = stateNameHash;
+        }
     }
     public class TrailRenderer : Component { public bool enabled, emitting; public int positionCount, sortingLayerID, sortingOrder; public float time, widthMultiplier; }
     public class Collider2D : Component { }
@@ -250,6 +293,9 @@ public class Mover : UnityEngine.Component
     }
     public void SetFacingMode(FacingMode mode, UnityEngine.GameObject target = null)
     { facingMode = mode; facingTarget = mode == FacingMode.Target ? target : null; FacingWrites++; }
+    public int DirectionWrites;
+    public void SetDirection(int direction)
+    { DirectionWrites++; transform.localScale = new(direction, 1f, 1f); } // Mirrors native API; callers must preserve the owned Y scale.
     public void Stop() { StopCalls++; goalMode = GoalMode.Off; movingToGoal = false; _goalSpeed = 0; OnStop?.Invoke(); }
     public void Step(float dt)
     {
@@ -283,9 +329,10 @@ namespace KingdomEnhancedMod
         public class Logger
         {
             public readonly List<string> Errors = new();
+            public readonly List<string> Infos = new();
             public void LogError(string message) => Errors.Add(message);
             public void LogWarning(string message) { }
-            public void LogInfo(string message) { }
+            public void LogInfo(string message) => Infos.Add(message);
         }
     }
 }
