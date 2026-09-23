@@ -146,6 +146,8 @@ public class Payable : UnityEngine.Component
     { if (++CastCalls == ThrowOnCastCall) throw new InvalidOperationException("native cast"); return this as T; }
     public bool forceBlockPayment;
     public int Price = 4;
+    /// <summary>Payable.cs:1037 (2.1.0) field name; 2.4 interop keeps the lowercase name.</summary>
+    public int priceIncrease;
     public CurrencyType Currency = CurrencyType.Coins;
     public float playerPayDistance = 1f;
     public Player interactingPlayer;
@@ -185,7 +187,6 @@ public class Shop : Payable
     public int maxItems = 4;
     public int _limitedNumItems = 4;
     public bool Blocked;
-    public int PriceIncrease;
     public int TransactionCompleteCalls;
     public Func<Player, bool> CanPayHook;
 
@@ -208,7 +209,8 @@ public class Shop : Payable
         return Stock < Limit;
     }
 
-    public override bool CanSelect(Player player) => !forceBlockPayment && base.CanSelect(player);
+    /// <summary>Payable.cs:134 (2.1.0): the native CanSelect simply delegates to CanPay.</summary>
+    public override bool CanSelect(Player player) => CanPay(player);
 
     public override void TransactionComplete()
     {
@@ -231,7 +233,7 @@ public class Shop : Payable
     public void PerformPay()
     {
         Stock++;
-        if (PriceIncrease != 0) Price += PriceIncrease;
+        if (priceIncrease != 0) Price += priceIncrease;
         PerformPayCalls++;
         LastPayer = interactingPlayer;
         AfterPerformPay?.Invoke(this);

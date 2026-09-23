@@ -42,6 +42,11 @@ internal static partial class Program
         Run("restore_never_gives_up_while_alive", RestoreNeverGivesUp);
         Run("panel_open_cancels_the_hold", PanelOpenCancels);
         Run("pending_restore_survives_release_and_repress_without_compounding", PendingAcrossRepress);
+        Run("baker_wait_restock_resumes_after_beggar_frees_slot", BakerWaitsThenResumes);
+        Run("baker_wait_times_out_at_stock_cap", BakerWaitTimesOutAtCap);
+        Run("baker_wait_immediate_drop_on_occupied_reach_or_action", BakerWaitImmediateDrops);
+        Run("tag_shop_full_shelf_still_stops_without_waiting", TagShopFullShelfNeverWaits);
+        Run("baker_wait_wrong_shop_window_drops_without_purchase", BakerWaitWrongShopWindow);
 
         AmmoScenarios();
         Console.WriteLine();
@@ -289,6 +294,207 @@ internal static partial class Program
         Eq(0, p.GroundDrops, "full shelf never turns into a ground drop");
         Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "session ends on a full shelf");
         Eq(2, env.ShopA.Stock, "shelf is full");
+    }
+
+    // ------------------------------------------- mead tower (baker) stock wait
+
+    /// <summary>
+    /// Fixture for the mead tower (Baker + PayableShop on one GO, shelf stock): holds the key
+    /// until the first purchase fills the shelf, then lets the hold settle into the wait state.
+    /// </summary>
+    private static (Env Env, Shop Shop, Player Player) MeadWait(int limit = 1, int price = 4)
+    {
+        Reset();
+        Env env = new Env();
+        Shop shop = env.AddShop("Bakery", 30f, price, limit, true);
+        Player p = env.P1;
+        Env.StandAt(p, shop);
+        p.coins = 100;
+        KingdomEnhancedPlugin.Instance.LogSource.Infos.Clear();
+        for (int i = 0; i < 300 && shop.Stock < 1; i++) Env.Frame(p, true, i == 0);
+        Eq(1, p.Purchases, "precondition: the first purchase completed");
+        for (int i = 0; i < 30; i++) Env.Frame(p, true, false);
+        Eq(Native.None, p._payState, "precondition: idle between purchases");
+        Eq(1, PatchPlayer_HoldPurchase.ActiveSessionCount, "precondition: the baker hold waits for restock");
+        Eq(null, p.selectedPayable, "precondition: the native selection is cleared while the shelf is full");
+        return (env, shop, p);
+    }
+
+    /// <summary>
+    /// Baker shelf stock: after a purchase fills the shelf the hold waits for a beggar to free a
+    /// slot instead of dropping; the freed shelf is re-selected by the native flow and the next
+    /// frame continues with one synthesized press. Only native stock mutations free the slot -
+    /// the mod must never synthesize while CanPay is false (the native None branch would then
+    /// drop a coin on the ground), and never synthesize without the native selection.
+    /// </summary>
+    private static void BakerWaitsThenResumes()
+    {
+        (Env env, Shop shop, Player p) = MeadWait();
+        int purchases = p.Purchases;
+        int drops = p.GroundDrops;
+
+        int injections = 0;
+        for (int i = 0; i < 200; i++)
+        {
+            if (Env.Frame(p, true, false)) injections++;
+            Eq(1, PatchPlayer_HoldPurchase.ActiveSessionCount,
+                "the baker hold survives the lost selection");
+        }
+        Eq(0, injections, "the wait never synthesizes a press");
+        Eq(purchases, p.Purchases, "the wait buys nothing");
+        Eq(drops, p.GroundDrops, "the wait drops no coin");
+
+        shop.Stock = 0;                                // a beggar ate the bread: one slot is free
+        int resumed = 0;
+        for (int i = 0; i < 240 && p.Purchases < 2; i++)
+            if (Env.Frame(p, true, false)) resumed++;
+        Eq(1, resumed, "the resumed purchase uses exactly one synthesized press");
+        Eq(2, p.Purchases, "the freed shelf is bought again");
+        Eq(1, shop.Stock, "the resold shelf holds one item again");
+        Eq(drops, p.GroundDrops, "no coin may fall to the ground across the wait");
+
+        Env.Frame(p, false, false);                    // release
+        Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "release ends the hold");
+
+        List<string> infos = KingdomEnhancedPlugin.Instance.LogSource.Infos;
+        True(HasInfo(infos, "bind: branch=Baker"), "the bind line names the Baker branch");
+        True(HasInfo(infos, "wait-stock: cause=stock"), "the wait line names the stock cause");
+        Between(4.0f, 6.5f, InfoSeconds(infos, "wait-resume: waited="),
+            "the resume line reports the measured wait");
+        True(HasInfo(infos, "drop: reason=release receipts=2 waits=1"),
+            "the aggregate drop line reports receipts and wait count");
+    }
+
+    /// <summary>Waiting past StockWaitCapSeconds (90s) drops the hold without buying or dropping.</summary>
+    private static void BakerWaitTimesOutAtCap()
+    {
+        (Env env, Shop shop, Player p) = MeadWait();
+        int purchases = p.Purchases;
+
+        // dt 0.4 stays below StallSeconds (0.5): the frames do not look like a menu stall.
+        int frames = 0;
+        for (; frames < 400 && PatchPlayer_HoldPurchase.ActiveSessionCount > 0; frames++)
+            Env.Frame(p, true, false, 0.4f);
+        Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "waiting past the cap ends the hold");
+        True(frames > 200, "the cap must not trigger early, got " + frames + " frames");
+        Eq(purchases, p.Purchases, "a timed out wait buys nothing");
+        Eq(0, p.GroundDrops, "a timed out wait drops no coin");
+
+        List<string> infos = KingdomEnhancedPlugin.Instance.LogSource.Infos;
+        Between(90f, 91f, InfoSeconds(infos, "wait-timeout: waited="),
+            "the timeout line reports the measured wait at the cap");
+        True(HasInfo(infos, "drop: reason=no-stock-timeout"), "the drop line names the timeout");
+    }
+
+    /// <summary>Occupied shop, walking away and changing the action state all end the wait at once.</summary>
+    private static void BakerWaitImmediateDrops()
+    {
+        (Env occupiedEnv, Shop occupiedShop, Player occupiedPlayer) = MeadWait();
+        occupiedShop.interactingPlayer = occupiedEnv.P2;
+        Env.Frame(occupiedPlayer, true, false);
+        Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "an occupied shop ends the wait");
+        True(HasInfo(KingdomEnhancedPlugin.Instance.LogSource.Infos, "drop: reason=occupied"),
+            "the drop line names the occupancy");
+
+        (Env reachEnv, Shop reachShop, Player reachPlayer) = MeadWait();
+        Vector3 away = reachPlayer.transform.position;
+        away.x = 100f;                                 // no payable within 0.5 of the player
+        reachPlayer.transform.position = away;
+        Env.Frame(reachPlayer, true, false);
+        Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "walking away ends the wait");
+        True(HasInfo(KingdomEnhancedPlugin.Instance.LogSource.Infos, "drop: reason=out-of-reach"),
+            "the drop line names the distance");
+
+        (Env runEnv, Shop runShop, Player runPlayer) = MeadWait();
+        runPlayer.actionState = (int)PlayerAction.Run;
+        Env.Frame(runPlayer, true, false);
+        Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "starting to run ends the wait");
+        True(HasInfo(KingdomEnhancedPlugin.Instance.LogSource.Infos, "drop: reason=action-state"),
+            "the drop line names the action state");
+
+        // The wallet check is explicitly not wait eligible (P1-4): a drained wallet ends the wait.
+        (Env walletEnv, Shop walletShop, Player walletPlayer) = MeadWait();
+        walletPlayer.wallet.Coins = 0;
+        Env.Frame(walletPlayer, true, false);
+        Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "an empty wallet ends the wait");
+        True(HasInfo(KingdomEnhancedPlugin.Instance.LogSource.Infos, "drop: reason=wallet"),
+            "the drop line names the wallet");
+
+        // None of these ends may synthesize, buy or drop a coin afterwards.
+        int purchases = occupiedPlayer.Purchases + reachPlayer.Purchases + runPlayer.Purchases
+            + walletPlayer.Purchases;
+        int drops = occupiedPlayer.GroundDrops + reachPlayer.GroundDrops + runPlayer.GroundDrops
+            + walletPlayer.GroundDrops;
+        int injections = 0;
+        for (int i = 0; i < 60; i++)
+        {
+            if (Env.Frame(occupiedPlayer, true, false)) injections++;
+            if (Env.Frame(reachPlayer, true, false)) injections++;
+            if (Env.Frame(runPlayer, true, false)) injections++;
+            if (Env.Frame(walletPlayer, true, false)) injections++;
+        }
+        Eq(0, injections, "ended waits never resume on their own");
+        Eq(purchases, occupiedPlayer.Purchases + reachPlayer.Purchases + runPlayer.Purchases
+            + walletPlayer.Purchases, "ended waits buy nothing");
+        Eq(drops, occupiedPlayer.GroundDrops + reachPlayer.GroundDrops + runPlayer.GroundDrops
+            + walletPlayer.GroundDrops, "ended waits drop no coin");
+    }
+
+    /// <summary>
+    /// Scope boundary: only the Baker branch waits. A tag-whitelisted shop stops at a full shelf
+    /// even though the shelf is freed right afterwards - the session is already gone.
+    /// </summary>
+    private static void TagShopFullShelfNeverWaits()
+    {
+        Reset();
+        Env env = new Env(priceA: 4, limitA: 1);
+        Shop shop = env.ShopA;                         // ShopHammer tag, no Baker component
+        Player p = env.P1;
+        Env.StandAt(p, shop);
+        p.coins = 100;
+        KingdomEnhancedPlugin.Instance.LogSource.Infos.Clear();
+        for (int i = 0; i < 300 && shop.Stock < 1; i++) Env.Frame(p, true, i == 0);
+        Eq(1, p.Purchases, "precondition: one purchase completed");
+        for (int i = 0; i < 30; i++) Env.Frame(p, true, false);
+        Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount,
+            "a tag shop stops at a full shelf instead of waiting");
+        True(HasInfo(KingdomEnhancedPlugin.Instance.LogSource.Infos, "drop: reason=stock-no-wait"),
+            "the drop line shows the shop was not wait eligible");
+
+        shop.Stock = 0;                                // a freed shelf must not revive the hold
+        int purchases = p.Purchases;
+        int injections = 0;
+        for (int i = 0; i < 200; i++)
+            if (Env.Frame(p, true, false)) injections++;
+        Eq(0, injections, "a dropped tag hold never resumes without a fresh press");
+        Eq(purchases, p.Purchases, "no purchase after a tag shop stop");
+        Eq(0, p.GroundDrops, "no ground drops after a tag shop stop");
+    }
+
+    /// <summary>
+    /// Wrong shop window: while the baker hold waits, a closer selectable shop appears. The
+    /// native flow re-selects it, so the wait must end (never synthesize against the wrong
+    /// shop) and no purchase may happen at the rival shop.
+    /// </summary>
+    private static void BakerWaitWrongShopWindow()
+    {
+        (Env env, Shop shop, Player p) = MeadWait();
+        Shop rival = env.AddShop("ShopBow", 30.25f, 4, 20, false);
+        Env.StandAt(p, rival);                         // rival pay point is the closer one
+        int purchases = p.Purchases;
+        int drops = p.GroundDrops;
+
+        Env.Frame(p, true, false);
+        Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "a closer rival shop ends the wait");
+        int injections = 0;
+        for (int i = 0; i < 200; i++)
+            if (Env.Frame(p, true, false)) injections++;
+        Eq(0, injections, "the wrong shop window never synthesizes a press");
+        Eq(purchases, p.Purchases, "no purchase at the rival shop");
+        Eq(0, rival.TransactionCompleteCalls, "the rival shop is never paid");
+        Eq(drops, p.GroundDrops, "the wrong shop window drops no coin");
+        True(HasInfo(KingdomEnhancedPlugin.Instance.LogSource.Infos, "drop: reason=switched-shop"),
+            "the drop line names the switched shop");
     }
 
     private static void PauseAndStallDrop()
@@ -930,6 +1136,30 @@ internal static partial class Program
         foreach (float read in player.Reads)
             if (Math.Abs(read - expected) < 0.0005f) return;
         throw new Exception(what + ": no read of " + expected + " observed");
+    }
+
+    /// <summary>True when any logged line contains the marker.</summary>
+    private static bool HasInfo(List<string> infos, string marker)
+    {
+        foreach (string line in infos)
+            if (line.Contains(marker)) return true;
+        return false;
+    }
+
+    /// <summary>Reads the seconds value that follows marker (its only "s"-suffixed number).</summary>
+    private static float InfoSeconds(List<string> infos, string marker)
+    {
+        foreach (string line in infos)
+        {
+            int at = line.IndexOf(marker, StringComparison.Ordinal);
+            if (at < 0) continue;
+            at += marker.Length;
+            int end = line.IndexOf('s', at);
+            if (end < 0) break;
+            return float.Parse(line.Substring(at, end - at).Replace(',', '.'),
+                System.Globalization.CultureInfo.InvariantCulture);
+        }
+        throw new Exception("missing measured log value: " + marker);
     }
 
     private static void NoRead(Player player, float forbidden, string what)

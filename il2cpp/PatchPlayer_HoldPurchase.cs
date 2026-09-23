@@ -30,8 +30,18 @@ namespace KingdomEnhancedMod;
 ///    两者都用 Payable.PerformPay 的 Postfix 记成功回执；客机 Completed 转 None 只是本地
 ///    投币完成，此时进入等待态，不合成、不加速，直到回执或拒绝；
 /// 5. 松开、面板打开、暂停或菜单停帧、换店、选到别店（等待期选中变 null 属正常，保留
-///    sameShop 身份）、走出可支付距离、等待超时、钱不足、货架满、关闭开关、
-///    换 world/layer/scene 都会结束这次 hold，必须重新按下才会对新店续买。
+///    sameShop 身份）、走出可支付距离、等待超时、钱不足、货架满（非 Baker 识别类）、
+///    关闭开关、换 world/layer/scene 都会结束这次 hold，必须重新按下才会对新店续买。
+/// 6. 蜜酒塔/面包店（Baker 与 PayableShop 同 GO，货架制）例外：交易成功后若仅因货架满
+///    （CanPay/CanSelect 假）或原生尚未重新选中而无法续买，会话保留在等待态
+///    （WaitingForStock），等乞丐吃掉架上酒腾格；等待期每帧只用"容忍丢选"的变体做
+///    继续等待/立即结束分类（selected 为 null 属正常），补货后由原生重选、下一帧未修改的
+///    CanEnterHolding 全谓词成立才合成按键。等待上限 StockWaitCapSeconds（常量，不开配置项）；
+///    换店/走远/被占/动作态变/店失效/钱不足/超时都会立即结束。等待期间绝不合成：
+///    原生 None+payKeyDown 在 CanPay 假时会走掉地币分支。
+/// 7. 诊断（默认输出，无新配置项）：每次白名单命中记一行 bind（分支/价格/priceIncrease/
+///    类型短码），等待与恢复各记一行实测时长，drop 记一行聚合（原因/笔数/等待时长）；
+///    每个会话最多 6 行，超出的过渡行被丢弃，drop 行始终保留一个名额。
 ///
 /// 明确不做：不直接调用 TransactionComplete 或 PerformPay、不改钱包余额、不自己生成金币、
 /// 不改价格、不改 keyDownThreshold、不改 timeBeforeTransaction 与 timeToReachIndicator
@@ -74,6 +84,13 @@ public static class PatchPlayer_HoldPurchase
     internal const float PayRangeLimit = 0.5f;
     /// <summary>客机等待 RPC 回包的上限，超时结束本次 hold（不无限等待）。</summary>
     internal const float AwaitReceiptSeconds = 5f;
+    /// <summary>
+    /// Baker 识别类（货架制）等待补货的上限：覆盖 25-60 秒一格的现实节奏加余量；
+    /// 实机 wait→resume 实测间隔回标前保持常量，不开用户配置项。
+    /// </summary>
+    internal const float StockWaitCapSeconds = 90f;
+    /// <summary>每个会话的诊断行上限（bind/等待/drop 共享；drop 行保留最后一个名额）。</summary>
+    private const int SessionNoteBudget = 6;
     /// <summary>字段归还退避：基数与上限，无限重试但不打爆帧。</summary>
     internal const float RestoreBackoffBase = 0.25f;
     internal const float RestoreBackoffMax = 5f;
@@ -113,6 +130,20 @@ public static class PatchPlayer_HoldPurchase
         internal IntPtr ShopPtr;
         internal int ShopInstanceId;
         internal bool ShopIsGoods;
+        /// <summary>白名单命中分支是 Baker（蜜酒塔/面包店货架制）：唯一享受等待补货的识别类。</summary>
+        internal bool GoodsViaBaker;
+        /// <summary>会话正在等待补货（Baker 类）：不合成、不加速，等原生重选后次帧续买。</summary>
+        internal bool WaitingForStock;
+        /// <summary>本次等待的起点（unscaledTime）。</summary>
+        internal float WaitSince;
+        /// <summary>已结束的等待累计时长（秒），供 drop 行聚合。</summary>
+        internal float WaitedTotal;
+        /// <summary>等待轮数。</summary>
+        internal int WaitEpisodes;
+        /// <summary>本会话已确认的成功购买笔数（主机同步路径与客机回包各计一次）。</summary>
+        internal int Receipts;
+        /// <summary>本会话已输出的诊断行数（≤SessionNoteBudget）。</summary>
+        internal int Notes;
         internal bool RecheckAmmoGoods;
         internal IntPtr AmmoOwnerPtr;
         internal float HeldElapsed;
@@ -256,7 +287,7 @@ public static class PatchPlayer_HoldPurchase
             if (ModPanel.IsShown || !FeatureOn() || !OptionalQoLScope.IsActive
                 || Time.timeScale <= 0f)
             {
-                ResetAll();
+                ResetAll(GateReason());
                 return;
             }
 
@@ -271,7 +302,7 @@ public static class PatchPlayer_HoldPurchase
             }
             for (int i = 0; i < _scratchKeys.Count; i++)
             {
-                if (_sessions.TryGetValue(_scratchKeys[i], out Session stale)) Drop(stale);
+                if (_sessions.TryGetValue(_scratchKeys[i], out Session stale)) Drop(stale, "tick");
             }
         }
         catch (Exception e)
@@ -281,16 +312,22 @@ public static class PatchPlayer_HoldPurchase
     }
 
     /// <summary>丢弃全部本地会话（面板打开、开关关闭、离开世界、停帧、退出清理）。</summary>
-    internal static void ResetAll()
+    internal static void ResetAll(string reason = "reset")
     {
         if (_sessions.Count == 0) return;
         _scratchKeys.Clear();
         foreach (KeyValuePair<IntPtr, Session> pair in _sessions) _scratchKeys.Add(pair.Key);
         for (int i = 0; i < _scratchKeys.Count; i++)
         {
-            if (_sessions.TryGetValue(_scratchKeys[i], out Session session)) Drop(session);
+            if (_sessions.TryGetValue(_scratchKeys[i], out Session session)) Drop(session, reason);
         }
     }
+
+    /// <summary>闸门（面板/开关/世界/停帧）挡下会话时的结束原因，与 UpdatePayState 门判定一致。</summary>
+    private static string GateReason()
+        => ModPanel.IsShown ? "panel"
+            : (!FeatureOn() ? "disabled"
+                : (OptionalQoLScope.IsActive ? "pause" : "scope"));
 
     // ------------------------------------------------------------------ logic
 
@@ -304,24 +341,24 @@ public static class PatchPlayer_HoldPurchase
 
             if (ModPanel.IsShown || !FeatureOn() || !OptionalQoLScope.IsActive)
             {
-                DropFor(player);
+                DropFor(player, GateReason());
                 return;
             }
             if (!player.hasLocalAuthority || player.TunnelInput)
             {
-                DropFor(player);
+                DropFor(player, "remote");
                 return;
             }
             if (Time.timeScale <= 0f)
             {
-                DropFor(player);
+                DropFor(player, "pause");
                 return;
             }
 
             Context context;
             if (!Context.TryCapture(player, out context) || !OptionalQoLScope.IsCurrent(player))
             {
-                DropFor(player);
+                DropFor(player, "context");
                 return;
             }
 
@@ -331,7 +368,7 @@ public static class PatchPlayer_HoldPurchase
             Session session = Find(player);
             if (session != null && !session.Scope.Equals(context))
             {
-                Drop(session);
+                Drop(session, "context");
                 session = null;
             }
 
@@ -340,13 +377,13 @@ public static class PatchPlayer_HoldPurchase
                 && now - session.LastUnscaledTime > StallSeconds)
             {
                 // 暂停、菜单、读档等停帧期间钩子不再被调用：恢复调用即结束本次 hold。
-                Drop(session);
+                Drop(session, "stall");
                 session = null;
             }
 
             if (!payKey)
             {
-                if (session != null) Drop(session);
+                if (session != null) Drop(session, "release");
                 return;
             }
 
@@ -363,7 +400,7 @@ public static class PatchPlayer_HoldPurchase
 
             if (!AmmoGoodsStillValid(session))
             {
-                Drop(session); receipt.Session = null; return;
+                Drop(session, "goods-invalid"); receipt.Session = null; return;
             }
 
             // 客机等待回包：保留 sameShop 身份，不合成、不加速；成功、拒绝与超时在这里定论。
@@ -374,11 +411,12 @@ public static class PatchPlayer_HoldPurchase
                     session.SuccessReceipt = false;
                     session.AwaitingReceipt = false;
                     session.ContinuationArmed = true;
+                    session.Receipts++;
                 }
                 else if (!ShopAlive(session) || !ShopInReach(session, player)
                     || now > session.AwaitDeadline)
                 {
-                    Drop(session);
+                    Drop(session, "receipt-lost");
                     receipt.Session = null;
                     return;
                 }
@@ -392,22 +430,23 @@ public static class PatchPlayer_HoldPurchase
                         KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
                             "[HoldPurchase] client payment was denied (forceBlockPayment cleared without PerformPay), hold dropped");
                     }
-                    Drop(session);
+                    Drop(session, "client-denied");
                     receipt.Session = null;
                     return;
                 }
                 return;
             }
 
-            if (!KeepBoundShop(session, player))
+            string keepReason = KeepBoundShopReason(session, player);
+            if (keepReason != null)
             {
-                Drop(session);
+                Drop(session, keepReason);
                 receipt.Session = null;
                 return;
             }
             if (!AmmoGoodsStillValid(session))
             {
-                Drop(session); receipt.Session = null; return;
+                Drop(session, "goods-invalid"); receipt.Session = null; return;
             }
 
             if (state == StateCompleted && session.Shop != null
@@ -421,19 +460,33 @@ public static class PatchPlayer_HoldPurchase
             if (state == StateNone && !payKeyDown && session.ContinuationArmed
                 && session.HeldElapsed >= HoldSeconds)
             {
+                // 合成前置 = 未修改的 CanEnterHolding 全谓词（selected==shop 必须成立）：
+                // 等待补货恢复后由原生重选选中本店，次帧才在这里合成。
                 if (session.Shop != null && session.ShopIsGoods
                     && CanEnterHolding(player, session.Shop))
                 {
+                    ResumeFromStockWait(session, now);
                     payKeyDown = true;
                     session.ContinuationArmed = false;
                     receipt.Injected = true;
                 }
                 else
                 {
-                    // 钱不足、货架满、被别的玩家占用、店失效、走远：结束本次 hold，要求重新按下。
-                    Drop(session);
-                    receipt.Session = null;
-                    return;
+                    WaitOutcome wait = MaintainStockWait(session, player, now);
+                    if (wait == WaitOutcome.Dropped)
+                    {
+                        receipt.Session = null;
+                        return;
+                    }
+                    if (wait == WaitOutcome.NotEligible)
+                    {
+                        // 钱不足、占用、店失效、走远、动作态或非 Baker 店：结束本次 hold，
+                        // 要求重新按下（原因按 CanEnterHolding 的谓词逐条归类）。
+                        Drop(session, ClassifyImmediateDrop(session, player, out _) ?? "stock-no-wait");
+                        receipt.Session = null;
+                        return;
+                    }
+                    // 等待补货中：本帧不合成、不 Drop，保持 ContinuationArmed。
                 }
             }
 
@@ -456,7 +509,7 @@ public static class PatchPlayer_HoldPurchase
         catch (Exception e)
         {
             if (!receipt.Overrode) receipt.Session = null;
-            DropFor(player);
+            DropFor(player, "fault");
             Note("prefix", e);
         }
     }
@@ -486,7 +539,7 @@ public static class PatchPlayer_HoldPurchase
                             "[HoldPurchase] synthetic payKeyDown did not enter Holding (state="
                             + after + "), hold session dropped");
                     }
-                    Drop(session);
+                    Drop(session, "injection-fault");
                     return;
                 }
             }
@@ -494,11 +547,11 @@ public static class PatchPlayer_HoldPurchase
             if (session.Shop == null && after != StateNone)
                 Bind(session, player.selectedPayable);
 
-            if (!AmmoGoodsStillValid(session)) { Drop(session); return; }
+            if (!AmmoGoodsStillValid(session)) { Drop(session, "goods-invalid"); return; }
 
             if (!ShopSelectionAcceptable(session, player))
             {
-                Drop(session);
+                Drop(session, "switched-shop");
                 return;
             }
 
@@ -514,6 +567,7 @@ public static class PatchPlayer_HoldPurchase
                     session.SuccessReceipt = false;
                     session.AwaitingReceipt = false;
                     session.ContinuationArmed = true;
+                    session.Receipts++;
                 }
                 else if (NetworkBigBoss.HasWorldAuth)
                 {
@@ -526,6 +580,7 @@ public static class PatchPlayer_HoldPurchase
                             "[HoldPurchase] host PerformPay receipt missing, continuing on the native success path");
                     }
                     session.ContinuationArmed = true;
+                    session.Receipts++;
                 }
                 else if (TryReadForceBlock(session.Shop, out bool blocked) && blocked)
                 {
@@ -544,7 +599,7 @@ public static class PatchPlayer_HoldPurchase
         catch (Exception e)
         {
             if (receipt.Overrode) ReturnInterval(player, receipt);
-            DropFor(player);
+            DropFor(player, "fault");
             Note("postfix", e);
         }
     }
@@ -562,7 +617,8 @@ public static class PatchPlayer_HoldPurchase
             if (session != null) session.Submitting = false;
             if (receipt.Overrode) ReturnInterval(player, receipt);
             if (exception == null) return;
-            if (session != null && player != null && TryGetActive(session, player)) Drop(session);
+            if (session != null && player != null && TryGetActive(session, player))
+                Drop(session, "native-throw");
         }
         catch (Exception e)
         {
@@ -591,7 +647,7 @@ public static class PatchPlayer_HoldPurchase
             {
                 Session session = _scratchSessions[i];
                 if (session.Shop == null || session.ShopPtr != shopPointer) continue;
-                if (!AmmoGoodsStillValid(session)) { Drop(session); continue; }
+                if (!AmmoGoodsStillValid(session)) { Drop(session, "goods-invalid"); continue; }
 
                 Player payer = payable.interactingPlayer;
                 if (payer == null || payer.Pointer != session.PlayerPtr) continue;
@@ -699,24 +755,37 @@ public static class PatchPlayer_HoldPurchase
         }
     }
 
-    private static void DropFor(Player player)
+    private static void DropFor(Player player, string reason)
     {
         if (player == null) return;
         try
         {
-            if (_sessions.TryGetValue(player.Pointer, out Session session)) Drop(session);
+            if (_sessions.TryGetValue(player.Pointer, out Session session)) Drop(session, reason);
         }
         catch
         {
         }
     }
 
-    private static void Drop(Session session)
+    /// <summary>
+    /// 结束会话并归还字段凭据。reason 用于诊断聚合行；等待中的会话先结算本轮等待时长。
+    /// 只有仍挂在活动表上的会话才结算与落诊断行，重复调用是安全的空操作。
+    /// </summary>
+    private static void Drop(Session session, string reason)
     {
         if (session == null) return;
-        if (_sessions.TryGetValue(session.PlayerPtr, out Session current)
-            && ReferenceEquals(current, session))
+        bool active = _sessions.TryGetValue(session.PlayerPtr, out Session current)
+            && ReferenceEquals(current, session);
+        if (active)
+        {
             _sessions.Remove(session.PlayerPtr);
+            if (session.WaitingForStock)
+            {
+                session.WaitedTotal += Time.unscaledTime - session.WaitSince;
+                session.WaitingForStock = false;
+            }
+            if (session.ShopIsGoods) DropNote(session, reason);
+        }
         if (session.HasPendingRestore)
         {
             session.NextRestoreAttempt = 0f;
@@ -807,27 +876,29 @@ public static class PatchPlayer_HoldPurchase
     // ------------------------------------------------------------- shop scope
 
     /// <summary>
-    /// 绑定当前选中的店；返回 false 表示选中店已变/丢失且不允许再保留，本次 hold 必须结束。
-    /// 客机等待回包、或成功回执已到但原生还没选回同店时，selectedPayable 会短暂为 null，
-    /// 这时保留捕获的 sameShop 身份；一旦选中了另一家店，或者已经走出可支付距离、
+    /// 绑定当前选中的店；返回 null 表示继续本次 hold，否则返回结束原因。
+    /// 客机等待回包、等待补货或成功回执已到但原生还没选回同店时，selectedPayable 会短暂
+    /// 为 null，这时保留捕获的 sameShop 身份；一旦选中了另一家店，或者已经走出可支付距离、
     /// 目标店消失，就结束本次 hold。
     /// </summary>
-    private static bool KeepBoundShop(Session session, Player player)
+    private static string KeepBoundShopReason(Session session, Player player)
     {
         Payable selected = player.selectedPayable;
         if (session.Shop == null)
         {
-            if (selected == null) return true; // 真实按下当帧原生还没选出店，下一帧再绑
+            if (selected == null) return null; // 真实按下当帧原生还没选出店，下一帧再绑
             Bind(session, selected);
-            return true;
+            return null;
         }
-        if (SameShop(session, selected)) return true;
+        if (SameShop(session, selected)) return null;
         if (selected == null)
         {
-            if (!session.AwaitingReceipt && !session.ContinuationArmed) return false;
-            return ShopAlive(session) && ShopInReach(session, player);
+            if (!session.AwaitingReceipt && !session.ContinuationArmed) return "lost-selection";
+            if (!ShopAlive(session)) return "shop-gone";
+            if (!ShopInReach(session, player)) return "out-of-reach";
+            return null;
         }
-        return false; // 选到别家店
+        return "switched-shop"; // 选到别家店
     }
 
     /// <summary>选中店：等待期允许为 null，一旦选中就必须是本会话同一家店。</summary>
@@ -889,6 +960,7 @@ public static class PatchPlayer_HoldPurchase
 
     private static void Bind(Session session, Payable payable)
     {
+        GoodsBranch branch = GoodsBranch.None;
         try
         {
             if (payable == null) return;
@@ -899,7 +971,9 @@ public static class PatchPlayer_HoldPurchase
             session.Shop = payable;
             session.ShopPtr = pointer;
             session.ShopInstanceId = go.GetInstanceID();
-            session.ShopIsGoods = IsSafeGoods(payable);
+            branch = ClassifyGoods(payable);
+            session.ShopIsGoods = branch != GoodsBranch.None;
+            session.GoodsViaBaker = branch == GoodsBranch.Baker;
             var component = payable.TryCast<PayableComponent>();
             session.RecheckAmmoGoods = component != null || payable.TryCast<PayableWorkshopBarrel>() != null;
             session.AmmoOwnerPtr = component?._owner != null ? component._owner.Pointer : IntPtr.Zero;
@@ -909,8 +983,11 @@ public static class PatchPlayer_HoldPurchase
             // Classification may have succeeded before a later native owner/type read failed.
             // Never leave cached goods=true without the corresponding live-owner proof.
             session.ShopIsGoods = false;
+            session.GoodsViaBaker = false;
             Note("bind", e);
+            return;
         }
+        if (session.ShopIsGoods) BindNote(session, branch, payable);
     }
 
     private static bool SameShop(Session session, Payable selected)
@@ -929,15 +1006,32 @@ public static class PatchPlayer_HoldPurchase
         }
     }
 
+    /// <summary>白名单命中分支：只有 Baker（蜜酒塔/面包店货架制）享受等待补货。</summary>
+    private enum GoodsBranch : byte
+    {
+        None = 0,
+        Tag = 1,
+        Baker = 2,
+        Barrel = 3,
+        FireTower = 4
+    }
+
     /// <summary>白名单：原工具/面包店、火药桶、精确火塔owner的弹药付款点；其余不加速不续买。</summary>
-    private static bool IsSafeGoods(Payable payable)
+    private static bool IsSafeGoods(Payable payable) => ClassifyGoods(payable) != GoodsBranch.None;
+
+    /// <summary>
+    /// 白名单分支识别（顺序与旧 IsSafeGoods 完全一致，tag 命中优先于同 GO 的 Baker，
+    /// 因此双命中时不会享受等待补货）。TryCast 次数与顺序保持原样：Bind 的原地捕获
+    /// 失败用例依赖第 3 次 cast 抛异常后绝不留下 goods=true 缓存。
+    /// </summary>
+    private static GoodsBranch ClassifyGoods(Payable payable)
     {
         try
         {
-            if (payable == null || !payable.enabled) return false;
+            if (payable == null || !payable.enabled) return GoodsBranch.None;
             GameObject go = payable.gameObject;
-            if (go == null || !go.activeInHierarchy) return false;
-            if (payable.TryCast<PayableWorkshopBarrel>() != null) return true;
+            if (go == null || !go.activeInHierarchy) return GoodsBranch.None;
+            if (payable.TryCast<PayableWorkshopBarrel>() != null) return GoodsBranch.Barrel;
             var component = payable.TryCast<PayableComponent>();
             if (component != null)
             {
@@ -945,18 +1039,19 @@ public static class PatchPlayer_HoldPurchase
                 // FireTower AI may be disabled on a client while its payment owner remains
                 // valid. Native CanPay/CanSelect retain capacity/readiness/RPC decisions.
                 return tower != null && tower.gameObject != null && tower.gameObject.activeInHierarchy
-                    && component._owner != null && component._owner.Pointer == tower.Pointer;
+                    && component._owner != null && component._owner.Pointer == tower.Pointer
+                    ? GoodsBranch.FireTower : GoodsBranch.None;
             }
             for (int i = 0; i < GoodsShopTags.Length; i++)
             {
-                if (go.CompareTag(GoodsShopTags[i])) return true;
+                if (go.CompareTag(GoodsShopTags[i])) return GoodsBranch.Tag;
             }
             // 面包店：与原作一样，PayableShop 与 Baker 挂在同一个 GameObject 上。
-            return go.GetComponent<Baker>() != null;
+            return go.GetComponent<Baker>() != null ? GoodsBranch.Baker : GoodsBranch.None;
         }
         catch
         {
-            return false;
+            return GoodsBranch.None;
         }
     }
 
@@ -1009,6 +1104,121 @@ public static class PatchPlayer_HoldPurchase
         {
             Note("canEnter", e);
             return false;
+        }
+    }
+
+    // ---------------------------------------------------- stock wait (baker)
+
+    /// <summary>等待补货的裁决结果。</summary>
+    private enum WaitOutcome : byte
+    {
+        /// <summary>不属于 Baker 等待类：调用方照旧立即 Drop。</summary>
+        NotEligible = 0,
+        /// <summary>会话已转为/保持等待补货：本帧不合成也不 Drop。</summary>
+        Waiting = 1,
+        /// <summary>等待超过上限，会话已按 no-stock-timeout 丢弃。</summary>
+        Dropped = 2
+    }
+
+    /// <summary>
+    /// 等待补货（仅 Baker 识别类）：失败归类为货架满/未就绪（CanSelect/CanPay 假）或
+    /// 仅差原生重选（selected==null，其余全绿）时保留会话，等乞丐吃掉架上酒腾格；补货后
+    /// 由原生重选、下一帧全谓词成立才合成续购。其余失败（钱包/距离/占用/动作态/店失效/
+    /// 换店）与超过 StockWaitCapSeconds 的等待都立即 Drop。等待帧绝不合成：原生
+    /// None+payKeyDown 在 CanPay 假时会走掉地币分支。
+    /// </summary>
+    private static WaitOutcome MaintainStockWait(Session session, Player player, float now)
+    {
+        try
+        {
+            if (session.Shop == null || !session.ShopIsGoods || !session.GoodsViaBaker)
+                return WaitOutcome.NotEligible;
+            string dropReason = ClassifyImmediateDrop(session, player, out bool stockBlocked);
+            if (dropReason != null)
+            {
+                Drop(session, dropReason);
+                return WaitOutcome.Dropped;
+            }
+            if (!session.WaitingForStock)
+            {
+                session.WaitingForStock = true;
+                session.WaitSince = now;
+                session.WaitEpisodes++;
+                TransitionNote(session, "wait-stock: cause=" + (stockBlocked ? "stock" : "reselect")
+                    + " held=" + session.HeldElapsed.ToString("0.00") + "s receipts=" + session.Receipts);
+            }
+            else if (now - session.WaitSince > StockWaitCapSeconds)
+            {
+                float waited = now - session.WaitSince;
+                session.WaitedTotal += waited;
+                session.WaitingForStock = false;
+                TransitionNote(session, "wait-timeout: waited=" + waited.ToString("0.00")
+                    + "s cap=" + StockWaitCapSeconds.ToString("0") + "s");
+                Drop(session, "no-stock-timeout");
+                return WaitOutcome.Dropped;
+            }
+            return WaitOutcome.Waiting;
+        }
+        catch (Exception e)
+        {
+            Note("wait", e);
+            Drop(session, "fault");
+            return WaitOutcome.Dropped;
+        }
+    }
+
+    /// <summary>等待期结束（全谓词恢复）时结算本轮等待时长，供实测回标。</summary>
+    private static void ResumeFromStockWait(Session session, float now)
+    {
+        if (session == null || !session.WaitingForStock) return;
+        float waited = now - session.WaitSince;
+        session.WaitingForStock = false;
+        session.WaitedTotal += waited;
+        TransitionNote(session, "wait-resume: waited=" + waited.ToString("0.00")
+            + "s receipts=" + session.Receipts);
+    }
+
+    /// <summary>
+    /// 逐条镜像 CanEnterHolding 的失败点给出立即结束原因；返回 null 表示可以继续等待
+    /// （货架满/未就绪，或仅差原生重选）。stockBlocked 标记 CanSelect/CanPay 假这类
+    /// 可能靠补货恢复的失败，用于等待诊断行。钱包检查显式归类为立即 Drop（P1-4）。
+    /// </summary>
+    private static string ClassifyImmediateDrop(Session session, Player player, out bool stockBlocked)
+    {
+        stockBlocked = false;
+        try
+        {
+            Payable shop = session.Shop;
+            if (shop == null || !ShopAlive(session)) return "shop-gone";
+            if (!shop.enabled) return "shop-disabled";
+            bool canSelect;
+            bool canPay;
+            try
+            {
+                canSelect = shop.CanSelect(player);
+                canPay = shop.CanPay(player);
+            }
+            catch
+            {
+                return "fault";
+            }
+            stockBlocked = !canSelect || !canPay;
+            int actionState = (int)player.actionState;
+            if (actionState == ActionStateRun || actionState == ActionStateTransformed)
+                return "action-state";
+            Payable selected = player.selectedPayable;
+            if (selected != null && !SameShop(session, selected)) return "switched-shop";
+            if (!ShopInReach(session, player)) return "out-of-reach";
+            Player other = shop.interactingPlayer;
+            if (other != null && other.Pointer != player.Pointer && other.gameObject != null
+                && other.gameObject.activeInHierarchy) return "occupied";
+            if (shop.Currency != CurrencyType.Coins || shop.Price < 1) return "unsupported";
+            if (player.coins < shop.Price) return "wallet";
+            return null;
+        }
+        catch
+        {
+            return "fault";
         }
     }
 
@@ -1135,6 +1345,73 @@ public static class PatchPlayer_HoldPurchase
     }
 
     // ------------------------------------------------------------------ notes
+
+    /// <summary>
+    /// 会话诊断行（bind/等待/恢复）：最多 SessionNoteBudget-1 行，给 drop 行留最后一个
+    /// 名额，保证每个会话 ≤6 行（会话多轮等待时先丢过渡行）。
+    /// </summary>
+    private static void TransitionNote(Session session, string message)
+    {
+        if (session == null || session.Notes >= SessionNoteBudget - 1) return;
+        EmitNote(session, message);
+    }
+
+    /// <summary>白名单命中时的绑定行：分支/价格/priceIncrease/类型短码。</summary>
+    private static void BindNote(Session session, GoodsBranch branch, Payable payable)
+    {
+        if (session == null || session.Notes >= SessionNoteBudget - 1) return;
+        string type;
+        int price;
+        int increase;
+        try
+        {
+            type = payable.GetType().Name;
+            price = payable.Price;
+            increase = payable.priceIncrease;
+        }
+        catch
+        {
+            return;
+        }
+        EmitNote(session, "bind: branch=" + BranchName(branch) + " price=" + price
+            + " priceIncrease=" + increase + " type=" + type
+            + " instance=" + session.ShopInstanceId);
+    }
+
+    /// <summary>会话结束的聚合行：原因、确认笔数、等待轮数与累计等待时长。</summary>
+    private static void DropNote(Session session, string reason)
+    {
+        if (session == null || session.Notes >= SessionNoteBudget) return;
+        EmitNote(session, "drop: reason=" + (reason ?? "cleanup")
+            + " receipts=" + session.Receipts
+            + " waits=" + session.WaitEpisodes
+            + " waited=" + session.WaitedTotal.ToString("0.00") + "s"
+            + " held=" + session.HeldElapsed.ToString("0.00") + "s");
+    }
+
+    private static void EmitNote(Session session, string message)
+    {
+        session.Notes++;
+        try
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[HoldPurchase] " + message);
+        }
+        catch
+        {
+        }
+    }
+
+    private static string BranchName(GoodsBranch branch)
+    {
+        switch (branch)
+        {
+            case GoodsBranch.Tag: return "tag";
+            case GoodsBranch.Baker: return "Baker";
+            case GoodsBranch.Barrel: return "barrel";
+            case GoodsBranch.FireTower: return "fire-tower";
+            default: return "none";
+        }
+    }
 
     private static void Note(string what, Exception e)
     {
