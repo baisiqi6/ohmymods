@@ -23,7 +23,13 @@
 - 本包**不含游戏本体**，只分发 Mod 与所需加载依赖；请自行准备上述锁定构建，并只从
   本项目 **GitHub Releases** 获取本包（发布说明给出 ZIP 的 SHA-256，可用
   `shasum -a 256 <下载的.zip>` 核对）。本包当前是**未做 Developer ID 签名和 Apple 公证**的实验发行。
-- 主玩法基线：Mod 9.5.13。
+- 本包的精确 Mod 版本以 `package-manifest.json` 和对应 GitHub Release 为准；加载器仍只支持上面锁定的游戏构建。
+
+### 本轮整合的玩法变化
+
+相对 9.5.13，整合了火枪手举旗编队攻击传送门、弩手不被举旗误招、税收官瞬移时保持地面高度、武士冲刺后返队、换岛召回留在旧岛的狗、宠物与隐士防抓及被抓找回、骑士风格分配面板。宠物与隐士防抓的新开关**默认关闭**；升级后要继续保护隐士，需要在 F5 面板主动开启。
+
+新功能在 Mac 上的实际验收范围以本次 Release 附带的验收文件为准。编译、自动回归或加载成功不代表换岛、战斗、存读档和联机玩法均已人工验证。
 
 ### 系统要求
 
@@ -163,11 +169,12 @@ cd /path/to/OhMyMods-Mac-ARM64
 ### 升级到新版本
 
 1. 完全退出游戏。
-2. 解压新版本 ZIP，得到全新的 `OhMyMods-Mac-ARM64/` 文件夹（与旧文件夹并排）。
-3. 把**旧包**的 `BepInEx/config/` 整个复制到**新包**同位置（只迁配置）。
+2. 先备份旧包的 `BepInEx/config/` 和游戏存档目录（此构建通常在 `~/Library/Application Support/nl.noio.kingdom-two-crowns/`）。骑士身份附加档在旧包的 `BepInEx/config/KingdomEnhancedMod/ModSave/knight-identities.v1.json`，连同其 `.bak` 一起保留。
+3. 解压新版本 ZIP，得到全新的 `OhMyMods-Mac-ARM64/` 文件夹（与旧文件夹并排）。
+4. 把**旧包**的 `BepInEx/config/` 整个复制到**新包**同位置（只迁配置）。
    不要复制 core / plugins / dotnet / cache / interop——它们随包更新，缓存会重建
    （新 ZIP 本身不含 config/cache/interop，见构建器说明）。
-4. 用新包启动；旧文件夹保留作回滚，确认正常后可自行删除。
+5. 用新包启动。骑士风格手动重派后保存，身份附加档可能写成 schema v4；**旧版 Mod 不能读取 v4**。若要降级，必须同时恢复升级前备份的游戏存档与旧版身份附加档；仅保留旧包文件夹不足以保证回退。确认不再需要降级后，再自行清理旧包与备份。
 
 ### 常见问题
 

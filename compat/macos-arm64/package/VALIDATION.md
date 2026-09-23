@@ -52,3 +52,15 @@ LibCpp2IL 对 Universal 文件固定优先分析 x64 slice；本次 ARM64 进程
 ## 打包脚本与调试信息整理
 
 启动器/打包器完整回归由 Worker 与 Operator 分别实跑 166 项通过；随后配置 section 尾注及括号内空白的最小修订，定向 17 项通过，独立复审批准。四个自有托管 DLL 的 CodeView 路径清理工具独立 31 项通过；仅 PDB 定位字段改变，字段外所有字节、CLR 元数据、资源、MVID、GUID/age 均保持。原始/整理后 SHA 和定位区间见 third-party/metadata-sanitization-receipts.json。
+
+## 下一版整合内部候选（2026-09-23，尚未发布）
+
+Mac 整合任务为 [Issue #29](https://github.com/baisiqi6/ohmymods/issues/29) / [Draft PR #30](https://github.com/baisiqi6/ohmymods/pull/30)。首轮候选从 `0d359ee5ac8d9cedc62a2fe1d53bc19d87790ef3` 整合 Windows PR #13、#18、#20、#22、#26（内含 #24）、#28，整合提交为 `571c626c13a5e1e3fa6a01866cb83237fcc3d3b2`。只有 `ModPanel.cs` 卡片计数发生文本冲突：保留 #26 便捷页的 5 张与 #28 骑士页的 3 张。候选源码随 Windows PR #28 的后续修复变化后，必须重建和重验，不能沿用下述内部 ZIP。
+
+本机编译包装器逐项解析为 149 个 Compile 输入（148 个 `il2cpp/*.cs` + `PluginInfo.cs`）与 13 张 EmbeddedResource，构建 0 warning / 0 error。内部 Mod DLL SHA-256 `c80a67bc06ce5c49e1f565a14c243e82f686f47f36bfa944f0b648848305b976`；完全重编后 SHA 相同。内部 ZIP SHA-256 `ea2c8df49673d9ff05c633322350897be38de53e02fba1c65f450875a48888b0`，两次打包逐字节相同，解压的 Mod DLL 与构建输出相同，274 个条目不含游戏、存档、interop 或缓存。启动器完整合成测试 304/0，内部 ZIP 的 `--check-only` 退出 0。
+
+在**整合后的**源码上实跑：火枪手 runtime 110/0、举旗 48/0 + e2e 24/0、税收官 25/0、武士 motion 144/0 + retreat 43/0 + visuals 15/0、宠物防抓 32/0 + 隐士 24/0、骑士面板 22/0、身份网络 48/0 + 稳定上下文 16/0 + 集成 9 断言。两项 interop 检查以本机已生成的 ARM64 interop 指定 `IL2CPP_DEPS`，均 0W0E。身份 runtime 57/1、archive 45/2 的三条文件锁相关用例在**原发布基线同一台 Mac**也逐项失败，记录为既有平台测试差异，不计为全绿或本次新增回归。
+
+从内部 ZIP 全新解压后，首次联网取得 Unity 基础库、生成 interop；日志证实 1 个插件加载、Mod 加载、面板对象建立与 Chainloader 完成。约 68 秒时操作员向本次启动的进程组发送 SIGTERM，退出码 143，游戏进程无残留。共享游戏数据未改变，偏好文件从启动前备份恢复并核对字节，游戏 `.app` 的完整文件清单未改变。已知 HarmonyX 堆栈修复权限提示与上一版相同；未见新的 Mod 加载错误。**未操作 F5 面板或具体玩法、未实测身份 schema v4 存读档、换岛、联机；Mac x64 与 Windows 不在本记录范围。**
+
+独立审查发现两个发布阻塞：#28 无 binding 时面板仍可能应用后无法持久化，已回原 PR 由 Windows owner 修复；本包 README/REBUILD/VALIDATION 需随最终源码、版本号与降级说明更新并重建。此节保存内部候选历史，不作为最终发行回执。
