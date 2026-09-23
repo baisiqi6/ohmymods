@@ -96,10 +96,16 @@ namespace KingdomEnhancedMod
         public bool IsPetrified;
     }
 
+    /// <summary>原生 Embarkee 的最小替身（本 slice 读取面：IsEmbarked / CanShootWhileEmbarked / EmbarkableTarget）。
+    /// `CanShootWhileEmbarked` 在 2.1/2.4 是只读属性 `IsEmbarked && _embarkable.AllowShooting`；
+    /// 替身用 AllowShooting 字段复刻同一合取（"未乘船不可能乘船可射"与真实字段一一对应）。</summary>
     public class Embarkee : MonoBehaviour
     {
         public bool IsEmbarked;
+        public bool AllowShooting;
         public GameObject EmbarkableTarget;
+
+        public bool CanShootWhileEmbarked => IsEmbarked && AllowShooting;
     }
 
     /// <summary>编队（仅用于"编队中不狩猎"的最终门断言）。</summary>
@@ -155,8 +161,21 @@ namespace KingdomEnhancedMod
     {
     }
 
+    /// <summary>原生 Knight 的最小替身（本 slice 只读 `isCharging`）。
+    /// `isCharging` 在 2.1/2.4 是公开只读属性（私有 setter）；替身保留属性形态，
+    /// <see cref="ThrowOnChargingRead"/> 让测试模拟"包装器已失效 → 读取抛异常"（验证 fail-closed 回落自由站立）。</summary>
     public class Knight : MonoBehaviour
     {
+        private bool _isCharging;
+        public bool ThrowOnChargingRead;
+
+        public bool isCharging
+        {
+            get => ThrowOnChargingRead
+                ? throw new InvalidOperationException("stub knight is unavailable")
+                : _isCharging;
+            set => _isCharging = value;
+        }
     }
 
     /// <summary>扫描器替身：additionalRequirements + SetExtraCondition 与 2.1/2.4 同形（组合谓词用）。</summary>

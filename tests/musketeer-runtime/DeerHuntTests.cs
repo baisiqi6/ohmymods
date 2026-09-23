@@ -220,7 +220,7 @@ namespace MusketeerRuntimeTests
 
             // 敌人门与鹿状态无关：编队中也照常有效（原生战斗/夜战不受影响）。
             archer._currentFormation = new Formation();
-            Check.True(MusketeerFoeFilter.IsValidGroundFoe(Fixture.NewEnemy(), archer.gameObject),
+            Check.True(MusketeerFoeFilter.IsValidGroundFoe(Fixture.NewEnemy(), archer),
                 "the enemy gate is independent of formation/deer state");
         }
 

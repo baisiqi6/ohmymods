@@ -241,6 +241,32 @@ internal static class MusketeerCadence
 }
 
 /// <summary>
+/// 原生 `Archer.ShouldShootEnemy` 里与**射手状态**相关的 tag 判定输入（值语义；可整体快照、整体清空）：
+/// * <see cref="TagBypassArmed"/> = 原生内层绕过臂：`_currentFormation != null ∥ inGuardSlot ∥
+///   _embarkee.CanShootWhileEmbarked ∥ (_knight != null && _knight.isCharging)`。成立时
+///   EnemySpawn/Unspittable/QuestStructure 不再被排除——原生普通地面弓手只在**自由站立**时排除这三类；
+/// * <see cref="Embarked"/> = `_embarkee.IsEmbarked`：原生外层臂的输入——QuestStructure 且乘船时，
+///   无论内层臂如何都一律排除。
+/// 弹道命中只用**发射时快照**的本结构（<see cref="MusketeerBullet.FoeTagState"/>），绝不在飞行中重读
+/// 射手状态：池复用/收旗/换 life 都不改变已出膛的弹。
+/// </summary>
+internal readonly struct GroundFoeTagState
+{
+    internal GroundFoeTagState(bool tagBypassArmed, bool embarked)
+    {
+        TagBypassArmed = tagBypassArmed;
+        Embarked = embarked;
+    }
+
+    internal bool TagBypassArmed { get; }
+    internal bool Embarked { get; }
+
+    /// <summary>自由站立（无绕过臂）：读不到射手状态时的 fail-closed 回落——保持三标签排除，
+    /// 绝不因读不到而放行（此时外层臂的 Embarked=false 不会放宽任何 tag，见 tag 门短路顺序）。</summary>
+    internal static GroundFoeTagState FreeStanding => default;
+}
+
+/// <summary>
 /// 射击/命中类型门（两处共用，保证一致）：
 /// * **敌人**（地面）：原生等价判据（飞行/未验证拒绝、Enemies 层、tag/Damageable/invulnerable 门），
 ///   目标选择与弹道碰撞同用 <see cref="IsValidGroundFoe"/>——鹿绝不走这条门。
@@ -257,9 +283,12 @@ internal static class MusketeerCadence
 ///   与 2.1 EnemyType 枚举一致）内，Squid 与**未验证的 Boss 系**（Boss/KillerBoss/GauntletBoss/
 ///   BossWithStealer）一律拒绝——这是保守选择，**不声称已覆盖全部地面 Boss**，待实测证据再放行。
 /// * 不带 Enemy 组件的敌方结构（静态地面目标）允许：它们没有飞行能力；最终是否成敌仍由原生门决定。
-/// * 其余门与原生普通地面弓手 ShouldShootEnemy 等价：Enemies 层、非 EnemySpawn/Unspittable/
-///   QuestStructure、Damageable 存活/启用/IsDamagedBy(Arrow)、invulnerable 且 ignoredWhenInvulnerable
-///   时排除；另排除友军巨魔。
+/// * 其余门与原生普通地面弓手 ShouldShootEnemy 等价：Enemies 层、Damageable 存活/启用/
+///   IsDamagedBy(Arrow)、invulnerable 且 ignoredWhenInvulnerable 时排除；另排除友军巨魔。
+/// * 三标签（EnemySpawn/Unspittable/QuestStructure）按原生**两层臂**判定
+///   （<see cref="GroundFoeTagState"/>）：只有射手"自由站立"（无编队、无守位、未乘船可射、
+///   非骑士冲锋）才排除；编队/守位/乘船可射/骑士冲锋时绕过（编队出征可打传送门 QuestStructure 等），
+///   而 QuestStructure 且乘船时被外层臂额外排除。弹道命中用**发射时快照**，绝不在飞行中重读射手状态。
 /// </summary>
 internal static class MusketeerFoeFilter
 {
@@ -352,8 +381,67 @@ internal static class MusketeerFoeFilter
         }
     }
 
-    /// <summary>原生等价的弹道目标校验：首个满足条件者才允许吃弹。</summary>
-    internal static bool IsValidGroundFoe(GameObject candidate, GameObject shooterRoot)
+    /// <summary>
+    /// 原生等价的 tag 门（`ShouldShootEnemy` 对三类 tag 的逐字语义，两层臂）：
+    /// `(!QuestStructure ∥ !IsEmbarked) && (绕过臂 ∥ (!EnemySpawn && !Unspittable && !QuestStructure))`。
+    /// </summary>
+    internal static bool PassesFoeTagGate(GameObject candidate, GroundFoeTagState tagState)
+    {
+        bool questStructure = candidate.CompareTag(QuestStructureTag);
+        if (questStructure && tagState.Embarked) return false;   // 外层臂：乘船时 QuestStructure 一律不可选中
+        if (tagState.TagBypassArmed) return true;                // 内层臂：编队/守位/乘船可射/骑士冲锋时三标签放行
+        return !questStructure
+            && !candidate.CompareTag(EnemySpawnTag)
+            && !candidate.CompareTag(UnspittableTag);            // 自由站立：三标签仍排除（旧行为）
+    }
+
+    /// <summary>
+    /// 从活体射手读取原生 tag 状态（发射门与重选器用）。**无条件读全每一臂**：任一字段读取异常或
+    /// 不可得（例如 `_embarkee` 为空——真实 `Archer.Awake` 恒注入 Embarkee，空值只可能是池前/异常态）
+    /// → 整组回落自由站立（= 保持三标签排除），绝不因读不到而放行、绝不让"读到的部分臂"放宽排除。
+    /// </summary>
+    internal static GroundFoeTagState ReadGroundFoeTagState(Archer archer)
+    {
+        try
+        {
+            if (archer == null || archer.gameObject == null) return GroundFoeTagState.FreeStanding;
+            Formation formation = archer._currentFormation;
+            bool inGuardSlot = archer.inGuardSlot;
+            Knight knight = archer._knight;
+            bool knightCharging = knight != null && knight.isCharging;
+            Embarkee embarkee = archer._embarkee;
+            if (embarkee == null) return GroundFoeTagState.FreeStanding;
+            bool embarked = embarkee.IsEmbarked;
+            bool canShootWhileEmbarked = embarkee.CanShootWhileEmbarked;
+            bool bypassArmed = formation != null || inGuardSlot || canShootWhileEmbarked || knightCharging;
+            return new GroundFoeTagState(bypassArmed, embarked);
+        }
+        catch (Exception)
+        {
+            return GroundFoeTagState.FreeStanding;
+        }
+    }
+
+    /// <summary>
+    /// 原生等价的弹道目标校验（活体射手）：按**当前**射手状态求值 tag 门。
+    /// 调用点 = 发射门（<see cref="IsValidShotTarget"/>）与射击决策重选器（ReselectGroundTarget/
+    /// FindFirstGroundFoe）；弹道命中走快照重载，绝不在这里重读射手。
+    /// </summary>
+    internal static bool IsValidGroundFoe(GameObject candidate, Archer shooter)
+    {
+        try
+        {
+            if (shooter == null || shooter.gameObject == null) return false;
+            return IsValidGroundFoe(candidate, shooter.gameObject, ReadGroundFoeTagState(shooter));
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>原生等价的弹道目标校验：首个满足条件者才允许吃弹（tag 门用给定时点的状态：弹道命中 = 发射时快照）。</summary>
+    internal static bool IsValidGroundFoe(GameObject candidate, GameObject shooterRoot, GroundFoeTagState tagState)
     {
         try
         {
@@ -370,9 +458,9 @@ internal static class MusketeerFoeFilter
             int layer = candidate.layer;
             if (layer != EnemiesLayerIndex()) return false;
 
-            if (candidate.CompareTag(EnemySpawnTag) || candidate.CompareTag(UnspittableTag)
-                || candidate.CompareTag(QuestStructureTag))
-                return false;   // 原生普通地面弓手（无编队/无塔位/未上船）同样排除
+            // 三标签（EnemySpawn/Unspittable/QuestStructure）：原生只在射手"自由站立"时排除；
+            // 编队/守位/乘船可射/骑士冲锋时绕过，QuestStructure 乘船时被外层臂额外排除。
+            if (!PassesFoeTagGate(candidate, tagState)) return false;
 
             if (candidate.GetComponentInParent<FriendlyTroll>() != null) return false;   // 友军巨魔绝不挨弹
 
@@ -592,9 +680,11 @@ internal static class MusketeerFoeFilter
     /// 发射/命中共用的"有效目标"总门（类型门分开）：
     /// * 鹿候选（父链带 Deer，**不管它在哪一层**）→ 一律走鹿门 <see cref="IsDeerShotAllowed"/>：
     ///   白天 + 原生猎鹿前置 + 鹿根自有 Damageable。夜里的鹿绝不当敌人打（不发弹、也不浪费子弹）。
-    /// * 其余候选 → 原生等价的地面敌人门 <see cref="IsValidGroundFoe"/>。
+    /// * 其余候选 → 原生等价的地面敌人门 <see cref="IsValidGroundFoe"/>（按当前射手状态求值 tag 臂：
+    ///   编队/守位/乘船可射/骑士冲锋时 EnemySpawn/Unspittable/QuestStructure 不再排除，
+    ///   QuestStructure 乘船时仍被外层臂排除）。
     /// * 兔子等小动物两条门都进不去（不在这里开白名单）。
-    /// 弹道侧用 <see cref="TryResolveShotTarget"/> 复用同一套判据并解析出可提交的 Damageable。
+    /// 弹道侧用 <see cref="TryResolveShotTarget"/> 复用同一套判据（tag 门改用发射时快照）并解析出可提交的 Damageable。
     /// </summary>
     internal static bool IsValidShotTarget(Archer archer, GameObject target)
     {
@@ -602,7 +692,7 @@ internal static class MusketeerFoeFilter
         {
             if (archer == null || archer.gameObject == null) return false;
             if (IsDeerCandidate(target)) return IsDeerShotAllowed(archer, target);
-            return IsValidGroundFoe(target, archer.gameObject);
+            return IsValidGroundFoe(target, archer);
         }
         catch (Exception)
         {
@@ -617,11 +707,12 @@ internal static class MusketeerFoeFilter
     ///   身份/战斗包、**发射时快照的绑定 lease**、白天、编队/骑士/乘船、鹿根自有 Damageable）。
     ///   射手发射后加入编队/骑士、被停用/死亡/失权、或同一 GO 回池后作为新 life 重新武装
     ///   （lease 变化）→ 本次鹿命中作废（透明），等下一次决策。
-    /// * 其余候选走原生等价的地面敌人判据（**不加昼夜/编队/身份/lease 门**：敌弹旧语义不变）；
-    ///   Crusher 免疫位照旧消费子弹、不掉血。
+    /// * 其余候选走原生等价的地面敌人判据（**不加昼夜/编队/身份/lease 门**：敌弹旧语义不变），
+    ///   其中 tag 门用**发射时快照** <paramref name="tagState"/>（不在飞行中重读射手状态：
+    ///   收旗/入队/乘船/池复用都不改变已出膛的弹）；Crusher 免疫位照旧消费子弹、不掉血。
     /// </summary>
     internal static bool TryResolveShotTarget(GameObject candidate, GameObject shooterRoot, long shooterLease,
-        out Damageable target, out bool immunityConsume)
+        GroundFoeTagState tagState, out Damageable target, out bool immunityConsume)
     {
         target = null;
         immunityConsume = false;
@@ -637,7 +728,7 @@ internal static class MusketeerFoeFilter
                 target = deerDamageable;
                 return true;
             }
-            if (!IsValidGroundFoe(candidate, shooterRoot)) return false;
+            if (!IsValidGroundFoe(candidate, shooterRoot, tagState)) return false;
             target = GetFoeDamageable(candidate);
             if (target == null) return false;
             immunityConsume = IsImmunityConsume(candidate);
@@ -699,6 +790,10 @@ internal sealed class MusketeerBullet
     internal GameObject ShooterRoot;
     /// <summary>发射时快照的射手绑定 lease（鹿命中用它证明"同一 life"；0 = 未装包快照）。</summary>
     internal long ShooterLease;
+    /// <summary>发射时快照的射手 tag 状态（<see cref="GroundFoeTagState.TagBypassArmed"/> 内层绕过臂 +
+    /// <see cref="GroundFoeTagState.Embarked"/> 外层臂）：命中解析只用这份快照，绝不在飞行中重读射手状态。
+    /// <see cref="ReleaseRecord"/> 归还时必须整体清空——池复用残留会让未武装的弹 fail-open。</summary>
+    internal GroundFoeTagState FoeTagState;
     /// <summary>租约序号（每次从池中租出时递增；long 不会在正常玩法下溢出，生产路径无需重置）：
     /// 重入回调后的旧帧绝不推进新租的同一条记录。</summary>
     internal long Lease;
@@ -1023,7 +1118,10 @@ internal static class MusketeerCombat
 
         // 绑定 lease 快照（鹿资格命中时比对；敌方命中不使用）：同 GO 回池再武装的新 life 与旧弹分离。
         long shooterLease = MusketeerRuntime.BindingLease(archer);
-        if (!TryCreateBullet(archer, archer.ActiveArrowAttack, origin, direction, range, world, shooterLease))
+        // tag 状态快照（敌方命中解析用它；发射门刚按同一射手状态放行——命中绝不在飞行中重读射手。
+        // 与 ShooterLease 同款"发射时快照"语义；池回收清理见 ReleaseRecord）。
+        GroundFoeTagState foeTagState = MusketeerFoeFilter.ReadGroundFoeTagState(archer);
+        if (!TryCreateBullet(archer, archer.ActiveArrowAttack, origin, direction, range, world, shooterLease, foeTagState))
             return false;
 
         LogDeerShot(target, origin, direction, range);   // 被动、每世界有界；非鹿直接 no-op
@@ -1163,7 +1261,7 @@ internal static class MusketeerCombat
                     reachedGround = true;
                 }
 
-                if (TryResolveSegment(from, to, bullet.ShooterRoot, bullet.ShooterLease,
+                if (TryResolveSegment(from, to, bullet.ShooterRoot, bullet.ShooterLease, bullet.FoeTagState,
                         out Damageable hitTarget, out bool immunityConsume))
                 {
                     // 消费闩先于伤害：先把子弹从表里摘掉并归还可视化/记录，再调用共同 Submit。
@@ -1340,13 +1438,13 @@ internal static class MusketeerCombat
 
     /// <summary>本段是否消费子弹（true = 消费：命中有效目标，或证据不完整时保守终止；false = 继续飞）。</summary>
     private static bool TryResolveSegment(Vector2 from, Vector2 to, GameObject shooterRoot, long shooterLease,
-        out Damageable hitTarget, out bool immunityConsume)
+        GroundFoeTagState tagState, out Damageable hitTarget, out bool immunityConsume)
     {
         hitTarget = null;
         immunityConsume = false;
         int mask = MusketeerFoeFilter.CombatLayerMask();
         if (mask == 0) return false;   // 敌方层解析失败：本段无命中证据（fail-closed：继续飞，与旧行为一致）
-        if (!TryQuerySegment(from, to, mask, shooterRoot, shooterLease, out hitTarget, out immunityConsume))
+        if (!TryQuerySegment(from, to, mask, shooterRoot, shooterLease, tagState, out hitTarget, out immunityConsume))
             return true;               // 证据不完整（已限频记录）：保守消费，绝不伪造命中
         return hitTarget != null;
     }
@@ -1361,7 +1459,7 @@ internal static class MusketeerCombat
     /// 鹿候选另需发射时快照的绑定 lease 仍是同一 life。
     /// </summary>
     private static bool TryQuerySegment(Vector2 from, Vector2 to, int layerMask, GameObject shooterRoot,
-        long shooterLease, out Damageable target, out bool immunityConsume)
+        long shooterLease, GroundFoeTagState tagState, out Damageable target, out bool immunityConsume)
     {
         target = null;
         immunityConsume = false;
@@ -1390,7 +1488,7 @@ internal static class MusketeerCombat
             }
             if (hits < capacity)
             {
-                SelectNearestFromArray(_hitBuffer, hits, segmentLength, shooterRoot, shooterLease,
+                SelectNearestFromArray(_hitBuffer, hits, segmentLength, shooterRoot, shooterLease, tagState,
                     out target, out immunityConsume);
                 return true;
             }
@@ -1409,7 +1507,7 @@ internal static class MusketeerCombat
                 LogPhysicsUnavailableOnce();   // 返回值超出列表内容：证据不可信
                 return false;
             }
-            SelectNearestFromList(_hitList, hits, segmentLength, shooterRoot, shooterLease,
+            SelectNearestFromList(_hitList, hits, segmentLength, shooterRoot, shooterLease, tagState,
                 out target, out immunityConsume);
             return true;
         }
@@ -1437,28 +1535,28 @@ internal static class MusketeerCombat
     }
 
     private static void SelectNearestFromArray(Il2CppStructArray<RaycastHit2D> hits, int count,
-        float segmentLength, GameObject shooterRoot, long shooterLease,
+        float segmentLength, GameObject shooterRoot, long shooterLease, GroundFoeTagState tagState,
         out Damageable target, out bool immunityConsume)
     {
         float bestDistance = float.MaxValue;
         Damageable bestTarget = null;
         bool bestImmunity = false;
         for (int i = 0; i < count && i < hits.Length; i++)
-            ConsiderHit(hits[i], segmentLength, shooterRoot, shooterLease,
+            ConsiderHit(hits[i], segmentLength, shooterRoot, shooterLease, tagState,
                 ref bestDistance, ref bestTarget, ref bestImmunity);
         target = bestTarget;
         immunityConsume = bestImmunity;
     }
 
     private static void SelectNearestFromList(Il2CppSystem.Collections.Generic.List<RaycastHit2D> hits, int count,
-        float segmentLength, GameObject shooterRoot, long shooterLease,
+        float segmentLength, GameObject shooterRoot, long shooterLease, GroundFoeTagState tagState,
         out Damageable target, out bool immunityConsume)
     {
         float bestDistance = float.MaxValue;
         Damageable bestTarget = null;
         bool bestImmunity = false;
         for (int i = 0; i < count; i++)
-            ConsiderHit(hits[i], segmentLength, shooterRoot, shooterLease,
+            ConsiderHit(hits[i], segmentLength, shooterRoot, shooterLease, tagState,
                 ref bestDistance, ref bestTarget, ref bestImmunity);
         target = bestTarget;
         immunityConsume = bestImmunity;
@@ -1469,10 +1567,11 @@ internal static class MusketeerCombat
     /// 透明 = 友军/飞行/死亡/自己 + **兔子等小动物**（有 Damageable 但既不是敌人也不是白天可猎鹿）；
     /// 鹿命中必须通过鹿根组件 + 鹿根自己的 Damageable 校验（被其他 mod 改层/加子 collider 也照此），
     /// 且发射时快照的绑定 lease 仍是同一 life（池复用旧弹绝不伤鹿）；
+    /// 敌人 tag 门用发射时快照 <paramref name="tagState"/>（不在飞行中重读射手状态）；
     /// 严格更近才替换（同距保持先遇到的，结果与回调顺序无关）。
     /// </summary>
     private static void ConsiderHit(RaycastHit2D hit, float segmentLength, GameObject shooterRoot, long shooterLease,
-        ref float bestDistance, ref Damageable bestTarget, ref bool bestImmunity)
+        GroundFoeTagState tagState, ref float bestDistance, ref Damageable bestTarget, ref bool bestImmunity)
     {
         float distance = hit.distance;
         if (!float.IsFinite(distance) || distance < 0f || distance > segmentLength + 1e-4f) return;
@@ -1482,7 +1581,7 @@ internal static class MusketeerCombat
         if (collider == null) return;
         GameObject candidate = collider.gameObject;
         if (candidate == null) return;
-        if (!MusketeerFoeFilter.TryResolveShotTarget(candidate, shooterRoot, shooterLease,
+        if (!MusketeerFoeFilter.TryResolveShotTarget(candidate, shooterRoot, shooterLease, tagState,
                 out Damageable target, out bool immunityConsume))
             return;
 
@@ -1547,7 +1646,7 @@ internal static class MusketeerCombat
     }
 
     private static bool TryCreateBullet(Archer archer, ArrowAttack attack, Vector2 origin, Vector2 direction,
-        float range, Transform world, long shooterLease)
+        float range, Transform world, long shooterLease, GroundFoeTagState foeTagState)
     {
         if (world == null) return false;
 
@@ -1585,6 +1684,7 @@ internal static class MusketeerCombat
         bullet.Alive = true;
         bullet.ShooterRoot = archer.gameObject;
         bullet.ShooterLease = shooterLease;
+        bullet.FoeTagState = foeTagState;   // 发射时快照：命中解析的唯一 tag 依据
         bullet.Lease = ++_leaseCounter;   // 本帧边界之后的租约：重入回调里的旧帧不会推进它
 
         Bullets[_count] = bullet;
@@ -1614,6 +1714,7 @@ internal static class MusketeerCombat
         bullet.Renderer = null;
         bullet.ShooterRoot = null;
         bullet.ShooterLease = 0L;
+        bullet.FoeTagState = GroundFoeTagState.FreeStanding;   // 池复用绝不残留上一发的绕过位（fail-open 防护）
         bullet.Position = default;
         bullet.Direction = default;
         bullet.Speed = 0f;
