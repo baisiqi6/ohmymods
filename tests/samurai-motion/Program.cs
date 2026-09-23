@@ -20,6 +20,7 @@ internal static class Program
         UnityEngine.Random.ForcedValue = 1f; UnityEngine.Random.Rolls = 0;
         ModConfig.Enabled.Value = true; NetworkBigBoss.HasWorldAuth = true; Managers.Inst = new();
         KingdomEnhancedPlugin.Instance.LogSource.Errors.Clear();
+        KingdomEnhancedPlugin.Instance.LogSource.Infos.Clear();
         try { action(); Eq(0, KingdomEnhancedPlugin.Instance.LogSource.Errors.Count, "production error logs"); passed++; Console.WriteLine("PASS " + name); }
         catch (Exception error) { failed++; Console.WriteLine("FAIL " + name + ": " + error.GetBaseException().Message); }
     }
@@ -669,6 +670,232 @@ internal static class Program
             Eq(0, second.HitCount, "leash loss stops later targets immediately");
         });
     }
+    // One complete attack lease in the stub world: two calm frames let the calm pose settle, the
+    // dash then fires from the animator's current state, settles on `pose` so the capture can take
+    // it, and runs out so Finish clears the trigger. The scanner is emptied afterwards.
+    private static void RunAttackLease(Knight k, int pose)
+    {
+        Frames(2, .02f, false);
+        Time.time += .25f;                          // past the attack scan interval
+        Enemy(k, 3);
+        UpdateHook(k);
+        k._animator.StateHash = pose;
+        Frames(3, .02f, false);
+        Time.time += .7f;                           // past DashTimeout
+        Time.frameCount++;
+        Scheduler.Advance();
+        k._enemyScanner.Closest = null;
+        Physics2D.Hits = Array.Empty<Collider2D>();
+    }
+
+    private static void StuckPoseRepair()
+    {
+        Test("A pose that outlives the native slash is reset, replayed to calm and left alone", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._animator.StateHash = 111;                    // the calm stand pose
+            RunAttackLease(k, 777);                         // the capture takes 777 as the slash pose
+            int resets = k._animator.ResetCount;            // the dash's own Finish reset
+            k._animator.StateHash = 777;                    // the trigger's pose survived the dash
+            Frames(70, .02f, false);                        // 1.4 s: still inside the native budget
+            Eq(resets, k._animator.ResetCount, "no repair before the pose outlives the native slash");
+            Frames(8, .02f, false);                         // past 1.5 s
+            Eq(resets + 1, k._animator.ResetCount, "the leftover trigger is reset once");
+            Eq(1, k._animator.PlayCalls, "the calm pose is replayed");
+            Eq(111, k._animator.StateHash, "the replay landed on the captured calm state");
+            Eq(0, k._animator.EnabledWrites, "no enable toggle once the replay worked");
+            Frames(120, .02f, false);
+            Eq(resets + 1, k._animator.ResetCount, "a healed pose is not repaired again");
+            Eq(1, k._animator.PlayCalls, "no repeated replay");
+            var line = KingdomEnhancedPlugin.Instance.LogSource.Infos.LastOrDefault(m => m.StartsWith("[SamuraiDash/heal]"));
+            Check(line != null && line.Contains("normalizedTime=") && line.Contains("fullPathHash=") && line.Contains("order=1"),
+                "the repair line carries normalizedTime, fullPathHash and the retry order");
+        });
+        Test("A transition-only lease leaves the session's captured pose untouched", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._animator.StateHash = 111;
+            RunAttackLease(k, 777);                         // lease 1 captures 777
+            // Lease 2: every frame is a transition whose current state is the source pose 111.
+            Time.time += 3.5f;
+            Enemy(k, 3);
+            k._animator.InTransition = true;
+            k._animator.StateHash = 111;
+            UpdateHook(k);
+            Frames(10, .02f, false);                        // the capture gates never open for this lease
+            k._animator.InTransition = false;
+            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            k._enemyScanner.Closest = null; Physics2D.Hits = Array.Empty<Collider2D>();
+            int resets = k._animator.ResetCount;
+            k._animator.StateHash = 777;                    // the pose lease 1 captured is still known
+            Frames(90, .02f, false);
+            Eq(resets + 1, k._animator.ResetCount, "the session capture survived the later lease");
+            Eq(1, k._animator.PlayCalls, "the captured calm pose is replayed");
+        });
+        Test("A lease that never opens its gates stands the capture probe down for the session", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._animator.StateHash = 111;
+            Enemy(k, 3);
+            k._animator.InTransition = true;                // every frame reports the transition source
+            UpdateHook(k);
+            Frames(64, .01f, false);                        // one lease, 60+ misses: past the budget
+            k._animator.InTransition = false;
+            k._enemyScanner.Closest = null; Physics2D.Hits = Array.Empty<Collider2D>();
+            k._animator.StateHash = 777;
+            int resets = k._animator.ResetCount;
+            Frames(80, .02f, false);                        // far past the stuck budget
+            Eq(resets, k._animator.ResetCount, "a never-captured knight is never repaired");
+            Eq(0, k._animator.PlayCalls, "no replay without a captured pose");
+            // A later, perfectly clean lease cannot revive the probe inside the same session.
+            Time.time += 3.5f;
+            k._animator.StateHash = 111;
+            RunAttackLease(k, 777);
+            k._animator.StateHash = 777;
+            resets = k._animator.ResetCount;
+            Frames(80, .02f, false);
+            Eq(resets, k._animator.ResetCount, "the stand-down survives a clean lease");
+        });
+        Test("Misses from one lease do not count against the next", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._animator.StateHash = 111;
+            Frames(2, .02f, false);                         // the calm pose is captured
+            Time.time += .25f;
+            Enemy(k, 3);
+            k._animator.InTransition = true;                // lease A misses on 29 of its 30 frames
+            UpdateHook(k);
+            Frames(28, .02f, false);
+            k._animator.InTransition = false;
+            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            k._enemyScanner.Closest = null; Physics2D.Hits = Array.Empty<Collider2D>();
+            Time.time += 3.5f;
+            k._animator.StateHash = 111;
+            RunAttackLease(k, 777);                         // lease B's gates open and still capture
+            k._animator.StateHash = 777;
+            int resets = k._animator.ResetCount;
+            Frames(90, .02f, false);
+            Eq(resets + 1, k._animator.ResetCount, "a short lease's misses never retire the probe");
+        });
+        Test("A lease that never leaves its begin pose captures nothing", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._animator.StateHash = 111;
+            RunAttackLease(k, 111);                         // the pose never moves off the baseline
+            int resets = k._animator.ResetCount;
+            Frames(90, .02f, false);                        // the same hash, but it was never captured
+            Eq(resets, k._animator.ResetCount, "the begin-frame pose is not mistaken for the slash pose");
+            Eq(0, k._animator.PlayCalls, "nothing is replayed");
+        });
+        Test("A state that is not the captured pose is never repaired", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._animator.StateHash = 111;
+            RunAttackLease(k, 777);
+            k._animator.StateHash = 888;                    // a native state with its own hash
+            int resets = k._animator.ResetCount;
+            Frames(90, .02f, false);                        // 1.8 s in that other state
+            Eq(resets, k._animator.ResetCount, "only the captured pose is repaired");
+            Eq(0, k._animator.PlayCalls, "no replay for a foreign state");
+        });
+        Test("A knight that never drove a cut lease is never repaired", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._animator.StateHash = 777;                    // the same pose, but no cut ever armed it
+            Frames(200, .02f, false);                       // 4 s: far past the stuck budget
+            Eq(0, k._animator.ResetCount, "no cut lease ever armed the probe");
+            Eq(0, k._animator.PlayCalls, "nothing is replayed");
+        });
+        Test("A pose first shown after the eight-second window is left alone", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._animator.StateHash = 111;
+            RunAttackLease(k, 777);
+            k._animator.StateHash = 111;                    // calm again: no episode ever starts
+            int resets = k._animator.ResetCount;
+            Frames(450, .02f, false);                       // 9 s past the last cut, calm throughout
+            k._animator.StateHash = 777;
+            Frames(120, .02f, false);                       // 2.4 s in the pose, but the window is shut
+            Eq(resets, k._animator.ResetCount, "the window closed before the pose appeared");
+            Eq(0, k._animator.PlayCalls, "no replay outside the window");
+        });
+        Test("The finished cut clears its trigger before the swallow fires a fresh one", () => {
+            UnityEngine.Random.ForcedValue = .29f;
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            k._animator.StateHash = 111;
+            UpdateHook(k);                                  // the attack dash begins from 111
+            k._animator.StateHash = 777;
+            Frames(3, .02f, false);                         // the capture settles on 777
+            Frames(9);                                      // the dash travels past the swallow minimum
+            k._animator.Ops.Clear();
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance(); // the dash ends
+            Frame(.02f, false);                             // the roll frame: the swallow begins
+            Eq(1, UnityEngine.Random.Rolls, "the swallow rolled once");
+            Check(k._animator.Ops.Count >= 2, "both trigger writes were recorded");
+            Eq("reset", k._animator.Ops[^2], "the finished attack clears the trigger first");
+            Eq("set", k._animator.Ops[^1], "the swallow then fires its own trigger");
+        });
+        Test("Withdrawal finishes never touch the slash trigger", () => {
+            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true;
+            AssertStartedReturn(k, 0);
+            Frames(40, .02f, false);                        // the burst fails and the walk takes over
+            k._mover.Blocked = false;
+            for (int i = 0; i < 900 && k.transform.position.x > 4.01f; i++) Frame(.02f);
+            Check(k.transform.position.x <= 4.01f, "the withdrawal actually finished its leg");
+            Eq(0, k._animator.ResetCount, "no trigger hygiene on a return or a walk");
+            Eq(0, k._animator.TriggerCount, "no dash pose either");
+        });
+        Test("A pose that survives both ladders stands the probe down until the next cut lease", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._animator.StateHash = 111;
+            RunAttackLease(k, 777);
+            k._animator.OnPlay = (hash, layer, time) => false;  // the replay never takes
+            int resets = k._animator.ResetCount;
+            k._animator.StateHash = 777;
+            Frames(200, .02f, false);                       // 4 s: both ladders spend themselves
+            Eq(resets + 2, k._animator.ResetCount, "exactly two repair ladders");
+            Eq(2, k._animator.PlayCalls, "one replay per ladder");
+            Eq(4, k._animator.EnabledWrites, "one enable toggle per ladder");
+            Frames(200, .02f, false);                       // the stand-down holds
+            Eq(resets + 2, k._animator.ResetCount, "no third ladder inside the same episode");
+            Eq(4, k._animator.EnabledWrites, "no further toggles");
+            Time.time += 3.5f;
+            k._animator.StateHash = 111;
+            RunAttackLease(k, 777);                         // the next cut lease arms the probe again
+            k._animator.StateHash = 777;
+            resets = k._animator.ResetCount;
+            Frames(90, .02f, false);
+            Eq(resets + 1, k._animator.ResetCount, "the next cut lease releases the stand-down");
+        });
+        Test("Without a captured calm pose the repair goes straight to the enable toggle", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._animator.StateHash = 111;
+            k._animator.Speed = 1;                          // the calm gate never opens: no default capture
+            RunAttackLease(k, 777);
+            k._animator.StateHash = 777;
+            k._animator.OnEnabledWrite = on => { if (on) k._animator.StateHash = 111; };
+            int resets = k._animator.ResetCount;
+            Frames(90, .02f, false);                        // 1.8 s stuck: one ladder runs
+            Eq(resets + 1, k._animator.ResetCount, "the ladder still resets the trigger");
+            Eq(0, k._animator.PlayCalls, "no replay without a captured calm pose");
+            Eq(2, k._animator.EnabledWrites, "the enable toggle is the fallback");
+            Frames(60, .02f, false);
+            Eq(resets + 1, k._animator.ResetCount, "the toggle healed the episode");
+        });
+        Test("A native slash pause never yields a calm pose to replay", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._mover._pauseTimeout = 5;                     // Mover.Pause: Speed 0 while the slash holds
+            k._animator.StateHash = 111;
+            Frames(10, .02f, false);                        // the only calm window is this paused one
+            k._mover._pauseTimeout = 0;
+            Enemy(k, 3);
+            UpdateHook(k);                                  // the attack dash begins from 111
+            k._animator.StateHash = 777;
+            Frames(3, .02f, false);
+            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            k._enemyScanner.Closest = null; Physics2D.Hits = Array.Empty<Collider2D>();
+            k._animator.StateHash = 777;                    // the pose is left behind
+            k._animator.OnEnabledWrite = on => { if (on) k._animator.StateHash = 111; };
+            int resets = k._animator.ResetCount;
+            Frames(90, .02f, false);
+            Eq(resets + 1, k._animator.ResetCount, "the ladder still resets the trigger");
+            Eq(0, k._animator.PlayCalls, "the paused frame never supplied a calm pose");
+            Eq(2, k._animator.EnabledWrites, "the toggle fallback carried the repair");
+        });
+    }
+
     private static void Main()
     {
         NightRegressions();
@@ -975,6 +1202,7 @@ internal static class Program
             Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "no surviving active token");
         });
         SwallowRegressions();
+        StuckPoseRepair();
         Console.WriteLine($"RESULT: {passed} passed, {failed} failed"); Environment.ExitCode = failed == 0 ? 0 : 1;
     }
 }

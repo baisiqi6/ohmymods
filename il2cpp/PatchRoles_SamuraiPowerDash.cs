@@ -7,7 +7,23 @@ using UnityEngine;
 
 namespace KingdomEnhancedMod;
 
-/// <summary>One motion lease per knight. A retired lease can never write again.</summary>
+/// <summary>
+/// One motion lease per knight. A retired lease can never write again.
+///
+/// Stuck slash pose: a cut lease drives the native PowerSlash trigger, and a dash that ends while
+/// that state is still current can leave the trigger unconsumed, so the knight keeps the pose.
+/// Finish clears the trigger, and a bounded probe watches only the knights that actually drove a
+/// cut lease this session, only inside CutWindow after the last one. It compares against the pose
+/// hash captured from the live animator during a cut, and a pose that outlives the native slash
+/// is repaired by a trigger reset, a replay of the captured calm state and -- as a last resort --
+/// an Animator enable toggle, at most two ladders per episode.
+///
+/// Boundaries, deliberately not widened: knights outside the eligible pool (grabbed, petrified,
+/// retreating, a foreign FSM task) are not repaired; the captured hashes live and die with the
+/// actor state, exactly like the return ladder; and a repair is local presentation only -- it
+/// never sends an animation-sync message, so the pre-existing gap that a knight's pose is not
+/// networked stays exactly as wide as it was.
+/// </summary>
 internal static class PatchRoles_SamuraiPowerDash
 {
     private const float ScanInterval = .2f, Cooldown = 3f, MaxRange = 7f;
@@ -24,10 +40,18 @@ internal static class PatchRoles_SamuraiPowerDash
     // burst on the walk owns the way back until the samurai actually arrives.
     private const int WalkAfterFailures = 3;
     private const float RetryStep = 2f;
+    // Stuck-pose probe: armed only by a cut lease, considered only CutWindow after the last one,
+    // repaired only once the pose outlives the native slash by StuckAfter; the capture probe is
+    // retired after CaptureFailFrames misses inside one lease, the repair after HealRetryCap
+    // ladders inside one episode, and the heal narrative is throttled to one incident per
+    // HealLogEvery seconds and capped at HealLogBudget lines per session.
+    private const float CutWindow = 8f, StuckAfter = 1.5f, HealLogEvery = 6f;
+    private const int CaptureFailFrames = 30, HealRetryCap = 2, HealLogBudget = 12;
+    private static readonly int SpeedParam = Animator.StringToHash("Speed");
     private static readonly Dictionary<int, ActorState> Actors = new();
     private static readonly int PowerSlash = Animator.StringToHash("PowerSlash");
     private static readonly HashSet<string> Logged = new();
-    private static int HitLayerMask, WalkLogs;
+    private static int HitLayerMask, WalkLogs, HealLogs;
 
     private sealed class ActorState
     {
@@ -42,6 +66,15 @@ internal static class PatchRoles_SamuraiPowerDash
         internal bool PendingSwallow;
         internal float SwallowOriginX, NextSwallowAt;
         internal int SwallowFrame = -1;
+        // Stuck-pose probe (see the class comment): a cut lease arms it for good (HasCutHistory),
+        // the captured hashes are what the pose check and the repair replay compare against, and
+        // the ladder fields below track one stuck episode at a time.
+        internal bool HasCutHistory, CaptureDead, HealGivenUp, LoggingHeal;
+        internal float LastCutEndAt, StuckAt, NextHealLogAt;
+        internal int SlashHash, DefaultHash;
+        internal int CaptureBaseline, CaptureSeen, CaptureStable, CaptureFrames, CaptureFrame = -1;
+        internal int DefaultSeen, DefaultStable, DefaultFrame = -1;
+        internal int HealStep, HealFrame = -1, HealRetries;
     }
 
     private sealed class MotionLease
@@ -187,6 +220,20 @@ internal static class PatchRoles_SamuraiPowerDash
             if (owned)
             {
                 LogMotionEnd(m, reason == EndReason.Failure);
+                // Trigger hygiene the native path does not have: a cut that ends with its
+                // PowerSlash trigger still unconsumed leaves the pose armed for the next state
+                // entry. Clearing the flag never interrupts a state that is already playing --
+                // that animation leaves on its own.
+                if (m.Kind == MotionKind.Attack || m.Kind == MotionKind.Swallow)
+                {
+                    m.Actor.LastCutEndAt = Time.time;   // arms the stuck-pose probe window
+                    try
+                    {
+                        Knight k = m.Actor.Owner;
+                        if (k._animator != null) k._animator.ResetTrigger(PowerSlash);
+                    }
+                    catch (Exception e) { Log("reset-trigger", e); }
+                }
                 if (IsReturnFamily(m))
                 {
                     if (reason == EndReason.Failure)
@@ -294,8 +341,19 @@ internal static class PatchRoles_SamuraiPowerDash
             m.Mover.SetDirection(direction);
             k.transform.localScale = new Vector3(direction * Mathf.Abs(scale.x), scale.y, scale.z);
         }
-        if ((kind == MotionKind.Attack || kind == MotionKind.Swallow) && k._animator != null)
-            k._animator.SetTrigger(PowerSlash);
+        // A new motion restarts the stuck-pose measurement; the cut motions additionally arm the
+        // probe, record the pose the trigger fires from and may release its give-up latch.
+        ClearEpisode(a);
+        if (kind == MotionKind.Attack || kind == MotionKind.Swallow)
+        {
+            a.HasCutHistory = true;
+            a.HealGivenUp = false;
+            a.CaptureBaseline = PoseHash(k);        // read before the trigger moves the animator
+            a.CaptureSeen = a.CaptureBaseline;
+            a.CaptureStable = 0;
+            a.CaptureFrames = 0;                    // the miss budget is counted per lease
+            if (k._animator != null) k._animator.SetTrigger(PowerSlash);
+        }
         if (kind == MotionKind.Return) { m.FacingWritten = EnemyFacing(k); HoldFacing(m); }
         m.Visual = SamuraiDashVisuals.Begin(k, m.Diagnostics);
         Goal(m, goal, DashSpeed);
@@ -338,6 +396,262 @@ internal static class PatchRoles_SamuraiPowerDash
         return target - Mathf.Sign(target - x) * 2.5f;
     }
 
+    // ---------------------------------------------------------------------------------------
+    // Stuck slash pose (see the class comment for the contract). Everything below is local
+    // presentation repair: it reads the animator, writes at most trigger/state/enabled, and
+    // never touches a lease, the network or gameplay.
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>Live animator reference; null for missing, destroyed or disabled animators.</summary>
+    private static Animator ReadAnimator(Knight k)
+    {
+        try
+        {
+            Animator animator = k != null ? k._animator : null;
+            return animator != null && animator.isActiveAndEnabled ? animator : null;
+        }
+        catch (Exception e) { Log("animator", e); return null; }
+    }
+
+    /// <summary>The animator's current state hash; false when it cannot be read.</summary>
+    private static bool TryPoseHash(Knight k, out int hash)
+    {
+        hash = 0;
+        Animator animator = ReadAnimator(k);
+        if (animator == null) return false;
+        hash = animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
+        return true;
+    }
+
+    private static int PoseHash(Knight k)
+    {
+        try { return TryPoseHash(k, out int hash) ? hash : 0; }
+        catch (Exception e) { Log("state-read", e); return 0; }
+    }
+
+    /// <summary>
+    /// Captures the slash pose from the live animator during a cut lease: only a state the
+    /// animator settled on counts -- never a transition source, never the begin-frame baseline
+    /// and never a single-frame flicker. One captured hash lasts for the whole actor state; a
+    /// later lease that cannot re-observe it leaves it alone, and only a knight that never
+    /// captured a pose can be stood down by a whole lease window of misses.
+    /// </summary>
+    private static void TryCaptureSlashPose(Knight k, ActorState a)
+    {
+        if (a.SlashHash != 0 || a.CaptureDead) return;
+        if (Time.frameCount == a.CaptureFrame) return;      // at most one attempt per frame
+        a.CaptureFrame = Time.frameCount;
+        try
+        {
+            Animator animator = ReadAnimator(k);
+            if (animator == null || animator.IsInTransition(0))
+            {
+                a.CaptureStable = 0;
+                CountCaptureMiss(a);
+                return;
+            }
+            int hash = animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
+            if (hash == 0 || hash == a.CaptureBaseline)
+            {
+                a.CaptureSeen = hash;
+                a.CaptureStable = 0;
+                CountCaptureMiss(a);
+                return;
+            }
+            if (hash != a.CaptureSeen)
+            {
+                a.CaptureSeen = hash;
+                a.CaptureStable = 1;
+                CountCaptureMiss(a);
+                return;
+            }
+            a.CaptureStable++;
+            if (a.CaptureStable < 2) { CountCaptureMiss(a); return; }
+            a.SlashHash = hash;
+            if (a.DefaultHash == hash) a.DefaultHash = 0;   // the slash pose is never a calm state
+            if (Logged.Add("slash-capture"))
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/slash-capture] hash=" + hash
+                    + " baseline=" + a.CaptureBaseline + " frames=" + a.CaptureFrames);
+        }
+        catch (Exception e) { Log("slash-capture", e); }
+    }
+
+    /// <summary>
+    /// A whole lease window of gate misses retires the capture probe for good -- but the counter
+    /// is per lease, so a short lease can never accumulate a later lease's misses.
+    /// </summary>
+    private static void CountCaptureMiss(ActorState a)
+    {
+        a.CaptureFrames++;
+        if (a.CaptureFrames > CaptureFailFrames) a.CaptureDead = true;
+    }
+
+    /// <summary>
+    /// The calm state the repair replays: captured once per actor state on a settled, idle frame
+    /// (no lease, no transition, Speed at rest, no native slash pause) whose hash holds for two
+    /// frames and differs from the captured slash pose. Failure is silent; the next calm frame
+    /// retries.
+    /// </summary>
+    private static void TryCaptureDefaultPose(Knight k, ActorState a)
+    {
+        if (a.DefaultHash != 0) return;
+        if (Time.frameCount == a.DefaultFrame) return;
+        a.DefaultFrame = Time.frameCount;
+        try
+        {
+            Animator animator = ReadAnimator(k);
+            if (animator == null || animator.IsInTransition(0) ||
+                Mathf.Abs(animator.GetFloat(SpeedParam)) >= .01f ||
+                k._mover == null || k._mover._pauseTimeout > 0)
+            {
+                a.DefaultStable = 0;
+                return;
+            }
+            int hash = animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
+            if (hash == 0 || hash == a.SlashHash) { a.DefaultStable = 0; return; }
+            if (hash != a.DefaultSeen) { a.DefaultSeen = hash; a.DefaultStable = 1; return; }
+            a.DefaultStable++;
+            if (a.DefaultStable < 2) return;
+            a.DefaultHash = hash;
+            if (Logged.Add("default-capture"))
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/default-capture] hash=" + hash);
+        }
+        catch (Exception e) { Log("default-capture", e); }
+    }
+
+    /// <summary>
+    /// Watches for the one pose this module can leave behind: the captured slash hash still
+    /// current once the native slash would long be over. Only a knight that drove a cut lease,
+    /// inside CutWindow after its end, is ever considered.
+    /// </summary>
+    private static void ProbeStuckPose(Knight k, ActorState a)
+    {
+        if (!a.HasCutHistory || a.SlashHash == 0 || a.HealGivenUp) return;
+        try
+        {
+            if (Time.time - a.LastCutEndAt > CutWindow) { ClearEpisode(a); return; }
+            if (!TryPoseHash(k, out int hash)) return;      // unreadable: keep the episode as it is
+            if (hash != a.SlashHash) { RecoverStuckPose(a, k); return; }
+            if (Time.timeScale <= 0) return;
+            if (a.HealStep == 0)
+            {
+                if (a.StuckAt == 0) { a.StuckAt = Time.time; return; }
+                if (Time.time - a.StuckAt < StuckAfter) return;
+            }
+            Heal(k, a);
+        }
+        catch (Exception e) { Log("stuck-probe", e); }
+    }
+
+    private static void ClearEpisode(ActorState a)
+    {
+        a.StuckAt = 0;
+        a.HealStep = 0;
+        a.HealFrame = -1;
+        a.HealRetries = 0;
+        a.LoggingHeal = false;
+    }
+
+    private static void RecoverStuckPose(ActorState a, Knight k)
+    {
+        if (a.StuckAt != 0 || a.HealStep != 0)
+            HealLog(a, k, "recovered", a.HealRetries + 1, closes: true);
+        ClearEpisode(a);
+    }
+
+    /// <summary>
+    /// One repair ladder, one step per frame so every write can be re-checked before the next:
+    /// clear the leftover trigger, replay the captured calm state, and only then fall back to
+    /// toggling the Animator (the fallback for a session that never captured a calm pose). A
+    /// ladder the pose survives counts as one failed retry; after HealRetryCap the probe stands
+    /// down until the next cut lease arms it again.
+    /// </summary>
+    private static void Heal(Knight k, ActorState a)
+    {
+        if (a.HealGivenUp) return;
+        try
+        {
+            Animator animator = ReadAnimator(k);
+            if (animator == null) return;
+            if (a.HealStep == 0)
+            {
+                HealLog(a, k, "reset", a.HealRetries + 1, opens: true);
+                animator.ResetTrigger(PowerSlash);
+                a.HealStep = 1;
+                a.HealFrame = Time.frameCount;
+                return;
+            }
+            if (Time.frameCount <= a.HealFrame) return;     // every step gets its own frame
+            if (a.HealStep == 1)
+            {
+                if (a.DefaultHash != 0)
+                {
+                    HealLog(a, k, "play", a.HealRetries + 1);
+                    animator.Play(a.DefaultHash, 0, 0f);
+                }
+                else HealLog(a, k, "play-skipped", a.HealRetries + 1);
+                a.HealStep = 2;
+                a.HealFrame = Time.frameCount;
+                return;
+            }
+            if (a.HealStep == 2)
+            {
+                HealLog(a, k, "toggle", a.HealRetries + 1);
+                animator.enabled = false;
+                animator.enabled = true;
+                a.HealStep = 3;
+                a.HealFrame = Time.frameCount;
+                return;
+            }
+            // Step 3: the ladder is spent and the pose is still current. That is one retry.
+            a.HealRetries++;
+            a.StuckAt = Time.time;
+            a.HealStep = 0;
+            a.HealFrame = -1;
+            if (a.HealRetries >= HealRetryCap)
+            {
+                a.HealGivenUp = true;
+                HealLog(a, k, "gave-up", a.HealRetries, closes: true);
+            }
+            else HealLog(a, k, "retry", a.HealRetries);
+        }
+        catch (Exception e) { Log("heal", e); }
+    }
+
+    /// <summary>
+    /// Bounded heal narrative: one reported incident per HealLogEvery seconds per knight, at
+    /// most HealLogBudget lines per session, and every line carries the state the diagnosis
+    /// needs (normalizedTime tells a clip-end block from a looping re-entry).
+    /// </summary>
+    private static void HealLog(ActorState a, Knight k, string step, int order, bool opens = false, bool closes = false)
+    {
+        if (HealLogs >= HealLogBudget) return;
+        if (opens)
+        {
+            if (Time.time < a.NextHealLogAt) return;
+            a.NextHealLogAt = Time.time + HealLogEvery;
+            a.LoggingHeal = true;
+        }
+        else if (!a.LoggingHeal) return;
+        if (closes) a.LoggingHeal = false;
+        HealLogs++;
+        try
+        {
+            string details = "";
+            Animator animator = k != null ? k._animator : null;
+            if (animator != null)
+            {
+                AnimatorStateInfo info = animator.GetCurrentAnimatorStateInfo(0);
+                details = " normalizedTime=" + info.normalizedTime.ToString("0.###") +
+                    " fullPathHash=" + info.fullPathHash;
+            }
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/heal] step=" + step +
+                " order=" + order + " retries=" + a.HealRetries + " slashHash=" + a.SlashHash +
+                " defaultHash=" + a.DefaultHash + details);
+        }
+        catch { }
+    }
+
     internal static void Tick(Knight knight)
     {
         if (knight == null || knight.gameObject == null) return;
@@ -368,10 +682,12 @@ internal static class PatchRoles_SamuraiPowerDash
                 if (!ValidMotion(m)) { Finish(m, IsReturnFamily(m) ? EndReason.Failure : EndReason.Handoff); return; }
                 if (m.Kind == MotionKind.Attack)
                 {
+                    TryCaptureSlashPose(knight, a);
                     if (ValidFollower(knight, a.Follower) && Distance(a) > FollowLeash) Finish(m);
                 }
                 else if (m.Kind == MotionKind.Swallow)
                 {
+                    TryCaptureSlashPose(knight, a);
                     // Night wall guard and the ordinary return always have priority.
                     if (NightGuard(knight)) { Finish(m); return; }
                     if (ValidFollower(knight, a.Follower) &&
@@ -388,6 +704,8 @@ internal static class PatchRoles_SamuraiPowerDash
                 }
                 return; // Attack, Return and Swallow are mutually exclusive, including the 4..10 band.
             }
+            TryCaptureDefaultPose(knight, a);
+            ProbeStuckPose(knight, a);
             RefreshFollower(a);
             bool follower = ValidFollower(knight, a.Follower);
             if (!follower) { a.Follower = null; a.Failures = 0; a.RetryAt = 0; }
@@ -605,6 +923,7 @@ internal static class PatchRoles_SamuraiPowerDash
                 Mathf.Abs(m.Actor.Owner.transform.position.x - m.StartX) < MaxRange)
             {
                 var a = m.Actor;
+                TryCaptureSlashPose(a.Owner, a);        // the coroutine's own resume point
                 if (ValidFollower(a.Owner, a.Follower) && Distance(a) > FollowLeash) { pulled = true; break; }
                 if (Time.timeScale > 0)
                 {
