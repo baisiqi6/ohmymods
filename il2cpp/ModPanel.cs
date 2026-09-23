@@ -14,6 +14,7 @@ public class ModPanel : MonoBehaviour
     private static GUIStyle _title, _label, _muted, _value, _tab, _activeTab, _button, _card;
     private static Texture2D _back, _cardBack, _gold, _track, _thumb;
     private static Vector2 _scroll;
+    private static float _measuredContentHeight; // DrawControls 上一帧实际累计高度（一帧收敛）
     private static int _category;
     private static readonly string[] Categories = { "王国", "人口", "世界", "战斗", "自动补货", "便捷", "弓箭", "骑士" };
     private static readonly Color Gold = new Color(0.91f, 0.75f, 0.43f);
@@ -249,23 +250,37 @@ public class ModPanel : MonoBehaviour
         }
 
         float viewHeight = height - 224f;
-        // 合并 #26（便捷页 5 张）与 #28（骑士页 3 张=category 7）：两侧增量都保留。
-        int cards = _category == 7 ? 3
-            : (_category == 4 ? 9 : (_category == 3 ? 5 : (_category == 5 ? 5 : (_category == 0 || _category == 6 ? 4 : 3))));
-        float contentHeight = cards * (CardHeight + 12f);
+        // 内容高度以 DrawControls 的实测累计为准（估算只作首帧下限）：静态卡片数曾与实际控件
+        // 数脱节（弓箭页 5 控件被估成 4），最后一张卡被裁掉且永远滚不到（2026-09-23 玩家反馈）。
+        float contentHeight = Mathf.Max(_measuredContentHeight, EstimateCards() * (CardHeight + 12f));
         Rect viewport = new Rect(24, 176, width - 48, viewHeight);
         Rect content = new Rect(0, 0, width - 74, Mathf.Max(viewHeight, contentHeight));
         _scroll = GUI.BeginScrollView(viewport, _scroll, content, false, true);
         KnightStylePanel.SetSectionVisible(_category == 7); // 打开分区时刷新一次（不做实时跟随）
-        try { DrawControls(content.width); }
+        float drawn;
+        try { drawn = DrawControls(content.width); }
         finally { GUI.EndScrollView(); }
+        _measuredContentHeight = drawn + 16f;
         GUI.Label(new Rect(26, height - 40, width - 52, 28),
             "修改自动保存  ·  F5 / Ctrl+F10 开关面板  ·  Esc 关闭", _muted);
     }
 
-    private static void DrawControls(float width)
+    private static float DrawControls(float width)
     {
         float y = 0;
+        DrawControls(width, ref y);
+        return y;
+    }
+
+    // 首帧下限估算（真实高度由实测接管后此项不再决定滚动范围）。
+    private static int EstimateCards()
+    {
+        return _category == 7 ? 3
+            : (_category == 4 ? 9 : (_category == 3 ? 5 : (_category == 5 ? 5 : (_category == 0 || _category == 6 ? 4 : 3))));
+    }
+
+    private static void DrawControls(float width, ref float y)
+    {
         switch (_category)
         {
             case 0:
