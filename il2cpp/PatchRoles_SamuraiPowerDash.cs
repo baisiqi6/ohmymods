@@ -26,7 +26,15 @@ namespace KingdomEnhancedMod;
 /// </summary>
 internal static class PatchRoles_SamuraiPowerDash
 {
-    private const float ScanInterval = .2f, Cooldown = 3f, MaxRange = 7f;
+    private const float ScanInterval = .2f, Cooldown = 3f, MaxRange = 10.5f;
+    // The static self-scan's own reach, kept independent of the dash cap on purpose: the two
+    // numbers answer different questions (what the samurai may attack vs. how far a dash runs).
+    private const float SamuraiScanRange = 10.5f;
+    // The attack family's leash -- and only its: MaxRange + 2.5 station offset + .5 aim inset
+    // is exactly the furthest the follower can be while a dash or swallow that started legally
+    // is still running, so a dash never cuts itself off on its own start frame. The return
+    // family keeps FollowLeash: that is the walk-home trigger and must not move with the cap.
+    private const float AttackLeash = MaxRange + 2.5f + .5f;
     private const float DashSpeed = 18f, DashTimeout = .6f, FollowLeash = 10f, ReturnStop = 4f;
     // Swallow return (燕返): after an attack dash that ran its full course the samurai may
     // cut straight back to that dash's origin. One 30% roll per qualified completion, a
@@ -51,7 +59,7 @@ internal static class PatchRoles_SamuraiPowerDash
     private static readonly Dictionary<int, ActorState> Actors = new();
     private static readonly int PowerSlash = Animator.StringToHash("PowerSlash");
     private static readonly HashSet<string> Logged = new();
-    private static int HitLayerMask, WalkLogs, HealLogs;
+    private static int HitLayerMask, EnemyScanLayer, WalkLogs, HealLogs;
 
     private sealed class ActorState
     {
@@ -61,6 +69,10 @@ internal static class PatchRoles_SamuraiPowerDash
         internal float NextFollowerScan, NextAttack, RetryAt;
         internal int Failures;
         internal MotionLease Motion;
+        // Immediate withdrawal: a cut end raises it, the very next legal tick consumes it
+        // (lease or in-place face), and it is never deferred through a pause nor cleared by
+        // the same Finish that raised it.
+        internal bool ReturnDue;
         // Swallow-return bookkeeping: the roll is pending for exactly the frame after a
         // naturally completed attack dash; the cooldown starts only at a real start.
         internal bool PendingSwallow;
@@ -180,6 +192,21 @@ internal static class PatchRoles_SamuraiPowerDash
         a.Follower = nearest;
     }
 
+    // The enemy selection this module owns. The native `_enemyScanner` instance is deliberately
+    // left exactly as the game built it -- widening it would widen the native slash targeting,
+    // the daytime idleness check and the border guard scan with it -- so the extra reach lives
+    // here instead. rangeBehind = range makes the strip symmetric: the samurai must also see the
+    // enemy that sits behind it while its homeward side is toward the enemy half, and height 1
+    // matches the replaced scanner's own column. excludeDead = true is a deliberate deviation
+    // from BOTH the replaced native instance scanner and the native static scans (they run with
+    // it off, Knight.cs:177 / Scanner defaults): no dashing at corpses. Enemies only, never Wildlife --
+    // the shared hit mask keeps Wildlife for damage, the target scan must not.
+    private static GameObject ScanClosestEnemy(Knight k)
+    {
+        if (EnemyScanLayer == 0) EnemyScanLayer = LayerMask.GetMask("Enemies");
+        return Scanner.ScanClosest(k.transform, SamuraiScanRange, EnemyScanLayer, null, SamuraiScanRange, 1f, true);
+    }
+
     private static bool Current(MotionLease m) => !m.Retired && ReferenceEquals(m.Actor.Motion, m);
     private static bool OwnGoal(MotionLease m) => m.HasGoal && Same(m.Actor.Owner._mover, m.Mover) &&
         m.Mover.goalMode == Mover.GoalMode.Position && m.Mover._goalObject == null &&
@@ -227,6 +254,9 @@ internal static class PatchRoles_SamuraiPowerDash
                 if (m.Kind == MotionKind.Attack || m.Kind == MotionKind.Swallow)
                 {
                     m.Actor.LastCutEndAt = Time.time;   // arms the stuck-pose probe window
+                    // Every cut owes the follower a withdrawal the moment the next frame is
+                    // free to move -- success, handoff and failure alike.
+                    m.Actor.ReturnDue = true;
                     try
                     {
                         Knight k = m.Actor.Owner;
@@ -293,6 +323,25 @@ internal static class PatchRoles_SamuraiPowerDash
         if (mover == null) return;
         try { if (mover.facingMode == m.FacingWritten) mover.SetFacingMode(Mover.FacingMode.Ahead, null); }
         catch (Exception e) { Log("restore-facing", e); }
+    }
+
+    // The in-place defensive face the immediate withdrawal owes when its cut already ended next
+    // to the follower: turn toward the enemy half by the same rule the return family uses. The
+    // native SetDirection wipes the cosmetic Y scale, so put it back immediately (the swallow
+    // start's own repair), and write at all only when the knight is not already facing that way.
+    private static void FaceEnemySide(Knight k)
+    {
+        try
+        {
+            var mover = k._mover;
+            if (mover == null) return;
+            int direction = k.side == Side.Left ? -1 : 1;
+            var scale = k.transform.localScale;
+            if ((scale.x < 0 ? -1 : 1) == direction) return;
+            mover.SetDirection(direction);
+            k.transform.localScale = new Vector3(direction * Mathf.Abs(scale.x), scale.y, scale.z);
+        }
+        catch (Exception e) { Log("return-face", e); }
     }
 
     // Bounded field evidence for the walk fallback (three lines per session, never per frame).
@@ -665,6 +714,7 @@ internal static class PatchRoles_SamuraiPowerDash
                 a.ObservedMover = knight._mover;
                 a.Failures = 0; a.RetryAt = 0; // a replacement mover starts the ladder clean
                 a.PendingSwallow = false; // and never inherits a swallow intent
+                a.ReturnDue = false;      // nor a withdrawal debt the old mover's cut left behind
                 return; // A replacement mover's first observed goal belongs to its new owner.
             }
             if (a != null && (!Same(a.Owner, knight) || !Eligible(knight)))
@@ -683,7 +733,7 @@ internal static class PatchRoles_SamuraiPowerDash
                 if (m.Kind == MotionKind.Attack)
                 {
                     TryCaptureSlashPose(knight, a);
-                    if (ValidFollower(knight, a.Follower) && Distance(a) > FollowLeash) Finish(m);
+                    if (ValidFollower(knight, a.Follower) && Distance(a) > AttackLeash) Finish(m);
                 }
                 else if (m.Kind == MotionKind.Swallow)
                 {
@@ -691,7 +741,7 @@ internal static class PatchRoles_SamuraiPowerDash
                     // Night wall guard and the ordinary return always have priority.
                     if (NightGuard(knight)) { Finish(m); return; }
                     if (ValidFollower(knight, a.Follower) &&
-                        (Distance(a) > FollowLeash || (a.Failures > 0 && Distance(a) > ReturnStop))) Finish(m);
+                        (Distance(a) > AttackLeash || (a.Failures > 0 && Distance(a) > ReturnStop))) Finish(m);
                     else AdvanceSwallow(m);
                 }
                 else
@@ -715,15 +765,24 @@ internal static class PatchRoles_SamuraiPowerDash
             // completed attack dash, whatever the outcome.
             if (a.PendingSwallow && TryStartSwallow(a, follower, distance)) return;
             // At night the wall coroutine supplies its current destination and defensive
-            // facing. Keep the follower leash, but never turn this homeward leg into an attack.
+            // facing. Keep the follower leash, but never turn this homeward leg into an attack;
+            // the immediate withdrawal is a daytime posture, so dusk drops the debt instead of
+            // letting a daylight cut drag the knight off the wall later.
             if (NightGuard(knight))
             {
                 a.Failures = 0; a.RetryAt = 0;
+                a.ReturnDue = false;
                 if (distance > FollowLeash) return;
             }
-            if (distance > FollowLeash || (a.Failures > 0 && distance > ReturnStop))
+            // A cut just ended: consume its withdrawal on this very frame. The debt only ever
+            // spends itself while nothing else owns the mover goal -- a goal we did not issue
+            // always wins, and the debt is dropped rather than retried over it.
+            bool due = a.ReturnDue && distance > ReturnStop;
+            if (due && knight._mover.goalMode != Mover.GoalMode.Off) { a.ReturnDue = false; due = false; }
+            if (distance > FollowLeash || ((a.Failures > 0 || due) && distance > ReturnStop))
             {
                 if (Time.timeScale <= 0 || knight._mover._pauseTimeout > 0) return;
+                if (due) a.ReturnDue = false;   // consumed: the ladder below owns the way back
                 // A burst is a privilege, walking home is the baseline: while the leash is
                 // broken the samurai never stands still -- a failed burst is answered by a
                 // plain run-speed walk, and the burst itself comes back once its backoff has
@@ -738,9 +797,16 @@ internal static class PatchRoles_SamuraiPowerDash
                     Finish(dash, EndReason.Failure);
                 return;
             }
+            // The cut already ended next to the follower: all the withdrawal still owes is the
+            // defensive face, written in place, once, and only while the mover is free.
+            if (a.ReturnDue)
+            {
+                a.ReturnDue = false;
+                if (knight._mover.goalMode == Mover.GoalMode.Off) FaceEnemySide(knight);
+            }
             if (Time.timeScale <= 0 || knight._mover._pauseTimeout > 0 || Time.time < a.NextAttack) return;
             a.NextAttack = Time.time + ScanInterval;
-            GameObject target = knight._enemyScanner != null ? knight._enemyScanner.GetClosest() : null;
+            GameObject target = ScanClosestEnemy(knight);
             if (target == null) return;
             Damageable enemy = target.GetComponent<Damageable>();
             if (enemy == null || !enemy.IsDamagedBy(DamageSource.Knight)) return;
@@ -764,7 +830,7 @@ internal static class PatchRoles_SamuraiPowerDash
     {
         if (Time.frameCount <= a.SwallowFrame) return false; // only ever from the next frame on
         bool fresh = Time.frameCount <= a.SwallowFrame + 1; // a stalled frame never starts late
-        bool returnDue = distance > FollowLeash || (a.Failures > 0 && distance > ReturnStop);
+        bool returnDue = distance > AttackLeash || (a.Failures > 0 && distance > ReturnStop);
         Knight k = a.Owner;
         float travel = Mathf.Abs(k.transform.position.x - a.SwallowOriginX);
         bool start = fresh && follower && !returnDue && !NightGuard(k) && Time.timeScale > 0 &&
@@ -889,9 +955,9 @@ internal static class PatchRoles_SamuraiPowerDash
         ValidMotion(m) && Time.time - m.StartedAt < DashTimeout &&
         Mathf.Abs(m.Actor.Owner.transform.position.x - m.StartX) < MaxRange &&
         (m.Kind == MotionKind.Attack
-            ? !ValidFollower(m.Actor.Owner, m.Actor.Follower) || Distance(m.Actor) <= FollowLeash
+            ? !ValidFollower(m.Actor.Owner, m.Actor.Follower) || Distance(m.Actor) <= AttackLeash
             : ValidFollower(m.Actor.Owner, m.Actor.Follower) &&
-              (m.Kind != MotionKind.Swallow || Distance(m.Actor) <= FollowLeash));
+              (m.Kind != MotionKind.Swallow || Distance(m.Actor) <= AttackLeash));
 
     /// <summary>Shared burst hit scan used by the attack dash, the return dash and the swallow.</summary>
     private static void HitScan(MotionLease m)
@@ -924,11 +990,11 @@ internal static class PatchRoles_SamuraiPowerDash
             {
                 var a = m.Actor;
                 TryCaptureSlashPose(a.Owner, a);        // the coroutine's own resume point
-                if (ValidFollower(a.Owner, a.Follower) && Distance(a) > FollowLeash) { pulled = true; break; }
+                if (ValidFollower(a.Owner, a.Follower) && Distance(a) > AttackLeash) { pulled = true; break; }
                 if (Time.timeScale > 0)
                 {
                     RefreshFollower(a);
-                    if (ValidFollower(a.Owner, a.Follower) && Distance(a) > FollowLeash) { pulled = true; break; }
+                    if (ValidFollower(a.Owner, a.Follower) && Distance(a) > AttackLeash) { pulled = true; break; }
                     HitScan(m);
                 }
                 yield return null;

@@ -15,7 +15,9 @@ internal static class Program
         foreach (var knight in Knights) { DisableHook(knight); Scheduler.StopOwnerSilently(knight); }
         Knights.Clear(); Scheduler.Reset(); SamuraiDashVisuals.Reset(); UnitScanCache.Archers = Array.Empty<Archer>(); UnitScanCache.Calls = 0;
         Physics2D.Hits = Array.Empty<Collider2D>(); Physics2D.Scans = 0;
-        Physics2D.Buffers.Clear(); Physics2D.LastRadius = 0;
+        Physics2D.Buffers.Clear(); Physics2D.LastRadius = 0; Physics2D.LastMask = 0;
+        Scanner.ScanTargets.Clear(); Scanner.ScanCalls = 0; Scanner.LastLayers = 0;
+        Scanner.LastRange = 0; Scanner.LastRangeBehind = 0; Scanner.LastHeight = 0; Scanner.LastExcludeDead = false;
         Time.time = 0; Time.deltaTime = .02f; Time.timeScale = 1; Time.frameCount = 0;
         UnityEngine.Random.ForcedValue = 1f; UnityEngine.Random.Rolls = 0;
         ModConfig.Enabled.Value = true; NetworkBigBoss.HasWorldAuth = true; Managers.Inst = new();
@@ -45,7 +47,7 @@ internal static class Program
     private static Damageable Enemy(Knight knight, float x)
     {
         var go = new GameObject(); go.transform.position = new(x); var enemy = go.AddComponent<Damageable>();
-        Physics2D.Hits = new[] { go.AddComponent<Collider2D>() }; knight._enemyScanner.Closest = go; return enemy;
+        Physics2D.Hits = new[] { go.AddComponent<Collider2D>() }; Scanner.ScanTargets[knight.gameObject.GetInstanceID()] = go; return enemy;
     }
     private static Damageable HitTarget(float x = 0)
     {
@@ -116,7 +118,7 @@ internal static class Program
             Managers.Inst.kingdom.isDaytime = false;
             var k = NewKnight(8); Follower(k, 0); Enemy(k, 13); UpdateHook(k);
             Check(k._damageable.invulnerable, "forward attack began");
-            k.transform.position = new(10.1f); UpdateHook(k); NativeFrame(k);
+            k.transform.position = new(13.6f); UpdateHook(k); NativeFrame(k);
             Eq(1, k._fsm.Requests, "over-leash idle motion restored through native request");
             Check(!k._damageable.invulnerable && !k._trail.enabled, "forward effects retired");
         });
@@ -188,7 +190,7 @@ internal static class Program
         Test("Night same Stop callback external goal wins over later handoff", () => {
             Managers.Inst.kingdom.isDaytime = false; var k = NewKnight(8); Follower(k, 0); Enemy(k, 13); UpdateHook(k);
             k._mover.OnStop = () => k._mover.SetGoal(70, 4);
-            k.transform.position = new(11); UpdateHook(k); UpdateHook(k);
+            k.transform.position = new(13.6f); UpdateHook(k); UpdateHook(k);
             Eq(70f, k._mover._goalPosition, "callback goal preserved"); Eq(0, k._fsm.Requests, "no native override queued");
         });
     }
@@ -352,6 +354,137 @@ internal static class Program
         });
     }
 
+    private static void ScanRegressions()
+    {
+        Test("A knight facing its home side still finds the enemy behind it", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, -3);
+            UpdateHook(k);
+            Eq(1, Scheduler.Started, "the enemy behind the knight opened an attack");
+            Check(k._damageable.invulnerable, "the attack burst is running");
+            Check(k._mover._goalPosition < 0, "the dash heads toward the enemy's own side");
+            Eq(0, Scanner.LastLayers & 2, "the self-scan never asks for Wildlife");
+            Eq(1, Scanner.LastLayers & 1, "the self-scan asks for the Enemies layer");
+            Eq(10.5f, Scanner.LastRange, "the self-scan reaches the widened distance");
+            Eq(2, Physics2D.LastMask & 2, "the shared damage scan keeps Wildlife");
+        });
+        Test("Attack selection keeps its own .2 s cadence and never queries the native scanner", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 1);   // inside the 1.5 aim floor: scans, never attacks
+            Time.time = .25f; UpdateHook(k);
+            Eq(1, Scanner.ScanCalls, "one self-scan at the cadence boundary");
+            Frames(21, .01f, false);
+            Eq(2, Scanner.ScanCalls, "one more scan once the interval elapses");
+            Frames(18, .01f, false);
+            Eq(2, Scanner.ScanCalls, "no scan inside the interval");
+            Eq(0, k._enemyScanner.Calls, "the native scanner is never queried");
+            Check(Scanner.LastRangeBehind > 0, "the self-scan also covers the knight's back");
+            Eq(1f, Scanner.LastHeight, "the self-scan keeps the replaced scanner's own column");
+            Eq(true, Scanner.LastExcludeDead, "dead targets are excluded on purpose");
+        });
+    }
+
+    // One attack that ran out its own window: the knight ends at x 2.5 with the follower still at
+    // 0, so the cut has raised both the swallow roll and the immediate-withdrawal debt. The
+    // scanner and the physics window are emptied afterwards.
+    private static Knight ExpiredAttack()
+    {
+        var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+        UpdateHook(k);
+        Frames(8);
+        Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
+        Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+        return k;
+    }
+
+    private static void ReturnDueRegressions()
+    {
+        Test("An attack that ends inside the follower leash withdraws on the next frame", () => {
+            var k = ExpiredAttack();
+            UnitScanCache.Archers[0].transform.position = new(8);   // distance 5.5: inside FollowLeash
+            AssertStartedReturn(k, 8);
+        });
+        Test("A paused frame neither consumes nor drops the withdrawal debt", () => {
+            var k = ExpiredAttack();
+            UnitScanCache.Archers[0].transform.position = new(8);
+            int writes = k._mover.GoalWrites;
+            Time.timeScale = 0;
+            Frame(0, false);
+            Eq(writes, k._mover.GoalWrites, "no goal while paused");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "no motion while paused");
+            Time.timeScale = 1;
+            Frame(.02f, false);
+            Check(k._mover.GoalWrites > writes, "the debt survived the pause and opened the return");
+            Check(k._damageable.invulnerable, "the return burst started after the resume");
+        });
+        Test("A foreign goal at the cut's end outranks the withdrawal and is never stomped", () => {
+            var k = ExpiredAttack();
+            UnitScanCache.Archers[0].transform.position = new(9);
+            k._mover.SetGoal(90, 4);
+            int writes = k._mover.GoalWrites;
+            Frame(.02f, false);
+            Eq(90f, k._mover._goalPosition, "foreign goal preserved");
+            Eq(4f, k._mover._goalSpeed, "foreign speed preserved");
+            Eq(writes, k._mover.GoalWrites, "no return goal written over it");
+            Check(!k._damageable.invulnerable, "no burst started over a foreign goal");
+            // The debt was consumed, not deferred: it never comes back for the goal it lost.
+            k._mover.Stop();
+            Frame(.02f, false);
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the dropped debt does not return later");
+            Eq(writes, k._mover.GoalWrites, "only the caller's own goal was ever written");
+        });
+        Test("A replacement mover never inherits the cut's withdrawal debt", () => {
+            var k = ExpiredAttack();
+            UnitScanCache.Archers[0].transform.position = new(8);
+            var old = k._mover;
+            int oldStops = old.StopCalls;
+            k._mover = k.gameObject.AddComponent<Mover>();
+            Frame(.02f, false);
+            Eq(oldStops, old.StopCalls, "the replaced mover is not stopped again");
+            Eq(0, k._mover.GoalWrites, "the replacement frame writes nothing");
+            Frame(.02f, false);
+            Eq(0, k._mover.GoalWrites, "the debt died with the old mover");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "no return on the new mover");
+        });
+        Test("The in-place regroup face preserves the cosmetic Y scale and is written once", () => {
+            var k = ExpiredAttack();                        // ends at 2.5, follower at 0: inside ReturnStop
+            k.side = Side.Left;                             // the enemy half is opposite the dash's travel
+            k.transform.localScale = new(1f, .95f, 1f);
+            int writes = k._mover.DirectionWrites;
+            Frame(.02f, false);
+            Eq(-1f, k.transform.localScale.x, "the knight turns back toward its enemy side");
+            Eq(.95f, k.transform.localScale.y, "native SetDirection's Y wipe is repaired");
+            Eq(writes + 1, k._mover.DirectionWrites, "exactly one direction write");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the in-place face issues no goal");
+            Frame(.02f, false);
+            Eq(writes + 1, k._mover.DirectionWrites, "the face is never re-written");
+            Eq(.95f, k.transform.localScale.y, "the Y scale survives later frames");
+        });
+        Test("A full-length ten-unit dash earns its swallow and cuts home with the regroup face", () => {
+            UnityEngine.Random.ForcedValue = .29f;
+            var k = NewKnight(0); Follower(k, 0); var enemy = Enemy(k, 10);
+            UpdateHook(k);
+            Eq(1, Scheduler.Started, "the ten-unit target opened an attack dash");
+            Frames(29);                                     // .58 s out: past the swallow minimum, inside the window
+            Check(k.transform.position.x > 9f, "the knight really dashed most of the ten units");
+            Check(enemy.HitCount >= 1, "the outbound dash landed on its target");
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
+            Frame(.02f, false);                             // the roll frame: the swallow begins
+            Eq(1, UnityEngine.Random.Rolls, "the long dash earned exactly one roll");
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the swallow issued a position goal");
+            Eq(0f, k._mover._goalPosition, "the swallow cuts back to the dash origin");
+            Check(k._damageable.invulnerable, "the swallow is alive on its first tick");
+            Frames(15);                                     // on the way home
+            var home = HitTarget(5); Supply(home);
+            Frames(5);
+            Eq(1, home.HitCount, "a target first seen mid-flight is hit exactly once");
+            Frames(12);
+            Check(!k._damageable.invulnerable, "the swallow finished at the origin");
+            Check(k.transform.position.x <= .3f, "the knight really returned to its origin");
+            Frame(.02f, false);                             // the debt the swallow left is consumed
+            Frame(.02f, false);
+            Eq(1f, k.transform.localScale.x, "the regrouped knight faces its enemy side again");
+        });
+    }
+
     private static void SwallowRegressions()
     {
         Test("Swallow dice hit cuts straight back to the attack origin", () => {
@@ -440,13 +573,16 @@ internal static class Program
         });
         Test("Swallow skips when the samurai was displaced past max range", () => {
             UnityEngine.Random.ForcedValue = 0f;
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            var k = NewKnight(0); var follower = Follower(k, 0); Enemy(k, 3);
             UpdateHook(k); Frames(8);
-            k.transform.position = new(8); // travel cap ends the attack dash naturally
+            follower.transform.position = new(11);   // the squad moved with the knight
+            k.transform.position = new(11);          // travel cap ends the attack dash naturally
             Frame(.02f, false);
             Frame(.02f, false);
             Eq(0, UnityEngine.Random.Rolls, "range gate precedes the dice");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "no swallow beyond max range");
+            Eq(1, SamuraiDashVisuals.BeginCount(k), "no swallow beyond max range");
+            Eq(1, k._animator.TriggerCount, "no swallow slash");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "no swallow and no invented return");
         });
         Test("Paused roll frame neither starts nor defers a swallow", () => {
             UnityEngine.Random.ForcedValue = 0f;
@@ -505,7 +641,7 @@ internal static class Program
         });
         foreach (var interrupt in new (string Name, Action<Knight> Apply)[] {
             ("external goal steal", k => k._mover.SetGoal(90, 5)),
-            ("follower leash pull", k => UnitScanCache.Archers[0].transform.position = new(15))
+            ("follower leash pull", k => UnitScanCache.Archers[0].transform.position = new(17))
         }) Test("Interrupted attack never casts the swallow roll: " + interrupt.Name, () => {
             UnityEngine.Random.ForcedValue = 0f;
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
@@ -546,7 +682,7 @@ internal static class Program
             Frame(.02f, false);
             Check(k._damageable.invulnerable, "swallow active");
             int triggers = k._animator.TriggerCount;
-            follower.transform.position = new(15); // broken leash mid-swallow
+            follower.transform.position = new(16.5f); // broken leash mid-swallow
             Frame(.02f, false);
             Check(!k._damageable.invulnerable, "swallow handed off cleanly");
             Frame(.02f, true);
@@ -664,7 +800,7 @@ internal static class Program
             UpdateHook(k); Frames(8);
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
             var first = HitTarget(); var second = HitTarget(); Supply(first, second);
-            first.OnReceiveDamage = _ => follower.transform.position = new(15);
+            first.OnReceiveDamage = _ => follower.transform.position = new(17);
             Frame(.02f, false);
             Eq(1, first.HitCount, "first swallow target hit");
             Eq(0, second.HitCount, "leash loss stops later targets immediately");
@@ -684,7 +820,7 @@ internal static class Program
         Time.time += .7f;                           // past DashTimeout
         Time.frameCount++;
         Scheduler.Advance();
-        k._enemyScanner.Closest = null;
+        Scanner.ScanTargets.Clear();
         Physics2D.Hits = Array.Empty<Collider2D>();
     }
 
@@ -723,7 +859,7 @@ internal static class Program
             Frames(10, .02f, false);                        // the capture gates never open for this lease
             k._animator.InTransition = false;
             Time.time += .7f; Time.frameCount++; Scheduler.Advance();
-            k._enemyScanner.Closest = null; Physics2D.Hits = Array.Empty<Collider2D>();
+            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
             int resets = k._animator.ResetCount;
             k._animator.StateHash = 777;                    // the pose lease 1 captured is still known
             Frames(90, .02f, false);
@@ -738,7 +874,7 @@ internal static class Program
             UpdateHook(k);
             Frames(64, .01f, false);                        // one lease, 60+ misses: past the budget
             k._animator.InTransition = false;
-            k._enemyScanner.Closest = null; Physics2D.Hits = Array.Empty<Collider2D>();
+            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
             k._animator.StateHash = 777;
             int resets = k._animator.ResetCount;
             Frames(80, .02f, false);                        // far past the stuck budget
@@ -764,7 +900,7 @@ internal static class Program
             Frames(28, .02f, false);
             k._animator.InTransition = false;
             Time.time += .7f; Time.frameCount++; Scheduler.Advance();
-            k._enemyScanner.Closest = null; Physics2D.Hits = Array.Empty<Collider2D>();
+            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
             Time.time += 3.5f;
             k._animator.StateHash = 111;
             RunAttackLease(k, 777);                         // lease B's gates open and still capture
@@ -885,7 +1021,7 @@ internal static class Program
             k._animator.StateHash = 777;
             Frames(3, .02f, false);
             Time.time += .7f; Time.frameCount++; Scheduler.Advance();
-            k._enemyScanner.Closest = null; Physics2D.Hits = Array.Empty<Collider2D>();
+            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
             k._animator.StateHash = 777;                    // the pose is left behind
             k._animator.OnEnabledWrite = on => { if (on) k._animator.StateHash = 111; };
             int resets = k._animator.ResetCount;
@@ -900,14 +1036,15 @@ internal static class Program
     {
         NightRegressions();
         ReturnLadder();
+        ScanRegressions();
         Test("No enemy and native attack cooldown do not prevent >10 return", () => {
             var k = NewKnight(20); Follower(k, 0); k._cooldown = 2.8f;
-            AssertStartedReturn(k, 0); Eq(0, k._enemyScanner.Calls, "no enemy search before return");
+            AssertStartedReturn(k, 0); Eq(0, Scanner.ScanCalls, "no enemy search before return");
         });
         Test("Return takes priority over still-running attack cooldown", () => {
             var k = NewKnight(); var follower = Follower(k, 0); Enemy(k, 3);
             UpdateHook(k); Check(k._damageable.invulnerable, "attack actually started");
-            Frames(40); k._enemyScanner.Closest = null; Physics2D.Hits = Array.Empty<Collider2D>();
+            Frames(40); Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
             k.transform.position = new(20); follower.transform.position = new(0); k._cooldown = 3;
             Frames(12, .02f, false); AssertStartedReturn(k, 0);
         });
@@ -936,7 +1073,7 @@ internal static class Program
         Test("Long return ends invulnerable burst within 0.6 seconds then runs normally", () => {
             var k = NewKnight(25); Follower(k, 0); AssertStartedReturn(k, 0); Check(k._damageable.invulnerable, "initial return burst");
             Frames(61, .01f); Eq(false, k._damageable.invulnerable, "burst vulnerability restored"); Eq(false, k._trail.enabled, "burst trail restored");
-            Check(k._mover.InvulnerableDistance <= 7.2f, "invulnerable distance bounded by seven plus one physics step");
+            Check(k._mover.InvulnerableDistance <= 10.7f, "invulnerable distance bounded by ten and a half plus one physics step");
             Eq(k._runSpeed, k._mover._goalSpeed, "remaining return uses native run speed");
             Check(k.transform.position.x > 4, "ordinary running phase was necessary");
             for (int i = 0; i < 270 && !ShouldSlash(k); i++) Frame(.01f);
@@ -1087,7 +1224,7 @@ internal static class Program
         Test("Optional late attack coroutine finally cannot clear new return owner after reuse", () => {
             var k = NewKnight(); var follower = Follower(k, 0); Enemy(k, 3); UpdateHook(k);
             var old = Scheduler.All.LastOrDefault(c => ReferenceEquals(c.Owner, k) && c.Active);
-            DisableHook(k); if (old != null) Scheduler.StopSilently(old); k.transform.position = new(20); k._enemyScanner.Closest = null;
+            DisableHook(k); if (old != null) Scheduler.StopSilently(old); k.transform.position = new(20); Scanner.ScanTargets.Clear();
             Time.time = .25f; Time.frameCount++; AssertStartedReturn(k, 0); int stops = k._mover.StopCalls;
             if (old?.Iterator is IDisposable disposable) disposable.Dispose();
             Eq(stops, k._mover.StopCalls, "old attack cannot stop return goal"); Eq(true, k._damageable.invulnerable, "old attack cannot clear new return invulnerability");
@@ -1119,9 +1256,9 @@ internal static class Program
                 Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; UpdateHook(k); Scheduler.Advance();
                 Eq(0, late.HitCount, "no late timeout damage");
             });
-            Test(direction + " burst stops damage at seven-unit travel boundary", () => {
+            Test(direction + " burst stops damage at ten-and-a-half-unit travel boundary", () => {
                 var k = PrepareBurst(returning); UpdateHook(k); var late = HitTarget(); Supply(late);
-                float x = k.transform.position.x; k.transform.position = new(x + (returning ? -7 : 7));
+                float x = k.transform.position.x; k.transform.position = new(x + (returning ? -10.5f : 10.5f));
                 Frame(.1f, false); Eq(0, late.HitCount, "no hit at completed travel boundary");
             });
             Test(direction + " paused burst does no scans or damage", () => {
@@ -1146,7 +1283,7 @@ internal static class Program
                 float replacementGoal = float.NaN; int replacementStops = -1;
                 first.OnReceiveDamage = _ => {
                     first.OnReceiveDamage = null; DisableHook(k); Scheduler.StopOwnerSilently(k);
-                    k.transform.position = new(20); k._enemyScanner.Closest = null; Physics2D.Hits = Array.Empty<Collider2D>();
+                    k.transform.position = new(20); Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
                     UpdateHook(k); replacementGoal = k._mover._goalPosition; replacementStops = k._mover.StopCalls;
                 };
                 UpdateHook(k); Eq(1, first.HitCount, "reentrant callback executed"); Eq(0, second.HitCount, "old frame cannot damage second target");
@@ -1157,7 +1294,7 @@ internal static class Program
         Test("Forward and subsequent independent return may each hit the same Damageable once", () => {
             var k = PrepareBurst(false); var target = HitTarget(); Supply(target); UpdateHook(k); Eq(1, target.HitCount, "forward hit");
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance(); UpdateHook(k);
-            k.transform.position = new(20); k._enemyScanner.Closest = null; Frames(12, .02f, false);
+            k.transform.position = new(20); Scanner.ScanTargets.Clear(); Frames(12, .02f, false);
             Eq(2, target.HitCount, "fresh return lease gets its own dedup set"); Eq(2 * k._attackDamage, target.TotalDamage, "one ordinary hit per separate motion");
         });
         Test("Ordinary return running phase has no hit scans or damage", () => {
@@ -1202,6 +1339,7 @@ internal static class Program
             Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "no surviving active token");
         });
         SwallowRegressions();
+        ReturnDueRegressions();
         StuckPoseRepair();
         Console.WriteLine($"RESULT: {passed} passed, {failed} failed"); Environment.ExitCode = failed == 0 ? 0 : 1;
     }
