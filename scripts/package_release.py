@@ -94,11 +94,12 @@ def main():
     # 玩家文档预检（缺一即失败）：2026-09-23 v9.14.23/24 曾因逐版本说明缺失被
     # if src.is_file() 静默跳过，包内文档缩水到玩家发现。发布文档随本提交入库，此后缺件必须报错。
     rel = REPO / "release"
+    # 2026-09-23 起玩家文档用中文文件名（用户要求：玩家能直接看出文档用途）。
     required_docs = [
-        "MOD_UPDATE_AND_FIX_LOG_ZH.txt",
-        "MOD_FEATURES_OVERVIEW_ZH.txt",
-        "MOD_USER_GUIDE_ZH.txt",
-        "MOD_CAPABILITIES_AND_ROADMAP_ZH.txt",
+        "更新日志.txt",
+        "功能总览.txt",
+        "用户指南.txt",
+        "能力与路线图.txt",
         f"MOD_V{version}版本更新说明.txt",
     ]
     for name in required_docs:
@@ -136,9 +137,9 @@ def main():
         for name in required_docs:
             zf.write(rel / name, name)
             count += 1
-        zf.write(notes, "INSTALL.md")
+        zf.write(notes, "安装说明.md")
         count += 1
-        zf.write(REPO / "VERSIONING.md", "VERSIONING.md")
+        zf.write(REPO / "VERSIONING.md", "版本规则.md")
         count += 1
         zf.writestr("BUILD-MANIFEST.txt", manifest)
         count = len(zf.infolist())

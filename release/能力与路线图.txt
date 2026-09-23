@@ -1,7 +1,7 @@
-Kingdom Enhanced Mod V9.14.24 能力与后续计划
+﻿Kingdom Enhanced Mod V9.14.24 能力与后续计划
 2026-09-23
 
-本文件描述 9.14.24 当前包内能力，不等于所有项目都已完成游戏实测。版本/build=9.14.24，标签 v9.14.24；完整包 KingdomEnhancedMod_v9.14.24_IL2CPP.zip。安装和默认值见 MOD_USER_GUIDE_ZH.txt，本轮变化见 MOD_V9.14.24版本更新说明.txt；版本号按项目累计制计算（计算表见 VERSIONING.md）；旧独立版本说明仅作历史参考。
+本文件描述 9.14.24 当前包内能力，不等于所有项目都已完成游戏实测。版本/build=9.14.24，标签 v9.14.24；完整包 KingdomEnhancedMod_v9.14.24_IL2CPP.zip。安装和默认值见 用户指南.txt，本轮变化见 MOD_V9.14.24版本更新说明.txt；版本号按项目累计制计算（计算表见 版本规则.md）；旧独立版本说明仅作历史参考。
 
 一、当前玩法
 
