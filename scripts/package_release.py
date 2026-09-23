@@ -91,6 +91,27 @@ def main():
         f"GeneratedUtc: {datetime.now(timezone.utc).isoformat()}\n"
     )
 
+    # 玩家文档预检（缺一即失败）：2026-09-23 v9.14.23/24 曾因逐版本说明缺失被
+    # if src.is_file() 静默跳过，包内文档缩水到玩家发现。发布文档随本提交入库，此后缺件必须报错。
+    rel = REPO / "release"
+    required_docs = [
+        "MOD_UPDATE_AND_FIX_LOG_ZH.txt",
+        "MOD_FEATURES_OVERVIEW_ZH.txt",
+        "MOD_USER_GUIDE_ZH.txt",
+        "MOD_CAPABILITIES_AND_ROADMAP_ZH.txt",
+        f"MOD_V{version}版本更新说明.txt",
+    ]
+    for name in required_docs:
+        if not (rel / name).is_file():
+            raise SystemExit(
+                f"package_release: missing player doc release/{name} — "
+                "generate/update docs before packaging (fail-hard since 2026-09-23)")
+    notes = REPO / "release-notes-il2cpp.md"  # 该文件在仓库根（runbook 口径）
+    if not notes.is_file():
+        raise SystemExit("package_release: missing release-notes-il2cpp.md (INSTALL.md source)")
+    if not (REPO / "VERSIONING.md").is_file():
+        raise SystemExit("package_release: missing VERSIONING.md")
+
     count = 0
     with zipfile.ZipFile(out, "x", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         # 根级引导三件套
@@ -111,23 +132,14 @@ def main():
             count += 1
         zf.write(dll, "BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll")
         count += 1
-        # 玩家文档
-        rel = REPO / "release"
-        for name in ("MOD_UPDATE_AND_FIX_LOG_ZH.txt", "MOD_FEATURES_OVERVIEW_ZH.txt", "MOD_USER_GUIDE_ZH.txt",
-                     "MOD_CAPABILITIES_AND_ROADMAP_ZH.txt",
-                     f"MOD_V{version}版本更新说明.txt"):
-            src = rel / name
-            if src.is_file():
-                zf.write(src, name)
-                count += 1
-        notes = REPO / "release-notes-il2cpp.md"  # 该文件在仓库根（runbook 口径）
-        if notes.is_file():
-            zf.write(notes, "INSTALL.md")
+        # 玩家文档（预检已在打开 zip 前完成，此处缺件不可能发生）
+        for name in required_docs:
+            zf.write(rel / name, name)
             count += 1
-        versioning = REPO / "VERSIONING.md"
-        if versioning.is_file():
-            zf.write(versioning, "VERSIONING.md")
-            count += 1
+        zf.write(notes, "INSTALL.md")
+        count += 1
+        zf.write(REPO / "VERSIONING.md", "VERSIONING.md")
+        count += 1
         zf.writestr("BUILD-MANIFEST.txt", manifest)
         count = len(zf.infolist())
 
