@@ -12,7 +12,7 @@ namespace MusketeerRuntimeTests
         internal static void Run()
         {
             Case.Run("clip table matches the approved manifest (67 frames, holds, loops)", ClipTableMatchesManifest);
-            Case.Run("atlas anchors carry all 67 keys incl. prepared muzzle [48,14]", AnchorsMatchManifest);
+            Case.Run("atlas anchors carry all 67 keys incl. prepared muzzle [47,17]", AnchorsMatchManifest);
             Case.Run("muzzle pixel converts to actor-local coordinates", MuzzleAnchorConversion);
             Case.Run("idle clock uses authored holds and wraps at 4.81s", IdleHoldsAndWrap);
             Case.Run("locomotion phase uses unwrapped nt*clipLength, not Fraction first", LocomotionGreekWrap);
@@ -72,13 +72,13 @@ namespace MusketeerRuntimeTests
         {
             Check.Equal(67, MusketeerAtlas.Anchors.Length, "anchors cover every key");
             MusketeerAnchor aim = MusketeerAtlas.Anchors[35];
-            Check.Equal((byte)48, aim.MuzzleX, "aim muzzle x");
-            Check.Equal((byte)14, aim.MuzzleY, "aim muzzle y");
+            Check.Equal((byte)47, aim.MuzzleX, "aim muzzle x");
+            Check.Equal((byte)17, aim.MuzzleY, "aim muzzle y");
             MusketeerAnchor idle5 = MusketeerAtlas.Anchors[5];
             Check.Equal((byte)1, idle5.TorsoLift, "idle breath torso lift");
-            Check.Equal((byte)29, idle5.RearGripX, "idle breath rear grip");
+            Check.Equal((byte)32, idle5.RearGripX, "idle breath rear grip");
             MusketeerAnchor reload6 = MusketeerAtlas.Anchors[47];
-            Check.Equal((byte)44, reload6.MuzzleX, "reload muzzle");
+            Check.Equal((byte)46, reload6.MuzzleX, "reload muzzle");
             Check.True(MusketeerAtlas.FrameToCell(66, out int column, out int row), "frame 66 maps to a cell");
             Check.Equal(6, column, "frame 66 column");
             Check.Equal(5, row, "frame 66 row");
@@ -88,10 +88,10 @@ namespace MusketeerRuntimeTests
         private static void MuzzleAnchorConversion()
         {
             MusketeerAtlas.PreparedMuzzleLocal(out float x, out float y);
-            Check.Near((48d + 0.5d - 31d) / 32d, x, 1e-6d, "muzzle local x");
-            Check.Near((32d - 14d - 0.5d - 2d) / 32d, y, 1e-6d, "muzzle local y");
-            Check.Near(0.546875d, x, 1e-6d, "muzzle local x value");
-            Check.Near(0.484375d, y, 1e-6d, "muzzle local y value");
+            Check.Near((47d + 0.5d - 31d) / 32d, x, 1e-6d, "muzzle local x");
+            Check.Near((32d - 17d - 0.5d - 2d) / 32d, y, 1e-6d, "muzzle local y");
+            Check.Near(0.515625d, x, 1e-6d, "muzzle local x value");
+            Check.Near(0.390625d, y, 1e-6d, "muzzle local y value");
         }
 
         private static void IdleHoldsAndWrap()

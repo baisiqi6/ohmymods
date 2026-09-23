@@ -4,7 +4,7 @@
 // 1. 原生箭的**无条件压制**入口：Operator 的 ArrowAttack.FireArrowInternal prefix 调
 //    <see cref="MusketeerCombat.TryHandleShot"/>。活动火铳手（身份 + 战斗包已装）**一律压制**
 //    原生箭（即使目标非法/还在冷却/未装填），绝不出现"火铳手射出弓矢"。
-// 2. 自有直线子弹：显式时间闸 + 合法目标 → 从「已举枪」Aim 枪口锚点 [48,14] 出膛；
+// 2. 自有直线子弹：显式时间闸 + 合法目标 → 从「已举枪」Aim 枪口锚点 [47,17] 出膛；
 //    默认平飞（敌方/其它目标永远水平），**仅**合法鹿且枪口水平线不穿它自己的真实 Collider2D 时，
 //    朝该碰撞体中部做一次固定直线微调（实际 bounds 计算、无 homing/曲线/加射程——2.4 Greek 鹿
 //    低于枪口线，普通世界本来可平射命中）；有限射程/寿命、命中最近有效目标即停（兔/鸟等小动物完全透明）。
@@ -840,9 +840,9 @@ internal static class MusketeerCombat
     /// <summary>鹿相关被动事件日志上限（每世界前 N 条；换世界重置，绝不每帧刷屏、无全场扫描）。</summary>
     private const int MaxDeerLogsPerWorld = 8;
 
-    /// <summary>Operator 提供的弹丸贴图（5x3、Point、PPU32、pivot 居中）。</summary>
+    /// <summary>Operator 提供的弹丸贴图（7x3、Point、PPU32、pivot 锚在弹头中心；短尾焰为静态 sprite 纯视觉，不新增灼烧伤害或粒子）。</summary>
     private const string BulletResourceName = "KingdomEnhancedMod.MusketeerBullet.png";
-    private const int BulletSpriteWidth = 5;
+    private const int BulletSpriteWidth = 7;
     private const int BulletSpriteHeight = 3;
     private const float BulletSpritePixelsPerUnit = 32f;
 
@@ -1399,7 +1399,7 @@ internal static class MusketeerCombat
     }
 
     /// <summary>
-    /// 出膛原点/朝向：已举枪 Aim 枪口锚点 [48,14] → 角色本地 → 世界（TransformPoint 自带朝向符号）；
+    /// 出膛原点/朝向：已举枪 Aim 枪口锚点 [47,17] → 角色本地 → 世界（TransformPoint 自带朝向符号）；
     /// 锚点本地偏移乘共用外观缩放 <see cref="MusketeerAtlas.AppearanceScale"/>（与自有 sprite 的
     /// localScale 同源：出膛点与所见的人物+手持枪严格一致）；翻转沿用原生 renderer.flipX 的符号修正，
     /// 绝不使用原生 2.5 前移或别的硬编码偏移。
@@ -1871,7 +1871,8 @@ internal static class MusketeerCombat
     }
 
     /// <summary>
-    /// 弹丸贴图（Operator 嵌入的 5x3、Point、PPU32、pivot 居中）：惰性解码一次；
+    /// 弹丸贴图（Operator 嵌入的 7x3、Point、PPU32、pivot 锚在弹头中心 x5.5，尾焰占 x0..4 为静态 sprite 纯视觉，
+    /// 不新增灼烧伤害或粒子；逻辑 bullet.Position 仍在弹头中心）：惰性解码一次；
     /// 尺寸/内容不符或读取失败 → 整块不可用（fail-closed，调用方不构造弹丸）。
     /// </summary>
     private static bool EnsureBulletSprite()
@@ -1926,7 +1927,7 @@ internal static class MusketeerCombat
                 texture.wrapMode = TextureWrapMode.Clamp;
                 texture.anisoLevel = 0;
                 _bulletSprite = Sprite.Create(texture, new Rect(0f, 0f, BulletSpriteWidth, BulletSpriteHeight),
-                    new Vector2(0.5f, 0.5f), BulletSpritePixelsPerUnit, 0u, SpriteMeshType.FullRect);
+                    new Vector2(5.5f / BulletSpriteWidth, 0.5f), BulletSpritePixelsPerUnit, 0u, SpriteMeshType.FullRect);
                 if (_bulletSprite == null)
                 {
                     DestroyQuietly(texture);

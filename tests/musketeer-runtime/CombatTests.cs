@@ -37,6 +37,7 @@ namespace MusketeerRuntimeTests
             Case.Run("one gate one bullet (second native call in the window emits nothing)", OneShotOneBullet);
             Case.Run("a legitimate attempt right after the gate is never swallowed", LegitimateAttemptNotSwallowed);
             Case.Run("muzzle origin carries the shared appearance scale; facing rules unchanged", MuzzleOriginCarriesAppearanceScale);
+            Case.Run("lower handcannon muzzle clears native ground fallback at native actor height", NativeHeightClearsGroundFallback);
             Case.Run("nearest valid foe wins regardless of callback order", NearestWins);
             Case.Run("friendly unit in front is skipped and does not block", FriendlySkipped);
             Case.Run("flying foe in front is denied and does not block", FlyingSkipped);
@@ -1005,10 +1006,28 @@ namespace MusketeerRuntimeTests
                 "guard/post musketeers may target a portal — native alignment (defence gate keeps night guards free-standing)");
         }
 
+        private static void NativeHeightClearsGroundFallback()
+        {
+            Archer archer = ArmedMusketeer(out _);
+            World.GroundCollider = null;
+            // Actual Archer prefab root local Y, independently checked in native assets.
+            archer.transform.position = new Vector3(0f, 0.875f, 0f);
+            Check.True(MusketeerCombat.TryComputeMuzzle(archer, out Vector2 origin, out _), "muzzle computed");
+            Check.Near(1.2265625d, origin.y, 1e-6d, "new art muzzle at native root and 0.9 scale");
+            Check.True(MusketeerCombat.TryHandleShot(archer.ActiveArrowAttack, archer.gameObject), "shot suppressed and emitted");
+            MusketeerCombat.Tick(0.2f, true);
+            Check.Equal(1, MusketeerCombat.LiveCount, "horizontal bullet survives above fallback with no ground collider");
+            Check.Near(origin.x + 6d, MusketeerCombat.VisualForTests(0).transform.position.x, 1e-4d, "normal speed and range unchanged");
+        }
+
         private static Archer ArmedMusketeer(out GameObject target)
         {
             Fixture.Reset();
             Fixture.NewWorld();
+            // This synthetic scene places actor feet at y=0.5. Give it a matching
+            // ground plane; otherwise the native-world fallback 0.875 incorrectly
+            // puts the new lower muzzle below ground in range/reentrancy tests.
+            Fixture.SetGroundTop(0.5f);
             Fixture.InstallNativeArcherPrefab();
             Archer archer = Fixture.ArmMusketeer();
             target = Fixture.NewEnemy();

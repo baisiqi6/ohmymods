@@ -1,6 +1,6 @@
 // 火铳手·自有动画状态（runtime slice，纯逻辑：无 Unity 依赖、无原生调用、无分配）。
 //
-// 权威数据 = artifacts/musketeer/20260917-red-muzzle/atlas.json（用户已确认 v8 外观 + 红焰 5 帧，67 帧 12x6、
+// 权威数据 = artifacts/musketeer-long-handcannon-20260922/v6-final/atlas.json（用户已确认长火铳外观 + 参考 GIF 短焰散烟 5 帧，67 帧 12x6、
 // 单格 56x32、PPU 32、脚点 pivot (31,2)）。本文件把清单里的帧区间/时长/holds/锚点抄成
 // 编译期常量（"copied approved keys, not missing anchors"：67 个 key 的 rearGrip/frontGrip/
 // muzzle/torsoLift 全部在表里，测试逐项与清单值核对）。
@@ -12,7 +12,7 @@
 //   动作真实进入/控制器替换时重置采样原点；非法采样（NaN/±Inf/无 clip 长度）→ 挂起自有渲染。
 // * Idle：elapsed-native-stand-seconds；Idleness=0（原生 Stand 相位冻结）时不累计。
 // * fire：确认真实射击时刻 t0 → 显示 Fire 0.25s（后坐含在 clip 内，不是单独动作），
-//   出膛位置取「已举枪」的 Aim muzzle 像素 [48,14]，不用动画帧。
+//   出膛位置取「已举枪」的 Aim muzzle 像素 [47,17]，不用动画帧。
 // * reload：t0+0.25 起；window = min(1.4, max(0, nextEligibleShotTime-(t0+0.25)))；
 //   authoredSeconds = clamp((now-t0-0.25)/window,0,1)×1.4；window=0 直接跳过 Reload；
 //   Reload 完成停在 Aim。动画绝不缩短或延长玩法冷却（冷却由 runtime 的显式时间闸决定）。
@@ -113,7 +113,7 @@ internal readonly struct MusketeerAnchor
     internal byte TorsoLift { get; }
 }
 
-/// <summary>atlas 布局与时钟常量（artifacts/musketeer/20260917-red-muzzle/atlas.json，v8 定稿）。</summary>
+/// <summary>atlas 布局与时钟常量（artifacts/musketeer-long-handcannon-20260922/v6-final/atlas.json，长火铳定稿）。</summary>
 internal static class MusketeerAtlas
 {
     internal const int Columns = 12;
@@ -142,9 +142,9 @@ internal static class MusketeerAtlas
     internal const int LowerFirstFrame = 53;
     internal const int RetreatFirstFrame = 59;
 
-    /// <summary>已举枪枪口像素（Aim key [48,14]）：出膛原点来源，绝不使用动画帧或原生 2.5 偏移。</summary>
-    internal const int PreparedMuzzlePixelX = 48;
-    internal const int PreparedMuzzlePixelY = 14;
+    /// <summary>已举枪枪口像素（Aim key [47,17]）：出膛原点来源，绝不使用动画帧或原生 2.5 偏移。</summary>
+    internal const int PreparedMuzzlePixelX = 47;
+    internal const int PreparedMuzzlePixelY = 17;
 
     /// <summary>以真实游戏秒为单位的枪械动作时长（清单 duration）。</summary>
     internal const double FireSeconds = 0.25;
@@ -180,86 +180,95 @@ internal static class MusketeerAtlas
 
     /// <summary>
     /// 67 个 key 的锚点（清单逐帧值，按帧号 0..66 升序）。索引即 atlas 帧号。
-    /// 运行时只用到 [48,14]（已举枪枪口）与 torsoLift；其余是契约完整性（测试核对清单值）。
+    /// 运行时只用到 [47,17]（已举枪枪口）与 torsoLift；其余是契约完整性（测试核对清单值）。
     /// </summary>
     internal static readonly MusketeerAnchor[] Anchors =
     {
         // Idle 0..11
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        new MusketeerAnchor(29, 19, 33, 17, 41, 7, 1),
-        new MusketeerAnchor(29, 19, 33, 17, 41, 7, 1),
-        new MusketeerAnchor(29, 19, 33, 17, 41, 7, 1),
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        new MusketeerAnchor(28, 20, 32, 18, 40, 8, 0),
-        new MusketeerAnchor(28, 20, 32, 18, 40, 8, 0),
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+        new MusketeerAnchor(32, 20, 37, 16, 44, 8, 1),
+        new MusketeerAnchor(32, 20, 37, 16, 44, 8, 1),
+        new MusketeerAnchor(32, 20, 37, 16, 44, 8, 1),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+        new MusketeerAnchor(31, 21, 36, 17, 43, 9, 0),
+        new MusketeerAnchor(31, 21, 36, 17, 43, 9, 0),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+
         // Walk 12..19
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        new MusketeerAnchor(30, 19, 34, 17, 42, 7, 1),
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        new MusketeerAnchor(28, 19, 32, 17, 40, 7, 1),
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+        new MusketeerAnchor(33, 20, 38, 16, 45, 8, 1),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+        new MusketeerAnchor(31, 20, 36, 16, 43, 8, 1),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+
         // Run 20..27
-        new MusketeerAnchor(30, 20, 34, 18, 42, 8, 0),
-        new MusketeerAnchor(31, 19, 35, 17, 43, 7, 1),
-        new MusketeerAnchor(31, 18, 35, 16, 43, 6, 2),
-        new MusketeerAnchor(30, 20, 34, 18, 42, 8, 0),
-        new MusketeerAnchor(30, 20, 34, 18, 42, 8, 0),
-        new MusketeerAnchor(29, 19, 33, 17, 41, 7, 1),
-        new MusketeerAnchor(29, 18, 33, 16, 41, 6, 2),
-        new MusketeerAnchor(30, 20, 34, 18, 42, 8, 0),
+        new MusketeerAnchor(33, 21, 38, 17, 45, 9, 0),
+        new MusketeerAnchor(34, 20, 39, 16, 46, 8, 1),
+        new MusketeerAnchor(34, 19, 39, 15, 46, 7, 2),
+        new MusketeerAnchor(33, 21, 38, 17, 45, 9, 0),
+        new MusketeerAnchor(33, 21, 38, 17, 45, 9, 0),
+        new MusketeerAnchor(32, 20, 37, 16, 44, 8, 1),
+        new MusketeerAnchor(32, 19, 37, 15, 44, 7, 2),
+        new MusketeerAnchor(33, 21, 38, 17, 45, 9, 0),
+
         // Raise 28..33
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        new MusketeerAnchor(29, 19, 34, 17, 43, 9, 0),
-        new MusketeerAnchor(29, 19, 35, 17, 44, 10, 0),
-        new MusketeerAnchor(30, 18, 35, 16, 46, 11, 0),
-        new MusketeerAnchor(30, 18, 36, 16, 47, 12, 0),
-        new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+        new MusketeerAnchor(32, 21, 38, 17, 45, 10, 0),
+        new MusketeerAnchor(31, 20, 38, 18, 46, 12, 0),
+        new MusketeerAnchor(31, 20, 38, 18, 47, 13, 0),
+        new MusketeerAnchor(30, 20, 37, 19, 47, 15, 0),
+        new MusketeerAnchor(30, 19, 37, 19, 47, 17, 0),
+
         // Aim 34..35
-        new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
-        new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
-        // Fire 36..40（第 5 帧 = old39 的 Aim 锚点副本；红焰 5 帧、每帧 0.05s）
-        new MusketeerAnchor(29, 17, 36, 16, 47, 14, 0),
-        new MusketeerAnchor(29, 17, 36, 16, 47, 14, 0),
-        new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
-        new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
-        new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
+        new MusketeerAnchor(30, 19, 37, 19, 47, 17, 0),
+        new MusketeerAnchor(30, 19, 37, 19, 47, 17, 0),
+
+        // Fire 36..40
+        new MusketeerAnchor(29, 19, 36, 19, 46, 17, 0),
+        new MusketeerAnchor(29, 19, 36, 19, 46, 17, 0),
+        new MusketeerAnchor(30, 19, 37, 19, 47, 17, 0),
+        new MusketeerAnchor(30, 19, 37, 19, 47, 17, 0),
+        new MusketeerAnchor(30, 19, 37, 19, 47, 17, 0),
+
         // Reload 41..52
-        new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
-        new MusketeerAnchor(30, 18, 36, 16, 46, 12, 0),
-        new MusketeerAnchor(29, 19, 35, 17, 45, 10, 0),
-        new MusketeerAnchor(30, 20, 35, 17, 44, 10, 0),
-        new MusketeerAnchor(28, 21, 35, 17, 44, 10, 0),
-        new MusketeerAnchor(27, 22, 35, 17, 44, 10, 0),
-        new MusketeerAnchor(29, 21, 35, 17, 44, 10, 0),
-        new MusketeerAnchor(31, 20, 35, 17, 44, 10, 0),
-        new MusketeerAnchor(32, 18, 35, 17, 44, 10, 0),
-        new MusketeerAnchor(30, 18, 36, 16, 46, 11, 0),
-        new MusketeerAnchor(30, 17, 36, 16, 47, 13, 0),
-        new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
+        new MusketeerAnchor(30, 19, 37, 19, 47, 17, 0),
+        new MusketeerAnchor(31, 20, 38, 19, 47, 14, 0),
+        new MusketeerAnchor(31, 20, 38, 18, 46, 12, 0),
+        new MusketeerAnchor(30, 20, 38, 18, 46, 12, 0),
+        new MusketeerAnchor(28, 21, 38, 18, 46, 12, 0),
+        new MusketeerAnchor(27, 22, 38, 18, 46, 12, 0),
+        new MusketeerAnchor(29, 21, 38, 18, 46, 12, 0),
+        new MusketeerAnchor(31, 20, 38, 18, 46, 12, 0),
+        new MusketeerAnchor(32, 18, 38, 18, 46, 12, 0),
+        new MusketeerAnchor(31, 20, 38, 18, 47, 14, 0),
+        new MusketeerAnchor(30, 20, 37, 19, 47, 16, 0),
+        new MusketeerAnchor(30, 19, 37, 19, 47, 17, 0),
+
         // Lower 53..58
-        new MusketeerAnchor(30, 17, 37, 16, 48, 14, 0),
-        new MusketeerAnchor(30, 18, 36, 16, 47, 12, 0),
-        new MusketeerAnchor(30, 18, 35, 16, 46, 11, 0),
-        new MusketeerAnchor(29, 19, 35, 17, 44, 10, 0),
-        new MusketeerAnchor(29, 19, 34, 17, 43, 9, 0),
-        new MusketeerAnchor(29, 20, 33, 18, 41, 8, 0),
-        // Retreat 59..66（未接线）
-        new MusketeerAnchor(28, 20, 32, 18, 40, 8, 0),
-        new MusketeerAnchor(28, 20, 32, 18, 40, 8, 0),
-        new MusketeerAnchor(29, 19, 33, 17, 41, 7, 1),
-        new MusketeerAnchor(28, 20, 32, 18, 40, 8, 0),
-        new MusketeerAnchor(28, 20, 32, 18, 40, 8, 0),
-        new MusketeerAnchor(28, 20, 32, 18, 40, 8, 0),
-        new MusketeerAnchor(27, 19, 31, 17, 39, 7, 1),
-        new MusketeerAnchor(28, 20, 32, 18, 40, 8, 0),
+        new MusketeerAnchor(30, 19, 37, 19, 47, 17, 0),
+        new MusketeerAnchor(30, 20, 37, 19, 47, 15, 0),
+        new MusketeerAnchor(31, 20, 38, 18, 47, 13, 0),
+        new MusketeerAnchor(31, 20, 38, 18, 46, 12, 0),
+        new MusketeerAnchor(32, 21, 38, 17, 45, 10, 0),
+        new MusketeerAnchor(32, 21, 37, 17, 44, 9, 0),
+
+        // Retreat 59..66
+        new MusketeerAnchor(31, 21, 36, 17, 43, 9, 0),
+        new MusketeerAnchor(31, 21, 36, 17, 43, 9, 0),
+        new MusketeerAnchor(32, 20, 37, 16, 44, 8, 1),
+        new MusketeerAnchor(31, 21, 36, 17, 43, 9, 0),
+        new MusketeerAnchor(31, 21, 36, 17, 43, 9, 0),
+        new MusketeerAnchor(31, 21, 36, 17, 43, 9, 0),
+        new MusketeerAnchor(30, 20, 35, 16, 42, 8, 1),
+        new MusketeerAnchor(31, 21, 36, 17, 43, 9, 0),
+
     };
 
     internal static bool TryGetClip(MusketeerAction action, out MusketeerClip clip)
@@ -348,7 +357,7 @@ internal static class MusketeerAtlas
         localY = (CellHeight - pixelY - 0.5f - PivotPixelY) / PixelsPerUnit;
     }
 
-    /// <summary>已举枪枪口本地坐标（Aim key [48,14]）。</summary>
+    /// <summary>已举枪枪口本地坐标（Aim key [47,17]）。</summary>
     internal static void PreparedMuzzleLocal(out float localX, out float localY)
         => AnchorToLocal(PreparedMuzzlePixelX, PreparedMuzzlePixelY, out localX, out localY);
 }

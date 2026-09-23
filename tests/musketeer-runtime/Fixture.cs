@@ -92,7 +92,7 @@ namespace MusketeerRuntimeTests
         internal static Archer NewArcher(string name = "archer")
         {
             var go = new GameObject(name);
-            go.transform.position = new Vector3(0f, 0.5f, 0f);   // 真实游戏里脚点在 y≈0.5（0.9 外观缩放后枪口 y≈0.936）
+            go.transform.position = new Vector3(0f, 0.5f, 0f);   // 合成测试脚点；平飞场景应显式安装对应地面，不代表真实世界 root 高度。
             var archer = go.AddComponent<Archer>();
             archer._character = go.AddComponent<Character>();
             archer._damageable = go.AddComponent<Damageable>();
