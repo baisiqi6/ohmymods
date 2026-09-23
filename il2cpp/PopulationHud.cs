@@ -9,7 +9,7 @@ internal static class PopulationHud
     private const float Width = 330f, Row = 20f;
     private static readonly Color Ivory = new(0.95f, 0.92f, 0.84f);
     private static readonly Color Gold = new(0.93f, 0.78f, 0.47f);
-    private static readonly string[] RoleNames = { "工匠", "弓箭手", "农民", "长枪兵", "忍者", "狂战士", "无业村民", "乞丐", "火枪手" };
+    private static readonly string[] RoleNames = { "工匠", "弓箭手", "农民", "长枪兵", "忍者", "狂战士", "无业村民", "乞丐", "火枪手", "骑士随从" };
     private static readonly string[] StyleNames = { "中世纪", "死地", "幕府", "希腊", "北境" };
     private static readonly string[] RoleText = new string[PopulationCounts.RoleCount], StyleText = new string[6];
     private static string _knightsText = "";
