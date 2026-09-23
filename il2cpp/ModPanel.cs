@@ -42,10 +42,7 @@ public class ModPanel : MonoBehaviour
         if ((ctrl && Input.GetKeyDown(KeyCode.F10)) || Input.GetKeyDown(KeyCode.F5))
             _shown = !_shown;
         else if (_shown && Input.GetKeyDown(KeyCode.Escape))
-        {
             _shown = false;
-            PatchUI_PanelFocus.NoteEscClose();
-        }
         PatchUI_PanelFocus.Tick();
         try { CalendarHud.Tick(); }
         catch { /* CalendarHud backs off internally; input toggles have already been handled. */ }

@@ -1,8 +1,9 @@
 // NativeSim.cs: faithful reproduction of the vanilla 2.1.0 Game.Update input pump +
-// CheckForPause + TryShowMenu and Menu close-tail flows (game-source Game.cs:1901-1920 /
-// 2032-2044 / 2316-2352, Menu.cs:664-675 / 697-712 / 970-987) so the tests can run the
-// production code in front of the real native flow, plus the panel-update script (the
-// production ModPanel.Update wiring: shortcut handling then PanelFocus.Tick) and the fixture.
+// CheckForPause + TryShowMenu, Menu.Update ESC tail and Menu close-tail flows (game-source
+// Game.cs:1901-1920 / 2032-2044 / 2316-2358, Menu.cs:664-675 / 697-712 / 724 / 733 / 986 /
+// 2729-2736) so the tests can run the production code in front of the real native flow,
+// plus the panel-update script (the production ModPanel.Update wiring: shortcut handling
+// then PanelFocus.Tick) and the fixture.
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -11,31 +12,18 @@ using KingdomEnhancedMod;
 
 /// <summary>
 /// Test-side harness: invokes the real production decision points (the manually installed
-/// input-gate prefix, and the Game.TryShowMenu prefix by reflection) and applies the
-/// "false => original body skipped" contract. No Harmony runtime is involved.
+/// input-gate prefix) and applies the "false => original body skipped" contract.
+/// No Harmony runtime is involved. v3.2 hooks nothing on Game.TryShowMenu (C section
+/// deleted): the native body always runs when the game calls it.
 /// </summary>
 public static class PanelFocusHarness
 {
     public static readonly Dictionary<MethodInfo, HarmonyMethod> PatchedPrefixes =
         new Dictionary<MethodInfo, HarmonyMethod>();
 
-    private static readonly MethodInfo TryShowMenuPrefixMethod =
-        typeof(KingdomEnhancedMod.Game_TryShowMenu_PanelFocus_Patch)
-            .GetMethod("Prefix", BindingFlags.Static | BindingFlags.NonPublic);
-
     private static readonly MethodInfo PlayerInputBody =
         typeof(Player).GetMethod("IControllable_ReceiveInput",
             BindingFlags.Public | BindingFlags.Instance);
-
-    internal static bool DecideTryShowMenu()
-    {
-        if (TryShowMenuPrefixMethod == null)
-            throw new InvalidOperationException("production TryShowMenu Prefix not found");
-        if (TryShowMenuPrefixMethod.ReturnType != typeof(bool)
-            || TryShowMenuPrefixMethod.GetParameters().Length != 0)
-            throw new InvalidOperationException("production TryShowMenu Prefix has an unexpected signature");
-        return (bool)TryShowMenuPrefixMethod.Invoke(null, null);
-    }
 
     /// <summary>The hooked input-pump call Game.Update makes per controllable (Game.cs:2038/2041).</summary>
     internal static void DispatchInput(Player player, StubRewired rewired)
@@ -67,20 +55,23 @@ internal static class NativeGameLoop
             if (env.Game._secondaryControllable != null)
                 PanelFocusHarness.DispatchInput(env.Game._secondaryControllable, p2 ?? p1);
         }
-        if (p1 != null && p1.GetButtonDown(5)) TryShowMenu(env, 0);
-        if (p2 != null && p2.GetButtonDown(5)) TryShowMenu(env, 1);
+        if (p1 != null && p1.GetButtonDown(5)) env.Game.TryShowMenu(0);
+        if (p2 != null && p2.GetButtonDown(5)) env.Game.TryShowMenu(1);
     }
+}
 
-    /// <summary>The hooked call site: production prefix first, then the native body.</summary>
-    public static bool TryShowMenu(Env env, int playerId)
+/// <summary>Vanilla Menu.Update back-out tail (Menu.cs:2729-2736): while a map is up the map
+/// owns back-out (DoesControlMenuHolding simplified to map-not-closed), a gated menu
+/// (interactable false) ignores ESC entirely, an interactive menu HideOne's exactly once.</summary>
+internal static class NativeMenuUpdate
+{
+    public static void Update(Env env, StubRewired rewired)
     {
-        if (!PanelFocusHarness.DecideTryShowMenu())
-        {
-            env.Game.BlockedTryShowMenuCalls++;
-            return false;
-        }
-        env.Game.TryShowMenu(playerId);
-        return true;
+        if (env.Menu.ActiveMap != null
+            && env.Menu.ActiveMap.CurrentState != MapTimelineMenu.State.Closed)
+            return; // Menu.cs:2729-2732: map controls menu hiding
+        if (env.Menu.interactable && rewired.GetButtonDown(5)) // Menu.cs:2733-2736
+            env.Menu.HideOne();
     }
 }
 
@@ -106,6 +97,8 @@ internal sealed class Env
         ProgramDirector.MainSceneActive = true;
         PanelFocusHarness.PatchedPrefixes.Clear();
         KingdomEnhancedPlugin.Instance = new KingdomEnhancedPlugin();
+        CursorSystem.Inst = new CursorSystem();
+        CursorSystem.InstExists = true;
 
         Menu = new Menu();
         Menu.Inst = Menu;
@@ -124,15 +117,12 @@ internal sealed class Env
     internal void InstallGate()
         => PatchUI_PanelFocus.InstallInputGate(new HarmonyLib.Harmony());
 
-    /// <summary>ModPanel.Update wiring: shortcut handling first, then PanelFocus.Tick (D1/D2).</summary>
+    /// <summary>ModPanel.Update wiring: shortcut handling first, then PanelFocus.Tick.</summary>
     internal static void PanelUpdate(Env env, bool escDown, bool f5Down)
     {
         if (f5Down) ModPanel.IsShown = !ModPanel.IsShown;
         else if (ModPanel.IsShown && escDown)
-        {
             ModPanel.IsShown = false;
-            PatchUI_PanelFocus.NoteEscClose();
-        }
         PatchUI_PanelFocus.Tick();
     }
 
@@ -150,11 +140,13 @@ internal sealed class Env
         PatchUI_PanelFocus.Tick();
     }
 
-    /// <summary>Menu close tail end (Menu.cs:970-987): started clears, native restores ts
-    /// (solo/host only), the game returns to the playable state.</summary>
+    /// <summary>Menu close tail end (Menu.cs:967-989): started clears, the bare
+    /// _interactable=false write (:986), native restores ts (:970-972, solo/host only),
+    /// the game returns to the playable state.</summary>
     internal static void FinishMenuTail(Env env)
     {
         env.Menu.ShowMainPanelStarted = false;
+        env.Menu.ExitBareInteractableFalse();
         if (!NetworkBigBoss.IsClientPresent)
             UnityEngine.Time.timeScale = UnityEngine.Mathf.Approximately(env.Menu.Pts, 0f)
                 ? 1f
