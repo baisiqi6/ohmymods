@@ -71,7 +71,7 @@ public class CountingRoster:IEnumerable<Character>
 public class Character:UnityEngine.Component {public Damageable _damageable;}
 public class Damageable:UnityEngine.Component {public bool isDead;}
 public class Worker:UnityEngine.Component{}
-public class Archer:UnityEngine.Component{}
+public class Archer:UnityEngine.Component{public Knight _knight;}
 public class Farmer:UnityEngine.Component{}
 public class Pikeman:UnityEngine.Component{}
 public class Ninja:UnityEngine.Component {public bool _isFisher;}

@@ -32,6 +32,17 @@ static class Program
  static int Total(){int n=Counts.Knights;for(int i=0;i<Counts.RoleCount;i++)n+=Counts.Role(i);return n;}
  static void Main()
  {
+  Test("Knight followers split out of the archer count",()=>{
+   var m=Managers.Inst;var c=Actor<Archer>(m);var archer=c.gameObject.GetComponent<Archer>();
+   var k=Actor<Knight>(m).gameObject.GetComponent<Knight>();Settle();
+   Eq(1,Counts.Role(Counts.ArcherRole),"free archer counted");Eq(0,Counts.Role(Counts.FollowerRole),"no follower yet");
+   archer._knight=k;Read(3);
+   Eq(0,Counts.Role(Counts.ArcherRole),"follower leaves archer count");Eq(1,Counts.Role(Counts.FollowerRole),"follower counted separately");Eq(2,Total(),"no lost units");
+   archer._knight=null;Read(4);
+   Eq(1,Counts.Role(Counts.ArcherRole),"leaving the squad restores the archer");Eq(0,Counts.Role(Counts.FollowerRole),"follower removed");
+   MusketeerIdentity.Bind(archer);archer._knight=k;Read(5);
+   Eq(1,Counts.Role(Counts.MusketeerRole),"musketeer precedence over follower split");Eq(0,Counts.Role(Counts.FollowerRole),"no follower double count");
+  });
   Test("Musketeer identity binds and unbinds after delayed seeds without rebuilding or double counting",()=>
   {
    var m=Managers.Inst;var c=Actor<Archer>(m);var archer=c.gameObject.GetComponent<Archer>();Settle();
@@ -88,7 +99,7 @@ static class Program
    MusketeerIdentity.Bind(Actor<Archer>(m).gameObject.GetComponent<Archer>());
    var k=Actor<Knight>(m).gameObject.GetComponent<Knight>();k.Style=3;k.Resolved=true;
    MusketeerIdentity.Bind(k.gameObject.AddComponent<Archer>());Read(0);
-   Eq(9,Counts.RoleCount,"contiguous role array");Eq(8,Counts.MusketeerRole,"new role appended");Eq(9,Counts.KnightRole,"separate knight sentinel");
+   Eq(10,Counts.RoleCount,"contiguous role array");Eq(8,Counts.MusketeerRole,"musketeer slot unchanged");Eq(9,Counts.FollowerRole,"follower role appended");Eq(10,Counts.KnightRole,"separate knight sentinel");
    for(int i=0;i<8;i++)Eq(i==1?3:1,Counts.Role(i),"preserved role "+i);
    Eq(1,Counts.Role(Counts.MusketeerRole),"only original archer entry reclassified");Eq(1,Counts.Knights,"knight precedence retained");Eq(1,Counts.Style(3),"Greek style retained");Eq(12,Total(),"exclusive complete total");
   });
@@ -237,21 +248,21 @@ static class Program
   {
    Actor<Worker>(Managers.Inst);PopulationHud.Tick();int scans=Managers.Inst.kingdom._characters.Enumerations;
    Event.current.type=EventType.Layout;PopulationHud.Draw();Eq(0,GUI.Labels.Count,"layout does not draw");Event.current.type=EventType.MouseDown;PopulationHud.Draw();Eq(0,GUI.Labels.Count,"input does not draw");
-   Event.current.type=EventType.Repaint;PopulationHud.Draw();Eq(36,GUI.Labels.Count,"18 labels with shadows, unknown omitted");
+   Event.current.type=EventType.Repaint;PopulationHud.Draw();Eq(38,GUI.Labels.Count,"19 labels with shadows, unknown omitted");
    Eq("本岛人数",GUI.Labels[1].Text,"scope title");Eq(54f,GUI.Labels[1].Rect.y,"title above roster");
    Eq("工匠  1",GUI.Labels[3].Text,"cached worker label");Eq(16f,GUI.Labels[3].Rect.x,"left position");Eq(76f,GUI.Labels[3].Rect.y,"top position");
    Eq(GUI.skin.label.FontChain,GUI.Labels[1].Style.FontChain,"native CJK font chain inherited");Eq(15,GUI.Labels[1].Style.fontSize,"font size");Eq(scans,Managers.Inst.kingdom._characters.Enumerations,"Draw never enumerates");
   });
   Test("HUD unknown knight fills only spare cell and independent display switch hides it",()=>
   {
-   Actor<Knight>(Managers.Inst);PopulationHud.Tick();PopulationHud.Draw();Eq(38,GUI.Labels.Count,"unknown extra label");Eq(true,GUI.Labels.Any(x=>x.Text=="待识别  1"),"unknown text");
+   Actor<Knight>(Managers.Inst);PopulationHud.Tick();PopulationHud.Draw();Eq(40,GUI.Labels.Count,"unknown extra label");Eq(true,GUI.Labels.Any(x=>x.Text=="待识别  1"),"unknown text");
    GUI.Labels.Clear();ModConfig.ShowPopulationHud.Value=false;PopulationHud.Tick();PopulationHud.Draw();Eq(0,GUI.Labels.Count,"disabled HUD hidden");Eq(false,Counts.Ready,"disabled counts clear");
   });
   Test("Ninth profession has its own row before knight styles and ammunition with no label collisions",()=>
   {
    var m=Managers.Inst;MusketeerIdentity.Bind(Actor<Archer>(m).gameObject.GetComponent<Archer>());Actor<Knight>(m);
    PopulationHud.Tick();PopulationHud.Draw();var labels=GUI.Labels.Where((_,i)=>i%2==1).ToList();
-   Eq(19,labels.Count,"complete layout including unresolved knight");
+   Eq(20,labels.Count,"complete layout including unresolved knight");
    Eq(156f,labels.Single(x=>x.Text=="火枪手  1").Rect.y,"fifth profession row");
    Eq(182f,labels.Single(x=>x.Text=="骑士  1").Rect.y,"knight below all professions");
    Eq(202f,labels.Single(x=>x.Text=="中世纪  0").Rect.y,"styles below knight");

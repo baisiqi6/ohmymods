@@ -9,7 +9,7 @@ internal static class PopulationCounts
 {
     internal const int WorkerRole = 0, ArcherRole = 1, FarmerRole = 2, PikemanRole = 3;
     internal const int NinjaRole = 4, BerserkerRole = 5, PeasantRole = 6, BeggarRole = 7;
-    internal const int MusketeerRole = 8, RoleCount = 9, KnightRole = 9, StyleCount = 5;
+    internal const int MusketeerRole = 8, FollowerRole = 9, RoleCount = 10, KnightRole = 10, StyleCount = 5;
     private const int MaxFailures = 3, DelayedRebuilds = 2;
 
     private sealed class Entry
@@ -218,8 +218,15 @@ internal static class PopulationCounts
                 // AddCharacter can precede promotion/load identity binding. Recheck the cached
                 // Archer at the existing sample cadence, including when the shop is disabled.
                 // IsUnit exposes only confirmed current-world, offline authority identities.
-                int role = entry.Role == ArcherRole && MusketeerIdentity.IsUnit(entry.Archer)
-                    ? MusketeerRole : entry.Role;
+                int role = entry.Role;
+                if (role == ArcherRole)
+                {
+                    // 随从拆分（2026-09-23 用户需求）：弓箭手计数只含自由弓箭手，挂了骑士的
+                    // 随从单独成行，玩家可精确知道剩余可支配弓箭手。火枪手身份优先（两者实际
+                    // 互斥：火枪手 IsAvailableForJob 已排除骑士队，此处只是防御性定序）。
+                    if (MusketeerIdentity.IsUnit(entry.Archer)) role = MusketeerRole;
+                    else if (entry.Archer != null && entry.Archer._knight != null) role = FollowerRole;
+                }
                 Roles[role]++;
                 continue;
             }
