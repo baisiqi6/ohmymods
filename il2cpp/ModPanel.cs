@@ -41,7 +41,11 @@ public class ModPanel : MonoBehaviour
         if ((ctrl && Input.GetKeyDown(KeyCode.F10)) || Input.GetKeyDown(KeyCode.F5))
             _shown = !_shown;
         else if (_shown && Input.GetKeyDown(KeyCode.Escape))
+        {
             _shown = false;
+            PatchUI_PanelFocus.NoteEscClose();
+        }
+        PatchUI_PanelFocus.Tick();
         try { CalendarHud.Tick(); }
         catch { /* CalendarHud backs off internally; input toggles have already been handled. */ }
         try { PopulationHud.Tick(); }
@@ -265,7 +269,7 @@ public class ModPanel : MonoBehaviour
         switch (_category)
         {
             case 0:
-                Toggle(ref y, width, "启用增强 Mod", ModConfig.Enabled, "关闭后恢复原版逻辑。");
+                Toggle(ref y, width, "启用增强 Mod", ModConfig.Enabled, "关闭玩法修改；面板本身与自动暂停不受此开关影响。");
                 Toggle(ref y, width, "无限金币", ModConfig.InfiniteMoney, "立即生效 · 君主支付不再消耗金币。");
                 IntegerSlider(ref y, width, "君主移动速度", ModConfig.SpeedMultiplier, 1, 5, "倍", "移动时生效。");
                 Toggle(ref y, width, "快速建造", ModConfig.FastBuild, "建造时生效 · 建筑约 2 秒建成。");
