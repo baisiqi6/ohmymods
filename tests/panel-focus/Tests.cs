@@ -1,9 +1,10 @@
 // Tests.cs: behavior regression for il2cpp/PatchUI_PanelFocus.cs (linked unmodified).
-// Run with: dotnet run --project tests/panel-focus
-// Every scenario drives the production Tick / Prefix / InstallInputGate /
-// ShouldRunNativeTryShowMenu around faithful copies of the vanilla Game.Update pump,
-// CheckForPause, TryShowMenu and Menu depth flows, so assertions are about observable
-// timeScale / menu-depth / input-body behavior, never about production internals.
+// Run with: dotnet run -c Debug (from tests/panel-focus)
+// Every scenario drives the production Tick / Prefix / InstallInputGate around faithful
+// copies of the vanilla Game.Update pump, CheckForPause, TryShowMenu, Menu._ShowMainPanel
+// (:724 interactable write, :733 depth, :709-712 solo freeze), Menu.Update back-out tail
+// (:2729-2736) and Menu close-tail flows, so assertions are about observable timeScale /
+// menu-depth / interactable / input-body behavior, never about production internals.
 using System;
 using KingdomEnhancedMod;
 
@@ -14,21 +15,26 @@ internal static class Program
 
     private static int Main()
     {
-        Run("engage_freezes_and_close_restores_timescale", EngageAndRestoreFormula);
+        Run("open_edge_requests_native_menu_and_gate_wins_same_frame", OpenEdgeRequestsMenu);
+        Run("non_gate_states_never_touch_menu_full_path", NonGateStatesNeverTouchMenu);
+        Run("open_edge_menu_plus_map_pulls_map_once", OpenEdgeMenuPlusMap);
+        Run("open_edge_pure_map_insurance", OpenEdgePureMapInsurance);
+        Run("gate_counters_showmain_true_both_script_orders", GateCountersBothOrders);
+        Run("close_ours_hides_once_without_restore", CloseOursHidesWithoutRestore);
+        Run("close_user_menu_esc_layers_down_both_orders", CloseUserMenuBothOrders);
+        Run("fallback_engage_after_rejected_menu_and_restores", FallbackEngageAfterRejection);
+        Run("attempt_window_let_pass_then_menu_claims_ownership", AttemptWindowClaim);
+        Run("stale_attempt_never_claims_external_menu", StaleAttemptNeverClaims);
         Run("zero_timescale_never_engages", ZeroTimeScaleNeverEngages);
-        Run("network_gates_never_engage", NetworkGatesNeverEngage);
-        Run("open_edge_state_gate_never_touches_native_overlay", OpenEdgeStateGate);
-        Run("open_edge_closes_overlay_with_a_single_hide", OpenEdgeSingleHide);
-        Run("engage_waits_for_menu_tail_then_freezes", EngageWaitsForMenuTail);
-        Run("esc_window_game_update_runs_first", EscWindowGameUpdateFirst);
-        Run("esc_window_panel_update_runs_first", EscWindowPanelUpdateFirst);
-        Run("f5_and_fault_close_do_not_suppress_the_menu", NonEscCloseDoesNotSuppress);
+        Run("network_hosts_and_clients_gate_without_freeze", NetworkGateWithoutFreeze);
+        Run("fallback_esc_closes_panel_and_menu_opens_both_orders", FallbackEscBothOrders);
         Run("disengage_writes_only_in_playable_zero_state", DisengageWriteBranches);
         Run("native_ts_overwrite_during_engage_never_rezeroes", NativeOverwriteNoReengage);
-        Run("master_toggle_off_still_pauses_and_restores", MasterToggleOffStillWorks);
+        Run("master_toggle_off_still_opens_menu_and_pauses", MasterToggleOffStillWorks);
         Run("input_gate_covers_both_local_players", InputGateCoversBothPlayers);
         Run("input_gate_resolution_fails_closed", InputGateResolveFailsClosed);
         Run("prefix_semantics_follow_panel_visibility_only", PrefixSemantics);
+        Run("cursor_forced_globally_and_restored", CursorForcedGlobally);
 
         Console.WriteLine();
         Console.WriteLine(_failed == 0
@@ -39,57 +45,34 @@ internal static class Program
 
     // ------------------------------------------------------------- scenarios
 
-    private static void EngageAndRestoreFormula()
+    private static void OpenEdgeRequestsMenu()
     {
-        Env env = new Env();
+        Env env = new Env(Game.State.Playing);
         env.InstallGate();
-        UnityEngine.Time.timeScale = 1.25f;
         env.OpenPanel();
-        True(PatchUI_PanelFocus.Engaged, "opening the panel in a playable solo world engages");
-        Eq(0f, UnityEngine.Time.timeScale, "engaged freezes timeScale");
-        Eq(1, Lines("input gate installed on Player.IControllable_ReceiveInput").Count,
-            "install line logged exactly once (O-3)");
-        var engagedLines = Lines("[PanelFocus] engaged");
-        Eq(1, engagedLines.Count, "exactly one engage line per engage");
-        True(engagedLines[0].Contains("IControllable_ReceiveInput"),
-            "the engage line carries the resolved hook name");
-        env.ClosePanelByF5();
-        True(!PatchUI_PanelFocus.Engaged, "closing clears Engaged");
-        Eq(1.25f, UnityEngine.Time.timeScale, "closing restores the exact stashed timeScale");
-        Eq(0, env.Menu.HideCalls, "no native overlay behind: the open edge never calls Hide");
+        Eq(1, env.Game.NativeTryShowMenuCalls, "open edge requests the native menu exactly once");
+        True(env.Game.state == Game.State.Menu, "the native menu open flips the game state");
+        Eq(0f, UnityEngine.Time.timeScale, "solo: the native menu froze the clock (Menu.cs:712)");
+        Eq(1, env.Menu.InteractableTrueWrites, ":724 wrote true once during the open");
+        Eq(false, env.Menu.interactable, "the per-frame gate wins within the same Tick");
+        Eq(1, env.Menu.InteractableFalseWrites, "exactly one effective false write so far");
+        Eq(0, env.Menu.HideCalls + env.Menu.HideOneCalls, "nothing is hidden in the plain open");
+        True(!PatchUI_PanelFocus.Engaged, "menu mode (state=Menu): the fallback never engages");
+        // The request is edge-driven: further frames never re-request.
+        Env.Advance(0.1f);
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Eq(1, env.Game.NativeTryShowMenuCalls, "still exactly one request across frames");
+        Eq(1, env.Menu.InteractableFalseWrites, "the idempotent setter keeps the write count at one");
+        Eq(1, Lines("open edge: native menu open requested").Count, "request line logged once");
+        Eq(1, Lines("menu gate active").Count, "gate line logged once per session");
     }
 
-    private static void ZeroTimeScaleNeverEngages()
+    private static void NonGateStatesNeverTouchMenu()
     {
-        Env env = new Env();
-        UnityEngine.Time.timeScale = 0f; // somebody else already paused the world
-        env.OpenPanel();
-        True(!PatchUI_PanelFocus.Engaged, "ts==0 must never engage");
-        Eq(0f, UnityEngine.Time.timeScale, "no write while ts==0");
-        env.ClosePanelByF5();
-        Eq(0f, UnityEngine.Time.timeScale, "closing writes nothing when never engaged");
-    }
-
-    private static void NetworkGatesNeverEngage()
-    {
-        Env host = new Env();
-        NetworkBigBoss.IsClientPresent = true;
-        host.OpenPanel();
-        True(!PatchUI_PanelFocus.Engaged, "host with a client present mirrors native: no pause");
-        Eq(1f, UnityEngine.Time.timeScale, "host-with-client timeScale untouched");
-        Eq(0, host.Menu.HideCalls, "no overlay shown: no Hide on the open edge");
-
-        Env client = new Env(Game.State.NetworkClientPlaying);
-        NetworkBigBoss.HasWorldAuth = false;
-        client.OpenPanel();
-        True(!PatchUI_PanelFocus.Engaged, "client machines never pause");
-        Eq(1f, UnityEngine.Time.timeScale, "client timeScale untouched");
-    }
-
-    private static void OpenEdgeStateGate()
-    {
-        // (state, mainSceneActive, menuInstanceExists); the native overlay is fully shown in
-        // every row: front-end / SailingAway / coop-prompt states must not touch it.
+        // (state, mainSceneActive, menuInstanceExists); the native menu is fully shown in
+        // every row: front-end / SailingAway / loading / waiting states must never touch it
+        // through the whole open -> per-frame -> close path (P0-1).
         var rows = new (Game.State state, bool mainScene, bool instExists)[]
         {
             (Game.State.SailingAway, true, true),
@@ -105,159 +88,312 @@ internal static class Program
             Menu.InstExists = rows[i].instExists;
             env.Menu.ShowMainPanelStarted = true;
             env.Menu.targetDepth = 2;
+            env.Menu.SetRaw(true);
             env.OpenPanel();
-            Eq(0, env.Menu.HideCalls, "row " + i + ": the gate must block Hide");
-            Eq(2, env.Menu.targetDepth, "row " + i + ": native depth untouched");
+            Env.PanelUpdate(env, escDown: false, f5Down: false);
+            Env.PanelUpdate(env, escDown: false, f5Down: false);
+            env.ClosePanelByF5();
+            Eq(0, env.Game.NativeTryShowMenuCalls, "row " + i + ": no TryShowMenu inside the open edge");
+            Eq(0, env.Menu.HideCalls, "row " + i + ": close path never Hides");
+            Eq(0, env.Menu.HideOneCalls, "row " + i + ": never HideOnes");
             Eq(0, env.Menu.OnButtonCloseCalls, "row " + i + ": OnButtonClose never called");
-            Eq(0, env.Menu.HideOneCalls, "row " + i + ": HideOne never called");
+            Eq(0, env.Menu.InteractableTrueWrites + env.Menu.InteractableFalseWrites,
+                "row " + i + ": zero interactable writes in both directions");
+            Eq(true, env.Menu.interactable, "row " + i + ": the menu stays exactly as it was");
+            Eq(2, env.Menu.targetDepth, "row " + i + ": native depth untouched");
             True(!PatchUI_PanelFocus.Engaged, "row " + i + ": never engages either");
         }
     }
 
-    private static void OpenEdgeSingleHide()
+    private static void OpenEdgeMenuPlusMap()
     {
-        // Menu + map stacked (Menu.cs:913-929): started, depth 2, map Opening.
-        Env stacked = new Env(Game.State.Menu);
-        stacked.Menu.ShowMainPanelStarted = true;
-        stacked.Menu.targetDepth = 2;
-        stacked.Menu.ActiveMap = new MapTimeline { CurrentState = MapTimeline.State.Opening };
-        stacked.OpenPanel();
-        Eq(1, stacked.Menu.HideCalls, "exactly one Hide on the open edge");
-        Eq(0, stacked.Menu.OnButtonCloseCalls, "OnButtonClose must never be called");
-        Eq(0, stacked.Menu.HideOneCalls, "HideOne must never be called");
-        Eq(0, stacked.Menu.targetDepth, "Hide writes the absolute 0");
-        True(stacked.Menu.targetDepth >= 0, "targetDepth never goes negative");
+        // Menu + map stacked (menu depth 1 + map push, MapTimelineMenu.cs:363-364).
+        Env env = new Env(Game.State.Menu);
+        env.Menu.ShowMainPanelStarted = true;
+        env.Menu.targetDepth = 2;
+        env.Menu.SetRaw(true);
+        env.Menu.ActiveMap = new MapTimelineMenu { CurrentState = MapTimelineMenu.State.ShowingMapOnly };
+        env.OpenPanel();
+        Eq(1, env.Menu.HideOneCalls, "menu+map: exactly one HideOne on the open edge");
+        Eq(0, env.Menu.HideCalls, "menu+map: no absolute Hide");
+        Eq(1, env.Menu.targetDepth, "2->1: the map retreats by depth, the menu stays behind");
+        Eq(0, env.Game.NativeTryShowMenuCalls, "menu already shown: no TryShowMenu");
+        Eq(false, env.Menu.interactable, "the menu left behind is gated");
+        Eq(0, env.Menu.OnButtonCloseCalls, "OnButtonClose never called");
+        // The map coroutine finishes its retreat; ESC then closes the panel (user ownership).
+        env.Menu.ActiveMap.CurrentState = MapTimelineMenu.State.Closed;
+        StubRewired esc = new StubRewired();
+        esc.Press(5);
+        Env.PanelUpdate(env, escDown: true, f5Down: false);
+        Eq(1, env.Menu.InteractableTrueWrites, "user menu: exactly one restore write on close");
+        Eq(0, env.Menu.HideCalls, "user menu: never Hidden");
+        NativeMenuUpdate.Update(env, esc); // same-frame Menu.Update: restored + ESC
+        Eq(2, env.Menu.HideOneCalls, "the same ESC lays the menu down exactly once (1->0)");
+        Eq(0, env.Menu.targetDepth, "targetDepth never goes negative");
+    }
 
-        // Pure map mid-close (Closing): the same single-Hide path.
-        Env closing = new Env(Game.State.Playing);
-        closing.Menu.ActiveMap = new MapTimeline { CurrentState = MapTimeline.State.Closing };
-        closing.OpenPanel();
-        Eq(1, closing.Menu.HideCalls, "closing map: single Hide path");
-        Eq(0, closing.Menu.OnButtonCloseCalls, "closing map: OnButtonClose never called");
-        Eq(0, closing.Menu.HideOneCalls, "closing map: HideOne never called");
-        Eq(0, closing.Menu.targetDepth, "closing map: depth stays at 0");
+    private static void OpenEdgePureMapInsurance()
+    {
+        // No M-key pure-map form exists in the game (two entrances only), but if one ever
+        // appears the open edge must walk the same step-2 branch: HideOne 1->0 is exactly
+        // the native close-map semantic and the fallback then takes over (brief 3.1 fact).
+        Env env = new Env(Game.State.Playing);
+        env.Menu.ActiveMap = new MapTimelineMenu { CurrentState = MapTimelineMenu.State.ShowingWithTimeline };
+        env.Menu.targetDepth = 1; // the map show routine pushed depth to 1, no main menu
+        env.OpenPanel();
+        Eq(1, env.Menu.HideOneCalls, "pure map: single HideOne = native close-map semantic");
+        Eq(0, env.Menu.targetDepth, "1->0");
+        Eq(0, env.Menu.HideCalls, "no absolute Hide");
+        Eq(0, env.Game.NativeTryShowMenuCalls, "IsMenuShown true via the map: no TryShowMenu");
         True(!PatchUI_PanelFocus.Engaged, "map still shown: engage waits");
-        closing.Menu.ActiveMap.CurrentState = MapTimeline.State.Closed;
-        PatchUI_PanelFocus.Tick();
-        True(PatchUI_PanelFocus.Engaged, "engage fires once the map coroutine exits");
-    }
-
-    private static void EngageWaitsForMenuTail()
-    {
-        Env env = new Env(Game.State.Playing);
-        env.InstallGate();
-        StubRewired esc = new StubRewired();
-
-        // ESC first: the native menu opens (state=Menu, native freezes ts at 1).
-        esc.Press(5);
-        NativeGameLoop.Update(env, esc);
-        Eq(1, env.Game.NativeTryShowMenuCalls, "setup: the native menu opened");
-        True(env.Game.state == Game.State.Menu, "setup: native menu state");
-        Eq(0f, UnityEngine.Time.timeScale, "setup: native solo freeze");
-
-        // F5 with the menu behind: one Hide, engage waits for the ~0.6s tail.
-        Env.PanelUpdate(env, escDown: false, f5Down: true);
-        True(ModPanel.IsShown, "setup: panel open");
-        Eq(1, env.Menu.HideCalls, "the open edge closed the menu behind");
-        True(env.Menu.ShowMainPanelStarted, "the menu tail keeps started true");
-        True(!PatchUI_PanelFocus.Engaged, "IsMenuShown not yet exited: no engage");
-        Eq(0f, UnityEngine.Time.timeScale, "ts still the native 0 during the tail");
-
-        // Tail ends: native restores ts, the game returns to playing; the panel freezes.
-        Env.FinishMenuTail(env);
-        PatchUI_PanelFocus.Tick();
-        True(PatchUI_PanelFocus.Engaged, "engage fires after the tail");
-        Eq(0f, UnityEngine.Time.timeScale, "panel freeze after the tail");
-
+        env.Menu.ActiveMap.CurrentState = MapTimelineMenu.State.Closed;
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        True(PatchUI_PanelFocus.Engaged, "the fallback takes over once the map coroutine exits");
+        Eq(0f, UnityEngine.Time.timeScale, "fallback freeze after the map closed");
         env.ClosePanelByF5();
-        // 恢复值即 _pts 的可观测证明：stash 捕获的是原生恢复后的 1，不是尾巴期的 0。
-        Eq(1f, UnityEngine.Time.timeScale, "closing restores the native value, not the tail 0");
+        Eq(1f, UnityEngine.Time.timeScale, "fallback restore on close");
     }
 
-    private static void EscWindowGameUpdateFirst()
+    private static void GateCountersBothOrders()
+    {
+        // Order B: ModPanel.Update runs first; the ShowMenu run signal lands later the same
+        // frame (Game.Update) — a one-frame :724-true window exists, the next panel update
+        // re-gates. Explicitly: this test pins the Game.Update/Menu coroutine vs
+        // ModPanel.Update script order.
+        Env panelFirst = new Env(Game.State.Playing);
+        panelFirst.Game.DeferredMenuOpen = true;
+        panelFirst.OpenPanel();
+        Eq(1, panelFirst.Game.NativeTryShowMenuCalls, "panel-first: request armed");
+        Env.PanelUpdate(panelFirst, escDown: false, f5Down: false);
+        Eq(0, panelFirst.Menu.InteractableFalseWrites, "panel-first: no gate write before the menu exists");
+        panelFirst.Game.PumpRunSignal(); // Game.Update processes the signal: :724 writes true
+        Eq(true, panelFirst.Menu.interactable, "panel-first: one-frame window, :724 wrote true");
+        Env.PanelUpdate(panelFirst, escDown: false, f5Down: false);
+        Eq(false, panelFirst.Menu.interactable, "panel-first: the next panel update re-gates");
+        Eq(1, panelFirst.Menu.InteractableFalseWrites, "panel-first: exactly one effective false write");
+
+        // Order A: the run signal lands before ModPanel.Update in the same frame — the gate
+        // wins within that frame, no window at all.
+        Env gameFirst = new Env(Game.State.Playing);
+        gameFirst.Game.DeferredMenuOpen = true;
+        gameFirst.OpenPanel();
+        gameFirst.Game.PumpRunSignal();
+        Eq(true, gameFirst.Menu.interactable, "game-first setup: :724 wrote true");
+        Env.PanelUpdate(gameFirst, escDown: false, f5Down: false);
+        Eq(false, gameFirst.Menu.interactable, "game-first: the gate wins within the same frame");
+        Eq(1, gameFirst.Menu.InteractableFalseWrites, "game-first: one effective false write");
+    }
+
+    private static void CloseOursHidesWithoutRestore()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.OpenPanel(); // synchronous model: menu shown + gated on the open Tick
+        Eq(1, env.Game.NativeTryShowMenuCalls, "setup: our TryShowMenu");
+        Eq(false, env.Menu.interactable, "setup: gated");
+        // ESC while gated: Menu.Update ignores it entirely (interactable false, :2733).
+        StubRewired esc = new StubRewired();
+        esc.Press(5);
+        NativeMenuUpdate.Update(env, esc);
+        Eq(0, env.Menu.HideOneCalls, "gated menu ignores ESC: ours path writes 0 once, no -1 race");
+        esc.EndFrame();
+        env.ClosePanelByF5();
+        Eq(1, env.Menu.HideCalls, "our menu: exactly one Hide on close");
+        Eq(0, env.Menu.HideOneCalls, "ours path never HideOnes");
+        Eq(1, env.Menu.InteractableTrueWrites, "no restore write beyond the :724 baseline (P1-1)");
+        Eq(0, env.Menu.targetDepth, "absolute 0");
+        True(!PatchUI_PanelFocus.Engaged, "menu mode never engaged");
+        Env.FinishMenuTail(env);
+        Eq(1f, UnityEngine.Time.timeScale, "the native exit path restored the clock");
+        Eq(1, Lines("close: our menu hidden").Count, "close line logged once");
+    }
+
+    private static void CloseUserMenuBothOrders()
+    {
+        // Order A (panel update first): the user opened the menu by hand, F5 gated it, the
+        // closing ESC restores the menu and the same press then layers it down once (P0-2).
+        Env a = new Env(Game.State.Playing);
+        StubRewired esc = new StubRewired();
+        esc.Press(5);
+        NativeGameLoop.Update(a, esc);
+        esc.EndFrame();
+        True(a.Game.state == Game.State.Menu, "A setup: the user's ESC opened the menu");
+        Eq(true, a.Menu.interactable, "A setup: :724 true");
+        a.OpenPanel();
+        Eq(0, a.Menu.HideCalls + a.Menu.HideOneCalls, "A: the user's menu is never Hidden on the open edge");
+        Eq(1, a.Game.NativeTryShowMenuCalls, "A: no extra TryShowMenu while the menu is shown");
+        Eq(false, a.Menu.interactable, "A: gated behind the panel");
+        esc.Press(5);
+        Env.PanelUpdate(a, escDown: true, f5Down: false);
+        Eq(true, a.Menu.interactable, "A: user path restores interactivity, never Hides");
+        Eq(0, a.Menu.HideCalls, "A: zero Hide");
+        NativeMenuUpdate.Update(a, esc);
+        Eq(1, a.Menu.HideOneCalls, "A: the same press layers the menu down exactly once (1->0)");
+        Eq(0, a.Menu.targetDepth, "A: never -1");
+        esc.EndFrame();
+
+        // Order B (menu update first): the still-gated menu eats the closing press; the
+        // panel closes and restores; the user's NEXT ESC closes the menu once.
+        Env b = new Env(Game.State.Playing);
+        esc.Press(5);
+        NativeGameLoop.Update(b, esc);
+        esc.EndFrame();
+        b.OpenPanel();
+        esc.Press(5);
+        NativeMenuUpdate.Update(b, esc); // gated -> ignored
+        Eq(0, b.Menu.HideOneCalls, "B: the gated menu ignores the closing ESC");
+        Env.PanelUpdate(b, escDown: true, f5Down: false);
+        Eq(0, b.Menu.HideOneCalls, "B: the closing frame itself never HideOnes");
+        Eq(true, b.Menu.interactable, "B: restored on close");
+        Eq(0, b.Menu.HideCalls, "B: never Hidden");
+        Eq(1, b.Menu.targetDepth, "B: the menu waits for the user");
+        esc.EndFrame();
+        esc.Press(5);
+        NativeMenuUpdate.Update(b, esc);
+        Eq(1, b.Menu.HideOneCalls, "B: the user's next ESC layers it down exactly once");
+        Eq(0, b.Menu.targetDepth, "B: still never -1");
+    }
+
+    private static void FallbackEngageAfterRejection()
     {
         Env env = new Env(Game.State.Playing);
         env.InstallGate();
-        ModPanel.IsShown = true;
-        PatchUI_PanelFocus.Tick();
-        StubRewired esc = new StubRewired();
+        UnityEngine.Time.timeScale = 1.25f;
+        EngageFallback(env);
+        Eq(1, env.Game.NativeTryShowMenuCalls, "the attempt was made and natively rejected");
+        True(PatchUI_PanelFocus.Engaged, "window elapsed: the fallback takes over");
+        Eq(0f, UnityEngine.Time.timeScale, "fallback freeze at the stashed value");
+        Eq(1, Lines("[PanelFocus] engaged").Count, "exactly one engage line per engage");
+        True(Lines("[PanelFocus] engaged")[0].Contains("IControllable_ReceiveInput"),
+            "the engage line carries the resolved hook name");
+        Eq(1, Lines("input gate installed on Player.IControllable_ReceiveInput").Count,
+            "install line logged exactly once (O-3)");
+        env.ClosePanelByF5();
+        Eq(1.25f, UnityEngine.Time.timeScale, "closing restores the exact stashed timeScale");
 
-        // Frame N, Game.Update first: the same Esc press reaches TryShowMenu while the panel
-        // is still shown (CheckForPause reads rewired directly, never through the input gate).
-        esc.Press(5);
-        NativeGameLoop.Update(env, esc);
-        Eq(0, env.Game.NativeTryShowMenuCalls, "game-first: the press must not open the menu");
-        Eq(1, env.Game.BlockedTryShowMenuCalls, "blocked by the panel flag");
-        esc.EndFrame();
-
-        // Same frame later: ModPanel.Update closes the panel and arms the window.
-        Env.PanelUpdate(env, escDown: true, f5Down: false);
-        True(!ModPanel.IsShown, "esc closed the panel");
-
-        // Frame N+1, still inside the 0.25s window: a real press stays blocked.
-        esc.Press(5);
-        NativeGameLoop.Update(env, esc);
-        Eq(0, env.Game.NativeTryShowMenuCalls, "game-first: still blocked inside the window");
-        esc.EndFrame();
-
-        // Past the window: the menu opens normally.
-        Env.Advance(0.26f);
-        esc.Press(5);
-        NativeGameLoop.Update(env, esc);
-        Eq(1, env.Game.NativeTryShowMenuCalls, "game-first: after the window the menu opens");
-        True(env.Game.state == Game.State.Menu, "the native menu really opened");
+        // The window itself: no freeze while the menu attempt is still pending.
+        Env waiting = new Env(Game.State.Playing);
+        waiting.Menu.CanOpen = false;
+        waiting.OpenPanel();
+        True(!PatchUI_PanelFocus.Engaged, "sixth condition: the 0.5s window lets the menu path go first");
+        Eq(1f, UnityEngine.Time.timeScale, "no freeze during the window");
+        Env.Advance(0.3f);
+        Env.PanelUpdate(waiting, escDown: false, f5Down: false);
+        True(!PatchUI_PanelFocus.Engaged, "still inside the window at 0.3s");
     }
 
-    private static void EscWindowPanelUpdateFirst()
+    private static void AttemptWindowClaim()
     {
         Env env = new Env(Game.State.Playing);
-        env.InstallGate();
-        ModPanel.IsShown = true;
-        PatchUI_PanelFocus.Tick();
-        StubRewired esc = new StubRewired();
-
-        // Frame N, ModPanel.Update first: the closing press shuts the panel and arms the
-        // window before Game.Update sees the very same Esc.
-        esc.Press(5);
-        Env.PanelUpdate(env, escDown: true, f5Down: false);
-        NativeGameLoop.Update(env, esc);
-        Eq(0, env.Game.NativeTryShowMenuCalls, "panel-first: the closing press must not open the menu");
-        Eq(1, env.Game.BlockedTryShowMenuCalls, "blocked by the window, not the panel flag");
-        esc.EndFrame();
-
-        Env.Advance(0.26f);
-        esc.Press(5);
-        NativeGameLoop.Update(env, esc);
-        Eq(1, env.Game.NativeTryShowMenuCalls, "panel-first: after the window the menu opens");
+        env.Game.DeferredMenuOpen = true;
+        env.OpenPanel();
+        Eq(1, env.Game.NativeTryShowMenuCalls, "attempt armed as a pending run signal");
+        True(!PatchUI_PanelFocus.Engaged, "no fallback while the menu signal is pending");
+        Env.Advance(0.2f);
+        env.Game.PumpRunSignal(); // the menu opens within the claim window
+        True(env.Game.state == Game.State.Menu, "the native menu opened");
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Eq(false, env.Menu.interactable, "gated the moment it shows");
+        // Ownership is claimed within the window: close Hides, never restores.
+        env.ClosePanelByF5();
+        Eq(1, env.Menu.HideCalls, "claimed within 0.5s: ours -> Hide on close");
+        Eq(1, env.Menu.InteractableTrueWrites, "no restore write beyond :724 (P1-1)");
     }
 
-    private static void NonEscCloseDoesNotSuppress()
+    private static void StaleAttemptNeverClaims()
     {
-        Env f5Close = new Env(Game.State.Playing);
-        ModPanel.IsShown = true;
-        PatchUI_PanelFocus.Tick();
-        Env.PanelUpdate(f5Close, escDown: false, f5Down: true); // F5 toggle close
+        Env env = new Env(Game.State.Playing);
+        env.Menu.CanOpen = false;
+        env.OpenPanel();   // attempt recorded, natively rejected
+        Env.Advance(1.0f); // the attempt goes stale
+        env.Menu.CanOpen = true;
+        env.Game.TryShowMenu(0); // an external path opens the menu (invite notification)
+        True(Menu.IsMenuShown, "setup: the menu is externally shown");
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        Eq(false, env.Menu.interactable, "still gated while the panel is up");
+        env.ClosePanelByF5();
+        Eq(0, env.Menu.HideCalls, "stale attempt: the external menu is NOT ours -> never Hidden");
+        Eq(2, env.Menu.InteractableTrueWrites, "restored (:724 + the restore)");
+    }
+
+    private static void ZeroTimeScaleNeverEngages()
+    {
+        Env env = new Env(Game.State.Playing);
+        env.Menu.CanOpen = false; // somebody else already paused the world and menu can't open
+        UnityEngine.Time.timeScale = 0f;
+        env.OpenPanel();
+        Env.Advance(0.6f);
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+        True(!PatchUI_PanelFocus.Engaged, "ts==0 must never engage, even past the window");
+        Eq(0f, UnityEngine.Time.timeScale, "no write while ts==0");
+        env.ClosePanelByF5();
+        Eq(0f, UnityEngine.Time.timeScale, "closing writes nothing when never engaged");
+    }
+
+    private static void NetworkGateWithoutFreeze()
+    {
+        Env host = new Env(Game.State.Playing);
+        NetworkBigBoss.IsClientPresent = true;
+        host.OpenPanel();
+        Eq(1, host.Game.NativeTryShowMenuCalls, "host with a client still opens the menu");
+        Eq(1f, UnityEngine.Time.timeScale, "no freeze: native skips ts with a client (Menu.cs:710)");
+        True(!PatchUI_PanelFocus.Engaged, "host with a client mirrors native: no pause");
+        Eq(false, host.Menu.interactable, "联机带客机：闸照常");
+        host.ClosePanelByF5();
+        Eq(1, host.Menu.HideCalls, "our menu is still collected on close");
+        Eq(1f, UnityEngine.Time.timeScale, "no ts write anywhere in the client-present flow");
+
+        Env client = new Env(Game.State.NetworkClientPlaying);
+        NetworkBigBoss.HasWorldAuth = false;
+        NetworkBigBoss.IsClientPresent = false;
+        client.OpenPanel();
+        Eq(1, client.Game.NativeTryShowMenuCalls, "clients open the menu too (state in the G set)");
+        Eq(1f, UnityEngine.Time.timeScale, "clients never freeze");
+        True(!PatchUI_PanelFocus.Engaged, "client machines never pause");
+        Eq(false, client.Menu.interactable, "gated on the client as well");
+    }
+
+    private static void FallbackEscBothOrders()
+    {
+        // Fallback mode ESC semantics (P1-3①): panel closes AND the menu opens natively.
+        // Panel-update-first: the closing Tick restores ts, the same press opens the menu.
+        Env panelFirst = new Env(Game.State.Playing);
+        EngageFallback(panelFirst);
+        True(PatchUI_PanelFocus.Engaged, "panel-first setup: fallback engaged");
+        panelFirst.Menu.CanOpen = true; // whatever held the menu closed released meanwhile
         StubRewired esc = new StubRewired();
         esc.Press(5);
-        NativeGameLoop.Update(f5Close, esc);
-        Eq(1, f5Close.Game.NativeTryShowMenuCalls, "F5 close arms no window: the menu opens at once");
+        Env.PanelUpdate(panelFirst, escDown: true, f5Down: false); // panel closes + disengage
+        NativeGameLoop.Update(panelFirst, esc);                    // same press -> native open
+        True(!ModPanel.IsShown, "panel-first: panel closed");
+        Eq(2, panelFirst.Game.NativeTryShowMenuCalls, "panel-first: rejected once, opened by the ESC");
+        True(panelFirst.Game.state == Game.State.Menu, "panel-first: the native menu opened");
+        Eq(0f, UnityEngine.Time.timeScale, "panel-first: re-frozen by the menu");
+        Eq(1f, panelFirst.Menu.Pts, "panel-first: the menu captured the restored 1, not the fallback 0");
+        Env.PanelUpdate(panelFirst, escDown: false, f5Down: false);
+        Eq(0, panelFirst.Menu.HideCalls, "panel-first: the ESC-opened menu is the user's, no Hide");
 
-        Env faultClose = new Env(Game.State.Playing);
-        ModPanel.IsShown = true;
-        PatchUI_PanelFocus.Tick();
-        ModPanel.IsShown = false; // OnGUI fault close: never passes through Update
-        PatchUI_PanelFocus.Tick();
+        // Game-update-first: the press opens the menu while the panel is still shown
+        // (no TryShowMenu hook exists in v3.2), then the panel closes on top of it.
+        Env gameFirst = new Env(Game.State.Playing);
+        EngageFallback(gameFirst);
+        True(PatchUI_PanelFocus.Engaged, "game-first setup: fallback engaged");
+        gameFirst.Menu.CanOpen = true;
         esc.EndFrame();
         esc.Press(5);
-        NativeGameLoop.Update(faultClose, esc);
-        Eq(1, faultClose.Game.NativeTryShowMenuCalls, "fault close also arms no window");
+        NativeGameLoop.Update(gameFirst, esc); // TryShowMenu runs unpatched even while shown
+        True(gameFirst.Game.state == Game.State.Menu, "game-first: the menu opened behind the panel");
+        Env.PanelUpdate(gameFirst, escDown: true, f5Down: false); // then the panel closes
+        True(!ModPanel.IsShown, "game-first: panel closed");
+        Eq(0f, UnityEngine.Time.timeScale, "game-first: clear-only disengage, the menu keeps the clock");
+        Eq(true, gameFirst.Menu.interactable, "game-first: never gated before the close -> interactive");
+        Eq(0, gameFirst.Menu.HideCalls, "game-first: not ours and never gated -> fully the user's");
     }
 
     private static void DisengageWriteBranches()
     {
         // a) Engaged with ts still 0, state leaves the playable set: clear only, no write.
         Env left = new Env(Game.State.Playing);
-        left.OpenPanel();
+        EngageFallback(left);
         True(PatchUI_PanelFocus.Engaged, "a: setup engaged");
         left.Game.state = Game.State.Loss;
         left.ClosePanelByF5();
@@ -266,7 +402,7 @@ internal static class Program
 
         // b) game==null (context torn down): clear only, no write.
         Env gone = new Env(Game.State.Playing);
-        gone.OpenPanel();
+        EngageFallback(gone);
         Managers.Inst.game = null;
         gone.ClosePanelByF5();
         True(!PatchUI_PanelFocus.Engaged, "b: flag cleared");
@@ -274,7 +410,7 @@ internal static class Program
 
         // c) Engaged but native already moved ts: clear only, native wins.
         Env native = new Env(Game.State.Playing);
-        native.OpenPanel();
+        EngageFallback(native);
         UnityEngine.Time.timeScale = 0.4f; // e.g. the crown-loss slow-motion tween
         native.ClosePanelByF5();
         True(!PatchUI_PanelFocus.Engaged, "c: flag cleared");
@@ -287,7 +423,7 @@ internal static class Program
     private static void NativeOverwriteNoReengage()
     {
         Env env = new Env(Game.State.Playing);
-        env.OpenPanel();
+        EngageFallback(env);
         True(PatchUI_PanelFocus.Engaged, "setup engaged at ts=1");
         Eq(0f, UnityEngine.Time.timeScale, "setup frozen");
 
@@ -303,25 +439,35 @@ internal static class Program
 
     private static void MasterToggleOffStillWorks()
     {
-        Env env = new Env(Game.State.Playing);
+        // Menu path first: a later Env ctor re-points the global fixtures.
+        Env menu = new Env(Game.State.Playing);
         ModConfig.Enabled.Value = false; // P1-2: the panel is infrastructure, not gameplay
-        env.InstallGate();
-        env.OpenPanel();
+        menu.OpenPanel();
+        Eq(1, menu.Game.NativeTryShowMenuCalls, "menu open is not gated by ModConfig.Enabled");
+        Eq(false, menu.Menu.interactable, "the gate applies with the master toggle off");
+        menu.ClosePanelByF5();
+        Eq(1, menu.Menu.HideCalls, "our menu still collected on close");
+
+        Env fallback = new Env(Game.State.Playing);
+        fallback.InstallGate();
+        ModConfig.Enabled.Value = false; // the ctor reset it; disable again
+        EngageFallback(fallback);
         True(PatchUI_PanelFocus.Engaged, "engage is not gated by ModConfig.Enabled");
         Eq(0f, UnityEngine.Time.timeScale, "frozen despite the master toggle off");
         StubRewired pad = new StubRewired();
-        NativeGameLoop.Update(env, pad);
-        Eq(0, env.P1.InputTicks, "the input gate still blocks with the master toggle off");
-        env.ClosePanelByF5();
+        NativeGameLoop.Update(fallback, pad);
+        Eq(0, fallback.P1.InputTicks, "the input gate still blocks with the master toggle off");
+        fallback.ClosePanelByF5();
         Eq(1f, UnityEngine.Time.timeScale, "restore still happens with the master toggle off");
-        NativeGameLoop.Update(env, pad);
-        Eq(1, env.P1.InputTicks, "input flows again after the close");
+        NativeGameLoop.Update(fallback, pad);
+        Eq(1, fallback.P1.InputTicks, "input flows again after the close");
     }
 
     private static void InputGateCoversBothPlayers()
     {
         Env env = new Env(Game.State.Playing);
         env.Game._secondaryControllable = env.P2; // Game.ResetInput local pair
+        env.Menu.CanOpen = false; // keep the state Playing so the pump actually dispatches
         env.InstallGate();
         StubRewired pad = new StubRewired();
 
@@ -339,7 +485,6 @@ internal static class Program
         NativeGameLoop.Update(env, pad);
         Eq(1, env.P1.InputTicks, "player one input flows after the close");
         Eq(1, env.P2.InputTicks, "player two input flows after the close");
-        Eq(0, env.Game.BlockedTryShowMenuCalls, "plain input never touches the menu path");
     }
 
     private static void InputGateResolveFailsClosed()
@@ -351,12 +496,16 @@ internal static class Program
         Eq(1, Lines("input gate target not found").Count, "resolution failure logged once as ERROR");
         True(Lines("input gate target not found")[0].StartsWith("ERROR ", StringComparison.Ordinal),
             "the failure line is an ERROR, not a silent skip");
-        env.OpenPanel();
-        True(PatchUI_PanelFocus.Engaged, "the pause state machine is unaffected by a missing gate");
+        env.OpenPanel(); // menu path: unaffected by the missing gate
+        Eq(1, env.Game.NativeTryShowMenuCalls, "the menu path is unaffected by a missing gate");
+        True(env.Game.state == Game.State.Menu, "the menu really opened");
 
         // A later install with the real type still wires and works.
         env.InstallGate();
         Eq(1, PanelFocusHarness.PatchedPrefixes.Count, "a later correct install still wires");
+        env.Game.state = Game.State.Playing; // synthetic: menu gone, panel still up
+        env.Menu.ShowMainPanelStarted = false;
+        env.Menu.targetDepth = 0;
         StubRewired pad = new StubRewired();
         NativeGameLoop.Update(env, pad);
         Eq(0, env.P1.InputTicks, "the late gate blocks input while shown");
@@ -372,7 +521,39 @@ internal static class Program
         True(PatchUI_PanelFocus.Prefix(), "closing restores the native input body");
     }
 
+    private static void CursorForcedGlobally()
+    {
+        Env env = new Env(Game.State.Playing);
+        CursorSystem.Inst.forceVisibleCursor = true; // a native login/error screen set it
+        env.OpenPanel();
+        True(CursorSystem.Inst.forceVisibleCursor, "forced on open");
+        env.ClosePanelByF5();
+        True(CursorSystem.Inst.forceVisibleCursor, "the pre-open native true is restored");
+
+        Env fresh = new Env(Game.State.Playing);
+        fresh.OpenPanel();
+        True(CursorSystem.Inst.forceVisibleCursor, "forced from a false baseline too");
+        fresh.ClosePanelByF5();
+        True(!CursorSystem.Inst.forceVisibleCursor, "false baseline restored to false");
+
+        Env front = new Env(Game.State.SailingAway);
+        front.OpenPanel();
+        True(CursorSystem.Inst.forceVisibleCursor, "cursor force is global: outside G (frontend) too");
+        front.ClosePanelByF5();
+        True(!CursorSystem.Inst.forceVisibleCursor, "frontend close restores as well");
+    }
+
     // -------------------------------------------------------------- helpers
+
+    /// <summary>Fallback fixture: the menu can't open, the 0.5s window passes, the
+    /// fallback engages (engagement itself asserted by the caller).</summary>
+    private static void EngageFallback(Env env)
+    {
+        env.Menu.CanOpen = false;
+        env.OpenPanel();
+        Env.Advance(0.5f);
+        Env.PanelUpdate(env, escDown: false, f5Down: false);
+    }
 
     private static System.Collections.Generic.List<string> Lines(string needle)
     {
