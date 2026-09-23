@@ -75,6 +75,13 @@ namespace UnityEngine
         public static bool Approximately(float a, float b) => MathF.Abs(a - b) < 0.00001f;
     }
     public static class Time { public static float time, deltaTime = .02f, timeScale = 1; public static int frameCount; }
+    // Deterministic dice stub: production draws Random.value once per swallow roll only.
+    public static class Random
+    {
+        public static float ForcedValue = 1f;
+        public static int Rolls;
+        public static float value { get { Rolls++; return ForcedValue; } }
+    }
     public struct Color { public static Color white => new(); }
     public class Animator : Component
     {
@@ -250,6 +257,9 @@ public class Mover : UnityEngine.Component
     }
     public void SetFacingMode(FacingMode mode, UnityEngine.GameObject target = null)
     { facingMode = mode; facingTarget = mode == FacingMode.Target ? target : null; FacingWrites++; }
+    public int DirectionWrites;
+    public void SetDirection(int direction)
+    { DirectionWrites++; transform.localScale = new(direction, 1f, 1f); } // Mirrors native API; callers must preserve the owned Y scale.
     public void Stop() { StopCalls++; goalMode = GoalMode.Off; movingToGoal = false; _goalSpeed = 0; OnStop?.Invoke(); }
     public void Step(float dt)
     {

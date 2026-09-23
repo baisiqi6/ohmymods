@@ -12,6 +12,12 @@ internal static class PatchRoles_SamuraiPowerDash
 {
     private const float ScanInterval = .2f, Cooldown = 3f, MaxRange = 7f;
     private const float DashSpeed = 18f, DashTimeout = .6f, FollowLeash = 10f, ReturnStop = 4f;
+    // Swallow return (燕返): after an attack dash that ran its full course the samurai may
+    // cut straight back to that dash's origin. One 30% roll per qualified completion, a
+    // per-knight 6 s cooldown counted from the actual start, and the ordinary return's
+    // failure ladder is never touched by this motion.
+    private const float SwallowChance = .30f, SwallowCooldown = 6f, SwallowMinTravel = 1.5f, SwallowArrive = .25f;
+
     // A spent dash ladder degrades into a plain walk home. While the leash is broken the
     // knight always has a goal: after any failed burst it walks, the burst is retried only
     // once its escalating backoff (2 s, 4 s, ...) has elapsed, and from the third failed
@@ -31,6 +37,11 @@ internal static class PatchRoles_SamuraiPowerDash
         internal float NextFollowerScan, NextAttack, RetryAt;
         internal int Failures;
         internal MotionLease Motion;
+        // Swallow-return bookkeeping: the roll is pending for exactly the frame after a
+        // naturally completed attack dash; the cooldown starts only at a real start.
+        internal bool PendingSwallow;
+        internal float SwallowOriginX, NextSwallowAt;
+        internal int SwallowFrame = -1;
     }
 
     private sealed class MotionLease
@@ -41,7 +52,9 @@ internal static class PatchRoles_SamuraiPowerDash
         internal TrailRenderer Trail;
         internal SamuraiDashVisuals.Token Visual;
         internal SamuraiDashDiagnostics.Trace Diagnostics;
-        internal bool Returning, Retired, Effects, OldInvulnerable, OldTrail, HasGoal, Running, Walking;
+        internal MotionKind Kind;
+        internal bool Retired, Effects, OldInvulnerable, OldTrail, HasGoal, Running;
+
         internal float GoalX, GoalSpeed, StartedAt, StartX, LastProgressAt, BestDistance, NextGoal;
         // Defensive withdrawal facing: the mode we hold while returning, and whether the
         // mover field currently holds our value (so a foreign mode is never stomped).
@@ -55,6 +68,12 @@ internal static class PatchRoles_SamuraiPowerDash
     // Why a return lease ended: Success clears the failure ladder, Failure feeds the
     // escalating backoff, Handoff (night / actor lost / walk upgraded to a burst) keeps it.
     private enum EndReason { Handoff, Success, Failure }
+    // The motions a lease can drive. Attack and Swallow are cut motions (PowerSlash pose);
+    // the reverse cut explicitly turns toward its origin. Return and Walk form the
+    // defensive withdrawal family that owns the failure ladder.
+    private enum MotionKind : byte { Attack, Return, Walk, Swallow }
+    private static bool IsReturnFamily(MotionLease m) =>
+        m.Kind == MotionKind.Return || m.Kind == MotionKind.Walk;
 
     private static bool Same(UnityEngine.Object a, UnityEngine.Object b) =>
         a != null && b != null && a.Pointer == b.Pointer;
@@ -168,7 +187,7 @@ internal static class PatchRoles_SamuraiPowerDash
             if (owned)
             {
                 LogMotionEnd(m, reason == EndReason.Failure);
-                if (m.Returning)
+                if (IsReturnFamily(m))
                 {
                     if (reason == EndReason.Failure)
                     {
@@ -177,7 +196,9 @@ internal static class PatchRoles_SamuraiPowerDash
                     }
                     else if (reason == EndReason.Success) { m.Actor.Failures = 0; m.Actor.RetryAt = 0; }
                 }
-                else m.Actor.NextAttack = Time.time + Cooldown;
+                else if (m.Kind == MotionKind.Attack) m.Actor.NextAttack = Time.time + Cooldown;
+                // Swallow: neither the return ladder nor the attack cooldown -- the
+                // forward dash that earned it already set NextAttack.
                 m.Actor.Motion = null;
             }
         }
@@ -243,25 +264,39 @@ internal static class PatchRoles_SamuraiPowerDash
         catch { }
     }
 
-    private static MotionLease Begin(ActorState a, bool returning, float goal)
+    private static MotionLease Begin(ActorState a, MotionKind kind, float goal)
     {
         Knight k = a.Owner;
         var m = new MotionLease { Actor = a, Mover = k._mover, Damageable = k._damageable,
-            Trail = k._trail, Returning = returning, StartedAt = Time.time,
+            Trail = k._trail, Kind = kind, StartedAt = Time.time,
             StartX = k.transform.position.x, LastProgressAt = Time.time,
-            BestDistance = returning ? Distance(a) : 0 };
+            BestDistance = kind == MotionKind.Return ? Distance(a) : 0 };
         a.Motion = m;
-        m.Diagnostics = SamuraiDashDiagnostics.Begin(k, returning, m.StartedAt);
+        m.Diagnostics = SamuraiDashDiagnostics.Begin(k, IsReturnFamily(m), m.StartedAt);
         m.OldInvulnerable = m.Damageable.invulnerable;
         m.OldTrail = m.Trail != null && m.Trail.enabled;
         m.Effects = true;
         m.Damageable.invulnerable = true;
         if (m.Trail != null) m.Trail.enabled = true;
         LogTrailState(m, "trail-state");
-        // The attack dash keeps the slash pose; the return is a defensive withdrawal, so it
-        // faces the enemy side instead of replaying the dash animation.
-        if (!returning && k._animator != null) k._animator.SetTrigger(PowerSlash);
-        if (returning) { m.FacingWritten = EnemyFacing(k); HoldFacing(m); }
+        // The attack dash and the swallow keep the slash pose. The reverse cut must face
+        // its origin before the first slash frame; native SetDirection also resets Y scale,
+        // so put the cosmetic scale back immediately. Only an Ahead-facing mover is leased.
+        // The return family is a defensive withdrawal: it faces the enemy side instead of
+        // replaying the dash animation.
+        if (kind == MotionKind.Swallow)
+        {
+            int direction = goal < m.StartX ? -1 : 1;
+            m.FacingWritten = direction < 0 ? Mover.FacingMode.Left : Mover.FacingMode.Right;
+            var scale = k.transform.localScale;
+            m.Mover.SetFacingMode(m.FacingWritten, null);
+            m.FacingOwned = true;
+            m.Mover.SetDirection(direction);
+            k.transform.localScale = new Vector3(direction * Mathf.Abs(scale.x), scale.y, scale.z);
+        }
+        if ((kind == MotionKind.Attack || kind == MotionKind.Swallow) && k._animator != null)
+            k._animator.SetTrigger(PowerSlash);
+        if (kind == MotionKind.Return) { m.FacingWritten = EnemyFacing(k); HoldFacing(m); }
         m.Visual = SamuraiDashVisuals.Begin(k, m.Diagnostics);
         Goal(m, goal, DashSpeed);
         return m;
@@ -291,7 +326,7 @@ internal static class PatchRoles_SamuraiPowerDash
         try
         {
             SamuraiDashDiagnostics.Write(m.Diagnostics, "end", "failure=" + failure
-                + " elapsed=" + (Time.time - m.StartedAt).ToString("0.###") + " returning=" + m.Returning
+                + " elapsed=" + (Time.time - m.StartedAt).ToString("0.###") + " kind=" + m.Kind
                 + " effectsActive=" + m.Effects + " returnRunning=" + m.Running);
         }
         catch { }
@@ -315,6 +350,7 @@ internal static class PatchRoles_SamuraiPowerDash
                 if (a.Motion != null) Finish(a.Motion);
                 a.ObservedMover = knight._mover;
                 a.Failures = 0; a.RetryAt = 0; // a replacement mover starts the ladder clean
+                a.PendingSwallow = false; // and never inherits a swallow intent
                 return; // A replacement mover's first observed goal belongs to its new owner.
             }
             if (a != null && (!Same(a.Owner, knight) || !Eligible(knight)))
@@ -326,9 +362,23 @@ internal static class PatchRoles_SamuraiPowerDash
             if (a == null) { a = new ActorState { Owner = knight, ObservedMover = knight._mover }; Actors[id] = a; }
             if (a.Motion != null)
             {
+                // Another motion owns the roll frame: the swallow yields for good, no re-roll.
+                if (a.PendingSwallow && Time.frameCount > a.SwallowFrame) a.PendingSwallow = false;
                 MotionLease m = a.Motion;
-                if (!ValidMotion(m)) { Finish(m, m.Returning ? EndReason.Failure : EndReason.Handoff); return; }
-                if (m.Returning)
+                if (!ValidMotion(m)) { Finish(m, IsReturnFamily(m) ? EndReason.Failure : EndReason.Handoff); return; }
+                if (m.Kind == MotionKind.Attack)
+                {
+                    if (ValidFollower(knight, a.Follower) && Distance(a) > FollowLeash) Finish(m);
+                }
+                else if (m.Kind == MotionKind.Swallow)
+                {
+                    // Night wall guard and the ordinary return always have priority.
+                    if (NightGuard(knight)) { Finish(m); return; }
+                    if (ValidFollower(knight, a.Follower) &&
+                        (Distance(a) > FollowLeash || (a.Failures > 0 && Distance(a) > ReturnStop))) Finish(m);
+                    else AdvanceSwallow(m);
+                }
+                else
                 {
                     if (NightGuard(knight)) { Finish(m); return; }
                     // Verify this reference each frame before periodic reselection, never mask its loss.
@@ -336,14 +386,16 @@ internal static class PatchRoles_SamuraiPowerDash
                     RefreshFollower(a);
                     AdvanceReturn(m);
                 }
-                else if (ValidFollower(knight, a.Follower) && Distance(a) > FollowLeash) Finish(m);
-                return; // Attack and Return are mutually exclusive, including the 4..10 band.
+                return; // Attack, Return and Swallow are mutually exclusive, including the 4..10 band.
             }
             RefreshFollower(a);
             bool follower = ValidFollower(knight, a.Follower);
             if (!follower) { a.Follower = null; a.Failures = 0; a.RetryAt = 0; }
             float distance = follower ? Distance(a) : 0;
             if (distance <= ReturnStop) { a.Failures = 0; a.RetryAt = 0; }
+            // The swallow roll: consumed exactly once, on the frame after a naturally
+            // completed attack dash, whatever the outcome.
+            if (a.PendingSwallow && TryStartSwallow(a, follower, distance)) return;
             // At night the wall coroutine supplies its current destination and defensive
             // facing. Keep the follower leash, but never turn this homeward leg into an attack.
             if (NightGuard(knight))
@@ -362,7 +414,7 @@ internal static class PatchRoles_SamuraiPowerDash
                     (a.Failures < WalkAfterFailures && Time.time >= a.RetryAt);
                 if (!burst) { BeginWalk(a); return; }
                 float x = knight.transform.position.x;
-                var dash = Begin(a, true, x + Mathf.Clamp(StationX(a) - x, -MaxRange, MaxRange));
+                var dash = Begin(a, MotionKind.Return, x + Mathf.Clamp(StationX(a) - x, -MaxRange, MaxRange));
                 HitScan(dash); // entry frame hits, same as the attack dash's first coroutine step
                 if (Current(dash) && (!ValidMotion(dash) || !ValidFollower(knight, a.Follower)))
                     Finish(dash, EndReason.Failure);
@@ -376,14 +428,68 @@ internal static class PatchRoles_SamuraiPowerDash
             if (enemy == null || !enemy.IsDamagedBy(DamageSource.Knight)) return;
             float dx = target.transform.position.x - knight.transform.position.x;
             if (Mathf.Abs(dx) < 1.5f || Mathf.Abs(dx) > MaxRange) return;
-            var attack = Begin(a, false, target.transform.position.x - Mathf.Sign(dx) * .5f);
+            var attack = Begin(a, MotionKind.Attack, target.transform.position.x - Mathf.Sign(dx) * .5f);
             knight.StartCoroutine(AttackRoutine(attack).WrapToIl2Cpp());
         }
         catch (Exception e)
         {
-            if (a?.Motion != null) Finish(a.Motion, a.Motion.Returning ? EndReason.Failure : EndReason.Handoff);
+            if (a?.Motion != null) Finish(a.Motion, IsReturnFamily(a.Motion) ? EndReason.Failure : EndReason.Handoff);
             Log("tick", e);
         }
+    }
+
+    // The swallow roll. Runs at most once per qualified attack completion: all deterministic
+    // gates are checked first and only a fully startable completion draws the 30% chance.
+    // Whatever the outcome the pending flag is consumed -- nothing is re-rolled later and
+    // nothing is left pending. The cooldown is charged only when a swallow really starts.
+    private static bool TryStartSwallow(ActorState a, bool follower, float distance)
+    {
+        if (Time.frameCount <= a.SwallowFrame) return false; // only ever from the next frame on
+        bool fresh = Time.frameCount <= a.SwallowFrame + 1; // a stalled frame never starts late
+        bool returnDue = distance > FollowLeash || (a.Failures > 0 && distance > ReturnStop);
+        Knight k = a.Owner;
+        float travel = Mathf.Abs(k.transform.position.x - a.SwallowOriginX);
+        bool start = fresh && follower && !returnDue && !NightGuard(k) && Time.timeScale > 0 &&
+            k._mover._pauseTimeout <= 0 && k._mover.goalMode == Mover.GoalMode.Off &&
+            k._mover.facingMode == Mover.FacingMode.Ahead &&
+            Time.time >= a.NextSwallowAt && travel >= SwallowMinTravel && travel <= MaxRange &&
+            UnityEngine.Random.value < SwallowChance; // the host decides; Eligible gated authority
+        a.PendingSwallow = false;
+        if (!start) return false;
+        float x = k.transform.position.x;
+        var swallow = Begin(a, MotionKind.Swallow, x + Mathf.Clamp(a.SwallowOriginX - x, -MaxRange, MaxRange));
+        a.NextSwallowAt = Time.time + SwallowCooldown; // counted from the actual start only
+        SamuraiDashDiagnostics.Write(swallow.Diagnostics, "swallow",
+            "origin=" + a.SwallowOriginX.ToString("0.##") + " facing=" + swallow.FacingWritten);
+        if (Logged.Add("swallow-start"))
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/swallow-start] x=" +
+                x.ToString("0.##") + " origin=" + a.SwallowOriginX.ToString("0.##") +
+                " chance=" + SwallowChance + " cooldown=" + SwallowCooldown);
+        HitScan(swallow); // entry frame hits, same as every other dash's first step
+        if (Current(swallow) && (!ValidMotion(swallow) || !ValidFollower(k, a.Follower)))
+            Finish(swallow); // Handoff: no ladder and no attack-cooldown impact
+        return true;
+    }
+
+    // One bounded reverse cut back to the attack dash's origin. It ends on the arrival
+    // tolerance, its own timeout or travel cap; it never extends into the ordinary running
+    // return and never touches the failure ladder.
+    private static void AdvanceSwallow(MotionLease m)
+    {
+        if (!ValidMotion(m)) { Finish(m); return; }
+        var a = m.Actor;
+        Knight k = a.Owner;
+        if (!ValidFollower(k, a.Follower)) { Finish(m); a.Follower = null; return; }
+        if (Time.timeScale > 0 && Time.time - m.StartedAt < DashTimeout &&
+            Mathf.Abs(k.transform.position.x - m.StartX) < MaxRange)
+            HitScan(m);
+        // A hit callback may synchronously disable the knight or replace this lease; never touch the new one.
+        if (!Current(m)) return;
+        if (!ValidMotion(m)) { Finish(m); return; }
+        if (!ValidFollower(k, a.Follower)) { Finish(m); a.Follower = null; return; }
+        float x = k.transform.position.x, now = Time.time;
+        if (Mathf.Abs(x - m.GoalX) <= SwallowArrive) { Finish(m); return; }
+        if (now - m.StartedAt >= DashTimeout || Mathf.Abs(x - m.StartX) >= MaxRange - .05f) { Finish(m); return; }
     }
 
     private static void AdvanceReturn(MotionLease m)
@@ -391,7 +497,8 @@ internal static class PatchRoles_SamuraiPowerDash
         if (!ValidMotion(m)) { Finish(m, EndReason.Failure); return; }
         var a = m.Actor;
         if (!ValidFollower(a.Owner, a.Follower)) { Finish(m, EndReason.Handoff); return; }
-        if (m.Walking) { HoldFacing(m); AdvanceWalk(m); return; }
+        if (m.Kind == MotionKind.Walk) { HoldFacing(m); AdvanceWalk(m); return; }
+
         HoldFacing(m);
         float distance = Distance(a), now = Time.time;
         if (!m.Running && Time.timeScale > 0 && now - m.StartedAt < DashTimeout &&
@@ -431,7 +538,7 @@ internal static class PatchRoles_SamuraiPowerDash
         var m = new MotionLease
         {
             Actor = a, Mover = k._mover, Damageable = k._damageable, Trail = k._trail,
-            Returning = true, Walking = true, Running = true, // Running keeps CanHit false
+            Kind = MotionKind.Walk, Running = true, // Running keeps CanHit false
             StartedAt = Time.time, StartX = k.transform.position.x,
             FacingWritten = EnemyFacing(k)
         };
@@ -463,10 +570,12 @@ internal static class PatchRoles_SamuraiPowerDash
     private static bool CanHit(MotionLease m) => !m.Running && Time.timeScale > 0 &&
         ValidMotion(m) && Time.time - m.StartedAt < DashTimeout &&
         Mathf.Abs(m.Actor.Owner.transform.position.x - m.StartX) < MaxRange &&
-        (m.Returning ? ValidFollower(m.Actor.Owner, m.Actor.Follower) :
-            !ValidFollower(m.Actor.Owner, m.Actor.Follower) || Distance(m.Actor) <= FollowLeash);
+        (m.Kind == MotionKind.Attack
+            ? !ValidFollower(m.Actor.Owner, m.Actor.Follower) || Distance(m.Actor) <= FollowLeash
+            : ValidFollower(m.Actor.Owner, m.Actor.Follower) &&
+              (m.Kind != MotionKind.Swallow || Distance(m.Actor) <= FollowLeash));
 
-    /// <summary>Shared burst hit scan used by both the attack dash and the return dash.</summary>
+    /// <summary>Shared burst hit scan used by the attack dash, the return dash and the swallow.</summary>
     private static void HitScan(MotionLease m)
     {
         if (!CanHit(m)) return;
@@ -491,18 +600,28 @@ internal static class PatchRoles_SamuraiPowerDash
     {
         try
         {
+            bool pulled = false;
             while (ValidMotion(m) && Time.time - m.StartedAt < DashTimeout &&
                 Mathf.Abs(m.Actor.Owner.transform.position.x - m.StartX) < MaxRange)
             {
                 var a = m.Actor;
-                if (ValidFollower(a.Owner, a.Follower) && Distance(a) > FollowLeash) break;
+                if (ValidFollower(a.Owner, a.Follower) && Distance(a) > FollowLeash) { pulled = true; break; }
                 if (Time.timeScale > 0)
                 {
                     RefreshFollower(a);
-                    if (ValidFollower(a.Owner, a.Follower) && Distance(a) > FollowLeash) break;
+                    if (ValidFollower(a.Owner, a.Follower) && Distance(a) > FollowLeash) { pulled = true; break; }
                     HitScan(m);
                 }
                 yield return null;
+            }
+            // Only the dash's own exit paths (goal reached and stood at, timeout, max travel)
+            // qualify for the swallow roll -- never the finally cleanup below, never a leash
+            // pull, never an exception, and a stopped coroutine never gets here at all.
+            if (!pulled && ValidMotion(m) && Current(m))
+            {
+                m.Actor.PendingSwallow = true;
+                m.Actor.SwallowFrame = Time.frameCount;
+                m.Actor.SwallowOriginX = m.StartX;
             }
         }
         finally { Finish(m); }
@@ -515,9 +634,10 @@ internal static class PatchRoles_SamuraiPowerDash
             if (knight == null || knight.gameObject == null) return false;
             if (!Actors.TryGetValue(knight.gameObject.GetInstanceID(), out var a) || !Same(a.Owner, knight)) return false;
             var m = a.Motion;
-            // Only the invulnerable burst suppresses the native slash; a walking withdrawal is
-            // a plain retreat, so the samurai can still defend itself on the way home.
-            return m != null && m.Returning && !m.Walking && ValidMotion(m) &&
+            // Only the invulnerable ordinary return burst suppresses the native slash; a
+            // walking withdrawal is a plain retreat and the swallow is an attack-family
+            // cut, so both leave the samurai able to defend itself.
+            return m != null && m.Kind == MotionKind.Return && ValidMotion(m) &&
                 ValidFollower(knight, a.Follower) && Distance(a) > ReturnStop;
         }
         catch (Exception e) { Log("should-slash", e); return false; }
