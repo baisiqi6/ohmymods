@@ -489,7 +489,7 @@ internal static class Program
 
     private static void SwallowRegressions()
     {
-        Test("Swallow dice hit cuts straight back to the attack origin", () => {
+        Test("Swallow cuts straight back to the attack origin", () => {
             UnityEngine.Random.ForcedValue = .29f;
             var k = NewKnight(0); Follower(k, 0); var enemy = Enemy(k, 3);
             UpdateHook(k);

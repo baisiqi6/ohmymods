@@ -37,12 +37,10 @@ internal static class PatchRoles_SamuraiPowerDash
     private const float AttackLeash = MaxRange + 2.5f + .5f;
     private const float DashSpeed = 18f, DashTimeout = .6f, FollowLeash = 10f, ReturnStop = 4f;
     // Swallow return (燕返): after an attack dash that ran its full course the samurai may
-    // cut straight back to that dash's origin. One 30% roll per qualified completion, a
-    // per-knight 6 s cooldown counted from the actual start, and the ordinary return's
     // failure ladder is never touched by this motion.
     // 2026-09-24 用户裁定：燕返由 30% 概率+6s 冷却改为必定触发（无冷却）——怪堆里防御
     // 姿态退回=送死，反向冲刺才是保命手段。其余资格门（follower/行程窗/暂停/外来目标/
-    /// 夜墙 goalMode 归属等）全部保留，资格外的完成仍走防御回撤。
+    // 夜墙 goalMode 归属等）全部保留，资格外的完成仍走防御回撤。
     private const float SwallowMinTravel = 1.5f, SwallowArrive = .25f;
 
     // A spent dash ladder degrades into a plain walk home. While the leash is broken the
@@ -92,8 +90,8 @@ internal static class PatchRoles_SamuraiPowerDash
         // (lease or in-place face), and it is never deferred through a pause nor cleared by
         // the same Finish that raised it.
         internal bool ReturnDue;
-        // Swallow-return bookkeeping: the roll is pending for exactly the frame after a
-        // naturally completed attack dash; the cooldown starts only at a real start.
+// Swallow-return bookkeeping: armed on the frame after a natural attack completion;
+// deterministic since 2026-09-24 (no dice, no cooldown).
         internal bool PendingSwallow;
         internal float SwallowOriginX;
         internal int SwallowFrame = -1;
@@ -846,9 +844,9 @@ internal static class PatchRoles_SamuraiPowerDash
     }
 
     // The swallow roll. Runs at most once per qualified attack completion: all deterministic
-    // gates are checked first and only a fully startable completion draws the 30% chance.
+    // gates are checked first and every fully startable completion starts one.
     // Whatever the outcome the pending flag is consumed -- nothing is re-rolled later and
-    // nothing is left pending. The cooldown is charged only when a swallow really starts.
+    // nothing is left pending. 
     private static bool TryStartSwallow(ActorState a, bool follower, float distance)
     {
         if (Time.frameCount <= a.SwallowFrame) return false; // only ever from the next frame on
