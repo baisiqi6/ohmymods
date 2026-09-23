@@ -998,9 +998,18 @@ internal static class Program
         Test("Without a captured calm pose the repair goes straight to the enable toggle", () => {
             var k = NewKnight(0); Follower(k, 0);
             k._animator.StateHash = 111;
-            k._animator.Speed = 1;                          // the calm gate never opens: no default capture
-            RunAttackLease(k, 777);
+            // 2026-09-24: Speed no longer gates the capture — block only the pre-lease frames
+            // with a held transition (inlined RunAttackLease so the pose frames still capture
+            // the slash hash; pauseTimeout would kill the lease itself).
+            k._animator.InTransition = true;
+            Frames(2, .02f, false);
+            k._animator.InTransition = false;
+            Time.time += .25f; Enemy(k, 3); UpdateHook(k);
             k._animator.StateHash = 777;
+            Frames(3, .02f, false);
+            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            k._animator.StateHash = 777;                     // the pose is left behind
             k._animator.OnEnabledWrite = on => { if (on) k._animator.StateHash = 111; };
             int resets = k._animator.ResetCount;
             Frames(90, .02f, false);                        // 1.8 s stuck: one ladder runs
@@ -1009,6 +1018,20 @@ internal static class Program
             Eq(2, k._animator.EnabledWrites, "the enable toggle is the fallback");
             Frames(60, .02f, false);
             Eq(resets + 1, k._animator.ResetCount, "the toggle healed the episode");
+        });
+        Test("A walking frame supplies the replay pose (2026-09-24 field fix)", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._animator.StateHash = 111;
+            k._animator.Speed = 1;                          // walking: the old Speed gate starved this
+            Frames(6, .02f, false);                         // two stable frames -> captured
+            RunAttackLease(k, 777);
+            k._animator.StateHash = 777;                    // the pose is left behind
+            k._animator.OnPlay = (h, l, t) => { k._animator.StateHash = 111; return true; };
+            int resets = k._animator.ResetCount;
+            Frames(90, .02f, false);
+            Eq(resets + 1, k._animator.ResetCount, "the ladder resets the trigger");
+            Eq(true, k._animator.PlayCalls >= 1, "the walking pose is replayed, not the toggle");
+            Eq(0, k._animator.EnabledWrites, "no enable toggle when a replay pose exists");
         });
         Test("A native slash pause never yields a calm pose to replay", () => {
             var k = NewKnight(0); Follower(k, 0);
