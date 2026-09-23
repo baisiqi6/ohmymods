@@ -150,7 +150,8 @@ namespace KingdomEnhancedMod
     /// 所有入口都由既有 KnightStyle 事件/巡检路径调用，不新增 driver / 逐帧 scanner / RPC。
     /// 风格面板（KnightStylePanel）只经本文件的显式接入点读写身份：TryVerifyPanelKnight（只读探针）、
     /// TryPanelAssignAll（用户动作的一次性重派，允许 unresolved 上下文）、ArmPanelRebaseline（设计 C
-    /// pending，写入严格推迟到下一次原生 Save 的捕获作用域）、AssignFirstSeenUniform（功能 A 首见批量均匀）。
+    /// pending，写入严格推迟到下一次原生 Save 的捕获作用域）、ArmPanelRevision（已解析岛的用户修订
+    /// pending，下一次原生 Save 写同 hash、修订号 +1 的新快照）、AssignFirstSeenUniform（功能 A 首见批量均匀）。
     /// </summary>
     internal static class KnightIdentityRuntime
     {
@@ -215,6 +216,7 @@ namespace KingdomEnhancedMod
         // 设计 C pending 的铸出身份（ArmPanelRebaseline 登记；KnightIdentitySaveBridge 在 save 期复核消费）。
         internal static readonly List<PanelMint> PanelMints = new List<PanelMint>();
         private static string _panelRebaselineContext; // 非 null = 设计 C pending 已挂（上下文键）
+        private static string _panelRevisionContext;   // 非 null = 已解析岛的用户修订 pending（下一次原生 Save 写 rev+1）
 
         /// <summary>设计 C pending 里的一条面板铸出身份（save 期按同对象同 life 复核存活性）。</summary>
         internal sealed class PanelMint
@@ -811,6 +813,7 @@ namespace KingdomEnhancedMod
                 }
                 if (PanelMints.Count == 0) return;
                 _panelRebaselineContext = contextKey;
+                _panelRevisionContext = null; // 后到的用户动作取代先前的修订 pending（单槽语义）
             }
             catch (Exception e)
             {
@@ -823,6 +826,31 @@ namespace KingdomEnhancedMod
         {
             _panelRebaselineContext = null;
             PanelMints.Clear();
+        }
+
+        /// <summary>已解析岛的用户修订 pending 上下文键（null = 未挂）。下一次原生 Save 的普通写路径的开关。</summary>
+        internal static string PanelRevisionContext { get { return _panelRevisionContext; } }
+
+        /// <summary>面板/测试读的便捷视图：用户修订 pending 是否已挂。</summary>
+        internal static bool PanelRevisionArmed { get { return _panelRevisionContext != null; } }
+
+        /// <summary>
+        /// 已解析岛的用户重派（面板应用）：挂修订 pending，由下一次原生 Save 的普通写路径消费——
+        /// 写入时从重读的盘上取「该 context 全部 epoch 快照的最大修订号 + 1」，写成同 hash、新修订号的
+        /// 快照（旧记录保留）；两次 apply 之间未保存只 bump 一次。失败=pending 保持，未保存退出=零写入。
+        /// 只在面板应用成功后调用（用户显式动作），自动路径绝不调用。
+        /// </summary>
+        internal static void ArmPanelRevision(string contextKey)
+        {
+            if (string.IsNullOrEmpty(contextKey)) return;
+            _panelRevisionContext = contextKey;
+            DisarmPanelRebaseline(); // 同一时刻只有一个用户 pending（再基线化与修订互斥）
+        }
+
+        /// <summary>撤销用户修订 pending（成功写入 / 测试复位）。</summary>
+        internal static void DisarmPanelRevision()
+        {
+            _panelRevisionContext = null;
         }
 
         /// <summary>池可用性预检（ChooseLeast 的输入约束）：非空、全合法、无重复；失败=整批不写。</summary>
@@ -914,6 +942,7 @@ namespace KingdomEnhancedMod
             PanelStyles.Clear();
             PanelBackup.Clear();
             DisarmPanelRebaseline();
+            DisarmPanelRevision();
         }
 
         // ------------------------------------------------------------------ 内部
@@ -1508,12 +1537,28 @@ namespace KingdomEnhancedMod
                     return;
                 }
 
-                KnightIdentitySidecar.AppendSnapshot(epoch, snapshot, contextKey, newEpoch);
+                // 已解析岛的面板用户重派：本次 save 写成修订号 +1 的快照（写入时才从盘上取最大值，见 AppendSnapshot）。
+                bool userRevision = KnightIdentityRuntime.PanelRevisionArmed
+                    && string.Equals(KnightIdentityRuntime.PanelRevisionContext, contextKey, StringComparison.Ordinal);
+                if (KnightIdentitySidecar.AppendSnapshot(epoch, snapshot, contextKey, newEpoch, userRevision, out int appliedRevision)
+                    && userRevision)
+                {
+                    KnightIdentityRuntime.DisarmPanelRevision();
+                    KnightPanelLog.Info("user revision: rev=" + appliedRevision.ToString(CultureInfo.InvariantCulture)
+                        + " context=" + Prefix(contextKey)
+                        + " styles=" + PanelStyleSummary(entries) + ", prior records preserved");
+                }
             }
             catch (Exception e)
             {
                 KnightIdentityLog.Once("save-apply", e);
             }
+        }
+
+        /// <summary>日志用前缀：上下文键短化（不改判定）。</summary>
+        private static string Prefix(string value)
+        {
+            return string.IsNullOrEmpty(value) || value.Length <= 8 ? value : value.Substring(0, 8);
         }
 
         /// <summary>
@@ -2189,6 +2234,9 @@ namespace KingdomEnhancedMod
                     scope.Receipts = resolution.Receipts;
                     KnightIdentityLog.Receipt("load-match scope=" + ShortHash(resolution.Epoch) + " hash=" + ShortHash(resolution.MatchHash)
                         + " entries=" + resolution.Receipts.Count.ToString(CultureInfo.InvariantCulture)
+                        + (resolution.Matched != null && resolution.Matched.Revision > 0
+                            ? " rev=" + resolution.Matched.Revision.ToString(CultureInfo.InvariantCulture)
+                            : string.Empty)
                         + " kind=" + (resolution.MatchKind == KnightIdentityFingerprint.KindNormalized ? "exact" : "legacy"));
                     return scope;
                 }
@@ -2339,26 +2387,50 @@ namespace KingdomEnhancedMod
             return true;
         }
 
+        /// <summary>四参入口（LoadSeed 等自动路径）：自动修订语义（继承本 scope 当前值/0），丢弃写入结果。</summary>
+        internal static void AppendSnapshot(string scopeKey, KnightIdentitySnapshot snapshot, string contextKey, bool newEpoch)
+        {
+            AppendSnapshot(scopeKey, snapshot, contextKey, newEpoch, false, out _);
+        }
+
         /// <summary>
         /// 重新 Load 磁盘后合并本代快照，并在同一次原子写入里登记「上下文 → epoch」映射。
+        /// 修订号在写入时从重读的盘上定：userRevision（面板用户动作）= 该 context 全部 epoch 快照最大修订号 + 1；
+        /// 自动路径 = 0 或继承本 scope 当前最大值（不递增）。返回 true = 本代快照已落盘（Applied/Unchanged 且写入成功），
+        /// <paramref name="appliedRevision"/> 为实际写入的修订号（未落盘 = 0）。
         /// 状态分流：Missing 才 CreateEmpty；Valid 直接用；Valid+RecoveredBackup（数据来自备份）先按核心方式
         /// 显式修复主文件再写；Corrupt（无有效备份）与 UnsupportedVersion 一律只读降级，绝不覆盖、绝不删文件。
         /// </summary>
-        internal static void AppendSnapshot(string scopeKey, KnightIdentitySnapshot snapshot, string contextKey, bool newEpoch)
+        internal static bool AppendSnapshot(string scopeKey, KnightIdentitySnapshot snapshot, string contextKey, bool newEpoch,
+            bool userRevision, out int appliedRevision)
         {
+            appliedRevision = 0;
             try
             {
                 string path = Path;
-                if (string.IsNullOrEmpty(path)) return;
+                if (string.IsNullOrEmpty(path)) return false;
                 if (string.IsNullOrEmpty(contextKey))
                 {
                     KnightIdentityLog.Once("sidecar-context-missing", null); // 没有上下文映射就不落盘
-                    return;
+                    return false;
                 }
                 if (!TryOpenWritableArchive(path, true, out KnightIdentityArchive archive, out string blocked))
                 {
                     KnightIdentityLog.Once(blocked, null);
-                    return;
+                    return false;
+                }
+
+                int requested = snapshot.Revision;   // 显式修订号（>0）原样保留
+                if (userRevision) requested = archive.MaxRevision(contextKey) + 1;
+                else if (requested == 0) requested = archive.MaxScopeRevision(scopeKey); // 自动路径继承本 scope 当前值，不递增
+                if (requested != snapshot.Revision)
+                {
+                    if (!snapshot.TryCopyWithRevision(requested, out KnightIdentitySnapshot revised, out string revisionError))
+                    {
+                        KnightIdentityLog.Once("sidecar-revision:" + revisionError, null);
+                        return false;
+                    }
+                    snapshot = revised;
                 }
 
                 KnightIdentityArchive.MutationStatus status = archive.RecordSnapshot(scopeKey, snapshot);
@@ -2366,17 +2438,17 @@ namespace KingdomEnhancedMod
                     || status == KnightIdentityArchive.MutationStatus.RejectedConflict)
                 {
                     KnightIdentityLog.Once("sidecar-rejected-invalid", null);
-                    return;
+                    return false;
                 }
                 if (status == KnightIdentityArchive.MutationStatus.RejectedCapacity)
                 {
                     KnightIdentityLog.Once("sidecar-rejected-capacity", null); // 满：不牺牲别的 scope
-                    return;
+                    return false;
                 }
                 if (!archive.EnsureContext(contextKey, scopeKey, newEpoch))
                 {
                     KnightIdentityLog.Once("sidecar-context-rejected", null); // scope 已属别的上下文/容量满：fail closed
-                    return;
+                    return false;
                 }
 
                 string directory = System.IO.Path.GetDirectoryName(path);
@@ -2387,15 +2459,23 @@ namespace KingdomEnhancedMod
                 if (!saved.Ok)
                 {
                     KnightIdentityLog.Once("sidecar-save:" + saved.Status, null);
-                    return;
+                    return false;
                 }
-                if (saved.Status == KnightIdentityArchiveStore.SaveStatus.Unchanged) return; // 盘上已一致（含 context 映射）
+                appliedRevision = snapshot.Revision;
+                if (saved.Status == KnightIdentityArchiveStore.SaveStatus.Unchanged)
+                {
+                    // 盘上已一致（含 context 映射）：仍是成功落盘（幂等重报），只是不重复记 receipt。
+                    return true;
+                }
                 KnightIdentityLog.Receipt("save scope=" + ShortHash(scopeKey) + " hash=" + ShortHash(snapshot.Hash)
-                    + " entries=" + snapshot.Count.ToString(CultureInfo.InvariantCulture));
+                    + " entries=" + snapshot.Count.ToString(CultureInfo.InvariantCulture)
+                    + (snapshot.Revision > 0 ? " rev=" + snapshot.Revision.ToString(CultureInfo.InvariantCulture) : ""));
+                return true;
             }
             catch (Exception e)
             {
                 KnightIdentityLog.Once("sidecar-append", e); // 任何 I/O 异常都不影响原生保存
+                return false;
             }
         }
 
@@ -2601,7 +2681,10 @@ namespace KingdomEnhancedMod
 
                 string epoch = KnightIdentityArchive.NewScope();
                 string hash = KnightIdentityFingerprint.Normalized(rawJson, epoch);
-                if (!KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindNormalized, hash, DateTimeOffset.UtcNow, entries,
+                // 用户修订号：写入时从重读的盘上取「该 context 全部 epoch 快照最大修订号 + 1」——
+                // 新 epoch 的记录必须严格高于旧 epoch 的冲突记录，下一次 Resolve 才能按修订优先解除冲突。
+                int revision = archive.MaxRevision(contextKey) + 1;
+                if (!KnightIdentitySnapshot.TryCreate(KnightIdentityFingerprint.KindNormalized, hash, DateTimeOffset.UtcNow, entries, revision,
                         out KnightIdentitySnapshot snapshot, out string error))
                 {
                     KnightIdentityLog.Once("panel-rebaseline-snapshot:" + error, null);

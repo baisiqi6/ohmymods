@@ -8,8 +8,12 @@
 //    同 hash 不同 kind 视为冲突，绝不覆写。
 //  * 只有 scope + hash 完全一致才允许 uniqueID→收据 恢复；任何失配一律拒绝，
 //    绝不按位置/金币/名字/NetID 猜。旧档迁移由 KnightIdentityContexts 用两种精确 hash 做有界匹配。
-//  * schemaVersion 只接受 1（legacy 只读兼容：快照一律 kind1、无 contexts）与 2；更高版本一律拒绝（不降级、不覆盖）；
-//    损坏主文件永不覆盖一份有效备份。
+//  * schemaVersion 只接受 1（legacy 只读兼容：快照一律 kind1、无 contexts）、2（前版：无修订号，仍按原封闭
+//    schema 解析）与 4（当前：快照可携带用户修订号 rev；无修订号的旧文件读作 0，未产出修订时写回仍是 2，
+//    字节级与旧行为一致）；其余版本（含未发布的 3）一律拒绝（不降级、不覆盖）；损坏主文件永不覆盖有效备份。
+//  * 用户修订号（Revision）只由面板用户动作产出，写入时从重读的盘上取「该 context 全部 epoch 快照的最大值 + 1」；
+//    自动路径写 0（不序列化该字段）或继承当前最大值（不递增）。快照身份 = (hash, 修订号) 二元组：
+//    同二元组内容不同仍 RejectedConflict；同 hash 不同修订号允许共存（旧记录保留供审计/手工恢复）。
 //  * root 未知字段原样保留；scope/snapshot/entry/context 里出现未知字段或重复字段即判 Corrupt（本 schema 是封闭的）。
 //  * I/O 只发生在显式 Load / Save / RecoverMainFromBackup 调用：无后台线程、无 tick。
 
@@ -83,13 +87,18 @@ namespace KingdomEnhancedMod
         /// <summary>哈希函数（1 = legacy 全量 JSON，2 = 时钟无关指纹）；同 hash 不同 kind 视为不同快照。</summary>
         internal readonly int Kind;
 
-        private KnightIdentitySnapshot(int kind, string hash, string savedAtUtc, Dictionary<string, KnightIdentityReceipt> entries, string[] orderedUniqueIds)
+        /// <summary>用户修订号：0 = 自动记录（不序列化）；&gt; 0 = 面板用户动作产出（快照身份的一部分）。</summary>
+        internal readonly int Revision;
+
+        private KnightIdentitySnapshot(int kind, string hash, string savedAtUtc, Dictionary<string, KnightIdentityReceipt> entries,
+            string[] orderedUniqueIds, int revision)
         {
             Kind = kind;
             Hash = hash;
             SavedAtUtc = savedAtUtc;
             _entries = entries;
             _orderedUniqueIds = orderedUniqueIds;
+            Revision = revision;
         }
 
         internal int Count { get { return _entries.Count; } }
@@ -103,7 +112,10 @@ namespace KingdomEnhancedMod
             return nativeUniqueId != null && _entries.TryGetValue(nativeUniqueId, out receipt);
         }
 
-        /// <summary>hash + kind + 全部条目逐一相等（时间戳不参与）。</summary>
+        /// <summary>
+        /// hash + kind + 全部条目逐一相等（时间戳与修订号都是记录身份的一部分、不参与内容比较：
+        /// 写回校验按 hash 查到的记录可能是继承修订号的副本）。
+        /// </summary>
         internal bool HasSameEntries(KnightIdentitySnapshot other)
         {
             if (other == null || other._entries.Count != _entries.Count) return false;
@@ -127,19 +139,51 @@ namespace KingdomEnhancedMod
         internal static bool TryCreate(int kind, string hash, DateTimeOffset savedAtUtc, IReadOnlyList<KnightIdentitySnapshotEntry> entries,
             out KnightIdentitySnapshot snapshot, out string error)
         {
-            return TryCreateCore(kind, hash, savedAtUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture), entries, out snapshot, out error);
+            return TryCreate(kind, hash, savedAtUtc, entries, 0, out snapshot, out error);
+        }
+
+        /// <summary>带用户修订号的版本（&gt; 0 时序列化该字段；0 = 自动记录）。</summary>
+        internal static bool TryCreate(int kind, string hash, DateTimeOffset savedAtUtc, IReadOnlyList<KnightIdentitySnapshotEntry> entries,
+            int revision, out KnightIdentitySnapshot snapshot, out string error)
+        {
+            return TryCreateCore(kind, hash, savedAtUtc.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture), entries, revision,
+                out snapshot, out error);
+        }
+
+        /// <summary>同内容（kind/hash/时间戳/全部条目）的副本，只替换修订号；非法修订号返回 false。</summary>
+        internal bool TryCopyWithRevision(int revision, out KnightIdentitySnapshot copy, out string error)
+        {
+            error = null;
+            copy = null;
+            if (revision == Revision) { copy = this; return true; }
+            if (revision < 0) { error = "revision must be non-negative"; return false; }
+            KnightIdentitySnapshotEntry[] entries = new KnightIdentitySnapshotEntry[_orderedUniqueIds.Length];
+            for (int i = 0; i < entries.Length; i++)
+            {
+                _entries.TryGetValue(_orderedUniqueIds[i], out KnightIdentityReceipt receipt);
+                entries[i] = new KnightIdentitySnapshotEntry(_orderedUniqueIds[i], receipt);
+            }
+            return TryCreateCore(Kind, Hash, SavedAtUtc, entries, revision, out copy, out error);
         }
 
         /// <summary>
-        /// 唯一校验入口。拒绝：kind 非 1/2、hash 非 64-hex、时间戳非 ISO-8601、条目超 512、uniqueID 空/超 256、
-        /// GUID 为空、风格越界、同快照内重复 uniqueID 或重复 GUID。
+        /// 唯一校验入口（旧签名 = 自动记录修订号 0）。拒绝：kind 非 1/2、hash 非 64-hex、时间戳非 ISO-8601、
+        /// 修订号为负、条目超 512、uniqueID 空/超 256、GUID 为空、风格越界、同快照内重复 uniqueID 或重复 GUID。
         /// </summary>
         internal static bool TryCreateCore(int kind, string hash, string savedAtUtc, IReadOnlyList<KnightIdentitySnapshotEntry> entries,
             out KnightIdentitySnapshot snapshot, out string error)
         {
+            return TryCreateCore(kind, hash, savedAtUtc, entries, 0, out snapshot, out error);
+        }
+
+        /// <summary>唯一校验入口（显式用户修订号版本）。</summary>
+        internal static bool TryCreateCore(int kind, string hash, string savedAtUtc, IReadOnlyList<KnightIdentitySnapshotEntry> entries,
+            int revision, out KnightIdentitySnapshot snapshot, out string error)
+        {
             snapshot = null;
             error = null;
             if (!KnightIdentityFingerprint.IsValidKind(kind)) return Fail("kind must be 1 or 2", out error);
+            if (revision < 0) return Fail("revision must be non-negative", out error);
             string normalizedHash = KnightIdentityFingerprint.NormalizeHex64(hash);
             if (normalizedHash == null) return Fail("hash is not 64 hex chars", out error);
             if (savedAtUtc == null || !IsIsoTimestamp(savedAtUtc)) return Fail("savedAtUtc is not an ISO-8601 timestamp", out error);
@@ -163,7 +207,7 @@ namespace KingdomEnhancedMod
             string[] ordered = new string[map.Count];
             map.Keys.CopyTo(ordered, 0);
             Array.Sort(ordered, StringComparer.Ordinal);
-            snapshot = new KnightIdentitySnapshot(kind, normalizedHash, savedAtUtc, map, ordered);
+            snapshot = new KnightIdentitySnapshot(kind, normalizedHash, savedAtUtc, map, ordered, revision);
             return true;
         }
 
@@ -214,13 +258,19 @@ namespace KingdomEnhancedMod
     }
 
     /// <summary>
-    /// 附加存档纯模型。每 scope 保留最近 <see cref="MaxSnapshotsPerScope"/> 份成功记录快照，按 hash
+    /// 附加存档纯模型。每 scope 保留最近 <see cref="MaxSnapshotsPerScope"/> 份成功记录快照，按 (hash, 修订号)
     /// 去重替换（幂等）；超容量一律拒绝 mutation，绝不淘汰别的 scope，只淘汰本 scope 最老历史。
-    /// v2 起额外持久化「稳定上下文 → 不透明 epoch 作用域」映射（legacy v1 文件按只读兼容解析）。
+    /// v2 起额外持久化「稳定上下文 → 不透明 epoch 作用域」映射（legacy v1 文件按只读兼容解析）；
+    /// v4 起快照可携带用户修订号（面板用户动作；同 hash 的修订链允许共存，旧记录在淘汰前一直保留）。
     /// </summary>
     internal sealed class KnightIdentityArchive
     {
-        internal const int SchemaVersion = 2;
+        /// <summary>当前 schema：快照可携带用户修订号 rev（无修订时写回仍用 <see cref="PreviousSchemaVersion"/>）。</summary>
+        internal const int SchemaVersion = 4;
+
+        /// <summary>前版 schema（v2）：没有修订号字段，仍按原封闭 schema 解析/写回。</summary>
+        internal const int PreviousSchemaVersion = 2;
+
         internal const int LegacySchemaVersion = 1;
         internal const int MaxScopes = 128;
         internal const int MaxSnapshotsPerScope = 8;
@@ -243,6 +293,7 @@ namespace KingdomEnhancedMod
         private const string HashField = "hash";
         private const string KindField = "kind";
         private const string SavedAtField = "savedAtUtc";
+        private const string RevisionField = "rev";
         private const string EntriesField = "entries";
         private const string UniqueIdField = "u";
         private const string IdField = "id";
@@ -253,6 +304,7 @@ namespace KingdomEnhancedMod
         private static readonly string[] ScopeFields = { ScopeKeyField, SnapshotsField };
         private static readonly string[] SnapshotFieldsV1 = { HashField, SavedAtField, EntriesField };
         private static readonly string[] SnapshotFieldsV2 = { HashField, KindField, SavedAtField, EntriesField };
+        private static readonly string[] SnapshotFieldsV4 = { HashField, KindField, SavedAtField, RevisionField, EntriesField };
         private static readonly string[] EntryFields = { UniqueIdField, IdField, StyleField };
         private static readonly string[] ContextFields = { ContextField, ActiveField, EpochsField };
 
@@ -416,8 +468,9 @@ namespace KingdomEnhancedMod
         }
 
         /// <summary>
-        /// 记录一份成功快照。同 scope 同 hash 且内容相同 → 幂等（顶到最近）；同 hash 但内容不同（kind 也算内容）→
-        /// <see cref="MutationStatus.RejectedConflict"/>（原记录不动）；满 8 份只淘汰本 scope 最老一份；
+        /// 记录一份成功快照。同 scope 同 (hash, 修订号) 且内容相同 → 幂等（顶到最近）；同二元组但内容不同
+        /// （kind 也算内容）→ <see cref="MutationStatus.RejectedConflict"/>（原记录不动）；同 hash 不同修订号
+        /// （用户修订链）允许共存；满 8 份只淘汰本 scope 最老一份；
         /// scope 数或总条目超上限一律 <see cref="MutationStatus.RejectedCapacity"/>（不删别的 scope）。
         /// </summary>
         internal MutationStatus RecordSnapshot(string scopeKey, KnightIdentitySnapshot snapshot)
@@ -437,6 +490,7 @@ namespace KingdomEnhancedMod
             int existing = -1;
             for (int i = 0; i < snapshots.Count; i++)
             {
+                if (snapshots[i].Revision != snapshot.Revision) continue;
                 if (string.Equals(snapshots[i].Hash, snapshot.Hash, StringComparison.Ordinal)) { existing = i; break; }
             }
 
@@ -457,7 +511,12 @@ namespace KingdomEnhancedMod
             return MutationStatus.Applied;
         }
 
-        /// <summary>按 scopeKey + snapshotHash 精确取快照；任一不匹配返回 false。</summary>
+        /// <summary>
+        /// 按 scopeKey + snapshotHash 取快照（任一不匹配返回 false）。同 hash 可存在多个用户修订：
+        /// 本重载返回列表首条（最近写入）；需要精确修订号的调用方用
+        /// <see cref="TryGetSnapshot(string, string, int, out KnightIdentitySnapshot)"/>，需要全部修订的调用方
+        /// 枚举 <see cref="TryGetSnapshots"/>。
+        /// </summary>
         internal bool TryGetSnapshot(string scopeKey, string snapshotHash, out KnightIdentitySnapshot snapshot)
         {
             snapshot = null;
@@ -469,6 +528,60 @@ namespace KingdomEnhancedMod
                 if (string.Equals(node.Snapshots[i].Hash, hash, StringComparison.Ordinal)) { snapshot = node.Snapshots[i]; return true; }
             }
             return false;
+        }
+
+        /// <summary>按 scopeKey + snapshotHash + 修订号（唯一键）精确取快照；任一不匹配返回 false。</summary>
+        internal bool TryGetSnapshot(string scopeKey, string snapshotHash, int revision, out KnightIdentitySnapshot snapshot)
+        {
+            snapshot = null;
+            string key = KnightIdentityFingerprint.NormalizeHex64(scopeKey);
+            string hash = KnightIdentityFingerprint.NormalizeHex64(snapshotHash);
+            if (key == null || hash == null || !_scopes.TryGetValue(key, out ScopeNode node)) return false;
+            for (int i = 0; i < node.Snapshots.Count; i++)
+            {
+                KnightIdentitySnapshot candidate = node.Snapshots[i];
+                if (candidate.Revision != revision) continue;
+                if (string.Equals(candidate.Hash, hash, StringComparison.Ordinal)) { snapshot = candidate; return true; }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 该 scope 里快照的最大用户修订号（无记录 = 0）。自动写入继承本值（不递增）：同 scope 同 hash 的
+        /// 自动重报落在用户修订同一键上（幂等或 RejectedConflict），绝不抬升到会与别的 epoch 并列的层级。
+        /// </summary>
+        internal int MaxScopeRevision(string scopeKey)
+        {
+            string key = KnightIdentityFingerprint.NormalizeHex64(scopeKey);
+            if (key == null || !_scopes.TryGetValue(key, out ScopeNode node)) return 0;
+            int max = 0;
+            for (int i = 0; i < node.Snapshots.Count; i++)
+            {
+                int revision = node.Snapshots[i].Revision;
+                if (revision > max) max = revision;
+            }
+            return max;
+        }
+
+        /// <summary>
+        /// 该上下文全部 epoch 快照的最大用户修订号（无上下文/无记录 = 0）。
+        /// 用户写入取 +1（跨 epoch 单调递增，修订才能压过旧 epoch 的记录）。
+        /// </summary>
+        internal int MaxRevision(string contextKey)
+        {
+            string key = KnightIdentityFingerprint.NormalizeHex64(contextKey);
+            if (key == null || !_contexts.TryGetValue(key, out KnightIdentityContext context)) return 0;
+            int max = 0;
+            for (int e = 0; e < context.Epochs.Count; e++)
+            {
+                if (!_scopes.TryGetValue(context.Epochs[e], out ScopeNode node)) continue;
+                for (int i = 0; i < node.Snapshots.Count; i++)
+                {
+                    int revision = node.Snapshots[i].Revision;
+                    if (revision > max) max = revision;
+                }
+            }
+            return max;
         }
 
         /// <summary>恢复入口：只有 scope + hash 完全一致且 uniqueID 存在时才给回收据。</summary>
@@ -500,7 +613,8 @@ namespace KingdomEnhancedMod
                 using (Utf8JsonWriter writer = new Utf8JsonWriter(stream))
                 {
                     writer.WriteStartObject();
-                    writer.WriteNumber(SchemaVersionField, SchemaVersion);
+                    // 只有真的存在用户修订号时才写 v4：无修订的存档仍是 v2 字节级形状（旧构建可读）。
+                    writer.WriteNumber(SchemaVersionField, UsesRevisionSchema() ? SchemaVersion : PreviousSchemaVersion);
                     writer.WriteStartArray(ScopesField);
                     string[] keys = new string[_scopes.Count];
                     _scopes.Keys.CopyTo(keys, 0);
@@ -539,12 +653,26 @@ namespace KingdomEnhancedMod
             }
         }
 
+        /// <summary>是否存在任何携带用户修订号的快照（决定序列化 v4 还是 v2）。</summary>
+        private bool UsesRevisionSchema()
+        {
+            foreach (ScopeNode node in _scopes.Values)
+            {
+                for (int i = 0; i < node.Snapshots.Count; i++)
+                {
+                    if (node.Snapshots[i].Revision > 0) return true;
+                }
+            }
+            return false;
+        }
+
         private static void WriteSnapshot(Utf8JsonWriter writer, KnightIdentitySnapshot snapshot)
         {
             writer.WriteStartObject();
             writer.WriteString(HashField, snapshot.Hash);
             writer.WriteNumber(KindField, snapshot.Kind);
             writer.WriteString(SavedAtField, snapshot.SavedAtUtc);
+            if (snapshot.Revision > 0) writer.WriteNumber(RevisionField, snapshot.Revision); // rev=0 不序列化（字节兼容）
             writer.WriteStartArray(EntriesField);
             IReadOnlyList<string> ids = snapshot.OrderedUniqueIds;
             for (int i = 0; i < ids.Count; i++)
@@ -602,7 +730,8 @@ namespace KingdomEnhancedMod
                 if (root.ValueKind != JsonValueKind.Object) { error = "root is not an object"; return KnightIdentityArchiveStatus.Corrupt; }
 
                 // 先独立判定版本：未知版本的文件体不按本 schema 解释，否则“更高版本”会因字段不认识而被误判
-                // 成 Corrupt，而 Corrupt 拒绝普通 Save 覆盖。v1（legacy）仍按原封闭 schema 解析：其快照一律 kind=1。
+                // 成 Corrupt，而 Corrupt 拒绝普通 Save 覆盖。v1（legacy）快照一律 kind=1；v2 无修订号字段；
+                // v4 允许可选 rev（缺省 0）。3 从未发布，仍按未知版本拒绝。
                 int version = -1;
                 foreach (JsonProperty property in root.EnumerateObject())
                 {
@@ -613,7 +742,7 @@ namespace KingdomEnhancedMod
                         error = SchemaVersionField + " is not an integer";
                         return KnightIdentityArchiveStatus.Corrupt;
                     }
-                    if (version != SchemaVersion && version != LegacySchemaVersion)
+                    if (version != SchemaVersion && version != PreviousSchemaVersion && version != LegacySchemaVersion)
                     {
                         error = "unsupported schemaVersion " + version.ToString(CultureInfo.InvariantCulture);
                         return KnightIdentityArchiveStatus.UnsupportedVersion;
@@ -621,11 +750,12 @@ namespace KingdomEnhancedMod
                 }
                 if (version == -1) { error = "missing " + SchemaVersionField; return KnightIdentityArchiveStatus.Corrupt; }
                 bool legacy = version == LegacySchemaVersion;
+                bool revisioned = version == SchemaVersion;
 
                 KnightIdentityArchive result = CreateEmpty();
                 if (!TryReadFields(root, legacy ? RootFieldsV1 : RootFieldsV2, "root", MaxRootFieldCount, out JsonElement[] fields, out result._unknownRootFields, out error))
                     return KnightIdentityArchiveStatus.Corrupt;
-                if (fields[1].ValueKind != JsonValueKind.Undefined && !TryReadScopes(fields[1], legacy, result, out error))
+                if (fields[1].ValueKind != JsonValueKind.Undefined && !TryReadScopes(fields[1], legacy, revisioned, result, out error))
                     return KnightIdentityArchiveStatus.Corrupt;
                 if (result.TotalEntryCount > MaxTotalEntries)
                 {
@@ -643,31 +773,31 @@ namespace KingdomEnhancedMod
             }
         }
 
-        private static bool TryReadScopes(JsonElement value, bool legacy, KnightIdentityArchive result, out string error)
+        private static bool TryReadScopes(JsonElement value, bool legacy, bool revisioned, KnightIdentityArchive result, out string error)
         {
             error = null;
             if (value.ValueKind != JsonValueKind.Array) return Fail("scopes is not an array", out error);
             if (value.GetArrayLength() > MaxScopes) return Fail("more than " + MaxScopes + " scopes", out error);
             foreach (JsonElement element in value.EnumerateArray())
             {
-                if (!TryReadScope(element, legacy, result, out error)) return false;
+                if (!TryReadScope(element, legacy, revisioned, result, out error)) return false;
             }
             return true;
         }
 
-        private static bool TryReadScope(JsonElement element, bool legacy, KnightIdentityArchive result, out string error)
+        private static bool TryReadScope(JsonElement element, bool legacy, bool revisioned, KnightIdentityArchive result, out string error)
         {
             if (!TryReadClosedFields(element, ScopeFields, "scope", out JsonElement[] fields, out error)) return false;
             string scopeKey = fields[0].ValueKind == JsonValueKind.String ? KnightIdentityFingerprint.NormalizeHex64(fields[0].GetString()) : null;
             if (scopeKey == null) return Fail("scopeKey is not 64 hex chars", out error);
             if (fields[1].ValueKind == JsonValueKind.Undefined) return Fail("scope is missing " + SnapshotsField, out error);
-            if (!TryReadSnapshots(fields[1], legacy, out List<KnightIdentitySnapshot> snapshots, out error)) return false;
+            if (!TryReadSnapshots(fields[1], legacy, revisioned, out List<KnightIdentitySnapshot> snapshots, out error)) return false;
             if (result._scopes.ContainsKey(scopeKey)) return Fail("duplicate scopeKey " + scopeKey, out error);
             result._scopes.Add(scopeKey, new ScopeNode(snapshots));
             return true;
         }
 
-        private static bool TryReadSnapshots(JsonElement value, bool legacy, out List<KnightIdentitySnapshot> snapshots, out string error)
+        private static bool TryReadSnapshots(JsonElement value, bool legacy, bool revisioned, out List<KnightIdentitySnapshot> snapshots, out string error)
         {
             snapshots = null;
             error = null;
@@ -675,42 +805,59 @@ namespace KingdomEnhancedMod
             if (value.GetArrayLength() > MaxSnapshotsPerScope) return Fail("more than " + MaxSnapshotsPerScope + " snapshots in one scope", out error);
 
             List<KnightIdentitySnapshot> list = new List<KnightIdentitySnapshot>(value.GetArrayLength());
-            HashSet<string> hashes = new HashSet<string>(StringComparer.Ordinal);
+            HashSet<string> identities = new HashSet<string>(StringComparer.Ordinal);
             foreach (JsonElement element in value.EnumerateArray())
             {
-                if (!TryReadSnapshot(element, legacy, out KnightIdentitySnapshot snapshot, out error)) return false;
-                if (!hashes.Add(snapshot.Hash)) return Fail("duplicate snapshot hash in one scope", out error);
+                if (!TryReadSnapshot(element, legacy, revisioned, out KnightIdentitySnapshot snapshot, out error)) return false;
+                // 身份 = (hash, 修订号)：同 hash 的多个用户修订各占一条；同二元组重复才是 Corrupt。
+                if (!identities.Add(snapshot.Hash + ":" + snapshot.Revision.ToString(CultureInfo.InvariantCulture)))
+                    return Fail("duplicate snapshot hash+revision in one scope", out error);
                 list.Add(snapshot);
             }
             snapshots = list;
             return true;
         }
 
-        private static bool TryReadSnapshot(JsonElement element, bool legacy, out KnightIdentitySnapshot snapshot, out string error)
+        private static bool TryReadSnapshot(JsonElement element, bool legacy, bool revisioned, out KnightIdentitySnapshot snapshot, out string error)
         {
             snapshot = null;
-            if (!TryReadClosedFields(element, legacy ? SnapshotFieldsV1 : SnapshotFieldsV2, "snapshot", out JsonElement[] fields, out error)) return false;
+            string[] known = legacy ? SnapshotFieldsV1 : revisioned ? SnapshotFieldsV4 : SnapshotFieldsV2;
+            if (!TryReadClosedFields(element, known, "snapshot", out JsonElement[] fields, out error)) return false;
             if (fields[0].ValueKind != JsonValueKind.String) return Fail("snapshot " + HashField + " is not a string", out error);
 
             int kind = KnightIdentityFingerprint.KindLegacy;
             int savedAtIndex = 1;
             int entriesIndex = 2;
+            int revision = 0;
             if (!legacy)
             {
                 if (fields[1].ValueKind != JsonValueKind.Number || !fields[1].TryGetInt32(out kind))
                     return Fail("snapshot " + KindField + " is not an integer", out error);
                 savedAtIndex = 2;
                 entriesIndex = 3;
+                if (revisioned)
+                {
+                    entriesIndex = 4;
+                    // rev 可选：缺省（未序列化）就是自动记录 0。
+                    if (fields[3].ValueKind == JsonValueKind.Number)
+                    {
+                        if (!fields[3].TryGetInt32(out revision)) return Fail("snapshot " + RevisionField + " is not an integer", out error);
+                    }
+                    else if (fields[3].ValueKind != JsonValueKind.Undefined)
+                    {
+                        return Fail("snapshot " + RevisionField + " is not an integer", out error);
+                    }
+                }
             }
             if (fields[savedAtIndex].ValueKind != JsonValueKind.String) return Fail("snapshot " + SavedAtField + " is not a string", out error);
 
             IReadOnlyList<KnightIdentitySnapshotEntry> entries = Array.Empty<KnightIdentitySnapshotEntry>();
             if (fields[entriesIndex].ValueKind != JsonValueKind.Undefined && !TryReadEntries(fields[entriesIndex], out entries, out error)) return false;
-            return KnightIdentitySnapshot.TryCreateCore(kind, fields[0].GetString(), fields[savedAtIndex].GetString(), entries, out snapshot, out error);
+            return KnightIdentitySnapshot.TryCreateCore(kind, fields[0].GetString(), fields[savedAtIndex].GetString(), entries, revision, out snapshot, out error);
         }
 
         /// <summary>
-        /// v2 contexts：稳定上下文 → epoch 列表。active 恒为 epochs[0]；每个 epoch 必须已存在且只属于一个 context。
+        /// v2/v4 contexts：稳定上下文 → epoch 列表。active 恒为 epochs[0]；每个 epoch 必须已存在且只属于一个 context。
         /// </summary>
         private static bool TryReadContexts(JsonElement value, KnightIdentityArchive result, out string error)
         {

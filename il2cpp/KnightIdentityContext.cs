@@ -7,7 +7,10 @@
 //    时钟无关指纹；任何「按位置/名字/金币/NetID 猜」都是禁止的。
 //  * 匹配范围：本上下文自己的 epoch（含 legacy 归并进来的），再加上未被任何上下文拥有的 scope；
 //    已被别的上下文拥有的 scope 绝不作为迁移来源，一个 scope 也绝不迁进第二个上下文。
-//  * 多个精确匹配：全部一致 → 确定性取一个（kind2 优先，其次按 scope 序数）；有任何不一致 → unresolved。
+//  * 多个精确匹配：全部一致 → 确定性取一个（kind2 优先，其次按 scope 序数）；有任何不一致 → 若其中存在
+//    「用户修订号 &gt; 0 且严格唯一最高」的匹配（面板用户动作对内容的最终裁定），以它为准（跳过一致性判定）；
+//    否则 unresolved。
+//  * 同 scope 同 hash 的多个修订号各算一条独立匹配（旧记录不因修订被顶掉）。
 //  * unresolved（冲突 / 上下文存在但当前快照对不上 / 仍有未归属历史而全新上下文）：
 //    不恢复、不建 epoch、不写种子、绝不把历史人群当新档重种；sidecar 原样保留。
 //  * 真正无任何历史的新上下文才允许新建不透明 epoch 并写入（kind2 快照），由既有 Save/LoadSeed 写路径落盘。
@@ -74,20 +77,21 @@ namespace KingdomEnhancedMod
 
             if (matches.Count > 1 && !Agree(matches))
             {
-                result.Kind = "conflict";
-                result.Unresolved = true;
+                // 用户修订优先：面板重派写出的 (hash, rev+1) 记录即用户对内容的最终裁定，跳过 Agree 冲突判定；
+                // 无「严格唯一最高修订」时维持既有 conflict fail-closed。
+                Match revised = HighestUniqueRevision(matches);
+                if (revised == null)
+                {
+                    result.Kind = "conflict";
+                    result.Unresolved = true;
+                    return result;
+                }
+                Adopt(result, context, revised, "revision");
                 return result;
             }
             if (matches.Count > 0)
             {
-                Match match = Pick(matches);
-                result.Kind = match.Kind == KnightIdentityFingerprint.KindNormalized ? "exact" : "legacy";
-                result.Epoch = match.Scope;
-                result.MatchHash = match.Snapshot.Hash;
-                result.MatchKind = match.Kind;
-                result.NewEpoch = context == null || !context.Owns(match.Scope);
-                result.Matched = match.Snapshot;
-                result.Receipts = SnapshotEntries(match.Snapshot);
+                Adopt(result, context, Pick(matches), null);
                 return result;
             }
 
@@ -205,10 +209,7 @@ namespace KingdomEnhancedMod
                 if (rawBytes != null && archive.ScopeHasKind(scope, KnightIdentityFingerprint.KindLegacy))
                 {
                     string hash = KnightIdentityFingerprint.Sha256Bytes(rawBytes, scope);
-                    if (archive.TryGetSnapshot(scope, hash, out KnightIdentitySnapshot snapshot) && snapshot.Kind == KnightIdentityFingerprint.KindLegacy)
-                    {
-                        result.Add(new Match { Scope = scope, Snapshot = snapshot, Kind = KnightIdentityFingerprint.KindLegacy });
-                    }
+                    AddMatches(archive, scope, hash, KnightIdentityFingerprint.KindLegacy, result);
                 }
                 if (archive.ScopeHasKind(scope, KnightIdentityFingerprint.KindNormalized))
                 {
@@ -226,13 +227,26 @@ namespace KingdomEnhancedMod
                     }
                     if (normalizedPayload == null) continue;
                     string hash = KnightIdentityFingerprint.NormalizedFromPayload(normalizedPayload, scope);
-                    if (archive.TryGetSnapshot(scope, hash, out KnightIdentitySnapshot snapshot) && snapshot.Kind == KnightIdentityFingerprint.KindNormalized)
-                    {
-                        result.Add(new Match { Scope = scope, Snapshot = snapshot, Kind = KnightIdentityFingerprint.KindNormalized });
-                    }
+                    AddMatches(archive, scope, hash, KnightIdentityFingerprint.KindNormalized, result);
                 }
             }
             return result;
+        }
+
+        /// <summary>
+        /// 该 scope 内所有与 hash + kind 精确匹配的快照：同 hash 的每个用户修订号各成一条独立匹配
+        /// （绝不因同 hash 只取一条而漏掉修订记录）。
+        /// </summary>
+        private static void AddMatches(KnightIdentityArchive archive, string scope, string hash, int kind, List<Match> matches)
+        {
+            if (!archive.TryGetSnapshots(scope, out IReadOnlyList<KnightIdentitySnapshot> snapshots)) return;
+            for (int i = 0; i < snapshots.Count; i++)
+            {
+                KnightIdentitySnapshot snapshot = snapshots[i];
+                if (snapshot.Kind != kind) continue;
+                if (!string.Equals(snapshot.Hash, hash, StringComparison.Ordinal)) continue;
+                matches.Add(new Match { Scope = scope, Snapshot = snapshot, Kind = kind });
+            }
         }
 
         private static bool Agree(List<Match> matches)
@@ -243,6 +257,44 @@ namespace KingdomEnhancedMod
                 if (!SameEntries(first, matches[i].Snapshot)) return false;
             }
             return true;
+        }
+
+        /// <summary>把选中的匹配写进解析结果（Kind 标签默认按命中 kind；revision 优先时用调用方标签）。</summary>
+        private static void Adopt(KnightIdentityResolution result, KnightIdentityContext context, Match match, string kindOverride)
+        {
+            result.Kind = kindOverride ?? (match.Kind == KnightIdentityFingerprint.KindNormalized ? "exact" : "legacy");
+            result.Epoch = match.Scope;
+            result.MatchHash = match.Snapshot.Hash;
+            result.MatchKind = match.Kind;
+            result.NewEpoch = context == null || !context.Owns(match.Scope);
+            result.Matched = match.Snapshot;
+            result.Receipts = SnapshotEntries(match.Snapshot);
+        }
+
+        /// <summary>
+        /// 用户修订优先：匹配里存在「修订号 &gt; 0 且严格唯一最高」的那一条 → 返回它（跳过 Agree 冲突判定）；
+        /// 否则返回 null（维持既有 conflict fail-closed）。自动记录（修订号 0）永不获得该优先权。
+        /// </summary>
+        private static Match HighestUniqueRevision(List<Match> matches)
+        {
+            int bestIndex = -1, bestRevision = 0;
+            bool unique = false;
+            for (int i = 0; i < matches.Count; i++)
+            {
+                int revision = matches[i].Snapshot.Revision;
+                if (revision <= 0) continue;
+                if (revision > bestRevision)
+                {
+                    bestRevision = revision;
+                    bestIndex = i;
+                    unique = true;
+                }
+                else if (revision == bestRevision)
+                {
+                    unique = false;
+                }
+            }
+            return bestIndex < 0 || !unique ? null : matches[bestIndex];
         }
 
         private static bool SameEntries(KnightIdentitySnapshot left, KnightIdentitySnapshot right)

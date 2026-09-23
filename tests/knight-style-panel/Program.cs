@@ -12,6 +12,7 @@ namespace KnightStylePanelTests
             FirstSeenTests.Run();
             PanelTests.Run();
             DesignCTests.Run();
+            RevisionTests.Run();
 
             Console.WriteLine();
             Console.WriteLine("total: passed=" + Case.Passed + " failed=" + Case.Failed);

@@ -8,9 +8,12 @@
 //    使能物理保证，无需锁。「均分剩余」把池逐枚摊到当前最少的行；「全部重洗」开关默认关。
 //    应用（用户定稿）：剩余池先全部归入希腊风格 → 按五行目标对当前岛骑士一次性重派（保留式=已确认
 //    且配额容得下的随机保留、超出配额与零记录者随机填剩余配额；重洗开=全部参与随机）→ 复用既有表现
-//    路径 → unresolved 上下文挂设计 C pending → 一次性日志。应用按钮在门不满足时禁用并提示原因。
-//  * 设计 C（用户锚定再基线化）的写入在运行时的 SaveBridge 内（save 形态 JSON、旧历史全保留、证据
-//    缺口 pending 保持不写）；本文件只在应用成功后按 binding 状态挂 pending 并如实提示玩家。
+//    路径 → unresolved 上下文挂设计 C pending、已解析上下文挂用户修订 pending → 一次性日志。
+//    应用按钮在门不满足时禁用并提示原因。
+//  * 设计 C（用户锚定再基线化）与用户修订（已解析岛同 epoch 修订链）的写入都在运行时的 SaveBridge 内
+//    （save 形态 JSON、旧记录全保留、证据缺口/失败 pending 保持不写）；本文件只在应用成功后按 binding
+//    状态挂对应 pending 并如实提示玩家。修订号由写入路径从重读的盘上取「该 context 最大修订号 + 1」
+//    （两次 apply 未保存只 bump 一次）。
 //
 // 权限与口径：
 //  * 仅单机/主机 authority 可用；NetworkBigBoss.IsOnline 时整分区禁用（灰显 + 提示），不做 nonce 确认链。
@@ -559,13 +562,25 @@ internal static class KnightStylePanel
             for (int i = 0; i < live.Count; i++) PatchRoles_KnightStyle.ApplyPanelRestyle(live[i]);
 
             bool armed = false;
+            bool armedRevision = false;
             ReadContext(out string applyContextKey, out bool applyHasBinding, out bool applyUnresolved);
-            if (applyContextKey != null && applyHasBinding && applyUnresolved)
+            if (applyContextKey != null && applyHasBinding)
             {
-                // 设计 C：unresolved 上下文（legacy-pending/失配/冲突）的写入必须等下一次原生 Save
-                // 的捕获作用域（apply 时点的装载形态 JSON 是死 hash）。binding 现场重读，不用刷新时的旧值。
-                KnightIdentityRuntime.ArmPanelRebaseline(applyContextKey);
-                armed = KnightIdentityRuntime.PanelRebaselineArmed;
+                if (applyUnresolved)
+                {
+                    // 设计 C：unresolved 上下文（legacy-pending/失配/冲突）的写入必须等下一次原生 Save
+                    // 的捕获作用域（apply 时点的装载形态 JSON 是死 hash）。binding 现场重读，不用刷新时的旧值。
+                    KnightIdentityRuntime.ArmPanelRebaseline(applyContextKey);
+                    armed = KnightIdentityRuntime.PanelRebaselineArmed;
+                }
+                else
+                {
+                    // 已解析岛：用户重派只改 MOD 收据、原生 JSON 不变——同 hash 无修订号会被既有
+                    // RejectedConflict 拒写。挂修订 pending，由下一次原生 Save 写成「修订号 +1」的新快照
+                    //（旧记录保留；两次 apply 未保存只 bump 一次，见 AppendSnapshot）。
+                    KnightIdentityRuntime.ArmPanelRevision(applyContextKey);
+                    armedRevision = KnightIdentityRuntime.PanelRevisionArmed;
+                }
             }
 
             KnightPanelLog.Info("apply: knights=" + assigned.ToString(CultureInfo.InvariantCulture)
@@ -573,10 +588,11 @@ internal static class KnightStylePanel
                 + " before=" + Counts(before)
                 + " after=" + Counts(targets)
                 + " pool->greece=" + folded.ToString(CultureInfo.InvariantCulture)
-                + " rebaseline=" + (armed ? "armed" : "none"));
+                + " rebaseline=" + (armed ? "armed" : "none")
+                + " revision=" + (armedRevision ? "armed" : "none"));
 
             Core.SetTargets(targets);
-            _status = armed
+            _status = armed || armedRevision
                 ? "已应用 " + assigned.ToString(CultureInfo.InvariantCulture)
                     + " 名骑士：将在下一次原生保存写入档案；保存前退出则重载回原状。"
                 : "已应用 " + assigned.ToString(CultureInfo.InvariantCulture) + " 名骑士：运行时立即生效，保存后持久。";
