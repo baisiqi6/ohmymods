@@ -17,8 +17,9 @@ namespace KingdomEnhancedMod;
 /// 狗/隐士改写为 Roaming(CurrentLand) 并按原生生成路径召回（狗 = DogRecall 同款
 /// holder 预制件 + SpawnNearP1 + SetupDog + 颜色；隐士 = TryApplyHermit 同款
 /// holder.hermits 预制件 + SpawnNearP1）。仅 authority；Stolen 之外的任何状态不动。
-/// 同 id/同类型实例仍在场时本轮不改写也不生成（见 RecallDogs 注），等实例生命周期
-/// 结束后的下一次触发再找回。开关关闭 = Stolen 原样保留，赎回商人/炸门等原生恢复
+/// 同 id/同类型实例仍在场时本轮不改写也不生成（见 RecallDogs 注），该延后同样保持 pending，
+/// 等实例生命周期结束后由 0.5s 节拍的重试继续找回；条件性失败（playerOne 缺失、状态读取/
+/// 生成异常）同样重试而非一次性放弃。开关关闭 = Stolen 原样保留，赎回商人/炸门等原生恢复
 /// 路径语义不变。
 ///
 /// receipt 只挂长生命周期方法（Droppable.OnEnable postfix / OnDisable prefix，与
@@ -71,9 +72,14 @@ public static class PatchRoles_PetGuard
 
     // 找回触发：开关或 authority 丢失后重新武装；离开可用上下文（Loading）后再回到
     // Playing/暂停的同一世界，或世界世代变化（读档/换岛）时执行一次。
-    private static bool _recallArmed, _recallStale;
+    // 条件性失败/延后（playerOne 缺失、状态读取或生成异常、同 id 实例仍场）保持 _recallPending，
+    // 按 0.5s 节拍重试直到完成（无上限：同 id 被怪携带可远超 10s；节流保证成本有界）。
+    // 开关关闭/失权时连同武装一起丢弃 pending；世界世代变化由 fresh 触发新的完整一轮。
+    private static bool _recallArmed, _recallStale, _recallPending;
     private static IntPtr _recallWorld, _recallLayer;
     private static int _recallScene;
+    private static float _nextRecallAttempt;
+    private const float RecallRetryInterval = 0.5f;
 
     private static bool IsEnabled()
         => ModConfig.Enabled != null && ModConfig.Enabled.Value
@@ -254,8 +260,9 @@ public static class PatchRoles_PetGuard
     {
         if (!IsEnabled() || !NetworkBigBoss.HasWorldAuth)
         {
-            // 关闭或失权：解除武装，下一次开启/接管重新走完整的找回触发。
+            // 关闭或失权：解除武装并丢弃未完成的召回；下一次开启/接管重新走完整的找回触发。
             _recallArmed = false;
+            _recallPending = false;
             return;
         }
         if (!TryScope(out Scope scope))
@@ -269,31 +276,39 @@ public static class PatchRoles_PetGuard
         _recallArmed = true;
         _recallStale = false;
         _recallWorld = scope.WorldPtr; _recallLayer = scope.LayerPtr; _recallScene = scope.Scene;
-        if (!fresh) return;
-        RecallStolenPets();
+        if (!fresh && !_recallPending) return;
+        // fresh（开启/接管/换世界/加载完成）立即执行；未完成的条件性失败/延后按 0.5s 节拍重试，
+        // 不逐帧扫描、也不因一次失败就此关闭（原缺陷：armed 置位但未完成却不再触发）。
+        if (!fresh && Time.unscaledTime < _nextRecallAttempt) return;
+        _nextRecallAttempt = Time.unscaledTime + RecallRetryInterval;
+        _recallPending = !RecallStolenPets();
     }
 
-    private static void RecallStolenPets()
+    /// <summary>返回 false 表示存在条件性失败/延后，调用方保持 pending 并按节拍重试。</summary>
+    private static bool RecallStolenPets()
     {
         Managers managers = Managers.Inst;
         Kingdom kingdom = managers != null ? managers.kingdom : null;
         Holder holder = managers != null ? managers.holder : null;
         CampaignSaveData save = CampaignSaveData.current;
-        if (kingdom == null || holder == null || save == null) return;
-        // SpawnNearP1 原生读 playerOne.transform（同款前置）；缺失时本轮不动，等下次触发。
-        if (kingdom.playerOne == null) return;
+        if (kingdom == null || holder == null || save == null) return false;
+        // SpawnNearP1 原生读 playerOne.transform（同款前置）；缺失保持 pending，条件恢复后重试。
+        if (kingdom.playerOne == null) return false;
         // 狗/隐士两半互相隔离：一半失败不吞掉另一半的找回。
-        try { RecallDogs(save, kingdom, holder); }
-        catch (Exception ex) { LogFailure(ex); }
-        try { RecallHermits(save, kingdom, holder); }
-        catch (Exception ex) { LogFailure(ex); }
+        bool dogs, hermits;
+        try { dogs = RecallDogs(save, kingdom, holder); }
+        catch (Exception ex) { LogFailure(ex); dogs = false; }
+        try { hermits = RecallHermits(save, kingdom, holder); }
+        catch (Exception ex) { LogFailure(ex); hermits = false; }
+        return dogs && hermits;
     }
 
-    private static void RecallDogs(CampaignSaveData save, Kingdom kingdom, Holder holder)
+    private static bool RecallDogs(CampaignSaveData save, Kingdom kingdom, Holder holder)
     {
         // 2.4 interop：Dog.DogStatus[] 暴露为 Il2CppStructArray<Dog.DogStatus>（同 notes-roles 的数组漂移）。
         var statuses = save.GetDogStatus();
-        if (statuses == null) return;
+        if (statuses == null) return false;
+        bool complete = true;
         for (int dogId = 0; dogId < statuses.Length; dogId++)
         {
             try
@@ -302,15 +317,17 @@ public static class PatchRoles_PetGuard
                 if (status.position != Dog.DogPosition.Stolen) continue;
                 // 同 id 狗仍在场（尚未销毁/被怪携带的瞬时实例）时本轮不改写也不生成：
                 // 改写却不生成会让狗在实例销毁后永久丢失，二次生成又会让同 dogId 双注册 RPC 922/964。
+                // 延后同样保持 pending：实例生命周期结束后由节拍重试继续召回。
                 if (HasDog(kingdom, dogId))
                 {
                     LogDeferredOnce("dog " + dogId + " still present; recall deferred");
+                    complete = false;
                     continue;
                 }
                 Dog prefab = status.type == Dog.DogType.Dog ? holder.dogPrefab : holder.wolfPupPrefab;
-                if (prefab == null) continue;
+                if (prefab == null) { complete = false; continue; }
                 Dog dog = CampaignSaveData.SpawnNearP1<Dog>(prefab, 1, CampaignSaveData.CarryForwardToolType.None);
-                if (dog == null) continue; // 生成失败保留 Stolen，等下一次触发
+                if (dog == null) { complete = false; continue; } // 生成失败保留 Stolen，等下一次重试
                 dog.SetupDog(dogId);
                 dog.color = status.color;
                 save.SetDogStatus(Dog.DogPosition.Roaming, save.CurrentLand,
@@ -320,14 +337,16 @@ public static class PatchRoles_PetGuard
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[PetGuard] dog " + dogId
                     + " recovered from stolen at land " + status.land + " -> " + save.CurrentLand);
             }
-            catch (Exception ex) { LogFailure(ex); }
+            catch (Exception ex) { LogFailure(ex); complete = false; }
         }
+        return complete;
     }
 
-    private static void RecallHermits(CampaignSaveData save, Kingdom kingdom, Holder holder)
+    private static bool RecallHermits(CampaignSaveData save, Kingdom kingdom, Holder holder)
     {
         var prefabs = holder.hermits;
-        if (prefabs == null) return;
+        if (prefabs == null) return false;
+        bool complete = true;
         for (int i = 0; i < HermitTypes.Length; i++)
         {
             Hermit.HermitType type = HermitTypes[i];
@@ -335,24 +354,26 @@ public static class PatchRoles_PetGuard
             {
                 Hermit.HermitStatus status = save.GetHermitStatus(type);
                 if (status.position != Hermit.HermitPosition.Stolen) continue;
-                // 与原生 TryApplyHermit 同款双生守卫：该类型隐士仍在场则本轮不动。
+                // 与原生 TryApplyHermit 同款双生守卫：该类型隐士仍在场则本轮不动，保持 pending 重试。
                 if (HasHermit(kingdom, type))
                 {
                     LogDeferredOnce("hermit " + (int)type + " still present; recall deferred");
+                    complete = false;
                     continue;
                 }
                 Hermit prefab = prefabs[(int)type];
-                if (prefab == null) continue;
+                if (prefab == null) { complete = false; continue; }
                 Hermit hermit = CampaignSaveData.SpawnNearP1<Hermit>(prefab, 1, CampaignSaveData.CarryForwardToolType.None);
-                if (hermit == null) continue;
+                if (hermit == null) { complete = false; continue; }
                 // 全量覆写（position/player/land）：只把 Stolen 改成原生自由态，player 保留原值，
                 // land 统一改写为当前岛（跨岛被偷同样找回）。
                 save.SetHermitStatus(type, Hermit.HermitPosition.Roaming, status.player, save.CurrentLand);
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[PetGuard] hermit " + (int)type
                     + " recovered from stolen at land " + status.land + " -> " + save.CurrentLand);
             }
-            catch (Exception ex) { LogFailure(ex); }
+            catch (Exception ex) { LogFailure(ex); complete = false; }
         }
+        return complete;
     }
 
     private static bool HasDog(Kingdom kingdom, int dogId)

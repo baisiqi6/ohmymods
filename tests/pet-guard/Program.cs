@@ -25,7 +25,7 @@ static class Program
     {
         foreach (FieldInfo field in type.GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public))
         {
-            if (field.IsInitOnly) continue;
+            if (field.IsInitOnly || field.IsLiteral) continue;
             if (field.FieldType == typeof(bool)) field.SetValue(null, false);
             else if (field.FieldType == typeof(int)) field.SetValue(null, 0);
             else if (field.FieldType == typeof(float)) field.SetValue(null, 0f);
@@ -484,6 +484,102 @@ static class Program
             Save.ThrowDogStatus = false;
             Managers.Inst.world = new World(); Tick(6f);
             Eq(1, CampaignSaveData.Spawns.Count, "later trigger recovers");
+        });
+
+        // 召回暂缓重试（Codex P2 发现 1）：条件性失败/延后保持 pending，同世界按 0.5s 节拍重试，
+        // 不再要求开关/世界的下一次触发。
+        Test("Recall keeps retrying on the 0.5s cadence when playerOne is missing (same world)", () =>
+        {
+            Save.dog0 = new Dog.DogStatus { position = Dog.DogPosition.Stolen, land = 0 };
+            Managers.Inst.kingdom.playerOne = null;
+            Tick(.01f);
+            Eq(0, CampaignSaveData.Spawns.Count, "no spawn without P1");
+            Eq(0, Save.DogWrites.Count, "no partial rewrite");
+            Managers.Inst.kingdom.playerOne = new Player();
+            Tick(.02f);
+            Eq(0, CampaignSaveData.Spawns.Count, "a pending retry waits for the 0.5s cadence, not per-frame");
+            Tick(.53f);
+            Eq(1, CampaignSaveData.Spawns.Count, "same-world cadence retry completes the recall");
+            Eq(Dog.DogPosition.Roaming, Save.GetDogStatus()[0].position, "status rewritten on the retry");
+            Eq(1, Save.DogWrites.Count, "single status write");
+        });
+
+        Test("Recall retries after a dog-status read failure without a world reload", () =>
+        {
+            Save.dog0 = new Dog.DogStatus { position = Dog.DogPosition.Stolen, land = 0 };
+            Save.ThrowDogStatus = true;
+            Tick(.01f);
+            Eq(0, CampaignSaveData.Spawns.Count, "a read failure leaves the recall pending");
+            Eq(1, KingdomEnhancedPlugin.Instance.LogSource.Warning.Count, "one bounded warning");
+            Save.ThrowDogStatus = false;
+            Tick(.53f);
+            Eq(1, CampaignSaveData.Spawns.Count, "same-world retry recovers after the fault clears");
+            Eq(Dog.DogPosition.Roaming, Save.GetDogStatus()[0].position, "status rewritten on the retry");
+            Eq(1, Save.DogWrites.Count, "single status write");
+            Eq(1, KingdomEnhancedPlugin.Instance.LogSource.Warning.Count, "no repeated fault spam");
+        });
+
+        Test("A deferred same-id instance keeps the recall pending until it disappears (same world)", () =>
+        {
+            Save.dog0 = new Dog.DogStatus { position = Dog.DogPosition.Stolen, land = 0 };
+            var liveGo = new GameObject();
+            liveGo.transform.parent = Managers.Inst.world.gameLayer;
+            var live = liveGo.AddComponent<Dog>();
+            live.dogId = 0;
+            Managers.Inst.kingdom.dogs.Add(live);
+            Tick(.01f);
+            Eq(0, CampaignSaveData.Spawns.Count, "deferred while the instance lives");
+            Tick(.53f);
+            Eq(0, CampaignSaveData.Spawns.Count, "cadence retry still defers, never duplicates");
+            Managers.Inst.kingdom.dogs.Remove(live);
+            liveGo.activeInHierarchy = false;
+            Tick(1.1f);
+            Eq(1, CampaignSaveData.Spawns.Count, "recall completes once the instance is gone");
+            Eq(Dog.DogPosition.Roaming, Save.GetDogStatus()[0].position, "status rewritten then");
+            Eq(1, KingdomEnhancedPlugin.Instance.LogSource.Info.Count(l => l.Contains("recall deferred")), "one bounded deferral log");
+        });
+
+        Test("Switch off discards the pending recall and on re-arms a fresh pass", () =>
+        {
+            Save.dog0 = new Dog.DogStatus { position = Dog.DogPosition.Stolen, land = 0 };
+            Managers.Inst.kingdom.playerOne = null;
+            Tick(.01f);
+            ModConfig.PetGuardEnabled.Value = false; Tick(.02f);
+            ModConfig.PetGuardEnabled.Value = true;
+            Managers.Inst.kingdom.playerOne = new Player();
+            Tick(.03f);
+            Eq(1, CampaignSaveData.Spawns.Count, "off->on re-arms and recalls without a world change");
+            Eq(Dog.DogPosition.Roaming, Save.GetDogStatus()[0].position, "status rewritten");
+        });
+
+        Test("Authority loss discards the pending recall and host regain re-arms", () =>
+        {
+            Save.dog0 = new Dog.DogStatus { position = Dog.DogPosition.Stolen, land = 0 };
+            Managers.Inst.kingdom.playerOne = null;
+            Tick(.01f);
+            NetworkBigBoss.HasWorldAuth = false;
+            Managers.Inst.game.state = Game.State.NetworkClientPlaying;
+            Managers.Inst.kingdom.playerOne = new Player();
+            Tick(.02f);
+            Eq(0, CampaignSaveData.Spawns.Count, "client never recalls even with P1 present");
+            NetworkBigBoss.HasWorldAuth = true;
+            Managers.Inst.game.state = Game.State.Playing;
+            Tick(.03f);
+            Eq(1, CampaignSaveData.Spawns.Count, "host regain recalls without a world change");
+            Eq(Dog.DogPosition.Roaming, Save.GetDogStatus()[0].position, "status rewritten");
+        });
+
+        Test("World change starts a fresh pass and drops the old pending", () =>
+        {
+            Save.dog0 = new Dog.DogStatus { position = Dog.DogPosition.Stolen, land = 0 };
+            Managers.Inst.kingdom.playerOne = null;
+            Tick(.01f);
+            Managers.Inst.world = new World(); Tick(.02f);
+            Eq(0, CampaignSaveData.Spawns.Count, "no spawn without P1 in the new world");
+            Managers.Inst.kingdom.playerOne = new Player();
+            Tick(.55f);
+            Eq(1, CampaignSaveData.Spawns.Count, "cadence retry completes the recall in the new world");
+            Eq(Dog.DogPosition.Roaming, Save.GetDogStatus()[0].position, "status rewritten");
         });
 
         Console.WriteLine($"RESULT: {passed} passed, {failed} failed, {assertions} checks");

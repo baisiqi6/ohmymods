@@ -11,7 +11,7 @@ switch (`ModConfig.Enabled && ModConfig.PetGuardEnabled`) is exercised for both 
 managed Unity/game stubs. It does not establish native detour compatibility, actual callback ordering,
 multiplayer synchronization, save-file round-trips, or in-game safety.
 
-Coverage (26 cases):
+Coverage (32 cases):
 
 - Exactly two long Droppable lifecycle hooks (OnEnable postfix / OnDisable prefix); no short getter detour;
   the hermit pair is unchanged.
@@ -30,6 +30,11 @@ Coverage (26 cases):
   then recovers once the instance is gone; non-stolen positions (incl. hermit `Passenger`) are never touched.
 - Loading marks a stale generation and recall waits for playing; missing prerequisites (no prefab / no P1)
   defer without a partial rewrite; clients never recall; recall faults are contained with one bounded warning.
+- Conditional failures/deferrals keep the recall pending and retry on the 0.5s cadence in the same world
+  (missing P1, one-shot `GetDogStatus` failure, live same-id instance until it disappears) — no world/switch
+  retrigger required, no per-frame scanning, no retry cap; switch off / authority loss discard the pending
+  state, and world change or re-arm starts a fresh pass.
 
 Current result: **not executed in the worker session** (execution tools were approval-blocked). The operator
-must run this suite together with `tests/HermitPickupPolicyRegression` and the main build.
+must run this suite together with `tests/HermitPickupPolicyRegression` and the main build; the second worker
+pass (recall-retry cases, Codex P2 finding 1) was likewise written without execution.
