@@ -18,6 +18,7 @@ namespace KnightStylePanelTests
             PanelApplyFoldsPoolIntoGreeceAndStylesEveryone();
             PanelAssignmentIsAllOrNothing();
             PanelDrawSectionSmoke();
+            PanelNoBindingBlocksApplyWithReason();
         }
 
         private static bool Logged(string fragment)
@@ -329,6 +330,28 @@ namespace KnightStylePanelTests
         {
             Check.True(KnightIdentityRuntime.TryGetReceipt(unit.Knight, out KnightIdentityReceipt receipt), "receipt for " + unit.Go.name);
             return receipt.Id;
+        }
+
+        // Mac 静态复核收口（PR #28）：无 binding 时 Refresh 必须禁用应用+给原因（不允许 apply 后静默不持久）。
+        private static void PanelNoBindingBlocksApplyWithReason()
+        {
+            Case.Run("panel_no_binding_blocks_apply_with_reason", () =>
+            {
+                using (Fixture f = new Fixture())
+                {
+                    List<KnightUnit> units = Knights.Loaded(23300, 2);
+                    UnitScanCache.TestKnights = Knights.ArrayOf(units);
+
+                    // 显式清除 Fixture 默认建立的 CurrentIsland（模拟无上下文场景），
+                    // 保留骑士使 total>0 先过人数门——验证 !hasBinding 门在人数门之后生效。
+                    CampaignSaveData.current.CurrentIsland = null;
+                    KnightStylePanel.ResetForTests();
+                    KnightStylePanel.Refresh();
+                    Check.False(KnightStylePanel.Refreshed, "no binding → apply disabled");
+                    Check.True(KnightStylePanel.Blocked != null && KnightStylePanel.Blocked.Contains("身份上下文"),
+                        "blocked reason mentions the missing identity binding: " + (KnightStylePanel.Blocked ?? "<null>"));
+                }
+            });
         }
     }
 }

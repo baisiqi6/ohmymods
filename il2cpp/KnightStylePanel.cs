@@ -489,6 +489,9 @@ internal static class KnightStylePanel
 
             if (total == 0) _blocked = "当前岛没有可分配的骑士。";
             else if (unverified > 0) _blocked = "有 " + unverified.ToString(CultureInfo.InvariantCulture) + " 名骑士尚未就绪，稍后重开面板。";
+            // Mac 静态复核收口（PR #28）：无身份绑定上下文时 apply 后无法挂 pending（rebaseline/revision
+            // 都要求 applyContextKey != null && applyHasBinding），UI 却暗示可持久——明确禁用+原因提示。
+            else if (!_hasBinding) _blocked = "身份上下文未就绪（无绑定），稍后重开面板。";
             else _refreshed = true;
         }
         catch (Exception e)

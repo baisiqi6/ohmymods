@@ -116,6 +116,11 @@ namespace KnightStylePanelTests
             GlobalSaveData.loaded = new GlobalSaveData { currentCampaign = campaign, currentChallenge = challenge };
             NativeSim.ResetWorld(world);
             CampaignSaveData.current = new CampaignSaveData();
+            // 默认建立已解析的上下文绑定（面板 ReadContext 需要 CurrentIsland+binding 才能通过
+            // Mac 静态复核收口的"无 binding 禁用应用"门）；需要无绑定场景的测试自行清空。
+            CampaignSaveData.current.CurrentIsland = new IslandSaveData { land = 1 };
+            string key = KnightIdentityArchive.ContextKey(filename, campaign, challenge, 1);
+            KnightIdentityContexts.RememberBinding(key, "fixture-resolved", false, false, "exact");
         }
 
         internal string SidecarPath
