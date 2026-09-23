@@ -190,9 +190,170 @@ internal static class Program
             Eq(70f, k._mover._goalPosition, "callback goal preserved"); Eq(0, k._fsm.Requests, "no native override queued");
         });
     }
+    private static void ReturnLadder()
+    {
+        Test("A failed burst hands over to the walk home in the very next tick", () => {
+            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true;
+            AssertStartedReturn(k, 0);
+            Frame(.5f, false);   // the .5 s no-progress deadline fails the burst on this tick
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "failed burst released its own goal");
+            Eq(false, k._damageable.invulnerable, "failed burst released its protection");
+            Frame(.02f, false);
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the next tick already walks home");
+            Eq(k._runSpeed, k._mover._goalSpeed, "walk uses the native run speed");
+            Eq(2.5f, k._mover._goalPosition, "walk heads for the follower station");
+            Check(ShouldSlash(k), "a walking withdrawal no longer suppresses the native slash");
+        });
+        Test("The walk keeps a live goal for as long as the burst backoff runs", () => {
+            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
+            Frames(30, .02f, false);   // burst failed at .5 s, the walk began on the following tick
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "walk owns the return");
+            int live = 0;
+            for (int i = 0; i < 40; i++) { if (k._mover.goalMode == Mover.GoalMode.Position) live++; Frame(.02f, false); }
+            Eq(40, live, "no tick leaves the stranded knight without a goal");
+            Eq(1, SamuraiDashVisuals.BeginCount(k), "walking never spawns another burst");
+        });
+        Test("Repeated hit-stun pauses never lock the return", () => {
+            var k = NewKnight(20); Follower(k, 0); AssertStartedReturn(k, 0);
+            for (int i = 0; i < 4; i++)
+            {
+                k._mover._pauseTimeout = 1f;      // native HandleOnReceiveDamage -> Mover.Pause(1f)
+                Frame(.02f, false);               // the external pause invalidates the live lease
+                k._mover._pauseTimeout = 0f;      // ... and expires in scaled time
+                Time.time += 1f;
+                Frame(.02f, false);               // the ladder answers instead of locking
+            }
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "still returning after four interruptions");
+            Check(SamuraiDashVisuals.BeginCount(k) <= 3, "bounded bursts while being hit");
+            Eq(false, k._damageable.invulnerable, "no permanently held protection");
+        });
+        Test("Burst retries escalate and then retire in favour of the walk", () => {
+            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
+            Frames(175, .02f, false);   // 3.5 s: burst 1 failed at .5 s, burst 2 after the 2 s backoff
+            Eq(2, SamuraiDashVisuals.BeginCount(k), "exactly two bursts inside 3.5 s");
+            Frames(250, .02f, false);   // 8.5 s: burst 3 after the 4 s backoff
+            Eq(3, SamuraiDashVisuals.BeginCount(k), "third burst after the escalated backoff");
+            Frames(250, .02f, false);   // 13.5 s: the walk owns the way home from here on
+            Eq(3, SamuraiDashVisuals.BeginCount(k), "no burst after the third failure");
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the knight is still walking, never standing");
+            Eq(false, k._damageable.invulnerable, "no stray protection in the walk phase");
+        });
+        Test("A spent ladder walks home by itself and the next episode bursts again", () => {
+            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
+            Frames(450, .02f, false);   // 9 s: three blocked burst failures spend the ladder
+            Eq(3, SamuraiDashVisuals.BeginCount(k), "three bursts spent while blocked");
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the degraded walk owns the return");
+            k._mover.Blocked = false;
+            // Arrival arithmetic: 16 u at the native run speed (6 u/s stub) = 2.67 s = 133 frames.
+            for (int i = 0; i < 900 && k.transform.position.x > 4.01f; i++) Frame(.02f);
+            Check(k.transform.position.x <= 4.01f, "the walk itself reached the return threshold");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "arrival released the walk goal");
+            Eq(false, k._damageable.invulnerable, "a plain walk never gains burst protection");
+            k.transform.position = new(20);
+            Frames(12, .02f, false);
+            Eq(4, SamuraiDashVisuals.BeginCount(k), "the cleared ladder allows a fresh burst");
+        });
+        Test("A walk upgraded by its backoff still ends at the follower station", () => {
+            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
+            Frames(40, .02f, false);   // burst failed at .5 s; the walk is live but blocked
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "walking while the path is blocked");
+            k._mover.Blocked = false;
+            // The walk upgrades to a burst at RetryAt (2.5 s) and that burst closes the rest.
+            for (int i = 0; i < 900 && k.transform.position.x > 4.01f; i++) Frame(.02f);
+            Check(k.transform.position.x <= 4.01f, "the upgraded return still reached the station");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "arrival released the goal");
+            Eq(2, SamuraiDashVisuals.BeginCount(k), "exactly one burst finished the walk's leg");
+            Eq(false, k._damageable.invulnerable, "burst effects retired at arrival");
+        });
+        foreach (var side in new[] { Side.Left, Side.Right })
+            Test("A " + side + " return withdraws facing the enemy side without the dash pose", () => {
+                var k = NewKnight(20); Follower(k, 0); k.side = side;
+                AssertStartedReturn(k, 0);
+                Eq(side == Side.Left ? Mover.FacingMode.Left : Mover.FacingMode.Right,
+                    k._mover.facingMode, "defensive withdrawal facing");
+                Eq(0, k._animator.TriggerCount, "returns never replay PowerSlash");
+            });
+        Test("Attack dash keeps the dash pose and never takes a facing lease", () => {
+            var k = PrepareBurst(false);
+            Eq(Mover.FacingMode.Ahead, k._mover.facingMode, "attack dash leaves the facing native");
+            UpdateHook(k);
+            Eq(1, k._animator.TriggerCount, "attack dash plays PowerSlash");
+            Check(k._damageable.invulnerable, "attack burst ran");
+            Eq(Mover.FacingMode.Ahead, k._mover.facingMode, "attack dash still owns no facing");
+        });
+        Test("A native reset to Ahead is re-asserted while the return runs", () => {
+            var k = NewKnight(20); Follower(k, 0); k.side = Side.Right;
+            AssertStartedReturn(k, 0);
+            k._mover.facingMode = Mover.FacingMode.Ahead;   // native wrote ahead mid-return
+            Frame(.02f, false);
+            Eq(Mover.FacingMode.Right, k._mover.facingMode, "defensive facing restored");
+        });
+        Test("A foreign fixed facing survives the whole return", () => {
+            var k = NewKnight(20); Follower(k, 0); k._mover.facingMode = Mover.FacingMode.Target;
+            AssertStartedReturn(k, 0);
+            Eq(Mover.FacingMode.Target, k._mover.facingMode, "native Target facing never taken over");
+            Check(k._mover.facingTarget == null, "no invented facing target");
+            ModConfig.Enabled.Value = false;
+            Frame(.02f, false);
+            Eq(Mover.FacingMode.Target, k._mover.facingMode, "cleanup never stomps a foreign facing");
+        });
+        Test("Walking withdrawal keeps the defensive facing and releases it on arrival", () => {
+            var k = NewKnight(20); Follower(k, 0); k.side = Side.Left; k._mover.Blocked = true;
+            AssertStartedReturn(k, 0);
+            Eq(Mover.FacingMode.Left, k._mover.facingMode, "burst withdrew facing the enemy side");
+            Eq(0, k._animator.TriggerCount, "no dash pose on a return");
+            Frames(30, .02f, false);
+            Eq(Mover.FacingMode.Left, k._mover.facingMode, "walk keeps the defensive facing");
+            Eq(0, k._animator.TriggerCount, "walk never replays the dash pose");
+            k._mover.Blocked = false;
+            for (int i = 0; i < 900 && k.transform.position.x > 4.01f; i++) Frame(.02f);
+            Check(k.transform.position.x <= 4.01f, "the return reached the follower station");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "arrival released the goal");
+            Eq(Mover.FacingMode.Ahead, k._mover.facingMode, "facing released once the return ended");
+            Eq(0, k._animator.TriggerCount, "no dash pose across the whole withdrawal");
+        });
+        foreach (var interrupt in new (string Name, Action<Knight> Apply)[] {
+            ("formation", k => k.Formation = new()), ("retreating", k => k.isRetreating = true),
+            ("charging", k => k.isCharging = true), ("charge pending", k => k._shouldCharge = true),
+            ("dead", k => k._damageable.isDead = true), ("manual control", k => k.ControlRequested = true),
+            ("config", k => ModConfig.Enabled.Value = false), ("authority", k => NetworkBigBoss.HasWorldAuth = false)
+        }) Test("Walking withdrawal honours " + interrupt.Name + " exactly like the burst", () => {
+            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
+            Frames(40, .02f, false);
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "walk live before the interruption");
+            interrupt.Apply(k); int writes = k._mover.GoalWrites;
+            Frames(30, .02f, false);
+            Eq(writes, k._mover.GoalWrites, "no replacement goal after " + interrupt.Name);
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "walk goal released");
+        });
+        Test("Night hands the return over: no mod goal, native guard-slot task only", () => {
+            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
+            Frames(40, .02f, false);   // day burst failed, the degraded walk is live
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "day walk live before dusk");
+            Managers.Inst.kingdom.isDaytime = false;
+            int writes = k._mover.GoalWrites;
+            Frames(90, .02f, false);
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "mod goal released at dusk");
+            Eq(writes, k._mover.GoalWrites, "no burst and no walk after the night handoff");
+            Eq(1, SamuraiDashVisuals.BeginCount(k), "exactly the one day burst, none at night");
+            k._mover.Blocked = false;
+            k._fsm.OnEnter = state => {
+                if (state == Knight.State.GoToWall) { k.isRetreating = true; k._mover.SetGoal(1, 2); }
+            };
+            NativeFrame(k);   // fixture stands in for native GoToWall's own guard-slot goal
+            Eq(1, k._fsm.Requests, "one wall request for the guard slot");
+            Eq(1f, k._mover._goalPosition, "the native task owns the way home");
+            Eq(writes + 1, k._mover.GoalWrites, "only the native task wrote a goal");
+            for (int i = 0; i < 60; i++) Frame(.02f, false);
+            Eq(writes + 1, k._mover.GoalWrites, "the mod never fights the native guard-slot goal");
+            Eq(1f, k._mover._goalPosition, "guard-slot destination unchanged");
+        });
+    }
+
     private static void Main()
     {
         NightRegressions();
+        ReturnLadder();
         Test("No enemy and native attack cooldown do not prevent >10 return", () => {
             var k = NewKnight(20); Follower(k, 0); k._cooldown = 2.8f;
             AssertStartedReturn(k, 0); Eq(0, k._enemyScanner.Calls, "no enemy search before return");

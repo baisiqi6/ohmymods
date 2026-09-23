@@ -194,6 +194,8 @@ public class StateMachine
 }
 public class Kingdom { public bool isDaytime = true; }
 public class Managers { public static Managers Inst = new(); public Kingdom kingdom = new(); }
+// Same shape as the game's global enum: the enemy side is the unit's own half.
+public enum Side { Left = -1, Right = 1 }
 public class Knight : UnityEngine.MonoBehaviour
 {
     public static class State
@@ -202,6 +204,7 @@ public class Knight : UnityEngine.MonoBehaviour
             GrabArmor = 5, InFormation = 6, MoveToEmbark = 7, MoveToPillar = 8, Stationary = 9;
     }
     public int Style = 2;
+    public Side side = Side.Right;
     public bool Qualified = true, ControlRequested, _beingControlled, isRetreating, isCharging, _shouldCharge, _harmless;
     public UnityEngine.GameObject helPuzzlePillar;
     public Embarkee _embarkee = new();
@@ -227,7 +230,12 @@ public class Archer : UnityEngine.MonoBehaviour
 public class Mover : UnityEngine.Component
 {
     public enum GoalMode { Off, Position, Object }
+    // Mirrors the game enum order (Ahead, Left = -1, Right = 1, Target).
+    public enum FacingMode { Ahead, Left = -1, Right = 1, Target }
     public GoalMode goalMode;
+    public FacingMode facingMode;
+    public UnityEngine.GameObject facingTarget;
+    public int FacingWrites;
     public UnityEngine.GameObject _goalObject;
     public float _goalPosition, _goalSpeed, _pauseTimeout;
     public bool movingToGoal, Blocked;
@@ -240,6 +248,8 @@ public class Mover : UnityEngine.Component
         goalMode = GoalMode.Position; _goalObject = null; _goalPosition = position; _goalSpeed = speed;
         movingToGoal = true; GoalWrites++;
     }
+    public void SetFacingMode(FacingMode mode, UnityEngine.GameObject target = null)
+    { facingMode = mode; facingTarget = mode == FacingMode.Target ? target : null; FacingWrites++; }
     public void Stop() { StopCalls++; goalMode = GoalMode.Off; movingToGoal = false; _goalSpeed = 0; OnStop?.Invoke(); }
     public void Step(float dt)
     {
