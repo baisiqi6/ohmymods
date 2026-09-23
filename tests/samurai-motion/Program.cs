@@ -385,9 +385,9 @@ internal static class Program
     // One attack that ran out its own window: the knight ends at x 2.5 with the follower still at
     // 0, so the cut has raised both the swallow roll and the immediate-withdrawal debt. The
     // scanner and the physics window are emptied afterwards.
-    private static Knight ExpiredAttack()
+    private static Knight ExpiredAttack(float enemyX = 3f)
     {
-        var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+        var k = NewKnight(0); Follower(k, 0); Enemy(k, enemyX);
         UpdateHook(k);
         Frames(8);
         Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
@@ -445,7 +445,9 @@ internal static class Program
             Eq(Mover.GoalMode.Off, k._mover.goalMode, "no return on the new mover");
         });
         Test("The in-place regroup face preserves the cosmetic Y scale and is written once", () => {
-            var k = ExpiredAttack();                        // ends at 2.5, follower at 0: inside ReturnStop
+            // enemy at 1.6: the ~1.1 travel stays under SwallowMinTravel, so the deterministic
+            // swallow does not fire and the in-place face keeps its original semantics
+            var k = ExpiredAttack(1.6f);                    // ends ~1.1 out, follower at 0: inside ReturnStop
             k.side = Side.Left;                             // the enemy half is opposite the dash's travel
             k.transform.localScale = new(1f, .95f, 1f);
             int writes = k._mover.DirectionWrites;
@@ -468,7 +470,7 @@ internal static class Program
             Check(enemy.HitCount >= 1, "the outbound dash landed on its target");
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
             Frame(.02f, false);                             // the roll frame: the swallow begins
-            Eq(1, UnityEngine.Random.Rolls, "the long dash earned exactly one roll");
+            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
             Eq(Mover.GoalMode.Position, k._mover.goalMode, "the swallow issued a position goal");
             Eq(0f, k._mover._goalPosition, "the swallow cuts back to the dash origin");
             Check(k._damageable.invulnerable, "the swallow is alive on its first tick");
@@ -487,7 +489,7 @@ internal static class Program
 
     private static void SwallowRegressions()
     {
-        Test("Swallow dice hit cuts straight back to the attack origin", () => {
+        Test("Swallow cuts straight back to the attack origin", () => {
             UnityEngine.Random.ForcedValue = .29f;
             var k = NewKnight(0); Follower(k, 0); var enemy = Enemy(k, 3);
             UpdateHook(k);
@@ -495,7 +497,7 @@ internal static class Program
             Frames(8);
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
             Frame(.02f, false); // the roll frame
-            Eq(1, UnityEngine.Random.Rolls, "one dice draw");
+            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
             Eq(Mover.GoalMode.Position, k._mover.goalMode, "swallow issues a position goal");
             Eq(0f, k._mover._goalPosition, "goal is the dash origin, not the follower station");
             Eq(18f, k._mover._goalSpeed, "swallow reuses the dash speed");
@@ -513,21 +515,20 @@ internal static class Program
             Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "visual token ended");
             Check(ShouldSlash(k), "no stale suppression after the swallow");
         });
-        Test("Swallow dice miss starts nothing and is never re-rolled", () => {
-            UnityEngine.Random.ForcedValue = .30f;
+        Test("Swallow fires deterministically on every qualified completion", () => {
+            UnityEngine.Random.ForcedValue = .30f; // must not matter anymore
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
             UpdateHook(k); Frames(8);
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
             Frame(.02f, false);
-            Eq(1, UnityEngine.Random.Rolls, "exactly one dice draw");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "miss starts no motion");
-            Check(!k._damageable.invulnerable, "miss starts no burst");
+            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
+            Check(k._damageable.invulnerable, "the swallow always starts");
+            Eq(0f, k._mover._goalPosition, "it targets the dash origin");
             Frames(10);
-            Eq(1, UnityEngine.Random.Rolls, "no per-frame re-roll");
             Eq(1, Scheduler.Started, "no extra coroutine");
-            Eq(1, SamuraiDashVisuals.BeginCount(k), "no swallow visual");
+            Eq(2, SamuraiDashVisuals.BeginCount(k), "attack plus swallow visuals");
         });
-        Test("Swallow cooldown spans six seconds and the attack cadence is untouched", () => {
+        Test("Back-to-back attacks each earn their swallow (no cooldown since 2026-09-24)", () => {
             UnityEngine.Random.ForcedValue = .29f;
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
             UpdateHook(k); Frames(8);
@@ -542,13 +543,10 @@ internal static class Program
             Time.time = 3.63f; Time.deltaTime = .02f; Time.frameCount++; UpdateHook(k);
             Eq(2, Scheduler.Started, "next attack starts from the forward dash's own cooldown");
             Frames(33);
-            Check(!k._damageable.invulnerable, "no second swallow during cooldown");
-            Eq(3, SamuraiDashVisuals.BeginCount(k), "attack, swallow, attack visuals so far");
-            Eq(1, UnityEngine.Random.Rolls, "cooldown gate short-circuits before the dice");
-            k.transform.position = new(0);
-            Frames(200);
-            Eq(2, UnityEngine.Random.Rolls, "third attack draws a fresh roll");
-            Eq(5, SamuraiDashVisuals.BeginCount(k), "third attack plus second swallow");
+            Check(k._damageable.invulnerable, "the second attack's swallow starts immediately");
+            Eq(4, SamuraiDashVisuals.BeginCount(k), "attack, swallow, attack, swallow so far");
+            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
+            Frames(40);
             Check(!k._damageable.invulnerable, "second swallow also finished");
         });
         Test("Swallow needs a living follower at the roll frame", () => {
@@ -557,7 +555,7 @@ internal static class Program
             UpdateHook(k); Frames(8);
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
             Frame(.02f, false);
-            Eq(0, UnityEngine.Random.Rolls, "follower gate precedes the dice");
+            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
             Eq(Mover.GoalMode.Off, k._mover.goalMode, "no swallow without a follower");
             Eq(1, Scheduler.Started, "attack itself unaffected");
         });
@@ -568,7 +566,7 @@ internal static class Program
             Check(Mathf.Abs(k.transform.position.x) < 1.5f, "fixture really ended near the origin");
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
             Frame(.02f, false);
-            Eq(0, UnityEngine.Random.Rolls, "travel gate precedes the dice");
+            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
             Eq(Mover.GoalMode.Off, k._mover.goalMode, "no swallow under minimum travel");
         });
         Test("Swallow skips when the samurai was displaced past max range", () => {
@@ -579,7 +577,7 @@ internal static class Program
             k.transform.position = new(11);          // travel cap ends the attack dash naturally
             Frame(.02f, false);
             Frame(.02f, false);
-            Eq(0, UnityEngine.Random.Rolls, "range gate precedes the dice");
+            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
             Eq(1, SamuraiDashVisuals.BeginCount(k), "no swallow beyond max range");
             Eq(1, k._animator.TriggerCount, "no swallow slash");
             Eq(Mover.GoalMode.Off, k._mover.goalMode, "no swallow and no invented return");
@@ -593,7 +591,7 @@ internal static class Program
             Frame(0, false);
             Time.timeScale = 1;
             Frames(5);
-            Eq(0, UnityEngine.Random.Rolls, "pause gate precedes the dice");
+            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
             Eq(1, Scheduler.Started, "nothing deferred after resume");
             Eq(Mover.GoalMode.Off, k._mover.goalMode, "no stale motion");
         });
@@ -604,7 +602,7 @@ internal static class Program
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
             k._mover.SetGoal(90, 4);
             Frame(.02f, false);
-            Eq(0, UnityEngine.Random.Rolls, "ownership gate precedes the dice");
+            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
             Eq(90f, k._mover._goalPosition, "foreign goal retained");
             Eq(4f, k._mover._goalSpeed, "foreign speed retained");
             Eq(1, Scheduler.Started, "no swallow over a foreign goal");
@@ -618,7 +616,7 @@ internal static class Program
             Frame(.02f, false);
             k._damageable.isDead = false;
             Frames(5);
-            Eq(0, UnityEngine.Random.Rolls, "no roll while dead");
+            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
             Eq(1, Scheduler.Started, "revived knight inherits no stale swallow");
             Eq(Mover.GoalMode.Off, k._mover.goalMode, "no stale motion");
         });
@@ -635,7 +633,7 @@ internal static class Program
             Time.time = 3.7f; Time.frameCount++; UpdateHook(k);
             Frames(33);
             Frame(.02f, false);
-            Eq(1, UnityEngine.Random.Rolls, "fresh identity rolls afresh");
+            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
             Check(k._damageable.invulnerable, "fresh swallow started");
             Eq(0f, k._mover._goalPosition, "fresh swallow targets the new origin");
         });
@@ -733,7 +731,7 @@ internal static class Program
             Frames(8);
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
             Frame(.02f, false);
-            Eq(2, UnityEngine.Random.Rolls, "one independent dice draw per knight");
+            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
             Check(kA._damageable.invulnerable && kB._damageable.invulnerable, "both swallows active");
             Eq(0f, kA._mover._goalPosition, "A cuts back to its own origin");
             Eq(5f, kB._mover._goalPosition, "B cuts back to its own origin");
@@ -958,7 +956,7 @@ internal static class Program
             k._animator.Ops.Clear();
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance(); // the dash ends
             Frame(.02f, false);                             // the roll frame: the swallow begins
-            Eq(1, UnityEngine.Random.Rolls, "the swallow rolled once");
+            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
             Check(k._animator.Ops.Count >= 2, "both trigger writes were recorded");
             Eq("reset", k._animator.Ops[^2], "the finished attack clears the trigger first");
             Eq("set", k._animator.Ops[^1], "the swallow then fires its own trigger");

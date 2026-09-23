@@ -76,7 +76,7 @@ namespace UnityEngine
         public static bool Approximately(float a, float b) => MathF.Abs(a - b) < 0.00001f;
     }
     public static class Time { public static float time, deltaTime = .02f, timeScale = 1; public static int frameCount; }
-    // Deterministic dice stub: production draws Random.value once per swallow roll only.
+    // Deterministic dice stub: the counter stays at zero since the deterministic swallow (2026-09-24).
     public static class Random
     {
         public static float ForcedValue = 1f;
