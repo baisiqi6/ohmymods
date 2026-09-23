@@ -127,17 +127,33 @@ namespace UnityEngine
     }
     public class TrailRenderer : Component { public bool enabled, emitting; public int positionCount, sortingLayerID, sortingOrder; public float time, widthMultiplier; }
     public class Collider2D : Component { }
-    public static class LayerMask { public static int GetMask(params string[] names) => 1; }
+    // Name-set aware: the samurai's target scan must ask for Enemies alone while the shared hit
+    // scan keeps Wildlife, so those names have to be distinguishable bits.
+    public static class LayerMask
+    {
+        public static int GetMask(params string[] names)
+        {
+            int mask = 0;
+            foreach (var name in names)
+            {
+                if (name == "Enemies") mask |= 1;
+                else if (name == "Wildlife") mask |= 2;
+                else mask |= 4;
+            }
+            return mask;
+        }
+    }
     public static class Physics2D
     {
         public static int Scans;
         public static float LastRadius;
+        public static int LastMask;
         public static readonly HashSet<Collider2D[]> Buffers = new();
         public static Collider2D[] Hits = Array.Empty<Collider2D>();
         public static int OverlapCircleNonAlloc(Vector3 position, float radius, Collider2D[] output, int mask)
         {
             Scans++;
-            LastRadius = radius; Buffers.Add(output);
+            LastRadius = radius; LastMask = mask; Buffers.Add(output);
             int n = Math.Min(output.Length, Hits.Length);
             Array.Copy(Hits, output, n);
             return n;
@@ -214,6 +230,28 @@ public class Scanner
     public UnityEngine.GameObject Closest;
     public int Calls;
     public UnityEngine.GameObject GetClosest() { Calls++; return Closest; }
+
+    // The mod's static self-scan stand-in. Targets are registered per observer instance, the way
+    // the replaced native per-knight scanner instance behaved, and the x geometry mirrors the
+    // game's own ComputeCorners (front = range, behind = rangeBehind, facing from the observer's
+    // scale sign): "rangeBehind = -1 only sees ahead" is therefore a red test, not a comment.
+    // The y axis is not modelled -- every fixture unit stands at y = 0.
+    public static readonly Dictionary<int, UnityEngine.GameObject> ScanTargets = new();
+    public static int ScanCalls;
+    public static int LastLayers;
+    public static float LastRange, LastRangeBehind, LastHeight;
+    public static bool LastExcludeDead;
+    public static UnityEngine.GameObject ScanClosest(UnityEngine.Transform observer, float range, int layers,
+        string[] tags = null, float rangeBehind = -1f, float height = .5f, bool excludeDead = false)
+    {
+        ScanCalls++;
+        LastLayers = layers; LastRange = range; LastRangeBehind = rangeBehind;
+        LastHeight = height; LastExcludeDead = excludeDead;
+        if (!ScanTargets.TryGetValue(observer.gameObject.GetInstanceID(), out var target) || target == null) return null;
+        float facing = observer.localScale.x < 0 ? -1f : 1f;
+        float dx = (target.transform.position.x - observer.position.x) * facing;
+        return dx > range || dx < -rangeBehind ? null : target;
+    }
 }
 public class Embarkee
 {
