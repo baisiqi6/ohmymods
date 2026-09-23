@@ -271,6 +271,19 @@ internal static class PipelineTests
                     "row untouched by ordinary archers");
             }
         });
+
+        Case.Run("a crossbowman is refused the bow line even with the musketeer feature off", () =>
+        {
+            Activate(0, 0, featureOn: false);                       // no row, feature off
+            Archer crossbowman = Fixture.AddArcher(6f);
+            CrossbowmanLifecycle.IdentityEnabled = true;
+            CrossbowmanLifecycle.Crossbowmen.Add(crossbowman);
+            Check.False(crossbowman.TryRecruit(Fixture.Formation), "crossbowman must be refused");
+            Check.True(crossbowman.GetFormation() == null, "crossbowman must stay outside the formation");
+
+            Archer ordinary = Fixture.AddArcher(7f);
+            Check.True(ordinary.TryRecruit(Fixture.Formation), "ordinary archer keeps its native seat");
+        });
     }
 
     private static void TransactionFailures()

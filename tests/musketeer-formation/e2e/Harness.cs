@@ -185,6 +185,8 @@ namespace Harness
             MusketeerIdentity.Units.Clear();
             MusketeerIdentity.MarkedEnabled = true;
             HeroArcherRuntime.Heroes.Clear();
+            CrossbowmanLifecycle.Crossbowmen.Clear();
+            CrossbowmanLifecycle.IdentityEnabled = false;
             Player.ThrowInActivateBody = 0;
             Il2CppStructArray<Formation.UnitTypes>.ThrowBeforeApplyOnAttempt = 0;
             Il2CppStructArray<Formation.UnitTypes>.ApplyThenThrowOnAttempt = 0;

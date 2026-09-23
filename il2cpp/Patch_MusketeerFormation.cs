@@ -174,6 +174,10 @@ internal static class PatchMusketeerFormation
     ///    every Archer, even with the musketeer feature switched off, until the restore lands or
     ///    the array is confirmed to belong to another owner;
     ///  * while a directed transaction is armed for the formation, every other Archer is refused;
+    ///  * crossbowmen are refused no matter what the musketeer feature or row says (2026-09-22
+    ///    player report): their career is wall duty only, they never become banner followers, and
+    ///    <see cref="CrossbowmanLifecycle.IsCrossbowman"/> is the live, fail-closed identity read,
+    ///    independent of the musketeer switches;
     ///  * otherwise only marked musketeers are kept out of the native bow slots of a managed
     ///    formation; ordinary archers, other formations and a disabled feature stay native.
     /// </summary>
@@ -184,6 +188,11 @@ internal static class PatchMusketeerFormation
             if (archer == null || formation == null) return false;
             if (IsDirected(archer, formation)) return false;
             if (formation.GetFormationType != Formation.FormationType.PlayerFormation) return false;
+            // 2026-09-22 player report: a crossbowman is wall-duty only and must never be pulled
+            // into the banner squad. Its identity is independent of the musketeer feature switch
+            // and of the musketeer row, so it is checked before both (IsCrossbowman reads the
+            // global switch live and is fail-closed itself).
+            if (CrossbowmanLifecycle.IsCrossbowman(archer)) return true;
             if (PatchWorld_FleetBoatFormation.HasDirtyMusketeerTypes(formation)) return true;
             if (HasActiveDirectedTransaction(formation)) return true;
             if (!MusketeerAccess.Enabled) return false;
@@ -249,7 +258,9 @@ internal static class PatchMusketeerFormation
     /// <summary>
     /// The only native entry point the rear row uses. While the directed call is in flight the
     /// guard above lets exactly this archer/formation pair through; all other recruits of marked
-    /// musketeers on that formation stay native-refused.
+    /// musketeers on that formation stay native-refused, and crossbowmen are refused on the player
+    /// formation regardless of the musketeer feature or row (wall duty only — never a banner
+    /// follower; 2026-09-22 player report).
     /// </summary>
     [HarmonyPatch(typeof(Archer), nameof(Archer.TryRecruit))]
     internal static class ArcherTryRecruitGuard

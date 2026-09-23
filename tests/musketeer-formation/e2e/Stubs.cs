@@ -673,6 +673,21 @@ namespace KingdomEnhancedMod
     }
 
     /// <summary>
+    /// Real: il2cpp/CrossbowmanLifecycle.cs identity reader (reusable marker + live global switch,
+    /// fail-closed). The stub mirrors only the shape the guard consumes: an instance marker (set
+    /// here) behind the global mod switch. Default off so existing pipeline scenarios keep their
+    /// native outcomes; flip IdentityEnabled and register the archer to exercise the exclusion.
+    /// </summary>
+    internal static class CrossbowmanLifecycle
+    {
+        internal static readonly HashSet<Archer> Crossbowmen = new();
+        internal static bool IdentityEnabled;
+
+        internal static bool IsCrossbowman(Archer archer)
+            => IdentityEnabled && ModConfig.Enabled.Value && archer != null && Crossbowmen.Contains(archer);
+    }
+
+    /// <summary>
     /// Real: deer slice il2cpp/MusketeerRuntime.cs. Only the same-life lease contract this slice
     /// consumes is stubbed: 0 = no applied package / unknown / stripped, a new life gets a new
     /// monotonic lease. The knobs simulate a pooled re-arm on the same GameObject.

@@ -77,6 +77,9 @@ namespace MusketeerFormationTests
             MusketeerAccess.Enabled = true;
             MusketeerAccess.InWorldResult = true;
             HeroArcherRuntime.Heroes.Clear();
+            CrossbowmanLifecycle.Crossbowmen.Clear();
+            CrossbowmanLifecycle.IdentityEnabled = true;
+            CrossbowmanLifecycle.ThrowOnRead = false;
             PatchWorld_FleetBoatFormation.MusketeerRow = true;
             PatchWorld_FleetBoatFormation.DirtyFormation = null;
             PatchMusketeerFormation.EndDirected();
