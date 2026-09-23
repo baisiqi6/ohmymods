@@ -1420,6 +1420,9 @@ public class BankAssistantCoordinator : MonoBehaviour
             if (Mathf.Approximately(castleDirection, 0f)) castleDirection = 1f;
             Vector3 approach = coin.transform.position;
             approach.x += castleDirection * TELEPORT_APPROACH_DISTANCE;
+            // Y 与 Z 同纪律：助手自带地面高度（扔出的币还在空中弧线时其 Y 是飞行高度，
+            // 抄走会让助手悬空出生且后续 X-only 移动永不回地——玩家实测"空中平移"根因）。
+            approach.y = helper.Actor.transform.position.y;
             approach.z = helper.Actor.transform.position.z;
             helper.Actor.transform.position = approach;
             SendFullPosition(helper);
