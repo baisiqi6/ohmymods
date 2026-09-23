@@ -41,11 +41,12 @@ namespace KingdomEnhancedMod;
 /// 远端玩家（客机托管输入）一概不接管。
 ///
 /// 白名单按 PayableShop 的 GameObject tag 判定（tag 名与 PayableShop.GetShopTag 一致，
-/// PayableShop.Pay 也按这些 tag 记统计）：ShopBow、ShopHammer、ShopScythe、
-/// ShopNinjaLeft、ShopNinjaRight、ShopPikeLeft、ShopPikeRight、LeftShieldShop、
-/// RightShieldShop；面包店按同一 GameObject 上的 Baker 组件识别
+/// PayableShop.Pay 也按这些 tag 记统计）：ShopBow、ShopHammer、ShopScythe、ShopForge
+/// （铁剑铺=Castle7 解锁的库存制 PayableShop，CanPay 满架即停与弓铺同构；2026-09-23
+/// 用户要求纳入快速购买）、ShopNinjaLeft、ShopNinjaRight、ShopPikeLeft、ShopPikeRight、
+/// LeftShieldShop、RightShieldShop；面包店按同一 GameObject 上的 Baker 组件识别
 /// （沿用 AutoRestockCounts.ClassifyShop 的既有识别法）。ChangeRuler、ChangeItem、
-/// Workshop、Forge、祭坛、换坐骑等仍排除。额外只开放 PayableWorkshopBarrel，及同GO
+/// Workshop、祭坛、换坐骑、洞穴熔炉 PayableForge（炸弹/护甲，非 PayableShop）等仍排除。额外只开放 PayableWorkshopBarrel，及同GO
 /// FireTower精确拥有的PayableComponent；这两类每次加速/续买/回执均重验，禁止资格缓存串用。
 ///
 /// 2.1.0 源与 interop API 核对（actual-api.json / Player.cs / Payable.cs / PayableShop.cs）：
@@ -91,7 +92,7 @@ public static class PatchPlayer_HoldPurchase
     /// <summary>白名单商店的 GameObject tag，名字取自 PayableShop.GetShopTag。</summary>
     private static readonly string[] GoodsShopTags =
     {
-        "ShopBow", "ShopHammer", "ShopScythe",
+        "ShopBow", "ShopHammer", "ShopScythe", "ShopForge",
         "ShopNinjaLeft", "ShopNinjaRight",
         "ShopPikeLeft", "ShopPikeRight",
         "LeftShieldShop", "RightShieldShop"
