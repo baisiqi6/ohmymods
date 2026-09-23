@@ -47,6 +47,7 @@ public class ModPanel : MonoBehaviour
         try { PopulationHud.Tick(); }
         catch { /* Counts are an independent read-only overlay; settings shortcuts remain available. */ }
         PatchRoles_Hermit.Tick();
+        PatchRoles_PetGuard.Tick();
         GreekScaleScope.Tick();
         PatchEconomy_Banker.TickOwnedProfiles();
         BankAssistantCoordinator.TickPendingCleanup();
@@ -243,7 +244,7 @@ public class ModPanel : MonoBehaviour
         }
 
         float viewHeight = height - 224f;
-        int cards = _category == 4 ? 9 : (_category == 3 ? 5 : (_category == 0 || _category == 5 || _category == 6 ? 4 : 3));
+        int cards = _category == 4 ? 9 : (_category == 3 ? 5 : (_category == 5 ? 5 : (_category == 0 || _category == 6 ? 4 : 3)));
         float contentHeight = cards * (CardHeight + 12f);
         Rect viewport = new Rect(24, 176, width - 48, viewHeight);
         Rect content = new Rect(0, 0, width - 74, Mathf.Max(viewHeight, contentHeight));
@@ -312,6 +313,8 @@ public class ModPanel : MonoBehaviour
                 DenseThicketControl(ref y, width);
                 Toggle(ref y, width, "森林快速消退", ModConfig.FastForestRecedeEnabled,
                     "所有世界 · 砍树后的森林消退等待缩至三分之一；关闭后的新消退使用原版速度。");
+                Toggle(ref y, width, "宠物与隐士防抓", ModConfig.PetGuardEnabled,
+                    "所有世界·单机/主机：怪物不再抓走狗与隐士；开启当刻与每次读档把已被抓走的狗/隐士找回当前岛。关闭恢复原版抓走与赎回路径。");
                 break;
             case 6:
                 Toggle(ref y, width, "火铳铺", ModConfig.MusketeerEnabled,

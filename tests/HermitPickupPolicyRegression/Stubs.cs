@@ -50,7 +50,7 @@ public class Game {public State state=State.Playing;public enum State {Playing,N
 public class Managers {public static Managers Inst;public World world=new();public Game game=new();}
 namespace KingdomEnhancedMod
 {
- public static class ModConfig {public class Flag {public bool Value=true;}public static Flag Enabled=new();}
+ public static class ModConfig {public class Flag {public bool Value=true;}public static Flag Enabled=new();public static Flag PetGuardEnabled=new();}
  public class KingdomEnhancedPlugin
  {
   public static KingdomEnhancedPlugin Instance=new();public Log LogSource=new();
