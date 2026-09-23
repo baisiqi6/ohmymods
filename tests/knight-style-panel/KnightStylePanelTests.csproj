@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 控制台测试程序集：把生产 KnightStylePanel.cs 与身份四文件（Runtime/Archive/Context/LoadSeed）直接编译进来，
+       并补 native 边界 stub（NativeStubs.cs：Unity/IL2CPP/Harmony/BepInEx/IslandSaveData stub + 面板的跨模块
+       依赖 stub：UnitScanCache/PopulationCounts/PatchRoles_KnightStyle/ImGuiCompat）。生产工程不引用本目录；
+       临时文件只写在 tests/knight-style-panel/bin/<cfg>/ksp-tmp/<guid>/ 下，逐例删除，绝不扫别的目录。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>KnightStylePanelTests</AssemblyName>
+    <RootNamespace>KnightStylePanelTests</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/KnightStylePanel.cs" Link="Production/KnightStylePanel.cs" />
+    <Compile Include="../../il2cpp/KnightIdentityRuntime.cs" Link="Production/KnightIdentityRuntime.cs" />
+    <Compile Include="../../il2cpp/KnightIdentityArchive.cs" Link="Production/KnightIdentityArchive.cs" />
+    <Compile Include="../../il2cpp/KnightIdentityContext.cs" Link="Production/KnightIdentityContext.cs" />
+    <Compile Include="../../il2cpp/KnightIdentityLoadSeed.cs" Link="Production/KnightIdentityLoadSeed.cs" />
+  </ItemGroup>
+
+</Project>

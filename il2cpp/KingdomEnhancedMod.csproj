@@ -31,6 +31,11 @@
         <EmbeddedResource Include="Assets/MusketeerShop.png" LogicalName="KingdomEnhancedMod.MusketeerShop.png" />
         <EmbeddedResource Include="Assets/MusketeerGun.png" LogicalName="KingdomEnhancedMod.MusketeerGun.png" />
         <EmbeddedResource Include="Assets/MusketeerBullet.png" LogicalName="KingdomEnhancedMod.MusketeerBullet.png" />
+        <EmbeddedResource Include="Assets/KnightStylePreview0.png" LogicalName="KingdomEnhancedMod.KnightStylePreview0.png" />
+        <EmbeddedResource Include="Assets/KnightStylePreview1.png" LogicalName="KingdomEnhancedMod.KnightStylePreview1.png" />
+        <EmbeddedResource Include="Assets/KnightStylePreview2.png" LogicalName="KingdomEnhancedMod.KnightStylePreview2.png" />
+        <EmbeddedResource Include="Assets/KnightStylePreview3.png" LogicalName="KingdomEnhancedMod.KnightStylePreview3.png" />
+        <EmbeddedResource Include="Assets/KnightStylePreview4.png" LogicalName="KingdomEnhancedMod.KnightStylePreview4.png" />
     </ItemGroup>
 
     <!-- BIE6_IL2CPP / Debug：IL2CPP 依赖（deps 在 E:\mod-dev\KingdomMod） -->

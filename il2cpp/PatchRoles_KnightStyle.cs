@@ -23,8 +23,9 @@ namespace KingdomEnhancedMod;
 ///   tool.tag == "Armor" → Professions{"Armor","Knight"}。__result 是新骑士
 ///   （ReplaceBy 内部已做过 biome swap，原生控制器=当前世界骑士皮肤）。
 ///   Squire（Shield 转职的侍从）按任务书明确不处理——tag != "Knight" 全部早退。
-/// - 身份由 KnightIdentityRuntime 管理：已有类型固定，旧档首次迁移采用原分配结果，
-///   新招募优先补当前岛数量最少的类型；GUID/style 只写独立附加档。
+/// - 身份由 KnightIdentityRuntime 管理：已有类型固定；首见零记录装载骑士由功能 A 一次批量均匀分配
+///   （取代逐人哈希迁移，见 KnightStylePanel），新招募优先补当前岛数量最少的类型；GUID/style 只写
+///   独立附加档。风格面板（KnightStylePanel）经 ApplyPanelRestyle 复用本文件的表现路径。
 /// - 读档只在完整原生快照匹配时恢复；客户端只使用主机确认的收据，不自行 hash。
 ///   缺资产时等待，不按资源池长度重映射已有类型。
 /// - OnEnable 清理上一生命的本地身份和渲染；转职与现有 5 秒巡检接入新身份。
@@ -476,7 +477,8 @@ public static class PatchRoles_KnightStyle
             EnsureStyleAssets();
             if (!HasUsablePool()) return;
             KnightIdentityRuntime.Poll();
-            KnightIdentityRuntime.PrimeExisting(UnitScanCache.GetKnights(), GetLegacyStyleForMigration);
+            // PrimeExisting 的唯一职责现在是冻结「本会话已生效风格」（首见哈希迁移已由功能 A 取代）。
+            KnightIdentityRuntime.PrimeExisting(UnitScanCache.GetKnights(), GetLiveStyleForFreeze);
             KnightIdentityLoadSeed.Flush();
 
             // 池复用清污：同实例带旧风格 → 先恢复原生再重摇（对象池 respawn
@@ -566,13 +568,20 @@ public static class PatchRoles_KnightStyle
         return state.StyleIndex;
     }
 
-    // 仅供没有附加档的旧骑士首次迁移；后续读档、资源补齐和网络头变化不再重算类型。
-    private static int GetLegacyStyleForMigration(Knight knight)
+    /// <summary>
+    /// PrimeExisting 的风格探针：只返回本会话已实际生效的风格（冻结语义），没有返回 -1。
+    /// 旧「哈希迁移回退」已由功能 A（KnightIdentityRuntime.AssignFirstSeenUniform）取代——首见零记录
+    /// 骑士在 PrimeExisting 之前一次批量均匀分配，本回调不再做任何哈希计算（绝不抢先铸哈希风格）。
+    /// </summary>
+    private static int GetLiveStyleForFreeze(Knight knight)
     {
-        int current = GetCurrentLifeStyle(knight);
-        if (current >= 0) return current;
-        if (!HasUsablePool() || !TryComputeIdentity(knight, out uint hash, out _)) return -1;
-        return AvailableStyles[(int)(hash % (uint)AvailableStyles.Count)];
+        return GetCurrentLifeStyle(knight);
+    }
+
+    /// <summary>功能 A 的只读探针：该骑士是否已有本会话生效的风格（有则交给冻结路径，不在批次重摇）。</summary>
+    private static bool HasLiveStyleForFreeze(Knight knight)
+    {
+        return GetCurrentLifeStyle(knight) >= 0;
     }
 
     private static KnightStyleState GetStyleState(Knight knight, int id)
@@ -822,7 +831,11 @@ public static class PatchRoles_KnightStyle
             // DefenseSpacing 的 3s 拍共用一份；本 5s 巡检的新鲜度要求——新招募
             // 骑士——由 Promote postfix 即时上风格保证，缓存 3s < 原 5s 节奏）。
             Knight[] knights = UnitScanCache.GetKnights();
-            KnightIdentityRuntime.PrimeExisting(knights, GetLegacyStyleForMigration);
+            // 功能 A（首见均匀分配）：零记录装载骑士在 PrimeExisting 之前一次批量均匀分配（取代逐人
+            // 哈希迁移）。MarkedNew（新招募 ChooseBalanced）/已有收据/FailedLoad/已在场风格不在本批范围；
+            // unresolved/失配/冲突上下文由本方法内部门拒绝（只能经面板 + 设计 C 处理）。
+            KnightIdentityRuntime.AssignFirstSeenUniform(knights, AvailableStyles, HasLiveStyleForFreeze);
+            KnightIdentityRuntime.PrimeExisting(knights, GetLiveStyleForFreeze);
             if (knights != null)
             {
                 for (int i = 0; i < knights.Length; i++)
@@ -1066,6 +1079,24 @@ public static class PatchRoles_KnightStyle
             styleIndex = -1;
             return false;
         }
+    }
+
+    /// <summary>
+    /// 风格面板（KnightStylePanel）门槛：风格资产池是否可用。面板应用前必须为真；
+    /// 为假时面板禁用应用并提示（身份写入会等资产，绝不因缺资产重映射已有类型）。
+    /// </summary>
+    internal static bool HasStylePool()
+    {
+        return HasUsablePool();
+    }
+
+    /// <summary>
+    /// 面板重派后的表现应用（复用既有 ApplyKnightStyle：读固定收据 → 设控制器/缩放/状态表）。
+    /// 身份已由面板写入；表现失败只等既有巡检重试，不影响收据。
+    /// </summary>
+    internal static void ApplyPanelRestyle(Knight knight)
+    {
+        ApplyKnightStyle(knight);
     }
 
     /// <summary>
