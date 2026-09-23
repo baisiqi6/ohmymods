@@ -198,8 +198,8 @@ internal static class PatchRoles_SamuraiPowerDash
     // here instead. rangeBehind = range makes the strip symmetric: the samurai must also see the
     // enemy that sits behind it while its homeward side is toward the enemy half, and height 1
     // matches the replaced scanner's own column. excludeDead = true is a deliberate deviation
-    // from this static scan's default (the native instance scanner was constructed with it, the
-    // native static scans leave it off): no dashing at corpses. Enemies only, never Wildlife --
+    // from BOTH the replaced native instance scanner and the native static scans (they run with
+    // it off, Knight.cs:177 / Scanner defaults): no dashing at corpses. Enemies only, never Wildlife --
     // the shared hit mask keeps Wildlife for damage, the target scan must not.
     private static GameObject ScanClosestEnemy(Knight k)
     {
