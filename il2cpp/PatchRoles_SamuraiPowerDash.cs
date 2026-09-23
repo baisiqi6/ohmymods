@@ -57,6 +57,22 @@ internal static class PatchRoles_SamuraiPowerDash
     private const int CaptureFailFrames = 30, HealRetryCap = 2, HealLogBudget = 12;
     private static readonly int SpeedParam = Animator.StringToHash("Speed");
     private static readonly Dictionary<int, ActorState> Actors = new();
+
+    /// <summary>仅诊断用（FrameWatch 记行时才遍历）：当前在跑的 Attack/Swallow 租约数。</summary>
+    internal static int ActiveCutLeases
+    {
+        get
+        {
+            int n = 0;
+            foreach (KeyValuePair<int, ActorState> pair in Actors)
+            {
+                MotionLease m = pair.Value?.Motion;
+                if (m != null && !m.Retired &&
+                    (m.Kind == MotionKind.Attack || m.Kind == MotionKind.Swallow)) n++;
+            }
+            return n;
+        }
+    }
     private static readonly int PowerSlash = Animator.StringToHash("PowerSlash");
     private static readonly HashSet<string> Logged = new();
     private static int HitLayerMask, EnemyScanLayer, WalkLogs, HealLogs;
@@ -536,10 +552,11 @@ internal static class PatchRoles_SamuraiPowerDash
     }
 
     /// <summary>
-    /// The calm state the repair replays: captured once per actor state on a settled, idle frame
-    /// (no lease, no transition, Speed at rest, no native slash pause) whose hash holds for two
-    /// frames and differs from the captured slash pose. Failure is silent; the next calm frame
-    /// retries.
+    /// The replay pose for the repair: captured once per actor state on any settled frame
+    /// (no lease, no transition, no native slash pause) whose hash holds for two frames and
+    /// differs from the captured slash pose — walking/running included (field evidence
+    /// 2026-09-24: Speed-at-rest starved the capture through whole combat sessions).
+    /// Failure is silent; the next settled frame retries.
     /// </summary>
     private static void TryCaptureDefaultPose(Knight k, ActorState a)
     {
@@ -548,9 +565,12 @@ internal static class PatchRoles_SamuraiPowerDash
         a.DefaultFrame = Time.frameCount;
         try
         {
+            // 2026-09-24 实机修订：不再要求 Speed 归零——战斗中速度参数几乎从不为 0，
+            // 旧条件让捕获长期饥饿（实机 heal 走到 play-skipped/toggle 兜底的直接原因）。
+            // 走路/跑步姿态同样是合格的回放目标；非转移、非本砍击态、非原生斩击暂停、
+            // 两帧稳定四道守卫保留（原生 Slash 态仍被 pauseTimeout 门排除在外）。
             Animator animator = ReadAnimator(k);
             if (animator == null || animator.IsInTransition(0) ||
-                Mathf.Abs(animator.GetFloat(SpeedParam)) >= .01f ||
                 k._mover == null || k._mover._pauseTimeout > 0)
             {
                 a.DefaultStable = 0;

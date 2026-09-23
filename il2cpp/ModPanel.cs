@@ -44,6 +44,7 @@ public class ModPanel : MonoBehaviour
         else if (_shown && Input.GetKeyDown(KeyCode.Escape))
             _shown = false;
         PatchUI_PanelFocus.Tick();
+        PatchDiag_FrameWatch.Tick();
         try { CalendarHud.Tick(); }
         catch { /* CalendarHud backs off internally; input toggles have already been handled. */ }
         try { PopulationHud.Tick(); }
