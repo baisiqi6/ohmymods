@@ -22,6 +22,7 @@ internal static partial class Program
         Run("acceleration_is_quarter_interval_with_floor", AccelerationQuarterAndFloor);
         Run("release_ends_hold_and_needs_new_press", ReleaseEndsHold);
         Run("new_shop_needs_a_new_press", NewShopNeedsNewPress);
+        Run("forge_sword_shop_joins_quick_buy_and_others_stay_out", ForgeSwordShopQuickBuy);
         Run("empty_wallet_stops_continuation_without_drop", EmptyWalletStops);
         Run("full_shelf_stops_continuation_without_drop", FullShelfStops);
         Run("pause_and_menu_stall_drop_the_session", PauseAndStallDrop);
@@ -69,6 +70,38 @@ internal static partial class Program
         Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "disabled toggle keeps no session");
         Eq(0, offEnv.P1.wallet.Dropped, "disabled toggle drops nothing");
         Eq(0.4f, offEnv.P1.timeBetweenCoins, "disabled toggle leaves the interval alone");
+    }
+
+    // 2026-09-23 用户要求：铁剑铺（ShopForge，Castle7 解锁的库存制 PayableShop）纳入长按快速购买。
+    // 同场景负对照：非白名单 tag（ChangeItemShop）不得进入加速态。
+    private static void ForgeSwordShopQuickBuy()
+    {
+        Reset();
+        Env env = new Env(priceA: 6, limitA: 20);
+        Shop forge = env.AddShop("ShopForge", 40f, 6, 20, false);
+        Player p = env.P1;
+        Env.StandAt(p, forge);
+        p.coins = 100;
+        int injections = 0;
+        for (int i = 0; i < 200; i++)
+            if (Env.Frame(p, true, i == 0)) injections++;
+        True(p.Purchases >= 3, "forge: one hold keeps buying, got " + p.Purchases);
+        Eq(p.Purchases, forge.TransactionCompleteCalls, "all purchases at the forge");
+        Eq(0, env.ShopA.TransactionCompleteCalls, "the hammer shop is never paid");
+        Eq(0, p.GroundDrops, "no coin may fall to the ground");
+
+        Reset();
+        Env other = new Env(priceA: 6, limitA: 20);
+        Shop change = other.AddShop("ChangeItemShop", 40f, 6, 20, false);
+        Player q = other.P1;
+        Env.StandAt(q, change);
+        q.coins = 100;
+        q.RecordReads = true;
+        int injections2 = 0;
+        for (int i = 0; i < 120; i++)
+            if (Env.Frame(q, true, i == 0)) injections2++;
+        Eq(0, injections2, "non-whitelisted shop never gets a synthesized press");
+        NoRead(q, 0.1f, "non-whitelisted shop never reads the accelerated interval");
     }
 
     private static void ContinuesSameShop()
