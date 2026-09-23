@@ -7,7 +7,7 @@
 - BepInEx 原始分发：`https://builds.bepinex.dev/projects/bepinex_be/788/BepInEx-Unity.IL2CPP-macos-x64-6.0.0-be.788%2B5b766a3.zip`。仅使用其中托管 core 与 Universal Doorstop；其中 x64 原生 Dobby/CoreCLR 不能用于 ARM64。原输入 SHA 由各 patcher 校验，未知输入直接拒绝。
 - ARM64 CoreCLR 为 .NET 6.0.36 osx-arm64。`dotnet/.version` 与 `Microsoft.NETCore.App.deps.json` 对应 `f1dd57165bfd91875761329ac3a8b17f6606ad18`。附加 Microsoft.Extensions/Bcl DLL 是 6.0.0，来源在第三方清单中单列。
 - Dobby 基线 `888d971214900374edbca6206fad6ded8a2c1311`。所有源码归档来源和 SHA 见 `third-party/source-inventory.json`；BepInEx、Il2CppInterop、Doorstop 的精确原始源码也在该目录中。
-- ohmymods 玩法源码固定为 `1088b9cd981efb32aa3afb03e91eea66ad1a451b`（v9.5.13）；测试收口提交 `7fde1e555cda95e3acea73b1c6455116c6abd611` 不修改生产 `il2cpp/` 树。Mac 原补丁归档固定 `9027335541b64621a0b8cf277bb07974bdc518b6`。
+- 上一版 Mac 预览包的 ohmymods 玩法源码为 `1088b9cd981efb32aa3afb03e91eea66ad1a451b`（v9.5.13）；测试收口提交 `7fde1e555cda95e3acea73b1c6455116c6abd611` 不修改该版生产 `il2cpp/` 树。本版玩法源码基线为 Windows 正式 `v9.14.24` 的 `28425cca45f7087a63c0205cb04e4e5756884874`；Mac 仅另加打包说明与发行材料，构建 DLL 和平台验收另记在本包 `VALIDATION.md`，不能沿用上一版的源码或 DLL 收据。Mac 原补丁归档仍固定 `9027335541b64621a0b8cf277bb07974bdc518b6`。
 
 若要从零构建上游 BepInEx/Interop，可解压对应源码、按其中项目文件恢复依赖后构建；源仓库的外部编译引用 DLL 未随本包重复分发。精确排除清单、完整官方源归档 URL 与 SHA 见 inventory。不要用本机另一个更新版本的上游 checkout 冒充本发行库来源。
 
@@ -57,6 +57,8 @@ cmake --build "$out" --target dobby
 
 ## Mod 与发行打包
 
-Mod 使用上述 tag 的 `il2cpp/*.cs` 与八个原项目 PNG EmbeddedResource，对玩家本地合法游戏生成的 interop、已锁定 core 引用编译，目标 net6.0、定义 `IL2CPP;BIE;BIE6`、版本 9.5.13。游戏及其生成程序集不是源码/发行包内容。当前已验收 Mod 原 DLL SHA 是 `162046f77e025d90b3d6c9b5ea25d92835cb0609c26563885898ae93dfc9fb8a`；发行前 CodeView 清理后的 SHA 单列在包 manifest 中。
+Mod 对锁定 core 与玩家本地合法游戏生成的 interop 引用编译，目标 net6.0、定义 `IL2CPP;BIE;BIE6`。上一版使用八张原项目 PNG；骑士风格面板增加五张预览图，整合候选共需十三张 EmbeddedResource，逻辑名与 `KnightStylePanel` 的加载路径一致。游戏及其生成程序集不是源码/发行包内容。上一版已验收 Mod 原 DLL SHA 为 `162046f77e025d90b3d6c9b5ea25d92835cb0609c26563885898ae93dfc9fb8a`；下一版必须以自身构建输出、input-lock 的 `mod_dll_sha256` 和包 manifest 三者逐字节对账，不能复用此历史 SHA。
+
+`input-lock.game.source_tag` 的 `1088b9c...` 记录首次锁定上述游戏四指纹时所用的仓库基线，**不是下一版 Mod 源码提交**。本轮源码来源和验收结论以 `VALIDATION.md` 的新增记录与对应 GitHub Release 为准。
 
 `build_package.py` 从明确的 staging、input-lock 和第三方材料清单构建 ZIP，不从游戏安装目录整体复制。运行参数和清单结构见 README。ZIP 固定条目时间、顺序和权限；任何源文件、构建设置或组件变化都需要新 hash、重新审查及相应平台验证。包中普通动态库可被替换，源码和修补工具公开；替换者需同步维护自己的 SHA 清单。
