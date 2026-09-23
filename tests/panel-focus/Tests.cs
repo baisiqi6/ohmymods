@@ -19,6 +19,7 @@ internal static class Program
         Run("non_gate_states_never_touch_menu_full_path", NonGateStatesNeverTouchMenu);
         Run("open_edge_menu_plus_map_pulls_map_once", OpenEdgeMenuPlusMap);
         Run("open_edge_pure_map_insurance", OpenEdgePureMapInsurance);
+        Run("open_edge_closing_map_is_left_alone", OpenEdgeClosingMapLeftAlone);
         Run("gate_counters_showmain_true_both_script_orders", GateCountersBothOrders);
         Run("close_ours_hides_once_without_restore", CloseOursHidesWithoutRestore);
         Run("close_user_menu_esc_layers_down_both_orders", CloseUserMenuBothOrders);
@@ -130,6 +131,23 @@ internal static class Program
         NativeMenuUpdate.Update(env, esc); // same-frame Menu.Update: restored + ESC
         Eq(2, env.Menu.HideOneCalls, "the same ESC lays the menu down exactly once (1->0)");
         Eq(0, env.Menu.targetDepth, "targetDepth never goes negative");
+    }
+
+    // 复审 P2-1：地图 Closing 动画期不得再 HideOne（多退一层最坏 1->0 连主菜单收走）。
+    // State.Closing=0 是枚举默认值——未初始化的 ActiveMap 也靠同一守卫兜住。
+    private static void OpenEdgeClosingMapLeftAlone()
+    {
+        Env env = new Env(Game.State.Menu);
+        env.Menu.ShowMainPanelStarted = true;
+        env.Menu.targetDepth = 2;
+        env.Menu.SetRaw(true);
+        env.Menu.ActiveMap = new MapTimelineMenu { CurrentState = MapTimelineMenu.State.Closing };
+        env.OpenPanel();
+        Eq(0, env.Menu.HideOneCalls, "closing map: never HideOne'd");
+        Eq(2, env.Menu.targetDepth, "depth untouched");
+        Eq(0, env.Menu.HideCalls, "no absolute Hide");
+        Eq(0, env.Game.NativeTryShowMenuCalls, "IsMenuShown true: no TryShowMenu");
+        Eq(false, env.Menu.interactable, "the menu behind is still gated");
     }
 
     private static void OpenEdgePureMapInsurance()
