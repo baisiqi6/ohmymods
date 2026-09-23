@@ -1038,6 +1038,25 @@ public static class PatchRoles_KnightStyle
     /// 已上风格且 StyleIndex==NorseStyleIndex。纯读、无副作用、不抛出。
     /// PatchRoles_NorseSquad 用它决定"随从是否要转化/装盾/巡检"。
     /// </summary>
+    // 候选诊断用：北境门的失败原因细化（IsNorseStyleKnight 的字符串版，供
+    // ShieldWallTotem 图腾征召诊断逐骑士记录；纯读不改状态）。
+    internal static string NorseGateReason(Knight knight)
+    {
+        try
+        {
+            if (knight == null || knight.gameObject == null) return "null-knight";
+            if (!States.TryGetValue(knight.gameObject.GetInstanceID(), out KnightStyleState state))
+                return "no-state";
+            if (!state.HasStyle) return "no-style";
+            if (state.NeedsRederive) return "needs-derivation";
+            if (state.Knight == null) return "state-knight-null";
+            if (state.Knight.Pointer != knight.Pointer) return "pointer-mismatch";
+            if (state.StyleIndex != NorseStyleIndex) return "style=" + state.StyleIndex;
+            return "norse-ok";
+        }
+        catch (Exception e) { return "gate-error:" + e.GetType().Name; }
+    }
+
     internal static bool IsNorseStyleKnight(Knight knight)
     {
         try
