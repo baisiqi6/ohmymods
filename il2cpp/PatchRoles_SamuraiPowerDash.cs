@@ -57,6 +57,22 @@ internal static class PatchRoles_SamuraiPowerDash
     private const int CaptureFailFrames = 30, HealRetryCap = 2, HealLogBudget = 12;
     private static readonly int SpeedParam = Animator.StringToHash("Speed");
     private static readonly Dictionary<int, ActorState> Actors = new();
+
+    /// <summary>仅诊断用（FrameWatch 记行时才遍历）：当前在跑的 Attack/Swallow 租约数。</summary>
+    internal static int ActiveCutLeases
+    {
+        get
+        {
+            int n = 0;
+            foreach (KeyValuePair<int, ActorState> pair in Actors)
+            {
+                MotionLease m = pair.Value?.Motion;
+                if (m != null && !m.Retired &&
+                    (m.Kind == MotionKind.Attack || m.Kind == MotionKind.Swallow)) n++;
+            }
+            return n;
+        }
+    }
     private static readonly int PowerSlash = Animator.StringToHash("PowerSlash");
     private static readonly HashSet<string> Logged = new();
     private static int HitLayerMask, EnemyScanLayer, WalkLogs, HealLogs;
