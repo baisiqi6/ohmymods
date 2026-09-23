@@ -61,6 +61,10 @@ public class KingdomEnhancedPlugin :
             var harmony = new HarmonyLib.Harmony(MyPluginInfo.PLUGIN_GUID);
             harmony.PatchAll(typeof(KingdomEnhancedPlugin).Assembly);
 
+            // F5 面板输入门：手动解析安装（PatchAll 对解析失败的 attribute 会抛异常拖垮整个
+            // 插件；候选集解析 + fail-closed 见 PatchUI_PanelFocus）
+            PatchUI_PanelFocus.InstallInputGate(harmony);
+
             // 游戏内设置面板（Ctrl+F10 / F5 呼出）
             ModPanel.EnsureCreated();
             LogSource.LogInfo("[SamuraiDiag] event=armed passive=true burst=8 refill=1/game-second maxLinesPerDash=12; renderer-state logs do not prove screen visibility");

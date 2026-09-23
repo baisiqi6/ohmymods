@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Behavior tests for PatchUI_PanelFocus (panel auto-pause + input gate + native menu
+       suppression). Links the UNMODIFIED production file via Compile Include; every game /
+       Unity / Harmony / sibling-mod surface is stubbed in Stubs.cs and the vanilla 2.1.0
+       Game.Update input pump, CheckForPause, TryShowMenu and Menu depth flows are reproduced
+       in NativeSim.cs. Nothing here reimplements the production algorithm. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>PanelFocusTests</AssemblyName>
+    <RootNamespace>PanelFocusTests</RootNamespace>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+    <GeneratePropertiesFile>false</GeneratePropertiesFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/PatchUI_PanelFocus.cs" Link="PatchUI_PanelFocus.cs" />
+  </ItemGroup>
+
+</Project>
