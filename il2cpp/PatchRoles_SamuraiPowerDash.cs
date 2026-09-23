@@ -40,7 +40,10 @@ internal static class PatchRoles_SamuraiPowerDash
     // cut straight back to that dash's origin. One 30% roll per qualified completion, a
     // per-knight 6 s cooldown counted from the actual start, and the ordinary return's
     // failure ladder is never touched by this motion.
-    private const float SwallowChance = .30f, SwallowCooldown = 6f, SwallowMinTravel = 1.5f, SwallowArrive = .25f;
+    // 2026-09-24 用户裁定：燕返由 30% 概率+6s 冷却改为必定触发（无冷却）——怪堆里防御
+    // 姿态退回=送死，反向冲刺才是保命手段。其余资格门（follower/行程窗/暂停/外来目标/
+    /// 夜墙 goalMode 归属等）全部保留，资格外的完成仍走防御回撤。
+    private const float SwallowMinTravel = 1.5f, SwallowArrive = .25f;
 
     // A spent dash ladder degrades into a plain walk home. While the leash is broken the
     // knight always has a goal: after any failed burst it walks, the burst is retried only
@@ -92,7 +95,7 @@ internal static class PatchRoles_SamuraiPowerDash
         // Swallow-return bookkeeping: the roll is pending for exactly the frame after a
         // naturally completed attack dash; the cooldown starts only at a real start.
         internal bool PendingSwallow;
-        internal float SwallowOriginX, NextSwallowAt;
+        internal float SwallowOriginX;
         internal int SwallowFrame = -1;
         // Stuck-pose probe (see the class comment): a cut lease arms it for good (HasCutHistory),
         // the captured hashes are what the pose check and the repair replay compare against, and
@@ -856,19 +859,17 @@ internal static class PatchRoles_SamuraiPowerDash
         bool start = fresh && follower && !returnDue && !NightGuard(k) && Time.timeScale > 0 &&
             k._mover._pauseTimeout <= 0 && k._mover.goalMode == Mover.GoalMode.Off &&
             k._mover.facingMode == Mover.FacingMode.Ahead &&
-            Time.time >= a.NextSwallowAt && travel >= SwallowMinTravel && travel <= MaxRange &&
-            UnityEngine.Random.value < SwallowChance; // the host decides; Eligible gated authority
+            travel >= SwallowMinTravel && travel <= MaxRange; // deterministic since 2026-09-24
         a.PendingSwallow = false;
         if (!start) return false;
         float x = k.transform.position.x;
         var swallow = Begin(a, MotionKind.Swallow, x + Mathf.Clamp(a.SwallowOriginX - x, -MaxRange, MaxRange));
-        a.NextSwallowAt = Time.time + SwallowCooldown; // counted from the actual start only
         SamuraiDashDiagnostics.Write(swallow.Diagnostics, "swallow",
             "origin=" + a.SwallowOriginX.ToString("0.##") + " facing=" + swallow.FacingWritten);
         if (Logged.Add("swallow-start"))
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/swallow-start] x=" +
                 x.ToString("0.##") + " origin=" + a.SwallowOriginX.ToString("0.##") +
-                " chance=" + SwallowChance + " cooldown=" + SwallowCooldown);
+                " deterministic");
         HitScan(swallow); // entry frame hits, same as every other dash's first step
         if (Current(swallow) && (!ValidMotion(swallow) || !ValidFollower(k, a.Follower)))
             Finish(swallow); // Handoff: no ladder and no attack-cooldown impact
