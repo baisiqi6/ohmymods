@@ -7,7 +7,7 @@
 - BepInEx 原始分发：`https://builds.bepinex.dev/projects/bepinex_be/788/BepInEx-Unity.IL2CPP-macos-x64-6.0.0-be.788%2B5b766a3.zip`。仅使用其中托管 core 与 Universal Doorstop；其中 x64 原生 Dobby/CoreCLR 不能用于 ARM64。原输入 SHA 由各 patcher 校验，未知输入直接拒绝。
 - ARM64 CoreCLR 为 .NET 6.0.36 osx-arm64。`dotnet/.version` 与 `Microsoft.NETCore.App.deps.json` 对应 `f1dd57165bfd91875761329ac3a8b17f6606ad18`。附加 Microsoft.Extensions/Bcl DLL 是 6.0.0，来源在第三方清单中单列。
 - Dobby 基线 `888d971214900374edbca6206fad6ded8a2c1311`。所有源码归档来源和 SHA 见 `third-party/source-inventory.json`；BepInEx、Il2CppInterop、Doorstop 的精确原始源码也在该目录中。
-- 上一版 Mac 预览包的 ohmymods 玩法源码为 `1088b9cd981efb32aa3afb03e91eea66ad1a451b`（v9.5.13）；测试收口提交 `7fde1e555cda95e3acea73b1c6455116c6abd611` 不修改该版生产 `il2cpp/` 树。下一版整合候选的玩法源码、DLL 与精确提交另记在本包 `VALIDATION.md`，不能沿用上一版的源码或 DLL 收据。Mac 原补丁归档仍固定 `9027335541b64621a0b8cf277bb07974bdc518b6`。
+- 上一版 Mac 预览包的 ohmymods 玩法源码为 `1088b9cd981efb32aa3afb03e91eea66ad1a451b`（v9.5.13）；测试收口提交 `7fde1e555cda95e3acea73b1c6455116c6abd611` 不修改该版生产 `il2cpp/` 树。本版玩法源码基线为 Windows 正式 `v9.14.24` 的 `28425cca45f7087a63c0205cb04e4e5756884874`；Mac 仅另加打包说明与发行材料，构建 DLL 和平台验收另记在本包 `VALIDATION.md`，不能沿用上一版的源码或 DLL 收据。Mac 原补丁归档仍固定 `9027335541b64621a0b8cf277bb07974bdc518b6`。
 
 若要从零构建上游 BepInEx/Interop，可解压对应源码、按其中项目文件恢复依赖后构建；源仓库的外部编译引用 DLL 未随本包重复分发。精确排除清单、完整官方源归档 URL 与 SHA 见 inventory。不要用本机另一个更新版本的上游 checkout 冒充本发行库来源。
 
