@@ -63,4 +63,6 @@ Mac 整合任务为 [Issue #29](https://github.com/baisiqi6/ohmymods/issues/29) 
 
 从内部 ZIP 全新解压后，首次联网取得 Unity 基础库、生成 interop；日志证实 1 个插件加载、Mod 加载、面板对象建立与 Chainloader 完成。约 68 秒时操作员向本次启动的进程组发送 SIGTERM，退出码 143，游戏进程无残留。共享游戏数据未改变，偏好文件从启动前备份恢复并核对字节，游戏 `.app` 的完整文件清单未改变。已知 HarmonyX 堆栈修复权限提示与上一版相同；未见新的 Mod 加载错误。**未操作 F5 面板或具体玩法、未实测身份 schema v4 存读档、换岛、联机；Mac x64 与 Windows 不在本记录范围。**
 
-独立审查发现两个发布阻塞：#28 无 binding 时面板仍可能应用后无法持久化，已回原 PR 由 Windows owner 修复；本包 README/REBUILD/VALIDATION 需随最终源码、版本号与降级说明更新并重建。此节保存内部候选历史，不作为最终发行回执。
+独立审查指出 #28 无 binding 时面板仍可能应用后无法持久化，已回原 PR 由 Windows owner 修复；最终包必须采用该修复后的源码并重跑验证。三份包内说明已先补充本轮功能、历史/当前来源边界和 schema v4 降级步骤；最终版本号、DLL SHA 与发行验收仍须在对应 Release 确认。
+
+随后仅因上述说明及 input-lock 变化构建了内部 `integration.2` 包，Mod DLL 仍为本节记录的 `c80a67bc...`。本节的 `integration.1` ZIP SHA 只标识第一份历史内部候选；ZIP 自身不能把其最终 SHA 写入包内文件，否则会形成自引用。每份后续 ZIP 的精确 SHA 均在包外验收文件和发布页记录。此节不作为最终发行回执。
