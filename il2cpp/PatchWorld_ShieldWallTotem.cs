@@ -77,7 +77,14 @@ public static class PatchWorld_ShieldWallTotem
     private static bool _loggedActiveFallback;
     private static bool _loggedPassiveFallback;
     private static bool _loggedNoFormationPrefab;
-    private static bool _loggedNonNorseKnightBlocked;
+    // 候选诊断（2026-09-23 用户报告"点亮守家图腾时旁边北境骑士未入墙、墙全工匠"）：
+    // 图腾征召会连续调用 CanJoinFormation（每骑士一次），把 2s 窗口内的连续过滤调用
+    // 视为一次征召 burst；下一次调用距上次 >2s 时先输出上一个 burst 的汇总再重置。
+    // 汇总=评估数/放行数/拦截数+拦截原因样本（≤6 条，KnightStyle.NorseGateReason）。
+    private static float _burstLastCallAt = -10f;
+    private static int _burstEvaluated, _burstPassed, _burstBlocked;
+    private static readonly System.Collections.Generic.List<string> _burstBlockReasons =
+        new System.Collections.Generic.List<string>();
 
     private static void LogInfo(string message)
     {
@@ -236,15 +243,46 @@ public static class PatchWorld_ShieldWallTotem
         if (type != Formation.FormationType.ActiveShieldWall
             && type != Formation.FormationType.PassiveShieldWall)
             return;
+        RecordCandidate(knight);
         if (PatchRoles_KnightStyle.IsNorseStyleKnight(knight)) return;
 
         result = false;
-        if (!_loggedNonNorseKnightBlocked)
+    }
+
+    private static void RecordCandidate(Knight knight)
+    {
+        float now = Time.unscaledTime;
+        if (now - _burstLastCallAt > 2f)
         {
-            _loggedNonNorseKnightBlocked = true;
-            LogInfo("non-norse knight excluded from greece shield-wall recruitment");
+            if (_burstEvaluated > 0)
+                LogInfo("shield-wall recruitment burst: evaluated=" + _burstEvaluated
+                    + " passed=" + _burstPassed + " blocked=" + _burstBlocked
+                    + (_burstBlockReasons.Count > 0
+                        ? " blockReasons=" + string.Join(",", _burstBlockReasons.ToArray())
+                        : ""));
+            _burstEvaluated = _burstPassed = _burstBlocked = 0;
+            _burstBlockReasons.Clear();
+        }
+        _burstLastCallAt = now;
+        _burstEvaluated++;
+        string reason = PatchRoles_KnightStyle.NorseGateReason(knight);
+        if (reason == "norse-ok") _burstPassed++;
+        else
+        {
+            _burstBlocked++;
+            if (_burstBlockReasons.Count < 6) _burstBlockReasons.Add(reason);
+            // 即时行（10s 限频）：点亮图腾的当下就能看到第一个被拦骑士的原因；
+            // 汇总行在下次征召 burst 开始时补出完整画面。
+            if (Time.unscaledTime - _lastImmediateBlockLog > 10f)
+            {
+                _lastImmediateBlockLog = Time.unscaledTime;
+                LogInfo("shield-wall knight blocked now: reason=" + reason
+                    + " (burst so far evaluated=" + _burstEvaluated + ")");
+            }
         }
     }
+
+    private static float _lastImmediateBlockLog = -10f;
 
     // ============================================================
     // prefab 解析（Resources.LoadAll + 30s 限频，NorseSquad 先例）
