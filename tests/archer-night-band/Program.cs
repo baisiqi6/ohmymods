@@ -2,11 +2,13 @@ using System.Reflection;
 using KingdomEnhancedMod;
 using UnityEngine;
 
-// 自由弓手夜间射击带（α′，archer-night-band）回归套件。两层覆盖：
-//  A. 模块级（PatchRoles_ArcherNightBand.TryTakeRedirect）：门序矩阵/深度预检/
-//     带闸/两侧与中性侧/带内确定性/白天零变化/遥测预算/零字段写/权限。
+// 自由弓手夜间射击带（α′ + 安全走廊，archer-night-band）回归套件。两层覆盖：
+//  A. 模块级（PatchRoles_ArcherNightBand.TryTakeRedirect）：门序矩阵/三分支深度
+//     预检（浅位 [3,4)/中带放行/深位 [6,7)）/边界（==Floor/Floor−ε/[Floor,Cap]）/
+//     带闸与下沿 −2.5/两侧与中性侧/带内确定性/火枪手纳入/白天零变化/遥测预算/
+//     零字段写/权限。
 //  B. 真实前缀集成（archerband 抽取：DayAssembleSpreadPrefix + MirrorNightArcherGoal +
-//     NightParkedFollowerSweep）：深位改写落点与递归守卫、浅位放行、墙外镜像不回归、
+//     NightParkedFollowerSweep）：浅/深位改写落点与递归守卫、墙外镜像抬到 ≥Floor、
 //     排除项逐帧 goal 零改写、弩手通道优先、sweep 目标 ≤Cap 带与三态通道。
 internal static class Program
 {
@@ -33,6 +35,11 @@ internal static class Program
 
     private static void InBand(float depth, string message) =>
         Check(depth >= Cap - Spread - Eps && depth <= Cap + Eps, $"{message}: depth {depth} outside [Cap-{Spread}, Cap]");
+
+    private static void InShallowBand(float depth, string message) =>
+        Check(depth >= PatchRoles_ArcherNightBand.Floor - Eps
+            && depth <= PatchRoles_ArcherNightBand.Floor + Spread + Eps,
+            $"{message}: depth {depth} outside [Floor, Floor+{Spread}]");
 
     private static void Test(string name, Action body)
     {
@@ -149,17 +156,71 @@ internal static class Program
             Check(target < 0f && target > -100f, "target stays inside the left half");
         });
 
-        Test("shallow, outside and non-finite goals pass through untouched", () =>
+        Test("shallow kill-zone guard goal moves up into [Floor, Floor+spread)", () =>
         {
             Night();
             var (a, _) = NewArcher(Side.Right);
-            Check(!Redirect(a, 93f, out _), "depth 7 (== Cap) passes");
+            Check(Redirect(a, 99f, out float target), "depth 1 (kill zone) redirected");
+            InShallowBand(100f - target, "shallow right target");
+            for (int i = 0; i < 3; i++)
+            {
+                Check(Redirect(a, 99f, out float again), "repeat redirect");
+                Eq(target, again, "same instanceID → stable shallow target");
+            }
+            // 墙外近区（镜像窄带内）也由走廊接管：101.5 → 墙内 [3,4)
+            var (b, _) = NewArcher(Side.Right);
+            Check(Redirect(b, 101.5f, out float outsideNear), "outside-near-band shallow goal redirected");
+            InShallowBand(100f - outsideNear, "outside-near target");
+        });
+
+        Test("corridor boundaries: ==Floor passes, Floor−ε rewrites, Cap passes", () =>
+        {
+            Night();
+            var (a, _) = NewArcher(Side.Right);
+            Check(!Redirect(a, 97f, out _), "depth == Floor passes untouched");
+            var (b, _) = NewArcher(Side.Right);
+            Check(Redirect(b, 97.0005f, out float t), "depth Floor−ε is a shallow candidate");
+            InShallowBand(100f - t, "Floor−ε target");
+            var (c, _) = NewArcher(Side.Right);
+            Check(!Redirect(c, 94f, out _), "depth 6 inside [Floor,Cap] passes");
+            var (d, _) = NewArcher(Side.Right);
+            Check(Redirect(d, 92.5f, out float deepT), "depth 7.5 (> Cap) is a deep candidate");
+            InBand(100f - deepT, "deep target");
+        });
+
+        Test("shallow non-wall-state targets pass silently (key negative)", () =>
+        {
+            Night();
+            var (a, _) = NewArcher(Side.Right);
+            a.behaviour.latestGoto = 10;               // 追击/任务态：非城墙态
+            Check(!Redirect(a, 99f, out _), "off-wall state shallow goal passes");
+            var (b, _) = NewArcher(Side.Right);
+            b.WallDuty = false;                        // ShouldGoToWall false
+            Check(!Redirect(b, 99f, out _), "non-wall-duty shallow goal passes");
+            Eq(0, Infos.Count, "silent gate leaves telemetry untouched");
+        });
+
+        Test("shallow goals beyond the −2.5 outside edge pass with an explicit band mismatch", () =>
+        {
+            Night();
+            var (a, _) = NewArcher(Side.Right);
+            Check(!Redirect(a, 103f, out _), "depth −3 state-8 goal passes");
+            Check(Infos.Count == 1 && Infos[0].Contains("reason=band"), "lower edge is explicit");
+            var (b, _) = NewArcher(Side.Right);
+            Check(!Redirect(b, 106f, out _), "depth −6 passes");
+            Eq(1, Infos.Count, "first-only mismatch telemetry");
+        });
+
+        Test("middle band and non-finite goals pass through untouched", () =>
+        {
+            Night();
+            var (a, _) = NewArcher(Side.Right);
+            Check(!Redirect(a, 97f, out _), "depth 3 (== Floor) passes");
             Check(!Redirect(a, 93.5f, out _), "depth 6.5 passes");
-            Check(!Redirect(a, 101.5f, out _), "outside-wall goal passes");
-            Check(!Redirect(a, 105f, out _), "far-outside goal passes");
+            Check(!Redirect(a, 93f, out _), "depth 7 (== Cap) passes");
             Check(!Redirect(a, float.NaN, out _), "NaN goal passes");
             Check(!Redirect(a, float.PositiveInfinity, out _), "infinite goal passes");
-            Eq(0, Infos.Count, "precheck never logs");
+            Eq(0, Infos.Count, "middle band never logs");
         });
 
         Test("band gate caps only native-formula-scale targets", () =>
@@ -196,7 +257,6 @@ internal static class Program
                 ("targeting embarkable", a => a._embarkee.IsTargetingEmbarkable = true),
                 ("embarkable target", a => a._embarkee.EmbarkableTarget = new object()),
                 ("crossbowman", a => a.Crossbow = true),
-                ("musketeer", a => a.Musketeer = true),
                 ("hero", a => a.Hero = true),
                 ("dead", a => a._damageable.isDead = true),
                 ("not wall duty", a => a.WallDuty = false),
@@ -208,9 +268,91 @@ internal static class Program
                 Night();
                 var (a, _) = NewArcher(Side.Right);
                 entry.Item2(a);
-                Check(!Redirect(a, 90f, out _), "excluded: " + entry.Item1);
+                bool r = Redirect(a, 90f, out _);
+                Check(!r, "excluded: " + entry.Item1);
             }
             Check(Infos.Any(s => s.Contains("[ArcherNightBand/mismatch]")), "first mismatch recorded");
+        });
+
+        Test("the same exclusion set rejects shallow candidates", () =>
+        {
+            var entries = new (string, Action<Archer>)[]
+            {
+                ("knight follower", a => a._knight = new Knight()),
+                ("guard slot", a => a._guardSlot = new GuardSlot()),
+                ("in guard slot", a => a.inGuardSlot = true),
+                ("tower height", a => a.transform.position = new Vector3(a.transform.position.x, 3f, 0f)),
+                ("formation", a => a.Formation = new Formation()),
+                ("player control", a => a.ControlRequested = true),
+                ("inert", a => a._character.inert = true),
+                ("grabbed", a => a._character.grabbed = true),
+                ("stationary", a => a._character.isStationary = true),
+                ("no character", a => a._character = null),
+                ("embarked", a => a._embarkee.IsEmbarked = true),
+                ("targeting embarkable", a => a._embarkee.IsTargetingEmbarkable = true),
+                ("embarkable target", a => a._embarkee.EmbarkableTarget = new object()),
+                ("crossbowman", a => a.Crossbow = true),
+                ("hero", a => a.Hero = true),
+                ("dead", a => a._damageable.isDead = true),
+                ("not wall duty", a => a.WallDuty = false),
+                ("off wall state", a => a.behaviour.latestGoto = 10),
+                ("no behaviour", a => a.behaviour = null),
+            };
+            foreach (var entry in entries)
+            {
+                Night();
+                var (a, _) = NewArcher(Side.Right);
+                entry.Item2(a);
+                Check(!Redirect(a, 99f, out _), "shallow excluded: " + entry.Item1);
+            }
+        });
+
+        Test("musketeers take the corridor like ordinary archers, formation still passes", () =>
+        {
+            Night();
+            var (a, _) = NewArcher(Side.Right);
+            a.Musketeer = true;
+            Check(Redirect(a, 99f, out float shallow), "musketeer shallow goal redirected");
+            InShallowBand(100f - shallow, "musketeer shallow band");
+            var (b, _) = NewArcher(Side.Left);
+            b.Musketeer = true;
+            Check(Redirect(b, -99f, out float left), "musketeer left goal redirected");
+            InShallowBand((-100f - left) * -1f, "musketeer left band");
+            Check(left < -96f && left > -100f, "left target stays inside the corridor");
+            var (c, _) = NewArcher(Side.Right);
+            c.Musketeer = true;
+            Check(Redirect(c, 90f, out float deep), "musketeer deep goal redirected");
+            InBand(100f - deep, "musketeer deep band");
+            var (d, _) = NewArcher(Side.Right);
+            d.Musketeer = true;
+            d.Formation = new Formation();
+            Check(!Redirect(d, 99f, out _), "formation musketeer shallow passes native");
+            var (e, _) = NewArcher(Side.Right);
+            e.Musketeer = true;
+            e.Formation = new Formation();
+            Check(!Redirect(e, 90f, out _), "formation musketeer deep passes native");
+        });
+
+        Test("shallow target depth is stable per instance and spread across ids", () =>
+        {
+            Night();
+            var depths = new List<float>();
+            var archers = new List<Archer>();
+            for (int i = 0; i < 32; i++)
+            {
+                var (a, _) = NewArcher(Side.Right);
+                archers.Add(a);
+                Check(Redirect(a, 99f, out float t), "batch shallow redirect");
+                depths.Add(100f - t);
+            }
+            Check(depths.All(d => d >= PatchRoles_ArcherNightBand.Floor - Eps
+                && d <= PatchRoles_ArcherNightBand.Floor + Spread + Eps), "all inside [Floor, Floor+spread]");
+            Check(depths.Distinct().Count() > 1, "hash actually spreads ids");
+            for (int i = 0; i < archers.Count; i++)
+            {
+                Check(Redirect(archers[i], 99f, out float t), "repeat redirect");
+                Eq(depths[i], 100f - t, "stable per instance");
+            }
         });
 
         Test("first mismatch names the failing gate", () =>
@@ -282,27 +424,27 @@ internal static class Program
             Eq(2, Infos.Count, "budget refilled after daytime");
         });
 
-        Test("nightly telemetry budget is a hard four lines", () =>
+        Test("nightly telemetry budget is a hard six lines", () =>
         {
             Night();
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < 8; i++)
             {
                 var (a, _) = NewArcher(Side.Right);
                 Check(Redirect(a, 90f, out _), "batch redirect");
             }
-            Eq(4, Infos.Count, "four lines max");
+            Eq(6, Infos.Count, "six lines max");
             var (x, _) = NewArcher(Side.Right);
             x.Crossbow = true;
             Check(!Redirect(x, 90f, out _), "excluded after budget");
-            Eq(4, Infos.Count, "no fifth line");
+            Eq(6, Infos.Count, "no seventh line");
             Managers.Inst.director.currentTime = 12f;
             var (y, _) = NewArcher(Side.Right);
             Check(!Redirect(y, 90f, out _), "day resets");
-            Eq(4, Infos.Count, "day itself adds nothing");
+            Eq(6, Infos.Count, "day itself adds nothing");
             Night();
             var (z, _) = NewArcher(Side.Right);
             Check(Redirect(z, 90f, out _), "new night redirect");
-            Eq(5, Infos.Count, "one fresh line after reset");
+            Eq(7, Infos.Count, "one fresh line after reset");
         });
 
         Test("mod switch and authority gate all rewrites", () =>
@@ -330,6 +472,16 @@ internal static class Program
             Eq(spacing, a._unitSpacingAtWall, "spacing untouched");
             Eq(random, a._guardRandomOffset, "random untouched");
             Check(pos.x == a.transform.position.x && pos.y == a.transform.position.y, "position untouched");
+
+            var (b, _) = NewArcher(Side.Right);
+            int shallowDepth = b._guardDepth;
+            float shallowMin = b._minDistanceFromWall, shallowSpacing = b._unitSpacingAtWall,
+                shallowRandom = b._guardRandomOffset;
+            Check(Redirect(b, 99f, out _), "shallow redirect");
+            Eq(shallowDepth, b._guardDepth, "shallow: guardDepth untouched");
+            Eq(shallowMin, b._minDistanceFromWall, "shallow: min untouched");
+            Eq(shallowSpacing, b._unitSpacingAtWall, "shallow: spacing untouched");
+            Eq(shallowRandom, b._guardRandomOffset, "shallow: random untouched");
         });
 
         // ================= B. 真实前缀集成 =================
@@ -345,7 +497,7 @@ internal static class Program
             Eq(2f, m.Speed, "existing speed chain preserved");
             m.SetGoal(95f, 2f);
             Eq(2, m.NativeFloatGoals, "guard cleared: next goal lands normally");
-            Eq(95f, m.Goal, "shallow goal untouched");
+            Eq(95f, m.Goal, "middle-band goal untouched");
         });
 
         Test("deep left-side goal is rewritten through the prefix with the left sign", () =>
@@ -359,14 +511,39 @@ internal static class Program
             Check(m.Goal < -90f, "moved toward the left wall");
         });
 
-        Test("outside-narrow-band mirror still mirrors to 0.5 inside", () =>
+        Test("extracted prefix rewrites a shallow kill-zone goal into the corridor", () =>
         {
             Night();
             Mover.FloatIntercept = Intercept;
             var (a, m) = NewArcher(Side.Right);
-            m.SetGoal(101.5f, 2f); // 墙外 1.5 → 镜像到墙内 2.0
+            m.SetGoal(99f, 2f);
+            Eq(1, m.NativeFloatGoals, "one native goal execution (no recursion)");
+            InShallowBand(100f - m.Goal, "shallow goal moved into [3,4)");
+            Eq(2f, m.Speed, "existing speed chain preserved");
+        });
+
+        Test("prefix dispatches a musketeer shallow goal into the corridor", () =>
+        {
+            Night();
+            Mover.FloatIntercept = Intercept;
+            var (a, m) = NewArcher(Side.Right);
+            a.Musketeer = true;
+            m.SetGoal(99f, 2f);
+            Eq(1, m.NativeFloatGoals, "musketeer corridor redirect recorded once");
+            InShallowBand(100f - m.Goal, "musketeer target inside [3,4)");
+        });
+
+        Test("outside-narrow-band mirror lifts the target above the kill-band floor", () =>
+        {
+            Night();
+            Mover.FloatIntercept = Intercept;
+            var (a, m) = NewArcher(Side.Right);
+            a.behaviour.latestGoto = 10;             // 非城墙态：走廊放行，镜像接管
+            m.SetGoal(101.5f, 2f);                   // 墙外 1.5：旧式落 2.0（新击杀带）
             Eq(1, m.NativeFloatGoals, "mirror redirect recorded once");
-            Eq(98f, m.Goal, "mirrored to depth 2.0 inside");
+            Eq(96.25f, m.Goal, "mirrored to Floor+0.5×1.5 = 3.75 inside");
+            Check(100f - m.Goal >= PatchRoles_ArcherNightBand.Floor - Eps,
+                "mirror target clears the corridor floor");
         });
 
         Test("excluded formation goals stay native even when reissued every frame", () =>
@@ -378,6 +555,12 @@ internal static class Program
             for (int i = 0; i < 10; i++) m.SetGoal(90f, 2f);
             Eq(10, m.NativeFloatGoals, "every issue lands native");
             Eq(90f, m.Goal, "goal never rewritten");
+
+            var (b, n) = NewArcher(Side.Right);
+            b.Formation = new Formation();
+            for (int i = 0; i < 10; i++) n.SetGoal(99f, 2f);
+            Eq(10, n.NativeFloatGoals, "shallow formation issue lands native too");
+            Eq(99f, n.Goal, "shallow goal never rewritten");
         });
 
         Test("crossbowman deep goals never enter the archer band", () =>
