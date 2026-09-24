@@ -8,7 +8,9 @@ namespace KingdomEnhancedMod;
 /// <summary>Four owned renderers per knight; no original renderer/material writes or gameplay components.</summary>
 internal static class SamuraiDashVisuals
 {
-    private const float Lifetime = .2f, SampleInterval = .04f, SampleDistance = .4f;
+    // 残影持续 1 秒（2026-09-24，用户裁定）：幻影淡出总窗从 .2 s 拉到 1 s，与拖尾的
+    // PatchRoles_SamuraiPowerDash.SamuraiTrailLifetime 同步。采样密度（间隔/距离）不动。
+    private const float Lifetime = 1f, SampleInterval = .04f, SampleDistance = .4f;
     private static readonly float[] Opacity = { .45f, .25f, .10f };
     private static readonly Dictionary<int, OwnerState> Owners = new();
     private static readonly List<int> Retire = new();
@@ -241,7 +243,7 @@ internal static class SamuraiDashVisuals
             LogVisual(state, "visual-ready", "created-or-reused; renderer-state-not-screen-proof");
             if (Logged.Add("ready"))
             {
-                try { KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiVisuals] ready: 3 ghosts alpha=.45/.25/.10 lifetime=.2s; body overlay follows burst"); }
+                try { KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiVisuals] ready: 3 ghosts alpha=.45/.25/.10 lifetime=" + Lifetime.ToString("0.##") + "s; body overlay follows burst"); }
                 catch { }
             }
             return token;

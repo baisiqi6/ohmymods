@@ -35,6 +35,15 @@ internal static class PatchRoles_SamuraiPowerDash
     // is still running, so a dash never cuts itself off on its own start frame. The return
     // family keeps FollowLeash: that is the walk-home trigger and must not move with the cap.
     private const float AttackLeash = MaxRange + 2.5f + .5f;
+    // 2026-09-24 用户裁定：攻击冲刺改混合固定距离——goal = startX + Sign(dx) × max(|dx| - .5, 7)。
+    // 近敌(|dx|≤7.5)固定 7 格穿过目标（消灭贴墙 0.04-0.09 s 小戳、燕返行程门永远不过、8.2-10.5
+    // 零伤害死区），远敌照常停在敌前 0.5。timeout 最长 10/18≈.556<.6、燕返行程窗 [7,10]⊆[1.5,10.5]，
+    // AttackLeash 不变量不动；用户要更长冲刺只改这一个常量即可。
+    private const float SamuraiFixedDashDistance = 7f;
+    // 残影持续 1 秒（2026-09-24）：冲刺期间把拖尾 lifetime 钉在 1 秒。原生对这个组件只开关
+    // enabled、全 mod 无既有 time 写点，故 Begin 快照 OldTrailTime、RestoreEffects 仅在
+    // trail.time 仍等于写入值时归还（invulnerable/OldTrail 同款纪律）。
+    private const float SamuraiTrailLifetime = 1f;
     private const float DashSpeed = 18f, DashTimeout = .6f, FollowLeash = 10f, ReturnStop = 4f;
     // Swallow return (燕返): after an attack dash that ran its full course the samurai may
     // failure ladder is never touched by this motion.
@@ -56,6 +65,11 @@ internal static class PatchRoles_SamuraiPowerDash
     // HealLogEvery seconds and capped at HealLogBudget lines per session.
     private const float CutWindow = 8f, StuckAfter = 1.5f, HealLogEvery = 6f;
     private const int CaptureFailFrames = 30, HealRetryCap = 2, HealLogBudget = 12;
+    // Swallow-start narrative (2026-09-24): the old once-per-session key starved exactly the
+    // diagnosis this line exists for, so it now mirrors the heal log -- a session budget plus a
+    // per-knight throttle.
+    private const float SwallowLogEvery = 6f;
+    private const int SwallowLogBudget = 12;
     private static readonly int SpeedParam = Animator.StringToHash("Speed");
     private static readonly Dictionary<int, ActorState> Actors = new();
 
@@ -76,7 +90,7 @@ internal static class PatchRoles_SamuraiPowerDash
     }
     private static readonly int PowerSlash = Animator.StringToHash("PowerSlash");
     private static readonly HashSet<string> Logged = new();
-    private static int HitLayerMask, EnemyScanLayer, WalkLogs, HealLogs;
+    private static int HitLayerMask, EnemyScanLayer, WalkLogs, HealLogs, SwallowLogs;
 
     private sealed class ActorState
     {
@@ -99,7 +113,7 @@ internal static class PatchRoles_SamuraiPowerDash
         // the captured hashes are what the pose check and the repair replay compare against, and
         // the ladder fields below track one stuck episode at a time.
         internal bool HasCutHistory, CaptureDead, HealGivenUp, LoggingHeal;
-        internal float LastCutEndAt, StuckAt, NextHealLogAt;
+        internal float LastCutEndAt, StuckAt, NextHealLogAt, NextSwallowLogAt;
         internal int SlashHash, DefaultHash;
         internal int CaptureBaseline, CaptureSeen, CaptureStable, CaptureFrames, CaptureFrame = -1;
         internal int DefaultSeen, DefaultStable, DefaultFrame = -1;
@@ -118,6 +132,8 @@ internal static class PatchRoles_SamuraiPowerDash
         internal bool Retired, Effects, OldInvulnerable, OldTrail, HasGoal, Running;
 
         internal float GoalX, GoalSpeed, StartedAt, StartX, LastProgressAt, BestDistance, NextGoal;
+        // The trail lifetime this lease pinned (see SamuraiTrailLifetime): restored by value.
+        internal float OldTrailTime;
         // Defensive withdrawal facing: the mode we hold while returning, and whether the
         // mover field currently holds our value (so a foreign mode is never stomped).
         internal Mover.FacingMode FacingWritten;
@@ -242,6 +258,9 @@ internal static class PatchRoles_SamuraiPowerDash
         // A bool cannot identify an external true -> true rewrite. Restore only our still-present values.
         if (m.Damageable != null && m.Damageable.invulnerable) m.Damageable.invulnerable = m.OldInvulnerable;
         if (m.Trail != null && m.Trail.enabled) m.Trail.enabled = m.OldTrail;
+        // The lifetime is a number, so ownership is identified by value: the owner's own lifetime
+        // comes back only while the trail still carries exactly ours (same discipline as the bools).
+        if (m.Trail != null && Mathf.Approximately(m.Trail.time, SamuraiTrailLifetime)) m.Trail.time = m.OldTrailTime;
         LogTrailState(m, "effects-restored");
     }
 
@@ -388,9 +407,10 @@ internal static class PatchRoles_SamuraiPowerDash
         m.Diagnostics = SamuraiDashDiagnostics.Begin(k, IsReturnFamily(m), m.StartedAt);
         m.OldInvulnerable = m.Damageable.invulnerable;
         m.OldTrail = m.Trail != null && m.Trail.enabled;
+        m.OldTrailTime = m.Trail != null ? m.Trail.time : 0f;
         m.Effects = true;
         m.Damageable.invulnerable = true;
-        if (m.Trail != null) m.Trail.enabled = true;
+        if (m.Trail != null) { m.Trail.enabled = true; m.Trail.time = SamuraiTrailLifetime; }
         LogTrailState(m, "trail-state");
         // The attack dash and the swallow keep the slash pose. The reverse cut must face
         // its origin before the first slash frame; native SetDirection also resets Y scale,
@@ -722,6 +742,26 @@ internal static class PatchRoles_SamuraiPowerDash
         catch { }
     }
 
+    /// <summary>
+    /// Bounded swallow-start narrative (2026-09-24), mirroring the heal log: at most
+    /// SwallowLogBudget lines per session and one line per SwallowLogEvery seconds per knight.
+    /// The old once-per-session key starved exactly the diagnosis this line exists for.
+    /// </summary>
+    private static void SwallowLog(ActorState a, Knight k)
+    {
+        if (SwallowLogs >= SwallowLogBudget) return;
+        if (Time.time < a.NextSwallowLogAt) return;
+        a.NextSwallowLogAt = Time.time + SwallowLogEvery;
+        SwallowLogs++;
+        try
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/swallow-start] x=" +
+                k.transform.position.x.ToString("0.##") + " origin=" + a.SwallowOriginX.ToString("0.##") +
+                " deterministic");
+        }
+        catch { }
+    }
+
     internal static void Tick(Knight knight)
     {
         if (knight == null || knight.gameObject == null) return;
@@ -833,7 +873,10 @@ internal static class PatchRoles_SamuraiPowerDash
             if (enemy == null || !enemy.IsDamagedBy(DamageSource.Knight)) return;
             float dx = target.transform.position.x - knight.transform.position.x;
             if (Mathf.Abs(dx) < 1.5f || Mathf.Abs(dx) > MaxRange) return;
-            var attack = Begin(a, MotionKind.Attack, target.transform.position.x - Mathf.Sign(dx) * .5f);
+            // 混合固定距离（2026-09-24）：近敌固定 7 格穿过（HitScan 沿路径扫+逐目标去重本就
+            // 支持穿透命中），远敌(|dx|>7.5)仍停敌前 0.5——8.2-10.5 零伤害死区由此消灭。
+            var attack = Begin(a, MotionKind.Attack,
+                knight.transform.position.x + Mathf.Sign(dx) * Mathf.Max(Mathf.Abs(dx) - .5f, SamuraiFixedDashDistance));
             knight.StartCoroutine(AttackRoutine(attack).WrapToIl2Cpp());
         }
         catch (Exception e)
@@ -864,10 +907,7 @@ internal static class PatchRoles_SamuraiPowerDash
         var swallow = Begin(a, MotionKind.Swallow, x + Mathf.Clamp(a.SwallowOriginX - x, -MaxRange, MaxRange));
         SamuraiDashDiagnostics.Write(swallow.Diagnostics, "swallow",
             "origin=" + a.SwallowOriginX.ToString("0.##") + " facing=" + swallow.FacingWritten);
-        if (Logged.Add("swallow-start"))
-            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/swallow-start] x=" +
-                x.ToString("0.##") + " origin=" + a.SwallowOriginX.ToString("0.##") +
-                " deterministic");
+        SwallowLog(a, k);
         HitScan(swallow); // entry frame hits, same as every other dash's first step
         if (Current(swallow) && (!ValidMotion(swallow) || !ValidFollower(k, a.Follower)))
             Finish(swallow); // Handoff: no ladder and no attack-cooldown impact
