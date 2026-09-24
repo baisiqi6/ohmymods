@@ -80,5 +80,8 @@ namespace KingdomEnhancedMod
 {
  public static class ModConfig{public class Option{public bool Value=true;}public static Option Enabled=new();}
  public static class PatchRoles_KnightStyle{public static float GetFollowerAnchorPullback(Knight k)=>k.Style==1?6.5f:4.2f;}
+ // SquadFollowGuard.TryOffset 的随从锚位天花板引用 archer-night-band 的单一共享常量
+ // （PatchRoles_ArcherNightBand.Cap）；本套件只验证 TryOffset 数值行为，按生产签名桩住。
+ public static class PatchRoles_ArcherNightBand{public const float Cap=7f;}
  public class KingdomEnhancedPlugin{public static KingdomEnhancedPlugin Instance=new();public Logger LogSource=new();public class Logger{public readonly List<string> Lines=new();public bool Throw;public void LogInfo(string text){if(Throw)throw new Exception("Logger failure");Lines.Add(text);}public void LogWarning(string text)=>LogInfo(text);public void LogError(string text)=>LogInfo(text);}}
 }

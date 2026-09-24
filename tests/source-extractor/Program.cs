@@ -46,6 +46,37 @@ internal static class PatchWorld_DefenseSpacing
 """ + "\n" + method + "\n}\n" + hook + "\n");
         break;
     }
+    case "archerband":
+    {
+        // archer-night-band suite: real prefix dispatch + real night mirror + real
+        // night parked-follower sweep (all verbatim), with the knight day branch
+        // stubbed and the archer-band module compiled for real by the suite.
+        string spread = Block(Find("    internal static bool DayAssembleSpreadPrefix("));
+        string mirror = Block(Find("    private static bool MirrorNightArcherGoal("));
+        string sweep = Block(Find("    private static void NightParkedFollowerSweep("));
+        int depthClamp = Find("    private const float DepthClampRange");
+        string depthClampLine = source[depthClamp..(Find(";", depthClamp) + 1)];
+        int attribute = Find("[HarmonyPatch(typeof(Mover), nameof(Mover.SetGoal), new[] { typeof(float), typeof(float) })]");
+        int declaration = Find("public static class Mover_DefenseSpacing_DayAssemble_Spread_Patch", attribute);
+        string hook = source[attribute..declaration] + Block(declaration);
+        Write("ExtractedPrefix.cs", """
+using System;
+using UnityEngine;
+using HarmonyLib;
+namespace KingdomEnhancedMod;
+internal static class PatchWorld_DefenseSpacing
+{
+""" + depthClampLine + "\n" + """
+    private static readonly System.Collections.Generic.Dictionary<int,int> _moverUnitType = new();
+    private static bool _inSetGoalRedirect = false;
+    private static readonly Side[] MirrorSides = { Side.Left, Side.Right };
+    private static bool _loggedNightMirror;
+    private static bool _loggedNightRegoal;
+    private static bool _loggedNightRelocate;
+    private static bool KnightDayAssembleSpread(Mover mover, float goal, float speed) => true;
+""" + "\n" + spread + "\n\n" + mirror + "\n\n" + sweep + "\n}\n" + hook + "\n");
+        break;
+    }
     case "follow":
         Write("ExtractedDefenseSpacing.cs", """
 using System;
