@@ -916,12 +916,12 @@ internal static class Program
             Eq(resets, k._animator.ResetCount, "no repair before the pose outlives the native slash");
             Frames(12, .02f, false);                        // past 1.5 s
             Eq(resets + 1, k._animator.ResetCount, "the leftover trigger is reset once");
-            Eq(1, k._animator.PlayCalls, "the calm pose is replayed");
+            Eq(2, k._animator.PlayCalls, "the calm pose is replayed (turn reverse-cut + heal replay)");
             Eq(111, k._animator.StateHash, "the replay landed on the captured calm state");
             Eq(0, k._animator.EnabledWrites, "no enable toggle once the replay worked");
             Frames(120, .02f, false);
             Eq(resets + 1, k._animator.ResetCount, "a healed pose is not repaired again");
-            Eq(1, k._animator.PlayCalls, "no repeated replay");
+            Eq(2, k._animator.PlayCalls, "no repeated heal replay beyond the turn cut");
             var line = KingdomEnhancedPlugin.Instance.LogSource.Infos.LastOrDefault(m => m.StartsWith("[SamuraiDash/heal]"));
             Check(line != null && line.Contains("normalizedTime=") && line.Contains("fullPathHash=") && line.Contains("order=1"),
                 "the repair line carries normalizedTime, fullPathHash and the retry order");
@@ -945,7 +945,7 @@ internal static class Program
             k._animator.StateHash = 777;                    // the pose lease 1 captured is still known
             Frames(120, .02f, false);
             Eq(resets + 1, k._animator.ResetCount, "the session capture survived the later lease");
-            Eq(1, k._animator.PlayCalls, "the captured calm pose is replayed");
+            Eq(3, k._animator.PlayCalls, "the captured calm pose is replayed (turn + heal, second lease adds its turn cut)");
         });
         Test("A lease that never opens its gates stands the capture probe down for the session", () => {
             var k = NewKnight(0); Follower(k, 0);
@@ -1009,7 +1009,7 @@ internal static class Program
             int resets = k._animator.ResetCount;
             Frames(90, .02f, false);                        // 1.8 s in that other state
             Eq(resets, k._animator.ResetCount, "only the captured pose is repaired");
-            Eq(0, k._animator.PlayCalls, "no replay for a foreign state");
+            Eq(1, k._animator.PlayCalls, "only the turn reverse-cut replays; no heal replay for a foreign state");
         });
         Test("A knight that never drove a cut lease is never repaired", () => {
             var k = NewKnight(0); Follower(k, 0);
@@ -1028,7 +1028,7 @@ internal static class Program
             k._animator.StateHash = 777;
             Frames(120, .02f, false);                       // 2.4 s in the pose, but the window is shut
             Eq(resets, k._animator.ResetCount, "the window closed before the pose appeared");
-            Eq(0, k._animator.PlayCalls, "no replay outside the window");
+            Eq(1, k._animator.PlayCalls, "only the turn reverse-cut replays; no heal replay outside the window");
         });
         Test("The outbound cut clears its trigger before the reverse cut fires its own", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
@@ -1062,7 +1062,7 @@ internal static class Program
             k._animator.StateHash = 777;
             Frames(200, .02f, false);                       // 4 s: both ladders spend themselves
             Eq(resets + 2, k._animator.ResetCount, "exactly two repair ladders");
-            Eq(2, k._animator.PlayCalls, "one replay per ladder");
+            Eq(3, k._animator.PlayCalls, "turn reverse-cut + one replay per ladder");
             Eq(4, k._animator.EnabledWrites, "one enable toggle per ladder");
             Frames(200, .02f, false);                       // the stand-down holds
             Eq(resets + 2, k._animator.ResetCount, "no third ladder inside the same episode");
@@ -1098,7 +1098,7 @@ internal static class Program
             int resets = k._animator.ResetCount;
             Frames(100, .02f, false);                       // 2 s stuck: one ladder runs
             Eq(resets + 1, k._animator.ResetCount, "the ladder still resets the trigger");
-            Eq(0, k._animator.PlayCalls, "no replay without a captured calm pose");
+            Eq(1, k._animator.PlayCalls, "only the turn reverse-cut replays without a captured calm pose");
             Eq(2, k._animator.EnabledWrites, "the enable toggle is the fallback");
             Frames(60, .02f, false);
             Eq(resets + 1, k._animator.ResetCount, "the toggle healed the episode");
@@ -1138,7 +1138,7 @@ internal static class Program
             int resets = k._animator.ResetCount;
             Frames(100, .02f, false);
             Eq(resets + 1, k._animator.ResetCount, "the ladder still resets the trigger");
-            Eq(0, k._animator.PlayCalls, "the paused frame never supplied a calm pose");
+            Eq(1, k._animator.PlayCalls, "only the turn reverse-cut replays; the paused frame never supplied a calm pose");
             Eq(2, k._animator.EnabledWrites, "the toggle fallback carried the repair");
         });
     }
