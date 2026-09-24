@@ -700,11 +700,11 @@ internal static class Program
             targets.Sort(StringComparer.Ordinal);
             List<string> expected = new List<string>
             {
-                "Archer.IsAvailableForJob", "Archer.OnDisable", "Archer.OnEnable",
+                "Archer.ConvertToHunter", "Archer.IsAvailableForJob", "Archer.OnDisable", "Archer.OnEnable",
                 "Arrow.OnEnable", "ArrowAttack.FireArrowInternal",
                 "Character.Promote", "Pool.FastSpawn", "PoolManager.Init", "World.OnLevelLoaded",
             };
-            Check(targets.Count == expected.Count, "patch count = 7 crossbowman hooks + 2 hero-visuals hooks (BestShotInternal retired 2026-09-24; got "
+            Check(targets.Count == expected.Count, "patch count = 8 crossbowman hooks + 2 hero-visuals hooks (BestShotInternal retired 2026-09-24; got "
                 + targets.Count + ": " + string.Join(",", targets) + ")");
             for (int i = 0; i < expected.Count && i < targets.Count; i++)
                 Check(targets[i] == expected[i], "patch target[" + i + "] == " + expected[i]);

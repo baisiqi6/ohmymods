@@ -97,6 +97,8 @@ public class Archer : UnityEngine.Component
     public ArrowAttack _arrowAttack;
     public ArrowAttack _fireArrowAttack;
     public ArrowAttack ActiveArrowAttack;
+    public RuntimeAnimatorController hunterAnimator;
+    public RuntimeAnimatorController soldierAnimator;
     public bool _isWearingBannerColor;
     public bool inGuardSlot;
     public GuardSlot _guardSlot;
@@ -334,6 +336,7 @@ namespace KingdomEnhancedMod
         internal Vector2 BaseIntervalFormation;
         internal bool BaseIntervalFormationKnown;
         internal RuntimeAnimatorController BaseSkin;
+        internal RuntimeAnimatorController BaseSoldierAnimator;
     }
 
     public sealed class CrossbowmanMarker : UnityEngine.MonoBehaviour { }
@@ -350,6 +353,7 @@ namespace KingdomEnhancedMod
         internal static void OnArcherEnablePrefix(Archer archer, in CrossbowmanProfile profile) { }
         internal static void OnArcherEnablePostfix(Archer archer, in CrossbowmanProfile profile) { }
         internal static void OnArcherDisablePrefix(Archer archer) { }
+        internal static void OnConvertToHunterPostfix(Archer archer, in CrossbowmanProfile profile) { }
         internal static void BeginPoolSpawnScope() { }
         internal static void EndPoolSpawnScope() { }
         internal static bool HasPendingWork => false;

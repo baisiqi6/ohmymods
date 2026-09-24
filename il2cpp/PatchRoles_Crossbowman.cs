@@ -24,8 +24,12 @@ namespace KingdomEnhancedMod;
 /// 士兵皮肤与猎人行为不冲突（原生 Archer 本就在两套控制器间来回转：EnterGuardSlot/
 /// OnEmbarkStart→ConvertToSoldier，离队/下塔→ConvertToHunter；行为由 _knight==null
 /// 的猎人例程驱动，控制器只管外观；打猎用的 idle/walk/run/shoot 士兵动画集齐全）。
-/// 原生在塔/船场景会把控制器换成当前世界的士兵皮肤，巡检 5s 内换回死地士兵；
-/// 死亡清理切回猎人皮肤播死亡动画（纯观感差异，接受）。
+/// 皮肤生根（2026-09-24 双写者根治）：Apply 把实例的 Archer.soldierAnimator 直接指到
+/// 死地控制器——原生 ConvertToSoldier 的 biome 换皮对未注册 original 原样穿透，原生
+/// 每次调用的解析结果都是同一控制器（同引用重赋无害）：塔/船/跟队路径不再刷回世界皮，
+/// 也不需要任何每帧重断言（PR#58 的 Mover.Update 皮肤守卫已退役）。ConvertToHunter
+/// 方向（下塔/下船刷猎人皮）由 I-d postfix 单写事件纠正回死地控制器；死亡/退队不碰
+/// （猎人皮播死亡动画，纯观感差异，接受）。
 ///
 /// 身份与生命周期（destroy-lifecycle-20260914 修订）：
 /// - 身份/战斗包/清污的实现在 CrossbowmanLifecycle：可复用 CrossbowmanMarker +
@@ -137,6 +141,9 @@ public static class PatchRoles_Crossbowman
     private static Vector2 _baseIntervalFormation;
     private static bool _baseIntervalFormationCached;
     private static RuntimeAnimatorController _baseAnimatorController;
+    // 原生 Archer prefab 的 soldierAnimator（皮肤生根基线）：弩手 Apply 生根到死地控制器，
+    // Strip/池新 life/UnwindAll 写回这个快照；随从侧经 BaseSoldierAnimator 访问器共用。
+    private static RuntimeAnimatorController _baseSoldierAnimator;
 
     private static short _nextSyncId = SyncIdStart;
 
@@ -232,6 +239,7 @@ public static class PatchRoles_Crossbowman
         BaseIntervalFormation = _baseIntervalFormation,
         BaseIntervalFormationKnown = _baseIntervalFormationCached,
         BaseSkin = _baseAnimatorController,
+        BaseSoldierAnimator = _baseSoldierAnimator,
     };
 
     private static readonly Action<Archer> BannerStep = ApplyBannerColors;
@@ -302,6 +310,9 @@ public static class PatchRoles_Crossbowman
             _baseIntervalFormationCached = true;
             Animator baseAnimator = prefabArcher.GetComponentInChildren<Animator>();
             _baseAnimatorController = baseAnimator != null ? baseAnimator.runtimeAnimatorController : null;
+            // 皮肤生根基线（2026-09-24 双写者根治）：原生 prefab 的 soldierAnimator 快照，
+            // 还原三处（Strip / 池新 life / UnwindAll）都写回它。
+            _baseSoldierAnimator = prefabArcher.soldierAnimator;
 
             ArrowAttack baseSO = prefabArcher._arrowAttack;
             if (baseSO == null)
@@ -407,6 +418,37 @@ public static class PatchRoles_Crossbowman
         {
             try { return _crossbowAttackSO != null ? _crossbowAttackSO.Pointer : IntPtr.Zero; }
             catch (Exception) { return IntPtr.Zero; }
+        }
+    }
+
+    /// <summary>
+    /// 原生 Archer prefab 的 soldierAnimator 快照（随从侧 PatchRoles_KnightStyle 的生根/还原
+    /// 共用同一来源；弩手侧走 BuildProfile 的 BaseSoldierAnimator 字段）。EnsureAssets 已构建时
+    /// 直接返回缓存；未构建/lazy 首次访问时按 holder["Archer"] 现读一次——holder/prefab 未就绪
+    /// → null（调用方跳过还原，下次入口再试），成功捕获后不再重读。
+    /// </summary>
+    internal static RuntimeAnimatorController BaseSoldierAnimator
+    {
+        get
+        {
+            if (_baseSoldierAnimator != null) return _baseSoldierAnimator;
+            try
+            {
+                var managers = Managers.Inst;
+                var holder = managers != null ? managers.holder : null;
+                if (holder == null || holder.tagCharacterPairs == null) return null;
+                Character character = null;
+                if (!holder.tagCharacterPairs.TryGetValue("Archer", out character) || character == null)
+                    return null;
+                Archer prefabArcher = character.GetComponent<Archer>();
+                if (prefabArcher == null) return null;
+                _baseSoldierAnimator = prefabArcher.soldierAnimator;
+            }
+            catch (Exception)
+            {
+                // holder 未就绪/类型未注册等：保持 null，下一次入口再试。
+            }
+            return _baseSoldierAnimator;
         }
     }
 
@@ -791,6 +833,14 @@ public static class PatchRoles_Crossbowman
     }
 
     /// <summary>
+    /// Archer.ConvertToHunter postfix：身份仍有效的**单写事件纠正**（退役每帧皮肤守卫的
+    /// 替代）——原生下塔/下船把控制器刷成猎人皮时，同一调用栈内写回死地控制器并重写生根
+    /// 字段；死亡/退队（Active 已失效）不碰，猎人皮播死亡动画的既有设计保留。
+    /// </summary>
+    internal static void OnConvertToHunterPostfix(Archer archer)
+        => CrossbowmanLifecycle.OnConvertToHunterPostfix(archer, BuildProfile());
+
+    /// <summary>
     /// 面板 Tick（root 接线：`ModPanel.Update()` 里与其它 `X.Tick()` 同列）。
     /// 常态 O(1)：配置开或 registry 为空直接返回；全局关闭时遍历**自有 registry（含
     /// inactive 池中实例）**立即还原解除，不等 5s 巡检窗口。唯一新增的工作入口，
@@ -1086,4 +1136,28 @@ public static class Archer_OnDisable_CrossbowmanLifecycle_Patch
 {
     [HarmonyPrefix]
     private static void Prefix(Archer __instance) => PatchRoles_Crossbowman.OnArcherDisablePrefix(__instance);
+}
+
+/// <summary>
+/// I-d. Archer.ConvertToHunter postfix（下塔/下船/离队/死亡清理）：退役每帧皮肤守卫后的
+/// 单写事件纠正——身份仍有效 → 控制器与生根字段各写回死地控制器一次（指针相等零写入）；
+/// 死亡/退队（OnDisable prefix 已失效 Active）→ 不碰，猎人皮播死亡动画的既有设计保留。
+/// ConvertToSoldier 方向不需要钩子：生根字段让原生解析出的就是死地控制器（同引用重赋无害）。
+/// </summary>
+[HarmonyPatch(typeof(Archer), "ConvertToHunter")]
+public static class Archer_ConvertToHunter_CrossbowmanSkin_Patch
+{
+    [HarmonyPostfix]
+    private static void Postfix(Archer __instance)
+    {
+        if (!ModConfig.Enabled.Value || __instance == null) return;
+        try
+        {
+            PatchRoles_Crossbowman.OnConvertToHunterPostfix(__instance);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Crossbowman/convert-hunter] " + e);
+        }
+    }
 }

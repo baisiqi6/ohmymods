@@ -35,12 +35,17 @@ namespace KingdomEnhancedMod;
 ///   FindObjectsOfType&lt;Archer&gt; 读 _knight 反查骑士状态。写入条件是队籍而非
 ///   皮肤族（follower diag 实测：原生随从只在 actively 跟队时 ConvertToSoldier，
 ///   白天分散打猎穿猎人皮，"∈士兵族才写"白天永远不命中）：_knight 指向已风格化
-///   骑士且当前控制器 != 目标即写（统一路径 ApplyFollowerSkinTo）。翻牌治理
-///   （幕府之谜实锤：原生 ConvertToSoldier/Hunter 每次把控制器刷回 BiomeData
-///   世界原生皮，5s 写 vs ~10s 刷回）：两个转换的 postfix 在刷回的同一调用栈内
-///   即时重涂风格皮，5s 巡检只兜底。代价与收益：白天分散的随从也穿风格士兵皮
-///   （随时认出归属）；真正离队时原生先置 _knight=null 再 ConvertToHunter，
-///   猎人皮正确保留，无需清理。
+///   骑士且（当前控制器或生根字段）!= 目标即写（统一路径 ApplyFollowerSkinTo）。
+///   皮肤生根（2026-09-24 双写者根治，与弩手同构）：ApplyFollowerSkinTo 把随从实例的
+///   Archer.soldierAnimator 指到风格士兵控制器——原生 ConvertToSoldier 的 biome 换皮对
+///   未注册 original 原样穿透，原生自己写出的就是同一引用（同引用重赋无害），
+///   "5s 写 vs ~10s 刷回"的翻牌战争消失；两个转换的 postfix 与 5s 巡检退化为防御与
+///   指针校验（稳态零写入）。离队/无风格时字段写回原生 Archer prefab 快照
+///   （PatchRoles_Crossbowman.BaseSoldierAnimator），风格皮绝不泄漏给下一个池 life；
+///   随从实例没有弩手 marker、池边界不会替它收尾，故无队籍/无风格路径另有
+///   RepairLeakedFollowerSkin：身上仍是风格族控制器（上一 life 生根残留）时按原生
+///   ConvertToSoldier 的解析式重解析成世界原生士兵皮（北境 prefab 族不碰）；
+///   真正离队时原生先置 _knight=null 再 ConvertToHunter，猎人皮正确保留，无需清理。
 /// - 死地随从"无标记弩手化"（用户拍板）：骑士风格==死地 → 随从战斗包与弩手
 ///   一致（ActiveArrowAttack=KEM_CrossbowAttack 克隆 SO、shootRange/扫描器 12、
 ///   间隔 ×2、y=1.15，Crossbowman.ApplySquadCrossbowPackage），非死地/无队籍/
@@ -899,15 +904,17 @@ public static class PatchRoles_KnightStyle
     /// （IsAvailableForJob 排除），两个群体不相交，无冲突。死地随从缩放（1.15）
     /// 由该包统一管理，本文件的 EnsureFollowerScale 死地分支跳过。
     ///
-    /// 翻牌机制（治本背景，幕府之谜诊断实锤）：夜间 diag curTop=
+    /// 翻牌机制（历史背景，幕府之谜诊断实锤；2026-09-24 已由皮肤生根根治）：夜间 diag curTop=
     /// archer_soldier_greece×56 + archer_soldier×20（期望 med20=archer_soldier✓、
     /// dead28=deadlands✗、shog8=bamboo✗、gree20=greece✓）——56=dead+shog+gree
     /// 全停在原生希腊士兵皮。我们每 5s 写一次，而原生 ConvertToSoldier（跟队例程
     /// 重入时调用，Archer.cs:859/485）每次都把控制器刷回 BiomeData 换皮的世界
     /// 原生皮（~10s 一轮），5s 写 vs ~10s 刷回的翻牌让视觉上绝大多数时间停在
     /// 原生皮。中世纪幸存是因为基底 archer_soldier 恰好不在"被刷回"路径的
-    /// 目标集合里。治本：ConvertToSoldier/ConvertToHunter 的 postfix 即时重涂
-    /// （见文件尾两个 patch 类），本方法就是它们的重涂实现；5s 巡检仅兜底。
+    /// 目标集合里。根治（与弩手同构）：本方法把实例的 Archer.soldierAnimator 指到
+    /// 风格士兵控制器——原生换皮对未注册 original 原样穿透，原生自己写出的就是
+    /// 同一引用（同引用重赋无害），刷回窗口消失；ConvertToSoldier/ConvertToHunter 的
+    /// postfix 与 5s 巡检退化为防御与指针校验（见文件尾两个 patch 类）。
     /// </summary>
     /// <summary>
     /// 随从的有效风格 index（Reviewer Q1 修订）：跨队回收的北境随从——北境骑士
@@ -956,14 +963,20 @@ public static class PatchRoles_KnightStyle
             if (knight == null || knight.gameObject == null)
             {
                 // 无队籍（离队/猎人）：撤弩手化包（幂等 no-op）——离队瞬间在
-                // ConvertToHunter postfix 走到这里，战斗数值随猎人身份还原
+                // ConvertToHunter postfix 走到这里，战斗数值随猎人身份还原；
+                // 生根字段同时写回原生快照，风格皮绝不泄漏给下一个池 life。
+                RestoreFollowerSoldierAnimator(archer);
+                RepairLeakedFollowerSkin(archer);
                 PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
                 return false;
             }
             if (!States.TryGetValue(knight.gameObject.GetInstanceID(), out KnightStyleState state)
                 || !state.HasStyle)
             {
-                // 骑士未上风格：同样撤包（换队过渡/新骑士未定型期间不持弩手数值）
+                // 骑士未上风格：同样撤包（换队过渡/新骑士未定型期间不持弩手数值）；
+                // 生根字段归位（本对象可能带着上一个风格的池 life 残留）。
+                RestoreFollowerSoldierAnimator(archer);
+                RepairLeakedFollowerSkin(archer);
                 PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
                 return false;
             }
@@ -984,20 +997,114 @@ public static class PatchRoles_KnightStyle
 
             Animator animator = archer._animator;
             if (animator == null) animator = archer.GetComponentInChildren<Animator>();
-            if (animator == null) return false;
 
-            RuntimeAnimatorController current = animator.runtimeAnimatorController;
-            if (current == null) return false;
-            if (current.Pointer == target.Pointer) return false;
+            // 表现即时写入（animator 就绪且控制器非空时，语义与旧实现一致）
+            bool wrote = false;
+            RuntimeAnimatorController current = animator != null
+                ? animator.runtimeAnimatorController : null;
+            if (current != null && current.Pointer != target.Pointer)
+            {
+                animator.runtimeAnimatorController = target;
+                wrote = true;
+            }
 
-            animator.runtimeAnimatorController = target;
-            return true;
+            // 生根：字段指向风格皮后，原生 ConvertToSoldier 自己写出的就是同一控制器
+            // （未注册 original 原样穿透）——刷回战争消失，postfix/巡检退化为防御。
+            if (RootFollowerSoldierAnimator(archer, target)) wrote = true;
+            return wrote;
         }
         catch (Exception e)
         {
             LogErrorOnce("follower skin apply failed", e);
             return false;
         }
+    }
+
+    /// <summary>
+    /// 随从皮肤生根（2026-09-24 双写者根治，与弩手 CrossbowmanLifecycle 同构）：把实例的
+    /// Archer.soldierAnimator 指到风格士兵控制器——原生每次 ConvertToSoldier 解析
+    /// BiomeData.GetAssetSwapForThis(soldierAnimator)，swap 表对未注册 original 原样穿透
+    /// （BiomeSwapData.GetAnimSwap 未命中字典 → 返回入参），原生自己写出的就是同一引用
+    /// （同引用重赋无害）→ 单写者、零重绑、零竞态。幂等：指针相等零写入；返回是否发生写入。
+    /// </summary>
+    private static bool RootFollowerSoldierAnimator(Archer archer, RuntimeAnimatorController target)
+    {
+        if (target == null) return false;
+        RuntimeAnimatorController current = archer.soldierAnimator;
+        if (current != null && current.Pointer == target.Pointer) return false;
+        archer.soldierAnimator = target;
+        return true;
+    }
+
+    /// <summary>
+    /// 离队/无风格随从的防泄漏还原：soldierAnimator 写回原生 Archer prefab 快照
+    /// （PatchRoles_Crossbowman.BaseSoldierAnimator；holder 未就绪 → 跳过，下次入口再试），
+    /// 让后续原生 ConvertToSoldier 重新解析出所在世界的原生士兵皮。已在基线上 → 零写入。
+    /// </summary>
+    private static void RestoreFollowerSoldierAnimator(Archer archer)
+    {
+        RuntimeAnimatorController baseAnimator = PatchRoles_Crossbowman.BaseSoldierAnimator;
+        if (baseAnimator == null) return;
+        RootFollowerSoldierAnimator(archer, baseAnimator);
+    }
+
+    /// <summary>
+    /// 配置关窄还原（审查 P1-1）：不涂任何风格皮，只把可能生根的随从字段还原成
+    /// Archer prefab 快照并修复上一 life 的风格皮泄漏；北境实例同 RepairLeakedFollowerSkin
+    /// 的门（P2-1 对称性）——字段还原也跳过，由北境语义自管。触发点=两个 Convert
+    /// postfix 的配置关分支。
+    /// </summary>
+    internal static void RestoreRootedFollowerOnDisable(Archer archer)
+    {
+        try
+        {
+            if (PatchRoles_NorseSquad.IsNorseArcherInstance(archer)) return;
+            RestoreFollowerSoldierAnimator(archer);
+            RepairLeakedFollowerSkin(archer);
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// 无队籍对象身上的"风格士兵皮"只可能来自上一 life 的生根残留（随从实例没有弩手
+    /// marker，池边界不会替它收尾）：把当前控制器重解析成所在世界的原生士兵皮
+    /// （= 原生 ConvertToSoldier 的解析式，此时生根字段已还原成快照）。当前控制器不是
+    /// 风格族（猎人皮/世界原生皮）→ 零写入；北境 prefab 近战族由其自身语义管理，不碰。
+    /// 触发点：无队籍/无风格分支（事件 postfix 与 5s 巡检共用），随新 life 的首次
+    /// ConvertToSoldier 在同一调用栈内收敛。
+    /// </summary>
+    private static void RepairLeakedFollowerSkin(Archer archer)
+    {
+        try
+        {
+            Animator animator = archer._animator;
+            if (animator == null) animator = archer.GetComponentInChildren<Animator>();
+            RuntimeAnimatorController current = animator != null
+                ? animator.runtimeAnimatorController : null;
+            if (current == null || !IsStyleSoldierController(current)) return;
+            // 北境近战/盾墙族的皮肤由 PatchRoles_NorseSquad 语义管理（非北境皮会冻结
+            // attack/defend 近战 clip），泄漏修复不碰北境 prefab 实例。
+            if (PatchRoles_NorseSquad.IsNorseArcherInstance(archer)) return;
+
+            RuntimeAnimatorController baseAnimator = PatchRoles_Crossbowman.BaseSoldierAnimator;
+            BiomeData biome = BiomeData.Current;
+            if (baseAnimator == null || biome == null) return;
+            RuntimeAnimatorController native = biome.GetAssetSwapForThis<RuntimeAnimatorController>(baseAnimator);
+            if (native == null || native.Pointer == current.Pointer) return;
+            animator.runtimeAnimatorController = native;
+        }
+        catch (Exception e)
+        {
+            LogErrorOnce("follower skin leak repair failed", e);
+        }
+    }
+
+    private static bool IsStyleSoldierController(RuntimeAnimatorController controller)
+    {
+        for (int i = 0; i < StyleCount; i++)
+            if (SoldierControllers[i] != null && controller.Pointer == SoldierControllers[i].Pointer)
+                return true;
+        return false;
     }
 
     // ---- 夜间随从锚点拉回量（DefenseSpacing 消费 API）-------------------------
@@ -1191,7 +1298,10 @@ public static class PatchRoles_KnightStyle
                     {
                         // 无骑士（离队/猎人）：随从缩放确保回 1（幂等；曾随中世纪
                         // 骑士放大到 1.05 的随从离队后在此归位）；同时撤弩手化包
-                        // （幂等 no-op，离队主路径在 ConvertToHunter postfix）
+                        // （幂等 no-op，离队主路径在 ConvertToHunter postfix）；
+                        // 生根字段归位，风格皮绝不泄漏给下一个池 life。
+                        RestoreFollowerSoldierAnimator(archer);
+                        RepairLeakedFollowerSkin(archer);
                         PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
                         EnsureFollowerScale(archer, 1f);
                         continue;
@@ -1225,13 +1335,17 @@ public static class PatchRoles_KnightStyle
                     if (!States.TryGetValue(knight.gameObject.GetInstanceID(), out state))
                     {
                         // 骑士未上风格（第一段本轮/下轮会补）：随从缩放先确保回 1；
-                        // 弩手化包同撤（幂等 no-op）
+                        // 弩手化包同撤（幂等 no-op）；生根字段归位（防池 life 泄漏）
+                        RestoreFollowerSoldierAnimator(archer);
+                        RepairLeakedFollowerSkin(archer);
                         PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
                         EnsureFollowerScale(archer, 1f);
                         continue;
                     }
                     if (!state.HasStyle)
                     {
+                        RestoreFollowerSoldierAnimator(archer);
+                        RepairLeakedFollowerSkin(archer);
                         PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
                         EnsureFollowerScale(archer, 1f);
                         continue;
@@ -1278,15 +1392,17 @@ public static class PatchRoles_KnightStyle
                     if (current == null) { diagSkippedOther++; continue; }
                     if (current.Pointer == target.Pointer)
                     {
-                        // 已是目标风格：幂等零写入（计入 skippedFamily，见上方语义注释）
+                        // 已是目标风格：控制器幂等零写入（计入 skippedFamily）；
+                        // 生根字段只做指针校验（池/原生重置翻回基线时补种），稳态零写入。
+                        RootFollowerSoldierAnimator(archer, target);
                         diagSkippedFamily++;
                         continue;
                     }
                     // 队籍判定：不再检查当前皮肤族——猎人皮/世界士兵皮/北境款一律覆盖。
                     // 写入统一走 ApplyFollowerSkinTo（与 ConvertToSoldier/Hunter 的
                     // postfix 即时重涂同一条路径；内部重复做幂等检查，无害）。
-                    // 治本在 postfix：原生刷回原生皮的瞬间就被重涂，本 5s 巡检只兜
-                    // postfix 覆盖不到的窗口（postfix 挂钩前已刷回的存量等）
+                    // 生根后切换由单写者保证：本 5s 巡检与 postfix 只兜挂钩前存量与
+                    // 指针校验（原生自己写出的已是同一控制器，不再有刷回窗口）。
                     if (ApplyFollowerSkinTo(archer)) diagStyled++;
                     else diagSkippedOther++;
                 }
@@ -1463,12 +1579,13 @@ public static class World_OnLevelLoaded_KnightStyleHost_Patch
 }
 
 /// <summary>
-/// 翻牌治本之一（私有方法按名打补丁，先例：Knight.OnEnable 字符串名补丁）：
-/// 原生 ConvertToSoldier（跟队例程重入/上塔/上船时调用，Archer.cs:859）把随从
-/// 控制器刷回 BiomeData 换皮的世界原生士兵皮——这是 5s 写 vs ~10s 刷回翻牌的
-/// 刷回源（幕府之谜诊断实锤，详见 ApplyFollowerSkinTo 注释）。postfix 在刷回
-/// 的同一调用栈内立即重涂风格士兵皮，随从视觉上恒为风格款。
-/// 弩手/无队籍随从 _knight 为 null，ApplyFollowerSkinTo 直接返回，不碰。
+/// 翻牌防御之一（私有方法按名打补丁，先例：Knight.OnEnable 字符串名补丁）：
+/// 原生 ConvertToSoldier（跟队例程重入/上塔/上船时调用，Archer.cs:859）会经
+/// BiomeData 换皮写控制器——皮肤生根（ApplyFollowerSkinTo 写士兵实例的
+/// Archer.soldierAnimator）后原生解析出的已是风格皮本身，本 postfix 只作防御：
+/// 兜挂钩前存量、指针校验与风格变更（面板重派/换队）的即时重涂。
+/// 弩手由 IsCrossbowman 早退（真弩手走 CrossbowmanLifecycle 自己的生根/还原）；
+/// 无队籍随从会做生根字段还原+泄漏修复（池边界不覆盖随从实例）。
 /// </summary>
 [HarmonyPatch(typeof(Archer), "ConvertToSoldier")]
 public static class Archer_ConvertToSoldier_KnightStyleSkin_Patch
@@ -1476,9 +1593,17 @@ public static class Archer_ConvertToSoldier_KnightStyleSkin_Patch
     [HarmonyPostfix]
     private static void Postfix(Archer __instance)
     {
-        if (!ModConfig.Enabled.Value || __instance == null) return;
+        if (__instance == null) return;
         try
         {
+            // 配置关（审查 P1-1）：随从实例无 marker，弩手池边界不覆盖——这里与巡检是
+            // 随从生根字段仅有的还原入口。关后仍走窄还原（字段快照+泄漏修复），否则
+            // 已生根随从粘死风格皮并跨池泄漏给下一 life 的普通弓箭手。
+            if (!ModConfig.Enabled.Value)
+            {
+                PatchRoles_KnightStyle.RestoreRootedFollowerOnDisable(__instance);
+                return;
+            }
             PatchRoles_KnightStyle.ApplyFollowerSkinTo(__instance);
         }
         catch (Exception e)
@@ -1490,11 +1615,14 @@ public static class Archer_ConvertToSoldier_KnightStyleSkin_Patch
 }
 
 /// <summary>
-/// 翻牌治本之二：原生 ConvertToHunter（白天随从例程 Archer.cs:482 等路径）把
+/// 翻牌防御之二：原生 ConvertToHunter（白天随从例程 Archer.cs:482 等路径）把
 /// 随从刷回猎人皮——白天翻牌路径。postfix 里若 _knight 仍非空且骑士有风格
-/// （白天分散打猎但队籍仍在，队籍判定语义）→ 重涂风格士兵皮。
+/// （白天分散打猎但队籍仍在，队籍判定语义）→ 重涂风格士兵皮并重写生根字段；
+/// 皮肤生根（士兵实例 soldierAnimator 系风格皮）后原生 ConvertToSoldier 也确定
+/// 性写出风格皮，本 postfix 与 5s 巡检只作防御。
 /// 真正离队时原生 RemoveFromKnight 先置 _knight=null 再调 ConvertToHunter
-/// （Archer.cs:927-938），postfix 查无队籍直接返回，猎人皮正确保留，不碰。
+/// （Archer.cs:927-938），postfix 查无队籍直接返回并在同一路径还原生根字段，
+/// 猎人皮正确保留，不碰。
 /// </summary>
 [HarmonyPatch(typeof(Archer), "ConvertToHunter")]
 public static class Archer_ConvertToHunter_KnightStyleSkin_Patch
@@ -1502,9 +1630,14 @@ public static class Archer_ConvertToHunter_KnightStyleSkin_Patch
     [HarmonyPostfix]
     private static void Postfix(Archer __instance)
     {
-        if (!ModConfig.Enabled.Value || __instance == null) return;
+        if (__instance == null) return;
         try
         {
+            if (!ModConfig.Enabled.Value)
+            {
+                PatchRoles_KnightStyle.RestoreRootedFollowerOnDisable(__instance);
+                return;
+            }
             PatchRoles_KnightStyle.ApplyFollowerSkinTo(__instance);
         }
         catch (Exception e)

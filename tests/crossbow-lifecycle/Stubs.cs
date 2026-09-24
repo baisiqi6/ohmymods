@@ -227,6 +227,24 @@ public class Archer : UnityEngine.Component
     public UnityEngine.RuntimeAnimatorController hunterAnimator;
     public UnityEngine.Vector2 _shootIntervalRange;
     public UnityEngine.Vector2 _shootIntervalRangeFormation;
+
+    private UnityEngine.RuntimeAnimatorController _soldierAnimator;
+
+    /// <summary>原生 prefab 字段（interop 为属性）：写计数供"生根一次/稳态零写入"断言。</summary>
+    public UnityEngine.RuntimeAnimatorController soldierAnimator
+    {
+        get => _soldierAnimator;
+        set
+        {
+            _soldierAnimator = value;
+            SoldierAnimatorWrites++;
+        }
+    }
+
+    public int SoldierAnimatorWrites;
+
+    /// <summary>夹具专用：直接写 backing field（模拟 prefab 初值），不计入写计数。</summary>
+    public void SeedSoldierAnimator(UnityEngine.RuntimeAnimatorController value) => _soldierAnimator = value;
 }
 
 public class ArrowAttack : UnityEngine.Object
@@ -381,12 +399,13 @@ namespace KingdomEnhancedMod
         {
             public static readonly List<string> Errors = new List<string>();
             public static readonly List<string> Warnings = new List<string>();
+            public static readonly List<string> Lines = new List<string>();
 
             public void LogError(string message) => Errors.Add(message);
 
             public void LogWarning(string message) => Warnings.Add(message);
 
-            public void LogInfo(string message) { }
+            public void LogInfo(string message) => Lines.Add(message);
         }
     }
 }

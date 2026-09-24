@@ -5,6 +5,9 @@
 // - 身份（Active）是唯一资格来源：失效 marker 不再赋资格/招募排除/巡检强化；
 // - Strip 立即失效 + 还原 owned 属性，且**绝不销毁组件**（Destroy/DestroyImmediate
 //   全进程零调用，由 Test 统一断言）；
+// - 皮肤生根（soldierAnimator → 死地控制器）与还原三处（Strip/池新 life/UnwindAll）：
+//   原生 ConvertToSoldier 解析落同一控制器（单写者）、泄漏防护、稳态零写入；
+// - ConvertToHunter 单写事件纠正：live 弩手同栈写回，死亡/退队不碰（猎人皮保留）；
 // - 同帧 Strip→Apply、重复 Apply、Apply/Strip 中途异常：冷却只乘一次；
 // - 死亡/掉弓（池复用）/普通停用重开/配置关/巡检缓存含孤儿与 null 的边界；
 // - 火矢 buff、塔位射程、无基线降级、无 marker 群体（死地随从同群体）零写入。
@@ -55,6 +58,7 @@ static class Program
         internal RuntimeAnimatorController Deadlands;
         internal RuntimeAnimatorController Hunter;
         internal RuntimeAnimatorController BaseSkin;
+        internal RuntimeAnimatorController BaseSoldier;
         internal CrossbowmanProfile Profile;
 
         internal GameObject Go => Archer.gameObject;
@@ -80,11 +84,13 @@ static class Program
         unit.Deadlands = DeadlandsAsset;
         unit.Hunter = new RuntimeAnimatorController("hunter-" + tag);
         unit.BaseSkin = new RuntimeAnimatorController("base-" + tag);
+        unit.BaseSoldier = new RuntimeAnimatorController("archer_soldier-" + tag);
 
         archer._arrowAttack = unit.Native;
         archer._fireArrowAttack = unit.Fire;
         archer.ActiveArrowAttack = unit.Native;
         archer.hunterAnimator = unit.Hunter;
+        archer.SeedSoldierAnimator(unit.BaseSoldier);           // 原生 prefab 字段初值（不计写）
         archer._enemyScanner.range = 8f;                       // 原生地面扫描器=towerShootRange 之外的 shootRange
         archer._enemyScanner.rangeBehind = 8f;
         archer._shootIntervalRange = new Vector2(1f, 2f);       // 原生序列化冷却（池实例默认值）
@@ -112,6 +118,7 @@ static class Program
         BaseIntervalFormation = new Vector2(3f, 4f),
         BaseIntervalFormationKnown = true,
         BaseSkin = unit.BaseSkin,
+        BaseSoldierAnimator = unit.BaseSoldier,
     };
 
     private static bool Apply(Unit unit) => CrossbowmanLifecycle.Apply(unit.Archer, unit.Profile);
@@ -139,10 +146,12 @@ static class Program
         var lifecycle = typeof(CrossbowmanLifecycle);
         ((System.Collections.IList)lifecycle.GetField("_owned", flags).GetValue(null)).Clear();
         lifecycle.GetField("_poolSpawnDepth", flags).SetValue(null, 0);
+        lifecycle.GetField("_loggedRootPassThrough", flags).SetValue(null, false);
         foreach (string name in new[] { "_applyErrorLogs", "_stripErrorLogs", "_readerErrorLogs", "_scanErrorLogs" })
             lifecycle.GetField(name, flags).SetValue(null, 0);
         KingdomEnhancedPlugin.Logger.Errors.Clear();
         KingdomEnhancedPlugin.Logger.Warnings.Clear();
+        KingdomEnhancedPlugin.Logger.Lines.Clear();
         ModConfig.Enabled.Value = true;
         PatchRoles_CrossbowDefense.Reset();
         GreekScaleScope.Reset();
@@ -193,6 +202,10 @@ static class Program
             Eqv(new Vector2(2f, 4f), u.Archer._shootIntervalRange, "cooldown x2");
             Eqv(new Vector2(6f, 8f), u.Archer._shootIntervalRangeFormation, "formation cooldown x2");
             Check(u.Animator.runtimeAnimatorController == u.Deadlands, "deadlands skin");
+            Check(u.Archer.soldierAnimator == u.Deadlands, "soldierAnimator rooted to the deadlands skin");
+            Check(u.Archer.SoldierAnimatorWrites == 1, "root write exactly once");
+            Check(KingdomEnhancedPlugin.Logger.Lines.Exists(
+                l => l.Contains("swap pass-through=True")), "one-time pass-through probe logged");
             Check(u.Archer._isWearingBannerColor, "banner applied");
             Eq(1.15f, u.Archer.transform.localScale.y, "scale y");
             Check(ScaleRegistryHolder.RegisterCalls == 1, "scale guard registered");
@@ -250,6 +263,8 @@ static class Program
             Eqv(new Vector2(1f, 2f), u.Archer._shootIntervalRange, "interval restored");
             Eqv(new Vector2(3f, 4f), u.Archer._shootIntervalRangeFormation, "formation restored");
             Check(u.Animator.runtimeAnimatorController == u.Hunter, "hunter skin restored via biome swap");
+            Check(u.Archer.soldierAnimator == u.BaseSoldier,
+                "soldierAnimator restored to the native prefab snapshot");
             Check(!u.Archer._isWearingBannerColor, "banner flag cleared");
             Eq(1f, u.Archer.transform.localScale.y, "owned scale released");
             Check(ScaleRegistryHolder.UnregisterCalls == 1, "scale guard released");
@@ -362,6 +377,7 @@ static class Program
             Eq(8f, u.Archer.shootRange, "range unwound");
             Eqv(new Vector2(1f, 2f), u.Archer._shootIntervalRange, "cooldown unwound");
             Eq(1f, u.Archer.transform.localScale.y, "scale unwound");
+            Check(u.Archer.soldierAnimator == u.BaseSoldier, "rooted field unwound");
 
             ModConfig.Enabled.Value = true;
             Check(!CrossbowmanLifecycle.Reconcile(u.Archer, u.Profile), "reconcile never grants identity");
@@ -448,6 +464,7 @@ static class Program
             Eq(8f, u.Archer.shootRange, "old package range cleared before native body");
             Eqv(new Vector2(1f, 2f), u.Archer._shootIntervalRange, "old package cooldown cleared before native body");
             Eq(1f, u.Archer.transform.localScale.y, "old package scale released before native body");
+            Check(u.Archer.soldierAnimator == u.BaseSoldier, "old-life rooted field cleared before native body");
             CrossbowmanMarker settledMarker = Marker(u);
             Check(settledMarker != null && !settledMarker.Selected && !settledMarker.Active && !settledMarker.Residue,
                 "old-life selection and residue settled");
@@ -820,6 +837,8 @@ static class Program
             Check(CrossbowmanLifecycle.Apply(u.Archer, profile), "apply without skin but with arrow");
             Eqv(new Vector2(2f, 4f), u.Archer._shootIntervalRange, "cooldown scaled");
             Check(u.Animator.runtimeAnimatorController == u.BaseSkin, "controller kept when no skin");
+            Check(u.Archer.soldierAnimator == u.BaseSoldier,
+                "rooted field untouched when no skin is applied");
 
             u.Archer.shootRange = 12f;
             CrossbowmanLifecycle.Strip(u.Archer, profile);
@@ -862,37 +881,83 @@ static class Program
             Check(!CrossbowmanLifecycle.IsCrossbowman(u.Archer), "identity still revoked");
         });
 
-        Test("per-frame skin guard reasserts a native-flipped controller", () =>
+        Test("rooted soldierAnimator makes native ConvertToSoldier resolve the deadlands skin", () =>
         {
             var u = NewUnit("g1");
             Check(Apply(u), "apply commits");
-            Check(u.Animator.runtimeAnimatorController == u.Deadlands, "skin assigned");
-            u.Animator.runtimeAnimatorController = u.Hunter;      // native flips it back
-            CrossbowmanLifecycle.MaintainSkin(u.Archer.GetComponent<Mover>());
-            Check(u.Animator.runtimeAnimatorController == u.Deadlands, "same-frame reassert (walk twitch fix)");
+            Check(u.Archer.soldierAnimator == u.Deadlands, "field rooted");
+            // 原生 ConvertToSoldier 的解析式（Archer.cs:868）：未注册 original 原样穿透
+            u.Animator.runtimeAnimatorController =
+                BiomeData.Current.GetAssetSwapForThis(u.Archer.soldierAnimator);
+            Check(u.Animator.runtimeAnimatorController == u.Deadlands,
+                "native resolution lands on the same controller (single writer, no fight)");
         });
-        Test("skin guard is a no-op while the controller is intact", () =>
+        Test("strip restores the snapshot so the next life cannot inherit the deadlands skin", () =>
         {
             var u = NewUnit("g2");
             Check(Apply(u), "apply commits");
-            CrossbowmanLifecycle.MaintainSkin(u.Archer.GetComponent<Mover>());
-            Check(u.Animator.runtimeAnimatorController == u.Deadlands, "no writes when pointers match");
+            Strip(u);
+            Check(u.Archer.soldierAnimator == u.BaseSoldier, "field back on the native snapshot");
+            u.Animator.runtimeAnimatorController =
+                BiomeData.Current.GetAssetSwapForThis(u.Archer.soldierAnimator);
+            Check(u.Animator.runtimeAnimatorController == u.BaseSoldier,
+                "next native resolution is the native skin, not deadlands (leak closed)");
         });
-        Test("skin guard self-cleans after strip", () =>
+        Test("pool boundary restores a leaked root before the new life starts", () =>
         {
             var u = NewUnit("g3");
             Check(Apply(u), "apply commits");
-            CrossbowmanLifecycle.Strip(u.Archer, u.Profile);
-            u.Animator.runtimeAnimatorController = u.Hunter;      // post-strip native skin is native's business
-            CrossbowmanLifecycle.MaintainSkin(u.Archer.GetComponent<Mover>());
-            Check(u.Animator.runtimeAnimatorController == u.Hunter, "stripped unit is no longer guarded");
+            // 模拟 handoff 分支的终局：marker 状态已清空（放弃收尾），旧 life 的生根字段残留
+            CrossbowmanMarker marker = Marker(u);
+            marker.Selected = false;
+            marker.Active = false;
+            marker.Residue = false;
+            marker.PendingPoolHandoff = false;
+            Check(u.Archer.soldierAnimator == u.Deadlands, "leaked root present");
+
+            u.Go.activeInHierarchy = true;
+            CrossbowmanLifecycle.BeginPoolSpawnScope();
+            CrossbowmanLifecycle.OnArcherEnablePrefix(u.Archer, u.Profile);
+            CrossbowmanLifecycle.EndPoolSpawnScope();
+            Check(u.Archer.soldierAnimator == u.BaseSoldier,
+                "pool boundary restored the field before the new life");
         });
-        Test("skin guard ignores movers that were never crossbowmen", () =>
+        Test("reconcile re-roots a reset field and stays write-free in steady state", () =>
         {
-            var go = new GameObject();
-            var mover = go.AddComponent<Mover>();
-            CrossbowmanLifecycle.MaintainSkin(mover);             // O(1) early-out path
-            Check(true, "no throw, no registration");
+            var u = NewUnit("g4");
+            Check(Apply(u), "apply commits");
+
+            u.Archer.soldierAnimator = u.BaseSoldier;              // 池路径把字段翻回基线
+            Check(CrossbowmanLifecycle.Reconcile(u.Archer, u.Profile), "still a crossbowman");
+            Check(u.Archer.soldierAnimator == u.Deadlands, "root re-asserted by the 5s pointer check");
+
+            int writesAfterHeal = u.Archer.SoldierAnimatorWrites;
+            CrossbowmanLifecycle.Reconcile(u.Archer, u.Profile);
+            CrossbowmanLifecycle.ReconcileScan(new[] { Marker(u) }, u.Profile);
+            Check(u.Archer.SoldierAnimatorWrites == writesAfterHeal,
+                "steady state performs zero field writes");
+        });
+        Test("convert-to-hunter correction restores the deadlands skin for a live crossbowman", () =>
+        {
+            var u = NewUnit("g5");
+            Check(Apply(u), "apply commits");
+            u.Animator.runtimeAnimatorController = u.Hunter;      // 原生下塔/下船刷回猎人皮
+            CrossbowmanLifecycle.OnConvertToHunterPostfix(u.Archer, u.Profile);
+            Check(u.Animator.runtimeAnimatorController == u.Deadlands, "same-stack single-write correction");
+            Check(u.Archer.soldierAnimator == u.Deadlands, "root re-asserted for the live life");
+        });
+        Test("convert-to-hunter correction never touches the death/departure hunter skin", () =>
+        {
+            var u = NewUnit("g6");
+            Check(Apply(u), "apply commits");
+            u.Go.activeInHierarchy = false;
+            CrossbowmanLifecycle.OnArcherDisablePrefix(u.Archer);   // 死亡/退队：OnDisable 先失效身份
+            u.Animator.runtimeAnimatorController = u.Hunter;        // 原生死亡清理的猎人皮
+            int writes = u.Archer.SoldierAnimatorWrites;
+            CrossbowmanLifecycle.OnConvertToHunterPostfix(u.Archer, u.Profile);
+            Check(u.Animator.runtimeAnimatorController == u.Hunter, "death hunter skin untouched");
+            Check(u.Archer.SoldierAnimatorWrites == writes, "no field write for the dead life");
+            Check(!CrossbowmanLifecycle.IsCrossbowman(u.Archer), "identity stays invalid");
         });
         Test("error logs stay bounded per path", () =>
         {
