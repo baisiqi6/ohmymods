@@ -1089,8 +1089,14 @@ internal static class PatchRoles_SamuraiPowerDash
         {
             if (k._animator != null)
             {
-                k._animator.ResetTrigger(PowerSlash);   // the finished cut's flag may still be armed
-                k._animator.SetTrigger(PowerSlash);     // and the reverse cut replays the pose
+                // 2026-09-25 用户裁定（反方向再出刀冲刺回来=燕返）：出程结束时动画机多半
+                // 还在 PowerSlash 状态里，重触发不可见（实机"保持出刀姿势滑回来"）。把
+                // 捕获的出刀状态从第 0 帧重放=可见的重新拔刀；无捕获时退回触发器。
+                k._animator.ResetTrigger(PowerSlash);
+                if (a.SlashHash != 0)
+                    k._animator.Play(a.SlashHash, 0, 0f);
+                else
+                    k._animator.SetTrigger(PowerSlash);
             }
         }
         catch (Exception e) { Log("turn-trigger", e); }

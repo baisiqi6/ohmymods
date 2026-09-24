@@ -11,7 +11,14 @@ internal static class SamuraiDashVisuals
     // 残影持续 1 秒（2026-09-24，用户裁定）：幻影淡出总窗从 .2 s 拉到 1 s，与拖尾的
     // PatchRoles_SamuraiPowerDash.SamuraiTrailLifetime 同步。采样密度（间隔/距离）不动。
     private const float Lifetime = 1f, SampleInterval = .04f, SampleDistance = .4f;
-    private static readonly float[] Opacity = { .45f, .25f, .10f };
+    // 2026-09-25 用户裁定（八道不同姿态白光）：8 槽全部用已实机验证可见的标准白配方
+// （recipe C），沿冲刺路径逐格定格不同拔刀姿态，1s 内保持并淡出。
+private const int GhostSlots = 8;
+private static float GhostOpacity(int rankFromNewest)
+{
+    // newest ~0.55 → oldest ~0.10：清晰的近端、可辨的远端
+    return Mathf.Max(.10f, .55f - .0625f * rankFromNewest);
+}
     private static readonly Dictionary<int, OwnerState> Owners = new();
     private static readonly List<int> Retire = new();
     private static readonly HashSet<string> Logged = new();
@@ -36,7 +43,7 @@ internal static class SamuraiDashVisuals
         internal Knight Owner;
         internal SpriteRenderer Source, Body;
         internal GameObject Root;
-        internal Ghost[] Ghosts = new Ghost[3];
+        internal Ghost[] Ghosts = new Ghost[GhostSlots];
         internal Token Current;
         internal SamuraiDashDiagnostics.Trace Diagnostics;
         internal string RetireReason;
@@ -114,8 +121,8 @@ internal static class SamuraiDashVisuals
             // Unparented scene object with identity transform: every child has an independent frozen world pose.
             // Unlike the small driver this root is not DontDestroyOnLoad.
             s.Root = new GameObject("KEM_SamuraiAfterimages");
-            for (int i = 0; i < 3; i++)
-                s.Ghosts[i] = new Ghost { Renderer = MakeRenderer(s.Root, source, "Ghost" + i, i) };
+            for (int i = 0; i < GhostSlots; i++)
+                s.Ghosts[i] = new Ghost { Renderer = MakeRenderer(s.Root, source, "Ghost" + i, 2) };
             s.Body = MakeRenderer(s.Root, source, "BurstWhite", 2);
             return s;
         }
@@ -145,10 +152,10 @@ internal static class SamuraiDashVisuals
         Pose(ghost.Renderer, s.Source, false);
         ghost.Born = now;
         ghost.Alive = s.Tail = true;
-        ghost.Renderer.color = new Color(1, 1, 1, Opacity[0]);
+        ghost.Renderer.color = new Color(1, 1, 1, GhostOpacity(0));
         ghost.Renderer.enabled = true;
         s.Samples++; // Count only samples whose renderer was successfully enabled.
-        s.NextSlot = (s.NextSlot + 1) % 3;
+        s.NextSlot = (s.NextSlot + 1) % GhostSlots;
         s.LastX = s.Source.transform.position.x;
         s.NextSample = now + SampleInterval;
     }
@@ -339,12 +346,12 @@ internal static class SamuraiDashVisuals
                 }
                 s.Tail = false;
                 int rank = 0;
-                for (int n = 0; n < 3; n++)
+                for (int n = 0; n < GhostSlots; n++)
                 {
-                    var ghost = s.Ghosts[(s.NextSlot + 2 - n + 3) % 3];
+                    var ghost = s.Ghosts[(s.NextSlot + GhostSlots - 1 - n) % GhostSlots];
                     if (!ghost.Alive) continue;
                     float remaining = Mathf.Clamp01(1f - (now - ghost.Born) / Lifetime);
-                    ghost.Renderer.color = new Color(1, 1, 1, Opacity[rank++] * remaining);
+                    ghost.Renderer.color = new Color(1, 1, 1, GhostOpacity(rank++) * remaining);
                     if (remaining <= 0) { ghost.Alive = false; ghost.Renderer.enabled = false; }
                     else s.Tail = true;
                 }
