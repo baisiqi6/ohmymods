@@ -25,6 +25,11 @@ internal static class Program
         KingdomEnhancedPlugin.Instance.LogSource.Infos.Clear();
         // The swallow-start narrative is bounded by a session-global line budget; isolate it per test.
         typeof(PatchRoles_SamuraiPowerDash).GetField("SwallowLogs", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, 0);
+        // Same for the heal narrative's session budget and the shared-controller slash memory:
+        // adoption and heal lines must be opted into per test, not inherited from earlier ones.
+        typeof(PatchRoles_SamuraiPowerDash).GetField("HealLogs", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, 0);
+        (typeof(PatchRoles_SamuraiPowerDash).GetField("SlashByController", BindingFlags.Static | BindingFlags.NonPublic)
+            ?.GetValue(null) as System.Collections.IDictionary)?.Clear();
         try { action(); Eq(0, KingdomEnhancedPlugin.Instance.LogSource.Errors.Count, "production error logs"); passed++; Console.WriteLine("PASS " + name); }
         catch (Exception error) { failed++; Console.WriteLine("FAIL " + name + ": " + error.GetBaseException().Message); }
     }
@@ -450,6 +455,115 @@ internal static class Program
             Eq(2, SwallowStartLines(), "a swallow past six seconds logs again");
             for (int i = 0; i < 12; i++) { Time.time = 15f + 7.5f * i; Time.frameCount++; RunSwallowCycle(k); }
             Eq(12, SwallowStartLines(), "the session budget caps the swallow narrative at twelve lines");
+        });
+    }
+
+    // 2026-09-24 卡姿复发：短于自身转移的冲刺与被毒化的基线都捕不到姿势 → 探测失明。
+    // 终捕（转移目标/见过转移的 Current）与同控制器采纳（同伴实证 hash）双网兜底。
+    // 所有租约都用 DashTimeout 超时推进确定性收尾（对齐 RunAttackLease 的手法）。
+    private static void StuckRecaptureRegressions()
+    {
+        Test("A cut that ends mid-transition captures where it was heading", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._animator.StateHash = 111;
+            Frames(2, .02f, false);                         // the calm pose is captured as the replay target
+            Time.time += .25f;
+            Enemy(k, 3);
+            k._animator.InTransition = true;                // the transition outlives the whole cut
+            k._animator.NextStateHash = 777;
+            UpdateHook(k);
+            Frames(20, .02f, false);                        // the cut misses its in-flight capture
+            Time.time += .7f; Time.frameCount++; Scheduler.Advance();   // the timeout ends it mid-flight
+            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            k._animator.InTransition = false;
+            k._animator.StateHash = 777;                    // the transition lands on the stuck pose
+            Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m =>
+                m.StartsWith("[SamuraiDash/slash-finish-capture] knight=")), "the finish capture names the knight");
+            int resets = k._animator.ResetCount;
+            Frames(90, .02f, false);                        // the finish capture armed the probe -> heal
+            Eq(resets + 1, k._animator.ResetCount, "the finish-captured pose is repaired");
+            Eq(1, k._animator.PlayCalls, "the replay lands on the calm pose");
+        });
+        Test("A settled walk pose after an untransitioned cut is not trusted", () => {
+            var k = NewKnight(0); Follower(k, 0);
+            k._animator.StateHash = 111;
+            Time.time += .25f;
+            Enemy(k, 3);
+            UpdateHook(k);                                  // the cut starts; the animator never transitions
+            k._animator.StateHash = 555;                    // a walk-like pose with no observed transition
+            Frames(20, .02f, false);
+            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            int resets = k._animator.ResetCount;
+            Frames(90, .02f, false);
+            Eq(resets, k._animator.ResetCount, "no transition history: the current read is rejected");
+            Eq(0, k._animator.PlayCalls, "no replay for a guessed pose");
+        });
+        Test("A stuck knight's poisoned baseline cannot self-capture but a peer adopts", () => {
+            var a = NewKnight(0); Follower(a, 0);
+            a._animator.StateHash = 111;
+            RunAttackLease(a, 777);                         // a clean lease proves 777 on the controller
+            var shared = a._animator.runtimeAnimatorController;
+            var b = NewKnight(0); Follower(b, 0);
+            b._animator.runtimeAnimatorController = shared; // the same shared controller instance
+            b._animator.StateHash = 777;                    // stuck from birth: every baseline reads the pose
+            Time.time += .25f;
+            Enemy(b, 3);
+            UpdateHook(b);
+            b._animator.InTransition = true; b._animator.NextStateHash = 777;
+            Frames(20, .02f, false);                        // the cut ends heading nowhere new
+            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            b._animator.InTransition = false;
+            Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m => m.StartsWith("[SamuraiDash/slash-adopt]")),
+                "the peer's proven hash adopts through the poisoned baseline");
+            int resets = b._animator.ResetCount;
+            Frames(90, .02f, false);                        // the adoption armed the probe -> ladder runs
+            Eq(resets + 1, b._animator.ResetCount, "the adopted pose is repaired");
+        });
+        Test("Adoption never crosses controller families", () => {
+            var a = NewKnight(0); Follower(a, 0);
+            a._animator.StateHash = 111;
+            RunAttackLease(a, 777);
+            var b = NewKnight(0); Follower(b, 0);           // its own controller instance
+            b._animator.StateHash = 777;
+            Time.time += .25f;
+            Enemy(b, 3);
+            UpdateHook(b);
+            b._animator.InTransition = true; b._animator.NextStateHash = 777;
+            Frames(20, .02f, false);
+            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            b._animator.InTransition = false;
+            Check(!KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m => m.StartsWith("[SamuraiDash/slash-adopt]")),
+                "a different controller never adopts");
+            int resets = b._animator.ResetCount;
+            Frames(90, .02f, false);
+            Eq(resets, b._animator.ResetCount, "still blind: no repair without adoption");
+        });
+        Test("A wrong finish guess is overridden by the peer's proven hash", () => {
+            var a = NewKnight(0); Follower(a, 0);
+            a._animator.StateHash = 111;
+            RunAttackLease(a, 777);
+            var d = NewKnight(0); Follower(d, 0);
+            d._animator.runtimeAnimatorController = a._animator.runtimeAnimatorController;
+            d._animator.StateHash = 111;
+            Frames(2, .02f, false);                         // calm pose captured for the replay
+            Time.time += .25f;
+            Enemy(d, 3);
+            d._animator.InTransition = true;
+            d._animator.NextStateHash = 555;                // a misleading transition target at the finish
+            UpdateHook(d);
+            Frames(20, .02f, false);
+            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            d._animator.InTransition = false;
+            Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m => m.StartsWith("[SamuraiDash/slash-adopt]")),
+                "the proven peer hash overrides the finish guess");
+            d._animator.StateHash = 777;                    // the real stuck pose
+            int resets = d._animator.ResetCount;
+            Frames(90, .02f, false);
+            Eq(resets + 1, d._animator.ResetCount, "the adopted hash repairs the real stuck pose");
         });
     }
 
@@ -906,9 +1020,11 @@ internal static class Program
         Frames(2, .02f, false);
         Time.time += .25f;                          // past the attack scan interval
         Enemy(k, 3);
+        k._animator.InTransition = true;            // entering the cut pose, like a real transition
         UpdateHook(k);
+        k._animator.InTransition = false;
         k._animator.StateHash = pose;
-        Frames(3, .02f, false);
+        Frames(3, .02f, false);                     // settled: the lease captures the pose
         Time.time += .7f;                           // past DashTimeout
         Time.frameCount++;
         Scheduler.Advance();
@@ -1097,6 +1213,9 @@ internal static class Program
             Frames(2, .02f, false);
             k._animator.InTransition = false;
             Time.time += .25f; Enemy(k, 3); UpdateHook(k);
+            k._animator.InTransition = true;             // entering the cut pose, like a real transition
+            Frames(1, .02f, false);
+            k._animator.InTransition = false;
             k._animator.StateHash = 777;
             Frames(3, .02f, false);
             Time.time += .7f; Time.frameCount++; Scheduler.Advance();
@@ -1133,6 +1252,9 @@ internal static class Program
             k._mover._pauseTimeout = 0;
             Enemy(k, 3);
             UpdateHook(k);                                  // the attack dash begins from 111
+            k._animator.InTransition = true;                // entering the cut pose, like a real transition
+            Frames(1, .02f, false);
+            k._animator.InTransition = false;
             k._animator.StateHash = 777;
             Frames(3, .02f, false);
             Time.time += .7f; Time.frameCount++; Scheduler.Advance();
@@ -1170,6 +1292,7 @@ internal static class Program
         ReturnLadder();
         ScanRegressions();
         FixedDashRegressions();
+        StuckRecaptureRegressions();
         Test("No enemy and native attack cooldown do not prevent >10 return", () => {
             var k = NewKnight(20); Follower(k, 0); k._cooldown = 2.8f;
             AssertStartedReturn(k, 0); Eq(0, Scanner.ScanCalls, "no enemy search before return");
