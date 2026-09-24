@@ -862,6 +862,38 @@ static class Program
             Check(!CrossbowmanLifecycle.IsCrossbowman(u.Archer), "identity still revoked");
         });
 
+        Test("per-frame skin guard reasserts a native-flipped controller", () =>
+        {
+            var u = NewUnit("g1");
+            Check(Apply(u), "apply commits");
+            Check(u.Animator.runtimeAnimatorController == u.Deadlands, "skin assigned");
+            u.Animator.runtimeAnimatorController = u.Hunter;      // native flips it back
+            CrossbowmanLifecycle.MaintainSkin(u.Archer.GetComponent<Mover>());
+            Check(u.Animator.runtimeAnimatorController == u.Deadlands, "same-frame reassert (walk twitch fix)");
+        });
+        Test("skin guard is a no-op while the controller is intact", () =>
+        {
+            var u = NewUnit("g2");
+            Check(Apply(u), "apply commits");
+            CrossbowmanLifecycle.MaintainSkin(u.Archer.GetComponent<Mover>());
+            Check(u.Animator.runtimeAnimatorController == u.Deadlands, "no writes when pointers match");
+        });
+        Test("skin guard self-cleans after strip", () =>
+        {
+            var u = NewUnit("g3");
+            Check(Apply(u), "apply commits");
+            CrossbowmanLifecycle.Strip(u.Archer, u.Profile);
+            u.Animator.runtimeAnimatorController = u.Hunter;      // post-strip native skin is native's business
+            CrossbowmanLifecycle.MaintainSkin(u.Archer.GetComponent<Mover>());
+            Check(u.Animator.runtimeAnimatorController == u.Hunter, "stripped unit is no longer guarded");
+        });
+        Test("skin guard ignores movers that were never crossbowmen", () =>
+        {
+            var go = new GameObject();
+            var mover = go.AddComponent<Mover>();
+            CrossbowmanLifecycle.MaintainSkin(mover);             // O(1) early-out path
+            Check(true, "no throw, no registration");
+        });
         Test("error logs stay bounded per path", () =>
         {
             // 50 次失败也不得刷屏：每条路径每进程最多 3 条（计数据是进程级，

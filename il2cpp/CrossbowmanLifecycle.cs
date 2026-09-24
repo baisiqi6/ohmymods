@@ -59,6 +59,12 @@ internal static class CrossbowmanLifecycle
     // 用途：配置关的即时解除（含 inactive，扫描缓存看不到池中对象）。
     private static readonly List<CrossbowmanMarker> _owned = new List<CrossbowmanMarker>();
 
+    // 每帧皮肤守卫（2026-09-24 死地弩手随从走路抽搐）：原生 ConvertToHunter/ConvertToSoldier
+    // 在转职判定翻转控制器，5s 巡检纠正窗口内两套控制器的走路状态来回切=目击的抽搐。
+    // Mover.Update postfix 同帧重断言（缩放守卫同款）；mover 指针 O(1) 早退，指针相等零写。
+    private static readonly Dictionary<System.IntPtr, RuntimeAnimatorController> _skinGuard = new();
+    private static int _skinReasserts;
+
     // Pool.FastSpawn 作用域深度（prefix 自增 / finalizer 自减，异常安全）。
     private static int _poolSpawnDepth;
 
@@ -272,7 +278,12 @@ internal static class CrossbowmanLifecycle
             if (!already) ScaleIntervals(archer, marker);
             if (!Current(marker, revision)) return false;
 
-            if (profile.Skin != null) AssignController(archer, profile.Skin);
+            if (profile.Skin != null)
+            {
+                AssignController(archer, profile.Skin);
+                Mover guardMover = archer.GetComponent<Mover>();
+                if (guardMover != null) _skinGuard[guardMover.Pointer] = profile.Skin;
+            }
 
             // 士兵皮肤的第二半：王国旗帜色染衣（宿主私有逻辑，自带早退与异常隔离）；
             // 记账"本 life 由我们染过"，Strip 时只清这一次（新 life 的染衣不被抹掉）。
@@ -372,7 +383,9 @@ internal static class CrossbowmanLifecycle
             }
             if (!Current(marker, revision)) return;
 
-            ScaleRegistryHolder.Unregister(archer.GetComponent<Mover>());
+            Mover stripMover = archer.GetComponent<Mover>();
+            if (stripMover != null) _skinGuard.Remove(stripMover.Pointer);
+            ScaleRegistryHolder.Unregister(stripMover);
             GreekScaleScope.Restore(archer.transform);
 
             if (!Current(marker, revision)) return;
@@ -718,6 +731,36 @@ internal static class CrossbowmanLifecycle
         Animator animator = archer.GetComponentInChildren<Animator>();
         if (animator != null && animator.runtimeAnimatorController != null)
             animator.runtimeAnimatorController = controller;
+    }
+
+    /// <summary>
+    /// Mover.Update postfix 每帧皮肤守卫（宿主 PatchRoles_Worker.Mover_Update_Patch 接线，
+    /// GreekScaleScope.Maintain 同点）：原生任何路径翻走弩手的死地士兵控制器都在同帧翻回，
+    /// 两套控制器不再来回切。身份消失/配置关时自清；重断言计数有界留痕（现场定位翻写者频率）。
+    /// </summary>
+    internal static void MaintainSkin(Mover mover)
+    {
+        if (_skinGuard.Count == 0) return;
+        try
+        {
+            if (mover == null || !_skinGuard.TryGetValue(mover.Pointer, out RuntimeAnimatorController skin)
+                || skin == null) return;
+            Archer archer = mover.GetComponent<Archer>();
+            if (archer == null || !IsCrossbowman(archer))
+            {
+                _skinGuard.Remove(mover.Pointer);
+                return;
+            }
+            Animator animator = archer.GetComponentInChildren<Animator>();
+            if (animator == null || animator.runtimeAnimatorController == null) return;
+            if (animator.runtimeAnimatorController.Pointer == skin.Pointer) return;
+            animator.runtimeAnimatorController = skin;
+            _skinReasserts++;
+            if (_skinReasserts <= 3 || _skinReasserts % 100 == 0)
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[Crossbowman] skin reassert #" + _skinReasserts + " (native flipped it back)");
+        }
+        catch { }
     }
 
     /// <summary>
