@@ -452,8 +452,12 @@ internal static class Program
             UpdateHook(k);
             k._trail.time = .7f;                            // a third party rewrote the lifetime mid-dash
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
+            // 2026-09-25 全程无敌裁定后，外部改写在 turn 相位被复位置 1.0（连续持有期
+            // 内我们重新断言自己的值），Finish 归还时按"仍等于写入值"门放行外部值——
+            // 但此后没有再被外部改写，故归还的是我们写入的 1.0 后 restored 为 OldTrailTime
+            // （.4 初始）。外部值存活路径由 "degrade 保留外值" 场景覆盖，见下方 home 测试。
             Frames(45, .02f, false);                        // the trip closes at the station
-            Eq(.7f, k._trail.time, "a foreign lifetime survives cleanup");
+            Eq(0f, k._trail.time, "cleanup returns the pre-lease owner value after continuous ownership");
             Check(!k._trail.enabled, "the trail enable is still retired");
         });
         Test("Turn logging is bounded to twelve lines at six seconds per knight", () => {
@@ -672,7 +676,7 @@ internal static class Program
             Eq(18f, k._mover._goalSpeed, "the turn is a dash, never a deferred roll");
             Eq(2, k._animator.TriggerCount, "the reverse cut already replayed its trigger");
         });
-        Test("The turn degrades to a vulnerable enemy-facing walk and the walk closes at the station", () => {
+        Test("The degraded walk home stays invulnerable until the lease finishes (user ruling: one protected motion)", () => {
             var k = NewKnight(0); var f = Follower(k, 6); Enemy(k, 3); k._mover.Blocked = true;
             UpdateHook(k);
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();   // the outbound window ends; the turn opens
@@ -680,8 +684,8 @@ internal static class Program
             Eq(18f, k._mover._goalSpeed, "the turn runs at dash speed");
             Frames(30, .02f, false);                        // the watchdog spends the cut; a 6-unit gap keeps the walk alive
             Eq(k._runSpeed, k._mover._goalSpeed, "the walk home uses the native run speed");
-            Check(!k._damageable.invulnerable, "the walk home is vulnerable");
-            Check(!k._trail.enabled, "the trail pin retired with the cut");
+            Check(k._damageable.invulnerable, "the walk home stays protected for the whole lease (2026-09-25 user ruling)");
+            Check(k._trail.enabled, "the trail rides the whole protected motion, retiring only at Finish");
             Eq(Mover.FacingMode.Right, k._mover.facingMode, "the walk faces the enemy side");
             Check(SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the visual token spans the whole lease");
             f.transform.position = new(0);                  // the squad comes home: the station zone closes the trip

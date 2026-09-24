@@ -294,15 +294,10 @@ internal static class PatchRoles_SamuraiPowerDash
     private static void RebaseCombatEffects(MotionLease m)
     {
         if (!Current(m) || !m.Effects) return;
-        if (m.Damageable != null && m.Damageable.invulnerable) m.Damageable.invulnerable = m.OldInvulnerable;
-        if (m.Trail != null && m.Trail.enabled) m.Trail.enabled = m.OldTrail;
-        if (m.Trail != null && Mathf.Approximately(m.Trail.time, SamuraiTrailLifetime)) m.Trail.time = m.OldTrailTime;
-        m.OldInvulnerable = m.Damageable != null && m.Damageable.invulnerable;
-        m.OldTrail = m.Trail != null && m.Trail.enabled;
-        m.OldTrailTime = m.Trail != null ? m.Trail.time : 0f;
-        m.Effects = true;                       // still ours, on a fresh base
-        if (m.Damageable != null) m.Damageable.invulnerable = true;
+        // 2026-09-25 用户裁定（全程无敌）后，本方法只剩"第三方中途改写 trail.time 的
+        // 复位"职责：invulnerable 从 Begin 起连续持有到 Finish，无相位边界归还。
         if (m.Trail != null) { m.Trail.enabled = true; m.Trail.time = SamuraiTrailLifetime; }
+        if (m.Damageable != null) m.Damageable.invulnerable = true;
         LogTrailState(m, "turn-effects-rebased");
     }
 
@@ -1112,7 +1107,9 @@ internal static class PatchRoles_SamuraiPowerDash
         if (!Current(m)) return;
         m.Phase = TripPhase.Home;
         m.Running = true;               // CanHit false: the walk home never damages
-        RestoreCombatEffects(m);
+        // 2026-09-25 用户裁定：整段往返=一次受保护的完整动作——冲出/反斩/回家全程
+        // 无敌不中断（此前此处的 RestoreCombatEffects 会让回家半程可被击杀，即"武士
+        // 死在回家路上"的实机根因）。效果只在本租约 Finish 时统一归还。
         RetargetFacing(m, EnemyFacing(m.Actor.Owner));
         Goal(m, HomeTarget(m), m.Actor.Owner._runSpeed);
         m.NextGoal = Time.time + ScanInterval;
