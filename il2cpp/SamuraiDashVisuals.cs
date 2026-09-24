@@ -83,10 +83,14 @@ internal static class SamuraiDashVisuals
             go.layer = source.gameObject.layer;
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.enabled = false;
-            renderer.sharedMaterial = source.sharedMaterial;
-            var block = new MaterialPropertyBlock();
-            block.SetColor(OverlayId, Color.white);
-            renderer.SetPropertyBlock(block); // Block is copied; no source block/material mutation.
+            // 2026-09-24 残影不可见根因修复：材质属性块对 PowerSprite2 自定义着色器不生效
+            //（实机从 batch2 起从未见过白色剪影，而日志显示残影系统全程在发）。原生闪白
+            // （BlinkOverlay，商店道具落地）走逐渲染器实例化材质+SetColor(_Overlay)=实证
+            // 可见路径；_Overlay 的 alpha 即叠加量，Color.white=全值白。材质走局部变量构建
+            // 后整只赋给 sharedMaterial——绝不触碰 material getter（隐式实例化泄漏源）。
+            Material overlay = new Material(source.sharedMaterial);
+            overlay.SetColor(OverlayId, Color.white);
+            renderer.sharedMaterial = overlay;
             return renderer;
         }
         catch { UnityEngine.Object.Destroy(go); throw; }
@@ -108,7 +112,8 @@ internal static class SamuraiDashVisuals
     private static void Pose(SpriteRenderer renderer, SpriteRenderer source, bool body)
     {
         renderer.sprite = source.sprite;
-        renderer.sharedMaterial = source.sharedMaterial;
+        // 勿再重指 sharedMaterial：会顶掉 MakeRenderer 实例化材质上的 _Overlay 白色叠加
+        //（OwnerState 每武士构建一次，创建时已随源拷贝调色板，材质实例稳定）。
         renderer.flipX = source.flipX;
         renderer.flipY = source.flipY;
         renderer.gameObject.layer = source.gameObject.layer;
