@@ -220,6 +220,11 @@ public static class PatchWorld_DefenseSpacing
     // so a static mover-instanceID -> unit-type cache gates it (0=other,
     // 1=knight, 2=archer): one GetComponent probe pair per mover, everyone
     // else permanently skipped after the first verdict.
+    // Same knight branch, 2026-09-24: samurai night formation — the native night
+    // guard goal (GetTargetPos) of samurai-style knights is rewritten to their
+    // compact wall slot by PatchRoles_SamuraiNightFormation.TryTakeRedirect
+    // (night-gated; state/permission/lease gates inside).  This prefix owns the
+    // _inSetGoalRedirect guard and the post-Adjust speed, exactly like the day spread.
     private static readonly System.Collections.Generic.Dictionary<int, int> _moverUnitType =
         new System.Collections.Generic.Dictionary<int, int>();
     private static bool _loggedDaySpread;
@@ -260,7 +265,20 @@ public static class PatchWorld_DefenseSpacing
             }
             if (unitType == 1)
             {
-                SamuraiRetreatSpeed.Adjust(mover.GetComponent<Knight>(), mover, ref speed);
+                Knight knight = mover.GetComponent<Knight>();
+                SamuraiRetreatSpeed.Adjust(knight, mover, ref speed);
+                // 夜间武士贴墙紧凑列队（brief v3 P1-C）：仅当这是一次「原生守位目标」的
+                // 下发（夜门/GoToWall 状态/权限/租约都在 TryTakeRedirect 内）时改写为
+                // 紧凑序列位；写回走 _inSetGoalRedirect 守卫，速度吃 Adjust 后的值。
+                // 白天/其余目标零变化。
+                if (PatchRoles_SamuraiNightFormation.TryTakeRedirect(knight, mover, goal,
+                        out float nightSlot))
+                {
+                    _inSetGoalRedirect = true;
+                    try { mover.SetGoal(nightSlot, speed); }
+                    finally { _inSetGoalRedirect = false; }
+                    return false;
+                }
                 return KnightDayAssembleSpread(mover, goal, speed);
             }
             if (unitType == 2) return MirrorNightArcherGoal(mover, goal, speed);

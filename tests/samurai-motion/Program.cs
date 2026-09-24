@@ -1147,6 +1147,23 @@ internal static class Program
         });
     }
 
+    // Night formation (PatchRoles_SamuraiNightFormation) reads this probe to leave
+    // lease-owned goals untouched; pin the real accessor against a live lease.
+    private static void NightFormationLeaseRegressions()
+    {
+        Test("Night formation lease probe follows a live dash lease until it retires", () => {
+            var k = PrepareBurst(false); UpdateHook(k);
+            Check(PatchRoles_SamuraiPowerDash.HasActiveMotion(k), "forward dash owns a live lease");
+            DisableHook(k);
+            Check(!PatchRoles_SamuraiPowerDash.HasActiveMotion(k), "retired lease is no longer reported");
+        });
+        Test("Night formation lease probe is false without an actor record", () => {
+            var fresh = NewKnight(0);
+            Check(!PatchRoles_SamuraiPowerDash.HasActiveMotion(fresh), "untracked knight has no lease");
+            Check(!PatchRoles_SamuraiPowerDash.HasActiveMotion(null), "null knight is safe");
+        });
+    }
+
     private static void Main()
     {
         NightRegressions();
@@ -1457,6 +1474,7 @@ internal static class Program
         SwallowRegressions();
         ReturnDueRegressions();
         StuckPoseRepair();
+        NightFormationLeaseRegressions();
         Console.WriteLine($"RESULT: {passed} passed, {failed} failed"); Environment.ExitCode = failed == 0 ? 0 : 1;
     }
 }
