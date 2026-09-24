@@ -798,15 +798,21 @@ namespace KingdomEnhancedMod
             // ShopForge 的统计分支赋 interactingPlayer（PayableShop.Pay 直接解引用 playerId），
             // 该 NRE 会被 Il2CppInterop trampoline 吞掉——原生调用方与我们都不见异常，照记
             // "成功"而 CreateItem 永不执行=扣款不出货死循环。镜像原生在线分支
-            // （Payable.TransactionComplete 的 GetNearestPlayerWithCrown 赋值）付款前确保玩家
-            // 附着；仍拿不到玩家则本单取消不扣款（收尾 finally 的既有清理负责释放）。
+            // （Payable.TransactionComplete :702 的 GetNearestPlayerWithCrown 赋值，含同款
+            // 位置读法）付款前确保玩家附着；仍拿不到玩家则本单取消不扣款（funds 早退自行
+            // 释放；成功路径由收尾 finally 的既有清理释放）。Crown 查询抛错与本店无关，
+            // 不拉黑——落回 no-player 取消走 2s 重试。
+            bool playerAttachedByUs = false;
             try
             {
                 if (o.Target.interactingPlayer == null)
+                {
                     o.Target.interactingPlayer = kingdom.GetNearestPlayerWithCrown(
-                        o.Target.transform.position.x);
+                        o.Target.GetApproximateGameLayerPosition());
+                    playerAttachedByUs = o.Target.interactingPlayer != null;
+                }
             }
-            catch (Exception e) { MarkFault(o, e); }
+            catch { }
             if (o.Target.interactingPlayer == null)
             {
                 CancelOrder(orderIndex, "no-player");
@@ -820,6 +826,12 @@ namespace KingdomEnhancedMod
             // 唯一经济commit：原子扣款，同步ledger/Castle/Stats。
             if (!PatchEconomy_Banker.TrySpendForAutoRestock(banker, price))
             {
+                // funds 早退不走下面的 finally：先释放我们刚合成的附着，别让它压住
+                // 规划门（"玩家支付占用"）把本店锁出本会话的自动补货。
+                if (playerAttachedByUs)
+                {
+                    try { o.Target.interactingPlayer = null; } catch { }
+                }
                 CancelOrder(orderIndex, "funds");
                 return;
             }

@@ -29,7 +29,7 @@ internal static class PayNreGuard
             Program.Eq(0, s.TransactionCompleteCalls, "no native pay without a player");
             Program.Eq(0, Program.Spend, "no debit without a player");
         });
-        Program.Run("nre_guard_paid_no_item_blacklists_shop", () => { var e = Program.NewEnv(); Program.Role(0, true, 3); AutoRestockCounts.SetLive(0, 2);
+        Program.Run("nre_guard_paid_no_item_blacklists_shop", () => { var e = Program.NewEnv(); Program.Role(0, true, 4); AutoRestockCounts.SetLive(0, 2);
             var s = e.MakeShop(0, 4); e.Banker._stashedCoins = 20;
             s.SuppressItemSpawn = true;          // native Pay died before CreateItem
             e.Tick();
