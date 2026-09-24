@@ -87,7 +87,9 @@ namespace UnityEngine
  {public static float Abs(float a)=>MathF.Abs(a);public static float Min(float a,float b)=>MathF.Min(a,b);public static float Max(float a,float b)=>MathF.Max(a,b);public static float Clamp01(float a)=>Math.Clamp(a,0,1);public static float Clamp(float a,float min,float max)=>Math.Clamp(a,min,max);public static float Lerp(float a,float b,float t)=>a+(b-a)*t;public static bool Approximately(float a,float b)=>MathF.Abs(a-b)<.00001f;}
  public static class Time{public static float time,deltaTime=.02f,timeScale=1;public static int frameCount;}
  public class Sprite:Object{}
- public class Shader:Object{public static int PropertyToID(string name)=>name.GetHashCode();public static int Finds;public static Shader Find(string n){Finds++;return new Shader{name=n};}public string name;}
+ public class Shader:Object{public static int PropertyToID(string name)=>name.GetHashCode();public static int Finds;public static readonly HashSet<string> FailNames=new();
+  // P1-2 测试钩：按名字模拟 IL2CPP 剥离后 Shader.Find 返回 null（默认全部成功，既有用例不受影响）。
+  public static Shader Find(string n){Finds++;return FailNames.Contains(n)?null:new Shader{name=n};}public string name;}
  public class Material:Object
  {
   public static int Created,PropertyWrites;public readonly Dictionary<int,Color> Colors=new();public Shader shader=new();
