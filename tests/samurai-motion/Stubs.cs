@@ -76,13 +76,6 @@ namespace UnityEngine
         public static bool Approximately(float a, float b) => MathF.Abs(a - b) < 0.00001f;
     }
     public static class Time { public static float time, deltaTime = .02f, timeScale = 1; public static int frameCount; }
-    // Deterministic dice stub: the counter stays at zero since the deterministic swallow (2026-09-24).
-    public static class Random
-    {
-        public static float ForcedValue = 1f;
-        public static int Rolls;
-        public static float value { get { Rolls++; return ForcedValue; } }
-    }
     public struct Color { public static Color white => new(); }
     // AnimatorStateInfo stand-in: the fields the stuck-pose probe reads.
     public struct AnimatorStateInfo
