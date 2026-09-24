@@ -40,6 +40,9 @@ static class Program
    Eq(1,Counts.Role(Counts.SquireRole),"the squire rides its own row");
    Eq(1,Counts.Style(3),"style counting ignores squires");
    Eq(2,Total(),"no lost units");
+   var sqGo=squire.gameObject;sqGo.GetComponent<Damageable>().isDead=true;Read(5);
+   Eq(0,Counts.Role(Counts.SquireRole),"a dead squire leaves its row");
+   Eq(1,Counts.Knights,"the real knight stays");
   });
   Test("Knight followers split out of the archer count",()=>{
    var m=Managers.Inst;var c=Actor<Archer>(m);var archer=c.gameObject.GetComponent<Archer>();

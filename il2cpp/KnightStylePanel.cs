@@ -380,8 +380,10 @@ internal static class KnightStylePanel
             }
 
             string pool = "剩余名额  " + Core.Pool.ToString(CultureInfo.InvariantCulture);
+            // 2026-09-24：HUD 骑士行已不含侍从（侍从独立行）；此脚注只解释刷新时差导致的
+            // 短暂差 1（面板会话刷新 vs HUD 1 秒节奏、TryVerifyPanelKnight 未就绪的真骑士）。
             if (_hudKnights >= 0 && _hudKnights != _scanKnights)
-                pool += "     HUD 骑士计数 " + _hudKnights.ToString(CultureInfo.InvariantCulture) + "（含侍从等不可分配对象）";
+                pool += "     HUD 骑士计数 " + _hudKnights.ToString(CultureInfo.InvariantCulture) + "（刷新时差）";
             GUI.Label(new Rect(18f, ry + 2f, width - 36f, 26f), pool, muted);
             ry += 32f;
 
