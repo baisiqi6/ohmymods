@@ -4,7 +4,7 @@ using UnityEngine;
 
 // 自由弓手夜间射击带（α′ + 安全走廊，archer-night-band）回归套件。两层覆盖：
 //  A. 模块级（PatchRoles_ArcherNightBand.TryTakeRedirect）：门序矩阵/三分支深度
-//     预检（浅位 [3,4)/中带放行/深位 [6,7)）/边界（==Floor/Floor−ε/[Floor,Cap]）/
+//     预检（浅位 [2,3)/中带放行/深位 [6,7)）/边界（==Floor/Floor−ε/[Floor,Cap]）/
 //     带闸与下沿 −2.5/两侧与中性侧/带内确定性/火枪手纳入/白天零变化/遥测预算/
 //     零字段写/权限。
 //  B. 真实前缀集成（archerband 抽取：DayAssembleSpreadPrefix + MirrorNightArcherGoal +
@@ -177,9 +177,9 @@ internal static class Program
         {
             Night();
             var (a, _) = NewArcher(Side.Right);
-            Check(!Redirect(a, 97f, out _), "depth == Floor passes untouched");
+            Check(!Redirect(a, 98f, out _), "depth == Floor passes untouched");
             var (b, _) = NewArcher(Side.Right);
-            Check(Redirect(b, 97.0005f, out float t), "depth Floor−ε is a shallow candidate");
+            Check(Redirect(b, 98.0005f, out float t), "depth Floor−ε is a shallow candidate");
             InShallowBand(100f - t, "Floor−ε target");
             var (c, _) = NewArcher(Side.Right);
             Check(!Redirect(c, 94f, out _), "depth 6 inside [Floor,Cap] passes");
@@ -215,7 +215,7 @@ internal static class Program
         {
             Night();
             var (a, _) = NewArcher(Side.Right);
-            Check(!Redirect(a, 97f, out _), "depth 3 (== Floor) passes");
+            Check(!Redirect(a, 98f, out _), "depth 2 (== Floor) passes");
             Check(!Redirect(a, 93.5f, out _), "depth 6.5 passes");
             Check(!Redirect(a, 93f, out _), "depth 7 (== Cap) passes");
             Check(!Redirect(a, float.NaN, out _), "NaN goal passes");
@@ -541,7 +541,7 @@ internal static class Program
             a.behaviour.latestGoto = 10;             // 非城墙态：走廊放行，镜像接管
             m.SetGoal(101.5f, 2f);                   // 墙外 1.5：旧式落 2.0（新击杀带）
             Eq(1, m.NativeFloatGoals, "mirror redirect recorded once");
-            Eq(96.25f, m.Goal, "mirrored to Floor+0.5×1.5 = 3.75 inside");
+            Eq(97.25f, m.Goal, "mirrored to Floor+0.5×1.5 = 2.75 inside (Floor 2.0)");
             Check(100f - m.Goal >= PatchRoles_ArcherNightBand.Floor - Eps,
                 "mirror target clears the corridor floor");
         });

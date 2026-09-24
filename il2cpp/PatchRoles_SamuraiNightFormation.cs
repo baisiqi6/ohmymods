@@ -93,6 +93,27 @@ internal static class PatchRoles_SamuraiNightFormation
     /// 内以 Adjust 后的速度重写目标。只认「原生守位目标」这一种下发（重算原生 GetTargetPos
     /// 式，ε≤1e-3），其余一律放行（白天/非武士/非守位态/租约目标/权限关）。
     /// </summary>
+    /// <summary>
+    /// 武士的无随从回家锚（2026-09-25 用户裁定：目标死也要回家）：优先本模块的夜间
+    /// 列队槽位；不在槽（白天/未入列）时回落到原生守位锚 GetGuardPosition。
+    /// </summary>
+    internal static float HomeXOf(Knight knight)
+    {
+        try
+        {
+            Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
+            if (kingdom != null && TryGetSlot(knight, kingdom, out SlotRecord slot))
+                return slot.X;
+            if (kingdom != null)
+            {
+                var guard = kingdom.GetGuardPosition(knight.side);
+                return guard.Value - (float)guard.Key * FirstSlotOffset;
+            }
+        }
+        catch { }
+        return knight.transform.position.x;
+    }
+
     internal static bool TryTakeRedirect(Knight knight, Mover mover, float goal, out float slotX)
     {
         slotX = 0f;
