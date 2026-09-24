@@ -1087,6 +1087,24 @@ internal static class PatchRoles_SamuraiPowerDash
         catch (Exception e) { Log("should-slash", e); return false; }
     }
 
+    /// <summary>
+    /// True while this knight's actor entry owns any live motion lease (dash / return / walk /
+    /// swallow). The night wall formation redirect (PatchRoles_SamuraiNightFormation) reads it
+    /// to leave lease-owned goals untouched: the lease identifies its goal by value (OwnGoal),
+    /// so a foreign rewrite would retire the motion mid-flight. Exception -> true: without
+    /// proof that no lease exists we never interleave.
+    /// </summary>
+    internal static bool HasActiveMotion(Knight knight)
+    {
+        try
+        {
+            if (knight == null || knight.gameObject == null) return false;
+            return Actors.TryGetValue(knight.gameObject.GetInstanceID(), out ActorState a) &&
+                Same(a.Owner, knight) && a.Motion != null;
+        }
+        catch (Exception e) { Log("has-motion", e); return true; }
+    }
+
     internal static void OnKnightDisabled(Knight knight)
     {
         if (knight == null || knight.gameObject == null) return;

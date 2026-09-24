@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
+    <!-- "retreat" is the generic compilation-shell mode that extracts the CURRENT
+         DayAssembleSpreadPrefix (+ its Mover.SetGoal(float,float) hook class) from
+         PatchWorld_DefenseSpacing.cs and stubs the day/archer branches.  The night
+         formation suite reuses it to run the real prefix integration end to end. -->
+    <ExtractionMode>retreat</ExtractionMode>
+    <ExtractionInput>$(MSBuildProjectDirectory)/../../il2cpp/PatchWorld_DefenseSpacing.cs</ExtractionInput>
+  </PropertyGroup>
+  <Import Project="../ExtractSource.targets" />
+  <ItemGroup>
+    <Compile Include="../../il2cpp/SamuraiRetreatSpeed.cs" Link="Production/SamuraiRetreatSpeed.cs" />
+    <Compile Include="../../il2cpp/PatchRoles_SamuraiNightFormation.cs" Link="Production/SamuraiNightFormation.cs" />
+    <Compile Include="$(GeneratedSourceDir)/ExtractedPrefix.cs" />
+  </ItemGroup>
+</Project>

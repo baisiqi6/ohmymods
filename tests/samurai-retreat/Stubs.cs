@@ -78,5 +78,9 @@ namespace KingdomEnhancedMod
 {
  public static class ModConfig{public class Option{public bool Value=true;}public static Option Enabled=new();}
  public static class PatchRoles_KnightStyle{public static float GetFollowerAnchorPullback(Knight k)=>k.Style==1?6.5f:4.2f;public static bool TryGetResolvedStyleIndex(Knight k,out int style){style=k.Style;return k.KnownStyle;}}
+ // The shared ExtractionMode=retreat artifact carries the real prefix, which now calls
+ // the night-formation redirect gate; this suite only exercises the retreat-speed path,
+ // so the gate stubs to a permanent no (call signature still pinned by the artifact).
+ public static class PatchRoles_SamuraiNightFormation{public static bool TryTakeRedirect(Knight k,Mover m,float goal,out float slot){slot=0f;return false;}}
  public class KingdomEnhancedPlugin{public static KingdomEnhancedPlugin Instance=new();public Logger LogSource=new();public class Logger{public readonly List<string> Lines=new();public bool Throw;public void LogInfo(string text){if(Throw)throw new Exception("Logger failure");Lines.Add(text);}public void LogWarning(string text)=>LogInfo(text);public void LogError(string text)=>LogInfo(text);}}
 }
