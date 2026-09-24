@@ -131,7 +131,11 @@ internal static class SamuraiDashVisuals
         renderer.gameObject.layer = source.gameObject.layer;
         renderer.sortingLayerID = source.sortingLayerID;
         int order = source.sortingOrder;
-        renderer.sortingOrder = body ? (order == int.MaxValue ? order : order + 1) : (order == int.MinValue ? order : order - 1);
+        // 2026-09-24 盲审 P2②：残影原画在 order-1=人群之下，即使白色也被后绘单位盖住。
+        // 抬升：幻影 order+2（人群上、本体闪白之下）、body order+3——A/B/C 诊断臂全部
+        // 换到可见层级，定案后终版沿用。
+        renderer.sortingOrder = body ? (order == int.MaxValue ? order : order + 3)
+            : (order == int.MinValue ? order : order + 2);
         renderer.transform.SetPositionAndRotation(source.transform.position, source.transform.rotation);
         renderer.transform.localScale = source.transform.lossyScale; // Root is world identity; keep signed facing.
     }
