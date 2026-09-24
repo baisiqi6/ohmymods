@@ -9,7 +9,7 @@ internal static class PopulationCounts
 {
     internal const int WorkerRole = 0, ArcherRole = 1, FarmerRole = 2, PikemanRole = 3;
     internal const int NinjaRole = 4, BerserkerRole = 5, PeasantRole = 6, BeggarRole = 7;
-    internal const int MusketeerRole = 8, FollowerRole = 9, SquireRole = 10, RoleCount = 11, KnightRole = 11, StyleCount = 5;
+    internal const int MusketeerRole = 8, FollowerRole = 9, SquireRole = 10, CrossbowmanRole = 11, RoleCount = 12, KnightRole = 12, StyleCount = 5;
     private const int MaxFailures = 3, DelayedRebuilds = 2;
 
     private sealed class Entry
@@ -229,6 +229,10 @@ internal static class PopulationCounts
                     // 互斥：火枪手 IsAvailableForJob 已排除骑士队，此处只是防御性定序）。
                     if (MusketeerIdentity.IsUnit(entry.Archer)) role = MusketeerRole;
                     else if (entry.Archer != null && entry.Archer._knight != null) role = FollowerRole;
+                    // 弩手拆行（2026-09-24 用户需求）：自由弓箭手里的弩手单独计数，玩家可
+                    // 区分猎人与弩手（也服务于夜间箭道上墙问题的现场分辨）。随从弩手仍计入
+                    // 骑士随从行，保持该行语义不变。
+                    else if (PatchRoles_Crossbowman.IsCrossbowman(entry.Archer)) role = CrossbowmanRole;
                 }
                 Roles[role]++;
                 continue;

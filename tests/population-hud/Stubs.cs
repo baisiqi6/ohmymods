@@ -71,7 +71,7 @@ public class CountingRoster:IEnumerable<Character>
 public class Character:UnityEngine.Component {public Damageable _damageable;}
 public class Damageable:UnityEngine.Component {public bool isDead;}
 public class Worker:UnityEngine.Component{}
-public class Archer:UnityEngine.Component{public Knight _knight;}
+public class Archer:UnityEngine.Component{public Knight _knight;public bool IsCrossbow;}
 public class Farmer:UnityEngine.Component{}
 public class Pikeman:UnityEngine.Component{}
 public class Ninja:UnityEngine.Component {public bool _isFisher;}
@@ -91,6 +91,11 @@ public class Managers
 }
 namespace KingdomEnhancedMod
 {
+ // Contract double for the crossbowman gate; production lifecycle tests own its semantics.
+ public static class PatchRoles_Crossbowman
+ {
+  public static bool IsCrossbowman(Archer a) => a != null && a.IsCrossbow;
+ }
  // Contract double for the existing registry query; production identity tests own its lifecycle.
  public static class MusketeerIdentity
  {
