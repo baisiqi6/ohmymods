@@ -87,12 +87,15 @@ namespace UnityEngine
  {public static float Abs(float a)=>MathF.Abs(a);public static float Min(float a,float b)=>MathF.Min(a,b);public static float Max(float a,float b)=>MathF.Max(a,b);public static float Clamp01(float a)=>Math.Clamp(a,0,1);public static float Clamp(float a,float min,float max)=>Math.Clamp(a,min,max);public static float Lerp(float a,float b,float t)=>a+(b-a)*t;public static bool Approximately(float a,float b)=>MathF.Abs(a-b)<.00001f;}
  public static class Time{public static float time,deltaTime=.02f,timeScale=1;public static int frameCount;}
  public class Sprite:Object{}
- public class Shader:Object{public static int PropertyToID(string name)=>name.GetHashCode();}
+ public class Shader:Object{public static int PropertyToID(string name)=>name.GetHashCode();public static int Finds;public static Shader Find(string n){Finds++;return new Shader{name=n};}public string name;}
  public class Material:Object
  {
   public static int Created,PropertyWrites;public readonly Dictionary<int,Color> Colors=new();public Shader shader=new();
   public Material(){Created++;}public Material(Material m){Created++;shader=m.shader;foreach(var p in m.Colors)Colors[p.Key]=p.Value;}
   public void SetColor(int id,Color c){PropertyWrites++;Colors[id]=c;}public bool HasProperty(int id)=>true;public Color GetColor(int id)=>Colors.TryGetValue(id,out var c)?c:Color.clear;
+  public static int FloatWrites,KeywordEnables;public readonly Dictionary<int,float> Floats=new();public readonly System.Collections.Generic.HashSet<string> EnabledKeywords=new();
+  public void SetFloat(int id,float v){FloatWrites++;Floats[id]=v;}public void EnableKeyword(string k){KeywordEnables++;EnabledKeywords.Add(k);}
+  public Material(Shader sh){Created++;shader=sh;}
  }
  public class MaterialPropertyBlock
  {
