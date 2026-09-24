@@ -379,7 +379,7 @@ internal static class KnightStylePanel
                 ry += RowHeight;
             }
 
-            string pool = "剩余池（待识别）  " + Core.Pool.ToString(CultureInfo.InvariantCulture);
+            string pool = "剩余名额  " + Core.Pool.ToString(CultureInfo.InvariantCulture);
             if (_hudKnights >= 0 && _hudKnights != _scanKnights)
                 pool += "     HUD 骑士计数 " + _hudKnights.ToString(CultureInfo.InvariantCulture) + "（含侍从等不可分配对象）";
             GUI.Label(new Rect(18f, ry + 2f, width - 36f, 26f), pool, muted);

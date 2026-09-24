@@ -78,7 +78,7 @@ public class Ninja:UnityEngine.Component {public bool _isFisher;}
 public class Berserker:UnityEngine.Component{}
 public class Peasant:UnityEngine.Component{}
 public class Beggar:UnityEngine.Component{}
-public class Knight:UnityEngine.Component {public int Style=-1;public bool Resolved,ThrowStyle;}
+public class Knight:UnityEngine.Component {public int Style=-1;public bool Resolved,ThrowStyle;public string tag="Knight";}
 public class Kingdom:UnityEngine.Object {public CountingRoster _characters=new();}
 public class World:UnityEngine.Object {public UnityEngine.Transform gameLayer=new UnityEngine.GameObject().transform;}
 public class Game {public State state=State.Playing;public enum State {Playing,NetworkClientPlaying,Menu,Loading,MainMenu}}
