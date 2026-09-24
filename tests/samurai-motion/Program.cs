@@ -23,6 +23,8 @@ internal static class Program
         ModConfig.Enabled.Value = true; NetworkBigBoss.HasWorldAuth = true; Managers.Inst = new();
         KingdomEnhancedPlugin.Instance.LogSource.Errors.Clear();
         KingdomEnhancedPlugin.Instance.LogSource.Infos.Clear();
+        // The swallow-start narrative is bounded by a session-global line budget; isolate it per test.
+        typeof(PatchRoles_SamuraiPowerDash).GetField("SwallowLogs", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, 0);
         try { action(); Eq(0, KingdomEnhancedPlugin.Instance.LogSource.Errors.Count, "production error logs"); passed++; Console.WriteLine("PASS " + name); }
         catch (Exception error) { failed++; Console.WriteLine("FAIL " + name + ": " + error.GetBaseException().Message); }
     }
@@ -382,29 +384,114 @@ internal static class Program
         });
     }
 
-    // One attack that ran out its own window: the knight ends at x 2.5 with the follower still at
-    // 0, so the cut has raised both the swallow roll and the immediate-withdrawal debt. The
-    // scanner and the physics window are emptied afterwards.
+    // 2026-09-24 混合固定冲刺距离 + 残影 1 秒：goal = startX + Sign(dx) × max(|dx| - .5, 7) 的
+    // 直接断言、穿透命中、trail lifetime 写入/归还纪律与 swallow-start 有界日志三态。
+    private static void FixedDashRegressions()
+    {
+        Test("Near, very near and behind enemies all get the fixed seven-unit goal", () => {
+            foreach (float enemyX in new[] { 3f, 1.6f })
+            {
+                var k = NewKnight(0); Follower(k, 0); Enemy(k, enemyX);
+                UpdateHook(k);
+                Eq(7f, k._mover._goalPosition, "enemy at " + enemyX + " no longer shortens the dash");
+                Eq(Mover.GoalMode.Position, k._mover.goalMode, "the pinned dash owns a position goal");
+                Eq(18f, k._mover._goalSpeed, "dash speed unchanged");
+            }
+            var behind = NewKnight(0); Follower(behind, 0); Enemy(behind, -3);
+            UpdateHook(behind);
+            Eq(-7f, behind._mover._goalPosition, "an enemy behind gets the mirrored fixed seven");
+        });
+        Test("A far enemy still stops half a unit short of its position", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 9);
+            UpdateHook(k);
+            Eq(8.5f, k._mover._goalPosition, "goal = startX + (|dx| - .5)");
+            Check(MathF.Abs(k._mover._goalPosition - 9f) <= .5f, "the dash still ends within half a unit of the enemy");
+        });
+        Test("The pinned seven-unit dash pierces the near enemy and reaches the one behind it", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            Physics2D.Hits = Array.Empty<Collider2D>();
+            var near = HitTarget(3); Supply(near);
+            UpdateHook(k);
+            Eq(7f, k._mover._goalPosition, "a near enemy no longer shortens the dash");
+            Eq(1, near.HitCount, "the near target is struck on the way past");
+            var deep = HitTarget(6); Supply(near, deep);
+            Frames(15);                                     // .3 s: the knight runs on through the pair
+            Eq(1, near.HitCount, "the passed target is not struck twice");
+            Eq(1, deep.HitCount, "a target behind the near enemy is also reached once");
+            Check(k.transform.position.x > 5f, "the knight really ran through the pair");
+        });
+        Test("The dash pins the trail lifetime at one second and returns the owner's value", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            k._trail.time = .4f;                            // the native default this mod never wrote before
+            UpdateHook(k);
+            Eq(1f, k._trail.time, "Begin pins the trail lifetime at one second");
+            Check(k._trail.enabled, "the trail is emitting during the dash");
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
+            Check(!k._trail.enabled, "the dash ended");
+            Eq(.4f, k._trail.time, "RestoreEffects returns the trail's own lifetime");
+        });
+        Test("An externally rewritten trail lifetime is never restored by cleanup", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            k._trail.time = .7f;                            // a third party rewrote the lifetime mid-dash
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
+            Eq(.7f, k._trail.time, "a foreign lifetime survives cleanup");
+            Check(!k._trail.enabled, "the trail enable is still retired");
+        });
+        Test("Swallow-start logging is bounded to twelve lines at six seconds per knight", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            RunSwallowCycle(k);
+            Eq(1, SwallowStartLines(), "the first swallow logs once");
+            Time.time = 3.7f; Time.frameCount++;            // past the 3 s attack cooldown, inside the 6 s throttle
+            RunSwallowCycle(k);
+            Eq(1, SwallowStartLines(), "a swallow inside six seconds of the last line stays quiet");
+            Time.time = 8.5f; Time.frameCount++;            // past both the cooldown and the throttle
+            RunSwallowCycle(k);
+            Eq(2, SwallowStartLines(), "a swallow past six seconds logs again");
+            for (int i = 0; i < 12; i++) { Time.time = 15f + 7.5f * i; Time.frameCount++; RunSwallowCycle(k); }
+            Eq(12, SwallowStartLines(), "the session budget caps the swallow narrative at twelve lines");
+        });
+    }
+
+    // One attack that ran out its own window: the hybrid goal (max(|dx| - .5, 7)) puts the knight
+    // at x 7 with the follower still at 0, so the cut has raised both the swallow roll and the
+    // immediate-withdrawal debt. The scanner and the physics window are emptied afterwards.
     private static Knight ExpiredAttack(float enemyX = 3f)
     {
         var k = NewKnight(0); Follower(k, 0); Enemy(k, enemyX);
         UpdateHook(k);
-        Frames(8);
+        Frames(23);   // .46 s: the seven-unit goal is reached and stood at before the timeout
         Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
         Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
         return k;
     }
 
+    // One complete attack+swallow cycle against the fixed seven-unit goal: the dash reaches its
+    // goal, stands there and times out naturally, the swallow cuts home and finishes. The
+    // swallow-start narrative line lands on the frame the swallow begins.
+    private static void RunSwallowCycle(Knight k)
+    {
+        UpdateHook(k);   // the forward dash opens toward startX ± 7
+        Frames(31);      // the goal is reached, stood at and the window times out; the roll frame follows
+        Frames(22);      // the swallow closes its seven units back home
+        // The stub mover steps .36 at a time, so each arrival tolerance leaves the knight .16
+        // short of its origin; pin the station back so the next cycle's aim stays above the 1.5 floor.
+        k.transform.position = new(0);
+    }
+
+    private static int SwallowStartLines() =>
+        KingdomEnhancedPlugin.Instance.LogSource.Infos.Count(m => m.StartsWith("[SamuraiDash/swallow-start]"));
+
     private static void ReturnDueRegressions()
     {
         Test("An attack that ends inside the follower leash withdraws on the next frame", () => {
             var k = ExpiredAttack();
-            UnitScanCache.Archers[0].transform.position = new(8);   // distance 5.5: inside FollowLeash
-            AssertStartedReturn(k, 8);
+            UnitScanCache.Archers[0].transform.position = new(11.5f);   // distance 4.5: inside FollowLeash
+            AssertStartedReturn(k, 11.5f);
         });
         Test("A paused frame neither consumes nor drops the withdrawal debt", () => {
             var k = ExpiredAttack();
-            UnitScanCache.Archers[0].transform.position = new(8);
+            UnitScanCache.Archers[0].transform.position = new(11.5f);
             int writes = k._mover.GoalWrites;
             Time.timeScale = 0;
             Frame(0, false);
@@ -417,7 +504,7 @@ internal static class Program
         });
         Test("A foreign goal at the cut's end outranks the withdrawal and is never stomped", () => {
             var k = ExpiredAttack();
-            UnitScanCache.Archers[0].transform.position = new(9);
+            UnitScanCache.Archers[0].transform.position = new(11.5f);
             k._mover.SetGoal(90, 4);
             int writes = k._mover.GoalWrites;
             Frame(.02f, false);
@@ -433,7 +520,7 @@ internal static class Program
         });
         Test("A replacement mover never inherits the cut's withdrawal debt", () => {
             var k = ExpiredAttack();
-            UnitScanCache.Archers[0].transform.position = new(8);
+            UnitScanCache.Archers[0].transform.position = new(11.5f);
             var old = k._mover;
             int oldStops = old.StopCalls;
             k._mover = k.gameObject.AddComponent<Mover>();
@@ -445,9 +532,15 @@ internal static class Program
             Eq(Mover.GoalMode.Off, k._mover.goalMode, "no return on the new mover");
         });
         Test("The in-place regroup face preserves the cosmetic Y scale and is written once", () => {
-            // enemy at 1.6: the ~1.1 travel stays under SwallowMinTravel, so the deterministic
-            // swallow does not fire and the in-place face keeps its original semantics
-            var k = ExpiredAttack(1.6f);                    // ends ~1.1 out, follower at 0: inside ReturnStop
+            // The hybrid goal out-runs SwallowMinTravel for any legal enemy, so the mover stays
+            // blocked for the whole window: the natural completion travels under the swallow
+            // minimum and the in-place face keeps its original semantics.
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 1.6f);
+            k._mover.Blocked = true;                        // the dash never leaves the spot
+            UpdateHook(k);                                  // the attack lease opens (goal startX+7)
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
+            k._mover.Blocked = false;                       // natural timeout, travel ~0: no swallow
+            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
             k.side = Side.Left;                             // the enemy half is opposite the dash's travel
             k.transform.localScale = new(1f, .95f, 1f);
             int writes = k._mover.DirectionWrites;
@@ -562,7 +655,8 @@ internal static class Program
         Test("Swallow skips a dash that ended too close to its origin", () => {
             UnityEngine.Random.ForcedValue = 0f;
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 1.6f);
-            UpdateHook(k); Frames(8);
+            UpdateHook(k); Frames(8);                       // the dash is under way toward startX+7
+            k.transform.position = new(1f);                 // displaced back onto the origin's doorstep
             Check(Mathf.Abs(k.transform.position.x) < 1.5f, "fixture really ended near the origin");
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
             Frame(.02f, false);
@@ -1058,6 +1152,7 @@ internal static class Program
         NightRegressions();
         ReturnLadder();
         ScanRegressions();
+        FixedDashRegressions();
         Test("No enemy and native attack cooldown do not prevent >10 return", () => {
             var k = NewKnight(20); Follower(k, 0); k._cooldown = 2.8f;
             AssertStartedReturn(k, 0); Eq(0, Scanner.ScanCalls, "no enemy search before return");
