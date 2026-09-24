@@ -28,7 +28,10 @@ public static class PatchWorld_DefenseSpacing
     // whose depth * spacing exceeds bow range; the behaviour re-goals
     // periodically and the archer walks into range.
 
-    private const float DepthClampRange = 7f;
+    // 射击带后沿（单一共享常量，archer-night-band brief v2）：本文件的深度钳制与
+    // 夜间重定位目标都引用 PatchRoles_ArcherNightBand.Cap（=7.0，一般守区 0..7
+    // 的后沿，与弩手 DepthMax 同源同值），不再各留字面量。
+    private const float DepthClampRange = PatchRoles_ArcherNightBand.Cap;
     private static float _nextDepthClampAt;
     private static bool _loggedDepthClamp;
     private static bool _loggedHeartbeat;
@@ -220,6 +223,12 @@ public static class PatchWorld_DefenseSpacing
     // so a static mover-instanceID -> unit-type cache gates it (0=other,
     // 1=knight, 2=archer): one GetComponent probe pair per mover, everyone
     // else permanently skipped after the first verdict.
+    // Archer branch, 2026-09-24 (archer-night-band brief v2): deep night guard
+    // goals of free archers (depth > Cap=7) are rewritten into the ≤Cap
+    // shooting band by PatchRoles_ArcherNightBand.TryTakeRedirect — called
+    // right after the crossbowman exclusion above, before the generic
+    // outside-band mirror below; success writes the band goal under the same
+    // _inSetGoalRedirect guard at the existing speed-chain value.
     // Same knight branch, 2026-09-24: samurai night formation — the native night
     // guard goal (GetTargetPos) of samurai-style knights is rewritten to their
     // compact wall slot by PatchRoles_SamuraiNightFormation.TryTakeRedirect
@@ -385,6 +394,18 @@ public static class PatchWorld_DefenseSpacing
         // Crossbow movement outside its wall-defense state remains native (flee,
         // embark, formation, player control); never fall through into generic mirroring.
         if (crossbow != null && PatchRoles_Crossbowman.IsCrossbowman(crossbow)) return true;
+        // α′ 射击带前挪（archer-night-band brief v2）：深位自由弓手（原生守位目标深
+        // 于 Cap）改写到 ≤Cap 带内——门链/确定性散布/遥测全在
+        // PatchRoles_ArcherNightBand.TryTakeRedirect（含弩手/随从/塔位/登船/编队/
+        // 玩家控制/火铳手/英雄等全部排除与 ShouldGoToWall+latestGoto==8 行为门）。
+        // 命中即由本前缀在 _inSetGoalRedirect 守卫内以既有速度链重写目标。
+        if (PatchRoles_ArcherNightBand.TryTakeRedirect(crossbow, goal, out float bandGoal))
+        {
+            _inSetGoalRedirect = true;
+            try { mover.SetGoal(bandGoal, speed); }
+            finally { _inSetGoalRedirect = false; }
+            return false;
+        }
         if (!SquadFollowGuard.IsOrdinaryWallArcher(crossbow)) return true;
         Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
         if (kingdom == null) return true;
@@ -511,6 +532,10 @@ public static class PatchWorld_DefenseSpacing
     /// （站到墙外）的数量，outsideSample 为前三个墙外弓箭手的 x 坐标；
     /// xbow/followers/plain 为同一集合内弩手、有 _knight 的骑士随从、其余
     /// 普通弓的数量（三分类互斥，plain=total-其余）。
+    /// deep/deepState8（archer-night-band brief v2 验收追加）：深于射击带后沿
+    /// Cap=7（窗口 (7,40]，覆盖被挤出后墙外的极端）的该侧弓手总数，及其中
+    /// 原生城墙态 latestGoto==8 的数量——state-8 在途=α′ 重定向的覆盖面，
+    /// 其余深位（停驻/任务中）由 NightParkedFollowerSweep/原生路径管理。
     /// </summary>
     private static void ReportArcherLineupSide(Kingdom kingdom, Archer[] archers,
         Side side, ref bool logged, string sideLabel)
@@ -520,6 +545,7 @@ public static class PatchWorld_DefenseSpacing
         float wall = kingdom.GetBorderSideIntact(side);
 
         int inBand = 0, outside = 0, xbow = 0, followers = 0;
+        int deep = 0, deepState8 = 0;
         var outsideSample = new System.Collections.Generic.List<float>();
         for (int i = 0; i < archers.Length; i++)
         {
@@ -530,6 +556,16 @@ public static class PatchWorld_DefenseSpacing
             // depth 同骑士 lineup 公式；区间外（未列队/游荡）的不进报告。
             // 侧归属按位置（depth 相对该侧墙落在带内即算），不读 _guardSide。
             float depth = (wall - archer.transform.position.x) * sign;
+
+            // α′ 覆盖口径：深于 Cap 的弓手按原生城墙态拆分（见方法注）。
+            if (depth > DepthClampRange && depth <= 40f)
+            {
+                deep++;
+                Coatsink.Common.Haglet haglet = archer.behaviour != null
+                    ? archer.behaviour.Cast<Coatsink.Common.Haglet>() : null;
+                if (haglet != null && haglet.latestGoto == 8) deepState8++;
+            }
+
             if (depth < -6f || depth > 10f) continue;
             inBand++;
 
@@ -558,6 +594,8 @@ public static class PatchWorld_DefenseSpacing
             + " xbow=" + xbow
             + " followers=" + followers
             + " plain=" + (inBand - xbow - followers)
+            + " deep=" + deep
+            + " deepState8=" + deepState8
             + " outsideSample=[" + sample + "]");
     }
 
@@ -880,11 +918,15 @@ public static class PatchWorld_DefenseSpacing
     // fights the push system and cannot cure it (131 archers simply overflow
     // the wall-front space; the overflow has no directional constraint).
     // Root-cause-compatible fix: WALK them deep instead — issue a position
-    // goal 8..18 units inside the wall at walkSpeed; the deep rear space is
-    // low-density, so the push system no longer expels them.  If a native
-    // guard goal later drags one back into the crowded strip and it gets
-    // squeezed out again, the next 3s sweep simply relocates it again — a
-    // walking loop, not a teleport snap, which reads as natural movement.
+    // goal inside the shooting band (Cap-2..Cap units inside the wall) at
+    // walkSpeed; that rear space is low-density, so the push system no
+    // longer expels them.  The band is capped at the same
+    // Cap=7 shooting-band edge the free archers are pulled to
+    // (PatchRoles_ArcherNightBand; brief v2 "packaged repair" — the old 8..18
+    // deep parking was this MOD's own product and α' never intercepts it).
+    // If a native guard goal later drags one back into the crowded strip and
+    // it gets squeezed out again, the next 3s sweep simply relocates it again
+    // — a walking loop, not a teleport snap, which reads as natural movement.
     // Followers take ONLY the re-goal path (continue below), never both.
     // Both parts are naturally rate limited: only units standing outside
     // match, and once inside they stop matching (depth >= -0.5 gate).
@@ -936,7 +978,7 @@ public static class PatchWorld_DefenseSpacing
                 }
 
                 // Independent crossbows use one policy across native goals and both
-                // supervisors; generic8..18 relocation must not undo their4..7 band.
+                // supervisors; the generic Cap-2..Cap relocation must not undo their 4..7 band.
                 if (PatchRoles_Crossbowman.IsCrossbowman(archer))
                 {
                     PatchRoles_CrossbowDefense.TryPullBack(archer);
@@ -965,10 +1007,12 @@ public static class PatchWorld_DefenseSpacing
                 float wall = kingdom.GetBorderSideIntact(side);
                 if ((wall - x) * sideSign >= -0.5f) continue; // 墙内或墙线上
 
-                // 深处重定位：不下发原地钳位（瞬移），改发墙内 8~18 步深
-                // 处的位置目标，以 walkSpeed 步行回位（Archer.cs:598 狩猎
-                // 路径同款公开字段）。深处密度低，推挤不再把人挤出墙。
-                float deep = UnityEngine.Random.Range(8f, 18f);
+                // 深处重定位：不下发原地钳位（瞬移），改发墙内 Cap−2..Cap 步
+                // （射击带后沿内；旧 8~18 深位是本 MOD 自产品且 α′ 拦不到，
+                // 见 archer-night-band brief v2「打包修既有两机制」）的位置目标，
+                // 以 walkSpeed 步行回位（Archer.cs:598 狩猎路径同款公开字段）。
+                // 目标 ≤Cap：回位后即落进射击带，深度钳制/α′ 前挪都不再动它。
+                float deep = UnityEngine.Random.Range(DepthClampRange - 2f, DepthClampRange);
                 if (!_loggedNightRelocate)
                 {
                     _loggedNightRelocate = true;
@@ -978,8 +1022,8 @@ public static class PatchWorld_DefenseSpacing
                 }
                 // 防抖：巡检周期即 3s，同一弓箭手两次下发间隔天然 >= 3s
                 // （走到墙内即不再触发），无需额外时间戳字典。SetGoal 走
-                // float 重载：该 mover 非 Knight，day-spread prefix 的
-                // is-knight 缓存直接放行，且本就在夜间，无递归。
+                // float 重载：该 mover 非 Knight，day-spread prefix 放行；
+                // 目标深度 ≤Cap 落在 α′ 深度预检的放行侧，不改写、无递归。
                 archer._mover.SetGoal(wall - sideSign * deep, archer.walkSpeed);
             }
         }
@@ -1086,7 +1130,7 @@ public static class PatchWorld_DefenseSpacing
 
             // 夜间滞留墙外纠偏：骑士随从重发原生跟队目标（被
             // NightFollowerAnchorPrefix 保留 Object 跟随，仅临时调整守墙偏移）；无骑士的
-            // 弓箭手/弩手重定位到墙内 8~18 步深处步行回位。
+            // 弓箭手/弩手重定位到墙内 Cap−2..Cap 步射击带步行回位。
             NightParkedFollowerSweep(kingdom, archers);
 
             int clamped = 0;

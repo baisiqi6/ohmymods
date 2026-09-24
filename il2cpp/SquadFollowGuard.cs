@@ -139,7 +139,21 @@ internal static class SquadFollowGuard
             !float.IsFinite(wall) || !float.IsFinite(pullback) || pullback <= 0) return false;
         float anchor = x + original * facing;
         if (!float.IsFinite(anchor)) return false;
-        if ((wall - anchor) * sign < pullback) adjusted = (wall - sign * pullback - x) / facing;
+        float depth = (wall - anchor) * sign;
+        if (depth < pullback)
+            adjusted = (wall - sign * pullback - x) / facing; // 浅锚点下限（死地 6.5 / 普通 4.2）
+        else
+        {
+            // archer-night-band brief v2「随从侧」：对称深天花板。锚点深于
+            // Cap−2（后排展距≈2：前排≈锚点−2、后排≈锚点+2，实机租约日志口径）
+            // 时前挪，让随从弓手整体留在射击带 ≤Cap 内、对贴墙敌人保有射程。
+            // 天花板取 max(pullback, Cap−2)：死地随从（弩手射程 12）拉回量 6.5
+            // 高于通用天花板，避免与 6.5 设计对同一锚点交叉钳制——其天花板即
+            // 自身设计深度；普通随从 4.2 下限 + 5.0 天花板 = 射击带内。
+            // 只在夜间守墙租约通道内生效（墙外/白天/任务切换均在调用前判掉）。
+            float ceiling = Mathf.Max(pullback, PatchRoles_ArcherNightBand.Cap - 2f);
+            if (depth > ceiling) adjusted = (wall - sign * ceiling - x) / facing;
+        }
         return float.IsFinite(adjusted);
     }
     private static bool ChargeTask(Archer a) => ModConfig.Enabled.Value && NetworkBigBoss.HasWorldAuth &&

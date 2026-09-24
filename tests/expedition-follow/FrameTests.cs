@@ -19,7 +19,7 @@ internal static partial class Program
    Test("Facing flips recompute original offset instead of compounded clamp "+side,()=>{
     var(k,a,m)=Pair(side);Follow(k,m);k.transform.position=new(sign*120);
     foreach(float facing in new[]{1f,-1f,1f,-1f}){k.transform.localScale=new(facing,1,1);Near(sign*95.8f,Tick(m),"target stays inside after flip");}
-    k.transform.position=new(sign*90);k.transform.localScale=new(sign,1,1);Near(sign*89,Tick(m),"deep safe position restores original relative offset");Near(-1,m._goalOffset,"no accumulated clamp drift");
+    k.transform.position=new(sign*90);k.transform.localScale=new(sign,1,1);Near(sign*95f,Tick(m),"deep follower anchor capped into the shooting band (Cap-2)");Near(5,m._goalOffset,"cap is recomputed from the native baseline, never compounded");Near(sign*95f,Tick(m),"second frame keeps the same cap");
    });
    Test("Native GoToWall retreat can recover initial outside save "+side,()=>{
     var(k,a,m)=Pair(side,sign*145);k._fsm.Current=Knight.State.GoToWall;k.isRetreating=true;Follow(k,m);
@@ -33,8 +33,8 @@ internal static partial class Program
     if(side==Side.Left)Managers.Inst.kingdom.Left=-80;else Managers.Inst.kingdom.Right=80;
     Near(sign*75.8f,Tick(m),"new intact wall applies on very next frame");
    });
-   Test("Initially deep unchanged offset still registers live receipt "+side,()=>{
-    var(k,a,m)=Pair(side);Follow(k,m,-8);Near(-8,m._goalOffset,"initial deep offset unchanged");
+   Test("Initially deep capped anchor still registers live receipt "+side,()=>{
+    var(k,a,m)=Pair(side);Follow(k,m,-8);Near(-3,m._goalOffset,"initial deep anchor capped to Cap-2");
     k.transform.position=new(sign*135);Near(sign*95.8f,Tick(m),"registered even though initial clamp unnecessary");
     Managers.Inst.kingdom.isDaytime=true;Tick(m);Near(-8,m._goalOffset,"deep native baseline returned at dawn");
    });
