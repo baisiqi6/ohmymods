@@ -223,12 +223,14 @@ public static class PatchWorld_DefenseSpacing
     // so a static mover-instanceID -> unit-type cache gates it (0=other,
     // 1=knight, 2=archer): one GetComponent probe pair per mover, everyone
     // else permanently skipped after the first verdict.
-    // Archer branch, 2026-09-24 (archer-night-band brief v2): deep night guard
-    // goals of free archers (depth > Cap=7) are rewritten into the ≤Cap
-    // shooting band by PatchRoles_ArcherNightBand.TryTakeRedirect — called
+    // Archer branch, 2026-09-24/25 (archer-night-band brief v2 + safety
+    // corridor): night guard goals of free archers outside the healthy
+    // [Floor=3, Cap=7] shooting band are rewritten into the corridor by
+    // PatchRoles_ArcherNightBand.TryTakeRedirect — shallow kill-zone goals
+    // (depth < Floor) to [3,4), deep goals (depth > Cap) to [6,7] — called
     // right after the crossbowman exclusion above, before the generic
-    // outside-band mirror below; success writes the band goal under the same
-    // _inSetGoalRedirect guard at the existing speed-chain value.
+    // outside-band mirror below; success writes the corridor goal under the
+    // same _inSetGoalRedirect guard at the existing speed-chain value.
     // Same knight branch, 2026-09-24: samurai night formation — the native night
     // guard goal (GetTargetPos) of samurai-style knights is rewritten to their
     // compact wall slot by PatchRoles_SamuraiNightFormation.TryTakeRedirect
@@ -376,10 +378,12 @@ public static class PatchWorld_DefenseSpacing
     /// narrow band JUST outside the intact wall (measured with collision
     /// already off: side=R outside=15 at wall+1.5..2.0, side=L clean).  A
     /// goal whose depth relative to EITHER wall sits in the outside narrow
-    /// band (0.2..2.5 steps, i.e. depth in (−2.5, −0.2]) is mirrored to the
-    /// same depth plus 0.5 INSIDE the wall (0.7..3.0 steps).  Only the
-    /// narrow band matches: daytime hunting goals and night chase/coin goals
-    /// farther outside are untouched.
+    /// band (0.2..2.5 steps, i.e. depth in (−2.5, −0.2]) is mirrored INSIDE
+    /// the wall to depth Floor + 0.5×|depth| ∈ [3.1, 4.3) (safety corridor:
+    /// the old 0.5+|depth| ∈ 0.7..3.0 landed exactly in the new kill band
+    /// [0,3), so the target must clear Floor=3).  Only the narrow band
+    /// matches: daytime hunting goals and night chase/coin goals farther
+    /// outside are untouched.
     /// </summary>
     private static bool MirrorNightArcherGoal(Mover mover, float goal, float speed)
     {
@@ -394,10 +398,10 @@ public static class PatchWorld_DefenseSpacing
         // Crossbow movement outside its wall-defense state remains native (flee,
         // embark, formation, player control); never fall through into generic mirroring.
         if (crossbow != null && PatchRoles_Crossbowman.IsCrossbowman(crossbow)) return true;
-        // α′ 射击带前挪（archer-night-band brief v2）：深位自由弓手（原生守位目标深
-        // 于 Cap）改写到 ≤Cap 带内——门链/确定性散布/遥测全在
-        // PatchRoles_ArcherNightBand.TryTakeRedirect（含弩手/随从/塔位/登船/编队/
-        // 玩家控制/火铳手/英雄等全部排除与 ShouldGoToWall+latestGoto==8 行为门）。
+        // α′ 射击带前挪 + 安全走廊（archer-night-band brief v2/安全走廊）：自由弓手
+        // 走廊外守位目标（浅位击杀带 < Floor→[3,4)；深位 > Cap→[6,7]）改写到安全
+        // 走廊内——门链/确定性散布/遥测全在 PatchRoles_ArcherNightBand.TryTakeRedirect
+        // （含弩手/随从/塔位/登船/编队/玩家控制/英雄等排除与行为门；火枪手已纳入）。
         // 命中即由本前缀在 _inSetGoalRedirect 守卫内以既有速度链重写目标。
         if (PatchRoles_ArcherNightBand.TryTakeRedirect(crossbow, goal, out float bandGoal))
         {
@@ -438,9 +442,11 @@ public static class PatchWorld_DefenseSpacing
             Formation shieldWall = archer != null ? archer.GetFormation() : null;
             if (shieldWall != null && shieldWall.IsShieldWall) return true;
 
-            // 镜像到墙内同深+0.5（0.7~3.0 步）。墙内 N 步 = wall − side×N
-            //（与 Knight.GetTargetPos / 锚点拉回同一符号约定）。
-            float newX = wall - sign * (0.5f + Math.Abs(depth));
+            // 镜像到安全走廊（≥Floor）：旧式 0.5+|depth| ∈ 0.7..3.0 恰落在
+            // archer-night-band 新击杀带 [0,3)，故抬到 Floor+|depth|×0.5 ∈
+            // [3.1,4.3)（单调、保原深度次序；Floor 为单一共享常量，见类注）。
+            // 墙内 N 步 = wall − side×N（与 Knight.GetTargetPos / 锚点拉回同一符号约定）。
+            float newX = wall - sign * (PatchRoles_ArcherNightBand.Floor + Math.Abs(depth) * 0.5f);
             if (!_loggedNightMirror)
             {
                 _loggedNightMirror = true;
@@ -448,8 +454,9 @@ public static class PatchWorld_DefenseSpacing
                     "[DefenseSpacing] night archer goal mirrored inside: "
                     + goal.ToString("F2") + " -> " + newX.ToString("F2"));
             }
-            // 递归保护：镜像后目标在墙内（depth +0.7..+3.0），不再落入
-            // (−2.5,−0.2] 窄带，重入天然出套；redirect 标志再兜一层。
+            // 递归保护：镜像后目标在墙内（depth ≥Floor=3），既不再落入
+            // (−2.5,−0.2] 窄带、也不落入走廊浅位候选（< Floor），重入天然出套；
+            // redirect 标志再兜一层。
             _inSetGoalRedirect = true;
             try { mover.SetGoal(newX, speed); }
             finally { _inSetGoalRedirect = false; }
@@ -536,6 +543,9 @@ public static class PatchWorld_DefenseSpacing
     /// Cap=7（窗口 (7,40]，覆盖被挤出后墙外的极端）的该侧弓手总数，及其中
     /// 原生城墙态 latestGoto==8 的数量——state-8 在途=α′ 重定向的覆盖面，
     /// 其余深位（停驻/任务中）由 NightParkedFollowerSweep/原生路径管理。
+    /// shallowArchers/shallowMusketeers（安全走廊验收追加）：depth∈[0,Floor=3)
+    /// 击杀带占用数——浅位走廊的覆盖面证明（改写后应随时间收敛）；火枪手自
+    /// 安全走廊起纳入走廊（MusketeerIdentity.IsUnit），故单列区分。
     /// </summary>
     private static void ReportArcherLineupSide(Kingdom kingdom, Archer[] archers,
         Side side, ref bool logged, string sideLabel)
@@ -546,6 +556,7 @@ public static class PatchWorld_DefenseSpacing
 
         int inBand = 0, outside = 0, xbow = 0, followers = 0;
         int deep = 0, deepState8 = 0;
+        int shallowArchers = 0, shallowMusketeers = 0;
         var outsideSample = new System.Collections.Generic.List<float>();
         for (int i = 0; i < archers.Length; i++)
         {
@@ -575,6 +586,13 @@ public static class PatchWorld_DefenseSpacing
                 if (outsideSample.Count < 3)
                     outsideSample.Add(archer.transform.position.x);
             }
+            // 安全走廊浅位覆盖面：击杀带 [0,Floor) 占用（改写后应收敛）；
+            // 弓手/火枪手分开计（火枪手自安全走廊起纳入走廊）。
+            if (depth >= 0f && depth < PatchRoles_ArcherNightBand.Floor)
+            {
+                if (MusketeerIdentity.IsUnit(archer)) shallowMusketeers++;
+                else shallowArchers++;
+            }
             if (PatchRoles_Crossbowman.IsCrossbowman(archer)) xbow++;
             else if (archer._knight != null) followers++; // HasKnight 等价判 _knight
         }
@@ -596,6 +614,8 @@ public static class PatchWorld_DefenseSpacing
             + " plain=" + (inBand - xbow - followers)
             + " deep=" + deep
             + " deepState8=" + deepState8
+            + " shallowArchers=" + shallowArchers
+            + " shallowMusketeers=" + shallowMusketeers
             + " outsideSample=[" + sample + "]");
     }
 
