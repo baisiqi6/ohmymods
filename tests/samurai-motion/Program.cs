@@ -766,6 +766,28 @@ internal static class Program
             Eq(1, SamuraiDashVisuals.BeginCount(a), "A still owns one lease token");
             Eq(1, SamuraiDashVisuals.BeginCount(b), "B still owns one lease token");
         });
+        // 2026-09-25 审查 P1-1.3：Out 相位随从死亡判别用例（中断矩阵族写法的新臂）——
+        // RoundTripRoutine 的退出路径上 TurnTransition 无条件触发（不校验随从存活），
+        // 武士推进 Home 相位、以 HomeXOf 锚（本套件桩=0）走到家 Finish。
+        Test("Out-phase follower death still turns the lease home and finishes at the anchor", () => {
+            var k = NewKnight(0); var f = Follower(k, 6); Enemy(k, 3);
+            UpdateHook(k);                                  // the outbound dash opens toward +7
+            Frames(3);                                      // the dash is under way, the follower alive so far
+            f._damageable.isDead = true;                    // the follower dies mid-dash
+            UnitScanCache.Archers = Array.Empty<Archer>();  // the squad has no replacement archer
+            Frames(17);                                     // t=.4: RefreshFollower reaped the dead reference; the dash stands at its goal
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();   // the outbound window ends
+            Check(k._damageable.invulnerable && k._trail.enabled, "the unconditional turn keeps the lease alive (home is the station, not the follower)");
+            Eq(18f, k._mover._goalSpeed, "the turn is still the reverse cut");
+            Check(k._mover._goalPosition < k.transform.position.x, "the turn targets the home anchor, not the dead follower");
+            Frames(30, .02f, false);                        // the stall watchdog spends the cut; the lease degrades to the Home walk
+            Eq(k._runSpeed, k._mover._goalSpeed, "the Home walk runs at the native run speed");
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the Home phase owns a live goal");
+            Frames(60);                                     // the walk closes at the HomeXOf anchor (stub: 0)
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the trip finished home");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "effects retired at Finish");
+            Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the visual token ended with the lease");
+        });
     }
 
     // 中断矩阵 × 3 相位：外部接管一律以 Handoff 结束租约、归还效果与目标；资格失效（控制/编队/

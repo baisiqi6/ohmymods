@@ -15,7 +15,7 @@ internal static class Program
   foreach(var k in Knights.ToArray())try{Clear(k);}catch{}Knights.Clear();
   foreach(var go in GameObject.All.ToArray())UnityEngine.Object.Destroy(go);GameObject.All.Clear();
   Time.time=0;Time.deltaTime=0;Time.timeScale=1;ModConfig.Enabled.Value=true;
-  GameObject.ThrowAtSpriteAdd=-1;
+  GameObject.ThrowAtSpriteAdd=-1;Shader.FailNames.Clear();
   UnityEngine.Object.Forbidden=0;Renderer.StringSortingWrites=Renderer.MaterialReads=0;Material.PropertyWrites=0;
   KingdomEnhancedPlugin.Instance.LogSource.Lines.Clear();
   try{body();Check(UnityEngine.Object.Forbidden==0,"no scene scans/prefab clones");Check(Renderer.MaterialReads==0,"no implicit material getter");Check(Renderer.StringSortingWrites==0,"no unsafe sorting-layer string calls");Check(Material.PropertyWrites<=8,"writes only to own instanced overlay materials (2026-09-24 visibility fix)");passed++;Console.WriteLine("PASS "+n);}catch(Exception e){failed++;Console.WriteLine("FAIL "+n+": "+e.GetBaseException().Message);}
@@ -75,6 +75,31 @@ Check(g0!=null,"ghost slot exists");Check(ReferenceEquals(original,s.sharedMater
    var trace=SamuraiDashDiagnostics.Begin(k,false,Time.time);var token=SamuraiDashVisuals.Begin(k,trace);
    Tick(1.1f);Check(Ghosts(s).Length==0,"stationary ghosts already expired");End(token);Tick(0);Tick(0);
    Check(KingdomEnhancedPlugin.Instance.LogSource.Lines.Count(x=>x.Contains("event=tail-cleared"))==1,"idle tail completion logged exactly once");
+  });
+  Test("Both shader finds failing degrades to a source-palette clone with one log line",()=>{
+   // 2026-09-25 审查 P1-2：桩模拟 IL2CPP 剥离——Sprites/Default 与 Unlit/Texture 两级
+   // Shader.Find 均失败 → 第三级源材质克隆兜底（shader 引用与源一致），九个 renderer
+   // 只落一条一次性 source-clone 降级日志，且不误报 unlit-texture 级。
+   Shader.FailNames.Add("Sprites/Default");Shader.FailNames.Add("Unlit/Texture");
+   var(k,s)=MakeKnight();Time.time=300;var original=s.sharedMaterial;var token=Begin(k);
+   Check(token!=null,"third-level fallback still allocates the visual token");
+   var rs=Renderers(s);Check(rs.Length==9,"all nine renderers built (8 ghosts + body)");
+   foreach(var r in rs)Check(ReferenceEquals(original.shader,r.sharedMaterial.shader),"every ghost material cloned the source palette");
+   var lines=KingdomEnhancedPlugin.Instance.LogSource.Lines;
+   Check(lines.Count(x=>x.Contains("[SamuraiDashVisuals]")&&x.Contains("level=source-clone"))==1,"source-clone degradation logged exactly once across nine renderers");
+   Check(!lines.Any(x=>x.Contains("level=unlit-texture")),"the unlit level is not reported when it was never reached");
+  });
+  Test("First-level miss only degrades to the unlit-texture recipe with one log line",()=>{
+   // 2026-09-25 复审 P2-1：仅 Sprites/Default 被剥离 → 第二级 Unlit/Texture 接管
+   // （材质 shader 名即 Unlit/Texture），恰一条 unlit-texture 降级日志，不触第三级。
+   Shader.FailNames.Add("Sprites/Default");
+   var(k,s)=MakeKnight();Time.time=300;var token=Begin(k);
+   Check(token!=null,"second-level fallback still allocates the visual token");
+   var rs=Renderers(s);Check(rs.Length==9,"all nine renderers built (8 ghosts + body)");
+   foreach(var r in rs)Check(r.sharedMaterial.shader.name=="Unlit/Texture","every ghost material uses the unlit-texture shader");
+   var lines=KingdomEnhancedPlugin.Instance.LogSource.Lines;
+   Check(lines.Count(x=>x.Contains("[SamuraiDashVisuals]")&&x.Contains("level=unlit-texture"))==1,"unlit-texture degradation logged exactly once across nine renderers");
+   Check(!lines.Any(x=>x.Contains("level=source-clone")),"the source-clone level is not reported when it was never reached");
   });
   Console.WriteLine($"RESULT {passed} passed, {failed} failed");Environment.ExitCode=failed==0?0:1;
  }

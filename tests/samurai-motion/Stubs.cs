@@ -282,7 +282,10 @@ public class StateMachine
 public class Kingdom { public bool isDaytime = true; }
 public static class PatchRoles_SamuraiNightFormation
 {
-    public static float HomeXOf(Knight k) => 0f;   // 测试里随从几乎总在场，无随从分支由生产单测覆盖
+    // 固定 0 锚：本套件里随从几乎总在场；无随从分支的真实三级兜底链（槽位→守位锚→
+    // 自身位置）由 tests/samurai-night-formation 的 HomeXOf 单测覆盖，Out 相位随从死亡
+    // 判别用例也以这个 0 锚作为确定性的回家目标。
+    public static float HomeXOf(Knight k) => 0f;
 }
 public class Managers { public static Managers Inst = new(); public Kingdom kingdom = new(); }
 // Same shape as the game's global enum: the enemy side is the unit's own half.

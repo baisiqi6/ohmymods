@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace KingdomEnhancedMod;
 
-/// <summary>Four owned renderers per knight; no original renderer/material writes or gameplay components.</summary>
+/// <summary>Eight ghost renderers plus one burst body per knight; no original renderer/material writes or gameplay components.</summary>
 internal static class SamuraiDashVisuals
 {
     // 残影持续 1 秒（2026-09-24，用户裁定）：幻影淡出总窗从 .2 s 拉到 1 s，与拖尾的
@@ -62,6 +62,14 @@ private static float GhostOpacity(int rankFromNewest)
         try { KingdomEnhancedPlugin.Instance?.LogSource.LogWarning("[SamuraiVisuals] " + key + ": " + e.GetType().Name); }
         catch { }
     }
+    // 2026-09-25 审查 P1-2：着色器降级的一次性日志（镜像上面 Logged 门），每级一条、
+    // 内容标明降级到了哪级（unlit-texture / source-clone）。
+    private static void LogShaderFallback(string level, string detail)
+    {
+        if (!Logged.Add("shader-fallback:" + level)) return;
+        try { KingdomEnhancedPlugin.Instance?.LogSource.LogWarning("[SamuraiDashVisuals] shader-fallback level=" + level + ": " + detail); }
+        catch { }
+    }
     private static bool SourceReady(SpriteRenderer source) => source != null && source.gameObject != null &&
         source.gameObject.activeInHierarchy && source.enabled && source.sprite != null && source.sharedMaterial != null &&
         source.sharedMaterial.HasProperty(OverlayId);
@@ -81,10 +89,10 @@ private static float GhostOpacity(int rankFromNewest)
         }
         catch { if (go != null) UnityEngine.Object.Destroy(go); throw; }
     }
-    // 2026-09-24 残影盲审定案后的 A/B/C 三配方诊断（一局定案）：三个幻影槽并排三种配方——
-    // A=对照（源材质拷贝+_Overlay 白，当前线上配方）；B=A+Flash 浮点 1+FLASH_ON 关键字
-    //（验"_Overlay 被特性浮点门死"的反汇编判定）；C=Sprites/Default 标准材质+原贴图+
-    // 纯白顶点色（验渲染级可见性基线，ZWrite 关）。body=C 配方。定案后保留可见的那臂。
+    // 2026-09-24 残影盲审的 A/B/C 三配方诊断已定案（2026-09-25 用户裁定八道白光）：C 胜出，
+    // 8 槽全部+body 走 recipe 2（C=Sprites/Default 标准材质+原贴图+纯白顶点色，ZWrite 关）
+    // = 当前生产路径。A=源材质拷贝+_Overlay 白（旧线上配方）、B=A+Flash 浮点 1+FLASH_ON
+    // 关键字，两臂代码保留未调用，仅作历史诊断记录。
     private static SpriteRenderer MakeRenderer(GameObject root, SpriteRenderer source, string name, int recipe)
     {
         var go = new GameObject(name);
@@ -96,8 +104,30 @@ private static float GhostOpacity(int rankFromNewest)
             renderer.enabled = false;
             if (recipe == 2)
             {
+                // 2026-09-25 审查 P1-2：三级降级链——IL2CPP 剥离未引用着色器时不再静默退化成
+                // 源调色板克隆。Sprites/Default → Unlit/Texture → 源材质克隆（保底，行为同旧两级链）。
+                // Unlit/Texture 无 _Overlay/顶点色乘法能力，第三级本就是最后手段，不做额外补偿。
+                // 每级降级各一条一次性日志（LogShaderFallback，内容含降级到了哪级）。
                 Shader standard = Shader.Find("Sprites/Default");
-                Material plain = standard != null ? new Material(standard) : new Material(source.sharedMaterial);
+                Material plain;
+                if (standard != null)
+                    plain = new Material(standard);
+                else
+                {
+                    Shader unlit = Shader.Find("Unlit/Texture");
+                    if (unlit != null)
+                    {
+                        LogShaderFallback("unlit-texture",
+                            "Sprites/Default missing; ghost material degraded to Unlit/Texture (no _Overlay/vertex-color tint)");
+                        plain = new Material(unlit);
+                    }
+                    else
+                    {
+                        LogShaderFallback("source-clone",
+                            "Sprites/Default and Unlit/Texture missing; ghost material degraded to a source-palette clone");
+                        plain = new Material(source.sharedMaterial);
+                    }
+                }
                 renderer.sharedMaterial = plain;
                 return renderer;
             }
@@ -213,7 +243,7 @@ private static float GhostOpacity(int rankFromNewest)
             var body = s.Body;
             var source = s.Source;
             string details = "reason=" + reason + " elapsed=" + (Time.time - s.Diagnostics.StartedAt).ToString("0.###")
-                + " ghostSamples=" + s.Samples + " emitting=" + s.Emitting + " ghostSlots=3 enabledGhosts=" + enabledGhosts
+                + " ghostSamples=" + s.Samples + " emitting=" + s.Emitting + " ghostSlots=" + GhostSlots + " enabledGhosts=" + enabledGhosts
                 + " whitePresent=" + (body != null) + " whiteEnabled=" + (body != null && body.enabled);
             if (source != null)
             {
@@ -271,7 +301,7 @@ private static float GhostOpacity(int rankFromNewest)
             LogVisual(state, "visual-ready", "created-or-reused; renderer-state-not-screen-proof");
             if (Logged.Add("ready"))
             {
-                try { KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiVisuals] ready: 3 ghosts alpha=.45/.25/.10 lifetime=" + Lifetime.ToString("0.##") + "s; body overlay follows burst"); }
+                try { KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiVisuals] ready: 8 ghosts alpha=.55->.10 (-.0625/rank, floor .10) lifetime=" + Lifetime.ToString("0.##") + "s; body overlay follows burst"); }
                 catch { }
             }
             return token;

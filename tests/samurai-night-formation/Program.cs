@@ -5,7 +5,7 @@ using UnityEngine;
 // 武士夜间贴墙紧凑列队回归套件。
 // 两层覆盖：
 //  A. 模块级（PatchRoles_SamuraiNightFormation）：槽位公式/符号 fixture、翻假五态、
-//     租约与权限门、override/回退锚、等秩 tie-break、活性日志。
+//     租约与权限门、override/回退锚、等秩 tie-break、活性日志、HomeXOf 三级兜底链。
 //  B. 真实前缀集成：ExtractSource 从当前 PatchWorld_DefenseSpacing.cs 抽取出的
 //     DayAssembleSpreadPrefix + Mover.SetGoal(float,float) hook（与 tests/samurai-retreat
 //     同一抽取模式），验证重定向落位与 _inSetGoalRedirect 守卫。
@@ -385,6 +385,40 @@ internal static class Program
             object[] args = { k, true };
             postfix.Invoke(null, args);
             Check(!(bool)args[1], "postfix delegates to the module and flips at post");
+        });
+
+        // ---- A5. HomeXOf 三级兜底链（审查 P1-1：武士无随从回家锚） ----
+        // 生产路径 il2cpp/PatchRoles_SamuraiNightFormation.cs HomeXOf：槽位表命中 → 槽位 X；
+        // 槽位 miss → GetGuardPosition 锚位（guard.Value - Key × FirstSlotOffset）；kingdom
+        // 为 null 等异常 → 武士自身位置。这是 PatchRoles_SamuraiPowerDash 随从死亡后
+        // StationX 无随从分支的真实落点，samurai-motion 套件只以固定 0 桩替身。
+        Test("HomeXOf level one returns the formation slot", () =>
+        {
+            var a = NewKnight(Side.Right, 1, 40);
+            var b = NewKnight(Side.Right, 2, 40);
+            Night();
+            Near(98.5f, PatchRoles_SamuraiNightFormation.HomeXOf(a), "rank 1 anchors at slot(0)");
+            Near(98.0f, PatchRoles_SamuraiNightFormation.HomeXOf(b), "rank 2 anchors at slot(1)");
+        });
+        Test("HomeXOf level two falls back to the guard anchor on a slot miss", () =>
+        {
+            var a = NewKnight(Side.Right, 1, 40);
+            var b = NewKnight(Side.Right, 2, 40);            // rank 2: tabled at slot(1)=98.0 behind rank 1
+            Night();
+            Near(98.0f, PatchRoles_SamuraiNightFormation.HomeXOf(b), "precondition: the samurai is in the slot table");
+            UnitScanCache.Knights = Array.Empty<Knight>();   // the scan roster lost the samurai
+            Time.time += 5f;                                 // past the 3s slot TTL -> the rebuild finds no one
+            Near(98.5f, PatchRoles_SamuraiNightFormation.HomeXOf(b), "guard anchor - FirstSlotOffset");
+        });
+        Test("HomeXOf level three falls back to the samurai's own position", () =>
+        {
+            var k = NewKnight(Side.Right, 2, 40);
+            Night();
+            Managers.Inst = null;                            // kingdom unreachable
+            Near(40f, PatchRoles_SamuraiNightFormation.HomeXOf(k), "own x without a kingdom");
+            Managers.Inst = new Managers();
+            Managers.Inst.kingdom.GuardResolver = _ => throw new InvalidOperationException("guard resolver failed");
+            Near(40f, PatchRoles_SamuraiNightFormation.HomeXOf(k), "own x when the guard anchor throws");
         });
 
         // ---- B. 真实前缀集成（抽取的 DayAssembleSpreadPrefix） ----

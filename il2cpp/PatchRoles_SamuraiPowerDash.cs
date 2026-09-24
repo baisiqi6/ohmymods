@@ -1020,7 +1020,9 @@ internal static class PatchRoles_SamuraiPowerDash
         var a = m.Actor;
         Knight k = a.Owner;
         // 2026-09-25 用户裁定：目标死/失效不终止回程——回家目标由 StationX 的无随从
-        // 分支兜底；仅清引用让后续 RefreshFollower 有机会换新目标。
+        // 分支兜底。清引用不是为了换新目标（Turn/Home 相位不运行 RefreshFollower），
+        // 而是让本相位起的 HomeTarget/Distance 立即落到 HomeXOf 锚上，随从死后租约
+        // 余程由该锚走完回家；新目标要等租约结束后的空闲 Tick 才会再选。
         if (!ValidFollower(k, a.Follower)) a.Follower = null;
         float now = Time.time;
         if (now - m.StartedAt >= RoundTripLease) { Finish(m); return; }
