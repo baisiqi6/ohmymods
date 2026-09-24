@@ -24,7 +24,10 @@ namespace KingdomEnhancedMod;
 ///    OnDisable → <see cref="HeroArcherWallPierce.Restore(Arrow)"/>（比英雄的
 ///    Arrow.OnEnable 前缀归还更早——回收当帧即归还，不等下一次 OnEnable）。
 ///    效果域=KEM 弩矢池全部发射者（弩手+死地随从，同一克隆 SO，预期内）。
-/// 2) **低弹道强制**——恰好一个 Harmony prefix：私有 <c>ArrowAttack.BestShotInternal</c>
+/// 2) ~~低弹道强制~~——**2026-09-24 用户裁定取消**：原生 BestShotInternal 本就有
+///    "低解被障碍挡→自动高抛"的完整选择逻辑；强制低解与穿墙失配叠加会把失配放大成
+///    平射拍自家墙（夜间守家实机反馈）。保留穿墙：墙在=原生自然高抛越过；墙破/残余
+///    碰撞由穿墙兜底。Harmony prefix 已删，弹道选择完全回归原生。
 ///    （2.4 interop 方法面已核：actual-interop 摘录 BestShotInternal(Vector2,Vector2,
 ///    float,bool,bool) PARAMS targetPos,arrowPosition,gravity,forceHighShot,isBoostedShot），
 ///    门=<c>__instance.Pointer == PatchRoles_Crossbowman.ClonedAttackSoPointer</c>（与克隆
@@ -48,7 +51,6 @@ public sealed class CrossbowmanBoltWallPierce : MonoBehaviour
     private static bool _loggedAttachFailure;
     private static bool _loggedEnableFailure;
     private static bool _loggedDisableFailure;
-    private static bool _loggedLowShotFailure;
 
     public CrossbowmanBoltWallPierce(IntPtr pointer) : base(pointer) { }
 
@@ -97,74 +99,11 @@ public sealed class CrossbowmanBoltWallPierce : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// BestShotInternal prefix 主体（测试直链入口）。门=SO 指针（与克隆 SO 同源：
-    /// <see cref="PatchRoles_Crossbowman.ClonedAttackSoPointer"/>）：
-    /// 命中 → 写入强制低解（跳过 ParabolaCast 墙挡判定）并返回 true（调用方 skip 原方法）；
-    /// 未命中/资产未构建/任何异常 → 返回 false（原样执行原生 BestShotInternal）。
-    /// magnitude 语义与原生逐字对齐：isBoostedShot 读 _boostedShotMagnitude，否则
-    /// _shotMagnitude；返回值同样过 ClampMagnitude(v*num, num)。
-    /// </summary>
-    internal static bool TryForceLowTrajectory(ArrowAttack attack, Vector2 targetPos, float gravity,
-        bool isBoostedShot, out Vector2 result)
-    {
-        result = default;
-        try
-        {
-            IntPtr gate = PatchRoles_Crossbowman.ClonedAttackSoPointer;
-            if (gate == IntPtr.Zero || attack == null) return false;
-            if (attack.Pointer != gate) return false;
-
-            float num = isBoostedShot ? attack._boostedShotMagnitude : attack._shotMagnitude;
-            // 无解（目标超出射程包络）时 ComputeTrajectoryAngle 返回 false 且 low==high
-            // ==45° 单位向量——ClampMagnitude(low*num,num) 天然等价原生回退分支。
-            Util.ComputeTrajectoryAngle(targetPos, num, out Vector2 low, out _, gravity);
-            result = Vector2.ClampMagnitude(low * num, num);
-            return true;
-        }
-        catch (Exception e)
-        {
-            result = default;
-            if (_loggedLowShotFailure) return false;
-            _loggedLowShotFailure = true;
-            KingdomEnhancedPlugin.Instance?.LogSource?.LogError(
-                "[CrossbowmanBoltPierce] forced low shot failed; native BestShotInternal runs: " + e);
-            return false;
-        }
-    }
-
     private static void LifecycleFailure(ref bool logged, string step, Exception e)
     {
         if (logged) return;
         logged = true;
         KingdomEnhancedPlugin.Instance?.LogSource?.LogError(
             "[CrossbowmanBoltPierce] lifecycle " + step + " failed; bolt keeps native wall collisions: " + e);
-    }
-}
-
-/// <summary>
-/// 低弹道强制（方案E 第③件，本切片**恰好一个** Harmony prefix）：私有
-/// <c>ArrowAttack.BestShotInternal</c>。门=克隆 SO 指针 → skip 原方法（跳过
-/// ParabolaCast 墙挡判定）并返回 ComputeTrajectoryAngle 低解；其余 SO（英雄私有
-/// SO/全部原生 SO）一律原样执行原生方法。异常隔离：任何异常回退执行原方法。
-/// </summary>
-[HarmonyPatch(typeof(ArrowAttack), "BestShotInternal")]
-internal static class ArrowAttack_BestShotInternal_CrossbowmanLowTrajectory_Patch
-{
-    [HarmonyPrefix]
-    private static bool Prefix(ArrowAttack __instance, Vector2 targetPos, float gravity,
-        bool isBoostedShot, ref Vector2 __result)
-    {
-        try
-        {
-            if (CrossbowmanBoltWallPierce.TryForceLowTrajectory(__instance, targetPos, gravity,
-                isBoostedShot, out Vector2 forced))
-            {
-                __result = forced;
-                return false;                                   // skip 原方法（含 ParabolaCast 墙挡判定）
-            }
-        }
-        catch (Exception) { }
-        return true;                                            // 门未命中/异常：原样执行原生
     }
 }
