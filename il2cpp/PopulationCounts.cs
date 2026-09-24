@@ -9,7 +9,7 @@ internal static class PopulationCounts
 {
     internal const int WorkerRole = 0, ArcherRole = 1, FarmerRole = 2, PikemanRole = 3;
     internal const int NinjaRole = 4, BerserkerRole = 5, PeasantRole = 6, BeggarRole = 7;
-    internal const int MusketeerRole = 8, FollowerRole = 9, RoleCount = 10, KnightRole = 10, StyleCount = 5;
+    internal const int MusketeerRole = 8, FollowerRole = 9, SquireRole = 10, RoleCount = 11, KnightRole = 11, StyleCount = 5;
     private const int MaxFailures = 3, DelayedRebuilds = 2;
 
     private sealed class Entry
@@ -187,7 +187,10 @@ internal static class PopulationCounts
 
     private static int Classify(GameObject go, Knight knight)
     {
-        if (knight != null) return KnightRole;
+        // 2026-09-24 对账修正（用户裁定：侍从只有一种，独立一行计数）：侍从（tag "Squire"）
+        // 也带 Knight 组件——此前被数进骑士行且永远进"待识别"（按设计不上风格），造成
+        // HUD 12/待识别1 vs 面板 11/0 的假性不一致。归入独立"侍从"行。
+        if (knight != null) return knight.tag == "Squire" ? SquireRole : KnightRole;
         if (go.GetComponent<Berserker>() != null) return BerserkerRole;
         if (go.GetComponent<Ninja>() != null) return NinjaRole;
         if (go.GetComponent<Pikeman>() != null) return PikemanRole;
