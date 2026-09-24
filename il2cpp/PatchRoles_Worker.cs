@@ -489,6 +489,7 @@ public static class Mover_Update_Patch
     public static void Mover_Update_Postfix(Mover __instance)
     {
         GreekScaleScope.Maintain(__instance);
+        CrossbowmanLifecycle.MaintainSkin(__instance);
     }
 }
 
