@@ -137,7 +137,7 @@ public class Payable : Component
 
     public T TryCast<T>() where T : class => this as T;
     public virtual bool CanPay(Player p) => CanPayF(p);
-    public Vector3 GetApproximateGameLayerPosition() => new Vector3(0f, 0f, 0f);
+    public float GetApproximateGameLayerPosition() => transform.position.x;
     public virtual void TransactionComplete()
     {
         TransactionCompleteCalls++;
@@ -199,8 +199,8 @@ public class Kingdom
 {
     public bool isDaytime = true;
     public Player playerOne, playerTwo;
-    public Func<Vector3, Player> CrownFinder = _ => new Player();
-    public Player GetNearestPlayerWithCrown(Vector3 pos) => CrownFinder(pos);
+    public Func<float, Player> CrownFinder = _ => new Player();
+    public Player GetNearestPlayerWithCrown(float x) => CrownFinder(x);
 }
 
 public class Banker : Component { public int _stashedCoins; }
@@ -213,12 +213,14 @@ public class PayableShop : Payable
     public WorkableBuilding _workableBuilding = new WorkableBuilding();
 
     public int Items;                       // native stock
+    public bool SuppressItemSpawn;           // #49: simulate a pay whose native body died
+                                             // (swallowed NRE) before CreateItem ran
     public int GetItemCountCalls;
     public int GetItemCount() { GetItemCountCalls++; return Items; }
     public override void TransactionComplete()
     {
         base.TransactionComplete();
-        Items++;
+        if (!SuppressItemSpawn) Items++;
     }
 }
 
