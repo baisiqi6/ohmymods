@@ -38,6 +38,9 @@ namespace KingdomEnhancedMod;
 ///   代次闸挡住：任何一步发现代次被更新就让出所有权，绝不覆盖更新的 life 状态。
 /// - 配置关：读者即时失效（<see cref="IsCrossbowman"/> 直接读 Enabled），并由 Tick/巡检遍历
 ///   **自有 registry（含 inactive）** 还原解除，不依赖 5s 扫描窗口。
+/// - 皮肤：Archer.soldierAnimator 生根到死地控制器（原生 biome 换皮对未注册 original
+///   原样穿透 → 单写者），还原三处 = Strip / 池新 life 边界 / UnwindAll；
+///   ConvertToHunter 方向由单写事件纠正兜底；不做每帧重断言（PR#58 皮肤守卫已退役）。
 /// - 本文件绝不销毁任何组件；资产构建路径的 Destroy 属于宿主 EnsureAssets。
 /// </summary>
 internal static class CrossbowmanLifecycle
@@ -59,11 +62,14 @@ internal static class CrossbowmanLifecycle
     // 用途：配置关的即时解除（含 inactive，扫描缓存看不到池中对象）。
     private static readonly List<CrossbowmanMarker> _owned = new List<CrossbowmanMarker>();
 
-    // 每帧皮肤守卫（2026-09-24 死地弩手随从走路抽搐）：原生 ConvertToHunter/ConvertToSoldier
-    // 在转职判定翻转控制器，5s 巡检纠正窗口内两套控制器的走路状态来回切=目击的抽搐。
-    // Mover.Update postfix 同帧重断言（缩放守卫同款）；mover 指针 O(1) 早退，指针相等零写。
-    private static readonly Dictionary<System.IntPtr, RuntimeAnimatorController> _skinGuard = new();
-    private static int _skinReasserts;
+    // 皮肤生根（2026-09-24 死地弩手随从走路抽搐根治）：把实例的 Archer.soldierAnimator
+    // （public 字段）直接指到死地控制器——原生 ConvertToSoldier 每次解析
+    // BiomeData.GetAssetSwapForThis(soldierAnimator)，而 swap 表对未注册 original 原样穿透
+    // （BiomeSwapData.GetAnimSwap: 未命中字典 → 返回入参），因此原生自己写出的就是同一引用
+    // （同引用重赋无害）→ 单写者、零重绑、零竞态。
+    // 原 PR#58 的每帧 _skinGuard/MaintainSkin 守卫已退役：字段生根后它是第三写者，
+    // 只会重新引入重绑抖动。一次性穿透实证日志见 LogRootPassThroughOnce。
+    private static bool _loggedRootPassThrough;
 
     // Pool.FastSpawn 作用域深度（prefix 自增 / finalizer 自减，异常安全）。
     private static int _poolSpawnDepth;
@@ -150,6 +156,10 @@ internal static class CrossbowmanLifecycle
             if (_poolSpawnDepth > 0)
             {
                 if (marker.Selected || marker.Active || marker.Residue) Strip(archer, profile);
+                // 新 life 边界兜底（Strip 让出到 handoff/无状态时不落空）：池不重拷
+                // 序列化字段，旧 life 的生根值绝不能带进新 life（漏还原=普通弓箭手
+                // 穿死地皮事故）。已在基线上时零写入。
+                RestoreSoldierAnimator(archer, profile);
                 marker.PendingPoolHandoff = marker.Residue;
                 return;
             }
@@ -281,8 +291,11 @@ internal static class CrossbowmanLifecycle
             if (profile.Skin != null)
             {
                 AssignController(archer, profile.Skin);
-                Mover guardMover = archer.GetComponent<Mover>();
-                if (guardMover != null) _skinGuard[guardMover.Pointer] = profile.Skin;
+                // 生根：实例的 soldierAnimator 指到死地控制器。此后原生每次
+                // ConvertToSoldier 解析出的都是同一控制器（未注册 original 原样穿透），
+                // 原生写入与我们不再打架——这是抽搐的根治点。幂等：指针相等零写入。
+                RootSoldierAnimator(archer, profile.Skin);
+                LogRootPassThroughOnce(profile.Skin);
             }
 
             // 士兵皮肤的第二半：王国旗帜色染衣（宿主私有逻辑，自带早退与异常隔离）；
@@ -336,6 +349,8 @@ internal static class CrossbowmanLifecycle
             // A native recruitment during OnEnable can hand this pooled instance to a
             // knight. Its Deadlands package deliberately shares our SO, range and scale;
             // equality of those values cannot establish ownership by the previous life.
+            // 生根字段不在本分支还原：新 owner（随从路径）自行重写/还原，池边界
+            // （OnArcherEnablePrefix→RestoreSoldierAnimator）负责清掉任何遗留值。
             if (marker.PendingPoolHandoff && !marker.Selected && archer._knight != null)
             {
                 marker.Revision++;
@@ -372,6 +387,8 @@ internal static class CrossbowmanLifecycle
             RestoreMovement(archer, profile);
             if (!Current(marker, revision)) return;
 
+            // 先还原生根字段、再按原生语义解析猎人皮（RestoreSkin 绝不读被污染的字段）。
+            RestoreSoldierAnimator(archer, profile);
             RestoreSkin(archer, profile);
 
             // 衣服颜色不还原（原生路径会自然重掷），只清我们自己染的那次：
@@ -384,7 +401,6 @@ internal static class CrossbowmanLifecycle
             if (!Current(marker, revision)) return;
 
             Mover stripMover = archer.GetComponent<Mover>();
-            if (stripMover != null) _skinGuard.Remove(stripMover.Pointer);
             ScaleRegistryHolder.Unregister(stripMover);
             GreekScaleScope.Restore(archer.transform);
 
@@ -409,9 +425,9 @@ internal static class CrossbowmanLifecycle
     ///   inactive 也照做（只写字段，不依赖扫描缓存）；
     /// - 有效身份但对象停用：不动（身份已在 OnDisable prefix 失效；重开时 postfix 自愈）；
     /// - 有效身份且启用：只兜原生重置的字段（OnEnable/网络收包/换皮被池路径重置）。
-    ///   只碰 ActiveArrowAttack（等于原生基础箭才修复）、shootRange、Animator、旗帜色与
-    ///   守墙目标；塔位扫描器由 CrossbowDefense 收敛；不碰射击间隔（buff/阵形可能合法
-    ///   修改），火矢 buff（_fireArrowAttack）期间绝不动箭。
+    ///   只碰 ActiveArrowAttack（等于原生基础箭才修复）、shootRange、Animator、生根的
+    ///   soldierAnimator（指针校验）、旗帜色与守墙目标；塔位扫描器由 CrossbowDefense 收敛；
+    ///   不碰射击间隔（buff/阵形可能合法修改），火矢 buff（_fireArrowAttack）期间绝不动箭。
     /// </summary>
     internal static bool Reconcile(Archer archer, in CrossbowmanProfile profile)
     {
@@ -470,12 +486,10 @@ internal static class CrossbowmanLifecycle
 
             if (profile.Skin != null)
             {
-                Animator animator = archer.GetComponentInChildren<Animator>();
-                if (animator != null && animator.runtimeAnimatorController != null
-                    && animator.runtimeAnimatorController.Pointer != profile.Skin.Pointer)
-                {
-                    animator.runtimeAnimatorController = profile.Skin;
-                }
+                ReassertController(archer, profile.Skin);
+                // 生根字段的指针校验（稳态零写入）：池/原生重置把 soldierAnimator
+                // 翻回基线时补种，否则下一次原生 ConvertToSoldier 会解析出原生皮。
+                RootSoldierAnimator(archer, profile.Skin);
             }
 
             // 原生 ConvertToHunter（下塔/下船/离队/死亡清理）会重掷随机衣色并清
@@ -580,6 +594,8 @@ internal static class CrossbowmanLifecycle
             }
 
             Strip(archer, profile);
+            // 全局解除/世界清理：strip 让出到 handoff 分支时也不留下生根残留。
+            RestoreSoldierAnimator(archer, profile);
         }
         PruneOwned();
     }
@@ -734,33 +750,93 @@ internal static class CrossbowmanLifecycle
     }
 
     /// <summary>
-    /// Mover.Update postfix 每帧皮肤守卫（宿主 PatchRoles_Worker.Mover_Update_Patch 接线，
-    /// GreekScaleScope.Maintain 同点）：原生任何路径翻走弩手的死地士兵控制器都在同帧翻回，
-    /// 两套控制器不再来回切。身份消失/配置关时自清；重断言计数有界留痕（现场定位翻写者频率）。
+    /// Archer.ConvertToHunter **postfix**（native 下塔/下船/离队/死亡清理走本路径）：替代已退役的
+    /// 每帧皮肤守卫的**单写事件纠正**——身份仍有效（marker.Active；死亡/离队/停用已由 OnDisable
+    /// prefix 先行失效）→ 把控制器与生根字段各写回死地控制器一次（指针相等零写入）；身份无效
+    /// （死亡/退队/池中）→ 不碰，维持既有"猎人皮播死亡动画"设计。不做每帧、不翻牌。
     /// </summary>
-    internal static void MaintainSkin(Mover mover)
+    internal static void OnConvertToHunterPostfix(Archer archer, in CrossbowmanProfile profile)
     {
-        if (_skinGuard.Count == 0) return;
         try
         {
-            if (mover == null || !_skinGuard.TryGetValue(mover.Pointer, out RuntimeAnimatorController skin)
-                || skin == null) return;
-            Archer archer = mover.GetComponent<Archer>();
-            if (archer == null || !IsCrossbowman(archer))
+            if (archer == null || archer.gameObject == null) return;
+            if (profile.Skin == null) return; // 皮肤资产缺失：只管功能，外观走原生
+            EnsureMarkerRegistered();
+            CrossbowmanMarker marker = archer.GetComponent<CrossbowmanMarker>();
+            if (marker == null || !marker.Active) return;
+            ReassertController(archer, profile.Skin);
+            RootSoldierAnimator(archer, profile.Skin);
+        }
+        catch (Exception e)
+        {
+            LogBounded(ref _scanErrorLogs, "[Crossbowman/hunter] ", e);
+        }
+    }
+
+    /// <summary>
+    /// 单次控制器断言（指针相等零写入）。Reconcile 巡检与 ConvertToHunter 事件纠正共用。
+    /// </summary>
+    private static void ReassertController(Archer archer, RuntimeAnimatorController skin)
+    {
+        Animator animator = archer.GetComponentInChildren<Animator>();
+        if (animator == null || animator.runtimeAnimatorController == null) return;
+        if (animator.runtimeAnimatorController.Pointer == skin.Pointer) return;
+        animator.runtimeAnimatorController = skin;
+    }
+
+    /// <summary>
+    /// 生根写入（幂等：指针相等零写入）。skin 为死地控制器=生根；为 prefab 快照=还原。
+    /// </summary>
+    private static void RootSoldierAnimator(Archer archer, RuntimeAnimatorController skin)
+    {
+        if (skin == null) return;
+        RuntimeAnimatorController current = archer.soldierAnimator;
+        if (current != null && current.Pointer == skin.Pointer) return;
+        archer.soldierAnimator = skin;
+    }
+
+    /// <summary>
+    /// 生根字段还原：soldierAnimator 写回原生 Archer prefab 快照（profile.BaseSoldierAnimator）。
+    /// 调用点=Strip（先于猎人皮解析）/ 池新 life 边界 / UnwindAll 三处——池不重拷序列化字段，
+    /// 漏还原=普通弓箭手穿死地皮事故。快照缺失（holder 未就绪）→ 不写（下次入口再试）；
+    /// 已在基线上 → 零写入。
+    /// </summary>
+    private static void RestoreSoldierAnimator(Archer archer, in CrossbowmanProfile profile)
+    {
+        RuntimeAnimatorController baseAnimator = profile.BaseSoldierAnimator;
+        if (baseAnimator == null) return;
+        RootSoldierAnimator(archer, baseAnimator);
+    }
+
+    /// <summary>
+    /// 一次性穿透实证日志（用户实机排障定稿）：死地控制器不在 biome 动画换皮表中 →
+    /// GetAssetSwapForThis(deadlands) 必须原样返回 deadlands，原生 ConvertToSoldier
+    /// 才会写出同一引用（单写者语义）。每进程一行。
+    /// </summary>
+    private static void LogRootPassThroughOnce(RuntimeAnimatorController skin)
+    {
+        if (_loggedRootPassThrough) return;
+        _loggedRootPassThrough = true;
+        try
+        {
+            BiomeData biome = BiomeData.Current;
+            if (biome == null)
             {
-                _skinGuard.Remove(mover.Pointer);
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[Crossbowman] soldierAnimator rooted to " + skin.name
+                    + "; swap check skipped (no biome)");
                 return;
             }
-            Animator animator = archer.GetComponentInChildren<Animator>();
-            if (animator == null || animator.runtimeAnimatorController == null) return;
-            if (animator.runtimeAnimatorController.Pointer == skin.Pointer) return;
-            animator.runtimeAnimatorController = skin;
-            _skinReasserts++;
-            if (_skinReasserts <= 3 || _skinReasserts % 100 == 0)
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[Crossbowman] skin reassert #" + _skinReasserts + " (native flipped it back)");
+            RuntimeAnimatorController resolved = biome.GetAssetSwapForThis<RuntimeAnimatorController>(skin);
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                "[Crossbowman] soldierAnimator rooted to " + skin.name + "; swap pass-through="
+                + (resolved != null && resolved.Pointer == skin.Pointer));
         }
-        catch { }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                "[Crossbowman] swap pass-through check failed: " + e.GetType().Name);
+        }
     }
 
     /// <summary>
@@ -859,4 +935,7 @@ internal struct CrossbowmanProfile
 
     /// <summary>猎人换皮不可用时的回落控制器。</summary>
     internal RuntimeAnimatorController BaseSkin;
+
+    /// <summary>原生 Archer prefab 的 soldierAnimator 快照（生根还原用；null → 跳过还原）。</summary>
+    internal RuntimeAnimatorController BaseSoldierAnimator;
 }
