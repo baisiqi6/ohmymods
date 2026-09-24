@@ -760,8 +760,7 @@ public static class PatchEconomy_Banker
         return accepted;
     }
 
-    /// <summary>One synchronous procurement debit; native shop PerformPay records CoinsSpent.
-    /// 只读白天门也在此：夜间（Kingdom.isDaytime=false/不可读）拒绝直接调用，不产生任何扣款。</summary>
+    /// <summary>One synchronous procurement debit; native shop PerformPay records CoinsSpent.</summary>
     internal static bool TrySpendForAutoRestock(Banker banker, int amount)
     {
         if (Time.timeScale <= 0f || amount <= 0 || amount > 200
@@ -770,12 +769,8 @@ public static class PatchEconomy_Banker
         var kingdom = managers != null ? managers.kingdom : null;
         if (managers == null || managers.game == null || managers.game.state != Game.State.Playing
             || kingdom == null
-            || !PatchEconomy_AutoRestock.IsDaytimeNow()
             || !BankAssistantCoordinator.IsCurrentRestockBanker(banker)
             || !TryPrimeSharedLedger(banker)) return false;
-        // Prime 的账本读取/写回也是 native/协作回调：期间可能翻夜。首次扣款写之前
-        // 再确认一次白天，夜间绝不提交任何扣款（已扣款回执与 prime 结果不受影响）。
-        if (!PatchEconomy_AutoRestock.IsDaytimeNow()) return false;
         int current = banker._stashedCoins;
         if (current < amount) return false;
         int updated = current - amount;

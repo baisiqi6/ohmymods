@@ -605,10 +605,9 @@ namespace KingdomEnhancedMod
         {
             TrySpendCalls++;
             Attempts.Add((amount, banker._stashedCoins));
-            // Mirror the production final gate: no auto-restock debit outside Kingdom daylight.
+            // Mirror the production final gate: current restock banker, bounded amount, sufficient balance.
             if (FailNext || !BankAssistantCoordinator.IsCurrentRestockBanker(banker)
                 || amount <= 0 || amount > 200
-                || !PatchEconomy_AutoRestock.IsDaytimeNow()
                 || banker._stashedCoins < amount) return false;
             banker._stashedCoins -= amount;
             SpendAmounts.Add(amount);
