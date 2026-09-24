@@ -8,11 +8,12 @@ namespace KingdomEnhancedMod;
 /// <summary>Eight ghost renderers plus one burst body per knight; no original renderer/material writes or gameplay components.</summary>
 internal static class SamuraiDashVisuals
 {
-    // 残影持续 1 秒（2026-09-24，用户裁定）：幻影淡出总窗从 .2 s 拉到 1 s，与拖尾的
-    // PatchRoles_SamuraiPowerDash.SamuraiTrailLifetime 同步。采样密度（间隔/距离）不动。
-    private const float Lifetime = 1f, SampleInterval = .04f, SampleDistance = .4f;
+    // 残影淡出 2 秒（2026-09-25 用户要求便于观察）：幻影淡出总窗 1 s → 2 s（单点常量）；
+    // 拖尾自身的 lifetime 钉值仍在 PatchRoles_SamuraiPowerDash.SamuraiTrailLifetime（1 s）。
+    // 采样密度（间隔/距离）、8 槽与透明度阶梯不动。
+    private const float Lifetime = 2f, SampleInterval = .04f, SampleDistance = .4f;
     // 2026-09-25 用户裁定（八道不同姿态白光）：8 槽全部用已实机验证可见的标准白配方
-// （recipe C），沿冲刺路径逐格定格不同拔刀姿态，1s 内保持并淡出。
+// （recipe C），沿冲刺路径逐格定格不同拔刀姿态，2s 内保持并淡出。
 private const int GhostSlots = 8;
 private static float GhostOpacity(int rankFromNewest)
 {

@@ -27,6 +27,8 @@ internal static class Program
         // Same for the heal narrative's session budget and the shared-controller slash memory:
         // adoption and heal lines must be opted into per test, not inherited from earlier ones.
         typeof(PatchRoles_SamuraiPowerDash).GetField("HealLogs", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, 0);
+        // The choreography's early-exit narrative is budgeted the same way.
+        typeof(PatchRoles_SamuraiPowerDash).GetField("ChoreoLogs", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, 0);
         (typeof(PatchRoles_SamuraiPowerDash).GetField("SlashByController", BindingFlags.Static | BindingFlags.NonPublic)
             ?.GetValue(null) as System.Collections.IDictionary)?.Clear();
         try { action(); Eq(0, KingdomEnhancedPlugin.Instance.LogSource.Errors.Count, "production error logs"); passed++; Console.WriteLine("PASS " + name); }
@@ -36,6 +38,28 @@ internal static class Program
     { type.GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[] { knight }); }
     private static void UpdateHook(Knight knight) => InvokeHook(typeof(Knight_Update_SamuraiPowerDash_Patch), "Postfix", knight);
     private static void DisableHook(Knight knight) { var type = typeof(Knight_OnDisable_SamuraiPowerDash_Patch); type.GetMethod("Prefix", BindingFlags.Static | BindingFlags.NonPublic)?.Invoke(null, new object[] { knight }); InvokeHook(type, "Postfix", knight); }
+    private static bool TripActive(Knight knight) => PatchRoles_SamuraiPowerDash.IsChoreoActive(knight);
+    // The native path the flag suppression exists for: Knight.Update calls ShouldSlash(), and the
+    // native Slash() pauses the mover on its first line. The stub replays exactly that write, so
+    // the suppression carries a real root-cause discriminator instead of a comment.
+    private static void NativeSlashAttempt(Knight knight)
+    {
+        if (ShouldSlash(knight) && knight._mover != null) knight._mover._pauseTimeout = .5f;
+    }
+    // One complete choreographed trip in the stub world: the outbound leg arrives, the reverse
+    // cut turns the same motion home and the finale closes it at the start point.
+    private static void RunTripCycle(Knight k)
+    {
+        UpdateHook(k);                       // the trigger opens the trip toward ±7
+        Frames(40);                          // outbound arrival + turn
+        Frames(60);                          // home arrival + finale
+        k.transform.position = new(0);
+    }
+    private static void CloseTrip(Knight k)
+    {
+        for (int i = 0; i < 400 && TripActive(k); i++) Frame(.02f);
+        Check(!TripActive(k), "the choreography closed");
+    }
     private static Knight NewKnight(float x = 0)
     {
         var go = new GameObject(); var k = go.AddComponent<Knight>(); k.transform.position = new(x);
@@ -120,26 +144,28 @@ internal static class Program
             Check(k.isRetreating, "native fixture supplies retreat posture"); Eq(1f, k._mover._goalPosition, "current native target used");
             Eq(0, SamuraiDashVisuals.BeginCount(k), "no mod return effects");
         });
-        Test("Night attack pulled past the leash turns in-lease and closes at the station", () => {
+        Test("Night trips are target-agnostic: no leash, home is the start point", () => {
             Managers.Inst.kingdom.isDaytime = false;
             var k = NewKnight(8); Follower(k, 0); Enemy(k, 13); UpdateHook(k);
             Check(k._damageable.invulnerable, "forward attack began");
-            k.transform.position = new(13.6f); UpdateHook(k);      // past AttackLeash: the leash breaks
-            Scheduler.Advance();                                   // the coroutine turns the same lease around
-            Check(k._damageable.invulnerable, "the round trip survives the broken leash");
-            Eq(18f, k._mover._goalSpeed, "the reverse cut opened instead of a hand-off");
-            Eq(0, k._fsm.Requests, "no native handoff while the lease owns the mover");
-            Frames(80);                                            // the trip drives home and closes at the station
+            Eq(15f, k._mover._goalPosition, "the outbound goal is start + fixed seven");
+            k.transform.position = new(13.6f); UpdateHook(k);      // the old attack leash distance: irrelevant now
+            NativeFrame(k);
+            Eq(0, k._fsm.Requests, "no native handoff while the trip runs");
+            Frames(90);                                            // the trip turns and closes at homeX = 8
             Eq(Mover.GoalMode.Off, k._mover.goalMode, "arrival released the goal");
-            Check(!k._damageable.invulnerable && !k._trail.enabled, "effects retired at the station");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "effects retired at the close");
+            Check(MathF.Abs(k.transform.position.x - 8f) <= .3f, "home is the start point, not the follower");
         });
-        Test("Night in-range finish retains full cooldown and can attack again", () => {
+        Test("The attack cooldown anchors at the trigger, not at the trip's end", () => {
             Managers.Inst.kingdom.isDaytime = false;
             var k = NewKnight(); Follower(k, 0); Enemy(k, 3); UpdateHook(k);
-            Time.time = .61f; Time.frameCount++; Scheduler.Advance();
+            Frames(60);                                            // the trip closes long before the cooldown
             Eq(0, k._fsm.Requests, "ordinary finish does not force wall");
-            Time.time = 3.60f; UpdateHook(k); Eq(1, Scheduler.Started, "full three seconds preserved");
-            Time.time = 3.62f; UpdateHook(k); Eq(2, Scheduler.Started, "next legal attack still available");
+            Time.time = 2.9f; Time.frameCount++; UpdateHook(k);
+            Eq(1, Scheduler.Started, "inside the three seconds no new attack opens");
+            Time.time = 3.05f; Time.frameCount++; UpdateHook(k);
+            Eq(2, Scheduler.Started, "the trigger-time anchor opens the next attack");
         });
         foreach (bool afterObservation in new[] { false, true })
         foreach (var interrupt in new (string Name, Action<Knight> Apply)[] {
@@ -198,16 +224,18 @@ internal static class Program
             Time.time = .1f; Time.frameCount++; Scheduler.Advance();
             Eq(0, enemy.HitCount, "native queued task cancels old burst ownership"); Eq(Knight.State.Charge, k._fsm._queuedState, "queued task preserved");
         });
-        Test("Night external goal mid-dash hands off without stopping it", () => {
-            Managers.Inst.kingdom.isDaytime = false; var k = NewKnight(8); Follower(k, 0); Enemy(k, 13); UpdateHook(k);
-            int stops = k._mover.StopCalls;
-            k._mover.SetGoal(70, 4);                       // an external owner takes the mover mid-dash
-            k.transform.position = new(13.6f); UpdateHook(k); UpdateHook(k);
-            Eq(70f, k._mover._goalPosition, "the external goal is preserved");
-            Eq(stops, k._mover.StopCalls, "the lease never stops a foreign goal");
-            Check(!k._damageable.invulnerable && !k._trail.enabled, "the handed-off lease released its effects");
+        Test("A night goal steal mid-dash is reclaimed by the 0.3 s re-assert", () => {
+            Managers.Inst.kingdom.isDaytime = false; var k = NewKnight(0); Follower(k, 0); Enemy(k, 3); UpdateHook(k);
+            k._mover.SetGoal(1, 2);                        // native GoToWall supplies its own goal
+            Frames(4, .02f, false);                        // inside the cadence the foreign goal stands
+            Eq(1f, k._mover._goalPosition, "the foreign goal is not stomped before the cadence");
+            Eq(0, k._mover.StopCalls, "the foreign goal is never stopped");
+            Frames(14, .02f, false);                       // past the 0.3 s re-assert
+            Eq(7f, k._mover._goalPosition, "the trip reclaimed its own goal");
+            Eq(18f, k._mover._goalSpeed, "with the trip's own speed");
             NativeFrame(k);
-            Eq(0, k._fsm.Requests, "the mod never queues over the native goal");
+            Eq(0, k._fsm.Requests, "the mod never queues over the trip");
+            Check(k._damageable.invulnerable, "the trip kept its protection through the steal");
         });
     }
     private static void ReturnLadder()
@@ -398,8 +426,8 @@ internal static class Program
         });
     }
 
-    // 2026-09-24 混合固定冲刺距离 + 残影 1 秒：goal = startX + Sign(dx) × max(|dx| - .5, 7) 的
-    // 直接断言、穿透命中、trail lifetime 写入/归还纪律（相位边界重基）与 turn 有界日志三态。
+    // 2026-09-25 编舞式往返：触发带 [1.5, 7+1.2]、固定 7 格出程的直接断言、命中穿透、
+    // trail lifetime 写入/归还纪律（值纪律，无相位重基）与 turn 有界日志三态。
     private static void FixedDashRegressions()
     {
         Test("Near, very near and behind enemies all get the fixed seven-unit goal", () => {
@@ -415,11 +443,18 @@ internal static class Program
             UpdateHook(behind);
             Eq(-7f, behind._mover._goalPosition, "an enemy behind gets the mirrored fixed seven");
         });
-        Test("A far enemy still stops half a unit short of its position", () => {
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 9);
-            UpdateHook(k);
-            Eq(8.5f, k._mover._goalPosition, "goal = startX + (|dx| - .5)");
-            Check(MathF.Abs(k._mover._goalPosition - 9f) <= .5f, "the dash still ends within half a unit of the enemy");
+        Test("The trigger band is [1.5, 7+1.2] and 9.0/10.5 enemies never fire", () => {
+            float edge = 7f + 1.2f;
+            foreach ((float enemyX, bool fires) in new[] { (1.4f, false), (1.5f, true), (edge, true), (edge + .05f, false), (9f, false), (10.5f, false) })
+            {
+                var k = NewKnight(0); Follower(k, 0); Enemy(k, enemyX);
+                int started = Scheduler.Started;
+                UpdateHook(k);
+                Check(Scanner.ScanCalls > 0, "the band decision came from a real scan at x=" + enemyX);
+                Eq(fires ? 1 : 0, Scheduler.Started - started, "trip at enemy x=" + enemyX);
+                if (fires) Eq(7f, k._mover._goalPosition, "fixed seven from the start point for x=" + enemyX);
+                else Eq(0, k._mover.GoalWrites, "no goal was issued for x=" + enemyX);
+            }
         });
         Test("The pinned seven-unit dash pierces the near enemy and reaches the one behind it", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
@@ -434,50 +469,45 @@ internal static class Program
             Eq(1, deep.HitCount, "a target behind the near enemy is also reached once");
             Check(k.transform.position.x > 5f, "the knight really ran through the pair");
         });
-        Test("The trail pin survives the turn on a fresh base and returns at the station", () => {
+        Test("The trail pin holds across the whole trip and returns at the close", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
             k._trail.time = .4f;                            // the native default this mod never wrote before
             UpdateHook(k);
-            Eq(1f, k._trail.time, "Begin pins the trail lifetime at one second");
+            Eq(1f, k._trail.time, "opening pins the trail lifetime at one second");
             Check(k._trail.enabled, "the trail is emitting during the outbound dash");
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();  // the window ends: the turn re-bases the pin
-            Eq(1f, k._trail.time, "the reverse cut keeps the pin on a fresh base");
+            Frames(30);                                     // the outbound leg arrives; the turn fires in-lease
+            Eq(1f, k._trail.time, "the reverse cut keeps the same pin (continuous ownership)");
             Check(k._trail.enabled, "the reverse cut still emits");
-            Frames(45, .02f, false);                        // the watchdog walks it home; the lease closes
-            Check(!k._trail.enabled, "the walk home restored the trail");
-            Eq(.4f, k._trail.time, "RestoreEffects returns the trail's own lifetime");
+            Frames(40);                                     // the home leg closes the trip
+            Check(!k._trail.enabled, "the finale retired the trail enable");
+            Eq(.4f, k._trail.time, "the finale returned the trail's own lifetime");
         });
-        Test("An externally rewritten trail lifetime is never restored by cleanup", () => {
+        Test("An externally rewritten trail lifetime survives the close", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
             UpdateHook(k);
-            k._trail.time = .7f;                            // a third party rewrote the lifetime mid-dash
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            // 2026-09-25 全程无敌裁定后，外部改写在 turn 相位被复位置 1.0（连续持有期
-            // 内我们重新断言自己的值），Finish 归还时按"仍等于写入值"门放行外部值——
-            // 但此后没有再被外部改写，故归还的是我们写入的 1.0 后 restored 为 OldTrailTime
-            // （.4 初始）。外部值存活路径由 "degrade 保留外值" 场景覆盖，见下方 home 测试。
-            Frames(45, .02f, false);                        // the trip closes at the station
-            Eq(0f, k._trail.time, "cleanup returns the pre-lease owner value after continuous ownership");
-            Check(!k._trail.enabled, "the trail enable is still retired");
+            k._trail.time = .7f;                            // a third party rewrote the lifetime mid-trip
+            Frames(70);                                     // the trip closes at the start point
+            Eq(.7f, k._trail.time, "the foreign value is not ours: the finale leaves it alone");
+            Check(!k._trail.enabled, "the trail enable is still retired by value discipline");
         });
         Test("Turn logging is bounded to twelve lines at six seconds per knight", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            RunRoundTripCycle(k);
+            RunTripCycle(k);
             Eq(1, TurnLines(), "the first turn logs once");
             Time.time = 3.7f; Time.frameCount++;            // past the 3 s attack cooldown, inside the 6 s throttle
-            RunRoundTripCycle(k);
+            RunTripCycle(k);
             Eq(1, TurnLines(), "a turn inside six seconds of the last line stays quiet");
             Time.time = 8.5f; Time.frameCount++;            // past both the cooldown and the throttle
-            RunRoundTripCycle(k);
+            RunTripCycle(k);
             Eq(2, TurnLines(), "a turn past six seconds logs again");
-            for (int i = 0; i < 12; i++) { Time.time = 15f + 7.5f * i; Time.frameCount++; RunRoundTripCycle(k); }
+            for (int i = 0; i < 12; i++) { Time.time = 15f + 7.5f * i; Time.frameCount++; RunTripCycle(k); }
             Eq(12, TurnLines(), "the session budget caps the turn narrative at twelve lines");
         });
     }
 
     // 2026-09-24 卡姿复发：短于自身转移的冲刺与被毒化的基线都捕不到姿势 → 探测失明。
     // 终捕（转移目标/见过转移的 Current）与同控制器采纳（同伴实证 hash）双网兜底。
-    // 所有租约都用 DashTimeout 超时推进确定性收尾（对齐 RunAttackLease 的手法）。
+    // 所有行程都用 1.2 s 腿窗跳时推进确定性收尾（对齐 RunAttackLease 的手法）。
     private static void StuckRecaptureRegressions()
     {
         Test("A cut that ends mid-transition captures where it was heading", () => {
@@ -490,9 +520,9 @@ internal static class Program
             k._animator.NextStateHash = 777;
             UpdateHook(k);
             Frames(20, .02f, false);                        // the cut misses its in-flight capture
-            Time.time += .7f; Time.frameCount++; Scheduler.Advance();   // the timeout turns the lease in-lease
+            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();   // the timeout turns the lease in-lease
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(45, .02f, false);                        // the walk home closes the trip; the finish capture runs
+            Frames(3, .02f, false);                        // the walk home closes the trip; the finish capture runs
             k._animator.InTransition = false;
             k._animator.StateHash = 777;                    // the transition lands on the stuck pose
             Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m =>
@@ -510,9 +540,9 @@ internal static class Program
             UpdateHook(k);                                  // the cut starts; the animator never transitions
             k._animator.StateHash = 555;                    // a walk-like pose with no observed transition
             Frames(20, .02f, false);
-            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(45, .02f, false);                        // the trip closes; the untrusted settled read is rejected
+            Frames(3, .02f, false);                        // the trip closes; the untrusted settled read is rejected
             int resets = k._animator.ResetCount;
             Frames(90, .02f, false);
             Eq(resets, k._animator.ResetCount, "no transition history: the current read is rejected");
@@ -531,9 +561,9 @@ internal static class Program
             UpdateHook(b);
             b._animator.InTransition = true; b._animator.NextStateHash = 777;
             Frames(20, .02f, false);                        // the cut ends heading nowhere new
-            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(45, .02f, false);                        // the trip closes: the poisoned capture is rejected and the peer adopts
+            Frames(3, .02f, false);                        // the trip closes: the poisoned capture is rejected and the peer adopts
             b._animator.InTransition = false;
             Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m => m.StartsWith("[SamuraiDash/slash-adopt]")),
                 "the peer's proven hash adopts through the poisoned baseline");
@@ -552,9 +582,9 @@ internal static class Program
             UpdateHook(b);
             b._animator.InTransition = true; b._animator.NextStateHash = 777;
             Frames(20, .02f, false);
-            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(45, .02f, false);                        // the trip closes on the alien controller
+            Frames(3, .02f, false);                        // the trip closes on the alien controller
             b._animator.InTransition = false;
             Check(!KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m => m.StartsWith("[SamuraiDash/slash-adopt]")),
                 "a different controller never adopts");
@@ -576,9 +606,9 @@ internal static class Program
             d._animator.NextStateHash = 555;                // a misleading transition target at the finish
             UpdateHook(d);
             Frames(20, .02f, false);
-            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(45, .02f, false);                        // the trip closes: the guess is captured, then the peer overrides
+            Frames(3, .02f, false);                        // the trip closes: the guess is captured, then the peer overrides
             d._animator.InTransition = false;
             Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m => m.StartsWith("[SamuraiDash/slash-adopt]")),
                 "the proven peer hash overrides the finish guess");
@@ -589,122 +619,75 @@ internal static class Program
         });
     }
 
-    // One complete atomic round trip in the stub world: the outbound dash times out, the coroutine
-    // turns the same lease on its exit frame, and the walk home closes at the station. The turn's
-    // bounded narrative line lands on the frame the reverse cut begins.
-    private static void RunRoundTripCycle(Knight k)
-    {
-        UpdateHook(k);   // the outbound dash opens toward startX ± 7
-        Frames(31);      // the goal is reached, stood at and the window times out; the turn fires in-lease
-        Frames(60);      // the reverse cut and the walk home close the trip
-        // Pin the station back so the next cycle's aim stays deterministic in the stub world.
-        k.transform.position = new(0);
-    }
-
     private static int TurnLines() =>
         KingdomEnhancedPlugin.Instance.LogSource.Infos.Count(m => m.StartsWith("[SamuraiDash/roundtrip-turn]"));
 
-    // Drive a knight to the phase the interruption matrix wants: Out = the coroutine's own dash
-    // frame, Turn = the reverse cut right after the outbound window, Home = the watchdog walk (the
-    // fixture's follower starts beyond the station zone so the walk cannot arrive inside a test).
-    private static void ReachPhase(Knight k, string phase)
-    {
-        UpdateHook(k);
-        if (phase == "Out") return;
-        Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-        if (phase == "Turn") return;
-        Frames(30, .02f, false);
-    }
-
-    // 2026-09-24 原子化：一次攻击冲刺 = 单一租约（出程→反向斩→回家走路），无 ReturnDue 债务、
-    // 无拼接缝。以下断言钉住三相转换、同帧反向、命中回合重置、暂停持有、整租约上限与冷却锚点。
-    // 2026-09-24 审查 P2-1：Out 相位中途被打断（外部目标中断）也要锚住冷却——
-    // 修复轮的生产修复（Finish 的 Phase==Out 分支）此前无任何直接回归。
-    private static void OutAbortCooldownAnchor()
-    {
-        Test("an Out-phase abort by an external goal holds the attack cooldown", () =>
-        {
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            ReachPhase(k, "Out");                          // mid outbound dash
-            float attackStartedAt = Time.time;
-            var foreign = new GameObject().AddComponent<Mover>();
-            k._mover = foreign;                            // mover replacement aborts the lease
-            Frames(3, .02f, false);
-            float afterAbort = Time.time;
-            Check(afterAbort - attackStartedAt < 3f, "precondition: still inside the cooldown window");
-            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Enemy(k, 5);                                   // a fresh enemy right after the abort
-            Frames(2, .02f, false);
-            Eq(0, k._mover.GoalWrites, "no new dash fires inside the 3s cooldown (anchor held)");
-            Time.time += 3.2f; Time.frameCount++;
-            Enemy(k, 6); Frames(3, .02f, false);
-            Check(k._mover != foreign || foreign.GoalWrites > 0 || k._mover.GoalWrites > 0,
-                "after the cooldown a new round trip may start");
-        });
-    }
-
+    // 2026-09-25 编舞式往返：一次攻击 = 单协程完整动作（出程固定 7 格 → 反斩回家 → 终幕），
+    // Tick 不再推进动作，只查硬上限。以下断言钉住：两条腿完整走完、回家点=出发 x、目标无关、
+    // 同帧反向、命中回合重置、整段一条受保护动作、暂停迟滞、Tick 硬上限与 ShouldSlash 全程压制。
     private static void RoundTripPhases()
     {
-        Test("A finished dash turns the same lease around without finishing", () => {
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3); k._animator.StateHash = 111;
+        Test("A trip runs both legs, closes at the start point and ends one protected motion", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
             UpdateHook(k);
-            Frames(29);                                     // .58 s: still inside the outbound window
-            Check(k._damageable.invulnerable && k._trail.enabled, "outbound effects held");
-            Eq(1, SamuraiDashVisuals.BeginCount(k), "one token for the whole lease");
-            Eq(1, k._animator.TriggerCount, "one slash so far");
-            Frames(2);                                      // the window ends; the coroutine turns in its own exit path
-            Check(k._damageable.invulnerable && k._trail.enabled, "the turn keeps its own effects");
-            Eq(1f, k._trail.time, "the pin survives the phase boundary");
-            Eq(2, k._animator.TriggerCount, "the reverse cut replays the slash pose");
+            Eq(7f, k._mover._goalPosition, "the outbound goal is the fixed seven");
+            Eq(18f, k._mover._goalSpeed, "dash speed");
+            Check(k._damageable.invulnerable && k._trail.enabled && k._trail.time == 1f, "one protected motion");
+            Check(SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "one visual token");
+            int scans = Scanner.ScanCalls;
+            Frames(80);                                     // outbound arrival, reverse cut, home arrival
+            Eq(scans, Scanner.ScanCalls, "no further target scans during the trip");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the trip released its goal");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "effects retired at the close");
+            Check(MathF.Abs(k.transform.position.x) <= .3f, "home is the start point");
+            Check(!TripActive(k), "the flag cleared");
+            Eq(1, SamuraiDashVisuals.BeginCount(k), "one Begin for the trip");
+            Eq(1, SamuraiDashVisuals.EndCalls.Count, "one End for the trip");
+        });
+        Test("An enemy dying mid-trip changes nothing: no target survives the trigger", () => {
+            var k = NewKnight(0); Follower(k, 0); var enemy = Enemy(k, 3);
+            UpdateHook(k);
+            Frames(5);
+            enemy.isDead = true;                            // the chosen enemy dies mid-flight
+            Scanner.ScanTargets.Clear();
+            Physics2D.Hits = Array.Empty<Collider2D>();
+            Frames(80);
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "both legs still ran to the close");
+            Check(MathF.Abs(k.transform.position.x) <= .3f, "home is still the start point");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "effects still retired");
+            Check(!TripActive(k), "no target knowledge survived: the trip is target-agnostic");
+        });
+        Test("The turn replays the dash pose, faces home and repairs the y scale", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3); k._animator.StateHash = 111;
+            k.transform.localScale = new Vector3(-1, 1.3f, 1);
+            UpdateHook(k);
+            Frames(21);                                     // the outbound leg arrives; the turn fires in-lease
+            Check(TripActive(k), "the return leg is still running");
+            Eq(2, k._animator.TriggerCount, "the reverse cut re-fired the dash pose");
             Eq(1, k._animator.ResetCount, "trigger hygiene cleared the finished cut first");
             Eq("reset", k._animator.Ops[^2], "the finished cut clears the trigger first");
             Eq("set", k._animator.Ops[^1], "the reverse cut then fires its own trigger");
-            Check(k._mover._goalPosition < k.transform.position.x, "the goal reversed toward home");
+            Eq(Mover.FacingMode.Left, k._mover.facingMode, "the reverse cut faces the way home");
+            Eq(1, k._mover.DirectionWrites, "SetDirection ran once at the turn");
+            Eq(-1f, k.transform.localScale.x, "the travel direction lands on the x scale");
+            Eq(1.3f, k.transform.localScale.y, "the native y wipe is repaired");
+            Check(k._mover._goalPosition <= k.transform.position.x + .01f, "the goal reversed toward home");
             Eq(18f, k._mover._goalSpeed, "the reverse cut runs at dash speed");
             Eq(1, Scheduler.Started, "no second coroutine for the turn");
-            Eq(1, SamuraiDashVisuals.BeginCount(k), "still the one lease token");
-            Check(ShouldSlash(k), "the round trip never suppresses the native slash");
+            Eq(1, SamuraiDashVisuals.BeginCount(k), "still the one token");
+            Check(!ShouldSlash(k), "the whole trip suppresses the native slash");
         });
-        Test("The reversal lands on the very frame the outbound window ends", () => {
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k);
-            Frames(29);                                     // .58 s: the outbound goal still owns the frame
-            Eq(7f, k._mover._goalPosition, "no deferred roll frame: the outbound goal is intact");
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++;   // the window is spent
-            Scheduler.Advance();                            // the coroutine exit turns it inside this very advance
-            Check(k._mover._goalPosition != 7f, "the same advance already carries the reverse goal");
-            Eq(18f, k._mover._goalSpeed, "the turn is a dash, never a deferred roll");
-            Eq(2, k._animator.TriggerCount, "the reverse cut already replayed its trigger");
-        });
-        Test("The degraded walk home stays invulnerable until the lease finishes (user ruling: one protected motion)", () => {
-            var k = NewKnight(0); var f = Follower(k, 6); Enemy(k, 3); k._mover.Blocked = true;
-            UpdateHook(k);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();   // the outbound window ends; the turn opens
-            Check(k._damageable.invulnerable, "the reverse cut opened with its own protection");
-            Eq(18f, k._mover._goalSpeed, "the turn runs at dash speed");
-            Frames(30, .02f, false);                        // the watchdog spends the cut; a 6-unit gap keeps the walk alive
-            Eq(k._runSpeed, k._mover._goalSpeed, "the walk home uses the native run speed");
-            Check(k._damageable.invulnerable, "the walk home stays protected for the whole lease (2026-09-25 user ruling)");
-            Check(k._trail.enabled, "the trail rides the whole protected motion, retiring only at Finish");
-            Eq(Mover.FacingMode.Right, k._mover.facingMode, "the walk faces the enemy side");
-            Check(SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the visual token spans the whole lease");
-            f.transform.position = new(0);                  // the squad comes home: the station zone closes the trip
-            Frames(5, .02f, false);
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "arrival released the owned goal");
-            Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the lease ended its visual token");
-            Eq(Mover.FacingMode.Ahead, k._mover.facingMode, "facing released at the finish");
-        });
-        Test("The reverse cut strikes again: the hit round resets at the phase boundary", () => {
+        Test("The reverse cut strikes again: the hit round resets at the turn", () => {
             var k = NewKnight(0); Follower(k, 0); var enemy = Enemy(k, 3);
             UpdateHook(k);
-            Frames(8);
+            Frames(5);
             Eq(1, enemy.HitCount, "the outbound round hits once");
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();   // the turn fires with a fresh round
+            Frames(20);                                     // the outbound leg arrives; the turn opens a fresh round
             Eq(2, enemy.HitCount, "the reverse cut opens its own deduplicated round");
             Frames(3);
             Eq(2, enemy.HitCount, "the turn round stays deduplicated");
         });
-        Test("Paused frames hold the lease without scans or damage", () => {
+        Test("Paused frames hold the trip without scans or damage; the resume continues it", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
             UpdateHook(k);
             var late = HitTarget(); Supply(late);
@@ -713,201 +696,209 @@ internal static class Program
             Frames(10, 0, false);
             Eq(scans, Physics2D.Scans, "no paused hit scans");
             Eq(0, late.HitCount, "no paused damage");
-            Check(k._damageable.invulnerable, "the paused dash keeps its lease and effects");
+            Check(k._damageable.invulnerable && TripActive(k), "the paused trip keeps its flag and effects");
             Time.timeScale = 1;
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();   // resume: the outbound window is already spent
-            Eq(1, late.HitCount, "the reverse cut's entry frame may strike after the resume");
+            Time.time += .1f; Time.frameCount++;            // the hit cadence elapses on the resume
+            Frames(2, .02f, false);
+            Eq(1, late.HitCount, "the resumed outbound leg strikes the supplied target once");
         });
-        Test("The whole-lease cap releases a blocked trip even when no phase can close", () => {
-            var k = NewKnight(0); var f = Follower(k, 0); Enemy(k, 3); k._mover.Blocked = true;
-            UpdateHook(k);
-            f.transform.position = new(6);                  // the walk home cannot arrive inside the fixture
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Frames(100, .02f, false);                       // 2 s: the watchdog spends the cut; the walk cannot close
-            Check(k._mover.goalMode == Mover.GoalMode.Position, "the lease still owns a live goal");
-            Time.time = 3.6f; Time.frameCount++;            // past the whole-lease cap
-            Frames(1, .02f, false);                         // one frame: the cap finishes the lease before any new scan could open
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the lease cap released the owned goal");
-            Check(!k._damageable.invulnerable && !k._trail.enabled, "no effects outlive the capped lease");
-            Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the token ended with the lease");
-        });
-        Test("The attack cadence anchors at the turn, not at the finish", () => {
+        Test("Two consecutive trips leak no effects (value discipline)", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();   // the turn anchors the cooldown at .61 + 3
-            Frames(30);                                     // the trip closes at the station well before the anchor
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the lease finished");
-            Time.time = 3.55f; Time.frameCount++; UpdateHook(k);
-            Eq(1, Scheduler.Started, "inside the cooldown no new attack opens");
-            Time.time = 3.65f; Time.frameCount++; UpdateHook(k);
-            Eq(2, Scheduler.Started, "the turn-time anchor opens the next attack");
+            k._damageable.invulnerable = true; k._trail.enabled = true; k._trail.time = .4f;
+            RunTripCycle(k);
+            Eq(true, k._damageable.invulnerable, "preexisting invulnerability returned");
+            Eq(true, k._trail.enabled, "preexisting trail returned");
+            Eq(.4f, k._trail.time, "preexisting trail lifetime returned");
+            Time.time += 3.2f; Time.frameCount++; UpdateHook(k);   // past the trigger-anchored cooldown
+            Check(TripActive(k), "the second trip opened");
+            CloseTrip(k);
+            Eq(true, k._damageable.invulnerable, "second trip returned the flag again");
+            Eq(true, k._trail.enabled, "second trip returned the trail again");
+            Eq(.4f, k._trail.time, "second trip returned the lifetime again");
+            Eq(2, SamuraiDashVisuals.BeginCount(k), "two Begin calls, no leak");
+            Eq(2, SamuraiDashVisuals.EndCalls.Count, "two Ends, no leak");
         });
-        Test("A broken leash mid-dash turns toward the live station instead of finishing", () => {
-            var k = NewKnight(0); var follower = Follower(k, 0); Enemy(k, 3);
+        Test("The Tick hard cap closes a trip that cannot advance", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3); k._mover.Blocked = true;
             UpdateHook(k);
-            Frames(3);
-            follower.transform.position = new(20);          // the squad ran past the attack leash
-            Frames(2);                                      // Tick marks the pull; the coroutine turns on its own resume
-            Check(k._damageable.invulnerable && k._trail.enabled, "the lease survives the broken leash");
-            Eq(18f, k._mover._goalSpeed, "the early turn is still the reverse cut");
-            Check(k._mover._goalPosition > k.transform.position.x, "the goal follows the live station, not a frozen origin");
-            Eq(1, Scheduler.Started, "no second motion and no return burst");
-            NativeFrame(k);
-            Eq(0, k._fsm.Requests, "the day native task never interrupts a live lease");
+            Frames(10, .02f, false);                        // the trip is stuck at the start, still live
+            Check(TripActive(k) && k._mover.goalMode == Mover.GoalMode.Position, "the stuck trip still owns a live goal");
+            Time.time = 3.1f; Time.frameCount++; UpdateHook(k);   // one frame past the 3 s budget
+            Check(!TripActive(k), "the cap closed the trip");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the cap released the owned goal");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "no effects outlive the cap");
+            Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the token ended with the cap");
+            Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m =>
+                m.StartsWith("[SamuraiDash/choreo]") && m.Contains("tick-cap")), "the cap left a budgeted reason line");
         });
-        Test("Two samurai round-trip independently toward their own stations", () => {
+        Test("Two samurai run their own trips independently toward their own start points", () => {
             var a = NewKnight(0); Follower(a, 0); Enemy(a, 3);
             var b = NewKnight(5); Follower(b, 5); Enemy(b, 2);
             UpdateHook(a); UpdateHook(b);
             Eq(2, Scheduler.Started, "both outbound dashes opened");
-            Frames(32);                                     // both windows end; both leases turn by frame 31
-            Check(MathF.Abs(a._mover._goalPosition - 2.5f) <= .3f, "A reversed toward its own station");
-            Check(MathF.Abs(b._mover._goalPosition - 2.5f) <= .3f, "B reversed toward its own station");
-            Eq(1, SamuraiDashVisuals.BeginCount(a), "A still owns one lease token");
-            Eq(1, SamuraiDashVisuals.BeginCount(b), "B still owns one lease token");
+            Eq(7f, a._mover._goalPosition, "A heads seven from its own start");
+            Eq(-2f, b._mover._goalPosition, "B heads seven toward its own enemy side");
+            Frames(90);                                     // both trips close
+            Eq(Mover.GoalMode.Off, a._mover.goalMode, "A finished");
+            Eq(Mover.GoalMode.Off, b._mover.goalMode, "B finished");
+            Check(MathF.Abs(a.transform.position.x) <= .3f, "A is home");
+            Check(MathF.Abs(b.transform.position.x - 5f) <= .3f, "B is home");
+            Eq(1, SamuraiDashVisuals.BeginCount(a), "A one token");
+            Eq(1, SamuraiDashVisuals.BeginCount(b), "B one token");
         });
-        // 2026-09-25 审查 P1-1.3：Out 相位随从死亡判别用例（中断矩阵族写法的新臂）——
-        // RoundTripRoutine 的退出路径上 TurnTransition 无条件触发（不校验随从存活），
-        // 武士推进 Home 相位、以 HomeXOf 锚（本套件桩=0）走到家 Finish。
-        Test("Out-phase follower death still turns the lease home and finishes at the anchor", () => {
+        Test("Follower death mid-trip changes nothing: the trip closes at its own start point", () => {
             var k = NewKnight(0); var f = Follower(k, 6); Enemy(k, 3);
-            UpdateHook(k);                                  // the outbound dash opens toward +7
-            Frames(3);                                      // the dash is under way, the follower alive so far
-            f._damageable.isDead = true;                    // the follower dies mid-dash
-            UnitScanCache.Archers = Array.Empty<Archer>();  // the squad has no replacement archer
-            Frames(17);                                     // t=.4: RefreshFollower reaped the dead reference; the dash stands at its goal
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();   // the outbound window ends
-            Check(k._damageable.invulnerable && k._trail.enabled, "the unconditional turn keeps the lease alive (home is the station, not the follower)");
-            Eq(18f, k._mover._goalSpeed, "the turn is still the reverse cut");
-            Check(k._mover._goalPosition < k.transform.position.x, "the turn targets the home anchor, not the dead follower");
-            Frames(30, .02f, false);                        // the stall watchdog spends the cut; the lease degrades to the Home walk
-            Eq(k._runSpeed, k._mover._goalSpeed, "the Home walk runs at the native run speed");
-            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the Home phase owns a live goal");
-            Frames(60);                                     // the walk closes at the HomeXOf anchor (stub: 0)
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the trip finished home");
-            Check(!k._damageable.invulnerable && !k._trail.enabled, "effects retired at Finish");
-            Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the visual token ended with the lease");
-        });
-    }
-
-    // 中断矩阵 × 3 相位：外部接管一律以 Handoff 结束租约、归还效果与目标；资格失效（控制/编队/
-    // 死亡等）由 Tick 的统一出口处理，外来目标与移动器替换由 ValidMotion 处理。跟随者放在站位
-    // 区外，保证 Home 相位在测试窗口内不会自行结束。
-    private static void RoundTripInterruptions()
-    {
-        foreach (var phase in new[] { "Out", "Turn", "Home" })
-        {
-            foreach (var interrupt in new (string Name, Action<Knight> Apply)[] {
-                ("config", k => ModConfig.Enabled.Value = false),
-                ("authority", k => NetworkBigBoss.HasWorldAuth = false),
-                ("manual control", k => k.ControlRequested = true),
-                ("formation", k => k.Formation = new()),
-                ("dead", k => k._damageable.isDead = true),
-                ("charging", k => k.isCharging = true),
-                ("grabbed", k => k._character.grabbed = true),
-                ("other FSM task", k => k._fsm.Current = (int)Knight.State.GrabCoin),
-                ("external goal", k => { k._mover.SetGoalNoHaglet(100, 3); Scanner.ScanTargets.Clear(); })
-            }) Test(phase + " interruption: " + interrupt.Name, () => {
-                var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
-                ReachPhase(k, phase);
-                interrupt.Apply(k);
-                Frames(60, .02f, false);
-                Check(!k._damageable.invulnerable, "interruption releases invulnerability");
-                Check(!k._trail.enabled, "interruption releases the trail");
-                Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the visual token ended");
-                if (interrupt.Name == "external goal")
-                {
-                    Eq(100f, k._mover._goalPosition, "the foreign goal is preserved");
-                    Eq(0, k._mover.StopCalls, "the foreign goal is never stopped");
-                }
-                else Eq(Mover.GoalMode.Off, k._mover.goalMode, "the owned goal was released");
-            });
-            Test(phase + " interruption: mover replacement never inherits the lease", () => {
-                var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
-                ReachPhase(k, phase);
-                var old = k._mover;
-                k._mover = k.gameObject.AddComponent<Mover>();
-                Frames(3, .02f, false);
-                Eq(0, old.StopCalls, "the replaced mover is not stopped");
-                Eq(0, k._mover.GoalWrites, "the replacement mover receives nothing");
-                Check(!k._damageable.invulnerable, "the lease released its effects");
-            });
-            Test(phase + " interruption: a paused lease holds until resumed", () => {
-                var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
-                ReachPhase(k, phase);
-                float goal = k._mover._goalPosition;
-                Time.timeScale = 0;
-                Frames(30, 0, false);
-                Eq(goal, k._mover._goalPosition, "no paused goal rewrite");
-                Eq(0, k._mover.StopCalls, "the paused lease is never finished");
-                Check(SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the token survives the pause");
-                Time.timeScale = 1;
-                Frames(3, .02f, false);
-            });
-            Test(phase + " interruption: an external mover pause finishes cleanly", () => {
-                var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
-                ReachPhase(k, phase);
-                k._mover._pauseTimeout = 1;
-                Frames(2, .02f, false);
-                Eq(false, k._damageable.invulnerable, "the pause released invulnerability");
-                Eq(Mover.GoalMode.Off, k._mover.goalMode, "the owned goal was released");
-                Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the token ended");
-            });
-        }
-    }
-
-    // 夜跨黄昏：原子租约不因入夜丢债，原生队列也不能在租约中途插入；目标跟随活站位而不是冻结
-    // 出发点；原生 GoToWall 抢走目标仍是明确的 Handoff 退出路径；租约结束后夜列队恢复可用。
-    private static void RoundTripNight()
-    {
-        Test("Dusk mid-trip keeps the lease and follows the live station", () => {
-            var k = NewKnight(0); var f = Follower(k, 0); Enemy(k, 3);
             UpdateHook(k);
-            Frames(29);                                     // the outbound window is about to end
-            Managers.Inst.kingdom.isDaytime = false;        // dusk falls mid-trip
-            f.transform.position = new(12);                 // the squad walked to the wall: a frozen origin would be stale
-            Frames(2);                                      // the turn fires at dusk
-            Check(k._damageable.invulnerable, "the trip survives dusk without a debt drop");
-            Check(k._mover._goalPosition > k.transform.position.x, "the turn targets the live station");
-            Eq(18f, k._mover._goalSpeed, "still the reverse cut");
-            NativeFrame(k);
-            Eq(0, k._fsm.Requests, "no native wall queue while the lease owns the mover");
+            Frames(3);
+            f._damageable.isDead = true;                    // the follower dies mid-dash
+            UnitScanCache.Archers = Array.Empty<Archer>();
+            Frames(80);
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "the trip closed and retired its effects");
+            Check(MathF.Abs(k.transform.position.x) <= .3f, "home is the start point, not the follower");
+            Check(!TripActive(k), "the trip closed");
+            Eq(0, k._fsm.Requests, "the mod never queued a wall task");
         });
-        Test("A native goal steal at dusk hands the trip off without touching its effects", () => {
+        Test("A paused frame never opens a trip", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            Time.timeScale = 0; Time.deltaTime = 0; UpdateHook(k);
+            Eq(0, Scheduler.Started, "no trip starts while paused");
+            Check(!k._damageable.invulnerable, "no protection is applied while paused");
+        });
+        Test("A native slash attempt during the trip never pauses the mover (root-cause discriminator)", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
             UpdateHook(k);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();   // the turn
+            for (int i = 0; i < 80 && TripActive(k); i++) { NativeSlashAttempt(k); Frame(.02f); }
+            Check(!TripActive(k), "the trip still completed with the native attempts on");
+            Eq(0f, k._mover._pauseTimeout, "native Slash() never reached its Mover.Pause during the trip");
+            Check(MathF.Abs(k.transform.position.x) <= .3f, "the trip came home");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "effects retired normally");
+        });
+        Test("The slash suppression releases once the trip closes", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            CloseTrip(k);
+            Check(!TripActive(k), "the trip closed");
+            Check(ShouldSlash(k), "the prefix no longer suppresses");
+            NativeSlashAttempt(k);
+            Eq(.5f, k._mover._pauseTimeout, "the native slash is free again once the flag clears");
+        });
+    }
+
+    // 中断矩阵（单相位：协程自行推进，无 Tick 相位）：资格失效（控制/编队/死亡等）与移动器替换
+    // 一律以终幕结束并归还效果；纯外目标不终幕（.3 s 重申夺回）；外部暂停迟滞不终幕。
+    private static void RoundTripInterruptions()
+    {
+        foreach (var interrupt in new (string Name, Action<Knight> Apply)[] {
+            ("config", k => ModConfig.Enabled.Value = false),
+            ("authority", k => NetworkBigBoss.HasWorldAuth = false),
+            ("manual control", k => k.ControlRequested = true),
+            ("formation", k => k.Formation = new()),
+            ("dead", k => k._damageable.isDead = true),
+            ("charging", k => k.isCharging = true),
+            ("grabbed", k => k._character.grabbed = true),
+            ("other FSM task", k => k._fsm.Current = (int)Knight.State.GrabCoin)
+        }) Test("In-flight interruption: " + interrupt.Name, () => {
+            var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
+            UpdateHook(k);
+            Check(TripActive(k), "the trip opened");
+            interrupt.Apply(k);
+            Frames(60, .02f, false);
+            Check(!TripActive(k), "the interruption closed the trip");
+            Check(!k._damageable.invulnerable, "the close released invulnerability");
+            Check(!k._trail.enabled, "the close released the trail");
+            Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the visual token ended");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the owned goal was released");
+        });
+        Test("In-flight interruption: a foreign goal is reclaimed by the re-assert, not handed off", () => {
+            var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
+            UpdateHook(k);
+            k._mover.SetGoalNoHaglet(100, 3);               // native GoToWall takes the mover
+            Frames(4, .02f, false);
+            Eq(100f, k._mover._goalPosition, "inside the cadence the foreign goal stands");
+            Eq(0, k._mover.StopCalls, "the foreign goal is never stopped");
+            Frames(14, .02f, false);
+            Eq(7f, k._mover._goalPosition, "the trip reclaimed its own goal");
+            Check(TripActive(k) && k._damageable.invulnerable, "the trip kept running through the steal");
+            Eq(0, k._mover.StopCalls, "no stop was issued for the foreign goal");
+        });
+        Test("In-flight interruption: mover replacement closes with zero writes to the new mover", () => {
+            var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
+            UpdateHook(k);
+            var old = k._mover;
+            k._mover = k.gameObject.AddComponent<Mover>();
+            Frames(3, .02f, false);
+            Eq(0, old.StopCalls, "the replaced mover is not stopped");
+            Eq(0, k._mover.GoalWrites, "the replacement mover receives nothing");
+            Check(!k._damageable.invulnerable, "the close released its effects");
+            Check(!TripActive(k), "the trip closed");
+        });
+        Test("In-flight interruption: an external mover pause latches instead of closing", () => {
+            var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
+            UpdateHook(k);
+            float goal = k._mover._goalPosition;
+            k._mover._pauseTimeout = 1f;                    // native hit-stun pause
+            Frames(3, .02f, false);
+            Check(TripActive(k), "the pause does not close the trip");
+            Eq(goal, k._mover._goalPosition, "the live goal stays ours");
+            Eq(0, k._mover.StopCalls, "no stop from the pause");
+            Check(k._damageable.invulnerable, "the protection stays with the latched trip");
+        });
+    }
+
+    // 夜跨黄昏：编舞往返不因入夜丢动作；出发点是本次动作的私有锚（随从/站位变化不影响）；
+    // 期间原生夜墙队列让位，动作结束后夜列队恢复可用。
+    private static void RoundTripNight()
+    {
+        Test("Dusk mid-trip keeps the trip and its own home anchor", () => {
+            var k = NewKnight(0); var f = Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            Frames(5);                                      // the dash is under way
+            Managers.Inst.kingdom.isDaytime = false;        // dusk falls mid-trip
+            f.transform.position = new(12);                 // the squad walked to the wall: irrelevant to the trip
+            Frames(25);                                     // the outbound leg arrives; the turn fires at dusk
+            Check(k._damageable.invulnerable, "the trip survives dusk");
+            Check(k._mover._goalPosition <= k.transform.position.x + .01f, "the turn targets its own start point");
+            Eq(18f, k._mover._goalSpeed, "still the reverse cut");
+            NativeFrame(k);
+            Eq(0, k._fsm.Requests, "no native wall queue while the trip runs");
+            Frames(60);
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the trip closed at its anchor");
+            Check(MathF.Abs(k.transform.position.x) <= .3f, "home is the start point, not the live station");
+        });
+        Test("A native goal steal at dusk is reclaimed, and the queue waits for the close", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
             Managers.Inst.kingdom.isDaytime = false;
             k._mover.SetGoal(1, 2);                         // native GoToWall supplies its own guard-slot goal
-            Frames(3, .02f, false);
-            Eq(1f, k._mover._goalPosition, "the native goal survives");
-            Eq(0, k._mover.StopCalls, "the lease never stops a foreign goal");
-            Check(!k._damageable.invulnerable && !k._trail.enabled, "the handed-off lease released its effects");
-            Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the token ended");
+            Frames(18, .02f, false);                        // past the 0.3 s re-assert, still inside the leg window
+            Eq(7f, k._mover._goalPosition, "the trip reclaimed its own goal over the native steal");
+            Eq(0, k._mover.StopCalls, "the foreign goal was never stopped");
             NativeFrame(k);
-            Eq(0, k._fsm.Requests, "the mod never queues over the native goal");
+            Eq(0, k._fsm.Requests, "the mod never queues over the trip");
+            Check(TripActive(k), "the trip is still running");
         });
         Test("The night handoff resumes only after the trip closes", () => {
             var k = NewKnight(0); var f = Follower(k, 0); Enemy(k, 3);
             Managers.Inst.kingdom.isDaytime = false;
             UpdateHook(k);
             Eq(1, Scheduler.Started, "night attacks still dash");
-            Frames(31);                                     // the outbound window ends; the turn fires
+            Frames(40);                                     // the outbound leg arrives; the turn fires
             NativeFrame(k);
-            Eq(0, k._fsm.Requests, "no wall queue while the lease runs");
-            Frames(60);                                     // the trip closes at the station
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the lease finished");
+            Eq(0, k._fsm.Requests, "no wall queue while the trip runs");
+            Frames(60);                                     // the trip closes at its start point
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the trip finished");
             f.transform.position = new(20);                 // the squad moved on
             Time.time += .25f; Time.frameCount++; NativeFrame(k);
-            Eq(1, k._fsm.Requests, "the night handoff resumes once the lease is gone");
+            Eq(1, k._fsm.Requests, "the night handoff resumes once the trip is gone");
         });
     }
 
-    // One complete round trip in the stub world: two calm frames let the calm pose settle, the
-    // outbound dash fires from the animator's current state and settles on `pose` so the capture
-    // can take it, the window then times out and the coroutine turns the same lease, and the walk
-    // home closes at the station -- Finish included (trigger hygiene, finish capture, probe arm).
-    // The scanner and the physics window are emptied afterwards.
+    // One complete choreographed trip in the stub world: two calm frames let the calm pose settle,
+    // the outbound dash fires from the animator's current state and settles on `pose` so the
+    // capture can take it, the outbound window is then spent with a time jump (the turn fires
+    // in-lease and re-plays the captured pose) and the home leg closes at the start point --
+    // finale included (trigger hygiene, finish capture, probe arm). The scanner and the physics
+    // window are emptied afterwards.
     private static void RunAttackLease(Knight k, int pose)
     {
         Frames(2, .02f, false);
@@ -917,11 +908,11 @@ internal static class Program
         UpdateHook(k);
         k._animator.InTransition = false;
         k._animator.StateHash = pose;
-        Frames(3, .02f, false);                     // settled: the lease captures the pose
-        Time.time += .7f;                           // past DashTimeout
+        Frames(3, .02f, false);                     // settled: the trip captures the pose
+        Time.time += 1.3f;                          // past the outbound window
         Time.frameCount++;
-        Scheduler.Advance();                        // the window ends; the turn fires in-lease
-        Frames(45, .02f, false);                    // the watchdog walks it home; Finish closes the trip
+        Scheduler.Advance();                        // the outbound window ends; the turn fires in-lease
+        Frames(3, .02f, false);                     // the home leg closes at the start point
         Scanner.ScanTargets.Clear();
         Physics2D.Hits = Array.Empty<Collider2D>();
     }
@@ -934,9 +925,9 @@ internal static class Program
             RunAttackLease(k, 777);                         // the capture takes 777 as the slash pose
             int resets = k._animator.ResetCount;            // the trip's own turn and Finish resets
             k._animator.StateHash = 777;                    // the trigger's pose survived the dash
-            Frames(50, .02f, false);                        // 1.0 s: still inside the native budget
+            Frames(70, .02f, false);                        // 1.4 s: still inside the native budget
             Eq(resets, k._animator.ResetCount, "no repair before the pose outlives the native slash");
-            Frames(12, .02f, false);                        // past 1.5 s
+            Frames(15, .02f, false);                        // past 1.5 s
             Eq(resets + 1, k._animator.ResetCount, "the leftover trigger is reset once");
             Eq(2, k._animator.PlayCalls, "the calm pose is replayed (turn reverse-cut + heal replay)");
             Eq(111, k._animator.StateHash, "the replay landed on the captured calm state");
@@ -960,9 +951,9 @@ internal static class Program
             UpdateHook(k);
             Frames(10, .02f, false);                        // the capture gates never open for this lease
             k._animator.InTransition = false;
-            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(45, .02f, false);                        // the trip closes; the session capture was untouched
+            Frames(3, .02f, false);                        // the trip closes; the session capture was untouched
             int resets = k._animator.ResetCount;
             k._animator.StateHash = 777;                    // the pose lease 1 captured is still known
             Frames(120, .02f, false);
@@ -978,7 +969,7 @@ internal static class Program
             Frames(64, .01f, false);                        // one lease, 30+ misses: the probe is retired
             k._animator.InTransition = false;
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(45, .02f, false);                        // the trip closes; the dead probe stays down
+            Frames(45, .02f, false);                        // the outbound window is spent; the trip closes; the dead probe stays down
             int resets = k._animator.ResetCount;
             k._animator.StateHash = 777;
             Frames(80, .02f, false);                        // far past the stuck budget
@@ -1003,9 +994,9 @@ internal static class Program
             UpdateHook(k);
             Frames(28, .02f, false);
             k._animator.InTransition = false;
-            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(45, .02f, false);                        // the trip closes; the fresh budget was never spent
+            Frames(3, .02f, false);                        // the trip closes; the fresh budget was never spent
             Time.time += 3.5f;
             k._animator.StateHash = 111;
             RunAttackLease(k, 777);                         // lease B's gates open and still capture
@@ -1060,7 +1051,7 @@ internal static class Program
             Frames(3, .02f, false);                         // the capture settles on 777
             Frames(9);                                      // the dash runs toward the end of its window
             k._animator.Ops.Clear();
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance(); // the window ends; the turn fires
+            Time.time = 1.3f; Time.frameCount++; Scheduler.Advance(); // the outbound window ends; the turn fires
             Check(k._animator.Ops.Count >= 2, "both trigger writes were recorded");
             Eq("reset", k._animator.Ops[^2], "the finished cut clears the trigger first");
             Eq("set", k._animator.Ops[^1], "the reverse cut then fires its own trigger");
@@ -1112,9 +1103,9 @@ internal static class Program
             k._animator.InTransition = false;
             k._animator.StateHash = 777;
             Frames(3, .02f, false);
-            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(45, .02f, false);                        // the walk home closes the trip
+            Frames(3, .02f, false);                        // the walk home closes the trip
             k._animator.StateHash = 777;                     // the pose is left behind
             k._animator.OnEnabledWrite = on => { if (on) k._animator.StateHash = 111; };
             int resets = k._animator.ResetCount;
@@ -1152,9 +1143,9 @@ internal static class Program
             k._animator.InTransition = false;
             k._animator.StateHash = 777;
             Frames(3, .02f, false);
-            Time.time += .7f; Time.frameCount++; Scheduler.Advance();
+            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(45, .02f, false);                        // the walk home closes the trip
+            Frames(3, .02f, false);                        // the walk home closes the trip
             k._animator.StateHash = 777;                    // the pose is left behind
             k._animator.OnEnabledWrite = on => { if (on) k._animator.StateHash = 111; };
             int resets = k._animator.ResetCount;
@@ -1358,7 +1349,7 @@ internal static class Program
         });
         Test("Whole follower cache is not searched every attack dash frame", () => {
             var k = NewKnight(); Follower(k, 0); Enemy(k, 3); UpdateHook(k); int calls = UnitScanCache.Calls;
-            Frames(20, .01f); Check(UnitScanCache.Calls - calls <= 3, "attack leash uses interval checks, not whole-array lookup each frame");
+            Frames(20, .01f); Check(UnitScanCache.Calls - calls <= 3, "the trip never searches the follower cache");
         });
         Test("OnDisable during attack releases owned invulnerability and trail", () => {
             var k = NewKnight(); Follower(k, 0); Enemy(k, 3); UpdateHook(k); Check(k._damageable.invulnerable, "attack actually active");
@@ -1370,11 +1361,14 @@ internal static class Program
             UpdateHook(k); DisableHook(k); Scheduler.StopOwnerSilently(k);
             Eq(true, k._damageable.invulnerable, "attack disable retains original invulnerability"); Eq(true, k._trail.enabled, "attack disable retains original trail");
         });
-        Test("Attack cleanup also preserves a newer external mover destination", () => {
+        Test("A mid-flight external mover destination is reclaimed by the re-assert", () => {
             var k = NewKnight(); Follower(k, 0); Enemy(k, 3); UpdateHook(k);
             k._mover.SetGoalNoHaglet(100, 4); int stops = k._mover.StopCalls;
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance(); UpdateHook(k);
-            Eq(stops, k._mover.StopCalls, "attack tail does not stop external goal"); Eq(100f, k._mover._goalPosition, "external attack-tail goal preserved");
+            Frames(18, .02f, false);                        // past the 0.3 s re-assert
+            Eq(7f, k._mover._goalPosition, "the trip reclaimed its own goal");
+            Eq(18f, k._mover._goalSpeed, "with the trip's own speed");
+            Eq(stops, k._mover.StopCalls, "the foreign grab was never stopped");
+            Check(TripActive(k), "the trip kept running");
         });
         Test("Optional late attack coroutine finally cannot clear new return owner after reuse", () => {
             var k = NewKnight(); var follower = Follower(k, 0); Enemy(k, 3); UpdateHook(k);
@@ -1406,23 +1400,24 @@ internal static class Program
                 Frames(5, .02f, false); Supply(first, late); Frame(.02f, false);
                 Eq(1, first.HitCount, "initial target retains one hit"); Eq(1, late.HitCount, "newly entered target hit once");
             });
-            Test(direction + " burst stops damage at timeout before a newly supplied target", () => {
+            Test(direction + " burst damage is bounded per leg (the turn re-arms, the timeout does not linger)", () => {
                 var k = PrepareBurst(returning); UpdateHook(k); var late = HitTarget(); Supply(late);
-                Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; UpdateHook(k); Scheduler.Advance();
+                Time.time = returning ? .61f : 1.3f; Time.frameCount++; UpdateHook(k); Scheduler.Advance();
                 if (returning) Eq(0, late.HitCount, "no late timeout damage");
                 else
                 {
-                    Eq(1, late.HitCount, "the reverse cut opens its own round on a target supplied after the window");
+                    Eq(2, late.HitCount, "one strike per leg on a target supplied after the trigger (the turn re-arms)");
                     int hits = late.HitCount;
                     Frames(6, .02f, false);
                     Eq(hits, late.HitCount, "the turn round is deduplicated");
                 }
             });
-            Test(direction + " burst stops damage at ten-and-a-half-unit travel boundary", () => {
-                var k = PrepareBurst(returning); UpdateHook(k); var late = HitTarget(); Supply(late);
-                float x = k.transform.position.x; k.transform.position = new(x + (returning ? -10.5f : 10.5f));
-                Frame(.1f, false); Eq(0, late.HitCount, "no hit at completed travel boundary");
-            });
+            if (returning)
+                Test("Return burst stops damage at ten-and-a-half-unit travel boundary", () => {
+                    var k = PrepareBurst(true); UpdateHook(k); var late = HitTarget(); Supply(late);
+                    float x = k.transform.position.x; k.transform.position = new(x - 10.5f);
+                    Frame(.1f, false); Eq(0, late.HitCount, "no hit at completed travel boundary");
+                });
             Test(direction + " paused burst does no scans or damage", () => {
                 var k = PrepareBurst(returning); UpdateHook(k); var late = HitTarget(); Supply(late); int scans = Physics2D.Scans;
                 Time.timeScale = 0; Frames(5, 0, false); Eq(0, late.HitCount, "paused target not damaged"); Eq(scans, Physics2D.Scans, "no paused hit scans");
@@ -1436,7 +1431,17 @@ internal static class Program
             }) Test(direction + " damage callback interrupts old frame: " + interrupt.Name, () => {
                 var k = PrepareBurst(returning); var first = HitTarget(); var second = HitTarget(); Supply(first, second);
                 first.OnReceiveDamage = _ => interrupt.Apply(k);
-                UpdateHook(k); Eq(1, first.HitCount, "first callback actually invoked"); Eq(0, second.HitCount, "old frame stops before second target");
+                UpdateHook(k); Eq(1, first.HitCount, "first callback actually invoked");
+                if (!returning && interrupt.Name == "external goal")
+                {
+                    Eq(1, second.HitCount, "a foreign goal no longer interrupts the hit frame");
+                    Eq(100f, k._mover._goalPosition, "new external destination retained");
+                    Eq(3f, k._mover._goalSpeed, "new external speed retained");
+                    Frame(.02f, false);
+                    Eq(1, second.HitCount, "the dedup keeps the second target at one hit");
+                    return;
+                }
+                Eq(0, second.HitCount, "old frame stops before second target");
                 if (interrupt.Name == "external goal") { Eq(100f, k._mover._goalPosition, "new external destination retained"); Eq(3f, k._mover._goalSpeed, "new external speed retained"); }
                 Frame(.02f, false); Eq(0, second.HitCount, "no resumed old-frame damage after interruption");
             });
@@ -1455,8 +1460,7 @@ internal static class Program
         }
         Test("Forward and subsequent reverse cut may each hit the same Damageable once", () => {
             var k = PrepareBurst(false); var target = HitTarget(); Supply(target); UpdateHook(k); Eq(1, target.HitCount, "forward hit");
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance(); UpdateHook(k);
-            k.transform.position = new(20); Scanner.ScanTargets.Clear(); Frames(12, .02f, false);
+            Frames(20);                                     // the outbound leg arrives; the turn opens a fresh round
             Eq(2, target.HitCount, "the reverse cut gets its own dedup round"); Eq(2 * k._attackDamage, target.TotalDamage, "one ordinary hit per cut round");
         });
         Test("Ordinary return running phase has no hit scans or damage", () => {
@@ -1501,7 +1505,6 @@ internal static class Program
             Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "no surviving active token");
         });
         RoundTripPhases();
-        OutAbortCooldownAnchor();
         RoundTripInterruptions();
         RoundTripNight();
         StuckPoseRepair();
