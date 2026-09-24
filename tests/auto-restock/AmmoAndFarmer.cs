@@ -464,28 +464,22 @@ internal static class AmmoAndFarmer
             Eq(e.Banker._stashedCoins, 0, "exact shared budget, no overspend");
         });
 
-        Program.Run("ammo_nightfall_withdraws_inflight_order_without_debit_or_shipment", () =>
+        Program.Run("ammo_purchases_complete_at_night_without_withdrawal", () =>
         {
-            // 角色 7（火塔罐）：Approach 中入夜——不扣款、不发货、不再发动画币。
+            // 全天语义：角色 7（火塔罐）夜间冷启动直接下单，扣款/发货照常完成。
+            // 余额恰好只够一发双倍价（2*2=4），避免第二缺口立刻再下单干扰完成断言。
             var e = NewEnv();
             Role(7, true, 2);
             SiegeAmmoCounts.SetCount(7, 0);
             Payable tower = e.MakeAmmo(7, 2, 0);
-            e.Banker._stashedCoins = 10;
-            e.Tick();
-            Eq(Reserved, 1, "day order for the fire tower");
-            int coins = Pool.SpawnCalls;
+            e.Banker._stashedCoins = 4;
             e.Kingdom.isDaytime = false;
             e.Tick();
-            Eq(Reserved, 0, "night withdraws the ammo order");
-            Eq(Spend, 0, "no debit at night");
-            Eq(tower.TransactionCompleteCalls, 0, "no ammo shipment at night");
-            for (int i = 0; i < 40; i++) e.Frame();
-            Eq(Pool.SpawnCalls, coins, "no further coin after nightfall");
-            Eq(Spend, 0, "still no debit across night frames");
-            Eq(tower.TransactionCompleteCalls, 0, "still no shipment across night frames");
+            Eq(Reserved, 1, "night creates the ammo order");
+            Ok(PumpUntil(e, () => tower.TransactionCompleteCalls == 1 && Reserved == 0, 20), "ammo shipped at night");
+            Eq(Spend, 1, "single night debit");
 
-            // 角色 6（投石车油桶）：SendingCoins 中入夜——同样只撤单，天亮后重算恢复。
+            // 角色 6（投石车油桶）：SendingCoins 中入夜——继续完成，不撤单、不等天亮。
             e = NewEnv();
             Role(6, true, 2);
             SiegeAmmoCounts.SetCount(6, 0);
@@ -496,15 +490,8 @@ internal static class AmmoAndFarmer
             e.SetTime(Time.time + 0.30f); // 已发出 1 枚动画币
             Eq(Reserved, 1, "barrel order waiting in the coin phase");
             e.Kingdom.isDaytime = false;
-            e.Tick();
-            Eq(Reserved, 0, "night withdraws the barrel order");
-            Eq(Spend, 0, "no barrel debit at night");
-            Eq(barrel.TransactionCompleteCalls, 0, "no barrel shipment at night");
-            e.Kingdom.isDaytime = true;
-            e.SetTime(Time.time + 2.6f);
-            e.Tick(); // 天亮后同一缺口在原调度上重新规划
-            Ok(PumpUntil(e, () => barrel.TransactionCompleteCalls == 1), "dawn ammo purchase resumes");
-            Eq(PatchEconomy_Banker.SpendAmounts.Single(), 10, "single doubled barrel price after dawn");
+            Ok(PumpUntil(e, () => barrel.TransactionCompleteCalls == 1 && Reserved == 0, 20), "barrel purchase completes at night");
+            Eq(PatchEconomy_Banker.SpendAmounts.Single(), 10, "single doubled barrel price");
         });
     }
 }

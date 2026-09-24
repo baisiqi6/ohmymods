@@ -400,7 +400,7 @@ public class ModPanel : MonoBehaviour
         ConfigEntry<bool> enabled, ConfigEntry<int> target)
     {
         Card(y, width, title + "自动补货", "目标 " + target.Value + (role == 6 || role == 7 ? " 份" : " 人"),
-            "白天补货 · 双倍金库付款 · " + PatchEconomy_AutoRestock.GetSummary(role));
+            "双倍金库付款 · " + PatchEconomy_AutoRestock.GetSummary(role));
         if (GUI.Button(new Rect(22, y + 51, 104, 31), enabled.Value ? "已开启" : "已关闭",
                 enabled.Value ? _activeTab : _button)) enabled.Value = !enabled.Value;
         if (GUI.Button(new Rect(138, y + 51, 34, 31), "−", _button)) target.Value = Math.Max(1, target.Value - 1);

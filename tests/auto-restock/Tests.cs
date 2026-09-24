@@ -37,9 +37,9 @@ namespace AutoRestockTests
             Run("native_throw_fault_sticky_same_world_no_refund_no_blind_retry", NativeThrowSticky);
             Run("native_throw_retried_after_world_change", NativeThrowWorldChange);
             Run("pause_and_notplaying_freeze_authloss_releases", PauseNotPlayingAuth);
-            Run("nightfall_withdraws_unpaid_inflight_order_no_debit", NightCancels);
-            Run("nightfall_paid_order_releases_home_without_retry_or_refund", NightPaidRelease);
-            Run("dawn_replans_once_without_duplicate_shipment", DawnReplan);
+            Run("nightfall_keeps_unpaid_order_and_completes_purchase", NightCancels);
+            Run("night_paid_departing_walks_out_without_retry_or_refund", NightPaidRelease);
+            Run("night_cold_start_creates_order_and_purchases", DawnReplan);
             Run("layer_change_drops_orders_without_returnhome_teleport", LayerChange);
             Run("reset_false_releases_reservation_without_returnhome", ResetFalseDirect);
             Run("shop_block_conditions_prevent_any_order", BlockConditions);
@@ -54,7 +54,7 @@ namespace AutoRestockTests
 
             Additional.Run();
             AmmoAndFarmer.Run();
-            NightDiagnostics.Run();
+            AlldaySemantics.Run();
             MotionAndPeasants.Run();
             DoubleCost.Run();
             GreekScope.Run();
@@ -698,42 +698,37 @@ namespace AutoRestockTests
 
         internal static void NightCancels()
         {
-            // 产品规则：只有白天采购。夜幕降临时，未扣款订单立即撤回并释放助手/预算——
-            // 不发新动画币、不扣款、不发货；已发出的动画币只是表现，随原生生命周期回收。
+            // 全天语义（2026-09-24 回退，恢复 2026-09-17 前行为）：夜间不再是采购门。
+            // 夜幕降临时未扣款订单继续推进——动画币、扣款、发货都在夜间照常完成。
             Env e=NewEnv();Role(0,true,3);AutoRestockCounts.SetLive(0,2);
             PayableShop shop=e.MakeShop(0,2);e.Banker._stashedCoins=10;e.Tick();
             float t0=Arrive(e);
             e.SetTime(t0+.30f); // 动画币已发出 1 枚（SendingCoins），尚未扣款
-            Eq(Pool.SpawnCalls,1,"one presentation coin in daylight");
+            Eq(Pool.SpawnCalls,1,"one presentation coin before nightfall");
             e.Kingdom.isDaytime=false;e.Tick();
-            Eq(Reserved,0,"nightfall withdraws the unpaid order");
-            Eq(Spend,0,"withdrawal never debits");
-            Eq(shop.TransactionCompleteCalls,0,"withdrawal never buys");
-            Ok(BankAssistantCoordinator.Releases.Count>0
-                && BankAssistantCoordinator.Releases[BankAssistantCoordinator.Releases.Count-1].ReturnHome,
-                "withdrawn assistant returns home");
-            int coins=Pool.SpawnCalls;
-            for(int i=0;i<30;i++) e.Frame(); // 夜间帧：订单不会复活，也不会再发补货币
-            Eq(Pool.SpawnCalls,coins,"no further coin after nightfall");
-            Eq(Spend,0,"still no debit across night frames");
-            Eq(shop.TransactionCompleteCalls,0,"still no purchase across night frames");
+            Eq(Reserved,1,"nightfall keeps the unpaid order");
+            Ok(PumpUntil(e,()=>shop.TransactionCompleteCalls==1&&Reserved==0),"purchase completes at night");
+            Eq(Spend,1,"single night debit");
+            Eq(e.Banker._stashedCoins,6,"night balance reduced by doubled price");
+            Eq(shop.Items,1,"native item created at night");
         }
 
         internal static void NightPaidRelease()
         {
-            // 已扣款订单在夜幕降临时只释放/回家收尾：不重复交易、不退款、不盲重试。
+            // 已扣款订单（Departing）夜幕降临时不再被强制释放：继续自然走出店门收尾；
+            // 不重复交易、不退款、不盲重试。
             Env e=NewEnv();Role(0,true,3);AutoRestockCounts.SetLive(0,2);
             PayableShop shop=e.MakeShop(0,2);e.Banker._stashedCoins=10;e.Tick();
             float t0=Arrive(e);
             e.SetTime(t0+.151f);e.SetTime(t0+.352f);e.SetTime(t0+.553f);e.SetTime(t0+.754f); // 动画完成
             e.SetTime(t0+1.05f); // FinalWait→扣款，订单进入 Departing
-            Eq(shop.TransactionCompleteCalls,1,"day purchase completed");
-            Eq(Spend,1,"single debit before nightfall");
+            Eq(shop.TransactionCompleteCalls,1,"purchase completed");
+            Eq(Spend,1,"single debit");
             Eq(Reserved,1,"paid order still departing");
             int teleports=BankAssistantCoordinator.HomeTeleports;
-            e.Kingdom.isDaytime=false;e.Tick();
-            Eq(Reserved,0,"paid order released at nightfall");
-            Ok(BankAssistantCoordinator.HomeTeleports==teleports+1,"paid assistant sent home");
+            e.Kingdom.isDaytime=false;
+            Ok(PumpUntil(e,()=>Reserved==0),"paid order walks out naturally at night");
+            Ok(BankAssistantCoordinator.HomeTeleports==teleports+1,"assistant sent home after walk-out");
             Eq(Spend,1,"no retry debit");
             Eq(shop.TransactionCompleteCalls,1,"no second native purchase");
             Eq(e.Banker._stashedCoins,6,"no refund of the committed debit");
@@ -744,16 +739,13 @@ namespace AutoRestockTests
 
         internal static void DawnReplan()
         {
-            // 夜间撤回后，天亮在原有 taxTick 调度上重算缺口：只补一次，不重复下单/扣款。
+            // 全天语义：缺口在夜间直接规划并采购，无需等天亮；只补一次，不重复下单/扣款。
             Env e=NewEnv();Role(0,true,3);AutoRestockCounts.SetLive(0,2);
-            PayableShop shop=e.MakeShop(0,2);e.Banker._stashedCoins=10;e.Tick();
-            float t0=Arrive(e);e.SetTime(t0+.30f);
-            e.Kingdom.isDaytime=false;e.Tick();
-            Eq(Reserved,0,"night withdrew the unpaid order");
-            Eq(Spend,0,"no debit at night");
-            e.Kingdom.isDaytime=true;e.SetTime(t0+2.6f);e.Tick(); // 天亮 + 下一次调度
-            Eq(Reserved,1,"dawn replans the same deficit");
-            Ok(PumpUntil(e,()=>shop.TransactionCompleteCalls==1&&Reserved==0),"single dawn purchase");
+            PayableShop shop=e.MakeShop(0,2);e.Banker._stashedCoins=10;
+            e.Kingdom.isDaytime=false; // 夜间冷启动
+            e.Tick();
+            Eq(Reserved,1,"night plans the same deficit directly");
+            Ok(PumpUntil(e,()=>shop.TransactionCompleteCalls==1&&Reserved==0),"single night purchase");
             Eq(PatchEconomy_Banker.SpendAmounts.Count,1,"no duplicate debit");
             Eq(e.Banker._stashedCoins,6,"single doubled price");
             Time.time+=3f;e.Tick();

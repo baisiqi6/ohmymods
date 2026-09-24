@@ -19,8 +19,6 @@ namespace KingdomEnhancedMod
     /// SiegeAmmoCounts 计数，付款前不碰弹药字段、不造池。
     /// 仅在当前希腊世界生效：Tick/订单上下文/扣款最终口都有 GreekBankScope 闸门，
     /// 其他世界只释放本地 reservation 并把摘要显示为“仅希腊世界生效”。
-    /// 且只在白天（原生 Kingdom.isDaytime）采购：夜间 Tick 在规划/动画/扣款之前停摆，
-    /// 未扣款订单撤回、已扣款订单只回家收尾；订单上下文/最终扣款口同样拒绝夜间提交。
     /// </summary>
     internal static class PatchEconomy_AutoRestock
     {
@@ -51,9 +49,6 @@ namespace KingdomEnhancedMod
 
         private static readonly string[] RoleNames =
             { "工人", "弓箭手", "忍者", "狂战士", "无业村民", "农夫", "投石车油桶", "火塔罐", "火枪手" };
-
-        // 夜间统一停摆文案：仅启用角色显示；关/非希腊世界仍由 GetSummary 的 scope 分支优先。
-        private const string NightPauseSummary = "夜间暂停，等待天亮";
 
         // Approach through FinalWait owns budget/incoming stock. Departing owns only
         // the assistant and shop slot: the debit already happened and is never retried.
@@ -160,14 +155,6 @@ namespace KingdomEnhancedMod
                 }
                 if (Time.timeScale <= 0f || managers.game == null
                     || managers.game.state != Game.State.Playing) return;
-                // 只在白天采购：原生 Kingdom.isDaytime 是居民作息口径（不是 Director.IsNight
-                // 取反，也不是系统钟点）。夜间在计数刷新/StepOrders 之前直接返回：不规划、
-                // 不借税收官、不发动画币、不下新单、不扣款；已有订单按未扣款撤回/已扣款收尾。
-                if (!IsDaytime(kingdom))
-                {
-                    EnterNightPause();
-                    return;
-                }
                 if (taxTick)
                 {
                     // 两类计数各自独立就绪：弹药-only 时职业缓存即使不可用也不阻断弹药。
@@ -189,13 +176,6 @@ namespace KingdomEnhancedMod
                 }
                 if (!AnyReady()) return;
                 StepOrders(banker, managers, kingdom, world, Time.time);
-                // 计数刷新与 StepOrders 内的 native 读/移动/发币回调都可能翻夜：
-                // 本 tick 不再继续规划或补单，立即按夜间规则停摆（含撤回已建订单）。
-                if (!IsDaytime(kingdom))
-                {
-                    EnterNightPause();
-                    return;
-                }
                 if (!taxTick) return;
                 long settings = _lastSettings;
                 bool settingsChanged = false;
@@ -247,25 +227,6 @@ namespace KingdomEnhancedMod
             _needsPlan = true;
         }
 
-        /// <summary>
-        /// 夜间停摆：Reset(true) 释放全部本地订单——未扣款订单在此撤回（无扣款、无发货、
-        /// 只回收动画表现），已扣款订单只释放/回家收尾，绝不重试、退款或重复交易；
-        /// 故障回执（_faultedTargets）原样保留。启用角色摘要显示等待天亮，天亮后由下一次
-        /// taxTick 调度在原 cadence 上重算缺口恢复。
-        /// </summary>
-        private static void EnterNightPause()
-        {
-            Reset(true);
-            for (int r = 0; r < RoleCount; r++)
-            {
-                string text = RoleEnabled(r) ? NightPauseSummary : "已关闭";
-                if (_summary[r] == text) continue;
-                _summary[r] = text;
-                _summaryKey[r] = null;  // 天亮后强制重建真实计数文案，不残留夜间文案
-                _statusKey[r] = text;   // 天亮恢复时按状态变化记录一次
-            }
-        }
-
         internal static string GetSummary(int role)
         {
             if (role < 0 || role >= RoleCount) return string.Empty;
@@ -279,10 +240,6 @@ namespace KingdomEnhancedMod
                     return ModConfig.Enabled != null && ModConfig.Enabled.Value
                         ? "仅希腊世界生效" : "已关闭";
             }
-            // 按当前 day 事实返回（不只依赖上次 Tick 的文案）：暂停中入夜、入夜后启用角色
-            // 也能立即显示等待天亮；关闭角色不被写成夜间等待。day 读取未知时保持原加载/保守状态。
-            if (TryReadDaytime(out bool daytime) && !daytime)
-                return RoleEnabled(role) ? NightPauseSummary : "已关闭";
             return _summary[role] ?? (RoleEnabled(role) ? "初始化中" : "已关闭");
         }
 
@@ -390,41 +347,6 @@ namespace KingdomEnhancedMod
             Transform t = banker.transform;
             return t != null && t.IsChildOf(layer)
                 && banker.gameObject.scene.handle == layer.gameObject.scene.handle;
-        }
-
-        /// <summary>
-        /// 只读白天证据：Kingdom.isDaytime 是原生居民作息事实（PatchPerformance_NightVolley
-        /// 只读记录、2.1 Kingdom dayStart/dayEnd 事件写入同一 getter）。对象缺失或读取异常
-        /// 一律视为“非白天”保守停摆，绝不默认白天，也绝不把异常抛进 native 调用路径。
-        /// </summary>
-        private static bool IsDaytime(Kingdom kingdom)
-        {
-            try { return kingdom != null && kingdom.isDaytime; }
-            catch { return false; }
-        }
-
-        /// <summary>
-        /// 三态白天读取：返回 false 表示“无法判定”（kingdom 缺失或读取异常），
-        /// 供摘要保持加载/保守状态；判定为真时才给出 daytime 值。
-        /// </summary>
-        private static bool TryReadDaytime(out bool daytime)
-        {
-            daytime = false;
-            try
-            {
-                Kingdom kingdom = Managers.Inst != null ? Managers.Inst.kingdom : null;
-                if (kingdom == null) return false;
-                daytime = kingdom.isDaytime;
-                return true;
-            }
-            catch { return false; }
-        }
-
-        /// <summary>最终钱口/各 native 回调复核点使用的只读白天查询；无法判定同样按非白天保守拒绝。</summary>
-        internal static bool IsDaytimeNow()
-        {
-            try { return TryReadDaytime(out bool daytime) && daytime; }
-            catch { return false; }
         }
 
         private static bool NetworkReady()
@@ -751,7 +673,6 @@ namespace KingdomEnhancedMod
             World world)
         {
             if (!GreekBankScope.IsActive) return false; // 非希腊世界：任何订单上下文都不再有效
-            if (!IsDaytime(kingdom)) return false; // 夜间（含回调中入夜）：未提交订单不再推进
             if (!ModConfig.Enabled.Value || !RoleEnabled(o.Role) || !RoleReady(o.Role)) return false;
             if (Time.timeScale <= 0f || !NetworkBigBoss.HasWorldAuth) return false;
             if (!BankerInCurrentWorld(banker, world)
@@ -781,9 +702,6 @@ namespace KingdomEnhancedMod
 
         private static bool EmitCoin(Order o, Managers managers, World world)
         {
-            Kingdom kingdom = managers != null ? managers.kingdom : null;
-            // 入口复核 day：OrderContextValid 与本调用之间可能有 native 回调翻夜。
-            if (!IsDaytime(kingdom)) return false;
             Transform helper = o.Assistant.transform;
             Transform targetT = o.Target.transform;
             if (helper == null || targetT == null) return false;
@@ -791,19 +709,10 @@ namespace KingdomEnhancedMod
                 ? null
                 : managers.currency.GetCurrencyTypePrefab<DroppableCurrency>(CurrencyType.Coins);
             if (prefab == null) return false;
-            // prefab 查询本身是 native 读；Spawn 之前再核一次 day。
-            if (!IsDaytime(kingdom)) return false;
             Vector3 pos = helper.position
                 + new Vector3(UnityEngine.Random.Range(-0.1f, 0.1f), 0.2f, 0f);
             DroppableCurrency coin = Pool.Spawn(prefab, pos, Quaternion.identity, world.gameLayer, true);
             if (coin == null) return false;
-            // Spawn 之后翻夜：按既有 fake+despawn 释放刚生成的动画币，不 MoveTo、
-            // 不把它当作钱包退款（动画币始终只是表现）。
-            if (!IsDaytime(kingdom))
-            {
-                DiscardVisualCoin(coin);
-                return false;
-            }
             try
             {
                 // MoveTo自身SetFake(true)禁物理/拾取，结束Despawn（destroyAfter）。
@@ -819,7 +728,7 @@ namespace KingdomEnhancedMod
             return true;
         }
 
-        /// <summary>回收不得送达商店的表现币（MoveTo 失败或生成后翻夜）。不做任何经济动作。</summary>
+        /// <summary>回收不得送达商店的表现币（MoveTo 失败）。不做任何经济动作。</summary>
         private static void DiscardVisualCoin(DroppableCurrency coin)
         {
             try { coin.SetFake(true); } catch { }
@@ -830,7 +739,7 @@ namespace KingdomEnhancedMod
         private static void FinalizePurchase(Order o, Banker banker, int orderIndex)
         {
             // 扣款最终口的入口闸门：非希腊世界/加载中立即取消，不做任何计数或付款准备。
-            // TrySpendForAutoRestock 自身也要求“希腊 + 当前权威本体 + 白天”闸门。
+            // TrySpendForAutoRestock 自身也要求“希腊 + 当前权威本体”双闸门。
             if (!GreekBankScope.IsActive)
             {
                 CancelOrder(orderIndex, "scope");
@@ -844,12 +753,6 @@ namespace KingdomEnhancedMod
                 || !BankerInCurrentWorld(banker, world))
             {
                 CancelOrder(orderIndex, "world");
-                return;
-            }
-            // 回调中入夜：未提交扣款的订单在此撤回，绝不进入扣款/原生购买。
-            if (!IsDaytime(kingdom))
-            {
-                CancelOrder(orderIndex, "night");
                 return;
             }
             if (!RefreshRoleCounts(o.Role, !ShopRole(o.Role))
@@ -1077,21 +980,8 @@ namespace KingdomEnhancedMod
                 }
                 int totalCost = AutoRestockCost(best.Price);
                 if (stashed - held < totalCost) { _blockReason[role] = "金币不足"; continue; } // 预留双倍采购费
-                // 候选评估（CollectTargets/CanPay 等 native 读）可能翻夜：借人前最后一次复核。
-                if (!IsDaytimeNow())
-                {
-                    EnterNightPause();
-                    return;
-                }
                 if (TryCreateOrder(banker, best, role, out string fail))
                 { held += totalCost; reserved[role]++; _blockReason[role] = null; _roleCursor = (role + 1) % RoleCount; }
-                else if (!IsDaytimeNow())
-                {
-                    // TryCreateOrder 内的 reserve/Place 回调翻夜：刚借的助手已在其内部释放，
-                    // 本 tick 立即按夜间停摆，不再继续规划。
-                    EnterNightPause();
-                    return;
-                }
                 else _blockReason[role] = fail;
             }
             UpdateSummaries(reserved, banker);
@@ -1129,14 +1019,6 @@ namespace KingdomEnhancedMod
             if (actor == null) return false;
             try
             {
-                // TryReserveForRestock 可能先 TeleportHomeAndDeposit 已有 carry 再借出：
-                // 存币/传送回调翻夜时，刚借到的助手必须立刻回家，不继续 Place/创建订单。
-                if (!IsDaytimeNow())
-                {
-                    ReleaseBorrowedAssistant(index, actor);
-                    failReason = NightPauseSummary;
-                    return false;
-                }
                 Transform targetT = s.Target.transform;
                 Transform actorT = actor.transform;
                 if (actorT == null || targetT == null) throw new InvalidOperationException("missing transform");
@@ -1145,25 +1027,11 @@ namespace KingdomEnhancedMod
                 float side = actorT.position.x < targetX ? -1f : 1f;
                 Vector3 pos = actorT.position;
                 pos.x = targetX + side * EntryDistance;
-                // Place 是 native 传送/RPC：执行前再核 day。
-                if (!IsDaytimeNow())
-                {
-                    ReleaseBorrowedAssistant(index, actor);
-                    failReason = NightPauseSummary;
-                    return false;
-                }
                 if (!BankAssistantCoordinator.PlaceRestockAssistant(index, actor, pos,
                         targetT.position.x))
                 {
                     BankAssistantCoordinator.ReleaseRestockAssistant(index, actor, true);
                     failReason = "税收官到店失败";
-                    return false;
-                }
-                // Place 完成后的 native 回调翻夜：释放刚借助手，不创建订单。
-                if (!IsDaytimeNow())
-                {
-                    ReleaseBorrowedAssistant(index, actor);
-                    failReason = NightPauseSummary;
                     return false;
                 }
                 var order = new Order
@@ -1196,13 +1064,6 @@ namespace KingdomEnhancedMod
                 failReason = "税收官暂不可用";
                 return false;
             }
-        }
-
-        /// <summary>释放刚借出的税收官（夜间/改主意路径）；本地 reservation 绝不漏记，异常不外抛。</summary>
-        private static void ReleaseBorrowedAssistant(int index, GameObject actor)
-        {
-            try { BankAssistantCoordinator.ReleaseRestockAssistant(index, actor, true); }
-            catch { }
         }
 
         private static void TraceMotion(Order order, int flag, string phase)
