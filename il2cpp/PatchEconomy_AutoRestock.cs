@@ -794,9 +794,44 @@ namespace KingdomEnhancedMod
                 else RefreshMusketeers();
                 return;
             }
+            // 付前闸（2026-09-24 #49 实机根因）：离线 TransactionComplete 不给 ShopScythe/
+            // ShopForge 的统计分支赋 interactingPlayer（PayableShop.Pay 直接解引用 playerId），
+            // 该 NRE 会被 Il2CppInterop trampoline 吞掉——原生调用方与我们都不见异常，照记
+            // "成功"而 CreateItem 永不执行=扣款不出货死循环。镜像原生在线分支
+            // （Payable.TransactionComplete :702 的 GetNearestPlayerWithCrown 赋值，含同款
+            // 位置读法）付款前确保玩家附着；仍拿不到玩家则本单取消不扣款（funds 早退自行
+            // 释放；成功路径由收尾 finally 的既有清理释放）。Crown 查询抛错与本店无关，
+            // 不拉黑——落回 no-player 取消走 2s 重试。
+            bool playerAttachedByUs = false;
+            try
+            {
+                if (o.Target.interactingPlayer == null)
+                {
+                    o.Target.interactingPlayer = kingdom.GetNearestPlayerWithCrown(
+                        o.Target.GetApproximateGameLayerPosition());
+                    playerAttachedByUs = o.Target.interactingPlayer != null;
+                }
+            }
+            catch { }
+            if (o.Target.interactingPlayer == null)
+            {
+                CancelOrder(orderIndex, "no-player");
+                return;
+            }
+            int itemsBefore = -1;
+            if (ShopRole(o.Role))
+            {
+                try { itemsBefore = o.Shop.GetItemCount(); } catch { }
+            }
             // 唯一经济commit：原子扣款，同步ledger/Castle/Stats。
             if (!PatchEconomy_Banker.TrySpendForAutoRestock(banker, price))
             {
+                // funds 早退不走下面的 finally：先释放我们刚合成的附着，别让它压住
+                // 规划门（"玩家支付占用"）把本店锁出本会话的自动补货。
+                if (playerAttachedByUs)
+                {
+                    try { o.Target.interactingPlayer = null; } catch { }
+                }
                 CancelOrder(orderIndex, "funds");
                 return;
             }
@@ -809,7 +844,21 @@ namespace KingdomEnhancedMod
             {
                 // 先扣款后原生购买，同一同步函数内完成，不中间yield。
                 o.Target.TransactionComplete();
-                if (ShopRole(o.Role)) AutoRestockCounts.HookShopAddItem(o.Shop);
+                if (ShopRole(o.Role))
+                {
+                    // 出货验证（#49 保险丝）：被吞的 NRE 死在 CreateItem 之前，GetItemCount
+                    // 不变。只认实物 +1 才计数记成功；否则按 fault 拉黑本店（本会话），
+                    // 掐断"扣款→不出货→再下单"的漏币循环。
+                    int itemsAfter = -2;
+                    try { itemsAfter = o.Shop.GetItemCount(); } catch { }
+                    if (itemsAfter >= 0 && itemsBefore >= 0 && itemsAfter <= itemsBefore)
+                    {
+                        MarkFault(o, new InvalidOperationException(
+                            "paid but no item spawned: " + itemsBefore + "->" + itemsAfter));
+                        return;
+                    }
+                    AutoRestockCounts.HookShopAddItem(o.Shop);
+                }
                 // 弹药原生付款不出事件：强制刷新快照，下一单立即看到新弹药，不靠低计数兜底。
                 else RefreshedAmmo(managers, true);
                 if (!_successLogged[o.Role])

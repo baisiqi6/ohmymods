@@ -53,6 +53,7 @@ namespace AutoRestockTests
             Run("role_fairness_rotation_serves_other_roles", RoleFairness);
 
             Additional.Run();
+            PayNreGuard.Run();
             AmmoAndFarmer.Run();
             AlldaySemantics.Run();
             MotionAndPeasants.Run();
