@@ -19,12 +19,11 @@ internal static class Program
         Scanner.ScanTargets.Clear(); Scanner.ScanCalls = 0; Scanner.LastLayers = 0;
         Scanner.LastRange = 0; Scanner.LastRangeBehind = 0; Scanner.LastHeight = 0; Scanner.LastExcludeDead = false;
         Time.time = 0; Time.deltaTime = .02f; Time.timeScale = 1; Time.frameCount = 0;
-        UnityEngine.Random.ForcedValue = 1f; UnityEngine.Random.Rolls = 0;
         ModConfig.Enabled.Value = true; NetworkBigBoss.HasWorldAuth = true; Managers.Inst = new();
         KingdomEnhancedPlugin.Instance.LogSource.Errors.Clear();
         KingdomEnhancedPlugin.Instance.LogSource.Infos.Clear();
-        // The swallow-start narrative is bounded by a session-global line budget; isolate it per test.
-        typeof(PatchRoles_SamuraiPowerDash).GetField("SwallowLogs", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, 0);
+        // The turn narrative is bounded by a session-global line budget; isolate it per test.
+        typeof(PatchRoles_SamuraiPowerDash).GetField("TurnLogs", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, 0);
         // Same for the heal narrative's session budget and the shared-controller slash memory:
         // adoption and heal lines must be opted into per test, not inherited from earlier ones.
         typeof(PatchRoles_SamuraiPowerDash).GetField("HealLogs", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, 0);
@@ -121,13 +120,18 @@ internal static class Program
             Check(k.isRetreating, "native fixture supplies retreat posture"); Eq(1f, k._mover._goalPosition, "current native target used");
             Eq(0, SamuraiDashVisuals.BeginCount(k), "no mod return effects");
         });
-        Test("Night attack crossing ten stops owned dash then permits native handoff", () => {
+        Test("Night attack pulled past the leash turns in-lease and closes at the station", () => {
             Managers.Inst.kingdom.isDaytime = false;
             var k = NewKnight(8); Follower(k, 0); Enemy(k, 13); UpdateHook(k);
             Check(k._damageable.invulnerable, "forward attack began");
-            k.transform.position = new(13.6f); UpdateHook(k); NativeFrame(k);
-            Eq(1, k._fsm.Requests, "over-leash idle motion restored through native request");
-            Check(!k._damageable.invulnerable && !k._trail.enabled, "forward effects retired");
+            k.transform.position = new(13.6f); UpdateHook(k);      // past AttackLeash: the leash breaks
+            Scheduler.Advance();                                   // the coroutine turns the same lease around
+            Check(k._damageable.invulnerable, "the round trip survives the broken leash");
+            Eq(18f, k._mover._goalSpeed, "the reverse cut opened instead of a hand-off");
+            Eq(0, k._fsm.Requests, "no native handoff while the lease owns the mover");
+            Frames(80);                                            // the trip drives home and closes at the station
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "arrival released the goal");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "effects retired at the station");
         });
         Test("Night in-range finish retains full cooldown and can attack again", () => {
             Managers.Inst.kingdom.isDaytime = false;
@@ -194,11 +198,16 @@ internal static class Program
             Time.time = .1f; Time.frameCount++; Scheduler.Advance();
             Eq(0, enemy.HitCount, "native queued task cancels old burst ownership"); Eq(Knight.State.Charge, k._fsm._queuedState, "queued task preserved");
         });
-        Test("Night same Stop callback external goal wins over later handoff", () => {
+        Test("Night external goal mid-dash hands off without stopping it", () => {
             Managers.Inst.kingdom.isDaytime = false; var k = NewKnight(8); Follower(k, 0); Enemy(k, 13); UpdateHook(k);
-            k._mover.OnStop = () => k._mover.SetGoal(70, 4);
+            int stops = k._mover.StopCalls;
+            k._mover.SetGoal(70, 4);                       // an external owner takes the mover mid-dash
             k.transform.position = new(13.6f); UpdateHook(k); UpdateHook(k);
-            Eq(70f, k._mover._goalPosition, "callback goal preserved"); Eq(0, k._fsm.Requests, "no native override queued");
+            Eq(70f, k._mover._goalPosition, "the external goal is preserved");
+            Eq(stops, k._mover.StopCalls, "the lease never stops a foreign goal");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "the handed-off lease released its effects");
+            NativeFrame(k);
+            Eq(0, k._fsm.Requests, "the mod never queues over the native goal");
         });
     }
     private static void ReturnLadder()
@@ -390,7 +399,7 @@ internal static class Program
     }
 
     // 2026-09-24 混合固定冲刺距离 + 残影 1 秒：goal = startX + Sign(dx) × max(|dx| - .5, 7) 的
-    // 直接断言、穿透命中、trail lifetime 写入/归还纪律与 swallow-start 有界日志三态。
+    // 直接断言、穿透命中、trail lifetime 写入/归还纪律（相位边界重基）与 turn 有界日志三态。
     private static void FixedDashRegressions()
     {
         Test("Near, very near and behind enemies all get the fixed seven-unit goal", () => {
@@ -425,14 +434,17 @@ internal static class Program
             Eq(1, deep.HitCount, "a target behind the near enemy is also reached once");
             Check(k.transform.position.x > 5f, "the knight really ran through the pair");
         });
-        Test("The dash pins the trail lifetime at one second and returns the owner's value", () => {
+        Test("The trail pin survives the turn on a fresh base and returns at the station", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
             k._trail.time = .4f;                            // the native default this mod never wrote before
             UpdateHook(k);
             Eq(1f, k._trail.time, "Begin pins the trail lifetime at one second");
-            Check(k._trail.enabled, "the trail is emitting during the dash");
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Check(!k._trail.enabled, "the dash ended");
+            Check(k._trail.enabled, "the trail is emitting during the outbound dash");
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();  // the window ends: the turn re-bases the pin
+            Eq(1f, k._trail.time, "the reverse cut keeps the pin on a fresh base");
+            Check(k._trail.enabled, "the reverse cut still emits");
+            Frames(45, .02f, false);                        // the watchdog walks it home; the lease closes
+            Check(!k._trail.enabled, "the walk home restored the trail");
             Eq(.4f, k._trail.time, "RestoreEffects returns the trail's own lifetime");
         });
         Test("An externally rewritten trail lifetime is never restored by cleanup", () => {
@@ -440,21 +452,22 @@ internal static class Program
             UpdateHook(k);
             k._trail.time = .7f;                            // a third party rewrote the lifetime mid-dash
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
+            Frames(45, .02f, false);                        // the trip closes at the station
             Eq(.7f, k._trail.time, "a foreign lifetime survives cleanup");
             Check(!k._trail.enabled, "the trail enable is still retired");
         });
-        Test("Swallow-start logging is bounded to twelve lines at six seconds per knight", () => {
+        Test("Turn logging is bounded to twelve lines at six seconds per knight", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            RunSwallowCycle(k);
-            Eq(1, SwallowStartLines(), "the first swallow logs once");
+            RunRoundTripCycle(k);
+            Eq(1, TurnLines(), "the first turn logs once");
             Time.time = 3.7f; Time.frameCount++;            // past the 3 s attack cooldown, inside the 6 s throttle
-            RunSwallowCycle(k);
-            Eq(1, SwallowStartLines(), "a swallow inside six seconds of the last line stays quiet");
+            RunRoundTripCycle(k);
+            Eq(1, TurnLines(), "a turn inside six seconds of the last line stays quiet");
             Time.time = 8.5f; Time.frameCount++;            // past both the cooldown and the throttle
-            RunSwallowCycle(k);
-            Eq(2, SwallowStartLines(), "a swallow past six seconds logs again");
-            for (int i = 0; i < 12; i++) { Time.time = 15f + 7.5f * i; Time.frameCount++; RunSwallowCycle(k); }
-            Eq(12, SwallowStartLines(), "the session budget caps the swallow narrative at twelve lines");
+            RunRoundTripCycle(k);
+            Eq(2, TurnLines(), "a turn past six seconds logs again");
+            for (int i = 0; i < 12; i++) { Time.time = 15f + 7.5f * i; Time.frameCount++; RunRoundTripCycle(k); }
+            Eq(12, TurnLines(), "the session budget caps the turn narrative at twelve lines");
         });
     }
 
@@ -473,14 +486,15 @@ internal static class Program
             k._animator.NextStateHash = 777;
             UpdateHook(k);
             Frames(20, .02f, false);                        // the cut misses its in-flight capture
-            Time.time += .7f; Time.frameCount++; Scheduler.Advance();   // the timeout ends it mid-flight
+            Time.time += .7f; Time.frameCount++; Scheduler.Advance();   // the timeout turns the lease in-lease
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            Frames(45, .02f, false);                        // the walk home closes the trip; the finish capture runs
             k._animator.InTransition = false;
             k._animator.StateHash = 777;                    // the transition lands on the stuck pose
             Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m =>
                 m.StartsWith("[SamuraiDash/slash-finish-capture] knight=")), "the finish capture names the knight");
             int resets = k._animator.ResetCount;
-            Frames(90, .02f, false);                        // the finish capture armed the probe -> heal
+            Frames(100, .02f, false);                       // the finish capture armed the probe -> heal
             Eq(resets + 1, k._animator.ResetCount, "the finish-captured pose is repaired");
             Eq(1, k._animator.PlayCalls, "the replay lands on the calm pose");
         });
@@ -494,6 +508,7 @@ internal static class Program
             Frames(20, .02f, false);
             Time.time += .7f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            Frames(45, .02f, false);                        // the trip closes; the untrusted settled read is rejected
             int resets = k._animator.ResetCount;
             Frames(90, .02f, false);
             Eq(resets, k._animator.ResetCount, "no transition history: the current read is rejected");
@@ -514,11 +529,12 @@ internal static class Program
             Frames(20, .02f, false);                        // the cut ends heading nowhere new
             Time.time += .7f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            Frames(45, .02f, false);                        // the trip closes: the poisoned capture is rejected and the peer adopts
             b._animator.InTransition = false;
             Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m => m.StartsWith("[SamuraiDash/slash-adopt]")),
                 "the peer's proven hash adopts through the poisoned baseline");
             int resets = b._animator.ResetCount;
-            Frames(90, .02f, false);                        // the adoption armed the probe -> ladder runs
+            Frames(120, .02f, false);                       // the adoption armed the probe -> ladder runs
             Eq(resets + 1, b._animator.ResetCount, "the adopted pose is repaired");
         });
         Test("Adoption never crosses controller families", () => {
@@ -534,6 +550,7 @@ internal static class Program
             Frames(20, .02f, false);
             Time.time += .7f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            Frames(45, .02f, false);                        // the trip closes on the alien controller
             b._animator.InTransition = false;
             Check(!KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m => m.StartsWith("[SamuraiDash/slash-adopt]")),
                 "a different controller never adopts");
@@ -557,464 +574,314 @@ internal static class Program
             Frames(20, .02f, false);
             Time.time += .7f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            Frames(45, .02f, false);                        // the trip closes: the guess is captured, then the peer overrides
             d._animator.InTransition = false;
             Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m => m.StartsWith("[SamuraiDash/slash-adopt]")),
                 "the proven peer hash overrides the finish guess");
             d._animator.StateHash = 777;                    // the real stuck pose
             int resets = d._animator.ResetCount;
-            Frames(90, .02f, false);
+            Frames(120, .02f, false);
             Eq(resets + 1, d._animator.ResetCount, "the adopted hash repairs the real stuck pose");
         });
     }
 
-    // One attack that ran out its own window: the hybrid goal (max(|dx| - .5, 7)) puts the knight
-    // at x 7 with the follower still at 0, so the cut has raised both the swallow roll and the
-    // immediate-withdrawal debt. The scanner and the physics window are emptied afterwards.
-    private static Knight ExpiredAttack(float enemyX = 3f)
+    // One complete atomic round trip in the stub world: the outbound dash times out, the coroutine
+    // turns the same lease on its exit frame, and the walk home closes at the station. The turn's
+    // bounded narrative line lands on the frame the reverse cut begins.
+    private static void RunRoundTripCycle(Knight k)
     {
-        var k = NewKnight(0); Follower(k, 0); Enemy(k, enemyX);
-        UpdateHook(k);
-        Frames(23);   // .46 s: the seven-unit goal is reached and stood at before the timeout
-        Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-        Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-        return k;
-    }
-
-    // One complete attack+swallow cycle against the fixed seven-unit goal: the dash reaches its
-    // goal, stands there and times out naturally, the swallow cuts home and finishes. The
-    // swallow-start narrative line lands on the frame the swallow begins.
-    private static void RunSwallowCycle(Knight k)
-    {
-        UpdateHook(k);   // the forward dash opens toward startX ± 7
-        Frames(31);      // the goal is reached, stood at and the window times out; the roll frame follows
-        Frames(22);      // the swallow closes its seven units back home
-        // The stub mover steps .36 at a time, so each arrival tolerance leaves the knight .16
-        // short of its origin; pin the station back so the next cycle's aim stays above the 1.5 floor.
+        UpdateHook(k);   // the outbound dash opens toward startX ± 7
+        Frames(31);      // the goal is reached, stood at and the window times out; the turn fires in-lease
+        Frames(60);      // the reverse cut and the walk home close the trip
+        // Pin the station back so the next cycle's aim stays deterministic in the stub world.
         k.transform.position = new(0);
     }
 
-    private static int SwallowStartLines() =>
-        KingdomEnhancedPlugin.Instance.LogSource.Infos.Count(m => m.StartsWith("[SamuraiDash/swallow-start]"));
+    private static int TurnLines() =>
+        KingdomEnhancedPlugin.Instance.LogSource.Infos.Count(m => m.StartsWith("[SamuraiDash/roundtrip-turn]"));
 
-    private static void ReturnDueRegressions()
+    // Drive a knight to the phase the interruption matrix wants: Out = the coroutine's own dash
+    // frame, Turn = the reverse cut right after the outbound window, Home = the watchdog walk (the
+    // fixture's follower starts beyond the station zone so the walk cannot arrive inside a test).
+    private static void ReachPhase(Knight k, string phase)
     {
-        Test("An attack that ends inside the follower leash withdraws on the next frame", () => {
-            var k = ExpiredAttack();
-            UnitScanCache.Archers[0].transform.position = new(11.5f);   // distance 4.5: inside FollowLeash
-            AssertStartedReturn(k, 11.5f);
-        });
-        Test("A paused frame neither consumes nor drops the withdrawal debt", () => {
-            var k = ExpiredAttack();
-            UnitScanCache.Archers[0].transform.position = new(11.5f);
-            int writes = k._mover.GoalWrites;
-            Time.timeScale = 0;
-            Frame(0, false);
-            Eq(writes, k._mover.GoalWrites, "no goal while paused");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "no motion while paused");
-            Time.timeScale = 1;
-            Frame(.02f, false);
-            Check(k._mover.GoalWrites > writes, "the debt survived the pause and opened the return");
-            Check(k._damageable.invulnerable, "the return burst started after the resume");
-        });
-        Test("A foreign goal at the cut's end outranks the withdrawal and is never stomped", () => {
-            var k = ExpiredAttack();
-            UnitScanCache.Archers[0].transform.position = new(11.5f);
-            k._mover.SetGoal(90, 4);
-            int writes = k._mover.GoalWrites;
-            Frame(.02f, false);
-            Eq(90f, k._mover._goalPosition, "foreign goal preserved");
-            Eq(4f, k._mover._goalSpeed, "foreign speed preserved");
-            Eq(writes, k._mover.GoalWrites, "no return goal written over it");
-            Check(!k._damageable.invulnerable, "no burst started over a foreign goal");
-            // The debt was consumed, not deferred: it never comes back for the goal it lost.
-            k._mover.Stop();
-            Frame(.02f, false);
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the dropped debt does not return later");
-            Eq(writes, k._mover.GoalWrites, "only the caller's own goal was ever written");
-        });
-        Test("A replacement mover never inherits the cut's withdrawal debt", () => {
-            var k = ExpiredAttack();
-            UnitScanCache.Archers[0].transform.position = new(11.5f);
-            var old = k._mover;
-            int oldStops = old.StopCalls;
-            k._mover = k.gameObject.AddComponent<Mover>();
-            Frame(.02f, false);
-            Eq(oldStops, old.StopCalls, "the replaced mover is not stopped again");
-            Eq(0, k._mover.GoalWrites, "the replacement frame writes nothing");
-            Frame(.02f, false);
-            Eq(0, k._mover.GoalWrites, "the debt died with the old mover");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "no return on the new mover");
-        });
-        Test("The in-place regroup face preserves the cosmetic Y scale and is written once", () => {
-            // The hybrid goal out-runs SwallowMinTravel for any legal enemy, so the mover stays
-            // blocked for the whole window: the natural completion travels under the swallow
-            // minimum and the in-place face keeps its original semantics.
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 1.6f);
-            k._mover.Blocked = true;                        // the dash never leaves the spot
-            UpdateHook(k);                                  // the attack lease opens (goal startX+7)
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            k._mover.Blocked = false;                       // natural timeout, travel ~0: no swallow
+        UpdateHook(k);
+        if (phase == "Out") return;
+        Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
+        if (phase == "Turn") return;
+        Frames(30, .02f, false);
+    }
+
+    // 2026-09-24 原子化：一次攻击冲刺 = 单一租约（出程→反向斩→回家走路），无 ReturnDue 债务、
+    // 无拼接缝。以下断言钉住三相转换、同帧反向、命中回合重置、暂停持有、整租约上限与冷却锚点。
+    // 2026-09-24 审查 P2-1：Out 相位中途被打断（外部目标中断）也要锚住冷却——
+    // 修复轮的生产修复（Finish 的 Phase==Out 分支）此前无任何直接回归。
+    private static void OutAbortCooldownAnchor()
+    {
+        Test("an Out-phase abort by an external goal holds the attack cooldown", () =>
+        {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            ReachPhase(k, "Out");                          // mid outbound dash
+            float attackStartedAt = Time.time;
+            var foreign = new GameObject().AddComponent<Mover>();
+            k._mover = foreign;                            // mover replacement aborts the lease
+            Frames(3, .02f, false);
+            float afterAbort = Time.time;
+            Check(afterAbort - attackStartedAt < 3f, "precondition: still inside the cooldown window");
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            k.side = Side.Left;                             // the enemy half is opposite the dash's travel
-            k.transform.localScale = new(1f, .95f, 1f);
-            int writes = k._mover.DirectionWrites;
-            Frame(.02f, false);
-            Eq(-1f, k.transform.localScale.x, "the knight turns back toward its enemy side");
-            Eq(.95f, k.transform.localScale.y, "native SetDirection's Y wipe is repaired");
-            Eq(writes + 1, k._mover.DirectionWrites, "exactly one direction write");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the in-place face issues no goal");
-            Frame(.02f, false);
-            Eq(writes + 1, k._mover.DirectionWrites, "the face is never re-written");
-            Eq(.95f, k.transform.localScale.y, "the Y scale survives later frames");
-        });
-        Test("A full-length ten-unit dash earns its swallow and cuts home with the regroup face", () => {
-            UnityEngine.Random.ForcedValue = .29f;
-            var k = NewKnight(0); Follower(k, 0); var enemy = Enemy(k, 10);
-            UpdateHook(k);
-            Eq(1, Scheduler.Started, "the ten-unit target opened an attack dash");
-            Frames(29);                                     // .58 s out: past the swallow minimum, inside the window
-            Check(k.transform.position.x > 9f, "the knight really dashed most of the ten units");
-            Check(enemy.HitCount >= 1, "the outbound dash landed on its target");
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Frame(.02f, false);                             // the roll frame: the swallow begins
-            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
-            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the swallow issued a position goal");
-            Eq(0f, k._mover._goalPosition, "the swallow cuts back to the dash origin");
-            Check(k._damageable.invulnerable, "the swallow is alive on its first tick");
-            Frames(15);                                     // on the way home
-            var home = HitTarget(5); Supply(home);
-            Frames(5);
-            Eq(1, home.HitCount, "a target first seen mid-flight is hit exactly once");
-            Frames(12);
-            Check(!k._damageable.invulnerable, "the swallow finished at the origin");
-            Check(k.transform.position.x <= .3f, "the knight really returned to its origin");
-            Frame(.02f, false);                             // the debt the swallow left is consumed
-            Frame(.02f, false);
-            Eq(1f, k.transform.localScale.x, "the regrouped knight faces its enemy side again");
+            Enemy(k, 5);                                   // a fresh enemy right after the abort
+            Frames(2, .02f, false);
+            Eq(0, k._mover.GoalWrites, "no new dash fires inside the 3s cooldown (anchor held)");
+            Time.time += 3.2f; Time.frameCount++;
+            Enemy(k, 6); Frames(3, .02f, false);
+            Check(k._mover != foreign || foreign.GoalWrites > 0 || k._mover.GoalWrites > 0,
+                "after the cooldown a new round trip may start");
         });
     }
 
-    private static void SwallowRegressions()
+    private static void RoundTripPhases()
     {
-        Test("Swallow cuts straight back to the attack origin", () => {
-            UnityEngine.Random.ForcedValue = .29f;
+        Test("A finished dash turns the same lease around without finishing", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3); k._animator.StateHash = 111;
+            UpdateHook(k);
+            Frames(29);                                     // .58 s: still inside the outbound window
+            Check(k._damageable.invulnerable && k._trail.enabled, "outbound effects held");
+            Eq(1, SamuraiDashVisuals.BeginCount(k), "one token for the whole lease");
+            Eq(1, k._animator.TriggerCount, "one slash so far");
+            Frames(2);                                      // the window ends; the coroutine turns in its own exit path
+            Check(k._damageable.invulnerable && k._trail.enabled, "the turn keeps its own effects");
+            Eq(1f, k._trail.time, "the pin survives the phase boundary");
+            Eq(2, k._animator.TriggerCount, "the reverse cut replays the slash pose");
+            Eq(1, k._animator.ResetCount, "trigger hygiene cleared the finished cut first");
+            Eq("reset", k._animator.Ops[^2], "the finished cut clears the trigger first");
+            Eq("set", k._animator.Ops[^1], "the reverse cut then fires its own trigger");
+            Check(k._mover._goalPosition < k.transform.position.x, "the goal reversed toward home");
+            Eq(18f, k._mover._goalSpeed, "the reverse cut runs at dash speed");
+            Eq(1, Scheduler.Started, "no second coroutine for the turn");
+            Eq(1, SamuraiDashVisuals.BeginCount(k), "still the one lease token");
+            Check(ShouldSlash(k), "the round trip never suppresses the native slash");
+        });
+        Test("The reversal lands on the very frame the outbound window ends", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            Frames(29);                                     // .58 s: the outbound goal still owns the frame
+            Eq(7f, k._mover._goalPosition, "no deferred roll frame: the outbound goal is intact");
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++;   // the window is spent
+            Scheduler.Advance();                            // the coroutine exit turns it inside this very advance
+            Check(k._mover._goalPosition != 7f, "the same advance already carries the reverse goal");
+            Eq(18f, k._mover._goalSpeed, "the turn is a dash, never a deferred roll");
+            Eq(2, k._animator.TriggerCount, "the reverse cut already replayed its trigger");
+        });
+        Test("The turn degrades to a vulnerable enemy-facing walk and the walk closes at the station", () => {
+            var k = NewKnight(0); var f = Follower(k, 6); Enemy(k, 3); k._mover.Blocked = true;
+            UpdateHook(k);
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();   // the outbound window ends; the turn opens
+            Check(k._damageable.invulnerable, "the reverse cut opened with its own protection");
+            Eq(18f, k._mover._goalSpeed, "the turn runs at dash speed");
+            Frames(30, .02f, false);                        // the watchdog spends the cut; a 6-unit gap keeps the walk alive
+            Eq(k._runSpeed, k._mover._goalSpeed, "the walk home uses the native run speed");
+            Check(!k._damageable.invulnerable, "the walk home is vulnerable");
+            Check(!k._trail.enabled, "the trail pin retired with the cut");
+            Eq(Mover.FacingMode.Right, k._mover.facingMode, "the walk faces the enemy side");
+            Check(SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the visual token spans the whole lease");
+            f.transform.position = new(0);                  // the squad comes home: the station zone closes the trip
+            Frames(5, .02f, false);
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "arrival released the owned goal");
+            Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the lease ended its visual token");
+            Eq(Mover.FacingMode.Ahead, k._mover.facingMode, "facing released at the finish");
+        });
+        Test("The reverse cut strikes again: the hit round resets at the phase boundary", () => {
             var k = NewKnight(0); Follower(k, 0); var enemy = Enemy(k, 3);
             UpdateHook(k);
-            Eq(1, Scheduler.Started, "forward attack running");
             Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Frame(.02f, false); // the roll frame
-            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
-            Eq(Mover.GoalMode.Position, k._mover.goalMode, "swallow issues a position goal");
-            Eq(0f, k._mover._goalPosition, "goal is the dash origin, not the follower station");
-            Eq(18f, k._mover._goalSpeed, "swallow reuses the dash speed");
-            Check(k._mover._goalPosition < k.transform.position.x, "reverse direction toward the origin");
-            Check(k._damageable.invulnerable && k._trail.enabled, "swallow burst effects active");
-            Eq(2, k._animator.TriggerCount, "swallow replays the PowerSlash pose");
-            Eq(2, SamuraiDashVisuals.BeginCount(k), "second visual burst token");
-            Eq(1, Scheduler.Started, "swallow is tick-driven, no new coroutine");
-            Check(ShouldSlash(k), "swallow does not suppress the native slash");
-            Eq(2, enemy.HitCount, "forward and swallow are independent hit episodes");
-            Frames(10);
-            Eq(2, enemy.HitCount, "swallow dedup holds within its own episode");
-            Check(!k._damageable.invulnerable && !k._trail.enabled, "swallow end restores effects");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "owned goal stopped at arrival");
-            Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "visual token ended");
-            Check(ShouldSlash(k), "no stale suppression after the swallow");
+            Eq(1, enemy.HitCount, "the outbound round hits once");
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();   // the turn fires with a fresh round
+            Eq(2, enemy.HitCount, "the reverse cut opens its own deduplicated round");
+            Frames(3);
+            Eq(2, enemy.HitCount, "the turn round stays deduplicated");
         });
-        Test("Swallow fires deterministically on every qualified completion", () => {
-            UnityEngine.Random.ForcedValue = .30f; // must not matter anymore
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Frame(.02f, false);
-            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
-            Check(k._damageable.invulnerable, "the swallow always starts");
-            Eq(0f, k._mover._goalPosition, "it targets the dash origin");
-            Frames(10);
-            Eq(1, Scheduler.Started, "no extra coroutine");
-            Eq(2, SamuraiDashVisuals.BeginCount(k), "attack plus swallow visuals");
-        });
-        Test("Back-to-back attacks each earn their swallow (no cooldown since 2026-09-24)", () => {
-            UnityEngine.Random.ForcedValue = .29f;
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Frame(.02f, false);
-            Check(k._damageable.invulnerable, "first swallow active");
-            Eq(0f, k._mover._goalPosition, "first swallow targets the dash origin");
-            Frames(10);
-            Check(!k._damageable.invulnerable, "first swallow finished");
-            Time.time = 3.60f; Time.frameCount++; UpdateHook(k);
-            Eq(1, Scheduler.Started, "attack cooldown unaffected by the swallow");
-            Time.time = 3.63f; Time.deltaTime = .02f; Time.frameCount++; UpdateHook(k);
-            Eq(2, Scheduler.Started, "next attack starts from the forward dash's own cooldown");
-            Frames(33);
-            Check(k._damageable.invulnerable, "the second attack's swallow starts immediately");
-            Eq(4, SamuraiDashVisuals.BeginCount(k), "attack, swallow, attack, swallow so far");
-            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
-            Frames(40);
-            Check(!k._damageable.invulnerable, "second swallow also finished");
-        });
-        Test("Swallow needs a living follower at the roll frame", () => {
-            UnityEngine.Random.ForcedValue = 0f;
-            var k = NewKnight(0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Frame(.02f, false);
-            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "no swallow without a follower");
-            Eq(1, Scheduler.Started, "attack itself unaffected");
-        });
-        Test("Swallow skips a dash that ended too close to its origin", () => {
-            UnityEngine.Random.ForcedValue = 0f;
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 1.6f);
-            UpdateHook(k); Frames(8);                       // the dash is under way toward startX+7
-            k.transform.position = new(1f);                 // displaced back onto the origin's doorstep
-            Check(Mathf.Abs(k.transform.position.x) < 1.5f, "fixture really ended near the origin");
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Frame(.02f, false);
-            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "no swallow under minimum travel");
-        });
-        Test("Swallow skips when the samurai was displaced past max range", () => {
-            UnityEngine.Random.ForcedValue = 0f;
-            var k = NewKnight(0); var follower = Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            follower.transform.position = new(11);   // the squad moved with the knight
-            k.transform.position = new(11);          // travel cap ends the attack dash naturally
-            Frame(.02f, false);
-            Frame(.02f, false);
-            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
-            Eq(1, SamuraiDashVisuals.BeginCount(k), "no swallow beyond max range");
-            Eq(1, k._animator.TriggerCount, "no swallow slash");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "no swallow and no invented return");
-        });
-        Test("Paused roll frame neither starts nor defers a swallow", () => {
-            UnityEngine.Random.ForcedValue = 0f;
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Time.timeScale = 0;
-            Frame(0, false);
-            Time.timeScale = 1;
-            Frames(5);
-            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
-            Eq(1, Scheduler.Started, "nothing deferred after resume");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "no stale motion");
-        });
-        Test("Foreign mover goal at the roll frame blocks the swallow and is preserved", () => {
-            UnityEngine.Random.ForcedValue = 0f;
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            k._mover.SetGoal(90, 4);
-            Frame(.02f, false);
-            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
-            Eq(90f, k._mover._goalPosition, "foreign goal retained");
-            Eq(4f, k._mover._goalSpeed, "foreign speed retained");
-            Eq(1, Scheduler.Started, "no swallow over a foreign goal");
-        });
-        Test("Dead roll frame discards the swallow and it never comes back", () => {
-            UnityEngine.Random.ForcedValue = 0f;
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            k._damageable.isDead = true;
-            Frame(.02f, false);
-            k._damageable.isDead = false;
-            Frames(5);
-            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
-            Eq(1, Scheduler.Started, "revived knight inherits no stale swallow");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "no stale motion");
-        });
-        Test("OnDisable at the roll frame drops the swallow; a fresh cycle rolls anew", () => {
-            UnityEngine.Random.ForcedValue = 0f;
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            DisableHook(k);
-            UnityEngine.Random.ForcedValue = .29f;
-            Frames(5);
-            Eq(0, UnityEngine.Random.Rolls, "no roll after disable");
-            k.transform.position = new(0);
-            Time.time = 3.7f; Time.frameCount++; UpdateHook(k);
-            Frames(33);
-            Frame(.02f, false);
-            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
-            Check(k._damageable.invulnerable, "fresh swallow started");
-            Eq(0f, k._mover._goalPosition, "fresh swallow targets the new origin");
-        });
-        foreach (var interrupt in new (string Name, Action<Knight> Apply)[] {
-            ("external goal steal", k => k._mover.SetGoal(90, 5)),
-            ("follower leash pull", k => UnitScanCache.Archers[0].transform.position = new(17))
-        }) Test("Interrupted attack never casts the swallow roll: " + interrupt.Name, () => {
-            UnityEngine.Random.ForcedValue = 0f;
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            interrupt.Apply(k);
-            Frames(5);
-            Eq(0, UnityEngine.Random.Rolls, "no dice without a natural completion");
-            Eq(1, Scheduler.Started, "no swallow coroutine");
-            if (interrupt.Name == "external goal steal") Eq(90f, k._mover._goalPosition, "stolen goal retained");
-        });
-        Test("Late old-coroutine finally cannot clear an active swallow lease", () => {
-            UnityEngine.Random.ForcedValue = .29f;
+        Test("Paused frames hold the lease without scans or damage", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
             UpdateHook(k);
-            var old = Scheduler.All.LastOrDefault(c => ReferenceEquals(c.Owner, k) && c.Active);
-            Scheduler.StopSilently(old); // native StopAllCoroutines: the finally never ran
-            k._mover.SetGoal(90, 5); // stolen goal ends the lease through Tick, no roll
-            UpdateHook(k);
-            Eq(90f, k._mover._goalPosition, "stolen goal kept");
-            k.transform.position = new(0);
-            Time.time = 3.7f; Time.frameCount++; UpdateHook(k);
-            Eq(2, Scheduler.Started, "second attack under the fresh cadence");
-            Frames(33);
-            Frame(.02f, false); // the swallow starts
-            Check(k._damageable.invulnerable, "swallow active");
-            float goal = k._mover._goalPosition; int stops = k._mover.StopCalls;
-            if (old?.Iterator is IDisposable disposable) disposable.Dispose(); // the late finally
-            Eq(goal, k._mover._goalPosition, "late finally cannot rewrite the swallow goal");
-            Eq(stops, k._mover.StopCalls, "late finally cannot stop the swallow");
-            Check(k._damageable.invulnerable, "late finally cannot clear swallow effects");
-            Check(ShouldSlash(k), "swallow keeps the native slash unsuppressed");
-        });
-        Test("Swallow yields mid-flight when the ordinary return must take over", () => {
-            UnityEngine.Random.ForcedValue = .29f;
-            var k = NewKnight(0); var follower = Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Frame(.02f, false);
-            Check(k._damageable.invulnerable, "swallow active");
-            int triggers = k._animator.TriggerCount;
-            follower.transform.position = new(16.5f); // broken leash mid-swallow
-            Frame(.02f, false);
-            Check(!k._damageable.invulnerable, "swallow handed off cleanly");
-            Frame(.02f, true);
-            Check(k._damageable.invulnerable, "return burst owns the rescue");
-            Check(k._mover._goalPosition > k.transform.position.x, "rescue heads toward the follower");
-            Eq(triggers, k._animator.TriggerCount, "ordinary return adds no PowerSlash");
-        });
-        Test("Paused swallow holds its lease and hits nothing until resumed", () => {
-            UnityEngine.Random.ForcedValue = .29f;
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Frame(.02f, false);
             var late = HitTarget(); Supply(late);
             int scans = Physics2D.Scans;
             Time.timeScale = 0;
-            Frames(5, 0, false);
+            Frames(10, 0, false);
             Eq(scans, Physics2D.Scans, "no paused hit scans");
             Eq(0, late.HitCount, "no paused damage");
-            Check(k._damageable.invulnerable, "paused swallow keeps its lease");
+            Check(k._damageable.invulnerable, "the paused dash keeps its lease and effects");
             Time.timeScale = 1;
-            Frames(10);
-            Eq(1, late.HitCount, "resumed swallow hits its own episode");
-            Check(!k._damageable.invulnerable, "swallow finishes after resume");
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();   // resume: the outbound window is already spent
+            Eq(1, late.HitCount, "the reverse cut's entry frame may strike after the resume");
         });
-        Test("Swallow hit scan keeps its own dedup set and window", () => {
-            UnityEngine.Random.ForcedValue = .29f;
-            var k = NewKnight(0); Follower(k, 0); var enemy = Enemy(k, 3);
-            UpdateHook(k); Frames(8);
+        Test("The whole-lease cap releases a blocked trip even when no phase can close", () => {
+            var k = NewKnight(0); var f = Follower(k, 0); Enemy(k, 3); k._mover.Blocked = true;
+            UpdateHook(k);
+            f.transform.position = new(6);                  // the walk home cannot arrive inside the fixture
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Frame(.02f, false); // swallow starts; entry hit on the enemy (2 total)
-            var late = HitTarget(); Supply(enemy, late);
-            Frames(3);
-            Eq(2, enemy.HitCount, "swallow dedup blocks a second hit on the same target");
-            Eq(1, late.HitCount, "new target hit once inside the swallow window");
-            Eq(k._attackDamage, late.TotalDamage, "ordinary attack damage");
-            Eq(k.gameObject, late.LastAttacker, "same attacker attribution");
-            Frames(20);
-            Eq(2, enemy.HitCount, "episode stays deduplicated");
-            Eq(1, late.HitCount, "no post-swallow damage");
+            Frames(100, .02f, false);                       // 2 s: the watchdog spends the cut; the walk cannot close
+            Check(k._mover.goalMode == Mover.GoalMode.Position, "the lease still owns a live goal");
+            Time.time = 3.6f; Time.frameCount++;            // past the whole-lease cap
+            Frames(1, .02f, false);                         // one frame: the cap finishes the lease before any new scan could open
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the lease cap released the owned goal");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "no effects outlive the capped lease");
+            Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the token ended with the lease");
         });
-        Test("Two samurai roll and swallow independently toward their own origins", () => {
-            UnityEngine.Random.ForcedValue = .29f;
-            var kA = NewKnight(0); Follower(kA, 0); Enemy(kA, 3);
-            var kB = NewKnight(5); Follower(kB, 5); Enemy(kB, 2);
-            UpdateHook(kA); UpdateHook(kB);
-            Eq(2, Scheduler.Started, "both attacks running");
-            Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Frame(.02f, false);
-            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
-            Check(kA._damageable.invulnerable && kB._damageable.invulnerable, "both swallows active");
-            Eq(0f, kA._mover._goalPosition, "A cuts back to its own origin");
-            Eq(5f, kB._mover._goalPosition, "B cuts back to its own origin");
-            Check(kB._mover._goalPosition > kB.transform.position.x, "mirrored direction also faces its travel");
-            Frames(10);
-            Check(!kA._damageable.invulnerable && !kB._damageable.invulnerable, "both swallows finished");
-        });
-        Test("Night wall guard blocks the pending swallow roll", () => {
-            UnityEngine.Random.ForcedValue = 0f;
+        Test("The attack cadence anchors at the turn, not at the finish", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Managers.Inst.kingdom.isDaytime = false;
-            Frame(.02f, false);
-            Eq(0, UnityEngine.Random.Rolls, "wall guard rejects before dice");
-            Eq(1, SamuraiDashVisuals.BeginCount(k), "no swallow visual at night");
-            Check(!k._damageable.invulnerable, "no night swallow effects");
+            UpdateHook(k);
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();   // the turn anchors the cooldown at .61 + 3
+            Frames(30);                                     // the trip closes at the station well before the anchor
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the lease finished");
+            Time.time = 3.55f; Time.frameCount++; UpdateHook(k);
+            Eq(1, Scheduler.Started, "inside the cooldown no new attack opens");
+            Time.time = 3.65f; Time.frameCount++; UpdateHook(k);
+            Eq(2, Scheduler.Started, "the turn-time anchor opens the next attack");
         });
-        Test("Night wall guard takes over a swallow already in motion", () => {
-            UnityEngine.Random.ForcedValue = 0f;
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Frame(.02f, false);
-            Check(k._damageable.invulnerable, "swallow was active");
-            Managers.Inst.kingdom.isDaytime = false;
-            Frame(.02f, false);
-            Check(!k._damageable.invulnerable, "night guard ends swallow");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "owned goal released to native night guard");
-        });
-        Test("Swallow faces its origin before the first slash on both sides", () => {
-            UnityEngine.Random.ForcedValue = 0f;
-            var left = NewKnight(0); Follower(left, 0); Enemy(left, 3);
-            left.transform.localScale = new(1f, .95f, 1f);
-            var right = NewKnight(5); Follower(right, 5); Enemy(right, 2);
-            right.transform.localScale = new(-1f, .95f, 1f);
-            UpdateHook(left); UpdateHook(right); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            Frame(.02f, false);
-            Eq(-1f, left.transform.localScale.x, "leftward return faces left on start frame");
-            Eq(1f, right.transform.localScale.x, "rightward return faces right on start frame");
-            Eq(.95f, left.transform.localScale.y, "left Y scale preserved");
-            Eq(.95f, right.transform.localScale.y, "right Y scale preserved");
-            Eq(Mover.FacingMode.Left, left._mover.facingMode, "left-facing lease held");
-            Eq(Mover.FacingMode.Right, right._mover.facingMode, "right-facing lease held");
-            Eq(2, left._animator.TriggerCount, "left slash started");
-            Eq(2, right._animator.TriggerCount, "right slash started");
-        });
-        Test("Foreign fixed facing prevents a swallow without spending its roll", () => {
-            UnityEngine.Random.ForcedValue = 0f;
-            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            UpdateHook(k); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            k._mover.SetFacingMode(Mover.FacingMode.Target, new GameObject());
-            Frame(.02f, false);
-            Eq(0, UnityEngine.Random.Rolls, "foreign facing gate precedes dice");
-            Eq(Mover.FacingMode.Target, k._mover.facingMode, "foreign facing untouched");
-            Eq(1, SamuraiDashVisuals.BeginCount(k), "no swallow while fixed elsewhere");
-        });
-        Test("Swallow hit callback breaking the leash stops the rest of the same hit batch", () => {
-            UnityEngine.Random.ForcedValue = 0f;
+        Test("A broken leash mid-dash turns toward the live station instead of finishing", () => {
             var k = NewKnight(0); var follower = Follower(k, 0); Enemy(k, 3);
-            Physics2D.Hits = Array.Empty<Collider2D>(); // No forward hits; isolate the return episode.
-            UpdateHook(k); Frames(8);
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();
-            var first = HitTarget(); var second = HitTarget(); Supply(first, second);
-            first.OnReceiveDamage = _ => follower.transform.position = new(17);
-            Frame(.02f, false);
-            Eq(1, first.HitCount, "first swallow target hit");
-            Eq(0, second.HitCount, "leash loss stops later targets immediately");
+            UpdateHook(k);
+            Frames(3);
+            follower.transform.position = new(20);          // the squad ran past the attack leash
+            Frames(2);                                      // Tick marks the pull; the coroutine turns on its own resume
+            Check(k._damageable.invulnerable && k._trail.enabled, "the lease survives the broken leash");
+            Eq(18f, k._mover._goalSpeed, "the early turn is still the reverse cut");
+            Check(k._mover._goalPosition > k.transform.position.x, "the goal follows the live station, not a frozen origin");
+            Eq(1, Scheduler.Started, "no second motion and no return burst");
+            NativeFrame(k);
+            Eq(0, k._fsm.Requests, "the day native task never interrupts a live lease");
+        });
+        Test("Two samurai round-trip independently toward their own stations", () => {
+            var a = NewKnight(0); Follower(a, 0); Enemy(a, 3);
+            var b = NewKnight(5); Follower(b, 5); Enemy(b, 2);
+            UpdateHook(a); UpdateHook(b);
+            Eq(2, Scheduler.Started, "both outbound dashes opened");
+            Frames(32);                                     // both windows end; both leases turn by frame 31
+            Check(MathF.Abs(a._mover._goalPosition - 2.5f) <= .3f, "A reversed toward its own station");
+            Check(MathF.Abs(b._mover._goalPosition - 2.5f) <= .3f, "B reversed toward its own station");
+            Eq(1, SamuraiDashVisuals.BeginCount(a), "A still owns one lease token");
+            Eq(1, SamuraiDashVisuals.BeginCount(b), "B still owns one lease token");
         });
     }
-    // One complete attack lease in the stub world: two calm frames let the calm pose settle, the
-    // dash then fires from the animator's current state, settles on `pose` so the capture can take
-    // it, and runs out so Finish clears the trigger. The scanner is emptied afterwards.
+
+    // 中断矩阵 × 3 相位：外部接管一律以 Handoff 结束租约、归还效果与目标；资格失效（控制/编队/
+    // 死亡等）由 Tick 的统一出口处理，外来目标与移动器替换由 ValidMotion 处理。跟随者放在站位
+    // 区外，保证 Home 相位在测试窗口内不会自行结束。
+    private static void RoundTripInterruptions()
+    {
+        foreach (var phase in new[] { "Out", "Turn", "Home" })
+        {
+            foreach (var interrupt in new (string Name, Action<Knight> Apply)[] {
+                ("config", k => ModConfig.Enabled.Value = false),
+                ("authority", k => NetworkBigBoss.HasWorldAuth = false),
+                ("manual control", k => k.ControlRequested = true),
+                ("formation", k => k.Formation = new()),
+                ("dead", k => k._damageable.isDead = true),
+                ("charging", k => k.isCharging = true),
+                ("grabbed", k => k._character.grabbed = true),
+                ("other FSM task", k => k._fsm.Current = (int)Knight.State.GrabCoin),
+                ("external goal", k => { k._mover.SetGoalNoHaglet(100, 3); Scanner.ScanTargets.Clear(); })
+            }) Test(phase + " interruption: " + interrupt.Name, () => {
+                var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
+                ReachPhase(k, phase);
+                interrupt.Apply(k);
+                Frames(60, .02f, false);
+                Check(!k._damageable.invulnerable, "interruption releases invulnerability");
+                Check(!k._trail.enabled, "interruption releases the trail");
+                Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the visual token ended");
+                if (interrupt.Name == "external goal")
+                {
+                    Eq(100f, k._mover._goalPosition, "the foreign goal is preserved");
+                    Eq(0, k._mover.StopCalls, "the foreign goal is never stopped");
+                }
+                else Eq(Mover.GoalMode.Off, k._mover.goalMode, "the owned goal was released");
+            });
+            Test(phase + " interruption: mover replacement never inherits the lease", () => {
+                var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
+                ReachPhase(k, phase);
+                var old = k._mover;
+                k._mover = k.gameObject.AddComponent<Mover>();
+                Frames(3, .02f, false);
+                Eq(0, old.StopCalls, "the replaced mover is not stopped");
+                Eq(0, k._mover.GoalWrites, "the replacement mover receives nothing");
+                Check(!k._damageable.invulnerable, "the lease released its effects");
+            });
+            Test(phase + " interruption: a paused lease holds until resumed", () => {
+                var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
+                ReachPhase(k, phase);
+                float goal = k._mover._goalPosition;
+                Time.timeScale = 0;
+                Frames(30, 0, false);
+                Eq(goal, k._mover._goalPosition, "no paused goal rewrite");
+                Eq(0, k._mover.StopCalls, "the paused lease is never finished");
+                Check(SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the token survives the pause");
+                Time.timeScale = 1;
+                Frames(3, .02f, false);
+            });
+            Test(phase + " interruption: an external mover pause finishes cleanly", () => {
+                var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
+                ReachPhase(k, phase);
+                k._mover._pauseTimeout = 1;
+                Frames(2, .02f, false);
+                Eq(false, k._damageable.invulnerable, "the pause released invulnerability");
+                Eq(Mover.GoalMode.Off, k._mover.goalMode, "the owned goal was released");
+                Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the token ended");
+            });
+        }
+    }
+
+    // 夜跨黄昏：原子租约不因入夜丢债，原生队列也不能在租约中途插入；目标跟随活站位而不是冻结
+    // 出发点；原生 GoToWall 抢走目标仍是明确的 Handoff 退出路径；租约结束后夜列队恢复可用。
+    private static void RoundTripNight()
+    {
+        Test("Dusk mid-trip keeps the lease and follows the live station", () => {
+            var k = NewKnight(0); var f = Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            Frames(29);                                     // the outbound window is about to end
+            Managers.Inst.kingdom.isDaytime = false;        // dusk falls mid-trip
+            f.transform.position = new(12);                 // the squad walked to the wall: a frozen origin would be stale
+            Frames(2);                                      // the turn fires at dusk
+            Check(k._damageable.invulnerable, "the trip survives dusk without a debt drop");
+            Check(k._mover._goalPosition > k.transform.position.x, "the turn targets the live station");
+            Eq(18f, k._mover._goalSpeed, "still the reverse cut");
+            NativeFrame(k);
+            Eq(0, k._fsm.Requests, "no native wall queue while the lease owns the mover");
+        });
+        Test("A native goal steal at dusk hands the trip off without touching its effects", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance();   // the turn
+            Managers.Inst.kingdom.isDaytime = false;
+            k._mover.SetGoal(1, 2);                         // native GoToWall supplies its own guard-slot goal
+            Frames(3, .02f, false);
+            Eq(1f, k._mover._goalPosition, "the native goal survives");
+            Eq(0, k._mover.StopCalls, "the lease never stops a foreign goal");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "the handed-off lease released its effects");
+            Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the token ended");
+            NativeFrame(k);
+            Eq(0, k._fsm.Requests, "the mod never queues over the native goal");
+        });
+        Test("The night handoff resumes only after the trip closes", () => {
+            var k = NewKnight(0); var f = Follower(k, 0); Enemy(k, 3);
+            Managers.Inst.kingdom.isDaytime = false;
+            UpdateHook(k);
+            Eq(1, Scheduler.Started, "night attacks still dash");
+            Frames(31);                                     // the outbound window ends; the turn fires
+            NativeFrame(k);
+            Eq(0, k._fsm.Requests, "no wall queue while the lease runs");
+            Frames(60);                                     // the trip closes at the station
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the lease finished");
+            f.transform.position = new(20);                 // the squad moved on
+            Time.time += .25f; Time.frameCount++; NativeFrame(k);
+            Eq(1, k._fsm.Requests, "the night handoff resumes once the lease is gone");
+        });
+    }
+
+    // One complete round trip in the stub world: two calm frames let the calm pose settle, the
+    // outbound dash fires from the animator's current state and settles on `pose` so the capture
+    // can take it, the window then times out and the coroutine turns the same lease, and the walk
+    // home closes at the station -- Finish included (trigger hygiene, finish capture, probe arm).
+    // The scanner and the physics window are emptied afterwards.
     private static void RunAttackLease(Knight k, int pose)
     {
         Frames(2, .02f, false);
@@ -1027,7 +894,8 @@ internal static class Program
         Frames(3, .02f, false);                     // settled: the lease captures the pose
         Time.time += .7f;                           // past DashTimeout
         Time.frameCount++;
-        Scheduler.Advance();
+        Scheduler.Advance();                        // the window ends; the turn fires in-lease
+        Frames(45, .02f, false);                    // the watchdog walks it home; Finish closes the trip
         Scanner.ScanTargets.Clear();
         Physics2D.Hits = Array.Empty<Collider2D>();
     }
@@ -1038,11 +906,11 @@ internal static class Program
             var k = NewKnight(0); Follower(k, 0);
             k._animator.StateHash = 111;                    // the calm stand pose
             RunAttackLease(k, 777);                         // the capture takes 777 as the slash pose
-            int resets = k._animator.ResetCount;            // the dash's own Finish reset
+            int resets = k._animator.ResetCount;            // the trip's own turn and Finish resets
             k._animator.StateHash = 777;                    // the trigger's pose survived the dash
-            Frames(70, .02f, false);                        // 1.4 s: still inside the native budget
+            Frames(50, .02f, false);                        // 1.0 s: still inside the native budget
             Eq(resets, k._animator.ResetCount, "no repair before the pose outlives the native slash");
-            Frames(8, .02f, false);                         // past 1.5 s
+            Frames(12, .02f, false);                        // past 1.5 s
             Eq(resets + 1, k._animator.ResetCount, "the leftover trigger is reset once");
             Eq(1, k._animator.PlayCalls, "the calm pose is replayed");
             Eq(111, k._animator.StateHash, "the replay landed on the captured calm state");
@@ -1068,9 +936,10 @@ internal static class Program
             k._animator.InTransition = false;
             Time.time += .7f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            Frames(45, .02f, false);                        // the trip closes; the session capture was untouched
             int resets = k._animator.ResetCount;
             k._animator.StateHash = 777;                    // the pose lease 1 captured is still known
-            Frames(90, .02f, false);
+            Frames(120, .02f, false);
             Eq(resets + 1, k._animator.ResetCount, "the session capture survived the later lease");
             Eq(1, k._animator.PlayCalls, "the captured calm pose is replayed");
         });
@@ -1080,11 +949,12 @@ internal static class Program
             Enemy(k, 3);
             k._animator.InTransition = true;                // every frame reports the transition source
             UpdateHook(k);
-            Frames(64, .01f, false);                        // one lease, 60+ misses: past the budget
+            Frames(64, .01f, false);                        // one lease, 30+ misses: the probe is retired
             k._animator.InTransition = false;
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            k._animator.StateHash = 777;
+            Frames(45, .02f, false);                        // the trip closes; the dead probe stays down
             int resets = k._animator.ResetCount;
+            k._animator.StateHash = 777;
             Frames(80, .02f, false);                        // far past the stuck budget
             Eq(resets, k._animator.ResetCount, "a never-captured knight is never repaired");
             Eq(0, k._animator.PlayCalls, "no replay without a captured pose");
@@ -1109,12 +979,13 @@ internal static class Program
             k._animator.InTransition = false;
             Time.time += .7f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            Frames(45, .02f, false);                        // the trip closes; the fresh budget was never spent
             Time.time += 3.5f;
             k._animator.StateHash = 111;
             RunAttackLease(k, 777);                         // lease B's gates open and still capture
             k._animator.StateHash = 777;
             int resets = k._animator.ResetCount;
-            Frames(90, .02f, false);
+            Frames(120, .02f, false);
             Eq(resets + 1, k._animator.ResetCount, "a short lease's misses never retire the probe");
         });
         Test("A lease that never leaves its begin pose captures nothing", () => {
@@ -1155,21 +1026,18 @@ internal static class Program
             Eq(resets, k._animator.ResetCount, "the window closed before the pose appeared");
             Eq(0, k._animator.PlayCalls, "no replay outside the window");
         });
-        Test("The finished cut clears its trigger before the swallow fires a fresh one", () => {
-            UnityEngine.Random.ForcedValue = .29f;
+        Test("The outbound cut clears its trigger before the reverse cut fires its own", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
             k._animator.StateHash = 111;
             UpdateHook(k);                                  // the attack dash begins from 111
             k._animator.StateHash = 777;
             Frames(3, .02f, false);                         // the capture settles on 777
-            Frames(9);                                      // the dash travels past the swallow minimum
+            Frames(9);                                      // the dash runs toward the end of its window
             k._animator.Ops.Clear();
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance(); // the dash ends
-            Frame(.02f, false);                             // the roll frame: the swallow begins
-            Eq(0, UnityEngine.Random.Rolls, "deterministic: no dice drawn");
+            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance(); // the window ends; the turn fires
             Check(k._animator.Ops.Count >= 2, "both trigger writes were recorded");
-            Eq("reset", k._animator.Ops[^2], "the finished attack clears the trigger first");
-            Eq("set", k._animator.Ops[^1], "the swallow then fires its own trigger");
+            Eq("reset", k._animator.Ops[^2], "the finished cut clears the trigger first");
+            Eq("set", k._animator.Ops[^1], "the reverse cut then fires its own trigger");
         });
         Test("Withdrawal finishes never touch the slash trigger", () => {
             var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true;
@@ -1220,10 +1088,11 @@ internal static class Program
             Frames(3, .02f, false);
             Time.time += .7f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            Frames(45, .02f, false);                        // the walk home closes the trip
             k._animator.StateHash = 777;                     // the pose is left behind
             k._animator.OnEnabledWrite = on => { if (on) k._animator.StateHash = 111; };
             int resets = k._animator.ResetCount;
-            Frames(90, .02f, false);                        // 1.8 s stuck: one ladder runs
+            Frames(100, .02f, false);                       // 2 s stuck: one ladder runs
             Eq(resets + 1, k._animator.ResetCount, "the ladder still resets the trigger");
             Eq(0, k._animator.PlayCalls, "no replay without a captured calm pose");
             Eq(2, k._animator.EnabledWrites, "the enable toggle is the fallback");
@@ -1259,10 +1128,11 @@ internal static class Program
             Frames(3, .02f, false);
             Time.time += .7f; Time.frameCount++; Scheduler.Advance();
             Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            Frames(45, .02f, false);                        // the walk home closes the trip
             k._animator.StateHash = 777;                    // the pose is left behind
             k._animator.OnEnabledWrite = on => { if (on) k._animator.StateHash = 111; };
             int resets = k._animator.ResetCount;
-            Frames(90, .02f, false);
+            Frames(100, .02f, false);
             Eq(resets + 1, k._animator.ResetCount, "the ladder still resets the trigger");
             Eq(0, k._animator.PlayCalls, "the paused frame never supplied a calm pose");
             Eq(2, k._animator.EnabledWrites, "the toggle fallback carried the repair");
@@ -1297,12 +1167,15 @@ internal static class Program
             var k = NewKnight(20); Follower(k, 0); k._cooldown = 2.8f;
             AssertStartedReturn(k, 0); Eq(0, Scanner.ScanCalls, "no enemy search before return");
         });
-        Test("Return takes priority over still-running attack cooldown", () => {
+        Test("Return ladder opens over a live attack cadence after the trip closes", () => {
             var k = NewKnight(); var follower = Follower(k, 0); Enemy(k, 3);
             UpdateHook(k); Check(k._damageable.invulnerable, "attack actually started");
-            Frames(40); Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
+            Frames(80);                                          // the round trip closes at the station
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the trip finished");
+            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
             k.transform.position = new(20); follower.transform.position = new(0); k._cooldown = 3;
-            Frames(12, .02f, false); AssertStartedReturn(k, 0);
+            UpdateHook(k);
+            AssertStartedReturn(k, 0);
         });
         Test("10/4 hysteresis and ordinary completion", () => {
             var k = NewKnight(10); var f = Follower(k, 0); UpdateHook(k); Eq(0, k._mover.GoalWrites, "exact 10 does not enter");
@@ -1510,7 +1383,14 @@ internal static class Program
             Test(direction + " burst stops damage at timeout before a newly supplied target", () => {
                 var k = PrepareBurst(returning); UpdateHook(k); var late = HitTarget(); Supply(late);
                 Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; UpdateHook(k); Scheduler.Advance();
-                Eq(0, late.HitCount, "no late timeout damage");
+                if (returning) Eq(0, late.HitCount, "no late timeout damage");
+                else
+                {
+                    Eq(1, late.HitCount, "the reverse cut opens its own round on a target supplied after the window");
+                    int hits = late.HitCount;
+                    Frames(6, .02f, false);
+                    Eq(hits, late.HitCount, "the turn round is deduplicated");
+                }
             });
             Test(direction + " burst stops damage at ten-and-a-half-unit travel boundary", () => {
                 var k = PrepareBurst(returning); UpdateHook(k); var late = HitTarget(); Supply(late);
@@ -1547,11 +1427,11 @@ internal static class Program
                 Eq(true, k._damageable.invulnerable, "replacement effects still owned"); Eq(true, k._trail.enabled, "replacement trail retained"); Check(!ShouldSlash(k), "new return remains active");
             });
         }
-        Test("Forward and subsequent independent return may each hit the same Damageable once", () => {
+        Test("Forward and subsequent reverse cut may each hit the same Damageable once", () => {
             var k = PrepareBurst(false); var target = HitTarget(); Supply(target); UpdateHook(k); Eq(1, target.HitCount, "forward hit");
             Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance(); UpdateHook(k);
             k.transform.position = new(20); Scanner.ScanTargets.Clear(); Frames(12, .02f, false);
-            Eq(2, target.HitCount, "fresh return lease gets its own dedup set"); Eq(2 * k._attackDamage, target.TotalDamage, "one ordinary hit per separate motion");
+            Eq(2, target.HitCount, "the reverse cut gets its own dedup round"); Eq(2 * k._attackDamage, target.TotalDamage, "one ordinary hit per cut round");
         });
         Test("Ordinary return running phase has no hit scans or damage", () => {
             var k = NewKnight(25); Follower(k, 0); UpdateHook(k); Frames(61, .01f);
@@ -1594,8 +1474,10 @@ internal static class Program
             DisableHook(k); Check(clearedBeforeStop, "prefix Clear precedes native/motion cleanup");
             Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "no surviving active token");
         });
-        SwallowRegressions();
-        ReturnDueRegressions();
+        RoundTripPhases();
+        OutAbortCooldownAnchor();
+        RoundTripInterruptions();
+        RoundTripNight();
         StuckPoseRepair();
         NightFormationLeaseRegressions();
         Console.WriteLine($"RESULT: {passed} passed, {failed} failed"); Environment.ExitCode = failed == 0 ? 0 : 1;
