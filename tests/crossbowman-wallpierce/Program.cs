@@ -1,6 +1,6 @@
 // 弩手守家高抛修复（方案E）边界替身回归：直链生产文件
 // il2cpp/PatchRoles_Crossbowman.cs（EnsureAssets 资产构建 + BoltOriginOffset + 克隆 SO 指针门来源）
-// + il2cpp/CrossbowmanBoltWallPierce.cs（穿墙注入组件 + BestShotInternal 低弹道 prefix 主体）
+// + il2cpp/CrossbowmanBoltWallPierce.cs（穿墙注入组件；低弹道 prefix 已按 2026-09-24 用户裁定移除）
 // + il2cpp/HeroArcherWallPierce.cs（被复用的逐箭 owned-pair 账本 Apply/Restore）
 // + il2cpp/HeroArcherArrowVisuals.cs（账本容量常量与 ResetArrow 前缀归还入口的生产来源）。
 //
@@ -11,7 +11,7 @@
 //            HeroArcherWallPierce.Restore（IsEngineCleared 短路：退休账本，零写入）
 //   池复用: [Arrow.OnEnable 前缀] HeroArcherArrowVisuals.ResetArrow（旧账本按箭身份兜底归还）
 //            → 组件 OnEnable → Apply（新接管）
-//   射击: ArrowAttack.BestShotInternal(私有) → [Prefix] SO 指针门 → 低解强制 / 原样执行
+//   射击: ArrowAttack.BestShotInternal(私有) → 完全原生（低/高弹道选择回归原生）
 //
 // 夹具两族（Issue #10 对齐 #7 owned-pair 语义）：
 //   SetActive 族      = 引擎清除拓扑：GO 停用即移除该 GO 碰撞体的 PairState 条目（镜像 Unity
@@ -648,75 +648,15 @@ internal static class Program
             Check(HeroArcherWallPierce.LedgerCount == 0, "no ledger was re-rented or rewritten");
         });
 
-        Test("BestShotInternal gate: cloned SO gets the forced low solution; native/foreign/unbuilt SOs run the original", () =>
+        Test("Forced low trajectory is retired (2026-09-24 user ruling): native arcs run", () =>
         {
-            AssetHost assets = BuildNativeAssets();
-            RunEnsureAssets();
-            ArrowAttack so = HostSo();
-            Vector2 target = new Vector2(6f, 1f);
-            float gravity = -9.81f;
-
-            Check(CrossbowmanBoltWallPierce.TryForceLowTrajectory(so, target, gravity, false, out Vector2 forced),
-                "cloned SO hits the gate");
-            Eqv(NativeBestShotInternal(so, target, gravity, false, false, false), forced,
-                "forced result == native low solution (same math, ParabolaCast skipped)");
-            Vector2 nativeWallBlocked = NativeBestShotInternal(so, target, gravity, false, false, true);
-            Check(MathF.Abs(forced.y - nativeWallBlocked.y) > 1e-3f && forced.y < nativeWallBlocked.y,
-                "wall-blocked native returns the high arc; the prefix forces the flatter low arc");
-            Check(MathF.Abs(forced.magnitude - so._shotMagnitude) <= 1e-3f,
-                "result clamped to the shot magnitude");
-
-            Check(!CrossbowmanBoltWallPierce.TryForceLowTrajectory(assets.BaseSo, target, gravity, false, out _),
-                "native SO misses the gate");
-            ArrowAttack foreign = new ArrowAttack("foreign") { _shotMagnitude = 8f };
-            Check(!CrossbowmanBoltWallPierce.TryForceLowTrajectory(foreign, target, gravity, false, out _),
-                "foreign SO misses the gate");
-            Check(!CrossbowmanBoltWallPierce.TryForceLowTrajectory(null, target, gravity, false, out _),
-                "null SO misses the gate");
-
-            so._boostedShotMagnitude = 40f;                               // boosted 读 _boostedShotMagnitude
-            Check(CrossbowmanBoltWallPierce.TryForceLowTrajectory(so, target, gravity, true, out Vector2 boosted),
-                "boosted shot hits the gate");
-            Eqv(NativeBestShotInternal(so, target, gravity, false, true, false), boosted,
-                "boosted result uses _boostedShotMagnitude");
-            Check(MathF.Abs(boosted.x - forced.x) > 1e-3f, "boosted differs from normal (magnitude honored)");
-
-            Vector2 far = new Vector2(500f, 0f);                          // 无解：45° 回退等价原生
-            Check(CrossbowmanBoltWallPierce.TryForceLowTrajectory(so, far, gravity, false, out Vector2 noSolution),
-                "unreachable target still returns a vector");
-            Eqv(NativeBestShotInternal(so, far, gravity, false, false, true), noSolution,
-                "no-solution fallback equals the native 45-degree branch");
-
-            Host.GetField("_crossbowAttackSO", StaticAll).SetValue(null, null);   // 资产未构建
-            Check(PatchRoles_Crossbowman.ClonedAttackSoPointer == IntPtr.Zero, "gate is zero without assets");
-            Check(!CrossbowmanBoltWallPierce.TryForceLowTrajectory(so, target, gravity, false, out _),
-                "unbuilt assets: native BestShotInternal runs");
+            // The BestShotInternal prefix and its direct-link entry are gone from production;
+            // compile-time absence is the assertion — native arc selection is fully restored.
+            // (Wall pierce itself keeps its own suite below.)
+            Check(true, "native BestShotInternal runs for every crossbow shot again");
         });
 
-        Test("BestShotInternal prefix wiring: skips the original and writes the low solution; forceHighShot-independent", () =>
-        {
-            AssetHost assets = BuildNativeAssets();
-            RunEnsureAssets();
-            ArrowAttack so = HostSo();
-            Vector2 target = new Vector2(6f, 1f);
-            float gravity = -9.81f;
-
-            MethodInfo prefix = typeof(ArrowAttack_BestShotInternal_CrossbowmanLowTrajectory_Patch)
-                .GetMethod("Prefix", BindingFlags.Static | BindingFlags.NonPublic);
-            Check(prefix != null, "prefix method found");
-            Check(prefix.ReturnType == typeof(bool), "prefix returns bool (skippable)");
-
-            CrossbowmanBoltWallPierce.TryForceLowTrajectory(so, target, gravity, false, out Vector2 expected);
-            object[] args = { so, target, gravity, false, default(Vector2) };
-            object skipped = prefix.Invoke(null, args);
-            Check(skipped is bool b && !b, "prefix returns false for the cloned SO (original skipped)");
-            Eqv(expected, (Vector2)args[4], "prefix wrote the forced solution into __result");
-
-            object ran = prefix.Invoke(null, new object[] { assets.BaseSo, target, gravity, false, default(Vector2) });
-            Check(ran is bool ok && ok, "prefix returns true for native SOs (original runs)");
-        });
-
-        Test("deadlands follower package shares the cloned SO and therefore the forced low trajectory (expected scope)", () =>
+        Test("deadlands follower package shares the cloned SO (pierce scope unchanged)", () =>
         {
             AssetHost assets = BuildNativeAssets();
             RunEnsureAssets();
@@ -727,9 +667,7 @@ internal static class Program
             follower.ActiveArrowAttack = assets.BaseSo;
 
             PatchRoles_Crossbowman.ApplySquadCrossbowPackage(follower);
-            Check(follower.ActiveArrowAttack == so, "follower package assigns the same cloned SO");
-            Check(CrossbowmanBoltWallPierce.TryForceLowTrajectory(follower.ActiveArrowAttack,
-                new Vector2(5f, 0.5f), -9.81f, false, out _), "follower shots hit the gate too (same SO, by design)");
+            Check(follower.ActiveArrowAttack == so, "follower package assigns the same cloned SO (pierce pool shared, by design)");
         });
 
         Test("tower ballista boundary: native Bolt never gets the component and its SO never hits the gate", () =>
@@ -742,8 +680,6 @@ internal static class Program
                 "tower Bolt has no pierce component (EnsureOn is only called on the KEM clone)");
             Check(towerBoltGo.GetComponent<Arrow>() == null,
                 "tower Bolt is a different class entirely (no Arrow component)");
-            Check(!CrossbowmanBoltWallPierce.TryForceLowTrajectory(assets.BaseSo, new Vector2(6f, 1f), -9.81f, false, out _),
-                "native tower attack SOs keep native BestShotInternal");
         });
 
         Test("hook contract: 8 crossbowman hooks + 2 hero-visuals hooks; no other native surface touched", () =>
@@ -765,24 +701,14 @@ internal static class Program
             List<string> expected = new List<string>
             {
                 "Archer.IsAvailableForJob", "Archer.OnDisable", "Archer.OnEnable",
-                "Arrow.OnEnable", "ArrowAttack.BestShotInternal", "ArrowAttack.FireArrowInternal",
+                "Arrow.OnEnable", "ArrowAttack.FireArrowInternal",
                 "Character.Promote", "Pool.FastSpawn", "PoolManager.Init", "World.OnLevelLoaded",
             };
-            Check(targets.Count == expected.Count, "patch count = 7 existing crossbowman hooks + 1 new + 2 hero-visuals hooks (got "
+            Check(targets.Count == expected.Count, "patch count = 7 crossbowman hooks + 2 hero-visuals hooks (BestShotInternal retired 2026-09-24; got "
                 + targets.Count + ": " + string.Join(",", targets) + ")");
             for (int i = 0; i < expected.Count && i < targets.Count; i++)
                 Check(targets[i] == expected[i], "patch target[" + i + "] == " + expected[i]);
 
-            Type lowTrajectoryPatch = typeof(ArrowAttack_BestShotInternal_CrossbowmanLowTrajectory_Patch);
-            int prefixes = 0, postfixes = 0, finalizers = 0;
-            foreach (MethodInfo method in lowTrajectoryPatch.GetMethods(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public))
-            {
-                if (method.GetCustomAttributes(typeof(HarmonyLib.HarmonyPrefix), false).Length > 0) prefixes++;
-                if (method.GetCustomAttributes(typeof(HarmonyLib.HarmonyPostfix), false).Length > 0) postfixes++;
-                if (method.GetCustomAttributes(typeof(HarmonyLib.HarmonyFinalizer), false).Length > 0) finalizers++;
-            }
-            Check(prefixes == 1 && postfixes == 0 && finalizers == 0,
-                "the new patch is exactly one prefix (no postfix/finalizer)");
             Check(HasNoHarmonyAttributes(typeof(CrossbowmanBoltWallPierce)),
                 "the pierce component declares no Harmony attributes (rides the existing component lifecycle)");
             Check(HasNoHarmonyAttributes(typeof(HeroArcherWallPierce)),
