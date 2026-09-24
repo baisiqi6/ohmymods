@@ -220,7 +220,14 @@ internal static class PatchRoles_SamuraiPowerDash
     private static bool ValidFollower(Knight k, Archer a) => a != null && a.gameObject != null &&
         a.gameObject.activeInHierarchy && Same(a._knight, k) && a._damageable != null && !a._damageable.isDead;
 
-    private static float Distance(ActorState a) => Mathf.Abs(a.Owner.transform.position.x - a.Follower.transform.position.x);
+    private static float Distance(ActorState a)
+    {
+        float x = a.Owner.transform.position.x;
+        float target = a.Follower != null && a.Follower.gameObject != null
+            ? a.Follower.transform.position.x
+            : PatchRoles_SamuraiNightFormation.HomeXOf(a.Owner);
+        return Mathf.Abs(x - target);
+    }
 
     private static void RefreshFollower(ActorState a)
     {
@@ -517,7 +524,12 @@ internal static class PatchRoles_SamuraiPowerDash
 
     private static float StationX(ActorState a)
     {
-        float x = a.Owner.transform.position.x, target = a.Follower.transform.position.x;
+        float x = a.Owner.transform.position.x;
+        // 2026-09-25 用户裁定（目标死也要回家）：随从仍在=随从站位（原语义）；随从已死/
+        // 失效=夜间列队槽位或原生守位锚——绝不因无随从而失去回家目标。
+        float target = a.Follower != null && a.Follower.gameObject != null
+            ? a.Follower.transform.position.x
+            : PatchRoles_SamuraiNightFormation.HomeXOf(a.Owner);
         return target - Mathf.Sign(target - x) * 2.5f;
     }
 
@@ -1007,7 +1019,9 @@ internal static class PatchRoles_SamuraiPowerDash
         if (!ValidMotion(m)) { Finish(m); return; }
         var a = m.Actor;
         Knight k = a.Owner;
-        if (!ValidFollower(k, a.Follower)) { Finish(m); a.Follower = null; return; }
+        // 2026-09-25 用户裁定：目标死/失效不终止回程——回家目标由 StationX 的无随从
+        // 分支兜底；仅清引用让后续 RefreshFollower 有机会换新目标。
+        if (!ValidFollower(k, a.Follower)) a.Follower = null;
         float now = Time.time;
         if (now - m.StartedAt >= RoundTripLease) { Finish(m); return; }
         if (m.Phase == TripPhase.Turn)
@@ -1018,7 +1032,7 @@ internal static class PatchRoles_SamuraiPowerDash
             // A hit callback may synchronously disable the knight or replace this lease; never touch the new one.
             if (!Current(m)) return;
             if (!ValidMotion(m)) { Finish(m); return; }
-            if (!ValidFollower(k, a.Follower)) { Finish(m); a.Follower = null; return; }
+            if (!ValidFollower(k, a.Follower)) a.Follower = null;
             float x = k.transform.position.x, distance = Distance(a);
             if (distance < m.BestDistance - .1f) { m.BestDistance = distance; m.LastProgressAt = now; }
             // Arrival, the dash window, the watchdog or the travel cap: the cut is spent and the
@@ -1258,9 +1272,8 @@ internal static class PatchRoles_SamuraiPowerDash
             // the dash window, the travel cap, a broken leash -- turns the same lease around on
             // this very frame. Only real ownership loss finishes here; once the phase has moved,
             // the moving phases own the lease (a stopped coroutine never gets to finish it).
-            if (Current(m) && ValidMotion(m) && m.Phase == TripPhase.Out &&
-                ValidFollower(m.Actor.Owner, m.Actor.Follower))
-                turning = TurnTransition(m);
+            if (Current(m) && ValidMotion(m) && m.Phase == TripPhase.Out)
+                turning = TurnTransition(m);   // 2026-09-25: the trip always turns -- home is the station, not the follower
         }
         finally { if (!turning && m.Phase == TripPhase.Out) Finish(m); }
     }

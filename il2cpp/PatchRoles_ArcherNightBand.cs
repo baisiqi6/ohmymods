@@ -72,7 +72,7 @@ internal static class PatchRoles_ArcherNightBand
     /// [Floor, Floor+散布) 的起点。单一共享常量：PatchWorld_DefenseSpacing
     /// 墙外窄带镜像目标（抬到 ≥Floor）与 lineup 浅位占用列（depth∈[0,Floor)）
     /// 都引用它（见类注）。</summary>
-    internal const float Floor = 3f;
+    internal const float Floor = 2f;   // 2026-09-25 用户裁定：3.0 太靠后留大空档，退到 2.0（击杀带下界 1.5 上留 0.5 裕量）
 
     /// <summary>深/浅位改写的确定性散布幅度：深位目标深度 ∈ [Cap−BandSpread, Cap]，
     /// 浅位 ∈ [Floor, Floor+BandSpread)（避免全部叠在同一平面；brief 定稿为

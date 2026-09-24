@@ -280,6 +280,10 @@ public class StateMachine
     }
 }
 public class Kingdom { public bool isDaytime = true; }
+public static class PatchRoles_SamuraiNightFormation
+{
+    public static float HomeXOf(Knight k) => 0f;   // 测试里随从几乎总在场，无随从分支由生产单测覆盖
+}
 public class Managers { public static Managers Inst = new(); public Kingdom kingdom = new(); }
 // Same shape as the game's global enum: the enemy side is the unit's own half.
 public enum Side { Left = -1, Right = 1 }
