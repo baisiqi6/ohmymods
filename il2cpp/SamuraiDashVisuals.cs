@@ -16,7 +16,7 @@ internal static class SamuraiDashVisuals
     private static readonly List<int> Retire = new();
     private static readonly HashSet<string> Logged = new();
     private static SamuraiDashVisualsDriver Driver;
-    private static int OverlayId;
+    private static int OverlayId, FlashId;
     private static bool OverlayIdReady;
     private static float RetryAt;
 
@@ -74,7 +74,11 @@ internal static class SamuraiDashVisuals
         }
         catch { if (go != null) UnityEngine.Object.Destroy(go); throw; }
     }
-    private static SpriteRenderer MakeRenderer(GameObject root, SpriteRenderer source, string name)
+    // 2026-09-24 残影盲审定案后的 A/B/C 三配方诊断（一局定案）：三个幻影槽并排三种配方——
+    // A=对照（源材质拷贝+_Overlay 白，当前线上配方）；B=A+Flash 浮点 1+FLASH_ON 关键字
+    //（验"_Overlay 被特性浮点门死"的反汇编判定）；C=Sprites/Default 标准材质+原贴图+
+    // 纯白顶点色（验渲染级可见性基线，ZWrite 关）。body=C 配方。定案后保留可见的那臂。
+    private static SpriteRenderer MakeRenderer(GameObject root, SpriteRenderer source, string name, int recipe)
     {
         var go = new GameObject(name);
         try
@@ -83,13 +87,20 @@ internal static class SamuraiDashVisuals
             go.layer = source.gameObject.layer;
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.enabled = false;
-            // 2026-09-24 残影不可见根因修复：材质属性块对 PowerSprite2 自定义着色器不生效
-            //（实机从 batch2 起从未见过白色剪影，而日志显示残影系统全程在发）。原生闪白
-            // （BlinkOverlay，商店道具落地）走逐渲染器实例化材质+SetColor(_Overlay)=实证
-            // 可见路径；_Overlay 的 alpha 即叠加量，Color.white=全值白。材质走局部变量构建
-            // 后整只赋给 sharedMaterial——绝不触碰 material getter（隐式实例化泄漏源）。
+            if (recipe == 2)
+            {
+                Shader standard = Shader.Find("Sprites/Default");
+                Material plain = standard != null ? new Material(standard) : new Material(source.sharedMaterial);
+                renderer.sharedMaterial = plain;
+                return renderer;
+            }
             Material overlay = new Material(source.sharedMaterial);
             overlay.SetColor(OverlayId, Color.white);
+            if (recipe == 1)
+            {
+                overlay.SetFloat(FlashId, 1f);
+                overlay.EnableKeyword("FLASH_ON");
+            }
             renderer.sharedMaterial = overlay;
             return renderer;
         }
@@ -103,8 +114,9 @@ internal static class SamuraiDashVisuals
             // Unparented scene object with identity transform: every child has an independent frozen world pose.
             // Unlike the small driver this root is not DontDestroyOnLoad.
             s.Root = new GameObject("KEM_SamuraiAfterimages");
-            for (int i = 0; i < 3; i++) s.Ghosts[i] = new Ghost { Renderer = MakeRenderer(s.Root, source, "Ghost" + i) };
-            s.Body = MakeRenderer(s.Root, source, "BurstWhite");
+            for (int i = 0; i < 3; i++)
+                s.Ghosts[i] = new Ghost { Renderer = MakeRenderer(s.Root, source, "Ghost" + i, i) };
+            s.Body = MakeRenderer(s.Root, source, "BurstWhite", 2);
             return s;
         }
         catch { if (s.Root != null) UnityEngine.Object.Destroy(s.Root); throw; }
@@ -220,7 +232,7 @@ internal static class SamuraiDashVisuals
             if (!Valid(owner)) { SamuraiDashDiagnostics.Write(diagnostics, "visual-skipped", "reason=invalid-owner"); return null; }
             if (Time.timeScale <= 0) { SamuraiDashDiagnostics.Write(diagnostics, "visual-skipped", "reason=paused"); return null; }
             if (Time.time < RetryAt) { SamuraiDashDiagnostics.Write(diagnostics, "visual-skipped", "reason=retry-backoff"); return null; }
-            if (!OverlayIdReady) { OverlayId = Shader.PropertyToID("_Overlay"); OverlayIdReady = true; }
+            if (!OverlayIdReady) { OverlayId = Shader.PropertyToID("_Overlay"); FlashId = Shader.PropertyToID("_Flash"); OverlayIdReady = true; }
             id = owner.gameObject.GetInstanceID();
             var source = owner.GetComponent<SpriteRenderer>();
             if (!SourceReady(source))
