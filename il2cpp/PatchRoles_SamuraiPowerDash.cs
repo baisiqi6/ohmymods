@@ -90,6 +90,10 @@ internal static class PatchRoles_SamuraiPowerDash
     }
     private static readonly int PowerSlash = Animator.StringToHash("PowerSlash");
     private static readonly HashSet<string> Logged = new();
+    // Stuck-pose net (2026-09-24 recurrence): same-family knights share one AnimatorOverrideController
+    // instance (BiomeSwapData.GetAnimSwap cache), so a slash hash proven on one samurai is valid for
+    // every samurai on that controller -- and nothing else (cross-family pointers differ).
+    private static readonly Dictionary<long, int> SlashByController = new();
     private static int HitLayerMask, EnemyScanLayer, WalkLogs, HealLogs, SwallowLogs;
 
     private sealed class ActorState
@@ -115,6 +119,11 @@ internal static class PatchRoles_SamuraiPowerDash
         internal bool HasCutHistory, CaptureDead, HealGivenUp, LoggingHeal;
         internal float LastCutEndAt, StuckAt, NextHealLogAt, NextSwallowLogAt;
         internal int SlashHash, DefaultHash;
+        // SlashSource: 0=none, 1=Lease (settled during a cut -- proven), 2=Finish (inferred at the
+        // cut's end -- a guess a peer's proven hash may override), 3=Adopt (peer's proven hash).
+        internal int SlashSource;
+        internal bool LeaseSawTransition;   // finish-capture trust gate: a Current read is only
+                                            // meaningful after this lease observed a transition
         internal int CaptureBaseline, CaptureSeen, CaptureStable, CaptureFrames, CaptureFrame = -1;
         internal int DefaultSeen, DefaultStable, DefaultFrame = -1;
         internal int HealStep, HealFrame = -1, HealRetries;
@@ -299,6 +308,11 @@ internal static class PatchRoles_SamuraiPowerDash
                         if (k._animator != null) k._animator.ResetTrigger(PowerSlash);
                     }
                     catch (Exception e) { Log("reset-trigger", e); }
+                    // Stuck-pose capture net, finish leg: short-of-transition cuts and
+                    // baseline-poisoned knights can never capture in-flight (2026-09-24
+                    // recurrence); peers on the same shared controller may still know the pose.
+                    try { CaptureSlashAtFinish(m.Actor, m.Actor.Owner); }
+                    catch (Exception e) { Log("finish-capture", e); }
                 }
                 if (IsReturnFamily(m))
                 {
@@ -438,6 +452,7 @@ internal static class PatchRoles_SamuraiPowerDash
             a.CaptureSeen = a.CaptureBaseline;
             a.CaptureStable = 0;
             a.CaptureFrames = 0;                    // the miss budget is counted per lease
+            a.LeaseSawTransition = false;           // finish-capture trust gate, per lease
             if (k._animator != null) k._animator.SetTrigger(PowerSlash);
         }
         if (kind == MotionKind.Return) { m.FacingWritten = EnemyFacing(k); HoldFacing(m); }
@@ -530,14 +545,24 @@ internal static class PatchRoles_SamuraiPowerDash
         try
         {
             Animator animator = ReadAnimator(k);
-            if (animator == null || animator.IsInTransition(0))
+            if (animator == null)
             {
                 a.CaptureStable = 0;
                 CountCaptureMiss(a);
                 return;
             }
+            if (animator.IsInTransition(0))
+            {
+                a.LeaseSawTransition = true;        // trust gate for the finish-capture's Current read
+                a.CaptureStable = 0;
+                CountCaptureMiss(a);
+                return;
+            }
             int hash = animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
-            if (hash == 0 || hash == a.CaptureBaseline)
+            // Trust gate (2026-09-24 recurrence): a settled pose this lease never entered through
+            // a transition is untrustworthy -- it kills the whole teleport/no-transition-entry
+            // false-capture class (an aborted cut drifting into a walk pose mid-lease).
+            if (hash == 0 || hash == a.CaptureBaseline || !a.LeaseSawTransition)
             {
                 a.CaptureSeen = hash;
                 a.CaptureStable = 0;
@@ -554,12 +579,81 @@ internal static class PatchRoles_SamuraiPowerDash
             a.CaptureStable++;
             if (a.CaptureStable < 2) { CountCaptureMiss(a); return; }
             a.SlashHash = hash;
+            a.SlashSource = 1;                      // proven: settled inside a live cut
             if (a.DefaultHash == hash) a.DefaultHash = 0;   // the slash pose is never a calm state
-            if (Logged.Add("slash-capture"))
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/slash-capture] hash=" + hash
+            RememberControllerSlash(animator, hash);
+            if (Logged.Add("slash-capture-" + k.gameObject.GetInstanceID()))
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/slash-capture] knight=" +
+                    k.gameObject.GetInstanceID() + " hash=" + hash
                     + " baseline=" + a.CaptureBaseline + " frames=" + a.CaptureFrames);
         }
         catch (Exception e) { Log("slash-capture", e); }
+    }
+
+    /// <summary>
+    /// Stuck-pose net, finish leg (2026-09-24 recurrence): a cut shorter than its own transition can
+    /// never capture in-flight, and a knight already stuck poisons every later cut's baseline
+    /// (Begin reads the stuck pose), blocking self-capture for good. At the cut's end: capture what
+    /// the cut is leaving behind -- the transition target when mid-flight, else the settled state
+    /// only when this lease actually observed a transition (an untransitioned Current is
+    /// untrustworthy) -- then let a peer's proven hash (same shared controller) adopt a blind or
+    /// mis-captured one.
+    /// </summary>
+    private static void CaptureSlashAtFinish(ActorState a, Knight k)
+    {
+        Animator animator = ReadAnimator(k);
+        if (animator == null) return;
+        if (a.SlashHash == 0)
+        {
+            int candidate;
+            if (animator.IsInTransition(0))
+                candidate = animator.GetNextAnimatorStateInfo(0).shortNameHash;      // where the stuck pose is heading
+            else if (a.LeaseSawTransition)
+                candidate = animator.GetCurrentAnimatorStateInfo(0).shortNameHash;   // settled post-transition
+            else
+                candidate = 0;                                                       // no transition history: reject
+            if (candidate != 0 && candidate != a.CaptureBaseline)
+            {
+                a.SlashHash = candidate;
+                a.SlashSource = 2;                  // inferred: a peer's proven hash may override
+                if (a.DefaultHash == candidate) a.DefaultHash = 0;
+                // guesses never enter the shared map -- only lease-proven hashes do
+                if (Logged.Add("slash-finish-capture-" + k.gameObject.GetInstanceID()))
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/slash-finish-capture] knight=" +
+                        k.gameObject.GetInstanceID() + " hash=" + candidate);
+            }
+        }
+        AdoptPeerSlash(a, k, animator);
+    }
+
+    /// <summary>
+    /// A lease-proven or already-adopted hash is never overridden; a finish-inferred one (or a blind
+    /// knight) takes any peer hash remembered for the same shared controller instance.
+    /// </summary>
+    private static void AdoptPeerSlash(ActorState a, Knight k, Animator animator)
+    {
+        if (a.SlashSource == 1 || a.SlashSource == 3) return;
+        RuntimeAnimatorController controller = animator.runtimeAnimatorController;
+        if (controller == null) return;
+        long key = controller.Pointer.ToInt64();
+        if (!SlashByController.TryGetValue(key, out int hash) || hash == 0) return;
+        if (a.SlashHash == hash) { if (a.SlashSource == 0) a.SlashSource = 3; return; }
+        a.SlashHash = hash;
+        a.SlashSource = 3;
+        if (a.DefaultHash == hash) a.DefaultHash = 0;
+        if (Logged.Add("slash-adopt-" + k.gameObject.GetInstanceID()))
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/slash-adopt] knight=" +
+                k.gameObject.GetInstanceID() + " controller=" + key + " hash=" + hash);
+    }
+
+    private static void RememberControllerSlash(Animator animator, int hash)
+    {
+        try
+        {
+            RuntimeAnimatorController controller = animator.runtimeAnimatorController;
+            if (controller != null) SlashByController[controller.Pointer.ToInt64()] = hash;
+        }
+        catch { /* diagnostics only: a missed memory never blocks the capture itself */ }
     }
 
     /// <summary>
@@ -603,8 +697,9 @@ internal static class PatchRoles_SamuraiPowerDash
             a.DefaultStable++;
             if (a.DefaultStable < 2) return;
             a.DefaultHash = hash;
-            if (Logged.Add("default-capture"))
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/default-capture] hash=" + hash);
+            if (Logged.Add("default-capture-" + k.gameObject.GetInstanceID()))
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/default-capture] knight=" +
+                    k.gameObject.GetInstanceID() + " hash=" + hash);
         }
         catch (Exception e) { Log("default-capture", e); }
     }
@@ -735,7 +830,9 @@ internal static class PatchRoles_SamuraiPowerDash
                 details = " normalizedTime=" + info.normalizedTime.ToString("0.###") +
                     " fullPathHash=" + info.fullPathHash;
             }
-            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/heal] step=" + step +
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/heal] knight=" +
+                (k != null ? k.gameObject.GetInstanceID() : 0) +
+                " step=" + step +
                 " order=" + order + " retries=" + a.HealRetries + " slashHash=" + a.SlashHash +
                 " defaultHash=" + a.DefaultHash + details);
         }
@@ -875,6 +972,7 @@ internal static class PatchRoles_SamuraiPowerDash
             if (Mathf.Abs(dx) < 1.5f || Mathf.Abs(dx) > MaxRange) return;
             // 混合固定距离（2026-09-24）：近敌固定 7 格穿过（HitScan 沿路径扫+逐目标去重本就
             // 支持穿透命中），远敌(|dx|>7.5)仍停敌前 0.5——8.2-10.5 零伤害死区由此消灭。
+            // 同日用户裁定：冲刺不考虑墙（墙防时武士照旧冲出墙外再回撤，batch2 的既有行为）。
             var attack = Begin(a, MotionKind.Attack,
                 knight.transform.position.x + Mathf.Sign(dx) * Mathf.Max(Mathf.Abs(dx) - .5f, SamuraiFixedDashDistance));
             knight.StartCoroutine(AttackRoutine(attack).WrapToIl2Cpp());

@@ -119,8 +119,8 @@ internal static class Program
             Night();
             Check(Redirect(a, out float s0), "rank 1 redirects to a compact slot");
             Check(Redirect(b, out float s1), "rank 2 redirects to a compact slot");
-            Near(99.3f, s0, "slot(0) = anchor - 0.7");
-            Near(98.8f, s1, "slot(1) = anchor - 1.2");
+            Near(98.5f, s0, "slot(0) = anchor - 1.5");
+            Near(98.0f, s1, "slot(1) = anchor - 2.0");
             Check(s1 < s0 && s0 < 100f, "right slots step inward from the wall");
         });
         Test("Left-side slots mirror the wall step", () =>
@@ -130,8 +130,8 @@ internal static class Program
             Night();
             Check(Redirect(a, out float s0), "left rank 1 redirects");
             Check(Redirect(b, out float s1), "left rank 2 redirects");
-            Near(-99.3f, s0, "slot(0) mirrors on the left");
-            Near(-98.8f, s1, "slot(1) mirrors on the left");
+            Near(-98.5f, s0, "slot(0) mirrors on the left");
+            Near(-98.0f, s1, "slot(1) mirrors on the left");
             Check(-100f < s0 && s0 < s1, "left slots step inward");
         });
         Test("Sparse ranks compact to consecutive indexes", () =>
@@ -143,9 +143,9 @@ internal static class Program
             Redirect(a, out float s0);
             Redirect(b, out float s1);
             Redirect(c, out float s2);
-            Near(99.3f, s0, "rank 1 -> index 0");
-            Near(98.8f, s1, "rank 3 -> index 1");
-            Near(98.3f, s2, "rank 7 -> index 2");
+            Near(98.5f, s0, "rank 1 -> index 0");
+            Near(98.0f, s1, "rank 3 -> index 1");
+            Near(97.5f, s2, "rank 7 -> index 2");
         });
         Test("Equal ranks keep instanceID order across cache rebuilds", () =>
         {
@@ -155,8 +155,8 @@ internal static class Program
             Check(a.gameObject.GetInstanceID() < b.gameObject.GetInstanceID(), "fixture instance order");
             Redirect(a, out float a1);
             Redirect(b, out float b1);
-            Near(99.3f, a1, "lower instanceID takes the shallow slot");
-            Near(98.8f, b1, "tie-break takes the next slot");
+            Near(98.5f, a1, "lower instanceID takes the shallow slot");
+            Near(98.0f, b1, "tie-break takes the next slot");
             Time.time += 5f; // past the 3s TTL -> rebuild
             Redirect(b, out float b2);
             Redirect(a, out float a2);
@@ -170,15 +170,15 @@ internal static class Program
             Night();
             Redirect(a, out float a1);
             Redirect(b, out float b1);
-            Near(99.3f, a1, "rank 1 starts at index 0");
-            Near(98.8f, b1, "rank 2 starts at index 1");
+            Near(98.5f, a1, "rank 1 starts at index 0");
+            Near(98.0f, b1, "rank 2 starts at index 1");
             a.rank = 2;
             b.rank = 1;
             Time.time += 5f;
             Redirect(b, out float b2);
             Redirect(a, out float a2);
-            Near(99.3f, b2, "new rank 1 takes the shallow slot");
-            Near(98.8f, a2, "the other rank follows");
+            Near(98.5f, b2, "new rank 1 takes the shallow slot");
+            Near(98.0f, a2, "the other rank follows");
         });
         Test("Override guard anchor uses the returned pair", () =>
         {
@@ -188,9 +188,9 @@ internal static class Program
             Night();
             Check(Redirect(l, out float ls), "left knight redirects through the override");
             Check(Redirect(r, out float rs), "right knight redirects through the override");
-            Near(59.3f, ls, "Left knight uses the RETURNED Right key");
+            Near(58.5f, ls, "Left knight uses the RETURNED Right key");
             Check(ls < 60f, "override slot stays inside the returned anchor");
-            Near(58.8f, rs, "both sides share one compact row when the override merges sides");
+            Near(58.0f, rs, "both sides share one compact row when the override merges sides");
         });
         Test("Fallback anchor without an intact wall still steps inside", () =>
         {
@@ -199,7 +199,7 @@ internal static class Program
             var k = NewKnight(Side.Right, 1, 40);
             Night();
             Check(Redirect(k, out float slot), "fallback anchor redirects");
-            Near(39.3f, slot, "fallback slot still uses the compact formula");
+            Near(38.5f, slot, "fallback slot still uses the compact formula");
         });
 
         // ---- A2. 翻假防御（P1-B / P1-E） ----
@@ -252,7 +252,7 @@ internal static class Program
         {
             var other = NewKnight(Side.Right, 1, 40, style: 3);
             Night();
-            other.transform.position = new Vector3(99.3f);
+            other.transform.position = new Vector3(98.5f);
             Check(Postfix(other, true), "non-samurai untouched");
 
             var sam = NewKnight(Side.Right, 1, 40);
@@ -394,7 +394,7 @@ internal static class Program
             Night();
             float speed = 6f;
             Check(!Prefix(k._mover, NativeGoal(k), ref speed), "prefix replaces the native goal");
-            Near(99.3f, k._mover._goalPosition, "compact slot written through the real prefix");
+            Near(98.5f, k._mover._goalPosition, "compact slot written through the real prefix");
             Near(speed, k._mover._goalSpeed, "post-Adjust speed forwarded");
             Eq(1, k._mover.PositionCalls, "exactly one rewrite");
         });

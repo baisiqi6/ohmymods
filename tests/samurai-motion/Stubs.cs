@@ -115,6 +115,10 @@ namespace UnityEngine
         public void ResetTrigger(int hash) { ResetCount++; Ops.Add("reset"); }
         public bool IsInTransition(int layer) => InTransition;
         public float GetFloat(int id) => Speed;
+        public int NextStateHash;
+        public RuntimeAnimatorController runtimeAnimatorController = new();
+        public AnimatorStateInfo GetNextAnimatorStateInfo(int layer) =>
+            new() { shortNameHash = NextStateHash, fullPathHash = FullPathHash, normalizedTime = NormalizedTime };
         public AnimatorStateInfo GetCurrentAnimatorStateInfo(int layer) =>
             new() { shortNameHash = StateHash, fullPathHash = FullPathHash, normalizedTime = NormalizedTime };
         public void Play(int stateNameHash, int layer, float normalizedTime)
@@ -126,6 +130,15 @@ namespace UnityEngine
         }
     }
     public class TrailRenderer : Component { public bool enabled, emitting; public int positionCount, sortingLayerID, sortingOrder; public float time, widthMultiplier; }
+    // Distinct Pointer per instance by default: the shared-controller adoption is per real
+    // controller instance, so tests must opt into sharing instead of sharing by accident.
+    public class RuntimeAnimatorController
+    {
+        private static long _next = 1;
+        public RuntimeAnimatorController() { PointerValue = _next++; }
+        public long PointerValue;
+        public IntPtr Pointer => new IntPtr(PointerValue);
+    }
     public class Collider2D : Component { }
     // Name-set aware: the samurai's target scan must ask for Enemies alone while the shared hit
     // scan keeps Wildlife, so those names have to be distinguishable bits.
