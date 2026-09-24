@@ -13,11 +13,12 @@ namespace KingdomEnhancedMod;
 /// 即 rank 越大离墙越深、彼此间隔 = _distanceFromWall（实机 1.0/骑士）。本模块只对
 /// 武士（style 2）的「夜间守位下发」改用紧凑序列位：
 ///
-///   slot(i) = anchor.Value − Key × (0.7f + 0.5f × i)     （P1-A 绑定符号）
+///   slot(i) = anchor.Value − Key × (FirstSlotOffset + 0.5f × i)     （P1-A 绑定符号）
 ///
 ///   i    = 该守位侧（GetGuardPosition 返回对的 Key；override/horn 会换侧）上武士按
 ///          rank 升序、instanceID tie-break 的序号（0 起）。rank 稀疏不影响紧凑。
-///   0.7  首格不压墙线；0.5 间距常量（≈随从小队观感与武士体宽折中，可后调）。
+///   1.5  首格深度（2026-09-24 实机三轮修订：0.7 深入墙面敌人挥击范围被打，用户终定
+///        1.5）；0.5 间距常量（可后调）。
 ///
 /// 两条挂接（brief v3）：
 /// 1) 重定向（P1-C）：PatchWorld_DefenseSpacing 的 Mover.SetGoal(float,float) 前缀在
@@ -41,7 +42,7 @@ internal static class PatchRoles_SamuraiNightFormation
 {
     internal const int SamuraiStyleIndex = 2;
 
-    private const float FirstSlotOffset = 0.7f;      // 首格不压墙线
+    private const float FirstSlotOffset = 1.5f;      // 首格深度（2026-09-24 用户两轮裁定：0.7 太浅→2.0→终定 1.5）
     private const float SlotSpacing = 0.5f;          // 槽间距（P1-1）
     private const float AtSlotTolerance = 0.25f;     // 翻假窗口 = 半间距（P1-E①）
     private const float GoalMatchEpsilon = 1e-3f;    // 原生守位目标比对
@@ -220,7 +221,7 @@ internal static class PatchRoles_SamuraiNightFormation
     /// <summary>
     /// 重建槽位表：UnitScanCache 的 3s 骑士扫描（逐项过滤 null/activeInHierarchy）里筛
     /// 已解析的武士（style 2、存活、side 合法），按「守位侧 → rank → instanceID」升序
-    /// 排序后逐侧发槽 slot(i) = anchor − Key × (0.7 + 0.5×i)。
+    /// 排序后逐侧发槽 slot(i) = anchor − Key × (FirstSlotOffset + 0.5×i)。
     /// </summary>
     private static void RebuildSlots(Kingdom kingdom, float now)
     {
