@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using KingdomEnhancedMod;
+using Interval = KingdomEnhancedMod.HeroShopPlacement.Interval;
 int checks=0;
 void Check(bool ok,string name) { checks++; if(!ok)throw new Exception(name); }
 var payment=new HeroShopPayment();
@@ -19,14 +21,86 @@ Check(!payment.Consume(1,true,8),"cancelled callback");
 payment.Arm(0); Check(!payment.Consume(0,true,8),"null payer");
 payment.Arm(2); Check(payment.Consume(2,true,8),"next purchase");
 payment.Arm(2); Check(payment.IsArmed(2)&&!payment.AlreadySettled(2),"new purchase resets settlement");
-Check(HeroShopPlacement.Find(-10,10,2,p=>true,out float x)&&x==0,"middle");
-Check(HeroShopPlacement.Find(-10,10,2,p=>p>=3,out x)&&x==3,"nearby free gap");
-Check(!HeroShopPlacement.Find(-1,1,2,p=>true,out x),"too small");
-Check(!HeroShopPlacement.Find(float.NaN,1,2,p=>true,out x),"unknown bounds");
-Check(!HeroShopPlacement.Find(-1,float.PositiveInfinity,2,p=>true,out x),"invalid bounds");
-int calls=0; Check(!HeroShopPlacement.Find(-100,100,2,p=>{calls++;return false;},out x)&&calls==81,"bounded search");
-Check(HeroShopPlacement.Find(10,14,2,p=>true,out x)&&x==12,"exact fit");
-calls=0; Check(!HeroShopPlacement.Find(0,10,2,p=>{calls++;Check(p>=2&&p<=8,"inside borders");return false;},out x),"no gap");
+var empty = Array.Empty<Interval>();
+bool NativeFits(float p, float halfWidth, IReadOnlyList<Interval> real)
+{
+    // Independent native-style closed-interval oracle, using float endpoint arithmetic.
+    foreach(var block in real)
+        if(p-halfWidth <= block.High && p+halfWidth >= block.Low) return false;
+    return true;
+}
+bool Search(float left,float right,float halfWidth,IReadOnlyList<Interval> real,
+    out float position,IReadOnlyList<Interval> collected=null)
+    => HeroShopPlacement.Find(left,right,halfWidth,p=>NativeFits(p,halfWidth,real),
+        ()=>collected??real,out position);
+int collections=0;
+Check(HeroShopPlacement.Find(-10,10,2,p=>true,()=>{collections++;return empty;},out float x)
+    &&x==0&&collections==0,"middle succeeds without collecting exclusions");
+var centerBlocked = new[]{new Interval(-1,1)};
+Check(Search(-10,10,2,centerBlocked,out x)&&x < -3,"nearby gaps, equal-distance candidates prefer left");
+Check(!Search(-1,1,2,empty,out x),"too small");
+Check(!Search(float.NaN,1,2,empty,out x),"unknown bounds");
+Check(!Search(-1,float.PositiveInfinity,2,empty,out x),"invalid bounds");
+Check(!Search(10,-10,2,empty,out x),"reversed territory");
+Check(!Search(-10,10,0,empty,out x),"zero half width");
+Check(!Search(-10,10,float.NaN,empty,out x),"unknown half width");
+Check(Search(10,14,2,empty,out x)&&x==12,"exact territory width may fit");
+Check(!Search(10,14,2,new[]{new Interval(14,14)},out x),"exact territory width still rejects native closed contact");
+Check(Search(-float.MaxValue,float.MaxValue,2,empty,out x)&&x==0,"finite huge bounds avoid intermediate overflow");
+
+var farRight = new[]{new Interval(-200,60)};
+var farLeft = new[]{new Interval(-60,200)};
+Check(Search(-100,100,2,farRight,out x)&&x>62,"free land beyond old right thirty-unit search limit");
+Check(Search(-100,100,2,farLeft,out x)&&x < -62,"free land beyond old left thirty-unit search limit");
+var narrow = new[]{new Interval(-100,40.10f),new Interval(44.12f,100)};
+Check(Search(-100,100,2,narrow,out x)&&x>42.10f&&x<42.12f,"narrow gap between old 0.75 samples");
+var superset = new[]{new Interval(-1000,1000),narrow[1],new Interval(-90,30),narrow[0],
+    new Interval(40.11f,40.11f),new Interval(-1000,1000)};
+Check(Search(-100,100,2,narrow,out x,superset)&&NativeFits(x,2,narrow),
+    "ignored huge exclusion does not erase the only narrow gap; overlaps and duplicate boundaries accepted");
+var touching = new[]{new Interval(-100,40),new Interval(44,100)};
+Check(!Search(-100,100,2,touching,out x),"zero-width gap cannot pass native closed-contact gate");
+var invalid = new[]{new Interval(float.NaN,1)};
+Check(!HeroShopPlacement.Find(-10,10,2,p=>false,()=>invalid,out x),"nonfinite collected interval fails whole search");
+Check(!HeroShopPlacement.Find(-10,10,2,p=>false,()=>new[]{new Interval(2,1)},out x),"reversed collected interval fails whole search");
+Check(!HeroShopPlacement.Find(-10,10,2,p=>false,()=>null,out x),"unavailable collection fails search");
+bool collectionThrew=false;
+try { HeroShopPlacement.Find(-10,10,2,p=>false,()=>throw new InvalidOperationException("collection"),out x); }
+catch(InvalidOperationException){collectionThrew=true;}
+Check(collectionThrew,"collection failure reaches caller error path");
+// A legal center only a few representable floats wide must survive without a fixed epsilon.
+float tinyLeft=100f, tinyRight=MathF.BitIncrement(MathF.BitIncrement(MathF.BitIncrement(104f)));
+var tinyGap=new[]{new Interval(-200,tinyLeft),new Interval(tinyRight,200)};
+Check(Search(-200,200,2,tinyGap,out x)&&NativeFits(x,2,tinyGap),"representable sub-0.01 gap survives");
+var edges = new[]{new Interval(-8,8)};
+Check(!Search(-10,10,2,edges,out x),"no shop footprint may cross either wall");
+var occupied = new List<Interval>();
+Check(Search(-20,20,2,occupied,out float first),"first shop can be placed");
+occupied.Add(new Interval(first-2,first+2));
+Check(Search(-20,20,2,occupied,out float second)&&NativeFits(second,2,occupied),"second shop does not overlap registered first shop");
+
+int calls=0;
+int CountFailedSearch(float left,float right,IReadOnlyList<Interval> source)
+{
+    calls=0;
+    Check(!HeroShopPlacement.Find(left,right,2,p=>
+    {
+        calls++;
+        if(p-2<left || p+2>right) throw new Exception("candidate crossed a wall");
+        return false;
+    },()=>source,out _),"failed search is finite");
+    return calls;
+}
+int shortCalls=CountFailedSearch(-100,100,centerBlocked);
+int longCalls=CountFailedSearch(-1000000,1000000,centerBlocked);
+Check(shortCalls<=6*centerBlocked.Length+6&&longCalls<=6*centerBlocked.Length+6,
+    "native calls scale with boundaries, not territory length");
+var many=new List<Interval>();
+for(int i=0;i<1500;i++) many.Add(new Interval(-5000+i*2,-4999+i*2));
+many.Add(new Interval(-10000,4000));
+many.Add(new Interval(4004.1f,10000));
+Check(Search(-10000,10000,2,many,out x)&&x>4002&&x<4002.1f,"no candidate or source cutoff loses distant final gap");
+Check(CountFailedSearch(-10000,10000,many)<=6*many.Count+6,"large source remains linear in native checks");
 Check(HeroShopGrounding.TryResolve(true,true,0.875f,out float gy)&&gy==0.875f,"same-world active native root is the baseline");
 Check(HeroShopGrounding.TryResolve(true,true,-1.25f,out gy)&&gy==-1.25f,"negative native root kept as-is");
 Check(HeroShopGrounding.TryResolve(true,true,0f,out gy)&&gy==0f,"zero native root is still a real reference");
