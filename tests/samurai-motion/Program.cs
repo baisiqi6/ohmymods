@@ -24,12 +24,10 @@ internal static class Program
         KingdomEnhancedPlugin.Instance.LogSource.Infos.Clear();
         // The turn narrative is bounded by a session-global line budget; isolate it per test.
         typeof(PatchRoles_SamuraiPowerDash).GetField("TurnLogs", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, 0);
-        // Same for the heal narrative's session budget and the shared-controller slash memory:
-        // adoption and heal lines must be opted into per test, not inherited from earlier ones.
-        typeof(PatchRoles_SamuraiPowerDash).GetField("HealLogs", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, 0);
-        // The choreography's early-exit narrative is budgeted the same way.
+        // Same for the choreography's early-exit narrative and the per-controller HasState
+        // memory: pose verdicts must be opted into per test, not inherited from earlier ones.
         typeof(PatchRoles_SamuraiPowerDash).GetField("ChoreoLogs", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, 0);
-        (typeof(PatchRoles_SamuraiPowerDash).GetField("SlashByController", BindingFlags.Static | BindingFlags.NonPublic)
+        (typeof(PatchRoles_SamuraiPowerDash).GetField("PowerSlashByController", BindingFlags.Static | BindingFlags.NonPublic)
             ?.GetValue(null) as System.Collections.IDictionary)?.Clear();
         try { action(); Eq(0, KingdomEnhancedPlugin.Instance.LogSource.Errors.Count, "production error logs"); passed++; Console.WriteLine("PASS " + name); }
         catch (Exception error) { failed++; Console.WriteLine("FAIL " + name + ": " + error.GetBaseException().Message); }
@@ -118,7 +116,7 @@ internal static class Program
         Eq(Mover.GoalMode.Position, knight._mover.goalMode, "return issued position goal");
         Check(MathF.Abs(followerX - knight._mover._goalPosition) < MathF.Abs(followerX - knight.transform.position.x), "return goal moves toward follower");
         Check(MathF.Abs(knight._mover._goalPosition - knight.transform.position.x) > .1f, "return goal differs from current position");
-        Check(!ShouldSlash(knight), "normal slash suppressed during real return");
+        Check(ShouldSlash(knight), "a plain walk never suppresses the native slash");
     }
     private static void NativeFrame(Knight k)
     {
@@ -206,10 +204,13 @@ internal static class Program
             Managers.Inst.kingdom.isDaytime = false; var k = NewKnight(10); Follower(k, 0); Enemy(k, 13); NativeFrame(k);
             Eq(1, Scheduler.Started, "exact ten can attack"); Eq(0, k._fsm.Requests, "no wall request at boundary");
         });
-        Test("Dusk retires active daytime return without further dash hits", () => {
-            var k = NewKnight(12); Follower(k, 0); UpdateHook(k); Check(k._damageable.invulnerable, "day return exists");
+        Test("Dusk retires the plain walk home without further dash hits", () => {
+            var k = NewKnight(12); Follower(k, 0); UpdateHook(k);
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the day walk owns a run-speed goal");
+            Eq(k._runSpeed, k._mover._goalSpeed, "walk speed");
             Managers.Inst.kingdom.isDaytime = false; var enemy = Enemy(k, 10); UpdateHook(k);
-            Eq(0, enemy.HitCount, "dusk return does not add attack hits"); Check(!k._damageable.invulnerable, "day burst effects ended");
+            Eq(0, enemy.HitCount, "the walk home never damages");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "dusk released the walk goal");
             NativeFrame(k); Eq(1, k._fsm.Requests, "night native return takes over");
         });
         Test("Actor replacement with reused instance id cannot inherit old night request", () => {
@@ -218,172 +219,114 @@ internal static class Program
             NativeFrame(replacement); Eq(0, replacement._fsm.Requests, "new actor does not inherit old follower");
             Eq(0, old._fsm.Requests, "old state machine untouched");
         });
-        Test("In-flight new native queued task stops old hits without overwriting its queue", () => {
+        Test("In-flight new native queued task keeps its queue and the trip keeps its hits", () => {
             Managers.Inst.kingdom.isDaytime = false; var k = NewKnight(); Follower(k, 0); Enemy(k, 3); UpdateHook(k);
             var enemy = HitTarget(); Supply(enemy); k._fsm.GoToState(Knight.State.Charge);
             Time.time = .1f; Time.frameCount++; Scheduler.Advance();
-            Eq(0, enemy.HitCount, "native queued task cancels old burst ownership"); Eq(Knight.State.Charge, k._fsm._queuedState, "queued task preserved");
+            Eq(1, enemy.HitCount, "a native queued task no longer silences the trip's hit round");
+            Eq(Knight.State.Charge, k._fsm._queuedState, "queued task preserved");
+            Check(TripActive(k), "the trip is still live");
         });
-        Test("A night goal steal mid-dash is reclaimed by the 0.3 s re-assert", () => {
+        Test("A night goal steal mid-dash is reclaimed by the every-frame re-assert", () => {
             Managers.Inst.kingdom.isDaytime = false; var k = NewKnight(0); Follower(k, 0); Enemy(k, 3); UpdateHook(k);
             k._mover.SetGoal(1, 2);                        // native GoToWall supplies its own goal
-            Frames(4, .02f, false);                        // inside the cadence the foreign goal stands
-            Eq(1f, k._mover._goalPosition, "the foreign goal is not stomped before the cadence");
-            Eq(0, k._mover.StopCalls, "the foreign goal is never stopped");
-            Frames(14, .02f, false);                       // past the 0.3 s re-assert
-            Eq(7f, k._mover._goalPosition, "the trip reclaimed its own goal");
+            Eq(1f, k._mover._goalPosition, "the steal is visible before the routine resumes");
+            Frame(.02f, false);                            // the coroutine's own step re-asserts
+            Eq(7f, k._mover._goalPosition, "the trip reclaimed its own goal within one frame");
             Eq(18f, k._mover._goalSpeed, "with the trip's own speed");
+            Eq(0, k._mover.StopCalls, "the foreign goal is never stopped");
             NativeFrame(k);
             Eq(0, k._fsm.Requests, "the mod never queues over the trip");
             Check(k._damageable.invulnerable, "the trip kept its protection through the steal");
         });
     }
-    private static void ReturnLadder()
+    // 2026-09-25 用户裁定：脱离随从只回普通步速 walk（追随冲刺/回退梯/无敌/命中/视觉
+    // 全链删除）。本组钉住：>10 同帧开程、runSpeed 目标指向随从站位、到站释放、失随从/
+    // 失所有权/黄昏收口、暂停门、不压制原生斩击、不产视觉 token、不碰 trail/姿态/朝向。
+    private static void WalkHomeRegressions()
     {
-        Test("A failed burst hands over to the walk home in the very next tick", () => {
-            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true;
-            AssertStartedReturn(k, 0);
-            Frame(.5f, false);   // the .5 s no-progress deadline fails the burst on this tick
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "failed burst released its own goal");
-            Eq(false, k._damageable.invulnerable, "failed burst released its protection");
-            Frame(.02f, false);
-            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the next tick already walks home");
+        Test("A broken leash opens a plain run-speed walk home on the same tick", () => {
+            var k = NewKnight(20); Follower(k, 0);
+            UpdateHook(k);
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "walk issued a position goal");
             Eq(k._runSpeed, k._mover._goalSpeed, "walk uses the native run speed");
             Eq(2.5f, k._mover._goalPosition, "walk heads for the follower station");
-            Check(ShouldSlash(k), "a walking withdrawal no longer suppresses the native slash");
+            Check(!k._damageable.invulnerable, "a plain walk never gains protection");
+            Check(!k._trail.enabled, "a plain walk never enables the trail");
+            Eq(0, SamuraiDashVisuals.BeginCount(k), "no visual token for a walk");
+            Check(ShouldSlash(k), "the walk never suppresses the native slash");
         });
-        Test("The walk keeps a live goal for as long as the burst backoff runs", () => {
-            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
-            Frames(30, .02f, false);   // burst failed at .5 s, the walk began on the following tick
-            Eq(Mover.GoalMode.Position, k._mover.goalMode, "walk owns the return");
+        Test("The walk keeps a live goal while blocked and finishes when the path clears", () => {
+            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; UpdateHook(k);
             int live = 0;
             for (int i = 0; i < 40; i++) { if (k._mover.goalMode == Mover.GoalMode.Position) live++; Frame(.02f, false); }
             Eq(40, live, "no tick leaves the stranded knight without a goal");
-            Eq(1, SamuraiDashVisuals.BeginCount(k), "walking never spawns another burst");
-        });
-        Test("Repeated hit-stun pauses never lock the return", () => {
-            var k = NewKnight(20); Follower(k, 0); AssertStartedReturn(k, 0);
-            for (int i = 0; i < 4; i++)
-            {
-                k._mover._pauseTimeout = 1f;      // native HandleOnReceiveDamage -> Mover.Pause(1f)
-                Frame(.02f, false);               // the external pause invalidates the live lease
-                k._mover._pauseTimeout = 0f;      // ... and expires in scaled time
-                Time.time += 1f;
-                Frame(.02f, false);               // the ladder answers instead of locking
-            }
-            Eq(Mover.GoalMode.Position, k._mover.goalMode, "still returning after four interruptions");
-            Check(SamuraiDashVisuals.BeginCount(k) <= 3, "bounded bursts while being hit");
-            Eq(false, k._damageable.invulnerable, "no permanently held protection");
-        });
-        Test("Burst retries escalate and then retire in favour of the walk", () => {
-            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
-            Frames(175, .02f, false);   // 3.5 s: burst 1 failed at .5 s, burst 2 after the 2 s backoff
-            Eq(2, SamuraiDashVisuals.BeginCount(k), "exactly two bursts inside 3.5 s");
-            Frames(250, .02f, false);   // 8.5 s: burst 3 after the 4 s backoff
-            Eq(3, SamuraiDashVisuals.BeginCount(k), "third burst after the escalated backoff");
-            Frames(250, .02f, false);   // 13.5 s: the walk owns the way home from here on
-            Eq(3, SamuraiDashVisuals.BeginCount(k), "no burst after the third failure");
-            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the knight is still walking, never standing");
-            Eq(false, k._damageable.invulnerable, "no stray protection in the walk phase");
-        });
-        Test("A spent ladder walks home by itself and the next episode bursts again", () => {
-            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
-            Frames(450, .02f, false);   // 9 s: three blocked burst failures spend the ladder
-            Eq(3, SamuraiDashVisuals.BeginCount(k), "three bursts spent while blocked");
-            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the degraded walk owns the return");
+            Eq(0, SamuraiDashVisuals.BeginCount(k), "a stuck walk never spawns anything");
             k._mover.Blocked = false;
-            // Arrival arithmetic: 16 u at the native run speed (6 u/s stub) = 2.67 s = 133 frames.
+            // Arrival arithmetic: 16 u at the native run speed (6 u/s stub) ≈ 2.7 s = 134 frames.
             for (int i = 0; i < 900 && k.transform.position.x > 4.01f; i++) Frame(.02f);
             Check(k.transform.position.x <= 4.01f, "the walk itself reached the return threshold");
             Eq(Mover.GoalMode.Off, k._mover.goalMode, "arrival released the walk goal");
-            Eq(false, k._damageable.invulnerable, "a plain walk never gains burst protection");
-            k.transform.position = new(20);
-            Frames(12, .02f, false);
-            Eq(4, SamuraiDashVisuals.BeginCount(k), "the cleared ladder allows a fresh burst");
+            Eq(0, SamuraiDashVisuals.BeginCount(k), "the whole walk never spawned visuals");
         });
-        Test("A walk upgraded by its backoff still ends at the follower station", () => {
-            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
-            Frames(40, .02f, false);   // burst failed at .5 s; the walk is live but blocked
-            Eq(Mover.GoalMode.Position, k._mover.goalMode, "walking while the path is blocked");
-            k._mover.Blocked = false;
-            // The walk upgrades to a burst at RetryAt (2.5 s) and that burst closes the rest.
+        Test("Repeated hit-stun pauses end and restart the walk without any burst", () => {
+            var k = NewKnight(20); Follower(k, 0); UpdateHook(k);
+            for (int i = 0; i < 4; i++)
+            {
+                k._mover._pauseTimeout = 1f;      // native HandleOnReceiveDamage -> Mover.Pause(1f)
+                Frame(.02f, false);               // the external pause ends the live walk
+                Eq(Mover.GoalMode.Off, k._mover.goalMode, "the paused walk released its goal");
+                k._mover._pauseTimeout = 0f;      // ... and expires in scaled time
+                Time.time += 1f;
+                Frame(.02f, false);               // the tick answers instead of locking
+                Eq(Mover.GoalMode.Position, k._mover.goalMode, "the walk reopened");
+            }
+            Eq(0, SamuraiDashVisuals.BeginCount(k), "no bursts exist to retry");
+            Eq(false, k._damageable.invulnerable, "no protection to leak");
+        });
+        Test("A walk home never takes a facing lease, a dash pose or a state Play", () => {
+            var k = NewKnight(20); Follower(k, 0); k.side = Side.Left; UpdateHook(k);
+            Eq(Mover.FacingMode.Ahead, k._mover.facingMode, "walk leaves the facing native");
+            Eq(0, k._animator.TriggerCount, "walks never replay PowerSlash");
+            Eq(0, k._animator.PlayCalls, "walks never Play a state");
             for (int i = 0; i < 900 && k.transform.position.x > 4.01f; i++) Frame(.02f);
-            Check(k.transform.position.x <= 4.01f, "the upgraded return still reached the station");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "arrival released the goal");
-            Eq(2, SamuraiDashVisuals.BeginCount(k), "exactly one burst finished the walk's leg");
-            Eq(false, k._damageable.invulnerable, "burst effects retired at arrival");
+            Check(k.transform.position.x <= 4.01f, "the walk reached the station");
+            Eq(Mover.FacingMode.Ahead, k._mover.facingMode, "facing untouched across the whole walk");
+            Eq(0, k._animator.TriggerCount, "no dash pose across the whole walk");
+            Eq(0, k._animator.PlayCalls, "no state Play across the whole walk");
         });
-        foreach (var side in new[] { Side.Left, Side.Right })
-            Test("A " + side + " return withdraws facing the enemy side without the dash pose", () => {
-                var k = NewKnight(20); Follower(k, 0); k.side = side;
-                AssertStartedReturn(k, 0);
-                Eq(side == Side.Left ? Mover.FacingMode.Left : Mover.FacingMode.Right,
-                    k._mover.facingMode, "defensive withdrawal facing");
-                Eq(0, k._animator.TriggerCount, "returns never replay PowerSlash");
-            });
-        Test("Attack dash keeps the dash pose and never takes a facing lease", () => {
-            var k = PrepareBurst(false);
-            Eq(Mover.FacingMode.Ahead, k._mover.facingMode, "attack dash leaves the facing native");
-            UpdateHook(k);
-            Eq(1, k._animator.TriggerCount, "attack dash plays PowerSlash");
-            Check(k._damageable.invulnerable, "attack burst ran");
-            Eq(Mover.FacingMode.Ahead, k._mover.facingMode, "attack dash still owns no facing");
-        });
-        Test("A native reset to Ahead is re-asserted while the return runs", () => {
-            var k = NewKnight(20); Follower(k, 0); k.side = Side.Right;
-            AssertStartedReturn(k, 0);
-            k._mover.facingMode = Mover.FacingMode.Ahead;   // native wrote ahead mid-return
-            Frame(.02f, false);
-            Eq(Mover.FacingMode.Right, k._mover.facingMode, "defensive facing restored");
-        });
-        Test("A foreign fixed facing survives the whole return", () => {
+        Test("A foreign fixed facing survives the whole walk", () => {
             var k = NewKnight(20); Follower(k, 0); k._mover.facingMode = Mover.FacingMode.Target;
-            AssertStartedReturn(k, 0);
+            UpdateHook(k);
             Eq(Mover.FacingMode.Target, k._mover.facingMode, "native Target facing never taken over");
             Check(k._mover.facingTarget == null, "no invented facing target");
             ModConfig.Enabled.Value = false;
             Frame(.02f, false);
             Eq(Mover.FacingMode.Target, k._mover.facingMode, "cleanup never stomps a foreign facing");
         });
-        Test("Walking withdrawal keeps the defensive facing and releases it on arrival", () => {
-            var k = NewKnight(20); Follower(k, 0); k.side = Side.Left; k._mover.Blocked = true;
-            AssertStartedReturn(k, 0);
-            Eq(Mover.FacingMode.Left, k._mover.facingMode, "burst withdrew facing the enemy side");
-            Eq(0, k._animator.TriggerCount, "no dash pose on a return");
-            Frames(30, .02f, false);
-            Eq(Mover.FacingMode.Left, k._mover.facingMode, "walk keeps the defensive facing");
-            Eq(0, k._animator.TriggerCount, "walk never replays the dash pose");
-            k._mover.Blocked = false;
-            for (int i = 0; i < 900 && k.transform.position.x > 4.01f; i++) Frame(.02f);
-            Check(k.transform.position.x <= 4.01f, "the return reached the follower station");
-            Eq(Mover.GoalMode.Off, k._mover.goalMode, "arrival released the goal");
-            Eq(Mover.FacingMode.Ahead, k._mover.facingMode, "facing released once the return ended");
-            Eq(0, k._animator.TriggerCount, "no dash pose across the whole withdrawal");
-        });
         foreach (var interrupt in new (string Name, Action<Knight> Apply)[] {
             ("formation", k => k.Formation = new()), ("retreating", k => k.isRetreating = true),
             ("charging", k => k.isCharging = true), ("charge pending", k => k._shouldCharge = true),
             ("dead", k => k._damageable.isDead = true), ("manual control", k => k.ControlRequested = true),
             ("config", k => ModConfig.Enabled.Value = false), ("authority", k => NetworkBigBoss.HasWorldAuth = false)
-        }) Test("Walking withdrawal honours " + interrupt.Name + " exactly like the burst", () => {
-            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
-            Frames(40, .02f, false);
+        }) Test("Walking withdrawal honours " + interrupt.Name, () => {
+            var k = NewKnight(20); Follower(k, 0); UpdateHook(k);
             Eq(Mover.GoalMode.Position, k._mover.goalMode, "walk live before the interruption");
             interrupt.Apply(k); int writes = k._mover.GoalWrites;
             Frames(30, .02f, false);
             Eq(writes, k._mover.GoalWrites, "no replacement goal after " + interrupt.Name);
             Eq(Mover.GoalMode.Off, k._mover.goalMode, "walk goal released");
         });
-        Test("Night hands the return over: no mod goal, native guard-slot task only", () => {
-            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
-            Frames(40, .02f, false);   // day burst failed, the degraded walk is live
+        Test("Night hands the walk over: no mod goal, native guard-slot task only", () => {
+            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; UpdateHook(k);
+            Frames(40, .02f, false);   // the walk is live but blocked
             Eq(Mover.GoalMode.Position, k._mover.goalMode, "day walk live before dusk");
             Managers.Inst.kingdom.isDaytime = false;
             int writes = k._mover.GoalWrites;
             Frames(90, .02f, false);
             Eq(Mover.GoalMode.Off, k._mover.goalMode, "mod goal released at dusk");
-            Eq(writes, k._mover.GoalWrites, "no burst and no walk after the night handoff");
-            Eq(1, SamuraiDashVisuals.BeginCount(k), "exactly the one day burst, none at night");
+            Eq(writes, k._mover.GoalWrites, "no walk goal after the night handoff");
+            Eq(0, SamuraiDashVisuals.BeginCount(k), "no visual token at any point");
             k._mover.Blocked = false;
             k._fsm.OnEnter = state => {
                 if (state == Knight.State.GoToWall) { k.isRetreating = true; k._mover.SetGoal(1, 2); }
@@ -397,6 +340,7 @@ internal static class Program
             Eq(1f, k._mover._goalPosition, "guard-slot destination unchanged");
         });
     }
+
 
     private static void ScanRegressions()
     {
@@ -456,6 +400,18 @@ internal static class Program
                 else Eq(0, k._mover.GoalWrites, "no goal was issued for x=" + enemyX);
             }
         });
+        Test("The trigger gate still rejects a retreating knight", () => {
+            foreach (bool day in new[] { true, false })
+            {
+                Managers.Inst.kingdom.isDaytime = day;
+                var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+                k.isRetreating = true;
+                UpdateHook(k);
+                Eq(0, Scheduler.Started, "no trip opens for a retreating knight (day=" + day + ")");
+                Eq(0, k._mover.GoalWrites, "no goal is issued for a retreating knight (day=" + day + ")");
+                Check(!k._damageable.invulnerable, "no protection is applied for a retreating knight (day=" + day + ")");
+            }
+        });
         Test("The pinned seven-unit dash pierces the near enemy and reaches the one behind it", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
             Physics2D.Hits = Array.Empty<Collider2D>();
@@ -469,26 +425,28 @@ internal static class Program
             Eq(1, deep.HitCount, "a target behind the near enemy is also reached once");
             Check(k.transform.position.x > 5f, "the knight really ran through the pair");
         });
-        Test("The trail pin holds across the whole trip and returns at the close", () => {
+        Test("The trip never writes the trail; ghosts only", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            k._trail.time = .4f;                            // the native default this mod never wrote before
+            k._trail.time = .4f;                            // the native default
             UpdateHook(k);
-            Eq(1f, k._trail.time, "opening pins the trail lifetime at one second");
-            Check(k._trail.enabled, "the trail is emitting during the outbound dash");
-            Frames(30);                                     // the outbound leg arrives; the turn fires in-lease
-            Eq(1f, k._trail.time, "the reverse cut keeps the same pin (continuous ownership)");
-            Check(k._trail.enabled, "the reverse cut still emits");
+            Check(!k._trail.enabled, "the mod no longer enables the continuous trail");
+            Eq(.4f, k._trail.time, "the mod no longer pins the lifetime");
+            Frames(30);                                     // the outbound leg arrives; the turn fires in-trip
+            Check(!k._trail.enabled, "the reverse cut still writes nothing");
+            Eq(.4f, k._trail.time, "no lifetime write on the turn");
             Frames(40);                                     // the home leg closes the trip
-            Check(!k._trail.enabled, "the finale retired the trail enable");
-            Eq(.4f, k._trail.time, "the finale returned the trail's own lifetime");
+            Check(!k._trail.enabled, "no enable at the close");
+            Eq(.4f, k._trail.time, "no lifetime write at the close");
+            Eq(1, SamuraiDashVisuals.BeginCount(k), "one ghost Begin per trip");
+            Eq(1, SamuraiDashVisuals.EndCalls.Count, "one ghost End per trip");
         });
-        Test("An externally rewritten trail lifetime survives the close", () => {
+        Test("An externally enabled trail stays on through a whole trip", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            k._trail.enabled = true; k._trail.time = .7f;   // someone else's continuous trail
             UpdateHook(k);
-            k._trail.time = .7f;                            // a third party rewrote the lifetime mid-trip
             Frames(70);                                     // the trip closes at the start point
-            Eq(.7f, k._trail.time, "the foreign value is not ours: the finale leaves it alone");
-            Check(!k._trail.enabled, "the trail enable is still retired by value discipline");
+            Check(k._trail.enabled, "the external true is never switched off");
+            Eq(.7f, k._trail.time, "the external lifetime is never rewritten");
         });
         Test("Turn logging is bounded to twelve lines at six seconds per knight", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
@@ -505,119 +463,159 @@ internal static class Program
         });
     }
 
-    // 2026-09-24 卡姿复发：短于自身转移的冲刺与被毒化的基线都捕不到姿势 → 探测失明。
-    // 终捕（转移目标/见过转移的 Current）与同控制器采纳（同伴实证 hash）双网兜底。
-    // 所有行程都用 1.2 s 腿窗跳时推进确定性收尾（对齐 RunAttackLease 的手法）。
-    private static void StuckRecaptureRegressions()
+    // 2026-09-25b 真实控制器姿态契约：两腿直接 Play 已验证 fullPath 状态（腿前清 Land），
+    // 终幕对仍在 PowerSlash 的同一 animator/controller 发一次 Land（含硬失效）；未知/被替换
+    // 控制器退触发器且永不发 Land；死亡/别的状态/不可读动画机绝不覆盖。
+    private static void PoseContractRegressions()
     {
-        Test("A cut that ends mid-transition captures where it was heading", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._animator.StateHash = 111;
-            Frames(2, .02f, false);                         // the calm pose is captured as the replay target
-            Time.time += .25f;
-            Enemy(k, 3);
-            k._animator.InTransition = true;                // the transition outlives the whole cut
-            k._animator.NextStateHash = 777;
+        Test("A deferred Play followed by a same-frame startup failure still queues Land", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            k._animator.StateHash = Hash("Stand");
+            k._animator.FullPathHash = Hash("Base Layer.Stand");
+            int pending = 0;
+            k._animator.OnPlay = (hash, layer, time) => { pending = hash; return false; };
+            k.ThrowOnStartCoroutine = true;
             UpdateHook(k);
-            Frames(20, .02f, false);                        // the cut misses its in-flight capture
-            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();   // the timeout turns the lease in-lease
-            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(3, .02f, false);                        // the walk home closes the trip; the finish capture runs
-            k._animator.InTransition = false;
-            k._animator.StateHash = 777;                    // the transition lands on the stuck pose
-            Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m =>
-                m.StartsWith("[SamuraiDash/slash-finish-capture] knight=")), "the finish capture names the knight");
-            int resets = k._animator.ResetCount;
-            Frames(100, .02f, false);                       // the finish capture armed the probe -> heal
-            Eq(resets + 1, k._animator.ResetCount, "the finish-captured pose is repaired");
-            Eq(1, k._animator.PlayCalls, "the replay lands on the calm pose");
+            Eq(Hash("Base Layer.PowerSlash"), pending, "PowerSlash is queued for the next animation evaluation");
+            Check(!TripActive(k) && !k._damageable.invulnerable, "startup failure closes motion and protection");
+            Eq(1, KingdomEnhancedPlugin.Instance.LogSource.Errors.Count, "startup failure was diagnosed");
+            KingdomEnhancedPlugin.Instance.LogSource.Errors.Clear();
+            Eq(1, k._animator.SetTriggers.Count(t => t == Hash("Land")), "Land must be ready when queued Play evaluates");
         });
-        Test("A settled walk pose after an untransitioned cut is not trusted", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._animator.StateHash = 111;
-            Time.time += .25f;
-            Enemy(k, 3);
-            UpdateHook(k);                                  // the cut starts; the animator never transitions
-            k._animator.StateHash = 555;                    // a walk-like pose with no observed transition
-            Frames(20, .02f, false);
-            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
-            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(3, .02f, false);                        // the trip closes; the untrusted settled read is rejected
-            int resets = k._animator.ResetCount;
-            Frames(90, .02f, false);
-            Eq(resets, k._animator.ResetCount, "no transition history: the current read is rejected");
-            Eq(0, k._animator.PlayCalls, "no replay for a guessed pose");
+        Test("Both legs play the verified state from frame zero with Land cleared first", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            Eq(1, k._animator.PlayCalls, "the outbound leg plays the verified state");
+            Eq(Hash("Base Layer.PowerSlash"), k._animator.FullPathHash, "the play targets the full path");
+            Eq(0, k._animator.TriggerCount, "the verified path never fires the PowerSlash trigger");
+            Eq(2, k._animator.ResetCount, "old PowerSlash and Land are cleared before the leg");
+            Eq(Hash("PowerSlash"), k._animator.ResetTriggers[0], "the cut trigger is cleared first");
+            Eq(Hash("Land"), k._animator.ResetTriggers[1], "the exit trigger is cleared before playback");
+            Frames(21);                                     // the outbound leg arrives; the turn fires
+            Eq(2, k._animator.PlayCalls, "the reverse cut replays the state from frame zero");
+            Eq(4, k._animator.ResetCount, "the turn cleared PowerSlash then Land");
+            Eq(Hash("PowerSlash"), k._animator.ResetTriggers[^2], "the turn clears the finished cut first");
+            Eq(Hash("Land"), k._animator.ResetTriggers[^1], "then the exit trigger before the replay");
+            Eq(0, k._animator.TriggerCount, "still no trigger path on a verified controller");
         });
-        Test("A stuck knight's poisoned baseline cannot self-capture but a peer adopts", () => {
-            var a = NewKnight(0); Follower(a, 0);
-            a._animator.StateHash = 111;
-            RunAttackLease(a, 777);                         // a clean lease proves 777 on the controller
-            var shared = a._animator.runtimeAnimatorController;
-            var b = NewKnight(0); Follower(b, 0);
-            b._animator.runtimeAnimatorController = shared; // the same shared controller instance
-            b._animator.StateHash = 777;                    // stuck from birth: every baseline reads the pose
-            Time.time += .25f;
-            Enemy(b, 3);
+        Test("A complete close fires Land exactly once while sitting in PowerSlash", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            k._animator.FullPathHash = Hash("Base Layer.PowerSlash");   // settled in the slash state
+            CloseTrip(k);
+            Eq(1, k._animator.SetTriggers.Count(t => t == Hash("Land")), "Land fired exactly once");
+            Eq(0, k._animator.SetTriggers.Count(t => t == Hash("PowerSlash")), "no PowerSlash trigger on the verified path");
+        });
+        Test("Land is withheld when another state took over or the animator is unreadable", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            Frames(21);                                    // the reverse leg has already replayed PowerSlash
+            k._animator.StateHash = 999;                    // Block takes over during the home leg
+            k._animator.FullPathHash = 999;
+            CloseTrip(k);
+            Eq(0, k._animator.SetTriggers.Count(t => t == Hash("Land")), "no Land over another state");
+
+            var b = NewKnight(0); Follower(b, 0); Enemy(b, 3);
             UpdateHook(b);
-            b._animator.InTransition = true; b._animator.NextStateHash = 777;
-            Frames(20, .02f, false);                        // the cut ends heading nowhere new
-            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
-            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(3, .02f, false);                        // the trip closes: the poisoned capture is rejected and the peer adopts
-            b._animator.InTransition = false;
-            Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m => m.StartsWith("[SamuraiDash/slash-adopt]")),
-                "the peer's proven hash adopts through the poisoned baseline");
-            int resets = b._animator.ResetCount;
-            Frames(120, .02f, false);                       // the adoption armed the probe -> ladder runs
-            Eq(resets + 1, b._animator.ResetCount, "the adopted pose is repaired");
+            b._animator.StateHash = Hash("PowerSlash");
+            b._animator.FullPathHash = Hash("Base Layer.PowerSlash");
+            b._animator.enabled = false;                    // unreadable animator
+            CloseTrip(b);
+            Eq(0, b._animator.SetTriggers.Count(t => t == Hash("Land")), "no Land from an unreadable animator");
         });
-        Test("Adoption never crosses controller families", () => {
-            var a = NewKnight(0); Follower(a, 0);
-            a._animator.StateHash = 111;
-            RunAttackLease(a, 777);
-            var b = NewKnight(0); Follower(b, 0);           // its own controller instance
-            b._animator.StateHash = 777;
-            Time.time += .25f;
-            Enemy(b, 3);
+        Test("A hard-invalidated trip still lands its stuck pose (config or style off)", () => {
+            foreach (var hard in new (string Name, Action<Knight> Apply)[] {
+                ("config", k => ModConfig.Enabled.Value = false),
+                ("style", k => k.Style = 1)
+            })
+            {
+                ModConfig.Enabled.Value = true;             // the config iteration above leaves it off
+                var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+                UpdateHook(k);
+                k._animator.StateHash = Hash("PowerSlash"); // the pose is stuck when the trip dies
+                hard.Apply(k);
+                Frames(3, .02f, false);
+                Check(!TripActive(k), "the hard invalidation closed the trip (" + hard.Name + ")");
+                Eq(1, k._animator.SetTriggers.Count(t => t == Hash("Land")),
+                    "Land still recovered the pose (" + hard.Name + ")");
+            }
+        });
+        Test("Death never receives Land", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            k._animator.StateHash = Hash("PowerSlash");
+            k._damageable.isDead = true;
+            Frames(3, .02f, false);
+            Eq(0, k._animator.SetTriggers.Count(t => t == Hash("Land")), "death keeps the native Die resolution");
+        });
+        Test("A replaced controller gets no Land and no turn replay", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            k._animator.StateHash = Hash("PowerSlash");
+            k._animator.FullPathHash = Hash("Base Layer.PowerSlash");
+            int resets = k._animator.ResetCount;
+            k._animator.runtimeAnimatorController = new RuntimeAnimatorController();  // swapped mid-trip
+            CloseTrip(k);
+            Eq(1, k._animator.PlayCalls, "only the original outbound leg played");
+            Eq(0, k._animator.TriggerCount, "no trigger belongs to the replacement controller");
+            Eq(resets, k._animator.ResetCount, "no reset belongs to the replacement controller");
+            Eq(0, k._animator.SetTriggers.Count(t => t == Hash("Land")), "no Land on a controller never verified");
+        });
+        Test("Replacing the animator receives no old-trip animation writes", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3); UpdateHook(k);
+            var replacement = new GameObject().AddComponent<Animator>();
+            k._animator = replacement;
+            CloseTrip(k);
+            Eq(0, replacement.PlayCalls + replacement.TriggerCount + replacement.ResetCount,
+                "the replacement animator receives no replay, trigger or reset");
+        });
+        Test("An initially unknown controller loses its fallback writes when replaced", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            k._animator.OnHasState = (layer, id) => false;
+            UpdateHook(k);
+            int triggers = k._animator.TriggerCount, resets = k._animator.ResetCount;
+            k._animator.runtimeAnimatorController = new RuntimeAnimatorController();
+            CloseTrip(k);
+            Eq(triggers, k._animator.TriggerCount, "fallback is limited to the original controller");
+            Eq(resets, k._animator.ResetCount, "no reset leaks to the replacement controller");
+        });
+        Test("An unknown controller falls back to the trigger and closes without Land", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            k._animator.OnHasState = (layer, id) => false;  // a controller without the state
+            UpdateHook(k);
+            Eq(0, k._animator.PlayCalls, "no Play on an unverified controller");
+            Eq(1, k._animator.SetTriggers.Count(t => t == Hash("PowerSlash")), "the outbound leg used the trigger");
+            k._animator.StateHash = Hash("PowerSlash");
+            CloseTrip(k);
+            Eq(2, k._animator.SetTriggers.Count(t => t == Hash("PowerSlash")), "the turn used the trigger too");
+            Eq(0, k._animator.SetTriggers.Count(t => t == Hash("Land")), "the fallback path never receives Land");
+            Eq(0, k._animator.PlayCalls, "still no Play");
+        });
+        Test("The HasState verdict is remembered per controller pointer", () => {
+            var a = NewKnight(0); Follower(a, 0); Enemy(a, 3);
+            int probes = 0;
+            a._animator.OnHasState = (layer, id) => { probes++; return true; };
+            UpdateHook(a);
+            Eq(1, probes, "the first trip probed the controller");
+            CloseTrip(a);
+            Time.time = 3.2f; Time.frameCount++;            // past the cooldown for a fresh trip
+            var b = NewKnight(0); Follower(b, 0); Enemy(b, 3);
+            b._animator.runtimeAnimatorController = a._animator.runtimeAnimatorController;  // shared instance
+            b._animator.OnHasState = (layer, id) => { probes++; return true; };
             UpdateHook(b);
-            b._animator.InTransition = true; b._animator.NextStateHash = 777;
-            Frames(20, .02f, false);
-            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
-            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(3, .02f, false);                        // the trip closes on the alien controller
-            b._animator.InTransition = false;
-            Check(!KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m => m.StartsWith("[SamuraiDash/slash-adopt]")),
-                "a different controller never adopts");
-            int resets = b._animator.ResetCount;
-            Frames(90, .02f, false);
-            Eq(resets, b._animator.ResetCount, "still blind: no repair without adoption");
-        });
-        Test("A wrong finish guess is overridden by the peer's proven hash", () => {
-            var a = NewKnight(0); Follower(a, 0);
-            a._animator.StateHash = 111;
-            RunAttackLease(a, 777);
-            var d = NewKnight(0); Follower(d, 0);
-            d._animator.runtimeAnimatorController = a._animator.runtimeAnimatorController;
-            d._animator.StateHash = 111;
-            Frames(2, .02f, false);                         // calm pose captured for the replay
-            Time.time += .25f;
-            Enemy(d, 3);
-            d._animator.InTransition = true;
-            d._animator.NextStateHash = 555;                // a misleading transition target at the finish
-            UpdateHook(d);
-            Frames(20, .02f, false);
-            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
-            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(3, .02f, false);                        // the trip closes: the guess is captured, then the peer overrides
-            d._animator.InTransition = false;
-            Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m => m.StartsWith("[SamuraiDash/slash-adopt]")),
-                "the proven peer hash overrides the finish guess");
-            d._animator.StateHash = 777;                    // the real stuck pose
-            int resets = d._animator.ResetCount;
-            Frames(120, .02f, false);
-            Eq(resets + 1, d._animator.ResetCount, "the adopted hash repairs the real stuck pose");
+            Eq(1, probes, "the shared controller answered from the cache");
+            CloseTrip(b);
+            Time.time += 3.2f; Time.frameCount++;
+            var c = NewKnight(0); Follower(c, 0); Enemy(c, 3);   // its own controller instance
+            c._animator.OnHasState = (layer, id) => { probes++; return false; };
+            UpdateHook(c);
+            Eq(2, probes, "a different controller family probes for itself");
+            Eq(0, c._animator.PlayCalls, "its negative verdict took the trigger path");
         });
     }
+
+    private static int Hash(string name) => Animator.StringToHash(name);
+
 
     private static int TurnLines() =>
         KingdomEnhancedPlugin.Instance.LogSource.Infos.Count(m => m.StartsWith("[SamuraiDash/roundtrip-turn]"));
@@ -632,7 +630,8 @@ internal static class Program
             UpdateHook(k);
             Eq(7f, k._mover._goalPosition, "the outbound goal is the fixed seven");
             Eq(18f, k._mover._goalSpeed, "dash speed");
-            Check(k._damageable.invulnerable && k._trail.enabled && k._trail.time == 1f, "one protected motion");
+            Check(k._damageable.invulnerable, "one protected motion");
+            Check(!k._trail.enabled, "no continuous trail: ghosts only");
             Check(SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "one visual token");
             int scans = Scanner.ScanCalls;
             Frames(80);                                     // outbound arrival, reverse cut, home arrival
@@ -657,16 +656,17 @@ internal static class Program
             Check(!k._damageable.invulnerable && !k._trail.enabled, "effects still retired");
             Check(!TripActive(k), "no target knowledge survived: the trip is target-agnostic");
         });
-        Test("The turn replays the dash pose, faces home and repairs the y scale", () => {
+        Test("The turn replays the slash state, faces home and repairs the y scale", () => {
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3); k._animator.StateHash = 111;
             k.transform.localScale = new Vector3(-1, 1.3f, 1);
             UpdateHook(k);
-            Frames(21);                                     // the outbound leg arrives; the turn fires in-lease
+            Frames(21);                                     // the outbound leg arrives; the turn fires in-trip
             Check(TripActive(k), "the return leg is still running");
-            Eq(2, k._animator.TriggerCount, "the reverse cut re-fired the dash pose");
-            Eq(1, k._animator.ResetCount, "trigger hygiene cleared the finished cut first");
-            Eq("reset", k._animator.Ops[^2], "the finished cut clears the trigger first");
-            Eq("set", k._animator.Ops[^1], "the reverse cut then fires its own trigger");
+            Eq(2, k._animator.PlayCalls, "the reverse cut replayed the verified state");
+            Eq(0, k._animator.TriggerCount, "the verified path re-draws without any trigger");
+            Eq(Hash("PowerSlash"), k._animator.ResetTriggers[^2], "the finished cut clears its trigger first");
+            Eq(Hash("Land"), k._animator.ResetTriggers[^1], "then the exit trigger before the replay");
+            Eq("play", k._animator.Ops[^1], "the replay is the turn's last animator write");
             Eq(Mover.FacingMode.Left, k._mover.facingMode, "the reverse cut faces the way home");
             Eq(1, k._mover.DirectionWrites, "SetDirection ran once at the turn");
             Eq(-1f, k.transform.localScale.x, "the travel direction lands on the x scale");
@@ -707,14 +707,14 @@ internal static class Program
             k._damageable.invulnerable = true; k._trail.enabled = true; k._trail.time = .4f;
             RunTripCycle(k);
             Eq(true, k._damageable.invulnerable, "preexisting invulnerability returned");
-            Eq(true, k._trail.enabled, "preexisting trail returned");
-            Eq(.4f, k._trail.time, "preexisting trail lifetime returned");
+            Eq(true, k._trail.enabled, "an external trail stays on: the mod never writes it");
+            Eq(.4f, k._trail.time, "the external lifetime is never rewritten");
             Time.time += 3.2f; Time.frameCount++; UpdateHook(k);   // past the trigger-anchored cooldown
             Check(TripActive(k), "the second trip opened");
             CloseTrip(k);
             Eq(true, k._damageable.invulnerable, "second trip returned the flag again");
-            Eq(true, k._trail.enabled, "second trip returned the trail again");
-            Eq(.4f, k._trail.time, "second trip returned the lifetime again");
+            Eq(true, k._trail.enabled, "external trail survived the second trip");
+            Eq(.4f, k._trail.time, "external lifetime survived the second trip");
             Eq(2, SamuraiDashVisuals.BeginCount(k), "two Begin calls, no leak");
             Eq(2, SamuraiDashVisuals.EndCalls.Count, "two Ends, no leak");
         });
@@ -730,6 +730,18 @@ internal static class Program
             Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the token ended with the cap");
             Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m =>
                 m.StartsWith("[SamuraiDash/choreo]") && m.Contains("tick-cap")), "the cap left a budgeted reason line");
+        });
+        Test("The hard cap still closes a trip whose coroutine died under a soft flag", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3); k._mover.Blocked = true;
+            UpdateHook(k);
+            Scheduler.StopOwnerSilently(k);                  // a third party stopped it: no finally runs
+            k.isRetreating = true;                           // the flag a soft gate would return on before the cap
+            Frames(10, .02f, false);
+            Check(TripActive(k), "a soft native flag never closes the trip by itself");
+            Time.time = 3.1f; Time.frameCount++; UpdateHook(k);
+            Check(!TripActive(k), "the cap closed the orphaned trip despite the soft flag");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the cap released the owned goal");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "no effects outlive the cap");
         });
         Test("Two samurai run their own trips independently toward their own start points", () => {
             var a = NewKnight(0); Follower(a, 0); Enemy(a, 3);
@@ -784,40 +796,88 @@ internal static class Program
         });
     }
 
-    // 中断矩阵（单相位：协程自行推进，无 Tick 相位）：资格失效（控制/编队/死亡等）与移动器替换
-    // 一律以终幕结束并归还效果；纯外目标不终幕（.3 s 重申夺回）；外部暂停迟滞不终幕。
+    // 中断矩阵（单相位：协程自行推进，无 Tick 相位）：编舞存续只认硬失效（actor 身份/enabled/
+    // config/authority/style/mover/dead/inert/grabbed）——原生行为旗标（retreating/charging/
+    // charge pending/formation/FSM/手动控制/embark 等）是"骑士在墙外"的正常反应，不再打断两腿；
+    // 硬失效一律以终幕结束并归还效果；纯外目标不终幕（每帧重申下一协程帧夺回）；外部暂停迟滞不终幕。
     private static void RoundTripInterruptions()
     {
-        foreach (var interrupt in new (string Name, Action<Knight> Apply)[] {
+        foreach (var soft in new (string Name, Action<Knight> Apply)[] {
+            ("retreating", k => k.isRetreating = true),
+            ("charging", k => k.isCharging = true),
+            ("charge pending", k => k._shouldCharge = true),
+            ("formation", k => k.Formation = new()),
+            ("other FSM task", k => k._fsm.Current = (int)Knight.State.GrabCoin),
+            ("manual control", k => k.ControlRequested = true),
+            ("being controlled", k => k._beingControlled = true),
+            ("harmless", k => k._harmless = true),
+            ("stationary", k => k._character.isStationary = true),
+            ("embark target", k => k._embarkee.IsTargetingEmbarkable = true),
+            ("pillar", k => k.helPuzzlePillar = new())
+        }) Test("In-flight soft flag never cuts the trip: " + soft.Name, () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            Check(TripActive(k), "the trip opened");
+            Frames(6);                                      // the outbound dash is under way
+            soft.Apply(k);
+            Frames(80);                                     // outbound arrival, reverse cut, home arrival
+            Check(!TripActive(k), "the trip closed on its own terms despite " + soft.Name);
+            Check(Mathf.Abs(k.transform.position.x) <= .3f, "the trip came home despite " + soft.Name);
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "the natural close retired the effects");
+            Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the visual token ended");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the owned goal was released at the close");
+        });
+        foreach (var hard in new (string Name, Action<Knight> Apply)[] {
             ("config", k => ModConfig.Enabled.Value = false),
             ("authority", k => NetworkBigBoss.HasWorldAuth = false),
-            ("manual control", k => k.ControlRequested = true),
-            ("formation", k => k.Formation = new()),
             ("dead", k => k._damageable.isDead = true),
-            ("charging", k => k.isCharging = true),
             ("grabbed", k => k._character.grabbed = true),
-            ("other FSM task", k => k._fsm.Current = (int)Knight.State.GrabCoin)
-        }) Test("In-flight interruption: " + interrupt.Name, () => {
+            ("inert", k => k._character.inert = true),
+            ("disabled", k => k.enabled = false),
+            ("style changed", k => k.Style = 1),
+            ("style unresolved", k => k.Qualified = false)
+        }) Test("In-flight hard invalidation closes the trip: " + hard.Name, () => {
             var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
             UpdateHook(k);
             Check(TripActive(k), "the trip opened");
-            interrupt.Apply(k);
+            hard.Apply(k);
             Frames(60, .02f, false);
-            Check(!TripActive(k), "the interruption closed the trip");
+            Check(!TripActive(k), "the hard invalidation closed the trip");
             Check(!k._damageable.invulnerable, "the close released invulnerability");
             Check(!k._trail.enabled, "the close released the trail");
             Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "the visual token ended");
             Eq(Mover.GoalMode.Off, k._mover.goalMode, "the owned goal was released");
         });
-        Test("In-flight interruption: a foreign goal is reclaimed by the re-assert, not handed off", () => {
+        Test("In-flight hard invalidation closes the trip: reused instance id (owner lost)", () => {
+            var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
+            UpdateHook(k);
+            Check(TripActive(k), "the trip opened");
+            var replacement = NewKnight(0);
+            replacement.gameObject.Id = k.gameObject.Id;     // pooled reuse of the same instance id
+            UpdateHook(replacement);
+            Check(!TripActive(k), "the stale owner's trip closed on the identity mismatch");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "the close released the stale owner's effects");
+            Check(!TripActive(replacement), "the replacement knight inherited nothing");
+            Eq(0, replacement._mover.GoalWrites, "the replacement mover received nothing");
+        });
+        Test("A hard invalidation names its clause in the bounded close line", () => {
+            var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
+            UpdateHook(k);
+            k._damageable.isDead = true;
+            Frames(2, .02f, false);
+            Check(!TripActive(k), "the trip closed");
+            Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m =>
+                m.StartsWith("[SamuraiDash/choreo]") && m.Contains("step=hard-invalid:dead")),
+                "the close line names the hard clause");
+        });
+        Test("In-flight interruption: a foreign goal is reclaimed the very next routine frame", () => {
             var k = NewKnight(0); Follower(k, 6); Enemy(k, 3);
             UpdateHook(k);
             k._mover.SetGoalNoHaglet(100, 3);               // native GoToWall takes the mover
-            Frames(4, .02f, false);
-            Eq(100f, k._mover._goalPosition, "inside the cadence the foreign goal stands");
-            Eq(0, k._mover.StopCalls, "the foreign goal is never stopped");
-            Frames(14, .02f, false);
-            Eq(7f, k._mover._goalPosition, "the trip reclaimed its own goal");
+            Eq(100f, k._mover._goalPosition, "the steal is real before the routine resumes");
+            Frame(.02f, false);                             // the coroutine's own step re-asserts
+            Eq(7f, k._mover._goalPosition, "the trip reclaimed its own goal within one frame");
+            Eq(18f, k._mover._goalSpeed, "with the trip's own speed");
             Check(TripActive(k) && k._damageable.invulnerable, "the trip kept running through the steal");
             Eq(0, k._mover.StopCalls, "no stop was issued for the foreign goal");
         });
@@ -870,7 +930,7 @@ internal static class Program
             UpdateHook(k);
             Managers.Inst.kingdom.isDaytime = false;
             k._mover.SetGoal(1, 2);                         // native GoToWall supplies its own guard-slot goal
-            Frames(18, .02f, false);                        // past the 0.3 s re-assert, still inside the leg window
+            Frame(.02f, false);                             // one routine frame is enough now
             Eq(7f, k._mover._goalPosition, "the trip reclaimed its own goal over the native steal");
             Eq(0, k._mover.StopCalls, "the foreign goal was never stopped");
             NativeFrame(k);
@@ -891,270 +951,120 @@ internal static class Program
             Time.time += .25f; Time.frameCount++; NativeFrame(k);
             Eq(1, k._fsm.Requests, "the night handoff resumes once the trip is gone");
         });
-    }
-
-    // One complete choreographed trip in the stub world: two calm frames let the calm pose settle,
-    // the outbound dash fires from the animator's current state and settles on `pose` so the
-    // capture can take it, the outbound window is then spent with a time jump (the turn fires
-    // in-lease and re-plays the captured pose) and the home leg closes at the start point --
-    // finale included (trigger hygiene, finish capture, probe arm). The scanner and the physics
-    // window are emptied afterwards.
-    private static void RunAttackLease(Knight k, int pose)
-    {
-        Frames(2, .02f, false);
-        Time.time += .25f;                          // past the attack scan interval
-        Enemy(k, 3);
-        k._animator.InTransition = true;            // entering the cut pose, like a real transition
-        UpdateHook(k);
-        k._animator.InTransition = false;
-        k._animator.StateHash = pose;
-        Frames(3, .02f, false);                     // settled: the trip captures the pose
-        Time.time += 1.3f;                          // past the outbound window
-        Time.frameCount++;
-        Scheduler.Advance();                        // the outbound window ends; the turn fires in-lease
-        Frames(3, .02f, false);                     // the home leg closes at the start point
-        Scanner.ScanTargets.Clear();
-        Physics2D.Hits = Array.Empty<Collider2D>();
-    }
-
-    private static void StuckPoseRepair()
-    {
-        Test("A pose that outlives the native slash is reset, replayed to calm and left alone", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._animator.StateHash = 111;                    // the calm stand pose
-            RunAttackLease(k, 777);                         // the capture takes 777 as the slash pose
-            int resets = k._animator.ResetCount;            // the trip's own turn and Finish resets
-            k._animator.StateHash = 777;                    // the trigger's pose survived the dash
-            Frames(70, .02f, false);                        // 1.4 s: still inside the native budget
-            Eq(resets, k._animator.ResetCount, "no repair before the pose outlives the native slash");
-            Frames(15, .02f, false);                        // past 1.5 s
-            Eq(resets + 1, k._animator.ResetCount, "the leftover trigger is reset once");
-            Eq(2, k._animator.PlayCalls, "the calm pose is replayed (turn reverse-cut + heal replay)");
-            Eq(111, k._animator.StateHash, "the replay landed on the captured calm state");
-            Eq(0, k._animator.EnabledWrites, "no enable toggle once the replay worked");
-            Frames(120, .02f, false);
-            Eq(resets + 1, k._animator.ResetCount, "a healed pose is not repaired again");
-            Eq(2, k._animator.PlayCalls, "no repeated heal replay beyond the turn cut");
-            var line = KingdomEnhancedPlugin.Instance.LogSource.Infos.LastOrDefault(m => m.StartsWith("[SamuraiDash/heal]"));
-            Check(line != null && line.Contains("normalizedTime=") && line.Contains("fullPathHash=") && line.Contains("order=1"),
-                "the repair line carries normalizedTime, fullPathHash and the retry order");
-        });
-        Test("A transition-only lease leaves the session's captured pose untouched", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._animator.StateHash = 111;
-            RunAttackLease(k, 777);                         // lease 1 captures 777
-            // Lease 2: every frame is a transition whose current state is the source pose 111.
-            Time.time += 3.5f;
-            Enemy(k, 3);
-            k._animator.InTransition = true;
-            k._animator.StateHash = 111;
-            UpdateHook(k);
-            Frames(10, .02f, false);                        // the capture gates never open for this lease
-            k._animator.InTransition = false;
-            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
-            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(3, .02f, false);                        // the trip closes; the session capture was untouched
-            int resets = k._animator.ResetCount;
-            k._animator.StateHash = 777;                    // the pose lease 1 captured is still known
-            Frames(120, .02f, false);
-            Eq(resets + 1, k._animator.ResetCount, "the session capture survived the later lease");
-            Eq(3, k._animator.PlayCalls, "the captured calm pose is replayed (turn + heal, second lease adds its turn cut)");
-        });
-        Test("A lease that never opens its gates stands the capture probe down for the session", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._animator.StateHash = 111;
-            Enemy(k, 3);
-            k._animator.InTransition = true;                // every frame reports the transition source
-            UpdateHook(k);
-            Frames(64, .01f, false);                        // one lease, 30+ misses: the probe is retired
-            k._animator.InTransition = false;
-            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(45, .02f, false);                        // the outbound window is spent; the trip closes; the dead probe stays down
-            int resets = k._animator.ResetCount;
-            k._animator.StateHash = 777;
-            Frames(80, .02f, false);                        // far past the stuck budget
-            Eq(resets, k._animator.ResetCount, "a never-captured knight is never repaired");
-            Eq(0, k._animator.PlayCalls, "no replay without a captured pose");
-            // A later, perfectly clean lease cannot revive the probe inside the same session.
-            Time.time += 3.5f;
-            k._animator.StateHash = 111;
-            RunAttackLease(k, 777);
-            k._animator.StateHash = 777;
-            resets = k._animator.ResetCount;
-            Frames(80, .02f, false);
-            Eq(resets, k._animator.ResetCount, "the stand-down survives a clean lease");
-        });
-        Test("Misses from one lease do not count against the next", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._animator.StateHash = 111;
-            Frames(2, .02f, false);                         // the calm pose is captured
-            Time.time += .25f;
-            Enemy(k, 3);
-            k._animator.InTransition = true;                // lease A misses on 29 of its 30 frames
-            UpdateHook(k);
-            Frames(28, .02f, false);
-            k._animator.InTransition = false;
-            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
-            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(3, .02f, false);                        // the trip closes; the fresh budget was never spent
-            Time.time += 3.5f;
-            k._animator.StateHash = 111;
-            RunAttackLease(k, 777);                         // lease B's gates open and still capture
-            k._animator.StateHash = 777;
-            int resets = k._animator.ResetCount;
-            Frames(120, .02f, false);
-            Eq(resets + 1, k._animator.ResetCount, "a short lease's misses never retire the probe");
-        });
-        Test("A lease that never leaves its begin pose captures nothing", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._animator.StateHash = 111;
-            RunAttackLease(k, 111);                         // the pose never moves off the baseline
-            int resets = k._animator.ResetCount;
-            Frames(90, .02f, false);                        // the same hash, but it was never captured
-            Eq(resets, k._animator.ResetCount, "the begin-frame pose is not mistaken for the slash pose");
-            Eq(0, k._animator.PlayCalls, "nothing is replayed");
-        });
-        Test("A state that is not the captured pose is never repaired", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._animator.StateHash = 111;
-            RunAttackLease(k, 777);
-            k._animator.StateHash = 888;                    // a native state with its own hash
-            int resets = k._animator.ResetCount;
-            Frames(90, .02f, false);                        // 1.8 s in that other state
-            Eq(resets, k._animator.ResetCount, "only the captured pose is repaired");
-            Eq(1, k._animator.PlayCalls, "only the turn reverse-cut replays; no heal replay for a foreign state");
-        });
-        Test("A knight that never drove a cut lease is never repaired", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._animator.StateHash = 777;                    // the same pose, but no cut ever armed it
-            Frames(200, .02f, false);                       // 4 s: far past the stuck budget
-            Eq(0, k._animator.ResetCount, "no cut lease ever armed the probe");
-            Eq(0, k._animator.PlayCalls, "nothing is replayed");
-        });
-        Test("A pose first shown after the eight-second window is left alone", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._animator.StateHash = 111;
-            RunAttackLease(k, 777);
-            k._animator.StateHash = 111;                    // calm again: no episode ever starts
-            int resets = k._animator.ResetCount;
-            Frames(450, .02f, false);                       // 9 s past the last cut, calm throughout
-            k._animator.StateHash = 777;
-            Frames(120, .02f, false);                       // 2.4 s in the pose, but the window is shut
-            Eq(resets, k._animator.ResetCount, "the window closed before the pose appeared");
-            Eq(1, k._animator.PlayCalls, "only the turn reverse-cut replays; no heal replay outside the window");
-        });
-        Test("The outbound cut clears its trigger before the reverse cut fires its own", () => {
+        Test("A retreat onset during an outbound hit callback preserves remaining hits", () => {
+            Managers.Inst.kingdom.isDaytime = false;
             var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
-            k._animator.StateHash = 111;
-            UpdateHook(k);                                  // the attack dash begins from 111
-            k._animator.StateHash = 777;
-            Frames(3, .02f, false);                         // the capture settles on 777
-            Frames(9);                                      // the dash runs toward the end of its window
-            k._animator.Ops.Clear();
-            Time.time = 1.3f; Time.frameCount++; Scheduler.Advance(); // the outbound window ends; the turn fires
-            Check(k._animator.Ops.Count >= 2, "both trigger writes were recorded");
-            Eq("reset", k._animator.Ops[^2], "the finished cut clears the trigger first");
-            Eq("set", k._animator.Ops[^1], "the reverse cut then fires its own trigger");
+            var first = HitTarget(); var second = HitTarget(); Supply(first, second);
+            first.OnReceiveDamage = _ => k.isRetreating = true;
+            UpdateHook(k);
+            Eq(1, first.HitCount, "the first outbound hit sets retreating");
+            Eq(1, second.HitCount, "the second outbound hit is not silenced by retreating");
+            Check(TripActive(k), "the same trip survives the callback");
+            CloseTrip(k);
+            Eq(2, first.HitCount, "first target is hit once per leg");
+            Eq(2, second.HitCount, "second target is hit once per leg");
+            Check(Mathf.Abs(k.transform.position.x) <= .3f, "the trip finishes at home");
         });
-        Test("Withdrawal finishes never touch the slash trigger", () => {
-            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true;
-            AssertStartedReturn(k, 0);
-            Frames(40, .02f, false);                        // the burst fails and the walk takes over
-            k._mover.Blocked = false;
-            for (int i = 0; i < 900 && k.transform.position.x > 4.01f; i++) Frame(.02f);
-            Check(k.transform.position.x <= 4.01f, "the withdrawal actually finished its leg");
-            Eq(0, k._animator.ResetCount, "no trigger hygiene on a return or a walk");
-            Eq(0, k._animator.TriggerCount, "no dash pose either");
+        Test("Retreating first becoming true on the home leg still reaches home", () => {
+            Managers.Inst.kingdom.isDaytime = false;
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3); UpdateHook(k);
+            Frames(26);
+            Check(TripActive(k), "home leg is active before the native retreat change");
+            Check(Mathf.Abs(k._mover._goalPosition) <= .01f, "the reverse cut already targets home");
+            k.isRetreating = true;
+            CloseTrip(k);
+            Check(Mathf.Abs(k.transform.position.x) <= .3f, "the retreating home leg reaches its start");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "the finale restores effects");
         });
-        Test("A pose that survives both ladders stands the probe down until the next cut lease", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._animator.StateHash = 111;
-            RunAttackLease(k, 777);
-            k._animator.OnPlay = (hash, layer, time) => false;  // the replay never takes
-            int resets = k._animator.ResetCount;
-            k._animator.StateHash = 777;
-            Frames(200, .02f, false);                       // 4 s: both ladders spend themselves
-            Eq(resets + 2, k._animator.ResetCount, "exactly two repair ladders");
-            Eq(3, k._animator.PlayCalls, "turn reverse-cut + one replay per ladder");
-            Eq(4, k._animator.EnabledWrites, "one enable toggle per ladder");
-            Frames(200, .02f, false);                       // the stand-down holds
-            Eq(resets + 2, k._animator.ResetCount, "no third ladder inside the same episode");
-            Eq(4, k._animator.EnabledWrites, "no further toggles");
-            Time.time += 3.5f;
-            k._animator.StateHash = 111;
-            RunAttackLease(k, 777);                         // the next cut lease arms the probe again
-            k._animator.StateHash = 777;
-            resets = k._animator.ResetCount;
-            Frames(90, .02f, false);
-            Eq(resets + 1, k._animator.ResetCount, "the next cut lease releases the stand-down");
-        });
-        Test("Without a captured calm pose the repair goes straight to the enable toggle", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._animator.StateHash = 111;
-            // 2026-09-24: Speed no longer gates the capture — block only the pre-lease frames
-            // with a held transition (inlined RunAttackLease so the pose frames still capture
-            // the slash hash; pauseTimeout would kill the lease itself).
-            k._animator.InTransition = true;
-            Frames(2, .02f, false);
-            k._animator.InTransition = false;
-            Time.time += .25f; Enemy(k, 3); UpdateHook(k);
-            k._animator.InTransition = true;             // entering the cut pose, like a real transition
-            Frames(1, .02f, false);
-            k._animator.InTransition = false;
-            k._animator.StateHash = 777;
-            Frames(3, .02f, false);
-            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
-            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(3, .02f, false);                        // the walk home closes the trip
-            k._animator.StateHash = 777;                     // the pose is left behind
-            k._animator.OnEnabledWrite = on => { if (on) k._animator.StateHash = 111; };
-            int resets = k._animator.ResetCount;
-            Frames(100, .02f, false);                       // 2 s stuck: one ladder runs
-            Eq(resets + 1, k._animator.ResetCount, "the ladder still resets the trigger");
-            Eq(1, k._animator.PlayCalls, "only the turn reverse-cut replays without a captured calm pose");
-            Eq(2, k._animator.EnabledWrites, "the enable toggle is the fallback");
-            Frames(60, .02f, false);
-            Eq(resets + 1, k._animator.ResetCount, "the toggle healed the episode");
-        });
-        Test("A walking frame supplies the replay pose (2026-09-24 field fix)", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._animator.StateHash = 111;
-            k._animator.Speed = 1;                          // walking: the old Speed gate starved this
-            Frames(6, .02f, false);                         // two stable frames -> captured
-            RunAttackLease(k, 777);
-            k._animator.StateHash = 777;                    // the pose is left behind
-            k._animator.OnPlay = (h, l, t) => { k._animator.StateHash = 111; return true; };
-            int resets = k._animator.ResetCount;
-            Frames(90, .02f, false);
-            Eq(resets + 1, k._animator.ResetCount, "the ladder resets the trigger");
-            Eq(true, k._animator.PlayCalls >= 1, "the walking pose is replayed, not the toggle");
-            Eq(0, k._animator.EnabledWrites, "no enable toggle when a replay pose exists");
-        });
-        Test("A native slash pause never yields a calm pose to replay", () => {
-            var k = NewKnight(0); Follower(k, 0);
-            k._mover._pauseTimeout = 5;                     // Mover.Pause: Speed 0 while the slash holds
-            k._animator.StateHash = 111;
-            Frames(10, .02f, false);                        // the only calm window is this paused one
-            k._mover._pauseTimeout = 0;
-            Enemy(k, 3);
-            UpdateHook(k);                                  // the attack dash begins from 111
-            k._animator.InTransition = true;                // entering the cut pose, like a real transition
-            Frames(1, .02f, false);
-            k._animator.InTransition = false;
-            k._animator.StateHash = 777;
-            Frames(3, .02f, false);
-            Time.time += 1.3f; Time.frameCount++; Scheduler.Advance();
-            Scanner.ScanTargets.Clear(); Physics2D.Hits = Array.Empty<Collider2D>();
-            Frames(3, .02f, false);                        // the walk home closes the trip
-            k._animator.StateHash = 777;                    // the pose is left behind
-            k._animator.OnEnabledWrite = on => { if (on) k._animator.StateHash = 111; };
-            int resets = k._animator.ResetCount;
-            Frames(100, .02f, false);
-            Eq(resets + 1, k._animator.ResetCount, "the ladder still resets the trigger");
-            Eq(1, k._animator.PlayCalls, "only the turn reverse-cut replays; the paused frame never supplied a calm pose");
-            Eq(2, k._animator.EnabledWrites, "the toggle fallback carried the repair");
+        Test("A retreat onset mid-outbound persists through home without cutting the trip or hits", () => {
+            Managers.Inst.kingdom.isDaytime = false;
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            var target = HitTarget(3); Supply(target);
+            UpdateHook(k);
+            Check(TripActive(k), "the trip opened while retreating was still false");
+            Frames(6);
+            Eq(1, target.HitCount, "the outbound round struck once");
+            k.isRetreating = true;                          // native GoToWall marks the knight at the wall line
+            Frames(20);                                     // outbound arrival + the reverse cut under the flag
+            Check(TripActive(k), "the home leg is still running under the retreat flag");
+            Eq(2, target.HitCount, "the reverse cut struck under the flag: hits are not gated by retreating");
+            Check(k._mover._goalPosition <= k.transform.position.x + .01f, "the turn targets the start point");
+            Frames(30);                                     // home arrival
+            Check(!TripActive(k), "both legs completed under the retreat flag");
+            Check(Mathf.Abs(k.transform.position.x) <= .3f, "the trip came home to the start point");
+            Eq(2, target.HitCount, "each leg kept its own deduplicated round");
         });
     }
+
+    // 2026-09-25b 行程两端冻结与到点判别：越点判定（方向在腿起冻结）防大 dt 跳容差；
+    // home 超时以 home-deadline 关闭（绝不谎报 complete），out 超时仍转身回原 home 但保留
+    // 超时事实；每帧重申压掉逐帧偷写；回家目标恒为本次出发点，不追移动随从。
+    private static void ChoreoEndpointRegressions()
+    {
+        Test("A big step that jumps past the goal plus tolerance still lands", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            k.transform.position = new(7.6f);               // one large dt overshot 7 by more than the tolerance
+            Frame(.02f, false);
+            Check(TripActive(k), "the outbound leg landed despite the overshoot");
+            Eq(0f, k._mover._goalPosition, "the turn already targets home");
+            k.transform.position = new(-.6f);               // the home leg overshoots the start point too
+            Frame(.02f, false);
+            Check(!TripActive(k), "the home leg landed despite the overshoot");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the close released the goal");
+        });
+        Test("A blocked home leg closes as home-deadline, never as complete", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            Frames(21);                                     // the outbound leg arrives; the turn fires
+            Check(TripActive(k), "the home leg is running");
+            k._mover.Blocked = true;                        // a real wall blocks the way home
+            Frames(70, .02f, false);                        // the home window expires blocked
+            Check(!TripActive(k), "the home deadline closed the trip");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the deadline released the owned goal");
+            Check(!k._damageable.invulnerable, "the deadline restored the effects");
+            var line = KingdomEnhancedPlugin.Instance.LogSource.Infos.LastOrDefault(m => m.StartsWith("[SamuraiDash/choreo]"));
+            Check(line != null && line.Contains("step=home-deadline"), "the close names the deadline");
+            Check(line != null && line.Contains("home=") && line.Contains("outGoal=") && line.Contains("turnX=") &&
+                line.Contains("endX=") && line.Contains("elapsed="), "the close carries the endpoint fields");
+        });
+        Test("A blocked outbound leg still turns home with the timeout recorded", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3); k._mover.Blocked = true;
+            UpdateHook(k);
+            Frames(70, .02f, false);                        // the outbound window expires with the knight blocked at home
+            Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m =>
+                m.StartsWith("[SamuraiDash/choreo]") && m.Contains("step=out-deadline")), "the outbound timeout left its line");
+            Check(KingdomEnhancedPlugin.Instance.LogSource.Infos.Any(m =>
+                m.StartsWith("[SamuraiDash/choreo]") && m.Contains("turnTimedOut=True")), "the fact is carried on the line");
+            Check(!TripActive(k), "the turned trip completed at home");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "the close released the goal");
+        });
+        Test("A moving follower never moves the home target", () => {
+            var k = NewKnight(0); var f = Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            Frames(21);                                     // the turn targets the frozen home
+            f.transform.position = new(19);                 // the squad walks on mid-trip
+            f._damageable.isDead = true;                    // ... and dies before the close: no walk may chase it
+            UnitScanCache.Archers = Array.Empty<Archer>();
+            Frames(3);
+            Eq(0f, k._mover._goalPosition, "the home goal stays the trip's own start point");
+            Frames(60);
+            Check(Mathf.Abs(k.transform.position.x) <= .3f, "the trip came home, not to the squad");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "nothing reopened after the close");
+        });
+        Test("Every-frame re-assert keeps the goal ours after per-frame steals", () => {
+            var k = NewKnight(0); Follower(k, 0); Enemy(k, 3);
+            UpdateHook(k);
+            for (int i = 0; i < 12 && TripActive(k); i++)
+            {
+                k._mover.SetGoalNoHaglet(50, 3);            // a native writer steals every frame
+                Frame(.02f, false);
+                if (TripActive(k)) Eq(7f, k._mover._goalPosition, "the routine reclaimed the goal in the same frame");
+            }
+            Eq(0, k._mover.StopCalls, "the foreign goal was never stopped");
+        });
+    }
+
 
     // Night formation (PatchRoles_SamuraiNightFormation) reads this probe to leave
     // lease-owned goals untouched; pin the real accessor against a live lease.
@@ -1176,10 +1086,11 @@ internal static class Program
     private static void Main()
     {
         NightRegressions();
-        ReturnLadder();
+        WalkHomeRegressions();
         ScanRegressions();
         FixedDashRegressions();
-        StuckRecaptureRegressions();
+        PoseContractRegressions();
+        ChoreoEndpointRegressions();
         Test("No enemy and native attack cooldown do not prevent >10 return", () => {
             var k = NewKnight(20); Follower(k, 0); k._cooldown = 2.8f;
             AssertStartedReturn(k, 0); Eq(0, Scanner.ScanCalls, "no enemy search before return");
@@ -1202,37 +1113,34 @@ internal static class Program
             int starts = Scheduler.Started, writes = k._mover.GoalWrites; k.transform.position = new(8); Frames(30, .02f, false);
             Eq(starts, Scheduler.Started, "8 does not restart burst"); Eq(writes, k._mover.GoalWrites, "8 does not reissue return goals");
         });
-        Test("Return burst applies normal attack damage exactly once to an in-window target", () => {
-            var k = NewKnight(20); Follower(k, 0); var enemy = Enemy(k, 18);
-            AssertStartedReturn(k, 0); Eq(1, enemy.HitCount, "entry frame hits"); Frames(30, .01f);
-            Eq(1, enemy.HitCount, "one hit for whole burst"); Eq(k._attackDamage, enemy.TotalDamage, "normal attack damage"); Eq(1.2f, Physics2D.LastRadius, "same forward hit radius");
+        Test("A walk issues no visual token at all", () => {
+            var k = NewKnight(20); Follower(k, 0); UpdateHook(k);
+            Eq(0, SamuraiDashVisuals.BeginCount(k), "the withdrawal family begins no visuals");
+            Frames(10, .01f, false);
+            Eq(0, SamuraiDashVisuals.BeginCount(k), "no visuals appear mid-walk either");
         });
-        Test("Active return does not restart visual burst every frame", () => {
-            var k = NewKnight(20); Follower(k, 0); AssertStartedReturn(k, 0); int glows = SamuraiDashVisuals.BeginCount(k);
-            Frames(10, .01f, false); Eq(glows, SamuraiDashVisuals.BeginCount(k), "one visual burst while actively returning");
+        Test("Inside hysteresis band the walk blocks the attack trigger", () => {
+            var k = NewKnight(12); Follower(k, 0); var enemy = Enemy(k, 5); UpdateHook(k);
+            k.transform.position = new(8); Frames(25, .01f, false);
+            Eq(0, enemy.HitCount, "a walk never damages and no concurrent attack opened");
+            Eq(0, SamuraiDashVisuals.BeginCount(k), "no visual token while walking");
+            Check(ShouldSlash(k), "the walk suppresses nothing");
         });
-        Test("Inside hysteresis band active return cannot also start attacking", () => {
-            var k = NewKnight(12); Follower(k, 0); var enemy = Enemy(k, 5); AssertStartedReturn(k, 0);
-            k.transform.position = new(8); int glows = SamuraiDashVisuals.BeginCount(k); Frames(25, .01f, false);
-            Eq(glows, SamuraiDashVisuals.BeginCount(k), "no concurrent attack or repeated visual burst"); Eq(1, enemy.HitCount, "one return-motion hit without concurrent attack"); Check(!ShouldSlash(k), "still returning above 4");
+        Test("A long gap closes by plain walk at run speed without any protection", () => {
+            var k = NewKnight(25); Follower(k, 0); UpdateHook(k);
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "no protection exists to hold");
+            Eq(k._runSpeed, k._mover._goalSpeed, "the whole way home is native run speed");
+            for (int i = 0; i < 400 && k.transform.position.x > 4.1f; i++) Frame(.01f);
+            Check(k.transform.position.x <= 4.1f, "a longer-than-seventeen gap still closes");
+            Eq(0, SamuraiDashVisuals.BeginCount(k), "no burst ever existed");
         });
-        Test("Long return ends invulnerable burst within 0.6 seconds then runs normally", () => {
-            var k = NewKnight(25); Follower(k, 0); AssertStartedReturn(k, 0); Check(k._damageable.invulnerable, "initial return burst");
-            Frames(61, .01f); Eq(false, k._damageable.invulnerable, "burst vulnerability restored"); Eq(false, k._trail.enabled, "burst trail restored");
-            Check(k._mover.InvulnerableDistance <= 10.7f, "invulnerable distance bounded by ten and a half plus one physics step");
-            Eq(k._runSpeed, k._mover._goalSpeed, "remaining return uses native run speed");
-            Check(k.transform.position.x > 4, "ordinary running phase was necessary");
-            for (int i = 0; i < 270 && !ShouldSlash(k); i++) Frame(.01f);
-            Check(k.transform.position.x <= 4.1f, "longer than 17 gap closes with ordinary running");
-        });
-        Test("Normal 10-to-11 gap closes in one bounded white-trail burst", () => {
-            var k = NewKnight(10.8f); Follower(k, 0); AssertStartedReturn(k, 0);
-            Check(k._damageable.invulnerable && k._trail.enabled, "visible protected starting burst");
-            int glows = SamuraiDashVisuals.BeginCount(k);
-            for (int i = 0; i < 60 && !ShouldSlash(k); i++) Frame(.01f);
+        Test("A normal 10-to-11 gap closes by plain walk with no protection or trail", () => {
+            var k = NewKnight(10.8f); Follower(k, 0); UpdateHook(k);
+            Eq(k._runSpeed, k._mover._goalSpeed, "run speed from the first frame");
+            Check(!k._damageable.invulnerable && !k._trail.enabled, "no burst, no trail, ever");
+            for (int i = 0; i < 150 && k.transform.position.x > 4.01f; i++) Frame(.01f);
             Check(k.transform.position.x <= 4.01f, "normal gap closes to exit threshold");
-            Eq(glows, SamuraiDashVisuals.BeginCount(k), "one burst only"); Eq(false, k._damageable.invulnerable, "finished burst restored protection");
-            Check(Time.time <= .61f, "normal return completes within burst window");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "arrival released the goal");
         });
         foreach (var interrupt in new (string Name, Action<Knight> Apply)[] {
             ("config", k => ModConfig.Enabled.Value = false), ("style", k => k.Style = 1),
@@ -1255,9 +1163,11 @@ internal static class Program
             Eq(true, k._damageable.invulnerable, "preexisting invulnerability preserved"); Eq(true, k._trail.enabled, "preexisting trail preserved");
             Check(ShouldSlash(k), "no stale owner after disable");
         });
-        Test("Ordinary end of burst preserves preexisting invulnerability and trail", () => {
+        Test("A walk preserves preexisting invulnerability and trail untouched", () => {
             var k = NewKnight(25); Follower(k, 0); k._damageable.invulnerable = true; k._trail.enabled = true;
-            AssertStartedReturn(k, 0); Frames(65, .01f); Eq(true, k._damageable.invulnerable, "initial invulnerability remains"); Eq(true, k._trail.enabled, "initial trail remains");
+            UpdateHook(k); Frames(65, .01f);
+            Eq(true, k._damageable.invulnerable, "the walk never touches protection flags");
+            Eq(true, k._trail.enabled, "the walk never touches the trail");
         });
         Test("External new position goal is never stopped or overwritten by cleanup", () => {
             var k = NewKnight(20); Follower(k, 0); AssertStartedReturn(k, 0);
@@ -1277,13 +1187,6 @@ internal static class Program
             Frame(.02f, false); Eq(0, old.StopCalls, "external object goal not stopped");
             DisableHook(k); k._mover = k.gameObject.AddComponent<Mover>(); k._mover.SetGoalNoHaglet(80, 4);
             Scheduler.Advance(); Eq(0, k._mover.StopCalls, "replacement mover not stopped by old routine"); Eq(80f, k._mover._goalPosition, "replacement goal retained");
-        });
-        Test("External goal installed at burst deadline survives transition to running", () => {
-            var k = NewKnight(25); Follower(k, 0); AssertStartedReturn(k, 0);
-            k._mover.SetGoalNoHaglet(100, 3); int writes = k._mover.GoalWrites, stops = k._mover.StopCalls;
-            Time.time = .61f; Time.deltaTime = .61f; Time.frameCount++; Scheduler.Advance(); UpdateHook(k);
-            Eq(writes, k._mover.GoalWrites, "transition never overwrites external position"); Eq(stops, k._mover.StopCalls, "transition never stops external position");
-            Eq(100f, k._mover._goalPosition, "deadline external goal retained"); Eq(false, k._damageable.invulnerable, "deadline releases burst visuals");
         });
         Test("Replacement mover identity interrupts return without stopping old or new external owner", () => {
             var k = NewKnight(25); Follower(k, 0); AssertStartedReturn(k, 0); var old = k._mover;
@@ -1308,40 +1211,39 @@ internal static class Program
             f.transform.position = new(-3); Frames(35, .02f);
             Check(MathF.Abs(k._mover._goalPosition - f.transform.position.x) <= 3.1f, "goal tracks moving valid follower");
         });
-        Test("Stuck return times out and backs off instead of restarting each frame", () => {
-            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
-            Frames(170); Eq(false, k._damageable.invulnerable, "no permanent invulnerability while stuck");
-            Check(SamuraiDashVisuals.BeginCount(k) <= 3, "bounded number of blocked bursts over 3.4 seconds");
-            int glows = SamuraiDashVisuals.BeginCount(k); Frames(5); Check(SamuraiDashVisuals.BeginCount(k) - glows <= 1, "no per-frame retry loop");
+        Test("A blocked walk keeps its goal and never enters a retry loop", () => {
+            var k = NewKnight(20); Follower(k, 0); k._mover.Blocked = true; UpdateHook(k);
+            Frames(170);
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the blocked walk still owns its goal");
+            Eq(false, k._damageable.invulnerable, "nothing to protect");
+            Eq(0, SamuraiDashVisuals.BeginCount(k), "no burst was ever spawned");
+            int writes = k._mover.GoalWrites; Frames(5);
+            Check(k._mover.GoalWrites - writes <= 1, "no per-frame goal rewrite (cadence only)");
         });
-        Test("Continuously receding follower cannot keep one return episode alive indefinitely", () => {
-            var k = NewKnight(25); var follower = Follower(k, 0); AssertStartedReturn(k, 0);
-            int steps = 0;
-            while (!ShouldSlash(k) && steps++ < 165) { follower.transform.position = new(follower.transform.position.x - .2f); Frame(.02f); }
-            Check(ShouldSlash(k), "first return episode bounded to roughly three scaled seconds despite ongoing movement");
-            Eq(false, k._damageable.invulnerable, "timed-out episode releases protection");
-            int glows = SamuraiDashVisuals.BeginCount(k); Frames(5); Eq(glows, SamuraiDashVisuals.BeginCount(k), "timed-out episode backs off");
-        });
-        Test("Pause starts no burst; active pause consumes neither scaled time nor deadline", () => {
+        Test("A paused frame starts no walk and grants no protection", () => {
             var k = NewKnight(20); Follower(k, 0); Time.timeScale = 0; Time.deltaTime = 0;
-            Frames(30, 0); Eq(0, Scheduler.Started, "no paused burst start"); Eq(false, k._damageable.invulnerable, "no paused initial invulnerability");
-            Time.timeScale = 1; Time.deltaTime = .02f; AssertStartedReturn(k, 0); float stamp = Time.time; int glows = SamuraiDashVisuals.BeginCount(k);
-            Time.timeScale = 0; Frames(100, 0); Eq(stamp, Time.time, "scaled time unchanged"); Eq(glows, SamuraiDashVisuals.BeginCount(k), "no burst restart while paused");
-            Time.timeScale = 1; Frames(61, .01f); Eq(false, k._damageable.invulnerable, "burst ends after resumed scaled time");
+            Frames(30, 0); Eq(0, Scheduler.Started, "no paused start");
+            Eq(Mover.GoalMode.Off, k._mover.goalMode, "no paused walk goal");
+            Eq(false, k._damageable.invulnerable, "no paused protection");
+            Time.timeScale = 1; Time.deltaTime = .02f; UpdateHook(k);
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the walk opens on the first live tick");
+            Eq(k._runSpeed, k._mover._goalSpeed, "at native run speed");
         });
         Test("External mover pause is not cleared", () => {
             var k = NewKnight(20); Follower(k, 0); k._mover._pauseTimeout = 2; UpdateHook(k);
             Check(k._mover._pauseTimeout >= 2, "external pause unchanged by start"); Frames(5, .02f, false);
             Check(k._mover._pauseTimeout >= 2, "return never unpauses external owner");
         });
-        Test("Return disable and optional late coroutine cleanup cannot erase pool-reused owner", () => {
-            var k = NewKnight(20); Follower(k, 0); AssertStartedReturn(k, 0);
-            var old = Scheduler.All.LastOrDefault(c => ReferenceEquals(c.Owner, k) && c.Active); DisableHook(k); if (old != null) Scheduler.StopSilently(old);
-            k.transform.position = new(20); Time.time += .25f; Time.frameCount++; AssertStartedReturn(k, 0);
+        Test("Walk disable and optional late coroutine cleanup cannot erase a reused owner", () => {
+            var k = NewKnight(20); Follower(k, 0); UpdateHook(k);
+            var old = Scheduler.All.LastOrDefault(c => ReferenceEquals(c.Owner, k) && c.Active); DisableHook(k);
+            if (old != null) Scheduler.StopSilently(old);
+            k.transform.position = new(20); Time.time += .25f; Time.frameCount++; UpdateHook(k);
             int stops = k._mover.StopCalls; float goal = k._mover._goalPosition;
             if (old?.Iterator is IDisposable disposable) disposable.Dispose();
-            Eq(stops, k._mover.StopCalls, "old finally cannot stop new goal"); Eq(goal, k._mover._goalPosition, "new goal retained");
-            Eq(true, k._damageable.invulnerable, "new burst invulnerability retained"); Check(!ShouldSlash(k), "new owner remains returning");
+            Eq(stops, k._mover.StopCalls, "old finally cannot stop the new walk goal"); Eq(goal, k._mover._goalPosition, "new walk goal retained");
+            Eq(false, k._damageable.invulnerable, "the new walk owns no protection to erase");
+            Check(ShouldSlash(k), "the new walk suppresses nothing");
         });
         Test("Whole follower cache is not searched every active return frame", () => {
             var k = NewKnight(30); Follower(k, 0); k._mover.Blocked = true; AssertStartedReturn(k, 0);
@@ -1364,22 +1266,24 @@ internal static class Program
         Test("A mid-flight external mover destination is reclaimed by the re-assert", () => {
             var k = NewKnight(); Follower(k, 0); Enemy(k, 3); UpdateHook(k);
             k._mover.SetGoalNoHaglet(100, 4); int stops = k._mover.StopCalls;
-            Frames(18, .02f, false);                        // past the 0.3 s re-assert
+            Frame(.02f, false);                            // one routine frame is enough
             Eq(7f, k._mover._goalPosition, "the trip reclaimed its own goal");
             Eq(18f, k._mover._goalSpeed, "with the trip's own speed");
             Eq(stops, k._mover.StopCalls, "the foreign grab was never stopped");
             Check(TripActive(k), "the trip kept running");
         });
-        Test("Optional late attack coroutine finally cannot clear new return owner after reuse", () => {
+        Test("Optional late attack coroutine finally cannot clear a new walk owner after reuse", () => {
             var k = NewKnight(); var follower = Follower(k, 0); Enemy(k, 3); UpdateHook(k);
             var old = Scheduler.All.LastOrDefault(c => ReferenceEquals(c.Owner, k) && c.Active);
             DisableHook(k); if (old != null) Scheduler.StopSilently(old); k.transform.position = new(20); Scanner.ScanTargets.Clear();
-            Time.time = .25f; Time.frameCount++; AssertStartedReturn(k, 0); int stops = k._mover.StopCalls;
+            Time.time = .25f; Time.frameCount++; UpdateHook(k); int stops = k._mover.StopCalls;
             if (old?.Iterator is IDisposable disposable) disposable.Dispose();
-            Eq(stops, k._mover.StopCalls, "old attack cannot stop return goal"); Eq(true, k._damageable.invulnerable, "old attack cannot clear new return invulnerability");
-            Eq(true, k._trail.enabled, "old attack cannot clear new return trail"); Check(!ShouldSlash(k), "new return still owns state");
+            Eq(stops, k._mover.StopCalls, "old attack cannot stop the walk goal");
+            Eq(false, k._damageable.invulnerable, "the walk owns no protection for the old attack to clear");
+            Check(ShouldSlash(k), "the new walk suppresses nothing");
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the walk still owns its goal");
         });
-        foreach (bool returning in new[] { false, true })
+        foreach (bool returning in new[] { false })
         {
             string direction = returning ? "Return" : "Forward";
             Test(direction + " burst retains same-frame damage to two different valid enemies", () => {
@@ -1432,17 +1336,24 @@ internal static class Program
                 var k = PrepareBurst(returning); var first = HitTarget(); var second = HitTarget(); Supply(first, second);
                 first.OnReceiveDamage = _ => interrupt.Apply(k);
                 UpdateHook(k); Eq(1, first.HitCount, "first callback actually invoked");
+                if (!returning && interrupt.Name == "manual control")
+                {
+                    Eq(1, second.HitCount, "a native behaviour flag no longer interrupts the hit frame");
+                    Check(TripActive(k), "the trip survives the behaviour flag");
+                    Frame(.02f, false);
+                    Eq(1, second.HitCount, "the dedup keeps the second target at one hit");
+                    return;
+                }
                 if (!returning && interrupt.Name == "external goal")
                 {
                     Eq(1, second.HitCount, "a foreign goal no longer interrupts the hit frame");
-                    Eq(100f, k._mover._goalPosition, "new external destination retained");
-                    Eq(3f, k._mover._goalSpeed, "new external speed retained");
+                    Eq(7f, k._mover._goalPosition, "the every-frame re-assert reclaims the destination in-frame");
+                    Eq(18f, k._mover._goalSpeed, "with the trip's own speed");
                     Frame(.02f, false);
                     Eq(1, second.HitCount, "the dedup keeps the second target at one hit");
                     return;
                 }
                 Eq(0, second.HitCount, "old frame stops before second target");
-                if (interrupt.Name == "external goal") { Eq(100f, k._mover._goalPosition, "new external destination retained"); Eq(3f, k._mover._goalSpeed, "new external speed retained"); }
                 Frame(.02f, false); Eq(0, second.HitCount, "no resumed old-frame damage after interruption");
             });
             Test(direction + " ReceiveDamage callback replacing the motion leaves new return goal and effects intact", () => {
@@ -1455,7 +1366,8 @@ internal static class Program
                 };
                 UpdateHook(k); Eq(1, first.HitCount, "reentrant callback executed"); Eq(0, second.HitCount, "old frame cannot damage second target");
                 Eq(replacementGoal, k._mover._goalPosition, "replacement goal unchanged after old caller returns"); Eq(replacementStops, k._mover.StopCalls, "old caller does not stop new motion");
-                Eq(true, k._damageable.invulnerable, "replacement effects still owned"); Eq(true, k._trail.enabled, "replacement trail retained"); Check(!ShouldSlash(k), "new return remains active");
+                Eq(false, k._damageable.invulnerable, "the replacement walk owns no protection"); Check(ShouldSlash(k), "the replacement walk suppresses nothing");
+                Eq(Mover.GoalMode.Position, k._mover.goalMode, "the replacement walk still owns its goal");
             });
         }
         Test("Forward and subsequent reverse cut may each hit the same Damageable once", () => {
@@ -1463,16 +1375,11 @@ internal static class Program
             Frames(20);                                     // the outbound leg arrives; the turn opens a fresh round
             Eq(2, target.HitCount, "the reverse cut gets its own dedup round"); Eq(2 * k._attackDamage, target.TotalDamage, "one ordinary hit per cut round");
         });
-        Test("Ordinary return running phase has no hit scans or damage", () => {
-            var k = NewKnight(25); Follower(k, 0); UpdateHook(k); Frames(61, .01f);
-            Eq(k._runSpeed, k._mover._goalSpeed, "ordinary run phase reached"); Eq(false, k._damageable.invulnerable, "burst effects ended");
+        Test("The walk home runs no hit scans and no damage", () => {
+            var k = NewKnight(25); Follower(k, 0); UpdateHook(k);
+            Eq(k._runSpeed, k._mover._goalSpeed, "walk runs at native run speed");
             var late = HitTarget(); Supply(late); int scans = Physics2D.Scans; Frames(20, .01f);
-            Eq(0, late.HitCount, "ordinary run does not damage"); Eq(scans, Physics2D.Scans, "ordinary run does not scan hits");
-        });
-        Test("Arrival inside four while burst still valid may hit once, never after completed return", () => {
-            var k = NewKnight(10.5f); Follower(k, 0); UpdateHook(k); var arrival = HitTarget(); Supply(arrival);
-            k.transform.position = new(4); Frame(.3f, false); Eq(1, arrival.HitCount, "valid final burst arrival frame hits");
-            var late = HitTarget(); Supply(late); Frame(.02f, false); Eq(0, late.HitCount, "already-ended return cannot hit new target");
+            Eq(0, late.HitCount, "the walk does not damage"); Eq(scans, Physics2D.Scans, "the walk does not scan hits");
         });
         Test("Finish Stop callback replacing motion within same actor cannot be erased by old finally", () => {
             var k = NewKnight(20); var oldFollower = Follower(k, 0); UpdateHook(k); float replacementGoal = float.NaN;
@@ -1485,18 +1392,15 @@ internal static class Program
                 UpdateHook(k); replacementGoal = k._mover._goalPosition;
             };
             k.transform.position = new(4); Frame(.02f, false);
-            Eq(replacementGoal, k._mover._goalPosition, "Stop callback new goal retained"); Eq(true, k._damageable.invulnerable, "old Finish finally keeps new effects"); Check(!ShouldSlash(k), "old Finish finally cannot erase new owner");
+            Eq(replacementGoal, k._mover._goalPosition, "Stop callback new walk goal retained");
+            Eq(false, k._damageable.invulnerable, "the replacement walk owns no protection");
+            Check(ShouldSlash(k), "the replacement walk suppresses nothing");
+            Eq(Mover.GoalMode.Position, k._mover.goalMode, "the new walk still owns its goal");
         });
         Test("Motion begins one visual token without old GlowOverlay call", () => {
             var k = PrepareBurst(false); UpdateHook(k); Eq(1, SamuraiDashVisuals.BeginCount(k), "one helper Begin");
             Eq(0, k._character.spriteFX.GlowCount, "old timed GlowOverlay removed");
             Check(SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "visual token held during burst");
-        });
-        Test("Return running tail ends its visual burst token", () => {
-            var k = PrepareBurst(true); UpdateHook(k); var token = SamuraiDashVisuals.Current[k.gameObject.GetInstanceID()];
-            Frames(61, .01f); Check(token.Ended, "End called at burst to running transition");
-            Check(!SamuraiDashVisuals.Current.ContainsKey(k.gameObject.GetInstanceID()), "no body flash during ordinary running");
-            Eq(1, SamuraiDashVisuals.EndCalls.Count(t => ReferenceEquals(t, token)), "one End per burst token");
         });
         Test("OnDisable prefix clears visuals before mover cleanup callbacks", () => {
             var k = PrepareBurst(false); UpdateHook(k); bool clearedBeforeStop = false;
@@ -1507,7 +1411,7 @@ internal static class Program
         RoundTripPhases();
         RoundTripInterruptions();
         RoundTripNight();
-        StuckPoseRepair();
+
         NightFormationLeaseRegressions();
         Console.WriteLine($"RESULT: {passed} passed, {failed} failed"); Environment.ExitCode = failed == 0 ? 0 : 1;
     }

@@ -10,40 +10,51 @@ namespace KingdomEnhancedMod;
 /// <summary>
 /// One motion per knight. A retired motion can never write again.
 ///
-/// Choreographed round trip (2026-09-25 user ruling): the trigger reads the world exactly once --
-/// an eligible enemy inside [1.5, 8.2] gives nothing but a direction, the start point and a fixed
-/// seven-unit dash distance; no target reference survives the trigger frame. One coroutine then
-/// owns the whole motion -- outbound dash, reverse cut home and the value-discipline finale -- so
-/// no hand-off seam can strand the samurai outside the wall, and no branch depends on which enemy
-/// was chosen, whether it died, or where the squad moved. The trip's home point is the position
-/// the knight started from. While it runs, the actor's flag suppresses the native slash (whose
-/// first line would pause the mover), suppresses the night formation redirect, blocks the night
-/// wall queue and keeps Tick out; a native GoToWall goal steal is answered by a plain 0.3 s goal
-/// re-assert, not by ownership. The whole trip is one protected motion (invulnerable, pinned
-/// trail, visual token); the finale returns every value under the value discipline, stops only a
-/// goal it still owns, and arms the stuck-pose net. The Tick hard cap (3 s) is the failsafe for a
-/// coroutine that died without running its finally -- the permanent-invulnerability class.
+/// Choreographed round trip (2026-09-25 user ruling, endpoint + pose contract 2026-09-25b): the
+/// trigger reads the world exactly once -- an eligible enemy inside [1.5, 8.2] gives nothing but
+/// a direction, the start point and a fixed seven-unit dash distance; no target reference
+/// survives the trigger frame. One coroutine owns the whole motion -- outbound dash, reverse
+/// cut home and the value-discipline finale. Both endpoints are frozen in the token (out =
+/// home + side * 7, home = the start point), the goal is re-asserted every routine frame so a
+/// native steal survives at most one consumed frame, and arrival is judged by crossing the
+/// goal in the direction frozen at the leg's start, so a large dt cannot skip the tolerance. A
+/// leg that misses its 1.2 s window never masquerades as arrival: the home deadline closes
+/// under its own reason and the outbound one turns anyway with the timeout recorded -- both on
+/// the bounded close line carrying the frozen endpoints and the actual end position. The 3 s
+/// Tick cap stays as the failsafe for a coroutine that died without running its finally.
 ///
-/// The withdrawal ladder (Return/Walk) is untouched and still serves followers that walked off
-/// with no cut running; it keeps the dash-failure backoff and the walk home.
+/// Pose (2026-09-25b, real 2.4 controller contract): the knight controller's PowerSlash state
+/// has exactly one exit -- the Land trigger (AnyState enters it with duration 0, Land exits at
+/// normalized 1 back to Stand). So both legs play the verified state directly from frame zero
+/// -- HasState("Base Layer.PowerSlash") resolved once per controller pointer; a controller
+/// without the state falls back to the old PowerSlash trigger and never receives Land -- and
+/// every Finale, completion and hard invalidation alike, fires Land once for the same readable
+/// animator/controller it drove while that animator still sits in PowerSlash and the body is
+/// alive. Death, another state or a replaced controller is never overridden, and no network
+/// message is sent: the pre-existing gap that a client's pose is not networked stays exactly
+/// as wide as it was. PowerSlash loops its charge clip, so replaying both legs replays the
+/// animation events (the slash sound) twice per trip -- intended.
 ///
-/// Stuck slash pose: a round trip drives the native PowerSlash trigger, and a dash that ends while
-/// that state is still current can leave the trigger unconsumed, so the knight keeps the pose.
-/// The finale clears the trigger, and a bounded probe watches only the knights that actually drove
-/// a round trip this session, only inside CutWindow after the last one. It compares against the
-/// pose hash captured from the live animator during a trip, and a pose that outlives the native
-/// slash is repaired by a trigger reset, a replay of the captured calm state and -- as a last
-/// resort -- an Animator enable toggle, at most two ladders per episode.
+/// Withdrawal (2026-09-25 user ruling): a follower that walked off is answered by a plain
+/// run-speed walk home only -- the invulnerable chase burst, its backoff ladder and its hit
+/// rounds are gone by user ruling ("fixed two legs, no third dash"). The walk keeps arrival,
+/// follower loss, dusk and ownership as its exits, and never suppresses the native slash.
 ///
-/// Boundaries, deliberately not widened: knights outside the eligible pool (grabbed, petrified,
-/// retreating, a foreign FSM task) are not repaired; the captured hashes live and die with the
-/// actor state, exactly like the return ladder; and a repair is local presentation only -- it
-/// never sends an animation-sync message, so the pre-existing gap that a knight's pose is not
-/// networked stays exactly as wide as it was.
+/// Trail: this module no longer enables the TrailRenderer nor pins its lifetime (2026-09-25
+/// user ruling: frozen white ghosts only, no continuous smear); the only trail code left is
+/// the read-only diagnostic line, so an externally enabled trail survives untouched. The
+/// ghosts themselves are SamuraiDashVisuals, untouched.
+///
+/// The trip lives and dies by a hard-invalidation subset (ChoreoInvalidClause), never by the
+/// full Eligible gate: dashing outside the wall makes the native Knight.GoToWall call
+/// SetRetreating(true), and judging that reaction -- or a formation task, a charge flag, a
+/// foreign FSM task or manual control -- as failure is the 2026-09-25 field bug that cut
+/// every trip short at the wall line. The trigger gate keeps the full gate untouched; the
+/// hard subset keeps only the clauses that mean the motion can no longer exist.
 /// </summary>
 internal static class PatchRoles_SamuraiPowerDash
 {
-    private const float ScanInterval = .2f, Cooldown = 3f, MaxRange = 10.5f;
+    private const float ScanInterval = .2f, Cooldown = 3f, DashSpeed = 18f;
     // The static self-scan's own reach: it must cover the whole trigger band ([1.5, 8.2]) with
     // margin, so an enemy may sit inside the scan while still being too far to open a trip.
     private const float SamuraiScanRange = 10.5f;
@@ -53,36 +64,20 @@ internal static class PatchRoles_SamuraiPowerDash
     // 命中走廊半径：共享伤害扫描与触发带上限都引用它（旧实现是字面量 1.2）。
     private const float HitRadius = 1.2f;
     private const float TriggerRange = SamuraiFixedDashDistance + HitRadius;
-    // 编舞节奏：单腿窗口 1.2 s、到点容差 .25、命中扫描 .1 s、目标重申 .3 s（对抗原生
-    // GoToWall 3 s 改写的简单反制，无所有权语义）。Tick 硬上限 3 s 是协程未跑 finally 时的
-    // 兜底（永久无敌类缺陷）；异常/提前退出按预算记一行（原因+相位+elapsed）。
-    private const float ChoreoArrive = .25f, DashWindow = 1.2f, GoalReassert = .3f, HitInterval = .1f;
-    private const float ChoreoBudget = 3f, ChoreoLogEvery = 6f;
-    private const int ChoreoLogBudget = 12;
-    // 残影持续 1 秒（2026-09-24）：冲刺期间把拖尾 lifetime 钉在 1 秒。原生对这个组件只开关
-    // enabled、全 mod 无既有 time 写点，故快照旧值、归还仅在 trail.time 仍等于写入值时放行
-    // （invulnerable/OldTrail 同款纪律）。幽灵残影的淡出窗是 SamuraiDashVisuals.Lifetime（2 s）。
-    private const float SamuraiTrailLifetime = 1f;
-    private const float DashSpeed = 18f, DashTimeout = .6f, FollowLeash = 10f, ReturnStop = 4f;
-
-    // A spent dash ladder degrades into a plain walk home. While the leash is broken the
-    // knight always has a goal: after any failed burst it walks, the burst is retried only
-    // once its escalating backoff (2 s, 4 s, ...) has elapsed, and from the third failed
-    // burst on the walk owns the way back until the samurai actually arrives.
-    private const int WalkAfterFailures = 3;
-    private const float RetryStep = 2f;
-    // Stuck-pose probe: armed only by a round trip, considered only CutWindow after the last one,
-    // repaired only once the pose outlives the native slash by StuckAfter; the capture probe is
-    // retired after CaptureFailFrames misses inside one trip, the repair after HealRetryCap
-    // ladders inside one episode, and the heal narrative is throttled to one incident per
-    // HealLogEvery seconds and capped at HealLogBudget lines per session.
-    private const float CutWindow = 8f, StuckAfter = 1.5f, HealLogEvery = 6f;
-    private const int CaptureFailFrames = 30, HealRetryCap = 2, HealLogBudget = 12;
-    // Turn-start narrative (2026-09-24): mirrors the heal log -- a session budget plus a
-    // per-knight throttle; the old once-per-session key starved exactly this diagnosis.
+    // 编舞节奏：单腿窗口 1.2 s、到点容差 .25、命中扫描 .1 s。目标每帧重申（2026-09-25b 审查：
+    // 协程在全部 Update 之后恢复，原生 Knight.Update 的偷写最晚同帧被覆盖，不需要 Mover.Update
+    // hook；这只缩小暴露窗口，不宣称完全阻止消费或这就是现场唯一根因）。Tick 硬上限 3 s 是协程
+    // 未跑 finally 时的兜底（永久无敌类缺陷）。
+    private const float ChoreoArrive = .25f, DashWindow = 1.2f, HitInterval = .1f;
+    private const float ChoreoBudget = 3f;
+    // 异常关闭行预算（2026-09-25b）：超时与硬失效必须可区分、可计数；预算 24 行，无节流。
+    private const int ChoreoLogBudget = 24;
+    // Turn-start narrative (2026-09-24): a session budget plus a per-knight throttle; the old
+    // once-per-session key starved exactly this diagnosis.
     private const float TurnLogEvery = 6f;
     private const int TurnLogBudget = 12;
-    private static readonly int SpeedParam = Animator.StringToHash("Speed");
+    // 脱离随从的普通步速回队（2026-09-25 用户裁定删除追随冲刺）：>10 开程、进 4 到达。
+    private const float FollowLeash = 10f, ReturnStop = 4f;
     private static readonly Dictionary<int, ActorState> Actors = new();
 
     /// <summary>仅诊断用（FrameWatch 记行时才遍历）：当前在跑的编舞式往返数。</summary>
@@ -96,77 +91,50 @@ internal static class PatchRoles_SamuraiPowerDash
             return n;
         }
     }
+    // 2026-09-25b 真实控制器姿态契约：PowerSlash 唯一出口是 Land 触发器（EventID 137525990）；
+    // 两腿直接 Play 已验证的 fullPath 状态，终幕发 Land。短名哈希只用于触发器与状态比对，
+    // Play 一律用 fullPath（跨层无歧义），不硬编码资源数值。
     private static readonly int PowerSlash = Animator.StringToHash("PowerSlash");
+    private static readonly int PowerSlashFullPath = Animator.StringToHash("Base Layer.PowerSlash");
+    private static readonly int Land = Animator.StringToHash("Land");
     private static readonly HashSet<string> Logged = new();
-    // Stuck-pose net (2026-09-24 recurrence): same-family knights share one AnimatorOverrideController
-    // instance (BiomeSwapData.GetAnimSwap cache), so a slash hash proven on one samurai is valid for
-    // every samurai on that controller -- and nothing else (cross-family pointers differ).
-    private static readonly Dictionary<long, int> SlashByController = new();
-    private static int HitLayerMask, EnemyScanLayer, WalkLogs, HealLogs, TurnLogs, ChoreoLogs;
+    // HasState per controller pointer: same-family knights share one AnimatorOverrideController
+    // instance (BiomeSwapData.GetAnimSwap cache), so a verdict proven on one animator holds for
+    // every knight on that controller -- and nothing else (cross-family pointers differ).
+    private static readonly Dictionary<long, bool> PowerSlashByController = new();
+    private static int HitLayerMask, EnemyScanLayer, WalkLogs, TurnLogs, ChoreoLogs;
 
     private sealed class ActorState
     {
         internal Knight Owner;
         internal Archer Follower;
         internal Mover ObservedMover;
-        internal float NextFollowerScan, NextAttack, RetryAt;
-        internal int Failures;
+        internal float NextFollowerScan, NextAttack;
         internal MotionLease Motion;
         // Choreographed round trip (2026-09-25): the live flag (non-null = this actor owns a
         // running coroutine; the token is also the identity check that makes the finale
-        // idempotent) and the value-discipline snapshots the finale restores.
+        // idempotent) and the value-discipline snapshot the finale restores.
         internal ChoreoToken Choreo;
-        internal bool ChoreoOldInvulnerable, ChoreoOldTrail, ChoreoEffects;
-        internal float ChoreoOldTrailTime, ChoreoHomeX, ChoreoStartX, NextChoreoLogAt;
+        internal bool ChoreoEffects, ChoreoOldInvulnerable;
+        internal float ChoreoHomeX;
         internal int ChoreoSide;
         internal Mover.FacingMode ChoreoFacingWritten;
         internal bool ChoreoFacingOwned;
-        // Stuck-pose probe (see the class comment): a round trip arms it for good (HasCutHistory),
-        // the captured hashes are what the pose check and the repair replay compare against, and
-        // the ladder fields below track one stuck episode at a time.
-        internal bool HasCutHistory, CaptureDead, HealGivenUp, LoggingHeal;
-        internal float LastCutEndAt, StuckAt, NextHealLogAt, NextTurnLogAt;
-        internal int SlashHash, DefaultHash;
-        // SlashSource: 0=none, 1=Lease (settled during a cut -- proven), 2=Finish (inferred at the
-        // cut's end -- a guess a peer's proven hash may override), 3=Adopt (peer's proven hash).
-        internal int SlashSource;
-        internal bool LeaseSawTransition;   // finish-capture trust gate: a Current read is only
-                                            // meaningful after this trip observed a transition
-        internal int CaptureBaseline, CaptureSeen, CaptureStable, CaptureFrames, CaptureFrame = -1;
-        internal int DefaultSeen, DefaultStable, DefaultFrame = -1;
-        internal int HealStep, HealFrame = -1, HealRetries;
+        // Turn narrative throttle (2026-09-24): one line per knight per six seconds.
+        internal float NextTurnLogAt;
     }
 
+    // The plain walk home (2026-09-25 user ruling): the withdrawal family's only remaining
+    // motion. No effects, no invulnerability, no hits, no visuals, no facing lease and no
+    // deadline -- only arrival, a lost follower, dusk or real ownership loss ends it.
     private sealed class MotionLease
     {
         internal ActorState Actor;
         internal Mover Mover;
-        internal Damageable Damageable;
         internal TrailRenderer Trail;
-        internal SamuraiDashVisuals.Token Visual;
-        internal SamuraiDashDiagnostics.Trace Diagnostics;
-        internal MotionKind Kind;
-        internal bool Retired, Effects, OldInvulnerable, OldTrail, HasGoal, Running;
-
-        internal float GoalX, GoalSpeed, StartedAt, StartX, LastProgressAt, BestDistance, NextGoal;
-        // The trail lifetime this motion pinned (see SamuraiTrailLifetime): restored by value.
-        internal float OldTrailTime;
-        // Defensive withdrawal facing: the mode we hold while returning, and whether the
-        // mover field currently holds our value (so a foreign mode is never stomped).
-        internal Mover.FacingMode FacingWritten;
-        internal bool FacingOwned;
-        // Per-motion hit bookkeeping: one hit per Damageable per dash, no per-frame allocations.
-        internal readonly HashSet<IntPtr> HitObjects = new();
-        internal readonly Collider2D[] Colliders = new Collider2D[16];
+        internal float GoalX, GoalSpeed, NextGoal;
+        internal bool Retired, HasGoal;
     }
-
-    // Why a return lease ended: Success clears the failure ladder, Failure feeds the
-    // escalating backoff, Handoff (night / actor lost / walk upgraded to a burst) keeps it.
-    private enum EndReason { Handoff, Success, Failure }
-    // The two motions the withdrawal ladder drives: an invulnerable defensive dash (Return) and
-    // its spent run-speed walk (Walk). The attack-family round trip is the choreographed
-    // coroutine below and never appears here.
-    private enum MotionKind : byte { Return, Walk }
 
     private static bool Same(UnityEngine.Object a, UnityEngine.Object b) =>
         a != null && b != null && a.Pointer == b.Pointer;
@@ -244,7 +212,6 @@ internal static class PatchRoles_SamuraiPowerDash
             float d = Mathf.Abs(archer.transform.position.x - a.Owner.transform.position.x);
             if (d < distance) { nearest = archer; distance = d; }
         }
-        if (!Same(a.Follower, nearest)) { a.Failures = 0; a.RetryAt = 0; }
         a.Follower = nearest;
     }
 
@@ -269,96 +236,38 @@ internal static class PatchRoles_SamuraiPowerDash
         Mathf.Approximately(m.Mover._goalPosition, m.GoalX) && Mathf.Approximately(m.Mover._goalSpeed, m.GoalSpeed);
 
     private static bool ValidMotion(MotionLease m) => Current(m) && Eligible(m.Actor.Owner) &&
-        Same(m.Actor.Owner._mover, m.Mover) && Same(m.Actor.Owner._damageable, m.Damageable) &&
+        Same(m.Actor.Owner._mover, m.Mover) &&
         ((m.Trail == null && m.Actor.Owner._trail == null) || Same(m.Actor.Owner._trail, m.Trail)) &&
         OwnGoal(m) && m.Mover._pauseTimeout <= 0;
 
-    // Combat-effects half of the restore discipline: a bool cannot identify an external
-    // true -> true rewrite, so restore only values that still carry ours. The trail lifetime is a
-    // number, so ownership is identified by value: the owner's own lifetime comes back only while
-    // the trail still carries exactly ours (same discipline as the bools).
-    private static void RestoreCombatEffects(MotionLease m)
-    {
-        if (!Current(m) || !m.Effects) return;
-        m.Effects = false;
-        if (m.Damageable != null && m.Damageable.invulnerable) m.Damageable.invulnerable = m.OldInvulnerable;
-        if (m.Trail != null && m.Trail.enabled) m.Trail.enabled = m.OldTrail;
-        if (m.Trail != null && Mathf.Approximately(m.Trail.time, SamuraiTrailLifetime)) m.Trail.time = m.OldTrailTime;
-        LogTrailState(m, "effects-restored");
-    }
-
-    // Full restore for a withdrawal lease: the visual token always ends here and the combat flags
-    // follow the discipline above.
-    private static void RestoreEffects(MotionLease m)
-    {
-        if (!Current(m)) return;
-        SamuraiDashVisuals.End(m.Visual);
-        RestoreCombatEffects(m);
-    }
-
-    private static void Finish(MotionLease m, EndReason reason = EndReason.Handoff)
+    private static void Finish(MotionLease m)
     {
         if (!Current(m)) return;
         try
         {
-            RestoreEffects(m);
-            RestoreFacing(m.Mover, ref m.FacingWritten, ref m.FacingOwned);
             // Never restore a previous goal, clear an external pause, or stop a replacement mover.
             if (OwnGoal(m)) m.Mover.Stop();
         }
         catch (Exception e) { Log("finish", e); }
         finally
         {
-            // Stop/RestoreEffects may synchronously re-enter and replace the lease; only clear ours.
+            // Stop may synchronously re-enter and replace the lease; only clear ours.
             bool owned = Current(m);
             m.Retired = true;
-            if (owned)
-            {
-                LogMotionEnd(m, reason == EndReason.Failure);
-                if (reason == EndReason.Failure)
-                {
-                    m.Actor.Failures++;
-                    m.Actor.RetryAt = Time.time + BackoffSeconds(m.Actor.Failures);
-                }
-                else if (reason == EndReason.Success) { m.Actor.Failures = 0; m.Actor.RetryAt = 0; }
-                m.Actor.Motion = null;
-            }
+            if (owned) m.Actor.Motion = null;
         }
     }
 
     private static void Goal(MotionLease m, float x, float speed)
     {
-        // Caller validates lifecycle/ownership before every update, including burst -> run.
         if (!Current(m)) return;
         m.Mover.SetGoalNoHaglet(x, speed);
         m.GoalX = x; m.GoalSpeed = speed; m.HasGoal = true;
     }
 
-    private static float BackoffSeconds(int failures) => RetryStep * Math.Min(failures, WalkAfterFailures);
-
-    // Enemy side = the unit's own half: walls, portals and enemy waves sit at that outer
-    // edge, and native Knight.SetRetreating(true) faces its defensive retreat by the very
-    // same rule. Reading it needs no scan, so a return never touches the scanners.
-    private static Mover.FacingMode EnemyFacing(Knight k) =>
-        k.side == Side.Left ? Mover.FacingMode.Left : Mover.FacingMode.Right;
-
-    // Facing ownership is shared by the withdrawal leases and the choreographed round trip, so
-    // the three helpers take the owner's fields by reference; the discipline is identical for
-    // both: only ever take over from Ahead, and never stomp a foreign fixed facing.
-
-    // Defensive withdrawal posture: keep facing the enemy side while withdrawing.
-    private static void HoldFacing(Mover mover, ref Mover.FacingMode written, ref bool owned)
-    {
-        if (mover == null) return;
-        try
-        {
-            if (mover.facingMode == written) { owned = true; return; }
-            if (mover.facingMode != Mover.FacingMode.Ahead) { owned = false; return; }
-            mover.SetFacingMode(written, null);
-            owned = true;
-        }
-        catch (Exception e) { Log("return-facing", e); }
-    }
+    // Facing ownership belongs to the choreographed round trip alone now (2026-09-25: the walk
+    // takes no facing lease), so the two helpers take the trip's fields by reference: only ever
+    // take over from Ahead, and never stomp a foreign fixed facing.
 
     // Release only while the mover still holds our value: a mode written by the native code
     // or a third party after us is never overwritten.
@@ -395,7 +304,7 @@ internal static class PatchRoles_SamuraiPowerDash
         catch (Exception e) { Log("retarget-facing", e); }
     }
 
-    // Bounded field evidence for the walk fallback (three lines per session, never per frame).
+    // Bounded field evidence for the plain walk home (three lines per session, never per frame).
     private static void LogWalk(string eventName, MotionLease m)
     {
         if (WalkLogs >= 3) return;
@@ -403,43 +312,16 @@ internal static class PatchRoles_SamuraiPowerDash
         {
             WalkLogs++;
             var a = m.Actor;
-            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/" + eventName + "] failures=" + a.Failures
-                + " x=" + a.Owner.transform.position.x.ToString("0.##")
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/" + eventName + "] x=" +
+                a.Owner.transform.position.x.ToString("0.##")
                 + " follower=" + a.Follower.transform.position.x.ToString("0.##")
                 + " goal=" + m.GoalX.ToString("0.##") + " speed=" + m.GoalSpeed.ToString("0.##"));
         }
         catch { }
     }
 
-    private static MotionLease BeginReturn(ActorState a, float goal)
-    {
-        Knight k = a.Owner;
-        var m = new MotionLease { Actor = a, Mover = k._mover, Damageable = k._damageable,
-            Trail = k._trail, Kind = MotionKind.Return, StartedAt = Time.time,
-            StartX = k.transform.position.x, LastProgressAt = Time.time,
-            BestDistance = Distance(a) };
-        a.Motion = m;
-        m.Diagnostics = SamuraiDashDiagnostics.Begin(k, true, m.StartedAt);
-        m.OldInvulnerable = m.Damageable.invulnerable;
-        m.OldTrail = m.Trail != null && m.Trail.enabled;
-        m.OldTrailTime = m.Trail != null ? m.Trail.time : 0f;
-        m.Effects = true;
-        m.Damageable.invulnerable = true;
-        if (m.Trail != null) { m.Trail.enabled = true; m.Trail.time = SamuraiTrailLifetime; }
-        LogTrailState(m, "trail-state");
-        // The withdrawal burst is a defensive dash: it faces the enemy side while withdrawing.
-        // A new motion restarts the stuck-pose measurement (the choreographed round trip arms
-        // the probe on its own Begin path).
-        ClearEpisode(a);
-        m.FacingWritten = EnemyFacing(k);
-        HoldFacing(m.Mover, ref m.FacingWritten, ref m.FacingOwned);
-        m.Visual = SamuraiDashVisuals.Begin(k, m.Diagnostics);
-        Goal(m, goal, DashSpeed);
-        return m;
-    }
 
-    private static void LogTrailState(MotionLease m, string eventName) =>
-        LogTrailState(m.Trail, m.Diagnostics, m.StartedAt, eventName);
+
 
     // Diagnostic reads are admitted per motion; failures never interrupt gameplay or cleanup.
     private static void LogTrailState(TrailRenderer trail, SamuraiDashDiagnostics.Trace diagnostics,
@@ -459,371 +341,19 @@ internal static class PatchRoles_SamuraiPowerDash
         catch (Exception e) { SamuraiDashDiagnostics.Write(diagnostics, eventName, "state-read-failed=" + e.GetType().Name); }
     }
 
-    private static void LogMotionEnd(MotionLease m, bool failure)
-    {
-        if (m.Diagnostics == null) return;
-        try
-        {
-            SamuraiDashDiagnostics.Write(m.Diagnostics, "end", "failure=" + failure
-                + " elapsed=" + (Time.time - m.StartedAt).ToString("0.###") + " kind=" + m.Kind
-                + " effectsActive=" + m.Effects + " returnRunning=" + m.Running);
-        }
-        catch { }
-    }
 
     private static float StationX(ActorState a)
     {
         float x = a.Owner.transform.position.x;
-        // The withdrawal ladder's station: the follower's station while one is live; otherwise
-        // the night formation slot or the native guard anchor -- the ladder never loses its way
-        // home just because the follower died.
+        // The walk's station: the follower's station while one is live; otherwise the night
+        // formation slot or the native guard anchor -- the walk never loses its way home just
+        // because the follower died.
         float target = a.Follower != null && a.Follower.gameObject != null
             ? a.Follower.transform.position.x
             : PatchRoles_SamuraiNightFormation.HomeXOf(a.Owner);
         return target - Mathf.Sign(target - x) * 2.5f;
     }
 
-    // ---------------------------------------------------------------------------------------
-    // Stuck slash pose (see the class comment for the contract). Everything below is local
-    // presentation repair: it reads the animator, writes at most trigger/state/enabled, and
-    // never touches a lease, the network or gameplay.
-    // ---------------------------------------------------------------------------------------
-
-    /// <summary>Live animator reference; null for missing, destroyed or disabled animators.</summary>
-    private static Animator ReadAnimator(Knight k)
-    {
-        try
-        {
-            Animator animator = k != null ? k._animator : null;
-            return animator != null && animator.isActiveAndEnabled ? animator : null;
-        }
-        catch (Exception e) { Log("animator", e); return null; }
-    }
-
-    /// <summary>The animator's current state hash; false when it cannot be read.</summary>
-    private static bool TryPoseHash(Knight k, out int hash)
-    {
-        hash = 0;
-        Animator animator = ReadAnimator(k);
-        if (animator == null) return false;
-        hash = animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
-        return true;
-    }
-
-    private static int PoseHash(Knight k)
-    {
-        try { return TryPoseHash(k, out int hash) ? hash : 0; }
-        catch (Exception e) { Log("state-read", e); return 0; }
-    }
-
-    /// <summary>
-    /// Captures the slash pose from the live animator during a round trip: only a state the
-    /// animator settled on counts -- never a transition source, never the begin-frame baseline
-    /// and never a single-frame flicker. One captured hash lasts for the whole actor state; a
-    /// later trip that cannot re-observe it leaves it alone, and only a knight that never
-    /// captured a pose can be stood down by a whole trip window of misses.
-    /// </summary>
-    private static void TryCaptureSlashPose(Knight k, ActorState a)
-    {
-        if (a.SlashHash != 0 || a.CaptureDead) return;
-        if (Time.frameCount == a.CaptureFrame) return;      // at most one attempt per frame
-        a.CaptureFrame = Time.frameCount;
-        try
-        {
-            Animator animator = ReadAnimator(k);
-            if (animator == null)
-            {
-                a.CaptureStable = 0;
-                CountCaptureMiss(a);
-                return;
-            }
-            if (animator.IsInTransition(0))
-            {
-                a.LeaseSawTransition = true;        // trust gate for the finish-capture's Current read
-                a.CaptureStable = 0;
-                CountCaptureMiss(a);
-                return;
-            }
-            int hash = animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
-            // Trust gate (2026-09-24 recurrence): a settled pose this trip never entered through
-            // a transition is untrustworthy -- it kills the whole teleport/no-transition-entry
-            // false-capture class (an aborted cut drifting into a walk pose mid-trip).
-            if (hash == 0 || hash == a.CaptureBaseline || !a.LeaseSawTransition)
-            {
-                a.CaptureSeen = hash;
-                a.CaptureStable = 0;
-                CountCaptureMiss(a);
-                return;
-            }
-            if (hash != a.CaptureSeen)
-            {
-                a.CaptureSeen = hash;
-                a.CaptureStable = 1;
-                CountCaptureMiss(a);
-                return;
-            }
-            a.CaptureStable++;
-            if (a.CaptureStable < 2) { CountCaptureMiss(a); return; }
-            a.SlashHash = hash;
-            a.SlashSource = 1;                      // proven: settled inside a live cut
-            if (a.DefaultHash == hash) a.DefaultHash = 0;   // the slash pose is never a calm state
-            RememberControllerSlash(animator, hash);
-            if (Logged.Add("slash-capture-" + k.gameObject.GetInstanceID()))
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/slash-capture] knight=" +
-                    k.gameObject.GetInstanceID() + " hash=" + hash
-                    + " baseline=" + a.CaptureBaseline + " frames=" + a.CaptureFrames);
-        }
-        catch (Exception e) { Log("slash-capture", e); }
-    }
-
-    /// <summary>
-    /// Stuck-pose net, finish leg (2026-09-24 recurrence): a cut shorter than its own transition can
-    /// never capture in-flight, and a knight already stuck poisons every later cut's baseline
-    /// (Begin reads the stuck pose), blocking self-capture for good. At the cut's end: capture what
-    /// the cut is leaving behind -- the transition target when mid-flight, else the settled state
-    /// only when this trip actually observed a transition (an untransitioned Current is
-    /// untrustworthy) -- then let a peer's proven hash (same shared controller) adopt a blind or
-    /// mis-captured one.
-    /// </summary>
-    private static void CaptureSlashAtFinish(ActorState a, Knight k)
-    {
-        Animator animator = ReadAnimator(k);
-        if (animator == null) return;
-        if (a.SlashHash == 0)
-        {
-            int candidate;
-            if (animator.IsInTransition(0))
-                candidate = animator.GetNextAnimatorStateInfo(0).shortNameHash;      // where the stuck pose is heading
-            else if (a.LeaseSawTransition)
-                candidate = animator.GetCurrentAnimatorStateInfo(0).shortNameHash;   // settled post-transition
-            else
-                candidate = 0;                                                       // no transition history: reject
-            if (candidate != 0 && candidate != a.CaptureBaseline)
-            {
-                a.SlashHash = candidate;
-                a.SlashSource = 2;                  // inferred: a peer's proven hash may override
-                if (a.DefaultHash == candidate) a.DefaultHash = 0;
-                // guesses never enter the shared map -- only lease-proven hashes do
-                if (Logged.Add("slash-finish-capture-" + k.gameObject.GetInstanceID()))
-                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/slash-finish-capture] knight=" +
-                        k.gameObject.GetInstanceID() + " hash=" + candidate);
-            }
-        }
-        AdoptPeerSlash(a, k, animator);
-    }
-
-    /// <summary>
-    /// A lease-proven or already-adopted hash is never overridden; a finish-inferred one (or a blind
-    /// knight) takes any peer hash remembered for the same shared controller instance.
-    /// </summary>
-    private static void AdoptPeerSlash(ActorState a, Knight k, Animator animator)
-    {
-        if (a.SlashSource == 1 || a.SlashSource == 3) return;
-        RuntimeAnimatorController controller = animator.runtimeAnimatorController;
-        if (controller == null) return;
-        long key = controller.Pointer.ToInt64();
-        if (!SlashByController.TryGetValue(key, out int hash) || hash == 0) return;
-        if (a.SlashHash == hash) { if (a.SlashSource == 0) a.SlashSource = 3; return; }
-        a.SlashHash = hash;
-        a.SlashSource = 3;
-        if (a.DefaultHash == hash) a.DefaultHash = 0;
-        if (Logged.Add("slash-adopt-" + k.gameObject.GetInstanceID()))
-            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/slash-adopt] knight=" +
-                k.gameObject.GetInstanceID() + " controller=" + key + " hash=" + hash);
-    }
-
-    private static void RememberControllerSlash(Animator animator, int hash)
-    {
-        try
-        {
-            RuntimeAnimatorController controller = animator.runtimeAnimatorController;
-            if (controller != null) SlashByController[controller.Pointer.ToInt64()] = hash;
-        }
-        catch { /* diagnostics only: a missed memory never blocks the capture itself */ }
-    }
-
-    /// <summary>
-    /// A whole lease window of gate misses retires the capture probe for good -- but the counter
-    /// is per lease, so a short lease can never accumulate a later lease's misses.
-    /// </summary>
-    private static void CountCaptureMiss(ActorState a)
-    {
-        a.CaptureFrames++;
-        if (a.CaptureFrames > CaptureFailFrames) a.CaptureDead = true;
-    }
-
-    /// <summary>
-    /// The replay pose for the repair: captured once per actor state on any settled frame
-    /// (no lease, no transition, no native slash pause) whose hash holds for two frames and
-    /// differs from the captured slash pose — walking/running included (field evidence
-    /// 2026-09-24: Speed-at-rest starved the capture through whole combat sessions).
-    /// Failure is silent; the next settled frame retries.
-    /// </summary>
-    private static void TryCaptureDefaultPose(Knight k, ActorState a)
-    {
-        if (a.DefaultHash != 0) return;
-        if (Time.frameCount == a.DefaultFrame) return;
-        a.DefaultFrame = Time.frameCount;
-        try
-        {
-            // 2026-09-24 实机修订：不再要求 Speed 归零——战斗中速度参数几乎从不为 0，
-            // 旧条件让捕获长期饥饿（实机 heal 走到 play-skipped/toggle 兜底的直接原因）。
-            // 走路/跑步姿态同样是合格的回放目标；非转移、非本砍击态、非原生斩击暂停、
-            // 两帧稳定四道守卫保留（原生 Slash 态仍被 pauseTimeout 门排除在外）。
-            Animator animator = ReadAnimator(k);
-            if (animator == null || animator.IsInTransition(0) ||
-                k._mover == null || k._mover._pauseTimeout > 0)
-            {
-                a.DefaultStable = 0;
-                return;
-            }
-            int hash = animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
-            if (hash == 0 || hash == a.SlashHash) { a.DefaultStable = 0; return; }
-            if (hash != a.DefaultSeen) { a.DefaultSeen = hash; a.DefaultStable = 1; return; }
-            a.DefaultStable++;
-            if (a.DefaultStable < 2) return;
-            a.DefaultHash = hash;
-            if (Logged.Add("default-capture-" + k.gameObject.GetInstanceID()))
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/default-capture] knight=" +
-                    k.gameObject.GetInstanceID() + " hash=" + hash);
-        }
-        catch (Exception e) { Log("default-capture", e); }
-    }
-
-    /// <summary>
-    /// Watches for the one pose this module can leave behind: the captured slash hash still
-    /// current once the native slash would long be over. Only a knight that drove a cut lease,
-    /// inside CutWindow after its end, is ever considered.
-    /// </summary>
-    private static void ProbeStuckPose(Knight k, ActorState a)
-    {
-        if (!a.HasCutHistory || a.SlashHash == 0 || a.HealGivenUp) return;
-        try
-        {
-            if (Time.time - a.LastCutEndAt > CutWindow) { ClearEpisode(a); return; }
-            if (!TryPoseHash(k, out int hash)) return;      // unreadable: keep the episode as it is
-            if (hash != a.SlashHash) { RecoverStuckPose(a, k); return; }
-            if (Time.timeScale <= 0) return;
-            if (a.HealStep == 0)
-            {
-                if (a.StuckAt == 0) { a.StuckAt = Time.time; return; }
-                if (Time.time - a.StuckAt < StuckAfter) return;
-            }
-            Heal(k, a);
-        }
-        catch (Exception e) { Log("stuck-probe", e); }
-    }
-
-    private static void ClearEpisode(ActorState a)
-    {
-        a.StuckAt = 0;
-        a.HealStep = 0;
-        a.HealFrame = -1;
-        a.HealRetries = 0;
-        a.LoggingHeal = false;
-    }
-
-    private static void RecoverStuckPose(ActorState a, Knight k)
-    {
-        if (a.StuckAt != 0 || a.HealStep != 0)
-            HealLog(a, k, "recovered", a.HealRetries + 1, closes: true);
-        ClearEpisode(a);
-    }
-
-    /// <summary>
-    /// One repair ladder, one step per frame so every write can be re-checked before the next:
-    /// clear the leftover trigger, replay the captured calm state, and only then fall back to
-    /// toggling the Animator (the fallback for a session that never captured a calm pose). A
-    /// ladder the pose survives counts as one failed retry; after HealRetryCap the probe stands
-    /// down until the next cut lease arms it again.
-    /// </summary>
-    private static void Heal(Knight k, ActorState a)
-    {
-        if (a.HealGivenUp) return;
-        try
-        {
-            Animator animator = ReadAnimator(k);
-            if (animator == null) return;
-            if (a.HealStep == 0)
-            {
-                HealLog(a, k, "reset", a.HealRetries + 1, opens: true);
-                animator.ResetTrigger(PowerSlash);
-                a.HealStep = 1;
-                a.HealFrame = Time.frameCount;
-                return;
-            }
-            if (Time.frameCount <= a.HealFrame) return;     // every step gets its own frame
-            if (a.HealStep == 1)
-            {
-                if (a.DefaultHash != 0)
-                {
-                    HealLog(a, k, "play", a.HealRetries + 1);
-                    animator.Play(a.DefaultHash, 0, 0f);
-                }
-                else HealLog(a, k, "play-skipped", a.HealRetries + 1);
-                a.HealStep = 2;
-                a.HealFrame = Time.frameCount;
-                return;
-            }
-            if (a.HealStep == 2)
-            {
-                HealLog(a, k, "toggle", a.HealRetries + 1);
-                animator.enabled = false;
-                animator.enabled = true;
-                a.HealStep = 3;
-                a.HealFrame = Time.frameCount;
-                return;
-            }
-            // Step 3: the ladder is spent and the pose is still current. That is one retry.
-            a.HealRetries++;
-            a.StuckAt = Time.time;
-            a.HealStep = 0;
-            a.HealFrame = -1;
-            if (a.HealRetries >= HealRetryCap)
-            {
-                a.HealGivenUp = true;
-                HealLog(a, k, "gave-up", a.HealRetries, closes: true);
-            }
-            else HealLog(a, k, "retry", a.HealRetries);
-        }
-        catch (Exception e) { Log("heal", e); }
-    }
-
-    /// <summary>
-    /// Bounded heal narrative: one reported incident per HealLogEvery seconds per knight, at
-    /// most HealLogBudget lines per session, and every line carries the state the diagnosis
-    /// needs (normalizedTime tells a clip-end block from a looping re-entry).
-    /// </summary>
-    private static void HealLog(ActorState a, Knight k, string step, int order, bool opens = false, bool closes = false)
-    {
-        if (HealLogs >= HealLogBudget) return;
-        if (opens)
-        {
-            if (Time.time < a.NextHealLogAt) return;
-            a.NextHealLogAt = Time.time + HealLogEvery;
-            a.LoggingHeal = true;
-        }
-        else if (!a.LoggingHeal) return;
-        if (closes) a.LoggingHeal = false;
-        HealLogs++;
-        try
-        {
-            string details = "";
-            Animator animator = k != null ? k._animator : null;
-            if (animator != null)
-            {
-                AnimatorStateInfo info = animator.GetCurrentAnimatorStateInfo(0);
-                details = " normalizedTime=" + info.normalizedTime.ToString("0.###") +
-                    " fullPathHash=" + info.fullPathHash;
-            }
-            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/heal] knight=" +
-                (k != null ? k.gameObject.GetInstanceID() : 0) +
-                " step=" + step +
-                " order=" + order + " retries=" + a.HealRetries + " slashHash=" + a.SlashHash +
-                " defaultHash=" + a.DefaultHash + details);
-        }
-        catch { }
-    }
 
     /// <summary>
     /// Bounded turn narrative (2026-09-24), mirroring the heal log: at most TurnLogBudget lines
@@ -855,68 +385,57 @@ internal static class PatchRoles_SamuraiPowerDash
                 if (a.Choreo != null) Finale(a, a.Choreo, "mover-replaced");
                 if (a.Motion != null) Finish(a.Motion);
                 a.ObservedMover = knight._mover;
-                a.Failures = 0; a.RetryAt = 0; // a replacement mover starts the ladder clean
+                // A replacement mover starts clean.
                 return; // A replacement mover's first observed goal belongs to its new owner.
             }
+            // The live round trip is judged by the hard gate alone, and it is answered before any
+            // soft-eligibility return: the 3 s cap must stay reachable for a coroutine that died
+            // without a finally (a third party's StopAllCoroutines) even while a native behaviour
+            // flag is set, and closing the state on a soft flag would leave that coroutine
+            // writing goals while the next eligible frame rebuilds a second state over the same
+            // mover (two writers). The trigger gate below still requires the full Eligible.
+            if (a != null && a.Choreo != null)
+            {
+                string why = ChoreoInvalidClause(a, a.Choreo, knight);
+                if (why.Length != 0) Finale(a, a.Choreo, "hard-invalid:" + why);
+                else if (Time.time - a.Choreo.StartedAt >= ChoreoBudget) Finale(a, a.Choreo, "tick-cap");
+                return;
+            }
+            // No trip can be live past the return above, so this block only ever closes the
+            // plain walk (and drops a state whose instance id was reused by another actor).
             if (a != null && (!Same(a.Owner, knight) || !Eligible(knight)))
             {
-                if (a.Choreo != null) Finale(a, a.Choreo, "ineligible");
                 if (a.Motion != null) Finish(a.Motion);
                 Actors.Remove(id); a = null;
             }
             if (!Eligible(knight)) return;
             if (a == null) { a = new ActorState { Owner = knight, ObservedMover = knight._mover }; Actors[id] = a; }
-            // The choreographed round trip owns the knight from its first frame to its finale; the
-            // coroutine advances it, so Tick only enforces the hard cap (the failsafe for a
-            // coroutine that died without running its finally).
-            if (a.Choreo != null)
-            {
-                if (Time.time - a.Choreo.StartedAt >= ChoreoBudget) Finale(a, a.Choreo, "tick-cap");
-                return;
-            }
             if (a.Motion != null)
             {
                 MotionLease m = a.Motion;
-                if (!ValidMotion(m)) { Finish(m, EndReason.Failure); return; }
-                // The withdrawal family steps aside for the native night goal when dusk arrives.
-                if (NightGuard(knight)) { Finish(m); return; }
+                if (!ValidMotion(m) || NightGuard(knight)) { Finish(m); return; }
                 // Verify this reference each frame before periodic reselection, never mask its loss.
                 if (!ValidFollower(knight, a.Follower)) { Finish(m); a.Follower = null; return; }
                 RefreshFollower(a);
-                AdvanceReturn(m);
-                return; // Return and Walk are mutually exclusive, including the 4..10 band.
+                AdvanceWalk(m);
+                return;
             }
-            TryCaptureDefaultPose(knight, a);
-            ProbeStuckPose(knight, a);
             RefreshFollower(a);
             bool follower = ValidFollower(knight, a.Follower);
-            if (!follower) { a.Follower = null; a.Failures = 0; a.RetryAt = 0; }
+            if (!follower) a.Follower = null;
             float distance = follower ? Distance(a) : 0;
-            if (distance <= ReturnStop) { a.Failures = 0; a.RetryAt = 0; }
             // At night the wall coroutine supplies its current destination and defensive
             // facing. Keep the follower leash, but never turn this homeward leg into an attack.
             if (NightGuard(knight))
             {
-                a.Failures = 0; a.RetryAt = 0;
                 if (distance > FollowLeash) return;
             }
-            // An attack-initiated withdrawal is owned by its ladder lease from the first frame --
-            // the defensive burst only serves followers that walked away with no cut running.
-            if (distance > FollowLeash || (a.Failures > 0 && distance > ReturnStop))
+            // 2026-09-25 用户裁定：脱离随从只回普通步速的 walk（追随冲刺/回退梯/无敌/命中
+            // 整链删除）。
+            if (distance > FollowLeash)
             {
                 if (Time.timeScale <= 0 || knight._mover._pauseTimeout > 0) return;
-                // A burst is a privilege, walking home is the baseline: while the leash is
-                // broken the samurai never stands still -- a failed burst is answered by a
-                // plain run-speed walk, and the burst itself comes back once its backoff has
-                // elapsed (never again once WalkAfterFailures bursts have failed).
-                bool burst = a.Failures == 0 ||
-                    (a.Failures < WalkAfterFailures && Time.time >= a.RetryAt);
-                if (!burst) { BeginWalk(a); return; }
-                float x = knight.transform.position.x;
-                var dash = BeginReturn(a, x + Mathf.Clamp(StationX(a) - x, -MaxRange, MaxRange));
-                HitScan(dash); // entry frame hits, same as every other burst
-                if (Current(dash) && (!ValidMotion(dash) || !ValidFollower(knight, a.Follower)))
-                    Finish(dash, EndReason.Failure);
+                BeginWalk(a);
                 return;
             }
             if (Time.timeScale <= 0 || knight._mover._pauseTimeout > 0 || Time.time < a.NextAttack) return;
@@ -938,7 +457,7 @@ internal static class PatchRoles_SamuraiPowerDash
         catch (Exception e)
         {
             if (a?.Choreo != null) Finale(a, a.Choreo, "tick-exception");
-            else if (a?.Motion != null) Finish(a.Motion, EndReason.Failure);
+            else if (a?.Motion != null) Finish(a.Motion);
             Log("tick", e);
         }
     }
@@ -953,11 +472,18 @@ internal static class PatchRoles_SamuraiPowerDash
     {
         internal Mover Mover;
         internal Damageable Damageable;
-        internal TrailRenderer Trail;
+        internal TrailRenderer Trail;              // read-only trail diagnostics only (2026-09-25: no writes)
         internal SamuraiDashVisuals.Token Visual;
         internal SamuraiDashDiagnostics.Trace Diagnostics;
-        internal float StartedAt, GoalX, GoalSpeed;
-        internal bool HasGoal;
+        // Pose authority (2026-09-25b): the animator this trip drives and the controller
+        // pointer the HasState verdict was taken on. Once either is replaced no later pose
+        // write -- the turn's replay or the finale's Land -- ever lands on the new controller.
+        internal Animator Animator;
+        internal long ControllerKey;
+        internal bool PoseKnown;
+        internal int LastPlayFrame = -1;
+        internal float StartedAt, GoalX, GoalSpeed, TurnX;
+        internal bool HasGoal, TurnTimedOut;
         internal string Phase = "out";
         // Per-leg hit bookkeeping: outbound and home may each strike a given enemy once.
         internal readonly HashSet<IntPtr> HitObjects = new();
@@ -966,6 +492,42 @@ internal static class PatchRoles_SamuraiPowerDash
 
     private static bool ChoreoAlive(ActorState a, ChoreoToken token) =>
         a != null && token != null && ReferenceEquals(a.Choreo, token);
+
+    /// <summary>
+    /// Why the live trip must die -- empty while it must live. This is deliberately the
+    /// hard-invalidation subset of <see cref="Eligible"/>, not the full gate: the native reaction
+    /// to a knight outside the wall (retreating, charging, a formation task, a foreign FSM task,
+    /// manual control) is the very state this dash creates, so treating it as failure cut every
+    /// trip short at the wall line (2026-09-25 field evidence). What remains are the clauses that
+    /// mean the motion can no longer exist or be trusted: the token is stale, the owner identity
+    /// is gone (reused instance id), the object is gone/disabled/inactive, the mod or the world
+    /// authority is off, the style stopped resolving as the samurai, the mover is not the one the
+    /// trip owns, or the body cannot move under its own power (inert/grabbed/dead). Tick, the
+    /// routine and the hit scan gate on this one function; the trigger gate (StartChoreo's
+    /// caller) and the plain walk keep the full Eligible.
+    /// </summary>
+    private static string ChoreoInvalidClause(ActorState a, ChoreoToken token, Knight k)
+    {
+        if (!ChoreoAlive(a, token)) return "token";
+        if (!Same(a.Owner, k)) return "owner";
+        if (k == null || k.gameObject == null) return "gone";
+        if (!k.enabled) return "disabled";
+        if (!k.gameObject.activeInHierarchy) return "inactive";
+        if (!ModConfig.Enabled.Value) return "config";
+        if (!NetworkBigBoss.HasWorldAuth) return "authority";
+        if (!PatchRoles_KnightStyle.TryGetResolvedStyleIndex(k, out int style) || style != 2) return "style";
+        if (!Same(k._mover, token.Mover)) return "mover";
+        var c = k._character;
+        if (c == null) return "body";
+        if (c.inert) return "inert";
+        if (c.grabbed) return "grabbed";
+        var d = k._damageable;
+        if (d == null || d.isDead) return "dead";
+        return "";
+    }
+
+    private static bool ChoreoValid(ActorState a, ChoreoToken token, Knight k) =>
+        ChoreoInvalidClause(a, token, k).Length == 0;
 
     private static bool ChoreoOwnGoal(ActorState a, ChoreoToken token) => token.HasGoal &&
         Same(a.Owner._mover, token.Mover) && token.Mover.goalMode == Mover.GoalMode.Position &&
@@ -991,45 +553,32 @@ internal static class PatchRoles_SamuraiPowerDash
         catch (Exception e) { Log("choreo-active", e); return true; }
     }
 
-    internal static bool SuppressesSlash(Knight knight) => IsReturning(knight) || IsChoreoActive(knight);
+    internal static bool SuppressesSlash(Knight knight) => IsChoreoActive(knight);
 
     /// <summary>
-    /// Opens one round trip: snapshot the values the finale will restore, apply the protected
-    /// motion (invulnerable, pinned trail, visual token), arm the stuck-pose capture net and
-    /// start the coroutine. A failed start closes immediately instead of leaving the flag live.
+    /// Opens one round trip: snapshot the protection the finale will restore, apply it and the
+    /// visual token, open the pose authority against the live controller and start the
+    /// coroutine. A failed start closes immediately instead of leaving the flag live.
     /// </summary>
     private static void StartChoreo(ActorState a, int side)
     {
         Knight k = a.Owner;
         a.ChoreoSide = side;
         a.ChoreoHomeX = k.transform.position.x;
-        a.ChoreoStartX = a.ChoreoHomeX;
         var token = new ChoreoToken { Mover = k._mover, Damageable = k._damageable, Trail = k._trail, StartedAt = Time.time };
         a.Choreo = token;
         a.ChoreoEffects = true;
         a.ChoreoOldInvulnerable = token.Damageable.invulnerable;
-        a.ChoreoOldTrail = token.Trail != null && token.Trail.enabled;
-        a.ChoreoOldTrailTime = token.Trail != null ? token.Trail.time : 0f;
         token.Damageable.invulnerable = true;
-        if (token.Trail != null) { token.Trail.enabled = true; token.Trail.time = SamuraiTrailLifetime; }
-        // The stuck-pose capture net arms with the cut, exactly like the retired lease's Begin.
-        ClearEpisode(a);
-        a.HasCutHistory = true;
-        a.HealGivenUp = false;
-        a.CaptureBaseline = PoseHash(k);
-        a.CaptureSeen = a.CaptureBaseline;
-        a.CaptureStable = 0;
-        a.CaptureFrames = 0;
-        a.LeaseSawTransition = false;
         token.Diagnostics = SamuraiDashDiagnostics.Begin(k, false, token.StartedAt);
-        LogChoreoTrail(token, "trail-state");
+        LogChoreoTrail(token, "trail-state");        // read-only diagnostic: this module writes no trail
         token.Visual = SamuraiDashVisuals.Begin(k, token.Diagnostics);
-        // 出程：触发拔刀姿态并立刻取固定 7 格目标（循环内的 .3 s 重申是防 GoToWall 改写的）。
-        try
-        {
-            if (k._animator != null) k._animator.SetTrigger(PowerSlash);
-        }
-        catch (Exception e) { Log("choreo-trigger", e); }
+        // 出程姿态（2026-09-25b 真实控制器契约）：在控制器指针上解析 HasState("Base
+        // Layer.PowerSlash")；验证通过直接 Play 0 帧，未验证/无该状态的控制器保守退回触发器
+        // （该行程永不发 Land、不再 Play）。
+        TryOpenSlashPose(token, k);
+        SlashLegStart(token, k);
+        // 出程：固定 7 格目标（协程每帧重申，对抗原生 GoToWall 改写）。
         ChoreoGoal(a, token, a.ChoreoHomeX + side * SamuraiFixedDashDistance, DashSpeed);
         try
         {
@@ -1043,9 +592,129 @@ internal static class PatchRoles_SamuraiPowerDash
     }
 
     /// <summary>
+    /// HasState probe wrapped so a marshaling failure is never cached as "state absent": only a
+    /// verdict the controller actually returned enters the per-pointer cache.
+    /// </summary>
+    private static bool TryHasPowerSlash(Animator animator, out bool has)
+    {
+        try { has = animator.HasState(0, PowerSlashFullPath); return true; }
+        catch (Exception e) { Log("pose-probe", e); has = false; return false; }
+    }
+
+    /// <summary>
+    /// Opens the trip's pose authority: reads the live animator's controller, resolves the
+    /// PowerSlash state once per controller pointer (same-family knights share one
+    /// AnimatorOverrideController instance, so one verdict serves them all) and arms the token
+    /// when the state is verified.
+    /// </summary>
+    private static bool TryOpenSlashPose(ChoreoToken token, Knight k)
+    {
+        try
+        {
+            token.Animator = k._animator;
+            if (token.Animator == null) return false;
+            RuntimeAnimatorController controller = token.Animator.runtimeAnimatorController;
+            if (controller == null) return false;
+            long key = controller.Pointer.ToInt64();
+            token.ControllerKey = key; // even an initial trigger fallback is scoped to this controller
+            if (!PowerSlashByController.TryGetValue(key, out bool known))
+            {
+                if (!TryHasPowerSlash(token.Animator, out known)) return false;   // probe failed: retry next trip
+                PowerSlashByController[key] = known;
+            }
+            if (!known) return false;
+            token.PoseKnown = true;
+            return true;
+        }
+        catch (Exception e) { Log("pose-open", e); return false; }
+    }
+
+    /// <summary>
+    /// The animator/controller identity this trip verified at its start; false once either was
+    /// replaced, so no later pose write ever lands on a controller it was not proven on.
+    /// </summary>
+    private static bool SamePoseTarget(ChoreoToken token, Knight k, out Animator animator)
+    {
+        animator = null;
+        if (token == null || k == null) return false;
+        try
+        {
+            animator = k._animator;
+            if (animator == null || !Same(animator, token.Animator) || !animator.isActiveAndEnabled) return false;
+            RuntimeAnimatorController controller = animator.runtimeAnimatorController;
+            return controller != null && controller.Pointer.ToInt64() == token.ControllerKey;
+        }
+        catch (Exception e) { Log("pose-authority", e); return false; }
+    }
+
+    private static bool PoseAuthority(ChoreoToken token, Knight k, out Animator animator)
+    {
+        animator = null;
+        return token != null && token.PoseKnown && SamePoseTarget(token, k, out animator);
+    }
+
+    /// <summary>
+    /// One leg's pose start: replay the verified PowerSlash state from frame zero -- a visible
+    /// re-draw on the reverse cut even though the animator never left the state (2026-09-25
+    /// field fix for "keeps the drawn pose while sliding home"). A leftover Land trigger would
+    /// eat the state's only exit on the next update, so it is cleared first. A controller
+    /// without the state at the start falls back to the trigger. Replacement animators or
+    /// controllers receive no writes from the old trip. The looping
+    /// charge clip replays its animation events (the slash sound) each leg: intended.
+    /// </summary>
+    private static void SlashLegStart(ChoreoToken token, Knight k)
+    {
+        try
+        {
+            if (!SamePoseTarget(token, k, out Animator animator)) return;
+            animator.ResetTrigger(PowerSlash);
+            if (token.PoseKnown)
+            {
+                animator.ResetTrigger(Land);
+                animator.Play(PowerSlashFullPath, 0, 0f);
+                token.LastPlayFrame = Time.frameCount;
+            }
+            else animator.SetTrigger(PowerSlash);
+        }
+        catch (Exception e) { Log("pose-leg", e); }
+    }
+
+    /// <summary>
+    /// The close-out the real controller demands: PowerSlash's only exit is the Land trigger
+    /// (contract 2026-09-25: AnyState enters with duration 0, Land exits at normalized 1 back
+    /// to Stand), so a trip that ends -- completes or is hard-invalidated alike -- while its
+    /// own animator still sits in that state must fire it, or the pose outlives the motion (the
+    /// reported bug). The gate keeps it honest: the same readable animator/controller the trip
+    /// drove, still in PowerSlash (short or full hash), and a live body. Death, another state
+    /// (Die/Block already took over) and a replaced controller are never overridden, and no
+    /// network message is sent -- the pre-existing pose-not-networked gap stays as wide as it
+    /// was.
+    /// </summary>
+    private static void LandSlashPose(ChoreoToken token, Knight k)
+    {
+        try
+        {
+            if (!PoseAuthority(token, k, out Animator animator)) return;
+            var d = k._damageable;
+            if (d == null || d.isDead) return;
+            AnimatorStateInfo info = animator.GetCurrentAnimatorStateInfo(0);
+            bool inState = info.shortNameHash == PowerSlash || info.fullPathHash == PowerSlashFullPath;
+            // Play can still be pending until animation evaluation. A same-frame failure must
+            // queue the exit too, or the pending looping pose would start after motion cleanup.
+            if (!inState && token.LastPlayFrame != Time.frameCount) return;
+            animator.SetTrigger(Land);
+        }
+        catch (Exception e) { Log("pose-land", e); }
+    }
+
+
+    /// <summary>
     /// The whole trip in one coroutine: the outbound leg and the home leg share one loop shape
-    /// (fixed goal, 1.2 s window, 0.1 s hit cadence, 0.3 s goal re-assert, eligibility checked
-    /// every iteration) and the turn runs between them. Every exit -- complete, interrupted or
+    /// (frozen goal re-asserted every frame, arrival by crossing in the direction frozen at
+    /// the leg's start, 1.2 s window, 0.1 s hit cadence, hard invalidation checked every
+    /// iteration) and the turn runs between them. A leg that misses its window never
+    /// masquerades as arrival: the home deadline closes under its own reason and the outbound
+    /// one turns anyway with the timeout recorded. Every exit -- complete, deadline, invalid or
     /// throwing -- closes through the same Finale; the flag suppresses the native slash.
     /// </summary>
     private static IEnumerator ChoreoRoutine(ActorState a, ChoreoToken token)
@@ -1054,45 +723,66 @@ internal static class PatchRoles_SamuraiPowerDash
         string step = "complete";
         int leg = 0;                                        // 0 = outbound, 1 = home
         float goal = a.ChoreoHomeX + a.ChoreoSide * SamuraiFixedDashDistance;
+        int dir = a.ChoreoSide;                             // arrival direction frozen at the leg's start
         float deadline = Time.time + DashWindow;
-        float nextHit = 0f, nextGoal = Time.time + GoalReassert;
+        float nextHit = 0f;
         while (true)
         {
             // (A yield may not sit inside a try that has a catch, so the iteration is synchronous
             // and the yield lives at the loop tail.)
             try
             {
-                if (!ChoreoAlive(a, token) || !Same(k._mover, token.Mover) || !Eligible(k))
+                string why = ChoreoInvalidClause(a, token, k);
+                if (why.Length != 0)
                 {
-                    step = leg == 0 ? "out-interrupt" : "home-interrupt";
+                    step = (leg == 0 ? "out-interrupt:" : "home-interrupt:") + why;
                     break;
                 }
                 if (Time.timeScale > 0)
                 {
                     if (Time.time >= nextHit) { nextHit = Time.time + HitInterval; ChoreoHitScan(a, token); }
-                    if (!ChoreoAlive(a, token) || !Same(k._mover, token.Mover) || !Eligible(k))
+                    why = ChoreoInvalidClause(a, token, k);
+                    if (why.Length != 0)
                     {
-                        step = leg == 0 ? "out-interrupt" : "home-interrupt";
+                        step = (leg == 0 ? "out-interrupt:" : "home-interrupt:") + why;
                         break;
                     }
-                    if (Time.time >= nextGoal) { nextGoal = Time.time + GoalReassert; ChoreoGoal(a, token, goal, DashSpeed); }
-                    if (leg == 0) TryCaptureSlashPose(k, a);
+                    // Every-frame re-assert (2026-09-25b): the routine resumes after all
+                    // Updates, so a native goal steal survives at most one consumed frame.
+                    ChoreoGoal(a, token, goal, DashSpeed);
                 }
-                if (Mathf.Abs(k.transform.position.x - goal) <= ChoreoArrive || Time.time >= deadline)
+                // Arrival by crossing in the leg's frozen direction: a large dt that jumps
+                // past the goal plus tolerance still lands, and the home leg only completes
+                // on a real crossing -- a missed window gets its own close reason.
+                bool arrived = dir > 0
+                    ? k.transform.position.x >= goal - ChoreoArrive
+                    : k.transform.position.x <= goal + ChoreoArrive;
+                bool timedOut = Time.time >= deadline;
+                if (arrived || timedOut)
                 {
-                    if (leg == 1) break;                        // home: the trip is complete
-                    TurnChoreo(a, token);                       // outbound: the reverse cut home
-                    if (!ChoreoAlive(a, token) || !Same(k._mover, token.Mover) || !Eligible(k))
+                    if (leg == 1)
                     {
-                        step = "turn-interrupt";
+                        if (!arrived) step = "home-deadline";
+                        break;
+                    }
+                    if (timedOut && !arrived)
+                    {
+                        token.TurnTimedOut = true;         // the fact rides along on the close line
+                        LogChoreoClose(a, token, "out-deadline");
+                    }
+                    TurnChoreo(a, token);                   // outbound: the reverse cut home
+                    why = ChoreoInvalidClause(a, token, k);
+                    if (why.Length != 0)
+                    {
+                        step = "turn-interrupt:" + why;
                         break;
                     }
                     leg = 1;
                     token.Phase = "home";
                     goal = a.ChoreoHomeX;
+                    dir = goal < k.transform.position.x ? -1 : 1;
                     deadline = Time.time + DashWindow;
-                    nextHit = Time.time + HitInterval;          // the turn already struck on its entry frame
-                    nextGoal = Time.time + GoalReassert;
+                    nextHit = Time.time + HitInterval;      // the turn already struck on its entry frame
                 }
             }
             catch (Exception e)
@@ -1106,28 +796,20 @@ internal static class PatchRoles_SamuraiPowerDash
         Finale(a, token, step);
     }
 
+
     /// <summary>
-    /// The reverse cut: replay the captured slash pose (or re-fire the trigger when no pose was
-    /// ever captured), turn toward home, put the goal on the start point and strike the entry
-    /// frame. Runs in the coroutine's own path, so no hand-off seam exists.
+    /// The reverse cut: replay the verified slash state from frame zero (or re-fire the trigger
+    /// when the controller never verified), turn toward home, put the goal on the start point
+    /// and strike the entry frame. Runs in the coroutine's own path, so no hand-off seam
+    /// exists. The legs never Stop between them -- the mover's own acceleration ramp and
+    /// rubber-band deceleration handle the reversal; only the finale stops a goal it still owns.
     /// </summary>
     private static void TurnChoreo(ActorState a, ChoreoToken token)
     {
         Knight k = a.Owner;
         token.Phase = "turn";
-        try
-        {
-            if (k._animator != null)
-            {
-                // 2026-09-25 用户裁定（反方向再出刀冲刺回来=燕返）：出程结束时动画机多半
-                // 还在 PowerSlash 状态里，重触发不可见（实机"保持出刀姿势滑回来"）。把
-                // 捕获的出刀状态从第 0 帧重放=可见的重新拔刀；无捕获时退回触发器。
-                k._animator.ResetTrigger(PowerSlash);
-                if (a.SlashHash != 0) k._animator.Play(a.SlashHash, 0, 0f);
-                else k._animator.SetTrigger(PowerSlash);
-            }
-        }
-        catch (Exception e) { Log("choreo-turn-trigger", e); }
+        token.TurnX = k.transform.position.x;
+        SlashLegStart(token, k);
         token.HitObjects.Clear();                   // the reverse cut opens its own hit round
         float home = a.ChoreoHomeX;
         int direction = home < k.transform.position.x ? -1 : 1;
@@ -1150,22 +832,23 @@ internal static class PatchRoles_SamuraiPowerDash
     /// <summary>
     /// The choreography's damage scan -- the "hit what you fly into" half that replaced the old
     /// target-tracking burst: a circle of HitRadius around the knight, one hit per Damageable per
-    /// leg, stopped mid-frame whenever a synchronous damage callback retires the run.
+    /// leg, stopped mid-frame only when a synchronous damage callback hard-invalidates the run
+    /// (a native behaviour flag never silences the hits; see ChoreoInvalidClause).
     /// </summary>
     private static void ChoreoHitScan(ActorState a, ChoreoToken token)
     {
-        if (!ChoreoAlive(a, token) || Time.timeScale <= 0 || !Eligible(a.Owner)) return;
+        if (!ChoreoValid(a, token, a.Owner) || Time.timeScale <= 0) return;
         if (HitLayerMask == 0) HitLayerMask = LayerMask.GetMask("Enemies", "Wildlife");
         Knight k = a.Owner;
         int count = Physics2D.OverlapCircleNonAlloc(k.transform.position, HitRadius, token.Colliders, HitLayerMask);
         for (int i = 0; i < count; i++)
         {
-            if (!ChoreoAlive(a, token) || !Eligible(k)) return;
+            if (!ChoreoValid(a, token, k)) return;
             Collider2D hit = token.Colliders[i];
             if (hit == null) continue;
             Damageable enemy = hit.GetComponent<Damageable>();
             if (enemy == null || !enemy.IsDamagedBy(DamageSource.Knight)) continue;
-            if (!ChoreoAlive(a, token) || !Eligible(k)) return;
+            if (!ChoreoValid(a, token, k)) return;
             if (!token.HitObjects.Add(enemy.Pointer)) continue;
             enemy.ReceiveDamage(k._attackDamage, k.gameObject, DamageSource.Knight);
         }
@@ -1175,192 +858,113 @@ internal static class PatchRoles_SamuraiPowerDash
     /// The single close for one round trip: idempotent by token identity, so OnDisable, the Tick
     /// hard cap and the coroutine's own finally can all call it and only the first one writes.
     /// The flag is cleared first -- a Stop callback that starts a new motion must never be erased
-    /// by this retired one -- then effects return by value, facing is released, the stuck-pose
-    /// probe is armed (trigger reset + finish capture) and a goal still ours is stopped.
+    /// by this retired one -- then the close narrative is emitted in its own guarded step (a
+    /// logging failure can never skip the restore), effects return by value, facing is released,
+    /// the pose is landed through the controller's own exit and a goal still ours is stopped.
     /// </summary>
     private static void Finale(ActorState a, ChoreoToken token, string step)
     {
         if (!ChoreoAlive(a, token)) return;
         a.Choreo = null;
         Knight k = a.Owner;
+        // The narrative is isolated from the close on purpose: a logging failure must never be
+        // able to skip the value-discipline restore and leave the knight invulnerable forever.
+        try { LogChoreoClose(a, token, step); }
+        catch (Exception e) { Log("choreo-close-log", e); }
         try
         {
-            LogChoreoClose(a, token, step);
             SamuraiDashVisuals.End(token.Visual);
             RestoreChoreoEffects(a, token);
             RestoreFacing(token.Mover, ref a.ChoreoFacingWritten, ref a.ChoreoFacingOwned);
-            a.LastCutEndAt = Time.time;             // arms the stuck-pose probe window
-            try { if (k != null && k._animator != null) k._animator.ResetTrigger(PowerSlash); }
+            try { if (SamePoseTarget(token, k, out Animator animator)) animator.ResetTrigger(PowerSlash); }
             catch (Exception e) { Log("reset-trigger", e); }
-            // Stuck-pose capture net, finish leg: short-of-transition cuts and baseline-poisoned
-            // knights can never capture in-flight; peers on the same controller may still know it.
-            try { if (k != null) CaptureSlashAtFinish(a, k); }
-            catch (Exception e) { Log("finish-capture", e); }
+            // The pose close-out the real controller needs (2026-09-25b): a trip that ends
+            // while its own animator still sits in PowerSlash fires Land -- including every
+            // hard invalidation, which is exactly when the pose used to be left behind.
+            try { if (k != null) LandSlashPose(token, k); }
+            catch (Exception e) { Log("land-pose", e); }
             // Never restore a previous goal, clear an external pause, or stop a replacement mover.
             if (ChoreoOwnGoal(a, token)) token.Mover.Stop();
         }
         catch (Exception e) { Log("choreo-finale", e); }
     }
 
-    // Combat-effects half of the choreography's restore discipline: the same value discipline the
-    // retired lease used -- a bool cannot identify an external true -> true rewrite, so restore
-    // only values that still carry ours; the trail lifetime restores only while it is still ours.
+    // The choreography's restore discipline: a bool cannot identify an external true -> true
+    // rewrite, so the protection returns only while the flag still carries ours. The trail is
+    // no longer written at all (2026-09-25 user ruling) -- ghosts only, never a live smear, so
+    // an externally enabled trail survives the whole trip untouched.
     private static void RestoreChoreoEffects(ActorState a, ChoreoToken token)
     {
         if (!a.ChoreoEffects) return;
         a.ChoreoEffects = false;
         if (token.Damageable != null && token.Damageable.invulnerable) token.Damageable.invulnerable = a.ChoreoOldInvulnerable;
-        if (token.Trail != null && token.Trail.enabled) token.Trail.enabled = a.ChoreoOldTrail;
-        if (token.Trail != null && Mathf.Approximately(token.Trail.time, SamuraiTrailLifetime)) token.Trail.time = a.ChoreoOldTrailTime;
         LogChoreoTrail(token, "effects-restored");
     }
 
-    // Early-exit narrative (budgeted): one line per abnormal close, a session budget plus a
-    // per-knight throttle, carrying the reason, the phase and the elapsed time for the log.
+    // Abnormal-close narrative (2026-09-25b): one line per non-complete close carrying the
+    // frozen endpoints, the turn position and the actual end position -- a missed window must
+    // never read as an arrival. No throttle: repeated hard failures stay countable, bounded
+    // only by the session budget.
     private static void LogChoreoClose(ActorState a, ChoreoToken token, string step)
     {
         if (step == "complete" || ChoreoLogs >= ChoreoLogBudget) return;
-        if (Time.time < a.NextChoreoLogAt) return;
-        a.NextChoreoLogAt = Time.time + ChoreoLogEvery;
         ChoreoLogs++;
         try
         {
+            Knight k = a.Owner;
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[SamuraiDash/choreo] knight=" +
-                (a.Owner != null && a.Owner.gameObject != null ? a.Owner.gameObject.GetInstanceID() : 0) +
+                (k != null && k.gameObject != null ? k.gameObject.GetInstanceID() : 0) +
                 " step=" + step + " phase=" + token.Phase + " elapsed=" +
-                (Time.time - token.StartedAt).ToString("0.###") + " startX=" + a.ChoreoStartX.ToString("0.##"));
+                (Time.time - token.StartedAt).ToString("0.###") +
+                " home=" + a.ChoreoHomeX.ToString("0.##") +
+                " outGoal=" + (a.ChoreoHomeX + a.ChoreoSide * SamuraiFixedDashDistance).ToString("0.##") +
+                " turnX=" + token.TurnX.ToString("0.##") +
+                " endX=" + (k != null ? k.transform.position.x.ToString("0.##") : "0") +
+                " turnTimedOut=" + token.TurnTimedOut);
         }
         catch { }
     }
 
+
+
     private static void LogChoreoTrail(ChoreoToken token, string eventName) =>
         LogTrailState(token.Trail, token.Diagnostics, token.StartedAt, eventName);
 
-    private static void AdvanceReturn(MotionLease m)
-    {
-        if (!ValidMotion(m)) { Finish(m, EndReason.Failure); return; }
-        var a = m.Actor;
-        if (!ValidFollower(a.Owner, a.Follower)) { Finish(m, EndReason.Handoff); return; }
-        if (m.Kind == MotionKind.Walk) { HoldFacing(m.Mover, ref m.FacingWritten, ref m.FacingOwned); AdvanceWalk(m); return; }
 
-        HoldFacing(m.Mover, ref m.FacingWritten, ref m.FacingOwned);
-        float distance = Distance(a), now = Time.time;
-        if (!m.Running && Time.timeScale > 0 && now - m.StartedAt < DashTimeout &&
-            Mathf.Abs(a.Owner.transform.position.x - m.StartX) < MaxRange)
-            HitScan(m);
-        // A hit callback may synchronously disable the knight or replace this lease; never touch the new one.
-        if (!Current(m)) return;
-        if (!ValidMotion(m)) { Finish(m, EndReason.Failure); return; }
-        if (!ValidFollower(a.Owner, a.Follower)) { Finish(m, EndReason.Handoff); return; }
-        distance = Distance(a); now = Time.time;
-        if (distance <= ReturnStop) { Finish(m, EndReason.Success); return; }
-        if (distance < m.BestDistance - .1f) { m.BestDistance = distance; m.LastProgressAt = now; }
-        if (now - m.StartedAt >= 3f || now - m.LastProgressAt >= .5f) { Finish(m, EndReason.Failure); return; }
-        if (Time.timeScale <= 0) return;
-        if (!m.Running && (now - m.StartedAt >= DashTimeout ||
-            Mathf.Abs(a.Owner.transform.position.x - m.StartX) >= MaxRange - .05f))
-        {
-            RestoreEffects(m);
-            m.Running = true;
-            Goal(m, StationX(a), a.Owner._runSpeed);
-            m.NextGoal = now + ScanInterval;
-        }
-        else if (m.Running && now >= m.NextGoal)
-        {
-            m.NextGoal = now + ScanInterval;
-            float target = StationX(a);
-            if (Mathf.Abs(target - m.GoalX) > .25f) Goal(m, target, a.Owner._runSpeed);
-        }
-    }
-
-    // Plain run-speed walk home: the fallback that keeps a stranded samurai moving once the
-    // dash ladder is spent. No effects, no invulnerability, no hit scan, no visuals and no
-    // deadline -- only arrival, a lost follower, a stolen goal or dusk ends it.
+    // Plain run-speed walk home (2026-09-25 user ruling): the withdrawal family's whole
+    // remaining motion -- no effects, no invulnerability, no hit scan, no visuals, no facing
+    // lease and no deadline. Only arrival, a lost follower, a stolen goal or dusk ends it.
     private static void BeginWalk(ActorState a)
     {
         Knight k = a.Owner;
-        var m = new MotionLease
-        {
-            Actor = a, Mover = k._mover, Damageable = k._damageable, Trail = k._trail,
-            Kind = MotionKind.Walk, Running = true, // Running keeps CanHit false
-            StartedAt = Time.time, StartX = k.transform.position.x,
-            FacingWritten = EnemyFacing(k)
-        };
+        var m = new MotionLease { Actor = a, Mover = k._mover, Trail = k._trail };
         a.Motion = m;
-        HoldFacing(m.Mover, ref m.FacingWritten, ref m.FacingOwned);
         Goal(m, StationX(a), k._runSpeed);
         m.NextGoal = Time.time + ScanInterval;
         LogWalk("walk", m);
     }
 
-    // The walk phase carries no burst deadlines and suppresses no slash: the samurai may keep
-    // defending itself on the way back, and only real ownership loss ends the walk.
+    // The walk suppresses no slash: the samurai may keep defending itself on the way back,
+    // and only real ownership loss ends the walk.
     private static void AdvanceWalk(MotionLease m)
     {
-        if (!ValidMotion(m)) { Finish(m, EndReason.Failure); return; }
+        if (!ValidMotion(m)) { Finish(m); return; }
         var a = m.Actor;
         float now = Time.time;
-        if (Distance(a) <= ReturnStop) { LogWalk("walk-done", m); Finish(m, EndReason.Success); return; }
+        if (Distance(a) <= ReturnStop) { LogWalk("walk-done", m); Finish(m); return; }
         if (now >= m.NextGoal)
         {
             m.NextGoal = now + ScanInterval;
             float target = StationX(a);
             if (Mathf.Abs(target - m.GoalX) > .25f) Goal(m, target, a.Owner._runSpeed);
         }
-        // The backoff elapsed while walking: hand back to a fresh burst attempt (next frame).
-        if (a.Failures < WalkAfterFailures && now >= a.RetryAt) Finish(m, EndReason.Handoff);
     }
 
-    private static bool CanHit(MotionLease m)
-    {
-        if (m.Running || Time.timeScale <= 0 || !ValidMotion(m)) return false;
-        var a = m.Actor;
-        if (Mathf.Abs(a.Owner.transform.position.x - m.StartX) >= MaxRange) return false;
-        // The return burst strikes only while its dash window runs and the follower leash holds;
-        // the walk home (Running) never damages.
-        return Time.time - m.StartedAt < DashTimeout && ValidFollower(a.Owner, a.Follower);
-    }
 
-    /// <summary>Shared burst hit scan used by the withdrawal ladder's return dash.</summary>
-    private static void HitScan(MotionLease m)
-    {
-        if (!CanHit(m)) return;
-        if (HitLayerMask == 0) HitLayerMask = LayerMask.GetMask("Enemies", "Wildlife");
-        var a = m.Actor;
-        int count = Physics2D.OverlapCircleNonAlloc(a.Owner.transform.position, HitRadius, m.Colliders, HitLayerMask);
-        for (int i = 0; i < count && CanHit(m); i++)
-        {
-            Collider2D hit = m.Colliders[i];
-            if (hit == null) continue;
-            Damageable enemy = hit.GetComponent<Damageable>();
-            if (enemy == null || !enemy.IsDamagedBy(DamageSource.Knight)) continue;
-            if (!CanHit(m)) return;
-            if (!m.HitObjects.Add(enemy.Pointer)) continue;
-            // Continue through distinct enemies only while synchronous callbacks leave this burst valid.
-            enemy.ReceiveDamage(a.Owner._attackDamage, a.Owner.gameObject, DamageSource.Knight);
-            if (!CanHit(m)) return;
-        }
-    }
-
-    internal static bool IsReturning(Knight knight)
-    {
-        try
-        {
-            if (knight == null || knight.gameObject == null) return false;
-            if (!Actors.TryGetValue(knight.gameObject.GetInstanceID(), out var a) || !Same(a.Owner, knight)) return false;
-            var m = a.Motion;
-            // Only the invulnerable ordinary return burst suppresses the native slash; a
-            // walking withdrawal is a plain retreat, and the choreographed round trip keeps
-            // its own flag-based suppression (IsChoreoActive) for the whole trip.
-            return m != null && m.Kind == MotionKind.Return && ValidMotion(m) &&
-                ValidFollower(knight, a.Follower) && Distance(a) > ReturnStop;
-        }
-        catch (Exception e) { Log("should-slash", e); return false; }
-    }
 
     /// <summary>
     /// True while this knight's actor entry owns any live motion (the choreographed round trip
-    /// flag or a Return/Walk lease). The night wall formation redirect
+    /// flag or a plain walk lease). The night wall formation redirect
     /// (PatchRoles_SamuraiNightFormation) reads it to leave motion-owned goals untouched.
     /// Exception -> true: without proof that no motion exists we never interleave.
     /// </summary>
