@@ -1,0 +1,52 @@
+{
+  "source": "actual 2.4 resources.assets, read only",
+  "controller": "knight",
+  "override": "knight_bamboo",
+  "states": [
+    {
+      "name": "PowerSlash",
+      "shortHash": 3768084642,
+      "fullHash": 3619543953,
+      "loop": true,
+      "transitions": [
+        {
+          "target": "Land",
+          "duration": 0.0,
+          "exitTime": 1.0,
+          "hasExitTime": false,
+          "conditions": [
+            {
+              "parameter": "Land",
+              "mode": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Land",
+      "shortHash": 137525990,
+      "fullHash": 558702772,
+      "loop": false,
+      "transitions": [
+        {
+          "target": "Stand",
+          "duration": 0.0,
+          "exitTime": 1.0,
+          "hasExitTime": true,
+          "conditions": []
+        }
+      ]
+    }
+  ],
+  "clips": [
+    {
+      "original": "knight_charge",
+      "replacement": "knight_charge_bamboo"
+    },
+    {
+      "original": "knight_land",
+      "replacement": "knight_land_bamboo"
+    }
+  ]
+}

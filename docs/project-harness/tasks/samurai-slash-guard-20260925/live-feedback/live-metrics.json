@@ -1,0 +1,78 @@
+{
+  "observedOutbound": [
+    {
+      "dash": 1,
+      "start": 89.59,
+      "turn": 96.46,
+      "home": 89.59,
+      "outDistance": 6.87,
+      "homeDrift": 0.0
+    },
+    {
+      "dash": 2,
+      "start": 90.86,
+      "turn": 97.79,
+      "home": 90.86,
+      "outDistance": 6.93,
+      "homeDrift": 0.0
+    },
+    {
+      "dash": 4,
+      "start": 84.78,
+      "turn": 91.65,
+      "home": 84.78,
+      "outDistance": 6.87,
+      "homeDrift": 0.0
+    },
+    {
+      "dash": 5,
+      "start": 84.8,
+      "turn": 91.78,
+      "home": 84.8,
+      "outDistance": 6.98,
+      "homeDrift": 0.0
+    },
+    {
+      "dash": 7,
+      "start": 90.61,
+      "turn": 97.63,
+      "home": 90.61,
+      "outDistance": 7.02,
+      "homeDrift": 0.0
+    },
+    {
+      "dash": 8,
+      "start": 85.35,
+      "turn": 92.22,
+      "home": 85.35,
+      "outDistance": 6.87,
+      "homeDrift": 0.0
+    },
+    {
+      "dash": 9,
+      "start": 85.3,
+      "turn": 92.3,
+      "home": 85.3,
+      "outDistance": 7.0,
+      "homeDrift": 0.0
+    },
+    {
+      "dash": 10,
+      "start": -104.25,
+      "turn": -111.13,
+      "home": -104.25,
+      "outDistance": 6.88,
+      "homeDrift": 0.0
+    }
+  ],
+  "standaloneReturnBursts": [
+    {
+      "dash": 11,
+      "knight": -90516,
+      "mode": "return",
+      "time": 39.43,
+      "x": 39.36
+    }
+  ],
+  "limits": "End X absent in old bounded log; cannot infer actual home-leg distances or exact cause of every reported long withdrawal."
+}

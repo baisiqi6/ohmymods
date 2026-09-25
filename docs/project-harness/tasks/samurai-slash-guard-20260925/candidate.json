@@ -1,0 +1,30 @@
+{
+  "createdAt": "2026-09-25T11:05:24.0835958+08:00",
+  "base": "67d39b9",
+  "branch": "win/samurai-choreo-hard-validity",
+  "stamp": "9.14.24-choreo-whitefix-20260925",
+  "candidateMd5": "8E994A98B65E77EA6368682E4C96C427",
+  "candidateSha256": "EC86481FF07E7ECB9D1CC5541500F22357D29F41A4B194608EDFE7FACD18ABA1",
+  "build": "0 warnings / 0 errors",
+  "sourceHashes": {
+    "il2cpp/PatchRoles_SamuraiPowerDash.cs": "C30E085CF8A361CA202E162E165AB2F5060BACDC38D523B0D6B6FF7D4C42E875",
+    "tests/samurai-visuals/Program.cs": "6F82FE34C8F7826764691A38C0FA9BF2BAA74BBBA4BB1BC469037AD70BE26EE6",
+    "tests/samurai-motion/Program.cs": "7F7DF018A79CDD1852DBF44319F7829CD87843D9AA777AA64C7EB812E4B58930",
+    "il2cpp/SamuraiDashVisuals.cs": "07E5943383B788D805614652C595104F461806B213B6B60A3E3FF7A2B4873F97",
+    "tests/samurai-visuals/Stubs.cs": "D96B487414D3F14A630E57476C2133E2AF0E5D53E4BBB9D751D63EC194BFFB20"
+  },
+  "diagnosticsCopiedUnchanged": [
+    {
+      "name": "PatchDiag_PayShop.cs",
+      "sha256": "A854667D4286F039C8369BCA50F0B34EEF4098B0A5494466F794592CE5B3C60C"
+    },
+    {
+      "name": "PatchDiag_ShopQueue.cs",
+      "sha256": "A5CD5B0EAC0605E0B48533EC79EB7EA1E266E8BD42C88527937DDD7860E1F24F"
+    },
+    {
+      "name": "PatchDiag_StuckSamurai.cs",
+      "sha256": "87D8A2483DDEC0288EE0487EDCA77756039A1C2AC63A9363D9BBFDF0D6C92149"
+    }
+  ]
+}

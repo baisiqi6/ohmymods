@@ -1,0 +1,8 @@
+继续原视觉worker session，先核对git diff，另一motion worker已完成且GLM APPROVE，禁止修改其文件。原allowlist/禁止事项仍生效；使用yolo仅解决bash非交互，禁止MCP/runtime/远端/commit/push/deploy/启动游戏/存档/派子代理。
+Operator暂停你的原因：当前Bakeable拒绝packed让主功能在真实游戏必定无效。已只读解析实际2.4 sharedassets0.assets中的SpriteAtlas.m_RenderDataMap（不是Sprite原m_RD），59个bamboo相关Sprite全部packed，日志使用knight_charge_bamboo_0：41x32/PPU32/pivot(.35,0)，实际atlas2048x2048、textureRect偏移1468,170。见本任务native-bamboo-assets.json。不能把packed降级当正常验收通过！
+修正版设计审查见本任务packed-design-review.md，先按其结论执行再实现。目标仍运行时白像素烘焙，不导入历史8帧预制图集、不改动作系统。
+拟定实际采样：读取源sprite.vertices/triangles/uv，不依赖tight的textureRect。输出原rect.width/height大小；vertices*PPU+pivot映射输出像素，三角形重心插值UV读取atlas alpha，RGB255、覆盖外alpha0；Sprite.Create输出rect(0,0,w,h)、源归一化pivot和PPU，flip/sorting保持。要区分source.rect位置已不适用于生成的小纹理，测试应断言尺寸和pivot/脚点相同而非位置同。
+真实geometry fixture在任务native-charge-fixture.json：vertices/triangles/PPU/pivot/atlas alpha tile来自2.4；uvInferred由serialized atlas.uvTransform计算并标明推导（不是runtime捕获）。请至少用真实mesh/UV作fixture，atlas偏移和透明外轮廓必须进入测试。原resource source RGBA不改。还要覆盖旋转/非矩形packed case。
+缓存修正以packed-design-review最终裁定为准：Operator早先检查到的Trim新对象风险已被你暂停前protect参数修复，保留正确保护；姿态缓存采用64软上限+在飞引用保护，超限仅因为活跃renderer持有（最多9*owner数+64级），引用释放后Trim收敛，2x时一次性日志。删除全atlas GPU白纹理与Users引用链，改有限CPU byte[] alpha atlas缓存（LRU最多4张且16MiB字节预算）+每姿态小Sprite及其Texture同生共死；不得将软上限宣称硬上限。WhiteKey必须含source Sprite身份，真实packed各姿态rect相同不能碰撞。ClearAll释放及源对象销毁/指针复用合理处理，避免复杂设施。
+新增白化成功一次性诊断（只报告真实已烘焙的主路径，源sprite名/尺寸/packed等有界信息）方便下一次实机核验，与NOT white降级日志区分。保留8槽/2秒/alpha与原shader链，主目录只允许本轮相关变更。
+测试：真实packed fixture成功白色，RGB255/逐像素alpha/source未改，pivot/几何/pose冻结；读回失败finally归还；cache饱和/旧在飞对象/新对象未销毁/销毁归还；临时退回原sprite赋值必须红后恢复绿。你的原稿正停在加诊断测试阶段，移除临时debug用例/输出。只跑visual测试，不编译主项目（Operator统一做）；最终visual-worker-result.md明确真实native数据与推断区别、测试计数与红验证、待实机。不要把桩通过当屏幕可见。

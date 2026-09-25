@@ -1,0 +1,28 @@
+{
+  "builtAt": "2026-09-25T16:04:42.1568291+08:00",
+  "stamp": "9.14.24-choreo-shopland-20260925",
+  "sourceDll": "C:\\Users\\ADMIN\\projects\\ohmymods-wt-choreo-fix\\il2cpp\\bin\\Debug\\KingdomEnhancedMod.dll",
+  "md5": "94CC219A57909EA19D4F366F84758DB6",
+  "sha256": "9E56BF4BB873DC68F7D65A5492D52196D76CB5D8E9F2A7E6231C512F636411C4",
+  "oldInstalledSha256": "EC86481FF07E7ECB9D1CC5541500F22357D29F41A4B194608EDFE7FACD18ABA1",
+  "tests": {
+    "wiring": 35,
+    "musketeerShop": 18,
+    "heroCore": 67,
+    "sideRack": 60
+  },
+  "samuraiSourcesUnchanged": true,
+  "samuraiPriorTests": 328,
+  "installed": true,
+  "runtimeVerified": false,
+  "sourceHashes": {
+    "tests/hero-shop/Program.cs": "C0CED10C0CB5C7CA05A9E83309A471DB151D61901ADC6F739659D7F61BD69F3E",
+    "il2cpp/KingdomEnhancedPlugin.cs": "6B9164E072C5866A5EBC8D79A0DDDC09B3FD66836F7213D1810C25A5177F3A2A",
+    "il2cpp/HeroShop.cs": "1508390BCB5479DD3180CD5CA88465B407FBB14B463A9607F1AA228756E5A499",
+    "il2cpp/MusketeerShop.cs": "C5D6B6ABA25EA10AE9BF4CF144355F66AA43F2E20B533CD3DCA9904A08CA95CB"
+  },
+  "reviewVerdict": "APPROVE",
+  "processAtCloseout": 45240,
+  "installedAt": "2026-09-25T23:55:47.6975360+08:00",
+  "installReceipt": "C:\\Users\\ADMIN\\projects\\ohmymods-wt-choreo-fix\\docs\\project-harness\\tasks\\shop-territory-placement-20260925\\receipts\\install.json"
+}

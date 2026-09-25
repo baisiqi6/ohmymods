@@ -1,3 +1,9 @@
+<!-- shop-territory-installed-20260925 -->
+2026-09-25 23:55 Windows PC/Codex：用户确认退出后，检测无Kingdom进程，核最新候选/受保护源码/旧DLL摘要，按已复审安装关口备份并安装累计94CC219A（build=9.14.24-choreo-shopland-20260925）至既定E盘测试副本。SHA256=9E56BF4BB873DC68F7D65A5492D52196D76CB5D8E9F2A7E6231C512F636411C4，旧8E994A98备份后缀20260925-235547.bak；存档与配置前后hash一致，未启动游戏。含商店全领地选址与武士收势/固定往返目标/仅白残影修复，实机待验。回执tasks/shop-territory-placement-20260925/receipts/install.json，未commit/push/publish。
+<!-- shop-territory-installed-20260925 -->
+<!-- shop-territory-placement-20260925 -->
+2026-09-25 Windows PC/Codex：按用户要求火铳铺与共用英雄驿站覆盖整个intact领地选址，取消±30/0.75固定采样；完整原生预留边界仅划分候选，超集不减去，double阈值与内部float/原生终检，无固定epsilon/对象截断，保留已有店/支付/枪架/暂停/地面。67+18+60+35检查、实际2.4接口与完整build0W0E、独立GLM5.3/max复审APPROVE。累计候选94CC219A / build=9.14.24-choreo-shopland-20260925包含未安装的DED188D7武士收势/回程/去拖尾修复，受保护源码hash保持；游戏PID45240仍运行，尚未安装，E盘仍8E994A98。旧DED候选另有备份，不要按旧路径误装。实机生成/密集选址耗时与武士观感待验，未commit/push/publish；证据tasks/shop-territory-placement-20260925。
+<!-- shop-territory-placement-20260925 -->
 <!-- release-945-20260917 -->
 2026-09-17 用户授权发布并沉淀累计版本规则，v9.4.5现为GitHub Latest。VERSIONING.md记录修复patch+1～5/功能minor+1～3、按完整条目去重，本批自公开9.0累计+0.4.0功能/+0.0.5修订。源码676f7204父公开21f7ffa，仅推新tag，原HEAD/index/branch保持。ZIP8961fd17 / DLL0f8c1fc8，582选集、精确commit实际2.4构建0W0E、99项目(76run/18compile/5xUnit434)通过。3725方法保持，仅Init版本/build文字变化；751type/4070field/3726method元数据及8PNG核对，314包项含VERSIONING、306运行依赖逐字节同9.0、CRC/隐私/独立审核与远端digest/Latest/tag读回通过。已闭游戏备份同步正式包DLL至E独立副本，28份用户存档/附加档/配置hash保持，未启动游戏。包括独立枪架/.9/五帧红焰/弹药长按/白天补货/伤害可靠性/4火枪后排与白天猎鹿。实机队形/鹿命中回防/密集战斗/跨岛与相关联机仍待，历史英雄步态/穿地/弩手缩放未称修复，功能doing状态保留。
 <!-- release-945-20260917 -->
@@ -675,3 +681,11 @@ marker组件存在不等于当前职业。选择、有效身份、未完成恢�
 身份附加档使用稳定存档/战役/挑战/岛上下文、opaque epoch、同次原生保存见证的ID与精确快照。未决历史保留并禁购；原生压缩存档不增加MOD组件。第一版在线关闭；当前岛离线验证不能推导跨岛运输已完成。配置关闭只停止表现与能力，不抹掉职业记录。
 
 详见 [任务契约](tasks/musketeer-20260916/contracts.md) 和 [审核记录](tasks/musketeer-20260916/review.md)。
+
+## 2026-09-25 燕返接手修复：启动资格与行程存续分离（待实机）
+
+已在用户指定samurai-slash-guard-20260925范围内实现：完整Eligible只约束开始与旧Return/Walk；正在执行的两腿只认身份/对象/配置/世界权/风格/移动器/死亡/抓取/石化等硬失效。原生撤退/充能/编队/控制等软旗不切断已开始行程，1.2秒腿窗与3秒缩放时间硬帽保留；APRetreat不反写。白影按源Sprite真实顶点/UV/三角形烘焙RGB255及图集alpha，保持pivot/PPU，支持实际packed/tight图集。设计/验证/剩余边界见tasks/samurai-slash-guard-20260925/，尚无玩法或联机验收。
+
+## 2026-09-25 午间：燕返收势与两段运动收口（待新版实机）
+
+用户已验收8E994A98的往返与真实白影，要求收回出刀姿态、固定两段、移除连续拖尾。实际2.4控制器PowerSlash唯一出口为Land，故改为已验证fullPath直接重播+每次合格Finale收势，删除猜测捕获/自愈；全部动画写只作用本轮原Animator/controller。同帧pending Play取消也补Land。独立追随从Return burst及退避全删，脱队只普通Walk。目标每帧重申、方向越点、异常终点日志，保留1.2s腿窗/3s帽，不新增Mover hook或直接改速度。Trail本mod写入纯删除，八槽白影保留。所有细节、328回归及最终APPROVE见tasks/samurai-slash-guard-20260925/live-feedback。本轮同一问题返修，不另计版本增量；安装与玩法验收分别留证。

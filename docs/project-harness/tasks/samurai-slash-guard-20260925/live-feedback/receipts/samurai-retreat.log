@@ -1,0 +1,44 @@
+PASS Native style2 GoToWall retreat input becomes exactly three times baseline
+PASS Other style 0 remains unchanged
+PASS Other style 1 remains unchanged
+PASS Other style 3 remains unchanged
+PASS Other style 4 remains unchanged
+PASS Unknown resolved style remains unchanged
+PASS Different ordinary run or dash speed 6 stays unchanged
+PASS Different ordinary run or dash speed 18 stays unchanged
+PASS Different ordinary run or dash speed 4 stays unchanged
+PASS Reapplying helper to an already boosted speed does not stack
+PASS Invalid input speed 0 is untouched
+PASS Invalid input speed -2 is untouched
+PASS Invalid input speed NaN is untouched
+PASS Invalid input speed ∞ is untouched
+PASS Invalid input speed -∞ is untouched
+PASS Invalid or overflowing native baseline 0 is not multiplied
+PASS Invalid or overflowing native baseline -2 is not multiplied
+PASS Invalid or overflowing native baseline NaN is not multiplied
+PASS Invalid or overflowing native baseline ∞ is not multiplied
+PASS Invalid or overflowing native baseline 3.4028235E+38 is not multiplied
+PASS Exclude not retreating
+PASS Exclude Stand
+PASS Exclude Assemble
+PASS Exclude formation
+PASS Exclude embarked
+PASS Exclude boat targeting
+PASS Exclude boat target
+PASS Exclude manual request
+PASS Exclude controlled
+PASS Exclude charging
+PASS Exclude pending charge
+PASS Exclude dead
+PASS Exclude inactive
+PASS Exclude inert
+PASS Exclude grabbed
+PASS Exclude stationary
+PASS Exclude pillar
+PASS Mismatched mover cannot receive another knight's speed boost
+PASS Missing actor or mover is harmless
+PASS Config disabled leaves arguments unchanged
+PASS Non-authoritative client leaves arguments unchanged
+PASS Real Harmony float prefix propagates ref speed and preserves native goal and Wait
+PASS Real cached Archer branch never receives knight retreat adjustment
+RESULT 43 passed, 0 failed

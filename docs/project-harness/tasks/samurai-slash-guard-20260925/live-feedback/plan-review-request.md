@@ -1,0 +1,12 @@
+角色：GLM5.3/max 独立对抗 reviewer，允许修改无，禁止派子代理/Git写入/网络/部署/游戏存档。cwd C:/Users/ADMIN/projects/ohmymods-wt-choreo-fix。上一轮白影/硬资格修复未提交，用户已实机认可真实往返和白影；本轮新要求：回来仍维持收刀/冲刺姿势没恢复；有时冲出短回撤很远甚至大后方，应该固定往返距离；去掉连续白拖尾只留白色定格残影。
+当前生产主文件il2cpp/PatchRoles_SamuraiPowerDash.cs已在上轮基础上冻结；tests/samurai-motion直链真生产。读实际代码给最小方案，本轮不动已经验收的SamuraiDashVisuals白像素烘焙。
+一手新证据：
+1. 最新log在 C:/Users/ADMIN/Documents/Codex/2026-09-25/c-users-admin-projects-ohmymods-docs/work/live-whitefix-feedback.log，build=choreo-whitefix，whiten-baked packed=True；日志转身坐标与home差6.87..7.02，确实目标7；有night-wall-queue x77.37/follower87.39；另有mode=return独立随从追赶冲刺，非两腿的一部分。没有slash-capture/slash-adopt日志；default-capture hash=-526882654。
+2. Operator只读解析真实2.4 resources.assets（非Mono）：work/knight-powerslash-contract.json给出knight AnimatorController状态数据。PowerSlash shortNameHash=3768084642（signed -526882654，恰好被错误记录为DefaultHash！），fullPath=3619543953。AnyState→PowerSlash duration=0且允许self；PowerSlash唯一出口需Land trigger(137525990)，不是exitTime自动退出；Land有exitTime=1自动Stand。所以现代码Capture必须见过transition导致0秒转移漏捕获；Finale只ResetPowerSlash不发Land，没有出口。全JSON在work/knight-anim-assets.json。可验证后采用HasState(0,Animator.StringToHash("Base Layer.PowerSlash"))的精确状态路径，不再依赖猜状态；每腿Play该状态0帧/Reset Land；完成只在自己PowerSlash态发送Land（本地animation、不新增RPC、不得盖过死亡/禁用/替换控制器），默认捕获排除已知PowerSlash/Land，未知controller保守回退。
+3. ChoreoGoal固定home±7与home，但只0.3s重申；循环到点用Abs<=.25或1.2s deadline，跨帧越点会漏到达。原生Mover.Update在碰撞/被抢goal时仍写velocity；Finale只有ChoreoOwnGoal才Stop。旧2.1Mover仅参考，Stop和ForceStop区别请核；本机2.4interop可由Operator查API。另有BeginReturn独立跟随冲刺+步行阶梯，允许朝随从另冲10.5格，容易被玩家当成第二段紊乱。
+拟定边界待审：
+A 姿态按真实2.4 controller契约：出/回直接重放已验证PowerSlash，完成用Land正常收势，不再等待捕获/1.5s修复。保持hard失效与未知controller安全。
+B 行程两端在token冻结，向外7/回home；用有方向的越点判定避免大dt越过容差。活动token期间在真正Mover.Update消费前修复被原生偷写的goal/速度/行进朝向（可新增窄Mover.Update prefix，仅已登记当前Knight+同Mover+有效token，其他unit零行为）；原生FSM仍运行，禁止整体跳过Knight.Update或位置瞬移。phase端点到达Stop/速度如何避免惯性越界请给最小建议。1.2s/腿+3s帽不拉长，真阻挡/超时不可谎报完成，应日志记录home/outGoal/turnX/endX/实际距离与结束原因。没有现场轨迹证明究竟哪路导致每次长回撤，明确推断边界。
+C 取消独立的“追随从回撤冲刺”，脱队只用已有普通速度BeginWalk回队，不再制造两腿之外的第三段突进。这是顺应用户固定两段要求的局部策略简化，需评估旧Return/Walk契约与测试如何最小改，不删真正安全断言。
+D 去掉本mod对TrailRenderer的启用和lifetime钉值，仅style2/本mod开启时抑制连续trail；不要影响其他骑士和已确认白影。纯视觉门不能被isRetreating软旗挡住。是否需要只在活动时抑制+快照归还 vs style2持续抑制，按已知native写点选择最小有效方案（用户不再要武士拖尾）。
+三问是否正确/是否最优/新bug，给APPROVE/CHANGES_REQUESTED/BLOCKED及具体可执行约束。特别核对固定两段、native落地trigger、客户端/Hard invalid/end cleanup、与Deadlands已有Mover.Update postfix兼容。审查可读本树、主树game-source（仅参考）与当前任务work证据。不用长篇复述历史、只给必要方案与测试矩阵。

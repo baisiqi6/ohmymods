@@ -256,9 +256,9 @@ internal static partial class MusketeerShop
         var payables = Managers.Inst.payables;
         float halfWidth = MusketeerShopRules.HalfWidth;
         _createStage = "find-position";
-        if (!HeroShopPlacementNative.Find(payables, kingdom.GetBorderSideIntact(Side.Left), kingdom.GetBorderSideIntact(Side.Right),
-            halfWidth, out float layoutCenter))
-        { _status = "完整城墙内暂时没有合适的商店空位"; return; }
+        if (!HeroShopPlacement.Find(kingdom.GetBorderSideIntact(Side.Left), kingdom.GetBorderSideIntact(Side.Right),
+            halfWidth, p => !payables.OverlapsAnyExclusions(p, halfWidth, false), out float layoutCenter))
+        { _status = "领地中段暂时没有商店空位"; return; }
 
         float position = layoutCenter - MusketeerShopRules.LayoutCenterX;
         _createStage = "ground-reference";

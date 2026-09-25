@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 #if !HERO_SHOP_CORE_ONLY
 using System.IO;
@@ -42,72 +41,19 @@ internal sealed class HeroShopPayment
 
 internal static class HeroShopPlacement
 {
-    internal readonly struct Interval
-    {
-        internal readonly float Low, High;
-        internal Interval(float low, float high) { Low = low; High = high; }
-    }
-
-    // Exclusions only split the search into cells. They never reject a cell: native fits
-    // remains authoritative, including for native types whose exclusions it ignores.
-    internal static bool Find(float left, float right, float halfWidth, Func<float, bool> fits,
-        Func<IReadOnlyList<Interval>> collectIntervals, out float x)
+    // 81 samples, at most 30 units either side of the middle; never search beyond the territory.
+    internal static bool Find(float left, float right, float halfWidth, Func<float, bool> fits, out float x)
     {
         x = 0;
         if (!float.IsFinite(left) || !float.IsFinite(right) || !float.IsFinite(halfWidth)
-            || halfWidth <= 0 || fits == null || collectIntervals == null) return false;
-        double low = (double)left + halfWidth, high = (double)right - halfWidth;
-        if (low > high) return false;
-        double middle = ((double)left + right) * 0.5;
-        bool Inside(float value) => float.IsFinite(value)
-            && value - halfWidth >= left && value + halfWidth <= right;
-        float center = (float)middle;
-        if (Inside(center) && fits(center)) { x = center; return true; }
-
-        var intervals = collectIntervals();
-        if (intervals == null) return false;
-        var thresholds = new List<double> { low, high };
-        foreach (var interval in intervals)
+            || halfWidth <= 0 || right - left < halfWidth * 2 || fits == null) return false;
+        float middle = left + (right - left) * 0.5f;
+        if (!float.IsFinite(middle)) return false;
+        for (int i = 0; i < 81; i++)
         {
-            if (!float.IsFinite(interval.Low) || !float.IsFinite(interval.High)
-                || interval.Low > interval.High) return false;
-            double a = (double)interval.Low - halfWidth, b = (double)interval.High + halfWidth;
-            if (a > low && a < high) thresholds.Add(a);
-            if (b > low && b < high) thresholds.Add(b);
-        }
-        thresholds.Sort();
-        var candidates = new HashSet<float>();
-        void Add(float value)
-        {
-            if (value != center && Inside(value)) candidates.Add(value);
-        }
-        Add((float)low);
-        Add((float)high);
-        for (int i = 1; i < thresholds.Count; i++)
-        {
-            double a = thresholds[i - 1], b = thresholds[i];
-            if (b <= a) continue;
-            void AddInterior(float value)
-            {
-                if (value > a && value < b) Add(value);
-            }
-            AddInterior((float)(a + (b - a) * 0.5));
-            // No fixed epsilon: even a gap narrower than a sampling step may have a
-            // usable float. These also cover a midpoint rounded onto a cell boundary.
-            float nearLeft = (float)a, nearRight = (float)b;
-            if (nearLeft <= a) nearLeft = MathF.BitIncrement(nearLeft);
-            if (nearRight >= b) nearRight = MathF.BitDecrement(nearRight);
-            AddInterior(nearLeft);
-            AddInterior(nearRight);
-        }
-        var ordered = new List<float>(candidates);
-        ordered.Sort((a, b) =>
-        {
-            int distance = Math.Abs((double)a - middle).CompareTo(Math.Abs((double)b - middle));
-            return distance != 0 ? distance : a.CompareTo(b);
-        });
-        foreach (float candidate in ordered)
-        {
+            float offset = i == 0 ? 0 : ((i + 1) / 2) * 0.75f * (i % 2 == 1 ? -1 : 1);
+            float candidate = middle + offset;
+            if (candidate - halfWidth < left || candidate + halfWidth > right) continue;
             if (!fits(candidate)) continue;
             x = candidate;
             return true;
@@ -115,49 +61,6 @@ internal static class HeroShopPlacement
         return false;
     }
 }
-
-#if !HERO_SHOP_CORE_ONLY
-internal static class HeroShopPlacementNative
-{
-    internal static bool Find(PayableManager payables, float left, float right, float halfWidth, out float x)
-        => HeroShopPlacement.Find(left, right, halfWidth,
-            p => !payables.OverlapsAnyExclusions(p, halfWidth, false), () => Collect(payables), out x);
-
-    private static IReadOnlyList<HeroShopPlacement.Interval> Collect(PayableManager payables)
-    {
-        var all = payables.AllPayables;
-        var blockers = payables._allBlockers;
-        if (all == null || blockers == null)
-            throw new InvalidOperationException("Shop placement exclusions are not ready.");
-        var intervals = new List<HeroShopPlacement.Interval>();
-        void Add(float point, float distance)
-        {
-            // Match the native float endpoint arithmetic before expanding in double.
-            float low = point - distance, high = point + distance;
-            if (!float.IsFinite(point) || !float.IsFinite(distance) || distance < 0
-                || !float.IsFinite(low) || !float.IsFinite(high))
-                throw new InvalidOperationException("Invalid shop placement exclusion.");
-            intervals.Add(new HeroShopPlacement.Interval(low, high));
-        }
-        for (int i = 0; i < all.Length; i++)
-        {
-            var payable = all[i];
-            if (payable == null) continue; // AllPayables contains unused slots.
-            float distance = payable.payablePlacementExclusionDistance;
-            if (!float.IsFinite(distance))
-                throw new InvalidOperationException("Invalid payable placement distance.");
-            if (distance > 0) Add(payable.PayableExclusionPoint(), distance);
-        }
-        for (int i = 0; i < blockers.Count; i++)
-        {
-            var blocker = blockers[i];
-            if (blocker == null) continue;
-            Add(blocker.GetExclusionPoint(), blocker.exclusionDistance);
-        }
-        return intervals;
-    }
-}
-#endif
 
 /// <summary>Ground baseline policy for the MOD shop; no Unity dependencies.</summary>
 internal static class HeroShopGrounding
@@ -443,9 +346,9 @@ internal static class HeroShop
         var payables = Managers.Inst.payables;
         float halfWidth = Math.Max(1f, _sprite.bounds.size.x * 0.5f);
         _createStage = "find-position";
-        if (!HeroShopPlacementNative.Find(payables, kingdom.GetBorderSideIntact(Side.Left), kingdom.GetBorderSideIntact(Side.Right),
-            halfWidth, out float position))
-        { _status = "完整城墙内暂时没有合适的商店空位"; return; }
+        if (!HeroShopPlacement.Find(kingdom.GetBorderSideIntact(Side.Left), kingdom.GetBorderSideIntact(Side.Right),
+            halfWidth, p => !payables.OverlapsAnyExclusions(p, halfWidth, false), out float position))
+        { _status = "领地中段暂时没有商店空位"; return; }
 
         _createStage = "ground-reference";
         if (!TryNativeGroundAnchor(layer, out float rootY, out float groundY))

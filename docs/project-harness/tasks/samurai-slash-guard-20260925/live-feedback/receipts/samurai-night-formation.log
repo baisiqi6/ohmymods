@@ -1,0 +1,25 @@
+PASS Right-side slots step inside the wall and the first slot clears it
+PASS Left-side slots mirror the wall step
+PASS Sparse ranks compact to consecutive indexes
+PASS Equal ranks keep instanceID order across cache rebuilds
+PASS Rank churn re-sorts inside the cache window
+PASS Override guard anchor uses the returned pair
+PASS Fallback anchor without an intact wall still steps inside
+PASS At-post flip faces the samurai outward
+PASS Flip window is half the slot spacing
+PASS Serpent near keeps the emergency wall return
+PASS Non-samurai, daytime, disabled and unresolved stay native
+PASS Redirect takes only the native guard goal in the GoToWall state
+PASS Redirect gate stays closed by day
+PASS Redirect obeys permission gates and motion leases
+PASS Samurai outside the scan and null inputs stay native
+PASS Activity log is bounded per night and proves the postfix flip
+PASS ShouldGoToWall postfix hook is wired to the module
+PASS HomeXOf level one returns the formation slot
+PASS HomeXOf level two falls back to the guard anchor on a slot miss
+PASS HomeXOf level three falls back to the samurai's own position
+PASS Real SetGoal prefix rewrites the native guard goal to the compact slot
+PASS Real SetGoal prefix keeps the knight branch native by day
+PASS Real SetGoal prefix guard passes our own rewritten goal straight through
+PASS Real SetGoal prefix leaves lease-owned goals native
+RESULT 24 passed, 0 failed

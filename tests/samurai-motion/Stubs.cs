@@ -55,7 +55,12 @@ namespace UnityEngine
         private bool enabledState = true;
         public virtual bool enabled { get => enabledState; set => enabledState = value; }
         public bool isActiveAndEnabled => enabled && gameObject.activeInHierarchy;
-        public Coroutine StartCoroutine(IEnumerator iterator) => Scheduler.Start(this, iterator);
+        public bool ThrowOnStartCoroutine;
+        public Coroutine StartCoroutine(IEnumerator iterator)
+        {
+            if (ThrowOnStartCoroutine) throw new InvalidOperationException("test coroutine startup failure");
+            return Scheduler.Start(this, iterator);
+        }
         public void StopCoroutine(Coroutine coroutine) => Scheduler.StopSilently(coroutine);
         public void StopAllCoroutines() => Scheduler.StopOwnerSilently(this);
     }
@@ -94,8 +99,13 @@ namespace UnityEngine
         public float NormalizedTime, Speed;
         public bool InTransition;
         public readonly List<string> Ops = new();
+        // Hash-level trigger records (2026-09-25b pose contract): "set"/"reset" ops alone
+        // cannot tell Land from PowerSlash, so every write also lands here in order.
+        public readonly List<int> SetTriggers = new();
+        public readonly List<int> ResetTriggers = new();
         public Func<int, int, float, bool> OnPlay;      // return false → the replay does not take
         public Action<bool> OnEnabledWrite;
+        public Func<int, int, bool> OnHasState;         // (layer, stateId) → false simulates a controller without the state
         private bool animatorEnabled = true;
 
         public override bool enabled
@@ -104,9 +114,9 @@ namespace UnityEngine
             set { animatorEnabled = value; EnabledWrites++; OnEnabledWrite?.Invoke(value); }
         }
         public static int StringToHash(string name) => name.GetHashCode();
-        public void SetTrigger(int hash) { TriggerCount++; Ops.Add("set"); }
-        public void ResetTrigger(int hash) { ResetCount++; Ops.Add("reset"); }
-        public bool IsInTransition(int layer) => InTransition;
+        public void SetTrigger(int hash) { TriggerCount++; Ops.Add("set"); SetTriggers.Add(hash); }
+        public void ResetTrigger(int hash) { ResetCount++; Ops.Add("reset"); ResetTriggers.Add(hash); }
+        public bool HasState(int layerIndex, int stateID) => OnHasState?.Invoke(layerIndex, stateID) ?? true;
         public float GetFloat(int id) => Speed;
         public int NextStateHash;
         public RuntimeAnimatorController runtimeAnimatorController = new();
@@ -119,7 +129,10 @@ namespace UnityEngine
             PlayCalls++;
             Ops.Add("play");
             if (OnPlay != null && !OnPlay(stateNameHash, layer, normalizedTime)) return;
-            StateHash = stateNameHash;
+            FullPathHash = stateNameHash;
+            StateHash = stateNameHash == StringToHash("Base Layer.PowerSlash")
+                ? StringToHash("PowerSlash") : stateNameHash;
+            NormalizedTime = normalizedTime;
         }
     }
     public class TrailRenderer : Component { public bool enabled, emitting; public int positionCount, sortingLayerID, sortingOrder; public float time, widthMultiplier; }

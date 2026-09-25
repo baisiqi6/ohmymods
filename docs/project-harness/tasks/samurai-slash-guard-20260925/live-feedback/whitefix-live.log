@@ -1,0 +1,355 @@
+[Message: Preloader] BepInEx 6.0.0-be.752 - KingdomTwoCrowns (2026/5/4 21:04:42)
+[Message: Preloader] Built from commit dd0655fe9d7473b18b0af759448adaf272878fcf
+[Info   :   BepInEx] System platform: Windows 10 64-bit
+[Info   :   BepInEx] Process bitness: 64-bit (x64)
+[Info   :   BepInEx] Running under Unity 6000.0.61f1
+[Info   :   BepInEx] Runtime version: 6.0.7
+[Info   :   BepInEx] Runtime information: .NET 6.0.7
+[Info   : Preloader] 0 patcher plugins loaded
+[Info   : Preloader] 0 assemblies discovered
+[Message:AssemblyPatcher] Executing 0 patch(es)
+[Message:   BepInEx] Chainloader initialized
+[Warning:Il2CppInterop] Class::Init signatures have been exhausted, using a substitute!
+[Info   :Il2CppInterop] Registered mono type Il2CppInterop.Runtime.DelegateSupport+Il2CppToMonoDelegateReference in il2cpp domain
+[Info   :   BepInEx] 1 plugin to load
+[Info   :   BepInEx] Loading [KingdomEnhancedMod 9.14.24]
+[Info   :KingdomEnhancedMod] Plugin KingdomEnhancedMod v9.14.24 build=9.14.24-choreo-whitefix-20260925 loading...
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.CombatTargetLifeMarker in il2cpp domain
+[Info   :KingdomEnhancedMod] [PanelFocus] input gate installed on Player.IControllable_ReceiveInput
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.ModPanel in il2cpp domain
+[Info   :KingdomEnhancedMod] [Panel] ModPanel created (Ctrl+F10 / F5 to toggle)
+[Info   :KingdomEnhancedMod] [SamuraiDiag] event=armed passive=true burst=8 refill=1/game-second maxLinesPerDash=12; renderer-state logs do not prove screen visibility
+[Info   :KingdomEnhancedMod] Plugin KingdomEnhancedMod loaded. Enabled=True
+[Message:   BepInEx] Chainloader startup complete
+[Info   :KingdomEnhancedMod] [FrameWatch] dt=537ms frame=773 timeScale=1 panel=False panelPaused=False samuraiCut=0 gc0=151 gc1=118
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.SpecialTowerRebuildMarker in il2cpp domain
+[Info   :KingdomEnhancedMod] [SpecialTowerRebuild] Ready ballista=[Tower Ballista, Tower Ballista_greece, Tower Ballista_bamboo, Tower Ballista_deadlands] fire=[Tower_upgrade_Fire_greece] target=Tower6 price=18 biome=5
+[Info   :KingdomEnhancedMod] [PoolFix] Force InitPools() executed (native pools rebuilt)
+[Info   :KingdomEnhancedMod] [NorseSquad] resolved Archer_norselands via loadall
+[Info   :KingdomEnhancedMod] [GhostSquads] Norse native-behaviour pools ready (syncIDs=30130/30131, duration=30s)
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.BankAssistantCoordinator in il2cpp domain
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.BankAssistantVisualLifecycle in il2cpp domain
+[Info   :KingdomEnhancedMod] [BankAssistants] Resolved unique banker controllers: banker, banker_bamboo, banker_deadlands, banker_norselands
+[Info   :Il2CppInterop] Registered mono type BepInEx.Unity.IL2CPP.Utils.Collections.Il2CppManagedEnumerator in il2cpp domain
+[Info   :KingdomEnhancedMod] [ScaleScope] Greek scale applied; first target=CurrencyBag P1 nativeY=1 targetY=2
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for char:Archer (syncID=30000)
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for ToolNinja (syncID=30001)
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for ToolBerserker (syncID=30002)
+[Info   :KingdomEnhancedMod] [Ninja] Registered synced pool for ThrowingStar (syncID=41)
+[Info   :KingdomEnhancedMod] [Ninja] Registered local pool for Smokebomb
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for char:Ninja (syncID=30003)
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for char:Berserker (syncID=30004)
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for char:BerserkerLeader (syncID=30005)
+[Info   :KingdomEnhancedMod] [Roles] Added 4 characters to Holder
+[Info   :KingdomEnhancedMod] [Roles] Greece: Worker replaced with Worker_norselands
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for char:Worker (syncID=30006)
+[Info   :KingdomEnhancedMod] [Roles] Greece: Peasant replaced with Peasant_norselands
+[Info   :KingdomEnhancedMod] [Roles] Registered synced pool for char:Peasant (syncID=30007)
+[Info   :KingdomEnhancedMod] [Economy] Base shops loaded: 9 entries
+[Info   :KingdomEnhancedMod] [Economy] Cross-biome shops added: 5 entries
+[Info   :KingdomEnhancedMod] [Economy] Greece: ShieldShop slot -> ShopBerserker_norselands (native refresh, Pike kept)
+[Info   :KingdomEnhancedMod] [Economy] Shop loading complete, total 14 entries
+[Info   :KingdomEnhancedMod] [KnightIdentity] load-match scope=f5766413 hash=5f969845 entries=13 rev=7 kind=exact
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.PopulationPerformanceCoordinator in il2cpp domain
+[Info   :KingdomEnhancedMod] [Ninja] Prepared 5 Greece beggar-camp hiding anchors (side=Left, x=-150)
+[Info   :KingdomEnhancedMod] [Ninja] Prepared 1 Greece tree hiding anchor (side=Right, x=213.59375)
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.CrossbowmanMarker in il2cpp domain
+[Info   :KingdomEnhancedMod] [Economy] Banker.Awake_Prefix: current=Banker(Clone) inLayer=True total=1 live=1 all=[Banker(Clone)]
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.ScaleRegistryHolder in il2cpp domain
+[Info   :KingdomEnhancedMod] [Roles] Added NpcShieldUser to Greek worker (pickup capability)
+[Info   :KingdomEnhancedMod] [Roles] Added NpcShieldUser to Greek worker (pickup capability)
+[Info   :KingdomEnhancedMod] [Roles] Added NpcShieldUser to Greek worker (pickup capability)
+[Info   :KingdomEnhancedMod] [Roles] Added NpcShieldUser to Greek worker (pickup capability)
+[Info   :KingdomEnhancedMod] [Musketeer] load-bind-first
+[Warning:KingdomEnhancedMod] [FriendlyTrollBalance] TrollWeak identity/header unavailable; designation failed closed for this activation.
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.FriendlyTrollPursuitCoordinator in il2cpp domain
+[Info   :KingdomEnhancedMod] [FriendlyTrollBalance] designated TrollWeak counter (net=1548, hash=0x14926F6C).
+[Info   :KingdomEnhancedMod] [FriendlyTrollBalance] designated TrollWeak counter (net=1552, hash=0x28928EE8).
+[Info   :KingdomEnhancedMod] [HeroRecruitment] loaded:unresolved:ctx=fe939586:epoch=:hk=0:v1=False:seats=0:bound=0
+[Info   :KingdomEnhancedMod] [Musketeer] loaded:exact:records=9:bound=7:unbound=0:pending=0:stock=0:conflict=False
+[Info   :KingdomEnhancedMod] [ScanCache] shared scans active
+[Info   :KingdomEnhancedMod] [MusketeerDefense] native distribution boundary active (canary)
+[Info   :KingdomEnhancedMod] [FleetBoatRecovery] expected=4 active=4 standby=0 carry=0 desired=4 materialized=4 missing=0 recovered=0 mode=complete
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.FleetBoatBerthCoordinator in il2cpp domain
+[Info   :KingdomEnhancedMod] [FrameWatch] dt=22786ms frame=810 timeScale=0 panel=False panelPaused=False samuraiCut=0 gc0=4 gc1=2 (likely focus loss / scene work)
+[Info   :KingdomEnhancedMod] [GreekFireAssets] restored missing instance fire attack=Archer_Greece_FireArrowAttack repairs=1
+[Info   :KingdomEnhancedMod] [GreekFireAssets] restored missing instance fire attack=Archer_Greece_FireArrowAttack repairs=2
+[Info   :KingdomEnhancedMod] [GreekFireAssets] restored missing instance fire attack=Archer_Greece_FireArrowAttack repairs=3
+[Info   :KingdomEnhancedMod] [FleetBoatBerth] boats=4 updated=0 waited=22.79 mode=timeout-unsafe-state
+[Info   :KingdomEnhancedMod] [ClockDiag] t=1.74 isNight=True kingdomDaytime=False islandDays=29 timeScale=0.00
+[Info   :KingdomEnhancedMod] [FriendlyTrollDiag] stage=counter-query net=1548 hash=0x14926F6C range=2.00 activeFriendlies=0.
+[Info   :KingdomEnhancedMod] [FrameWatch] dt=237ms frame=812 timeScale=0 panel=False panelPaused=False samuraiCut=0 gc0=0 gc1=0
+[Info   :KingdomEnhancedMod] [SquadFollowGuard] defense clamp leader=2478611459456 leaderX=93.34 facing=1.00 archerX=88.14 nativeX=92.79 clampedX=88.15 wall=92.35 state=1 retreat=True
+[Info   :KingdomEnhancedMod] [SquadFollowGuard] defense clamp leader=2478604628544 leaderX=-112.72 facing=-1.00 archerX=-101.58 nativeX=-112.17 clampedX=-101.51 wall=-105.71 state=1 retreat=True
+[Info   :KingdomEnhancedMod] [SquadFollowGuard] defense clamp leader=2478586415360 leaderX=93.99 facing=1.00 archerX=93.59 nativeX=93.44 clampedX=88.15 wall=92.35 state=1 retreat=True
+[Info   :KingdomEnhancedMod] [ArcherNightBand/redirect] side=1 band=shallow x=-12.17 goal=91.92 -> 90.15 depth=2.20
+[Info   :KingdomEnhancedMod] [ArcherNightBand/redirect] side=1 band=shallow x=90.11 goal=92.95 -> 89.94 depth=2.41
+[Info   :KingdomEnhancedMod] [ArcherNightBand/redirect] side=1 band=shallow x=89.74 goal=92.60 -> 89.77 depth=2.58
+[Info   :KingdomEnhancedMod] [ArcherNightBand/redirect] side=1 band=shallow x=90.15 goal=93.22 -> 89.93 depth=2.42
+[Info   :KingdomEnhancedMod] [PopulationGround] source=first-observed generation=1 epoch=1 t=6.275 name=Beggar P4 [345] id=-87634 net=1464 pos=-150.828,0.880,0.760 local=-150.828,0.880,0.760 scale=-1.000,1.000,1.000 layer=18 parent=GameLayer nativeCamp=none ownerCamp=none body=Dynamic simulated=True gravity=1.000 constraints=FreezeRotation detect=Discrete velocity=-0.300,0.000 ground=Ground:0:enabled=True:trigger=False:top=0.875 colliders=[Beggar P4 [345]:18:enabled=True:active=True:trigger=True:minY=0.880;Physical Collider:17:enabled=True:active=True:trigger=False:minY=0.880:ignoreGround=False]
+[Info   :KingdomEnhancedMod] [PopulationGround] source=first-observed generation=1 epoch=1 t=6.275 name=Beggar P7 [3A2] id=-88438 net=1480 pos=-147.965,0.880,0.755 local=-147.965,0.880,0.755 scale=1.000,1.000,1.000 layer=18 parent=GameLayer nativeCamp=none ownerCamp=none body=Dynamic simulated=True gravity=1.000 constraints=FreezeRotation detect=Discrete velocity=0.286,0.000 ground=Ground:0:enabled=True:trigger=False:top=0.875 colliders=[Beggar P7 [3A2]:18:enabled=True:active=True:trigger=True:minY=0.880;Physical Collider:17:enabled=True:active=True:trigger=False:minY=0.880:ignoreGround=False]
+[Info   :KingdomEnhancedMod] [PopulationGround] source=first-observed generation=1 epoch=1 t=6.275 name=Beggar P11 [3A6] id=-88530 net=1482 pos=-48.765,0.880,0.753 local=-48.765,0.880,0.753 scale=1.000,1.000,1.000 layer=18 parent=GameLayer nativeCamp=none ownerCamp=none body=Dynamic simulated=True gravity=1.000 constraints=FreezeRotation detect=Discrete velocity=1.400,0.000 ground=Ground:0:enabled=True:trigger=False:top=0.875 colliders=[Beggar P11 [3A6]:18:enabled=True:active=True:trigger=True:minY=0.880;Physical Collider:17:enabled=True:active=True:trigger=False:minY=0.880:ignoreGround=False]
+[Info   :KingdomEnhancedMod] [PopulationGround] source=first-observed generation=1 epoch=1 t=6.275 name=Beggar P10 [3A5] id=-88576 net=1483 pos=-43.955,0.880,0.760 local=-43.955,0.880,0.760 scale=1.000,1.000,1.000 layer=18 parent=GameLayer nativeCamp=none ownerCamp=none body=Dynamic simulated=True gravity=1.000 constraints=FreezeRotation detect=Discrete velocity=1.400,0.000 ground=Ground:0:enabled=True:trigger=False:top=0.875 colliders=[Beggar P10 [3A5]:18:enabled=True:active=True:trigger=True:minY=0.880;Physical Collider:17:enabled=True:active=True:trigger=False:minY=0.880:ignoreGround=False]
+[Info   :KingdomEnhancedMod] [PopulationGround] source=first-observed generation=1 epoch=1 t=6.275 name=Beggar P7 [384] id=-89906 net=1507 pos=-149.622,0.880,0.757 local=-149.622,0.880,0.757 scale=1.000,1.000,1.000 layer=18 parent=GameLayer nativeCamp=none ownerCamp=none body=Dynamic simulated=True gravity=1.000 constraints=FreezeRotation detect=Discrete velocity=0.261,0.000 ground=Ground:0:enabled=True:trigger=False:top=0.875 colliders=[Beggar P7 [384]:18:enabled=True:active=True:trigger=True:minY=0.880;Physical Collider:17:enabled=True:active=True:trigger=False:minY=0.880:ignoreGround=False]
+[Info   :KingdomEnhancedMod] [PopulationGround] source=first-observed generation=1 epoch=1 t=6.275 name=Beggar P9 [3A4] id=-90278 net=1515 pos=-19.297,0.880,0.752 local=-19.297,0.880,0.752 scale=1.000,1.000,1.000 layer=18 parent=GameLayer nativeCamp=none ownerCamp=none body=Dynamic simulated=True gravity=1.000 constraints=FreezeRotation detect=Discrete velocity=1.400,0.000 ground=Ground:0:enabled=True:trigger=False:top=0.875 colliders=[Beggar P9 [3A4]:18:enabled=True:active=True:trigger=True:minY=0.880;Physical Collider:17:enabled=True:active=True:trigger=False:minY=0.880:ignoreGround=False]
+[Info   :KingdomEnhancedMod] [PopulationGround] source=first-observed generation=1 epoch=1 t=6.275 name=Beggar P6 [383] id=-90762 net=1524 pos=-151.133,0.880,0.752 local=-151.133,0.880,0.752 scale=1.000,1.000,1.000 layer=18 parent=GameLayer nativeCamp=none ownerCamp=none body=Dynamic simulated=True gravity=1.000 constraints=FreezeRotation detect=Discrete velocity=0.287,0.000 ground=Ground:0:enabled=True:trigger=False:top=0.875 colliders=[Beggar P6 [383]:18:enabled=True:active=True:trigger=True:minY=0.880;Physical Collider:17:enabled=True:active=True:trigger=False:minY=0.880:ignoreGround=False]
+[Info   :KingdomEnhancedMod] [PopulationGround] source=first-observed generation=1 epoch=1 t=6.275 name=Beggar P5 [381] id=-91040 net=1531 pos=-69.007,0.880,0.751 local=-69.007,0.880,0.751 scale=1.000,1.000,1.000 layer=18 parent=GameLayer nativeCamp=none ownerCamp=none body=Dynamic simulated=True gravity=1.000 constraints=FreezeRotation detect=Discrete velocity=1.400,0.000 ground=Ground:0:enabled=True:trigger=False:top=0.875 colliders=[Beggar P5 [381]:18:enabled=True:active=True:trigger=True:minY=0.880;Physical Collider:17:enabled=True:active=True:trigger=False:minY=0.880:ignoreGround=False]
+[Info   :KingdomEnhancedMod] [PopulationGround] source=first-observed generation=1 epoch=1 t=6.275 name=Beggar P8 [3A3] id=-93602 net=1566 pos=-111.865,0.880,0.758 local=-111.865,0.880,0.758 scale=-1.000,1.000,1.000 layer=18 parent=GameLayer nativeCamp=none ownerCamp=none body=Dynamic simulated=True gravity=1.000 constraints=FreezeRotation detect=Discrete velocity=0.000,0.000 ground=Ground:0:enabled=True:trigger=False:top=0.875 colliders=[Beggar P8 [3A3]:18:enabled=True:active=True:trigger=True:minY=0.880;Physical Collider:17:enabled=True:active=True:trigger=False:minY=0.880:ignoreGround=False]
+[Info   :KingdomEnhancedMod] [PopulationGround] source=first-observed generation=1 epoch=1 t=6.275 name=Beggar P3 [36E] id=-93908 net=1574 pos=-119.641,0.880,0.759 local=-119.641,0.880,0.759 scale=-1.000,1.000,1.000 layer=18 parent=GameLayer nativeCamp=none ownerCamp=none body=Dynamic simulated=True gravity=1.000 constraints=FreezeRotation detect=Discrete velocity=-0.277,0.000 ground=Ground:0:enabled=True:trigger=False:top=0.875 colliders=[Beggar P3 [36E]:18:enabled=True:active=True:trigger=True:minY=0.880;Physical Collider:17:enabled=True:active=True:trigger=False:minY=0.880:ignoreGround=False]
+[Info   :KingdomEnhancedMod] [PopulationGround] source=first-observed generation=1 epoch=1 t=6.275 name=Beggar P8 [38C] id=-94214 net=1581 pos=-112.839,0.880,0.758 local=-112.839,0.880,0.758 scale=-1.000,1.000,1.000 layer=18 parent=GameLayer nativeCamp=none ownerCamp=none body=Dynamic simulated=True gravity=1.000 constraints=FreezeRotation detect=Discrete velocity=-0.255,0.000 ground=Ground:0:enabled=True:trigger=False:top=0.875 colliders=[Beggar P8 [38C]:18:enabled=True:active=True:trigger=True:minY=0.880;Physical Collider:17:enabled=True:active=True:trigger=False:minY=0.880:ignoreGround=False]
+[Info   :KingdomEnhancedMod] [ArcherNightBand/redirect] side=1 band=shallow x=-14.82 goal=91.77 -> 89.82 depth=2.53
+[Info   :KingdomEnhancedMod] [ArcherNightBand/redirect] side=1 band=shallow x=90.07 goal=93.06 -> 90.30 depth=2.05
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.DeadlandsAnimObserver in il2cpp domain
+[Info   :KingdomEnhancedMod] [Economy] Player1 wallet capacity = 2000 (Hermes)
+[Info   :KingdomEnhancedMod] [Economy] Player1 wallet capacity = 2000 (Hermes)
+[Info   :KingdomEnhancedMod] [Economy] Player2 wallet capacity = 2000 (Hermes)
+[Info   :KingdomEnhancedMod] [Economy] Hermes currency bag unlocked
+[Info   :KingdomEnhancedMod] [DeerPopulation] prefab=Deer density=0.027->0.081 winterDefault=0.013->0.039 winterSpecial=0.013->0.039 interval=9.755016->3.251672
+[Info   :KingdomEnhancedMod] [BankAssistants] Authority spawned deterministic 4-assistant pool
+[Info   :KingdomEnhancedMod] [SiegeAmmoCounts] ready=true sites=2 barrels=39 fireJars=0
+[Info   :KingdomEnhancedMod] [AutoRestock] role=工人 现有 15 · 待领 0 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [AutoRestock] role=弓箭手 现有 95 · 待领 0 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [AutoRestock] role=忍者 现有 20 · 待领 0 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [AutoRestock] role=狂战士 现有 24 · 待领 0 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [AutoRestock] role=无业村民 现有 14 · 面包 4 · 招募中 0 · 采购 0 · 面包已备足
+[Info   :KingdomEnhancedMod] [AutoRestock] role=农夫 现有 24 · 待领 0 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [AutoRestock] role=投石车油桶 弹药 39 · 采购 0 · 原生付款暂不可用
+[Info   :KingdomEnhancedMod] [AutoRestock] role=火塔罐 弹药 0 · 采购 0 · 无可用目标
+[Info   :KingdomEnhancedMod] [AutoRestock] role=火枪手 火枪人数或身份尚未确认
+[Info   :KingdomEnhancedMod] [BankAssistants] active collectors=0 (mature=0)
+[Info   :KingdomEnhancedMod] [PopulationHUD] ready=true 工匠  15; 弓箭手  43; 农民  24; 长枪兵  10; 忍者  20; 狂战士  24; 无业村民  14; 乞丐  11; 火枪手  5; 骑士随从  52; 侍从  0; 弩手  0; 骑士  13; 中世纪  0; 死地  0; 幕府  0; 希腊  0; 北境  0; 待识别  13
+[Info   :KingdomEnhancedMod] [Roles] Hermit enemy pickup protected: id=-43942 original=0 current=4
+[Info   :KingdomEnhancedMod] [PetGuard] Dog enemy pickup protected: id=-46166 original=0 current=4
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.MusketeerShopOwner in il2cpp domain
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.HeroShopOwner in il2cpp domain
+[Info   :KingdomEnhancedMod] [CalendarHUD] floating strip ready; style=GUI.skin.label font=LegacyRuntime sizes=18/17/12 shadow=1px
+[Info   :KingdomEnhancedMod] [FrameWatch] dt=337ms frame=961 timeScale=1 panel=False panelPaused=False samuraiCut=0 gc0=0 gc1=0
+[Info   :KingdomEnhancedMod] [KnightStyle] resolution: knight[knight=knight knight_deadlands=knight_deadlands knight_bamboo=knight_bamboo knight_greece=knight_greece knight_norselands=knight_norselands] soldier[archer_soldier=archer_soldier archer_soldier_deadlands=archer_soldier_deadlands archer_soldier_bamboo=archer_soldier_bamboo archer_soldier_greece=archer_soldier_greece archer_soldier_norselands=archer_soldier_norselands]
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as shogun (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as shogun (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as shogun (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as greece (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as shogun (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as greece (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as shogun (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as shogun (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as shogun (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as norse (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as norse (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as norse (identity assigned)
+[Info   :KingdomEnhancedMod] [KnightStyle] knight styled as norse (identity assigned)
+[Info   :KingdomEnhancedMod] [SquadRoster] cached<=3s s0{knights=0 roster=0/0 alive=0 mismatch=0 far10=0} s1{knights=0 roster=0/0 alive=0 mismatch=0 far10=0} s2{knights=7 roster=28/28 alive=28 mismatch=0 far10=4} s3{knights=2 roster=8/8 alive=8 mismatch=0 far10=0} s4{knights=4 roster=16/16 alive=16 mismatch=0 far10=0} truncated=False readMs=2.17 sample=1/5
+[Info   :KingdomEnhancedMod] [KnightStyle] follower diag: archers=100 withKnight=52 inStates=52 styled=28 skippedFamily=24 skippedOther=0 sample=archer@89.5 controller=archer_soldier_norselands styleTargets=med:0 dead:0 shog:28 gree:8 norse:16 curTop=archer_soldier_greece:x36 archer_soldier_norselands:x16
+[Info   :KingdomEnhancedMod] [MedievalNorse] norse wallet boost applied (capacity base 12, taxes base 12; targets x2 incl statue)
+[Info   :KingdomEnhancedMod] [SamuraiRetreat] native defensive retreat speed x3 applied
+[Info   :KingdomEnhancedMod] [SamuraiNightFormation/redirect] rank=2 side=-1 x=-112.20 native=-103.71 -> slot=-104.21 (goal=-103.71)
+[Info   :KingdomEnhancedMod] [SamuraiNightFormation/redirect] rank=4 side=1 x=92.53 native=88.35 -> slot=90.85 (goal=88.35)
+[Info   :KingdomEnhancedMod] [SamuraiNightFormation/redirect] rank=6 side=1 x=89.59 native=86.35 -> slot=90.35 (goal=86.35)
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=1 knight=-87886 event=start mode=attack time=7.308 x=89.59 suppressedSinceLast=0 totalDashCount=1
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=1 knight=-87886 event=trail-state elapsed=0 present=True active=True enabled=True emitting=True points=0 lifetime=1 width=1 layer=0 order=0
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.SamuraiDashVisualsDriver in il2cpp domain
+[Info   :KingdomEnhancedMod] [SamuraiDashVisuals] whiten-baked: sprite=knight_run_bamboo_1 rect=41x32 out=41x32 ppu=32 pivot=16.4,0 packed=True raster=uv-triangles
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=1 knight=-87886 event=visual-ready reason=created-or-reused; renderer-state-not-screen-proof elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_run_bamboo_1 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiVisuals] ready: 8 ghosts alpha=.55->.10 (-.0625/rank, floor .10) lifetime=2s; body overlay follows burst
+[Info   :KingdomEnhancedMod] [SamuraiNightFormation/redirect] rank=7 side=1 x=0.36 native=85.35 -> slot=89.85 (goal=85.35)
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=1 knight=-87886 event=visual-first-update reason=existing-LateUpdate-ran elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2 trailPresent=True trailEnabled=True trailEmitting=True trailPoints=0
+[Info   :KingdomEnhancedMod] [SamuraiDash/default-capture] knight=-70086 hash=765711723
+[Info   :KingdomEnhancedMod] [SamuraiDash/default-capture] knight=-90516 hash=1748754976
+[Info   :KingdomEnhancedMod] [SamuraiDash/default-capture] knight=-90572 hash=1748754976
+[Info   :KingdomEnhancedMod] [SamuraiDash/default-capture] knight=-90706 hash=-1518848078
+[Info   :KingdomEnhancedMod] [SquadRefill] disabled style=4 owner#-40704 rosterBefore=4/4 dead=False disableIsNotAlwaysDeath=true
+[Info   :KingdomEnhancedMod] [NorseSquad] norse follower shield equip active (subsequent re-equips silent)
+[Info   :KingdomEnhancedMod] [SquadFollowGuard] defense clamp leader=2478611457728 leaderX=93.78 facing=1.00 archerX=88.19 nativeX=93.23 clampedX=88.15 wall=92.35 state=1 retreat=False
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=1 knight=-87886 event=turn goal=89.59 facing=Left
+[Info   :KingdomEnhancedMod] [SamuraiDash/roundtrip-turn] x=96.46 goal=89.59 deterministic
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=1 knight=-87886 event=visual-stop reason=burst-ended; remaining-ghosts-fade elapsed=1.069 ghostSamples=13 emitting=False ghostSlots=8 enabledGhosts=8 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=1 knight=-87886 event=effects-restored elapsed=1.069 present=True active=True enabled=False emitting=True points=35 lifetime=0.4 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDash/default-capture] knight=-87886 hash=-526882654
+[Info   :KingdomEnhancedMod] [KnightAnimatorDiag] controller=knight_bamboo clips=11 dashLike=knight_charge_bamboo parameters=Speed,Slash,Retreat,Rally,PowerSlash,Land,Idleness,Die,Spawn,Block
+[Info   :KingdomEnhancedMod] [KnightAnimatorDiag] controller=knight_greece clips=11 dashLike=knight_charge_greece parameters=Speed,Slash,Retreat,Rally,PowerSlash,Land,Idleness,Die,Spawn,Block
+[Info   :KingdomEnhancedMod] [KnightAnimatorDiag] controller=knight_norselands clips=10 dashLike=knight_charge_norselands parameters=Speed,Slash,Retreat,Rally,PowerSlash,Land,Idleness,Block
+[Info   :KingdomEnhancedMod] [KnightAnimatorDiag] completed knights=13 uniqueControllers=3
+[Info   :KingdomEnhancedMod] [DefenseSpacing] heartbeat: archersProp=100 foundByType=100
+[Info   :KingdomEnhancedMod] [DefenseSpacing] knight sample: count=13 [rank=4 dfw=1.00 side=-1 | rank=5 dfw=1.00 side=-1 | rank=7 dfw=1.00 side=1]
+[Info   :KingdomEnhancedMod] [DefenseSpacing] knight lineup: r1@0.9; r2@2.0; r3@2.1; r3@3.0; r4@4.0; r4@1.5; r5@3.4; r5@5.0; r6@6.0; r6@7.6
+[Info   :KingdomEnhancedMod] [DefenseSpacing] friendly collision permanently off: layers=[10,17] ignored=[10-10,10-17,17-10,17-17]
+[Info   :KingdomEnhancedMod] [DefenseSpacing] archer lineup: side=L total=50 outside=2 xbow=0 followers=24 plain=26 deep=0 deepState8=0 shallowArchers=0 shallowMusketeers=0 outsideSample=[-111.3,-111.3]
+[Info   :KingdomEnhancedMod] [DefenseSpacing] archer lineup: side=R total=39 outside=4 xbow=0 followers=23 plain=16 deep=0 deepState8=0 shallowArchers=3 shallowMusketeers=0 outsideSample=[94.6,95.1,94.6]
+[Info   :KingdomEnhancedMod] [DefenseSpacing] first scan: archers=100 maxDepth=36 clamped=0 sample=[d=-24 s=0.11 min=1.75 rnd=0.09 side=1 | d=-17 s=0.11 min=1.75 rnd=-0.02 side=1 | d=-6 s=0.11 min=1.75 rnd=-0.02 side=-1]
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=2 knight=-76152 event=start mode=attack time=8.877 x=90.86 suppressedSinceLast=0 totalDashCount=2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=2 knight=-76152 event=trail-state elapsed=0 present=True active=True enabled=True emitting=True points=0 lifetime=1 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=2 knight=-76152 event=visual-ready reason=created-or-reused; renderer-state-not-screen-proof elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_retreat_bamboo_3 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=2 knight=-76152 event=visual-first-update reason=existing-LateUpdate-ran elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2 trailPresent=True trailEnabled=True trailEmitting=True trailPoints=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=2 knight=-76152 event=turn goal=90.86 facing=Left
+[Info   :KingdomEnhancedMod] [SamuraiDash/roundtrip-turn] x=97.79 goal=90.86 deterministic
+[Info   :KingdomEnhancedMod] [CombatChase] berserker native return requested
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=2 knight=-76152 event=visual-stop reason=burst-ended; remaining-ghosts-fade elapsed=0.825 ghostSamples=17 emitting=False ghostSlots=8 enabledGhosts=8 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=2 knight=-76152 event=effects-restored elapsed=0.825 present=True active=True enabled=False emitting=True points=47 lifetime=0.4 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=3 knight=-87886 event=start mode=attack time=10.321 x=85.70 suppressedSinceLast=0 totalDashCount=3
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=3 knight=-87886 event=trail-state elapsed=0 present=True active=True enabled=True emitting=True points=35 lifetime=1 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=1 knight=-87886 event=visual-cleared reason=replaced elapsed=3.012 ghostSamples=13 emitting=False ghostSlots=8 enabledGhosts=0 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=3 knight=-87886 event=visual-ready reason=created-or-reused; renderer-state-not-screen-proof elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=3 knight=-87886 event=visual-first-update reason=existing-LateUpdate-ran elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2 trailPresent=True trailEnabled=True trailEmitting=True trailPoints=35
+[Info   :KingdomEnhancedMod] [ShieldWallTotem] resolved totem prefab: border 'Border_norselands' child 'ActiveShieldWallTotem'
+[Info   :KingdomEnhancedMod] [ShieldWallTotem] totem attached to Left border banner
+[Info   :KingdomEnhancedMod] [ShieldWallTotem] totem attached to Right border banner
+[Info   :KingdomEnhancedMod] [FarmCats] resolved cat prefab via Holder.catPrefab (native path)
+[Info   :KingdomEnhancedMod] [FarmCats] spawned 0, retired 0 cats at 4 farmhouses (norse prefab)
+[Info   :KingdomEnhancedMod] [TowerSpots] template scatter usePayable=True minSpacing=8.0 avoid=[Farmhouse,WallFoundation,Tower,HermesShade]
+[Info   :KingdomEnhancedMod] [TowerDupCleanup] removed=0
+[Info   :KingdomEnhancedMod] [TowerSpots] scan native=11 generatedUnbuilt=2 occupied=57 retired=0
+[Info   :KingdomEnhancedMod] [TowerSpots] added 0 spots (multiplier=2.00, native spacing=70.1, native bases=11, occupied total=57)
+[Info   :KingdomEnhancedMod] [FrameWatch] dt=2700ms frame=1146 timeScale=1 panel=False panelPaused=False samuraiCut=1 gc0=1 gc1=1 (likely focus loss / scene work)
+[Info   :KingdomEnhancedMod] [SamuraiDash/default-capture] knight=-76152 hash=-526882654
+[Info   :KingdomEnhancedMod] [RestockMotion] role=忍者 phase=approach x=-83.36 shopX=-88.36 gameTime=11.22
+[Info   :KingdomEnhancedMod] [AutoRestock] role=忍者 现有 19 · 待领 0 · 采购 1 · 采购中
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=3 knight=-87886 event=turn goal=85.7 facing=Left
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=3 knight=-87886 event=visual-stop reason=burst-ended; remaining-ghosts-fade elapsed=1.321 ghostSamples=18 emitting=False ghostSlots=8 enabledGhosts=8 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=3 knight=-87886 event=effects-restored elapsed=1.321 present=True active=True enabled=False emitting=True points=42 lifetime=0.4 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [GreekFire] asset=Buff_fire_attacks_hephaestus_anvil id=5 originalDuration=3 cloneDuration=8 candidates=1
+[Info   :KingdomEnhancedMod] [GreekFire] cast owner#-87730 duration=8s cooldown=15s recipients=5 buffID=5
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=2 knight=-76152 event=tail-cleared reason=all-ghosts-expired elapsed=2.802 ghostSamples=17 emitting=False ghostSlots=8 enabledGhosts=0 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDash/default-capture] knight=-69764 hash=1748754976
+[Info   :KingdomEnhancedMod] [NorseSquad] load restore summary: converted=16 shieldReady=16 pending=48 attempts=24
+[Info   :KingdomEnhancedMod] [RestockMotion] role=忍者 phase=arrived x=-87.36 shopX=-88.36 gameTime=12.47
+[Warning:KingdomEnhancedMod] [ArcherImpact] impact fire using shader 'Sprites/Default'
+[Info   :KingdomEnhancedMod] [ArcherImpact] pixel fire ready: shader=Sprites/Default vertexCount=36 indices=150 texture=1x1 filter=Point
+[Info   :KingdomEnhancedMod] [AutoRestock] role=无业村民 现有 15 · 面包 4 · 招募中 0 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=4 knight=-76152 event=start mode=attack time=13.073 x=84.78 suppressedSinceLast=0 totalDashCount=4
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=4 knight=-76152 event=trail-state elapsed=0 present=True active=True enabled=True emitting=True points=47 lifetime=1 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=4 knight=-76152 event=visual-ready reason=created-or-reused; renderer-state-not-screen-proof elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=4 knight=-76152 event=visual-first-update reason=existing-LateUpdate-ran elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2 trailPresent=True trailEnabled=True trailEmitting=True trailPoints=47
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=4 knight=-76152 event=turn goal=84.78 facing=Left
+[Info   :KingdomEnhancedMod] [SamuraiDash/roundtrip-turn] x=91.65 goal=84.78 deterministic
+[Info   :KingdomEnhancedMod] [AutoRestock] 忍者 补货成功 price=4 nativePrice=2 coins=4
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=3 knight=-87886 event=tail-cleared reason=all-ghosts-expired elapsed=3.302 ghostSamples=18 emitting=False ghostSlots=8 enabledGhosts=0 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [AutoRestock] role=忍者 现有 19 · 待领 1 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=4 knight=-76152 event=visual-stop reason=burst-ended; remaining-ghosts-fade elapsed=0.844 ghostSamples=17 emitting=False ghostSlots=8 enabledGhosts=8 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=4 knight=-76152 event=effects-restored elapsed=0.844 present=True active=True enabled=False emitting=True points=51 lifetime=0.4 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=5 knight=-87886 event=start mode=attack time=14.366 x=84.80 suppressedSinceLast=0 totalDashCount=5
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=5 knight=-87886 event=trail-state elapsed=0 present=True active=True enabled=True emitting=True points=42 lifetime=1 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=5 knight=-87886 event=visual-ready reason=created-or-reused; renderer-state-not-screen-proof elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=5 knight=-87886 event=visual-first-update reason=existing-LateUpdate-ran elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2 trailPresent=True trailEnabled=True trailEmitting=True trailPoints=42
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=5 knight=-87886 event=turn goal=84.8 facing=Left
+[Info   :KingdomEnhancedMod] [SamuraiDash/roundtrip-turn] x=91.78 goal=84.8 deterministic
+[Info   :KingdomEnhancedMod] [ToolAssignment] sparse replacement active: carriers=167 rawDroppables=43 eligibleDroppables=1 elapsed=7.293ms
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=5 knight=-87886 event=visual-stop reason=burst-ended; remaining-ghosts-fade elapsed=0.844 ghostSamples=17 emitting=False ghostSlots=8 enabledGhosts=8 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=5 knight=-87886 event=effects-restored elapsed=0.844 present=True active=True enabled=False emitting=True points=53 lifetime=0.4 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [RestockMotion] role=忍者 phase=walked-out x=-84.37 shopX=-88.36 gameTime=15.40
+[Info   :KingdomEnhancedMod] [DefensePerf] arrows=21 avgFrame=17.2ms maxFrame=333.3ms t=2.6h
+[Info   :KingdomEnhancedMod] [SpecialTowerRebuildDiag] [t+10s] sceneBallistas=5 sceneFireTowers=0 registeredRebuildPayables=1
+[Info   :KingdomEnhancedMod] [SpecialTowerRebuildDiag] [t+10s] chain=Tower Ballista_greece(Clone) <- GameLayer[m=0,p=0,P=0,B=0] <- Level[m=0,p=0,P=0,B=0] selfMarker=True payable=present locked=False reason=NotLocked blockPay=False regionRestrict=False
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=4 knight=-76152 event=tail-cleared reason=all-ghosts-expired elapsed=2.819 ghostSamples=17 emitting=False ghostSlots=8 enabledGhosts=0 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDash/night-wall-queue] x=77.37563 follower=87.39249 goal=Off state=1
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=5 knight=-87886 event=tail-cleared reason=all-ghosts-expired elapsed=2.812 ghostSamples=17 emitting=False ghostSlots=8 enabledGhosts=0 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=6 knight=-76152 event=start mode=attack time=17.791 x=85.43 suppressedSinceLast=0 totalDashCount=6
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=6 knight=-76152 event=trail-state elapsed=0 present=True active=True enabled=True emitting=True points=51 lifetime=1 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=6 knight=-76152 event=visual-ready reason=created-or-reused; renderer-state-not-screen-proof elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=6 knight=-76152 event=visual-first-update reason=existing-LateUpdate-ran elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2 trailPresent=True trailEnabled=True trailEmitting=True trailPoints=51
+[Info   :KingdomEnhancedMod] [RestockMotion] role=投石车油桶 phase=approach x=17.60 shopX=22.60 gameTime=17.94
+[Info   :KingdomEnhancedMod] [AutoRestock] role=投石车油桶 弹药 37 · 采购 1 · 采购中
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=6 knight=-76152 event=turn goal=85.43 facing=Left
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=6 knight=-76152 event=visual-stop reason=burst-ended; remaining-ghosts-fade elapsed=0.819 ghostSamples=17 emitting=False ghostSlots=8 enabledGhosts=8 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=6 knight=-76152 event=effects-restored elapsed=0.819 present=True active=True enabled=False emitting=True points=53 lifetime=0.4 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [RestockMotion] role=投石车油桶 phase=arrived x=21.60 shopX=22.60 gameTime=19.19
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=6 knight=-76152 event=tail-cleared reason=all-ghosts-expired elapsed=2.775 ghostSamples=17 emitting=False ghostSlots=8 enabledGhosts=0 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.CrossbowBoltScaleLifecycle in il2cpp domain
+[Info   :Il2CppInterop] Registered mono type KingdomEnhancedMod.CrossbowmanBoltWallPierce in il2cpp domain
+[Info   :KingdomEnhancedMod] [Crossbowman] registered synced pool for KEM_CrossbowBolt (syncID=31000)
+[Info   :KingdomEnhancedMod] [CrossbowDefense] tower range boosted: 8.2 -> 12.4
+[Info   :KingdomEnhancedMod] [Crossbowman] soldierAnimator rooted to archer_soldier_deadlands; swap pass-through=True
+[Info   :KingdomEnhancedMod] [Crossbowman] recompute on load: total=43 crossbowmen=10
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=7 knight=-76152 event=start mode=attack time=20.797 x=90.61 suppressedSinceLast=0 totalDashCount=7
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=7 knight=-76152 event=trail-state elapsed=0 present=True active=True enabled=True emitting=True points=53 lifetime=1 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=7 knight=-76152 event=visual-ready reason=created-or-reused; renderer-state-not-screen-proof elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=7 knight=-76152 event=visual-first-update reason=existing-LateUpdate-ran elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2 trailPresent=True trailEnabled=True trailEmitting=True trailPoints=53
+[Info   :KingdomEnhancedMod] [FrameWatch] dt=1975ms frame=1767 timeScale=1 panel=False panelPaused=False samuraiCut=1 gc0=1 gc1=0 (likely focus loss / scene work)
+[Info   :KingdomEnhancedMod] [HeroArcherWallPierce] wall snapshot: 21 active collider(s) from 7 active wall(s)
+[Info   :KingdomEnhancedMod] [CrossbowDefense] night pullback: x=89.8 -> 86.8 (walk, depth 4..7)
+[Warning:KingdomEnhancedMod] [Musketeer] shoot-decision ground re-selection entered (native ShouldShootEnemy hook is live)
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=7 knight=-76152 event=turn goal=90.61 facing=Left
+[Info   :KingdomEnhancedMod] [SamuraiDash/roundtrip-turn] x=97.63 goal=90.61 deterministic
+[Info   :KingdomEnhancedMod] [AutoRestock] 投石车油桶 补货成功 price=10 nativePrice=5 coins=10
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=7 knight=-76152 event=visual-stop reason=burst-ended; remaining-ghosts-fade elapsed=1.533 ghostSamples=23 emitting=False ghostSlots=8 enabledGhosts=8 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=7 knight=-76152 event=effects-restored elapsed=1.533 present=True active=True enabled=False emitting=True points=63 lifetime=0.4 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [AutoRestock] role=无业村民 现有 14 · 面包 4 · 招募中 0 · 采购 0 · 面包已备足
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=8 knight=-87886 event=start mode=attack time=22.618 x=85.35 suppressedSinceLast=0 totalDashCount=8
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=8 knight=-87886 event=trail-state elapsed=0 present=True active=True enabled=True emitting=True points=53 lifetime=1 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=8 knight=-87886 event=visual-ready reason=created-or-reused; renderer-state-not-screen-proof elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=8 knight=-87886 event=visual-first-update reason=existing-LateUpdate-ran elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2 trailPresent=True trailEnabled=True trailEmitting=True trailPoints=53
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=8 knight=-87886 event=turn goal=85.35 facing=Left
+[Info   :KingdomEnhancedMod] [SamuraiDash/roundtrip-turn] x=92.22 goal=85.35 deterministic
+[Info   :KingdomEnhancedMod] [RestockMotion] role=投石车油桶 phase=walked-out x=18.61 shopX=22.60 gameTime=23.69
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=8 knight=-87886 event=visual-stop reason=burst-ended; remaining-ghosts-fade elapsed=1.45 ghostSamples=27 emitting=False ghostSlots=8 enabledGhosts=8 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=8 knight=-87886 event=effects-restored elapsed=1.45 present=True active=True enabled=False emitting=True points=60 lifetime=0.4 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=7 knight=-76152 event=tail-cleared reason=all-ghosts-expired elapsed=3.508 ghostSamples=23 emitting=False ghostSlots=8 enabledGhosts=0 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [Roles] Norselands worker equipped with shield
+[Info   :KingdomEnhancedMod] [RestockMotion] role=狂战士 phase=approach x=-34.75 shopX=-39.75 gameTime=25.44
+[Info   :KingdomEnhancedMod] [AutoRestock] role=狂战士 现有 23 · 待领 0 · 采购 1 · 采购中
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=9 knight=-76152 event=start mode=attack time=25.687 x=85.30 suppressedSinceLast=0 totalDashCount=9
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=9 knight=-76152 event=trail-state elapsed=0 present=True active=True enabled=True emitting=True points=63 lifetime=1 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=9 knight=-76152 event=visual-ready reason=created-or-reused; renderer-state-not-screen-proof elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=9 knight=-76152 event=visual-first-update reason=existing-LateUpdate-ran elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2 trailPresent=True trailEnabled=True trailEmitting=True trailPoints=63
+[Info   :KingdomEnhancedMod] [AutoRestock] role=投石车油桶 弹药 37 · 采购 0 · 订单已满
+[Info   :KingdomEnhancedMod] [AutoRestock] role=火塔罐 弹药 0 · 采购 0 · 订单已满
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=8 knight=-87886 event=tail-cleared reason=all-ghosts-expired elapsed=3.425 ghostSamples=27 emitting=False ghostSlots=8 enabledGhosts=0 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=9 knight=-76152 event=turn goal=85.3 facing=Left
+[Info   :KingdomEnhancedMod] [SamuraiDash/roundtrip-turn] x=92.3 goal=85.3 deterministic
+[Info   :KingdomEnhancedMod] [RestockMotion] role=狂战士 phase=arrived x=-38.75 shopX=-39.75 gameTime=26.69
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=9 knight=-76152 event=visual-stop reason=burst-ended; remaining-ghosts-fade elapsed=1.325 ghostSamples=26 emitting=False ghostSlots=8 enabledGhosts=8 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=9 knight=-76152 event=effects-restored elapsed=1.325 present=True active=True enabled=False emitting=True points=56 lifetime=0.4 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [AutoRestock] role=投石车油桶 弹药 37 · 采购 1 · 采购中
+[Info   :KingdomEnhancedMod] [AutoRestock] 狂战士 补货成功 price=6 nativePrice=3 coins=6
+[Info   :KingdomEnhancedMod] [AutoRestock] role=狂战士 现有 23 · 待领 1 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=10 knight=-69764 event=start mode=attack time=28.537 x=-104.25 suppressedSinceLast=0 totalDashCount=10
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=10 knight=-69764 event=trail-state elapsed=0 present=True active=True enabled=True emitting=True points=0 lifetime=1 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=10 knight=-69764 event=visual-ready reason=created-or-reused; renderer-state-not-screen-proof elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_idle_bamboo_3 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=10 knight=-69764 event=visual-first-update reason=existing-LateUpdate-ran elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2 trailPresent=True trailEnabled=True trailEmitting=True trailPoints=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=9 knight=-76152 event=tail-cleared reason=all-ghosts-expired elapsed=3.287 ghostSamples=26 emitting=False ghostSlots=8 enabledGhosts=0 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [ClockDiag] t=3.96 isNight=True kingdomDaytime=False islandDays=29 timeScale=1.00
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=10 knight=-69764 event=turn goal=-104.25 facing=Ahead
+[Info   :KingdomEnhancedMod] [SamuraiDash/roundtrip-turn] x=-111.13 goal=-104.25 deterministic
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=10 knight=-69764 event=visual-stop reason=burst-ended; remaining-ghosts-fade elapsed=1.037 ghostSamples=19 emitting=False ghostSlots=8 enabledGhosts=8 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=10 knight=-69764 event=effects-restored elapsed=1.037 present=True active=True enabled=False emitting=True points=58 lifetime=0.4 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [RestockMotion] role=狂战士 phase=walked-out x=-35.75 shopX=-39.75 gameTime=30.04
+[Info   :KingdomEnhancedMod] [AutoRestock] role=无业村民 现有 14 · 面包 3 · 招募中 1 · 采购 0 · 等待入籍
+[Info   :KingdomEnhancedMod] [AutoRestock] role=火塔罐 弹药 0 · 采购 0 · 无可用目标
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=10 knight=-69764 event=tail-cleared reason=all-ghosts-expired elapsed=3.012 ghostSamples=19 emitting=False ghostSlots=8 enabledGhosts=0 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_charge_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [FrameWatch] dt=125ms frame=2479 timeScale=0 panel=False panelPaused=False samuraiCut=0 gc0=1 gc1=1
+[Info   :KingdomEnhancedMod] [DefensePerf] arrows=5 avgFrame=15.4ms maxFrame=37.5ms t=4.3h
+[Info   :KingdomEnhancedMod] [ClockDiag] t=4.30 isNight=True kingdomDaytime=False islandDays=29 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=4.30 isNight=True kingdomDaytime=False islandDays=29 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=4.30 isNight=True kingdomDaytime=False islandDays=29 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=4.30 isNight=True kingdomDaytime=False islandDays=29 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=4.30 isNight=True kingdomDaytime=False islandDays=29 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=4.30 isNight=True kingdomDaytime=False islandDays=29 timeScale=0.00
+[Info   :KingdomEnhancedMod] [ClockDiag] t=4.30 isNight=True kingdomDaytime=False islandDays=29 timeScale=0.00
+[Info   :KingdomEnhancedMod] [AutoRestock] role=火塔罐 弹药 0 · 采购 0 · 订单已满
+[Info   :KingdomEnhancedMod] [AutoRestock] role=无业村民 现有 15 · 面包 3 · 招募中 0 · 采购 0 · 已达标
+[Info   :KingdomEnhancedMod] [AutoRestock] role=火塔罐 弹药 0 · 采购 0 · 无可用目标
+[Info   :KingdomEnhancedMod] [ClockDiag] t=4.50 isNight=False kingdomDaytime=False islandDays=29 timeScale=1.00
+[Info   :KingdomEnhancedMod] [KnightIdentity] save scope=f5766413 hash=4ef1d9b9 entries=13 rev=7
+[Info   :KingdomEnhancedMod] [HeroRecruitment] save-preserve-unresolved
+[Info   :KingdomEnhancedMod] [Musketeer] saved:records=9:bound=7
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=11 knight=-90516 event=start mode=return time=39.430 x=39.36 suppressedSinceLast=0 totalDashCount=11
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=11 knight=-90516 event=trail-state elapsed=0 present=True active=True enabled=True emitting=True points=0 lifetime=1 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=11 knight=-90516 event=visual-ready reason=created-or-reused; renderer-state-not-screen-proof elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_run_bamboo_3 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [ClockDiag] t=5.00 isNight=False kingdomDaytime=True islandDays=29 timeScale=1.00
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=11 knight=-90516 event=visual-first-update reason=existing-LateUpdate-ran elapsed=0 ghostSamples=1 emitting=True ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=True sourceEnabled=True sprite=knight_run_bamboo_4 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2 trailPresent=True trailEnabled=True trailEmitting=True trailPoints=0
+[Info   :KingdomEnhancedMod] [FrameWatch] dt=137ms frame=30061 timeScale=1 panel=False panelPaused=False samuraiCut=0 gc0=12 gc1=1
+[Info   :KingdomEnhancedMod] [DefenseSpacing] day assemble spread active: dayIndex=0 newX=-109.77
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=11 knight=-90516 event=visual-stop reason=burst-ended; remaining-ghosts-fade elapsed=0.162 ghostSamples=1 emitting=False ghostSlots=8 enabledGhosts=1 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_run_bamboo_4 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=11 knight=-90516 event=effects-restored elapsed=0.162 present=True active=True enabled=False emitting=True points=1 lifetime=0.4 width=1 layer=0 order=0
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=11 knight=-90516 event=end failure=True elapsed=0.162 kind=Return effectsActive=False returnRunning=False
+[Info   :KingdomEnhancedMod] [SamuraiDash/walk] failures=1 x=42.19 follower=51.81 goal=49.31 speed=1.4
+[Info   :KingdomEnhancedMod] [DefensePerf] arrows=0 avgFrame=15.3ms maxFrame=137.5ms t=5.0h
+[Info   :KingdomEnhancedMod] [SamuraiDash/walk-done] failures=1 x=47.33 follower=51.25 goal=49 speed=1.4
+[Info   :KingdomEnhancedMod] [SamuraiDiag] dash=11 knight=-90516 event=tail-cleared reason=all-ghosts-expired elapsed=2.019 ghostSamples=1 emitting=False ghostSlots=8 enabledGhosts=0 whitePresent=True whiteEnabled=False sourceEnabled=True sprite=knight_idle_bamboo_0 sourceLayer=0 sourceOrder=0 material=Pow-Recolor (Instance) shader=Custom/PowerSprite2
+[Info   :KingdomEnhancedMod] [BankAssistants] scan observed=7, playerCoins=0, farmCoins=3, outside=0, tracked=3, mature=0, assigned=0, externallyClaimed=0, collectors=0
+[Info   :KingdomEnhancedMod] [DefenseSpacing] day crowd spread: crowded=380 re-rolled=33
+[Info   :KingdomEnhancedMod] [SpecialTowerRebuildDiag] [t+40s] sceneBallistas=5 sceneFireTowers=0 registeredRebuildPayables=1
+[Info   :KingdomEnhancedMod] [SpecialTowerRebuildDiag] [t+40s] chain=Tower Ballista_greece(Clone) <- GameLayer[m=0,p=0,P=0,B=0] <- Level[m=0,p=0,P=0,B=0] selfMarker=True payable=present locked=False reason=NotLocked blockPay=False regionRestrict=False
+[Info   :KingdomEnhancedMod] [BankAssistants] first assignment helper=0, coin=-96072, x=23.26, age=3.05s
+[Info   :KingdomEnhancedMod] [BankAssistants] active collectors=1 (mature=2)
+[Info   :KingdomEnhancedMod] [BankAssistants] first submission helper=0, coin=-96072, accepted=1
+[Info   :KingdomEnhancedMod] [BankAssistants] scan observed=11, playerCoins=1, farmCoins=5, outside=1, tracked=6, mature=5, assigned=1, externallyClaimed=1, collectors=1

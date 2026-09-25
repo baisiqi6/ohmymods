@@ -1,0 +1,3 @@
+Read-only EXharness validator: FAIL (15 pre-existing schema errors).
+Missing handoff / verification on seven older items; old done item features-overview-20260918 also lacks non-empty verification.
+This task does not edit harness-checklist.json or Coordinate-managed state. git diff -- harness-checklist.json is empty. Do not claim whole harness passed.

@@ -1,3 +1,15 @@
+<!-- shop-territory-installed-20260925 -->
+2026-09-25 23:55 Windows PC/Codex：用户确认退出后，检测无Kingdom进程，核最新候选/受保护源码/旧DLL摘要，按已复审安装关口备份并安装累计94CC219A（build=9.14.24-choreo-shopland-20260925）至既定E盘测试副本。SHA256=9E56BF4BB873DC68F7D65A5492D52196D76CB5D8E9F2A7E6231C512F636411C4，旧8E994A98备份后缀20260925-235547.bak；存档与配置前后hash一致，未启动游戏。含商店全领地选址与武士收势/固定往返目标/仅白残影修复，实机待验。回执tasks/shop-territory-placement-20260925/receipts/install.json，未commit/push/publish。
+<!-- shop-territory-installed-20260925 -->
+<!-- shop-territory-placement-20260925 -->
+2026-09-25 Windows PC/Codex：按用户要求火铳铺与共用英雄驿站覆盖整个intact领地选址，取消±30/0.75固定采样；完整原生预留边界仅划分候选，超集不减去，double阈值与内部float/原生终检，无固定epsilon/对象截断，保留已有店/支付/枪架/暂停/地面。67+18+60+35检查、实际2.4接口与完整build0W0E、独立GLM5.3/max复审APPROVE。累计候选94CC219A / build=9.14.24-choreo-shopland-20260925包含未安装的DED188D7武士收势/回程/去拖尾修复，受保护源码hash保持；游戏PID45240仍运行，尚未安装，E盘仍8E994A98。旧DED候选另有备份，不要按旧路径误装。实机生成/密集选址耗时与武士观感待验，未commit/push/publish；证据tasks/shop-territory-placement-20260925。
+<!-- shop-territory-placement-20260925 -->
+<!-- samurai-choreo-settle-20260925 -->
+2026-09-25 12:04 Windows PC/Codex：用户实机确认上一候选真实往返与白影；本轮修复原生Land收势、删除独立追随从突进、每帧固定目标/越点判定、删除连续trail写点。六套328/0，主build0W0E，GLM5.3/max最终APPROVE。候选DED188D7 / build=9.14.24-choreo-settle-20260925已准备，游戏仍运行，尚未安装。旧8E994A98任务内已备份；未commit/push。证据见tasks/samurai-slash-guard-20260925/live-feedback；新版实机/联机待验，同问题返修不重复计版本。
+<!-- samurai-choreo-settle-20260925 -->
+<!-- samurai-choreo-whitefix-20260925 -->
+2026-09-25 Windows PC / Codex 按zcode-handoff接手，在独立树ohmymods-wt-choreo-fix、win/samurai-choreo-hard-validity@67d39b9实现燕返硬失效门和真实packed白剪影；六套回归合计355/0（216/31/24/32/43/9），主构建0W0E。运动与视觉GLM5.3/max独立复审均APPROVE。候选build=9.14.24-choreo-whitefix-20260925、MD5 8E994A98已于11:09闭游戏安装E副本，旧DLL已.bak备份，存档指纹不变；未启动游戏，实机/联机待验。未commit/push。任务设计/审查/测试/候选hash见tasks/samurai-slash-guard-20260925。原主树progress/checklist有既有合并冲突，不触碰；该续作未纳入Coordinate assignment，不裸改其状态或把旧samurai条目改done。
+<!-- samurai-choreo-whitefix-20260925 -->
 <!-- identity-restore-instability-20260919 -->
 2026-09-19/20 玩家反馈"进游戏/换岛时骑士火枪弩手等MOD角色有时不出现、重进抽奖式"两轮对抗审查诊断：第一轮四类机制（确认延迟自愈/身份精确匹配fail-closed/跨岛运输未完成/弩手身份不持久重选）；第二轮按"非自愈+抽奖"新事实深挖，审查发现头号嫌疑=H4a吸收态（一次性sidecar写失败或legacy失配→拒写会话→原生自动保存推进→hash永不再命中→该岛永久unresolved，解释抽奖变永久坏），musketeer读IoError静默不查备份是唯一真逐启动抽奖路径，H1(v8→v9时钟漂移)首启定局，H3竞态排除。修复菜单：吸收态再基线化（证据门，需用户拍板）/musketeer读失败日志+备份回退+MatchKind日志（低风险）/人工claim工具。收集清单六项已定（含ModSave目录.tmp残留=写失败直接证据）。诊断阶段未改代码，回执tasks/identity-restore-instability-20260919/。
 <!-- identity-restore-instability-20260919 -->

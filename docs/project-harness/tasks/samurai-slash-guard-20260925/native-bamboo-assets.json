@@ -1,0 +1,1477 @@
+[
+  {
+    "name": "map_icon_knightstatue_locked_bamboo",
+    "path_id": 8616,
+    "rect": {
+      "x": 0.0,
+      "y": 0.0,
+      "width": 23.0,
+      "height": 27.0
+    },
+    "texture_rect": {
+      "x": 1462.0,
+      "y": 1681.0,
+      "width": 23.0,
+      "height": 27.0
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-ui-e62b924d",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26894
+  },
+  {
+    "name": "map_icon_knightstatue_bamboo",
+    "path_id": 8853,
+    "rect": {
+      "x": 0.0,
+      "y": 0.0,
+      "width": 23.0,
+      "height": 27.0
+    },
+    "texture_rect": {
+      "x": 1841.0,
+      "y": 1017.0,
+      "width": 23.0,
+      "height": 27.0
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-ui-e62b924d",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26894
+  },
+  {
+    "name": "knight_block_bamboo_0",
+    "path_id": 10611,
+    "rect": {
+      "x": 0.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 493.0398864746094,
+      "y": 1055.0,
+      "width": 25.933368682861328,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_charge_bamboo_0",
+    "path_id": 10631,
+    "rect": {
+      "x": 0.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1468.0,
+      "y": 170.0,
+      "width": 38.98708724975586,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_rally_bamboo_0",
+    "path_id": 13325,
+    "rect": {
+      "x": 0.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 762.0,
+      "y": 1526.0,
+      "width": 18.963714599609375,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_retreat_bamboo_0",
+    "path_id": 13330,
+    "rect": {
+      "x": 0.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1093.0267333984375,
+      "y": 1213.0,
+      "width": 19.927762985229492,
+      "height": 26.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_run_bamboo_0",
+    "path_id": 13340,
+    "rect": {
+      "x": 0.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1500.05126953125,
+      "y": 1049.0,
+      "width": 20.872562408447266,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_walk_bamboo_0",
+    "path_id": 13380,
+    "rect": {
+      "x": 0.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1050.05126953125,
+      "y": 1267.0,
+      "width": 19.942710876464844,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_rally_bamboo_1",
+    "path_id": 13725,
+    "rect": {
+      "x": 41.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1212.076171875,
+      "y": 1478.0,
+      "width": 18.847759246826172,
+      "height": 24.98708724975586
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_retreat_bamboo_1",
+    "path_id": 13730,
+    "rect": {
+      "x": 41.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 637.0398559570312,
+      "y": 1429.0,
+      "width": 20.914634704589844,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_run_bamboo_1",
+    "path_id": 13740,
+    "rect": {
+      "x": 41.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 497.07611083984375,
+      "y": 1339.076171875,
+      "width": 21.847759246826172,
+      "height": 26.847759246826172
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_walk_bamboo_1",
+    "path_id": 13776,
+    "rect": {
+      "x": 41.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 63.023284912109375,
+      "y": 1856.0,
+      "width": 19.900598526000977,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_jump_bamboo_0",
+    "path_id": 13788,
+    "rect": {
+      "x": 0.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 111.05131530761719,
+      "y": 1626.0,
+      "width": 22.89736557006836,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_rally_bamboo_2",
+    "path_id": 14066,
+    "rect": {
+      "x": 82.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 736.0761108398438,
+      "y": 1475.0,
+      "width": 19.89712905883789,
+      "height": 25.98708724975586
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_retreat_bamboo_2",
+    "path_id": 14071,
+    "rect": {
+      "x": 82.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 171.0513153076172,
+      "y": 1736.0,
+      "width": 20.93577003479004,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_run_bamboo_2",
+    "path_id": 14081,
+    "rect": {
+      "x": 82.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 561.012939453125,
+      "y": 1374.0,
+      "width": 21.930715560913086,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_slash_bamboo_0",
+    "path_id": 14082,
+    "rect": {
+      "x": 0.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 232.0513153076172,
+      "y": 1507.0,
+      "width": 22.89736557006836,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_walk_bamboo_2",
+    "path_id": 14113,
+    "rect": {
+      "x": 82.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 981.05126953125,
+      "y": 1116.0,
+      "width": 21.872562408447266,
+      "height": 26.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_jump_bamboo_1",
+    "path_id": 14123,
+    "rect": {
+      "x": 41.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 643.0,
+      "y": 767.0,
+      "width": 40.98708724975586,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_idle_bamboo_0",
+    "path_id": 14136,
+    "rect": {
+      "x": 0.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1834.0,
+      "y": 1054.0,
+      "width": 18.963714599609375,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_rally_bamboo_3",
+    "path_id": 14369,
+    "rect": {
+      "x": 123.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 528.0761108398438,
+      "y": 1555.0,
+      "width": 19.872562408447266,
+      "height": 25.98708724975586
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_retreat_bamboo_3",
+    "path_id": 14374,
+    "rect": {
+      "x": 123.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 735.0513305664062,
+      "y": 1273.0,
+      "width": 20.93577003479004,
+      "height": 26.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_run_bamboo_3",
+    "path_id": 14384,
+    "rect": {
+      "x": 123.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1471.012939453125,
+      "y": 1091.0,
+      "width": 21.910966873168945,
+      "height": 23.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_slash_bamboo_1",
+    "path_id": 14385,
+    "rect": {
+      "x": 41.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 753.012939453125,
+      "y": 593.0,
+      "width": 40.98708724975586,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_walk_bamboo_3",
+    "path_id": 14416,
+    "rect": {
+      "x": 123.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 283.05133056640625,
+      "y": 1457.0,
+      "width": 22.872562408447266,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_jump_bamboo_2",
+    "path_id": 14426,
+    "rect": {
+      "x": 82.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1349.012939453125,
+      "y": 238.0,
+      "width": 38.97417449951172,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_idle_bamboo_1",
+    "path_id": 14439,
+    "rect": {
+      "x": 41.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1200.0,
+      "y": 1347.0,
+      "width": 18.923879623413086,
+      "height": 25.98708724975586
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_rally_bamboo_4",
+    "path_id": 14664,
+    "rect": {
+      "x": 164.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 0.0761260986328125,
+      "y": 1932.0,
+      "width": 19.89712905883789,
+      "height": 25.98708724975586
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_retreat_bamboo_4",
+    "path_id": 14669,
+    "rect": {
+      "x": 164.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1862.0233154296875,
+      "y": 1000.0,
+      "width": 19.96380615234375,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_run_bamboo_4",
+    "path_id": 14679,
+    "rect": {
+      "x": 164.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 31.039886474609375,
+      "y": 1731.0,
+      "width": 20.88399887084961,
+      "height": 27.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_slash_bamboo_2",
+    "path_id": 14680,
+    "rect": {
+      "x": 82.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1750.012939453125,
+      "y": 0.0,
+      "width": 38.98708724975586,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_walk_bamboo_4",
+    "path_id": 14710,
+    "rect": {
+      "x": 164.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1070.0399169921875,
+      "y": 1207.0,
+      "width": 20.88399887084961,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_jump_bamboo_3",
+    "path_id": 14720,
+    "rect": {
+      "x": 123.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1144.012939453125,
+      "y": 505.0,
+      "width": 37.98708724975586,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_idle_bamboo_2",
+    "path_id": 14733,
+    "rect": {
+      "x": 82.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 51.07611083984375,
+      "y": 1958.0,
+      "width": 17.89712905883789,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_rally_bamboo_5",
+    "path_id": 14931,
+    "rect": {
+      "x": 205.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1445.0,
+      "y": 1294.0,
+      "width": 18.923879623413086,
+      "height": 24.98708724975586
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_retreat_bamboo_5",
+    "path_id": 14936,
+    "rect": {
+      "x": 205.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1038.05126953125,
+      "y": 1212.0,
+      "width": 20.903196334838867,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_run_bamboo_5",
+    "path_id": 14944,
+    "rect": {
+      "x": 205.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 552.012939453125,
+      "y": 1636.0,
+      "width": 19.910966873168945,
+      "height": 24.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_slash_bamboo_3",
+    "path_id": 14945,
+    "rect": {
+      "x": 123.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1171.012939453125,
+      "y": 533.0,
+      "width": 37.98708724975586,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_walk_bamboo_5",
+    "path_id": 14972,
+    "rect": {
+      "x": 205.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1453.0267333984375,
+      "y": 1227.0,
+      "width": 17.94649887084961,
+      "height": 26.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_jump_bamboo_4",
+    "path_id": 14981,
+    "rect": {
+      "x": 164.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 881.012939453125,
+      "y": 232.0,
+      "width": 40.97417449951172,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_idle_bamboo_3",
+    "path_id": 14991,
+    "rect": {
+      "x": 123.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1150.076171875,
+      "y": 1518.0,
+      "width": 17.89712905883789,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_rally_bamboo_6",
+    "path_id": 15145,
+    "rect": {
+      "x": 246.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 574.0,
+      "y": 1634.0,
+      "width": 18.963714599609375,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_slash_bamboo_4",
+    "path_id": 15154,
+    "rect": {
+      "x": 164.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1176.012939453125,
+      "y": 561.0,
+      "width": 37.98708724975586,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_jump_bamboo_5",
+    "path_id": 15186,
+    "rect": {
+      "x": 205.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1467.012939453125,
+      "y": 467.0,
+      "width": 35.97417449951172,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_idle_bamboo_4",
+    "path_id": 15196,
+    "rect": {
+      "x": 164.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 994.076171875,
+      "y": 1543.0,
+      "width": 17.89712905883789,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_slash_bamboo_5",
+    "path_id": 15343,
+    "rect": {
+      "x": 205.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 724.012939453125,
+      "y": 649.0,
+      "width": 40.97417449951172,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_jump_bamboo_6",
+    "path_id": 15371,
+    "rect": {
+      "x": 246.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 199.03988647460938,
+      "y": 1796.0,
+      "width": 19.94544792175293,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_idle_bamboo_5",
+    "path_id": 15379,
+    "rect": {
+      "x": 205.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1233.076171875,
+      "y": 1478.0,
+      "width": 17.89712905883789,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_slash_bamboo_6",
+    "path_id": 15510,
+    "rect": {
+      "x": 246.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1154.012939453125,
+      "y": 699.0,
+      "width": 35.97417449951172,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_idle_bamboo_6",
+    "path_id": 15543,
+    "rect": {
+      "x": 246.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 340.07611083984375,
+      "y": 1843.0,
+      "width": 17.89712905883789,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_slash_bamboo_7",
+    "path_id": 15652,
+    "rect": {
+      "x": 287.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 278.05133056640625,
+      "y": 990.0,
+      "width": 26.921932220458984,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_idle_bamboo_7",
+    "path_id": 15678,
+    "rect": {
+      "x": 287.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 721.0761108398438,
+      "y": 1594.0,
+      "width": 18.847759246826172,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_slash_bamboo_8",
+    "path_id": 15776,
+    "rect": {
+      "x": 328.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 460.0399169921875,
+      "y": 1492.0,
+      "width": 20.947208404541016,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_idle_bamboo_8",
+    "path_id": 15800,
+    "rect": {
+      "x": 328.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1347.076171875,
+      "y": 1261.0,
+      "width": 18.847759246826172,
+      "height": 25.98708724975586
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_slash_bamboo_9",
+    "path_id": 15890,
+    "rect": {
+      "x": 369.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1838.039794921875,
+      "y": 1026.0,
+      "width": 19.94544792175293,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_idle_bamboo_9",
+    "path_id": 15912,
+    "rect": {
+      "x": 369.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1305.0,
+      "y": 1238.0,
+      "width": 18.963714599609375,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_idle_bamboo_10",
+    "path_id": 16014,
+    "rect": {
+      "x": 410.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1278.0,
+      "y": 1276.0,
+      "width": 18.963714599609375,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_idle_bamboo_11",
+    "path_id": 16112,
+    "rect": {
+      "x": 451.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 827.0,
+      "y": 1476.0,
+      "width": 18.963714599609375,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  },
+  {
+    "name": "knight_idle_bamboo_12",
+    "path_id": 16203,
+    "rect": {
+      "x": 492.0,
+      "y": 0.0,
+      "width": 41.0,
+      "height": 32.0
+    },
+    "texture_rect": {
+      "x": 1122.0,
+      "y": 1388.0,
+      "width": 18.963714599609375,
+      "height": 25.923879623413086
+    },
+    "settings": 67,
+    "packed": true,
+    "rotation": 0,
+    "texture": "sactx-0-2048x2048-Uncompressed-characters-c5d8bfbd",
+    "size": [
+      2048,
+      2048
+    ],
+    "atlas_id": 26898
+  }
+]
