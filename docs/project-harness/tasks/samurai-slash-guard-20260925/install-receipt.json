@@ -1,0 +1,14 @@
+{
+  "installedAt": "2026-09-25T11:09:41.9602493+08:00",
+  "source": "C:/Users/ADMIN/projects/ohmymods-wt-choreo-fix/il2cpp/bin/Debug/KingdomEnhancedMod.dll",
+  "destination": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll",
+  "sourceSha256": "EC86481FF07E7ECB9D1CC5541500F22357D29F41A4B194608EDFE7FACD18ABA1",
+  "installedSha256": "EC86481FF07E7ECB9D1CC5541500F22357D29F41A4B194608EDFE7FACD18ABA1",
+  "installedMd5": "8E994A98B65E77EA6368682E4C96C427",
+  "oldSha256": "3A5D37068A4785A23EBFD718D338C29150665195315CCD697232A121A77BE12B",
+  "oldMd5": "97030311ED804CC2D703C5F5DEDB105A",
+  "backup": "E:\\Kingdom.Two.Crowns.Call.of.Olympus\\Kingdom.Two.Crowns.Build.22992091\\BepInEx\\plugins\\KingdomEnhancedMod\\KingdomEnhancedMod.dll.20260925-110941.bak",
+  "saveSnapshotUnchanged": true,
+  "gameStarted": false,
+  "gameplayVerified": false
+}

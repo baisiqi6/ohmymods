@@ -1,0 +1,5 @@
+C:\Users\ADMIN\projects\ohmymods-wt-choreo-fix\il2cpp\MusketeerShopRules.cs(44,24): warning CS0649: 从未对字段“MusketeerRackLayout.Item.Identity”赋值，字段将一直保持其默认值 [C:\Users\ADMIN\projects\ohmymods-wt-choreo-fix\tests\musketeer-shop\Tests.csproj]
+C:\Users\ADMIN\projects\ohmymods-wt-choreo-fix\il2cpp\MusketeerShopRules.cs(45,23): warning CS0649: 从未对字段“MusketeerRackLayout.Item.Unclaimed”赋值，字段将一直保持其默认值 false [C:\Users\ADMIN\projects\ohmymods-wt-choreo-fix\tests\musketeer-shop\Tests.csproj]
+C:\Users\ADMIN\projects\ohmymods-wt-choreo-fix\il2cpp\MusketeerShopRules.cs(43,22): warning CS0649: 从未对字段“MusketeerRackLayout.Item.Slot”赋值，字段将一直保持其默认值 0 [C:\Users\ADMIN\projects\ohmymods-wt-choreo-fix\tests\musketeer-shop\Tests.csproj]
+C:\Users\ADMIN\projects\ohmymods-wt-choreo-fix\il2cpp\MusketeerShopRules.cs(46,50): warning CS0649: 从未对字段“MusketeerRackLayout.Item.MoveAndVerify”赋值，字段将一直保持其默认值 null [C:\Users\ADMIN\projects\ohmymods-wt-choreo-fix\tests\musketeer-shop\Tests.csproj]
+PASS 18 shop payment/rack/retention assertions

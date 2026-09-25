@@ -1,0 +1,33 @@
+C:\Users\ADMIN\projects\ohmymods-wt-choreo-fix\tests\samurai-visuals\Stubs.cs(115,115): warning CS0108: “Shader.name”隐藏继承的成员“Object.name”。如果是有意隐藏，请使用关键字 new。 [C:\Users\ADMIN\projects\ohmymods-wt-choreo-fix\tests\samurai-visuals\Regression.csproj]
+PASS One dash allocates the eight-slot ghost trail and one body overlay
+PASS Silhouettes write white into their own instanced material without source mutation
+PASS Moving stream fills the eight-slot trail with recency opacity and linear fade
+PASS Ghost world pose freezes while owner moves and source pose changes
+PASS End stops body immediately and ghosts fade out within two seconds
+PASS Stationary dash does not emit fake repeated poses
+PASS Pause freezes ghost age and creates no emissions
+PASS Clear removes all effects immediately while paused
+PASS Late old token End cannot clear replacement dash
+PASS Configuration or style loss cleans active renderers
+PASS Owner disable cleans roots and pooled Begin does not duplicate renderers
+PASS Partial renderer construction failure cleans its owned root atomically
+PASS Diagnostic chain records enabled state, first update once, stop and final tail
+PASS Diagnostic skipped source distinguishes missing sprite
+PASS Stationary dash whose ghosts expired before End still logs tail-cleared once
+PASS Both shader finds failing degrades to a source-palette clone with one log line
+PASS First-level miss only degrades to the unlit-texture recipe with one log line
+PASS Non-packed quad bakes a white silhouette pixel-identical to its atlas rect
+PASS Native packed charge sprite bakes through real mesh + inferred atlas UVs without neighbor bleed
+PASS Pose changes mint a fresh baked silhouette while the older ghost keeps its frozen pose
+PASS White bakes are shared across owners and never rebuilt per frame
+PASS Baked stream keeps the eight-slot ladder, ordering offsets and one readback
+PASS Unreadable atlases whiten through the GPU readback path and return RT + staging
+PASS Failed GPU readback degrades truthfully, returns the RT and destroys the staging texture
+PASS Atlas displacement: a known block lands at pivot-relative pixel offsets
+PASS Rotated packing: UV-driven bake still yields an upright silhouette
+PASS Key collision: same rect/pivot/PPU but different atlas regions bake distinct silhouettes
+PASS White cache bounds itself, never destroys in-flight silhouettes and survives a fresh bake
+PASS Native charge pixels match the independent polygon and atlas-offset reference
+PASS Many owners pin more than 64 distinct poses and release them without destroying live ghosts
+PASS ClearAll releases baked pose sprites and their textures
+RESULT 31 passed, 0 failed

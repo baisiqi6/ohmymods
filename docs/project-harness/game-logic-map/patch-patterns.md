@@ -1,3 +1,9 @@
+<!-- shop-territory-installed-20260925 -->
+2026-09-25 23:55 Windows PC/Codex：用户确认退出后，检测无Kingdom进程，核最新候选/受保护源码/旧DLL摘要，按已复审安装关口备份并安装累计94CC219A（build=9.14.24-choreo-shopland-20260925）至既定E盘测试副本。SHA256=9E56BF4BB873DC68F7D65A5492D52196D76CB5D8E9F2A7E6231C512F636411C4，旧8E994A98备份后缀20260925-235547.bak；存档与配置前后hash一致，未启动游戏。含商店全领地选址与武士收势/固定往返目标/仅白残影修复，实机待验。回执tasks/shop-territory-placement-20260925/receipts/install.json，未commit/push/publish。
+<!-- shop-territory-installed-20260925 -->
+<!-- shop-territory-placement-20260925 -->
+2026-09-25 Windows PC/Codex：按用户要求火铳铺与共用英雄驿站覆盖整个intact领地选址，取消±30/0.75固定采样；完整原生预留边界仅划分候选，超集不减去，double阈值与内部float/原生终检，无固定epsilon/对象截断，保留已有店/支付/枪架/暂停/地面。67+18+60+35检查、实际2.4接口与完整build0W0E、独立GLM5.3/max复审APPROVE。累计候选94CC219A / build=9.14.24-choreo-shopland-20260925包含未安装的DED188D7武士收势/回程/去拖尾修复，受保护源码hash保持；游戏PID45240仍运行，尚未安装，E盘仍8E994A98。旧DED候选另有备份，不要按旧路径误装。实机生成/密集选址耗时与武士观感待验，未commit/push/publish；证据tasks/shop-territory-placement-20260925。
+<!-- shop-territory-placement-20260925 -->
 <!-- release-945-20260917 -->
 2026-09-17 用户授权发布并沉淀累计版本规则，v9.4.5现为GitHub Latest。VERSIONING.md记录修复patch+1～5/功能minor+1～3、按完整条目去重，本批自公开9.0累计+0.4.0功能/+0.0.5修订。源码676f7204父公开21f7ffa，仅推新tag，原HEAD/index/branch保持。ZIP8961fd17 / DLL0f8c1fc8，582选集、精确commit实际2.4构建0W0E、99项目(76run/18compile/5xUnit434)通过。3725方法保持，仅Init版本/build文字变化；751type/4070field/3726method元数据及8PNG核对，314包项含VERSIONING、306运行依赖逐字节同9.0、CRC/隐私/独立审核与远端digest/Latest/tag读回通过。已闭游戏备份同步正式包DLL至E独立副本，28份用户存档/附加档/配置hash保持，未启动游戏。包括独立枪架/.9/五帧红焰/弹药长按/白天补货/伤害可靠性/4火枪后排与白天猎鹿。实机队形/鹿命中回防/密集战斗/跨岛与相关联机仍待，历史英雄步态/穿地/弩手缩放未称修复，功能doing状态保留。
 <!-- release-945-20260917 -->
@@ -931,3 +937,15 @@ Mover.SetSpeed参考源码将_movingToGoal=false但仍设置_moveSpeed，不能�
 - 普通弓手的完整冷却按一次连射收取，不是每箭收取。比较持续平均间隔时要计入 Random.Range(int min,int max) 的排他上界和平均连射数量；不能把强制单发后的完整周期误称为原版每箭周期。
 
 以上为代码与离线回归经验，不代表实际2.4玩法验收完成。证据见 tasks/musketeer-20260916。
+
+### 2026-09-25 武士燕返与白剪影的判别测试
+
+- 行程自己的移动会触发原生isRetreating等软行为旗；不要复用启动资格作存续资格。Tick硬帽必须在软门之前，命中扫描也要使用同一存续谓词。只改协程循环会留下Tick截断或墙外零伤害。
+- Sprites/Default乘法白顶点色不会白化原纹理；应检验真实sprite.texture的RGB/alpha，不以renderer.enabled或shader找到代替屏幕颜色证据。
+- 实际2.4bamboo Sprite通过SpriteAtlas打包，原m_RD可能texture=null且packed标志不反映atlas。解析m_RenderDataMap或运行时vertices/uv；packed不同姿态可共享rect=(0,0,41,32)，缓存键必须含Sprite身份。tight网格外接矩形里可能有邻居像素，白影需按真实网格覆盖采样。
+- IL2CPP Sprite.vertices是Vector2[]；桩写成Vector3[]会出现纯桩绿但主构建CS0029。真实主构建与native资源fixture是独立关口。
+- 缓存全局上限不能从单owner采样率推导；130owner回归验证在飞Sprite及Texture不误销毁、释放后收敛。详见tasks/samurai-slash-guard-20260925/。
+
+### 2026-09-25 零时长动画切换与收势出口
+
+真实2.4resources.assets的knight/knight_bamboo：AnyState→PowerSlash持续0秒，PowerSlash循环且唯一出口需要Land，Land结束再回Stand。不能以“观察到IsInTransition后才承认状态”捕获它，也不能ResetTrigger当退出；旧日志DefaultHash=-526882654正是PowerSlash毒化。已验证fullPath播放与Land契约替代猜测网。Animator.Play可能延迟到动画求值，同帧失败须连pending Play一并排退出；所有Reset/Set/Play均限定原Animator及controller，不只给Play/Land加门。测试桩必须区分shortNameHash/fullPathHash，避免真假状态门不同步。

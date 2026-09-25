@@ -1,0 +1,217 @@
+PASS Night leash hands off once; native owns retreat and damage stays untouched
+PASS Night trips are target-agnostic: no leash, home is the start point
+PASS The attack cooldown anchors at the trigger, not at the trip's end
+PASS Night handoff respects external goal before observation
+PASS Night handoff respects object goal before observation
+PASS Night handoff respects new queued task before observation
+PASS Night handoff respects charge before observation
+PASS Night handoff respects formation before observation
+PASS Night handoff respects embark before observation
+PASS Night handoff respects control before observation
+PASS Night handoff respects pillar before observation
+PASS Night handoff respects Assemble before observation
+PASS Night handoff respects dead before observation
+PASS Night handoff respects disabled before observation
+PASS Night handoff respects pause before observation
+PASS Night handoff respects mover pause before observation
+PASS Night handoff respects authority before observation
+PASS Night handoff respects mod off before observation
+PASS Night handoff respects follower lost before observation
+PASS Night handoff respects mover replacement before observation
+PASS Night handoff respects external goal after observation
+PASS Night handoff respects object goal after observation
+PASS Night handoff respects new queued task after observation
+PASS Night handoff respects charge after observation
+PASS Night handoff respects formation after observation
+PASS Night handoff respects embark after observation
+PASS Night handoff respects control after observation
+PASS Night handoff respects pillar after observation
+PASS Night handoff respects Assemble after observation
+PASS Night handoff respects dead after observation
+PASS Night handoff respects disabled after observation
+PASS Night handoff respects pause after observation
+PASS Night handoff respects mover pause after observation
+PASS Night handoff respects authority after observation
+PASS Night handoff respects mod off after observation
+PASS Night handoff respects follower lost after observation
+PASS Night handoff respects mover replacement after observation
+PASS Night no followers retains forward attack
+PASS Night refreshes stopped current wall task once with its latest native destination
+PASS Night ten is inclusive and still permits the next forward attack
+PASS Dusk retires active daytime return without further dash hits
+PASS Actor replacement with reused instance id cannot inherit old night request
+PASS In-flight new native queued task keeps its queue and the trip keeps its hits
+PASS A night goal steal mid-dash is reclaimed by the 0.3 s re-assert
+PASS A failed burst hands over to the walk home in the very next tick
+PASS The walk keeps a live goal for as long as the burst backoff runs
+PASS Repeated hit-stun pauses never lock the return
+PASS Burst retries escalate and then retire in favour of the walk
+PASS A spent ladder walks home by itself and the next episode bursts again
+PASS A walk upgraded by its backoff still ends at the follower station
+PASS A Left return withdraws facing the enemy side without the dash pose
+PASS A Right return withdraws facing the enemy side without the dash pose
+PASS Attack dash keeps the dash pose and never takes a facing lease
+PASS A native reset to Ahead is re-asserted while the return runs
+PASS A foreign fixed facing survives the whole return
+PASS Walking withdrawal keeps the defensive facing and releases it on arrival
+PASS Walking withdrawal honours formation exactly like the burst
+PASS Walking withdrawal honours retreating exactly like the burst
+PASS Walking withdrawal honours charging exactly like the burst
+PASS Walking withdrawal honours charge pending exactly like the burst
+PASS Walking withdrawal honours dead exactly like the burst
+PASS Walking withdrawal honours manual control exactly like the burst
+PASS Walking withdrawal honours config exactly like the burst
+PASS Walking withdrawal honours authority exactly like the burst
+PASS Night hands the return over: no mod goal, native guard-slot task only
+PASS A knight facing its home side still finds the enemy behind it
+PASS Attack selection keeps its own .2 s cadence and never queries the native scanner
+PASS Near, very near and behind enemies all get the fixed seven-unit goal
+PASS The trigger band is [1.5, 7+1.2] and 9.0/10.5 enemies never fire
+PASS The trigger gate still rejects a retreating knight
+PASS The pinned seven-unit dash pierces the near enemy and reaches the one behind it
+PASS The trail pin holds across the whole trip and returns at the close
+PASS An externally rewritten trail lifetime survives the close
+PASS Turn logging is bounded to twelve lines at six seconds per knight
+PASS A cut that ends mid-transition captures where it was heading
+PASS A settled walk pose after an untransitioned cut is not trusted
+PASS A stuck knight's poisoned baseline cannot self-capture but a peer adopts
+PASS Adoption never crosses controller families
+PASS A wrong finish guess is overridden by the peer's proven hash
+PASS No enemy and native attack cooldown do not prevent >10 return
+PASS Return ladder opens over a live attack cadence after the trip closes
+PASS 10/4 hysteresis and ordinary completion
+PASS Return burst applies normal attack damage exactly once to an in-window target
+PASS Active return does not restart visual burst every frame
+PASS Inside hysteresis band active return cannot also start attacking
+PASS Long return ends invulnerable burst within 0.6 seconds then runs normally
+PASS Normal 10-to-11 gap closes in one bounded white-trail burst
+PASS Return interruption: config
+PASS Return interruption: style
+PASS Return interruption: authority
+PASS Return interruption: manual control
+PASS Return interruption: already controlled
+PASS Return interruption: retreating
+PASS Return interruption: embarked
+PASS Return interruption: embark target
+PASS Return interruption: formation
+PASS Return interruption: dead
+PASS Return interruption: charging
+PASS Return interruption: charge pending
+PASS Return interruption: inert
+PASS Return interruption: grabbed
+PASS Return interruption: stationary
+PASS Return interruption: other FSM task
+PASS Config-off OnDisable is reachable and restores preexisting flags
+PASS Ordinary end of burst preserves preexisting invulnerability and trail
+PASS External new position goal is never stopped or overwritten by cleanup
+PASS Cleanup respects an externally cleared preexisting invulnerability flag
+PASS External object goal and replacement mover survive cleanup
+PASS External goal installed at burst deadline survives transition to running
+PASS Replacement mover identity interrupts return without stopping old or new external owner
+PASS No followers means no invented return destination
+PASS Active follower invalidation: death
+PASS Active follower invalidation: leaves squad
+PASS Active follower invalidation: inactive
+PASS Active follower invalidation: destroyed
+PASS Nearest alive owned follower selected; active target follows changing position
+PASS Stuck return times out and backs off instead of restarting each frame
+PASS Continuously receding follower cannot keep one return episode alive indefinitely
+PASS Pause starts no burst; active pause consumes neither scaled time nor deadline
+PASS External mover pause is not cleared
+PASS Return disable and optional late coroutine cleanup cannot erase pool-reused owner
+PASS Whole follower cache is not searched every active return frame
+PASS Whole follower cache is not searched every attack dash frame
+PASS OnDisable during attack releases owned invulnerability and trail
+PASS OnDisable during attack preserves preexisting invulnerability and trail
+PASS A mid-flight external mover destination is reclaimed by the re-assert
+PASS Optional late attack coroutine finally cannot clear new return owner after reuse
+PASS Forward burst retains same-frame damage to two different valid enemies
+PASS Forward burst deduplicates multiple colliders per Damageable and reuses its scan buffer
+PASS Forward burst can hit a new target entering the supplied physics window later
+PASS Forward burst damage is bounded per leg (the turn re-arms, the timeout does not linger)
+PASS Forward paused burst does no scans or damage
+PASS Forward damage callback interrupts old frame: OnDisable
+PASS Forward damage callback interrupts old frame: external goal
+PASS Forward damage callback interrupts old frame: authority loss
+PASS Forward damage callback interrupts old frame: manual control
+PASS Forward damage callback interrupts old frame: config loss
+PASS Forward ReceiveDamage callback replacing the motion leaves new return goal and effects intact
+PASS Return burst retains same-frame damage to two different valid enemies
+PASS Return burst deduplicates multiple colliders per Damageable and reuses its scan buffer
+PASS Return burst can hit a new target entering the supplied physics window later
+PASS Return burst damage is bounded per leg (the turn re-arms, the timeout does not linger)
+PASS Return burst stops damage at ten-and-a-half-unit travel boundary
+PASS Return paused burst does no scans or damage
+PASS Return damage callback interrupts old frame: OnDisable
+PASS Return damage callback interrupts old frame: external goal
+PASS Return damage callback interrupts old frame: authority loss
+PASS Return damage callback interrupts old frame: manual control
+PASS Return damage callback interrupts old frame: config loss
+PASS Return ReceiveDamage callback replacing the motion leaves new return goal and effects intact
+PASS Forward and subsequent reverse cut may each hit the same Damageable once
+PASS Ordinary return running phase has no hit scans or damage
+PASS Arrival inside four while burst still valid may hit once, never after completed return
+PASS Finish Stop callback replacing motion within same actor cannot be erased by old finally
+PASS Motion begins one visual token without old GlowOverlay call
+PASS Return running tail ends its visual burst token
+PASS OnDisable prefix clears visuals before mover cleanup callbacks
+PASS A trip runs both legs, closes at the start point and ends one protected motion
+PASS An enemy dying mid-trip changes nothing: no target survives the trigger
+PASS The turn replays the dash pose, faces home and repairs the y scale
+PASS The reverse cut strikes again: the hit round resets at the turn
+PASS Paused frames hold the trip without scans or damage; the resume continues it
+PASS Two consecutive trips leak no effects (value discipline)
+PASS The Tick hard cap closes a trip that cannot advance
+PASS The hard cap still closes a trip whose coroutine died under a soft flag
+PASS Two samurai run their own trips independently toward their own start points
+PASS Follower death mid-trip changes nothing: the trip closes at its own start point
+PASS A paused frame never opens a trip
+PASS A native slash attempt during the trip never pauses the mover (root-cause discriminator)
+PASS The slash suppression releases once the trip closes
+PASS In-flight soft flag never cuts the trip: retreating
+PASS In-flight soft flag never cuts the trip: charging
+PASS In-flight soft flag never cuts the trip: charge pending
+PASS In-flight soft flag never cuts the trip: formation
+PASS In-flight soft flag never cuts the trip: other FSM task
+PASS In-flight soft flag never cuts the trip: manual control
+PASS In-flight soft flag never cuts the trip: being controlled
+PASS In-flight soft flag never cuts the trip: harmless
+PASS In-flight soft flag never cuts the trip: stationary
+PASS In-flight soft flag never cuts the trip: embark target
+PASS In-flight soft flag never cuts the trip: pillar
+PASS In-flight hard invalidation closes the trip: config
+PASS In-flight hard invalidation closes the trip: authority
+PASS In-flight hard invalidation closes the trip: dead
+PASS In-flight hard invalidation closes the trip: grabbed
+PASS In-flight hard invalidation closes the trip: inert
+PASS In-flight hard invalidation closes the trip: disabled
+PASS In-flight hard invalidation closes the trip: style changed
+PASS In-flight hard invalidation closes the trip: style unresolved
+PASS In-flight hard invalidation closes the trip: reused instance id (owner lost)
+PASS A hard invalidation names its clause in the bounded close line
+PASS In-flight interruption: a foreign goal is reclaimed by the re-assert, not handed off
+PASS In-flight interruption: mover replacement closes with zero writes to the new mover
+PASS In-flight interruption: an external mover pause latches instead of closing
+PASS Dusk mid-trip keeps the trip and its own home anchor
+PASS A native goal steal at dusk is reclaimed, and the queue waits for the close
+PASS The night handoff resumes only after the trip closes
+PASS A retreat onset during an outbound hit callback preserves remaining hits
+PASS Retreating first becoming true on the home leg still reaches home
+PASS A retreat onset mid-outbound persists through home without cutting the trip or hits
+PASS A pose that outlives the native slash is reset, replayed to calm and left alone
+PASS A transition-only lease leaves the session's captured pose untouched
+PASS A lease that never opens its gates stands the capture probe down for the session
+PASS Misses from one lease do not count against the next
+PASS A lease that never leaves its begin pose captures nothing
+PASS A state that is not the captured pose is never repaired
+PASS A knight that never drove a cut lease is never repaired
+PASS A pose first shown after the eight-second window is left alone
+PASS The outbound cut clears its trigger before the reverse cut fires its own
+PASS Withdrawal finishes never touch the slash trigger
+PASS A pose that survives both ladders stands the probe down until the next cut lease
+PASS Without a captured calm pose the repair goes straight to the enable toggle
+PASS A walking frame supplies the replay pose (2026-09-24 field fix)
+PASS A native slash pause never yields a calm pose to replay
+PASS Night formation lease probe follows a live dash lease until it retires
+PASS Night formation lease probe is false without an actor record
+RESULT: 216 passed, 0 failed

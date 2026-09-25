@@ -1,0 +1,58 @@
+[
+  {
+    "id": 64362,
+    "data": {
+      "m_GameObject": {
+        "m_FileID": 0,
+        "m_PathID": 21368
+      },
+      "m_Controller": {
+        "m_FileID": 0,
+        "m_PathID": 6145
+      },
+      "m_KeepAnimatorStateOnDisable": false
+    }
+  },
+  {
+    "id": 64367,
+    "data": {
+      "m_GameObject": {
+        "m_FileID": 0,
+        "m_PathID": 21373
+      },
+      "m_Controller": {
+        "m_FileID": 0,
+        "m_PathID": 6136
+      },
+      "m_KeepAnimatorStateOnDisable": false
+    }
+  },
+  {
+    "id": 64548,
+    "data": {
+      "m_GameObject": {
+        "m_FileID": 0,
+        "m_PathID": 24143
+      },
+      "m_Controller": {
+        "m_FileID": 0,
+        "m_PathID": 19384
+      },
+      "m_KeepAnimatorStateOnDisable": false
+    }
+  },
+  {
+    "id": 64796,
+    "data": {
+      "m_GameObject": {
+        "m_FileID": 0,
+        "m_PathID": 27162
+      },
+      "m_Controller": {
+        "m_FileID": 0,
+        "m_PathID": 6136
+      },
+      "m_KeepAnimatorStateOnDisable": false
+    }
+  }
+]

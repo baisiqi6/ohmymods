@@ -1,0 +1,307 @@
+{
+  "states": [
+    {
+      "name": "PowerSlash",
+      "data": {
+        "m_TransitionConstantArray": [
+          {
+            "data": {
+              "m_ConditionConstantArray": [
+                {
+                  "data": {
+                    "m_ConditionMode": 1,
+                    "m_EventID": 137525990,
+                    "m_EventThreshold": 0.0,
+                    "m_ExitTime": 0.0
+                  }
+                }
+              ],
+              "m_DestinationState": 8,
+              "m_FullPathID": 2863138706,
+              "m_ID": 1831450818,
+              "m_UserID": 0,
+              "m_TransitionDuration": 0.0,
+              "m_TransitionOffset": 0.0,
+              "m_ExitTime": 1.0,
+              "m_HasExitTime": false,
+              "m_HasFixedDuration": true,
+              "m_InterruptionSource": 0,
+              "m_OrderedInterruption": true,
+              "m_CanTransitionToSelf": true
+            }
+          }
+        ],
+        "m_BlendTreeConstantIndexArray": [
+          0
+        ],
+        "m_BlendTreeConstantArray": [
+          {
+            "data": {
+              "m_NodeArray": [
+                {
+                  "data": {
+                    "m_BlendType": 0,
+                    "m_BlendEventID": 4294967295,
+                    "m_BlendEventYID": 4294967295,
+                    "m_ChildIndices": [],
+                    "m_Blend1dData": {
+                      "data": {
+                        "m_ChildThresholdArray": []
+                      }
+                    },
+                    "m_Blend2dData": {
+                      "data": {
+                        "m_ChildPositionArray": [],
+                        "m_ChildMagnitudeArray": [],
+                        "m_ChildPairVectorArray": [],
+                        "m_ChildPairAvgMagInvArray": [],
+                        "m_ChildNeighborListArray": []
+                      }
+                    },
+                    "m_BlendDirectData": {
+                      "data": {
+                        "m_ChildBlendEventIDArray": [],
+                        "m_NormalizedBlendValues": false
+                      }
+                    },
+                    "m_ClipID": 7,
+                    "m_Duration": 1.0,
+                    "m_CycleOffset": 0.0,
+                    "m_Mirror": false
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "m_NameID": 3768084642,
+        "m_PathID": 3619543953,
+        "m_FullPathID": 3619543953,
+        "m_TagID": 0,
+        "m_SpeedParamID": 0,
+        "m_MirrorParamID": 0,
+        "m_CycleOffsetParamID": 0,
+        "m_TimeParamID": 0,
+        "m_Speed": 1.0,
+        "m_CycleOffset": 0.0,
+        "m_IKOnFeet": false,
+        "m_WriteDefaultValues": true,
+        "m_Loop": true,
+        "m_Mirror": false
+      }
+    },
+    {
+      "name": "Land",
+      "data": {
+        "m_TransitionConstantArray": [
+          {
+            "data": {
+              "m_ConditionConstantArray": [],
+              "m_DestinationState": 0,
+              "m_FullPathID": 2514729710,
+              "m_ID": 1026734387,
+              "m_UserID": 0,
+              "m_TransitionDuration": 0.0,
+              "m_TransitionOffset": 0.0,
+              "m_ExitTime": 1.0,
+              "m_HasExitTime": true,
+              "m_HasFixedDuration": true,
+              "m_InterruptionSource": 0,
+              "m_OrderedInterruption": true,
+              "m_CanTransitionToSelf": true
+            }
+          }
+        ],
+        "m_BlendTreeConstantIndexArray": [
+          0
+        ],
+        "m_BlendTreeConstantArray": [
+          {
+            "data": {
+              "m_NodeArray": [
+                {
+                  "data": {
+                    "m_BlendType": 0,
+                    "m_BlendEventID": 4294967295,
+                    "m_BlendEventYID": 4294967295,
+                    "m_ChildIndices": [],
+                    "m_Blend1dData": {
+                      "data": {
+                        "m_ChildThresholdArray": []
+                      }
+                    },
+                    "m_Blend2dData": {
+                      "data": {
+                        "m_ChildPositionArray": [],
+                        "m_ChildMagnitudeArray": [],
+                        "m_ChildPairVectorArray": [],
+                        "m_ChildPairAvgMagInvArray": [],
+                        "m_ChildNeighborListArray": []
+                      }
+                    },
+                    "m_BlendDirectData": {
+                      "data": {
+                        "m_ChildBlendEventIDArray": [],
+                        "m_NormalizedBlendValues": false
+                      }
+                    },
+                    "m_ClipID": 8,
+                    "m_Duration": 1.0,
+                    "m_CycleOffset": 0.0,
+                    "m_Mirror": false
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "m_NameID": 137525990,
+        "m_PathID": 558702772,
+        "m_FullPathID": 558702772,
+        "m_TagID": 0,
+        "m_SpeedParamID": 0,
+        "m_MirrorParamID": 0,
+        "m_CycleOffsetParamID": 0,
+        "m_TimeParamID": 0,
+        "m_Speed": 1.0,
+        "m_CycleOffset": 0.0,
+        "m_IKOnFeet": false,
+        "m_WriteDefaultValues": true,
+        "m_Loop": false,
+        "m_Mirror": false
+      }
+    }
+  ],
+  "anyTransitions": [
+    {
+      "data": {
+        "m_ConditionConstantArray": [
+          {
+            "data": {
+              "m_ConditionMode": 1,
+              "m_EventID": 3322898677,
+              "m_EventThreshold": 0.0,
+              "m_ExitTime": 0.0
+            }
+          }
+        ],
+        "m_DestinationState": 2,
+        "m_FullPathID": 129813348,
+        "m_ID": 2388160102,
+        "m_UserID": 0,
+        "m_TransitionDuration": 0.0,
+        "m_TransitionOffset": 0.0,
+        "m_ExitTime": 0.0,
+        "m_HasExitTime": false,
+        "m_HasFixedDuration": true,
+        "m_InterruptionSource": 0,
+        "m_OrderedInterruption": true,
+        "m_CanTransitionToSelf": true
+      }
+    },
+    {
+      "data": {
+        "m_ConditionConstantArray": [
+          {
+            "data": {
+              "m_ConditionMode": 1,
+              "m_EventID": 2788631719,
+              "m_EventThreshold": 0.0,
+              "m_ExitTime": 0.0
+            }
+          }
+        ],
+        "m_DestinationState": 6,
+        "m_FullPathID": 1736738614,
+        "m_ID": 3999277620,
+        "m_UserID": 0,
+        "m_TransitionDuration": 0.0,
+        "m_TransitionOffset": 0.0,
+        "m_ExitTime": 0.0,
+        "m_HasExitTime": false,
+        "m_HasFixedDuration": true,
+        "m_InterruptionSource": 0,
+        "m_OrderedInterruption": true,
+        "m_CanTransitionToSelf": false
+      }
+    },
+    {
+      "data": {
+        "m_ConditionConstantArray": [
+          {
+            "data": {
+              "m_ConditionMode": 1,
+              "m_EventID": 3768084642,
+              "m_EventThreshold": 0.0,
+              "m_ExitTime": 0.0
+            }
+          }
+        ],
+        "m_DestinationState": 7,
+        "m_FullPathID": 1188656815,
+        "m_ID": 33986438,
+        "m_UserID": 0,
+        "m_TransitionDuration": 0.0,
+        "m_TransitionOffset": 0.0,
+        "m_ExitTime": 0.0,
+        "m_HasExitTime": false,
+        "m_HasFixedDuration": true,
+        "m_InterruptionSource": 0,
+        "m_OrderedInterruption": true,
+        "m_CanTransitionToSelf": true
+      }
+    },
+    {
+      "data": {
+        "m_ConditionConstantArray": [
+          {
+            "data": {
+              "m_ConditionMode": 1,
+              "m_EventID": 20298039,
+              "m_EventThreshold": 0.0,
+              "m_ExitTime": 0.0
+            }
+          }
+        ],
+        "m_DestinationState": 9,
+        "m_FullPathID": 2995419665,
+        "m_ID": 3830649850,
+        "m_UserID": 0,
+        "m_TransitionDuration": 0.0,
+        "m_TransitionOffset": 0.0,
+        "m_ExitTime": 0.0,
+        "m_HasExitTime": false,
+        "m_HasFixedDuration": false,
+        "m_InterruptionSource": 0,
+        "m_OrderedInterruption": true,
+        "m_CanTransitionToSelf": false
+      }
+    },
+    {
+      "data": {
+        "m_ConditionConstantArray": [
+          {
+            "data": {
+              "m_ConditionMode": 1,
+              "m_EventID": 1372578019,
+              "m_EventThreshold": 0.0,
+              "m_ExitTime": 0.0
+            }
+          }
+        ],
+        "m_DestinationState": 10,
+        "m_FullPathID": 2424062834,
+        "m_ID": 429450864,
+        "m_UserID": 0,
+        "m_TransitionDuration": 0.0,
+        "m_TransitionOffset": 0.0,
+        "m_ExitTime": 0.0,
+        "m_HasExitTime": false,
+        "m_HasFixedDuration": true,
+        "m_InterruptionSource": 0,
+        "m_OrderedInterruption": true,
+        "m_CanTransitionToSelf": true
+      }
+    }
+  ]
+}
