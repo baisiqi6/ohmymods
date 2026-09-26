@@ -37,6 +37,9 @@ internal static class MusketeerIdentity
     private const int MaxLoggedKeys = 64;
     private const float SweepInterval = 2f;
     private const int MaxLogText = 200;
+    // Failed rack restores are retried by the 2s sweep; at this many attempts (~60s) the claim
+    // is given up (revoked, never the paid career) instead of blocking purchases forever.
+    internal const int StockRestoreAbandonAttempts = 30;
 
     // Captured per native Pool.FastDespawn call; the postfix decides whether the recycling
     // actually completed (immediate, object gone/inactive) before ownership is released.
@@ -521,25 +524,50 @@ internal static class MusketeerIdentity
 
     // Restores only the physics flags of one exactly proven rack gun: kinematic at rest. The
     // frozen native position is never touched and no other object is inspected. False means the
-    // caller keeps responsibility (pending retry) - never a silent success.
-    internal static bool TryRestoreStockPhysics(Career career)
+    // caller keeps responsibility (pending retry) - never a silent success. The single-argument
+    // view keeps the load path's existing contract; the reconciliation uses the bucketed form.
+    internal static bool TryRestoreStockPhysics(Career career) => TryRestoreStockPhysics(career, out _);
+
+    /// <summary>Bucketed retry: failure names why the restore did not happen (not-in-world /
+    /// body-missing / write-exception) so the bounded give-up log can say which surface to look
+    /// at. An unprovable claim revokes itself here (stock-unproven) and is not a retry candidate.</summary>
+    internal static bool TryRestoreStockPhysics(Career career, out string failure)
     {
+        failure = null;
         try
         {
-            if (career == null || career.StockSlot == MusketeerCareer.NoStockSlot) return false;
-            if (!InOwnWorld(career)) return false;
-            if (CollectedOrClaimed(career.Tool)) { RevokeStock(career, "stock-unproven"); return false; }
-            var body = career.Tool.GetComponent<Rigidbody2D>();
-            if (body == null) { Log("stock-physics-missing-body", null); return false; }
+            if (career == null || career.StockSlot == MusketeerCareer.NoStockSlot) { failure = "not-in-world"; return false; }
+            if (!InOwnWorld(career)) { failure = "not-in-world"; return false; }
+            var tool = career.Tool;   // defensive depth only: InOwnWorld already proved the live binding
+            if (tool == null || tool.gameObject == null) { failure = "not-in-world"; return false; }
+            if (CollectedOrClaimed(tool)) { RevokeStock(career, "stock-unproven"); failure = "unproven"; return false; }
+            var body = tool.GetComponent<Rigidbody2D>();
+            if (body == null) { Log("stock-physics-missing-body", null); failure = "body-missing"; return false; }
             body.isKinematic = true;
             body.velocity = Vector2.zero;
             return true;
         }
-        catch (Exception e) { Log("stock-physics", e); return false; }
+        catch (Exception e) { Log("stock-physics", e); failure = "write-exception"; return false; }
+    }
+
+    // Reserved careers that still carry a rack claim while no live binding proves them (the H3'
+    // signature): a release must clear StockSlot, and a load must bind the row, because every
+    // rack read fails closed while such a claim exists. Shop diagnostics and tests read this
+    // probe; it is pure registry state, never a scene read.
+    internal static int ResidualStockClaims(IslandState state)
+    {
+        if (state == null) return 0;
+        int count = 0;
+        foreach (var career in state.Careers)
+            if (career != null && career.Kind == MusketeerCareer.KindGun
+                && career.StockSlot != MusketeerCareer.NoStockSlot && career.Slot == null) count++;
+        return count;
     }
 
     // Failed rack restores stay owned: the claim is kept, charges are blocked and the bounded
-    // reconciliation retries the same proven stock at the next Tick.
+    // reconciliation retries the same proven stock at the next Tick. After
+    // StockRestoreAbandonAttempts failed retries the claim is given up instead of blocking
+    // purchases forever (the paid career itself is never touched).
     internal static void MarkStockRestorePending(IslandState state, Career career)
     {
         if (state == null || career == null) return;
@@ -884,6 +912,15 @@ internal static class MusketeerIdentity
         if (career == null) return;
         Character previous = career.Character;
         DroppableTool previousTool = career.Tool;
+        // A released gun keeps no rack claim (H3'): the claim describes one live rack position, and
+        // a reservation that still carried a slot made every later rack read fail closed for the
+        // rest of the session (empty shelf, silent lock). Its pending physics restore goes with
+        // it; the sweep's unproven-claim pass stays as the backstop for anything missed.
+        if (career.Kind == MusketeerCareer.KindGun)
+        {
+            career.StockSlot = MusketeerCareer.NoStockSlot;
+            DropPendingRestore(career);
+        }
         if (career.Slot != null)
         {
             if (Bound.TryGetValue(career.Slot.Pointer, out var live) && ReferenceEquals(live, career)) Bound.Remove(career.Slot.Pointer);
@@ -1034,7 +1071,17 @@ internal static class MusketeerIdentity
                 if (career == null || career.Slot == null || !ValidBinding(career) || career.StockSlot == MusketeerCareer.NoStockSlot)
                 { state.StockRestores.RemoveAt(i); continue; }
                 restore.Attempts++;
-                if (TryRestoreStockPhysics(career)) { state.StockRestores.RemoveAt(i); Log("stock-physics-recovered", null); }
+                if (TryRestoreStockPhysics(career, out string failure))
+                { state.StockRestores.RemoveAt(i); Log("stock-physics-recovered", null); }
+                else if (career.StockSlot == MusketeerCareer.NoStockSlot)
+                { state.StockRestores.RemoveAt(i); }   // claim disproven inside the retry: nothing left to restore
+                else if (restore.Attempts >= StockRestoreAbandonAttempts)
+                {
+                    // Bounded give-up: revoke only the rack claim so the shop sells again. The paid
+                    // career, its gun and the binding stay untouched; the bucket names the cause.
+                    state.StockRestores.RemoveAt(i);
+                    RevokeStock(career, "stock-restore-abandoned-" + failure);
+                }
                 else if (restore.Attempts == 8) Log("stock-physics-retry", null);
             }
         }
