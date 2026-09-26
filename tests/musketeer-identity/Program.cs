@@ -34,6 +34,9 @@ internal static class Program
             SaveLoadTests();
             StockTests();
             StockLifecycleTests();
+            ReleaseRackClaimTests();
+            StockRestoreAbandonTests();
+            StockRestoreNotInWorldAbandonTests();
             PoolLifeTests();
             CapacityTests();
             Console.WriteLine("PASS " + passed + " assertions (real musketeer archive/identity/persistence)");
@@ -870,6 +873,112 @@ internal static class Program
         Time.unscaledTime += 10; Time.frameCount++; MusketeerIdentity.Tick();
         Check(!MusketeerIdentity.HasUnresolved && MusketeerIdentity.CanPurchase, "a consumed pending gun releases the charge block");
         Check(MusketeerIdentity.DescribeForTests().Contains("stockPending=0"), "the pending entry leaves with its binding");
+    }
+
+    // ---- 2026-09-27 silent-lock repair: release clears the rack claim (H3'), the bounded
+    // reconciliation gives an unrecoverable restore up instead of blocking forever (H1') ----
+
+    static void ReleaseRackClaimTests()
+    {
+        // A released gun keeps no rack claim: a reservation that still carried a slot made every
+        // later rack read fail closed for the whole session (empty shelf, silent lock). The paid
+        // career survives as a reservation; only the claim goes.
+        Reset();
+        var dead = Gun(); Check(TryRegister(dead.tool, 1), "rack gun before a confirmed despawn");
+        Check(MusketeerIdentity.StockSlot(dead.tool) == 1, "rack claim present before the release");
+        MusketeerIdentity.OnPoolDespawnBegin(dead.go, 0f, out var despawn);
+        dead.go.activeInHierarchy = false;
+        MusketeerIdentity.OnPoolDespawnEnd(despawn);
+        Check(MusketeerIdentity.ResidualStockClaims(MusketeerIdentity.Current) == 0, "confirmed despawn releases the rack claim (H3')");
+        Check(MusketeerIdentity.DescribeForTests().Contains("reserved=1"), "the released career stays paid as a reservation");
+        Check(MusketeerIdentity.CanPurchase, "a released rack gun cannot lock the purchase gate");
+        // promote-lost and promote-not-archer are the other two release paths of a rack gun
+        Reset();
+        var lost = Gun(); Check(TryRegister(lost.tool, 2), "rack gun before a lost promotion");
+        MusketeerIdentity.OnGunPickupBegin(lost.tool, out var lostState);
+        MusketeerIdentity.OnGunPickupEnd(null, lostState);
+        MusketeerIdentity.OnGunPickupAbort(lostState);
+        Check(MusketeerIdentity.ResidualStockClaims(MusketeerIdentity.Current) == 0, "a lost promotion never leaves a rack claim");
+        var nonArcher = Gun(); Check(TryRegister(nonArcher.tool, 2), "the released slot accepts the next rack gun");
+        MusketeerIdentity.OnGunPickupBegin(nonArcher.tool, out var nonArcherState);
+        var plain = new GameObject(); var plainCharacter = plain.Add(new Character());
+        MusketeerIdentity.OnGunPickupEnd(plainCharacter, nonArcherState);
+        MusketeerIdentity.OnGunPickupAbort(nonArcherState);
+        Check(MusketeerIdentity.ResidualStockClaims(MusketeerIdentity.Current) == 0, "a non-archer promotion result never leaves a rack claim");
+        // a release drops the career's pending physics restore immediately (no sweep needed)
+        Reset();
+        var rack = Gun(); Check(TryRegister(rack.tool, 0), "rack gun before a pending restore");
+        Save(IslandJson("row-release-pending"), Row("row-release-pending", rack.go));
+        Reset(true);
+        var pending = Gun();
+        pending.go.Add(new Transform { x = 0.75f, y = 0.25f });
+        Load(IslandJson("row-release-pending"), Row("row-release-pending", pending.go));
+        Check(MusketeerIdentity.DescribeForTests().Contains("stockPending=1"), "body-less load starts a pending restore");
+        Check(!MusketeerIdentity.CanPurchase, "the pending restore blocks new charges");
+        MusketeerIdentity.OnPoolDespawnBegin(pending.go, 0f, out var pendingEnd);
+        pending.go.activeInHierarchy = false;
+        MusketeerIdentity.OnPoolDespawnEnd(pendingEnd);
+        Check(MusketeerIdentity.DescribeForTests().Contains("stockPending=0"), "the release drops the pending restore immediately");
+        Check(MusketeerIdentity.CanPurchase, "the released pending gun ends the charge block");
+    }
+
+    static void StockRestoreAbandonTests()
+    {
+        // A restore that cannot succeed is retried by the 2s sweep, but after
+        // StockRestoreAbandonAttempts tries the claim is given up (~60s): the shop sells again and
+        // the paid career, the gun and its binding are never forgotten or despawned.
+        Reset();
+        var rack = Gun(); Check(TryRegister(rack.tool, 1), "rack gun before an unrecoverable restore");
+        Save(IslandJson("row-abandon"), Row("row-abandon", rack.go));
+        Reset(true);
+        var bodyless = Gun();
+        bodyless.go.Add(new Transform { x = 0.75f, y = 0.25f });
+        Load(IslandJson("row-abandon"), Row("row-abandon", bodyless.go));
+        Check(MusketeerIdentity.DescribeForTests().Contains("stockPending=1"), "body-missing restore starts pending");
+        for (int i = 0; i < MusketeerIdentity.StockRestoreAbandonAttempts - 1; i++)
+        { Time.unscaledTime += 10; Time.frameCount++; MusketeerIdentity.Tick(); }
+        Check(MusketeerIdentity.DescribeForTests().Contains("stockPending=1"), "the retry is bounded, not given up early");
+        Check(!MusketeerIdentity.CanPurchase, "a pending restore still blocks charges before the cap");
+        Check(Logged("stock-physics-retry"), "the pre-cap retry log fires at attempt 8 | " + Dump());
+        Time.unscaledTime += 10; Time.frameCount++; MusketeerIdentity.Tick();
+        Check(MusketeerIdentity.DescribeForTests().Contains("stockPending=0"), "the capped attempt gives the claim up");
+        Check(MusketeerIdentity.StockSlot(bodyless.tool) == -1, "the abandoned claim is revoked");
+        Check(MusketeerIdentity.ResidualStockClaims(MusketeerIdentity.Current) == 0, "abandonment leaves no residual slot");
+        Check(MusketeerIdentity.IsGun(bodyless.tool), "the paid gun survives abandonment (never forgotten or despawned)");
+        Check(MusketeerIdentity.DescribeForTests().Contains("bound=1"), "the abandoned gun keeps its live binding");
+        Check(MusketeerIdentity.CanPurchase && !MusketeerIdentity.HasUnresolved, "the purchase gate recovers after abandonment");
+        Check(!MusketeerIdentity.StatusText.Contains("暂停购买"), "the status line stops reporting a paused purchase");
+        Check(Logged("stock-restore-abandoned-body-missing"), "the give-up reason is logged in its bucket | " + Dump());
+        // the abandoned slot accepts the next paid gun
+        var replacement = Gun(); Check(TryRegister(replacement.tool, 1), "the abandoned rack slot is reusable");
+        var guns = new List<DroppableTool>(); MusketeerIdentity.CopyGuns(guns);
+        Check(guns.Count == 2, "both paid guns stay tracked after the give-up");
+    }
+
+    static void StockRestoreNotInWorldAbandonTests()
+    {
+        // A gun that never reaches this runtime world again must not block the shop forever; the
+        // give-up names the world bucket and still never touches the paid identity.
+        Reset();
+        var rack = Gun(); Check(TryRegister(rack.tool, 1), "rack gun before a foreign-world restore");
+        Save(IslandJson("row-notinworld"), Row("row-notinworld", rack.go));
+        Reset(true);
+        var stray = Gun();
+        stray.go.Add(new Transform { x = 0.75f, y = 0.25f });
+        Load(IslandJson("row-notinworld"), Row("row-notinworld", stray.go));
+        Check(MusketeerIdentity.DescribeForTests().Contains("stockPending=1"), "body-less restore starts pending");
+        Body(stray.go);                        // the body exists now; only the world gate can fail
+        MusketeerAccess.InWorldResult = false; // the gun never comes back into this runtime world
+        for (int i = 0; i < MusketeerIdentity.StockRestoreAbandonAttempts; i++)
+        { Time.unscaledTime += 10; Time.frameCount++; MusketeerIdentity.Tick(); }
+        Check(MusketeerIdentity.DescribeForTests().Contains("stockPending=0"), "a restore that never reaches the world is given up");
+        Check(MusketeerIdentity.StockSlot(stray.tool) == -1, "the not-in-world claim is revoked");
+        Check(Logged("stock-restore-abandoned-not-in-world"), "the give-up names the world bucket | " + Dump());
+        MusketeerAccess.InWorldResult = true;
+        Check(MusketeerIdentity.IsGun(stray.tool), "the paid gun and its binding survive the give-up");
+        Check(stray.go.activeInHierarchy, "the gun was never despawned by the give-up");
+        Check(MusketeerIdentity.DescribeForTests().Contains("bound=1") && MusketeerIdentity.DescribeForTests().Contains("stock=0"),
+            "identity intact, claim gone");
     }
 
     // ---- pool life boundaries and pointer reuse ----

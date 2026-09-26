@@ -81,6 +81,9 @@ internal static partial class MusketeerShop
     private const int PurchaseTimingLogBudget = 12;
     private const double SlowPurchaseMs = 8.0;
     private static int _purchaseTimingLogs;
+    // Bounded rack-gate evidence (see MusketeerRackDiagPolicy): assembled only from state this
+    // frame already read, so the diagnostic never adds an Observe, a scene scan or a discovery.
+    private static readonly MusketeerRackDiagPolicy RackDiag = new();
     internal static string StatusText => _status;
 
     internal static void Tick()
@@ -127,7 +130,9 @@ internal static partial class MusketeerShop
                     float ambientPhase = Time.time % 4f;
                     int frame = ambientPhase < 2f ? 0 : ambientPhase < 2.5f ? 1 : ambientPhase < 3.5f ? 2 : 3;
                     if (_renderer != null && frame != _frame) { _renderer.sprite = _frames[frame]; _frame = frame; }
-                    _payable.forceBlockPayment = !CanPurchase();
+                    bool canPurchase = CanPurchase();
+                    _payable.forceBlockPayment = !canPurchase;
+                    if (!canPurchase) DumpRackGate(in probe);
                     _status = BowReady() ? MusketeerIdentity.StatusText : "火铳铺：等待原生弓具（未收费）";
                     return;
                 }
@@ -886,6 +891,67 @@ internal static partial class MusketeerShop
         _nextRackLayoutAt = Time.unscaledTime + 0.5f;
         try { _rackLayoutReady = ReadRackItems() && RackLayout.Reconcile(true, RackItems); }
         catch { _rackLayoutReady = false; } // do not destroy a paid gun or clear its identity on a layout read failure
+    }
+
+    /// <summary>Bounded evidence for a blocked purchase gate (2026-09-27 "empty shelf, but no
+    /// sale" report). It is assembled from state this frame already observed - the frame's
+    /// retention probe and the maintenance snapshot - so it adds no Observe, no scene scan and no
+    /// discovery. The explained healthy-full state (guns visibly waiting on the rack) never
+    /// consumes the log budget; everything else emits at most one line per 60s, 12 per session.</summary>
+    private static void DumpRackGate(in HeroShopRetention.Probe retention)
+    {
+        try
+        {
+            var state = MusketeerIdentity.Current;
+            var gate = new MusketeerShopRules.RackGateProbe
+            {
+                Clearing = _clearing,
+                Retiring = _retiring,
+                Shop = _object != null,
+                Layer = _layer != null,
+                Saving = IslandSaveData.isSavingGame,
+                TimescaleOk = Time.timeScale > 0f,
+                Retention = HeroShopRetention.CanServe(in retention),
+                State = state != null,
+                Ready = state != null && state.Ready,
+                ReadOnly = state != null && state.ReadOnly,
+                Unresolved = state != null && state.Unresolved,
+                Baseline = state != null && state.HasBaseline,
+                Epoch = state != null && state.Epoch != null,
+                Context = state != null && MusketeerIdentity.TryContext(out string key, out long world)
+                    && key == state.ContextKey && world == state.World,
+                LayoutReady = _rackLayoutReady,
+                StockRestores = state != null ? state.StockRestores.Count : 0,
+                Attempts = HighestRestoreAttempt(state),
+                RackItems = RackItems.Count,
+                Ghost = HasGhostItem(),
+            };
+            // Cheap decision first (registry-only flags): a healthy full rack is the one explained
+            // block and must not burn the budget. The residual-claim probe needs a career pass, so
+            // it is filled only for a line that is actually granted; a residual claim always makes
+            // the rack read fail closed, which the rack-incomplete clause reports from the snapshot.
+            if (!MusketeerShopRules.ShouldDumpRackGate(in gate)) return;
+            if (!RackDiag.TryBegin(Time.unscaledTime)) return;
+            gate.ResidualSlots = MusketeerIdentity.ResidualStockClaims(state);
+            Log(MusketeerShopRules.DescribeRackGate(in gate));
+        }
+        catch { }   // evidence must never disturb the shop path
+    }
+
+    private static int HighestRestoreAttempt(MusketeerIdentity.IslandState state)
+    {
+        int highest = 0;
+        if (state == null) return 0;
+        foreach (var restore in state.StockRestores)
+            if (restore != null && restore.Attempts > highest) highest = restore.Attempts;
+        return highest;
+    }
+
+    private static bool HasGhostItem()
+    {
+        foreach (var item in RackItems)
+            if (item != null && item.Unclaimed && !RackLayout.IsPlaced(item)) return true;
+        return false;
     }
 
     internal static bool TryGetRackSorting(DroppableTool gun, out int layer, out int order)
