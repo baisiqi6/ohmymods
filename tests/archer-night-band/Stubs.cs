@@ -34,6 +34,8 @@ namespace UnityEngine
  // sweep 的生产式 Random.Range(DepthClampRange - 2f, DepthClampRange) 由 NextFraction
  // 取两界值，验证目标始终落在 ≤Cap 带内。
  public static class Random{public static float NextFraction=0f;public static float Range(float min,float max)=>min+(max-min)*NextFraction;}
+ // 深度钳制 pass（archerband 抽取真身）读 3s 节拍时钟；测试按需推进。
+ public static class Time{public static float unscaledTime;}
 }
 public enum Side{Neutral=0,Left=-1,Right=1}
 public class Character:UnityEngine.Component{public bool inert,grabbed,isStationary;}
@@ -58,6 +60,7 @@ public class Director{public float currentTime=20f;}
 public class Kingdom:UnityEngine.MonoBehaviour
 {
  public float Left=-100f,Right=100f;
+ public List<Archer> Archers=new();
  public float GetBorderSideIntact(Side side)=>side==Side.Left?Left:Right;
 }
 public class Managers{public static Managers Inst=new();public Kingdom kingdom=new GameObjectHolder().Kingdom;public Director director=new();private class GameObjectHolder{public Kingdom Kingdom=new UnityEngine.GameObject().AddComponent<Kingdom>();}}
@@ -87,6 +90,8 @@ namespace KingdomEnhancedMod
  // 身份谓词按替身旗取值（生产实现各有真实来源，本套件不重复它们）。
  public static class PatchRoles_Crossbowman{public static bool IsCrossbowman(Archer a)=>a!=null&&a.Crossbow;}
  public static class MusketeerIdentity{public static bool IsUnit(Archer a)=>a!=null&&a.Musketeer;}
+ // 深度钳制 pass（archerband 抽取真身）读取的共享扫描缓存：本套件用可设数组替身。
+ public static class UnitScanCache{public static Archer[] Archers;public static Archer[] GetArchers(float maxAgeSec=3f)=>Archers;}
  public static class HeroArcherRuntime{public static bool IsHero(Archer a)=>a!=null&&a.Hero;}
  // 弩手深化/拉回：本套件只验证"弩手分支仍归它们管"，用可观测计数器替身。
  public static class PatchRoles_CrossbowDefense
@@ -99,6 +104,6 @@ namespace KingdomEnhancedMod
  public static class PatchRoles_SamuraiNightFormation{public static bool TryTakeRedirect(Knight k,Mover m,float goal,out float slot){slot=0f;return false;}}
  public static class SamuraiRetreatSpeed{public static void Adjust(Knight k,Mover m,ref float speed){}}
  // 自由守墙弓手谓词：本套件按可设旗替身（生产实现另由 expedition-follow 覆盖）。
- public static class SquadFollowGuard{public static bool WallArcher=true,WallFollower=true;internal static bool IsOrdinaryWallArcher(Archer a)=>WallArcher;internal static bool IsWallFollower(Archer a,Kingdom k)=>WallFollower;}
+ public static class SquadFollowGuard{public static bool WallArcher=true,WallFollower=true;internal static bool IsOrdinaryWallArcher(Archer a)=>WallArcher;internal static bool IsWallFollower(Archer a,Kingdom k)=>WallFollower;internal static void Reconcile(){}internal static void ObserveCurrentFollow(Archer a){}}
  public class KingdomEnhancedPlugin{public static KingdomEnhancedPlugin Instance=new();public Logger LogSource=new();public class Logger{public readonly List<string> Infos=new();public readonly List<string> Errors=new();public void LogInfo(string text)=>Infos.Add(text);public void LogWarning(string text)=>Infos.Add(text);public void LogError(string text)=>Errors.Add(text);}}
 }

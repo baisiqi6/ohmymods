@@ -1095,6 +1095,28 @@ public static class PatchWorld_DefenseSpacing
         }
     }
 
+    /// <summary>
+    /// Guard-depth INDEX clamp arithmetic, shared by DepthClampPass and the
+    /// archer-night-band regression suite (tests/source-extractor "archerband"
+    /// mode extracts this method verbatim — keep it pure: int/float parameters
+    /// only, no class/Unity state beyond the DepthClampRange constant).
+    /// Effective depth = min + depth*spacing + random must stay inside the
+    /// shooting band, so any index OUTSIDE [0, cap] is pulled to this tick's
+    /// per-archer cap = floor(max(0, (DepthClampRange - min - random) /
+    /// spacing)): negative indices — native rank-allocator overflow on large
+    /// populations — land at the band rear ((Cap - spacing), Cap] INSIDE the
+    /// wall, and over-range positive indices keep the original upper clamp.
+    /// Returns the input unchanged when it is already inside [0, cap]; the
+    /// caller then skips the field write.
+    /// </summary>
+    internal static int ClampGuardDepthIndex(int depth, float min, float spacing, float random)
+    {
+        float allowed = (DepthClampRange - min - random) / spacing;
+        int cap = (int)Math.Floor(Math.Max(0f, allowed));
+        if (depth >= 0 && depth <= cap) return depth;
+        return cap;
+    }
+
     private static void DepthClampPass()
     {
         try
@@ -1154,7 +1176,10 @@ public static class PatchWorld_DefenseSpacing
             NightParkedFollowerSweep(kingdom, archers);
 
             int clamped = 0;
+            int clampedLower = 0;
             int maxDepth = 0;
+            int minDepth = 0;
+            bool sawDepth = false;
             for (int i = 0; i < count; i++)
             {
                 Archer archer = archers[i];
@@ -1172,15 +1197,25 @@ public static class PatchWorld_DefenseSpacing
                 float random = archer._guardRandomOffset;
                 int depth = archer._guardDepth;
                 if (depth > maxDepth) maxDepth = depth;
+                // min/max track the RAW pre-clamp index this scan; the heartbeat
+                // sample below reads the post-clamp values (neg>0 + minDepth<0 on
+                // a stale save therefore reads as "seen and fixed this tick").
+                if (!sawDepth || depth < minDepth) { minDepth = depth; sawDepth = true; }
 
                 // Effective depth = min + depth*spacing + random; clamp the
-                // INDEX so the effective depth stays inside bow range.
-                float allowed = (DepthClampRange - min - random) / spacing;
-                int cap = (int)Math.Floor(Math.Max(0f, allowed));
-                if (depth <= cap) continue;
+                // INDEX with the shared arithmetic (ClampGuardDepthIndex) so
+                // the effective depth stays inside the shooting band.  Both
+                // ends are covered: over-range positive indices keep the
+                // original upper clamp, negative indices — native rank-
+                // allocator overflow on large populations — are pulled to the
+                // same per-archer cap so they land at the band rear inside
+                // the wall instead of producing an outside-the-wall position.
+                int clampedDepth = ClampGuardDepthIndex(depth, min, spacing, random);
+                if (clampedDepth == depth) continue;
 
-                archer._guardDepth = cap;
-                clamped++;
+                archer._guardDepth = clampedDepth;
+                if (depth < 0) clampedLower++;
+                else clamped++;
             }
 
             if (!_loggedDepthClamp)
@@ -1205,7 +1240,8 @@ public static class PatchWorld_DefenseSpacing
                 }
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
                     "[DefenseSpacing] first scan: archers=" + count
-                    + " maxDepth=" + maxDepth + " clamped=" + clamped
+                    + " maxDepth=" + maxDepth + " minDepth=" + minDepth
+                    + " clamped=" + clamped + " neg=" + clampedLower
                     + " sample=[" + sample + "]");
             }
         }

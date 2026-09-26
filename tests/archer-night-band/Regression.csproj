@@ -3,8 +3,9 @@
     <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
     <!-- "archerband" extracts DayAssembleSpreadPrefix + MirrorNightArcherGoal +
-         NightParkedFollowerSweep verbatim from the current PatchWorld_DefenseSpacing.cs;
-         the suite compiles PatchRoles_ArcherNightBand.cs for real so the redirect chain
+         NightParkedFollowerSweep + ClampGuardDepthIndex + DepthClampPass verbatim
+         from the current PatchWorld_DefenseSpacing.cs; the suite compiles
+         PatchRoles_ArcherNightBand.cs for real so the redirect chain
          (prefix → mirror → TryTakeRedirect) and the sweep target run end to end. -->
     <ExtractionMode>archerband</ExtractionMode>
     <ExtractionInput>$(MSBuildProjectDirectory)/../../il2cpp/PatchWorld_DefenseSpacing.cs</ExtractionInput>
