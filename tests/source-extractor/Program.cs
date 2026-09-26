@@ -49,11 +49,14 @@ internal static class PatchWorld_DefenseSpacing
     case "archerband":
     {
         // archer-night-band suite: real prefix dispatch + real night mirror + real
-        // night parked-follower sweep (all verbatim), with the knight day branch
-        // stubbed and the archer-band module compiled for real by the suite.
+        // night parked-follower sweep + real depth-clamp pass & clamp arithmetic
+        // (all verbatim), with the knight day branch and the pass's unrelated
+        // helpers stubbed and the archer-band module compiled for real by the suite.
         string spread = Block(Find("    internal static bool DayAssembleSpreadPrefix("));
         string mirror = Block(Find("    private static bool MirrorNightArcherGoal("));
         string sweep = Block(Find("    private static void NightParkedFollowerSweep("));
+        string clamp = Block(Find("    internal static int ClampGuardDepthIndex("));
+        string depthPass = Block(Find("    private static void DepthClampPass("));
         int depthClamp = Find("    private const float DepthClampRange");
         string depthClampLine = source[depthClamp..(Find(";", depthClamp) + 1)];
         int attribute = Find("[HarmonyPatch(typeof(Mover), nameof(Mover.SetGoal), new[] { typeof(float), typeof(float) })]");
@@ -73,8 +76,15 @@ internal static class PatchWorld_DefenseSpacing
     private static bool _loggedNightMirror;
     private static bool _loggedNightRegoal;
     private static bool _loggedNightRelocate;
+    private static float _nextDepthClampAt;
+    private static bool _loggedDepthClamp;
+    private static bool _loggedHeartbeat;
     private static bool KnightDayAssembleSpread(Mover mover, float goal, float speed) => true;
-""" + "\n" + spread + "\n\n" + mirror + "\n\n" + sweep + "\n}\n" + hook + "\n");
+    private static Knight[] ScanKnights() => System.Array.Empty<Knight>();
+    private static void ToggleFriendlyCollision(Archer[] archers, Knight[] knights) { }
+    private static void DayCrowdSpread(Kingdom kingdom, Archer[] archers, int count) { }
+    private static void ScanNightArcherLineup(Kingdom kingdom, Archer[] archers) { }
+""" + "\n" + spread + "\n\n" + mirror + "\n\n" + sweep + "\n\n" + clamp + "\n\n" + depthPass + "\n}\n" + hook + "\n");
         break;
     }
     case "follow":

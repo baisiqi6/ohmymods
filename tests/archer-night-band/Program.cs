@@ -10,6 +10,8 @@ using UnityEngine;
 //  B. 真实前缀集成（archerband 抽取：DayAssembleSpreadPrefix + MirrorNightArcherGoal +
 //     NightParkedFollowerSweep）：浅/深位改写落点与递归守卫、墙外镜像抬到 ≥Floor、
 //     排除项逐帧 goal 零改写、弩手通道优先、sweep 目标 ≤Cap 带与三态通道。
+//  C. 深度钳制下界（archerband 抽取：ClampGuardDepthIndex + DepthClampPass）：负索引
+//     钳到本拍 per-archer cap 的算术不变式、pass 门与心跳 neg/minDepth 对账。
 internal static class Program
 {
     private static int passed, failed;
@@ -52,6 +54,7 @@ internal static class Program
         SquadFollowGuard.WallFollower = true;
         UnityEngine.Random.NextFraction = 0f;
         Mover.FloatIntercept = null;
+        UnitScanCache.Archers = System.Array.Empty<Archer>();
         ResetBandState();
         ResetPrefixState();
         KingdomEnhancedPlugin.Instance.LogSource.Infos.Clear();
@@ -85,7 +88,39 @@ internal static class Program
         t.GetField("_loggedNightMirror", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, false);
         t.GetField("_loggedNightRegoal", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, false);
         t.GetField("_loggedNightRelocate", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, false);
+        t.GetField("_loggedDepthClamp", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, false);
+        t.GetField("_loggedHeartbeat", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, false);
     }
+
+    // ---- C. 深度钳制下界（negative-guard-depth）工具 ----
+    // 规格推导（非公式复制）：钳制落点 = 仍能放进深度带（≤Cap）的最大索引。生产
+    // helper 经 source-extractor archerband 逐字抽入；pass 抽取真身按 3s 节拍调用
+    //（测试推进 Unity 时钟越过下发点，走真实时钟门）。
+    private static int LargestFittingIndex(float min, float spacing, float random)
+    {
+        int k = 0;
+        while (min + (k + 1) * spacing + random <= Cap + Eps) k++;
+        return k;
+    }
+
+    private static void RunDepthClamp()
+    {
+        UnityEngine.Time.unscaledTime += 10f;
+        var method = typeof(PatchWorld_DefenseSpacing)
+            .GetMethod("DepthClampPass", BindingFlags.Static | BindingFlags.NonPublic);
+        if (method == null) throw new Exception("extracted DepthClampPass missing");
+        method.Invoke(null, null);
+    }
+
+    private static void RearmDepthClampLog()
+    {
+        typeof(PatchWorld_DefenseSpacing)
+            .GetField("_loggedDepthClamp", BindingFlags.Static | BindingFlags.NonPublic)
+            ?.SetValue(null, false);
+    }
+
+    private static string DepthScanLine() =>
+        Infos.LastOrDefault(s => s.Contains("[DefenseSpacing] first scan:"));
 
     // ---- 抽取产物入口 ----
     private static bool Prefix(Mover mover, float goal, ref float speed)
@@ -654,6 +689,167 @@ internal static class Program
             var (a, m) = NewArcher(Side.Right, 102f);
             Sweep(Managers.Inst.kingdom, a);
             Eq(0, m.NativeFloatGoals, "daytime sweep writes nothing");
+        });
+
+        // ================= C. 深度钳制下界（negative-guard-depth） =================
+
+        Test("clamp helper: negative indices clamp to the tick cap at the band rear", () =>
+        {
+            // 实机事故参数（E 盘 shoplock 会话）：min=1.75 spacing=0.11 rnd=0.06。
+            const float min = 1.75f, spacing = 0.11f, random = 0.06f;
+            int cap = LargestFittingIndex(min, spacing, random);
+            Check(cap > 0, "fixture cap is a real index");
+            foreach (int d in new[] { -1, -24, -29, -64 })
+            {
+                int clamped = PatchWorld_DefenseSpacing.ClampGuardDepthIndex(d, min, spacing, random);
+                Eq(cap, clamped, "d=" + d + " clamps to the per-archer cap");
+                float effective = min + clamped * spacing + random;
+                Check(effective > Cap - spacing - Eps && effective <= Cap + Eps,
+                    "d=" + d + " effective depth " + effective + " outside (Cap-spacing, Cap]");
+                Eq(clamped, PatchWorld_DefenseSpacing.ClampGuardDepthIndex(clamped, min, spacing, random),
+                    "d=" + d + " clamp is a fixpoint");
+            }
+        });
+
+        Test("clamp helper: in-range pass-through and cap+1 upper clamp", () =>
+        {
+            const float min = 1f, spacing = 1f, random = 0f;
+            int cap = LargestFittingIndex(min, spacing, random);
+            Check(cap >= 1, "fixture has a real cap");
+            Eq(0, PatchWorld_DefenseSpacing.ClampGuardDepthIndex(0, min, spacing, random), "d=0 untouched");
+            Eq(cap, PatchWorld_DefenseSpacing.ClampGuardDepthIndex(cap, min, spacing, random), "d=cap untouched");
+            Eq(2, PatchWorld_DefenseSpacing.ClampGuardDepthIndex(2, min, spacing, random), "mid in-range untouched");
+            Eq(cap, PatchWorld_DefenseSpacing.ClampGuardDepthIndex(cap + 1, min, spacing, random), "cap+1 upper clamp");
+            Eq(cap, PatchWorld_DefenseSpacing.ClampGuardDepthIndex(9999, min, spacing, random), "far over-range upper clamp");
+        });
+
+        Test("clamp helper: rnd sweep keeps results inside [0, cap] and the band", () =>
+        {
+            int[] depths = { -64, -24, -1, 0, 1, 3, 6, 7, 12, 9999 };
+            foreach (float random in new[] { -0.25f, 0f, 0.25f })
+                foreach (float spacing in new[] { 0.11f, 1f })
+                    foreach (float min in new[] { 1.75f, 1f })
+                    {
+                        int cap = LargestFittingIndex(min, spacing, random);
+                        foreach (int d in depths)
+                        {
+                            int result = PatchWorld_DefenseSpacing.ClampGuardDepthIndex(d, min, spacing, random);
+                            string ctx = "min=" + min + " spacing=" + spacing + " rnd=" + random + " d=" + d;
+                            Check(result >= 0, ctx + ": result negative");
+                            bool inRange = d >= 0 && d <= cap;
+                            if (inRange) Eq(d, result, ctx + ": in-range changed");
+                            else Eq(cap, result, ctx + ": out-of-range not at cap");
+                            float effective = min + result * spacing + random;
+                            Check(effective <= Cap + Eps, ctx + ": effective " + effective + " above Cap");
+                            if (!inRange && result > 0)
+                                Check(effective > Cap - spacing - Eps, ctx + ": clamp not at the rear");
+                        }
+                    }
+        });
+
+        Test("clamp helper: min beyond the band floors the cap at index 0", () =>
+        {
+            const float min = 8f, spacing = 1f, random = 0f;
+            Eq(0, PatchWorld_DefenseSpacing.ClampGuardDepthIndex(-24, min, spacing, random), "negative clamps to 0");
+            Eq(0, PatchWorld_DefenseSpacing.ClampGuardDepthIndex(0, min, spacing, random), "0 in range, unchanged");
+            Eq(0, PatchWorld_DefenseSpacing.ClampGuardDepthIndex(5, min, spacing, random), "positive clamps to 0");
+        });
+
+        Test("depth pass: negative guard index clamps to the cap, heartbeat logs neg and minDepth", () =>
+        {
+            var (a, _) = NewArcher(Side.Right);
+            a._guardDepth = -24;
+            a._minDistanceFromWall = 1.75f;
+            a._unitSpacingAtWall = 0.11f;
+            a._guardRandomOffset = 0.06f;
+            UnitScanCache.Archers = new[] { a };
+            RunDepthClamp();
+            int cap = LargestFittingIndex(1.75f, 0.11f, 0.06f);
+            Eq(cap, a._guardDepth, "negative index rewritten to the per-archer cap");
+            float effective = 1.75f + a._guardDepth * 0.11f + 0.06f;
+            Check(effective > Cap - 0.11f - Eps && effective <= Cap + Eps, "landed at the band rear");
+            string scan = DepthScanLine();
+            Check(scan != null && scan.Contains("neg=1") && scan.Contains("minDepth=-24"),
+                "neg= and minDepth= in the heartbeat");
+            Check(scan != null && scan.Contains("d=" + cap) && !scan.Contains("d=-"),
+                "sample shows the clamped value only");
+        });
+
+        Test("depth pass: the next scan sees the clamped field and reports neg=0", () =>
+        {
+            var (a, _) = NewArcher(Side.Right);
+            a._guardDepth = -64;
+            a._minDistanceFromWall = 1.75f;
+            a._unitSpacingAtWall = 0.11f;
+            a._guardRandomOffset = 0.06f;
+            UnitScanCache.Archers = new[] { a };
+            RunDepthClamp();
+            int cap = a._guardDepth;
+            Check(cap > 0, "first scan rewrote the negative index");
+            // 心跳每世界一次：重置 one-shot 观测第二拍扫描（生产由下一世界/重载观测）。
+            RearmDepthClampLog();
+            RunDepthClamp();
+            Eq(cap, a._guardDepth, "second scan leaves the in-range field untouched");
+            string scan = DepthScanLine();
+            Check(scan != null && scan.Contains("neg=0") && scan.Contains("minDepth=" + cap),
+                "second scan reports no negative indices");
+        });
+
+        Test("depth pass: side and spacing gates leave negative indices untouched", () =>
+        {
+            var (neutral, _) = NewArcher(Side.Neutral);
+            neutral._guardDepth = -24;
+            neutral._minDistanceFromWall = 1.75f;
+            neutral._unitSpacingAtWall = 0.11f;
+            neutral._guardRandomOffset = 0.06f;
+            UnitScanCache.Archers = new[] { neutral };
+            RunDepthClamp();
+            Eq(-24, neutral._guardDepth, "Neutral side gate skips the write");
+            string scan = DepthScanLine();
+            Check(scan != null && scan.Contains("d=-24") && scan.Contains("neg=0"),
+                "Neutral archer sampled but not clamped");
+
+            var (thin, _) = NewArcher(Side.Right);
+            thin._guardDepth = -24;
+            thin._minDistanceFromWall = 1.75f;
+            thin._unitSpacingAtWall = 0.01f;
+            thin._guardRandomOffset = 0.06f;
+            UnitScanCache.Archers = new[] { thin };
+            RearmDepthClampLog();
+            RunDepthClamp();
+            Eq(-24, thin._guardDepth, "spacing<=0.01 gate skips the write");
+            scan = DepthScanLine();
+            Check(scan != null && scan.Contains("d=-24") && scan.Contains("neg=0"),
+                "thin-spacing archer sampled but not clamped");
+        });
+
+        Test("depth pass: over-range positives keep the upper clamp, in-range untouched", () =>
+        {
+            var (over, _) = NewArcher(Side.Right);
+            over._guardDepth = 30;
+            over._minDistanceFromWall = 1f;
+            over._unitSpacingAtWall = 1f;
+            over._guardRandomOffset = 0f;
+            var (atCap, _) = NewArcher(Side.Right);
+            atCap._guardDepth = 6;
+            atCap._minDistanceFromWall = 1f;
+            atCap._unitSpacingAtWall = 1f;
+            atCap._guardRandomOffset = 0f;
+            var (zero, _) = NewArcher(Side.Right);
+            zero._guardDepth = 0;
+            zero._minDistanceFromWall = 1f;
+            zero._unitSpacingAtWall = 1f;
+            zero._guardRandomOffset = 0f;
+            UnitScanCache.Archers = new[] { over, atCap, zero };
+            RunDepthClamp();
+            Eq(LargestFittingIndex(1f, 1f, 0f), over._guardDepth, "upper clamp rewritten to cap");
+            Eq(6, atCap._guardDepth, "d=cap left untouched");
+            Eq(0, zero._guardDepth, "d=0 left untouched");
+            string scan = DepthScanLine();
+            Check(scan != null && scan.Contains("clamped=1") && scan.Contains("neg=0"),
+                "one upper clamp, no lower clamp");
+            Check(scan != null && scan.Contains("maxDepth=30") && scan.Contains("minDepth=0"),
+                "raw depth distribution logged");
         });
 
         Console.WriteLine($"RESULT {passed} passed, {failed} failed");
