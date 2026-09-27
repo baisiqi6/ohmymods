@@ -15,7 +15,9 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "设计过对抗审查（10必改）；七身份套件全绿+主线0W0E；闭游戏安装4FB8613C存档hash保持；实机吸收态自愈/玩家坏档修复效果未验不得置done",
-      "notes": "musketeer不做B；严格子集门活性上限已留档；回执tasks/identity-restore-hardening-20260920/"
+      "notes": "musketeer不做B；严格子集门活性上限已留档；回执tasks/identity-restore-hardening-20260920/",
+      "verification": "2026-09-27补录历史证据，本轮未复跑旧测试。tasks/identity-restore-hardening-20260920/receipts/suites.txt、runtime-rerun.txt 与 build-final.txt 记录七套身份回归及 Debug 构建通过；runtime 首跑失败后修正测试场景，复跑45/0。设计修订见 decision-review-record.md。上述记录不证明实机自愈效果。",
+      "handoff": "保持 doing；吸收态自愈、坏档恢复与严格子集门限制仍需按后续版本实测。历史 acceptance 的安装标记4FB8613C及存档不变，在已查任务目录中仅见安装脚本，尚缺执行回执；须与后续部署记录对账，不据此重复安装旧包。"
     },
     {
       "id": "identity-restore-instability-20260919",
@@ -29,7 +31,9 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "两轮对抗审查诊断可呈报；未实施代码改动；修复方向菜单待用户拍板（H4a吸收态再基线化/musketeer读侧快赢/人工claim工具）",
-      "notes": "回执tasks/identity-restore-instability-20260919/"
+      "notes": "回执tasks/identity-restore-instability-20260919/",
+      "verification": "2026-09-27补录历史证据，本轮未复跑旧测试。tasks/identity-restore-instability-20260919/receipts/decision-review-record.md 记录两轮诊断审查，结论为诊断可呈报；吸收态、IO读失败和旧档匹配等属于当时的候选解释。该回执不构成实机复现或唯一根因证据。",
+      "handoff": "本诊断项保持 doing；后续实现已另有 identity-hardening-20260920 条目，应核对二者证据和剩余验收后决定归并或关闭，不按旧诊断菜单重复启动修复。"
     },
     {
       "id": "mac-trial-945-20260919",
@@ -43,7 +47,9 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "任务书经对抗审查修订后可用（5必改4建议全落）；等待 Mac 端回执汇入 tasks/mac-trial-945-20260919/；止步即收证，由 Windows 主线决策后续",
-      "notes": "用户侧聊草稿为底；门槛修正为be≥#755（官方builds证据）；ZIP单文件白名单防Windows残留污染"
+      "notes": "用户侧聊草稿为底；门槛修正为be≥#755（官方builds证据）；ZIP单文件白名单防Windows残留污染",
+      "verification": "2026-09-27补录历史证据，本轮未复跑旧测试。tasks/mac-trial-945-20260919/worker-brief.md 与 receipts/decision-review-record.md 证明旧版Mac试跑任务书已修订并获可用结论，包含包文件白名单与分阶段止步要求；任务目录未见Mac实际试跑回执。",
+      "handoff": "保持 doing；须与后续Mac整合任务的提交、架构、运行环境和验收记录对账。旧9.4.5任务书通过审查不等于Mac加载通过，也不是当前版本的重新派发指令。"
     },
     {
       "id": "banner-rowgap-20260919",
@@ -57,7 +63,9 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "对抗审查定稿几何（原方案被否决换中插）；unit42/0 e2e23/0 双构建0W0E；闭游戏安装A1777BBB存档hash保持；实机0/1/2船目测/未满员收紧/收旗还原/镜像/联机未验不得置done",
-      "notes": "边界恒1步任意船数；回执tasks/musketeer-banner-rowgap-20260918/"
+      "notes": "边界恒1步任意船数；回执tasks/musketeer-banner-rowgap-20260918/",
+      "verification": "2026-09-27补录历史证据，本轮未复跑旧测试。tasks/musketeer-banner-rowgap-20260918/receipts/ 中 unit-tests.txt 记录42/0，e2e-tests.txt记录23/0；build-debug.txt、build-final.txt、interop-check.txt记录构建通过。这些历史回执覆盖中插与Squire行槽方案，不替代实机观感和联机验收。",
+      "handoff": "保持 doing；0/1/2船、未满员收紧、收旗还原、左右镜像和联机需核对后续实测。历史安装标记A1777BBB在已查目录中仅见脚本，缺执行回执；不能把实现阶段未部署的记录当成当前未安装。"
     },
     {
       "id": "shop-claimlock-20260918",
@@ -71,7 +79,9 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "根因经对抗审查确认；三处修复+测试60断言/35接线全PASS+构建0W0E；闭游戏安装E盘4F502247存档hash保持；实机认领窗口连买/认领取消/敌人抢枪/联机未验不得置done",
-      "notes": "含前一穿墙候选累积；回执tasks/musketeer-shop-claimlock-20260918/"
+      "notes": "含前一穿墙候选累积；回执tasks/musketeer-shop-claimlock-20260918/",
+      "verification": "2026-09-27补录历史证据，本轮未复跑旧测试。tasks/musketeer-shop-claimlock-20260918/receipts/tests-run.txt记录60项断言通过，wiring-check.txt记录35项接线检查通过，build-debug.txt及build-final.txt记录构建通过；真实拾取未测的边界保留。",
+      "handoff": "保持 doing；应与后续商店购买锁修复和已安装版本对账，再验收认领窗口连买、取消认领、敌方抢枪与联机。历史4F502247安装记录在已查目录中仅见脚本，不能推定已执行或据此重装旧包。"
     },
     {
       "id": "features-overview-20260918",
@@ -85,7 +95,9 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "v1速览版→v2自足群发版：本地ZCode worker两轮（各过派工方案对抗审查）；v2新增条目42项抽查仅2处数值失真已改（弩手守位4-7、面板1040x820），泄漏grep零命中，默认速览逐条镜像GUIDE，覆盖矩阵对账抽查成立；候选节已删（发群=公开）",
-      "notes": "自足口径；每次发版与GUIDE/CAP/LOG一起过diff；下版发布群文档需同步重发"
+      "notes": "自足口径；每次发版与GUIDE/CAP/LOG一起过diff；下版发布群文档需同步重发",
+      "verification": "2026-09-27补录历史证据，本轮未复跑旧测试。tasks/features-overview-20260918/receipts/content-review-record.md记录v2修正后通过；coverage-matrix.md、provenance.md与worker-result-v2.md保留文档交付和审查依据。现行release/功能总览.txt仍包含回执指出的守位4～7、农田币3秒及面板约1040×820等修正。保留原done仅指文档任务，不证明实际群发、游戏功能验收或本轮重做全部42项审查。",
+      "handoff": "后续发版继续对照现行玩家指南与功能总览更新；历史溯源表只适用于其版本。未发现实际群发动作证据，不宣称已群发；新版本文档验收另留对应记录。"
     },
     {
       "id": "hero-arrow-pierce-20260918",
@@ -99,7 +111,9 @@
       "blocked_by": [],
       "blocked_reason": null,
       "acceptance": "worker两轮实现+测试维护、operator复跑gold89/missing13/artemis153+19+19全PASS、双构建0W0E、独立review PASS WITH NOTES、闭游戏备份安装E盘2482F0D3且用户数据hash保持；实机穿墙/0.65观感/trail粗细/联机未验，不得置done",
-      "notes": "复用HeroArcherArrowVisuals发射作用域；零新Harmony钩子；PPU 32/0.65纯显示；IgnoreCollision墙对Apply/Restore成对；回执见tasks/hero-arrow-pierce-20260917/"
+      "notes": "复用HeroArcherArrowVisuals发射作用域；零新Harmony钩子；PPU 32/0.65纯显示；IgnoreCollision墙对Apply/Restore成对；回执见tasks/hero-arrow-pierce-20260917/",
+      "verification": "2026-09-27补录历史证据，本轮未复跑旧测试。tasks/hero-arrow-pierce-20260917/receipts/ 的gold/missing与Artemis回归、build-debug.txt、interop-compile.txt记录通过；安装回执记载2482F0D3与用户数据哈希保持，且注明事后誊写。这些历史记录不替代实机穿墙和联机验证。",
+      "handoff": "保持 doing；实际穿墙、池回收碰撞还原、0.65观感、拖尾和联机需对照后续版本验收。acceptance所述独立review PASS WITH NOTES在已查目录未找到独立回执，不能仅凭worker自述补成独立审查通过。"
     },
     {
       "id": "release-945-20260917",
@@ -2288,7 +2302,7 @@
       "acceptance": "Suppress only NpcShieldUser shield-disable audio during Managers.PrepareUnload while preserving native cleanup and RPC; pass static review/build and two consecutive high-population sail transitions without new 0xc00000fd WER.",
       "verification": "Two identical 02:45/02:54 log tails and WER 0xc00000fd point to PrepareUnload shield audio. Minimal Enabled-gated suppression passed independent static review and Debug build 0/0. Candidate is deployed only to the independent copy; build/deploy SHA256 both ACC466D928534F7620F7610A9C20590F301FAA617DA33EF96B53DBAEDD21D0A9, 162816 bytes. Two sailing transitions remain pending.",
       "handoff": "Candidate deployed to the independent copy with matching ACC466D9 hash. Keep task doing until two successful high-population sail transitions, suppressed>0, no matching disabled-audio tail/new WER, and normal shield sounds.",
-      "plan_path": "docs\\project-harness\\tasks\\crash-unload-016\\plan.md",
+      "plan_path": "docs/project-harness/tasks/crash-unload-016/plan.md",
       "workflow": {
         "status": "review_approved",
         "updated_at": "2026-08-16",
