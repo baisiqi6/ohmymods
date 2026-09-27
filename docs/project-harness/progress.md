@@ -1,3 +1,7 @@
+## 2026-09-27 — 候选生成时状态（2026-09-27）
+
+以下说明记录候选生成时状态：当时尚未替换 canonical progress、未解决 Git index、未同步云端；实际应用情况以后续独立恢复回执为准。专用 Operator MCP 两次实际查询成功；桌面内置 MCP 未热切换。云端44项/1镜像，pending快照止于09-06且标记可能陈旧。119项 checklist 候选保留既有生命周期和日期；证据缺口以核查记录为准。PR72负深度钳制仍不作为根因修复验收；旧诊断退役为未提交未安装候选。现有金币哥布林B版、宝石骑士与武士八姿势WIP保留。下方为历史记录，不是当前安装或发布指令。
+
 <!-- shop-territory-installed-20260925 -->
 2026-09-25 23:55 Windows PC/Codex：用户确认退出后，检测无Kingdom进程，核最新候选/受保护源码/旧DLL摘要，按已复审安装关口备份并安装累计94CC219A（build=9.14.24-choreo-shopland-20260925）至既定E盘测试副本。SHA256=9E56BF4BB873DC68F7D65A5492D52196D76CB5D8E9F2A7E6231C512F636411C4，旧8E994A98备份后缀20260925-235547.bak；存档与配置前后hash一致，未启动游戏。含商店全领地选址与武士收势/固定往返目标/仅白残影修复，实机待验。回执tasks/shop-territory-placement-20260925/receipts/install.json，未commit/push/publish。
 <!-- shop-territory-installed-20260925 -->
@@ -1786,3 +1790,14 @@ B33D56B8已安装，唯一行为差异CatScaleY1.2→1.25；build0W0E、DLL常�
 <!-- hero-shop-stability-20260915 -->
 2026-09-15 英雄驿站暂停闪烁修复：cfe8e50a / build=8.0.0-hero-shop-stability-20260915。用户确认主要开关暂停菜单整座消失；旧TryContext只接受Playing导致Menu清理重建。现仅精确Playing/Menu、同kingdom/layer/当前Postbox/header且对象有效时保留；Menu阻止付款，首次暂停有待付币时复用原生取消路径，成功后标记，恢复复用原对象；其他状态和未知context立即清理并记录原因。Core54、Invoker7、实际2.4 interop与完整构建通过（后两者0警告0错误），生产接线审计和独立审核通过。对d005审计2861方法保持、8改变、8新增、3移除（含Clear签名与闭包编号调整），4PNG保持，地面基准与owner ABI保留。已在游戏关闭后备份安装正确E盘，存档和配置hash保持；未启动游戏/提交/发布。暂停保留、半途投币暂停、恢复付款与实际高度仍待实机验收，跨岛身份运输仍未完成。
 <!-- hero-shop-stability-20260915 -->
+
+
+### 恢复补遗：working 段落 258（原文保留，历史判断未重新验收）
+
+## 2026-09-23 — v9.14.24 文档补齐（docs-only 资产替换）+ F5 面板自动暂停开发中
+
+### 恢复补遗：working 段落 259（原文保留，历史判断未重新验收）
+
+- **文档补齐（已闭环）**：玩家反馈 v9.14.23/24 包内文档缩水（逐版本说明缺失、其余六份沿用 v9.5.12 旧版未随版更新）。根因=发布跳过文档生成+脚本 `if src.is_file()` 静默跳过+发布文档自 v8 起未入库。修复：OMP deepseek-flash 产出 7 份文档（facts.md 权威事实清单约束，更新日志历史段与 v9.5.13 基底逐字节一致）；关口对抗审查 REJECT（P0=功能总览被误判为新增条目等）→修复→增量复审放行；zip 手术重打包（DLL 逐字节不变 7212d990，315 项）替换 GitHub 资产（新 ZIP 80a4d40e…，回读验收过）；release/v9.5.13 线性提交 8b141b6（7 文档+V9.5.13 说明补库+VERSIONING 账目重建+打包脚本 fail-hard）；Mac 已在 #29 通知。回执 tasks/release-docs-v91424-20260923/。
+- **F5 面板自动暂停（玩家反馈"开面板应自动暂停+点击穿透"）**：任务书经 v1 REJECT（P0=interop 方法名 IControllable_ReceiveInput 下划线/P0=开门沿缺状态门）→v2→增量 NOTES（N-1 手动安装）→v2.1 派工；内置 worker 实现（PatchUI_PanelFocus.cs+ModPanel/Plugin 接线+tests/panel-focus）；operator 修复 Engage 重入覆写 _pts 缺陷（!Engaged 守卫+回归场景）；构建 0W0E、panel-focus 15 场景、hold-purchase 65 场景全绿；独立 diff 复审进行中，通过后建 Issue/PR。回执 tasks/panel-autopause-20260923/。
+- **环境事实**：主仓库分支 agent/post-release-candidate 含未发布忍者树/狂战士工作；武士燕返候选装在 E 盘（2ea9eccd，原 7212d990 备份在），待实机验收后按 4 文件 diff 合并（交接 tasks/samurai-swallow-return-20260923/zcode-handoff.md）。E 盘 DLL 与公开包不同属预期。
