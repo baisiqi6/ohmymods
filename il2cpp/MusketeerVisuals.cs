@@ -49,6 +49,7 @@ internal enum MusketeerVisualFallback
 internal static class MusketeerVisuals
 {
     private const string ResourceName = "KingdomEnhancedMod.MusketeerAtlas.png";
+    private const string LeisureResourceName = "KingdomEnhancedMod.MusketeerLeisure.png";
     private const int AtlasWidth = MusketeerAtlas.Columns * MusketeerAtlas.CellWidth;    // 672
     private const int AtlasHeight = MusketeerAtlas.Rows * MusketeerAtlas.CellHeight;     // 192
 
@@ -69,6 +70,9 @@ internal static class MusketeerVisuals
         internal SpriteRenderer Native;
         internal bool HidNative;
         internal int LastFrame = -1;
+        internal int LastLeisureFrame = -1;
+        internal int LeisureFrame = -1;
+        internal CharacterLeisureClock Leisure;
         internal MusketeerAction LastAction = MusketeerAction.Idle;
         internal int NativeStateHash;
         internal float NativeNormalizedTime;
@@ -90,6 +94,9 @@ internal static class MusketeerVisuals
     private static AtlasState _atlasState = AtlasState.Unknown;
     private static Texture2D _atlas;
     private static Sprite[] _sprites;
+    private static Texture2D _leisureAtlas;
+    private static Sprite[] _leisureSprites;
+    private static bool _leisureTried;
     private static int _lastSyncedFrame = int.MinValue;
     private static bool _loggedUnavailable;
     private static bool _loggedFailure;
@@ -314,6 +321,7 @@ internal static class MusketeerVisuals
         }
         if (!nativeVisible || nativeForceOff) return;   // 原生已隐藏：不接管
         if (!EnsureAtlas()) return;
+        EnsureLeisureAtlas();
 
         Transform anchor;
         try
@@ -332,6 +340,7 @@ internal static class MusketeerVisuals
             Pointer = SafePointer(archer),
             GoId = goId,
             Native = native,
+            Leisure = new CharacterLeisureClock(goId),
         };
         try
         {
@@ -414,7 +423,16 @@ internal static class MusketeerVisuals
             if (goId == 0 || !Visuals.TryGetValue(goId, out VisualState state)) return;
             if (!SameObject(state, archer)) return;
             double now = NowSeconds();
+            state.Leisure?.Cancel();
             state.Animation.NotifyShot(now, nextEligibleShotTime);
+            if (state.LastLeisureFrame >= 0 && state.Own != null
+                && _sprites != null && _sprites.Length > MusketeerAtlas.FireFirstFrame)
+            {
+                state.Own.sprite = _sprites[MusketeerAtlas.FireFirstFrame];
+                state.LastFrame = MusketeerAtlas.FireFirstFrame;
+                state.LastLeisureFrame = -1;
+                state.LeisureFrame = -1;
+            }
         }
         catch (Exception)
         {
@@ -504,6 +522,11 @@ internal static class MusketeerVisuals
             reason = MusketeerVisualFallback.InertOrGrabbed;
         bool show = frame >= 0 && !nativeHidden && reason == MusketeerVisualFallback.None;
 
+        state.LeisureFrame = state.Leisure != null
+            ? state.Leisure.Tick(LeisureDelta(), _leisureSprites != null && show
+                && motion == MusketeerMotion.Idle && state.Animation.CurrentAction == MusketeerAction.Idle
+                && !aiming && LeisureEligible(state.Ref)) : -1;
+
         ApplyFrame(state, show ? frame : -1, reason);
     }
 
@@ -541,10 +564,11 @@ internal static class MusketeerVisuals
             {
                 try
                 {
-                    if (state.LastFrame != frame)
+                    if (state.LastFrame != frame || state.LastLeisureFrame != state.LeisureFrame)
                     {
-                        own.sprite = sprite;   // 先有 sprite 才允许可见：绝不留"可见但空帧"
+                        own.sprite = state.LeisureFrame >= 0 ? _leisureSprites[state.LeisureFrame] : sprite;
                         state.LastFrame = frame;
+                        state.LastLeisureFrame = state.LeisureFrame;
                     }
                 }
                 catch (Exception)
@@ -770,6 +794,49 @@ internal static class MusketeerVisuals
     }
 
     /// <summary>惰性解码 embedded atlas（只一次）；尺寸/内容校验失败即整块不可用。</summary>
+    private static void EnsureLeisureAtlas()
+    {
+        if (_leisureTried) return;
+        _leisureTried = true;
+        if (!CharacterLeisureAtlas.TryLoad(LeisureResourceName, MusketeerAtlas.CellWidth, MusketeerAtlas.CellHeight,
+            out _leisureAtlas, out _leisureSprites))
+            Log("leisure atlas unavailable: " + LeisureResourceName);
+    }
+
+    private static bool LeisureEligible(Archer archer)
+    {
+        try
+        {
+            if (archer == null || archer.gameObject == null || !archer.gameObject.activeInHierarchy
+                || !archer.enabled || archer.harmless) return false;
+            if (!MusketeerRuntime.IsMusketeer(archer) || !MusketeerRuntime.IsArmedMusketeer(archer)) return false;
+            if (Managers.Inst?.kingdom?.isDaytime != true) return false;
+            if (archer._shootingTarget != null || archer._huntingTarget != null) return false;
+            if (archer._knight != null || archer.GetFormation() != null
+                || archer._guardSlot != null || archer.inGuardSlot) return false;
+            if (archer.ShouldPlayerControl()) return false;
+            Character character = archer._character;
+            if (character == null || character.inert || character.grabbed || character.isStationary) return false;
+            Damageable damageable = archer._damageable;
+            if (damageable == null || damageable.isDead) return false;
+            Embarkee embarkee = archer._embarkee;
+            if (embarkee != null && (embarkee.IsEmbarked || embarkee.EmbarkableTarget != null)) return false;
+            return true;
+        }
+        catch (Exception) { return false; }
+    }
+
+    private static float LeisureDelta()
+    {
+        try
+        {
+            if (Time.timeScale <= 0f || IslandSaveData.isSavingGame
+                || Managers.Inst?.game?.state != Game.State.Playing) return 0f;
+            return Time.deltaTime;
+        }
+        catch (Exception) { return 0f; }
+    }
+
     private static bool EnsureAtlas()
     {
         if (_atlasState == AtlasState.Ready) return true;

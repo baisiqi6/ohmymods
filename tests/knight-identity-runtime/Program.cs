@@ -16,6 +16,8 @@ namespace KnightIdentityRuntimeTests
             ContextFollowupTests.Run();
             RebaselineTests.Run();
             RebaselineRebindTests.Run();
+            SaveMemberValidationTests.Run();
+            QuotaRecoveryTests.Run();
 
             Console.WriteLine();
             Console.WriteLine("total: passed=" + Case.Passed + " failed=" + Case.Failed);

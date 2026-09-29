@@ -62,6 +62,12 @@ void Reset()
     UnitScanCache.Archers = Array.Empty<Archer>();
     UnitScanCache.Calls = 0;
     managers.kingdom = kingdom;
+    // Legacy sections isolate the musketeer policy: the GuardRankDistribution boundary has its
+    // own section (25) that reopens these gates (issue-78 A).
+    managers.world = new World { gameLayer = new Transform { gameObject = new GameObject() } };
+    NetworkBigBoss.IsOnline = false;
+    NetworkBigBoss.HasWorldAuth = false;
+    ModConfig.Enabled.Value = true;
     kingdom.overrideGuard = false;
     kingdom.campaignOverride = false;
     kingdom.fallbackOverride = float.NaN;
@@ -90,8 +96,9 @@ bool Begin(Kingdom target)
 
 void End(Kingdom target, bool owns)
 {
-    if (!owns) return;
-    postfix.Invoke(null, new object[] { target, true });
+    // Real Harmony: the postfix runs after every normal native return; __state only tells it
+    // whether a musketeer capture is in flight.
+    postfix.Invoke(null, new object[] { target, owns });
 }
 
 // Fixture model: Begin = prefix (prior sides captured), simulateNative = what the native pass
@@ -486,6 +493,166 @@ Check(kingdom.DistributeCalls == nativeBefore + 1 && event2._guardSide == Side.R
     "binding event: native body runs before marked subset is balanced");
 kingdom.NativeDistribution = () => Check(!MusketeerDefense.RedistributeAfterBindings(), "binding event: no recursive native distribution");
 Check(MusketeerDefense.RedistributeAfterBindings(), "binding event: outer call completes");
+
+// ---- 25. GuardRankDistribution wiring (issue-78 A) --------------------------
+// Sections above run with the A world gate closed, so their write counts isolate the musketeer
+// policy. Here the gate is open and the REAL postfix body runs, pinning: A before End, A
+// independent of __state/MusketeerEnabled, A writing only depths, and A failures never blocking
+// or half-doing the boundary.
+
+void RankContext()
+{
+    NetworkBigBoss.IsOnline = false;
+    NetworkBigBoss.HasWorldAuth = true;
+    ModConfig.Enabled.Value = true;
+    managers.kingdom = kingdom;
+    managers.world = new World { gameLayer = new Transform { gameObject = new GameObject() } };
+}
+
+// Healthy batch through the real postfix: ranks already match, so A adds no write at all.
+Reset();
+RankContext();
+var kz1 = OrdinaryArcher(0f, Side.Left, 0);
+var kz2 = OrdinaryArcher(1f, Side.Left, 1);
+var kz3 = OrdinaryArcher(2f, Side.Right, 1);
+var kz4 = OrdinaryArcher(3f, Side.Right, 0);
+Distribute(kingdom);
+Check(WritesOn(kz1, kz2, kz3, kz4) == 0, "healthy batch: postfix adds zero writes");
+
+// __state=false (no musketeer capture at all): A still repairs the batch.
+Reset();
+RankContext();
+var kr1 = OrdinaryArcher(1f, Side.Right, 5);
+var kr2 = OrdinaryArcher(2f, Side.Right, 6);
+var kr3 = OrdinaryArcher(3f, Side.Left, 0);
+Distribute(kingdom);
+Check(kr1._guardDepth == 1 && kr2._guardDepth == 0, "__state=false: right ranks rebuilt 1..0");
+Check(kr3._guardDepth == 0 && kr3.Writes.Count == 0, "__state=false: healthy left rank untouched");
+Check(kr1.Writes.Count == 1 && kr1.Writes[0].Side == Side.Right && kr1._guardSide == Side.Right,
+    "__state=false: the single write keeps the native side");
+
+// Order proof: A runs first, End keeps its deep stable slot last (a reversed order would end on
+// A's rank and lose the 99).
+Reset();
+RankContext();
+var km1 = Musketeer(0f, Side.Left);
+km1._guardDepth = 0;
+var km2 = Musketeer(1f, Side.Right);
+km2._guardDepth = 99;
+bool kOrderOwns = Begin(kingdom);           // captures PriorSide Right / PriorDepth 99 for km2
+km2._guardSide = Side.Left;                 // native moved it to the wrong side
+km2._guardDepth = 3;
+End(kingdom, kOrderOwns);
+Check(km2._guardSide == Side.Right && km2._guardDepth == 99, "order: End keeps the deep stable slot (writes last)");
+Check(km2.Writes.Count == 2 && km2.Writes[0].Side == Side.Left && km2.Writes[0].Depth == 1
+    && km2.Writes[1].Side == Side.Right && km2.Writes[1].Depth == 99,
+    "order: A wrote the Left rank first, End wrote Right/99 second");
+Check(km1._guardSide == Side.Left && km1._guardDepth == 0 && km1.Writes.Count == 0, "order: balanced resident untouched");
+Check(km1._guardDepth >= 0 && km2._guardDepth >= 0, "order: no negative rank after the full postfix");
+
+// Musketeer feature off / no capture: A still rebuilds ranks and never writes sides.
+Reset();
+RankContext();
+MusketeerAccess.Enabled = false;
+var kf1 = Musketeer(0f, Side.Right);
+kf1._guardDepth = -3;
+var kf2 = Musketeer(1f, Side.Right);
+kf2._guardDepth = -4;
+var kf3 = Musketeer(2f, Side.Left);
+kf3._guardDepth = 0;
+Distribute(kingdom);
+Check(kf1._guardDepth == 1 && kf2._guardDepth == 0 && kf3._guardDepth == 0, "feature off: ranks still rebuilt");
+Check(kf1._guardSide == Side.Right && kf2._guardSide == Side.Right && kf3._guardSide == Side.Left, "feature off: sides preserved");
+Check(kf1.Writes.Count == 1 && kf1.Writes[0].Side == Side.Right && kf2.Writes.Count == 1 && kf2.Writes[0].Side == Side.Right,
+    "feature off: only A depth writes, no policy write");
+MusketeerAccess.Enabled = true;
+
+// Extra per-unit states are not A gates (unlike the musketeer policy's exclusions).
+Reset();
+RankContext();
+var kx1 = OrdinaryArcher(0f, Side.Right, 9);
+var kx2 = OrdinaryArcher(1f, Side.Right, 9);
+var kx3 = OrdinaryArcher(2f, Side.Right, 9);
+var kx4 = OrdinaryArcher(3f, Side.Right, 9);
+kx1._character.inert = true;
+kx2._character.isStationary = true;
+kx3._damageable.isDead = true;
+kx4.playerControlled = true;
+kx4.formation = new Formation();
+kx4.transform.position = new Vector3 { x = 3f, y = 3f };  // above the policy's tower-height gate
+var kx5 = OrdinaryArcher(4f, Side.Right, 9);
+kx5.gameObject.activeInHierarchy = false;                 // parent inactive, activeSelf still true
+Distribute(kingdom);
+Check(kx1._guardDepth == 4 && kx2._guardDepth == 3 && kx3._guardDepth == 2 && kx4._guardDepth == 1 && kx5._guardDepth == 0,
+    "extra states: all five ranks rebuilt (no new gates)");
+Check(kx1._guardSide == Side.Right && kx3._guardSide == Side.Right && kx5._guardSide == Side.Right,
+    "extra states: sides preserved");
+
+// World-gate refusals through the real postfix (Reset leaves the A gate closed).
+Reset();
+var kg1 = OrdinaryArcher(0f, Side.Right, 5);
+Distribute(kingdom);
+Check(kg1._guardDepth == 5 && kg1.Writes.Count == 0, "no authority: A refused");
+NetworkBigBoss.HasWorldAuth = true;
+NetworkBigBoss.IsOnline = true;
+Distribute(kingdom);
+Check(kg1._guardDepth == 5 && kg1.Writes.Count == 0, "online: A refused");
+NetworkBigBoss.IsOnline = false;
+ModConfig.Enabled.Value = false;
+Distribute(kingdom);
+Check(kg1._guardDepth == 5 && kg1.Writes.Count == 0, "switch off: A refused");
+ModConfig.Enabled.Value = true;
+managers.kingdom = rivals;
+Distribute(kingdom);
+Check(kg1._guardDepth == 5 && kg1.Writes.Count == 0, "other kingdom: A refused");
+managers.kingdom = kingdom;
+
+// A refusal must not block End, and must not half-write.
+Reset();
+RankContext();
+var kq1 = Musketeer(0f, Side.Left);
+kq1._guardDepth = 9;
+var kq2 = Musketeer(1f, Side.Left);
+kq2._guardDepth = 9;
+var kbroken = OrdinaryArcher(2f, Side.Right, 9);
+kbroken.isAvailable = false;                               // breaks A's batch assumption only
+Distribute(kingdom);
+Check(kq2._guardSide == Side.Right, "A refusal does not block End (policy still balances)");
+Check(kq1._guardDepth == 9 && kbroken._guardDepth == 9 && kq1.Writes.Count == 0 && kbroken.Writes.Count == 0,
+    "A refusal wrote nothing");
+
+// isAvailable can throw on the native NRE paths; the per-item isolation must refuse the batch
+// without escaping into the postfix and without blocking End.
+Reset();
+RankContext();
+var ky1 = Musketeer(0f, Side.Left);
+ky1._guardDepth = 9;
+var ky2 = Musketeer(1f, Side.Left);
+ky2._guardDepth = 9;
+var kfaulty = OrdinaryArcher(2f, Side.Right, 9);
+kfaulty.ThrowOnAvailableRead = true;
+Distribute(kingdom);
+Check(ky2._guardSide == Side.Right, "throwing isAvailable: A refused but End still balanced");
+Check(ky1._guardDepth == 9 && kfaulty._guardDepth == 9 && ky1.Writes.Count == 0 && kfaulty.Writes.Count == 0,
+    "throwing isAvailable: A wrote nothing");
+
+// A rank write failing on one item must not block the remaining writes nor End, and must be
+// reported as a partial pass with an unknown failed state (never as a completed reindex).
+Reset();
+RankContext();
+var kw1 = Musketeer(0f, Side.Left);
+kw1._guardDepth = 9;
+var kw2 = Musketeer(1f, Side.Left);
+kw2._guardDepth = 9;
+var kbad = OrdinaryArcher(2f, Side.Right, 9);
+kbad.ThrowOnWrite = true;
+int kInfoBefore = KingdomEnhancedPlugin.Instance.LogSource.Info.Count;
+Distribute(kingdom);
+Check(kw2._guardSide == Side.Right, "A write failure does not block End (policy still balances)");
+Check(kw1._guardDepth == 0 && kw2._guardDepth == 0, "A write failure: the other items are still ranked");
+Check(kbad._guardDepth == 9 && kbad.Writes.Count == 0, "A write failure: failed item unchanged in the fixture, no retry");
+Check(KingdomEnhancedPlugin.Instance.LogSource.Info.Skip(kInfoBefore).Any(m => m.Contains("failed=1") && m.Contains("partial")),
+    "A write failure: bounded partial summary logged");
 
 Check(UnityEngine.Object.DestroyCount == DestroyBaseline, "policy never destroys objects");
 Check(UnityEngine.Object.FindCount == FindBaseline, "policy never runs its own scene search");

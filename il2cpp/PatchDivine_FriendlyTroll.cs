@@ -46,6 +46,13 @@ public static class PatchDivine_FriendlyTroll
         internal IntPtr DamageableProfilePointer;
         internal bool InvulnerabilityProfileCaptured;
         internal bool InvulnerabilityBaseline;
+        // 位4（BoulderFriendly）自有保护回执：仅当本 life 成功把原位4从当前
+        // Damageable 撤下才为 true；原位4=0 不拥有恢复权，绝不以 prefab 常量补位。
+        internal bool OwnsBoulderFriendlyBit;
+        // entry 局部退出状态：ReleasePending=有待归还的位4（等待中不 claim/不选目标），
+        // RemovalDue=归还成功后应完成注销（由下一次 Prune 收走，避免遍历中改字典）。
+        internal bool ReleasePending;
+        internal bool RemovalDue;
         internal bool RpcSyncPending;
         internal bool RpcPendingValue;
     }
@@ -178,21 +185,39 @@ public static class PatchDivine_FriendlyTroll
     {
         if (!IsCurrentPursuitCoordinator(coordinator)) return;
 
+        Managers managers = Managers.Inst;
+
         if (!NetworkBigBoss.HasWorldAuth)
         {
             ClearPursuitSteering(false);
+            RestoreAllOwnedBoulderBits();
             return;
         }
 
-        Managers managers = Managers.Inst;
         if (managers?.world == null
-            || managers.world.Pointer != _pursuitWorldPointer
-            || managers.game == null || managers.game.state != Game.State.Playing)
+            || managers.world.Pointer != _pursuitWorldPointer)
         {
             ClearPursuitSteering(false);
+            RestoreAllOwnedBoulderBits();
             return;
         }
-        if (Time.timeScale <= 0f || Time.time < _nextPursuitTickAt) return;
+
+        if (!ModConfig.Enabled.Value)
+        {
+            // 关闭：先归还自有位4（不依赖暂停/time 门），但不提前 return——
+            // 仍按既有 cadence 跑 Prune/Reconcile 完成原 invulnerability baseline/RPC
+            // 恢复；恢复后不再做 counter steering。
+            RestoreAllOwnedBoulderBits();
+        }
+
+        // 同 world 暂停（F5/Esc：game 瞬时 null、state 非 Playing 或 timeScale=0）
+        // 不是所有权结束：保留 owned 位4与责任，只停止新维护；恢复 Playing 后
+        // 即使尚未到下一个 0.25s tick，已撤的位4也必须仍然保持被保护状态。
+        if (managers.game == null || managers.game.state != Game.State.Playing
+            || Time.timeScale <= 0f)
+            return;
+
+        if (Time.time < _nextPursuitTickAt) return;
         _nextPursuitTickAt = Time.time + PursuitTickInterval;
         // Lifecycle hooks intentionally use public OnDisable only. Objects can still
         // disappear without a callback during scene teardown, so prune stale entries
@@ -312,7 +337,9 @@ public static class PatchDivine_FriendlyTroll
 
     private static bool IsPursuitTarget(FriendlyEntry friendly, Troll troll)
     {
-        if (friendly == null || !IsUsable(friendly.Troll)) return false;
+        if (friendly == null || friendly.ReleasePending || friendly.RemovalDue
+            || !IsUsable(friendly.Troll))
+            return false;
         if (FriendlyTrollDisguise.IsProtected(friendly.Troll)) return false;
         Damageable damageable = friendly.Damageable;
         try
@@ -370,8 +397,10 @@ public static class PatchDivine_FriendlyTroll
             return;
 
         // World unload owns mover shutdown. Do not write into the hierarchy while it is
-        // recursively disabling; only relinquish the authority-side steering markers.
+        // recursively disabling; only relinquish the authority-side steering markers
+        // and hand back the owned BoulderFriendly bit4.
         ClearPursuitSteering(false);
+        RestoreAllOwnedBoulderBits();
         _pursuitCoordinator = null;
         _pursuitWorldPointer = IntPtr.Zero;
         _nextPursuitTickAt = 0f;
@@ -433,11 +462,17 @@ public static class PatchDivine_FriendlyTroll
 
         try
         {
+            // 先按原路径捕获/补齐 profile，首轮保护不因 profile 未捕获而漏掉。
             if (!entry.InvulnerabilityProfileCaptured
                 || entry.DamageableProfilePointer != entry.Damageable.Pointer)
             {
                 CaptureInvulnerabilityProfile(entry);
             }
+
+            // 再完成位4窄化：未能确证位4已撤（读/写失败或仍为4）时本轮不解除
+            // 无敌、不伪造回执；既有维护路径后续重试。
+            if (!ApplyOrRestoreFriendlyBoulderMask(entry)) return;
+
             if (!CanWriteInvulnerability(entry)) return;
 
             bool desired = ModConfig.Enabled.Value
@@ -500,6 +535,135 @@ public static class PatchDivine_FriendlyTroll
             ApplyOrRestoreFriendlyInvulnerability(entry);
     }
 
+    /// <returns>
+    /// true = 位4安全（已撤 / 原位4=0 / 当前无需保护），可继续既有 invulnerable=false；
+    /// false = 读/写失败或位4仍未撤下，本次不得解除无敌、不得伪造回执。
+    /// </returns>
+    private static bool ApplyOrRestoreFriendlyBoulderMask(FriendlyEntry entry)
+    {
+        if (entry == null || entry.Damageable == null) return true;
+
+        try
+        {
+            if (entry.ReleasePending || entry.RemovalDue)
+            {
+                // 待归还/待注销：只重试归还；等待期间不 claim、不解除无敌。
+                if (entry.OwnsBoulderFriendlyBit
+                    && !RestoreOwnedBoulderFriendlyBit(entry))
+                    return false;
+                entry.ReleasePending = false;
+                return false;
+            }
+
+            if (ModConfig.Enabled.Value && CanWriteInvulnerability(entry))
+                return TryClaimBoulderFriendlyBit(entry);
+
+            if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth)
+                RestoreOwnedBoulderFriendlyBit(entry);
+            // 其余情况（启用态但同 world 暂停、非 Playing 或绑定暂不可写）：
+            // 不撤也不归还，保留现状与责任，等待恢复或明确退出边界。
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryClaimBoulderFriendlyBit(FriendlyEntry entry)
+    {
+        Damageable damageable = entry.Damageable;
+        DamageSource current = damageable.damagedBy;
+        if ((current & DamageSource.BoulderFriendly) == 0) return true;
+
+        damageable.damagedBy = current & ~DamageSource.BoulderFriendly;
+        // 每次现读 current：位4为1必须再清并复验。已 owned 的重清失败不得擦掉归还权；
+        // 未 owned 的只有本次成功清位才新增回执；失败不伪造回执。
+        if ((damageable.damagedBy & DamageSource.BoulderFriendly) != 0) return false;
+        entry.OwnsBoulderFriendlyBit = true;
+        return true;
+    }
+
+    private enum LocalBitWriteEligibility
+    {
+        Writable,
+        TargetGone,
+        Unknown
+    }
+
+    /// <summary>
+    /// 本地归还，返回是否确证责任终结：成功写回并读回确认位4已还、或确证目标已毁/
+    /// collected → true（清 owned）；活组件异常 / 身份不符 / 未知异常 → false（保留 owned，
+    /// 交给既有维护重试）。不依赖 authority/Playing/active（inactive 但存活仍需归还）。
+    /// </summary>
+    private static bool RestoreOwnedBoulderFriendlyBit(FriendlyEntry entry)
+    {
+        if (entry == null || !entry.OwnsBoulderFriendlyBit) return true;
+
+        try
+        {
+            LocalBitWriteEligibility eligibility = CheckLocalBitWriteEligibility(entry);
+            if (eligibility == LocalBitWriteEligibility.TargetGone)
+            {
+                entry.OwnsBoulderFriendlyBit = false;
+                entry.ReleasePending = false;
+                return true;
+            }
+            if (eligibility != LocalBitWriteEligibility.Writable)
+                return false;
+
+            Damageable damageable = entry.Damageable;
+            damageable.damagedBy = damageable.damagedBy
+                | DamageSource.BoulderFriendly;
+            if ((damageable.damagedBy & DamageSource.BoulderFriendly) == 0)
+                return false;
+            entry.OwnsBoulderFriendlyBit = false;
+            entry.ReleasePending = false;
+            return true;
+        }
+        catch (ObjectCollectedException)
+        {
+            // 句柄确证不可用：责任终结，不写。
+            entry.OwnsBoulderFriendlyBit = false;
+            entry.ReleasePending = false;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static LocalBitWriteEligibility CheckLocalBitWriteEligibility(FriendlyEntry entry)
+    {
+        try
+        {
+            Damageable damageable = entry.Damageable;
+            FriendlyTroll troll = entry.Troll;
+            if (damageable == null || troll == null)
+                return LocalBitWriteEligibility.TargetGone;
+            if (damageable.gameObject == null || troll.gameObject == null)
+                return LocalBitWriteEligibility.TargetGone;
+            if (damageable.gameObject != troll.gameObject)
+                return LocalBitWriteEligibility.Unknown;
+            return LocalBitWriteEligibility.Writable;
+        }
+        catch (ObjectCollectedException)
+        {
+            return LocalBitWriteEligibility.TargetGone;
+        }
+        catch
+        {
+            return LocalBitWriteEligibility.Unknown;
+        }
+    }
+
+    private static void RestoreAllOwnedBoulderBits()
+    {
+        foreach (FriendlyEntry entry in ActiveFriendlies.Values)
+            RestoreOwnedBoulderFriendlyBit(entry);
+    }
+
     private static void RegisterFriendly(FriendlyTroll friendly)
     {
         if (!IsUsable(friendly)) return;
@@ -508,7 +672,11 @@ public static class PatchDivine_FriendlyTroll
         if (!ActiveFriendlies.TryGetValue(id, out FriendlyEntry entry)
             || entry.Troll == null || entry.Troll.Pointer != friendly.Pointer)
         {
-            if (entry != null) RemoveFriendlyEntry(id, entry);
+            if (entry != null && !RemoveFriendlyEntry(id, entry))
+            {
+                // 旧 entry 归还失败保留中：本 id 不得被新 entry 覆写。
+                return;
+            }
             entry = new FriendlyEntry();
             ActiveFriendlies[id] = entry;
         }
@@ -518,6 +686,14 @@ public static class PatchDivine_FriendlyTroll
         if (!SameNativeComponent(entry.Damageable, currentDamageable))
         {
             RestoreFriendlyInvulnerability(entry);
+            // 换 Damageable：先向仍存活的旧实例归还本 entry 自有的位4，
+            // 不能因 GetComponent 已指向新实例而拒绝旧实例归还；
+            // 归还失败前不绑定/保护新实例，旧责任留给既有维护重试。
+            if (!RestoreOwnedBoulderFriendlyBit(entry))
+            {
+                entry.ReleasePending = true;
+                return;
+            }
             UnsubscribeFriendlyDamage(entry);
             entry.Damageable = currentDamageable;
             entry.DamageHandlerAttempted = false;
@@ -653,11 +829,22 @@ public static class PatchDivine_FriendlyTroll
         }
     }
 
-    private static void RemoveFriendlyEntry(int id, FriendlyEntry expected)
+    /// <returns>true = entry 已不在表内（成功移除或本就不存在）；false = 归还失败保留中。</returns>
+    private static bool RemoveFriendlyEntry(int id, FriendlyEntry expected)
     {
         if (!ActiveFriendlies.TryGetValue(id, out FriendlyEntry entry)
             || (expected != null && !ReferenceEquals(entry, expected)))
-            return;
+            return true;
+
+        // 回池/替换/销毁/退出：只向仍存活的原组件归还本地自有位4；已毁不写。
+        if (!RestoreOwnedBoulderFriendlyBit(entry))
+        {
+            // 归还失败：保留 entry/订阅/绑定，标记待归还+待注销，由既有 Prune/Tick/Register 重试；
+            // 同 id 新 entry 不得覆写。归还成功后（本调用或后续维护）再完成注销。
+            entry.ReleasePending = true;
+            entry.RemovalDue = true;
+            return false;
+        }
 
         UnsubscribeFriendlyDamage(entry);
         ActiveFriendlies.Remove(id);
@@ -668,6 +855,7 @@ public static class PatchDivine_FriendlyTroll
             if (ReferenceEquals(pair.Value, entry)) staleFsms.Add(pair.Key);
         }
         foreach (IntPtr pointer in staleFsms) FriendlyByFsm.Remove(pointer);
+        return true;
     }
 
     private static FriendlyMovementProfile CaptureMovementProfile(FriendlyTroll friendly)
@@ -716,7 +904,18 @@ public static class PatchDivine_FriendlyTroll
         var staleIds = new List<int>();
         foreach (KeyValuePair<int, FriendlyEntry> pair in ActiveFriendlies)
         {
-            if (!IsUsable(pair.Value.Troll)) staleIds.Add(pair.Key);
+            FriendlyEntry entry = pair.Value;
+            if (!IsUsable(entry.Troll))
+            {
+                staleIds.Add(pair.Key);
+                continue;
+            }
+            // 待注销且归还已完成：先收 pending removal，避免在 Reconcile 遍历中改字典。
+            if (entry.RemovalDue && !entry.ReleasePending
+                && !entry.OwnsBoulderFriendlyBit)
+            {
+                staleIds.Add(pair.Key);
+            }
         }
         foreach (int id in staleIds)
         {
@@ -774,6 +973,62 @@ public static class PatchDivine_FriendlyTroll
         {
             LogErrorOnce("friendly deregistration failed", exception);
         }
+    }
+
+    /// <summary>
+    /// Init 前缀的新 life 边界：先尽力归还本实例旧 entry 的位4。
+    /// 归还成功/确证目标已毁 → 正常移除；未知失败按根裁决不阻原生 Init，
+    /// 一次日志留痕后放弃旧 life 回执（清 owned/pending，绝不跨 life 回写）。
+    /// normal off/remove/replace 路径不套此例外，仍失败保 entry 重试。
+    /// </summary>
+    private static void ReleaseStaleFriendlyEntryOnInit(FriendlyTroll friendly)
+    {
+        try
+        {
+            if (friendly == null) return;
+
+            int id = friendly.GetInstanceID();
+            if (!ActiveFriendlies.TryGetValue(id, out FriendlyEntry entry)
+                || entry.Troll == null
+                || entry.Troll.Pointer != friendly.Pointer)
+                return;
+
+            bool abandoned = false;
+            if (!RestoreOwnedBoulderFriendlyBit(entry))
+            {
+                // 归还责任处置不依赖诊断成功：先清旧回执并完成移除，再尝试日志。
+                entry.OwnsBoulderFriendlyBit = false;
+                entry.ReleasePending = false;
+                entry.RemovalDue = false;
+                abandoned = true;
+            }
+
+            RemoveFriendlyEntry(id, entry);
+
+            if (abandoned)
+            {
+                TryLogErrorOnce(
+                    "friendly init boundary release abandoned",
+                    new InvalidOperationException(
+                        "old-owned bit4 could not be returned; dropping old life receipt"
+                        + " (old id=" + id + " ptr=0x"
+                        + friendly.Pointer.ToInt64().ToString("X") + ")"));
+            }
+        }
+        catch (Exception exception)
+        {
+            TryLogErrorOnce("friendly init boundary release failed", exception);
+        }
+    }
+
+    /// <summary>诊断异常本地吞掉：日志 sink 抛错绝不外抛、绝不阻断原生 Init。</summary>
+    private static void TryLogErrorOnce(string key, Exception exception)
+    {
+        try
+        {
+            LogErrorOnce(key, exception);
+        }
+        catch { }
     }
 
     private static uint Mix(uint hash, uint value)
@@ -1077,6 +1332,20 @@ public static class PatchDivine_FriendlyTroll
     [HarmonyPatch(typeof(FriendlyTroll), nameof(FriendlyTroll.Init))]
     private static class FriendlyInitPatch
     {
+        /// <summary>
+        /// 新 life 边界：Init 前缀在原生初始化前释放本实例旧 entry——向仍存活的旧
+        /// Damageable 归还自有位4、清回执并从 ActiveFriendlies 移除。这样池复用的
+        /// 同一实例/同一指针进入新 life 时不会继承旧 owned 回执；随后后缀
+        /// RegisterFriendly 按新 life 的原生 mask 重新登记（原位4=0 则不再拥有）。
+        /// 同 life 后续的 ApplyData/DeserializeFromData 再登记是幂等的：claim 只
+        /// 在位4仍在且未拥有时触发，此时位4已撤，不会重捕或虚构回执。
+        /// </summary>
+        [HarmonyPrefix]
+        private static void Prefix(FriendlyTroll __instance)
+        {
+            ReleaseStaleFriendlyEntryOnInit(__instance);
+        }
+
         [HarmonyPostfix]
         private static void Postfix(FriendlyTroll __instance)
         {
@@ -1286,6 +1555,8 @@ public static class PatchDivine_FriendlyTroll
                 foreach (KeyValuePair<int, FriendlyEntry> pair in ActiveFriendlies)
                 {
                     FriendlyEntry entry = pair.Value;
+                    if (entry.ReleasePending || entry.RemovalDue) continue;
+
                     Damageable damageable = entry.Damageable;
                     if (!IsUsable(entry.Troll) || damageable == null || damageable.isDead)
                     {

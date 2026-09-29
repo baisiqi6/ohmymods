@@ -34,6 +34,8 @@
     <Compile Include="../../../il2cpp/MusketeerCombat.cs" Link="Production/MusketeerCombat.cs" />
     <Compile Include="../../../il2cpp/MusketeerRuntime.cs" Link="Production/MusketeerRuntime.cs" />
     <Compile Include="../../../il2cpp/MusketeerVisuals.cs" Link="Production/MusketeerVisuals.cs" />
+    <Compile Include="../../../il2cpp/CharacterLeisureClock.cs" Link="Production/CharacterLeisureClock.cs" />
+    <Compile Include="../../../il2cpp/CharacterLeisureAtlas.cs" Link="Production/CharacterLeisureAtlas.cs" />
   </ItemGroup>
 
   <ItemGroup>

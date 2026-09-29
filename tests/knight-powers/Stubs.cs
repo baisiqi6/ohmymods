@@ -79,6 +79,8 @@ namespace KingdomEnhancedMod {
  public static class ModConfig {public static BoolConfig Enabled=new();public class BoolConfig{public bool Value=true;}}
  public static class PatchRoles_KnightStyle {public static bool TryGetResolvedStyleIndex(Knight k,out int style){style=k.Style;return k.Qualified;}}
  public static class UnitScanCache {public static Knight[] Knights=Array.Empty<Knight>();public static Knight[] GetKnights()=>Knights;}
+ // issue-79 观察点编译壳：本套件只隔离骑士战斗，捕获簿记由 tests/deadlands-follower-capture 覆盖；此处只需签名。
+ internal static class DeadlandsFollowerCapture { internal static void OnAnimatorSpeedWrite(UnityEngine.Animator animator, DeadlandsAnimObserver observer, int triggerHash, float before, float after, bool restore) {} internal static void NotifyDisabled(Archer archer) {} }
  public class KingdomEnhancedPlugin {public static KingdomEnhancedPlugin Instance=new();public Logger LogSource=new();public class Logger{public static List<string> Errors=new();public void LogError(string s)=>Errors.Add(s);public void LogInfo(string s){}public void LogWarning(string s){}}}
 }
 

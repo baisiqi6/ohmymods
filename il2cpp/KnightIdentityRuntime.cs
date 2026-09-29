@@ -217,6 +217,8 @@ namespace KingdomEnhancedMod
         internal static readonly List<PanelMint> PanelMints = new List<PanelMint>();
         private static string _panelRebaselineContext; // 非 null = 设计 C pending 已挂（上下文键）
         private static string _panelRevisionContext;   // 非 null = 已解析岛的用户修订 pending（下一次原生 Save 写 rev+1）
+        private static string _quotaRevisionContext;   // 非 null = 历史配额恢复后的首次 Save（写所选历史 epoch 的 rev+1）
+        private static string _quotaRevisionEpoch;
 
         /// <summary>设计 C pending 里的一条面板铸出身份（save 期按同对象同 life 复核存活性）。</summary>
         internal sealed class PanelMint
@@ -690,6 +692,89 @@ namespace KingdomEnhancedMod
             }
         }
 
+        /// <summary>
+        /// 历史职业配额恢复：把整批零收据的装载 cohort 一次写成新绑定收据（绝不半改、绝不覆盖已有收据）。
+        /// 每名必须是同 life、活跃、tagKnight、实测属于当前 world 的已跟踪条目；任何不符整批拒绝。
+        /// </summary>
+        internal static bool TryApplyQuotaReceipts(IReadOnlyList<Knight> knights, IReadOnlyList<long> lifetimes, IReadOnlyList<int> styles, out int applied)
+        {
+            applied = 0;
+            if (knights == null || lifetimes == null || styles == null) return false;
+            if (knights.Count == 0 || knights.Count != lifetimes.Count || knights.Count != styles.Count) return false;
+            try
+            {
+                if (!IsHostAuthority()) return false;
+                if (InLoadContext()) return false;
+
+                PanelEntries.Clear();
+                PanelStyles.Clear();
+                HashSet<Entry> seen = new HashSet<Entry>();
+                for (int i = 0; i < knights.Count; i++)
+                {
+                    if (knights[i] == null || !IsValidStyle(styles[i])) return false;
+                    if (!TryGetVerifiedEntry(knights[i], out Entry entry, out _)) return false;
+                    if (entry.Lifetime != lifetimes[i]) return false; // 换 life：不是同一批捕获对象
+                    if (entry.HasReceipt) return false;               // 已有收据（手动/其它来源）：绝不覆盖
+                    if (!seen.Add(entry)) return false;               // 同一对象重复进入批次：fail-closed
+                    PanelEntries.Add(entry);
+                    PanelStyles.Add(styles[i]);
+                }
+
+                PanelBackup.Clear();
+                for (int i = 0; i < PanelEntries.Count; i++)
+                {
+                    Entry entry = PanelEntries[i];
+                    PanelBackup.Add(new PanelEntryBackup
+                    {
+                        Entry = entry,
+                        HasReceipt = entry.HasReceipt,
+                        Receipt = entry.Receipt,
+                        MarkedNew = entry.MarkedNew,
+                        FailedLoad = entry.FailedLoad,
+                    });
+                }
+
+                for (int i = 0; i < PanelEntries.Count; i++)
+                {
+                    Entry entry = PanelEntries[i];
+                    // 新绑定：绝不复制无法证明的旧 GUID（历史无法逐人对应）
+                    entry.Receipt = new KnightIdentityReceipt(Guid.NewGuid(), PanelStyles[i]);
+                    entry.HasReceipt = true;
+                    entry.MarkedNew = false;
+                    entry.FailedLoad = false;
+                    applied++;
+                }
+                return true;
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("quota-assign", e);
+                for (int i = 0; i < PanelBackup.Count; i++)
+                {
+                    PanelEntryBackup backup = PanelBackup[i];
+                    try
+                    {
+                        backup.Entry.Receipt = backup.Receipt;
+                        backup.Entry.HasReceipt = backup.HasReceipt;
+                        backup.Entry.MarkedNew = backup.MarkedNew;
+                        backup.Entry.FailedLoad = backup.FailedLoad;
+                    }
+                    catch
+                    {
+                        // 回滚尽力而为：条目本身已不可读时保持 fail-closed
+                    }
+                }
+                applied = 0;
+                return false;
+            }
+            finally
+            {
+                PanelEntries.Clear();
+                PanelStyles.Clear();
+                PanelBackup.Clear();
+            }
+        }
+
         /// <summary>面板门槛探针（只读）：该骑士是否已实测属于当前 world 的活跃 tagKnight（可被面板读写身份）。</summary>
         internal static bool TryVerifyPanelKnight(Knight knight)
         {
@@ -814,6 +899,7 @@ namespace KingdomEnhancedMod
                 if (PanelMints.Count == 0) return;
                 _panelRebaselineContext = contextKey;
                 _panelRevisionContext = null; // 后到的用户动作取代先前的修订 pending（单槽语义）
+                DisarmQuotaRevision();        // 用户动作同样明确取代自动配额 pending（不另造优先级框架）
             }
             catch (Exception e)
             {
@@ -845,6 +931,7 @@ namespace KingdomEnhancedMod
             if (string.IsNullOrEmpty(contextKey)) return;
             _panelRevisionContext = contextKey;
             DisarmPanelRebaseline(); // 同一时刻只有一个用户 pending（再基线化与修订互斥）
+            DisarmQuotaRevision();   // 用户动作明确取代自动配额 pending（不另造优先级框架）
         }
 
         /// <summary>撤销用户修订 pending（成功写入 / 测试复位）。</summary>
@@ -852,6 +939,35 @@ namespace KingdomEnhancedMod
         {
             _panelRevisionContext = null;
         }
+
+        /// <summary>
+        /// 历史配额恢复成功后的首次真实 Save 开关（恢复期零 I/O）：下一次该 context 的 save 把同一批
+        /// 现场收据写进所选历史 epoch，revision 取该 context 当前最大值 + 1（不做用户动作、不写面板日志）；
+        /// 未保存退出 = 零持久化，下次加载确定性重算同样配额。
+        /// </summary>
+        internal static void ArmQuotaRevision(string contextKey, string epoch)
+        {
+            if (string.IsNullOrEmpty(contextKey) || string.IsNullOrEmpty(epoch)) return;
+            _quotaRevisionContext = contextKey;
+            _quotaRevisionEpoch = epoch;
+        }
+
+        internal static void DisarmQuotaRevision()
+        {
+            _quotaRevisionContext = null;
+            _quotaRevisionEpoch = null;
+        }
+
+        /// <summary>该 context 的首次配额 Save pending 是否指向同一 epoch（save 路径消费）。</summary>
+        internal static bool TryGetQuotaRevision(string contextKey, string epoch)
+        {
+            return !string.IsNullOrEmpty(_quotaRevisionContext)
+                && string.Equals(_quotaRevisionContext, contextKey, StringComparison.Ordinal)
+                && string.Equals(_quotaRevisionEpoch, epoch, StringComparison.Ordinal);
+        }
+
+        /// <summary>Load 作用域探针（配额恢复不得在加载中执行）。</summary>
+        internal static bool InLoadContextNow { get { return InLoadContext(); } }
 
         /// <summary>池可用性预检（ChooseLeast 的输入约束）：非空、全合法、无重复；失败=整批不写。</summary>
         private static bool IsUsableStylePool(IReadOnlyList<int> available)
@@ -943,6 +1059,7 @@ namespace KingdomEnhancedMod
             PanelBackup.Clear();
             DisarmPanelRebaseline();
             DisarmPanelRevision();
+            DisarmQuotaRevision();
         }
 
         // ------------------------------------------------------------------ 内部
@@ -1346,6 +1463,9 @@ namespace KingdomEnhancedMod
             /// <summary>已跟踪但尚无收据的 owner（吸收态旧骑士）：只作再基线化重绑定的 life 证据，绝不进 Owners。</summary>
             internal readonly Dictionary<string, CapturedOwner> PendingOwners = new Dictionary<string, CapturedOwner>(StringComparer.Ordinal);
 
+            /// <summary>明确 tagSquire 的引用对象证据（owner/GO/组件身份 + life）：最终成员校验时复核仍是同一排除对象。</summary>
+            internal readonly Dictionary<string, CapturedOwner> ExcludedSquires = new Dictionary<string, CapturedOwner>(StringComparer.Ordinal);
+
             /// <summary>同一次 save 内同一 uniqueID 落到不同 owner/life 的歧义 ID（有界；这类证据不可信）。</summary>
             internal readonly HashSet<string> AmbiguousIds = new HashSet<string>(StringComparer.Ordinal);
 
@@ -1358,9 +1478,9 @@ namespace KingdomEnhancedMod
                 get { return EvidenceOverflow || AmbiguousIds.Count > 0; }
             }
 
-            internal void AddEvidence(string uniqueId, CapturedOwner owner, bool pending)
+            internal void AddEvidence(string uniqueId, CapturedOwner owner, bool pending, bool squire)
             {
-                Dictionary<string, CapturedOwner> target = pending ? PendingOwners : Owners;
+                Dictionary<string, CapturedOwner> target = squire ? ExcludedSquires : pending ? PendingOwners : Owners;
                 if (target.Count >= MaxCapturedEvidence)
                 {
                     EvidenceOverflow = true; // 满：不瞎截断，整批证据作废
@@ -1388,6 +1508,23 @@ namespace KingdomEnhancedMod
         internal static bool HasActiveSaveCapture
         {
             get { return _capture != null; }
+        }
+
+        /// <summary>本进程是否正在保存（SaveCapture 作用域或原生 isSavingGame）：quota 等自动路径在消费前必须避让。</summary>
+        internal static bool IsSaveInProgressNow
+        {
+            get
+            {
+                if (_capture != null) return true;
+                try
+                {
+                    return IslandSaveData.isSavingGame == true;
+                }
+                catch
+                {
+                    return true; // 读不出来按「正在保存」保守处理
+                }
+            }
         }
 
         internal static SaveCapture BeginCapture(int campaign, int land, int challenge)
@@ -1425,19 +1562,24 @@ namespace KingdomEnhancedMod
                 if (capture.Island == null && !TryCaptureIsland(capture)) return;
 
                 GameObject owner = SafeGameObject(forObject);
-                if (owner == null || !SafeCompareTag(owner, "Knight")) return;
+                if (owner == null) return;
+                bool isKnight = SafeCompareTag(owner, "Knight");
+                bool isSquire = !isKnight && SafeCompareTag(owner, "Squire");
+                if (!isKnight && !isSquire) return; // 其他角色不参与（Squire 记录也带 KnightData，必须留排除证据）
 
                 Knight knight = SafeGetComponent<Knight>(owner);
                 if (knight == null) return;
 
-                bool hasReceipt = KnightIdentityRuntime.TryGetTrackedIdentity(knight, out long lifetime, out KnightIdentityReceipt receipt);
+                long lifetime = 0;
+                KnightIdentityReceipt receipt = default;
+                bool hasReceipt = isKnight && KnightIdentityRuntime.TryGetTrackedIdentity(knight, out lifetime, out receipt);
                 if (!hasReceipt)
                 {
-                    // 已跟踪但无收据（吸收态旧骑士）：登记 life 证据供再基线化重绑定复核；Owners 语义与 IsValidOwner 不动。
+                    // 已跟踪但无收据（吸收态旧骑士 / Squire）：登记 life 证据；Owners 语义与 IsValidOwner 不动。
                     lifetime = KnightIdentityRuntime.GetLifetime(knight);
                     if (lifetime <= 0)
                     {
-                        // 已确认为 tagKnight 却取不到 life（如条目容量满未登记）：这条证据缺失也是缺口，
+                        // 已确认为 tagKnight/tagSquire 却取不到 life（如条目容量满未登记）：这条证据缺失也是缺口，
                         // 绝不静默跳过——否则第二个同 ID 的失证 owner 会被当成幂等放行。
                         capture.MarkAmbiguous(uniqueId);
                         return;
@@ -1451,7 +1593,7 @@ namespace KingdomEnhancedMod
                     return;
                 }
 
-                capture.AddEvidence(uniqueId, new CapturedOwner(knight, lifetime, hasReceipt ? receipt : default), pending: !hasReceipt);
+                capture.AddEvidence(uniqueId, new CapturedOwner(knight, lifetime, hasReceipt ? receipt : default), pending: !hasReceipt, squire: isSquire);
             }
             catch (Exception e)
             {
@@ -1467,12 +1609,10 @@ namespace KingdomEnhancedMod
                 if (capture == null || capture.Island == null) return; // 无完整可信 scope：不写
                 if (KnightIdentityLoadBridge.Current != null || KnightIdentityGeneration.Active) return;
                 if (!KnightIdentityRuntime.IsHostAuthority()) return; // 仅主机
-                if (capture.HasEvidenceGap)
-                {
-                    // 缺失/歧义证据必须在进入任何写路径（包括备份恢复）之前拒绝。
-                    KnightIdentityLog.Once("save-evidence-gap", null);
-                    return;
-                }
+                // 本次 save 的最终成员名单 + 证据复核（三条写路径共用同一结果）：
+                //  * 未被序列化的引用对象歧义（可定位且证明不在最终记录中）不阻断有效成员保存；
+                //  * 实际成员缺失证据、成员同 ID 异 owner/life、记录重复、证据容量截断仍一律拒写。
+                if (!TryValidateSaveMembers(capture)) return;
                 // 用户锚定再基线化（设计 C）排在吸收态/CanFlushSeed 早退之前：unresolved 上下文
                 // 零收据也能在本次 save 的捕获作用域内新建 epoch 基线（pending 由面板"应用"显式挂上）。
                 if (TryConsumePanelRebaseline(capture)) return;
@@ -1540,8 +1680,21 @@ namespace KingdomEnhancedMod
                 // 已解析岛的面板用户重派：本次 save 写成修订号 +1 的快照（写入时才从盘上取最大值，见 AppendSnapshot）。
                 bool userRevision = KnightIdentityRuntime.PanelRevisionArmed
                     && string.Equals(KnightIdentityRuntime.PanelRevisionContext, contextKey, StringComparison.Ordinal);
-                if (KnightIdentitySidecar.AppendSnapshot(epoch, snapshot, contextKey, newEpoch, userRevision, out int appliedRevision)
-                    && userRevision)
+                // 历史配额恢复后的首次保存：写所选历史 epoch 的新修订号（严格大于该 context 最大值），
+                // 保证新记录在后续加载的冲突判定中胜出；不是用户动作，绝不写面板日志。
+                bool quotaRevision = !userRevision && KnightIdentityRuntime.TryGetQuotaRevision(contextKey, epoch);
+                int appliedRevision;
+                bool written = quotaRevision
+                    ? KnightIdentitySidecar.AppendQuotaRevision(epoch, snapshot, contextKey, newEpoch, out appliedRevision)
+                    : KnightIdentitySidecar.AppendSnapshot(epoch, snapshot, contextKey, newEpoch, userRevision, out appliedRevision);
+                if (written && quotaRevision)
+                {
+                    KnightIdentityRuntime.DisarmQuotaRevision();
+                    KnightIdentityLog.Receipt("recovery revision saved: rev=" + appliedRevision.ToString(CultureInfo.InvariantCulture)
+                        + " context=" + Prefix(contextKey)
+                        + " entries=" + entries.Count.ToString(CultureInfo.InvariantCulture));
+                }
+                else if (written && userRevision)
                 {
                     KnightIdentityRuntime.DisarmPanelRevision();
                     KnightPanelLog.Info("user revision: rev=" + appliedRevision.ToString(CultureInfo.InvariantCulture)
@@ -1822,13 +1975,133 @@ namespace KingdomEnhancedMod
         private static bool TryGetCapturedOwner(SaveCapture capture, string uniqueId, out CapturedOwner owner)
         {
             if (capture.Owners.TryGetValue(uniqueId, out owner)) return true;
-            return capture.PendingOwners.TryGetValue(uniqueId, out owner);
+            if (capture.PendingOwners.TryGetValue(uniqueId, out owner)) return true;
+            return capture.ExcludedSquires.TryGetValue(uniqueId, out owner);
         }
 
-        /// <summary>当前盘骑士 uniqueID 枚举：island.objects + 精确 Knight/KnightData（同 Save 快照口径）。</summary>
+        /// <summary>
+        /// 本次 save 的最终成员名单 + 证据复核（三条写路径共用的唯一成员验证结果）：
+        ///  * 先一次枚举最终 island.objects：全部 record 的合法 ID（allIds）与精确 Knight/KnightData 记录 ID
+        ///    （knightIds）；盘记录本身重复、同名 ID 跨 Knight/非 Knight 类型重复、成员记录 ID 非法、
+        ///    未知记录（null 组件/读取失败）→ 拒写；
+        ///  * 歧义 uniqueID：只有完全不在 allIds（= 可定位且证明不在最终任何记录里）才不阻断；
+        ///    落在任何最终记录（含非 Knight 类型）上的歧义仍拒写；
+        ///  * 每个 Knight 记录必须由本次捕获覆盖：tagKnight（有/无收据）或明确 tagSquire 排除证据；
+        ///    排除证据复核必须仍是同一对象、同 life、仍明确 tagSquire（途中晋升/换对象不能继续排除）。
+        /// </summary>
+        private static bool TryValidateSaveMembers(SaveCapture capture)
+        {
+            if (capture == null || capture.Island == null) return false;
+            if (!TryEnumerateDiskRecords(capture.Island, out List<string> knightIds, out HashSet<string> allIds))
+            {
+                KnightIdentityLog.Once("save-member-records", null); // 枚举失败/记录冲突：fail-closed
+                return false;
+            }
+            if (capture.EvidenceOverflow)
+            {
+                KnightIdentityLog.Once("save-evidence-overflow", null); // 容量截断：被截断条目无法定位
+                return false;
+            }
+
+            int blockingAmbiguities = 0;
+            int ignoredAmbiguities = 0;
+            foreach (string ambiguous in capture.AmbiguousIds)
+            {
+                if (allIds.Contains(ambiguous)) blockingAmbiguities++;
+                else ignoredAmbiguities++;
+            }
+            if (blockingAmbiguities > 0)
+            {
+                // 该 ID 落在最终记录上而证据互相矛盾（不同 owner/life）：整份拒写，绝不保留先到者。
+                KnightIdentityLog.Once("save-evidence-gap", null);
+                return false;
+            }
+            if (ignoredAmbiguities > 0)
+            {
+                // 可定位且证明不在最终任何记录里的引用歧义：不阻断有效成员保存（有界回执，每 save 至多一条）。
+                KnightIdentityLog.Receipt("save-evidence-gap ignored=" + ignoredAmbiguities.ToString(CultureInfo.InvariantCulture)
+                    + " (reference ids absent from all final records)");
+            }
+
+            for (int i = 0; i < knightIds.Count; i++)
+            {
+                string uniqueId = knightIds[i];
+                if (capture.Owners.TryGetValue(uniqueId, out CapturedOwner owner))
+                {
+                    // 有收据的目标：同 life + 同收据 + 仍 tagKnight（任何写盘路径前都必须是现状）
+                    if (!IsValidOwner(owner))
+                    {
+                        KnightIdentityLog.Once("save-owner-stale", null);
+                        return false;
+                    }
+                    continue;
+                }
+                if (capture.PendingOwners.TryGetValue(uniqueId, out CapturedOwner pending))
+                {
+                    // 无收据目标（吸收态）：必须仍同 life、仍 tagKnight、且本 life 尚无竞争收据
+                    if (!IsValidPendingTarget(pending))
+                    {
+                        KnightIdentityLog.Once("save-pending-stale", null);
+                        return false;
+                    }
+                    continue;
+                }
+                if (capture.ExcludedSquires.TryGetValue(uniqueId, out CapturedOwner squire))
+                {
+                    if (!IsValidSquireExclusion(squire))
+                    {
+                        KnightIdentityLog.Once("save-member-excluded-changed", null); // 排除对象已变：不能继续排除
+                        return false;
+                    }
+                    continue; // 明确 tagSquire（非目标）
+                }
+                KnightIdentityLog.Once("save-member-missing", null); // 目标 Knight 记录无任何本次捕获证据：绝不静默丢人
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// 无收据目标（PendingOwners）的写前终检：同对象同 life、仍 tagKnight，且本 life 尚无竞争收据
+        /// （吸收态稍后才把历史收据绑回；任何写盘路径前都必须先过此门）。读异常不算确定变化 → 交调用方按缺口拒绝。
+        /// </summary>
+        private static bool IsValidPendingTarget(CapturedOwner pending)
+        {
+            if (pending.Knight == null || pending.Lifetime <= 0) return false;
+            GameObject go = SafeGameObject(pending.Knight);
+            if (go == null || !SafeCompareTag(go, "Knight")) return false;
+            if (KnightIdentityRuntime.GetLifetime(pending.Knight) != pending.Lifetime) return false; // 换 life：旧生命已结束
+            return !KnightIdentityRuntime.TryGetReceipt(pending.Knight, out _);                       // 本 life 不得已有收据
+        }
+
+        /// <summary>排除证据复核：仍是同一对象（GO/Knight 指针 + life）且仍明确 tagSquire。</summary>
+        private static bool IsValidSquireExclusion(CapturedOwner squire)
+        {
+            if (squire.Knight == null || squire.Lifetime <= 0) return false;
+            GameObject go = SafeGameObject(squire.Knight);
+            if (go == null) return false;
+            if (!SafeCompareTag(go, "Squire")) return false;
+            return KnightIdentityRuntime.GetLifetime(squire.Knight) == squire.Lifetime;
+        }
+
+        /// <summary>当前盘骑士 uniqueID 枚举（吸收态再基线化用）：精确 Knight/KnightData 记录（同 Save 快照口径）。</summary>
         private static bool TryEnumerateDiskKnightUniqueIds(IslandSaveData island, out List<string> uniqueIds)
         {
-            uniqueIds = null;
+            return TryEnumerateDiskRecords(island, out uniqueIds, out _);
+        }
+
+        /// <summary>
+        /// 最终 island.objects 的一次枚举，产出两个集合：
+        ///  * <paramref name="allIds"/> = 全部 record 的合法 uniqueID（含非 Knight 类型）——歧义判定只能用它；
+        ///  * <paramref name="knightIds"/> = 精确 Knight/KnightData 记录 ID——成员/owner/Squire 校验用它。
+        /// 规则：组件列表读不出来 = 未知记录 → fail-closed；Knight 记录 ID 非法 → 拒写；非 Knight 记录的
+        /// 非法 ID 只不入集合（其他类型 ID 语义不同，绝不因此误伤整份保存）；同名 ID 跨 Knight/非 Knight
+        /// 类型重复 → 拒写（无法证明该 ID 属于哪条记录）；Knight 记录内部重复 → 拒写。
+        /// </summary>
+        private static bool TryEnumerateDiskRecords(IslandSaveData island, out List<string> knightIds, out HashSet<string> allIds)
+        {
+            knightIds = null;
+            allIds = null;
             Il2CppSystem.Collections.Generic.List<IslandSaveData.ObjectData> records;
             try
             {
@@ -1841,24 +2114,68 @@ namespace KingdomEnhancedMod
             }
             if (records == null) return false;
 
-            List<string> ids = new List<string>(records.Count);
-            HashSet<string> seen = new HashSet<string>(StringComparer.Ordinal);
+            List<string> knights = new List<string>(records.Count);
+            HashSet<string> knightSet = new HashSet<string>(StringComparer.Ordinal);
+            HashSet<string> nonKnightSet = new HashSet<string>(StringComparer.Ordinal);
+            HashSet<string> all = new HashSet<string>(StringComparer.Ordinal);
+
             for (int i = 0; i < records.Count; i++)
             {
                 IslandSaveData.ObjectData record = records[i];
                 if (record == null) continue;
-                string uniqueId = record.uniqueID;
-                if (!KnightIdentitySnapshot.IsValidUniqueId(uniqueId)) continue;
-                if (!RecordIsKnight(record)) continue;
-                if (seen.Add(uniqueId)) ids.Add(uniqueId);
-                else
+                bool isKnight = RecordIsKnight(record, out bool readable);
+                if (!isKnight && !readable)
                 {
-                    // 盘记录本身重复：这不是「唯一 live owner」的证据，绝不把去重结果当可靠输入（fail-closed）。
-                    KnightIdentityLog.Once("rebaseline-duplicate-record", null);
+                    // 组件列表读不出来 = 未知记录：绝不当作非目标而漏掉一个成员（fail-closed）。
+                    KnightIdentityLog.Once("save-member-record-unreadable", null);
                     return false;
                 }
+
+                string uniqueId;
+                try
+                {
+                    uniqueId = record.uniqueID;
+                }
+                catch (Exception e)
+                {
+                    KnightIdentityLog.Once("save-member-record-unreadable", e); // ID 读不出来同样是未知记录
+                    return false;
+                }
+                if (!KnightIdentitySnapshot.IsValidUniqueId(uniqueId))
+                {
+                    if (isKnight)
+                    {
+                        // 实际成员记录 ID 非法：不是可跳过的非目标（绝不静默丢人）。
+                        KnightIdentityLog.Once("save-member-invalid-id", null);
+                        return false;
+                    }
+                    continue; // 非 Knight 记录的非法 ID：不入集合，不套骑士 ID 门（避免误伤其他类型）
+                }
+
+                if (all.Contains(uniqueId) && (isKnight ? nonKnightSet.Contains(uniqueId) : knightSet.Contains(uniqueId)))
+                {
+                    // 同名 ID 跨 Knight/非 Knight 类型重复：无法证明归属，整份拒写。
+                    KnightIdentityLog.Once("save-member-cross-type-id", null);
+                    return false;
+                }
+                if (isKnight)
+                {
+                    if (!knightSet.Add(uniqueId))
+                    {
+                        // 盘记录本身重复：这不是「唯一 live owner」的证据，绝不把去重结果当可靠输入（fail-closed）。
+                        KnightIdentityLog.Once("rebaseline-duplicate-record", null);
+                        return false;
+                    }
+                    knights.Add(uniqueId);
+                }
+                else
+                {
+                    nonKnightSet.Add(uniqueId);
+                }
+                all.Add(uniqueId);
             }
-            uniqueIds = ids;
+            knightIds = knights;
+            allIds = all;
             return true;
         }
 
@@ -1908,11 +2225,36 @@ namespace KingdomEnhancedMod
             {
                 IslandSaveData.ObjectData record = records[i];
                 if (record == null) continue;
+                if (!RecordIsKnight(record, out bool readable))
+                {
+                    if (!readable)
+                    {
+                        // 未知记录（组件读失败）：绝不当作非目标而漏人
+                        KnightIdentityLog.Once("save-member-record-unreadable", null);
+                        return false;
+                    }
+                    continue; // 明确读到且不匹配（非骑士记录）：合法忽略
+                }
                 string uniqueId = record.uniqueID;
-                if (!KnightIdentitySnapshot.IsValidUniqueId(uniqueId)) continue;
-                if (!capture.Owners.TryGetValue(uniqueId, out CapturedOwner owner)) continue;
+                if (!KnightIdentitySnapshot.IsValidUniqueId(uniqueId))
+                {
+                    KnightIdentityLog.Once("save-member-invalid-id", null); // 实际成员 ID 非法：绝不静默丢人
+                    return false;
+                }
+                if (!capture.Owners.TryGetValue(uniqueId, out CapturedOwner owner))
+                {
+                    if (capture.PendingOwners.ContainsKey(uniqueId))
+                    {
+                        // 目标 Knight 记录无有效收据（吸收态）：本路径绝不写半张表，由再基线化路径处理。
+                        KnightIdentityLog.Once("save-member-no-receipt", null);
+                        return false;
+                    }
+                    if (capture.ExcludedSquires.ContainsKey(uniqueId)) continue; // 明确 tagSquire：非目标
+                    // 目标记录却无任何捕获证据：成员校验的前置门不应放行到这里，防御性 fail-closed。
+                    KnightIdentityLog.Once("save-member-uncaptured", null);
+                    return false;
+                }
                 if (!IsValidOwner(owner)) return false;                       // owner 换 life / 收据变了：整份拒写
-                if (!RecordIsKnight(record)) continue;                     // 精确 Knight + KnightData：排除 Squire 等
                 if (!seenGuids.Add(owner.Receipt.Id))
                 {
                     KnightIdentityLog.Once("save-duplicate-guid", null);
@@ -1944,6 +2286,16 @@ namespace KingdomEnhancedMod
         /// <summary>精确组件记录（与 Hermes 的 name/type 双等比较同一约定）：name == "Knight" && type == "KnightData"。</summary>
         private static bool RecordIsKnight(IslandSaveData.ObjectData record)
         {
+            return RecordIsKnight(record, out _);
+        }
+
+        /// <summary>
+        /// 三态判定：true/false = 明确读到（且是否匹配 Knight/KnightData）；readable == false = 组件列表读不出来，
+        /// 属于未知记录，调用方必须 fail-closed（绝不把未知记录当作非目标而漏掉一个实际成员）。
+        /// </summary>
+        private static bool RecordIsKnight(IslandSaveData.ObjectData record, out bool readable)
+        {
+            readable = false;
             Il2CppSystem.Collections.Generic.List<IslandSaveData.ObjectData.ComponentData> components;
             try
             {
@@ -1953,7 +2305,11 @@ namespace KingdomEnhancedMod
             {
                 return false;
             }
-            if (components == null) return false;
+            if (components == null)
+            {
+                readable = true; // 明确没有组件列表：不是骑士记录
+                return false;
+            }
             for (int i = 0; i < components.Count; i++)
             {
                 IslandSaveData.ObjectData.ComponentData component = components[i];
@@ -1961,9 +2317,11 @@ namespace KingdomEnhancedMod
                 if (string.Equals(component.name, "Knight", StringComparison.Ordinal)
                     && string.Equals(component.type, "KnightData", StringComparison.Ordinal))
                 {
+                    readable = true;
                     return true;
                 }
             }
+            readable = true;
             return false;
         }
 
@@ -2148,6 +2506,7 @@ namespace KingdomEnhancedMod
             internal Dictionary<string, KnightIdentityReceipt> Receipts;
             internal bool NewEpoch;        // 写路径需为 context 登记新 epoch
             internal bool Unresolved = true; // 解析中途失败也必须 fail closed
+            internal bool SourceValidPrimary; // sidecar 主档 Valid 且非「来自备份恢复」：配额恢复的来源门
         }
 
         private static LoadScope _scope;
@@ -2218,11 +2577,20 @@ namespace KingdomEnhancedMod
                 scope.Kind = resolution.Kind;
                 scope.NewEpoch = resolution.NewEpoch;
                 scope.Unresolved = resolution.Unresolved;
+                scope.SourceValidPrimary = loaded.Status == KnightIdentityArchiveStatus.Valid && !loaded.RecoveredBackup;
 
                 if (resolution.Unresolved)
                 {
                     // 冲突 / 对不上的已知历史 / 仍有未归属历史：不恢复、不建 epoch、不写种子，sidecar 原样保留。
                     KnightIdentityLog.Once("load-unresolved:" + resolution.Kind, null);
+                    // 明确 known-mismatch + 主档 Valid：此刻用已读入的 archive 选定并冻结历史职业配额来源
+                    // （防漂移；恢复期不再读盘），cohort 由最外层成功 End 后经既有 5s 巡检整批消费。
+                    if (scope.SourceValidPrimary
+                        && string.Equals(resolution.Kind, "known-mismatch", StringComparison.Ordinal)
+                        && KnightIdentityQuotaRecovery.TrySelectSource(archive, contextKey, out string quotaEpoch, out int[] quotaCounts, out _))
+                    {
+                        KnightIdentityLoadSeed.BeginQuotaCohort(scope, quotaEpoch, quotaCounts);
+                    }
                     return scope;
                 }
 
@@ -2357,6 +2725,33 @@ namespace KingdomEnhancedMod
     /// <summary>sidecar 文件定位、scope 上下文与「合并后写」的唯一入口。所有 I/O 都在显式调用里。</summary>
     internal static class KnightIdentitySidecar
     {
+        /// <summary>
+        /// 当前原生存档上下文键的只读探针（消费 cohort/自动路径前的键匹配用）：文件名 +
+        /// GlobalSaveData.loaded.currentCampaign/currentChallenge + CampaignSaveData.current.CurrentIsland.land。
+        /// 只读原生事实，不读 F5/缓存，不新造上下文管理框架；任一不可读返回 false（调用方等待）。
+        /// </summary>
+        internal static bool TryReadCurrentContextKey(out string contextKey)
+        {
+            contextKey = null;
+            try
+            {
+                GlobalSaveData loaded = GlobalSaveData.loaded;
+                if (loaded == null) return false;
+                CampaignSaveData campaign = CampaignSaveData.current;
+                if (campaign == null) return false;
+                IslandSaveData island = campaign.CurrentIsland;
+                if (island == null) return false;
+                return KnightIdentitySidecar.TryBuildContextKey(loaded.currentCampaign, loaded.currentChallenge, island.land, out contextKey)
+                    && !string.IsNullOrEmpty(contextKey);
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("context-probe", e);
+                contextKey = null;
+                return false;
+            }
+        }
+
         internal static string Path
         {
             get
@@ -2433,50 +2828,97 @@ namespace KingdomEnhancedMod
                     snapshot = revised;
                 }
 
-                KnightIdentityArchive.MutationStatus status = archive.RecordSnapshot(scopeKey, snapshot);
-                if (status == KnightIdentityArchive.MutationStatus.RejectedInvalid
-                    || status == KnightIdentityArchive.MutationStatus.RejectedConflict)
-                {
-                    KnightIdentityLog.Once("sidecar-rejected-invalid", null);
-                    return false;
-                }
-                if (status == KnightIdentityArchive.MutationStatus.RejectedCapacity)
-                {
-                    KnightIdentityLog.Once("sidecar-rejected-capacity", null); // 满：不牺牲别的 scope
-                    return false;
-                }
-                if (!archive.EnsureContext(contextKey, scopeKey, newEpoch))
-                {
-                    KnightIdentityLog.Once("sidecar-context-rejected", null); // scope 已属别的上下文/容量满：fail closed
-                    return false;
-                }
-
-                string directory = System.IO.Path.GetDirectoryName(path);
-                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-
-                KnightIdentityArchiveStore.SaveResult saved = KnightIdentityArchiveStore.Save(path, archive);
-                LogRetryOutcome(saved);
-                if (!saved.Ok)
-                {
-                    KnightIdentityLog.Once("sidecar-save:" + saved.Status, null);
-                    return false;
-                }
-                appliedRevision = snapshot.Revision;
-                if (saved.Status == KnightIdentityArchiveStore.SaveStatus.Unchanged)
-                {
-                    // 盘上已一致（含 context 映射）：仍是成功落盘（幂等重报），只是不重复记 receipt。
-                    return true;
-                }
-                KnightIdentityLog.Receipt("save scope=" + ShortHash(scopeKey) + " hash=" + ShortHash(snapshot.Hash)
-                    + " entries=" + snapshot.Count.ToString(CultureInfo.InvariantCulture)
-                    + (snapshot.Revision > 0 ? " rev=" + snapshot.Revision.ToString(CultureInfo.InvariantCulture) : ""));
-                return true;
+                return AppendCore(archive, path, scopeKey, snapshot, contextKey, newEpoch, out appliedRevision);
             }
             catch (Exception e)
             {
                 KnightIdentityLog.Once("sidecar-append", e); // 任何 I/O 异常都不影响原生保存
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 历史配额恢复后的首次保存：把同一批现场收据写进所选历史 epoch（不新造 epoch），修订号
+        /// 严格取该 context 当前最大值 + 1——后续加载在「同 hash 多版本/同优先级冲突」判定中确定胜出；
+        /// 旧记录（含旧修订）全保留。自动路径的 scope 内继承语义绝不用于本写入。
+        /// </summary>
+        internal static bool AppendQuotaRevision(string scopeKey, KnightIdentitySnapshot snapshot, string contextKey, bool newEpoch, out int appliedRevision)
+        {
+            appliedRevision = 0;
+            try
+            {
+                string path = Path;
+                if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(contextKey)) return false;
+                if (!TryOpenWritableArchive(path, true, out KnightIdentityArchive archive, out string blocked))
+                {
+                    KnightIdentityLog.Once(blocked, null);
+                    return false;
+                }
+
+                int requested = archive.MaxRevision(contextKey) + 1;
+                if (requested != snapshot.Revision)
+                {
+                    if (!snapshot.TryCopyWithRevision(requested, out KnightIdentitySnapshot revised, out string revisionError))
+                    {
+                        KnightIdentityLog.Once("sidecar-revision:" + revisionError, null);
+                        return false;
+                    }
+                    snapshot = revised;
+                }
+                return AppendCore(archive, path, scopeKey, snapshot, contextKey, newEpoch, out appliedRevision);
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("sidecar-append", e); // 任何 I/O 异常都不影响原生保存
+                return false;
+            }
+        }
+
+        /// <summary>单写者落盘核心（AppendSnapshot/AppendQuotaRevision 共用）：RecordSnapshot + EnsureContext + 原子写。</summary>
+        private static bool AppendCore(KnightIdentityArchive archive, string path, string scopeKey, KnightIdentitySnapshot snapshot,
+            string contextKey, bool newEpoch, out int appliedRevision)
+        {
+            appliedRevision = 0;
+            if (archive == null || snapshot == null) return false;
+
+            KnightIdentityArchive.MutationStatus status = archive.RecordSnapshot(scopeKey, snapshot);
+            if (status == KnightIdentityArchive.MutationStatus.RejectedInvalid
+                || status == KnightIdentityArchive.MutationStatus.RejectedConflict)
+            {
+                KnightIdentityLog.Once("sidecar-rejected-invalid", null);
+                return false;
+            }
+            if (status == KnightIdentityArchive.MutationStatus.RejectedCapacity)
+            {
+                KnightIdentityLog.Once("sidecar-rejected-capacity", null); // 满：不牺牲别的 scope
+                return false;
+            }
+            if (!archive.EnsureContext(contextKey, scopeKey, newEpoch))
+            {
+                KnightIdentityLog.Once("sidecar-context-rejected", null); // scope 已属别的上下文/容量满：fail closed
+                return false;
+            }
+
+            string directory = System.IO.Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+
+            KnightIdentityArchiveStore.SaveResult saved = KnightIdentityArchiveStore.Save(path, archive);
+            LogRetryOutcome(saved);
+            if (!saved.Ok)
+            {
+                KnightIdentityLog.Once("sidecar-save:" + saved.Status, null);
+                return false;
+            }
+            appliedRevision = snapshot.Revision;
+            if (saved.Status == KnightIdentityArchiveStore.SaveStatus.Unchanged)
+            {
+                // 盘上已一致（含 context 映射）：仍是成功落盘（幂等重报），只是不重复记 receipt。
+                return true;
+            }
+            KnightIdentityLog.Receipt("save scope=" + ShortHash(scopeKey) + " hash=" + ShortHash(snapshot.Hash)
+                + " entries=" + snapshot.Count.ToString(CultureInfo.InvariantCulture)
+                + (snapshot.Revision > 0 ? " rev=" + snapshot.Revision.ToString(CultureInfo.InvariantCulture) : ""));
+            return true;
         }
 
         /// <summary>

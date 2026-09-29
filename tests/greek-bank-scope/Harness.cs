@@ -408,7 +408,7 @@ sealed class Fixture
 
     public void AssertEnhancedProfile(Banker banker, string label)
     {
-        Harness.Eq(0.5f, banker.coinGatherTargetPercentage, label + " gather");
+        Harness.Eq(1f, banker.coinGatherTargetPercentage, label + " gather");
         Harness.Eq(1.95f, banker.walkSpeed, label + " walk");
         Harness.Eq(3.6f, banker.runSpeed, label + " run");
         Harness.Eq(8.75f, banker.wanderRange, label + " wander");

@@ -17,6 +17,7 @@ internal static class PopulationHud
     private static int _barrels = -1, _fireAmmo = -1;
     private static GUIStyle _style;
     private static long _version = -1;
+    private static CrossbowRecomputeState _crossbowState = CrossbowRecomputeState.Disabled;
     private static bool _valid, _clientUnavailable, _snapshotLogged, _faultLogged;
     private static float _retryAfter, _tickRetryAfter;
 
@@ -42,9 +43,14 @@ internal static class PopulationHud
             _clientUnavailable = enabled && PopulationCounts.ClientUnavailable;
             _valid = enabled && (ready || _clientUnavailable);
             if (_clientUnavailable) return;
-            if (!_valid || _version == PopulationCounts.Version) return;
+            // 弩手初始化状态（2026-09-29）：等待重算窗口显示状态文本（真实计数还没意义），
+            // 其余状态一律显示 PopulationCounts 的真实计数。状态变化必须触发重绘——
+            // 数字缓存 Version 不因状态前进，否则"等待重算"会永远退不掉。
+            CrossbowRecomputeState crossbowState = PatchRoles_Crossbowman.RecomputeState;
+            if (!_valid || (_version == PopulationCounts.Version && _crossbowState == crossbowState)) return;
             _version = PopulationCounts.Version;
-            for (int i = 0; i < RoleText.Length; i++) RoleText[i] = RoleNames[i] + "  " + PopulationCounts.Role(i);
+            _crossbowState = crossbowState;
+            for (int i = 0; i < RoleText.Length; i++) RoleText[i] = RoleLine(i, crossbowState);
             for (int i = 0; i < StyleNames.Length; i++) StyleText[i] = StyleNames[i] + "  " + PopulationCounts.Style(i);
             StyleText[5] = PopulationCounts.UnknownKnights > 0 ? "待识别  " + PopulationCounts.UnknownKnights : "";
             _knightsText = "骑士  " + PopulationCounts.Knights;
@@ -101,6 +107,20 @@ internal static class PopulationHud
             GUI.backgroundColor = savedBackground; GUI.matrix = savedMatrix;
             GUI.enabled = savedEnabled; GUI.changed = savedChanged; GUI.depth = savedDepth;
         }
+    }
+
+    /// <summary>
+    /// 弩手行显示语义（2026-09-29）：等待重算期间显示状态文本；Completed/Disabled 显示真实计数；
+    /// Failed 显示真实计数 + "（部分未完成）"。计数一律来自 PopulationCounts（全岛真实数，显示层
+    /// 绝不伪造非零）；"（部分未完成）"指本次读档重算的选中批次未全部提交/生效（selected vs
+    /// applied/active 口径），不是全岛弩手统计缺口。
+    /// </summary>
+    private static string RoleLine(int index, CrossbowRecomputeState crossbowState)
+    {
+        if (index != PopulationCounts.CrossbowmanRole) return RoleNames[index] + "  " + PopulationCounts.Role(index);
+        if (crossbowState == CrossbowRecomputeState.Waiting) return RoleNames[index] + "  等待重算";
+        string suffix = crossbowState == CrossbowRecomputeState.Failed ? "（部分未完成）" : "";
+        return RoleNames[index] + "  " + PopulationCounts.Role(index) + suffix;
     }
 
     private static void EnsureStyle()

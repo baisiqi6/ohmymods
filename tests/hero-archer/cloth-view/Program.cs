@@ -17,11 +17,21 @@ internal static class Program
 
     private static bool EdgesOnGrid(HeroArcherCloth.Handle h, int chain, int node)
     {
-        int start = node == 7 ? 6 * 8 + 2 : node * 8;
-        var a = h.Vertices[chain][start]; var b = h.Vertices[chain][start + 5];
-        return Near(a.x*32,(float)Math.Round(a.x*32)) && Near(a.y*32,(float)Math.Round(a.y*32))
-            && Near(b.x*32,(float)Math.Round(b.x*32)) && Near(b.y*32,(float)Math.Round(b.y*32))
-            && Math.Abs(a.x-b.x)+Math.Abs(a.y-b.y)>=2f/32f-1e-6f;
+        var vertices = h.Vertices[chain];
+        bool active = false;
+        for (int slot = 0; slot < vertices.Length / 4; slot++)
+        {
+            int o = slot * 4;
+            var a = vertices[o]; var b = vertices[o+1]; var c = vertices[o+2]; var d = vertices[o+3];
+            bool collapsed = a.x == b.x && a.y == b.y && a.x == c.x && a.y == c.y;
+            if (collapsed) continue;
+            active = true;
+            if (!Near(a.x*32,(float)Math.Round(a.x*32)) || !Near(a.y*32,(float)Math.Round(a.y*32))
+                || !Near(b.x*32,(float)Math.Round(b.x*32)) || !Near(c.y*32,(float)Math.Round(c.y*32))
+                || !Near(a.y,b.y) || !Near(a.x,c.x) || !Near(b.x,d.x) || !Near(c.y,d.y)
+                || !Near(c.y-a.y,1f/32f) || !(b.x>a.x)) return false;
+        }
+        return active;
     }
 
     private static int Main()
@@ -34,6 +44,8 @@ internal static class Program
         VisibleTickDrawsQuantizedTrailBehindTheBody();
         ReferenceLookIsMirroredAlphaLayerAndFlip();
         DestroyReleasesOwnObjectsAndReuseStartsClean();
+        InvalidRasterClearsOldGeometry();
+        ReorientationKeepsRasterAndBounds();
         NullAndDeadHandlesAreSafe();
 
         Console.WriteLine();
@@ -60,8 +72,8 @@ internal static class Program
             handle.Renderers[0] != null && handle.Renderers[1] != null && handle.Meshes[0] != handle.Meshes[1],
             "expected two own renderers with distinct meshes");
         Check("CreateBuildsOwnRibbonsAndHidesUntilVisible.meshShape",
-            handle.Meshes[0].vertices.Length == 56 && handle.Meshes[0].triangles.Length == 84 // 7 segments x 2 flat faces
-            && handle.Meshes[0].colors.Length == 56 && handle.Meshes[0].bounds.size.x > 0f,
+            handle.Meshes[0].vertices.Length == 672 && handle.Meshes[0].triangles.Length == 1008
+            && handle.Meshes[0].colors.Length == 672 && handle.Meshes[0].bounds.size.x > 0f,
             "verts=" + handle.Meshes[0].vertices.Length + " indices=" + handle.Meshes[0].triangles.Length);
         Check("CreateBuildsOwnRibbonsAndHidesUntilVisible.sortingBehindBody",
             handle.Renderers[0].sortingOrder == fixture.Reference.sortingOrder - 1
@@ -217,7 +229,8 @@ internal static class Program
                 onGrid &= EdgesOnGrid(handle, chain, node);
                 float bridge = chain == 1 && node < 2 ? (2 - node) / 32f : 0f;
                 matchesSimulation &= Math.Abs(center.x - sim.PointsX[node]) <= 1f / 32f + 1e-5f
-                    && Math.Abs(center.y - (sim.PointsY[node] - bridge)) <= 1f / 32f + 1e-5f;
+                    && Math.Abs(center.y - (sim.PointsY[node] - bridge)) <= 1f / 32f + 1e-5f
+                    && HasRasterNear(handle,chain,center);
             }
         }
         Check("VisibleTickDrawsQuantizedTrailBehindTheBody.onGrid", onGrid,
@@ -354,11 +367,85 @@ internal static class Program
 
     private static Vector3 Midpoint(HeroArcherCloth.Handle handle, int chain, int node)
     {
-        Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppStructArray<Vector3> vertices = handle.Meshes[chain].vertices;
-        int start = node == 7 ? 6 * 8 + 2 : node * 8;
-        Vector3 a = vertices[start];
-        Vector3 b = vertices[start + 5];
-        return new Vector3((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f, 0f);
+        int segment = node == 7 ? 6 : node;
+        if (!HeroArcherScarfGeometry.TrySegment(handle.Chains[chain].PointsX,
+            handle.Chains[chain].PointsY,segment,chain,handle.WindClock,out var band,
+            attachmentBridge:chain==1)) return new Vector3(99f,99f,0f);
+        var a = node == 7 ? band.EndOuter : band.StartOuter;
+        var b = node == 7 ? band.EndInner : band.StartInner;
+        return new Vector3((a.X+b.X)*0.5f,(a.Y+b.Y)*0.5f,0f);
+    }
+
+    private static void InvalidRasterClearsOldGeometry()
+    {
+        Fixture fixture=Fixture.Create();
+        HeroArcherCloth.Handle h=HeroArcherCloth.Create(fixture.Parent,fixture.Reference);
+        if(h==null){Check("InvalidRasterClearsOldGeometry",false,"Create failed");return;}
+        HeroArcherCloth.Tick(h,Tick,RunSpeed,true);
+        float original=h.Chains[0].PointsX[3];
+        h.Chains[0].PointsX[3]=float.NaN;
+        HeroArcherCloth.Tick(h,0f,0f,true);
+        bool cleared=!h.Renderers[0].enabled && !h.Renderers[1].enabled;
+        for(int i=0;i<h.Vertices[0].Length;i++)
+            cleared &= h.Vertices[0][i].x==0f && h.Vertices[0][i].y==0f;
+        Check("InvalidRasterClearsOldGeometry",cleared,
+            "invalid segment must hide the display and collapse every previous pixel run");
+        h.Chains[0].PointsX[3]=original;
+        HeroArcherCloth.Tick(h,0f,0f,true);
+        Check("InvalidRasterClearsOldGeometry.recovers",h.Renderers[0].enabled && h.Renderers[1].enabled,
+            "valid source geometry can redraw after a rejected frame");
+        HeroArcherCloth.Destroy(h);
+    }
+
+    private static void ReorientationKeepsRasterAndBounds()
+    {
+        Fixture fixture=Fixture.Create();
+        HeroArcherCloth.Handle h=HeroArcherCloth.Create(fixture.Parent,fixture.Reference);
+        if(h==null){Check("ReorientationKeepsRasterAndBounds",false,"Create failed");return;}
+        HeroArcherCloth.Reorient(h,1f);
+        HeroArcherCloth.Reorient(h,-1f); // existing X-only 10/12px root bridge, no physics step yet
+        HeroArcherCloth.Tick(h,0f,0f,true);
+        bool valid=h.Renderers[0].enabled && h.Renderers[1].enabled;
+        for(int chain=0;chain<2;chain++)
+        {
+            var bounds=h.Meshes[chain].bounds;
+            float minX=bounds.center.x-bounds.size.x*0.5f,maxX=bounds.center.x+bounds.size.x*0.5f;
+            float minY=bounds.center.y-bounds.size.y*0.5f,maxY=bounds.center.y+bounds.size.y*0.5f;
+            var vertices=h.Vertices[chain];
+            for(int slot=0;slot<vertices.Length/4;slot++)
+            {
+                int o=slot*4;var a=vertices[o];var b=vertices[o+1];var c=vertices[o+2];
+                if(!(b.x>a.x) || !(c.y>a.y))continue;
+                valid &= a.x>=minX-1e-5f && b.x<=maxX+1e-5f
+                    && a.y>=minY-1e-5f && c.y<=maxY+1e-5f;
+            }
+            valid &= EdgesOnGrid(h,chain,0);
+        }
+        Check("ReorientationKeepsRasterAndBounds.zeroDt",valid,
+            "X-only flip remains visible and all active pixel runs fit dynamic bounds before a physics step");
+        HeroArcherCloth.Tick(h,1f/120f,0f,true);
+        Check("ReorientationKeepsRasterAndBounds.substep",h.Renderers[0].enabled && h.Renderers[1].enabled
+            && EdgesOnGrid(h,0,0) && EdgesOnGrid(h,1,0),
+            "a sub-1/30 tick after flip keeps both source-pixel tails");
+        HeroArcherCloth.Reorient(h,1f);
+        HeroArcherCloth.Tick(h,0f,0f,true);
+        Check("ReorientationKeepsRasterAndBounds.return",h.Renderers[0].enabled && h.Renderers[1].enabled,
+            "return orientation redraws without retaining foreign X runs");
+        HeroArcherCloth.Destroy(h);
+    }
+
+    private static bool HasRasterNear(HeroArcherCloth.Handle handle,int chain,Vector3 point)
+    {
+        var vertices=handle.Vertices[chain];
+        for(int slot=0;slot<vertices.Length/4;slot++)
+        {
+            int o=slot*4;var a=vertices[o];var b=vertices[o+1];var c=vertices[o+2];
+            if(!(b.x>a.x) || !(c.y>a.y))continue;
+            float dx=point.x<a.x?a.x-point.x:point.x>b.x?point.x-b.x:0f;
+            float dy=point.y<a.y?a.y-point.y:point.y>c.y?point.y-c.y:0f;
+            if(dx+dy<=3f/32f+1e-5f)return true;
+        }
+        return false;
     }
 
     private static Vector3[] CopyVertices(HeroArcherCloth.Handle handle, int chain)

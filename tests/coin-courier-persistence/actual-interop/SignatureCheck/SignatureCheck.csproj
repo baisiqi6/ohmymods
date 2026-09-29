@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- R4 签名回归屏障：用 Cecil 只读实际 2.4 interop 程序集，断言本模块全部 Harmony 目标
+       唯一存在且不含“按值 Il2CppSystem.ValueType 派生参数”（factory 崩因），MoveNext 为
+       bool 无参、删除 factory 缺席。不加载/执行游戏程序集。 -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>CoinCourierPersistence.SignatureCheck</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <InteropDir Condition="'$(InteropDir)' == ''">E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx\interop</InteropDir>
+    <CoreDir Condition="'$(CoreDir)' == ''">E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx\core</CoreDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Reference Include="Mono.Cecil"><HintPath>$(CoreDir)\Mono.Cecil.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

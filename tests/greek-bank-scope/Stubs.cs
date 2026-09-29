@@ -815,3 +815,12 @@ internal static class MusketeerShop {
  internal static bool CanAutoRestock(Payable target,out string reason) { reason="disabled in bank scope fixture"; return false; }
  internal static AutoPurchaseResult PurchaseForAutoRestock(Payable target,Banker banker,System.Action onDebited,out string reason) { throw new System.InvalidOperationException("unexpected musketeer call in bank scope fixture"); }
 } }
+
+namespace KingdomEnhancedMod {
+/// <summary>
+/// 边界替身：本套件不覆盖金币哥布林。银行补丁若意外触到 courier 身份门，立即以明确的
+/// NotSupportedException 暴露越界，绝不给出可能被当成 courier 验收的答案。
+/// </summary>
+internal static class CoinCourierBankScope {
+ internal static bool IsCurrentAuthorityBanker(Banker banker) => throw new System.NotSupportedException("coin courier scope is not covered by the greek bank fixture");
+} }

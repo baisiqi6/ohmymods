@@ -8,7 +8,20 @@ using UnityEngine;
 namespace KingdomEnhancedMod;
 
 /// <summary>
-/// 弩手（crossbowman）：居民捡弓转职弓箭手时，每第 4 个（3:1 交替）变成弩手——
+/// 弩手读档重算的初始化状态（2026-09-29，显示层消费；不改变 PopulationCounts.Role 的真实计数）。
+/// Waiting 期间 HUD 显示"等待重算"而不是把还没重算的 0 当成结果；Failed 显示真实数 + 简短标记。
+/// 仅当前 world 的 SupervisorRoutine 可写：换代/失效协程不得把上一 world 的状态带过来。
+/// </summary>
+internal enum CrossbowRecomputeState
+{
+    Disabled = 0,   // 无 world / 配置关：按真实计数显示
+    Waiting = 1,    // 本 world 的 15 秒重算窗口（scaled，暂停只延迟不改状态）
+    Completed = 2,  // 重算完成且 selected == applied == active
+    Failed = 3,     // 重算异常，或 selected != applied / active != applied（不把尝试数当成功数）
+}
+
+/// <summary>
+/// 弩手（crossbowman）：居民捡弓转职弓箭手时，按可选四档四人周期变成弩手——
 /// 死地士兵（archer_soldier_deadlands，骑士小队随从/塔位/上船同款姿态）换装 +
 /// 王国旗帜色染衣 + 索敌/射击参数强化 + 独立弩矢。弩手仍是原生
 /// Archer（无新兵种、无新池、无新商店），且永远不被骑士编队招募。
@@ -98,7 +111,6 @@ public static class PatchRoles_Crossbowman
     // 非 perfect 时用 _notPerfectTrailLength（原生默认 0.1，火矢用长尾）——0.25s
     // 光痕拖尾让弩矢与普通箭一眼区分
     private const float BoltTrailLength = 0.25f;
-    private const int PromoteCycle = 4;                    // 3:1 交替
     private const float RecomputeDelaySeconds = 15f;       // 等单位恢复完成
     private const float IntegrityIntervalSeconds = 5f;
     // 夜间站位策略集中在 PatchRoles_CrossbowDefense，守墙目标稳定分散到墙内4..7。
@@ -112,18 +124,19 @@ public static class PatchRoles_Crossbowman
     // 同步池 id 分配：自建独立计数器（不 import PatchRoles_Castle 的私有分配器）。
     // 起点 31000：Castle 分配器从 30000 单调递增且不查占用，多次岛跳 Init 重建后
     // 会爬进 30130+ 段（单进程约 11-19 次重建即到 30132）；31000 起给它留约 1000
-    // 次重建余量，整类碰撞风险消除。银行助手（30120..30123）/幽灵骑士（30130..30131）
+    // 次重建余量，整类碰撞风险消除。银行助手（30120..30127）/幽灵骑士（30130..30131）
     // 保留段跳过逻辑原样保留作防御。
     private const int SyncIdStart = 31000;
     private const int SyncIdMax = 31999;
     private const int BankAssistantSyncIdMin = 30120;
-    private const int BankAssistantSyncIdMax = 30123;
+    private const int BankAssistantSyncIdMax = 30127;
     private const int GhostSquadSyncIdMin = 30130;
     private const int GhostSquadSyncIdMax = 30131;
 
     // ---- 进程级状态 ----
     private static int _bowPromoteCount;        // 弓转职计数：跨岛延续、完整退出重置（狂战士进阶序列同款惯例）
     private static IntPtr _supervisorWorld;     // per-world 巡检守卫（World 指针，范式同 DefenseSpacing）
+    private static CrossbowRecomputeState _recomputeState; // HUD 展示用；仅当前 world 的协程可写（默认 Disabled）
 
     // ---- 惰性静态资产（构建一次，DontDestroyOnLoad，跨场景存活） ----
     private static bool _assetsReady;
@@ -150,6 +163,7 @@ public static class PatchRoles_Crossbowman
     // ---- 一次性日志去重 ----
     private static bool _loggedPromoteMismatch;
     private static bool _loggedApplyAborted;
+    private static bool _loggedPromoteApplyFailed;
     private static bool _loggedBoltSpriteMissing;
     private static bool _loggedKnightExclusion;
     private static bool _loggedSyncIdConflict;
@@ -174,6 +188,9 @@ public static class PatchRoles_Crossbowman
             }
             return;
         }
+        // 已购英雄的 ReplaceBy 内层已转交职业凭据；本外层 Promote 不能
+        // Strip 它的旧状态或消耗一个普通弓手周期槽。骑士随从同样不是分母。
+        if (HeroRecruitment.HasPurchasedCareer(result) || archer._knight != null) return;
 
         try
         {
@@ -186,11 +203,23 @@ public static class PatchRoles_Crossbowman
             Strip(archer);
 
             _bowPromoteCount++;
-            if (_bowPromoteCount % PromoteCycle == 0)
+            float ratio = ReadRecruitmentRatio();
+            if (CrossbowRatioPolicy.Selected(unchecked(_bowPromoteCount - 1), ratio))
             {
-                Apply(archer);
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[Crossbowman] bow promote #" + _bowPromoteCount + " -> crossbowman (25%)");
+                if (Apply(archer))
+                {
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                        "[Crossbowman] bow promote #" + _bowPromoteCount + " -> crossbowman ("
+                        + CrossbowRatioPolicy.Percent(ratio) + "%)");
+                }
+                else if (!_loggedPromoteApplyFailed)
+                {
+                    // 选中的转职没有提交成功（资产缺失已由 Apply 报错一次；这里只补一次事件级告警，不把尝试当成功）。
+                    _loggedPromoteApplyFailed = true;
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                        "[Crossbowman] bow promote #" + _bowPromoteCount
+                        + " selected but apply failed; object keeps native archer state");
+                }
             }
         }
         catch (Exception e)
@@ -199,15 +228,18 @@ public static class PatchRoles_Crossbowman
         }
     }
 
+    private static float ReadRecruitmentRatio()
+        => CrossbowRatioPolicy.Normalize(ModConfig.CrossbowRecruitmentRatio?.Value ?? CrossbowRatioPolicy.Default);
+
     // ============================================================
     // C. Apply：弩手打包（幂等）——实现在 CrossbowmanLifecycle，
     //    这里只做资产惰性构建 + 组装 profile（身份/账本/属性写都在核心文件里，
     //    便于测试直链生产逻辑）。
     // ============================================================
 
-    private static void Apply(Archer archer)
+    private static bool Apply(Archer archer)
     {
-        if (archer == null || archer.gameObject == null) return;
+        if (archer == null || archer.gameObject == null) return false;
         EnsureAssets();
         if (_crossbowAttackSO == null)
         {
@@ -217,9 +249,9 @@ public static class PatchRoles_Crossbowman
                 KingdomEnhancedPlugin.Instance?.LogSource.LogError(
                     "[Crossbowman] apply aborted: cloned ArrowAttack missing; cannot apply half-set");
             }
-            return;
+            return false;
         }
-        CrossbowmanLifecycle.Apply(archer, BuildProfile());
+        return CrossbowmanLifecycle.Apply(archer, BuildProfile());
     }
 
     /// <summary>
@@ -649,46 +681,83 @@ public static class PatchRoles_Crossbowman
     }
 
     // ============================================================
-    // D+F. World 协程：15s 读档重算（数量守恒 25%）+ 每 5s 完整性巡检
+    // D+F. World 协程：15s 读档按当次比例重算 + 每 5s 完整性巡检
     // ============================================================
 
     /// <summary>
     /// 范式同 PatchWorld_DefenseSpacing.SupervisorRoutine：per-world 指针守卫；
     /// world 销毁时协程随宿主自然退出（while 守卫兜底）。
+    /// 初始化状态（2026-09-29）：新 world 进入 Waiting（不继承上一 world 的完成态），
+    /// 15s scaled 重算后按真实结果发布 Completed/Failed/Disabled；旧 world 协程在任一
+    /// 重算/巡检/写状态点之前先核当前 world 归属，绝不把状态写进新 world。
     /// </summary>
     internal static IEnumerator SupervisorRoutine(World world)
     {
         if (world == null || _supervisorWorld == world.Pointer) yield break;
         _supervisorWorld = world.Pointer;
+        _recomputeState = CrossbowRecomputeState.Waiting;
 
         // 共享扫描缓存（抖动治理）：世界边界整体失效，新世界首轮巡检拿全新扫描。
         UnitScanCache.InvalidateAll();
 
         // 等单位恢复完成（readback 生成单位 + 原生 promote 流程走完）再重算
         yield return new WaitForSeconds(RecomputeDelaySeconds);
-        RecomputeOnLoad();
+        if (!IsCurrentSupervisor(world)) yield break; // 旧 world 协程：不重算、不写状态
+        _recomputeState = RecomputeOnLoad();
 
         // Keep the 5s cadence, but offset its first integrity pass from the
         // 3s DefenseSpacing heartbeat and the KnightStyle phase.
         yield return new WaitForSeconds(2.5f);
+        if (!IsCurrentSupervisor(world)) yield break;
         IntegrityPass();
 
-        while (world != null && world.gameObject != null)
+        while (IsCurrentSupervisor(world))
         {
             yield return new WaitForSeconds(IntegrityIntervalSeconds);
+            if (!IsCurrentSupervisor(world)) yield break;
             IntegrityPass();
         }
     }
 
     /// <summary>
-    /// 读档重算：按场上弓箭手排序每第 4 个重新换皮（弩手数量守恒 25%，皮肤不进存档）。
+    /// 本协程是否仍是当前 world 的巡检宿主（换代后的旧协程一律让位）。
+    /// 缓存指针只能证明"这一代是我"，不能证明 Manager 尚未换新世界：世界已切换而新 routine
+    /// 还没执行到赋值点的窗口里，旧协程必须按 not-current 退出——不重算、不写状态、不巡检。
+    /// 因此还要核 world 对象有效 + Managers 的实际当前 world 同指针；Managers 不可读或
+    /// world 暂为 null 一律 fail-closed（新 world 的 routine 等管理器就绪后自启）。
+    /// 启动顺序证据（2.1.0 反编译）：Managers.Awake 里 FindAndInit&lt;World&gt;(ref world)
+    /// （Managers.cs:52）先于 ProgramDirector 调 Managers.OnLevelLoaded（ProgramDirector.cs:521）
+    /// → World.OnLevelLoaded → 本协程，故正常路径上新门不会误杀合法 supervisor。
+    /// </summary>
+    private static bool IsCurrentSupervisor(World world)
+    {
+        if (world == null || _supervisorWorld != world.Pointer || world.gameObject == null) return false;
+        try
+        {
+            var managers = Managers.Inst;
+            World current = managers != null ? managers.world : null;
+            return current != null && current.Pointer == world.Pointer;
+        }
+        catch (Exception)
+        {
+            return false; // 管理器读取失败：fail-closed，旧协程退出
+        }
+    }
+
+    /// <summary>当前 world 的重算初始化状态（HUD 消费；Waiting 期间显示"等待重算"）。</summary>
+    internal static CrossbowRecomputeState RecomputeState => _recomputeState;
+
+    /// <summary>
+    /// 读档重算：按场上合格弓箭手排序、当次比例快照重新换皮（皮肤不进存档）。返回发布给 HUD 的
+    /// 初始化状态：完整提交（selected == applied == active）才是 Completed；任何未提交或无有效身份
+    /// 的目标按 Failed 上报（尝试数绝不冒充成功数）；配置关走 Disabled。
     /// 骑士小队成员（小队关系随存档恢复）跳过：不进分母、不可被选中；已在队里的弩手
     /// 保持现状，等小队解散后下轮重算收口（Reviewer 裁决——骑士 overrideShootCooldown
     /// 会抹掉弩手射击节奏，与"弩手永远不被骑士招募"矛盾）。
     /// 联机说明：客户端与服务端各自本地重算，客户端选择可能与服务端有外观级分歧；
     /// 伤害/射程判定在权威端，外观分歧已知并接受（设计定稿）。
     /// </summary>
-    private static void RecomputeOnLoad()
+    private static CrossbowRecomputeState RecomputeOnLoad()
     {
         try
         {
@@ -696,14 +765,15 @@ public static class PatchRoles_Crossbowman
             if (!ModConfig.Enabled.Value)
             {
                 CrossbowmanLifecycle.UnwindAll(BuildProfile());
-                return;
+                return CrossbowRecomputeState.Disabled;
             }
+            float ratio = ReadRecruitmentRatio(); // 一批名单只用同一比例，滑块不触发即时全场转换。
             // 读档重算常是进程内第一个 marker 接触点（尚未发生任何弓转职）：
             // 循环里的 GetComponent<CrossbowmanMarker> 在类型未注册时会抛，
             // 整个重算被吞——必须在遍历前完成注册。
             CrossbowmanLifecycle.EnsureMarkerRegistered();
             Archer[] archers = UnityEngine.Object.FindObjectsOfType<Archer>();
-            if (archers == null) return;
+            if (archers == null) return CrossbowRecomputeState.Failed;
 
             var list = new System.Collections.Generic.List<Archer>();
             for (int i = 0; i < archers.Length; i++)
@@ -711,7 +781,8 @@ public static class PatchRoles_Crossbowman
                 Archer a = archers[i];
                 if (a == null || a.gameObject == null || !a.gameObject.activeInHierarchy) continue;
                 if (MusketeerIdentity.IsUnit(a)) continue;
-                // 骑士小队成员（关系随存档恢复）：跳过——不进 25% 分母、不可被选中；
+                if (HeroRecruitment.IsPurchased(a)) continue;
+                // 骑士小队成员（关系随存档恢复）：跳过——不进比例分母、不可被选中；
                 // 已在队里的弩手不动，等小队解散后下轮重算收口。
                 // HasKnight() 是私有方法不进 interop，等价判 _knight 字段
                 // （HasKnight 即 _knight != null，Archer.cs:289-292；私有字段 interop 暴露）。
@@ -720,13 +791,15 @@ public static class PatchRoles_Crossbowman
             }
             list.Sort((x, y) => x.GetInstanceID().CompareTo(y.GetInstanceID()));
 
-            int crossbowmen = 0;
+            int selected = 0, applied = 0, active = 0;
             for (int i = 0; i < list.Count; i++)
             {
-                if (i % PromoteCycle == PromoteCycle - 1)
+                if (CrossbowRatioPolicy.Selected(i, ratio))
                 {
-                    Apply(list[i]);
-                    crossbowmen++;
+                    selected++;
+                    if (Apply(list[i])) applied++;
+                    // 本批目标现状直接读（不再全场扫描）：组件存在但 Active=false 不算成功。
+                    if (CrossbowmanLifecycle.IsCrossbowman(list[i])) active++;
                 }
                 else if (list[i].GetComponent<CrossbowmanMarker>() != null)
                 {
@@ -736,12 +809,18 @@ public static class PatchRoles_Crossbowman
                 }
             }
 
+            bool completed = selected == applied && selected == active;
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                "[Crossbowman] recompute on load: total=" + list.Count + " crossbowmen=" + crossbowmen);
+                "[Crossbowman] recompute on load: eligible=" + list.Count + " selected=" + selected
+                + " applied=" + applied + " active=" + active
+                + " ratio=" + CrossbowRatioPolicy.Percent(ratio) + "%"
+                + (completed ? "" : " status=failed"));
+            return completed ? CrossbowRecomputeState.Completed : CrossbowRecomputeState.Failed;
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Crossbowman/recompute] " + e);
+            return CrossbowRecomputeState.Failed;
         }
     }
 
@@ -767,7 +846,7 @@ public static class PatchRoles_Crossbowman
             // 共享缓存，抖动治理：marker 扫描走 UnitScanCache（5s 窗口=原巡检节奏；
             // 新弩手的 marker+战斗包在 OnBowPromoted/Apply 即时挂好，本巡检只兜底，
             // 5s 缓存新鲜度等价于原 5s 节奏）。
-            // 注：RecomputeOnLoad 自己的 Archer 全量扫有意保持直扫——25% 数量
+            // 注：RecomputeOnLoad 自己的 Archer 全量扫有意保持直扫——比例数量
             // 守恒重算依赖精确的当下快照，不吃缓存新鲜度。
             CrossbowmanMarker[] markers = UnitScanCache.GetCrossbowmanMarkers();
             if (markers == null) return;
@@ -995,7 +1074,7 @@ public sealed class CrossbowBoltScaleLifecycle : MonoBehaviour
 
 /// <summary>
 /// B. 转职交替主入口：居民捡弓成功转职（Character.Promote → ReplaceBy → Pool.Spawn）
-/// 后，每第 4 个变成弩手。先例：PatchRoles_Worker/Berserker 同签名挂钩。
+/// 后，按配置四人周期选择弩手（默认每第 4 个）。先例：PatchRoles_Worker/Berserker 同签名挂钩。
 /// </summary>
 [HarmonyPatch(typeof(Character), nameof(Character.Promote), new[] { typeof(DroppableTool), typeof(IUnitController) })]
 public static class Character_Promote_CrossbowmanAlternation_Patch

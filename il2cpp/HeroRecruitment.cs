@@ -573,9 +573,202 @@ internal static class HeroRecruitment
         private bool GenerationPending;
         private readonly Dictionary<string, IntPtr> Frozen = new(StringComparer.Ordinal);
         private readonly HashSet<string> Seen = new(StringComparer.Ordinal);
+        private SourceShape Source;
+        private bool Nested;         // a nested load replaced runtime state under this capture
         internal bool Conflict;
+
+        // issue-85: frozen facts of one native load. Only a load whose original resolution was
+        // unresolved with no epoch/seat can ever adopt a disjoint history, so the freeze is
+        // prepared for that shape only; it never writes and never mutates runtime state.
+        private sealed class SourceShape
+        {
+            internal string Json;
+            internal string ContextKey;
+            internal long World;
+            internal IntPtr Campaign;
+            internal IntPtr Island;
+            internal bool CarryFalse;
+            internal bool Valid;
+            // issue-85: the original native objects list, retained as the exact Interop wrapper for
+            // the lifetime of this load only. Holding the wrapper keeps its own strong il2cpp GC
+            // handle alive, which roots the native list and its entries even after
+            // TryPopObjectsToScene disconnects island.objects (actual 2.4 cleanup 734990 stores null
+            // into this+0x50 at 7349EE). End re-enumerates this list instead of the consumed field;
+            // dropping the reference after End lets the wrapper be finalized. The wrapper owns its
+            // GC handle: never call il2cpp_gchandle_new/free/Dispose or Unity asset retention flags.
+            internal Il2CppSystem.Collections.Generic.List<IslandSaveData.ObjectData> Objects;
+            internal readonly HashSet<string> CharacterIds = new(StringComparer.Ordinal);
+            internal readonly List<Member> Members = new();
+        }
+
+        // One frozen native table member: object identity plus native id and Character
+        // classification, so a replacement instance with the same id is still detected at End.
+        private sealed class Member
+        {
+            internal IntPtr Pointer;
+            internal string Id;
+            internal bool Character;
+        }
+
+        // Freeze the native island facts the gate needs: every member's object identity, native
+        // id and Character classification (compared order-insensitively at End), the raw JSON and
+        // the complete Character id set. The original native list wrapper is retained as well, so
+        // End can re-read the same table after native TryPopObjectsToScene consumed the field. A
+        // null record, duplicate non-empty object id, missing/oversized/duplicate Character id or
+        // a table without Character invalidates only the disjoint gate; it never turns the load
+        // itself into a conflict. null componentData2 or null elements classify as non-Character
+        // under the existing rule.
+        private static SourceShape CaptureSource(IslandSaveData island, string json, string contextKey, long world, CampaignSaveData campaign)
+        {
+            var source = new SourceShape
+            {
+                Json = json, ContextKey = contextKey, World = world, Valid = island != null && campaign != null,
+                Campaign = campaign != null ? campaign.Pointer : IntPtr.Zero,
+                Island = island != null ? island.Pointer : IntPtr.Zero
+            };
+            if (!source.Valid) return source;
+            try { source.CarryFalse = !campaign.carryForward.present; }
+            catch { source.CarryFalse = false; }
+            Il2CppSystem.Collections.Generic.List<IslandSaveData.ObjectData> objects;
+            try { objects = island.objects; }
+            catch { source.Valid = false; return source; }
+            if (objects == null) { source.Valid = false; return source; }
+            source.Objects = objects;
+            try
+            {
+                int characters = 0;
+                var ids = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var record in objects)
+                {
+                    if (record == null) { source.Valid = false; continue; }
+                    bool character = IsCharacterRecord(record);
+                    string id = record.uniqueID;
+                    source.Members.Add(new Member { Pointer = record.Pointer, Id = id ?? string.Empty, Character = character });
+                    if (string.IsNullOrEmpty(id))
+                    {
+                        if (character) source.Valid = false;
+                        continue;
+                    }
+                    if (!ids.Add(id)) { source.Valid = false; continue; }
+                    if (!character) continue;
+                    if (id.Length > 256) { source.Valid = false; continue; }
+                    source.CharacterIds.Add(id); characters++;
+                }
+                if (characters == 0) source.Valid = false;
+            }
+            catch { source.Valid = false; }
+            return source;
+        }
+
+        // issue-85: End must not read the consumed island.objects field. Re-enumerate the retained
+        // wrapper (the same native list Begin froze) and require the complete member pointer+id
+        // multiset to be unchanged, ignoring native sorting: new/removed/replaced or null members,
+        // changed ids and unreadable data reject. Classification may only be lost
+        // (Character -> nonCharacter, demonstrated native ObjectData.SetDecay) and never gained.
+        // A null island.objects field is the confirmed native consumption; a non-null field must
+        // still be the same native list. End may legitimately see zero Characters at this point;
+        // Begin already required at least one.
+        private static bool TryRevalidateSource(SourceShape source, IslandSaveData island)
+        {
+            if (source == null || !source.Valid || source.Objects == null || island == null) return false;
+            Il2CppSystem.Collections.Generic.List<IslandSaveData.ObjectData> field;
+            try { field = island.objects; }
+            catch { return false; }
+            if (field != null && field.Pointer != source.Objects.Pointer) return false;
+            try
+            {
+                var live = new List<Member>(source.Members.Count);
+                foreach (var record in source.Objects)
+                {
+                    if (record == null) return false;
+                    live.Add(new Member { Pointer = record.Pointer, Id = record.uniqueID ?? string.Empty, Character = IsCharacterRecord(record) });
+                }
+                return SameLifecycleShape(source.Members, live);
+            }
+            catch { return false; }
+        }
+
+        // Pointer-keyed multiset comparison of the retained table. Every Begin member must appear
+        // exactly once (a duplicate live pointer can never consume its entry twice), ids must be
+        // identical, and a non-Character may not become a Character.
+        private static bool SameLifecycleShape(List<Member> frozen, List<Member> live)
+        {
+            if (frozen == null || live == null || frozen.Count != live.Count) return false;
+            var byPointer = new Dictionary<IntPtr, Member>(frozen.Count);
+            foreach (var member in frozen)
+                if (byPointer.ContainsKey(member.Pointer)) return false; // duplicate native pointer: fail closed
+                else byPointer.Add(member.Pointer, member);
+            foreach (var member in live)
+            {
+                if (!byPointer.TryGetValue(member.Pointer, out var original)) return false;
+                if (!string.Equals(original.Id, member.Id, StringComparison.Ordinal)) return false;
+                if (!original.Character && member.Character) return false;
+                byPointer.Remove(member.Pointer);
+            }
+            return byPointer.Count == 0;
+        }
+
+        // Transport data is count/type only; absence of native ids must never be inferred into it.
+        // A missing or unreadable structure is not `present == false` and therefore never unlocks.
+        private static bool TryReadCarryFalse(CampaignSaveData campaign)
+        {
+            try { return campaign != null && !campaign.carryForward.present; }
+            catch { return false; }
+        }
+
+        // An unsaved purchase in this world must never be silently replaced by a fresh epoch.
+        private static bool HasLivePurchase(IslandState state, long world)
+            => state != null && state.Seats.Count > 0 && state.World == world;
+
+        // issue-85: a successful load whose complete Character set is disjoint from every unknown
+        // paid history row adopts one fresh epoch with a kind-2 empty baseline instead of staying
+        // unresolved forever. Every precondition is re-verified at End against the frozen Begin
+        // facts, and the archive-only gate is re-run on the fresh disk inside the commit CAS; the
+        // unlock state is published only after the sidecar write was verified.
+        private void TryAdoptDisjointHistory()
+        {
+            var source = Source;
+            if (source == null || !source.Valid || source.World == 0 || Conflict || !State.Unresolved || State.Epoch != null || State.Seats.Count > 0) return;
+            if (Previous != null || Nested || !HeroArcherNetwork.AllowsLocalHero) return;
+            var campaign = CampaignSaveData.current;
+            if (campaign == null || campaign.Pointer != source.Campaign || campaign.CurrentIsland == null
+                || campaign.CurrentIsland.Pointer != source.Island) return;
+            if (GlobalSaveData.loaded == null
+                || !TryContextKey(GlobalSaveData.loaded.currentCampaign, GlobalSaveData.loaded.currentChallenge, campaign.CurrentIsland.land, out string contextKey)
+                || contextKey != source.ContextKey || WorldKey() != source.World) return;
+            if (!source.CarryFalse || !TryReadCarryFalse(campaign)) return;
+            if (HasLivePurchase(Old, source.World) || HasLivePurchase(OldCurrent, source.World)) return;
+            if (!TryRevalidateSource(source, campaign.CurrentIsland)) { Log("disjoint-source-changed", null); return; }
+            string scope = HeroRecruitmentArchive.NewScope();
+            string hash;
+            try { hash = HeroRecruitmentFingerprint.Hash(source.Json, scope); }
+            catch (Exception e) { Log("disjoint-json", e); return; }
+            var pending = new IslandState { ContextKey = source.ContextKey, Epoch = scope, NewEpoch = true, World = source.World, Ready = true };
+            // The history decision keeps using the complete Begin Character set: an id that was a
+            // Character at Begin must still block this adoption even if native decay erased its
+            // descriptor, otherwise a consumed paid character could be re-charged.
+            if (!Commit(pending, disk => HeroRecruitmentContexts.DisjointHistory(disk.Archive, source.ContextKey, source.Json, source.CharacterIds)
+                    && disk.Archive.ConfirmBaseline(scope, hash, Array.Empty<HeroPurchaseReceipt>(), HeroRecruitmentFingerprint.Kind, false)))
+            { State.ReadOnly = true; Log("disjoint-unconfirmed", null); return; }
+            State.ReadOnly = false;
+            State.Epoch = scope;
+            State.MatchKind = "disjoint-history-fresh";
+            State.MatchHash = hash;
+            State.MatchHashKind = HeroRecruitmentFingerprint.Kind;
+            State.MatchLegacy = false;
+            State.Unresolved = false;
+            State.HasBaseline = true;
+            State.NewEpoch = false;
+            BaselineKind = HeroRecruitmentFingerprint.Kind;
+            BaselineLegacy = false;
+            Log("disjoint-history-fresh:" + source.ContextKey.Substring(0, 8) + ":" + scope.Substring(0, 8), null);
+        }
+
         internal void Begin(IslandSaveData island)
         {
+            // A nested load replaces Islands/_current underneath every enclosing capture: mark all
+            // ancestors before any early return so none of them may adopt a disjoint history.
+            for (var parent = Previous; parent != null; parent = parent.Previous) parent.Nested = true;
             _contextFrame = -1; _lastTickFrame = -1;
             if (!HeroArcherNetwork.AllowsLocalHero || island == null || GlobalSaveData.loaded == null) return;
             if (!TryContextKey(GlobalSaveData.loaded.currentCampaign, GlobalSaveData.loaded.currentChallenge, island.land, out string contextKey)) return;
@@ -609,6 +802,10 @@ internal static class HeroRecruitment
                 if (string.IsNullOrEmpty(id) || id.Length > 256 || Frozen.ContainsKey(id)) { Conflict = true; return; }
                 Frozen.Add(id, record.Pointer);
             }
+            // issue-85: freeze the source facts only for the exact shape the disjoint-history gate
+            // could ever unlock (unresolved, no epoch, no seat). It never writes.
+            if (State.Unresolved && State.Epoch == null && State.Seats.Count == 0 && !Conflict && !GenerationPending)
+                Source = CaptureSource(island, json, contextKey, State.World, CampaignSaveData.current);
         }
 
         internal void Capture(IslandSaveData.ObjectData data, Persistent root)
@@ -633,29 +830,41 @@ internal static class HeroRecruitment
 
         internal void End(bool success)
         {
-            _contextFrame = -1; _lastTickFrame = -1;
-            if (State == null) return;
-            if (!success)
+            try
             {
-                foreach (var seat in State.Seats) Unbind(seat);
-                if (Old != null) Islands[State.ContextKey] = Old; else Islands.Remove(State.ContextKey);
-                _current = OldCurrent;
-                return;
+                _contextFrame = -1; _lastTickFrame = -1;
+                if (State == null) return;
+                if (!success)
+                {
+                    foreach (var seat in State.Seats) Unbind(seat);
+                    if (Old != null) Islands[State.ContextKey] = Old; else Islands.Remove(State.ContextKey);
+                    _current = OldCurrent;
+                    return;
+                }
+                if (Old != null) foreach (var seat in Old.Seats) Unbind(seat);
+                if (Conflict) foreach (var seat in State.Seats) Unbind(seat);
+                State.Ready = true;
+                State.World = WorldKey();
+                foreach (var seat in State.Seats) if (seat.Owner != null) seat.Owner.World = State.World;
+                if (!Conflict && Confirmable)
+                {
+                    var receipts = State.Seats.Select(x => x.Receipt.Copy()).ToArray();
+                    if (Commit(State, disk => disk.Archive.ConfirmBaseline(State.Epoch, Hash, receipts, BaselineKind, BaselineLegacy))) State.HasBaseline = true;
+                    else { State.ReadOnly = true; State.HasBaseline = false; Log("baseline-unconfirmed", null); }
+                }
+                if (!Conflict) TryAdoptDisjointHistory();
+                Log("loaded:" + State.MatchKind + ":ctx=" + State.ContextKey.Substring(0, 8) + ":epoch=" + Short(State.Epoch)
+                    + ":hk=" + BaselineKind + ":v1=" + BaselineLegacy
+                    + ":seats=" + State.Seats.Count + ":bound=" + State.Seats.Count(x => x.Owner != null), null);
             }
-            if (Old != null) foreach (var seat in Old.Seats) Unbind(seat);
-            if (Conflict) foreach (var seat in State.Seats) Unbind(seat);
-            State.Ready = true;
-            State.World = WorldKey();
-            foreach (var seat in State.Seats) if (seat.Owner != null) seat.Owner.World = State.World;
-            if (!Conflict && Confirmable)
+            finally
             {
-                var receipts = State.Seats.Select(x => x.Receipt.Copy()).ToArray();
-                if (Commit(State, disk => disk.Archive.ConfirmBaseline(State.Epoch, Hash, receipts, BaselineKind, BaselineLegacy))) State.HasBaseline = true;
-                else { State.ReadOnly = true; State.HasBaseline = false; Log("baseline-unconfirmed", null); }
+                // issue-85: release this load's retained native list wrapper on every exit path
+                // (failure, StateNull, conflict, exception, re-entry). Dropping the last managed
+                // reference lets the wrapper finalize and free the GC handle that kept the native
+                // list alive; the wrapper owns that handle, so never free/dispose it by hand here.
+                Source = null;
             }
-            Log("loaded:" + State.MatchKind + ":ctx=" + State.ContextKey.Substring(0, 8) + ":epoch=" + Short(State.Epoch)
-                + ":hk=" + BaselineKind + ":v1=" + BaselineLegacy
-                + ":seats=" + State.Seats.Count + ":bound=" + State.Seats.Count(x => x.Owner != null), null);
         }
     }
 

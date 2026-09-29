@@ -1,0 +1,1350 @@
+{
+  "tool": "tools/prepare_coin_courier_b_atlas.py",
+  "spec": {
+    "coverage_threshold": 128,
+    "stance_median_height_px": 179,
+    "target_height_px": 32,
+    "uniform_scale": 0.1787709497,
+    "row_column_cuts": {
+      "1:5": 1121,
+      "2:3": 681
+    },
+    "elevation_clamping": false,
+    "placement": "per-pose common x offset from per-frame bottom-band foot anchors"
+  },
+  "source": {
+    "path": "artifacts/coin-courier-blueprint-b-20260927/animation-draft/generated-sheet.png",
+    "sha256": "5d8daf045d9fd92bacaec2e7dbafab8dd54097c7fe8c41519071fec28c29c19c",
+    "size": [
+      1774,
+      887
+    ],
+    "low_alpha_cleaned_px": 913997
+  },
+  "atlas": {
+    "file": "atlas/CoinCourierBAtlas.png",
+    "sha256": "1924cc0c801f41cd69b54d7e132598226e8350605ff6019bc4a5f889f7b303d7",
+    "size": [
+      448,
+      224
+    ],
+    "columns": 8,
+    "rows": 4,
+    "cell": [
+      56,
+      56
+    ],
+    "pixels_per_unit": 32.0,
+    "pivot_pixels": [
+      28,
+      12
+    ],
+    "pivot_origin": "bottom-left of the cell",
+    "ground_row_from_top": 44,
+    "alpha_px_below_threshold": 0,
+    "logical_name": "KingdomEnhancedMod.CoinCourierBAtlas.png"
+  },
+  "poses": [
+    {
+      "name": "Idle",
+      "first": 28,
+      "last": 31,
+      "frames": 4,
+      "seconds_per_frame": 0.5,
+      "looping": true,
+      "cell_offset_x": 8
+    },
+    {
+      "name": "Leisure",
+      "first": 8,
+      "last": 11,
+      "frames": 4,
+      "seconds_per_frame": 0.6,
+      "looping": true,
+      "cell_offset_x": 8
+    },
+    {
+      "name": "Run",
+      "first": 0,
+      "last": 7,
+      "frames": 8,
+      "seconds_per_frame": 0.075,
+      "looping": true,
+      "cell_offset_x": 11
+    },
+    {
+      "name": "Collect",
+      "first": 12,
+      "last": 15,
+      "frames": 4,
+      "seconds_per_frame": 0.18,
+      "looping": false,
+      "cell_offset_x": 9
+    },
+    {
+      "name": "Deliver",
+      "first": 16,
+      "last": 19,
+      "frames": 4,
+      "seconds_per_frame": 0.2,
+      "looping": false,
+      "cell_offset_x": 8
+    },
+    {
+      "name": "Jump",
+      "first": 20,
+      "last": 23,
+      "frames": 4,
+      "seconds_per_frame": 0.1,
+      "looping": false,
+      "cell_offset_x": 11
+    },
+    {
+      "name": "Fall",
+      "first": 24,
+      "last": 25,
+      "frames": 2,
+      "seconds_per_frame": 0.12,
+      "looping": false,
+      "cell_offset_x": 7
+    },
+    {
+      "name": "Land",
+      "first": 26,
+      "last": 27,
+      "frames": 2,
+      "seconds_per_frame": 0.12,
+      "looping": false,
+      "cell_offset_x": 8
+    }
+  ],
+  "frames": [
+    {
+      "index": 0,
+      "pose": "Run",
+      "phase": 0,
+      "source_cell": [
+        0,
+        0
+      ],
+      "source_rect": [
+        0,
+        0,
+        222,
+        222
+      ],
+      "bbox_in_sheet": [
+        25,
+        33,
+        211,
+        213
+      ],
+      "scaled_size": [
+        33,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 135.0,
+      "foot_anchor_local": 110.0,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        11,
+        12
+      ],
+      "atlas_pos": [
+        0,
+        0
+      ],
+      "sha256": "14a1a12943a41d7e2171fe97989dffa0fccf927280298b85ff1790e35b482298"
+    },
+    {
+      "index": 1,
+      "pose": "Run",
+      "phase": 1,
+      "source_cell": [
+        1,
+        0
+      ],
+      "source_rect": [
+        222,
+        0,
+        444,
+        222
+      ],
+      "bbox_in_sheet": [
+        251,
+        37,
+        430,
+        213
+      ],
+      "scaled_size": [
+        32,
+        31
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 348.5,
+      "foot_anchor_local": 97.5,
+      "plant_offset_x": 11,
+      "cell_pos": [
+        11,
+        13
+      ],
+      "atlas_pos": [
+        56,
+        0
+      ],
+      "sha256": "bb02ff835c4b2a2ba24ed722e948093fb3b6c62829060c5faf9b059acd793a55"
+    },
+    {
+      "index": 2,
+      "pose": "Run",
+      "phase": 2,
+      "source_cell": [
+        2,
+        0
+      ],
+      "source_rect": [
+        444,
+        0,
+        665,
+        222
+      ],
+      "bbox_in_sheet": [
+        478,
+        34,
+        656,
+        213
+      ],
+      "scaled_size": [
+        32,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 569.5,
+      "foot_anchor_local": 91.5,
+      "plant_offset_x": 12,
+      "cell_pos": [
+        11,
+        12
+      ],
+      "atlas_pos": [
+        112,
+        0
+      ],
+      "sha256": "2996bb5f98d99efb4ee2da3873f4afcf9185f777003ffd352125bb3463e6060c"
+    },
+    {
+      "index": 3,
+      "pose": "Run",
+      "phase": 3,
+      "source_cell": [
+        3,
+        0
+      ],
+      "source_rect": [
+        665,
+        0,
+        887,
+        222
+      ],
+      "bbox_in_sheet": [
+        694,
+        34,
+        876,
+        210
+      ],
+      "scaled_size": [
+        33,
+        31
+      ],
+      "elevation_px": 1,
+      "foot_anchor_x": 782.0,
+      "foot_anchor_local": 88.0,
+      "plant_offset_x": 12,
+      "cell_pos": [
+        11,
+        12
+      ],
+      "atlas_pos": [
+        168,
+        0
+      ],
+      "sha256": "8a10eac49b8e8e601e8dadebe666922fafca3f434a4c577071c044a94e063776"
+    },
+    {
+      "index": 4,
+      "pose": "Run",
+      "phase": 4,
+      "source_cell": [
+        4,
+        0
+      ],
+      "source_rect": [
+        887,
+        0,
+        1109,
+        222
+      ],
+      "bbox_in_sheet": [
+        915,
+        32,
+        1096,
+        213
+      ],
+      "scaled_size": [
+        32,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 1012.0,
+      "foot_anchor_local": 97.0,
+      "plant_offset_x": 11,
+      "cell_pos": [
+        11,
+        12
+      ],
+      "atlas_pos": [
+        224,
+        0
+      ],
+      "sha256": "64f34e3dc0e87c13ae284f215e657c15e4d8c973dc730e08ce0d8fb755d5c8f3"
+    },
+    {
+      "index": 5,
+      "pose": "Run",
+      "phase": 5,
+      "source_cell": [
+        5,
+        0
+      ],
+      "source_rect": [
+        1109,
+        0,
+        1331,
+        222
+      ],
+      "bbox_in_sheet": [
+        1138,
+        34,
+        1316,
+        212
+      ],
+      "scaled_size": [
+        32,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 1235.0,
+      "foot_anchor_local": 97.0,
+      "plant_offset_x": 11,
+      "cell_pos": [
+        11,
+        12
+      ],
+      "atlas_pos": [
+        280,
+        0
+      ],
+      "sha256": "b611246333e1b2a700de931b7c711c17fdebf17d7c54eb333f2a88de865715b3"
+    },
+    {
+      "index": 6,
+      "pose": "Run",
+      "phase": 6,
+      "source_cell": [
+        6,
+        0
+      ],
+      "source_rect": [
+        1331,
+        0,
+        1552,
+        222
+      ],
+      "bbox_in_sheet": [
+        1356,
+        33,
+        1536,
+        212
+      ],
+      "scaled_size": [
+        32,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 1444.5,
+      "foot_anchor_local": 88.5,
+      "plant_offset_x": 12,
+      "cell_pos": [
+        11,
+        12
+      ],
+      "atlas_pos": [
+        336,
+        0
+      ],
+      "sha256": "646d7d9985142f1e1719c1c3ed78b420357ea81675270205ff67977744694d60"
+    },
+    {
+      "index": 7,
+      "pose": "Run",
+      "phase": 7,
+      "source_cell": [
+        7,
+        0
+      ],
+      "source_rect": [
+        1552,
+        0,
+        1774,
+        222
+      ],
+      "bbox_in_sheet": [
+        1578,
+        36,
+        1754,
+        210
+      ],
+      "scaled_size": [
+        31,
+        31
+      ],
+      "elevation_px": 1,
+      "foot_anchor_x": 1677.0,
+      "foot_anchor_local": 99.0,
+      "plant_offset_x": 10,
+      "cell_pos": [
+        11,
+        12
+      ],
+      "atlas_pos": [
+        392,
+        0
+      ],
+      "sha256": "52e80d2807ac361c7f81da6a50ae172b4ccba3d6f2987d7243e5c48c3442ec20"
+    },
+    {
+      "index": 8,
+      "pose": "Leisure",
+      "phase": 0,
+      "source_cell": [
+        0,
+        1
+      ],
+      "source_rect": [
+        0,
+        222,
+        222,
+        444
+      ],
+      "bbox_in_sheet": [
+        25,
+        253,
+        207,
+        433
+      ],
+      "scaled_size": [
+        33,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 138.0,
+      "foot_anchor_local": 113.0,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        8,
+        12
+      ],
+      "atlas_pos": [
+        0,
+        56
+      ],
+      "sha256": "6297e5554d99cceecf91d062c8157c116ae206621bccd28032f88e3a0df94885"
+    },
+    {
+      "index": 9,
+      "pose": "Leisure",
+      "phase": 1,
+      "source_cell": [
+        1,
+        1
+      ],
+      "source_rect": [
+        222,
+        222,
+        444,
+        444
+      ],
+      "bbox_in_sheet": [
+        245,
+        249,
+        425,
+        433
+      ],
+      "scaled_size": [
+        32,
+        33
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 364.5,
+      "foot_anchor_local": 119.5,
+      "plant_offset_x": 7,
+      "cell_pos": [
+        8,
+        11
+      ],
+      "atlas_pos": [
+        56,
+        56
+      ],
+      "sha256": "57e7408da0bd3984af0944ad5af8dd3b108da0f193a9c25a2fad7fa9bb0c6519"
+    },
+    {
+      "index": 10,
+      "pose": "Leisure",
+      "phase": 2,
+      "source_cell": [
+        2,
+        1
+      ],
+      "source_rect": [
+        444,
+        222,
+        665,
+        444
+      ],
+      "bbox_in_sheet": [
+        471,
+        253,
+        647,
+        433
+      ],
+      "scaled_size": [
+        31,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 580.5,
+      "foot_anchor_local": 109.5,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        8,
+        12
+      ],
+      "atlas_pos": [
+        112,
+        56
+      ],
+      "sha256": "47b0c3bf65912f7fcf504d3924cb5cd12cd0af16417c94c363a803d2ec9f051e"
+    },
+    {
+      "index": 11,
+      "pose": "Leisure",
+      "phase": 3,
+      "source_cell": [
+        3,
+        1
+      ],
+      "source_rect": [
+        665,
+        222,
+        887,
+        444
+      ],
+      "bbox_in_sheet": [
+        696,
+        253,
+        877,
+        433
+      ],
+      "scaled_size": [
+        32,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 807.0,
+      "foot_anchor_local": 111.0,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        8,
+        12
+      ],
+      "atlas_pos": [
+        168,
+        56
+      ],
+      "sha256": "068b3a4e491a2c89a44127b501cfe1df9ab2d99ac3454b9c9169aa76a5e7787e"
+    },
+    {
+      "index": 12,
+      "pose": "Collect",
+      "phase": 0,
+      "source_cell": [
+        4,
+        1
+      ],
+      "source_rect": [
+        887,
+        222,
+        1121,
+        444
+      ],
+      "bbox_in_sheet": [
+        917,
+        255,
+        1112,
+        433
+      ],
+      "scaled_size": [
+        35,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 1016.0,
+      "foot_anchor_local": 99.0,
+      "plant_offset_x": 10,
+      "cell_pos": [
+        9,
+        12
+      ],
+      "atlas_pos": [
+        224,
+        56
+      ],
+      "sha256": "b4d4effc3e48f2cab179f959ea29bf747a4ffdc9c224f44ebc16881bd4bee8db"
+    },
+    {
+      "index": 13,
+      "pose": "Collect",
+      "phase": 1,
+      "source_cell": [
+        5,
+        1
+      ],
+      "source_rect": [
+        1121,
+        222,
+        1331,
+        444
+      ],
+      "bbox_in_sheet": [
+        1131,
+        255,
+        1309,
+        433
+      ],
+      "scaled_size": [
+        32,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 1239.0,
+      "foot_anchor_local": 108.0,
+      "plant_offset_x": 9,
+      "cell_pos": [
+        9,
+        12
+      ],
+      "atlas_pos": [
+        280,
+        56
+      ],
+      "sha256": "be6a177815bd39562c80f62bb442bfa1c8ca97dfa31deb4f9fa9e89c9272686f"
+    },
+    {
+      "index": 14,
+      "pose": "Collect",
+      "phase": 2,
+      "source_cell": [
+        6,
+        1
+      ],
+      "source_rect": [
+        1331,
+        222,
+        1552,
+        444
+      ],
+      "bbox_in_sheet": [
+        1356,
+        236,
+        1542,
+        433
+      ],
+      "scaled_size": [
+        33,
+        35
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 1464.5,
+      "foot_anchor_local": 108.5,
+      "plant_offset_x": 9,
+      "cell_pos": [
+        9,
+        9
+      ],
+      "atlas_pos": [
+        336,
+        56
+      ],
+      "sha256": "17463ec97159c1e4daf302062352c0d05d281a9b00a298edd3ed9edf9be16162"
+    },
+    {
+      "index": 15,
+      "pose": "Collect",
+      "phase": 3,
+      "source_cell": [
+        7,
+        1
+      ],
+      "source_rect": [
+        1552,
+        222,
+        1774,
+        444
+      ],
+      "bbox_in_sheet": [
+        1578,
+        253,
+        1755,
+        433
+      ],
+      "scaled_size": [
+        32,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 1685.5,
+      "foot_anchor_local": 107.5,
+      "plant_offset_x": 9,
+      "cell_pos": [
+        9,
+        12
+      ],
+      "atlas_pos": [
+        392,
+        56
+      ],
+      "sha256": "627f24e68c7be0cfb083ffed2857c8739401cad0d50066a082e4505d13cbd63d"
+    },
+    {
+      "index": 16,
+      "pose": "Deliver",
+      "phase": 0,
+      "source_cell": [
+        0,
+        2
+      ],
+      "source_rect": [
+        0,
+        444,
+        222,
+        665
+      ],
+      "bbox_in_sheet": [
+        23,
+        481,
+        204,
+        655
+      ],
+      "scaled_size": [
+        32,
+        31
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 134.5,
+      "foot_anchor_local": 111.5,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        8,
+        13
+      ],
+      "atlas_pos": [
+        0,
+        112
+      ],
+      "sha256": "976170facfdd36ae4b6095353a82e5747edd4500c6a4eaa6b80e67aabd978a81"
+    },
+    {
+      "index": 17,
+      "pose": "Deliver",
+      "phase": 1,
+      "source_cell": [
+        1,
+        2
+      ],
+      "source_rect": [
+        222,
+        444,
+        444,
+        665
+      ],
+      "bbox_in_sheet": [
+        245,
+        481,
+        422,
+        655
+      ],
+      "scaled_size": [
+        32,
+        31
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 356.0,
+      "foot_anchor_local": 111.0,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        8,
+        13
+      ],
+      "atlas_pos": [
+        56,
+        112
+      ],
+      "sha256": "e0d16430d764ccdae58781a1a53615a351a139766c34b8001b57b294bb474cc5"
+    },
+    {
+      "index": 18,
+      "pose": "Deliver",
+      "phase": 2,
+      "source_cell": [
+        2,
+        2
+      ],
+      "source_rect": [
+        444,
+        444,
+        681,
+        665
+      ],
+      "bbox_in_sheet": [
+        468,
+        479,
+        672,
+        655
+      ],
+      "scaled_size": [
+        36,
+        31
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 578.0,
+      "foot_anchor_local": 110.0,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        8,
+        13
+      ],
+      "atlas_pos": [
+        112,
+        112
+      ],
+      "sha256": "7a9ab8de2a65fffd5043be5f04ebb4bb962e9b128ec0665ebdcb9e321f7cb49f"
+    },
+    {
+      "index": 19,
+      "pose": "Deliver",
+      "phase": 3,
+      "source_cell": [
+        3,
+        2
+      ],
+      "source_rect": [
+        681,
+        444,
+        887,
+        665
+      ],
+      "bbox_in_sheet": [
+        691,
+        481,
+        868,
+        655
+      ],
+      "scaled_size": [
+        32,
+        31
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 803.5,
+      "foot_anchor_local": 112.5,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        8,
+        13
+      ],
+      "atlas_pos": [
+        168,
+        112
+      ],
+      "sha256": "222b0c4c7107c884cc651dc220e977444fbf3c1d40a4ee307685c62fe35d5a7a"
+    },
+    {
+      "index": 20,
+      "pose": "Jump",
+      "phase": 0,
+      "source_cell": [
+        4,
+        2
+      ],
+      "source_rect": [
+        887,
+        444,
+        1109,
+        665
+      ],
+      "bbox_in_sheet": [
+        924,
+        513,
+        1102,
+        655
+      ],
+      "scaled_size": [
+        32,
+        25
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 1025.0,
+      "foot_anchor_local": 101.0,
+      "plant_offset_x": 10,
+      "cell_pos": [
+        11,
+        19
+      ],
+      "atlas_pos": [
+        224,
+        112
+      ],
+      "sha256": "19d99c03a820d17d91f7e2d4baddbcd335e3b5bdb5c3832c9fae0522836ee4be"
+    },
+    {
+      "index": 21,
+      "pose": "Jump",
+      "phase": 1,
+      "source_cell": [
+        5,
+        2
+      ],
+      "source_rect": [
+        1109,
+        444,
+        1331,
+        665
+      ],
+      "bbox_in_sheet": [
+        1135,
+        495,
+        1314,
+        655
+      ],
+      "scaled_size": [
+        32,
+        29
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 1235.0,
+      "foot_anchor_local": 100.0,
+      "plant_offset_x": 10,
+      "cell_pos": [
+        11,
+        15
+      ],
+      "atlas_pos": [
+        280,
+        112
+      ],
+      "sha256": "39f2802f98ac35ef9b11cabe762b05b609d2ec1cb3ce7b6d56e133bf47f3e7de"
+    },
+    {
+      "index": 22,
+      "pose": "Jump",
+      "phase": 2,
+      "source_cell": [
+        6,
+        2
+      ],
+      "source_rect": [
+        1331,
+        444,
+        1552,
+        665
+      ],
+      "bbox_in_sheet": [
+        1359,
+        451,
+        1535,
+        647
+      ],
+      "scaled_size": [
+        31,
+        35
+      ],
+      "elevation_px": 1,
+      "foot_anchor_x": 1451.0,
+      "foot_anchor_local": 92.0,
+      "plant_offset_x": 12,
+      "cell_pos": [
+        11,
+        8
+      ],
+      "atlas_pos": [
+        336,
+        112
+      ],
+      "sha256": "da1aa8006fd1b8693d5729c6c5014a8f7cbc88856d37b73610bbc75dc6750a38"
+    },
+    {
+      "index": 23,
+      "pose": "Jump",
+      "phase": 3,
+      "source_cell": [
+        7,
+        2
+      ],
+      "source_rect": [
+        1552,
+        444,
+        1774,
+        665
+      ],
+      "bbox_in_sheet": [
+        1575,
+        451,
+        1750,
+        637
+      ],
+      "scaled_size": [
+        31,
+        33
+      ],
+      "elevation_px": 3,
+      "foot_anchor_x": 1663.0,
+      "foot_anchor_local": 88.0,
+      "plant_offset_x": 12,
+      "cell_pos": [
+        11,
+        8
+      ],
+      "atlas_pos": [
+        392,
+        112
+      ],
+      "sha256": "f54a5bfabe78cba9d4636279fde3a1f77ae33f48b0654f3d158f0b2e7d443178"
+    },
+    {
+      "index": 24,
+      "pose": "Fall",
+      "phase": 0,
+      "source_cell": [
+        0,
+        3
+      ],
+      "source_rect": [
+        0,
+        665,
+        222,
+        887
+      ],
+      "bbox_in_sheet": [
+        24,
+        675,
+        206,
+        861
+      ],
+      "scaled_size": [
+        33,
+        33
+      ],
+      "elevation_px": 2,
+      "foot_anchor_x": 139.0,
+      "foot_anchor_local": 115.0,
+      "plant_offset_x": 7,
+      "cell_pos": [
+        7,
+        9
+      ],
+      "atlas_pos": [
+        0,
+        168
+      ],
+      "sha256": "0db8b8c80a0fb4ef7631e329c62036aa3bbf1ec1bcf86fd6500cbc2eb98181dd"
+    },
+    {
+      "index": 25,
+      "pose": "Fall",
+      "phase": 1,
+      "source_cell": [
+        1,
+        3
+      ],
+      "source_rect": [
+        222,
+        665,
+        444,
+        887
+      ],
+      "bbox_in_sheet": [
+        248,
+        684,
+        426,
+        867
+      ],
+      "scaled_size": [
+        32,
+        33
+      ],
+      "elevation_px": 1,
+      "foot_anchor_x": 369.0,
+      "foot_anchor_local": 121.0,
+      "plant_offset_x": 6,
+      "cell_pos": [
+        7,
+        10
+      ],
+      "atlas_pos": [
+        56,
+        168
+      ],
+      "sha256": "e9877309eb9efd34b8d615046e4b1bd5082f75daa378e6fe8c3b1d5c45041500"
+    },
+    {
+      "index": 26,
+      "pose": "Land",
+      "phase": 0,
+      "source_cell": [
+        2,
+        3
+      ],
+      "source_rect": [
+        444,
+        665,
+        665,
+        887
+      ],
+      "bbox_in_sheet": [
+        475,
+        696,
+        654,
+        871
+      ],
+      "scaled_size": [
+        32,
+        31
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 588.5,
+      "foot_anchor_local": 113.5,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        8,
+        13
+      ],
+      "atlas_pos": [
+        112,
+        168
+      ],
+      "sha256": "8f5724417504383b574fce3d98407c7a648e2911bfc5351d21658196ef6d62eb"
+    },
+    {
+      "index": 27,
+      "pose": "Land",
+      "phase": 1,
+      "source_cell": [
+        3,
+        3
+      ],
+      "source_rect": [
+        665,
+        665,
+        887,
+        887
+      ],
+      "bbox_in_sheet": [
+        693,
+        691,
+        874,
+        871
+      ],
+      "scaled_size": [
+        32,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 805.5,
+      "foot_anchor_local": 112.5,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        8,
+        12
+      ],
+      "atlas_pos": [
+        168,
+        168
+      ],
+      "sha256": "fabb55541b22d2f6626ade2c4c00635f693b684de39081dd8070d24659fe83e3"
+    },
+    {
+      "index": 28,
+      "pose": "Idle",
+      "phase": 0,
+      "source_cell": [
+        4,
+        3
+      ],
+      "source_rect": [
+        887,
+        665,
+        1109,
+        887
+      ],
+      "bbox_in_sheet": [
+        915,
+        692,
+        1094,
+        871
+      ],
+      "scaled_size": [
+        32,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 1025.0,
+      "foot_anchor_local": 110.0,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        8,
+        12
+      ],
+      "atlas_pos": [
+        224,
+        168
+      ],
+      "sha256": "6c051507f9ab828e197555b548344eeb5006f68c1381204147b07d6f70de1327"
+    },
+    {
+      "index": 29,
+      "pose": "Idle",
+      "phase": 1,
+      "source_cell": [
+        5,
+        3
+      ],
+      "source_rect": [
+        1109,
+        665,
+        1331,
+        887
+      ],
+      "bbox_in_sheet": [
+        1134,
+        690,
+        1312,
+        871
+      ],
+      "scaled_size": [
+        32,
+        32
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 1244.0,
+      "foot_anchor_local": 110.0,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        8,
+        12
+      ],
+      "atlas_pos": [
+        280,
+        168
+      ],
+      "sha256": "a59945ca7691c8bfd46a227204c08263bb894a1ef14d2dff67530c60b5f97669"
+    },
+    {
+      "index": 30,
+      "pose": "Idle",
+      "phase": 2,
+      "source_cell": [
+        6,
+        3
+      ],
+      "source_rect": [
+        1331,
+        665,
+        1552,
+        887
+      ],
+      "bbox_in_sheet": [
+        1352,
+        689,
+        1537,
+        871
+      ],
+      "scaled_size": [
+        33,
+        33
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 1466.0,
+      "foot_anchor_local": 114.0,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        8,
+        11
+      ],
+      "atlas_pos": [
+        336,
+        168
+      ],
+      "sha256": "ed284d7c05a191271ecf80c4149fa9d9a427cc5ca26864e6fc25f91eca612b73"
+    },
+    {
+      "index": 31,
+      "pose": "Idle",
+      "phase": 3,
+      "source_cell": [
+        7,
+        3
+      ],
+      "source_rect": [
+        1552,
+        665,
+        1774,
+        887
+      ],
+      "bbox_in_sheet": [
+        1575,
+        688,
+        1751,
+        871
+      ],
+      "scaled_size": [
+        31,
+        33
+      ],
+      "elevation_px": 0,
+      "foot_anchor_x": 1686.0,
+      "foot_anchor_local": 111.0,
+      "plant_offset_x": 8,
+      "cell_pos": [
+        8,
+        11
+      ],
+      "atlas_pos": [
+        392,
+        168
+      ],
+      "sha256": "6ff52be359ad1d45042899d864f233b0d2b5706aee4388738e1c47b55c8a9ac6"
+    }
+  ],
+  "previews": [
+    "preview/contact-sheet.png",
+    "preview/pose-idle.gif",
+    "preview/pose-leisure.gif",
+    "preview/pose-run.gif",
+    "preview/pose-collect.gif",
+    "preview/pose-deliver.gif",
+    "preview/pose-jump.gif",
+    "preview/pose-fall.gif",
+    "preview/pose-land.gif"
+  ]
+}

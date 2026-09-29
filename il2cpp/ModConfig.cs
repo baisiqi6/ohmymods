@@ -26,7 +26,13 @@ public static class ModConfig
     public static ConfigEntry<bool> PetGuardEnabled;
     public static ConfigEntry<bool> ArcherScatterEnabled, ArcherRateEnabled, ArcherImpactEnabled;
     public static ConfigEntry<bool> HeroArcherEnabled;
+    public static ConfigEntry<float> CrossbowRecruitmentRatio;
     public static ConfigEntry<bool> MusketeerEnabled;
+    public static ConfigEntry<bool> CoinCourierEnabled;
+    public static ConfigEntry<int> CoinCourierRecruitPrice;
+    public static ConfigEntry<int> CoinCourierPurseCapacity;
+    public static ConfigEntry<int> CoinCourierMaxCoinsPerVisit;
+    public static ConfigEntry<float> CoinCourierKnightCooldown;
     public static ConfigEntry<int> ArcherVolleyCount;
     public static ConfigEntry<float> ArcherRateMultiplier;
     public static ConfigEntry<bool> HermesHeadwearEnabled;
@@ -69,6 +75,23 @@ public static class ModConfig
             "火铳铺：所有世界可选。4金币购买火枪，居民拾取成为地面火铳手；基础伤害2、射程为原生普通弓手1.5倍、较慢装填，直线命中前排，不上箭塔。举旗另带最多4名现有火铳手；白天猎普通鹿，不伤兔子等小动物。第一版仅单机；关闭恢复原生外观与行为，职业记录保留。");
         HeroArcherEnabled = config.Bind("Archer", "HeroArcherEnabled", false,
             "英雄驿站：领地中段花8金币升级现有弓箭手，每侧最多1名，购买占位直到英雄死亡。关闭暂停商店与英雄效果，已购名额保留。英雄移速1.5倍、射速1.5倍、射程2倍、对敌3箭，火焰半径0.25/额外1点；仅单机。");
+        CrossbowRecruitmentRatio = config.Bind("Crossbowman", "RecruitmentRatio", CrossbowRatioPolicy.Default,
+            new ConfigDescription("普通弓箭手成为弩手的比例：25%/50%/75%/100%。新捡弓当次生效；已有单位下次读档按比例重算。弩手不参与骑士/举旗补员，已有队员不改；联机双方请使用相同比例。",
+                new AcceptableValueList<float>(.25f, .5f, .75f, 1f)));
+        CoinCourierEnabled = config.Bind("CoinCourier", "Enabled", true,
+            "金币哥布林：城堡/营火左侧投币招募一名全战役唯一友方哥布林。它从国库左侧逐枚取币入袋，传送到骑士后方补进金币槽；被敌逼近带余币撤回，不参与战斗。仅单机、且需要真实存档接线就绪；未接线时不生成角色、不收费。关闭保留招募身份与钱袋记录。");
+        CoinCourierRecruitPrice = config.Bind("CoinCourier", "RecruitPrice", 8,
+            new ConfigDescription("招募价格（金币，1-20）；付款交易开始后冻结当次价格，改配置不影响进行中的交易",
+                new AcceptableValueRange<int>(1, 20)));
+        CoinCourierPurseCapacity = config.Bind("CoinCourier", "PurseCapacity", 12,
+            new ConfigDescription("钱袋容量（1-40）；调低不裁剪已有余额，之后回银行只补到目标容量",
+                new AcceptableValueRange<int>(1, 40)));
+        CoinCourierMaxCoinsPerVisit = config.Bind("CoinCourier", "MaxCoinsPerVisit", 4,
+            new ConfigDescription("同一骑士每次访问最多补给枚数（1-12）；不是钱袋容量",
+                new AcceptableValueRange<int>(1, 12)));
+        CoinCourierKnightCooldown = config.Bind("CoinCourier", "KnightCooldown", 15f,
+            new ConfigDescription("同一骑士两次访问的最小间隔（游戏秒，0-120）",
+                new AcceptableValueRange<float>(0f, 120f)));
         ArcherVolleyCount = config.Bind("Archer", "VolleyCount", 3,
             new ConfigDescription("中世纪随从每发箭的总数量（含原生主箭），上限3支；高负载时额外箭受全场限额约束", new AcceptableValueRange<int>(1, 3)));
         ArcherRateEnabled = config.Bind("Archer", "RateEnabled", false, "所有世界：加快弓箭手准备、连射和冷却节奏，关闭恢复原版节奏");
@@ -127,7 +150,7 @@ public static class ModConfig
             "快速建造：建筑约 2 秒建成");
 
         MapSizeMultiplier = config.Bind("World", "MapSizeMultiplier", 2f,
-            "地图大小倍率（1-5x）");
+            "新生成岛实际长度倍率（1-5x，按原生地块取整）；已生成岛不变");
 
         // 箭塔基底（可购买塔位）密度倍数：1=原生密度（不补点），2=目标间距减半
         // （约两倍点位），上限 4。对原生参考集幂等补放（间距估计/铺点范围只取

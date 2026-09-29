@@ -12,8 +12,92 @@ namespace KingdomEnhancedMod;
 internal static class HeroArcherScarfGeometry
 {
     internal const int FacesPerSegment = 2;
-    internal const int VerticesPerSegment = 8;
+    internal const int RowsPerFace = 12;
+    internal const int VerticesPerFace = RowsPerFace * 4;
+    internal const int VerticesPerSegment = FacesPerSegment * VerticesPerFace;
     internal const int VertexCount = (HeroArcherClothChain.NodeCount - 1) * VerticesPerSegment;
+
+    /// <summary>
+    /// Rasterize one convex flat-color face into at most 12 positive-area pixel rows.
+    /// The caller owns all buffers. Each row is one sparse X interval, so a wide
+    /// reorientation frame does not require a wide pixel grid.
+    /// </summary>
+    internal static bool TryRasterFace(Segment band, int face, int[] rows, int[] left, int[] right,
+        int offset, out int count)
+    {
+        count = 0;
+        if (face < 0 || face >= FacesPerSegment || rows == null || left == null || right == null
+            || offset < 0 || rows.Length - offset < RowsPerFace
+            || left.Length - offset < RowsPerFace || right.Length - offset < RowsPerFace) return false;
+        Point a = face == 0 ? band.StartOuter : band.StartFold;
+        Point b = face == 0 ? band.StartFold : band.StartInner;
+        Point c = face == 0 ? band.EndFold : band.EndInner;
+        Point d = face == 0 ? band.EndOuter : band.EndFold;
+        if (!TryPixel(a, out int ax, out int ay) || !TryPixel(b, out int bx, out int by)
+            || !TryPixel(c, out int cx, out int cy) || !TryPixel(d, out int dx, out int dy)) return false;
+        double twiceArea = (double)ax * by - (double)ay * bx
+            + (double)bx * cy - (double)by * cx
+            + (double)cx * dy - (double)cy * dx
+            + (double)dx * ay - (double)dy * ax;
+        if (twiceArea == 0d) return false;
+        int minY = Math.Min(Math.Min(ay, by), Math.Min(cy, dy));
+        int maxY = Math.Max(Math.Max(ay, by), Math.Max(cy, dy));
+        if (maxY - minY > RowsPerFace || maxY <= minY) return false;
+        for (int row = minY; row < maxY; row++)
+        {
+            double low = double.PositiveInfinity, high = double.NegativeInfinity;
+            AddEdge(ax, ay, bx, by, row, ref low, ref high);
+            AddEdge(bx, by, cx, cy, row, ref low, ref high);
+            AddEdge(cx, cy, dx, dy, row, ref low, ref high);
+            AddEdge(dx, dy, ax, ay, row, ref low, ref high);
+            if (!(high > low)) continue;
+            int x0 = (int)Math.Floor(low), x1 = (int)Math.Ceiling(high);
+            if (x1 <= x0) continue;
+            rows[offset + count] = row;
+            left[offset + count] = x0;
+            right[offset + count] = x1;
+            count++;
+        }
+        return count > 0;
+    }
+
+    private static bool TryPixel(Point point, out int x, out int y)
+    {
+        x = y = 0;
+        double px = point.X * 32d, py = point.Y * 32d;
+        if (!double.IsFinite(px) || !double.IsFinite(py) || Math.Abs(px) > 324d || Math.Abs(py) > 324d)
+            return false;
+        // TrySegment already emits integer source pixels; reject foreign fractional input.
+        x = (int)Math.Round(px);
+        y = (int)Math.Round(py);
+        return Math.Abs(px - x) <= 0.0001d && Math.Abs(py - y) <= 0.0001d;
+    }
+
+    private static void AddEdge(int x0, int y0, int x1, int y1, int row,
+        ref double low, ref double high)
+    {
+        AddVertex(x0, y0, row, ref low, ref high);
+        AddVertex(x1, y1, row, ref low, ref high);
+        if (y0 == y1) return;
+        AddCrossing(x0, y0, x1, y1, row, ref low, ref high);
+        AddCrossing(x0, y0, x1, y1, row + 1, ref low, ref high);
+    }
+
+    private static void AddVertex(int x, int y, int row, ref double low, ref double high)
+    {
+        if (y < row || y > row + 1) return;
+        if (x < low) low = x;
+        if (x > high) high = x;
+    }
+
+    private static void AddCrossing(int x0, int y0, int x1, int y1, int boundary,
+        ref double low, ref double high)
+    {
+        if ((boundary < y0 && boundary < y1) || (boundary > y0 && boundary > y1)) return;
+        double x = x0 + (double)(x1 - x0) * (boundary - y0) / (y1 - y0);
+        if (x < low) low = x;
+        if (x > high) high = x;
+    }
 
     internal readonly struct Point
     {
