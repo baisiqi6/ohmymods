@@ -7,6 +7,52 @@ using Il2CppInterop.Runtime;
 namespace KingdomEnhancedMod;
 
 /// <summary>
+/// 金币哥布林专用一币取款结果。三态语义：NotApplied=确定未扣（可结束/重选）、
+/// Applied=已提交（之后的展示/落盘故障不改变经济结论，绝不重扣或回退成未扣）、
+/// Indeterminate=无法确认（Before/After 为 -1 表示该值未知，调用方必须冻结钱包）。
+/// 类型就放在本文件，离线测试工程只链接本文件即可，不额外耦合哥布林模块。
+/// </summary>
+internal enum CourierBankOutcome
+{
+    NotApplied = 0,
+    Applied = 1,
+    Indeterminate = 2,
+}
+
+internal enum CourierBankReason
+{
+    None = 0,
+    ModDisabled,
+    NoAuthority,
+    Online,
+    Paused,
+    GateClosed,
+    PrimeFailed,
+    Empty,
+    Unreadable,
+    WriteUnknown,
+    ReadbackUnknown,
+    WriteFault,
+    PresentationFailed,
+}
+
+internal readonly struct CourierBankDebit
+{
+    internal readonly CourierBankOutcome Outcome;
+    internal readonly CourierBankReason Reason;
+    internal readonly int Before;
+    internal readonly int After;
+
+    internal CourierBankDebit(CourierBankOutcome outcome, CourierBankReason reason, int before, int after)
+    {
+        Outcome = outcome;
+        Reason = reason;
+        Before = before;
+        After = after;
+    }
+}
+
+/// <summary>
 /// 银行家增强：NetID 903 唯一性，
 /// 以及银行助手的唯一权威入账入口。主银行家积极处理当前城墙内的金币。
 /// 迁移自 Mono Patch_Banker.cs（UMM + Harmony 1.2）。
@@ -42,6 +88,8 @@ public static class PatchEconomy_Banker
 {
     private const string SHARED_STASH_KEY = "MyMod_SharedBankStash";
     private const int ENHANCED_PLAYER_PAYOUT_TARGET = 100;
+    // 增强收币阈值：原生容量×1，收满再回库；原为0.5，半容量即回库。
+    private const float ENHANCED_COIN_GATHER_TARGET_PERCENTAGE = 1f;
     private static int _sharedStash = -1;
     private static ObjectIdentity _primedBanker;
     private static WorldIdentity _primedWorld;
@@ -393,8 +441,8 @@ public static class PatchEconomy_Banker
 
         try
         {
-            Claim(ref profile.GatherPercentage, banker.coinGatherTargetPercentage, 0.5f);
-            banker.coinGatherTargetPercentage = 0.5f;
+            Claim(ref profile.GatherPercentage, banker.coinGatherTargetPercentage, ENHANCED_COIN_GATHER_TARGET_PERCENTAGE);
+            banker.coinGatherTargetPercentage = ENHANCED_COIN_GATHER_TARGET_PERCENTAGE;
             Claim(ref profile.WalkSpeed, banker.walkSpeed, 1.95f);
             banker.walkSpeed = 1.95f;
             Claim(ref profile.RunSpeed, banker.runSpeed, 3.6f);
@@ -806,6 +854,152 @@ public static class PatchEconomy_Banker
         }
         return true;
     }
+
+    /// <summary>
+    /// 金币哥布林的银行闸门：唯一实现是 <see cref="CoinCourierBankScope"/> 的 903 登记解析器；
+    /// 传入的 banker 必须就是当前权威解析结果本体（原生读档允许 kingdom.banker 为 null，
+    /// 只有它非空且指向别体才是冲突）。与 GreekBankScope.IsAuthorityBanker 不同：
+    /// 允许所有 biome，且不读写任何账本。只做身份读取；离线与暂停由资金入口另行验证。
+    /// </summary>
+    internal static bool IsCourierBankAuthority(Banker banker)
+        => CoinCourierBankScope.IsCurrentAuthorityBanker(banker);
+
+    /// <summary>
+    /// Read-only scheduling hint for the courier. A Greek banker's native field is not
+    /// authoritative until the existing shared-ledger prime belongs to this banker and
+    /// world. Unknown must still reach the normal withdrawal path, which owns priming,
+    /// commit, readback and fault handling. No ledger or PlayerPrefs access occurs here.
+    /// </summary>
+    internal static bool TryReadCourierStash(Banker banker, out int coins)
+    {
+        coins = 0;
+        try
+        {
+            if (!IsCourierBankAuthority(banker)) return false;
+            GreekBankScope.Scope scope = GreekBankScope.Current();
+            if (scope == GreekBankScope.Scope.Unknown) return false;
+            if (scope == GreekBankScope.Scope.Active && (_needsReprime || !IsPrimedFor(banker))) return false;
+            coins = banker._stashedCoins;
+            return true;
+        }
+        catch (Exception)
+        {
+            coins = 0;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 最小专用一币取款：只服务金币哥布林装袋，不暴露通用 debit/refund，不经过
+    /// 税收助手/自动采购资格门。希腊先 prime 共享账并同调用同步内存账；其他世界
+    /// 只扣自身原生 _stashedCoins，绝不读写共享键。提交后的 Castle/Stats/PlayerPrefs
+    /// 故障只记原因，绝不让结果退化成 NotApplied 或再次扣款；写入异常一律先读回实际
+    /// 字段判定，读不回即 Indeterminate 交给调用方冻结钱包。
+    /// </summary>
+    internal static CourierBankDebit TryWithdrawOneCoinForCourier(Banker banker)
+    {
+        if (Time.timeScale <= 0f) return new CourierBankDebit(CourierBankOutcome.NotApplied, CourierBankReason.Paused, -1, -1);
+        if (!NetworkBigBoss.HasWorldAuth) return new CourierBankDebit(CourierBankOutcome.NotApplied, CourierBankReason.NoAuthority, -1, -1);
+        if (NetworkBigBoss.IsOnline) return new CourierBankDebit(CourierBankOutcome.NotApplied, CourierBankReason.Online, -1, -1);
+        if (ModConfig.Enabled == null || !ModConfig.Enabled.Value)
+            return new CourierBankDebit(CourierBankOutcome.NotApplied, CourierBankReason.ModDisabled, -1, -1);
+        bool authority;
+        try { authority = IsCourierBankAuthority(banker); }
+        catch (Exception e)
+        {
+            LogCourierError("gate read fault", e);
+            return new CourierBankDebit(CourierBankOutcome.NotApplied, CourierBankReason.GateClosed, -1, -1);
+        }
+        if (!authority) return new CourierBankDebit(CourierBankOutcome.NotApplied, CourierBankReason.GateClosed, -1, -1);
+
+        GreekBankScope.Scope scope = GreekBankScope.Current();
+        if (scope == GreekBankScope.Scope.Unknown)
+            return new CourierBankDebit(CourierBankOutcome.NotApplied, CourierBankReason.GateClosed, -1, -1);
+        bool greek = scope == GreekBankScope.Scope.Active;
+
+        if (greek && !TryPrimeSharedLedger(banker))
+            return new CourierBankDebit(CourierBankOutcome.NotApplied, CourierBankReason.PrimeFailed, -1, -1);
+
+        int before;
+        try { before = banker._stashedCoins; }
+        catch (Exception e)
+        {
+            LogCourierError("treasury read fault", e);
+            return new CourierBankDebit(CourierBankOutcome.NotApplied, CourierBankReason.Unreadable, -1, -1);
+        }
+        if (before <= 0)
+            return new CourierBankDebit(CourierBankOutcome.NotApplied, CourierBankReason.Empty, before, before);
+        int updated = before - 1;
+
+        bool writeFault = false;
+        try
+        {
+            // 本赋值就是原子经济提交；从这里开始结果不允许再变成 NotApplied。
+            banker._stashedCoins = updated;
+        }
+        catch (Exception e)
+        {
+            // 原生 setter 异常不代表没写进去：先读回实际字段再判定。
+            int observed;
+            try { observed = banker._stashedCoins; }
+            catch (Exception readFault)
+            {
+                LogCourierError("treasury write unverifiable", e);
+                LogCourierError("treasury readback fault", readFault);
+                return new CourierBankDebit(CourierBankOutcome.Indeterminate, CourierBankReason.ReadbackUnknown, before, -1);
+            }
+            if (observed != updated)
+            {
+                LogCourierError("treasury write fault", e);
+                return new CourierBankDebit(CourierBankOutcome.NotApplied, CourierBankReason.WriteFault, before, observed);
+            }
+            writeFault = true; // 写入实际已落：按已提交继续
+        }
+
+        if (greek)
+        {
+            _sharedStash = updated;
+            _lastObservedStash = updated;
+        }
+
+        bool presentation = false;
+        if (greek)
+        {
+            try
+            {
+                PlayerPrefs.SetInt(SHARED_STASH_KEY, updated);
+                _sharedLedgerDirty = true;
+            }
+            catch (Exception e)
+            {
+                _lastObservedStash = int.MinValue; // 既有 Update 会重试落盘这笔已提交的扣款
+                presentation = true;
+                LogCourierError("courier debit committed; ledger staging failed", e);
+            }
+        }
+        try
+        {
+            Managers managers = Managers.Inst;
+            Kingdom kingdom = managers != null ? managers.kingdom : null;
+            if (kingdom != null && kingdom.castle != null) kingdom.castle.SetStash(updated);
+            if (managers != null && managers.stats != null)
+                managers.stats.SetStat(Stat.CoinsInBank, updated, false);
+        }
+        catch (Exception e)
+        {
+            presentation = true;
+            LogCourierError("courier debit committed; display refresh failed", e);
+        }
+
+        CourierBankReason reason = writeFault ? CourierBankReason.WriteFault
+            : presentation ? CourierBankReason.PresentationFailed
+            : CourierBankReason.None;
+        return new CourierBankDebit(CourierBankOutcome.Applied, reason, before, updated);
+    }
+
+    private static void LogCourierError(string what, Exception error)
+        => KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+            "[CoinCourier] " + what + ": " + error.GetType().Name);
 
     // IEnumerator 完成时点不靠 Harmony postfix 猜测。FinaliseEmerge/DayStart 只做可靠
     // priming；之后由 Update 在真实 _stashedCoins 变化后同步存入/提款结果。

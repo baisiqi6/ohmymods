@@ -10,6 +10,7 @@ static class Program
  {
   Counts.Reset();Managers.ThrowInst=false;Managers.Inst=new();Time.unscaledTime=0;
   MusketeerIdentity.Reset();ModConfig.MusketeerShopEnabled.Value=false;
+  PatchRoles_Crossbowman.RecomputeState=CrossbowRecomputeState.Disabled;
   NetworkBigBoss.HasWorldAuth=true;
   ModConfig.Enabled.Value=ModConfig.ShowPopulationHud.Value=true;ModConfig.AutoRestockWorkersEnabled.Value=false;
   ModConfig.AutoRestockCatapultBarrelsEnabled.Value=ModConfig.AutoRestockFireTowerAmmoEnabled.Value=false;
@@ -350,6 +351,37 @@ static class Program
    Time.unscaledTime=200;ModConfig.ShowPopulationHud.Value=false;ModConfig.AutoRestockFireTowerAmmoEnabled.Value=true;
    PopulationHud.Tick();Eq(true,SiegeAmmoCounts.LastEnabled,"auto still needs cache");PopulationHud.Draw();Eq(0,GUI.Labels.Count,"HUD hidden");
    ModConfig.Enabled.Value=false;PopulationHud.Tick();Eq(false,SiegeAmmoCounts.LastEnabled,"whole mod disables demand");
+  });
+  Test("Crossbow row shows waiting then the real count keyed by recompute state",()=>{
+   var m=Managers.Inst;var c=Actor<Archer>(m);var archer=c.gameObject.GetComponent<Archer>();
+   PatchRoles_Crossbowman.RecomputeState=CrossbowRecomputeState.Waiting;
+   Time.unscaledTime=2; // 越过上个用例遗留的 1s 故障退避门
+   PopulationHud.Tick();PopulationHud.Draw();
+   Eq(true,GUI.Labels.Any(x=>x.Text=="弩手  等待重算"),"waiting row instead of a premature zero");
+   archer.IsCrossbow=true;Read(3);
+   long version=Counts.Version;
+   GUI.Labels.Clear();PatchRoles_Crossbowman.RecomputeState=CrossbowRecomputeState.Completed;
+   PopulationHud.Tick();PopulationHud.Draw();
+   Eq(true,GUI.Labels.Any(x=>x.Text=="弩手  1"),"completed row shows the real count");
+   Eq(version,Counts.Version,"state switch re-rendered without a population version change");
+   GUI.Labels.Clear();PatchRoles_Crossbowman.RecomputeState=CrossbowRecomputeState.Failed;
+   PopulationHud.Tick();PopulationHud.Draw();
+   Eq(true,GUI.Labels.Any(x=>x.Text=="弩手  1（部分未完成）"),"failed row keeps the real count plus a short mark");
+   GUI.Labels.Clear();PatchRoles_Crossbowman.RecomputeState=CrossbowRecomputeState.Disabled;
+   PopulationHud.Tick();PopulationHud.Draw();
+   Eq(true,GUI.Labels.Any(x=>x.Text=="弩手  1"),"disabled row is a plain real count");
+  });
+  Test("Paused world keeps the waiting row and the init state untouched",()=>{
+   var m=Managers.Inst;var c=Actor<Archer>(m);c.gameObject.GetComponent<Archer>().IsCrossbow=true;
+   PatchRoles_Crossbowman.RecomputeState=CrossbowRecomputeState.Waiting;
+   Time.unscaledTime=2; // 越过上个用例遗留的 1s 故障退避门
+   PopulationHud.Tick();PopulationHud.Draw();
+   Eq(true,GUI.Labels.Any(x=>x.Text=="弩手  等待重算"),"waiting shown before pause");
+   m.game.state=Game.State.Menu;Time.unscaledTime=3;
+   GUI.Labels.Clear();PopulationHud.Tick();PopulationHud.Draw();
+   Eq(true,GUI.Labels.Any(x=>x.Text=="弩手  等待重算"),"pause alone never advances the waiting row");
+   Eq(CrossbowRecomputeState.Waiting,PatchRoles_Crossbowman.RecomputeState,"display never rewrites the init state");
+   Eq(1,Counts.Role(Counts.CrossbowmanRole),"paused counts stay real");
   });
   Console.WriteLine($"RESULT: {passed} passed, {failed} failed");Environment.ExitCode=failed==0?0:1;
  }

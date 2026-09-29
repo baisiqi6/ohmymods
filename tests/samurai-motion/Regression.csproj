@@ -1,4 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
- <ItemGroup><Compile Include="../../il2cpp/PatchRoles_SamuraiPowerDash.cs" Link="Production/SamuraiMotion.cs" /></ItemGroup>
+ <ItemGroup>
+  <Compile Include="../../il2cpp/PatchRoles_SamuraiPowerDash.cs" Link="Production/SamuraiMotion.cs" />
+  <Compile Include="../../il2cpp/SamuraiChoreoMotion.cs" Link="Production/SamuraiChoreoMotion.cs" />
+ </ItemGroup>
 </Project>

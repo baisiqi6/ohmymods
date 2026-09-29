@@ -205,11 +205,14 @@ static class Harness
         ClearStatic(CoordinatorType, "SeenThisScan");
         ClearStatic(CoordinatorType, "MatureBuffer");
         ClearStatic(CoordinatorType, "RemovalBuffer");
-        ClearStatic(CoordinatorType, "FarmOriginCoinIds");
+        BankAssistantCoinOrigin.ClearAll();
+        ByteBuffer.ResetForTest();
+        BankAssistantAtlasVisuals.Reset();
         ClearStatic(CoordinatorType, "SweepPolicies");
         ClearStatic(CoordinatorType, "TriedThisChain");
         ClearStatic(CoordinatorType, "LoggedDiagnosticStates");
         ClearArrayStatic(CoordinatorType, "ActiveCollector");
+        ClearArrayStatic(CoordinatorType, "PoolOwnershipDiagnostic");
         foreach (object state in (Array)AssistantsField.GetValue(null))
         {
             SetField(state, "Actor", null);
@@ -223,6 +226,8 @@ static class Harness
             SetField(state, "PatrolResumeAt", 0f);
             SetField(state, "RestockReserved", false);
             SetField(state, "WaitDeadline", 0f);
+            SetField(state, "RoundKind", BankAssistantCoinOriginKind.None);
+            SetField(state, "PlayerRoundOwner", null);
         }
 
         ClearStatic(RestockType, "_orders");
@@ -253,6 +258,14 @@ static class Harness
 
         ClearStatic(AnimationType, "LastPositions");
         ClearStatic(AnimationType, "LastTimes");
+
+        // 传送表现（真实 production 类）与共享 FX 池的确定性隔离：结束所有槽（取消
+        // 自有句柄并归还捕获的 enabled），再把池里残留的活动 effect 推进到寿命终点
+        // （不调用 Clear——那是整 world 所有者入口，业务侧不得使用）。
+        for (int i = 0; i < 8; i++) BankAssistantTeleportVisuals.EndSlot(i);
+        int fxGuard = 0;
+        while (CoinCourierTeleportFx.ActiveCount > 0 && fxGuard++ < 16)
+            CoinCourierTeleportFx.TickForFrame(1f, 900000 + fxGuard);
 
 
         SetStatic(ScopeType, "_loggedFailure", false);
@@ -322,17 +335,33 @@ static class Harness
 
     public static int OrderCount() => ((IList)GetStatic(RestockType, "_orders")).Count;
 
-    /// <summary>Observable of the farm-origin mark set (HashSet&lt;int&gt; is not ICollection).</summary>
+    /// <summary>Observable of the exact-farm origin registry (issue-89 helper).</summary>
     public static int FarmMarkCount()
     {
-        object set = GetStatic(CoordinatorType, "FarmOriginCoinIds");
-        return (int)set.GetType().GetProperty("Count").GetValue(set);
+        int count = 0;
+        foreach (var entry in OriginSnapshot())
+            if (entry.Value == BankAssistantCoinOriginKind.Farm) count++;
+        return count;
     }
 
     public static bool FarmMarkContains(int instanceId)
+        => OriginSnapshot().TryGetValue(instanceId, out var kind)
+            && kind == BankAssistantCoinOriginKind.Farm;
+
+    /// <summary>origin registry 的只读快照（测试经私有 Entries 字段反射观测）。</summary>
+    public static Dictionary<int, BankAssistantCoinOriginKind> OriginSnapshot()
     {
-        object set = GetStatic(CoordinatorType, "FarmOriginCoinIds");
-        return (bool)set.GetType().GetMethod("Contains").Invoke(set, new object[] { instanceId });
+        var result = new Dictionary<int, BankAssistantCoinOriginKind>();
+        object entries = GetStatic(typeof(BankAssistantCoinOrigin), "Entries");
+        foreach (DictionaryEntry pair in (IDictionary)entries)
+        {
+            object entry = pair.Value;
+            object kind = entry.GetType()
+                .GetField("Kind", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+                .GetValue(entry);
+            result[(int)pair.Key] = (BankAssistantCoinOriginKind)kind;
+        }
+        return result;
     }
 }
 
@@ -442,5 +471,15 @@ sealed class Fixture
         Harness.RegisterPooled(coinGo);
         Registrar.Droppables.Add(coin);
         return coin;
+    }
+
+    /// <summary>issue-89：当前层的原生式君主（header 自指回本体，作为 KnownPlayer 证据）。</summary>
+    public Player AddPlayer(float x, string name = "Monarch")
+    {
+        GameObject playerGo = Sim.NewActor(name, Layer);
+        playerGo.transform.position = new Vector3(x, 0f, 0f);
+        Player player = playerGo.AddComponent<Player>();
+        player.parentHeaderRef = new CRPCHeader { referencedGO = playerGo };
+        return player;
     }
 }

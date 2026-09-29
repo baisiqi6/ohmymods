@@ -3,7 +3,7 @@ using System;
 namespace KingdomEnhancedMod;
 
 /// <summary>
-/// 纯逻辑移动判据 + 0.9 视觉缩放常量（worker 2026-09-15 slice，无 Unity 依赖，可被测试直接链接）。
+/// 纯逻辑移动判据 + 0.70 站高视觉缩放常量（worker 2026-09-15 slice，无 Unity 依赖，可被测试直接链接）。
 ///
 /// 背景（已核代码事实）：原生 Mover.SetSpeed 主动写 _movingToGoal=false，但 _moveSpeed 仍非 0，
 /// ActualSpeed = _moveSpeed * _multiplier —— goal 标记不能代表「实际是否在移动」。
@@ -15,8 +15,10 @@ internal static class HeroArcherMotion
     /// <summary>速度死区：|speed| &lt;= 该值视为停下（配合动画状态机的同值 no-op，walk/run 边界不抖动重置相位）。</summary>
     internal const float WalkSpeedEpsilon = 0.05f;
 
-    /// <summary>自有 body/cloth 的整体表现缩放：绝对值断言用（脚点 pivot 缩小；z 保持 1 不动深度）。</summary>
-    internal const float VisualScale = 0.9f;
+    /// <summary>自有 body/cloth 的整体表现缩放：绝对值断言用（脚点 pivot 缩小；z 保持 1 不动深度）。
+    /// 0.70 站高校准（2026-09-29 修订）：素材最高自然站姿 24px、PPU 32 → 0.70×32/24 ≈ 0.933333
+    /// （最高站姿 = 0.70；普通/休闲立姿 23px ≈ 0.670833，较 23px 基准总体缩 4.167%）。</summary>
+    internal const float VisualScale = 0.70f * 32f / 24f;
 
     /// <summary>布料像素→单位换算，与 HeroArcherClothMath.PixelsPerUnit 同源规则（1px = 1/32）。</summary>
     internal const float ClothPixelsPerUnit = 32f;
@@ -45,7 +47,7 @@ internal static class HeroArcherMotion
     }
 
     /// <summary>
-    /// 0.9 缩放下 cloth root 的 local x/y（z 沿用 body 的 z）：以 body root 的 localPosition 为参考，
+    /// VisualScale 缩放下 cloth root 的 local x/y（z 沿用 body 的 z）：以 body root 的 localPosition 为参考，
     /// 肩部像素偏移 × VisualScale —— 身体缩小后飘带锚点同步上移/内收，不悬空。
     /// x 偏移符号随 flip（与 HeroArcherCloth.Create/ApplyFlip 同规则：flip 时取 -ShoulderOffsetPixelsX）。
     /// 纯函数、输出绝对值：重复调用同结果（幂等，绝不乘当前 scale 造成逐帧递减）。

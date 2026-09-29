@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>CoinCourierShopTests</AssemblyName>
+    <RootNamespace>CoinCourierShopTests</RootNamespace>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+    <GeneratePropertiesFile>false</GeneratePropertiesFile>
+    <!-- 编译完整商店（含 Unity/Payable 装配路径），复用 runtime-bridge 的边界替身。 -->
+    <DefineConstants>COURIER_FULL_SHOP;HERO_SHOP_CORE_ONLY</DefineConstants>
+    <NoWarn>$(NoWarn);0649</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../coin-courier-runtime-bridge/Stubs.cs" Link="Stubs.cs" />
+    <Compile Include="../../il2cpp/CoinCourierShop.cs" Link="Production/CoinCourierShop.cs" />
+    <Compile Include="../../il2cpp/CoinCourierRuntime.cs" Link="Production/CoinCourierRuntime.cs" />
+    <Compile Include="../../il2cpp/CoinCourierCoinFlight.cs" Link="Production/CoinCourierCoinFlight.cs" />
+    <Compile Include="../../il2cpp/CoinCourierRuntimeRules.cs" Link="Production/CoinCourierRuntimeRules.cs" />
+    <Compile Include="../../il2cpp/CoinCourierCampaignState.cs" Link="Production/CoinCourierCampaignState.cs" />
+    <Compile Include="../../il2cpp/CoinCourierPurse.cs" Link="Production/CoinCourierPurse.cs" />
+    <Compile Include="../../il2cpp/CoinCourierRules.cs" Link="Production/CoinCourierRules.cs" />
+    <Compile Include="../../il2cpp/HeroShop.cs" Link="Production/HeroShop.cs" />
+  </ItemGroup>
+
+</Project>

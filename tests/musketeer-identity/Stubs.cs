@@ -120,4 +120,14 @@ namespace KingdomEnhancedMod
         internal void LogWarning(string message) { Lines.Add("W: " + message); }
         internal void LogError(string message) { Lines.Add("E: " + message); }
     }
+
+    /// <summary>
+    /// 仅测试替身：MusketeerPersistence 现役 ApplyToScene postfix 末尾调用本模块确认入口；
+    /// 与生产 `CoinCourierPersistence.EnsureBoundFromApplyToScene(CampaignSaveData)` 同签名 no-op。
+    /// 待本工程改为链接真实持久化生产文件时同步删除（防双源漂移）；旧断言不受影响。
+    /// </summary>
+    internal static class CoinCourierPersistence
+    {
+        internal static void EnsureBoundFromApplyToScene(CampaignSaveData applied) { }
+    }
 }

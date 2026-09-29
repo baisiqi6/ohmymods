@@ -74,35 +74,62 @@ public class Archer : UnityEngine.Component
     public Character _character;
     public Damageable _damageable = new();
     public Side _guardSide;
-    public int _guardDepth, Writes;
+    public int _guardDepth;
+    public readonly List<(Side Side, int Depth)> Writes = new();
     public object GetFormation() => null;
     public bool ShouldPlayerControl() => false;
-    public void SetGuardSide(Side side, int depth) { _guardSide = side; _guardDepth = depth; Writes++; }
+    public void SetGuardSide(Side side, int depth) { _guardSide = side; _guardDepth = depth; Writes.Add((side, depth)); }
 }
+public static class NetworkBigBoss
+{
+    public static bool HasWorldAuth = true;
+    public static bool IsOnline;
+}
+
 public class Kingdom : UnityEngine.Component
 {
     public List<Archer> _availableArchersCache = new();
     public List<Archer> Archers = new();
     public int DistributeCalls;
     public bool ThrowNative, Override;
+    // Modeled knight followers: the native quota mixes their counts into the right counter
+    // (issue-78 evidence). FollowerLeft/FollowerRight = 4/4 and 40/40 reproduce the measured
+    // free20 vectors; zero keeps legacy scenarios on a healthy counter.
+    public int FollowerLeft, FollowerRight;
+    public int LastNativeMinDepth = int.MaxValue;
     public bool HasOverrideGuardPosition() => Override;
     public KeyValuePair<Side, float> GetGuardPosition(Side side) => new(side, 20f * (float)side);
     public void DistributeFreeArchers()
     {
         bool owns = KingdomEnhancedMod.MusketeerDefense.Begin(this);
         DistributeCalls++;
-        if (ThrowNative) throw new InvalidOperationException("native failure fixture");
         _availableArchersCache.Clear();
-        // Models the native same-shop cluster being sent left, with ordinary archer right.
-        // Native writes fields directly here so policy Writes measures marked-only changes.
-        int left = 0, right = 0;
         foreach (var a in Archers)
         {
             if (!a.isAvailable) continue;
             _availableArchersCache.Add(a);
-            a._guardSide = a.transform.position.x < 100 ? Side.Left : Side.Right;
-            a._guardDepth = a._guardSide == Side.Left ? left++ : right++;
         }
+        // Side placement stands in for the native position/safety decisions (same-shop cluster
+        // left, ordinary archer right); the depth counters mirror the measured 2.4 arithmetic
+        // (RVA 0x59D0B1-0x59D1D9): left starts at 0, right starts at freeCount - quota with
+        // quota = max((total - leftFollowers + rightFollowers) / 2, 0), and the right counter
+        // decrements. Native writes fields directly here so policy Writes counts only the hooks.
+        int free = _availableArchersCache.Count;
+        int total = free + FollowerLeft + FollowerRight;
+        int quota = Math.Max((total - FollowerLeft + FollowerRight) / 2, 0);
+        int rightCounter = free - quota;
+        int leftCounter = 0;
+        LastNativeMinDepth = int.MaxValue;
+        for (int i = 0; i < free; i++)
+        {
+            var a = _availableArchersCache[i];
+            a._guardSide = a.transform.position.x < 100 ? Side.Left : Side.Right;
+            a._guardDepth = a._guardSide == Side.Left ? leftCounter++ : --rightCounter;
+            if (a._guardDepth < LastNativeMinDepth) LastNativeMinDepth = a._guardDepth;
+        }
+        // A native throw skips the Harmony postfix entirely: neither A nor End runs here.
+        if (ThrowNative) throw new InvalidOperationException("native failure fixture");
+        KingdomEnhancedMod.GuardRankDistribution.ReindexAfterNative(this);   // A boundary
         if (owns) KingdomEnhancedMod.MusketeerDefense.End(this);
     }
 }
@@ -132,6 +159,12 @@ public class IslandSaveData : UnityEngine.Object
 
 namespace KingdomEnhancedMod
 {
+    internal static class ModConfig
+    {
+        internal sealed class BoolEntry { internal bool Value = true; }
+        internal static BoolEntry Enabled = new();
+    }
+
     internal static class MusketeerAccess
     {
         internal static bool TrackAllowed = true;
@@ -151,5 +184,14 @@ namespace KingdomEnhancedMod
     }
 
     internal class Logger { internal void LogInfo(string message) { } internal void LogWarning(string message) { } }
-}
 
+    /// <summary>
+    /// 仅测试替身：MusketeerPersistence 现役 ApplyToScene postfix 末尾调用本模块确认入口；
+    /// 与生产 `CoinCourierPersistence.EnsureBoundFromApplyToScene(CampaignSaveData)` 同签名 no-op。
+    /// 待本工程改为链接真实持久化生产文件时同步删除（防双源漂移）；旧断言不受影响。
+    /// </summary>
+    internal static class CoinCourierPersistence
+    {
+        internal static void EnsureBoundFromApplyToScene(CampaignSaveData applied) { }
+    }
+}

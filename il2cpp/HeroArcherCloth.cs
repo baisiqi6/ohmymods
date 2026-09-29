@@ -20,7 +20,7 @@
 //   mainTexture = 自有 1x1 白纹理，绝不采样图集/不产生柔边光晕）；只用 sharedMaterial，
 //   从不读写原生 renderer 的 material/propertyBlock；逐帧 alpha 走自有 MaterialPropertyBlock；
 // - 排序在身体后：sortingLayerID = reference.sortingLayerID、sortingOrder = reference.sortingOrder - 1；
-// - 顶点每帧只写「量化到 1/32 格」的呈现坐标（模拟状态不量化）；复用 Il2CppStructArray，
+// - 最终每面栅格成 1/32 格的稀疏像素行段（模拟状态不量化）；复用 Il2CppStructArray，
 //   零逐帧托管分配；无坐标扫描（两条链各 8 点）、无协程、无 Unity 物理组件、无碰撞；
 // - reference 只读（enabled/color.a/sorting/flip/layer），绝不读也绝不写 forceRenderingOff；
 //   可见性由 caller 显式传入 visible（reference 被本模组隐藏时不会被误伤）。
@@ -97,6 +97,9 @@ internal static class HeroArcherCloth
         internal MeshFilter[] Filters = new MeshFilter[ChainCount];
         internal MeshRenderer[] Renderers = new MeshRenderer[ChainCount];
         internal Il2CppStructArray<Vector3>[] Vertices = new Il2CppStructArray<Vector3>[ChainCount];
+        internal int[][] RasterRows = new int[ChainCount][];
+        internal int[][] RasterLeft = new int[ChainCount][];
+        internal int[][] RasterRight = new int[ChainCount][];
         internal float WindClock;
         internal float LastOrientation;
         internal bool AppliedSecondarySortingOrder;
@@ -198,6 +201,11 @@ internal static class HeroArcherCloth
 
                     Il2CppStructArray<Vector3> vertices = new Il2CppStructArray<Vector3>(HeroArcherScarfGeometry.VertexCount);
                     handle.Vertices[c] = vertices;
+                    int runCapacity = (HeroArcherClothChain.NodeCount - 1)
+                        * HeroArcherScarfGeometry.FacesPerSegment * HeroArcherScarfGeometry.RowsPerFace;
+                    handle.RasterRows[c] = new int[runCapacity];
+                    handle.RasterLeft[c] = new int[runCapacity];
+                    handle.RasterRight[c] = new int[runCapacity];
                     mesh.vertices = vertices; // 空网格会拒绝 colors/triangles：先喂顶点
                     mesh.colors = BuildColors(c);
                     mesh.triangles = BuildTriangles();
@@ -212,7 +220,7 @@ internal static class HeroArcherCloth
                     handle.Meshes[c] = mesh;
                     handle.Filters[c] = filter;
                     handle.Renderers[c] = renderer;
-                    WriteMesh(handle, c);
+                    if (!WriteMesh(handle, c)) throw new InvalidOperationException("initial scarf raster invalid");
                 }
             }
             catch (Exception e)
@@ -299,13 +307,12 @@ internal static class HeroArcherCloth
             primary.Step(dt, simulationVelocity, handle.WindClock);
             secondary.Step(dt, simulationVelocity, handle.WindClock);
 
-            WriteMesh(handle, 0);
-            WriteMesh(handle, 1);
+            bool meshesValid = WriteMesh(handle, 0) & WriteMesh(handle, 1);
             ApplyAlpha(handle, color.a);
             ApplySorting(handle, sortingLayer, sortingOrder, secondarySortingOrder);
             ApplyLayer(handle, goLayer);
             ApplyFlip(handle, flipX);
-            SetVisible(handle, true);
+            SetVisible(handle, meshesValid);
         }
         catch (Exception e)
         {
@@ -369,6 +376,9 @@ internal static class HeroArcherCloth
                 handle.Filters[c] = null;
                 handle.Renderers[c] = null;
                 handle.Vertices[c] = null;
+                handle.RasterRows[c] = null;
+                handle.RasterLeft[c] = null;
+                handle.RasterRight[c] = null;
                 handle.Chains[c] = null;
                 DestroyOwn(mesh); // new Mesh() 不随 GameObject 释放
             }
@@ -383,32 +393,64 @@ internal static class HeroArcherCloth
     // 顶点写入（每帧：只写量化后的呈现坐标）
     // ============================================================
 
-    /// <summary>Seven segments, two flat-color faces each; all buffers are created once.</summary>
-    private static void WriteMesh(Handle handle, int index)
+    /// <summary>Seven segments, two flat-color faces each; every row occupies one fixed slot.</summary>
+    private static bool WriteMesh(Handle handle, int index)
     {
         HeroArcherClothChain chain = handle.Chains[index];
         Il2CppStructArray<Vector3> vertices = handle.Vertices[index];
-        if (chain == null || vertices == null) return;
+        int[] rows = handle.RasterRows[index], left = handle.RasterLeft[index], right = handle.RasterRight[index];
+        if (chain == null || vertices == null || rows == null || left == null || right == null) return false;
+        ClearVertices(vertices);
+        float minX = float.PositiveInfinity, minY = float.PositiveInfinity;
+        float maxX = float.NegativeInfinity, maxY = float.NegativeInfinity;
         for (int segment = 0; segment < HeroArcherClothChain.NodeCount - 1; segment++)
         {
             if (!HeroArcherScarfGeometry.TrySegment(chain.PointsX, chain.PointsY, segment, index, handle.WindClock, out var band,
                 attachmentBridge: index == 1))
-                continue; // A transient collapsed segment retains its last valid face.
-            int start = segment * HeroArcherScarfGeometry.VerticesPerSegment;
-            WritePoint(vertices, start, band.StartOuter);
-            WritePoint(vertices, start + 1, band.StartFold);
-            WritePoint(vertices, start + 2, band.EndOuter);
-            WritePoint(vertices, start + 3, band.EndFold);
-            WritePoint(vertices, start + 4, band.StartFold);
-            WritePoint(vertices, start + 5, band.StartInner);
-            WritePoint(vertices, start + 6, band.EndFold);
-            WritePoint(vertices, start + 7, band.EndInner);
+                return ClearInvalidMesh(handle.Meshes[index], vertices);
+            for (int face = 0; face < HeroArcherScarfGeometry.FacesPerSegment; face++)
+            {
+                int faceIndex = segment * HeroArcherScarfGeometry.FacesPerSegment + face;
+                int slot = faceIndex * HeroArcherScarfGeometry.RowsPerFace;
+                if (!HeroArcherScarfGeometry.TryRasterFace(band, face, rows, left, right, slot, out int count))
+                    return ClearInvalidMesh(handle.Meshes[index], vertices);
+                for (int run = 0; run < count; run++)
+                {
+                    int cell = slot + run;
+                    float x0 = left[cell] / HeroArcherClothMath.PixelsPerUnit;
+                    float x1 = right[cell] / HeroArcherClothMath.PixelsPerUnit;
+                    float y0 = rows[cell] / HeroArcherClothMath.PixelsPerUnit;
+                    float y1 = (rows[cell] + 1) / HeroArcherClothMath.PixelsPerUnit;
+                    int start = cell * 4;
+                    vertices[start] = new Vector3(x0, y0, 0f);
+                    vertices[start + 1] = new Vector3(x1, y0, 0f);
+                    vertices[start + 2] = new Vector3(x0, y1, 0f);
+                    vertices[start + 3] = new Vector3(x1, y1, 0f);
+                    if (x0 < minX) minX = x0;
+                    if (x1 > maxX) maxX = x1;
+                    if (y0 < minY) minY = y0;
+                    if (y1 > maxY) maxY = y1;
+                }
+            }
         }
-        handle.Meshes[index].vertices = vertices;
+        Mesh mesh = handle.Meshes[index];
+        mesh.vertices = vertices;
+        mesh.bounds = new Bounds(new Vector3((minX + maxX) * 0.5f, (minY + maxY) * 0.5f, 0f),
+            new Vector3(maxX - minX, maxY - minY, 1f));
+        return true;
     }
 
-    private static void WritePoint(Il2CppStructArray<Vector3> vertices, int index, HeroArcherScarfGeometry.Point point)
-        => vertices[index] = new Vector3(point.X, point.Y, 0f);
+    private static bool ClearInvalidMesh(Mesh mesh, Il2CppStructArray<Vector3> vertices)
+    {
+        ClearVertices(vertices);
+        if (mesh != null) mesh.vertices = vertices;
+        return false;
+    }
+
+    private static void ClearVertices(Il2CppStructArray<Vector3> vertices)
+    {
+        for (int i = 0; i < vertices.Length; i++) vertices[i] = Vector3.zero;
+    }
 
     private static Il2CppStructArray<Color> BuildColors(int index)
     {
@@ -419,8 +461,10 @@ internal static class HeroArcherCloth
             {
                 int rgb = HeroArcherScarfGeometry.FaceRgb(index, segment, face);
                 Color color = new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, 1f);
-                int start = segment * HeroArcherScarfGeometry.VerticesPerSegment + face * 4;
-                for (int corner = 0; corner < 4; corner++) colors[start + corner] = color;
+                int start = segment * HeroArcherScarfGeometry.VerticesPerSegment
+                    + face * HeroArcherScarfGeometry.VerticesPerFace;
+                for (int cell = 0; cell < HeroArcherScarfGeometry.RowsPerFace; cell++)
+                    for (int corner = 0; corner < 4; corner++) colors[start + cell * 4 + corner] = color;
             }
         }
         return colors;
@@ -428,11 +472,12 @@ internal static class HeroArcherCloth
 
     private static Il2CppStructArray<int> BuildTriangles()
     {
-        int faces = (HeroArcherClothChain.NodeCount - 1) * HeroArcherScarfGeometry.FacesPerSegment;
-        var triangles = new Il2CppStructArray<int>(faces * 6);
-        for (int face = 0; face < faces; face++)
+        int cells = (HeroArcherClothChain.NodeCount - 1) * HeroArcherScarfGeometry.FacesPerSegment
+            * HeroArcherScarfGeometry.RowsPerFace;
+        var triangles = new Il2CppStructArray<int>(cells * 6);
+        for (int cell = 0; cell < cells; cell++)
         {
-            int a = face * 4, index = face * 6;
+            int a = cell * 4, index = cell * 6;
             triangles[index] = a;
             triangles[index + 1] = a + 1;
             triangles[index + 2] = a + 2;

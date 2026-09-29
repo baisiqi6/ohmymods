@@ -300,8 +300,22 @@ namespace KingdomEnhancedMod
             internal string name;
             internal string uniqueID;
             internal string prefabPath;
-            internal Il2CppSystem.Collections.Generic.List<ComponentData> componentData2 =
+
+            /// <summary>仅测试：模拟 interop 组件列表读异常（未知记录必须 fail-closed，不能当作非目标跳过）。</summary>
+            internal bool ThrowOnComponentsReadForTests;
+
+            private Il2CppSystem.Collections.Generic.List<ComponentData> _componentData2 =
                 new Il2CppSystem.Collections.Generic.List<ComponentData>();
+
+            internal Il2CppSystem.Collections.Generic.List<ComponentData> componentData2
+            {
+                get
+                {
+                    if (ThrowOnComponentsReadForTests) throw new InvalidOperationException("simulated interop component read failure");
+                    return _componentData2;
+                }
+                set { _componentData2 = value; }
+            }
 
             internal void WriteJson(StringBuilder builder)
             {
@@ -470,22 +484,23 @@ namespace KingdomEnhancedMod
             unit.Go.transform.parent = inWorld ? layer : null;
         }
 
-        /// <summary>新建 world（独立 scene handle + gameLayer）。</summary>
-        internal static void ResetWorld(int sceneHandle)
+        /// <summary>新建 world（独立 scene handle + gameLayer）；worldPointer &lt; 0 时与 handle 同值。</summary>
+        internal static void ResetWorld(int sceneHandle, int worldPointer = -1)
         {
+            int pointer = worldPointer < 0 ? sceneHandle : worldPointer;
             UnityEngine.GameObject worldGo = new UnityEngine.GameObject
             {
                 name = "World",
                 InstanceId = sceneHandle,
-                Pointer = new IntPtr(sceneHandle),
+                Pointer = new IntPtr(pointer),
             };
             worldGo.scene = new UnityEngine.Scene { handle = sceneHandle };
             UnityEngine.Transform worldRoot = new UnityEngine.Transform { name = "World", gameObject = worldGo };
             worldGo.transform = worldRoot;
-            UnityEngine.Transform layer = new UnityEngine.Transform { name = "gameLayer", gameObject = worldGo, parent = worldRoot, Pointer = new IntPtr(sceneHandle + 1) };
+            UnityEngine.Transform layer = new UnityEngine.Transform { name = "gameLayer", gameObject = worldGo, parent = worldRoot, Pointer = new IntPtr(pointer + 1) };
             Managers.Inst = new Managers
             {
-                world = new World { name = "World", gameObject = worldGo, gameLayer = layer, Pointer = new IntPtr(sceneHandle) },
+                world = new World { name = "World", gameObject = worldGo, gameLayer = layer, Pointer = new IntPtr(pointer) },
             };
         }
 
@@ -558,6 +573,66 @@ namespace KingdomEnhancedMod
                     if (afterInstantiate != null) afterInstantiate(unit);
                     KnightIdentityLoadBridge.HandleTryCreateOrFind(record, unit.Persistent); // TryCreateOrFind 后缀
                 }
+            }
+            finally
+            {
+                KnightIdentityLoadBridge.End(null, scope);
+            }
+        }
+
+        /// <summary>
+        /// 真实 native 顺序的 Save：引用先 GetID（后缀捕获）→ 主对象 GetID（缓存命中，幂等）→ 记录才加入 objects；
+        /// finally 按原生次序清 objectsByID/idsByObject，之后才跑 Priority.Last 的 ApplyCapture。
+        /// </summary>
+        internal static void RunSaveNativeOrder(IslandSaveData target, int campaign, int land, int challenge, IList<KnightUnit> units,
+            Action<KnightUnit> afterReferenceGetId = null)
+        {
+            KnightIdentitySaveBridge.SaveCapture state = KnightIdentitySaveBridge.BeginCapture(campaign, land, challenge);
+            try
+            {
+                IslandSaveData.isSavingGame = true;
+                IslandSaveData.CurrentlySavingIsland = target;
+                IslandSaveData._currentlySavingIsland = target;
+                IslandSaveData.objectsByID.Clear();
+                IslandSaveData.idsByObject.Clear();
+                target.objects = new Il2CppSystem.Collections.Generic.List<IslandSaveData.ObjectData>();
+                for (int i = 0; i < units.Count; i++)
+                {
+                    KnightUnit unit = units[i];
+                    string referenceId = IslandSaveData.GetID(unit.Persistent);              // 引用对象先调 GetID
+                    KnightIdentitySaveBridge.HandleGetId(unit.Persistent, referenceId);      // 后缀（引用）
+                    if (afterReferenceGetId != null) afterReferenceGetId(unit);
+                    KnightIdentitySaveBridge.HandleGetId(unit.Persistent, IslandSaveData.GetID(unit.Persistent)); // 主对象 GetID
+                    target.objects.Add(unit.ToRecord());                                     // 完成 ObjectData 后才 Add records
+                }
+            }
+            finally
+            {
+                IslandSaveData.objectsByID.Clear();
+                IslandSaveData.idsByObject.Clear();
+                IslandSaveData.isSavingGame = false;
+                IslandSaveData.CurrentlySavingIsland = null;
+                IslandSaveData._currentlySavingIsland = null;
+            }
+            KnightIdentitySaveBridge.ApplyCapture(state);
+            KnightIdentitySaveBridge.EndCapture(null, state);
+        }
+
+        /// <summary>真实 native 顺序的 Load：逐记录 Create/Find；原生随后清空 island.objects，最后才 outer End。</summary>
+        internal static void RunLoadConsumingRecords(IslandSaveData island, Func<int, string, KnightUnit> spawn, Action<KnightUnit> afterInstantiate = null)
+        {
+            KnightIdentityLoadBridge.LoadScope scope = KnightIdentityLoadBridge.Begin(island);
+            try
+            {
+                for (int i = 0; i < island.objects.Count; i++)
+                {
+                    IslandSaveData.ObjectData record = island.objects[i];
+                    KnightUnit unit = spawn(i, record.uniqueID);
+                    KnightIdentityRuntime.OnEnable(unit.Knight);
+                    if (afterInstantiate != null) afterInstantiate(unit);
+                    KnightIdentityLoadBridge.HandleTryCreateOrFind(record, unit.Persistent);
+                }
+                island.objects = null; // 原生把记录列表消耗/清空：后续任何路径都不得再依赖它
             }
             finally
             {

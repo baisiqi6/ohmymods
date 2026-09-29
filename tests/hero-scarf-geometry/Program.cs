@@ -15,6 +15,7 @@ internal static class Program
             if (args.Length > 0 && args[0] == "--metrics") { MovementMetrics(args.Length>1 ? float.Parse(args[1],System.Globalization.CultureInfo.InvariantCulture) : 0.9f); return 0; }
             InvalidInputs();
             SyntheticGeometry();
+            RasterBoundaries();
             AttachmentBridge();
             RuntimeGeometry();
             ActualRunStop();
@@ -48,7 +49,11 @@ internal static class Program
     private static void SyntheticGeometry()
     {
         var x = new float[8]; var y = new float[8];
+        var rows = new int[HeroArcherScarfGeometry.RowsPerFace];
+        var left = new int[HeroArcherScarfGeometry.RowsPerFace];
+        var right = new int[HeroArcherScarfGeometry.RowsPerFace];
         bool valid=true, widths=true, faces=true, envelope=true, varied=false, distinct=false;
+        bool raster=true;
         float minBody=100,maxBody=0,minTip=100,maxTip=0;
         // Every heading and every sub-pixel grid phase, not only the simulator's usual down/back direction.
         for (int heading=0; heading<360;heading+=3)
@@ -65,6 +70,12 @@ internal static class Program
                 faces &= Distance(g.StartOuter,g.StartFold)*32>=1 && Distance(g.StartFold,g.StartInner)*32>=1
                     && Area(g.StartOuter,g.StartFold,g.EndOuter)>0 && Area(g.EndOuter,g.StartFold,g.EndFold)>0
                     && Area(g.StartFold,g.StartInner,g.EndFold)>0 && Area(g.EndFold,g.StartInner,g.EndInner)>0;
+                for (int face=0;face<2;face++)
+                {
+                    raster &= HeroArcherScarfGeometry.TryRasterFace(g,face,rows,left,right,0,out int count) && count>0;
+                    for (int run=0;run<count;run++) raster &= right[run]>left[run]
+                        && run<HeroArcherScarfGeometry.RowsPerFace;
+                }
                 float integerGround=(float)Math.Floor(y[segment]*32-HeroArcherClothMath.HalfWidthUnits(segment)*32)/32;
                 envelope &= g.StartOuter.Y>=integerGround-1e-6 && g.StartInner.Y>=integerGround-1e-6;
                 if (segment==0) { minBody=Math.Min(minBody,w);maxBody=Math.Max(maxBody,w); }
@@ -74,6 +85,7 @@ internal static class Program
         Check(valid,"all 120 headings and 8 pixel phases form valid geometry");
         Check(widths,"body stays 3–4px and tail 2–3px across headings");
         Check(faces,"both faces retain cardinal Manhattan width >=1 source pixel and positive triangle areas");
+        Check(raster,"both independent faces yield bounded positive-area raster rows across headings and phases");
         Check(envelope,"actual half width plus integer ground keeps rounded lowest edges above ground");
         varied=minBody<maxBody && minTip<maxTip;
         Check(varied,"slow fold changes both body and tail width within bounds");
@@ -85,10 +97,55 @@ internal static class Program
             distinct |= a.StartOuter.Y!=b.StartOuter.Y || a.StartFold.Y!=b.StartFold.Y;
         }
         Check(distinct,"two chains have different fold timing on identical centerlines");
-        for(int warm=0;warm<100;warm++) HeroArcherScarfGeometry.TrySegment(x,y,1,0,warm,out _);
+        for(int warm=0;warm<100;warm++)
+        {
+            HeroArcherScarfGeometry.TrySegment(x,y,1,0,warm,out var g);
+            HeroArcherScarfGeometry.TryRasterFace(g,0,rows,left,right,0,out _);
+            HeroArcherScarfGeometry.TryRasterFace(g,1,rows,left,right,0,out _);
+        }
         long before=GC.GetAllocatedBytesForCurrentThread();
-        for(int i=0;i<10000;i++) HeroArcherScarfGeometry.TrySegment(x,y,i%7,i%2,i/60f,out _,attachmentBridge:i%2==1);
-        Check(GC.GetAllocatedBytesForCurrentThread()==before,"pure geometry allocates zero bytes after warmup");
+        for(int i=0;i<10000;i++)
+        {
+            HeroArcherScarfGeometry.TrySegment(x,y,i%7,i%2,i/60f,out var g,attachmentBridge:i%2==1);
+            HeroArcherScarfGeometry.TryRasterFace(g,0,rows,left,right,0,out _);
+            HeroArcherScarfGeometry.TryRasterFace(g,1,rows,left,right,0,out _);
+        }
+        Check(GC.GetAllocatedBytesForCurrentThread()==before,"segment and raster helper allocate zero bytes after warmup");
+    }
+
+    private static void RasterBoundaries()
+    {
+        int[] rows=new int[HeroArcherScarfGeometry.RowsPerFace];
+        int[] left=new int[rows.Length],right=new int[rows.Length];
+        var one=new HeroArcherScarfGeometry.Segment(
+            new HeroArcherScarfGeometry.Point(0,0),new HeroArcherScarfGeometry.Point(1,0),
+            new HeroArcherScarfGeometry.Point(2,0),new HeroArcherScarfGeometry.Point(0,1),
+            new HeroArcherScarfGeometry.Point(1,1),new HeroArcherScarfGeometry.Point(2,1));
+        bool main=HeroArcherScarfGeometry.TryRasterFace(one,0,rows,left,right,0,out int count);
+        Check(main && count==1 && rows[0]==0 && left[0]==0 && right[0]==1,
+            "unit main face occupies only its positive-area integer row");
+        bool fold=HeroArcherScarfGeometry.TryRasterFace(one,1,rows,left,right,0,out count);
+        Check(fold && count==1 && left[0]==1 && right[0]==2,
+            "fold face uses independent outer and inner edges");
+        var thin=new HeroArcherScarfGeometry.Segment(
+            new HeroArcherScarfGeometry.Point(0,0),new HeroArcherScarfGeometry.Point(1,0),
+            new HeroArcherScarfGeometry.Point(2,0),new HeroArcherScarfGeometry.Point(1,1),
+            new HeroArcherScarfGeometry.Point(2,1),new HeroArcherScarfGeometry.Point(3,1));
+        Check(HeroArcherScarfGeometry.TryRasterFace(thin,0,rows,left,right,0,out count)
+            && count==1 && left[0]==0 && right[0]==2,
+            "one-pixel diagonal keeps positive-area coverage across half-cell phase");
+        var twelve=new HeroArcherScarfGeometry.Segment(
+            new HeroArcherScarfGeometry.Point(0,0),new HeroArcherScarfGeometry.Point(1,0),
+            new HeroArcherScarfGeometry.Point(2,0),new HeroArcherScarfGeometry.Point(0,12),
+            new HeroArcherScarfGeometry.Point(1,12),new HeroArcherScarfGeometry.Point(2,12));
+        Check(HeroArcherScarfGeometry.TryRasterFace(twelve,0,rows,left,right,0,out count) && count==12,
+            "twelve-row face fits the exact fixed capacity");
+        var thirteen=new HeroArcherScarfGeometry.Segment(
+            new HeroArcherScarfGeometry.Point(0,0),new HeroArcherScarfGeometry.Point(1,0),
+            new HeroArcherScarfGeometry.Point(2,0),new HeroArcherScarfGeometry.Point(0,13),
+            new HeroArcherScarfGeometry.Point(1,13),new HeroArcherScarfGeometry.Point(2,13));
+        Check(!HeroArcherScarfGeometry.TryRasterFace(thirteen,0,rows,left,right,0,out _),
+            "thirteen-row foreign input is rejected without truncation");
     }
 
     private static void AttachmentBridge()
@@ -149,17 +206,28 @@ internal static class Program
                 }
                 for(int face=0;face<14;face++)
                 {
-                    int o=face*4;var a=vertices[o];var b=vertices[o+1];var c=vertices[o+2];var d=vertices[o+3];
-                    float first=Area(a,b,c),second=Area(c,b,d);
-                    triangle &= first>0 && second>0 && first<=24f/1024 && second<=24f/1024;
-                    thickness &= Distance(a,b)>=1f/32-1e-6 && Distance(c,d)>=1f/32-1e-6;
-                    for(int corner=1;corner<4;corner++) flat &= SameColor(colors[o],colors[o+corner]);
-                    if(face%2==1) narrowFold &= Distance(a,b)<=2f/32+1e-6;
+                    int active=0;
+                    for(int row=0;row<HeroArcherScarfGeometry.RowsPerFace;row++)
+                    {
+                        int o=(face*HeroArcherScarfGeometry.RowsPerFace+row)*4;
+                        var a=vertices[o];var b=vertices[o+1];var c=vertices[o+2];var d=vertices[o+3];
+                        float first=Area(a,b,c),second=Area(c,b,d);
+                        if(first==0 && second==0)continue; // unused fixed slot is collapsed each frame
+                        active++;
+                        triangle &= first>0 && second>0 && first<=32f/1024 && second<=32f/1024;
+                        triangle &= a.x==c.x && b.x==d.x && a.y==b.y && c.y==d.y
+                            && Math.Abs(c.y-a.y-1f/32f)<1e-6f;
+                        thickness &= Distance(a,b)>=1f/32-1e-6 && Distance(c,d)>=1f/32-1e-6;
+                        for(int corner=1;corner<4;corner++) flat &= SameColor(colors[o],colors[o+corner]);
+                    }
+                    narrowFold &= active>0 && active<=HeroArcherScarfGeometry.RowsPerFace;
                 }
                 for(int i=0;i<indices.Length;i++) triangle &= indices[i]>=0 && indices[i]<vertices.Length;
             }
-            var secondary=h.Vertices[1];
-            float visibleRootY=(secondary[0].y+secondary[5].y)*0.5f+h.RootTransform.localPosition.y+h.Renderers[1].transform.localPosition.y;
+            HeroArcherScarfGeometry.TrySegment(h.Chains[1].PointsX,h.Chains[1].PointsY,0,1,h.WindClock,
+                out var rootBand,attachmentBridge:true);
+            float visibleRootY=(rootBand.StartOuter.Y+rootBand.StartInner.Y)*0.5f
+                +h.RootTransform.localPosition.y+h.Renderers[1].transform.localPosition.y;
             neckConnected &= Math.Abs(visibleRootY*32-15)<=0.50001;
             for(int segment=0;segment<2;segment++)bridgeValid &= HeroArcherScarfGeometry.TrySegment(h.Chains[1].PointsX,h.Chains[1].PointsY,segment,1,h.WindClock,out _,attachmentBridge:true);
             checkedFrames++;
@@ -167,12 +235,13 @@ internal static class Program
         Check(checkedFrames==2400 && grid,"all mesh vertices stay on pixel grid through 40s movement and wind");
         Check(floor,"lowest rendered edges remain above each chain's actual ground");
         Check(neckConnected && bridgeValid,"actual secondary visible root meets neck top at15px with valid bridge faces every frame");
-        var secondaryMain=h.Meshes[1].colors[0];var secondaryFold=h.Meshes[1].colors[4];
+        var secondaryMain=h.Meshes[1].colors[0];
+        var secondaryFold=h.Meshes[1].colors[HeroArcherScarfGeometry.VerticesPerFace];
         Check(secondaryMain.r==228/255f && secondaryMain.g==57/255f && secondaryMain.b==35/255f
             && secondaryFold.r==137/255f && secondaryFold.g==18/255f && secondaryFold.b==29/255f,
             "secondary actual faces use stable bright fire red and shade red to distinguish the two tails");
-        Check(triangle,"all runtime triangles nondegenerate, same winding, bounded area, valid indices");
-        Check(thickness && narrowFold,"each face cardinal Manhattan width >=1 source pixel and folded edge stays small");
+        Check(triangle,"all active pixel-row triangles have positive area, axis edges and valid indices");
+        Check(thickness && narrowFold,"each face has bounded nonempty rows at least one source pixel wide");
         Check(flat && palette,"each runtime quad has one fixed red palette color without interpolation");
         Check(ReferenceEquals(verts0,h.Vertices[0]) && ReferenceEquals(colors0,h.Meshes[0].colors)
             && ReferenceEquals(indices0,h.Meshes[0].triangles),"vertex/color/index buffers reused for full run");

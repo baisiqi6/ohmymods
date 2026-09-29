@@ -92,8 +92,11 @@ public class Managers
 namespace KingdomEnhancedMod
 {
  // Contract double for the crossbowman gate; production lifecycle tests own its semantics.
+ // RecomputeState mirrors the supervisor's HUD-facing init state (crossbowman-wallpierce owns transitions).
+ public enum CrossbowRecomputeState { Disabled = 0, Waiting = 1, Completed = 2, Failed = 3 }
  public static class PatchRoles_Crossbowman
  {
+  public static CrossbowRecomputeState RecomputeState = CrossbowRecomputeState.Disabled;
   public static bool IsCrossbowman(Archer a) => a != null && a.IsCrossbow;
  }
  // Contract double for the existing registry query; production identity tests own its lifecycle.

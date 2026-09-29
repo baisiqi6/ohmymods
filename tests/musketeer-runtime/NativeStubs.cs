@@ -141,6 +141,7 @@ namespace KingdomEnhancedMod
     {
         public bool inert;
         public bool grabbed;
+        public bool isStationary;
     }
 
     public class ArrowAttack : UnityEngine.Object
@@ -245,7 +246,16 @@ namespace KingdomEnhancedMod
         public static Managers Inst;
         public Holder holder;
         public Kingdom kingdom;
+        public Game game;
     }
+
+    public class Game
+    {
+        public enum State { Playing, Menu, Loading }
+        public State state = State.Playing;
+    }
+
+    public static class IslandSaveData { public static bool isSavingGame; }
 
     public class World : MonoBehaviour
     {
@@ -284,6 +294,8 @@ namespace KingdomEnhancedMod
         public Knight _knight;
         public Embarkee _embarkee;
         public GameObject _shootingTarget;
+        public GameObject _huntingTarget;
+        public bool Controlled;
         public float shootRange = 8f;
         public float shootPrepTime = 0.5f;
         public float shootCooldownTime = 1f;
@@ -314,6 +326,7 @@ namespace KingdomEnhancedMod
 
         /// <summary>原生公开访问器（IsInFormation 为私有；生产读 _currentFormation 的等价面）。</summary>
         public Formation GetFormation() => _currentFormation;
+        public bool ShouldPlayerControl() => Controlled;
     }
 
     public static class PatchRoles_Crossbowman

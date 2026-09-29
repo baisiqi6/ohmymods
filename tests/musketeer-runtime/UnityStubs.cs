@@ -365,7 +365,17 @@ namespace UnityEngine
 
     public static class ImageConversion
     {
-        public static bool LoadImage(Texture2D texture, byte[] data, bool markNonReadable) => LoadImageResult;
+        public static bool LoadImage(Texture2D texture, byte[] data, bool markNonReadable)
+        {
+            if (!LoadImageResult || texture == null || data == null || data.Length < 24
+                || data[0] != 0x89 || data[1] != 0x50 || data[2] != 0x4e || data[3] != 0x47) return false;
+            texture.width = (data[16] << 24) | (data[17] << 16) | (data[18] << 8) | data[19];
+            texture.height = (data[20] << 24) | (data[21] << 16) | (data[22] << 8) | data[23];
+            if (texture.width <= 0 || texture.height <= 0 || texture.width > 4096 || texture.height > 4096) return false;
+            texture.Pixels = new Color32[texture.width * texture.height];
+            for (int i = 0; i < texture.Pixels.Length; i++) texture.Pixels[i].a = 255;
+            return true;
+        }
         public static bool LoadImageResult = true;
     }
 

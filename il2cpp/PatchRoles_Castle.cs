@@ -76,7 +76,7 @@ public static class PatchRoles_Castle
     private static readonly string BERSERKER_SHOP_MARKER = "MyMod_BerserkerShop";
     private static int _nextPoolSyncId = 30000;
     private const int BANK_ASSISTANT_SYNC_ID_MIN = 30120;
-    private const int BANK_ASSISTANT_SYNC_ID_MAX = 30123;
+    private const int BANK_ASSISTANT_SYNC_ID_MAX = 30127;
     private static Il2CppArrayBase<DroppableTool> _allToolsCache;
     private static ShopPlanner _initializedShopPlanner;
 
@@ -463,7 +463,7 @@ public static class PatchRoles_Castle
             }
 
             pool.sync = true;
-            // 30120..30123 are deterministic bank-assistant pools. This allocator
+            // 30120..30127 are deterministic bank-assistant pools. This allocator
             // survives repeated PoolManager.Init rebuilds, so it must explicitly
             // skip that reserved interval instead of eventually colliding with it.
             if (_nextPoolSyncId >= BANK_ASSISTANT_SYNC_ID_MIN

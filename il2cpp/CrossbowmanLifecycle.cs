@@ -15,7 +15,7 @@ namespace KingdomEnhancedMod;
 /// 修复方向：组件复用 + 显式身份（组件存在≠弩手），清污只改状态与字段，绝不销毁组件。
 ///
 /// 身份两层（root/reviewer 定稿）：
-/// - <see cref="CrossbowmanMarker.Selected"/>：**本 life** 的模组选择（捡弓第 4 个/读档重算写入）。
+/// - <see cref="CrossbowmanMarker.Selected"/>：**本 life** 的模组选择（按配置四人周期；默认第 4 个/读档重算写入）。
 /// - <see cref="CrossbowmanMarker.Active"/>：**当前有效身份**（= Selected 且战斗包已提交、
 ///   未停用、配置开）。所有资格/排除/强化只认它。
 /// - <see cref="CrossbowmanMarker.Residue"/>：属性可能留有我们的写入且尚未还原（异常/池残留）。

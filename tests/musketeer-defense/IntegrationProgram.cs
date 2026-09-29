@@ -67,7 +67,8 @@ for (int i = 0; i < 4; i++)
 }
 Check(recruits.Count(x => x._guardSide == Side.Right) == 2, "four sequential purchases finish 2/2 without unrelated event");
 Check(recruits.Where(x => x._guardSide == Side.Right).All(x => x._guardDepth != ordinary._guardDepth), "fresh native ordinary slot respected after final purchase");
-Check(ordinary.Writes == 0, "ordinary archer receives no policy writes");
+Check(ordinary._guardSide == Side.Right, "ordinary archer keeps its native side (no policy write)");
+Check(ordinary.Writes.All(w => w.Side == Side.Right), "ordinary archer only receives same-side rank writes");
 int completed = Managers.Inst.kingdom.DistributeCalls;
 for (int i = 0; i < 20; i++) NextFrame();
 Check(Managers.Inst.kingdom.DistributeCalls == completed, "consumed event does not poll native on later frames");
@@ -102,11 +103,21 @@ Check(Managers.Inst.kingdom.DistributeCalls == loadBefore + 1, "load event consu
 state = Setup();
 Promote(state, 1);
 Promote(state, 2); // both binds happen before flushing final pending event
+var failureVictim = Spawn(200).archer;               // sits right of the model split
+Managers.Inst.kingdom.FollowerLeft = 4;
+Managers.Inst.kingdom.FollowerRight = 4;             // polluted quota: the native right counter goes negative
 Managers.Inst.kingdom.ThrowNative = true;
 int failureBefore = Managers.Inst.kingdom.DistributeCalls;
 for (int i = 0; i < 10; i++) NextFrame();
 Check(Managers.Inst.kingdom.DistributeCalls == failureBefore + 3, "native failures exhaust exactly three event attempts, stale capture self-recovers");
 Check(state.DefenseAttempts == 0, "failure retry budget fully consumed");
+Check(Managers.Inst.kingdom.LastNativeMinDepth < 0 && failureVictim._guardDepth == Managers.Inst.kingdom.LastNativeMinDepth,
+    "native throw: the broken rank stays broken - A never repairs outside the boundary");
+Managers.Inst.kingdom.ThrowNative = false;
+Managers.Inst.kingdom.FollowerLeft = 0;
+Managers.Inst.kingdom.FollowerRight = 0;
+Managers.Inst.kingdom.DistributeFreeArchers();       // normal boundary after the failures
+Check(failureVictim._guardDepth >= 0, "normal boundary after failures: ranks repaired");
 
 state = Setup();
 Promote(state, 1);
@@ -128,9 +139,9 @@ MusketeerAccess.Playing = true;
 NextFrame();
 Check(Managers.Inst.kingdom.DistributeCalls == pausedBefore + 1 && paused.Count(x => x._guardSide == Side.Right) == 2,
     "resume coalesces four bindings into one pass and 2/2");
-int pausedWrites = paused.Sum(x => x.Writes);
+int pausedWrites = paused.Sum(x => x.Writes.Count);
 for (int i = 0; i < 10; i++) { MusketeerAccess.Playing = i % 2 == 0; NextFrame(); }
-Check(Managers.Inst.kingdom.DistributeCalls == pausedBefore + 1 && paused.Sum(x => x.Writes) == pausedWrites,
+Check(Managers.Inst.kingdom.DistributeCalls == pausedBefore + 1 && paused.Sum(x => x.Writes.Count) == pausedWrites,
     "repeated pause/resume causes no native redistribution or guard writes after event consumed");
 
 state = Setup();
@@ -169,5 +180,27 @@ Check(Managers.Inst.kingdom.DistributeCalls == newBindingBefore + 1,
     "fresh bindings in replacement world enqueue a new coalesced event");
 Check(newWorldA._guardSide != newWorldB._guardSide,
     "fresh replacement-world binding event still balances new marked units");
+
+// ---- issue-78 root-cause vector through the full boundary --------------------
+// 20 free archers (10 left / 10 right by the model split) with the measured follower quota
+// pollution: the native counter hands out 5..-4; the real A boundary must deliver 9..0.
+state = Setup();
+var vecLeft = new List<Archer>();
+var vecRight = new List<Archer>();
+for (int i = 0; i < 10; i++) vecLeft.Add(Spawn(i).archer);
+for (int i = 0; i < 10; i++) vecRight.Add(Spawn(200 + i).archer);
+Managers.Inst.kingdom.FollowerLeft = 4;
+Managers.Inst.kingdom.FollowerRight = 4;
+Managers.Inst.kingdom.DistributeFreeArchers();
+Check(Managers.Inst.kingdom.LastNativeMinDepth == -4, "vector: native model produced the measured 5..-4 right ranks");
+Check(vecRight.Select(x => x._guardDepth).SequenceEqual(Enumerable.Range(0, 10).Reverse()),
+    "vector: right ranks delivered as 9..0");
+Check(vecLeft.Select(x => x._guardDepth).SequenceEqual(Enumerable.Range(0, 10)), "vector: left ranks delivered as 0..9");
+Check(vecLeft.All(x => x._guardSide == Side.Left) && vecRight.All(x => x._guardSide == Side.Right),
+    "vector: native sides preserved");
+Check(vecLeft.Concat(vecRight).All(x => x._guardDepth >= 0), "vector: no negative rank delivered");
+int vecWrites = vecLeft.Concat(vecRight).Sum(x => x.Writes.Count);
+GuardRankDistribution.ReindexAfterNative(Managers.Inst.kingdom);
+Check(vecLeft.Concat(vecRight).Sum(x => x.Writes.Count) == vecWrites, "vector: repeat pass on the corrected state writes nothing");
 
 Console.WriteLine($"PASS {passed} integration assertions (real Defense + Identity + Persistence + Archive; modeled native OnEnable ordering)");

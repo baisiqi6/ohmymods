@@ -14,7 +14,7 @@ internal static class Program
     static void Main()
     {
         Directory.CreateDirectory(Root);
-        try { ArchiveTests(); RuntimeTests(); SeatDisplayTests(); ContextTests(); Console.WriteLine($"PASS {passed} assertions (synthetic fixtures; production recruitment runtime and archive)"); }
+        try { ArchiveTests(); RuntimeTests(); SeatDisplayTests(); ContextTests(); DisjointPaidHistory(); FailedDisjointLoad(); DisjointHistoryGuards(); DisjointHistoryMutations(); NativeLoadLifecycle(); DisjointHistoryDiskChanges(); DisjointHistoryWriteGuards(); DisjointHistoryReentryAfterWriteFailure(); DisjointHistoryScale(); DisjointHistoryNestedLoad(); DisjointRollbackForward(); Console.WriteLine($"PASS {passed} assertions (synthetic fixtures; production recruitment runtime and archive)"); }
         finally {Directory.Delete(Root,true);}
     }
     static void ArchiveTests()
@@ -123,7 +123,7 @@ internal static class Program
     static IslandSaveData.ObjectData Record(string id)=>new(){uniqueID=id,componentData2=new(){new(){name="Character",type="CharacterData"},new(){name="Archer",type="ArcherData"}}};
     static void Save(string json,params (string id,Persistent p)[] owners)
     {
-        var island=CampaignSaveData.current.CurrentIsland;island.Json=Raw(json);island.objects=owners.Select(x=>Record(x.id)).ToList();
+        var island=CampaignSaveData.current.CurrentIsland;island.Json=Raw(json);island.objects=new(owners.Select(x=>Record(x.id)));
         IslandSaveData.CurrentlySavingIsland=island;IslandSaveData.isSavingGame=true;
         var capture=new HeroRecruitment.SaveCapture{Campaign=1,Land=island.land,Challenge=0};
         foreach(var pair in owners)capture.Capture(pair.p,pair.id);
@@ -134,7 +134,7 @@ internal static class Program
     static string Raw(string label)=>label.Length>0&&label[0]=='{'?label:"{\"label\":\""+label+"\"}";
     static void Load(string json,params (string id,Persistent p)[] owners)
     {
-        var island=CampaignSaveData.current.CurrentIsland;island.Json=Raw(json);island.isNew=false;island.objects=owners.Select(x=>Record(x.id)).ToList();
+        var island=CampaignSaveData.current.CurrentIsland;island.Json=Raw(json);island.isNew=false;island.objects=new(owners.Select(x=>Record(x.id)));
         var capture=new HeroRecruitment.LoadCapture();capture.Begin(island);
         for(int i=0;i<owners.Length;i++)capture.Capture(island.objects[i],owners[i].p);
         capture.End(true);
@@ -586,6 +586,710 @@ internal static class Program
         FailedLoad();
         OldReign();
         ConflictingFingerprint();
+    }
+
+
+    // issue-85 red fixture: one native island whose complete Character set is disjoint from every
+    // unknown paid history row must not stay unresolved forever. Old production keeps the whole
+    // archive unresolved (no context, no baseline, no charge); the new gate registers the current
+    // context with one fresh kind-2 empty baseline while preserving every old row, and the normal
+    // FindPurchase/TryPurchase training gate must then succeed.
+    static void DisjointPaidHistory()
+    {
+        Reset();
+        string context=ContextOf(1,0,1);
+        string paidScope=HeroRecruitmentArchive.NewScope();
+        string paidHash=HeroRecruitmentArchive.Hash(Raw("foreign-island"),paidScope);
+        var seeded=new HeroRecruitmentArchive();
+        Check(seeded.Record(paidScope,paidHash,new[]{
+            new HeroPurchaseReceipt{Id=new Guid("11111111111111111111111111111111"),Side=-1,NativeId="old-hero-left"},
+            new HeroPurchaseReceipt{Id=new Guid("22222222222222222222222222222222"),Side=1,NativeId="old-hero-right"}},
+            HeroRecruitmentArchive.HashKindLegacy,true),"disjoint fixture: unknown paid scope seeded");
+        File.WriteAllBytes(HeroRecruitment.ArchivePath,seeded.Encode());
+        var left=Actor(-1);var right=Actor(1);
+        var island=CampaignSaveData.current.CurrentIsland;
+        island.Json=Raw("disjoint-island");island.isNew=false;
+        island.objects=new(){Record("current-left"),Record("current-right")};
+        CampaignSaveData.current.carryForward.present=false;
+        byte[] seededBytes=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        var capture=new HeroRecruitment.LoadCapture();capture.Begin(island);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(seededBytes),"disjoint load begin writes nothing");
+        capture.Capture(island.objects[0],left.p);capture.Capture(island.objects[1],right.p);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(seededBytes),"disjoint load capture writes nothing");
+        capture.End(true);
+        var disk=Disk();
+        Check(disk.Contexts.ContainsKey(context),"successful disjoint load registers the current context");
+        Check(disk.TryGetContext(context,out var registered)&&registered.Epochs.Count==1
+            &&registered.Active!=paidScope&&disk.Scopes.ContainsKey(registered.Active),
+            "the current snapshot owns exactly one fresh epoch");
+        string epoch=registered.Active;
+        Check(disk.Baselines.ContainsKey(epoch)&&disk.TryGet(epoch,disk.Baselines[epoch],out var baseline)
+            &&baseline.Seats.Count==0&&baseline.HashKind==HeroRecruitmentFingerprint.Kind&&!baseline.LegacyV1,
+            "the fresh epoch pins a kind-2 empty baseline");
+        Check(disk.Baselines[epoch]==HeroRecruitmentFingerprint.Hash(island.Json,epoch),"the baseline pins the exact loaded snapshot");
+        Check(disk.Scopes.Count==2&&disk.TryGet(paidScope,paidHash,out var old)&&old.Seats.Count==2
+            &&old.Seats.Any(x=>x.NativeId=="old-hero-left")&&old.Seats.Any(x=>x.NativeId=="old-hero-right")
+            &&old.HashKind==HeroRecruitmentArchive.HashKindLegacy&&old.LegacyV1,
+            "every unknown paid row and its provenance is preserved");
+        HeroRecruitment.Observe(left.a);
+        Check(HeroRecruitment.CanPurchase,"disjoint history reaches the normal purchase gate");
+        Check(HeroRecruitment.TryPurchase(out _)&&HeroRecruitment.IsPurchased(left.a)&&HeroRecruitment.SeatSide(left.a)==-1,
+            "the normal training purchase succeeds after a disjoint load");
+        byte[] adopted=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(adopted)&&Disk().Contexts[context].Epochs.Count==1,
+            "end re-entry never creates a second epoch");
+    }
+
+    // A disjoint unlock is only valid through a successful load: begin/capture/end(false) writes
+    // nothing, registers no context and never opens the purchase gate for the failed island.
+    static void FailedDisjointLoad()
+    {
+        Reset();
+        string paidScope=HeroRecruitmentArchive.NewScope();
+        string paidHash=HeroRecruitmentArchive.Hash(Raw("foreign-island"),paidScope);
+        var seeded=new HeroRecruitmentArchive();
+        Check(seeded.Record(paidScope,paidHash,new[]{new HeroPurchaseReceipt{Id=new Guid("33333333333333333333333333333333"),Side=-1,NativeId="old-hero-left"}},HeroRecruitmentArchive.HashKindLegacy,true),"failed-load fixture: unknown paid scope seeded");
+        File.WriteAllBytes(HeroRecruitment.ArchivePath,seeded.Encode());
+        var left=Actor(-1);
+        var island=new IslandSaveData{land=3,isNew=false,Json=Raw("failed-disjoint-island"),objects=new(){Record("current-left")}};
+        CampaignSaveData.current.CurrentIsland=island;
+        CampaignSaveData.current.carryForward.present=false;
+        string context=ContextOf(1,0,3);
+        byte[] seededBytes=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        var capture=new HeroRecruitment.LoadCapture();capture.Begin(island);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(seededBytes),"failed load begin writes nothing");
+        capture.Capture(island.objects[0],left.p);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(seededBytes),"failed load capture writes nothing");
+        capture.End(false);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(seededBytes),"failed load end writes nothing");
+        var disk=Disk();
+        Check(!disk.Contexts.ContainsKey(context)&&disk.Contexts.Count==0,"failed load registers no context");
+        Check(disk.Scopes.Count==1&&disk.TryGet(paidScope,paidHash,out var old)&&old.Seats.Count==1&&old.Seats[0].NativeId=="old-hero-left","failed load preserves every unknown paid row");
+        Check(!HeroRecruitment.CanPurchase&&!HeroRecruitment.TryPurchase(out _),"failed load never unlocks the purchase gate");
+    }
+
+    // issue-85 shared fixtures: one unknown paid history scope whose owners are disjoint from the
+    // synthetic current island, plus the standard complete disjoint island shape.
+    static HeroPurchaseReceipt OldReceipt(string native,int side=-1)=>new(){Id=Guid.NewGuid(),Side=side,NativeId=native};
+    static (string scope,string hash) SeedForeignPaid(params HeroPurchaseReceipt[] receipts)
+    {
+        string scope=HeroRecruitmentArchive.NewScope();
+        string hash=HeroRecruitmentArchive.Hash(Raw("foreign-island"),scope);
+        var seeded=new HeroRecruitmentArchive();
+        Check(seeded.Record(scope,hash,receipts,HeroRecruitmentArchive.HashKindLegacy,true),"foreign paid scope seeded");
+        File.WriteAllBytes(HeroRecruitment.ArchivePath,seeded.Encode());
+        return (scope,hash);
+    }
+    static void PrepareDisjointIsland(params IslandSaveData.ObjectData[] records)
+    {
+        var island=CampaignSaveData.current.CurrentIsland;
+        island.Json=Raw("disjoint-island");island.isNew=false;island.objects=new(records);
+        if(CampaignSaveData.current.carryForward==null)CampaignSaveData.current.carryForward=new();
+        CampaignSaveData.current.carryForward.present=false;
+    }
+    static void ExpectDisjointRejected(string label)
+    {
+        byte[] before=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        var capture=new HeroRecruitment.LoadCapture();capture.Begin(CampaignSaveData.current.CurrentIsland);capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(before),label+": writes nothing");
+        Check(!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),label+": registers no context");
+    }
+    static IslandSaveData.ObjectData PlainRecord(string id)=>new(){uniqueID=id,componentData2=new(){new(){name="Building",type="BuildingData"}}};
+    static IslandSaveData.ObjectData EmbarkedRecord(string id)=>new(){uniqueID=id,componentData2=new(){new(){name="Character",type="CharacterData"},new(){name="Embarkee",type="EmbarkeeData"}}};
+    static IslandSaveData.ObjectData NullComponentsRecord(string id)=>new(){uniqueID=id,componentData2=null};
+    static IslandSaveData.ObjectData NullElementRecord(string id)=>new(){uniqueID=id,componentData2=new(){null,new(){name="Character",type="CharacterData"}}};
+
+    // issue-85 guard matrix: every precondition of the disjoint adoption fails closed, writes
+    // nothing and registers no context.
+    static void DisjointHistoryGuards()
+    {
+        // An unsaved purchase in this world is never replaced by a fresh epoch.
+        Reset();
+        var paid=Actor(-1);HeroRecruitment.Observe(paid.a);
+        Check(HeroRecruitment.TryPurchase(out _),"guard fixture: unsaved purchase");
+        SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(Record("current-left"));
+        ExpectDisjointRejected("unsaved purchase");
+
+        // Begin and End must both read carryForward.present == false; unreadable never unlocks.
+        SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(Record("current-left"));
+        CampaignSaveData.current.carryForward.present=true;
+        ExpectDisjointRejected("carry true at begin");
+        PrepareDisjointIsland(Record("current-left"));
+        CampaignSaveData.current.carryForward.present=true;
+        byte[] guarded=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        var capture=new HeroRecruitment.LoadCapture();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        CampaignSaveData.current.carryForward.present=false;
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(guarded)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"carry true at begin only: no adoption");
+        PrepareDisjointIsland(Record("current-left"));
+        guarded=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        CampaignSaveData.current.carryForward.present=true;
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(guarded)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"carry true at end only: no adoption");
+        PrepareDisjointIsland(Record("current-left"));
+        CampaignSaveData.current.carryForward=null;
+        ExpectDisjointRejected("unreadable begin carry");
+
+        // Losing local authority between Begin and End must never write a baseline.
+        SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(Record("current-left"));
+        byte[] online=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        HeroArcherNetwork.AllowsLocalHero=false;
+        capture.End(true);
+        HeroArcherNetwork.AllowsLocalHero=true;
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(online)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1))
+            &&HeroRecruitment.DescribeForTests().Contains("unresolved=True"),"lost local authority blocks adoption and keeps the load unresolved");
+
+        // A world that never resolves to an active game layer (0 at both ends) proves nothing.
+        SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(Record("current-left"));
+        byte[] worldless=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        Managers.Inst.world.gameLayer.gameObject.activeInHierarchy=false;
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        capture.End(true);
+        Managers.Inst.world.gameLayer.gameObject.activeInHierarchy=true;
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(worldless)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1))
+            &&HeroRecruitment.DescribeForTests().Contains("unresolved=True"),"ineffective world layer blocks adoption");
+
+        // A legacy owner that is still one of this island's Character ids is overlap evidence —
+        // including embarked characters, which the gate must never filter out.
+        SeedForeignPaid(OldReceipt("current-left"));
+        PrepareDisjointIsland(EmbarkedRecord("current-left"),Record("current-right"));
+        ExpectDisjointRejected("character id intersection");
+
+        // Malformed member tables reject only the gate, never the load itself.
+        SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(Record("current-left"),PlainRecord("current-left"));
+        ExpectDisjointRejected("duplicate object id");
+        PrepareDisjointIsland(Record("current-left"),Record("current-left"));
+        ExpectDisjointRejected("duplicate character id");
+        PrepareDisjointIsland(Record(""));
+        ExpectDisjointRejected("empty character id");
+        PrepareDisjointIsland(Record(new string('x',257)));
+        ExpectDisjointRejected("oversized character id");
+        PrepareDisjointIsland(PlainRecord("building"));
+        ExpectDisjointRejected("no character record");
+        PrepareDisjointIsland(Record("current-left"),null);
+        ExpectDisjointRejected("null object record");
+        PrepareDisjointIsland();
+        ExpectDisjointRejected("empty object table");
+        PrepareDisjointIsland(Record("current-left"));
+        CampaignSaveData.current.CurrentIsland.Json="not-json";
+        ExpectDisjointRejected("unparseable raw json");
+
+        // Begin alone can never write a baseline.
+        SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(Record("current-left"));
+        byte[] unfinished=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(unfinished),"unfinished load writes nothing");
+        capture.End(false);
+    }
+
+    // issue-85: End must observe the same campaign/island/world/context and the same member table
+    // (order-insensitive classification) as Begin; any change in between must not adopt.
+    static void DisjointHistoryMutations()
+    {
+        Reset();
+        SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(Record("current-left"));
+        byte[] before=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        var capture=new HeroRecruitment.LoadCapture();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        Managers.Inst.world=new(){gameLayer=new GameObject().Add(new Transform())};
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(before)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"world change blocks adoption");
+
+        PrepareDisjointIsland(Record("current-left"));
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        CampaignSaveData.current=new(){CurrentIsland=CampaignSaveData.current.CurrentIsland};
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(before)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"campaign instance change blocks adoption");
+
+        PrepareDisjointIsland(Record("current-left"));
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        CampaignSaveData.current.CurrentIsland=new(){land=1,isNew=false,Json=Raw("disjoint-island"),objects=new(){Record("current-left")}};
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(before)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"island instance change blocks adoption");
+
+        PrepareDisjointIsland(Record("current-left"));
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        CampaignSaveData.current.CurrentIsland.land=4;
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(before)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"context change blocks adoption");
+        CampaignSaveData.current.CurrentIsland.land=1;
+
+        PrepareDisjointIsland(Record("current-left"));
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        CampaignSaveData.current.CurrentIsland.objects.Add(Record("current-right"));
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(before)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"member change blocks adoption");
+
+        // issue-85 contract revision (2026-09-29): native ObjectData.SetDecay can legitimately
+        // erase a Character descriptor (componentData2) after Begin, so Character -> nonCharacter
+        // must no longer block adoption; the allowed downgrade direction is verified in
+        // NativeLoadLifecycle. Only the opposite direction, a non-Character becoming a Character,
+        // still rejects.
+        PrepareDisjointIsland(PlainRecord("building"),Record("current-right"));
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        CampaignSaveData.current.CurrentIsland.objects[0].componentData2=new(){new(){name="Character",type="CharacterData"}};
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(before)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"non-character promotion blocks adoption");
+
+        // Replacing a member instance with the same id/classification must not pass; reordering
+        // the same instances must still adopt.
+        PrepareDisjointIsland(Record("current-left"),Record("current-right"));
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        CampaignSaveData.current.CurrentIsland.objects[0]=Record("current-left");
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(before)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"same-id member replacement blocks adoption");
+
+        PrepareDisjointIsland(PlainRecord(""),Record("current-left"));
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        CampaignSaveData.current.CurrentIsland.objects[0]=PlainRecord("");
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(before)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"empty-id member replacement blocks adoption");
+
+        PrepareDisjointIsland(Record("current-left"),Record("current-right"));
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        CampaignSaveData.current.CurrentIsland.objects.Reverse();
+        capture.End(true);
+        Check(Disk().Contexts.ContainsKey(ContextOf(1,0,1))&&Disk().Contexts[ContextOf(1,0,1)].Epochs.Count==1,"member reordering still adopts");
+    }
+
+    // issue-85 native load lifecycle (actual 2.4): TryPopObjectsToScene sorts and redistributes
+    // decay, then its cleanup (734990, store at 7349EE) disconnects island.objects before the
+    // successful return. End must not re-read that consumed field: it re-enumerates the retained
+    // Begin wrapper instead, accepts only the same-list order-insensitive pointer+id multiset with
+    // Character -> nonCharacter degradation allowed (native ObjectData.SetDecay erases
+    // componentData2), still requires the complete Begin Character set for the history decision,
+    // and releases the retained wrapper on every exit path.
+    static object SourceRef(HeroRecruitment.LoadCapture capture)=>typeof(HeroRecruitment.LoadCapture)
+        .GetField("Source",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(capture);
+    static (IslandSaveData island,byte[] bytes) LifecycleFixture(params IslandSaveData.ObjectData[] records)
+    {
+        Reset();
+        SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(records);
+        return (CampaignSaveData.current.CurrentIsland,File.ReadAllBytes(HeroRecruitment.ArchivePath));
+    }
+    static bool LifecycleAdopted()=>Disk().Contexts.ContainsKey(ContextOf(1,0,1));
+    static bool LifecycleUnchanged(byte[] bytes)=>File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(bytes);
+    static void NativeLoadLifecycle()
+    {
+        // Direct production path: the stub reproduces the native finally-clear on the successful
+        // return; the candidate adopts exactly one fresh epoch (baseline red: End throws NRE).
+        var fixture=LifecycleFixture(Record("current-left"),Record("current-right"));
+        var island=fixture.island;
+        Check(island.objects!=null&&island.objects.Count==2,"lifecycle: begin sees the original native table");
+        var capture=new HeroRecruitment.LoadCapture();capture.Begin(island);
+        Check(island.TryPopObjectsToScene()&&island.objects==null,"lifecycle: native consumption disconnects the field");
+        Check(LifecycleUnchanged(fixture.bytes),"lifecycle: consumed field writes nothing before End");
+        capture.End(true);
+        Check(SourceRef(capture)==null,"lifecycle: End releases the retained source");
+        var disk=Disk();
+        Check(disk.Contexts.ContainsKey(ContextOf(1,0,1))&&disk.Contexts[ContextOf(1,0,1)].Epochs.Count==1,"lifecycle: consumed field still adopts one fresh epoch");
+        Check(disk.Baselines[disk.Contexts[ContextOf(1,0,1)].Active]==HeroRecruitmentFingerprint.Hash(island.Json,disk.Contexts[ContextOf(1,0,1)].Active),"lifecycle: baseline pins the frozen Begin json");
+        Check(disk.Scopes.Count==2,"lifecycle: the unknown paid scope stays");
+        var hero=Actor(-1);HeroRecruitment.Observe(hero.a);
+        Check(HeroRecruitment.CanPurchase&&HeroRecruitment.TryPurchase(out _)&&HeroRecruitment.SeatSide(hero.a)==-1,"lifecycle: normal 8-coin purchase gate opens after the native load");
+        int scopes=disk.Scopes.Count;
+        island.objects=new(){Record("current-left"),Record("current-right")};
+        var reload=new HeroRecruitment.LoadCapture();reload.Begin(island);reload.End(true);
+        Check(Disk().Contexts[ContextOf(1,0,1)].Epochs.Count==1&&Disk().Scopes.Count==scopes,"lifecycle: exact reload adds no epoch");
+
+        // The real PopPatch chain with a reordered retained table: native sorting must not matter.
+        fixture=LifecycleFixture(Record("current-left"),Record("current-right"));
+        island=fixture.island;
+        var args=PopBegin(island);
+        island.objects.Reverse();
+        island.TryPopObjectsToScene();
+        PopEnd(args,true);
+        Check(SourceRef((HeroRecruitment.LoadCapture)args[1])==null&&LifecycleAdopted(),"hook lifecycle: reordered consumed table adopts and releases");
+
+        // Same native list still attached (synthetic unreleased path): a legitimate partial or full
+        // Character downgrade must still adopt; all-downgraded may leave End with zero Characters.
+        fixture=LifecycleFixture(Record("current-left"),Record("current-right"));
+        island=fixture.island;
+        capture=new();capture.Begin(island);
+        island.objects[1].componentData2=null;
+        capture.End(true);
+        Check(SourceRef(capture)==null&&LifecycleAdopted(),"partial character decay still adopts on the unreleased list");
+        fixture=LifecycleFixture(Record("current-left"));
+        island=fixture.island;
+        capture=new();capture.Begin(island);
+        island.objects[0].componentData2=null;
+        island.TryPopObjectsToScene();
+        capture.End(true);
+        Check(LifecycleAdopted(),"all-character decay with a consumed field still adopts");
+
+        // The history decision must use the complete Begin Character set: an old paid id whose
+        // descriptor decayed away after Begin may not become eligible and get re-charged.
+        Reset();
+        SeedForeignPaid(OldReceipt("current-left"));
+        PrepareDisjointIsland(Record("current-left"),Record("current-right"));
+        island=CampaignSaveData.current.CurrentIsland;
+        byte[] bytes=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        capture=new();capture.Begin(island);
+        island.objects[0].componentData2=null;island.objects[1].componentData2=null;
+        island.TryPopObjectsToScene();
+        capture.End(true);
+        Check(LifecycleUnchanged(bytes)&&!LifecycleAdopted(),"paid id hidden by decay still blocks adoption");
+
+        // A released non-null field pointing at a different table rejects even with identical
+        // members; a deferred mutation of the retained same list (add/remove/replace/id/null)
+        // rejects even though the field is already null.
+        fixture=LifecycleFixture(Record("current-left"));
+        island=fixture.island;
+        capture=new();capture.Begin(island);
+        var kept=island.objects[0];
+        island.TryPopObjectsToScene();
+        island.objects=new(new[]{kept});
+        capture.End(true);
+        Check(LifecycleUnchanged(fixture.bytes)&&!LifecycleAdopted()&&SourceRef(capture)==null,"different released table with identical members blocks adoption");
+
+        fixture=LifecycleFixture(Record("current-left"),Record("current-right"));
+        island=fixture.island;
+        capture=new();capture.Begin(island);
+        var retained=island.objects;
+        island.TryPopObjectsToScene();
+        retained.Add(Record("added"));
+        capture.End(true);
+        Check(LifecycleUnchanged(fixture.bytes)&&!LifecycleAdopted(),"deferred member add blocks adoption");
+
+        fixture=LifecycleFixture(Record("current-left"),Record("current-right"));
+        island=fixture.island;
+        capture=new();capture.Begin(island);
+        retained=island.objects;
+        island.TryPopObjectsToScene();
+        retained.RemoveAt(1);
+        capture.End(true);
+        Check(LifecycleUnchanged(fixture.bytes)&&!LifecycleAdopted(),"deferred member removal blocks adoption");
+
+        fixture=LifecycleFixture(Record("current-left"),Record("current-right"));
+        island=fixture.island;
+        capture=new();capture.Begin(island);
+        retained=island.objects;
+        island.TryPopObjectsToScene();
+        retained[0]=Record("current-left");
+        capture.End(true);
+        Check(LifecycleUnchanged(fixture.bytes)&&!LifecycleAdopted(),"deferred member replacement blocks adoption");
+
+        fixture=LifecycleFixture(Record("current-left"),Record("current-right"));
+        island=fixture.island;
+        capture=new();capture.Begin(island);
+        retained=island.objects;
+        island.TryPopObjectsToScene();
+        retained[0].uniqueID="changed";
+        capture.End(true);
+        Check(LifecycleUnchanged(fixture.bytes)&&!LifecycleAdopted(),"deferred id change blocks adoption");
+
+        fixture=LifecycleFixture(Record("current-left"),Record("current-right"));
+        island=fixture.island;
+        capture=new();capture.Begin(island);
+        retained=island.objects;
+        island.TryPopObjectsToScene();
+        retained[0]=null;
+        capture.End(true);
+        Check(LifecycleUnchanged(fixture.bytes)&&!LifecycleAdopted(),"deferred null member blocks adoption");
+
+        // A failed or throwing native pop consumes the field too, must not adopt, and the original
+        // native exception must propagate unchanged through the finalizer.
+        fixture=LifecycleFixture(Record("current-left"));
+        island=fixture.island;
+        island.PopReturn=false;
+        var failed=PopBegin(island);
+        Check(!island.TryPopObjectsToScene()&&island.objects==null,"lifecycle: failed pop still consumes the field");
+        PopEnd(failed,false);
+        Check(LifecycleUnchanged(fixture.bytes)&&!LifecycleAdopted()&&SourceRef((HeroRecruitment.LoadCapture)failed[1])==null,"failed native pop does not adopt and releases the source");
+        island.PopReturn=true;
+
+        fixture=LifecycleFixture(Record("current-left"));
+        island=fixture.island;
+        island.PopThrows=true;
+        var thrown=PopBegin(island);
+        Exception error=null;
+        try{island.TryPopObjectsToScene();}catch(InvalidOperationException e){error=e;}
+        Check(error!=null&&island.objects==null,"lifecycle: throwing pop still consumes the field");
+        var returned=PopEnd(thrown,false,error);
+        Check(ReferenceEquals(returned,error)&&LifecycleUnchanged(fixture.bytes)&&!LifecycleAdopted(),"throwing native pop propagates its exception and does not adopt");
+        island.PopThrows=false;
+
+        // Release on the remaining End exits: rejected shape, conflict, forced StateNull, re-entry.
+        fixture=LifecycleFixture(Record("current-left"));
+        island=fixture.island;
+        capture=new();capture.Begin(island);
+        island.objects.Clear();
+        capture.End(true);
+        Check(LifecycleUnchanged(fixture.bytes)&&SourceRef(capture)==null,"rejected End releases the retained source");
+
+        fixture=LifecycleFixture(Record("current-left"));
+        island=fixture.island;
+        capture=new();capture.Begin(island);
+        capture.Conflict=true;
+        capture.End(true);
+        Check(SourceRef(capture)==null&&!LifecycleAdopted(),"conflicted End releases the retained source");
+        capture.End(true);
+        Check(SourceRef(capture)==null,"re-entry End keeps the source released");
+
+        fixture=LifecycleFixture(Record("current-left"));
+        island=fixture.island;
+        capture=new();capture.Begin(island);
+        typeof(HeroRecruitment.LoadCapture).GetField("State",BindingFlags.NonPublic|BindingFlags.Instance).SetValue(capture,null);
+        capture.End(true);
+        Check(SourceRef(capture)==null,"StateNull End releases the retained source");
+
+        fixture=LifecycleFixture(Record("current-left"));
+        island=fixture.island;
+        capture=new();capture.Begin(island);capture.End(true);
+        int epochs=Disk().Contexts[ContextOf(1,0,1)].Epochs.Count;
+        capture.End(true);
+        Check(SourceRef(capture)==null&&Disk().Contexts[ContextOf(1,0,1)].Epochs.Count==epochs,"re-entry keeps one epoch and a released source");
+    }
+
+    // issue-85: a sidecar change between Begin and End (a late match, a late context claim, a
+    // late overlapping or empty receipt) must be honored by the fresh-disk re-check.
+    static void DisjointHistoryDiskChanges()
+    {
+        Reset();
+        var seeded=SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(Record("current-left"));
+        var capture=new HeroRecruitment.LoadCapture();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        var late=new HeroRecruitmentArchive();
+        Check(late.Record(seeded.scope,seeded.hash,new[]{OldReceipt("old-hero-left")},HeroRecruitmentArchive.HashKindLegacy,true)
+            &&late.Record(seeded.scope,HeroRecruitmentFingerprint.Hash(Raw("disjoint-island"),seeded.scope),new[]{OldReceipt("late-match")},HeroRecruitmentFingerprint.Kind,false),"late match fixture built");
+        File.WriteAllBytes(HeroRecruitment.ArchivePath,late.Encode());
+        byte[] changed=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(changed)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"late matching snapshot blocks adoption");
+
+        seeded=SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(Record("current-left"));
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        var claimed=new HeroRecruitmentArchive();
+        Check(claimed.Record(seeded.scope,seeded.hash,new[]{OldReceipt("old-hero-left")},HeroRecruitmentArchive.HashKindLegacy,true)
+            &&claimed.EnsureContext(ContextOf(1,0,1),seeded.scope,true),"late claim fixture built");
+        File.WriteAllBytes(HeroRecruitment.ArchivePath,claimed.Encode());
+        changed=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(changed)
+            &&Disk().Contexts[ContextOf(1,0,1)].Epochs.Count==1&&Disk().Contexts[ContextOf(1,0,1)].Active==seeded.scope,"late context claim blocks adoption and stays untouched");
+
+        seeded=SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(Record("current-left"));
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        var overlap=new HeroRecruitmentArchive();
+        Check(overlap.Record(seeded.scope,seeded.hash,new[]{OldReceipt("current-left")},HeroRecruitmentArchive.HashKindLegacy,true),"late overlap fixture built");
+        File.WriteAllBytes(HeroRecruitment.ArchivePath,overlap.Encode());
+        changed=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(changed)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"late overlapping receipt blocks adoption");
+
+        seeded=SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(Record("current-left"));
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
+        var empty=new HeroRecruitmentArchive();
+        Check(empty.Record(seeded.scope,seeded.hash,new[]{OldReceipt("")},HeroRecruitmentArchive.HashKindLegacy,true),"late empty id fixture built");
+        File.WriteAllBytes(HeroRecruitment.ArchivePath,empty.Encode());
+        changed=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(changed)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"late empty native id blocks adoption");
+    }
+
+    // issue-85: a read-only backup, an unsupported future schema or exhausted context capacity
+    // must keep the island unresolved without writing or publishing.
+    static void DisjointHistoryWriteGuards()
+    {
+        Reset();
+        SeedForeignPaid(OldReceipt("old-hero-left"));
+        File.Copy(HeroRecruitment.ArchivePath,HeroRecruitment.ArchivePath+".bak",true);
+        File.WriteAllText(HeroRecruitment.ArchivePath,"broken");
+        PrepareDisjointIsland(Record("current-left"));
+        byte[] broken=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        byte[] backup=File.ReadAllBytes(HeroRecruitment.ArchivePath+".bak");
+        var capture=new HeroRecruitment.LoadCapture();capture.Begin(CampaignSaveData.current.CurrentIsland);capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(broken)&&File.ReadAllBytes(HeroRecruitment.ArchivePath+".bak").SequenceEqual(backup),"read-only backup is never written");
+        Check(HeroRecruitment.DescribeForTests().Contains("readonly=True"),"read-only archive stays closed");
+        File.Delete(HeroRecruitment.ArchivePath+".bak");
+
+        File.WriteAllText(HeroRecruitment.ArchivePath,"{\"schemaVersion\":99,\"scopes\":[]}");
+        PrepareDisjointIsland(Record("current-left"));
+        byte[] unsupported=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(unsupported)&&!HeroRecruitment.CanPurchase&&!HeroRecruitment.TryPurchase(out _),"unsupported archive is never written and stays closed");
+
+        var capped=new HeroRecruitmentArchive();
+        for(int i=0;i<HeroRecruitmentArchive.MaxContexts;i++)
+        {
+            string cap=HeroRecruitmentArchive.NewScope();
+            Check(capped.Record(cap,HeroRecruitmentArchive.Hash("cap"+i,cap),Array.Empty<HeroPurchaseReceipt>(),HeroRecruitmentArchive.HashKindLegacy,true),"capacity scope "+i);
+            Check(capped.EnsureContext(HeroRecruitmentArchive.ContextKey("global-v35",1,0,100+i),cap,true),"capacity context "+i);
+        }
+        string capPaid=HeroRecruitmentArchive.NewScope();
+        Check(capped.Record(capPaid,HeroRecruitmentArchive.Hash(Raw("foreign-island"),capPaid),new[]{OldReceipt("old-hero-left")},HeroRecruitmentArchive.HashKindLegacy,true),"capacity paid scope");
+        File.WriteAllBytes(HeroRecruitment.ArchivePath,capped.Encode());
+        byte[] capBytes=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        PrepareDisjointIsland(Record("current-left"));
+        capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(capBytes),"context capacity writes nothing");
+        Check(Disk().Contexts.Count==HeroRecruitmentArchive.MaxContexts&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"context capacity registers no new context");
+        Check(HeroRecruitment.DescribeForTests().Contains("readonly=True"),"context capacity fails closed");
+    }
+
+    // issue-85 lifecycle revision (2026-09-29): End releases its retained native list wrapper on
+    // every exit, so a failed first commit cannot be retried by re-entering End (the plan drops
+    // retry/background recovery). The island stays unresolved and read-only until the next real
+    // load, which then adopts exactly one epoch. This deliberately replaces the previous
+    // re-entry-as-retry expectation; the retention contract cannot survive that old shape.
+    static void DisjointHistoryReentryAfterWriteFailure()
+    {
+        Reset();
+        SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(Record("current-left"));
+        byte[] allowed=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        var island=CampaignSaveData.current.CurrentIsland;
+        var capture=new HeroRecruitment.LoadCapture();capture.Begin(island);
+        File.WriteAllText(HeroRecruitment.ArchivePath,"{\"schemaVersion\":99,\"scopes\":[]}");
+        byte[] blocked=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(blocked)&&HeroRecruitment.DescribeForTests().Contains("readonly=True"),"unsupported archive fails the first end closed");
+        Check(SourceRef(capture)==null,"failed first end releases the retained source");
+        File.WriteAllBytes(HeroRecruitment.ArchivePath,allowed);
+        capture.End(true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(allowed)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"end re-entry is not a retry after the source was released");
+        Check(HeroRecruitment.DescribeForTests().Contains("readonly=True"),"failed first end stays closed until the next load");
+        var next=new HeroRecruitment.LoadCapture();next.Begin(island);next.End(true);
+        Check(Disk().Contexts.ContainsKey(ContextOf(1,0,1))&&Disk().Contexts[ContextOf(1,0,1)].Epochs.Count==1,"the next real load adopts exactly one epoch");
+        Check(!HeroRecruitment.DescribeForTests().Contains("readonly=True"),"successful adoption clears the read-only state");
+        var hero=Actor(-1);HeroRecruitment.Observe(hero.a);
+        Check(HeroRecruitment.CanPurchase&&HeroRecruitment.TryPurchase(out _),"re-adopted context reaches the normal purchase gate");
+    }
+
+    // issue-85: a nested load chain must never let an enclosing finalizer adopt. The real PopPatch
+    // chain is exercised through reflection so Previous/_load link naturally.
+    static object[] PopBegin(IslandSaveData island)
+    {
+        var type=typeof(HeroRecruitment).GetNestedType("PopPatch",BindingFlags.NonPublic);
+        object[] args={island,null};
+        type.GetMethod("Before",BindingFlags.NonPublic|BindingFlags.Static).Invoke(null,args);
+        return args;
+    }
+    static Exception PopEnd(object[] args,bool success)=>PopEnd(args,success,null);
+    static Exception PopEnd(object[] args,bool success,Exception error)
+    {
+        var type=typeof(HeroRecruitment).GetNestedType("PopPatch",BindingFlags.NonPublic);
+        return (Exception)type.GetMethod("Finally",BindingFlags.NonPublic|BindingFlags.Static)
+            .Invoke(null,new object[]{error,success,args[1]});
+    }
+    static void DisjointHistoryNestedLoad()
+    {
+        Reset();
+        SeedForeignPaid(OldReceipt("old-hero-left"));
+        PrepareDisjointIsland(Record("current-left"));
+        byte[] bytes=File.ReadAllBytes(HeroRecruitment.ArchivePath);
+        var island=CampaignSaveData.current.CurrentIsland;
+
+        var outer=PopBegin(island);
+        var inner=PopBegin(island);
+        PopEnd(inner,true);
+        PopEnd(outer,true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(bytes)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"nested load chain writes nothing");
+        Check(!HeroRecruitment.CanPurchase&&!HeroRecruitment.TryPurchase(out _),"nested load chain never unlocks purchase");
+
+        // An inner begin that fails before touching runtime state must still mark its ancestors.
+        var outer2=PopBegin(island);
+        var failed=PopBegin(null);
+        PopEnd(failed,false);
+        PopEnd(outer2,true);
+        Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(bytes)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"early-failing nested begin still blocks the outer gate");
+    }
+
+    // issue-85: null component data / null elements classify as non-Character without blocking the
+    // gate, 308-scale Character counts are supported, and reloading the same snapshot confirms the
+    // adopted epoch instead of appending a second one.
+    static void DisjointHistoryScale()
+    {
+        Reset();
+        // The same native id may legitimately appear in several historical scopes; only a match
+        // against the current complete Character set may block, never a global uniqueness rule.
+        string first=HeroRecruitmentArchive.NewScope(),second=HeroRecruitmentArchive.NewScope();
+        var seeded=new HeroRecruitmentArchive();
+        Check(seeded.Record(first,HeroRecruitmentArchive.Hash(Raw("foreign-island"),first),new[]{OldReceipt("shared-hero")},HeroRecruitmentArchive.HashKindLegacy,true),"shared history seeded");
+        Check(seeded.Record(second,HeroRecruitmentArchive.Hash(Raw("foreign-island-two"),second),new[]{OldReceipt("shared-hero")},HeroRecruitmentArchive.HashKindLegacy,true),"same native id in a second scope seeded");
+        File.WriteAllBytes(HeroRecruitment.ArchivePath,seeded.Encode());
+        var records=new List<IslandSaveData.ObjectData>{NullComponentsRecord("noise-null"),NullElementRecord("noise-element"),EmbarkedRecord("embarked-current"),PlainRecord("building")};
+        for(int i=0;i<300;i++)records.Add(Record("current-"+i));
+        PrepareDisjointIsland(records.ToArray());
+        var capture=new HeroRecruitment.LoadCapture();capture.Begin(CampaignSaveData.current.CurrentIsland);capture.End(true);
+        string context=ContextOf(1,0,1);
+        var disk=Disk();
+        Check(disk.Contexts.ContainsKey(context)&&disk.Contexts[context].Epochs.Count==1,"300+ characters with null-component and embarked noise adopt one epoch");
+        Check(disk.Scopes[first][0].Seats.Count==1&&disk.Scopes[second][0].Seats.Count==1,"both shared histories stay untouched");
+        string epoch=disk.Contexts[context].Active;
+        int scopes=disk.Scopes.Count;
+        var again=new HeroRecruitment.LoadCapture();again.Begin(CampaignSaveData.current.CurrentIsland);again.End(true);
+        disk=Disk();
+        Check(disk.Contexts[context].Epochs.Count==1&&disk.Contexts[context].Active==epoch&&disk.Scopes.Count==scopes,"same snapshot reload never adds an epoch");
+        var hero=Actor(-1);HeroRecruitment.Observe(hero.a);
+        Check(HeroRecruitment.CanPurchase&&HeroRecruitment.TryPurchase(out _),"adopted context reaches the normal purchase gate");
+    }
+
+    // issue-85: inside one ContextKey the adopted new generation (N) and the older exact lineage
+    // (O) alternate as the active epoch; every historical scope stays, and each load only ever
+    // owns the receipts of the snapshot it actually matched.
+    static void DisjointRollbackForward()
+    {
+        Reset();
+        string context=ContextOf(1,0,1);
+        string oRaw=Raw("O-legacy"),nLoadRaw=Raw("N-loaded"),nPaidRaw=Raw("N-paid");
+        string foreign=HeroRecruitmentArchive.NewScope(),oScope=HeroRecruitmentArchive.NewScope();
+        var seeded=new HeroRecruitmentArchive();
+        Check(seeded.Record(foreign,HeroRecruitmentArchive.Hash(Raw("foreign-island"),foreign),new[]{OldReceipt("foreign-hero")},HeroRecruitmentArchive.HashKindLegacy,true),"foreign history seeded");
+        Check(seeded.Record(oScope,HeroRecruitmentArchive.Hash(oRaw,oScope),new[]{OldReceipt("o-hero")},HeroRecruitmentArchive.HashKindLegacy,true),"O history seeded");
+        File.WriteAllBytes(HeroRecruitment.ArchivePath,seeded.Encode());
+
+        // N adopts a fresh epoch out of the unknown disjoint history.
+        var nIsland=CampaignSaveData.current.CurrentIsland;
+        nIsland.Json=nLoadRaw;nIsland.isNew=false;nIsland.objects=new(){Record("n-hero")};
+        CampaignSaveData.current.carryForward.present=false;
+        var nLoad=new HeroRecruitment.LoadCapture();nLoad.Begin(nIsland);nLoad.End(true);
+        var nHero=Actor(-1);HeroRecruitment.Observe(nHero.a);
+        Check(HeroRecruitment.TryPurchase(out _),"N purchase after disjoint adoption");
+        var disk=Disk();
+        string nEpoch=disk.Contexts[context].Active;
+        Check(disk.Contexts[context].Epochs.Count==1&&nEpoch!=oScope&&disk.Scopes.ContainsKey(oScope),"N adopted its own epoch while O history stays");
+        Save("N-paid",("n-hero",nHero.p));
+        disk=Disk();
+        var nPaid=disk.Scopes[nEpoch].First(x=>x.Seats.Count>0);
+        Check(nPaid.Seats.Count==1&&nPaid.Seats[0].NativeId=="n-hero","N paid snapshot stores its own receipt");
+        string nReceipt=nPaid.Seats[0].Id.ToString("N");
+
+        // O rolls back to its exact legacy receipt in the same context.
+        var oIsland=new IslandSaveData{land=1,isNew=false,Json=oRaw,objects=new(){Record("o-hero")}};
+        CampaignSaveData.current.CurrentIsland=oIsland;
+        var oHero=Actor(-1);
+        var oLoad=new HeroRecruitment.LoadCapture();oLoad.Begin(oIsland);oLoad.Capture(oIsland.objects[0],oHero.p);oLoad.End(true);
+        Check(HeroRecruitment.IsPurchased(oHero.a)&&HeroRecruitment.SeatSide(oHero.a)==-1,"O rolls back to its exact legacy receipt");
+        Check(!HeroRecruitment.IsPurchased(nHero.a),"the O rollback never merges the N receipt");
+        disk=Disk();
+        Check(disk.Contexts[context].Epochs.Count==2&&disk.Contexts[context].Active==oScope&&disk.Contexts[context].Epochs.Contains(nEpoch),"O switch keeps both epochs");
+        Check(disk.Scopes[nEpoch].Any(x=>x.Seats.Count>0),"the N paid snapshot stays in history");
+
+        // Forward to the paid N snapshot: the same context switches back, GUID preserved.
+        var paidIsland=new IslandSaveData{land=1,isNew=false,Json=nPaidRaw,objects=new(){Record("n-hero")}};
+        CampaignSaveData.current.CurrentIsland=paidIsland;
+        var nHero2=Actor(-1);
+        var forward=new HeroRecruitment.LoadCapture();forward.Begin(paidIsland);forward.Capture(paidIsland.objects[0],nHero2.p);forward.End(true);
+        Check(HeroRecruitment.IsPurchased(nHero2.a)&&HeroRecruitment.SeatSide(nHero2.a)==-1,"N forwards to its paid receipt");
+        Check(!HeroRecruitment.IsPurchased(oHero.a),"the N forward never merges the O receipt");
+        var final=Disk();
+        Check(final.Contexts[context].Epochs.Count==2&&final.Contexts[context].Active==nEpoch&&final.Contexts[context].Epochs.Contains(oScope),"both epochs survive the N/O round trip");
+        Check(final.TryGet(nEpoch,final.Baselines[nEpoch],out var nAfter)&&nAfter.Seats.Count==1&&nAfter.Seats[0].Id.ToString("N")==nReceipt,"N receipt GUID survives the round trip");
+        Check(final.Scopes.ContainsKey(foreign)&&final.Scopes[foreign][0].Seats.Count==1&&final.Scopes[foreign][0].Seats[0].NativeId=="foreign-hero","foreign history rows stay untouched");
     }
 
 

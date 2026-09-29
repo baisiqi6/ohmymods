@@ -48,23 +48,27 @@ namespace KnightIdentityRuntimeTests
                     Check.True(KnightIdentityContexts.TryGetBindingKind(contextKey, out string kind) && kind == "known-mismatch", "absorbing load");
 
                     // 本次 save 只为非骑士对象调用了 GetID：盘上有该骑士记录，但没有任何 live owner 证据。
-                    // pristine 与后来被 RunSave 重建记录的 changed 分开，保证下一会话装载的内容就是基线内容。
-                    changed.biome++;
+                    // 新契约（knight-load-roundtrip）：最终成员缺捕获证据 = 实际成员缺失 → 整份拒写，
+                    // 绝不产出会让人静默消失的半张表，也不写再基线化基线。
+                    changed.biome++; // 让后续真实保存的 JSON 真正前进
                     IslandSaveData pristine = NativeSim.CloneIsland(changed);
                     KnightUnit nonKnight = NativeSim.NewKnight(17101, tag: "Tree");
+                    byte[] before = File.ReadAllBytes(f.SidecarPath);
                     RunCapture(pristine, 0, 4, 0, () => KnightIdentitySaveBridge.HandleGetId(nonKnight.Persistent, "record-without-knight-evidence"));
 
-                    Check.True(Logged("rebaseline: context="), "the baseline was still written");
-                    Check.True(KnightIdentityContexts.TryGetBindingKind(contextKey, out kind) && kind == "rebaseline-incomplete",
-                        "the incomplete rebind is recorded explicitly");
+                    Check.True(Logged("save-member-missing"), "the real member without capture evidence is rejected");
+                    Check.True(before.AsSpan().SequenceEqual(File.ReadAllBytes(f.SidecarPath)), "the rejected save wrote nothing");
+                    Check.True(KnightIdentityContexts.TryGetBindingKind(contextKey, out kind) && kind == "known-mismatch",
+                        "the context stays unresolved while evidence is missing");
                     Check.False(KnightIdentityRuntime.CanFlushSeed, "write protection is kept while evidence is missing");
                     Check.False(KnightIdentityRuntime.TryGetReceipt(again.Knight, out _), "no receipt was invented without evidence");
 
-                    // 后续普通保存不得产出任何新快照：否则该个体会从下一代快照里静默消失。
-                    byte[] before = File.ReadAllBytes(f.SidecarPath);
-                    NativeSim.RunSave(changed, 0, 4, 0, new List<KnightUnit> { again });
-                    Check.True(before.AsSpan().SequenceEqual(File.ReadAllBytes(f.SidecarPath)), "the next save writes nothing");
-                    Check.False(Logged("save-preserve-unresolved"), "the blocked save never even reaches the snapshot build");
+                    // 下一次真实保存（GetID 覆盖骑士）走吸收态再基线化：以本次 save 证据重绑携带身份，不丢人。
+                    NativeSim.RunSave(pristine, 0, 4, 0, new List<KnightUnit> { again });
+                    Check.True(Logged("rebaseline: context="), "the evidence-backed save rebaselines");
+                    Check.True(KnightIdentityRuntime.TryGetReceipt(again.Knight, out KnightIdentityReceipt rebound), "identity rebound");
+                    Check.Same(original.Id, rebound.Id, "carried GUID preserved");
+                    Check.Equal(2, rebound.Style, "carried style preserved");
 
                     // 下一会话按基线精确命中：身份照常恢复，没有丢。
                     KnightIdentityRuntime.ResetForTests();
@@ -98,6 +102,7 @@ namespace KnightIdentityRuntimeTests
 
                     // 捕获之后、ApplyCapture 之前：对象被销毁，同 uniqueID 换成新对象（life 前进）。
                     changed.biome++; // 让基线 JSON 真正前进，下一会话只精确命中基线
+                    byte[] before = File.ReadAllBytes(f.SidecarPath);
                     KnightUnit replacement = null;
                     NativeSim.RunSave(changed, 0, 4, 0, new List<KnightUnit> { again }, captured =>
                     {
@@ -107,18 +112,22 @@ namespace KnightIdentityRuntimeTests
                     });
                     Check.True(replacement != null, "the replacement object exists");
 
-                    Check.False(KnightIdentityRuntime.TryGetReceipt(replacement.Knight, out _), "the new life is never handed the carried receipt");
-                    Check.True(KnightIdentityContexts.TryGetBindingKind(contextKey, out kind) && kind == "rebaseline-incomplete",
-                        "the changed life is treated as an evidence gap");
-                    Check.False(KnightIdentityRuntime.CanFlushSeed, "write protection is kept when the evidence life changed");
+                    // 写前终检（life 已换）：本次 save 整份拒写，绝不写 baseline
+                    Check.True(Logged("save-pending-stale"), "the stale pending capture is rejected before any write");
+                    Check.True(before.AsSpan().SequenceEqual(File.ReadAllBytes(f.SidecarPath)), "no baseline was written");
+                    Check.True(KnightIdentityContexts.TryGetBindingKind(contextKey, out kind) && kind == "known-mismatch",
+                        "the context stays unresolved (write prevention, not rebaseline-incomplete)");
+                    Check.False(KnightIdentityRuntime.CanFlushSeed, "write protection is kept while evidence is missing");
+                    Check.False(KnightIdentityRuntime.TryGetReceipt(replacement.Knight, out _), "the new life gets no receipt from the stale capture");
                     Check.False(KnightIdentityRuntime.TryResolve(replacement.Knight, 3, 0u, Styles.All, out _), "the unresolved context blocks fresh minting too");
+                    Check.True(KnightIdentityArchiveStore.Load(f.SidecarPath).Archive.TryGetContext(contextKey, out KnightIdentityContext context), "context still owned");
+                    Check.Equal(1, context.Epochs.Count, "no extra epoch was created by the rejected save");
 
-                    // 下一会话身份照常从基线恢复：缺口只影响本会话的写入，不丢历史。
-                    KnightIdentityRuntime.ResetForTests();
-                    KnightUnit third = NativeSim.NewKnight(18001);
-                    NativeSim.RunLoad(NativeSim.CloneIsland(changed), (index, id) => third);
-                    Check.True(KnightIdentityRuntime.TryGetReceipt(third.Knight, out KnightIdentityReceipt restored), "identity restored in the next session");
-                    Check.Same(original.Id, restored.Id, "restored GUID is the carried identity");
+                    // 下一次完整、同 life 的新捕获走吸收态重绑：身份按 uniqueID 证据携带到唯一 live owner
+                    NativeSim.RunSave(changed, 0, 4, 0, new List<KnightUnit> { replacement });
+                    Check.True(KnightIdentityRuntime.TryGetReceipt(replacement.Knight, out KnightIdentityReceipt rebound), "the live owner is rebound by a complete capture");
+                    Check.Same(original.Id, rebound.Id, "rebound GUID is the carried identity");
+                    Check.Equal(3, rebound.Style, "rebound style is the carried style");
                 }
             });
         }
@@ -297,17 +306,15 @@ namespace KnightIdentityRuntimeTests
                     NativeSim.RunSave(changed, 0, 4, 0, new List<KnightUnit> { first },
                         captured => KnightIdentityRuntime.OnEnable(captured.Knight));
 
-                    Check.True(KnightIdentityContexts.TryGetBindingKind(contextKey, out string kind) && kind == "rebaseline-incomplete",
-                        "the stale capture is treated as an evidence gap");
+                    // 写前终检（已持收据但 life 已换）：本次 save 整份拒写，绝不写 baseline
+                    Check.True(Logged("save-owner-stale"), "the stale receipt-holding capture is rejected before any write");
+                    Check.True(KnightIdentityContexts.TryGetBindingKind(contextKey, out string kind) && kind == "known-mismatch",
+                        "the context stays unresolved (write prevention, not rebaseline-incomplete)");
                     Check.False(KnightIdentityRuntime.TryGetReceipt(first.Knight, out _), "the new life gets no receipt");
                     Check.False(KnightIdentityRuntime.CanFlushSeed, "write protection is kept for the new life");
-                    byte[] afterRebaseline = File.ReadAllBytes(f.SidecarPath);
-                    Check.False(before.AsSpan().SequenceEqual(afterRebaseline), "the baseline itself was still written");
-
-                    NativeSim.RunSave(changed, 0, 4, 0, new List<KnightUnit> { first });
-                    Check.True(afterRebaseline.AsSpan().SequenceEqual(File.ReadAllBytes(f.SidecarPath)), "the next save writes nothing");
-                    Check.True(BaselineCarries(f, changed, contextKey, uniqueId, out KnightIdentityReceipt carried), "the baseline keeps the identity");
-                    Check.Same(original.Id, carried.Id, "carried GUID is unchanged");
+                    Check.True(before.AsSpan().SequenceEqual(File.ReadAllBytes(f.SidecarPath)), "no baseline was written for the stale capture");
+                    Check.True(KnightIdentityArchiveStore.Load(f.SidecarPath).Archive.TryGetContext(contextKey, out KnightIdentityContext context), "context still owned");
+                    Check.Equal(1, context.Epochs.Count, "no extra epoch was created by the rejected save");
                 }
             });
         }
@@ -474,7 +481,7 @@ namespace KnightIdentityRuntimeTests
                         }
                     });
 
-                    Check.True(Logged("save-evidence-gap"), "the capacity overflow is treated as a gap");
+                    Check.True(Logged("save-evidence-overflow"), "the capacity overflow is treated as a gap");
                     Check.True(before.AsSpan().SequenceEqual(File.ReadAllBytes(f.SidecarPath)), "the overflowing capture wrote nothing");
                 }
             });

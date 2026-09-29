@@ -16,7 +16,7 @@ public class ModPanel : MonoBehaviour
     private static Vector2 _scroll;
     private static float _measuredContentHeight; // DrawControls 上一帧实际累计高度（一帧收敛）
     private static int _category;
-    private static readonly string[] Categories = { "王国", "人口", "世界", "战斗", "自动补货", "便捷", "弓箭", "骑士" };
+    private static readonly string[] Categories = { "王国", "人口", "世界", "战斗", "自动补货", "便捷", "弓箭", "骑士", "MOD角色" };
     private static readonly Color Gold = new Color(0.91f, 0.75f, 0.43f);
     private static readonly Color Text = new Color(0.94f, 0.94f, 0.91f);
     private static readonly Color Muted = new Color(0.65f, 0.71f, 0.77f);
@@ -40,11 +40,21 @@ public class ModPanel : MonoBehaviour
         // Shortcuts first so a HUD failure can never swallow F5/Ctrl+F10/Esc handling.
         bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
         if ((ctrl && Input.GetKeyDown(KeyCode.F10)) || Input.GetKeyDown(KeyCode.F5))
+        {
             _shown = !_shown;
+            if (_shown)
+            {
+                // 重新打开时清滚动与实测高度缓存，避免沿用上次分类的旧高度；关闭不清。
+                _scroll = Vector2.zero;
+                _measuredContentHeight = 0f;
+            }
+        }
         else if (_shown && Input.GetKeyDown(KeyCode.Escape))
             _shown = false;
         PatchUI_PanelFocus.Tick();
         PatchDiag_FrameWatch.Tick();
+        // 外墙工匠持久驱动（issue-86）：不按面板开关或游戏状态过滤；世界/权限/异常与限流日志由 runtime 自理。
+        WallEngineerRuntime.Tick(Managers.Inst, Time.time);
         try { CalendarHud.Tick(); }
         catch { /* CalendarHud backs off internally; input toggles have already been handled. */ }
         try { PopulationHud.Tick(); }
@@ -61,6 +71,11 @@ public class ModPanel : MonoBehaviour
         HeroRecruitment.Tick();
         HeroArcherRuntime.Tick();
         HeroShop.Tick();
+        try { CoinCourierPersistence.Tick(); CoinCourierRuntime.Tick(); }
+        catch { /* 可选角色：不得拖垮面板与其他系统 */ }
+        // 共享传送 FX 的集中 Tick（哥布林关闭时税收助手等调用方仍能播放）；内部按帧去重。
+        try { CoinCourierTeleportFx.Tick(Time.deltaTime); }
+        catch { }
         HeroArcherArrowVisuals.Tick();
         PatchArcher_Options.Tick();
         PatchArcher_GreekImpact.Tick();
@@ -70,6 +85,12 @@ public class ModPanel : MonoBehaviour
         ShopCleanupQueue.TickPendingCleanup();
     }
 
+    private void OnDestroy()
+    {
+        // 仅面板对象真正销毁（退出游戏）时收尾持久驱动；隐藏面板或暂停不重置。
+        WallEngineerRuntime.Reset();
+    }
+
     private static bool _faultLogged;
 
     private void LateUpdate()
@@ -77,6 +98,7 @@ public class ModPanel : MonoBehaviour
         // Read the native Animator after its update; the optional hero driver shares the same frame guard.
         HeroArcherVisuals.Sync("panel-late");
         try { MusketeerVisuals.Sync(); MusketeerGunVisuals.Sync(); } catch { }
+        DeadlandsFollowerCapture.SampleLate(IsShown);   // issue-79 临时只读录制（非 Armed/Recording 时只布尔早退）
     }
 
     private void OnGUI()
@@ -101,13 +123,13 @@ public class ModPanel : MonoBehaviour
             GUI.skin = _skin;
             GUI.color = GUI.backgroundColor = GUI.contentColor = Color.white;
             GUI.enabled = true;
-            // At 1280x720 this keeps 22px text and a 672px panel; smaller screens scale together.
+            // At 1280x720 this keeps 22px text and a 1232x672 panel; smaller screens scale together, larger ones cap at 1240x940.
             float scale = Mathf.Min(1f, Mathf.Min(Screen.width / 1120f, Screen.height / 720f));
             GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
             float canvasWidth = Screen.width / scale;
             float canvasHeight = Screen.height / scale;
-            float width = Mathf.Min(1040f, canvasWidth - 48f);
-            float height = Mathf.Min(820f, canvasHeight - 48f);
+            float width = Mathf.Min(1240f, canvasWidth - 48f);
+            float height = Mathf.Min(940f, canvasHeight - 48f);
             Rect panel = new Rect((canvasWidth - width) / 2f, (canvasHeight - height) / 2f, width, height);
             GUI.BeginGroup(panel);
             try { DrawPanel(width, height); }
@@ -244,6 +266,7 @@ public class ModPanel : MonoBehaviour
             {
                 _category = i;
                 _scroll = Vector2.zero;
+                _measuredContentHeight = 0f;
             }
         }
 
@@ -274,7 +297,8 @@ public class ModPanel : MonoBehaviour
     private static int EstimateCards()
     {
         return _category == 7 ? 3
-            : (_category == 4 ? 9 : (_category == 3 ? 5 : (_category == 5 ? 5 : (_category == 0 || _category == 6 ? 4 : 3))));
+            : (_category == 4 ? 9 : (_category == 3 ? 5 : (_category == 5 ? 5
+            : (_category == 6 ? 3 : (_category == 8 ? 8 : (_category == 0 ? 5 : 3))))));
     }
 
     private static void DrawControls(float width, ref float y)
@@ -286,6 +310,10 @@ public class ModPanel : MonoBehaviour
                 Toggle(ref y, width, "无限金币", ModConfig.InfiniteMoney, "立即生效 · 君主支付不再消耗金币。");
                 IntegerSlider(ref y, width, "君主移动速度", ModConfig.SpeedMultiplier, 1, 5, "倍", "移动时生效。");
                 Toggle(ref y, width, "快速建造", ModConfig.FastBuild, "建造时生效 · 建筑约 2 秒建成。");
+                // 只读状态（issue-86）：外墙耐久倍率由 WallEngineerRuntime 维护，无开关/滑条/人数重算。
+                Card(y, width, "外墙耐久上限", CalendarHud.FormatWallStatus(WallEngineerRuntime.Status),
+                    "10名工匠×2，20名及以上×3；新增耐久需维修填满。");
+                y += CardHeight + 12;
                 break;
             case 1:
                 Toggle(ref y, width, "常驻职业与骑士人数", ModConfig.ShowPopulationHud,
@@ -299,7 +327,7 @@ public class ModPanel : MonoBehaviour
                 Toggle(ref y, width, "常驻时间与银行", ModConfig.ShowCalendarHud,
                     "显示总天数、整点和季节进度；希腊世界额外显示银行金币。");
                 FloatSlider(ref y, width, "地图大小", ModConfig.MapSizeMultiplier, 1, 5, false,
-                    "生成新地图时生效。");
+                    "新生成岛实际长度倍率，按原生地块取整；已生成岛不变。");
                 FloatSlider(ref y, width, "箭塔基底密度", ModConfig.TowerSpotMultiplier, 1, 4, false,
                     "重新载入地图时生效 · 1 倍为原生密度。");
                 break;
@@ -338,12 +366,6 @@ public class ModPanel : MonoBehaviour
                     "所有世界·单机/主机：怪物不再抓走狗与隐士；开启当刻与每次读档把已被抓走的狗/隐士找回当前岛。关闭恢复原版抓走与赎回路径。");
                 break;
             case 6:
-                Toggle(ref y, width, "火铳铺", ModConfig.MusketeerEnabled,
-                    "所有世界·单机：4金币买枪转职，不上塔；举旗另带最多4名火枪手，白天猎鹿、不伤小动物。关闭保留职业记录。");
-                GUI.Label(new Rect(190, y - CardHeight - 12 + 51, width - 222, 31), MusketeerShop.StatusText, _muted);
-                Toggle(ref y, width, "英雄驿站", ModConfig.HeroArcherEnabled,
-                    "所有世界·单机：投8金币训练地面英雄，不上箭塔；每侧1名，死亡才空位。商店红旗表示占位，关闭保留已购名额。");
-                GUI.Label(new Rect(190, y - CardHeight - 12 + 51, width - 222, 31), HeroShop.StatusText, _muted);
                 ModConfig.ArcherVolleyCount.Value = (int)ArcherControl(ref y, width, "中世纪随从散射", ModConfig.ArcherScatterEnabled,
                     Mathf.Clamp(ModConfig.ArcherVolleyCount.Value, 1, 3), 1, 3, 1, Mathf.Clamp(ModConfig.ArcherVolleyCount.Value, 1, 3) + " 支 / 发",
                     "所有世界 · 仅中世纪骑士的弓箭手随从对敌散射；打猎单发，额外箭淡金色，总数含主箭。");
@@ -355,6 +377,36 @@ public class ModPanel : MonoBehaviour
                 break;
             case 7:
                 KnightStylePanel.DrawSection(ref y, width, _card, _label, _muted, _value, _button, _activeTab);
+                // 临时诊断（issue-79 第一切片）：只 Arm 一次 8 秒只读记录，不修改配置、不改玩法。
+                Card(y, width, "记录附近死地随从（临时）", DeadlandsFollowerCapture.StatusText, DeadlandsFollowerCapture.HelpText);
+                if (GUI.Button(new Rect(22, y + 51, 220, 31), "开始记录（8秒）", _button))
+                    DeadlandsFollowerCapture.ArmFromPanel();
+                y += CardHeight + 12;
+                break;
+            case 8:
+                CrossbowRatioSlider(ref y, width);
+                Toggle(ref y, width, "火铳铺", ModConfig.MusketeerEnabled,
+                    "所有世界·单机：4金币买枪转职，不上塔；举旗另带最多4名火枪手，白天猎鹿、不伤小动物。关闭保留职业记录。");
+                GUI.Label(new Rect(190, y - CardHeight - 12 + 51, width - 222, 31), MusketeerShop.StatusText, _muted);
+                Toggle(ref y, width, "英雄驿站", ModConfig.HeroArcherEnabled,
+                    "所有世界·单机：投8金币训练地面英雄，不上箭塔；每侧1名，死亡才空位。商店红旗表示占位，关闭保留已购名额。");
+                GUI.Label(new Rect(190, y - CardHeight - 12 + 51, width - 222, 31), HeroShop.StatusText, _muted);
+                Toggle(ref y, width, "金币哥布林", ModConfig.CoinCourierEnabled,
+                    "所有世界·单机：城堡左投币招募；从国库逐枚取币，传送补给骑士金币槽，遇敌带余币撤回。未接存档时不可招募、不收费；关闭保留身份与钱袋。");
+                GUI.Label(new Rect(190, y - CardHeight - 12 + 51, width - 222, 31), CoinCourierRuntime.StatusText, _muted);
+                // 招募点/国库两行独立状态：局部加高并同步推进 y，避免塞进 31px 固定行溢出或截断。
+                float courierStatusTop = y - 6f;
+                GUI.Label(new Rect(24, courierStatusTop, width - 48, 44),
+                    "招募点：" + CoinCourierShop.StatusText + "\n国库：" + CoinCourierRuntime.TreasuryStatusText, _muted);
+                y = courierStatusTop + 44f + 6f;
+                IntegerSlider(ref y, width, "哥布林招募价", ModConfig.CoinCourierRecruitPrice, 1, 20, "币",
+                    "付款开始即冻结当次价格；改配置不影响进行中的交易。");
+                IntegerSlider(ref y, width, "哥布林钱袋容量", ModConfig.CoinCourierPurseCapacity, 1, 40, "币",
+                    "调低不裁剪已有余额；回银行只补到目标容量。");
+                IntegerSlider(ref y, width, "哥布林每访上限", ModConfig.CoinCourierMaxCoinsPerVisit, 1, 12, "币",
+                    "同一骑士每次访问最多补给的枚数，不是钱袋容量。");
+                SecondsSlider(ref y, width, "哥布林同骑士间隔", ModConfig.CoinCourierKnightCooldown, 0f, 120f,
+                    "同一骑士两次访问的最小间隔（游戏秒）。");
                 break;
         }
     }
@@ -450,6 +502,21 @@ public class ModPanel : MonoBehaviour
         y += CardHeight + 12;
     }
 
+    private static void CrossbowRatioSlider(ref float y, float width)
+    {
+        ConfigEntry<float> config = ModConfig.CrossbowRecruitmentRatio;
+        float current = CrossbowRatioPolicy.Normalize(config.Value);
+        Card(y, width, "普通弩手招募比例", CrossbowRatioPolicy.Percent(current) + "%",
+            "新捡弓立即生效；已有单位下次读档重算。弩手不参与骑士/举旗补员，已有队员不改；联机双方请使用相同比例。");
+        float raw = Slider(y, width, current, .25f, 1f, "25%", "100%", out bool interacted);
+        if (interacted)
+        {
+            float next = CrossbowRatioPolicy.SnapSlider(raw);
+            if (next != config.Value) config.Value = next;
+        }
+        y += CardHeight + 12;
+    }
+
     private static void FloatSlider(ref float y, float width, string title, ConfigEntry<float> config,
         float min, float max, bool percent, string help)
     {
@@ -461,6 +528,20 @@ public class ModPanel : MonoBehaviour
         if (interacted && !Mathf.Approximately(raw, config.Value))
         {
             float next = Mathf.Clamp(Mathf.Round(raw * 20f) / 20f, min, max);
+            if (!Mathf.Approximately(next, config.Value)) config.Value = next;
+        }
+        y += CardHeight + 12;
+    }
+
+    private static void SecondsSlider(ref float y, float width, string title, ConfigEntry<float> config,
+        float min, float max, string help)
+    {
+        Card(y, width, title, config.Value.ToString("0.#") + " 秒", help);
+        float raw = Slider(y, width, config.Value, min, max,
+            min.ToString("0.#") + "秒", max.ToString("0.#") + "秒", out bool interacted);
+        if (interacted && !Mathf.Approximately(raw, config.Value))
+        {
+            float next = Mathf.Clamp(Mathf.Round(raw * 2f) / 2f, min, max);   // 0.5 秒步进
             if (!Mathf.Approximately(next, config.Value)) config.Value = next;
         }
         y += CardHeight + 12;

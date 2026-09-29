@@ -82,10 +82,22 @@ public class Sided<T>
     }
 }
 
+public class World
+{
+    public UnityEngine.Transform gameLayer;
+}
+
+public static class NetworkBigBoss
+{
+    public static bool HasWorldAuth = true;
+    public static bool IsOnline;
+}
+
 public class Managers : UnityEngine.Component
 {
     public static Managers Inst;
     public Kingdom kingdom;
+    public World world;
     public EnemyManager enemies;
 }
 
@@ -132,9 +144,14 @@ public class Embarkee : UnityEngine.Component
 public class Archer : UnityEngine.Component
 {
     private bool _isAvailable = true;
+    public bool ThrowOnAvailableRead;
     public bool isAvailable
     {
-        get => _isAvailable;
+        get
+        {
+            if (ThrowOnAvailableRead) throw new InvalidOperationException("isAvailable fault fixture");
+            return _isAvailable;
+        }
         set => _isAvailable = value;
     }
     public bool harmless;
@@ -148,6 +165,7 @@ public class Archer : UnityEngine.Component
     public Formation formation;
     public Side _guardSide;
     public int _guardDepth;
+    public bool ThrowOnWrite;
     public readonly List<(Side Side, int Depth)> Writes = new();
 
     public Formation GetFormation() => formation;
@@ -155,6 +173,7 @@ public class Archer : UnityEngine.Component
 
     public void SetGuardSide(Side side, int depth)
     {
+        if (ThrowOnWrite) throw new InvalidOperationException("setter fault fixture");
         Writes.Add((side, depth));
         _guardSide = side;
         _guardDepth = depth;
@@ -164,6 +183,12 @@ public class Archer : UnityEngine.Component
 
 namespace KingdomEnhancedMod
 {
+    internal static class ModConfig
+    {
+        internal sealed class BoolEntry { internal bool Value = true; }
+        internal static BoolEntry Enabled = new();
+    }
+
     internal static class Probe
     {
         internal static int TotalWrites;
