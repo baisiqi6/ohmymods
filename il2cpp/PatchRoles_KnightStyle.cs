@@ -15,7 +15,7 @@ namespace KingdomEnhancedMod;
 /// 士兵控制器。北境风格额外联动 PatchRoles_NorseSquad：随从转化为真北境弓箭手
 /// 预制体（带盾组件的近战/盾墙原生逻辑）并程序化装盾，见该文件。
 /// 缩放（坑11：只动 y）：骑士按风格查表（中世纪 0.896/死地 1.05/幕府 0.95/
-/// 希腊 0.9/北境 1.15，Strip 恒回 1）；中世纪随从 1.12、北境随从 1.15
+/// 希腊 0.9/北境 1.15，Strip 恒回 1）；中世纪随从 1.064、北境随从 1.15
 /// （其余含北境 1.0，无骑士/骑士无风格时回 1）。
 ///
 /// 机制要点：
@@ -80,7 +80,7 @@ public static class PatchRoles_KnightStyle
 {
     // ---- 常量 ----
     private const int StyleCount = 5;
-    private const int MedievalStyleIndex = 0; // 随从缩放特判用（中世纪随从 1.12）
+    private const int MedievalStyleIndex = 0; // 随从缩放特判用（中世纪随从 1.064）
     private const int DeadlandsStyleIndex = 1; // 死地随从"无标记弩手化"包特判用
     internal const int NorseStyleIndex = 4;   // 北境风格（PatchRoles_NorseSquad 联动判定用）
     private const float IntegrityIntervalSeconds = 5f;
@@ -90,9 +90,9 @@ public static class PatchRoles_KnightStyle
     // 中世纪 0.70×32/25=0.896（2026-09-29 站高 0.70 校准）/ 死地 1.05 / 幕府 0.95 /
     // 希腊 0.9 / 北境 1.15（原"希腊特例"泛化为表驱动；死地/北境 1.05/1.15 由用户拍板定稿）
     private static readonly float[] KnightStyleScaleY = { 0.70f * 32f / 25f, 1.05f, 0.95f, 0.9f, 1.15f };
-    // 中世纪风格的随从士兵 y 缩放：0.70×32/20=1.12（素材立姿 20px；其余风格含北境 1.0，
-    // 用户可从身高认出中世纪队）
-    private const float FollowerMedievalScaleY = 0.70f * 32f / 20f;
+    // 中世纪风格的随从士兵 y 缩放：0.70×32/20×0.95=1.064（素材立姿 20px；2026-09-30
+    // 身高再降 5%；其余风格含北境 1.0，用户可从身高认出中世纪队）
+    private const float FollowerMedievalScaleY = 0.70f * 32f / 20f * 0.95f;
     private const float FollowerNorseScaleY = 1.15f; // 用户拍板：北境骑士与其随从同步 1.15
 
     private const uint FnvOffset = 2166136261u;
@@ -651,7 +651,7 @@ public static class PatchRoles_KnightStyle
     }
 
     /// <summary>
-    /// 随从缩放（坑11：只动 y）：中世纪风格的随从士兵 y=1.12（0.70×32/20），其余（含骑士无
+    /// 随从缩放（坑11：只动 y）：中世纪风格的随从士兵 y=1.064（0.70×32/20×0.95），其余（含骑士无
     /// 风格/随从无骑士的清理路径传 1）归还原生缩放。y≠1 注册守卫，y=1 注销。
     /// 每轮幂等重算：随从换队（骑士死了改投他人）时缩放自动跟随新骑士风格。
     /// </summary>
@@ -1309,7 +1309,7 @@ public static class PatchRoles_KnightStyle
                     if (knight == null || knight.gameObject == null)
                     {
                         // 无骑士（离队/猎人）：随从缩放确保回 1（幂等；曾随中世纪
-                        // 骑士放大到 1.12 的随从离队后在此归位）；同时撤弩手化包
+                        // 骑士放大到 1.064 的随从离队后在此归位）；同时撤弩手化包
                         // （幂等 no-op，离队主路径在 ConvertToHunter postfix）；
                         // 生根字段归位，风格皮绝不泄漏给下一个池 life。
                         RestoreFollowerSoldierAnimator(archer);
@@ -1372,7 +1372,7 @@ public static class PatchRoles_KnightStyle
                     if (effectiveStyleIndex >= 0 && effectiveStyleIndex < StyleCount)
                         diagStyleTargets[effectiveStyleIndex]++; // 按实际穿的皮计（reviewer 拍板）
 
-                    // 随从缩放（[2]）：中世纪 1.12，其余 1.0；随从换队（骑士死了
+                    // 随从缩放（[2]）：中世纪 1.064，其余 1.0；随从换队（骑士死了
                     // 改投他人）时每轮幂等重算，缩放自动跟随新骑士风格。
                     // 死地随从例外：缩放（1.15）由 ApplySquadCrossbowPackage 作为
                     // 弩手化包的一部分统一管理，此处跳过避免两个写入者互相覆盖。

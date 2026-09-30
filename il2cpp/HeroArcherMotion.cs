@@ -3,7 +3,7 @@ using System;
 namespace KingdomEnhancedMod;
 
 /// <summary>
-/// 纯逻辑移动判据 + 0.70 站高视觉缩放常量（worker 2026-09-15 slice，无 Unity 依赖，可被测试直接链接）。
+/// 纯逻辑移动判据 + 0.665 站高视觉缩放常量（worker 2026-09-15 slice，无 Unity 依赖，可被测试直接链接）。
 ///
 /// 背景（已核代码事实）：原生 Mover.SetSpeed 主动写 _movingToGoal=false，但 _moveSpeed 仍非 0，
 /// ActualSpeed = _moveSpeed * _multiplier —— goal 标记不能代表「实际是否在移动」。
@@ -16,9 +16,9 @@ internal static class HeroArcherMotion
     internal const float WalkSpeedEpsilon = 0.05f;
 
     /// <summary>自有 body/cloth 的整体表现缩放：绝对值断言用（脚点 pivot 缩小；z 保持 1 不动深度）。
-    /// 0.70 站高校准（2026-09-29 修订）：素材最高自然站姿 24px、PPU 32 → 0.70×32/24 ≈ 0.933333
-    /// （最高站姿 = 0.70；普通/休闲立姿 23px ≈ 0.670833，较 23px 基准总体缩 4.167%）。</summary>
-    internal const float VisualScale = 0.70f * 32f / 24f;
+    /// 0.70 站高校准（2026-09-29）→ 2026-09-30 身高再降 5%：素材最高自然站姿 24px、PPU 32 →
+    /// 0.70×32/24×0.95 ≈ 0.886667（最高站姿 = 0.665；普通/休闲立姿 23px ≈ 0.637292）。</summary>
+    internal const float VisualScale = 0.70f * 32f / 24f * 0.95f;
 
     /// <summary>布料像素→单位换算，与 HeroArcherClothMath.PixelsPerUnit 同源规则（1px = 1/32）。</summary>
     internal const float ClothPixelsPerUnit = 32f;
