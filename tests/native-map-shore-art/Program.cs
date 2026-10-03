@@ -1,4 +1,4 @@
-// 岸线冷启动准备 + owner 租约行为测试（source-linked：编译 ../../il2cpp/MapExtensionIslandArt.cs）。
+// 岸线冷启动准备 + owner 租约行为测试（source-linked：编译 ../../src/MapExtensionIslandArt.cs）。
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -470,7 +470,13 @@ namespace ShoreArtTests
             Check(KingdomEnhancedMod.MapExtensionIslandArt.Shore == null && img6.sprite != null,
                 "leasev2/reset-readfault-finalizes-after-recovery");
 
-            // ---- 9) 真实岸线 mask + 生产 planner（联合）：300x200/400x200 三行 ≥0.6、16/16 逐像素岸内
+            // ---- 9) 真实顶面 mask + 生产 planner（联合）：
+            //      (a) 两个正常 world 视口 16/16、scale ≥ 0.6（调用点显式下限，与生产一致）、
+            //          每 footprint 逐像素位于顶面 PlacementMask + 自由错落诊断（右侧利用/无长水平带/非微抖动）；
+            //      (b2) detail 框（230×84.74）+ 真实船标：16/16 ≥0.6；锚点=优选位置 + 有界修正，
+            //          fallback 锚路径在船标挡住主锚邻域时被实际使用（可观测锚距离）；
+            //      (c) 判别性负例：alpha=true 但 PlacementMask=false 的崖面矩形 —— 同一几何下 alpha mask 会放下、
+            //          运行期顶面 mask 必须拒绝（证明不是改图假通过）。
             {
                 float[] reqW = { 25, 24, 21, 25, 21, 21, 29, 29, 26, 28, 28, 40, 22, 24, 40, 20 };
                 float[] reqH = { 16, 22, 26, 17, 18, 18, 13, 13, 14, 18, 13, 25, 19, 32, 26, 20 };
@@ -480,8 +486,24 @@ namespace ShoreArtTests
                     sixteen.Add(new KingdomEnhancedMod.MapIconRequest(KingdomEnhancedMod.MapIconKind.Steed,
                         100 + i, i, reqW[i], reqH[i]));
                 }
+                Check(prep.PlacementMask != null && prep.PlacementPixels > 0 && prep.PlacementPixels < prep.IslandPixels,
+                    "live/placement-mask-nonempty-subset placement=" + prep.PlacementPixels +
+                    " island=" + prep.IslandPixels);
+                Check(KingdomEnhancedMod.MapExtensionIslandArt.PlacementCutX.Length ==
+                        KingdomEnhancedMod.MapExtensionIslandArt.PlacementCutY.Length &&
+                    KingdomEnhancedMod.MapExtensionIslandArt.PlacementCutX.Length >= 2,
+                    "live/placement-cut-table");
+                bool cutMonotonic = true;
+                for (int i = 1; i < KingdomEnhancedMod.MapExtensionIslandArt.PlacementCutX.Length; i++)
+                {
+                    if (KingdomEnhancedMod.MapExtensionIslandArt.PlacementCutX[i] <=
+                        KingdomEnhancedMod.MapExtensionIslandArt.PlacementCutX[i - 1]) cutMonotonic = false;
+                }
+                Check(cutMonotonic, "live/placement-cut-monotonic");
+                var liveMask = new KingdomEnhancedMod.MapShoreMask(prep.Width, prep.Height, prep.PlacementMask);
+                var alphaMask = new KingdomEnhancedMod.MapShoreMask(prep.Width, prep.Height, prep.Mask);
                 float aspect = prep.Width / (float)prep.Height;
-                var liveMask = new KingdomEnhancedMod.MapShoreMask(prep.Width, prep.Height, prep.Mask);
+                KingdomEnhancedMod.MapIconBox lastShape = default;
                 foreach (float worldW in new[] { 300f, 400f })
                 {
                     Check(KingdomEnhancedMod.MapWorldLayout.ComposeDomains(
@@ -491,26 +513,106 @@ namespace ShoreArtTests
                     Check(KingdomEnhancedMod.MapExtensionShapePlan.TryPlanWorldBox(band,
                         KingdomEnhancedMod.MapExtensionShapePlan.Margin, aspect,
                         out KingdomEnhancedMod.MapIconBox shape), "live/shape-" + worldW);
-                    KingdomEnhancedMod.MapIconBox area = KingdomEnhancedMod.MapWorldLayout.IconAreaOf(shape, true, 20f);
+                    lastShape = shape;
+                    KingdomEnhancedMod.MapIconBox area = KingdomEnhancedMod.MapWorldLayout.IconAreaOf(shape);
                     var livePlacements = new List<KingdomEnhancedMod.MapIconPlacement>();
                     bool liveOk = KingdomEnhancedMod.MapExtensionIslandLayout.TryPlan(area, sixteen,
                         new List<KingdomEnhancedMod.MapIconBox>(), shape, liveMask, livePlacements,
-                        out float liveScale, out int liveFailed);
+                        out float liveScale, out int liveFailed, KingdomEnhancedMod.MapExtensionIslandLayout.PreferScale);
                     Check(liveOk && liveFailed == 0 && livePlacements.Count == 16 && liveScale >= 0.6f,
                         "live/16-at-ge06-" + worldW + " scale=" + liveScale + " n=" + livePlacements.Count);
-                    int inside = 0;
-                    for (int i = 0; i < livePlacements.Count; i++)
+                    int inside = 0, indexOk = 0;
+                    foreach (KingdomEnhancedMod.MapIconPlacement p in livePlacements)
                     {
-                        float w = livePlacements[i].Request.Width * livePlacements[i].Scale;
-                        float h = livePlacements[i].Request.Height * livePlacements[i].Scale;
-                        var box = new KingdomEnhancedMod.MapIconBox(livePlacements[i].X, livePlacements[i].Y,
-                            livePlacements[i].X + w, livePlacements[i].Y + h);
+                        float w = p.Request.Width * p.Scale;
+                        float h = p.Request.Height * p.Scale;
+                        var box = new KingdomEnhancedMod.MapIconBox(p.X, p.Y, p.X + w, p.Y + h);
                         if (KingdomEnhancedMod.MapExtensionIslandLayout.FootprintInsideShore(box, shape, liveMask))
                         {
                             inside++;
                         }
+                        if (p.RequestIndex >= 0 && p.RequestIndex < 16 &&
+                            p.Request.Width == sixteen[p.RequestIndex].Width) indexOk++;
                     }
                     Check(inside == 16, "live/16-inside-" + worldW + " inside=" + inside);
+                    Check(indexOk == 16, "live/request-index-" + worldW + " ok=" + indexOk);
+                    AddScatterChecks(livePlacements, shape, liveMask, "live" + worldW);
+                }
+                // (b2) detail 框 + 真实船标 blocker：16/16 ≥0.6；锚点=优选位置 + 有界修正；
+                //      fallback 锚路径被实际使用（每个 footprint 中心须在 24 UI 内命中 primary/fallback 之一）。
+                {
+                    var detailBox = new KingdomEnhancedMod.MapIconBox(-92f, -46.3684211f, 138f, 38.3684211f);
+                    var boat = new List<KingdomEnhancedMod.MapIconBox>
+                    {
+                        new KingdomEnhancedMod.MapIconBox(-64f, 2f, -32f, 34f),
+                    };
+                    var detailOut = new List<KingdomEnhancedMod.MapIconPlacement>();
+                    bool detailOk = KingdomEnhancedMod.MapExtensionIslandLayout.TryPlan(detailBox, sixteen, boat,
+                        detailBox, liveMask, detailOut, out float detailScale, out int detailFailed,
+                        KingdomEnhancedMod.MapExtensionIslandLayout.PreferScale);
+                    Check(detailOk && detailFailed == 0 && detailOut.Count == 16 && detailScale >= 0.6f,
+                        "detail/16-with-boat scale=" + detailScale + " n=" + detailOut.Count);
+                    var rankD = new List<int>();
+                    for (int i = 0; i < sixteen.Count; i++) rankD.Add(i);
+                    rankD.Sort((x, y) =>
+                    {
+                        float ax = sixteen[x].Width * sixteen[x].Height, ay = sixteen[y].Width * sixteen[y].Height;
+                        if (ax != ay) return ay.CompareTo(ax);
+                        if (sixteen[x].Height != sixteen[y].Height) return sixteen[y].Height.CompareTo(sixteen[x].Height);
+                        if (sixteen[x].Width != sixteen[y].Width) return sixteen[y].Width.CompareTo(sixteen[x].Width);
+                        return x.CompareTo(y);
+                    });
+                    int anchored = 0, fallbackUsed = 0;
+                    float worst = 0f;
+                    foreach (KingdomEnhancedMod.MapIconPlacement p in detailOut)
+                    {
+                        int slot2 = rankD.IndexOf(p.RequestIndex);
+                        float px2 = KingdomEnhancedMod.MapExtensionIslandLayout.PreferredAnchorX[slot2];
+                        float py2 = KingdomEnhancedMod.MapExtensionIslandLayout.PreferredAnchorY[slot2];
+                        float fx2 = KingdomEnhancedMod.MapExtensionIslandLayout.FallbackAnchorX[slot2];
+                        float fy2 = KingdomEnhancedMod.MapExtensionIslandLayout.FallbackAnchorY[slot2];
+                        float cx2 = p.X + p.Request.Width * p.Scale * 0.5f;
+                        float cy2 = p.Y + p.Request.Height * p.Scale * 0.5f;
+                        float dP = Math.Max(Math.Abs(cx2 - (detailBox.X0 + px2 * detailBox.Width)),
+                            Math.Abs(cy2 - (detailBox.Y0 + py2 * detailBox.Height)));
+                        float dF = float.IsNaN(fx2) ? float.MaxValue : Math.Max(
+                            Math.Abs(cx2 - (detailBox.X0 + fx2 * detailBox.Width)),
+                            Math.Abs(cy2 - (detailBox.Y0 + fy2 * detailBox.Height)));
+                        float nearest = Math.Min(dP, dF);
+                        if (nearest <= 24f) anchored++;
+                        if (dF < dP && dF <= 24f) fallbackUsed++;
+                        if (nearest > worst) worst = nearest;
+                    }
+                    Check(anchored == 16, "detail/anchored-within-24 n=" + anchored + " worst=" + worst.ToString("0.#"));
+                    Check(fallbackUsed >= 1, "detail/fallback-path-used n=" + fallbackUsed);
+                }
+                // (c) 判别性负例：固定 12×6 画布像素崖面矩形（65,34)-(76,39)（全部 alpha 且非顶面）
+                {
+                    int cx0 = 65, cy0 = 34, cx1 = 76, cy1 = 39;
+                    _cliffAlpha = prep.Mask;
+                    _cliffPlacement = prep.PlacementMask;
+                    Check(prep.Mask[cy0 * prep.Width + cx0] && !prep.PlacementMask[cy0 * prep.Width + cx0],
+                        "cliff/sample-is-alpha-not-placement");
+                    KingdomEnhancedMod.MapIconBox cliff = CanvasRectToPaper(lastShape, prep.Width, prep.Height,
+                        cx0, cy0, cx1, cy1);
+                    Check(KingdomEnhancedMod.MapExtensionIslandLayout.FootprintInsideShore(cliff, lastShape, alphaMask),
+                        "cliff/alpha-inside-true");
+                    Check(!KingdomEnhancedMod.MapExtensionIslandLayout.FootprintInsideShore(cliff, lastShape, liveMask),
+                        "cliff/placement-inside-false");
+                    var probe = new List<KingdomEnhancedMod.MapIconRequest>
+                    {
+                        new KingdomEnhancedMod.MapIconRequest(KingdomEnhancedMod.MapIconKind.Steed, 199, 0, 14f, 7f),
+                    };
+                    var alphaOut = new List<KingdomEnhancedMod.MapIconPlacement>();
+                    bool alphaPlaced = KingdomEnhancedMod.MapExtensionIslandLayout.TryPlan(cliff, probe,
+                        new List<KingdomEnhancedMod.MapIconBox>(), lastShape, alphaMask, alphaOut, out _, out _);
+                    var liveOut = new List<KingdomEnhancedMod.MapIconPlacement>();
+                    bool livePlaced = KingdomEnhancedMod.MapExtensionIslandLayout.TryPlan(cliff, probe,
+                        new List<KingdomEnhancedMod.MapIconBox>(), lastShape, liveMask, liveOut, out _, out int liveFailed);
+                    Check(alphaPlaced && alphaOut.Count == 1 && AlphaOutOnCliff(alphaOut[0], lastShape, prep.Width, prep.Height),
+                        "cliff/alpha-control-places n=" + alphaOut.Count);
+                    Check(!livePlaced && liveOut.Count == 0 && liveFailed == 1,
+                        "cliff/placement-rejects n=" + liveOut.Count);
                 }
             }
 
@@ -586,5 +688,108 @@ namespace ShoreArtTests
             using var sha = System.Security.Cryptography.SHA256.Create();
             return Convert.ToHexString(sha.ComputeHash(data)).ToLowerInvariant();
         }
+
+        /// <summary>画布像素矩形 → paper box（0.25/0.75 偏移保证 floor/ceil 覆盖 = [x0..x1]×[y0..y1]）。</summary>
+        private static KingdomEnhancedMod.MapIconBox CanvasRectToPaper(
+            in KingdomEnhancedMod.MapIconBox frame, int canvasW, int canvasH, int x0, int y0, int x1, int y1)
+        {
+            float sx = canvasW / frame.Width;
+            float sy = canvasH / frame.Height;
+            return new KingdomEnhancedMod.MapIconBox(
+                frame.X0 + (x0 + 0.25f) / sx, frame.Y0 + (y0 + 0.25f) / sy,
+                frame.X0 + (x1 + 0.75f) / sx, frame.Y0 + (y1 + 0.75f) / sy);
+        }
+
+        private static bool[] _cliffAlpha;
+        private static bool[] _cliffPlacement;
+
+        /// <summary>alpha 对照放置是否真的落在崖面（画布像素全部 alpha=true 且非 placement）。</summary>
+        private static bool AlphaOutOnCliff(in KingdomEnhancedMod.MapIconPlacement p,
+            in KingdomEnhancedMod.MapIconBox frame, int canvasW, int canvasH)
+        {
+            if (_cliffAlpha == null || _cliffPlacement == null) return false;
+            float sx = canvasW / frame.Width;
+            float sy = canvasH / frame.Height;
+            int x0 = (int)Math.Floor((p.X - frame.X0) * sx);
+            int y0 = (int)Math.Floor((p.Y - frame.Y0) * sy);
+            int x1 = (int)Math.Ceiling((p.X + p.Request.Width * p.Scale - frame.X0) * sx) - 1;
+            int y1 = (int)Math.Ceiling((p.Y + p.Request.Height * p.Scale - frame.Y0) * sy) - 1;
+            for (int y = y0; y <= y1; y++)
+            {
+                for (int x = x0; x <= x1; x++)
+                {
+                    if (x < 0 || y < 0 || x >= canvasW || y >= canvasH) return false;
+                    if (!_cliffAlpha[y * canvasW + x]) return false;
+                    if (_cliffPlacement[y * canvasW + x]) return false;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>自由错落诊断（真实视觉合同，非微抖动）：右半≥6、最大同带≤4、最长近水平链≤3、
+        /// y 中心带≥8、y 范围≥20；旧三行布局（3 带 5/6 项）必然失败。</summary>
+        private static void AddScatterChecks(List<KingdomEnhancedMod.MapIconPlacement> placements,
+            in KingdomEnhancedMod.MapIconBox shape, KingdomEnhancedMod.MapShoreMask mask, string tag)
+        {
+            float fx = mask.Width / shape.Width;
+            float bandTol = 1.5f * fx;
+            var centers = new List<float>();
+            var xs = new List<float>();
+            foreach (KingdomEnhancedMod.MapIconPlacement p in placements)
+            {
+                centers.Add(p.Y + p.Request.Height * p.Scale * 0.5f);
+                xs.Add(p.X + p.Request.Width * p.Scale * 0.5f);
+            }
+            var sorted = new List<float>(centers);
+            sorted.Sort();
+            int bands = 0, maxBand = 0, run = 0;
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                if (i == 0 || sorted[i] - sorted[i - 1] > bandTol)
+                {
+                    if (run > maxBand) maxBand = run;
+                    bands++;
+                    run = 0;
+                }
+                run++;
+            }
+            if (run > maxBand) maxBand = run;
+            int rightHalf = 0;
+            for (int i = 0; i < placements.Count; i++)
+            {
+                if (xs[i] > shape.X0 + shape.Width * 0.5f) rightHalf++;
+            }
+            var order = new List<int>();
+            for (int i = 0; i < placements.Count; i++) order.Add(i);
+            order.Sort((a, b) => xs[a] != xs[b] ? xs[a].CompareTo(xs[b]) : centers[a].CompareTo(centers[b]));
+            int longest = 1;
+            for (int i = 0; i < order.Count; i++)
+            {
+                int chain = 1;
+                float lastX = xs[order[i]];
+                for (int j = i + 1; j < order.Count; j++)
+                {
+                    if (Math.Abs(centers[order[j]] - centers[order[i]]) <= bandTol &&
+                        xs[order[j]] - lastX < 12f * fx)
+                    {
+                        chain++;
+                        lastX = xs[order[j]];
+                    }
+                }
+                if (chain > longest) longest = chain;
+            }
+            float yMin = float.MaxValue, yMax = float.MinValue;
+            foreach (float c in centers)
+            {
+                if (c < yMin) yMin = c;
+                if (c > yMax) yMax = c;
+            }
+            Check(rightHalf >= 6, "scatter/" + tag + "-right-half n=" + rightHalf);
+            Check(maxBand <= 4, "scatter/" + tag + "-max-band n=" + maxBand);
+            Check(longest <= 3, "scatter/" + tag + "-longest-chain n=" + longest);
+            Check(bands >= 8, "scatter/" + tag + "-y-bands n=" + bands);
+            Check(yMax - yMin >= 20f, "scatter/" + tag + "-y-range r=" + (yMax - yMin).ToString("0.#"));
+        }
+
     }
 }

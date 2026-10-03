@@ -146,19 +146,39 @@ namespace RuntimeProbe
             Check(box.Y0 > -2f && box.Y1 < f.Paper.rect.height * 0.75f, "S1/box-in-bottom-band " + Fmt(box));
             Check(outline != null && outline.localScale.x > 0f, "S1/outline-scaled");
 
-            // 16 真实项：全量、逐像素在岸内（mask 来自实际画布）
+            // 16 真实项：全量、逐像素位于**运行期顶面 PlacementMask**（不是 alpha：崖面必须被拒）
             List<RectTransform> icons = CollectIcons(f.Paper, 16);
             Check(icons.Count == 16, "S1/16-icons got=" + icons.Count);
             MapExtensionIslandArt.ShorePrep prep = MapExtensionIslandArt.Prep;
-            var mask = new MapShoreMask(prep.Width, prep.Height, prep.Mask);
+            var runtimeMask = ReadStatic("_placementMask") as MapShoreMask;
+            var expectedMask = new MapShoreMask(prep.Width, prep.Height, prep.PlacementMask);
+            int maskDiff = -1;
+            if (runtimeMask != null)
+            {
+                maskDiff = 0;
+                for (int yy = 0; yy < prep.Height; yy++)
+                {
+                    for (int xx = 0; xx < prep.Width; xx++)
+                    {
+                        if (runtimeMask.Sample(xx, yy) != expectedMask.Sample(xx, yy)) maskDiff++;
+                    }
+                }
+            }
+            Check(runtimeMask != null && maskDiff == 0, "S1/placement-mask-is-art-prep diff=" + maskDiff);
             bool allInside = true;
+            int firstOutside = -1;
             for (int i = 0; i < icons.Count; i++)
             {
-                if (!FootprintInside(PaperArtBox(f.Paper, icons[i]), box, mask)) { allInside = false; break; }
+                if (!FootprintInside(PaperArtBox(f.Paper, icons[i]), box, runtimeMask))
+                {
+                    allInside = false;
+                    firstOutside = i;
+                    break;
+                }
             }
-            Check(allInside, "S1/16-icons-inside-shore");
-            int rowsUsed = CountIconRows(icons, f.Paper);
-            Check(rowsUsed == 3, "S1/three-rows got=" + rowsUsed);
+            Check(allInside, "S1/16-icons-inside-placement-mask first=" + firstOutside);
+            ScatterDiagnostics(icons, f.Paper, box, "S1");
+            CliffNegativeOracle(box, prep, runtimeMask, "S1");
 
             // 幂等：同视口再来一帧不重建 holder、不重复 set_sprite（sprite 身份不变）
             int holders = CountNamed(f.Paper.gameObject, "KEM_MapResourceIcons");
@@ -706,8 +726,8 @@ namespace RuntimeProbe
         };
 
         /// <summary>
-        /// S11：exact extension detail 的实际布局（actual root 180×150 / page 282×196 / 同 alpha 三行 /
-        /// native 0..9 不变 / 不可满足时整体 fallback）。
+        /// S11：exact extension detail 的实际布局（actual root 180×150 / page 282×196 / 同顶面 PlacementMask
+        /// 自由错落 / native 0..9 不变 / 不可满足时整体 fallback）。
         /// </summary>
         private static void ScenarioS11ExtensionDetailLayout()
         {
@@ -729,7 +749,7 @@ namespace RuntimeProbe
                 "S11/actual-root-180x150 got=" + detailRect.rect);
 
             if (ReadStatic("_detailExcludedRects") is List<RectTransform> shoreRects && shoreRects.Count >= 2 &&
-                ReadStatic("_shoreMask") is MapShoreMask mask)
+                ReadStatic("_placementMask") is MapShoreMask mask)
             {
                 // holder 坐标空间：生产给 holder/icon 写 anchor(0,0)/pivot(0,0)+anchoredPosition；真实 Unity 中
                 // icon 的 “land 左下原点框” == placement。本 stub 的 anchoredPosition 是归一化世界 fixture 语义，
@@ -753,24 +773,16 @@ namespace RuntimeProbe
                     MapIconBox raw = LandLocalBox(detailRect, icon);
                     boxes.Add(new MapIconBox(raw.X0 - shiftX, raw.Y0 - shiftY, raw.X1 - shiftX, raw.Y1 - shiftY));
                 }
-                int alphaInside = 0, pageInside = 0;
+                int placementInside = 0, pageInside = 0;
                 foreach (MapIconBox box in boxes)
                 {
-                    if (MapExtensionIslandLayout.FootprintInsideShore(box, shoreBox, mask)) alphaInside++;
+                    if (MapExtensionIslandLayout.FootprintInsideShore(box, shoreBox, mask)) placementInside++;
                     if (box.X0 >= page.X0 - 0.01f && box.X1 <= page.X1 + 0.01f &&
                         box.Y0 >= page.Y0 - 0.01f && box.Y1 <= page.Y1 + 0.01f) pageInside++;
                 }
-                Check(alphaInside == 16, "S11/all-alpha-inside got=" + alphaInside + "/16");
+                Check(placementInside == 16, "S11/all-placement-inside got=" + placementInside + "/16");
                 Check(pageInside == 16, "S11/all-page-inside got=" + pageInside + "/16");
-                var rowKeys = new List<int>();
-                foreach (MapIconBox box in boxes)
-                {
-                    int key = (int)Math.Round((box.Y0 + box.Y1) * 0.5f * 100f);
-                    bool found = false;
-                    for (int i = 0; i < rowKeys.Count; i++) if (Math.Abs(rowKeys[i] - key) <= 6) { found = true; break; }
-                    if (!found) rowKeys.Add(key);
-                }
-                Check(rowKeys.Count == 3, "S11/three-rows got=" + rowKeys.Count);
+                ScatterBoxes(boxes, shoreBox, "S11");
 
                 var blockers = new List<MapIconBox>(24);
                 CollectObstaclesViaProduction(detailRect, f.ExtensionDetail.transform, blockers, true, shoreRects);
@@ -799,7 +811,7 @@ namespace RuntimeProbe
                 bool ok = MapExtensionIslandLayout.TryPlan(area, requests, blockers, shoreBox, mask,
                     expected, out float expectedScale, out int expectedFailed, MapExtensionIslandLayout.PreferScale);
                 Check(ok && expectedFailed == 0 && expectedScale >= MapExtensionIslandLayout.PreferScale,
-                    "S11/pure-3row scale=" + expectedScale);
+                    "S11/pure-scatter scale=" + expectedScale);
                 int matched = 0;
                 foreach (MapIconPlacement placement in expected)
                 {
@@ -816,7 +828,7 @@ namespace RuntimeProbe
                         }
                     }
                 }
-                Check(matched == 16, "S11/matches-pure-alpha-3row matched=" + matched);
+                Check(matched == 16, "S11/matches-pure-placement matched=" + matched);
             }
             else
             {
@@ -1806,24 +1818,6 @@ namespace RuntimeProbe
             return count;
         }
 
-        /// <summary>按垂直中心聚类数 icons 的行数（行内垂直居中 ⇒ 同行中心一致）。</summary>
-        private static int CountIconRows(List<RectTransform> icons, RectTransform paper)
-        {
-            var centers = new List<float>();
-            for (int i = 0; i < icons.Count; i++)
-            {
-                MapIconBox box = PaperArtBox(paper, icons[i]);
-                float center = (box.Y0 + box.Y1) * 0.5f;
-                bool found = false;
-                for (int j = 0; j < centers.Count; j++)
-                {
-                    if (Math.Abs(centers[j] - center) < 0.5f) { found = true; break; }
-                }
-                if (!found) centers.Add(center);
-            }
-            return centers.Count;
-        }
-
         private static object ReadStatic(string name)
         {
             try
@@ -1871,16 +1865,120 @@ namespace RuntimeProbe
             return new MapIconBox(minX - sr.xMin, minY - sr.yMin, maxX - sr.xMin, maxY - sr.yMin);
         }
 
-        private static bool FootprintInside(MapIconBox box, in MapIconBox shoreFrame, MapShoreMask mask)
+        /// <summary>画布像素矩形 → paper box（0.25/0.75 偏移保证 floor/ceil 覆盖 = [x0..x1]×[y0..y1]）。</summary>
+        private static MapIconBox CanvasRectToPaper(in MapIconBox frame, int canvasW, int canvasH,
+            int x0, int y0, int x1, int y1)
         {
-            float sx = mask.Width / shoreFrame.Width;
-            float sy = mask.Height / shoreFrame.Height;
-            int x0 = (int)Math.Floor((box.X0 - shoreFrame.X0) * sx);
-            int y0 = (int)Math.Floor((box.Y0 - shoreFrame.Y0) * sy);
-            int x1 = (int)Math.Ceiling((box.X1 - shoreFrame.X0) * sx) - 1;
-            int y1 = (int)Math.Ceiling((box.Y1 - shoreFrame.Y0) * sy) - 1;
-            return mask.RectAllInside(x0, y0, x1, y1);
+            float sx = canvasW / frame.Width;
+            float sy = canvasH / frame.Height;
+            return new MapIconBox(
+                frame.X0 + (x0 + 0.25f) / sx, frame.Y0 + (y0 + 0.25f) / sy,
+                frame.X0 + (x1 + 0.75f) / sx, frame.Y0 + (y1 + 0.75f) / sy);
         }
+
+        /// <summary>判别性负例（实际 runtime mask 实例）：固定崖面矩形 alpha=true 而顶面=false ——
+        /// alpha 对照会放下、运行期顶面 mask 必须整体拒绝（证明不是仅私有图假改）。</summary>
+        private static void CliffNegativeOracle(in MapIconBox shoreFrame, MapExtensionIslandArt.ShorePrep prep,
+            MapShoreMask runtimeMask, string tag)
+        {
+            if (runtimeMask == null || prep == null || prep.PlacementMask == null) return;
+            int cx0 = 65, cy0 = 34, cx1 = 76, cy1 = 39;
+            var alphaMask = new MapShoreMask(prep.Width, prep.Height, prep.Mask);
+            Check(prep.Mask[cy0 * prep.Width + cx0] && !prep.PlacementMask[cy0 * prep.Width + cx0],
+                tag + "/cliff-sample-alpha-not-placement");
+            MapIconBox cliff = CanvasRectToPaper(shoreFrame, prep.Width, prep.Height, cx0, cy0, cx1, cy1);
+            Check(FootprintInside(cliff, shoreFrame, alphaMask), tag + "/cliff-alpha-inside");
+            Check(!FootprintInside(cliff, shoreFrame, runtimeMask), tag + "/cliff-placement-rejected");
+            var probe = new List<MapIconRequest>
+            {
+                new MapIconRequest(MapIconKind.Steed, 199, 0, 14f, 7f),
+            };
+            var alphaOut = new List<MapIconPlacement>();
+            bool alphaOk = MapExtensionIslandLayout.TryPlan(cliff, probe, new List<MapIconBox>(), shoreFrame,
+                alphaMask, alphaOut, out _, out _);
+            var liveOut = new List<MapIconPlacement>();
+            bool liveOk = MapExtensionIslandLayout.TryPlan(cliff, probe, new List<MapIconBox>(), shoreFrame,
+                runtimeMask, liveOut, out _, out int liveFailed);
+            Check(alphaOk && alphaOut.Count == 1, tag + "/cliff-alpha-control n=" + alphaOut.Count);
+            Check(!liveOk && liveOut.Count == 0 && liveFailed == 1,
+                tag + "/cliff-runtime-rejected n=" + liveOut.Count + " failed=" + liveFailed);
+        }
+
+        /// <summary>实际 runtime 图标盒的自由错落诊断（paper UI；容差 1.5 UI；与公开 pure 同口径）。</summary>
+        private static void ScatterBoxes(List<MapIconBox> boxes, in MapIconBox frame, string tag)
+        {
+            const float bandTol = 1.5f;
+            const float gap = 12f;
+            var centers = new List<float>(boxes.Count);
+            var xs = new List<float>(boxes.Count);
+            foreach (MapIconBox box in boxes)
+            {
+                centers.Add((box.Y0 + box.Y1) * 0.5f);
+                xs.Add((box.X0 + box.X1) * 0.5f);
+            }
+            var sorted = new List<float>(centers);
+            sorted.Sort();
+            int bands = 0, maxBand = 0, run = 0;
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                if (i == 0 || sorted[i] - sorted[i - 1] > bandTol)
+                {
+                    if (run > maxBand) maxBand = run;
+                    bands++;
+                    run = 0;
+                }
+                run++;
+            }
+            if (run > maxBand) maxBand = run;
+            int rightHalf = 0;
+            for (int i = 0; i < boxes.Count; i++)
+            {
+                if (xs[i] > frame.X0 + frame.Width * 0.5f) rightHalf++;
+            }
+            var order = new List<int>();
+            for (int i = 0; i < boxes.Count; i++) order.Add(i);
+            order.Sort((a, b) => xs[a] != xs[b] ? xs[a].CompareTo(xs[b]) : centers[a].CompareTo(centers[b]));
+            int longest = 1;
+            for (int i = 0; i < order.Count; i++)
+            {
+                int chain = 1;
+                float lastX = xs[order[i]];
+                for (int j = i + 1; j < order.Count; j++)
+                {
+                    if (Math.Abs(centers[order[j]] - centers[order[i]]) <= bandTol &&
+                        xs[order[j]] - lastX < gap)
+                    {
+                        chain++;
+                        lastX = xs[order[j]];
+                    }
+                }
+                if (chain > longest) longest = chain;
+            }
+            float yMin = float.MaxValue, yMax = float.MinValue;
+            foreach (float c in centers)
+            {
+                if (c < yMin) yMin = c;
+                if (c > yMax) yMax = c;
+            }
+            Check(rightHalf >= 6, "scatter-" + tag + "/right-half n=" + rightHalf);
+            Check(maxBand <= 4, "scatter-" + tag + "/max-band n=" + maxBand);
+            Check(longest <= 3, "scatter-" + tag + "/longest-chain n=" + longest);
+            Check(bands >= 8, "scatter-" + tag + "/y-bands n=" + bands);
+            Check(yMax - yMin >= 20f, "scatter-" + tag + "/y-range r=" + (yMax - yMin).ToString("0.#"));
+        }
+
+        /// <summary>实际 runtime 图标的自由错落诊断（从 paper art 盒取）。</summary>
+        private static void ScatterDiagnostics(List<RectTransform> icons, RectTransform paper,
+            in MapIconBox frame, string tag)
+        {
+            var boxes = new List<MapIconBox>(icons.Count);
+            for (int i = 0; i < icons.Count; i++) boxes.Add(PaperArtBox(paper, icons[i]));
+            ScatterBoxes(boxes, frame, tag);
+        }
+
+        /// <summary>与生产同一终检（含 1e-4 px 像素边界对齐；曾有的本地无 epsilon 副本会误判量化盒）。</summary>
+        private static bool FootprintInside(MapIconBox box, in MapIconBox shoreFrame, MapShoreMask mask)
+            => MapExtensionIslandLayout.FootprintInsideShore(box, shoreFrame, mask);
 
         private static string Fmt(in MapIconBox box)
             => "(" + box.X0.ToString("0.#") + "," + box.Y0.ToString("0.#") + "," +

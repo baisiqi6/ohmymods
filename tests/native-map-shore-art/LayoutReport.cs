@@ -1,7 +1,7 @@
 // 真实 PNG → 生产 planner 的布局报告 + mask/clean 导出（供后续同算法 SVG 预览；绝不改写 PNG）。
-// 与生产同一算法：MapExtensionIslandArt.BuildPrep（最大连通面/nearest 等比/6档灰）→ MapShoreMask →
-// MapExtensionShapePlan（world 框等比）+ MapWorldLayout（域分区/原 10 统一变换）+ MapExtensionIslandLayout.TryPlan
-//（三行 6/5/5 + 逐像素岸内终检）。
+// 与生产同一算法：MapExtensionIslandArt.BuildPrep（最大连通面/nearest 等比/6档灰 + **顶面 PlacementMask**）→
+// MapShoreMask → MapExtensionShapePlan（world 框等比）+ MapWorldLayout（域分区/原 10 统一变换）+
+// MapExtensionIslandLayout.TryPlan（自由错落 + 逐像素**顶面**可放置终检）。
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -42,14 +42,27 @@ namespace ShoreArtTests
             // 公开报告只记 basename（不导出用户/任务目录的绝对路径）。
             sb.Append("  \"asset\": {\"path\": ").Append(Json(Path.GetFileName(assetPath)))
               .Append(", \"sha256\": ").Append(Json(Sha(png))).Append("},\n");
+            int rejectedPixels = 0;
+            for (int i = 0; i < prep.Mask.Length; i++)
+            {
+                if (prep.Mask[i] && (prep.PlacementMask == null || !prep.PlacementMask[i])) rejectedPixels++;
+            }
             sb.Append("  \"shore\": {\"canvas\": [").Append(prep.Width).Append(',').Append(prep.Height)
               .Append("], \"bbox\": [").Append(prep.BboxWidth).Append(',').Append(prep.BboxHeight)
               .Append("], \"bboxAspect\": ").Append(F(prep.Aspect, 6))
               .Append(", \"canvasAspect\": ").Append(F(canvasAspect, 6))
               .Append(", \"islandPixels\": ").Append(prep.IslandPixels)
+              .Append(", \"placementPixels\": ").Append(prep.PlacementPixels)
+              .Append(", \"rejectedAlphaPixels\": ").Append(rejectedPixels)
+              .Append(", \"placementCutNodes\": ").Append(MapExtensionIslandArt.PlacementCutX.Length)
               .Append(", \"components\": ").Append(prep.ComponentCount)
               .Append(", \"levels\": ").Append(prep.LevelsUsed).Append("},\n");
-            var mask = new MapShoreMask(prep.Width, prep.Height, prep.Mask);
+            if (prep.PlacementMask == null || prep.PlacementPixels <= 0)
+            {
+                Console.WriteLine("placement mask missing");
+                return 3;
+            }
+            var mask = new MapShoreMask(prep.Width, prep.Height, prep.PlacementMask);
 
             sb.Append("  \"requests\": [");
             for (int i = 0; i < sixteen.Count; i++)
@@ -90,6 +103,8 @@ namespace ShoreArtTests
                 Directory.CreateDirectory(exportDir);
                 ExportClean(prep, Path.Combine(exportDir, "shore-clean.pgm"));
                 ExportMask(prep, Path.Combine(exportDir, "shore-mask.pbm"));
+                ExportBits(prep.PlacementMask, prep.Width, prep.Height,
+                    Path.Combine(exportDir, "shore-placement.pbm"));
                 Console.WriteLine("exported clean/mask to " + exportDir);
             }
             return 0;
@@ -99,7 +114,7 @@ namespace ShoreArtTests
             MapExtensionIslandArt.ShorePrep prep, MapShoreMask mask, float canvasAspect,
             List<MapIconRequest> sixteen, List<NativeCluster> natives, bool nativesOk)
         {
-            sb.Append("    {\"world\": [").Append(F(worldW, 1)).Append(',').Append(F(worldH, 1)).Append("]");
+            sb.Append("    {\"world\": [").Append(F(worldW, 1)).Append(',').Append(F(worldH, 1)).Append(']');
             var visible = new MapIconBox(0f, 0f, worldW, worldH);
             if (!MapWorldLayout.ComposeDomains(visible, 18f, MapWorldLayout.DefaultExtensionReserve,
                     out MapIconBox upper, out MapIconBox band))
@@ -117,11 +132,8 @@ namespace ShoreArtTests
             }
             sb.Append(", \"shapeCanvasRect\": ").Append(BoxJson(shape));
             sb.Append(", \"shapeRatio\": ").Append(F(shape.Width / shape.Height, 6));
-            MapIconBox iconArea = MapWorldLayout.IconAreaOf(shape, true, 20f);
+            MapIconBox iconArea = MapWorldLayout.IconAreaOf(shape);
             sb.Append(", \"iconArea\": ").Append(BoxJson(iconArea));
-            sb.Append(", \"statusBox\": ").Append(BoxJson(new MapIconBox(iconArea.X1,
-                shape.Y0 + MapExtensionShapePlan.Margin, shape.X1 - MapExtensionShapePlan.Margin,
-                shape.Y1 - MapExtensionShapePlan.Margin)));
 
             var placements = new List<MapIconPlacement>();
             bool ok = MapExtensionIslandLayout.TryPlan(iconArea, sixteen, new List<MapIconBox>(), shape, mask,
@@ -131,32 +143,6 @@ namespace ShoreArtTests
               .Append(", \"failed\": ").Append(failed).Append('}');
             if (ok)
             {
-                var rows = new SortedDictionary<int, List<int>>();
-                for (int i = 0; i < placements.Count; i++)
-                {
-                    MapIconBox box = new MapIconBox(placements[i].X, placements[i].Y,
-                        placements[i].X + placements[i].Request.Width * placements[i].Scale,
-                        placements[i].Y + placements[i].Request.Height * placements[i].Scale);
-                    float center = box.Y0 + box.Height * 0.5f;
-                    int key = (int)Math.Round(center * 100f);
-                    if (!rows.TryGetValue(key, out List<int> list)) { list = new List<int>(); rows[key] = list; }
-                    list.Add(placements[i].RequestIndex);
-                }
-                sb.Append(", \"rows\": [");
-                bool firstRow = true;
-                foreach (KeyValuePair<int, List<int>> row in rows)
-                {
-                    if (!firstRow) sb.Append(", ");
-                    firstRow = false;
-                    sb.Append('[');
-                    for (int i = 0; i < row.Value.Count; i++)
-                    {
-                        if (i > 0) sb.Append(',');
-                        sb.Append(row.Value[i]);
-                    }
-                    sb.Append(']');
-                }
-                sb.Append(']');
                 sb.Append(", \"placements\": [");
                 for (int i = 0; i < placements.Count; i++)
                 {
@@ -172,14 +158,12 @@ namespace ShoreArtTests
                 int inside = 0;
                 for (int i = 0; i < placements.Count; i++)
                 {
-                    MapIconBox box = new MapIconBox(placements[i].X, placements[i].Y,
-                        placements[i].X + placements[i].Request.Width * placements[i].Scale,
-                        placements[i].Y + placements[i].Request.Height * placements[i].Scale);
-                    if (MapExtensionIslandLayout.FootprintInsideShore(box, shape, mask)) inside++;
+                    if (MapExtensionIslandLayout.FootprintInsideShore(BoxOf(placements[i]), shape, mask)) inside++;
                 }
                 sb.Append(", \"maskCheck\": {\"inside\": ").Append(inside)
                   .Append(", \"total\": ").Append(placements.Count)
                   .Append(", \"all\": ").Append(inside == placements.Count ? "true" : "false").Append('}');
+                AppendScatterDiagnostics(sb, placements, shape, mask);
             }
             if (nativesOk)
             {
@@ -207,6 +191,83 @@ namespace ShoreArtTests
             sb.Append('}');
         }
 
+        private static MapIconBox BoxOf(in MapIconPlacement p)
+            => new MapIconBox(p.X, p.Y, p.X + p.Request.Width * p.Scale, p.Y + p.Request.Height * p.Scale);
+
+        /// <summary>自由错落诊断（非断言）：y 中心分带（容差 1.5 UI）、最大带、右半计数、最长近水平链
+        /// （同带且相邻 x 间隔 &lt; 12 UI）、y 范围与左右最远延伸——供叠图/回归复核"不成行"。</summary>
+        private static void AppendScatterDiagnostics(StringBuilder sb, List<MapIconPlacement> placements,
+            in MapIconBox shape, MapShoreMask mask)
+        {
+            float fx = mask.Width / shape.Width;
+            float bandTol = 1.5f * fx;
+            float gap = 12f * fx;
+            var centers = new List<float>(placements.Count);
+            var xCenters = new List<float>(placements.Count);
+            for (int i = 0; i < placements.Count; i++)
+            {
+                MapIconBox box = BoxOf(placements[i]);
+                centers.Add((box.Y0 + box.Y1) * 0.5f);
+                xCenters.Add((box.X0 + box.X1) * 0.5f);
+            }
+            var sortedY = new List<float>(centers);
+            sortedY.Sort();
+            var bands = new List<List<float>>();
+            for (int i = 0; i < sortedY.Count; i++)
+            {
+                if (bands.Count == 0 || sortedY[i] - bands[bands.Count - 1][bands[bands.Count - 1].Count - 1] > bandTol)
+                {
+                    bands.Add(new List<float>());
+                }
+                bands[bands.Count - 1].Add(sortedY[i]);
+            }
+            int maxBand = 0;
+            foreach (List<float> b in bands) if (b.Count > maxBand) maxBand = b.Count;
+            var byX = new List<int>(placements.Count);
+            for (int i = 0; i < placements.Count; i++) byX.Add(i);
+            byX.Sort((a, b) => xCenters[a] != xCenters[b] ? xCenters[a].CompareTo(xCenters[b])
+                : centers[a].CompareTo(centers[b]));
+            int longest = 1;
+            for (int i = 0; i < byX.Count; i++)
+            {
+                int chain = 1;
+                float lastX = xCenters[byX[i]];
+                for (int j = i + 1; j < byX.Count; j++)
+                {
+                    if (Math.Abs(centers[byX[j]] - centers[byX[i]]) <= bandTol && xCenters[byX[j]] - lastX < gap)
+                    {
+                        chain++;
+                        lastX = xCenters[byX[j]];
+                    }
+                }
+                if (chain > longest) longest = chain;
+            }
+            int rightHalf = 0;
+            float leftmost = float.MaxValue, rightmost = float.MinValue;
+            for (int i = 0; i < placements.Count; i++)
+            {
+                MapIconBox box = BoxOf(placements[i]);
+                if (xCenters[i] > shape.X0 + shape.Width * 0.5f) rightHalf++;
+                if (box.X0 < leftmost) leftmost = box.X0;
+                if (box.X1 > rightmost) rightmost = box.X1;
+            }
+            float yMin = float.MaxValue, yMax = float.MinValue;
+            for (int i = 0; i < centers.Count; i++)
+            {
+                if (centers[i] < yMin) yMin = centers[i];
+                if (centers[i] > yMax) yMax = centers[i];
+            }
+            sb.Append(", \"diagnostics\": {\"yBands\": ").Append(bands.Count)
+              .Append(", \"maxBand\": ").Append(maxBand)
+              .Append(", \"rightHalf\": ").Append(rightHalf)
+              .Append(", \"longestChain\": ").Append(longest)
+              .Append(", \"yRange\": ").Append(F(yMax - yMin, 2))
+              .Append(", \"leftmostX0\": ").Append(F(leftmost, 2))
+              .Append(", \"rightmostX1\": ").Append(F(rightmost, 2))
+              .Append(", \"canvasWidth\": ").Append(mask.Width)
+              .Append(", \"canvasHeight\": ").Append(mask.Height).Append('}');
+        }
+
         // ------------------------------------------------------------------ export
 
         private static void ExportClean(MapExtensionIslandArt.ShorePrep prep, string path)
@@ -227,15 +288,18 @@ namespace ShoreArtTests
         }
 
         private static void ExportMask(MapExtensionIslandArt.ShorePrep prep, string path)
+            => ExportBits(prep.Mask, prep.Width, prep.Height, path);
+
+        private static void ExportBits(bool[] bits, int width, int height, string path)
         {
-            var sb = new StringBuilder(prep.Width * prep.Height * 2 + 64);
-            sb.Append("P1\n# KEM shore mask\n").Append(prep.Width).Append(' ').Append(prep.Height).Append('\n');
-            for (int y = prep.Height - 1; y >= 0; y--)
+            var sb = new StringBuilder(width * height * 2 + 64);
+            sb.Append("P1\n# KEM mask\n").Append(width).Append(' ').Append(height).Append('\n');
+            for (int y = height - 1; y >= 0; y--)
             {
-                for (int x = 0; x < prep.Width; x++)
+                for (int x = 0; x < width; x++)
                 {
                     if (x > 0) sb.Append(' ');
-                    sb.Append(prep.Mask[y * prep.Width + x] ? '1' : '0');
+                    sb.Append(bits != null && bits[y * width + x] ? '1' : '0');
                 }
                 sb.Append('\n');
             }
