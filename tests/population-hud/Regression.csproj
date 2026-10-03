@@ -4,4 +4,5 @@
     <Compile Include="../../il2cpp/PopulationCounts.cs" Link="Production/PopulationCounts.cs" />
     <Compile Include="../../il2cpp/PopulationHud.cs" Link="Production/PopulationHud.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../heavy-shield-boundary/DisabledHeavyShieldApis.cs" Link="Boundary/DisabledHeavyShieldApis.cs" /></ItemGroup>
 </Project>

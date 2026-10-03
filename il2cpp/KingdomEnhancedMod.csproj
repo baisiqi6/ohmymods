@@ -23,6 +23,16 @@
 
     <ItemGroup>
         <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*" />
+        <EmbeddedResource Include="Assets/HeavyShieldSoldierAtlas.png" LogicalName="KingdomEnhancedMod.HeavyShieldSoldierAtlas.png" />
+        <EmbeddedResource Include="Assets/HeavyShieldShopAtlas.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopAtlas.png" />
+        <EmbeddedResource Include="Assets/HeavyShieldShopLayers.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopLayers.png" />
+        <EmbeddedResource Include="Assets/HeavyShieldGreekShopLayers.png" LogicalName="KingdomEnhancedMod.HeavyShieldGreekShopLayers.png" />
+        <EmbeddedResource Include="Assets/HeavyShieldSoldierAtlasCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldSoldierAtlasCoarse.png" />
+        <EmbeddedResource Include="Assets/HeavyShieldShopAtlasCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopAtlasCoarse.png" />
+        <EmbeddedResource Include="Assets/HeavyShieldShopLayersCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopLayersCoarse.png" />
+        <EmbeddedResource Include="Assets/HeavyShieldGreekShopLayersCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldGreekShopLayersCoarse.png" />
+        <EmbeddedResource Include="Assets/HeavyShieldPaidShield.png" LogicalName="KingdomEnhancedMod.HeavyShieldPaidShield.png" />
+        <EmbeddedResource Include="Assets/HeavyShieldPaidShieldCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldPaidShieldCoarse.png" />
         <EmbeddedResource Include="Assets/HeroArcherAtlas.png" LogicalName="KingdomEnhancedMod.HeroArcherAtlas.png" />
         <EmbeddedResource Include="Assets/HeroArcherLeisure.png" LogicalName="KingdomEnhancedMod.HeroArcherLeisure.png" />
         <EmbeddedResource Include="Assets/ArtemisArrow.png" LogicalName="KingdomEnhancedMod.ArtemisArrow.png" />
@@ -172,4 +182,10 @@
               DestinationFolder="$(BepInExPluginsPath)$(AssemblyName)\" OverwriteReadOnlyFiles="true" />
         <Message Text="Copied output to: $(BepInExPluginsPath)$(AssemblyName)\" Importance="high" />
     </Target>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/KEM_MapRainbowPony.png" LogicalName="KingdomEnhancedMod.KEM_MapRainbowPony.png" />
+    <EmbeddedResource Include="Assets/KEM_MapSantaReindeer.png" LogicalName="KingdomEnhancedMod.KEM_MapSantaReindeer.png" />
+    <EmbeddedResource Include="Assets/KEM_MapSpookyhorse.png" LogicalName="KingdomEnhancedMod.KEM_MapSpookyhorse.png" />
+  </ItemGroup>
 </Project>

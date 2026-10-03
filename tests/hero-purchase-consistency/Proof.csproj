@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>HeroBoardPrivateTests</AssemblyName>
+    <RootNamespace>HeroBoardPrivateTests</RootNamespace>
+    <!-- Never copy anything into a BepInEx plugins folder from this repro. -->
+    <BepInExPluginsPath></BepInExPluginsPath>
+    <NoWarn>$(NoWarn);CS0649;CS0169;CS0414;CS0162;CS8509;CS0067;CS0108</NoWarn>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Link the current product source tree directly. -->
+    <SrcRoot>$(MSBuildThisFileDirectory)../..</SrcRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Candidate overlay under test: the two modified production files and the new hook file. -->
+    <Compile Include="$(SrcRoot)/il2cpp/HeroRecruitment.cs" />
+    <Compile Include="$(SrcRoot)/il2cpp/HeroArcherRuntime.cs" />
+    <Compile Include="$(SrcRoot)/il2cpp/HeroBoardingPolicy.cs" />
+    <!-- Remaining production chain, linked directly from the one real work tree. -->
+    <Compile Include="$(SrcRoot)/il2cpp/HeroShop.cs" />
+    <Compile Include="$(SrcRoot)/il2cpp/HeroNativeRights.cs" />
+    <Compile Include="$(SrcRoot)/il2cpp/HeroShopBannerVisuals.cs" />
+    <Compile Include="$(SrcRoot)/il2cpp/HeroRecruitmentArchive.cs" />
+    <Compile Include="$(SrcRoot)/il2cpp/HeroRecruitmentContext.cs" />
+    <Compile Include="$(SrcRoot)/il2cpp/HeroRecruitmentFingerprint.cs" />
+    <Compile Include="$(SrcRoot)/il2cpp/HeroArcherNetwork.cs" />
+    <Compile Include="$(SrcRoot)/il2cpp/HeroArcherTowerPolicy.cs" />
+    <Compile Include="$(SrcRoot)/il2cpp/ArcherOptionsScope.cs" />
+    <Compile Include="$(SrcRoot)/il2cpp/OptionalQoLScope.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Test-side engine/game boundary stand-ins (documented in report.md). -->
+    <Compile Include="Stubs/Interop.cs" />
+    <Compile Include="Stubs/Unity.cs" />
+    <Compile Include="Stubs/Game.cs" />
+    <Compile Include="Stubs/Slices.cs" />
+    <Compile Include="Stubs/Host.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="omp-r1/Astra.cs" />
+    <Compile Include="omp-r1/R1.cs" />
+    <Compile Include="omp-r1/R2.cs" />
+    <Compile Include="omp-r1/R3.cs" />
+    <Compile Include="omp-r1/Adjacent.cs" />
+    <Compile Include="omp-r1/Recovery.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Real artwork bytes used by production LoadArt dimension checks -->
+    <EmbeddedResource Include="$(SrcRoot)/il2cpp/Assets/HeroShop.png" LogicalName="KingdomEnhancedMod.HeroShop.png" />
+    <EmbeddedResource Include="$(SrcRoot)/il2cpp/Assets/HeroShopSeats.png" LogicalName="KingdomEnhancedMod.HeroShopSeats.png" />
+  </ItemGroup>
+</Project>

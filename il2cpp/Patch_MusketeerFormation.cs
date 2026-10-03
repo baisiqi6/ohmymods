@@ -316,6 +316,7 @@ internal static class PatchMusketeerFormation
         try
         {
             if (archer == null || formation == null) return false;
+            if (HeavyShieldIdentity.IsKnownCareerRoot(archer.gameObject)) return true;
             if (IsDirected(archer, formation)) return false;
             if (formation.GetFormationType != Formation.FormationType.PlayerFormation) return false;
             // 2026-10-03 user ruling: crossbowmen still never take a native bow/musketeer seat,

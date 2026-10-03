@@ -324,31 +324,41 @@ internal static class Program
         var fourth = expected.Archive;
         Check(fourth.Record(H("scope"), H("snapshot-4"), new[] { new MusketeerCareer { Id = Guid.NewGuid(), Kind = MusketeerCareer.KindGun } }), "fourth snapshot staged");
         byte[] beforeFailure = File.ReadAllBytes(path);
-        using (var lockedBackup = new FileStream(path + ".bak", FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        // 跨平台 IO 故障注入：Unix 的 rename 不受 FileShare 建议锁约束（macOS 实测 .bak 被
+        // FileShare.None 打开时 File.Replace 仍成功），故用目录占住备份目标让 Replace 真实失败；
+        // Windows 的 ReplaceFile 在该形态下同样失败。断言语义与集合保持不变。
+        File.Delete(path + ".bak");
+        Directory.CreateDirectory(path + ".bak");
+        try
         {
-            Check(!MusketeerArchiveStore.Save(path, expected, fourth), "save fails while the backup stays locked");
+            Check(!MusketeerArchiveStore.Save(path, expected, fourth), "save fails while the backup target stays obstructed");
+        }
+        finally
+        {
+            Directory.Delete(path + ".bak");
         }
         Check(Warned("write-retry=1 failed"), "the failed retry is logged once | " + Dump());
         Check(beforeFailure.SequenceEqual(File.ReadAllBytes(path)), "a failed retry keeps the previous file");
         Check(!Directory.GetFiles(Path.GetDirectoryName(path)).Any(f => f.Contains(".tmp-")), "no temp file is left behind");
-        Check(MusketeerArchiveStore.Save(path, expected, fourth), "the same save succeeds once the lock is gone");
+        Check(MusketeerArchiveStore.Save(path, expected, fourth), "the same save succeeds once the obstruction is gone");
 
-        // 瞬态失败：重试窗口内锁释放 → 单次重试内恢复
+        // 瞬态失败：重试窗口内恢复 → 单次重试内恢复（同样使用跨平台目录占用注入）
         var expected2 = MusketeerArchiveStore.Load(path);
         Check(expected2.Writable, "writable expected state (second)");
         var fifth = expected2.Archive;
         Check(fifth.Record(H("scope"), H("snapshot-5"), new[] { new MusketeerCareer { Id = Guid.NewGuid(), Kind = MusketeerCareer.KindGun } }), "fifth snapshot staged");
-        FileStream releaseLock = new FileStream(path + ".bak", FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        File.Delete(path + ".bak");
+        Directory.CreateDirectory(path + ".bak");
         try
         {
-            var releaser = new System.Threading.Thread(() => { System.Threading.Thread.Sleep(80); releaseLock.Dispose(); }) { IsBackground = true };
+            var releaser = new System.Threading.Thread(() => { System.Threading.Thread.Sleep(80); Directory.Delete(path + ".bak"); }) { IsBackground = true };
             releaser.Start();
-            Check(MusketeerArchiveStore.Save(path, expected2, fifth), "one retry heals a transient lock");
+            Check(MusketeerArchiveStore.Save(path, expected2, fifth), "one retry heals a transient obstruction");
             releaser.Join();
         }
         finally
         {
-            releaseLock.Dispose();
+            if (Directory.Exists(path + ".bak")) Directory.Delete(path + ".bak");
         }
         Check(Logged("write-retry=1 recovered"), "the healed retry is logged | " + Dump());
         Check(MusketeerArchiveStore.Load(path).Archive.TryGet(H("scope"), H("snapshot-5"), out _), "the fifth snapshot persisted");

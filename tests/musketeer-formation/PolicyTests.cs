@@ -11,6 +11,21 @@ namespace MusketeerFormationTests
             Eligibility();
             Selection();
             Guard();
+            Case.Run("shield career never joins a native or directed formation", () =>
+            {
+                Fixture.Reset();
+                var shield = Fixture.NewArcher(1f, marked: false);
+                var ordinary = Fixture.NewArcher(2f, marked: false);
+                var formation = Fixture.NewFormation(0f);
+                HeavyShieldIdentity.Bind(shield.gameObject);
+                MusketeerAccess.Enabled = false;
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(shield, formation), "shield kept out with musketeer disabled");
+                Check.False(PatchMusketeerFormation.ShouldBlockNativeRecruit(ordinary, formation), "ordinary archer stays native");
+                PatchMusketeerFormation.BeginDirected(shield, formation);
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(shield, formation), "directed request cannot borrow shield career");
+                PatchMusketeerFormation.EndDirected();
+                HeavyShieldIdentity.Reset();
+            });
         }
 
         private static void Eligibility()

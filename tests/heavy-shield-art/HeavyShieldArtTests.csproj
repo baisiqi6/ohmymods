@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <!-- Isolated worker outputs must not re-include generated files under prior obj/bin trees. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/obj/**;**/bin/**</DefaultItemExcludes>
+    <!-- CORE_ONLY：只编译布局/序列表（无 Unity 依赖），与 gameside 编译共用同一份源码。 -->
+    <DefineConstants>$(DefineConstants);HEAVY_SHIELD_ART_CORE_ONLY</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../il2cpp/PatchRoles_HeavyShieldArt.cs" Link="PatchRoles_HeavyShieldArt.cs" />
+  </ItemGroup>
+</Project>

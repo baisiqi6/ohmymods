@@ -30,6 +30,8 @@
     <Compile Include="../../il2cpp/HeroShop.cs" Link="Production/HeroShop.cs" />
   </ItemGroup>
 
+  <ItemGroup><Compile Include="../heavy-shield-boundary/DisabledHeavyShieldApis.cs" Link="Boundary/DisabledHeavyShieldApis.cs" /></ItemGroup>
+
   <!-- 真实内嵌图集：解码走生产读流/尺寸/可见性校验路径（LoadImage 在替身里注入尺寸）。 -->
   <ItemGroup>
     <EmbeddedResource Include="../../il2cpp/Assets/CoinCourierBAtlas.png"

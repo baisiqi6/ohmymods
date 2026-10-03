@@ -87,7 +87,6 @@ internal readonly struct CourierBankDebit
 [HarmonyPatch(typeof(Banker))]
 public static class PatchEconomy_Banker
 {
-    private const string SHARED_STASH_KEY = "MyMod_SharedBankStash";
     private const int ENHANCED_PLAYER_PAYOUT_TARGET = 100;
     // 增强收币阈值：原生容量×1，收满再回库；原为0.5，半容量即回库。
     private const float ENHANCED_COIN_GATHER_TARGET_PERCENTAGE = 1f;
@@ -96,14 +95,17 @@ public static class PatchEconomy_Banker
     // 域内活动 epsilon：设计安全余量 0.25，保持标准 ±9 域的既有 8.75 游走半径；
     // 此余量不是已证原生网格常量。
     private const float WANDER_DOMAIN_EPSILON = 0.25f;
-    private static int _sharedStash = -1;
     private static ObjectIdentity _primedBanker;
     private static WorldIdentity _primedWorld;
     private static bool _hasPrimedBanker;
     private static bool _needsReprime;
     private static int _lastObservedStash;
-    private static bool _sharedLedgerDirty;
-    private static float _nextLedgerFlushAt;
+    private static object _primedOwner;
+    private static nint _primedAccount;
+    private static int _primedLand;
+    private static ObjectIdentity _primedRoot;
+    private static Banker _primedActor;
+    private static bool _primedCaptured;
     private static int _bankerCheckFrame = 0;
     private static readonly System.Collections.Generic.HashSet<ObjectIdentity> _duplicatesThatSkippedAwake = new();
     private static readonly System.Collections.Generic.Dictionary<ObjectIdentity, WorkProfile> _workProfiles = new();
@@ -645,10 +647,13 @@ public static class PatchEconomy_Banker
     /// </summary>
     private static bool IsPrimedFor(Banker banker)
     {
-        if (!GreekBankScope.IsAuthorityBanker(banker)) return false;
         if (!ObjectIdentity.TryGet(banker, out ObjectIdentity key)) return false;
         if (!_hasPrimedBanker || !_primedBanker.Equals(key)) return false;
-        return WorldIdentity.TryGet(out WorldIdentity world) && _primedWorld.Equals(world);
+        return WorldIdentity.TryGet(out WorldIdentity world) && _primedWorld.Equals(world)
+            && SharedBankNative.Claim(banker, out object owner, out nint account, out int land)
+            && ReferenceEquals(owner, _primedOwner) && account == _primedAccount && land == _primedLand
+            && ObjectIdentity.TryGet(banker.gameObject.GetComponent<Persistent>(), out ObjectIdentity root)
+            && root.Equals(_primedRoot);
     }
 
     /// <summary>
@@ -656,32 +661,75 @@ public static class PatchEconomy_Banker
     /// 同一 world 上下文”上读写；foreign 银行家的原生余额既不写进共享键，共享键的值也
     /// 不写进 foreign 银行家。身份复用（instanceID/Pointer 回收）与新 world 都必须重新 prime。
     /// </summary>
-    private static void PrimeSharedLedger(Banker banker)
+    private static void PrimeSharedLedger(Banker banker, int? applied = null)
     {
-        if (!GreekBankScope.IsAuthorityBanker(banker)) return;
         if (IsPrimedFor(banker)) return;
+        RetireOldClaim();
         if (!ObjectIdentity.TryGet(banker, out ObjectIdentity key)) return;
         if (!WorldIdentity.TryGet(out WorldIdentity world)) return;
-
-        if (_sharedStash < 0)
-        {
-            if (PlayerPrefs.HasKey(SHARED_STASH_KEY))
-                _sharedStash = Math.Max(0, PlayerPrefs.GetInt(SHARED_STASH_KEY));
-            else
-            {
-                _sharedStash = Math.Max(0, banker._stashedCoins);
-                PlayerPrefs.SetInt(SHARED_STASH_KEY, _sharedStash);
-                PlayerPrefs.Save();
-            }
-        }
-
-        banker._stashedCoins = _sharedStash;
+        if (!SharedBankNative.Claim(banker, out object owner, out nint account, out int land)
+            || !ObjectIdentity.TryGet(banker.gameObject.GetComponent<Persistent>(), out ObjectIdentity root)
+            || !SharedBankNative.SeedOrPrime(banker, applied)) return;
         _primedBanker = key;
         _primedWorld = world;
+        _primedRoot = root;
+        _primedActor = banker;
+        _primedCaptured = false;
+        _primedOwner = owner;
+        _primedAccount = account;
+        _primedLand = land;
         _hasPrimedBanker = true;
         _needsReprime = false;
-        _lastObservedStash = _sharedStash;
+        _lastObservedStash = banker._stashedCoins;
     }
+
+    internal static bool AfterNativeApply(Banker banker, int nativeCoins)
+    {
+        try { PrimeSharedLedger(banker, nativeCoins); return IsPrimedFor(banker); }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Economy] native apply: " + e);
+            return false;
+        }
+    }
+
+    internal static void BeforeNativeApply(Banker incoming)
+    {
+        if (!_hasPrimedBanker) return;
+        if (ObjectIdentity.TryGet(incoming, out ObjectIdentity identity)
+            && (identity.Equals(_primedBanker)
+                || SharedBankNative.Claim(incoming, out _, out _, out _)))
+            RetireOldClaim();
+    }
+
+    private static void RetireOldClaim()
+    {
+        if (!_hasPrimedBanker) return;
+        if (_primedActor != null && ObjectIdentity.TryGet(_primedActor, out ObjectIdentity actual)
+            && actual.Equals(_primedBanker))
+            SharedBankNative.Retire(_primedOwner, _primedAccount, _primedLand, _primedActor, _primedCaptured);
+        else SharedBankNative.RetireFailed(_primedOwner, _primedAccount, _primedLand);
+        _hasPrimedBanker = false;
+        _needsReprime = false;
+        _primedCaptured = false;
+    }
+
+    internal static void CaptureClosed(object owner, nint account, int land,
+        IntPtr rootPointer, int rootInstance, int amount)
+    {
+        if (!_hasPrimedBanker || !ReferenceEquals(owner, _primedOwner)
+            || account != _primedAccount || land != _primedLand || _primedActor == null) return;
+        try
+        {
+            Persistent root = _primedActor.gameObject.GetComponent<Persistent>();
+            _primedCaptured = root != null && root.Pointer == rootPointer
+                && root.GetInstanceID() == rootInstance
+                && _primedActor._stashedCoins == amount && _lastObservedStash == amount;
+        }
+        catch (Exception) { _primedCaptured = false; }
+    }
+
+    internal static bool HasPrimeClaim() => _hasPrimedBanker || _needsReprime;
 
     private static bool TryPrimeSharedLedger(Banker banker)
     {
@@ -709,10 +757,11 @@ public static class PatchEconomy_Banker
 
     private static void SaveCanonicalLedger(Banker banker)
     {
-        if (!GreekBankScope.IsAuthorityBanker(banker)) return;
         if (!IsPrimedFor(banker)) return;
         StageLedgerWrite(banker);
     }
+
+    internal static bool EnsurePublicPrime(Banker banker) => TryPrimeSharedLedger(banker);
 
     /// <summary>
     /// 销毁时只观察仍属于当前希腊的银行家。其他世界只允许落盘已 staged 的旧内容，
@@ -727,28 +776,18 @@ public static class PatchEconomy_Banker
 
     private static void StageLedgerWrite(Banker banker)
     {
-        int current = Math.Max(0, banker._stashedCoins);
+        int current = banker._stashedCoins;
+        if (current < 0) return;
         if (current == _lastObservedStash) return;
-        _sharedStash = current;
-        _lastObservedStash = current;
-        try
-        {
-            PlayerPrefs.SetInt(SHARED_STASH_KEY, current);
-            _sharedLedgerDirty = true;
-        }
-        catch (Exception e)
-        {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
-                "[Economy] Failed to stage shared ledger write: " + e);
-        }
+        _primedCaptured = false;
+        if (SharedBankNative.Observe(banker, _primedOwner, _primedAccount, current))
+            _lastObservedStash = current;
     }
 
     /// <summary>希腊世界内的常规落盘。</summary>
     private static void FlushSharedLedger(bool force)
     {
-        if (!GreekBankScope.IsActive) return;
-        if (!force && Time.unscaledTime < _nextLedgerFlushAt) return;
-        FlushStagedLedger();
+        // GlobalSaveData save gate owns the only durable bank write.
     }
 
     /// <summary>
@@ -758,18 +797,7 @@ public static class PatchEconomy_Banker
     /// </summary>
     private static void FlushStagedLedger()
     {
-        if (!_sharedLedgerDirty) return;
-        try
-        {
-            PlayerPrefs.Save();
-            _sharedLedgerDirty = false;
-            _nextLedgerFlushAt = Time.unscaledTime + 1f;
-        }
-        catch (Exception e)
-        {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
-                "[Economy] Failed to flush shared ledger: " + e);
-        }
+        // No Unity PlayerPrefs writes remain.
     }
 
     /// <summary>
@@ -793,25 +821,15 @@ public static class PatchEconomy_Banker
             // This assignment is the atomic economic commit. Once it succeeds,
             // presentation/persistence side effects must never change the return value.
             banker._stashedCoins = updated;
-            _sharedStash = updated;
-            _lastObservedStash = updated;
+            _primedCaptured = false;
+            if (SharedBankNative.Observe(banker, _primedOwner, _primedAccount, updated))
+                _lastObservedStash = updated;
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(
                 "[Economy] Assistant deposit core commit failed: " + e);
             return 0;
-        }
-
-        try
-        {
-            PlayerPrefs.SetInt(SHARED_STASH_KEY, updated);
-            _sharedLedgerDirty = true;
-        }
-        catch (Exception e)
-        {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
-                "[Economy] Assistant deposit committed, ledger staging failed: " + e);
         }
 
         try
@@ -854,23 +872,14 @@ public static class PatchEconomy_Banker
         try
         {
             banker._stashedCoins = updated; // commit; no fallible presentation work until after this block
-            _sharedStash = updated;
-            _lastObservedStash = updated;
+            _primedCaptured = false;
+            if (SharedBankNative.Observe(banker, _primedOwner, _primedAccount, updated))
+                _lastObservedStash = updated;
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError("[AutoRestock] treasury debit failed: " + e);
             return false;
-        }
-        try
-        {
-            PlayerPrefs.SetInt(SHARED_STASH_KEY, updated);
-            _sharedLedgerDirty = true;
-        }
-        catch (Exception e)
-        {
-            _lastObservedStash = int.MinValue; // existing Update retries staging this committed debit
-            KingdomEnhancedPlugin.Instance?.LogSource.LogError("[AutoRestock] debit committed; ledger staging failed: " + e);
         }
         try
         {
@@ -907,7 +916,8 @@ public static class PatchEconomy_Banker
             if (!IsCourierBankAuthority(banker)) return false;
             GreekBankScope.Scope scope = GreekBankScope.Current();
             if (scope == GreekBankScope.Scope.Unknown) return false;
-            if (scope == GreekBankScope.Scope.Active && (_needsReprime || !IsPrimedFor(banker))) return false;
+            if (SharedBankNative.TryLive(out _, out _, out _)
+                && (_needsReprime || !IsPrimedFor(banker))) return false;
             coins = banker._stashedCoins;
             return true;
         }
@@ -946,7 +956,8 @@ public static class PatchEconomy_Banker
             return new CourierBankDebit(CourierBankOutcome.NotApplied, CourierBankReason.GateClosed, -1, -1);
         bool greek = scope == GreekBankScope.Scope.Active;
 
-        if (greek && !TryPrimeSharedLedger(banker))
+        if ((greek || SharedBankNative.TryLive(out _, out _, out _))
+            && !TryPrimeSharedLedger(banker))
             return new CourierBankDebit(CourierBankOutcome.NotApplied, CourierBankReason.PrimeFailed, -1, -1);
 
         int before;
@@ -965,6 +976,7 @@ public static class PatchEconomy_Banker
         {
             // 本赋值就是原子经济提交；从这里开始结果不允许再变成 NotApplied。
             banker._stashedCoins = updated;
+            _primedCaptured = false;
         }
         catch (Exception e)
         {
@@ -987,25 +999,11 @@ public static class PatchEconomy_Banker
 
         if (greek)
         {
-            _sharedStash = updated;
-            _lastObservedStash = updated;
+            if (SharedBankNative.Observe(banker, _primedOwner, _primedAccount, updated))
+                _lastObservedStash = updated;
         }
 
         bool presentation = false;
-        if (greek)
-        {
-            try
-            {
-                PlayerPrefs.SetInt(SHARED_STASH_KEY, updated);
-                _sharedLedgerDirty = true;
-            }
-            catch (Exception e)
-            {
-                _lastObservedStash = int.MinValue; // 既有 Update 会重试落盘这笔已提交的扣款
-                presentation = true;
-                LogCourierError("courier debit committed; ledger staging failed", e);
-            }
-        }
         try
         {
             Managers managers = Managers.Inst;
@@ -1038,14 +1036,14 @@ public static class PatchEconomy_Banker
     [HarmonyPrefix]
     public static void FinaliseEmerge_Prefix(Banker __instance)
     {
-        if (GreekBankScope.IsAuthorityBanker(__instance)) TryPrimeSharedLedger(__instance);
+        TryPrimeSharedLedger(__instance);
     }
 
     [HarmonyPatch(typeof(Banker), nameof(Banker.HandleOnDayStart))]
     [HarmonyPrefix]
     public static void HandleOnDayStart_Prefix(Banker __instance)
     {
-        if (GreekBankScope.IsAuthorityBanker(__instance)) TryPrimeSharedLedger(__instance);
+        TryPrimeSharedLedger(__instance);
     }
 
     [HarmonyPatch(typeof(Banker), nameof(Banker.HandleOnDayStart))]
@@ -1063,7 +1061,7 @@ public static class PatchEconomy_Banker
     [HarmonyPrefix]
     public static void OpenCastleDoor_Prefix(Banker __instance)
     {
-        if (GreekBankScope.IsAuthorityBanker(__instance)) TryPrimeSharedLedger(__instance);
+        TryPrimeSharedLedger(__instance);
     }
 
     // === Awake - 去重 + 恢复 2.4.0 原生参数 ===
@@ -1134,7 +1132,22 @@ public static class PatchEconomy_Banker
     [HarmonyPrefix]
     public static bool OnDestroy_Prefix(Banker __instance)
     {
-        if (__instance == null || __instance.gameObject == null) return true;
+        if (__instance == null) return true;
+        try
+        {
+            if (__instance.gameObject == null)
+            {
+                if (_primedActor != null && _primedActor.Pointer == __instance.Pointer)
+                    RetireOldClaim(); // lost root identity: source remains unresolved
+                return true;
+            }
+        }
+        catch (Exception)
+        {
+            if (_primedActor != null && _primedActor.Pointer == __instance.Pointer) RetireOldClaim();
+            return true;
+        }
+        SharedBankNative.BankLifecycleChanged();
 
         // owned cleanup：Awake 被跳过的 duplicate 即使此刻已离开希腊/关模组/失权，
         // 也必须跳过原生 OnDestroy，否则会注销真银行家的固定 NetID 903。
@@ -1148,13 +1161,20 @@ public static class PatchEconomy_Banker
 
         // New observations require current Greek scope; only already staged values
         // may be flushed after a world change.
-        SaveOwnedLedger(__instance);
+        if (ObjectIdentity.TryGet(__instance, out ObjectIdentity retiring)
+            && (_hasPrimedBanker || _needsReprime) && _primedBanker.Equals(retiring))
+            SharedBankNative.Retire(_primedOwner, _primedAccount, _primedLand, __instance, _primedCaptured);
+        else if (_hasPrimedBanker && _primedActor != null
+            && _primedActor.Pointer == __instance.Pointer)
+            RetireOldClaim();
         FlushStagedLedger();
         ForgetWorkProfile(__instance);
         if (ObjectIdentity.TryGet(__instance, out ObjectIdentity key)
-            && _hasPrimedBanker && _primedBanker.Equals(key))
+            && (_hasPrimedBanker || _needsReprime) && _primedBanker.Equals(key))
         {
             _hasPrimedBanker = false;
+            _needsReprime = false;
+            _primedCaptured = false;
             _primedWorld = default;
         }
         return true;
@@ -1164,6 +1184,7 @@ public static class PatchEconomy_Banker
     [HarmonyPostfix]
     public static void Awake_Postfix(Banker __instance)
     {
+        SharedBankNative.BankLifecycleChanged();
         if (GreekBankScope.Current() == GreekBankScope.Scope.Inactive) return;
         // Harmony still runs postfixes when our Prefix deliberately skips native Awake.
         // Never attach the coordinator to a duplicate that is already scheduled for
@@ -1216,7 +1237,6 @@ public static class PatchEconomy_Banker
             return;
         }
         if (scope != GreekBankScope.Scope.Inactive) return;
-        SuspendPrimeProof();
         FlushStagedLedger();
         if (_workProfiles.Count == 0) return;
         _profileKeys.Clear();
@@ -1242,8 +1262,8 @@ public static class PatchEconomy_Banker
     {
         Managers managers = Managers.Inst;
         if (managers == null || managers.game == null || managers.game.state != Game.State.Playing
-            || !GreekBankScope.IsAuthorityBanker(__instance)) return;
-        if (_needsReprime || (_hasPrimedBanker && !IsPrimedFor(__instance)))
+            || __instance == null) return;
+        if (_needsReprime || !IsPrimedFor(__instance))
             TryPrimeSharedLedger(__instance);
     }
 
@@ -1261,9 +1281,9 @@ public static class PatchEconomy_Banker
             // 保留 receipt 等世界明确后再处理。
             if (scope == GreekBankScope.Scope.Inactive)
             {
+                if (IsPrimedFor(__instance)) SaveCanonicalLedger(__instance);
                 RestoreWorkProfile(__instance);
                 FlushStagedLedger();
-                SuspendPrimeProof();
             }
             return;
         }

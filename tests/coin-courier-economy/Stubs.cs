@@ -60,16 +60,25 @@ namespace Il2CppSystem.Collections.Generic
     {
         private readonly System.Collections.Generic.Dictionary<TKey, TValue> _items =
             new System.Collections.Generic.Dictionary<TKey, TValue>();
+        public bool ThrowOnSet, ThrowOnRead;
 
         public int Count => _items.Count;
 
         public TValue this[TKey key]
         {
-            get => _items[key];
-            set => _items[key] = value;
+            get => ThrowOnRead ? throw new InvalidOperationException("native dictionary read") : _items[key];
+            set
+            {
+                if (ThrowOnSet) throw new InvalidOperationException("native dictionary set");
+                _items[key] = value;
+            }
         }
 
-        public bool TryGetValue(TKey key, out TValue value) => _items.TryGetValue(key, out value);
+        public bool TryGetValue(TKey key, out TValue value)
+        {
+            if (ThrowOnRead) throw new InvalidOperationException("native dictionary read");
+            return _items.TryGetValue(key, out value);
+        }
 
         public bool ContainsKey(TKey key) => _items.ContainsKey(key);
 
@@ -386,8 +395,9 @@ public enum Side { Left = -1, Right = 1 }
 public enum Stat { BiggestStash, BiggestWinterStash, CoinsInBank }
 public enum Season { Spring, Summer, Autumn, Winter }
 
-public class Game
+public class Game : UnityEngine.Object
 {
+    public int currentLand;
     public enum State { Menu, Playing, Paused, Loading }
 
     private State _state = State.Playing;
@@ -505,6 +515,8 @@ public class NetworkPostbox : Object
 
 public class Banker : Behaviour
 {
+    public void Persistent_IBehaviour_ApplyData(Il2CppSystem.Object data)
+        => _stashedCoins = data.TryCast<BankerData>().stashedCoins;
     private int _stashedCoinsValue;
     public float coinScanRange, coinGatherTargetPercentage, runSpeed, wanderRange, walkSpeed;
     public int playerMaxCoins;

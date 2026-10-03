@@ -81,6 +81,7 @@ public class ModPanel : MonoBehaviour
         PatchArcher_GreekImpact.Tick();
         PatchArcher_Impact.Tick();
         PatchDivine_HermesHeadwear.Tick();
+        HeavyShieldIntegration.Tick();
         PatchRoles_Crossbowman.Tick();
         ShopCleanupQueue.TickPendingCleanup();
     }
@@ -330,6 +331,8 @@ public class ModPanel : MonoBehaviour
                     "新生成岛实际长度倍率，按原生地块取整；已生成岛不变。");
                 FloatSlider(ref y, width, "箭塔基底密度", ModConfig.TowerSpotMultiplier, 1, 4, false,
                     "重新载入地图时生效 · 1 倍为原生密度。");
+                Toggle(ref y, width, "跨世界坐骑", ModConfig.CrossWorldMountsEnabled,
+                    "实验 · 希腊单机普通战役：跨世界坐骑集中在下方新增探索岛；旧岛不追加，彩虹小马新获取需活动资格。");
                 break;
             case 3:
                 FloatSlider(ref y, width, "每波怪物数量", ModConfig.EnemyCountMultiplier, 1, 5, false,
@@ -391,6 +394,9 @@ public class ModPanel : MonoBehaviour
                 Toggle(ref y, width, "英雄驿站", ModConfig.HeroArcherEnabled,
                     "所有世界·单机：投8金币训练地面英雄，不上箭塔；每侧1名，死亡才空位。商店红旗表示占位，关闭保留已购名额。");
                 GUI.Label(new Rect(190, y - CardHeight - 12 + 51, width - 222, 31), HeroShop.StatusText, _muted);
+                Toggle(ref y, width, "宝石盾卫", ModConfig.HeavyShieldEnabled,
+                    "所有世界·单机：4宝石解锁盾模，6金币购买盾具；每岛左右各1席，可各花2宝石扩至2席。驻守本岛，不随船，不自动补货。");
+                GUI.Label(new Rect(190, y - CardHeight - 12 + 51, width - 222, 31), HeavyShieldIdentity.StatusText, _muted);
                 Toggle(ref y, width, "金币哥布林", ModConfig.CoinCourierEnabled,
                     "所有世界·单机：城堡左投币招募；从国库逐枚取币，传送补给骑士金币槽，遇敌带余币撤回。未接存档时不可招募、不收费；关闭保留身份与钱袋。");
                 GUI.Label(new Rect(190, y - CardHeight - 12 + 51, width - 222, 31), CoinCourierRuntime.StatusText, _muted);

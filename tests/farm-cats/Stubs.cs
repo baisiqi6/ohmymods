@@ -104,7 +104,10 @@ public static class Pool
  {Spawned++;var go=new UnityEngine.GameObject();go.transform.position=pos;var cat=go.AddComponent<Cat>();Scene.Cats.Add(cat);return (T)cat;}
 }
 namespace BepInEx.Unity.IL2CPP.Utils.Collections{public static class Extensions{public static System.Collections.IEnumerator WrapToIl2Cpp(this System.Collections.IEnumerator source)=>source;}}
-namespace KingdomEnhancedMod{public static class ScaleRegistryHolder{public static void Register(Mover mover,float scale)=>GreekScaleScope.Register(mover,scale);}}
+namespace KingdomEnhancedMod{public static class ScaleRegistryHolder{public static void Register(Mover mover,float scale)=>GreekScaleScope.Register(mover,scale);public static void RetryPendingCreation(){}}}
+// This existing suite isolates stocking/retirement; the full production birth geometry and
+// adapter are linked and exercised by tests/farm-cat-movement, rather than mirrored here.
+namespace KingdomEnhancedMod{internal static class FarmCatMovement{internal static bool TryBirth(Farmhouse farm,Cat prefab,UnityEngine.Transform layer,float candidate,out float x){x=candidate;return true;}}}
 namespace KingdomEnhancedMod
 {
  public static class ModConfig{public class Option{public bool Value=true;}public static Option Enabled=new();}

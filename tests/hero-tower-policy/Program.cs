@@ -46,4 +46,10 @@ HeroArcherRuntime.Enabled=false;HeroArcherTowerPolicy.Observe(hero);HeroArcherRu
 Reset();for(int i=0;i<9;i++){var stale=Actor();Slot(stale);stale.NativeExit=()=>throw new Exception();HeroArcherTowerPolicy.Observe(stale);stale.Purchased=false;}
 hero=Actor();Slot(hero);HeroArcherTowerPolicy.Observe(hero);Check(hero.ExitCount==1&&hero._guardSlot==null,"bounded stale release registry never blocks new living hero");
 Reset();hero=Actor();hero.gameObject.activeInHierarchy=false;Slot(hero);HeroArcherTowerPolicy.Observe(hero);Check(hero.ExitCount==0,"inactive or off-world ownership does not mutate actor");
+Reset();var shield=Actor(false);HeavyShieldIdentity.Bind(shield.gameObject);HeroArcherRuntime.Enabled=false;
+Check(!Available(shield,slot.gameObject,true)&&!Prefix("AssignmentPatch",shield,slot.gameObject),"shield excludes tower even with hero feature off");
+Check(!Available(shield,knightJob,true)&&!Prefix("AssignmentPatch",shield,knightJob),"shield excludes knight following");
+Check(!Prefix("SetSlotPatch",shield,slot)&&!Prefix("EnterSlotPatch",shield,slot),"shield excludes both direct slot paths");
+Check(Prefix("AssignmentPatch",shield,null)&&Prefix("SetSlotPatch",shield,null),"shield native null cleanup remains available");
+HeavyShieldIdentity.Reset();
 Console.WriteLine($"PASS {passed} assertions (real tower policy and hook bodies)");

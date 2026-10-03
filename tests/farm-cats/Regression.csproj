@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/obj/**;**/bin/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup><Compile Include="../../il2cpp/PatchWorld_FarmCats.cs" Link="Production/FarmCats.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../il2cpp/GreekScaleScope.cs" Link="Production/GreekScaleScope.cs" /></ItemGroup>

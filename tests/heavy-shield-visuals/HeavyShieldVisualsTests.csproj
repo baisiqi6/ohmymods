@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/obj/**;**/bin/**</DefaultItemExcludes>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <DefineConstants>HEAVY_SHIELD_VISUALS_CORE_ONLY;HEAVY_SHIELD_ART_CORE_ONLY</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../il2cpp/HeavyShieldActorVisuals.cs" Link="HeavyShieldActorVisuals.cs" />
+    <Compile Include="../../il2cpp/PatchRoles_HeavyShieldArt.cs" Link="PatchRoles_HeavyShieldArt.cs" />
+  </ItemGroup>
+</Project>

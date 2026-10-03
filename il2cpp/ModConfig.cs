@@ -29,6 +29,7 @@ public static class ModConfig
     public static ConfigEntry<float> CrossbowRecruitmentRatio;
     public static ConfigEntry<bool> MusketeerEnabled;
     public static ConfigEntry<bool> CoinCourierEnabled;
+    public static ConfigEntry<bool> HeavyShieldEnabled;
     public static ConfigEntry<int> CoinCourierRecruitPrice;
     public static ConfigEntry<int> CoinCourierPurseCapacity;
     public static ConfigEntry<int> CoinCourierMaxCoinsPerVisit;
@@ -41,6 +42,7 @@ public static class ModConfig
     public static ConfigEntry<int> BeggarCampCapacity;
     public static ConfigEntry<float> MapSizeMultiplier;
     public static ConfigEntry<float> TowerSpotMultiplier;
+    public static ConfigEntry<bool> CrossWorldMountsEnabled;
     public static ConfigEntry<float> EnemyCountMultiplier;
     public static ConfigEntry<float> EnemyTimelineSpeed;
     public static ConfigEntry<float> StaffCooldownMultiplier;
@@ -78,6 +80,8 @@ public static class ModConfig
         CrossbowRecruitmentRatio = config.Bind("Crossbowman", "RecruitmentRatio", CrossbowRatioPolicy.Default,
             new ConfigDescription("普通弓箭手成为弩手的比例：25%/50%/75%/100%。新捡弓当次生效；已有单位下次读档按比例重算。弩手不参与骑士/举旗补员，已有队员不改；联机双方请使用相同比例。",
                 new AcceptableValueList<float>(.25f, .5f, .75f, 1f)));
+        HeavyShieldEnabled = config.Bind("HeavyShield", "Enabled", false,
+            "宝石盾卫：仅单机；4宝石解锁盾模，6金币购买盾具，每岛左右各1席，左右各2宝石扩至2席。身份、保存和战斗就绪后才可付费；关闭保留购买记录。");
         CoinCourierEnabled = config.Bind("CoinCourier", "Enabled", true,
             "金币哥布林：城堡/营火左侧投币招募一名全战役唯一友方哥布林。它从国库左侧逐枚取币入袋，传送到骑士后方补进金币槽；被敌逼近带余币撤回，不参与战斗。仅单机、且需要真实存档接线就绪；未接线时不生成角色、不收费。关闭保留招募身份与钱袋记录。");
         CoinCourierRecruitPrice = config.Bind("CoinCourier", "RecruitPrice", 8,
@@ -151,6 +155,12 @@ public static class ModConfig
 
         MapSizeMultiplier = config.Bind("World", "MapSizeMultiplier", 2f,
             "新生成岛实际长度倍率（1-5x，按原生地块取整）；已生成岛不变");
+
+        // 跨世界坐骑：新获取点集中到新增探索岛（物理 land11 / 地图 UI10）。
+        // 各获取点每战役最多一处；已生成岛不追插，旧岛已有标记/回执继续恢复。
+        // 普通希腊单机限定；彩虹小马的新获取点另受原生活动资格限制。
+        CrossWorldMountsEnabled = config.Bind("World", "CrossWorldMountsEnabled", false,
+            "跨世界坐骑（实验）：希腊单机普通战役在地图下方新增探索岛集中提供坐骑获取点；各获取点每战役最多一处，已生成岛不追加；彩虹小马的新获取点需原生活动资格，联机暂不支持");
 
         // 箭塔基底（可购买塔位）密度倍数：1=原生密度（不补点），2=目标间距减半
         // （约两倍点位），上限 4。对原生参考集幂等补放（间距估计/铺点范围只取

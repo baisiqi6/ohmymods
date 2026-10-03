@@ -1163,18 +1163,34 @@ internal static class MusketeerIdentity
 [HarmonyPatch(typeof(Character), nameof(Character.Promote), new[] { typeof(DroppableTool), typeof(IUnitController) })]
 internal static class Musketeer_GunPromotion_Patch
 {
+    internal struct Capture
+    {
+        internal MusketeerIdentity.PromotionState Gun;
+        internal HeavyShieldPromotionBridge.PromotionState Heavy;
+    }
     [HarmonyPrefix, HarmonyPriority(Priority.First)]
-    private static void Before(DroppableTool tool, out MusketeerIdentity.PromotionState __state)
-    { MusketeerIdentity.OnGunPickupBegin(tool, out __state); }
+    private static void Before(Character __instance, DroppableTool tool, out Capture __state)
+    {
+        __state = default;
+        try { HeavyShieldPromotionBridge.Before(__instance, tool, out __state.Heavy); }
+        catch (Exception e) { HeavyShieldIntegration.Fault("promotion-begin", e); }
+        MusketeerIdentity.OnGunPickupBegin(tool, out __state.Gun);
+    }
 
     [HarmonyPostfix, HarmonyPriority(Priority.First)]
-    private static void After(Character __result, MusketeerIdentity.PromotionState __state)
-    { MusketeerIdentity.OnGunPickupEnd(__result, __state); }
+    private static void After(Character __result, Capture __state)
+    {
+        try { HeavyShieldPromotionBridge.After(__result, __state.Heavy); }
+        catch (Exception e) { HeavyShieldIntegration.Fault("promotion-end", e); }
+        MusketeerIdentity.OnGunPickupEnd(__result, __state.Gun);
+    }
 
     [HarmonyFinalizer]
-    private static Exception Finally(Exception __exception, MusketeerIdentity.PromotionState __state)
+    private static Exception Finally(Exception __exception, Capture __state)
     {
-        MusketeerIdentity.OnGunPickupAbort(__state);
+        try { HeavyShieldPromotionBridge.Finally(__state.Heavy); }
+        catch (Exception e) { HeavyShieldIntegration.Fault("promotion-finally", e); }
+        MusketeerIdentity.OnGunPickupAbort(__state.Gun);
         return __exception;
     }
 }
@@ -1215,8 +1231,9 @@ internal static class Musketeer_PoolDespawnLife_Patch
 {
     [HarmonyPrefix]
     private static void Before(GameObject __0, float __1, out MusketeerIdentity.PoolDespawnState __state)
-    { MusketeerIdentity.OnPoolDespawnBegin(__0, __1, out __state); }
+    { HeavyShieldIntegration.BeforePoolDespawn(__0, __1); MusketeerIdentity.OnPoolDespawnBegin(__0, __1, out __state); }
 
     [HarmonyPostfix]
-    private static void After(MusketeerIdentity.PoolDespawnState __state) { MusketeerIdentity.OnPoolDespawnEnd(__state); }
+    private static void After(GameObject __0, float __1, MusketeerIdentity.PoolDespawnState __state)
+    { HeavyShieldIntegration.AfterPoolDespawn(__0, __1); MusketeerIdentity.OnPoolDespawnEnd(__state); }
 }

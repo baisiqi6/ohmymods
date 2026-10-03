@@ -951,11 +951,19 @@ internal static class CoinCourierPersistence
     [HarmonyPatch(typeof(IslandSaveData), nameof(IslandSaveData.Save), new[] { typeof(int), typeof(int), typeof(int) })]
     internal static class IslandSaveScopePatch
     {
+        internal sealed class Capture
+        {
+            internal SaveScope Coin;
+            internal HeavyShieldIntegration.SaveScope Heavy;
+            internal SharedBankNative.Scope Bank;
+        }
         [HarmonyPrefix]
-        private static void Prefix(int __0, int __1, int __2, out SaveScope __state)
+        private static void Prefix(int __0, int __1, int __2, out Capture __state)
         {
             CancelPendingShopTransactions();
-            __state = BeginIslandSave(__0, __1, __2);
+            __state = new Capture { Heavy = HeavyShieldIntegration.BeginSave(__0, __1, __2) };
+            __state.Coin = BeginIslandSave(__0, __1, __2);
+            __state.Bank = SharedBankNative.BeginSave(__0, __1, __2);
         }
 
         /// <summary>
@@ -978,15 +986,21 @@ internal static class CoinCourierPersistence
         }
 
         [HarmonyPostfix]
-        private static void Postfix(SaveScope __state)
+        private static void Postfix(Capture __state)
         {
-            EndIslandSave(__state, true);
+            EndIslandSave(__state?.Coin, true);
+            SharedBankNative.EndSave(__state?.Bank, true);
         }
 
         [HarmonyFinalizer]
-        private static Exception Finalizer(Exception __exception, SaveScope __state)
+        private static Exception Finalizer(Exception __exception, Capture __state)
         {
-            EndIslandSave(__state, false);
+            try { HeavyShieldIntegration.EndSave(__state?.Heavy, __exception == null); }
+            finally
+            {
+                EndIslandSave(__state?.Coin, false);
+                SharedBankNative.EndSave(__state?.Bank, false);
+            }
             return __exception;
         }
     }
@@ -997,7 +1011,9 @@ internal static class CoinCourierPersistence
         [HarmonyPostfix]
         private static void Postfix(IslandSaveData __instance)
         {
+            HeavyShieldIntegration.ObserveMarker(__instance);
             ObserveMarker(__instance);
+            SharedBankNative.Marker(__instance);
         }
     }
 
@@ -1005,9 +1021,17 @@ internal static class CoinCourierPersistence
     internal static class PrefsPreparePatch
     {
         [HarmonyPrefix]
-        private static void Prefix(PrefsSaveData __instance)
+        private static void Prefix(PrefsSaveData __instance, out HeavyShieldPersistence.PrepareCapture __state)
         {
+            __state = HeavyShieldIntegration.BeginPrepare(__instance);
             ObservePrepare(__instance);
+        }
+
+        [HarmonyFinalizer]
+        private static Exception Finalizer(Exception __exception, HeavyShieldPersistence.PrepareCapture __state)
+        {
+            HeavyShieldIntegration.EndPrepare(__state, __exception == null);
+            return __exception;
         }
     }
 
@@ -1017,12 +1041,15 @@ internal static class CoinCourierPersistence
         [HarmonyPrefix]
         private static void Prefix(GlobalSaveData __instance)
         {
+            HeavyShieldIntegration.BeforeCampaignMutation(__instance);
             ObserveCampaignMutation(__instance);
+            SharedBankNative.BeforeMutation(__instance);
         }
 
         [HarmonyPostfix]
         private static void Postfix(GlobalSaveData __instance, CampaignSaveData __result)
         {
+            HeavyShieldIntegration.AfterCampaignCreated(__instance, __result);
             ObserveCampaignCreated(__instance, __result);
         }
     }
@@ -1035,7 +1062,9 @@ internal static class CoinCourierPersistence
         [HarmonyPrefix]
         private static void Prefix()
         {
+            HeavyShieldIntegration.BeforeCampaignMutation(SafeLoaded());
             ObserveCampaignMutation(SafeLoaded());
+            SharedBankNative.BeforeMutation(SafeLoaded());
         }
     }
 
@@ -1050,7 +1079,33 @@ internal static class CoinCourierPersistence
         [HarmonyPrefix]
         private static void Prefix(GlobalSaveData.__TryDeleteCampaign_d__91 __instance)
         {
+            try { if (__instance != null && __instance.__1__state == 0) HeavyShieldIntegration.BeforeCampaignMutation(SafeLoaded()); }
+            catch (Exception e) { HeavyShieldIntegration.Fault("delete-routine", e); }
             ObserveDeleteRoutineState(__instance);
+            try
+            {
+                if (__instance != null && __instance.__1__state == 0)
+                    SharedBankNative.BeforeMutation(SafeLoaded());
+            }
+            catch (Exception) { SharedBankNative.BeforeMutation(SafeLoaded()); }
+        }
+    }
+
+    [HarmonyPatch(typeof(GlobalSaveData), nameof(GlobalSaveData.DeleteChallenge))]
+    internal static class ChallengeDeletePatch
+    {
+        [HarmonyPrefix] private static void Prefix(GlobalSaveData __instance)
+            => SharedBankNative.BeforeMutation(__instance);
+    }
+
+    [HarmonyPatch(typeof(GlobalSaveData.__TryDeleteChallenge_d__94),
+        nameof(GlobalSaveData.__TryDeleteChallenge_d__94.MoveNext))]
+    internal static class ChallengeDeleteRoutinePatch
+    {
+        [HarmonyPrefix] private static void Prefix(GlobalSaveData.__TryDeleteChallenge_d__94 __instance)
+        {
+            if (__instance != null && __instance.__1__state == 0)
+                SharedBankNative.BeforeMutation(SafeLoaded());
         }
     }
 }

@@ -24,6 +24,26 @@ internal static class HeroRecruitment
         internal long Life;
         internal long World;
         internal float Seen;
+        // Borrowed embarkee protection for this candidate life. It is released by an explicit
+        // seat removal, by the recycle anchor, or when the object is provably gone; the record
+        // itself is not retired while the claim is unsettled.
+        internal EmbarkeeClaim Embarkee;
+    }
+
+    // One borrowed Embarkee component: exact identity (component pointer + owning root/goId +
+    // candidate life) plus the enabled value read before our write. Owned = we wrote false and
+    // still hold the responsibility to restore it; a state that was already disabled is never
+    // claimed. The receipt stays on the candidate record, so seat removal alone does not end it.
+    private sealed class EmbarkeeClaim
+    {
+        internal IntPtr Pointer;
+        internal IntPtr Root;
+        internal int GoId;
+        internal long Life;
+        internal bool OriginalEnabled;
+        internal bool Owned;
+        internal bool Busy;
+        internal bool PendingReturn;
     }
     private sealed class Seat
     {
@@ -49,10 +69,97 @@ internal static class HeroRecruitment
         internal IntPtr VirginIsland; // once-guard for repeated ApplyToScene of one generation
         internal long VirginWorld;
         internal bool HasBaseline;
+        internal bool NativeAuthority;
+        internal bool SessionRebind; // this re-entry kept the session's own receipts; bindings carry over
+        internal bool HasSession;    // seat set came from a resolved snapshot; an empty set is evidence
+        internal IntPtr SourceGlobal; // frozen exact source: Global object + native owner + land
+        internal IntPtr SourceOwner;
+        internal int SourceLand = -1;
         internal int FallenSeatMask; // Session-only torn-flag feedback; never purchase authority.
     }
     private static readonly Dictionary<IntPtr, Candidate> Candidates = new();
     private static readonly Dictionary<string, IslandState> Islands = new(StringComparer.Ordinal);
+
+    // ---- runtime state source identity --------------------------------------------------------
+    // One runtime IslandState belongs to one exact source: the Global object it was created under,
+    // the native campaign/challenge owner and the land. Numeric context keys are lookup aliases
+    // only (they move with catalog slots and never prove ownership); MergeSessionRebind may only
+    // use a state whose source matches exactly.
+    private static bool SameSource(IslandState state, IntPtr global, IntPtr owner, int land)
+        => state != null && state.SourceGlobal != IntPtr.Zero && state.SourceGlobal == global
+            && state.SourceOwner == owner && state.SourceLand == land;
+
+    private static IslandState FindSourceState(IntPtr global, IntPtr owner, int land)
+    {
+        foreach (var pair in Islands)
+            if (SameSource(pair.Value, global, owner, land)) return pair.Value;
+        return null;
+    }
+
+    // Finds this exact source's state wherever it lives and installs it under the given lookup
+    // alias (moving it when a catalog slot move left it under a stale key). The alias metadata
+    // must follow the moved slot: the receipt/GUID/epoch identity is untouched, and the next
+    // Tick sees the state under the current key instead of re-entering this migration every
+    // frame (which also kept FindPurchase's fresh-key check and the per-frame seat queries
+    // locked to a stale key).
+    private static IslandState StateForSource(string alias, IntPtr global, IntPtr owner, int land)
+    {
+        var match = FindSourceState(global, owner, land);
+        if (match == null) return null;
+        RemoveState(match);
+        InstallState(alias, match);
+        match.ContextKey = alias;
+        return match;
+    }
+
+    // Installs a state under its current lookup alias without discarding another live source's
+    // evidence: an occupant from the same Global is kept under its own private alias. A parked
+    // state from a replaced Global could never be looked up again and is dropped like before.
+    private static void InstallState(string alias, IslandState state)
+    {
+        if (Islands.TryGetValue(alias, out var occupant) && !ReferenceEquals(occupant, state)
+            && occupant.SourceOwner != IntPtr.Zero
+            && occupant.SourceGlobal == GlobalSaveData._loaded?.Pointer)
+            Islands["@" + occupant.SourceOwner.ToInt64() + ":" + occupant.SourceLand] = occupant;
+        Islands[alias] = state;
+    }
+
+    private static void RemoveState(IslandState state)
+    {
+        if (state == null) return;
+        string location = null;
+        foreach (var pair in Islands)
+            if (ReferenceEquals(pair.Value, state)) { location = pair.Key; break; }
+        if (location != null) Islands.Remove(location);
+    }
+
+    // The current source's exact identity, recomputed only when the loaded Global, its current
+    // indices, the current island object, the save file or the catalog mapping generation change.
+    private static IntPtr _sourceOwner;
+    private static IntPtr _sourceGlobal, _sourceIsland;
+    private static string _sourceFile;
+    private static int _sourceCampaign, _sourceChallenge, _sourceLand = -1, _sourceCatalog = -1;
+    private static bool _sourceValid, _sourceProven;
+
+    private static bool TrySourceIdentity(out IntPtr global, out IntPtr owner, out int land)
+    {
+        global = IntPtr.Zero; owner = IntPtr.Zero; land = -1;
+        var value = GlobalSaveData._loaded;
+        var campaign = CampaignSaveData.current;
+        var island = campaign != null ? campaign.CurrentIsland : null;
+        if (value == null || campaign == null || island == null) { _sourceValid = false; return false; }
+        if (_sourceValid && _sourceGlobal == value.Pointer && _sourceIsland == island.Pointer
+            && _sourceCampaign == value.currentCampaign && _sourceChallenge == value.currentChallenge
+            && _sourceFile == GlobalSaveData.filename && _sourceCatalog == HeroNativeRights.CatalogGeneration)
+        { global = _sourceGlobal; owner = _sourceOwner; land = _sourceLand; return _sourceProven; }
+        _sourceGlobal = value.Pointer; _sourceIsland = island.Pointer; _sourceCampaign = value.currentCampaign;
+        _sourceChallenge = value.currentChallenge; _sourceFile = GlobalSaveData.filename;
+        _sourceCatalog = HeroNativeRights.CatalogGeneration; _sourceLand = island.land; _sourceValid = true;
+        _sourceProven = HeroNativeRights.TrySourceIdentity(island.land, out _, out _sourceOwner);
+        if (!_sourceProven) _sourceOwner = IntPtr.Zero;
+        global = _sourceGlobal; owner = _sourceOwner; land = _sourceLand;
+        return _sourceProven;
+    }
     private static readonly HashSet<IntPtr> BoundRoots = new();
     private static IslandState _current;
     private static long _nextLife;
@@ -99,10 +206,10 @@ internal static class HeroRecruitment
                     old.Seen = Time.time;
                     return;
                 }
-                foreach (var island in Islands.Values)
-                    foreach (var seat in island.Seats)
-                        if (ReferenceEquals(seat.Owner, old)) Unbind(seat);
-                Candidates.Remove(key);
+                // A new life never inherits the old receipt: release, never re-borrow, and keep
+                // the record only while the release is still pending.
+                UnbindSeatsFor(old);
+                if (!RetireCandidate(old)) return;
             }
         }
         catch (Exception e) { Log("enable", e); }
@@ -126,7 +233,7 @@ internal static class HeroRecruitment
                 {
                     var owner = seat.Owner;
                     Unbind(seat);
-                    Candidates.Remove(owner.Pointer);
+                    RetireCandidate(owner);
                 }
     }
 
@@ -240,11 +347,21 @@ internal static class HeroRecruitment
         var seats = new List<string>(2);
         foreach (var seat in state.Seats)
             seats.Add(seat.Receipt.Id.ToString("N").Substring(0, 8) + ":" + seat.Receipt.Side + ":"
-                + (seat.Receipt.NativeId.Length > 0 ? "native" : "reserved") + ":" + (seat.Owner != null ? "bound" : "unbound"));
+                + (seat.Receipt.NativeId.Length > 0 ? "native" : "reserved") + ":" + (seat.Owner != null ? "bound" : "unbound")
+                + (seat.Owner != null && seat.Owner.Embarkee != null && seat.Owner.Embarkee.Owned ? ":borrowed" : ""));
         return "ctx=" + Short(state.ContextKey) + " epoch=" + Short(state.Epoch) + " kind=" + state.MatchKind
             + " hk=" + state.MatchHashKind + " v1=" + state.MatchLegacy
-            + " seats=" + state.Seats.Count + " baseline=" + state.HasBaseline + " unresolved=" + state.Unresolved
+            + " seats=" + state.Seats.Count + " claims=" + PendingClaims() + " baseline=" + state.HasBaseline + " unresolved=" + state.Unresolved
             + " readonly=" + state.ReadOnly + " [" + string.Join(",", seats) + "]";
+    }
+
+    // Read-only diagnostic: unsettled embarkee borrows across all island records.
+    private static int PendingClaims()
+    {
+        int claims = 0;
+        foreach (var candidate in Candidates.Values)
+            if (candidate.Embarkee != null && candidate.Embarkee.Owned) claims++;
+        return claims;
     }
 
     // The native shop owns payment. This method creates a receipt only after all current gates
@@ -252,29 +369,41 @@ internal static class HeroRecruitment
     internal static bool TryPurchase(out string reason)
     {
         reason = "英雄招募暂不可用";
+        Seat pendingSeat = null;
+        IslandState purchaseIsland = null;
+        bool tracked = false;
         try
         {
             Tick();
             if (!FindPurchase(out var candidate, out int side, true)) { reason = StatusText; return false; }
             var disk = HeroRecruitmentArchiveStore.Load(ArchivePath);
-            if (!disk.Writable) { _current.ReadOnly = true; reason = "英雄附加档不可写，未招募"; return false; }
-            if (disk.Archive != null && _current.Epoch != null && !disk.Archive.Scopes.ContainsKey(_current.Epoch)
+            if (!disk.Writable && !_current.NativeAuthority) { _current.ReadOnly = true; reason = "英雄附加档不可写，未招募"; return false; }
+            if (disk.Writable && !_current.NativeAuthority && disk.Archive != null && _current.Epoch != null && !disk.Archive.Scopes.ContainsKey(_current.Epoch)
                 && disk.Archive.Scopes.Count >= HeroRecruitmentArchive.MaxScopes)
             { _current.ReadOnly = true; reason = "英雄附加档容量已满"; return false; }
-            if (disk.Archive != null && !disk.Archive.TryGetContext(_current.ContextKey, out _)
+            if (disk.Writable && !_current.NativeAuthority && disk.Archive != null && !disk.Archive.TryGetContext(_current.ContextKey, out _)
                 && disk.Archive.Contexts.Count >= HeroRecruitmentArchive.MaxContexts)
             { _current.ReadOnly = true; reason = "英雄附加档容量已满"; return false; }
             if (!FindPurchase(out var fresh, out int freshSide, true) || !ReferenceEquals(fresh, candidate) || freshSide != side) return false;
             var seat = new Seat { Receipt = new() { Id = Guid.NewGuid(), Side = side } };
-            if (!Bind(seat, candidate)) { reason = "无法确认英雄死亡监听，未招募"; return false; }
-            var purchaseIsland = _current;
+            if (!HeroNativeRights.Track(seat.Receipt.Id)) { reason = "原生英雄权益存储不可用，未招募"; return false; }
+            pendingSeat = seat; tracked = true;
+            if (!Bind(seat, candidate)) { HeroNativeRights.Abandon(seat.Receipt.Id); reason = "无法确认英雄死亡监听，未招募"; return false; }
+            purchaseIsland = _current;
             purchaseIsland.Seats.Add(seat);
+            bool borrowed = BorrowEmbarkee(candidate);   // receipt is public before native OnDisable
+            if (!borrowed || !ReferenceEquals(seat.Owner, candidate) || !purchaseIsland.Seats.Contains(seat))
+            {
+                purchaseIsland.Seats.Remove(seat); Unbind(seat); HeroNativeRights.Abandon(seat.Receipt.Id);
+                reason = "登船保护初始化失败，未招募";
+                return false;
+            }
             bool activated = false;
             try { activated = HeroArcherRuntime.TryActivatePurchased(candidate.Actor) && ReferenceEquals(_current, purchaseIsland); }
             catch (Exception e) { Log("activation", e); }
             if (!activated)
             {
-                purchaseIsland.Seats.Remove(seat); Unbind(seat);
+                purchaseIsland.Seats.Remove(seat); Unbind(seat); HeroNativeRights.Abandon(seat.Receipt.Id);
                 reason = "英雄外观或战斗初始化失败，未招募";
                 return false;
             }
@@ -283,7 +412,16 @@ internal static class HeroRecruitment
             Log("purchased:" + seat.Receipt.Id.ToString("N"), null);
             return true;
         }
-        catch (Exception e) { Log("purchase", e); return false; }
+        catch (Exception e)
+        {
+            if (tracked)
+            {
+                purchaseIsland?.Seats.Remove(pendingSeat);
+                if (pendingSeat != null) { Unbind(pendingSeat); HeroNativeRights.Abandon(pendingSeat.Receipt.Id); }
+            }
+            Log("purchase", e);
+            return false;
+        }
     }
 
     private static bool FindPurchase(out Candidate candidate, out int side, bool fresh = false)
@@ -324,13 +462,18 @@ internal static class HeroRecruitment
             if (_lastTickFrame == Time.frameCount) return;
             _lastTickFrame = Time.frameCount;
             if (!TryContext(out string contextKey, out long world)) return;
-            if (_current == null || _current.ContextKey != contextKey || _current.World != world)
+            bool sourceProven = TrySourceIdentity(out IntPtr srcGlobal, out IntPtr srcOwner, out int srcLand);
+            if (_current == null || _current.ContextKey != contextKey || _current.World != world
+                || (sourceProven && !SameSource(_current, srcGlobal, srcOwner, srcLand)))
             {
                 _candidateCacheUntil = 0;
-                if (!Islands.TryGetValue(contextKey, out var next))
+                IslandState next = sourceProven ? StateForSource(contextKey, srcGlobal, srcOwner, srcLand) : null;
+                if (next == null)
                 {
                     if (Islands.Count >= HeroRecruitmentArchive.MaxContexts) return;
-                    next = NewState(contextKey, world, null, null, false); Islands.Add(contextKey, next);
+                    next = NewState(contextKey, world, null, null, false, null, false);
+                    if (sourceProven) { next.SourceGlobal = srcGlobal; next.SourceOwner = srcOwner; next.SourceLand = srcLand; }
+                    InstallState(contextKey, next);
                 }
                 next.World = world; _current = next;
             }
@@ -342,12 +485,23 @@ internal static class HeroRecruitment
                 {
                     var seat = state.Seats[i];
                     if (seat.Owner == null) continue;
-                    if (!ValidOwner(seat.Owner)) Unbind(seat);
+                    if (!ValidOwner(seat.Owner)) { Unbind(seat); continue; }
+                    // A seat that lost its borrow (e.g. a native disembark disabled then re-enabled
+                    // the component) is re-borrowed on the current ready island only.
+                    if (seat.Owner.Embarkee == null && state.Ready && ReferenceEquals(state, _current))
+                        BorrowEmbarkee(seat.Owner);
                 }
             var remove = new List<IntPtr>();
             foreach (var pair in Candidates)
-                if (!ValidOwner(pair.Value) || (Time.time - pair.Value.Seen > 10f && !HasSeat(pair.Value))) remove.Add(pair.Key);
-            foreach (var key in remove) Candidates.Remove(key);
+            {
+                var candidate = pair.Value;
+                // A settled seat still needs its borrowed embarkee; an owner without a seat must
+                // hand it back before the record can be retired.
+                if (candidate.Embarkee != null && !HasSeat(candidate)) TryReturnEmbarkee(candidate);
+                if (!ValidOwner(candidate) || (Time.time - candidate.Seen > 10f && !HasSeat(candidate))) remove.Add(pair.Key);
+            }
+            foreach (var key in remove)
+                if (Candidates.TryGetValue(key, out var pending)) RetireCandidate(pending);
         }
         catch (Exception e) { Log("tick", e); }
     }
@@ -362,9 +516,14 @@ internal static class HeroRecruitment
     private static Candidate GetCandidate(Character character, bool seen)
     {
         if (character == null || character.gameObject == null || character.Pointer == IntPtr.Zero) return null;
-        if (Candidates.TryGetValue(character.Pointer, out var existing) && existing.Root == character.gameObject.Pointer
-            && existing.GoId == character.gameObject.GetInstanceID() && ValidOwner(existing))
-        { if (seen) existing.Seen = Time.time; return existing; }
+        if (Candidates.TryGetValue(character.Pointer, out var existing))
+        {
+            if (existing.Root == character.gameObject.Pointer && existing.GoId == character.gameObject.GetInstanceID()
+                && ValidOwner(existing))
+            { if (seen) existing.Seen = Time.time; return existing; }
+            UnbindSeatsFor(existing);
+            if (!RetireCandidate(existing)) return null;
+        }
         if (Candidates.Count >= MaxCandidates) return null;
         var candidate = new Candidate
         {
@@ -392,6 +551,8 @@ internal static class HeroRecruitment
         && owner.Root == actor.gameObject.Pointer && owner.GoId == actor.gameObject.GetInstanceID();
     private static bool Matches(Candidate owner, Character actor) => ValidOwner(owner) && actor != null && owner.Pointer == actor.Pointer
         && actor.gameObject != null && owner.Root == actor.gameObject.Pointer && owner.GoId == actor.gameObject.GetInstanceID();
+    private static bool MatchesRoot(Candidate owner, Persistent root) => ValidOwner(owner) && root != null && root.gameObject != null
+        && owner.Root == root.gameObject.Pointer && owner.GoId == root.gameObject.GetInstanceID();
     private static bool IsDead(Seat seat) { try { return seat.Damage == null || seat.Damage.isDead; } catch { return true; } }
 
     private static bool Bind(Seat seat, Candidate candidate, bool loading = false)
@@ -416,6 +577,7 @@ internal static class HeroRecruitment
                 if (island.Ready && _load == null && island.Seats.Remove(seat))
                 {
                     island.FallenSeatMask |= seat.Receipt.Side < 0 ? 1 : 2;
+                    HeroNativeRights.Abandon(seat.Receipt.Id);
                     Unbind(seat); Log("death:" + seat.Receipt.Id.ToString("N"), null); break;
                 }
         }
@@ -425,20 +587,203 @@ internal static class HeroRecruitment
     private static void Unbind(Seat seat)
     {
         IntPtr root = seat.Owner != null ? seat.Owner.Root : IntPtr.Zero;
+        Candidate owner = seat.Owner;
         try { if (seat.Damage != null && seat.Death != null) seat.Damage.OnDeath -= seat.Death; }
         catch (Exception e) { Log("unsubscribe", e); }
         seat.Owner = null; seat.Damage = null; seat.Death = null;
-        if (root != IntPtr.Zero && !Islands.Values.Any(x => x.Seats.Any(s => s.Owner != null && s.Owner.Root == root))) BoundRoots.Remove(root);
+        // Visibility is removed first; only then may the borrowed embarkee be handed back (CAS).
+        // The seat itself is excluded: its own owner reference must not keep the release pending.
+        if (owner != null && !Islands.Values.Any(x => x.Seats.Any(s => !ReferenceEquals(s, seat) && ReferenceEquals(s.Owner, owner))))
+            TryReturnEmbarkee(owner);
+        if (root != IntPtr.Zero && !Islands.Values.Any(x => x.Seats.Any(s => s.Owner != null && s.Owner.Root == root))
+            && !Candidates.Values.Any(x => x.Root == root && x.Embarkee != null && x.Embarkee.Owned)) BoundRoots.Remove(root);
+    }
+
+    // Read-only predicate for the boarding hooks (HeroBoardingPolicy): the embarkee belongs to a
+    // unit that is a confirmed live purchase of this island/world. Only the registered candidate
+    // identity can match, so a pooled or recycled wrapper never protects a bystander. This never
+    // writes a field, never Ticks and never touches the registrar.
+    internal static bool IsProtectedEmbarkeeCareer(Embarkee embarkee)
+    {
+        try
+        {
+            if (embarkee == null || embarkee.gameObject == null) return false;
+            return HasPurchasedCareer(embarkee.gameObject.GetComponent<Character>());
+        }
+        catch { return false; }
+    }
+
+    // Borrow: disable the owner's Embarkee so the native registrar unregisters the unit and clears
+    // any pending non-embarked target (actual 2.4: enabled=false runs OnDisable; the registrar's
+    // unregister path clears the target and redistributes). The exact identity and the original
+    // enabled value are recorded before the write. An already-embarked unit is never touched, a
+    // state that was already disabled is never claimed, and the write is read back; a target the
+    // native cleanup did not clear is reported instead of being silently assumed away.
+    private static bool BorrowEmbarkee(Candidate owner)
+    {
+        if (!ValidOwner(owner)) return false;
+        if (owner.Embarkee != null)
+        {
+            try
+            {
+                var held = owner.Embarkee;
+                var current = owner.Character.gameObject.GetComponent<Embarkee>();
+                var nativeOwner = current?._owner?.TryCast<UnityEngine.Component>();
+                return !held.Busy && !held.PendingReturn && held.Life == owner.Life
+                    && current != null && current.Pointer == held.Pointer && current.gameObject != null
+                    && current.gameObject.Pointer == held.Root && nativeOwner != null
+                    && nativeOwner.gameObject != null && nativeOwner.gameObject.Pointer == held.Root
+                    && !current.enabled && !current.IsEmbarked && !current.IsTargetingEmbarkable
+                    && current.EmbarkableTarget == null;
+            }
+            catch { return false; }
+        }
+        EmbarkeeClaim claim = null;
+        bool ok = false;
+        try
+        {
+            Character character = owner.Character;
+            Embarkee embarkee = character.gameObject.GetComponent<Embarkee>();
+            var nativeOwner = embarkee?._owner?.TryCast<UnityEngine.Component>();
+            if (embarkee == null || embarkee.gameObject == null || embarkee.gameObject.Pointer != owner.Root
+                || nativeOwner == null || nativeOwner.gameObject == null
+                || nativeOwner.gameObject.Pointer != owner.Root || embarkee.IsEmbarked)
+            { if (embarkee != null && embarkee.IsEmbarked) Log("borrow-skip-embarked:" + owner.Life, null); return false; }
+            claim = new EmbarkeeClaim
+            {
+                Pointer = embarkee.Pointer, Root = owner.Root, GoId = owner.GoId, Life = owner.Life,
+                OriginalEnabled = embarkee.enabled, Owned = false,
+            };
+            owner.Embarkee = claim;
+            if (!claim.OriginalEnabled) return embarkee.EmbarkableTarget == null;
+            claim.Owned = true;   // publish responsibility before the setter can invoke OnDisable
+            claim.Busy = true;
+            embarkee.enabled = false;
+            ok = ValidOwner(owner) && ReferenceEquals(owner.Embarkee, claim) && HasSeat(owner)
+                && !embarkee.enabled && !embarkee.IsEmbarked && !embarkee.IsTargetingEmbarkable
+                && embarkee.EmbarkableTarget == null;
+            if (!ok) claim.PendingReturn = true;
+            return ok;
+        }
+        catch (Exception e) { Log("borrow", e); if (claim != null) claim.PendingReturn = true; return false; }
+        finally
+        {
+            if (claim != null)
+            {
+                claim.Busy = false;
+                if (claim.PendingReturn) TryReturnEmbarkee(owner);
+            }
+        }
+    }
+
+    // CAS release: only when we still own the disabled write, the same component/root/goId/life is
+    // reachable and the current value is still ours, write the original value back. A destroyed
+    // object, a replaced life or a third-party value drops the claim without writing. An active
+    // object in a former/unknown world keeps the responsibility (its registrar is not touched from
+    // this session); an inactive object may be released without triggering a registration.
+    private static bool TryReturnEmbarkee(Candidate owner)
+    {
+        EmbarkeeClaim claim = owner?.Embarkee;
+        if (claim == null) return true;
+        if (claim.Busy) { claim.PendingReturn = true; return false; }
+        if (!claim.Owned) { if (ReferenceEquals(owner.Embarkee, claim)) owner.Embarkee = null; return true; }
+        try
+        {
+            Character character = owner.Character;
+            if (character == null || character.gameObject == null
+                || character.gameObject.Pointer != claim.Root || character.gameObject.GetInstanceID() != claim.GoId
+                || owner.Life != claim.Life)
+            { if (ReferenceEquals(owner.Embarkee, claim)) owner.Embarkee = null; return true; }
+            Embarkee embarkee = character.gameObject.GetComponent<Embarkee>();
+            if (embarkee == null || embarkee.gameObject == null || embarkee.Pointer != claim.Pointer)
+                return false;   // a replaced live component is not proof the old write was restored
+            bool inactive = !character.gameObject.activeInHierarchy;
+            long world = WorldKey();
+            if (!inactive && (world == 0 || world != owner.World)) return false;
+            if (!embarkee.enabled)
+            {
+                claim.Busy = true;
+                try { embarkee.enabled = claim.OriginalEnabled; }
+                finally { claim.Busy = false; }
+            }
+            if (embarkee.enabled != claim.OriginalEnabled) return false;
+            if (ReferenceEquals(owner.Embarkee, claim)) owner.Embarkee = null;
+            return true;
+        }
+        catch { return false; }
+    }
+
+    // A candidate record is retired only after its claim is settled. Returns false while the
+    // release is pending: the record stays so maintenance retries, which is what keeps a pooled
+    // wrapper from inheriting a stale disabled write.
+    private static bool RetireCandidate(Candidate owner)
+    {
+        if (owner == null) return true;
+        if (!Candidates.TryGetValue(owner.Pointer, out var live) || !ReferenceEquals(live, owner)) return true;
+        if (!TryReturnEmbarkee(owner) || owner.Embarkee != null) return false;
+        if (!Candidates.TryGetValue(owner.Pointer, out live) || !ReferenceEquals(live, owner)) return true;
+        Candidates.Remove(owner.Pointer);
+        if (!Candidates.Values.Any(x => x.Root == owner.Root && x.Embarkee != null && x.Embarkee.Owned)
+            && !Islands.Values.Any(x => x.Seats.Any(y => y.Owner != null && y.Owner.Root == owner.Root)))
+            BoundRoots.Remove(owner.Root);
+        return true;
+    }
+
+    private static void UnbindSeatsFor(Candidate owner)
+    {
+        foreach (var island in Islands.Values)
+            for (int i = island.Seats.Count - 1; i >= 0; i--)
+            {
+                var seat = island.Seats[i];
+                if (ReferenceEquals(seat.Owner, owner)) Unbind(seat);
+            }
+    }
+
+    private static Candidate FindOwnerByRoot(IntPtr root)
+    {
+        foreach (var candidate in Candidates.Values)
+            if (candidate.Root == root && (HasSeat(candidate) || candidate.Embarkee?.Owned == true)) return candidate;
+        return null;
     }
 
     // Resolves the persistent context/epoch of one native island snapshot. Read-only here:
     // context registration and baselines are committed only by the load/virgin/generation writers.
-    private static IslandState NewState(string contextKey, long world, IslandSaveData island, string rawJson, bool generationPending)
+    private static IslandState NewState(string contextKey, long world, IslandSaveData island, string rawJson,
+        bool generationPending, IslandState previous, bool sessionQualified)
     {
         var disk = HeroRecruitmentArchiveStore.Load(ArchivePath);
         var state = new IslandState { ContextKey = contextKey, World = world, Ready = true, ReadOnly = !disk.Writable };
-        if (disk.Archive == null) return state;
-        var resolution = HeroRecruitmentContexts.Resolve(disk.Archive, contextKey, island, rawJson, generationPending);
+        // The source's own session seats (its current paid receipts, including ones this session
+        // has not checkpointed yet) are the re-entry authority when the session was qualified;
+        // otherwise the resolver's checkpoint safe path applies. Never a historical union.
+        List<HeroPurchaseReceipt> session = null;
+        if (sessionQualified && previous != null)
+        {
+            session = new List<HeroPurchaseReceipt>(previous.Seats.Count);
+            foreach (var seat in previous.Seats) session.Add(seat.Receipt);
+        }
+        HeroRecruitmentContexts.Resolution resolution;
+        if (!HeroNativeRights.Resolve(contextKey, GlobalSaveData._loaded.currentCampaign,
+            GlobalSaveData._loaded.currentChallenge, island, rawJson, generationPending,
+            out var native, out bool nativeKnown, out bool nativeBaseline))
+        {
+            state.ReadOnly = true; state.Unresolved = true; state.MatchKind = "native-unavailable";
+            return state;
+        }
+        if (nativeKnown)
+        {
+            state.NativeAuthority = true;
+            state.ReadOnly = false;
+            resolution = native;
+            if (island != null)
+                state.SessionRebind = HeroNativeRights.MergeSessionRebind(GlobalSaveData._loaded.currentCampaign,
+                    GlobalSaveData._loaded.currentChallenge, island.land, session, native);
+        }
+        else
+        {
+            if (disk.Archive == null) return state;
+            resolution = HeroRecruitmentContexts.Resolve(disk.Archive, contextKey, island, rawJson, generationPending);
+        }
         state.Epoch = resolution.Epoch;
         state.MatchKind = resolution.Kind;
         state.MatchHash = resolution.MatchHash;
@@ -446,8 +791,12 @@ internal static class HeroRecruitment
         state.MatchLegacy = resolution.MatchLegacy;
         state.NewEpoch = resolution.NewEpoch;
         state.Unresolved = resolution.Unresolved;
-        state.HasBaseline = resolution.Epoch != null && disk.Archive.Baselines.ContainsKey(resolution.Epoch);
+        state.HasBaseline = state.NativeAuthority ? nativeBaseline : resolution.Epoch != null && disk.Archive.Baselines.ContainsKey(resolution.Epoch);
         foreach (var receipt in resolution.Seats) state.Seats.Add(new() { Receipt = receipt });
+        // Only a snapshot whose seat set is actually known speaks as the session authority: an
+        // unresolved or read-only resolution knows nothing, so its empty set is not evidence (and
+        // must never be used to end an open capture responsibility).
+        state.HasSession = island != null && !state.Unresolved && !state.ReadOnly;
         return state;
     }
 
@@ -503,18 +852,69 @@ internal static class HeroRecruitment
         internal int Campaign, Land, Challenge;
         internal IslandSaveData Island;
         internal string ContextKey;
+        internal IntPtr GlobalPointer, CampaignPointer;
+        internal IntPtr SourcePointer;   // source identity frozen at Save entry, before any GetID
+        internal long World;
+
         private readonly Dictionary<string, Seat> Owners = new(StringComparer.Ordinal);
         private readonly Dictionary<Guid, Candidate> Lives = new();
         internal bool Conflict;
+        internal bool MarkerSeen;
+
+        // Freezes the source identity at Save entry from the live Global and the save arguments,
+        // before the native method can clear or rebuild the target island table: a failure before
+        // the first successful GetID must still leave a responsibility for this exact source.
+        // This freezes source ownership only; character rows are still proven by a full capture.
+        internal void FreezeSource()
+        {
+            try
+            {
+                if (!HeroArcherNetwork.AllowsLocalHero || SourcePointer != IntPtr.Zero) return;
+                var global = GlobalSaveData._loaded;
+                if (global == null || global.Pointer == IntPtr.Zero) return;
+                var owner = ResolveSaveOwner(global, Campaign, Challenge);
+                if (owner == IntPtr.Zero) return;
+                GlobalPointer = global.Pointer;
+                SourcePointer = owner;
+                CampaignPointer = owner;
+            }
+            catch (Exception e) { Log("save-freeze", e); }
+        }
+
+        // The save arguments identify the source object. The live current campaign/challenge is
+        // taken only when the arguments match its indices; for non-current saves only the
+        // campaign catalog index has verified indexing evidence here, so a save whose owner
+        // cannot be identified freezes nothing rather than attaching itself to another owner.
+        private static IntPtr ResolveSaveOwner(GlobalSaveData global, int campaign, int challenge)
+        {
+            var current = global.GetCurrentCampaign();
+            if (current != null && current.Pointer != IntPtr.Zero
+                && global.currentCampaign == campaign && global.currentChallenge == challenge)
+                return current.Pointer;
+            if (challenge == 0 && campaign >= 0 && global.campaigns != null && campaign < global.campaigns.Count)
+            {
+                var item = global.campaigns[campaign];
+                if (item != null && item.Pointer != IntPtr.Zero) return item.Pointer;
+            }
+            return IntPtr.Zero;
+        }
+
         internal void Capture(Persistent persistent, string id)
         {
             if (persistent == null || string.IsNullOrEmpty(id) || id.Length > 256) return;
             if (Island == null)
             {
                 var island = IslandSaveData.CurrentlySavingIsland;
-                if (island == null || !IslandSaveData.isSavingGame || (Land != -1 && island.land != Land)) return;
+                var global = GlobalSaveData._loaded;
+                var current = CampaignSaveData.current;
+                if (island == null || !IslandSaveData.isSavingGame || (Land != -1 && island.land != Land)
+                    || global == null || current == null || global.currentCampaign != Campaign
+                    || global.currentChallenge != Challenge) return;
                 if (!HeroRecruitment.TryContextKey(Campaign, Challenge, island.land, out string contextKey)) return;
                 Island = island; ContextKey = contextKey;
+                GlobalPointer = global.Pointer; CampaignPointer = current.Pointer;
+                if (SourcePointer == IntPtr.Zero) SourcePointer = current.Pointer;
+                World = WorldKey();
             }
             if (!Islands.TryGetValue(ContextKey, out var state)) return;
             var actor = persistent.GetComponent<Character>();
@@ -526,12 +926,30 @@ internal static class HeroRecruitment
             Owners[id] = seat; Lives[seat.Receipt.Id] = seat.Owner;
         }
 
+        // A capture that would pair this island state with the context's owned rights takes a
+        // validity responsibility: a failed attempt keeps the global save refused until the same
+        // source completes a capture again. Nothing is reverted, no seat is guessed and no right
+        // is deleted; the reserved placeholder keeps the quota for the unverified state.
         internal void Apply()
         {
-            if (Conflict || Island == null || !HeroArcherNetwork.AllowsLocalHero || !Islands.TryGetValue(ContextKey, out var state) || !state.Ready) return;
+            bool staged = false;
+            try { staged = ApplyCore(); }
+            catch (Exception e) { if (_current != null) _current.ReadOnly = true; Log("save", e); }
+            if (!staged) NoteCaptureInvalid();
+        }
+
+        private bool ApplyCore()
+        {
+            if (Conflict || !MarkerSeen || Island == null || !HeroArcherNetwork.AllowsLocalHero
+                || GlobalSaveData._loaded == null || GlobalSaveData._loaded.Pointer != GlobalPointer
+                || GlobalSaveData._loaded.currentCampaign != Campaign || GlobalSaveData._loaded.currentChallenge != Challenge
+                || CampaignSaveData.current == null || CampaignSaveData.current.Pointer != CampaignPointer
+                || World == 0 || WorldKey() != World
+                || !Islands.TryGetValue(ContextKey, out var state) || !ReferenceEquals(state, _current)
+                || state.World != World || !state.Ready) return false;
             // An unresolved origin must not generate fresh anonymous snapshots that could evict
             // its last provable source, and a context without a proven epoch must not be written at all.
-            if (state.Unresolved || state.Epoch == null || state.Seats.Any(x => x.Owner == null)) { Log("save-preserve-unresolved", null); return; }
+            if (state.Unresolved || state.Epoch == null || state.Seats.Any(x => x.Owner == null)) { Log("save-preserve-unresolved", null); return false; }
             var rows = new List<HeroPurchaseReceipt>();
             foreach (var seat in state.Seats)
             {
@@ -539,24 +957,54 @@ internal static class HeroRecruitment
                 foreach (var pair in Owners)
                 {
                     if (!ReferenceEquals(pair.Value, seat)) continue;
-                    if (!Lives.TryGetValue(seat.Receipt.Id, out var life) || !ReferenceEquals(life, seat.Owner) || !ValidOwner(life)) return;
+                    if (!Lives.TryGetValue(seat.Receipt.Id, out var life) || !ReferenceEquals(life, seat.Owner) || !ValidOwner(life)) return false;
                     int count = 0;
                     foreach (var record in Island.objects)
                         if (record != null && record.uniqueID == pair.Key && IsCharacterRecord(record)) count++;
-                    if (count != 1) return;
+                    if (count != 1) return false;
                     copy.NativeId = pair.Key;
                 }
+                // An active, confirmed paid life must be present as one unique native Character
+                // row in this same normal capture. Old reserved seats with no owner remain valid.
+                if (seat.Owner != null && copy.NativeId.Length == 0)
+                { Log("save-paid-owner-missing-id", null); return false; }
                 rows.Add(copy);
             }
             string json = JsonUtility.ToJson(Island, false);
-            if (string.IsNullOrEmpty(json)) return;
+            if (string.IsNullOrEmpty(json)) return false;
             string hash;
             try { hash = HeroRecruitmentFingerprint.Hash(json, state.Epoch); }
-            catch (Exception e) { state.ReadOnly = true; Log("save-json", e); return; }
-            if (!Commit(state, disk => disk.Archive.Record(state.Epoch, hash, rows, HeroRecruitmentFingerprint.Kind, false)))
-            { state.ReadOnly = true; Log("save-readonly", null); return; }
+            catch (Exception e) { state.ReadOnly = true; Log("save-json", e); return false; }
+            if (!HeroNativeRights.Stage(state.ContextKey, Campaign, Challenge, Island, hash, state.Epoch, rows, state.NewEpoch))
+            { state.ReadOnly = true; Log("save-native-stage-failed", null); return false; }
+            state.NativeAuthority = true;
+            state.HasBaseline = true;
             state.ReadOnly = false;
+            // The sidecar remains a historical mirror. Its failure cannot discard rights now
+            // staged beside the wallet in the native Global save.
+            if (!Commit(state, disk => disk.Archive.Record(state.Epoch, hash, rows, HeroRecruitmentFingerprint.Kind, false)))
+                Log("save-sidecar-mirror-failed", null);
             Log("saved:" + state.Epoch.Substring(0, 8) + ":" + hash.Substring(0, 8), null);
+            return true;
+        }
+
+        // Called when this capture did not complete. The responsibility is taken from the frozen
+        // source identity this capture already verified (loaded Global object + campaign object +
+        // land): it must be recorded even when the prefs cannot be read at this moment, and a
+        // later healthy read only resolves its exact identity, never clears it.
+        internal void NoteCaptureInvalid()
+        {
+            try
+            {
+                if (!HeroArcherNetwork.AllowsLocalHero) return;
+                var owner = SourcePointer != IntPtr.Zero ? SourcePointer : CampaignPointer;
+                if (GlobalPointer == IntPtr.Zero || owner == IntPtr.Zero) return;
+                if (GlobalSaveData._loaded == null || GlobalSaveData._loaded.Pointer != GlobalPointer) return;
+                int land = Land >= 0 ? Land : (Island != null ? Island.land : -1);
+                if (land < 0) return;
+                HeroNativeRights.NoteCaptureInvalid(owner, land);
+            }
+            catch (Exception e) { Log("save-capture-invalid", e); }
         }
     }
 
@@ -777,7 +1225,18 @@ internal static class HeroRecruitment
             // A virgin island is recorded by the generation bridge after ApplyToScene succeeds;
             // this load must not pre-create its epoch or baseline.
             GenerationPending = IsVirgin(island);
-            State = NewState(contextKey, WorldKey(), island, json, GenerationPending);
+            // The previous runtime state of this exact source is the session's own evidence (its
+            // paid receipts and observed bindings): it is found by frozen Global/owner/land, not by
+            // the numeric alias (which a catalog slot move reuses for another live source).
+            bool sourceProven = TrySourceIdentity(out IntPtr srcGlobal, out IntPtr srcOwner, out int srcLand)
+                && srcLand == island.land;
+            Islands.TryGetValue(contextKey, out Old); OldCurrent = _current;
+            if (sourceProven && !SameSource(Old, srcGlobal, srcOwner, island.land))
+                Old = FindSourceState(srcGlobal, srcOwner, island.land);
+            bool sessionQualified = sourceProven && Old != null && Old.HasSession
+                && SameSource(Old, srcGlobal, srcOwner, island.land);
+            State = NewState(contextKey, WorldKey(), island, json, GenerationPending, Old, sessionQualified);
+            if (sourceProven) { State.SourceGlobal = srcGlobal; State.SourceOwner = srcOwner; State.SourceLand = island.land; }
             // Keep the exact matched snapshot's stored hash/kind/provenance instead of recomputing;
             // a state without an exact match writes its own kind-2 baseline.
             Hash = State.MatchHash; BaselineKind = State.MatchHashKind; BaselineLegacy = State.MatchLegacy;
@@ -791,10 +1250,13 @@ internal static class HeroRecruitment
             Confirmable = Hash != null && State.Epoch != null && !State.Unresolved && !GenerationPending
                 && (State.Seats.Count == 0 || State.Seats.All(x => x.Receipt.NativeId.Length > 0));
             State.Ready = false;
-            Islands.TryGetValue(contextKey, out Old); OldCurrent = _current;
             if (Old == null && Islands.Count >= HeroRecruitmentArchive.MaxContexts) { State = null; return; }
             // Never assign purchases from an earlier unsaved session to this newly loaded snapshot.
-            Islands[contextKey] = State; _current = State;
+            // The replaced state of this exact source is dropped wherever a slot move left it; any
+            // other live source sitting on this alias is preserved under its own private key.
+            RemoveState(Old);
+            InstallState(contextKey, State); _current = State;
+            if (State.SessionRebind) CarrySessionBindings(State, Old);
             foreach (var record in island.objects)
             {
                 if (record == null || !IsCharacterRecord(record)) continue;
@@ -808,16 +1270,43 @@ internal static class HeroRecruitment
                 Source = CaptureSource(island, json, contextKey, State.World, CampaignSaveData.current);
         }
 
+        // A source re-entered under an open capture-failure responsibility keeps the bindings the
+        // session had already observed: the carried seat reuses that exact candidate identity, so
+        // the loaded island's own Character row can re-bind it. Seats without observed evidence
+        // stay reserved (receipts preserved, no owner, no charge).
+        private static void CarrySessionBindings(IslandState state, IslandState previous)
+        {
+            if (state == null || previous == null || ReferenceEquals(state, previous)) return;
+            foreach (var oldSeat in previous.Seats)
+            {
+                if (!ValidOwner(oldSeat.Owner)) continue;
+                var seat = state.Seats.Find(x => x.Receipt.Id == oldSeat.Receipt.Id && x.Receipt.Side == oldSeat.Receipt.Side);
+                if (seat == null || seat.Owner != null) continue;
+                if (state.Seats.Any(x => !ReferenceEquals(x, seat) && ReferenceEquals(x.Owner, oldSeat.Owner))) continue;
+                Bind(seat, oldSeat.Owner, true);
+            }
+        }
+
         internal void Capture(IslandSaveData.ObjectData data, Persistent root)
         {
             if (State == null || data == null || root == null || Conflict) return;
             var seat = State.Seats.Find(x => x.Receipt.NativeId.Length > 0 && x.Receipt.NativeId == data.uniqueID);
+            bool adopted = false;
+            if (seat == null && State.SessionRebind)
+            {
+                // The session reliably observed this row's live object as the seat's owner. The id
+                // only becomes this seat's native record after the same frozen unique-Character
+                // check below, so no row is guessed.
+                seat = State.Seats.Find(x => MatchesRoot(x.Owner, root));
+                adopted = seat != null;
+            }
             if (seat == null) return;
             if (!Frozen.TryGetValue(data.uniqueID, out IntPtr pointer) || pointer != data.Pointer) { Conflict = true; return; }
             var actor = root.GetComponent<Character>();
             if (actor == null) return; // Native decay/role differences reserve the seat.
             var candidate = GetCandidate(actor, false);
             if (candidate == null) return;
+            if (adopted && !ReferenceEquals(seat.Owner, candidate)) { Conflict = true; return; }
             if (Seen.Contains(data.uniqueID))
             {
                 if (!ReferenceEquals(seat.Owner, candidate)) Conflict = true;
@@ -825,6 +1314,7 @@ internal static class HeroRecruitment
             }
             if (State.Seats.Any(x => !ReferenceEquals(x, seat) && ReferenceEquals(x.Owner, candidate))) { Conflict = true; return; }
             Seen.Add(data.uniqueID);
+            if (adopted) seat.Receipt.NativeId = data.uniqueID;
             Bind(seat, candidate, true);
         }
 
@@ -836,8 +1326,13 @@ internal static class HeroRecruitment
                 if (State == null) return;
                 if (!success)
                 {
+                    // The restored previous state is the owner of any carried bindings: restore it
+                    // first so releasing this failed attempt's seats cannot hand back an embarkee
+                    // that the previous state still owns. Seats this load bound on its own are
+                    // still released below.
+                    if (Old != null) Islands[State.ContextKey] = Old;
                     foreach (var seat in State.Seats) Unbind(seat);
-                    if (Old != null) Islands[State.ContextKey] = Old; else Islands.Remove(State.ContextKey);
+                    if (Old == null) Islands.Remove(State.ContextKey);
                     _current = OldCurrent;
                     return;
                 }
@@ -846,13 +1341,18 @@ internal static class HeroRecruitment
                 State.Ready = true;
                 State.World = WorldKey();
                 foreach (var seat in State.Seats) if (seat.Owner != null) seat.Owner.World = State.World;
-                if (!Conflict && Confirmable)
+                if (!Conflict && Confirmable && !State.NativeAuthority)
                 {
                     var receipts = State.Seats.Select(x => x.Receipt.Copy()).ToArray();
                     if (Commit(State, disk => disk.Archive.ConfirmBaseline(State.Epoch, Hash, receipts, BaselineKind, BaselineLegacy))) State.HasBaseline = true;
                     else { State.ReadOnly = true; State.HasBaseline = false; Log("baseline-unconfirmed", null); }
                 }
                 if (!Conflict) TryAdoptDisjointHistory();
+                // Only after the state is Ready and its world binding is confirmed may a loaded
+                // seat borrow its embarkee; a failed load never reaches this block.
+                if (!Conflict)
+                    foreach (var seat in State.Seats)
+                        if (seat.Owner != null) BorrowEmbarkee(seat.Owner);
                 Log("loaded:" + State.MatchKind + ":ctx=" + State.ContextKey.Substring(0, 8) + ":epoch=" + Short(State.Epoch)
                     + ":hk=" + BaselineKind + ":v1=" + BaselineLegacy
                     + ":seats=" + State.Seats.Count + ":bound=" + State.Seats.Count(x => x.Owner != null), null);
@@ -947,9 +1447,11 @@ internal static class HeroRecruitment
             if (!Commit(pending, disk => disk.Archive.ConfirmBaseline(scope, hash, Array.Empty<HeroPurchaseReceipt>(), HeroRecruitmentFingerprint.Kind, false)))
             { Log("virgin-baseline-unconfirmed", null); return; }
             Done = true;
-            var state = NewState(contextKey, world, island, json, false);
+            var state = NewState(contextKey, world, island, json, false, null, false);
             state.VirginIsland = island.Pointer; state.VirginWorld = world;
-            Islands[contextKey] = state; _current = state;
+            if (HeroNativeRights.TrySourceIdentity(island.land, out var srcGlobal, out var srcOwner))
+            { state.SourceGlobal = srcGlobal; state.SourceOwner = srcOwner; state.SourceLand = island.land; }
+            InstallState(contextKey, state); _current = state;
             _contextFrame = -1; _lastTickFrame = -1; _candidateCacheUntil = 0;
             Log("virgin-epoch:" + contextKey.Substring(0, 8) + ":" + scope.Substring(0, 8), null);
         }
@@ -987,7 +1489,11 @@ internal static class HeroRecruitment
                 || !OptionalQoLScope.IsCurrent(successor)) return;
             var next = GetCandidate(successor, false);
             if (next == null || Islands.Values.Any(x => x.Seats.Any(s => !ReferenceEquals(s, Seat) && ReferenceEquals(s.Owner, next)))) return;
-            if (Bind(Seat, next)) Log("role-transfer:" + Seat.Receipt.Id.ToString("N"), null);
+            if (Bind(Seat, next))
+            {
+                BorrowEmbarkee(next);   // the successor is public (bound) before it is borrowed
+                Log("role-transfer:" + Seat.Receipt.Id.ToString("N"), null);
+            }
         }
     }
 
@@ -1006,12 +1512,32 @@ internal static class HeroRecruitment
         [HarmonyPrefix] private static void Before(int __0, int __1, int __2, out SaveCapture __state)
         {
             try { HeroShop.CancelPendingTransactions(); } catch (Exception e) { Log("save-cancel-payment", e); }
-            __state = new() { Previous = _save, Campaign = __0, Land = __1, Challenge = __2 }; _save = __state;
+            __state = new() { Previous = _save, Campaign = __0, Land = __1, Challenge = __2 };
+            __state.FreezeSource();
+            _save = __state;
         }
         [HarmonyPostfix, HarmonyPriority(Priority.Last)] private static void After(SaveCapture __state)
         { try { __state?.Apply(); } catch (Exception e) { if (_current != null) _current.ReadOnly = true; Log("save", e); } }
         [HarmonyFinalizer] private static Exception Finally(Exception __exception, SaveCapture __state)
-        { if (ReferenceEquals(_save, __state)) _save = __state?.Previous; return __exception; }
+        {
+            // A throwing island save never reached the normal tail: the same capture invalidity
+            // responsibility applies as for an internally caught failure without a marker.
+            if (__exception != null)
+            {
+                try { __state?.NoteCaptureInvalid(); } catch { }
+            }
+            if (ReferenceEquals(_save, __state)) _save = __state?.Previous;
+            return __exception;
+        }
+    }
+    [HarmonyPatch(typeof(IslandSaveData), nameof(IslandSaveData.UpdateSavedWithRevisions))]
+    internal static class SaveMarkerPatch
+    {
+        [HarmonyPostfix] private static void After(IslandSaveData __instance)
+        {
+            if (_save?.Island != null && __instance != null && _save.Island.Pointer == __instance.Pointer)
+                _save.MarkerSeen = true;
+        }
     }
     [HarmonyPatch(typeof(IslandSaveData), nameof(IslandSaveData.GetID), new[] { typeof(Persistent) })]
     internal static class GetIdPatch
@@ -1042,18 +1568,24 @@ internal static class HeroRecruitment
     }
 
     // Actual recycling entry, also reached by TryDespawn. Delayed requests merely schedule a
-    // future operation and must keep ownership until the immediate execution call.
+    // future operation and must keep ownership until the immediate execution call. The prefix
+    // freezes the exact candidate record (identity + life + claim), not just the root pointer:
+    // the postfix may then only clear that frozen life, and repeated/nested calls can never
+    // reach a wrapper that was reused after this recycle.
     [HarmonyPatch(typeof(Pool), nameof(Pool.FastDespawn), new[] { typeof(GameObject), typeof(float), typeof(bool) })]
     internal static class DespawnPatch
     {
-        internal struct Capture { internal GameObject Root; internal IntPtr Pointer; }
+        internal struct Capture { internal GameObject Root; internal object Owner; internal long Life; internal object Claim; }
         [HarmonyPrefix] private static void Before(GameObject __0, float __1, out Capture __state)
         {
             __state = default;
             try
             {
-                if (__1 <= 0f && __0 != null && BoundRoots.Contains(__0.Pointer))
-                    __state = new() { Root = __0, Pointer = __0.Pointer };
+                if (__1 > 0f || __0 == null || !BoundRoots.Contains(__0.Pointer)) return;
+                var character = __0.GetComponent<Character>();
+                if (character == null || !Candidates.TryGetValue(character.Pointer, out var owner)
+                    || owner.Root != __0.Pointer || owner.GoId != __0.GetInstanceID()) return;
+                __state = new() { Root = __0, Owner = owner, Life = owner.Life, Claim = owner.Embarkee };
             }
             catch (Exception e) { Log("pool-before", e); }
         }
@@ -1061,7 +1593,13 @@ internal static class HeroRecruitment
         {
             try
             {
-                if (__state.Pointer != IntPtr.Zero && (__state.Root == null || !__state.Root.activeInHierarchy)) UnbindRoot(__state.Pointer);
+                Candidate owner = __state.Owner as Candidate;
+                if (owner == null) return;
+                if (__state.Root != null && __state.Root.activeInHierarchy) return;   // not provably despawned yet
+                if (!Candidates.TryGetValue(owner.Pointer, out var live) || !ReferenceEquals(live, owner)
+                    || owner.Life != __state.Life || !ReferenceEquals(owner.Embarkee, __state.Claim)) return;
+                UnbindSeatsFor(owner);
+                RetireCandidate(owner);
             }
             catch (Exception e) { Log("pool-after", e); }
         }

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>RuntimeProbe</AssemblyName>
+    <RootNamespace>RuntimeProbe</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <Deterministic>true</Deterministic>
+    <Nullable>disable</Nullable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>CS0169;CS0649;CS0067;CS0414</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Stubs.cs" />
+    <Compile Include="GameStubs.cs" />
+    <Compile Include="Png.cs" />
+    <!-- 直链被测真实源码（不修改、不复制方法体） -->
+    <Compile Include="../../il2cpp/MapMountIcons.cs" />
+    <Compile Include="../../il2cpp/MapExtensionIslandArt.cs" />
+    <Compile Include="../../il2cpp/MapResourceIconPlan.cs" />
+    <Compile Include="../../il2cpp/PatchExtensionIsland_Map.cs" />
+    <EmbeddedResource Include="../../il2cpp/Assets/KEM_MapExtensionIsland.png" LogicalName="KingdomEnhancedMod.KEM_MapExtensionIsland.png" />
+  </ItemGroup>
+</Project>

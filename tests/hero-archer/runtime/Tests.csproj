@@ -19,4 +19,5 @@
     <Compile Include="Program.cs" />
     <Compile Include="RecruitmentBoundary.cs" />
   </ItemGroup>
-<ItemGroup><Compile Include="RangeBoundary.cs" /></ItemGroup><ItemGroup><Compile Include="../../musketeer-boundary/MusketeerIdentityStub.cs" /></ItemGroup></Project>
+<ItemGroup><Compile Include="RangeBoundary.cs" /></ItemGroup><ItemGroup><Compile Include="../../musketeer-boundary/MusketeerIdentityStub.cs" /></ItemGroup>  <ItemGroup><Compile Include="../../heavy-shield-boundary/DisabledHeavyShieldApis.cs" Link="Boundary/DisabledHeavyShieldApis.cs" /></ItemGroup>
+</Project>

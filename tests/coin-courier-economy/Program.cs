@@ -218,7 +218,7 @@ Harness.Test("bagging Greek debits the treasury, credits the purse and syncs the
     Harness.Reason(CoinCourierReason.None, first, "no post-commit fault");
     Harness.Eq(1, purse.Coins, "purse holds one coin");
     Harness.Eq(4, banker._stashedCoins, "treasury debited once");
-    Harness.Eq(4, PlayerPrefs.Ints[Harness.SharedKey], "shared ledger in sync");
+    Harness.Eq(4, Harness.BankLive(), "shared ledger in sync");
     Castle castle = Managers.Inst.kingdom.castle;
     Harness.Eq(4, castle.StashCalls[castle.StashCalls.Count - 1], "castle stash refreshed");
     Harness.Eq(4, Managers.Inst.stats.StatCalls[Stat.CoinsInBank], "CoinsInBank refreshed");
@@ -227,15 +227,15 @@ Harness.Test("bagging Greek debits the treasury, credits the purse and syncs the
     Harness.Status(CoinCourierStatus.Applied, second, "repeat bag applied");
     Harness.Eq(2, purse.Coins, "two coins in the purse");
     Harness.Eq(3, banker._stashedCoins, "treasury debited exactly once per call");
-    Harness.Eq(3, PlayerPrefs.Ints[Harness.SharedKey], "shared ledger tracks each debit");
+    Harness.Eq(3, Harness.BankLive(), "shared ledger tracks each debit");
     Harness.False(CoinCourierEconomy.InCall, "economy guard released");
 });
 
 Harness.Test("bagging Greek primes from the shared ledger before debiting", () =>
 {
     Fixture.NewWorld(BiomeHolder.GreeceBiomeIndex);
+    Fixture.PublicDocument(7);
     Banker banker = Fixture.NewBanker(5);
-    PlayerPrefs.Ints[Harness.SharedKey] = 7; // the session's tracked shared balance
 
     var purse = new CoinCourierPurse();
     CoinCourierResult result = CoinCourierEconomy.TryBagOneCoin(purse, banker, 4);
@@ -243,19 +243,19 @@ Harness.Test("bagging Greek primes from the shared ledger before debiting", () =
     Harness.Status(CoinCourierStatus.Applied, result, "bag applied");
     Harness.Eq(1, purse.Coins, "purse credited");
     Harness.Eq(6, banker._stashedCoins, "prime adopted 7, then one coin was debited");
-    Harness.Eq(6, PlayerPrefs.Ints[Harness.SharedKey], "shared ledger follows the debit");
+    Harness.Eq(6, Harness.BankLive(), "shared ledger follows the debit");
 });
 
 Harness.Test("courier stash hint leaves an unprimed Greek ledger untouched", () =>
 {
     Fixture.NewWorld(BiomeHolder.GreeceBiomeIndex);
-    Banker banker = Fixture.NewBanker(0);
-    PlayerPrefs.Ints[Harness.SharedKey] = 7;
+    Fixture.PublicDocument(7);
+    Banker banker = Fixture.NewBanker(0, apply: false);
     int staged = PlayerPrefs.SetKeys.Count;
     Harness.False(PatchEconomy_Banker.TryReadCourierStash(banker, out _),
         "native zero is unknown before Greek shared-ledger priming");
     Harness.Eq(0, banker._stashedCoins, "the hint did not write the native bank");
-    Harness.Eq(7, PlayerPrefs.Ints[Harness.SharedKey], "the hint did not alter shared funds");
+    Harness.Eq(7, Harness.BankLive(), "the hint did not alter shared funds");
     Harness.Eq(staged, PlayerPrefs.SetKeys.Count, "the hint staged no ledger write");
 
     var purse = new CoinCourierPurse();
@@ -270,13 +270,13 @@ Harness.Test("courier known-empty hint reads native and primed Greek banks witho
 {
     Fixture.NewWorld(1);
     Banker native = Fixture.NewBanker(0);
-    PlayerPrefs.Ints[Harness.SharedKey] = 91;
+    UnityEngine.PlayerPrefs.Ints["MyMod_SharedBankStash"] = 91;
     int staged = PlayerPrefs.SetKeys.Count;
     Harness.True(PatchEconomy_Banker.TryReadCourierStash(native, out int nativeCoins),
         "an identified non-Greek banker has a readable native balance");
     Harness.Eq(0, nativeCoins, "empty native bank is known empty");
     Harness.Eq(staged, PlayerPrefs.SetKeys.Count, "native hint staged no shared write");
-    Harness.Eq(91, PlayerPrefs.Ints[Harness.SharedKey], "native hint ignored the Greek shared key");
+    Harness.Eq(91, PlayerPrefs.Ints["MyMod_SharedBankStash"], "native hint ignored the legacy key");
 
     Harness.ResetStatics();
     Fixture.NewWorld(BiomeHolder.GreeceBiomeIndex);
@@ -295,7 +295,7 @@ Harness.Test("bagging a non-Greek world never touches the shared ledger", () =>
 {
     Fixture.NewWorld(1); // explicitly not Greece
     Banker banker = Fixture.NewBanker(5);
-    PlayerPrefs.Ints[Harness.SharedKey] = 99;
+    UnityEngine.PlayerPrefs.Ints["MyMod_SharedBankStash"] = 99;
 
     var purse = new CoinCourierPurse();
     CoinCourierResult result = CoinCourierEconomy.TryBagOneCoin(purse, banker, 4);
@@ -303,8 +303,8 @@ Harness.Test("bagging a non-Greek world never touches the shared ledger", () =>
     Harness.Status(CoinCourierStatus.Applied, result, "bag applied");
     Harness.Eq(1, purse.Coins, "purse credited");
     Harness.Eq(4, banker._stashedCoins, "native treasury debited");
-    Harness.Eq(99, PlayerPrefs.Ints[Harness.SharedKey], "shared balance untouched");
-    Harness.False(PlayerPrefs.SetKeys.Contains(Harness.SharedKey), "shared key never staged");
+    Harness.False(SharedBankNative.TryLive(out _, out _, out _), "foreign unowned bank does not seed public Live");
+    Harness.NoLegacyBankWrite("foreign no legacy write");
     Harness.Eq(4, Managers.Inst.stats.StatCalls[Stat.CoinsInBank], "display refreshed with the native value");
 });
 
@@ -512,13 +512,16 @@ Harness.Test("bank entry reasons are exact when called directly", () =>
     Harness.Eq(-1, notPlaying.Before, "unreadable before is unknown");
     Managers.Inst.game.state = Game.State.Playing;
 
+    Harness.ResetStatics();
+    Fixture.NewWorld(BiomeHolder.GreeceBiomeIndex);
     Banker empty = Fixture.NewBanker(0);
     CourierBankDebit emptyResult = PatchEconomy_Banker.TryWithdrawOneCoinForCourier(empty);
     Harness.Eq((int)CourierBankOutcome.NotApplied, (int)emptyResult.Outcome, "direct empty outcome");
     Harness.Eq((int)CourierBankReason.Empty, (int)emptyResult.Reason, "direct empty reason");
     Harness.Eq(0, emptyResult.Before, "empty before is zero");
 
-    PlayerPrefs.Ints[Harness.SharedKey] = 5; // prime won't need to read the native field
+    Harness.ResetStatics();
+    Fixture.NewWorld(BiomeHolder.GreeceBiomeIndex);
     Banker unreadable = Fixture.NewBanker(5);
     unreadable.ThrowOnStashRead = true;
     CourierBankDebit unreadableResult = PatchEconomy_Banker.TryWithdrawOneCoinForCourier(unreadable);
@@ -586,7 +589,7 @@ Harness.Test("bagging an unverifiable treasury write freezes the purse with evid
     Harness.Reason(CoinCourierReason.Frozen, frozen, "frozen reason");
 });
 
-Harness.Test("bagging survives presentation and staging faults without re-debiting", () =>
+Harness.Test("bagging survives presentation faults and never writes legacy prefs", () =>
 {
     Fixture.NewWorld(BiomeHolder.GreeceBiomeIndex);
     Banker banker = Fixture.NewBanker(5);
@@ -603,12 +606,11 @@ Harness.Test("bagging survives presentation and staging faults without re-debiti
     PlayerPrefs.ThrowOnSet = true;
     CoinCourierResult staging = CoinCourierEconomy.TryBagOneCoin(purse, banker, 4);
     Harness.Status(CoinCourierStatus.Applied, staging, "staging fault still applied");
-    Harness.Reason(CoinCourierReason.PresentationFailed, staging, "staging-fault reason");
+    Harness.Reason(CoinCourierReason.None, staging, "legacy prefs fault does not affect native commit");
     Harness.Eq(3, banker._stashedCoins, "second debit not repeated");
     Harness.Eq(2, purse.Coins, "second credit not repeated");
-    Harness.Eq(int.MinValue,
-        Harness.GetStatic<int>(typeof(PatchEconomy_Banker), "_lastObservedStash"),
-        "committed debit is marked for the existing staging retry");
+    Harness.Eq(3, Harness.BankLive(), "R3 live follows the committed debit");
+    Harness.NoLegacyBankWrite("no PlayerPrefs bank persistence");
     PlayerPrefs.ThrowOnSet = false;
 });
 
@@ -963,4 +965,5 @@ Harness.Test("targeting selects on purse coins and shares the candidate validati
         "candidate check rejects a dead knight");
 });
 
+NativeCases.Run();
 return Harness.Finish();

@@ -9,10 +9,10 @@ namespace UnityEngine
  {
   static int next;public int Id=++next;public IntPtr Pointer;public Object(){Pointer=(IntPtr)Id;}public int GetInstanceID()=>Id;
  }
- public class Component:Object{public GameObject gameObject;public Transform transform=>gameObject.transform;}
+ public class Component:Object{public GameObject gameObject;public Transform transform=>gameObject.transform;public T GetComponent<T>()where T:Component=>null;}
  public class GameObject:Object
  {
-  public string name="TestCoin";public Scene scene=new(){valid=true};public Transform transform;
+  public string name="TestCoin";public bool activeInHierarchy=true;public Scene scene=new(){valid=true};public Transform transform;
   public GameObject(){transform=new Transform{gameObject=this};}
   public T AddComponent<T>()where T:Component,new()=>new T{gameObject=this};
  }
@@ -31,7 +31,8 @@ namespace UnityEngine
  public static class Time{public static int frameCount;}
 }
 namespace Coatsink.Common{public static class SingletonMonoBehaviour<T>where T:new(){public static T Inst=>typeof(T)==typeof(Managers)?(T)(object)Managers.Inst:new();}}
-public class Mover:UnityEngine.Component{}
+public class Mover:UnityEngine.Component{public bool enabled=true;}
+public class Embarkee:UnityEngine.Component{public bool IsEmbarked,IsTargetingEmbarkable;}
 public class BiomeHolder{public static BiomeHolder Inst=new();public const int GreeceBiomeIndex=3;public int BiomeIndex=3;}
 public static class BiomeData{public static BagCurrency Swap;public static T GetPrefabSwap<T>(T prefab)where T:BagCurrency=>Swap==null?prefab:(T)Swap;}
 public class Managers{public static Managers Inst=new();public CurrencyManager currency=new();public Kingdom kingdom=new();}
@@ -54,6 +55,7 @@ public class CurrencyBagHandler
 }
 namespace KingdomEnhancedMod
 {
+ internal static class ScaleRegistryHolder{internal static void RetryPendingCreation(){}}
  // This suite owns scale behavior only; real viewport policy is covered by currency-bag-viewport.
  internal static class CurrencyBagViewport { internal static void KeepVisible(CurrencyBag bag) { } }
  public static class ModConfig{public static Setting Enabled=new();public class Setting{public bool Value=true;}}

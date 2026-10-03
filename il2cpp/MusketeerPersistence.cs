@@ -272,6 +272,7 @@ internal static class MusketeerPersistence
     internal sealed class LoadCapture
     {
         internal LoadCapture Previous;
+        internal HeavyShieldIntegration.LoadScope Heavy;
         private MusketeerIdentity.IslandState State;
         private MusketeerIdentity.IslandState Old;
         private MusketeerIdentity.IslandState OldCurrent;
@@ -403,6 +404,7 @@ internal static class MusketeerPersistence
     // island generated in the same runtime world.
     internal sealed class VirginCapture
     {
+        internal HeavyShieldPersistence.GenerationCapture Heavy;
         private IntPtr CampaignPointer, IslandPointer;
         private string ContextKey;
         private long SourceWorld;
@@ -477,8 +479,10 @@ internal static class MusketeerPersistence
         [HarmonyPostfix]
         private static void After(Persistent __0, string __result)
         {
+            HeavyShieldIntegration.ObserveId(__0, __result);
             try { _save?.Capture(__0, __result); }
             catch (Exception e) { if (_save != null) _save.Conflict = true; MusketeerIdentity.Log("get-id", e); }
+            SharedBankNative.ObserveId(__0, __result);
         }
     }
 
@@ -488,7 +492,9 @@ internal static class MusketeerPersistence
         [HarmonyPrefix, HarmonyPriority(Priority.First)]
         private static void Before(IslandSaveData __instance, out LoadCapture __state)
         {
-            __state = new() { Previous = _load }; _load = __state;
+            SharedBankNative.BeginPop(__instance);
+            var heavy = HeavyShieldIntegration.BeginLoad(__instance);
+            __state = new() { Previous = _load, Heavy = heavy }; _load = __state;
             try { __state.Begin(__instance); }
             catch (Exception e) { __state.Conflict = true; MusketeerIdentity.Log("load", e); }
         }
@@ -496,9 +502,16 @@ internal static class MusketeerPersistence
         [HarmonyFinalizer]
         private static Exception Finally(Exception __exception, bool __result, LoadCapture __state)
         {
-            try { __state?.End(__exception == null && __result); }
-            catch (Exception e) { MusketeerIdentity.Log("load-end", e); }
-            finally { if (ReferenceEquals(_load, __state)) _load = __state?.Previous; }
+            bool complete = __exception == null && __result;
+            try
+            {
+                HeavyShieldIntegration.EndLoad(__state?.Heavy, __exception == null && __result);
+                try { __state?.End(__exception == null && __result); }
+                catch (Exception e) { MusketeerIdentity.Log("load-end", e); }
+                finally { if (ReferenceEquals(_load, __state)) _load = __state?.Previous; }
+            }
+            catch (Exception) { complete = false; throw; }
+            finally { SharedBankNative.EndPop(SharedBankNative.CurrentPop, complete); }
             return __exception;
         }
     }
@@ -506,12 +519,22 @@ internal static class MusketeerPersistence
     [HarmonyPatch(typeof(IslandSaveData), nameof(IslandSaveData.TryCreateOrFind))]
     internal static class CreatePatch
     {
+        [HarmonyPrefix]
+        private static void Before(IslandSaveData.ObjectData __0, out HeavyShieldPersistence.CreateCapture __state)
+        { __state = HeavyShieldIntegration.BeginLoadRow(__0); }
+
         [HarmonyPostfix]
         private static void After(IslandSaveData.ObjectData __0, Persistent __result)
         {
+            HeavyShieldIntegration.ObserveLoadRow(__0, __result);
+            SharedBankNative.Created(__0, __result);
             try { _load?.Capture(__0, __result); }
             catch (Exception e) { if (_load != null) _load.Conflict = true; MusketeerIdentity.Log("load-bind", e); }
         }
+
+        [HarmonyFinalizer]
+        private static Exception Finally(Exception __exception, HeavyShieldPersistence.CreateCapture __state)
+        { HeavyShieldIntegration.EndLoadRow(__state); return __exception; }
     }
 
     // CampaignSaveData.ApplyToScene mirrors the hero module's virgin generation bridge.
@@ -521,7 +544,7 @@ internal static class MusketeerPersistence
         [HarmonyPrefix]
         private static void Before(CampaignSaveData __instance, out VirginCapture __state)
         {
-            __state = new();
+            __state = new() { Heavy = HeavyShieldIntegration.BeginGeneration(__instance) };
             try { __state.Begin(__instance); }
             catch (Exception e) { MusketeerIdentity.Log("virgin-begin", e); }
         }
@@ -535,6 +558,11 @@ internal static class MusketeerPersistence
             // 火枪的判定/顺序；本模块内部自留诊断（条目成功/失败不抛）。
             try { CoinCourierPersistence.EnsureBoundFromApplyToScene(__instance); }
             catch (Exception) { /* CoinCourierPersistence 自带隔离与有界诊断 */ }
+            SharedBankNative.SceneApplied();
         }
+
+        [HarmonyFinalizer]
+        private static Exception Finally(Exception __exception, CampaignSaveData __instance, VirginCapture __state)
+        { HeavyShieldIntegration.EndGeneration(__state?.Heavy, __instance, __exception == null); return __exception; }
     }
 }

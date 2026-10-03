@@ -15,6 +15,8 @@
 
   <ItemGroup>
     <Compile Include="../../il2cpp/GreekBankScope.cs" Link="Production/GreekBankScope.cs" />
+    <Compile Include="../../il2cpp/SharedBankState.cs" Link="Production/SharedBankState.cs" />
+    <Compile Include="../../il2cpp/SharedBankNative.cs" Link="Production/SharedBankNative.cs" />
     <Compile Include="../../il2cpp/MainBankerFixedDomain.cs" Link="Production/MainBankerFixedDomain.cs" />
     <Compile Include="../../il2cpp/PatchEconomy_Banker.cs" Link="Production/PatchEconomy_Banker.cs" />
     <Compile Include="../../il2cpp/PatchEconomy_AutoRestock.cs" Link="Production/PatchEconomy_AutoRestock.cs" />

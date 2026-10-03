@@ -14,6 +14,8 @@ public class ScaleRegistryHolder : MonoBehaviour
     public static ScaleRegistryHolder Instance { get; private set; }
 
     private static readonly System.Collections.Generic.Dictionary<int, int> _pendingShieldEquip = new();
+    private static bool _creationPending, _loggedCreationFailure;
+    private static int _nextCreationRetryFrame;
 
     public ScaleRegistryHolder(IntPtr ptr) : base(ptr) { }
 
@@ -26,16 +28,52 @@ public class ScaleRegistryHolder : MonoBehaviour
             ClassInjector.RegisterTypeInIl2Cpp(typeof(ScaleRegistryHolder));
 
         var go = new GameObject("KingdomEnhancedMod_ScaleRegistry");
-        UnityEngine.Object.DontDestroyOnLoad(go);
-        go.hideFlags = HideFlags.HideAndDontSave;
-        Instance = go.AddComponent<ScaleRegistryHolder>();
+        try
+        {
+            UnityEngine.Object.DontDestroyOnLoad(go);
+            go.hideFlags = HideFlags.HideAndDontSave;
+            Instance = go.AddComponent<ScaleRegistryHolder>();
+            if (Instance == null) throw new InvalidOperationException("ScaleRegistryHolder was not created");
+        }
+        catch
+        {
+            UnityEngine.Object.Destroy(go);
+            throw;
+        }
     }
 
-    public static void Register(Mover mover, float y) => GreekScaleScope.Register(mover, y);
+    public static void Register(Mover mover, float y)
+    {
+        GreekScaleScope.Register(mover, y); // Record first; driver failure cannot lose the request.
+        if (mover == null || Instance != null) return;
+        _creationPending = true;
+        RetryPendingCreation();
+    }
+
+    internal static void RetryPendingCreation()
+    {
+        if (!_creationPending || Time.frameCount < _nextCreationRetryFrame) return;
+        _nextCreationRetryFrame = Time.frameCount + 30;
+        try
+        {
+            EnsureCreated();
+            _creationPending = false;
+            _loggedCreationFailure = false;
+        }
+        catch (Exception e)
+        {
+            if (_loggedCreationFailure) return;
+            _loggedCreationFailure = true;
+            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                "[ScaleRegistry] Driver creation deferred; registered requests retained: " + e.GetType().Name);
+        }
+    }
 
     public static void Unregister(Mover mover) => GreekScaleScope.Unregister(mover);
 
     public static bool TryGet(Mover mover, out float y) => GreekScaleScope.TryGet(mover, out y);
+
+    private void LateUpdate() => GreekScaleScope.MaintainRegisteredY();
 
     public static void QueueShieldEquip(NpcShieldUser shieldUser)
     {

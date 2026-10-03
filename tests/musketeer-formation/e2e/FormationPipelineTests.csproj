@@ -26,4 +26,5 @@
     <Compile Include="../../../il2cpp/PatchWorld_FleetBoatFormation.cs" Link="Production/PatchWorld_FleetBoatFormation.cs" />
   </ItemGroup>
 
+  <ItemGroup><Compile Include="../../heavy-shield-boundary/DisabledHeavyShieldApis.cs" Link="Boundary/DisabledHeavyShieldApis.cs" /></ItemGroup>
 </Project>

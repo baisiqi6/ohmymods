@@ -61,6 +61,7 @@ namespace Il2CppSystem.Collections.Generic
         public void Add(T value) => _items.Add(value);
         public void Clear() => _items.Clear();
         public bool Remove(T value) => _items.Remove(value);
+        public void RemoveAt(int index) => _items.RemoveAt(index);
     }
 }
 
@@ -79,6 +80,15 @@ namespace Il2CppInterop.Runtime.InteropTypes
 
 namespace Coatsink.Common
 {
+    /// <summary>原生保存回执位（与真实 2.4 位值一致）；挑战删除原生体启动保存时使用。</summary>
+    public enum SaveLoadResult
+    {
+        Delete = 16,
+        Cancelled = 32,
+        Success = 64,
+        Failure = 128,
+    }
+
     public static class Haglet
     {
         public enum State
@@ -862,6 +872,61 @@ namespace KingdomEnhancedMod
             public int __1__state;
             public void MoveNext() { }
         }
+
+        public Il2CppSystem.Collections.Generic.List<CampaignSaveData> challenges =
+            new Il2CppSystem.Collections.Generic.List<CampaignSaveData>();
+
+        /// <summary>
+        /// 实际 2.4 挑战删除的同步入口（static DeleteChallenge(int)）：按 challenge ID 找到
+        /// 目录项 RemoveAt 后启动保存；生产侧只挂 prefix 记账（SharedBankNative.BeforeMutation），
+        /// 本套件不驱动原生体。
+        /// </summary>
+        public static void DeleteChallenge(int challengeId)
+        {
+            GlobalSaveData global = _loaded;
+            if (global == null) return;
+            global.NativeDeleteChallenge(challengeId);
+            global.SaveAsync(null);
+        }
+
+        /// <summary>
+        /// 实际 2.4 协程状态机（GlobalSaveData/__TryDeleteChallenge_d__94）：state0 首次执行时
+        /// 按 ID RemoveAt → SaveAsync；生产只挂 MoveNext state0 的 prefix。
+        /// </summary>
+        public sealed class __TryDeleteChallenge_d__94
+        {
+            public int __1__state;
+            public int challengeId;
+            public GlobalSaveData Owner;
+
+            public bool MoveNext()
+            {
+                if (__1__state != 0) return false;
+                Owner?.NativeDeleteChallenge(challengeId);
+                Owner?.SaveAsync(null);
+                __1__state = 1;
+                return true;
+            }
+        }
+
+        private void NativeDeleteChallenge(int challengeId)
+        {
+            for (int i = 0; i < challenges.Count; i++)
+            {
+                CampaignSaveData item = challenges[i];
+                if (item != null && item.challengeId == challengeId)
+                {
+                    challenges.RemoveAt(i);
+                    break;
+                }
+            }
+        }
+
+        public void SaveAsync(Il2CppSystem.Action<Coatsink.Common.SaveLoadResult> callback)
+        {
+            prefs.PrepareBeforeSave();
+            callback?.Invoke(Coatsink.Common.SaveLoadResult.Success);
+        }
     }
 
     public class CampaignSaveData : UnityEngine.Object
@@ -1111,6 +1176,22 @@ namespace KingdomEnhancedMod
         }
 
         internal static void Reset() => BalanceKnown = false;
+    }
+
+    /// <summary>
+    /// 中性 disabled 边界替身：本套件不覆盖共享银行账本算法（真实 SharedBankNative/R3 由
+    /// tests/coin-courier-economy 与 tests/shared-bank-regressions 直接链接生产源验证）。
+    /// 这里只让 CoinCourierPersistence 新增的银行接线保持同签名 no-op，绝不能被当作银行行为
+    /// 已在本套件被验证。
+    /// </summary>
+    internal static class SharedBankNative
+    {
+        internal sealed class Scope { }
+
+        internal static Scope BeginSave(int campaign, int land, int challenge) => new Scope();
+        internal static void EndSave(Scope scope, bool normal) { }
+        internal static void Marker(IslandSaveData island) { }
+        internal static void BeforeMutation(GlobalSaveData value) { }
     }
 
     /// <summary>拒因枚举替身：本套件不链接生产 BankScope，只在边界起名字作用。</summary>

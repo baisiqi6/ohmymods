@@ -200,6 +200,7 @@ public static class PatchWorld_FarmCats
 
         int spawned = 0;
         int retired = 0;
+        bool deferredBirth = false;
         for (int f = 0; f < farmhouses.Length; f++)
         {
             Farmhouse farmhouse = farmhouses[f];
@@ -246,9 +247,13 @@ public static class PatchWorld_FarmCats
             int toSpawn = CatsPerFarmhouse - (existing - removedHere);
             for (int n = 0; n < toSpawn; n++)
             {
-                if (TrySpawnFarmCat(catPrefab, farmhouse, layer)) spawned++;
+                if (TrySpawnFarmCat(catPrefab, farmhouse, layer, out bool deferred)) spawned++;
+                deferredBirth |= deferred;
             }
         }
+
+        // Only a later normal level-load stocking opportunity retries unknown/empty birth geometry.
+        if (deferredBirth) { _stockedWorld = IntPtr.Zero; _stockedLayer = IntPtr.Zero; }
 
         KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
             "[FarmCats] spawned " + spawned + ", retired " + retired
@@ -350,11 +355,18 @@ public static class PatchWorld_FarmCats
     /// domesticated/farmHouse/白色 interop 直写。任何一步失败销毁半成品猫
     /// （fail-closed，不留非驯化流浪北境猫）。
     /// </summary>
-    private static bool TrySpawnFarmCat(Cat prefab, Farmhouse farmhouse, Transform layer)
+    private static bool TrySpawnFarmCat(Cat prefab, Farmhouse farmhouse, Transform layer, out bool deferred)
     {
+        deferred = false;
         Vector3 position = farmhouse.transform.position;
         position.x += UnityEngine.Random.Range(-4f, 4f);
         position.y += 0.5f;
+        if (!FarmCatMovement.TryBirth(farmhouse, prefab, layer, position.x, out float safeX))
+        {
+            deferred = true;
+            return false;
+        }
+        position.x = safeX;
 
         // 原生生成：池路径 FastSpawn（取出/扩容 + AttemptSpawnSync 注册激活），
         // 无池路径 SpawnGO(allowInstantiate:true) 原生回退 Instantiate。

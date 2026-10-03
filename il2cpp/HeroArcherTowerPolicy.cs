@@ -33,6 +33,7 @@ internal static class HeroArcherTowerPolicy
     {
         try
         {
+            if (job != null && archer != null && HeavyShieldIdentity.IsKnownCareerRoot(archer.gameObject)) return false;
             if (!IsProtected(archer) || job == null) return true;
             // Native AssignJob gives Knight precedence; preserve that exact non-tower route.
             if (job.GetComponent<Knight>() != null) return true;
@@ -43,7 +44,7 @@ internal static class HeroArcherTowerPolicy
 
     internal static bool AllowSlot(Archer archer, GuardSlot slot)
     {
-        try { return slot == null || !IsProtected(archer); }
+        try { return slot == null || archer == null || (!HeavyShieldIdentity.IsKnownCareerRoot(archer.gameObject) && !IsProtected(archer)); }
         catch { return true; }
     }
 

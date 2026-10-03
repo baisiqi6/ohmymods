@@ -5,4 +5,5 @@
     <Reference Include="E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/BepInEx/core/Il2CppInterop.Runtime.dll"><Private>false</Private></Reference>
     <Reference Include="E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Build.22992091/BepInEx/core/0Harmony.dll"><Private>false</Private></Reference>
   </ItemGroup>
+  <ItemGroup><Compile Include="../heavy-shield-boundary/DisabledHeavyShieldApis.cs" Link="Boundary/DisabledHeavyShieldApis.cs" /></ItemGroup>
 </Project>

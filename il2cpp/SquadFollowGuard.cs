@@ -69,7 +69,7 @@ internal static class SquadFollowGuard
     private static bool FreeCharacter(Character c) => c != null && !c.inert && !c.grabbed && !c.isStationary;
     private static bool BoatTask(Embarkee e) => e != null && (e.IsEmbarked || e.IsTargetingEmbarkable || e.EmbarkableTarget != null);
     private static bool LiveKnight(Knight k) => Active(k) && k._damageable != null && !k._damageable.isDead;
-    private static bool FreeArcher(Archer a) => Active(a) && a._damageable != null && !a._damageable.isDead &&
+    private static bool FreeArcher(Archer a) => Active(a) && !HeavyShieldIdentity.IsKnownCareerRoot(a.gameObject) && a._damageable != null && !a._damageable.isDead &&
         FreeCharacter(a._character) && a._mover != null && !a.ShouldPlayerControl() &&
         a._guardSlot == null && !a.inGuardSlot && a.transform.position.y <= 2.5f &&
         a.GetFormation() == null && !BoatTask(a._embarkee);

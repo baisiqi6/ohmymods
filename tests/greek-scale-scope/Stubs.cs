@@ -14,7 +14,7 @@ namespace UnityEngine
  public class Component:Object {public GameObject gameObject; public Transform transform=>gameObject.transform;public T GetComponent<T>()where T:Component=>gameObject.GetComponent<T>();}
  public class GameObject:Object
  {
-  public string name; public Scene scene=new(){valid=true};public Transform transform;readonly List<Component> components=new();
+  public string name; public bool activeInHierarchy=true; public Scene scene=new(){valid=true};public Transform transform;readonly List<Component> components=new();
   public GameObject(string name="actor"){this.name=name;transform=new Transform{gameObject=this};}
   public T AddComponent<T>()where T:Component,new(){var c=new T{gameObject=this};components.Add(c);return c;}
   public T GetComponent<T>()where T:Component=>components.OfType<T>().FirstOrDefault();
@@ -33,7 +33,8 @@ namespace UnityEngine
  public class Animator {public bool Fisher;public bool GetBool(int key)=>Fisher;}
  public static class Time{public static int frameCount;}
 }
-public class Mover:UnityEngine.Component{}
+public class Mover:UnityEngine.Component{public bool enabled=true;}
+public class Embarkee:UnityEngine.Component{public bool IsEmbarked,IsTargetingEmbarkable;}
 public class Ninja:UnityEngine.Component
 {
  public const int APIsFisher=17;public bool _isFisher;public UnityEngine.Animator _animator=new();
@@ -53,6 +54,7 @@ namespace KingdomEnhancedMod
  public class KingdomEnhancedPlugin{public static KingdomEnhancedPlugin Instance;public Logger LogSource=new();public class Logger{public void LogError(object message)=>throw new Exception("adapter error: "+message);public void LogWarning(object message){}public void LogInfo(object message){}}}
  public static class ScaleRegistryHolder
  {
+  public static void RetryPendingCreation(){}
   public static void Register(Mover m,float y)=>GreekScaleScope.Register(m,y);
   public static bool TryGet(Mover m,out float y)=>GreekScaleScope.TryGet(m,out y);
   public static void Unregister(Mover m)=>GreekScaleScope.Unregister(m);

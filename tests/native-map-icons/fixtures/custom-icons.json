@@ -1,0 +1,88 @@
+{
+ "icons": [
+  {
+   "type": 3,
+   "display": "Santa Reindeer",
+   "resource": "KingdomEnhancedMod.KEM_MapSantaReindeer.png",
+   "file": "assets/KEM_MapSantaReindeer.png",
+   "sheetW": 1774,
+   "sheetH": 887,
+   "normal": [
+    372.0,
+    122.0,
+    450.0,
+    616.0
+   ],
+   "locked": [
+    1106.0,
+    122.0,
+    450.0,
+    616.0
+   ],
+   "uiW": 24.0,
+   "uiH": 32.0,
+   "pivot": [
+    0.5,
+    0.0
+   ],
+   "ppu": 100.0,
+   "sha256": "debd5d87908761130a40444b42e1288c8c23dedf76b15b3f084e2e27cf789172"
+  },
+  {
+   "type": 4,
+   "display": "Spookyhorse",
+   "resource": "KingdomEnhancedMod.KEM_MapSpookyhorse.png",
+   "file": "assets/KEM_MapSpookyhorse.png",
+   "sheetW": 1774,
+   "sheetH": 887,
+   "normal": [
+    93.0,
+    177.0,
+    702.0,
+    435.0
+   ],
+   "locked": [
+    951.0,
+    177.0,
+    702.0,
+    435.0
+   ],
+   "uiW": 40.0,
+   "uiH": 25.0,
+   "pivot": [
+    0.5,
+    0.0
+   ],
+   "ppu": 100.0,
+   "sha256": "dcf9b143b9e5b2eb950e0159c5f4f161ce1a2fc45a0e954512b642bfc1a1b808"
+  },
+  {
+   "type": 38,
+   "display": "Rainbow Pony",
+   "resource": "KingdomEnhancedMod.KEM_MapRainbowPony.png",
+   "file": "assets/KEM_MapRainbowPony.png",
+   "sheetW": 1774,
+   "sheetH": 887,
+   "normal": [
+    193.0,
+    207.0,
+    630.0,
+    409.0
+   ],
+   "locked": [
+    971.0,
+    207.0,
+    630.0,
+    409.0
+   ],
+   "uiW": 40.0,
+   "uiH": 26.0,
+   "pivot": [
+    0.5,
+    0.0
+   ],
+   "ppu": 100.0,
+   "sha256": "65090951f3b29f2f9b54351c15a3907c5cf014dc9a2f9fe9d2418a7eaac97979"
+  }
+ ]
+}
