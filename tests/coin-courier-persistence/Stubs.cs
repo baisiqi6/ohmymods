@@ -344,6 +344,52 @@ public class GlobalSaveData : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBas
         prefs.PrepareBeforeSave();
         Harness.LastPayload = prefs.SnapshotPayload();
     }
+
+    /// <summary>
+    /// 实际 2.4 挑战删除的同步入口（static DeleteChallenge(int)）：按 challenge ID 找到目录项
+    /// RemoveAt，再经 SaveGame 启动保存；不调用 _TryDeleteChallenge 协程。生产侧只挂 prefix
+    /// 记账（SharedBankNative.BeforeMutation），本套件不驱动原生体。
+    /// </summary>
+    public static void DeleteChallenge(int challengeId)
+    {
+        GlobalSaveData global = _loaded;
+        if (global == null) return;
+        global.NativeDeleteChallenge(challengeId);
+        global.SaveAsync(null);
+    }
+
+    /// <summary>
+    /// 实际 2.4 协程状态机（GlobalSaveData/__TryDeleteChallenge_d__94）：state0 首次执行时
+    /// 按 ID RemoveAt → SaveAsync；state1 只收尾。生产只挂 MoveNext state0 的 prefix。
+    /// </summary>
+    public class __TryDeleteChallenge_d__94 : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase
+    {
+        public int __1__state;
+        public int challengeId;
+        public GlobalSaveData Owner;
+
+        public bool MoveNext()
+        {
+            if (__1__state != 0) return false;
+            Owner?.NativeDeleteChallenge(challengeId);
+            Owner?.SaveAsync(null);
+            __1__state = 1;
+            return true;
+        }
+    }
+
+    private void NativeDeleteChallenge(int challengeId)
+    {
+        for (int i = 0; i < challenges.Count; i++)
+        {
+            CampaignSaveData item = challenges[i];
+            if (item != null && item.challengeId == challengeId)
+            {
+                challenges.RemoveAt(i);
+                break;
+            }
+        }
+    }
 }
 
 public class PrefsSaveData : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase
@@ -466,5 +512,21 @@ namespace KingdomEnhancedMod
             BindCalls = 0;
             UnbindCalls = 0;
         }
+    }
+
+    /// <summary>
+    /// 中性 disabled 边界替身：本套件不覆盖共享银行账本算法（真实 SharedBankNative/R3 的
+    /// capture/save-gate 语义由 tests/coin-courier-economy 与 tests/shared-bank-regressions
+    /// 直接链接生产源验证）。这里只让 CoinCourierPersistence 新增的银行接线保持同签名 no-op，
+    /// 绝不能被当作银行行为已在本套件被验证。
+    /// </summary>
+    internal static class SharedBankNative
+    {
+        internal sealed class Scope { }
+
+        internal static Scope BeginSave(int campaign, int land, int challenge) => new Scope();
+        internal static void EndSave(Scope scope, bool normal) { }
+        internal static void Marker(IslandSaveData island) { }
+        internal static void BeforeMutation(GlobalSaveData value) { }
     }
 }

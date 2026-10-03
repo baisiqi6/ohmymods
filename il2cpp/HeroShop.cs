@@ -24,20 +24,70 @@ internal static class HeroShopOwnerInterop
 /// <summary>Bounded placement and one receipt per native transaction; no Unity dependencies.</summary>
 internal sealed class HeroShopPayment
 {
-    private long _payer;
-    private bool _armed;
-    private bool _settled;
-    internal void Arm(long payer) { _payer = payer; _armed = payer != 0; _settled = false; }
-    internal bool IsArmed(long payer) => _armed && payer != 0 && payer == _payer;
-    internal bool AlreadySettled(long payer) => _settled && payer != 0 && payer == _payer;
-    internal bool Consume(long payer, bool completed, int coins)
+    private sealed class Ticket
     {
-        if (!_armed || payer == 0 || payer != _payer || !completed || coins != 8) return false;
-        _armed = false;
-        _settled = true;
+        internal long Payer, Source, Owner;
+        internal bool Settled, Cancelled, Settling;
+    }
+    private readonly List<Ticket> _tickets = new(4);
+    private Ticket Find(long payer, long source, long owner)
+        => _tickets.Find(x => x.Payer == payer && x.Source == source && x.Owner == owner);
+
+    internal bool Arm(long payer, long source, long owner)
+    {
+        if (payer == 0 || source == 0 || owner == 0) return false;
+        var prior = Find(payer, source, owner);
+        if (prior != null)
+        {
+            if (prior.Settling) return false;
+            _tickets.Remove(prior);
+        }
+        if (_tickets.Count >= 4)
+        {
+            int old = _tickets.FindIndex(x => x.Settled || x.Cancelled);
+            if (old < 0) return false;
+            _tickets.RemoveAt(old);
+        }
+        _tickets.Add(new Ticket { Payer = payer, Source = source, Owner = owner });
         return true;
     }
-    internal void Clear() { _armed = false; _settled = false; _payer = 0; }
+    internal bool IsArmed(long payer, long source, long owner)
+    {
+        var ticket = Find(payer, source, owner);
+        return ticket != null && !ticket.Settled && !ticket.Cancelled;
+    }
+    internal bool AlreadySettled(long payer, long source, long owner)
+        => Find(payer, source, owner)?.Settled == true;
+    internal bool IsSettling(long payer, long source, long owner)
+        => Find(payer, source, owner)?.Settling == true;
+    internal bool Consume(long payer, long source, long owner, bool completed, int coins)
+    {
+        var ticket = Find(payer, source, owner);
+        if (ticket == null || ticket.Settled || ticket.Cancelled || !completed || coins != 8) return false;
+        ticket.Settled = true; ticket.Settling = true;
+        return true;
+    }
+    internal void Finish(long payer, long source, long owner)
+    {
+        var ticket = Find(payer, source, owner);
+        if (ticket != null) ticket.Settling = false;
+    }
+    internal void Cancel(long payer, long source, long owner)
+    {
+        var ticket = Find(payer, source, owner);
+        if (ticket != null && !ticket.Settling) ticket.Cancelled = true;
+    }
+    // Existing pure core contract; production always supplies payable and owner identity.
+    internal void Arm(long payer) { Clear(); if (payer != 0) _tickets.Add(new Ticket { Payer = payer }); }
+    internal bool IsArmed(long payer) => IsArmed(payer, 0, 0);
+    internal bool AlreadySettled(long payer) => AlreadySettled(payer, 0, 0);
+    internal bool Consume(long payer, bool completed, int coins)
+    {
+        bool result = Consume(payer, 0, 0, completed, coins);
+        if (result) Finish(payer, 0, 0);
+        return result;
+    }
+    internal void Clear() => _tickets.Clear();
 }
 
 internal static class HeroShopPlacement
@@ -418,7 +468,7 @@ internal static class HeroShop
             if (player._payState == Player.PayState.Completed)
                 return player._completingPayable != null && player._completingPayable.Pointer == _payable.Pointer
                     && player._floatingCurrency != null && player._floatingCurrency.Count == Price
-                    && Payment.IsArmed(player.Pointer.ToInt64());
+                    && Payment.IsArmed(player.Pointer.ToInt64(), _payable.Pointer.ToInt64(), _owner.Pointer.ToInt64());
             // Native UpdatePayState sets Transaction then calls Select before invoking
             // TransactionStarted. Do not require the receipt during that initial Select;
             // it is mandatory at Completed, before TransactionComplete can spend coins.
@@ -485,6 +535,7 @@ internal static class HeroShop
         _payable = _object.AddComponent<PayableComponent>();
         _payable.forceBlockPayment = true;
         _payable.Init(_owner.Cast<IPayableComponentOwner>());
+        _owner.BindPayable(_payable);
         _payable.Price = Price;
         _payable.Currency = CurrencyType.Coins;
         _payable.priceIncrease = 0;
@@ -576,44 +627,56 @@ internal static class HeroShop
     {
         if (player == null || !CanPurchase() || _payable == null
             || player.selectedPayable == null || player.selectedPayable.Pointer != _payable.Pointer) return;
-        Payment.Arm(player.Pointer.ToInt64());
+        Payment.Arm(player.Pointer.ToInt64(), _payable.Pointer.ToInt64(), _owner.Pointer.ToInt64());
     }
 
-    internal static void OnPay(Player player)
+    // Instance callback identity survives a static shop Clear/replace. Only this exact native
+    // payable may settle its own ticket; a stale callback returns its own floating coins.
+    internal static void OnPay(HeroShopOwner owner, Player player)
     {
-        if (player == null || _payable == null || player._completingPayable == null
-            || player._completingPayable.Pointer != _payable.Pointer) return;
-        long payer = player.Pointer.ToInt64();
-        if (!Payment.Consume(payer, player._payState == Player.PayState.Completed,
-            player._floatingCurrency == null ? 0 : player._floatingCurrency.Count))
+        if (owner == null || player == null) return;
+        long payable = owner.PayablePointer();
+        if (payable == 0 || player._completingPayable == null
+            || player._completingPayable.Pointer.ToInt64() != payable) return;
+        long payer = player.Pointer.ToInt64(), origin = owner.Pointer.ToInt64();
+        if (Payment.AlreadySettled(payer, payable, origin)) return;
+        bool completed = player._payState == Player.PayState.Completed;
+        int coins = player._floatingCurrency == null ? 0 : player._floatingCurrency.Count;
+        bool current = _owner != null && _owner.Pointer == owner.Pointer && _payable != null
+            && _payable.Pointer.ToInt64() == payable;
+        if (!current || !Payment.IsArmed(payer, payable, origin) || !completed || coins != Price)
         {
-            if (Payment.AlreadySettled(payer)) return; // repeated callback for the same native payment
-            // The native final CanPay gate above prevents incomplete/unrecorded payments.
-            // If another caller bypasses it, return only the actual floating objects, never
-            // mint an assumed eight coins. DropFloatingCurrency clears the source list, so
-            // the native caller's later consume loop has nothing to charge a second time.
-            if (player.hasLocalAuthority && player._payState == Player.PayState.Completed)
+            if (player.hasLocalAuthority && completed && coins > 0)
             {
                 player.CancelTransaction();
                 player.DropFloatingCurrency();
-                Payment.Clear();
-                Log("unrecorded/incomplete callback cancelled; native floating coins returned");
+                Payment.Cancel(payer, payable, origin);
+                Log("stale/incomplete callback cancelled through native floating currency");
             }
             return;
         }
-        bool success = false;
-        string reason = "商店已不可用";
-        try { if (CanPurchase()) success = HeroRecruitment.TryPurchase(out reason); }
-        catch (Exception e) { reason = e.GetType().Name; }
-        if (!success)
+        if (!Payment.Consume(payer, payable, origin, true, coins)) return;
+        try
         {
-            // Coins already left the wallet on entering the native floating slots. The caller
-            // consumes those slots after this callback, so restore only the wallet balance once.
-            player.wallet.AddCurrency(CurrencyType.Coins, Price);
-            Log("purchase rejected; refunded 8 coins: " + reason);
+            bool success = false;
+            string reason = "商店已不可用";
+            try { if (CanPurchase()) success = HeroRecruitment.TryPurchase(out reason); }
+            catch (Exception e) { reason = e.GetType().Name; }
+            if (!success)
+            {
+                // Clear may have run reentrantly. If native cancellation already returned the
+                // floating coins, a wallet refund here would mint a second eight.
+                if (player._floatingCurrency != null && player._floatingCurrency.Count == Price)
+                {
+                    player.wallet.AddCurrency(CurrencyType.Coins, Price);
+                    Log("purchase rejected; refunded 8 coins: " + reason);
+                }
+                else Log("purchase rejected after native cancellation: " + reason);
+            }
+            else Log("purchase completed");
+            _status = success ? "英雄已应召" : "未招募，已退还 8 金币";
         }
-        else Log("purchase completed");
-        _status = success ? "英雄已应召" : "未招募，已退还 8 金币";
+        finally { Payment.Finish(payer, payable, origin); }
     }
 
     internal static void Clear(string reason)
@@ -634,7 +697,7 @@ internal static class HeroShop
                 CancelPendingTransactions();
                 if (_started != null) _payable.remove_OnTransactionStartedCallback(_started);
             }
-            Payment.Clear();
+            // Keep exact settled/cancelled tickets so delayed instance callbacks cannot settle twice.
             // Match the original registry, never delete a reused NetID from a new island.
             if (_postbox != null && _header != null && _object != null
                 && _postbox.MasterSemiCRPCHLookup.TryGetValue(_object, out var found)
@@ -738,7 +801,6 @@ internal static class HeroShop
             Cancel(_kingdom.playerOne);
             Cancel(_kingdom.playerTwo);
         }
-        Payment.Clear();
     }
 
     private static void Cancel(Player player)
@@ -747,10 +809,14 @@ internal static class HeroShop
         bool selected = player.selectedPayable != null && player.selectedPayable.Pointer == _payable.Pointer;
         bool completing = player._completingPayable != null && player._completingPayable.Pointer == _payable.Pointer;
         if (!selected && !completing) return;
+        long payer = player.Pointer.ToInt64(), source = _payable.Pointer.ToInt64();
+        long owner = _owner != null ? _owner.Pointer.ToInt64() : 0;
+        if (Payment.IsSettling(payer, source, owner)) return;
         player.CancelTransaction();
         player.DropFloatingCurrency(); // same native cancellation refund; clears the list itself
         if (completing) player._completingPayable = null;
         if (selected) player.DeselectPayable();
+        Payment.Cancel(payer, source, owner);
     }
 
     private static bool LoadArt()
@@ -781,8 +847,12 @@ internal static class HeroShop
 internal sealed class HeroShopOwner : MonoBehaviour
 {
     private Il2CppSystem.Action<Player> _onPay;
+    private long _payablePointer;
+    [HideFromIl2Cpp] internal long PayablePointer() => _payablePointer;
+    [HideFromIl2Cpp] internal void BindPayable(PayableComponent payable) => _payablePointer = payable != null ? payable.Pointer.ToInt64() : 0;
     public HeroShopOwner(IntPtr pointer) : base(pointer) { }
-    [HideFromIl2Cpp] internal void Initialize() { _onPay = (Il2CppSystem.Action<Player>)HeroShop.OnPay; }
+    [HideFromIl2Cpp] internal void Initialize() { _onPay = (Il2CppSystem.Action<Player>)HandlePay; }
+    [HideFromIl2Cpp] private void HandlePay(Player player) => HeroShop.OnPay(this, player);
     public Il2CppSystem.Action<Player> OnPay => _onPay;
     public bool CanPay(Player player) => HeroShop.CanPlayerPurchase(player);
     // The installed ClassInjector matches interface methods by name/arity. Its ref-enum

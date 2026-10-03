@@ -9,11 +9,15 @@ using System.Linq;
 using System.Reflection;
 using BepInEx.Configuration;
 using KingdomEnhancedMod;
+using PrivateBankR3;
 using UnityEngine;
 
 static class Harness
 {
-    public const string SharedKey = "MyMod_SharedBankStash";
+    /// <summary>旧 PP 共享余额键：生产已改原生 campaign balance / R3，保留常量只为断言“不再访问”。</summary>
+    public const string LegacySharedKey = "MyMod_SharedBankStash";
+    /// <summary>新观察面：R3 文档键（GlobalSaveData.prefs.contents 里的 JSON 快照）。</summary>
+    public const string BankDocumentKey = "MyMod_SharedBankNative_v1";
     public const BindingFlags AnyStatic = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
     public const BindingFlags AnyInstance = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 
@@ -94,6 +98,21 @@ static class Harness
     public static MethodInfo Method(Type type, string name)
         => type.GetMethod(name, AnyStatic) ?? throw new Exception("missing method " + type.Name + "." + name);
 
+    /// <summary>
+    /// 新观察面：当前 campaign account 的 R3 Live。旧断言里的 PlayerPrefs.Ints[SharedKey]
+    /// （全局 PP 共享余额）迁移到这里——生产改用原生 campaign balance，且不再跨账号串账。
+    /// </summary>
+    public static int BankLive()
+    {
+        if (!SharedBankNative.TryLive(out _, out _, out int coins))
+            throw new Exception("bank Live unavailable");
+        return coins;
+    }
+
+    /// <summary>当前 loaded 的共享账本文档是否可导入（未绑定前的观察）。</summary>
+    public static bool BankLiveAvailable()
+        => SharedBankNative.TryLive(out _, out _, out _);
+
     // ------------------------------------------------------ production reset
     private static readonly Type BankerType = typeof(PatchEconomy_Banker);
     private static readonly Type RestockType = typeof(PatchEconomy_AutoRestock);
@@ -124,7 +143,6 @@ static class Harness
         PatchEconomy_BankAssistants.EnsureCalls = 0;
         PatchEconomy_BankAssistants.Bound = false;
 
-        SetStatic(BankerType, "_sharedStash", -1);
         SetStatic(BankerType, "_hasPrimedBanker", false);
         SetStatic(BankerType, "_needsReprime", false);
         SetStatic(BankerType, "_nextLateBindFrame", 0);
@@ -133,11 +151,23 @@ static class Harness
         SetStatic(BankerType, "_primedBanker", null);
         SetStatic(BankerType, "_primedWorld", null);
         SetStatic(BankerType, "_lastObservedStash", 0);
-        SetStatic(BankerType, "_sharedLedgerDirty", false);
-        SetStatic(BankerType, "_nextLedgerFlushAt", 0f);
+        SetStatic(BankerType, "_primedOwner", null);
+        SetStatic(BankerType, "_primedAccount", (nint)0);
+        SetStatic(BankerType, "_primedLand", 0);
+        SetStatic(BankerType, "_primedActor", null);
+        SetStatic(BankerType, "_primedRoot", null);
+        SetStatic(BankerType, "_primedCaptured", false);
         SetStatic(BankerType, "_bankerCheckFrame", 0);
         ClearStatic(BankerType, "_duplicatesThatSkippedAwake");
         ClearStatic(BankerType, "_workProfiles");
+
+        // 真实 SharedBankNative 的 owner/R3 状态逐用例隔离（旧 PP 共享键已无生产读写点）。
+        GlobalSaveData._loaded = null;
+        NetworkPostbox.Instance = null;
+        foreach (string field in new[] { "_global", "_prefs", "_campaignRefs", "_token", "_state",
+            "_reason", "_save", "_pop", "_ready" })
+            SetStatic(typeof(SharedBankNative), field, null);
+        SetStatic(typeof(SharedBankNative), "_bankSerial", 0);
 
         ClearStatic(RestockType, "_orders");
         ClearStatic(RestockType, "_faultedTargets");
@@ -332,6 +362,14 @@ sealed class Fixture
         fixture.Kingdom.Borders[Side.Right] = 4f;
         fixture.Kingdom._orderedWalls[Side.Left] = new List<Wall> { null, MakeWall(fixture.Layer, -5f) };
         fixture.Kingdom._orderedWalls[Side.Right] = new List<Wall> { null, MakeWall(fixture.Layer, 5f) };
+        // Global 是进程级对象（跨换世界保持）；只有测试重置（_loaded=null）后才新建。
+        // campaigns[0] 即默认 bank account（旧 PP 全局共享键的替代观察面按账户隔离）。
+        if (GlobalSaveData._loaded == null)
+        {
+            GlobalSaveData._loaded = new GlobalSaveData();
+            GlobalSaveData._loaded.campaigns.Add(new CampaignSaveData());
+        }
+        if (NetworkPostbox.Instance == null) NetworkPostbox.Instance = new NetworkPostbox();
         Managers.Inst = new Managers
         {
             world = fixture.World,
@@ -344,6 +382,71 @@ sealed class Fixture
         };
         BiomeHolder.Inst = new BiomeHolder { BiomeIndex = biomeIndex };
         return fixture;
+    }
+
+    /// <summary>注册 fixedID 903 动态登记（模拟原生 Banker.Awake / Castle 建行的登记链）。</summary>
+    public static CRPCHeader RegisterBanker903(Banker banker)
+    {
+        NetworkPostbox postbox = NetworkPostbox.Instance;
+        if (postbox == null) NetworkPostbox.Instance = postbox = new NetworkPostbox();
+        var header = new CRPCHeader
+        {
+            NetID = 903,
+            netID = 903,
+            HeaderType = CRPCType.Dynamic,
+            referencedGO = banker.gameObject,
+        };
+        banker.parentHeaderRef = header;
+        postbox.DynamicObjects[header.NetID] = header;
+        return header;
+    }
+
+    /// <summary>
+    /// 模拟原生 BankerData Apply 收据：真实 2.4 里新银行/读档的余额先经
+    /// Persistent_IBehaviour_ApplyData 回到本体，共享账本以该 typed 金额做首次 seed。
+    /// 旧 PP seed（首个经济入口直接写键）已废弃，故测试统一用本入口建立 Live。
+    /// </summary>
+    public static bool SeedNative(Banker banker, int coins)
+        => PatchEconomy_Banker.AfterNativeApply(banker, coins);
+
+    /// <summary>
+    /// 旧 PP 种值迁移：把既存共享余额写进 R3 文档（account normal slot 0）但不绑定，
+    /// 让下一次真实 prime 在读取文档时导入——替代旧 `PlayerPrefs.Ints[SharedKey] = X`。
+    /// </summary>
+    public static void WriteDocumentRaw(int coins)
+        => GlobalSaveData._loaded.prefs.contents[Harness.BankDocumentKey] =
+            BankDocument.Write(new[] { (BankCategory.Normal, 0, coins) });
+
+    /// <summary>写入文档并立即让 owner 绑定导入（等价于“已存在的共享余额”）。</summary>
+    public static void SeedDocument(int coins)
+    {
+        WriteDocumentRaw(coins);
+        SharedBankNative.BeforeMutation(GlobalSaveData._loaded);
+    }
+
+    /// <summary>切换当前 campaign/challenge 账户（旧“两个世界”场景的按账户隔离观察）。</summary>
+    public static void SwitchAccount(int campaignIndex, int challengeIndex = 0)
+    {
+        GlobalSaveData global = GlobalSaveData._loaded;
+        while (global.campaigns.Count <= campaignIndex) global.campaigns.Add(new CampaignSaveData());
+        while (global.challenges.Count < challengeIndex) global.challenges.Add(new CampaignSaveData());
+        global.currentCampaign = campaignIndex;
+        global.currentChallenge = challengeIndex;
+    }
+
+    /// <summary>
+    /// 驱动真实 Global 保存门的目录同步（AsyncGate.Prefix → Ensure(true) → ReconcileCatalog），
+    /// 让新增 campaign/challenge 账户进入已验证 catalog。只做目录/文档准备，不放行也不再造 Live。
+    /// </summary>
+    public static void CompleteCatalogReconcile()
+    {
+        Type nested = typeof(SharedBankNative).GetNestedType("AsyncGate", Harness.AnyStatic)
+            ?? throw new Exception("missing SharedBankNative.AsyncGate");
+        MethodInfo prefix = nested.GetMethod("Prefix", Harness.AnyStatic)
+            ?? throw new Exception("missing AsyncGate.Prefix");
+        object[] args = { GlobalSaveData._loaded, null };
+        if (!(bool)prefix.Invoke(null, args))
+            throw new Exception("bank save gate rejected the reconcile probe");
     }
 
     private static Wall MakeWall(Transform parent, float x)
@@ -379,6 +482,9 @@ sealed class Fixture
         Banker._coinScanner.rangeBehind = NativeScannerBehind;
         Banker._coinScanner._interval = NativeScannerInterval;
         if (kingdomBound) Kingdom.banker = Banker;
+        // 原生 903 身份链：Persistent root + Dynamic header 自指回本体（SharedBankNative.Physical 证据）。
+        BankerGo.AddComponent<Persistent>();
+        RegisterBanker903(Banker);
         return Banker;
     }
 

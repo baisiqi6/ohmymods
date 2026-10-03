@@ -792,6 +792,9 @@ Harness.Test("the delete routine patch targets MoveNext and nothing targets the 
         typeof(CoinCourierPersistence.CampaignCreatePatch),
         typeof(CoinCourierPersistence.CampaignDeleteAsyncPatch),
         typeof(CoinCourierPersistence.CampaignDeleteRoutinePatch),
+        // bank-native 新增的两个挑战删除 mutation 入口同样只挂记账 prefix，不触 factory。
+        typeof(CoinCourierPersistence.ChallengeDeletePatch),
+        typeof(CoinCourierPersistence.ChallengeDeleteRoutinePatch),
     };
     var targets = new List<string>();
     foreach (Type p in patches)

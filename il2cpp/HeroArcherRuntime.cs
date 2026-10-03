@@ -885,7 +885,27 @@ internal static class HeroArcherRuntime
         {
             ActorState state = Find(archer);
             return Enabled && !HeroArcherVisuals.AtlasUnavailable
-                && (state == null || !state.RangeBlocked) && ImmediateEligible(archer);
+                && (state == null || !state.RangeBlocked) && EmbarkeeReady(archer) && ImmediateEligible(archer);
+        }
+        catch { return false; }
+    }
+
+    // Purchase eligibility needs an initialized, correctly-owned, currently free embarkee: the
+    // component of exactly this actor's game object, in the current scene, not embarked, not
+    // targeting and with no pending target. Read-only: nothing here writes a field or triggers a
+    // registration, so the shop's final re-check can run it again after payment.
+    private static bool EmbarkeeReady(Archer archer)
+    {
+        try
+        {
+            if (archer == null || archer.gameObject == null) return false;
+            Embarkee embarkee = archer._embarkee;
+            if (embarkee == null || embarkee.gameObject == null) return false;
+            if (embarkee.gameObject.Pointer != archer.gameObject.Pointer
+                || embarkee._owner == null || embarkee._owner.Pointer != archer.Pointer
+                || archer.GetGO == null || archer.GetGO.Pointer != archer.gameObject.Pointer) return false;
+            if (!OptionalQoLScope.IsCurrent(embarkee)) return false;
+            return !embarkee.IsEmbarked && !embarkee.IsTargetingEmbarkable && embarkee.EmbarkableTarget == null;
         }
         catch { return false; }
     }
@@ -913,6 +933,8 @@ internal static class HeroArcherRuntime
     private static bool ImmediateEligible(Archer archer)
     {
         if (archer == null || archer.gameObject == null || !archer.gameObject.activeInHierarchy) return false;
+        if (HeavyShieldIdentity.ShieldPromotionInProgress || HeavyShieldPersistence.ShieldLoadInProgress
+            || HeavyShieldIdentity.IsKnownCareerRoot(archer.gameObject)) return false;
         if (MusketeerIdentity.IsUnit(archer)) return false;
         if (!archer.enabled || archer.harmless) return false;
         if (SideKey(archer) == 0) return false;

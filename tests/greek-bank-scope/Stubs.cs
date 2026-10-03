@@ -62,6 +62,81 @@ namespace HarmonyLib
 namespace Coatsink.Common
 {
     // Marker namespace so production `using Coatsink.Common;` resolves.
+    /// <summary>原生保存回执位（与真实 2.4 位值一致）：Save|Failure = 0x88。</summary>
+    [Flags]
+    public enum SaveLoadResult
+    {
+        Save = 8,
+        Delete = 16,
+        Cancelled = 32,
+        Success = 64,
+        Failure = 128,
+    }
+
+    /// <summary>协程 Return&lt;T&gt; 按值槽的最小形状（_Save_d__89.@return）。</summary>
+    public static class Routine
+    {
+        public sealed class Return<T>
+        {
+            public T value;
+        }
+    }
+}
+
+namespace Il2CppSystem
+{
+    /// <summary>interop Il2CppSystem.Object 的最小替身（BankerData 基类，供 TryCast）。</summary>
+    public class Object
+    {
+        public T TryCast<T>() where T : class => this as T;
+    }
+
+    /// <summary>interop 形状单参委托替身（原生 SaveAsync 回调）。</summary>
+    public delegate void Action<in T>(T obj);
+}
+
+namespace Il2CppSystem.Collections.Generic
+{
+    /// <summary>
+    /// interop 形状字典替身：只实现生产真正使用的成员。Reads/OnGet 是共享账本文档读取的
+    /// 观察面（旧 PlayerPrefs 余额键观察迁移到此：文档在 GlobalSaveData.prefs.contents 里）。
+    /// </summary>
+    public class Dictionary<TKey, TValue>
+    {
+        private readonly System.Collections.Generic.Dictionary<TKey, TValue> _items =
+            new System.Collections.Generic.Dictionary<TKey, TValue>();
+
+        public int Reads;
+
+        /// <summary>Test hook: models a native callback landing inside the shared-ledger document read.</summary>
+        public Action<TKey> OnGet;
+
+        public int Count => _items.Count;
+
+        public TValue this[TKey key]
+        {
+            get => Read(key);
+            set => _items[key] = value;
+        }
+
+        public bool TryGetValue(TKey key, out TValue value)
+        {
+            Reads++;
+            OnGet?.Invoke(key);
+            return _items.TryGetValue(key, out value);
+        }
+
+        public bool ContainsKey(TKey key) => _items.ContainsKey(key);
+        public void Remove(TKey key) => _items.Remove(key);
+        public void Clear() => _items.Clear();
+
+        private TValue Read(TKey key)
+        {
+            Reads++;
+            OnGet?.Invoke(key);
+            return _items[key];
+        }
+    }
 }
 
 namespace BepInEx.Configuration
@@ -334,10 +409,12 @@ public enum Side { Left, Right }
 public enum Stat { BiggestStash, BiggestWinterStash, CoinsInBank }
 public enum Season { Spring, Summer, Autumn, Winter }
 
-public class Game
+public class Game : Object
 {
     public enum State { Menu, Playing, Paused }
     public State state = State.Playing;
+    /// <summary>现场岛（SharedBankNative.Scene 的 land 证据）。</summary>
+    public int currentLand;
 }
 
 public class World : Object
@@ -451,6 +528,12 @@ public class Banker : Behaviour
     public Wallet _wallet;
     public DroppableCurrency _targetCoin;
     public int InterestPerDay;
+    /// <summary>原生 Banker.BeginRegisteringRPCs 写入的 903 登记回指（双向登记的另一侧）。</summary>
+    public CRPCHeader parentHeaderRef;
+
+    /// <summary>原生 BankerData Apply 体：typed stashedCoins 覆盖本体字段。</summary>
+    public void Persistent_IBehaviour_ApplyData(Il2CppSystem.Object data)
+        => _stashedCoins = data.TryCast<BankerData>().stashedCoins;
     /// <summary>One-shot native setter fault, used by the restore-retry regression.</summary>
     public bool FailWalkSpeedWrite;
     public int AwakeCalls, UpdateCalls, OnDestroyCalls, DayStartCalls, OpenDoorCalls,
@@ -575,6 +658,101 @@ public class PayableShop : Payable
 }
 
 public class PayableShopBaker : PayableShop { }
+
+// ---------------------------------------------------------------------------
+// Shared bank native surface：真实 SharedBankNative.cs / SharedBankState.cs 的编译边界。
+// 旧 PP 共享余额键（MyMod_SharedBankStash 的 GetInt/SetInt 观察，已删除）迁移到本观察面：
+// 共享余额 = 当前 campaign account 的 R3 Live（SharedBankState），文档快照存在
+// GlobalSaveData.prefs.contents["MyMod_SharedBankNative_v1"]。以下替身只模拟原生可观察
+// 行为（catalog/account/903 登记/文档存储/Apply 收据），账本算法仍在被链接的生产源里。
+// ---------------------------------------------------------------------------
+public class PrefsSaveData : UnityEngine.Object
+{
+    public Il2CppSystem.Collections.Generic.Dictionary<string, string> contents = new();
+}
+
+public class CampaignSaveData : UnityEngine.Object { }
+
+public class GlobalSaveData : UnityEngine.Object
+{
+    public static GlobalSaveData _loaded;
+    public PrefsSaveData prefs = new();
+    public List<CampaignSaveData> campaigns = new();
+    public List<CampaignSaveData> challenges = new();
+    public int currentCampaign, currentChallenge;
+
+    public CampaignSaveData GetCurrentCampaign()
+        => currentChallenge == 0 ? campaigns[currentCampaign] : challenges[currentChallenge - 1];
+
+    /// <summary>原生 SaveAsync 的最小形状（SharedBankNative.AsyncGate 的门控目标）。</summary>
+    public void SaveAsync(Il2CppSystem.Action<Coatsink.Common.SaveLoadResult> callback) { }
+
+    /// <summary>真实 _Save_d__89 的最小形状（SharedBankNative.SyncGate 读取 state/@return）。</summary>
+    public sealed class _Save_d__89
+    {
+        public int __1__state;
+        public GlobalSaveData __4__this;
+        private Coatsink.Common.Routine.Return<Coatsink.Common.SaveLoadResult> _stored = new();
+        public Coatsink.Common.Routine.Return<Coatsink.Common.SaveLoadResult> @return
+        {
+            get => new() { value = _stored.value }; // boxed copy, as the interop Return slot behaves
+            set => _stored = new() { value = value.value };
+        }
+        public bool MoveNext() => false;
+    }
+}
+
+public class Persistent : UnityEngine.Component { }
+
+public class BankerData : Il2CppSystem.Object
+{
+    public int stashedCoins;
+}
+
+/// <summary>原生登记类型（实测 2.4：Dynamic = 1，SemiStatic = 2）。</summary>
+public enum CRPCType { Static = 0, Dynamic = 1, SemiStatic = 2 }
+
+/// <summary>原生 RPC 登记头：903 银行家身份的双向登记一侧。</summary>
+public class CRPCHeader : UnityEngine.Object
+{
+    public short NetID;
+    public int netID;
+    public CRPCType HeaderType;
+    public GameObject referencedGO;
+}
+
+/// <summary>固定 903 动态登记表的最小 NetworkPostbox 替身。</summary>
+public class NetworkPostbox : UnityEngine.Object
+{
+    public static NetworkPostbox Instance;
+    public readonly Dictionary<short, CRPCHeader> DynamicObjects = new();
+}
+
+public class IslandSaveData : UnityEngine.Object
+{
+    public static IslandSaveData CurrentlySavingIsland;
+    public static bool isSavingGame;
+    public int land;
+    public List<ObjectData> objects = new();
+    public void Save(int campaign, int land, int challenge) { }
+    public string GetID(Persistent root) => "";
+    public bool TryPopObjectsToScene() => true;
+    public Persistent TryCreateOrFind(ObjectData row) => null;
+    public void UpdateSavedWithRevisions() { }
+
+    public sealed class ObjectData : UnityEngine.Object
+    {
+        public string uniqueID;
+        public int netID;
+        public List<ComponentData> componentData2 = new();
+    }
+
+    public sealed class ComponentData : UnityEngine.Object
+    {
+        public new string name;
+        public string type, data;
+    }
+}
 
 public static class NetworkBigBoss
 {

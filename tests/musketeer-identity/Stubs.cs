@@ -130,4 +130,33 @@ namespace KingdomEnhancedMod
     {
         internal static void EnsureBoundFromApplyToScene(CampaignSaveData applied) { }
     }
+
+    /// <summary>
+    /// 中性 disabled 边界替身：本套件覆盖火枪手身份/存档接线，不覆盖共享银行账本算法
+    /// （真实 SharedBankNative/R3 的 capture/save-gate 语义由 tests/coin-courier-economy 与
+    /// tests/shared-bank-regressions 直接链接生产源验证）。这里只让 MusketeerPersistence 新增的
+    /// 银行观察/装载接线保持同签名 no-op；绝不能被当作银行行为已在本套件被验证。
+    /// Pop 令牌只把 BeginPop/EndPop 配对，不承载任何账本状态。
+    /// </summary>
+    internal static class SharedBankNative
+    {
+        internal sealed class Pop { }
+
+        private static Pop _current;
+
+        internal static Pop CurrentPop => _current;
+
+        internal static void ObserveId(Persistent root, string id) { }
+
+        internal static Pop BeginPop(IslandSaveData island) => _current = new Pop();
+
+        internal static void EndPop(Pop pop, bool normal)
+        {
+            if (ReferenceEquals(_current, pop)) _current = null;
+        }
+
+        internal static void Created(IslandSaveData.ObjectData row, Persistent root) { }
+
+        internal static void SceneApplied() { }
+    }
 }

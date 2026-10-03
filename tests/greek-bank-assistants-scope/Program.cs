@@ -25,7 +25,8 @@ static class Program
         internal Env()
         {
             B = F.AddBanker();
-            B._stashedCoins = 100;
+            // 旧 PP 时代的隐式首次 seed 已废弃（无收据不造账）：按真实原生 Apply 收据建立账户 Live。
+            True(Fixture.SeedNative(B, 100), "bank account seeded");
             C = B.gameObject.AddComponent<BankAssistantCoordinator>();
             BankAssistantCoordinator.AttachTo(B);
             SetStatic(typeof(BankAssistantCoordinator), "_hadAuthority", true);
@@ -77,7 +78,8 @@ static class Program
             B = F.AddBanker();
             // 源 banker 自身高度（原生/用户可任意）：助手槽取值必须与它无关。
             B.transform.localScale = new Vector3(1f, sourceBankerY, 1f);
-            B._stashedCoins = 100;
+            // 旧 PP 时代的隐式首次 seed 已废弃（无收据不造账）：按真实原生 Apply 收据建立账户 Live。
+            True(Fixture.SeedNative(B, 100), "bank account seeded");
             C = B.gameObject.AddComponent<BankAssistantCoordinator>();
             BankAssistantCoordinator.AttachTo(B);
             RegisterBankerControllers();
@@ -284,22 +286,26 @@ static class Program
             True(BankAssistantCoordinator.MainBanker == e.B, "canonical reference retained");
             True(other.GetComponent<BankAssistantCoordinator>() == null, "no foreign coordinator injected");
         });
-        Test("foreign destroy without an intervening update cannot contaminate ledger", () =>
+        Test("foreign destroy retires the account actor without any legacy PP write", () =>
         {
             var e = new Env(); PatchEconomy_Banker.FinaliseEmerge_Prefix(e.B);
             BiomeHolder.Inst.BiomeIndex = 1; e.B._stashedCoins = 17;
             PatchEconomy_Banker.OnDestroy_Prefix(e.B);
-            Eq(100, PlayerPrefs.Ints[SharedKey]); Eq(1, PlayerPrefs.SetIntCalls);
+            // 新契约：退休读取同一 actor 的末次准确值并更新 R3 Live（旧 PP 全局键已不存在）。
+            Eq(17, BankLive(), "retire keeps the actor's last accurate read");
+            Eq(0, PlayerPrefs.SetIntCalls, "no legacy PP ledger write");
         });
-        Test("disabled banker's reentry primes before native work", () =>
+        Test("disabled banker's same-world reentry keeps the account prime and observes the delta", () =>
         {
+            // bank-native R2 有意变更：biome 翻转不再吊销 prime（旧 SuspendPrimeProof 已删除），
+            // 同 world 的 actor delta 会被观察进 R3 Live；希腊 scope 只闸经济入口。
             var e = new Env(); PatchEconomy_Banker.FinaliseEmerge_Prefix(e.B);
             BiomeHolder.Inst.BiomeIndex = 1; e.B.enabled = false;
             PatchEconomy_Banker.TickOwnedProfiles(); e.B._stashedCoins = 17;
             BiomeHolder.Inst.BiomeIndex = BiomeHolder.GreeceBiomeIndex;
-            PatchEconomy_Banker.Update_Prefix(e.B); Eq(100, e.B._stashedCoins);
+            PatchEconomy_Banker.Update_Prefix(e.B); Eq(17, e.B._stashedCoins, "same-world delta kept");
             e.B._stashedCoins += 5; PatchEconomy_Banker.Update_Postfix(e.B);
-            Eq(105, PlayerPrefs.Ints[SharedKey]);
+            Eq(22, BankLive(), "ledger follows the observed delta");
         });
         Test("panel tick binds disabled client after Awake before SetParent", () =>
         {
@@ -402,7 +408,7 @@ static class Program
 
             Eq(1, Pool.DespawnCalls, "only one coin is consumed");
             Eq(101, e.B._stashedCoins, "exactly one credit");
-            Eq(101, PlayerPrefs.Ints[SharedKey]);
+            Eq(101, BankLive(), "the credit is observed into the shared account once");
             Eq(0, GetField<int>(e.Helper, "CarriedCoins"), "the trip closes out at home");
             Eq(0f, WaitDeadline(e.Helper));
             False(ActiveCollector(0), "the collector is released at the trip target");
@@ -518,7 +524,7 @@ static class Program
             PatchEconomy_Banker.FinaliseEmerge_Prefix(e.B);
             e.B._stashedCoins += 7;
             PatchEconomy_Banker.Update_Postfix(e.B);
-            Eq(107, PlayerPrefs.Ints[SharedKey], "native ledger sync is unaffected by a pending gap");
+            Eq(107, BankLive(), "native ledger sync is unaffected by a pending gap");
             Eq(107, e.B._stashedCoins);
 
             BiomeHolder.Inst.BiomeIndex = 1;

@@ -136,37 +136,43 @@ static class Program
         {
             Fixture f = Fixture.BuildGreek();
             Banker banker = f.AddBanker();
-            banker._stashedCoins = 100;
-            PatchEconomy_Banker.FinaliseEmerge_Prefix(banker);
+            // 旧断言观察 PP 共享键的 seed/stage；生产改用原生 campaign balance 后，
+            // 首次 seed 只来自原生 Apply 收据（R3 Live），落盘只经 Global 保存门。
+            Harness.True(Fixture.SeedNative(banker, 100), "native apply seeds the shared account");
             Harness.Eq(100, banker._stashedCoins, "primed stash");
-            Harness.Eq(100, PlayerPrefs.Ints[Harness.SharedKey], "seeded key");
-            Harness.Eq(1, PlayerPrefs.SetIntCalls, "seed once");
-            Harness.Eq(1, PlayerPrefs.SaveCalls, "seed flush once");
+            Harness.Eq(100, Harness.BankLive(), "R3 Live seeded once from the native stash");
+            Harness.Eq(0, PlayerPrefs.SetIntCalls, "no legacy PP ledger write");
+            Harness.Eq(0, PlayerPrefs.SaveCalls, "no legacy PP flush");
 
             banker.InterestPerDay = 5;
             PatchEconomy_Banker.HandleOnDayStart_Prefix(banker);
             banker.HandleOnDayStart(); // native interest, exactly once
             PatchEconomy_Banker.HandleOnDayStart_Postfix(banker);
             Harness.Eq(105, banker._stashedCoins, "interest once");
-            Harness.Eq(105, PlayerPrefs.Ints[Harness.SharedKey], "staged after interest");
-            Harness.Eq(2, PlayerPrefs.SetIntCalls, "one staged write");
-            Harness.Eq(2, PlayerPrefs.SaveCalls, "forced flush");
+            Harness.Eq(105, Harness.BankLive(), "R3 Live follows the interest once");
+            Harness.Eq(0, PlayerPrefs.SetIntCalls, "durable bank writes only happen at the native save gate");
 
             PatchEconomy_Banker.HandleOnDayStart_Prefix(banker);
             banker.HandleOnDayStart();
             PatchEconomy_Banker.HandleOnDayStart_Postfix(banker);
             Harness.Eq(110, banker._stashedCoins, "second day interest");
-            Harness.Eq(3, PlayerPrefs.SetIntCalls, "no double accounting");
+            Harness.Eq(110, Harness.BankLive(), "no double accounting");
         });
 
-        Harness.Test("foreign banker never reads or writes the shared prefs", () =>
+        Harness.Test("foreign account banker never reads or writes the greek shared ledger", () =>
         {
-            Fixture f = Fixture.BuildForeign();
-            Banker banker = f.AddBanker();
+            // 旧断言观察全局 PP 共享键（跨账号串账）；生产改用原生 campaign balance 后，
+            // 隔离面变成“账户 + 903 身份”：另一个 campaign account 不导入、不改写 greek 账本。
+            Fixture greek = Fixture.BuildGreek(sceneHandle: 1);
+            Banker greekBanker = greek.AddBanker();
+            Harness.True(Fixture.SeedNative(greekBanker, 5709), "greek account seeded");
+
+            Fixture foreign = Fixture.BuildForeign(sceneHandle: 2);
+            Banker banker = foreign.AddBanker();
+            Fixture.SwitchAccount(1); // 另一个 campaign account：旧“全局共享”期望的替代隔离面
+            Fixture.CompleteCatalogReconcile(); // 真实目录已含该账户，拒绝不能只是“冷未知”
             banker._stashedCoins = 77;
-            PlayerPrefs.Ints[Harness.SharedKey] = 5709;
-            PlayerPrefs.ResetAll();
-            PlayerPrefs.Ints[Harness.SharedKey] = 5709;
+            int reads = GlobalSaveData._loaded.prefs.contents.Reads;
 
             PatchEconomy_Banker.FinaliseEmerge_Prefix(banker);
             PatchEconomy_Banker.HandleOnDayStart_Prefix(banker);
@@ -175,74 +181,87 @@ static class Program
             PatchEconomy_Banker.Update_Postfix(banker);
 
             Harness.Eq(77, banker._stashedCoins, "foreign native stash untouched");
-            Harness.Eq(5709, PlayerPrefs.Ints[Harness.SharedKey], "greek shared value untouched");
-            Harness.Eq(0, PlayerPrefs.SetIntCalls, "no shared write");
-            Harness.Eq(0, PlayerPrefs.GetIntCalls, "no shared read");
-            Harness.Eq(0, PlayerPrefs.SaveCalls, "no flush outside greek");
+            Harness.Eq(reads, GlobalSaveData._loaded.prefs.contents.Reads, "no shared document read for the foreign account");
+            Harness.False(Harness.BankLiveAvailable(), "foreign account has no shared Live");
+            Harness.Eq(0, PlayerPrefs.SetIntCalls, "no legacy PP write");
+            Harness.Eq(0, PlayerPrefs.GetIntCalls, "no legacy PP read");
+            Harness.Eq(0, PlayerPrefs.SaveCalls, "no legacy PP flush");
+
+            Fixture.SwitchAccount(0);
+            Harness.Eq(5709, Harness.BankLive(), "greek account ledger untouched");
+            Harness.Eq(5709, greekBanker._stashedCoins, "greek banker untouched");
         });
 
         Harness.Test("foreign banker never overwrites greek shared balance", () =>
         {
             Fixture greek = Fixture.BuildGreek(sceneHandle: 1);
             Banker greekBanker = greek.AddBanker();
-            greekBanker._stashedCoins = 400;
-            PatchEconomy_Banker.FinaliseEmerge_Prefix(greekBanker);
-            Harness.Eq(400, PlayerPrefs.Ints[Harness.SharedKey], "greek seeded");
+            Harness.True(Fixture.SeedNative(greekBanker, 400), "greek account seeded");
+            Harness.Eq(400, Harness.BankLive(), "greek seeded");
 
             Fixture foreign = Fixture.BuildForeign(sceneHandle: 2);
             Banker foreignBanker = foreign.AddBanker();
+            Fixture.SwitchAccount(1);
+            Fixture.CompleteCatalogReconcile();
             foreignBanker._stashedCoins = 12;
             Harness.Eq(0, PatchEconomy_Banker.DepositFromAssistant(foreignBanker, 5), "deposit refused");
             PatchEconomy_Banker.Update_Postfix(foreignBanker);
             Harness.Eq(12, foreignBanker._stashedCoins, "foreign stash untouched");
-            Harness.Eq(400, PlayerPrefs.Ints[Harness.SharedKey], "greek ledger intact");
+
+            Fixture.SwitchAccount(0);
+            Harness.Eq(400, Harness.BankLive(), "greek ledger intact");
         });
 
-        Harness.Test("scope exit suspends prime proof and reentry reprimes", () =>
+        Harness.Test("scope exit gates economy, same-world reentry keeps the account prime", () =>
         {
+            // 新契约（bank-native R2 有意变更）：prime 凭证绑定 903 身份 + world，
+            // 不再由 biome 翻转吊销（旧 SuspendPrimeProof 已删除）；希腊 scope 只闸经济入口。
             Fixture f = Fixture.BuildGreek();
             Banker banker = f.AddBanker();
-            banker._stashedCoins = 100;
-            PatchEconomy_Banker.FinaliseEmerge_Prefix(banker);
-            Harness.Eq(100, PlayerPrefs.Ints[Harness.SharedKey], "seeded");
+            Harness.True(Fixture.SeedNative(banker, 100), "native apply seeds the shared account");
+            Harness.Eq(100, Harness.BankLive(), "seeded");
 
             BiomeHolder.Inst = new BiomeHolder { BiomeIndex = 1 };
-            PatchEconomy_Banker.Update_Postfix(banker); // 已知离开希腊：吊销 prime 凭证
-            banker._stashedCoins = 88;                  // 其他世界的原生变动
+            Harness.Eq(0, PatchEconomy_Banker.DepositFromAssistant(banker, 1), "deposit refused outside greek");
+            PatchEconomy_Banker.Update_Postfix(banker); // 离开希腊：只落盘已观察值，不吊销 prime
+            Harness.Eq(100, Harness.BankLive(), "no fabricated ledger value on scope exit");
+            banker._stashedCoins = 88;                  // 同账户本体的原生变动
 
             BiomeHolder.Inst = new BiomeHolder { BiomeIndex = BiomeHolder.GreeceBiomeIndex };
-            Harness.Eq(1, PatchEconomy_Banker.DepositFromAssistant(banker, 1), "reprimes then deposits");
-            Harness.Eq(101, banker._stashedCoins, "foreign drift discarded by reprime");
-            Harness.Eq(101, PlayerPrefs.Ints[Harness.SharedKey], "shared ledger follows greek");
+            Harness.Eq(1, PatchEconomy_Banker.DepositFromAssistant(banker, 1), "reentry deposits");
+            Harness.Eq(89, banker._stashedCoins, "same-world actor keeps its native balance");
+            Harness.Eq(89, Harness.BankLive(), "shared ledger follows the account's actor");
         });
 
         Harness.Test("world context change forces a reprime", () =>
         {
             Fixture greek = Fixture.BuildGreek(sceneHandle: 1);
             Banker banker = greek.AddBanker();
-            banker._stashedCoins = 100;
-            PatchEconomy_Banker.FinaliseEmerge_Prefix(banker);
+            Harness.True(Fixture.SeedNative(banker, 100), "greek account seeded");
 
-            // 同一个 banker 被搬进新 world（Persistent 恢复路径）：旧 prime 凭证作废
+            // 同一个 banker 被搬进新 world（Persistent 恢复路径）：按真实原生顺序驱动
+            // BeforeNativeApply（retire 在 Apply 覆盖前读旧值）→ ApplyData 新岛值(55) → Applied。
             Fixture next = Fixture.BuildGreek(sceneHandle: 2);
             banker.transform.Parent = next.Layer;
             banker.gameObject.scene = next.Layer.gameObject.scene;
             next.Kingdom.banker = banker;
-            banker._stashedCoins = 55;
+            PatchEconomy_Banker.BeforeNativeApply(banker);
+            banker.Persistent_IBehaviour_ApplyData(new BankerData { stashedCoins = 55 });
+            PatchEconomy_Banker.AfterNativeApply(banker, 55);
             PatchEconomy_Banker.Update_Postfix(banker);
-            Harness.Eq(100, PlayerPrefs.Ints[Harness.SharedKey], "foreign drift never saved");
-            Harness.Eq(1, PlayerPrefs.SetIntCalls, "only the seed write");
+            Harness.Eq(100, Harness.BankLive(), "foreign drift never saved");
+            Harness.Eq(100, banker._stashedCoins, "old receipt value retained until reprime");
 
             Harness.Eq(1, PatchEconomy_Banker.DepositFromAssistant(banker, 1), "reprimed in new world");
             Harness.Eq(101, banker._stashedCoins, "shared value adopted again");
+            Harness.Eq(101, Harness.BankLive(), "ledger follows the new world actor");
         });
 
         Harness.Test("instance id reuse cannot inherit the prime proof", () =>
         {
             Fixture f = Fixture.BuildGreek();
             Banker first = f.AddBanker();
-            first._stashedCoins = 100;
-            PatchEconomy_Banker.FinaliseEmerge_Prefix(first);
+            Harness.True(Fixture.SeedNative(first, 100), "greek account seeded");
             int reusedId = first.gameObject.Id;
 
             UnityEngine.Object.Destroy(first.gameObject);
@@ -250,9 +269,10 @@ static class Program
             second.gameObject.Id = reusedId;
             second._stashedCoins = 7;
             PatchEconomy_Banker.Update_Postfix(second);
-            Harness.Eq(100, PlayerPrefs.Ints[Harness.SharedKey], "reused id did not write");
+            Harness.Eq(100, Harness.BankLive(), "reused id did not write");
             Harness.Eq(1, PatchEconomy_Banker.DepositFromAssistant(second, 1), "reused id reprimes");
             Harness.Eq(101, second._stashedCoins, "shared value adopted");
+            Harness.Eq(101, Harness.BankLive(), "ledger follows the adopted value");
         });
 
         Harness.Test("unknown scope never primes", () =>
@@ -262,20 +282,24 @@ static class Program
             banker._stashedCoins = 100;
             BiomeHolder.Inst = null;
             PatchEconomy_Banker.FinaliseEmerge_Prefix(banker);
-            Harness.Eq(0, PlayerPrefs.GetIntCalls, "no shared read while unknown");
-            Harness.Eq(0, PlayerPrefs.SetIntCalls, "no shared write while unknown");
+            Harness.False(Harness.BankLiveAvailable(), "no shared Live while unknown");
+            Harness.Eq(0, PlayerPrefs.GetIntCalls, "no legacy PP read");
+            Harness.Eq(0, PlayerPrefs.SetIntCalls, "no legacy PP write");
             BiomeHolder.Inst = new BiomeHolder { FailRead = true };
             PatchEconomy_Banker.HandleOnDayStart_Prefix(banker);
             Harness.Eq(0, PlayerPrefs.SetIntCalls, "faulting scope never primes");
+            Harness.False(Harness.BankLiveAvailable(), "faulting scope never seeds");
         });
 
         Harness.Test("deposit commits in greek and is refused elsewhere", () =>
         {
             Fixture f = Fixture.BuildGreek();
             Banker banker = f.AddBanker();
+            // 新生产不允许无收据造零；首 seed 走真实原生 Apply 收据（typed BankerData=0）。
+            Harness.True(Fixture.SeedNative(banker, 0), "native apply seeds an empty account");
             Harness.Eq(7, PatchEconomy_Banker.DepositFromAssistant(banker, 7), "greek deposit");
             Harness.Eq(7, banker._stashedCoins, "stash credited");
-            Harness.Eq(7, PlayerPrefs.Ints[Harness.SharedKey], "ledger staged");
+            Harness.Eq(7, Harness.BankLive(), "ledger follows the deposit");
             Harness.Eq(1, f.Kingdom.castle.StashCalls.Count, "castle refreshed");
             Harness.Eq(7, f.Kingdom.castle.StashCalls[0], "castle value");
             Harness.Eq(7, f.Stats.StatCalls[Stat.CoinsInBank], "stats value");
@@ -283,12 +307,10 @@ static class Program
 
             Fixture foreign = Fixture.BuildForeign(sceneHandle: 2);
             Banker foreignBanker = foreign.AddBanker();
-            PlayerPrefs.ResetAll();
-            PlayerPrefs.Ints[Harness.SharedKey] = 7;
             Harness.Eq(0, PatchEconomy_Banker.DepositFromAssistant(foreignBanker, 3), "foreign refused");
             Harness.Eq(0, foreignBanker._stashedCoins, "no foreign credit");
             Harness.Eq(0, foreign.Kingdom.castle.StashCalls.Count, "no foreign castle write");
-            Harness.Eq(0, PlayerPrefs.SetIntCalls, "no foreign staging");
+            Harness.Eq(0, PlayerPrefs.SetIntCalls, "no legacy PP staging");
 
             Fixture greek = Fixture.BuildGreek(sceneHandle: 3);
             Banker clientBanker = greek.AddBanker();
@@ -301,22 +323,22 @@ static class Program
         {
             Fixture f = Fixture.BuildGreek();
             Banker banker = f.AddBanker();
-            banker._stashedCoins = 100;
+            Harness.True(Fixture.SeedNative(banker, 100), "greek account seeded");
             BankAssistantCoordinator.MainBanker = banker;
             Harness.True(PatchEconomy_Banker.TrySpendForAutoRestock(banker, 20), "greek debit");
             Harness.Eq(80, banker._stashedCoins, "debited once");
             Harness.Eq(80, f.Kingdom.castle.StashCalls[0], "castle follows");
             Harness.False(PatchEconomy_Banker.TrySpendForAutoRestock(banker, 200), "insufficient funds");
             Harness.Eq(80, banker._stashedCoins, "no overdraw");
+            Harness.Eq(80, Harness.BankLive(), "ledger follows the debit");
 
             Fixture foreign = Fixture.BuildForeign(sceneHandle: 2);
             Banker foreignBanker = foreign.AddBanker();
             foreignBanker._stashedCoins = 100;
             BankAssistantCoordinator.MainBanker = foreignBanker;
-            int staged = PlayerPrefs.SetIntCalls;
             Harness.False(PatchEconomy_Banker.TrySpendForAutoRestock(foreignBanker, 20), "foreign refused");
             Harness.Eq(100, foreignBanker._stashedCoins, "foreign stash untouched");
-            Harness.Eq(staged, PlayerPrefs.SetIntCalls, "no foreign staging");
+            Harness.Eq(0, PlayerPrefs.SetIntCalls, "no legacy PP staging");
 
             Fixture greek2 = Fixture.BuildGreek(sceneHandle: 3);
             Banker clientBanker = greek2.AddBanker();
@@ -331,25 +353,26 @@ static class Program
         {
             Fixture f = Fixture.BuildGreek();
             Banker banker = f.AddBanker();
-            banker._stashedCoins = 100;
+            Harness.True(Fixture.SeedNative(banker, 100), "greek account seeded");
             BankAssistantCoordinator.MainBanker = banker;
 
             f.Kingdom.isDaytime = false;
-            int staged = PlayerPrefs.SetIntCalls;
             Harness.True(PatchEconomy_Banker.TrySpendForAutoRestock(banker, 20), "night debit accepted");
             Harness.Eq(80, banker._stashedCoins, "night balance debited once");
-            Harness.True(PlayerPrefs.SetIntCalls > staged, "night debit stages the ledger");
+            Harness.Eq(80, Harness.BankLive(), "night debit stages the ledger");
             Harness.Eq(80, f.Kingdom.castle.StashCalls[f.Kingdom.castle.StashCalls.Count - 1],
                 "night debit refreshes castle");
             // 常规银行操作不受影响：夜间存入照常入账。
             Harness.Eq(5, PatchEconomy_Banker.DepositFromAssistant(banker, 5), "night deposit still accepted");
             Harness.Eq(85, banker._stashedCoins, "night deposit credited");
+            Harness.Eq(85, Harness.BankLive(), "night deposit observed");
 
             f.Kingdom.isDaytime = true;
             Harness.True(PatchEconomy_Banker.TrySpendForAutoRestock(banker, 20), "day debit works");
             Harness.Eq(65, banker._stashedCoins, "day debit commits once");
             Harness.Eq(65, f.Kingdom.castle.StashCalls[f.Kingdom.castle.StashCalls.Count - 1],
                 "day debit refreshes castle");
+            Harness.Eq(65, Harness.BankLive(), "day debit observed");
         });
 
         Harness.Test("night flip during prime no longer refuses the debit (all-day)", () =>
@@ -358,15 +381,20 @@ static class Program
             Banker banker = f.AddBanker();
             banker._stashedCoins = 100;
             BankAssistantCoordinator.MainBanker = banker;
-            PlayerPrefs.Ints[Harness.SharedKey] = 100; // prime 读取共享账本
-            PlayerPrefs.OnGet = key => { if (key == Harness.SharedKey) f.Kingdom.isDaytime = false; };
+            // 旧 PP 种值迁移：文档先写不绑定，prime 读取时导入（OnGet 模拟读取中的原生回调）。
+            Fixture.WriteDocumentRaw(100);
+            GlobalSaveData._loaded.prefs.contents.OnGet = key =>
+            {
+                if (key == Harness.BankDocumentKey) f.Kingdom.isDaytime = false;
+            };
             Harness.True(PatchEconomy_Banker.TrySpendForAutoRestock(banker, 20),
                 "night flip inside prime cannot refuse the debit");
-            Harness.Eq(1, PlayerPrefs.GetIntCalls, "prime read still happens before the debit");
+            Harness.Eq(1, GlobalSaveData._loaded.prefs.contents.Reads, "prime read still happens before the debit");
             Harness.Eq(80, banker._stashedCoins, "debit commits after the prime-time flip");
             Harness.Eq(80, f.Kingdom.castle.StashCalls[f.Kingdom.castle.StashCalls.Count - 1],
                 "castle refreshed after the prime-time flip");
-            Harness.Eq(1, PlayerPrefs.SetIntCalls, "ledger staged once after the prime-time flip");
+            Harness.Eq(80, Harness.BankLive(), "ledger observed once after the prime-time flip");
+            Harness.Eq(0, PlayerPrefs.SetIntCalls, "no legacy PP ledger write");
         });
 
         Harness.Test("night tick keeps the pending order without debit (all-day)", () =>
@@ -567,13 +595,12 @@ static class Program
             Harness.WireDestroyToOnDestroy();
             Fixture f = Fixture.BuildGreek();
             Banker banker = f.AddBanker();
-            banker._stashedCoins = 100;
-            PatchEconomy_Banker.FinaliseEmerge_Prefix(banker);
+            Harness.True(Fixture.SeedNative(banker, 100), "greek account seeded");
             banker._stashedCoins = 104; // 原生在两次观测之间改动
             UnityEngine.Object.Destroy(banker.gameObject);
-            Harness.Eq(104, PlayerPrefs.Ints[Harness.SharedKey], "tail delta saved");
+            Harness.Eq(104, Harness.BankLive(), "tail delta saved");
             Harness.Eq(1, banker.OnDestroyCalls, "native destroy ran");
-            Harness.True(PlayerPrefs.SaveCalls >= 2, "staged ledger flushed");
+            Harness.Eq(0, PlayerPrefs.SaveCalls, "no legacy PP flush");
         });
 
         // ----------------------------------------------------- auto restock
@@ -601,6 +628,7 @@ static class Program
             Harness.Eq(0, BankAssistantCoordinator.Teleports, "no teleport");
             Harness.Eq(100, banker._stashedCoins, "no debit outside greek");
             Harness.Eq(0, PlayerPrefs.SetIntCalls, "no ledger write outside greek");
+            Harness.False(Harness.BankLiveAvailable(), "no shared Live fabricated outside greek");
         });
 
         Harness.Test("summary text follows the world scope", () =>
@@ -626,7 +654,7 @@ static class Program
             Harness.WireDestroyToOnDestroy();
             Fixture f = Fixture.BuildGreek();
             Banker banker = f.AddBanker();
-            banker._stashedCoins = 100;
+            Harness.True(Fixture.SeedNative(banker, 100), "greek account seeded");
             BankAssistantCoordinator.MainBanker = banker;
             Harness.EnableRoles(0);
             GameObject actor = Sim.NewActor("Assistant", f.Layer);
