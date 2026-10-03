@@ -74,7 +74,7 @@ cd /Applications/ohmymods/x86_64
 
 每次待发布候选或正式发行包使用独立目录 `player-tests/<tag-or-candidate-id>/`。从原 ZIP 解压，记录源码提交、ZIP SHA-256、游戏指纹以及冷启动、热启动、玩法的实际验证范围。需要重测已写入配置或缓存的版本时，使用不同 attempt 标识并保留前次结果；不要混装 DLL 后继续称其为原发行包。
 
-当前发行基线为 [v9.5.13-mac-arm64-preview.1](https://github.com/baisiqi6/ohmymods/releases/tag/v9.5.13-mac-arm64-preview.1)：
+本次目录整理使用的玩家包基线为 [v9.5.13-mac-arm64-preview.1](https://github.com/baisiqi6/ohmymods/releases/tag/v9.5.13-mac-arm64-preview.1)：
 
 - 源码提交：`0d359ee5ac8d9cedc62a2fe1d53bc19d87790ef3`。
 - ZIP：`OhMyMods-9.5.13-mac-arm64-preview.1.zip`。
