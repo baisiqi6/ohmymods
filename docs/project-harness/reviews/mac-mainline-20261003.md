@@ -2,58 +2,58 @@
 
 > **Agent provenance:** `Mac Max / Codex` · role=`Maintainer Operator` · acting_for=`ohmymods Mac Operator`
 
-本批恢复希腊公共银行的存档/战役归属、英雄驿站的购买与保存一致性，并新增承载16种跨世界坐骑的探索岛及完整卷轴资源地图。代码基于共享发布线 `release/v9.5.13@2b6647cc8ad83512149dff0a9bcec2ea14a4bbcc（已承接PR#102/#99及PR#103/#100）`，包含此前已接收而未进入远端的Windows候选支持文件。默认 `master` 属于旧历史，不能用作此批业务基底。
+本批恢复希腊公共银行的存档/战役归属和英雄购买/保存一致性，并新增承载16种跨世界坐骑的探索岛及完整卷轴资源地图。最新地图修订针对玩家反馈：为探索岛制作自然海岸轮廓，世界地图与单岛页共用同一轮廓及等比布局，切回世界地图时在布局就绪后显示，并随新岛布局重新安放礁石。
 
-这是 #29 的新整合阶段，关联 #51/#85/#97/#98；不自动关闭任何功能Issue。相邻的 #99 实玩Bug和 #100 固定墙基范围已分别通过PR#102/#103合并到共享base；本PR保留两者且不重复提交已合并增量。#101宫廷及 #104新传送视觉候选继续独立，不进入本PR。修复维护会话合并后已备份安装累计b0602679；本PR产品逻辑与该已装组合逐项核对，制品仍以本次输入和构建SHA单独记录，本PR精确DLL尚未安装。本任务仅同步协作与审阅，不触发新合并、部署、发布或玩家数据写入。
+本轮冻结共享基底为 `release/v9.5.13@14e6f64adc4d9b182af0ef4ce9c3e0b510b30789`，已承接PR#102/#99、#103/#100、#106/#104、#107/#99及#109/#108。本PR合入该base后，仅追加尚未发布的累计接收输入与本次地图修订。默认 `master` 属于历史线，不作为本批业务基底。本PR保持Draft；合并、安装和正式发布分别验收。
 
 ## 逐项状态
 
-| 范围 | Issue / Coordinate记录 | 源码 | 验证 | 安装与实机边界 |
-|---|---|---|---|---|
-| 接收的盾卫候选 | #51 / issue-51 | 职业、盾具店、持久化、耐久4及职业互斥接线已接收 | ARM完整组合编译；继承专项测试按原回执保留 | 包含在正常ARM组合；Mac领盾、耐久/退职、读档与联机尚未专项验收 |
-| 银行公共余额 | #97 / issue-97 | 同存档/战役共享、跨战役隔离、原生保存边界和现有经济责任保持 | 本批state28、capture5、recovery5（相关SharedBank源保持）；既有55核心与七继承回归另有历史回执 | 7dcdbf52曾确认启动加载；26f286d6及后继b0602679均仅安装/check-only，玩家跨岛提款/隔离完整现场待验 |
-| 英雄购买/责任 | #85 / issue-85 | 不上船、旧付款保留与新购买/异步保存门协同 | 本批core47、lands24、carry22（相关Hero源保持）；组合22承接#100后复跑通过 | 包含在正常ARM组合；反馈问题的完整实际购买/保存闭环待验 |
-| 跨世界坐骑、扩岛与地图 | #98 / issue-98 | 16原生获取/能力依赖、physical11/UI10、原生地理关系及全纸域坐骑两行布局 | 本批portable纯函数2950（地图源保持）；此前真实船标耦合源/坐标检查在282/300宽=.60，314/400=.70，16完整无碰撞 | 正常组合已安装；本次最终地图像素/点击和land11完整往返、骑乘技能、保存重载尚待用户 |
-| 缩放稳定性与农舍猫接收修订 | #29；既有greek-scale-scope-20260914 / fleet-retreat-cats-20260912记录 | 继承候选与相关测试收录；不是#99的身高+5%增量 | 原接收/测试回执与本完整ARM构建分开 | 不把本次源码接收当作新实机完成，既有owner不变 |
-| 实玩Bug / 新银行家范围 | #99 / #100 | 独立PR#102/#103均已合并，现为共享base；本PR保留其已接纳接缝 | 原切片回执与本次组合回归分开 | 原维护会话已装累计b0602679，13受保护文件hash保持，实玩pending |
-| 原创宫廷 | #101 / issue-101 | 独立候选模块和素材，不进入本PR；拟physical12，文件表/配置须主线协调 | 部分模块与隔离原生证据 | 正常ARM未接入；一次支付和部分保存不等于完整访问往返，待履行支付责任保留 |
+| 范围 | Issue / Coordinate记录 | 源码与验证 | 安装与实机边界 |
+|---|---|---|---|
+| 接收的盾卫候选 | #51 / issue-51 | 职业、盾具店、持久化、耐久4及互斥接线已接收；完整ARM组合构建通过 | 包含在正常ARM组合；领盾、退职/耐久、读档与联机专项待验 |
+| 银行公共余额 | #97 / issue-97 | 同存档/战役共享、跨战役隔离及原生保存边界；state28、capture5、recovery5既有回执保留 | 正常组合已有安装；玩家跨岛提款/战役隔离完整现场待验 |
+| 英雄购买/责任 | #85 / issue-85 | 不上船、旧付款责任与新购买/异步保存门协同；core47、lands24、carry22及组合22既有回执保留 | 正常组合已有安装；实际购买/保存完整闭环待验 |
+| 跨世界坐骑、扩岛与地图 | #98 / issue-98 | physical11/UI10与16种原生坐骑接线；本轮自然海岸、全图/详情一致、切页就绪显示及礁石布局见下表 | 旧地图组合曾安装；本轮精确候选尚未安装，最终像素/点击、land11往返/技能/重载待验 |
+| 缩放稳定性与农舍猫接收修订 | #29及既有专项记录 | 继承候选与专项测试收录；旧缩放/弩手测试迁至native-scale-ownership，新PR#107测试保留native-scale-timing | 原owner不变；源码接收不视为新实机完成 |
+| 实玩Bug、固定墙基与传送效果 | #99 / #100 / #104 | PR#102/#103/#106/#107/#109（含#108弩手后排）均已合并，作为共享base保留 | 维护会话已安装累计d08f4009；本次没有启动游戏或安装地图候选 |
+| 原创宫廷 | #101 / issue-101 | 独立候选与素材，未纳入本PR；独立测试目录已有248文件安装及250文件图表静态校验 | 正常ARM未接入；隔离入口尚未实际启动，完整访问往返待验，既有支付责任保留 |
 
 ## 当前精确候选验证
 
-代码原冻结commit `07c524924c23f7a0b39cd2339df2f915e767d19c`，随后承接共享PR#102/#103已合并的#99/#100修复；最终产品源逐项匹配当前已批准b0602679逻辑，测试与文档另有提交。实际Mac ARM参考程序集161项，Standalone .NET6程序集使用已安装.NET8 SDK构建：0 warnings / 0 errors。验证包装器assembly version为10.8.38，仓库项目Version保持原10.8.35，本PR不做正式版本发布。原无#99审阅产物SHA256 `bac224fb76a59e34c90d5780780556ae3ac63475eccde64ce2bc3d0c42c006da`已被本次重新构建取代，不作为新head对应制品；承接#99时制品 `8c09c424fc675bc3bf66fb90e1b0b3edddb1e32ea506cf7f08b817ff531f8ad5`同样为历史；承接#100后的当前制品SHA256 `8840cc0fd627ada430458973ca97d3a0bab72214f1e2a0d76f01c129e49bb70b`，未安装。
+以下当前结果只对应最终提交所用源输入，不把旧head的验证替代新候选。
 
-原无#99审阅head对fc82的IL/locals/EH范围比较6475方法保持、33PNG与331Harmony目标保持；承接已合并#99后，另以当前已装26f286d6进行IL/locals/EH与资源比较：6530方法全部保持、0改变/新增，33PNG及331Harmony目标保持；承接#100后对当前已装b0602679再做独立比较：6555方法全部保持、0改变/新增，33PNG与334Harmony目标保持；不将旧审阅结果冒充新head验证。代码逻辑保持已接纳输入，仅统一文本换行、移除两处无语义尾空格。逻辑提交分组服务审阅；仅最终head承诺本次构建与测试，不声称每个中间commit已单独验证。
+| 验证层 | 当前结果 |
+|---|---|
+| 实际ARM构建 | 161个真实Mac ARM参考程序集，Standalone .NET6 Release：0 warnings / 0 errors；产品源码提交 `e0f1283db8db5f7d792848826ec61f3ae88cf0b6`，审阅DLL SHA256 `fa11f7b2f1409ef483b1b6dadc477313bb58e44bc6146422bd4260bcb40efa82`。包装器Version10.8.38，仓库Version10.8.35保持，本PR不作正式版本发布 |
+| 地图纯函数与轮廓 | 公开源链接布局2984/0、岸线/租约78/0；新轮廓228×84、等比2.7143，三行16图标逐完整矩形验证岸内与碰撞；坐标导出/Y方向自检通过，legacy反例按预期失败 |
+| 地图调用层与失败恢复 | 公开源链接168/0；独立核心165/0及26条额外失败/真实船标几何探针通过。owner换代等待预算、临时释放失败、四图幂等屏障及队列满恢复责任均有复现后回归 |
+| 组合范围审计 | 相对2026-10-03 13:40UTC已装正常基线d08f4009：6570方法IL/locals/EH保持，28个授权地图方法改变、107新增；33原有PNG逐字节保持，新增岸线PNG SHA256 `bd29b0fd3dd2783adab7ed450907b1578f9a48197c882eef65dd7cdf8baa81bf`；334 Harmony目标与460 handler元数据保持 |
+| 共享base冲突处理 | 新平民高度19、旧缩放ownership109（40场景）及弩手ownership117（17场景）通过；两套测试独立保留；承接#109的弩手unit12、integration9及火枪e2e38场景通过；两个新project引用既有盾卫边界文件，原场景/断言与生产源保持 |
+| 独立审查 | 独立核心源审PASS；公开测试包的privacy/portable输入及可选报告素材SHA绑定分别复核。图形预览为模板/坐标渲染验证，实机效果未验 |
+| 安装/实机 | 本轮精确DLL尚未安装；预览来自真实素材/坐标的代码渲染，属于源级布局验证，未声称Unity游戏画面或玩法验收 |
 
-原审阅head复跑旧哥布林bridge197、visuals23/0；承接PR#102后新head的bridge203、visuals23/0和height19已复跑通过；lifecycle11以已有盾卫边界stub引用作测试接线后复跑通过，分别留证（含作者manifest）；地图pure2950/0，fixture仅保留10个原生岛簇坐标/尺寸与必要图标索引/尺寸元数据，不包含游戏bitmap、源码dump、玩家文件或私人会话。源/坐标夹具检查不等同真实Unity屏幕、原生航行或玩法闭环。state fixture以scope-local `DOTNET_ROLL_FORWARD=Major` 在现有.NET8 runtime运行，不安装额外runtime。
+本轮海岸源PNG来自生成工具；冷启动准备生成同一像素轮廓、透明掩码及白色选中边，随后全图/详情共用缓存。资源使用实际图标尺寸和透明海岸约束；原有10岛保留同一整体缩放/平移。切页使用既有MapTimelineMenu.Update接线，在测量与提交完成前控制世界地图子树可见性；原生滚动、点击、reveal颜色、船标及状态语义保持。公开夹具仅包含必要坐标/尺寸/索引事实与本项目素材，不包含原生游戏bitmap、源码dump、玩家文件或私人会话。
 
-承接#100后，组合接缝四套独立复跑：fixed-foundations30、coin-courier-economy55、greek-bank-scope35、greek-bank-assistants-scope73全通过；英雄与银行组合22另以新依赖接线复跑通过，Program全部场景/断言保持。此前17+2项失败为旧反射Harness缺少HarmonyX的第三个`ref __runOriginal`实参，已仅在测试桥补`true`；全部场景与行为断言保留，生产Banker规范换行后与维护者已审组合完全一致。
+继承专项回执继续有效于其原输入范围：fixed-foundations30、coin-courier-economy55、greek-bank-scope35、greek-bank-assistants-scope73、英雄/银行组合22；哥布林bridge203、visuals23、height19、lifecycle11。此前反射Harness补HarmonyX第三个ref实参，仅修测试桥，全部原场景/断言保留。只有本轮明确重跑的项目才列为当前候选结果。
 
 ## 可复跑回归
 
 ```sh
-dotnet run --project tests/banker-fixed-foundations/Regression.csproj -c Release
-dotnet run --project tests/coin-courier-economy/CoinCourierEconomyTests.csproj -c Release
-dotnet run --project tests/greek-bank-scope/GreekBankScopeRegression.csproj -c Release
-dotnet run --project tests/greek-bank-assistants-scope/Regression.csproj -c Release
 dotnet run --project tests/native-map-icons/MapIconPlanTests.csproj -c Release
-dotnet run --project tests/coin-courier-runtime-bridge/CoinCourierRuntimeBridgeTests.csproj -c Release
-dotnet run --project tests/coin-courier-visuals/Regression.csproj -c Release
-DOTNET_ROLL_FORWARD=Major dotnet run --project tests/shared-bank-state/StateFixture.csproj -c Release
-dotnet run --project tests/shared-bank-regressions/capture/Capture.csproj -c Release
-dotnet run --project tests/shared-bank-regressions/recovery/Recovery.csproj -c Release
-dotnet run --project tests/hero-purchase-consistency/bank-combo/Proof.csproj -c Release
-dotnet run --project tests/hero-purchase-consistency/Proof.csproj -c Release -- core /tmp/ohmymods-review-core
-dotnet run --project tests/hero-purchase-consistency/Proof.csproj -c Release -- lands /tmp/ohmymods-review-lands
-dotnet run --project tests/hero-purchase-consistency/Proof.csproj -c Release -- carry /tmp/ohmymods-review-carry
+dotnet run --project tests/native-map-shore-art/ShoreArtTests.csproj -c Release
+dotnet run --project tests/native-map-runtime/RuntimeProbe.csproj -c Release
+dotnet run --project tests/native-scale-timing/Tests.csproj -c Release
+dotnet run --project tests/native-scale-ownership/Tests.csproj -c Release
+dotnet run --project tests/native-scale-ownership/crossbow-ownership/Ownership.csproj -c Release
 ```
 
-原生参考程序集来自各维护者已验证的2.4/BepInEx运行环境；Mac ARM64、Mac x64、Windows与联机验收各自独立。这里只记录本次列出的验证，不声称全仓所有测试通过。GitHub CI/正式PR review仍由当前head的真实远端状态决定。
+原生参考程序集来自维护者已验证的2.4/BepInEx环境；Mac ARM64、Mac x64、Windows及联机验收各自独立。这里只记录列出的验证，不声称全仓所有测试通过。GitHub CI/正式PR review以当前远端head为准。
 
 ## 协作与范围
 
-共同PR仅在Coordinate正式绑定issue-29；同一PR不绑定多个task。功能task保留各自原owner/branch，用related_prs与本公开文档引用它，不能把共同审阅分支冒充原任务分支。#99/#100各自PR#102/#103与合并事实单独关联，不重复发布；#104效果候选与#101宫廷均保留独立owner及共享文件协调。公共AGENTS、全局checklist/events/progress及历史handoff没有复制到此PR，避免覆盖 #16/#76；远端运行的canonical checklist仍以Coordinate受控读回为准。
+共同PR在Coordinate正式绑定issue-29；功能task保留原owner/branch，通过related_prs与本文引用共同PR。#99/#100/#104的独立PR与合并事实分别保留；#101宫廷仍是独立候选。公共AGENTS及全局checklist/events/progress历史没有复制到本PR，canonical checklist由Coordinate受控读回。
 
-后续改动先查询Issue/PR及Coordinate，再登记文件范围；发现重叠先确定唯一writer。阶段变化继续更新source/tests/install/live和精确head、制品/验证回执，内部调度、凭据、玩家数据仅保留在私有过程材料。
+本轮地图产品修改限定于四个地图类和一张新PNG，验证实际IL/locals/EH、资源与Harmony元数据范围。阶段更新记录source/tests/install/live及精确head/制品/回执，不能用源码、模拟测试或静态入口检查替代真实游戏验收。
 
 ## 改动文件索引
 
@@ -172,14 +172,14 @@ dotnet run --project tests/hero-purchase-consistency/Proof.csproj -c Release -- 
 | `tests/musketeer-formation/interop-check/MusketeerFormationInteropCheck.csproj` | 接收支持文件 | 已接纳后续/混合输入 |
 | `tests/musketeer-identity/Tests.csproj` | 接收支持文件 | 已接纳后续/混合输入 |
 | `tests/musketeer-restock/Tests.csproj` | 接收支持文件 | 已接纳后续/混合输入 |
-| `tests/native-scale-timing/Program.cs` | 接收支持文件 | Windows接收输入 |
-| `tests/native-scale-timing/README.md` | 接收支持文件 | Windows接收输入 |
-| `tests/native-scale-timing/Stubs.cs` | 接收支持文件 | Windows接收输入 |
-| `tests/native-scale-timing/Tests.csproj` | 接收支持文件 | Windows接收输入 |
-| `tests/native-scale-timing/crossbow-ownership/LifecycleStubs.cs` | 接收支持文件 | Windows接收输入 |
-| `tests/native-scale-timing/crossbow-ownership/Ownership.csproj` | 接收支持文件 | Windows接收输入 |
-| `tests/native-scale-timing/crossbow-ownership/Program.cs` | 接收支持文件 | Windows接收输入 |
-| `tests/native-scale-timing/crossbow-ownership/README.md` | 接收支持文件 | Windows接收输入 |
+| `tests/native-scale-ownership/Program.cs` | 接收支持文件 | Windows接收输入 |
+| `tests/native-scale-ownership/README.md` | 接收支持文件 | Windows接收输入 |
+| `tests/native-scale-ownership/Stubs.cs` | 接收支持文件 | Windows接收输入 |
+| `tests/native-scale-ownership/Tests.csproj` | 接收支持文件 | Windows接收输入 |
+| `tests/native-scale-ownership/crossbow-ownership/LifecycleStubs.cs` | 接收支持文件 | Windows接收输入 |
+| `tests/native-scale-ownership/crossbow-ownership/Ownership.csproj` | 接收支持文件 | Windows接收输入 |
+| `tests/native-scale-ownership/crossbow-ownership/Program.cs` | 接收支持文件 | Windows接收输入 |
+| `tests/native-scale-ownership/crossbow-ownership/README.md` | 接收支持文件 | Windows接收输入 |
 | `tests/population-hud/Program.cs` | 接收支持文件 | Windows接收输入 |
 | `tests/population-hud/Regression.csproj` | 接收支持文件 | Windows接收输入 |
 | `il2cpp/CoinCourierPersistence.cs` | 银行/英雄及继承接缝 | 已接纳后续/混合输入 |
@@ -283,3 +283,18 @@ dotnet run --project tests/hero-purchase-consistency/Proof.csproj -c Release -- 
 | `tests/native-map-icons/fixtures/native-map-analysis.json` | 地图便携夹具 | 已验原生坐标/尺寸事实的最小子集 |
 | `tests/native-map-icons/fixtures/layout-manifest.json` | 地图便携夹具 | 已验原生坐标/尺寸事实的最小子集 |
 | `tests/native-map-icons/fixtures/icon-rects.json` | 地图便携夹具 | 已验原生坐标/尺寸事实的最小子集 |
+
+## 本轮地图修订与公开测试包
+
+| 文件或范围 | 内容 |
+|---|---|
+| `il2cpp/Assets/KEM_MapExtensionIsland.png` | 本项目新岸线源素材，由生成工具制作；运行时统一准备像素轮廓与选中边 |
+| `il2cpp/MapExtensionIslandArt.cs` | 自有纹理/轮廓与borrowed Image租约、失败恢复及生命周期 |
+| `il2cpp/MapMountIcons.cs` | 全图/详情共享轮廓、三行岸内图标、显示提交与礁石布局 |
+| `il2cpp/MapResourceIconPlan.cs` | 等比岛形及透明岸线/实际blocker完整矩形布局 |
+| `il2cpp/ExtensionIslandMap.cs` | 正确视图/owner范围的地形与轮廓节点接缝 |
+| `tests/native-map-runtime/` | 5个公开输入，含调用层合成边界、PNG解析和168项直源回归 |
+| `tests/native-map-shore-art/` | 6个公开输入，含岸线/租约、方向及布局报告；只嵌入本项目PNG |
+| `tests/native-map-icons/` | 6个便携输入，保留4份精简数值fixture和2984项检查 |
+
+正常ARM的d08f4009为维护会话此前安装并check-only的基线。本轮精确地图DLL未安装，未启动游戏、写玩家档或作正式发布；源级等待遮罩测试不代替真实Unity切页录像。原生船标模板32×32、scale1、中心(-48,18)及只更换sprite的动画已只读核对；真实存档中的活动/选中状态仍按原生运行。公开包不包含私有SVG工具、原生位图或玩家截图。

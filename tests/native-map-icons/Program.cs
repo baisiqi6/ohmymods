@@ -39,6 +39,23 @@ namespace KingdomEnhancedMod.Tests
 
         private static bool Near(float a, float b, float eps = 0.01f) => Math.Abs(a - b) <= eps;
 
+        private static int CountDistinctRows(List<MapIconPlacement> placements)
+        {
+            // 行内垂直居中 ⇒ 同一行的“垂直中心”一致；按中心聚类数行（与 y 起点无关）。
+            var centers = new List<float>();
+            for (int i = 0; i < placements.Count; i++)
+            {
+                float c = placements[i].Y + placements[i].Request.Height * placements[i].Scale * 0.5f;
+                bool found = false;
+                for (int j = 0; j < centers.Count; j++)
+                {
+                    if (Math.Abs(centers[j] - c) < 0.05f) { found = true; break; }
+                }
+                if (!found) centers.Add(c);
+            }
+            return centers.Count;
+        }
+
         private static float Sq(float a, float b) => a * a + b * b;
 
         /// <summary>与 layout_proof.py WORST10 完全相同的真实尺寸集（取各类型最大真实图标）。</summary>
@@ -94,6 +111,7 @@ namespace KingdomEnhancedMod.Tests
             LiveViewport();
             Presentation();
             WorldCapacity();
+            ExtensionShoreShape();
 
             const float CellW = 62.8f;      // 314 / 5
             const float CellH = 94.5f;      // 95 - 0.5（含按钮带后的格高减格内上边距增量）
@@ -1375,21 +1393,26 @@ namespace KingdomEnhancedMod.Tests
             }
             Check(scale > 0.3f && err <= 0.01f, "world/native-uniform s=" + scale + " err=" + err);
 
-            // 3) 宽岛两行：真实 16 尺寸（type→尺寸表与 capacity-inputs 一致）
+            // 3) 扩展岛三行（新合同）：真实 16 尺寸 → 6/5/5；0.7 外框 128.8×52.9（review/compact-capacity-math.json）
             float[] widths = { 25, 24, 21, 25, 21, 21, 29, 29, 26, 28, 28, 40, 22, 24, 40, 20 };
             float[] heights = { 16, 22, 26, 17, 18, 18, 13, 13, 14, 18, 13, 25, 19, 32, 26, 20 };
             var sixteen = new List<MapIconRequest>();
             for (int i = 0; i < 16; i++) sixteen.Add(new MapIconRequest(MapIconKind.Steed, 100 + i, i, widths[i], heights[i]));
-            Check(MapExtensionIslandLayout.TrySplitTwoRows(sixteen, new List<int>(8), new List<int>(8),
-                out float wA, out float wB, out float hA, out float hB), "ext/rows-split");
-            Check(Math.Abs((wA + wB) - 423f) <= 0.01f && Math.Abs(wA - wB) <= 40f && hA + hB <= 58.1f,
-                "ext/rows-balanced wa=" + wA + " wb=" + wB + " ha=" + hA + " hb=" + hB);
-            MapExtensionIslandLayout.RequiredSize(0.7f, wA, wB, hA, hB, 8, 8, out float needW, out float needH);
-            Check(Near(needW, 161.9f, 0.3f) && Near(needH, 45.1f, 0.3f),
+            var rowA3 = new List<int>(6);
+            var rowB3 = new List<int>(5);
+            var rowC3 = new List<int>(5);
+            Check(MapExtensionIslandLayout.TrySplitRows(sixteen, rowA3, rowB3, rowC3,
+                out float w3A, out float w3B, out float w3C, out float h3A, out float h3B, out float h3C), "ext/rows-split");
+            Check(rowA3.Count == 6 && rowB3.Count == 5 && rowC3.Count == 5, "ext/rows-6-5-5 " +
+                rowA3.Count + "/" + rowB3.Count + "/" + rowC3.Count);
+            Check(Math.Abs((w3A + w3B + w3C) - 423f) <= 0.01f, "ext/rows-keep-all " + (w3A + w3B + w3C));
+            MapExtensionIslandLayout.RequiredSize(0.7f, w3A, w3B, w3C, h3A, h3B, h3C, 6, 5, 5,
+                out float needW, out float needH);
+            Check(Near(needW, 128.8f, 0.3f) && Near(needH, 52.9f, 0.3f),
                 "ext/need-0.7 " + needW + "x" + needH);
 
-            // 4) 0.7 目标区（含 20 UI 状态车道 + 边距 = 185.9x49.1）→ 16/16 且 RequestIndex 正确
-            var banner = new MapIconBox(0f, 0f, 185.9f, 49.1f);
+            // 4) 0.7 目标区（三行外框 148.8×52.9 含 20 UI 状态车道；窗口 +2×margin = 185.9×56）
+            var banner = new MapIconBox(0f, 0f, 185.9f, 56f);
             var placements = new List<MapIconPlacement>();
             Check(MapExtensionIslandLayout.TryPlan(banner, sixteen, new List<MapIconBox>(), placements,
                 out float used, out int failed), "ext/plan-16 ok used=" + used + " failed=" + failed);
@@ -1401,6 +1424,11 @@ namespace KingdomEnhancedMod.Tests
                     placements[i].Request.Width != sixteen[placements[i].RequestIndex].Width) indexOk = false;
             }
             Check(indexOk, "ext/request-index-identity");
+
+            // 新合同行为 red：真实 16 项必须铺成三行（6/5/5，见 review/compact-capacity-math.json）；
+            // 当前两行实现给出 2 个不同 y 行 → 失败。
+            int rowsUsed = CountDistinctRows(placements);
+            Check(rowsUsed == 3, "ext3/plan-uses-three-rows got=" + rowsUsed);
 
             // 5) 更窄视口 → 降级但仍全量；过小 → 整体失败（不部分显示）
             var narrow = new MapIconBox(0f, 0f, 150f, 46f);
@@ -1428,12 +1456,157 @@ namespace KingdomEnhancedMod.Tests
             Check(MapExtensionIslandLayout.TryPlan(banner, dup, new List<MapIconBox>(), placements, out _, out _) &&
                 placements.Count == 2 && placements[0].RequestIndex != placements[1].RequestIndex, "ext/duplicate-distinct");
             var seventeen = new List<MapIconRequest>(sixteen) { new MapIconRequest(MapIconKind.Steed, 199, 16, 24f, 32f) };
-            Check(!MapExtensionIslandLayout.TryPlan(banner, seventeen, new List<MapIconBox>(), placements,
-                out _, out int overFailed) && placements.Count == 0 && overFailed == 17, "ext/17-failclosed");
+            Check(MapExtensionIslandLayout.TryPlan(banner, seventeen, new List<MapIconBox>(), placements,
+                out _, out _) && placements.Count == 17, "ext/17-full-no-truncation n=" + placements.Count);
+            var nineteen = new List<MapIconRequest>(seventeen)
+            {
+                new MapIconRequest(MapIconKind.Steed, 200, 17, 20f, 20f),
+                new MapIconRequest(MapIconKind.Steed, 201, 18, 20f, 20f),
+            };
+            Check(!MapExtensionIslandLayout.TryPlan(banner, nineteen, new List<MapIconBox>(), placements,
+                out _, out int overFailed) && placements.Count == 0 && overFailed == 19, "ext/19-failclosed");
 
             // 8) 空域/退化：整体失败（fail-closed）
             Check(!MapExtensionIslandLayout.TryPlan(new MapIconBox(0f, 0f, 0f, 0f), sixteen,
                 new List<MapIconBox>(), placements, out _, out _), "ext/degenerate-failclosed");
+        }
+
+        /// <summary>
+        /// 新岸线形状合同（review/NEW-ART-BINDING-ADDENDUM + compact-capacity-math.json）：
+        /// - 三行 6/5/5（高度降序连续切分，行高和最小）；0.7 外框 128.8×52.9 与审查数字一致；
+        /// - world/detail 框按**实际 Sprite.rect**（228×84 ⇒ 2.7143，含透明 padding）等比；
+        ///   绝不使用 raw alpha bbox（1807/643 ⇒ 2.8103）；
+        /// - detail 左缘 −92（legend 右缘 −96 + 4UI 水道）、右缘 138 不出 page282；
+        /// - 岸内 mask 终检覆盖整个 footprint（中心 1px 洞必须拒绝，不只查 4 角/bbox）。
+        /// </summary>
+        private static void ExtensionShoreShape()
+        {
+            float[] widths = { 25, 24, 21, 25, 21, 21, 29, 29, 26, 28, 28, 40, 22, 24, 40, 20 };
+            float[] heights = { 16, 22, 26, 17, 18, 18, 13, 13, 14, 18, 13, 25, 19, 32, 26, 20 };
+            var sixteen = new List<MapIconRequest>();
+            for (int i = 0; i < 16; i++) sixteen.Add(new MapIconRequest(MapIconKind.Steed, 100 + i, i, widths[i], heights[i]));
+
+            var rowA = new List<int>();
+            var rowB = new List<int>();
+            var rowC = new List<int>();
+            Check(MapExtensionIslandLayout.TrySplitRows(sixteen, rowA, rowB, rowC,
+                out float wA, out float wB, out float wC, out float hA, out float hB, out float hC), "shape3/rows-split");
+            Check(rowA.Count == 6 && rowB.Count == 5 && rowC.Count == 5,
+                "shape3/rows-6-5-5 a=" + rowA.Count + " b=" + rowB.Count + " c=" + rowC.Count);
+            Check(Math.Abs((wA + wB + wC) - 423f) <= 0.01f, "shape3/rows-keep-all-widths " + (wA + wB + wC));
+            Check(Near(hA, 32f) && Near(hB, 19f) && Near(hC, 16f),
+                "shape3/rows-height-sum-67 " + hA + "/" + hB + "/" + hC);
+            Check(Near(wA, 169f) && Near(wB, 117f) && Near(wC, 137f),
+                "shape3/rows-widths " + wA + "/" + wB + "/" + wC);
+            var seen = new bool[16];
+            foreach (List<int> row in new[] { rowA, rowB, rowC })
+            {
+                foreach (int idx in row) { if (idx >= 0 && idx < 16) seen[idx] = true; }
+            }
+            bool allSeen = true;
+            for (int i = 0; i < 16; i++) allSeen &= seen[i];
+            Check(allSeen, "shape3/request-index-preserved");
+            MapExtensionIslandLayout.RequiredSize(0.7f, wA, wB, wC, hA, hB, hC, 6, 5, 5, out float needW, out float needH);
+            Check(Near(needW, 128.8f, 0.3f) && Near(needH, 52.9f, 0.3f),
+                "shape3/need-0.7-compact-math " + needW + "x" + needH);
+
+            // ---- world 框：实际 Sprite.rect 228×84（含 padding）= 2.7143；不是 2.8103（raw bbox）
+            const float canvasAspect = 228f / 84f;
+            var band = new MapIconBox(2f, 2f, 298f, 80f);            // 300×200：content 178 → maxReserve 80.1，reserve 78
+            Check(MapExtensionShapePlan.TryPlanWorldBox(band, MapExtensionShapePlan.Margin, canvasAspect,
+                out MapIconBox worldBox), "shape3/world-box");
+            Check(Near(worldBox.Width / worldBox.Height, canvasAspect, 0.0005f),
+                "shape3/world-ratio-228x84 " + (worldBox.Width / worldBox.Height));
+            Check(worldBox.X0 >= band.X0 - 0.01f && worldBox.X1 <= band.X1 + 0.01f &&
+                  worldBox.Y0 >= band.Y0 - 0.01f && worldBox.Y1 <= band.Y1 + 0.01f, "shape3/world-box-in-band");
+            Check(Near(worldBox.Height, 78f - 2f * MapExtensionShapePlan.Margin, 0.01f),
+                "shape3/world-box-height-limited " + worldBox.Height);
+            Check(!Near(worldBox.Width / worldBox.Height, 1807f / 643f, 0.001f), "shape3/world-not-raw-bbox-ratio");
+            var band400 = new MapIconBox(2f, 2f, 398f, 80f);
+            Check(MapExtensionShapePlan.TryPlanWorldBox(band400, MapExtensionShapePlan.Margin, canvasAspect,
+                out MapIconBox world400) && Near(world400.Width / world400.Height, canvasAspect, 0.0005f),
+                "shape3/world-400x200-equal-box");
+            Check(Near(world400.Width, worldBox.Width, 0.01f) && Near(world400.Height, worldBox.Height, 0.01f),
+                "shape3/world-400x200-same-height-limit");
+            var bandTall = new MapIconBox(2f, 2f, 398f, 140f);
+            Check(MapExtensionShapePlan.TryPlanWorldBox(bandTall, MapExtensionShapePlan.Margin, canvasAspect,
+                out MapIconBox worldTall) && worldTall.Width > world400.Width + 1f,
+                "shape3/world-400x260-uses-height " + worldTall.Width);
+
+            // ---- detail 框：左 −92 / 右 138 / 宽 230 / 等比 / 4UI 水道（legend 最右 −96）
+            Check(MapExtensionShapePlan.TryPlanDetailBox(MapExtensionShapePlan.DetailPageHalfWidth,
+                MapExtensionShapePlan.DetailLegendRight, MapExtensionShapePlan.DetailWaterGap,
+                MapExtensionShapePlan.DetailMaxWidth, canvasAspect, -4f, out MapIconBox detailBox, out float gap),
+                "shape3/detail-box");
+            Check(Near(detailBox.X0, -92f, 0.01f) && Near(detailBox.X1, 138f, 0.01f),
+                "shape3/detail-x " + detailBox.X0 + "," + detailBox.X1);
+            Check(Near(detailBox.Width, 230f, 0.01f) && Near(gap, 4f, 0.01f),
+                "shape3/detail-width-230 gap=" + gap);
+            Check(Near(detailBox.Width / detailBox.Height, canvasAspect, 0.0005f), "shape3/detail-ratio-228x84");
+            Check(detailBox.X0 > MapExtensionShapePlan.DetailLegendRight, "shape3/detail-not-cover-legend");
+            Check(detailBox.X1 <= MapExtensionShapePlan.DetailPageHalfWidth, "shape3/detail-inside-page");
+            Check(detailBox.Y0 >= -93f && detailBox.Y1 <= 93f,
+                "shape3/detail-y-in-page " + detailBox.Y0 + "," + detailBox.Y1);
+
+            // ---- 岸内 mask：整 footprint 覆盖（只查 4 角/bbox 会漏掉中心 1px 水洞）
+            const int mw = 256, mh = 120;
+            var solid = new bool[mw * mh];
+            for (int i = 0; i < solid.Length; i++) solid[i] = true;
+            var solidMask = new MapShoreMask(mw, mh, solid);
+            Check(solidMask.RectAllInside(0, 0, mw - 1, mh - 1), "shape3/mask-solid-all");
+            Check(!solidMask.RectAllInside(-1, 0, 10, 10) && !solidMask.RectAllInside(0, 0, mw, mh - 1),
+                "shape3/mask-out-of-canvas-rejected");
+            var holed = (bool[])solid.Clone();
+            holed[60 * mw + 128] = false;
+            var holeMask = new MapShoreMask(mw, mh, holed);
+            Check(!holeMask.RectAllInside(124, 56, 132, 64), "shape3/mask-center-hole-rejected");
+            Check(holeMask.RectAllInside(0, 0, 10, 10), "shape3/mask-hole-outside-ok");
+            Check(holeMask.Sample(124, 56) && holeMask.Sample(132, 64) && holeMask.Sample(124, 64) && holeMask.Sample(132, 56),
+                "shape3/mask-hole-corners-inside");
+
+            // ---- planner 岸内终检：窄岸带（只有 y∈[50,70] 是岸）→ 16 项整体 fallback、不得部分/落水
+            var bandPixels = new bool[mw * mh];
+            for (int y = 50; y <= 70; y++)
+            {
+                for (int x = 4; x < mw - 4; x++) bandPixels[y * mw + x] = true;
+            }
+            var bandMask = new MapShoreMask(mw, mh, bandPixels);
+            var shoreFrame = new MapIconBox(0f, 0f, mw, mh);
+            var area = new MapIconBox(1.5f, 1.5f, mw - 1.5f, mh - 1.5f);
+            var maskPlacements = new List<MapIconPlacement>();
+            bool bandOk = MapExtensionIslandLayout.TryPlan(area, sixteen, new List<MapIconBox>(), shoreFrame,
+                bandMask, maskPlacements, out _, out int bandFailed);
+            Check(!bandOk && maskPlacements.Count == 0 && bandFailed == 16,
+                "shape3/mask-narrow-band-failclosed ok=" + bandOk + " n=" + maskPlacements.Count);
+            bool solidOk = MapExtensionIslandLayout.TryPlan(area, sixteen, new List<MapIconBox>(), shoreFrame,
+                solidMask, maskPlacements, out float solidScale, out int solidFailed);
+            Check(solidOk && solidFailed == 0 && maskPlacements.Count == 16,
+                "shape3/mask-solid-16 ok=" + solidOk + " scale=" + solidScale);
+            Check(solidOk && FootprintsInsideShore(maskPlacements, solidMask), "shape3/mask-16-all-inside");
+            var gulf = (bool[])solid.Clone();
+            for (int y = 40; y < 80; y++)
+            {
+                for (int x = 64; x < 192; x++) gulf[y * mw + x] = false;
+            }
+            var gulfMask = new MapShoreMask(mw, mh, gulf);
+            bool gulfOk = MapExtensionIslandLayout.TryPlan(area, sixteen, new List<MapIconBox>(), shoreFrame,
+                gulfMask, maskPlacements, out _, out int gulfFailed);
+            Check(gulfOk ? FootprintsInsideShore(maskPlacements, gulfMask) : gulfFailed == 16,
+                "shape3/gulf-never-over-water ok=" + gulfOk + " failed=" + gulfFailed);
+        }
+
+        private static bool FootprintsInsideShore(List<MapIconPlacement> placements, MapShoreMask mask)
+        {
+            for (int i = 0; i < placements.Count; i++)
+            {
+                MapIconBox box = PlacementBox(placements[i]);
+                int x0 = (int)Math.Floor(box.X0);
+                int y0 = (int)Math.Floor(box.Y0);
+                int x1 = (int)Math.Ceiling(box.X1) - 1;
+                int y1 = (int)Math.Ceiling(box.Y1) - 1;
+                if (!mask.RectAllInside(x0, y0, x1, y1)) return false;
+            }
+            return true;
         }
 
         // ------------------------------------------------------- geography report (offline evidence)
