@@ -13,6 +13,9 @@
     <Compile Include="../../il2cpp/MapResourceIconPlan.cs" />
     <Compile Include="../../il2cpp/MapCustomIconPlan.cs" />
     <Compile Include="Program.cs" />
-    <None Include="fixtures/custom-icons.json" CopyToOutputDirectory="PreserveNewest" TargetPath="custom-icons.json" />
+    <None Include="fixtures/custom-icons.json" CopyToOutputDirectory="PreserveNewest" TargetPath="fixtures/custom-icons.json" />
+    <None Include="fixtures/native-map-analysis.json" CopyToOutputDirectory="PreserveNewest" TargetPath="fixtures/native-map-analysis.json" />
+    <None Include="fixtures/layout-manifest.json" CopyToOutputDirectory="PreserveNewest" TargetPath="fixtures/layout-manifest.json" />
+    <None Include="fixtures/icon-rects.json" CopyToOutputDirectory="PreserveNewest" TargetPath="fixtures/icon-rects.json" />
   </ItemGroup>
 </Project>
