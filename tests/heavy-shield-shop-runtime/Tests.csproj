@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable><ImplicitUsings>enable</ImplicitUsings>
+    <DefineConstants>HERO_SHOP_CORE_ONLY</DefineConstants>
+    <NoWarn>CS0649;CS0414</NoWarn><EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../il2cpp/HeavyShieldShopShell.cs" Link="Production/HeavyShieldShopShell.cs" />
+    <Compile Include="../../il2cpp/HeavyShieldShopPayment.cs" Link="Production/HeavyShieldShopPayment.cs" />
+    <Compile Include="../../il2cpp/HeavyShieldContracts.cs" Link="Production/HeavyShieldContracts.cs" />
+    <Compile Include="../../il2cpp/PatchRoles_HeavyShieldArt.cs" Link="Production/PatchRoles_HeavyShieldArt.cs" />
+    <Compile Include="../../il2cpp/HeroShop.cs" Link="Production/HeroShop.cs" />
+    <Compile Include="Stubs.cs"/><Compile Include="Program.cs"/>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../../il2cpp/Assets/HeavyShieldShopLayers.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopLayers.png" />
+    <EmbeddedResource Include="../../il2cpp/Assets/HeavyShieldGreekShopLayers.png" LogicalName="KingdomEnhancedMod.HeavyShieldGreekShopLayers.png" />
+    <EmbeddedResource Include="../../il2cpp/Assets/HeavyShieldPaidShield.png" LogicalName="KingdomEnhancedMod.HeavyShieldPaidShield.png" />
+    <EmbeddedResource Include="../../il2cpp/Assets/HeavyShieldShopLayersCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopLayersCoarse.png" />
+    <EmbeddedResource Include="../../il2cpp/Assets/HeavyShieldGreekShopLayersCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldGreekShopLayersCoarse.png" />
+    <EmbeddedResource Include="../../il2cpp/Assets/HeavyShieldPaidShieldCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldPaidShieldCoarse.png" />
+  </ItemGroup>
+</Project>

@@ -13,6 +13,7 @@ internal static class MusketeerHooks
         [HarmonyPrefix, HarmonyPriority(Priority.First)]
         private static bool Before(ArrowAttack __instance, GameObject source)
         {
+            if (source != null && HeavyShieldIdentity.IsKnownCareerRoot(source)) return false;
             if (!MusketeerAccess.Enabled || source == null || !MusketeerIdentity.IsMarked(source)) return true;
             try { MusketeerCombat.TryHandleShot(__instance, source); }
             catch (Exception e)
@@ -34,20 +35,20 @@ internal static class MusketeerHooks
     private static class EligibilityPatch
     {
         [HarmonyPostfix] private static void After(Peasant __instance, Droppable droppable, ref bool __result)
-        { if (__result && HeroCannotTakeGun(__instance, droppable)) __result = false; }
+        { if (__result && (HeroCannotTakeGun(__instance, droppable) || !HeavyShieldIdentity.CanNativePickup(__instance, droppable?.TryCast<DroppableTool>()))) __result = false; }
     }
     [HarmonyPatch(typeof(Peasant), nameof(Peasant.SetDroppableTarget))]
     private static class TargetPatch
     {
         [HarmonyPrefix] private static void Before(Peasant __instance, ref Droppable droppable)
-        { if (HeroCannotTakeGun(__instance, droppable)) droppable = null; }
+        { if (HeroCannotTakeGun(__instance, droppable) || !HeavyShieldIdentity.CanNativePickup(__instance, droppable?.TryCast<DroppableTool>())) droppable = null; }
     }
     [HarmonyPatch(typeof(Peasant), nameof(Peasant.HandleToolPickup))]
     private static class PickupPatch
     {
         [HarmonyPrefix, HarmonyPriority(Priority.First)] private static bool Before(Peasant __instance, DroppableTool tool)
         {
-            if (!HeroCannotTakeGun(__instance, tool)) return true;
+            if (!HeroCannotTakeGun(__instance, tool) && HeavyShieldIdentity.CanNativePickup(__instance, tool)) return true;
             __instance.SetDroppableTarget(null);
             return false;
         }

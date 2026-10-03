@@ -176,6 +176,8 @@ public static class PatchRoles_Crossbowman
     internal static void OnBowPromoted(Character result)
     {
         if (result == null || result.gameObject == null) return;
+        if (HeavyShieldIdentity.ShieldPromotionInProgress || HeavyShieldIdentity.IsKnownCareerRoot(result.gameObject)
+            || HeavyShieldPersistence.ShieldLoadInProgress) return;
         if (MusketeerIdentity.GunPromotionInProgress || MusketeerIdentity.IsMarked(result.gameObject)) return;
         Archer archer = result.GetComponent<Archer>();
         if (archer == null)
@@ -780,6 +782,7 @@ public static class PatchRoles_Crossbowman
             {
                 Archer a = archers[i];
                 if (a == null || a.gameObject == null || !a.gameObject.activeInHierarchy) continue;
+                if (HeavyShieldIdentity.IsKnownCareerRoot(a.gameObject)) continue;
                 if (MusketeerIdentity.IsUnit(a)) continue;
                 if (HeroRecruitment.IsPurchased(a)) continue;
                 // 骑士小队成员（关系随存档恢复）：跳过——不进比例分母、不可被选中；
@@ -1085,6 +1088,7 @@ public static class Character_Promote_CrossbowmanAlternation_Patch
         if (!ModConfig.Enabled.Value) return;
         // 非弓工具零开销早退（不碰 try）
         if (tool == null || tool.tag != "Bow") return;
+        if (HeavyShieldIdentity.ShieldPromotionInProgress || HeavyShieldPersistence.ShieldLoadInProgress) return;
         if (MusketeerIdentity.GunPromotionInProgress || MusketeerIdentity.IsGun(tool)) return;
         try
         {
@@ -1182,10 +1186,12 @@ public static class PoolManager_Init_CrossbowBoltPool_Patch
 public static class Pool_FastSpawn_CrossbowmanLifecycleScope_Patch
 {
     [HarmonyPrefix]
-    private static void Prefix() => PatchRoles_Crossbowman.BeginPoolSpawnScope();
+    private static void Prefix()
+    { HeavyShieldIntegration.BeginPoolSpawn(); PatchRoles_Crossbowman.BeginPoolSpawnScope(); }
 
     [HarmonyFinalizer]
-    private static void Finalizer() => PatchRoles_Crossbowman.EndPoolSpawnScope();
+    private static void Finalizer()
+    { try { HeavyShieldIntegration.EndPoolSpawn(); } finally { PatchRoles_Crossbowman.EndPoolSpawnScope(); } }
 }
 
 /// <summary>
@@ -1198,10 +1204,24 @@ public static class Pool_FastSpawn_CrossbowmanLifecycleScope_Patch
 public static class Archer_OnEnable_CrossbowmanLifecycle_Patch
 {
     [HarmonyPrefix]
-    private static void Prefix(Archer __instance) => PatchRoles_Crossbowman.OnArcherEnablePrefix(__instance);
+    private static void Prefix(Archer __instance)
+    {
+        HeavyShieldIntegration.ObserveArcherEnable(__instance);
+        // A native fresh activation still strips any old crossbow package before
+        // OnEnable writes the new life; borrowed component toggles do not.
+        if (HeavyShieldRuntime.CarrierMutationInProgress
+            || (!HeavyShieldIntegration.InPoolSpawn && (HeavyShieldPersistence.ShieldLoadInProgress
+                || (__instance != null && HeavyShieldIdentity.IsKnownCareerRoot(__instance.gameObject))))) return;
+        PatchRoles_Crossbowman.OnArcherEnablePrefix(__instance);
+    }
 
     [HarmonyPostfix]
-    private static void Postfix(Archer __instance) => PatchRoles_Crossbowman.OnArcherEnablePostfix(__instance);
+    private static void Postfix(Archer __instance)
+    {
+        if (HeavyShieldRuntime.CarrierMutationInProgress || HeavyShieldPersistence.ShieldLoadInProgress
+            || (__instance != null && HeavyShieldIdentity.IsKnownCareerRoot(__instance.gameObject))) return;
+        PatchRoles_Crossbowman.OnArcherEnablePostfix(__instance);
+    }
 }
 
 /// <summary>

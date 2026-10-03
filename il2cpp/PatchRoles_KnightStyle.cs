@@ -673,6 +673,33 @@ public static class PatchRoles_KnightStyle
         }
     }
 
+    /// <summary>The new Convert-event scale writes must not release another career's same-life lease.</summary>
+    private static void EnsureFollowerEventScale(Archer archer, float targetY)
+    {
+        try
+        {
+            if (archer == null || archer.gameObject == null
+                || !Il2CppInterop.Runtime.Injection.ClassInjector.IsTypeRegisteredInIl2Cpp(typeof(CrossbowmanMarker))) return;
+            var root = archer.gameObject;
+            if (root.Pointer == IntPtr.Zero) return;
+            CrossbowmanMarker marker = archer.GetComponent<CrossbowmanMarker>();
+            if (marker != null)
+            {
+                var markerRoot = marker.gameObject;
+                if (marker.Pointer == IntPtr.Zero || markerRoot == null
+                    || markerRoot.Pointer != root.Pointer
+                    || markerRoot.GetInstanceID() != root.GetInstanceID()) return;
+                // Strip already gives this old pool cleanup lease to the native
+                // new Knight assignment. It takes precedence over old Residue.
+                bool selected = marker.Selected;
+                bool handedOff = marker.PendingPoolHandoff && !selected && archer._knight != null;
+                if (!handedOff && (selected || marker.Active || marker.Residue)) return;
+            }
+        }
+        catch { return; } // Unknown ownership defers only the new scale action.
+        EnsureFollowerScale(archer, targetY);
+    }
+
     /// <summary>
     /// 幂等重断言：骑士控制器被原生重置则重设；希腊缩放补断言。
     /// 原生没有任何路径会换骑士控制器（prefab 即原生，死后池 Despawn 扫不到），
@@ -973,6 +1000,7 @@ public static class PatchRoles_KnightStyle
                 RestoreFollowerSoldierAnimator(archer);
                 RepairLeakedFollowerSkin(archer);
                 PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
+                EnsureFollowerEventScale(archer, 1f);
                 return false;
             }
             if (!States.TryGetValue(knight.gameObject.GetInstanceID(), out KnightStyleState state)
@@ -983,6 +1011,7 @@ public static class PatchRoles_KnightStyle
                 RestoreFollowerSoldierAnimator(archer);
                 RepairLeakedFollowerSkin(archer);
                 PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
+                EnsureFollowerEventScale(archer, 1f);
                 return false;
             }
 
@@ -995,7 +1024,12 @@ public static class PatchRoles_KnightStyle
             if (styleIndex == DeadlandsStyleIndex)
                 PatchRoles_Crossbowman.ApplySquadCrossbowPackage(archer);
             else
+            {
                 PatchRoles_Crossbowman.RestoreSquadCrossbowPackage(archer);
+                EnsureFollowerEventScale(archer,
+                    styleIndex == MedievalStyleIndex ? FollowerMedievalScaleY
+                    : styleIndex == NorseStyleIndex ? FollowerNorseScaleY : 1f);
+            }
 
             RuntimeAnimatorController target = SoldierControllers[styleIndex];
             if (target == null) return false;

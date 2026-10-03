@@ -55,6 +55,10 @@ public sealed class CombatTargetLifeMarker : MonoBehaviour
     /// <summary>本 life 的全局序号；0 = 尚未取号（刚添加未激活 / 已停用未再启用）。</summary>
     internal long Life;
 
+    // Retain the last positively observed life across its inactive zero state.
+    // This is managed runtime evidence; it does not change token or save data.
+    internal long LastObservedLife;
+
     /// <summary>
     /// 观察链是否完整。false = 曾在本组件被单独禁用（或活性读取失败）后尚未确证过一次完整 GO 停用：
     /// 此时 <see cref="Life"/> 不可信，<see cref="CombatTargetLife.TryResolve"/> 必须拒绝。
@@ -66,6 +70,7 @@ public sealed class CombatTargetLifeMarker : MonoBehaviour
     internal long EnsureLife()
     {
         if (Life == 0) Life = CombatTargetLife.TakeLife();
+        if (Observing && Life != 0) LastObservedLife = Life;
         return Life;
     }
 
@@ -83,6 +88,8 @@ public sealed class CombatTargetLifeMarker : MonoBehaviour
         if (active == false)
         {
             // 确证 GO / 父链停用（池回收）：生命结束，观察链恢复；下次启用取新序号。
+            if (Observing && Life != 0) LastObservedLife = Life;
+            else if (!Observing) LastObservedLife = 0;
             Life = 0;
             Observing = true;
         }
@@ -90,6 +97,7 @@ public sealed class CombatTargetLifeMarker : MonoBehaviour
         {
             // 单独 disable 本组件，或活性读取失败：都不允许再用/新取 life（组件仍保留 Life 便于测试观测）。
             Observing = false;
+            LastObservedLife = 0;
         }
     }
 

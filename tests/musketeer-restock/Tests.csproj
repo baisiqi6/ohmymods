@@ -6,4 +6,5 @@
     <Compile Include="../../il2cpp/MusketeerPersistence.cs" Link="Production/MusketeerPersistence.cs" />
     <Compile Include="../musketeer-identity/Stubs.cs" Link="Stubs.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../heavy-shield-boundary/DisabledHeavyShieldApis.cs" Link="Boundary/DisabledHeavyShieldApis.cs" /></ItemGroup>
 </Project>

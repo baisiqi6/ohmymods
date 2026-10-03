@@ -20,6 +20,8 @@ internal static class GreekScaleScope
         internal int NativeBaselineAxes;
         internal IntPtr MoverPointer;
         internal int MoverId;
+        internal Mover Mover;
+        internal int NextLateRetryFrame;
         internal PendingWrite? Pending;
     }
     private struct PendingWrite
@@ -29,6 +31,8 @@ internal static class GreekScaleScope
     }
 
     private static readonly Dictionary<Identity, Request> Requests = new();
+    private static readonly List<Request> LateSnapshot = new();
+    private static bool _maintainingRegisteredY;
     private static Scope _lastScope = Scope.Unknown;
     private static int _nextPruneFrame;
     private static int _nextRetryFrame;
@@ -160,6 +164,8 @@ internal static class GreekScaleScope
         request.Axes |= 2;
         request.MoverPointer = mover.Pointer;
         request.MoverId = mover.GetInstanceID();
+        request.Mover = mover;
+        request.NextLateRetryFrame = 0;
         if (CurrentScope() != Scope.Active) Reconcile(request, CurrentScope());
     }
 
@@ -188,11 +194,73 @@ internal static class GreekScaleScope
         if (Find(mover, out var request)) Reconcile(request, CurrentScope());
     }
 
+    /// <summary>Repairs late native facing writes on registered, active actor roots only.</summary>
+    internal static void MaintainRegisteredY()
+    {
+        if (_maintainingRegisteredY || CurrentScope() != Scope.Active) return;
+        _maintainingRegisteredY = true;
+        try
+        {
+            // Setters may reenter an adapter and change Requests. Reuse storage and
+            // validate each snapshot entry again; a replacement request is a new lease.
+            foreach (var request in Requests.Values)
+                if (request.MoverPointer != IntPtr.Zero) LateSnapshot.Add(request);
+            for (int i = 0; i < LateSnapshot.Count; i++)
+            {
+                Request request = LateSnapshot[i];
+                if (!Requests.TryGetValue(request.Key, out var current) || !ReferenceEquals(current, request)
+                    || request.Axes != 2 || (request.Owned & ~2) != 0
+                    || (request.Pending != null && (request.Pending.Value.Owned & ~2) != 0)
+                    || Time.frameCount < request.NextLateRetryFrame) continue;
+                try
+                {
+                    Mover mover = request.Mover;
+                    if (mover == null || mover.Pointer != request.MoverPointer
+                        || mover.GetInstanceID() != request.MoverId) continue;
+                    Liveness life = Inspect(request.Target, out var targetKey);
+                    if (life == Liveness.Deferred)
+                    {
+                        DeferLate(request);
+                        continue;
+                    }
+                    if (life != Liveness.Alive || targetKey != request.Key
+                        || !request.Target.gameObject.activeInHierarchy || !mover.enabled) continue;
+                    life = Inspect(mover.transform, out var moverKey);
+                    if (life == Liveness.Deferred)
+                    {
+                        DeferLate(request);
+                        continue;
+                    }
+                    if (life != Liveness.Alive || moverKey != request.Key) continue;
+                    Embarkee embarkee = mover.GetComponent<Embarkee>();
+                    if (embarkee != null && (embarkee.IsEmbarked || embarkee.IsTargetingEmbarkable)) continue;
+                    // Recheck scope at the write boundary after native getters. X/Z
+                    // remain the values read by the existing ownership transaction.
+                    if (CurrentScope() != Scope.Active) continue;
+                    if (!Reconcile(request, Scope.Active)) DeferLate(request);
+                }
+                catch (Exception e) { ReportFailure(e); DeferLate(request); }
+            }
+        }
+        finally
+        {
+            LateSnapshot.Clear();
+            _maintainingRegisteredY = false;
+        }
+    }
+
+    private static void DeferLate(Request request)
+    {
+        request.NextLateRetryFrame = Time.frameCount + 30;
+        _pending = true;
+    }
+
     internal static void Unregister(Mover mover)
     {
         if (!Find(mover, out var request)) return;
         request.MoverPointer = IntPtr.Zero;
         request.MoverId = 0;
+        request.Mover = null;
     }
 
     /// <summary>Explicit removal cancels the request; scope suspension retains it.</summary>
@@ -202,6 +270,7 @@ internal static class GreekScaleScope
         request.Axes = 0;
         request.MoverPointer = IntPtr.Zero;
         request.MoverId = 0;
+        request.Mover = null;
         if (Reconcile(request, Scope.Inactive)) Requests.Remove(key);
     }
 
@@ -302,6 +371,7 @@ internal static class GreekScaleScope
     /// <summary>Called by the existing main-thread panel; no new driver or scene scans.</summary>
     public static void Tick()
     {
+        ScaleRegistryHolder.RetryPendingCreation();
         Scope scope = CurrentScope();
         bool changed = scope != _lastScope;
         bool prune = Time.frameCount >= _nextPruneFrame;

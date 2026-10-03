@@ -10,4 +10,5 @@
     <Compile Include="../../il2cpp/SquadFollowGuard.cs" Link="Production/SquadFollowGuard.cs" />
     <Compile Include="$(GeneratedSourceDir)/ExtractedDefenseSpacing.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../heavy-shield-boundary/DisabledHeavyShieldApis.cs" Link="Boundary/DisabledHeavyShieldApis.cs" /></ItemGroup>
 </Project>

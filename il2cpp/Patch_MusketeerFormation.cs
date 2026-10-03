@@ -186,6 +186,7 @@ internal static class PatchMusketeerFormation
         try
         {
             if (archer == null || formation == null) return false;
+            if (HeavyShieldIdentity.IsKnownCareerRoot(archer.gameObject)) return true;
             if (IsDirected(archer, formation)) return false;
             if (formation.GetFormationType != Formation.FormationType.PlayerFormation) return false;
             // 2026-09-22 player report: a crossbowman is wall-duty only and must never be pulled

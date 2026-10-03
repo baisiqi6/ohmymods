@@ -263,6 +263,7 @@ public static class PatchWorld_DefenseSpacing
         try
         {
             if (!ModConfig.Enabled.Value || mover == null) return true;
+            if (HeavyShieldIdentity.IsKnownCareerRoot(mover.gameObject)) return true;
             if (_inSetGoalRedirect) return true; // our own redirected call
 
             // Fast path: cached unit-type verdict per mover instance.  Pooled
@@ -792,7 +793,7 @@ public static class PatchWorld_DefenseSpacing
             {
                 Archer probe = archers[i];
                 if (probe == null || probe.gameObject == null
-                    || !probe.gameObject.activeInHierarchy) continue;
+                    || !probe.gameObject.activeInHierarchy || HeavyShieldIdentity.IsKnownCareerRoot(probe.gameObject)) continue;
                 n++;
             }
             if (n < 2) return;
@@ -803,7 +804,7 @@ public static class PatchWorld_DefenseSpacing
             {
                 Archer archer = archers[i];
                 if (archer == null || archer.gameObject == null
-                    || !archer.gameObject.activeInHierarchy) continue;
+                    || !archer.gameObject.activeInHierarchy || HeavyShieldIdentity.IsKnownCareerRoot(archer.gameObject)) continue;
                 active[fill] = archer;
                 positions[fill] = archer.transform.position;
                 fill++;

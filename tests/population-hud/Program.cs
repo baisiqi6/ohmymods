@@ -9,7 +9,7 @@ static class Program
  static void Test(string name,Action action)
  {
   Counts.Reset();Managers.ThrowInst=false;Managers.Inst=new();Time.unscaledTime=0;
-  MusketeerIdentity.Reset();ModConfig.MusketeerShopEnabled.Value=false;
+  MusketeerIdentity.Reset();HeavyShieldIdentity.Reset();ModConfig.MusketeerShopEnabled.Value=false;
   PatchRoles_Crossbowman.RecomputeState=CrossbowRecomputeState.Disabled;
   NetworkBigBoss.HasWorldAuth=true;
   ModConfig.Enabled.Value=ModConfig.ShowPopulationHud.Value=true;ModConfig.AutoRestockWorkersEnabled.Value=false;
@@ -122,7 +122,7 @@ static class Program
    MusketeerIdentity.Bind(Actor<Archer>(m).gameObject.GetComponent<Archer>());
    var k=Actor<Knight>(m).gameObject.GetComponent<Knight>();k.Style=3;k.Resolved=true;
    MusketeerIdentity.Bind(k.gameObject.AddComponent<Archer>());Read(0);
-   Eq(12,Counts.RoleCount,"contiguous role array");Eq(8,Counts.MusketeerRole,"musketeer slot unchanged");Eq(9,Counts.FollowerRole,"follower role unchanged");Eq(10,Counts.SquireRole,"squire role unchanged");Eq(11,Counts.CrossbowmanRole,"crossbowman role appended");Eq(12,Counts.KnightRole,"separate knight sentinel");
+   Eq(13,Counts.RoleCount,"contiguous role array");Eq(8,Counts.MusketeerRole,"musketeer slot unchanged");Eq(9,Counts.FollowerRole,"follower role unchanged");Eq(10,Counts.SquireRole,"squire role unchanged");Eq(11,Counts.CrossbowmanRole,"crossbowman slot unchanged");Eq(12,Counts.HeavyShieldRole,"shield role appended");Eq(13,Counts.KnightRole,"separate knight sentinel");
    for(int i=0;i<8;i++)Eq(i==1?3:1,Counts.Role(i),"preserved role "+i);
    Eq(1,Counts.Role(Counts.MusketeerRole),"only original archer entry reclassified");Eq(1,Counts.Knights,"knight precedence retained");Eq(1,Counts.Style(3),"Greek style retained");Eq(12,Total(),"exclusive complete total");
   });
@@ -271,26 +271,27 @@ static class Program
   {
    Actor<Worker>(Managers.Inst);PopulationHud.Tick();int scans=Managers.Inst.kingdom._characters.Enumerations;
    Event.current.type=EventType.Layout;PopulationHud.Draw();Eq(0,GUI.Labels.Count,"layout does not draw");Event.current.type=EventType.MouseDown;PopulationHud.Draw();Eq(0,GUI.Labels.Count,"input does not draw");
-   Event.current.type=EventType.Repaint;PopulationHud.Draw();Eq(42,GUI.Labels.Count,"20 labels with shadows, unknown omitted");
+   Event.current.type=EventType.Repaint;PopulationHud.Draw();Eq(44,GUI.Labels.Count,"22 labels with shadows, unknown omitted");
    Eq("本岛人数",GUI.Labels[1].Text,"scope title");Eq(54f,GUI.Labels[1].Rect.y,"title above roster");
    Eq("工匠  1",GUI.Labels[3].Text,"cached worker label");Eq(16f,GUI.Labels[3].Rect.x,"left position");Eq(76f,GUI.Labels[3].Rect.y,"top position");
    Eq(GUI.skin.label.FontChain,GUI.Labels[1].Style.FontChain,"native CJK font chain inherited");Eq(15,GUI.Labels[1].Style.fontSize,"font size");Eq(scans,Managers.Inst.kingdom._characters.Enumerations,"Draw never enumerates");
   });
   Test("HUD unknown knight fills only spare cell and independent display switch hides it",()=>
   {
-   Actor<Knight>(Managers.Inst);PopulationHud.Tick();PopulationHud.Draw();Eq(44,GUI.Labels.Count,"unknown extra label");Eq(true,GUI.Labels.Any(x=>x.Text=="待识别  1"),"unknown text");
+   Actor<Knight>(Managers.Inst);PopulationHud.Tick();PopulationHud.Draw();Eq(46,GUI.Labels.Count,"unknown extra label");Eq(true,GUI.Labels.Any(x=>x.Text=="待识别  1"),"unknown text");
    GUI.Labels.Clear();ModConfig.ShowPopulationHud.Value=false;PopulationHud.Tick();PopulationHud.Draw();Eq(0,GUI.Labels.Count,"disabled HUD hidden");Eq(false,Counts.Ready,"disabled counts clear");
   });
   Test("Ninth profession has its own row before knight styles and ammunition with no label collisions",()=>
   {
    var m=Managers.Inst;MusketeerIdentity.Bind(Actor<Archer>(m).gameObject.GetComponent<Archer>());Actor<Knight>(m);
    PopulationHud.Tick();PopulationHud.Draw();var labels=GUI.Labels.Where((_,i)=>i%2==1).ToList();
-   Eq(22,labels.Count,"complete layout including unresolved knight");
+   Eq(23,labels.Count,"complete layout including unresolved knight");
    Eq(156f,labels.Single(x=>x.Text=="火枪手  1").Rect.y,"fifth profession row");
-   Eq(202f,labels.Single(x=>x.Text=="骑士  1").Rect.y,"knight below all professions (6th role row)");
-   Eq(222f,labels.Single(x=>x.Text=="中世纪  0").Rect.y,"styles below knight");
-   Eq(262f,labels.Single(x=>x.Text=="待识别  1").Rect.y,"last style row");
-   Eq(288f,labels.Single(x=>x.Text=="火药桶  0").Rect.y,"ammo after final style");
+   Eq(196f,labels.Single(x=>x.Text=="宝石盾卫  0").Rect.y,"seventh profession row");
+   Eq(222f,labels.Single(x=>x.Text=="骑士  1").Rect.y,"knight below all professions");
+   Eq(242f,labels.Single(x=>x.Text=="中世纪  0").Rect.y,"styles below knight");
+   Eq(282f,labels.Single(x=>x.Text=="待识别  1").Rect.y,"last style row");
+   Eq(308f,labels.Single(x=>x.Text=="火药桶  0").Rect.y,"ammo after final style");
    for(int i=0;i<labels.Count;i++)for(int j=i+1;j<labels.Count;j++)
    {
     var a=labels[i].Rect;var b=labels[j].Rect;
@@ -382,6 +383,14 @@ static class Program
    Eq(true,GUI.Labels.Any(x=>x.Text=="弩手  等待重算"),"pause alone never advances the waiting row");
    Eq(CrossbowRecomputeState.Waiting,PatchRoles_Crossbowman.RecomputeState,"display never rewrites the init state");
    Eq(1,Counts.Role(Counts.CrossbowmanRole),"paused counts stay real");
+  });
+  Test("Purchased shield has one dedicated row and preserves the native actor total",()=>{
+   var m=Managers.Inst;var shield=Actor<Archer>(m);Actor<Archer>(m);Settle();
+   Eq(2,Counts.Role(Counts.ArcherRole),"ordinary baseline");
+   HeavyShieldIdentity.Bind(shield.gameObject);Read(3);
+   Eq(1,Counts.Role(Counts.ArcherRole),"shield leaves archer row");Eq(1,Counts.Role(Counts.HeavyShieldRole),"shield row");Eq(2,Total(),"exact actor total");
+   PopulationHud.Tick();PopulationHud.Draw();Eq(true,GUI.Labels.Any(x=>x.Text=="宝石盾卫  1"),"player sees shield count");
+   shield._damageable.isDead=true;Read(4);Eq(0,Counts.Role(Counts.HeavyShieldRole),"dead shield no longer counted");Eq(1,Total(),"living native actor retained");
   });
   Console.WriteLine($"RESULT: {passed} passed, {failed} failed");Environment.ExitCode=failed==0?0:1;
  }

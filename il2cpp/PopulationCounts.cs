@@ -9,7 +9,7 @@ internal static class PopulationCounts
 {
     internal const int WorkerRole = 0, ArcherRole = 1, FarmerRole = 2, PikemanRole = 3;
     internal const int NinjaRole = 4, BerserkerRole = 5, PeasantRole = 6, BeggarRole = 7;
-    internal const int MusketeerRole = 8, FollowerRole = 9, SquireRole = 10, CrossbowmanRole = 11, RoleCount = 12, KnightRole = 12, StyleCount = 5;
+    internal const int MusketeerRole = 8, FollowerRole = 9, SquireRole = 10, CrossbowmanRole = 11, HeavyShieldRole = 12, RoleCount = 13, KnightRole = 13, StyleCount = 5;
     private const int MaxFailures = 3, DelayedRebuilds = 2;
 
     private sealed class Entry
@@ -227,7 +227,8 @@ internal static class PopulationCounts
                     // 随从拆分（2026-09-23 用户需求）：弓箭手计数只含自由弓箭手，挂了骑士的
                     // 随从单独成行，玩家可精确知道剩余可支配弓箭手。火枪手身份优先（两者实际
                     // 互斥：火枪手 IsAvailableForJob 已排除骑士队，此处只是防御性定序）。
-                    if (MusketeerIdentity.IsUnit(entry.Archer)) role = MusketeerRole;
+                    if (HeavyShieldIdentity.IsKnownCareerRoot(go)) role = HeavyShieldRole;
+                    else if (MusketeerIdentity.IsUnit(entry.Archer)) role = MusketeerRole;
                     else if (entry.Archer != null && entry.Archer._knight != null) role = FollowerRole;
                     // 弩手拆行（2026-09-24 用户需求）：自由弓箭手里的弩手单独计数，玩家可
                     // 区分猎人与弩手（也服务于夜间箭道上墙问题的现场分辨）。随从弩手仍计入

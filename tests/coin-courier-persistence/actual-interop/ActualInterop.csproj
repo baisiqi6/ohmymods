@@ -35,4 +35,5 @@
     <Reference Include="UnityEngine.JSONSerializeModule"><HintPath>$(InteropDir)\UnityEngine.JSONSerializeModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Il2CppInterop.Runtime"><HintPath>$(CoreDir)\Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
+  <ItemGroup><Compile Include="../../heavy-shield-boundary/DisabledHeavyShieldApis.cs" Link="Boundary/DisabledHeavyShieldApis.cs" /></ItemGroup>
 </Project>

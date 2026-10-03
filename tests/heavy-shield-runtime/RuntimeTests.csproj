@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/obj/**;**/bin/**</DefaultItemExcludes>
+    <DefineConstants>HEAVY_SHIELD_ART_CORE_ONLY</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../il2cpp/HeavyShieldRuntime.cs" Link="Production/HeavyShieldRuntime.cs" />
+    <Compile Include="../../il2cpp/HeavyShieldCombat.cs" Link="Production/HeavyShieldCombat.cs" />
+    <Compile Include="../../il2cpp/HeavyShieldNativeHooks.cs" Link="Production/HeavyShieldNativeHooks.cs" />
+    <Compile Include="../../il2cpp/HeavyShieldIntegration.cs" Link="Production/HeavyShieldIntegration.cs" />
+    <Compile Include="../../il2cpp/HeavyShieldBlockPolicy.cs" Link="Production/HeavyShieldBlockPolicy.cs" />
+    <Compile Include="../../il2cpp/HeavyShieldActorVisuals.cs" Link="Production/HeavyShieldActorVisuals.cs" />
+    <Compile Include="../../il2cpp/HeavyShieldContracts.cs" Link="Production/HeavyShieldContracts.cs" />
+    <Compile Include="../../il2cpp/HeavyShieldQuota.cs" Link="Production/HeavyShieldQuota.cs" />
+    <Compile Include="../../il2cpp/PatchRoles_HeavyShieldArt.cs" Link="Production/ArtLayout.cs" />
+    <Compile Include="../../il2cpp/CombatTargetLife.cs" Link="Production/CombatTargetLife.cs" />
+    <Compile Include="../../il2cpp/CombatDamage.cs" Link="Production/CombatDamage.cs" />
+  </ItemGroup>
+</Project>

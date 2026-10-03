@@ -1,0 +1,253 @@
+{
+  "manifest": "C:\\Users\\ADMIN\\projects\\ohmymods-wt-gem-knight-20260930\\artifacts\\heavy-shield-approved\\atlas-manifest.json",
+  "atlases": {
+    "soldier": {
+      "resource": "HeavyShieldSoldierAtlas.png",
+      "size": [
+        420,
+        300
+      ],
+      "cell": [
+        35,
+        25
+      ],
+      "columns": 12,
+      "rows": 12,
+      "frameCount": 136,
+      "slots": 144,
+      "alphaBinary": true,
+      "sourceCount": 136,
+      "firstLastProbes": {
+        "0": {
+          "source": "heavy-shield-v55-back-idle-00.png",
+          "sha256": "7dcbce9f9f87645dd8d12b0c8ff2447bcaf6b373b459eed8574a3b837064a22d",
+          "alphaBBox": [
+            6,
+            0,
+            24,
+            25
+          ]
+        },
+        "135": {
+          "source": "heavy-shield-v58-critical-bash-07.png",
+          "sha256": "009d1850e0346b3a4743c4ed7e1d1b030406274af14251ea1a23e2305ea36665",
+          "alphaBBox": [
+            11,
+            0,
+            33,
+            25
+          ]
+        }
+      },
+      "bottomOpaqueRows": {
+        "min": 25,
+        "max": 25
+      },
+      "paddingTransparent": true,
+      "v51Links": [
+        {
+          "frame": 0,
+          "source": "heavy-shield-v51-back.png",
+          "matches": true,
+          "why": "relaxed back idle starts from the accepted v51 back pose"
+        },
+        {
+          "frame": 22,
+          "source": "heavy-shield-v51-guard.png",
+          "matches": true,
+          "why": "guard idle starts from the accepted v51 guard pose"
+        },
+        {
+          "frame": 26,
+          "source": "heavy-shield-v51-back.png",
+          "matches": true,
+          "why": "equip starts on the back pose"
+        },
+        {
+          "frame": 48,
+          "source": "heavy-shield-v51-guard.png",
+          "matches": true,
+          "why": "equip ends on the guard pose"
+        },
+        {
+          "frame": 49,
+          "source": "heavy-shield-v51-guard.png",
+          "matches": true,
+          "why": "stow starts on the guard pose"
+        },
+        {
+          "frame": 71,
+          "source": "heavy-shield-v51-back.png",
+          "matches": true,
+          "why": "stow ends on the back pose"
+        }
+      ]
+    },
+    "shop": {
+      "resource": "HeavyShieldShopAtlas.png",
+      "size": [
+        384,
+        240
+      ],
+      "cell": [
+        96,
+        60
+      ],
+      "columns": 4,
+      "rows": 4,
+      "frameCount": 13,
+      "slots": 16,
+      "alphaBinary": true,
+      "sourceCount": 13,
+      "firstLastProbes": {
+        "0": {
+          "source": "heavy-shield-v60-shop-locked-0.png",
+          "sha256": "779061bdf6239e7c2909b7fa191a5882e3f1bb2d0c11d019e297e9c4debb6912",
+          "alphaBBox": [
+            0,
+            3,
+            95,
+            57
+          ]
+        },
+        "12": {
+          "source": "heavy-shield-v60-shop-idle-05.png",
+          "sha256": "230dcdc01b7ae272350b94936c0f3e68cde71046900ca7c542604b9e7dfb2913",
+          "alphaBBox": [
+            0,
+            3,
+            95,
+            57
+          ]
+        }
+      },
+      "bottomOpaqueRows": {
+        "min": 57,
+        "max": 57
+      },
+      "paddingTransparent": true,
+      "groundRow": 56,
+      "groundRowPaintedEveryFrame": true
+    },
+    "shopLayers": {
+      "resource": "HeavyShieldShopLayers.png",
+      "size": [
+        384,
+        240
+      ],
+      "cell": [
+        96,
+        60
+      ],
+      "columns": 4,
+      "rows": 4,
+      "frameCount": 14,
+      "slots": 16,
+      "alphaBinary": true,
+      "sourceCount": 14,
+      "firstLastProbes": {
+        "0": {
+          "source": "heavy-shield-v60-shop-layer-rear.png",
+          "sha256": "83c2e4a94ba43d1545af73f142b00919984a2a76095e3c98af7e7ae48a90ca38",
+          "alphaBBox": [
+            3,
+            3,
+            95,
+            57
+          ]
+        },
+        "13": {
+          "source": "heavy-shield-v60-shop-layer-front.png",
+          "sha256": "c9d2c5bd7bf3c0ad80831362d01e0fe29e9ad7e6e620ddc9f0b82f54c6897830",
+          "alphaBBox": [
+            0,
+            26,
+            94,
+            57
+          ]
+        }
+      },
+      "bottomOpaqueRows": {
+        "min": 55,
+        "max": 57
+      },
+      "paddingTransparent": true,
+      "groundRow": 56
+    }
+  },
+  "compositing": {
+    "locked-0": {
+      "frame": 0,
+      "equal": true,
+      "diffBytes": 0
+    },
+    "locked-1": {
+      "frame": 1,
+      "equal": true,
+      "diffBytes": 0
+    },
+    "locked-2": {
+      "frame": 2,
+      "equal": true,
+      "diffBytes": 0
+    },
+    "locked-3": {
+      "frame": 3,
+      "equal": true,
+      "diffBytes": 0
+    },
+    "ready": {
+      "frame": 5,
+      "equal": true,
+      "diffBytes": 0
+    },
+    "full": {
+      "frame": 6,
+      "equal": true,
+      "diffBytes": 0
+    },
+    "idle-00": {
+      "frame": 7,
+      "equal": true,
+      "diffBytes": 0
+    },
+    "idle-01": {
+      "frame": 8,
+      "equal": true,
+      "diffBytes": 0
+    },
+    "idle-02": {
+      "frame": 9,
+      "equal": true,
+      "diffBytes": 0
+    },
+    "idle-03": {
+      "frame": 10,
+      "equal": true,
+      "diffBytes": 0
+    },
+    "idle-04": {
+      "frame": 11,
+      "equal": true,
+      "diffBytes": 0
+    },
+    "idle-05": {
+      "frame": 12,
+      "equal": true,
+      "diffBytes": 0
+    },
+    "payment-complete": {
+      "frame": 4,
+      "changedPixels": 5,
+      "allWithinOneOfSocket": true,
+      "socket": [
+        13,
+        40
+      ],
+      "note": "layer atlas has no fixtures-locked-4; the recorded v60 transition changes exactly this socket"
+    },
+    "failedFrames": 0
+  },
+  "checks": 682,
+  "failures": []
+}
