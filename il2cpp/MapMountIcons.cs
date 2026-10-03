@@ -111,6 +111,51 @@ namespace KingdomEnhancedMod
         private static bool _worldSuspended;                       // world override 挂起（single1/未知）：数据回调不重建
         private static RectTransform _worldPhysicalPaper;          // exact 物理纸缓存引用（stamp/fit 共用）
         private static readonly List<RectTransform> _bannerExcludedRects = new List<RectTransform>(4);
+        // 新岸线（KEM_MapExtensionIsland）绑定状态：canonical owner token（登记代际）+ 岸内 mask 缓存 + detail memo。
+        // owner = ExtensionIslandMap 的登记 Owner 实例（跨 wrapper alias 同一 token；换 campaign/同 menu 换
+        // mainMap → 重建登记 → 新 token），绝不把 raw menu wrapper 当 owner。
+        // shore 生命期与 icons 开关解耦（icons OFF 但 current/visited 扩展仍展示岸线），
+        // 只在真正 owner 失效/Clear/OnDisable 时按 exact menu 门收尾（旧 sender 不得撤新 owner）。
+        private static object _shoreOwnerToken;                    // 当前 shore/detail 租约 owner（canonical token）
+        private static MapTimelineMenuGreece _shoreOwnerMenu;       // 绑定时捕获的 exact menu（Clear/OnDisable 收尾主门）
+        private static MapShoreMask _shoreMask;                    // 岸内 mask（来自 art.Prep；按 prep 实例缓存）
+        private static object _shoreMaskSource;
+        private static UILand _detailShapeLand;                    // 已应用 detail 形状的 exact 实例
+        private static object _detailShapeToken;                   // detail 应用时的 canonical token
+        private static Image _detailShapeOutlineImage;             // detail 绑定时捕获的 outline 原生 Image（四图事务）
+        // P2：失败归还的 exact cleanup 责任（有界队列）——setter 临时失败等留下 live 租约时，保留 owner token/menu，
+        // 由该 owner 的后续 exact 回调（或菜单已死时）重试收尾；完成即出队。绝不 ReleaseAll/Reset 绕过范围。
+        private sealed class DeferredRelease
+        {
+            internal object Token;
+            internal MapTimelineMenuGreece Menu;
+        }
+        private static readonly List<DeferredRelease> _deferredReleases = new List<DeferredRelease>(2);
+        private const int MaxDeferredReleases = 8;
+        // 队列满导致 captured 身份被保留（fail-closed）：仅在 DeferRelease 拒绝时置位，身份清理时复位。
+        // 与「健康租约」区分：健康的在租状态不影响注册换代重绑（S3），只有真正的未收尾责任才拒绝新接管。
+        private static bool _shoreReleaseRetained;
+        private static readonly List<RectTransform> _detailExcludedRects = new List<RectTransform>(2);
+        private static readonly List<RectSnapshot> _detailSnapshots = new List<RectSnapshot>(2);   // detail 独立快照（与 world Expanded 分离）
+        // world pending 显示门（消闪）：**自有 CanvasGroup**（AddComponent 创建、绝不用/改 native 既有组）在
+        // 同帧渲染前把 exact 当前 _mainMap 子树 alpha 归 0，直到几何提交 + 真实 focused-reign 刷新成功后
+        // **同帧** reveal。保留 _mainMap 原 activeSelf（不 SetActive：整 branch OnDisable/OnEnable 不触发），
+        // world/detail 组彼此独立（只动 mainMap 子树，不遮纸/导航按钮/详情）。
+        // 自有有界超时/失败还原（fail-open，绝不永久 blank）；失败 memo 按 owner/map/menu/campaign+viewport
+        // 绑定（不是全局 stamp）：同 tuple 不 hide/retry 热循环，新 owner/同尺寸新 B 仍正常准备。
+        private static UIMainMap _worldGateMap;
+        private static GameObject _worldGateGo;                 // 组宿主（= exact mainMap GameObject，身份核验）
+        private static CanvasGroup _worldGateGroup;             // 自有组（只可能由本模块 AddComponent 创建）
+        private static MapTimelineMenuGreece _worldGateMenu;    // hide 时 exact owner（迟到 sender 不撤新门）
+        private static object _worldGateOwnerToken;              // hide 时 canonical owner token（换代检测）
+        private static IntPtr _worldGateCampaign;                // hide 时 campaign 身份（换代检测）
+        private static bool _worldGateHidden;
+        private static int _worldGateStartFrame = -1;
+        private static long _worldGateStamp = long.MinValue;
+        private static WorldGateMemo _worldGateFailed;          // 失败 memo（同 tuple 才跳过 hide/retry）
+        private const int WorldGateMaxFrames = 120;   // 自有有界超时（scroll 永不稳定也必须 fail-open）
+        /// <summary>detail 岸线垂直中心（相对 land 中心；保留旧 shore 的 −4 锚点，页域 ±93 内且与 legend 分离）。</summary>
+        private const float DetailShapeCenterY = -4f;
         private static bool _nativeRefreshActive;                  // 同步重入门
         private static int _nativeRefreshAttemptedVersion = -1;    // 每几何版本至多一次刷新尝试
 
@@ -292,7 +337,7 @@ namespace KingdomEnhancedMod
                     if (OwnerIsCurrent(menu) &&
                         MapOverviewLifecycle.ShouldTeardownOnForeignLand(iconsEnabled, CachedExtensionGeometryRequired()))
                     {
-                        Teardown();
+                        Teardown(menu);
                     }
                     return;   // 未知/迟到 sender：不动当前 owner
                 }
@@ -314,7 +359,7 @@ namespace KingdomEnhancedMod
 
                 if (action == MapOverviewAction.Teardown)
                 {
-                    if (OwnerIsCurrent(menu)) Teardown();
+                    if (OwnerIsCurrent(menu)) Teardown(menu);
                     return;
                 }
                 if (action == MapOverviewAction.LayoutWithoutIcons)
@@ -322,6 +367,8 @@ namespace KingdomEnhancedMod
                     if (!OwnerIsCurrent(menu)) return;
                     // icons 关闭：撤自有 holder + 还原原生槽（不得借必要 layout 继续画 disabled 资源）；
                     // 但保留扩展地图必需几何（底部带 + 原 10 统一 shift + 真实 paper/mask），供恢复/返航。
+                    // 新岸线属于“扩展地图必需几何”：icons OFF 也要绑定/保持（current/visited 11 恢复场景）。
+                    if (!overview) EnsureDetailShape(land, menu);
                     WithdrawIcons();
                     if (ownedMainMap != null) EnsureOverviewLayout(ownedMainMap);
                     return;
@@ -353,6 +400,10 @@ namespace KingdomEnhancedMod
                 }
 
                 MapMountIconView view = FindView(land, true);
+
+                // 唯一自有 extension detail：在数据/图标路径之前绑定并摆放新岸线（shape 先于测量；
+                // 与 icons 开关解耦，失败不写任何东西、保留 native 详情）。
+                if (!overview) EnsureDetailShape(land, menu);
 
                 // 只用当次 reign：不可用（null / 越界 / entry null）即失效并清掉该 land 旧自有显示，
                 // 但 ON+owned 期间**不归还**原生资源槽的接管责任：若此刻还原，原生 _spawnedIcon 会带着
@@ -447,14 +498,190 @@ namespace KingdomEnhancedMod
             try
             {
                 if (menu == null) return;                       // 未知 sender：不动任何 owner 的状态
+                ReleaseShoreFor(menu);                          // exact owner 收尾：先恢复 borrowedImage 再释放自有资源
+                TeardownWorldGateFor(menu);
                 if (_presentationMenu == menu)
                 {
                     ReleaseOwnGroup();
                     ClearAttemptMemo();
                 }
-                if (OwnsCurrentGeometry(menu)) Teardown();
+                if (OwnsCurrentGeometry(menu)) Teardown(menu);
             }
             catch (Exception) { }
+        }
+
+        /// <summary>
+        /// exact owner 的 shore/detail 收尾（OnDisable/ClearLands）：**以本模块自己捕获的 owner 身份为主门**
+        /// （native ClearLands 的真实顺序是 `ExtensionIslandMap.OnLandsCleared` 先清 registry/owner，才轮到
+        /// `MapMountIcons.OnMenuLandsCleared`，此刻 registry 查询必然已拒绝）——绝不以"当前 registry 仍活着"
+        /// 作为恢复旧自己 Image/快照责任的前提；只有自己捕获的 owner 可以清理，迟到旧 A 不撤新 B。
+        /// 对象可能已被 Destroy：租约归还内部容忍 dead wrapper（prune 注销，无破坏性写入），责任/缓存照清不
+        /// 泄漏到下个 menu。
+        /// </summary>
+        private static void ReleaseShoreFor(MapTimelineMenuGreece menu)
+        {
+            try
+            {
+                if (menu == null) return;
+                DrainDeferredReleases(menu);   // 该 sender 自身的遗留责任（迟到 A 只收 A，不动 B）
+                bool mine = _shoreOwnerMenu != null && SameInstance(_shoreOwnerMenu, menu);
+                if (!mine && _shoreOwnerMenu == null && ExtensionIslandMap.IsVisualOwnerMenu(menu)) mine = true;
+                // fail-closed 保留身份时：捕获的 exact menu 已死（dead wrapper）→ 允许本次重试收尾（对象已死时
+                // 租约到期即“确证 native death”），否则 retained 责任会永远堵住新 owner 的借用。
+                if (!mine && _shoreOwnerMenu != null && _shoreOwnerMenu.gameObject == null) mine = true;
+                if (!mine) return;
+                ReleaseShoreState();
+            }
+            catch (Exception e)
+            {
+                MapIconLog.Once("shore-release-" + e.GetType().Name, "shore release failed: " + e.Message);
+            }
+        }
+
+        /// <summary>
+        /// 归还本模块持有的全部 shore/detail 绑定：ReleaseOwner(canonical token)（归还仍持有的 Image →
+        /// 恢复 native sprite）→ 恢复 detail 独立快照队列（**几何归还与 sprite 租约成功分开**）→
+        /// 仅在该 owner 全部租约完成/确证 native dead 时才清 captured 身份并销毁无责任缓存。
+        /// P2：setter 临时失败会留下 live 租约/pending restore —— 此时保留 captured owner/menu（cleanup 身份），
+        /// 后续 exact owner 回调（OnDisable/Clear）可再次收尾；显示幂等标记（land/token）清掉，两者分离。
+        /// 绝不 ReleaseAll/Reset 绕过范围。
+        /// </summary>
+        private static void ReleaseShoreState()
+        {
+            object token = _shoreOwnerToken;
+            object detailToken = _detailShapeToken;
+            if (token != null) MapExtensionIslandArt.ReleaseOwner(token);
+            if (detailToken != null && !ReferenceEquals(detailToken, token))
+            {
+                MapExtensionIslandArt.ReleaseOwner(detailToken);
+            }
+            // 几何归还先行（失败重试不依赖几何状态）
+            _detailExcludedRects.Clear();
+            RestoreDetailSnapshots();
+            _shoreMask = null;
+            _shoreMaskSource = null;
+            bool outstanding = (token != null && MapExtensionIslandArt.HasOutstanding(token)) ||
+                (detailToken != null && !ReferenceEquals(detailToken, token) &&
+                 MapExtensionIslandArt.HasOutstanding(detailToken));
+            bool queued = true;
+            if (outstanding)
+            {
+                if (token != null && MapExtensionIslandArt.HasOutstanding(token))
+                {
+                    queued = DeferRelease(token, _shoreOwnerMenu) && queued;   // exact cleanup 责任入队（有界）
+                }
+                if (detailToken != null && !ReferenceEquals(detailToken, token) &&
+                    MapExtensionIslandArt.HasOutstanding(detailToken))
+                {
+                    queued = DeferRelease(detailToken, _shoreOwnerMenu) && queued;
+                }
+                if (queued)
+                {
+                    MapIconLog.Once("shore-release-deferred",
+                        "shore release deferred: owner still has outstanding lease(s); queued for exact retry");
+                }
+            }
+            else
+            {
+                MapExtensionIslandArt.DestroyCacheIfUnused();
+            }
+            if (!queued)
+            {
+                // fail-closed（supervisor 跟进项）：有界队列接不下这条责任时，**绝不丢 captured owner 身份** ——
+                // 否则 outstanding 租约再无 exact cleanup 索引（只能等全局 Reset，等于责任丢弃）。保留身份后：
+                // 1) exact owner 回调（OnDisable/ClearLands）可再次收尾；2) ShoreTakeoverBlocked 拒绝新 owner 接管，
+                // 直到旧责任成功归还或确证 native death。几何/快照已在上方归还，这里保留的只是 cleanup 身份。
+                _shoreReleaseRetained = true;
+                MapIconLog.Once("shore-release-retained",
+                    "shore release queue full; captured owner retained for exact retry (new takeovers refused)");
+                return;
+            }
+            _shoreOwnerToken = null;
+            _shoreOwnerMenu = null;
+            _detailShapeLand = null;
+            _detailShapeToken = null;
+            _detailShapeOutlineImage = null;
+            _shoreReleaseRetained = false;   // 身份已清 = 责任已收尾/已入队 → 解除 fail-closed 接管门
+        }
+
+        /// <summary>
+        /// 把失败归还的 exact owner 责任入队（去重；有界）。返回是否已**被接收**（已在队列中视为接收）：
+        /// false = 队列已满，调用方必须 fail-closed 保留 captured 身份并拒绝新接管，绝不当成功丢弃责任。
+        /// </summary>
+        private static bool DeferRelease(object token, MapTimelineMenuGreece menu)
+        {
+            if (token == null) return true;
+            for (int i = 0; i < _deferredReleases.Count; i++)
+            {
+                if (ReferenceEquals(_deferredReleases[i].Token, token))
+                {
+                    _deferredReleases[i].Menu = menu;
+                    return true;
+                }
+            }
+            if (_deferredReleases.Count >= MaxDeferredReleases)
+            {
+                MapIconLog.Once("shore-release-queue-full",
+                    "shore release queue full; entry refused (caller keeps captured owner, no new takeover)");
+                return false;
+            }
+            _deferredReleases.Add(new DeferredRelease { Token = token, Menu = menu });
+            return true;
+        }
+
+        /// <summary>
+        /// fail-closed 接管门：captured owner 仍有未完成归还责任（队列满被保留）时，**不得**为新的 exact owner
+        /// 建立接管/借用 —— 否则旧责任未收尾就继续叠加，且 A 的 cleanup 索引会被 B 的接管吞掉。同 owner 的
+        /// 重 bind 不算新接管（幂等重试允许）；旧责任成功归还/确证 native death 后本门自动解除。
+        /// </summary>
+        private static bool ShoreTakeoverBlocked(object requester)
+        {
+            if (!_shoreReleaseRetained) return false;   // 正常路径（含健康租约的注册换代）不受影响
+            object token = _shoreOwnerToken;
+            object detailToken = _detailShapeToken;
+            try
+            {
+                bool outstanding = (token != null && MapExtensionIslandArt.HasOutstanding(token)) ||
+                    (detailToken != null && !ReferenceEquals(detailToken, token) &&
+                     MapExtensionIslandArt.HasOutstanding(detailToken));
+                if (!outstanding) return false;   // 责任已自然了结（prune/native death）→ 门自动解除，等回调清身份
+                return !ReferenceEquals(token, requester) && !ReferenceEquals(detailToken, requester);
+            }
+            catch (Exception)
+            {
+                return true;   // 读故障：拒绝新接管（fail-closed）
+            }
+        }
+
+        /// <summary>
+        /// 尝试收尾排队中的归还责任（每次调用有界：每条目一次 ReleaseOwner，owner 作用域）。
+        /// sender 非 null 时只处理属于该 exact menu 的条目（迟到旧 A 只收 A，绝不动新 B）；菜单已死的条目随时收尾。
+        /// </summary>
+        private static void DrainDeferredReleases(MapTimelineMenuGreece sender)
+        {
+            for (int i = _deferredReleases.Count - 1; i >= 0; i--)
+            {
+                DeferredRelease entry = _deferredReleases[i];
+                // 已了结（无 outstanding 租约：外部替换/对象销毁 prune/被更新代接管）→ 无条件出队：
+                // 陈旧条目不得占住有限容量（否则有效容量被耗尽，真实责任更早被拒）。
+                if (!MapExtensionIslandArt.HasOutstanding(entry.Token))
+                {
+                    _deferredReleases.RemoveAt(i);
+                    continue;
+                }
+                bool menuDead = entry.Menu == null || entry.Menu.gameObject == null;
+                bool owned = sender != null && entry.Menu != null && SameInstance(entry.Menu, sender);
+                if (!owned && !menuDead) continue;
+                MapExtensionIslandArt.ReleaseOwner(entry.Token);
+                if (!MapExtensionIslandArt.HasOutstanding(entry.Token)) _deferredReleases.RemoveAt(i);
+            }
+        }
+
+        /// <summary>exact 实例身份（native pointer；绝不按 managed 引用认人）。</summary>
+        private static bool SameInstance(UnityEngine.Object a, UnityEngine.Object b)
+        {
+            if (a == null || b == null) return false;
+            try { return a.Pointer == b.Pointer; } catch (Exception) { return false; }
         }
 
         /// <summary>该 menu 是否就是当前已提交几何的 exact owner（map 的 RectTransform == 已提交 paper）。</summary>
@@ -499,6 +726,7 @@ namespace KingdomEnhancedMod
                 bool hadGeometry = _overviewApplied || Overview.Count > 0 || Expanded.Count > 0;
                 RestoreOverview();
                 RestoreExpansion();
+                ReleaseWorldGate(owner);   // world 挂起（single/未知）：详情与纸必须可见
                 if (hadGeometry || !_worldSuspended)
                 {
                     _overviewApplied = false;
@@ -519,21 +747,22 @@ namespace KingdomEnhancedMod
         }
 
         /// <summary>我们的地图 scope 结束（tick 自己判定的 OFF/结束路径）：展示组先撤，再做几何回收。</summary>
-        internal static void Teardown()
+        internal static void Teardown(MapTimelineMenuGreece owner)
         {
             try { WithdrawPresentation(); }
             catch (Exception) { }
-            TeardownGeometry();
+            TeardownGeometry(owner);
         }
 
         /// <summary>几何/图标回收（既有语义；不触碰展示组——旧 owner 迟到 disable 也要安全调用）。</summary>
-        private static void TeardownGeometry()
+        private static void TeardownGeometry(MapTimelineMenuGreece owner)
         {
             try
             {
                 WithdrawIcons();
                 RestoreExpansion();
                 RestoreOverview();
+                ReleaseWorldGate(owner);   // 几何全撤：不再需要门（下个周期按新状态重新评估）
                 _worldSuspended = true;  // r15：数据回调不得借旧 commit 重建全纸面 holder
                 _worldPhysicalPaper = null;
                 _overviewApplied = false;
@@ -674,12 +903,15 @@ namespace KingdomEnhancedMod
         }
 
         /// <summary>ClearLands postfix（现成第三方 hook 调用）：exact owner 的展示组即刻中性化并销毁，
-        /// 避免同一 holder 重建详情时旧组继续压制；其它 owner 的清理不影响本绑定。</summary>
+        /// 避免同一 holder 重建详情时旧组继续压制；其它 owner 的清理不影响本绑定。
+        /// shore 租约同样按 exact owner 收尾（对象可能已被 Destroy：归还容忍 dead wrapper）。</summary>
         internal static void OnMenuLandsCleared(MapTimelineMenuGreece menu)
         {
             try
             {
                 if (menu == null) return;
+                ReleaseShoreFor(menu);
+                TeardownWorldGateFor(menu);
                 // exact owner：捕获的或已尝试的（拒绝后 _presentationMenu 已清）任一匹配都失效 memo；
                 // 别的 owner 的 Clear 不动当前 owner 的组/memo。
                 if (menu != _presentationMenu && menu != _attemptMenu) return;
@@ -1331,6 +1563,9 @@ namespace KingdomEnhancedMod
             usedScale = 0f;
             failed = requests.Count;
             if (paper == null || entry == null || entry.BannerArea.Width <= 1f) return;
+            MapIconBox shoreFrame = entry.TargetArtBox;
+            if (shoreFrame.Width <= 1f || shoreFrame.Height <= 1f) return;
+            if (!EnsureShoreMask()) return;
 
             var native = new List<MapIconBox>(240);
             CollectNativeBoxes(paper, paper, native, true, _bannerExcludedRects);
@@ -1340,19 +1575,20 @@ namespace KingdomEnhancedMod
                 if (BoxesIntersect(native[i], entry.BannerArea, 0.01f)) blockers.Add(native[i]);
             }
 
-            MapIconBox reserved = MapWorldLayout.IconAreaOf(entry.BannerArea, true, StatusLaneWidth);
-            MapIconBox full = MapWorldLayout.IconAreaOf(entry.BannerArea, false, 0f);
-            // R5/独立实测：reserved 先成功会遮蔽 full 的更高可读 scale（300/314 下 reserved .5/.6 vs full .6/.7）。
-            // 两个候选都用真实 blockers 规划，取**真实可达 scale 更高**者；相同 scale 保持 reserved 优先。
-            // 不隐藏/删除 boat blocker、不重叠缩截：两候选都是完整 16 项合法解，只比较可读倍率。
+            // 图标区 = 实际 shore 显示框内缩 margin；右侧让出状态/船标车道（保留 r15 语义）；
+            // 岸内终检用同一 shoreFrame（paper 坐标）+ 实际 Sprite.rect 画布 mask（含透明 padding）。
+            MapIconBox reserved = MapWorldLayout.IconAreaOf(shoreFrame, true, StatusLaneWidth);
+            MapIconBox full = MapWorldLayout.IconAreaOf(shoreFrame, false, 0f);
+            // R5/独立实测：reserved 先成功会遮蔽 full 的更高可读 scale。两个候选都用真实 blockers + 岸内 mask
+            // 规划，取**真实可达 scale 更高**者；相同 scale 保持 reserved 优先。绝不部分/落水显示。
             var reservedPlacements = new List<MapIconPlacement>(requests.Count);
-            bool reservedOk = MapExtensionIslandLayout.TryPlan(reserved, requests, blockers, reservedPlacements,
-                out float reservedScale, out _);
+            bool reservedOk = MapExtensionIslandLayout.TryPlan(reserved, requests, blockers, shoreFrame, _shoreMask,
+                reservedPlacements, out float reservedScale, out _);
             if (reservedOk)
             {
                 var fullPlacements = new List<MapIconPlacement>(requests.Count);
-                bool fullOk = MapExtensionIslandLayout.TryPlan(full, requests, blockers, fullPlacements,
-                    out float fullScale, out _);
+                bool fullOk = MapExtensionIslandLayout.TryPlan(full, requests, blockers, shoreFrame, _shoreMask,
+                    fullPlacements, out float fullScale, out _);
                 if (fullOk && fullScale > reservedScale + 0.0001f)
                 {
                     placements.AddRange(fullPlacements);
@@ -1365,17 +1601,236 @@ namespace KingdomEnhancedMod
                 failed = 0;
                 return;
             }
-            if (MapExtensionIslandLayout.TryPlan(full, requests, blockers, placements, out usedScale, out failed))
+            if (MapExtensionIslandLayout.TryPlan(full, requests, blockers, shoreFrame, _shoreMask, placements,
+                    out usedScale, out failed))
             {
                 return;
             }
             placements.Clear();
             MapIconLog.Warn("extension island capacity failed: requests=" + requests.Count +
-                " banner=[" + Fmt(entry.BannerArea) + "] blockers=" + blockers.Count +
+                " shore=[" + Fmt(shoreFrame) + "] blockers=" + blockers.Count +
                 "; display suppressed (no partial)");
         }
 
+        /// <summary>岸内 mask 缓存（来自 art.Prep 的 clean alpha；按 prep 实例缓存，art Reset 后自动重建）。</summary>
+        private static bool EnsureShoreMask()
+        {
+            MapExtensionIslandArt.ShorePrep prep = MapExtensionIslandArt.Prep;
+            if (prep == null || prep.Mask == null || prep.Width <= 0 || prep.Height <= 0) return false;
+            if (_shoreMask != null && ReferenceEquals(_shoreMaskSource, prep)) return true;
+            _shoreMask = new MapShoreMask(prep.Width, prep.Height, prep.Mask);
+            _shoreMaskSource = prep;
+            return true;
+        }
+
+        /// <summary>几何提交时兜底：对已登记扩展 detail（有界扫描 menu.lands）应用岸线形状。
+        /// 返回 false = 任一已登记 detail 的 terrain/outline 绑定或几何失败（提交方据此整次回滚）；
+        /// 没有已登记 detail（尚未加载/未登记）时返回 true（不是失败，属"尚未适用"）。</summary>
+        private static bool EnsureRegisteredDetailShape(MapTimelineMenuGreece menu)
+        {
+            try
+            {
+                Il2CppSystem.Collections.Generic.List<UILand> lands = menu != null ? menu.lands : null;
+                if (lands == null) return true;
+                bool ok = true;
+                int count = Math.Min(lands.Count, MapOverviewLayout.NativeUiClusterCount + 1);
+                for (int i = 0; i < count; i++)
+                {
+                    UILand land = lands[i];
+                    if (land == null) continue;
+                    if (!TryGetRegisteredExtensionIndex(land, out _)) continue;
+                    if (!EnsureDetailShape(land, menu)) ok = false;
+                }
+                return ok;
+            }
+            catch (Exception e)
+            {
+                MapIconLog.Once("detail-commit-" + e.GetType().Name, "detail shape commit scan failed: " + e.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// exact detail 克隆的新岸线：绑定自有 shore/outline（owner = canonical token）并按实际 Sprite.rect
+        /// 等比放到 detail 页（左缘让出 native legend −96 + 4UI 水道、右缘不出 page282、垂直中心 −4 保留旧锚点）。
+        /// - 冷启动可直接工作：`shore == null` 时也会先 TryEnsure（不依赖此前是否跑过 world）；
+        /// - outline 为**必需**参与者（首绑/重绑都要求存在且是 Image）；
+        /// - 幂等（P3 四图事务）：同 token/land + **两个捕获 Image 身份** + 两份 sprite 应用 + 两份几何都在
+        ///   目标态时 O(1) 返回；任一失效走有界重解（丢弃陈旧租约后重绑两份），失败整体 false 由调用方回滚；
+        /// - 幂等 marker 与 world 的快照队列分离（Expanded vs _detailSnapshots），world suspend 不影响 detail；
+        /// - 事务式：outline 绑定/几何失败回滚 art（不半成功），失败不改变可见状态之外的东西。
+        /// </summary>
+        private static bool EnsureDetailShape(UILand land, MapTimelineMenuGreece menu)
+        {
+            var touched = new List<RectTransform>(2);
+            Image artImage = null;
+            Image outlineImage = null;
+            try
+            {
+                if (land == null || menu == null) return true;   // 不是本 detail：非失败
+                // 只服务 exact 登记扩展 detail：native 0..9 与其 clone 一律不碰（登记桥 fail-closed）。
+                if (!TryGetRegisteredExtensionIndex(land, out _)) return true;
+                object token = ExtensionIslandMap.TryGetVisualOwnerToken();
+                if (token == null) return false;   // 已登记但登记上下文不可用：绑定失败（fail-closed）
+                RectTransform landRect = land.gameObject.GetComponent<RectTransform>();
+                RectTransform art = FindArtTransform(land);
+                if (landRect == null || art == null) return false;
+                artImage = art.GetComponent<Image>();
+                if (artImage == null) return false;
+                // 四图事务必需参与者：detail 必须同时有 terrain 与 outline 两个 Image（首绑也不允许 null outline 成功）。
+                RectTransform outline = FindNamedDescendant(land.transform, "Land Outline", 4);
+                if (outline == null) return false;
+                outlineImage = outline.GetComponent<Image>();
+                if (outlineImage == null) return false;
+
+                Sprite shore = MapExtensionIslandArt.Shore;
+                // O(1) 快路（P3）：token/land + **两个捕获的原生 Image 身份** + 两份已应用 sprite + 两份几何；
+                // 任一 required Image 缺失/读故障/被外部替换都不能算四图 ready（否则会 reveal 混合 pair）。
+                if (shore != null && ReferenceEquals(token, _detailShapeToken) && SameInstance(_detailShapeLand, land) &&
+                    SameInstance(_detailShapeOutlineImage, outlineImage) &&
+                    MapExtensionIslandArt.IsApplied(artImage, shore) &&
+                    MapExtensionIslandArt.IsApplied(outlineImage, MapExtensionIslandArt.Outline) &&
+                    DetailGeometryApplied(art, shore.rect.width, shore.rect.height) &&
+                    DetailGeometryApplied(outline, shore.rect.width, shore.rect.height))
+                {
+                    return true;
+                }
+                if (!MapExtensionIslandArt.TryEnsure()) return false;   // 冷启动：直接 detail 也能加载
+                shore = MapExtensionIslandArt.Shore;
+                if (shore == null) return false;
+                // fail-closed：同上（detail 视角）——旧 owner 责任未收尾时不为新 owner 建租约。
+                if (ShoreTakeoverBlocked(token))
+                {
+                    MapIconLog.Once("shore-takeover-blocked",
+                        "new owner takeover refused: previous exact owner still has outstanding lease(s)");
+                    return false;
+                }
+                float aspect = SpriteAspect(shore);
+                if (!MapExtensionShapePlan.TryPlanDetailBox(MapExtensionShapePlan.DetailPageHalfWidth,
+                        MapExtensionShapePlan.DetailLegendRight, MapExtensionShapePlan.DetailWaterGap,
+                        MapExtensionShapePlan.DetailMaxWidth, aspect, DetailShapeCenterY,
+                        out MapIconBox frame, out _))
+                {
+                    return false;
+                }
+                // detail frame（相对 land 中心）→ 本模块统一 box 空间（原点 = land rect 左下，见 TryLocalBox）：
+                // 加半个 land rect 尺寸（= 空间中心，与 pivot 无关）。绝不在生产写假 fixture 的偏移补偿。
+                Rect landRectRect = landRect.rect;
+                var local = new MapIconBox(
+                    frame.X0 + landRectRect.width * 0.5f, frame.Y0 + landRectRect.height * 0.5f,
+                    frame.X1 + landRectRect.width * 0.5f, frame.Y1 + landRectRect.height * 0.5f);
+
+                // 快路失效：**有界重解**——先丢弃本 owner 在这两个 Image 上的陈旧租约（不逐帧全树扫描），
+                // 再按正常事务重绑两份 sprite；失败则整体失败（调用方按四图事务回滚）。
+                MapExtensionIslandArt.ReleaseBorrowed(artImage);
+                MapExtensionIslandArt.ReleaseBorrowed(outlineImage);
+                if (MapExtensionIslandArt.TryBorrow(artImage, shore, token) == null &&
+                    !MapExtensionIslandArt.IsApplied(artImage, shore))
+                {
+                    return false;
+                }
+                if (MapExtensionIslandArt.TryBorrow(outlineImage, MapExtensionIslandArt.Outline, token) == null &&
+                    !MapExtensionIslandArt.IsApplied(outlineImage, MapExtensionIslandArt.Outline))
+                {
+                    MapExtensionIslandArt.ReleaseBorrowed(artImage);   // 事务：outline 失败 → 回滚 art
+                    return false;
+                }
+                _shoreOwnerToken = token;
+                _shoreOwnerMenu = menu;
+                SnapshotDetail(art);
+                touched.Add(art);
+                SnapshotDetail(outline);
+                touched.Add(outline);
+                bool placed = PlaceSpriteFrameInSpace(art, landRect, local, shore.rect.width, shore.rect.height);
+                if (placed)
+                {
+                    placed = PlaceSpriteFrameInSpace(outline, landRect, local, shore.rect.width, shore.rect.height);
+                }
+                if (!placed)
+                {
+                    RollbackDetailSnapshots(touched);
+                    MapExtensionIslandArt.ReleaseBorrowed(artImage);
+                    MapExtensionIslandArt.ReleaseBorrowed(outlineImage);
+                    return false;
+                }
+
+                _detailExcludedRects.Clear();
+                _detailExcludedRects.Add(art);
+                _detailExcludedRects.Add(outline);
+                _detailShapeLand = land;
+                _detailShapeToken = token;
+                _detailShapeOutlineImage = outlineImage;
+                MapIconLog.Info("detail shore bound w=" + frame.Width.ToString("0.#") +
+                    " centerX=" + ((frame.X0 + frame.X1) * 0.5f).ToString("0.#") +
+                    " centerY=" + DetailShapeCenterY.ToString("0.#"));
+                return true;
+            }
+            catch (Exception e)
+            {
+                RollbackDetailSnapshots(touched);
+                if (artImage != null) MapExtensionIslandArt.ReleaseBorrowed(artImage);
+                if (outlineImage != null) MapExtensionIslandArt.ReleaseBorrowed(outlineImage);
+                MapIconLog.Once("detail-shape-" + e.GetType().Name, "detail shore binding failed: " + e.Message);
+                return false;
+            }
+        }
+
         // ------------------------------------------------------------------ rebuild
+
+        /// <summary>
+        /// exact extension detail 的图标规划（与 world 同算法/同 mask）：用**真正绘制的 shore RectTransform box**
+        /// （Sprite.rect 228×84 同比 scale）作为 icon area（∩ page 282×196），native 图形（排除自有 shore/outline）
+        /// 作 blockers，`MapExtensionIslandLayout` 三行 + 逐像素岸内终检；scale 下限 = PreferScale(0.6)。
+        /// 失败 → false（调用方整体 fallback，绝不部分展示/绝不退回 generic）。
+        /// </summary>
+        private static bool PlanExtensionDetailIsland(UILand land, List<MapIconRequest> requests,
+            List<MapIconPlacement> placements, out float scale, out int failed)
+        {
+            placements.Clear();
+            scale = 0f;
+            failed = requests == null ? 0 : requests.Count;
+            try
+            {
+                if (land == null || requests == null || requests.Count == 0) return requests != null;
+                RectTransform landRect = land.gameObject.GetComponent<RectTransform>();
+                if (landRect == null || _detailExcludedRects.Count < 2) return false;
+                RectTransform art = _detailExcludedRects[0];         // 真正绘制的 shore 子 rect
+                if (art == null) return false;
+                if (!TryLocalBox(landRect, art, out MapIconBox shoreBox)) return false;
+                if (shoreBox.Width <= 1f || shoreBox.Height <= 1f) return false;
+                if (!EnsureShoreMask()) return false;
+
+                // 可用区 = 岸线框内缩 ∩ page（page = 282×196 居中于 land rect：box 空间中心 ±141/±98）；
+                // footprint 必须同时在全 alpha 岸内（mask 终检）。
+                float inset = MapExtensionShapePlan.Margin;
+                float centerX = landRect.rect.width * 0.5f;
+                float centerY = landRect.rect.height * 0.5f;
+                var page = new MapIconBox(centerX - MapExtensionShapePlan.DetailPageHalfWidth,
+                    centerY - MapExtensionShapePlan.DetailPageHalfHeight,
+                    centerX + MapExtensionShapePlan.DetailPageHalfWidth,
+                    centerY + MapExtensionShapePlan.DetailPageHalfHeight);
+                var area = new MapIconBox(
+                    Math.Max(shoreBox.X0 + inset, page.X0), Math.Max(shoreBox.Y0 + inset, page.Y0),
+                    Math.Min(shoreBox.X1 - inset, page.X1), Math.Min(shoreBox.Y1 - inset, page.Y1));
+                var blockers = new List<MapIconBox>(24);
+                CollectNativeBoxes(landRect, land.transform, blockers, true, _detailExcludedRects);
+                if (!MapExtensionIslandLayout.TryPlan(area, requests, blockers, shoreBox, _shoreMask,
+                        placements, out scale, out failed, MapExtensionIslandLayout.PreferScale))
+                {
+                    placements.Clear();
+                    failed = requests.Count;
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception e)
+            {
+                placements.Clear();
+                failed = requests.Count;
+                MapIconLog.Once("ext-detail-plan-" + e.GetType().Name, "extension detail plan failed: " + e.Message);
+                return false;
+            }
+        }
 
         private static void Rebuild(MapMountIconView view, UILand land, int landIndex, bool overview,
             MapTimelineMenuGreece menu, CampaignSaveData.ReignInfo reign,
@@ -1397,9 +1852,23 @@ namespace KingdomEnhancedMod
             {
                 PlanOverviewIsland(paper, landIndex, requests, placements, out scale, out failed);
             }
+            else if (SameInstance(_detailShapeLand, land) && _detailShapeToken != null)
+            {
+                // exact extension detail：与 world 同一 alpha 三行算法（真正绘制的 shore box + 同一 MapShoreMask +
+                // page 282×196 + native sidebar/Boat blockers，min scale = PreferScale）。全 16 唯一 TypeId/Index
+                // 或**整体 fallback**；绝不退回 generic 排布、绝不部分展示。
+                if (!PlanExtensionDetailIsland(land, requests, placements, out scale, out failed))
+                {
+                    placements.Clear();
+                    failed = requests == null ? 0 : requests.Count;
+                    MapIconLog.Warn("extension detail plan failed (alpha/page/blockers); whole fallback land=" +
+                        landIndex + " requests=" + failed);
+                }
+            }
             else
             {
-                // 详情：land 矩形 + 适度外边距（真实 LandsHolder 294×186 内），以 holder 实界为布局上界。
+                // 详情（native 0..9 既有 generic 规划，保持不变）：land 矩形 + 适度外边距（真实 LandsHolder 294×186 内），
+                // 以 holder 实界为布局上界。
                 RectTransform nativeHolder = space.parent as RectTransform;
                 var surfaceBox = new MapIconBox(-DetailMarginX, -DetailMarginY,
                     space.rect.width + DetailMarginX, space.rect.height + DetailMarginY);
@@ -1412,7 +1881,9 @@ namespace KingdomEnhancedMod
                 var surface = new MapIconSurface(surfaceBox.X0, surfaceBox.Y0, surfaceBox.X1, surfaceBox.Y1);
                 var blocked = new List<MapIconBox>(240);
                 // 详情 view 根 = 该 land：其他岛是同级兄弟，无论隐藏与否都不算本岛障碍（r4）。
-                CollectNativeBoxes(space, land.transform, blocked, true);
+                // 自有新岸线（Land Image/Outline）是底图，不算障碍；未绑定成功时排除列表为空 → 原 native art 仍参与。
+                List<RectTransform> excluded = SameInstance(_detailShapeLand, land) ? _detailExcludedRects : null;
+                CollectNativeBoxes(space, land.transform, blocked, true, excluded);
                 for (int i = 0; i < blocked.Count; i++) surface.AddBlocked(blocked[i]);
                 MapResourceIconPlanner.TryPlan(requests, surface, placements, out scale, out failed);
             }
@@ -1891,6 +2362,293 @@ namespace KingdomEnhancedMod
         }
 
         /// <summary>
+        /// world pending 显示门（**OnMenuTick 内部调用，无独立 Harmony 注入点**）：exact 当前 owner +
+        /// ShowingWorld + 需要扩展几何（icons ON 或 registered/available）且**没有**已提交的有效布局时，
+        /// 隐藏 exact 当前 _mainMap 子树（同帧 Update 内、渲染前 CanvasGroup.alpha=0），避免 native spring 把
+        /// 未就绪的原始 world 滚入可见区一帧。已有提交布局 / single / 无需几何 / 非本 owner：不遮
+        /// （迟到旧 sender 不动新 owner 的门）。自有有界超时：pending 从首次 hide 起计 WorldGateMaxFrames 帧，
+        /// 超时 fail-open 还原并记录该失败 tuple（同 owner/map/campaign+viewport 不再 hide/retry 热循环）。
+        /// </summary>
+        private static void TickWorldPendingGate(MapTimelineMenuGreece greek)
+        {
+            try
+            {
+                if (greek == null) return;
+                int state = -1;
+                bool stateFault = false;
+                try { state = (int)greek._openWorldMapState; } catch (Exception) { stateFault = true; }
+                if (stateFault || state != MapOverviewPresentationPolicy.ShowingWorld)
+                {
+                    ReleaseWorldGate(greek);   // single/未知：详情与纸必须可见
+                    return;
+                }
+                UIMainMap map = greek._mainMap;
+                if (map == null || map.gameObject == null) { ReleaseWorldGate(greek); return; }
+                RectTransform paper = map.gameObject.GetComponent<RectTransform>();
+                if (paper == null) { ReleaseWorldGate(greek); return; }
+
+                bool iconsEnabled = FeatureEnabled();
+                bool registered = FindRegisteredExtension(map) != null;
+                bool available = registered && IsExtensionAccessAvailable();
+                if (!iconsEnabled && !(registered && available))
+                {
+                    ReleaseWorldGate(greek);   // 不需要扩展几何：不干预原生
+                    return;
+                }
+
+                object token = ExtensionIslandMap.TryGetVisualOwnerToken();
+                long stamp = ViewportStamp(paper);
+                // P1：canonical 换代检测必须在预算/超时**之前**——旧 scope 的计时器不得给新 scope 判超时。
+                // token/menu/map/campaign 任一变化 ⇒ 旧门中性退休（只还原/销毁旧 scope 自有组）+ 新 scope 独立预算。
+                if (_worldGateMenu != null &&
+                    (!SameInstance(_worldGateMenu, greek) || !SameInstance(_worldGateMap, map) ||
+                     !ReferenceEquals(_worldGateOwnerToken, token) ||
+                     _worldGateCampaign != CampaignPointerOf()))
+                {
+                    RetireWorldGate();
+                }
+                if (OverviewLayoutCommitted(map, paper))
+                {
+                    // 已有有效已提交布局：native 滚动看到的也是 Mod 布局 → 不遮（并清失败 memo）
+                    _worldGateStamp = stamp;
+                    _worldGateFailed = null;
+                    ReleaseWorldGate(greek);
+                    return;
+                }
+                if (SameGateTuple(_worldGateFailed, token, greek, map, stamp))
+                {
+                    return;   // 同 owner/map/campaign + 同 viewport 已达失败界限：不再 hide/retry 热循环
+                }
+                int frame = Time.frameCount;
+                // 自有有界超时：从**首次 pending** 起计（不等 measurement 的 Attempts），hidden 期间同样计时。
+                if (_worldGateStartFrame < 0) _worldGateStartFrame = frame;
+                if (frame - _worldGateStartFrame > WorldGateMaxFrames)
+                {
+                    _worldGateFailed = CaptureGateMemo(token, greek, map, stamp);
+                    _worldGateStartFrame = -1;
+                    ReleaseWorldGate(greek);
+                    MapIconLog.Info("world pending gate timed out; native world restored (no permanent blank; " +
+                        "retry only after owner/viewport change)");
+                    return;
+                }
+                // 目标对象/组换代或组丢失：HideWorldGate 内部先把旧宿主归还中性并销毁自有组，再按新对象
+                // 重建（这里 sender 是 exact 当前 owner，属合法接管）；同一对象复用则幂等复用/接管 owner。
+                // 迟到旧 sender 的显式释放路径仍被 ReleaseWorldGate 的 owner 门挡住（不撤新组）。
+                HideWorldGate(greek, map);
+                _worldGateOwnerToken = token;
+                _worldGateCampaign = CampaignPointerOf();
+                _worldGateStamp = stamp;
+            }
+            catch (Exception e)
+            {
+                MapIconLog.Once("world-gate-" + e.GetType().Name, "world gate failed: " + e.Message);
+                try { ReleaseWorldGate(greek); } catch (Exception) { }
+            }
+        }
+
+        /// <summary>
+        /// 自有 CanvasGroup alpha 门（宿主 = exact mainMap GameObject；**绝不** SetActive、**绝不**用/改
+        /// 既有 foreign CanvasGroup）。组只在首次隐藏时 AddComponent 创建；任何读/建/写失败一律拒绝本门
+        /// （保持原生可见，fail-open，不 partial）。
+        /// </summary>
+        private static void HideWorldGate(MapTimelineMenuGreece greek, UIMainMap map)
+        {
+            if (map == null || map.gameObject == null) return;
+            GameObject go = map.gameObject;
+            if (_worldGateGo != go)
+            {
+                ReleaseWorldGate(null);          // 旧宿主（若仍在）先归还中性；null = 本模块自己的换代路径
+                DestroyOwnGateGroup();
+                _worldGateGo = go;
+            }
+            if (_worldGateGroup == null)
+            {
+                _worldGateHidden = false;    // 组丢失（外部销毁/换代清理）：不是"已隐藏"状态，必须重建
+                CanvasGroup existing = null;
+                try { existing = go.GetComponent<CanvasGroup>(); }
+                catch (Exception e)
+                {
+                    MapIconLog.Once("world-gate-read-" + e.GetType().Name,
+                        "world gate skipped: mainMap CanvasGroup read failed: " + e.Message);
+                    return;
+                }
+                if (existing != null)
+                {
+                    MapIconLog.Once("world-gate-foreign",
+                        "world gate skipped: mainMap already has a foreign CanvasGroup (never borrowed/modified)");
+                    return;
+                }
+                try
+                {
+                    _worldGateGroup = go.AddComponent<CanvasGroup>();
+                }
+                catch (Exception e)
+                {
+                    MapIconLog.Once("world-gate-create-" + e.GetType().Name,
+                        "world gate skipped: own CanvasGroup create failed: " + e.Message);
+                    _worldGateGroup = null;
+                    return;
+                }
+                if (_worldGateGroup == null) return;
+            }
+            _worldGateMap = map;
+            _worldGateMenu = greek;
+            bool needsPress = !_worldGateHidden;
+            if (!needsPress)
+            {
+                try { needsPress = _worldGateGroup.alpha != 0f; }   // native/外部把 alpha 写回：本帧再压制
+                catch (Exception) { needsPress = false; }
+            }
+            if (needsPress)
+            {
+                try
+                {
+                    _worldGateGroup.alpha = 0f;
+                    _worldGateGroup.interactable = false;
+                    _worldGateGroup.blocksRaycasts = false;
+                }
+                catch (Exception e)
+                {
+                    MapIconLog.Once("world-gate-write-" + e.GetType().Name,
+                        "world gate write failed: " + e.Message);
+                    DestroyOwnGateGroup();
+                    return;
+                }
+                _worldGateHidden = true;
+            }
+        }
+
+        /// <summary>
+        /// 还原（alpha=1 中性；绝不沿用 0）。sender 非 null 时必须与门 owner 身份一致（迟到/外部 sender
+        /// 不撤新 owner 的门）；sender 为 null 仅限本模块自己的换代路径（旧宿主归还）。
+        /// 不销毁组（组销毁只在 DestroyOwnGateGroup：OnDisable/Clear/宿主换代）。
+        /// </summary>
+        private static void ReleaseWorldGate(MapTimelineMenuGreece sender)
+        {
+            if (_worldGateGroup == null && !_worldGateHidden)
+            {
+                _worldGateStartFrame = -1;
+                return;
+            }
+            if (sender != null && _worldGateMenu != null && !SameInstance(_worldGateMenu, sender))
+            {
+                return;   // 迟到/外部 sender：不撤当前 owner 的门
+            }
+            CanvasGroup group = _worldGateGroup;
+            if (group != null)
+            {
+                try
+                {
+                    group.alpha = 1f;
+                    group.interactable = true;
+                    group.blocksRaycasts = true;
+                }
+                catch (Exception) { }
+            }
+            _worldGateHidden = false;
+            _worldGateStartFrame = -1;
+        }
+
+        /// <summary>scope 换代（新 canonical token/menu/map/campaign）：旧门中性归还（alpha=1）并销毁
+        /// **旧 scope 自有**组，清预算与 memo 绑定，让新 scope 从其首帧起拥有独立 pending 预算。
+        /// 只可能由 TickWorldPendingGate（exact 当前 owner）调用。</summary>
+        private static void RetireWorldGate()
+        {
+            if (_worldGateGroup != null)
+            {
+                try
+                {
+                    _worldGateGroup.alpha = 1f;
+                    _worldGateGroup.interactable = true;
+                    _worldGateGroup.blocksRaycasts = true;
+                }
+                catch (Exception) { }
+            }
+            DestroyOwnGateGroup();
+        }
+
+        /// <summary>exact owner 说再见（OnDisable/ClearLands/换代）：归还 alpha **并销毁自有组**（清的只有本模块
+        /// 自己 AddComponent 的组）；迟到/外部 sender 绝不销毁新 owner 的组。</summary>
+        private static void TeardownWorldGateFor(MapTimelineMenuGreece sender)
+        {
+            if (_worldGateGroup != null && _worldGateMenu != null && sender != null &&
+                !SameInstance(_worldGateMenu, sender))
+            {
+                return;   // 迟到旧 sender：不撤新 owner 的门
+            }
+            ReleaseWorldGate(sender);
+            DestroyOwnGateGroup();
+        }
+
+        /// <summary>销毁自有组（只可能是本模块 AddComponent 的）并清门状态；宿主已销毁时只清状态。</summary>
+        private static void DestroyOwnGateGroup()
+        {
+            CanvasGroup group = _worldGateGroup;
+            if (group != null)
+            {
+                try { UnityEngine.Object.Destroy(group); } catch (Exception) { }
+            }
+            _worldGateGroup = null;
+            _worldGateGo = null;
+            _worldGateMenu = null;
+            _worldGateMap = null;
+            _worldGateOwnerToken = null;
+            _worldGateCampaign = IntPtr.Zero;
+            _worldGateHidden = false;
+            _worldGateStartFrame = -1;
+        }
+
+        /// <summary>门失败 memo：按 canonical owner token / menu / map / campaign 指针 + viewport stamp 绑定
+        /// （不是全局 stamp）。同一 tuple 达到失败界限后不再 hide/retry；新 owner（新登记代际）或 viewport
+        /// 变化即重新允许准备（A 超时不拖累同尺寸新 B）。</summary>
+        private sealed class WorldGateMemo
+        {
+            internal object OwnerToken;
+            internal IntPtr MenuPointer;
+            internal IntPtr MapPointer;
+            internal IntPtr CampaignPointer;
+            internal long Stamp;
+        }
+
+        private static WorldGateMemo CaptureGateMemo(object token, MapTimelineMenuGreece menu, UIMainMap map,
+            long stamp)
+            => new WorldGateMemo
+            {
+                OwnerToken = token,
+                MenuPointer = PointerOf(menu),
+                MapPointer = PointerOf(map),
+                CampaignPointer = CampaignPointerOf(),
+                Stamp = stamp,
+            };
+
+        private static bool SameGateTuple(WorldGateMemo memo, object token, MapTimelineMenuGreece menu,
+            UIMainMap map, long stamp)
+        {
+            if (memo == null) return false;
+            return ReferenceEquals(memo.OwnerToken, token) &&
+                memo.MenuPointer == PointerOf(menu) &&
+                memo.MapPointer == PointerOf(map) &&
+                memo.CampaignPointer == CampaignPointerOf() &&
+                memo.Stamp == stamp;
+        }
+
+        private static IntPtr PointerOf(UnityEngine.Object obj)
+        {
+            try { return obj != null ? obj.Pointer : IntPtr.Zero; }
+            catch (Exception) { return IntPtr.Zero; }
+        }
+
+        private static IntPtr CampaignPointerOf()
+        {
+            try
+            {
+                CampaignSaveData campaign = CampaignSaveData.current;
+                return campaign != null ? campaign.Pointer : IntPtr.Zero;
+            }
+            catch (Exception) { return IntPtr.Zero; }
+        }
+
+        /// <summary>
         /// MapTimelineMenu.Update postfix（唯一新增入口）：真实跨帧 tick。
         /// - 每 Time.frameCount 至多推进一次（同帧多岛/多次调用不能推进稳定计数）；
         /// - exact Greek + 本 owned map；ShowingWorld && !isAnimating && HasScrolledTargetLand 三条件
@@ -1920,6 +2678,16 @@ namespace KingdomEnhancedMod
                 }
                 catch (Exception) { activeFault = true; }
                 if (activeFault || activeMap != greek) return;
+
+                // world pending 显示门（无独立注入点）：未提交布局前，同帧（渲染前）压制 native world 子树。
+                TickWorldPendingGate(greek);
+                if (_deferredReleases.Count > 0) DrainDeferredReleases(null);   // 只收菜单已死的遗留责任（有界）
+                // fail-closed 保留身份的自愈：捕获的 exact menu 已死（确证 native death 语义）→ 有界重试归还，
+                // 成功即解除接管门；存活 owner 仍等它自己的 exact 回调（A 的身份不被 B 顶掉）。
+                if (_shoreOwnerToken != null && _shoreOwnerMenu != null && _shoreOwnerMenu.gameObject == null)
+                {
+                    ReleaseShoreState();
+                }
 
                 int callerState = -1;
                 bool callerStateFault = false;
@@ -1955,7 +2723,7 @@ namespace KingdomEnhancedMod
                 bool available = registered && IsExtensionAccessAvailable();
                 if (!iconsEnabled && !(registered && available))
                 {
-                    if (_overviewApplied) Teardown();
+                    if (_overviewApplied) Teardown(greek);
                     if (cycle != null) { cycle.Running = false; cycle.LastTickFrame = frame; }
                     return;   // 关闭且不需要：不创建周期（避免常驻空转/分配）
                 }
@@ -2302,18 +3070,31 @@ namespace KingdomEnhancedMod
                     MapIconLog.Warn("overview native layout plan failed; islands keep native geometry");
                 }
 
-                // 扩展簇：宽浅 banner（exact11 自身 terrain/outline/Button 同框；子 rect 快照可逆）；
+                // 扩展簇：新岸线（实际 Sprite.rect 等比 + 自有 shore/outline 绑定；子 rect 快照可逆）；
                 // 不动原 10 的目标，不把整簇子图标一起横向拉伸。
+                // 四 Image + geometry 同一准备态：任一 terrain/outline 绑定或几何失败 → **整次提交**回滚
+                //（诚实整体 fallback；绝不出现 world 原 Oracle / detail 新 shape 的混合可见态）。
+                bool extensionBannersOk = true;
                 for (int i = 0; i < extensionEntries.Count; i++)
                 {
-                    if (!ApplyExtensionBanner(extensionEntries[i], bandArea, paper, out MapIconBox bannerArtBox))
+                    if (!ApplyExtensionBanner(extensionEntries[i], bandArea, paper, menu, out MapIconBox bannerArtBox))
                     {
-                        MapIconLog.Warn("extension banner apply failed; extension keeps native art");
-                        continue;
+                        extensionBannersOk = false;
+                        break;
                     }
                     extensionEntries[i].TargetArtBox = bannerArtBox;
                     extensionEntries[i].BannerArea = bandArea;
                 }
+                if (!extensionBannersOk)
+                {
+                    FailExtensionCommit();
+                    MapIconLog.Warn("extension shore binding failed; whole world commit aborted " +
+                        "(native restored, no partial reveal)");
+                    return false;
+                }
+
+                // 精确礁石锚点（exact mainMap 直属装饰）：按新 shore bbox 侧上方留水道；只动这一个 rect。
+                ApplyRocksAnchor(paper, menu, visiblePaper, extensionEntries);
 
                 // 每岛自由图标区域：原生用上部区（raw）；扩展簇用 banner 专属 surface（背景不算障碍，Rebuild 时规划）。
                 MapIconBox contentRegion = upperArea;
@@ -2354,7 +3135,8 @@ namespace KingdomEnhancedMod
                     MapIconLog.Info("world post-geometry validation failed (" + postMeasure.Reason +
                         " pre=[" + Fmt(verifiedRect) + "] post=[" + Fmt(postMeasure.Rect) +
                         "]); rolling back to native geometry (bounded retry)");
-                    RestoreOverview();   // 只回滚目标；mask/纸面准备保留给有界重试（attemptLimit 关周期时统一归还）
+                    // 同准备态：本次提交已写入的 banner 子 rect/Image 一并回滚（不给半提交可见态）。
+                    FailExtensionCommit();
                     return false;        // 不刷 native/不写成功签名；周期保留有界重试
                 }
                 // 成功签名 = 当次**实际新测**的最终 rect（不是旧 verifiedRect 的 hash）。
@@ -2363,6 +3145,16 @@ namespace KingdomEnhancedMod
                     "] band=[" + Fmt(bandArea) + "] scale=" + uniformScale.ToString("0.###") +
                     " maskFit=" + _worldMasksFitCount + " extensions=" + extensionEntries.Count +
                     (extensionEntries.Count > 0 ? " banner=[" + Fmt(extensionEntries[0].TargetArtBox) + "]" : ""));
+
+                // 四 Image + geometry 同一准备态：detail 岸线绑定必须在写 applied/开 reveal 之前完成；
+                // 任一 detail terrain/outline 绑定或几何失败 → 整次提交回滚（不允许 world/detail 不同源）。
+                if (!EnsureRegisteredDetailShape(menu))
+                {
+                    FailExtensionCommit();
+                    MapIconLog.Warn("detail shore binding failed; whole world commit aborted " +
+                        "(no partial world/detail view)");
+                    return false;
+                }
 
                 _worldSuspended = false;   // 新的 world0 提交生效
                 _overviewApplied = true;
@@ -2388,6 +3180,7 @@ namespace KingdomEnhancedMod
                 // RegionRects 全量重建（tick 提交时没有新的资源回调，不能等外部回调）。
                 InvalidateOverviewViews();
                 TryNativeRefreshOverview(map, menu);
+                ReleaseWorldGate(menu);   // 几何提交 + 真实 focused-reign 刷新成功 → 同帧 reveal（消闪门关闭）
                 return true;   // R4：成功提交必须显式返回 true（此前落入 try 尾而返回 false）
 
             }
@@ -3015,57 +3808,283 @@ namespace KingdomEnhancedMod
                box.X1.ToString("0.#") + "," + box.Y1.ToString("0.#") + ")";
 
         /// <summary>
-        /// r15：扩展簇宽浅 banner——把 exact11 自身 terrain（Land Button/Image）、outline、同框 Button rect
-        /// 缩放到覆盖 banner 并保持中心；只改 localScale/anchoredPosition（同一快照列表可逆还原）。
-        /// 只操作 exact 实例自身子 rect；sprite/资产/其他子图标不动。
+        /// 新岸线（KEM_MapExtensionIsland）：解析 exact 扩展簇 terrain/outline → 绑定自有 shore/outline
+        /// （owner = ExtensionIslandMap canonical token；world/detail 共享同一代际）→ 按实际 Sprite.rect
+        /// 等比同框放置（terrain/outline/Button；子 rect 快照可逆）。
+        /// 事务式：任一步失败回滚本函数已写入的 sprite/rect——不留下“新 terrain + 旧 outline”半成功；
+        /// 保持上一状态或诚实 fail-closed；外部替换的值绝不被旧快照覆盖。
         /// </summary>
         private static bool ApplyExtensionBanner(OverviewEntry entry, in MapIconBox banner, RectTransform paper,
-            out MapIconBox artBox)
+            MapTimelineMenuGreece menu, out MapIconBox artBox)
         {
             artBox = default;
             _bannerExcludedRects.Clear();
-            if (entry == null || entry.Cluster == null || paper == null || banner.Width <= 1f || banner.Height <= 1f)
+            if (entry == null || entry.Cluster == null || paper == null || menu == null ||
+                banner.Width <= 1f || banner.Height <= 1f)
             {
                 return false;
             }
+            object token = ExtensionIslandMap.TryGetVisualOwnerToken();
+            if (token == null) return false;   // 非登记上下文：不接管
+            var touched = new List<RectTransform>(4);
+            Image artImage = null;
+            Image outlineImage = null;
             try
             {
                 RectTransform art = FindArtTransform(entry.Cluster);
                 if (art == null) return false;
-                if (!TryLocalBox(paper, art, out MapIconBox current) || current.Width <= 0.5f || current.Height <= 0.5f)
+                artImage = art.GetComponent<Image>();
+                if (artImage == null) return false;
+                if (!MapExtensionIslandArt.TryEnsure()) return false;
+                Sprite shore = MapExtensionIslandArt.Shore;
+                Sprite outlineSprite = MapExtensionIslandArt.Outline;
+                if (shore == null || outlineSprite == null) return false;
+                // fail-closed：旧 exact owner 仍有未归还责任（队列满被保留）→ 拒绝新 owner 接管（native 保持）。
+                if (ShoreTakeoverBlocked(token))
+                {
+                    MapIconLog.Once("shore-takeover-blocked",
+                        "new owner takeover refused: previous exact owner still has outstanding lease(s)");
+                    return false;
+                }
+                float aspect = SpriteAspect(shore);
+                if (!MapExtensionShapePlan.TryPlanWorldBox(banner, MapExtensionShapePlan.Margin, aspect,
+                        out MapIconBox frame))
                 {
                     return false;
                 }
-                Snapshot(art);
-                _bannerExcludedRects.Add(art);
-                RectTransform outline = FindNamedDescendant(entry.Cluster.transform, "Land Outline", 4);
-                if (outline == null || CheckAncestry(outline, art, 8) == Ancestry.Under) outline = null;
-                else { Snapshot(outline); _bannerExcludedRects.Add(outline); }
-                RectTransform buttonRect = FindOverviewButtonRect(entry.Cluster);
-                if (buttonRect == null || CheckAncestry(buttonRect, art, 8) == Ancestry.Under) buttonRect = null;
-                else { Snapshot(buttonRect); _bannerExcludedRects.Add(buttonRect); }
 
-                // R4/V2：先把 exact 扩展簇**根**整簇刚性平移到 banner 锚点（保持原 scale）——actual native 标记
-                // （Boat/Lighthouse 等）是根的兄弟子树，只移子 art 会让它们留在 Oracle 克隆原位；根移动后
-                // 这些标记随根系同量移动、尺寸不变，Rebuild 时按真实新位置重新测量为 blockers。
-                RectTransform clusterRoot = entry.Cluster != null ? entry.Cluster.transform as RectTransform : null;
-                if (clusterRoot != null) TranslateClusterToBox(clusterRoot, paper, banner);
-                if (!PlaceVisualToBox(art, paper, banner, current)) return false;
-                if (outline != null && TryLocalBox(paper, outline, out MapIconBox outlineBox))
+                // 先解析全部元素（不写）。四图事务必需参与者：注册 extension cluster 的 outline 必须存在
+                // （actual 证据 `/Main_Map_Land_Oracle_Greece/Land Outline Highlight` 存在；缺失/嵌套异常 = 事务失败）。
+                RectTransform outline = FindNamedDescendant(entry.Cluster.transform, "Land Outline", 4);
+                if (outline == null || CheckAncestry(outline, art, 8) == Ancestry.Under) return false;
+                outlineImage = outline.GetComponent<Image>();
+                if (outlineImage == null) return false;
+                RectTransform buttonRect = FindOverviewButtonRect(entry.Cluster);
+                if (buttonRect != null && CheckAncestry(buttonRect, art, 8) == Ancestry.Under) buttonRect = null;
+                RectTransform clusterRoot = entry.Cluster.transform as RectTransform;
+
+                // 绑定（先于几何）：outline 存在但绑定失败 → 整体失败（回滚 art，不半成功）
+                if (MapExtensionIslandArt.TryBorrow(artImage, shore, token) == null &&
+                    !MapExtensionIslandArt.IsApplied(artImage, shore))
                 {
-                    PlaceVisualToBox(outline, paper, banner, outlineBox);
+                    return false;
                 }
-                if (buttonRect != null && TryLocalBox(paper, buttonRect, out MapIconBox buttonBox))
+                if (MapExtensionIslandArt.TryBorrow(outlineImage, outlineSprite, token) == null &&
+                    !MapExtensionIslandArt.IsApplied(outlineImage, outlineSprite))
                 {
-                    PlaceVisualToBox(buttonRect, paper, banner, buttonBox);
+                    MapExtensionIslandArt.ReleaseBorrowed(artImage);
+                    return false;
+                }
+                _shoreOwnerToken = token;
+                _shoreOwnerMenu = menu;
+
+                Snapshot(art);
+                touched.Add(art);
+                _bannerExcludedRects.Add(art);
+                Snapshot(outline); touched.Add(outline); _bannerExcludedRects.Add(outline);
+                if (buttonRect != null && buttonRect != art)
+                {
+                    Snapshot(buttonRect);
+                    touched.Add(buttonRect);
+                    _bannerExcludedRects.Add(buttonRect);
+                }
+                if (clusterRoot != null && clusterRoot != art)
+                {
+                    Snapshot(clusterRoot);
+                    touched.Add(clusterRoot);
+                }
+
+                // R4/V2：整簇根刚性平移到 banner 锚点（native 标记随根、尺寸不变）
+                if (clusterRoot != null) TranslateClusterToBox(clusterRoot, paper, banner);
+                // 子 art/outline/Button 同框：sizeDelta = 实际 Sprite.rect（228×84），只乘一个 uniform scale
+                bool placed = PlaceSpriteFrameInSpace(art, paper, frame, shore.rect.width, shore.rect.height);
+                if (placed && outline != null)
+                {
+                    placed = PlaceSpriteFrameInSpace(outline, paper, frame, shore.rect.width, shore.rect.height);
+                }
+                if (placed && buttonRect != null && buttonRect != art)
+                {
+                    placed = PlaceSpriteFrameInSpace(buttonRect, paper, frame, shore.rect.width, shore.rect.height);
+                }
+                if (!placed)
+                {
+                    RollbackSnapshots(touched);
+                    MapExtensionIslandArt.ReleaseBorrowed(artImage);
+                    if (outlineImage != null) MapExtensionIslandArt.ReleaseBorrowed(outlineImage);
+                    _bannerExcludedRects.Clear();
+                    return false;
                 }
                 return TryLocalBox(paper, art, out artBox) && artBox.Width > 1f && artBox.Height > 1f;
             }
             catch (Exception e)
             {
-                MapIconLog.Once("ext-banner-" + e.GetType().Name, "extension banner failed: " + e.Message);
+                RollbackSnapshots(touched);
+                if (artImage != null) MapExtensionIslandArt.ReleaseBorrowed(artImage);
+                if (outlineImage != null) MapExtensionIslandArt.ReleaseBorrowed(outlineImage);
+                _bannerExcludedRects.Clear();
+                MapIconLog.Once("ext-shape-" + e.GetType().Name, "extension shore binding failed: " + e.Message);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 扩展几何提交事务失败的统一回滚：本次提交写入的 world 变换/子 rect 快照归还
+        /// （RestoreExpansion + RestoreOverview）→ 释放本模块全部 shore/detail 绑定（borrowedImage 恢复
+        /// native、自有资源无责任才销毁、detail 几何快照归还）。之后不写 applied、不开 reveal：
+        /// world 与 detail 都不出现"半新半旧"的混合可见态（诚实整体 fallback，下个周期有界重试）。
+        /// </summary>
+        private static void FailExtensionCommit()
+        {
+            try { RestoreExpansion(); } catch (Exception) { }
+            try { RestoreOverview(); } catch (Exception) { }
+            try { ReleaseShoreState(); } catch (Exception) { }
+            _bannerExcludedRects.Clear();
+        }
+
+        /// <summary>
+        /// 精确礁石锚点：exact 当前 _mainMap 的**直属**装饰 `map_icon_rocks_greece`（sprite 8952，32×28@.5）
+        /// 不在 UILand 数组/extension 子树上——按新 shore bbox 的**侧上方**放置并留明确水道；
+        /// 只动这一个 rect（Snapshot 快照可逆，world suspend/off/owner 换代原样归还），
+        /// paper 同坐标核 viewport / 原 10 art / boat/lightouse / extension 图标区无碰撞；
+        /// 无合理水道时诚实 fallback（保持 native 位置、不乱挤、不搬原 10）。
+        /// </summary>
+        private static void ApplyRocksAnchor(RectTransform paper, MapTimelineMenuGreece menu,
+            in MapIconBox domain, List<OverviewEntry> extensions)
+        {
+            try
+            {
+                if (paper == null || menu == null || extensions == null || extensions.Count == 0) return;
+                RectTransform rocks = FindRocksRect(menu);
+                if (rocks == null) return;
+                MapIconBox shore = extensions[0].TargetArtBox;
+                if (shore.Width <= 1f || shore.Height <= 1f) return;
+                if (!TryLocalBox(paper, rocks, out MapIconBox current) || current.Width <= 1f || current.Height <= 1f)
+                {
+                    return;
+                }
+                float w = current.Width;
+                float h = current.Height;
+                const float gap = 4f;
+
+                // 障碍：全部 native 图形（含原 10 art、Boat/Lighthouse 标记）；排除自有 shore/outline/button 与 rocks 自身。
+                var excluded = new List<RectTransform>(_bannerExcludedRects.Count + 1);
+                for (int i = 0; i < _bannerExcludedRects.Count; i++) excluded.Add(_bannerExcludedRects[i]);
+                excluded.Add(rocks);
+                var obstacles = new List<MapIconBox>(64);
+                CollectNativeBoxes(paper, paper, obstacles, true, excluded);
+
+                // 侧上方候选（偏侧、明确水道；宽行朝中间时礁石在两侧留出水道）
+                float inset = Math.Max(2f, shore.Width * 0.16f);
+                float centerX = (shore.X0 + shore.X1) * 0.5f;
+                var candidates = new List<MapIconBox>(5)
+                {
+                    new MapIconBox(shore.X0 + inset, shore.Y1 + gap, shore.X0 + inset + w, shore.Y1 + gap + h),
+                    new MapIconBox(shore.X1 - inset - w, shore.Y1 + gap, shore.X1 - inset, shore.Y1 + gap + h),
+                    new MapIconBox(centerX - w * 0.5f, shore.Y1 + gap, centerX + w * 0.5f, shore.Y1 + gap + h),
+                    new MapIconBox(shore.X0 - w - gap * 0.5f, shore.Y1 - h * 0.5f, shore.X0 - gap * 0.5f, shore.Y1 + h * 0.5f),
+                    new MapIconBox(shore.X1 + gap * 0.5f, shore.Y1 - h * 0.5f, shore.X1 + gap * 0.5f + w, shore.Y1 + h * 0.5f),
+                };
+                for (int c = 0; c < candidates.Count; c++)
+                {
+                    MapIconBox candidate = candidates[c];
+                    if (candidate.Width <= 0f || candidate.Height <= 0f) continue;
+                    if (candidate.X0 < domain.X0 || candidate.X1 > domain.X1 ||
+                        candidate.Y0 < domain.Y0 || candidate.Y1 > domain.Y1)
+                    {
+                        continue;   // 不出世界可见域
+                    }
+                    if (candidate.Intersects(shore, 2f)) continue;   // 与海岸线留明确水道
+                    bool clash = false;
+                    for (int i = 0; i < obstacles.Count && !clash; i++)
+                    {
+                        if (candidate.Intersects(obstacles[i], 1.5f)) clash = true;
+                    }
+                    if (clash) continue;
+                    if (TranslateClusterToBox(rocks, paper, candidate))
+                    {
+                        MapIconLog.Info("rocks anchored above shore: " + Fmt(candidate) +
+                            " rocks@(" + rocks.anchoredPosition.x.ToString("0.#") + "," +
+                            rocks.anchoredPosition.y.ToString("0.#") + ")");
+                        return;
+                    }
+                }
+                MapIconLog.Once("rocks-fallback",
+                    "rocks anchor: no clear water candidate; keeping native position (no squeeze)");
+            }
+            catch (Exception e)
+            {
+                MapIconLog.Once("rocks-" + e.GetType().Name, "rocks anchor failed: " + e.Message);
+            }
+        }
+
+        /// <summary>exact 当前 _mainMap 的直属 `map_icon_rocks_greece`（只认直接子节点与精确名）。</summary>
+        private static RectTransform FindRocksRect(MapTimelineMenuGreece menu)
+        {
+            try
+            {
+                UIMainMap map = menu != null ? menu._mainMap : null;
+                Transform root = map != null && map.gameObject != null ? map.gameObject.transform : null;
+                if (root == null) return null;
+                for (int i = 0; i < root.childCount; i++)
+                {
+                    Transform child = root.GetChild(i);
+                    if (child != null && child.name == "map_icon_rocks_greece") return child as RectTransform;
+                }
+            }
+            catch (Exception) { }
+            return null;
+        }
+
+        /// <summary>实际 Sprite.rect 的宽高比（含透明 padding）；读不到返回 0（调用方 fail-closed）。</summary>
+        private static float SpriteAspect(Sprite sprite)
+        {
+            if (sprite == null) return 0f;
+            try
+            {
+                Rect rect = sprite.rect;
+                if (rect.width > 0.5f && rect.height > 0.5f) return rect.width / rect.height;
+            }
+            catch (Exception) { }
+            return 0f;
+        }
+
+        /// <summary>
+        /// 把 rect 的显示几何设为“sprite 像素尺寸 × 单一 uniform scale”，并把中心对齐到 space 内的 target 盒。
+        /// 比例保证 = 实际 Sprite.rect（sizeDelta 直接取 sprite 尺寸，只乘一个标量）；绝不 sx/sy 各自拉伸。
+        /// 经同一 Snapshot 列表可逆。space 与 target 用与旧 PlaceVisualToBox 相同的世界中心换算。
+        /// </summary>
+        private static bool PlaceSpriteFrameInSpace(RectTransform rect, RectTransform space, in MapIconBox target,
+            float spriteWidth, float spriteHeight)
+        {
+            if (rect == null || space == null || spriteWidth <= 1f || spriteHeight <= 1f) return false;
+            if (target.Width <= 0.01f || target.Height <= 0.01f) return false;
+            float factor = target.Width / spriteWidth;
+            if (!(factor > 0f)) return false;
+            if (Math.Abs(target.Height - spriteHeight * factor) > Math.Max(0.5f, target.Height * 0.02f)) return false;
+            Vector3 original = rect.localScale;
+            rect.sizeDelta = new Vector2(spriteWidth, spriteHeight);
+            rect.localScale = new Vector3(
+                original.x < 0f ? -factor : factor,
+                original.y < 0f ? -factor : factor,
+                original.z <= 0f ? 1f : original.z);
+            Rect spaceRect = space.rect;
+            Vector3 targetWorld = space.TransformPoint(new Vector3(
+                (target.X0 + target.X1) * 0.5f + spaceRect.xMin,
+                (target.Y0 + target.Y1) * 0.5f + spaceRect.yMin, 0f));
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                if (!TryLocalBox(space, rect, out MapIconBox after)) return false;
+                Vector3 currentWorld = space.TransformPoint(new Vector3(
+                    (after.X0 + after.X1) * 0.5f + spaceRect.xMin,
+                    (after.Y0 + after.Y1) * 0.5f + spaceRect.yMin, 0f));
+                Vector3 delta = targetWorld - currentWorld;
+                if (delta.sqrMagnitude < 0.0025f) return true;
+                Transform parent = rect.parent;
+                if (parent != null) delta = parent.InverseTransformVector(delta);
+                Vector2 position = rect.anchoredPosition;
+                rect.anchoredPosition = new Vector2(position.x + delta.x, position.y + delta.y);
+            }
+            return TryLocalBox(space, rect, out _);
         }
 
         /// <summary>
@@ -3110,34 +4129,6 @@ namespace KingdomEnhancedMod
                 MapIconLog.Once("root-translate-" + e.GetType().Name, "cluster root translate failed: " + e.Message);
                 return false;
             }
-        }
-
-        /// <summary>把 rect 的 paper 空间盒缩放到覆盖 target（保持中心）；世界增量经父 InverseTransformVector 应用。</summary>
-        private static bool PlaceVisualToBox(RectTransform rect, RectTransform paper, in MapIconBox target,
-            in MapIconBox current)
-        {
-            if (rect == null || current.Width <= 0.01f || current.Height <= 0.01f) return false;
-            float sx = target.Width / current.Width;
-            float sy = target.Height / current.Height;
-            if (!(sx > 0f) || !(sy > 0f)) return false;
-            Vector3 scale = rect.localScale;
-            rect.localScale = new Vector3(scale.x * sx, scale.y * sy, scale.z <= 0f ? 1f : scale.z);
-            Rect paperRect = paper.rect;
-            Vector3 targetWorld = paper.TransformPoint(new Vector3(
-                (target.X0 + target.X1) * 0.5f + paperRect.xMin, (target.Y0 + target.Y1) * 0.5f + paperRect.yMin, 0f));
-            for (int attempt = 0; attempt < 2; attempt++)
-            {
-                if (!TryLocalBox(paper, rect, out MapIconBox after)) return false;
-                Vector3 currentWorld = paper.TransformPoint(new Vector3(
-                    (after.X0 + after.X1) * 0.5f + paperRect.xMin, (after.Y0 + after.Y1) * 0.5f + paperRect.yMin, 0f));
-                Vector3 delta = targetWorld - currentWorld;
-                if (delta.sqrMagnitude < 0.0025f) return true;
-                Transform parent = rect.parent;
-                if (parent != null) delta = parent.InverseTransformVector(delta);
-                Vector2 pos = rect.anchoredPosition;
-                rect.anchoredPosition = new Vector2(pos.x + delta.x, pos.y + delta.y);
-            }
-            return TryLocalBox(paper, rect, out _);
         }
 
         private static RectTransform FindNamedDescendant(Transform root, string prefix, int maxDepth)
@@ -3325,6 +4316,97 @@ namespace KingdomEnhancedMod
                 AnchoredPosition = rect.anchoredPosition,
                 LocalScale = rect.localScale,
             });
+        }
+
+        /// <summary>detail 专属快照队列（与 world Expanded 分离）：SuspendWorldGeometry/RestoreExpansion 不碰它。</summary>
+        private static void SnapshotDetail(RectTransform rect)
+        {
+            for (int i = 0; i < _detailSnapshots.Count; i++)
+            {
+                if (_detailSnapshots[i].Rect == rect) return;
+            }
+            _detailSnapshots.Add(new RectSnapshot
+            {
+                Rect = rect,
+                SizeDelta = rect.sizeDelta,
+                AnchoredPosition = rect.anchoredPosition,
+                LocalScale = rect.localScale,
+            });
+        }
+
+        /// <summary>恢复 detail 快照（owner 收尾 / detail 换代）：把自有 detail 几何原样归还。</summary>
+        private static void RestoreDetailSnapshots()
+        {
+            for (int i = 0; i < _detailSnapshots.Count; i++)
+            {
+                RestoreSnapshot(_detailSnapshots[i]);
+            }
+            _detailSnapshots.Clear();
+        }
+
+        /// <summary>回滚本函数刚写入的 detail rect（只碰 touched 中的 rect；从 detail 队列移除）。</summary>
+        private static void RollbackDetailSnapshots(List<RectTransform> touched)
+        {
+            if (touched == null || touched.Count == 0) return;
+            for (int i = _detailSnapshots.Count - 1; i >= 0; i--)
+            {
+                RectSnapshot snapshot = _detailSnapshots[i];
+                if (snapshot.Rect == null) { _detailSnapshots.RemoveAt(i); continue; }
+                bool ours = false;
+                for (int t = 0; t < touched.Count; t++)
+                {
+                    if (ReferenceEquals(touched[t], snapshot.Rect)) { ours = true; break; }
+                }
+                if (!ours) continue;
+                RestoreSnapshot(snapshot);
+                _detailSnapshots.RemoveAt(i);
+            }
+        }
+
+        /// <summary>回滚本函数刚写入的 world rect（只碰 touched 中的 rect；从 Expanded 队列移除）。</summary>
+        private static void RollbackSnapshots(List<RectTransform> touched)
+        {
+            if (touched == null || touched.Count == 0) return;
+            for (int i = Expanded.Count - 1; i >= 0; i--)
+            {
+                RectSnapshot snapshot = Expanded[i];
+                if (snapshot.Rect == null) { Expanded.RemoveAt(i); continue; }
+                bool ours = false;
+                for (int t = 0; t < touched.Count; t++)
+                {
+                    if (ReferenceEquals(touched[t], snapshot.Rect)) { ours = true; break; }
+                }
+                if (!ours) continue;
+                RestoreSnapshot(snapshot);
+                Expanded.RemoveAt(i);
+            }
+        }
+
+        private static void RestoreSnapshot(RectSnapshot snapshot)
+        {
+            if (snapshot.Rect == null) return;
+            try
+            {
+                snapshot.Rect.sizeDelta = snapshot.SizeDelta;
+                snapshot.Rect.anchoredPosition = snapshot.AnchoredPosition;
+                if (snapshot.LocalScale.x > 0f && snapshot.LocalScale.y > 0f)
+                {
+                    snapshot.Rect.localScale = snapshot.LocalScale;
+                }
+            }
+            catch (Exception) { }
+        }
+
+        /// <summary>detail 几何是否仍在本模块的目标态（sizeDelta = 实际 Sprite.rect + uniform scale）。</summary>
+        private static bool DetailGeometryApplied(RectTransform art, float spriteWidth, float spriteHeight)
+        {
+            if (art == null || spriteWidth <= 1f || spriteHeight <= 1f) return false;
+            Vector2 size = art.sizeDelta;
+            if (Math.Abs(size.x - spriteWidth) > 0.5f || Math.Abs(size.y - spriteHeight) > 0.5f) return false;
+            Vector3 scale = art.localScale;
+            float sx = Math.Abs(scale.x);
+            float sy = Math.Abs(scale.y);
+            return sx > 0.0001f && Math.Abs(sx - sy) <= 0.002f;
         }
 
         private static void RestoreExpansion()

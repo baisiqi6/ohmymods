@@ -186,6 +186,30 @@ namespace KingdomEnhancedMod
         // ------------------------------------------------------------------ 查询接口（map-worker 使用）
 
         /// <summary>
+        /// 视觉绑定 canonical owner token（只读薄查询）：每次成功登记创建 new Owner 实例 = 新代际 token；
+        /// 撤销/清理后为 null。MapMountIcons 的 shore/detail art 租约 owner 用它——
+        /// 跨 IL2CPP wrapper alias 是同一 token；换 campaign / 同 menu 换 mainMap → 重建登记 → 新 token。
+        /// 不改登记/克隆/导航/玩法/存档。
+        /// </summary>
+        internal static object TryGetVisualOwnerToken()
+        {
+            Owner owner = _owner;
+            // 活性用既有 Usable（Revoked + Slots + Campaign 一致；只读、不改登记业务）：
+            // 失效 tuple 不能当"新 bind 授权"。清理路径不得依赖它（用捕获身份，见 MapMountIcons）。
+            if (!Usable(owner)) return null;
+            return owner;
+        }
+
+        /// <summary>该 menu 是否当前登记的 exact menu（native pointer 身份；只读）——视觉收尾的 exact sender 门。
+        /// 同样按 Usable 判活性：失效 tuple 不授权任何绑定。</summary>
+        internal static bool IsVisualOwnerMenu(MapTimelineMenuGreece menu)
+        {
+            Owner owner = _owner;
+            if (!Usable(owner) || menu == null) return false;
+            return SameMenu(owner.Menu, menu);
+        }
+
+        /// <summary>
         /// 仅当前登记的扩展 UILand（详情 / 总览两个 exact 实例）返回 true / physical11。
         /// 严格 owner：实例活着 + 当前 menu._mainMap 身份 + 数组槽位 + campaign 一致；未撤销。
         /// 非登记实例即使 index=10 也返回 false。
