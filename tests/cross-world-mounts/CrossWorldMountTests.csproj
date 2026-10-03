@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 控制台测试程序集：把生产 il2cpp/CrossWorldMountData.cs（纯逻辑，无 Unity/interop 依赖）
+       直接编译进来。覆盖：授予提交状态机（标记只能在放置证实后写）、岛级判定、
+       地图行规划与扩展列表布局。真实 interop/资产形状由 mounts/build 的真实引用编译与
+       离线资源取证约束；本目录不写游戏文件、不启动游戏、不部署。 -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>CrossWorldMountTests</AssemblyName>
+    <RootNamespace>CrossWorldMountTests</RootNamespace>
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0649;CS0414;CS0169</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/CrossWorldMountData.cs" Link="Production/CrossWorldMountData.cs" />
+  </ItemGroup>
+
+</Project>
