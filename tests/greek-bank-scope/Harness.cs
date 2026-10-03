@@ -104,6 +104,9 @@ static class Harness
         UnityEngine.Object.All.Clear();
         UnityEngine.Object.Destroyed.Clear();
         UnityEngine.Object.DestroyListener = null;
+        Sim.ThrowOnChildTraversal = false;
+        Sim.TraversalCallback = null;
+        Sim.FaultPosition = null;
         PlayerPrefs.ResetAll();
         Pool.ByPrefab.Clear();
         Time.time = 0f;
@@ -167,6 +170,27 @@ static class Harness
 
 
         SetStatic(ScopeType, "_loggedFailure", false);
+        ResetFixedDomain();
+    }
+
+    /// <summary>Issue 100：固定域是进程级静态缓存，夹具必须逐测试清零。</summary>
+    private static void ResetFixedDomain()
+    {
+        Type domainType = typeof(MainBankerFixedDomain);
+        object emptyKey = Activator.CreateInstance(
+            domainType.GetNestedType("ContextKey", BindingFlags.NonPublic));
+        SetStatic(domainType, "_loadGeneration", 0);
+        SetStatic(domainType, "_capturePending", false);
+        SetStatic(domainType, "_hasNotifiedKey", false);
+        SetStatic(domainType, "_notifiedKey", emptyKey);
+        SetStatic(domainType, "_notifiedGeneration", 0);
+        SetStatic(domainType, "_published", false);
+        SetStatic(domainType, "_publishedKey", emptyKey);
+        SetStatic(domainType, "_publishedGeneration", 0);
+        SetStatic(domainType, "_left", 0f);
+        SetStatic(domainType, "_right", 0f);
+        SetStatic(domainType, "_lastAttemptFrame", int.MinValue);
+        SetStatic(domainType, "_lastLoggedGeneration", -1);
     }
 
     // ------------------------------------------------------------- driving
@@ -179,6 +203,10 @@ static class Harness
     }
 
     public static void BankerUpdate(Banker banker) => PatchEconomy_Banker.Update_Postfix(banker);
+
+    /// <summary>Issue 100：驱动生产固定域 prefix（prepare→profile→movement 的真实入口）。</summary>
+    public static void BankerFixedDomainUpdate(Banker banker)
+        => Banker_FixedDomain_Patch.Prefix(banker);
 
     /// <summary>
     /// Installs the Destroy→OnDestroy bridge: Unity calls OnDestroy, our Harmony prefix may
@@ -306,11 +334,13 @@ sealed class Fixture
     public const float NativeScannerBehind = 1.7f;
     public const float NativeScannerInterval = 0.5f;
 
-    public static Fixture BuildGreek(int sceneHandle = 1) => Build(BiomeHolder.GreeceBiomeIndex, sceneHandle);
+    public static Fixture BuildGreek(int sceneHandle = 1, bool notify = true)
+        => Build(BiomeHolder.GreeceBiomeIndex, sceneHandle, notify);
 
-    public static Fixture BuildForeign(int sceneHandle = 2, int biomeIndex = 1) => Build(biomeIndex, sceneHandle);
+    public static Fixture BuildForeign(int sceneHandle = 2, int biomeIndex = 1, bool notify = true)
+        => Build(biomeIndex, sceneHandle, notify);
 
-    private static Fixture Build(int biomeIndex, int sceneHandle)
+    private static Fixture Build(int biomeIndex, int sceneHandle, bool notify = true)
     {
         Fixture fixture = new Fixture { SceneHandle = sceneHandle };
         Sim.SceneHandle = sceneHandle;
@@ -343,6 +373,13 @@ sealed class Fixture
             director = fixture.Director
         };
         BiomeHolder.Inst = new BiomeHolder { BiomeIndex = biomeIndex };
+        // Issue 100：固定域只随“成功加载通知”发布。夹具走生产入口复现完整链路：
+        // 原生通知 postfix（绑定当次 context）→ 维护点结构快照发布（±5 实体墙根）。
+        if (notify)
+        {
+            Managers_OnLevelLoaded_MainBankerFixedDomain_Patch.Postfix(Managers.Inst, false);
+            MainBankerFixedDomain.TryCapture(Managers.Inst);
+        }
         return fixture;
     }
 
@@ -353,14 +390,14 @@ sealed class Fixture
         return wallGo.AddComponent<Wall>();
     }
 
-    /// <summary>Removes the wall pair so the main-banker domain cannot be resolved.</summary>
+    /// <summary>
+    /// Issue 100：域只在“成功加载通知 + 结构快照发布”后可用。这里模拟收到一次新的
+    /// 成功加载通知但尚未捕获：旧域立即失效、重试前域未知（fail-closed）。
+    /// 不再通过删墙/删边界制造不可解析域——固定域不依赖 orderedWalls/border。
+    /// </summary>
     public void BreakDomain()
     {
-        Kingdom._orderedWalls[Side.Left] = null;
-        Kingdom._orderedWalls[Side.Right] = null;
-        Kingdom.HasBorderLoaded = false;
-        Kingdom.Borders[Side.Left] = 0f;
-        Kingdom.Borders[Side.Right] = 0f;
+        Managers_OnLevelLoaded_MainBankerFixedDomain_Patch.Postfix(Managers.Inst, false);
     }
 
     public Banker AddBanker(string name = "Banker", bool kingdomBound = true)
@@ -393,6 +430,9 @@ sealed class Fixture
         return coin;
     }
 
+    /// <summary>域内 wander：min(8.75, ±5 域最小距离 5 - epsilon 0.25) = 4.75。</summary>
+    public const float ExpectedDomainWander = 4.75f;
+
     public void AssertNativeProfile(Banker banker, string label)
     {
         Harness.Eq(NativeGather, banker.coinGatherTargetPercentage, label + " gather");
@@ -411,7 +451,7 @@ sealed class Fixture
         Harness.Eq(1f, banker.coinGatherTargetPercentage, label + " gather");
         Harness.Eq(1.95f, banker.walkSpeed, label + " walk");
         Harness.Eq(3.6f, banker.runSpeed, label + " run");
-        Harness.Eq(8.75f, banker.wanderRange, label + " wander");
+        Harness.Eq(ExpectedDomainWander, banker.wanderRange, label + " wander");
         Harness.Eq(100, banker.playerMaxCoins, label + " maxCoins");
         Harness.Eq(1f, banker._coinScanner._interval, label + " scanner.interval");
     }
