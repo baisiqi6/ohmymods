@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Android probe mod (Unity 6000.0.61f1, Il2CppInterop 1.5.1, LemonLoader MelonLoader net6).
+       The game interop and loader runtime assemblies are referenced from external directories
+       supplied on the command line; nothing is downloaded, installed, deployed or copied into
+       the output (Private=false). Missing directories fail with a clear MSBuild error.
+
+         dotnet build -c Release ^
+           -p:GameInteropDir=<dir with Assembly-CSharp.dll and the UnityEngine.* / Il2Cpp*.dll interop assemblies> ^
+           -p:LoaderRuntimeDir=<dir with MelonLoader.dll, 0Harmony.dll, Il2CppInterop.Runtime.dll>
+
+       The unmodified desktop source il2cpp/PatchPlayer_HoldPurchase.cs is linked read-only
+       (Compile Include below); bare game type names are mapped by GlobalAliases.cs and Harmony
+       auto-patch-all is suppressed by AssemblyInfo.cs for explicit Operator registration. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>OhMyMods.AndroidProbe</AssemblyName>
+    <RootNamespace>OhMyMods.AndroidProbe</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <GameInteropDir></GameInteropDir>
+    <LoaderRuntimeDir></LoaderRuntimeDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="GlobalAliases.cs" />
+    <Compile Include="HoldBridges.cs" />
+    <Compile Include="MobilePlayerConfig.cs" />
+    <Compile Include="MobilePlayerMenu.cs" />
+    <Compile Include="Probe.cs" />
+    <Compile Include="FloatInput.cs" />
+    <Compile Include="FloatLayout.cs" />
+    <Compile Include="TouchClaims.cs" />
+    <Compile Include="MobileCalendar.cs" />
+    <Compile Include="CalendarSnapshot.cs" />
+    <Compile Include="MobilePopulation.cs" />
+    <Compile Include="PopulationCounts.cs" />
+    <Compile Include="OptionalQoLScope.cs" />
+    <Compile Include="PatchRide_InfiniteStamina.cs" />
+    <Compile Include="PatchWorld_Mover.cs" />
+    <!-- Unmodified production source, linked read-only. -->
+    <Compile Include="../il2cpp/PatchPlayer_HoldPurchase.cs" Link="Production/PatchPlayer_HoldPurchase.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="MelonLoader"><HintPath>$(LoaderRuntimeDir)/MelonLoader.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(LoaderRuntimeDir)/0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppInterop.Runtime"><HintPath>$(LoaderRuntimeDir)/Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameInteropDir)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameInteropDir)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.IMGUIModule"><HintPath>$(GameInteropDir)/UnityEngine.IMGUIModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(GameInteropDir)/UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.TextRenderingModule"><HintPath>$(GameInteropDir)/UnityEngine.TextRenderingModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cppmscorlib"><HintPath>$(GameInteropDir)/Il2Cppmscorlib.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppSystem.Core"><HintPath>$(GameInteropDir)/Il2CppSystem.Core.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <_RequiredGameInterop Include="Assembly-CSharp.dll;UnityEngine.CoreModule.dll;UnityEngine.IMGUIModule.dll;UnityEngine.InputLegacyModule.dll;UnityEngine.TextRenderingModule.dll;Il2Cppmscorlib.dll;Il2CppSystem.Core.dll" />
+    <_RequiredLoaderRuntime Include="MelonLoader.dll;0Harmony.dll;Il2CppInterop.Runtime.dll" />
+  </ItemGroup>
+
+  <Target Name="ValidateAndroidDependencyDirs" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(GameInteropDir)' == ''"
+           Text="GameInteropDir is required: pass -p:GameInteropDir=&lt;directory with the target game's Il2CppInterop assemblies (Assembly-CSharp.dll, UnityEngine.*.dll, Il2Cppmscorlib.dll, Il2CppSystem.Core.dll)&gt;. This project does not download or generate them." />
+    <Error Condition="'$(LoaderRuntimeDir)' == ''"
+           Text="LoaderRuntimeDir is required: pass -p:LoaderRuntimeDir=&lt;directory with MelonLoader.dll, 0Harmony.dll and Il2CppInterop.Runtime.dll from the deployed loader runtime&gt;. This project does not download or install a loader." />
+    <Error Condition="'$(GameInteropDir)' != '' and !Exists('$(GameInteropDir)/%(_RequiredGameInterop.Identity)')"
+           Text="GameInteropDir '$(GameInteropDir)' is missing %(_RequiredGameInterop.Identity)." />
+    <Error Condition="'$(LoaderRuntimeDir)' != '' and !Exists('$(LoaderRuntimeDir)/%(_RequiredLoaderRuntime.Identity)')"
+           Text="LoaderRuntimeDir '$(LoaderRuntimeDir)' is missing %(_RequiredLoaderRuntime.Identity)." />
+  </Target>
+
+</Project>

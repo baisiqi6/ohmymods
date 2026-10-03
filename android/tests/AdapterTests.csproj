@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Host-side checks for the Android adapter layer:
+       - FloatLayout Player page height / touch-filter boundary (pure System math),
+       - ModConfig MelonPreferences contract: one category, declared defaults, load-boundary
+         clamp (seed-speed flag), save-on-toggle only (MelonLogger / MelonPreferences stubbed),
+       - metadata checks on the built OhMyMods.AndroidProbe.dll (HarmonyDontPatchAll attribute,
+         the four private static Hold handlers, and the Forge/Ammo/Mead interop bindings).
+       Run: dotnet run -c Release, then pass the built OhMyMods.AndroidProbe.dll path as the
+       single program argument (see android/README.md). -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <AssemblyName>AdapterTests</AssemblyName>
+    <RootNamespace>OhMyMods.AndroidProbe.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../FloatLayout.cs" />
+    <Compile Include="../MobilePlayerConfig.cs" />
+    <Compile Include="MelonLoggerStub.cs" />
+    <Compile Include="MelonPreferencesStub.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,177 @@
+using System;
+using MelonLoader;
+using HarmonyLib;
+using Il2CppInterop.Runtime.Injection;
+using UnityEngine;
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.9", "OhMyMods")]
+namespace OhMyMods.AndroidProbe;
+public sealed class Probe : MelonMod
+{
+ private bool setupAttempted;
+ public override void OnInitializeMelon()
+ {
+  KingdomEnhancedMod.KingdomEnhancedPlugin.Initialize();
+  KingdomEnhancedMod.ModConfig.Initialize();
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.9 gameplay_features=optional_player_qol,hold_purchase");
+  LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
+  if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
+  var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
+    ?? throw new MissingMethodException("InputHelper.GetTouches");
+  HarmonyInstance.Patch(touch, postfix: new HarmonyMethod(typeof(FloatInput), nameof(FloatInput.FilterTouchesResult)));
+  var playerTouch=AccessTools.Method(typeof(Il2Cpp.TouchPlayerHandler),"InputUpdate");
+  HarmonyInstance.Patch(playerTouch,prefix:new HarmonyMethod(typeof(FloatInput),nameof(FloatInput.FilterPlayerTouches)));
+  LoggerInstance.Msg("OHMYMODS_FLOAT_INPUT_GUARD_INSTALLED");
+  foreach(string name in new[]{"AddCharacter","RemoveCharacter"})
+  {
+   var method=AccessTools.Method(typeof(Il2Cpp.Kingdom),name,new[]{typeof(Il2Cpp.Character)}) ?? throw new MissingMethodException(name);
+   HarmonyInstance.Patch(method,postfix:new HarmonyMethod(typeof(MobilePopulation),nameof(MobilePopulation.RosterChanged)));
+  }
+  LoggerInstance.Msg("ANDROID_POPULATION_ROSTER_HOOKS_INSTALLED");
+  var speedType=typeof(KingdomEnhancedMod.PatchWorld_Mover);
+  foreach(var targetSpeed in new[]{AccessTools.Method(typeof(Il2Cpp.Mover),"SetSpeed",new[]{typeof(float)}),AccessTools.Method(typeof(Il2Cpp.Mover),"SetSpeed",new[]{typeof(float),typeof(int)}),AccessTools.Method(typeof(Il2Cpp.Mover),"SetSpeedToGoal",new[]{typeof(float)})})
+  {
+   HarmonyInstance.Patch(targetSpeed,prefix:new HarmonyMethod(speedType,"ScalePlayerSpeed"));
+   LogHookCounts(targetSpeed);
+  }
+  PatchStamina(typeof(Il2Cpp.Player),"UpdateActionState",typeof(KingdomEnhancedMod.PatchRide_InfiniteStamina),"UpdateActionState_Prefix","UpdateActionState_Postfix","UpdateActionState_Finalizer");
+  PatchStamina(typeof(Il2Cpp.SteedAbility),"Activate",typeof(KingdomEnhancedMod.PatchRide_InfiniteStaminaAbility),"Prefix","Postfix");
+  PatchStamina(typeof(Il2Cpp.GlideMovementSteedAbility),"Activate",typeof(KingdomEnhancedMod.PatchRide_InfiniteStaminaGlide),"Prefix","Postfix");
+  PatchStamina(typeof(Il2Cpp.RunningAttackSteedAbility),"OnPushedObjects",typeof(KingdomEnhancedMod.PatchRide_InfiniteStaminaRunningAttack),"Prefix","Postfix");
+  LoggerInstance.Msg($"ANDROID_PLAYER_QOL_HOOKS_INSTALLED speed={KingdomEnhancedMod.ModConfig.SpeedMultiplier.Value} stamina={KingdomEnhancedMod.ModConfig.InfiniteSteedStamina.Value}");
+  var payState=AccessTools.Method(typeof(Il2Cpp.Player),"UpdatePayState",new[]{typeof(bool),typeof(bool),typeof(bool)})??throw new MissingMethodException("Player.UpdatePayState(bool,bool,bool)");
+  var holdType=typeof(KingdomEnhancedMod.PatchPlayer_HoldPurchase);
+  HarmonyInstance.Patch(payState,prefix:new HarmonyMethod(holdType,"UpdatePayState_Prefix"),postfix:new HarmonyMethod(holdType,"UpdatePayState_Postfix"),finalizer:new HarmonyMethod(holdType,"UpdatePayState_Finalizer"));
+  var performPay=AccessTools.Method(typeof(Il2Cpp.Payable),"PerformPay",Type.EmptyTypes)??throw new MissingMethodException("Payable.PerformPay()");
+  HarmonyInstance.Patch(performPay,postfix:new HarmonyMethod(holdType,"PerformPay_Postfix"));
+  LogHookCounts(payState);
+  LogHookCounts(performPay);
+  LoggerInstance.Msg("ANDROID_HOLD_PURCHASE_HOOKS_INSTALLED enabled="+KingdomEnhancedMod.ModConfig.HoldPurchaseEnabled.Value+" sharedSource=true");
+  try { LoggerInstance.Msg($"OHMYMODS_GRAPHICS api={SystemInfo.graphicsDeviceType} device={SystemInfo.graphicsDeviceName} maxTexture={SystemInfo.maxTextureSize}"); }
+  catch(Exception ex) { LoggerInstance.Warning("Graphics info unavailable: "+ex.Message); }
+ }
+ private void PatchStamina(Type targetType,string name,Type patchType,string before,string after,string finish=null)
+ {
+  var target=AccessTools.Method(targetType,name)??throw new MissingMethodException(name);
+  HarmonyInstance.Patch(target,prefix:new HarmonyMethod(patchType,before),postfix:new HarmonyMethod(patchType,after),finalizer:finish==null?null:new HarmonyMethod(patchType,finish));
+  LogHookCounts(target);
+ }
+ private void LogHookCounts(System.Reflection.MethodBase target)
+ {
+  var info=HarmonyLib.Harmony.GetPatchInfo(target);
+  LoggerInstance.Msg($"ANDROID_HOOK_COUNTS {target.DeclaringType.Name}.{target.Name} parameters={target.GetParameters().Length} prefixes={info.Prefixes.Count} postfixes={info.Postfixes.Count} finalizers={info.Finalizers.Count}");
+ }
+ public override void OnUpdate()
+ {
+  MobileCalendar.Tick();
+  MobilePopulation.Tick();
+  KingdomEnhancedMod.PatchPlayer_HoldPurchase.Tick();
+  if (setupAttempted) return;
+  setupAttempted = true;
+  try
+  {
+   ClassInjector.RegisterTypeInIl2Cpp<ProbeTicker>();
+   var go = new GameObject("OhMyMods.AndroidProbe");
+   UnityEngine.Object.DontDestroyOnLoad(go);
+   go.AddComponent<ProbeTicker>();
+   LoggerInstance.Msg("OHMYMODS_ANDROID_COMPONENT_CREATED");
+  }
+  catch (Exception ex) { LoggerInstance.Error("OHMYMODS_ANDROID_COMPONENT_FAILED " + ex); }
+ }
+ public override void OnSceneWasLoaded(int index, string name) => LoggerInstance.Msg("OHMYMODS_ANDROID_SCENE " + index + " " + name);
+}
+public sealed class ProbeTicker : MonoBehaviour
+{
+ private bool guiLogged;
+ private int actionLogs;
+ private int ownControlId;
+ private bool renderFailed;
+ private Texture2D orb;
+ private GUIContent orbContent;
+ private GUIStyle labelStyle, titleStyle, buttonStyle, orbStyle;
+ internal static bool UiReady;
+ internal static readonly FloatLayout Layout = new();
+ public ProbeTicker(IntPtr ptr) : base(ptr) { }
+ public void OnDisable() { CancelGesture(); }
+ public void OnApplicationFocus(bool focused) { if (!focused) CancelGesture(); }
+ private void CancelGesture() { UiReady=false; FloatInput.Reset(); if (ownControlId!=0 && GUIUtility.hotControl==ownControlId) GUIUtility.hotControl=0; Layout.Cancel(); }
+ public void OnGUI()
+ {
+  if (renderFailed) return;
+  if (Il2Cpp.ProgramDirector.state!=Il2Cpp.ProgramDirector.State.RunningGame) { CancelGesture(); return; }
+  string stage="color"; Color oldColor=Color.white; var oldMatrix=GUI.matrix;
+  try
+  {
+   oldColor=GUI.color; GUI.matrix=Matrix4x4.identity; stage="layout";
+   Layout.Resize(Screen.width,Screen.height);
+   if (!Layout.Captured && ownControlId!=0 && GUIUtility.hotControl==ownControlId) GUIUtility.hotControl=0;
+   if (!guiLogged) { guiLogged=true; MelonLogger.Msg($"OHMYMODS_FLOAT_GUI size={Screen.width}x{Screen.height} diameter={Layout.Diameter}"); }
+   stage="texture"; if (orb == null) CreateOrb();
+   stage="control";
+   int id=GUIUtility.GetControlID(0,FocusType.Passive,new Rect(Layout.X-Layout.TouchSize/2,Layout.Y-Layout.TouchSize/2,Layout.TouchSize,Layout.TouchSize)); ownControlId=id;
+   stage="events"; var e=Event.current;
+   if (e.type == EventType.MouseDown && e.button==0 && Layout.Begin(e.mousePosition.x,e.mousePosition.y))
+   { GUIUtility.hotControl=id; e.Use(); }
+   else if (GUIUtility.hotControl==id && Layout.Captured && e.type==EventType.MouseDrag)
+   { Layout.Move(e.mousePosition.x,e.mousePosition.y); e.Use(); }
+   else if (GUIUtility.hotControl==id && Layout.Captured && e.type==EventType.MouseUp)
+   {
+    bool clicked=Layout.End(e.mousePosition.x,e.mousePosition.y); GUIUtility.hotControl=0;
+    if (actionLogs++ < 10) MelonLogger.Msg($"OHMYMODS_FLOAT_{(clicked ? "TOGGLE" : "DRAG")} open={Layout.Expanded} x={Layout.X:0.0} y={Layout.Y:0.0}");
+    e.Use();
+   }
+   stage="draw"; GUI.color=new Color(1,1,1,Layout.Expanded || Layout.Captured ? .95f : .62f);
+   GUI.Label(new Rect(Layout.X-Layout.Diameter/2,Layout.Y-Layout.Diameter/2,Layout.Diameter,Layout.Diameter),orbContent,orbStyle);
+   MobileCalendar.Draw(Layout.Scale);
+   UiReady=true;
+   GUI.color=oldColor;
+   if (Layout.Expanded)
+   {
+    float px=Layout.PanelX, py=Layout.PanelY, u=Layout.Scale;
+    if(labelStyle==null)
+    {
+     labelStyle=new GUIStyle(GUI.skin.label);labelStyle.fontSize=(int)(20*Layout.Scale);
+     titleStyle=new GUIStyle(labelStyle);titleStyle.fontSize=(int)(22*Layout.Scale);
+     buttonStyle=new GUIStyle(GUI.skin.button);buttonStyle.fontSize=(int)(20*Layout.Scale);
+    }
+    labelStyle.fontSize=(int)(20*u);titleStyle.fontSize=(int)(22*u);buttonStyle.fontSize=(int)(20*u);
+    GUI.Box(new Rect(px,py,Layout.PanelWidth,Layout.PanelHeight),"");
+    if(Layout.PlayerPage)
+    {
+     MobilePlayerMenu.Draw(px,py,u,labelStyle,titleStyle,buttonStyle);
+    }
+    else if(Layout.PopulationPage)
+    {
+     GUI.Label(new Rect(px+16*u,py+12*u,248*u,42*u),"Population",titleStyle);
+     MobilePopulation.DrawPanel(px,py,u,labelStyle);
+     if(GUI.Button(new Rect(px+16*u,py+296*u,248*u,64*u),"Back",buttonStyle))Layout.PopulationPage=false;
+    }
+    else
+    {
+     GUI.Label(new Rect(px+16*u,py+12*u,248*u,42*u),"OhMyMods",titleStyle);
+     GUI.Label(new Rect(px+16*u,py+52*u,248*u,40*u),MobileCalendar.PanelText,labelStyle);
+     if (GUI.Button(new Rect(px+16*u,py+98*u,248*u,64*u),MobileCalendar.Enabled ? "Calendar: ON" : "Calendar: OFF",buttonStyle)) MobileCalendar.Toggle();
+     if (GUI.Button(new Rect(px+16*u,py+176*u,248*u,64*u),"Population",buttonStyle))Layout.PopulationPage=true;
+     if (GUI.Button(new Rect(px+16*u,py+254*u,248*u,64*u),"Player",buttonStyle))Layout.PlayerPage=true;
+     if (GUI.Button(new Rect(px+16*u,py+332*u,248*u,64*u),"Close",buttonStyle)) Layout.Expanded=false;
+    }
+   }
+  }
+  catch (Exception ex) { renderFailed=true; UiReady=false; CancelGesture(); MelonLogger.Error("OHMYMODS_FLOAT_RENDER_FAILED stage="+stage+" "+ex); }
+  finally { if (stage!="color") GUI.color=oldColor; GUI.matrix=oldMatrix; }
+ }
+ private void CreateOrb()
+ {
+  orb=new Texture2D(48,48,TextureFormat.RGBA32,false);
+  orb.filterMode=FilterMode.Bilinear;
+  for(int y=0;y<48;y++) for(int x=0;x<48;x++)
+  {
+   float dx=x-23.5f,dy=y-23.5f,dist=(float)Math.Sqrt(dx*dx+dy*dy);
+   Color c=dist>23 ? new Color(0,0,0,0) : dist>20 ? new Color(.78f,.63f,.29f,Math.Min(1,24-dist)) : new Color(.10f,.12f,.14f,1);
+   bool crown=(y>=14&&y<=18&&x>=12&&x<=35) || (y>=19&&y<=30&&x>=13&&x<=34&&((x<=17)||(x>=30)||(x>=21&&x<=26)||(y<=24)));
+   if(crown) c=new Color(.95f,.83f,.48f,1);
+   orb.SetPixel(x,y,c);
+  }
+  orb.Apply(false,false);
+  orbStyle=new GUIStyle(); orbContent=new GUIContent(""); orbContent.image=orb;
+ }
+}
