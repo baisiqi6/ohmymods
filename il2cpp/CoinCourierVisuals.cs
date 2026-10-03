@@ -121,8 +121,9 @@ internal sealed class CoinCourierView
 ///   绝不隐藏/修改参考对象，参考缺失时用默认材质。
 /// * 不选目标、不扣款、不生成身份、不动 root 物理；不能作为战斗/经济角色使用。
 /// * 失败路径一次性告警并保持空渲染（fail-closed），绝不抛给调用方。
-/// * 共享 atlas 纹理/切图/材质是模块级资源：只在 <see cref="CoinCourierVisuals.ShutdownModule"/>
-///   （世界/模块整体结束）释放；Destroy/DestroyAll 只拆自己的 view。
+/// * 共享 atlas 纹理/切图/材质是模块级资源：正常释放只在 <see cref="CoinCourierVisuals.ShutdownModule"/>
+///   （世界/模块整体结束）；Destroy/DestroyAll 只拆自己的 view。原生对象被外部回收
+///   （fake-null）时，取帧路径按有界正常初始化重建，不逐帧重试、不静默空渲染。
 /// </summary>
 internal static class CoinCourierVisuals
 {
@@ -137,11 +138,13 @@ internal static class CoinCourierVisuals
     internal const int SortingOrder = 1;
 
     /// <summary>
-    /// 共用哥布林视觉节点的统一缩放（2026-09-28 用户批准）：由 20/32 像素高度比得到，
-    /// 只缩本模块自有的视觉子节点。X 保留 ±镜像、Y 同值、Z 保持 1；每帧绝对赋值，
-    /// 不累乘、不依赖旧 scale。父支付 root/世界层/PPU/图集/地面/经济/跳跃路径都不动。
+    /// 共用哥布林视觉节点的外观尺度（2026-09-28 用户批准 0.625；2026-10-03 用户要求当前身高 +5%）：
+    /// X = 0.625（由 20/32 像素高度比得到）保持含 ±镜像；Y = 0.625×1.05 = 0.65625 只提高站高；
+    /// Z 保持 1。只动本模块自有的视觉子节点，每帧绝对赋值，不累乘、不依赖旧 scale。
+    /// 父支付 root/世界层/脚点/PPU/图集/地面/经济/跳跃路径都不动。
     /// </summary>
-    internal const float AppearanceScale = 0.625f;
+    internal const float AppearanceScaleX = 0.625f;
+    internal const float AppearanceScaleY = AppearanceScaleX * 1.05f;
 
     private const int AtlasWidth = CoinCourierPoseTable.AtlasColumns * CoinCourierPoseTable.CellPixels;
     private const int AtlasHeight = CoinCourierPoseTable.AtlasRows * CoinCourierPoseTable.CellPixels;
@@ -176,7 +179,7 @@ internal static class CoinCourierVisuals
             Transform transform = root.transform;
             transform.SetParent(parent, false);
             transform.localPosition = Vector3.zero;
-            transform.localScale = new Vector3(AppearanceScale, AppearanceScale, 1f);
+            transform.localScale = new Vector3(AppearanceScaleX, AppearanceScaleY, 1f);
             SpriteRenderer renderer = root.AddComponent<SpriteRenderer>();
             if (renderer == null)
             {
@@ -216,12 +219,14 @@ internal static class CoinCourierVisuals
             view.Transform.position = worldPosition;
             // 每帧绝对赋值（含朝向镜像）：不累乘、不依赖旧 scale，Z 恒 1。
             view.Transform.localScale = facingRight
-                ? new Vector3(AppearanceScale, AppearanceScale, 1f)
-                : new Vector3(-AppearanceScale, AppearanceScale, 1f);
+                ? new Vector3(AppearanceScaleX, AppearanceScaleY, 1f)
+                : new Vector3(-AppearanceScaleX, AppearanceScaleY, 1f);
             view.Renderer.enabled = visible;
             if (!visible) return;
             int frame = CoinCourierPoseTable.FrameIndex(pose, phaseSeconds);
-            if (frame == view.LastSpriteFrame) return;
+            // 同帧去重只跳过"确实还可用"的已提交帧：已提交切图（或其原生纹理）被卸载时，
+            // 同帧也必须重新取帧，不能靠旧帧号绕过恢复（SpriteFor 负责有界重建）。
+            if (frame == view.LastSpriteFrame && SpriteUsable(view.Renderer.sprite)) return;
             Sprite sprite = SpriteFor(frame);
             if (sprite == null) return;
             view.Renderer.sprite = sprite;
@@ -259,13 +264,20 @@ internal static class CoinCourierVisuals
     internal static void ShutdownModule()
     {
         DestroyAll();
+        ReleaseAtlas();
+        Material material = _fallbackMaterial;
+        _fallbackMaterial = null;
+        _materialResolved = false;
+        if (material != null) DestroyQuietly(material);
+    }
+
+    /// <summary>释放共享图集（仅本模块自有对象）：存活者销毁、引用清空、懒加载状态复位；绝不动 view。</summary>
+    private static void ReleaseAtlas()
+    {
         Sprite[] sprites = _sprites;
         _sprites = null;
         Texture2D texture = _texture;
         _texture = null;
-        Material material = _fallbackMaterial;
-        _fallbackMaterial = null;
-        _materialResolved = false;
         _atlasState = 0;
         if (sprites != null)
         {
@@ -275,14 +287,42 @@ internal static class CoinCourierVisuals
             }
         }
         if (texture != null) DestroyQuietly(texture);
-        if (material != null) DestroyQuietly(material);
     }
 
+    /// <summary>
+    /// 取帧贴图：缓存可用直接命中；缓存仍被标记就绪、但其原生图集对象已被回收
+    /// （纹理/切图 fake-null，例如场景卸载后共享静态缓存仍在）时，整体释放残余并走
+    /// 一次同一条有界解码路径重建。确证坏素材的解码失败保持 fail-closed，绝不逐帧重试。
+    /// </summary>
     private static Sprite SpriteFor(int frame)
     {
-        if (_atlasState != AtlasReady && !EnsureAtlas()) return null;
-        if (_sprites == null || frame < 0 || frame >= _sprites.Length) return null;
-        return _sprites[frame];
+        if (frame < 0 || frame >= CoinCourierPoseTable.FrameCount) return null;
+        if (_atlasState == AtlasReady)
+        {
+            Sprite cached = CachedSprite(frame);
+            if (SpriteUsable(cached)) return cached;
+            // 缓存失效诊断（一次性、仅本视图生命周期）：只声明"缓存已失效、开始有界恢复尝试"，
+            // 成功与否由随后的解码结果/失败门决定，不得当作成功或现场根因证据。
+            WarnOnce("atlas cache invalidated (native release); recovery attempt starting");
+            ReleaseAtlas();   // 原生已被卸载/表项缺失：残余整体释放，再按正常初始化重建
+        }
+        else if (_atlasState == AtlasFailed)
+        {
+            return null;      // 确证坏素材：保持失败门，不重试
+        }
+        if (!EnsureAtlas()) return null;
+        Sprite rebuilt = CachedSprite(frame);
+        return SpriteUsable(rebuilt) ? rebuilt : null;
+    }
+
+    private static Sprite CachedSprite(int frame)
+        => _sprites != null && frame >= 0 && frame < _sprites.Length ? _sprites[frame] : null;
+
+    /// <summary>切图可用 = 代理存活且其原生纹理存活（Unity fake-null：任一被回收都画不出来）。</summary>
+    private static bool SpriteUsable(Sprite sprite)
+    {
+        try { return sprite != null && sprite.texture != null; }
+        catch (Exception) { return false; }
     }
 
     /// <summary>惰性解码内嵌 atlas（只一次）；尺寸/内容校验失败即整块不可用。</summary>
@@ -388,6 +428,17 @@ internal static class CoinCourierVisuals
                     CoinCourierPoseTable.CellPixels, CoinCourierPoseTable.CellPixels);
                 sprites[frame] = Sprite.Create(texture, rect, pivot,
                     CoinCourierPoseTable.PixelsPerUnit, 0u, SpriteMeshType.FullRect);
+                if (sprites[frame] == null)
+                {
+                    // 不完整图集绝不交给就绪状态：否则取帧校验会把它当成"缓存死亡"反复重建。
+                    WarnOnce("Sprite.Create returned null (frame " + frame + ")");
+                    for (int i = 0; i <= frame; i++)
+                    {
+                        if (sprites[i] != null) DestroyQuietly(sprites[i]);
+                    }
+                    DestroyQuietly(texture);
+                    return false;
+                }
             }
             _texture = texture;
             _sprites = sprites;
@@ -416,7 +467,12 @@ internal static class CoinCourierVisuals
 
     private static Material FallbackMaterial()
     {
-        if (_materialResolved) return _fallbackMaterial;
+        if (_materialResolved)
+        {
+            if (ReferenceEquals(_fallbackMaterial, null)) return null;   // 创建从未成功：保持空，不重试
+            if (_fallbackMaterial != null) return _fallbackMaterial;     // 原生存活：复用
+            _materialResolved = false;   // CLR 非 null 但 Unity fake-null：原生已被回收，重走一次创建
+        }
         _materialResolved = true;
         try
         {

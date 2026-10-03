@@ -209,6 +209,18 @@ internal static class CoinCourierRuntime
     private static int _lastServedSide;
     private static int _enemyMask;
     private static float _collectBlockedUntil;
+
+    /// <summary>
+    /// 原地休闲动作时钟（2026-10-03 用户要求空闲活泼）：Idle 段 2s + Leisure 段
+    /// （4 帧 × 0.6s = 2.4s）合计一个 4.4s 循环，回绕长度沿用既有的同值节奏常量
+    /// <see cref="CoinCourierTiming.LeisurePauseSeconds"/>。驻留与受阻时只由该时钟决定帧；
+    /// 绝不每帧归零、绝不 NaN、暂停（delta=0）不推进，也不依赖外部重置。
+    /// </summary>
+    private const float LeisureIdlePoseSeconds = 2f;
+    private const float LeisurePoseLoopSeconds = CoinCourierTiming.LeisurePauseSeconds;
+
+    /// <summary>同 world 纯视觉重建的下一次尝试时刻（有界重试：失败绝不每帧重建 GO）。</summary>
+    private static float _viewRetryAt;
     private static bool _recruitmentLocked;
     private static bool _recruitmentLockLogged;
     private static bool _frozenLogged;
@@ -750,8 +762,22 @@ internal static class CoinCourierRuntime
     {
         IntPtr world = managers.world.Pointer;
         IntPtr layerPtr = layer.Pointer;
+
+        // 世界/层换代才是硬失效：沿用原有的整场清理，随后走下面的完整初始化。
         if (S.View != null && (_worldPtr != world || _layerPtr != layerPtr))
             ClearScene("world-change");
+
+        // 同 world 纯视觉失效（root/transform/renderer 任一原生对象被回收，fake-null）：
+        // 只替换自有显示对象——行为相位/ActionConsumed/Plan/Sent/VisitDeadline/目标/冷却/purse
+        // 全部原样保留，绝不走 ClearScene。创建失败时保留旧句柄作"本世界已初始化"的标记，
+        // 按 ViewRetrySeconds 节奏有界重试，绝不做每帧的创建尝试。
+        if (S.View != null && !ViewAlive())
+        {
+            if (Time.time < _viewRetryAt) return false;
+            if (TryReplaceView(layer)) return true;
+            _viewRetryAt = Time.time + ViewRetrySeconds;
+            return false;
+        }
         if (S.View != null) return true;
 
         if (!CoinCourierGround.TryResolveHome(kingdom, out float homeX, out float homeY))
@@ -791,6 +817,35 @@ internal static class CoinCourierRuntime
         _layerPtr = layerPtr;
         return true;
     }
+
+    /// <summary>自有 view 的原生后台是否全部存活：root/transform/renderer 任一 fake-null 即失效。</summary>
+    private static bool ViewAlive()
+    {
+        CoinCourierView view = S.View;
+        if (view == null || view.Destroyed) return false;
+        try { return view.Root != null && view.Transform != null && view.Renderer != null; }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>
+    /// 同 world 纯视觉替换：只重建显示句柄，行为相位/计划/冷却/钱包一律不动。
+    /// 失败返回 false——旧句柄保留作"本世界已初始化"的标记，避免回落到初次初始化归零。
+    /// </summary>
+    private static bool TryReplaceView(Transform layer)
+    {
+        CoinCourierView replacement = CoinCourierVisuals.Create(layer, ResolveVisualReference());
+        if (replacement == null) return false;
+        CoinCourierView stale = S.View;
+        S.View = replacement;
+        S.Layer = layer;
+        CoinCourierVisuals.Destroy(stale);   // 旧原生已回收时只清登记；根仍存活则真正销毁，避免残留
+        _viewRetryAt = 0f;
+        LogOnce("view-replaced", "display view rebuilt in place; behaviour state kept");
+        return true;
+    }
+
+    /// <summary>同 world 纯视觉重建的有界重试节奏（秒）：失败后至少间隔这么久才再建 GO。</summary>
+    private const float ViewRetrySeconds = 0.5f;
 
     // ---- 银行等待 / 取币 ----
 
@@ -889,6 +944,17 @@ internal static class CoinCourierRuntime
         S.LeisureWalkSeconds = 0f;
     }
 
+    /// <summary>
+    /// 原地休闲时钟：只被有效 delta 推进，一个完整循环后回绕。夜间与走位探测失败
+    /// 都只暂停/保持移动门，绝不清零该相位，因此原地 Idle→Leisure 连续播放。
+    /// </summary>
+    private static void AdvanceLeisurePose(float delta)
+    {
+        if (!(delta > 0f)) return;   // 暂停/非法 delta 不推进
+        float next = S.LeisurePoseSeconds + delta;
+        S.LeisurePoseSeconds = next >= LeisurePoseLoopSeconds ? next % LeisurePoseLoopSeconds : next;
+    }
+
     /// <summary>Only this runtime moves the display root. Service checks stay in TickWait.</summary>
     private static void TickLeisure(Kingdom kingdom, float delta, float now)
     {
@@ -898,13 +964,13 @@ internal static class CoinCourierRuntime
 
         if (S.LeisureMotion == LeisureMotion.Pause)
         {
+            AdvanceLeisurePose(delta);
             if (!S.LeisureDaytime)
             {
+                // 夜间不发起闲走（安全站位与偶遇门不变），原地循环照常播放。
                 S.LeisurePauseRemaining = CoinCourierTiming.LeisurePauseSeconds;
-                S.LeisurePoseSeconds = 0f;
                 return;
             }
-            S.LeisurePoseSeconds += delta;
             S.LeisurePauseRemaining -= delta;
             if (S.LeisurePauseRemaining > 0f) return;
             float targetX = AtHome()
@@ -917,8 +983,8 @@ internal static class CoinCourierRuntime
                 || !TryReadEnemyNear(new Vector3(targetX, targetY, LayerZ()), out bool targetThreat)
                 || targetThreat)
             {
+                // 探测失败只重置走位节奏；原地循环相位保持连续（不再清零）。
                 S.LeisurePauseRemaining = CoinCourierTiming.LeisurePauseSeconds;
-                S.LeisurePoseSeconds = 0f;
                 return;
             }
             S.LeisureTargetX = targetX;
@@ -930,6 +996,9 @@ internal static class CoinCourierRuntime
 
         if (S.LeisureBlockedRemaining > 0f)
         {
+            // 受阻驻留同样连续播 Idle→Leisure（不再冻结在 Idle 首帧）；移动门保持原样，
+            // 到点后仍按原有节奏重试下一步。
+            AdvanceLeisurePose(delta);
             S.LeisureBlockedRemaining -= delta;
             if (S.LeisureBlockedRemaining > 0f) return;
             S.LeisureBlockedRemaining = 0f;
@@ -1575,7 +1644,7 @@ internal static class CoinCourierRuntime
 
     private static void RenderCurrent()
     {
-        if (S.View == null) return;
+        if (S.View == null || !ViewAlive()) return;   // 原生后台已回收：不动死对象，等 EnsureScene 的正常替换
         float phase = S.Elapsed;
         CoinCourierPose pose = PoseFor(S.Phase, ref phase);
         CoinCourierVisuals.Render(S.View, S.Position, S.Facing >= 0, pose, phase, S.Visible);
@@ -1601,22 +1670,19 @@ internal static class CoinCourierRuntime
                 return CoinCourierPose.Fall;   // 隐藏中，仅维持有效帧
             case CoinCourierPhase.Wait:
             {
-                if (S.LeisureBlockedRemaining > 0f)
-                {
-                    phaseSeconds = 0f;
-                    return CoinCourierPose.Idle;
-                }
-                if (S.LeisureMotion != LeisureMotion.Pause)
+                // 走位中播 Run；驻留与受阻（含夜间）一律播原地休闲循环，相位由
+                // AdvanceLeisurePose 单一时钟推进（绝不再冻结在 Idle 首帧）。
+                if (S.LeisureMotion != LeisureMotion.Pause && S.LeisureBlockedRemaining <= 0f)
                 {
                     phaseSeconds = S.LeisureWalkSeconds;
                     return CoinCourierPose.Run;
                 }
                 phaseSeconds = S.LeisurePoseSeconds;
-                if (!S.LeisureDaytime || phaseSeconds < 2f)
+                if (phaseSeconds < LeisureIdlePoseSeconds)
                 {
                     return CoinCourierPose.Idle;
                 }
-                phaseSeconds -= 2f;
+                phaseSeconds -= LeisureIdlePoseSeconds;
                 return CoinCourierPose.Leisure;
             }
             default:
@@ -1679,6 +1745,7 @@ internal static class CoinCourierRuntime
         _layerPtr = IntPtr.Zero;
         _lastServedSide = 0;
         _collectBlockedUntil = 0f;
+        _viewRetryAt = 0f;
         _enemyMask = 0;
         NextEligibleAt.Clear();
         CoinCourierGround.Invalidate();
