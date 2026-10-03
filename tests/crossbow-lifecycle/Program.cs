@@ -149,6 +149,8 @@ static class Program
         lifecycle.GetField("_loggedRootPassThrough", flags).SetValue(null, false);
         foreach (string name in new[] { "_applyErrorLogs", "_stripErrorLogs", "_readerErrorLogs", "_scanErrorLogs" })
             lifecycle.GetField(name, flags).SetValue(null, 0);
+        // Monotonic counter is production state (never reused); tests reset it by reflection only.
+        lifecycle.GetField("_formationLifeCounter", flags).SetValue(null, 0L);
         KingdomEnhancedPlugin.Logger.Errors.Clear();
         KingdomEnhancedPlugin.Logger.Warnings.Clear();
         KingdomEnhancedPlugin.Logger.Lines.Clear();
@@ -959,6 +961,122 @@ static class Program
             Check(u.Archer.SoldierAnimatorWrites == writes, "no field write for the dead life");
             Check(!CrossbowmanLifecycle.IsCrossbowman(u.Archer), "identity stays invalid");
         });
+        Test("formation life is established once and survives apply/reconcile/hide-show", () =>
+        {
+            var u = NewUnit("f1");
+            Check(CrossbowmanLifecycle.FormationLife(u.Archer) == 0L, "no marker: no life");
+            Check(!CrossbowmanLifecycle.MatchesFormationLife(u.Archer, 1L), "no marker: never matches");
+            Check(Apply(u), "first apply");
+            long first = CrossbowmanLifecycle.FormationLife(u.Archer);
+            Check(first > 0L, "life established with the career");
+            Check(CrossbowmanLifecycle.MatchesFormationLife(u.Archer, first), "matches its own life");
+            Check(!CrossbowmanLifecycle.MatchesFormationLife(u.Archer, first + 1L), "foreign number never matches");
+
+            Check(Apply(u), "re-apply");
+            Check(CrossbowmanLifecycle.FormationLife(u.Archer) == first, "re-apply keeps the life");
+            CrossbowmanLifecycle.Reconcile(u.Archer, u.Profile);
+            Check(CrossbowmanLifecycle.FormationLife(u.Archer) == first,
+                "reconcile bumps Revision only, never the life");
+
+            u.Go.activeInHierarchy = false;
+            CrossbowmanLifecycle.OnArcherDisablePrefix(u.Archer);
+            u.Go.activeInHierarchy = true;
+            CrossbowmanLifecycle.OnArcherEnablePrefix(u.Archer, u.Profile);   // no pool scope: same life
+            Check(CrossbowmanLifecycle.FormationLife(u.Archer) == first, "hide/show keeps the life");
+            Check(CrossbowmanLifecycle.IsCrossbowman(u.Archer), "selection restored for the same life");
+        });
+
+        Test("a confirmed pool respawn rotates the life and invalidates old receipts", () =>
+        {
+            var u = NewUnit("f2");
+            Check(Apply(u), "first life");
+            long first = CrossbowmanLifecycle.FormationLife(u.Archer);
+            Check(first > 0L, "life established");
+
+            u.Go.activeInHierarchy = false;
+            CrossbowmanLifecycle.OnArcherDisablePrefix(u.Archer);
+            u.Go.activeInHierarchy = true;
+            CrossbowmanLifecycle.BeginPoolSpawnScope();
+            CrossbowmanLifecycle.OnArcherEnablePrefix(u.Archer, u.Profile);
+            CrossbowmanLifecycle.EndPoolSpawnScope();
+
+            long second = CrossbowmanLifecycle.FormationLife(u.Archer);
+            Check(second != first, "pool respawn rotates the life");
+            Check(second > first, "the new life is a fresh monotonic number");
+            Check(!CrossbowmanLifecycle.MatchesFormationLife(u.Archer, first),
+                "an old-life receipt can no longer match");
+
+            Check(Apply(u), "re-designated after the pool boundary");
+            long third = CrossbowmanLifecycle.FormationLife(u.Archer);
+            Check(third != second && third > second,
+                "a genuine new selection rotates to a fresh token (old receipts stay invalid)");
+            Check(!CrossbowmanLifecycle.MatchesFormationLife(u.Archer, first),
+                "the original receipt still cannot match");
+
+            var v = NewUnit("f3");
+            Check(Apply(v), "second unit");
+            Check(CrossbowmanLifecycle.FormationLife(v.Archer) != CrossbowmanLifecycle.FormationLife(u.Archer),
+                "lives are unique across instances");
+        });
+
+        Test("owned registry snapshot exposes only resolvable crossbowmen", () =>
+        {
+            var u = NewUnit("f4");
+            var v = NewUnit("f5");
+            Check(Apply(u), "u applied");
+            Check(Apply(v), "v applied");
+            var output = new System.Collections.Generic.List<Archer>();
+            Check(CrossbowmanLifecycle.CopyOwnedArchers(output) == 2, "both owned");
+            Check(output.Contains(u.Archer) && output.Contains(v.Archer), "both resolvable");
+            Strip(u);
+            Check(CrossbowmanLifecycle.CopyOwnedArchers(output) == 1 && output.Contains(v.Archer),
+                "a settled strip prunes the registry");
+            Strip(v);
+            Check(CrossbowmanLifecycle.CopyOwnedArchers(output) == 0, "registry empties after both settle");
+            Check(!CrossbowmanLifecycle.IsCrossbowman(u.Archer), "stripped instances report no identity");
+        });
+
+        Test("strip keeps the token for debt clearing and a new selection rotates it", () =>
+        {
+            var u = NewUnit("t1");
+            Check(Apply(u), "first career");
+            long first = CrossbowmanLifecycle.FormationLife(u.Archer);
+            Check(first > 0L, "token established");
+
+            Strip(u);                                     // feature off / identity invalidated
+            Check(!CrossbowmanLifecycle.IsCrossbowman(u.Archer), "identity cleared");
+            Check(CrossbowmanLifecycle.FormationLife(u.Archer) == first,
+                "strip keeps the token so an old same-life receipt can still be cleared");
+            Check(CrossbowmanLifecycle.MatchesFormationLife(u.Archer, first),
+                "matches-life reader never depends on Active/Enabled");
+
+            Check(Apply(u), "new career selection");
+            long second = CrossbowmanLifecycle.FormationLife(u.Archer);
+            Check(second != first, "a genuine new selection rotates the token");
+            Check(!CrossbowmanLifecycle.MatchesFormationLife(u.Archer, first),
+                "old receipts can no longer match the new career");
+            Check(Apply(u), "idempotent re-apply");
+            Check(CrossbowmanLifecycle.FormationLife(u.Archer) == second,
+                "idempotent apply keeps the token");
+        });
+
+        Test("a true pool prefix rotates the token even without selection or residue", () =>
+        {
+            var u = NewUnit("t2");
+            Check(Apply(u), "first career");
+            long first = CrossbowmanLifecycle.FormationLife(u.Archer);
+            Strip(u);
+            u.Go.activeInHierarchy = false;
+            CrossbowmanLifecycle.OnArcherDisablePrefix(u.Archer);
+            u.Go.activeInHierarchy = true;
+            CrossbowmanLifecycle.BeginPoolSpawnScope();
+            CrossbowmanLifecycle.OnArcherEnablePrefix(u.Archer, u.Profile);
+            CrossbowmanLifecycle.EndPoolSpawnScope();
+            long second = CrossbowmanLifecycle.FormationLife(u.Archer);
+            Check(second != first, "pool boundary invalidated the old token unconditionally");
+            Check(second > first, "fresh monotonic token");
+        });
+
         Test("error logs stay bounded per path", () =>
         {
             // 50 次失败也不得刷屏：每条路径每进程最多 3 条（计数据是进程级，

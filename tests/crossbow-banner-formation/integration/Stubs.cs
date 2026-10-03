@@ -138,6 +138,8 @@ namespace UnityEngine
         public T GetComponent<T>() where T : Component
             => gameObject != null ? gameObject.GetComponent<T>() : null;
 
+        public T GetComponentInChildren<T>() where T : Component => GetComponent<T>();
+
         public bool TryGetComponent<T>(out T component) where T : Component
         {
             component = GetComponent<T>();
@@ -160,6 +162,7 @@ namespace UnityEngine
     {
         public Transform parent;
         public Vector3 position;
+        public Vector3 localScale = new Vector3(1f, 1f, 1f);
 
         public bool IsChildOf(Transform other)
         {
@@ -168,6 +171,17 @@ namespace UnityEngine
                 if (ReferenceEquals(current, other)) return true;
             }
             return false;
+        }
+    }
+
+    public struct Vector2
+    {
+        public float x;
+        public float y;
+        public Vector2(float x, float y)
+        {
+            this.x = x;
+            this.y = y;
         }
     }
 
@@ -182,6 +196,18 @@ namespace UnityEngine
             this.y = y;
             this.z = z;
         }
+    }
+
+    public class RuntimeAnimatorController : Object
+    {
+        public RuntimeAnimatorController() { }
+        public RuntimeAnimatorController(string n) => name = n;
+        public string name = string.Empty;
+    }
+
+    public class Animator : Behaviour
+    {
+        public RuntimeAnimatorController runtimeAnimatorController;
     }
 
     public static class Mathf
@@ -225,6 +251,21 @@ public class Embarkee : UnityEngine.Component
 public class Knight : UnityEngine.Behaviour { }
 
 public class GuardSlot : UnityEngine.Component { }
+
+public class Scanner
+{
+    public float range = 12f;
+    public float rangeBehind = 12f;
+}
+
+public class Mover : UnityEngine.Component { }
+
+public class ArrowAttack : UnityEngine.Object
+{
+    public ArrowAttack() { }
+    public ArrowAttack(string n) => name = n;
+    public string name = string.Empty;
+}
 
 public class FSM
 {
@@ -426,16 +467,45 @@ public class Archer : UnityEngine.Behaviour, Formation.IFormationUnit
 
     private Formation _formation;
 
+    // ---- CrossbowmanLifecycle real-boundary fields (2.4 interop shapes) ----
+    public float shootRange = 8f;
+    public float towerShootRange = 12f;
+    public bool _isWearingBannerColor;
+    public Scanner _enemyScanner = new Scanner();
+    public ArrowAttack _arrowAttack;
+    public ArrowAttack _fireArrowAttack;
+    public ArrowAttack ActiveArrowAttack;
+    public UnityEngine.RuntimeAnimatorController hunterAnimator;
+    public Vector2 _shootIntervalRange;
+    public Vector2 _shootIntervalRangeFormation;
+    public Mover _mover;
+    public UnityEngine.RuntimeAnimatorController BaseSkin;
+    public UnityEngine.RuntimeAnimatorController BaseSoldier;
+
+    private UnityEngine.RuntimeAnimatorController _soldierAnimator;
+    public UnityEngine.RuntimeAnimatorController soldierAnimator
+    {
+        get => _soldierAnimator;
+        set
+        {
+            _soldierAnimator = value;
+            SoldierAnimatorWrites++;
+        }
+    }
+
+    public int SoldierAnimatorWrites;
+    public void SeedSoldierAnimator(UnityEngine.RuntimeAnimatorController value) => _soldierAnimator = value;
+
     // Script knobs (test-only failure injection).
     public bool ThrowOnConvertToSoldier;
     public bool ReturnFalseAfterRegister;
     public bool ReturnFalseAfterBind;
     public int ThrowOnLeave;
     public Action<Formation> ReplaceArraysOnRecruit;
+    public Action<Archer> OnConvertedToSoldierCallback;   // native callback window (post RegisterUnit)
+    public bool NestedRecruitResult;
     public int ConvertToSoldierCalls;
     public int OnLeaveCalls;
-    /// <summary>Runs inside the native ConvertToSoldier callback window (test injection).</summary>
-    public Action<Archer> OnConvertedToSoldierCallback;
 
     public Formation GetFormation() => _formation;
     public bool ShouldPlayerControl() => playerControlled;
@@ -467,13 +537,21 @@ public class Archer : UnityEngine.Behaviour, Formation.IFormationUnit
         return true;
     }
 
+    /// <summary>
+    /// Native order (Mac 2.4 x64 machine code): controller swap through BiomeData pass-through,
+    /// banner color when authoritative, routine/attack-mode updates only; no direct
+    /// ActiveArrowAttack/shootRange/interval writes. The callback knob runs inside this body so
+    /// pooling/re-entry can be injected exactly where native callbacks would run.
+    /// </summary>
     public void ConvertToSoldier()
     {
         ConvertToSoldierCalls++;
+        CrossbowmanLifecycleNative.SimulateConvertToSoldier(this);
         if (OnConvertedToSoldierCallback != null) OnConvertedToSoldierCallback(this);
         if (ThrowOnConvertToSoldier) throw new InvalidOperationException("scripted ConvertToSoldier failure");
     }
 
+    /// <summary>Native OnLeaveFormation: clear the binding, then convert to hunter (skin path).</summary>
     public void OnLeaveFormation()
     {
         if (ThrowOnLeave > 0)
@@ -483,6 +561,7 @@ public class Archer : UnityEngine.Behaviour, Formation.IFormationUnit
         }
         _formation = null;
         OnLeaveCalls++;
+        CrossbowmanLifecycleNative.SimulateConvertToHunter(this);
     }
 
     public void FormationDestroy() { }
@@ -679,63 +758,170 @@ namespace KingdomEnhancedMod
     }
 
     /// <summary>
-    /// Real: il2cpp/CrossbowmanLifecycle.cs identity reader (reusable marker + live global switch,
-    /// fail-closed). The stub mirrors only the shape the guard and the crossbow row consume: an
-    /// instance marker behind the global mod switch plus the bounded owned registry and the stable
-    /// career-life token the formation receipts capture. Default off so existing pipeline
-    /// scenarios keep their native outcomes; flip IdentityEnabled and register the archer to
-    /// exercise the exclusion or the crossbow row.
+    /// Real: il2cpp/PatchRoles_Crossbowman.cs host boundary. The integration suite compiles the
+    /// REAL CrossbowmanLifecycle, so this shim calls its actual OnArcherEnablePostfix /
+    /// OnConvertToHunterPostfix with a real profile (test assets), exactly the boundary the
+    /// production host provides. AfterSeatedReconcile is the suite's injection point for
+    /// synchronous callbacks inside the reconcile.
     /// </summary>
-    internal static class CrossbowmanLifecycle
+    internal static class PatchRoles_Crossbowman
     {
-        internal static readonly HashSet<Archer> Crossbowmen = new();
-        internal static readonly Dictionary<Archer, long> Lives = new();
-        internal static bool IdentityEnabled;
-        internal static long NextLife = 1L;
+        internal static ArrowAttack AttackSo = new ArrowAttack("KEM_Integration_CrossbowAttack");
+        internal static UnityEngine.RuntimeAnimatorController Deadlands =
+            new UnityEngine.RuntimeAnimatorController("archer_soldier_deadlands");
+        internal static int SeatedReconciles;
+        internal static int HunterPostfixes;
+        internal static Action<Archer> AfterSeatedReconcile;
 
-        internal static bool IsCrossbowman(Archer archer)
-            => IdentityEnabled && ModConfig.Enabled.Value && archer != null && Crossbowmen.Contains(archer);
-
-        internal static int CopyOwnedArchers(List<Archer> output)
+        internal static CrossbowmanProfile ProfileFor(Archer archer) => new CrossbowmanProfile
         {
-            output.Clear();
-            if (!IdentityEnabled) return 0;
-            output.AddRange(Crossbowmen);
-            return output.Count;
+            Attack = AttackSo,
+            Skin = Deadlands,
+            ReapplyBanner = a => a._isWearingBannerColor = true,
+            BaseShootRange = 8f,
+            BaseShootRangeKnown = true,
+            BaseInterval = new Vector2(1f, 2f),
+            BaseIntervalKnown = true,
+            BaseIntervalFormation = new Vector2(3f, 4f),
+            BaseIntervalFormationKnown = true,
+            BaseSkin = archer.BaseSkin,
+            BaseSoldierAnimator = archer.BaseSoldier,
+        };
+
+        internal static void OnArcherEnablePostfix(Archer archer)
+        {
+            SeatedReconciles++;
+            CrossbowmanLifecycle.OnArcherEnablePostfix(archer, ProfileFor(archer));
+            if (AfterSeatedReconcile != null) AfterSeatedReconcile(archer);
         }
 
-        internal static long FormationLife(Archer archer)
-            => archer != null && Lives.TryGetValue(archer, out long life) ? life : 0L;
-
-        internal static bool MatchesFormationLife(Archer archer, long life)
-            => life > 0L && FormationLife(archer) == life;
-
-        /// <summary>Test helper: same GameObject re-armed as a new pool life.</summary>
-        internal static void ArmNewLife(Archer archer) => Lives[archer] = NextLife++;
-
-        internal static void Reset()
+        internal static void OnConvertToHunterPostfix(Archer archer)
         {
-            Crossbowmen.Clear();
-            Lives.Clear();
-            IdentityEnabled = false;
-            NextLife = 1L;
+            HunterPostfixes++;
+            CrossbowmanLifecycle.OnConvertToHunterPostfix(archer, ProfileFor(archer));
         }
     }
 
     /// <summary>
-    /// Real: il2cpp/PatchRoles_Crossbowman.cs host reconcile boundary. The crossbow row calls it
-    /// once after a confirmed directed seat; AfterSeatedReconcile is the suite injection point for
-    /// synchronous callbacks firing inside that reconcile.
+    /// Native-boundary simulation for the integration stubs, following the audited Mac 2.4 x64
+    /// machine code: ConvertToSoldier reads the FIELD archer.soldierAnimator as the BiomeSwap
+    /// input and assigns the resolved controller to the Animator; ConvertToHunter resolves the
+    /// hunter controller the same way. The career postfix then re-asserts the crossbow skin.
     /// </summary>
-    internal static class PatchRoles_Crossbowman
+    internal static class CrossbowmanLifecycleNative
     {
-        internal static int SeatedReconciles;
-        internal static Action<Archer> AfterSeatedReconcile;
+        internal static int SoldierNativeWrites;
+        internal static UnityEngine.RuntimeAnimatorController LastSoldierNativeWrite;
+        internal static int HunterNativeWrites;
+        internal static UnityEngine.RuntimeAnimatorController LastHunterNativeWrite;
 
-        internal static void OnArcherEnablePostfix(Archer archer)
+        internal static void SimulateConvertToSoldier(Archer archer)
         {
-            if (CrossbowmanLifecycle.IsCrossbowman(archer)) SeatedReconciles++;
-            if (AfterSeatedReconcile != null) AfterSeatedReconcile(archer);
+            Animator animator = archer.GetComponent<Animator>();
+            if (animator != null && archer.soldierAnimator != null)
+            {
+                // Native reads the serialized soldierAnimator field (NOT the current controller)
+                // and resolves it through the biome swap before writing the Animator.
+                UnityEngine.RuntimeAnimatorController resolved =
+                    BiomeData.Current.GetAssetSwapForThis(archer.soldierAnimator);
+                animator.runtimeAnimatorController = resolved;
+                SoldierNativeWrites++;
+                LastSoldierNativeWrite = resolved;
+            }
+            if (NetworkBigBoss.HasWorldAuth && !archer._isWearingBannerColor) archer._isWearingBannerColor = true;
+        }
+
+        internal static void SimulateConvertToHunter(Archer archer)
+        {
+            Animator animator = archer.GetComponent<Animator>();
+            if (animator != null && archer.hunterAnimator != null)
+            {
+                // Native ConvertToHunter first swaps to the ordinary hunter controller; the real
+                // career postfix then re-asserts the crossbow skin for a live crossbowman.
+                UnityEngine.RuntimeAnimatorController resolved =
+                    BiomeData.Current.GetAssetSwapForThis(archer.hunterAnimator);
+                animator.runtimeAnimatorController = resolved;
+                HunterNativeWrites++;
+                LastHunterNativeWrite = resolved;
+            }
+            PatchRoles_Crossbowman.OnConvertToHunterPostfix(archer);
+        }
+    }
+
+    /// <summary>BiomeData boundary: GetAssetSwapForThis is identity for unregistered originals.</summary>
+    public class BiomeData
+    {
+        public static BiomeData Current = new BiomeData();
+        public bool SwapThrows;
+        public T GetAssetSwapForThis<T>(T asset)
+        {
+            if (SwapThrows) throw new InvalidOperationException("swap table not ready");
+            return asset;
+        }
+    }
+
+    /// <summary>CrossbowDefense boundary (real logic covered by crossbow-defense/wallpierce).</summary>
+    internal static class PatchRoles_CrossbowDefense
+    {
+        internal static int ReconcileCalls;
+        internal static int RemoveCalls;
+        internal static int PullBackCalls;
+        internal static bool ReconcileSawIdentity;
+
+        internal static void ReconcileTowerRange(Archer archer)
+        {
+            ReconcileCalls++;
+            ReconcileSawIdentity = CrossbowmanLifecycle.IsCrossbowman(archer);
+        }
+
+        internal static void Remove(Archer archer) => RemoveCalls++;
+
+        internal static bool TryPullBack(Archer archer)
+        {
+            PullBackCalls++;
+            return archer != null && archer.GetFormation() == null;
+        }
+
+        internal static void Reset()
+        {
+            ReconcileCalls = 0;
+            RemoveCalls = 0;
+            PullBackCalls = 0;
+            ReconcileSawIdentity = false;
+        }
+    }
+
+    /// <summary>Scale boundaries (minimal self-owned-axis semantics; counters for assertions).</summary>
+    internal static class GreekScaleScope
+    {
+        internal static int ApplyYCalls;
+        internal static void ApplyY(UnityEngine.Transform target, float y)
+        {
+            ApplyYCalls++;
+            var scale = target.localScale;
+            scale.y = y;
+            target.localScale = scale;
+        }
+        internal static void Restore(UnityEngine.Transform target) { }
+        internal static void Reset() => ApplyYCalls = 0;
+    }
+
+    internal static class ScaleRegistryHolder
+    {
+        internal static int RegisterCalls;
+        internal static int UnregisterCalls;
+        internal static float LastRegisteredY;
+        internal static void Register(Mover mover, float y)
+        {
+            RegisterCalls++;
+            LastRegisteredY = y;
+        }
+        internal static void Unregister(Mover mover) => UnregisterCalls++;
+        internal static void Reset()
+        {
+            RegisterCalls = 0;
+            UnregisterCalls = 0;
+            LastRegisteredY = 0f;
         }
     }
 
@@ -796,8 +982,10 @@ namespace KingdomEnhancedMod
     {
         internal readonly List<string> Infos = new();
         internal readonly List<string> Warnings = new();
+        internal readonly List<string> Errors = new();
 
         internal void LogInfo(string message) => Infos.Add(message);
         internal void LogWarning(string message) => Warnings.Add(message);
+        internal void LogError(string message) => Errors.Add(message);
     }
 }
