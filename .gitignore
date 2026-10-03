@@ -18,3 +18,6 @@ release/*.zip
 
 # Harness Python cache
 /scripts/harness/__pycache__/
+
+# Mac 本地工具、构建、发行校验及历史归档（不上传）
+/.local/

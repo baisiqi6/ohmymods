@@ -24,10 +24,16 @@
 #   - 锁文件包内保存，持有至游戏退出；残留锁只报告人工恢复路径，绝不自动删除。
 #     获锁后立即安装 EXIT/INT/TERM/HUP 清理：有子进程先转发终止并等待，再释放锁。
 #   - 预加载日志经 BEPINEX_PRELOADER_LOG 指向包内（默认会写入 .app 的 MacOS 目录）。
+#   - 终端输出：默认精简（只收起已识别的 native loader 转储、三类 Debug 明细与
+#     两类角色采样）；[Warning]/[Error]/[Fatal] 与含错误关键词的行一律原样显示。
+#     游戏合并 stdout+stderr 完整写入包内 launcher-console.log（每次启动覆盖为
+#     最近一次；--verbose 时终端完整透传，日志照写）。日志路径使用前拒绝符号
+#     链接/硬链接/目录/FIFO 等非常规占位；--check-only 不创建日志、临时目录，
+#     也不启动任何日志辅助进程。
 #
 # 用法：
 #   双击本文件；或终端运行：
-#     ./launcher.command [--game <KingdomTwoCrowns.app 或可执行文件路径>] [--check-only] [游戏参数...]
+#     ./launcher.command [--game <KingdomTwoCrowns.app 或可执行文件路径>] [--check-only] [--verbose] [游戏参数...]
 #   --check-only 只做只读预检并打印将要执行的命令，不启动游戏、不加锁、不写任何文件。
 #
 # Bash 3.2 兼容：不用 bash4+ 特性；变量与中文相邻处一律 ${var} 花括号。
@@ -39,6 +45,8 @@ LOCK_NAME=".launcher.lock"
 GAME_LOCK_NAME="game-lock.json"
 SUMS_NAME="SHA256SUMS"
 PRELOADER_LOG_NAME="preloader.log"
+CONSOLE_LOG_NAME="launcher-console.log"
+CONSOLE_FILTER_REL="tools/console-filter.awk"
 
 GAME_APP_NAME="KingdomTwoCrowns.app"
 GAME_EXE_REL="Contents/MacOS/KingdomTwoCrowns"
@@ -92,6 +100,10 @@ OhMyMods Mac ARM64 启动器
   --check-only      只读预检：完成全部校验并打印将要执行的启动命令，
                     不启动游戏、不加锁、不写任何文件。原生库带下载隔离时
                     同样非零退出（只检测，不清除任何扩展属性）。
+  --verbose         终端显示完整原始输出（不做精简过滤）；完整原始输出照常
+                    写入包内 launcher-console.log。默认（不加本项）为精简模式：
+                    仅收起已识别的 native loader 转储、三类 Debug 明细与两类
+                    角色采样；Warning/Error/Fatal 及含错误关键词的行始终显示。
   --trust-package   一次性、显式、交互式地信任本包：清除本包固定名单内原生库的
                     com.apple.quarantine（下载隔离）属性。需在终端运行并输入
                     精确的 TRUST 确认；与 --check-only、游戏参数互斥（可配 --game）。
@@ -164,6 +176,7 @@ lock_json_get() {
 
 GAME_ARG=""
 CHECK_ONLY=0
+VERBOSE=0
 GAME_ARGS=()
 
 while [ $# -gt 0 ]; do
@@ -176,6 +189,10 @@ while [ $# -gt 0 ]; do
             ;;
         --check-only)
             CHECK_ONLY=1
+            shift
+            ;;
+        --verbose)
+            VERBOSE=1
             shift
             ;;
         --trust-package)
@@ -220,6 +237,10 @@ FIND_BIN=$(command -v find || true)
 AWK_BIN=$(command -v awk || true)
 XATTR_BIN=/usr/bin/xattr
 STAT_BIN=$(command -v stat || true)
+TEE_BIN=$(command -v tee || true)
+CAT_BIN=$(command -v cat || true)
+MKTEMP_BIN=$(command -v mktemp || true)
+MKFIFO_BIN=$(command -v mkfifo || true)
 [ -n "$FILE_BIN" ]    || die "缺少系统工具 file，无法校验游戏架构。"
 [ -n "$SHASUM_BIN" ]  || die "缺少系统工具 shasum，无法校验指纹。"
 [ -n "$ARCH_BIN" ]    || die "缺少系统工具 arch，无法以 arm64 启动游戏。"
@@ -228,6 +249,10 @@ STAT_BIN=$(command -v stat || true)
 [ -n "$AWK_BIN" ]     || die "缺少系统工具 awk，无法检查既有配置。"
 [ -x "$XATTR_BIN" ]   || die "缺少系统工具 /usr/bin/xattr，无法检测/处理下载隔离属性。"
 [ -n "$STAT_BIN" ]    || die "缺少系统工具 stat，无法检查原生库链接数。"
+[ -n "$TEE_BIN" ]     || die "缺少系统工具 tee，无法捕获完整终端原始输出。"
+[ -n "$CAT_BIN" ]     || die "缺少系统工具 cat，无法回放完整终端原始输出。"
+[ -n "$MKTEMP_BIN" ]  || die "缺少系统工具 mktemp，无法创建本次启动的临时目录。"
+[ -n "$MKFIFO_BIN" ]  || die "缺少系统工具 mkfifo，无法创建日志管道。"
 
 a="/$0"; a=${a%/*}; a=${a#/}; a=${a:-.}
 PKG=$(cd "$a" 2>/dev/null && pwd -P) || die "无法定位启动器自身目录: $0"
@@ -242,11 +267,12 @@ info "包目录: ${PKG}"
 
 # ---------- 包必要文件与 SHA256SUMS（每次启动、任何写入之前） ----------
 
-for rel in "$DOORSTOP_REL" "$CORE_DLL_REL" "$CORECLR_REL" "$GAME_LOCK_NAME" "$SUMS_NAME"; do
+for rel in "$DOORSTOP_REL" "$CORE_DLL_REL" "$CORECLR_REL" "$GAME_LOCK_NAME" "$SUMS_NAME" "$CONSOLE_FILTER_REL"; do
     [ -f "$PKG/$rel" ] || die "包不完整，缺少: ${rel}。请重新下载完整包后再试。"
 done
 [ ! -L "$SUMS_PATH" ] || die "${SUMS_NAME} 是符号链接，拒绝。"
 [ ! -L "$GAME_LOCK_PATH" ] || die "${GAME_LOCK_NAME} 是符号链接，拒绝。"
+[ ! -L "$PKG/$CONSOLE_FILTER_REL" ] || die "${CONSOLE_FILTER_REL} 是符号链接，拒绝（终端过滤器必须是包内真实文件）。"
 
 SUMS_OUT=$( ( cd "$PKG" && "$SHASUM_BIN" -a 256 --check "$SUMS_NAME" ) 2>&1 )
 if [ $? -ne 0 ]; then
@@ -674,6 +700,307 @@ ${hits}"
 
 verify_writable_layout
 
+# ---------- 终端原始日志：目标守卫与捕获管线 ----------
+# 设计边界（PLAN-REVIEW 必改 1/2/3；FINAL-REVIEW F1/F3）：
+#   - 游戏保持独立后台进程：CHILD=$! 仍是真实 arch/game 进程与退出码来源。
+#   - 管线拆成两个直接子进程，PID 全部自持：
+#       GAME --> stream.fifo --> TEE_PID（tee：完整写 raw，转发到 filter.fifo）
+#              filter.fifo --> LOGGER（过滤 shell：awk，或失败后 fallback cat
+#                              实时透传到终端）
+#     LOGGER 内部显式记录当前子进程 PID（awk/fallback cat）并安装 TERM/INT/HUP
+#     trap：先有界终止并等待该子进程，再退出。启动器收尾按记录的 PID 逐一有界
+#     kill/wait；不向共享进程组广播，不触碰无关进程。所有自有进程结束前不得
+#     清理临时对象或释放锁（避免旧 tee 在下次启动截断 raw 后继续写入）。
+#   - awk 失败：fallback cat 实时透传剩余输出（不丢弃），排空后启动器从完整
+#     raw 回放，补 awk 可能预读丢行（允许重复）；信号清理路径同样报告失败并
+#     回放，不静默走成功语义。
+#   - 不使用进程替换（`exec 3> >(...)` 的 wait 语义在 Bash 3.2 不可靠）。
+#   - 原始日志目标只允许：不存在，或 常规文件 + nlink=1 + 可写；符号链接/
+#     目录/FIFO/设备/硬链接一律拒绝；首次只读预检、截断前再复核。
+#   - --check-only 不走到本段任何写入/建目录/建进程的路径。
+
+CONSOLE_LOG_PATH="$PKG/$CONSOLE_LOG_NAME"
+CONSOLE_TMP=""
+CONSOLE_STREAM_FIFO=""
+CONSOLE_FILTER_FIFO=""
+CONSOLE_DONE=""
+CONSOLE_PIDS=""
+TEE_PID=""
+LOGGER=""
+LOGGER_STATUS=0
+TEE_STATUS=0
+LOGGER_FORCED=0
+CONSOLE_STARTED=0
+CONSOLE_REPORTED=0
+LOG_DRAIN_TICKS=100     # 正常结束：最多等约 10s 让日志进程排空管道
+LOG_TERM_TICKS=30       # 异常/清理路径：最多等约 3s，保持退出迅速
+LOG_TEE_TICKS=30        # tee 有界回收：最多等约 3s，超限告警并 TERM/KILL
+
+console_mode_label() {
+    if [ "$VERBOSE" -eq 1 ]; then
+        printf '完整透传（--verbose）'
+    else
+        printf '精简（默认；--verbose 显示完整输出）'
+    fi
+}
+
+console_log_guard() { # 只读：拒绝符号链接/非常规类型/硬链接/不可写
+    local p="$CONSOLE_LOG_PATH" links
+    if [ -L "$p" ]; then
+        die "终端日志路径是符号链接，拒绝写入（防外部指向被覆盖）: ${p}
+请手动处理该路径后重试（启动器不会替换或删除未知对象）。"
+    fi
+    if [ ! -e "$p" ]; then
+        return 0
+    fi
+    if [ ! -f "$p" ]; then
+        die "终端日志路径已存在且不是常规文件（目录/FIFO/设备等），拒绝写入: ${p}
+请手动处理该路径后重试；启动器不会删除未知对象。"
+    fi
+    links=$("$STAT_BIN" -f %l "$p" 2>/dev/null) \
+        || die "无法读取终端日志文件的链接数（stat）: ${p}"
+    case "$links" in
+        ''|*[!0-9]*) die "终端日志文件链接数输出异常（stat）: ${p} → ${links}" ;;
+    esac
+    if [ "$links" -ne 1 ]; then
+        die "终端日志文件有多个硬链接（nlink=${links}），拒绝覆盖: ${p}
+硬链接与其他路径共享 inode，覆盖会越界改动包外文件。请手动处理后重试。"
+    fi
+    if [ ! -w "$p" ]; then
+        die "终端日志文件不可写: ${p}
+请修复权限或移除该文件后重试。"
+    fi
+}
+
+console_pid_alive() { # $1=PID；存活且非僵尸才返回 0（只用于本管线自有 PID）
+    local st
+    st=$("$PS_BIN" -p "$1" -o state= 2>/dev/null | head -n 1)
+    case "$st" in
+        ''|Z*|*Z*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+console_log_kill_pid() { # $1=PID：TERM → 有界等待 → KILL；只针对本管线自有 PID
+    local pid="$1" n=0
+    console_pid_alive "$pid" || return 0
+    kill -TERM "$pid" 2>/dev/null || true
+    while console_pid_alive "$pid" && [ "$n" -lt 50 ]; do
+        n=$((n + 1))
+        /bin/sleep 0.1
+    done
+    if console_pid_alive "$pid"; then
+        kill -KILL "$pid" 2>/dev/null || true
+    fi
+}
+
+console_log_cleanup_tmp() { # 只清理由本次实例创建的对象
+    if [ -n "$CONSOLE_STREAM_FIFO" ] && [ -p "$CONSOLE_STREAM_FIFO" ]; then
+        rm -f "$CONSOLE_STREAM_FIFO" 2>/dev/null || true
+    fi
+    if [ -n "$CONSOLE_FILTER_FIFO" ] && [ -p "$CONSOLE_FILTER_FIFO" ]; then
+        rm -f "$CONSOLE_FILTER_FIFO" 2>/dev/null || true
+    fi
+    if [ -n "$CONSOLE_DONE" ] && { [ -e "$CONSOLE_DONE" ] || [ -L "$CONSOLE_DONE" ]; }; then
+        rm -f "$CONSOLE_DONE" 2>/dev/null || true
+    fi
+    if [ -n "$CONSOLE_PIDS" ] && { [ -e "$CONSOLE_PIDS" ] || [ -L "$CONSOLE_PIDS" ]; }; then
+        rm -f "$CONSOLE_PIDS" 2>/dev/null || true
+    fi
+    if [ -n "$CONSOLE_TMP" ] && [ -d "$CONSOLE_TMP" ]; then
+        if ! rmdir "$CONSOLE_TMP" 2>/dev/null; then
+            printf '警告: 无法删除本次启动的临时目录（可能非空）: %s\n' "$CONSOLE_TMP" >&2
+        fi
+    fi
+    CONSOLE_STREAM_FIFO=""
+    CONSOLE_FILTER_FIFO=""
+    CONSOLE_PIDS=""
+    CONSOLE_TMP=""
+}
+
+# 过滤 shell 本体（由 console_log_start 以后台子进程运行）。
+# 关键点：awk/fallback cat 以后台命令启动并显式记录 PID；TERM/INT/HUP trap 先
+# 终止并等待该子进程，再写排空标记退出——保证 kill LOGGER 不会遗留其子进程。
+console_log_filter_shell() {
+    filter_child=""
+    # Bash 3.2：job control 关闭时，函数内每个异步外部命令若没有显式 stdin 重定向
+    # 都会被自动置为 /dev/null。先把 FIFO 读端复制到 fd 3，随后所有异步子进程一律
+    # 用 `<&3` 显式继承，确保 awk/fallback cat 真正读到游戏输出流。
+    exec 3<&0
+    filter_signal_exit() {
+        trap - TERM INT HUP
+        if [ -n "$filter_child" ]; then
+            kill -TERM "$filter_child" 2>/dev/null || true
+            n=0
+            while kill -0 "$filter_child" 2>/dev/null && [ "$n" -lt 20 ]; do
+                n=$((n + 1))
+                /bin/sleep 0.1
+            done
+            if kill -0 "$filter_child" 2>/dev/null; then
+                kill -KILL "$filter_child" 2>/dev/null || true
+            fi
+            wait "$filter_child" 2>/dev/null
+        fi
+        : > "$CONSOLE_DONE" 2>/dev/null || true
+        exit 143
+    }
+    trap filter_signal_exit TERM INT HUP
+    filter_rc=0
+    if [ "$VERBOSE" -eq 1 ]; then
+        "$CAT_BIN" <&3 &
+        filter_child=$!
+        printf 'filter_child=%s\n' "$filter_child" >> "$CONSOLE_PIDS"
+        wait "$filter_child" 2>/dev/null
+        filter_rc=$?
+    else
+        "$AWK_BIN" -f "$PKG/$CONSOLE_FILTER_REL" - <&3 &
+        filter_child=$!
+        printf 'filter_child=%s\n' "$filter_child" >> "$CONSOLE_PIDS"
+        wait "$filter_child" 2>/dev/null
+        filter_rc=$?
+        if [ "$filter_rc" -ne 0 ]; then
+            printf '警告: 终端过滤器异常退出（rc=%s）；后续输出将直接透传，游戏结束后从原始日志回放完整内容。\n' \
+                "$filter_rc" >&2
+            # 实时透传剩余输出（不得丢弃）：游戏仍运行时的 Error/Fatal 即刻可见。
+            "$CAT_BIN" <&3 &
+            filter_child=$!
+            printf 'filter_child=%s\n' "$filter_child" >> "$CONSOLE_PIDS"
+            wait "$filter_child" 2>/dev/null
+        fi
+    fi
+    : > "$CONSOLE_DONE" 2>/dev/null || true
+    exit "$filter_rc"
+}
+
+console_log_start() { # 截断 raw、启动 TEE/LOGGER；失败即 die（已创建对象就地清理）
+    CONSOLE_TMP=$("$MKTEMP_BIN" -d "$PKG/.launcher-console.XXXXXX" 2>/dev/null) \
+        || die "无法创建本次启动的临时目录（mktemp -d 失败）: ${PKG}/.launcher-console.XXXXXX"
+    CONSOLE_STREAM_FIFO="$CONSOLE_TMP/stream.fifo"
+    CONSOLE_FILTER_FIFO="$CONSOLE_TMP/filter.fifo"
+    CONSOLE_DONE="$CONSOLE_TMP/logger.done"
+    CONSOLE_PIDS="$CONSOLE_TMP/pids"
+    if ! "$MKFIFO_BIN" "$CONSOLE_STREAM_FIFO" 2>/dev/null \
+        || ! "$MKFIFO_BIN" "$CONSOLE_FILTER_FIFO" 2>/dev/null; then
+        console_log_cleanup_tmp
+        die "无法创建日志管道（mkfifo 失败）: ${CONSOLE_TMP}"
+    fi
+    # 目标已在本次启动中通过 console_log_guard；此处截断为最新一次运行。
+    if ! : > "$CONSOLE_LOG_PATH" 2>/dev/null; then
+        console_log_cleanup_tmp
+        die "无法写入终端原始日志: ${CONSOLE_LOG_PATH}"
+    fi
+    : > "$CONSOLE_PIDS" 2>/dev/null || true
+    # tee 是 raw 的唯一写者；它的 stdout 是 filter.fifo（打开顺序与过滤 shell
+    # 读端、游戏写端依次配对，均在后台并发打开，无环等待）。
+    "$TEE_BIN" "$CONSOLE_LOG_PATH" < "$CONSOLE_STREAM_FIFO" > "$CONSOLE_FILTER_FIFO" &
+    TEE_PID=$!
+    printf 'tee=%s\n' "$TEE_PID" >> "$CONSOLE_PIDS" 2>/dev/null || true
+    # 注意：必须经显式子 shell `( … ) < fifo &` 启动。Bash 3.2 对被后台化的
+    # “函数调用”会按异步列表规则把其 stdin 置为 /dev/null（实测），显式重定向在
+    # 子 shell 形式下才可靠生效（对应测试 FIFO 管线回归）。
+    ( console_log_filter_shell ) < "$CONSOLE_FILTER_FIFO" &
+    LOGGER=$!
+    printf 'filter=%s\n' "$LOGGER" >> "$CONSOLE_PIDS" 2>/dev/null || true
+    CONSOLE_STARTED=1
+}
+
+console_log_reap_filter_child() { # 强杀 LOGGER 后的兜底：只处理可确证属于本管线的 PID
+    local pid line cmd ppid_now
+    [ -f "$CONSOLE_PIDS" ] || return 0
+    while IFS= read -r line; do
+        case "$line" in
+            filter_child=*) pid="${line#filter_child=}" ;;
+            *) continue ;;
+        esac
+        case "$pid" in
+            ''|*[!0-9]*) continue ;;
+        esac
+        console_pid_alive "$pid" || continue
+        cmd=$("$PS_BIN" -p "$pid" -o command= 2>/dev/null | head -n 1)
+        case "$cmd" in
+            *"$PKG/$CONSOLE_FILTER_REL"*)
+                console_log_kill_pid "$pid"
+                ;;
+            *)
+                # fallback cat 兜底：仅当它已被孤儿化（ppid=1）且命令恰为系统 cat
+                # 时处理，避免 PID 复用误杀无关进程。
+                ppid_now=$("$PS_BIN" -p "$pid" -o ppid= 2>/dev/null | tr -d ' \t')
+                if [ "$ppid_now" = "1" ]; then
+                    case "$cmd" in
+                        "$CAT_BIN"|"/bin/cat"|"cat") console_log_kill_pid "$pid" ;;
+                    esac
+                fi
+                ;;
+        esac
+    done < "$CONSOLE_PIDS"
+}
+
+console_log_finish() { # $1=等待排空 tick 数；有界收尾全部自有 PID 并记录状态
+    local ticks="${1:-$LOG_DRAIN_TICKS}" n
+    LOGGER_STATUS=0
+    TEE_STATUS=0
+    LOGGER_FORCED=0
+    if [ -n "$LOGGER" ]; then
+        n=0
+        while [ "$n" -lt "$ticks" ]; do
+            [ -e "$CONSOLE_DONE" ] && break
+            console_pid_alive "$LOGGER" || break
+            n=$((n + 1))
+            /bin/sleep 0.1
+        done
+        if [ -e "$CONSOLE_DONE" ]; then
+            wait "$LOGGER" 2>/dev/null
+            LOGGER_STATUS=$?
+        else
+            printf '警告: 日志进程未在限时内结束（可能有子进程仍持有输出管道）；将终止本次启动的日志管线。\n' >&2
+            LOGGER_FORCED=1
+            console_log_kill_pid "$LOGGER"
+            wait "$LOGGER" 2>/dev/null
+            LOGGER_STATUS=$?
+            [ "$LOGGER_STATUS" -ne 0 ] || LOGGER_STATUS=99
+        fi
+        LOGGER=""
+    fi
+    if [ "$LOGGER_FORCED" -eq 1 ]; then
+        console_log_reap_filter_child
+    fi
+    # tee：DONE 只代表过滤端结束，不代表 tee 已 EOF（过滤端提前退出/被终止时 tee
+    # 仍可能存活）。因此在任何分支都先按 tick 有界检查存活，超限即明确告警并
+    # TERM/KILL/wait；绝不无期限 wait 一个存活 tee。
+    if [ -n "$TEE_PID" ]; then
+        n=0
+        while console_pid_alive "$TEE_PID" && [ "$n" -lt "$LOG_TEE_TICKS" ]; do
+            n=$((n + 1))
+            /bin/sleep 0.1
+        done
+        TEE_FORCED=0
+        if console_pid_alive "$TEE_PID"; then
+            printf '警告: tee 日志进程未在限时内结束（上游输出管道仍被持有）；将终止它，原始日志可能不完整。\n' >&2
+            TEE_FORCED=1
+            console_log_kill_pid "$TEE_PID"
+        fi
+        wait "$TEE_PID" 2>/dev/null
+        TEE_STATUS=$?
+        if [ "$TEE_FORCED" -eq 1 ] && [ "$TEE_STATUS" -eq 0 ]; then
+            TEE_STATUS=99
+        fi
+        TEE_PID=""
+    fi
+}
+
+console_log_report_failure() { # 幂等：日志管线失败时告警并从 raw 回放（补预读缺口）
+    [ "$CONSOLE_REPORTED" -eq 0 ] || return 0
+    CONSOLE_REPORTED=1
+    if [ "$LOGGER_STATUS" -eq 0 ] && [ "$TEE_STATUS" -eq 0 ]; then
+        return 0
+    fi
+    printf '警告: 终端日志捕获/过滤异常（logger=%s tee=%s），原始输出可能不完整；以下从原始日志回放完整内容（可能重复）: %s\n' \
+        "$LOGGER_STATUS" "$TEE_STATUS" "$CONSOLE_LOG_PATH" >&2
+    if [ -f "$CONSOLE_LOG_PATH" ]; then
+        "$CAT_BIN" "$CONSOLE_LOG_PATH" >&2 || true
+    fi
+}
+
 # ---------- 既有 BepInEx.cfg 兼容检查（只读） ----------
 # 语义对齐 BepInEx 实际解析：只看 [IL2CPP] section；同键后值覆盖前值；值两侧 trim；
 # 键缺失与显式空值区分。关键键缺失时采用加载器真实默认：
@@ -910,7 +1237,8 @@ release_lock() {
     fi
 }
 
-# 清理：可重入；有子进程先转发终止并等待结束（超时升级 KILL），再释放本进程持有的锁。
+# 清理：可重入；有子进程先转发终止并等待结束（超时升级 KILL），再收尾日志进程、
+# 清理本次实例的临时对象，最后释放本进程持有的锁。
 CHILD=""
 cleanup() {
     rc=$?
@@ -928,7 +1256,16 @@ cleanup() {
         wait "$CHILD" 2>/dev/null
         CHILD=""
     fi
+    # TERM/INT/HUP 场景保持退出迅速：日志管线只给较短的排空窗口，随后按记录的
+    # PID 有界终止/等待（LOGGER 的 trap 会先收其 awk/fallback cat 子进程），
+    # 全部自有进程结束并清理本实例临时对象后才释放锁。
+    console_log_finish "$LOG_TERM_TICKS"
+    console_log_cleanup_tmp
     release_lock
+    # 信号/异常清理路径同样报告日志失败并回放（有失败才报告），不静默走成功语义。
+    if [ "$CONSOLE_STARTED" -eq 1 ]; then
+        console_log_report_failure
+    fi
     exit "$rc"
 }
 
@@ -972,12 +1309,20 @@ print_launch_plan() {
     info "  DYLD_LIBRARY_PATH（前置）         = ${GAME_FRAMEWORKS}:${PKG}:${PKG}/dotnet"
     info "  游戏可执行文件                     = ${GAME_EXE}"
     info "  实际将执行                         = ${ARCH_BIN} -arm64 -e DYLD_INSERT_LIBRARIES=... -e DYLD_LIBRARY_PATH=... ${GAME_EXE}"
+    info "  终端输出模式                       = $(console_mode_label)"
+    info "  终端原始输出日志（每次启动覆盖）    = ${CONSOLE_LOG_PATH}"
+    info "  BepInEx 日志                       = ${PKG}/BepInEx/LogOutput.log"
+    info "  游戏 Player.log                    = ${HOME}/Library/Logs/noio/KingdomTwoCrowns/Player.log"
 }
 
 if [ "$TRUST_PACKAGE" -eq 1 ]; then
     trust_package_flow
     exit $?
 fi
+
+# 终端日志目标只读预检（普通启动与 --check-only 均覆盖；trust 模式不写该日志，
+# 不受影响）。此时尚未加锁、未写任何文件。
+console_log_guard
 
 if [ "$CHECK_ONLY" -eq 1 ]; then
     print_launch_plan
@@ -1010,13 +1355,23 @@ export DYLD_LIBRARY_PATH="$GAME_FRAMEWORKS:$PKG:$PKG/dotnet${DYLD_LIBRARY_PATH:+
 export DYLD_INSERT_LIBRARIES="$PKG/$DOORSTOP_REL"
 export ARCHPREFERENCE=arm64
 
+# 截断并重建日志管道前复核目标（获锁后、写入前；check-only 已在上面退出）。
+console_log_guard
+
 printf '正在启动游戏……（游戏退出后本窗口提示将自动结束）\n'
+printf '终端输出模式: %s\n' "$(console_mode_label)"
+printf '终端原始输出（stdout+stderr 合并）完整写入: %s（每次启动覆盖为最近一次运行）\n' "$CONSOLE_LOG_PATH"
+printf 'BepInEx 日志: %s\n游戏 Player.log: %s\n' \
+    "$PKG/BepInEx/LogOutput.log" "${HOME}/Library/Logs/noio/KingdomTwoCrowns/Player.log"
+
+console_log_start
 
 # arch 会剥离 DYLD_* 环境变量，两项都必须经 -e 显式传回（实验室已验证的接法）。
+# 游戏 stdout/stderr 合并重定向到日志管道；真实退出码仍取自同一后台进程。
 "$ARCH_BIN" -arm64 \
     -e DYLD_INSERT_LIBRARIES="$DYLD_INSERT_LIBRARIES" \
     -e DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH" \
-    "$GAME_EXE" ${GAME_ARGS[@]+"${GAME_ARGS[@]}"} &
+    "$GAME_EXE" ${GAME_ARGS[@]+"${GAME_ARGS[@]}"} > "$CONSOLE_STREAM_FIFO" 2>&1 &
 CHILD=$!
 
 EXIT_STATUS=0
@@ -1030,9 +1385,22 @@ while :; do
 done
 CHILD=""
 
+# 先记录游戏真实退出码，再按记录的 PID 有界收尾日志管线；随后清理临时目录、
+# 释放锁，并从完整 raw 回放补足过滤器失败可能丢失的实时显示（允许重复）。
+console_log_finish
+console_log_cleanup_tmp
 release_lock
+console_log_report_failure
 
 if [ "$EXIT_STATUS" -ne 0 ]; then
-    printf '游戏进程退出码: %s（详见 BepInEx/LogOutput.log 与游戏 Player.log）\n' "$EXIT_STATUS" >&2
+    printf '游戏进程退出码: %s（完整原始终端输出: %s；BepInEx 日志: %s；游戏 Player.log: %s）\n' \
+        "$EXIT_STATUS" "$CONSOLE_LOG_PATH" "$PKG/BepInEx/LogOutput.log" \
+        "${HOME}/Library/Logs/noio/KingdomTwoCrowns/Player.log" >&2
+    exit "$EXIT_STATUS"
 fi
-exit "$EXIT_STATUS"
+if [ "$LOGGER_STATUS" -ne 0 ] || [ "$TEE_STATUS" -ne 0 ]; then
+    printf '游戏正常退出，但终端日志捕获失败（logger=%s tee=%s）；完整原始输出: %s\n' \
+        "$LOGGER_STATUS" "$TEE_STATUS" "$CONSOLE_LOG_PATH" >&2
+    exit 86
+fi
+exit 0
