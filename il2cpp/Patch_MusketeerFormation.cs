@@ -33,15 +33,75 @@ namespace KingdomEnhancedMod;
 internal static class PatchMusketeerFormation
 {
     /// <summary>Rear-row capacity. Fewer owned musketeers just leave slots empty.</summary>
-    internal const int MaxMusketeers = 4;
+    internal const int MaxMusketeers = MusketeerFormationLayout.RowSeats;
 
     private static readonly List<Archer> Roster = new(MaxMusketeers * 8);
     private static readonly List<Archer> Eligible = new(MaxMusketeers);
-    private static readonly NearestFirst Ranking = new();
+    private static readonly RearRowNearestFirst Ranking = new();
     private static readonly HashSet<string> Logged = new();
 
     private static IntPtr _directedArcher;
     private static IntPtr _directedFormation;
+    private static long _directedLife;
+    private static int _directedFamily = -1;
+    private static IntPtr _directedWorld;
+    private static IntPtr _directedWorldRoot;
+
+    /// <summary>Musketeer row family id shared with the owner's transaction (0 = musketeer).</summary>
+    internal const int DirectedMusketeerFamily = 0;
+    /// <summary>Crossbow row family id shared with the owner's transaction (1 = crossbow).</summary>
+    internal const int DirectedCrossbowFamily = 1;
+
+    private static bool TryCurrentWorldPointers(out IntPtr world, out IntPtr root)
+    {
+        world = IntPtr.Zero;
+        root = IntPtr.Zero;
+        try
+        {
+            Managers managers = Managers.Inst;
+            if (managers == null || managers.world == null || managers.world.gameLayer == null) return false;
+            world = managers.world.Pointer;
+            root = managers.world.gameLayer.Pointer;
+            return world != IntPtr.Zero && root != IntPtr.Zero;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Narrow aliveness check for an already-joined directed member: active object, not dead.
+    /// The pre-join free gate (GetFormation()==null etc.) must not be reused after the join.
+    /// </summary>
+    internal static bool IsDirectedActorLive(Archer archer)
+    {
+        try
+        {
+            if (archer == null || archer.gameObject == null || !archer.gameObject.activeInHierarchy) return false;
+            Damageable damageable = archer._damageable;
+            return damageable != null && !damageable.isDead;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Row feature gate used by the directed bypass (same predicate the row maintenance uses).</summary>
+    private static bool DirectedFeaturePlaying(int family)
+    {
+        try
+        {
+            return family == DirectedCrossbowFamily
+                ? PatchCrossbowFormation.Playing
+                : MusketeerAccess.Playing;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     /// <summary>
     /// True only while the offline musketeer feature is usable in this world (config on, world
@@ -57,24 +117,73 @@ internal static class PatchMusketeerFormation
         }
     }
 
-    /// <summary>Marks the single archer that is allowed through the native recruit guard right now.</summary>
-    internal static void BeginDirected(Archer archer, Formation formation)
+    /// <summary>
+    /// Marks the single career unit that is allowed through the native recruit guard right now.
+    /// The scope carries the row family, the captured positive life and the current world/layer
+    /// pointers, not only the two object pointers: a synchronous native callback may recycle the
+    /// same GameObject into a new pool life (new token), switch career, lose authority or move
+    /// the unit into another world, and such an object must never inherit the armed exception.
+    /// </summary>
+    internal static void BeginDirected(Archer archer, Formation formation, int family, long life)
     {
         _directedArcher = archer != null ? archer.Pointer : IntPtr.Zero;
         _directedFormation = formation != null ? formation.Pointer : IntPtr.Zero;
+        _directedFamily = family;
+        _directedLife = life;
+        if (!TryCurrentWorldPointers(out _directedWorld, out _directedWorldRoot))
+        {
+            _directedWorld = IntPtr.Zero;
+            _directedWorldRoot = IntPtr.Zero;
+        }
     }
 
     internal static void EndDirected()
     {
         _directedArcher = IntPtr.Zero;
         _directedFormation = IntPtr.Zero;
+        _directedLife = 0L;
+        _directedFamily = -1;
+        _directedWorld = IntPtr.Zero;
+        _directedWorldRoot = IntPtr.Zero;
     }
 
+    /// <summary>
+    /// Strict directed check used as the guard's bypass. All of the following must hold: exact
+    /// archer/formation pointer pair, a captured positive life still current for the family's
+    /// career reader, the row identity live and mutually exclusive with the other family, the
+    /// unit still in the current world layer, offline world authority, the same world/layer as at
+    /// arm time, and the row's own feature predicate still playing. A same-pointer new life, a
+    /// career switch, an authority/world change or a disabled feature never passes on pointer
+    /// equality alone.
+    /// </summary>
     internal static bool IsDirected(Archer archer, Formation formation)
     {
-        if (_directedArcher == IntPtr.Zero || _directedFormation == IntPtr.Zero) return false;
-        return archer != null && formation != null
-            && archer.Pointer == _directedArcher && formation.Pointer == _directedFormation;
+        if (_directedArcher == IntPtr.Zero || _directedFormation == IntPtr.Zero
+            || _directedLife <= 0L || _directedFamily < 0) return false;
+        if (archer == null || formation == null) return false;
+        if (archer.Pointer != _directedArcher || formation.Pointer != _directedFormation) return false;
+        try
+        {
+            if (!NetworkBigBoss.HasWorldAuth || NetworkBigBoss.IsOnline) return false;
+            if (!DirectedFeaturePlaying(_directedFamily)) return false;
+            if (!IsDirectedActorLive(archer)) return false;
+            if (!MusketeerAccess.InWorld(archer)) return false;
+            if (!TryCurrentWorldPointers(out IntPtr world, out IntPtr root)
+                || world != _directedWorld || root != _directedWorldRoot) return false;
+            if (_directedFamily == DirectedCrossbowFamily)
+            {
+                return CrossbowmanLifecycle.MatchesFormationLife(archer, _directedLife)
+                    && CrossbowmanLifecycle.IsCrossbowman(archer)
+                    && !MusketeerIdentity.IsUnit(archer);
+            }
+            return MusketeerRuntime.MatchesBindingLease(archer, _directedLife)
+                && MusketeerIdentity.IsUnit(archer)
+                && !CrossbowmanLifecycle.IsCrossbowman(archer);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -92,15 +201,14 @@ internal static class PatchMusketeerFormation
     /// Native-free-archer gate for one rear slot. Everything native reserves for another job or
     /// lifecycle is left untouched: knight followers, tower/guard posts, embarked or boarding
     /// units, grabbed/inert/hidden units, play-controlled units, dead units, units already in a
-    /// formation and heroes. Any unknown state is a rejection (fail closed).
+    /// formation and heroes. Any unknown state is a rejection (fail closed). Shared verbatim by
+    /// the musketeer and the crossbow rows so both rows can never disagree about who is free.
     /// </summary>
-    internal static bool IsEligible(Archer archer)
+    internal static bool IsFreeForRearRow(Archer archer)
     {
         try
         {
             if (archer == null) return false;
-            if (!MusketeerAccess.Enabled) return false;
-            if (!MusketeerIdentity.IsUnit(archer)) return false;
             if (!MusketeerAccess.InWorld(archer)) return false;          // current world layer, active
             GameObject gameObject = archer.gameObject;
             if (gameObject == null || !gameObject.activeInHierarchy || !archer.enabled) return false;
@@ -117,6 +225,27 @@ internal static class PatchMusketeerFormation
             if (damageable == null || damageable.isDead) return false;
             if (HeroArcherRuntime.IsHero(archer)) return false;           // hero keeps its own slot
             return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Musketeer row gate: live paid career on top of the shared native-free gate. A crossbowman
+    /// stays refused here, so the crossbow row's own directed seat remains the only way a marked
+    /// crossbowman can join a banner.
+    /// </summary>
+    internal static bool IsEligible(Archer archer)
+    {
+        try
+        {
+            if (archer == null) return false;
+            if (!MusketeerAccess.Enabled) return false;
+            if (!MusketeerIdentity.IsUnit(archer)) return false;
+            if (CrossbowmanLifecycle.IsCrossbowman(archer)) return false;
+            return IsFreeForRearRow(archer);
         }
         catch
         {
@@ -174,10 +303,11 @@ internal static class PatchMusketeerFormation
     ///    every Archer, even with the musketeer feature switched off, until the restore lands or
     ///    the array is confirmed to belong to another owner;
     ///  * while a directed transaction is armed for the formation, every other Archer is refused;
-    ///  * crossbowmen are refused no matter what the musketeer feature or row says (2026-09-22
-    ///    player report): their career is wall duty only, they never become banner followers, and
-    ///    <see cref="CrossbowmanLifecycle.IsCrossbowman"/> is the live, fail-closed identity read,
-    ///    independent of the musketeer switches;
+    ///  * crossbowmen are kept out of every native seat no matter what the musketeer feature or
+    ///    row says: their only way into a managed banner is the owner's directed crossbow seat
+    ///    (2026-10-03 user ruling, superseding the wall-duty-only #17 guard). The directed pair
+    ///    above is checked first, so the owner's exact crossbow transaction still passes;
+    ///    <see cref="CrossbowmanLifecycle.IsCrossbowman"/> is the live, fail-closed identity read;
     ///  * otherwise only marked musketeers are kept out of the native bow slots of a managed
     ///    formation; ordinary archers, other formations and a disabled feature stay native.
     /// </summary>
@@ -189,12 +319,13 @@ internal static class PatchMusketeerFormation
             if (HeavyShieldIdentity.IsKnownCareerRoot(archer.gameObject)) return true;
             if (IsDirected(archer, formation)) return false;
             if (formation.GetFormationType != Formation.FormationType.PlayerFormation) return false;
-            // 2026-09-22 player report: a crossbowman is wall-duty only and must never be pulled
-            // into the banner squad. Its identity is independent of the musketeer feature switch
-            // and of the musketeer row, so it is checked before both (IsCrossbowman reads the
-            // global switch live and is fail-closed itself).
+            // 2026-10-03 user ruling: crossbowmen still never take a native bow/musketeer seat,
+            // but the owner's directed crossbow row is allowed through the IsDirected branch
+            // above. The identity is independent of the musketeer feature switch and row, so it
+            // is checked before both (IsCrossbowman reads the global switch live and is
+            // fail-closed itself).
             if (CrossbowmanLifecycle.IsCrossbowman(archer)) return true;
-            if (PatchWorld_FleetBoatFormation.HasDirtyMusketeerTypes(formation)) return true;
+            if (PatchWorld_FleetBoatFormation.HasDirtyRowTypes(formation)) return true;
             if (HasActiveDirectedTransaction(formation)) return true;
             if (!MusketeerAccess.Enabled) return false;
             if (!PatchWorld_FleetBoatFormation.HasMusketeerRow(formation)) return false;
@@ -217,51 +348,11 @@ internal static class PatchMusketeerFormation
         catch { }
     }
 
-    private sealed class NearestFirst : IComparer<Archer>
-    {
-        internal float X;
-
-        public int Compare(Archer left, Archer right)
-        {
-            int byDistance = Distance(left).CompareTo(Distance(right));
-            if (byDistance != 0) return byDistance;
-            return Id(left).CompareTo(Id(right));
-        }
-
-        private float Distance(Archer archer)
-        {
-            try
-            {
-                Transform transform = archer != null ? archer.transform : null;
-                return transform != null ? Mathf.Abs(transform.position.x - X) : float.MaxValue;
-            }
-            catch
-            {
-                return float.MaxValue;
-            }
-        }
-
-        private static int Id(Archer archer)
-        {
-            try
-            {
-                return archer != null && archer.gameObject != null
-                    ? archer.gameObject.GetInstanceID()
-                    : int.MaxValue;
-            }
-            catch
-            {
-                return int.MaxValue;
-            }
-        }
-    }
-
     /// <summary>
     /// The only native entry point the rear row uses. While the directed call is in flight the
     /// guard above lets exactly this archer/formation pair through; all other recruits of marked
-    /// musketeers on that formation stay native-refused, and crossbowmen are refused on the player
-    /// formation regardless of the musketeer feature or row (wall duty only — never a banner
-    /// follower; 2026-09-22 player report).
+    /// musketeers on that formation stay native-refused, and every other crossbowman recruit is
+    /// refused too (its only seat is the owner's directed crossbow row).
     /// </summary>
     [HarmonyPatch(typeof(Archer), nameof(Archer.TryRecruit))]
     internal static class ArcherTryRecruitGuard
@@ -282,6 +373,50 @@ internal static class PatchMusketeerFormation
 }
 
 /// <summary>
+/// Deterministic nearest-first ranking shared by the musketeer and crossbow candidate passes:
+/// ascending distance to the formation anchor x, ties broken by GameObject instance id. No
+/// allocation and no scene access beyond each candidate's own transform.
+/// </summary>
+internal sealed class RearRowNearestFirst : IComparer<Archer>
+{
+    internal float X;
+
+    public int Compare(Archer left, Archer right)
+    {
+        int byDistance = Distance(left).CompareTo(Distance(right));
+        if (byDistance != 0) return byDistance;
+        return Id(left).CompareTo(Id(right));
+    }
+
+    private float Distance(Archer archer)
+    {
+        try
+        {
+            Transform transform = archer != null ? archer.transform : null;
+            return transform != null ? Mathf.Abs(transform.position.x - X) : float.MaxValue;
+        }
+        catch
+        {
+            return float.MaxValue;
+        }
+    }
+
+    private static int Id(Archer archer)
+    {
+        try
+        {
+            return archer != null && archer.gameObject != null
+                ? archer.gameObject.GetInstanceID()
+                : int.MaxValue;
+        }
+        catch
+        {
+            return int.MaxValue;
+        }
+    }
+}
+
+/// <summary>
 /// Pure plan for the fleet owner's composite layout and for one directed recruit transaction.
 /// No Unity or IL2CPP calls: <see cref="PatchWorld_FleetBoatFormation"/> turns the plan into live
 /// arrays and persists it in its profile. Kept pure so the array order, the rear placement and
@@ -289,26 +424,47 @@ internal static class PatchMusketeerFormation
 /// </summary>
 internal static class MusketeerFormationLayout
 {
+    /// <summary>Seats per rear row. Musketeer and crossbow rows share the shape.</summary>
+    internal const int RowSeats = 4;
+
     /// <summary>
-    /// Builds the composite array. The four row slots are inserted immediately before the first
-    /// native Archer slot (so after the two authoring gaps) and typed Squire: no native
-    /// IFormationUnit type table and no recruit path matches Squire, and — unlike Gap — an empty
-    /// Squire slot does not count in Formation.GetXPosForIndex (game-source Formation.cs:319-332),
-    /// so an unfilled row compacts toward the fleet block under the native "empty non-Gap slot"
-    /// rule instead of pushing the bow line away. The caller compensates startOffset by exactly
-    /// rowLength row steps: a full row leaves every archer-down slot at its old coordinate while
-    /// the fleet block moves back by the row length, and the nearest musketeer is then exactly one
-    /// row step from the bow line.
-    /// Returns false only for a structurally unusable baseline; a requested row that the baseline
-    /// cannot carry (no archer slot) yields rowLength 0 with the remaining plan intact.
+    /// Legacy entry (musketeer row only): delegates to the two-row planner with no crossbow row.
+    /// Kept so the existing pure-layout tests and any external single-row caller keep compiling.
     /// </summary>
     internal static bool TryCompose(Formation.UnitTypes[] baselineTypes, int boatCount,
         bool musketeerRow, out Formation.UnitTypes[] types, out int[] boatSlots,
         out int[] musketeerSlots, out int rowLength)
     {
+        return TryCompose(baselineTypes, boatCount, musketeerRow, false,
+            out types, out boatSlots, out musketeerSlots, out _, out rowLength);
+    }
+
+    /// <summary>
+    /// Builds the composite array. The requested rear rows are inserted immediately before the
+    /// first native Archer slot (so after the two authoring gaps) and typed Squire: no native
+    /// IFormationUnit type table and no recruit path matches Squire, and — unlike Gap — an empty
+    /// Squire slot does not count in Formation.GetXPosForIndex (game-source Formation.cs:319-332),
+    /// so an unfilled row compacts toward the fleet block under the native "empty non-Gap slot"
+    /// rule instead of pushing the bow line away. The caller compensates startOffset by exactly
+    /// rowLength row steps: a full row leaves every archer-down slot at its old coordinate while
+    /// the fleet block moves back by the row length, and the nearest row member is then exactly one
+    /// row step from the bow line.
+    /// Order is array-index low → high; the native side mirrors it, so physically the crossbow row
+    /// ends up behind the musketeer row and both behind the bow line (user order: foot → gap →
+    /// archers → musketeers → crossbowmen). The crossbow row is written first because it sits
+    /// farther back; when the musketeer row is absent the crossbow row degrades to sit directly
+    /// behind the bow line.
+    /// Returns false only for a structurally unusable baseline; a requested row that the baseline
+    /// cannot carry (no archer slot) yields rowLength 0 with the remaining plan intact.
+    /// </summary>
+    internal static bool TryCompose(Formation.UnitTypes[] baselineTypes, int boatCount,
+        bool musketeerRow, bool crossbowRow, out Formation.UnitTypes[] types, out int[] boatSlots,
+        out int[] musketeerSlots, out int[] crossbowSlots, out int rowLength)
+    {
         types = null;
         boatSlots = Array.Empty<int>();
         musketeerSlots = Array.Empty<int>();
+        crossbowSlots = Array.Empty<int>();
         rowLength = 0;
         if (baselineTypes == null || baselineTypes.Length == 0 || boatCount < 0) return false;
 
@@ -329,22 +485,30 @@ internal static class MusketeerFormationLayout
         }
         if (fleetSlots != 1) return false;
 
-        rowLength = musketeerRow && archerSlots > 0 ? PatchMusketeerFormation.MaxMusketeers : 0;
+        int musketeerRowLength = musketeerRow && archerSlots > 0 ? RowSeats : 0;
+        int crossbowRowLength = crossbowRow && archerSlots > 0 ? RowSeats : 0;
+        rowLength = musketeerRowLength + crossbowRowLength;
         int added = Math.Max(0, boatCount - 1);
         int length = baselineTypes.Length + added + rowLength;
         types = new Formation.UnitTypes[length];
         boatSlots = boatCount > 0 ? new int[boatCount] : Array.Empty<int>();
-        musketeerSlots = rowLength > 0 ? new int[rowLength] : Array.Empty<int>();
+        musketeerSlots = musketeerRowLength > 0 ? new int[musketeerRowLength] : Array.Empty<int>();
+        crossbowSlots = crossbowRowLength > 0 ? new int[crossbowRowLength] : Array.Empty<int>();
 
         int write = 0;
-        bool rowWritten = false;
+        bool rowsWritten = false;
         for (int read = 0; read < baselineTypes.Length; read++)
         {
             Formation.UnitTypes type = baselineTypes[read];
-            if (rowLength > 0 && !rowWritten && type == Formation.UnitTypes.Archer)
+            if (rowLength > 0 && !rowsWritten && type == Formation.UnitTypes.Archer)
             {
-                rowWritten = true;
-                for (int row = 0; row < rowLength; row++)
+                rowsWritten = true;
+                for (int row = 0; row < crossbowRowLength; row++)
+                {
+                    crossbowSlots[row] = write;
+                    types[write++] = Formation.UnitTypes.Squire;
+                }
+                for (int row = 0; row < musketeerRowLength; row++)
                 {
                     musketeerSlots[row] = write;
                     types[write++] = Formation.UnitTypes.Squire;

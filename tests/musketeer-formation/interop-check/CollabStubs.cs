@@ -12,7 +12,37 @@ namespace KingdomEnhancedMod
     internal static class MusketeerAccess
     {
         internal static bool Enabled => throw new NotSupportedException();
+        internal static bool Playing => throw new NotSupportedException();
         internal static bool InWorld(Component component) => throw new NotSupportedException();
+    }
+
+    /// <summary>Real: il2cpp/Patch_CrossbowFormation.cs (directed feature gate only here).</summary>
+    internal static class PatchCrossbowFormation
+    {
+        internal static bool Playing => throw new NotSupportedException();
+    }
+
+    /// <summary>Real: game online/world authority boundary.</summary>
+    internal static class NetworkBigBoss
+    {
+        internal static bool HasWorldAuth => throw new NotSupportedException();
+        internal static bool IsOnline => throw new NotSupportedException();
+    }
+
+    internal sealed class Game
+    {
+        internal enum State { Menu, Playing }
+    }
+
+    internal sealed class World
+    {
+        internal Transform gameLayer => throw new NotSupportedException();
+    }
+
+    internal sealed class Managers
+    {
+        internal static Managers Inst => throw new NotSupportedException();
+        internal World world => throw new NotSupportedException();
     }
 
     /// <summary>Real: il2cpp/MusketeerIdentity.cs (bounded career registry reads).</summary>
@@ -32,13 +62,14 @@ namespace KingdomEnhancedMod
     internal static class CrossbowmanLifecycle
     {
         internal static bool IsCrossbowman(Archer archer) => throw new NotSupportedException();
+        internal static bool MatchesFormationLife(Archer archer, long life) => throw new NotSupportedException();
     }
 
     /// <summary>Real: il2cpp/PatchWorld_FleetBoatFormation.cs internal queries.</summary>
     internal static class PatchWorld_FleetBoatFormation
     {
         internal static bool HasMusketeerRow(Formation formation) => throw new NotSupportedException();
-        internal static bool HasDirtyMusketeerTypes(Formation formation) => throw new NotSupportedException();
+        internal static bool HasDirtyRowTypes(Formation formation) => throw new NotSupportedException();
     }
 
     internal sealed class KingdomEnhancedPlugin

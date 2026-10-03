@@ -185,9 +185,21 @@ namespace Harness
             MusketeerIdentity.Units.Clear();
             MusketeerIdentity.MarkedEnabled = true;
             HeroArcherRuntime.Heroes.Clear();
-            CrossbowmanLifecycle.Reset();
+            ResetRealLifecycle();
+            CrossbowmanLifecycleNative.SoldierNativeWrites = 0;
+            CrossbowmanLifecycleNative.LastSoldierNativeWrite = null;
+            CrossbowmanLifecycleNative.HunterNativeWrites = 0;
+            CrossbowmanLifecycleNative.LastHunterNativeWrite = null;
             PatchRoles_Crossbowman.SeatedReconciles = 0;
+            PatchRoles_Crossbowman.HunterPostfixes = 0;
             PatchRoles_Crossbowman.AfterSeatedReconcile = null;
+            PatchRoles_Crossbowman.AttackSo = new ArrowAttack("KEM_Integration_CrossbowAttack");
+            PatchRoles_Crossbowman.Deadlands =
+                new UnityEngine.RuntimeAnimatorController("archer_soldier_deadlands");
+            PatchRoles_CrossbowDefense.Reset();
+            GreekScaleScope.Reset();
+            ScaleRegistryHolder.Reset();
+            BiomeData.Current = new BiomeData();
             Player.ThrowInActivateBody = 0;
             Il2CppStructArray<Formation.UnitTypes>.ThrowBeforeApplyOnAttempt = 0;
             Il2CppStructArray<Formation.UnitTypes>.ApplyThenThrowOnAttempt = 0;
@@ -250,12 +262,38 @@ namespace Harness
             return archer;
         }
 
+        /// <summary>
+        /// Real-career crossbowman: the REAL CrossbowmanLifecycle.Apply runs with the host profile
+        /// (cloned attack SO + deadlands controller), exactly like OnBowPromoted does in game.
+        /// </summary>
         internal static Archer AddCrossbowman(float x)
         {
             Archer archer = Create<Archer>(Root, x);
-            CrossbowmanLifecycle.Crossbowmen.Add(archer);
-            CrossbowmanLifecycle.ArmNewLife(archer);   // an established career life exists
+            archer.BaseSkin = new UnityEngine.RuntimeAnimatorController("native_archer_skin");
+            archer.BaseSoldier = new UnityEngine.RuntimeAnimatorController("native_soldier_skin");
+            archer.SeedSoldierAnimator(archer.BaseSoldier);
+            archer.hunterAnimator = archer.BaseSkin;
+            Animator animator = archer.gameObject.Add<Animator>();
+            animator.runtimeAnimatorController = archer.BaseSkin;
+            archer._shootIntervalRange = new Vector2(1f, 2f);
+            archer._shootIntervalRangeFormation = new Vector2(3f, 4f);
+            archer._arrowAttack = new ArrowAttack("native_arrow");
+            archer.ActiveArrowAttack = archer._arrowAttack;
+            CrossbowmanLifecycle.Apply(archer, PatchRoles_Crossbowman.ProfileFor(archer));
             return archer;
+        }
+
+        /// <summary>Test hook: reset the process-global real lifecycle state (no prod test API).</summary>
+        private static void ResetRealLifecycle()
+        {
+            var flags = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic;
+            var lifecycle = typeof(CrossbowmanLifecycle);
+            ((System.Collections.IList)lifecycle.GetField("_owned", flags).GetValue(null)).Clear();
+            lifecycle.GetField("_poolSpawnDepth", flags).SetValue(null, 0);
+            lifecycle.GetField("_formationLifeCounter", flags).SetValue(null, 0L);
+            lifecycle.GetField("_loggedRootPassThrough", flags).SetValue(null, false);
+            foreach (string name in new[] { "_applyErrorLogs", "_stripErrorLogs", "_readerErrorLogs", "_scanErrorLogs" })
+                lifecycle.GetField(name, flags).SetValue(null, 0);
         }
 
         internal static Archer AddArcher(float x) => Create<Archer>(Root, x);

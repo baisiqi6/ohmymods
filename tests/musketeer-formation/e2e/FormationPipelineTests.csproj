@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <Compile Include="../../../il2cpp/Patch_MusketeerFormation.cs" Link="Production/Patch_MusketeerFormation.cs" />
+    <Compile Include="../../../il2cpp/Patch_CrossbowFormation.cs" Link="Production/Patch_CrossbowFormation.cs" />
     <Compile Include="../../../il2cpp/PatchWorld_FleetBoatFormation.cs" Link="Production/PatchWorld_FleetBoatFormation.cs" />
   </ItemGroup>
 

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    弩手举旗后排直源测试（2026-10-03 Issue 108）：
+    只编译生产文件 il2cpp/Patch_MusketeerFormation.cs（共享纯布局/空闲门/定向计划）与
+    il2cpp/Patch_CrossbowFormation.cs（弩手候选策略），配替身 Stubs.cs/Harness.cs。
+    覆盖两排合成长度与原生坐标、缺员压实、镜像、0..4 船、预留门与全部空闲资格门、
+    nearest-first 与 4 席上限。无 NuGet 依赖，控制台串行执行。
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>CrossbowBannerFormation.Tests</AssemblyName>
+    <RootNamespace>CrossbowBannerFormationTests</RootNamespace>
+    <NoWarn>$(NoWarn);CS0649;CS0169</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="integration/**" />
+    <Compile Include="../../il2cpp/Patch_MusketeerFormation.cs" Link="Production/Patch_MusketeerFormation.cs" />
+    <Compile Include="../../il2cpp/Patch_CrossbowFormation.cs" Link="Production/Patch_CrossbowFormation.cs" />
+  </ItemGroup>
+
+  <ItemGroup><Compile Include="../heavy-shield-boundary/DisabledHeavyShieldApis.cs" Link="Boundary/DisabledHeavyShieldApis.cs" /></ItemGroup>
+</Project>

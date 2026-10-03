@@ -17,6 +17,11 @@ public static class PatchWorld_FleetBoatFormation
     private const float MultiBoatSpacing = 1f;
     private const float MaintenanceInterval = 0.5f;
 
+    // Rear-row families sharing the one directed transaction: 0 = musketeer row, 1 = crossbow row.
+    private const int MusketeerFamily = 0;
+    private const int CrossbowFamily = 1;
+    private const int FamilyCount = 2;
+
     private sealed class FormationProfile
     {
         internal Formation Formation;
@@ -31,7 +36,9 @@ public static class PatchWorld_FleetBoatFormation
         internal float BaselineStartOffset;
         internal int[] ReservedSlots = Array.Empty<int>();
         internal int[] MusketeerSlots = Array.Empty<int>();
+        internal int[] CrossbowSlots = Array.Empty<int>();
         internal bool MusketeerRow;
+        internal bool CrossbowRow;
         internal readonly List<MusketeerRollback> PendingRollbacks = new();
         internal bool Expanded;
         internal float NextMaintenanceAt;
@@ -41,9 +48,11 @@ public static class PatchWorld_FleetBoatFormation
     /// Coordinator receipt for one directed-recruit step that could not be fully unwound. It is
     /// retried by the maintenance pass instead of being forgotten: the seat half releases a
     /// half-registered archer, the type half returns cells this transaction still owns.
+    /// <see cref="Family"/> decides which career life proof and which release rule apply.
     /// </summary>
     private sealed class MusketeerRollback
     {
+        internal int Family;
         internal int Slot = -1;
         internal int GameObjectInstanceId;
         internal long Lease;
@@ -73,6 +82,8 @@ public static class PatchWorld_FleetBoatFormation
     private static readonly HashSet<string> LoggedInfo = new();
     private static readonly List<Archer> MusketeerCandidates =
         new(PatchMusketeerFormation.MaxMusketeers);
+    private static readonly List<Archer> CrossbowCandidates =
+        new(PatchCrossbowFormation.MaxCrossbows);
     private static bool _coordinatorRegistered;
     private static bool _unregisterCanaryLogged;
     private static bool _disableCanaryLogged;
@@ -90,7 +101,7 @@ public static class PatchWorld_FleetBoatFormation
         try
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                "[MusketeerFormation] " + message);
+                "[BannerRow] " + message);
         }
         catch { }
     }
@@ -250,7 +261,9 @@ public static class PatchWorld_FleetBoatFormation
             formation.startOffset = profile.BaselineStartOffset;
             profile.ReservedSlots = Array.Empty<int>();
             profile.MusketeerSlots = Array.Empty<int>();
+            profile.CrossbowSlots = Array.Empty<int>();
             profile.MusketeerRow = false;
+            profile.CrossbowRow = false;
             profile.PendingRollbacks.Clear();
             profile.Expanded = false;
             return true;
@@ -377,22 +390,25 @@ public static class PatchWorld_FleetBoatFormation
         }
     }
 
-    private static bool TryExpand(FormationProfile profile, int count, bool musketeerRow)
+    private static bool TryExpand(FormationProfile profile, int count, bool musketeerRow,
+        bool crossbowRow)
     {
         try
         {
             // A row slot's per-step distance is the Squire entry written below (one archer step),
-            // so the nearest musketeer is exactly one normal queue step from the bow line whatever
-            // the fleet block looks like. A non-positive/non-finite value would collapse the row
+            // so the nearest row member is exactly one normal queue step from the bow line whatever
+            // the fleet block looks like. A non-positive/non-finite value would collapse the rows
             // onto the bow line: fail closed and keep the fleet-only layout instead.
             float rowSpacing = profile.BaselineSpacing[(int)Formation.UnitTypes.Archer];
-            bool rowUsable = musketeerRow && float.IsFinite(rowSpacing) && rowSpacing > 0f;
-            if (musketeerRow && !rowUsable)
-                LogInfoOnce("row-spacing-unusable", "rear row skipped: Archer spacing is not usable");
+            bool rowUsable = (musketeerRow || crossbowRow)
+                && float.IsFinite(rowSpacing) && rowSpacing > 0f;
+            if ((musketeerRow || crossbowRow) && !rowUsable)
+                LogInfoOnce("row-spacing-unusable", "rear rows skipped: Archer spacing is not usable");
 
-            if (!MusketeerFormationLayout.TryCompose(profile.BaselineTypes, count, rowUsable,
+            if (!MusketeerFormationLayout.TryCompose(profile.BaselineTypes, count,
+                    musketeerRow && rowUsable, crossbowRow && rowUsable,
                     out Formation.UnitTypes[] plannedTypes, out int[] boatSlots,
-                    out int[] musketeerSlots, out int rowLength))
+                    out int[] musketeerSlots, out int[] crossbowSlots, out int rowLength))
             {
                 return false;
             }
@@ -414,19 +430,28 @@ public static class PatchWorld_FleetBoatFormation
             profile.Formation.units = units;
             profile.Formation.unitTypes = types;
             profile.Formation.UnitSpacing = spacing;
-            // Shift the origin by exactly the new row's steps: with a full row every archer-down
-            // slot keeps its old coordinate and the fleet block moves back by the row; an unfilled
-            // row compacts toward the fleet block (see layout planner).
+            // Shift the origin by exactly the new rows' steps: with full rows every archer-down
+            // slot keeps its old coordinate and the fleet block moves back by the rows; unfilled
+            // rows compact toward the fleet block (see layout planner).
             profile.Formation.startOffset = profile.BaselineStartOffset - rowLength * rowSpacing;
             profile.ReservedSlots = boatSlots;
             profile.MusketeerSlots = musketeerSlots;
-            profile.MusketeerRow = rowLength > 0;
+            profile.CrossbowSlots = crossbowSlots;
+            profile.MusketeerRow = musketeerSlots.Length > 0;
+            profile.CrossbowRow = crossbowSlots.Length > 0;
             profile.Expanded = true;
             profile.NextMaintenanceAt = Time.unscaledTime + MaintenanceInterval;
-            if (profile.MusketeerRow)
-                LogInfoOnce("row-reserved", "reserved " + rowLength + " rear slots for musketeers");
+            if (profile.MusketeerRow || profile.CrossbowRow)
+            {
+                LogInfoOnce("row-reserved", "rear rows reserved: musketeers="
+                    + (profile.MusketeerRow ? MusketeerFormationLayout.RowSeats : 0)
+                    + " crossbows="
+                    + (profile.CrossbowRow ? MusketeerFormationLayout.RowSeats : 0));
+            }
             else if (rowUsable)
-                LogInfoOnce("row-no-archer-slot", "rear row skipped: baseline has no archer slot");
+            {
+                LogInfoOnce("row-no-archer-slot", "rear rows skipped: baseline has no archer slot");
+            }
             return true;
         }
         catch (Exception e)
@@ -451,17 +476,40 @@ public static class PatchWorld_FleetBoatFormation
         }
     }
 
-    private static int CountFreeMusketeerSlots(FormationProfile profile)
+    /// <summary>True while this exact formation has a live reserved crossbow row.</summary>
+    internal static bool HasCrossbowRow(Formation formation)
     {
         try
         {
-            if (profile == null || !profile.MusketeerRow || profile.Formation == null) return 0;
+            return TryGetMatchingProfile(formation, out FormationProfile profile)
+                && profile.Expanded && profile.CrossbowRow;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static int[] RowSlots(FormationProfile profile, int family)
+        => family == CrossbowFamily ? profile.CrossbowSlots : profile.MusketeerSlots;
+
+    private static bool RowReserved(FormationProfile profile, int family)
+        => family == CrossbowFamily ? profile.CrossbowRow : profile.MusketeerRow;
+
+    private static string FamilyName(int family) => family == CrossbowFamily ? "crossbow" : "musketeer";
+
+    private static int CountFreeRowSlots(FormationProfile profile, int family)
+    {
+        try
+        {
+            if (profile == null || !RowReserved(profile, family) || profile.Formation == null) return 0;
             Il2CppReferenceArray<Formation.IFormationUnit> units = profile.Formation.units;
             if (units == null) return 0;
+            int[] slots = RowSlots(profile, family);
             int free = 0;
-            for (int i = 0; i < profile.MusketeerSlots.Length; i++)
+            for (int i = 0; i < slots.Length; i++)
             {
-                int slot = profile.MusketeerSlots[i];
+                int slot = slots[i];
                 if (slot >= 0 && slot < units.Length && units[slot] == null) free++;
             }
             return free;
@@ -472,20 +520,21 @@ public static class PatchWorld_FleetBoatFormation
         }
     }
 
-    // Fill from the bow side of the row (highest slot index) so occupied musketeers always line up
-    // adjacent to the archers and empty seats stay on the fleet side; an empty Squire row slot
-    // does not count in the native position accumulation, so an unfilled row compacts the bow line
-    // toward the fleet block by the missing steps instead of leaving a hole (see the planner).
-    private static int NextFreeMusketeerSlot(FormationProfile profile)
+    // Fill from the bow side of the row (highest slot index) so occupied members always line up
+    // adjacent to the next line ahead and empty seats stay on the fleet side; an empty Squire row
+    // slot does not count in the native position accumulation, so an unfilled row compacts the bow
+    // line toward the fleet block by the missing steps instead of leaving a hole (see the planner).
+    private static int NextFreeRowSlot(FormationProfile profile, int family)
     {
         try
         {
             if (profile == null || profile.Formation == null) return -1;
             Il2CppReferenceArray<Formation.IFormationUnit> units = profile.Formation.units;
             if (units == null) return -1;
-            for (int i = profile.MusketeerSlots.Length - 1; i >= 0; i--)
+            int[] slots = RowSlots(profile, family);
+            for (int i = slots.Length - 1; i >= 0; i--)
             {
-                int slot = profile.MusketeerSlots[i];
+                int slot = slots[i];
                 if (slot >= 0 && slot < units.Length && units[slot] == null) return slot;
             }
         }
@@ -494,54 +543,60 @@ public static class PatchWorld_FleetBoatFormation
     }
 
     /// <summary>
-    /// Maintenance half of the rear row. Runs on the activation postfix and on the existing
+    /// Maintenance half of both rear rows. Runs on the activation postfix and on the existing
     /// half-second coordinator pass, and does exactly three bounded things:
     ///  * retries receipts left by a directed recruit that could not be fully unwound,
     ///  * cleans only the reserved seats (a member whose feature was switched off, died or lost
     ///    its identity is released through native UnregisterUnit; a seat holding an archer that
     ///    already belongs to another formation, an unmarked non-member or a stale/destroyed
     ///    source only loses this array's reference and is never sent through OnLeave),
-    ///  * tops the row back up while the feature is on.
+    ///  * tops the rows back up while their features are on.
     /// Authority loss and scene changes never write here; the existing inactive+empty baseline
     /// restore stays the only path for those states.
     /// </summary>
-    private static void ReconcileMusketeerRow(FormationProfile profile)
+    private static void ReconcileRearRows(FormationProfile profile)
     {
         try
         {
-            if (profile == null || !profile.Expanded || !profile.MusketeerRow) return;
+            if (profile == null || !profile.Expanded
+                || (!profile.MusketeerRow && !profile.CrossbowRow)) return;
             Formation formation = profile.Formation;
             if (formation == null || !formation.enabled || !IsCurrentScene(profile)) return;
-            if (!LiveMusketeerWorld) return;
+            if (!LiveRearRowWorld) return;
 
             RetryPendingMusketeerRollbacks(profile);
 
             Il2CppReferenceArray<Formation.IFormationUnit> units = formation.units;
             if (units != null)
             {
-                for (int i = 0; i < profile.MusketeerSlots.Length; i++)
+                for (int family = 0; family < FamilyCount; family++)
                 {
-                    int slot = profile.MusketeerSlots[i];
-                    if (slot < 0 || slot >= units.Length || units[slot] == null) continue;
-                    if (HasPendingMusketeerRollback(profile, slot)) continue;   // the receipt owns that seat
-                    TryCleanupMusketeerSeat(profile, slot, 0, 0L);
+                    int[] slots = RowSlots(profile, family);
+                    for (int i = 0; i < slots.Length; i++)
+                    {
+                        int slot = slots[i];
+                        if (slot < 0 || slot >= units.Length || units[slot] == null) continue;
+                        if (HasPendingMusketeerRollback(profile, slot)) continue;   // the receipt owns that seat
+                        TryCleanupRowSeat(profile, family, slot, 0, 0L);
+                    }
                 }
             }
 
-            TopUpMusketeers(profile);
+            TopUpRow(profile, MusketeerFamily);
+            TopUpRow(profile, CrossbowFamily);
         }
         catch (Exception e)
         {
-            LogFailureOnce("musketeer-reconcile", e);
+            LogFailureOnce("row-reconcile", e);
         }
     }
 
     /// <summary>
     /// Live, offline, authoritative, unpaused world with the game running: the only state in which
-    /// this owner mutates unit state. Co-op and menu pause leave the row untouched until the world
+    /// this owner mutates unit state. Co-op and menu pause leave the rows untouched until the world
     /// is live again (or until the native furl path restores the baseline).
     /// </summary>
-    private static bool LiveMusketeerWorld
+    private static bool LiveRearRowWorld
     {
         get
         {
@@ -557,6 +612,33 @@ public static class PatchWorld_FleetBoatFormation
             {
                 return false;
             }
+        }
+    }
+
+    /// <summary>
+    /// Lawful window for mutating a bound actor through the native leave path: same managed
+    /// profile/scene still current, offline world authority, unpaused and the game actually in
+    /// Playing (a synchronous callback can switch to Menu while timeScale is still 1). Deliberately
+    /// excludes the row feature switches: a switched-off feature still owes same-life debt
+    /// clearing (global off must be able to return the debt). Anything outside this window keeps
+    /// the receipt.
+    /// </summary>
+    private static bool LawfulActorLeaveWindow(FormationProfile profile)
+    {
+        try
+        {
+            if (!NetworkBigBoss.HasWorldAuth || NetworkBigBoss.IsOnline) return false;
+            if (Time.timeScale <= 0f) return false;
+            Managers managers = Managers.Inst;
+            if (managers == null || managers.game == null
+                || managers.game.state != Game.State.Playing) return false;
+            if (profile == null || profile.Formation == null
+                || profile.Formation.Pointer != profile.FormationPointer) return false;
+            return IsCurrentScene(profile);
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -578,17 +660,28 @@ public static class PatchWorld_FleetBoatFormation
     }
 
     /// <summary>
-    /// A live member of this row is released when the feature is off, when it died, or when the
-    /// identity registry no longer marks it (the seat belongs to musketeers, not to a ghost).
+    /// A live member of one row is released when its feature is off, when it died, or when the
+    /// identity registry no longer marks it (the seat belongs to the career, not to a ghost).
+    /// Family decides which switch and which identity reader apply; both are fail-closed readers.
     /// </summary>
-    private static bool ShouldReleaseMusketeerSeat(Archer archer)
+    private static bool ShouldReleaseRowSeat(Archer archer, int family)
     {
         try
         {
-            if (MusketeerFeatureOff) return true;
+            if (archer == null) return true;
+            if (family == CrossbowFamily)
+            {
+                if (ModConfig.Enabled == null || !ModConfig.Enabled.Value) return true;
+            }
+            else if (MusketeerFeatureOff)
+            {
+                return true;
+            }
             Damageable damageable = archer._damageable;
             if (damageable == null || damageable.isDead) return true;
-            return !MusketeerIdentity.IsUnit(archer);
+            return family == CrossbowFamily
+                ? !CrossbowmanLifecycle.IsCrossbowman(archer)
+                : !MusketeerIdentity.IsUnit(archer);
         }
         catch
         {
@@ -601,18 +694,19 @@ public static class PatchWorld_FleetBoatFormation
     /// work (already empty, released now, legitimately occupied, or held by an occupant this owner
     /// must not touch); false keeps a pending receipt for a later maintenance retry.
     /// expectedInstanceId 0 classifies whatever this owned seat currently holds. A seat without a
-    /// formation binding is only sent through the native leave path when the lease captured at
-    /// recruit time still matches (same life); otherwise the actor may be a pooled re-arm of the
+    /// formation binding is only sent through the native leave path when the same-life proof
+    /// captured at recruit time still matches; otherwise the actor may be a pooled re-arm of the
     /// same GameObject, so only this array's stale reference is dropped.
     /// </summary>
-    private static bool TryCleanupMusketeerSeat(FormationProfile profile, int slot, int expectedInstanceId,
-        long capturedLease)
+    private static bool TryCleanupRowSeat(FormationProfile profile, int family, int slot,
+        int expectedInstanceId, long capturedLease)
     {
         try
         {
             Formation formation = profile != null ? profile.Formation : null;
             if (formation == null || formation.Pointer != profile.FormationPointer) return true;
             if (!NetworkBigBoss.HasWorldAuth || NetworkBigBoss.IsOnline) return false;
+            if (Time.timeScale <= 0f) return false;   // paused: keep the debt for a lawful window
             if (!IsCurrentScene(profile)) return false;
 
             Il2CppReferenceArray<Formation.IFormationUnit> units = formation.units;
@@ -622,36 +716,48 @@ public static class PatchWorld_FleetBoatFormation
 
             GameObject gameObject = occupant.GetGO;
             if (gameObject == null)
-                return TryDropMusketeerSeatReference(profile, units, slot, 0);
+                return TryDropRowSeatReference(profile, units, slot, 0);
             int instanceId = gameObject.GetInstanceID();
             if (expectedInstanceId > 0 && instanceId != expectedInstanceId) return true;   // seat reused: not ours
             if (!gameObject.activeInHierarchy)
-                return TryDropMusketeerSeatReference(profile, units, slot, instanceId);
+                return TryDropRowSeatReference(profile, units, slot, instanceId);
             if (!gameObject.TryGetComponent<Archer>(out Archer archer) || archer == null)
-                return TryDropMusketeerSeatReference(profile, units, slot, instanceId);
+                return TryDropRowSeatReference(profile, units, slot, instanceId);
+            // An actor moved out of the current world layer is never sent through native leave;
+            // only this owner's provably stale array reference is dropped.
+            if (!MusketeerAccess.InWorld(archer))
+                return TryDropRowSeatReference(profile, units, slot, instanceId);
 
             Formation current = archer.GetFormation();
             if (current != null)
             {
                 if (current.Pointer != formation.Pointer)
-                    return TryDropMusketeerSeatReference(profile, units, slot, instanceId);   // foreign owner: never OnLeave
-                if (!ShouldReleaseMusketeerSeat(archer)) return true;                          // legitimate member
+                    return TryDropRowSeatReference(profile, units, slot, instanceId);   // foreign owner: never OnLeave
+                // A seat classified with a captured life may hold a same-GO re-arm that is now
+                // legitimately bound to this very formation: the old receipt owns only this
+                // array's stale reference, never the new life's membership.
+                if (capturedLease > 0L && !SameRowLife(archer, capturedLease, family))
+                    return TryDropRowSeatReference(profile, units, slot, instanceId);
+                if (!ShouldReleaseRowSeat(archer, family)) return true;                     // legitimate member
             }
-            else if (!SameMusketeerLife(archer, capturedLease))
+            else if (!SameRowLife(archer, capturedLease, family))
             {
                 // No formation binding and no same-life proof: the same GameObject may have been
                 // re-armed as a new life, so only this array's stale reference goes away and the
                 // actor itself is never OnLeave-ed.
-                return TryDropMusketeerSeatReference(profile, units, slot, instanceId);
+                return TryDropRowSeatReference(profile, units, slot, instanceId);
             }
 
+            // Every actor-mutating path uses the one lawful window (authority/online/pause/Playing/
+            // scene) so a synchronous Menu switch can never leak a native leave.
+            if (!LawfulActorLeaveWindow(profile)) return false;
             formation.UnregisterUnit(occupant);     // native leave: clears the seat + OnLeaveFormation
             Il2CppReferenceArray<Formation.IFormationUnit> after = formation.units;
             return after == null || slot >= after.Length || after[slot] == null;
         }
         catch (Exception e)
         {
-            LogFailureOnce("musketeer-seat", e);
+            LogFailureOnce("row-seat", e);
             return false;
         }
     }
@@ -660,7 +766,7 @@ public static class PatchWorld_FleetBoatFormation
     /// Drops this array's reference to a stale occupant without touching the occupant itself.
     /// Never writes when another owner already replaced the array or the seat content changed.
     /// </summary>
-    private static bool TryDropMusketeerSeatReference(FormationProfile profile,
+    private static bool TryDropRowSeatReference(FormationProfile profile,
         Il2CppReferenceArray<Formation.IFormationUnit> observed, int slot, int instanceId)
     {
         try
@@ -682,7 +788,7 @@ public static class PatchWorld_FleetBoatFormation
         }
         catch (Exception e)
         {
-            LogFailureOnce("musketeer-seat", e);
+            LogFailureOnce("row-seat", e);
             return false;
         }
     }
@@ -697,8 +803,8 @@ public static class PatchWorld_FleetBoatFormation
         return false;
     }
 
-    private static void QueueMusketeerRollback(FormationProfile profile, int slot, int instanceId,
-        long lease, Archer seatlessActor, IntPtr typesPointer,
+    private static void QueueMusketeerRollback(FormationProfile profile, int family, int slot,
+        int instanceId, long lease, Archer seatlessActor, IntPtr typesPointer,
         Formation.UnitTypes[] typesBefore, Formation.UnitTypes[] typesWritten)
     {
         if (profile == null) return;
@@ -707,7 +813,8 @@ public static class PatchWorld_FleetBoatFormation
             for (int i = 0; i < profile.PendingRollbacks.Count; i++)
             {
                 MusketeerRollback existing = profile.PendingRollbacks[i];
-                if (existing.Slot == slot && existing.GameObjectInstanceId == instanceId
+                if (existing.Slot == slot && existing.Family == family
+                    && existing.GameObjectInstanceId == instanceId
                     && existing.TypesPointer == typesPointer && existing.Lease == lease)
                 {
                     if (existing.SeatlessActor == null) existing.SeatlessActor = seatlessActor;
@@ -716,6 +823,7 @@ public static class PatchWorld_FleetBoatFormation
             }
             profile.PendingRollbacks.Add(new MusketeerRollback
             {
+                Family = family,
                 Slot = slot,
                 GameObjectInstanceId = instanceId,
                 Lease = lease,
@@ -750,9 +858,10 @@ public static class PatchWorld_FleetBoatFormation
                     pending.TypesBefore, pending.TypesWritten, pending.TypesBefore.Length);
             }
             if (resolved && pending.Slot >= 0)
-                resolved = TryCleanupMusketeerSeat(profile, pending.Slot, pending.GameObjectInstanceId, pending.Lease);
+                resolved = TryCleanupRowSeat(profile, pending.Family, pending.Slot,
+                    pending.GameObjectInstanceId, pending.Lease);
             if (resolved && pending.SeatlessActor != null)
-                resolved = TryFinishMusketeerSeatlessLeave(profile, pending);
+                resolved = TryFinishSeatlessLeave(profile, pending);
             if (resolved) profile.PendingRollbacks.RemoveAt(i);
         }
     }
@@ -761,9 +870,9 @@ public static class PatchWorld_FleetBoatFormation
     /// True while this formation still owes a temporary-type restore (a receipt with a type
     /// snapshot is pending). While dirty, a leftover Archer-typed row seat is open, so every other
     /// Archer recruit for this formation is refused until the CAS restore completes or the array is
-    /// confirmed to belong to another owner. Scoped to this formation only.
+    /// confirmed to belong to another owner. Scoped to this formation and shared by both rows.
     /// </summary>
-    internal static bool HasDirtyMusketeerTypes(Formation formation)
+    internal static bool HasDirtyRowTypes(Formation formation)
     {
         try
         {
@@ -782,22 +891,35 @@ public static class PatchWorld_FleetBoatFormation
         }
     }
 
-    private static long BindingLeaseOf(Archer archer)
-    {
-        try { return MusketeerRuntime.BindingLease(archer); }
-        catch { return 0L; }
-    }
-
-    /// <summary>
-    /// Same-life proof for a half-registered seat: only the exact lease captured at recruit time
-    /// may be sent through the native leave path. A different (or unknown) lease may be a pooled
-    /// re-arm of the same GameObject and only loses this array's stale reference.
-    /// </summary>
-    private static bool SameMusketeerLife(Archer archer, long capturedLease)
+    private static long BindingLeaseOf(Archer archer, int family)
     {
         try
         {
-            return capturedLease > 0L && MusketeerRuntime.MatchesBindingLease(archer, capturedLease);
+            return family == CrossbowFamily
+                ? CrossbowmanLifecycle.FormationLife(archer)
+                : MusketeerRuntime.BindingLease(archer);
+        }
+        catch
+        {
+            return 0L;
+        }
+    }
+
+    /// <summary>
+    /// Same-life proof for a half-registered seat: only the exact life captured at recruit time
+    /// may be sent through the native leave path. A different (or unknown) life may be a pooled
+    /// re-arm of the same GameObject and only loses this array's stale reference. The readers are
+    /// deliberately separate from the identity readers: a switched-off feature still owes the
+    /// same-life seat accounting.
+    /// </summary>
+    private static bool SameRowLife(Archer archer, long capturedLease, int family)
+    {
+        try
+        {
+            if (capturedLease <= 0L) return false;
+            return family == CrossbowFamily
+                ? CrossbowmanLifecycle.MatchesFormationLife(archer, capturedLease)
+                : MusketeerRuntime.MatchesBindingLease(archer, capturedLease);
         }
         catch
         {
@@ -812,7 +934,7 @@ public static class PatchWorld_FleetBoatFormation
     }
 
     /// <summary>True while the reserved seat still holds the given GameObject instance.</summary>
-    private static bool MusketeerSeatHolds(FormationProfile profile, int slot, int instanceId)
+    private static bool RowSeatHolds(FormationProfile profile, int slot, int instanceId)
     {
         try
         {
@@ -831,7 +953,7 @@ public static class PatchWorld_FleetBoatFormation
     }
 
     /// <summary>True while the archer's current formation is exactly the managed one.</summary>
-    private static bool MusketeerOwnsFormation(Archer archer, FormationProfile profile)
+    private static bool ArcherOwnsFormation(Archer archer, FormationProfile profile)
     {
         try
         {
@@ -849,12 +971,13 @@ public static class PatchWorld_FleetBoatFormation
     /// <summary>
     /// Retries the bound-but-seatless half of a failed transaction: another owner replaced the
     /// arrays, so native UnregisterUnit has no seat left to clear, and the direct leave failed.
-    /// The captured actor is released only while its captured lease still matches (same life) and
-    /// its current formation is exactly this one; an actor that is seated again, has a different
-    /// life, is foreign or is already free is left alone. Returns true when the receipt no longer
-    /// needs to be kept (released now, already resolved, or never ours to touch).
+    /// The captured actor is released only while its captured life still matches (same life for
+    /// its row's career reader) and its current formation is exactly this one; an actor that is
+    /// seated again, has a different life, is foreign or is already free is left alone. Returns
+    /// true when the receipt no longer needs to be kept (released now, already resolved, or never
+    /// ours to touch).
     /// </summary>
-    private static bool TryFinishMusketeerSeatlessLeave(FormationProfile profile, MusketeerRollback pending)
+    private static bool TryFinishSeatlessLeave(FormationProfile profile, MusketeerRollback pending)
     {
         try
         {
@@ -862,10 +985,11 @@ public static class PatchWorld_FleetBoatFormation
             if (archer == null) return true;                                 // destroyed: nothing left to release
             Formation formation = profile != null ? profile.Formation : null;
             if (formation == null || formation.Pointer != profile.FormationPointer) return true;
-            if (!NetworkBigBoss.HasWorldAuth || NetworkBigBoss.IsOnline) return false;
-            if (!IsCurrentScene(profile)) return false;
-            if (!SameMusketeerLife(archer, pending.Lease)) return true;      // different/unknown life: never OnLeave
-            if (MusketeerSeated(profile, pending.GameObjectInstanceId)) return true;   // seated again: keep the member
+            if (!LawfulActorLeaveWindow(profile)) return false;              // authority/pause/scene: keep the debt
+            if (!SameRowLife(archer, pending.Lease, pending.Family)) return true;   // different/unknown life: never OnLeave
+            if (!MusketeerAccess.InWorld(archer)) return false;              // temporarily foreign: keep the debt
+            if (!PatchMusketeerFormation.IsDirectedActorLive(archer)) return false;  // not provably live: keep it
+            if (AnyManagedSeatHolds(profile, pending.GameObjectInstanceId)) return true;   // seated again: keep the member
             Formation current = archer.GetFormation();
             if (current == null || current.Pointer != formation.Pointer) return true;  // already free / foreign
             archer.OnLeaveFormation();
@@ -874,13 +998,13 @@ public static class PatchWorld_FleetBoatFormation
         }
         catch (Exception e)
         {
-            LogFailureOnce("musketeer-seatless", e);
+            LogFailureOnce("row-seatless", e);
             return false;
         }
     }
 
     /// <summary>True while any seat of the managed formation holds the given GameObject instance.</summary>
-    private static bool MusketeerSeated(FormationProfile profile, int instanceId)
+    private static bool AnyManagedSeatHolds(FormationProfile profile, int instanceId)
     {
         try
         {
@@ -903,45 +1027,61 @@ public static class PatchWorld_FleetBoatFormation
     }
 
     /// <summary>
-    /// Bounded top-up of the reserved rear row: the activation-time fill plus the same pass on the
-    /// existing half-second maintenance tick, so a musketeer that was grabbed/inert at banner
-    /// time can still walk in later and a dead musketeer's seat is refilled by an eligible one.
-    /// Never scans the scene: candidates come from the identity career registry only.
+    /// Bounded top-up of one reserved rear row: the activation-time fill plus the same pass on the
+    /// existing half-second maintenance tick, so a member that was grabbed/inert at banner time can
+    /// still walk in later and a dead member's seat is refilled by an eligible one. Never scans the
+    /// scene: musketeer candidates come from the identity career registry, crossbow candidates from
+    /// the bounded owned registry, both bounded and nearest-first.
     /// </summary>
-    private static void TopUpMusketeers(FormationProfile profile)
+    private static void TopUpRow(FormationProfile profile, int family)
     {
         try
         {
-            if (profile == null || !profile.Expanded || !profile.MusketeerRow) return;
-            if (!MusketeerAccess.Playing || !NetworkBigBoss.HasWorldAuth || !IsCurrentScene(profile))
+            if (profile == null || !profile.Expanded || !RowReserved(profile, family)) return;
+            if (!PlayingFor(family) || !NetworkBigBoss.HasWorldAuth || !IsCurrentScene(profile))
                 return;
             Formation formation = profile.Formation;
             if (formation == null || !formation.enabled) return;
 
-            int free = CountFreeMusketeerSlots(profile);
+            int free = CountFreeRowSlots(profile, family);
             if (free <= 0) return;
-            if (PatchMusketeerFormation.Collect(formation, free, MusketeerCandidates) <= 0) return;
+            List<Archer> candidates = family == CrossbowFamily ? CrossbowCandidates : MusketeerCandidates;
+            int collected = family == CrossbowFamily
+                ? PatchCrossbowFormation.Collect(formation, free, CrossbowCandidates)
+                : PatchMusketeerFormation.Collect(formation, free, MusketeerCandidates);
+            if (collected <= 0) return;
 
-            for (int i = 0; i < MusketeerCandidates.Count; i++)
+            for (int i = 0; i < candidates.Count; i++)
             {
-                Archer archer = MusketeerCandidates[i];
+                Archer archer = candidates[i];
                 // Re-check right before the native recruit below mutates unit state; the earlier
                 // pass was only the selection snapshot.
-                if (!PatchMusketeerFormation.IsEligible(archer)) continue;
-                if (!TryDirectedMusketeerRecruit(profile, archer)) continue;
+                bool eligible = family == CrossbowFamily
+                    ? PatchCrossbowFormation.IsEligible(archer)
+                    : PatchMusketeerFormation.IsEligible(archer);
+                if (!eligible) continue;
+                if (!TryDirectedRecruit(profile, family, archer)) continue;
                 if (--free <= 0) break;
             }
         }
         catch (Exception e)
         {
-            LogFailureOnce("musketeer-topup", e);
+            LogFailureOnce(FamilyName(family) + "-topup", e);
         }
     }
 
     /// <summary>
+    /// The live, playing gate for one row: the musketeer row keeps its existing feature-enabling
+    /// predicate, the crossbow row uses its own switch-independent predicate. Never shared so a
+    /// disabled musketeer feature can never stop the crossbow row (and vice versa).
+    /// </summary>
+    private static bool PlayingFor(int family)
+        => family == CrossbowFamily ? PatchCrossbowFormation.Playing : MusketeerAccess.Playing;
+
+    /// <summary>
     /// One directed native recruit into a reserved row seat. The target seat is advertised as
     /// Archer and every other empty seat an Archer could take is closed to Gap, so the marked
-    /// musketeer can only land in its own seat. Native TryRecruit writes in order
+    /// career unit can only land in its own seat. Native TryRecruit writes in order
     /// RegisterUnit -> ConvertToSoldier -> _npcShieldUser -> _currentFormation, so a throw in the
     /// middle can leave the seat registered while the archer is not a member yet: success is
     /// therefore decided by that final state (seat holds this archer AND its GetFormation() is
@@ -949,22 +1089,23 @@ public static class PatchWorld_FleetBoatFormation
     /// bypass are one transaction - a throw in either half still restores the cells this
     /// transaction actually wrote (only cells that still hold the written value are returned) and
     /// drops the bypass; a step that cannot be unwound leaves a coordinator receipt for the next
-    /// maintenance pass instead of being forgotten.
+    /// maintenance pass instead of being forgotten. The captured life is the family's own stable
+    /// number (binding lease / career formation life), never a sync generation.
     /// </summary>
-    private static bool TryDirectedMusketeerRecruit(FormationProfile profile, Archer archer)
+    private static bool TryDirectedRecruit(FormationProfile profile, int family, Archer archer)
     {
         try
         {
             Formation formation = profile != null ? profile.Formation : null;
             if (formation == null || archer == null) return false;
             if (formation.Pointer != profile.FormationPointer || !IsCurrentScene(profile)) return false;
-            int slot = NextFreeMusketeerSlot(profile);
+            int slot = NextFreeRowSlot(profile, family);
             if (slot < 0) return false;
 
-            // Same-life proof for every rollback path: a lease of 0 means the runtime has no
-            // applied package for this actor right now, so it is never recruited (and never
+            // Same-life proof for every rollback path: a life of 0 means the career runtime has no
+            // proven life for this actor right now, so it is never recruited (and never
             // OnLeave-ed) on the strength of an unproven life.
-            long lease = BindingLeaseOf(archer);
+            long lease = BindingLeaseOf(archer, family);
             if (lease <= 0L) return false;
 
             Il2CppStructArray<Formation.UnitTypes> types = formation.unitTypes;
@@ -994,9 +1135,10 @@ public static class PatchWorld_FleetBoatFormation
             try
             {
                 // The bypass, the temporary types and the real native recruit are ONE step: the
-                // guard only lets this exact archer through while the bypass is armed, and the
-                // snapshot may only be returned after the native call has completed or thrown.
-                PatchMusketeerFormation.BeginDirected(archer, formation);
+                // guard only lets this exact archer/formation pair through while the bypass is
+                // armed AND the captured life/row identity still hold; the snapshot may only be
+                // returned after the native call has completed or thrown.
+                PatchMusketeerFormation.BeginDirected(archer, formation, family, lease);
                 for (; applied < types.Length; applied++) types[applied] = temporary[applied];
                 try { archer.TryRecruit(formation); }
                 catch (Exception e) { failure = e; }
@@ -1010,48 +1152,62 @@ public static class PatchWorld_FleetBoatFormation
                 if (!TryRestoreDirectedTypes(profile, arrayPointer, snapshot, temporary,
                         Math.Min(applied + 1, snapshot.Length)))
                 {
-                    QueueMusketeerRollback(profile, -1, 0, 0L, archer, arrayPointer, snapshot, temporary);
+                    QueueMusketeerRollback(profile, family, -1, 0, 0L, archer, arrayPointer,
+                        snapshot, temporary);
                 }
                 PatchMusketeerFormation.EndDirected();
             }
 
-            if (DirectedSeatJoined(profile, slot, archer))
+            if (DirectedSeatJoined(profile, family, slot, archer, lease))
             {
-                LogInfoOnce("row-recruit", "musketeer joined the rear row");
-                if (failure != null) LogFailureOnce("musketeer-recruit", failure);
-                return true;
+                // The host reconcile may synchronously trigger native callbacks (Convert/Enable/
+                // Strip); the seat is only accepted after the same-life/identity/world state still
+                // holds on the other side of that boundary.
+                if (family == CrossbowFamily) PatchCrossbowFormation.OnSeated(archer);
+                if (DirectedSeatJoined(profile, family, slot, archer, lease))
+                {
+                    LogInfoOnce("row-recruit", FamilyName(family) + " joined the rear row");
+                    if (failure != null) LogFailureOnce(FamilyName(family) + "-recruit", failure);
+                    return true;
+                }
             }
 
             int instanceId = SafeInstanceId(archer);
-            bool cleaned = TryCleanupMusketeerSeat(profile, slot, instanceId, lease);
-            if (cleaned && !MusketeerSeatHolds(profile, slot, instanceId)
-                && SameMusketeerLife(archer, lease) && MusketeerOwnsFormation(archer, profile))
+            bool cleaned = TryCleanupRowSeat(profile, family, slot, instanceId, lease);
+            if (cleaned && !RowSeatHolds(profile, slot, instanceId)
+                && SameRowLife(archer, lease, family) && ArcherOwnsFormation(archer, profile))
             {
                 // Another owner replaced the arrays mid-call: the seat (and therefore native
                 // UnregisterUnit) is gone while this transaction's captured life is still bound.
-                // The leave call is made directly and verified; when it does not unbind, the
-                // seatless half is queued as a receipt (a seat-only receipt would resolve on the
-                // empty seat without ever leaving, so that would otherwise be lost).
+                // The direct leave is only lawful while the actor is still in this world in a live
+                // window; a foreign/paused/dead actor keeps the same-life debt as a receipt until
+                // a lawful window returns (never a native leave into another world).
                 bool left = false;
-                try
+                if (LawfulActorLeaveWindow(profile) && MusketeerAccess.InWorld(archer)
+                    && PatchMusketeerFormation.IsDirectedActorLive(archer))
                 {
-                    archer.OnLeaveFormation();
-                    left = !MusketeerOwnsFormation(archer, profile);
+                    try
+                    {
+                        archer.OnLeaveFormation();
+                        left = !ArcherOwnsFormation(archer, profile);
+                    }
+                    catch (Exception e) { LogFailureOnce("row-seatless", e); }
                 }
-                catch (Exception e) { LogFailureOnce("musketeer-seatless", e); }
                 if (!left)
-                    QueueMusketeerRollback(profile, slot, instanceId, lease, archer, IntPtr.Zero, null, null);
+                    QueueMusketeerRollback(profile, family, slot, instanceId, lease, archer,
+                        IntPtr.Zero, null, null);
             }
             else if (!cleaned)
             {
-                QueueMusketeerRollback(profile, slot, instanceId, lease, archer, IntPtr.Zero, null, null);
+                QueueMusketeerRollback(profile, family, slot, instanceId, lease, archer,
+                    IntPtr.Zero, null, null);
             }
-            if (failure != null) LogFailureOnce("musketeer-recruit", failure);
+            if (failure != null) LogFailureOnce(FamilyName(family) + "-recruit", failure);
             return false;
         }
         catch (Exception e)
         {
-            LogFailureOnce("musketeer-recruit", e);
+            LogFailureOnce(FamilyName(family) + "-recruit", e);
             return false;
         }
     }
@@ -1096,19 +1252,41 @@ public static class PatchWorld_FleetBoatFormation
         }
     }
 
-    /// <summary>State-based success check: the seat holds this archer and the archer is bound to this formation.</summary>
-    private static bool DirectedSeatJoined(FormationProfile profile, int slot, Archer archer)
+    /// <summary>
+    /// State-based success check: the seat holds this archer, the archer is bound to this
+    /// formation, the captured positive life is still current for its row, the row identity is
+    /// live and mutually exclusive with the other family, the unit is still in the current world
+    /// layer, the row's own feature predicate is still playing, and this profile is still the
+    /// current scene with authority. Never the raw return value. The pre-join free gate cannot be
+    /// reused here because the archer is now bound to this formation.
+    /// </summary>
+    private static bool DirectedSeatJoined(FormationProfile profile, int family, int slot,
+        Archer archer, long capturedLease)
     {
         try
         {
             Formation formation = profile != null ? profile.Formation : null;
             if (formation == null || formation.Pointer != profile.FormationPointer) return false;
+            if (!IsCurrentScene(profile)) return false;
+            if (!NetworkBigBoss.HasWorldAuth || NetworkBigBoss.IsOnline) return false;
+            if (!PlayingFor(family)) return false;
+            if (!PatchMusketeerFormation.IsDirectedActorLive(archer)) return false;
+            if (!MusketeerAccess.InWorld(archer)) return false;
+            if (capturedLease <= 0L || !SameRowLife(archer, capturedLease, family)) return false;
             Il2CppReferenceArray<Formation.IFormationUnit> units = formation.units;
             if (units == null || slot < 0 || slot >= units.Length || units[slot] == null) return false;
             GameObject seated = units[slot].GetGO;
             if (seated == null || seated.GetInstanceID() != SafeInstanceId(archer)) return false;
             Formation current = archer.GetFormation();
-            return current != null && current.Pointer == formation.Pointer;
+            if (current == null || current.Pointer != formation.Pointer) return false;
+            // Row identity gate after the join, with the two careers mutually exclusive.
+            if (family == CrossbowFamily)
+            {
+                return CrossbowmanLifecycle.IsCrossbowman(archer)
+                    && !MusketeerIdentity.IsUnit(archer);
+            }
+            return MusketeerIdentity.IsUnit(archer)
+                && !CrossbowmanLifecycle.IsCrossbowman(archer);
         }
         catch
         {
@@ -1226,7 +1404,7 @@ public static class PatchWorld_FleetBoatFormation
         // Disabled or authority loss never hot-shrinks an active formation. Empty slots can
         // still be sealed locally because that does not touch any recruited FleetBoat state.
         ConvertEmptyReservedSlotsToGaps(profile);
-        ReconcileMusketeerRow(profile);
+        ReconcileRearRows(profile);
     }
 
     private static int FindReservedSlot(FormationProfile profile,
@@ -1307,7 +1485,7 @@ public static class PatchWorld_FleetBoatFormation
 
                 FleetGreekSquads.Select(formation, sceneRoot, requestedSide, __state.Candidates);
                 if (!TryExpand(profile, __state.Candidates.Count,
-                        PatchMusketeerFormation.RowRequested))
+                        PatchMusketeerFormation.RowRequested, PatchCrossbowFormation.RowRequested))
                 {
                     FleetGreekSquads.Release(formation);
                     return;
@@ -1350,7 +1528,7 @@ public static class PatchWorld_FleetBoatFormation
                     catch (Exception e) { LogFailureOnce("try-recruit", e); }
                 }
 
-                ReconcileMusketeerRow(profile);
+                ReconcileRearRows(profile);
             }
             catch (Exception e)
             {
