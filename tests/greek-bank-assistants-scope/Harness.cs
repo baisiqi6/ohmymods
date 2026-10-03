@@ -269,6 +269,27 @@ static class Harness
 
 
         SetStatic(ScopeType, "_loggedFailure", false);
+        ResetFixedDomain();
+    }
+
+    /// <summary>Issue 100：固定域是进程级静态缓存，夹具必须逐测试清零。</summary>
+    private static void ResetFixedDomain()
+    {
+        Type domainType = typeof(MainBankerFixedDomain);
+        object emptyKey = Activator.CreateInstance(
+            domainType.GetNestedType("ContextKey", BindingFlags.NonPublic));
+        SetStatic(domainType, "_loadGeneration", 0);
+        SetStatic(domainType, "_capturePending", false);
+        SetStatic(domainType, "_hasNotifiedKey", false);
+        SetStatic(domainType, "_notifiedKey", emptyKey);
+        SetStatic(domainType, "_notifiedGeneration", 0);
+        SetStatic(domainType, "_published", false);
+        SetStatic(domainType, "_publishedKey", emptyKey);
+        SetStatic(domainType, "_publishedGeneration", 0);
+        SetStatic(domainType, "_left", 0f);
+        SetStatic(domainType, "_right", 0f);
+        SetStatic(domainType, "_lastAttemptFrame", int.MinValue);
+        SetStatic(domainType, "_lastLoggedGeneration", -1);
     }
 
     // ------------------------------------------------------------- driving
@@ -432,6 +453,9 @@ sealed class Fixture
             director = fixture.Director
         };
         BiomeHolder.Inst = new BiomeHolder { BiomeIndex = biomeIndex };
+        // Issue 100：固定域只随“成功加载通知”发布；夹具走生产入口（±5 实体墙根）。
+        Managers_OnLevelLoaded_MainBankerFixedDomain_Patch.Postfix(Managers.Inst, false);
+        MainBankerFixedDomain.TryCapture(Managers.Inst);
         return fixture;
     }
 

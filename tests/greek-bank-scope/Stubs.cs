@@ -42,6 +42,12 @@ namespace Il2CppInterop.Runtime.InteropTypes.Arrays
         public IEnumerator<T> GetEnumerator() => ((IEnumerable<T>)_items).GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => _items.GetEnumerator();
     }
+
+    public class Il2CppReferenceArray<T> : Il2CppArrayBase<T> where T : class
+    {
+        public Il2CppReferenceArray(long length) : base((int)length) { }
+        public Il2CppReferenceArray(T[] items) : base(items) { }
+    }
 }
 
 namespace HarmonyLib
@@ -247,10 +253,33 @@ namespace UnityEngine
 
     public class Transform : Component
     {
-        public Transform Parent;
-        public Vector3 position;
+        private Transform _parent;
+        public readonly List<Transform> Children = new List<Transform>();
+        private Vector3 _position;
+        /// <summary>Fixture position read fault: throws only when Sim.FaultPosition == this.</summary>
+        public Vector3 position
+        {
+            get
+            {
+                if (ReferenceEquals(Sim.FaultPosition, this))
+                    throw new InvalidOperationException("position read fault (fixture hook)");
+                return _position;
+            }
+            set => _position = value;
+        }
         private Vector3 _localScale = new Vector3(1f, 1f, 1f);
         public int Writes;
+
+        /// <summary>Parent tracking feeds GetComponentsInChildren so structure scans see the hierarchy.</summary>
+        public Transform Parent
+        {
+            get => _parent;
+            set
+            {
+                _parent = value;
+                if (value != null && !value.Children.Contains(this)) value.Children.Add(this);
+            }
+        }
 
         public Vector3 localScale
         {
@@ -263,6 +292,33 @@ namespace UnityEngine
             for (Transform current = this; current != null; current = current.Parent)
                 if (ReferenceEquals(current, parent)) return true;
             return false;
+        }
+
+        /// <summary>Fixture traversal: models Unity subtree scans (includeInactive).</summary>
+        public T[] GetComponentsInChildren<T>(bool includeInactive) where T : Component
+        {
+            // 与独立探针同一语义：每次遍历前消费一次注入回调（模拟同 context 重入通知）。
+            Action callback = Sim.TraversalCallback;
+            Sim.TraversalCallback = null;
+            callback?.Invoke();
+            var found = new List<T>();
+            CollectComponents(this, includeInactive, found);
+            return found.ToArray();
+        }
+
+        private static void CollectComponents<T>(Transform node, bool includeInactive, List<T> found)
+            where T : Component
+        {
+            if (Sim.ThrowOnChildTraversal)
+                throw new InvalidOperationException("traversal fault (fixture hook)");
+            if (node == null) return;
+            GameObject owner = node.gameObject;
+            if (owner == null) return;
+            if (!includeInactive && !owner.activeInHierarchy) return;
+            T component = owner.GetComponent<T>();
+            if (component != null) found.Add(component);
+            for (int i = 0; i < node.Children.Count; i++)
+                CollectComponents(node.Children[i], includeInactive, found);
         }
     }
 
@@ -421,6 +477,13 @@ public class Scanner
 public class Wallet : Behaviour
 {
     public int TotalCapacity = 1000;
+    /// <summary>Native final pickup entry; the fixed-domain wallet gate prefixes it.</summary>
+    public int SuckCurrencyCalls;
+    public bool SuckCurrency(DroppableCurrency currency, bool playSound)
+    {
+        SuckCurrencyCalls++;
+        return true;
+    }
 }
 
 public class Castle : Behaviour
@@ -450,6 +513,8 @@ public class Banker : Behaviour
     public Scanner _coinScanner;
     public Wallet _wallet;
     public DroppableCurrency _targetCoin;
+    public StateMachine _fsm;
+    public Mover _mover;
     public int InterestPerDay;
     /// <summary>One-shot native setter fault, used by the restore-retry regression.</summary>
     public bool FailWalkSpeedWrite;
@@ -489,10 +554,48 @@ public class Banker : Behaviour
     }
 }
 
-/// <summary>Mover identity is only needed by the shared scale scope.</summary>
-public class Mover : Component { }
+/// <summary>
+/// Native FSM stub: Current ids match the verified 2.4 mapping
+/// (GrabCoin=0, Idle=1, DropOff=4, Payout=5). GoToState only queues, exactly like native.
+/// </summary>
+public class StateMachine
+{
+    public int Current;
+    public int _queuedState;
+    public bool _executeQueuedState;
+    public int GoToStateCalls;
+
+    public void GoToState(int state)
+    {
+        GoToStateCalls++;
+        _queuedState = state;
+        _executeQueuedState = true;
+    }
+
+    public void GoToState(int state, bool force) => GoToState(state);
+}
+
+public class Mover : Component
+{
+    public enum GoalMode { Off = 0, Position = 1, Object = 2 }
+    public enum OffsetMode { Distance = 0, Formation = 1, Strict = 2 }
+
+    public bool movingToGoal;
+    public GoalMode goalMode;
+    public float _goalPosition;
+    public GameObject _goalObject;
+    public int StopCalls;
+
+    public void Stop() { StopCalls++; movingToGoal = false; }
+}
 
 public class Wall : Behaviour { }
+
+public class PayableUpgrade : Behaviour
+{
+    /// <summary>原生成品证据：未建 Wall0 只有 PayableUpgrade.nextPrefab 直接指向带 Wall 的预制。</summary>
+    public GameObject nextPrefab;
+}
 
 public class OrderedWalls
 {
@@ -533,10 +636,31 @@ public class Managers : Object
     public World world;
     public Kingdom kingdom;
     public PoolManager pools;
+    public DroppableRegistrar dropManager;
     public Game game;
     public Stats stats;
     public CurrencyManager currency;
     public Director director;
+    public int OnLevelLoadedCalls;
+
+    /// <summary>Native successful-load notification (postfix host for the fixed domain).</summary>
+    public void OnLevelLoaded(bool fromSave) { OnLevelLoadedCalls++; }
+}
+
+public class DroppableRegistrar : Behaviour
+{
+    public readonly List<Droppable> Droppables = new List<Droppable>();
+    public int QueryCalls;
+
+    public void GetDroppablesInRange<T>(float position, float range, Il2CppArrayBase<T> buffer,
+        out int count, object filter) where T : Droppable
+    {
+        QueryCalls++;
+        int written = 0;
+        for (int i = 0; i < Droppables.Count && written < buffer.Length; i++)
+            if (Droppables[i] is T typed) buffer[written++] = typed;
+        count = written;
+    }
 }
 
 public class PoolManager : Behaviour {
@@ -606,6 +730,12 @@ public static class Sim
 {
     public static int SceneHandle = 1;
     public static bool SceneValid = true;
+    /// <summary>Issue 100 夹具钩子：模拟结构遍历中途抛异常（不得部分发布）。</summary>
+    public static bool ThrowOnChildTraversal;
+    /// <summary>遍历前消费一次的注入回调（同 context 重入成功通知）。</summary>
+    public static Action TraversalCallback;
+    /// <summary>该 Transform 的 position getter 抛错（位置读取故障）。</summary>
+    public static Transform FaultPosition;
     public static Scene CurrentScene => new Scene { handle = SceneHandle, valid = SceneValid };
 
     /// <summary>Creates a layer GameObject in the current scene era, as a world switch would.</summary>
