@@ -533,10 +533,10 @@ public static class Mover_Update_Patch
 [HarmonyPatch(typeof(WarriorPeasant))]
 public static class WarriorPeasant_OnEnable_Patch
 {
-    // 北境平民站高 0.70（2026-09-29）：素材立姿 18px、PPU 32 → 0.70×32/18 ≈ 1.244444。
-    // 转职 Promote（PatchRoles_Character）、WarriorPeasant.OnEnable、Peasant_norselands.OnEnable
-    // 三个入口共用此常量，避免三份魔数各自漂移。
-    internal const float NorseCivilianScaleY = 0.70f * 32f / 18f;
+    // 北境平民站高 0.735（2026-10-03 用户要求当前站高 +5%，此前 0.70）：素材立姿 18px、PPU 32
+    // → 0.70×1.05×32/18 ≈ 1.306667。转职 Promote（PatchRoles_Character）、WarriorPeasant.OnEnable、
+    // Peasant_norselands.OnEnable 三个入口共用此常量，避免三份魔数各自漂移。
+    internal const float NorseCivilianScaleY = 0.70f * 1.05f * 32f / 18f;
 
     [HarmonyPatch(nameof(WarriorPeasant.OnEnable))]
     [HarmonyPostfix]

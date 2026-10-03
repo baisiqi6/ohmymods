@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>CoinCourierVisualLifecycleTests</AssemblyName>
+    <RootNamespace>CoinCourierVisualLifecycleTests</RootNamespace>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+    <GeneratePropertiesFile>false</GeneratePropertiesFile>
+    <!-- 与 runtime-bridge 相同的 core-only 编译形状；本套件额外编译真实 CoinCourierVisuals（替换其桥接替身）。 -->
+    <DefineConstants>COURIER_RUNTIME_CORE_ONLY;HERO_SHOP_CORE_ONLY;COURIER_REAL_PERSISTENCE</DefineConstants>
+    <NoWarn>$(NoWarn);0649</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/CoinCourierVisuals.cs" Link="Production/CoinCourierVisuals.cs" />
+    <Compile Include="../../il2cpp/CoinCourierRuntime.cs" Link="Production/CoinCourierRuntime.cs" />
+    <Compile Include="../../il2cpp/CoinCourierCoinFlight.cs" Link="Production/CoinCourierCoinFlight.cs" />
+    <Compile Include="../../il2cpp/CoinCourierRuntimeRules.cs" Link="Production/CoinCourierRuntimeRules.cs" />
+    <Compile Include="../../il2cpp/CoinCourierCampaignState.cs" Link="Production/CoinCourierCampaignState.cs" />
+    <Compile Include="../../il2cpp/CoinCourierShop.cs" Link="Production/CoinCourierShop.cs" />
+    <Compile Include="../../il2cpp/CoinCourierPurse.cs" Link="Production/CoinCourierPurse.cs" />
+    <Compile Include="../../il2cpp/CoinCourierRules.cs" Link="Production/CoinCourierRules.cs" />
+    <Compile Include="../../il2cpp/CoinCourierPersistence.cs" Link="Production/CoinCourierPersistence.cs" />
+    <Compile Include="../../il2cpp/CoinCourierSaveData.cs" Link="Production/CoinCourierSaveData.cs" />
+    <Compile Include="../../il2cpp/HeroShop.cs" Link="Production/HeroShop.cs" />
+  </ItemGroup>
+
+  <!-- 真实内嵌图集：解码走生产读流/尺寸/可见性校验路径（LoadImage 在替身里注入尺寸）。 -->
+  <ItemGroup>
+    <EmbeddedResource Include="../../il2cpp/Assets/CoinCourierBAtlas.png"
+                      LogicalName="KingdomEnhancedMod.CoinCourierBAtlas.png" />
+  </ItemGroup>
+
+</Project>

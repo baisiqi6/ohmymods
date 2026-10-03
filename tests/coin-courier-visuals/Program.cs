@@ -296,8 +296,8 @@ internal static class Program
         Check(ReferenceEquals(shared, view.Renderer.sharedMaterial), "shared material reused, not cloned");
         Check(ReferenceEquals(parent.transform, view.Transform.parent), "parented under the caller transform");
         Check(!view.Renderer.enabled, "hidden until the first Render");
-        // 共用视觉节点缩放：Create 起就是批准的 0.625（X/Y 同值、Z 恒 1）。
-        Check(view.Transform.localScale == new Vector3(0.625f, 0.625f, 1f),
+        // 共用视觉节点缩放（2026-10-03：X 仍 0.625，Y=0.625×1.05=0.65625 只提高身高；Z 恒 1）。
+        Check(view.Transform.localScale == new Vector3(0.625f, 0.65625f, 1f),
             "view node carries the shared appearance scale from Create");
 
         Check(reference.sprite == null, "reference sprite untouched");
@@ -338,19 +338,19 @@ internal static class Program
 
         CoinCourierVisuals.Render(view, new Vector3(5f, 6f, 0f), true, CoinCourierPose.Run, 0f, true);
         Check(view.Transform.position == new Vector3(5f, 6f, 0f), "world position applied");
-        Check(view.Transform.localScale == new Vector3(0.625f, 0.625f, 1f),
+        Check(view.Transform.localScale == new Vector3(0.625f, 0.65625f, 1f),
             "facing right applies +appearance scale with z 1");
         Check(view.Renderer.enabled, "visible enables the renderer");
 
         CoinCourierVisuals.Render(view, new Vector3(5f, 6f, 0f), false, CoinCourierPose.Run, 0f, true);
-        Check(view.Transform.localScale == new Vector3(-0.625f, 0.625f, 1f),
+        Check(view.Transform.localScale == new Vector3(-0.625f, 0.65625f, 1f),
             "facing left mirrors x only and keeps the appearance scale");
         // 绝对赋值幂等：同一朝向重复渲染、来回翻转都不累乘/不漂移。
         CoinCourierVisuals.Render(view, new Vector3(5f, 6f, 0f), false, CoinCourierPose.Run, 0f, true);
-        Check(view.Transform.localScale == new Vector3(-0.625f, 0.625f, 1f),
+        Check(view.Transform.localScale == new Vector3(-0.625f, 0.65625f, 1f),
             "repeated render keeps the exact mirrored scale");
         CoinCourierVisuals.Render(view, new Vector3(5f, 6f, 0f), true, CoinCourierPose.Run, 0f, true);
-        Check(view.Transform.localScale == new Vector3(0.625f, 0.625f, 1f),
+        Check(view.Transform.localScale == new Vector3(0.625f, 0.65625f, 1f),
             "flipping back writes the same absolute scale");
 
         CoinCourierVisuals.Render(view, new Vector3(7f, 8f, 0f), false, CoinCourierPose.Run, 0f, false);
