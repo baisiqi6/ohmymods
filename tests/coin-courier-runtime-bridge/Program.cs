@@ -59,11 +59,79 @@ Console.WriteLine("[bridge-2] a side change in flight cancels the stale behind-p
     Verify(h.RunUntil(() => CoinCourierTeleportFx.BeginCalls >= 1, 3f), "the jump departure strip plays");
     Verify(CoinCourierTeleportFx.LastStyle == CoinCourierTeleportStyle.Vertical,
         "the courier's teleport stripes use the explicit vertical style");
+    Verify(h.RunUntil(() => CoinCourierTeleportFx.CountBegins(CoinCourierTeleportDirection.Arrival) >= 1, 3f),
+        "the same jump starts its arrival effect before the reveal");
+    int cancelsBefore = CoinCourierTeleportFx.CancelCalls;
     knight.side = Side.Left;   // 飞行中转身：原落点已失效
+    Verify(h.RunUntil(() => CoinCourierTeleportFx.CancelCalls >= cancelsBefore + 2, 2f),
+        "the failed landing cancels both of the courier's own handles");
+    Verify(CoinCourierVisuals.LastVisible,
+        "the safety fallback reveals the courier immediately (the arrival lines only trail afterwards)");
     h.Step(1.2f);
     Verify(CoinCourierEconomy.DeliverCalls == 0, "no coin is delivered to the stale landing");
     Verify(CoinCourierVisuals.LastPosition.x < -2f,
         "the courier returns to the bank instead of landing on the stale point");
+    Verify(CoinCourierTeleportFx.CancelCalls >= cancelsBefore + 2,
+        "the failed landing cancels both of the courier's own handles");
+    Verify(CoinCourierTeleportFx.CountBegins(CoinCourierTeleportDirection.Arrival) >= 2,
+        "the instant-home fallback plays its own arrival burst");
+    Verify(CoinCourierTeleportFx.CountBegins(CoinCourierTeleportDirection.Departure) >= 1,
+        "the fallback never re-plays a departure at the failed point");
+}
+
+Console.WriteLine("[bridge-2c] one courier jump owns a departure and an arrival; the reveal does not replay it");
+{
+    var h = new Harness();
+    var knight = h.MakeKnight(Side.Right, 10f);
+    h.ArmVisit(knight, 78, 1, 2);
+    h.State.Purse = BridgeState.PurseWith(4);
+    h.Step(0.05f);
+    Verify(h.RunUntil(() => CoinCourierTeleportFx.CountBegins(CoinCourierTeleportDirection.Arrival) >= 1, 3f),
+        "the jump starts its arrival effect");
+    Verify(CoinCourierTeleportFx.CountBegins(CoinCourierTeleportDirection.Departure) == 1,
+        "the same jump owns exactly one departure effect");
+    Verify(CoinCourierTeleportFx.CountBegins(CoinCourierTeleportDirection.Arrival) == 1,
+        "the same jump owns exactly one arrival effect");
+    var dep = CoinCourierTeleportFx.Begins[0];
+    var arr = CoinCourierTeleportFx.Begins[1];
+    Verify(dep.Direction == CoinCourierTeleportDirection.Departure
+        && dep.Style == CoinCourierTeleportStyle.Vertical,
+        "the departure plays the explicit vertical style at the origin");
+    Verify(arr.Direction == CoinCourierTeleportDirection.Arrival
+        && arr.Style == CoinCourierTeleportStyle.Vertical,
+        "the arrival plays the explicit vertical style at the landing");
+    Verify(dep.Anchor == 0.18f && arr.Anchor == 0.18f,
+        "both ends anchor on the existing .18 hidden window");
+    Verify(Math.Abs(arr.Position.x - 8f) < 0.01f,
+        "the arrival begins at the landing point, ahead of the reveal");
+    Verify(Math.Abs(dep.Position.x - HomeXFree) < 0.01f,
+        "the departure begins at the pre-jump bank position");
+    Verify(!CoinCourierVisuals.LastVisible,
+        "the arrival begins while the courier is still in the hidden teleport phase");
+    int cancelBefore = CoinCourierTeleportFx.CancelCalls;
+    h.Step(0.25f);   // 走完 .18 隐藏段并进入下落
+    Verify(CoinCourierTeleportFx.CountBegins(CoinCourierTeleportDirection.Arrival) == 1,
+        "the teleport completion does not replay the arrival");
+    Verify(CoinCourierTeleportFx.CancelCalls == cancelBefore,
+        "the teleport completion cancels neither end of its own pair");
+}
+
+Console.WriteLine("[bridge-2d] clearing the scene cancels both courier handles and never clears the shared pool");
+{
+    var h = new Harness();
+    var knight = h.MakeKnight(Side.Right, 10f);
+    h.ArmVisit(knight, 79, 1, 2);
+    h.State.Purse = BridgeState.PurseWith(4);
+    h.Step(0.05f);
+    Verify(h.RunUntil(() => CoinCourierTeleportFx.CountBegins(CoinCourierTeleportDirection.Arrival) >= 1, 3f),
+        "the pair is playing");
+    int cancelsBefore = CoinCourierTeleportFx.CancelCalls;
+    CoinCourierRuntime.Bind(null);
+    h.Step(0.05f);
+    Verify(CoinCourierTeleportFx.CancelCalls >= cancelsBefore + 2,
+        "the scene clear cancels both owned handles");
+    Verify(CoinCourierTeleportFx.ClearCalls == 0,
+        "the shared teleport FX pool is never cleared by this business");
 }
 
 Console.WriteLine("[bridge-2b] legacy Begin shapes keep the horizontal contract; only the explicit 6-argument call carries a style");

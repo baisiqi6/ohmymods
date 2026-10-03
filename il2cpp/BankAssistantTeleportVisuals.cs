@@ -6,8 +6,9 @@ namespace KingdomEnhancedMod;
 
 /// <summary>
 /// 税收助手传送表现（离线专属）：真实位置跳变时在出发地与目的地各画一组共享传送线
-/// FX（原四槽 0..3 横纹、新四槽 4..7 竖纹），并短暂隐藏助手本体（约 0.12 游戏秒）后显形，
-/// 再交还原有移动/拾币/巡逻。
+/// FX（原四槽 0..3 金色横纹、新四槽 4..7 黑色竖纹），并短暂隐藏助手本体（约 0.12 游戏秒）后显形，
+/// 再交还原有移动/拾币/巡逻。出发地一组是 Departure（密/长收束）、目的地一组是 Arrival
+/// （少/短拉长增密），Arrival 的增长峰值精确对齐 .12 显形窗口——先线后人，而非显形同刻起播。
 ///
 /// 两相状态（等待相 → 残影相）：
 /// * Waiting（隐藏等待）：持有 renderer 与两端句柄；deadline 到点由 chokepoint 显形。
@@ -122,8 +123,13 @@ internal static class BankAssistantTeleportVisuals
                 ? CoinCourierTeleportStyle.Horizontal
                 : CoinCourierTeleportStyle.Vertical;
             Color color = new Color(0.95f, 0.82f, 0.42f, 0.85f);
-            fromHandle = CoinCourierTeleportFx.Begin(fromPosition, color, FxScale, sortingLayerId, sortingOrder, style);
-            toHandle = CoinCourierTeleportFx.Begin(toPosition, color, FxScale, sortingLayerId, sortingOrder, style);
+            // 两端方向化：出发地收束（Departure）、目的地入场（Arrival）；Arrival 的增长峰值
+            // 精确对齐本类的显形窗口 RevealDelaySeconds，做到"先线后人"。renderer 作为身体来源：
+            // Begin 内一次性解析可见 alpha 框并 fit；解析失败返回无效 → 下方按失败路径取消并保持原状。
+            fromHandle = CoinCourierTeleportFx.Begin(fromPosition, color, FxScale, sortingLayerId, sortingOrder,
+                style, CoinCourierTeleportDirection.Departure, RevealDelaySeconds, renderer);
+            toHandle = CoinCourierTeleportFx.Begin(toPosition, color, FxScale, sortingLayerId, sortingOrder,
+                style, CoinCourierTeleportDirection.Arrival, RevealDelaySeconds, renderer);
         }
         catch (Exception)
         {
