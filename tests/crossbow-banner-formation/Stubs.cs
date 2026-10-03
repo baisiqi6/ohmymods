@@ -80,11 +80,6 @@ namespace UnityEngine
     {
         public static float Abs(float value) => Math.Abs(value);
     }
-
-    public static class Time
-    {
-        public static float timeScale = 1f;
-    }
 }
 
 public class Character
@@ -166,44 +161,14 @@ public class Formation : UnityEngine.Behaviour
 
 namespace KingdomEnhancedMod
 {
-    /// <summary>生产版是 il2cpp/MusketeerRuntime.cs 的 life 读者；策略测试只验证门序。</summary>
+    /// <summary>生产版是 il2cpp/MusketeerRuntime.cs 的 life 读者；本测试只编译策略/布局。</summary>
     internal static class MusketeerRuntime
     {
         internal static bool MatchesBindingLease(Archer archer, long lease) => lease > 0L && archer != null;
     }
 
-    internal static class NetworkBigBoss
-    {
-        internal static bool HasWorldAuth = true;
-        internal static bool IsOnline;
-    }
-
-    internal class Game
-    {
-        internal enum State { Menu, Playing }
-        internal State state = State.Playing;
-    }
-
-    internal class World : UnityEngine.Object
-    {
-        public UnityEngine.Transform gameLayer = new UnityEngine.Transform();
-    }
-
-    internal class Managers
-    {
-        internal static Managers Inst = new Managers();
-        internal World world = new World();
-        internal Game game = new Game();
-    }
-
-    /// <summary>生产版是 il2cpp/Patch_CrossbowFormation.cs；策略测试镜像其 Playing 形状。</summary>
-    internal static class PatchCrossbowFormation
-    {
-        internal static bool PlayingFlag = true;
-        internal static bool Playing => PlayingFlag && UnityEngine.Time.timeScale > 0f
-            && Managers.Inst != null && Managers.Inst.game != null
-            && Managers.Inst.game.state == Game.State.Playing;
-    }
+    /// <summary>生产版是 il2cpp/Patch_CrossbowFormation.cs；本测试编译真实文件，这里不加。</summary>
+    internal static class MusketeerAccessPlayingBridge { }
 
     internal static class MusketeerIdentity
     {
@@ -219,17 +184,61 @@ namespace KingdomEnhancedMod
         }
     }
 
+    internal static class ModConfig
+    {
+        internal sealed class Flag
+        {
+            internal bool Value;
+            internal Flag(bool value) { Value = value; }
+        }
+
+        internal static Flag Enabled = new Flag(true);
+    }
+
     internal static class MusketeerAccess
     {
         internal static bool Enabled = true;
+        internal static bool TrackAllowedFlag = true;
         internal static bool InWorldResult = true;
 
-        internal static bool Playing => Enabled && UnityEngine.Time.timeScale > 0f
-            && Managers.Inst != null && Managers.Inst.game != null
-            && Managers.Inst.game.state == Game.State.Playing;
+        internal static bool TrackAllowed => TrackAllowedFlag;
+
+        internal static bool Playing => Enabled;
 
         internal static bool InWorld(UnityEngine.Component component) =>
             component != null && InWorldResult;
+
+        internal static bool InWorld(UnityEngine.GameObject root) =>
+            root != null && InWorldResult && root.activeInHierarchy;
+    }
+
+    internal static class NetworkBigBoss
+    {
+        internal static bool HasWorldAuth = true;
+        internal static bool IsOnline;
+    }
+
+    internal class Game
+    {
+        internal enum State { Menu, Playing }
+        internal State state = State.Playing;
+    }
+
+    internal class Managers
+    {
+        internal static Managers Inst = new Managers();
+        internal Game game = new Game();
+        internal World world = new World();
+    }
+
+    internal class World : UnityEngine.Object
+    {
+        internal UnityEngine.Transform gameLayer = new UnityEngine.Transform();
+    }
+
+    public static class Time
+    {
+        public static float timeScale = 1f;
     }
 
     internal static class HeroArcherRuntime
@@ -245,19 +254,51 @@ namespace KingdomEnhancedMod
     // ShouldBlockNativeRecruit 外层 catch 的容错（生产读者不抛异常，该路径只有桩可达）。
     internal static class CrossbowmanLifecycle
     {
-        internal static readonly HashSet<Archer> Crossbowmen = new();
+        internal static readonly List<Archer> Owned = new();
+        internal static readonly Dictionary<Archer, long> Lives = new();
         internal static bool IdentityEnabled = true;
         internal static bool ThrowOnRead;
+        internal static long NextLife = 1L;
 
         internal static bool IsCrossbowman(Archer archer)
         {
             if (ThrowOnRead) throw new InvalidOperationException("scripted identity read failure");
-            return IdentityEnabled && archer != null && Crossbowmen.Contains(archer);
+            return IdentityEnabled && archer != null && Owned.Contains(archer);
         }
 
-        internal static long FormationLife(Archer archer) => 1L;
+        internal static int CopyOwnedArchers(List<Archer> output)
+        {
+            output.Clear();
+            if (!IdentityEnabled) return 0;
+            output.AddRange(Owned);
+            return output.Count;
+        }
 
-        internal static bool MatchesFormationLife(Archer archer, long life) => life > 0L;
+        internal static long FormationLife(Archer archer)
+            => archer != null && Lives.TryGetValue(archer, out long life) ? life : 0L;
+
+        internal static bool MatchesFormationLife(Archer archer, long life)
+            => life > 0L && FormationLife(archer) == life;
+
+        internal static void Reset()
+        {
+            Owned.Clear();
+            Lives.Clear();
+            IdentityEnabled = true;
+            ThrowOnRead = false;
+            NextLife = 1L;
+        }
+    }
+
+    /// <summary>Host reconcile boundary stub: counts the post-seat re-assert calls.</summary>
+    internal static class PatchRoles_Crossbowman
+    {
+        internal static int SeatedReconciles;
+
+        internal static void OnArcherEnablePostfix(Archer archer)
+        {
+            if (CrossbowmanLifecycle.IsCrossbowman(archer)) SeatedReconciles++;
+        }
     }
 
     // 生产版是 PatchWorld_FleetBoatFormation.cs 的 internal 查询；本测试只编译本文件，
