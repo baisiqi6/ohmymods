@@ -1,11 +1,15 @@
-// Greek 平民身高（NorseCivilianScaleY）回归（2026-10-03 用户要求当前站高 +5%）：
-// 1) 精确 source extraction：共享常量必须恰为 0.70f * 1.05f * 32f / 18f（站高 0.735），
-//    三个真实入口（Promote / WarriorPeasant.OnEnable / Peasant_norselands.OnEnable）都引用同一常量，
-//    且这两个文件里没有第二份身高魔数、没有二次累乘；
-// 2) 数值：0.70×1.05×32/18 与 0.735×32/18 在 float 舍入内一致，且确实高于旧 0.70 目标；
+// Greek 平民身高纠正回归（2026-10-03，跟进 PR #102）：+5% 曾误加在共享常量 NorseCivilianScaleY
+// 上（北欧模型一起变高），现恢复 0.70×32/18，+5% 只作用于当前 Greek 世界的普通 Peasant。
+// 1) 精确 source extraction：共享常量必须恰为 0.70f * 32f / 18f；Promote 与
+//    Peasant_norselands.OnEnable 继续共用该常量；普通 Peasant 分支按
+//    GreekScaleScope.NativeScale(...).y × 1.05f 应用，并排除带 WarriorPeasant 组件的改名模型；
+//    文件里没有第二份身高魔数、没有二次累乘；
+// 2) 数值：0.70×32/18 ≈ 1.244444（不再含 +5%）；普通居民的 +5% 是相对原生 Y 的乘法
+//    （原生 1.0 → 1.05，1.2 → 1.26）；
 // 3) 真实 GreekScaleScope 语义：只写 Y（X 朝向符号与 Z 保留）、重复 apply 不累乘、
 //    非 Greek 作用域不写、回到当前 Greek 后恰好应用一次。
-// 本套件不模拟 Unity 渲染、不启动游戏；实机观感由用户验收。
+// 两个真实 OnEnable 入口、repeated enable、Mover 复位与 OFF/非 Greek restore 的完整行为契约
+// 见 tests/native-scale-timing；本套件不模拟 Unity 渲染、不启动游戏；实机观感由用户验收。
 using System;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -49,8 +53,8 @@ internal static class Program
             @"internal\s+const\s+float\s+NorseCivilianScaleY\s*=\s*(?<expr>[^;]+);");
         Verify(declaration.Success, "PatchRoles_Worker declares the shared NorseCivilianScaleY constant");
         string expression = Regex.Replace(declaration.Groups["expr"].Value, @"\s+", "");
-        Verify(expression == "0.70f*1.05f*32f/18f",
-            "the shared constant is exactly 0.70*1.05*32/18 (was 0.70*32/18): " + expression);
+        Verify(expression == "0.70f*32f/18f",
+            "the shared constant is restored to exactly 0.70*32/18 (no +5%): " + expression);
 
         Verify(Regex.IsMatch(worker,
                 @"GreekScaleScope\.ApplyY\(__instance\.transform, NorseCivilianScaleY\);"),
@@ -64,11 +68,23 @@ internal static class Program
 
         Verify(Regex.Matches(worker, @"NorseCivilianScaleY\s*=").Count == 1,
             "PatchRoles_Worker declares the constant exactly once (uses never redeclare a number)");
-        Verify(Regex.Matches(worker, @"\b0\.70f\b").Count == 1
-            && Regex.Matches(worker, @"\b1\.05f\b").Count == 1,
-            "the 0.70 baseline and the +5% factor live only in the shared declaration");
+        Verify(Regex.Matches(worker, @"\b0\.70f\b").Count == 1,
+            "the 0.70 Norse baseline lives only in the shared declaration");
         Verify(!Regex.IsMatch(worker, @"NorseCivilianScaleY\s*\*"),
             "the shared constant is never multiplied again (no double scaling)");
+
+        // 普通 Peasant 的 +5% 分支：组件排除北欧模型，只对原生 Y 做一次相对乘法。
+        Verify(Regex.IsMatch(worker,
+                @"else if \(__instance\.GetComponent<WarriorPeasant>\(\) == null\)"),
+            "the ordinary-Peasant branch excludes any model carrying a WarriorPeasant component");
+        Verify(Regex.IsMatch(worker,
+                @"float targetY = GreekScaleScope\.NativeScale\(__instance\.transform\)\.y \* 1\.05f;"),
+            "the ordinary-Peasant branch scales the native Y by exactly 1.05");
+        Verify(Regex.Matches(worker, @"\b1\.05f\b").Count == 1,
+            "the +5% factor appears exactly once in the worker file");
+        Verify(Regex.IsMatch(worker,
+                @"ScaleRegistryHolder\.Register\(__instance\.GetComponent<Mover>\(\), targetY\);"),
+            "the ordinary-Peasant branch keeps the shared Mover registration contract");
 
         Verify(Regex.IsMatch(promote,
                 @"GreekScaleScope\.ApplyY\(newChar\.transform, WarriorPeasant_OnEnable_Patch\.NorseCivilianScaleY\);"),
@@ -83,20 +99,21 @@ internal static class Program
 
     private static void NumericContract()
     {
-        const float expected = 0.70f * 1.05f * 32f / 18f;
-        Verify(Math.Abs(expected - 1.3066666f) < 1e-5f,
-            "the target Y is the 0.735 stand height at 18px / PPU 32: " + expected.ToString("R"));
-        Verify(Math.Abs(expected - 0.735f * 32f / 18f) < 1e-6f,
-            "0.70*1.05*32/18 equals 0.735*32/18 within float rounding");
-        Verify(Math.Abs(expected - 0.70f * 32f / 18f) > 0.05f,
-            "the +5% raises the previous 0.70 stand height");
+        const float norse = 0.70f * 32f / 18f;
+        Verify(Math.Abs(norse - 1.2444444f) < 1e-5f,
+            "the Norse stand height is the original 0.70 at 18px / PPU 32: " + norse.ToString("R"));
+        Verify(Math.Abs(norse - 0.735f * 32f / 18f) > 0.05f,
+            "the +5% is removed from the shared Norse constant (no 0.735 stand height)");
+        Verify(Math.Abs(1.0f * 1.05f - 1.05f) < 1e-6f
+            && Math.Abs(1.2f * 1.05f - 1.26f) < 1e-6f,
+            "the ordinary Greek boost is native-relative: 1.0 -> 1.05, 1.2 -> 1.26");
     }
 
     // ---- 3) 真实 GreekScaleScope 行为 ----
 
     private static void ScopeContract()
     {
-        const float expected = 0.70f * 1.05f * 32f / 18f;
+        const float expected = 0.70f * 32f / 18f;
         ModConfig.Enabled.Value = true;
         BiomeHolder.Inst.BiomeIndex = BiomeHolder.GreeceBiomeIndex;
 
@@ -105,7 +122,7 @@ internal static class Program
         Scope.ApplyY(civilian.transform, expected);
         Vector3 scaled = civilian.transform.localScale;
         Verify(Math.Abs(scaled.y - expected) < 1e-6f,
-            "the real scope writes the raised stand height onto the civilian root");
+            "the real scope writes the restored stand height onto the civilian root");
         Verify(scaled.x == -1f && scaled.z == 1.4f,
             "facing sign (x) and z stay untouched: " + scaled);
         Scope.ApplyY(civilian.transform, expected);
