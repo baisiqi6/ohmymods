@@ -26,6 +26,7 @@
     <Compile Include="$(BankRoot)/il2cpp/HeroNativeRights.cs" />
     <Compile Include="$(BankRoot)/il2cpp/SharedBankState.cs" />
     <Compile Include="$(BankRoot)/il2cpp/PatchEconomy_Banker.cs" />
+    <Compile Include="$(BankRoot)/il2cpp/MainBankerFixedDomain.cs" />
     <Compile Include="$(BankRoot)/il2cpp/CoinCourierPurse.cs" />
     <Compile Include="$(BankRoot)/il2cpp/CoinCourierEconomy.cs" />
     <Compile Include="$(BankRoot)/il2cpp/CoinCourierRules.cs" />

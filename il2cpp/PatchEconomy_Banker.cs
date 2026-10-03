@@ -3,6 +3,7 @@ using Coatsink.Common;
 using UnityEngine;
 using HarmonyLib;
 using Il2CppInterop.Runtime;
+using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
 namespace KingdomEnhancedMod;
 
@@ -89,6 +90,11 @@ public static class PatchEconomy_Banker
     private const int ENHANCED_PLAYER_PAYOUT_TARGET = 100;
     // 增强收币阈值：原生容量×1，收满再回库；原为0.5，半容量即回库。
     private const float ENHANCED_COIN_GATHER_TARGET_PERCENTAGE = 1f;
+    // 活动半径上限（Issue 100 起只作上限）：实际取 min(此值, 域内最小距离-epsilon)。
+    private const float ENHANCED_WANDER_RANGE = 8.75f;
+    // 域内活动 epsilon：设计安全余量 0.25，保持标准 ±9 域的既有 8.75 游走半径；
+    // 此余量不是已证原生网格常量。
+    private const float WANDER_DOMAIN_EPSILON = 0.25f;
     private static ObjectIdentity _primedBanker;
     private static WorldIdentity _primedWorld;
     private static bool _hasPrimedBanker;
@@ -277,6 +283,8 @@ public static class PatchEconomy_Banker
         internal OwnedFloat ScannerRange;
         internal OwnedFloat ScannerRangeBehind;
         internal OwnedFloat ScannerInterval;
+        /// <summary>最后一次按哪个固定域代数写入域相关字段（-1=从未；0=域未知时写过）。</summary>
+        internal int DomainAppliedGeneration = -1;
 
         internal bool Empty => !CoinScanRange.Owned && !GatherPercentage.Owned && !WalkSpeed.Owned
             && !RunSpeed.Owned && !WanderRange.Owned && !PlayerMaxCoins.Owned
@@ -353,82 +361,32 @@ public static class PatchEconomy_Banker
         if (ObjectIdentity.TryGet(banker, out ObjectIdentity key)) _duplicatesThatSkippedAwake.Add(key);
     }
 
+    /// <summary>
+    /// Issue 100 固定域查询：唯一来源是 MainBankerFixedDomain 在一次成功完整加载后
+    /// 发布的结构快照（campfire 左右最近固定墙基）。旧实现的 GetWall(1)/GetWall(0)/
+    /// border 回退已全部移除：那些只反映“当前已建墙/地形边界”，不是固定墙基，
+    /// 且会在墙缺失时扩域。域未知（未收到成功加载通知/半加载/换代未捕获/快照失败）
+    /// 一律 fail-closed。参数 kingdom 保留给既有调用方作非空前置；上下文一致性
+    /// 由域缓存自身按 world/kingdom/layer/scene 校验。
+    /// </summary>
     internal static bool TryGetMainBankerDomain(Kingdom kingdom,
         out float left, out float right)
     {
         left = 0f;
         right = 0f;
         if (kingdom == null) return false;
-
-        // GetWall(side, 0) indexes an empty list instead of returning null. Gate
-        // every call through the native ordered lists and never mix wall stages.
-        var orderedWalls = kingdom._orderedWalls;
-        if (orderedWalls != null)
-        {
-            var leftWalls = orderedWalls[Side.Left];
-            var rightWalls = orderedWalls[Side.Right];
-            if (leftWalls != null && rightWalls != null)
-            {
-                if (leftWalls.Count > 1 && rightWalls.Count > 1
-                    && TryGetWallPair(kingdom, 1, out left, out right)) return true;
-                if (leftWalls.Count > 0 && rightWalls.Count > 0
-                    && TryGetWallPair(kingdom, 0, out left, out right)) return true;
-            }
-        }
-
-        if (!kingdom.HasBorderLoaded) return false;
-        float borderLeft = kingdom.GetBorderSide(Side.Left);
-        float borderRight = kingdom.GetBorderSide(Side.Right);
-        if (IsValidDomain(kingdom, borderLeft, borderRight))
-        {
-            left = borderLeft;
-            right = borderRight;
-            return true;
-        }
-
-        return false;
+        return MainBankerFixedDomain.TryGetDomain(out left, out right);
     }
 
     internal static bool IsInMainBankerDomain(Kingdom kingdom, float x)
     {
         return TryGetMainBankerDomain(kingdom, out float left, out float right)
-            && IsInMainBankerDomain(x, left, right);
+            && MainBankerFixedDomain.IsInside(x, left, right);
     }
 
     internal static bool IsInMainBankerDomain(float x, float left, float right)
     {
-        return x > left && x < right;
-    }
-
-    private static bool IsUsableWall(Wall wall)
-    {
-        return wall != null && wall.gameObject != null && wall.transform != null
-            && wall.gameObject.activeInHierarchy;
-    }
-
-    private static bool TryGetWallPair(Kingdom kingdom, int wallIndex,
-        out float left, out float right)
-    {
-        left = 0f;
-        right = 0f;
-        Wall leftWall = kingdom.GetWall(Side.Left, wallIndex);
-        Wall rightWall = kingdom.GetWall(Side.Right, wallIndex);
-        if (!IsUsableWall(leftWall) || !IsUsableWall(rightWall)) return false;
-        left = leftWall.transform.position.x;
-        right = rightWall.transform.position.x;
-        return IsValidDomain(kingdom, left, right);
-    }
-
-    private static bool IsFiniteOrdered(float left, float right)
-    {
-        return !float.IsNaN(left) && !float.IsInfinity(left)
-            && !float.IsNaN(right) && !float.IsInfinity(right) && left < right;
-    }
-
-    private static bool IsValidDomain(Kingdom kingdom, float left, float right)
-    {
-        return kingdom != null && IsFiniteOrdered(left, right)
-            && left < kingdom.campfirePosition && kingdom.campfirePosition < right;
+        return MainBankerFixedDomain.IsInside(x, left, right);
     }
 
     /// <summary>
@@ -449,8 +407,7 @@ public static class PatchEconomy_Banker
             banker.walkSpeed = 1.95f;
             Claim(ref profile.RunSpeed, banker.runSpeed, 3.6f);
             banker.runSpeed = 3.6f;
-            Claim(ref profile.WanderRange, banker.wanderRange, 8.75f);
-            banker.wanderRange = 8.75f;
+            ApplyWanderForDomain(banker, profile);
             Claim(ref profile.PlayerMaxCoins, banker.playerMaxCoins, ENHANCED_PLAYER_PAYOUT_TARGET);
             banker.playerMaxCoins = ENHANCED_PLAYER_PAYOUT_TARGET;
         }
@@ -463,35 +420,101 @@ public static class PatchEconomy_Banker
         }
 
         ConfigureScannerForDomain(banker, profile);
+        // 记录本次按哪个域代数写入（域未知=0）；换代后由各本体 prefix 依此刷新，
+        // 不再依赖“谁拿到一次刚发布的 bool”。
+        profile.DomainAppliedGeneration = MainBankerFixedDomain.ReadyGeneration;
     }
 
+    /// <summary>
+    /// Issue 100：按已发布域代数为单个本体刷新域相关字段（wander/扫描）。每个本体
+    /// 各自对齐；readyGeneration==0（域未知）时不刷新本体值——fail-closed 回收由
+    /// 120 帧巡检与离开 scope 的归还路径负责。
+    /// </summary>
+    internal static void RefreshDomainProfileForGeneration(Banker banker, int readyGeneration)
+    {
+        if (banker == null || readyGeneration <= 0) return;
+        WorkProfile profile = EnsureProfile(banker);
+        if (profile == null || profile.DomainAppliedGeneration == readyGeneration) return;
+        ApplyEnhancedWorkProfile(banker);
+    }
+
+    /// <summary>
+    /// Issue 100：wander 半径=min(8.75, 域内最小距离-epsilon)，活动目标不越过固定墙基。
+    /// 域未知时归还原生值（fail-closed），绝不写无根据的常量；receipt 复用既有 owned 通道。
+    /// </summary>
+    private static void ApplyWanderForDomain(Banker banker, WorkProfile profile)
+    {
+        Managers managers = Managers.Inst;
+        Kingdom kingdom = managers != null ? managers.kingdom : null;
+        float campfire = kingdom != null ? kingdom.campfirePosition : float.NaN;
+        if (kingdom == null
+            || !MainBankerFixedDomain.TryGetDomain(out float left, out float right)
+            || !MainBankerFixedDomain.IsFinite(campfire))
+        {
+            if (NeedsRestore(ref profile.WanderRange, banker.wanderRange))
+            {
+                banker.wanderRange = profile.WanderRange.Original;
+                profile.WanderRange.Owned = false;
+            }
+            return;
+        }
+
+        float minDistance = Mathf.Min(campfire - left, right - campfire);
+        float desired = Mathf.Min(ENHANCED_WANDER_RANGE,
+            Mathf.Max(0f, minDistance - WANDER_DOMAIN_EPSILON));
+        Claim(ref profile.WanderRange, banker.wanderRange, desired);
+        banker.wanderRange = desired;
+    }
+
+    /// <summary>
+    /// 方向扫描器只是优化，不是硬门：硬边界由 claim/钱包门保证。这里在已证域内时把
+    /// 扫描范围贴到两侧固定墙基；域未知、本体位置/缩放非有限或本体已在域外时一律
+    /// 收敛为 0（扫描不到任何币），等待回位与下一次对齐。绝不用 max(0.1,...) 把
+    /// 域外方向当合法绝对边界。
+    /// </summary>
     private static bool ConfigureScannerForDomain(Banker banker, WorkProfile profile)
     {
         if (banker == null || profile == null) return false;
         Scanner scanner = banker._coinScanner;
-        Managers managers = Managers.Inst;
-        Kingdom kingdom = managers != null ? managers.kingdom : null;
-        if (!TryGetMainBankerDomain(kingdom, out float left, out float right))
-        {
-            Claim(ref profile.CoinScanRange, banker.coinScanRange, 0f);
-            banker.coinScanRange = 0f;
-            WriteScannerValues(profile, scanner, 0f, 0f, 1f);
-            return false;
-        }
+        if (!MainBankerFixedDomain.TryGetDomain(out float left, out float right))
+            return FailClosedScanner(profile, banker, scanner);
 
-        float x = banker.transform.position.x;
-        float scaleMagnitude = Mathf.Max(0.01f,
-            Mathf.Abs(banker.transform.localScale.x));
-        bool facesRight = banker.transform.localScale.x >= 0f;
-        float forward = Mathf.Max(0.1f,
-            (facesRight ? right - x : x - left) / scaleMagnitude);
-        float behind = Mathf.Max(0.1f,
-            (facesRight ? x - left : right - x) / scaleMagnitude);
+        float x;
+        float scale;
+        try
+        {
+            x = banker.transform.position.x;
+            scale = banker.transform.localScale.x;
+        }
+        catch
+        {
+            return FailClosedScanner(profile, banker, scanner);
+        }
+        if (!MainBankerFixedDomain.IsFinite(x) || !MainBankerFixedDomain.IsFinite(scale)
+            || !MainBankerFixedDomain.IsInside(x, left, right))
+            return FailClosedScanner(profile, banker, scanner);
+
+        float magnitude = Mathf.Abs(scale);
+        bool facesRight = scale >= 0f;
+        float forward = (facesRight ? right - x : x - left) / magnitude;
+        float behind = (facesRight ? x - left : right - x) / magnitude;
+        if (!MainBankerFixedDomain.IsFinite(forward) || !MainBankerFixedDomain.IsFinite(behind)
+            || forward < 0f || behind < 0f)
+            return FailClosedScanner(profile, banker, scanner);
+
         float scanRange = Mathf.Max(forward, behind);
         Claim(ref profile.CoinScanRange, banker.coinScanRange, scanRange);
         banker.coinScanRange = scanRange;
         WriteScannerValues(profile, scanner, forward, behind, 1f);
         return true;
+    }
+
+    private static bool FailClosedScanner(WorkProfile profile, Banker banker, Scanner scanner)
+    {
+        Claim(ref profile.CoinScanRange, banker.coinScanRange, 0f);
+        banker.coinScanRange = 0f;
+        WriteScannerValues(profile, scanner, 0f, 0f, 1f);
+        return false;
     }
 
     /// <summary>
@@ -537,6 +560,12 @@ public static class PatchEconomy_Banker
         if (banker == null) return;
         if (!ObjectIdentity.TryGet(banker, out ObjectIdentity key)) return;
         if (!_workProfiles.TryGetValue(key, out WorkProfile profile)) return;
+
+        // 开始归还即撤销“已应用域代数”标记：若后续字段 setter 抛错（部分归还），
+        // profile 会保留，而标记若仍等于当前域代数，重新 enable 的首帧 prefix 会跳过
+        // Apply，wander/扫描器停留在原生值。撤销后下一次 prefix 必定重新应用。
+        // 只动本 profile 元数据，不碰 ledger/save/finance。
+        profile.DomainAppliedGeneration = -1;
 
         try
         {
@@ -1259,6 +1288,9 @@ public static class PatchEconomy_Banker
             return;
         }
 
+        // Issue 100：固定域的结构快照/刷新已移到独立的 Banker.Update 固定域 prefix
+        // （prepare→profile→movement，发生在原生本帧行为之前），这里不再重复捕获。
+
         // 行为增强同样要求“当前层的本体”：旧层残留/身份未就绪时不改、不记、不扫。
         // 客机（无 world auth）仍保留本地行为与视觉，只禁经济写入。
         if (!GreekBankScope.IsCurrentBanker(__instance)) return;
@@ -1277,6 +1309,10 @@ public static class PatchEconomy_Banker
             // Walls move as the kingdom expands. Refresh the directional scanner at
             // low frequency; the outside-wall claim gate remains the final boundary.
             ApplyEnhancedWorkProfile(__instance);
+
+            // Issue 100：低频快照回收本银行家仍持有的域外 Player/Coins 认领——
+            // 原生 ClaimCoins 一次可能认领多枚，不能只清 _targetCoin。
+            ReleaseOutsideDomainBankerClaims(__instance);
 
             // Awake 可能早于当前世界/层就绪（Castle.CatchupToLevel 先 Instantiate 再
             // SetParent），那样 EnsureForMainBanker 会被身份闸门挡下：低频补绑一次。
@@ -1344,6 +1380,98 @@ public static class PatchEconomy_Banker
         return false;
     }
 
+    // === Issue 100 固定域：域外认领低频回收 ===
+
+    private const float CLAIM_RELEASE_SCAN_RANGE = float.MaxValue;
+    private static readonly Il2CppReferenceArray<DroppableCurrency> _domainClaimBuffer =
+        new Il2CppReferenceArray<DroppableCurrency>(1024);
+
+    /// <summary>
+    /// 低频快照归还：遍历 registrar 掉落物列表，只释放 exact
+    /// friendlyClaimer==banker.gameObject 的域外 Player/Coins（含非有限坐标）。
+    /// 只调原生 ClearFriendlyClaimIfClaimer（对象自带 claimer 限定），不触碰别人的
+    /// 认领、农田来源、拾取策略或余额；无权/身份不符/域未知时不做任何写。
+    /// </summary>
+    private static void ReleaseOutsideDomainBankerClaims(Banker banker)
+    {
+        if (banker == null || banker.gameObject == null) return;
+        if (!GreekBankScope.IsAuthorityBanker(banker)) return;
+        Managers managers = Managers.Inst;
+        Kingdom kingdom = managers != null ? managers.kingdom : null;
+        DroppableRegistrar registrar = managers != null ? managers.dropManager : null;
+        if (kingdom == null || registrar == null) return;
+        if (!MainBankerFixedDomain.TryGetDomain(out float left, out float right)) return;
+
+        int count;
+        try
+        {
+            registrar.GetDroppablesInRange<DroppableCurrency>(
+                kingdom.campfirePosition, CLAIM_RELEASE_SCAN_RANGE, _domainClaimBuffer, out count, null);
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[BankerDomain] claim sweep read failed: " + e.GetType().Name);
+            return;
+        }
+        if (count > _domainClaimBuffer.Length) count = _domainClaimBuffer.Length;
+        for (int i = 0; i < count; i++)
+            TryReleaseOutsideDomainClaim(banker, _domainClaimBuffer[i], left, right);
+        ClearTargetCoinIfOutsideDomain(banker, left, right);
+    }
+
+    private static void TryReleaseOutsideDomainClaim(Banker banker, DroppableCurrency coin,
+        float left, float right)
+    {
+        if (coin == null || coin.gameObject == null || !coin.isActiveAndEnabled) return;
+        if (coin.droppedBy != DropType.Player || coin.CurrencyType != CurrencyType.Coins) return;
+        GameObject claimer;
+        try { claimer = coin.friendlyClaimer; } catch { return; }
+        if (claimer == null || claimer != banker.gameObject) return; // exact 本人
+        if (!GreekBankScope.IsInCurrentLayer(coin)) return;
+        float x;
+        try { x = coin.transform.position.x; } catch { return; }
+        if (MainBankerFixedDomain.IsInside(x, left, right)) return; // 域内保留
+        ClearBankerClaim(coin, banker);
+    }
+
+    /// <summary>
+    /// 明确证据才清 target：目标是非有限/域外 Player/Coins（且已归还本人认领）。
+    /// 域内目标一律保留，不影响原生移动/拾取流程。
+    /// </summary>
+    private static void ClearTargetCoinIfOutsideDomain(Banker banker, float left, float right)
+    {
+        DroppableCurrency target;
+        try { target = banker._targetCoin; } catch { return; }
+        if (target == null || target.gameObject == null) return;
+        if (target.droppedBy != DropType.Player || target.CurrencyType != CurrencyType.Coins) return;
+        // 只处理仍属当前 world/layer/scene 的币：旧/异层残留不得写认领或清引用。
+        if (!GreekBankScope.IsInCurrentLayer(target.gameObject)) return;
+        float x;
+        try { x = target.transform.position.x; } catch { return; }
+        if (MainBankerFixedDomain.IsInside(x, left, right)) return;
+        try
+        {
+            if (target.friendlyClaimer == banker.gameObject) ClearBankerClaim(target, banker);
+            banker._targetCoin = null;
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[BankerDomain] target clear failed: " + e.GetType().Name);
+        }
+    }
+
+    private static void ClearBankerClaim(DroppableCurrency coin, Banker banker)
+    {
+        try { coin.ClearFriendlyClaimIfClaimer(banker.gameObject); }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[BankerDomain] claim release failed: " + e.GetType().Name);
+        }
+    }
+
     // === ShouldHide - 已验证的积极工作模式（夜间不休息） ===
 
     [HarmonyPatch(typeof(Banker), nameof(Banker.ShouldHide))]
@@ -1368,9 +1496,9 @@ public static class PatchEconomy_Banker
 }
 
 /// <summary>
-/// Keep the native Banker strictly inside the current wall topology. The assistant
-/// scheduler owns player coins outside the walls; all other claimers and droppables
-/// continue through the original TryFriendlyClaim implementation unchanged.
+/// Issue 100 认领硬门之一：当前希腊本体的原生银行家只能在已发布固定域内认领
+/// 玩家金币；域未知/非有限/域外一律否决，并把币留给既有助手。其他世界、
+/// 其他认领者、其他币种继续走原生 TryFriendlyClaim。
 /// </summary>
 [HarmonyPatch(typeof(Droppable), nameof(Droppable.TryFriendlyClaim))]
 public static class Droppable_MainBankerOutsideWallClaim_Patch
@@ -1381,21 +1509,175 @@ public static class Droppable_MainBankerOutsideWallClaim_Patch
         GameObject claimer,
         ref bool __result)
     {
-        // 只在当前希腊世界改写原生银行家的外墙认领；其他世界走原生实现。
+        // 只在当前希腊世界改写当前本体的认领；其他世界/旧层残留走原生实现。
         if (!GreekBankScope.IsActive || __instance == null || claimer == null) return true;
         Banker banker = claimer.GetComponent<Banker>();
+        if (banker == null || !GreekBankScope.IsCurrentBanker(banker)) return true;
         DroppableCurrency coin = __instance.TryCast<DroppableCurrency>();
-        if (banker == null || coin == null || coin.droppedBy != DropType.Player
+        if (coin == null || coin.gameObject == null
+            || coin.droppedBy != DropType.Player
             || coin.CurrencyType != CurrencyType.Coins) return true;
+        // 门只作用于当前层的币；异层残留不拦截（也不会被当前域的判断误用）。
+        if (!GreekBankScope.IsInCurrentLayer(coin.gameObject)) return true;
 
-        Managers managers = Managers.Inst;
-        Kingdom kingdom = managers != null ? managers.kingdom : null;
-        if (PatchEconomy_Banker.TryGetMainBankerDomain(
-                kingdom, out float left, out float right)
-            && PatchEconomy_Banker.IsInMainBankerDomain(
-                coin.transform.position.x, left, right)) return true;
+        // 已证 current-banker + 本币型别 + 当前层：位置读故障无法证明域内 → fail-closed。
+        float x;
+        try { x = coin.transform.position.x; }
+        catch { __result = false; return false; }
+        // NaN/Infinity 拒绝所有认领；域未知/域外同样拒绝（fail-closed）。
+        if (MainBankerFixedDomain.TryGetDomain(out float left, out float right)
+            && MainBankerFixedDomain.IsInside(x, left, right)) return true;
 
         __result = false;
         return false;
+    }
+}
+
+/// <summary>
+/// Issue 100 固定域唯一入口：独立 Banker.Update 前缀（与既有 ledger priming 前缀共存，
+/// 不修改其语义）。明确顺序 prepare → profile → movement，全部发生在原生本帧
+/// Idle/ClaimCoins 之前：
+///   - prepare：成功加载通知后的下一个安全维护点捕获固定域（结构快照只读，
+///     不需要 worldAuth，也不解除任何网络门；失败有界低频重试）；
+///   - profile：按各本体 WorkProfile.DomainAppliedGeneration 刷新域内 wander 半径与
+///     扫描范围（每个本体各自对齐，不依赖谁先消费“刚发布”的一次性信号）；
+///   - movement：只处理确证的旧域外位置型 goal——
+///     仅 Current == GrabCoin(0) / Idle(1) 且 movingToGoal 且 goalMode == Position；
+///     任何 _executeQueuedState==true 本帧一律不覆盖（先让原生消费，下一帧按新
+///     Current 判断，DropOff(4)/Payout(5) 永不被取消）；goal 非有限不动；
+///     goal 在域内一律不动（Actor 域外也自然归位，禁止每帧重排）。
+/// 取消动作 = Mover.Stop + GoToState(Idle)，让原生 Update 的 FSM 执行切换；绝不
+/// StopAllCoroutines / GoToAndUpdate；GrabCoin 取消或目标滚出域时只归还仍属本人的
+/// 域外目标认领并清 target（明确证据）。
+/// </summary>
+[HarmonyPatch(typeof(Banker), nameof(Banker.Update))]
+public static class Banker_FixedDomain_Patch
+{
+    private const int StateGrabCoin = 0;
+    private const int StateIdle = 1;
+
+    [HarmonyPrefix]
+    public static void Prefix(Banker __instance)
+    {
+        Managers managers = Managers.Inst;
+        if (managers == null || managers.game == null
+            || managers.game.state != Game.State.Playing) return;
+        if (GreekBankScope.Current() != GreekBankScope.Scope.Active) return;
+
+        // prepare：捕获只读；不因客机无 worldAuth 而跳过，也不影响任何权威门。
+        MainBankerFixedDomain.Maintain(managers);
+
+        if (__instance == null || __instance.gameObject == null) return;
+        if (!GreekBankScope.IsCurrentBanker(__instance)) return;
+
+        // profile：本体按已发布域代数各自刷新（首个拿到发布的调用方不再独占信号）。
+        PatchEconomy_Banker.RefreshDomainProfileForGeneration(
+            __instance, MainBankerFixedDomain.ReadyGeneration);
+
+        try
+        {
+            if (!GreekBankScope.IsAuthorityBanker(__instance)) return;
+            if (!MainBankerFixedDomain.TryGetDomain(out float left, out float right)) return;
+
+            StateMachine fsm = __instance._fsm;
+            Mover mover = __instance._mover;
+            if (fsm == null || mover == null) return;
+
+            int current = (int)fsm.Current;
+            if (current != StateGrabCoin && current != StateIdle) return; // 财务状态不动
+            if (fsm._executeQueuedState) return;                          // 已排队切换：让原生消费
+            if (!mover.movingToGoal) return;                              // 只处理正在执行的 goal
+            if (mover.goalMode != Mover.GoalMode.Position) return;        // 只认位置型 goal
+
+            float goal = mover._goalPosition;
+            if (!MainBankerFixedDomain.IsFinite(goal)) return;            // 读不到目标不动作
+            if (MainBankerFixedDomain.IsInside(goal, left, right))
+            {
+                // goal 仍向内：即使目标币已滚出域，也只归还那枚外币认领，
+                // 让已有域内移动自然完成（不 Stop、不重排、不清 target）。
+                if (current == StateGrabCoin)
+                    ReleaseTargetClaimIfCoinOutside(__instance, left, right, clearTarget: false);
+                return;
+            }
+
+            if (current == StateGrabCoin)
+                ReleaseTargetClaimIfCoinOutside(__instance, left, right, clearTarget: true);
+            mover.Stop();
+            fsm.GoToState(StateIdle);
+        }
+        catch
+        {
+            // 读取异常：保留原生流程；最终钱包门仍拒绝域外拾取。
+        }
+    }
+
+    private static void ReleaseTargetClaimIfCoinOutside(Banker banker, float left, float right,
+        bool clearTarget)
+    {
+        DroppableCurrency target;
+        try { target = banker._targetCoin; } catch { return; }
+        if (target == null || target.gameObject == null) return;
+        if (target.droppedBy != DropType.Player || target.CurrencyType != CurrencyType.Coins) return;
+        // 只处理仍属当前 world/layer/scene 的币：旧/异层残留不得写认领或清引用。
+        if (!GreekBankScope.IsInCurrentLayer(target.gameObject)) return;
+        float x;
+        try { x = target.transform.position.x; } catch { return; }
+        if (MainBankerFixedDomain.IsInside(x, left, right)) return; // 目标仍在域内：保留
+        try
+        {
+            if (target.friendlyClaimer == banker.gameObject)
+                target.ClearFriendlyClaimIfClaimer(banker.gameObject);
+            // 明确证据（域外 Player/Coins）才清 target；goal 仍向内时只释放认领。
+            if (clearTarget) banker._targetCoin = null;
+        }
+        catch
+        {
+        }
+    }
+}
+
+/// <summary>
+/// Issue 100 钱包最终硬门。原生 Wallet.SuckCurrency 的拾取判定在 CanBePickedUp 里
+/// 对 Everyone/ExceptDropper 策略根本不看 friendlyClaimer，银行家钱包可能在碰撞中
+/// 绕过认领门拾取域外金币。这里做最窄拦截：只对 exact 当前 authority 本体银行家的
+/// 钱包（owner._wallet.Pointer == __instance.Pointer，owner 由钱包自身 GameObject 取，
+/// 不依赖读档期可能为 null 的 kingdom.banker），当前层、Player/Coins。
+/// 域内放行原生；域未知/坐标非有限/域外 __result=false 并跳过原生。
+/// 其他钱包、其他币种/来源、其他层保持原生（不在 postfix 退款，不碰余额）。
+/// </summary>
+[HarmonyPatch(typeof(Wallet), nameof(Wallet.SuckCurrency))]
+public static class Wallet_MainBankerFixedDomainCurrency_Patch
+{
+    [HarmonyPrefix]
+    public static bool Prefix(Wallet __instance, DroppableCurrency currency,
+        bool playSound, ref bool __result)
+    {
+        try
+        {
+            if (__instance == null || currency == null || currency.gameObject == null) return true;
+            GameObject walletGo = __instance.gameObject;
+            if (walletGo == null) return true;
+            Banker owner = walletGo.GetComponent<Banker>();
+            if (owner == null || owner._wallet == null
+                || owner._wallet.Pointer != __instance.Pointer) return true; // 不是本体钱包
+            if (!GreekBankScope.IsAuthorityBanker(owner)) return true;       // 其他世界/客机：原生
+            if (currency.droppedBy != DropType.Player
+                || currency.CurrencyType != CurrencyType.Coins) return true; // 其他币：原生
+            if (!GreekBankScope.IsInCurrentLayer(currency.gameObject)) return true; // 其他层：原生
+
+            // 已证 exact 本体钱包 + 当前层 Player/Coins：位置读故障无法证明域内 → fail-closed。
+            float x;
+            try { x = currency.transform.position.x; }
+            catch { __result = false; return false; }
+            if (MainBankerFixedDomain.TryGetDomain(out float left, out float right)
+                && MainBankerFixedDomain.IsInside(x, left, right)) return true;
+
+            __result = false; // 域未知/非有限/域外：拒绝进入钱包
+            return false;
+        }
+        catch
+        {
+            return true; // 资格证明之前读取失败：交给原生（不新增行为）
+        }
     }
 }

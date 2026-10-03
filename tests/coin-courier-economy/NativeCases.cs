@@ -27,7 +27,7 @@ static class NativeCases
     {
         Type nested = typeof(SharedBankNative).GetNestedType("AsyncGate", Harness.AnyStatic);
         MethodInfo method = nested.GetMethod("Prefix", Harness.AnyStatic);
-        return (bool)method.Invoke(null, new object[] { global, callback });
+        return (bool)method.Invoke(null, new object[] { global, callback, true }); // 第3槽 = HarmonyX 注入的 ref __runOriginal（首个前缀为 true）
     }
 
     private static bool SyncGate(GlobalSaveData._Save_d__89 routine, out bool result)

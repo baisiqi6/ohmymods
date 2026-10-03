@@ -2,33 +2,39 @@
 
 > **Agent provenance:** `Mac Max / Codex` · role=`Maintainer Operator` · acting_for=`ohmymods Mac Operator`
 
-本批恢复希腊公共银行的存档/战役归属、英雄驿站的购买与保存一致性，并新增承载16种跨世界坐骑的探索岛及完整卷轴资源地图。代码基于共享发布线 `release/v9.5.13@23e16f3d85e3b0c906ad2d7f04cd71891e1aee8d（已承接PR#102的#99修复）`，包含此前已接收而未进入远端的Windows候选支持文件。默认 `master` 属于旧历史，不能用作此批业务基底。
+本批恢复希腊公共银行的存档/战役归属、英雄驿站的购买与保存一致性，并新增承载16种跨世界坐骑的探索岛及完整卷轴资源地图。代码基于共享发布线 `release/v9.5.13@2b6647cc8ad83512149dff0a9bcec2ea14a4bbcc（已承接PR#102/#99及PR#103/#100）`，包含此前已接收而未进入远端的Windows候选支持文件。默认 `master` 属于旧历史，不能用作此批业务基底。
 
-这是 #29 的新整合阶段，关联 #51/#85/#97/#98；不自动关闭任何功能Issue。相邻的 #99 实玩Bug已通过PR#102合并到共享base，本PR保留该已合并源码且不重复提交其增量；#100固定墙基银行家范围与 #101宫廷代码仍保持独立并排除其候选。此前已安装26f286d6包含#99；当前PR产品源逻辑已与该已装组合逐项核对，制品仍以本次精确输入和构建SHA单独记录，本PR精确DLL尚未安装，当前任务不合并、不部署、不发布或修改玩家数据。
+这是 #29 的新整合阶段，关联 #51/#85/#97/#98；不自动关闭任何功能Issue。相邻的 #99 实玩Bug和 #100 固定墙基范围已分别通过PR#102/#103合并到共享base；本PR保留两者且不重复提交已合并增量。#101宫廷及 #104新传送视觉候选继续独立，不进入本PR。修复维护会话合并后已备份安装累计b0602679；本PR产品逻辑与该已装组合逐项核对，制品仍以本次输入和构建SHA单独记录，本PR精确DLL尚未安装。本任务仅同步协作与审阅，不触发新合并、部署、发布或玩家数据写入。
 
 ## 逐项状态
 
 | 范围 | Issue / Coordinate记录 | 源码 | 验证 | 安装与实机边界 |
 |---|---|---|---|---|
 | 接收的盾卫候选 | #51 / issue-51 | 职业、盾具店、持久化、耐久4及职业互斥接线已接收 | ARM完整组合编译；继承专项测试按原回执保留 | 包含在正常ARM组合；Mac领盾、耐久/退职、读档与联机尚未专项验收 |
-| 银行公共余额 | #97 / issue-97 | 同存档/战役共享、跨战役隔离、原生保存边界和现有经济责任保持 | 本head state28、capture5、recovery5；既有55核心与七继承回归另有历史回执 | 7dcdbf52曾确认启动加载；26f286d6仅安装/check-only，玩家跨岛提款/隔离完整现场待验 |
-| 英雄购买/责任 | #85 / issue-85 | 不上船、旧付款保留与新购买/异步保存门协同 | 本head core47、lands24、carry22；bank-combo22 | 包含在正常ARM组合；反馈问题的完整实际购买/保存闭环待验 |
-| 跨世界坐骑、扩岛与地图 | #98 / issue-98 | 16原生获取/能力依赖、physical11/UI10、原生地理关系及全纸域坐骑两行布局 | 本head portable纯函数2950；此前真实船标耦合源/坐标检查在282/300宽=.60，314/400=.70，16完整无碰撞 | 正常组合已安装；本次最终地图像素/点击和land11完整往返、骑乘技能、保存重载尚待用户 |
+| 银行公共余额 | #97 / issue-97 | 同存档/战役共享、跨战役隔离、原生保存边界和现有经济责任保持 | 本批state28、capture5、recovery5（相关SharedBank源保持）；既有55核心与七继承回归另有历史回执 | 7dcdbf52曾确认启动加载；26f286d6及后继b0602679均仅安装/check-only，玩家跨岛提款/隔离完整现场待验 |
+| 英雄购买/责任 | #85 / issue-85 | 不上船、旧付款保留与新购买/异步保存门协同 | 本批core47、lands24、carry22（相关Hero源保持）；组合22另复跑 | 包含在正常ARM组合；反馈问题的完整实际购买/保存闭环待验 |
+| 跨世界坐骑、扩岛与地图 | #98 / issue-98 | 16原生获取/能力依赖、physical11/UI10、原生地理关系及全纸域坐骑两行布局 | 本批portable纯函数2950（地图源保持）；此前真实船标耦合源/坐标检查在282/300宽=.60，314/400=.70，16完整无碰撞 | 正常组合已安装；本次最终地图像素/点击和land11完整往返、骑乘技能、保存重载尚待用户 |
 | 缩放稳定性与农舍猫接收修订 | #29；既有greek-scale-scope-20260914 / fleet-retreat-cats-20260912记录 | 继承候选与相关测试收录；不是#99的身高+5%增量 | 原接收/测试回执与本完整ARM构建分开 | 不把本次源码接收当作新实机完成，既有owner不变 |
-| 实玩Bug / 新银行家范围 | #99 / #100 | 原维护会话独立PR；#99现为共享base，#100候选不包含在本PR | 各自留证 | 后续按Issue→PR→授权合并→原安装边界推进 |
+| 实玩Bug / 新银行家范围 | #99 / #100 | 独立PR#102/#103均已合并，现为共享base；本PR保留其已接纳接缝 | 原切片回执与本次组合回归分开 | 原维护会话已装累计b0602679，13受保护文件hash保持，实玩pending |
 | 原创宫廷 | #101 / issue-101 | 独立候选模块和素材，不进入本PR；拟physical12，文件表/配置须主线协调 | 部分模块与隔离原生证据 | 正常ARM未接入；一次支付和部分保存不等于完整访问往返，待履行支付责任保留 |
 
 ## 当前精确候选验证
 
-代码原冻结commit `07c524924c23f7a0b39cd2339df2f915e767d19c`，随后承接共享PR#102已合并的#99修复；最终产品源逐项匹配当前已批准26f286d6逻辑，测试与文档另有提交。实际Mac ARM参考程序集161项，Standalone .NET6程序集使用已安装.NET8 SDK构建：0 warnings / 0 errors。验证包装器assembly version为10.8.38，仓库项目Version保持原10.8.35，本PR不做正式版本发布。原无#99审阅产物SHA256 `bac224fb76a59e34c90d5780780556ae3ac63475eccde64ce2bc3d0c42c006da`已被本次重新构建取代，不作为新head对应制品；本次新制品SHA256 `8c09c424fc675bc3bf66fb90e1b0b3edddb1e32ea506cf7f08b817ff531f8ad5`，未安装。
+代码原冻结commit `07c524924c23f7a0b39cd2339df2f915e767d19c`，随后承接共享PR#102/#103已合并的#99/#100修复；最终产品源逐项匹配当前已批准b0602679逻辑，测试与文档另有提交。实际Mac ARM参考程序集161项，Standalone .NET6程序集使用已安装.NET8 SDK构建：0 warnings / 0 errors。验证包装器assembly version为10.8.38，仓库项目Version保持原10.8.35，本PR不做正式版本发布。原无#99审阅产物SHA256 `bac224fb76a59e34c90d5780780556ae3ac63475eccde64ce2bc3d0c42c006da`已被本次重新构建取代，不作为新head对应制品；承接#99时制品 `8c09c424fc675bc3bf66fb90e1b0b3edddb1e32ea506cf7f08b817ff531f8ad5`同样为历史；承接#100后的当前制品SHA256 `8840cc0fd627ada430458973ca97d3a0bab72214f1e2a0d76f01c129e49bb70b`，未安装。
 
-原无#99审阅head对fc82的IL/locals/EH范围比较6475方法保持、33PNG与331Harmony目标保持；承接已合并#99后，另以当前已装26f286d6进行IL/locals/EH与资源比较：6530方法全部保持、0改变/新增，33PNG及331Harmony目标保持；不将旧审阅结果冒充新head验证。代码逻辑字节保持已接纳输入，仅统一文本换行、移除两处无语义尾空格。逻辑提交分组服务审阅；仅最终head承诺本次构建与测试，不声称每个中间commit已单独验证。
+原无#99审阅head对fc82的IL/locals/EH范围比较6475方法保持、33PNG与331Harmony目标保持；承接已合并#99后，另以当前已装26f286d6进行IL/locals/EH与资源比较：6530方法全部保持、0改变/新增，33PNG及331Harmony目标保持；承接#100后对当前已装b0602679再做独立比较：6555方法全部保持、0改变/新增，33PNG与334Harmony目标保持；不将旧审阅结果冒充新head验证。代码逻辑保持已接纳输入，仅统一文本换行、移除两处无语义尾空格。逻辑提交分组服务审阅；仅最终head承诺本次构建与测试，不声称每个中间commit已单独验证。
 
 原审阅head复跑旧哥布林bridge197、visuals23/0；承接PR#102后新head的bridge203、visuals23/0和height19已复跑通过；lifecycle11以已有盾卫边界stub引用作测试接线后复跑通过，分别留证（含作者manifest）；地图pure2950/0，fixture仅保留10个原生岛簇坐标/尺寸与必要图标索引/尺寸元数据，不包含游戏bitmap、源码dump、玩家文件或私人会话。源/坐标夹具检查不等同真实Unity屏幕、原生航行或玩法闭环。state fixture以scope-local `DOTNET_ROLL_FORWARD=Major` 在现有.NET8 runtime运行，不安装额外runtime。
+
+承接#100后，组合接缝四套独立复跑：fixed-foundations30、coin-courier-economy55、greek-bank-scope35、greek-bank-assistants-scope73全通过。此前17+2项失败为旧反射Harness缺少HarmonyX的第三个`ref __runOriginal`实参，已仅在测试桥补`true`；全部场景与行为断言保留，生产Banker规范换行后与维护者已审组合完全一致。
 
 ## 可复跑回归
 
 ```sh
+dotnet run --project tests/banker-fixed-foundations/Regression.csproj -c Release
+dotnet run --project tests/coin-courier-economy/CoinCourierEconomyTests.csproj -c Release
+dotnet run --project tests/greek-bank-scope/GreekBankScopeRegression.csproj -c Release
+dotnet run --project tests/greek-bank-assistants-scope/Regression.csproj -c Release
 dotnet run --project tests/native-map-icons/MapIconPlanTests.csproj -c Release
 dotnet run --project tests/coin-courier-runtime-bridge/CoinCourierRuntimeBridgeTests.csproj -c Release
 dotnet run --project tests/coin-courier-visuals/Regression.csproj -c Release
@@ -45,7 +51,7 @@ dotnet run --project tests/hero-purchase-consistency/Proof.csproj -c Release -- 
 
 ## 协作与范围
 
-共同PR仅在Coordinate正式绑定issue-29；同一PR不绑定多个task。功能task保留各自原owner/branch，用related_prs与本公开文档引用它，不能把共同审阅分支冒充原任务分支。#99既有PR#102及其已合并事实单独关联，不重复发布。公共AGENTS、全局checklist/events/progress及历史handoff没有复制到此PR，避免覆盖 #16/#76；远端运行的canonical checklist仍以Coordinate受控读回为准。
+共同PR仅在Coordinate正式绑定issue-29；同一PR不绑定多个task。功能task保留各自原owner/branch，用related_prs与本公开文档引用它，不能把共同审阅分支冒充原任务分支。#99/#100各自PR#102/#103与合并事实单独关联，不重复发布；#104效果候选与#101宫廷均保留独立owner及共享文件协调。公共AGENTS、全局checklist/events/progress及历史handoff没有复制到此PR，避免覆盖 #16/#76；远端运行的canonical checklist仍以Coordinate受控读回为准。
 
 后续改动先查询Issue/PR及Coordinate，再登记文件范围；发现重叠先确定唯一writer。阶段变化继续更新source/tests/install/live和精确head、制品/验证回执，内部调度、凭据、玩家数据仅保留在私有过程材料。
 

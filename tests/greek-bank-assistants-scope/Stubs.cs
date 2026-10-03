@@ -331,12 +331,24 @@ namespace UnityEngine
 
     public class Transform : Component
     {
-        public Transform Parent;
+        private Transform _parent;
+        public readonly List<Transform> Children = new List<Transform>();
         public int FailChildReads;
         public Vector3 position;
         public Vector3 localPosition;
         private Vector3 _localScale = new Vector3(1f, 1f, 1f);
         public int Writes;
+
+        /// <summary>Parent tracking feeds GetComponentsInChildren so structure scans see the hierarchy.</summary>
+        public Transform Parent
+        {
+            get => _parent;
+            set
+            {
+                _parent = value;
+                if (value != null && !value.Children.Contains(this)) value.Children.Add(this);
+            }
+        }
 
         public Vector3 localScale
         {
@@ -352,6 +364,27 @@ namespace UnityEngine
             for (Transform current = this; current != null; current = current.Parent)
                 if (ReferenceEquals(current, parent)) return true;
             return false;
+        }
+
+        /// <summary>Issue 100：models Unity subtree scans (includeInactive).</summary>
+        public T[] GetComponentsInChildren<T>(bool includeInactive) where T : Component
+        {
+            var found = new List<T>();
+            CollectComponents(this, includeInactive, found);
+            return found.ToArray();
+        }
+
+        private static void CollectComponents<T>(Transform node, bool includeInactive, List<T> found)
+            where T : Component
+        {
+            if (node == null) return;
+            GameObject owner = node.gameObject;
+            if (owner == null) return;
+            if (!includeInactive && !owner.activeInHierarchy) return;
+            T component = owner.GetComponent<T>();
+            if (component != null) found.Add(component);
+            for (int i = 0; i < node.Children.Count; i++)
+                CollectComponents(node.Children[i], includeInactive, found);
         }
     }
 
@@ -834,6 +867,13 @@ public class Scanner
 public class Wallet : Behaviour
 {
     public int TotalCapacity = 1000;
+    /// <summary>Native final pickup entry; the fixed-domain wallet gate prefixes it.</summary>
+    public int SuckCurrencyCalls;
+    public bool SuckCurrency(DroppableCurrency currency, bool playSound)
+    {
+        SuckCurrencyCalls++;
+        return true;
+    }
 }
 
 public class Castle : Behaviour
@@ -863,6 +903,8 @@ public class Banker : Behaviour
     public Scanner _coinScanner;
     public Wallet _wallet;
     public DroppableCurrency _targetCoin;
+    public StateMachine _fsm;
+    public Mover _mover;
     public int InterestPerDay;
     /// <summary>原生 Banker.BeginRegisteringRPCs 写入的 903 登记回指（双向登记的另一侧）。</summary>
     public CRPCHeader parentHeaderRef;
@@ -890,7 +932,44 @@ public class Banker : Behaviour
     }
 }
 
+public class StateMachine
+{
+    public int Current;
+    public int _queuedState;
+    public bool _executeQueuedState;
+    public int GoToStateCalls;
+
+    public void GoToState(int state)
+    {
+        GoToStateCalls++;
+        _queuedState = state;
+        _executeQueuedState = true;
+    }
+
+    public void GoToState(int state, bool force) => GoToState(state);
+}
+
+public class Mover : Component
+{
+    public enum GoalMode { Off = 0, Position = 1, Object = 2 }
+    public enum OffsetMode { Distance = 0, Formation = 1, Strict = 2 }
+
+    public bool movingToGoal;
+    public GoalMode goalMode;
+    public float _goalPosition;
+    public GameObject _goalObject;
+    public int StopCalls;
+
+    public void Stop() { StopCalls++; movingToGoal = false; }
+}
+
 public class Wall : Behaviour { }
+
+public class PayableUpgrade : Behaviour
+{
+    /// <summary>原生成品证据：未建 Wall0 只有 PayableUpgrade.nextPrefab 直接指向带 Wall 的预制。</summary>
+    public GameObject nextPrefab;
+}
 
 public class OrderedWalls
 {
@@ -940,6 +1019,10 @@ public class Managers : Object
     public Stats stats;
     public CurrencyManager currency;
     public Director director;
+    public int OnLevelLoadedCalls;
+
+    /// <summary>Native successful-load notification (postfix host for the fixed domain).</summary>
+    public void OnLevelLoaded(bool fromSave) { OnLevelLoadedCalls++; }
 }
 
 public class DroppableRegistrar : Behaviour

@@ -1618,6 +1618,24 @@ static class Program
             True(BankAssistantCoinOrigin.KindOf(walletCoin, out _) == BankAssistantCoinOriginKind.None,
                 "the two-argument Drop clears the source");
         });
+        Test("non-finite coins are rejected by scan and commit; domain edges belong to assistants", () =>
+        {
+            var e = new Env();
+            var nan = e.F.AddCoin(8f);
+            nan.transform.position = new Vector3(float.NaN, 0f, 0f);
+            False((bool)Invoke("IsTrackableCoin", nan, -5f, 5f, false), "NaN rejected by scan");
+            False((bool)Invoke("CanCommitPickup", e.Helper, nan), "NaN rejected by commit");
+            ScanTick(e.C, 1.0f);
+            False(ObservedContains(nan.gameObject.GetInstanceID()), "no observation for a NaN coin");
+            Eq(0, nan.ClaimCalls, "NaN coin never claimed");
+
+            var edge = e.F.AddCoin(5f);   // 等于固定域边界：归助手
+            True((bool)Invoke("IsTrackableCoin", edge, -5f, 5f, false),
+                "domain edge is assistant-owned");
+            var inside = e.F.AddCoin(3f); // 域内：归银行家，助手不碰
+            False((bool)Invoke("IsTrackableCoin", inside, -5f, 5f, false),
+                "inside domain stays banker-owned");
+        });
         return Finish();
     }
 }

@@ -1856,8 +1856,11 @@ public class BankAssistantCoordinator : MonoBehaviour
                 && coin.CurrencyType == CurrencyType.Coins && !coin.IsFake())
             {
                 ordinaryPlayerCoins++;
-                if (!PatchEconomy_Banker.IsInMainBankerDomain(
-                        coin.transform.position.x, domainLeft, domainRight))
+                float coinX;
+                try { coinX = coin.transform.position.x; } catch { coinX = float.NaN; }
+                // Issue 100：非有限坐标拒绝（扫描/结算同源），仅诊断计数按域外归类。
+                if (!MainBankerFixedDomain.IsFinite(coinX)
+                    || !PatchEconomy_Banker.IsInMainBankerDomain(coinX, domainLeft, domainRight))
                 {
                     outsideCoins++;
                     int coinId = coin.gameObject.GetInstanceID();
@@ -1995,7 +1998,10 @@ public class BankAssistantCoordinator : MonoBehaviour
         if (coin.CurrencyType != CurrencyType.Coins) return false;
         if (coin.IsFake()) return false;
 
-        float x = coin.transform.position.x;
+        float x;
+        try { x = coin.transform.position.x; } catch { return false; }
+        // Issue 100：NaN/Infinity 拒绝所有认领（不属于域内也不属于域外，不能交给助手）。
+        if (!MainBankerFixedDomain.IsFinite(x)) return false;
         // 主银行家领域排除的目的是避免与原生银行家抢币——但原生银行家只认
         // DropType.Player（Banker.ClaimCoins），领域内的农田币没有任何原生收集者，
         // 不豁免就永远没人捡。故农田币豁免领域排除，玩家投掷币照旧。
@@ -2709,13 +2715,17 @@ public class BankAssistantCoordinator : MonoBehaviour
 
         Managers managers = Managers.Inst;
         Kingdom kingdom = managers != null ? managers.kingdom : null;
+        float coinX;
+        try { coinX = coin.transform.position.x; } catch { return false; }
+        // Issue 100：NaN/Infinity 拒绝结算（与扫描侧一致；域未知同样拒绝）。
+        if (!MainBankerFixedDomain.IsFinite(coinX)) return false;
         // 农田币同样豁免领域排除（原生银行家不捡农田币，领域内无收集者），
         // 否则扫描侧放行、结算侧拒绝会造成认领/回滚 RPC 抖动。
         if (!IsFarmOriginCoin(coin)
             && (!PatchEconomy_Banker.TryGetMainBankerDomain(
                     kingdom, out float domainLeft, out float domainRight)
                 || PatchEconomy_Banker.IsInMainBankerDomain(
-                    coin.transform.position.x, domainLeft, domainRight))) return false;
+                    coinX, domainLeft, domainRight))) return false;
 
         int id = coin.gameObject.GetInstanceID();
         if (!Claims.TryGetValue(id, out int owner) || owner != helper.Index

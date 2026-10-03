@@ -4,6 +4,7 @@
 <Compile Include="../../il2cpp/GreekBankScope.cs" />
 <Compile Include="../../il2cpp/SharedBankState.cs" />
 <Compile Include="../../il2cpp/SharedBankNative.cs" />
+<Compile Include="../../il2cpp/MainBankerFixedDomain.cs" />
 <Compile Include="../../il2cpp/PatchEconomy_Banker.cs" />
 <Compile Include="../../il2cpp/PatchEconomy_BankAssistants.cs" />
 <Compile Include="../../il2cpp/BankAssistantCoinOrigin.cs" />
