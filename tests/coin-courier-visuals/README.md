@@ -3,8 +3,8 @@
 Managed regression suite for the coin-courier display layer:
 
 - `il2cpp/CoinCourierVisuals.cs` — pose table (`CoinCourierPose`), view lifecycle, atlas slicing.
-- `il2cpp/CoinCourierTeleportFx.cs` — handle/generation teleport pool (4-dash ripple groups) shared
-  with the tax assistant.
+- `il2cpp/CoinCourierTeleportFx.cs` — handle/generation teleport pool (16 style-owned stripes,
+  arrival/departure directions, cap 18) shared with the tax assistant and the coin courier.
 
 The suite compiles both production files against local UnityEngine doubles (`Stubs.cs`); it needs
 no Unity and no game install. It checks the frame/phase math, view lifecycle, the FX handle

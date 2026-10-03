@@ -36,7 +36,7 @@ internal static class Program
         Test("teleport fx vertical stripes run down the body over the same foot anchor", TeleportFxVerticalStripeGeometry);
         Test("teleport fx stripes taper through one static four-key width curve", TeleportFxCurveContract);
         Test("teleport fx stripes enter staggered inside the reveal window", TeleportFxStaggeredEntrance);
-        Test("teleport fx light slant is fixed, bidirectional and midpoint-stable", TeleportFxSlantContract);
+        Test("teleport fx stripes keep one uniform tilt and stay mutually parallel", TeleportFxUniformTiltContract);
         Test("teleport fx pool reuse switches geometry between styles", TeleportFxPoolReuseSwitchesStyle);
         Test("teleport fx refuses an unknown style without consuming a slot", TeleportFxRejectsUnknownStyle);
         Test("teleport fx tick is once per frame", TeleportFxFrameDedup);
@@ -400,64 +400,70 @@ internal static class Program
 
     private static void TeleportFxGroupLifecycle()
     {
+        // 旧 Begin 形状 = Departure + 默认锚点 .12：起步即密/满长，只有极短的 alpha 淡入。
         var handle = CoinCourierTeleportFx.Begin(new Vector3(3f, 4f, 0f), new Color(1f, 0.5f, 0.25f, 0.8f), 1f);
         Check(handle.IsValid, "begin returns a valid handle");
         Equal(1, CoinCourierTeleportFx.ActiveCount, "one active effect group");
-        Equal(10, CoinCourierTeleportFx.DashesPerEffect, "table length pins the approved stripe count");
+        Equal(16, CoinCourierTeleportFx.DashesPerEffect, "table length pins the approved stripe count");
         Equal(CoinCourierTeleportFx.DashesPerEffect, EnabledDashCount(), "every stripe of the group is enabled");
         for (int index = 0; index < CoinCourierTeleportFx.DashesPerEffect; index++)
             Check(DashObject(index).activeInHierarchy, "dash " + index + " is active in hierarchy");
 
         var dash0 = Dash(0);
         var dash2 = Dash(2);
+        var dash3 = Dash(3);
         var dash5 = Dash(5);
         Near(2.71f, dash0.Positions[0].x, 1e-5f, "dash 0 left end");
         Near(3.33f, dash0.Positions[3].x, 1e-5f, "dash 0 right end");
-        Near(4.635f, dash0.Positions[0].y, 1e-5f, "dash 0 top stripe above the foot anchor");
+        Near(4.629f, dash0.Positions[0].y, 1e-5f, "dash 0 top row above the foot anchor (uniform tilt)");
         Near(2.95f, dash2.Positions[0].x, 1e-5f, "dash 2 left end");
         Near(3.19f, dash2.Positions[3].x, 1e-5f, "dash 2 right end");
-        Near(4.415f, dash2.Positions[0].y, 1e-5f, "dash 2 low stripe above the foot anchor");
+        Near(4.418f, dash2.Positions[0].y, 1e-5f, "dash 2 row above the foot anchor (uniform tilt)");
         for (int index = 0; index < CoinCourierTeleportFx.DashesPerEffect; index++)
         {
             var line = Dash(index);
             Near(0f, line.startColor.a, 1e-6f, "dash " + index + " starts transparent for the fade-in");
             Near(0f, line.endColor.a, 1e-6f, "dash " + index + " keeps both ends transparent at begin");
         }
-        float initialSpan = dash2.Positions[3].x - dash2.Positions[0].x;
+        float initialSpan = dash0.Positions[3].x - dash0.Positions[0].x;
 
-        CoinCourierTeleportFx.TickForFrame(0.10f, 1);   // .10s：全部线已达自身峰值且仍在 .12 显形窗口内
-        var peakAlphas = new float[CoinCourierTeleportFx.DashesPerEffect];
-        for (int index = 0; index < peakAlphas.Length; index++)
+        CoinCourierTeleportFx.TickForFrame(0.03f, 1);   // 淡入 0.025s 之后：全组密而长
+        Equal(CoinCourierTeleportFx.DashesPerEffect, EnabledDashCount(), "departure keeps every stripe enabled");
+        int visible = 0;
+        for (int index = 0; index < CoinCourierTeleportFx.DashesPerEffect; index++)
         {
             var line = Dash(index);
-            Check(line.startColor.a > 0.18f && line.endColor.a > 0.18f,
-                "dash " + index + " is visible by the reveal window");
-            Check(MathF.Abs(line.startColor.a - line.endColor.a) > 0.15f,
-                "dash " + index + " colours its two ends differently");
-            peakAlphas[index] = MathF.Max(line.startColor.a, line.endColor.a);
+            if (MathF.Max(line.startColor.a, line.endColor.a) > 0.2f) visible++;
         }
-        float peakSpan = dash2.Positions[3].x - dash2.Positions[0].x;
-        Check(peakSpan < initialSpan, "dash contracted by the shrink portion");
+        Equal(CoinCourierTeleportFx.DashesPerEffect, visible, "departure is dense right after the anti-flash fade-in");
+        Near(initialSpan, dash0.Positions[3].x - dash0.Positions[0].x, 1e-3f,
+            "the last-collapsing stripe is still at full length");
 
-        CoinCourierTeleportFx.TickForFrame(0.10f, 2);   // age 0.20 -> 逐线淡出尾段
-        for (int index = 0; index < peakAlphas.Length; index++)
+        CoinCourierTeleportFx.TickForFrame(0.09f, 2);   // age .12 == 默认锚点：多数线已收束
+        int survivors = 0;
+        float longest = 0f;
+        for (int index = 0; index < CoinCourierTeleportFx.DashesPerEffect; index++)
         {
             var line = Dash(index);
-            Check(MathF.Max(line.startColor.a, line.endColor.a) < peakAlphas[index],
-                "dash " + index + " fades out inside its own window");
+            if (!line.enabled || MathF.Max(line.startColor.a, line.endColor.a) <= 0.02f) continue;
+            survivors++;
+            float span = MathF.Abs(line.Positions[3].x - line.Positions[0].x)
+                + MathF.Abs(line.Positions[3].y - line.Positions[0].y);
+            if (span > longest) longest = span;
         }
-        Check(dash2.Positions[3].x - dash2.Positions[0].x < peakSpan, "dash keeps contracting while fading");
+        Check(survivors >= 1 && survivors <= 6, "few residual stripes remain at the anchor, got " + survivors);
+        Check(longest < initialSpan, "the residual stripes are clearly shorter than the full-length start");
 
-        float frozenAlpha = dash0.startColor.a;
-        float frozenEnd = dash0.Positions[3].x;
+        float frozenAlpha = dash3.startColor.a;
+        float frozenEnd = dash3.Positions[3].x;
         CoinCourierTeleportFx.TickForFrame(0f, 3);
         CoinCourierTeleportFx.TickForFrame(float.NaN, 4);
         CoinCourierTeleportFx.TickForFrame(-1f, 5);
         Equal(1, CoinCourierTeleportFx.ActiveCount, "pause and invalid deltas change nothing");
-        Near(frozenAlpha, dash0.startColor.a, 1e-6f, "no alpha change on paused ticks");
-        Near(frozenEnd, dash0.Positions[3].x, 1e-6f, "no state change on paused ticks");
+        Near(frozenAlpha, dash3.startColor.a, 1e-6f, "no alpha change on paused ticks");
+        Near(frozenEnd, dash3.Positions[3].x, 1e-6f, "no state change on paused ticks");
 
-        CoinCourierTeleportFx.TickForFrame(0.05f, 6);   // age 0.25 >= lifetime
+        CoinCourierTeleportFx.TickForFrame(0.25f, 6);   // age .37 >= lifetime
         Equal(0, CoinCourierTeleportFx.ActiveCount, "released after the lifetime");
         Check(!dash0.enabled && !dash5.enabled, "released dashes disable their renderers");
         Check(!DashObject(0).activeInHierarchy && !DashObject(5).activeInHierarchy,
@@ -476,14 +482,8 @@ internal static class Program
             Check(unit.Halves[index] <= 0.32f, "dash " + index + " half-length stays compact");
             Check(unit.Widths[index] >= 0.012f - 1e-4f && unit.Widths[index] <= 0.026f + 1e-4f,
                 "dash " + index + " world width sits inside the approved .012-.026 band");
-            float slope = MathF.Abs(unit.Rises[index] / unit.Halves[index]);
-            Check(slope >= 0.07f && slope <= 0.15f,
-                "dash " + index + " leans by the approved ~4.6-7.8 degrees");
-            Check(MathF.Abs(unit.Rises[index]) < unit.Halves[index],
-                "dash " + index + " stays mostly horizontal");
+            // 统一微斜：全组同向、比率恒 .10、互相平行 —— 采样器已逐线断言（AssertUniformTilt）。
         }
-        Check(unit.Rises.Any(value => value > 0f) && unit.Rises.Any(value => value < 0f),
-            "horizontal stripes lean in both directions across the group");
         Check(unit.Tops.Max() - unit.Tops.Min() > 0.5f, "stripes span more than half a unit of body height");
         Check(MathF.Abs(unit.Tops.Max() - 0.7f) < 0.05f, "the top stripe sits near the ~.7 body height");
         Check(unit.Halves.Distinct().Count() == CoinCourierTeleportFx.DashesPerEffect,
@@ -503,7 +503,7 @@ internal static class Program
             Check(airborne.Zs[index] == air.z, "airborne dash " + index + " keeps the passed z");
         }
 
-        // 相似形：scale .5 / 2 时 y 偏移、rise、半长、线宽都按 scale 线性缩放，z 不变。
+        // 相似形：scale .5 / 2 时 y 偏移、半长、线宽都按 scale 线性缩放，z 不变。
         foreach (float scale in new[] { 0.5f, 2f })
         {
             var scaled = SampleStripeGeometry(foot, scale);
@@ -511,8 +511,6 @@ internal static class Program
             {
                 Near(unit.Offsets[index] * scale, scaled.Offsets[index], 1e-4f,
                     "scale " + scale + " dash " + index + " y offset scales linearly");
-                Near(unit.Rises[index] * scale, scaled.Rises[index], 1e-4f,
-                    "scale " + scale + " dash " + index + " rise scales linearly");
                 Near(unit.Halves[index] * scale, scaled.Halves[index], 1e-4f,
                     "scale " + scale + " dash " + index + " half-length scales linearly");
                 Near(unit.Widths[index] * scale, scaled.Widths[index], 1e-4f,
@@ -524,8 +522,8 @@ internal static class Program
 
     private static void TeleportFxVerticalStripeGeometry()
     {
-        // 竖纹共用同一脚锚：两点同 x、线轴竖直，x 偏移/中心 y/半长一套平行表；
-        // 六条并集覆盖身体 ~.02~.84，方向固定（不做镜像/旋转）。
+        // 竖纹共用同一脚锚：四点同 x、线轴严格竖直，x 偏移/中心 y/半长一套平行表；
+        // 并集覆盖身体 ~.06~.84，方向固定（不做镜像/旋转/斜度）。
         var foot = new Vector3(3f, 4f, 0f);
         var unit = SampleVerticalStripeGeometry(foot, 1f);
         for (int index = 0; index < CoinCourierTeleportFx.DashesPerEffect; index++)
@@ -536,19 +534,13 @@ internal static class Program
             Check(unit.CenterYs[index] > foot.y, "vertical dash " + index + " is anchored above the foot");
             Check(unit.Widths[index] >= 0.012f - 1e-4f && unit.Widths[index] <= 0.026f + 1e-4f,
                 "vertical dash " + index + " world width sits inside the approved .012-.026 band");
-            float slope = MathF.Abs(unit.Leans[index] / unit.Halves[index]);
-            Check(slope >= 0.07f && slope <= 0.15f,
-                "vertical dash " + index + " leans by the approved ~4.6-7.8 degrees");
-            Check(MathF.Abs(unit.Leans[index]) < unit.Halves[index],
-                "vertical dash " + index + " stays mostly upright");
+            // 统一微斜：全组同向、比率恒 .10、互相平行 —— 采样器已逐线断言（AssertUniformTilt）。
         }
-        Check(unit.Leans.Any(value => value > 0f) && unit.Leans.Any(value => value < 0f),
-            "vertical stripes lean in both directions across the group");
         Near(foot.y + 0.04f, unit.Bottoms.Min(), 1e-4f, "lowest stripe reaches the ankle");
         Near(foot.y + 0.84f, unit.Tops.Max(), 1e-4f, "tallest stripe reaches the head");
         Check(unit.Halves.Max() - unit.Halves.Min() >= 0.25f, "vertical stripe lengths are clearly uneven");
         Check(unit.Xs.Distinct().Count() == CoinCourierTeleportFx.DashesPerEffect,
-            "all six vertical stripes have distinct x offsets");
+            "all sixteen vertical stripes have distinct x offsets");
 
         // 空中脚锚不做落地投影；排序/z 原样透传。
         var air = new Vector3(5f, 7.5f, 0f);
@@ -573,8 +565,6 @@ internal static class Program
                     "scale " + scale + " vertical dash " + index + " center y scales linearly");
                 Near(unit.Halves[index] * scale, scaled.Halves[index], 1e-4f,
                     "scale " + scale + " vertical dash " + index + " half-length scales linearly");
-                Near(unit.Leans[index] * scale, scaled.Leans[index], 1e-4f,
-                    "scale " + scale + " vertical dash " + index + " lean scales linearly");
                 Near(unit.Widths[index] * scale, scaled.Widths[index], 1e-4f,
                     "scale " + scale + " vertical line width scales linearly");
             }
@@ -583,8 +573,10 @@ internal static class Program
 
     private static void TeleportFxCurveContract()
     {
-        Equal(10, CoinCourierTeleportFx.DashesPerEffect, "table length pins the approved stripe count");
-        var handle = CoinCourierTeleportFx.Begin(new Vector3(2f, 3f, 0f), Color.white, 1f);
+        Equal(16, CoinCourierTeleportFx.DashesPerEffect, "table length pins the approved stripe count");
+        // Arrival 到显形锚点：全部线处于长度/alpha 峰值，便于逐线核对宽度曲线与色阶。
+        var handle = CoinCourierTeleportFx.Begin(new Vector3(2f, 3f, 0f), Color.white, 1f, 0, 0,
+            CoinCourierTeleportStyle.Horizontal, CoinCourierTeleportDirection.Arrival, 0.12f);
         var widths = new List<int>();
         var lengths = new List<int>();
         var centers = new List<int>();
@@ -613,15 +605,12 @@ internal static class Program
             rows.Add((int)MathF.Round(line.Positions[0].y * 100000f));
             curves[index] = line.widthCurve;
         }
-        Check(widths.Distinct().Count() == CoinCourierTeleportFx.DashesPerEffect, "all ten world widths differ");
-        Check(lengths.Distinct().Count() == CoinCourierTeleportFx.DashesPerEffect, "all ten horizontal lengths differ");
-        Check(centers.Distinct().Count() == CoinCourierTeleportFx.DashesPerEffect, "all ten centres differ");
-        Check(rows.Distinct().Count() == CoinCourierTeleportFx.DashesPerEffect, "all ten rows differ");
+        Check(widths.Distinct().Count() == CoinCourierTeleportFx.DashesPerEffect, "all sixteen world widths differ");
+        Check(lengths.Distinct().Count() == CoinCourierTeleportFx.DashesPerEffect, "all sixteen horizontal lengths differ");
+        Check(centers.Distinct().Count() == CoinCourierTeleportFx.DashesPerEffect, "all sixteen centres differ");
+        Check(rows.Distinct().Count() == CoinCourierTeleportFx.DashesPerEffect, "all sixteen rows differ");
 
-        // .103s：最晚入场的线(.098 完成淡入)与最早入场的线(.108 开始淡出)之间，全组处于各自峰值。
-        CoinCourierTeleportFx.TickForFrame(0.103f, 77);
-        int neutral = 0;
-        int gold = 0;
+        CoinCourierTeleportFx.TickForFrame(0.12f, 77);   // 显形锚点：全部线同时处于峰值
         for (int index = 0; index < CoinCourierTeleportFx.DashesPerEffect; index++)
         {
             var line = Dash(index);
@@ -636,13 +625,12 @@ internal static class Program
                     "aux stripe " + index + " keeps its approved .4-.65 opacity");
             else if (index == 0 || index == 3)
                 Check(plateau >= 0.9f - 1e-4f, "main skeleton stripe " + index + " stays clearly brighter than the aux lines");
-            float spread = MathF.Max(start.r, MathF.Max(start.g, start.b))
-                - MathF.Min(start.r, MathF.Min(start.g, start.b));
-            if (spread <= 0.15f) neutral++;
-            if (start.r - start.b >= 0.2f) gold++;
+            // 色阶契约翻转：不再是"白/灰为主 + 少量金"，而是 style-owned 清晰金色（r>g>b、饱和、不白）。
+            Check(start.r - start.b >= 0.2f && start.r - start.g >= 0.05f && start.g - start.b >= 0.1f,
+                "stripe " + index + " keeps the clear gold hue ordering");
+            Check(!(start.r > 0.99f && start.g > 0.9f && start.b > 0.85f),
+                "stripe " + index + " never falls back to a washed-white tone");
         }
-        Check(neutral >= 8, "palette stays white/grey-dominant across the ten stripes");
-        Check(gold >= 1 && gold <= 2, "pale gold stays at one or two accents, never more");
 
         CoinCourierTeleportFx.Cancel(handle);
         var reuse = CoinCourierTeleportFx.Begin(new Vector3(2f, 3f, 0f), Color.white, 1f, 0, 0,
@@ -659,13 +647,15 @@ internal static class Program
 
     private static void TeleportFxStaggeredEntrance()
     {
-        CoinCourierTeleportFx.Begin(new Vector3(0f, 0f, 0f), Color.white, 1f);
+        // Arrival：激活窗口逐线错开（锚点 .12），全部激活都在显形前完成。
+        CoinCourierTeleportFx.Begin(new Vector3(0f, 0f, 0f), Color.white, 1f, 0, 0,
+            CoinCourierTeleportStyle.Horizontal, CoinCourierTeleportDirection.Arrival, 0.12f);
         int count = CoinCourierTeleportFx.DashesPerEffect;
         var onsets = new float[count];
         for (int i = 0; i < count; i++) onsets[i] = -1f;
         int frame = 1;
         float age = 0f;
-        while (age < 0.2f)
+        while (age < 0.12f)
         {
             age += 0.001f;
             CoinCourierTeleportFx.TickForFrame(0.001f, frame++);
@@ -678,7 +668,7 @@ internal static class Program
         }
         for (int i = 0; i < count; i++)
         {
-            Check(onsets[i] >= 0f, "stripe " + i + " enters inside the .2s sampling window");
+            Check(onsets[i] >= 0f, "stripe " + i + " enters inside the sampled window");
             Check(onsets[i] <= 0.12f, "stripe " + i + " is visible by the .12 reveal");
         }
         var sorted = onsets.OrderBy(value => value).ToArray();
@@ -690,33 +680,48 @@ internal static class Program
         }
 
         int guard = 0;
-        while (CoinCourierTeleportFx.ActiveCount > 0 && guard++ < 40)
-            CoinCourierTeleportFx.TickForFrame(0.002f, frame++);
-        Equal(0, CoinCourierTeleportFx.ActiveCount, "all staggered stripes end inside the .24s lifetime");
+        while (CoinCourierTeleportFx.ActiveCount > 0 && guard++ < 200)
+            CoinCourierTeleportFx.TickForFrame(0.01f, frame++);
+        Equal(0, CoinCourierTeleportFx.ActiveCount, "all staggered stripes end inside the .32s lifetime");
     }
 
-    private static void TeleportFxSlantContract()
+    private static void TeleportFxUniformTiltContract()
     {
-        // 轻倾斜是固定表值：两端关于表中点对称 → 中点不随收缩漂移；两次 Begin 完全一致（无随机）。
+        // 统一微斜（用户澄清）：任意年龄每线斜率恒为 TiltSlope(.10)、两线正规化方向叉积 ≈ 0、
+        // H 以横为主/V 以竖为主、全组同向；端点关于线心对称 → 中点不随收缩漂移；两次 Begin 一致。
         var anchor = new Vector3(1.5f, 2.5f, 0f);
+        var ages = new[] { 0.0f, 0.05f, 0.12f, 0.2f, 0.3f };
         foreach (var style in new[] { CoinCourierTeleportStyle.Horizontal, CoinCourierTeleportStyle.Vertical })
         {
+            bool vertical = style == CoinCourierTeleportStyle.Vertical;
             var first = CoinCourierTeleportFx.Begin(anchor, Color.white, 1f, 0, 0, style);
             var mids = new Vector3[CoinCourierTeleportFx.DashesPerEffect];
             var endpoints = new Vector3[CoinCourierTeleportFx.DashesPerEffect * 2];
             for (int index = 0; index < mids.Length; index++)
             {
                 var line = Dash(index);
+                AssertUniformTilt(line, vertical, style + " stripe " + index + " at age 0");
+                if (index > 0)
+                    AssertParallel(Dash(0), line, style + " stripe 0 vs " + index + " at age 0");
                 mids[index] = Midpoint(line);
                 endpoints[index] = line.Positions[0];
                 endpoints[index + mids.Length] = line.Positions[3];
             }
-            CoinCourierTeleportFx.TickForFrame(0.13f, 501);
-            for (int index = 0; index < mids.Length; index++)
+            float age = 0f;
+            int frameId = 501;
+            foreach (float target in ages)
             {
-                var line = Dash(index);
-                Near(mids[index].x, Midpoint(line).x, 1e-5f, style + " stripe " + index + " midpoint x never drifts");
-                Near(mids[index].y, Midpoint(line).y, 1e-5f, style + " stripe " + index + " midpoint y never drifts");
+                CoinCourierTeleportFx.TickForFrame(target - age, frameId++);
+                age = target;
+                if (target <= 0f) continue;
+                for (int index = 0; index < mids.Length; index++)
+                {
+                    var line = Dash(index);
+                    AssertUniformTilt(line, vertical, style + " stripe " + index + " at age " + target);
+                    AssertParallel(Dash(0), line, style + " stripe 0 vs " + index + " at age " + target);
+                    Near(mids[index].x, Midpoint(line).x, 1e-5f, style + " stripe " + index + " midpoint x never drifts");
+                    Near(mids[index].y, Midpoint(line).y, 1e-5f, style + " stripe " + index + " midpoint y never drifts");
+                }
             }
             CoinCourierTeleportFx.Cancel(first);
 
@@ -724,6 +729,7 @@ internal static class Program
             for (int index = 0; index < mids.Length; index++)
             {
                 var line = Dash(index);
+                AssertUniformTilt(line, vertical, style + " stripe " + index + " on a fresh begin");
                 Check(line.Positions[0] == endpoints[index] && line.Positions[3] == endpoints[index + mids.Length],
                     style + " stripe " + index + " geometry is deterministic, not random");
             }
@@ -741,9 +747,9 @@ internal static class Program
         for (int index = 0; index < CoinCourierTeleportFx.DashesPerEffect; index++)
             AssertFourEvenVertices(Dash(index), "first begin stripe " + index);
         var firstCurve = Dash(0).widthCurve;
-        Near(foot.y + 0.66f - 0.025f, Dash(0).Positions[0].y, 1e-5f, "first begin uses the tilted top row");
+        Near(foot.y + 0.66f - 0.031f, Dash(0).Positions[0].y, 1e-5f, "first begin top row with the uniform tilt");
         Near(foot.x + 0.02f - 0.31f, Dash(0).Positions[0].x, 1e-5f, "first begin uses the horizontal left end");
-        Near(foot.y + 0.14f - 0.005f, Dash(9).Positions[0].y, 1e-5f, "first begin lays the fourth aux row");
+        Near(foot.y + 0.14f - 0.006f, Dash(9).Positions[0].y, 1e-5f, "first begin lays the fourth aux row with the tilt");
         Near(foot.x + 0.045f - 0.06f, Dash(9).Positions[0].x, 1e-5f, "aux row keeps its own short span");
         CoinCourierTeleportFx.Cancel(first);
 
@@ -752,7 +758,7 @@ internal static class Program
         Check(StripesAreVertical(), "the reused slot switches to vertical geometry");
         for (int index = 0; index < CoinCourierTeleportFx.DashesPerEffect; index++)
             AssertFourEvenVertices(Dash(index), "reused stripe " + index + " after the style switch");
-        Near(foot.x - 0.25f - 0.033f, Dash(0).Positions[0].x, 1e-5f, "reused slot switches to the vertical x offsets");
+        Near(foot.x - 0.25f - 0.032f, Dash(0).Positions[0].x, 1e-5f, "reused slot switches to the tilted column bottom");
         Near(foot.y + 0.38f - 0.32f, Dash(0).Positions[0].y, 1e-5f, "reused slot uses the vertical bottom end");
         Near(foot.y + 0.38f + 0.32f, Dash(0).Positions[3].y, 1e-5f, "reused slot uses the vertical top end");
         Near(foot.x + 0.255f, Midpoint(Dash(9)).x, 1e-5f, "aux stripe 9 leaves no horizontal residue after reuse");
@@ -842,11 +848,48 @@ internal static class Program
         internal float[] Ys;
         internal float[] Offsets;
         internal float[] Halves;
-        internal float[] Rises;
         internal float[] Tops;
         internal float[] Centers;
         internal float[] Zs;
         internal float[] Widths;
+    }
+
+    /// <summary>
+    /// 统一微斜契约（用户 2026-10-03 澄清）：全组线互相平行、同向、斜率 = TiltSlope（.10 ≈ 5.7°）；
+    /// H 以横轴为主、V 以纵轴为主；两线方向向量叉积为 0（float 误差内）；span 退化的帧不参与 ratio。
+    /// </summary>
+    private static void AssertUniformTilt(LineRenderer line, bool vertical, string why)
+    {
+        var p0 = line.Positions[0];
+        var p3 = line.Positions[3];
+        float dx = p3.x - p0.x;
+        float dy = p3.y - p0.y;
+        if (vertical)
+        {
+            Check(MathF.Abs(dy) > 1e-4f, why + ": the column has a non-zero span");
+            Check(dx > 0f && dy > 0f, why + ": bottom-left to top-right, one direction for the whole style");
+            Near(0.10f * MathF.Abs(dy), MathF.Abs(dx), 1e-3f * MathF.Abs(dy) + 1e-5f,
+                why + ": |dx|/|dy| = .10 (uniform lean, not axis 0)");
+        }
+        else
+        {
+            Check(MathF.Abs(dx) > 1e-4f, why + ": the row has a non-zero span");
+            Check(dx > 0f && dy > 0f, why + ": left-bottom to right-top, one direction for the whole style");
+            Near(0.10f * MathF.Abs(dx), MathF.Abs(dy), 1e-3f * MathF.Abs(dx) + 1e-5f,
+                why + ": |dy|/|dx| = .10 (uniform rise, not axis 0)");
+        }
+    }
+
+    /// <summary>两线方向向量（各自正规化后）的叉积：统一微斜下应为 0（float 误差内）。</summary>
+    private static void AssertParallel(LineRenderer a, LineRenderer b, string why)
+    {
+        var da = a.Positions[3] - a.Positions[0];
+        var db = b.Positions[3] - b.Positions[0];
+        float la = MathF.Sqrt(da.x * da.x + da.y * da.y);
+        float lb = MathF.Sqrt(db.x * db.x + db.y * db.y);
+        Check(la > 1e-4f && lb > 1e-4f, why + ": both spans are non-zero");
+        float cross = (da.x / la) * (db.y / lb) - (da.y / la) * (db.x / lb);
+        Near(0f, cross, 1e-5f, why + ": normalized directions stay parallel (cross ~ 0)");
     }
 
     /// <summary>采样一组真实 LineRenderer 输出（相对脚锚的 y 偏移/半长/中心/宽度），从不读生产常量；端点取第 0/3 顶点。</summary>
@@ -859,7 +902,6 @@ internal static class Program
             Ys = new float[CoinCourierTeleportFx.DashesPerEffect],
             Offsets = new float[CoinCourierTeleportFx.DashesPerEffect],
             Halves = new float[CoinCourierTeleportFx.DashesPerEffect],
-            Rises = new float[CoinCourierTeleportFx.DashesPerEffect],
             Tops = new float[CoinCourierTeleportFx.DashesPerEffect],
             Centers = new float[CoinCourierTeleportFx.DashesPerEffect],
             Zs = new float[CoinCourierTeleportFx.DashesPerEffect],
@@ -869,10 +911,10 @@ internal static class Program
         {
             var line = Dash(index);
             AssertFourEvenVertices(line, "sampled dash " + index + " at scale " + scale);
+            AssertUniformTilt(line, false, "sampled dash " + index + " at scale " + scale);
             sample.Ys[index] = line.Positions[0].y;
             sample.Offsets[index] = line.Positions[0].y - anchor.y;
             sample.Halves[index] = (line.Positions[3].x - line.Positions[0].x) / 2f;
-            sample.Rises[index] = (line.Positions[3].y - line.Positions[0].y) / 2f;
             sample.Tops[index] = MathF.Max(line.Positions[0].y, line.Positions[3].y) - anchor.y;
             sample.Centers[index] = (line.Positions[0].x + line.Positions[3].x) / 2f;
             sample.Zs[index] = line.Positions[0].z;
@@ -887,14 +929,13 @@ internal static class Program
         internal float[] Xs;
         internal float[] CenterYs;
         internal float[] Halves;
-        internal float[] Leans;
         internal float[] Bottoms;
         internal float[] Tops;
         internal LineRenderer[] Lines;
         internal float[] Widths;
     }
 
-    /// <summary>采样一组真实竖向 LineRenderer 输出（x 偏移/中心 y/半长/lean/线宽与排序），从不读生产常量；端点取第 0/3 顶点。</summary>
+    /// <summary>采样一组真实竖向 LineRenderer 输出（x 偏移/中心 y/半长/线宽与排序），从不读生产常量；端点取第 0/3 顶点。</summary>
     private static VerticalStripeGeometrySample SampleVerticalStripeGeometry(Vector3 anchor, float scale,
         int sortingLayerID = 0, int sortingOrder = 0)
     {
@@ -906,7 +947,6 @@ internal static class Program
             Xs = new float[CoinCourierTeleportFx.DashesPerEffect],
             CenterYs = new float[CoinCourierTeleportFx.DashesPerEffect],
             Halves = new float[CoinCourierTeleportFx.DashesPerEffect],
-            Leans = new float[CoinCourierTeleportFx.DashesPerEffect],
             Bottoms = new float[CoinCourierTeleportFx.DashesPerEffect],
             Tops = new float[CoinCourierTeleportFx.DashesPerEffect],
             Lines = new LineRenderer[CoinCourierTeleportFx.DashesPerEffect],
@@ -916,12 +956,12 @@ internal static class Program
         {
             var line = Dash(index);
             AssertFourEvenVertices(line, "sampled vertical dash " + index + " at scale " + scale);
+            AssertUniformTilt(line, true, "sampled vertical dash " + index + " at scale " + scale);
             sample.Xs[index] = line.Positions[0].x;
             sample.Bottoms[index] = line.Positions[0].y;
             sample.Tops[index] = line.Positions[3].y;
             sample.CenterYs[index] = (line.Positions[0].y + line.Positions[3].y) / 2f;
             sample.Halves[index] = (line.Positions[3].y - line.Positions[0].y) / 2f;
-            sample.Leans[index] = (line.Positions[3].x - line.Positions[0].x) / 2f;
             sample.Lines[index] = line;
             sample.Widths[index] = PeakWidth(line);
         }

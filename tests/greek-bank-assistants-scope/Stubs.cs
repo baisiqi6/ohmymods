@@ -358,6 +358,14 @@ namespace UnityEngine
 
         public void SetParent(Transform value, bool worldPositionStays) => Parent = value;
 
+        /// <summary>轴对齐的父级缩放/flip 组合（测试替身不做旋转）。</summary>
+        public Vector3 TransformVector(Vector3 value)
+        {
+            Vector3 world = _parent != null ? _parent.TransformVector(value) : value;
+            Vector3 scale = localScale;
+            return new Vector3(world.x * scale.x, world.y * scale.y, world.z * scale.z);
+        }
+
         public bool IsChildOf(Transform parent)
         {
             if (FailChildReads-- > 0) throw new InvalidOperationException("transient native read");
@@ -429,6 +437,17 @@ namespace UnityEngine
                 ? (T)constructor.Invoke(new object[] { IntPtr.Zero })
                 : (T)Activator.CreateInstance(typeof(T));
             component.gameObject = this;
+            // 测试替身：新建的 SpriteRenderer 默认带一个可读身体框，供生产身体框解析读取。
+            if (component is SpriteRenderer renderer && renderer.sprite == null)
+            {
+                renderer.sprite = new Sprite
+                {
+                    texture = new Texture2D(32, 40) { OpaqueRect = new[] { 6f, 4f, 20f, 20f } },
+                    rect = new Rect(0f, 0f, 32f, 40f),
+                    pivot = new Vector2(16f, 3f),
+                    pixelsPerUnit = 32f
+                };
+            }
             Components.Add(component);
             return component;
         }
@@ -450,7 +469,47 @@ namespace UnityEngine
     }
 
     public class Avatar : Object { }
-    public class Sprite : Object { }
+    public class Sprite : Object
+    {
+        public Texture2D texture;
+        public Rect rect;
+        public Vector2 pivot;
+        public float pixelsPerUnit = 32f;
+        public bool packed;
+        public Vector2[] vertices;
+    }
+
+    public struct Rect
+    {
+        public float x, y, width, height;
+        public Rect(float x, float y, float width, float height) { this.x = x; this.y = y; this.width = width; this.height = height; }
+    }
+
+    /// <summary>身体框解析的最小纹理替身：GetPixels 按可选不透明矩形返回 alpha（其余全透明）。</summary>
+    public class Texture2D : Object
+    {
+        public int width, height;
+        public bool isReadable = true;
+        public float[] OpaqueRect = System.Array.Empty<float>();   // x,y,w,h（纹理坐标）
+
+        public Texture2D(int width = 0, int height = 0) { this.width = width; this.height = height; }
+
+        public Color[] GetPixels(int x, int y, int blockWidth, int blockHeight)
+        {
+            var pixels = new Color[blockWidth * blockHeight];
+            bool has = OpaqueRect.Length == 4;
+            for (int row = 0; row < blockHeight; row++)
+            {
+                for (int col = 0; col < blockWidth; col++)
+                {
+                    bool opaque = has && x + col >= OpaqueRect[0] && x + col < OpaqueRect[0] + OpaqueRect[2]
+                        && y + row >= OpaqueRect[1] && y + row < OpaqueRect[1] + OpaqueRect[3];
+                    pixels[row * blockWidth + col] = new Color(1f, 1f, 1f, opaque ? 1f : 0f);
+                }
+            }
+            return pixels;
+        }
+    }
     public class Material : Object
     {
         public Shader shader;

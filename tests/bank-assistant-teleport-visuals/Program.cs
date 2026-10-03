@@ -100,9 +100,18 @@ static class Program
             Assert(BankAssistantTeleportVisuals.NotifyTeleport(0, actor, from, to), "presentation started");
             Eq(2, CoinCourierTeleportFx.ActiveCount, "two effect groups");
             var dashes = ActiveDashes();
-            Eq(20, dashes.Count, "ten dashes per end");
-            Eq(10, dashes.Count(d => Math.Abs(DashCenter(d).x - 2f) <= 0.09f), "departure dashes at the origin");
-            Eq(10, dashes.Count(d => Math.Abs(DashCenter(d).x - 7f) <= 0.09f), "destination dashes at the target");
+            Eq(32, dashes.Count, "sixteen dashes per end");
+            Eq(16, dashes.Count(d => Math.Abs(DashCenter(d).x - 2f) <= 0.12f), "departure dashes at the origin");
+            Eq(16, dashes.Count(d => Math.Abs(DashCenter(d).x - 7f) <= 0.12f), "destination dashes at the target");
+            // 方向证据：同一时刻出发端（Departure）是满长起步，到达端（Arrival）还是短的入场起点。
+            float fromSpan = dashes
+                .Where(d => Math.Abs(DashCenter(d).x - 2f) <= 0.12f)
+                .Sum(d => Math.Abs(d.Positions[3].x - d.Positions[0].x));
+            float toSpan = dashes
+                .Where(d => Math.Abs(DashCenter(d).x - 7f) <= 0.12f)
+                .Sum(d => Math.Abs(d.Positions[3].x - d.Positions[0].x));
+            Assert(toSpan < fromSpan * 0.8f,
+                "the destination end starts short (arrival) while the origin plays the full-length departure");
             Assert(dashes.All(d => DashCenter(d).y > 0.5f && DashCenter(d).y < 1.25f), "dash rows stand above the foot anchor Y");
             Assert(dashes.All(d => d.sortingLayerID == 7 && d.sortingOrder == 42), "actor sorting passed to both ends");
             Assert(dashes.All(d => PeakWidth(d) >= 0.012f - 0.0001f && PeakWidth(d) <= 0.026f + 0.0001f),
@@ -119,18 +128,18 @@ static class Program
 
             Assert(BankAssistantTeleportVisuals.NotifyTeleport(0, actor, from, to), "started");
             var dashes = ActiveDashes();
-            Eq(20, dashes.Count, "ten dashes per end");
+            Eq(32, dashes.Count, "sixteen dashes per end");
             foreach (float endX in new[] { 2f, 7f })
             {
                 var rows = dashes
-                    .Where(d => Math.Abs(DashCenter(d).x - endX) <= 0.09f)
+                    .Where(d => Math.Abs(DashCenter(d).x - endX) <= 0.12f)
                     .Select(d => DashCenter(d).y)
                     .OrderBy(y => y)
                     .ToList();
-                Eq(10, rows.Count, "ten rows over end " + endX);
-                Assert(rows[0] > 2.3f + 0.05f, "lowest row clears the foot anchor at " + endX);
-                Assert(rows[9] - rows[0] > 0.5f, "rows span the body height at " + endX);
-                Assert(Math.Abs(rows[9] - (2.3f + 0.7f)) < 0.05f, "top row near the ~.7 body height at " + endX);
+                Eq(16, rows.Count, "sixteen rows over end " + endX);
+                Assert(rows[0] > 2.3f + 0.02f, "lowest row clears the foot anchor at " + endX);
+                Assert(rows[15] - rows[0] > 0.5f, "rows span the body height at " + endX);
+                Assert(rows[15] > 2.3f + 0.55f && rows[15] < 2.3f + 0.7f, "top row reaches near the fitted body top at " + endX);
             }
             Assert(dashes.All(d => Math.Abs(DashCenter(d).y) > 1f), "airborne rows are not projected to the ground");
             Assert(dashes.All(d => (d.Positions[3].x - d.Positions[0].x) / 2f <= 0.32f), "stripe half-lengths stay compact");
@@ -153,34 +162,57 @@ static class Program
                 {
                     // 竖纹线心是 anchor.x + x 偏移（|偏移| ≤ .29），横纹线心是 anchor.x + 轻微中心错位（|错位| ≤ .08）。
                     var lines = ActiveDashes()
-                        .Where(d => Math.Abs(DashCenter(d).x - endX) <= (item.Vertical ? 0.31f : 0.09f))
+                        .Where(d => Math.Abs(DashCenter(d).x - endX) <= (item.Vertical ? 0.31f : 0.12f))
                         .ToList();
-                    Eq(10, lines.Count, "ten stripes over end " + endX + " of slot " + item.Slot);
+                    Eq(16, lines.Count, "sixteen stripes over end " + endX + " of slot " + item.Slot);
+                    bool origin = endX < 4f;   // 2f = 出发端（Departure 满长起步），6f = 到达端（Arrival 短起步）
                     if (item.Vertical)
                     {
                         Assert(lines.All(d => Math.Abs(d.Positions[3].y - d.Positions[0].y)
                                 > Math.Abs(d.Positions[3].x - d.Positions[0].x)),
                             "slot " + item.Slot + " end " + endX + ": stripes stay vertical-dominant");
-                        Assert(lines.Any(d => d.Positions[3].x != d.Positions[0].x),
-                            "slot " + item.Slot + " end " + endX + ": stripes carry the approved light lean");
+                        Assert(lines.All(d => d.Positions[3].x > d.Positions[0].x && d.Positions[3].y > d.Positions[0].y
+                                && Math.Abs(Math.Abs(d.Positions[3].x - d.Positions[0].x)
+                                    - 0.10f * Math.Abs(d.Positions[3].y - d.Positions[0].y))
+                                    <= 1e-3f * Math.Abs(d.Positions[3].y - d.Positions[0].y) + 1e-5f),
+                            "slot " + item.Slot + " end " + endX + ": one uniform lean |dx|/|dy| = .10 (mutually parallel)");
                         Assert(lines.All(d => d.Positions[0].x >= endX - 0.31f && d.Positions[0].x <= endX + 0.31f),
                             "slot " + item.Slot + " end " + endX + ": stripes stay within the body width");
                         Assert(lines.All(d => d.Positions[0].y > 1.4f),
                             "slot " + item.Slot + " end " + endX + ": stripes start above the foot anchor");
-                        Assert(lines.Max(d => d.Positions[3].y) > 1.4f + 0.8f,
-                            "slot " + item.Slot + " end " + endX + ": stripes reach the head");
+                        float reach = lines.Max(d => d.Positions[3].y);
+                        if (origin)
+                            Assert(reach > 1.4f + 0.6f, "slot " + item.Slot + ": departure reaches the fitted body height");
+                        else
+                            Assert(reach < 1.4f + 0.8f * 0.9f, "slot " + item.Slot + ": arrival starts short before its anchor");
                     }
                     else
                     {
                         Assert(lines.All(d => Math.Abs(d.Positions[3].x - d.Positions[0].x)
                                 > Math.Abs(d.Positions[3].y - d.Positions[0].y)),
                             "slot " + item.Slot + " end " + endX + ": stripes stay horizontal-dominant");
-                        Assert(lines.Any(d => d.Positions[3].y != d.Positions[0].y),
-                            "slot " + item.Slot + " end " + endX + ": stripes carry the approved light lean");
+                        Assert(lines.All(d => d.Positions[3].x > d.Positions[0].x && d.Positions[3].y > d.Positions[0].y
+                                && Math.Abs(Math.Abs(d.Positions[3].y - d.Positions[0].y)
+                                    - 0.10f * Math.Abs(d.Positions[3].x - d.Positions[0].x))
+                                    <= 1e-3f * Math.Abs(d.Positions[3].x - d.Positions[0].x) + 1e-5f),
+                            "slot " + item.Slot + " end " + endX + ": one uniform rise |dy|/|dx| = .10 (mutually parallel)");
                         Assert(lines.Max(d => d.Positions[3].y) > 1.4f + 0.6f,
                             "slot " + item.Slot + " end " + endX + ": stripes reach the upper body");
                     }
                 }
+                // Arrival 增长到 .12 显形锚点后覆盖全身；出发端此时只剩残线（同风格两方向彼此独立）。
+                CoinCourierTeleportFx.TickForFrame(0.12f, 30000 + item.Slot);
+                var grown = ActiveDashes()
+                    .Where(d => Math.Abs(DashCenter(d).x - 6f) <= (item.Vertical ? 0.31f : 0.12f)
+                        && MathF.Max(d.startColor.a, d.endColor.a) > 0.05f)
+                    .ToList();
+                Assert(grown.Count >= 1, "slot " + item.Slot + ": arrival still visible at the anchor");
+                if (item.Vertical)
+                    Assert(grown.Max(d => d.Positions[3].y) > 1.4f + 0.6f,
+                        "slot " + item.Slot + ": arrival reaches the fitted body height at its reveal anchor");
+                else
+                    Assert(grown.Max(d => d.Positions[3].y) > 1.4f + 0.6f,
+                        "slot " + item.Slot + ": arrival reaches the upper body at its reveal anchor");
                 Assert(BankAssistantTeleportVisuals.IsWaiting(item.Slot), "slot " + item.Slot + ": hidden window open");
                 BankAssistantTeleportVisuals.EndSlot(item.Slot);
             }
@@ -442,7 +474,7 @@ static class Program
         });
         Test("FX unavailability fails open: no hide, no wait, and it recovers", () =>
         {
-            // 打满共享池的 17 组槽（8 助手双端 + 哥布林单端）：迫使后续 Begin 复用
+            // 打满共享池的 18 组槽（8 助手双端 + 哥布林双端）：迫使后续 Begin 复用
             // 既有槽而不是新建根对象，这样“根/池不可用”才能注入到复用路径上。
             var actors = new GameObject[8];
             var renderers = new SpriteRenderer[8];
@@ -454,13 +486,17 @@ static class Program
                     new Vector3(4f + i, 0f, 0f)), "saturate " + i);
             }
             Eq(16, CoinCourierTeleportFx.ActiveCount, "eight assistant pairs fill sixteen groups");
-            var goblin = CoinCourierTeleportFx.Begin(Vector3.zero, Color.white, 1f);
-            Assert(goblin.IsValid, "the goblin-side group takes the seventeenth slot");
-            Eq(17, CoinCourierTeleportFx.ActiveCount, "pool saturated at 17");
+            var depart = CoinCourierTeleportFx.Begin(Vector3.zero, Color.white, 1f, 0, 0,
+                CoinCourierTeleportStyle.Vertical, CoinCourierTeleportDirection.Departure, 0.18f);
+            var arrive = CoinCourierTeleportFx.Begin(Vector3.one, Color.white, 1f, 0, 0,
+                CoinCourierTeleportStyle.Vertical, CoinCourierTeleportDirection.Arrival, 0.18f);
+            Assert(depart.IsValid && arrive.IsValid, "the courier pair takes the last two slots");
+            Eq(18, CoinCourierTeleportFx.ActiveCount, "pool saturated at 18");
             BankAssistantTeleportVisuals.EndSlot(0);
             Assert(renderers[0].enabled, "saturated probe actor released");
-            CoinCourierTeleportFx.Cancel(goblin);
-            Eq(14, CoinCourierTeleportFx.ActiveCount, "two assistant groups and the goblin group freed");
+            CoinCourierTeleportFx.Cancel(depart);
+            CoinCourierTeleportFx.Cancel(arrive);
+            Eq(14, CoinCourierTeleportFx.ActiveCount, "two assistant groups and the courier pair freed");
 
             var groups = GameObject.All
                 .Where(g => g.name == "KEM_CoinCourierTeleportFxEffect")

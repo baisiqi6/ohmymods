@@ -1297,7 +1297,7 @@ static class Program
             float[] scales = (float[])GetStatic(typeof(PatchEconomy_BankAssistants), "GreekVisualScaleY");
             Eq(1.0f, scales[4], "new slots keep the frozen 1.0 visual scale");
             Eq(1.0f, scales[7], "new slots keep the frozen 1.0 visual scale");
-            Eq(17, CoinCourierTeleportFx.MaxConcurrent, "8 assistants x 2 ends + 1 goblin");
+            Eq(18, CoinCourierTeleportFx.MaxConcurrent, "8 assistants x 2 ends + the courier's 2 ends");
         });
         Test("fixed assistant heights ignore the source banker scale and survive a full rebuild", () =>
         {

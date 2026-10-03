@@ -533,10 +533,10 @@ public static class Mover_Update_Patch
 [HarmonyPatch(typeof(WarriorPeasant))]
 public static class WarriorPeasant_OnEnable_Patch
 {
-    // 北境平民站高 0.735（2026-10-03 用户要求当前站高 +5%，此前 0.70）：素材立姿 18px、PPU 32
-    // → 0.70×1.05×32/18 ≈ 1.306667。转职 Promote（PatchRoles_Character）、WarriorPeasant.OnEnable、
+    // 北境平民保留原站高 0.70：素材立姿 18px、PPU 32；希腊普通居民的 +5% 在 Peasant 入口处理。
+    // → 0.70×32/18 ≈ 1.244444。转职 Promote（PatchRoles_Character）、WarriorPeasant.OnEnable、
     // Peasant_norselands.OnEnable 三个入口共用此常量，避免三份魔数各自漂移。
-    internal const float NorseCivilianScaleY = 0.70f * 1.05f * 32f / 18f;
+    internal const float NorseCivilianScaleY = 0.70f * 32f / 18f;
 
     [HarmonyPatch(nameof(WarriorPeasant.OnEnable))]
     [HarmonyPostfix]
@@ -586,6 +586,14 @@ public static class Peasant_OnEnable_Patch
             if (name.Contains("Peasant_norselands"))
             {
                 float targetY = WarriorPeasant_OnEnable_Patch.NorseCivilianScaleY;
+                GreekScaleScope.ApplyY(__instance.transform, targetY);
+                ScaleRegistryHolder.Register(__instance.GetComponent<Mover>(), targetY);
+            }
+            else if (__instance.GetComponent<WarriorPeasant>() == null)
+            {
+                // Ordinary Peasant uses biome animation swaps. In the current Greek world,
+                // raise its native Y by 5%; native ownership recovery prevents re-enable stacking.
+                float targetY = GreekScaleScope.NativeScale(__instance.transform).y * 1.05f;
                 GreekScaleScope.ApplyY(__instance.transform, targetY);
                 ScaleRegistryHolder.Register(__instance.GetComponent<Mover>(), targetY);
             }

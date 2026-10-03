@@ -1360,6 +1360,13 @@ namespace KingdomEnhancedMod
         Vertical
     }
 
+    /// <summary>生产 CoinCourierTeleportDirection 的桥接替身（本套件不编译生产 FX 文件）。</summary>
+    internal enum CoinCourierTeleportDirection
+    {
+        Departure = 0,
+        Arrival = 1
+    }
+
     internal static class CoinCourierTeleportFx
     {
         internal static int BeginCalls;
@@ -1368,6 +1375,11 @@ namespace KingdomEnhancedMod
         internal static int ClearCalls;
         internal static CoinCourierFxHandle LastHandle;
         internal static CoinCourierTeleportStyle LastStyle;
+        internal static CoinCourierTeleportDirection LastDirection;
+        internal static float LastAnchor;
+        internal static Vector3 LastPosition;
+        internal static SpriteRenderer LastBodySource;
+        internal static readonly List<(Vector3 Position, CoinCourierTeleportStyle Style, CoinCourierTeleportDirection Direction, float Anchor)> Begins = new();
 
         internal static CoinCourierFxHandle Begin(Vector3 worldPosition, Color color, float scale)
             => Begin(worldPosition, color, scale, 0, 0);
@@ -1379,17 +1391,45 @@ namespace KingdomEnhancedMod
 
         internal static CoinCourierFxHandle Begin(Vector3 worldPosition, Color color, float scale,
             int sortingLayerID, int sortingOrder, CoinCourierTeleportStyle style)
+            => Begin(worldPosition, color, scale, sortingLayerID, sortingOrder, style,
+                CoinCourierTeleportDirection.Departure, 0.12f);
+
+        internal static CoinCourierFxHandle Begin(Vector3 worldPosition, Color color, float scale,
+            int sortingLayerID, int sortingOrder, CoinCourierTeleportStyle style,
+            CoinCourierTeleportDirection direction, float anchorSeconds)
         {
             BeginCalls++;
             LastStyle = style;
+            LastDirection = direction;
+            LastAnchor = anchorSeconds;
+            LastPosition = worldPosition;
+            Begins.Add((worldPosition, style, direction, anchorSeconds));
             LastHandle = new CoinCourierFxHandle(BeginCalls, BeginCalls);
             return LastHandle;
+        }
+
+        /// <summary>带身体来源的 9 参重载替身（本套件不编译生产 FX/身体框文件；来源只按存在与否记录）。</summary>
+        internal static CoinCourierFxHandle Begin(Vector3 worldPosition, Color color, float scale,
+            int sortingLayerID, int sortingOrder, CoinCourierTeleportStyle style,
+            CoinCourierTeleportDirection direction, float anchorSeconds, SpriteRenderer bodySource)
+        {
+            LastBodySource = bodySource;
+            return Begin(worldPosition, color, scale, sortingLayerID, sortingOrder, style, direction, anchorSeconds);
         }
 
         internal static void Cancel(CoinCourierFxHandle handle) { CancelCalls++; }
         internal static void Tick(float gameDelta) { TickCalls++; }
         internal static void Clear() { ClearCalls++; }
         internal static int ActiveCount => 0;
+        internal static int CountBegins(CoinCourierTeleportDirection direction)
+        {
+            int count = 0;
+            foreach (var begin in Begins)
+            {
+                if (begin.Direction == direction) count++;
+            }
+            return count;
+        }
 
         internal static void Reset()
         {
@@ -1399,6 +1439,10 @@ namespace KingdomEnhancedMod
             ClearCalls = 0;
             LastHandle = default;
             LastStyle = CoinCourierTeleportStyle.Horizontal;
+            LastDirection = CoinCourierTeleportDirection.Departure;
+            LastAnchor = 0f;
+            LastPosition = default;
+            Begins.Clear();
         }
     }
 

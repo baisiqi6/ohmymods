@@ -224,7 +224,10 @@ internal static class CoinCourierRuntime
     private static bool _recruitmentLocked;
     private static bool _recruitmentLockLogged;
     private static bool _frozenLogged;
-    private static CoinCourierFxHandle _fxHandle;
+    // 一轮跳转的两个自有句柄：出发地 Departure + 目的地 Arrival。各自独立成代，
+    // Begin 其中一端绝不取消另一端；Cancel/Clear/失效只按句柄取消自己这一对。
+    private static CoinCourierFxHandle _fxDepartHandle;
+    private static CoinCourierFxHandle _fxArriveHandle;
 
     /// <summary>唯一存档接线口（由 campaign 保存 owner 显式绑定；默认 null = 未接线）。</summary>
     internal static ICoinCourierCampaignState State => _state;
@@ -1163,8 +1166,10 @@ internal static class CoinCourierRuntime
 
     private static void OnJumpComplete()
     {
-        // "原地短线收拢"：离场位置画一条，再在终点进入隐藏传送段。
-        ShowTeleportFx(S.Position);
+        // 新一轮起跳：先清掉自己上一轮的两个句柄（绝不动共享池里别人的 effect）。
+        CancelTeleportFx();
+        // "原地收束"：Departure 在出发位置起播（必须在 S.Position 移到落点之前取样）。
+        BeginTeleportFx(S.Position, CoinCourierTeleportDirection.Departure);
         if (S.Travel == CoinCourierTravel.Target)
         {
             S.Position = new Vector3(S.LandingX, S.GroundY + CoinCourierTiming.LandingHeight, LayerZ());
@@ -1175,10 +1180,13 @@ internal static class CoinCourierRuntime
             S.Position = new Vector3(S.HomeX, S.HomeY, LayerZ());
             S.Facing = 1;
         }
+        // "落点先线后人"：业务先落入隐藏传送相（位置/phase/可见性照旧），Arrival 再从该相起点开始
+        // 增长，长度峰值对齐既有 TeleportSeconds 显形时刻；绝不新增业务等待。
         S.Phase = CoinCourierPhase.TeleportIn;
         S.Elapsed = 0f;
         S.ActionConsumed = false;
         S.Visible = false;
+        BeginTeleportFx(S.Position, CoinCourierTeleportDirection.Arrival);
     }
 
     private static void TickTeleport(float delta)
@@ -1209,8 +1217,8 @@ internal static class CoinCourierRuntime
                 SnapHome("ground-changed");
                 return;
             }
-            // "目标上方短线展开、显形"。
-            ShowTeleportFx(S.Position);
+            // "目标上方显形"：Arrival 早已在 OnJumpComplete 起播，此刻正是它的长度峰值——
+            // 不在这里重播/重启，也不取消出发端的 Departure（业务 phase/位置照旧）。
             S.SpawnY = S.Position.y;
             S.Phase = CoinCourierPhase.Fall;
             S.Elapsed = 0f;
@@ -1218,7 +1226,7 @@ internal static class CoinCourierRuntime
             S.Visible = true;
             return;
         }
-        ShowTeleportFx(S.Position);
+        // 回家显形同样不重播 Arrival（它已在 OnJumpComplete 于 home 位置起播并在此刻达峰）。
         S.Position = new Vector3(S.HomeX, S.HomeY, LayerZ());
         S.GroundY = S.HomeY;
         S.Facing = 1;
@@ -1422,10 +1430,15 @@ internal static class CoinCourierRuntime
         S.StopDeliver = false;
         S.Travel = CoinCourierTravel.Bank;
         S.Facing = 1;
+        // 失效落点的旧表现先整体撤销（自己这一对句柄）；随后照旧即时回家/显形，绝不为视觉加等待。
+        CancelTeleportFx();
         S.Position = new Vector3(S.HomeX, S.HomeY, LayerZ());
         S.GroundY = S.HomeY;
         S.Visible = true;
-        ShowTeleportFx(S.Position);
+        // 兜底表现例外：先撤销失效落点的一对句柄，再按原路径即时回家显形（S.Visible 即刻为真），
+        // 绝不为视觉新增业务等待。随后起的 Arrival 是常规入场动画：age 0 透明、按 .18 增长，
+        // 与已经完成的即时显形并不对齐（人先出现、线随后淡入），不是"即时峰值 burst"。
+        BeginTeleportFx(S.Position, CoinCourierTeleportDirection.Arrival);
         EnterWait();
         S.CheckAt = Time.time + CoinCourierTiming.ArrivalPauseSeconds;
         LogOnce("cancelled-" + reason, "visit cancelled: " + reason);
@@ -1591,27 +1604,41 @@ internal static class CoinCourierRuntime
         => new Color(0.95f, 0.82f, 0.42f, 0.85f);
 
     /// <summary>只持有/取消自己的句柄：共享 FX 池中的其他业务 effect 绝不受影响。
-    /// 哥布林传送显式用竖纹（Vertical）；横纹默认只保留给旧调用形状。</summary>
-    private static void ShowTeleportFx(Vector3 position)
+    /// 哥布林传送显式用竖纹（Vertical）；出发/到达是各自独立的一代，Begin 到达绝不取消出发。
+    /// 身体来源取当前 View 的 renderer（fit 只用其 sprite/pivot/PPU/scale，不读世界 bounds/中心，
+    /// 因此 OnJumpComplete 时 transform 尚在旧位置也不影响）；取不到/解析失败返回无效 FX，业务照旧。</summary>
+    private static void BeginTeleportFx(Vector3 position, CoinCourierTeleportDirection direction)
     {
-        CancelTeleportFx();
         try
         {
-            _fxHandle = CoinCourierTeleportFx.Begin(position, TeleportColor(), 1f,
-                SortingLayer(), SortingOrder(), CoinCourierTeleportStyle.Vertical);
+            SpriteRenderer body = null;
+            try { body = S.View != null ? S.View.Renderer : null; } catch (Exception) { body = null; }
+            CoinCourierFxHandle handle = CoinCourierTeleportFx.Begin(position, TeleportColor(), 1f,
+                SortingLayer(), SortingOrder(), CoinCourierTeleportStyle.Vertical,
+                direction, CoinCourierTiming.TeleportSeconds, body);
+            if (direction == CoinCourierTeleportDirection.Arrival) _fxArriveHandle = handle;
+            else _fxDepartHandle = handle;
         }
         catch (Exception e)
         {
-            _fxHandle = default;
+            if (direction == CoinCourierTeleportDirection.Arrival) _fxArriveHandle = default;
+            else _fxDepartHandle = default;
             LogOnce("fx-" + e.GetType().Name, "teleport fx unavailable: " + e.GetType().Name);
         }
     }
 
+    /// <summary>取消本业务当前持有的两个句柄（出发 + 到达）；过期句柄天然 no-op，不影响别人。</summary>
     private static void CancelTeleportFx()
     {
-        if (!_fxHandle.IsValid) return;
-        try { CoinCourierTeleportFx.Cancel(_fxHandle); } catch (Exception) { }
-        _fxHandle = default;
+        CancelOwnedFx(ref _fxDepartHandle);
+        CancelOwnedFx(ref _fxArriveHandle);
+    }
+
+    private static void CancelOwnedFx(ref CoinCourierFxHandle handle)
+    {
+        if (!handle.IsValid) return;
+        try { CoinCourierTeleportFx.Cancel(handle); } catch (Exception) { }
+        handle = default;
     }
 
     private static Vector3 CoinBagPoint()

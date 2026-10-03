@@ -14,6 +14,10 @@ namespace UnityEngine
         public string name;
         public bool Destroyed;
         public static int DestroyCalls;
+        private static int _nextInstanceId;
+        private readonly int _instanceId = ++_nextInstanceId;
+
+        public int GetInstanceID() => _instanceId;
 
         public static void Destroy(Object target)
         {
@@ -108,6 +112,13 @@ namespace UnityEngine
             parent = value;
             if (parent != null) parent.Children.Add(this);
         }
+
+        /// <summary>轴对齐的父级缩放/flip 组合（测试替身不做旋转）。</summary>
+        public Vector3 TransformVector(Vector3 value)
+        {
+            Vector3 world = parent != null ? parent.TransformVector(value) : value;
+            return new Vector3(world.x * localScale.x, world.y * localScale.y, world.z * localScale.z);
+        }
     }
 
     public struct Vector3
@@ -171,8 +182,12 @@ namespace UnityEngine
     {
         public static int CreatedCount, DestroyedCount;
         public static byte FillAlpha;
+        /// <summary>可选逐像素不透明判定（纹理坐标）；为 null 时用 FillAlpha 的均匀 alpha。</summary>
+        public Func<int, int, bool> OpaqueAt;
 
         public int width, height;
+        public bool isReadable = true;
+        public static int GetPixelsCalls;
         public FilterMode filterMode;
         public TextureWrapMode wrapMode;
         public int anisoLevel;
@@ -182,6 +197,23 @@ namespace UnityEngine
             this.width = width;
             this.height = height;
             CreatedCount++;
+        }
+
+        public Color[] GetPixels(int x, int y, int blockWidth, int blockHeight)
+        {
+            GetPixelsCalls++;
+            var pixels = new Color[blockWidth * blockHeight];
+            for (int row = 0; row < blockHeight; row++)
+            {
+                for (int col = 0; col < blockWidth; col++)
+                {
+                    bool opaque = OpaqueAt != null
+                        ? OpaqueAt(x + col, y + row)
+                        : FillAlpha > 0;
+                    pixels[row * blockWidth + col] = new Color(1f, 1f, 1f, opaque ? 1f : 0f);
+                }
+            }
+            return pixels;
         }
 
         public Color32[] GetPixels32()
@@ -226,6 +258,8 @@ namespace UnityEngine
         public Rect rect;
         public Vector2 pivot;
         public float pixelsPerUnit;
+        public bool packed;
+        public Vector2[] vertices;
 
         public static Sprite Create(Texture2D texture, Rect rect, Vector2 pivot, float pixelsPerUnit, uint extrude, SpriteMeshType meshType)
         {
@@ -270,6 +304,7 @@ namespace UnityEngine
     public class SpriteRenderer : Renderer
     {
         public static int SpriteWrites;
+        public bool flipX, flipY;
         private Sprite current;
 
         public Sprite sprite
