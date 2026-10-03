@@ -640,7 +640,7 @@ Console.WriteLine("[bridge-21] pause and save do not advance the private leisure
         "the local timer resumes on open scaled frames");
 }
 
-Console.WriteLine("[bridge-22] night returns by walking; missing ground stops on a standing frame");
+Console.WriteLine("[bridge-22] night returns by walking; a blocked walk stands in place and keeps the idle loop");
 {
     var h = new Harness();
     PatchEconomy_Banker.BalanceKnown = true;
@@ -661,10 +661,23 @@ Console.WriteLine("[bridge-22] night returns by walking; missing ground stops on
         "nightfall does not snap the courier to home");
     Verify(h.RunUntil(() => Math.Abs(CoinCourierVisuals.LastPosition.x - HomeXFree) < 0.02f, 4f),
         "nightfall returns to the fixed home by short steps");
+    h.Step(0.5f);   // 返航最后半步收敛为精确 AtHome，之后的观察窗内不应再有任何移动
+    // 新契约（2026-10-03）：夜间不发起闲走，但无业务的驻留原地要连续播 Idle→Leisure。
+    // 旧断言“夜间永远是 Idle 冻结帧”是旧契约（夜间每帧清零相位 + 强制 Idle），已过时；
+    // “夜间不走、不取币、不离开固定主城锚”仍然必须成立。
+    h.Trace.Clear();
     h.Step(5f);
-    Verify(Math.Abs(CoinCourierVisuals.LastPosition.x - HomeXFree) < 0.02f
-        && CoinCourierVisuals.LastPose == CoinCourierPose.Idle,
-        "night does not begin another leisure walk or bag gesture");
+    Verify(Math.Abs(CoinCourierVisuals.LastPosition.x - HomeXFree) < 0.02f,
+        "night never leaves the fixed home by walking");
+    int nightLeisure = 0;
+    int nightRun = 0;
+    foreach (var sample in h.Trace)
+    {
+        if (sample.Pose == CoinCourierPose.Leisure) nightLeisure++;
+        else if (sample.Pose == CoinCourierPose.Run) nightRun++;
+    }
+    Verify(nightRun == 0, "night never plays the walk animation");
+    Verify(nightLeisure >= 100, "the night wait still plays the authored in-place Idle->Leisure loop");
 }
 
 Console.WriteLine("[bridge-23] unknown local threat sensing stops leisure; a real enemy uses the existing jump home");
@@ -717,6 +730,32 @@ Console.WriteLine("[bridge-23] unknown local threat sensing stops leisure; a rea
     threat.Step(0.7f);
     Verify(Math.Abs(CoinCourierVisuals.LastPosition.x - HomeXFree) < 0.02f,
         "the existing bank transfer settles at the unchanged home anchor");
+}
+
+Console.WriteLine("[bridge-24] a blocked walk keeps the in-place leisure loop alive (no standing freeze)");
+{
+    var h = new Harness();
+    PatchEconomy_Banker.BalanceKnown = true;
+    h.Banker._stashedCoins = 0;
+    h.Step(4.5f);
+    float awayX = CoinCourierVisuals.LastPosition.x;
+    Verify(awayX > HomeXFree, "the stroll has left home before the ground gate closes");
+    SimPhysics.HasGround = _ => false;
+    h.Trace.Clear();
+    h.Step(4.4f);
+    Verify(Math.Abs(CoinCourierVisuals.LastPosition.x - awayX) < 0.02f,
+        "a blocked walk never guesses unverified ground");
+    int blockedRun = 0;
+    int blockedLeisure = 0;
+    foreach (var sample in h.Trace)
+    {
+        if (sample.Pose == CoinCourierPose.Run) blockedRun++;
+        else if (sample.Pose == CoinCourierPose.Leisure) blockedLeisure++;
+    }
+    Verify(blockedRun == 0, "a blocked walk never runs in place");
+    // 旧实现把受阻驻留冻结在 Idle 首帧（相位不推进），原地动作被压死；新契约要求
+    // 安全站位不变的同时，原地 Idle→Leisure 循环继续完整播放。
+    Verify(blockedLeisure >= 100, "the in-place Idle->Leisure loop keeps playing while blocked");
 }
 
 Console.WriteLine("ALL PASS — " + checks + " checks");

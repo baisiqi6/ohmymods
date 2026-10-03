@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>GreekCivilianHeightTests</AssemblyName>
+    <RootNamespace>GreekCivilianHeightTests</RootNamespace>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+    <GeneratePropertiesFile>false</GeneratePropertiesFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 真实 GreekScaleScope 语义（只写 y / scope 门 / 不累乘）；身高常量本身用精确 source extraction
+         验证（避免为单个常量镜像一份生产实现）。 -->
+    <Compile Include="../../il2cpp/GreekScaleScope.cs" Link="Production/GreekScaleScope.cs" />
+  </ItemGroup>
+
+</Project>
