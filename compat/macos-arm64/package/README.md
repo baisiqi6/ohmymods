@@ -102,12 +102,58 @@ KingdomTwoCrowns_Data -> KingdomTwoCrowns.app/Contents/Resources/Data
 
 ```sh
 cd /path/to/OhMyMods-Mac-ARM64
-./launcher.command                      # 常规启动
+./launcher.command                      # 常规启动（默认精简终端）
+./launcher.command --verbose            # 完整透传终端输出（仍写 launcher-console.log）
 ./launcher.command --check-only         # 只读预检，不启动游戏（隔离检测同样非零退出，不清除任何属性）
 ./launcher.command --trust-package      # 一次性显式信任本包原生库（需输入 TRUST 确认，不启动游戏）
 ./launcher.command --game "/path/KingdomTwoCrowns.app"   # 显式指定游戏
 ./launcher.command -screen-width 1280 -screen-height 720 # 游戏参数原样转发
 ```
+
+`--verbose` 由启动器消费，不会转发给游戏。
+
+### 终端输出与日志
+
+游戏会输出大量 native loader 转储与诊断日志（一次启动可达数千行），默认会把真正
+的错误淹没。本包默认**精简终端**，日志侧按以下已证实范围工作：
+
+- 游戏的合并 stdout+stderr 写入包内 `launcher-console.log`（每次启动覆盖为最近
+  一次运行；它只是本次游戏的合并终端流，不替代 BepInEx 磁盘日志或系统日志）。
+  raw 由独立 `tee` 进程直写，正常路径逐字节完整（含末行无换行）；`tee` 自身写盘
+  失败（如磁盘满）属灾难路径，会显式告警并可能不完整，启动器不会静默宣称成功。
+- 终端只收起**逐行白名单确证的**噪声：native loader 的 Mach-O 转储（`MEMORY MAP`
+  的绝对 `*.dylib` 路径表头、完整 9 字段且逐字段值合法的地址区间行、审计确认的
+  12 个裸 `LC_*` 命令、6 种完整负载的 `BIND_OPCODE`、LC_SEGMENT/LC_SYMTAB/
+  LC_DYLD_INFO_ONLY 的“字段名+合法值”行）、三个高体量 Debug 来源的确证消息形态
+  （`DobbyDetour` / `AssemblyPatcher` / `Il2CppInterop`）、以及角色采样中**仅完整
+  正常帧**：`[HeroArcherVisuals] [HeroArcherNative]` / `[HeroArcherPoseVisit]`
+  要求键序完整、数值有限、`native=1`/`hero=1`/`reason=None` 且动作配对为实测组合
+  （Prepare→Shoot / Prepare→Stand / Shoot→Stand），`[FarmCatMovement]` 仅
+  `native activity state unproven` 的完整数值负载（cat/pc 整数、x/bodyVx 小数）。
+  未知 LC 命令/尾部、未知字段值（如 `offset caused a segmentation fault`）、
+  未闭合或未知的 `MEMORY MAP(...)`、字段不足或带额外尾部的地址区间行、同源未知
+  Debug/Info 内容、以及英雄帧的异常状态（`t=unexpected`、`reason` 非 None、额外
+  尾部字段、未确证动作配对等，可能是真实视觉故障）一律保留。
+- **`Warning` / `Error` / `Fatal`、含 error/fail/exception/warn/fatal/denied/
+  refused/abort/timeout/not found 等关键词的行、以及一切未识别行（含缩进的
+  堆栈续行）始终原样显示**；不属于上述来源/形态的 Debug 行（如 Mod 自身诊断）
+  也保留（含符号名带 error/fail 字样的 BIND 行——保守优先）。
+- 需要完整终端输出时加 `--verbose`（等价于原样透传），日志文件照写。
+- 启动/退出时会明示三个日志位置：`launcher-console.log`、
+  `BepInEx/LogOutput.log`、`~/Library/Logs/noio/KingdomTwoCrowns/Player.log`。
+- `launcher-console.log` 的写入有目标守卫：路径是符号链接、硬链接（nlink>1）、
+  目录、FIFO 或不可写时直接拒绝启动，不会覆盖或删除未知对象。
+- 日志管线自有进程（`tee`、过滤 shell、其 `awk`/fallback `cat`）按记录 PID 管理：
+  正常 EOF 后逐一回收；排空/信号/超时有界收尾（正常约 10 秒、TERM/HUP 清理约
+  3 秒），全部结束后才清理临时对象与释放锁，避免旧管线在下一次启动截断 raw 后
+  继续写入。过滤端结束（DONE）不代表 `tee` 已 EOF——只要 `tee` 仍存活就有独立的
+  限时检查，超限即告警并 `TERM`/`KILL`/`wait`，绝不无期限等待。不向共享进程组
+  广播，不触碰无关进程。
+- 若终端过滤器自身异常（罕见）：启动器会明确告警，并由 fallback `cat` **继续
+  实时透传**剩余输出（游戏运行中的新 Error/Fatal 即刻可见）；游戏结束后再从完整
+  raw 回放以补回 awk 可能预读的行（允许重复），并以独立非零码（86）结束。游戏本身
+  的真实退出码不受影响；TERM/HUP 等信号清理路径同样报告该失败并回放，不静默走
+  成功语义。
 
 `--trust-package` 与 `--check-only`、游戏参数互斥（可以用 `--game` 指定目标）；同一
 命令行里重复写 `--trust-package` 会被拒绝。该模式可重复运行：已清洁时报告「无可处理
@@ -157,6 +203,9 @@ cd /path/to/OhMyMods-Mac-ARM64
 - 包内锁文件防止同包并发启动；启动器还会检测任何正在运行的
   Kingdom Two Crowns（按进程可执行文件名精确匹配，改名后的 `.app` 或裸可执行
   文件同样命中）并要求先退出（进程枚举失败同样拒绝启动）。
+- 终端原始日志只写包内 `launcher-console.log`（下次启动覆盖为最近一次运行）；
+  写入前拒绝符号链接、硬链接、目录、FIFO 等占位；`--check-only` 不创建日志、
+  临时目录或任何日志辅助进程，也不会改动既有日志的内容/mtime。
 - 下载隔离（`com.apple.quarantine`）：普通启动与 `--check-only` 只做只读检测。
   唯一的清除路径是你显式运行的 `--trust-package`：全量只读预检 → 精确输入 `TRUST`
   确认 → 占包内锁 → 复检游戏未运行/路径真实/无硬链接/哈希未变 → 仅对固定名单内的
@@ -191,6 +240,10 @@ cd /path/to/OhMyMods-Mac-ARM64
 | 「发现残留锁文件」 | 上次启动未正常收尾（如整机断电）。确认游戏与终端都已退出后，按提示手动删除包内 `.launcher.lock`。启动器不会自动删它（避免 PID 复用误删）。 |
 | 「检测到 Kingdom Two Crowns 已在运行」 | 先完全退出原版游戏（含 Steam 启动的实例）再用本包启动。 |
 | 首启很慢/卡在生成 | 属正常：联网下载 Unity 基础库 + 生成 interop。请等待，日志见 `BepInEx/LogOutput.log`。 |
+| 终端输出被收起了哪些内容 / 想看完整输出 | 默认只收起已识别的 native 转储、三个 Debug 来源与两类角色采样；`--verbose` 完整透传。完整原文始终在包内 `launcher-console.log`（每次启动覆盖为最近一次）。 |
+| 「终端日志路径是符号链接 / 有多个硬链接 / 不是常规文件」 | 防越界写保护：日志目标必须是不存在的路径或普通文件（nlink=1、可写）。确认该路径无需保留后手动处理再重试；启动器不会替换或删除未知对象。 |
+| 出现「终端过滤器异常退出」或「从原始日志回放完整内容」 | 终端过滤器自身失败（罕见）：启动器改为实时透传剩余输出，游戏结束后从完整 raw 回放补缺口（可能重复）；游戏不受影响。游戏本应正常结束时启动器以退出码 86 结束，请把 `launcher-console.log` 反馈给维护者。 |
+| 出现「tee 日志进程未在限时内结束」 | 过滤端已结束但 `tee` 仍被上游输出管道持有（通常由游戏遗留子进程导致）。启动器已在限时后终止它并继续收尾；此时的 raw 可能缺少尾部输出，会一并给出日志捕获失败告警。 |
 | 「包目录不可写」 | 把完整包移到用户可写目录（如「应用程序」或个人文件夹）。 |
 | 拒绝 `--doorstop-*` / `--unhollowed-path` | 保留参数，不允许覆盖加载器/interop 指向。 |
 
@@ -203,6 +256,7 @@ cd /path/to/OhMyMods-Mac-ARM64
 | 文件 | 归属 | 说明 |
 | --- | --- | --- |
 | `launcher.command` | Worker | 启动器（bash 3.2 兼容，仅系统工具，无测试通道） |
+| `tools/console-filter.awk` | Worker | 终端精简过滤器（POSIX awk 语义；launcher 与测试共用，经 input-lock 固化哈希） |
 | `build_package.py` | Worker | 确定性打包器（Python3 标准库，无测试放宽 flag） |
 | `defaults/BepInEx.cfg` | Worker | 最小默认配置（仅缺失时播种；真实段 `[Logging.Disk]`） |
 | `README.md` | Worker | 本文档 |
@@ -289,7 +343,14 @@ POSIX 置为忽略，故 INT 用静态断言）、可写路径 fail-closed、别
 只清除名单内被隔离项且严格 argv、其他属性与字节保持、部分失败准确报告与
 可重入、列举失败 fail-closed、删除无效时读回判定失败、文件/父路径符号链接
 与硬链接拒绝、名单外文件不碰）、构建器（确定性/内容/权限/SHA256SUMS/manifest/
-排除项/operator 材料/各类拒绝/契约常量强制/模板）。
+排除项/operator 材料/各类拒绝/契约常量强制/模板）、终端输出（默认精简与
+`--verbose` 透传、raw 逐字节完整含末行无换行与超管道缓冲大输出、真实退出码保留、
+stderr 合并、过滤器故障实时透传+预读缺口回放、tee 写盘失败报告、tee 在 DONE/
+过滤端提前退出且上游写端仍存活时的有界回收、日志目标符号链接/硬链接/目录/FIFO
+拒绝、`--check-only` 零写入、TERM/HUP 排空超时按记录 PID 收尾且返回后 raw 无追加、
+精确白名单负例（未知字段值/未知 LC/未闭合 MEMORY MAP/字段不足或带尾部的区间行/
+异常英雄帧/未知 FarmCat 负载）保留、helper 缺件/篡改/符号链接 fail-closed、
+input-lock 哈希漂移）。
 
 **全部基于合成夹具，不接触真实游戏，不等于实机启动验收**——实际发布 ZIP 的
 下载、首次双击、`--trust-package` 清隔离后的真实加载与最终发布仍是 Operator
@@ -302,6 +363,11 @@ gate。
 - 「运行中游戏」检测基于 `ps` comm 精确后缀匹配，无法阻止用户在本包启动后
   再手动开启原版游戏；进程枚举失败时 fail-closed 拒绝启动。
 - 残留锁需人工删除（设计取舍，防 PID 复用误删）。
+- 终端原始日志只保留最近一次运行（下次启动覆盖）；游戏退出后若仍有其子进程
+  持有输出管道，日志管线排空有界（正常约 10 秒、信号清理约 3 秒），窗口内尾部
+  输出可能缺失并在终端告警；过滤器故障触发的 raw 回放允许重复行。`tee` 自身
+  写盘失败（磁盘满等）时 raw 可能不完整，但会显式告警并以独立非零结束；本包
+  不宣称对极端灾难路径（如外部 SIGKILL 或磁盘故障）提供 SIGPIPE 绝对免疫。
 - 首启依赖 `unity.bepinex.dev` 可访问。
 - 文件内容在校验后被并发修改的竞态不构造全系统安全保证，范围限定为启动期
   一致性检查。

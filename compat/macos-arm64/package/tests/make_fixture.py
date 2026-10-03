@@ -163,6 +163,9 @@ def make_package_skeleton(parent, pkg_name, game_root):
     os.makedirs(os.path.join(pkg, "defaults"), exist_ok=True)
     write(os.path.join(pkg, "defaults/BepInEx.cfg"),
           open(os.path.join(source_dir, "defaults/BepInEx.cfg"), "rb").read())
+    # 终端精简过滤器：launcher 需要包内存在且 SHA256SUMS 覆盖（与真实包一致）
+    write(os.path.join(pkg, "tools/console-filter.awk"),
+          open(os.path.join(source_dir, "tools/console-filter.awk"), "rb").read())
     lock = {"schema": "ohmymods-arm64-game-lock/2"}
     lock.update(game_facts(os.path.join(game_root, GAME_APP)))
     lock.update({
@@ -177,7 +180,7 @@ def make_package_skeleton(parent, pkg_name, game_root):
     sums = []
     for rel in sorted(set(("BepInEx/core/BepInEx.Unity.IL2CPP.dll", "defaults/BepInEx.cfg",
                            "dotnet/libcoreclr.dylib", "game-lock.json", "launcher.command",
-                           "libdoorstop.dylib") + tuple(NATIVE_RELS))):
+                           "libdoorstop.dylib", "tools/console-filter.awk") + tuple(NATIVE_RELS))):
         sums.append("%s  %s" % (sha256_file(os.path.join(pkg, rel)), rel))
     with open(os.path.join(pkg, "SHA256SUMS"), "w", encoding="utf-8") as f:
         f.write("\n".join(sums) + "\n")
@@ -226,6 +229,8 @@ def make_builder_home(root):
     write(os.path.join(home, "VALIDATION.md"), b"# VALIDATION (fixture)\n")
     write(os.path.join(home, "tools/sanitize_codeview.py"),
           b"#!/usr/bin/env python3\n# fixture stand-in\n")
+    shutil.copyfile(os.path.join(source_dir, "tools/console-filter.awk"),
+                    os.path.join(home, "tools/console-filter.awk"))
     write(os.path.join(home, "metadata-sanitization-receipts/receipt.json"),
           b'{"fixture": true}\n')
     return home
@@ -272,7 +277,7 @@ def emit_lock(path, input_root, notices_dir, game_root, materials_dir):
     add(input_root, ".")  # libdoorstop.dylib 等根文件（干扰项类别为 None 被过滤）
     add(materials_dir, "defaults")
     for rel in ("launcher.command", "README.md", "REBUILD.md", "VALIDATION.md",
-                "tools/sanitize_codeview.py",
+                "tools/sanitize_codeview.py", "tools/console-filter.awk",
                 "metadata-sanitization-receipts/receipt.json"):
         full = os.path.join(materials_dir, rel)
         if os.path.isfile(full):
