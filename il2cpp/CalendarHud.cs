@@ -6,7 +6,7 @@ namespace KingdomEnhancedMod;
 /// <summary>Passive cached calendar overlay; one-time font discovery, no controls or game-state writes.</summary>
 internal static class CalendarHud
 {
-    private const float Width = 552f, Height = 54f;
+    private const float Width = 684f, Height = 54f;
     private static readonly Color Gold = new Color(0.93f, 0.78f, 0.47f);
     private static readonly Color Ivory = new Color(0.95f, 0.92f, 0.84f);
     private static readonly Color Muted = new Color(0.68f, 0.62f, 0.52f);
@@ -26,6 +26,7 @@ internal static class CalendarHud
     private static CalendarSnapshot _snapshot;
     private static string _dayText = "", _hourText = "", _seasonText = "", _nextText = "";
     private static string _bankText = "—";
+    private static string _wallText = "未生效";
 
     private static bool Enabled => ModConfig.Enabled != null && ModConfig.Enabled.Value
         && ModConfig.ShowCalendarHud != null && ModConfig.ShowCalendarHud.Value;
@@ -62,6 +63,8 @@ internal static class CalendarHud
                 ? BankAssistantCoordinator.GetStashedCoinsForPanel() : -1;
             // The coin icon plus the 主城金库 caption already identify the currency; keep the bare number.
             _bankText = stashed < 0 ? "—" : stashed.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+            // issue-86：与 F5 面板同源同格式；Draw 只读本缓存，不查游戏状态。
+            _wallText = FormatWallStatus(WallEngineerRuntime.Status);
             _valid = CalendarReader.TryRead(director, out _snapshot);
             if (!_valid) return;
             _dayText = "第 " + _snapshot.TotalDay + " 天";
@@ -80,6 +83,7 @@ internal static class CalendarHud
         _world = _scene = _director = IntPtr.Zero;
         _nextRead = 0f;
         _bankText = "—";
+        _wallText = "未生效";
     }
 
     internal static void Draw()
@@ -98,7 +102,7 @@ internal static class CalendarHud
             GUI.depth = -20;
             // Other worlds retain the calendar without the Greek treasury extension.
             bool showBank = GreekBankScope.IsActive;
-            float width = showBank ? Width : 386f;
+            float width = showBank ? Width : 518f;
             float scale = Mathf.Clamp(Mathf.Min(Screen.width / 1280f, Screen.height / 720f), 0.45f, 2f);
             scale = Mathf.Min(scale, Mathf.Max(1f, Screen.width - 24f) / width);
             float x = Mathf.Round((Screen.width / scale - width) * 0.5f);
@@ -124,6 +128,10 @@ internal static class CalendarHud
             if (_snapshot.HasNextSeason)
                 Line(x + 236, y + 39, 136 * Mathf.Clamp01(_snapshot.Progress), 3, currentColor);
             if (showBank) Label(x + 400, y + 31, 132, 20, "主城金库", _small, Muted);
+            // issue-86 外墙耐久列：值在上行、标题在下行，占用原日历右侧新增的 132px 列。
+            float wallX = x + width - 132f;
+            Label(wallX + 14, y + 6, 104, 22, _wallText, _number, Gold);
+            Label(wallX + 14, y + 31, 104, 20, "外墙耐久上限", _small, Muted);
         }
         catch (Exception ex) { _valid = false; _retryAfter = Time.unscaledTime + 1f; LogOnce(ex); }
         finally
@@ -178,6 +186,20 @@ internal static class CalendarHud
     {
         Season.Spring => "春", Season.Summer => "夏", Season.Autumn => "秋", Season.Winter => "冬", _ => "季"
     };
+
+    /// <summary>issue-86 外墙耐久倍率唯一只读文案来源；F5 设置面板复用同一格式。Ready 时不做 clamp/重算。</summary>
+    internal static string FormatWallStatus(WallEngineerStatus status)
+    {
+        if (status.Ready) return "×" + status.AppliedMultiplier;
+        return status.Reason switch
+        {
+            WallEngineerUnavailableReason.Disabled => "已关闭",
+            WallEngineerUnavailableReason.Loading => "载入中",
+            WallEngineerUnavailableReason.NoOuterWall => "暂无外墙",
+            WallEngineerUnavailableReason.NetworkUnsupported => "仅单机",
+            _ => "未生效",
+        };
+    }
 
     private static void EnsureResources()
     {

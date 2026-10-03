@@ -14,8 +14,8 @@ namespace KingdomEnhancedMod;
 /// ConvertToSoldier 已把它们换成当前世界的士兵控制器）覆盖为"骑士风格对应"的
 /// 士兵控制器。北境风格额外联动 PatchRoles_NorseSquad：随从转化为真北境弓箭手
 /// 预制体（带盾组件的近战/盾墙原生逻辑）并程序化装盾，见该文件。
-/// 缩放（坑11：只动 y）：骑士按风格查表（中世纪 0.95/死地 1.05/幕府 0.95/
-/// 希腊 0.9/北境 1.15，Strip 恒回 1）；中世纪随从 1.05、北境随从 1.15
+/// 缩放（坑11：只动 y）：骑士按风格查表（中世纪 0.896/死地 1.05/幕府 0.95/
+/// 希腊 0.9/北境 1.15，Strip 恒回 1）；中世纪随从 1.064、北境随从 1.15
 /// （其余含北境 1.0，无骑士/骑士无风格时回 1）。
 ///
 /// 机制要点：
@@ -80,18 +80,19 @@ public static class PatchRoles_KnightStyle
 {
     // ---- 常量 ----
     private const int StyleCount = 5;
-    private const int MedievalStyleIndex = 0; // 随从缩放特判用（中世纪随从 1.05）
+    private const int MedievalStyleIndex = 0; // 随从缩放特判用（中世纪随从 1.064）
     private const int DeadlandsStyleIndex = 1; // 死地随从"无标记弩手化"包特判用
     internal const int NorseStyleIndex = 4;   // 北境风格（PatchRoles_NorseSquad 联动判定用）
     private const float IntegrityIntervalSeconds = 5f;
     private const float AssetRetryIntervalSeconds = 30f;
 
     // 每风格骑士 y 缩放（坑11：只动 y），index 对齐 StyleNames：
-    // 中世纪 0.95 / 死地 1.05 / 幕府 0.95 / 希腊 0.9 / 北境 1.15（原"希腊特例"泛化为
-    // 表驱动；死地/北境 1.05/1.15 由用户拍板定稿）
-    private static readonly float[] KnightStyleScaleY = { 0.95f, 1.05f, 0.95f, 0.9f, 1.15f };
-    // 中世纪风格的随从士兵 y 缩放（其余风格含北境 1.0；用户可从身高认出中世纪队）
-    private const float FollowerMedievalScaleY = 1.05f;
+    // 中世纪 0.70×32/25=0.896（2026-09-29 站高 0.70 校准）/ 死地 1.05 / 幕府 0.95 /
+    // 希腊 0.9 / 北境 1.15（原"希腊特例"泛化为表驱动；死地/北境 1.05/1.15 由用户拍板定稿）
+    private static readonly float[] KnightStyleScaleY = { 0.70f * 32f / 25f, 1.05f, 0.95f, 0.9f, 1.15f };
+    // 中世纪风格的随从士兵 y 缩放：0.70×32/20×0.95=1.064（素材立姿 20px；2026-09-30
+    // 身高再降 5%；其余风格含北境 1.0，用户可从身高认出中世纪队）
+    private const float FollowerMedievalScaleY = 0.70f * 32f / 20f * 0.95f;
     private const float FollowerNorseScaleY = 1.15f; // 用户拍板：北境骑士与其随从同步 1.15
 
     private const uint FnvOffset = 2166136261u;
@@ -627,7 +628,7 @@ public static class PatchRoles_KnightStyle
 
     /// <summary>
     /// 骑士缩放（坑11：只动 y，x 是朝向符号）：按风格查 KnightStyleScaleY 表
-    /// （中世纪 0.95/死地 1.05/幕府 0.95/希腊 0.9/北境 1.15）。y≠1 注册 ScaleRegistry 每帧
+    /// （中世纪 0.70×32/25=0.896/死地 1.05/幕府 0.95/希腊 0.9/北境 1.15）。y≠1 注册 ScaleRegistry 每帧
     /// 守卫（池 respawn/原生重置能自愈），y=1 注销守卫。Apply/Reassert 共用；
     /// Strip 不走此表，仅归还本 mod 拥有的缩放。
     /// </summary>
@@ -650,7 +651,7 @@ public static class PatchRoles_KnightStyle
     }
 
     /// <summary>
-    /// 随从缩放（坑11：只动 y）：中世纪风格的随从士兵 y=1.05，其余（含骑士无
+    /// 随从缩放（坑11：只动 y）：中世纪风格的随从士兵 y=1.064（0.70×32/20×0.95），其余（含骑士无
     /// 风格/随从无骑士的清理路径传 1）归还原生缩放。y≠1 注册守卫，y=1 注销。
     /// 每轮幂等重算：随从换队（骑士死了改投他人）时缩放自动跟随新骑士风格。
     /// </summary>
@@ -836,6 +837,10 @@ public static class PatchRoles_KnightStyle
             // DefenseSpacing 的 3s 拍共用一份；本 5s 巡检的新鲜度要求——新招募
             // 骑士——由 Promote postfix 即时上风格保证，缓存 3s < 原 5s 节奏）。
             Knight[] knights = UnitScanCache.GetKnights();
+            // 历史职业配额恢复（known-mismatch + 有效历史来源）与 empty-latest 的显式均匀分支：一次整批
+            // 重分配，先于功能 A 执行——成功则 cohort 全部已有收据，AssignFirstSeenUniform/PrimeExisting
+            // 自然不再重摇；均匀分支只用当前可用风格池（资产缺失时不冒充分配）。
+            KnightIdentityQuotaRecovery.IntegrityPass(AvailableStyles);
             // 功能 A（首见均匀分配）：零记录装载骑士在 PrimeExisting 之前一次批量均匀分配（取代逐人
             // 哈希迁移）。MarkedNew（新招募 ChooseBalanced）/已有收据/FailedLoad/已在场风格不在本批范围；
             // unresolved/失配/冲突上下文由本方法内部门拒绝（只能经面板 + 设计 C 处理）。
@@ -1004,8 +1009,15 @@ public static class PatchRoles_KnightStyle
                 ? animator.runtimeAnimatorController : null;
             if (current != null && current.Pointer != target.Pointer)
             {
+                // issue-79 只读取证：实际 controller 写入点的窄读点（覆盖 5s 巡检/面板重派调用方）。
+                DeadlandsFollowerCapture.OnControllerWriteBefore(archer);
                 animator.runtimeAnimatorController = target;
                 wrote = true;
+                DeadlandsFollowerCapture.OnControllerWriteAfter(archer);
+            }
+            else
+            {
+                DeadlandsFollowerCapture.OnControllerNoWrite(archer);
             }
 
             // 生根：字段指向风格皮后，原生 ConvertToSoldier 自己写出的就是同一控制器
@@ -1297,7 +1309,7 @@ public static class PatchRoles_KnightStyle
                     if (knight == null || knight.gameObject == null)
                     {
                         // 无骑士（离队/猎人）：随从缩放确保回 1（幂等；曾随中世纪
-                        // 骑士放大到 1.05 的随从离队后在此归位）；同时撤弩手化包
+                        // 骑士放大到 1.064 的随从离队后在此归位）；同时撤弩手化包
                         // （幂等 no-op，离队主路径在 ConvertToHunter postfix）；
                         // 生根字段归位，风格皮绝不泄漏给下一个池 life。
                         RestoreFollowerSoldierAnimator(archer);
@@ -1360,7 +1372,7 @@ public static class PatchRoles_KnightStyle
                     if (effectiveStyleIndex >= 0 && effectiveStyleIndex < StyleCount)
                         diagStyleTargets[effectiveStyleIndex]++; // 按实际穿的皮计（reviewer 拍板）
 
-                    // 随从缩放（[2]）：中世纪 1.05，其余 1.0；随从换队（骑士死了
+                    // 随从缩放（[2]）：中世纪 1.064，其余 1.0；随从换队（骑士死了
                     // 改投他人）时每轮幂等重算，缩放自动跟随新骑士风格。
                     // 死地随从例外：缩放（1.15）由 ApplySquadCrossbowPackage 作为
                     // 弩手化包的一部分统一管理，此处跳过避免两个写入者互相覆盖。
@@ -1590,10 +1602,18 @@ public static class World_OnLevelLoaded_KnightStyleHost_Patch
 [HarmonyPatch(typeof(Archer), "ConvertToSoldier")]
 public static class Archer_ConvertToSoldier_KnightStyleSkin_Patch
 {
+    // issue-79 只读取证：Convert 入口事件；void 只记录，绝不跳过原方法。
+    [HarmonyPrefix]
+    private static void Prefix(Archer __instance)
+    {
+        DeadlandsFollowerCapture.OnConvertBefore(__instance, false);
+    }
+
     [HarmonyPostfix]
     private static void Postfix(Archer __instance)
     {
         if (__instance == null) return;
+        DeadlandsFollowerCapture.OnPostfixEntry(__instance, false);
         try
         {
             // 配置关（审查 P1-1）：随从实例无 marker，弩手池边界不覆盖——这里与巡检是
@@ -1604,7 +1624,9 @@ public static class Archer_ConvertToSoldier_KnightStyleSkin_Patch
                 PatchRoles_KnightStyle.RestoreRootedFollowerOnDisable(__instance);
                 return;
             }
+            DeadlandsFollowerCapture.OnStyleBefore(__instance);
             PatchRoles_KnightStyle.ApplyFollowerSkinTo(__instance);
+            DeadlandsFollowerCapture.OnStyleAfter(__instance);
         }
         catch (Exception e)
         {
@@ -1627,10 +1649,18 @@ public static class Archer_ConvertToSoldier_KnightStyleSkin_Patch
 [HarmonyPatch(typeof(Archer), "ConvertToHunter")]
 public static class Archer_ConvertToHunter_KnightStyleSkin_Patch
 {
+    // issue-79 只读取证：Convert 入口事件；void 只记录，绝不跳过原方法。
+    [HarmonyPrefix]
+    private static void Prefix(Archer __instance)
+    {
+        DeadlandsFollowerCapture.OnConvertBefore(__instance, true);
+    }
+
     [HarmonyPostfix]
     private static void Postfix(Archer __instance)
     {
         if (__instance == null) return;
+        DeadlandsFollowerCapture.OnPostfixEntry(__instance, true);
         try
         {
             if (!ModConfig.Enabled.Value)
@@ -1638,7 +1668,9 @@ public static class Archer_ConvertToHunter_KnightStyleSkin_Patch
                 PatchRoles_KnightStyle.RestoreRootedFollowerOnDisable(__instance);
                 return;
             }
+            DeadlandsFollowerCapture.OnStyleBefore(__instance);
             PatchRoles_KnightStyle.ApplyFollowerSkinTo(__instance);
+            DeadlandsFollowerCapture.OnStyleAfter(__instance);
         }
         catch (Exception e)
         {

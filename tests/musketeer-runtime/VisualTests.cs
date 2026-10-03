@@ -17,6 +17,7 @@ namespace MusketeerRuntimeTests
             Case.Run("reuse without a new career never leaves the native hidden", ReuseWithoutNewCareer);
             Case.Run("native-hide release failure keeps a receipt and retries on Sync", ReleaseFailureKeepsReceipt);
             Case.Run("own visual carries the shared 0.9 appearance scale (absolute; Z stays 1)", OwnVisualAppearanceScale);
+            Case.Run("leisure Stand overlay yields immediately to shot, target, night and pause", LeisurePriority);
         }
 
         private static void OwnVisualAppearanceScale()
@@ -30,6 +31,53 @@ namespace MusketeerRuntimeTests
             Check.Near(1d, ownRoot.localScale.z, 1e-6d, "Z stays 1 (depth untouched)");
             Check.True(ReferenceEquals(ownRoot.parent, archer._spriteRenderer.transform),
                 "still mounted under the native renderer (foot-pivot anchor)");
+        }
+
+        private static void LeisurePriority()
+        {
+            Archer archer = ArmedMusketeerWithVisuals(out Sprite[] baseSprites);
+            SpriteRenderer own = FindOwn(archer);
+            Managers.Inst.kingdom = new Kingdom { isDaytime = true };
+            Managers.Inst.game = new Game { state = Game.State.Playing };
+            archer._shootingTarget = null;
+            SetNativeState(archer, "Stand", 0f, .5f); // Idleness=0: native phase frozen
+            bool started = false;
+            for (int i = 0; i < 210; i++)
+            {
+                Time.time += .1f; Time.deltaTime = .1f; Time.frameCount++;
+                MusketeerVisuals.Sync();
+                if (own.sprite?.Texture?.width == 56 * 4) { started = true; break; }
+            }
+            Check.True(started, "scaled leisure starts even with frozen native Stand phase");
+            if (!started) return;
+            Sprite frame = own.sprite;
+            Time.timeScale = 0f;
+            for (int i = 0; i < 5; i++) { Time.time += .1f; Time.frameCount++; MusketeerVisuals.Sync(); }
+            Check.True(ReferenceEquals(frame, own.sprite), "timeScale pause freezes leisure");
+            Time.timeScale = 1f;
+            Managers.Inst.game.state = Game.State.Menu;
+            for (int i = 0; i < 5; i++) { Time.time += .1f; Time.frameCount++; MusketeerVisuals.Sync(); }
+            Check.True(ReferenceEquals(frame, own.sprite), "menu freezes leisure");
+            Managers.Inst.game.state = Game.State.Playing;
+            IslandSaveData.isSavingGame = true;
+            for (int i = 0; i < 5; i++) { Time.time += .1f; Time.frameCount++; MusketeerVisuals.Sync(); }
+            Check.True(ReferenceEquals(frame, own.sprite), "save freezes leisure");
+            IslandSaveData.isSavingGame = false;
+            MusketeerVisuals.NotifyShot(archer, Time.time + 2f);
+            Check.True(ReferenceEquals(own.sprite, baseSprites[MusketeerAtlas.FireFirstFrame]),
+                "same-frame confirmed shot removes leisure and shows Fire without another Sync");
+            archer._shootingTarget = Fixture.NewEnemy(EnemyType.TrollWeak);
+            for (int i = 0; i < 210; i++)
+            {
+                Time.time += .1f; Time.frameCount++; MusketeerVisuals.Sync();
+            }
+            Check.False(own.sprite?.Texture?.width == 56 * 4, "target and gun animation keep leisure off");
+            archer._shootingTarget = null;
+            Managers.Inst.kingdom.isDaytime = false;
+            for (int i = 0; i < 210; i++) { Time.time += .1f; Time.frameCount++; MusketeerVisuals.Sync(); }
+            Check.False(own.sprite?.Texture?.width == 56 * 4, "night keeps leisure off");
+            MusketeerVisuals.Remove(archer);
+            Check.False(archer._spriteRenderer.forceRenderingOff, "leisure removal returns native renderer");
         }
 
         private static void ReuseResetsOldPhase()

@@ -73,6 +73,7 @@ namespace HarmonyLib
 
     [AttributeUsage(AttributeTargets.Method)] public class HarmonyPrefix : Attribute { }
     [AttributeUsage(AttributeTargets.Method)] public class HarmonyPostfix : Attribute { }
+    [AttributeUsage(AttributeTargets.Method)] public class HarmonyFinalizer : Attribute { }
     [AttributeUsage(AttributeTargets.Method)] public class HarmonyPriority : Attribute
     { public HarmonyPriority(int priority) { } }
 }
@@ -136,7 +137,12 @@ namespace UnityEngine
 
     public struct Quaternion { public static Quaternion identity => default; }
 
-    public struct Color { public float r, g, b, a; public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; } }
+    public struct Color
+    {
+        public float r, g, b, a;
+        public Color(float r, float g, float b, float a = 1f) { this.r = r; this.g = g; this.b = b; this.a = a; }
+        public static Color white => new Color(1f, 1f, 1f, 1f);
+    }
 
     public struct Scene
     {
@@ -205,6 +211,10 @@ namespace UnityEngine
         public bool Alive = true;
         public string name = "";
 
+        // Unity 的 hideFlags 属于 UnityEngine.Object（GameObject 与组件共用同一属性）；
+        // 原生模板/克隆/其 PositionSync 实际读取为 HideAndDontSave=61（live evidence）。
+        public HideFlags hideFlags;
+
         public Object()
         {
             Id = ++_nextId;
@@ -253,9 +263,16 @@ namespace UnityEngine
             if (owner != null) Destroyed.Add(owner);
         }
 
+        public static void DontDestroyOnLoad(Object target) { }
+
         public static Il2CppArrayBase<T> FindObjectsOfType<T>() where T : Object
         {
-            return new Il2CppArrayBase<T>(All.OfType<T>().Where(item => !IsNull(item)).ToArray());
+            // Unity 6 的 FindObjectsOfType 不保证返回 DontSave 对象（HideAndDontSave=61，
+            // DontSave=52=V^4|16|32）：本 mod 的模板/克隆/PositionSync 都带该标志，
+            // 这正是“丢槽后全局查找回认不到旧演员”的生产路径。组件还要求其 GO 在层级中激活。
+            return new Il2CppArrayBase<T>(All.OfType<T>().Where(item => !IsNull(item)
+                && (((int)item.hideFlags & 52) == 0)
+                && (!(item is Component c) || c.gameObject.activeInHierarchy)).ToArray());
         }
     }
 
@@ -295,16 +312,39 @@ namespace UnityEngine
 
     public class Transform : Component
     {
-        public Transform Parent;
+        private Transform _parent;
+        public readonly List<Transform> Children = new List<Transform>();
         public int FailChildReads;
         public Vector3 position;
+        public Vector3 localPosition;
         private Vector3 _localScale = new Vector3(1f, 1f, 1f);
         public int Writes;
+
+        /// <summary>Parent tracking feeds GetComponentsInChildren so structure scans see the hierarchy.</summary>
+        public Transform Parent
+        {
+            get => _parent;
+            set
+            {
+                _parent = value;
+                if (value != null && !value.Children.Contains(this)) value.Children.Add(this);
+            }
+        }
 
         public Vector3 localScale
         {
             get => _localScale;
             set { Writes++; _localScale = value; }
+        }
+
+        public void SetParent(Transform value, bool worldPositionStays) => Parent = value;
+
+        /// <summary>轴对齐的父级缩放/flip 组合（测试替身不做旋转）。</summary>
+        public Vector3 TransformVector(Vector3 value)
+        {
+            Vector3 world = _parent != null ? _parent.TransformVector(value) : value;
+            Vector3 scale = localScale;
+            return new Vector3(world.x * scale.x, world.y * scale.y, world.z * scale.z);
         }
 
         public bool IsChildOf(Transform parent)
@@ -314,6 +354,27 @@ namespace UnityEngine
                 if (ReferenceEquals(current, parent)) return true;
             return false;
         }
+
+        /// <summary>Issue 100：models Unity subtree scans (includeInactive).</summary>
+        public T[] GetComponentsInChildren<T>(bool includeInactive) where T : Component
+        {
+            var found = new List<T>();
+            CollectComponents(this, includeInactive, found);
+            return found.ToArray();
+        }
+
+        private static void CollectComponents<T>(Transform node, bool includeInactive, List<T> found)
+            where T : Component
+        {
+            if (node == null) return;
+            GameObject owner = node.gameObject;
+            if (owner == null) return;
+            if (!includeInactive && !owner.activeInHierarchy) return;
+            T component = owner.GetComponent<T>();
+            if (component != null) found.Add(component);
+            for (int i = 0; i < node.Children.Count; i++)
+                CollectComponents(node.Children[i], includeInactive, found);
+        }
     }
 
     public class GameObject : Object
@@ -322,7 +383,6 @@ namespace UnityEngine
         private readonly Transform _transform;
         public bool ActiveSelf = true;
         public int layer;
-        public HideFlags hideFlags;
         public Scene scene;
 
         public GameObject(string name = "actor")
@@ -358,6 +418,17 @@ namespace UnityEngine
                 ? (T)constructor.Invoke(new object[] { IntPtr.Zero })
                 : (T)Activator.CreateInstance(typeof(T));
             component.gameObject = this;
+            // 测试替身：新建的 SpriteRenderer 默认带一个可读身体框，供生产身体框解析读取。
+            if (component is SpriteRenderer renderer && renderer.sprite == null)
+            {
+                renderer.sprite = new Sprite
+                {
+                    texture = new Texture2D(32, 40) { OpaqueRect = new[] { 6f, 4f, 20f, 20f } },
+                    rect = new Rect(0f, 0f, 32f, 40f),
+                    pivot = new Vector2(16f, 3f),
+                    pixelsPerUnit = 32f
+                };
+            }
             Components.Add(component);
             return component;
         }
@@ -379,8 +450,59 @@ namespace UnityEngine
     }
 
     public class Avatar : Object { }
-    public class Sprite : Object { }
-    public class Material : Object { }
+    public class Sprite : Object
+    {
+        public Texture2D texture;
+        public Rect rect;
+        public Vector2 pivot;
+        public float pixelsPerUnit = 32f;
+        public bool packed;
+        public Vector2[] vertices;
+    }
+
+    public struct Rect
+    {
+        public float x, y, width, height;
+        public Rect(float x, float y, float width, float height) { this.x = x; this.y = y; this.width = width; this.height = height; }
+    }
+
+    /// <summary>身体框解析的最小纹理替身：GetPixels 按可选不透明矩形返回 alpha（其余全透明）。</summary>
+    public class Texture2D : Object
+    {
+        public int width, height;
+        public bool isReadable = true;
+        public float[] OpaqueRect = System.Array.Empty<float>();   // x,y,w,h（纹理坐标）
+
+        public Texture2D(int width = 0, int height = 0) { this.width = width; this.height = height; }
+
+        public Color[] GetPixels(int x, int y, int blockWidth, int blockHeight)
+        {
+            var pixels = new Color[blockWidth * blockHeight];
+            bool has = OpaqueRect.Length == 4;
+            for (int row = 0; row < blockHeight; row++)
+            {
+                for (int col = 0; col < blockWidth; col++)
+                {
+                    bool opaque = has && x + col >= OpaqueRect[0] && x + col < OpaqueRect[0] + OpaqueRect[2]
+                        && y + row >= OpaqueRect[1] && y + row < OpaqueRect[1] + OpaqueRect[3];
+                    pixels[row * blockWidth + col] = new Color(1f, 1f, 1f, opaque ? 1f : 0f);
+                }
+            }
+            return pixels;
+        }
+    }
+    public class Material : Object
+    {
+        public Shader shader;
+        public Material() { }
+        public Material(Shader shader) { this.shader = shader; }
+    }
+
+    public class Shader : Object
+    {
+        public static int FindCalls;
+        public static Shader Find(string shaderName) { FindCalls++; return new Shader { name = shaderName }; }
+    }
 
     public class RuntimeAnimatorController : Object
     {
@@ -415,12 +537,81 @@ namespace UnityEngine
         public int sortingLayerID, sortingOrder;
     }
 
+    public struct Keyframe
+    {
+        public float time, value, inTangent, outTangent;
+
+        public Keyframe(float time, float value) : this(time, value, 0f, 0f) { }
+
+        public Keyframe(float time, float value, float inTangent, float outTangent)
+        {
+            this.time = time;
+            this.value = value;
+            this.inTangent = inTangent;
+            this.outTangent = outTangent;
+        }
+    }
+
+    // Production only authors linear secant tangents; piecewise-linear evaluation is exact for
+    // those keys and models the authored shape without importing Unity's curve editor.
+    public class AnimationCurve
+    {
+        private readonly Keyframe[] _keys;
+
+        public AnimationCurve(params Keyframe[] keys) => _keys = keys;
+
+        public Keyframe[] keys => _keys;
+
+        public float Evaluate(float time)
+        {
+            if (_keys == null || _keys.Length == 0) return 0f;
+            if (!(time >= _keys[0].time)) return _keys[0].value;
+            for (int i = 1; i < _keys.Length; i++)
+            {
+                if (time > _keys[i].time) continue;
+                Keyframe a = _keys[i - 1];
+                Keyframe b = _keys[i];
+                float span = b.time - a.time;
+                if (!(span > 0f)) return b.value;
+                float t = (time - a.time) / span;
+                return a.value + (b.value - a.value) * t;
+            }
+            return _keys[_keys.Length - 1].value;
+        }
+    }
+
+    /// <summary>共享传送 FX（CoinCourierTeleportFx）触达的最小 LineRenderer 双。</summary>
+    public class LineRenderer : Behaviour
+    {
+        public bool useWorldSpace, loop;
+        public int positionCount;
+        public int numCapVertices, numCornerVertices;
+        public float startWidth, endWidth, widthMultiplier = 1f;
+        public AnimationCurve widthCurve;
+        public Color startColor, endColor;
+        public Material sharedMaterial;
+        public int sortingLayerID, sortingOrder;
+        public readonly List<Vector3> Positions = new List<Vector3>();
+
+        public void SetPosition(int index, Vector3 value)
+        {
+            while (Positions.Count <= index) Positions.Add(default);
+            Positions[index] = value;
+        }
+    }
+
     public class Rigidbody2D : Behaviour
     {
         public RigidbodyType2D bodyType;
         public float gravityScale;
         public RigidbodyConstraints2D constraints;
     }
+}
+
+namespace Il2CppSystem
+{
+    /// <summary>Minimal stand-in for the interop Il2CppSystem.Object parameter type.</summary>
+    public class Object { }
 }
 
 // ---------------------------------------------------------------------------
@@ -445,10 +636,18 @@ public class World : Object
     public Transform gameLayer;
 }
 
-public class Player : Object
+public class CRPCHeader : UnityEngine.Object
+{
+    public UnityEngine.GameObject referencedGO;
+    public int NetID;
+}
+
+public class Player : Behaviour
 {
     public Payable selectedPayable;
     public Payable _completingPayable;
+    // 原生 Player 是 MonoBehaviour：来源判定依赖 gameObject/parentHeaderRef 的组件语义。
+    public CRPCHeader parentHeaderRef = new CRPCHeader();
 }
 
 public class Payable : Behaviour
@@ -476,6 +675,20 @@ public class Droppable : Behaviour
     public virtual bool TryFriendlyClaim(GameObject claimer, float range) => false;
     public object parentHeaderRef = new object();
     public int DropCalls;
+    // issue-89 来源/生命周期 hook 面：ReceivePolicyRPC 与 OnEnable/OnDisable 是
+    // 生产 hook 的 native target 形状（2.4 interop 同名同签名），测试只按 patch
+    // 方法直接驱动，不要求行为。
+    public GameObject dropper;
+    public int PolicyStarts, Enables, Disables;
+
+    public void ReceivePolicyRPC() { }
+
+    public virtual void OnEnable() { Enables++; }
+    public virtual void OnDisable() { Disables++; }
+
+    // 2.4 wrapper：public System.Void Droppable::Persistent_IBehaviour_ApplyData(Il2CppSystem.Object)
+    public void Persistent_IBehaviour_ApplyData(Il2CppSystem.Object data) { ApplyDataCalls++; }
+    public int ApplyDataCalls;
 
     public void Drop(GameObject dropper, Vector2 position, Vector2 velocity, PickUpPolicy policy,
         bool force, bool fake, bool animate) { DropCalls++; }
@@ -515,6 +728,33 @@ public class DroppableCurrency : Droppable
     public void MoveTo(Transform target, Vector3 offset, bool destroyAfter) => MoveToCalls++;
 }
 
+/// <summary>
+/// ByteBuffer peek 面（issue-89 ReceivePolicyRPC 来源 hook 的只读 API 形状）。
+/// 生产只调用 PollDataAvailableLength/PollIndex/bufferAccess；测试用计数器证明
+/// Prefix/Postfix 零消费（Reads 不动）与消费一致性。
+/// </summary>
+public static class ByteBuffer
+{
+    public static int Index;
+    public static int Available;
+    public static readonly byte[] Buffer = new byte[64];
+    public static int Reads;
+
+    public static void ResetForTest()
+    {
+        Index = 0;
+        Available = 0;
+        System.Array.Clear(Buffer, 0, Buffer.Length);
+        Reads = 0;
+    }
+
+    public static int PollIndex() => Index;
+    public static short PollDataAvailableLength() => (short)Available;
+    public static byte bufferAccess(int index) => Buffer[index];
+    public static byte ReadByte() { Reads++; return Buffer[Index++]; }
+    public static bool ReadBool() => ReadByte() != 0;
+}
+
 public class CurrencyManager : Behaviour
 {
     public DroppableCurrency CoinPrefab;
@@ -531,6 +771,13 @@ public class Scanner
 public class Wallet : Behaviour
 {
     public int TotalCapacity = 1000;
+    /// <summary>Native final pickup entry; the fixed-domain wallet gate prefixes it.</summary>
+    public int SuckCurrencyCalls;
+    public bool SuckCurrency(DroppableCurrency currency, bool playSound)
+    {
+        SuckCurrencyCalls++;
+        return true;
+    }
 }
 
 public class Castle : Behaviour
@@ -560,6 +807,8 @@ public class Banker : Behaviour
     public Scanner _coinScanner;
     public Wallet _wallet;
     public DroppableCurrency _targetCoin;
+    public StateMachine _fsm;
+    public Mover _mover;
     public int InterestPerDay;
     public int AwakeCalls, UpdateCalls, OnDestroyCalls, DayStartCalls, OpenDoorCalls,
         FinaliseCalls, ClaimCoinsCalls, ShouldHideCalls, ShouldEmergeCalls;
@@ -581,7 +830,44 @@ public class Banker : Behaviour
     }
 }
 
+public class StateMachine
+{
+    public int Current;
+    public int _queuedState;
+    public bool _executeQueuedState;
+    public int GoToStateCalls;
+
+    public void GoToState(int state)
+    {
+        GoToStateCalls++;
+        _queuedState = state;
+        _executeQueuedState = true;
+    }
+
+    public void GoToState(int state, bool force) => GoToState(state);
+}
+
+public class Mover : Component
+{
+    public enum GoalMode { Off = 0, Position = 1, Object = 2 }
+    public enum OffsetMode { Distance = 0, Formation = 1, Strict = 2 }
+
+    public bool movingToGoal;
+    public GoalMode goalMode;
+    public float _goalPosition;
+    public GameObject _goalObject;
+    public int StopCalls;
+
+    public void Stop() { StopCalls++; movingToGoal = false; }
+}
+
 public class Wall : Behaviour { }
+
+public class PayableUpgrade : Behaviour
+{
+    /// <summary>原生成品证据：未建 Wall0 只有 PayableUpgrade.nextPrefab 直接指向带 Wall 的预制。</summary>
+    public GameObject nextPrefab;
+}
 
 public class OrderedWalls
 {
@@ -631,6 +917,10 @@ public class Managers : Object
     public Stats stats;
     public CurrencyManager currency;
     public Director director;
+    public int OnLevelLoadedCalls;
+
+    /// <summary>Native successful-load notification (postfix host for the fixed domain).</summary>
+    public void OnLevelLoaded(bool fromSave) { OnLevelLoadedCalls++; }
 }
 
 public class DroppableRegistrar : Behaviour
@@ -652,6 +942,10 @@ public class DroppableRegistrar : Behaviour
 public class Pool : Behaviour
 {
     public GameObject prefab;
+    // 原生 Pool 的实例集合：FastClone 激活后登记进 _activeCache；FastDespawn 移到 _cache。
+    // live evidence: 现场四池各 _activeCache=2/_cache=0（丢槽的旧演员仍在活动集合里）。
+    // 测试需要注入 null 集合（读故障模拟），故不做 readonly。
+    public List<GameObject> _activeCache = new List<GameObject>();
     public int preload, capacity;
     public bool sync, expendable;
     public short syncID;
@@ -672,14 +966,18 @@ public class Pool : Behaviour
         SpawnGoCalls++;
         Pool pool = GetPoolFromPrefabAsset(prefab);
         if (pool == null) return null; // 未注册的 prefab 在原生池里出不了实例
-        GameObject actor = new GameObject(prefab.name + "(Clone)");
+        // 原生 FastClone 只 Instantiate 一次，不在克隆上清/改 hideFlags：模板的
+        // HideAndDontSave=61 被克隆与组件继承（现场读取确认）。登记进活动集合。
+        GameObject actor = new GameObject(prefab.name + " P" + (pool._activeCache.Count + 1));
+        actor.hideFlags = prefab.hideFlags;
         actor.transform.Parent = parent;
         actor.transform.position = position;
         actor.AddComponent<Animator>();
         actor.AddComponent<SpriteRenderer>();
         actor.AddComponent<Rigidbody2D>();
-        actor.AddComponent<PositionSync>();
+        actor.AddComponent<PositionSync>().hideFlags = prefab.hideFlags;
         ByInstance[actor] = pool;
+        pool._activeCache.Add(actor);
         return actor;
     }
 
@@ -828,6 +1126,7 @@ namespace KingdomEnhancedMod
     public static class ModConfig
     {
         public static ConfigEntry<bool> MusketeerEnabled = new();
+        public static ConfigEntry<bool> CoinCourierEnabled = new ConfigEntry<bool>(true);
         public static ConfigEntry<bool> AutoRestockMusketeersEnabled = new();
         public static ConfigEntry<int> AutoRestockMusketeersTarget = new() { Value = 15 };
 
@@ -911,4 +1210,13 @@ internal static class MusketeerShop {
  internal static bool TryGetAutoRestockTarget(out Payable target) { target=null;return false; }
  internal static bool CanAutoRestock(Payable target,out string reason) { reason="disabled in bank scope fixture"; return false; }
  internal static AutoPurchaseResult PurchaseForAutoRestock(Payable target,Banker banker,System.Action onDebited,out string reason) { throw new System.InvalidOperationException("unexpected musketeer call in bank scope fixture"); }
+} }
+
+namespace KingdomEnhancedMod {
+/// <summary>
+/// 边界替身：本套件不覆盖金币哥布林。银行补丁若意外触到 courier 身份门，立即以明确的
+/// NotSupportedException 暴露越界，绝不给出可能被当成 courier 验收的答案。
+/// </summary>
+internal static class CoinCourierBankScope {
+ internal static bool IsCurrentAuthorityBanker(Banker banker) => throw new System.NotSupportedException("coin courier scope is not covered by the greek bank assistants fixture");
 } }

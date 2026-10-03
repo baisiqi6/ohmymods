@@ -62,6 +62,7 @@ namespace KingdomEnhancedMod;
 internal static class HeroArcherVisuals
 {
     private const string ResourceName = "KingdomEnhancedMod.HeroArcherAtlas.png";
+    private const string LeisureResourceName = "KingdomEnhancedMod.HeroArcherLeisure.png";
     // 尺寸/网格/锚点全部来自新布局（HeroArcherPoseAtlas，31 帧 8×4）；不再引用旧 HeroArcherAtlas。
     private const int CellWidth = HeroArcherPoseAtlas.CellWidth;
     private const int CellHeight = HeroArcherPoseAtlas.CellHeight;
@@ -109,6 +110,8 @@ internal static class HeroArcherVisuals
         internal SpriteRenderer Native;
         internal bool HidNative;
         internal int LastFrame = -1;
+        internal int LastLeisureFrame = -1;
+        internal CharacterLeisureClock Leisure;
         internal HeroArcherNativeAction LastAction = HeroArcherNativeAction.Unknown;
         internal int NativeStateHash;
         internal float NativeNormalizedTime;
@@ -155,6 +158,9 @@ internal static class HeroArcherVisuals
     private static AtlasState _atlasState = AtlasState.Unknown;
     private static Texture2D _atlas;
     private static Sprite[] _sprites;
+    private static Texture2D _leisureAtlas;
+    private static Sprite[] _leisureSprites;
+    private static bool _leisureTried;
     private static bool _driverRegistered;
     private static bool _loggedUnavailable;
     private static bool _loggedCopyFailure;
@@ -215,6 +221,7 @@ internal static class HeroArcherVisuals
         if (!nativeVisible || nativeForceOff) return;
 
         if (!EnsureAtlas()) return;
+        EnsureLeisureAtlas(); // Optional; a bad leisure resource cannot hide the original Archer.
 
         Transform anchor;
         try
@@ -235,6 +242,7 @@ internal static class HeroArcherVisuals
         state.Pointer = SafePointer(archer);
         state.GoId = goId;
         state.Life = life;
+        state.Leisure = new CharacterLeisureClock(goId ^ life);
         state.Native = native;
         try
         {
@@ -372,6 +380,7 @@ internal static class HeroArcherVisuals
             if (goId == 0 || !_visuals.TryGetValue(goId, out VisualState state)) return;
             if (!SameObject(state, archer)) return;
             state.ShotPending = true;
+            state.Leisure?.Cancel();
             if (state.VisitAction != HeroArcherNativeAction.Unknown)
             {
                 state.VisitShotCount++;
@@ -383,6 +392,15 @@ internal static class HeroArcherVisuals
             state.ReleaseFirstFrame = true;
             state.ReleaseElapsed = 0f;
             state.ReleaseStartFrame = frame;
+            // A real arrow can arrive after this frame's deduplicated Sync. Replace
+            // a leisure sprite immediately; the next normal Sync still owns timing.
+            if (state.LastLeisureFrame >= 0 && state.Own != null
+                && _sprites != null && _sprites.Length > HeroArcherNativePose.ShootFirstFrame)
+            {
+                state.Own.sprite = _sprites[HeroArcherNativePose.ShootFirstFrame];
+                state.LastFrame = HeroArcherNativePose.ShootFirstFrame;
+                state.LastLeisureFrame = -1;
+            }
         }
         catch (Exception)
         {
@@ -408,6 +426,17 @@ internal static class HeroArcherVisuals
             if (!SameObject(state, archer)) return;
             if (state.Life == 0 || state.Life != HeroArcherRuntime.CurrentActorLife(archer)) return;
             state.PendingWindow = seconds;
+            state.Leisure?.Cancel();
+            // Prepare can be requested after this frame's deduplicated visual Sync.
+            // Restore the last native Stand image immediately, without a second Tick.
+            if (state.LastLeisureFrame >= 0 && state.Own != null
+                && _sprites != null && state.LastNativeFrame >= 0
+                && state.LastNativeFrame < _sprites.Length)
+            {
+                state.Own.sprite = _sprites[state.LastNativeFrame];
+                state.LastFrame = state.LastNativeFrame;
+                state.LastLeisureFrame = -1;
+            }
         }
         catch (Exception)
         {
@@ -733,6 +762,10 @@ internal static class HeroArcherVisuals
         HeroArcherNativeFallback reason = sample.Fallback;
         bool show = sample.Drawn && !nativeHidden;
         if (sample.Drawn && nativeHidden) reason = HeroArcherNativeFallback.NativeHidden;
+        int leisureFrame = state.Leisure != null
+            ? state.Leisure.Tick(LeisureDelta(), _leisureSprites != null && show
+                && sample.Action == HeroArcherNativeAction.Stand && !state.ReleaseActive
+                && LeisureEligible(state.Ref)) : -1;
 
         if (show && !state.HidNative)
         {
@@ -754,11 +787,12 @@ internal static class HeroArcherVisuals
         {
             try
             {
-                if (state.LastFrame != frame || state.LastAction != sample.Action)
+                if (state.LastFrame != frame || state.LastAction != sample.Action
+                    || state.LastLeisureFrame != leisureFrame)
                 {
-                    Sprite sprite = _sprites != null && frame >= 0 && frame < _sprites.Length
-                        ? _sprites[frame]
-                        : null;
+                    Sprite sprite = leisureFrame >= 0 && leisureFrame < _leisureSprites.Length
+                        ? _leisureSprites[leisureFrame]
+                        : _sprites != null && frame >= 0 && frame < _sprites.Length ? _sprites[frame] : null;
                     if (sprite == null)
                     {
                         show = false;
@@ -769,6 +803,7 @@ internal static class HeroArcherVisuals
                         own.sprite = sprite;   // 先有 sprite 才允许可见：绝不留「可见但空帧」的半个对象
                         state.LastFrame = frame;
                         state.LastAction = sample.Action;
+                        state.LastLeisureFrame = leisureFrame;
                     }
                 }
             }
@@ -1026,7 +1061,9 @@ internal static class HeroArcherVisuals
             bool flip = state.Own != null && state.Own.flipX;
             Vector3 origin = body.localPosition; // Cloth 的 reference 即自有 body root：localPosition 同源
             (float x, float y) anchor = HeroArcherMotion.ClothRootLocal(origin.x, origin.y, flip);
-            float lift = HeroArcherPoseAtlas.TorsoLiftPixels(state.LastFrame)
+            // Leisure artwork has a fixed shoulder/neck line. Its 0..15 sheet indices
+            // must never be interpreted as the native 31-pose atlas indices.
+            float lift = (state.LastLeisureFrame >= 0 ? 0 : HeroArcherPoseAtlas.TorsoLiftPixels(state.LastFrame))
                 * HeroArcherMotion.VisualScale / HeroArcherPoseAtlas.PixelsPerUnit;
             cloth.RootTransform.localPosition = new Vector3(anchor.x, anchor.y + lift, origin.z);
             cloth.RootTransform.localScale = new Vector3(
@@ -1056,6 +1093,48 @@ internal static class HeroArcherVisuals
     }
 
     /// <summary>惰性加载 embedded atlas（只一次）；尺寸/alpha 校验失败即整块不可用。</summary>
+    private static void EnsureLeisureAtlas()
+    {
+        if (_leisureTried) return;
+        _leisureTried = true;
+        if (!CharacterLeisureAtlas.TryLoad(LeisureResourceName, CellWidth, CellHeight,
+            out _leisureAtlas, out _leisureSprites))
+            Log("leisure atlas unavailable: " + LeisureResourceName);
+    }
+
+    private static bool LeisureEligible(Archer archer)
+    {
+        try
+        {
+            if (archer == null || !HeroArcherRuntime.IsHero(archer)
+                || !archer.enabled || archer.harmless) return false;
+            if (Managers.Inst?.kingdom?.isDaytime != true) return false;
+            if (archer._shootingTarget != null || archer._huntingTarget != null) return false;
+            if (archer._knight != null || archer.GetFormation() != null
+                || archer._guardSlot != null || archer.inGuardSlot) return false;
+            if (archer.ShouldPlayerControl()) return false;
+            Character character = archer._character;
+            if (character == null || character.inert || character.grabbed || character.isStationary) return false;
+            Damageable damageable = archer._damageable;
+            if (damageable == null || damageable.isDead) return false;
+            Embarkee embarkee = archer._embarkee;
+            if (embarkee != null && (embarkee.IsEmbarked || embarkee.EmbarkableTarget != null)) return false;
+            return true;
+        }
+        catch (Exception) { return false; }
+    }
+
+    private static float LeisureDelta()
+    {
+        try
+        {
+            if (Time.timeScale <= 0f || IslandSaveData.isSavingGame
+                || Managers.Inst?.game?.state != Game.State.Playing) return 0f;
+            return Time.deltaTime;
+        }
+        catch (Exception) { return 0f; }
+    }
+
     private static bool EnsureAtlas()
     {
         if (_atlasState == AtlasState.Ready) return true;

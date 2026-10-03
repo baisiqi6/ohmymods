@@ -15,7 +15,7 @@ namespace KingdomEnhancedMod;
 /// 修复方向：组件复用 + 显式身份（组件存在≠弩手），清污只改状态与字段，绝不销毁组件。
 ///
 /// 身份两层（root/reviewer 定稿）：
-/// - <see cref="CrossbowmanMarker.Selected"/>：**本 life** 的模组选择（捡弓第 4 个/读档重算写入）。
+/// - <see cref="CrossbowmanMarker.Selected"/>：**本 life** 的模组选择（按配置四人周期；默认第 4 个/读档重算写入）。
 /// - <see cref="CrossbowmanMarker.Active"/>：**当前有效身份**（= Selected 且战斗包已提交、
 ///   未停用、配置开）。所有资格/排除/强化只认它。
 /// - <see cref="CrossbowmanMarker.Residue"/>：属性可能留有我们的写入且尚未还原（异常/池残留）。
@@ -74,6 +74,29 @@ internal static class CrossbowmanLifecycle
     // Pool.FastSpawn 作用域深度（prefix 自增 / finalizer 自减，异常安全）。
     private static int _poolSpawnDepth;
 
+    // 稳定的弩手"生涯 life"计数器（进程内单调、绝不重用；只有测试钩子会归零）。
+    // 用途：编队定向招募回执的 same-life 证明——标记上的 FormationLife 只在首次建立
+    // 与确证的真池新 life 时更换，Reconcile/普通隐藏重开/配置变化一律不换。
+    private static long _formationLifeCounter;
+
+    /// <summary>
+    /// 下一个生涯 life 号。溢出（理论不可达）不退回已发值：永久返回 -1 使回执永不匹配
+    /// （fail closed），绝不复用旧号。
+    /// </summary>
+    private static long NextFormationLife()
+    {
+        unchecked
+        {
+            long next = ++_formationLifeCounter;
+            if (next <= 0L)
+            {
+                _formationLifeCounter = long.MaxValue;
+                return -1L;
+            }
+            return next;
+        }
+    }
+
     // 缩放漂移诊断（宿主 5s 巡检顺带，只统计不改）
     private static int _scaleDriftCount;
     private static int _loggedScaleDrift = -1;
@@ -123,6 +146,71 @@ internal static class CrossbowmanLifecycle
     /// <summary>registry 里是否还有需要收尾/解除的实例（宿主 Tick 的 O(1) 早退闸）。</summary>
     internal static bool HasPendingWork => _owned.Count > 0;
 
+    /// <summary>
+    /// 该 Archer 当前稳定的弩手生涯 life 号（0 = 无 marker/从未建立）。编队定向招募回执在
+    /// 捕获时记录它，回滚时用它做 same-life 证明。**与 IsCrossbowman 分开**：身份失效
+    /// （Active=false / 全局关 / 配置变化）不影响清账所需的 life 读取，但真池新 life 会换号。
+    /// </summary>
+    internal static long FormationLife(Archer archer)
+    {
+        try
+        {
+            if (archer == null || archer.gameObject == null) return 0L;
+            EnsureMarkerRegistered();
+            CrossbowmanMarker marker = archer.GetComponent<CrossbowmanMarker>();
+            return marker != null ? marker.FormationLife : 0L;
+        }
+        catch (Exception e)
+        {
+            LogBounded(ref _readerErrorLogs, "[Crossbowman/identity] ", e);
+            return 0L;
+        }
+    }
+
+    /// <summary>
+    /// same-life 证明：捕获的号仍等于该 Archer 当前的生涯 life 号。0/负号永不匹配。
+    /// </summary>
+    internal static bool MatchesFormationLife(Archer archer, long life)
+    {
+        try
+        {
+            if (life <= 0L || archer == null || archer.gameObject == null) return false;
+            EnsureMarkerRegistered();
+            CrossbowmanMarker marker = archer.GetComponent<CrossbowmanMarker>();
+            return marker != null && marker.FormationLife == life;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 自有 registry 的有界快照（编队候选只从这里取，不新全场景扫描）。已销毁或解析不出
+    /// Archer 的条目直接跳过；返回写入数量。
+    /// </summary>
+    internal static int CopyOwnedArchers(List<Archer> output)
+    {
+        if (output == null) return 0;
+        output.Clear();
+        for (int i = 0; i < _owned.Count; i++)
+        {
+            try
+            {
+                CrossbowmanMarker marker = _owned[i];
+                if (marker == null) continue;
+                Archer archer = marker.GetComponent<Archer>();
+                if (archer == null || archer.gameObject == null) continue;
+                output.Add(archer);
+            }
+            catch
+            {
+                // 已销毁条目：跳过。
+            }
+        }
+        return output.Count;
+    }
+
     /// <summary>Pool.FastSpawn prefix：进入池生成作用域。</summary>
     internal static void BeginPoolSpawnScope()
     {
@@ -155,6 +243,10 @@ internal static class CrossbowmanLifecycle
 
             if (_poolSpawnDepth > 0)
             {
+                // 确证的真池新 life（native：只有从 _cache 激活才 SetActive(true)→OnEnable）：
+                // 先换生涯 life 号——旧 life 的编队回执立即失效，绝不把 OnLeave 落到池复用对象。
+                // 普通隐藏重开/巡检/配置变化都不经过这里，绝不换号。
+                marker.FormationLife = NextFormationLife();
                 if (marker.Selected || marker.Active || marker.Residue) Strip(archer, profile);
                 // 新 life 边界兜底（Strip 让出到 handoff/无状态时不落空）：池不重拷
                 // 序列化字段，旧 life 的生根值绝不能带进新 life（漏还原=普通弓箭手
@@ -260,6 +352,12 @@ internal static class CrossbowmanLifecycle
             if (marker == null) marker = archer.gameObject.AddComponent<CrossbowmanMarker>();
             if (marker == null) return false;
             EnsureRegistered(marker);
+            // Token 生命周期（PRE R2 定稿）：Strip 保留旧 token 供同 life 旧债清账；真正重新
+            // 选择弩手生涯的 Apply 换新 token（旧回执立即失效），幂等 Apply/Reconcile/hide 不换；
+            // 真池新 life 由 OnArcherEnablePrefix 的池作用域分支在任何 Strip/回调之前换号。
+            bool newSelection = !marker.Selected;
+            if (newSelection || marker.FormationLife <= 0L)
+                marker.FormationLife = NextFormationLife();
 
             revision = ++marker.Revision;
             bool already = marker.Active;
@@ -896,6 +994,13 @@ public sealed class CrossbowmanMarker : MonoBehaviour
 
     /// <summary>代次：每次状态变更自增；同步重入/停用时让在途操作让出所有权。</summary>
     internal int Revision;
+
+    /// <summary>
+    /// 稳定的生涯 life 号（进程内单调、绝不重用；0 = 从未建立）。首次 Apply 建立，
+    /// 确证的真池新 life（OnEnable prefix + 池作用域）更换；Reconcile、普通隐藏重开、
+    /// 配置变化、巡检一律不换。Revision 是同步重入代次，绝不当 life 用。
+    /// </summary>
+    internal long FormationLife;
 
     /// <summary>我们染过本 life 的旗帜色（Strip 只清这一次，新 life 的染衣不被抹掉）。</summary>
     internal bool OwnedBanner;

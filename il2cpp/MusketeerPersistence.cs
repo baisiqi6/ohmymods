@@ -531,6 +531,10 @@ internal static class MusketeerPersistence
         {
             try { __state?.Complete(__instance); }
             catch (Exception e) { MusketeerIdentity.Log("virgin-end", e); }
+            // 金币哥布林存档接线：复用本 patch owner 的确认入口。self-wrapped，绝不影响
+            // 火枪的判定/顺序；本模块内部自留诊断（条目成功/失败不抛）。
+            try { CoinCourierPersistence.EnsureBoundFromApplyToScene(__instance); }
+            catch (Exception) { /* CoinCourierPersistence 自带隔离与有界诊断 */ }
         }
     }
 }

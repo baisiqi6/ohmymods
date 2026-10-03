@@ -23,6 +23,12 @@ namespace KingdomEnhancedMod
         internal static Archer[] GetArchers(float maxAgeSec = 3f) => null;
     }
 
+    internal static class ModConfig
+    {
+        internal sealed class BoolEntry { internal bool Value = true; }
+        internal static BoolEntry Enabled = new();
+    }
+
     internal static class NativeIndexWitness
     {
         // This deliberately names the concrete 2.4 metadata type, beyond var/Count duck typing.

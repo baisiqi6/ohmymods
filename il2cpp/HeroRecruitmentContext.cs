@@ -211,4 +211,40 @@ internal static class HeroRecruitmentContexts
         }
         return true;
     }
+
+    // issue-85: a completely unknown context whose loaded snapshot matches no stored snapshot,
+    // while every unclaimed paid row names a native id that is not one of this island's complete
+    // Character set, is a disjoint history: no old receipt can be correlated with any currently
+    // loaded character. This judges nothing about the old rows themselves — no owner is declared
+    // dead, no entitlement is abandoned, and a future exact native match still restores them; it
+    // only lets the current island adopt a fresh empty epoch instead of staying unresolved
+    // forever. Pure archive+snapshot check; the caller re-runs it on the fresh disk inside the
+    // commit CAS and still requires the live shape/carry checks. A raw JSON parse failure is
+    // never zero matches, and no native id is required to be globally unique across scopes (one
+    // id may legitimately be referenced by several historical receipts of the same lineage).
+    internal static bool DisjointHistory(HeroRecruitmentArchive archive, string contextKey, string rawJson, ISet<string> characterIds)
+    {
+        if (archive == null || rawJson == null || characterIds == null || !HeroRecruitmentArchive.HashValid(contextKey)) return false;
+        if (archive.TryGetContext(contextKey, out _)) return false;
+        try { HeroRecruitmentFingerprint.Hash(rawJson, contextKey); }
+        catch { return false; }
+        if (Collect(archive, contextKey, null, rawJson).Count > 0) return false;
+        bool unclaimedPaid = false;
+        foreach (var scope in archive.Scopes)
+        {
+            if (archive.ScopeClaimed(scope.Key)) continue;
+            foreach (var snapshot in scope.Value)
+            {
+                if (snapshot.Seats.Count == 0) continue;
+                unclaimedPaid = true;
+                foreach (var seat in snapshot.Seats)
+                {
+                    string native = seat.NativeId;
+                    if (string.IsNullOrEmpty(native) || native.Length > 256) return false;
+                    if (characterIds.Contains(native)) return false;
+                }
+            }
+        }
+        return unclaimedPaid;
+    }
 }

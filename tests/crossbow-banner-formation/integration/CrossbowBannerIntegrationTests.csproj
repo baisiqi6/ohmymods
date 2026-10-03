@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    弩手举旗后排组合验证（2026-10-03 Issue 108 R3）：
+    编译真实生产 owner（PatchWorld_FleetBoatFormation）+ 两排策略（Patch_MusketeerFormation /
+    Patch_CrossbowFormation）+ 真实 CrossbowmanLifecycle（不 stub 生命周期）。边界替身按已核
+    2.4 机器码顺序模拟：RegisterUnit → ConvertToSoldier（BiomeData 换皮/旗色/回调窗口）→
+    formation 写回；Unregister → OnLeaveFormation → ConvertToHunter。宿主边界
+    PatchRoles_Crossbowman 调真实 lifecycle OnArcherEnablePostfix/OnConvertToHunterPostfix
+    （真实 profile：克隆弩矢 SO、死地控制器）。无 NuGet 依赖，控制台串行执行。
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>CrossbowBannerIntegration.Tests</AssemblyName>
+    <RootNamespace>CrossbowBannerIntegrationTests</RootNamespace>
+    <NoWarn>$(NoWarn);CS0649;CS0169;CS0414</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../il2cpp/PatchWorld_FleetBoatFormation.cs" Link="Production/PatchWorld_FleetBoatFormation.cs" />
+    <Compile Include="../../../il2cpp/Patch_MusketeerFormation.cs" Link="Production/Patch_MusketeerFormation.cs" />
+    <Compile Include="../../../il2cpp/Patch_CrossbowFormation.cs" Link="Production/Patch_CrossbowFormation.cs" />
+    <Compile Include="../../../il2cpp/CrossbowmanLifecycle.cs" Link="Production/CrossbowmanLifecycle.cs" />
+  </ItemGroup>
+
+</Project>

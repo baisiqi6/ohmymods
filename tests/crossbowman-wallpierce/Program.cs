@@ -156,10 +156,24 @@ internal static class Program
         UnityEngine.Random.value = 0.5f;
         Managers.Inst = null;
         CampaignSaveData.current = null;
+        ModConfig.CrossbowRecruitmentRatio.Value = .25f;
+        ModConfig.Enabled.Value = true;
+        HeroRecruitment.Purchased.Clear();
+        MusketeerIdentity.Marked.Clear();
+        MusketeerIdentity.GunPromotionInProgress = false;
+        CrossbowmanLifecycle.Applied.Clear();
+        CrossbowmanLifecycle.Stripped.Clear();
+        CrossbowmanLifecycle.Active.Clear();
+        CrossbowmanLifecycle.Failed.Clear();
+        CrossbowmanLifecycle.IdentityMissing.Clear();
+        CrossbowmanLifecycle.OnApply = null;
         _nextId = 100;
     }
 
     private static GameObject NewGo(string name) => new GameObject { name = name, InstanceId = _nextId++ };
+
+    /// <summary>supervisor 夹具：World 需要有效 gameObject（生产门要求对象有效性）+ 管理器当前世界。</summary>
+    private static World NewWorld() => new World { gameObject = NewGo("world") };
 
     private sealed class AssetHost
     {
@@ -280,6 +294,8 @@ internal static class Program
 
     private static void RunSuite()
     {
+        CrossbowRatioEntryTests();
+        SupervisorStateTests();
         Test("origin offset (0.6,0.7) reaches the cloned SO; degraded (no bolt sprite) build still attaches the pierce component", () =>
         {
             AssetHost assets = BuildNativeAssets();
@@ -727,6 +743,300 @@ internal static class Program
                 "OnEnable/OnDisable are parameterless message methods");
         });
     }
+
+    /// <summary>
+    /// 读档重算 supervisor 生命周期（2026-09-29）：既有 15s scaled 等待不变、按真实结果发布
+    /// Waiting/Completed/Failed/Disabled、换代后旧协程不得重算或写状态。
+    /// </summary>
+    private static void SupervisorStateTests()
+    {
+        Test("supervisor waits scaled 15s, then publishes honest recompute counts", () =>
+        {
+            PrepareSelectionAssets();
+            ModConfig.CrossbowRecruitmentRatio.Value = .25f;
+            var units = new List<Archer>();
+            for (int i = 0; i < 8; i++) units.Add(NewRecruit("supervisor-" + i).archer);
+            var world = NewWorld();
+            Managers.Inst = new Managers { world = world };
+            System.Collections.IEnumerator routine = PatchRoles_Crossbowman.SupervisorRoutine(world);
+            Check(routine.MoveNext(), "wait window starts");
+            Check(routine.Current is WaitForSeconds wait && wait.seconds == 15f,
+                "first wait is the existing scaled WaitForSeconds(15) - pause only delays it");
+            Check(PatchRoles_Crossbowman.RecomputeState == CrossbowRecomputeState.Waiting,
+                "HUD-facing state is waiting during the window");
+            Check(CrossbowmanLifecycle.Applied.Count == 0, "no recompute before the wait elapses");
+            Check(routine.MoveNext(), "recompute ran and the integrity wait is queued");
+            Check(PatchRoles_Crossbowman.RecomputeState == CrossbowRecomputeState.Completed, "completed after full apply");
+            Check(CrossbowmanLifecycle.Applied.Count == 2, "25% of 8 eligible: two selected and attempted");
+            Check(CrossbowmanLifecycle.IsCrossbowman(units[3]) && CrossbowmanLifecycle.IsCrossbowman(units[7]),
+                "active identity only on the selected slots");
+            Check(KingdomEnhancedPlugin.Instance.LogSource.Contains("eligible=8 selected=2 applied=2 active=2"),
+                "one honest line distinguishes eligible/selected/applied/active");
+        });
+
+        Test("new world restarts waiting; the stale routine cannot write state or recompute", () =>
+        {
+            PrepareSelectionAssets();
+            for (int i = 0; i < 4; i++) NewRecruit("stale-" + i);
+            var worldA = NewWorld();
+            Managers.Inst = new Managers { world = worldA };
+            System.Collections.IEnumerator a = PatchRoles_Crossbowman.SupervisorRoutine(worldA);
+            Check(a.MoveNext(), "world A waiting");
+            var worldB = NewWorld();
+            Managers.Inst.world = worldB; // 管理器已切到新世界（新 routine 由 OnLevelLoaded 启动）
+            System.Collections.IEnumerator b = PatchRoles_Crossbowman.SupervisorRoutine(worldB);
+            Check(b.MoveNext(), "world B restarts waiting");
+            Check(PatchRoles_Crossbowman.RecomputeState == CrossbowRecomputeState.Waiting, "new world does not inherit the old state");
+            Check(!a.MoveNext(), "stale routine exits before recomputing");
+            Check(CrossbowmanLifecycle.Applied.Count == 0, "stale world never applied");
+            Check(PatchRoles_Crossbowman.RecomputeState == CrossbowRecomputeState.Waiting, "stale routine never wrote state");
+            Check(b.MoveNext(), "new world recompute runs");
+            Check(PatchRoles_Crossbowman.RecomputeState == CrossbowRecomputeState.Completed, "new world completes");
+            Check(CrossbowmanLifecycle.Applied.Count == 1, "new world applied its selected slot only");
+            Check(KingdomEnhancedPlugin.Instance.LogSource.CountContaining("recompute on load") == 1,
+                "exactly one recompute line across the world switch");
+        });
+
+        Test("manager switched but no new routine started: the old routine exits without recompute or state write", () =>
+        {
+            PrepareSelectionAssets();
+            for (int i = 0; i < 4; i++) NewRecruit("window-" + i);
+            var worldA = NewWorld();
+            Managers.Inst = new Managers { world = worldA };
+            System.Collections.IEnumerator a = PatchRoles_Crossbowman.SupervisorRoutine(worldA);
+            Check(a.MoveNext(), "world A waiting with the manager on A");
+            Managers.Inst.world = NewWorld(); // 管理器已换世界，但新 routine 还没 MoveNext（_supervisorWorld 仍是 A）
+            Check(!a.MoveNext(), "old routine exits before touching the new world");
+            Check(CrossbowmanLifecycle.Applied.Count == 0, "no recompute in the unowned window");
+            Check(PatchRoles_Crossbowman.RecomputeState == CrossbowRecomputeState.Waiting,
+                "no Completed/Failed write in the unowned window");
+            Check(KingdomEnhancedPlugin.Instance.LogSource.CountContaining("recompute on load") == 0, "no recompute line");
+        });
+
+        Test("apply failure keeps failed state with selected != applied", () =>
+        {
+            PrepareSelectionAssets();
+            ModConfig.CrossbowRecruitmentRatio.Value = .5f;
+            var units = new List<Archer>();
+            for (int i = 0; i < 4; i++) units.Add(NewRecruit("partial-" + i).archer);
+            CrossbowmanLifecycle.Failed.Add(units[1]);
+            var world = NewWorld();
+            Managers.Inst = new Managers { world = world };
+            System.Collections.IEnumerator routine = PatchRoles_Crossbowman.SupervisorRoutine(world);
+            routine.MoveNext();
+            routine.MoveNext();
+            Check(PatchRoles_Crossbowman.RecomputeState == CrossbowRecomputeState.Failed, "failed state instead of false success");
+            Check(CrossbowmanLifecycle.Applied.Count == 2, "both selected targets were attempted");
+            Check(!CrossbowmanLifecycle.IsCrossbowman(units[1]), "failed target has no active identity");
+            string log = string.Join("\n", KingdomEnhancedPlugin.Instance.LogSource.Lines);
+            Check(log.Contains("eligible=4 selected=2 applied=1 active=1"), "reports selected vs applied honestly");
+            Check(log.Contains("status=failed"), "failure is labelled");
+        });
+
+        Test("component without active identity is not counted as applied", () =>
+        {
+            PrepareSelectionAssets();
+            ModConfig.CrossbowRecruitmentRatio.Value = 1f;
+            var units = new List<Archer>();
+            for (int i = 0; i < 2; i++) units.Add(NewRecruit("identity-" + i).archer);
+            CrossbowmanLifecycle.IdentityMissing.Add(units[0]);
+            var world = NewWorld();
+            Managers.Inst = new Managers { world = world };
+            System.Collections.IEnumerator routine = PatchRoles_Crossbowman.SupervisorRoutine(world);
+            routine.MoveNext();
+            routine.MoveNext();
+            Check(PatchRoles_Crossbowman.RecomputeState == CrossbowRecomputeState.Failed,
+                "marker present but Active=false is not success");
+            string log = string.Join("\n", KingdomEnhancedPlugin.Instance.LogSource.Lines);
+            Check(log.Contains("eligible=2 selected=2 applied=2 active=1"), "active count reflects real identities");
+        });
+
+        Test("disabled mod publishes disabled and recompute exception publishes failed", () =>
+        {
+            PrepareSelectionAssets();
+            NewRecruit("disabled-0");
+            ModConfig.Enabled.Value = false;
+            var world = NewWorld();
+            Managers.Inst = new Managers { world = world };
+            System.Collections.IEnumerator routine = PatchRoles_Crossbowman.SupervisorRoutine(world);
+            routine.MoveNext();
+            Check(PatchRoles_Crossbowman.RecomputeState == CrossbowRecomputeState.Waiting, "wait window entered even when disabled");
+            routine.MoveNext();
+            Check(PatchRoles_Crossbowman.RecomputeState == CrossbowRecomputeState.Disabled, "disabled is not completed");
+            Check(CrossbowmanLifecycle.Applied.Count == 0, "no apply while disabled");
+            Check(KingdomEnhancedPlugin.Instance.LogSource.CountContaining("recompute on load") == 0, "no success line while disabled");
+
+            ModConfig.Enabled.Value = true;
+            UnityEngine.Object.FindObjectsOfTypeThrows = true;
+            var worldB = NewWorld();
+            Managers.Inst.world = worldB;
+            System.Collections.IEnumerator faulted = PatchRoles_Crossbowman.SupervisorRoutine(worldB);
+            faulted.MoveNext();
+            faulted.MoveNext();
+            Check(PatchRoles_Crossbowman.RecomputeState == CrossbowRecomputeState.Failed, "recompute exception is a failure");
+        });
+    }
+
+    private static void CrossbowRatioEntryTests()
+    {
+        Test("four-slot ratio policy, invalid inputs, overflow continuity", () =>
+        {
+            float[] ratios = { .25f, .5f, .75f, 1f };
+            string[] expected = { "0001", "0101", "0111", "1111" };
+            for (int r = 0; r < ratios.Length; r++)
+                for (int i = 0; i < 12; i++)
+                    Check(CrossbowRatioPolicy.Selected(i, ratios[r]) == (expected[r][i & 3] == '1'),
+                        "ratio=" + ratios[r] + " eligible=" + i);
+            foreach (float invalid in new[] { 0f, .37f, 2f, float.NaN, float.PositiveInfinity })
+            {
+                Check(CrossbowRatioPolicy.Normalize(invalid) == .25f, "invalid ratio defaults to 25%");
+                Check(CrossbowRatioPolicy.Selected(3, invalid) && !CrossbowRatioPolicy.Selected(2, invalid),
+                    "invalid ratio keeps fourth-only selection");
+            }
+            Check(CrossbowRatioPolicy.Selected(int.MaxValue, .25f)
+                && CrossbowRatioPolicy.Selected(int.MinValue, 1f)
+                && !CrossbowRatioPolicy.Selected(int.MinValue, .25f),
+                "signed wrap preserves four-slot cycle");
+            Check(CrossbowRatioPolicy.SnapSlider(.25f) == .25f
+                && CrossbowRatioPolicy.SnapSlider(.49f) == .5f
+                && CrossbowRatioPolicy.SnapSlider(.74f) == .75f
+                && CrossbowRatioPolicy.SnapSlider(.99f) == 1f
+                && CrossbowRatioPolicy.SnapSlider(float.NaN) == .25f,
+                "four UI detents and invalid raw fallback");
+        });
+
+        foreach (float ratio in new[] { .25f, .5f, .75f, 1f })
+        {
+            float selectedRatio = ratio;
+            Test("real bow promotion entry " + (int)(ratio * 100f) + "%", () =>
+            {
+                PrepareSelectionAssets();
+                ModConfig.CrossbowRecruitmentRatio.Value = selectedRatio;
+                var units = new List<Archer>();
+                for (int i = 0; i < 8; i++)
+                {
+                    (Character character, Archer archer) = NewRecruit("bow-" + i);
+                    units.Add(archer);
+                    PatchRoles_Crossbowman.OnBowPromoted(character);
+                }
+                for (int i = 0; i < units.Count; i++)
+                    Check(CrossbowmanLifecycle.Applied.Contains(units[i])
+                        == CrossbowRatioPolicy.Selected(i, selectedRatio), "promotion selected at eligible slot " + i);
+                Check(CrossbowmanLifecycle.Stripped.Count == 8, "all eligible new lives clean prior marker");
+            });
+        }
+
+        Test("hero, firearm and knight follower do not Strip or consume the promotion count", () =>
+        {
+            PrepareSelectionAssets();
+            ModConfig.CrossbowRecruitmentRatio.Value = .5f;
+            (Character first, Archer firstArcher) = NewRecruit("first");
+            PatchRoles_Crossbowman.OnBowPromoted(first); // slot 1 -> normal
+            (Character paid, Archer hero) = NewRecruit("paid-hero");
+            HeroRecruitment.Purchased.Add(paid);
+            PatchRoles_Crossbowman.OnBowPromoted(paid);
+            (Character armed, Archer musketeer) = NewRecruit("musketeer");
+            MusketeerIdentity.Marked.Add(armed.gameObject);
+            PatchRoles_Crossbowman.OnBowPromoted(armed);
+            (Character follower, Archer knightFollower) = NewRecruit("knight-follower");
+            knightFollower._knight = new Knight();
+            PatchRoles_Crossbowman.OnBowPromoted(follower);
+            (Character second, Archer secondArcher) = NewRecruit("second");
+            PatchRoles_Crossbowman.OnBowPromoted(second); // still slot 2 -> crossbow
+            Check(CrossbowmanLifecycle.Applied.Count == 1
+                && ReferenceEquals(CrossbowmanLifecycle.Applied[0], secondArcher), "only second ordinary recruit selected");
+            Check(CrossbowmanLifecycle.Stripped.Count == 2
+                && CrossbowmanLifecycle.Stripped.Contains(firstArcher)
+                && CrossbowmanLifecycle.Stripped.Contains(secondArcher), "three special roles untouched before Strip");
+            Check((int)Host.GetField("_bowPromoteCount", StaticAll).GetValue(null) == 2,
+                "special roles do not consume ordinary counter");
+        });
+
+        Test("one paid hero stays untouched across promotion then load recompute", () =>
+        {
+            PrepareSelectionAssets();
+            ModConfig.CrossbowRecruitmentRatio.Value = 1f;
+            (Character paid, Archer hero) = NewRecruit("same-paid-hero");
+            HeroRecruitment.Purchased.Add(paid);
+            hero.gameObject.AddComponent<CrossbowmanMarker>();
+            PatchRoles_Crossbowman.OnBowPromoted(paid);
+            Check(CrossbowmanLifecycle.Applied.Count == 0 && CrossbowmanLifecycle.Stripped.Count == 0
+                && (int)Host.GetField("_bowPromoteCount", StaticAll).GetValue(null) == 0,
+                "paid career protects the same object in the bow promotion entry");
+            RunLoadRecompute();
+            Check(CrossbowmanLifecycle.Applied.Count == 0 && CrossbowmanLifecycle.Stripped.Count == 0,
+                "paid career protects that same object in the load entry");
+        });
+
+        Test("changing ratio affects the next new recruit only", () =>
+        {
+            PrepareSelectionAssets();
+            (Character first, _) = NewRecruit("first");
+            PatchRoles_Crossbowman.OnBowPromoted(first); // 25%, no selection
+            ModConfig.CrossbowRecruitmentRatio.Value = .5f;
+            (Character second, Archer selected) = NewRecruit("second");
+            PatchRoles_Crossbowman.OnBowPromoted(second); // second slot now selected
+            Check(CrossbowmanLifecycle.Applied.Count == 1
+                && ReferenceEquals(CrossbowmanLifecycle.Applied[0], selected), "next recruit reads current setting");
+            Check(UnityEngine.Object.FindObjectsOfTypeCalls == 0, "setting change never scans existing actors");
+        });
+
+        foreach (float ratio in new[] { .25f, .5f, .75f, 1f })
+        {
+            float selectedRatio = ratio;
+            Test("real load recompute entry " + (int)(ratio * 100f) + "%", () =>
+            {
+                PrepareSelectionAssets();
+                ModConfig.CrossbowRecruitmentRatio.Value = selectedRatio;
+                var units = new List<Archer>();
+                for (int i = 0; i < 8; i++) units.Add(NewRecruit("load-" + i).archer);
+                (Character paid, Archer hero) = NewRecruit("load-hero");
+                HeroRecruitment.Purchased.Add(paid);
+                hero.gameObject.AddComponent<CrossbowmanMarker>(); // skipped, not stripped
+                (Character armed, Archer musketeer) = NewRecruit("load-musketeer");
+                MusketeerIdentity.Marked.Add(armed.gameObject);
+                (Character follower, Archer knightFollower) = NewRecruit("load-follower");
+                knightFollower._knight = new Knight();
+                RunLoadRecompute();
+                for (int i = 0; i < units.Count; i++)
+                    Check(CrossbowmanLifecycle.Applied.Contains(units[i])
+                        == CrossbowRatioPolicy.Selected(i, selectedRatio), "load selected at eligible slot " + i);
+                Check(!CrossbowmanLifecycle.Applied.Contains(hero)
+                    && !CrossbowmanLifecycle.Stripped.Contains(hero)
+                    && !CrossbowmanLifecycle.Applied.Contains(musketeer)
+                    && !CrossbowmanLifecycle.Applied.Contains(knightFollower), "excluded roles untouched on load");
+                Check(UnityEngine.Object.FindObjectsOfTypeCalls == 1, "one existing load scan, no extra scan");
+            });
+        }
+
+        Test("one load batch keeps its ratio snapshot", () =>
+        {
+            PrepareSelectionAssets();
+            for (int i = 0; i < 8; i++) NewRecruit("batch-" + i);
+            CrossbowmanLifecycle.OnApply = _ => ModConfig.CrossbowRecruitmentRatio.Value = 1f;
+            RunLoadRecompute();
+            Check(CrossbowmanLifecycle.Applied.Count == 2,
+                "first 25% Apply mutates setting but this batch remains 25%");
+        });
+    }
+
+    private static (Character character, Archer archer) NewRecruit(string name)
+    {
+        GameObject go = NewGo(name);
+        Character character = go.AddComponent<Character>();
+        Archer archer = go.AddComponent<Archer>();
+        UnityEngine.Object.AllObjects.Add(archer);
+        return (character, archer);
+    }
+
+    private static void PrepareSelectionAssets()
+    {
+        Host.GetField("_assetsReady", StaticAll).SetValue(null, true);
+        Host.GetField("_crossbowAttackSO", StaticAll).SetValue(null, new ArrowAttack());
+    }
+
+    private static void RunLoadRecompute()
+        => Host.GetMethod("RecomputeOnLoad", StaticAll).Invoke(null, null);
 
     private static int CountComponents<T>(GameObject go) where T : Component
     {

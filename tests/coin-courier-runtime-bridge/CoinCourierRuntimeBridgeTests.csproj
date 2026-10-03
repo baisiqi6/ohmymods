@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>CoinCourierRuntimeBridgeTests</AssemblyName>
+    <RootNamespace>CoinCourierRuntimeBridgeTests</RootNamespace>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
+    <GeneratePropertiesFile>false</GeneratePropertiesFile>
+    <!-- 商店的 Unity/Payable 装配路径不进入本套件；HeroShop 只取其纯核（Retention/Placement）。 -->
+    <DefineConstants>COURIER_RUNTIME_CORE_ONLY;HERO_SHOP_CORE_ONLY;COURIER_REAL_PERSISTENCE</DefineConstants>
+    <!-- HeroShop 纯核的 Probe 字段在 core-only 下永不赋值（其消费者不在本套件），仅噪音。 -->
+    <NoWarn>$(NoWarn);0649</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../il2cpp/CoinCourierRuntime.cs" Link="Production/CoinCourierRuntime.cs" />
+    <Compile Include="../../il2cpp/CoinCourierCoinFlight.cs" Link="Production/CoinCourierCoinFlight.cs" />
+    <Compile Include="../../il2cpp/CoinCourierRuntimeRules.cs" Link="Production/CoinCourierRuntimeRules.cs" />
+    <Compile Include="../../il2cpp/CoinCourierCampaignState.cs" Link="Production/CoinCourierCampaignState.cs" />
+    <Compile Include="../../il2cpp/CoinCourierShop.cs" Link="Production/CoinCourierShop.cs" />
+    <Compile Include="../../il2cpp/CoinCourierPurse.cs" Link="Production/CoinCourierPurse.cs" />
+    <Compile Include="../../il2cpp/CoinCourierRules.cs" Link="Production/CoinCourierRules.cs" />
+    <Compile Include="../../il2cpp/CoinCourierPersistence.cs" Link="Production/CoinCourierPersistence.cs" />
+    <Compile Include="../../il2cpp/CoinCourierSaveData.cs" Link="Production/CoinCourierSaveData.cs" />
+    <Compile Include="../../il2cpp/HeroShop.cs" Link="Production/HeroShop.cs" />
+  </ItemGroup>
+
+</Project>

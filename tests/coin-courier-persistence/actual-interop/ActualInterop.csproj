@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 真实 2.4 interop 编译门：把金币哥布林持久化生产核（CoinCourierSaveData/CoinCourierPersistence）
+       连同它使用的冻结接口、以及复用 owner 的 MusketeerPersistence.cs 直接对游戏自带 interop
+       程序集编译一次，证明 GlobalSaveData/PrefsSaveData/IslandSaveData/CampaignSaveData/Game/
+       IHagletCallable 等成员与签名在发行 interop 表面上存在；不产出可部署插件。
+       CoinCourierRuntime / KingdomEnhancedPlugin 由本目录 RuntimeApiShim.cs 提供（完整插件
+       构建由 Operator 的整树 build 统一验证）。MusketeerPersistence.cs 及其火枪依赖链不在
+       本门内（会级联到整个插件）；本门用 ApplyToSceneCallShape.cs 独立编译其新增调用点的
+       精确形状。 -->
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>CoinCourierPersistence.ActualInteropCheck</AssemblyName>
+    <InteropDir Condition="'$(InteropDir)' == ''">E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx\interop</InteropDir>
+    <CoreDir Condition="'$(CoreDir)' == ''">E:\Kingdom.Two.Crowns.Call.of.Olympus\Kingdom.Two.Crowns.Build.22992091\BepInEx\core</CoreDir>
+    <HarmonyDir Condition="'$(HarmonyDir)' == ''">E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP\core</HarmonyDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../il2cpp/CoinCourierSaveData.cs" />
+    <Compile Include="../../../il2cpp/CoinCourierPersistence.cs" />
+    <Compile Include="../../../il2cpp/CoinCourierCampaignState.cs" />
+    <Compile Include="../../../il2cpp/CoinCourierPurse.cs" />
+    <Compile Include="RuntimeApiShim.cs" />
+    <Compile Include="ApplyToSceneCallShape.cs" />
+    <Reference Include="0Harmony"><HintPath>$(HarmonyDir)\0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BepInEx.Core"><HintPath>$(HarmonyDir)\BepInEx.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(InteropDir)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cppmscorlib"><HintPath>$(InteropDir)\Il2Cppmscorlib.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppSystem.Core"><HintPath>$(InteropDir)\Il2CppSystem.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(InteropDir)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(InteropDir)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.JSONSerializeModule"><HintPath>$(InteropDir)\UnityEngine.JSONSerializeModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppInterop.Runtime"><HintPath>$(CoreDir)\Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

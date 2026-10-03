@@ -13,8 +13,26 @@ namespace KingdomEnhancedMod
         internal Animator _animator;
         internal IntPtr Pointer;
         internal Mover _mover;
+        internal bool enabled = true, harmless, inGuardSlot, Controlled;
+        internal GameObject _shootingTarget, _huntingTarget;
+        internal Knight _knight;
+        internal Formation _formation;
+        internal GuardSlot _guardSlot;
+        internal Character _character = new Character();
+        internal Damageable _damageable = new Damageable();
+        internal Embarkee _embarkee;
+        internal Formation GetFormation() => _formation;
+        internal bool ShouldPlayerControl() => Controlled;
         internal float walkSpeed=.975f,runSpeed=2.4f;
     }
+    internal sealed class Knight : Component { }
+    internal sealed class Formation : Component { }
+    internal sealed class GuardSlot : Component { }
+    internal sealed class Character : Component { internal bool inert, grabbed, isStationary; }
+    internal sealed class Damageable : Component { internal bool isDead; }
+    internal sealed class Embarkee : Component { internal bool IsEmbarked; internal GameObject EmbarkableTarget; }
+    internal static class IslandSaveData { internal static bool isSavingGame; }
+    internal sealed class Kingdom { internal bool isDaytime = true; }
 
     internal sealed class Mover : Behaviour
     {
@@ -46,6 +64,7 @@ namespace KingdomEnhancedMod
         internal static Managers Inst;
         internal World world;
         internal Game game;
+        internal Kingdom kingdom = new Kingdom();
     }
 
     /// <summary>HeroArcherRuntime 替身：测试可切换 life/IsHero 来模拟池复用、死亡与功能关闭。</summary>

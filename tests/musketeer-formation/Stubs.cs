@@ -80,6 +80,11 @@ namespace UnityEngine
     {
         public static float Abs(float value) => Math.Abs(value);
     }
+
+    public static class Time
+    {
+        public static float timeScale = 1f;
+    }
 }
 
 public class Character
@@ -161,6 +166,45 @@ public class Formation : UnityEngine.Behaviour
 
 namespace KingdomEnhancedMod
 {
+    /// <summary>生产版是 il2cpp/MusketeerRuntime.cs 的 life 读者；策略测试只验证门序。</summary>
+    internal static class MusketeerRuntime
+    {
+        internal static bool MatchesBindingLease(Archer archer, long lease) => lease > 0L && archer != null;
+    }
+
+    internal static class NetworkBigBoss
+    {
+        internal static bool HasWorldAuth = true;
+        internal static bool IsOnline;
+    }
+
+    internal class Game
+    {
+        internal enum State { Menu, Playing }
+        internal State state = State.Playing;
+    }
+
+    internal class World : UnityEngine.Object
+    {
+        public UnityEngine.Transform gameLayer = new UnityEngine.Transform();
+    }
+
+    internal class Managers
+    {
+        internal static Managers Inst = new Managers();
+        internal World world = new World();
+        internal Game game = new Game();
+    }
+
+    /// <summary>生产版是 il2cpp/Patch_CrossbowFormation.cs；策略测试镜像其 Playing 形状。</summary>
+    internal static class PatchCrossbowFormation
+    {
+        internal static bool PlayingFlag = true;
+        internal static bool Playing => PlayingFlag && UnityEngine.Time.timeScale > 0f
+            && Managers.Inst != null && Managers.Inst.game != null
+            && Managers.Inst.game.state == Game.State.Playing;
+    }
+
     internal static class MusketeerIdentity
     {
         internal static readonly List<Archer> Units = new();
@@ -179,6 +223,10 @@ namespace KingdomEnhancedMod
     {
         internal static bool Enabled = true;
         internal static bool InWorldResult = true;
+
+        internal static bool Playing => Enabled && UnityEngine.Time.timeScale > 0f
+            && Managers.Inst != null && Managers.Inst.game != null
+            && Managers.Inst.game.state == Game.State.Playing;
 
         internal static bool InWorld(UnityEngine.Component component) =>
             component != null && InWorldResult;
@@ -206,6 +254,10 @@ namespace KingdomEnhancedMod
             if (ThrowOnRead) throw new InvalidOperationException("scripted identity read failure");
             return IdentityEnabled && archer != null && Crossbowmen.Contains(archer);
         }
+
+        internal static long FormationLife(Archer archer) => 1L;
+
+        internal static bool MatchesFormationLife(Archer archer, long life) => life > 0L;
     }
 
     // 生产版是 PatchWorld_FleetBoatFormation.cs 的 internal 查询；本测试只编译本文件，
@@ -217,7 +269,7 @@ namespace KingdomEnhancedMod
 
         internal static bool HasMusketeerRow(Formation formation) => formation != null && MusketeerRow;
 
-        internal static bool HasDirtyMusketeerTypes(Formation formation)
+        internal static bool HasDirtyRowTypes(Formation formation)
             => formation != null && ReferenceEquals(formation, DirtyFormation);
     }
 

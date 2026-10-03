@@ -138,6 +138,10 @@ public static class PatchPerformance_NightVolley
     /// Kingdom.isDaytime while serpent/enemy scheduling uses Director.IsNight.
     /// A mismatch or a frozen currentTime is actionable evidence; changing any
     /// of them here would corrupt save, farming, and wave scheduling.
+    /// 2026-09-30 血月诊断（只读，非修复）：仅在真正输出日志时追加
+    /// clockSpeed/kingdomSafe/worldAuth/redMoon/darkness/endlessNight/
+    /// dangerous/enemyState/gameState/playing 列；读取时机、30 秒/状态变化
+    /// 节拍与既有字段都不变，enemies/game 为空时对应列写 none。
     /// </summary>
     private static void EmitClockSample()
     {
@@ -162,12 +166,26 @@ public static class PatchPerformance_NightVolley
         _lastClockDay = islandDays;
         _nextClockSampleAt = now + 30f;
 
+        // 仅在真正要输出日志时读取这些只读诊断列（非每帧）。
+        EnemyManager enemies = managers.enemies;
+        Game game = managers.game;
+
         KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
             "[ClockDiag] t=" + director.currentTime.ToString("F2")
             + " isNight=" + isNight
             + " kingdomDaytime=" + isDaytime
             + " islandDays=" + islandDays
-            + " timeScale=" + Time.timeScale.ToString("F2"));
+            + " timeScale=" + Time.timeScale.ToString("F2")
+            + " clockSpeed=" + director.ClockSpeedModifier.ToString("F2")
+            + " kingdomSafe=" + kingdom.isSafe
+            + " worldAuth=" + NetworkBigBoss.HasWorldAuth
+            + " redMoon=" + (enemies != null ? enemies.isRedMoon.ToString() : "none")
+            + " darkness=" + (enemies != null ? enemies.isDarkness.ToString() : "none")
+            + " endlessNight=" + (enemies != null ? enemies.isEndlessNight.ToString() : "none")
+            + " dangerous=" + (enemies != null ? enemies.IsDangerous.ToString() : "none")
+            + " enemyState=" + (enemies != null ? enemies.GetOutput() : "none")
+            + " gameState=" + (game != null ? game.state.ToString() : "none")
+            + " playing=" + (game != null ? (game.state == Game.State.Playing).ToString() : "none"));
     }
 
     // The staggered-volley design targets night wall defense only; daytime

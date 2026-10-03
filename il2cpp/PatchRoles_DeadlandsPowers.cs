@@ -285,7 +285,12 @@ public static class PatchRoles_DeadlandsPowers
         try
         {
             if (o != null && o.Animator != null && o.Animator.speed == o.BoostedSpeed)
+            {
+                // issue-79 只读取证：已有 speed 写点，前后各读一次（原行为不变）。
+                float captureBefore = o.Animator.speed;
                 o.Animator.speed = o.OriginalSpeed;
+                DeadlandsFollowerCapture.OnAnimatorSpeedWrite(o.Animator, o, 0, captureBefore, o.OriginalSpeed, true);
+            }
             if (o != null)
             {
                 o.Boosting = false;
@@ -366,7 +371,9 @@ public static class PatchRoles_DeadlandsPowers
             o.PreTriggerStateHash = animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
             o.TriggerTime = Time.time;
             o.Deadline = Time.time + AnimTimeoutSeconds;
+            float captureBefore = animator.speed;
             animator.speed = o.BoostedSpeed;
+            DeadlandsFollowerCapture.OnAnimatorSpeedWrite(animator, o, animTrigger, captureBefore, o.BoostedSpeed, false);
         }
         catch (Exception e)
         {
@@ -816,6 +823,8 @@ public static class Archer_OnDisable_DeadlandsCleanup_Patch
     [HarmonyPostfix]
     private static void Postfix(Archer __instance)
     {
+        // issue-79 只读取证：单点通知（自身隔离异常、不写盘），绝不改变原清理的行为与异常传播。
+        DeadlandsFollowerCapture.NotifyDisabled(__instance);
         try { PatchRoles_DeadlandsPowers.OnArcherDisabled(__instance); }
         catch (Exception e) { PatchRoles_DeadlandsPowers.LogOnce("archer disable cleanup failed", e); }
     }

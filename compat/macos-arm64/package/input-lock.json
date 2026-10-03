@@ -290,8 +290,8 @@
     {
       "mode": "0644",
       "path": "README.md",
-      "sha256": "3c3cce7b5c2e8e33ef399dad88b2e2837f9eb62cbc2de84f22e3cd988b8a1a07",
-      "size": 19911,
+      "sha256": "d2e1026df734431adce89b1af22a52944ada29e843f8d44df91c6c59f434acc4",
+      "size": 28135,
       "source": "package-material"
     },
     {
@@ -1634,8 +1634,8 @@
     {
       "mode": "0755",
       "path": "launcher.command",
-      "sha256": "c0ef7a1780fc1536b1e1a2b0cad39775db36487ac832e29c55b27133ba4c6174",
-      "size": 43951,
+      "sha256": "9d2e6d8ce8e2d3a99440dfc9d62436c544c1648694ede7642e7ef94af3156846",
+      "size": 61346,
       "source": "package-material"
     },
     {
@@ -1882,6 +1882,13 @@
       "sha256": "997e1621e8744d526b9c1417038c25d47aa9139aba62cf793cdeb742dbf96c64",
       "size": 14886,
       "source": "notices"
+    },
+    {
+      "mode": "0644",
+      "path": "tools/console-filter.awk",
+      "sha256": "8296fbbed73ac2970b8d9ce2a6f055cfa9d718c4b228dfbd1f1b01947ff72094",
+      "size": 11440,
+      "source": "package-material"
     },
     {
       "mode": "0644",

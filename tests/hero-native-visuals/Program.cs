@@ -49,6 +49,8 @@ internal static class Program
         PrepareWindowComesOnlyFromRecordedCadence();
         ReleasePresentationFollowsShotEvent();
         VisitAndLifecycleDiagnosticsAreBoundedAndEventTriggered();
+        LeisureOverlayPriorityAndPause();
+        LeisureClockPolicy();
 
         Console.WriteLine();
         Console.WriteLine(_failed == 0
@@ -76,7 +78,7 @@ internal static class Program
 
     private static Fixture CreateFixture(int life = 1)
     {
-        Managers.Inst = new Managers { world = new World { gameLayer = new GameObject("gameLayer").transform } };
+        Managers.Inst = new Managers { world = new World { gameLayer = new GameObject("gameLayer").transform }, game = new Game { state = Game.State.Playing } };
         Fixture fixture = new Fixture();
         fixture.Body = new GameObject("ArcherBody");
         fixture.Native = fixture.Body.AddComponent<SpriteRenderer>();
@@ -102,6 +104,8 @@ internal static class Program
         HeroVisualPriority.Fail = false;
         LogSourceStub.Reset();
         Managers.Inst = null;
+        Time.timeScale = 1f;
+        IslandSaveData.isSavingGame = false;
     }
 
     private static GameObject FindLive(string name)
@@ -194,10 +198,44 @@ internal static class Program
         Check("apply.frame", FrameOf(own) == 0, "Stand 相位 0.05 → 帧 0，got " + FrameOf(own));
         Check("apply.anchor", own != null && own.transform.parent == fixture.Native.transform,
             "自有对象必须挂在原生 renderer 的 Transform 下（位置/朝向/缩放继承）");
-        Check("apply.scale", Math.Abs(own.transform.localScale.x - 0.9f) < 1e-5f
-            && Math.Abs(own.transform.localScale.y - 0.9f) < 1e-5f && Math.Abs(own.transform.localScale.z - 1f) < 1e-5f,
-            "0.9 表现缩放（z 保持 1），got " + own.transform.localScale);
+        Check("apply.scale", Math.Abs(own.transform.localScale.x - HeroArcherMotion.VisualScale) < 1e-5f
+            && Math.Abs(own.transform.localScale.y - HeroArcherMotion.VisualScale) < 1e-5f
+            && Math.Abs(own.transform.localScale.z - 1f) < 1e-5f,
+            "0.70 站高表现缩放（z 保持 1），got " + own.transform.localScale);
         Check("apply.cloth", HeroArcherCloth.Created == 1);
+
+        // 共用比例：cloth root 与 body 同一 VisualScale（双围巾两条链都挂在共享 root 下、继承该比例）。
+        GameObject cloth = FindLive("KEM_Cloth");
+        Check("apply.clothScale", cloth != null
+            && Math.Abs(cloth.transform.localScale.x - HeroArcherMotion.VisualScale) < 1e-5f
+            && Math.Abs(cloth.transform.localScale.y - HeroArcherMotion.VisualScale) < 1e-5f
+            && Math.Abs(cloth.transform.localScale.z - 1f) < 1e-5f,
+            "cloth root 与 body 共用 VisualScale（z 保持 1），got "
+                + (cloth != null ? cloth.transform.localScale.ToString() : "<no cloth root>"));
+        Check("apply.clothRootAnchored", cloth != null && cloth.transform.parent == fixture.Native.transform,
+            "cloth root 与 body 同挂原生 renderer 下（位置/朝向/缩放继承一致）");
+        if (cloth == null) return;
+
+        // 朝向/锚点：flip 随原生 renderer 重取 —— x 比例取负、肩锚镜像、y 抬肩不变。
+        Vector3 anchorBefore = cloth.transform.localPosition;
+        fixture.Native.flipX = true;
+        AdvanceFrame();
+        HeroArcherVisuals.Sync("panel");
+        Vector3 anchorAfter = cloth.transform.localPosition;
+        Check("apply.flipMirrorsCloth", cloth.transform.localScale.x < 0f
+            && Math.Abs(cloth.transform.localScale.x + HeroArcherMotion.VisualScale) < 1e-5f
+            && Math.Abs(cloth.transform.localScale.y - HeroArcherMotion.VisualScale) < 1e-5f
+            && Math.Abs(anchorAfter.x + anchorBefore.x) < 1e-6f
+            && Math.Abs(anchorAfter.y - anchorBefore.y) < 1e-6f,
+            "flip：cloth x 比例取负、肩锚镜像、y 不变，got scale " + cloth.transform.localScale
+                + " anchor " + anchorAfter);
+
+        // 重复 Apply 是绝对值重断言（Cloth.Tick 每帧重写回全尺寸后重压），绝不累乘。
+        for (int i = 0; i < 3; i++) { AdvanceFrame(); HeroArcherVisuals.Sync("panel"); }
+        Check("apply.scaleIdempotent", Math.Abs(own.transform.localScale.x - HeroArcherMotion.VisualScale) < 1e-5f
+            && Math.Abs(cloth.transform.localScale.x + HeroArcherMotion.VisualScale) < 1e-5f
+            && Math.Abs(cloth.transform.localScale.y - HeroArcherMotion.VisualScale) < 1e-5f,
+            "重复 Apply 不累乘，body " + own.transform.localScale + " cloth " + cloth.transform.localScale);
     }
 
     private static void SyncFollowsNativePhaseWithoutOwnClock()
@@ -810,5 +848,93 @@ internal static class Program
             "生命周期行必须恰好停在上限 " + HeroArcherVisuals.LifeLogCapacity + "，got " + LifeLines());
         Check("visit.capacityNotExceeded", VisitLines() <= HeroArcherVisuals.VisitLogCapacity,
             "got " + VisitLines());
+    }
+
+    private static void LeisureOverlayPriorityAndPause()
+    {
+        FreshWorld();
+        Fixture fixture = CreateFixture();
+        fixture.Archer._mover = new Mover { _pauseTimeout = 10f }; // native idle wait is not game pause
+        HeroArcherVisuals.Apply(fixture.Archer);
+        SpriteRenderer own = OwnOf(fixture);
+        // Native Stand normalizedTime deliberately remains zero (Idleness=0).
+        bool started = false;
+        for (int i = 0; i < 190; i++)
+        {
+            AdvanceFrame(.1f); HeroArcherVisuals.Sync("panel");
+            if (own.sprite != null && own.sprite.texture.width == 48 * 4) { started = true; break; }
+        }
+        Check("leisure.standFrozenNativeStillStarts", started);
+        if (!started) return;
+        Sprite frame = own.sprite;
+        int clothTicks = HeroArcherCloth.TickCalls;
+        Time.timeScale = 0f;
+        for (int i = 0; i < 8; i++) { AdvanceFrame(.1f); HeroArcherVisuals.Sync("panel"); }
+        Check("leisure.timeScalePauseFreezes", ReferenceEquals(frame, own.sprite));
+        Time.timeScale = 1f;
+        Managers.Inst.game.state = Game.State.Menu;
+        for (int i = 0; i < 8; i++) { AdvanceFrame(.1f); HeroArcherVisuals.Sync("panel"); }
+        Check("leisure.menuFreezes", ReferenceEquals(frame, own.sprite));
+        Managers.Inst.game.state = Game.State.Playing;
+        IslandSaveData.isSavingGame = true;
+        for (int i = 0; i < 8; i++) { AdvanceFrame(.1f); HeroArcherVisuals.Sync("panel"); }
+        Check("leisure.saveFreezes", ReferenceEquals(frame, own.sprite));
+        IslandSaveData.isSavingGame = false;
+        Check("leisure.nativeRendererStillOwned", fixture.Native.forceRenderingOff && own.enabled);
+
+        // Same-frame native prepare receipt must restore the original atlas now,
+        // without a second Sync/Cloth tick or an Animator write.
+        clothTicks = HeroArcherCloth.TickCalls;
+        HeroArcherVisuals.RecordPrepareWindow(fixture.Archer, .2f);
+        Check("leisure.prepareSameFrameRestoresBase", own.sprite.texture.width == 384
+            && HeroArcherCloth.TickCalls == clothTicks);
+        HeroArcherVisuals.Sync("panel");
+        Check("leisure.sameFrameDedupPreserved", HeroArcherCloth.TickCalls == clothTicks);
+
+        // New cooldown then another leisure visit; a real arrow owns the frame.
+        for (int i = 0; i < 190; i++)
+        {
+            AdvanceFrame(.1f); HeroArcherVisuals.Sync("panel");
+            if (own.sprite.texture.width == 48 * 4) break;
+        }
+        Check("leisure.canRecur", own.sprite.texture.width == 48 * 4);
+        HeroArcherVisuals.NotifyRelease(fixture.Archer);
+        Check("leisure.releaseSameFrameRestoresBase", own.sprite.texture.width == 384
+            && FrameOf(own) == 26);
+        SetState(fixture, "Walk", .2f, 1f);
+        AdvanceFrame(.1f); HeroArcherVisuals.Sync("panel");
+        Check("leisure.walkNativeWins", own.sprite.texture.width == 384 && FrameOf(own) >= 10);
+        fixture.Archer._shootingTarget = new GameObject("foe");
+        SetState(fixture, "Stand", 0f);
+        for (int i = 0; i < 190; i++) { AdvanceFrame(.1f); HeroArcherVisuals.Sync("panel"); }
+        Check("leisure.targetBlocks", own.sprite.texture.width == 384);
+        fixture.Archer._shootingTarget = null;
+        Managers.Inst.kingdom.isDaytime = false;
+        for (int i = 0; i < 190; i++) { AdvanceFrame(.1f); HeroArcherVisuals.Sync("panel"); }
+        Check("leisure.nightBlocks", own.sprite.texture.width == 384);
+        HeroArcherVisuals.Remove(fixture.Archer);
+        Check("leisure.removeRestoresNative", !fixture.Native.forceRenderingOff);
+    }
+
+    private static void LeisureClockPolicy()
+    {
+        var clock = new CharacterLeisureClock(1234);
+        var other = new CharacterLeisureClock(9876);
+        Check("leisure.cooldownWithinRange", clock.Cooldown >= 10f && clock.Cooldown <= 18.01f);
+        Check("leisure.perActorOffset", Math.Abs(clock.Cooldown - other.Cooldown) > .01f);
+        for (int i = 0; i < 190; i++) clock.Tick(.1f, false); // active day can consume wait
+        for (int i = 0; i < 7; i++) Check("leisure.stableStand" + i, clock.Tick(.1f, true) < 0);
+        int first = clock.Tick(.1f, true);
+        Check("leisure.startsAfterShortStand", first >= 0);
+        for (int i = 0; i < 20; i++) Check("leisure.zeroDeltaFreezes" + i, clock.Tick(0f, true) == first);
+        clock.Cancel();
+        Check("leisure.cancelRestartsCooldown", !clock.Active && clock.Cooldown >= 10f
+            && clock.Tick(.1f, true) < 0);
+        for (int i = 0; i < 190; i++) clock.Tick(.1f, false);
+        for (int i = 0; i < 8; i++) clock.Tick(.1f, true);
+        int second = clock.Tick(0f, true);
+        Check("leisure.alternatesGesture", second >= 0 && second / 8 != first / 8);
+        for (int i = 0; i < 26; i++) clock.Tick(.1f, true);
+        Check("leisure.boundedAndRenews", !clock.Active && clock.Cooldown > 0f);
     }
 }

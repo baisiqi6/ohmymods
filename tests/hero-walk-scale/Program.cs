@@ -7,7 +7,7 @@
 //      （该门已在 HeroArcherVisuals.MotionOf 中移除），测试钉住「判据只吃实际速度」；
 //   2) 向左（负速度）合法；3) 停下（死区）；4) NaN/±Inf → Idle；5) walkSpeed 非法时只分 Idle/Walk；
 //   6) RepeatedMotion 相位推进 + 同值 SetMotion 不重置（真 HeroArcherAnimationState）；
-//   7) 0.9 body/cloth 锚点偏移、flip 符号、纯函数幂等（不乘当前 scale 递减）。
+//   7) 0.665 站高 body/cloth 锚点偏移、flip 符号、纯函数幂等（不乘当前 scale 递减）。
 
 using System;
 using KingdomEnhancedMod;
@@ -96,18 +96,22 @@ internal static class HeroArcherMotionTests
         anim.SetMotion(HeroArcherAnimation.Draw, 2d);
         CheckFrame(HeroArcherAtlas.IdleFirstFrame + 2, anim.Tick(2d), "非移动枚举被 SetMotion 忽略");
 
-        // --- 0.9 缩放：cloth 肩锚偏移（与 Cloth 的像素规则同源：x=-5、肩高 14、1px=1/32） ---
-        Check(Math.Abs(HeroArcherMotion.VisualScale - 0.9f) < 1e-6f, "VisualScale == 0.9");
+        // --- 0.665 站高（2026-09-30 身高再降 5%）：cloth 肩锚偏移（与 Cloth 的像素规则同源：x=-5、肩高 14、1px=1/32） ---
+        // 站高契约：最高自然站姿 24px、PPU 32 → 0.70×32/24×0.95；普通/休闲 23px ≈ 0.6372917。
+        Check(Math.Abs(HeroArcherMotion.VisualScale * 24f / 32f - 0.665f) < 1e-5f, "VisualScale × 24px/PPU32 == 站高 0.665");
+        Check(Math.Abs(HeroArcherMotion.VisualScale * 23f / 32f - 0.6372917f) < 1e-5f, "VisualScale × 23px/PPU32 == 站高 0.6372917");
         (float x0, float y0) = HeroArcherMotion.ClothRootLocal(0f, 0f, false);
-        Check(Math.Abs(x0 - (-5f / 32f) * 0.9f) < 1e-6f && Math.Abs(y0 - (14f / 32f) * 0.9f) < 1e-6f,
-            "cloth 锚点 = 像素偏移 × 0.9（非全尺寸偏移）");
+        Check(Math.Abs(x0 - (-5f / 32f) * HeroArcherMotion.VisualScale) < 1e-6f
+            && Math.Abs(y0 - (14f / 32f) * HeroArcherMotion.VisualScale) < 1e-6f,
+            "cloth 锚点 = 像素偏移 × VisualScale（非全尺寸偏移）");
         (float xf, float yf) = HeroArcherMotion.ClothRootLocal(0f, 0f, true);
-        Check(Math.Abs(xf - (5f / 32f) * 0.9f) < 1e-6f && Math.Abs(yf - y0) < 1e-6f,
+        Check(Math.Abs(xf - (5f / 32f) * HeroArcherMotion.VisualScale) < 1e-6f && Math.Abs(yf - y0) < 1e-6f,
             "flip 时 x 偏移取反（肩部锚点随朝向），y 不变");
         // 参考非零原点：偏移是加法项，不吞掉 body 自身位置。
         (float xn, float yn) = HeroArcherMotion.ClothRootLocal(0.25f, -1f, false);
-        Check(Math.Abs(xn - (0.25f + (-5f / 32f) * 0.9f)) < 1e-6f && Math.Abs(yn - (-1f + (14f / 32f) * 0.9f)) < 1e-6f,
-            "非零 body 原点：锚点 = 原点 + 偏移×0.9");
+        Check(Math.Abs(xn - (0.25f + (-5f / 32f) * HeroArcherMotion.VisualScale)) < 1e-6f
+            && Math.Abs(yn - (-1f + (14f / 32f) * HeroArcherMotion.VisualScale)) < 1e-6f,
+            "非零 body 原点：锚点 = 原点 + 偏移×VisualScale");
         // 幂等：纯函数输出绝对值，重复调用同结果（证明「重断言」不会乘当前 scale 递减）。
         (float x2, float y2) = HeroArcherMotion.ClothRootLocal(x0, y0, false);
         (float x3, float y3) = HeroArcherMotion.ClothRootLocal(x0, y0, false);

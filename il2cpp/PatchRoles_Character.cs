@@ -6,7 +6,7 @@ namespace KingdomEnhancedMod;
 
 /// <summary>
 /// 希腊乞丐变北欧平民：Character.Promote(string, IUnitController) 在希腊世界把
-/// Beggar 提升为 Peasant 时，替换为北境 WarriorPeasant prefab（统一 y=1.125 + 配色同步）。
+/// Beggar 提升为 Peasant 时，替换为北境 WarriorPeasant prefab（统一站高 0.70 = 0.70×32/18 + 配色同步）。
 ///
 /// 2.4.0 签名验证（interop Assembly-CSharp.dll）：
 /// - Character.Promote(string newTag, IUnitController unitController = null) : Character —— 存在
@@ -54,8 +54,9 @@ public static class Character_Promote_Patch
 
             newChar.transform.parent = __instance.transform.parent;
             newChar.transform.position = position;
-            // 希腊居民缩放：只改 y，保留 x 朝向符号与 z。
-            GreekScaleScope.ApplyY(newChar.transform, 1.125f);
+            // 北境平民缩放（站高 0.70）：只改 y，保留 x 朝向符号与 z；与 WarriorPeasant/
+            // Peasant_norselands 两个 OnEnable 入口共用同一常量（WarriorPeasant_OnEnable_Patch）。
+            GreekScaleScope.ApplyY(newChar.transform, WarriorPeasant_OnEnable_Patch.NorseCivilianScaleY);
 
             newChar.skinColor = skinColor;
             newChar.outfitColor = outfitColor;

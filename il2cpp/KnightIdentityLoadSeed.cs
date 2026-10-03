@@ -80,6 +80,9 @@ namespace KingdomEnhancedMod
             internal bool Pending;
             internal bool Attempted;
             internal long LastAttemptTicks;
+            internal bool Quota;                             // true = 历史职业配额 cohort（只被配额恢复消费，绝不写快照）
+            internal string QuotaEpoch;                      // 所选历史 epoch（写新 revision 的目标）
+            internal int[] QuotaCounts;                      // 历史各 style 数量（冻结，防漂移）
         }
 
         private enum FlushOutcome
@@ -98,21 +101,37 @@ namespace KingdomEnhancedMod
 
         private static readonly List<SeedBatch> Batches = new List<SeedBatch>(MaxBatches);
 
-        /// <summary>仅诊断/测试：pending（已成功 Complete、等待 Flush 落盘）批次数。</summary>
+        /// <summary>仅诊断/测试：pending（已成功 Complete、等待 Flush 落盘）种子批次数（配额 cohort 不计入）。</summary>
         internal static int PendingCount
         {
             get
             {
                 int count = 0;
-                for (int i = 0; i < Batches.Count; i++) if (Batches[i].Pending) count++;
+                for (int i = 0; i < Batches.Count; i++) if (Batches[i].Pending && !Batches[i].Quota) count++;
                 return count;
             }
         }
 
-        /// <summary>仅诊断/测试：在管批次总数。</summary>
+        /// <summary>仅诊断/测试：在管种子批次数（配额 cohort 不计入，另有 QuotaBatchCount）。</summary>
         internal static int BatchCount
         {
-            get { return Batches.Count; }
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < Batches.Count; i++) if (!Batches[i].Quota) count++;
+                return count;
+            }
+        }
+
+        /// <summary>仅诊断/测试：在管历史职业配额 cohort 数。</summary>
+        internal static int QuotaBatchCount
+        {
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < Batches.Count; i++) if (Batches[i].Quota) count++;
+                return count;
+            }
         }
 
         /// <summary>仅诊断/测试：批次状态一行摘要（不含任何身份内容）。</summary>
@@ -178,6 +197,55 @@ namespace KingdomEnhancedMod
                     Frozen = frozen,
                     Owners = new Dictionary<string, OwnerState>(frozen.Count, StringComparer.Ordinal),
                     Excluded = new Dictionary<string, OwnerState>(StringComparer.Ordinal),
+                });
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("seed-begin", e);
+            }
+        }
+
+        /// <summary>
+        /// 历史职业配额 cohort（known-mismatch 会话）：与种子同一套冻结记录机制（显式 tagSquire 才进
+        /// KnownExcluded），但不写任何快照——只在最外层成功 End 后由配额恢复整批消费一次。
+        /// 外层 Begin 调用；重复 Begin 幂等；只读冻结，不做任何 I/O。
+        /// </summary>
+        internal static void BeginQuotaCohort(KnightIdentityLoadBridge.LoadScope scope, string epoch, int[] historicalCounts)
+        {
+            try
+            {
+                if (scope == null || scope.Previous != null) return;             // 只认最外层（记录来自整岛）
+                if (FindBatch(scope.Id) != null) return;                          // 重复 Begin：幂等
+                if (scope.Island == null || string.IsNullOrEmpty(scope.ContextKey)) return;
+                if (string.IsNullOrEmpty(epoch) || historicalCounts == null) return;
+                if (historicalCounts.Length != KnightIdentityReceipt.StyleCount) return;
+                if (!KnightIdentityRuntime.IsHostAuthority()) { KnightIdentityLog.Once("seed-client", null); return; }
+
+                if (Batches.Count >= MaxBatches)
+                {
+                    RecycleStale();
+                    if (Batches.Count >= MaxBatches)
+                    {
+                        KnightIdentityLog.Once("seed-batch-cap", null);
+                        return;
+                    }
+                }
+
+                Dictionary<string, IntPtr> frozen = FreezeRecords(scope.Island);
+                if (frozen == null) return;   // 原因已记录（整批拒绝）
+                if (frozen.Count == 0) return; // 岛上没有骑士记录
+
+                Batches.Add(new SeedBatch
+                {
+                    ScopeId = scope.Id,
+                    TransactionScopeId = scope.Id,
+                    ContextKey = scope.ContextKey,
+                    Frozen = frozen,
+                    Owners = new Dictionary<string, OwnerState>(frozen.Count, StringComparer.Ordinal),
+                    Excluded = new Dictionary<string, OwnerState>(StringComparer.Ordinal),
+                    Quota = true,
+                    QuotaEpoch = epoch,
+                    QuotaCounts = (int[])historicalCounts.Clone(),
                 });
             }
             catch (Exception e)
@@ -358,6 +426,7 @@ namespace KingdomEnhancedMod
                 {
                     SeedBatch batch = Batches[i];
                     if (!batch.Pending || batch.TransactionScopeId != 0) continue;
+                    if (batch.Quota) continue; // 配额 cohort 由 KnightIdentityQuotaRecovery 消费，绝不写快照
 
                     // 退避只针对「真的尝试过后失败」的批次；未就绪（收据/层级）只是等待，不消耗退避窗口。
                     if (batch.Attempted && DateTime.UtcNow.Ticks - batch.LastAttemptTicks < RetryBackoffTicks) continue;
@@ -392,6 +461,292 @@ namespace KingdomEnhancedMod
                 batch.Frozen?.Clear();
             }
             Batches.Clear();
+        }
+
+        /// <summary>
+        /// 取一批整批 live 复核过的配额 cohort（历史职业配额恢复专用；批次一旦交付/取消即回收）：
+        ///  * 保存中一律避让（Waiting，不取走批次）；
+        ///  * Waiting：批次在管但现场未就绪（inactive/层级未补齐/world 未就绪/瞬态读失败）——保留重试；
+        ///  * Cancelled：world/context 确定换代、部分已有收据、加载失败/不完整——绝不重试、绝不覆盖；
+        ///  * 同 life 已死/对象销毁/原 life 已结束的成员从 cohort 剔除（绝不认领复用后的新 life），
+        ///    其余按剩余存活 N 恢复；剔除后无 survivors 则取消（N=0 不恢复、不复活）。
+        ///  * Ready：cohort 已交付，调用方决定配额恢复或取消。
+        /// </summary>
+        internal static void TryTakeQuotaCohort(out KnightIdentityQuotaCohort cohort, out KnightIdentityQuotaCohortStatus status, out string reason)
+        {
+            cohort = null;
+            status = KnightIdentityQuotaCohortStatus.None;
+            reason = null;
+            try
+            {
+                if (KnightIdentitySaveBridge.IsSaveInProgressNow)
+                {
+                    status = KnightIdentityQuotaCohortStatus.Waiting; // 保存门在消费之前：绝不取走 cohort
+                    return;
+                }
+
+                SeedBatch batch = null;
+                bool pendingSeen = false;
+                for (int i = 0; i < Batches.Count; i++)
+                {
+                    SeedBatch candidate = Batches[i];
+                    if (!candidate.Quota) continue;
+                    if (candidate.RejectReason != null)
+                    {
+                        // 已拒绝（原生失败/不完整/捕获冲突）：一次性取消，回收批次
+                        reason = candidate.RejectReason;
+                        RemoveBatch(candidate);
+                        status = KnightIdentityQuotaCohortStatus.Cancelled;
+                        return;
+                    }
+                    if (!candidate.Pending || candidate.TransactionScopeId != 0)
+                    {
+                        pendingSeen = true;
+                        continue;
+                    }
+                    batch = candidate;
+                    break;
+                }
+                if (batch == null)
+                {
+                    status = pendingSeen ? KnightIdentityQuotaCohortStatus.Waiting : KnightIdentityQuotaCohortStatus.None;
+                    return;
+                }
+
+                // 消费前做当前原生上下文键匹配（同 world/scene ≠ 同岛）：读不到 → 保留 cohort 等待；
+                // 确定不同 → 取消（不取走、不铸收据、不清另一岛的 _contextUnresolved）。
+                if (!KnightIdentitySidecar.TryReadCurrentContextKey(out string currentContextKey))
+                {
+                    status = KnightIdentityQuotaCohortStatus.Waiting;
+                    return;
+                }
+                if (!string.Equals(currentContextKey, batch.ContextKey, StringComparison.Ordinal))
+                {
+                    RemoveBatch(batch);
+                    status = KnightIdentityQuotaCohortStatus.Cancelled;
+                    reason = "context-changed";
+                    return;
+                }
+
+                // 明确排除（Squire）条目：只做终止/失效剔除，不因角色变化整批取消
+                // （途中晋升出的新骑士不属于本装载 cohort，由既有首见/招募路径处理）
+                List<string> droppedExcluded = new List<string>();
+                foreach (KeyValuePair<string, OwnerState> pair in batch.Excluded)
+                {
+                    QuotaMemberVerdict verdict = VerifyQuotaExcluded(pair.Value, out string why);
+                    if (verdict == QuotaMemberVerdict.Wait)
+                    {
+                        status = KnightIdentityQuotaCohortStatus.Waiting;
+                        return;
+                    }
+                    if (verdict == QuotaMemberVerdict.Cancelled)
+                    {
+                        RemoveBatch(batch);
+                        status = KnightIdentityQuotaCohortStatus.Cancelled;
+                        reason = why;
+                        return;
+                    }
+                    if (verdict == QuotaMemberVerdict.Dropped) droppedExcluded.Add(pair.Key);
+                }
+                for (int i = 0; i < droppedExcluded.Count; i++) batch.Excluded.Remove(droppedExcluded[i]);
+
+                List<string> ordered = new List<string>(batch.Owners.Keys);
+                ordered.Sort(StringComparer.Ordinal);
+                List<string> keptIds = new List<string>(ordered.Count);
+                List<Knight> knights = new List<Knight>(ordered.Count);
+                List<long> lifetimes = new List<long>(ordered.Count);
+                int dropped = droppedExcluded.Count;
+                for (int i = 0; i < ordered.Count; i++)
+                {
+                    OwnerState owner = batch.Owners[ordered[i]];
+                    QuotaMemberVerdict verdict = VerifyQuotaMember(owner, out string why);
+                    if (verdict == QuotaMemberVerdict.Wait)
+                    {
+                        status = KnightIdentityQuotaCohortStatus.Waiting;
+                        return;
+                    }
+                    if (verdict == QuotaMemberVerdict.Cancelled)
+                    {
+                        RemoveBatch(batch);
+                        status = KnightIdentityQuotaCohortStatus.Cancelled;
+                        reason = why;
+                        return;
+                    }
+                    if (verdict == QuotaMemberVerdict.Dropped)
+                    {
+                        batch.Owners.Remove(ordered[i]); // 剔除幂等：后续巡检不再重复计数/等待
+                        dropped++;                       // 原 life 已结束/已死/已销毁：绝不认领新 life
+                        continue;
+                    }
+                    // 已知收据（手动应用/其它来源）：用户动作优先——整批取消，绝不覆盖、绝不混入第二套来源
+                    if (KnightIdentityRuntime.TryGetReceipt(owner.Knight, out _))
+                    {
+                        RemoveBatch(batch);
+                        status = KnightIdentityQuotaCohortStatus.Cancelled;
+                        reason = "partial-receipts";
+                        return;
+                    }
+                    keptIds.Add(ordered[i]);
+                    knights.Add(owner.Knight);
+                    lifetimes.Add(owner.Lifetime);
+                }
+                if (dropped > 0)
+                {
+                    // 有界回执：剔除的已终止成员数量（不含任何身份内容）
+                    KnightIdentityLog.Receipt("historical-quota cohort dropped terminated=" + dropped.ToString(CultureInfo.InvariantCulture));
+                }
+                if (knights.Count == 0)
+                {
+                    RemoveBatch(batch);
+                    status = KnightIdentityQuotaCohortStatus.Cancelled;
+                    reason = "no-live-members"; // N=0：不恢复、不复活
+                    return;
+                }
+
+                cohort = new KnightIdentityQuotaCohort
+                {
+                    ContextKey = batch.ContextKey,
+                    Epoch = batch.QuotaEpoch,
+                    HistoricalCounts = batch.QuotaCounts,
+                    UniqueIds = keptIds,
+                    Knights = knights,
+                    Lifetimes = lifetimes,
+                    ExcludedCount = batch.Excluded.Count,
+                };
+                RemoveBatch(batch);
+                status = KnightIdentityQuotaCohortStatus.Ready;
+            }
+            catch (Exception e)
+            {
+                KnightIdentityLog.Once("quota-cohort", e);
+                status = KnightIdentityQuotaCohortStatus.Waiting;
+            }
+        }
+
+        private enum QuotaMemberVerdict
+        {
+            Live,
+            Wait,      // 瞬态（inactive 未证死亡 / 层级未补齐 / 读失败）：保留批次等下一次巡检
+            Dropped,   // 原 life 已结束/已死/已销毁/角色已变：从 cohort 剔除，绝不认领新 life
+            Cancelled, // world 确定换代：整批取消（reason 给出具体原因）
+        }
+
+        /// <summary>
+        /// 配额成员复核（世界优先，再判死亡）：先核对 world/scene/层级（换代=取消、未就绪=等待），
+        /// 再按「对象身份 → 原 life 是否结束 → 同 life 死亡证据（先于 active 门）→ active → 角色」判定。
+        /// </summary>
+        private static QuotaMemberVerdict VerifyQuotaMember(OwnerState owner, out string reason)
+        {
+            reason = null;
+            Knight knight = owner.Knight;
+            if (knight == null) { reason = "destroyed"; return QuotaMemberVerdict.Dropped; }
+
+            GameObject go;
+            try
+            {
+                go = knight.gameObject;
+            }
+            catch
+            {
+                return QuotaMemberVerdict.Wait;
+            }
+            if (go == null) { reason = "destroyed"; return QuotaMemberVerdict.Dropped; }
+
+            if (!TryInstanceId(go, out int gameObjectId)) return QuotaMemberVerdict.Wait;
+            if (gameObjectId != owner.GameObjectId) { reason = "object-replaced"; return QuotaMemberVerdict.Dropped; }
+            if (!TryPointer(go, out IntPtr gameObjectPointer)) return QuotaMemberVerdict.Wait;
+            if (gameObjectPointer != owner.GameObjectPointer) { reason = "object-replaced"; return QuotaMemberVerdict.Dropped; }
+            if (!TryPointer(knight, out IntPtr knightPointer)) return QuotaMemberVerdict.Wait;
+            if (knightPointer != owner.KnightPointer) { reason = "object-replaced"; return QuotaMemberVerdict.Dropped; }
+
+            OwnerVerdict world = VerifyWorld(go, owner);
+            if (world == OwnerVerdict.Changed) { reason = "world-changed"; return QuotaMemberVerdict.Cancelled; }
+            if (world == OwnerVerdict.Unknown) return QuotaMemberVerdict.Wait;
+
+            long lifetime = KnightIdentityRuntime.GetLifetime(knight);
+            if (lifetime <= 0) return QuotaMemberVerdict.Wait;
+            if (lifetime != owner.Lifetime) { reason = "life-ended"; return QuotaMemberVerdict.Dropped; }
+
+            // 同 life 的死亡证据先于 active 门：inactive 的已死者不得让批次无限等待
+            Damageable damageable;
+            try
+            {
+                damageable = knight._damageable;
+            }
+            catch
+            {
+                return QuotaMemberVerdict.Wait;
+            }
+            if (damageable == null) { reason = "damageable-gone"; return QuotaMemberVerdict.Dropped; }
+            try
+            {
+                if (damageable.isDead) { reason = "dead"; return QuotaMemberVerdict.Dropped; }
+            }
+            catch
+            {
+                return QuotaMemberVerdict.Wait;
+            }
+
+            bool active;
+            try
+            {
+                active = go.activeInHierarchy;
+            }
+            catch
+            {
+                return QuotaMemberVerdict.Wait;
+            }
+            if (!active) return QuotaMemberVerdict.Wait; // inactive 但未证死亡：等待
+
+            if (!TryCompareTag(go, "Knight", out bool isKnight)) return QuotaMemberVerdict.Wait;
+            if (!isKnight) { reason = "role-changed"; return QuotaMemberVerdict.Dropped; }
+            return QuotaMemberVerdict.Live;
+        }
+
+        /// <summary>排除（Squire）条目复核：世界换代=取消、未就绪=等待；销毁/换对象/换 life/不再是 Squire=剔除。</summary>
+        private static QuotaMemberVerdict VerifyQuotaExcluded(OwnerState owner, out string reason)
+        {
+            reason = null;
+            Knight knight = owner.Knight;
+            if (knight == null) { reason = "excluded-destroyed"; return QuotaMemberVerdict.Dropped; }
+
+            GameObject go;
+            try
+            {
+                go = knight.gameObject;
+            }
+            catch
+            {
+                return QuotaMemberVerdict.Wait;
+            }
+            if (go == null) { reason = "excluded-destroyed"; return QuotaMemberVerdict.Dropped; }
+
+            if (!TryInstanceId(go, out int gameObjectId)) return QuotaMemberVerdict.Wait;
+            if (gameObjectId != owner.GameObjectId) { reason = "excluded-replaced"; return QuotaMemberVerdict.Dropped; }
+            if (!TryPointer(go, out IntPtr gameObjectPointer)) return QuotaMemberVerdict.Wait;
+            if (gameObjectPointer != owner.GameObjectPointer) { reason = "excluded-replaced"; return QuotaMemberVerdict.Dropped; }
+            if (!TryPointer(knight, out IntPtr knightPointer)) return QuotaMemberVerdict.Wait;
+            if (knightPointer != owner.KnightPointer) { reason = "excluded-replaced"; return QuotaMemberVerdict.Dropped; }
+
+            OwnerVerdict world = VerifyWorld(go, owner);
+            if (world == OwnerVerdict.Changed) { reason = "world-changed"; return QuotaMemberVerdict.Cancelled; }
+            if (world == OwnerVerdict.Unknown) return QuotaMemberVerdict.Wait;
+
+            long lifetime = KnightIdentityRuntime.GetLifetime(knight);
+            if (lifetime <= 0) return QuotaMemberVerdict.Wait;
+            if (lifetime != owner.Lifetime) { reason = "excluded-life-ended"; return QuotaMemberVerdict.Dropped; }
+
+            if (!TryCompareTag(go, "Squire", out bool isSquire)) return QuotaMemberVerdict.Wait;
+            if (!isSquire) { reason = "excluded-role-changed"; return QuotaMemberVerdict.Dropped; }
+            return QuotaMemberVerdict.Live;
+        }
+
+        private static void RemoveBatch(SeedBatch batch)
+        {
+            batch.Owners?.Clear();
+            batch.Excluded?.Clear();
+            batch.Frozen?.Clear();
+            Batches.Remove(batch);
         }
 
         // ------------------------------------------------------------------ 冻结
@@ -607,6 +962,16 @@ namespace KingdomEnhancedMod
         /// </summary>
         private static OwnerVerdict VerifyOwner(OwnerState owner, out KnightIdentityReceipt receipt)
         {
+            return VerifyOwnerCore(owner, true, out receipt);
+        }
+
+        /// <summary>
+        /// 复核一个捕获 root：确定变化 → Changed（丢批）；无法实测（inactive/层级未补齐/world 未就绪/读异常）→ Unknown（等待）；
+        /// 否则 Ready（真实 Knight 还要给出当前收据）。排除条目（Squire）只复核身份/角色/life，不要收据。
+        /// requireReceipt=false（配额 cohort）：无收据不是 Unknown，收据条件由调用方单独判定。
+        /// </summary>
+        private static OwnerVerdict VerifyOwnerCore(OwnerState owner, bool requireReceipt, out KnightIdentityReceipt receipt)
+        {
             receipt = default;
             Knight knight = owner.Knight;
             if (knight == null) return OwnerVerdict.Changed;
@@ -667,7 +1032,8 @@ namespace KingdomEnhancedMod
 
             if (!KnightIdentityRuntime.TryGetTrackedIdentity(knight, out long trackedLifetime, out KnightIdentityReceipt current))
             {
-                return OwnerVerdict.Unknown; // 收据尚未就绪：等下一次 Flush 事件
+                // 收据尚未就绪：种子批次等待下一次 Flush 事件；配额 cohort 不需要收据（由调用方单独判定）。
+                return requireReceipt ? OwnerVerdict.Unknown : OwnerVerdict.Ready;
             }
             if (trackedLifetime != owner.Lifetime) return OwnerVerdict.Changed;
             receipt = current;
@@ -700,7 +1066,8 @@ namespace KingdomEnhancedMod
             return dead ? OwnerVerdict.Changed : OwnerVerdict.Ready;
         }
 
-        /// <summary>world/scene/gameLayer 复核：场景明确不符 → 变化；world 缺失、层级未补齐或读异常 → 等待。</summary>
+        /// <summary>world/scene/gameLayer 复核：场景明确不符 → 变化；已冻结的非零 world 指针不同 → 变化
+        /// （同 scene 的新 world/new layer 必须取消，不能因层级缺失判 Unknown）；world 缺失、层级未补齐或读异常 → 等待。</summary>
         private static OwnerVerdict VerifyWorld(GameObject go, OwnerState owner)
         {
             World world;
@@ -710,6 +1077,11 @@ namespace KingdomEnhancedMod
             bool same;
             if (!TrySameScene(go, worldGo, out same)) return OwnerVerdict.Unknown;
             if (!same) return OwnerVerdict.Changed;
+
+            // 冻结过非零 world 指针：身份证据强于层级挂载状态——同 scene 换了 World 就先判变化
+            // （旧 actor 仍挂在旧 layer 时 gameLayer 判定永远 Unknown，会把已换代的 cohort 吊死）。
+            if (!TryPointer(world, out IntPtr live)) return OwnerVerdict.Unknown;
+            if (owner.WorldPointer != IntPtr.Zero && owner.WorldPointer != live) return OwnerVerdict.Changed;
 
             try
             {
@@ -722,9 +1094,6 @@ namespace KingdomEnhancedMod
             {
                 return OwnerVerdict.Unknown;
             }
-
-            if (!TryPointer(world, out IntPtr live)) return OwnerVerdict.Unknown;
-            if (owner.WorldPointer != IntPtr.Zero && owner.WorldPointer != live) return OwnerVerdict.Changed;
             return OwnerVerdict.Ready;
         }
 
@@ -752,7 +1121,16 @@ namespace KingdomEnhancedMod
 
         private static SeedBatch FindBatch(KnightIdentityLoadBridge.LoadScope scope)
         {
-            return scope == null ? null : FindBatch(scope.Id);
+            if (scope == null) return null;
+            SeedBatch direct = FindBatch(scope.Id);
+            if (direct != null) return direct;
+            // 配额 cohort 挂在最外层 scope（冻结记录来自整岛）：嵌套 scope 里发生的捕获也要能认领它。
+            for (KnightIdentityLoadBridge.LoadScope outer = scope.Previous; outer != null; outer = outer.Previous)
+            {
+                SeedBatch batch = FindBatch(outer.Id);
+                if (batch != null && batch.Quota) return batch;
+            }
+            return null;
         }
 
         private static SeedBatch FindBatch(long scopeId)

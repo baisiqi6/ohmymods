@@ -185,8 +185,9 @@ namespace Harness
             MusketeerIdentity.Units.Clear();
             MusketeerIdentity.MarkedEnabled = true;
             HeroArcherRuntime.Heroes.Clear();
-            CrossbowmanLifecycle.Crossbowmen.Clear();
-            CrossbowmanLifecycle.IdentityEnabled = false;
+            CrossbowmanLifecycle.Reset();
+            PatchRoles_Crossbowman.SeatedReconciles = 0;
+            PatchRoles_Crossbowman.AfterSeatedReconcile = null;
             Player.ThrowInActivateBody = 0;
             Il2CppStructArray<Formation.UnitTypes>.ThrowBeforeApplyOnAttempt = 0;
             Il2CppStructArray<Formation.UnitTypes>.ApplyThenThrowOnAttempt = 0;
@@ -246,6 +247,14 @@ namespace Harness
             Archer archer = Create<Archer>(Root, x);
             MusketeerIdentity.Units.Add(archer);
             MusketeerRuntime.ArmNewLife(archer);   // an applied package exists: lease > 0
+            return archer;
+        }
+
+        internal static Archer AddCrossbowman(float x)
+        {
+            Archer archer = Create<Archer>(Root, x);
+            CrossbowmanLifecycle.Crossbowmen.Add(archer);
+            CrossbowmanLifecycle.ArmNewLife(archer);   // an established career life exists
             return archer;
         }
 

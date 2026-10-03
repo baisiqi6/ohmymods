@@ -495,7 +495,10 @@ public static class Mover_Update_Patch
 [HarmonyPatch(typeof(WarriorPeasant))]
 public static class WarriorPeasant_OnEnable_Patch
 {
-    private const float GreecePeasantY = 1.125f;
+    // 北境平民保留原站高 0.70：素材立姿 18px、PPU 32；希腊普通居民的 +5% 在 Peasant 入口处理。
+    // → 0.70×32/18 ≈ 1.244444。转职 Promote（PatchRoles_Character）、WarriorPeasant.OnEnable、
+    // Peasant_norselands.OnEnable 三个入口共用此常量，避免三份魔数各自漂移。
+    internal const float NorseCivilianScaleY = 0.70f * 32f / 18f;
 
     [HarmonyPatch(nameof(WarriorPeasant.OnEnable))]
     [HarmonyPostfix]
@@ -503,8 +506,8 @@ public static class WarriorPeasant_OnEnable_Patch
     {
         try
         {
-            GreekScaleScope.ApplyY(__instance.transform, GreecePeasantY);
-            ScaleRegistryHolder.Register(__instance.GetComponent<Mover>(), GreecePeasantY);
+            GreekScaleScope.ApplyY(__instance.transform, NorseCivilianScaleY);
+            ScaleRegistryHolder.Register(__instance.GetComponent<Mover>(), NorseCivilianScaleY);
         }
         catch (Exception e)
         {
@@ -535,8 +538,6 @@ public static class Deer_OnEnable_Patch
 [HarmonyPatch(typeof(Peasant))]
 public static class Peasant_OnEnable_Patch
 {
-    private const float GreecePeasantY = 1.125f;
-
     [HarmonyPatch(nameof(Peasant.OnEnable))]
     [HarmonyPostfix]
     public static void Peasant_OnEnable_Postfix(Peasant __instance)
@@ -546,7 +547,15 @@ public static class Peasant_OnEnable_Patch
             string name = __instance.gameObject.name;
             if (name.Contains("Peasant_norselands"))
             {
-                float targetY = GreecePeasantY;
+                float targetY = WarriorPeasant_OnEnable_Patch.NorseCivilianScaleY;
+                GreekScaleScope.ApplyY(__instance.transform, targetY);
+                ScaleRegistryHolder.Register(__instance.GetComponent<Mover>(), targetY);
+            }
+            else if (__instance.GetComponent<WarriorPeasant>() == null)
+            {
+                // Ordinary Peasant uses biome animation swaps. In the current Greek world,
+                // raise its native Y by 5%; native ownership recovery prevents re-enable stacking.
+                float targetY = GreekScaleScope.NativeScale(__instance.transform).y * 1.05f;
                 GreekScaleScope.ApplyY(__instance.transform, targetY);
                 ScaleRegistryHolder.Register(__instance.GetComponent<Mover>(), targetY);
             }

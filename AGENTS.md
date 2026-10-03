@@ -64,9 +64,9 @@
 - `docs/project-harness/progress.md`：实际进展、验证边界和下一步；历史记录进入 `archive/`。
 - `docs/project-harness/game-logic-map/patch-patterns.md`：出现新的可复用机制或技术坑时更新；对象池依赖审计要求继续有效。
 - `docs/project-harness/domain-model.md`：记录影响领域模型的关键决策；没有新决策时不机械追加。
-- 未获用户明确授权不要 commit；验收必须有对应证据，标有“待实测”的项目不得置为 done。
+- 未获用户明确授权不要 commit；验收必须有对应证据。本轮代码交付范围完成必要审查、验证且对应 PR 已合并后，关闭 Issue 并同步代码任务完成状态；玩家实机结果单独记录，不作为关单前置。多 PR 范围未交齐或未合并时保持开放；后续实机发现新问题另开 Issue/PR。
 
-- **版本标准（用户2026-09-17授权）**：发布前先读根目录 `VERSIONING.md`。修复/既有行为优化每完整条目按体量累计 patch +1～5，新增功能按体量累计 minor +1～3；同一问题多轮返修不重复计数，基于最近正式版本核差异，记录本次增量账目。不要擅自因“更新很多”跳 major；玩法待验不因发布而置done。
+- **版本标准（用户2026-09-17授权）**：发布前先读根目录 `VERSIONING.md`。修复/既有行为优化每完整条目按体量累计 patch +1～5，新增功能按体量累计 minor +1～3；同一问题多轮返修不重复计数，基于最近正式版本核差异，记录本次增量账目。不要擅自因“更新很多”跳 major；发布不代表玩法已验证，代码交付任务按 PR 合并与对应审查/验证结果收尾，实机状态单独记录。
 
 ## 协作规范（collaboration-protocol.md 摘要）
 
@@ -103,6 +103,8 @@
 - WindowsPowerShell5.1不要把`Get-Content -Raw`/原始Provider对象直接放入高Depth的ConvertTo-Json；改用`[IO.File]::ReadAllText`与显式纯值投影，输出有界。事故进程有8.28GB提交量；不要重跑该脚本压测。
 
 ## 常用路径
+
+**Mac 开发入口**：`~/projects/ohmymods`；Mod 主线源码在 `il2cpp/`。运行环境统一在 `/Applications/ohmymods/`：`arm64/`、`x86_64/`、`player-tests/<tag>/` 共用根目录一份游戏，各自保留加载依赖和配置，但游戏存档仍共享。路径、构建包装器和清理规范见 [Mac 工作区规范](docs/development/macos-workspace.md)。`.local/` 与 `game-source/` 仅保留本机；旧工作区 `work` 兼容链接只供历史记录解析。Windows 与 Mac 是平级维护者，任务先在 GitHub Issue 对齐，平台验收分别记录。
 
 | 项 | 路径 |
 |---|---|

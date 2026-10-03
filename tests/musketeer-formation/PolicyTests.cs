@@ -230,7 +230,7 @@ namespace MusketeerFormationTests
                 Fixture.Reset();
                 Formation formation = Fixture.NewFormation(0f);
                 Archer archer = Fixture.NewArcher(1f);
-                PatchMusketeerFormation.BeginDirected(archer, formation);
+                PatchMusketeerFormation.BeginDirected(archer, formation, PatchMusketeerFormation.DirectedMusketeerFamily, 1L);
                 Check.False(PatchMusketeerFormation.ShouldBlockNativeRecruit(archer, formation),
                     "directed call must pass");
                 PatchMusketeerFormation.EndDirected();
@@ -245,11 +245,98 @@ namespace MusketeerFormationTests
                 Formation other = Fixture.NewFormation(0f);
                 Archer directed = Fixture.NewArcher(1f);
                 Archer otherArcher = Fixture.NewArcher(2f);
-                PatchMusketeerFormation.BeginDirected(directed, formation);
+                PatchMusketeerFormation.BeginDirected(directed, formation, PatchMusketeerFormation.DirectedMusketeerFamily, 1L);
                 Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(otherArcher, formation),
                     "another archer must stay blocked");
                 Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(directed, other),
                     "another formation must stay blocked");
+                PatchMusketeerFormation.EndDirected();
+            });
+
+            Case.Run("an armed directed scope is invalidated by authority/feature/world/membership/mutex", () =>
+            {
+                Fixture.Reset();
+                Formation formation = Fixture.NewFormation(0f);
+                Archer cross = Fixture.NewArcher(1f, marked: false);
+                CrossbowmanLifecycle.Crossbowmen.Add(cross);
+                CrossbowmanLifecycle.IdentityEnabled = true;
+                PatchMusketeerFormation.BeginDirected(cross, formation,
+                    PatchMusketeerFormation.DirectedCrossbowFamily, 1L);
+                Check.False(PatchMusketeerFormation.ShouldBlockNativeRecruit(cross, formation),
+                    "valid crossbow directed scope passes");
+
+                NetworkBigBoss.HasWorldAuth = false;
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(cross, formation),
+                    "authority loss closes the bypass");
+                NetworkBigBoss.HasWorldAuth = true;
+
+                PatchCrossbowFormation.PlayingFlag = false;
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(cross, formation),
+                    "disabled cross feature closes the bypass");
+                PatchCrossbowFormation.PlayingFlag = true;
+
+                World originalWorld = Managers.Inst.world;
+                Managers.Inst.world = new World();
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(cross, formation),
+                    "a replaced world closes the bypass");
+                Managers.Inst.world = originalWorld;
+
+                MusketeerAccess.InWorldResult = false;
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(cross, formation),
+                    "an actor moved out of the world closes the bypass");
+                MusketeerAccess.InWorldResult = true;
+
+                MusketeerIdentity.Units.Add(cross);
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(cross, formation),
+                    "a dual career closes the cross bypass (mutual exclusion)");
+                MusketeerIdentity.Units.Remove(cross);
+
+                NetworkBigBoss.IsOnline = true;
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(cross, formation),
+                    "online closes the bypass");
+                NetworkBigBoss.IsOnline = false;
+
+                Time.timeScale = 0f;
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(cross, formation),
+                    "pause closes the bypass");
+                Time.timeScale = 1f;
+
+                Managers.Inst.game.state = Game.State.Menu;
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(cross, formation),
+                    "menu state closes the bypass");
+                Managers.Inst.game.state = Game.State.Playing;
+
+                Check.False(PatchMusketeerFormation.ShouldBlockNativeRecruit(cross, formation),
+                    "fully restored scope passes again");
+                Archer ordinary = Fixture.NewArcher(9f, marked: false);
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(ordinary, formation),
+                    "the transaction gate still refuses ordinary archers while armed");
+                PatchMusketeerFormation.EndDirected();
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(cross, formation),
+                    "closed scope blocks again");
+            });
+
+            Case.Run("a musketeer directed scope rejects a cross-marked actor and a disabled feature", () =>
+            {
+                Fixture.Reset();
+                Formation formation = Fixture.NewFormation(0f);
+                Archer musk = Fixture.NewArcher(1f);
+                PatchMusketeerFormation.BeginDirected(musk, formation,
+                    PatchMusketeerFormation.DirectedMusketeerFamily, 1L);
+                Check.False(PatchMusketeerFormation.ShouldBlockNativeRecruit(musk, formation),
+                    "valid musk directed scope passes");
+
+                MusketeerAccess.Enabled = false;
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(musk, formation),
+                    "MusketeerEnabled off closes the musk bypass");
+                MusketeerAccess.Enabled = true;
+
+                CrossbowmanLifecycle.Crossbowmen.Add(musk);
+                CrossbowmanLifecycle.IdentityEnabled = true;
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(musk, formation),
+                    "a cross-marked musketeer never passes the guard");
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(musk, formation),
+                    "the musk directed scope must not bypass for a dual career");
                 PatchMusketeerFormation.EndDirected();
             });
 
@@ -313,14 +400,17 @@ namespace MusketeerFormationTests
                     "ordinary archer must be refused while the row seat is dirty");
                 Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(marked, formation),
                     "marked archer must be refused while the row seat is dirty");
+                PatchMusketeerFormation.BeginDirected(marked, formation, PatchMusketeerFormation.DirectedMusketeerFamily, 1L);
                 MusketeerAccess.Enabled = false;
                 Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(ordinary, formation),
                     "dirty protection survives a disabled feature");
+                Check.True(PatchMusketeerFormation.ShouldBlockNativeRecruit(marked, formation),
+                    "a disabled feature also closes the directed bypass (fail closed)");
                 Check.False(PatchMusketeerFormation.ShouldBlockNativeRecruit(ordinary, other),
                     "other formations stay native");
-                PatchMusketeerFormation.BeginDirected(marked, formation);
+                MusketeerAccess.Enabled = true;
                 Check.False(PatchMusketeerFormation.ShouldBlockNativeRecruit(marked, formation),
-                    "the directed pair is still allowed");
+                    "the restored directed pair is allowed");
                 PatchMusketeerFormation.EndDirected();
             });
 
@@ -331,7 +421,7 @@ namespace MusketeerFormationTests
                 Archer directed = Fixture.NewArcher(1f);
                 Archer ordinary = Fixture.NewArcher(2f, marked: false);
                 Archer otherMarked = Fixture.NewArcher(3f);
-                PatchMusketeerFormation.BeginDirected(directed, formation);
+                PatchMusketeerFormation.BeginDirected(directed, formation, PatchMusketeerFormation.DirectedMusketeerFamily, 1L);
 
                 Check.True(PatchMusketeerFormation.HasActiveDirectedTransaction(formation), "transaction armed");
                 Check.False(PatchMusketeerFormation.ShouldBlockNativeRecruit(directed, formation),

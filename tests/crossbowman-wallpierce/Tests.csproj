@@ -36,6 +36,7 @@
 
   <ItemGroup>
     <Compile Include="../../il2cpp/PatchRoles_Crossbowman.cs" />
+    <Compile Include="../../il2cpp/CrossbowRatioPolicy.cs" />
     <Compile Include="../../il2cpp/CrossbowmanBoltWallPierce.cs" />
     <Compile Include="../../il2cpp/HeroArcherWallPierce.cs" />
     <Compile Include="../../il2cpp/HeroArcherArrowVisuals.cs" />

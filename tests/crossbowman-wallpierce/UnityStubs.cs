@@ -355,7 +355,8 @@ namespace UnityEngine
 
     public class WaitForSeconds
     {
-        public WaitForSeconds(float seconds) { }
+        public readonly float seconds;
+        public WaitForSeconds(float seconds) { this.seconds = seconds; }
     }
 
     public class Collider2D : Component

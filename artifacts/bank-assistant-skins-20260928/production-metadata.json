@@ -1,0 +1,2519 @@
+{
+ "schema": "bank-assistant-atlas-production-metadata/2",
+ "task": "issue-89",
+ "status": "user-approved art (2026-09-29) integrated into the candidate runtime; real-game acceptance pending",
+ "approval_note": "Clerk32 complete atlas and identity-motion-v2 caravan/steward/vaultkeeper walk/run/leisure were approved by the user on 2026-09-29; rejected trio32 variants are excluded. This file records assembly data only; it is not in-game evidence.",
+ "geometry_source": "Per-style source pose-metadata.json (cell/anchor/fixed_ppu/stride_logical_px, authoritative) plus per-frame opaque extents (alpha > 0) measured from the saved production PNG bytes listed here. Grid rects/pivots are fixed rig data; no per-frame re-fit or recentering.",
+ "target_stand_height_world": 0.671875,
+ "target_stand_height_basis": "Greek main banker Idle 20px / PPU32 x existing Greek-path mod Y 1.075 = 0.671875; banker-height-contract.md. Existing five bankers untouched; new4 actor visual Y = 1.0.",
+ "fixed_ppu": 47.627906976744185,
+ "ppu_basis": "32 px standing body / 0.671875 world units; one fixed rig PPU for all four, no per-frame scaling",
+ "runtime_note": "Walk/Run frame selection uses the reviewed speed/stride gait clock (BankAssistantAtlasVisuals); walk/run durations below are authored preview timings only and must not drive runtime frames.",
+ "styles": [
+  {
+   "name": "clerk",
+   "slot": 4,
+   "resource": "KingdomEnhancedMod.BankAssistantClerk.png",
+   "asset": "il2cpp/Assets/BankAssistantClerk.png",
+   "asset_sha256": "713ef4694debb88deb893d8542497d0f205e40b9ed58d7ad0532cbb9dc9b2fc4",
+   "source_atlas": "artifacts/bank-assistant-skins-20260928/pixel-style-pilot/trio32/clerk-complete/clerk32-complete-atlas.png",
+   "source_atlas_sha256": "713ef4694debb88deb893d8542497d0f205e40b9ed58d7ad0532cbb9dc9b2fc4",
+   "source_pose_metadata": "artifacts/bank-assistant-skins-20260928/pixel-style-pilot/trio32/clerk-complete/pose-metadata.json",
+   "source_pose_metadata_sha256": "b00cddcf53b8d60379557d842660c0204b5cd42e445e69778f13d68ea86ba6a0",
+   "sheet": [
+    256,
+    160
+   ],
+   "cell": [
+    32,
+    40
+   ],
+   "anchor": [
+    16,
+    37
+   ],
+   "ppu": 47.627906976744185,
+   "standing_body_px": 32,
+   "pivot_y_px": 3,
+   "pivot_policy": "fixed rig origin: pivot = (anchor.x, cell height - anchor.y); no per-frame bbox centering",
+   "durations_seconds": {
+    "idle": 1.2,
+    "walk": 0.8,
+    "run": 0.56,
+    "leisure": 2.4
+   },
+   "strides_px_per_full_cycle": {
+    "walk": 16,
+    "run": 24
+   },
+   "stride_basis": "full-cycle support-foot displacement (stride_logical_px) from the source pose metadata",
+   "actions": [
+    {
+     "action": "idle",
+     "row": 0,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 37,
+     "rect_y": 120,
+     "rect_width": 32,
+     "rect_height": 40
+    },
+    {
+     "action": "walk",
+     "row": 1,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 77,
+     "rect_y": 80,
+     "rect_width": 32,
+     "rect_height": 40
+    },
+    {
+     "action": "run",
+     "row": 2,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 117,
+     "rect_y": 40,
+     "rect_width": 32,
+     "rect_height": 40
+    },
+    {
+     "action": "leisure",
+     "row": 3,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 157,
+     "rect_y": 0,
+     "rect_width": 32,
+     "rect_height": 40
+    }
+   ],
+   "pivot_x_px_per_frame": [
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16
+   ],
+   "frames": [
+    {
+     "f": 0,
+     "rect": [
+      0,
+      120,
+      32,
+      40
+     ],
+     "bbox": [
+      8,
+      5,
+      24,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 1,
+     "rect": [
+      32,
+      120,
+      32,
+      40
+     ],
+     "bbox": [
+      40,
+      5,
+      56,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 2,
+     "rect": [
+      64,
+      120,
+      32,
+      40
+     ],
+     "bbox": [
+      72,
+      5,
+      88,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 3,
+     "rect": [
+      96,
+      120,
+      32,
+      40
+     ],
+     "bbox": [
+      104,
+      5,
+      120,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 4,
+     "rect": [
+      128,
+      120,
+      32,
+      40
+     ],
+     "bbox": [
+      136,
+      5,
+      152,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 5,
+     "rect": [
+      160,
+      120,
+      32,
+      40
+     ],
+     "bbox": [
+      168,
+      5,
+      184,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 6,
+     "rect": [
+      192,
+      120,
+      32,
+      40
+     ],
+     "bbox": [
+      200,
+      5,
+      216,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 7,
+     "rect": [
+      224,
+      120,
+      32,
+      40
+     ],
+     "bbox": [
+      232,
+      5,
+      248,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 8,
+     "rect": [
+      0,
+      80,
+      32,
+      40
+     ],
+     "bbox": [
+      7,
+      45,
+      25,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 9,
+     "rect": [
+      32,
+      80,
+      32,
+      40
+     ],
+     "bbox": [
+      39,
+      46,
+      57,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 10,
+     "rect": [
+      64,
+      80,
+      32,
+      40
+     ],
+     "bbox": [
+      72,
+      45,
+      88,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 11,
+     "rect": [
+      96,
+      80,
+      32,
+      40
+     ],
+     "bbox": [
+      104,
+      44,
+      120,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 12,
+     "rect": [
+      128,
+      80,
+      32,
+      40
+     ],
+     "bbox": [
+      136,
+      45,
+      152,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 13,
+     "rect": [
+      160,
+      80,
+      32,
+      40
+     ],
+     "bbox": [
+      168,
+      46,
+      184,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 14,
+     "rect": [
+      192,
+      80,
+      32,
+      40
+     ],
+     "bbox": [
+      200,
+      45,
+      216,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 15,
+     "rect": [
+      224,
+      80,
+      32,
+      40
+     ],
+     "bbox": [
+      231,
+      44,
+      249,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 16,
+     "rect": [
+      0,
+      40,
+      32,
+      40
+     ],
+     "bbox": [
+      7,
+      86,
+      27,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 17,
+     "rect": [
+      32,
+      40,
+      32,
+      40
+     ],
+     "bbox": [
+      39,
+      87,
+      59,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 18,
+     "rect": [
+      64,
+      40,
+      32,
+      40
+     ],
+     "bbox": [
+      73,
+      84,
+      89,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 19,
+     "rect": [
+      96,
+      40,
+      32,
+      40
+     ],
+     "bbox": [
+      105,
+      83,
+      121,
+      116
+     ],
+     "bottom_y_top": 116
+    },
+    {
+     "f": 20,
+     "rect": [
+      128,
+      40,
+      32,
+      40
+     ],
+     "bbox": [
+      138,
+      86,
+      154,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 21,
+     "rect": [
+      160,
+      40,
+      32,
+      40
+     ],
+     "bbox": [
+      170,
+      87,
+      186,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 22,
+     "rect": [
+      192,
+      40,
+      32,
+      40
+     ],
+     "bbox": [
+      202,
+      84,
+      218,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 23,
+     "rect": [
+      224,
+      40,
+      32,
+      40
+     ],
+     "bbox": [
+      232,
+      83,
+      252,
+      116
+     ],
+     "bottom_y_top": 116
+    },
+    {
+     "f": 24,
+     "rect": [
+      0,
+      0,
+      32,
+      40
+     ],
+     "bbox": [
+      8,
+      125,
+      24,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 25,
+     "rect": [
+      32,
+      0,
+      32,
+      40
+     ],
+     "bbox": [
+      40,
+      125,
+      56,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 26,
+     "rect": [
+      64,
+      0,
+      32,
+      40
+     ],
+     "bbox": [
+      72,
+      125,
+      88,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 27,
+     "rect": [
+      96,
+      0,
+      32,
+      40
+     ],
+     "bbox": [
+      104,
+      125,
+      120,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 28,
+     "rect": [
+      128,
+      0,
+      32,
+      40
+     ],
+     "bbox": [
+      136,
+      125,
+      152,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 29,
+     "rect": [
+      160,
+      0,
+      32,
+      40
+     ],
+     "bbox": [
+      168,
+      125,
+      184,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 30,
+     "rect": [
+      192,
+      0,
+      32,
+      40
+     ],
+     "bbox": [
+      200,
+      125,
+      216,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 31,
+     "rect": [
+      224,
+      0,
+      32,
+      40
+     ],
+     "bbox": [
+      232,
+      125,
+      248,
+      157
+     ],
+     "bottom_y_top": 157
+    }
+   ]
+  },
+  {
+   "name": "caravan",
+   "slot": 5,
+   "resource": "KingdomEnhancedMod.BankAssistantCaravan.png",
+   "asset": "il2cpp/Assets/BankAssistantCaravan.png",
+   "asset_sha256": "4dee55796f5d8b349457316d28f4b750be4fee7e253fa51736e7aec6208431b7",
+   "source_atlas": "artifacts/bank-assistant-skins-20260928/pixel-style-pilot/identity-motion-v2/caravan/caravan-atlas.png",
+   "source_atlas_sha256": "4dee55796f5d8b349457316d28f4b750be4fee7e253fa51736e7aec6208431b7",
+   "source_pose_metadata": "artifacts/bank-assistant-skins-20260928/pixel-style-pilot/identity-motion-v2/caravan/pose-metadata.json",
+   "source_pose_metadata_sha256": "2cfa0c1ff738537a8a97c55b7b67cf9f4c7e371451d5d32bfbe0f8296725484a",
+   "sheet": [
+    320,
+    160
+   ],
+   "cell": [
+    40,
+    40
+   ],
+   "anchor": [
+    20,
+    37
+   ],
+   "ppu": 47.627906976744185,
+   "standing_body_px": 32,
+   "pivot_y_px": 3,
+   "pivot_policy": "fixed rig origin: pivot = (anchor.x, cell height - anchor.y); no per-frame bbox centering",
+   "durations_seconds": {
+    "idle": 1.2,
+    "walk": 0.8,
+    "run": 0.56,
+    "leisure": 2.4
+   },
+   "strides_px_per_full_cycle": {
+    "walk": 16,
+    "run": 24
+   },
+   "stride_basis": "full-cycle support-foot displacement (stride_logical_px) from the source pose metadata",
+   "actions": [
+    {
+     "action": "idle",
+     "row": 0,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 37,
+     "rect_y": 120,
+     "rect_width": 40,
+     "rect_height": 40
+    },
+    {
+     "action": "walk",
+     "row": 1,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 77,
+     "rect_y": 80,
+     "rect_width": 40,
+     "rect_height": 40
+    },
+    {
+     "action": "run",
+     "row": 2,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 117,
+     "rect_y": 40,
+     "rect_width": 40,
+     "rect_height": 40
+    },
+    {
+     "action": "leisure",
+     "row": 3,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 157,
+     "rect_y": 0,
+     "rect_width": 40,
+     "rect_height": 40
+    }
+   ],
+   "pivot_x_px_per_frame": [
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20
+   ],
+   "frames": [
+    {
+     "f": 0,
+     "rect": [
+      0,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      11,
+      5,
+      29,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 1,
+     "rect": [
+      40,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      51,
+      5,
+      69,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 2,
+     "rect": [
+      80,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      91,
+      5,
+      109,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 3,
+     "rect": [
+      120,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      131,
+      5,
+      149,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 4,
+     "rect": [
+      160,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      171,
+      5,
+      189,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 5,
+     "rect": [
+      200,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      211,
+      5,
+      229,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 6,
+     "rect": [
+      240,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      251,
+      5,
+      269,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 7,
+     "rect": [
+      280,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      291,
+      5,
+      309,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 8,
+     "rect": [
+      0,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      11,
+      45,
+      29,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 9,
+     "rect": [
+      40,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      51,
+      44,
+      69,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 10,
+     "rect": [
+      80,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      91,
+      44,
+      109,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 11,
+     "rect": [
+      120,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      131,
+      45,
+      149,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 12,
+     "rect": [
+      160,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      171,
+      45,
+      190,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 13,
+     "rect": [
+      200,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      211,
+      44,
+      229,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 14,
+     "rect": [
+      240,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      251,
+      44,
+      269,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 15,
+     "rect": [
+      280,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      291,
+      45,
+      309,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 16,
+     "rect": [
+      0,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      12,
+      84,
+      30,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 17,
+     "rect": [
+      40,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      52,
+      83,
+      70,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 18,
+     "rect": [
+      80,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      92,
+      83,
+      110,
+      115
+     ],
+     "bottom_y_top": 115
+    },
+    {
+     "f": 19,
+     "rect": [
+      120,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      132,
+      84,
+      155,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 20,
+     "rect": [
+      160,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      172,
+      84,
+      192,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 21,
+     "rect": [
+      200,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      212,
+      83,
+      230,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 22,
+     "rect": [
+      240,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      252,
+      83,
+      270,
+      115
+     ],
+     "bottom_y_top": 115
+    },
+    {
+     "f": 23,
+     "rect": [
+      280,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      292,
+      84,
+      312,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 24,
+     "rect": [
+      0,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      11,
+      125,
+      29,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 25,
+     "rect": [
+      40,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      51,
+      125,
+      70,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 26,
+     "rect": [
+      80,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      91,
+      125,
+      111,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 27,
+     "rect": [
+      120,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      131,
+      125,
+      151,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 28,
+     "rect": [
+      160,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      171,
+      125,
+      191,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 29,
+     "rect": [
+      200,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      211,
+      125,
+      231,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 30,
+     "rect": [
+      240,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      251,
+      125,
+      270,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 31,
+     "rect": [
+      280,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      291,
+      125,
+      309,
+      157
+     ],
+     "bottom_y_top": 157
+    }
+   ]
+  },
+  {
+   "name": "steward",
+   "slot": 6,
+   "resource": "KingdomEnhancedMod.BankAssistantSteward.png",
+   "asset": "il2cpp/Assets/BankAssistantSteward.png",
+   "asset_sha256": "fe6c36fb7c4c05ae6909f2755b84eb939fe43522d7fe950e7ba94b6062cbbac1",
+   "source_atlas": "artifacts/bank-assistant-skins-20260928/pixel-style-pilot/identity-motion-v2/steward/steward-atlas.png",
+   "source_atlas_sha256": "fe6c36fb7c4c05ae6909f2755b84eb939fe43522d7fe950e7ba94b6062cbbac1",
+   "source_pose_metadata": "artifacts/bank-assistant-skins-20260928/pixel-style-pilot/identity-motion-v2/steward/pose-metadata.json",
+   "source_pose_metadata_sha256": "b447ad6a4376c2dee6fdd364dbccfcc9fb4880275ff7f5d79b99e1a355880f01",
+   "sheet": [
+    320,
+    160
+   ],
+   "cell": [
+    40,
+    40
+   ],
+   "anchor": [
+    20,
+    37
+   ],
+   "ppu": 47.627906976744185,
+   "standing_body_px": 32,
+   "pivot_y_px": 3,
+   "pivot_policy": "fixed rig origin: pivot = (anchor.x, cell height - anchor.y); no per-frame bbox centering",
+   "durations_seconds": {
+    "idle": 1.2,
+    "walk": 0.8,
+    "run": 0.56,
+    "leisure": 2.4
+   },
+   "strides_px_per_full_cycle": {
+    "walk": 16,
+    "run": 16
+   },
+   "stride_basis": "full-cycle support-foot displacement (stride_logical_px) from the source pose metadata",
+   "actions": [
+    {
+     "action": "idle",
+     "row": 0,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 37,
+     "rect_y": 120,
+     "rect_width": 40,
+     "rect_height": 40
+    },
+    {
+     "action": "walk",
+     "row": 1,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 77,
+     "rect_y": 80,
+     "rect_width": 40,
+     "rect_height": 40
+    },
+    {
+     "action": "run",
+     "row": 2,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 117,
+     "rect_y": 40,
+     "rect_width": 40,
+     "rect_height": 40
+    },
+    {
+     "action": "leisure",
+     "row": 3,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 157,
+     "rect_y": 0,
+     "rect_width": 40,
+     "rect_height": 40
+    }
+   ],
+   "pivot_x_px_per_frame": [
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20
+   ],
+   "frames": [
+    {
+     "f": 0,
+     "rect": [
+      0,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      13,
+      5,
+      26,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 1,
+     "rect": [
+      40,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      53,
+      5,
+      66,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 2,
+     "rect": [
+      80,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      93,
+      5,
+      106,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 3,
+     "rect": [
+      120,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      133,
+      5,
+      146,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 4,
+     "rect": [
+      160,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      173,
+      5,
+      186,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 5,
+     "rect": [
+      200,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      213,
+      5,
+      226,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 6,
+     "rect": [
+      240,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      253,
+      5,
+      266,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 7,
+     "rect": [
+      280,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      293,
+      5,
+      306,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 8,
+     "rect": [
+      0,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      12,
+      45,
+      26,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 9,
+     "rect": [
+      40,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      52,
+      46,
+      66,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 10,
+     "rect": [
+      80,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      93,
+      45,
+      106,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 11,
+     "rect": [
+      120,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      132,
+      44,
+      147,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 12,
+     "rect": [
+      160,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      173,
+      45,
+      188,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 13,
+     "rect": [
+      200,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      213,
+      46,
+      226,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 14,
+     "rect": [
+      240,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      253,
+      45,
+      266,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 15,
+     "rect": [
+      280,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      292,
+      44,
+      306,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 16,
+     "rect": [
+      0,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      11,
+      85,
+      26,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 17,
+     "rect": [
+      40,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      51,
+      86,
+      66,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 18,
+     "rect": [
+      80,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      93,
+      85,
+      106,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 19,
+     "rect": [
+      120,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      133,
+      83,
+      149,
+      115
+     ],
+     "bottom_y_top": 115
+    },
+    {
+     "f": 20,
+     "rect": [
+      160,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      172,
+      85,
+      189,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 21,
+     "rect": [
+      200,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      213,
+      86,
+      227,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 22,
+     "rect": [
+      240,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      253,
+      85,
+      266,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 23,
+     "rect": [
+      280,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      291,
+      83,
+      306,
+      115
+     ],
+     "bottom_y_top": 115
+    },
+    {
+     "f": 24,
+     "rect": [
+      0,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      13,
+      125,
+      26,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 25,
+     "rect": [
+      40,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      53,
+      125,
+      65,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 26,
+     "rect": [
+      80,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      93,
+      125,
+      105,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 27,
+     "rect": [
+      120,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      133,
+      125,
+      146,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 28,
+     "rect": [
+      160,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      173,
+      125,
+      186,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 29,
+     "rect": [
+      200,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      213,
+      125,
+      226,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 30,
+     "rect": [
+      240,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      253,
+      125,
+      265,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 31,
+     "rect": [
+      280,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      293,
+      125,
+      306,
+      157
+     ],
+     "bottom_y_top": 157
+    }
+   ]
+  },
+  {
+   "name": "vaultkeeper",
+   "slot": 7,
+   "resource": "KingdomEnhancedMod.BankAssistantVaultkeeper.png",
+   "asset": "il2cpp/Assets/BankAssistantVaultkeeper.png",
+   "asset_sha256": "205bb859f339cf973c458e0abe9e875d5559442c6e460741302dbbdde18b462f",
+   "source_atlas": "artifacts/bank-assistant-skins-20260928/pixel-style-pilot/identity-motion-v2/vaultkeeper/vaultkeeper-atlas.png",
+   "source_atlas_sha256": "205bb859f339cf973c458e0abe9e875d5559442c6e460741302dbbdde18b462f",
+   "source_pose_metadata": "artifacts/bank-assistant-skins-20260928/pixel-style-pilot/identity-motion-v2/vaultkeeper/pose-metadata.json",
+   "source_pose_metadata_sha256": "a44e2990c9bd49611c085c736a55345b766e53ed6397ada1dce023f870c63077",
+   "sheet": [
+    320,
+    160
+   ],
+   "cell": [
+    40,
+    40
+   ],
+   "anchor": [
+    20,
+    37
+   ],
+   "ppu": 47.627906976744185,
+   "standing_body_px": 32,
+   "pivot_y_px": 3,
+   "pivot_policy": "fixed rig origin: pivot = (anchor.x, cell height - anchor.y); no per-frame bbox centering",
+   "durations_seconds": {
+    "idle": 1.2,
+    "walk": 0.8,
+    "run": 0.56,
+    "leisure": 2.4
+   },
+   "strides_px_per_full_cycle": {
+    "walk": 8,
+    "run": 12
+   },
+   "stride_basis": "full-cycle support-foot displacement (stride_logical_px) from the source pose metadata",
+   "actions": [
+    {
+     "action": "idle",
+     "row": 0,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 37,
+     "rect_y": 120,
+     "rect_width": 40,
+     "rect_height": 40
+    },
+    {
+     "action": "walk",
+     "row": 1,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 77,
+     "rect_y": 80,
+     "rect_width": 40,
+     "rect_height": 40
+    },
+    {
+     "action": "run",
+     "row": 2,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 117,
+     "rect_y": 40,
+     "rect_width": 40,
+     "rect_height": 40
+    },
+    {
+     "action": "leisure",
+     "row": 3,
+     "ground_y_top_in_cell": 37,
+     "ground_y_top": 157,
+     "rect_y": 0,
+     "rect_width": 40,
+     "rect_height": 40
+    }
+   ],
+   "pivot_x_px_per_frame": [
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20,
+    20
+   ],
+   "frames": [
+    {
+     "f": 0,
+     "rect": [
+      0,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      7,
+      5,
+      32,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 1,
+     "rect": [
+      40,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      47,
+      5,
+      72,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 2,
+     "rect": [
+      80,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      87,
+      5,
+      112,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 3,
+     "rect": [
+      120,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      127,
+      4,
+      152,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 4,
+     "rect": [
+      160,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      167,
+      4,
+      192,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 5,
+     "rect": [
+      200,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      207,
+      5,
+      232,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 6,
+     "rect": [
+      240,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      247,
+      5,
+      272,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 7,
+     "rect": [
+      280,
+      120,
+      40,
+      40
+     ],
+     "bbox": [
+      287,
+      5,
+      312,
+      37
+     ],
+     "bottom_y_top": 37
+    },
+    {
+     "f": 8,
+     "rect": [
+      0,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      6,
+      45,
+      34,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 9,
+     "rect": [
+      40,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      47,
+      44,
+      73,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 10,
+     "rect": [
+      80,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      87,
+      44,
+      112,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 11,
+     "rect": [
+      120,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      127,
+      45,
+      152,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 12,
+     "rect": [
+      160,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      167,
+      45,
+      193,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 13,
+     "rect": [
+      200,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      207,
+      44,
+      232,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 14,
+     "rect": [
+      240,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      247,
+      44,
+      272,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 15,
+     "rect": [
+      280,
+      80,
+      40,
+      40
+     ],
+     "bbox": [
+      287,
+      45,
+      312,
+      77
+     ],
+     "bottom_y_top": 77
+    },
+    {
+     "f": 16,
+     "rect": [
+      0,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      6,
+      85,
+      34,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 17,
+     "rect": [
+      40,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      47,
+      84,
+      72,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 18,
+     "rect": [
+      80,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      87,
+      83,
+      112,
+      115
+     ],
+     "bottom_y_top": 115
+    },
+    {
+     "f": 19,
+     "rect": [
+      120,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      127,
+      84,
+      153,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 20,
+     "rect": [
+      160,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      167,
+      85,
+      194,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 21,
+     "rect": [
+      200,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      207,
+      84,
+      232,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 22,
+     "rect": [
+      240,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      247,
+      83,
+      272,
+      115
+     ],
+     "bottom_y_top": 115
+    },
+    {
+     "f": 23,
+     "rect": [
+      280,
+      40,
+      40,
+      40
+     ],
+     "bbox": [
+      286,
+      84,
+      312,
+      117
+     ],
+     "bottom_y_top": 117
+    },
+    {
+     "f": 24,
+     "rect": [
+      0,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      7,
+      125,
+      32,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 25,
+     "rect": [
+      40,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      47,
+      125,
+      72,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 26,
+     "rect": [
+      80,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      87,
+      125,
+      112,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 27,
+     "rect": [
+      120,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      127,
+      125,
+      152,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 28,
+     "rect": [
+      160,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      167,
+      125,
+      192,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 29,
+     "rect": [
+      200,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      207,
+      125,
+      232,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 30,
+     "rect": [
+      240,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      247,
+      125,
+      272,
+      157
+     ],
+     "bottom_y_top": 157
+    },
+    {
+     "f": 31,
+     "rect": [
+      280,
+      0,
+      40,
+      40
+     ],
+     "bbox": [
+      287,
+      125,
+      312,
+      157
+     ],
+     "bottom_y_top": 157
+    }
+   ]
+  }
+ ],
+ "invariants_checkable_by_tests": [
+  "rect == (col*cellW, (rows-1-row)*cellH, cellW, cellH) for every frame; grid cells tile the sheet",
+  "pivot_x_px_per_frame is constant = anchor.x and equals the C# PivotXPixels; pivot_y_px == cellH - anchor.y == 3",
+  "every frame bbox lies inside its own cell with >= 2px margin on every side (no bleed, no cropped limbs)",
+  "no frame's bbox reaches below the rig ground line (bottom_y_top <= row_origin + anchor.y)",
+  "every action row has at least one grounded frame (bottom_y_top == row_origin + anchor.y)",
+  "the Run row keeps airborne frames (bottom_y_top < row_origin + anchor.y)",
+  "PNG asset sha256 and IHDR dimensions match the checked-in il2cpp/Assets bytes"
+ ]
+}

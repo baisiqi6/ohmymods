@@ -22,6 +22,7 @@ public class Managers
     public static Managers Inst;
     public Holder holder;
     public PoolManager pools;
+    public World world;
 }
 
 public class Holder
@@ -229,7 +230,17 @@ namespace KingdomEnhancedMod
     public static class ModConfig
     {
         public sealed class BoolConfig { public bool Value = true; }
+        public sealed class FloatConfig { public float Value = .25f; }
         public static readonly BoolConfig Enabled = new BoolConfig();
+        public static readonly FloatConfig CrossbowRecruitmentRatio = new FloatConfig();
+    }
+
+    internal static class HeroRecruitment
+    {
+        internal static readonly HashSet<Character> Purchased = new HashSet<Character>();
+        internal static bool HasPurchasedCareer(Character character) => Purchased.Contains(character);
+        internal static bool IsPurchased(Archer archer) => archer != null
+            && Purchased.Contains(archer.GetComponent<Character>());
     }
 
     public sealed class StubLogSource
@@ -318,9 +329,10 @@ namespace KingdomEnhancedMod
     internal static class MusketeerIdentity
     {
         internal static bool GunPromotionInProgress;
-        internal static bool IsMarked(GameObject go) => false;
+        internal static readonly HashSet<GameObject> Marked = new HashSet<GameObject>();
+        internal static bool IsMarked(GameObject go) => Marked.Contains(go);
         internal static bool IsGun(DroppableTool tool) => false;
-        internal static bool IsUnit(Archer archer) => false;
+        internal static bool IsUnit(Archer archer) => archer != null && Marked.Contains(archer.gameObject);
     }
 
     /// <summary>profile 形状与生产逐字段一致（BuildProfile 的载体）。</summary>
@@ -341,12 +353,27 @@ namespace KingdomEnhancedMod
 
     public sealed class CrossbowmanMarker : UnityEngine.MonoBehaviour { }
 
-    /// <summary>真实 CrossbowmanLifecycle 的契约壳（行为由 tests/crossbow-lifecycle 直链覆盖）。</summary>
+    /// <summary>真实 CrossbowmanLifecycle 的契约壳（行为由 tests/crossbow-lifecycle 直链覆盖）。
+    /// Apply 返回 bool：默认提交成功并登记 Active 身份；测试用 Failed / IdentityMissing 模拟
+    /// 「Apply 失败」与「组件在但 Active=false」两种未完成形态。</summary>
     internal static class CrossbowmanLifecycle
     {
-        internal static void Apply(Archer archer, in CrossbowmanProfile profile) { }
-        internal static void Strip(Archer archer, in CrossbowmanProfile profile) { }
-        internal static bool IsCrossbowman(Archer archer) => false;
+        internal static readonly List<Archer> Applied = new List<Archer>();
+        internal static readonly List<Archer> Stripped = new List<Archer>();
+        internal static readonly HashSet<Archer> Active = new HashSet<Archer>();
+        internal static readonly HashSet<Archer> Failed = new HashSet<Archer>();
+        internal static readonly HashSet<Archer> IdentityMissing = new HashSet<Archer>();
+        internal static Action<Archer> OnApply;
+        internal static bool Apply(Archer archer, in CrossbowmanProfile profile)
+        {
+            Applied.Add(archer);
+            OnApply?.Invoke(archer);
+            if (Failed.Contains(archer)) return false;
+            if (!IdentityMissing.Contains(archer)) Active.Add(archer);
+            return true;
+        }
+        internal static void Strip(Archer archer, in CrossbowmanProfile profile) { Stripped.Add(archer); }
+        internal static bool IsCrossbowman(Archer archer) => archer != null && Active.Contains(archer);
         internal static void UnwindAll(in CrossbowmanProfile profile) { }
         internal static void EnsureMarkerRegistered() { }
         internal static void ReconcileScan(CrossbowmanMarker[] markers, in CrossbowmanProfile profile) { }

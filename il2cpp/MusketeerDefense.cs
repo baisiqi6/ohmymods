@@ -391,9 +391,10 @@ internal static class MusketeerDefense
     /// <summary>
     /// Enforcement writes keep the native depth the unit already carries on the decided side when
     /// that slot is still unoccupied; placements/moves take the smallest unoccupied depth. No
-    /// invented depth range: depths are native rank indices, and DefenseSpacing's clamp pass keeps
-    /// pulling overly deep ranks back into bow range for every archer (it writes depths, this file
-    /// only writes sides, so the two never fight).
+    /// invented depth range: depths are native rank indices. Every write here goes through
+    /// SetGuardSide, which writes side AND depth in one native call; DefenseSpacing's clamp pass
+    /// keeps pulling overly deep ranks back into bow range for every archer and never re-decides
+    /// sides, so the two only meet on depth.
     /// </summary>
     private static int ReuseOrFreeDepth(Entry entry, Side side, HashSet<int> used)
     {
@@ -439,6 +440,12 @@ internal static class Kingdom_DistributeFreeArchers_MusketeerDefense_Patch
     [HarmonyPostfix]
     private static void Postfix(Kingdom __instance, bool __state)
     {
+        // Issue-78 A: the native call above can deliver broken ranks (its right counter starts
+        // below the actual right count whenever the follower quota is polluted). Repair this
+        // batch BEFORE the musketeer rebalance reads sides/depths, and deliberately outside
+        // `if (__state)`: no capture, musketeer feature off or a nested call must still get legal
+        // ranks. Called inline rather than as a second ordered patch, so the order cannot drift.
+        GuardRankDistribution.ReindexAfterNative(__instance);
         if (__state) MusketeerDefense.End(__instance);
     }
 }

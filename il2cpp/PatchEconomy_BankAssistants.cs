@@ -60,7 +60,10 @@ public static class PatchEconomy_BankAssistants
 
     // Fixed IDs are deliberately outside the native pools and the existing 30000+
     // cross-biome role sequence. Both peers register these in the same fixed order.
-    private static readonly short[] PoolSyncIds = { 30120, 30121, 30122, 30123 };
+    // 30120..30127: four original native-banker assistants plus four original-skin
+    // assistants (issue-89). Castle/Crossbowman allocator reservations follow this range.
+    private static readonly short[] PoolSyncIds =
+        { 30120, 30121, 30122, 30123, 30124, 30125, 30126, 30127 };
     private static readonly string[] ControllerNames =
     {
         "banker",
@@ -68,13 +71,34 @@ public static class PatchEconomy_BankAssistants
         "banker_deadlands",
         "banker_norselands"
     };
-    internal static readonly float[] HomeOffsets = { -1.65f, -0.75f, 1.05f, 1.95f };
+    // Slot display names only; the four new slots reuse the base banker Animator clock
+    // (native controller resolution still covers exactly the four original names) and
+    // have their root sprite overwritten by BankAssistantAtlasVisuals on slots 4..7.
+    private static readonly string[] VisualNames =
+    {
+        "banker",
+        "banker_bamboo",
+        "banker_deadlands",
+        "banker_norselands",
+        "banker_eastern",
+        "banker_desert",
+        "banker_royal",
+        "banker_dwarf"
+    };
+    internal const int OriginalSlotCount = 4;
+    // 原四居家位置保留；新四为明确不重叠的新位（issue-89）。
+    internal static readonly float[] HomeOffsets =
+        { -1.65f, -0.75f, 1.05f, 1.95f, -2.55f, -1.20f, 0.15f, 2.85f };
+    internal const int AssistantSlotCount = 8;
 
-    private static readonly GameObject[] Prefabs = new GameObject[4];
-    // Preserve source-derived Greek sizes for the first two styles without baking
-    // an already-scaled live banker into the cross-world cached pool templates.
-    private static readonly float[] GreekVisualScaleY = new float[4];
-    private static readonly Pool[] Pools = new Pool[4];
+    private static readonly GameObject[] Prefabs = new GameObject[AssistantSlotCount];
+    // Fixed per-slot Greek heights. Slots 0/2 are 0.70 stand-height targets derived from
+    // their native art (24px / 19px at PPU 32); slot 3 keeps its frozen 1.2 contract value
+    // and slots 1/4..7 the frozen 1.0 (their atlas PPU owns the height). The live banker's
+    // own scale no longer selects any slot value, so assistant height cannot depend on the
+    // creation order/size of the main banker; the prefab keeps only the neutral native scale.
+    private static readonly float[] GreekVisualScaleY = new float[AssistantSlotCount];
+    private static readonly Pool[] Pools = new Pool[AssistantSlotCount];
     private static Il2CppArrayBase<Banker> _allBankerPrefabs;
     private static bool _registeredCoordinatorType;
     private static bool _loggedControllerSet;
@@ -222,15 +246,28 @@ public static class PatchEconomy_BankAssistants
         if (!TryResolveControllers(sourceAnimator, out RuntimeAnimatorController[] controllers))
             return;
 
+        // 新四槽（4..7）的图集由视觉 lane 的冻结 API 同步预检：四张 atlas 未全部
+        // 就绪时不登记新模板（2 秒后重试），也绝不退回原生 banker 皮肤冒充新外观。
+        bool newVisualsReady = BankAssistantAtlasVisuals.EnsureAssets();
+
         for (int i = 0; i < Prefabs.Length; i++)
         {
             if (Prefabs[i] != null) continue;
+            if (i >= OriginalSlotCount && !newVisualsReady) continue;
 
-            GameObject prefab = new GameObject(ASSISTANT_PREFIX + i + "_" + ControllerNames[i]);
+            // 原四槽各用自己的原生 controller；新四复用基础 banker 时钟，显示由
+            // BankAssistantAtlasVisuals 覆写根 sprite（native controller 解析仍只认原四名）。
+            RuntimeAnimatorController controller = i < OriginalSlotCount ? controllers[i] : controllers[0];
+            GameObject prefab = new GameObject(ASSISTANT_PREFIX + i + "_" + VisualNames[i]);
             prefab.SetActive(false);
             prefab.hideFlags = HideFlags.HideAndDontSave;
             prefab.layer = banker.gameObject.layer;
-            GreekVisualScaleY[i] = i == 2 ? 1.25f : i == 3 ? 1.2f : banker.transform.localScale.y;
+            // 0.70 站高校准（2026-09-29）：八槽全部固定取值，槽 0/2 由原生素材 24px/19px 折算，
+            // 不再读取源 banker 的 localScale.y（主银行家自身高度与创建时序都不得影响助手站高）。
+            GreekVisualScaleY[i] = i == 0 ? 0.70f * 32f / 24f
+                : i == 2 ? 0.70f * 32f / 19f
+                : i == 3 ? 1.2f
+                : 1.0f;
             prefab.transform.localScale = GreekScaleScope.NativeScale(banker.transform);
 
             SpriteRenderer renderer = prefab.AddComponent<SpriteRenderer>();
@@ -246,7 +283,9 @@ public static class PatchEconomy_BankAssistants
             }
 
             Animator animator = prefab.AddComponent<Animator>();
-            animator.runtimeAnimatorController = controllers[i];
+            // Use the controller selected above; controllers[] only covers the four native
+            // names, so indexing it for slots 4..7 would be out of range.
+            animator.runtimeAnimatorController = controller;
             if (sourceAnimator != null)
             {
                 animator.avatar = sourceAnimator.avatar;
@@ -437,6 +476,16 @@ public static class PatchEconomy_BankAssistants
         return index >= 0 && index < Prefabs.Length ? Prefabs[index] : null;
     }
 
+    internal static Pool GetRegisteredPool(int index)
+    {
+        return index >= 0 && index < Pools.Length ? Pools[index] : null;
+    }
+
+    internal static short GetPoolSyncId(int index)
+    {
+        return index >= 0 && index < PoolSyncIds.Length ? PoolSyncIds[index] : (short)0;
+    }
+
     internal static void ApplyAssistantScale(GameObject actor)
     {
         if (actor == null) return;
@@ -450,6 +499,73 @@ public static class PatchEconomy_BankAssistants
                 GreekScaleScope.ApplyY(actor.transform, GreekVisualScaleY[i]);
             return;
         }
+    }
+
+    /// <summary>槽位名（KEM_BankAssistant_&lt;slot&gt;_…）→ 槽下标；非本 mod 演员 -1。</summary>
+    internal static int SlotOfAssistant(GameObject actor)
+    {
+        if (actor == null) return -1;
+        string actorName;
+        try { actorName = actor.name; } catch (Exception) { return -1; }
+        if (actorName == null || !actorName.StartsWith(ASSISTANT_PREFIX, StringComparison.Ordinal))
+            return -1;
+        for (int i = 0; i < AssistantSlotCount; i++)
+            if (actorName.StartsWith(ASSISTANT_PREFIX + i + "_", StringComparison.Ordinal)) return i;
+        return -1;
+    }
+
+    /// <summary>
+    /// BankAssistantVisualLifecycle.LateUpdate 的桥：只有新四槽（4..7）且对象通过
+    /// 只读视觉资格（当前 Greek 世界/当前 layer/活动/非模板/名字精确指向该槽/被本槽
+    /// 当前注册 pool 的 _activeCache 实际拥有）才驱动视觉 lane。该资格与协调器的
+    /// authority 槽无关：客户端网络池 spawn 没有本地槽回填也能换上新皮肤。
+    /// allowLeisure 仍由协调器按 authority 工作态计算，客户端恒 false（不碰经济）。
+    /// </summary>
+    internal static void TickAssistantAtlasVisuals(GameObject actor)
+    {
+        int slot = SlotOfAssistant(actor);
+        if (slot < OriginalSlotCount) return;
+        if (!GreekBankScope.IsActive) return;
+        if (!SafeInCurrentLayer(actor)) return;
+        if (!IsAtlasVisualActor(slot, actor)) return;
+        BankAssistantAtlasVisuals.Tick(
+            actor, slot, BankAssistantCoordinator.AllowLeisure(slot, actor));
+    }
+
+    /// <summary>
+    /// 只读视觉资格：不依赖 coordinator 槽、不新全场扫描、不建永久表——沿本槽已登记
+    /// 的同步池（Pools[slot]，缺失时退回原生 prefab map）核对 _activeCache 是否实际
+    /// 拥有该对象，并拒绝模板自身。读取异常按不合格处理（fail-closed，仅跳过视觉）。
+    /// </summary>
+    private static bool IsAtlasVisualActor(int slot, GameObject actor)
+    {
+        if (actor == null || slot < 0 || slot >= AssistantSlotCount) return false;
+        if (!actor.activeInHierarchy) return false;
+        GameObject prefab = GetPrefab(slot);
+        if (prefab == null || actor.Pointer == prefab.Pointer) return false;
+        try
+        {
+            Pool pool = GetRegisteredPool(slot);
+            if (pool == null) pool = Pool.GetPoolFromPrefabAsset(prefab);
+            if (pool == null || pool.prefab == null || pool.prefab.Pointer != prefab.Pointer)
+                return false;
+            var members = pool._activeCache;
+            if (members == null) return false;
+            for (int i = 0; i < members.Count; i++)
+            {
+                GameObject member = members[i];
+                if (member != null && member.Pointer == actor.Pointer) return true;
+            }
+            return false;
+        }
+        catch (Exception) { return false; }
+    }
+
+    private static bool SafeInCurrentLayer(GameObject candidate)
+    {
+        if (candidate == null) return false;
+        try { return GreekBankScope.IsInCurrentLayer(candidate); }
+        catch (Exception) { return false; }
     }
 
     internal static void ClearPoolHandles()
@@ -489,6 +605,9 @@ public class BankAssistantCoordinator : MonoBehaviour
         // 该币适用的成熟等待时长：玩家投掷币 COIN_MATURITY_SECONDS，农田币
         // FARM_COIN_MATURITY_SECONDS（首次观测时按来源定型，见 IsFarmOriginCoin）。
         public float MaturitySeconds;
+        // 首次观测时的来源 life 代数：同 InstanceID 池复用后代数变化 → 视为新 life，
+        // 不继承旧成熟时间（见 BankAssistantCoinOrigin.GenerationOf）。
+        public long Generation;
     }
 
     private sealed class AssistantState
@@ -508,6 +627,11 @@ public class BankAssistantCoordinator : MonoBehaviour
         // 断流等待 deadline（Time.time，>0 表示正在等下一枚成熟币）。首次断流建立，后续
         // 扫描不续期；新目标/新成功拾取/回家/借用/换世界/整表重置一律清零，防止残留。
         public float WaitDeadline;
+        // issue-89 同君主单轮收币：本轮工作种类与（仅 KnownPlayer）实际 Player 对象。
+        // 只在真实认领成功后建立；单币 ReleaseTarget 不释放它，满趟回家/等待到期收工/
+        // 生命周期退出/整表重置才释放。
+        public BankAssistantCoinOriginKind RoundKind;
+        public Player PlayerRoundOwner;
 
         public AssistantState(int index) { Index = index; }
     }
@@ -517,7 +641,9 @@ public class BankAssistantCoordinator : MonoBehaviour
     private static readonly AssistantState[] Assistants =
     {
         new AssistantState(0), new AssistantState(1),
-        new AssistantState(2), new AssistantState(3)
+        new AssistantState(2), new AssistantState(3),
+        new AssistantState(4), new AssistantState(5),
+        new AssistantState(6), new AssistantState(7)
     };
     private static readonly Dictionary<int, ObservedCoin> Observed = new();
     private static readonly Dictionary<int, int> Claims = new();
@@ -525,13 +651,10 @@ public class BankAssistantCoordinator : MonoBehaviour
     private static readonly HashSet<int> SeenThisScan = new();
     private static readonly List<int> RemovalBuffer = new();
     private static readonly List<ObservedCoin> MatureBuffer = new();
-    // 农田币来源标记（由本文件 Droppable_FarmCoinOrigin_Mark_Patch 写入）：
-    // Droppable.Drop 只按 dropper tag 分类（Player/Archer/Worker/Farmer 之外一律
-    // Wildlife），农田币与狩猎奖励/宝箱/灌木/树/罐子/骡子/银行家吐币/钓鱼竿共用
-    // DropType.Wildlife，没有独立枚举值。只能用"dropper 属于 Farmland"这一精确
-    // 来源标记圈定农田，不能放开整个 Wildlife 门槛（否则会抢弓箭手狩猎收入、
-    // 把银行家取款吐币又吸回银行）。
-    private static readonly HashSet<int> FarmOriginCoinIds = new();
+    // 币来源窄记录（issue-89，见 BankAssistantCoinOrigin）：农田币与本轮 Player 来源
+    // 共用一张 per-life 记录，并由三个 Drop/生命周期 hook 换代；扫描/认领只在当前
+    // world 内消费它，绝不放开 Wildlife 门槛或按距离猜玩家。
+    private static readonly List<Player> PendingPlayerBuffer = new();
     private static readonly HashSet<string> LoggedDiagnosticStates = new();
     private static readonly Il2CppReferenceArray<DroppableCurrency> ScanBuffer =
         new Il2CppReferenceArray<DroppableCurrency>(SCAN_BUFFER_SIZE);
@@ -542,6 +665,8 @@ public class BankAssistantCoordinator : MonoBehaviour
     private static bool _loggedFirstAssignment;
     private static bool _loggedFirstSubmission;
     private static readonly bool[] ActiveCollector = new bool[Assistants.Length];
+    // issue-81 回认诊断签名（每槽同一状态只记一条；ResetAll 随世界清理复位）。
+    private static readonly string[] PoolOwnershipDiagnostic = new string[Assistants.Length];
     // AssignNextTarget 单次尝试内已试过的候选币 id（认领失败退让次近候选用）。
     private static readonly HashSet<int> TriedThisChain = new();
     private static int _nextCollectorIndex;
@@ -562,21 +687,404 @@ public class BankAssistantCoordinator : MonoBehaviour
     internal static BankAssistantCoordinator Instance => _instance;
     internal static Banker MainBanker => _mainBanker;
 
-    // ---- 农田币来源标记（Droppable_FarmCoinOrigin_*_Patch 调用）----
-    internal static void MarkFarmCoin(int instanceId)
+    // ---- 币来源记录（Drop7 / Drop2 / OnEnable / OnDisable hook 调用）----
+
+    /// <summary>
+    /// 七参 Droppable.Drop 落币时按实参 dropper 记录精确来源（当前层 Player 或
+    /// exactFarm）；两者都不是时清来源（含代数换代）。不按距离/旧字段猜君主。
+    /// </summary>
+    internal static void MarkCoinOriginFromDrop(Droppable droppable, GameObject dropper)
     {
-        FarmOriginCoinIds.Add(instanceId);
+        if (droppable == null || droppable.gameObject == null) return;
+        DroppableCurrency coin;
+        try { coin = droppable.TryCast<DroppableCurrency>(); } catch (Exception) { return; }
+        if (coin == null || coin.gameObject == null) return;
+        if (!GreekBankScope.IsActive)
+        {
+            BankAssistantCoinOrigin.Clear(coin);
+            return;
+        }
+        if (dropper != null)
+        {
+            Player player = null;
+            try
+            {
+                player = dropper.GetComponent<Player>();
+                if (player == null) player = dropper.GetComponentInParent<Player>();
+            }
+            catch (Exception) { player = null; }
+            if (player != null && player.gameObject != null
+                && SafeInCurrentLayer(player.gameObject))
+            {
+                // 真 Drop7 是新的投掷事件：同 coin、同 Player、未经过 OnEnable 也必须
+                // 换代（Drop 变体强制递增 life 代数），并重置成熟观察。
+                BankAssistantCoinOrigin.MarkDropKnownPlayer(coin, player);
+                ForgetObservation(coin);
+                return;
+            }
+            bool farm;
+            try { farm = dropper.GetComponentInParent<Farmland>() != null; }
+            catch (Exception) { farm = false; }
+            if (farm)
+            {
+                BankAssistantCoinOrigin.MarkDropFarm(coin);
+                ForgetObservation(coin);
+                return;
+            }
+        }
+        BankAssistantCoinOrigin.Clear(coin);
+        ForgetObservation(coin);
     }
 
-    internal static void ClearFarmCoin(int instanceId)
+    /// <summary>
+    /// ApplyData（读档恢复）入口：只清自有旧来源与成熟观察——原生恢复期间绕过
+    /// OnEnable 的活动币也不得保留旧 owner/成熟时钟；原生行为/参数、经济回执
+    /// （Claims/Target/Sweep/OriginalPolicy）都不动，归还仍走既有责任流程。
+    /// </summary>
+    internal static void OnCoinDataApplied(Droppable droppable)
     {
-        FarmOriginCoinIds.Remove(instanceId);
+        if (droppable == null || droppable.gameObject == null) return;
+        DroppableCurrency coin;
+        try { coin = droppable.TryCast<DroppableCurrency>(); } catch (Exception) { return; }
+        if (coin == null || coin.gameObject == null) return;
+        BankAssistantCoinOrigin.Clear(coin);
+        ForgetObservation(coin);
+    }
+
+    /// <summary>两参 Drop（坐骑技能等无常量 dropper 的路径）与未知入口：只清来源。</summary>
+    internal static void ClearCoinOrigin(Droppable droppable)
+    {
+        if (droppable == null || droppable.gameObject == null) return;
+        DroppableCurrency coin;
+        try { coin = droppable.TryCast<DroppableCurrency>(); } catch (Exception) { return; }
+        if (coin == null || coin.gameObject == null) return;
+        BankAssistantCoinOrigin.Clear(coin);
+    }
+
+    /// <summary>
+    /// ReceivePolicyRPC：完整 header 且 native 已解析出 dropper → 只读核当前
+    /// Player/layer/scene/header 双向登记，成功才登记 KnownPlayer；其余路径只把
+    /// “曾经的具体君主”降为自有 UnknownPlayer，绝不清原生 dropper。
+    ///
+    /// world 边界与 Drop7/lifecycle 入口一致：登记新来源只在当前希腊世界发生。
+    /// `GreekBankScope.IsInCurrentLayer` 本身不查 biome，若只依赖它，其他世界的
+    /// 完整 policy 包（Player/币仍在各自 current layer）会为币新建来源 Entry。
+    /// 非希腊时只清已有自有记录（Clear 的 RemoveExisting 分支），绝不 GetOrCreate。
+    /// </summary>
+    internal static void HandlePolicyRpcOrigin(Droppable droppable, bool hasHeader)
+    {
+        if (droppable == null || droppable.gameObject == null) return;
+        DroppableCurrency coin;
+        try { coin = droppable.TryCast<DroppableCurrency>(); } catch (Exception) { return; }
+        if (coin == null || coin.gameObject == null) return;
+        if (!GreekBankScope.IsActive)
+        {
+            BankAssistantCoinOrigin.Clear(coin);
+            return;
+        }
+        if (hasHeader && TryResolvePolicyPlayer(coin, droppable.dropper, out Player player))
+        {
+            BankAssistantCoinOrigin.MarkKnownPlayer(coin, player);
+            return;
+        }
+        BankAssistantCoinOrigin.DemoteKnownToUnknown(coin);
+    }
+
+    private static bool TryResolvePolicyPlayer(DroppableCurrency coin, GameObject dropper, out Player player)
+    {
+        player = null;
+        if (dropper == null || coin == null || coin.gameObject == null) return false;
+        try
+        {
+            Player resolved = dropper.GetComponent<Player>();
+            if (resolved == null) resolved = dropper.GetComponentInParent<Player>();
+            if (resolved == null || resolved.gameObject == null) return false;
+            if (!GreekBankScope.IsInCurrentLayer(resolved.gameObject)) return false;
+            // 双向登记：解析出的 Player 与其 header 必须互相指向；币本身也需在
+            // 接收侧已登记 header。任一条不成立都只按 unknown 处理。
+            if (resolved.parentHeaderRef == null || coin.parentHeaderRef == null) return false;
+            CRPCHeader header = resolved.parentHeaderRef;
+            if (header.referencedGO == null
+                || header.referencedGO.Pointer != resolved.gameObject.Pointer) return false;
+            player = resolved;
+            return true;
+        }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>
+    /// 币池 life 边界（OnEnable/OnDisable/Drop2）：先按现责任流程归还本币旧 claim
+    /// （失败保留 cleanupPending 责任与 Claims 记录），再清来源与旧成熟观察——
+    /// 同一 InstanceID 复用后绝不继承上一 life 的身份与成熟时间。
+    /// </summary>
+    internal static void OnCoinLifecycleReset(Droppable droppable)
+    {
+        if (droppable == null || droppable.gameObject == null) return;
+        DroppableCurrency coin;
+        try { coin = droppable.TryCast<DroppableCurrency>(); } catch (Exception) { return; }
+        if (coin == null || coin.gameObject == null) return;
+        try { ReleaseLocalClaimsForCoin(coin); }
+        catch (Exception) { _cleanupPending = true; }
+        BankAssistantCoinOrigin.Clear(coin);
+        ForgetObservation(coin);
+    }
+
+    private static void ReleaseLocalClaimsForCoin(DroppableCurrency coin)
+    {
+        int id;
+        try { id = coin.gameObject.GetInstanceID(); }
+        catch (Exception) { return; }
+        if (!Claims.TryGetValue(id, out int owner) || owner < 0 || owner >= Assistants.Length) return;
+        AssistantState helper = Assistants[owner];
+        if (helper.Target != null && helper.Target.gameObject != null
+            && helper.Target.Pointer == coin.Pointer)
+        {
+            if (!ReleaseTarget(helper)) return; // 责任保留：cleanup 重试
+        }
+        if (SweepCoins.TryGetValue(id, out DroppableCurrency sweepCoin)
+            && SweepPolicies.TryGetValue(id, out PickUpPolicy original))
+        {
+            if (!TryRestoreClaim(sweepCoin, helper.Actor, original))
+            {
+                _cleanupPending = true;
+                return;
+            }
+            SweepPolicies.Remove(id);
+            SweepCoins.Remove(id);
+            Claims.Remove(id);
+        }
+    }
+
+    /// <summary>丢弃该币的旧成熟观察（含当前帧快照里的同币条目），不触碰其他记录。</summary>
+    private static void ForgetObservation(DroppableCurrency coin)
+    {
+        int id;
+        try { id = coin.gameObject.GetInstanceID(); }
+        catch (Exception) { return; }
+        Observed.Remove(id);
+        for (int i = MatureBuffer.Count - 1; i >= 0; i--)
+        {
+            ObservedCoin observation = MatureBuffer[i];
+            DroppableCurrency candidate = observation != null ? observation.Coin : null;
+            if (candidate == null || candidate.gameObject == null)
+            {
+                MatureBuffer.RemoveAt(i);
+                continue;
+            }
+            int candidateId;
+            try { candidateId = candidate.gameObject.GetInstanceID(); }
+            catch (Exception) { MatureBuffer.RemoveAt(i); continue; }
+            if (candidateId == id) MatureBuffer.RemoveAt(i);
+        }
+    }
+
+    private static bool SafeInCurrentLayer(GameObject candidate)
+    {
+        if (candidate == null) return false;
+        try { return GreekBankScope.IsInCurrentLayer(candidate); }
+        catch (Exception) { return false; }
+    }
+
+    /// <summary>
+    /// 明确外部占用（原生 NPC / 其他 mod 的 friendlyClaimer，且不在自有 Claims 里）：
+    /// 不是可分配任务，但不删除 Observation——成熟时钟保留，外部释放后可立即再参与。
+    /// 读取不确定时按不可分配（fail-closed，只影响本轮候选）。
+    /// </summary>
+    private static bool IsExternallyClaimed(DroppableCurrency coin)
+    {
+        if (coin == null || coin.gameObject == null) return true;
+        try
+        {
+            if (coin.friendlyClaimer == null) return false;
+            int id = coin.gameObject.GetInstanceID();
+            return !Claims.ContainsKey(id);
+        }
+        catch (Exception) { return true; }
+    }
+
+    /// <summary>
+    /// 统一实际可分配谓词：活动、未被任何认领占用（含自有与外部）。派单/计数/换向/
+    /// 顺吸共用它，避免外部占用币既挡最老任务又唤醒空槽。
+    /// </summary>
+    private static bool IsAssignableCandidate(DroppableCurrency coin)
+    {
+        if (coin == null || coin.gameObject == null || !coin.isActiveAndEnabled) return false;
+        int id;
+        try { id = coin.gameObject.GetInstanceID(); }
+        catch (Exception) { return false; }
+        if (Claims.ContainsKey(id)) return false;
+        return !IsExternallyClaimed(coin);
     }
 
     private static bool IsFarmOriginCoin(DroppableCurrency coin)
+        => BankAssistantCoinOrigin.KindOf(coin, out _) == BankAssistantCoinOriginKind.Farm;
+
+    // ---- 同君主单轮（issue-89）：分类 / 统一兼容门 / 轮次生命周期 ----
+
+    /// <summary>
+    /// 币的可收集来源分类。KnownPlayer 的 Player 对象必须仍在当前层，否则降级
+    /// UnknownPlayer（不猜最近玩家）；无记录但原生标 Player 的旧币/存档币走统一
+    /// UnknownPlayer 通道；exactFarm 只认真实农田标记；其余不可收集。
+    /// </summary>
+    private static BankAssistantCoinOriginKind ClassifyCoin(DroppableCurrency coin, out Player player)
     {
-        return coin != null && coin.gameObject != null
-            && FarmOriginCoinIds.Contains(coin.gameObject.GetInstanceID());
+        player = null;
+        if (coin == null || coin.gameObject == null) return BankAssistantCoinOriginKind.None;
+        BankAssistantCoinOriginKind kind = BankAssistantCoinOrigin.KindOf(coin, out player);
+        if (kind == BankAssistantCoinOriginKind.KnownPlayer)
+        {
+            if (player != null && SafeInCurrentLayer(player.gameObject))
+                return BankAssistantCoinOriginKind.KnownPlayer;
+            BankAssistantCoinOrigin.DemoteKnownToUnknown(coin);
+            player = null;
+            return BankAssistantCoinOriginKind.UnknownPlayer;
+        }
+        if (kind == BankAssistantCoinOriginKind.UnknownPlayer) return kind;
+        if (kind == BankAssistantCoinOriginKind.Farm) return kind;
+        return coin.droppedBy == DropType.Player
+            ? BankAssistantCoinOriginKind.UnknownPlayer
+            : BankAssistantCoinOriginKind.None;
+    }
+
+    private static bool SamePlayer(Player left, Player right)
+        => left != null && right != null && left.gameObject != null && right.gameObject != null
+        && left.Pointer == right.Pointer;
+
+    private static bool AnyKnownRoundActive(AssistantState except = null)
+    {
+        for (int i = 0; i < Assistants.Length; i++)
+        {
+            AssistantState helper = Assistants[i];
+            if (helper == except) continue;
+            if (helper.RoundKind == BankAssistantCoinOriginKind.KnownPlayer) return true;
+        }
+        return false;
+    }
+
+    private static bool AnyUnknownRoundActive(AssistantState except = null)
+    {
+        for (int i = 0; i < Assistants.Length; i++)
+        {
+            AssistantState helper = Assistants[i];
+            if (helper == except) continue;
+            if (helper.RoundKind == BankAssistantCoinOriginKind.UnknownPlayer) return true;
+        }
+        return false;
+    }
+
+    private static bool PlayerRoundOwned(Player player, AssistantState except = null)
+    {
+        for (int i = 0; i < Assistants.Length; i++)
+        {
+            AssistantState helper = Assistants[i];
+            if (helper == except) continue;
+            if (helper.RoundKind != BankAssistantCoinOriginKind.KnownPlayer) continue;
+            if (SamePlayer(helper.PlayerRoundOwner, player)) return true;
+        }
+        return false;
+    }
+
+    private static int CountRounds(BankAssistantCoinOriginKind kind)
+    {
+        int count = 0;
+        for (int i = 0; i < Assistants.Length; i++)
+            if (Assistants[i].RoundKind == kind) count++;
+        return count;
+    }
+
+    /// <summary>
+    /// 统一兼容门（初派 / 续链 / 近币换向 / 沿路扫币四处共用）：
+    /// * 已有轮次的槽只能认领本轮的币——KnownPlayer 只认同一 Player 对象，
+    ///   UnknownPlayer 只认未知来源，Farm 只认 exactFarm；unknown 与 known 双向互斥；
+    /// * 空槽可认领任意来源，但同 Player 至多一槽、unknown 至多一槽；
+    /// * 农田不受玩家轮次互斥影响（可与玩家轮次/补货并行）。
+    /// </summary>
+    private static bool IsWorkCompatible(AssistantState helper,
+        BankAssistantCoinOriginKind kind, Player player)
+    {
+        if (helper == null) return false;
+        switch (helper.RoundKind)
+        {
+            case BankAssistantCoinOriginKind.Farm:
+                return kind == BankAssistantCoinOriginKind.Farm;
+            case BankAssistantCoinOriginKind.UnknownPlayer:
+                if (kind != BankAssistantCoinOriginKind.UnknownPlayer) return false;
+                return !AnyKnownRoundActive(helper);
+            case BankAssistantCoinOriginKind.KnownPlayer:
+                if (kind != BankAssistantCoinOriginKind.KnownPlayer) return false;
+                if (!SamePlayer(helper.PlayerRoundOwner, player)) return false;
+                return !AnyUnknownRoundActive(helper);
+            default:
+                break;
+        }
+        if (kind == BankAssistantCoinOriginKind.Farm) return true;
+        if (kind == BankAssistantCoinOriginKind.UnknownPlayer)
+            return !AnyKnownRoundActive() && !AnyUnknownRoundActive();
+        if (kind != BankAssistantCoinOriginKind.KnownPlayer || player == null) return false;
+        if (AnyUnknownRoundActive()) return false;
+        return !PlayerRoundOwned(player, helper);
+    }
+
+    private static bool IsWorkCompatible(AssistantState helper, DroppableCurrency coin)
+    {
+        if (helper == null || coin == null) return false;
+        BankAssistantCoinOriginKind kind = ClassifyCoin(coin, out Player player);
+        return kind != BankAssistantCoinOriginKind.None && IsWorkCompatible(helper, kind, player);
+    }
+
+    /// <summary>新派工作项的候选过滤：来源必须匹配任务本体，再走统一兼容门。</summary>
+    private static bool MatchesWork(AssistantState helper, DroppableCurrency coin,
+        BankAssistantCoinOriginKind workKind, Player workPlayer)
+    {
+        BankAssistantCoinOriginKind kind = ClassifyCoin(coin, out Player player);
+        if (kind != workKind) return false;
+        if (workKind == BankAssistantCoinOriginKind.KnownPlayer && !SamePlayer(workPlayer, player))
+            return false;
+        return IsWorkCompatible(helper, kind, player);
+    }
+
+    /// <summary>真实认领成功后才建立/接管轮次（Player 对象引用，非 playerId）。</summary>
+    private static void EstablishRound(AssistantState helper, DroppableCurrency coin)
+    {
+        BankAssistantCoinOriginKind kind = ClassifyCoin(coin, out Player player);
+        if (kind == BankAssistantCoinOriginKind.None) return;
+        helper.RoundKind = kind;
+        helper.PlayerRoundOwner = kind == BankAssistantCoinOriginKind.KnownPlayer ? player : null;
+    }
+
+    /// <summary>
+    /// 释放本轮 owner：满趟回家、等待到期收工、明确生命周期退出、整表重置。
+    /// 单币 ReleaseTarget 不调用它。
+    /// </summary>
+    private static void ReleaseRound(AssistantState helper)
+    {
+        if (helper == null) return;
+        helper.RoundKind = BankAssistantCoinOriginKind.None;
+        helper.PlayerRoundOwner = null;
+    }
+
+    /// <summary>
+    /// 视觉桥前置：仅当 actor 就是本槽当前登记演员且不在清理中才允许驱动。
+    /// </summary>
+    internal static bool IsCurrentAtlasActor(int slot, GameObject actor)
+    {
+        if (_instance == null || _cleanupPending || actor == null) return false;
+        if (slot < 0 || slot >= Assistants.Length) return false;
+        AssistantState helper = Assistants[slot];
+        return helper.Actor != null && helper.Actor.Pointer == actor.Pointer;
+    }
+
+    /// <summary>
+    /// 新四槽闲暇第四行的允许条件：明确无工作（无 Target/无等待/无补货/无玩家轮次
+    /// owner/未在采集且非清理）才允许；客户端无法证明工作态，恒 false（普通 Idle）。
+    /// </summary>
+    internal static bool AllowLeisure(int slot, GameObject actor)
+    {
+        if (!IsCurrentAtlasActor(slot, actor)) return false;
+        if (!NetworkBigBoss.HasWorldAuth) return false;
+        AssistantState helper = Assistants[slot];
+        return helper.Target == null && !helper.RestockReserved && helper.WaitDeadline <= 0f
+            && !ActiveCollector[slot] && helper.RoundKind == BankAssistantCoinOriginKind.None;
     }
 
     /// <summary>
@@ -660,6 +1168,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             && actor.Pointer == helper.Actor.Pointer && actor.activeInHierarchy
             && actor.scene.handle == layer.gameObject.scene.handle && actor.transform.IsChildOf(layer)
             && helper.Target == null && !ActiveCollector[index]
+            && helper.RoundKind == BankAssistantCoinOriginKind.None
             && (!NetworkBigBoss.IsOnline || (NetworkBigBoss.HasClientCaughtUp
                 && helper.PositionSync != null && helper.PositionSync.parentHeaderRef != null));
     }
@@ -676,6 +1185,11 @@ public class BankAssistantCoordinator : MonoBehaviour
         {
             int i = (_nextRestockAssistant + offset) % Assistants.Length;
             var helper = Assistants[i];
+            // issue-89：正在玩家轮次（含 Target=null 的 4.2 秒等待槽）的助手两遍都
+            // 不可借走——否则同君主单轮独占会在等待窗口被补货第二遍打破。农田助手
+            // 保留现可借行为，玩家轮次与补货因此不互相串行。
+            if (helper.RoundKind == BankAssistantCoinOriginKind.KnownPlayer
+                || helper.RoundKind == BankAssistantCoinOriginKind.UnknownPlayer) continue;
             var candidate = helper.Actor;
             if (helper.RestockReserved || candidate == null || !candidate.activeInHierarchy
                 || candidate.scene.handle != layer.gameObject.scene.handle || !candidate.transform.IsChildOf(layer)
@@ -691,7 +1205,14 @@ public class BankAssistantCoordinator : MonoBehaviour
             helper.Moving = false;
             SetAnimationSpeed(helper, 0f);
             helper.WaitDeadline = 0f;
+            // 借调即结束本趟（农田/空槽）：轮次随租约释放，归还后从新一轮开始。
+            ReleaseRound(helper);
             helper.RestockReserved = true;
+            // 借出当帧即接管可见性：pass-0 的回家瞬移可能刚开启一次显形等待（或已进入
+            // 残影相），以同一中央 chokepoint 立即取消+归还，保证调用者马上拿到可见角色；
+            // 不新增第二套计时路径。
+            BankAssistantTeleportVisuals.ValidateSlot(
+                i, candidate, true, _cleanupPending, GreekBankScope.IsInCurrentLayer(candidate));
             index = i; actor = candidate; _nextRestockAssistant = (i + 1) % Assistants.Length;
             return true;
         }
@@ -836,7 +1357,11 @@ public class BankAssistantCoordinator : MonoBehaviour
         // 换岛/场景卸载后旧 actor 引用必须在本帧工作前丢弃，避免向新世界发送旧对象 RPC。
         DropStaleWorldState(managers.world.gameLayer);
         if (_cleanupPending) return;
-        EnsureFourActors(managers.world.gameLayer);
+        EnsureEightActors(managers.world.gameLayer);
+        // 传送表现 chokepoint：在全部生命周期门之后、任何消费者（借出/扫描/移动）之前，
+        // 用统一谓词推进/失效 8 个槽（deadline 到点显形；清理中/已借出/离层/指针不符
+        // → 取消本人的两端 FX 并归还捕获的 enabled）。
+        UpdateTeleportPresentations();
         PatchEconomy_AutoRestock.Tick(_mainBanker, managers, Time.time >= _nextScanAt);
 
         if (Time.time >= _nextScanAt)
@@ -847,6 +1372,24 @@ public class BankAssistantCoordinator : MonoBehaviour
         if (_cleanupPending) return;
         UpdateMovingAssistants();
         UpdateIdlePatrols(managers.kingdom);
+    }
+
+    /// <summary>
+    /// 传送表现的中央 chokepoint（每权威帧一次，见 Update 中的唯一调用点）：
+    /// deadline 到点显形；硬失效（actor null/指针不符/失活/离层/RestockReserved/
+    /// _cleanupPending）立即取消+归还，等待相与残影相都覆盖。无记录时不产生任何
+    /// 额外原生读取；移动/巡逻循环只读 IsWaiting 谓词。
+    /// </summary>
+    private static void UpdateTeleportPresentations()
+    {
+        for (int i = 0; i < Assistants.Length; i++)
+        {
+            if (!BankAssistantTeleportVisuals.NeedsValidation(i)) continue;
+            AssistantState helper = Assistants[i];
+            bool layerValid = helper.Actor != null && GreekBankScope.IsInCurrentLayer(helper.Actor);
+            BankAssistantTeleportVisuals.ValidateSlot(
+                i, helper.Actor, helper.RestockReserved, _cleanupPending, layerValid);
+        }
     }
 
     /// <summary>
@@ -940,18 +1483,40 @@ public class BankAssistantCoordinator : MonoBehaviour
     /// <summary>
     /// 换岛/重建后旧场景对象只做本地清理：清掉本 mod 的认领记账与引用，绝不触碰
     /// 可能已被卸载的原生对象，也绝不向新世界发送它们的 RPC。
+    ///
+    /// 目标币回池/离层与助手本体失效是两类生命周期：目标失效只沿 ReleaseTarget 安全
+    /// 归还本槽目标与认领，保留本槽 Actor、携带/未入账责任以及其它助手、活跃采集与
+    /// 补货租约；只有真实演员/世界失效才走既有整组世界清理。目标判定用窄读取直接读
+    /// “仍可读且明确不在当前 gameLayer/scene？”：读取异常=未知，保留回执不算离层
+    /// （TryRestoreClaim 失败同样保留回执并置 _cleanupPending，由延迟清理重试）。
     /// </summary>
     private static void DropStaleWorldState(Transform gameLayer)
     {
         foreach (var helper in Assistants)
         {
-            if ((helper.Actor != null && (!helper.Actor.activeInHierarchy
+            if (helper.Actor != null && (!helper.Actor.activeInHierarchy
                     || !GreekBankScope.IsInCurrentLayer(helper.Actor)))
-                || (helper.Target != null && !GreekBankScope.IsInCurrentLayer(helper.Target)))
             {
                 ResetAll(true, false);
                 return;
             }
+        }
+        // 目标失效局部处理同样是窄读取：只把“仍可读且明确不在当前 gameLayer/scene”
+        // 当作已离层；任何读取异常保留回执（未知 ≠ 已离层），交扫描/延迟清理重试。
+        foreach (var helper in Assistants)
+        {
+            DroppableCurrency target = helper.Target;
+            if (target == null) continue; // 已销毁/fake-null：交扫描路径释放
+            bool departed;
+            try
+            {
+                if (target.gameObject == null) continue;
+                if (gameLayer == null || gameLayer.gameObject == null) return;
+                departed = !target.transform.IsChildOf(gameLayer)
+                    || target.gameObject.scene.handle != gameLayer.gameObject.scene.handle;
+            }
+            catch { continue; }
+            if (departed) ReleaseTarget(helper);
         }
     }
 
@@ -971,7 +1536,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             Claims.Remove(id);
             SweepPolicies.Remove(id);
             Observed.Remove(id);
-            FarmOriginCoinIds.Remove(id);
+            BankAssistantCoinOrigin.RemoveSilently(id);
         }
         catch
         {
@@ -998,18 +1563,28 @@ public class BankAssistantCoordinator : MonoBehaviour
         _loggedReady = false;
     }
 
-    private static void EnsureFourActors(Transform gameLayer)
+    private static void EnsureEightActors(Transform gameLayer)
     {
-        // During host migration or a same-scene pool rebuild, adopt already-synced
-        // instances before spawning. This is also the runtime duplicate guard.
-        Il2CppArrayBase<PositionSync> existingActors = null;
+        // issue-81：丢槽回认只从本槽已登记的自有同步池 _activeCache 取候选（全局
+        // FindObjectsOfType 不保证返回 DontSave 对象，隐藏的旧演员因此丢槽后不可回认，
+        // 每轮重绑都会再造一批）。回认/补建逐槽处理：恰好一个合法候选才接管；身份或
+        // 读取不确定、出现多候选时该槽本帧既不接管也不补建（fail-closed，绝不“选第一只”）。
         for (int i = 0; i < Assistants.Length; i++)
         {
             AssistantState helper = Assistants[i];
             if (helper.Actor != null && GreekBankScope.IsInCurrentLayer(helper.Actor)) continue;
+
             // 旧场景/已销毁的 actor 引用：只丢本地记账，绝不触碰旧对象。
-            if (helper.Actor != null) ForgetTargetLocally(helper);
-            else if (helper.Target != null) ReleaseTarget(helper);
+            if (helper.Actor != null)
+            {
+                ForgetTargetLocally(helper);
+            }
+            else if (helper.Target != null && !ReleaseTarget(helper))
+            {
+                // 未结责任释放失败（含读取不确定）：停本轮 ensure，保留 target/receipt，
+                // 不清 Actor/Uncredited，也不继续接管或补建；延迟清理会重试。
+                return;
+            }
             helper.Actor = null;
             helper.Animator = null;
             helper.PositionSync = null;
@@ -1017,32 +1592,12 @@ public class BankAssistantCoordinator : MonoBehaviour
             helper.UncreditedCoins = 0;
             helper.RestockReserved = false;
             helper.WaitDeadline = 0f;
+            ReleaseRound(helper);
+            BankAssistantTeleportVisuals.EndSlot(i);
             ActiveCollector[i] = false;
-            if (existingActors == null) existingActors = UnityEngine.Object.FindObjectsOfType<PositionSync>();
-            string marker = ASSISTANT_PREFIX + i + "_";
-            for (int j = 0; j < existingActors.Length; j++)
-            {
-                PositionSync candidate = existingActors[j];
-                if (candidate == null || candidate.gameObject == null
-                    || !candidate.gameObject.activeInHierarchy
-                    || !candidate.gameObject.name.StartsWith(marker, StringComparison.Ordinal)
-                    || !GreekBankScope.IsInCurrentLayer(candidate.gameObject)) continue;
-                helper.Actor = candidate.gameObject;
-                PatchEconomy_BankAssistants.ApplyAssistantScale(helper.Actor);
-                helper.Animator = helper.Actor.GetComponent<Animator>();
-                helper.PositionSync = candidate;
-                helper.PatrolRight = (i & 1) == 0;
-                helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(i);
-                if (NetworkBigBoss.IsOnline && candidate.parentHeaderRef != null)
-                    candidate.SetSyncAndRemote(true, true);
-                break;
-            }
-        }
 
-        for (int i = 0; i < Assistants.Length; i++)
-        {
-            AssistantState helper = Assistants[i];
-            if (helper.Actor != null && GreekBankScope.IsInCurrentLayer(helper.Actor)) continue;
+            if (TryAdoptFromOwnedPool(i, out bool blocked)) continue;
+            if (blocked) continue;
 
             GameObject prefab = PatchEconomy_BankAssistants.GetPrefab(i);
             if (prefab == null || Pool.GetPoolFromPrefabAsset(prefab) == null) continue;
@@ -1062,6 +1617,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             helper.UncreditedCoins = 0;
             helper.Moving = false;
             helper.WaitDeadline = 0f;
+            BankAssistantTeleportVisuals.EndSlot(i);
             helper.PatrolRight = (i & 1) == 0;
             helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(i);
             SetAnimationSpeed(helper, 0f);
@@ -1079,13 +1635,166 @@ public class BankAssistantCoordinator : MonoBehaviour
             int ready = 0;
             for (int i = 0; i < Assistants.Length; i++)
                 if (Assistants[i].Actor != null) ready++;
-            if (ready == 4)
+            if (ready == Assistants.Length)
             {
                 _loggedReady = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[BankAssistants] Authority spawned deterministic 4-assistant pool");
+                    "[BankAssistants] Authority spawned deterministic 8-assistant pool");
             }
         }
+    }
+
+    /// <summary>
+    /// 从本槽自有同步池 Pool._activeCache 回认丢槽演员。只认当前登记的本槽 pool：
+    /// 登记缺失时 blocked（绝不改用其它 map 的来源）；登记 pool 必须与原生 prefab map
+    /// 指向同一对象，否则 blocked（身份一致性校验，不是替代来源）。候选分类：
+    /// 已销毁（fake-null）与明确异 world 成员可略过（零 RPC、不销毁）；当前 world 的
+    /// 活动成员必须通过身份校验（槽名前缀、非模板、PositionSync 可用、未被别槽持有），
+    /// 任一当前 world 成员身份不确定即 blocked，绝不按“零合法候选”补建。恰好一个
+    /// 合法候选才接管；零合法且无不确定成员时才允许补建。所有原生读取（含当前
+    /// layer/scene 与候选成员）都在 try 内直接进行，读失败按 blocked 处理——
+    /// 不用会吞异常返回 false 的 IsInCurrentLayer，以区分“明确异 world”与“未知”。
+    /// </summary>
+    private static bool TryAdoptFromOwnedPool(int slot, out bool blocked)
+    {
+        blocked = false;
+        GameObject prefab = PatchEconomy_BankAssistants.GetPrefab(slot);
+        if (prefab == null) return false;
+
+        int activeCount = 0;
+        int legalCount = 0;
+        GameObject adopted = null;
+        bool uncertain = false;
+        try
+        {
+            Pool pool = PatchEconomy_BankAssistants.GetRegisteredPool(slot);
+            if (pool == null)
+            {
+                blocked = true;
+                LogPoolOwnership(slot, "pool-missing", 0, 0);
+                return false;
+            }
+            Pool mapped = Pool.GetPoolFromPrefabAsset(prefab);
+            if (mapped == null || mapped.Pointer != pool.Pointer)
+            {
+                blocked = true;
+                LogPoolOwnership(slot, "pool-unverified", 0, 0);
+                return false;
+            }
+            if (pool.prefab == null || pool.prefab.Pointer != prefab.Pointer
+                || pool.syncID != PatchEconomy_BankAssistants.GetPoolSyncId(slot))
+            {
+                blocked = true;
+                LogPoolOwnership(slot, "pool-unverified",
+                    pool._activeCache != null ? pool._activeCache.Count : 0, 0);
+                return false;
+            }
+
+            Managers managers = Managers.Inst;
+            World world = managers != null ? managers.world : null;
+            Transform layer = world != null ? world.gameLayer : null;
+            if (layer == null || layer.gameObject == null || !layer.gameObject.activeInHierarchy)
+            {
+                blocked = true;
+                LogPoolOwnership(slot, "pool-unreadable", 0, 0);
+                return false;
+            }
+            int layerScene = layer.gameObject.scene.handle;
+
+            var members = pool._activeCache;
+            if (members == null)
+            {
+                // 原生池集合读不到：不能当作空池补建。
+                blocked = true;
+                LogPoolOwnership(slot, "pool-unreadable", 0, 0);
+                return false;
+            }
+            activeCount = members.Count;
+            string marker = ASSISTANT_PREFIX + slot + "_";
+            for (int j = 0; j < activeCount; j++)
+            {
+                GameObject candidate = members[j];
+                if (candidate == null) continue; // 已销毁/fake-null：略过
+                bool inLayer = candidate.transform.IsChildOf(layer)
+                    && candidate.scene.handle == layerScene;
+                if (!inLayer) continue; // 明确异 world：略过，零 RPC、不销毁
+                if (!candidate.activeInHierarchy
+                    || !candidate.name.StartsWith(marker, StringComparison.Ordinal)
+                    || candidate.Pointer == prefab.Pointer
+                    || candidate.GetComponent<PositionSync>() == null
+                    || HeldByAnotherSlot(slot, candidate))
+                {
+                    // 当前 world 的同池成员但身份不可确认：不得按零合法候选补建。
+                    uncertain = true;
+                    continue;
+                }
+                legalCount++;
+                adopted = candidate;
+            }
+        }
+        catch
+        {
+            blocked = true;
+            LogPoolOwnership(slot, "pool-unreadable", activeCount, 0);
+            return false;
+        }
+
+        if (legalCount > 1)
+        {
+            blocked = true;
+            LogPoolOwnership(slot, "pool-ambiguous", activeCount, legalCount);
+            return false;
+        }
+        if (uncertain)
+        {
+            blocked = true;
+            LogPoolOwnership(slot, "pool-uncertain", activeCount, legalCount);
+            return false;
+        }
+        if (legalCount == 0)
+        {
+            if (activeCount > 0) LogPoolOwnership(slot, "pool-vacant", activeCount, 0);
+            return false;
+        }
+
+        AssistantState helper = Assistants[slot];
+        helper.Actor = adopted;
+        PatchEconomy_BankAssistants.ApplyAssistantScale(helper.Actor);
+        helper.Animator = helper.Actor.GetComponent<Animator>();
+        helper.PositionSync = adopted.GetComponent<PositionSync>();
+        helper.PatrolRight = (slot & 1) == 0;
+        helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(slot);
+        if (NetworkBigBoss.IsOnline && helper.PositionSync != null
+            && helper.PositionSync.parentHeaderRef != null)
+        {
+            helper.PositionSync.SetSyncAndRemote(true, true);
+        }
+        LogPoolOwnership(slot, "pool-adopted", activeCount, legalCount);
+        return true;
+    }
+
+    private static bool HeldByAnotherSlot(int slot, GameObject candidate)
+    {
+        for (int j = 0; j < Assistants.Length; j++)
+        {
+            if (j == slot) continue;
+            GameObject other = Assistants[j].Actor;
+            if (other != null && other.Pointer == candidate.Pointer) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 低频有界回认诊断：同一槽同一状态只记一次（状态变化才再记），不逐帧刷日志、
+    /// 不记录存档内容。世界清理（ResetAll）会清空签名以便新世界重新诊断。
+    /// </summary>
+    private static void LogPoolOwnership(int slot, string reason, int poolActive, int candidates)
+    {
+        string signature = reason + "|" + poolActive + "|" + candidates;
+        if (string.Equals(PoolOwnershipDiagnostic[slot], signature, StringComparison.Ordinal)) return;
+        PoolOwnershipDiagnostic[slot] = signature;
+        KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+            $"[BankAssistants] slot={slot} ownership={reason} poolActive={poolActive} candidates={candidates}");
     }
 
     private static void ScanAndDispatch(Managers managers)
@@ -1106,12 +1815,13 @@ public class BankAssistantCoordinator : MonoBehaviour
                     TeleportHomeAndDeposit(helper);
                     ActiveCollector[i] = false;
                 }
+                ReleaseRound(helper);
             }
             Observed.Clear();
             Claims.Clear();
             MatureBuffer.Clear();
             SweepPolicies.Clear();
-            FarmOriginCoinIds.Clear();
+            BankAssistantCoinOrigin.ClearAll();
             return;
         }
 
@@ -1146,8 +1856,11 @@ public class BankAssistantCoordinator : MonoBehaviour
                 && coin.CurrencyType == CurrencyType.Coins && !coin.IsFake())
             {
                 ordinaryPlayerCoins++;
-                if (!PatchEconomy_Banker.IsInMainBankerDomain(
-                        coin.transform.position.x, domainLeft, domainRight))
+                float coinX;
+                try { coinX = coin.transform.position.x; } catch { coinX = float.NaN; }
+                // Issue 100：非有限坐标拒绝（扫描/结算同源），仅诊断计数按域外归类。
+                if (!MainBankerFixedDomain.IsFinite(coinX)
+                    || !PatchEconomy_Banker.IsInMainBankerDomain(coinX, domainLeft, domainRight))
                 {
                     outsideCoins++;
                     int coinId = coin.gameObject.GetInstanceID();
@@ -1161,6 +1874,7 @@ public class BankAssistantCoordinator : MonoBehaviour
 
             int id = coin.gameObject.GetInstanceID();
             SeenThisScan.Add(id);
+            long generation = BankAssistantCoinOrigin.GenerationOf(coin);
             if (!Observed.TryGetValue(id, out ObservedCoin observation))
             {
                 observation = new ObservedCoin
@@ -1170,13 +1884,24 @@ public class BankAssistantCoordinator : MonoBehaviour
                     // 农田币走独立更长成熟期（给玩家留出自己捡的窗口，见常量注释）。
                     MaturitySeconds = farmOrigin
                         ? FARM_COIN_MATURITY_SECONDS
-                        : COIN_MATURITY_SECONDS
+                        : COIN_MATURITY_SECONDS,
+                    Generation = generation
                 };
                 Observed[id] = observation;
             }
             else
             {
                 observation.Coin = coin;
+                if (observation.Generation != generation)
+                {
+                    // 同一 InstanceID（最多同 native pointer）复用后的新 life：旧观察
+                    // 成熟时间与来源定型都不继承（生命周期 hook 已换来源代数）。
+                    observation.Generation = generation;
+                    observation.FirstObservedAt = now;
+                    observation.MaturitySeconds = farmOrigin
+                        ? FARM_COIN_MATURITY_SECONDS
+                        : COIN_MATURITY_SECONDS;
+                }
             }
 
             if (!Claims.ContainsKey(id)
@@ -1193,7 +1918,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         for (int i = 0; i < RemovalBuffer.Count; i++)
         {
             Observed.Remove(RemovalBuffer[i]);
-            FarmOriginCoinIds.Remove(RemovalBuffer[i]);
+            BankAssistantCoinOrigin.RemoveSilently(RemovalBuffer[i]);
         }
 
         MatureBuffer.Sort(CompareObservedCoins);
@@ -1217,6 +1942,8 @@ public class BankAssistantCoordinator : MonoBehaviour
             {
                 if (helper.Target != null) ReleaseTarget(helper);
                 ClearWaitDeadline(helper);
+                // 演员生命周期退出：本轮结束，另一助手可接手同一君主。
+                ReleaseRound(helper);
                 ActiveCollector[i] = false;
             }
             else if (TripComplete(helper))
@@ -1227,21 +1954,18 @@ public class BankAssistantCoordinator : MonoBehaviour
             }
         }
 
-        // 积压扩容：目标活跃数 = 1 + 成熟币数/8，上限为全部助手。
-        int activeCount = CountActiveCollectors();
-        int targetActive = Math.Min(Assistants.Length,
-            1 + MatureBuffer.Count / (int)ACTIVE_SCALING_STEP);
-        if (activeCount < targetActive && MatureBuffer.Count > 0)
-            SelectNextCollectors(targetActive);
-
-        // 分配：只给没有目标且属于活跃收集者集合的助手补分配。链式逻辑内部走
-        // TryAssign（含全部在线门禁与瞬移规则），失败则收工：回家清账并退出集合。
+        // 派发顺序（issue-89）：先续既有轮次，再按真实可分配任务选择空闲槽并完成
+        // 真实 claim 才激活。同君主 64 枚成熟币不会叫醒全部槽——每个实际 Player
+        // 对象至多一个轮次 owner，等待期（Target=null）同样保留 owner。
         for (int i = 0; i < Assistants.Length; i++)
         {
             AssistantState helper = Assistants[i];
-            if (!ActiveCollector[i] || helper.Target != null) continue;
+            if (helper.RestockReserved) continue;
+            if (helper.RoundKind != BankAssistantCoinOriginKind.None) ActiveCollector[i] = true;
+            if (helper.Target != null || !ActiveCollector[i]) continue;
             TryChainNextTarget(helper);
         }
+        if (!_cleanupPending) DispatchNewRounds();
 
         LogActiveCollectorCountIfChanged(now);
 
@@ -1269,12 +1993,15 @@ public class BankAssistantCoordinator : MonoBehaviour
         if (coin == null || !coin.isActiveAndEnabled || coin.gameObject == null) return false;
         // 玩家投掷币按 DropType；农田币没有独立枚举值（2.1.0 源码 DropType 只有
         // Player/Wildlife/Citizen，农田币落 Wildlife 桶，与狩猎/宝箱等混同），走
-        // Droppable_FarmCoinOrigin_Mark_Patch 的精确来源标记准入。
+        // Droppable_CoinOrigin_Mark_Patch 的精确来源标记准入。
         if (coin.droppedBy != DropType.Player && !farmOrigin) return false;
         if (coin.CurrencyType != CurrencyType.Coins) return false;
         if (coin.IsFake()) return false;
 
-        float x = coin.transform.position.x;
+        float x;
+        try { x = coin.transform.position.x; } catch { return false; }
+        // Issue 100：NaN/Infinity 拒绝所有认领（不属于域内也不属于域外，不能交给助手）。
+        if (!MainBankerFixedDomain.IsFinite(x)) return false;
         // 主银行家领域排除的目的是避免与原生银行家抢币——但原生银行家只认
         // DropType.Player（Banker.ClaimCoins），领域内的农田币没有任何原生收集者，
         // 不豁免就永远没人捡。故农田币豁免领域排除，玩家投掷币照旧。
@@ -1323,7 +2050,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         MatureBuffer.Clear();
         SweepPolicies.Clear();
         SweepCoins.Clear();
-        FarmOriginCoinIds.Clear();
+        BankAssistantCoinOrigin.ClearAll();
     }
 
     private static int CompareCoinsDeterministically(DroppableCurrency left, DroppableCurrency right)
@@ -1352,29 +2079,170 @@ public class BankAssistantCoordinator : MonoBehaviour
 
     private static void DeactivateCollector(int index)
     {
-        if (index >= 0 && index < ActiveCollector.Length) ActiveCollector[index] = false;
+        if (index < 0 || index >= ActiveCollector.Length) return;
+        ActiveCollector[index] = false;
+        // 收工=本趟结束：同君主下一轮可被任意助手接手（等待/满趟/空手/演员消失
+        // 都经此收口；单币 ReleaseTarget 不走这里，不会中途释放 owner）。
+        ReleaseRound(Assistants[index]);
     }
 
-    private static void SelectNextCollectors(int targetActive)
+    /// <summary>
+    /// 新派（issue-89）：按“确有成熟可认领工作”的任务选择空闲槽，真实 claim 成功
+    /// 才激活该槽。任务类别互相隔离：
+    /// * KnownPlayer：每个不同 Player 对象至多一个轮次；不同君主可并行；
+    /// * UnknownPlayer：至多一个轮次，且与全部 known 轮次双向互斥；最老待派 Player
+    ///   任务为 unknown 时不新开 known 轮（既有 known 轮按原 20 币/4.2 秒规则续完），
+    ///   待 known 轮全部结束后再派 unknown，防止持续 known 饿死旧未知币；
+    /// * Farm：保留原每 8 枚未认领积压增员节奏，最多使用空闲槽，不与玩家轮次/补货串行。
+    /// 认领失败按现单币清理处理，下一轮扫描重试；不因“有币”就盲开空槽。
+    /// </summary>
+    private static void DispatchNewRounds()
     {
-        int selected = CountActiveCollectors();
-        // 轮转起点必须在循环外定格：循环体内推进 _nextCollectorIndex 再用它算
-        // index 会在 3-4 并发时跳位（只激活 3 个且顺序偏离轮转）。
+        int freeSlots = CountFreeSlots();
+        if (freeSlots <= 0) return;
+
+        FindOldestPendingPlayerTask(out BankAssistantCoinOriginKind oldestKind, out _);
+        bool anyUnknownRound = AnyUnknownRoundActive();
+
+        // 1) known 轮：最老任务是 known 且没有 unknown 轮时才允许开新轮；不同
+        //    Player 各一轮（同 Player 已有 owner 时不重复开）。
+        if (!anyUnknownRound && oldestKind == BankAssistantCoinOriginKind.KnownPlayer)
+        {
+            PendingPlayerBuffer.Clear();
+            for (int i = 0; i < MatureBuffer.Count; i++)
+            {
+                DroppableCurrency coin = MatureBuffer[i] != null ? MatureBuffer[i].Coin : null;
+                if (coin == null || coin.gameObject == null || !coin.isActiveAndEnabled) continue;
+                int id = coin.gameObject.GetInstanceID();
+                if (Claims.ContainsKey(id)) continue;
+                BankAssistantCoinOriginKind kind = ClassifyCoin(coin, out Player player);
+                if (kind != BankAssistantCoinOriginKind.KnownPlayer || player == null) continue;
+                if (PlayerRoundOwned(player)) continue;
+                if (ContainsPendingPlayer(player)) continue;
+                PendingPlayerBuffer.Add(player);
+            }
+            for (int i = 0; i < PendingPlayerBuffer.Count && freeSlots > 0; i++)
+            {
+                if (TryOpenRound(BankAssistantCoinOriginKind.KnownPlayer, PendingPlayerBuffer[i]))
+                    freeSlots--;
+            }
+            PendingPlayerBuffer.Clear();
+        }
+
+        // 2) unknown 轮：至多一轮，且必须等全部 known 轮结束（双向互斥）。
+        if (!anyUnknownRound && !AnyKnownRoundActive()
+            && oldestKind == BankAssistantCoinOriginKind.UnknownPlayer && freeSlots > 0)
+        {
+            if (TryOpenRound(BankAssistantCoinOriginKind.UnknownPlayer, null)) freeSlots--;
+        }
+
+        // 3) 农田：只计未认领 exactFarm 成熟工作，按原“1 + 积压/8”节奏、最多空闲槽。
+        if (freeSlots > 0)
+        {
+            int farmBacklog = CountUnclaimedMature(BankAssistantCoinOriginKind.Farm);
+            if (farmBacklog > 0)
+            {
+                int desired = 1 + farmBacklog / (int)ACTIVE_SCALING_STEP;
+                int toOpen = Math.Min(
+                    desired - CountRounds(BankAssistantCoinOriginKind.Farm), freeSlots);
+                for (int i = 0; i < toOpen; i++)
+                {
+                    if (!TryOpenRound(BankAssistantCoinOriginKind.Farm, null)) break;
+                }
+            }
+        }
+    }
+
+    private static bool TryOpenRound(BankAssistantCoinOriginKind kind, Player player)
+    {
         int start = _nextCollectorIndex;
-        int lastSelected = -1;
-        for (int offset = 0; offset < Assistants.Length && selected < targetActive; offset++)
+        for (int offset = 0; offset < Assistants.Length; offset++)
         {
             int index = (start + offset) % Assistants.Length;
             AssistantState helper = Assistants[index];
-            if (helper.RestockReserved || ActiveCollector[index] || helper.Actor == null
-                || !helper.Actor.activeInHierarchy || TripComplete(helper)) continue;
-
+            if (!IsFreeSlot(helper)) continue;
+            // 先完成真实认领再激活；失败保持空槽（下次扫描重试）。
+            if (!AssignNextTarget(helper, kind, player)) return false;
             ActiveCollector[index] = true;
-            selected++;
-            lastSelected = index;
+            _nextCollectorIndex = (index + 1) % Assistants.Length;
+            return true;
         }
-        if (lastSelected >= 0)
-            _nextCollectorIndex = (lastSelected + 1) % Assistants.Length;
+        return false;
+    }
+
+    private static bool ContainsPendingPlayer(Player player)
+    {
+        for (int i = 0; i < PendingPlayerBuffer.Count; i++)
+            if (SamePlayer(PendingPlayerBuffer[i], player)) return true;
+        return false;
+    }
+
+    private static bool IsFreeSlot(AssistantState helper)
+    {
+        return helper != null && !helper.RestockReserved
+            && helper.RoundKind == BankAssistantCoinOriginKind.None
+            && helper.Target == null && !ActiveCollector[helper.Index]
+            && helper.Actor != null && helper.Actor.activeInHierarchy
+            && SafeInCurrentLayer(helper.Actor)
+            && !TripComplete(helper);
+    }
+
+    private static int CountFreeSlots()
+    {
+        int count = 0;
+        for (int i = 0; i < Assistants.Length; i++)
+            if (IsFreeSlot(Assistants[i])) count++;
+        return count;
+    }
+
+    private static int CountUnclaimedMature(BankAssistantCoinOriginKind kind)
+    {
+        int count = 0;
+        for (int i = 0; i < MatureBuffer.Count; i++)
+        {
+            DroppableCurrency coin = MatureBuffer[i] != null ? MatureBuffer[i].Coin : null;
+            if (!IsAssignableCandidate(coin)) continue;
+            if (ClassifyCoin(coin, out _) == kind) count++;
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// 最老可认领 Player 任务（首次观测时间；并列按 x 再按 InstanceID 决定性）。
+    /// 只在 KnownPlayer/UnknownPlayer 之间竞争；unknown 的公平门不波及农田/补货。
+    /// </summary>
+    private static void FindOldestPendingPlayerTask(out BankAssistantCoinOriginKind kind, out Player player)
+    {
+        kind = BankAssistantCoinOriginKind.None;
+        player = null;
+        bool found = false;
+        float oldest = 0f;
+        float bestX = 0f;
+        int bestId = 0;
+        for (int i = 0; i < MatureBuffer.Count; i++)
+        {
+            ObservedCoin observation = MatureBuffer[i];
+            DroppableCurrency coin = observation != null ? observation.Coin : null;
+            if (!IsAssignableCandidate(coin)) continue;
+            int id = coin.gameObject.GetInstanceID();
+            BankAssistantCoinOriginKind candidateKind = ClassifyCoin(coin, out Player candidatePlayer);
+            if (candidateKind != BankAssistantCoinOriginKind.KnownPlayer
+                && candidateKind != BankAssistantCoinOriginKind.UnknownPlayer) continue;
+            float observedAt = observation.FirstObservedAt;
+            float x = coin.transform.position.x;
+            bool better;
+            if (!found) better = true;
+            else if (observedAt != oldest) better = observedAt < oldest;
+            else if (x != bestX) better = x < bestX;
+            else better = id < bestId;
+            if (!better) continue;
+            found = true;
+            oldest = observedAt;
+            kind = candidateKind;
+            player = candidatePlayer;
+            bestX = x;
+            bestId = id;
+        }
     }
 
     private static void LogActiveCollectorCountIfChanged(float now)
@@ -1399,11 +2267,15 @@ public class BankAssistantCoordinator : MonoBehaviour
                 || coin.parentHeaderRef == null)) return false;
         int id = coin.gameObject.GetInstanceID();
         if (Claims.ContainsKey(id)) return false;
+        // 统一兼容门：已有轮次的槽只能认领本轮的币；空槽还需跨槽独占预检。
+        if (!IsWorkCompatible(helper, coin)) return false;
         if (!coin.TryFriendlyClaim(helper.Actor, 20f)) return false;
 
         helper.OriginalPolicy = coin.pickUpPolicy;
         Claims[id] = helper.Index;
         helper.Target = coin;
+        // 真实认领成功立即绑定本轮 owner；下面策略 RPC 失败也保留该槽责任。
+        EstablishRound(helper, coin);
         try
         {
             coin.pickUpPolicy = PickUpPolicy.OnlyClaimer;
@@ -1424,6 +2296,11 @@ public class BankAssistantCoordinator : MonoBehaviour
             // 抄走会让助手悬空出生且后续 X-only 移动永不回地——玩家实测"空中平移"根因）。
             approach.y = helper.Actor.transform.position.y;
             approach.z = helper.Actor.transform.position.z;
+            // 与回家同款位移守卫：CarriedCoins==0 分支下 approach 可能与当前位置几乎重合，
+            // 零位移不发传送表现（位置写入/SendFullPosition 原样保留）。
+            if (Vector3.Distance(helper.Actor.transform.position, approach) > 0.05f)
+                BankAssistantTeleportVisuals.NotifyTeleport(
+                    helper.Index, helper.Actor, helper.Actor.transform.position, approach);
             helper.Actor.transform.position = approach;
             SendFullPosition(helper);
         }
@@ -1445,7 +2322,11 @@ public class BankAssistantCoordinator : MonoBehaviour
     // 并列按 x 再按 instanceID 决定性）的合法金币；选中后走 TryAssign。
     // 最近候选认领失败（如被村民原生认领）时依次退让到次近候选，避免
     // "收工回家→下个扫描又选中同一枚"的瞬移抖动循环；全部失败才返回 false。
-    private static bool AssignNextTarget(AssistantState helper)
+    // 新派传 workKind/workPlayer 只认该任务来源；续链传本槽已有轮次（无轮次=
+    // 无限制，等价旧行为），四处（初派/续链/近币换向/顺吸）共用兼容门。
+    private static bool AssignNextTarget(AssistantState helper,
+        BankAssistantCoinOriginKind workKind = BankAssistantCoinOriginKind.None,
+        Player workPlayer = null)
     {
         if (helper.Actor == null) return false;
         // 全局在线门禁与具体币无关，提前预检，避免 client 未追上时
@@ -1453,6 +2334,7 @@ public class BankAssistantCoordinator : MonoBehaviour
         if (NetworkBigBoss.IsOnline
             && (!NetworkBigBoss.HasClientCaughtUp || helper.PositionSync == null
                 || helper.PositionSync.parentHeaderRef == null)) return false;
+        bool restricted = workKind != BankAssistantCoinOriginKind.None;
         float actorX = helper.Actor.transform.position.x;
         TriedThisChain.Clear();
         while (true)
@@ -1464,10 +2346,12 @@ public class BankAssistantCoordinator : MonoBehaviour
             for (int i = 0; i < MatureBuffer.Count; i++)
             {
                 DroppableCurrency candidate = MatureBuffer[i] != null ? MatureBuffer[i].Coin : null;
-                if (candidate == null || candidate.gameObject == null
-                    || !candidate.isActiveAndEnabled) continue;
+                if (!IsAssignableCandidate(candidate)) continue;
                 int candidateId = candidate.gameObject.GetInstanceID();
-                if (Claims.ContainsKey(candidateId) || TriedThisChain.Contains(candidateId)) continue;
+                if (TriedThisChain.Contains(candidateId)) continue;
+                if (restricted
+                    ? !MatchesWork(helper, candidate, workKind, workPlayer)
+                    : !IsWorkCompatible(helper, candidate)) continue;
 
                 float coinX = candidate.transform.position.x;
                 float distance = Mathf.Abs(coinX - actorX);
@@ -1489,6 +2373,7 @@ public class BankAssistantCoordinator : MonoBehaviour
     }
 
     // 快照里是否存在比当前目标更近的未认领成熟币（用于决定链式是否换向）。
+    // 只比较与本槽轮次兼容的币，换向不会串到别的君主/农田。
     private static bool HasCloserUnclaimed(AssistantState helper)
     {
         DroppableCurrency target = helper.Target;
@@ -1499,10 +2384,10 @@ public class BankAssistantCoordinator : MonoBehaviour
         for (int i = 0; i < MatureBuffer.Count; i++)
         {
             DroppableCurrency candidate = MatureBuffer[i] != null ? MatureBuffer[i].Coin : null;
-            if (candidate == null || candidate.gameObject == null
-                || !candidate.isActiveAndEnabled) continue;
+            if (!IsAssignableCandidate(candidate)) continue;
             int candidateId = candidate.gameObject.GetInstanceID();
-            if (candidateId == targetId || Claims.ContainsKey(candidateId)) continue;
+            if (candidateId == targetId) continue;
+            if (!IsWorkCompatible(helper, candidate)) continue;
             if (Mathf.Abs(candidate.transform.position.x - actorX) < targetDistance) return true;
         }
         return false;
@@ -1530,7 +2415,9 @@ public class BankAssistantCoordinator : MonoBehaviour
                 return true;
             ReleaseTarget(helper);
         }
-        if (AssignNextTarget(helper))
+        // 续链只在既有轮次内找币：KnownPlayer 只续同一 Player、Unknown 只续未知、
+        // Farm 只续农田；无轮次（旧状态/测试直接激活）保持无限制的既有行为。
+        if (AssignNextTarget(helper, helper.RoundKind, helper.PlayerRoundOwner))
         {
             ClearWaitDeadline(helper);
             return true;
@@ -1552,6 +2439,8 @@ public class BankAssistantCoordinator : MonoBehaviour
         {
             AssistantState helper = Assistants[i];
             if (helper.RestockReserved || helper.Actor == null || helper.Target == null) continue;
+            // 传送显形窗口内只读等待：不推进、不扫吸、不拾取；认领/目标/账目原样保留。
+            if (BankAssistantTeleportVisuals.IsWaiting(i)) continue;
             if (!IsValidOwnedTarget(helper))
             {
                 ReleaseTarget(helper);
@@ -1616,7 +2505,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             Pool.Despawn(collected.gameObject, true);
             Claims.Remove(id);
             Observed.Remove(id);
-            FarmOriginCoinIds.Remove(id);
+            BankAssistantCoinOrigin.RemoveSilently(id);
             helper.Target = null;
             helper.CarriedCoins++;
             // 新成功拾取=这一趟仍在继续：断流 deadline 清零，下一次断流重新计时。
@@ -1673,7 +2562,7 @@ public class BankAssistantCoordinator : MonoBehaviour
             SweepCoins.Remove(id);
             Claims.Remove(id);
             Observed.Remove(id);
-            FarmOriginCoinIds.Remove(id);
+            BankAssistantCoinOrigin.RemoveSilently(id);
             helper.CarriedCoins++;
             // 新成功拾取=这一趟仍在继续：断流 deadline 清零，下一次断流重新计时。
             ClearWaitDeadline(helper);
@@ -1697,12 +2586,15 @@ public class BankAssistantCoordinator : MonoBehaviour
                 || coin.parentHeaderRef == null)) return false;
         int id = coin.gameObject.GetInstanceID();
         if (Claims.ContainsKey(id)) return false;
+        // 统一兼容门：沿路扫币绝不串来源（不偷另一君主/农田工作）。
+        if (!IsWorkCompatible(helper, coin)) return false;
         if (!coin.TryFriendlyClaim(helper.Actor, 20f)) return false;
 
         // 顺吸可能同时持有多个认领，原始策略按币记录，绝不覆盖单槽 OriginalPolicy。
         SweepPolicies[id] = coin.pickUpPolicy;
         SweepCoins[id] = coin;
         Claims[id] = helper.Index;
+        EstablishRound(helper, coin);
         try
         {
             coin.pickUpPolicy = PickUpPolicy.OnlyClaimer;
@@ -1737,6 +2629,9 @@ public class BankAssistantCoordinator : MonoBehaviour
             AssistantState helper = Assistants[i];
             if (helper.RestockReserved || ActiveCollector[i] || helper.Target != null || helper.Actor == null
                 || !helper.Actor.activeInHierarchy) continue;
+            // 等待判断必须在墙内 clamp（写 position + SendFullPosition）之前：
+            // 显形窗口内禁止任何位置写入/巡逻推进。
+            if (BankAssistantTeleportVisuals.IsWaiting(i)) continue;
 
             float center = Mathf.Clamp(kingdom.campfirePosition + HomeOffsets[i],
                 wallLeft, wallRight);
@@ -1820,17 +2715,23 @@ public class BankAssistantCoordinator : MonoBehaviour
 
         Managers managers = Managers.Inst;
         Kingdom kingdom = managers != null ? managers.kingdom : null;
+        float coinX;
+        try { coinX = coin.transform.position.x; } catch { return false; }
+        // Issue 100：NaN/Infinity 拒绝结算（与扫描侧一致；域未知同样拒绝）。
+        if (!MainBankerFixedDomain.IsFinite(coinX)) return false;
         // 农田币同样豁免领域排除（原生银行家不捡农田币，领域内无收集者），
         // 否则扫描侧放行、结算侧拒绝会造成认领/回滚 RPC 抖动。
         if (!IsFarmOriginCoin(coin)
             && (!PatchEconomy_Banker.TryGetMainBankerDomain(
                     kingdom, out float domainLeft, out float domainRight)
                 || PatchEconomy_Banker.IsInMainBankerDomain(
-                    coin.transform.position.x, domainLeft, domainRight))) return false;
+                    coinX, domainLeft, domainRight))) return false;
 
         int id = coin.gameObject.GetInstanceID();
         if (!Claims.TryGetValue(id, out int owner) || owner != helper.Index
             || coin.friendlyClaimer != helper.Actor) return false;
+        // 认领与结算之间来源换代/降级时不得跨 owner 结算（等生命周期路径释放）。
+        if (!IsWorkCompatible(helper, coin)) return false;
 
         if (NetworkBigBoss.IsOnline
             && (!NetworkBigBoss.HasClientCaughtUp || coin.parentHeaderRef == null
@@ -1845,7 +2746,9 @@ public class BankAssistantCoordinator : MonoBehaviour
         if (coin == null || coin.gameObject == null || !coin.isActiveAndEnabled) return false;
         int id = coin.gameObject.GetInstanceID();
         if (!Claims.TryGetValue(id, out int owner) || owner != helper.Index) return false;
-        return coin.friendlyClaimer == helper.Actor;
+        if (coin.friendlyClaimer != helper.Actor) return false;
+        // 同轮兼容门同样决定目标是否仍属本轮（来源换代/降级即释放，不跨 owner 拾取）。
+        return IsWorkCompatible(helper, coin);
     }
 
     private static bool ReleaseTarget(AssistantState helper)
@@ -1864,13 +2767,17 @@ public class BankAssistantCoordinator : MonoBehaviour
     private static void TeleportHomeAndDeposit(AssistantState helper)
     {
         if (helper.Actor == null) return;
-        // 回家=这一趟结束：断流 deadline 一律清零，绝不带进下一趟。
+        // 回家=这一趟结束：断流 deadline 与本轮 owner 一律清零，绝不带进下一趟。
         ClearWaitDeadline(helper);
         if (helper.Target != null && !ReleaseTarget(helper)) return;
+        ReleaseRound(helper);
 
         Vector3 home = GetHomePosition(helper.Index);
         if (Vector3.Distance(helper.Actor.transform.position, home) > 0.05f)
         {
+            // 回家真实位移：离线时两端横纹 + 短显形窗口；位置/SendFullPosition 原样。
+            BankAssistantTeleportVisuals.NotifyTeleport(
+                helper.Index, helper.Actor, helper.Actor.transform.position, home);
             helper.Actor.transform.position = home;
             SendFullPosition(helper);
         }
@@ -1972,8 +2879,15 @@ public class BankAssistantCoordinator : MonoBehaviour
         PatchEconomy_AutoRestock.Reset(false);
         AutoRestockCounts.Reset();
         // RestockReserved 与断流 deadline 都必须在失权/上下文未知的提前 return 之前清掉：
-        // 残留 deadline 会把下一次收集当成同一趟等待。
-        foreach (var helper in Assistants) { helper.RestockReserved = false; helper.WaitDeadline = 0f; }
+        // 残留 deadline 会把下一次收集当成同一趟等待。传送表现同纪律：提前 return 前
+        // 取消并归还，绝不把隐藏状态带进任何延迟清理。
+        foreach (var helper in Assistants)
+        {
+            helper.RestockReserved = false;
+            helper.WaitDeadline = 0f;
+            ReleaseRound(helper);
+            BankAssistantTeleportVisuals.EndSlot(helper.Index);
+        }
         _cleanupPending = true;
         _cleanupDestroyActors |= destroyActors;
         _cleanupSyncDespawn |= syncDespawn;
@@ -2014,11 +2928,15 @@ public class BankAssistantCoordinator : MonoBehaviour
             helper.Moving = false;
             helper.PatrolRight = (helper.Index & 1) == 0;
             helper.PatrolResumeAt = Time.time + PatrolPauseSeconds(helper.Index);
+            ReleaseRound(helper);
         }
         for (int i = 0; i < ActiveCollector.Length; i++) ActiveCollector[i] = false;
         _nextCollectorIndex = 0;
+        PendingPlayerBuffer.Clear();
         Claims.Clear(); Observed.Clear(); SeenThisScan.Clear(); MatureBuffer.Clear();
-        RemovalBuffer.Clear(); SweepPolicies.Clear(); SweepCoins.Clear(); FarmOriginCoinIds.Clear();
+        RemovalBuffer.Clear(); SweepPolicies.Clear(); SweepCoins.Clear();
+        BankAssistantCoinOrigin.ClearAll();
+        for (int i = 0; i < PoolOwnershipDiagnostic.Length; i++) PoolOwnershipDiagnostic[i] = null;
         _lastLoggedActiveCount = -1;
         _nextActiveCountLogAt = 0f;
         _nextScanAt = Time.time + SCAN_INTERVAL;
@@ -2056,49 +2974,166 @@ public static class PoolManager_BankAssistants_Init_Patch
 }
 
 /// <summary>
-/// 农田币来源标记（2026-08-30 需求1）。Droppable.Drop 只按 dropper tag 分类
-/// （Player→Player；Archer/Worker/Farmer→Citizen；其余一律 Wildlife），农田币
-/// （Farmland.DropCoins 以 backgroundRenderer 为 dropper）因此落入 Wildlife 桶，
-/// 与野猪/鹿狩猎奖励、宝箱、灌木、树、罐子、骡子、银行家取款吐币、钓鱼竿共用
-/// 同一枚举值——不存在"农田专属 DropType"。为满足"只纳入农田"，这里以
-/// "dropper 属于 Farmland"精确打标；每次 Drop 重新评估，池化复用的币实例
-/// 不可能携带过期农田标。打标只在 authority 侧 Drop 调用时发生，而扫描/认领/
-/// 结算也只在 authority 侧运行，天然对齐。
+/// 币来源标记（issue-89 在 2026-08-30 农田标基础上扩展）。Droppable.Drop 只按
+/// dropper tag 分类（Player→Player；Archer/Worker/Farmer→Citizen；其余一律
+/// Wildlife），农田币（Farmland.DropCoins 以 backgroundRenderer 为 dropper）因此
+/// 落入 Wildlife 桶，与狩猎奖励/宝箱/灌木/树/罐子/骡子/银行家吐币/钓鱼竿共用同一
+/// 枚举值——不存在"农田专属 DropType"。本 hook 复用同一次 Drop 的实参 dropper：
+/// * 当前层 Player 精确对象 → KnownPlayer（同君主单轮 owner 的唯一证据，不按
+///   droppedBy/距离/最近玩家猜）；
+/// * dropper 属于 Farmland → 精确农田标；
+/// * 其余或换世界 → 清来源（每次 Drop 重新评估，池化实例不携带过期来源）。
+/// 打标不扣币、不认领、不产生经济账；扫描/认领只在 authority 侧消费。
 /// </summary>
 [HarmonyPatch(typeof(Droppable), nameof(Droppable.Drop),
     new[] { typeof(GameObject), typeof(Vector2), typeof(Vector2),
         typeof(PickUpPolicy), typeof(bool), typeof(bool), typeof(bool) })]
-public static class Droppable_FarmCoinOrigin_Mark_Patch
+public static class Droppable_CoinOrigin_Mark_Patch
 {
     [HarmonyPostfix]
     public static void Postfix(Droppable __instance, GameObject dropper)
     {
         if (__instance == null || __instance.gameObject == null) return;
-        int id = __instance.gameObject.GetInstanceID();
-        // 只在当前希腊世界打新标记；其他世界绝不新增。清标始终允许（池复用必须清掉
-        // 上一个实例的残留标记，否则坐骑技/狩猎掉币会被误当农田币）。
-        if (dropper != null && dropper.GetComponentInParent<Farmland>() != null
-            && GreekBankScope.IsActive)
-            BankAssistantCoordinator.MarkFarmCoin(id);
-        else
-            BankAssistantCoordinator.ClearFarmCoin(id);
+        BankAssistantCoordinator.MarkCoinOriginFromDrop(__instance, dropper);
     }
 }
 
 /// <summary>
 /// 两参 Drop(force, policy) 重载不传 dropper（坐骑技能掉币），必须清掉池化实例
-/// 上一次农田掉落残留的标记，否则坐骑技掉出的币会被当农田币延迟吸走。
+/// 上一条 life 的来源（农田标与 Player 来源都清），否则会被当成旧来源延迟吸走。
 /// </summary>
 [HarmonyPatch(typeof(Droppable), nameof(Droppable.Drop),
     new[] { typeof(Vector2), typeof(PickUpPolicy) })]
-public static class Droppable_FarmCoinOrigin_Clear_Patch
+public static class Droppable_CoinOrigin_Clear_Patch
 {
     [HarmonyPostfix]
     public static void Postfix(Droppable __instance)
     {
         if (__instance == null || __instance.gameObject == null) return;
-        BankAssistantCoordinator.ClearFarmCoin(__instance.gameObject.GetInstanceID());
+        BankAssistantCoordinator.ClearCoinOrigin(__instance);
     }
+}
+
+/// <summary>
+/// 币池 life 边界（OnEnable=池复用/新生成，OnDisable=离场）：先按现责任流程归还旧
+/// claim（失败保留 cleanupPending 责任与记录），再清来源与旧成熟观察，旧 life 的
+/// 已知身份绝不带进复用实例。与既有 Hermit/PetGuard 同款长生命周期方法 hook
+/// （不放大的新 native target，不 detour 短 getter）。
+/// ApplyData 只恢复原生 droppedBy 枚举本身（DroppableData 不保存具体玩家），既
+/// 无法重建也无法篡改具体君主来源；本对象任何 ApplyData 路径必然先经过 OnEnable，
+/// 因此来源清理由 OnEnable 覆盖，不新增该 native target。
+/// </summary>
+[HarmonyPatch(typeof(Droppable), nameof(Droppable.OnEnable))]
+public static class Droppable_OnEnable_CoinOrigin_Patch
+{
+    [HarmonyPostfix]
+    public static void Postfix(Droppable __instance)
+        => BankAssistantCoordinator.OnCoinLifecycleReset(__instance);
+}
+
+[HarmonyPatch(typeof(Droppable), nameof(Droppable.OnDisable))]
+public static class Droppable_OnDisable_CoinOrigin_Patch
+{
+    [HarmonyPrefix]
+    public static void Prefix(Droppable __instance)
+        => BankAssistantCoordinator.OnCoinLifecycleReset(__instance);
+}
+
+/// <summary>
+/// ReceivePolicyRPC 来源只读核证 hook（issue-89）。actual 2.4 证据见
+/// work/eight-tax-assistants-20260928/rpc-proof/：入口先验 15≤n≤23，首字段
+/// hasHeader=ReadBool；无 header 消费 15 字节且不写 dropper，有 header 消费 21。
+/// Prefix 只读 PollDataAvailableLength/PollIndex/bufferAccess 得到 n/i/hasHeader，
+/// 零消费、零缓冲写、不 PrepRead/PrepWrite、不发 RPC、不派发任务；正常 Postfix
+/// 只在完整有 header 且 native 消费位置恰 i+21、余量 n-21 一致时，才取本次原生
+/// 已解析 dropper 并核当前 Player/layer/scene/header 双向登记后登记 KnownPlayer；
+/// 无 header/短包/异常/游标不符只降为自有 UnknownPlayer，绝不清原生 dropper。
+/// 重复同来源包不视为新 Drop（登记不改成熟观察时间）。
+/// </summary>
+[HarmonyPatch(typeof(Droppable), nameof(Droppable.ReceivePolicyRPC))]
+public static class Droppable_ReceivePolicyRPC_CoinOrigin_Patch
+{
+    internal struct PeekState
+    {
+        public bool Valid;
+        public int Available;
+        public int Index;
+        public bool HasHeader;
+    }
+
+    [HarmonyPrefix]
+    internal static void Prefix(out PeekState __state)
+    {
+        __state = default;
+        try
+        {
+            int available = ByteBuffer.PollDataAvailableLength();
+            if (available < 15 || available > 23) return;
+            int index = ByteBuffer.PollIndex();
+            if (index < 0) return;
+            bool hasHeader = ByteBuffer.bufferAccess(index) != 0;
+            // 有 header 的完整消息固定 21 字节（1+4+2+4+1+1+4+4）；不足不给来源许可。
+            if (hasHeader && available < 21) return;
+            __state.Valid = true;
+            __state.Available = available;
+            __state.Index = index;
+            __state.HasHeader = hasHeader;
+        }
+        catch
+        {
+            __state = default;
+        }
+    }
+
+    [HarmonyPostfix]
+    internal static void Postfix(Droppable __instance, PeekState __state)
+    {
+        if (__instance == null || __instance.gameObject == null) return;
+        bool proven = false;
+        if (__state.Valid)
+        {
+            try
+            {
+                int consumed = __state.HasHeader ? 21 : 15;
+                // 消费一致性是有界故障检测（buffer 被切换/异常即放弃），不冒充排除任意重入。
+                proven = __state.HasHeader
+                    && ByteBuffer.PollIndex() == __state.Index + consumed
+                    && ByteBuffer.PollDataAvailableLength() == __state.Available - consumed;
+            }
+            catch { proven = false; }
+        }
+        // 无 header/短包/异常/游标不符：只按自有 unknown 策略降级（不改原生 dropper）。
+        BankAssistantCoordinator.HandlePolicyRpcOrigin(__instance, proven);
+    }
+
+    /// <summary>
+    /// 原生 ReceivePolicyRPC 抛异常时 Postfix 会被跳过：这里在正确的 Harmony 异常路径
+    /// 把自有 Known 来源降级为 unknown（不碰原生状态），并原样返回异常不吞。
+    /// </summary>
+    [HarmonyFinalizer]
+    internal static Exception Finalizer(Droppable __instance, Exception __exception)
+    {
+        if (__exception != null && __instance != null && __instance.gameObject != null)
+        {
+            try { BankAssistantCoordinator.HandlePolicyRpcOrigin(__instance, false); }
+            catch (Exception) { }
+        }
+        return __exception;
+    }
+}
+
+/// <summary>
+/// 读档恢复（Persistent.IBehaviour.ApplyData，2.4 wrapper token 100668254 / RVA
+/// 0x4f1a10 / 160 字节独占，见私有 applydata-wrapper.json、native-target-proof.json）：
+/// 只清自有旧来源与成熟观察，不触碰原生参数/行为；真实恢复期间绕过 OnEnable 的
+/// 活动币同样不得保留旧 owner/成熟时钟。
+/// </summary>
+[HarmonyPatch(typeof(Droppable), nameof(Droppable.Persistent_IBehaviour_ApplyData))]
+public static class Droppable_ApplyData_CoinOrigin_Patch
+{
+    [HarmonyPostfix]
+    public static void Postfix(Droppable __instance)
+        => BankAssistantCoordinator.OnCoinDataApplied(__instance);
 }
 
 /// <summary>Pool lifecycle bridge for scoped sizing and client-side interpolation caches.</summary>
@@ -2117,7 +3152,21 @@ public class BankAssistantVisualLifecycle : MonoBehaviour
         {
             GreekScaleScope.Restore(transform);
             PositionSync_BankAssistantAnimation_Patch.Forget(gameObject.GetInstanceID());
+            // 传送表现按当前 instanceId 清槽并归还 enabled：旧 hidden 绝不带到新 life。
+            BankAssistantTeleportVisuals.Forget(gameObject.GetInstanceID());
+            // 新四槽的 atlas 显示状态同纪律：旧 life 的 sprite/相位不带进复用实例。
+            BankAssistantAtlasVisuals.Forget(gameObject);
         }
+    }
+
+    /// <summary>
+    /// 新四槽（4..7）的 atlas 显示桥：仅当本对象确实是 coordinator 该槽当前 actor
+    /// 时调用冻结 API；视觉 lane 每帧比较实际 sprite 后覆写（native Animator 每帧
+    /// 重写根 sprite，只缓存自有帧会漏回写）。原四槽保持原生，不进入此路径。
+    /// </summary>
+    private void LateUpdate()
+    {
+        PatchEconomy_BankAssistants.TickAssistantAtlasVisuals(gameObject);
     }
 }
 

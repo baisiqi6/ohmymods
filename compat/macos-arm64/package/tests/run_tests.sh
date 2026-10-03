@@ -22,7 +22,10 @@
 # argv、其他属性与字节保持、部分失败如实报告与可重入、列举失败 fail-closed、删除
 # 无效时读回判失败、文件/父路径符号链接与硬链接拒绝、名单外文件不碰）、
 # 构建器（确定性/内容/权限/SHA256SUMS/manifest/排除项/operator 材料/各类拒绝/契约
-# 常量强制/模板）。
+# 常量强制/模板）、终端输出（默认精简/--verbose 透传/raw 逐字节完整含末行无换行/
+# 退出码保留/过滤器故障排空与回放/日志路径符号链接·硬链接·目录·FIFO 拒绝/
+# --check-only 零写入与既有 raw 保持/TERM 日志清理/helper 缺件·篡改·符号链接
+# fail-closed/input-lock 哈希漂移）。
 #
 # 测试不等于实机启动验收（Operator 门）。Bash 3.2 兼容；${var} 花括号紧邻中文。
 
@@ -99,6 +102,32 @@ new_fixture() { # $1=目录 $2...=make_fixture 额外参数；stdout=facts JSON
 
 phys() { # 物理路径（启动器内部一律 pwd -P 解析，断言须用同一路径形态）
     cd "$1" && pwd -P
+}
+
+refresh_sums() { # $1=夹具包；清单文件名集合保持不变，按当前文件内容重算哈希
+    local pkg="$1"
+    ( cd "$pkg" && awk '{print $2}' SHA256SUMS | while IFS= read -r rel; do
+        printf '%s  %s\n' "$(shasum -a 256 "$rel" | awk '{print $1}')" "$rel"
+    done > SHA256SUMS.new ) || return 1
+    mv "$pkg/SHA256SUMS.new" "$pkg/SHA256SUMS"
+}
+
+assert_pid_reaped() { # $1=标签 $2=PID：进程必须已不存在（kill -0 失败）
+    local label="$1" pid="${2:-}"
+    case "$pid" in
+        ''|*[!0-9]*) bad "${label}-reaped（PID 未记录: '${pid}'）" ;;
+        *)
+            if kill -0 "$pid" 2>/dev/null; then
+                bad "${label}-reaped"
+            else
+                ok "${label}-reaped"
+            fi
+            ;;
+    esac
+}
+
+console_pids_file() { # $1=夹具包；stdout=本次启动的 pids 文件路径（无则空）
+    find "$1" -path '*/.launcher-console.*/pids' -print 2>/dev/null | head -n 1
 }
 
 run_launcher() { # 使用 CUR_LAUNCHER；回显 "status\noutput"
@@ -215,7 +244,8 @@ make_mock_arch() { # $1=bin 目录 $2=输出文件
     mkdir -p "$1"
     cat > "$1/arch" <<EOF
 #!/bin/sh
-# 测试替身：模拟系统 arch(1)。记录 argv 与加载器相关 env；可选休眠模拟长运行游戏。
+# 测试替身：模拟系统 arch(1)。记录 argv 与加载器相关 env；可选输出夹具文本
+# （stdout/stderr）、可选休眠模拟长运行游戏、可选指定退出码。
 out="\${OHMYMODS_MOCK_ARCH_OUT:?}"
 {
     printf 'ARGV:\n'
@@ -224,11 +254,27 @@ out="\${OHMYMODS_MOCK_ARCH_OUT:?}"
     env | grep -E '^(DOORSTOP_|BEPINEX_|DYLD_|ARCHPREFERENCE)' | sort
     printf 'MARKERS:\n'
 } > "\$out"
+if [ -n "\${OHMYMODS_MOCK_ARCH_STDOUT:-}" ]; then
+    cat "\${OHMYMODS_MOCK_ARCH_STDOUT}"
+fi
+if [ -n "\${OHMYMODS_MOCK_ARCH_STDERR:-}" ]; then
+    cat "\${OHMYMODS_MOCK_ARCH_STDERR}" >&2
+fi
+if [ -n "\${OHMYMODS_MOCK_ARCH_STDOUT_LATE:-}" ]; then
+    /bin/sleep "\${OHMYMODS_MOCK_ARCH_LATE_SECONDS:-2}"
+    cat "\${OHMYMODS_MOCK_ARCH_STDOUT_LATE}"
+fi
+if [ -n "\${OHMYMODS_MOCK_ARCH_HOLD_SECONDS:-}" ]; then
+    /bin/sleep "\${OHMYMODS_MOCK_ARCH_HOLD_SECONDS}"
+fi
+if [ -n "\${OHMYMODS_MOCK_ARCH_ORPHAN_FILE:-}" ]; then
+    ( /bin/sleep "\${OHMYMODS_MOCK_ARCH_ORPHAN_SECONDS:-4}"; cat "\${OHMYMODS_MOCK_ARCH_ORPHAN_FILE}" ) &
+fi
 if [ -n "\${OHMYMODS_MOCK_ARCH_SECONDS:-}" ]; then
-    /bin/sleep "\$OHMYMODS_MOCK_ARCH_SECONDS"
+    /bin/sleep "\${OHMYMODS_MOCK_ARCH_SECONDS}"
     printf 'END\n' >> "\$out"
 fi
-exit 0
+exit "\${OHMYMODS_MOCK_ARCH_EXIT:-0}"
 EOF
     chmod +x "$1/arch"
 }
@@ -976,6 +1022,787 @@ test_unwritable_package() {
     out_contains "unwritable/msg" "$r" "不可写"
 }
 
+# ---------------- 启动器：终端精简输出与原始日志 ----------------
+
+make_terminal_sample() { # $1=输出文件；合成终端文本（含 native 转储/诊断/错误/未知行），末行无换行
+    cat > "$1" <<'SAMPLEEOF'
+mh=107e4c000 slide=107e4c000
+MEMORY MAP(/synthetic/KingdomTwoCrowns.app/Contents/Frameworks/UnityPlayer.dylib)
+MEMORY MAP(/synthetic/KingdomTwoCrowns.app/Contents/Frameworks/GameAssembly.dylib)
+ start address    end address      protection    max_protection inherit     shared reserved offset   behavior         user_wired_count
+ 0000000104310000-0000000104314000 r-x(00000005) r-x(00000005)  copy        N      N        00018000 default          0
+ 0000000104310000-0000000104314000 r-x(00000005) r-x(00000005) copy unexpected runtime mismatch
+ 0000000104310000-0000000104314000 r-x(00000005) r-x(00000005)  copy        N      N        00018000 default          0 extra
+CMD START
+LC_SEGMENT_64
+  segname   __TEXT
+  vmaddr           0  vmsize      1960000
+  fileoff          0  filesize    1960000
+  maxprot          5  initprot          5
+  nsects          14  flags             0
+  section_64 (0)
+      sectname  __got
+      segname   __DATA_CONST
+      addr      0x1960000
+      size      0x4a8
+      offset    0x1960000
+      align     0x3
+      reloff    0x0
+      nreloc    0
+      flags     0x6
+      reserved1 752
+      reserved2 0
+      reserved3 0
+LC_UUID
+LC_DYLD_INFO_ONLY
+                 offset     size
+  rebase        1a2c000     49a8
+0x19: BIND_OPCODE_SET_DYLIB_ORDINAL_IMM: ordinal = 9
+0x40: BIND_OPCODE_SET_SYMBOL_TRAILING_FLAGS_IMM: sym_name = _AudioComponentFindNext
+0x00: BIND_OPCODE_DONE
+    offset caused a segmentation fault
+    size is unavailable because the object was destroyed
+    flags now include stale character identity
+LC_UNKNOWN runtime mismatch detected
+MEMORY MAP(unrecognized diagnostic payload
+MEMORY MAP(unrecognized diagnostic payload)
+dyld[4242]: Symbol not found: _SyntheticMissingSymbol
+  at Synthetic.Loader.Load () in <synthetic>:0
+CMD END
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-bucket-allocator-granularity=16"
+[Message: Preloader] BepInEx 6.0.0-be.788 - Synthetic
+[Debug  :Il2CppInterop] unexpected runtime payload
+[Info   :KingdomEnhancedMod] [FarmCatMovement] stale actor detected
+[Info   :KingdomEnhancedMod] Plugin KingdomEnhancedMod vX loading...
+[Debug  :DobbyDetour] Preparing detour from 0x1 to 0x2
+[Debug  :AssemblyPatcher] Assembly loaded: Synthetic.dll
+[Debug  :Il2CppInterop] MetadataCache::GetTypeInfoFromTypeDefinitionIndex found: 0x3
+[Debug  :KingdomEnhancedMod] [Economy] Wallet capacity ensured = 2000
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=7.162 frame=573 src=apply actor=-29326 life=1 hash=-1518848078 nt=0.128 len=8.000 ct=1.025 pose=1 nat=1 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.88 face=1/1f0
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherPoseVisit] t=19.779 frame=1260 actor=-29326 action=Prepare dur=0.266 ctMax=0.250/0.300 frames=22-25 win=0.267 next=Shoot shots=1@0.250
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=unexpected frame=573 src=apply actor=-29326 life=1 hash=-1518848078 nt=0.128 len=8.000 ct=1.025 pose=1 nat=1 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.88 face=1/1f0
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=7.162 frame=573 src=apply actor=-29326 life=1 hash=-1518848078 nt=0.128 len=8.000 ct=1.025 pose=1 nat=1 win=0.000 native=1 forceoff=0 hero=1 reason=Other y=0.88 face=1/1f0
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherNative] t=7.162 frame=573 src=apply actor=-29326 life=1 hash=-1518848078 nt=0.128 len=8.000 ct=1.025 pose=1 nat=1 win=0.000 native=1 forceoff=0 hero=1 reason=None y=0.88 face=1/1f0 trailing=1
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherPoseVisit] t=19.779 frame=1260 actor=-29326 action=Unknown dur=0.266 ctMax=0.250/0.300 frames=22-25 win=0.267 next=Shoot
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherPoseVisit] t=19.779 frame=1260 actor=-29326 action=Shoot dur=0.266 ctMax=0.250/0.300 frames=22-25 win=0.267 next=Shoot
+[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherVisualLife] t=1 attach actor=-1 action=Stand
+[Info   :KingdomEnhancedMod] [FarmCatMovement] native activity state unproven cat=-1 pc=0 x=-45.28 bodyVx=0.00
+[Info   :KingdomEnhancedMod] [FarmCatMovement] native activity state unproven cat=unexpected runtime mismatch
+[Info   :KingdomEnhancedMod] [FarmCatMovement] native activity state unproven cat=-1 pc=0 x=-45.28 bodyVx=unexpected
+[Info   :KingdomEnhancedMod] [ClockDiag] clock=1 gameState=Playing sample=01
+[Info   :KingdomEnhancedMod] [ClockDiag] clock=2 gameState=Playing sample=02
+[Info   :KingdomEnhancedMod] [ClockDiag] clock=3 gameState=Playing sample=03
+[Info   :KingdomEnhancedMod] [ClockDiag] clock=4 gameState=Playing sample=04
+[Info   :KingdomEnhancedMod] [ClockDiag] clock=5 gameState=Playing sample=05
+[Info   :KingdomEnhancedMod] [ClockDiag] clock=6 gameState=Playing sample=06
+[Info   :KingdomEnhancedMod] [ClockDiag] clock=7 gameState=Playing sample=07
+[Info   :KingdomEnhancedMod] [ClockDiag] clock=8 gameState=Playing sample=08
+[Info   :KingdomEnhancedMod] [ClockDiag] clock=9 gameState=Playing sample=09
+[Info   :KingdomEnhancedMod] [ClockDiag] clock=10 gameState=Playing sample=10
+[Info   :KingdomEnhancedMod] [ClockDiag] clock=11 gameState=Playing sample=11
+[Info   :KingdomEnhancedMod] [ClockDiag] clock=12 gameState=Playing sample=12
+[Info   :KingdomEnhancedMod] [ClockDiag] clock=13 gameState=Playing sample=13
+[Warning:KingdomEnhancedMod] FriendlyTrollBalance designation failed closed
+[Warning:KingdomEnhancedMod] CoinCourier scene cleared: WorldNotReady
+[Warning:Il2CppInterop] synthetic warning two
+[Warning:KingdomEnhancedMod] synthetic warning three
+[Warning:KingdomEnhancedMod] synthetic warning four
+[Error  :  HarmonyX] Failed to apply stack trace fix: Permission denied
+[Error  :KingdomEnhancedMod] [CrossWorldMount] skill pool not ready
+[Error  :KingdomEnhancedMod] synthetic error three
+[Fatal  :KingdomEnhancedMod] synthetic fatal sentinel
+dyld: Library not loaded: @rpath/libMissing.dylib
+Unknown bare line that must stay visible
+    at Synthetic.Stack.Trace(Boolean flag)
+System.NullReferenceException: Object reference not set to an instance of an object
+  at Synthetic.Menu.OnDisable () [0x00000] in <synthetic>:0
+[Debug  :DobbyDetour] Detour setup failed: error 5
+SAMPLEEOF
+    printf 'TAIL-NO-NEWLINE' >> "$1"
+}
+
+make_large_sample() { # $1=输出文件 $2=目标字节数（超过管道缓冲，验证 raw 无损）
+    "$PY" - "$1" "$2" <<'PYEOF'
+import sys
+out, size = sys.argv[1], int(sys.argv[2])
+template = "[Info   :KingdomEnhancedMod] [ClockDiag] clock=%d gameState=Playing pad=%s\n"
+pad = "x" * 60
+with open(out, "w", encoding="utf-8") as f:
+    n = 0
+    i = 0
+    while n < size:
+        text = template % (i % 100, pad)
+        f.write(text)
+        n += len(text)
+        i += 1
+    f.write("[Error  :  HarmonyX] large-sample tail error")
+PYEOF
+}
+
+test_console_compact_and_verbose() {
+    local w f pkg r st mock_bin mock_out sample
+    w="$WORK_ROOT/t50"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_bin="$w/mockbin"; mock_out="$w/mock-arch-out.txt"
+    make_mock_arch "$mock_bin" "$mock_out"
+    sample="$w/sample.txt"
+    make_terminal_sample "$sample"
+
+    # 精简（默认）：终端收起已识别噪声，raw 逐字节完整
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" OHMYMODS_MOCK_ARCH_STDOUT="$sample" \
+        PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" > "$w/compact.txt" 2>&1
+    st=$?
+    [ "$st" -eq 0 ] && ok "console/compact-exit0" || bad "console/compact-exit0（${st}）"
+    cmp -s "$sample" "$pkg/launcher-console.log" \
+        && ok "console/raw-lossless-bytes" || bad "console/raw-lossless-bytes"
+    [ "$(wc -c < "$pkg/launcher-console.log" | tr -d ' ')" = "$(wc -c < "$sample" | tr -d ' ')" ] \
+        && ok "console/raw-size-tail-no-newline" || bad "console/raw-size-tail-no-newline"
+    out_contains "console/keep-warning" "$(cat "$w/compact.txt")" "[Warning:KingdomEnhancedMod] FriendlyTrollBalance"
+    out_contains "console/keep-error" "$(cat "$w/compact.txt")" "[Error  :  HarmonyX]"
+    out_contains "console/keep-fatal" "$(cat "$w/compact.txt")" "synthetic fatal sentinel"
+    out_contains "console/keep-dyld-error" "$(cat "$w/compact.txt")" "dyld: Library not loaded"
+    out_contains "console/keep-unknown" "$(cat "$w/compact.txt")" "Unknown bare line that must stay visible"
+    out_contains "console/keep-unknown-stack" "$(cat "$w/compact.txt")" "at Synthetic.Stack.Trace"
+    out_contains "console/keep-native-embedded-error" "$(cat "$w/compact.txt")" "Symbol not found: _SyntheticMissingSymbol"
+    out_contains "console/keep-native-embedded-context" "$(cat "$w/compact.txt")" "at Synthetic.Loader.Load"
+    out_contains "console/keep-exception" "$(cat "$w/compact.txt")" "System.NullReferenceException"
+    out_contains "console/keep-exception-context" "$(cat "$w/compact.txt")" "at Synthetic.Menu.OnDisable"
+    out_contains "console/keep-lifecycle" "$(cat "$w/compact.txt")" "[HeroArcherVisualLife]"
+    out_contains "console/keep-message" "$(cat "$w/compact.txt")" "[Message: Preloader]"
+    out_contains "console/keep-tail" "$(cat "$w/compact.txt")" "TAIL-NO-NEWLINE"
+    out_contains "console/keep-protected-debug" "$(cat "$w/compact.txt")" "Detour setup failed: error 5"
+    out_contains "console/keep-other-debug" "$(cat "$w/compact.txt")" "Wallet capacity ensured"
+    # F2 负例：未知字段值/未知 LC/未闭合 MEMORY MAP/同源未知内容必须可见
+    out_contains "console/keep-neg-segfault" "$(cat "$w/compact.txt")" "offset caused a segmentation fault"
+    out_contains "console/keep-neg-destroyed" "$(cat "$w/compact.txt")" "size is unavailable because the object was destroyed"
+    out_contains "console/keep-neg-stale" "$(cat "$w/compact.txt")" "flags now include stale character identity"
+    out_contains "console/keep-neg-lc-unknown" "$(cat "$w/compact.txt")" "LC_UNKNOWN runtime mismatch detected"
+    out_contains "console/keep-neg-memmap-open" "$(cat "$w/compact.txt")" "MEMORY MAP(unrecognized diagnostic payload"
+    out_contains "console/keep-neg-memmap-closed" "$(cat "$w/compact.txt")" "MEMORY MAP(unrecognized diagnostic payload)"
+    out_contains "console/keep-neg-interop" "$(cat "$w/compact.txt")" "[Debug  :Il2CppInterop] unexpected runtime payload"
+    out_contains "console/keep-neg-farmcat" "$(cat "$w/compact.txt")" "[FarmCatMovement] stale actor detected"
+    out_contains "console/keep-neg-range-8field" "$(cat "$w/compact.txt")" "r-x(00000005) r-x(00000005) copy unexpected runtime mismatch"
+    out_contains "console/keep-neg-range-extra" "$(cat "$w/compact.txt")" "00018000 default          0 extra"
+    out_contains "console/keep-neg-farmcat-cat" "$(cat "$w/compact.txt")" "[FarmCatMovement] native activity state unproven cat=unexpected runtime mismatch"
+    out_contains "console/keep-neg-farmcat-vx" "$(cat "$w/compact.txt")" "bodyVx=unexpected"
+    out_contains "console/keep-neg-hero-t" "$(cat "$w/compact.txt")" "[HeroArcherNative] t=unexpected"
+    out_contains "console/keep-neg-hero-reason" "$(cat "$w/compact.txt")" "reason=Other"
+    out_contains "console/keep-neg-hero-tail" "$(cat "$w/compact.txt")" "face=1/1f0 trailing=1"
+    out_contains "console/keep-neg-pose-action" "$(cat "$w/compact.txt")" "action=Unknown"
+    # Warning/Error/Fatal 全量保留（9 条）与 13 条 ClockDiag 可见
+    [ "$(grep -c -E '^\[(Warning|Error|Fatal)' "$w/compact.txt")" -eq 9 ] \
+        && ok "console/wef-count-9" || bad "console/wef-count-9（$(grep -c -E '^\[(Warning|Error|Fatal)' "$w/compact.txt")）"
+    [ "$(grep -c '\[ClockDiag\]' "$w/compact.txt")" -eq 13 ] \
+        && ok "console/clockdiag-count-13" || bad "console/clockdiag-count-13（$(grep -c '\[ClockDiag\]' "$w/compact.txt")）"
+    # 识别 dump/正常帧正例继续被收起（计数=仅负例残留，避免子串互相包含）
+    out_lacks "console/suppress-native-map" "$(cat "$w/compact.txt")" "MEMORY MAP(/synthetic"
+    out_lacks "console/suppress-native-map-gameassembly" "$(cat "$w/compact.txt")" "GameAssembly.dylib)"
+    [ "$(grep -c -E '^ [0-9a-f]{6,}-[0-9a-f]{6,} ' "$w/compact.txt")" -eq 2 ] \
+        && ok "console/suppress-native-range-valid" || bad "console/suppress-native-range-valid（$(grep -c -E '^ [0-9a-f]{6,}-[0-9a-f]{6,} ' "$w/compact.txt")）"
+    out_lacks "console/suppress-native-bind" "$(cat "$w/compact.txt")" "BIND_OPCODE"
+    out_lacks "console/suppress-native-lc" "$(cat "$w/compact.txt")" "LC_SEGMENT_64"
+    out_lacks "console/suppress-native-lc-uuid" "$(cat "$w/compact.txt")" "LC_UUID"
+    out_lacks "console/suppress-native-sectname" "$(cat "$w/compact.txt")" "sectname  __got"
+    out_lacks "console/suppress-native-offset" "$(cat "$w/compact.txt")" "offset    0x1960000"
+    out_lacks "console/suppress-native-reserved" "$(cat "$w/compact.txt")" "reserved1 752"
+    out_lacks "console/suppress-native-dyldinfo-header" "$(cat "$w/compact.txt")" "offset     size"
+    out_lacks "console/suppress-native-rebase" "$(cat "$w/compact.txt")" "rebase        1a2c000"
+    out_lacks "console/suppress-debug-dobby" "$(cat "$w/compact.txt")" "[Debug  :DobbyDetour] Preparing detour"
+    out_lacks "console/suppress-debug-asm" "$(cat "$w/compact.txt")" "Assembly loaded: Synthetic.dll"
+    out_lacks "console/suppress-debug-interop" "$(cat "$w/compact.txt")" "MetadataCache::GetTypeInfoFromTypeDefinitionIndex"
+    [ "$(grep -c '\[HeroArcherNative\]' "$w/compact.txt")" -eq 3 ] \
+        && ok "console/suppress-hero-native-valid" || bad "console/suppress-hero-native-valid（$(grep -c '\[HeroArcherNative\]' "$w/compact.txt")）"
+    [ "$(grep -c '\[HeroArcherPoseVisit\]' "$w/compact.txt")" -eq 2 ] \
+        && ok "console/suppress-hero-pose-valid" || bad "console/suppress-hero-pose-valid（$(grep -c '\[HeroArcherPoseVisit\]' "$w/compact.txt")）"
+    [ "$(grep -c '\[FarmCatMovement\]' "$w/compact.txt")" -eq 3 ] \
+        && ok "console/suppress-farmcat-valid" || bad "console/suppress-farmcat-valid（$(grep -c '\[FarmCatMovement\]' "$w/compact.txt")）"
+    out_contains "console/announce-log-path" "$(cat "$w/compact.txt")" "launcher-console.log"
+    out_contains "console/announce-playerlog" "$(cat "$w/compact.txt")" "Player.log"
+    out_contains "console/announce-bepinexlog" "$(cat "$w/compact.txt")" "BepInEx/LogOutput.log"
+    [ -z "$(find "$pkg" -name '.launcher-console.*' -print)" ] \
+        && ok "console/tmp-cleaned" || bad "console/tmp-cleaned"
+    [ ! -e "$pkg/.launcher.lock" ] && ok "console/lock-released" || bad "console/lock-released"
+    if ps -axo args= | grep -F "$pkg" | grep -v 'grep' | grep -q .; then
+        bad "console/no-leftover-logger"
+    else
+        ok "console/no-leftover-logger"
+    fi
+
+    # --verbose：终端完整透传且不转发给游戏；raw 照写
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" OHMYMODS_MOCK_ARCH_STDOUT="$sample" \
+        PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" --verbose -screen-width 800 > "$w/verbose.txt" 2>&1
+    st=$?
+    [ "$st" -eq 0 ] && ok "console/verbose-exit0" || bad "console/verbose-exit0（${st}）"
+    cmp -s "$sample" "$pkg/launcher-console.log" \
+        && ok "console/verbose-raw-lossless" || bad "console/verbose-raw-lossless"
+    out_contains "console/verbose-native" "$(cat "$w/verbose.txt")" "BIND_OPCODE"
+    out_contains "console/verbose-debug" "$(cat "$w/verbose.txt")" "[Debug  :DobbyDetour] Preparing detour"
+    out_contains "console/verbose-hero" "$(cat "$w/verbose.txt")" "[HeroArcherNative]"
+    if grep -qx -- '--verbose' "$mock_out"; then
+        bad "console/verbose-not-forwarded"
+    else
+        ok "console/verbose-not-forwarded"
+    fi
+    grep -qx -- '-screen-width' "$mock_out" && ok "console/verbose-args-forwarded" \
+        || bad "console/verbose-args-forwarded"
+
+    # 大于管道缓冲（64KiB）的 raw 字节对比：tee 直写不丢失
+    local large="$w/large.txt"
+    make_large_sample "$large" 200000
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" OHMYMODS_MOCK_ARCH_STDOUT="$large" \
+        PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" > /dev/null 2>&1
+    st=$?
+    [ "$st" -eq 0 ] && ok "console/large-exit0" || bad "console/large-exit0（${st}）"
+    cmp -s "$large" "$pkg/launcher-console.log" \
+        && ok "console/large-raw-lossless" || bad "console/large-raw-lossless"
+    [ "$(wc -c < "$pkg/launcher-console.log" | tr -d ' ')" -gt 200000 ] \
+        && ok "console/large-over-pipe-buffer" || bad "console/large-over-pipe-buffer"
+    [ -z "$(find "$pkg" -name '.launcher-console.*' -print)" ] \
+        && ok "console/large-tmp-cleaned" || bad "console/large-tmp-cleaned"
+}
+
+test_console_exit_code_preserved() {
+    local w f pkg st mock_bin mock_out sample
+    w="$WORK_ROOT/t51"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_bin="$w/mockbin"; mock_out="$w/mock-arch-out.txt"
+    make_mock_arch "$mock_bin" "$mock_out"
+    sample="$w/sample.txt"
+    make_terminal_sample "$sample"
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" OHMYMODS_MOCK_ARCH_STDOUT="$sample" \
+        OHMYMODS_MOCK_ARCH_EXIT=7 \
+        PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" > "$w/out.txt" 2>&1
+    st=$?
+    [ "$st" -eq 7 ] && ok "console/exit7-preserved" || bad "console/exit7-preserved（${st}）"
+    cmp -s "$sample" "$pkg/launcher-console.log" \
+        && ok "console/exit7-raw-lossless" || bad "console/exit7-raw-lossless"
+    out_contains "console/exit7-reported" "$(cat "$w/out.txt")" "游戏进程退出码: 7"
+    [ -z "$(find "$pkg" -name '.launcher-console.*' -print)" ] \
+        && ok "console/exit7-tmp-cleaned" || bad "console/exit7-tmp-cleaned"
+}
+
+test_console_filter_failure_fallback() {
+    local w f pkg st mock_bin mock_out stage1 stage2 merged out lpid i
+    w="$WORK_ROOT/t52"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_bin="$w/mockbin"; mock_out="$w/mock-arch-out.txt"
+    make_mock_arch "$mock_bin" "$mock_out"
+    stage1="$w/stage1.txt"; stage2="$w/stage2.txt"; merged="$w/merged.txt"
+    printf '[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherPoseVisit] stage-one-silent\n' > "$stage1"
+    printf '[Error  :KingdomEnhancedMod] LATE-ERROR-SENTINEL\n' > "$stage2"
+    cat "$stage1" "$stage2" > "$merged"
+    # 注入“读完第一条即退出”的过滤器：first line 成为 awk 预读缺口（只能靠回放补回），
+    # 其余输出必须由 fallback cat 实时透传（F3），不得进 /dev/null。
+    printf 'NR == 1 { exit 3 }\n' > "$pkg/tools/console-filter.awk"
+    refresh_sums "$pkg" || bad "console/filterfail-resign"
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" OHMYMODS_MOCK_ARCH_STDOUT="$stage1" \
+        OHMYMODS_MOCK_ARCH_STDOUT_LATE="$stage2" OHMYMODS_MOCK_ARCH_LATE_SECONDS=2 \
+        OHMYMODS_MOCK_ARCH_HOLD_SECONDS=2 \
+        PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" > "$w/out.txt" 2>&1 &
+    lpid=$!
+    i=0
+    while [ $i -lt 120 ] && ! grep -q 'LATE-ERROR-SENTINEL' "$w/out.txt" 2>/dev/null; do
+        i=$((i + 1))
+        sleep 0.1
+    done
+    grep -q 'LATE-ERROR-SENTINEL' "$w/out.txt" \
+        && ok "console/filterfail-live-late-error" || bad "console/filterfail-live-late-error"
+    if kill -0 "$lpid" 2>/dev/null; then
+        ok "console/filterfail-live-while-running"
+    else
+        bad "console/filterfail-live-while-running（游戏尚在运行时未见实时输出）"
+    fi
+    st=0
+    wait "$lpid" 2>/dev/null || st=$?
+    out="$(cat "$w/out.txt")"
+    [ "$st" -eq 86 ] && ok "console/filterfail-exit86" || bad "console/filterfail-exit86（${st}）"
+    cmp -s "$merged" "$pkg/launcher-console.log" \
+        && ok "console/filterfail-raw-still-complete" || bad "console/filterfail-raw-still-complete"
+    out_contains "console/filterfail-wrapper-warning" "$out" "后续输出将直接透传"
+    out_contains "console/filterfail-replay-warning" "$out" "从原始日志回放完整内容"
+    out_contains "console/filterfail-prefetch-gap-recovered" "$out" "stage-one-silent"
+    out_contains "console/filterfail-game-exit-preserved" "$out" "游戏正常退出，但终端日志捕获失败"
+    [ -z "$(find "$pkg" -name '.launcher-console.*' -print)" ] \
+        && ok "console/filterfail-tmp-cleaned" || bad "console/filterfail-tmp-cleaned"
+    [ ! -e "$pkg/.launcher.lock" ] && ok "console/filterfail-lock-released" || bad "console/filterfail-lock-released"
+}
+
+test_console_filter_failure_signal() {
+    # 过滤器故障 + 信号清理：cleanup 不能静默走成功语义，须报告失败并回放 raw，
+    # 且 fallback cat（filter_child）与 tee/filter 全部按精确 PID 收尾。
+    local w f pkg st mock_bin mock_out stage1 lpid i out pids tee filter child
+    w="$WORK_ROOT/t52s"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_bin="$w/mockbin"; mock_out="$w/mock-arch-out.txt"
+    make_mock_arch "$mock_bin" "$mock_out"
+    stage1="$w/stage1.txt"
+    printf '[Info   :KingdomEnhancedMod] [HeroArcherVisuals] [HeroArcherPoseVisit] signal-stage-one\n' > "$stage1"
+    printf 'NR == 1 { exit 3 }\n' > "$pkg/tools/console-filter.awk"
+    refresh_sums "$pkg" || bad "console/filterfail-signal-resign"
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" OHMYMODS_MOCK_ARCH_STDOUT="$stage1" \
+        OHMYMODS_MOCK_ARCH_SECONDS=10 \
+        PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" > "$w/out.txt" 2>&1 &
+    lpid=$!
+    i=0
+    while [ $i -lt 120 ]; do
+        pids=$(console_pids_file "$pkg")
+        if [ -n "$pids" ] && [ "$(grep -c '^filter_child=' "$pids" 2>/dev/null)" -ge 2 ]; then
+            break
+        fi
+        i=$((i + 1))
+        sleep 0.1
+    done
+    tee=$(sed -n 's/^tee=//p' "$pids" 2>/dev/null | head -n 1)
+    filter=$(sed -n 's/^filter=//p' "$pids" 2>/dev/null | head -n 1)
+    child=$(sed -n 's/^filter_child=//p' "$pids" 2>/dev/null | tail -n 1)
+    kill -TERM "$lpid" 2>/dev/null
+    st=0
+    wait "$lpid" 2>/dev/null || st=$?
+    out="$(cat "$w/out.txt")"
+    [ "$st" -ne 0 ] && ok "console/filterfail-signal-nonzero" || bad "console/filterfail-signal-nonzero"
+    out_contains "console/filterfail-signal-report" "$out" "终端日志捕获/过滤异常"
+    out_contains "console/filterfail-signal-replay" "$out" "signal-stage-one"
+    assert_pid_reaped "console/filterfail-signal-tee" "$tee"
+    assert_pid_reaped "console/filterfail-signal-filter" "$filter"
+    assert_pid_reaped "console/filterfail-signal-cat" "$child"
+    [ ! -e "$pkg/.launcher.lock" ] && ok "console/filterfail-signal-lock-released" \
+        || bad "console/filterfail-signal-lock-released"
+    [ -z "$(find "$pkg" -name '.launcher-console.*' -print)" ] \
+        && ok "console/filterfail-signal-tmp-cleaned" || bad "console/filterfail-signal-tmp-cleaned"
+}
+
+test_console_stderr_merged() {
+    # stdout 与 stderr 合并进 raw（2>&1），且 stderr 上的 Error 在精简终端可见
+    local w f pkg st mock_bin mock_out so se merged out
+    w="$WORK_ROOT/t58"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_bin="$w/mockbin"; mock_out="$w/mock-arch-out.txt"
+    make_mock_arch "$mock_bin" "$mock_out"
+    so="$w/out.stdout"; se="$w/out.stderr"; merged="$w/merged.txt"
+    printf '[Info   :KingdomEnhancedMod] stdout-line\n' > "$so"
+    printf '[Error  :KingdomEnhancedMod] stderr-error-line\n' > "$se"
+    cat "$so" "$se" > "$merged"
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" OHMYMODS_MOCK_ARCH_STDOUT="$so" \
+        OHMYMODS_MOCK_ARCH_STDERR="$se" \
+        PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" > "$w/console.txt" 2>&1
+    st=$?
+    out="$(cat "$w/console.txt")"
+    [ "$st" -eq 0 ] && ok "console/stderr-exit0" || bad "console/stderr-exit0（${st}）"
+    cmp -s "$merged" "$pkg/launcher-console.log" \
+        && ok "console/stderr-merged-raw" || bad "console/stderr-merged-raw"
+    out_contains "console/stderr-error-visible" "$out" "[Error  :KingdomEnhancedMod] stderr-error-line"
+    [ -z "$(find "$pkg" -name '.launcher-console.*' -print)" ] \
+        && ok "console/stderr-tmp-cleaned" || bad "console/stderr-tmp-cleaned"
+}
+
+test_console_tee_failure() {
+    # tee 写盘失败（PATH 注入替身：复制完输入后退出 1）：raw 尽力保全、显式报告、
+    # 游戏正常退出但日志失败 → exit 86；临时对象与锁正常收尾。
+    local w f pkg st mock_bin mock_out sample out
+    w="$WORK_ROOT/t59"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_bin="$w/mockbin"; mock_out="$w/mock-arch-out.txt"
+    make_mock_arch "$mock_bin" "$mock_out"
+    sample="$w/sample.txt"
+    make_terminal_sample "$sample"
+    cat > "$mock_bin/tee" <<'TEEEOF'
+#!/bin/sh
+# 测试替身：模拟 tee 写盘失败（先尽量复制输入，再以非零退出）
+cat <&0 > "$1"
+exit 1
+TEEEOF
+    chmod +x "$mock_bin/tee"
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" OHMYMODS_MOCK_ARCH_STDOUT="$sample" \
+        PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" > "$w/out.txt" 2>&1
+    st=$?
+    out="$(cat "$w/out.txt")"
+    [ "$st" -eq 86 ] && ok "console/teefail-exit86" || bad "console/teefail-exit86（${st}）"
+    out_contains "console/teefail-reported" "$out" "tee=1"
+    cmp -s "$sample" "$pkg/launcher-console.log" \
+        && ok "console/teefail-raw-copied" || bad "console/teefail-raw-copied"
+    out_contains "console/teefail-replay" "$out" "从原始日志回放完整内容"
+    [ -z "$(find "$pkg" -name '.launcher-console.*' -print)" ] \
+        && ok "console/teefail-tmp-cleaned" || bad "console/teefail-tmp-cleaned"
+    [ ! -e "$pkg/.launcher.lock" ] && ok "console/teefail-lock-released" || bad "console/teefail-lock-released"
+}
+
+test_console_log_guard_refusals() {
+    local w f pkg r kind ext
+    # symlink / 断链 symlink / hardlink / 目录 / FIFO：全部零修改拒绝
+    for kind in symlink dangling hardlink dir fifo; do
+        w="$WORK_ROOT/t53-$kind"; f=$(new_fixture "$w")
+        pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+        CUR_LAUNCHER="$pkg/launcher.command"
+        ext="$w/external.log"
+        printf 'precious' > "$ext"
+        case "$kind" in
+            symlink)  ln -s "$ext" "$pkg/launcher-console.log" ;;
+            dangling) ln -s "$w/nope" "$pkg/launcher-console.log" ;;
+            hardlink) printf 'keep' > "$pkg/launcher-console.log"; ln "$pkg/launcher-console.log" "$w/second-link.log" ;;
+            dir)      mkdir "$pkg/launcher-console.log" ;;
+            fifo)     mkfifo "$pkg/launcher-console.log" ;;
+        esac
+        r=$(run_launcher --check-only)
+        out_contains "guard/${kind}-fail" "${r%%$'\n'*}" "1"
+        out_contains "guard/${kind}-msg" "$r" "终端日志"
+        [ -z "$(find "$pkg" -name '.launcher-console.*' -print)" ] \
+            && ok "guard/${kind}-no-tmp" || bad "guard/${kind}-no-tmp"
+        [ ! -e "$pkg/.launcher.lock" ] && ok "guard/${kind}-no-lock" || bad "guard/${kind}-no-lock"
+        if [ "$kind" = "hardlink" ]; then
+            [ "$(cat "$pkg/launcher-console.log")" = "keep" ] \
+                && ok "guard/${kind}-target-untouched" || bad "guard/${kind}-target-untouched"
+            [ "$(cat "$w/second-link.log")" = "keep" ] \
+                && ok "guard/${kind}-link-untouched" || bad "guard/${kind}-link-untouched"
+        fi
+    done
+    [ "$(cat "$WORK_ROOT/t53-symlink/external.log")" = "precious" ] \
+        && ok "guard/symlink-external-untouched" || bad "guard/symlink-external-untouched"
+    [ "$(cat "$WORK_ROOT/t53-hardlink/external.log")" = "precious" ] \
+        && ok "guard/hardlink-external-untouched" || bad "guard/hardlink-external-untouched"
+
+    # 普通启动（非 --check-only）同样在预检拒绝，不创建数据别名/不启动日志管线
+    w="$WORK_ROOT/t53-live"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    printf 'precious' > "$w/external.log"
+    ln -s "$w/external.log" "$pkg/launcher-console.log"
+    r=$(run_launcher)
+    out_contains "guard/live-fail" "${r%%$'\n'*}" "1"
+    out_contains "guard/live-msg" "$r" "终端日志路径是符号链接"
+    [ ! -e "$w/KingdomTwoCrowns_Data" ] && ok "guard/live-no-alias" || bad "guard/live-no-alias"
+    [ "$(cat "$w/external.log")" = "precious" ] && ok "guard/live-external-untouched" \
+        || bad "guard/live-external-untouched"
+}
+
+test_console_checkonly_zero_writes() {
+    local w f pkg r before after
+    w="$WORK_ROOT/t54"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    # 预置一份有效 raw：check-only 不得截断、不得改 mtime/inode
+    printf 'PREVIOUS RUN\n' > "$pkg/launcher-console.log"
+    touch -t 202001020304 "$pkg/launcher-console.log"
+    local m0 i0
+    m0=$(stat -f %m "$pkg/launcher-console.log")
+    i0=$(stat -f %i "$pkg/launcher-console.log")
+    snapshot_tree() {
+        ( cd "$1" && find . -type f ! -name 'launcher-console.log' -exec stat -f '%N|%z|%m' {} \; | sort )
+    }
+    before=$(snapshot_tree "$pkg")
+    r=$(run_launcher --check-only)
+    out_contains "checkonly/exit0" "${r%%$'\n'*}" "0"
+    r2=$(run_launcher --check-only --verbose)
+    out_contains "checkonly/verbose-exit0" "${r2%%$'\n'*}" "0"
+    out_contains "checkonly/verbose-mode" "$r2" "完整透传（--verbose）"
+    out_contains "checkonly/verbose-log-path" "$r2" "launcher-console.log"
+    after=$(snapshot_tree "$pkg")
+    [ "$before" = "$after" ] && ok "checkonly/zero-writes" || bad "checkonly/zero-writes"
+    [ "$(cat "$pkg/launcher-console.log")" = "PREVIOUS RUN" ] \
+        && ok "checkonly/existing-raw-untouched" || bad "checkonly/existing-raw-untouched"
+    [ "$(stat -f %m "$pkg/launcher-console.log")" = "$m0" ] \
+        && ok "checkonly/existing-raw-mtime" || bad "checkonly/existing-raw-mtime"
+    [ "$(stat -f %i "$pkg/launcher-console.log")" = "$i0" ] \
+        && ok "checkonly/existing-raw-inode" || bad "checkonly/existing-raw-inode"
+    [ ! -e "$pkg/.launcher.lock" ] && ok "checkonly/no-lock" || bad "checkonly/no-lock"
+    [ ! -e "$pkg/BepInEx/config/BepInEx.cfg" ] && ok "checkonly/no-config-seed" \
+        || bad "checkonly/no-config-seed"
+    [ -z "$(find "$pkg" -name '.launcher-console.*' -print)" ] \
+        && ok "checkonly/no-fifo-dir" || bad "checkonly/no-fifo-dir"
+}
+
+test_console_term_cleanup() {
+    # TERM 与 HUP：孙进程（继承写端）令排空超时，必须按记录的精确 PID 收尾
+    # tee/filter/filter_child（awk），返回后旧管线不得再向 raw 追加任何内容。
+    local sig w f pkg lpid i st mock_out mock_bin pidline pids tee filter child
+    local orphan raw_before raw_hash_before
+    for sig in TERM HUP; do
+        w="$WORK_ROOT/t55-$sig"; f=$(new_fixture "$w")
+        pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+        CUR_LAUNCHER="$pkg/launcher.command"
+        mock_out="$w/mock-arch-out.txt"; mock_bin="$w/mockbin"
+        make_mock_arch "$mock_bin" "$mock_out"
+        orphan="$w/orphan.txt"
+        printf '[Error  :KingdomEnhancedMod] ORPHAN-AFTER-RETURN\n' > "$orphan"
+        OHMYMODS_MOCK_ARCH_OUT="$mock_out" OHMYMODS_MOCK_ARCH_SECONDS=5 \
+            OHMYMODS_MOCK_ARCH_ORPHAN_FILE="$orphan" OHMYMODS_MOCK_ARCH_ORPHAN_SECONDS=4 \
+            PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" > "$w/out.txt" 2>&1 &
+        lpid=$!
+        i=0
+        while [ $i -lt 200 ]; do
+            pids=$(console_pids_file "$pkg")
+            if [ -n "$pids" ] && grep -q '^filter_child=' "$pids" 2>/dev/null; then
+                break
+            fi
+            i=$((i + 1))
+            sleep 0.1
+        done
+        tee=$(sed -n 's/^tee=//p' "$pids" 2>/dev/null | head -n 1)
+        filter=$(sed -n 's/^filter=//p' "$pids" 2>/dev/null | head -n 1)
+        child=$(sed -n 's/^filter_child=//p' "$pids" 2>/dev/null | head -n 1)
+        case "${tee:-}${filter:-}${child:-}" in
+            ''|*[!0-9]*) bad "logterm/${sig}-pids-recorded（tee=${tee} filter=${filter} child=${child}）" ;;
+            *)
+                kill -0 "$tee" 2>/dev/null && kill -0 "$filter" 2>/dev/null && kill -0 "$child" 2>/dev/null \
+                    && ok "logterm/${sig}-pids-recorded" || bad "logterm/${sig}-pids-recorded（进程未同时存活）"
+                ;;
+        esac
+        kill -"$sig" "$lpid" 2>/dev/null
+        st=0
+        wait "$lpid" 2>/dev/null || st=$?
+        [ "$st" -ne 0 ] && ok "logterm/${sig}-nonzero-exit" || bad "logterm/${sig}-nonzero-exit"
+        raw_before=$(wc -c < "$pkg/launcher-console.log" | tr -d ' ')
+        raw_hash_before=$(shasum -a 256 "$pkg/launcher-console.log" | awk '{print $1}')
+        assert_pid_reaped "logterm/${sig}-tee" "$tee"
+        assert_pid_reaped "logterm/${sig}-filter" "$filter"
+        assert_pid_reaped "logterm/${sig}-child" "$child"
+        # 返回后等待超过孤儿写入时刻：旧管线若未清干净，raw 会被追加
+        sleep 1.5
+        [ "$(wc -c < "$pkg/launcher-console.log" | tr -d ' ')" = "$raw_before" ] \
+            && [ "$(shasum -a 256 "$pkg/launcher-console.log" | awk '{print $1}')" = "$raw_hash_before" ] \
+            && ok "logterm/${sig}-raw-no-postwrite" || bad "logterm/${sig}-raw-no-postwrite"
+        [ ! -e "$pkg/.launcher.lock" ] && ok "logterm/${sig}-lock-released" || bad "logterm/${sig}-lock-released"
+        [ -z "$(find "$pkg" -name '.launcher-console.*' -print)" ] \
+            && ok "logterm/${sig}-tmp-cleaned" || bad "logterm/${sig}-tmp-cleaned"
+        if ps -axo comm= | grep -q '/mockbin/arch'; then
+            bad "logterm/${sig}-no-orphan-mock"
+        else
+            ok "logterm/${sig}-no-orphan-mock"
+        fi
+        if ps -axo args= | grep -F "$pkg" | grep -v 'grep' | grep -q .; then
+            bad "logterm/${sig}-no-leftover-logger"
+        else
+            ok "logterm/${sig}-no-leftover-logger"
+        fi
+    done
+}
+
+test_console_drain_timeout_reaps_children() {
+    # 过滤器挂起（awk END 死循环）+ 游戏正常退出：正常路径 10s 排空超时后，必须
+    # 强制收尾所有自有 PID（tee/awk/filter），raw 完整、失败有报告、退出码 86。
+    local w f pkg st mock_bin mock_out sample pids tee filter child lpid i out
+    w="$WORK_ROOT/t57"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_bin="$w/mockbin"; mock_out="$w/mock-arch-out.txt"
+    make_mock_arch "$mock_bin" "$mock_out"
+    sample="$w/sample.txt"
+    make_terminal_sample "$sample"
+    printf 'END { for (;;) {} }\n' > "$pkg/tools/console-filter.awk"
+    refresh_sums "$pkg" || bad "console/timeout-resign"
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" OHMYMODS_MOCK_ARCH_STDOUT="$sample" \
+        PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" > "$w/out.txt" 2>&1 &
+    lpid=$!
+    i=0
+    while [ $i -lt 200 ]; do
+        pids=$(console_pids_file "$pkg")
+        if [ -n "$pids" ] && grep -q '^filter_child=' "$pids" 2>/dev/null; then
+            break
+        fi
+        i=$((i + 1))
+        sleep 0.1
+    done
+    tee=$(sed -n 's/^tee=//p' "$pids" 2>/dev/null | head -n 1)
+    filter=$(sed -n 's/^filter=//p' "$pids" 2>/dev/null | head -n 1)
+    child=$(sed -n 's/^filter_child=//p' "$pids" 2>/dev/null | head -n 1)
+    st=0
+    wait "$lpid" 2>/dev/null || st=$?
+    out="$(cat "$w/out.txt")"
+    [ "$st" -eq 86 ] && ok "console/timeout-exit86" || bad "console/timeout-exit86（${st}）"
+    out_contains "console/timeout-forced-warning" "$out" "未在限时内结束"
+    out_contains "console/timeout-replay" "$out" "从原始日志回放完整内容"
+    out_contains "console/timeout-replay-content" "$out" "synthetic fatal sentinel"
+    cmp -s "$sample" "$pkg/launcher-console.log" \
+        && ok "console/timeout-raw-complete" || bad "console/timeout-raw-complete"
+    assert_pid_reaped "console/timeout-tee" "$tee"
+    assert_pid_reaped "console/timeout-filter" "$filter"
+    assert_pid_reaped "console/timeout-child" "$child"
+    [ -z "$(find "$pkg" -name '.launcher-console.*' -print)" ] \
+        && ok "console/timeout-tmp-cleaned" || bad "console/timeout-tmp-cleaned"
+    [ ! -e "$pkg/.launcher.lock" ] && ok "console/timeout-lock-released" || bad "console/timeout-lock-released"
+    if ps -axo args= | grep -F "$pkg" | grep -v 'grep' | grep -q .; then
+        bad "console/timeout-no-leftover-pipeline"
+    else
+        ok "console/timeout-no-leftover-pipeline"
+    fi
+}
+
+test_console_tee_reap_bounded() {
+    # A 回归：DONE 只代表过滤端结束，不代表 tee 已 EOF。两种路径都必须有界告警
+    # 并 TERM/KILL/wait tee，返回后旧管线不得再写 raw、不得残留。
+    local w f pkg st mock_bin mock_out stage1 orphan out lpid i pids tee filter child
+    local t0 t1 raw_before
+
+    # 情形 1：DONE（LOGGER 0，过滤端读完首行即退出）+ 上游写端仍被孤儿持有
+    w="$WORK_ROOT/t60"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_bin="$w/mockbin"; mock_out="$w/mock-arch-out.txt"
+    make_mock_arch "$mock_bin" "$mock_out"
+    stage1="$w/stage1.txt"; orphan="$w/orphan.txt"
+    printf '[Info   :KingdomEnhancedMod] [ClockDiag] stage-one\n' > "$stage1"
+    printf '[Error  :KingdomEnhancedMod] ORPHAN-BOUNDED-LATE\n' > "$orphan"
+    printf 'NR == 1 { exit 0 }\n' > "$pkg/tools/console-filter.awk"
+    refresh_sums "$pkg" || bad "console/tee-done0-resign"
+    t0=$(date +%s)
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" OHMYMODS_MOCK_ARCH_STDOUT="$stage1" \
+        OHMYMODS_MOCK_ARCH_ORPHAN_FILE="$orphan" OHMYMODS_MOCK_ARCH_ORPHAN_SECONDS=6 \
+        PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" > "$w/out.txt" 2>&1 &
+    lpid=$!
+    i=0
+    while [ $i -lt 150 ] && kill -0 "$lpid" 2>/dev/null; do
+        i=$((i + 1))
+        sleep 0.1
+    done
+    if kill -0 "$lpid" 2>/dev/null; then
+        bad "console/tee-done0-bounded-return（15s 未返回）"
+        kill -9 "$lpid" 2>/dev/null
+        wait "$lpid" 2>/dev/null
+        st=99
+    else
+        st=0
+        wait "$lpid" 2>/dev/null || st=$?
+    fi
+    t1=$(date +%s)
+    out="$(cat "$w/out.txt")"
+    [ "$st" -eq 86 ] && ok "console/tee-done0-exit86" || bad "console/tee-done0-exit86（${st}）"
+    out_contains "console/tee-done0-bounded-warning" "$out" "tee 日志进程未在限时内结束"
+    out_contains "console/tee-done0-report" "$out" "tee=143"
+    [ "$((t1 - t0))" -le 8 ] && ok "console/tee-done0-bounded-return" \
+        || bad "console/tee-done0-bounded-return（$((t1 - t0))s）"
+    cmp -s "$stage1" "$pkg/launcher-console.log" \
+        && ok "console/tee-done0-raw-before-orphan" || bad "console/tee-done0-raw-before-orphan"
+    [ ! -e "$pkg/.launcher.lock" ] && ok "console/tee-done0-lock-released" || bad "console/tee-done0-lock-released"
+    [ -z "$(find "$pkg" -name '.launcher-console.*' -print)" ] \
+        && ok "console/tee-done0-tmp-cleaned" || bad "console/tee-done0-tmp-cleaned"
+    sleep 3.5   # 覆盖孤儿写入时刻（启动后约 6s）
+    cmp -s "$stage1" "$pkg/launcher-console.log" \
+        && ok "console/tee-done0-raw-no-postwrite" || bad "console/tee-done0-raw-no-postwrite"
+    if ps -axo args= | grep -F "$pkg" | grep -v 'grep' | grep -q .; then
+        bad "console/tee-done0-no-leftover-pipeline"
+    else
+        ok "console/tee-done0-no-leftover-pipeline"
+    fi
+
+    # 情形 2：LOGGER 被强杀（143 + 排空标记）+ 上游写端被孤儿持有 → tee 仍存活
+    w="$WORK_ROOT/t61"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mock_bin="$w/mockbin"; mock_out="$w/mock-arch-out.txt"
+    make_mock_arch "$mock_bin" "$mock_out"
+    orphan="$w/orphan.txt"
+    printf '[Error  :KingdomEnhancedMod] ORPHAN-BOUNDED-LATE-2\n' > "$orphan"
+    printf 'END { for (;;) {} }\n' > "$pkg/tools/console-filter.awk"
+    refresh_sums "$pkg" || bad "console/tee-done143-resign"
+    OHMYMODS_MOCK_ARCH_OUT="$mock_out" OHMYMODS_MOCK_ARCH_SECONDS=10 \
+        OHMYMODS_MOCK_ARCH_ORPHAN_FILE="$orphan" OHMYMODS_MOCK_ARCH_ORPHAN_SECONDS=9 \
+        PATH="$(ps_mock_setup):$mock_bin:$PATH" "$CUR_LAUNCHER" > "$w/out.txt" 2>&1 &
+    lpid=$!
+    i=0
+    while [ $i -lt 200 ]; do
+        pids=$(console_pids_file "$pkg")
+        if [ -n "$pids" ] && grep -q '^filter_child=' "$pids" 2>/dev/null; then
+            break
+        fi
+        i=$((i + 1))
+        sleep 0.1
+    done
+    tee=$(sed -n 's/^tee=//p' "$pids" 2>/dev/null | head -n 1)
+    filter=$(sed -n 's/^filter=//p' "$pids" 2>/dev/null | head -n 1)
+    child=$(sed -n 's/^filter_child=//p' "$pids" 2>/dev/null | head -n 1)
+    t0=$(date +%s)
+    kill -TERM "$lpid" 2>/dev/null
+    i=0
+    while [ $i -lt 120 ] && kill -0 "$lpid" 2>/dev/null; do
+        i=$((i + 1))
+        sleep 0.1
+    done
+    if kill -0 "$lpid" 2>/dev/null; then
+        bad "console/tee-done143-bounded-return（12s 未返回）"
+        kill -9 "$lpid" 2>/dev/null
+        wait "$lpid" 2>/dev/null
+        st=99
+    else
+        st=0
+        wait "$lpid" 2>/dev/null || st=$?
+    fi
+    t1=$(date +%s)
+    out="$(cat "$w/out.txt")"
+    [ "$st" -ne 0 ] && ok "console/tee-done143-nonzero" || bad "console/tee-done143-nonzero"
+    out_contains "console/tee-done143-logger-warning" "$out" "日志进程未在限时内结束"
+    out_contains "console/tee-done143-bounded-warning" "$out" "tee 日志进程未在限时内结束"
+    [ "$((t1 - t0))" -le 9 ] && ok "console/tee-done143-bounded-return" \
+        || bad "console/tee-done143-bounded-return（$((t1 - t0))s）"
+    raw_before=$(shasum -a 256 "$pkg/launcher-console.log" | awk '{print $1}')
+    assert_pid_reaped "console/tee-done143-tee" "$tee"
+    assert_pid_reaped "console/tee-done143-filter" "$filter"
+    assert_pid_reaped "console/tee-done143-child" "$child"
+    sleep 3   # 覆盖孤儿写入时刻（启动后约 9s；TERM 发生于约 1s 时）
+    [ "$(shasum -a 256 "$pkg/launcher-console.log" | awk '{print $1}')" = "$raw_before" ] \
+        && ok "console/tee-done143-raw-no-postwrite" || bad "console/tee-done143-raw-no-postwrite"
+    [ ! -e "$pkg/.launcher.lock" ] && ok "console/tee-done143-lock-released" || bad "console/tee-done143-lock-released"
+    [ -z "$(find "$pkg" -name '.launcher-console.*' -print)" ] \
+        && ok "console/tee-done143-tmp-cleaned" || bad "console/tee-done143-tmp-cleaned"
+}
+
+test_console_helper_integrity() {
+    local w f pkg r entry
+    # 1) 漂移：input-lock.json 纳入过滤器且哈希/大小/模式一致
+    entry=$("$PY" - "$PKG_DIR/input-lock.json" "$PKG_DIR/tools/console-filter.awk" <<'PYEOF'
+import hashlib, json, sys
+lock = json.load(open(sys.argv[1], encoding="utf-8"))
+match = [e for e in lock["files"] if e["path"] == "tools/console-filter.awk"]
+if len(match) != 1:
+    sys.exit("entry-count")
+e = match[0]
+data = open(sys.argv[2], "rb").read()
+if e["sha256"] != hashlib.sha256(data).hexdigest():
+    sys.exit("sha256")
+if e["size"] != len(data):
+    sys.exit("size")
+if e["mode"] != "0644" or e["source"] != "package-material":
+    sys.exit("mode-or-source")
+print("ok")
+PYEOF
+) && [ "$entry" = "ok" ] && ok "console/lock-entry-filter" || bad "console/lock-entry-filter（${entry}）"
+
+    # 2) 缺件 fail-closed：SHA256SUMS 门在启动前拒绝且零写入
+    w="$WORK_ROOT/t56-missing"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    rm "$pkg/tools/console-filter.awk"
+    r=$(run_launcher --check-only)
+    out_contains "console/missing-helper-fail" "${r%%$'\n'*}" "1"
+    out_contains "console/missing-helper-msg" "$r" "包不完整"
+    [ ! -e "$pkg/.launcher.lock" ] && ok "console/missing-helper-no-lock" \
+        || bad "console/missing-helper-no-lock"
+
+    # 3) 内容被篡改：SUMS 拒绝
+    w="$WORK_ROOT/t56-tamper"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    printf '\n# tampered\n' >> "$pkg/tools/console-filter.awk"
+    r=$(run_launcher --check-only)
+    out_contains "console/tampered-helper-fail" "${r%%$'\n'*}" "1"
+    out_contains "console/tampered-helper-msg" "$r" "包内文件校验失败"
+
+    # 4) 符号链接替换（内容哈希仍匹配）：显式类型门拒绝
+    w="$WORK_ROOT/t56-symlink"; f=$(new_fixture "$w")
+    pkg=$(phys "$(printf '%s' "$f" | jget pkg)")
+    CUR_LAUNCHER="$pkg/launcher.command"
+    mv "$pkg/tools/console-filter.awk" "$pkg/tools/filter-held.awk"
+    ln -s filter-held.awk "$pkg/tools/console-filter.awk"
+    r=$(run_launcher --check-only)
+    out_contains "console/symlinked-helper-fail" "${r%%$'\n'*}" "1"
+    out_contains "console/symlinked-helper-msg" "$r" "符号链接"
+}
+
 # ---------------- 启动器：原生库下载隔离（quarantine）与显式信任 ----------------
 
 quarantine_set() { # $1...=夹具文件；打真实下载隔离属性（只用于合成夹具）
@@ -1433,7 +2260,7 @@ test_trust_symlink_and_hardlink_refusals() {
 test_builder_zip_content_and_determinism() {
     local w="$WORK_ROOT/t21"
     setup_builder_fixture "$w"
-    [ "$B_FILES" = "16" ] && ok "zip/inventory-count" || bad "zip/inventory-count（${B_FILES}）"
+    [ "$B_FILES" = "17" ] && ok "zip/inventory-count" || bad "zip/inventory-count（${B_FILES}）"
     builder_env "$BH/build_package.py" "$B_SHA" --input-root "$B_INPUT" \
         --notices-source "$B_NOTICES" --game-app "$B_GAME" --lock "$B_LOCK" \
         --output "$w/a.zip" >/dev/null 2>&1 \
@@ -1444,7 +2271,7 @@ test_builder_zip_content_and_determinism() {
         && ok "zip/build2-ok" || bad "zip/build2-ok"
     cmp -s "$w/a.zip" "$w/b.zip" && ok "zip/deterministic" || bad "zip/deterministic"
 
-    if "$PY" - "$w/a.zip" "$B_GAME" <<'PYEOF'
+    if "$PY" - "$w/a.zip" "$B_GAME" "$PKG_DIR/tools/console-filter.awk" <<'PYEOF'
 import hashlib, json, sys, zipfile
 zf = zipfile.ZipFile(sys.argv[1])
 names = zf.namelist()
@@ -1463,12 +2290,19 @@ for n in names:
 need = [root + "game-lock.json", root + "package-manifest.json", root + "SHA256SUMS",
         root + "launcher.command", root + "README.md", root + "defaults/BepInEx.cfg",
         root + "third-party/Dobby-LICENSE", root + "REBUILD.md", root + "VALIDATION.md",
-        root + "tools/sanitize_codeview.py",
+        root + "tools/sanitize_codeview.py", root + "tools/console-filter.awk",
         root + "metadata-sanitization-receipts/receipt.json",
         root + "BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll",
         root + "libdoorstop.dylib", root + "dotnet/libcoreclr.dylib"]
 for n in need:
     assert n in names, "缺少 " + n
+# 终端过滤器必须逐字节等于仓库源文件（不可变 helper 打包正确性）
+filter_src = open(sys.argv[3], "rb").read()
+filter_zip = zf.read(root + "tools/console-filter.awk")
+assert hashlib.sha256(filter_zip).hexdigest() == hashlib.sha256(filter_src).hexdigest(), \
+    "console-filter.awk 内容不符"
+zi = [z for z in zf.infolist() if z.filename == root + "tools/console-filter.awk"][0]
+assert ((zi.external_attr >> 16) & 0o777) == 0o644, "console-filter.awk 权限错误"
 gl = json.loads(zf.read(root + "game-lock.json").decode("utf-8"))
 assert "allow_test_overrides" not in gl, "game-lock 泄漏测试通道"
 assert set(gl) == {"schema", "assembly_sha256", "executable_sha256", "metadata_sha256",
@@ -1484,7 +2318,7 @@ pm = json.loads(zf.read(root + "package-manifest.json").decode("utf-8"))
 assert pm["package"]["framework_archive"] == "9027335"
 assert pm["game"]["source_tag"] == "1088b9c"
 assert pm["generated"] == ["SHA256SUMS", "game-lock.json", "package-manifest.json"]
-assert len(pm["payload"]) == 16, "payload 条数 %d" % len(pm["payload"])
+assert len(pm["payload"]) == 17, "payload 条数 %d" % len(pm["payload"])
 for e in pm["payload"]:
     assert set(e) == {"path", "sha256", "size", "mode", "source"}, "payload 字段: %r" % e
     data = zf.read(root + e["path"])
@@ -1613,7 +2447,7 @@ test_builder_emit_template() {
     n=$("$PY" -c 'import json,sys;print(len(json.load(open(sys.argv[1]))["files"]))' "$w/candidate.json")
     paths="$("$PY" -c 'import json,sys;print(" ".join(f["path"] for f in json.load(open(sys.argv[1]))["files"]))' "$w/candidate.json")"
     case "$paths" in
-        *REBUILD.md*|*tools/sanitize_codeview.py*) ok "template/operator-materials" ;;
+        *REBUILD.md*|*tools/sanitize_codeview.py*|*tools/console-filter.awk*) ok "template/operator-materials" ;;
         *) bad "template/operator-materials（未包含 REBUILD.md/tools 材料）" ;;
     esac
     case "$paths" in

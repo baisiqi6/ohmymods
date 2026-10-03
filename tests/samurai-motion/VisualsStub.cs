@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace KingdomEnhancedMod;
 // Records the visual API boundary only. Rendering behavior is tested separately against the real helper.
 internal static class SamuraiDashVisuals
@@ -17,9 +19,11 @@ internal static class SamuraiDashVisuals
  internal static void Reset(){Begins.Clear();Current.Clear();EndCalls.Clear();Clears.Clear();}
 }
 
+// 诊断边界替身：记录有界事件行，供饱和/父级解析/传送豁免等记账断言。
 internal static class SamuraiDashDiagnostics
 {
- internal sealed class Trace {}
- internal static Trace Begin(Knight owner, bool returning, float now) => null;
- internal static void Write(Trace trace, string eventName, string details) {}
+ internal sealed class Trace { public readonly List<string> Lines = new(); }
+ internal static Trace Begin(Knight owner, bool returning, float now) => new();
+ internal static void Write(Trace trace, string eventName, string details)
+ { if (trace == null) return; trace.Lines.Add(eventName + ": " + details); }
 }

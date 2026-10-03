@@ -434,6 +434,8 @@ public class Archer : UnityEngine.Behaviour, Formation.IFormationUnit
     public Action<Formation> ReplaceArraysOnRecruit;
     public int ConvertToSoldierCalls;
     public int OnLeaveCalls;
+    /// <summary>Runs inside the native ConvertToSoldier callback window (test injection).</summary>
+    public Action<Archer> OnConvertedToSoldierCallback;
 
     public Formation GetFormation() => _formation;
     public bool ShouldPlayerControl() => playerControlled;
@@ -468,6 +470,7 @@ public class Archer : UnityEngine.Behaviour, Formation.IFormationUnit
     public void ConvertToSoldier()
     {
         ConvertToSoldierCalls++;
+        if (OnConvertedToSoldierCallback != null) OnConvertedToSoldierCallback(this);
         if (ThrowOnConvertToSoldier) throw new InvalidOperationException("scripted ConvertToSoldier failure");
     }
 
@@ -650,6 +653,9 @@ namespace KingdomEnhancedMod
         internal static bool EnabledFlag = true;
         internal static bool InWorldResult = true;
 
+        internal static bool TrackAllowed =>
+            EnabledFlag && NetworkBigBoss.HasWorldAuth && !NetworkBigBoss.IsOnline;
+
         internal static bool Enabled =>
             EnabledFlag && ModConfig.Enabled.Value && ModConfig.MusketeerEnabled.Value
             && NetworkBigBoss.HasWorldAuth && !NetworkBigBoss.IsOnline;
@@ -674,17 +680,63 @@ namespace KingdomEnhancedMod
 
     /// <summary>
     /// Real: il2cpp/CrossbowmanLifecycle.cs identity reader (reusable marker + live global switch,
-    /// fail-closed). The stub mirrors only the shape the guard consumes: an instance marker (set
-    /// here) behind the global mod switch. Default off so existing pipeline scenarios keep their
-    /// native outcomes; flip IdentityEnabled and register the archer to exercise the exclusion.
+    /// fail-closed). The stub mirrors only the shape the guard and the crossbow row consume: an
+    /// instance marker behind the global mod switch plus the bounded owned registry and the stable
+    /// career-life token the formation receipts capture. Default off so existing pipeline
+    /// scenarios keep their native outcomes; flip IdentityEnabled and register the archer to
+    /// exercise the exclusion or the crossbow row.
     /// </summary>
     internal static class CrossbowmanLifecycle
     {
         internal static readonly HashSet<Archer> Crossbowmen = new();
+        internal static readonly Dictionary<Archer, long> Lives = new();
         internal static bool IdentityEnabled;
+        internal static long NextLife = 1L;
 
         internal static bool IsCrossbowman(Archer archer)
             => IdentityEnabled && ModConfig.Enabled.Value && archer != null && Crossbowmen.Contains(archer);
+
+        internal static int CopyOwnedArchers(List<Archer> output)
+        {
+            output.Clear();
+            if (!IdentityEnabled) return 0;
+            output.AddRange(Crossbowmen);
+            return output.Count;
+        }
+
+        internal static long FormationLife(Archer archer)
+            => archer != null && Lives.TryGetValue(archer, out long life) ? life : 0L;
+
+        internal static bool MatchesFormationLife(Archer archer, long life)
+            => life > 0L && FormationLife(archer) == life;
+
+        /// <summary>Test helper: same GameObject re-armed as a new pool life.</summary>
+        internal static void ArmNewLife(Archer archer) => Lives[archer] = NextLife++;
+
+        internal static void Reset()
+        {
+            Crossbowmen.Clear();
+            Lives.Clear();
+            IdentityEnabled = false;
+            NextLife = 1L;
+        }
+    }
+
+    /// <summary>
+    /// Real: il2cpp/PatchRoles_Crossbowman.cs host reconcile boundary. The crossbow row calls it
+    /// once after a confirmed directed seat; AfterSeatedReconcile is the suite injection point for
+    /// synchronous callbacks firing inside that reconcile.
+    /// </summary>
+    internal static class PatchRoles_Crossbowman
+    {
+        internal static int SeatedReconciles;
+        internal static Action<Archer> AfterSeatedReconcile;
+
+        internal static void OnArcherEnablePostfix(Archer archer)
+        {
+            if (CrossbowmanLifecycle.IsCrossbowman(archer)) SeatedReconciles++;
+            if (AfterSeatedReconcile != null) AfterSeatedReconcile(archer);
+        }
     }
 
     /// <summary>
