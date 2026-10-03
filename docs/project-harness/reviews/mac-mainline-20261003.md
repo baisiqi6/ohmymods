@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | 接收的盾卫候选 | #51 / issue-51 | 职业、盾具店、持久化、耐久4及职业互斥接线已接收 | ARM完整组合编译；继承专项测试按原回执保留 | 包含在正常ARM组合；Mac领盾、耐久/退职、读档与联机尚未专项验收 |
 | 银行公共余额 | #97 / issue-97 | 同存档/战役共享、跨战役隔离、原生保存边界和现有经济责任保持 | 本批state28、capture5、recovery5（相关SharedBank源保持）；既有55核心与七继承回归另有历史回执 | 7dcdbf52曾确认启动加载；26f286d6及后继b0602679均仅安装/check-only，玩家跨岛提款/隔离完整现场待验 |
-| 英雄购买/责任 | #85 / issue-85 | 不上船、旧付款保留与新购买/异步保存门协同 | 本批core47、lands24、carry22（相关Hero源保持）；组合22另复跑 | 包含在正常ARM组合；反馈问题的完整实际购买/保存闭环待验 |
+| 英雄购买/责任 | #85 / issue-85 | 不上船、旧付款保留与新购买/异步保存门协同 | 本批core47、lands24、carry22（相关Hero源保持）；组合22承接#100后复跑通过 | 包含在正常ARM组合；反馈问题的完整实际购买/保存闭环待验 |
 | 跨世界坐骑、扩岛与地图 | #98 / issue-98 | 16原生获取/能力依赖、physical11/UI10、原生地理关系及全纸域坐骑两行布局 | 本批portable纯函数2950（地图源保持）；此前真实船标耦合源/坐标检查在282/300宽=.60，314/400=.70，16完整无碰撞 | 正常组合已安装；本次最终地图像素/点击和land11完整往返、骑乘技能、保存重载尚待用户 |
 | 缩放稳定性与农舍猫接收修订 | #29；既有greek-scale-scope-20260914 / fleet-retreat-cats-20260912记录 | 继承候选与相关测试收录；不是#99的身高+5%增量 | 原接收/测试回执与本完整ARM构建分开 | 不把本次源码接收当作新实机完成，既有owner不变 |
 | 实玩Bug / 新银行家范围 | #99 / #100 | 独立PR#102/#103均已合并，现为共享base；本PR保留其已接纳接缝 | 原切片回执与本次组合回归分开 | 原维护会话已装累计b0602679，13受保护文件hash保持，实玩pending |
@@ -26,7 +26,7 @@
 
 原审阅head复跑旧哥布林bridge197、visuals23/0；承接PR#102后新head的bridge203、visuals23/0和height19已复跑通过；lifecycle11以已有盾卫边界stub引用作测试接线后复跑通过，分别留证（含作者manifest）；地图pure2950/0，fixture仅保留10个原生岛簇坐标/尺寸与必要图标索引/尺寸元数据，不包含游戏bitmap、源码dump、玩家文件或私人会话。源/坐标夹具检查不等同真实Unity屏幕、原生航行或玩法闭环。state fixture以scope-local `DOTNET_ROLL_FORWARD=Major` 在现有.NET8 runtime运行，不安装额外runtime。
 
-承接#100后，组合接缝四套独立复跑：fixed-foundations30、coin-courier-economy55、greek-bank-scope35、greek-bank-assistants-scope73全通过。此前17+2项失败为旧反射Harness缺少HarmonyX的第三个`ref __runOriginal`实参，已仅在测试桥补`true`；全部场景与行为断言保留，生产Banker规范换行后与维护者已审组合完全一致。
+承接#100后，组合接缝四套独立复跑：fixed-foundations30、coin-courier-economy55、greek-bank-scope35、greek-bank-assistants-scope73全通过；英雄与银行组合22另以新依赖接线复跑通过，Program全部场景/断言保持。此前17+2项失败为旧反射Harness缺少HarmonyX的第三个`ref __runOriginal`实参，已仅在测试桥补`true`；全部场景与行为断言保留，生产Banker规范换行后与维护者已审组合完全一致。
 
 ## 可复跑回归
 
