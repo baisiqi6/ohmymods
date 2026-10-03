@@ -15,7 +15,8 @@ namespace KingdomEnhancedMod
     /// 1) 读入源 alpha，取**最大 4-连通岛面**（排除零星外点/噪点）；
     /// 2) 用该岛面 bbox 的实际宽高比，等比 nearest 缩放到目标逻辑宽（默认 224，不固定 2.4、不 sx!=sy）；
     /// 3) 6 档灰调 + binary alpha（同一 clean alpha 生成 outline，1px 外环、同画布/pivot/PPU、
-    ///    透明 padding 不截边）；另存岸内 mask 供布局终检；
+    ///    透明 padding 不截边）；另存岸内 mask（原语义，供租约/画布事实）与**顶面 PlacementMask**
+    ///    （alpha ∩ 保守下缘轮廓、内缩 PlacementInset 像素；仅扩展岛图标布局用它做可站立终检）；
     /// 4) 不逐帧 decode/扫描；PNG 原 bytes 只读不写；不改 native tint/reveal/color。
     ///
     /// 租约（owner/代际身份，不只是“共享 sprite 相等”）：
@@ -61,6 +62,95 @@ namespace KingdomEnhancedMod
 
         private static byte NearestTone(int gray) => TonePalette[NearestToneIndex(gray)];
 
+        // ------------------------------------------------------------------ 顶面（放置）mask
+
+        /// <summary>
+        /// 顶面下缘轮廓（保守只读节点；x=画布宽归一，y=顶向下高归一，均为 0..1）。
+        /// 与 alpha 相交后再按 <see cref="PlacementInset"/> 像素内缩 → PlacementMask（可站立面）：
+        /// 排除立体崖面、岸缘与贴边区域；原 Mask（alpha）不因此改变（shore/outline 仍用原 Mask）。
+        /// 节点取自独立审查 review/scatter-design 的保守手工下缘（同表已证 16 项 @.60 可行）。
+        /// </summary>
+        internal static readonly float[] PlacementCutX =
+        {
+            0f, 0.035088f, 0.061404f, 0.105263f, 0.131579f, 0.157895f, 0.192982f, 0.22807f, 0.263158f,
+            0.289474f, 0.337719f, 0.368421f, 0.403509f, 0.434211f, 0.482456f, 0.526316f, 0.570175f,
+            0.635965f, 0.714912f, 0.811404f, 0.885965f, 0.951754f, 0.982456f, 1f
+        };
+
+        internal static readonly float[] PlacementCutY =
+        {
+            0.333333f, 0.357143f, 0.416667f, 0.47619f, 0.52381f, 0.642857f, 0.654762f, 0.619048f,
+            0.571429f, 0.547619f, 0.535714f, 0.571429f, 0.630952f, 0.738095f, 0.77381f, 0.797619f,
+            0.785714f, 0.72619f, 0.702381f, 0.678571f, 0.630952f, 0.547619f, 0.511905f, 0.47619f
+        };
+
+        /// <summary>顶面 mask 的统一内缩（prepared 像素；Chebyshev 半径）。</summary>
+        internal const int PlacementInset = 2;
+
+        /// <summary>切边界的浮点容差（prepared 像素；仅吸收节点归一化的舍入差）。</summary>
+        internal const float CutTolerance = 1e-3f;
+
+        /// <summary>给定画布列 x 的顶面下缘 y（顶向下像素，线性插值；越界取端点）。
+        /// 归一化与已审 probe 表同口径：x_norm = x / width、y_px = y_norm * height
+        /// （width/height 为画布尺寸；真实画布 228×84 时逐值与 review 的手工下缘一致）。</summary>
+        internal static float PlacementCutAt(int x, int width, int height)
+        {
+            if (width <= 0 || height <= 0) return 0f;
+            float xn = x / (float)width;
+            int last = PlacementCutX.Length - 1;
+            if (xn <= PlacementCutX[0]) return PlacementCutY[0] * height;
+            for (int i = 1; i <= last; i++)
+            {
+                if (xn > PlacementCutX[i]) continue;
+                float span = PlacementCutX[i] - PlacementCutX[i - 1];
+                float t = span > 0f ? (xn - PlacementCutX[i - 1]) / span : 0f;
+                return (PlacementCutY[i - 1] + (PlacementCutY[i] - PlacementCutY[i - 1]) * t) * height;
+            }
+            return PlacementCutY[last] * height;
+        }
+
+        /// <summary>
+        /// 顶面（可放置）mask：alpha ∩ 下缘轮廓以上 → Chebyshev 半径 <see cref="PlacementInset"/> 内缩
+        /// （仅当整个邻域都在交集内才保留）。输入行序 = prep 画布（index 0 = 图像底部）。
+        /// 纯函数、确定性；null 输入返回 null（调用方 fail-closed）。
+        /// </summary>
+        internal static bool[] BuildPlacementMask(bool[] shoreMask, int width, int height)
+        {
+            if (shoreMask == null || width <= 0 || height <= 0 || shoreMask.Length < width * height) return null;
+            var raw = new bool[width * height];
+            for (int y = 0; y < height; y++)
+            {
+                int topDown = height - 1 - y;
+                for (int x = 0; x < width; x++)
+                {
+                    // 1e-3px 边界容差：归一化节点在整数列上可能因 float 舍入差 <1e-3（如 t=0.99998），
+                    // 不得翻转"是否在切线上"的判定；真正的保守性由 PlacementInset 的 2px 内缩保证。
+                    raw[y * width + x] = shoreMask[y * width + x] &&
+                        topDown <= PlacementCutAt(x, width, height) + CutTolerance;
+                }
+            }
+            var eroded = new bool[width * height];
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    bool keep = raw[y * width + x];
+                    for (int dy = -PlacementInset; dy <= PlacementInset && keep; dy++)
+                    {
+                        int yy = y + dy;
+                        if (yy < 0 || yy >= height) { keep = false; break; }
+                        for (int dx = -PlacementInset; dx <= PlacementInset; dx++)
+                        {
+                            int xx = x + dx;
+                            if (xx < 0 || xx >= width || !raw[yy * width + xx]) { keep = false; break; }
+                        }
+                    }
+                    eroded[y * width + x] = keep;
+                }
+            }
+            return eroded;
+        }
+
         // ------------------------------------------------------------------ 像素准备（纯函数，可离线测试）
 
         internal sealed class ShorePrep
@@ -76,7 +166,9 @@ namespace KingdomEnhancedMod
             internal int Height;
             internal Color32[] Shore;       // 6 档灰 + binary alpha
             internal Color32[] Outline;     // 同 clean alpha 的 1px 外环
-            internal bool[] Mask;           // 岸内（binary alpha>0）
+            internal bool[] Mask;           // 岸内（binary alpha>0）——shore/outline/租约语义不变
+            internal bool[] PlacementMask;  // 顶面可放置面（alpha ∩ 顶面下缘轮廓，内缩 PlacementInset）
+            internal int PlacementPixels;   // PlacementMask 计数（审计/日志）
             internal int IslandPixels;      // 最大连通岛面像素数
             internal int ComponentCount;
             internal int GrayMin;
@@ -199,6 +291,13 @@ namespace KingdomEnhancedMod
             int levelsUsed = 0;
             for (int i = 0; i < ToneLevels; i++) if (used[i]) levelsUsed++;
 
+            bool[] placementMask = BuildPlacementMask(mask, outW, outH);
+            int placementPixels = 0;
+            if (placementMask != null)
+            {
+                for (int i = 0; i < placementMask.Length; i++) if (placementMask[i]) placementPixels++;
+            }
+
             return new ShorePrep
             {
                 SrcWidth = width,
@@ -213,6 +312,8 @@ namespace KingdomEnhancedMod
                 Shore = shore,
                 Outline = outline,
                 Mask = mask,
+                PlacementMask = placementMask,
+                PlacementPixels = placementPixels,
                 IslandPixels = islandPixels,
                 ComponentCount = components,
                 GrayMin = grayMin,
@@ -307,7 +408,7 @@ namespace KingdomEnhancedMod
                 Info("shore ready canvas=" + prep.Width + "x" + prep.Height + " bbox=" + prep.BboxWidth + "x" +
                      prep.BboxHeight + " aspect=" + prep.Aspect.ToString("0.###") +
                      " levels=" + prep.LevelsUsed + " island=" + prep.IslandPixels +
-                     " comps=" + prep.ComponentCount);
+                     " placement=" + prep.PlacementPixels + " comps=" + prep.ComponentCount);
                 return true;
             }
             catch (Exception e)

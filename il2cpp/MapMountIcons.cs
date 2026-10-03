@@ -71,7 +71,6 @@ namespace KingdomEnhancedMod
         private const int DynStatue = 4;
 
         private const int OverviewButtonBandPx = 18;   // paper 顶部原生按钮带（实测 [Map] 按钮占位）
-        private const float StatusLaneWidth = 20f;     // r15：扩展 banner 右侧状态/船标预算车道（真实 box 仍参与碰撞）
         /// <summary>总览图标可读下限档：0.36（不再自动降到 0.2 超小档）。</summary>
         private const int OverviewScaleCount = MapResourceIconPlanner.DefaultScaleCount;
 
@@ -118,8 +117,8 @@ namespace KingdomEnhancedMod
         // 只在真正 owner 失效/Clear/OnDisable 时按 exact menu 门收尾（旧 sender 不得撤新 owner）。
         private static object _shoreOwnerToken;                    // 当前 shore/detail 租约 owner（canonical token）
         private static MapTimelineMenuGreece _shoreOwnerMenu;       // 绑定时捕获的 exact menu（Clear/OnDisable 收尾主门）
-        private static MapShoreMask _shoreMask;                    // 岸内 mask（来自 art.Prep；按 prep 实例缓存）
-        private static object _shoreMaskSource;
+        private static MapShoreMask _placementMask;                // 顶面 PlacementMask（来自 art.Prep；按 prep 实例缓存）
+        private static object _placementMaskSource;
         private static UILand _detailShapeLand;                    // 已应用 detail 形状的 exact 实例
         private static object _detailShapeToken;                   // detail 应用时的 canonical token
         private static Image _detailShapeOutlineImage;             // detail 绑定时捕获的 outline 原生 Image（四图事务）
@@ -558,8 +557,8 @@ namespace KingdomEnhancedMod
             // 几何归还先行（失败重试不依赖几何状态）
             _detailExcludedRects.Clear();
             RestoreDetailSnapshots();
-            _shoreMask = null;
-            _shoreMaskSource = null;
+            _placementMask = null;
+            _placementMaskSource = null;
             bool outstanding = (token != null && MapExtensionIslandArt.HasOutstanding(token)) ||
                 (detailToken != null && !ReferenceEquals(detailToken, token) &&
                  MapExtensionIslandArt.HasOutstanding(detailToken));
@@ -1553,8 +1552,9 @@ namespace KingdomEnhancedMod
         }
 
         /// <summary>
-        /// r15：扩展簇专属规划——两行（优先 0.7，允许 0.6/0.42/0.36 降级）铺在 banner 内；
-        /// 只有 exact11 自己的 terrain/outline/Button 背景不算障碍，其余 native 图形（船标/灯塔/状态）仍是障碍。
+        /// 扩展簇专属规划（自由错落）：完整图标区 = banner 内缩 margin（不再预留空状态车道；船标/灯塔/
+        /// 状态等真实 native 图形仍作为 blockers 参与碰撞）。逐像素可放置终检用**顶面 PlacementMask**
+        /// （art.Prep.PlacementMask，排除崖面/岸缘与贴边像素），shoreFrame 为其 paper 映射框。
         /// 放不下 → failed&gt;0，调用方整体 fallback（绝不部分显示/截断）。
         /// </summary>
         private static void PlanExtensionIsland(RectTransform paper, OverviewEntry entry,
@@ -1565,7 +1565,7 @@ namespace KingdomEnhancedMod
             if (paper == null || entry == null || entry.BannerArea.Width <= 1f) return;
             MapIconBox shoreFrame = entry.TargetArtBox;
             if (shoreFrame.Width <= 1f || shoreFrame.Height <= 1f) return;
-            if (!EnsureShoreMask()) return;
+            if (!EnsurePlacementMask()) return;
 
             var native = new List<MapIconBox>(240);
             CollectNativeBoxes(paper, paper, native, true, _bannerExcludedRects);
@@ -1575,51 +1575,28 @@ namespace KingdomEnhancedMod
                 if (BoxesIntersect(native[i], entry.BannerArea, 0.01f)) blockers.Add(native[i]);
             }
 
-            // 图标区 = 实际 shore 显示框内缩 margin；右侧让出状态/船标车道（保留 r15 语义）；
-            // 岸内终检用同一 shoreFrame（paper 坐标）+ 实际 Sprite.rect 画布 mask（含透明 padding）。
-            MapIconBox reserved = MapWorldLayout.IconAreaOf(shoreFrame, true, StatusLaneWidth);
-            MapIconBox full = MapWorldLayout.IconAreaOf(shoreFrame, false, 0f);
-            // R5/独立实测：reserved 先成功会遮蔽 full 的更高可读 scale。两个候选都用真实 blockers + 岸内 mask
-            // 规划，取**真实可达 scale 更高**者；相同 scale 保持 reserved 优先。绝不部分/落水显示。
-            var reservedPlacements = new List<MapIconPlacement>(requests.Count);
-            bool reservedOk = MapExtensionIslandLayout.TryPlan(reserved, requests, blockers, shoreFrame, _shoreMask,
-                reservedPlacements, out float reservedScale, out _);
-            if (reservedOk)
-            {
-                var fullPlacements = new List<MapIconPlacement>(requests.Count);
-                bool fullOk = MapExtensionIslandLayout.TryPlan(full, requests, blockers, shoreFrame, _shoreMask,
-                    fullPlacements, out float fullScale, out _);
-                if (fullOk && fullScale > reservedScale + 0.0001f)
-                {
-                    placements.AddRange(fullPlacements);
-                    usedScale = fullScale;
-                    failed = 0;
-                    return;
-                }
-                placements.AddRange(reservedPlacements);
-                usedScale = reservedScale;
-                failed = 0;
-                return;
-            }
-            if (MapExtensionIslandLayout.TryPlan(full, requests, blockers, shoreFrame, _shoreMask, placements,
-                    out usedScale, out failed))
+            MapIconBox area = MapWorldLayout.IconAreaOf(shoreFrame);
+            // 正常 world 视口同样显式 .60 下限（与 detail 一致）：低于可读下限不再算成功，
+            // 真实容量不足一律整组 fallback，绝不让 .36–.50 的降级档冒充正常验收。
+            if (MapExtensionIslandLayout.TryPlan(area, requests, blockers, shoreFrame, _placementMask,
+                    placements, out usedScale, out failed, MapExtensionIslandLayout.PreferScale))
             {
                 return;
             }
             placements.Clear();
             MapIconLog.Warn("extension island capacity failed: requests=" + requests.Count +
-                " shore=[" + Fmt(shoreFrame) + "] blockers=" + blockers.Count +
+                " area=[" + Fmt(area) + "] shore=[" + Fmt(shoreFrame) + "] blockers=" + blockers.Count +
                 "; display suppressed (no partial)");
         }
 
-        /// <summary>岸内 mask 缓存（来自 art.Prep 的 clean alpha；按 prep 实例缓存，art Reset 后自动重建）。</summary>
-        private static bool EnsureShoreMask()
+        /// <summary>顶面 PlacementMask 缓存（来自 art.Prep.PlacementMask；按 prep 实例缓存，art Reset 后自动重建）。</summary>
+        private static bool EnsurePlacementMask()
         {
             MapExtensionIslandArt.ShorePrep prep = MapExtensionIslandArt.Prep;
-            if (prep == null || prep.Mask == null || prep.Width <= 0 || prep.Height <= 0) return false;
-            if (_shoreMask != null && ReferenceEquals(_shoreMaskSource, prep)) return true;
-            _shoreMask = new MapShoreMask(prep.Width, prep.Height, prep.Mask);
-            _shoreMaskSource = prep;
+            if (prep == null || prep.PlacementMask == null || prep.Width <= 0 || prep.Height <= 0) return false;
+            if (_placementMask != null && ReferenceEquals(_placementMaskSource, prep)) return true;
+            _placementMask = new MapShoreMask(prep.Width, prep.Height, prep.PlacementMask);
+            _placementMaskSource = prep;
             return true;
         }
 
@@ -1780,7 +1757,7 @@ namespace KingdomEnhancedMod
         /// <summary>
         /// exact extension detail 的图标规划（与 world 同算法/同 mask）：用**真正绘制的 shore RectTransform box**
         /// （Sprite.rect 228×84 同比 scale）作为 icon area（∩ page 282×196），native 图形（排除自有 shore/outline）
-        /// 作 blockers，`MapExtensionIslandLayout` 三行 + 逐像素岸内终检；scale 下限 = PreferScale(0.6)。
+        /// 作 blockers，`MapExtensionIslandLayout` 自由错落 + 逐像素**顶面 PlacementMask**终检；scale 下限 = PreferScale(0.6)。
         /// 失败 → false（调用方整体 fallback，绝不部分展示/绝不退回 generic）。
         /// </summary>
         private static bool PlanExtensionDetailIsland(UILand land, List<MapIconRequest> requests,
@@ -1798,7 +1775,7 @@ namespace KingdomEnhancedMod
                 if (art == null) return false;
                 if (!TryLocalBox(landRect, art, out MapIconBox shoreBox)) return false;
                 if (shoreBox.Width <= 1f || shoreBox.Height <= 1f) return false;
-                if (!EnsureShoreMask()) return false;
+                if (!EnsurePlacementMask()) return false;
 
                 // 可用区 = 岸线框内缩 ∩ page（page = 282×196 居中于 land rect：box 空间中心 ±141/±98）；
                 // footprint 必须同时在全 alpha 岸内（mask 终检）。
@@ -1814,7 +1791,7 @@ namespace KingdomEnhancedMod
                     Math.Min(shoreBox.X1 - inset, page.X1), Math.Min(shoreBox.Y1 - inset, page.Y1));
                 var blockers = new List<MapIconBox>(24);
                 CollectNativeBoxes(landRect, land.transform, blockers, true, _detailExcludedRects);
-                if (!MapExtensionIslandLayout.TryPlan(area, requests, blockers, shoreBox, _shoreMask,
+                if (!MapExtensionIslandLayout.TryPlan(area, requests, blockers, shoreBox, _placementMask,
                         placements, out scale, out failed, MapExtensionIslandLayout.PreferScale))
                 {
                     placements.Clear();
@@ -1854,7 +1831,7 @@ namespace KingdomEnhancedMod
             }
             else if (SameInstance(_detailShapeLand, land) && _detailShapeToken != null)
             {
-                // exact extension detail：与 world 同一 alpha 三行算法（真正绘制的 shore box + 同一 MapShoreMask +
+                // exact extension detail：与 world 同一自由错落算法（真正绘制的 shore box + 同一顶面 PlacementMask +
                 // page 282×196 + native sidebar/Boat blockers，min scale = PreferScale）。全 16 唯一 TypeId/Index
                 // 或**整体 fallback**；绝不退回 generic 排布、绝不部分展示。
                 if (!PlanExtensionDetailIsland(land, requests, placements, out scale, out failed))

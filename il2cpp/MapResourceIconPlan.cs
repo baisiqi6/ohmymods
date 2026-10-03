@@ -585,17 +585,14 @@ namespace KingdomEnhancedMod
             => Math.Abs(a.X0 - b.X0) <= tol && Math.Abs(a.Y0 - b.Y0) <= tol &&
                Math.Abs(a.X1 - b.X1) <= tol && Math.Abs(a.Y1 - b.Y1) <= tol;
 
-        /// <summary>扩展 banner 的图标区（banner 区内缩 margin；需要状态车道时右侧让出 reserve 宽）。</summary>
-        internal static MapIconBox IconAreaOf(in MapIconBox banner, bool reserveStatusLane, float statusLaneWidth)
+        /// <summary>
+        /// 扩展 banner 的图标区（banner 区内缩 margin）。用户 2026-10-03 直接要求取消旧的
+        /// “同档 reserved 空状态车道优先”：不再为状态/船标预留空车道，真实 native 图形仍以 blockers 参与碰撞。
+        /// </summary>
+        internal static MapIconBox IconAreaOf(in MapIconBox banner)
         {
-            float x1 = banner.X1 - MapExtensionIslandLayout.Margin;
-            if (reserveStatusLane)
-            {
-                x1 -= statusLaneWidth;
-                if (x1 <= banner.X0) x1 = banner.X0 + banner.Width * 0.5f;
-            }
             return new MapIconBox(banner.X0 + MapExtensionIslandLayout.Margin, banner.Y0 + MapExtensionIslandLayout.Margin,
-                x1, banner.Y1 - MapExtensionIslandLayout.Margin);
+                banner.X1 - MapExtensionIslandLayout.Margin, banner.Y1 - MapExtensionIslandLayout.Margin);
         }
     }
 
@@ -717,122 +714,78 @@ namespace KingdomEnhancedMod
     }
 
     /// <summary>
-    /// 扩展岛（exact 登记 physical11 总览簇）专属：底部带内三行 6/5/5（16 项真实容量）。
-    /// 只服务扩展岛；原十岛继续用 MapOverviewLayout/MapIconRegionPlanner（本类不改它们的常量/输出）。
-    /// 语义：真实请求**全部**放下才返回 true（绝不部分显示/截断/补假）；`RequestIndex` 稳定指向原 requests 下标；
-    /// 首选 ≥PreferScale（0.6），仅真正容量不足按 ScaleLadder 降到 MinScale（0.36）为止，不再更低。
-    /// 该岛的**已确认自有底图**（新 shore/outline/同框 button）不算障碍，由调用方从 blockers 中排除；
-    /// 船标/灯塔/状态等语义障碍仍作为 blockers 参与边界与碰撞终检。
-    /// 岸内终检：传入 shoreFrame + MapShoreMask 时，每个图标 footprint 必须**逐像素**位于岸内
-    /// （只查 4 角/bbox 不够——中心 1px 水洞也会被拒绝）。
+    /// 扩展岛（exact 登记 physical11 总览簇）专属：**岛内自由错落**（用户 2026-10-03 直接要求取代
+    /// 三行/6,5,5 —— 完整剪影位于岛内顶面、不成行、右侧实际利用）。
+    /// 只服务扩展岛；原十岛继续用 MapOverviewLayout/MapIconRegionPlanner（不改其常量/输出）。
+    /// 语义：
+    /// - 请求按稳定序（面积降→高降→宽降→Kind→TypeId→ArrayIndex→原下标）排位，第 s 位固定使用第 s 个
+    ///   normalized preferred anchor（常量表；同输入逐值一致，与调用顺序无关）；
+    /// - 每槽可有一个固定 secondary anchor（有限回退：主锚被真实 blocker/已放置 footprint 挡住时使用）；
+    /// - 候选位置只落在整数 prepared 画布像素格（有 mask 时 = 画布像素；无 mask 的纯矩形调用用
+    ///   228×84 虚拟格）：确定性、按整格平移等变；
+    /// - **有界确定性局部修正**：以 preferred 为基点按 Chebyshev 半径逐环搜索（≤ SearchRadiusPx），
+    ///   取该环内 (距², 距¹, dy, dx) 字典序最小的可行点；无随机数、无无界搜索、无逐帧随机；
+    /// - 可行 = 完整 footprint 在 area 内 + 逐像素位于传入 mask（**顶面 PlacementMask**：中心 1px
+    ///   空洞/崖面像素都必须拒绝，只查 4 角/bbox 不够）+ 无 blocker 相交 + 与已放置 footprint 保持 Gutter；
+    /// - 真实请求**全部**放下才返回 true（绝不部分显示/截断/补假）；RequestIndex = 原 requests 下标；
+    /// - scale 取 ScaleLadder 上第一个全量可行档（≥ minScale）；失败 → placements 清空、failed = 全数。
+    /// 锚点常量由独立离线推导（review/scatter-design 的固定 seed probe 解为种子 + 确定性坐标下降；
+    /// 推导脚本与输出留 evidence/scatter-run/sim/），生产端只读常量、运行期零随机。
     /// </summary>
     internal static class MapExtensionIslandLayout
     {
         internal const float PreferScale = 0.6f;
         internal const float MinScale = 0.36f;
-        /// <summary>三行 6/5/5：单行上限 6、行数上限 3、总容量 18；16 项真实集 → 6/5/5。</summary>
-        internal const int MaxPerRow = 6;
-        internal const int MaxRows = 3;
-        internal const int MaxItems = MaxPerRow * MaxRows;
+        /// <summary>容量上限：真实集 16；>MaxItems 一律整体 fail-closed（不截断）。</summary>
+        internal const int MaxItems = 18;
         internal static readonly float[] ScaleLadder = { 1f, 0.85f, 0.7f, 0.6f, 0.5f, 0.42f, 0.36f };
-        /// <summary>行在可用区内的少量候选对齐（scale 主序）——用于避开真实船标/灯塔与岸线凹湾。</summary>
-        internal static readonly float[] RowAlignX = { 0.5f, 0f, 1f };   // 居中/靠左/靠右
-        internal static readonly float[] RowAlignY = { 0.5f, 0f, 1f };   // 居中/靠下/靠上
         internal const float Gutter = 1.5f;
         internal const float Margin = 1.5f;
+        /// <summary>有界修正半径（prepared 像素）：锚点=优选位置，只做有界邻域纠偏。</summary>
+        internal const int SearchRadiusPx = 20;
+        /// <summary>无 mask（纯矩形容量调用）时的虚拟像素格尺寸。</summary>
+        internal const int PlacementGridWidth = 228;
+        internal const int PlacementGridHeight = 84;
 
-        /// <summary>
-        /// 三行分组（新合同）：请求按（高降、宽降、原 index 升）稳定排序，做**高度降序的连续切分**
-        /// （16 项 → 6/5/5），枚举切点并取 (行高和, 最大行宽, 组大小不平衡) 字典序最小——行高和最小的
-        /// 分组把高项集中，与 review/compact-capacity-math.json 的 6/5/5 分组逐值一致。
-        /// 行 = 排序序列切片；RequestIndex 保持原下标。
-        /// </summary>
-        internal static bool TrySplitRows(List<MapIconRequest> requests, List<int> rowA, List<int> rowB, List<int> rowC,
-            out float widthA, out float widthB, out float widthC,
-            out float heightA, out float heightB, out float heightC)
+        /// <summary>固定 normalized preferred anchors（x = 列/宽，y = 自底向上/高），按稳定排位下标取用；
+        /// 18 槽 = 16 真实集 + 2 备用（真实集永不用到备用槽：17/18 项时才使用）。</summary>
+        internal static readonly float[] PreferredAnchorX =
         {
-            widthA = widthB = widthC = 0f;
-            heightA = heightB = heightC = 0f;
-            if (rowA == null || rowB == null || rowC == null) return false;
-            rowA.Clear();
-            rowB.Clear();
-            rowC.Clear();
-            if (requests == null || requests.Count == 0) return true;
-            int n = requests.Count;
-            if (n > MaxItems) return false;
+            0.307018f, 0.587719f, 0.798246f, 0.289474f, 0.412281f, 0.657895f, 0.149123f, 0.464912f,
+            0.201754f, 0.447368f, 0.5f, 0.885965f, 0.394737f, 0.552632f, 0.570175f, 0.745614f, 0.44f,
+            0.62f
+        };
 
-            var order = new List<int>(n);
-            for (int i = 0; i < n; i++) order.Add(i);
-            order.Sort((x, y) =>
-            {
-                MapIconRequest a = requests[x];
-                MapIconRequest b = requests[y];
-                if (a.Height != b.Height) return b.Height.CompareTo(a.Height);
-                if (a.Width != b.Width) return b.Width.CompareTo(a.Width);
-                return x.CompareTo(y);
-            });
-
-            int rows = (n + MaxPerRow - 1) / MaxPerRow;
-            if (rows > MaxRows) return false;
-            // 均衡切分（按排序序列，largest-first）：16 → 6/5/5、17 → 6/6/5、12 → 6/6、7 → 4/3……
-            // 与独立审查 review/compact-capacity-math.json 的 6/5/5 分组逐值一致（高项集中在第一行）。
-            int baseCount = n / rows;
-            int extra = n % rows;
-            int bestA = baseCount + (extra > 0 ? 1 : 0);
-            int bestB = rows >= 2 ? baseCount + (extra > 1 ? 1 : 0) : 0;
-            int bestC = rows >= 3 ? baseCount : 0;
-            FillRow(order, rowA, 0, bestA);
-            FillRow(order, rowB, bestA, bestB);
-            FillRow(order, rowC, bestA + bestB, bestC);
-            SliceMetrics(order, requests, 0, bestA, out widthA, out heightA);
-            SliceMetrics(order, requests, bestA, bestB, out widthB, out heightB);
-            SliceMetrics(order, requests, bestA + bestB, bestC, out widthC, out heightC);
-            return true;
-        }
-
-        private static void SliceMetrics(List<int> order, List<MapIconRequest> requests, int start, int count,
-            out float width, out float height)
+        internal static readonly float[] PreferredAnchorY =
         {
-            width = 0f;
-            height = 0f;
-            for (int i = start; i < start + count; i++)
-            {
-                MapIconRequest req = requests[order[i]];
-                width += req.Width;
-                if (req.Height > height) height = req.Height;
-            }
-        }
+            0.571429f, 0.666667f, 0.47619f, 0.809524f, 0.571429f, 0.380952f, 0.714286f, 0.333333f,
+            0.52381f, 0.47619f, 0.666667f, 0.47619f, 0.761905f, 0.285714f, 0.428571f, 0.714286f, 0.3f,
+            0.55f
+        };
 
-        private static void FillRow(List<int> order, List<int> row, int start, int count)
+        /// <summary>有限回退锚（NaN = 无第二候选）。仅主锚被真实障碍（如 detail 船标）挡住时需要。</summary>
+        internal static readonly float[] FallbackAnchorX =
         {
-            for (int i = start; i < start + count; i++) row.Add(order[i]);
-        }
+            0.3241f, 0.587719f, 0.815789f, 0.307018f, 0.41727f, 0.67249f, 0.184211f, 0.482456f,
+            0.710526f, 0.692982f, 0.47915f, 0.868421f, 0.30976f, 0.552632f, 0.75321f, 0.6067f,
+            float.NaN, float.NaN
+        };
 
-        /// <summary>
-        /// 所需外框（scale 下）：W = max 行宽×s + (max 行项数−1)×Gutter + 2×Margin；
-        /// H = Σ(行高)×s + (非空行数−1)×Gutter + 2×Margin。
-        /// </summary>
-        internal static void RequiredSize(float scale, float widthA, float widthB, float widthC,
-            float heightA, float heightB, float heightC, int countA, int countB, int countC,
-            out float width, out float height)
+        internal static readonly float[] FallbackAnchorY =
         {
-            float rowW = Math.Max(widthA, Math.Max(widthB, widthC)) * scale;
-            int maxCount = Math.Max(countA, Math.Max(countB, countC));
-            int rows = (countA > 0 ? 1 : 0) + (countB > 0 ? 1 : 0) + (countC > 0 ? 1 : 0);
-            width = rowW + Math.Max(0, maxCount - 1) * Gutter + 2f * Margin;
-            height = (heightA + heightB + heightC) * scale + Math.Max(0, rows - 1) * Gutter + 2f * Margin;
-        }
+            0.68176f, 0.619048f, 0.47619f, 0.809524f, 0.75545f, 0.37675f, 0.52381f, 0.333333f,
+            0.571429f, 0.571429f, 0.53151f, 0.47619f, 0.84683f, 0.333333f, 0.40282f, 0.69207f,
+            float.NaN, float.NaN
+        };
 
         internal static bool TryPlan(in MapIconBox area, List<MapIconRequest> requests, List<MapIconBox> blockers,
             List<MapIconPlacement> placements, out float scale, out int failed)
             => TryPlan(area, requests, blockers, default, null, placements, out scale, out failed);
 
         /// <summary>
-        /// 规划：area（paper 坐标）内按 ScaleLadder（降序，下限 MinScale）与行列对齐候选，三行放下全部请求。
-        /// shoreFrame + mask 非空时，每个图标 footprint 必须逐像素位于岸内
-        /// （mask 坐标系 = 实际 Sprite.rect 画布，含透明 padding）。
-        /// true ⇒ placements 完整（每项 RequestIndex = 原下标）；false ⇒ placements 清空、failed = requests.Count
-        /// （调用方整体 fallback，绝不部分展示）。
+        /// 规划入口。mask = 顶面 PlacementMask（MapShoreMask；含透明 padding 的画布像素坐标）；
+        /// shoreFrame = 该 mask 在 paper 的映射框。mask/shoreFrame 缺省时按纯矩形（虚拟像素格）容量语义。
+        /// true ⇒ placements 完整（每项 RequestIndex = 原下标）；false ⇒ placements 清空、failed = requests.Count。
         /// </summary>
         internal static bool TryPlan(in MapIconBox area, List<MapIconRequest> requests, List<MapIconBox> blockers,
             in MapIconBox shoreFrame, MapShoreMask mask, List<MapIconPlacement> placements, out float scale,
@@ -843,269 +796,189 @@ namespace KingdomEnhancedMod
             failed = requests == null ? 0 : requests.Count;
             if (requests == null || requests.Count == 0) { failed = 0; return true; }   // 合法空集
             if (area.Width <= 0f || area.Height <= 0f) return false;
-            if (requests.Count > MaxItems) return false;                                 // 三行容量上限：真实更多 → 整体 fail
+            if (requests.Count > MaxItems) return false;
 
-            var rowA = new List<int>(MaxPerRow);
-            var rowB = new List<int>(MaxPerRow);
-            var rowC = new List<int>(MaxPerRow);
-            if (!TrySplitRows(requests, rowA, rowB, rowC, out float widthA, out float widthB, out float widthC,
-                    out float heightA, out float heightB, out float heightC))
-            {
-                return false;
-            }
+            var order = new List<int>(requests.Count);
+            for (int i = 0; i < requests.Count; i++) order.Add(i);
+            order.Sort((x, y) => CompareRequests(requests[x], requests[y], x, y));
 
             for (int si = 0; si < ScaleLadder.Length; si++)
             {
                 float candidate = ScaleLadder[si];
                 if (candidate < minScale) break;
-                RequiredSize(candidate, widthA, widthB, widthC, heightA, heightB, heightC,
-                    rowA.Count, rowB.Count, rowC.Count, out float needW, out float needH);
-                if (needW > area.Width || needH > area.Height) continue;
-                // 行序置换（bottom→top 的 3! 排列）：“宽行可中间、窄行上下”——真实自然岸线是斜向岛，
-                // 宽行（高项组）放进岛最宽的中带才可能通过逐像素岸内终检。
-                for (int oi = 0; oi < RowOrders.Length; oi++)
+                if (TryPlaceAll(area, candidate, requests, order, blockers, shoreFrame, mask, placements))
                 {
-                    if (TryLayoutOrder(area, candidate, rowA, rowB, rowC, widthA, widthB, widthC,
-                            heightA, heightB, heightC, RowOrders[oi], requests, blockers,
-                            shoreFrame, mask, placements))
-                    {
-                        scale = candidate;
-                        failed = 0;
-                        return true;
-                    }
-                }
-            }
-            placements.Clear();
-            return false;
-        }
-
-        /// <summary>bottom→top 的行序候选（0=行 A 高项组、1=行 B、2=行 C）。</summary>
-        private static readonly int[][] RowOrders =
-        {
-            new[] { 2, 1, 0 },
-            new[] { 2, 0, 1 },
-            new[] { 1, 0, 2 },
-            new[] { 1, 2, 0 },
-            new[] { 0, 1, 2 },
-            new[] { 0, 2, 1 },
-        };
-
-        private static bool TryLayoutRows(in MapIconBox area, float scale,
-            List<int> rowA, List<int> rowB, List<int> rowC,
-            float widthA, float widthB, float widthC, float heightA, float heightB, float heightC,
-            int[] order, float alignX, float alignY, List<MapIconRequest> requests, List<MapIconBox> blockers,
-            in MapIconBox shoreFrame, MapShoreMask mask, List<MapIconPlacement> placements)
-        {
-            var rows = new[] { rowA, rowB, rowC };
-            var widths = new[] { widthA, widthB, widthC };
-            var heights = new[] { heightA, heightB, heightC };
-            int rowsUsed = (rowA.Count > 0 ? 1 : 0) + (rowB.Count > 0 ? 1 : 0) + (rowC.Count > 0 ? 1 : 0);
-            float totalH = (heightA + heightB + heightC) * scale + Math.Max(0, rowsUsed - 1) * Gutter;
-            if (totalH > area.Height - 2f * Margin) return false;
-            float bottomBase = area.Y0 + Margin + Math.Max(0f, area.Height - 2f * Margin - totalH) * alignY;
-            placements.Clear();
-            // 按给定行序自下而上排列；每行按各自行宽独立水平对齐（不随长岛横向拉伸）。
-            float bottom = bottomBase;
-            for (int oi = 0; oi < order.Length; oi++)
-            {
-                int r = order[oi];
-                if (!LayoutRow(area, scale, rows[r], widths[r], heights[r], bottom, alignX, requests, blockers,
-                        shoreFrame, mask, placements))
-                {
-                    placements.Clear();
-                    return false;
-                }
-                bottom += heights[r] * scale + (rows[r].Count > 0 ? Gutter : 0f);
-            }
-            // 终检：条目两两不重叠（同/跨行）且都在 area 内。
-            for (int i = 0; i < placements.Count; i++)
-            {
-                if (!Inside(area, placements[i])) { placements.Clear(); return false; }
-                for (int j = i + 1; j < placements.Count; j++)
-                {
-                    if (Overlaps(placements[i], placements[j])) { placements.Clear(); return false; }
-                }
-            }
-            return true;
-        }
-
-        private static bool LayoutRow(in MapIconBox area, float scale, List<int> row, float rowWidth,
-            float rowHeight, float bottom, float alignX, List<MapIconRequest> requests, List<MapIconBox> blockers,
-            in MapIconBox shoreFrame, MapShoreMask mask, List<MapIconPlacement> placements)
-        {
-            if (row.Count == 0) return true;
-            float needW = rowWidth * scale + (row.Count - 1) * Gutter;
-            if (needW > area.Width - 2f * Margin) return false;
-            float left = area.X0 + Margin + Math.Max(0f, area.Width - 2f * Margin - needW) * alignX;
-            return TryRowAt(left, bottom, scale, row, rowHeight, requests, blockers, shoreFrame, mask, placements);
-        }
-
-        /// <summary>
-        /// 行序/位置裁决：
-        /// - 有岸内 mask：垂直按 mask 像素粒度扫描行块偏移 + 每行**独立**水平逐像素扫描——斜向自然岸线
-        ///   只在特定行位/行偏移下有完整合法解（“宽行可中间、窄行上下”）；
-        /// - 无 mask（纯矩形容量/旧合同）：保留 3×3 对齐候选。
-        /// </summary>
-        private static bool TryLayoutOrder(in MapIconBox area, float scale,
-            List<int> rowA, List<int> rowB, List<int> rowC,
-            float widthA, float widthB, float widthC, float heightA, float heightB, float heightC,
-            int[] order, List<MapIconRequest> requests, List<MapIconBox> blockers,
-            in MapIconBox shoreFrame, MapShoreMask mask, List<MapIconPlacement> placements)
-        {
-            if (mask != null && shoreFrame.Width > 1f && shoreFrame.Height > 1f)
-            {
-                return TryLayoutOrderFine(area, scale, rowA, rowB, rowC, widthA, widthB, widthC,
-                    heightA, heightB, heightC, order, requests, blockers, shoreFrame, mask, placements);
-            }
-            for (int ax = 0; ax < RowAlignX.Length; ax++)
-            {
-                for (int ay = 0; ay < RowAlignY.Length; ay++)
-                {
-                    if (TryLayoutRows(area, scale, rowA, rowB, rowC, widthA, widthB, widthC,
-                            heightA, heightB, heightC, order, RowAlignX[ax], RowAlignY[ay],
-                            requests, blockers, shoreFrame, null, placements))
-                    {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        private static bool TryLayoutOrderFine(in MapIconBox area, float scale,
-            List<int> rowA, List<int> rowB, List<int> rowC,
-            float widthA, float widthB, float widthC, float heightA, float heightB, float heightC,
-            int[] order, List<MapIconRequest> requests, List<MapIconBox> blockers,
-            in MapIconBox shoreFrame, MapShoreMask mask, List<MapIconPlacement> placements)
-        {
-            var rows = new[] { rowA, rowB, rowC };
-            var widths = new[] { widthA, widthB, widthC };
-            var heights = new[] { heightA, heightB, heightC };
-            int rowsUsed = (rowA.Count > 0 ? 1 : 0) + (rowB.Count > 0 ? 1 : 0) + (rowC.Count > 0 ? 1 : 0);
-            float totalH = (heightA + heightB + heightC) * scale + Math.Max(0, rowsUsed - 1) * Gutter;
-            float slackH = area.Height - 2f * Margin - totalH;
-            if (slackH < -0.01f) return false;
-            float stepY = shoreFrame.Height / mask.Height;
-            if (!(stepY > 0.01f)) stepY = 1f;
-            int stepsY = Math.Max(0, (int)Math.Ceiling(slackH / stepY));
-            for (int iy = 0; iy <= stepsY; iy++)
-            {
-                float offsetY = Math.Min(slackH, iy * stepY);
-                float bottom = area.Y0 + Margin + offsetY;
-                placements.Clear();
-                bool ok = true;
-                for (int oi = 0; oi < order.Length && ok; oi++)
-                {
-                    int r = order[oi];
-                    ok = LayoutRowFine(area, scale, rows[r], widths[r], heights[r], bottom, requests, blockers,
-                        shoreFrame, mask, placements);
-                    bottom += heights[r] * scale + (rows[r].Count > 0 ? Gutter : 0f);
-                }
-                if (!ok) continue;
-                bool valid = true;
-                for (int i = 0; i < placements.Count && valid; i++)
-                {
-                    if (!Inside(area, placements[i])) valid = false;
-                    for (int j = i + 1; j < placements.Count && valid; j++)
-                    {
-                        if (Overlaps(placements[i], placements[j])) valid = false;
-                    }
-                }
-                if (valid) return true;
-            }
-            placements.Clear();
-            return false;
-        }
-
-        private static bool LayoutRowFine(in MapIconBox area, float scale, List<int> row, float rowWidth,
-            float rowHeight, float bottom, List<MapIconRequest> requests, List<MapIconBox> blockers,
-            in MapIconBox shoreFrame, MapShoreMask mask, List<MapIconPlacement> placements)
-        {
-            if (row.Count == 0) return true;
-            float needW = rowWidth * scale + (row.Count - 1) * Gutter;
-            float xMin = area.X0 + Margin;
-            float xMax = area.X1 - Margin - needW;
-            if (xMax < xMin - 0.001f) return false;
-            float stepX = shoreFrame.Width / mask.Width;
-            if (!(stepX > 0.01f)) stepX = 1f;
-            int stepsX = Math.Max(0, (int)Math.Floor((xMax - xMin) / stepX));
-            for (int ix = 0; ix <= stepsX; ix++)
-            {
-                int mark = placements.Count;
-                if (TryRowAt(xMin + ix * stepX, bottom, scale, row, rowHeight, requests, blockers,
-                        shoreFrame, mask, placements))
-                {
+                    scale = candidate;
+                    failed = 0;
                     return true;
                 }
-                placements.RemoveRange(mark, placements.Count - mark);
             }
-            int lastMark = placements.Count;
-            if (TryRowAt(xMax, bottom, scale, row, rowHeight, requests, blockers, shoreFrame, mask, placements))
-            {
-                return true;
-            }
-            placements.RemoveRange(lastMark, placements.Count - lastMark);
+            placements.Clear();
             return false;
         }
 
-        /// <summary>在给定 left/bottom 处放整行（逐 icon 检查 blockers + 岸内 footprint）；成功才追加 placements。</summary>
-        private static bool TryRowAt(float left, float bottom, float scale, List<int> row, float rowHeight,
-            List<MapIconRequest> requests, List<MapIconBox> blockers, in MapIconBox shoreFrame, MapShoreMask mask,
+        /// <summary>稳定排位：面积降→高降→宽降→Kind→TypeId→ArrayIndex→原下标（全序，List.Sort 不稳定也可复现）。</summary>
+        private static int CompareRequests(MapIconRequest a, MapIconRequest b, int indexA, int indexB)
+        {
+            float areaA = a.Width * a.Height;
+            float areaB = b.Width * b.Height;
+            if (areaA != areaB) return areaB.CompareTo(areaA);
+            if (a.Height != b.Height) return b.Height.CompareTo(a.Height);
+            if (a.Width != b.Width) return b.Width.CompareTo(a.Width);
+            if (a.Kind != b.Kind) return a.Kind.CompareTo(b.Kind);
+            if (a.TypeId != b.TypeId) return a.TypeId.CompareTo(b.TypeId);
+            if (a.ArrayIndex != b.ArrayIndex) return a.ArrayIndex.CompareTo(b.ArrayIndex);
+            return indexA.CompareTo(indexB);
+        }
+
+        /// <summary>单个 scale 档：按排位逐项落位；任一项无可行点 → false（该档整体丢弃，调用方试下一档）。</summary>
+        private static bool TryPlaceAll(in MapIconBox area, float scale, List<MapIconRequest> requests,
+            List<int> order, List<MapIconBox> blockers, in MapIconBox shoreFrame, MapShoreMask mask,
             List<MapIconPlacement> placements)
         {
-            float x = left;
-            for (int i = 0; i < row.Count; i++)
+            placements.Clear();
+            bool pixelMask = mask != null && mask.Width > 0 && mask.Height > 0 &&
+                             shoreFrame.Width > 0f && shoreFrame.Height > 0f;
+            MapIconBox reference = pixelMask ? shoreFrame : area;
+            float gridW = pixelMask ? mask.Width : PlacementGridWidth;
+            float gridH = pixelMask ? mask.Height : PlacementGridHeight;
+            float sx = gridW / reference.Width;      // prepared 像素 per UI
+            float sy = gridH / reference.Height;
+            if (!(sx > 0f) || !(sy > 0f)) return false;
+
+            for (int slot = 0; slot < order.Count; slot++)
             {
-                int index = row[i];
+                int index = order[slot];
                 MapIconRequest req = requests[index];
                 float w = req.Width * scale;
                 float h = req.Height * scale;
-                float y = bottom + (rowHeight - req.Height) * scale * 0.5f;   // 行内垂直居中（保持各自比例）
-                var box = new MapIconBox(x, y, x + w, y + h);
-                if (blockers != null)
+                if (!(w > 0f) || !(h > 0f)) return false;
+                float wpx = w * sx;
+                float hpx = h * sy;
+
+                bool placed = false;
+                for (int pass = 0; pass < 2 && !placed; pass++)
                 {
-                    for (int b = 0; b < blockers.Count; b++)
+                    if (!TryAnchor(slot, pass, out float ax, out float ay)) continue;
+                    int baseX = (int)Math.Floor(ax * gridW - wpx * 0.5f + 0.5f);
+                    int baseY = (int)Math.Floor(ay * gridH - hpx * 0.5f + 0.5f);
+                    for (int radius = 0; radius <= SearchRadiusPx && !placed; radius++)
                     {
-                        if (Intersects(box, blockers[b], 0.01f)) return false;
+                        int bestD2 = int.MaxValue, bestL1 = int.MaxValue, bestDy = 0, bestDx = 0;
+                        float bestX = 0f, bestY = 0f;
+                        for (int dy = -radius; dy <= radius; dy++)
+                        {
+                            int ady = dy < 0 ? -dy : dy;
+                            for (int dx = -radius; dx <= radius; dx++)
+                            {
+                                int adx = dx < 0 ? -dx : dx;
+                                if ((adx > ady ? adx : ady) != radius) continue;   // 只扫本环
+                                if (!TryCandidate(baseX + dx, baseY + dy, w, h, sx, sy, reference, area,
+                                        blockers, mask, pixelMask, placements, out float cx, out float cy))
+                                {
+                                    continue;
+                                }
+                                int d2 = dx * dx + dy * dy;
+                                int l1 = adx + ady;
+                                if (d2 > bestD2) continue;
+                                if (d2 == bestD2 && (l1 > bestL1 || (l1 == bestL1 &&
+                                        (dy > bestDy || (dy == bestDy && dx >= bestDx))))) continue;
+                                bestD2 = d2; bestL1 = l1; bestDy = dy; bestDx = dx; bestX = cx; bestY = cy;
+                            }
+                        }
+                        if (bestD2 != int.MaxValue)
+                        {
+                            placements.Add(new MapIconPlacement(req, index, bestX, bestY, scale));
+                            placed = true;
+                        }
                     }
                 }
-                if (mask != null && !FootprintInsideShore(box, shoreFrame, mask)) return false;
-                placements.Add(new MapIconPlacement(req, index, x, y, scale));
-                x += w + Gutter;
+                if (!placed) return false;
             }
             return true;
         }
 
+        private static bool TryAnchor(int slot, int pass, out float x, out float y)
+        {
+            x = 0f;
+            y = 0f;
+            float[] tableX = pass == 0 ? PreferredAnchorX : FallbackAnchorX;
+            float[] tableY = pass == 0 ? PreferredAnchorY : FallbackAnchorY;
+            if (tableX == null || tableY == null || slot < 0 || slot >= tableX.Length || slot >= tableY.Length)
+            {
+                return false;
+            }
+            x = tableX[slot];
+            y = tableY[slot];
+            return !float.IsNaN(x) && !float.IsNaN(y);
+        }
+
+        /// <summary>候选（格点整数位）是否可行；可行时输出该 footprint 的 paper 左下角。
+        /// mask 覆盖直接用整数格点 + ceil(像素尺寸)（不经过浮点回读：位置本就量化到整数 px，
+        /// 回读的 ±1ulp 会在像素边界翻转覆盖 → 与整点语义不一致）。</summary>
+        private static bool TryCandidate(int ix, int iy, float w, float h, float sx, float sy,
+            in MapIconBox reference, in MapIconBox area, List<MapIconBox> blockers, MapShoreMask mask,
+            bool pixelMask, List<MapIconPlacement> placements, out float x, out float y)
+        {
+            x = reference.X0 + ix / sx;
+            y = reference.Y0 + iy / sy;
+            var box = new MapIconBox(x, y, x + w, y + h);
+            if (box.X0 < area.X0 - 0.01f || box.Y0 < area.Y0 - 0.01f ||
+                box.X1 > area.X1 + 0.01f || box.Y1 > area.Y1 + 0.01f)
+            {
+                return false;
+            }
+            if (blockers != null)
+            {
+                for (int b = 0; b < blockers.Count; b++)
+                {
+                    if (Intersects(box, blockers[b], 0.01f)) return false;
+                }
+            }
+            if (pixelMask)
+            {
+                int px1 = ix + (int)Math.Ceiling(w * sx) - 1;
+                int py1 = iy + (int)Math.Ceiling(h * sy) - 1;
+                if (!mask.RectAllInside(ix, iy, px1, py1)) return false;
+            }
+            for (int p = 0; p < placements.Count; p++)
+            {
+                MapIconPlacement other = placements[p];
+                var otherBox = new MapIconBox(other.X, other.Y,
+                    other.X + other.Request.Width * other.Scale, other.Y + other.Request.Height * other.Scale);
+                if (WithinGutter(box, otherBox)) return false;
+            }
+            return true;
+        }
+
+        /// <summary>两 footprint 间隙 &lt; Gutter 即视为冲突（贴合间距 = Gutter 允许）。</summary>
+        private static bool WithinGutter(in MapIconBox a, in MapIconBox b)
+            => a.X0 - Gutter < b.X1 && b.X0 < a.X1 + Gutter && a.Y0 - Gutter < b.Y1 && b.Y0 < a.Y1 + Gutter;
+
         /// <summary>
-        /// 整 footprint 岸内终检：box（paper）→ 实际 Sprite.rect 画布像素（含 padding）→ 逐像素覆盖。
-        /// 像素包围盒取 floor/ceil（保守放大到完整像素格），避免浮点边界漏检。
+        /// 整 footprint mask 终检：box（paper）→ 画布像素（含 padding）→ 逐像素覆盖。
+        /// 像素包围盒取 floor/ceil（保守放大到完整像素格），避免浮点边界漏检；位置由 planner 量化到
+        /// 整数像素格 ⇒ 边界恰好对齐，存储/重建的浮点回读噪声（&lt;1e-3 px）不得翻转判定：
+        /// 先按 Align 对齐到最近的像素边界再 floor/ceil（≫Align 的真实越界仍被拒绝）。
         /// </summary>
         internal static bool FootprintInsideShore(in MapIconBox box, in MapIconBox shoreFrame, MapShoreMask mask)
         {
             if (mask == null || mask.Width <= 0 || mask.Height <= 0) return false;
             if (shoreFrame.Width <= 0f || shoreFrame.Height <= 0f) return false;
+            const float Align = 1e-3f;
             float sx = mask.Width / shoreFrame.Width;
             float sy = mask.Height / shoreFrame.Height;
-            int x0 = (int)Math.Floor((box.X0 - shoreFrame.X0) * sx);
-            int y0 = (int)Math.Floor((box.Y0 - shoreFrame.Y0) * sy);
-            int x1 = (int)Math.Ceiling((box.X1 - shoreFrame.X0) * sx) - 1;
-            int y1 = (int)Math.Ceiling((box.Y1 - shoreFrame.Y0) * sy) - 1;
+            int x0 = (int)Math.Floor((box.X0 - shoreFrame.X0) * sx + Align);
+            int y0 = (int)Math.Floor((box.Y0 - shoreFrame.Y0) * sy + Align);
+            int x1 = (int)Math.Ceiling((box.X1 - shoreFrame.X0) * sx - Align) - 1;
+            int y1 = (int)Math.Ceiling((box.Y1 - shoreFrame.Y0) * sy - Align) - 1;
             return mask.RectAllInside(x0, y0, x1, y1);
         }
-
-        private static bool Inside(in MapIconBox area, in MapIconPlacement p)
-            => p.X >= area.X0 - 0.01f && p.Y >= area.Y0 - 0.01f &&
-               p.X + p.Request.Width * p.Scale <= area.X1 + 0.01f &&
-               p.Y + p.Request.Height * p.Scale <= area.Y1 + 0.01f;
-
-        private static bool Overlaps(in MapIconPlacement a, in MapIconPlacement b)
-            => Intersects(new MapIconBox(a.X, a.Y, a.X + a.Request.Width * a.Scale, a.Y + a.Request.Height * a.Scale),
-                          new MapIconBox(b.X, b.Y, b.X + b.Request.Width * b.Scale, b.Y + b.Request.Height * b.Scale),
-                          0.01f);
 
         private static bool Intersects(in MapIconBox a, in MapIconBox b, float eps)
             => a.X0 < b.X1 - eps && b.X0 < a.X1 - eps && a.Y0 < b.Y1 - eps && b.Y0 < a.Y1 - eps;
     }
+
 
     /// <summary>总览展示动作（world0 只显示群岛：只操作自有 CanvasGroup）。</summary>
     internal enum MapPresentationAction
