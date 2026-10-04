@@ -340,7 +340,11 @@ public static class PatchWorld_FarmCats
         {
             GreekScaleScope.ApplyY(cat.transform, CatScaleY);
             Mover mover = cat.GetComponent<Mover>();
+#if ANDROID
+            if (mover != null) GreekScaleScope.Register(mover, CatScaleY);
+#else
             if (mover != null) ScaleRegistryHolder.Register(mover, CatScaleY);
+#endif
         }
         catch (Exception e)
         {

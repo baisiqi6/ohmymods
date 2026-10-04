@@ -371,7 +371,9 @@ internal static class GreekScaleScope
     /// <summary>Called by the existing main-thread panel; no new driver or scene scans.</summary>
     public static void Tick()
     {
+#if !ANDROID
         ScaleRegistryHolder.RetryPendingCreation();
+#endif
         Scope scope = CurrentScope();
         bool changed = scope != _lastScope;
         bool prune = Time.frameCount >= _nextPruneFrame;

@@ -116,8 +116,8 @@ internal static class Program
         Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 400f), "touch filter covers the 406-high player panel");
         layout.PlayerPage = false;
         layout.WorldPage = true;
-        Checks.Check(Math.Abs(layout.PanelHeight - 406f) < 1e-4f, "world page panel height is 406");
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 400f), "touch filter covers the 406-high world panel");
+        Checks.Check(Math.Abs(layout.PanelHeight - 484f) < 1e-4f, "world page panel height is 484 (five rows)");
+        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 478f), "touch filter covers the 484-high world panel bottom row");
         layout.WorldPage = false;
         layout.PopulationPage = true;
         Checks.Check(Math.Abs(layout.PanelHeight - 376f) < 1e-4f, "population panel height stays 376");
@@ -141,7 +141,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 7, "Initialize creates exactly seven entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 8, "Initialize creates exactly eight entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -149,6 +149,7 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/EnemyCountMultiplier default=1"), "EnemyCountMultiplier is declared with default 1");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/EnemyTimelineSpeed default=1"), "EnemyTimelineSpeed is declared with default 1");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteMoney default=False"), "InfiniteMoney is declared OFF");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/FarmCatsEnabled default=False"), "FarmCatsEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "Initialize never writes the cfg");
         Checks.Check(applied.Count == 1 && !applied[0], "cold start applies InfiniteMoney=false through the seam exactly once");
         Checks.Check(MelonLoader.MelonLogger.WarningCalls == expectedWarnings, "the load boundary warns exactly once per non-finite seeded multiplier");
@@ -168,10 +169,11 @@ internal static class Program
             Checks.Check(Config.InfiniteSteedStamina.Value == oldCfg && Config.HoldPurchaseEnabled.Value == oldCfg && Config.CalendarEnabled.Value == oldCfg,
                 "the four original entries keep absorbing a pre-existing cfg");
             Checks.Check(!Config.InfiniteMoney.Value, "a cfg without the new keys keeps InfiniteMoney OFF");
+            Checks.Check(!Config.FarmCatsEnabled.Value, "a cfg without the new keys keeps FarmCats OFF");
             Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "the load-boundary clamp/fallback does not write the cfg");
             Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=" + expectedSpeed
                 + " stamina=" + oldCfg + " hold=" + oldCfg + " calendar=" + oldCfg
-                + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False",
+                + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False",
                 "cold-start ready line reports the effective values");
             if (seededEnemyCount == 4.5f && seededEnemyTimeline == 4.5f)
             {
@@ -197,8 +199,9 @@ internal static class Program
         Checks.Check(!Config.InfiniteSteedStamina.Value
             && !Config.HoldPurchaseEnabled.Value
             && !Config.CalendarEnabled.Value
-            && !Config.InfiniteMoney.Value, "qol switches and InfiniteMoney default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False",
+            && !Config.InfiniteMoney.Value
+            && !Config.FarmCatsEnabled.Value, "qol switches, InfiniteMoney and FarmCats default OFF");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
 
@@ -235,6 +238,15 @@ internal static class Program
         Checks.Check(applied.Count == 3 && applied[2] == false, "ToggleMoney OFF applies false exactly once");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleMoney OFF saves exactly once");
 
+        Config.ToggleFarmCats();
+        Checks.Check(Config.FarmCatsEnabled.Value, "ToggleFarmCats turns it ON");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_FARM_CATS enabled=True", "ToggleFarmCats logs the switch state");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleFarmCats ON saves exactly once");
+        Config.ToggleFarmCats();
+        Checks.Check(Config.FarmCatsEnabled.Value == false, "ToggleFarmCats turns it OFF again");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_FARM_CATS enabled=False", "ToggleFarmCats logs the OFF state");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleFarmCats OFF saves exactly once");
+
         for (int next = 2; next <= 5; next++)
         {
             Config.CycleEnemyCount();
@@ -256,7 +268,7 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "CycleEnemyTimeline wrap saves exactly once");
 
         Checks.Check(applied.Count == 3, "the InfiniteMoney seam fires only at Initialize and the two toggles (no subscription or per-frame write)");
-        Checks.Check(saves == 20, "twenty switch actions produced twenty saves");
+        Checks.Check(saves == 22, "twenty-two switch actions produced twenty-two saves");
     }
 
     private static float ExpectedMultiplier(float seeded)
@@ -328,7 +340,8 @@ internal static class EnemyMathChecks
 internal static class ArtifactChecks
 {
     // Forge (ShopForge tag), Ammo (PayableWorkshopBarrel / PayableComponent._owner / FireTower),
-    // Mead (Baker) and the world bindings (EnemyManager / Wave / Wallet.InfiniteMoney) must
+    // Mead (Baker), the world bindings (EnemyManager / Wave / Wallet.InfiniteMoney) and the
+    // farm-cat block (Cat / Farmhouse / Pool / Holder / Mover / coroutine bridge) must
     // actually land in the built artifact; mere compilation of dead code would not prove the
     // linked sources kept them.
     private static readonly string[] RequiredTypes =
@@ -336,7 +349,12 @@ internal static class ArtifactChecks
         "Il2Cpp.Player", "Il2Cpp.Payable", "Il2Cpp.PayableComponent", "Il2Cpp.PayableWorkshopBarrel",
         "Il2Cpp.FireTower", "Il2Cpp.Baker", "Il2Cpp.CurrencyType", "Il2Cpp.Managers",
         "Il2Cpp.World", "Il2Cpp.NetworkBigBoss",
-        "Il2Cpp.EnemyManager", "Il2Cpp.Wave", "Il2Cpp.Wallet"
+        "Il2Cpp.EnemyManager", "Il2Cpp.Wave", "Il2Cpp.Wallet",
+        "Il2Cpp.Cat", "Il2Cpp.Farmhouse", "Il2Cpp.Pool", "Il2Cpp.Holder",
+        "Il2Cpp.BiomeHolder", "Il2Cpp.BiomeData", "Il2Cpp.Character", "Il2Cpp.Mover",
+        "Il2Cpp.Droppable", "Il2Cpp.Kingdom", "Il2Cpp.StateMachine", "Il2Cpp.Side",
+        "Il2Cpp.Embarkee", "Il2Cpp.IslandSaveData", "Il2Cpp.Game", "Il2Cpp.Farmland", "Il2Cpp.GAPS",
+        "MelonLoader.Support.MonoEnumeratorWrapper", "Il2CppSystem.Collections.IEnumerator"
     };
 
     private static readonly string[] RequiredMembers =
@@ -347,7 +365,8 @@ internal static class ArtifactChecks
         "get_playerPayDistance", "get_forceBlockPayment", "get_HasWorldAuth", "get_world",
         "get_gameLayer", "get__owner", "CanPay", "CanSelect", "PlayerPayPoint", "CompareTag",
         "TryCast", "get_Pointer",
-        "get_InfiniteMoney", "set_InfiniteMoney", "RoundToInt"
+        "get_InfiniteMoney", "set_InfiniteMoney", "RoundToInt",
+        "SpawnOrInstantiate", "DespawnOrDestroy", "get_catPrefab", "GetBorderSideIntact"
     };
 
     private static readonly string[] RequiredAssemblies =
@@ -395,6 +414,31 @@ internal static class ArtifactChecks
         Checks.Check(!world.IsNil, "artifact contains linked PatchWorld_EnemyManager");
         CheckHandlers(reader, world, RequiredWorldHandlers, MethodAttributes.Public, "public static");
 
+        // Farm-cat block (linked PatchWorld_FarmCats / FarmCatMovement / GreekScaleScope) and the
+        // Operator's explicit registration targets. The Android build must contain no
+        // ScaleRegistryHolder stand-in; ScaleRegistryHolder.Register is replaced at the source
+        // boundary by GreekScaleScope.Register.
+        Checks.Check(!FindType(reader, "KingdomEnhancedMod", "PatchWorld_FarmCats").IsNil, "artifact contains linked PatchWorld_FarmCats");
+        Checks.Check(!FindType(reader, "KingdomEnhancedMod", "FarmCatMovement").IsNil, "artifact contains linked FarmCatMovement");
+        Checks.Check(!FindType(reader, "KingdomEnhancedMod", "GreekScaleScope").IsNil, "artifact contains linked GreekScaleScope");
+        Checks.Check(FindType(reader, "KingdomEnhancedMod", "ScaleRegistryHolder").IsNil, "artifact contains no ScaleRegistryHolder stand-in");
+        CheckHandlers(reader, FindType(reader, "KingdomEnhancedMod", "PatchWorld_FarmCats"),
+            new Dictionary<string, int> { { "Schedule", 1 } }, MethodAttributes.Public, "public static");
+        CheckHandlers(reader, FindType(reader, "KingdomEnhancedMod", "Cat_OnEnable_FarmMovement_Patch"),
+            new Dictionary<string, int> { { "Postfix", 2 } }, MethodAttributes.Assembly, "internal static");
+        CheckHandlers(reader, FindType(reader, "KingdomEnhancedMod", "Cat_OnDisable_FarmMovement_Patch"),
+            new Dictionary<string, int> { { "Prefix", 1 } }, MethodAttributes.Assembly, "internal static");
+        CheckHandlers(reader, FindType(reader, "KingdomEnhancedMod", "Cat_Update_FarmMovement_Patch"),
+            new Dictionary<string, int> { { "Postfix", 2 } }, MethodAttributes.Assembly, "internal static");
+        CheckHandlers(reader, FindType(reader, "OhMyMods.AndroidProbe", "Probe"),
+            new Dictionary<string, int> { { "FarmCatsWorldLoaded", 1 } }, MethodAttributes.Private, "private static");
+        CheckHandlers(reader, FindType(reader, "BepInEx.Unity.IL2CPP.Utils.Collections", "AndroidCoroutine"),
+            new Dictionary<string, int> { { "WrapToIl2Cpp", 1 } }, MethodAttributes.Assembly, "internal static");
+        Checks.Check(HasConstructorReference(reader, "MelonLoader.Support.MonoEnumeratorWrapper"),
+            "MonoEnumeratorWrapper(IEnumerator) ctor is referenced by the coroutine bridge");
+        Checks.Check(HasConstructorReference(reader, "Il2CppSystem.Collections.IEnumerator"),
+            "Il2CppSystem.Collections.IEnumerator(IntPtr) ctor is referenced by the coroutine bridge");
+
         var typeRefs = new HashSet<string>();
         foreach (var handle in reader.TypeReferences)
         {
@@ -412,6 +456,16 @@ internal static class ArtifactChecks
         var assemblyRefs = new HashSet<string>();
         foreach (var handle in reader.AssemblyReferences) assemblyRefs.Add(reader.GetString(reader.GetAssemblyReference(handle).Name));
         foreach (string required in RequiredAssemblies) Checks.Check(assemblyRefs.Contains(required), "references assembly " + required);
+    }
+
+    private static bool HasConstructorReference(MetadataReader reader, string typeName)
+    {
+        foreach (var handle in reader.MemberReferences)
+        {
+            var reference = reader.GetMemberReference(handle);
+            if (reader.GetString(reference.Name) == ".ctor" && TypeName(reader, reference.Parent) == typeName) return true;
+        }
+        return false;
     }
 
     private static void CheckHandlers(MetadataReader reader, TypeDefinitionHandle type, Dictionary<string, int> required, MethodAttributes expectedAccess, string accessLabel)

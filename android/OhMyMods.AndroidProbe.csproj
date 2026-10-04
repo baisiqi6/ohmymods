@@ -7,10 +7,12 @@
 
          dotnet build -c Release ^
            -p:GameInteropDir=<dir with Assembly-CSharp.dll and the UnityEngine.* / Il2Cpp*.dll interop assemblies> ^
-           -p:LoaderRuntimeDir=<dir with MelonLoader.dll, 0Harmony.dll, Il2CppInterop.Runtime.dll>
+           -p:LoaderRuntimeDir=<dir with MelonLoader.dll, 0Harmony.dll, Il2CppInterop.Runtime.dll> ^
+           -p:SupportModuleDir=<dir with the loader's SupportModules\Il2Cpp.dll (MonoEnumeratorWrapper)>
 
-       The unmodified desktop sources il2cpp/PatchPlayer_HoldPurchase.cs and
-       il2cpp/PatchWorld_EnemyManager.cs are linked read-only (Compile Include below); bare game
+       The unmodified desktop sources il2cpp/PatchPlayer_HoldPurchase.cs,
+       il2cpp/PatchWorld_EnemyManager.cs, il2cpp/PatchWorld_FarmCats.cs, il2cpp/FarmCatMovement.cs
+       and il2cpp/GreekScaleScope.cs are linked read-only (Compile Include below); bare game
        type names are mapped by GlobalAliases.cs and Harmony auto-patch-all is suppressed by
        AssemblyInfo.cs for explicit Operator registration. -->
 
@@ -21,15 +23,18 @@
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
+    <DefineConstants>ANDROID;IL2CPP</DefineConstants>
     <EnableDefaultItems>false</EnableDefaultItems>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
     <GameInteropDir></GameInteropDir>
     <LoaderRuntimeDir></LoaderRuntimeDir>
+    <SupportModuleDir></SupportModuleDir>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="GlobalAliases.cs" />
+    <Compile Include="AndroidCoroutine.cs" />
     <Compile Include="HoldBridges.cs" />
     <Compile Include="MobilePlayerConfig.cs" />
     <Compile Include="MobilePlayerMenu.cs" />
@@ -48,14 +53,19 @@
     <!-- Unmodified production sources, linked read-only. -->
     <Compile Include="../il2cpp/PatchPlayer_HoldPurchase.cs" Link="Production/PatchPlayer_HoldPurchase.cs" />
     <Compile Include="../il2cpp/PatchWorld_EnemyManager.cs" Link="Production/PatchWorld_EnemyManager.cs" />
+    <Compile Include="../il2cpp/PatchWorld_FarmCats.cs" Link="Production/PatchWorld_FarmCats.cs" />
+    <Compile Include="../il2cpp/FarmCatMovement.cs" Link="Production/FarmCatMovement.cs" />
+    <Compile Include="../il2cpp/GreekScaleScope.cs" Link="Production/GreekScaleScope.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <Reference Include="MelonLoader"><HintPath>$(LoaderRuntimeDir)/MelonLoader.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="0Harmony"><HintPath>$(LoaderRuntimeDir)/0Harmony.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Il2CppInterop.Runtime"><HintPath>$(LoaderRuntimeDir)/Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cpp"><HintPath>$(SupportModuleDir)/Il2Cpp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameInteropDir)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameInteropDir)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.Physics2DModule"><HintPath>$(GameInteropDir)/UnityEngine.Physics2DModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.IMGUIModule"><HintPath>$(GameInteropDir)/UnityEngine.IMGUIModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(GameInteropDir)/UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.TextRenderingModule"><HintPath>$(GameInteropDir)/UnityEngine.TextRenderingModule.dll</HintPath><Private>false</Private></Reference>
@@ -64,8 +74,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <_RequiredGameInterop Include="Assembly-CSharp.dll;UnityEngine.CoreModule.dll;UnityEngine.IMGUIModule.dll;UnityEngine.InputLegacyModule.dll;UnityEngine.TextRenderingModule.dll;Il2Cppmscorlib.dll;Il2CppSystem.Core.dll" />
+    <_RequiredGameInterop Include="Assembly-CSharp.dll;UnityEngine.CoreModule.dll;UnityEngine.IMGUIModule.dll;UnityEngine.InputLegacyModule.dll;UnityEngine.TextRenderingModule.dll;UnityEngine.Physics2DModule.dll;Il2Cppmscorlib.dll;Il2CppSystem.Core.dll" />
     <_RequiredLoaderRuntime Include="MelonLoader.dll;0Harmony.dll;Il2CppInterop.Runtime.dll" />
+    <_RequiredSupportModule Include="Il2Cpp.dll" />
   </ItemGroup>
 
   <Target Name="ValidateAndroidDependencyDirs" BeforeTargets="PrepareForBuild">
@@ -73,10 +84,14 @@
            Text="GameInteropDir is required: pass -p:GameInteropDir=&lt;directory with the target game's Il2CppInterop assemblies (Assembly-CSharp.dll, UnityEngine.*.dll, Il2Cppmscorlib.dll, Il2CppSystem.Core.dll)&gt;. This project does not download or generate them." />
     <Error Condition="'$(LoaderRuntimeDir)' == ''"
            Text="LoaderRuntimeDir is required: pass -p:LoaderRuntimeDir=&lt;directory with MelonLoader.dll, 0Harmony.dll and Il2CppInterop.Runtime.dll from the deployed loader runtime&gt;. This project does not download or install a loader." />
+    <Error Condition="'$(SupportModuleDir)' == ''"
+           Text="SupportModuleDir is required: pass -p:SupportModuleDir=&lt;directory with the loader's SupportModules\Il2Cpp.dll (MelonLoader.Support.MonoEnumeratorWrapper)&gt;. This project does not download or install loader support modules." />
     <Error Condition="'$(GameInteropDir)' != '' and !Exists('$(GameInteropDir)/%(_RequiredGameInterop.Identity)')"
            Text="GameInteropDir '$(GameInteropDir)' is missing %(_RequiredGameInterop.Identity)." />
     <Error Condition="'$(LoaderRuntimeDir)' != '' and !Exists('$(LoaderRuntimeDir)/%(_RequiredLoaderRuntime.Identity)')"
            Text="LoaderRuntimeDir '$(LoaderRuntimeDir)' is missing %(_RequiredLoaderRuntime.Identity)." />
+    <Error Condition="'$(SupportModuleDir)' != '' and !Exists('$(SupportModuleDir)/%(_RequiredSupportModule.Identity)')"
+           Text="SupportModuleDir '$(SupportModuleDir)' is missing %(_RequiredSupportModule.Identity)." />
   </Target>
 
 </Project>
