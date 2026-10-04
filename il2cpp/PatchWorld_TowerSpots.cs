@@ -691,6 +691,7 @@ public static class PatchWorld_TowerSpots
             if (!float.IsFinite(native.xMin) || !float.IsFinite(native.xMax) || native.xMax <= native.xMin) return false;
             float min = Mathf.Min(native.xMin, visualMin), max = Mathf.Max(native.xMax, visualMax);
             float halfCap = StructuralHalfCapFor(go);
+            if (halfCap < 0f) return false; // 身份不可判定=几何 Unknown
             if (halfCap > 0f && go.transform != null)
             {
                 float cx = go.transform.position.x;
@@ -709,6 +710,10 @@ public static class PatchWorld_TowerSpots
     /// 占用矩形，一次罩死整条内带（塔基误回收 13 个 + 墙基候选全灭）。
     /// 墙的结构占地仅 ~3 单位：这两类根的矩形钳制到 root.x ± WallStructuralHalf。
     /// </summary>
+    /// <summary>身份半宽：墙族=2.5；非墙=0；身份不可判定（tag 读取失败）=-1。
+    /// -1 传播为几何 Unknown（Codex 审查 P2/复审#6 修正方向）：既不缩窄非墙
+    /// 建筑的真实占地（放置侧的放行风险），也不放大墙的毒带——调用方沿用
+    /// "Unknown 不新放、不据 Unknown 删除"语义。</summary>
     private static float StructuralHalfCapFor(GameObject go)
     {
         try
@@ -717,7 +722,7 @@ public static class PatchWorld_TowerSpots
             string t = go.tag;
             return t == "Wall" || t == "WallWreck" ? WallStructuralHalf : 0f;
         }
-        catch { return WallStructuralHalf; } // 复审#5 P2：失败回退到钳制值（fail-closed），不回中毒矩形
+        catch { return -1f; }
     }
 
     private static bool TryGetVisualBounds(GameObject go, float x, out float minX, out float maxX)
