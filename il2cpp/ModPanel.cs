@@ -331,6 +331,8 @@ public class ModPanel : MonoBehaviour
                     "新生成岛实际长度倍率，按原生地块取整；已生成岛不变。");
                 FloatSlider(ref y, width, "箭塔基底密度", ModConfig.TowerSpotMultiplier, 1, 4, false,
                     "重新载入地图时生效 · 1 倍为原生密度。");
+                FloatSlider(ref y, width, "墙基密度", ModConfig.WallSpotMultiplier, 1, 4, false,
+                    "重载地图或边界扩张后生效 · 1 倍为原生密度 · 受墙位间距限制可能低于设定值。");
                 Toggle(ref y, width, "跨世界坐骑", ModConfig.CrossWorldMountsEnabled,
                     "实验 · 希腊单机普通战役：跨世界坐骑集中在下方新增探索岛；旧岛不追加，彩虹小马新获取需活动资格。");
                 break;

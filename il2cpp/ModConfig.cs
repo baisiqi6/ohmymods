@@ -42,6 +42,7 @@ public static class ModConfig
     public static ConfigEntry<int> BeggarCampCapacity;
     public static ConfigEntry<float> MapSizeMultiplier;
     public static ConfigEntry<float> TowerSpotMultiplier;
+    public static ConfigEntry<float> WallSpotMultiplier;
     public static ConfigEntry<bool> CrossWorldMountsEnabled;
     public static ConfigEntry<float> EnemyCountMultiplier;
     public static ConfigEntry<float> EnemyTimelineSpeed;
@@ -167,6 +168,14 @@ public static class ModConfig
         // 原生基底，反复读档密度不爬升），现有存档读档即生效。
         TowerSpotMultiplier = config.Bind("World", "TowerSpotMultiplier", 2f,
             new ConfigDescription("箭塔基底密度倍数（1=原生密度，最大4）",
+                new AcceptableValueRange<float>(1f, 4f)));
+
+        // 墙基（可购买城墙地基）密度倍数：1=原生密度（不补点），最大 4。仅细分
+        // 相邻原生墙基间隙内部（不越最内/最外原生档），档间距不足时按地板钳制
+        // 少放；边界扩张出新墙基后自动补齐；反复读档幂等（KEM_WallSpot 名字
+        // 标记 + 存档 netID 保留）。联机整体跳过。
+        WallSpotMultiplier = config.Bind("World", "WallSpotMultiplier", 1f,
+            new ConfigDescription("墙基密度倍数（1=原生密度，最大4；受墙位间距限制可能低于设定值）",
                 new AcceptableValueRange<float>(1f, 4f)));
 
         EnemyCountMultiplier = config.Bind("Enemy", "EnemyCountMultiplier", 1f,
