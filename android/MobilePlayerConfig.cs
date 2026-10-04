@@ -24,6 +24,7 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<float> EnemyCountMultiplier;
     internal static MelonPreferences_Entry<float> EnemyTimelineSpeed;
     internal static MelonPreferences_Entry<float> SteedCooldownMultiplier;
+    internal static MelonPreferences_Entry<float> StaffCooldownMultiplier;
     internal static MelonPreferences_Entry<bool> InfiniteMoney;
     internal static MelonPreferences_Entry<bool> FarmCatsEnabled;
     internal static MelonPreferences_Entry<bool> FastBuild;
@@ -52,6 +53,7 @@ internal static class ModConfig
         EnemyCountMultiplier = category.CreateEntry<float>("EnemyCountMultiplier", 1f);
         EnemyTimelineSpeed = category.CreateEntry<float>("EnemyTimelineSpeed", 1f);
         SteedCooldownMultiplier = category.CreateEntry<float>("SteedCooldownMultiplier", 1f);
+        StaffCooldownMultiplier = category.CreateEntry<float>("StaffCooldownMultiplier", 1f);
         InfiniteMoney = category.CreateEntry<bool>("InfiniteMoney", false);
         FarmCatsEnabled = category.CreateEntry<bool>("FarmCatsEnabled", false);
         FastBuild = category.CreateEntry<bool>("FastBuild", false);
@@ -63,6 +65,7 @@ internal static class ModConfig
         EnemyCountMultiplier.Value = SanitizeMultiplier("EnemyCountMultiplier", EnemyCountMultiplier.Value, 1f, 5f);
         EnemyTimelineSpeed.Value = SanitizeMultiplier("EnemyTimelineSpeed", EnemyTimelineSpeed.Value, 1f, 5f);
         SteedCooldownMultiplier.Value = SanitizeMultiplier("SteedCooldownMultiplier", SteedCooldownMultiplier.Value, 0.2f, 1f);
+        StaffCooldownMultiplier.Value = SanitizeMultiplier("StaffCooldownMultiplier", StaffCooldownMultiplier.Value, 0.2f, 1f);
         MapSizeMultiplier.Value = SanitizeMultiplier("MapSizeMultiplier", MapSizeMultiplier.Value, 1f, 5f);
         applyInfiniteMoney = moneyApplier;
         applyInfiniteMoney(InfiniteMoney.Value);
@@ -78,7 +81,8 @@ internal static class ModConfig
             + " fastBuild=" + FastBuild.Value
             + " cooldown=" + SteedCooldownMultiplier.Value
             + " boat=" + BoatCapacityEnabled.Value
-            + " map=" + MapSizeMultiplier.Value);
+            + " map=" + MapSizeMultiplier.Value
+            + " staff=" + StaffCooldownMultiplier.Value);
     }
 
     // 三个倍率的加载边界：有限值 clamp 到 [min,max]；NaN/Infinity 是非法外部输入，回 1 并
@@ -114,13 +118,26 @@ internal static class ModConfig
         Save();
     }
 
-    // 档位 1→0.8→0.6→0.4→0.2→1；载入的中间值转到下一较低 20% 档（0.5→0.4）。只用 float
-    // Ceiling/除法，无 clamp、无原生重写、无事件扫描；切换一次落盘一次。
+    // 冷却档位步进（坐骑与法杖共用同一份数字逻辑）：1→0.8→0.6→0.4→0.2→1；载入的中间值
+    // 转到下一较低 20% 档（0.5→0.4）。只用 float32 Ceiling/除法（index / 5f），无 clamp、
+    // 无原生重写、无事件扫描；helper 不落盘，切换方各自一次落盘。
+    private static float NextCooldownStep(float current)
+    {
+        int index = (int)MathF.Ceiling(current * 5f) - 1;
+        return index <= 0 ? 1f : index / 5f;
+    }
+
     internal static void CycleSteedCooldown()
     {
-        int index = (int)MathF.Ceiling(SteedCooldownMultiplier.Value * 5f) - 1;
-        SteedCooldownMultiplier.Value = index <= 0 ? 1f : index / 5f;
+        SteedCooldownMultiplier.Value = NextCooldownStep(SteedCooldownMultiplier.Value);
         MelonLogger.Msg("ANDROID_PLAYER_STEED_COOLDOWN multiplier=" + SteedCooldownMultiplier.Value);
+        Save();
+    }
+
+    internal static void CycleStaffCooldown()
+    {
+        StaffCooldownMultiplier.Value = NextCooldownStep(StaffCooldownMultiplier.Value);
+        MelonLogger.Msg("ANDROID_PLAYER_STAFF_COOLDOWN multiplier=" + StaffCooldownMultiplier.Value);
         Save();
     }
 

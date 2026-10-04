@@ -3,12 +3,14 @@ using UnityEngine;
 namespace OhMyMods.AndroidProbe;
 
 /// <summary>
-/// Player page of the float panel: speed / stamina / hold-purchase / steed-cooldown and Back.
-/// Geometry keeps the shipped row layout (248x64 buttons at x=16, rows 98/176/254/332/410);
-/// the Player page base height is 484 (FloatLayout.PanelHeight), so the last row ends at 474
-/// and stays inside the same rectangle the touch filter uses. The cooldown label is stated
-/// relative to the call-time cooldown (next ability call), not to a prefab value or a
-/// retroactive schedule. Back reuses ProbeTicker.Layout.PlayerPage = false.
+/// Player page of the float panel: speed / stamina / hold-purchase / steed-cooldown /
+/// staff-base-cooldown and Back. Geometry keeps the shipped row layout (248x64 buttons at x=16,
+/// rows 98/176/254/332/410/488); the Player page base height is 562 (FloatLayout.PanelHeight),
+/// so the last row ends at 552 and stays inside the same rectangle the touch filter uses. Both
+/// cooldown labels are stated relative to the call-time cooldown (next ability call), not to a
+/// prefab value or a retroactive schedule; the staff label names the base portion only (the
+/// native per-target additive time stays native). Back reuses
+/// ProbeTicker.Layout.PlayerPage = false.
 /// </summary>
 internal static class MobilePlayerMenu
 {
@@ -28,7 +30,10 @@ internal static class MobilePlayerMenu
         if (GUI.Button(new Rect(px + 16 * scale, py + 332 * scale, 248 * scale, 64 * scale),
                 "Cooldown: " + KingdomEnhancedMod.ModConfig.SteedCooldownMultiplier.Value + "x next call", buttonStyle))
             KingdomEnhancedMod.ModConfig.CycleSteedCooldown();
-        if (GUI.Button(new Rect(px + 16 * scale, py + 410 * scale, 248 * scale, 64 * scale), "Back", buttonStyle))
+        if (GUI.Button(new Rect(px + 16 * scale, py + 410 * scale, 248 * scale, 64 * scale),
+                "Staff base cooldown: " + KingdomEnhancedMod.ModConfig.StaffCooldownMultiplier.Value + "x", buttonStyle))
+            KingdomEnhancedMod.ModConfig.CycleStaffCooldown();
+        if (GUI.Button(new Rect(px + 16 * scale, py + 488 * scale, 248 * scale, 64 * scale), "Back", buttonStyle))
             ProbeTicker.Layout.PlayerPage = false;
     }
 }

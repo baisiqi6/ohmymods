@@ -6,7 +6,7 @@ internal sealed class FloatLayout
  public float Diameter => 48*Scale;
  public float TouchSize => 72*Scale;
  public float PanelWidth => Math.Min(280*Scale,Math.Max(16,Width-8*Scale));
- public float PanelHeight => Math.Min((PopulationPage?376:PlayerPage?484:WorldPage?640:GenerationPage?250:562)*Scale,Math.Max(16,Height-8*Scale));
+ public float PanelHeight => Math.Min((PopulationPage?376:PlayerPage?562:WorldPage?640:GenerationPage?250:562)*Scale,Math.Max(16,Height-8*Scale));
  public float X { get; private set; } = 36;
  public float Y { get; private set; }
  public bool Expanded { get; set; }

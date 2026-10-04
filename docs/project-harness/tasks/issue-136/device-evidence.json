@@ -1,0 +1,46 @@
+{
+  "issue": 136,
+  "atUTC": "2026-10-04T16:09:01.276365+00:00",
+  "version": "0.0.17",
+  "mainSHA256": "7364422bf75359b339e8bf910bff4a084463647d2a78707645e8e9a5a300b7d8",
+  "apkSHA256": "99074ca1d17d5276dae8f04c6a94a3b7f4412f4b6343f36f5a9ca71207169836",
+  "device": "emulator-5582 Android15/API35 ARM64 MoltenVK",
+  "startupPrefsNativeByteEqualityOnly": true,
+  "reportedTargets": 23,
+  "oldTargetsPreserved": 21,
+  "oldPreferencesPreserved": 12,
+  "cycle": [
+    1,
+    0.8,
+    0.6,
+    0.4,
+    0.2,
+    1
+  ],
+  "coldLoaded": [
+    1,
+    0.8,
+    1
+  ],
+  "playerBackToHome": true,
+  "playerPanelHeight": 562,
+  "orbDiameter": 48,
+  "orbHitSize": 72,
+  "defaultCollapsed": true,
+  "gameStopped": true,
+  "mainOnly": true,
+  "staffMultiplierFinal": 1,
+  "errorCount": 0,
+  "knownWarningsPreserved": true,
+  "actualStaffActivationAccepted": false,
+  "actualCancelWindowAccepted": false,
+  "unverified": [
+    "native skill activation/per-target added cooldown and cancellation window",
+    "real Harmony __state/exception cleanup routes",
+    "third-party nested CanCancel query during native callback",
+    "pooled objects/save-reload/cross-island",
+    "phone/tablet/multiplayer and all AOT instances"
+  ],
+  "nativeSaveAfterNormalColdStartsNotEditedOrPromisedByteEqual": true,
+  "rawEvidencePrivate": ".local/tasks/android-port-continuation-20261003/device-staff/"
+}
