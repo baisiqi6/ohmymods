@@ -224,8 +224,8 @@ public static class PatchWorld_WallSpots
         AddTaggedToOccupancy("Wall", layer, roots, allX, seen, wallLine: wallLine);
         AddTaggedToOccupancy("WallWreck", layer, roots, allX, seen, wallLine: wallLine);
         AddTaggedToOccupancy("ScaffoldingWall", layer, roots, allX, seen, scaffolding: true);
-        AddTaggedToOccupancy("Tower", layer, roots, allX, seen);
-        AddTaggedToOccupancy("ScaffoldingTower", layer, roots, allX, seen);
+        AddTaggedToOccupancy("Tower", layer, roots, allX, seen, distanceOccupancy: false);
+        AddTaggedToOccupancy("ScaffoldingTower", layer, roots, allX, seen, distanceOccupancy: false);
 
         // 每次成功 pass 同时是订阅恢复点（复审#2 P2-4：+5s 时 kingdom 尚
         // null 导致订阅丢失的边路在此自愈）。
@@ -315,7 +315,8 @@ public static class PatchWorld_WallSpots
 
     private static void AddTaggedToOccupancy(string tag, Transform layer,
         List<GameObject> roots, List<float> allX, HashSet<IntPtr> seen,
-        bool scaffolding = false, List<GameObject> wallLine = null)
+        bool scaffolding = false, List<GameObject> wallLine = null,
+        bool distanceOccupancy = true)
     {
         var tagged = GameObject.FindGameObjectsWithTag(tag);
         if (tagged == null) return;
@@ -326,7 +327,10 @@ public static class PatchWorld_WallSpots
             if (IsOnBoat(go.transform)) continue;
             if (!seen.Add(go.Pointer)) continue;
             roots.Add(go);
-            allX.Add(go.transform.position.x);
+            // 距离占用只收墙线族（基底/墙/残骸/墙脚手架）；塔族进 roots 供
+            // footprint/原生避障复核即可——否则塔基以 ~8 单位铺满防线时，
+            // 墙基候选点在任意大间隙内都会被距离守卫全灭（实机 added=0 实证）。
+            if (distanceOccupancy) allX.Add(go.transform.position.x);
             if (wallLine != null) wallLine.Add(go);
 
             // 墙施工脚手架明确指向的（可能 inactive 的）建筑才计入占用。
@@ -342,7 +346,7 @@ public static class PatchWorld_WallSpots
                 if (!building.transform.IsChildOf(layer) || IsOnBoat(building.transform)) continue;
                 if (!seen.Add(building.Pointer)) continue;
                 roots.Add(building);
-                allX.Add(building.transform.position.x);
+                if (distanceOccupancy) allX.Add(building.transform.position.x);
             }
             catch { }
         }
