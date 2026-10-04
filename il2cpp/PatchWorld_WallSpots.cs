@@ -243,8 +243,7 @@ public static class PatchWorld_WallSpots
         List<GapCandidate> candidates = multiplier > 1f
             ? EnumerateGapCandidates(natives, wallLine, campfire, multiplier, out clampedGaps)
             : null;
-        var expected = candidates != null
-            ? candidates.ConvertAll(c => c.X) : new List<float>();
+        var expected = candidates ?? new List<GapCandidate>();
         int retired = RetireStaleKemBases(world, layer, kemBases, roots, allX, expected);
         if (multiplier <= 1f)
         {
@@ -263,14 +262,30 @@ public static class PatchWorld_WallSpots
         foreach (GapCandidate candidate in candidates)
         {
             if (added >= MaxTotalPerPass) break;
-            if (!IsFree(allX, candidate.X, candidate.Target * OccupiedRatio)) continue;
-            if (!TryPlaceX(candidate.X, candidate.Y, notBuildableMask)) continue;
-            if (OverlapsNativePlacement(prefab, layer, candidate.X, null, out _,
-                candidate.Template)) continue;
-            if (OverlapsOccupiedRoots(roots, candidate.Template, candidate.X, null, layer)
-                == OverlapResult.Overlap) continue;
+            // 有界偏移搜索（实机#2：大间隙在 2x 下候选稀疏，单点恰落塔基脚印
+            // 会让整段空置）。先试精确网格点，被任意守卫拦住则在
+            // ±0.5×target 内按 1 单位步进找最近可用位；y/z 沿用该间隙端点值。
+            float placedX = float.NaN;
+            float halfWindow = candidate.Target * 0.5f;
+            for (float offset = 0f; offset <= halfWindow && float.IsNaN(placedX); offset += 1f)
+            {
+                float[] signs = offset == 0f ? new float[] { 1f } : new float[] { 1f, -1f };
+                for (int si = 0; si < signs.Length; si++)
+                {
+                    float x = candidate.X + signs[si] * offset;
+                    if (!IsFree(allX, x, candidate.Target * OccupiedRatio)) continue;
+                    if (!TryPlaceX(x, candidate.Y, notBuildableMask)) continue;
+                    if (OverlapsNativePlacement(prefab, layer, x, null, out _,
+                        candidate.Template)) continue;
+                    if (OverlapsOccupiedRoots(roots, candidate.Template, x, null, layer)
+                        == OverlapResult.Overlap) continue;
+                    placedX = x;
+                    break;
+                }
+            }
+            if (float.IsNaN(placedX)) continue;
             GameObject spawned = SpawnSpot(world, prefab, layer, candidate.Template,
-                candidate.X, candidate.Y, candidate.Z);
+                placedX, candidate.Y, candidate.Z);
             if (spawned == null) continue;
             added++;
             // 新点即时进入全量占用（含 footprint 数据源，复审#2 P2-3：同轮
@@ -432,20 +447,22 @@ public static class PatchWorld_WallSpots
     /// </summary>
     private static int RetireStaleKemBases(World world, Transform layer,
         List<GameObject> kemBases, List<GameObject> roots, List<float> allX,
-        List<float> expected)
+        List<GapCandidate> expected)
     {
         int retired = 0;
-        float tolerance = MinTargetSpacing * OccupiedRatio;
         foreach (GameObject spot in kemBases)
         {
             if (!TryGetReadyContext(world, out _)) break;
             if (!CanRetire(spot, world, layer)) continue;
             float x = spot.transform.position.x;
 
+            // on-grid 容差按各间隙自己的目标间距取：有界偏移搜索（见补放）
+            // 落位的点在其网格点的 0.6×target 邻域内即视为成员，反复读档不 churn。
             bool onGrid = false;
             for (int i = 0; i < expected.Count; i++)
             {
-                if (Mathf.Abs(expected[i] - x) <= tolerance) { onGrid = true; break; }
+                if (Mathf.Abs(expected[i].X - x)
+                    <= expected[i].Target * OccupiedRatio) { onGrid = true; break; }
             }
             bool overlapsOccupancy = OverlapsOccupiedRoots(
                 roots, spot, x, spot, layer) == OverlapResult.Overlap;
