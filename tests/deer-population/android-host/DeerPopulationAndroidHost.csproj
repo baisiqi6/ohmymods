@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Typed ANDROID host for the shared deer source and the shared 27-case harness:
+       il2cpp/PatchWorld_DeerPopulation.cs is compiled with ANDROID defined (its file-local
+       aliases bind the Il2Cpp.* stub types), and ../Program.cs is the same harness the PC
+       regression runs — the Android-only conditional cases assert the platform gate (default
+       off zero-interop fast path, Greek 5 scope evidence, owned-pending cleanup while off,
+       outer-lease reentrancy). The doubles model only consumed shapes; this is host evidence,
+       not Unity/Harmony/IL2CPP gameplay proof.
+       Run: dotnet run -c Release (see android/README.md and tests/deer-population/README.md). -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <DefineConstants>ANDROID</DefineConstants>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <AssemblyName>DeerPopulationAndroidHost</AssemblyName>
+    <RootNamespace>KingdomEnhancedMod</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="AndroidAliases.cs" />
+    <Compile Include="AndroidStubs.cs" />
+    <Compile Include="../Program.cs" Link="Program.cs" />
+    <Compile Include="../../../il2cpp/PatchWorld_DeerPopulation.cs" Link="Production/PatchWorld_DeerPopulation.cs" />
+  </ItemGroup>
+
+</Project>

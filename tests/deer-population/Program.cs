@@ -15,7 +15,11 @@ static class Program
  static void Test(string name,Action action)
  {
   Active.Clear();Pending.Clear();foreach(string f in new[]{"_loggedApplied","_loggedFailure"})typeof(Policy).GetField(f,BindingFlags.Static|BindingFlags.NonPublic).SetValue(null,false);
-  Managers.Inst=new();BiomeHolder.Inst=new();NetworkBigBoss.HasWorldAuth=true;ModConfig.Enabled.Value=true;Time.deltaTime=.25f;KingdomEnhancedPlugin.Instance=new();
+  Managers.Inst=new();BiomeHolder.Inst=new();NetworkBigBoss.HasWorldAuth=true;ModConfig.Enabled.Value=true;
+#if ANDROID
+  ModConfig.DeerPopulationEnabled.Value=true;
+#endif
+  Time.deltaTime=.25f;KingdomEnhancedPlugin.Instance=new();
   try{action();Eq(0,Active.Count,"no leaked active lease");Eq(0,Pending.Count,"no unrecovered pending lease");passed++;Console.WriteLine("PASS "+name);}catch(Exception ex){failed++;Console.WriteLine("FAIL "+name+": "+ex.Message);}
  }
  static PopulationController New(bool deer=true)
@@ -196,6 +200,42 @@ static class Program
   {
    var c=New();c.prefab.name="OrdinaryDeer";Run(c);Run(c);var messages=KingdomEnhancedPlugin.Instance.LogSource.Info;Eq(1,messages.Count,"one application log");Eq(true,messages[0].Contains("prefab=OrdinaryDeer"),"prefab evidence");Eq(true,messages[0].Contains("density=0.125->0.375"),"density evidence");Eq(true,messages[0].Contains("interval=3->1"),"interval evidence");
   });
+#if ANDROID
+  Test("Android typed host default-off opt-in with empty owned state does zero interop reads",()=>
+  {
+   ModConfig.DeerPopulationEnabled.Value=false;var c=New();c.ThrowInterop=true;c.ResetInteropReads();
+   Run(c);Eq(0,c.InteropReads,"zero controller interop reads while default-off");Eq(1,c.NativeCalls,"native Update same-window still runs once");
+  });
+  Test("Android typed host Greek 5 current scope applies and logs same-invocation evidence",()=>
+  {
+   Eq(5,BiomeHolder.GreeceBiomeIndex,"typed host binds the checked Android Greek value 5");
+   var c=New();Run(c,()=>Boosted(c));Original(c);
+   var messages=KingdomEnhancedPlugin.Instance.LogSource.Info;Eq(1,messages.Count,"one applied log");
+   Eq(true,messages[0].Contains("scopeGoId="),"scopeGoId evidence");Eq(true,messages[0].Contains("sceneHandle="),"scene handle evidence");
+   Eq(true,messages[0].Contains("childOf=True"),"childOf evidence");Eq(true,messages[0].Contains("prefabDeer=True"),"prefab deer evidence");
+   Eq(true,messages[0].Contains("prefabSteed=False"),"prefab steed evidence");Eq(true,messages[0].Contains("prefabHind=False"),"prefab hind evidence");
+   BiomeHolder.Inst.BiomeIndex=3;var other=New();Run(other,()=>Original(other));foreach(int n in other.Writes)Eq(0,n,"PC surrogate 3 is non-Greek on the typed host");
+  });
+  Test("Android typed host opt-in off keeps owned pending cleanup to its own bits",()=>
+  {
+   var c=New();Run(c,()=>c.FailReadField=0);Eq(1,Pending.Count,"pending receipt retained");int writes=c.Writes[0];
+   ModConfig.DeerPopulationEnabled.Value=false;c.FailReadField=-1;Run(c,()=>Original(c));Original(c);
+   Eq(writes+1,c.Writes[0],"exactly one own-bit restore, no new application");Eq(0,Pending.Count,"pending cleared after own-bit restore");
+  });
+  Test("Android typed host owned active lease keeps reentrancy at the outer invocation",()=>
+  {
+   var c=New();Run(c,()=>{Boosted(c);Run(c,()=>Boosted(c));Boosted(c);});Original(c);Eq(2,c.NativeCalls,"both native bodies run");foreach(int n in c.Writes)Eq(2,n,"outer lease only under the Android gate");
+  });
+  Test("Android typed host enabled earliest interop failure is caught without writes",()=>
+  {
+   var c=New();c.ThrowInterop=true;c.ResetInteropReads();
+   Run(c);
+   foreach(int n in c.Writes)Eq(0,n,"no field write when the earliest interop read throws");
+   Eq(1,c.InteropReads,"the earliest controller interop read was attempted");Eq(1,c.NativeCalls,"native body still runs once");
+   var warnings=KingdomEnhancedPlugin.Instance.LogSource.Warning;Eq(1,warnings.Count,"one bounded failure warning");
+   Eq(true,warnings[0].Contains("[DeerPopulation] temporary input adjustment failed"),"failure warning text");
+  });
+#endif
   Console.WriteLine($"RESULT: {passed} passed, {failed} failed");Environment.ExitCode=failed==0?0:1;
  }
 }

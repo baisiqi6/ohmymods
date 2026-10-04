@@ -1,6 +1,18 @@
 using System;
 using System.Collections.Generic;
 using HarmonyLib;
+#if ANDROID
+// Android（Il2CppInterop namespace-prefix 模式）把 Assembly-CSharp 的全局类型放在 Il2Cpp.* 下；
+// 本文件与 PC 共用同一份逻辑，仅在此把文件用到的游戏类型显式映射到实际 interop 类型。
+// Managers/World/NetworkBigBoss 由 android/GlobalAliases.cs 的 global alias 提供（本地再 alias 会
+// CS1537）；UnityEngine 类型两个平台同名，无需映射。其余代码（含 PC 分支）逐字相同。
+using BiomeHolder = Il2Cpp.BiomeHolder;
+using Deer = Il2Cpp.Deer;
+using Game = Il2Cpp.Game;
+using Hind = Il2Cpp.Hind;
+using PopulationController = Il2Cpp.PopulationController;
+using Steed = Il2Cpp.Steed;
+#endif
 using UnityEngine;
 
 namespace KingdomEnhancedMod;
@@ -8,6 +20,8 @@ namespace KingdomEnhancedMod;
 /// <summary>
 /// Greek ordinary-deer population inputs, borrowed only for one native Update invocation.
 /// Native timing, seasonal selection, region limits, spawning, pooling and loot stay native-owned.
+/// 平台门：PC 沿用 ModConfig.Enabled；Android 另加默认关闭的 ModConfig.DeerPopulationEnabled
+/// （ANDROID 编译的顶部快速通道与 Eligible 前置判断；PC 预处理输出不变）。
 /// </summary>
 internal static class PatchWorld_DeerPopulation
 {
@@ -28,13 +42,46 @@ internal static class PatchWorld_DeerPopulation
         internal byte Written;
         internal float Density, WinterDefault, WinterSpecial, Interval;
         internal float AppliedDensity, AppliedWinterDefault, AppliedWinterSpecial, AppliedInterval;
+#if ANDROID
+        internal ScopeEvidence Scope;
+#endif
     }
+
+#if ANDROID
+    /// <summary>
+    /// 一次应用日志的 ANDROID 证据：只记录同一次 Eligible 实际读取/判定的值
+    /// （scope id 用 lease.ObjectId；此处不含任何跨调用状态）。分类真值只在实际
+    /// GetComponent/IsChildOf/scene 读取后记录，日志阶段零再读。
+    /// </summary>
+    internal struct ScopeEvidence
+    {
+        internal int SceneHandle;
+        internal bool ChildOfLayer, PrefabDeer, PrefabSteed, PrefabHind;
+    }
+
+    /// <summary>
+    /// Android 平台门：会话总开关 + 默认关闭的 DeerPopulationEnabled。恒为 managed 值，
+    /// 关闭时后续代码在任何 controller/native 读取之前返回。
+    /// </summary>
+    private static bool DeerPopulationRequested()
+    {
+        var master = ModConfig.Enabled;
+        var deer = ModConfig.DeerPopulationEnabled;
+        return master != null && master.Value && deer != null && deer.Value;
+    }
+#endif
 
     internal static void Begin(PopulationController controller, out Lease lease)
     {
         lease = default;
         try
         {
+#if ANDROID
+            // Android 平台关断快速通道：总开关/鹿开关关闭且无自有状态时，在读取
+            // controller.Pointer 之前零 interop 返回。有 owned 状态仍走下面的
+            // pointer/token/identity 清理路径，只归还自己已借的 bits。
+            if (!DeerPopulationRequested() && Active.Count == 0 && Pending.Count == 0) return;
+#endif
             if (controller == null) return;
             IntPtr pointer = controller.Pointer;
             if (pointer == IntPtr.Zero || Active.ContainsKey(pointer)) return;
@@ -49,7 +96,11 @@ internal static class PatchWorld_DeerPopulation
                     if (Pending.ContainsKey(pointer)) return; // Do not treat an unrecovered 3x field as a new baseline.
                 }
             }
+#if ANDROID
+            if (!Eligible(controller, out GameObject go, out GameObject prefab, out ScopeEvidence evidence)) return;
+#else
             if (!Eligible(controller, out GameObject go, out GameObject prefab)) return;
+#endif
 
             // Read and validate every input before acquiring ownership or writing any field.
             float density = controller.density, winterDefault = controller.winterDensityDefault;
@@ -69,6 +120,9 @@ internal static class PatchWorld_DeerPopulation
                 Density = density, WinterDefault = winterDefault, WinterSpecial = winterSpecial, Interval = interval,
                 AppliedDensity = appliedDensity, AppliedWinterDefault = appliedDefault,
                 AppliedWinterSpecial = appliedSpecial, AppliedInterval = appliedInterval
+#if ANDROID
+                , Scope = evidence
+#endif
             };
             Active.Add(pointer, token);
             // Mark before each interop setter so a partial setter failure can still relinquish its own value.
@@ -85,9 +139,18 @@ internal static class PatchWorld_DeerPopulation
         }
     }
 
-    private static bool Eligible(PopulationController controller, out GameObject go, out GameObject prefab)
+    private static bool Eligible(PopulationController controller, out GameObject go, out GameObject prefab
+#if ANDROID
+        , out ScopeEvidence evidence
+#endif
+        )
     {
         go = null; prefab = null;
+#if ANDROID
+        evidence = default;
+        // Android 平台 config 门在 native eligibility 之前：关闭时零 native 读取。
+        if (!DeerPopulationRequested()) return false;
+#endif
         if (ModConfig.Enabled == null || !ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth
             || controller == null || !controller.enabled || controller.useBiomeCritters) return false;
         BiomeHolder biome = BiomeHolder.Inst;
@@ -98,12 +161,33 @@ internal static class PatchWorld_DeerPopulation
         Transform layer = world != null ? world.gameLayer : null;
         if (world == null || game == null || layer == null || !game.playingOrInMenuWithClient) return false;
         go = controller.gameObject;
+#if ANDROID
+        // 与 PC 相同的短路顺序，逐项在读取后立即判定并记录；失败的排除对象不会多读后续 native 组件。
+        if (go == null) return false;
+        if (!go.activeInHierarchy) return false;
+        evidence.SceneHandle = go.scene.handle;
+        if (evidence.SceneHandle != layer.gameObject.scene.handle) return false;
+        evidence.ChildOfLayer = go.transform.IsChildOf(layer);
+        if (!evidence.ChildOfLayer) return false;
+#else
         // Native World.FindOrCreateForest parents the ordinary-deer controller under the current gameLayer.
         if (go == null || !go.activeInHierarchy || go.scene.handle != layer.gameObject.scene.handle
             || !go.transform.IsChildOf(layer)) return false;
+#endif
         prefab = controller.prefab;
+#if ANDROID
+        // 分类真值只在实际 GetComponent 之后记录；成功路径六证据全部来自同一次分类的实际读取。
+        if (prefab == null) return false;
+        evidence.PrefabDeer = prefab.GetComponent<Deer>() != null;
+        if (!evidence.PrefabDeer) return false;
+        evidence.PrefabSteed = prefab.GetComponent<Steed>() != null;
+        if (evidence.PrefabSteed) return false;
+        evidence.PrefabHind = prefab.GetComponent<Hind>() != null;
+        return !evidence.PrefabHind;
+#else
         return prefab != null && prefab.GetComponent<Deer>() != null
             && prefab.GetComponent<Steed>() == null && prefab.GetComponent<Hind>() == null;
+#endif
     }
 
     private static bool ValidDensity(float original, float applied)
@@ -183,7 +267,16 @@ internal static class PatchWorld_DeerPopulation
                 + " density=" + lease.Density + "->" + lease.AppliedDensity
                 + " winterDefault=" + lease.WinterDefault + "->" + lease.AppliedWinterDefault
                 + " winterSpecial=" + lease.WinterSpecial + "->" + lease.AppliedWinterSpecial
-                + " interval=" + lease.Interval + "->" + lease.AppliedInterval);
+                + " interval=" + lease.Interval + "->" + lease.AppliedInterval
+#if ANDROID
+                // 全部字段来自同次 Eligible 已计算值/现有 lease；日志阶段零再读 native。
+                + " scopeGoId=" + lease.ObjectId + " sceneHandle=" + lease.Scope.SceneHandle
+                + " childOf=" + lease.Scope.ChildOfLayer
+                + " prefabDeer=" + lease.Scope.PrefabDeer
+                + " prefabSteed=" + lease.Scope.PrefabSteed
+                + " prefabHind=" + lease.Scope.PrefabHind
+#endif
+                );
             _loggedApplied = true;
         }
         catch (Exception ex) { LogFailure(ex); }
