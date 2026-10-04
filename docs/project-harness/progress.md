@@ -1,3 +1,18 @@
+## 2026-10-04 — Android 悬浮面板原生菜单触摸隔离（Issue #119）
+
+0.0.12 通过根 Canvas 的两个透明 UGUI Image 接入原生 EventSystem，浮球与展开面板复用
+FloatLayout 矩形；原 actor 输入隔离保持，不新增 Harmony、驱动、扫描或重试。
+实际 Android interop 构建 0W/0E，host 217/168/176 均通过，独立 source/设备声明审查与
+GLM5.3 max install/delivery gate 通过。私有候选 main SHA256 d0c5d979…、APK b378b548…。
+
+API35 ARM64 模拟器确认 Home World/Player 不再点击底层 Campaign/Resume；面板外原生
+按钮仍可用，拖动四角、失焦首次采样隐藏及冷 Loading→Playing（owned roots 0→1）通过。
+Playing 中普通滑动可移动，四次 UI 点击保持玩家位置和金币快照。诊断移出 Mods 后，
+主 Mod 单独冷启动 0.0.12、15 个已报告入口各一份，无 ERROR，配置旧值保持。
+手机/平板、多指、分辨率变化、真实跨岛与文件读档切换仍待验；上述采样不等于真实购买
+或完整手势轨迹。代码任务待对应 PR 合并后按正常入口收尾，不把完整 Android 移植标为完成。
+仅源码交付，无公开 APK/tag/release、PC/手机部署；详情见 android/README.md。
+
 ## 2026-09-27 — 候选生成时状态（2026-09-27）
 
 以下说明记录候选生成时状态：当时尚未替换 canonical progress、未解决 Git index、未同步云端；实际应用情况以后续独立恢复回执为准。专用 Operator MCP 两次实际查询成功；桌面内置 MCP 未热切换。云端44项/1镜像，pending快照止于09-06且标记可能陈旧。119项 checklist 候选保留既有生命周期和日期；证据缺口以核查记录为准。PR72负深度钳制仍不作为根因修复验收；旧诊断退役为未提交未安装候选。现有金币哥布林B版、宝石骑士与武士八姿势WIP保留。下方为历史记录，不是当前安装或发布指令。

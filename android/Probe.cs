@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.11", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.12", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.11 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.12 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
@@ -112,6 +112,7 @@ public sealed class Probe : MelonMod
 }
 public sealed class ProbeTicker : MonoBehaviour
 {
+ private readonly MobileUiInputSurface inputSurface = new();
  private bool guiLogged;
  private int actionLogs;
  private int ownControlId;
@@ -123,8 +124,9 @@ public sealed class ProbeTicker : MonoBehaviour
  internal static readonly FloatLayout Layout = new();
  public ProbeTicker(IntPtr ptr) : base(ptr) { }
  public void OnDisable() { CancelGesture(); }
+ public void OnDestroy() { CancelGesture(); inputSurface.Dispose(); }
  public void OnApplicationFocus(bool focused) { if (!focused) CancelGesture(); }
- private void CancelGesture() { UiReady=false; FloatInput.Reset(); if (ownControlId!=0 && GUIUtility.hotControl==ownControlId) GUIUtility.hotControl=0; Layout.Cancel(); }
+ private void CancelGesture() { UiReady=false; FloatInput.Reset(); if (ownControlId!=0 && GUIUtility.hotControl==ownControlId) GUIUtility.hotControl=0; Layout.Cancel(); inputSurface.Hide(); }
  public void OnGUI()
  {
   if (renderFailed) return;
@@ -191,6 +193,7 @@ public sealed class ProbeTicker : MonoBehaviour
      if (GUI.Button(new Rect(px+16*u,py+410*u,248*u,64*u),"Close",buttonStyle)) Layout.Expanded=false;
     }
    }
+   stage="input surface"; inputSurface.Sync(gameObject,Layout,UiReady);
   }
   catch (Exception ex) { renderFailed=true; UiReady=false; CancelGesture(); MelonLogger.Error("OHMYMODS_FLOAT_RENDER_FAILED stage="+stage+" "+ex); }
   finally { if (stage!="color") GUI.color=oldColor; GUI.matrix=oldMatrix; }
