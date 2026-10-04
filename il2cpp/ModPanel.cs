@@ -139,11 +139,17 @@ public class ModPanel : MonoBehaviour
         catch (Exception ex)
         {
             // Close instead of erroring on every GUI event; F5 still reopens afterwards.
+            // 崩溃取证（实机#4）：本机 HarmonyX 栈修正被系统拒绝（Permission
+            // denied），异常 ToString/拼接会触发栈符号化 → SIGSEGV 直接带崩
+            // 进程（崩溃报告 RuntimeMethodHandle::GetName/IsConstructor 族）。
+            // 因此只记 类型+Message（无栈），保留可观测性且不再放大为闪退。
             _shown = false;
             if (!_faultLogged)
             {
                 _faultLogged = true;
-                KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Panel] OnGUI failed, panel closed: " + ex);
+                KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                    "[Panel] OnGUI failed, panel closed: " + ex.GetType().FullName
+                    + ": " + ex.Message);
             }
         }
         finally
