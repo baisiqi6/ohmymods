@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Host-side scenario checks for the actual Android staff-cooldown sources:
+       android/PatchDivine_StaffCooldown.cs (two prefixes + one shared Finalizer), the real
+       MobilePlayerMenu rows/Back wiring and the real MobilePlayerConfig cycle, linked
+       read-only against minimal typed boundary doubles (Stubs.cs): the Il2Cpp.ItemOfPower /
+       HermesStaff family with native-identity TryCast sharing one native cooldown slot, the
+       nested _StartAbilityRoutine_d__17 state machine shape, UnityEngine GUI capture, the
+       real HoldBridges logger bridge over the shared MelonLoader stubs, and a FloatLayout for
+       ProbeTicker.Layout. The doubles model only the recorded native consumption shapes
+       (MoveNext state-0 schedules Time + _itemCooldown + additive; CanCancel compares
+       remaining > _itemCooldown) and never reimplement the Prefix/End algorithm; this is host
+       evidence, not Unity/Harmony/IL2CPP gameplay proof.
+       Run: dotnet run -c Release (see android/README.md). -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <AssemblyName>StaffTests</AssemblyName>
+    <RootNamespace>OhMyMods.AndroidProbe.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../PatchDivine_StaffCooldown.cs" />
+    <Compile Include="../../HoldBridges.cs" />
+    <Compile Include="../../MobilePlayerConfig.cs" />
+    <Compile Include="../../MobilePlayerMenu.cs" />
+    <Compile Include="../../FloatLayout.cs" />
+    <Compile Include="../MelonLoggerStub.cs" />
+    <Compile Include="../MelonPreferencesStub.cs" />
+    <Compile Include="Stubs.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+
+</Project>

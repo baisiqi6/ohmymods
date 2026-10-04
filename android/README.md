@@ -30,14 +30,15 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 |---|---|
 | `Probe.cs` | MelonLoader 入口、显式 Harmony 注册、浮球组件与触摸守卫 |
 | `MobileUiInputSurface.cs` | Issue #119 原生 UGUI 命中面（新增）：两个透明 `Image` 命中区与 IMGUI 球/展开面板同矩形，由 `ProbeTicker` 生命周期驱动；不改原生菜单/输入标志 |
-| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 562 / World 640 / Player 484 / Population 376 / Generation 250，绘制与触摸同源） |
+| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 562 / World 640 / Player 562 / Population 376 / Generation 250，绘制与触摸同源） |
 | `MobileCalendar.cs` `CalendarSnapshot.cs` | 日历显示（开关直读 `CalendarEnabled` entry，切换时保存） |
 | `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（只读缓存） |
-| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 12 个 entry（速度、无限体力、Hold、坐骑技能冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
-| `MobilePlayerMenu.cs` | Player 页 UI（speed / stamina / hold / steed cooldown / back；冷却文案相对当次 currentCD 的下一次技能调用，不承诺回溯或 prefab 倍率；中性文案 "Device settings"） |
+| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 13 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
+| `MobilePlayerMenu.cs` | Player 页 UI（speed / stamina / hold / steed cooldown / staff base cooldown / back；六行 98/176/254/332/410/488，面板 562）。两个冷却文案都相对当次 currentCD 的下一次技能调用，不承诺回溯或 prefab 倍率；法杖行明示只改基础冷却（`applied = 进入时当前 _itemCooldown × 倍率`），原生 per-target 附加时间不缩放；中性文案 "Device settings"，Back 只置 `Layout.PlayerPage=false` |
 | `MobileWorldMenu.cs` | World 页 UI（enemies / threat growth / infinite money / stock cats / fast build / extra boat crew / back；七行 98/176/254/332/410/488/566，面板 640）。猫开关只影响以后关卡加载时的补齐，不删除已有猫；快速建造开关只影响后续每次原生 `InitializeBuild` 调用（前缀在 `_hasStarted` 早退之前写 rate，关闭不热还原已写入实例的 rate）；船容量开关只作用于以后新初始化的船（`Boat.OnEnable` 借用窗口），关闭不删除/不热改已登记的 slots；Back 只置 `Layout.WorldPage=false` |
 | `MobileGenerationMenu.cs` | Island-generation 页 UI（Length / Back；两行 98/176，面板 250，副文案 "New islands only"）。Length 只改新岛生成读取的 `MapSizeMultiplier`（1→2→3→4→5→1，合法小数先落下一整数档，如 4.5→5）；Back 只置 `Layout.GenerationPage=false`；不调用任何原生游戏 API |
 | `PatchWorld_Mover.cs` `PatchRide_InfiniteStamina.cs` `PatchRide_SteedCooldown.cs` | 速度倍率、无限体力与坐骑技能冷却调用级倍率补丁（显式注册；冷却四个消费者共享一个 Finalizer，无 PC instanceID 缓存/扫场） |
+| `PatchDivine_StaffCooldown.cs` | 法杖基础冷却（`StaffCooldownMultiplier`，默认 1，0.2–1）薄适配：`HermesStaff._StartAbilityRoutine_d__17.MoveNext`（仅 `__1__state==0`）与 `ItemOfPower.CanCancel`（仅实际 TryCast 到 HermesStaff）各一个 prefix + 共享 Finalizer，在当次原生读取窗口内借用 `_itemCooldown` 基础值；每转化目标附加时间、min 截断、扫描与已排程 `_nextActivationTime` 全部保持原生；不复制桌面的 profile 写入/`OriginalAbilityRanges` 原值字典/SettingChanged 扫场 |
 | `PatchWorld_BoatCapacity.cs` | 主船乘员容量（`BoatCapacityEnabled`，默认 OFF）薄适配：`Boat.OnEnable` 一个 prefix + 一个 Finalizer，在原生 `Embarkable::RegisterUnitSlots` 消费窗口内借用四个 max 字段（目标值来自共享 `BoatCapacityProfile`），调用结束后按 exact int 等值逐字段归还；不写 slots/船位置/航海/存档/native gate，不给登记早退或权限门加补偿 |
 | `OptionalQoLScope.cs` | 本机世界/层/场景闸门 |
 | `GlobalAliases.cs` | 把共享桌面源的裸游戏类型名映射到 Android interop 的 `Il2Cpp.*` |
@@ -60,20 +61,20 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 - 设置（唯一来源）：loader 标准 `UserData/MelonPreferences.cfg` 的 `[OhMyMods.Android]`
   分节，不 SetFilePath 自写路径、不每帧读回、不重试、不镜像状态。
   键与默认值：`SpeedMultiplier=1`、`InfiniteSteedStamina=false`、`HoldPurchaseEnabled=false`、
-  `SteedCooldownMultiplier=1`、`CalendarEnabled=false`、`EnemyCountMultiplier=1`、`EnemyTimelineSpeed=1`、
+  `SteedCooldownMultiplier=1`、`StaffCooldownMultiplier=1`、`CalendarEnabled=false`、`EnemyCountMultiplier=1`、`EnemyTimelineSpeed=1`、
   `InfiniteMoney=false`、`FarmCatsEnabled=false`、`FastBuild=false`、`BoatCapacityEnabled=false`、
   `MapSizeMultiplier=1`。加载边界各一次：速度 clamp 1–5；两个敌人与地图长度 float 倍率有限值 clamp
-  1–5、坐骑冷却倍率有限值 clamp 0.2–1（UI 档位 1→0.8→0.6→0.4→0.2→1，载入中间值落到下一较低
-  20% 档，如 0.5→0.4；地图长度与敌人倍率同一 `MathF.Floor` 步进 1→2→3→4→5→1，4.5→5）；NaN/Infinity（手工编辑 cfg 的非法输入）回 1 并各 Warning 一次——`Math.Clamp(NaN,…)`
+  1–5、坐骑与法杖基础冷却倍率有限值 clamp 0.2–1（两行共用同一档位 helper 1→0.8→0.6→0.4→0.2→1，
+  载入中间值落到下一较低 20% 档，如 0.5→0.4；地图长度与敌人倍率同一 `MathF.Floor` 步进 1→2→3→4→5→1，4.5→5）；NaN/Infinity（手工编辑 cfg 的非法输入）回 1 并各 Warning 一次——`Math.Clamp(NaN,…)`
   会返回 NaN，故显式判非有限；只改内存，不回写。切换时恰好一次
   `Category.SaveToFile(printmsg:false)`；失败由 loader 自身 `MelonLogger.Error` 输出真实
-  异常（实际 IL 已核），UI 不承诺“已保存”，12 个 entry 都不另存镜像
+  异常（实际 IL 已核），UI 不承诺“已保存”，13 个 entry 都不另存镜像
   （`Enabled` 是无 UI、不持久化的会话总开关）。`InfiniteMoney` 的原生静态开关只在初始化
   与每次切换各写一次（entry 改 → apply → save），不订阅事件、不每帧写；`ModConfig`
   本体零 `Il2Cpp.*` 引用，写入由 `Probe.cs` 的 lambda 承担。`FastBuild` 与
   `BoatCapacityEnabled` 只有值翻转 + 日志 + 一次 save，不订阅事件、不做配置镜像/读回/retry，
   也不因开关切换扫描或热改已登记状态。冷启动 `ANDROID_SETTINGS_READY`
-  行按同序追加 `cats=<bool>`、`fastBuild=<bool>`、`cooldown=<float>`、`boat=<bool>`、`map=<float>`。
+  行按同序追加 `cats=<bool>`、`fastBuild=<bool>`、`cooldown=<float>`、`boat=<bool>`、`map=<float>`、`staff=<float>`。
 - 长按续买（Hold purchase）：共享桌面源链接编译，默认 OFF（不写钱包/库存）。
 - 敌人参数（C2）：`../il2cpp/PatchWorld_EnemyManager.cs` 未修改链接；两个前缀分别缩放
   `AddEnemies` 的数量 multiplier 与 `GetEnemies` 的三个成长天数 int（`Mathf.RoundToInt`
@@ -104,6 +105,22 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   Finalizer 始终原样返回传入的原生 exception（不重试、不补偿）。未移植 PC 的
   instanceID→(Native,LastApplied) 缓存与 SettingChanged 扫场（其原生来源/生命周期
   未证且不需要）。Glide 体力不足的原生 `time+3` 路径不消费 `_cooldown`，保持 3 秒。
+- 法杖基础冷却（`StaffCooldownMultiplier`，默认 1，0.2–1，Android 专用薄适配）：`PatchDivine_StaffCooldown.cs`
+  只在两个已审真实消费点各挂一个 prefix + 共享 Finalizer——`HermesStaff._StartAbilityRoutine_d__17.MoveNext`
+  （仅 `__1__state==0` 单趟调用）与 `ItemOfPower.CanCancel`（仅实际 TryCast 到 HermesStaff 的实例；
+  其他 7 个 ItemOfPower 神器不介入）。每次非默认调用只借用当次：`applied = 进入时当前 _itemCooldown × 倍率`，
+  调用结束后按 exact float 等值把 current==applied 的字段还回 original；不同值保留并记一条 Warning，
+  同值外部写无法区分（不声明写入者身份）。只缩放基础值：每转化目标附加时间、min 截断、扫描与已排程
+  `_nextActivationTime` 都不改动，也不假设 30 秒 prefab 值（Android 序列化值未知）；CanCancel 借同倍率
+  基础值后，原生比较保持 m=1 的附加项窗口（`a > elapsed`），不用原值阈值额外挤压。`Enabled` 关闭或倍率 1
+  在读取 state/owner/TryCast 与字段之前返回（零 native 接触；配置在两 hook 共享前置里只读一次）。
+  两个 prefix 的全部失败并入单一错误边界并只内联清理一次；`End` 单 try/catch 内至多一次归还，
+  Finalizer 始终原样返回传入的原生 exception（不重试、不补偿）；日志走既有 HoldBridges LogSource
+  桥、同 key 只记一次。不移植桌面的 Awake/CanActivate/TriggerItemAbility profile 写入、
+  `OriginalAbilityRanges` 原值字典与 SettingChanged 扫场。未验边界：未知第三方订阅者若在 MoveNext
+  借用窗口内再查 CanCancel，该次判定会用 applied×倍率 的阈值（归还链仍闭合、字段无损），出现实机
+  证据前不预建 owner/静态栈守卫；`ItemBasedRulerAbility.Activate` 的 selected Hermes 虚路由不调 base、
+  不读 c4、不启动 Signal（Activate/c4 链对其不生效）。真实法杖激活、取消窗口、附加项与手机/联机未验。
 - 主船乘员容量（`BoatCapacityEnabled`，默认 OFF，Android 专用薄适配）：`PatchWorld_BoatCapacity.cs`
   只在 `Boat.OnEnable` 一个 prefix + 一个 Finalizer。原生 OnEnable 在本窗口内读 maxKnights →
   maxWorkers → `_archerPositions` 长度 →（`CanPikemenAndFarmersEmbarkMainBoat` 门后）maxPikemen →
@@ -175,6 +192,12 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
      `Finalizer`，冷启动 `ANDROID_HOOK_COUNTS` 应含该 target 的 `parameters=0 prefixes=1 postfixes=0
      finalizers=1` 与 `ANDROID_BOAT_CAPACITY_HOOK_INSTALLED sharedPolicy=true nativeSlotInitialization=true`；
      reported 入口由 18 增至 19 个 unique。
+  12. 法杖基础冷却注册：`HermesStaff._StartAbilityRoutine_d__17.MoveNext()`（嵌套类型，无参；按声明
+     父类名报告）与 `ItemOfPower.CanCancel()`（无参）两个目标，各 `prefix=RoutinePrefix/CanCancelPrefix`
+     + 共用 `finalizer=Finalizer`，并有 `ANDROID_STAFF_BASE_COOLDOWN_HOOKS_INSTALLED consumers=2
+     currentFieldRelative=true additiveTimeNative=true`；冷启动 `ANDROID_HOOK_COUNTS` 由既有 21 个
+     unique 增至 23（旧 21 行的字段与形状不变，仅嵌套 target 显示 `HermesStaff._StartAbilityRoutine_d__17.MoveNext`）。
+     0.0.17 增加 `staff_base_cooldown` feature marker。
 - 独立 Android API35 ARM64 模拟器已验：四设置首次默认值、界面切换、配置读回和进程
   重启恢复；隔离配置的保存故障可见日志；去 lease 后三速度入口九组原生 API 对照及
   2x/5x 正常触屏移动；体力 ON/OFF 的原生消耗与速率归还。诊断插件仅用于采证。
@@ -264,6 +287,24 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   方法（指令/局部变量/EH/MaxStack/InitLocals/特性/签名）与资源逐字节零差异，唯一源码差异是两
   文件的 `#if ANDROID` 头（PC 未定义编译掉）。真实设备的新岛生成/地图长度效果未验（需安装关口后
   走正常原生生成流程）。
+- 已做（Issue #136 源码阶段，取代上述 #134 的适配层 364 与 34/30/4 冻结数字）：真实
+  interop/loader/SupportModules 引用编译 0 warning / 0 error（-t:Rebuild，新增
+  `android/PatchDivine_StaffCooldown.cs`，`Compile Include` 仅一份）；staff host 场景工程
+  `android/tests/staff` 70 passed / 0 failed（30×0.2 排程读 6 且 6+40=46、12×0.6 float32 7.2、
+  CanCancel 借值保持 m=1 附加项窗口（elapsed 35/45 两例对照）、默认与关闭在 state/owner/TryCast
+  读取前返回且抛错 getter 零触达、非 Hermes 仅一次身份检查零借值、state≠0 单次读取不触 owner、
+  getter/写前/写后失败与 cleanup 读/写失败的单次清理与原生 exception identity、日志调用抛错不
+  外抛、窗口内不同值保留/同值不可区分、NaN 不归还、菜单 staff 行 410 / Back 488 / 面板 562 与点击
+  单次 save；host doubles，不冒充 Unity/Harmony/IL2CPP）；适配层 host 默认 408 passed / 0 failed、
+  `--seed-staff-cooldown=NaN|Infinity|0.1|9` 各 309、`=0.5` 311、`--seed-cooldown=0.5` 311、
+  4.5 档 317、`--oldcfg` 309、`--seed-map=4.5` 313，全部 0 failed；产物元数据确认 2 prefix +
+  共享 Finalizer（internal static、无 Harmony 特性、`(_StartAbilityRoutine_d__17, out Borrow)` /
+  `(Il2Cpp.ItemOfPower, out Borrow)` / `(Exception, Borrow)` 签名）、`Il2Cpp.HermesStaff`/
+  `Il2Cpp.ItemOfPower`/嵌套 `_StartAbilityRoutine_d__17` 类型与 `get/set__itemCooldown`、
+  `get___1__state`、`get___4__this` 成员引用；Probe 源级注册检查（0.0.17、两个 handler 名、
+  nested 父名输出、21+2=23 unique）与含 Probe 的 35 路径冻结（31 actual、4 有意改动）；PC 与根
+  Mono/共享 `il2cpp` 源零改动（git diff 仅 android 6 文件 + 新文件/测试/任务文档）。真实法杖激活、
+  取消窗口、附加项、手机/联机未验（需安装关口后自然可用时；不为验收造能力/改字段）。
 - 已验（Issue #122）：私有精确候选安装、原生 InitializeBuild 入口与正常付款建造、
   ON/OFF 不热应用/还原、配置冷读回及单 main 16 个 reported 各一份（见末节）。
   全部施工类型、对象池复用、其它 rate 写入者、手机/联机/跨岛仍未验；不公开分发 APK。
@@ -300,11 +341,12 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 
 加载边界矩阵（各场景一次运行，期望 0 failed）：`--seed-speed=0|3`、`--oldcfg`、
 `--seed-fast-build`、`--seed-enemy-count=NaN|Infinity|0.5|9`、`--seed-enemy-timeline=NaN|Infinity|0.5|9`、
-`--seed-cooldown=NaN|Infinity|0.1|0.5|9`、`--seed-map=NaN|Infinity|0.5|4.5|9`、`--seed-enemy-count=4.5 --seed-enemy-timeline=4.5`
-（`NaN`/`Infinity` 走非有限回退 1 + Warning，`0.5`/`9` 走有限 clamp 1–5、冷却 `0.1`→0.2、`9`→1，
+`--seed-cooldown=NaN|Infinity|0.1|0.5|9`、`--seed-staff-cooldown=NaN|Infinity|0.1|0.5|9`、
+`--seed-map=NaN|Infinity|0.5|4.5|9`、`--seed-enemy-count=4.5 --seed-enemy-timeline=4.5`
+（`NaN`/`Infinity` 走非有限回退 1 + Warning，`0.5`/`9` 走有限 clamp 1–5、两个冷却 `0.1`→0.2、`9`→1，
 `--oldcfg` 只种入旧四键、验证新键取默认且不回写；`--seed-fast-build` 验证已有 FastBuild 键载入 true；
 4.5 小数档验证载入原样、UI 步进 4.5→5→1 各一次 save；`--seed-map=4.5` 验证地图长度载入原样且
-4.5→5→1 各一次 save；`--seed-cooldown=0.5` 验证载入原样且
+4.5→5→1 各一次 save；`--seed-cooldown=0.5`/`--seed-staff-cooldown=0.5` 验证载入原样且
 步进 0.5→0.4 一次 save）。
 
 坐骑冷却场景（host doubles，链接实际生产 `PatchRide_SteedCooldown.cs`；断言消费值与
@@ -317,6 +359,13 @@ getter/setter/cleanup 次数，不冒充 Unity/Harmony/IL2CPP 运行）：
 次数，不冒充 Unity/Harmony/IL2CPP 运行）：
 
     <dotnet10>/dotnet run -c Release --project android/tests/boat/BoatTests.csproj
+
+法杖基础冷却场景（host doubles，链接实际生产 `PatchDivine_StaffCooldown.cs`、`MobilePlayerMenu.cs`、
+`MobilePlayerConfig.cs` 与真实 HoldBridges 日志桥；断言排程消费值、CanCancel 窗口对比、默认/关闭在
+state/owner/TryCast 前的零触达、失败边界的原生 exception identity 与单次清理、以及 Player 菜单
+staff 行 410 / Back 488 / 面板 562 与点击单次 save；不冒充 Unity/Harmony/IL2CPP 运行）：
+
+    <dotnet10>/dotnet run -c Release --project android/tests/staff/StaffTests.csproj
 
 地图长度套件（host stub，链接实际生产 `MapWidthPlanner.cs` / `MapWidthTerrain.cs` /
 `PatchWorld_Level.cs`；同一套用例跑两种编译模式——PC 全局类型与 `-p:DefineConstants=ANDROID`
@@ -333,22 +382,23 @@ getter/setter/cleanup 次数，不冒充 Unity/Harmony/IL2CPP 运行）：
 直接相关 PC 回归（同样只链接未修改/边界源，不拉起无关套件）：`tests/farm-cats`、
 `tests/greek-scale-scope`、`tests/greek-scale-adapters`。
 
-当前基线（0.0.16，含 Issue #134 地图长度共享移植；取代下述 0.0.14/#130 数字）：适配层默认
-364 passed / 0 failed、seeded 档 280（`--seed-map=NaN|Infinity|0.5|9`、`--oldcfg`）、
-`--seed-map=4.5` 284，全部 0 failed；map-width 套件同一份生产源两种编译模式（PC 全局类型 /
-ANDROID `Il2Cpp.*` 别名 stub）各 49 passed / 0 failed；cooldown/boat 场景工程本次未重跑
-（链接源未变，继续由冻结校验保护）。相比 #130（默认 299）新增检查：
-MapSizeMultiplier 声明/default 1/加载边界 1–5 clamp 与非有限回退、`--seed-map` 各档、
-`CycleMapSize` 1→2→3→4→5→1 逐档值与单次 save、Home 562（Close 底 552）与
-Generation 250 两行命中、READY 行 `map=<float>`、产物 `PatchWorld_Level`
-（Prefix/Postfix/Finalizer）与 `PatchWorld_Level_GetBlocks`（Postfix）的 private static 形状与
-`(Il2Cpp.Level, Frame)` / `(Il2Cpp.LevelLayout, ref Il2CppSystem…List<Il2Cpp.LevelBlock>)` 签名、
-`Il2Cpp.Level`…`Il2Cpp.Tile` 十个类型引用与 `get_blocks`/`get__levelEdges` 等消费成员、
-共享 `MapWidthPlanner`/`MapWidthScope` 落地。共享源 SHA-256 冻结为 34 条路径、30 条 actual 校验：
-`FloatLayout.cs`/`MobilePlayerConfig.cs`/`Probe.cs`/`OhMyMods.AndroidProbe.csproj` 为本次有意改动
-不参与断言，`MobileGenerationMenu.cs`、`MobileWorldMenu.cs`、`il2cpp/MapWidthPlanner.cs`、
-`il2cpp/MapWidthTerrain.cs`、`il2cpp/PatchWorld_Level.cs` 为新冻结的实际校验项。
-host 测试只检查适配层与产物元数据，不伪造运行期猫池/存档/透明命中结果，也不虚构
+当前基线（0.0.17，含 Issue #136 法杖基础冷却源码阶段；取代下述 0.0.16/#134 数字）：适配层默认
+408 passed / 0 failed、`--seed-staff-cooldown=NaN|Infinity|0.1|9` 各 309、`--seed-staff-cooldown=0.5`
+311、`--seed-cooldown=0.5` 311、4.5 档 317、`--oldcfg` 309、`--seed-map=4.5` 313，全部 0 failed；
+staff 场景工程 `android/tests/staff` 70 passed / 0 failed；map-width/cooldown/boat 场景工程本次
+未重跑（链接源未变，继续由冻结校验保护）。相比 #134（默认 364）新增检查：
+StaffCooldownMultiplier 声明/default 1/加载边界 0.2–1 clamp 与非有限回退、`--seed-staff-cooldown` 各档、
+共用的冷却档位 helper 使坐骑/法杖两个循环都按 1→0.8→0.6→0.4→0.2→1 逐档值与单次 save、
+Player 562（staff 行 410、Back 488、底 552）与 562 触摸边界、READY 行 `staff=<float>`、
+产物 `PatchDivine_StaffCooldown`（RoutinePrefix/CanCancelPrefix/Finalizer）的 internal static 形状与
+`(_StartAbilityRoutine_d__17, Borrow&)` / `(Il2Cpp.ItemOfPower, Borrow&)` / `(Exception, Borrow)` 签名、
+`Il2Cpp.HermesStaff`/`Il2Cpp.ItemOfPower`/`_StartAbilityRoutine_d__17` 三个类型引用与
+`get/set__itemCooldown`、`get___1__state`、`get___4__this` 消费成员、Probe 源级注册检查
+（0.0.17、两个 handler 名、嵌套 target 按父名输出、21+2=23 unique）。共享源 SHA-256 冻结为
+35 条路径、31 条 actual 校验：`FloatLayout.cs`/`MobilePlayerConfig.cs`/`MobilePlayerMenu.cs`/
+`OhMyMods.AndroidProbe.csproj` 为本次有意改动不参与断言，`PatchDivine_StaffCooldown.cs` 与
+Operator 完成态的 `Probe.cs`（0.0.17）为新冻结的实际校验项；旧 21 行 hook-count 字段不变。
+host 测试只检查适配层与产物元数据，不伪造运行期法杖/存档/透明命中结果，也不虚构
 UnityRuntime。
 
 ## 0.0.10 隔离设备验证
@@ -478,3 +528,23 @@ MapWidth 规划；没有独立重测冷重载后的 edges，不能据此宣称�
 
 全部倍率地形连续性/地标、其它 biome、跨岛、池复用、原生异常与嵌套路径、手机/平板和联机
 均仍待验。私有原始日志、偏好、截图与全量备份见 task 的 device-evidence 索引，不进公开包。
+
+
+## Issue #136 法杖基础冷却的隔离设备边界
+
+精确 Main `7364422b…` / 私有 APK `99074ca1…` 通过独立源码审查和安装关口后，更新到
+同一 API35 ARM64 MoltenVK 模拟器。首次启动前完整偏好与原生存档逐字节同备份；此结论
+只适用于该时刻。原22313包成员（含AndroidManifest）保持，包内仅主Mod，无诊断插件。
+
+冷启0.0.17，23个唯一type/arity目标读回；新增完整父名
+`HermesStaff._StartAbilityRoutine_d__17.MoveNext:0` 与 `ItemOfPower.CanCancel:0`
+各1prefix/0postfix/1finalizer，旧21形状保持，无ERROR，既有loader两项Warning仍记录。
+Player562实际触屏 Staff base cooldown 行与 Back（物理约450/528）通过；倍率
+1→0.8→0.6→0.4→0.2→1全档保存，旧12项值保持，Back返回Mod Home。另选0.8冷启，
+loader和界面均读回0.8；偏好十进制表示按float32比较。UI恢复1并再冷启读回1，
+最后仅主DLL、游戏已停止。浮球48/72命中与默认收起保持，未加新输入层。
+
+本轮只验证注册、菜单与设置持久化，没有自然法杖技能使用/取消样本，不能据此宣称
+基础冷却、每目标附加时间、真实取消窗口或异常清理ABI已在设备验证。未知订阅者窗口内
+二次查询、池复用、跨岛/存读档、手机/平板、联机和全部AOT仍待验。原生档案没有字段编辑；
+首次启动前字节保持不延伸为全部冷启动后的终态字节承诺。无公开APK/loader/game/tag发布。

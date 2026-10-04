@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.16", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.17", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.16 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.17 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
@@ -52,6 +52,14 @@ public sealed class Probe : MelonMod
    if(entry.Item1==typeof(Il2Cpp.BuffUnitsSteedAbility)||entry.Item1==typeof(Il2Cpp.SpeedBoostSteedAbility))LogHookCounts(target);
   }
   LoggerInstance.Msg("ANDROID_STEED_COOLDOWN_HOOKS_INSTALLED consumers=4 currentFieldRelative=true");
+  var staffCooldownType=typeof(KingdomEnhancedMod.PatchDivine_StaffCooldown);
+  var staffRoutine=AccessTools.Method(typeof(Il2Cpp.HermesStaff._StartAbilityRoutine_d__17),"MoveNext",Type.EmptyTypes)??throw new MissingMethodException("HermesStaff._StartAbilityRoutine_d__17.MoveNext()");
+  var staffCanCancel=AccessTools.Method(typeof(Il2Cpp.ItemOfPower),"CanCancel",Type.EmptyTypes)??throw new MissingMethodException("ItemOfPower.CanCancel()");
+  HarmonyInstance.Patch(staffRoutine,prefix:new HarmonyMethod(staffCooldownType,"RoutinePrefix"),finalizer:new HarmonyMethod(staffCooldownType,"Finalizer"));
+  HarmonyInstance.Patch(staffCanCancel,prefix:new HarmonyMethod(staffCooldownType,"CanCancelPrefix"),finalizer:new HarmonyMethod(staffCooldownType,"Finalizer"));
+  LogHookCounts(staffRoutine);
+  LogHookCounts(staffCanCancel);
+  LoggerInstance.Msg("ANDROID_STAFF_BASE_COOLDOWN_HOOKS_INSTALLED consumers=2 currentFieldRelative=true additiveTimeNative=true");
   PatchStamina(typeof(Il2Cpp.Player),"UpdateActionState",typeof(KingdomEnhancedMod.PatchRide_InfiniteStamina),"UpdateActionState_Prefix","UpdateActionState_Postfix","UpdateActionState_Finalizer");
   PatchStamina(typeof(Il2Cpp.SteedAbility),"Activate",typeof(KingdomEnhancedMod.PatchRide_InfiniteStaminaAbility),"Prefix","Postfix");
   PatchStamina(typeof(Il2Cpp.GlideMovementSteedAbility),"Activate",typeof(KingdomEnhancedMod.PatchRide_InfiniteStaminaGlide),"Prefix","Postfix");
@@ -120,7 +128,9 @@ public sealed class Probe : MelonMod
  private void LogHookCounts(System.Reflection.MethodBase target)
  {
   var info=HarmonyLib.Harmony.GetPatchInfo(target);
-  LoggerInstance.Msg($"ANDROID_HOOK_COUNTS {target.DeclaringType.Name}.{target.Name} parameters={target.GetParameters().Length} prefixes={info.Prefixes.Count} postfixes={info.Postfixes.Count} finalizers={info.Finalizers.Count}");
+  var owner=target.DeclaringType;
+  var typeName=owner.IsNested?owner.DeclaringType.Name+"."+owner.Name:owner.Name;
+  LoggerInstance.Msg($"ANDROID_HOOK_COUNTS {typeName}.{target.Name} parameters={target.GetParameters().Length} prefixes={info.Prefixes.Count} postfixes={info.Postfixes.Count} finalizers={info.Finalizers.Count}");
  }
  public override void OnUpdate()
  {

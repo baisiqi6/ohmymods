@@ -57,6 +57,7 @@
     <Compile Include="OptionalQoLScope.cs" />
     <Compile Include="PatchRide_InfiniteStamina.cs" />
     <Compile Include="PatchRide_SteedCooldown.cs" />
+    <Compile Include="PatchDivine_StaffCooldown.cs" />
     <Compile Include="PatchWorld_Mover.cs" />
     <Compile Include="PatchWorld_BoatCapacity.cs" />
     <!-- Unmodified production sources, linked read-only. -->

@@ -1,8 +1,20 @@
-## 2026-10-04 — Android 新岛地图长度（Issue #134，代码与一次自然生成验证完成，待交付收尾）
+## 2026-10-04 — Android 法杖基础冷却（Issue #136，代码与设置验证完成，待交付）
+
+Android原生MoveNext/CanCancel两个消费窗口借用当次current base×倍率，单一清账保留原生异常与附加目标时间；不挂8字节getter、不改通用能力缓存、不搬PC数量/范围/永久捆绑。默认1先于全部native状态/代理读取返回；首版提前读取缺陷已根因修复并有抛错getter测试。共13entry、Player562、两循环共享步进helper，悬浮球仍48/72默认收起，无新driver/scan/retry/cache。
+
+实际interop构建0W0E、生产源host70/0、适配408/309/311/317/313通过；独立私有70/408/311和构建0W0E通过。Main7364422b/APK99074ca1原22313成员保持；首启前native/prefs bytesame，实际23唯一/旧21形状与旧12设置保持/noERROR（既有2warnings）、UI全档/.8冷读回/恢复1冷启与BackHome通过，最终mainonly/gameStopped。真实法杖激活/附加时间/取消窗口/异常、第三方nestedquery、池/存读档/跨岛/手机/MP未验，不能用注册或host代替；代码交付仍需正常PR与canonical收尾。详见task issue-136。
+
+## 2026-10-04 — Android 法杖基础冷却（Issue #136，源码阶段完成，待独立审查与安装关口）
+
+在 Android 两个已审真实消费点做字段级借用：`HermesStaff._StartAbilityRoutine_d__17.MoveNext`（仅 `__1__state==0` 单趟排程读）与 `ItemOfPower.CanCancel`（仅实际 TryCast 到 HermesStaff 的实例，其他 7 神器不介入）；`applied = 进入时当前 _itemCooldown × 倍率`，exact float 等值归还，不同值保留并告警。附加 per-target 时间、min 截断、扫描、已排程 `_nextActivationTime` 与 Activate/c4 链保持原生；不假设 30s prefab 值，不搬 desktop profile 写入/`OriginalAbilityRanges` 原值字典/SettingChanged 扫场。默认 1 或关闭在 state/owner/TryCast 与字段之前返回（零 native 接触，配置只读一次）；两 prefix 单一错误边界 + 单次内联 End、原生 exception identity、日志走既有 HoldBridges LogSource、无 guard/静态栈/扫描/retry。13 entry（新增 `StaffCooldownMultiplier`，与坐骑共用档位 helper 1→0.8→0.6→0.4→0.2→1），Player 面板 562 六行（staff 行 410、Back 488），旧四行不变。
+
+实际 Android interop SDK10.0.401 `-t:Rebuild` 0W0E，Main SHA-256 `7364422b…`；staff host 场景工程 70 passed / 0 failed（30×0.2 排程 6→+40=46、12×0.6 float32 7.2、CanCancel 窗口对照、零触达抛错 getter、identity/单次清理、菜单行 410/Back 488/单次 save）；适配层默认 408、staff seeds 309/311、`--seed-cooldown=0.5` 311、4.5 档 317、`--oldcfg` 309、`--seed-map=4.5` 313，全部 0 failed；产物元数据确认 2 prefix + 共享 Finalizer（nested `_StartAbilityRoutine_d__17` / `ItemOfPower` 形状）与 4 成员引用；Probe 0.0.17 两个显式注册（0.0.17 marker、nested 父名输出、既有 21 + 2 = 23 unique）与含 Probe 的 35 路径冻结（31 actual/4 有意改动）。PC 与根 Mono/共享 `il2cpp` 源零改动（git diff 仅 android 6 文件 + 新文件/测试/任务文档）。真实法杖激活、取消窗口、附加项、池/手机/联机未验（需安装关口后自然可用时；不为验收造能力/改字段）。PR135 已合并 `b3e120b7`、Issue134 代码任务按 closeout receipt done/closed；本条为源码阶段记录，安装与实机另列。
+
+## 2026-10-04 — Android 新岛地图长度（Issue #134，代码已合并；其它地图玩法待验）
 
 共享 MapWidthPlanner（未改、hash 3790b85f…）与 MapWidthTerrain/PatchWorld_Level（仅文件头 `#if ANDROID` 别名）链接进 Android；`Level.GenerateInternal` 原生生成 scope + `LevelLayout.GetBlocks` 单次规划追加，默认 1x 零副作用，不复活 minLevelWidth、不加扫描/驱动/缓存/retry。12 entry、Home562 新增 Island generation 入口、Generation 页 250（Length/Back），World640/Player484/Pop376/球48/touch72 保持。
 
-实际 Android interop 构建 0W0E；map-width host 套件同一生产源两编译模式（PC 全局类型 / `Il2Cpp.*` 别名 stub）各 49/0；适配层 364/280/284 全 0 failed；产物两个新 hook 类型/签名、10 个新类型引用与消费成员、共享 Planner/Scope 落地已核。PC baseline293a/候选快照 SDK8 net6 隔离构建：6704 方法 IL/locals/EH/MaxStack/InitLocals/attrs/signatures 与资源零差异（唯一源码差=两文件 `#if ANDROID` 头）。冻结 34 路径/30 actual。安装启动前 native/prefs 字节保持；实际21唯一注册/旧19形状、菜单1–5循环和2→1冷读回/旧11设置保持、Generation Back通过。原生空 Slot2 正常 Greek @2 新岛：baseline252→planned/native504、13新增块、2接缝、4候选；正常显示/控制与 Save 后默认1冷启，无再规划日志（未独立重测保存后edges）。最终仅主 DLL、游戏停止。完整原生文件因正常空槽创建/保存改变，不能声称最终字节保持。手机/联机/全部 biome/pool/全图地形和原生异常路径未验。详见 tasks/issue-134/ 与任务私有 map-implementation-worker-report.md。
+实际 Android interop 构建 0W0E；map-width host 套件同一生产源两编译模式（PC 全局类型 / `Il2Cpp.*` 别名 stub）各 49/0；适配层 364/280/284 全 0 failed；产物两个新 hook 类型/签名、10 个新类型引用与消费成员、共享 Planner/Scope 落地已核。PC baseline293a/候选快照 SDK8 net6 隔离构建：6704 方法 IL/locals/EH/MaxStack/InitLocals/attrs/signatures 与资源零差异（唯一源码差=两文件 `#if ANDROID` 头）。冻结 34 路径/30 actual。安装启动前 native/prefs 字节保持；实际21唯一注册/旧19形状、菜单1–5循环和2→1冷读回/旧11设置保持、Generation Back通过。原生空 Slot2 正常 Greek @2 新岛：baseline252→planned/native504、13新增块、2接缝、4候选；正常显示/控制与 Save 后默认1冷启，无再规划日志（未独立重测保存后edges）。最终仅主 DLL、游戏停止。完整原生文件因正常空槽创建/保存改变，不能声称最终字节保持。手机/联机/全部 biome/pool/全图地形和原生异常路径未验。PR135 已合并 b3e120b7，Issue134与代码任务正常done/closed；独立精确packet审查/其它150完整对象/order151/doctor0errors0warnings保持，玩法缺口单列。详见 tasks/issue-134/ 与任务私有 map-implementation-worker-report.md。
 
 ## 2026-10-04 — 哥布林金币休闲 V1（Issue #110，候选验证完成）
 
