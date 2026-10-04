@@ -661,10 +661,34 @@ public static class PatchWorld_TowerSpots
             Rect native = GetOverlapRegion(go, x, sameObject);
             if (!float.IsFinite(native.xMin) || !float.IsFinite(native.xMax) || native.xMax <= native.xMin) return false;
             float min = Mathf.Min(native.xMin, visualMin), max = Mathf.Max(native.xMax, visualMax);
+            float halfCap = StructuralHalfCapFor(go);
+            if (halfCap > 0f && go.transform != null)
+            {
+                float cx = go.transform.position.x;
+                min = Mathf.Max(min, cx - halfCap);
+                max = Mathf.Min(max, cx + halfCap);
+            }
             result = Rect.MinMaxRect(min, 50f, max, 150f);
             return float.IsFinite(min) && float.IsFinite(max) && max > min;
         }
         catch { return false; }
+    }
+
+    /// <summary>
+    /// 实机#3 实证（occupancy-root-rects 日志）：Wall/WallWreck 根的子渲染器
+    /// 并集会把背景墙段（从城墙延伸回主城的装饰长带，如 [0..159.4]）吞进
+    /// 占用矩形，一次罩死整条内带（塔基误回收 13 个 + 墙基候选全灭）。
+    /// 墙的结构占地仅 ~3 单位：这两类根的矩形钳制到 root.x ± WallStructuralHalf。
+    /// </summary>
+    private static float StructuralHalfCapFor(GameObject go)
+    {
+        try
+        {
+            if (go == null) return 0f;
+            string t = go.tag;
+            return t == "Wall" || t == "WallWreck" ? 2.5f : 0f;
+        }
+        catch { return 0f; }
     }
 
     private static bool TryGetVisualBounds(GameObject go, float x, out float minX, out float maxX)
