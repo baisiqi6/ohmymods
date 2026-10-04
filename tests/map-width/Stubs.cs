@@ -2,6 +2,14 @@
 // Unity/IL2CPP/Harmony/游戏表面。地形对象的组件组合/持久化路径/池戳按 template-boundary.md 的
 // level4 实测 17 个对象形状搭建（TerrainFactory），不用“只有 Tile”的假模板充当正常样本。
 // 仅测试程序集编译。
+//
+// 双模式：PC（默认，无 ANDROID 定义）游戏类型 stub 位于全局命名空间（与 PC interop 一致）；
+// Android 别名模式（-p:DefineConstants=ANDROID）把 stub 声明进 Il2Cpp 命名空间，生产源码的
+// `using X = Il2Cpp.X;` 头别名绑定到这里，测试自身的裸名引用由下面的 global using 解析。
+// 两种模式编译并执行同一份生产源码与同一套用例，不复制任何生产算法。
+#if ANDROID
+global using Il2Cpp;
+#endif
 
 using System;
 using System.Collections.Generic;
@@ -180,7 +188,12 @@ namespace UnityEngine
     }
 }
 
-// ---- 游戏类型（真实 interop 里都在 Assembly-CSharp 全局命名空间）----
+// ---- 游戏类型（PC interop 在 Assembly-CSharp 全局命名空间；Android 别名模式在 Il2Cpp.*，
+//      由文件顶部说明的 #if ANDROID namespace 包装切换）----
+#if ANDROID
+namespace Il2Cpp
+{
+#endif
 
 internal enum ContentLayers
 {
@@ -282,6 +295,10 @@ internal class Level : UnityEngine.MonoBehaviour
 {
     public IntRange _levelEdges;
 }
+
+#if ANDROID
+}
+#endif
 
 namespace KingdomEnhancedMod
 {

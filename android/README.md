@@ -30,12 +30,13 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 |---|---|
 | `Probe.cs` | MelonLoader 入口、显式 Harmony 注册、浮球组件与触摸守卫 |
 | `MobileUiInputSurface.cs` | Issue #119 原生 UGUI 命中面（新增）：两个透明 `Image` 命中区与 IMGUI 球/展开面板同矩形，由 `ProbeTicker` 生命周期驱动；不改原生菜单/输入标志 |
-| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 484 / World 640 / Player 484 / Population 376，绘制与触摸同源） |
+| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 562 / World 640 / Player 484 / Population 376 / Generation 250，绘制与触摸同源） |
 | `MobileCalendar.cs` `CalendarSnapshot.cs` | 日历显示（开关直读 `CalendarEnabled` entry，切换时保存） |
 | `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（只读缓存） |
-| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 11 个 entry（速度、无限体力、Hold、坐骑技能冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
+| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 12 个 entry（速度、无限体力、Hold、坐骑技能冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
 | `MobilePlayerMenu.cs` | Player 页 UI（speed / stamina / hold / steed cooldown / back；冷却文案相对当次 currentCD 的下一次技能调用，不承诺回溯或 prefab 倍率；中性文案 "Device settings"） |
 | `MobileWorldMenu.cs` | World 页 UI（enemies / threat growth / infinite money / stock cats / fast build / extra boat crew / back；七行 98/176/254/332/410/488/566，面板 640）。猫开关只影响以后关卡加载时的补齐，不删除已有猫；快速建造开关只影响后续每次原生 `InitializeBuild` 调用（前缀在 `_hasStarted` 早退之前写 rate，关闭不热还原已写入实例的 rate）；船容量开关只作用于以后新初始化的船（`Boat.OnEnable` 借用窗口），关闭不删除/不热改已登记的 slots；Back 只置 `Layout.WorldPage=false` |
+| `MobileGenerationMenu.cs` | Island-generation 页 UI（Length / Back；两行 98/176，面板 250，副文案 "New islands only"）。Length 只改新岛生成读取的 `MapSizeMultiplier`（1→2→3→4→5→1，合法小数先落下一整数档，如 4.5→5）；Back 只置 `Layout.GenerationPage=false`；不调用任何原生游戏 API |
 | `PatchWorld_Mover.cs` `PatchRide_InfiniteStamina.cs` `PatchRide_SteedCooldown.cs` | 速度倍率、无限体力与坐骑技能冷却调用级倍率补丁（显式注册；冷却四个消费者共享一个 Finalizer，无 PC instanceID 缓存/扫场） |
 | `PatchWorld_BoatCapacity.cs` | 主船乘员容量（`BoatCapacityEnabled`，默认 OFF）薄适配：`Boat.OnEnable` 一个 prefix + 一个 Finalizer，在原生 `Embarkable::RegisterUnitSlots` 消费窗口内借用四个 max 字段（目标值来自共享 `BoatCapacityProfile`），调用结束后按 exact int 等值逐字段归还；不写 slots/船位置/航海/存档/native gate，不给登记早退或权限门加补偿 |
 | `OptionalQoLScope.cs` | 本机世界/层/场景闸门 |
@@ -48,6 +49,8 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 | `../il2cpp/PatchWorld_FarmCats.cs` `../il2cpp/FarmCatMovement.cs` `../il2cpp/GreekScaleScope.cs` | 链接的生产源（农舍猫 + 移动驱动 + 缩放作用域；相对桌面版仅 2 处 `#if` 平台边界，见下） |
 | `../il2cpp/PatchWorld_Construction.cs` | 未修改链接的生产源（`ConstructionBuildingComponent.InitializeBuild` public 前缀：`Enabled && FastBuild` 时写 `_autoBuildRate=50f`；默认 OFF 不介入） |
 | `../il2cpp/BoatCapacityProfile.cs` | 链接的共享策略常量（Workers=8 / Knights=6 / Pikemen=8 / Farmers=3；纯常量、无方法/状态），PC 与 Android 编译同一份 |
+| `../il2cpp/MapWidthPlanner.cs` | 链接的共享纯规划器（Plan/AssignSeams + `MapWidthCandidate/MapWidthPlan`，零 Unity/native 依赖），未修改、逐字节与 PC 同一份（SHA-256 冻结） |
+| `../il2cpp/MapWidthTerrain.cs` `../il2cpp/PatchWorld_Level.cs` | 链接的共享地图长度适配源：相对桌面版仅文件头 `#if ANDROID` 的 `using X = Il2Cpp.X;` 类型别名（Level/LevelBlock/LevelLayout 等），其余逐字相同；Android 下别名编译进实际 interop 类型（见构建/测试节） |
 
 ## 功能范围与状态
 
@@ -58,18 +61,19 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   分节，不 SetFilePath 自写路径、不每帧读回、不重试、不镜像状态。
   键与默认值：`SpeedMultiplier=1`、`InfiniteSteedStamina=false`、`HoldPurchaseEnabled=false`、
   `SteedCooldownMultiplier=1`、`CalendarEnabled=false`、`EnemyCountMultiplier=1`、`EnemyTimelineSpeed=1`、
-  `InfiniteMoney=false`、`FarmCatsEnabled=false`、`FastBuild=false`、`BoatCapacityEnabled=false`。加载边界各一次：速度 clamp 1–5；两个敌人 float 倍率有限值 clamp
+  `InfiniteMoney=false`、`FarmCatsEnabled=false`、`FastBuild=false`、`BoatCapacityEnabled=false`、
+  `MapSizeMultiplier=1`。加载边界各一次：速度 clamp 1–5；两个敌人与地图长度 float 倍率有限值 clamp
   1–5、坐骑冷却倍率有限值 clamp 0.2–1（UI 档位 1→0.8→0.6→0.4→0.2→1，载入中间值落到下一较低
-  20% 档，如 0.5→0.4）；NaN/Infinity（手工编辑 cfg 的非法输入）回 1 并各 Warning 一次——`Math.Clamp(NaN,…)`
+  20% 档，如 0.5→0.4；地图长度与敌人倍率同一 `MathF.Floor` 步进 1→2→3→4→5→1，4.5→5）；NaN/Infinity（手工编辑 cfg 的非法输入）回 1 并各 Warning 一次——`Math.Clamp(NaN,…)`
   会返回 NaN，故显式判非有限；只改内存，不回写。切换时恰好一次
   `Category.SaveToFile(printmsg:false)`；失败由 loader 自身 `MelonLogger.Error` 输出真实
-  异常（实际 IL 已核），UI 不承诺“已保存”，11 个 entry 都不另存镜像
+  异常（实际 IL 已核），UI 不承诺“已保存”，12 个 entry 都不另存镜像
   （`Enabled` 是无 UI、不持久化的会话总开关）。`InfiniteMoney` 的原生静态开关只在初始化
   与每次切换各写一次（entry 改 → apply → save），不订阅事件、不每帧写；`ModConfig`
   本体零 `Il2Cpp.*` 引用，写入由 `Probe.cs` 的 lambda 承担。`FastBuild` 与
   `BoatCapacityEnabled` 只有值翻转 + 日志 + 一次 save，不订阅事件、不做配置镜像/读回/retry，
   也不因开关切换扫描或热改已登记状态。冷启动 `ANDROID_SETTINGS_READY`
-  行按同序追加 `cats=<bool>`、`fastBuild=<bool>`、`cooldown=<float>`、`boat=<bool>`。
+  行按同序追加 `cats=<bool>`、`fastBuild=<bool>`、`cooldown=<float>`、`boat=<bool>`、`map=<float>`。
 - 长按续买（Hold purchase）：共享桌面源链接编译，默认 OFF（不写钱包/库存）。
 - 敌人参数（C2）：`../il2cpp/PatchWorld_EnemyManager.cs` 未修改链接；两个前缀分别缩放
   `AddEnemies` 的数量 multiplier 与 `GetEnemies` 的三个成长天数 int（`Mathf.RoundToInt`
@@ -111,6 +115,15 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   state，Finalizer 无债可还。OFF 或会话关闭零读零写零 state；不写 slots/船位置/航海/存档/native
   gate，不给登记早退或权限门加补偿，也不热改已登记 slots；Pike/Farmer 的原生权限门保持。
   弓箭手容量是 `_archerPositions` 数组长度，本补丁不映射也不改；真实登船/航海玩法未验。
+- 新岛地图长度（`MapSizeMultiplier`，默认 1）：共享源 `MapWidthPlanner.cs`（未修改）+ `MapWidthTerrain.cs` /
+  `PatchWorld_Level.cs`（仅文件头 `#if ANDROID` 别名）以链接方式编译。`Probe` 显式注册两个入口：
+  `Level.GenerateInternal(LevelConfig,int)` 的 prefix/postfix/finalizer（打开/归还同步 scope，
+  Finalizer 原样返回传入异常）与 `LevelLayout.GetBlocks()` 的 postfix（只在该 scope 内、首次调用时
+  规划一次：按本次返回列表逐块原生 `GetWidth` 的总宽与倍率快照，从 `layout.blocks` 的精确名模板
+  （Forest/Clearing 大小块）核验组件组合/持久化路径/池戳后，规划并追加完整地块到合法接缝；
+  失败/歧义/无接缝时原列表一个字节不改，仅告警）。倍率只在新岛生成时读取：不改变已生成岛、
+  不追溯/不重生成、不复活旧 `minLevelWidth` 补偿、不新增扫描/驱动/缓存；默认 1x 或会话关闭时
+  零副作用。host 行为、真实 interop 编译与 PC 等价见测试节；同一模拟器的普通 Greek 空槽新岛自然生成已验证一次，详见末节；未覆盖全部世界/跨岛/真机。
 - 农舍猫（`FarmCatsEnabled`，默认 OFF）：共享源 `PatchWorld_FarmCats.cs` /
   `FarmCatMovement.cs` / `GreekScaleScope.cs` 以链接方式编译，平台边界仅 2 处 `#if`——
   `GreekScaleScope.Tick` 的 `ScaleRegistryHolder.RetryPendingCreation()` 只在非 Android 编译
@@ -237,6 +250,20 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   （SDK8/net6、不部署）：全程序集逐方法比较（指令/局部变量/EH）零差异，唯一新增
   `BoatCapacityProfile` 四常量（8/6/8/3、无方法），8 个内嵌资源逐字节相同，`Boat_MainCapacity_Patch`
   五方法的 MetaDump 输出逐字节一致（const 内联后进入值与基线一致）。真实船容量/登船/航海未验。
+- 已做（Issue #134 源码阶段，取代上述 #130 的适配层 299 与 28/23 冻结数字）：真实
+  interop/loader/SupportModules 引用编译 0 warning / 0 error（-t:Rebuild，新增链接
+  `il2cpp/MapWidthPlanner.cs`（未修改）、`il2cpp/MapWidthTerrain.cs`、`il2cpp/PatchWorld_Level.cs`
+  （后两个仅文件头 `#if ANDROID` 别名）与 `android/MobileGenerationMenu.cs`，各一份）；map-width
+  host 套件同一份生产源两种编译模式（PC 全局类型 / `-p:DefineConstants=ANDROID` 的 `Il2Cpp.*`
+  别名 stub）各 49 passed / 0 failed；适配层 host 默认 364 passed / 0 failed、seeded 280
+  （`--seed-map=NaN|Infinity|0.5|9`、`--oldcfg`）、`--seed-map=4.5` 284，全 0 failed；产物元数据
+  确认两个新 hook 类型（private static；`Prefix(out Frame)` / `Postfix(Level, Frame)` /
+  `Finalizer(Exception, Frame)` / `Postfix(LevelLayout, ref List<LevelBlock>)`）、共享
+  `MapWidthPlanner`/`MapWidthScope` 与 `Il2Cpp.Level`…`Il2Cpp.Tile` 类型/消费成员引用；PC 侧
+  baseline（293a 快照）/候选（当前 il2cpp 快照）隔离构建（SDK8/net6、不部署）：全程序集 6704
+  方法（指令/局部变量/EH/MaxStack/InitLocals/特性/签名）与资源逐字节零差异，唯一源码差异是两
+  文件的 `#if ANDROID` 头（PC 未定义编译掉）。真实设备的新岛生成/地图长度效果未验（需安装关口后
+  走正常原生生成流程）。
 - 已验（Issue #122）：私有精确候选安装、原生 InitializeBuild 入口与正常付款建造、
   ON/OFF 不热应用/还原、配置冷读回及单 main 16 个 reported 各一份（见末节）。
   全部施工类型、对象池复用、其它 rate 写入者、手机/联机/跨岛仍未验；不公开分发 APK。
@@ -273,10 +300,11 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 
 加载边界矩阵（各场景一次运行，期望 0 failed）：`--seed-speed=0|3`、`--oldcfg`、
 `--seed-fast-build`、`--seed-enemy-count=NaN|Infinity|0.5|9`、`--seed-enemy-timeline=NaN|Infinity|0.5|9`、
-`--seed-cooldown=NaN|Infinity|0.1|0.5|9`、`--seed-enemy-count=4.5 --seed-enemy-timeline=4.5`
+`--seed-cooldown=NaN|Infinity|0.1|0.5|9`、`--seed-map=NaN|Infinity|0.5|4.5|9`、`--seed-enemy-count=4.5 --seed-enemy-timeline=4.5`
 （`NaN`/`Infinity` 走非有限回退 1 + Warning，`0.5`/`9` 走有限 clamp 1–5、冷却 `0.1`→0.2、`9`→1，
 `--oldcfg` 只种入旧四键、验证新键取默认且不回写；`--seed-fast-build` 验证已有 FastBuild 键载入 true；
-4.5 小数档验证载入原样、UI 步进 4.5→5→1 各一次 save；`--seed-cooldown=0.5` 验证载入原样且
+4.5 小数档验证载入原样、UI 步进 4.5→5→1 各一次 save；`--seed-map=4.5` 验证地图长度载入原样且
+4.5→5→1 各一次 save；`--seed-cooldown=0.5` 验证载入原样且
 步进 0.5→0.4 一次 save）。
 
 坐骑冷却场景（host doubles，链接实际生产 `PatchRide_SteedCooldown.cs`；断言消费值与
@@ -290,6 +318,14 @@ getter/setter/cleanup 次数，不冒充 Unity/Harmony/IL2CPP 运行）：
 
     <dotnet10>/dotnet run -c Release --project android/tests/boat/BoatTests.csproj
 
+地图长度套件（host stub，链接实际生产 `MapWidthPlanner.cs` / `MapWidthTerrain.cs` /
+`PatchWorld_Level.cs`；同一套用例跑两种编译模式——PC 全局类型与 `-p:DefineConstants=ANDROID`
+下的 `Il2Cpp.*` 别名模式，验证别名头可编译且行为一致，不复制算法、不冒充原生运行）：
+
+    <dotnet8>/dotnet run -c Release --project tests/map-width/MapWidthTests.csproj
+    <dotnet8>/dotnet build -c AndroidAlias -p:DefineConstants=ANDROID tests/map-width/MapWidthTests.csproj
+    <dotnet8>/dotnet tests/map-width/bin/AndroidAlias/net8.0/MapWidthTests.dll
+
 共享行为套件（仓库根 `tests/hold-purchase`，链接同一份未修改生产源，只执行不修改）：
 
     <dotnet8>/dotnet run -c Release --project tests/hold-purchase/HoldPurchaseTests.csproj
@@ -297,18 +333,21 @@ getter/setter/cleanup 次数，不冒充 Unity/Harmony/IL2CPP 运行）：
 直接相关 PC 回归（同样只链接未修改/边界源，不拉起无关套件）：`tests/farm-cats`、
 `tests/greek-scale-scope`、`tests/greek-scale-adapters`。
 
-当前基线（0.0.14，含 Issue #127 坐骑冷却适配 + core fix 候选）：适配层默认 268 passed / 0 failed、
-seeded 档 199（`--seed-speed=9`/`--seed-fast-build`/`--oldcfg`/`--seed-cooldown=NaN`）、
-4.5 小数档 207、`--seed-cooldown=0.5` 201，全部 0 failed；cooldown 场景工程 100 passed / 0 failed。相比 0.0.13（231/177/185）新增检查：
-SteedCooldownMultiplier 声明/default 1/加载边界 clamp 0.2–1 与 `--seed-cooldown` 各档、
-`CycleSteedCooldown` 1→0.8→…→1 逐档值与单次 save/日志、Player 484 几何与底行命中、
-READY 行 `cooldown=<float>`、产物 4 prefix + 共享 Finalizer 的 internal static 形状、
-`(SteedAbility, out Borrow)`/`(Exception, Borrow)` 签名、无 Harmony 特性、`get/set__cooldown`
-与五个坐骑 interop 类型引用。共享源 SHA-256 冻结为 28 条路径、23 条 actual 校验：
-`FloatLayout.cs`/`MobilePlayerConfig.cs`/`MobilePlayerMenu.cs`/`Probe.cs`/
-`OhMyMods.AndroidProbe.csproj` 为本次有意改动不参与断言，`MobileWorldMenu.cs` 与
-`PatchRide_SteedCooldown.cs` 为新冻结的实际校验项，`tests/AdapterTests.csproj`、
-`MobileUiInputSurface.cs` 与 `il2cpp/PatchWorld_Construction.cs` 继续实际校验。
+当前基线（0.0.16，含 Issue #134 地图长度共享移植；取代下述 0.0.14/#130 数字）：适配层默认
+364 passed / 0 failed、seeded 档 280（`--seed-map=NaN|Infinity|0.5|9`、`--oldcfg`）、
+`--seed-map=4.5` 284，全部 0 failed；map-width 套件同一份生产源两种编译模式（PC 全局类型 /
+ANDROID `Il2Cpp.*` 别名 stub）各 49 passed / 0 failed；cooldown/boat 场景工程本次未重跑
+（链接源未变，继续由冻结校验保护）。相比 #130（默认 299）新增检查：
+MapSizeMultiplier 声明/default 1/加载边界 1–5 clamp 与非有限回退、`--seed-map` 各档、
+`CycleMapSize` 1→2→3→4→5→1 逐档值与单次 save、Home 562（Close 底 552）与
+Generation 250 两行命中、READY 行 `map=<float>`、产物 `PatchWorld_Level`
+（Prefix/Postfix/Finalizer）与 `PatchWorld_Level_GetBlocks`（Postfix）的 private static 形状与
+`(Il2Cpp.Level, Frame)` / `(Il2Cpp.LevelLayout, ref Il2CppSystem…List<Il2Cpp.LevelBlock>)` 签名、
+`Il2Cpp.Level`…`Il2Cpp.Tile` 十个类型引用与 `get_blocks`/`get__levelEdges` 等消费成员、
+共享 `MapWidthPlanner`/`MapWidthScope` 落地。共享源 SHA-256 冻结为 34 条路径、30 条 actual 校验：
+`FloatLayout.cs`/`MobilePlayerConfig.cs`/`Probe.cs`/`OhMyMods.AndroidProbe.csproj` 为本次有意改动
+不参与断言，`MobileGenerationMenu.cs`、`MobileWorldMenu.cs`、`il2cpp/MapWidthPlanner.cs`、
+`il2cpp/MapWidthTerrain.cs`、`il2cpp/PatchWorld_Level.cs` 为新冻结的实际校验项。
 host 测试只检查适配层与产物元数据，不伪造运行期猫池/存档/透明命中结果，也不虚构
 UnityRuntime。
 
@@ -399,7 +438,7 @@ loader读回0.8且界面显示0.8，原九项设置保持。保存文件的0.800
 当前自然玩家普通马没有能力（既有只读查询player能力数0、场景能力总0）；本轮没有创建、
 解锁或激活技能。上述证明是加载注册与真实UI设置持久化，不能证明真实技能冷却、Finalizer
 状态运行期注入或新版本协程首yield时序。手机/平板、有技能坐骑、对象池、跨岛和联机仍待验。
-仅代码交付，待对应PR正常合并及任务入口收尾；无公开APK、tag/release或PC/手机部署。
+PR129 已合并（72a2b745），Issue127 与代码任务已按正常入口 done/closed；无公开APK、tag/release或PC/手机部署。
 
 ## Issue #130 船员容量的设备边界
 
@@ -415,3 +454,27 @@ World 640 七行实际显示，Boat物理点击 (180,528)、Back (180,606) 与�
 
 本次没有新船初始化或登船样本，没有证明 native 借用、槽位物化、真实人数、职业权限门、航行、
 池复用、全部外部消费者、手机/平板或联机。源码及设置可交付，玩法继续单列待验。
+
+
+## 0.0.16 新岛地图长度隔离设备验证（Issue #134）
+
+精确 Main `232de3ba…` / 私有 APK `c82864b2…` 通过源码独立审查和安装关口。原生存档与
+完整偏好在安装后、首次启动前逐字节同备份；此结论只适用于该时刻。21 个唯一方法与参数数量
+目标读回，旧19形状保持，无 ERROR，既有 loader Warning 保留，Mods 只有主 DLL。
+真实触屏 Home→Island generation，Length 1→2→3→4→5→1；另选2后冷启动读回2，旧11项保持。
+Generation 250 的 Back 实际点击回到 Mod Home。
+
+原生 Campaign UI 显示 Save Slot 2 为空，完整 Release/UserData 再备份后，仅通过正常
+New Game→Call of Olympus→Normal→Start 创建该空槽。实际场景 `blocks_greece`，共享补丁
+日志 baseline/layoutTotal=252、slider=2、target/plannedWidth=504、addedWidth=252、
+addedBlocks=13、seams=2、candidates=4；原生生成结束后读回 edges=[-304,200]、width=504。
+这是一次普通 Greek 新岛自然生成，证明实际候选准入、GetBlocks 结果传递与最终原生宽度；
+没有 prefab fixture、原生 Invoke、测试帮手或存档字段编辑。正常右滑退出开场，能显示地形与玩家。
+
+界面恢复1后通过原生 Save 保存并冷启，loader读回1，画面恢复同一新岛起点，日志没有再次
+MapWidth 规划；没有独立重测冷重载后的 edges，不能据此宣称保存后全图宽度已验。原生战役
+界面仍有 Slot 1 与新 Slot 2，未覆盖占用槽；整个原生文件因正常创建/保存而改变，不称最终
+字节保持。最终12项设置（新倍率1、旧11保持）、21注册、主 DLL、无ERROR，游戏已关闭。
+
+全部倍率地形连续性/地标、其它 biome、跨岛、池复用、原生异常与嵌套路径、手机/平板和联机
+均仍待验。私有原始日志、偏好、截图与全量备份见 task 的 device-evidence 索引，不进公开包。

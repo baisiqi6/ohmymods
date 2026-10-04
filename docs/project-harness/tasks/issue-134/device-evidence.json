@@ -1,0 +1,67 @@
+{
+  "issue": 134,
+  "atUTC": "2026-10-04T13:46:36.737967+00:00",
+  "version": "0.0.16",
+  "mainSHA256": "232de3badf249e1a20fdf36435f5e68d35e2fef7a6957899c00028080733b4ba",
+  "apkSHA256": "c82864b2a1d1b59642d9625eca2f4f4f9d5ae9109a6209408c193916a86d3802",
+  "device": "emulator-5582 Android15 API35 ARM64 MoltenVK",
+  "reportedTargets": 21,
+  "oldTargetsPreserved": 19,
+  "oldPreferencesPreserved": 11,
+  "cycle": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    1
+  ],
+  "coldLoaded": [
+    1,
+    2,
+    1
+  ],
+  "newCampaign": {
+    "nativeEmptySlot": 2,
+    "biome": "Greek",
+    "difficulty": "Normal",
+    "nativeScene": "blocks_greece",
+    "baselineWidth": 252,
+    "layoutTotal": 252,
+    "multiplier": 2,
+    "targetWidth": 504,
+    "plannedWidth": 504,
+    "addedWidth": 252,
+    "addedBlocks": 13,
+    "seams": 2,
+    "eligibleCandidates": 4,
+    "nativeEdges": [
+      -304,
+      200
+    ],
+    "nativeWidth": 504,
+    "rawLines": [
+      "[06:41:52] [OhMyMods Android Probe] [MapWidth] gen baseline=252 layoutTotal=252 slider=2 target=504 plannedWidth=504 addedWidth=252 addedBlocks=13 seams=2 candidates=4",
+      "[06:41:53] [OhMyMods Android Probe] [MapWidth] edges min=-304 max=200 width=504"
+    ],
+    "normalMovementAfterIntro": true,
+    "normalNativeSaveThenColdReload": true,
+    "reloadWidthNotIndependentlyMeasured": true
+  },
+  "end": {
+    "map": 1,
+    "mainOnly": true,
+    "gameStopped": true,
+    "nativeSaveChangedByAuthorizedNormalUI": true
+  },
+  "unverified": [
+    "full map traversability/landmarks and all multipliers",
+    "new-island generation in other biomes",
+    "cross-island and all pool lifecycles",
+    "native exception and nested-state real routes",
+    "phone/tablet and multiplayer",
+    "independent native edge readback after saved-island reload"
+  ],
+  "startupPrefsAndNativeByteEqualBeforeFirstLaunch": true,
+  "rawEvidencePrivate": ".local/tasks/android-port-continuation-20261003/device-map/"
+}
