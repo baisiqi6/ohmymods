@@ -94,6 +94,7 @@ public static class PatchWorld_TowerSpots
     private static IntPtr _expandedWorld;
     private static IntPtr _expandedLayer;
     private static bool _loggedOnlineSkip;
+    private const float JitterRatio = 0.15f;         // 确定性抖动幅度（×target）
     private const float LadderGapTolerance = 0.25f; // 等差段判定：相邻间隙与段首差
     private const int LadderMinRun = 4;              // ≥4 点成段（真原生巧合概率极低）
     private static bool _loggedNoTemplate;
@@ -1303,6 +1304,15 @@ public static class PatchWorld_TowerSpots
         public float Target = MinTargetSpacing;
     }
 
+    /// <summary>确定性坐标哈希 → [-1,1]（Sin-Frac 哈希；同输入恒同输出，
+    /// 无全局随机态）。</summary>
+    private static float CoordinateJitter(float x, float seed)
+    {
+        float h = Mathf.Sin(x * 127.1f + seed * 311.7f) * 43758.5453f;
+        h -= Mathf.Floor(h);
+        return h * 2f - 1f;
+    }
+
     private static float campfireOf(Kingdom kingdom)
     {
         try { return kingdom != null ? kingdom.campfirePosition : 0f; }
@@ -1344,7 +1354,10 @@ public static class PatchWorld_TowerSpots
         {
             if ((dir < 0f && x < end) || (dir > 0f && x > end)) break;
             if (++steps > MaxPerSide) break;
-            grid.Xs.Add(x);
+            // 确定性抖动（用户批准）：复现原生 ScatteredObject 受约束随机撒点的
+            // 参差观感；偏移=坐标纯函数，读档重算不变，认领容差（0.6×target）
+            // 远大于幅度（0.15×target），无回收 churn。
+            grid.Xs.Add(x + CoordinateJitter(x, 1f) * target * JitterRatio);
         }
         return grid;
     }

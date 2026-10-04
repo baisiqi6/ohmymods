@@ -53,6 +53,7 @@ public static class PatchWorld_WallSpots
     private const float GapEndMargin = 0.5f;          // 网格点距间隙端点的最小余量
     private const int MaxTotalPerPass = 60;           // 单轮补放总数硬上限（防御性）
     private const float OffsetWindowCap = 8f;         // 偏移搜索窗口上限（复审#4 P2-3）
+    private const float JitterRatio = 0.15f;          // 确定性抖动幅度（×target）
     private const float WallStructuralHalf = 2.5f; // 复审#5：策略性占用上限（非实测结构宽；BackgroundWall 过滤后的二级钳制）
 
     private static bool _running;                     // 单轮 in-flight 门（主线程同步，双保险）
@@ -444,10 +445,13 @@ public static class PatchWorld_WallSpots
 
                 for (float x = a.x + target; x < b.x - GapEndMargin; x += target)
                 {
-                    bool nearInner = Mathf.Abs(x - a.x) <= Mathf.Abs(b.x - x);
+                    // 确定性抖动（用户批准，与塔基同款）：偏移=坐标纯函数（种子
+                    // 不同避免两功能相关）；y/z 按抖动后位置重取较近端点。
+                    float jx = x + CoordinateJitter(x, 2f) * target * JitterRatio;
+                    bool nearInner = Mathf.Abs(jx - a.x) <= Mathf.Abs(b.x - jx);
                     result.Add(new GapCandidate
                     {
-                        X = x,
+                        X = jx,
                         Y = nearInner ? a.y : b.y,
                         Z = nearInner ? a.z : b.z,
                         Target = target,
@@ -459,6 +463,15 @@ public static class PatchWorld_WallSpots
             }
         }
         return result;
+    }
+
+    /// <summary>确定性坐标哈希 → [-1,1]（Sin-Frac 哈希；同输入恒同输出，
+    /// 无全局随机态）。</summary>
+    private static float CoordinateJitter(float x, float seed)
+    {
+        float h = Mathf.Sin(x * 127.1f + seed * 311.7f) * 43758.5453f;
+        h -= Mathf.Floor(h);
+        return h * 2f - 1f;
     }
 
     private static void AddSide(List<GameObject> side, GameObject go, float campfire, bool left)
