@@ -30,13 +30,13 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 |---|---|
 | `Probe.cs` | MelonLoader 入口、显式 Harmony 注册、浮球组件与触摸守卫 |
 | `MobileUiInputSurface.cs` | Issue #119 原生 UGUI 命中面（新增）：两个透明 `Image` 命中区与 IMGUI 球/展开面板同矩形，由 `ProbeTicker` 生命周期驱动；不改原生菜单/输入标志 |
-| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 484 / World 562 / Player 406 / Population 376，绘制与触摸同源） |
+| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 484 / World 562 / Player 484 / Population 376，绘制与触摸同源） |
 | `MobileCalendar.cs` `CalendarSnapshot.cs` | 日历显示（开关直读 `CalendarEnabled` entry，切换时保存） |
 | `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（只读缓存） |
-| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 9 个 entry（速度、无限体力、Hold、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
-| `MobilePlayerMenu.cs` | Player 页 UI（speed / stamina / hold / back；中性文案 "Device settings"） |
+| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 10 个 entry（速度、无限体力、Hold、坐骑技能冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
+| `MobilePlayerMenu.cs` | Player 页 UI（speed / stamina / hold / steed cooldown / back；冷却文案相对当次 currentCD 的下一次技能调用，不承诺回溯或 prefab 倍率；中性文案 "Device settings"） |
 | `MobileWorldMenu.cs` | World 页 UI（enemies / threat growth / infinite money / stock cats / fast build / back；六行 98/176/254/332/410/488，面板 562）。猫开关只影响以后关卡加载时的补齐，不删除已有猫；快速建造开关只影响后续每次原生 `InitializeBuild` 调用（前缀在 `_hasStarted` 早退之前写 rate，关闭不热还原已写入实例的 rate）；Back 只置 `Layout.WorldPage=false` |
-| `PatchWorld_Mover.cs` `PatchRide_InfiniteStamina.cs` | 速度倍率与无限体力补丁（显式注册；旧 lease 补偿已删） |
+| `PatchWorld_Mover.cs` `PatchRide_InfiniteStamina.cs` `PatchRide_SteedCooldown.cs` | 速度倍率、无限体力与坐骑技能冷却调用级倍率补丁（显式注册；冷却四个消费者共享一个 Finalizer，无 PC instanceID 缓存/扫场） |
 | `OptionalQoLScope.cs` | 本机世界/层/场景闸门 |
 | `GlobalAliases.cs` | 把共享桌面源的裸游戏类型名映射到 Android interop 的 `Il2Cpp.*` |
 | `AndroidCoroutine.cs` | BepInEx `WrapToIl2Cpp` 的 Android 薄桥：loader `MonoEnumeratorWrapper` + 原 owner 的 `StartCoroutine`（无全局 owner、无 GC 守卫） |
@@ -55,17 +55,18 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 - 设置（唯一来源）：loader 标准 `UserData/MelonPreferences.cfg` 的 `[OhMyMods.Android]`
   分节，不 SetFilePath 自写路径、不每帧读回、不重试、不镜像状态。
   键与默认值：`SpeedMultiplier=1`、`InfiniteSteedStamina=false`、`HoldPurchaseEnabled=false`、
-  `CalendarEnabled=false`、`EnemyCountMultiplier=1`、`EnemyTimelineSpeed=1`、
-  `InfiniteMoney=false`、`FarmCatsEnabled=false`、`FastBuild=false`。加载边界各一次：速度 clamp 1–5；两个 float 倍率有限值 clamp
-  1–5，NaN/Infinity（手工编辑 cfg 的非法输入）回 1 并各 Warning 一次——`Math.Clamp(NaN,…)`
+  `SteedCooldownMultiplier=1`、`CalendarEnabled=false`、`EnemyCountMultiplier=1`、`EnemyTimelineSpeed=1`、
+  `InfiniteMoney=false`、`FarmCatsEnabled=false`、`FastBuild=false`。加载边界各一次：速度 clamp 1–5；两个敌人 float 倍率有限值 clamp
+  1–5、坐骑冷却倍率有限值 clamp 0.2–1（UI 档位 1→0.8→0.6→0.4→0.2→1，载入中间值落到下一较低
+  20% 档，如 0.5→0.4）；NaN/Infinity（手工编辑 cfg 的非法输入）回 1 并各 Warning 一次——`Math.Clamp(NaN,…)`
   会返回 NaN，故显式判非有限；只改内存，不回写。切换时恰好一次
   `Category.SaveToFile(printmsg:false)`；失败由 loader 自身 `MelonLogger.Error` 输出真实
-  异常（实际 IL 已核），UI 不承诺“已保存”，9 个 entry 都不另存镜像
+  异常（实际 IL 已核），UI 不承诺“已保存”，10 个 entry 都不另存镜像
   （`Enabled` 是无 UI、不持久化的会话总开关）。`InfiniteMoney` 的原生静态开关只在初始化
   与每次切换各写一次（entry 改 → apply → save），不订阅事件、不每帧写；`ModConfig`
   本体零 `Il2Cpp.*` 引用，写入由 `Probe.cs` 的 lambda 承担。`FastBuild` 只有值翻转 +
   日志 + 一次 save，不订阅事件、不做配置镜像/读回/retry。冷启动 `ANDROID_SETTINGS_READY`
-  行按同序追加 `cats=<bool>`、`fastBuild=<bool>`。
+  行按同序追加 `cats=<bool>`、`fastBuild=<bool>`、`cooldown=<float>`。
 - 长按续买（Hold purchase）：共享桌面源链接编译，默认 OFF（不写钱包/库存）。
 - 敌人参数（C2）：`../il2cpp/PatchWorld_EnemyManager.cs` 未修改链接；两个前缀分别缩放
   `AddEnemies` 的数量 multiplier 与 `GetEnemies` 的三个成长天数 int（`Mathf.RoundToInt`
@@ -82,6 +83,20 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   关闭开关不热还原已写入实例的 rate（无 rate 镜像/缓存/重试/新 driver）；不改原生
   `AllAutoBuild`/progress/付款流程。其它 rate 写入者与对象池复用语义尚未核验。精确候选已安装隔离设备，
   狭范围原生初始化、正常付款建造及同岛文件重载结果见末节。
+- 坐骑技能冷却（`SteedCooldownMultiplier`，默认 1，0.2–1，Android 专用薄适配）：`PatchRide_SteedCooldown.cs`
+  在四个真实消费点各挂一个 prefix + 共享 Finalizer——`SteedAbility.Activate`、
+  `BuffUnitsSteedAbility.Activate`、`GlideMovementSteedAbility.Activate`、
+  `SpeedBoostSteedAbility.Deactivate`。每次非默认调用只借用当次：`applied = 进入时当前
+  _cooldown × 倍率`，调用结束后按 exact float 等值条件（非原子 CAS、非 bit 等值、无 epsilon）
+  把 current==applied 的字段还回 original；不同值保留并记一条 Warning，同值外部写无法区分
+  （不声明写入者身份），已排程的 `_nextActivationTime` 不追溯，下一调用取新的当前值。
+  `Enabled` 关闭或倍率 1 时不读/不写字段、不分配借用状态、不置 owner；`SummonGhostSteedAbility`
+  只在 base 入口用真实 interop TryCast 排除（独立 profile），其余三类由注册目标类型确定。
+  四个 prefix 的全部失败（代理读取、owner 判定、配置读取、字段读写）并入单一错误边界并只内联
+  清理一次；`End` 的读取、exact float 等值判断、至多一次归还与日志同处单一 try/catch/finally，
+  Finalizer 始终原样返回传入的原生 exception（不重试、不补偿）。未移植 PC 的
+  instanceID→(Native,LastApplied) 缓存与 SettingChanged 扫场（其原生来源/生命周期
+  未证且不需要）。Glide 体力不足的原生 `time+3` 路径不消费 `_cooldown`，保持 3 秒。
 - 农舍猫（`FarmCatsEnabled`，默认 OFF）：共享源 `PatchWorld_FarmCats.cs` /
   `FarmCatMovement.cs` / `GreekScaleScope.cs` 以链接方式编译，平台边界仅 2 处 `#if`——
   `GreekScaleScope.Tick` 的 `ScaleRegistryHolder.RetryPendingCreation()` 只在非 Android 编译
@@ -122,6 +137,13 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
      `PatchWorld_Construction.Prefix`，冷启动 `ANDROID_HOOK_COUNTS` 应含该 target 的
      `parameters=0 prefixes=1 postfixes=0 finalizers=0` 与 `ANDROID_FAST_BUILD_HOOK_INSTALLED
      sharedSource=true perInitializeBuildCall=true`；reported 入口由 15 增至 16（主 Mod 单独冷启动已逐行复核各一份）。
+  10. 坐骑冷却注册：四个目标——`SteedAbility.Activate`、`BuffUnitsSteedAbility.Activate`、
+     `GlideMovementSteedAbility.Activate`（无参）与 `SpeedBoostSteedAbility.Deactivate`（无参），
+     各自 `prefix=BasePrefix/BuffPrefix/GlidePrefix/SpeedPrefix` + 共用 `finalizer=Finalizer`
+     （先于既有体力注册，使 base/Glide 的最终 shape 为 `2 prefixes/1 postfix/1 finalizer`；
+     冷启动 `ANDROID_HOOK_COUNTS` 记录 Buff/Speed 一次，reported 入口 18 个 unique）。
+     HarmonyX 2.10.2 的 `__state` 局部量按 patch 类 FullName 分配，因此同一 target 上的体力
+     前缀与本类前缀各自持有 state，共享 Finalizer 只会拿到本类的 `Borrow`。
 - 独立 Android API35 ARM64 模拟器已验：四设置首次默认值、界面切换、配置读回和进程
   重启恢复；隔离配置的保存故障可见日志；去 lease 后三速度入口九组原生 API 对照及
   2x/5x 正常触屏移动；体力 ON/OFF 的原生消耗与速率归还。诊断插件仅用于采证。
@@ -168,6 +190,21 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   `--oldcfg`、`--seed-speed=9` 各 177、4.5 小数档 185，全部 0 failed；产物元数据确认 linked
   `PatchWorld_Construction`（public static `Prefix`，单参数 `Il2Cpp.ConstructionBuildingComponent`）
   与真实 `set__autoBuildRate` member 引用。详见 `construction-implementation/`。
+- 已做（Issue #127 源码阶段，取代上述 0.0.12/#122 的 Player 406/9-entry/231 数字）：真实
+  interop/loader/SupportModules 引用编译 0 warning / 0 error（-t:Rebuild，新增
+  `android/PatchRide_SteedCooldown.cs`，`Compile Include` 仅一份）；cooldown host 场景工程
+  `android/tests/cooldown` 100 passed / 0 failed（base 10×0.5→消费 5/稳态 10、Buff 内 base 不二乘、
+  早退保 5、原生异常 identity + 单次清理 + owner 复位、prefix getter/setter 写入前后失败状态消耗
+  无 retry、cleanup 读/写/代理读取失败时 exception identity 与 attempt 计数、prevOwner 先于可抛
+  pointer 写入捕获且不清零外层 owner、无 outer owner 时 owner 判定短路不读代理、跨对象 base、
+  倍率 1 零读零写零 marker、窗口内改配置、外部新 baseline 下次取新值、窗口内不同值保留/同值不可区分、
+  Ghost 用 TryCast 而非托管 is 排除、Glide 固定 3 秒、Speed 消耗/非激活零 next 写、Buff/Speed
+  协程首 yield 同步快照；并含首候选负向锚点：旧 End 在 cleanup 代理读取失败时会让异常逃逸、
+  替换原生 exception，修后同一测试通过）；适配层 host 默认 268 passed / 0 failed、
+  seeded 199、4.5 档 207、`--seed-cooldown=0.5` 201，全部 0 failed（修后候选实跑）；产物元数据
+  确认 4 prefix + 共享 Finalizer（internal static、无 Harmony 特性、`(SteedAbility, out Borrow)` /
+  `(Exception, Borrow)` 签名）与 `get/set__cooldown`、五个坐骑 interop 类型引用。真实技能
+  触发、手机/联机未验（当前自然坐骑 `playerSteedAbilities=0`，不制造能力/身份）。
 - 已验（Issue #122）：私有精确候选安装、原生 InitializeBuild 入口与正常付款建造、
   ON/OFF 不热应用/还原、配置冷读回及单 main 16 个 reported 各一份（见末节）。
   全部施工类型、对象池复用、其它 rate 写入者、手机/联机/跨岛仍未验；不公开分发 APK。
@@ -204,10 +241,16 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 
 加载边界矩阵（各场景一次运行，期望 0 failed）：`--seed-speed=0|3`、`--oldcfg`、
 `--seed-fast-build`、`--seed-enemy-count=NaN|Infinity|0.5|9`、`--seed-enemy-timeline=NaN|Infinity|0.5|9`、
-`--seed-enemy-count=4.5 --seed-enemy-timeline=4.5`
-（`NaN`/`Infinity` 走非有限回退 1 + Warning，`0.5`/`9` 走有限 clamp 1–5，`--oldcfg`
-只种入旧四键、验证新键取默认且不回写；`--seed-fast-build` 验证已有 FastBuild 键载入 true；
-4.5 小数档验证载入原样、UI 步进 4.5→5→1 各一次 save）。
+`--seed-cooldown=NaN|Infinity|0.1|0.5|9`、`--seed-enemy-count=4.5 --seed-enemy-timeline=4.5`
+（`NaN`/`Infinity` 走非有限回退 1 + Warning，`0.5`/`9` 走有限 clamp 1–5、冷却 `0.1`→0.2、`9`→1，
+`--oldcfg` 只种入旧四键、验证新键取默认且不回写；`--seed-fast-build` 验证已有 FastBuild 键载入 true；
+4.5 小数档验证载入原样、UI 步进 4.5→5→1 各一次 save；`--seed-cooldown=0.5` 验证载入原样且
+步进 0.5→0.4 一次 save）。
+
+坐骑冷却场景（host doubles，链接实际生产 `PatchRide_SteedCooldown.cs`；断言消费值与
+getter/setter/cleanup 次数，不冒充 Unity/Harmony/IL2CPP 运行）：
+
+    <dotnet10>/dotnet run -c Release --project android/tests/cooldown/CooldownTests.csproj
 
 共享行为套件（仓库根 `tests/hold-purchase`，链接同一份未修改生产源，只执行不修改）：
 
@@ -216,16 +259,20 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 直接相关 PC 回归（同样只链接未修改/边界源，不拉起无关套件）：`tests/farm-cats`、
 `tests/greek-scale-scope`、`tests/greek-scale-adapters`。
 
-当前基线（0.0.13，含 Issue #122 快速建造适配）：默认 231 passed / 0 failed、seeded 档 177
-（`--seed-fast-build`/`--oldcfg`）、4.5 小数档 185，全部 0 failed。相比 0.0.12（217/168/176）
-新增检查：FastBuild 声明与默认值、seeded 键载入/缺键回退、单次切换单次 save 与日志、
-World 562 几何与 Back 复原快照、产物 linked `PatchWorld_Construction`（public static
-`Prefix(ConstructionBuildingComponent)` 与真实 `set__autoBuildRate` 引用）。共享源 SHA-256
-冻结为 27 条路径、22 条 actual 校验：`FloatLayout.cs`/`MobilePlayerConfig.cs`/
-`MobileWorldMenu.cs`/`Probe.cs`/`OhMyMods.AndroidProbe.csproj` 为本次有意改动不参与断言，
-新增冻结 `MobileUiInputSurface.cs` 与 `il2cpp/PatchWorld_Construction.cs`，
-`tests/AdapterTests.csproj` 恢复实际校验。host 测试只检查适配层与产物元数据，不伪造运行期
-猫池/存档/透明命中结果，也不虚构 UnityRuntime。
+当前基线（0.0.14，含 Issue #127 坐骑冷却适配 + core fix 候选）：适配层默认 268 passed / 0 failed、
+seeded 档 199（`--seed-speed=9`/`--seed-fast-build`/`--oldcfg`/`--seed-cooldown=NaN`）、
+4.5 小数档 207、`--seed-cooldown=0.5` 201，全部 0 failed；cooldown 场景工程 100 passed / 0 failed。相比 0.0.13（231/177/185）新增检查：
+SteedCooldownMultiplier 声明/default 1/加载边界 clamp 0.2–1 与 `--seed-cooldown` 各档、
+`CycleSteedCooldown` 1→0.8→…→1 逐档值与单次 save/日志、Player 484 几何与底行命中、
+READY 行 `cooldown=<float>`、产物 4 prefix + 共享 Finalizer 的 internal static 形状、
+`(SteedAbility, out Borrow)`/`(Exception, Borrow)` 签名、无 Harmony 特性、`get/set__cooldown`
+与五个坐骑 interop 类型引用。共享源 SHA-256 冻结为 28 条路径、23 条 actual 校验：
+`FloatLayout.cs`/`MobilePlayerConfig.cs`/`MobilePlayerMenu.cs`/`Probe.cs`/
+`OhMyMods.AndroidProbe.csproj` 为本次有意改动不参与断言，`MobileWorldMenu.cs` 与
+`PatchRide_SteedCooldown.cs` 为新冻结的实际校验项，`tests/AdapterTests.csproj`、
+`MobileUiInputSurface.cs` 与 `il2cpp/PatchWorld_Construction.cs` 继续实际校验。
+host 测试只检查适配层与产物元数据，不伪造运行期猫池/存档/透明命中结果，也不虚构
+UnityRuntime。
 
 ## 0.0.10 隔离设备验证
 
@@ -297,3 +344,21 @@ rate=0→0、current=0/30，待建脚手架存在；再次开启不热改变这�
 最终经界面恢复 OFF、移出只读诊断插件并冷启动，设置读回 false；仅主 Mod、16 个已报告
 入口各一份，无 ERROR。临时 observer 只读采样，未进 APK/PR。callMs 是初始化方法调用
 耗时，不是建造时长；快照只能证明采样时刻，未据此宣称固定两秒或性能/全部平台通过。
+
+
+## 0.0.14 坐骑冷却注册与设置验证（Issue #127）
+
+独立源码与调用回归审查通过；实际 API35 ARM64 模拟器安装主 Mod `2f4aed15…`，私有 APK
+`27c6df32…`，原游戏22313条目保持，包内无诊断插件。安装完成且未启动游戏时，完整偏好与
+原生文件字节均与备份一致。冷启动18个唯一type+参数数目标：base/Glide两前缀、一后缀、
+一Finalizer，Buff/Speed一前缀、一Finalizer；其余14项数量保持，无ERROR。
+
+真实浮球 Player 中冷却档位按1→0.8→0.6→0.4→0.2→1切换并保存；再选0.8后冷重启，
+loader读回0.8且界面显示0.8，原九项设置保持。保存文件的0.800000011920929是对应float32
+的十进制表示，比较按float32位值；不把Python双精度相等失败当配置精度错误。
+最终通过UI恢复1，纯主Mod再冷启动，18项注册及旧九项设置复核保持，无ERROR，随后关闭游戏。
+
+当前自然玩家普通马没有能力（既有只读查询player能力数0、场景能力总0）；本轮没有创建、
+解锁或激活技能。上述证明是加载注册与真实UI设置持久化，不能证明真实技能冷却、Finalizer
+状态运行期注入或新版本协程首yield时序。手机/平板、有技能坐骑、对象池、跨岛和联机仍待验。
+仅代码交付，待对应PR正常合并及任务入口收尾；无公开APK、tag/release或PC/手机部署。
