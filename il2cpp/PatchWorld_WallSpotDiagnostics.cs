@@ -80,6 +80,7 @@ public static class PatchWorld_WallSpotDiagnostics
         {
             _snapshotWorld = world.Pointer;
             _lastKey = null; // 新世界：重新输出基线快照
+            _eventCheckPending = false; // 场景切换复位（防协程被销毁后卡死，复审#2 P2-9）
         }
 
         BindKingdom(managers.kingdom);
@@ -127,6 +128,8 @@ public static class PatchWorld_WallSpotDiagnostics
     {
         try
         {
+            if (ModConfig.WallSpotDiagnostics == null
+                || !ModConfig.WallSpotDiagnostics.Value) return;
             _borderEvents++;
             Managers managers = Managers.Inst;
             World world = managers != null ? managers.world : null;
@@ -164,6 +167,8 @@ public static class PatchWorld_WallSpotDiagnostics
     {
         try
         {
+            if (ModConfig.WallSpotDiagnostics == null
+                || !ModConfig.WallSpotDiagnostics.Value) return;
             _moveCalls++;
             Managers managers = Managers.Inst;
             World world = managers != null ? managers.world : null;

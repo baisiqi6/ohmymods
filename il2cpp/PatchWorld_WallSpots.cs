@@ -10,37 +10,40 @@ namespace KingdomEnhancedMod;
 /// <summary>
 /// 墙基（可购买城墙地基，tag "WallFoundation"/Wall0）密度滑块（Issue #125）。
 ///
-/// 原生事实（存档取证 evidence-save-parse-20261004 + 资产扫描，审查 #1 已核）：
+/// 原生事实（存档取证 evidence-save-parse-20261004 + 资产扫描，两轮审查已核）：
 /// - 墙基是运行时动态生成的持久化对象：存档条目 name=Wall0(Clone)、
 ///   netID 已分配、crpcType=2（SemiStatic）、prefabPath=
 ///   "Prefabs/Buildings and Interactive/Wall0"。起始岛仅 4 个静态摆设，外档
 ///   全部动态补出；Holder.wallLocationPrefab 与 towerLocationPrefab 对称。
 /// - 未建墙基没有 Wall 组件：形态是 PayableUpgrade.nextPrefab 直接指向带 Wall
 ///   的预制体（MainBankerFixedDomain 已证）。购买后原生 Pay 原位实例化墙体
-///   （Wall1 木/Wall2 石独立持久化）并销毁基底——与塔基先例一致。
+///   （Wall1 木/Wall2 石独立持久化）并销毁基底——墙体只出现在原基底位置。
 /// - 真实档距极度非均匀（6.7~142，随岛建造带变化），不存在均匀档位梯。
 ///
-/// 本补丁语义（审查 #1 修正后定稿）：
-/// - **per-gap 细分**：只对每侧相邻原生墙基间隙内部补点，目标间距=
-///   max(gap/m, 视觉宽×2+padding, 3.0 地板)；放不下的间隙少放或不放并日志
-///   钳制。绝不越过该侧最内原生档（银行家固定域 MainBankerFixedDomain 以
-///   最内墙基划域，审查 P0-3），也绝不超出最外原生档（扩张带不预放）。
+/// 本补丁语义（两轮审查修正后定稿）：
+/// - **per-gap 细分**：只对每侧墙线（原生档 ∪ 已购墙/残骸虚拟端点）相邻端点
+///   间隙内部补点，目标间距=max(gap/m, 视觉宽+padding, 3.0 地板)；放不下
+///   的间隙整段跳过并计数钳制。绝不越过该侧最内原生档（银行家固定域
+///   MainBankerFixedDomain 以最内墙基划域，审查 P0-3），也绝不超出最外原生档
+///   （扩张带不预放）。购买间隙端点墙基不合并间隙、不回收相邻 KEM 点
+///   （复审#2 P1-1 虚拟端点）。
 /// - **双触发**：World.OnLevelLoaded postfix 延迟 5s（加载时已存在的原生档）
 ///   + Kingdom.OnBordersChanged 订阅（per-Kingdom 重绑，CoinCourier 纪律）延迟
-///   2s 重查。漏一次触发只延迟到下一触发/读档（每档基都是普通持久化对象，
-///   无正确性风险）；≥5s 节流 + 单次 in-flight 门防事件风暴。
+///   2s 重查；每次成功 pass 兼作订阅恢复点。漏一次触发只延迟到下一触发/读档
+///   （每档基都是普通持久化对象，无正确性风险）；≥5s 节流 + 单次 in-flight 门
+///   防事件风暴。
 /// - **注册**：无条件 RegisterObject(SemiStatic)（动态原生档实证同语义）。
-/// - **幂等**：KEM_WallSpot 名字标记；参考集（原生间隙端点）永不混入 KEM 点；
+/// - **幂等**：KEM_WallSpot 名字标记；参考集（间隙端点）永不混入 KEM 点；
 ///   占用集全量（WallFoundation/Wall/WallWreck/ScaffoldingWall/Tower 系）。
 ///   反复读档密度不爬升；KEM 名字+netID 跨存档保留（KEM_TowerSpot 同管线
-///   本机存档 19 条再证）。
+///   本机存档 19 条再证）。补放与回收共用同一候选枚举（网格恒一致）。
 /// - **回收**：滑块降档/关闭后，不再位于当前网格（或与真实占用重叠）的未购
-///   KEM 墙基在下一轮触发时回收（网格成员资格回收，审查 P2-1）；已购墙保留。
+///   KEM 墙基在下一轮触发时回收（网格成员资格回收）；已购墙保留。
 /// - **联机 fail-closed**：NetworkBigBoss.IsOnline 整体跳过（塔基同纪律）。
 /// </summary>
 public static class PatchWorld_WallSpots
 {
-    private const string MarkerPrefix = "KEM_WallSpot";
+    internal const string MarkerPrefix = "KEM_WallSpot";
     private const float LoadDelaySeconds = 5f;        // 等场景/PayableManager/holder 就绪
     private const float BorderRecheckDelaySeconds = 2f; // 等新档基随边界扩张稳定出现
     private const float MinPassIntervalSeconds = 5f;  // 事件风暴节流（level-load 豁免）
@@ -48,7 +51,7 @@ public static class PatchWorld_WallSpots
     private const float VisualSpacingPadding = 0.25f;
     private const float OccupiedRatio = 0.6f;
     private const float GapEndMargin = 0.5f;          // 网格点距间隙端点的最小余量
-    private const int MaxPerSide = 60;                // 防御性硬上限
+    private const int MaxTotalPerPass = 60;           // 单轮补放总数硬上限（防御性）
 
     private static bool _running;                     // 单轮 in-flight 门（主线程同步，双保险）
     private static float _lastPassTime = float.MinValue;
@@ -210,18 +213,23 @@ public static class PatchWorld_WallSpots
             return;
         }
 
-        // ---- 快照：参考集（原生档）/ KEM 点 / 占用集（全量墙系+塔系）----
+        // ---- 快照：参考集（原生档）/ KEM 点 / 占用集（全量墙线+塔线）----
         var natives = new List<GameObject>();
         var kemBases = new List<GameObject>();
         var roots = new List<GameObject>();
+        var wallLine = new List<GameObject>(); // 已购墙/残骸：间隙虚拟端点（复审#2 P1-1）
         var allX = new List<float>();
         var seen = new HashSet<IntPtr>();
         CollectFoundations(layer, natives, kemBases, roots, allX, seen);
-        AddTaggedToOccupancy("Wall", layer, roots, allX, seen);
-        AddTaggedToOccupancy("WallWreck", layer, roots, allX, seen);
+        AddTaggedToOccupancy("Wall", layer, roots, allX, seen, wallLine: wallLine);
+        AddTaggedToOccupancy("WallWreck", layer, roots, allX, seen, wallLine: wallLine);
         AddTaggedToOccupancy("ScaffoldingWall", layer, roots, allX, seen, scaffolding: true);
         AddTaggedToOccupancy("Tower", layer, roots, allX, seen);
         AddTaggedToOccupancy("ScaffoldingTower", layer, roots, allX, seen);
+
+        // 每次成功 pass 同时是订阅恢复点（复审#2 P2-4：+5s 时 kingdom 尚
+        // null 导致订阅丢失的边路在此自愈）。
+        BindKingdom(managers.kingdom);
 
         float multiplier = ModConfig.WallSpotMultiplier != null
             ? ModConfig.WallSpotMultiplier.Value : 1f;
@@ -230,75 +238,50 @@ public static class PatchWorld_WallSpots
         float campfire = kingdom.campfirePosition;
         if (!float.IsFinite(campfire)) return; // 未点火/特殊世界：不动（审查 P2-2）
 
-        // ---- 回收：网格成员资格 + 真实占用重叠（未购 KEM 墙基）----
-        var expected = new List<float>();
-        if (multiplier > 1f) ComputeExpectedGrid(natives, campfire, multiplier, expected);
+        // ---- 回收 + 补放共用同一候选源（网格恒一致；守卫只过滤）----
+        int clampedGaps = 0;
+        List<GapCandidate> candidates = multiplier > 1f
+            ? EnumerateGapCandidates(natives, wallLine, campfire, multiplier, out clampedGaps)
+            : null;
+        var expected = candidates != null
+            ? candidates.ConvertAll(c => c.X) : new List<float>();
         int retired = RetireStaleKemBases(world, layer, kemBases, roots, allX, expected);
         if (multiplier <= 1f)
         {
-            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                "[WallSpots] multiplier<=1 retired=" + retired
-                + " (native=" + natives.Count + ")");
+            if (retired > 0)
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[WallSpots] multiplier<=1 retired=" + retired
+                    + " (native=" + natives.Count + ")");
+            }
             return;
         }
 
         // ---- per-gap 细分补放 ----
-        int added = 0, clampedGaps = 0;
-        for (int pass = 0; pass < 2; pass++)
+        int notBuildableMask = LayerMask.GetMask("NotBuildable"); // 每 pass 缓存一次（复审#2 P2-2）
+        int added = 0;
+        foreach (GapCandidate candidate in candidates)
         {
-            var side = new List<GameObject>();
-            for (int i = 0; i < natives.Count; i++)
-            {
-                GameObject go = natives[i];
-                if (go == null || go.transform == null) continue;
-                bool left = go.transform.position.x < campfire;
-                if ((pass == 0) == left) side.Add(go);
-            }
-            side.Sort(CompareByX);
-            if (side.Count < 2) continue;
-
-            for (int i = 1; i < side.Count; i++)
-            {
-                GameObject inner = side[i - 1], outer = side[i];
-                if (inner == null || outer == null) continue;
-                float xa = inner.transform.position.x, xb = outer.transform.position.x;
-                float gap = xb - xa;
-                if (gap <= GapEndMargin) continue;
-
-                GameObject template = NearestGo(side, (xa + xb) * 0.5f);
-                float target = gap / multiplier;
-                if (template != null && TryGetVisualBounds(template, xa, out float lo, out float hi)
-                    && hi > lo)
-                {
-                    target = Mathf.Max(target, (hi - lo) + VisualSpacingPadding);
-                }
-                if (target < MinTargetSpacing) target = MinTargetSpacing;
-                if (target * 2f > gap) { clampedGaps++; continue; } // 放不下：整间隙跳过
-
-                float occupied = target * OccupiedRatio;
-                float y = inner.transform.position.y;
-                float z = inner.transform.position.z;
-                int sideAdded = 0;
-                for (float x = xa + target; x < xb - GapEndMargin; x += target)
-                {
-                    if (sideAdded + added >= MaxPerSide) break;
-                    if (!IsFree(allX, x, occupied)) continue;
-                    if (!TryPlaceX(x, y)) continue;
-                    if (OverlapsNativePlacement(prefab, layer, x, null, out _)) continue;
-                    if (OverlapsOccupiedRoots(roots, template, x, null, layer)
-                        == OverlapResult.Overlap) continue;
-                    if (SpawnSpot(world, prefab, layer, template, x, y, z))
-                    {
-                        added++;
-                        sideAdded++;
-                        allX.Add(x); // 新点即时进入距离占用（footprint 复核下轮全量）
-                    }
-                }
-            }
+            if (added >= MaxTotalPerPass) break;
+            if (!IsFree(allX, candidate.X, candidate.Target * OccupiedRatio)) continue;
+            if (!TryPlaceX(candidate.X, candidate.Y, notBuildableMask)) continue;
+            if (OverlapsNativePlacement(prefab, layer, candidate.X, null, out _,
+                candidate.Template)) continue;
+            if (OverlapsOccupiedRoots(roots, candidate.Template, candidate.X, null, layer)
+                == OverlapResult.Overlap) continue;
+            GameObject spawned = SpawnSpot(world, prefab, layer, candidate.Template,
+                candidate.X, candidate.Y, candidate.Z);
+            if (spawned == null) continue;
+            added++;
+            // 新点即时进入全量占用（含 footprint 数据源，复审#2 P2-3：同轮
+            // 后续点对它做实际 footprint 复核）。
+            roots.Add(spawned);
+            allX.Add(spawned.transform.position.x);
         }
 
         KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
             "[WallSpots] pass done: native=" + natives.Count
+            + " wallLine=" + wallLine.Count
             + " kemUnbuilt=" + (kemBases.Count - retired)
             + " added=" + added
             + " clampedGaps=" + clampedGaps
@@ -331,7 +314,8 @@ public static class PatchWorld_WallSpots
     }
 
     private static void AddTaggedToOccupancy(string tag, Transform layer,
-        List<GameObject> roots, List<float> allX, HashSet<IntPtr> seen, bool scaffolding = false)
+        List<GameObject> roots, List<float> allX, HashSet<IntPtr> seen,
+        bool scaffolding = false, List<GameObject> wallLine = null)
     {
         var tagged = GameObject.FindGameObjectsWithTag(tag);
         if (tagged == null) return;
@@ -343,8 +327,12 @@ public static class PatchWorld_WallSpots
             if (!seen.Add(go.Pointer)) continue;
             roots.Add(go);
             allX.Add(go.transform.position.x);
+            if (wallLine != null) wallLine.Add(go);
 
             // 墙施工脚手架明确指向的（可能 inactive 的）建筑才计入占用。
+            // 注：Scaffolding 组件按打标根上 GetComponent 取（若实证组件在
+            // 子物体上会漏挂 Building 占用；后果有界——施工完成后下一轮
+            // pass 会因 overlap 回收，复审#2 P2-8 备查）。
             if (!scaffolding) continue;
             try
             {
@@ -360,44 +348,77 @@ public static class PatchWorld_WallSpots
         }
     }
 
-    /// <summary>
-    /// 计算当前倍数下的期望网格点（回收成员资格判据）。与补放同一公式，
-    /// 端点只取原生档 → 与补放结果一致；容差由调用方按目标间距比例取。
-    /// </summary>
-    private static void ComputeExpectedGrid(List<GameObject> natives, float campfire,
-        float multiplier, List<float> expected)
+    private sealed class GapCandidate
     {
-        var sides = new List<List<GameObject>> { new List<GameObject>(), new List<GameObject>() };
-        for (int i = 0; i < natives.Count; i++)
+        public float X;
+        public float Y;
+        public float Z;
+        public float Target;
+        public GameObject Template;
+    }
+
+    /// <summary>
+    /// 间隙候选单源枚举（复审#2 P1-1/P1-2）。间隙端点 = 原生档 ∪ 已购墙/残骸
+    /// 虚拟端点——购买间隙端点的原生墙基后，该位置由 tag "Wall" 的墙体占据，
+    /// 间隙不合并、相邻 KEM 点保持 on-grid 不被误回收（墙体只会出现在原基
+    /// 底位置，虚拟端点语义严格成立）。视觉宽模板只取原生基底（墙体宽度
+    /// 不是基底宽度）；候选点 y/z 取较近端点值（塔基 GroundYForX 两端点
+    /// 特例，修斜坡段悬空/入土）。补放与回收共用本函数 → 网格恒一致。
+    /// </summary>
+    private static List<GapCandidate> EnumerateGapCandidates(List<GameObject> natives,
+        List<GameObject> wallLine, float campfire, float multiplier, out int clampedGaps)
+    {
+        clampedGaps = 0;
+        var result = new List<GapCandidate>();
+        for (int pass = 0; pass < 2; pass++)
         {
-            GameObject go = natives[i];
-            if (go == null || go.transform == null) continue;
-            sides[go.transform.position.x < campfire ? 0 : 1].Add(go);
-        }
-        for (int s = 0; s < 2; s++)
-        {
-            var side = sides[s];
+            var side = new List<GameObject>(natives.Count + wallLine.Count);
+            for (int i = 0; i < natives.Count; i++)
+                AddSide(side, natives[i], campfire, pass == 0);
+            for (int i = 0; i < wallLine.Count; i++)
+                AddSide(side, wallLine[i], campfire, pass == 0);
             side.Sort(CompareByX);
+            if (side.Count < 2) continue;
+
             for (int i = 1; i < side.Count; i++)
             {
                 GameObject inner = side[i - 1], outer = side[i];
                 if (inner == null || outer == null) continue;
-                float xa = inner.transform.position.x, xb = outer.transform.position.x;
-                float gap = xb - xa;
+                Vector3 a = inner.transform.position, b = outer.transform.position;
+                float gap = b.x - a.x;
                 if (gap <= GapEndMargin) continue;
-                GameObject template = NearestGo(side, (xa + xb) * 0.5f);
+
+                GameObject template = NearestGo(natives, (a.x + b.x) * 0.5f);
                 float target = gap / multiplier;
-                if (template != null && TryGetVisualBounds(template, xa, out float lo, out float hi)
+                if (template != null && TryGetVisualBounds(template, a.x, out float lo, out float hi)
                     && hi > lo)
                 {
                     target = Mathf.Max(target, (hi - lo) + VisualSpacingPadding);
                 }
                 if (target < MinTargetSpacing) target = MinTargetSpacing;
-                if (target * 2f > gap) continue;
-                for (float x = xa + target; x < xb - GapEndMargin; x += target)
-                    expected.Add(x);
+                if (target * 2f > gap) { clampedGaps++; continue; } // 放不下：整间隙跳过
+
+                for (float x = a.x + target; x < b.x - GapEndMargin; x += target)
+                {
+                    bool nearInner = Mathf.Abs(x - a.x) <= Mathf.Abs(b.x - x);
+                    result.Add(new GapCandidate
+                    {
+                        X = x,
+                        Y = nearInner ? a.y : b.y,
+                        Z = nearInner ? a.z : b.z,
+                        Target = target,
+                        Template = template,
+                    });
+                }
             }
         }
+        return result;
+    }
+
+    private static void AddSide(List<GameObject> side, GameObject go, float campfire, bool left)
+    {
+        if (go == null || go.transform == null) return;
+        if ((go.transform.position.x < campfire) == left) side.Add(go);
     }
 
     /// <summary>
@@ -515,14 +536,15 @@ public static class PatchWorld_WallSpots
     /// 实例化一个墙基：塔基 SpawnSpot 同配方（Instantiate 资产换皮预制体 →
     /// 挂 gameLayer → RegisterObject(SemiStatic)，存档取证实证动态原生档同语义）。
     /// 朝向/缩放抄最近原生档；命名带 KEM 标记（存档去重/参考集排除）。
+    /// 成功返回实例（调用方将其计入全量占用），失败返回 null。
     /// </summary>
-    private static bool SpawnSpot(World world, GameObject prefab, Transform layer,
+    private static GameObject SpawnSpot(World world, GameObject prefab, Transform layer,
         GameObject template, float x, float y, float z)
     {
-        if (!TryGetReadyContext(world, out _)) return false;
+        if (!TryGetReadyContext(world, out _)) return null;
         GameObject spot = UnityEngine.Object.Instantiate(
             prefab, new Vector3(x, y, z), Quaternion.identity, layer);
-        if (spot == null) return false;
+        if (spot == null) return null;
         try
         {
             if (!spot.activeSelf) spot.SetActive(true);
@@ -537,14 +559,14 @@ public static class PatchWorld_WallSpots
             if (!TryGetReadyContext(world, out _))
                 throw new InvalidOperationException("wall spot registration context lost");
             NetworkPostbox.Instance.RegisterObject(spot, CRPCType.SemiStatic);
-            return true;
+            return spot;
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(
                 "[WallSpots] spot setup failed at x=" + x.ToString("F1") + ": " + e);
             try { UnityEngine.Object.Destroy(spot); } catch { }
-            return false;
+            return null;
         }
     }
 
@@ -584,7 +606,7 @@ public static class PatchWorld_WallSpots
     /// 已由占用距离+footprint 复核管理，套原生同类排斥会把细分全禁。
     /// </summary>
     private static bool OverlapsNativePlacement(GameObject prefab, Transform layer,
-        float x, GameObject ignoreRoot, out string blockedTag)
+        float x, GameObject ignoreRoot, out string blockedTag, GameObject footprintSource = null)
     {
         blockedTag = null;
         try
@@ -592,7 +614,8 @@ public static class PatchWorld_WallSpots
             ScatteredObject scatter = prefab != null
                 ? prefab.GetComponent<ScatteredObject>() : null;
             if (scatter == null || scatter.AvoidOverlapWith == null) return false;
-            if (!TryGetCombinedOverlapRegion(prefab, x, out Rect candidate))
+            // 候选范围取实际实例的模板（抄了其缩放），塔基同款（复审#2 P2-3）。
+            if (!TryGetCombinedOverlapRegion(footprintSource ?? prefab, x, out Rect candidate))
             { blockedTag = "check-error"; return true; }
             var avoidTags = scatter.AvoidOverlapWith;
             for (int tagIndex = 0; tagIndex < avoidTags.Count; tagIndex++)
@@ -697,12 +720,11 @@ public static class PatchWorld_WallSpots
         catch { minX = maxX = x; return false; }
     }
 
-    /// <summary>地形合法性：镜像原生 Physics2D NotBuildable 点检（塔基同款）。</summary>
-    private static bool TryPlaceX(float x, float y)
+    /// <summary>地形合法性：镜像原生 Physics2D NotBuildable 点检（塔基同款；mask 每 pass 缓存）。</summary>
+    private static bool TryPlaceX(float x, float y, int notBuildableMask)
     {
         try
         {
-            int notBuildableMask = LayerMask.GetMask("NotBuildable");
             Collider2D hit = Physics2D.OverlapPoint(
                 new Vector2(x, y + 0.5f), notBuildableMask);
             return hit == null;

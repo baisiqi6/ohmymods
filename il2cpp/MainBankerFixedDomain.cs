@@ -320,7 +320,8 @@ internal static class MainBankerFixedDomain
                 // 回归（KEM 名字在未购阶段可靠，已购墙全在原生最内档之外）。
                 string candidateName = upgrade.gameObject != null ? upgrade.gameObject.name : null;
                 if (candidateName != null
-                    && candidateName.StartsWith("KEM_WallSpot", System.StringComparison.Ordinal))
+                    && candidateName.StartsWith(
+                        PatchWorld_WallSpots.MarkerPrefix, System.StringComparison.Ordinal))
                     continue;
                 if (!ConsiderCandidate(upgrade.transform.position.x, campfire,
                         ref bestLeft, ref bestRight, ref hasLeft, ref hasRight))
