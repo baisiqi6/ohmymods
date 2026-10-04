@@ -22,6 +22,12 @@ internal static class Program
     private static int Main(string[] args)
     {
         arguments = args;
+        if (args.Length >= 2 && args[0] == "--preview-samples")
+        {
+            KingdomEnhancedPlugin.Instance = new KingdomEnhancedPlugin();
+            DumpPreviewSamples(args[1]);
+            return 0;
+        }
         KingdomEnhancedPlugin.Instance = new KingdomEnhancedPlugin();
 
         Test("pose table covers the approved layout", PoseTableCoversLayout);
@@ -31,6 +37,14 @@ internal static class Program
         Test("view lifecycle keeps absolute mod sorting and reuses reference material", ViewLifecycle);
         Test("render placement, facing and visibility", RenderPlacementFacingVisibility);
         Test("render frame changes are idempotent per phase", RenderFrameIdempotence);
+        Test("leisure coin samples follow hand, toss, catch and bag", LeisureCoinSampleSemantics);
+        Test("leisure coin attaches only to a visible leisure view", LeisureCoinRenderIntegration);
+        Test("leisure coin mirrors with the view and keeps its own scale", LeisureCoinMirrorsWithTheView);
+        Test("leisure coin resources are shared, view-scoped and churn-free", LeisureCoinResourceLifecycle);
+        Test("leisure coin rebinds lost sprites from the shared cache", LeisureCoinRebindsLostSharedSprite);
+        Test("a throwing body path always hides the previous coin", LeisureCoinYieldsWhenTheBodyThrows);
+        Test("leisure coin helper faults stay hidden and bounded", LeisureCoinHelperFaultsStayHidden);
+        Test("a failed shared rebuild stays closed until shutdown", LeisureCoinModuleFailureStaysClosedUntilShutdown);
         Test("teleport fx group fades, shrinks and releases", TeleportFxGroupLifecycle);
         Test("teleport fx stripes stand over the foot anchor and cover the body", TeleportFxStripeGeometry);
         Test("teleport fx vertical stripes run down the body over the same foot anchor", TeleportFxVerticalStripeGeometry);
@@ -396,6 +410,476 @@ internal static class Program
         Check(ReferenceEquals(sprites[31], view.Renderer.sprite), "idle 1.5s shows frame 31");
 
         CoinCourierVisuals.Destroy(view);
+    }
+
+    // ---------------------------------------------------------------- leisure coin
+
+    /// <summary>真实 Visuals/helper 告警计数（stub 日志 sink）。</summary>
+    private static int WarningCount(string fragment)
+    {
+        int count = 0;
+        var sink = KingdomEnhancedPlugin.Instance != null ? KingdomEnhancedPlugin.Instance.LogSource : null;
+        if (sink == null) return 0;
+        foreach (string message in sink.Warnings)
+        {
+            if (message.Contains(fragment)) count++;
+        }
+        return count;
+    }
+
+    private static GameObject LeisureCoinObject()
+        => GameObject.All.FirstOrDefault(go => !go.Destroyed && go.name == CoinCourierLeisureCoin.ChildName);
+
+    private static int LeisureCoinObjectsCreated()
+        => GameObject.All.Count(go => go.name == CoinCourierLeisureCoin.ChildName);
+
+    /// <summary>本地坐标是否落在 1 图集像素（1/32 单位）网格上。</summary>
+    private static bool OnPixelGrid(float value)
+        => MathF.Abs(value * 32f - MathF.Round(value * 32f)) < 1e-5f;
+
+    /// <summary>给真实 Visuals 装一份替身图集（不触发内嵌 PNG 解码）：金币用例只关心身体帧可用。</summary>
+    private static void InstallStubAtlas()
+    {
+        var texture = new Texture2D(448, 224, TextureFormat.RGBA32, false);
+        var sprites = new Sprite[32];
+        for (int index = 0; index < sprites.Length; index++) sprites[index] = new Sprite { texture = texture };
+        SetStatic(typeof(CoinCourierVisuals), "_sprites", sprites);
+        SetStatic(typeof(CoinCourierVisuals), "_atlasState", 1);
+    }
+
+    private static void LeisureCoinSampleSemantics()
+    {
+        // 只有 Leisure 有币；其余姿态一律"无币"（调用方据此立即隐藏）。
+        foreach (CoinCourierPose pose in Enum.GetValues(typeof(CoinCourierPose)))
+        {
+            bool sampled = CoinCourierLeisureCoin.TrySample(pose, 0.72f, out CoinCourierLeisureCoin.Sample probe);
+            Check(sampled == (pose == CoinCourierPose.Leisure), pose + " coin gating");
+            if (!sampled) Check(!probe.Visible, pose + " never carries a coin");
+        }
+
+        Near(2.4f, CoinCourierLeisureCoin.LoopSeconds, 1e-6f, "loop follows the 4 x 0.6s leisure cadence");
+
+        // 起点 = 帧 8 的手锚 (33,29)：脚点上方 15px、右侧 5px。
+        CoinCourierLeisureCoin.TrySample(CoinCourierPose.Leisure, 0f, out CoinCourierLeisureCoin.Sample start);
+        Check(start.Visible, "the coin is out while playing");
+        Near(5f / 32f, start.X, 1e-6f, "play starts on the hand x");
+        Near(15f / 32f, start.Y, 1e-6f, "play starts on the hand y");
+
+        // 抛接：0.6s 离手、1.5s 落回抬手掌心 (25,25)。
+        CoinCourierLeisureCoin.TrySample(CoinCourierPose.Leisure, 0.3f, out CoinCourierLeisureCoin.Sample held);
+        Check(held.X == start.X && held.Y == start.Y, "the played coin stays in the same palm");
+        float peak = float.MinValue;
+        float peakAt = 0f;
+        float lastX = 0f;
+        bool first = true;
+        for (float t = 0.6f; t < 1.5f; t += 0.001f)
+        {
+            CoinCourierLeisureCoin.TrySample(CoinCourierPose.Leisure, t, out CoinCourierLeisureCoin.Sample arc);
+            Check(arc.Visible, "the tossed coin stays visible at " + t);
+            if (arc.Y > peak) { peak = arc.Y; peakAt = t; }
+            if (!first) Check(arc.X <= lastX + 1e-6f, "the toss travels toward the raised palm");
+            lastX = arc.X;
+            first = false;
+        }
+        Check(peak > (44f - 12f) / 32f, "the toss rises slightly above the head, peak=" + peak);
+        Check(peak < (44f - 4f) / 32f, "the toss stays a low small arc, peak=" + peak);
+        Check(peakAt > 0.6f && peakAt < 1.5f, "the apex sits inside the toss window, at=" + peakAt);
+        CoinCourierLeisureCoin.TrySample(CoinCourierPose.Leisure, 1.5f, out CoinCourierLeisureCoin.Sample caught);
+        Check(caught.Visible, "the coin is back in hand before the bag run");
+        Near(-3f / 32f, caught.X, 1e-6f, "catch lands on the raised palm x");
+        Near(19f / 32f, caught.Y, 1e-6f, "catch lands on the raised palm y");
+
+        // 接住轻转 → 跟手回腰带 → 收袋隐藏；循环回起点重新拿出来。
+        CoinCourierLeisureCoin.TrySample(CoinCourierPose.Leisure, 2f, out CoinCourierLeisureCoin.Sample bagRun);
+        Check(bagRun.Visible, "still visible when the bag run starts");
+        Check(bagRun.X == start.X && bagRun.Y == start.Y, "the bag run starts on the lowered hand");
+        CoinCourierLeisureCoin.TrySample(CoinCourierPose.Leisure, 2.39f, out CoinCourierLeisureCoin.Sample inBag);
+        Check(!inBag.Visible, "the coin is stowed at the end of the loop");
+        Near(-6f / 32f, inBag.X, 1e-6f, "the stowed coin rests at the bag mouth x");
+        Near(20f / 32f, inBag.Y, 1e-6f, "the stowed coin rests at the bag mouth y");
+        CoinCourierLeisureCoin.TrySample(CoinCourierPose.Leisure, 2.4f + 0.42f, out CoinCourierLeisureCoin.Sample wrapped);
+        Check(wrapped.X == start.X && wrapped.Y == start.Y, "the loop wraps back to the play pose");
+
+        // 幂等 / 周期 / 量化 / 连续性（1/60s 步进无闪现）。
+        CoinCourierLeisureCoin.TrySample(CoinCourierPose.Leisure, 1.23f, out CoinCourierLeisureCoin.Sample once);
+        CoinCourierLeisureCoin.TrySample(CoinCourierPose.Leisure, 1.23f, out CoinCourierLeisureCoin.Sample twice);
+        Check(once.X == twice.X && once.Y == twice.Y && once.WidthScale == twice.WidthScale,
+            "same phase is idempotent");
+        CoinCourierLeisureCoin.TrySample(CoinCourierPose.Leisure, 1.23f + 7f * 2.4f, out CoinCourierLeisureCoin.Sample later);
+        Check(later.X == once.X && later.Y == once.Y && later.WidthScale == once.WidthScale,
+            "the loop is periodic");
+        var widths = new List<float>();
+        float previousX = 0f;
+        float previousY = 0f;
+        bool second = false;
+        for (float t = 0f; t < 2.4f; t += 1f / 60f)
+        {
+            CoinCourierLeisureCoin.TrySample(CoinCourierPose.Leisure, t, out CoinCourierLeisureCoin.Sample step);
+            Check(OnPixelGrid(step.X) && OnPixelGrid(step.Y), "quantized position at " + t);
+            widths.Add(step.WidthScale);
+            if (second)
+            {
+                Near(0f, step.X - previousX, 2f / 32f, "continuous x at " + t);
+                Near(0f, step.Y - previousY, 2f / 32f, "continuous y at " + t);
+            }
+            previousX = step.X;
+            previousY = step.Y;
+            second = true;
+        }
+        Check(widths.Distinct().Count() >= 3, "the coin really turns face <-> edge");
+        foreach (float width in widths)
+        {
+            Check(width == 1f || width == 0.75f || width == 0.5f || width == 0.25f,
+                "spin width stays in the four quantized steps, got " + width);
+        }
+
+        // 非法相位（NaN/±Inf/负值）确定性回退到循环起点，绝不随机。
+        foreach (float bad in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity, -0.001f, -4.5f })
+        {
+            CoinCourierLeisureCoin.TrySample(CoinCourierPose.Leisure, bad, out CoinCourierLeisureCoin.Sample fallback);
+            Check(fallback.X == start.X && fallback.Y == start.Y && fallback.WidthScale == start.WidthScale
+                  && fallback.Visible, "invalid phase " + bad + " falls back to the loop start");
+        }
+    }
+
+    private static void LeisureCoinRenderIntegration()
+    {
+        InstallStubAtlas();
+        var parent = new GameObject("world-root");
+        var view = CoinCourierVisuals.Create(parent.transform, null);
+        Check(view != null, "view created");
+
+        // 惰性：Run 与隐藏的 Leisure 都不建金币子对象。
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Run, 0f, true);
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0f, false);
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Idle, 0.4f, true);
+        Check(LeisureCoinObject() == null, "no coin child before a visible leisure frame");
+
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        GameObject coinObject = LeisureCoinObject();
+        Check(coinObject != null, "a visible leisure frame attaches the coin child");
+        Equal(1, LeisureCoinObjectsCreated(), "exactly one coin child per view");
+        Check(ReferenceEquals(coinObject.transform.parent, view.Transform), "coin child hangs under the view root");
+        var coinRenderer = coinObject.GetComponent<SpriteRenderer>();
+        Check(coinRenderer != null, "coin child owns a sprite renderer");
+        Equal(0, coinRenderer.sortingLayerID, "coin follows the body sorting layer");
+        Equal(2, coinRenderer.sortingOrder, "coin draws one order in front of the body");
+        Check(coinRenderer.sprite != null && coinRenderer.sprite.texture != null, "coin sprite is live");
+        Check(ReferenceEquals(view.Renderer.sharedMaterial, coinRenderer.sharedMaterial),
+            "coin reuses the body material instead of allocating one");
+        Check(coinRenderer.enabled, "coin shows while playing");
+
+        // 同一身体帧（都在 Leisure 帧 8 的 0..0.6s 窗口内）相位推进：身体切图不重写，金币照样转。
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0.04f, true);
+        Vector3 playPosition = coinObject.transform.localPosition;
+        float playWidth = coinObject.transform.localScale.x;
+        int bodyWrites = SpriteRenderer.SpriteWrites;
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0.14f, true);
+        Equal(bodyWrites, SpriteRenderer.SpriteWrites, "the body frame is not rewritten inside one window");
+        CoinCourierLeisureCoin.TrySample(CoinCourierPose.Leisure, 0.14f, out CoinCourierLeisureCoin.Sample turned);
+        Check(turned.WidthScale != playWidth, "the test really moved the spin inside one body frame");
+        Near(turned.WidthScale, coinObject.transform.localScale.x, 1e-6f, "render applies the sampled spin");
+        Check(coinObject.transform.localPosition == playPosition, "the held coin keeps the palm while playing");
+
+        // 抛起相位：金币离开手往上走。
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0.75f, true);
+        Check(coinObject.transform.localPosition.y > playPosition.y, "the toss lifts the coin off the palm");
+
+        // 离开 Leisure / 隐藏：立即关，不残留。
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Idle, 0.4f, true);
+        Check(!coinRenderer.enabled, "leaving leisure hides the coin immediately");
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0.3f, true);
+        Check(coinRenderer.enabled, "a visible leisure frame brings the coin back");
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0.3f, false);
+        Check(!coinRenderer.enabled, "a hidden render hides the coin immediately");
+
+        // 身体当前帧画不出来（确证坏图集）：金币让位，绝不留下悬空币。
+        SetStatic(typeof(CoinCourierVisuals), "_sprites", null);
+        SetStatic(typeof(CoinCourierVisuals), "_atlasState", 2);
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0.9f, true);
+        Check(coinRenderer.enabled == false, "a failed body frame never leaves the coin airborne");
+
+        CoinCourierVisuals.Destroy(view);
+    }
+
+    private static void LeisureCoinMirrorsWithTheView()
+    {
+        InstallStubAtlas();
+        var parent = new GameObject("world-root");
+        var view = CoinCourierVisuals.Create(parent.transform, null);
+        Check(view != null, "view created");
+        CoinCourierVisuals.Render(view, new Vector3(5f, 6f, 0f), true, CoinCourierPose.Leisure, 0.75f, true);
+        GameObject coinObject = LeisureCoinObject();
+        Check(coinObject != null, "coin attached");
+        Vector3 localPlacement = coinObject.transform.localPosition;
+        Check(localPlacement.y > 0f, "the tossed coin sits above the foot pivot");
+        Vector3 rightOffset = view.Transform.TransformVector(localPlacement);
+
+        CoinCourierVisuals.Render(view, new Vector3(5f, 6f, 0f), false, CoinCourierPose.Leisure, 0.75f, true);
+        Check(view.Transform.position == new Vector3(5f, 6f, 0f), "the foot anchor does not move when mirrored");
+        Equal(1, LeisureCoinObjectsCreated(), "mirroring never rebuilds the coin child");
+        Check(coinObject.transform.localPosition == localPlacement, "the local placement is mirror-independent");
+        Check(coinObject.transform.localScale.x > 0f, "the coin keeps its own positive spin scale; the parent mirrors");
+        Vector3 leftOffset = view.Transform.TransformVector(coinObject.transform.localPosition);
+        Near(-rightOffset.x, leftOffset.x, 1e-6f, "mirroring flips the coin offset on x");
+        Near(rightOffset.y, leftOffset.y, 1e-6f, "mirroring keeps the coin offset on y");
+
+        CoinCourierVisuals.Destroy(view);
+    }
+
+    private static void LeisureCoinResourceLifecycle()
+    {
+        InstallStubAtlas();
+        var parent = new GameObject("world-root");
+        var view = CoinCourierVisuals.Create(parent.transform, null);
+        Check(view != null, "view created");
+        Texture2D.ResetCounters();
+        Sprite.ResetCounters();
+
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        GameObject coinObject = LeisureCoinObject();
+        Check(coinObject != null, "coin attached");
+        var coinRenderer = coinObject.GetComponent<SpriteRenderer>();
+        Sprite sprite = coinRenderer.sprite;
+        Equal(4, sprite.texture.width, "coin texture is 4px wide");
+        Equal(4, sprite.texture.height, "coin texture is 4px tall");
+        Equal(1, Texture2D.CreatedCount, "the coin texture is decoded once");
+        Equal(1, Sprite.CreatedCount, "the coin sprite is created once");
+        Color32[] written = sprite.texture.WrittenPixels;
+        Check(written != null && written.Length == 16, "the 4x4 coin pixels were written");
+        Equal((byte)0, written[0].a, "corner pixel stays transparent");
+        Equal((byte)0, written[15].a, "corner pixel stays transparent");
+        int highlight = 0;
+        int rim = 0;
+        int face = 0;
+        foreach (Color32 pixel in written)
+        {
+            if (pixel.a == 0) continue;
+            if (pixel.r == 255 && pixel.g == 244 && pixel.b == 190) highlight++;
+            else if (pixel.r == 176 && pixel.g == 122 && pixel.b == 22) rim++;
+            else if (pixel.r == 247 && pixel.g == 199 && pixel.b == 66) face++;
+        }
+        Equal(1, highlight, "one bright highlight pixel");
+        Equal(8, rim, "gold rim ring");
+        Equal(3, face, "bright face pixels");
+
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0.5f, true);
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 1.2f, true);
+        Equal(1, Texture2D.CreatedCount, "the shared coin texture never churns");
+        Equal(1, Sprite.CreatedCount, "the shared coin sprite never churns");
+
+        // 原生回收金币子对象：可以不再重建，但绝不逐帧热建。
+        UnityEngine.Object.Destroy(coinObject);
+        int created = LeisureCoinObjectsCreated();
+        for (int i = 0; i < 5; i++)
+        {
+            CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, i * 0.1f, true);
+        }
+        Equal(created, LeisureCoinObjectsCreated(), "a reclaimed coin child is not rebuilt per frame");
+
+        CoinCourierVisuals.Destroy(view);
+        Check(coinObject.Destroyed, "destroying the view destroys its coin child");
+        Equal(0, Texture2D.DestroyedCount, "the shared coin texture outlives the view");
+        Equal(0, Sprite.DestroyedCount, "the shared coin sprite outlives the view");
+
+        var second = CoinCourierVisuals.Create(parent.transform, null);
+        Check(second != null, "second view created");
+        CoinCourierVisuals.Render(second, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        GameObject secondCoin = LeisureCoinObject();
+        Check(secondCoin != null, "the second view gets its own coin child");
+        Check(ReferenceEquals(secondCoin.GetComponent<SpriteRenderer>().sprite, sprite),
+            "the second view reuses the shared coin sprite");
+        Equal(1, Texture2D.CreatedCount, "no second coin texture was decoded");
+
+        var coinTexture = sprite.texture;
+        CoinCourierVisuals.Destroy(second);
+        Check(!sprite.Destroyed && !coinTexture.Destroyed, "the shared coin assets survived the views");
+        CoinCourierVisuals.ShutdownModule();
+        Check(sprite.Destroyed, "shutdown releases the shared coin sprite");
+        Check(coinTexture.Destroyed, "shutdown releases the shared coin texture");
+    }
+
+
+    private static void LeisureCoinRebindsLostSharedSprite()
+    {
+        InstallStubAtlas();
+        var parent = new GameObject("world-root");
+        var first = CoinCourierVisuals.Create(parent.transform, null);
+        var second = CoinCourierVisuals.Create(parent.transform, null);
+        Check(first != null && second != null, "two views created");
+        CoinCourierVisuals.Render(first, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        CoinCourierVisuals.Render(second, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        Check(first.LeisureCoin != null && second.LeisureCoin != null, "both views own a coin child");
+        var firstCoin = first.LeisureCoin.Renderer;
+        var secondCoin = second.LeisureCoin.Renderer;
+        Sprite shared = firstCoin.sprite;
+        Check(shared != null && ReferenceEquals(shared, secondCoin.sprite), "both views bind one shared coin sprite");
+
+        // 1) 存活 view 的绑定被置空：同身体帧立即重绑共享缓存，不重建、不热建、不重写身体切图。
+        Sprite.ResetCounters();
+        Texture2D.ResetCounters();
+        Sprite bodySprite = first.Renderer.sprite;
+        firstCoin.sprite = null;
+        CoinCourierVisuals.Render(first, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        Check(ReferenceEquals(firstCoin.sprite, shared), "a nulled binding rebinds the live shared sprite");
+        Equal(0, Sprite.CreateCalls, "no rebuild while the shared cache is alive");
+        Equal(0, Texture2D.CreatedCount, "no texture churn while the shared cache is alive");
+        Check(firstCoin.enabled, "the rebound coin is visible again");
+        Check(ReferenceEquals(first.Renderer.sprite, bodySprite), "the same body frame is not rewritten during the rebind");
+
+        // 2) 共享切图被原生回收（显式 null 注入，child 绑定同时失效）：一次有界重建，两个 view 各自下一帧绑同一份 fresh。
+        firstCoin.sprite = null;
+        SetStatic(typeof(CoinCourierLeisureCoin), "_sprite", null);
+        int createsBefore = Sprite.CreateCalls;
+        int texturesBefore = Texture2D.CreatedCount;
+        CoinCourierVisuals.Render(first, Vector3.zero, true, CoinCourierPose.Leisure, 0.3f, true);
+        Sprite fresh = firstCoin.sprite;
+        Check(fresh != null && fresh.texture != null, "the recovering view binds a live sprite");
+        Check(!ReferenceEquals(fresh, shared), "the shared sprite generation really changed");
+        Equal(createsBefore + 1, Sprite.CreateCalls, "the shared sprite is rebuilt exactly once");
+        Equal(texturesBefore + 1, Texture2D.CreatedCount, "the shared texture is rebuilt exactly once");
+        Check(secondCoin.enabled, "the other view keeps rendering until its own next render");
+        secondCoin.sprite = new Sprite { texture = null };   // 第二个 view 自己的绑定也已失效
+        CoinCourierVisuals.Render(second, Vector3.zero, true, CoinCourierPose.Leisure, 0.3f, true);
+        Check(ReferenceEquals(secondCoin.sprite, fresh), "the second view rebinds the same fresh shared sprite");
+        Equal(createsBefore + 1, Sprite.CreateCalls, "the second view never rebuilds the shared cache again");
+        Check(secondCoin.enabled, "the rebinding view is visible again");
+
+        // 3) 绑定到坏切图（texture 为 null）：重绑共享 fresh，同样不重建。
+        firstCoin.sprite = new Sprite { texture = null };
+        CoinCourierVisuals.Render(first, Vector3.zero, true, CoinCourierPose.Leisure, 0.6f, true);
+        Check(ReferenceEquals(firstCoin.sprite, fresh), "a texture-less binding rebinds the shared fresh sprite");
+        Equal(createsBefore + 1, Sprite.CreateCalls, "no extra rebuild for a texture-less binding");
+
+        CoinCourierVisuals.Destroy(first);
+        CoinCourierVisuals.Destroy(second);
+    }
+
+    private static void LeisureCoinYieldsWhenTheBodyThrows()
+    {
+        InstallStubAtlas();
+        var parent = new GameObject("world-root");
+        var view = CoinCourierVisuals.Create(parent.transform, null);
+        Check(view != null, "view created");
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        Check(view.LeisureCoin != null, "coin attached");
+        var coinRenderer = view.LeisureCoin.Renderer;
+        Check(coinRenderer.enabled, "the coin shows before the fault");
+
+        // 身体 renderer 被回收：Visible+Run 在 non-Leisure 分支前就抛，旧金币必须立刻让位。
+        var bodyRenderer = view.Renderer;
+        view.Renderer = null;
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Run, 0f, true);
+        Check(!coinRenderer.enabled, "a throwing body path hides the previous coin (visible run)");
+        view.Renderer = bodyRenderer;
+
+        // hidden 分支同样先让位。
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        Check(coinRenderer.enabled, "a healthy render brings the coin back");
+        view.Renderer = null;
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0f, false);
+        Check(!coinRenderer.enabled, "a throwing body path hides the previous coin (hidden render)");
+        view.Renderer = bodyRenderer;
+
+        // 视图 Transform 缺失：第一步就抛，同样不能留下旧金币。
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        Check(coinRenderer.enabled, "coin back before the transform fault");
+        var transform = view.Transform;
+        view.Transform = null;
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Run, 0f, true);
+        Check(!coinRenderer.enabled, "a missing view transform hides the previous coin");
+        view.Transform = transform;
+
+        CoinCourierVisuals.Destroy(view);
+    }
+
+    private static void LeisureCoinHelperFaultsStayHidden()
+    {
+        InstallStubAtlas();
+        var parent = new GameObject("world-root");
+        var view = CoinCourierVisuals.Create(parent.transform, null);
+        Check(view != null, "view created");
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        var child = view.LeisureCoin;
+        Check(child != null && child.Renderer.enabled, "coin attached and shown");
+        GameObject childRoot = child.Root;
+
+        // 1) 子对象部分回收（renderer 丢失、根还活）：先停用仍活的自有根（退路），再一次性 Failed、不逐帧重挂。
+        child.Renderer = null;
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0.3f, true);
+        Check(child.Failed, "a reclaimed coin renderer closes the decoration once");
+        Check(!childRoot.activeSelf, "the still-alive own child root is deactivated as the hide fallback");
+        Check(WarningCount("coin child was reclaimed") == 1, "the reclamation diagnostic is logged exactly once");
+        int created = LeisureCoinObjectsCreated();
+        for (int i = 0; i < 5; i++)
+        {
+            CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, i * 0.1f, true);
+        }
+        Equal(created, LeisureCoinObjectsCreated(), "no per-frame child rebuild after the fault");
+        Check(WarningCount("coin child was reclaimed") == 1, "the diagnostic never repeats");
+
+        // 2) Hide 不能因 Failed 早退：Failed 但 renderer 仍活的金币必须被关，且不碰其它 view。
+        var second = CoinCourierVisuals.Create(parent.transform, null);
+        CoinCourierVisuals.Render(second, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        var secondChild = second.LeisureCoin;
+        Check(secondChild != null && secondChild.Renderer.enabled, "second view coin attached");
+        secondChild.Failed = true;
+        secondChild.Renderer.enabled = true;
+        CoinCourierLeisureCoin.Hide(second);
+        Check(!secondChild.Renderer.enabled, "Hide still closes a live renderer of a failed child");
+        Check(secondChild.Root.activeSelf, "Hide never deactivates a child whose renderer it could close");
+
+        // 3) 全新的 view 不受影响（fault 不外溢）。
+        var third = CoinCourierVisuals.Create(parent.transform, null);
+        CoinCourierVisuals.Render(third, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        Check(third.LeisureCoin != null && third.LeisureCoin.Renderer.enabled, "a fresh view still plays the coin");
+
+        CoinCourierVisuals.Destroy(second);
+        CoinCourierVisuals.Destroy(third);
+    }
+
+    private static void LeisureCoinModuleFailureStaysClosedUntilShutdown()
+    {
+        InstallStubAtlas();
+        var parent = new GameObject("world-root");
+        var view = CoinCourierVisuals.Create(parent.transform, null);
+        Check(view != null, "view created");
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        var renderer = view.LeisureCoin.Renderer;
+        Check(renderer.enabled, "coin shown before the failure injection");
+
+        // 共享切图被回收 + 重建注入失败：本 view 先关，模块标记失败，绝不逐帧重试。
+        Sprite.ResetCounters();
+        Texture2D.ResetCounters();
+        renderer.sprite = null;                                        // 存活的 child 绑定失效（真实丢失入口）
+        SetStatic(typeof(CoinCourierLeisureCoin), "_sprite", null);    // 共享缓存同时被回收
+        Sprite.ThrowAtCreateIndex = 1;                                 // 重建注入失败
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0.3f, true);
+        Check(!renderer.enabled, "a failed shared rebuild hides the coin instead of keeping a dead binding");
+        Equal(2, (int)GetStatic(typeof(CoinCourierLeisureCoin), "_state"), "the module cache is marked failed");
+        int creates = Sprite.CreateCalls;
+        int textures = Texture2D.CreatedCount;
+        for (int i = 0; i < 6; i++)
+        {
+            CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, i * 0.1f, true);
+        }
+        Equal(creates, Sprite.CreateCalls, "no sprite retry while the shared cache is failed");
+        Equal(textures, Texture2D.CreatedCount, "no texture retry while the shared cache is failed");
+        Check(!renderer.enabled, "the coin stays hidden while the shared cache is failed");
+        Check(WarningCount("coin sprite invalidated") == 1, "the invalidation diagnostic is logged exactly once");
+
+        // Shutdown 复位后新 view 正常（模块级失败不污染下一个世界）。
+        Sprite.ResetCounters();
+        Texture2D.ResetCounters();
+        CoinCourierVisuals.ShutdownModule();
+        InstallStubAtlas();   // 模块 Shutdown 同时释放共享图集，下一个世界自行重建
+        int texturesAfterAtlas = Texture2D.CreatedCount;
+        var next = CoinCourierVisuals.Create(parent.transform, null);
+        CoinCourierVisuals.Render(next, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        Check(next.LeisureCoin != null && next.LeisureCoin.Renderer.enabled, "after shutdown a fresh view plays the coin again");
+        Equal(texturesAfterAtlas + 1, Texture2D.CreatedCount, "the fresh module rebuilds its coin texture once");
+        Equal(1, Sprite.CreateCalls, "the fresh module rebuilds its coin sprite once");
+        CoinCourierVisuals.Destroy(next);
     }
 
     private static void TeleportFxGroupLifecycle()
@@ -1131,6 +1615,85 @@ internal static class Program
         CoinCourierVisuals.ShutdownModule();
         Equal(32, Sprite.DestroyedCount, "shutdown releases sprites");
         Equal(1, Texture2D.DestroyedCount, "shutdown releases the texture");
+    }
+
+    // ---------------------------------------------------------------- preview dump
+
+    /// <summary>
+    /// 导出真实采样给 tools/preview_coin_courier_leisure.py 回放：idle 2s + leisure 2.4s、60Hz，
+    /// 含身体帧号与金币局部/像素坐标、量化宽度、可见性与真实 4x4 币像素。
+    /// 只写 JSON；GIF/contact sheet 由 Python 按这些样本 + 现图集合成，不是游戏录像。
+    /// </summary>
+    private static void DumpPreviewSamples(string path)
+    {
+        const float sampleHz = 60f;
+        const float idleSeconds = 2f;
+        float loopSeconds = CoinCourierLeisureCoin.LoopSeconds;
+        var samples = new List<object>();
+        int count = (int)MathF.Round((idleSeconds + loopSeconds) * sampleHz);
+        for (int i = 0; i < count; i++)
+        {
+            float t = i / sampleHz;
+            bool idle = t < idleSeconds;
+            CoinCourierPose pose = idle ? CoinCourierPose.Idle : CoinCourierPose.Leisure;
+            float phase = idle ? t : t - idleSeconds;
+            int bodyFrame = CoinCourierPoseTable.FrameIndex(pose, phase);
+            bool hasCoin = CoinCourierLeisureCoin.TrySample(pose, phase, out CoinCourierLeisureCoin.Sample coin);
+            object coinPayload = hasCoin
+                ? new
+                {
+                    x_px = 28f + coin.X * 32f,
+                    y_px_top = 44f - coin.Y * 32f,
+                    local_x = coin.X,
+                    local_y = coin.Y,
+                    width = coin.WidthScale,
+                    visible = coin.Visible,
+                }
+                : null;
+            samples.Add(new
+            {
+                t,
+                pose = pose.ToString(),
+                phase,
+                body_frame = bodyFrame,
+                coin = coinPayload,
+            });
+        }
+        var coinRgba = new List<int[]>();
+        foreach (Color32 pixel in CoinCourierLeisureCoin.CoinPixelsRgba)
+        {
+            coinRgba.Add(new[] { (int)pixel.r, (int)pixel.g, (int)pixel.b, (int)pixel.a });
+        }
+        var document = new
+        {
+            kind = "coin-courier-leisure-preview-samples",
+            generated_by = "tests/coin-courier-visuals --preview-samples",
+            note = "real C# samples (CoinCourierLeisureCoin.TrySample + CoinCourierPoseTable.FrameIndex); "
+                 + "replayed into pixel previews by tools/preview_coin_courier_leisure.py - not in-game footage",
+            timeline = new
+            {
+                idle_seconds = idleSeconds,
+                leisure_seconds = loopSeconds,
+                sample_hz = sampleHz,
+                total_seconds = idleSeconds + loopSeconds,
+                layout = "idle 0..2s, then leisure phase 0..2.4s",
+            },
+            body = new
+            {
+                atlas = "il2cpp/Assets/CoinCourierBAtlas.png",
+                columns = CoinCourierPoseTable.AtlasColumns,
+                rows = CoinCourierPoseTable.AtlasRows,
+                cell = CoinCourierPoseTable.CellPixels,
+                ppu = CoinCourierPoseTable.PixelsPerUnit,
+                pivot_pixels = new[] { CoinCourierPoseTable.PivotPixelX, CoinCourierPoseTable.PivotPixelY },
+                ground_row_from_top = 44,
+                appearance_scale = new[] { CoinCourierVisuals.AppearanceScaleX, CoinCourierVisuals.AppearanceScaleY },
+            },
+            coin = new { pixels = CoinCourierLeisureCoin.CoinPixels, ppu = 32, rgba = coinRgba },
+            samples,
+        };
+        File.WriteAllText(path, JsonSerializer.Serialize(document, new JsonSerializerOptions { WriteIndented = true }));
+        Console.WriteLine("preview samples: " + Path.GetFullPath(path) + " (" + samples.Count + " samples)");
     }
 
     private static string ResolveManifest()

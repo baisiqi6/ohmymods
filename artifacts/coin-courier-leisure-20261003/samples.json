@@ -1,0 +1,2988 @@
+{
+  "kind": "coin-courier-leisure-preview-samples",
+  "generated_by": "tests/coin-courier-visuals --preview-samples",
+  "note": "real C# samples (CoinCourierLeisureCoin.TrySample \u002B CoinCourierPoseTable.FrameIndex); replayed into pixel previews by tools/preview_coin_courier_leisure.py - not in-game footage",
+  "timeline": {
+    "idle_seconds": 2,
+    "leisure_seconds": 2.4,
+    "sample_hz": 60,
+    "total_seconds": 4.4,
+    "layout": "idle 0..2s, then leisure phase 0..2.4s"
+  },
+  "body": {
+    "atlas": "il2cpp/Assets/CoinCourierBAtlas.png",
+    "columns": 8,
+    "rows": 4,
+    "cell": 56,
+    "ppu": 32,
+    "pivot_pixels": [
+      28,
+      12
+    ],
+    "ground_row_from_top": 44,
+    "appearance_scale": [
+      0.625,
+      0.65625
+    ]
+  },
+  "coin": {
+    "pixels": 4,
+    "ppu": 32,
+    "rgba": [
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        176,
+        122,
+        22,
+        255
+      ],
+      [
+        176,
+        122,
+        22,
+        255
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        176,
+        122,
+        22,
+        255
+      ],
+      [
+        255,
+        244,
+        190,
+        255
+      ],
+      [
+        247,
+        199,
+        66,
+        255
+      ],
+      [
+        176,
+        122,
+        22,
+        255
+      ],
+      [
+        176,
+        122,
+        22,
+        255
+      ],
+      [
+        247,
+        199,
+        66,
+        255
+      ],
+      [
+        247,
+        199,
+        66,
+        255
+      ],
+      [
+        176,
+        122,
+        22,
+        255
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        176,
+        122,
+        22,
+        255
+      ],
+      [
+        176,
+        122,
+        22,
+        255
+      ],
+      [
+        0,
+        0,
+        0,
+        0
+      ]
+    ]
+  },
+  "samples": [
+    {
+      "t": 0,
+      "pose": "Idle",
+      "phase": 0,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.016666668,
+      "pose": "Idle",
+      "phase": 0.016666668,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.033333335,
+      "pose": "Idle",
+      "phase": 0.033333335,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.05,
+      "pose": "Idle",
+      "phase": 0.05,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.06666667,
+      "pose": "Idle",
+      "phase": 0.06666667,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.083333336,
+      "pose": "Idle",
+      "phase": 0.083333336,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.1,
+      "pose": "Idle",
+      "phase": 0.1,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.11666667,
+      "pose": "Idle",
+      "phase": 0.11666667,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.13333334,
+      "pose": "Idle",
+      "phase": 0.13333334,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.15,
+      "pose": "Idle",
+      "phase": 0.15,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.16666667,
+      "pose": "Idle",
+      "phase": 0.16666667,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.18333334,
+      "pose": "Idle",
+      "phase": 0.18333334,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.2,
+      "pose": "Idle",
+      "phase": 0.2,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.21666667,
+      "pose": "Idle",
+      "phase": 0.21666667,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.23333333,
+      "pose": "Idle",
+      "phase": 0.23333333,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.25,
+      "pose": "Idle",
+      "phase": 0.25,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.26666668,
+      "pose": "Idle",
+      "phase": 0.26666668,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.28333333,
+      "pose": "Idle",
+      "phase": 0.28333333,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.3,
+      "pose": "Idle",
+      "phase": 0.3,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.31666666,
+      "pose": "Idle",
+      "phase": 0.31666666,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.33333334,
+      "pose": "Idle",
+      "phase": 0.33333334,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.35,
+      "pose": "Idle",
+      "phase": 0.35,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.36666667,
+      "pose": "Idle",
+      "phase": 0.36666667,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.38333333,
+      "pose": "Idle",
+      "phase": 0.38333333,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.4,
+      "pose": "Idle",
+      "phase": 0.4,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.41666666,
+      "pose": "Idle",
+      "phase": 0.41666666,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.43333334,
+      "pose": "Idle",
+      "phase": 0.43333334,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.45,
+      "pose": "Idle",
+      "phase": 0.45,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.46666667,
+      "pose": "Idle",
+      "phase": 0.46666667,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.48333332,
+      "pose": "Idle",
+      "phase": 0.48333332,
+      "body_frame": 28,
+      "coin": null
+    },
+    {
+      "t": 0.5,
+      "pose": "Idle",
+      "phase": 0.5,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.51666665,
+      "pose": "Idle",
+      "phase": 0.51666665,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.53333336,
+      "pose": "Idle",
+      "phase": 0.53333336,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.55,
+      "pose": "Idle",
+      "phase": 0.55,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.56666666,
+      "pose": "Idle",
+      "phase": 0.56666666,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.5833333,
+      "pose": "Idle",
+      "phase": 0.5833333,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.6,
+      "pose": "Idle",
+      "phase": 0.6,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.6166667,
+      "pose": "Idle",
+      "phase": 0.6166667,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.6333333,
+      "pose": "Idle",
+      "phase": 0.6333333,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.65,
+      "pose": "Idle",
+      "phase": 0.65,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.6666667,
+      "pose": "Idle",
+      "phase": 0.6666667,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.68333334,
+      "pose": "Idle",
+      "phase": 0.68333334,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.7,
+      "pose": "Idle",
+      "phase": 0.7,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.71666664,
+      "pose": "Idle",
+      "phase": 0.71666664,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.73333335,
+      "pose": "Idle",
+      "phase": 0.73333335,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.75,
+      "pose": "Idle",
+      "phase": 0.75,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.76666665,
+      "pose": "Idle",
+      "phase": 0.76666665,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.78333336,
+      "pose": "Idle",
+      "phase": 0.78333336,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.8,
+      "pose": "Idle",
+      "phase": 0.8,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.81666666,
+      "pose": "Idle",
+      "phase": 0.81666666,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.8333333,
+      "pose": "Idle",
+      "phase": 0.8333333,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.85,
+      "pose": "Idle",
+      "phase": 0.85,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.8666667,
+      "pose": "Idle",
+      "phase": 0.8666667,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.8833333,
+      "pose": "Idle",
+      "phase": 0.8833333,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.9,
+      "pose": "Idle",
+      "phase": 0.9,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.9166667,
+      "pose": "Idle",
+      "phase": 0.9166667,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.93333334,
+      "pose": "Idle",
+      "phase": 0.93333334,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.95,
+      "pose": "Idle",
+      "phase": 0.95,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.96666664,
+      "pose": "Idle",
+      "phase": 0.96666664,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 0.98333335,
+      "pose": "Idle",
+      "phase": 0.98333335,
+      "body_frame": 29,
+      "coin": null
+    },
+    {
+      "t": 1,
+      "pose": "Idle",
+      "phase": 1,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.0166667,
+      "pose": "Idle",
+      "phase": 1.0166667,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.0333333,
+      "pose": "Idle",
+      "phase": 1.0333333,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.05,
+      "pose": "Idle",
+      "phase": 1.05,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.0666667,
+      "pose": "Idle",
+      "phase": 1.0666667,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.0833334,
+      "pose": "Idle",
+      "phase": 1.0833334,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.1,
+      "pose": "Idle",
+      "phase": 1.1,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.1166667,
+      "pose": "Idle",
+      "phase": 1.1166667,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.1333333,
+      "pose": "Idle",
+      "phase": 1.1333333,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.15,
+      "pose": "Idle",
+      "phase": 1.15,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.1666666,
+      "pose": "Idle",
+      "phase": 1.1666666,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.1833333,
+      "pose": "Idle",
+      "phase": 1.1833333,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.2,
+      "pose": "Idle",
+      "phase": 1.2,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.2166667,
+      "pose": "Idle",
+      "phase": 1.2166667,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.2333333,
+      "pose": "Idle",
+      "phase": 1.2333333,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.25,
+      "pose": "Idle",
+      "phase": 1.25,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.2666667,
+      "pose": "Idle",
+      "phase": 1.2666667,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.2833333,
+      "pose": "Idle",
+      "phase": 1.2833333,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.3,
+      "pose": "Idle",
+      "phase": 1.3,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.3166667,
+      "pose": "Idle",
+      "phase": 1.3166667,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.3333334,
+      "pose": "Idle",
+      "phase": 1.3333334,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.35,
+      "pose": "Idle",
+      "phase": 1.35,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.3666667,
+      "pose": "Idle",
+      "phase": 1.3666667,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.3833333,
+      "pose": "Idle",
+      "phase": 1.3833333,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.4,
+      "pose": "Idle",
+      "phase": 1.4,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.4166666,
+      "pose": "Idle",
+      "phase": 1.4166666,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.4333333,
+      "pose": "Idle",
+      "phase": 1.4333333,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.45,
+      "pose": "Idle",
+      "phase": 1.45,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.4666667,
+      "pose": "Idle",
+      "phase": 1.4666667,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.4833333,
+      "pose": "Idle",
+      "phase": 1.4833333,
+      "body_frame": 30,
+      "coin": null
+    },
+    {
+      "t": 1.5,
+      "pose": "Idle",
+      "phase": 1.5,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.5166667,
+      "pose": "Idle",
+      "phase": 1.5166667,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.5333333,
+      "pose": "Idle",
+      "phase": 1.5333333,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.55,
+      "pose": "Idle",
+      "phase": 1.55,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.5666667,
+      "pose": "Idle",
+      "phase": 1.5666667,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.5833334,
+      "pose": "Idle",
+      "phase": 1.5833334,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.6,
+      "pose": "Idle",
+      "phase": 1.6,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.6166667,
+      "pose": "Idle",
+      "phase": 1.6166667,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.6333333,
+      "pose": "Idle",
+      "phase": 1.6333333,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.65,
+      "pose": "Idle",
+      "phase": 1.65,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.6666666,
+      "pose": "Idle",
+      "phase": 1.6666666,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.6833333,
+      "pose": "Idle",
+      "phase": 1.6833333,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.7,
+      "pose": "Idle",
+      "phase": 1.7,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.7166667,
+      "pose": "Idle",
+      "phase": 1.7166667,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.7333333,
+      "pose": "Idle",
+      "phase": 1.7333333,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.75,
+      "pose": "Idle",
+      "phase": 1.75,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.7666667,
+      "pose": "Idle",
+      "phase": 1.7666667,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.7833333,
+      "pose": "Idle",
+      "phase": 1.7833333,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.8,
+      "pose": "Idle",
+      "phase": 1.8,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.8166667,
+      "pose": "Idle",
+      "phase": 1.8166667,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.8333334,
+      "pose": "Idle",
+      "phase": 1.8333334,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.85,
+      "pose": "Idle",
+      "phase": 1.85,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.8666667,
+      "pose": "Idle",
+      "phase": 1.8666667,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.8833333,
+      "pose": "Idle",
+      "phase": 1.8833333,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.9,
+      "pose": "Idle",
+      "phase": 1.9,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.9166666,
+      "pose": "Idle",
+      "phase": 1.9166666,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.9333333,
+      "pose": "Idle",
+      "phase": 1.9333333,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.95,
+      "pose": "Idle",
+      "phase": 1.95,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.9666667,
+      "pose": "Idle",
+      "phase": 1.9666667,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 1.9833333,
+      "pose": "Idle",
+      "phase": 1.9833333,
+      "body_frame": 31,
+      "coin": null
+    },
+    {
+      "t": 2,
+      "pose": "Leisure",
+      "phase": 0,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.0166667,
+      "pose": "Leisure",
+      "phase": 0.01666665,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.0333333,
+      "pose": "Leisure",
+      "phase": 0.0333333,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.05,
+      "pose": "Leisure",
+      "phase": 0.049999952,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.0666666,
+      "pose": "Leisure",
+      "phase": 0.0666666,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.0833333,
+      "pose": "Leisure",
+      "phase": 0.083333254,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.1,
+      "pose": "Leisure",
+      "phase": 0.099999905,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.1166666,
+      "pose": "Leisure",
+      "phase": 0.116666555,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.1333334,
+      "pose": "Leisure",
+      "phase": 0.13333344,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.15,
+      "pose": "Leisure",
+      "phase": 0.1500001,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.1666667,
+      "pose": "Leisure",
+      "phase": 0.16666675,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.1833334,
+      "pose": "Leisure",
+      "phase": 0.1833334,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.2,
+      "pose": "Leisure",
+      "phase": 0.20000005,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.2166667,
+      "pose": "Leisure",
+      "phase": 0.2166667,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.2333333,
+      "pose": "Leisure",
+      "phase": 0.23333335,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.25,
+      "pose": "Leisure",
+      "phase": 0.25,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.2666667,
+      "pose": "Leisure",
+      "phase": 0.26666665,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.2833333,
+      "pose": "Leisure",
+      "phase": 0.2833333,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.3,
+      "pose": "Leisure",
+      "phase": 0.29999995,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.3166666,
+      "pose": "Leisure",
+      "phase": 0.3166666,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.3333333,
+      "pose": "Leisure",
+      "phase": 0.33333325,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.35,
+      "pose": "Leisure",
+      "phase": 0.3499999,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.3666666,
+      "pose": "Leisure",
+      "phase": 0.36666656,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.3833334,
+      "pose": "Leisure",
+      "phase": 0.38333344,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.4,
+      "pose": "Leisure",
+      "phase": 0.4000001,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.4166667,
+      "pose": "Leisure",
+      "phase": 0.41666675,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.4333334,
+      "pose": "Leisure",
+      "phase": 0.4333334,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.45,
+      "pose": "Leisure",
+      "phase": 0.45000005,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.4666667,
+      "pose": "Leisure",
+      "phase": 0.4666667,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.4833333,
+      "pose": "Leisure",
+      "phase": 0.48333335,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.5,
+      "pose": "Leisure",
+      "phase": 0.5,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.5166667,
+      "pose": "Leisure",
+      "phase": 0.51666665,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.5333333,
+      "pose": "Leisure",
+      "phase": 0.5333333,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.55,
+      "pose": "Leisure",
+      "phase": 0.54999995,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.5666666,
+      "pose": "Leisure",
+      "phase": 0.5666666,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.5833333,
+      "pose": "Leisure",
+      "phase": 0.58333325,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.6,
+      "pose": "Leisure",
+      "phase": 0.5999999,
+      "body_frame": 8,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.6166666,
+      "pose": "Leisure",
+      "phase": 0.61666656,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 28,
+        "local_x": 0.15625,
+        "local_y": 0.5,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.6333334,
+      "pose": "Leisure",
+      "phase": 0.63333344,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 26,
+        "local_x": 0.15625,
+        "local_y": 0.5625,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.65,
+      "pose": "Leisure",
+      "phase": 0.6500001,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 25,
+        "local_x": 0.15625,
+        "local_y": 0.59375,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.6666667,
+      "pose": "Leisure",
+      "phase": 0.66666675,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 32,
+        "y_px_top": 24,
+        "local_x": 0.125,
+        "local_y": 0.625,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.6833334,
+      "pose": "Leisure",
+      "phase": 0.6833334,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 32,
+        "y_px_top": 23,
+        "local_x": 0.125,
+        "local_y": 0.65625,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.7,
+      "pose": "Leisure",
+      "phase": 0.70000005,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 32,
+        "y_px_top": 22,
+        "local_x": 0.125,
+        "local_y": 0.6875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.7166667,
+      "pose": "Leisure",
+      "phase": 0.7166667,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 32,
+        "y_px_top": 21,
+        "local_x": 0.125,
+        "local_y": 0.71875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.7333333,
+      "pose": "Leisure",
+      "phase": 0.73333335,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 32,
+        "y_px_top": 20,
+        "local_x": 0.125,
+        "local_y": 0.75,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.75,
+      "pose": "Leisure",
+      "phase": 0.75,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 32,
+        "y_px_top": 19,
+        "local_x": 0.125,
+        "local_y": 0.78125,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.7666667,
+      "pose": "Leisure",
+      "phase": 0.76666665,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 32,
+        "y_px_top": 18,
+        "local_x": 0.125,
+        "local_y": 0.8125,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.7833333,
+      "pose": "Leisure",
+      "phase": 0.7833333,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 31,
+        "y_px_top": 17,
+        "local_x": 0.09375,
+        "local_y": 0.84375,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.8,
+      "pose": "Leisure",
+      "phase": 0.79999995,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 31,
+        "y_px_top": 16,
+        "local_x": 0.09375,
+        "local_y": 0.875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.8166666,
+      "pose": "Leisure",
+      "phase": 0.8166666,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 31,
+        "y_px_top": 16,
+        "local_x": 0.09375,
+        "local_y": 0.875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.8333333,
+      "pose": "Leisure",
+      "phase": 0.83333325,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 31,
+        "y_px_top": 15,
+        "local_x": 0.09375,
+        "local_y": 0.90625,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.85,
+      "pose": "Leisure",
+      "phase": 0.8499999,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 31,
+        "y_px_top": 14,
+        "local_x": 0.09375,
+        "local_y": 0.9375,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.8666666,
+      "pose": "Leisure",
+      "phase": 0.86666656,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 31,
+        "y_px_top": 14,
+        "local_x": 0.09375,
+        "local_y": 0.9375,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.8833334,
+      "pose": "Leisure",
+      "phase": 0.88333344,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 30,
+        "y_px_top": 13,
+        "local_x": 0.0625,
+        "local_y": 0.96875,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.9,
+      "pose": "Leisure",
+      "phase": 0.9000001,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 30,
+        "y_px_top": 13,
+        "local_x": 0.0625,
+        "local_y": 0.96875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.9166667,
+      "pose": "Leisure",
+      "phase": 0.91666675,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 30,
+        "y_px_top": 12,
+        "local_x": 0.0625,
+        "local_y": 1,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.9333334,
+      "pose": "Leisure",
+      "phase": 0.9333334,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 30,
+        "y_px_top": 12,
+        "local_x": 0.0625,
+        "local_y": 1,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.95,
+      "pose": "Leisure",
+      "phase": 0.95000005,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 30,
+        "y_px_top": 11,
+        "local_x": 0.0625,
+        "local_y": 1.03125,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.9666667,
+      "pose": "Leisure",
+      "phase": 0.9666667,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 30,
+        "y_px_top": 11,
+        "local_x": 0.0625,
+        "local_y": 1.03125,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 2.9833333,
+      "pose": "Leisure",
+      "phase": 0.98333335,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 30,
+        "y_px_top": 11,
+        "local_x": 0.0625,
+        "local_y": 1.03125,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3,
+      "pose": "Leisure",
+      "phase": 1,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 29,
+        "y_px_top": 10,
+        "local_x": 0.03125,
+        "local_y": 1.0625,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.0166667,
+      "pose": "Leisure",
+      "phase": 1.0166667,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 29,
+        "y_px_top": 10,
+        "local_x": 0.03125,
+        "local_y": 1.0625,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.0333333,
+      "pose": "Leisure",
+      "phase": 1.0333333,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 29,
+        "y_px_top": 10,
+        "local_x": 0.03125,
+        "local_y": 1.0625,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.05,
+      "pose": "Leisure",
+      "phase": 1.05,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 29,
+        "y_px_top": 10,
+        "local_x": 0.03125,
+        "local_y": 1.0625,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.0666666,
+      "pose": "Leisure",
+      "phase": 1.0666666,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 29,
+        "y_px_top": 10,
+        "local_x": 0.03125,
+        "local_y": 1.0625,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.0833333,
+      "pose": "Leisure",
+      "phase": 1.0833333,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 29,
+        "y_px_top": 10,
+        "local_x": 0.03125,
+        "local_y": 1.0625,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.1,
+      "pose": "Leisure",
+      "phase": 1.0999999,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 29,
+        "y_px_top": 10,
+        "local_x": 0.03125,
+        "local_y": 1.0625,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.1166666,
+      "pose": "Leisure",
+      "phase": 1.1166666,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 28,
+        "y_px_top": 10,
+        "local_x": 0,
+        "local_y": 1.0625,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.1333334,
+      "pose": "Leisure",
+      "phase": 1.1333334,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 28,
+        "y_px_top": 10,
+        "local_x": 0,
+        "local_y": 1.0625,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.15,
+      "pose": "Leisure",
+      "phase": 1.1500001,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 28,
+        "y_px_top": 10,
+        "local_x": 0,
+        "local_y": 1.0625,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.1666667,
+      "pose": "Leisure",
+      "phase": 1.1666667,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 28,
+        "y_px_top": 11,
+        "local_x": 0,
+        "local_y": 1.03125,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.1833334,
+      "pose": "Leisure",
+      "phase": 1.1833334,
+      "body_frame": 9,
+      "coin": {
+        "x_px": 28,
+        "y_px_top": 11,
+        "local_x": 0,
+        "local_y": 1.03125,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.2,
+      "pose": "Leisure",
+      "phase": 1.2,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 28,
+        "y_px_top": 11,
+        "local_x": 0,
+        "local_y": 1.03125,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.2166667,
+      "pose": "Leisure",
+      "phase": 1.2166667,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 28,
+        "y_px_top": 12,
+        "local_x": 0,
+        "local_y": 1,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.2333333,
+      "pose": "Leisure",
+      "phase": 1.2333333,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 27,
+        "y_px_top": 12,
+        "local_x": -0.03125,
+        "local_y": 1,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.25,
+      "pose": "Leisure",
+      "phase": 1.25,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 27,
+        "y_px_top": 12,
+        "local_x": -0.03125,
+        "local_y": 1,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.2666667,
+      "pose": "Leisure",
+      "phase": 1.2666667,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 27,
+        "y_px_top": 13,
+        "local_x": -0.03125,
+        "local_y": 0.96875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.2833333,
+      "pose": "Leisure",
+      "phase": 1.2833333,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 27,
+        "y_px_top": 14,
+        "local_x": -0.03125,
+        "local_y": 0.9375,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.3,
+      "pose": "Leisure",
+      "phase": 1.3,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 27,
+        "y_px_top": 14,
+        "local_x": -0.03125,
+        "local_y": 0.9375,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.3166666,
+      "pose": "Leisure",
+      "phase": 1.3166666,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 27,
+        "y_px_top": 15,
+        "local_x": -0.03125,
+        "local_y": 0.90625,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.3333333,
+      "pose": "Leisure",
+      "phase": 1.3333333,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 26,
+        "y_px_top": 15,
+        "local_x": -0.0625,
+        "local_y": 0.90625,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.35,
+      "pose": "Leisure",
+      "phase": 1.3499999,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 26,
+        "y_px_top": 16,
+        "local_x": -0.0625,
+        "local_y": 0.875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.3666666,
+      "pose": "Leisure",
+      "phase": 1.3666666,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 26,
+        "y_px_top": 17,
+        "local_x": -0.0625,
+        "local_y": 0.84375,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.3833334,
+      "pose": "Leisure",
+      "phase": 1.3833334,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 26,
+        "y_px_top": 18,
+        "local_x": -0.0625,
+        "local_y": 0.8125,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.4,
+      "pose": "Leisure",
+      "phase": 1.4000001,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 26,
+        "y_px_top": 19,
+        "local_x": -0.0625,
+        "local_y": 0.78125,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.4166667,
+      "pose": "Leisure",
+      "phase": 1.4166667,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 26,
+        "y_px_top": 20,
+        "local_x": -0.0625,
+        "local_y": 0.75,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.4333334,
+      "pose": "Leisure",
+      "phase": 1.4333334,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 26,
+        "y_px_top": 21,
+        "local_x": -0.0625,
+        "local_y": 0.71875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.45,
+      "pose": "Leisure",
+      "phase": 1.45,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 22,
+        "local_x": -0.09375,
+        "local_y": 0.6875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.4666667,
+      "pose": "Leisure",
+      "phase": 1.4666667,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 23,
+        "local_x": -0.09375,
+        "local_y": 0.65625,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.4833333,
+      "pose": "Leisure",
+      "phase": 1.4833333,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 24,
+        "local_x": -0.09375,
+        "local_y": 0.625,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.5,
+      "pose": "Leisure",
+      "phase": 1.5,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.5166667,
+      "pose": "Leisure",
+      "phase": 1.5166667,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.5333333,
+      "pose": "Leisure",
+      "phase": 1.5333333,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.55,
+      "pose": "Leisure",
+      "phase": 1.55,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.5666666,
+      "pose": "Leisure",
+      "phase": 1.5666666,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.5833333,
+      "pose": "Leisure",
+      "phase": 1.5833333,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.6,
+      "pose": "Leisure",
+      "phase": 1.5999999,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.6166666,
+      "pose": "Leisure",
+      "phase": 1.6166666,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.6333334,
+      "pose": "Leisure",
+      "phase": 1.6333334,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.65,
+      "pose": "Leisure",
+      "phase": 1.6500001,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.6666667,
+      "pose": "Leisure",
+      "phase": 1.6666667,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.6833334,
+      "pose": "Leisure",
+      "phase": 1.6833334,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.7,
+      "pose": "Leisure",
+      "phase": 1.7,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.7166667,
+      "pose": "Leisure",
+      "phase": 1.7166667,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.7333333,
+      "pose": "Leisure",
+      "phase": 1.7333333,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.75,
+      "pose": "Leisure",
+      "phase": 1.75,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.7666667,
+      "pose": "Leisure",
+      "phase": 1.7666667,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.7833333,
+      "pose": "Leisure",
+      "phase": 1.7833333,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.8,
+      "pose": "Leisure",
+      "phase": 1.8,
+      "body_frame": 10,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.8166666,
+      "pose": "Leisure",
+      "phase": 1.8166666,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.8333333,
+      "pose": "Leisure",
+      "phase": 1.8333333,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 26,
+        "y_px_top": 25,
+        "local_x": -0.0625,
+        "local_y": 0.59375,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.85,
+      "pose": "Leisure",
+      "phase": 1.8499999,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 26,
+        "y_px_top": 26,
+        "local_x": -0.0625,
+        "local_y": 0.5625,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.8666666,
+      "pose": "Leisure",
+      "phase": 1.8666666,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 27,
+        "y_px_top": 26,
+        "local_x": -0.03125,
+        "local_y": 0.5625,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.8833334,
+      "pose": "Leisure",
+      "phase": 1.8833334,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 28,
+        "y_px_top": 27,
+        "local_x": 0,
+        "local_y": 0.53125,
+        "width": 0.25,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.9,
+      "pose": "Leisure",
+      "phase": 1.9000001,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 29,
+        "y_px_top": 27,
+        "local_x": 0.03125,
+        "local_y": 0.53125,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.9166667,
+      "pose": "Leisure",
+      "phase": 1.9166667,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 30,
+        "y_px_top": 27,
+        "local_x": 0.0625,
+        "local_y": 0.53125,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.9333334,
+      "pose": "Leisure",
+      "phase": 1.9333334,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 31,
+        "y_px_top": 28,
+        "local_x": 0.09375,
+        "local_y": 0.5,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.95,
+      "pose": "Leisure",
+      "phase": 1.95,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 32,
+        "y_px_top": 28,
+        "local_x": 0.125,
+        "local_y": 0.5,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.9666667,
+      "pose": "Leisure",
+      "phase": 1.9666667,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 32,
+        "y_px_top": 29,
+        "local_x": 0.125,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 3.9833333,
+      "pose": "Leisure",
+      "phase": 1.9833333,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.5,
+        "visible": true
+      }
+    },
+    {
+      "t": 4,
+      "pose": "Leisure",
+      "phase": 2,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.016667,
+      "pose": "Leisure",
+      "phase": 2.016667,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.0333333,
+      "pose": "Leisure",
+      "phase": 2.0333333,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 33,
+        "y_px_top": 29,
+        "local_x": 0.15625,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.05,
+      "pose": "Leisure",
+      "phase": 2.0500002,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 32,
+        "y_px_top": 29,
+        "local_x": 0.125,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.0666666,
+      "pose": "Leisure",
+      "phase": 2.0666666,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 32,
+        "y_px_top": 29,
+        "local_x": 0.125,
+        "local_y": 0.46875,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.0833335,
+      "pose": "Leisure",
+      "phase": 2.0833335,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 32,
+        "y_px_top": 28,
+        "local_x": 0.125,
+        "local_y": 0.5,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.1,
+      "pose": "Leisure",
+      "phase": 2.1,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 31,
+        "y_px_top": 28,
+        "local_x": 0.09375,
+        "local_y": 0.5,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.116667,
+      "pose": "Leisure",
+      "phase": 2.1166668,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 30,
+        "y_px_top": 28,
+        "local_x": 0.0625,
+        "local_y": 0.5,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.133333,
+      "pose": "Leisure",
+      "phase": 2.1333332,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 30,
+        "y_px_top": 27,
+        "local_x": 0.0625,
+        "local_y": 0.53125,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.15,
+      "pose": "Leisure",
+      "phase": 2.15,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 29,
+        "y_px_top": 27,
+        "local_x": 0.03125,
+        "local_y": 0.53125,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.1666665,
+      "pose": "Leisure",
+      "phase": 2.1666665,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 28,
+        "y_px_top": 27,
+        "local_x": 0,
+        "local_y": 0.53125,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.1833334,
+      "pose": "Leisure",
+      "phase": 2.1833334,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 27,
+        "y_px_top": 26,
+        "local_x": -0.03125,
+        "local_y": 0.5625,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.2,
+      "pose": "Leisure",
+      "phase": 2.1999998,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 27,
+        "y_px_top": 26,
+        "local_x": -0.03125,
+        "local_y": 0.5625,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.2166667,
+      "pose": "Leisure",
+      "phase": 2.2166667,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 26,
+        "y_px_top": 26,
+        "local_x": -0.0625,
+        "local_y": 0.5625,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.233333,
+      "pose": "Leisure",
+      "phase": 2.233333,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 25,
+        "y_px_top": 25,
+        "local_x": -0.09375,
+        "local_y": 0.59375,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.25,
+      "pose": "Leisure",
+      "phase": 2.25,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 24,
+        "y_px_top": 25,
+        "local_x": -0.125,
+        "local_y": 0.59375,
+        "width": 1,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.266667,
+      "pose": "Leisure",
+      "phase": 2.266667,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 24,
+        "y_px_top": 25,
+        "local_x": -0.125,
+        "local_y": 0.59375,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.2833333,
+      "pose": "Leisure",
+      "phase": 2.2833333,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 23,
+        "y_px_top": 25,
+        "local_x": -0.15625,
+        "local_y": 0.59375,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.3,
+      "pose": "Leisure",
+      "phase": 2.3000002,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 23,
+        "y_px_top": 24,
+        "local_x": -0.15625,
+        "local_y": 0.625,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.3166666,
+      "pose": "Leisure",
+      "phase": 2.3166666,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 22,
+        "y_px_top": 24,
+        "local_x": -0.1875,
+        "local_y": 0.625,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.3333335,
+      "pose": "Leisure",
+      "phase": 2.3333335,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 22,
+        "y_px_top": 24,
+        "local_x": -0.1875,
+        "local_y": 0.625,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.35,
+      "pose": "Leisure",
+      "phase": 2.35,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 22,
+        "y_px_top": 24,
+        "local_x": -0.1875,
+        "local_y": 0.625,
+        "width": 0.75,
+        "visible": true
+      }
+    },
+    {
+      "t": 4.366667,
+      "pose": "Leisure",
+      "phase": 2.3666668,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 22,
+        "y_px_top": 24,
+        "local_x": -0.1875,
+        "local_y": 0.625,
+        "width": 0.75,
+        "visible": false
+      }
+    },
+    {
+      "t": 4.383333,
+      "pose": "Leisure",
+      "phase": 2.3833332,
+      "body_frame": 11,
+      "coin": {
+        "x_px": 22,
+        "y_px_top": 24,
+        "local_x": -0.1875,
+        "local_y": 0.625,
+        "width": 0.75,
+        "visible": false
+      }
+    }
+  ]
+}

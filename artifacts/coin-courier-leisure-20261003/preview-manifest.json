@@ -1,0 +1,104 @@
+{
+  "kind": "coin-courier-leisure-preview",
+  "not_in_game_footage": true,
+  "note": "Program replay of the real C# leisure-coin samples over the shipped atlas; no image generation, no game recording. Pixel scale follows the shipped view scale (0.625 x 0.65625).",
+  "inputs": {
+    "samples.json": {
+      "path": "artifacts/coin-courier-leisure-20261003/samples.json",
+      "sha256": "ecd2439f9970bad18f1542a50d6f4f448b52b3ba1cbe3498360bc18a70ed7b39"
+    },
+    "CoinCourierBAtlas.png": {
+      "path": "il2cpp/Assets/CoinCourierBAtlas.png",
+      "sha256": "1924cc0c801f41cd69b54d7e132598226e8350605ff6019bc4a5f889f7b303d7"
+    },
+    "tools/preview_coin_courier_leisure.py": {
+      "sha256": "2fcd1df1331bad070a4150a280df6f5d43c65a837f989a839aa9a548517ff365"
+    }
+  },
+  "parameters": {
+    "gif_zoom": 3,
+    "gif_fps": 20,
+    "gif_loops": 2,
+    "gif_frames": 176,
+    "contact_sheet_zooms": [
+      1,
+      6
+    ],
+    "contact_sheet_mirror_row": true,
+    "backgrounds": {
+      "light": [
+        231,
+        226,
+        209,
+        255
+      ],
+      "dark": [
+        34,
+        32,
+        40,
+        255
+      ]
+    },
+    "key_moments": [
+      {
+        "t": 0.8,
+        "name": "idle",
+        "label": "Idle 站立（无币）"
+      },
+      {
+        "t": 2.1,
+        "name": "play",
+        "label": " Leisure 把玩"
+      },
+      {
+        "t": 2.45,
+        "name": "spin",
+        "label": "指尖翻面"
+      },
+      {
+        "t": 2.9,
+        "name": "toss",
+        "label": "上抛"
+      },
+      {
+        "t": 3.05,
+        "name": "apex",
+        "label": "顶点略高于头"
+      },
+      {
+        "t": 3.45,
+        "name": "fall",
+        "label": "下落"
+      },
+      {
+        "t": 3.62,
+        "name": "catch",
+        "label": "接回掌心"
+      },
+      {
+        "t": 4.32,
+        "name": "stow",
+        "label": "收袋隐藏"
+      }
+    ]
+  },
+  "outputs": {
+    "preview.gif": {
+      "sha256": "68ce453d6a4db2c6d973bff81b68b4267deb822375de7fc977ef57decad41fec"
+    },
+    "contact-sheet.png": {
+      "sha256": "44c9102a1f1f7dae5e673ceb1a1907793197b890878869b08070cf72a0d980b8",
+      "size": [
+        3294,
+        1220
+      ]
+    }
+  },
+  "timeline": {
+    "idle_seconds": 2,
+    "leisure_seconds": 2.4,
+    "sample_hz": 60,
+    "total_seconds": 4.4,
+    "layout": "idle 0..2s, then leisure phase 0..2.4s"
+  }
+}
