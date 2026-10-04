@@ -33,12 +33,159 @@ internal static class Program
         Test("a hidden teleport stays hidden through an in-place view rebuild", HiddenTeleportStaysHiddenThroughRebuild);
         Test("failed rebuilds are rate-limited and the next success keeps responsibility", FailedRebuildRetriesAreBoundedAndStateKept);
         Test("normal operation never rebuilds the view or the atlas", NormalOperationIsChurnFree);
+        Test("the leisure coin rides the runtime and never churns", LeisureCoinRidesTheRuntime);
+        Test("a reclaimed leisure coin child is never rebuilt per frame", ReclaimedLeisureCoinIsBounded);
+        Test("an atlas rebuild keeps the coin and a failed body frame yields it", LeisureCoinYieldsWithFailedBody);
+        Test("the runtime rebinds a lost leisure coin sprite without churn", LeisureCoinRebindsUnderTheRuntime);
 
         Console.WriteLine("coin-courier-visual-lifecycle: " + passed + " passed, " + failed + " failed");
         return failed == 0 ? 0 : 1;
     }
 
     // ---------------------------------------------------------------- helpers
+
+
+    // ---------------------------------------------------------------- leisure coin
+
+    private static GameObject FindLeisureCoin()
+    {
+        for (int i = GameObject.All.Count - 1; i >= 0; i--)
+        {
+            GameObject candidate = GameObject.All[i];
+            if (!candidate.Destroyed && candidate.name == "KEM_CoinCourierLeisureCoin") return candidate;
+        }
+        return null;
+    }
+
+    private static int LeisureCoinObjectsCreated()
+    {
+        int count = 0;
+        for (int i = 0; i < GameObject.All.Count; i++)
+        {
+            if (GameObject.All[i].name == "KEM_CoinCourierLeisureCoin") count++;
+        }
+        return count;
+    }
+
+    private static void LeisureCoinRidesTheRuntime()
+    {
+        var h = new Harness();
+        // 钱袋装满 → 不再去银行取币，驻留够 2s 进入 Leisure（真实游戏里满袋驻留同样会进）。
+        h.State.Purse = LifecycleState.PurseWith(CoinCourierRuntime.PurseCapacity);
+        Check(h.RunUntil(() => FindLeisureCoin() != null, 8f),
+            "the runtime reaches a visible leisure frame and attaches the coin");
+        GameObject root = h.LiveViewRoot();
+        Check(root != null, "the courier view root is live");
+        GameObject coin = FindLeisureCoin();
+        Check(coin != null && coin.transform.IsChildOf(root.transform), "the coin child hangs under the live view");
+        var coinRenderer = coin.GetComponent<SpriteRenderer>();
+        Check(coinRenderer != null && coinRenderer.sprite != null && coinRenderer.sprite.texture != null,
+            "the coin renders its own live sprite");
+        Check(coinRenderer.enabled, "the coin shows during the leisure pose");
+        Check(LeisureCoinObjectsCreated() == 1, "one coin child per courier view");
+
+        int creates = Sprite.CreateCalls;
+        h.Step(3f);
+        Check(LeisureCoinObjectsCreated() == 1, "the coin child is reused across leisure loops");
+        Check(Sprite.CreateCalls == creates, "no hidden coin/atlas churn over time");
+        Check(FindLeisureCoin() == coin, "the same coin child object is kept");
+    }
+
+    private static void ReclaimedLeisureCoinIsBounded()
+    {
+        ImageConversion.Reset();
+        Texture2D.FillAlpha = 255;
+        var parent = new GameObject("world-root");
+        CoinCourierView view = CoinCourierVisuals.Create(parent.transform, null);
+        Check(view != null, "view created");
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        GameObject coin = FindLeisureCoin();
+        Check(coin != null, "a visible leisure frame attaches the coin");
+        Check(coin.GetComponent<SpriteRenderer>().enabled, "the coin is shown");
+
+        // 原生回收金币子对象（Unity fake-null）：视图照常，但装饰子对象不再逐帧热建。
+        UnityEngine.Object.Destroy(coin);
+        Check(coin == null, "the reclaimed coin child is fake-null");
+        int bodies = LeisureCoinObjectsCreated();
+        for (int i = 0; i < 10; i++)
+        {
+            CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0.1f * i, true);
+        }
+        Check(LeisureCoinObjectsCreated() == bodies, "no replacement coin child was created per frame");
+        Check(WarningCount("coin child was reclaimed") == 1,
+            "the bounded reclamation diagnostic is logged exactly once");
+        Check(view.Renderer.sprite != null && view.Renderer.enabled, "the body keeps rendering after the coin loss");
+        CoinCourierVisuals.Destroy(view);
+    }
+
+
+    private static bool SpriteUsable(Sprite sprite) => sprite != null && sprite.texture != null;
+
+    private static void LeisureCoinRebindsUnderTheRuntime()
+    {
+        var h = new Harness();
+        h.State.Purse = LifecycleState.PurseWith(CoinCourierRuntime.PurseCapacity);
+        Check(h.RunUntil(() => FindLeisureCoin() != null, 8f), "the runtime attaches the leisure coin");
+        GameObject coin = FindLeisureCoin();
+        var renderer = coin.GetComponent<SpriteRenderer>();
+        Check(renderer != null && renderer.sprite != null && renderer.sprite.texture != null,
+            "the coin renders a live sprite");
+
+        // 存活 child 的绑定丢失（显式注入）：运行时下一帧重绑共享缓存，不新建子对象。
+        renderer.sprite = null;
+        Check(h.RunUntil(() => renderer.sprite != null && renderer.sprite.texture != null, 1f),
+            "the runtime frame rebound a live coin sprite");
+        Check(FindLeisureCoin() == coin, "the rebind never rebuilt the child");
+        Check(LeisureCoinObjectsCreated() == 1, "still exactly one coin child");
+
+        // 共享切图被原生回收（本套件可信 fake-null 语义）：有界重建一次，金币继续播且不 churn。
+        Sprite bound = renderer.sprite;
+        UnityEngine.Object.Destroy(bound.texture);
+        Check(bound.texture == null, "the shared coin texture is fake-null after the native release");
+        Check(!SpriteUsable(bound), "the bound sprite is detectably unusable");
+        int createsBefore = Sprite.CreateCalls;
+        Check(h.RunUntil(() => renderer.sprite != null && renderer.sprite.texture != null, 1f),
+            "the runtime rebuilt the shared coin cache");
+        Check(Sprite.CreateCalls - createsBefore == 1, "exactly one bounded shared rebuild");
+        Check(renderer.enabled, "the coin keeps playing after the rebuild");
+        Check(LeisureCoinObjectsCreated() == 1, "no child churn across the rebuild");
+    }
+
+    private static void LeisureCoinYieldsWithFailedBody()
+    {
+        ImageConversion.Reset();
+        Texture2D.FillAlpha = 255;
+        var parent = new GameObject("world-root");
+        CoinCourierView view = CoinCourierVisuals.Create(parent.transform, null);
+        Check(view != null, "view created");
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0f, true);
+        GameObject coin = FindLeisureCoin();
+        Check(coin != null, "a visible leisure frame attaches the coin");
+        var coinRenderer = coin.GetComponent<SpriteRenderer>();
+        Check(coinRenderer.enabled, "the coin plays while the body draws");
+
+        // 图集被原生回收后同帧重建：身体恢复，金币照旧（不残留、不重复建子对象）。
+        UnityEngine.Object.Destroy(view.Renderer.sprite.texture);
+        int createsBefore = Sprite.CreateCalls;
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0.3f, true);
+        Check(view.Renderer.sprite != null && view.Renderer.sprite.texture != null,
+            "the body came back on the same frame");
+        Check(Sprite.CreateCalls - createsBefore == 32, "exactly one bounded atlas rebuild");
+        Check(FindLeisureCoin() == coin && coinRenderer.enabled, "the same coin keeps playing through the rebuild");
+        Check(LeisureCoinObjectsCreated() == 1, "the atlas rebuild never duplicated the coin child");
+
+        // 确证坏图集（保持 fail-closed）：身体画不出来时金币必须让位，绝不能悬空。
+        UnityEngine.Object.Destroy(view.Renderer.sprite.texture);
+        ImageConversion.Result = false;
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 0.9f, true);
+        Check(view.Renderer.sprite == null || view.Renderer.sprite.texture == null,
+            "the body frame really failed this frame");
+        Check(!coinRenderer.enabled, "the coin yields instead of floating over a missing body");
+        CoinCourierVisuals.Render(view, Vector3.zero, true, CoinCourierPose.Leisure, 1.2f, true);
+        Check(!coinRenderer.enabled, "the coin stays hidden while the body cannot draw");
+        Check(LeisureCoinObjectsCreated() == 1, "no residual/duplicate coin child while failed");
+        CoinCourierVisuals.Destroy(view);
+    }
 
     private static void Check(bool condition, string why)
     {

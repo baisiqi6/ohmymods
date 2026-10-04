@@ -223,6 +223,17 @@ namespace UnityEngine
             return pixels;
         }
 
+        /// <summary>程序生成的纹理（休闲金币）：记录写入内容与 Apply 次数，供资源/像素断言。</summary>
+        public Color32[] WrittenPixels;
+        public int ApplyCalls;
+
+        public void SetPixels32(Color32[] pixels)
+        {
+            WrittenPixels = pixels == null ? null : (Color32[])pixels.Clone();
+        }
+
+        public void Apply(bool updateMipmaps, bool makeNoLongerReadable) => ApplyCalls++;
+
         protected override void OnDestroyed() => DestroyedCount++;
 
         public static void ResetCounters() => CreatedCount = DestroyedCount = 0;

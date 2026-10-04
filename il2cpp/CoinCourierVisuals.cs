@@ -109,6 +109,9 @@ internal sealed class CoinCourierView
     internal SpriteRenderer Renderer;
     internal int LastSpriteFrame = -1;
     internal bool Destroyed;
+
+    /// <summary>休闲金币装饰（惰性创建的自有子对象）；仅 Leisure 可见时使用，见 <see cref="CoinCourierLeisureCoin"/>。</summary>
+    internal CoinCourierLeisureCoin.Child LeisureCoin;
 }
 
 /// <summary>
@@ -208,6 +211,8 @@ internal static class CoinCourierVisuals
     /// <summary>
     /// 每帧显式渲染：世界位置、朝向（左右镜像由 localScale.x 承担，与原生单位同一约定）、
     /// 姿态 + 相位、可见性。不可见时只落位置/朝向并关闭 renderer，不动帧号。
+    /// 身体切图之后（含同帧去重命中的分支）都会采样休闲金币装饰：金币相位不因身体跳帧而停；
+    /// 而身体当前帧画不出来（不可见 / 取帧失败）时金币立刻让位，绝不留下悬空币。
     /// </summary>
     internal static void Render(
         CoinCourierView view, Vector3 worldPosition, bool facingRight,
@@ -222,18 +227,31 @@ internal static class CoinCourierVisuals
                 ? new Vector3(AppearanceScaleX, AppearanceScaleY, 1f)
                 : new Vector3(-AppearanceScaleX, AppearanceScaleY, 1f);
             view.Renderer.enabled = visible;
-            if (!visible) return;
+            if (!visible)
+            {
+                CoinCourierLeisureCoin.Hide(view);
+                return;
+            }
             int frame = CoinCourierPoseTable.FrameIndex(pose, phaseSeconds);
             // 同帧去重只跳过"确实还可用"的已提交帧：已提交切图（或其原生纹理）被卸载时，
             // 同帧也必须重新取帧，不能靠旧帧号绕过恢复（SpriteFor 负责有界重建）。
-            if (frame == view.LastSpriteFrame && SpriteUsable(view.Renderer.sprite)) return;
-            Sprite sprite = SpriteFor(frame);
-            if (sprite == null) return;
-            view.Renderer.sprite = sprite;
-            view.LastSpriteFrame = frame;
+            if (frame != view.LastSpriteFrame || !SpriteUsable(view.Renderer.sprite))
+            {
+                Sprite sprite = SpriteFor(frame);
+                if (sprite == null)
+                {
+                    CoinCourierLeisureCoin.Hide(view);
+                    return;
+                }
+                view.Renderer.sprite = sprite;
+                view.LastSpriteFrame = frame;
+            }
+            CoinCourierLeisureCoin.Render(view, pose, phaseSeconds);
         }
         catch (Exception e)
         {
+            // 父 Transform/身体 renderer 任意一步抛出：上一帧的休闲金币必须立刻让位，再告警。
+            CoinCourierLeisureCoin.Hide(view);
             WarnOnce("render failed: " + e.GetType().Name);
         }
     }
@@ -244,6 +262,7 @@ internal static class CoinCourierVisuals
         if (view == null || view.Destroyed) return;
         view.Destroyed = true;
         Views.Remove(view);
+        CoinCourierLeisureCoin.Release(view);   // 只拆本 view 的金币装饰；共享金币纹理留给 ShutdownModule
         GameObject root = view.Root;
         view.Root = null;
         view.Transform = null;
@@ -258,13 +277,14 @@ internal static class CoinCourierVisuals
     }
 
     /// <summary>
-    /// 模块/世界整体结束才调用（由 Operator 整合）：拆全部 view，再释放共享 atlas 纹理/切图/材质并复位懒加载。
+    /// 模块/世界整体结束才调用（由 Operator 整合）：拆全部 view，再释放共享 atlas/休闲金币的纹理/切图/材质并复位懒加载。
     /// 业务停用只能 Destroy 自己的 view，不得清理共享资源。
     /// </summary>
     internal static void ShutdownModule()
     {
         DestroyAll();
         ReleaseAtlas();
+        CoinCourierLeisureCoin.ShutdownModule();
         Material material = _fallbackMaterial;
         _fallbackMaterial = null;
         _materialResolved = false;
