@@ -94,6 +94,8 @@ public static class PatchWorld_TowerSpots
     private static IntPtr _expandedWorld;
     private static IntPtr _expandedLayer;
     private static bool _loggedOnlineSkip;
+    private const float LadderGapTolerance = 0.25f; // 等差段判定：相邻间隙与段首差
+    private const int LadderMinRun = 4;              // ≥4 点成段（真原生巧合概率极低）
     private static bool _loggedNoTemplate;
     private static bool _loggedIndeterminateGrid;
     private static bool _loggedVisualHealth;
@@ -262,6 +264,11 @@ public static class PatchWorld_TowerSpots
         foreach (var removedRoot in duplicateRoots) snapshot.Remove(removedRoot);
         refGos.RemoveAll(go => go == null || !go.activeInHierarchy);
         generatedBases.RemoveAll(go => go == null || !go.activeInHierarchy);
+
+        // 等差梯子清理（issue #131/#132 遗留，用户授权的一次性维护）：
+        // 在间距估计前执行，本 pass 的中位数即用清理后的参考集。
+        if (ModConfig.TowerLadderCleanup != null && ModConfig.TowerLadderCleanup.Value)
+            RunLadderCleanup(world, layer, refGos, snapshot, kingdom.campfirePosition);
 
         // 先清旧重叠，再决定是否补新：即使 multiplier<=1 或原生参照不足，
         // 已随存档恢复的、与真实占用（含无标签特殊塔/已建普通塔/施工）重叠的
@@ -883,12 +890,22 @@ public static class PatchWorld_TowerSpots
     }
 
     private static bool CanRetireGeneratedBase(GameObject spot, World world, Transform layer)
+        => CanRetireBaseCore(spot, world, layer, requireKemMarker: true);
+
+    /// <summary>塔基可删性核心检查；requireKemMarker=false 用于等差梯子清理
+    /// （未改名遗留点），此时反向要求名字无 KEM 标记（KEM 点走各自回收路径）。</summary>
+    private static bool CanRetireBaseCore(GameObject spot, World world, Transform layer,
+        bool requireKemMarker)
     {
         try
         {
             if (!TryGetReadyContext(world, layer, out _) || spot == null || spot.transform == null) return false;
             string n = spot.name;
-            if (n == null || !n.StartsWith(MarkerPrefix)) return false;
+            if (requireKemMarker)
+            {
+                if (n == null || !n.StartsWith(MarkerPrefix)) return false;
+            }
+            else if (n != null && n.StartsWith(MarkerPrefix)) return false;
             if (!spot.activeInHierarchy) return false;
             if (IsOnBoat(spot.transform)) return false;
             if (!IsInLayerScene(spot, layer)) return false;
@@ -963,6 +980,93 @@ public static class PatchWorld_TowerSpots
     }
 
 
+
+    /// <summary>
+    /// 等差梯子清理（issue #131/#132，用户授权）：早期版本未改名补放点以
+    /// Tower0_greece(Clone) 形态伪装原生（用户判据+资产实证：真原生手工摆设
+    /// 间距不规则）。检测每侧 ≥4 连续、所有相邻间隙与段首间隙相差 ≤0.25 的
+    /// 等差段，仅删除段内部点（两端保留——端点可能是真原生锚）；删除走
+    /// CanRetireBaseCore(requireMarker:false) 全套安全检查（付款中/施工中/
+    /// 玩家交互一律 fail-closed 保留）。运行后自动关闭配置（一次性维护）。
+    /// </summary>
+    private static void RunLadderCleanup(World world, Transform layer,
+        List<GameObject> refGos, OccupancySnapshot snapshot, float campfire)
+    {
+        try
+        {
+            if (!float.IsFinite(campfire)) return;
+            int removedTotal = 0, runs = 0;
+            for (int pass = 0; pass < 2; pass++)
+            {
+                var side = new List<GameObject>();
+                for (int i = 0; i < refGos.Count; i++)
+                {
+                    GameObject go = refGos[i];
+                    if (go == null || go.transform == null) continue;
+                    if ((go.transform.position.x < campfire) == (pass == 0)) side.Add(go);
+                }
+                side.Sort(CompareByX);
+                int n = side.Count;
+                int scan = 0;
+                while (scan < n)
+                {
+                    int j = scan + 1;
+                    float runGap = 0f;
+                    bool haveGap = false;
+                    while (j < n)
+                    {
+                        float gap = XOf(side[j]) - XOf(side[j - 1]);
+                        if (gap <= 1f) break; // 贴脸异常间隙：不当梯子段
+                        if (!haveGap) { runGap = gap; haveGap = true; }
+                        else if (Mathf.Abs(gap - runGap) > LadderGapTolerance) break;
+                        j++;
+                    }
+                    int len = j - scan;
+                    if (haveGap && len >= LadderMinRun)
+                    {
+                        runs++;
+                        for (int k = scan + 1; k <= j - 2; k++) // 段内部，两端保留
+                        {
+                            GameObject spot = side[k];
+                            if (!CanRetireBaseCore(spot, world, layer, requireKemMarker: false)) continue;
+                            try
+                            {
+                                Persistent persistent = spot.GetComponent<Persistent>();
+                                CRPCHeader header = NetworkPostbox.Instance.GetHeaderFromObject(spot, true);
+                                NetworkPostbox.Instance.DeregisterObject(header);
+                                persistent.DontPersistInstance(true);
+                                spot.SetActive(false);
+                                if (spot.activeInHierarchy) continue;
+                                float x = XOf(spot);
+                                snapshot.Remove(spot);
+                                refGos.Remove(spot);
+                                removedTotal++;
+                                UnityEngine.Object.Destroy(spot);
+                                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                                    "[TowerSpots] ladder removed x=" + x.ToString("F1")
+                                    + " (run gap=" + runGap.ToString("F1") + ", endpoints kept)");
+                            }
+                            catch (Exception e)
+                            {
+                                KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                                    "[TowerSpots] ladder removal failed: " + e.Message);
+                                break;
+                            }
+                        }
+                    }
+                    scan = j;
+                }
+            }
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                "[TowerSpots] ladder cleanup done: runs=" + runs + " removed=" + removedTotal);
+            ModConfig.TowerLadderCleanup.Value = false; // 一次性维护：自动关闭
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[TowerSpots] ladder cleanup failed: " + e.Message);
+        }
+    }
 
     private static void LogScatterMetadataOnce(GameObject prefab)
     {

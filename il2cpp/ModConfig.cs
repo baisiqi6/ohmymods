@@ -44,6 +44,7 @@ public static class ModConfig
     public static ConfigEntry<float> TowerSpotMultiplier;
     public static ConfigEntry<float> WallSpotMultiplier;
     public static ConfigEntry<bool> WallSpotDiagnostics;
+    public static ConfigEntry<bool> TowerLadderCleanup;
     public static ConfigEntry<bool> CrossWorldMountsEnabled;
     public static ConfigEntry<float> EnemyCountMultiplier;
     public static ConfigEntry<float> EnemyTimelineSpeed;
@@ -184,6 +185,12 @@ public static class ModConfig
         // 模板元数据与加载基线快照为有界常驻观测，不受此开关控制。默认关。
         WallSpotDiagnostics = config.Bind("World", "WallSpotDiagnostics", false,
             "墙基机制诊断日志（边界事件时间线/生成点同步性取证用；平时保持关闭）");
+
+        // 一次性维护（issue #131/#132，用户授权）：清除伪装成原生的等差梯子
+        // 遗留塔基（每侧 ≥4 连续等距段的内部点，两端保留；未购、全套安全
+        // 检查；真原生间距不规则不受影响）。运行一轮后自动关闭。
+        TowerLadderCleanup = config.Bind("World", "TowerLadderCleanup", false,
+            "一次性维护：清除等差梯子遗留塔基（自动关闭）");
 
         EnemyCountMultiplier = config.Bind("Enemy", "EnemyCountMultiplier", 1f,
             "每波怪物数量倍率（1-5x）");
