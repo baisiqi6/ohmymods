@@ -446,8 +446,10 @@ public static class PatchWorld_WallSpots
                 for (float x = a.x + target; x < b.x - GapEndMargin; x += target)
                 {
                     // 确定性抖动（用户批准，与塔基同款）：偏移=坐标纯函数（种子
-                    // 不同避免两功能相关）；y/z 按抖动后位置重取较近端点。
+                    // 不同避免两功能相关）；钳制在间隙端点余量内（复审#9 P2-1：
+                    // 恢复"0.5t 搜索窗口 < 端点 IsFree 半径 0.6t"的不变式）。
                     float jx = x + CoordinateJitter(x, 2f) * target * JitterRatio;
+                    jx = Mathf.Clamp(jx, a.x + GapEndMargin, b.x - GapEndMargin);
                     bool nearInner = Mathf.Abs(jx - a.x) <= Mathf.Abs(b.x - jx);
                     result.Add(new GapCandidate
                     {
