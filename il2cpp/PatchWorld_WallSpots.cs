@@ -793,7 +793,7 @@ public static class PatchWorld_WallSpots
             // 源处排除 BackgroundWall 子树的渲染器，保留真实墙块宽度；数值
             // 钳制（WallStructuralHalf）作为二级防线保留。
             var bgSet = default(HashSet<IntPtr>);
-            if (StructuralHalfCapFor(go) > 0f)
+            if (StructuralHalfCapFor(go) > 0f) // 身份 Unknown(-1) 时不过滤；Combined 已对其返回 false，仅防未来直调 VisualBounds 的 Wall 根（复审#7 P2-2）
             {
                 var bgWalls = go.GetComponentsInChildren<BackgroundWall>(true);
                 if (bgWalls != null && bgWalls.Length > 0)

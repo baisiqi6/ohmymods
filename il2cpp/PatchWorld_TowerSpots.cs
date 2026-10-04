@@ -746,7 +746,7 @@ public static class PatchWorld_TowerSpots
             // 源处排除 BackgroundWall 子树的渲染器，保留真实墙块宽度；数值
             // 钳制（WallStructuralHalf）作为二级防线保留。
             var bgSet = default(HashSet<IntPtr>);
-            if (StructuralHalfCapFor(go) > 0f)
+            if (StructuralHalfCapFor(go) > 0f) // 身份 Unknown(-1) 时不过滤；Combined 已对其返回 false，仅防未来直调 VisualBounds 的 Wall 根（复审#7 P2-2）
             {
                 var bgWalls = go.GetComponentsInChildren<BackgroundWall>(true);
                 if (bgWalls != null && bgWalls.Length > 0)
@@ -1054,7 +1054,10 @@ public static class PatchWorld_TowerSpots
                             }
                         }
                     }
-                    scan = j;
+                    // 复审#7 P1-2：不合格段退一步——前邻离群点会吞掉梯子首点
+                    //（右带实算：151.6 被失败段消耗致 161.6 残留）。j ≥ scan+1
+                    // 保证 scan 严格递增不死循环。
+                    scan = len >= LadderMinRun ? j : j - 1;
                 }
             }
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
