@@ -85,6 +85,7 @@ public static class PatchWorld_TowerSpots
     private const float OccupiedRatio = 0.6f;   // 距离守卫 = 0.6×目标间距
     private const float OutwardExtension = 1f;  // 越过最外侧原生基底再外扩 1 个原生间距
     private const int MaxPerSide = 40;          // 网格点数硬上限（防御性）
+    private const float WallStructuralHalf = 2.5f; // 复审#5：策略性占用上限（非实测结构宽；BackgroundWall 过滤后的二级钳制）
 
     // per-world 指针守卫：赋值时机在全部就绪检查（holder/prefab/参考集）通过
     // 之后、实际放点之前——瞬时未就绪只跳过本次，不会永久吞掉该世界
@@ -93,7 +94,11 @@ public static class PatchWorld_TowerSpots
     private static IntPtr _expandedWorld;
     private static IntPtr _expandedLayer;
     private static bool _loggedOnlineSkip;
+    private const float JitterRatio = 0.15f;         // 确定性抖动幅度（×target）
+    private const float LadderGapTolerance = 0.25f; // 等差段判定：相邻间隙与段首差
+    private const int LadderMinRun = 4;              // ≥4 点成段（真原生巧合概率极低）
     private static bool _loggedNoTemplate;
+    private static bool _loggedIndeterminateGrid;
     private static bool _loggedVisualHealth;
     private static bool _loggedScatterMetadata;
     private static bool _loggedOverlapRetirement;
@@ -247,6 +252,11 @@ public static class PatchWorld_TowerSpots
         BuildOccupancySnapshot(layer, snapshot, refGos, generatedBases);
 
         LogScatterMetadataOnce(prefab);
+        // Issue #125 联调诊断（WallSpotDiagnostics 门控）：一次性输出占用快照
+        // 全部 root 的 name+x+矩形范围——钉死"宽矩形占用者"与密度残留偏差，
+        // 不依赖回收复现。纯只读，每档加载一轮。
+        if (ModConfig.WallSpotDiagnostics != null && ModConfig.WallSpotDiagnostics.Value)
+            LogOccupancySnapshotRects(snapshot, layer);
 
         // User-authorized same-site duplicates may already be upgraded and have
         // lost the KEM name. Only an independent completed special tower is a
@@ -255,6 +265,11 @@ public static class PatchWorld_TowerSpots
         foreach (var removedRoot in duplicateRoots) snapshot.Remove(removedRoot);
         refGos.RemoveAll(go => go == null || !go.activeInHierarchy);
         generatedBases.RemoveAll(go => go == null || !go.activeInHierarchy);
+
+        // 等差梯子清理（issue #131/#132 遗留，用户授权的一次性维护）：
+        // 在间距估计前执行，本 pass 的中位数即用清理后的参考集。
+        if (ModConfig.TowerLadderCleanup != null && ModConfig.TowerLadderCleanup.Value)
+            RunLadderCleanup(world, layer, refGos, snapshot, kingdom.campfirePosition);
 
         // 先清旧重叠，再决定是否补新：即使 multiplier<=1 或原生参照不足，
         // 已随存档恢复的、与真实占用（含无标签特殊塔/已建普通塔/施工）重叠的
@@ -276,7 +291,17 @@ public static class PatchWorld_TowerSpots
 
         float multiplier = ModConfig.TowerSpotMultiplier != null
             ? ModConfig.TowerSpotMultiplier.Value : 2f;
-        if (multiplier <= 1f) return; // 1=原生密度，不补点（cleanup 已完成）
+        if (multiplier <= 1f)
+        {
+            // 1=原生密度：网格为空 → 无可认领者 → 清空全部未购 KEM 塔基
+            // （issue #132“只涨不消”修正：调低/关闭滑块真正降密度）。
+            int cleared = RetireOffGridGeneratedBases(world, layer, generatedBases, snapshot,
+                new SideGrid(), new SideGrid(), campfireOf(kingdom));
+            if (cleared > 0)
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[TowerSpots] multiplier<=1 off-grid cleared=" + cleared);
+            return;
+        }
 
         // 联机 fail-closed（见类注释）；单机 HasWorldAuth 恒真。
         if (NetworkBigBoss.IsOnline)
@@ -332,6 +357,23 @@ public static class PatchWorld_TowerSpots
         if (!fallback.HasValue) return;
 
         int notBuildableMask = LayerMask.GetMask("NotBuildable");
+
+        // 网格成员资格回收（issue #132）：与补放共用同一网格单源；先回收
+        // 离网未购点（腾出 x 供在位重放），再补放。
+        SideGrid leftGrid = leftRef.Count > 0
+            ? EnumerateSideGrid(leftRef, -1f, leftNative ?? fallback.Value, multiplier,
+                worldLeft, worldRight)
+            : null;
+        SideGrid rightGrid = rightRef.Count > 0
+            ? EnumerateSideGrid(rightRef, 1f, rightNative ?? fallback.Value, multiplier,
+                worldLeft, worldRight)
+            : null;
+        int offGridRetired = RetireOffGridGeneratedBases(world, layer, generatedBases,
+            snapshot, leftGrid, rightGrid, campfire);
+        if (offGridRetired > 0)
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                "[TowerSpots] off-grid retired=" + offGridRetired
+                + " (generated=" + generatedBases.Count + ")");
 
         int added = 0;
         if (leftRef.Count > 0)
@@ -522,6 +564,44 @@ public static class PatchWorld_TowerSpots
     }
 
     /// <summary>
+    /// 诊断（Issue #125 联调，WallSpotDiagnostics 门控）：回收判定为
+    /// occupied-building 时，列出与候选矩形实际相交的占用 root（名字+范围）。
+    /// 纯只读，最多 4 条/次。
+    /// </summary>
+    private static void LogRetirementBlockers(GameObject spot, float oldX,
+        OccupancySnapshot snapshot, Transform layer)
+    {
+        try
+        {
+            if (!TryGetCombinedOverlapRegion(spot, oldX, false, out Rect cand)) return;
+            var sb = new System.Text.StringBuilder();
+            sb.Append("[TowerSpots] retire-blockers x=").Append(oldX.ToString("F1"))
+              .Append(" candidate=[").Append(cand.xMin.ToString("F1"))
+              .Append(',').Append(cand.xMax.ToString("F1")).Append(']');
+            int logged = 0;
+            for (int i = 0; i < snapshot.Roots.Count && logged < 4; i++)
+            {
+                GameObject root = snapshot.Roots[i];
+                if (root == null || IsSameHierarchy(root, spot)) continue;
+                if (!IsLiveOccupant(snapshot, root, layer)) continue;
+                if (!TryGetCombinedOverlapRegion(root, root.transform.position.x, false, out Rect occ)) continue;
+                if (!cand.Overlaps(occ)) continue;
+                sb.Append(" | ").Append(root.name).Append('[')
+                  .Append(occ.xMin.ToString("F1")).Append(',')
+                  .Append(occ.xMax.ToString("F1")).Append(']');
+                logged++;
+            }
+            if (logged == 0) sb.Append(" | <no-rect-overlap>");
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(sb.ToString());
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                "[TowerSpots] retire-blockers diag failed: " + e.Message);
+        }
+    }
+
+    /// <summary>
     /// 复刻 Level.PopulateRegionWithScatteredObjects 的 AvoidOverlapWith 横向矩形
     /// 判定。Tower 标签有意跳过：同类塔位距离仍由本补丁的目标倍数/占用快照
     /// 管理，否则原生 MinSpacing 会把所有增密点重新全部挡掉；建筑/墙/农场等
@@ -618,10 +698,39 @@ public static class PatchWorld_TowerSpots
             Rect native = GetOverlapRegion(go, x, sameObject);
             if (!float.IsFinite(native.xMin) || !float.IsFinite(native.xMax) || native.xMax <= native.xMin) return false;
             float min = Mathf.Min(native.xMin, visualMin), max = Mathf.Max(native.xMax, visualMax);
+            float halfCap = StructuralHalfCapFor(go);
+            if (halfCap < 0f) return false; // 身份不可判定=几何 Unknown
+            if (halfCap > 0f && go.transform != null)
+            {
+                float cx = go.transform.position.x;
+                min = Mathf.Max(min, cx - halfCap);
+                max = Mathf.Min(max, cx + halfCap);
+            }
             result = Rect.MinMaxRect(min, 50f, max, 150f);
             return float.IsFinite(min) && float.IsFinite(max) && max > min;
         }
         catch { return false; }
+    }
+
+    /// <summary>
+    /// 实机#3 实证（occupancy-root-rects 日志）：Wall/WallWreck 根的子渲染器
+    /// 并集会把背景墙段（从城墙延伸回主城的装饰长带，如 [0..159.4]）吞进
+    /// 占用矩形，一次罩死整条内带（塔基误回收 13 个 + 墙基候选全灭）。
+    /// 墙的结构占地仅 ~3 单位：这两类根的矩形钳制到 root.x ± WallStructuralHalf。
+    /// </summary>
+    /// <summary>身份半宽：墙族=2.5；非墙=0；身份不可判定（tag 读取失败）=-1。
+    /// -1 传播为几何 Unknown（Codex 审查 P2/复审#6 修正方向）：既不缩窄非墙
+    /// 建筑的真实占地（放置侧的放行风险），也不放大墙的毒带——调用方沿用
+    /// "Unknown 不新放、不据 Unknown 删除"语义。</summary>
+    private static float StructuralHalfCapFor(GameObject go)
+    {
+        try
+        {
+            if (go == null) return 0f;
+            string t = go.tag;
+            return t == "Wall" || t == "WallWreck" ? WallStructuralHalf : 0f;
+        }
+        catch { return -1f; }
     }
 
     private static bool TryGetVisualBounds(GameObject go, float x, out float minX, out float maxX)
@@ -633,10 +742,37 @@ public static class PatchWorld_TowerSpots
             float rootX = go.transform.position.x;
             if (!float.IsFinite(rootX)) return false;
             Renderer[] renderers = go.GetComponentsInChildren<Renderer>(true);
+            // 复审#5 P1 根因形态：墙根的背景墙段（BackgroundWall 子系统）把渲染
+            // 并集拉成长带（实测每根墙外延 ~5.4）。对 Wall/WallWreck 根在数据
+            // 源处排除 BackgroundWall 子树的渲染器，保留真实墙块宽度；数值
+            // 钳制（WallStructuralHalf）作为二级防线保留。
+            var bgSet = default(HashSet<IntPtr>);
+            if (StructuralHalfCapFor(go) > 0f) // 身份 Unknown(-1) 时不过滤；Combined 已对其返回 false，仅防未来直调 VisualBounds 的 Wall 根（复审#7 P2-2）
+            {
+                var bgWalls = go.GetComponentsInChildren<BackgroundWall>(true);
+                if (bgWalls != null && bgWalls.Length > 0)
+                {
+                    bgSet = new HashSet<IntPtr>();
+                    for (int b = 0; b < bgWalls.Length; b++)
+                        if (bgWalls[b] != null && bgWalls[b].transform != null)
+                            bgSet.Add(bgWalls[b].transform.Pointer);
+                }
+            }
             bool found = false;
             foreach (Renderer renderer in renderers)
             {
                 if (renderer == null) continue;
+                if (bgSet != null && renderer.transform != null)
+                {
+                    // 复审#6 P1-2c/P2-4：起点含渲染器自身节点——BackgroundWall 的
+                    // AcquireSiblingComponents 形态下组件与渲染器可同节点。
+                    bool underBg = false;
+                    for (Transform t = renderer.transform; t != null; t = t.parent)
+                    {
+                        if (bgSet.Contains(t.Pointer)) { underBg = true; break; }
+                    }
+                    if (underBg) continue;
+                }
                 Bounds bounds = renderer.bounds;
                 float lo = bounds.min.x, hi = bounds.max.x;
                 if (!float.IsFinite(lo) || !float.IsFinite(hi)) return false;
@@ -686,6 +822,12 @@ public static class PatchWorld_TowerSpots
             OverlapResult collision = OverlapsOccupiedRoots(snapshot, spot, oldX, spot, layer, world, true);
             bool nativeCollision = OverlapsNativePlacement(prefab, layer, oldX, spot, out string blockedTag, spot);
             bool confirmed = collision == OverlapResult.Overlap || (nativeCollision && blockedTag != "check-error");
+            // Issue #125 联调诊断（WallSpotDiagnostics 门控，默认关）：回收判为
+            // occupied-building 时列出实际相交的占用 root 与矩形范围，钉死
+            // "一个新墙扫掉 60 单位跨度塔基"背后的大矩形来源。纯只读。
+            if (confirmed && collision == OverlapResult.Overlap
+                && ModConfig.WallSpotDiagnostics != null && ModConfig.WallSpotDiagnostics.Value)
+                LogRetirementBlockers(spot, oldX, snapshot, layer);
             if (!confirmed && TryGetCombinedOverlapRegion(spot, oldX, false, out Rect candidate))
             {
                 foreach (GameObject previous in keptGenerated)
@@ -749,12 +891,22 @@ public static class PatchWorld_TowerSpots
     }
 
     private static bool CanRetireGeneratedBase(GameObject spot, World world, Transform layer)
+        => CanRetireBaseCore(spot, world, layer, requireKemMarker: true);
+
+    /// <summary>塔基可删性核心检查；requireKemMarker=false 用于等差梯子清理
+    /// （未改名遗留点），此时反向要求名字无 KEM 标记（KEM 点走各自回收路径）。</summary>
+    private static bool CanRetireBaseCore(GameObject spot, World world, Transform layer,
+        bool requireKemMarker)
     {
         try
         {
             if (!TryGetReadyContext(world, layer, out _) || spot == null || spot.transform == null) return false;
             string n = spot.name;
-            if (n == null || !n.StartsWith(MarkerPrefix)) return false;
+            if (requireKemMarker)
+            {
+                if (n == null || !n.StartsWith(MarkerPrefix)) return false;
+            }
+            else if (n != null && n.StartsWith(MarkerPrefix)) return false;
             if (!spot.activeInHierarchy) return false;
             if (IsOnBoat(spot.transform)) return false;
             if (!IsInLayerScene(spot, layer)) return false;
@@ -830,6 +982,99 @@ public static class PatchWorld_TowerSpots
 
 
 
+    /// <summary>
+    /// 等差梯子清理（issue #131/#132，用户授权）：早期版本未改名补放点以
+    /// Tower0_greece(Clone) 形态伪装原生（用户判据+资产实证：真原生手工摆设
+    /// 间距不规则）。检测每侧 ≥4 连续、所有相邻间隙与段首间隙相差 ≤0.25 的
+    /// 等差段，仅删除段内部点（两端保留——端点可能是真原生锚）；删除走
+    /// CanRetireBaseCore(requireMarker:false) 全套安全检查（付款中/施工中/
+    /// 玩家交互一律 fail-closed 保留）。运行后自动关闭配置（一次性维护）。
+    /// </summary>
+    private static void RunLadderCleanup(World world, Transform layer,
+        List<GameObject> refGos, OccupancySnapshot snapshot, float campfire)
+    {
+        try
+        {
+            if (!float.IsFinite(campfire)) return;
+            int removedTotal = 0, runs = 0;
+            for (int pass = 0; pass < 2; pass++)
+            {
+                var side = new List<GameObject>();
+                for (int i = 0; i < refGos.Count; i++)
+                {
+                    GameObject go = refGos[i];
+                    if (go == null || go.transform == null) continue;
+                    if ((go.transform.position.x < campfire) == (pass == 0)) side.Add(go);
+                }
+                side.Sort(CompareByX);
+                int n = side.Count;
+                int scan = 0;
+                while (scan < n)
+                {
+                    int j = scan + 1;
+                    float runGap = 0f;
+                    bool haveGap = false;
+                    while (j < n)
+                    {
+                        float gap = XOf(side[j]) - XOf(side[j - 1]);
+                        if (gap <= 1f) break; // 贴脸异常间隙：不当梯子段
+                        if (!haveGap) { runGap = gap; haveGap = true; }
+                        else if (Mathf.Abs(gap - runGap) > LadderGapTolerance) break;
+                        j++;
+                    }
+                    int len = j - scan;
+                    if (haveGap && len >= LadderMinRun)
+                    {
+                        runs++;
+                        for (int k = scan + 1; k <= j - 2; k++) // 段内部，两端保留
+                        {
+                            GameObject spot = side[k];
+                            if (!CanRetireBaseCore(spot, world, layer, requireKemMarker: false)) continue;
+                            try
+                            {
+                                Persistent persistent = spot.GetComponent<Persistent>();
+                                CRPCHeader header = NetworkPostbox.Instance.GetHeaderFromObject(spot, true);
+                                NetworkPostbox.Instance.DeregisterObject(header);
+                                persistent.DontPersistInstance(true);
+                                spot.SetActive(false);
+                                if (spot.activeInHierarchy) continue;
+                                float x = XOf(spot);
+                                snapshot.Remove(spot);
+                                refGos.Remove(spot);
+                                removedTotal++;
+                                UnityEngine.Object.Destroy(spot);
+                                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                                    "[TowerSpots] ladder removed x=" + x.ToString("F1")
+                                    + " (run gap=" + runGap.ToString("F1") + ", endpoints kept)");
+                            }
+                            catch (Exception e)
+                            {
+                                KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                                    "[TowerSpots] ladder removal failed: " + e.Message);
+                                break;
+                            }
+                        }
+                    }
+                    // 复审#7 P1-2：不合格段退一步——前邻离群点会吞掉梯子首点。
+                    // Codex R2 P1（探针实证）：尾点（len==1, j==scan+1）时
+                    // j-1==scan 不前进 → 主线程死循环；贴脸间隙≤1 早退同理。
+                    // 递增下限保证终止；保留离群前点可作下一段首点的意图。
+                    int next = len >= LadderMinRun ? j : j - 1;
+                    if (next <= scan) next = scan + 1;
+                    scan = next;
+                }
+            }
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                "[TowerSpots] ladder cleanup done: runs=" + runs + " removed=" + removedTotal);
+            ModConfig.TowerLadderCleanup.Value = false; // 一次性维护：自动关闭
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[TowerSpots] ladder cleanup failed: " + e.Message);
+        }
+    }
+
     private static void LogScatterMetadataOnce(GameObject prefab)
     {
         if (_loggedScatterMetadata) return;
@@ -867,6 +1112,50 @@ public static class PatchWorld_TowerSpots
     }
 
     /// <summary>
+    /// 诊断（Issue #125，WallSpotDiagnostics 门控）：占用快照 root 的矩形范围
+    /// 全量清单（每行最多 6 条，name[x .. rect-min..rect-max]）。只读。
+    /// </summary>
+    private static void LogOccupancySnapshotRects(OccupancySnapshot snapshot, Transform layer)
+    {
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            int lineCount = 0;
+            for (int i = 0; i < snapshot.Roots.Count; i++)
+            {
+                GameObject root = snapshot.Roots[i];
+                if (root == null || root.transform == null) continue;
+                if (lineCount == 0) sb.Append("[TowerSpots] occupancy-root-rects ");
+                try
+                {
+                    float x = root.transform.position.x;
+                    if (!IsLiveOccupant(snapshot, root, layer))
+                        sb.Append(root.name).Append('@').Append(x.ToString("F1")).Append("[inactive] ");
+                    else if (TryGetCombinedOverlapRegion(root, x, false, out Rect r))
+                        sb.Append(root.name).Append('@').Append(x.ToString("F1"))
+                          .Append('[').Append(r.xMin.ToString("F1")).Append("..")
+                          .Append(r.xMax.ToString("F1")).Append("] ");
+                    else
+                        sb.Append(root.name).Append('@').Append(x.ToString("F1")).Append("[no-rect] ");
+                }
+                catch { sb.Append(root.name).Append("[err] "); }
+                if (++lineCount >= 6)
+                {
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(sb.ToString());
+                    sb.Clear(); lineCount = 0;
+                }
+            }
+            if (lineCount > 0)
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(sb.ToString());
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                "[TowerSpots] occupancy diag failed: " + e.Message);
+        }
+    }
+
+    /// <summary>
     /// 单侧补点：把该侧原生基底参考集按"原生间距/倍数"的目标网格在内侧锚点
     /// 与外侧延长线（最外侧原生基底再外扩 1 个原生间距，钳到世界边界）之间
     /// 铺开。anchor/outermost/间距只来自参考集（幂等根基）；每个网格点过三道
@@ -881,35 +1170,19 @@ public static class PatchWorld_TowerSpots
         float worldLeft, float worldRight, float groundY, float planeZ,
         float nativeSpacing, float multiplier, int notBuildableMask)
     {
-        float anchor = XOf(sideRef[dir < 0f ? sideRef.Count - 1 : 0]);
-        GameObject template = NearestGo(sideRef, anchor);
-        if (template == null || !TryGetVisualBounds(template, anchor, out float left, out float right)) return 0;
-        float target = nativeSpacing / multiplier;
-        float visualHalfWidth = (right - left) * 0.5f;
-        if (visualHalfWidth > 0f)
-        {
-            target = Mathf.Max(target,
-                visualHalfWidth * 2f + VisualSpacingPadding);
-        }
-        if (target < MinTargetSpacing) target = MinTargetSpacing;
+        SideGrid grid = EnumerateSideGrid(sideRef, dir, nativeSpacing, multiplier,
+            worldLeft, worldRight);
+        if (grid == null || grid.Xs.Count == 0) return 0;
+        float target = grid.Target;
         float occupied = target * OccupiedRatio;
 
-        // 锚点=该侧最靠近营火的原生基底；终点=最外侧原生基底向外再延 1 个
-        // 原生间距（方向=离开营火），钳到世界边界（留 2 单位余量）。
-        // 两者都取自参考集：补放点再靠外也不推进终点（幂等根基）。
-        float outermost = XOf(sideRef[dir < 0f ? 0 : sideRef.Count - 1]);         // 最外
-        float rawEnd = outermost + dir * nativeSpacing * OutwardExtension;
-        float end = Mathf.Clamp(rawEnd,
-            worldLeft == float.MinValue ? rawEnd : worldLeft + 2f,
-            worldRight == float.MaxValue ? rawEnd : worldRight - 2f);
-
         // 朝向/缩放模板：最近的原生基底（左右两侧贴图镜像一致）
+        GameObject template = NearestGo(sideRef, XOf(sideRef[dir < 0f ? sideRef.Count - 1 : 0]));
+        if (template == null) return 0;
         int added = 0;
-        int steps = 0;
-        for (float x = anchor + dir * target; ; x += dir * target)
+        for (int slotIndex = 0; slotIndex < grid.Xs.Count; slotIndex++)
         {
-            if ((dir < 0f && x < end) || (dir > 0f && x > end)) break;
-            if (++steps > MaxPerSide) break;
+            float x = grid.Xs[slotIndex];
 
             if (!IsFree(snapshot.AllX, x, occupied)) continue;
             // Native tower locations follow the local ground height.  Using a
@@ -1022,6 +1295,168 @@ public static class PatchWorld_TowerSpots
             try { UnityEngine.Object.Destroy(spot); } catch { }
             return false;
         }
+    }
+
+    /// <summary>单侧目标网格（补放与网格成员资格回收共用单源，issue #132）。</summary>
+    private sealed class SideGrid
+    {
+        public readonly List<float> Xs = new List<float>();
+        public float Target = MinTargetSpacing;
+    }
+
+    /// <summary>确定性坐标哈希 → [-1,1]（Sin-Frac 哈希；同输入恒同输出，
+    /// 无全局随机态）。</summary>
+    private static float CoordinateJitter(float x, float seed)
+    {
+        float h = Mathf.Sin(x * 127.1f + seed * 311.7f) * 43758.5453f;
+        h -= Mathf.Floor(h);
+        return h * 2f - 1f;
+    }
+
+    private static float campfireOf(Kingdom kingdom)
+    {
+        try { return kingdom != null ? kingdom.campfirePosition : 0f; }
+        catch { return 0f; }
+    }
+
+    /// <summary>
+    /// 单侧目标网格枚举（与补放严格同一公式：锚点/模板视觉地板/终点外推/
+    /// MaxPerSide 上限）。模板或视觉不可判定返回 null（该侧回收跳过，不误删）。
+    /// </summary>
+    private static SideGrid EnumerateSideGrid(List<GameObject> sideRef, float dir,
+        float nativeSpacing, float multiplier, float worldLeft, float worldRight)
+    {
+        float anchor = XOf(sideRef[dir < 0f ? sideRef.Count - 1 : 0]);
+        GameObject template = NearestGo(sideRef, anchor);
+        if (template == null || !TryGetVisualBounds(template, anchor, out float left, out float right))
+            return null;
+        float target = nativeSpacing / multiplier;
+        float visualHalfWidth = (right - left) * 0.5f;
+        if (visualHalfWidth > 0f)
+        {
+            target = Mathf.Max(target,
+                visualHalfWidth * 2f + VisualSpacingPadding);
+        }
+        if (target < MinTargetSpacing) target = MinTargetSpacing;
+
+        // 锚点=该侧最靠近营火的原生基底；终点=最外侧原生基底向外再延 1 个
+        // 原生间距（方向=离开营火），钳到世界边界（留 2 单位余量）。
+        // 两者都取自参考集：补放点再靠外也不推进终点（幂等根基）。
+        float outermost = XOf(sideRef[dir < 0f ? 0 : sideRef.Count - 1]);         // 最外
+        float rawEnd = outermost + dir * nativeSpacing * OutwardExtension;
+        float end = Mathf.Clamp(rawEnd,
+            worldLeft == float.MinValue ? rawEnd : worldLeft + 2f,
+            worldRight == float.MaxValue ? rawEnd : worldRight - 2f);
+
+        var grid = new SideGrid { Target = target };
+        int steps = 0;
+        for (float x = anchor + dir * target; ; x += dir * target)
+        {
+            if ((dir < 0f && x < end) || (dir > 0f && x > end)) break;
+            if (++steps > MaxPerSide) break;
+            // 确定性抖动（用户批准）：复现原生 ScatteredObject 受约束随机撒点的
+            // 参差观感；偏移=坐标纯函数，读档重算不变，认领容差（0.6×target）
+            // 远大于幅度（0.15×target），无回收 churn。
+            grid.Xs.Add(x + CoordinateJitter(x, 1f) * target * JitterRatio);
+        }
+        return grid;
+    }
+
+    /// <summary>
+    /// 网格成员资格回收（issue #132“只涨不消”）：未购 KEM 塔基按当前目标网格
+    /// 贪心认领——每个网格点至多认领 1 个（|dx| ≤ 0.6×target），按距离升序、
+    /// 平局按网格点 x/基底 x 排序保持确定性；未被认领的经
+    /// CanRetireGeneratedBaseInSnapshot 全验后回收（与重叠回收同一删除序列）。
+    /// 某侧网格为 null（不可判定）时该侧跳过；两侧网格均为空（multiplier≤1）
+    /// 时全部未购点回收。已购塔由原生流程销毁，不受影响。
+    /// </summary>
+    private static int RetireOffGridGeneratedBases(World world, Transform layer,
+        List<GameObject> generatedBases, OccupancySnapshot snapshot,
+        SideGrid leftGrid, SideGrid rightGrid, float campfire)
+    {
+        var pairs = new List<float[]>(); // [dist, gridX, baseX] + base lookup by index
+        var pairBases = new List<GameObject>();
+        var indeterminate = new HashSet<IntPtr>();
+        for (int b = 0; b < generatedBases.Count; b++)
+        {
+            GameObject spot = generatedBases[b];
+            if (spot == null || spot.transform == null) continue;
+            if (!spot.activeInHierarchy) continue; // 复审#6 P2-2：已停用点不得抢格
+            float bx = spot.transform.position.x;
+            SideGrid grid = bx < campfire ? leftGrid : rightGrid;
+            if (grid == null)
+            {
+                indeterminate.Add(spot.Pointer);
+                if (!_loggedIndeterminateGrid)
+                {
+                    _loggedIndeterminateGrid = true;
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                        "[TowerSpots] side grid unavailable; keeping its unbuilt KEM bases this pass");
+                }
+                continue;
+            }
+            for (int g = 0; g < grid.Xs.Count; g++)
+            {
+                float dist = Mathf.Abs(grid.Xs[g] - bx);
+                if (dist > grid.Target * OccupiedRatio) continue;
+                pairs.Add(new float[] { dist, grid.Xs[g], bx });
+                pairBases.Add(spot);
+            }
+        }
+        // 距离升序，平局按 gridX、baseX（确定性贪心）
+        var order = new List<int>();
+        for (int i = 0; i < pairs.Count; i++) order.Add(i);
+        order.Sort((i, j) =>
+        {
+            int c = pairs[i][0].CompareTo(pairs[j][0]);
+            if (c == 0) c = pairs[i][1].CompareTo(pairs[j][1]);
+            if (c == 0) c = pairs[i][2].CompareTo(pairs[j][2]);
+            return c;
+        });
+        var usedGrid = new HashSet<float>();
+        var claimed = new HashSet<IntPtr>();
+        for (int oi = 0; oi < order.Count; oi++)
+        {
+            int i = order[oi];
+            // 复审#6 P1-1：先查基底是否已认领，再烧网格点——否则已认领基底
+            // 的次近对会烧掉无主网格点，令唯一合法认领者被误判离网回收。
+            if (claimed.Contains(pairBases[i].Pointer)) continue;
+            if (!usedGrid.Add(pairs[i][1])) continue;
+            claimed.Add(pairBases[i].Pointer);
+        }
+
+        int retired = 0;
+        foreach (GameObject spot in generatedBases)
+        {
+            if (!TryGetReadyContext(world, layer, out _)) break;
+            if (spot == null || spot.transform == null) continue;
+            if (indeterminate.Contains(spot.Pointer)) continue;
+            if (claimed.Contains(spot.Pointer)) continue;
+            if (!CanRetireGeneratedBaseInSnapshot(spot, world, layer, snapshot)) continue;
+            try
+            {
+                if (!CanRetireGeneratedBaseInSnapshot(spot, world, layer, snapshot)) continue;
+                Persistent persistent = spot.GetComponent<Persistent>();
+                CRPCHeader header = NetworkPostbox.Instance.GetHeaderFromObject(spot, true);
+                NetworkPostbox.Instance.DeregisterObject(header);
+                persistent.DontPersistInstance(true);
+                spot.SetActive(false);
+                if (spot.activeInHierarchy) continue;
+                float oldX = spot.transform.position.x;
+                snapshot.Remove(spot);
+                retired++;
+                UnityEngine.Object.Destroy(spot);
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[TowerSpots] off-grid retired x=" + oldX.ToString("F1"));
+            }
+            catch (Exception e)
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                    "[TowerSpots] off-grid retirement failed: " + e);
+                break; // 与重叠回收同纪律：部分原生失败后停止本轮删除
+            }
+        }
+        return retired;
     }
 
     /// <summary>网格点合法性：与占用集（全量）所有 x 的最小距离 &gt; 阈值。</summary>

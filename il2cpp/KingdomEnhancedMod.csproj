@@ -184,6 +184,7 @@
     </Target>
 
   <ItemGroup>
+    <EmbeddedResource Include="Assets/KEM_MapExtensionIsland.png" LogicalName="KingdomEnhancedMod.KEM_MapExtensionIsland.png" />
     <EmbeddedResource Include="Assets/KEM_MapRainbowPony.png" LogicalName="KingdomEnhancedMod.KEM_MapRainbowPony.png" />
     <EmbeddedResource Include="Assets/KEM_MapSantaReindeer.png" LogicalName="KingdomEnhancedMod.KEM_MapSantaReindeer.png" />
     <EmbeddedResource Include="Assets/KEM_MapSpookyhorse.png" LogicalName="KingdomEnhancedMod.KEM_MapSpookyhorse.png" />

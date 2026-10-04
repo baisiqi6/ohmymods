@@ -42,6 +42,9 @@ public static class ModConfig
     public static ConfigEntry<int> BeggarCampCapacity;
     public static ConfigEntry<float> MapSizeMultiplier;
     public static ConfigEntry<float> TowerSpotMultiplier;
+    public static ConfigEntry<float> WallSpotMultiplier;
+    public static ConfigEntry<bool> WallSpotDiagnostics;
+    public static ConfigEntry<bool> TowerLadderCleanup;
     public static ConfigEntry<bool> CrossWorldMountsEnabled;
     public static ConfigEntry<float> EnemyCountMultiplier;
     public static ConfigEntry<float> EnemyTimelineSpeed;
@@ -168,6 +171,26 @@ public static class ModConfig
         TowerSpotMultiplier = config.Bind("World", "TowerSpotMultiplier", 2f,
             new ConfigDescription("箭塔基底密度倍数（1=原生密度，最大4）",
                 new AcceptableValueRange<float>(1f, 4f)));
+
+        // 墙基（可购买城墙地基）密度倍数：1=原生密度（不补点），最大 4。仅细分
+        // 墙线间隙内部（原生档∪已购墙虚拟端点，不越最内/最外原生档），放不下
+        // 的间隙整段跳过；边界扩张出新墙基后自动补齐；反复读档幂等
+        // （KEM_WallSpot 名字标记 + 存档 netID 保留）。联机整体跳过。
+        WallSpotMultiplier = config.Bind("World", "WallSpotMultiplier", 1f,
+            new ConfigDescription("墙基密度倍数（1=原生密度，最大4；受墙位间距限制可能低于设定值）",
+                new AcceptableValueRange<float>(1f, 4f)));
+
+        // 墙基机制诊断开关（Issue #125 取证轮，复审#2 P2-9）：开启后
+        // MoveBorders/MoveBorderOnSide postfix 快照与边界事件时间线生效；
+        // 模板元数据与加载基线快照为有界常驻观测，不受此开关控制。默认关。
+        WallSpotDiagnostics = config.Bind("World", "WallSpotDiagnostics", false,
+            "墙基机制诊断日志（边界事件时间线/生成点同步性取证用；平时保持关闭）");
+
+        // 一次性维护（issue #131/#132，用户授权）：清除伪装成原生的等差梯子
+        // 遗留塔基（每侧 ≥4 连续等距段的内部点，两端保留；未购、全套安全
+        // 检查；真原生间距不规则不受影响）。运行一轮后自动关闭。
+        TowerLadderCleanup = config.Bind("World", "TowerLadderCleanup", false,
+            "一次性维护：清除等差梯子遗留塔基（自动关闭）");
 
         EnemyCountMultiplier = config.Bind("Enemy", "EnemyCountMultiplier", 1f,
             "每波怪物数量倍率（1-5x）");

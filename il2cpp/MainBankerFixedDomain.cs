@@ -315,6 +315,14 @@ internal static class MainBankerFixedDomain
                 GameObject next = upgrade.nextPrefab;
                 if (next == null) continue;
                 if (next.GetComponent<Wall>() == null) continue; // 直接含 Wall（已证 Wall0 形状）
+                // 防御层（Issue #125）：排除 KEM 补放墙基候选。几何上墙基滑块已
+                // 禁止越过最内原生档，最内候选恒为原生档；此处再挡一层，防未来
+                // 回归（KEM 名字在未购阶段可靠，已购墙全在原生最内档之外）。
+                string candidateName = upgrade.gameObject != null ? upgrade.gameObject.name : null;
+                if (candidateName != null
+                    && candidateName.StartsWith(
+                        PatchWorld_WallSpots.MarkerPrefix, System.StringComparison.Ordinal))
+                    continue;
                 if (!ConsiderCandidate(upgrade.transform.position.x, campfire,
                         ref bestLeft, ref bestRight, ref hasLeft, ref hasRight))
                     return false;

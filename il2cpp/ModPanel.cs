@@ -139,11 +139,17 @@ public class ModPanel : MonoBehaviour
         catch (Exception ex)
         {
             // Close instead of erroring on every GUI event; F5 still reopens afterwards.
+            // 崩溃取证（实机#4）：本机 HarmonyX 栈修正被系统拒绝（Permission
+            // denied），异常 ToString/拼接会触发栈符号化 → SIGSEGV 直接带崩
+            // 进程（崩溃报告 RuntimeMethodHandle::GetName/IsConstructor 族）。
+            // 因此只记 类型+Message（无栈），保留可观测性且不再放大为闪退。
             _shown = false;
             if (!_faultLogged)
             {
                 _faultLogged = true;
-                KingdomEnhancedPlugin.Instance?.LogSource.LogError("[Panel] OnGUI failed, panel closed: " + ex);
+                KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                    "[Panel] OnGUI failed, panel closed: " + ex.GetType().FullName
+                    + ": " + ex.Message);
             }
         }
         finally
@@ -331,6 +337,8 @@ public class ModPanel : MonoBehaviour
                     "新生成岛实际长度倍率，按原生地块取整；已生成岛不变。");
                 FloatSlider(ref y, width, "箭塔基底密度", ModConfig.TowerSpotMultiplier, 1, 4, false,
                     "重新载入地图时生效 · 1 倍为原生密度。");
+                FloatSlider(ref y, width, "墙基密度", ModConfig.WallSpotMultiplier, 1, 4, false,
+                    "重载地图或边界扩张后生效 · 1 倍为原生密度 · 受墙位间距限制可能低于设定值。");
                 Toggle(ref y, width, "跨世界坐骑", ModConfig.CrossWorldMountsEnabled,
                     "实验 · 希腊单机普通战役：跨世界坐骑集中在下方新增探索岛；旧岛不追加，彩虹小马新获取需活动资格。");
                 break;
