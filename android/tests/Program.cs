@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using OhMyMods.AndroidProbe;
 using Config = KingdomEnhancedMod.ModConfig;
@@ -63,6 +64,7 @@ internal static class Program
         bool oldCfg = false;
         bool seedFastBuild = false;
         bool seedBoat = false;
+        bool seedForest = false;
         var artifactArgs = new List<string>();
         foreach (string arg in args)
         {
@@ -84,6 +86,8 @@ internal static class Program
                 seedFastBuild = true;
             else if (arg == "--seed-boat")
                 seedBoat = true;
+            else if (arg == "--seed-forest")
+                seedForest = true;
             else
                 artifactArgs.Add(arg);
         }
@@ -135,10 +139,16 @@ internal static class Program
             MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "BoatCapacityEnabled", true);
             Console.WriteLine("mode: pre-seeded cfg BoatCapacityEnabled true");
         }
+        if (seedForest)
+        {
+            MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "FastForestRecedeEnabled", true);
+            Console.WriteLine("mode: pre-seeded cfg FastForestRecedeEnabled true");
+        }
         LayoutChecks();
-        ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg, seedFastBuild, seededCooldown, seedBoat, seededMap, seededStaffCooldown);
+        ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg, seedFastBuild, seededCooldown, seedBoat, seededMap, seededStaffCooldown, seedForest);
         EnemyMathChecks.Run();
         ProbeChecks.Run();
+        MenuChecks.Run();
         if (artifactArgs.Count < 1)
             Checks.Check(false, "artifact path argument missing (pass the built OhMyMods.AndroidProbe.dll path)");
         else if (!File.Exists(artifactArgs[0]))
@@ -195,6 +205,14 @@ internal static class Program
         layout.WorldPage = true;
         Checks.Check(Math.Abs(layout.PanelHeight - 640f) < 1e-4f, "world page panel height is 640 (seven rows)");
         Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 630f), "touch filter covers the 640-high world panel bottom row (Back ends at 630)");
+        layout.VegetationPage = true;
+        Checks.Check(Math.Abs(layout.PanelHeight - 328f) < 1e-4f, "vegetation page height is 328 while the world page stays open (cats 98 / forest 176 / Back 254)");
+        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 130f), "touch filter covers the vegetation cats row (98..162)");
+        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 208f), "touch filter covers the vegetation fast-forest row (176..240)");
+        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 286f), "touch filter covers the vegetation Back row (254..318)");
+        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 340f), "vegetation panel keeps its 328 touch boundary");
+        layout.VegetationPage = false;
+        Checks.Check(Math.Abs(layout.PanelHeight - 640f) < 1e-4f, "Back out of the vegetation page restores the still-open world page (640)");
         layout.WorldPage = false;
         Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "Back out of the world page restores the 562-high home panel");
         layout.PopulationPage = true;
@@ -204,7 +222,7 @@ internal static class Program
         Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "closing the subpages restores the 562-high home panel");
     }
 
-    private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg, bool seededFastBuild, float? seededCooldown, bool seededBoat, float? seededMap, float? seededStaffCooldown)
+    private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg, bool seededFastBuild, float? seededCooldown, bool seededBoat, float? seededMap, float? seededStaffCooldown, bool seedForest)
     {
         var applied = new List<bool>();
         int expectedWarnings = (seededEnemyCount.HasValue && !IsFinite(seededEnemyCount.Value) ? 1 : 0)
@@ -222,7 +240,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 13, "Initialize creates exactly thirteen entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 14, "Initialize creates exactly fourteen entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -236,6 +254,7 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/StaffCooldownMultiplier default=1"), "StaffCooldownMultiplier is declared with default 1");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/BoatCapacityEnabled default=False"), "BoatCapacityEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/MapSizeMultiplier default=1"), "MapSizeMultiplier is declared with default 1");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/FastForestRecedeEnabled default=False"), "FastForestRecedeEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "Initialize never writes the cfg");
         Checks.Check(applied.Count == 1 && !applied[0], "cold start applies InfiniteMoney=false through the seam exactly once");
         Checks.Check(MelonLoader.MelonLogger.WarningCalls == expectedWarnings, "the load boundary warns exactly once per non-finite seeded multiplier");
@@ -247,8 +266,9 @@ internal static class Program
         float expectedMap = seededMap.HasValue ? ExpectedMultiplier(seededMap.Value) : 1f;
         string expectedFastBuild = seededFastBuild ? "True" : "False";
         string expectedBoat = seededBoat ? "True" : "False";
+        string expectedForest = seedForest ? "True" : "False";
 
-        bool seeded = seededSpeed.HasValue || seededEnemyCount.HasValue || seededEnemyTimeline.HasValue || oldCfg || seededFastBuild || seededCooldown.HasValue || seededBoat || seededMap.HasValue || seededStaffCooldown.HasValue;
+        bool seeded = seededSpeed.HasValue || seededEnemyCount.HasValue || seededEnemyTimeline.HasValue || oldCfg || seededFastBuild || seededCooldown.HasValue || seededBoat || seededMap.HasValue || seededStaffCooldown.HasValue || seedForest;
         if (seeded)
         {
             int expectedSpeed = seededSpeed.HasValue ? Math.Clamp(seededSpeed.Value, 1, 5) : (oldCfg ? 3 : 1);
@@ -269,6 +289,8 @@ internal static class Program
                 "StaffCooldownMultiplier is " + Describe(expectedStaffCooldown) + "x after the load boundary (0.2..1 clamp, non-finite fallback 1)");
             Checks.Check(Config.BoatCapacityEnabled.Value == seededBoat,
                 seededBoat ? "a seeded BoatCapacityEnabled key loads ON at the load boundary" : "a cfg without the BoatCapacityEnabled key keeps it OFF");
+            Checks.Check(Config.FastForestRecedeEnabled.Value == seedForest,
+                seedForest ? "a seeded FastForestRecede key loads ON at the load boundary" : "a cfg without the FastForestRecede key keeps it OFF");
             Checks.Check(Config.MapSizeMultiplier.Value == expectedMap,
                 "MapSizeMultiplier is " + Describe(expectedMap) + "x after the load boundary (1..5 clamp, non-finite fallback 1)");
             Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "the load-boundary clamp/fallback does not write the cfg");
@@ -276,7 +298,7 @@ internal static class Program
                 + " stamina=" + oldCfg + " hold=" + oldCfg + " calendar=" + oldCfg
                 + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild
                 + " cooldown=" + expectedCooldown + " boat=" + expectedBoat + " map=" + expectedMap
-                + " staff=" + expectedStaffCooldown,
+                + " staff=" + expectedStaffCooldown + " forestRecede=" + expectedForest,
                 "cold-start ready line reports the effective values");
             if (seededEnemyCount == 4.5f && seededEnemyTimeline == 4.5f)
             {
@@ -326,6 +348,14 @@ internal static class Program
                 Checks.Check(Config.MapSizeMultiplier.Value == 1f, "cycling the map length 5 wraps to 1x");
                 Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == mapSaves + 2, "map length 5->1 saves exactly once");
             }
+            if (seedForest)
+            {
+                int forestSaves = MelonLoader.MelonPreferencesStub.SaveCalls;
+                Config.ToggleFastForestRecede();
+                Checks.Check(!Config.FastForestRecedeEnabled.Value, "toggling the loaded ON fast-forest switch turns it OFF");
+                Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_FAST_FOREST_RECEDE enabled=False", "the fast-forest toggle logs the switch state");
+                Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == forestSaves + 1, "one fast-forest toggle saves exactly once");
+            }
             return;
         }
 
@@ -340,8 +370,9 @@ internal static class Program
             && !Config.InfiniteMoney.Value
             && !Config.FarmCatsEnabled.Value
             && !Config.FastBuild.Value
-            && !Config.BoatCapacityEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild and BoatCapacity default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1",
+            && !Config.BoatCapacityEnabled.Value
+            && !Config.FastForestRecedeEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild, BoatCapacity and FastForestRecede default OFF");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
 
@@ -405,6 +436,15 @@ internal static class Program
         Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_BOAT_CAPACITY enabled=False", "ToggleBoatCapacity logs the OFF state");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleBoatCapacity OFF saves exactly once");
 
+        Config.ToggleFastForestRecede();
+        Checks.Check(Config.FastForestRecedeEnabled.Value, "ToggleFastForestRecede turns it ON");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_FAST_FOREST_RECEDE enabled=True", "ToggleFastForestRecede logs the switch state");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleFastForestRecede ON saves exactly once");
+        Config.ToggleFastForestRecede();
+        Checks.Check(Config.FastForestRecedeEnabled.Value == false, "ToggleFastForestRecede turns it OFF again");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_FAST_FOREST_RECEDE enabled=False", "ToggleFastForestRecede logs the OFF state");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleFastForestRecede OFF saves exactly once");
+
         for (int next = 2; next <= 5; next++)
         {
             Config.CycleEnemyCount();
@@ -454,7 +494,7 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "CycleMapSize wrap saves exactly once");
 
         Checks.Check(applied.Count == 3, "the InfiniteMoney seam fires only at Initialize and the two toggles (no subscription or per-frame write)");
-        Checks.Check(saves == 41, "forty-one switch actions produced forty-one saves");
+        Checks.Check(saves == 43, "forty-three switch actions produced forty-three saves");
     }
 
     private static float ExpectedMultiplier(float seeded)
@@ -540,18 +580,61 @@ internal static class ProbeChecks
         Checks.Check(File.Exists(probePath), "probe source present");
         if (!File.Exists(probePath)) return;
         string source = File.ReadAllText(probePath);
-        Checks.Check(source.Contains("\"0.0.17\""), "Probe reports version 0.0.17");
+        Checks.Check(source.Contains("\"0.0.18\""), "Probe reports version 0.0.18");
         Checks.Check(source.Contains("staff_base_cooldown"), "Probe feature marker advertises staff_base_cooldown");
+        Checks.Check(source.Contains("fast_forest_recede"), "Probe feature marker advertises fast_forest_recede");
         Checks.Check(source.Contains("typeof(KingdomEnhancedMod.PatchDivine_StaffCooldown)"), "Probe wires the staff patch type");
         Checks.Check(source.Contains("typeof(Il2Cpp.HermesStaff._StartAbilityRoutine_d__17)"), "Probe resolves the nested HermesStaff state machine target");
         Checks.Check(source.Contains("typeof(Il2Cpp.ItemOfPower)"), "Probe resolves the ItemOfPower.CanCancel target");
         Checks.Check(source.Contains("\"RoutinePrefix\"") && source.Contains("\"CanCancelPrefix\"") && source.Contains("\"Finalizer\""),
             "Probe registers both staff prefixes and the shared Finalizer by the prepared handler names");
         Checks.Check(source.Contains("LogHookCounts(staffRoutine)") && source.Contains("LogHookCounts(staffCanCancel)"),
-            "Probe reports hook counts for both new targets (21 existing + 2 = 23 unique lines)");
+            "Probe reports hook counts for both staff targets");
         Checks.Check(source.Contains("owner.IsNested?owner.DeclaringType.Name+\".\"+owner.Name"),
             "the nested target is reported under its declared parent name");
         Checks.Check(source.Contains("ANDROID_STAFF_BASE_COOLDOWN_HOOKS_INSTALLED consumers=2"), "Probe announces the staff hook installation");
+        Checks.Check(source.Contains("typeof(Il2Cpp.ForestItem)") && source.Contains("\"FadeAndRemove\"") && source.Contains("typeof(float)"),
+            "Probe resolves the exact ForestItem.FadeAndRemove(float) target");
+        Checks.Check(source.Contains("typeof(KingdomEnhancedMod.ForestItem_FadeAndRemove_OptionalVegetation_Patch)") && source.Contains("\"Prefix\""),
+            "Probe registers the kept wrapper Prefix by name");
+        Checks.Check(source.Contains("LogHookCounts(forestFadeAndRemove)"),
+            "Probe reports the forest hook count (21 existing + 2 staff + 1 forest = 24 unique lines)");
+        Checks.Check(source.Contains("ANDROID_FAST_FOREST_RECEDE_HOOK_INSTALLED sharedSource=true nativeEffects=true"),
+            "Probe announces the fast-forest hook installation");
+        Checks.Check(source.Contains("Layout.VegetationPage") && source.Contains("MobileVegetationMenu.Draw"),
+            "Probe routes the Vegetation page to MobileVegetationMenu.Draw");
+    }
+}
+
+// Source-level route contract for the vegetation page: the World row 332 becomes the Vegetation
+// entry without closing the World page, the vegetation page reuses the unchanged cats toggle
+// copy and arms the shared forest switch, and Back clears only VegetationPage. These are
+// worker-owned menu sources, frozen by hash in VerifyFrozenSources.
+internal static class MenuChecks
+{
+    internal static void Run()
+    {
+        string worldPath = Path.Combine(Checks.RepositoryRoot(), "android", "MobileWorldMenu.cs");
+        string vegetationPath = Path.Combine(Checks.RepositoryRoot(), "android", "MobileVegetationMenu.cs");
+        Checks.Check(File.Exists(worldPath) && File.Exists(vegetationPath), "vegetation menu sources present");
+        if (!File.Exists(worldPath) || !File.Exists(vegetationPath)) return;
+        string world = File.ReadAllText(worldPath);
+        string vegetation = File.ReadAllText(vegetationPath);
+        Checks.Check(world.Contains("py + 332 * scale") && world.Contains("\"Vegetation\"")
+            && world.Contains("Layout.VegetationPage = true"), "the World cats row (332) became the Vegetation entry");
+        Checks.Check(!world.Contains("ToggleFarmCats") && !world.Contains("Stock cats"),
+            "the World page no longer toggles or labels cats directly");
+        Checks.Check(vegetation.Contains("py + 98 * scale") && vegetation.Contains("ModConfig.ToggleFarmCats()")
+            && vegetation.Contains("Stock cats: ON\\nnext level; cats stay") && vegetation.Contains("Stock cats: OFF\\nnext level; cats stay"),
+            "the vegetation cats row (98) reuses the original toggle copy unchanged");
+        Checks.Check(vegetation.Contains("py + 176 * scale") && vegetation.Contains("ModConfig.ToggleFastForestRecede()")
+            && vegetation.Contains("Fast forest recede: "), "the vegetation fast-forest row (176) arms the shared switch");
+        Checks.Check(vegetation.Contains("py + 254 * scale") && vegetation.Contains("\"Back\"")
+            && vegetation.Contains("Layout.VegetationPage = false"), "Back (254) clears only VegetationPage");
+        Checks.Check(!vegetation.Contains("WorldPage = false") && !vegetation.Contains("WorldPage=false"),
+            "the vegetation Back never closes the World page");
+        Checks.Check(!vegetation.Contains("FarmCatsEnabled.Value =") && !vegetation.Contains("RemoveCat") && !vegetation.Contains("ClearCat"),
+            "the vegetation page never enables, disables or clears cats outside the shared toggle");
     }
 }
 
@@ -573,6 +656,7 @@ internal static class ArtifactChecks
         "Il2Cpp.SteedAbility", "Il2Cpp.BuffUnitsSteedAbility", "Il2Cpp.GlideMovementSteedAbility",
         "Il2Cpp.SpeedBoostSteedAbility", "Il2Cpp.SummonGhostSteedAbility",
         "Il2Cpp.HermesStaff", "Il2Cpp.ItemOfPower", "_StartAbilityRoutine_d__17",
+        "Il2Cpp.ForestItem", "Il2Cpp.Forest",
         "Il2Cpp.BiomeHolder", "Il2Cpp.BiomeData", "Il2Cpp.Character", "Il2Cpp.Mover",
         "Il2Cpp.Droppable", "Il2Cpp.Kingdom", "Il2Cpp.StateMachine", "Il2Cpp.Side",
         "Il2Cpp.Embarkee", "Il2Cpp.IslandSaveData", "Il2Cpp.Game", "Il2Cpp.Farmland", "Il2Cpp.GAPS",
@@ -599,7 +683,8 @@ internal static class ArtifactChecks
         "get_absoluteCenter", "get_cameraBlockMarker", "get_isDangerSource", "get_persistObject",
         "get_path", "get_targetPool", "get_noGround", "get_childCount", "GetChild", "GetComponents",
         "il2cpp_class_get_name_", "TotalWidth",
-        "SpawnOrInstantiate", "DespawnOrDestroy", "get_catPrefab", "GetBorderSideIntact"
+        "SpawnOrInstantiate", "DespawnOrDestroy", "get_catPrefab", "GetBorderSideIntact",
+        "get_controlsForestSize", "get_removedByForest", "get_removeDelay", "get__forest"
     };
 
     private static readonly string[] RequiredAssemblies =
@@ -743,6 +828,39 @@ internal static class ArtifactChecks
                 "Finalizer(Exception, Borrow) signature returns the original exception");
         }
 
+        // Fast-forest-recede block (shared il2cpp/PatchWorld_FastForestRecede.cs linked with an
+        // #if ANDROID alias header, plus the kept wrapper name so the PC auto-patch surface
+        // survives): the shared class, the typed ForestItem/ref-float Prefix shape, the class
+        // attribute target and the interop members the shared source consumes must land in the
+        // artifact. Dead compiled-away code would not prove any of this.
+        var fastForest = FindType(reader, "KingdomEnhancedMod", "PatchWorld_FastForestRecede");
+        Checks.Check(!fastForest.IsNil, "artifact contains the shared PatchWorld_FastForestRecede");
+        CheckHandlers(reader, fastForest, new Dictionary<string, int> { { "ScaleForestRecedeDelay", 2 } },
+            MethodAttributes.Assembly, "internal static");
+        if (!fastForest.IsNil)
+            Checks.Check(SignatureTypes(reader, reader.GetTypeDefinition(fastForest), "ScaleForestRecedeDelay")
+                == "Il2Cpp.ForestItem,System.Single&",
+                "ScaleForestRecedeDelay(Il2Cpp.ForestItem, ref float) binds the typed ANDROID alias");
+        var forestPatch = FindType(reader, "KingdomEnhancedMod", "ForestItem_FadeAndRemove_OptionalVegetation_Patch");
+        Checks.Check(!forestPatch.IsNil, "artifact contains the kept forest wrapper");
+        CheckHandlers(reader, forestPatch, new Dictionary<string, int> { { "Prefix", 2 } }, MethodAttributes.Assembly, "internal static");
+        if (!forestPatch.IsNil)
+        {
+            var forestPatchDefinition = reader.GetTypeDefinition(forestPatch);
+            var wrapperMethods = new HashSet<string>();
+            foreach (var handle in forestPatchDefinition.GetMethods())
+                wrapperMethods.Add(reader.GetString(reader.GetMethodDefinition(handle).Name));
+            Checks.Check(wrapperMethods.SetEquals(new[] { "Prefix" }),
+                "the kept wrapper is prefix-only (no postfix/finalizer state debt)");
+            Checks.Check(SignatureTypes(reader, forestPatchDefinition, "Prefix") == "Il2Cpp.ForestItem,System.Single&",
+                "Prefix(Il2Cpp.ForestItem, ref float delay) binds the typed ANDROID alias and the by-ref delay");
+            Checks.Check(HasClassHarmonyPatchTarget(reader, forestPatchDefinition, "ForestItem", "FadeAndRemove"),
+                "the wrapper keeps the [HarmonyPatch(typeof(ForestItem), FadeAndRemove)] class attribute for PC auto-patch");
+            Checks.Check(BodyCallsMethod(pe, reader, forestPatchDefinition, "Prefix",
+                    "ScaleForestRecedeDelay", "KingdomEnhancedMod.PatchWorld_FastForestRecede"),
+                "the wrapper Prefix really calls the shared PatchWorld_FastForestRecede helper");
+        }
+
         // Boat-capacity block (android/PatchWorld_BoatCapacity.cs + the shared policy
         // il2cpp/BoatCapacityProfile.cs): the one Prefix + one Finalizer must land in the
         // artifact with the Harmony __instance/__state shape and no auto-scan attributes, and
@@ -883,8 +1001,8 @@ internal static class ArtifactChecks
 
     // SHA-256 freeze for the Android adapter sources and the linked production sources. Files
     // listed in intentionallyChanged are the only ones the current issue may edit; every other
-    // frozen source must stay byte-identical (the hit surface only reads FloatLayout; it must not
-    // duplicate or alter the geometry, input filtering or menus).
+    // frozen source must stay byte-identical (the current issue only moves the shared
+    // fast-forest source into its own file, wires the vegetation page and the fourteenth entry).
     private static readonly string SourceRoot = Checks.RepositoryRoot();
 
     private static readonly string[] FrozenSources =
@@ -902,6 +1020,7 @@ internal static class ArtifactChecks
         "android/MobilePlayerMenu.cs",
         "android/MobilePopulation.cs",
         "android/MobileUiInputSurface.cs",
+        "android/MobileVegetationMenu.cs",
         "android/MobileWorldMenu.cs",
         "android/OhMyMods.AndroidProbe.csproj",
         "android/OptionalQoLScope.cs",
@@ -921,6 +1040,7 @@ internal static class ArtifactChecks
         "il2cpp/GreekScaleScope.cs",
         "il2cpp/MapWidthPlanner.cs",
         "il2cpp/MapWidthTerrain.cs",
+        "il2cpp/PatchWorld_FastForestRecede.cs",
         "il2cpp/PatchWorld_FarmCats.cs",
         "il2cpp/PatchWorld_Construction.cs",
         "il2cpp/PatchWorld_Level.cs"
@@ -938,9 +1058,10 @@ internal static class ArtifactChecks
             { "android/HoldBridges.cs", "a9aafb9b4c55b6cf1600f21b99506b3ef1a1304aa722a3d87fd7cff8b8ee5b0e" },
             { "android/MobileCalendar.cs", "f0d174125f0e3771a906712f52398e422f7812862b8614b3ecc709a385271633" },
             { "android/MobileGenerationMenu.cs", "f226e36b04aa2feaa239c2758f3c47858d526017edee062560035d178632c00b" },
+            { "android/MobilePlayerMenu.cs", "28524aaa69d061e2e618643e975ef8a8e19ab15666e1fe2be70bcdd92300fb33" },
             { "android/MobilePopulation.cs", "6dd431df541a4d2fd268eccfc3e9c757e5837cb8535acbd102bd05b6b1ed3f33" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
-            { "android/MobileWorldMenu.cs", "e6c49e26a7c63f827e6a0a169279f7ea10896d0f9fd9fa06f57791216857b124" },
+            { "android/MobileVegetationMenu.cs", "43af167093c13ae61167a6c474ebfa38892ea3eea5102aac0fe0115ba79298ba" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },
             { "android/PatchRide_InfiniteStamina.cs", "02a27e7c21d865596e23db3cdfe405dafb8c9e95f303e45481b24a5f72b280fc" },
@@ -948,7 +1069,7 @@ internal static class ArtifactChecks
             { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
-            { "android/Probe.cs", "07f32fe470c315e092ef9e742b8e6bf91d75f21260004217f0c2d6d4e5b75e58" },
+            { "android/Probe.cs", "7c4bbc441e2d7f15db1aa83fcccd11d90e14b58b7bc44e48fc84481bc5469b5d" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
             { "android/tests/AdapterTests.csproj", "aad4aba93718df35016419550c9dbee3e93407afae0b61c9ee3b77a8f67d841f" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
@@ -958,20 +1079,22 @@ internal static class ArtifactChecks
             { "il2cpp/GreekScaleScope.cs", "13d913b12e89338645847bb0f4d04fd4370bd808035e377766e2c5f9da530221" },
             { "il2cpp/MapWidthPlanner.cs", "3790b85fef8f36c822cec3d845a1ff90fb0a2dbcfaa295169966cc2ad036aa20" },
             { "il2cpp/MapWidthTerrain.cs", "5fe7ccde3fcdf5ff99e169e17b13b8558b37e3f03d7d7294ada8649d6afa194b" },
+            { "il2cpp/PatchWorld_FastForestRecede.cs", "1b51c0aa24daec749d23647f82aecb789e1b36b7439497eff2bd93dbb40d3193" },
             { "il2cpp/PatchWorld_FarmCats.cs", "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f" },
             { "il2cpp/PatchWorld_Construction.cs", "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79" },
             { "il2cpp/PatchWorld_Level.cs", "90f9f724db0d0f9353775f4284ed09d6d1782c125c5ad028e83b843b55e1315e" }
         };
-        // Issue #136 touches exactly these frozen sources: the Player float-panel height (562)
-        // with the new staff row + Back move, the staff-cooldown config entry + the shared
-        // cooldown step helper, and the new Compile Include. The Operator-owned Probe entry
-        // (version 0.0.17, the two staff registrations, nested hook-count naming) and the new
-        // PatchDivine_StaffCooldown.cs are frozen with their final bytes; the rest of the
-        // #122/#127/#130/#134 surface stays ordinary frozen entries.
+        // Issue #138 touches exactly these frozen sources: the FloatLayout vegetation height and
+        // touch geometry, the fourteenth config entry + forest toggle, the World cats row that
+        // became the Vegetation entry, and the new Compile Include. The Operator-owned Probe
+        // entry (version 0.0.18, the forest registration, the Vegetation router) and the new
+        // shared PatchWorld_FastForestRecede.cs / MobileVegetationMenu.cs are frozen with their
+        // final bytes; the rest of the #122/#127/#130/#134/#136 surface stays ordinary frozen
+        // entries.
         var intentionallyChanged = new HashSet<string>
         {
             "android/FloatLayout.cs", "android/MobilePlayerConfig.cs",
-            "android/MobilePlayerMenu.cs", "android/OhMyMods.AndroidProbe.csproj"
+            "android/MobileWorldMenu.cs", "android/OhMyMods.AndroidProbe.csproj"
         };
         foreach (string relative in FrozenSources)
         {
@@ -1079,6 +1202,54 @@ internal static class ArtifactChecks
         {
             var reference = reader.GetMemberReference(handle);
             if (reader.GetString(reference.Name) == memberName && TypeName(reader, reference.Parent) == typeName) return true;
+        }
+        return false;
+    }
+
+    // Matches a class-level [HarmonyPatch(typeof(T), nameof(T.M))] by scanning the decoded
+    // custom-attribute blob for the type and method names (the Type argument is serialized as
+    // an assembly-qualified name, so both short names appear verbatim).
+    private static bool HasClassHarmonyPatchTarget(MetadataReader reader, TypeDefinition definition, string typeName, string methodName)
+    {
+        foreach (var handle in definition.GetCustomAttributes())
+        {
+            var attribute = reader.GetCustomAttribute(handle);
+            if (!AttributeTypeName(reader, attribute.Constructor).StartsWith("HarmonyLib.HarmonyPatch", StringComparison.Ordinal)) continue;
+            var blob = reader.GetBlobReader(attribute.Value);
+            string text = System.Text.Encoding.UTF8.GetString(blob.ReadBytes(blob.RemainingBytes));
+            if (text.Contains(typeName, StringComparison.Ordinal) && text.Contains(methodName, StringComparison.Ordinal)) return true;
+        }
+        return false;
+    }
+
+    // Same-assembly calls compile to MethodDefinition tokens (not MemberReferences), so this
+    // scans the method body for a call/callvirt whose 4-byte operand is the callee's metadata
+    // token. Positive-only evidence for one known-shaped call in this artifact.
+    private static bool BodyCallsMethod(PEReader pe, MetadataReader reader, TypeDefinition definition,
+        string methodName, string calleeName, string calleeType)
+    {
+        int token = 0;
+        foreach (var handle in reader.MethodDefinitions)
+        {
+            var candidate = reader.GetMethodDefinition(handle);
+            if (reader.GetString(candidate.Name) != calleeName) continue;
+            if (TypeName(reader, candidate.GetDeclaringType()) != calleeType) continue;
+            token = MetadataTokens.GetToken(handle);
+            break;
+        }
+        if (token == 0) return false;
+        foreach (var handle in definition.GetMethods())
+        {
+            var method = reader.GetMethodDefinition(handle);
+            if (reader.GetString(method.Name) != methodName) continue;
+            if (method.RelativeVirtualAddress == 0) continue;
+            byte[] il = pe.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();
+            for (int index = 0; index + 4 < il.Length; index++)
+            {
+                if (il[index] != 0x28 && il[index] != 0x6F) continue; // call / callvirt
+                int operand = il[index + 1] | (il[index + 2] << 8) | (il[index + 3] << 16) | (il[index + 4] << 24);
+                if (operand == token) return true;
+            }
         }
         return false;
     }

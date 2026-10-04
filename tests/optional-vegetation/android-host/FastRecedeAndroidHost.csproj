@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
+    <DefineConstants>$(DefineConstants);ANDROID</DefineConstants>
+    <AssemblyName>FastRecedeAndroidHost</AssemblyName>
+    <RootNamespace>FastRecedeAndroidHost</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The real shared production source compiled with ANDROID defined (file-local
+         Forest/ForestItem aliases active) and the real android/OptionalQoLScope.cs, not a
+         loose PC stub OptionalQoLScope. The typed stubs in HostStubs.cs mirror the used
+         interop surface (Il2Cpp.ForestItem/Forest/Managers/BiomeHolder + field accessors as
+         properties, matching Il2CppInterop 1.5.1 namespace-prefix mode). -->
+    <Compile Include="../../../il2cpp/PatchWorld_FastForestRecede.cs" Link="Production/PatchWorld_FastForestRecede.cs" />
+    <Compile Include="../../../android/OptionalQoLScope.cs" Link="Adapter/OptionalQoLScope.cs" />
+  </ItemGroup>
+</Project>

@@ -30,13 +30,14 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 |---|---|
 | `Probe.cs` | MelonLoader 入口、显式 Harmony 注册、浮球组件与触摸守卫 |
 | `MobileUiInputSurface.cs` | Issue #119 原生 UGUI 命中面（新增）：两个透明 `Image` 命中区与 IMGUI 球/展开面板同矩形，由 `ProbeTicker` 生命周期驱动；不改原生菜单/输入标志 |
-| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 562 / World 640 / Player 562 / Population 376 / Generation 250，绘制与触摸同源） |
+| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 562 / World 640 / Vegetation 328 / Player 562 / Population 376 / Generation 250，绘制与触摸同源） |
 | `MobileCalendar.cs` `CalendarSnapshot.cs` | 日历显示（开关直读 `CalendarEnabled` entry，切换时保存） |
 | `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（只读缓存） |
-| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 13 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
+| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 14 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度、快速森林退缩；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
 | `MobilePlayerMenu.cs` | Player 页 UI（speed / stamina / hold / steed cooldown / staff base cooldown / back；六行 98/176/254/332/410/488，面板 562）。两个冷却文案都相对当次 currentCD 的下一次技能调用，不承诺回溯或 prefab 倍率；法杖行明示只改基础冷却（`applied = 进入时当前 _itemCooldown × 倍率`），原生 per-target 附加时间不缩放；中性文案 "Device settings"，Back 只置 `Layout.PlayerPage=false` |
-| `MobileWorldMenu.cs` | World 页 UI（enemies / threat growth / infinite money / stock cats / fast build / extra boat crew / back；七行 98/176/254/332/410/488/566，面板 640）。猫开关只影响以后关卡加载时的补齐，不删除已有猫；快速建造开关只影响后续每次原生 `InitializeBuild` 调用（前缀在 `_hasStarted` 早退之前写 rate，关闭不热还原已写入实例的 rate）；船容量开关只作用于以后新初始化的船（`Boat.OnEnable` 借用窗口），关闭不删除/不热改已登记的 slots；Back 只置 `Layout.WorldPage=false` |
+| `MobileWorldMenu.cs` | World 页 UI（enemies / threat growth / infinite money / Vegetation 入口 / fast build / extra boat crew / back；七行 98/176/254/332/410/488/566，面板 640）。Vegetation 行只打开子页（`Layout.VegetationPage=true`，World 页保持打开），猫开关已移入该子页（只影响以后关卡加载时的补齐，不删除已有猫）；快速建造开关只影响后续每次原生 `InitializeBuild` 调用（前缀在 `_hasStarted` 早退之前写 rate，关闭不热还原已写入实例的 rate）；船容量开关只作用于以后新初始化的船（`Boat.OnEnable` 借用窗口），关闭不删除/不热改已登记的 slots；Back 只置 `Layout.WorldPage=false` |
 | `MobileGenerationMenu.cs` | Island-generation 页 UI（Length / Back；两行 98/176，面板 250，副文案 "New islands only"）。Length 只改新岛生成读取的 `MapSizeMultiplier`（1→2→3→4→5→1，合法小数先落下一整数档，如 4.5→5）；Back 只置 `Layout.GenerationPage=false`；不调用任何原生游戏 API |
+| `MobileVegetationMenu.cs` | Vegetation 页 UI（Stock cats / Fast forest recede / Back；三行 98/176/254，面板 328，副文案 "World vegetation"）。猫行复用原 World 页文案与 `ToggleFarmCats`（只影响以后关卡加载，不删除已有猫）；森林行切换 `FastForestRecedeEnabled`（只作用于之后进入原生 `FadeAndRemove` 的调用，关闭不回收进行中的淡出）；Back 只置 `Layout.VegetationPage=false` 回到仍打开的 World 页 |
 | `PatchWorld_Mover.cs` `PatchRide_InfiniteStamina.cs` `PatchRide_SteedCooldown.cs` | 速度倍率、无限体力与坐骑技能冷却调用级倍率补丁（显式注册；冷却四个消费者共享一个 Finalizer，无 PC instanceID 缓存/扫场） |
 | `PatchDivine_StaffCooldown.cs` | 法杖基础冷却（`StaffCooldownMultiplier`，默认 1，0.2–1）薄适配：`HermesStaff._StartAbilityRoutine_d__17.MoveNext`（仅 `__1__state==0`）与 `ItemOfPower.CanCancel`（仅实际 TryCast 到 HermesStaff）各一个 prefix + 共享 Finalizer，在当次原生读取窗口内借用 `_itemCooldown` 基础值；每转化目标附加时间、min 截断、扫描与已排程 `_nextActivationTime` 全部保持原生；不复制桌面的 profile 写入/`OriginalAbilityRanges` 原值字典/SettingChanged 扫场 |
 | `PatchWorld_BoatCapacity.cs` | 主船乘员容量（`BoatCapacityEnabled`，默认 OFF）薄适配：`Boat.OnEnable` 一个 prefix + 一个 Finalizer，在原生 `Embarkable::RegisterUnitSlots` 消费窗口内借用四个 max 字段（目标值来自共享 `BoatCapacityProfile`），调用结束后按 exact int 等值逐字段归还；不写 slots/船位置/航海/存档/native gate，不给登记早退或权限门加补偿 |
@@ -52,6 +53,7 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 | `../il2cpp/BoatCapacityProfile.cs` | 链接的共享策略常量（Workers=8 / Knights=6 / Pikemen=8 / Farmers=3；纯常量、无方法/状态），PC 与 Android 编译同一份 |
 | `../il2cpp/MapWidthPlanner.cs` | 链接的共享纯规划器（Plan/AssignSeams + `MapWidthCandidate/MapWidthPlan`，零 Unity/native 依赖），未修改、逐字节与 PC 同一份（SHA-256 冻结） |
 | `../il2cpp/MapWidthTerrain.cs` `../il2cpp/PatchWorld_Level.cs` | 链接的共享地图长度适配源：相对桌面版仅文件头 `#if ANDROID` 的 `using X = Il2Cpp.X;` 类型别名（Level/LevelBlock/LevelLayout 等），其余逐字相同；Android 下别名编译进实际 interop 类型（见构建/测试节） |
+| `../il2cpp/PatchWorld_FastForestRecede.cs` | 链接的共享快速森林退缩源（`ForestItem.FadeAndRemove` 的 ref delay 前缀：显式正 delay ÷3，否则 `removeDelay × Random(0.5,1.5) ÷ 3`，有限正值才提交；默认 OFF 先于一切 item/native 访问）。相对桌面同一份共用，仅文件头 `#if ANDROID` 的 `Forest`/`ForestItem` 类型别名；故障一条 warning 保留原生等待参数，不建扫描/缓存/重试 |
 
 ## 功能范围与状态
 
@@ -63,7 +65,7 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   键与默认值：`SpeedMultiplier=1`、`InfiniteSteedStamina=false`、`HoldPurchaseEnabled=false`、
   `SteedCooldownMultiplier=1`、`StaffCooldownMultiplier=1`、`CalendarEnabled=false`、`EnemyCountMultiplier=1`、`EnemyTimelineSpeed=1`、
   `InfiniteMoney=false`、`FarmCatsEnabled=false`、`FastBuild=false`、`BoatCapacityEnabled=false`、
-  `MapSizeMultiplier=1`。加载边界各一次：速度 clamp 1–5；两个敌人与地图长度 float 倍率有限值 clamp
+  `MapSizeMultiplier=1`、`FastForestRecedeEnabled=false`。加载边界各一次：速度 clamp 1–5；两个敌人与地图长度 float 倍率有限值 clamp
   1–5、坐骑与法杖基础冷却倍率有限值 clamp 0.2–1（两行共用同一档位 helper 1→0.8→0.6→0.4→0.2→1，
   载入中间值落到下一较低 20% 档，如 0.5→0.4；地图长度与敌人倍率同一 `MathF.Floor` 步进 1→2→3→4→5→1，4.5→5）；NaN/Infinity（手工编辑 cfg 的非法输入）回 1 并各 Warning 一次——`Math.Clamp(NaN,…)`
   会返回 NaN，故显式判非有限；只改内存，不回写。切换时恰好一次
@@ -382,23 +384,25 @@ staff 行 410 / Back 488 / 面板 562 与点击单次 save；不冒充 Unity/Har
 直接相关 PC 回归（同样只链接未修改/边界源，不拉起无关套件）：`tests/farm-cats`、
 `tests/greek-scale-scope`、`tests/greek-scale-adapters`。
 
-当前基线（0.0.17，含 Issue #136 法杖基础冷却源码阶段；取代下述 0.0.16/#134 数字）：适配层默认
-408 passed / 0 failed、`--seed-staff-cooldown=NaN|Infinity|0.1|9` 各 309、`--seed-staff-cooldown=0.5`
-311、`--seed-cooldown=0.5` 311、4.5 档 317、`--oldcfg` 309、`--seed-map=4.5` 313，全部 0 failed；
-staff 场景工程 `android/tests/staff` 70 passed / 0 failed；map-width/cooldown/boat 场景工程本次
-未重跑（链接源未变，继续由冻结校验保护）。相比 #134（默认 364）新增检查：
-StaffCooldownMultiplier 声明/default 1/加载边界 0.2–1 clamp 与非有限回退、`--seed-staff-cooldown` 各档、
-共用的冷却档位 helper 使坐骑/法杖两个循环都按 1→0.8→0.6→0.4→0.2→1 逐档值与单次 save、
-Player 562（staff 行 410、Back 488、底 552）与 562 触摸边界、READY 行 `staff=<float>`、
-产物 `PatchDivine_StaffCooldown`（RoutinePrefix/CanCancelPrefix/Finalizer）的 internal static 形状与
-`(_StartAbilityRoutine_d__17, Borrow&)` / `(Il2Cpp.ItemOfPower, Borrow&)` / `(Exception, Borrow)` 签名、
-`Il2Cpp.HermesStaff`/`Il2Cpp.ItemOfPower`/`_StartAbilityRoutine_d__17` 三个类型引用与
-`get/set__itemCooldown`、`get___1__state`、`get___4__this` 消费成员、Probe 源级注册检查
-（0.0.17、两个 handler 名、嵌套 target 按父名输出、21+2=23 unique）。共享源 SHA-256 冻结为
-35 条路径、31 条 actual 校验：`FloatLayout.cs`/`MobilePlayerConfig.cs`/`MobilePlayerMenu.cs`/
-`OhMyMods.AndroidProbe.csproj` 为本次有意改动不参与断言，`PatchDivine_StaffCooldown.cs` 与
-Operator 完成态的 `Probe.cs`（0.0.17）为新冻结的实际校验项；旧 21 行 hook-count 字段不变。
-host 测试只检查适配层与产物元数据，不伪造运行期法杖/存档/透明命中结果，也不虚构
+当前基线（0.0.18，含 Issue #138 快速森林退缩源码阶段；取代下述 0.0.17/#136 数字）：适配层默认
+452 passed / 0 failed、`--oldcfg` 347、`--seed-forest` 351、`--seed-boat` 350、`--seed-map=4.5` 351，
+全部 0 failed；PC 既有 optional-vegetation 套件（直接链接新共享源）31 passed / 0 failed；真实
+`android/OptionalQoLScope` typed alias host（`tests/optional-vegetation/android-host`，ANDROID 定义下
+编译共享源）10 passed / 0 failed。相比 #136（默认 408）新增检查：
+FastForestRecedeEnabled 第 14 个 entry 声明/default false/`--seed-forest` 切换单次 save 与 READY
+`forestRecede=<bool>`；World 行 332 的 Vegetation 入口与 World 640 几何、Vegetation 328 三行
+98/176/254 的触摸界内/界外、Back 只清 VegetationPage 回到仍打开的 World 页、Cats 行复用原文案与
+`ToggleFarmCats` 且不新增清猫路径；产物 `PatchWorld_FastForestRecede`（internal static
+`ScaleForestRecedeDelay(Il2Cpp.ForestItem, ref float)`）与保留名 wrapper
+`ForestItem_FadeAndRemove_OptionalVegetation_Patch` 的 `[HarmonyPatch(typeof(ForestItem), FadeAndRemove)]`
+类属性、`Prefix(Il2Cpp.ForestItem, ref float)` 形状与对共享类的实际调用；`Il2Cpp.ForestItem`/`Il2Cpp.Forest`
+类型引用与 `get_controlsForestSize`/`get_removedByForest`/`get_removeDelay`/`get__forest` 消费成员；
+Probe 源级注册检查（0.0.18、`fast_forest_recede`、ForestItem.FadeAndRemove(float) 与 Prefix 按名注册、
+21+2+1=24 unique、Vegetation 路由）。共享源 SHA-256 冻结为 37 条路径、33 条 actual 校验：
+`FloatLayout.cs`/`MobilePlayerConfig.cs`/`MobileWorldMenu.cs`/`OhMyMods.AndroidProbe.csproj` 为本次
+有意改动不参与断言，`PatchWorld_FastForestRecede.cs`、`MobileVegetationMenu.cs`、`MobilePlayerMenu.cs`
+与 Operator 完成态的 `Probe.cs`（0.0.18）为实际校验项；旧 21+2 行 hook-count 字段由冻结保护。
+host 测试只检查适配层与产物元数据，不伪造运行期森林等待/销毁/存档结果，也不虚构
 UnityRuntime。
 
 ## 0.0.10 隔离设备验证
@@ -548,3 +552,34 @@ loader和界面均读回0.8；偏好十进制表示按float32比较。UI恢复1�
 基础冷却、每目标附加时间、真实取消窗口或异常清理ABI已在设备验证。未知订阅者窗口内
 二次查询、池复用、跨岛/存读档、手机/平板、联机和全部AOT仍待验。原生档案没有字段编辑；
 首次启动前字节保持不延伸为全部冷启动后的终态字节承诺。无公开APK/loader/game/tag发布。
+
+
+## Issue #138 快速森林退缩的源码阶段
+
+本轮是源码与设置阶段：第 14 个 entry `FastForestRecedeEnabled`（默认 OFF，切换恰好一次
+`SaveToFile`，READY 行输出 `forestRecede=<bool>`）；World 页第 332 行改为 Vegetation 入口，
+Vegetation 页（面板 328）三行：Stock cats（复用原文案与 `ToggleFarmCats`，只影响以后关卡
+加载，不删除已有猫）/ Fast forest recede / Back（只清 `VegetationPage`，回到仍打开的 World 页）。
+功能本体是共享源 `il2cpp/PatchWorld_FastForestRecede.cs`（`#if ANDROID` 下仅 `Forest`/`ForestItem`
+两个类型别名，PC 与 Android 编译同一份）：`ForestItem.FadeAndRemove` 前缀只改本次调用的
+ref delay —— 显式正 delay ÷3；否则 `removeDelay × Random(0.5,1.5) ÷ 3`；仅在有限正值时提交。
+默认关闭时 entry gate 先于一切 item/native 访问（零 native 访问）；controlsForestSize /
+removedByForest / 当前 `Managers.world` + gameLayer 场景/active/child 门全部保留，视差 item
+（同场景非 gameLayer 子孙）仍可命中；native 字段、协程、淡出/火焰/销毁/森林边界全部原生。
+
+边界（保留自有 source 语义，不新增守卫/缓存/镜像/重试）：prefix 发生在原生权威/inactive
+早退之前，被拒绝或 inactive 的调用可能比纯原生多消耗一次 RNG；预计算结果非有限/非正时
+不提交 ref，交回原生后 native else 分支会再掷一次 `Random`（0 参数路径的既有风险）；
+访问失败只提示一次 warning（单 bool，一生一次）且本次保留原生等待参数。
+
+证据（源码阶段，无设备/无 APK 声明）：真实 interop SDK10 `-t:Rebuild` 0W0E（Main SHA-256
+`e8677420…`）；PC 既有 optional-vegetation 套件 31/0（链接新共享源）、真实 `android/OptionalQoLScope`
+typed alias host 10/0、适配层默认 452/0 与 `--oldcfg` 347/0、`--seed-forest` 351/0；PC 快照
+baseline/candidate 构建 0W0E，语义比较仅允许列出的 forest 迁移（10 allowed / 0 unexpected、
+8 PNG 资源逐字节同、无 closure 改名；MVID 不同，不称 PE 字节一致）。
+
+未验：实际砍树后的等待时长、销毁与森林边界更新、完整森林 cycle/池复用、树源对象池
+生命周期、手机/平板与联机（含权威/inactive 早退时多消耗一次 RNG 的实际表现）。后者需在
+安装关口后的设备实测中按自然砍树可观察时才记录，不用 Invoke/fixture 或存档编辑达成。
+
+Issue #138 的模拟器验证：Main 0.0.18（e8677420…）、24 个显式目标，旧 23 个接入形状及旧 13 项配置保持。World→Vegetation 三行页面、开关 OFF→ON→OFF、ON/OFF 冷读回、返回 World/Home、浮球收起与原生 Options 重叠点击隔离已观察；Stock cats 可见但未切换。安装首启前 prefs/native 整字节保持仅证明该时刻，终态已恢复森林开关 OFF 并停止测试游戏。尚未用正常砍树测实际三分之一等待，完整森林退缩/淡出/销毁、换岛/池、手机/平板和联机均待验。私有 APK 不分发。

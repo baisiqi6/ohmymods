@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.17", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.18", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.17 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.18 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
@@ -98,6 +98,10 @@ public sealed class Probe : MelonMod
   HarmonyInstance.Patch(getBlocks,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.PatchWorld_Level_GetBlocks),"Postfix"));
   LogHookCounts(getBlocks);
   LoggerInstance.Msg("ANDROID_MAP_WIDTH_HOOKS_INSTALLED sharedSource=true newIslandGeneration=true");
+  var forestFadeAndRemove=AccessTools.Method(typeof(Il2Cpp.ForestItem),"FadeAndRemove",new[]{typeof(float)})??throw new MissingMethodException("ForestItem.FadeAndRemove(float)");
+  HarmonyInstance.Patch(forestFadeAndRemove,prefix:new HarmonyMethod(typeof(KingdomEnhancedMod.ForestItem_FadeAndRemove_OptionalVegetation_Patch),"Prefix"));
+  LogHookCounts(forestFadeAndRemove);
+  LoggerInstance.Msg("ANDROID_FAST_FOREST_RECEDE_HOOK_INSTALLED sharedSource=true nativeEffects=true");
   var worldLoaded=AccessTools.Method(typeof(Il2Cpp.World),"OnLevelLoaded",Type.EmptyTypes)??throw new MissingMethodException("World.OnLevelLoaded()");
   HarmonyInstance.Patch(worldLoaded,postfix:new HarmonyMethod(typeof(Probe),nameof(FarmCatsWorldLoaded)));
   LogHookCounts(worldLoaded);
@@ -217,6 +221,10 @@ public sealed class ProbeTicker : MonoBehaviour
     else if(Layout.PlayerPage)
     {
      MobilePlayerMenu.Draw(px,py,u,labelStyle,titleStyle,buttonStyle);
+    }
+    else if(Layout.VegetationPage)
+    {
+     MobileVegetationMenu.Draw(px,py,u,labelStyle,titleStyle,buttonStyle);
     }
     else if(Layout.WorldPage)
     {

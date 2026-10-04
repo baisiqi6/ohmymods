@@ -7,10 +7,11 @@ using UnityEngine;
 namespace KingdomEnhancedMod;
 
 /// <summary>
-/// 可选植被 QoL：两枚互相独立的默认关闭开关。可用世界由 root 的 OptionalQoLScope 决定
+/// 可选植被 QoL：密灌木开关 DenseThickets（ModConfig.DenseThicketsEnabled，默认关闭；快速森林
+/// 退缩已独立到 PatchWorld_FastForestRecede.cs）。可用世界由 root 的 OptionalQoLScope 决定
 /// （本文件不假设任何单一 biome，scope 关闭时既不新增也不触碰 world）。
 ///
-/// 一、密灌木 DenseThickets（ModConfig.DenseThicketsEnabled）
+/// 密灌木 DenseThickets（ModConfig.DenseThicketsEnabled）
 ///   开启：只在 World.CanSpawnThicket 单次调用窗口内把 world.thicketSpacing 临时减半，让原生
 ///   间距判定按半间距放行。2.4 原生 CanSpawnThicket 只有 auth + 左右城墙 strict 内排除 + 所有
 ///   其他 Grass 间距三个条件，本次改写只影响其中第三条；Stage7、冬季、Decay、非草地等条件由
@@ -46,17 +47,8 @@ namespace KingdomEnhancedMod;
 ///   Tick 兜底时重试。未交还的值不会被当成新基线（否则 /2 会叠加成 /4），读取异常不算对象死亡。
 ///   换 world / 对象死亡只清登记，绝不向旧对象或新 world 写入。
 ///
-/// 二、快速森林退缩 FastForestRecede（ModConfig.FastForestRecedeEnabled）
-///   开启：ForestItem.FadeAndRemove 的 Prefix 把等待时间缩到 1/3（delay &gt; 0 时 delay / 3，
-///   否则 removeDelay * Random(0.5, 1.5) / 3）。原生把 delay 交给 StartCoroutine 的淡出协程，
-///   本 patch 只改本次调用的传参：不改全局时间，不碰原生淡出、Destroy、森林边界更新链，也不改
-///   removeDelay 字段，不 hook 协程 factory 或 MoveNext。
-///   范围：只对非 controlsForestSize、且 _forest 属于当前 world 的 gameLayer、item 与当前
-///   gameLayer 同 scene 的实例生效。视差背景里的 ForestItem 可能不是 gameLayer 子孙，因此只校验
-///   _forest 归属与 item 所在 scene，不以 item 自身的 IsChildOf(gameLayer) 判断。
-///
-/// root 契约（本文件只依赖，不在此实现）：ModConfig.DenseThicketsEnabled 与
-/// FastForestRecedeEnabled 为 ConfigEntry&lt;bool&gt;；OptionalQoLScope.IsActive 由 root 决定可用
+/// root 契约（本文件只依赖，不在此实现）：ModConfig.DenseThicketsEnabled 为
+/// ConfigEntry&lt;bool&gt;；OptionalQoLScope.IsActive 由 root 决定可用
 /// 世界；OptionalQoLScope.IsCurrent(Component) 判断组件属于当前 world 层/场景；
 /// ModPanel.Update 每帧调用 Tick()。TrySetDenseThickets 只写配置，实际启停与回收全部发生在主线程 Tick。
 ///
@@ -65,9 +57,6 @@ namespace KingdomEnhancedMod;
 /// </summary>
 internal static class PatchWorld_OptionalVegetation
 {
-    /// <summary>原生森林退缩等待时间的除数：3 即等待缩到 1/3。用户若要 1/2 或 1/5 只改这里。</summary>
-    internal const float ForestRecedeMultiplier = 3f;
-
     /// <summary>开启时原生 thicketSpacing 的除数：2 即间距减半，密度约翻倍。</summary>
     private const float DenseSpacingDivisor = 2f;
 
@@ -596,20 +585,6 @@ internal static class PatchWorld_OptionalVegetation
         }
     }
 
-    private static bool FastRecedeRequested()
-    {
-        try
-        {
-            ConfigEntry<bool> entry = ModConfig.FastForestRecedeEnabled;
-            return entry != null && entry.Value && OptionalQoLScope.IsActive;
-        }
-        catch (Exception error)
-        {
-            FailOnce(error);
-            return false;
-        }
-    }
-
     private static bool HasOwnedInWorld(World world)
     {
         if (world == null) return false;
@@ -618,45 +593,6 @@ internal static class PatchWorld_OptionalVegetation
             if (!Records[i].Dead && Records[i].WorldPointer == world.Pointer) return true;
         }
         return false;
-    }
-
-    // ------------------------------------------------------------------ 快速森林退缩
-
-    /// <summary>
-    /// ForestItem.FadeAndRemove prefix：只缩放本次调用的等待时间，其余原生链路原样保留。
-    /// </summary>
-    internal static void ScaleForestRecedeDelay(ForestItem item, ref float delay)
-    {
-        try
-        {
-            if (!FastRecedeRequested()) return;
-            if (item == null || item.controlsForestSize || item.removedByForest) return;
-            if (!ForestBelongsToCurrentWorld(item)) return;
-            float baseDelay = delay > 0f ? delay : item.removeDelay * UnityEngine.Random.Range(0.5f, 1.5f);
-            if (!float.IsFinite(baseDelay) || !(baseDelay > 0f)) return;
-            float scaled = baseDelay / ForestRecedeMultiplier;
-            if (!float.IsFinite(scaled) || !(scaled > 0f)) return;
-            delay = scaled;
-        }
-        catch (Exception error)
-        {
-            FailOnce(error);
-        }
-    }
-
-    private static bool ForestBelongsToCurrentWorld(ForestItem item)
-    {
-        World world = CurrentWorld();
-        if (world == null || world.gameLayer == null) return false;
-        Forest forest = item._forest;
-        if (forest == null || forest.gameObject == null) return false;
-        if (!OptionalQoLScope.IsCurrent(forest)) return false;
-        GameObject layer = world.gameLayer.gameObject;
-        GameObject itemObject = item.gameObject;
-        if (layer == null || itemObject == null) return false;
-        // 视差背景里的 item 可能不是 gameLayer 子孙，因此只要求同一场景。
-        return itemObject.scene.handle == layer.scene.handle
-            && forest.gameObject.scene.handle == layer.scene.handle;
     }
 
     // ------------------------------------------------------------------ 回收推进
@@ -1158,12 +1094,4 @@ internal static class Grass_RemoveThicket_OptionalVegetation_Patch
     [HarmonyPostfix]
     internal static void Postfix(Grass __instance)
         => PatchWorld_OptionalVegetation.OnThicketRemoved(__instance);
-}
-
-[HarmonyPatch(typeof(ForestItem), nameof(ForestItem.FadeAndRemove))]
-internal static class ForestItem_FadeAndRemove_OptionalVegetation_Patch
-{
-    [HarmonyPrefix]
-    internal static void Prefix(ForestItem __instance, ref float delay)
-        => PatchWorld_OptionalVegetation.ScaleForestRecedeDelay(__instance, ref delay);
 }

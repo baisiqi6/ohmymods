@@ -3,6 +3,11 @@
     <OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
     <ProductionSource Condition="'$(ProductionSource)' == ''">../../il2cpp/PatchWorld_OptionalVegetation.cs</ProductionSource>
+    <FastRecedeProductionSource Condition="'$(FastRecedeProductionSource)' == ''">../../il2cpp/PatchWorld_FastForestRecede.cs</FastRecedeProductionSource>
   </PropertyGroup>
-  <ItemGroup><Compile Include="$(ProductionSource)" Link="Production/OptionalVegetation.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Remove="android-host/**" />
+    <Compile Include="$(ProductionSource)" Link="Production/OptionalVegetation.cs" />
+    <Compile Include="$(FastRecedeProductionSource)" Link="Production/FastForestRecede.cs" />
+  </ItemGroup>
 </Project>
