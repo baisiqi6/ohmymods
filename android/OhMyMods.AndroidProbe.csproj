@@ -53,6 +53,7 @@
     <Compile Include="PopulationCounts.cs" />
     <Compile Include="OptionalQoLScope.cs" />
     <Compile Include="PatchRide_InfiniteStamina.cs" />
+    <Compile Include="PatchRide_SteedCooldown.cs" />
     <Compile Include="PatchWorld_Mover.cs" />
     <!-- Unmodified production sources, linked read-only. -->
     <Compile Include="../il2cpp/PatchPlayer_HoldPurchase.cs" Link="Production/PatchPlayer_HoldPurchase.cs" />

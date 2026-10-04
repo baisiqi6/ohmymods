@@ -23,6 +23,7 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<bool> CalendarEnabled;
     internal static MelonPreferences_Entry<float> EnemyCountMultiplier;
     internal static MelonPreferences_Entry<float> EnemyTimelineSpeed;
+    internal static MelonPreferences_Entry<float> SteedCooldownMultiplier;
     internal static MelonPreferences_Entry<bool> InfiniteMoney;
     internal static MelonPreferences_Entry<bool> FarmCatsEnabled;
     internal static MelonPreferences_Entry<bool> FastBuild;
@@ -48,14 +49,16 @@ internal static class ModConfig
         CalendarEnabled = category.CreateEntry<bool>("CalendarEnabled", false);
         EnemyCountMultiplier = category.CreateEntry<float>("EnemyCountMultiplier", 1f);
         EnemyTimelineSpeed = category.CreateEntry<float>("EnemyTimelineSpeed", 1f);
+        SteedCooldownMultiplier = category.CreateEntry<float>("SteedCooldownMultiplier", 1f);
         InfiniteMoney = category.CreateEntry<bool>("InfiniteMoney", false);
         FarmCatsEnabled = category.CreateEntry<bool>("FarmCatsEnabled", false);
         FastBuild = category.CreateEntry<bool>("FastBuild", false);
         // 手工编辑 cfg 可能写入越界值，在加载边界做唯一一次 clamp（不使用 validator：未证实
         // 可构造 ValueValidator 子类）；运行期不读回、不重试、不静默替换默认值。
         SpeedMultiplier.Value = Math.Clamp(SpeedMultiplier.Value, 1, 5);
-        EnemyCountMultiplier.Value = SanitizeMultiplier("EnemyCountMultiplier", EnemyCountMultiplier.Value);
-        EnemyTimelineSpeed.Value = SanitizeMultiplier("EnemyTimelineSpeed", EnemyTimelineSpeed.Value);
+        EnemyCountMultiplier.Value = SanitizeMultiplier("EnemyCountMultiplier", EnemyCountMultiplier.Value, 1f, 5f);
+        EnemyTimelineSpeed.Value = SanitizeMultiplier("EnemyTimelineSpeed", EnemyTimelineSpeed.Value, 1f, 5f);
+        SteedCooldownMultiplier.Value = SanitizeMultiplier("SteedCooldownMultiplier", SteedCooldownMultiplier.Value, 0.2f, 1f);
         applyInfiniteMoney = moneyApplier;
         applyInfiniteMoney(InfiniteMoney.Value);
         MelonLogger.Msg("ANDROID_SETTINGS_READY category=" + CategoryIdentifier
@@ -67,19 +70,20 @@ internal static class ModConfig
             + " growth=" + EnemyTimelineSpeed.Value
             + " money=" + InfiniteMoney.Value
             + " cats=" + FarmCatsEnabled.Value
-            + " fastBuild=" + FastBuild.Value);
+            + " fastBuild=" + FastBuild.Value
+            + " cooldown=" + SteedCooldownMultiplier.Value);
     }
 
-    // 两个倍率的加载边界：有限值 clamp 到 1..5；NaN/Infinity 是非法外部输入，回 1 并
-    // Warning 一次（Math.Clamp(NaN,1,5) 返回 NaN，不能直接用）。只改内存，不回写 cfg。
-    private static float SanitizeMultiplier(string entryName, float value)
+    // 三个倍率的加载边界：有限值 clamp 到 [min,max]；NaN/Infinity 是非法外部输入，回 1 并
+    // Warning 一次（Math.Clamp(NaN,…) 返回 NaN，不能直接用）。只改内存，不回写 cfg。
+    private static float SanitizeMultiplier(string entryName, float value, float min, float max)
     {
         if (float.IsNaN(value) || float.IsInfinity(value))
         {
             MelonLogger.Warning("ANDROID_SETTINGS_WARNING entry=" + entryName + " non-finite value fallback=1");
             return 1f;
         }
-        return Math.Clamp(value, 1f, 5f);
+        return Math.Clamp(value, min, max);
     }
 
     internal static void CycleSpeed()
@@ -100,6 +104,16 @@ internal static class ModConfig
     {
         HoldPurchaseEnabled.Value = !HoldPurchaseEnabled.Value;
         MelonLogger.Msg("ANDROID_PLAYER_HOLD_PURCHASE enabled=" + HoldPurchaseEnabled.Value);
+        Save();
+    }
+
+    // 档位 1→0.8→0.6→0.4→0.2→1；载入的中间值转到下一较低 20% 档（0.5→0.4）。只用 float
+    // Ceiling/除法，无 clamp、无原生重写、无事件扫描；切换一次落盘一次。
+    internal static void CycleSteedCooldown()
+    {
+        int index = (int)MathF.Ceiling(SteedCooldownMultiplier.Value * 5f) - 1;
+        SteedCooldownMultiplier.Value = index <= 0 ? 1f : index / 5f;
+        MelonLogger.Msg("ANDROID_PLAYER_STEED_COOLDOWN multiplier=" + SteedCooldownMultiplier.Value);
         Save();
     }
 

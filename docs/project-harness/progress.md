@@ -6,6 +6,12 @@
 
 本条记录验证完成时的状态：代码交付由对应PR合并收尾，游戏运行期间不热替换；安装和玩家实机观感另记。Issue110没有独立受管checklist条目，未直接修改canonical JSON；EXharness validator与locator检查通过。详情见 tasks/issue-110/。
 
+## 2026-10-04 — Android 坐骑技能冷却（Issue #127，已验证代码与设置，待合并）
+
+Android 四个已核消费者采用当次当前冷却值×倍率，结束条件归还；Buff→base 使用指针窗口避免已证嵌套二乘。未携带 PC 长期原值缓存或设置变更扫场；SummonGhost 保留独立边界。默认倍率1，沿用现有偏好校验/单次落盘，Player面板484复用同一命中矩形。
+
+源码首轮审查抓到清理代理读取可能覆盖原生异常，已在产品源修正并移除无用途的同代理指针比较和静默配置兜底。修后实际 Android build0W0E，直接编译生产源的host100/0，旧适配检查268/207/201均通过；这些是调用级/静态证据。当前自然普通马能力数0，尚未触发真实冷却事件。精确候选2f4aed15…已通过独立源码审查、APK资源审计和安装门；模拟器18唯一目标无ERROR，真实UI全档切换、0.8冷读回及恢复1冷启通过，旧9项设置保持。尚无真实能力冷却事件；对应PR待正常合并收尾。PC/Mono不改，无公开发布。
+
 ## 2026-10-04 — Android 快速建造（Issue #122）
 
 复用未改 PatchWorld_Construction：每次原生 InitializeBuild 前仅 Enabled&&FastBuild 写50。
@@ -17,7 +23,7 @@ API35ARM64正常收入2→8，ON正常付款造墙8→7，原生rate0→50、pro
 OFF下一次正常升级7→4、新rate0→0；开关不热改已有实例。原生Save/同岛文件重启ON
 rate0→50，第二层墙progress0→1→30。AllAutoBuild=false；没有测试写钱包/进度/存档。
 最终UI恢复OFF，诊断移出后clean单main0.13、16reported各1/noERROR。
-其它施工类型/对象池/其它writers、跨岛/手机/联机仍待，代码交付待PR合并正常收尾；无公开发布。
+其它施工类型/对象池/其它writers、跨岛/手机/联机仍待。PR124 已正常合并（0107c8ce），Issue122 与代码任务经审查回执按正常入口 done/closed；无公开发布。
 
 ## 2026-10-04 — Android 悬浮面板原生菜单触摸隔离（Issue #119）
 
@@ -31,7 +37,7 @@ API35 ARM64 模拟器确认 Home World/Player 不再点击底层 Campaign/Resume
 Playing 中普通滑动可移动，四次 UI 点击保持玩家位置和金币快照。诊断移出 Mods 后，
 主 Mod 单独冷启动 0.0.12、15 个已报告入口各一份，无 ERROR，配置旧值保持。
 手机/平板、多指、分辨率变化、真实跨岛与文件读档切换仍待验；上述采样不等于真实购买
-或完整手势轨迹。代码任务待对应 PR 合并后按正常入口收尾，不把完整 Android 移植标为完成。
+或完整手势轨迹。PR121 已正常合并（b2352caf），Issue119 与代码任务按正常入口 done/closed，不把完整 Android 移植标为完成。
 仅源码交付，无公开 APK/tag/release、PC/手机部署；详情见 android/README.md。
 
 ## 2026-09-27 — 候选生成时状态（2026-09-27）

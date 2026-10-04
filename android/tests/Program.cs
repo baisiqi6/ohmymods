@@ -57,6 +57,7 @@ internal static class Program
         int? seededSpeed = null;
         float? seededEnemyCount = null;
         float? seededEnemyTimeline = null;
+        float? seededCooldown = null;
         bool oldCfg = false;
         bool seedFastBuild = false;
         var artifactArgs = new List<string>();
@@ -68,6 +69,8 @@ internal static class Program
                 seededEnemyCount = ParseSeedFloat(countText);
             else if (TryFlag(arg, "--seed-enemy-timeline=", out string timelineText))
                 seededEnemyTimeline = ParseSeedFloat(timelineText);
+            else if (TryFlag(arg, "--seed-cooldown=", out string cooldownText))
+                seededCooldown = ParseSeedFloat(cooldownText);
             else if (arg == "--oldcfg")
                 oldCfg = true;
             else if (arg == "--seed-fast-build")
@@ -90,6 +93,11 @@ internal static class Program
             MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "EnemyTimelineSpeed", seededEnemyTimeline.Value);
             Console.WriteLine("mode: pre-seeded cfg EnemyTimelineSpeed " + Describe(seededEnemyTimeline.Value));
         }
+        if (seededCooldown.HasValue)
+        {
+            MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "SteedCooldownMultiplier", seededCooldown.Value);
+            Console.WriteLine("mode: pre-seeded cfg SteedCooldownMultiplier " + Describe(seededCooldown.Value));
+        }
         if (oldCfg)
         {
             if (!seededSpeed.HasValue) MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "SpeedMultiplier", 3);
@@ -104,7 +112,7 @@ internal static class Program
             Console.WriteLine("mode: pre-seeded cfg FastBuild true");
         }
         LayoutChecks();
-        ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg, seedFastBuild);
+        ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg, seedFastBuild, seededCooldown);
         EnemyMathChecks.Run();
         if (artifactArgs.Count < 1)
             Checks.Check(false, "artifact path argument missing (pass the built OhMyMods.AndroidProbe.dll path)");
@@ -145,8 +153,8 @@ internal static class Program
         layout.Expanded = true;
         Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 478f), "touch filter covers the 484-high home panel bottom row");
         layout.PlayerPage = true;
-        Checks.Check(Math.Abs(layout.PanelHeight - 406f) < 1e-4f, "player page panel height is 406");
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 400f), "touch filter covers the 406-high player panel");
+        Checks.Check(Math.Abs(layout.PanelHeight - 484f) < 1e-4f, "player page panel height is 484 (five rows)");
+        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 478f), "touch filter covers the 484-high player panel bottom row");
         layout.PlayerPage = false;
         layout.WorldPage = true;
         Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "world page panel height is 562 (six rows)");
@@ -161,11 +169,12 @@ internal static class Program
         Checks.Check(Math.Abs(layout.PanelHeight - 484f) < 1e-4f, "closing the subpages restores the 484-high home panel");
     }
 
-    private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg, bool seededFastBuild)
+    private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg, bool seededFastBuild, float? seededCooldown)
     {
         var applied = new List<bool>();
         int expectedWarnings = (seededEnemyCount.HasValue && !IsFinite(seededEnemyCount.Value) ? 1 : 0)
-            + (seededEnemyTimeline.HasValue && !IsFinite(seededEnemyTimeline.Value) ? 1 : 0);
+            + (seededEnemyTimeline.HasValue && !IsFinite(seededEnemyTimeline.Value) ? 1 : 0)
+            + (seededCooldown.HasValue && !IsFinite(seededCooldown.Value) ? 1 : 0);
         bool rejected = false;
         try { Config.Initialize(null); }
         catch (ArgumentNullException) { rejected = true; }
@@ -176,7 +185,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 9, "Initialize creates exactly nine entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 10, "Initialize creates exactly ten entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -186,15 +195,17 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteMoney default=False"), "InfiniteMoney is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/FarmCatsEnabled default=False"), "FarmCatsEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/FastBuild default=False"), "FastBuild is declared OFF");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SteedCooldownMultiplier default=1"), "SteedCooldownMultiplier is declared with default 1");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "Initialize never writes the cfg");
         Checks.Check(applied.Count == 1 && !applied[0], "cold start applies InfiniteMoney=false through the seam exactly once");
         Checks.Check(MelonLoader.MelonLogger.WarningCalls == expectedWarnings, "the load boundary warns exactly once per non-finite seeded multiplier");
 
         float expectedEnemyCount = seededEnemyCount.HasValue ? ExpectedMultiplier(seededEnemyCount.Value) : 1f;
         float expectedEnemyTimeline = seededEnemyTimeline.HasValue ? ExpectedMultiplier(seededEnemyTimeline.Value) : 1f;
+        float expectedCooldown = seededCooldown.HasValue ? ExpectedCooldown(seededCooldown.Value) : 1f;
         string expectedFastBuild = seededFastBuild ? "True" : "False";
 
-        bool seeded = seededSpeed.HasValue || seededEnemyCount.HasValue || seededEnemyTimeline.HasValue || oldCfg || seededFastBuild;
+        bool seeded = seededSpeed.HasValue || seededEnemyCount.HasValue || seededEnemyTimeline.HasValue || oldCfg || seededFastBuild || seededCooldown.HasValue;
         if (seeded)
         {
             int expectedSpeed = seededSpeed.HasValue ? Math.Clamp(seededSpeed.Value, 1, 5) : (oldCfg ? 3 : 1);
@@ -209,10 +220,13 @@ internal static class Program
             Checks.Check(!Config.FarmCatsEnabled.Value, "a cfg without the new keys keeps FarmCats OFF");
             Checks.Check(Config.FastBuild.Value == seededFastBuild,
                 seededFastBuild ? "a seeded FastBuild key loads ON at the load boundary" : "a cfg without the FastBuild key keeps FastBuild OFF");
+            Checks.Check(Config.SteedCooldownMultiplier.Value == expectedCooldown,
+                "SteedCooldownMultiplier is " + Describe(expectedCooldown) + "x after the load boundary (0.2..1 clamp, non-finite fallback 1)");
             Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "the load-boundary clamp/fallback does not write the cfg");
             Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=" + expectedSpeed
                 + " stamina=" + oldCfg + " hold=" + oldCfg + " calendar=" + oldCfg
-                + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild,
+                + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild
+                + " cooldown=" + expectedCooldown,
                 "cold-start ready line reports the effective values");
             if (seededEnemyCount == 4.5f && seededEnemyTimeline == 4.5f)
             {
@@ -230,18 +244,26 @@ internal static class Program
                 Checks.Check(Config.EnemyTimelineSpeed.Value == 1f, "cycling the timeline 5 wraps to 1x");
                 Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++fractionalSaves, "timeline 5->1 saves exactly once");
             }
+            if (seededCooldown.HasValue && seededCooldown.Value == 0.5f)
+            {
+                int cooldownSaves = MelonLoader.MelonPreferencesStub.SaveCalls;
+                Config.CycleSteedCooldown();
+                Checks.Check(Config.SteedCooldownMultiplier.Value == 0.4f, "cycling a loaded 0.5 cooldown multiplier selects the next lower 20% step (0.4x)");
+                Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == cooldownSaves + 1, "0.5->0.4 saves exactly once");
+            }
             return;
         }
 
         Checks.Check(Config.SpeedMultiplier.Value == 1, "speed multiplier defaults to 1x");
         Checks.Check(Config.EnemyCountMultiplier.Value == 1f && Config.EnemyTimelineSpeed.Value == 1f, "enemy multipliers default to 1x");
+        Checks.Check(Config.SteedCooldownMultiplier.Value == 1f, "steed cooldown multiplier defaults to 1x");
         Checks.Check(!Config.InfiniteSteedStamina.Value
             && !Config.HoldPurchaseEnabled.Value
             && !Config.CalendarEnabled.Value
             && !Config.InfiniteMoney.Value
             && !Config.FarmCatsEnabled.Value
             && !Config.FastBuild.Value, "qol switches, InfiniteMoney, FarmCats and FastBuild default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False",
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
 
@@ -316,12 +338,24 @@ internal static class Program
         Checks.Check(Config.EnemyTimelineSpeed.Value == 1, "CycleEnemyTimeline wraps back to 1x");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "CycleEnemyTimeline wrap saves exactly once");
 
+        foreach (float next in new[] { 0.8f, 0.6f, 0.4f, 0.2f, 1f })
+        {
+            Config.CycleSteedCooldown();
+            Checks.Check(Config.SteedCooldownMultiplier.Value == next, "CycleSteedCooldown advances to " + next + "x");
+            Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_PLAYER_STEED_COOLDOWN multiplier=" + next,
+                "CycleSteedCooldown to " + next + "x logs the multiplier");
+            Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "CycleSteedCooldown to " + next + "x saves exactly once");
+        }
+
         Checks.Check(applied.Count == 3, "the InfiniteMoney seam fires only at Initialize and the two toggles (no subscription or per-frame write)");
-        Checks.Check(saves == 24, "twenty-four switch actions produced twenty-four saves");
+        Checks.Check(saves == 29, "twenty-nine switch actions produced twenty-nine saves");
     }
 
     private static float ExpectedMultiplier(float seeded)
         => IsFinite(seeded) ? Math.Clamp(seeded, 1f, 5f) : 1f;
+
+    private static float ExpectedCooldown(float seeded)
+        => IsFinite(seeded) ? Math.Clamp(seeded, 0.2f, 1f) : 1f;
 
     private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 }
@@ -401,6 +435,8 @@ internal static class ArtifactChecks
         "Il2Cpp.EnemyManager", "Il2Cpp.Wave", "Il2Cpp.Wallet",
         "Il2Cpp.Cat", "Il2Cpp.Farmhouse", "Il2Cpp.Pool", "Il2Cpp.Holder",
         "Il2Cpp.ConstructionBuildingComponent",
+        "Il2Cpp.SteedAbility", "Il2Cpp.BuffUnitsSteedAbility", "Il2Cpp.GlideMovementSteedAbility",
+        "Il2Cpp.SpeedBoostSteedAbility", "Il2Cpp.SummonGhostSteedAbility",
         "Il2Cpp.BiomeHolder", "Il2Cpp.BiomeData", "Il2Cpp.Character", "Il2Cpp.Mover",
         "Il2Cpp.Droppable", "Il2Cpp.Kingdom", "Il2Cpp.StateMachine", "Il2Cpp.Side",
         "Il2Cpp.Embarkee", "Il2Cpp.IslandSaveData", "Il2Cpp.Game", "Il2Cpp.Farmland", "Il2Cpp.GAPS",
@@ -416,6 +452,7 @@ internal static class ArtifactChecks
         "get_gameLayer", "get__owner", "CanPay", "CanSelect", "PlayerPayPoint", "CompareTag",
         "TryCast", "get_Pointer",
         "get_InfiniteMoney", "set_InfiniteMoney", "RoundToInt",
+        "get__cooldown", "set__cooldown",
         "SpawnOrInstantiate", "DespawnOrDestroy", "get_catPrefab", "GetBorderSideIntact"
     };
 
@@ -502,6 +539,34 @@ internal static class ArtifactChecks
         Checks.Check(HasMemberReference(reader, "Il2Cpp.ConstructionBuildingComponent", "set__autoBuildRate"),
             "the fast-build prefix really calls the Il2Cpp _autoBuildRate setter");
 
+        // Steed-cooldown block (android/PatchRide_SteedCooldown.cs, adapted source): the four
+        // prefixes plus the shared Finalizer must land in the artifact and carry no Harmony
+        // attributes — the Operator registers them explicitly, like the Hold handlers.
+        var cooldown = FindType(reader, "KingdomEnhancedMod", "PatchRide_SteedCooldown");
+        Checks.Check(!cooldown.IsNil, "artifact contains PatchRide_SteedCooldown");
+        CheckHandlers(reader, cooldown, new Dictionary<string, int>
+        {
+            { "BasePrefix", 2 }, { "BuffPrefix", 2 }, { "GlidePrefix", 2 }, { "SpeedPrefix", 2 }, { "Finalizer", 2 }
+        }, MethodAttributes.Assembly, "internal static");
+        if (!cooldown.IsNil)
+        {
+            bool cooldownHarmonyAttribute = false;
+            foreach (var handle in reader.GetTypeDefinition(cooldown).GetMethods())
+            {
+                var method = reader.GetMethodDefinition(handle);
+                foreach (var attributeHandle in method.GetCustomAttributes())
+                    if (AttributeTypeName(reader, reader.GetCustomAttribute(attributeHandle).Constructor).StartsWith("HarmonyLib."))
+                        cooldownHarmonyAttribute = true;
+            }
+            Checks.Check(!cooldownHarmonyAttribute, "PatchRide_SteedCooldown carries no Harmony attributes (explicit registration only)");
+            var cooldownDefinition = reader.GetTypeDefinition(cooldown);
+            foreach (string prefix in new[] { "BasePrefix", "BuffPrefix", "GlidePrefix", "SpeedPrefix" })
+                Checks.Check(SignatureTypes(reader, cooldownDefinition, prefix) == "Il2Cpp.SteedAbility,Borrow&",
+                    prefix + "(SteedAbility, out Borrow) signature (Harmony __instance/__state shape)");
+            Checks.Check(SignatureTypes(reader, cooldownDefinition, "Finalizer") == "System.Exception,Borrow",
+                "Finalizer(Exception, Borrow) signature returns the original exception");
+        }
+
         var typeRefs = new HashSet<string>();
         foreach (var handle in reader.TypeReferences)
         {
@@ -586,6 +651,7 @@ internal static class ArtifactChecks
         "android/OhMyMods.AndroidProbe.csproj",
         "android/OptionalQoLScope.cs",
         "android/PatchRide_InfiniteStamina.cs",
+        "android/PatchRide_SteedCooldown.cs",
         "android/PatchWorld_Mover.cs",
         "android/PopulationCounts.cs",
         "android/Probe.cs",
@@ -610,11 +676,12 @@ internal static class ArtifactChecks
             { "android/GlobalAliases.cs", "17c0300c95a2abbfb6ca621c5f36ee6e2449593898e44aab9322b460cb47d230" },
             { "android/HoldBridges.cs", "a9aafb9b4c55b6cf1600f21b99506b3ef1a1304aa722a3d87fd7cff8b8ee5b0e" },
             { "android/MobileCalendar.cs", "f0d174125f0e3771a906712f52398e422f7812862b8614b3ecc709a385271633" },
-            { "android/MobilePlayerMenu.cs", "adc0d244926bb9113636190d9655adf11dbda106ac87c270d6ccb0b9838d160c" },
             { "android/MobilePopulation.cs", "6dd431df541a4d2fd268eccfc3e9c757e5837cb8535acbd102bd05b6b1ed3f33" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
+            { "android/MobileWorldMenu.cs", "b29b2ce3670a51fb5a0d8800dc5d2496f6d8e7070410ae5e1d995419519be9a1" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PatchRide_InfiniteStamina.cs", "02a27e7c21d865596e23db3cdfe405dafb8c9e95f303e45481b24a5f72b280fc" },
+            { "android/PatchRide_SteedCooldown.cs", "b29cfe6d93af38e0d49e33dc4254c501a7b5ee8c664ecf473ec499cadc01eb52" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
@@ -626,14 +693,13 @@ internal static class ArtifactChecks
             { "il2cpp/PatchWorld_FarmCats.cs", "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f" },
             { "il2cpp/PatchWorld_Construction.cs", "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79" }
         };
-        // Issue #122 touches exactly these frozen sources: the World panel height, the FastBuild
-        // config entry, the World fast-build row, and the Operator's InitializeBuild registration
-        // plus its Compile Include. Every other frozen source — including the newly frozen
-        // MobileUiInputSurface hit surface and il2cpp/PatchWorld_Construction — must still hash
-        // to its post-#119 value.
+        // Issue #127 touches exactly these frozen sources: the Player panel height, the
+        // steed-cooldown config entry + cycle, the Player cooldown row and Back move, and the
+        // Operator's four-target registration (Probe) plus the new Compile Include. The
+        // MobileWorldMenu row and the rest of the #122 surface are now ordinary frozen entries.
         var intentionallyChanged = new HashSet<string>
         {
-            "android/FloatLayout.cs", "android/MobilePlayerConfig.cs", "android/MobileWorldMenu.cs",
+            "android/FloatLayout.cs", "android/MobilePlayerConfig.cs", "android/MobilePlayerMenu.cs",
             "android/Probe.cs", "android/OhMyMods.AndroidProbe.csproj"
         };
         foreach (string relative in FrozenSources)
@@ -679,6 +745,7 @@ internal static class ArtifactChecks
         if (element == 0x02) return "System.Boolean";
         if (element == 0x08) return "System.Int32";
         if (element == 0x0C) return "System.Single";
+        if (element == 0x10) return WalkElementType(reader, ref blob) + "&";
         if (element == 0x11 || element == 0x12) return BlobTypeName(reader, blob.ReadTypeHandle());
         return "element-0x" + element.ToString("x2", CultureInfo.InvariantCulture);
     }

@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.13", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.14", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.13 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.14 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
@@ -37,6 +37,21 @@ public sealed class Probe : MelonMod
    HarmonyInstance.Patch(targetSpeed,prefix:new HarmonyMethod(speedType,"ScalePlayerSpeed"));
    LogHookCounts(targetSpeed);
   }
+  // Register cooldown before stamina reports the final shared-target counts.
+  var cooldownType=typeof(KingdomEnhancedMod.PatchRide_SteedCooldown);
+  var cooldownTargets=new[]{
+   (typeof(Il2Cpp.SteedAbility),"Activate","BasePrefix"),
+   (typeof(Il2Cpp.BuffUnitsSteedAbility),"Activate","BuffPrefix"),
+   (typeof(Il2Cpp.GlideMovementSteedAbility),"Activate","GlidePrefix"),
+   (typeof(Il2Cpp.SpeedBoostSteedAbility),"Deactivate","SpeedPrefix")};
+  foreach(var entry in cooldownTargets)
+  {
+   var target=AccessTools.Method(entry.Item1,entry.Item2,Type.EmptyTypes)??throw new MissingMethodException(entry.Item1.Name+"."+entry.Item2+"()");
+   HarmonyInstance.Patch(target,prefix:new HarmonyMethod(cooldownType,entry.Item3),finalizer:new HarmonyMethod(cooldownType,"Finalizer"));
+   // Base and Glide are reported once by the existing stamina registrations below.
+   if(entry.Item1==typeof(Il2Cpp.BuffUnitsSteedAbility)||entry.Item1==typeof(Il2Cpp.SpeedBoostSteedAbility))LogHookCounts(target);
+  }
+  LoggerInstance.Msg("ANDROID_STEED_COOLDOWN_HOOKS_INSTALLED consumers=4 currentFieldRelative=true");
   PatchStamina(typeof(Il2Cpp.Player),"UpdateActionState",typeof(KingdomEnhancedMod.PatchRide_InfiniteStamina),"UpdateActionState_Prefix","UpdateActionState_Postfix","UpdateActionState_Finalizer");
   PatchStamina(typeof(Il2Cpp.SteedAbility),"Activate",typeof(KingdomEnhancedMod.PatchRide_InfiniteStaminaAbility),"Prefix","Postfix");
   PatchStamina(typeof(Il2Cpp.GlideMovementSteedAbility),"Activate",typeof(KingdomEnhancedMod.PatchRide_InfiniteStaminaGlide),"Prefix","Postfix");

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Host-side scenario checks for the actual Android steed-cooldown patch source
+       (android/PatchRide_SteedCooldown.cs, linked read-only) against minimal typed boundary
+       doubles (Stubs.cs): the Il2Cpp.SteedAbility family with native-identity TryCast and a
+       counted/injectable _cooldown field, the MelonLoader logger/preferences stubs shared with
+       the adapter suite, and a ModConfig double with the two real member shapes the patch
+       reads. The doubles model only the recorded native consumption shapes and never
+       reimplement the Prefix/End algorithm; this is host evidence, not Unity/Harmony/IL2CPP
+       gameplay proof.
+       Run: dotnet run -c Release (see android/README.md). -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <AssemblyName>CooldownTests</AssemblyName>
+    <RootNamespace>OhMyMods.AndroidProbe.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../PatchRide_SteedCooldown.cs" />
+    <Compile Include="../MelonLoggerStub.cs" />
+    <Compile Include="../MelonPreferencesStub.cs" />
+    <Compile Include="Stubs.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+
+</Project>
