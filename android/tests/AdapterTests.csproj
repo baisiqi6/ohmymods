@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Host-side checks for the Android adapter layer:
-       - FloatLayout page heights / touch-filter boundaries (Home 484, Player+World 406,
+       - FloatLayout page heights / touch-filter boundaries (Home 484, World 484, Player 406,
          Population 376; pure System math),
-       - ModConfig MelonPreferences contract: one category, seven declared entries,
+       - ModConfig MelonPreferences contract: one category, eight declared entries,
          load-boundary clamps (seed flags: seed-speed, seed-enemy-count, seed-enemy-timeline;
          NaN and Infinity fallbacks), save-on-switch only, and the Initialize(Action&lt;bool&gt;)
          money seam firing exactly at cold start and each toggle (MelonLogger / MelonPreferences
@@ -11,8 +11,9 @@
        - enemy prefix math from the linked production source against host doubles
          (EnemyStubs.cs): 1x/2x/5x, session-switch OFF, ties-to-even rounding, ref outputs,
        - metadata checks on the built OhMyMods.AndroidProbe.dll (HarmonyDontPatchAll attribute,
-         the four private static Hold handlers, the two public static enemy prefixes, and the
-         Forge/Ammo/Mead/Enemy/Wallet interop bindings).
+         the four private static Hold handlers, the two public static enemy prefixes, the
+         farm-cat handlers + coroutine bridge + no ScaleRegistryHolder stand-in, and the
+         Forge/Ammo/Mead/Enemy/Wallet/FarmCats interop bindings).
        Run: dotnet run -c Release, then pass the built OhMyMods.AndroidProbe.dll path as the
        single program argument (see android/README.md). -->
 

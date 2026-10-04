@@ -4,10 +4,11 @@ namespace OhMyMods.AndroidProbe;
 
 /// <summary>
 /// World page of the float panel: enemy count multiplier / threat-growth multiplier /
-/// native infinite-money flag and Back. Geometry matches the shipped row layout
-/// (248x64 buttons at x=16, rows 98/176/254/332); the World page base height is 406
-/// (FloatLayout.PanelHeight), so the last row ends at 396 and stays inside the same
-/// rectangle the touch filter uses. Back reuses ProbeTicker.Layout.WorldPage = false.
+/// native infinite-money flag / farm-cat stocking and Back. Geometry matches the shipped row
+/// layout (248x64 buttons at x=16, rows 98/176/254/332/410); the World page base height is 484
+/// (FloatLayout.PanelHeight), so the Back row ends at 474 and stays inside the same rectangle
+/// the touch filter uses. The cat row only switches future stocking (next OnLevelLoaded);
+/// it never removes existing cats. Back reuses ProbeTicker.Layout.WorldPage = false.
 /// </summary>
 internal static class MobileWorldMenu
 {
@@ -24,7 +25,12 @@ internal static class MobileWorldMenu
         if (GUI.Button(new Rect(px + 16 * scale, py + 254 * scale, 248 * scale, 64 * scale),
                 KingdomEnhancedMod.ModConfig.InfiniteMoney.Value ? "Infinite money: ON" : "Infinite money: OFF", buttonStyle))
             KingdomEnhancedMod.ModConfig.ToggleMoney();
-        if (GUI.Button(new Rect(px + 16 * scale, py + 332 * scale, 248 * scale, 64 * scale), "Back", buttonStyle))
+        if (GUI.Button(new Rect(px + 16 * scale, py + 332 * scale, 248 * scale, 64 * scale),
+                KingdomEnhancedMod.ModConfig.FarmCatsEnabled.Value
+                    ? "Stock cats: ON\nnext level; cats stay"
+                    : "Stock cats: OFF\nnext level; cats stay", buttonStyle))
+            KingdomEnhancedMod.ModConfig.ToggleFarmCats();
+        if (GUI.Button(new Rect(px + 16 * scale, py + 410 * scale, 248 * scale, 64 * scale), "Back", buttonStyle))
             ProbeTicker.Layout.WorldPage = false;
     }
 }

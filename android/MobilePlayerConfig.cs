@@ -24,6 +24,7 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<float> EnemyCountMultiplier;
     internal static MelonPreferences_Entry<float> EnemyTimelineSpeed;
     internal static MelonPreferences_Entry<bool> InfiniteMoney;
+    internal static MelonPreferences_Entry<bool> FarmCatsEnabled;
 
     // InfiniteMoney 原生写（Il2Cpp.Wallet.InfiniteMoney）的唯一注入点：本文件保持零
     // Il2Cpp.* 引用（hosttests 直接编译同一份），由平台侧 Probe.OnInitializeMelon 传入
@@ -47,6 +48,7 @@ internal static class ModConfig
         EnemyCountMultiplier = category.CreateEntry<float>("EnemyCountMultiplier", 1f);
         EnemyTimelineSpeed = category.CreateEntry<float>("EnemyTimelineSpeed", 1f);
         InfiniteMoney = category.CreateEntry<bool>("InfiniteMoney", false);
+        FarmCatsEnabled = category.CreateEntry<bool>("FarmCatsEnabled", false);
         // 手工编辑 cfg 可能写入越界值，在加载边界做唯一一次 clamp（不使用 validator：未证实
         // 可构造 ValueValidator 子类）；运行期不读回、不重试、不静默替换默认值。
         SpeedMultiplier.Value = Math.Clamp(SpeedMultiplier.Value, 1, 5);
@@ -61,7 +63,8 @@ internal static class ModConfig
             + " calendar=" + CalendarEnabled.Value
             + " enemyCount=" + EnemyCountMultiplier.Value
             + " growth=" + EnemyTimelineSpeed.Value
-            + " money=" + InfiniteMoney.Value);
+            + " money=" + InfiniteMoney.Value
+            + " cats=" + FarmCatsEnabled.Value);
     }
 
     // 两个倍率的加载边界：有限值 clamp 到 1..5；NaN/Infinity 是非法外部输入，回 1 并
@@ -119,6 +122,14 @@ internal static class ModConfig
         InfiniteMoney.Value = !InfiniteMoney.Value;
         applyInfiniteMoney(InfiniteMoney.Value);
         MelonLogger.Msg("ANDROID_WORLD_MONEY enabled=" + InfiniteMoney.Value);
+        Save();
+    }
+
+    // 猫只补未来：开关只决定后续 OnLevelLoaded 是否补齐，不删除/不回收已有猫；切换一次落盘一次。
+    internal static void ToggleFarmCats()
+    {
+        FarmCatsEnabled.Value = !FarmCatsEnabled.Value;
+        MelonLogger.Msg("ANDROID_FARM_CATS enabled=" + FarmCatsEnabled.Value);
         Save();
     }
 

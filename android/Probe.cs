@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.10", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.11", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.10 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.11 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
@@ -58,9 +58,27 @@ public sealed class Probe : MelonMod
   LogHookCounts(addEnemies);
   LogHookCounts(getEnemies);
   LoggerInstance.Msg("ANDROID_ENEMY_PARAMETER_HOOKS_INSTALLED sharedSource=true");
+  var worldLoaded=AccessTools.Method(typeof(Il2Cpp.World),"OnLevelLoaded",Type.EmptyTypes)??throw new MissingMethodException("World.OnLevelLoaded()");
+  HarmonyInstance.Patch(worldLoaded,postfix:new HarmonyMethod(typeof(Probe),nameof(FarmCatsWorldLoaded)));
+  LogHookCounts(worldLoaded);
+  foreach(var entry in new[]{("OnEnable","Cat_OnEnable_FarmMovement_Patch",true), ("OnDisable","Cat_OnDisable_FarmMovement_Patch",false), ("Update","Cat_Update_FarmMovement_Patch",true)})
+  {
+   var target=AccessTools.Method(typeof(Il2Cpp.Cat),entry.Item1,Type.EmptyTypes)??throw new MissingMethodException("Cat."+entry.Item1);
+   var patchType=typeof(KingdomEnhancedMod.FarmCatMovement).Assembly.GetType("KingdomEnhancedMod."+entry.Item2,true);
+   var handler=new HarmonyMethod(patchType,entry.Item3?"Postfix":"Prefix");
+   HarmonyInstance.Patch(target,prefix:entry.Item3?null:handler,postfix:entry.Item3?handler:null);
+   LogHookCounts(target);
+  }
+  LoggerInstance.Msg("ANDROID_FARM_CATS_HOOKS_INSTALLED modernOwner=true");
   try { LoggerInstance.Msg($"OHMYMODS_GRAPHICS api={SystemInfo.graphicsDeviceType} device={SystemInfo.graphicsDeviceName} maxTexture={SystemInfo.maxTextureSize}"); }
   catch(Exception ex) { LoggerInstance.Warning("Graphics info unavailable: "+ex.Message); }
  }
+ private static void FarmCatsWorldLoaded(Il2Cpp.World __instance)
+ {
+  if(KingdomEnhancedMod.ModConfig.Enabled.Value&&KingdomEnhancedMod.ModConfig.FarmCatsEnabled.Value&&__instance!=null)
+   KingdomEnhancedMod.PatchWorld_FarmCats.Schedule(__instance);
+ }
+ public override void OnLateUpdate()=>KingdomEnhancedMod.GreekScaleScope.MaintainRegisteredY();
  private void PatchStamina(Type targetType,string name,Type patchType,string before,string after,string finish=null)
  {
   var target=AccessTools.Method(targetType,name)??throw new MissingMethodException(name);
@@ -74,6 +92,7 @@ public sealed class Probe : MelonMod
  }
  public override void OnUpdate()
  {
+  KingdomEnhancedMod.GreekScaleScope.Tick();
   MobileCalendar.Tick();
   MobilePopulation.Tick();
   KingdomEnhancedMod.PatchPlayer_HoldPurchase.Tick();
