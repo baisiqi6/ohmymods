@@ -36,9 +36,13 @@ internal sealed class KingdomEnhancedPlugin
     }
 }
 
-/// <summary>桌面 Logger 桥：直接写 MelonLoader 日志（Info -> Msg）。</summary>
+/// <summary>
+/// 桌面 Logger 桥：直接写 MelonLoader 日志（Info -> Msg）。共享源以 Exception 调用
+/// LogError，签名收 object；message 非空由调用点保证（catch 块的异常对象）。
+/// </summary>
 internal sealed class Logger
 {
     internal void LogWarning(string message) => MelonLogger.Warning(message);
     internal void LogInfo(string message) => MelonLogger.Msg(message);
+    internal void LogError(object message) => MelonLogger.Error(message.ToString());
 }

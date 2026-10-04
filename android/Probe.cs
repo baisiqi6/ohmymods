@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.9", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.10", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -11,8 +11,12 @@ public sealed class Probe : MelonMod
  public override void OnInitializeMelon()
  {
   KingdomEnhancedMod.KingdomEnhancedPlugin.Initialize();
-  KingdomEnhancedMod.ModConfig.Initialize();
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.9 gameplay_features=optional_player_qol,hold_purchase");
+  KingdomEnhancedMod.ModConfig.Initialize(static enabled =>
+  {
+   Il2Cpp.Wallet.InfiniteMoney=enabled;
+   MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
+  });
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.10 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
@@ -46,6 +50,14 @@ public sealed class Probe : MelonMod
   LogHookCounts(payState);
   LogHookCounts(performPay);
   LoggerInstance.Msg("ANDROID_HOLD_PURCHASE_HOOKS_INSTALLED enabled="+KingdomEnhancedMod.ModConfig.HoldPurchaseEnabled.Value+" sharedSource=true");
+  var enemyPatchType=typeof(KingdomEnhancedMod.PatchWorld_EnemyManager);
+  var addEnemies=AccessTools.Method(typeof(Il2Cpp.EnemyManager),"AddEnemies",new[]{typeof(Il2Cpp.EnemyType),typeof(AnimationCurve),typeof(int),typeof(float),typeof(Il2CppSystem.Collections.Generic.List<Il2Cpp.EnemyBlueprint>),typeof(string).MakeByRefType()})??throw new MissingMethodException("EnemyManager.AddEnemies(EnemyType,AnimationCurve,int,float,List<EnemyBlueprint>,ref string)");
+  var getEnemies=AccessTools.Method(typeof(Il2Cpp.EnemyManager),"GetEnemies",new[]{typeof(Il2Cpp.Wave),typeof(int),typeof(int),typeof(int),typeof(bool)})??throw new MissingMethodException("EnemyManager.GetEnemies(Wave,int,int,int,bool)");
+  HarmonyInstance.Patch(addEnemies,prefix:new HarmonyMethod(enemyPatchType,"AddEnemies_Prefix"));
+  HarmonyInstance.Patch(getEnemies,prefix:new HarmonyMethod(enemyPatchType,"GetEnemies_Prefix"));
+  LogHookCounts(addEnemies);
+  LogHookCounts(getEnemies);
+  LoggerInstance.Msg("ANDROID_ENEMY_PARAMETER_HOOKS_INSTALLED sharedSource=true");
   try { LoggerInstance.Msg($"OHMYMODS_GRAPHICS api={SystemInfo.graphicsDeviceType} device={SystemInfo.graphicsDeviceName} maxTexture={SystemInfo.maxTextureSize}"); }
   catch(Exception ex) { LoggerInstance.Warning("Graphics info unavailable: "+ex.Message); }
  }
@@ -139,6 +151,10 @@ public sealed class ProbeTicker : MonoBehaviour
     {
      MobilePlayerMenu.Draw(px,py,u,labelStyle,titleStyle,buttonStyle);
     }
+    else if(Layout.WorldPage)
+    {
+     MobileWorldMenu.Draw(px,py,u,labelStyle,titleStyle,buttonStyle);
+    }
     else if(Layout.PopulationPage)
     {
      GUI.Label(new Rect(px+16*u,py+12*u,248*u,42*u),"Population",titleStyle);
@@ -152,7 +168,8 @@ public sealed class ProbeTicker : MonoBehaviour
      if (GUI.Button(new Rect(px+16*u,py+98*u,248*u,64*u),MobileCalendar.Enabled ? "Calendar: ON" : "Calendar: OFF",buttonStyle)) MobileCalendar.Toggle();
      if (GUI.Button(new Rect(px+16*u,py+176*u,248*u,64*u),"Population",buttonStyle))Layout.PopulationPage=true;
      if (GUI.Button(new Rect(px+16*u,py+254*u,248*u,64*u),"Player",buttonStyle))Layout.PlayerPage=true;
-     if (GUI.Button(new Rect(px+16*u,py+332*u,248*u,64*u),"Close",buttonStyle)) Layout.Expanded=false;
+     if (GUI.Button(new Rect(px+16*u,py+332*u,248*u,64*u),"World",buttonStyle)) Layout.WorldPage=true;
+     if (GUI.Button(new Rect(px+16*u,py+410*u,248*u,64*u),"Close",buttonStyle)) Layout.Expanded=false;
     }
    }
   }

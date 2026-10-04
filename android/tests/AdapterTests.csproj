@@ -1,11 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Host-side checks for the Android adapter layer:
-       - FloatLayout Player page height / touch-filter boundary (pure System math),
-       - ModConfig MelonPreferences contract: one category, declared defaults, load-boundary
-         clamp (seed-speed flag), save-on-toggle only (MelonLogger / MelonPreferences stubbed),
+       - FloatLayout page heights / touch-filter boundaries (Home 484, Player+World 406,
+         Population 376; pure System math),
+       - ModConfig MelonPreferences contract: one category, seven declared entries,
+         load-boundary clamps (seed flags: seed-speed, seed-enemy-count, seed-enemy-timeline;
+         NaN and Infinity fallbacks), save-on-switch only, and the Initialize(Action&lt;bool&gt;)
+         money seam firing exactly at cold start and each toggle (MelonLogger / MelonPreferences
+         stubbed; the oldcfg flag simulates a cfg with only the four original keys),
+       - enemy prefix math from the linked production source against host doubles
+         (EnemyStubs.cs): 1x/2x/5x, session-switch OFF, ties-to-even rounding, ref outputs,
        - metadata checks on the built OhMyMods.AndroidProbe.dll (HarmonyDontPatchAll attribute,
-         the four private static Hold handlers, and the Forge/Ammo/Mead interop bindings).
+         the four private static Hold handlers, the two public static enemy prefixes, and the
+         Forge/Ammo/Mead/Enemy/Wallet interop bindings).
        Run: dotnet run -c Release, then pass the built OhMyMods.AndroidProbe.dll path as the
        single program argument (see android/README.md). -->
 
@@ -23,6 +30,11 @@
   <ItemGroup>
     <Compile Include="../FloatLayout.cs" />
     <Compile Include="../MobilePlayerConfig.cs" />
+    <!-- Unmodified production source, linked read-only: the enemy prefix math runs against the
+         host doubles in EnemyStubs.cs (Harmony attributes / Mathf / EnemyManager / Wave /
+         KingdomEnhancedPlugin bridge), not against the game. -->
+    <Compile Include="../../il2cpp/PatchWorld_EnemyManager.cs" />
+    <Compile Include="EnemyStubs.cs" />
     <Compile Include="MelonLoggerStub.cs" />
     <Compile Include="MelonPreferencesStub.cs" />
     <Compile Include="Program.cs" />
