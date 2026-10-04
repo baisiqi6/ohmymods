@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+#if ANDROID
+using Il2CppCoatsink.Common;
+#else
 using Coatsink.Common;
+#endif
 using HarmonyLib;
 using PrivateBankR3;
 using UnityEngine;

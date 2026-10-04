@@ -20,11 +20,11 @@ internal static class HeavyShieldNativeHooks
         && Has(TrollIntentMethod, typeof(HeavyShieldTrollIntent)) && Has(TrollImpactMethod, typeof(HeavyShieldTrollImpact))
         && Has(ArrowHitMethod, typeof(HeavyShieldArrowHit)) && Has(ArrowDamageMethod, typeof(HeavyShieldArrowDamage))
         && Has(DemoteMethod, typeof(HeavyShieldNativeDemote))
-        && Harmony.GetPatchInfo(DemoteMethod).Postfixes.Any(p => p.PatchMethod.DeclaringType == typeof(HeavyShieldNativeDemote));
+        && HarmonyLib.Harmony.GetPatchInfo(DemoteMethod).Postfixes.Any(p => p.PatchMethod.DeclaringType == typeof(HeavyShieldNativeDemote));
     private static bool Has(MethodBase method, Type patch)
     {
         if (method == null) return false;
-        var info = Harmony.GetPatchInfo(method);
+        var info = HarmonyLib.Harmony.GetPatchInfo(method);
         return info != null && info.Prefixes.Any(p => p.PatchMethod.DeclaringType == patch)
             && info.Finalizers.Any(p => p.PatchMethod.DeclaringType == patch);
     }

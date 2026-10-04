@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
+#if ANDROID
+using Il2CppCoatsink.Common;
+#else
 using Coatsink.Common;
+#endif
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
 

@@ -1,3 +1,15 @@
+## 2026-10-04 — Android 完整功能编译兼容盘点与公共差异（Issue #142，进行中）
+
+保留 Main 0.0.19 已交付成果。固定源码1060（PR141合并2299树相同）的完整盘点覆盖230源码、54配置键、33声明资源/34PNG，归16功能组；现有Android36编译源=24平台源+12共享源，运行25目标、15设置与浮球48/命中72保持。独立盘点审核通过。Android真实net10诊断的13声明层与109后层是两个编译阶段观察；109后层中91配置成员引用（42Bind字段+2默认常量）、1弩手分类常量、15混合桌面元数据协程歧义及2日志方法差异，不能称109独立原生API缺口。静态依赖仅词法候选，全部新功能原生调用与玩法仍待分组验证。
+
+B0集中修复公共命名空间、Harmony类型引用和日志桥，配置按功能批次接入；新增API诊断入口保持具名平台替代、真实引用与失败信息，不以桩或排除失败源码造全绿。源码已实现，Android主Rebuild 0警告0错误，适配检查509/0（两处有意修改源码仍精确hash检查）。独立诊断工程已完成真实引用对照，默认6个桌面边界声明错误、可选桌面元数据对照107个后层错误均如实保留；PC双静态构建0警告0错误，1270类型/6706方法语义零差异（比较包装器仅8PNG，资源完整范围仍按33声明清单记录）。诊断元数据已改读主项目属性生成，并清理根因修正后无独立用途的markup守卫；独立源码复审已通过，代码交付待合并与正常收尾；本批未打包/安装或运行设备，实际Main19原设备状态与待验结果保持。
+
+剩余规划为8–12功能批，约80–200工程小时宽区间：公共差异约6–14小时、功能实现约48–140小时（配置/日志接线内含）、必要模拟器验证约20–40小时；首批后重估，手机与联机验收单列。后续按公共差异→policy/QoL→world/ecology/layout→roles/assets/combat→identity/persistence/economy/MP依赖与风险推进，相关小功能合并实现、审查和打包，分批默认关闭/显式注册。详见 tasks/issue-142/plan.md。
+
+## 2026-10-04 — Android 普通鹿输入（Issue #140，代码任务已收尾，长期玩法待验）
+
+PR141已正常合并2299a3d5，普通鹿density×3/当次实际interval÷3复用共享原生Update输入与既有归还责任。最终Main12840083/APKaeca1e71、25目标和15设置通过原限定模拟器UI/冷启动验证，两条自然输入日志仅证明当次倍率，不代替长期种群/补充3倍。Issue140正常review.completed→task.done/closed，独立终态回读保153其他完整对象/order154与101计划，doctor0错误0警告。完整原生异常ABI/重入/池、换岛读档、手机/平板和联机继续待验；本次公共差异不升级其玩法状态。详见 tasks/issue-140/。
+
 ## 2026-10-04 — Android 快速森林退缩（Issue #138，代码任务已收尾，实际玩法待验）
 
 从 `il2cpp/PatchWorld_OptionalVegetation.cs` 移出三 forest helpers、const 与 wrapper 到共享源 `il2cpp/PatchWorld_FastForestRecede.cs`（PC 默认编译；Android explicitCompile，仅文件头 `#if ANDROID` 的 Forest/ForestItem 别名，不复制 Dense 1100 行）；wrapper 保留原名 `ForestItem_FadeAndRemove_OptionalVegetation_Patch` 与 `[HarmonyPatch(typeof(ForestItem), FadeAndRemove)]`，Probe 0.0.18 按名注册其 Prefix 并路由 Vegetation 页。仅当 entry 开启且 scope active 时读 item：controlsForestSize/removedByForest/当前 `Managers.world`+gameLayer 场景/active/child 门全保留，视差 item（同场景非子孙）可命中；显式正 delay ÷3，否则 `removeDelay × Random(0.5,1.5) ÷ 3`，有限正值才写 ref；native 字段/协程/淡出/销毁/森林边界全原生，无扫描/缓存/镜像/重试。14 entry（新增 `FastForestRecedeEnabled` 默认 false，切换一次 Save，READY `forestRecede=`）；World 332 猫行改为 Vegetation 入口，Vegetation 328 三行（Cats 98 复用原文案与 ToggleFarmCats/forest 176/Back 254 只清 VegetationPage），World640/Player562/Gen250/Pop376/球48/命中72/默认收起保持。
