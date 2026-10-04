@@ -1,3 +1,16 @@
+## 2026-10-04 — Android 快速建造（Issue #122）
+
+复用未改 PatchWorld_Construction：每次原生 InitializeBuild 前仅 Enabled&&FastBuild 写50。
+9entry、World562新行，默认OFF；不热还原/应用、不新driver/scan/retry/ratecache。
+删除旧测试死哈希并恢复实际冻结项目：27source/22actual/22known/0dead。
+实际 Android build及独立重建0W0E，host231/177/185均通过；独立source/helper审查及
+GLM5.3max安装关口通过。私有main fd9057fc…、APK d5fd9ab1…，原游戏22313项字节保持。
+API35ARM64正常收入2→8，ON正常付款造墙8→7，原生rate0→50、progress0→1→10；
+OFF下一次正常升级7→4、新rate0→0；开关不热改已有实例。原生Save/同岛文件重启ON
+rate0→50，第二层墙progress0→1→30。AllAutoBuild=false；没有测试写钱包/进度/存档。
+最终UI恢复OFF，诊断移出后clean单main0.13、16reported各1/noERROR。
+其它施工类型/对象池/其它writers、跨岛/手机/联机仍待，代码交付待PR合并正常收尾；无公开发布。
+
 ## 2026-10-04 — Android 悬浮面板原生菜单触摸隔离（Issue #119）
 
 0.0.12 通过根 Canvas 的两个透明 UGUI Image 接入原生 EventSystem，浮球与展开面板复用

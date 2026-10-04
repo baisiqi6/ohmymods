@@ -13,8 +13,9 @@
            -p:SupportModuleDir=<dir with the loader's SupportModules\Il2Cpp.dll (MonoEnumeratorWrapper)>
 
        The unmodified desktop sources il2cpp/PatchPlayer_HoldPurchase.cs,
-       il2cpp/PatchWorld_EnemyManager.cs, il2cpp/PatchWorld_FarmCats.cs, il2cpp/FarmCatMovement.cs
-       and il2cpp/GreekScaleScope.cs are linked read-only (Compile Include below); bare game
+       il2cpp/PatchWorld_EnemyManager.cs, il2cpp/PatchWorld_FarmCats.cs, il2cpp/FarmCatMovement.cs,
+       il2cpp/GreekScaleScope.cs and il2cpp/PatchWorld_Construction.cs
+       are linked read-only (Compile Include below); bare game
        type names are mapped by GlobalAliases.cs and Harmony auto-patch-all is suppressed by
        AssemblyInfo.cs for explicit Operator registration. -->
 
@@ -59,6 +60,7 @@
     <Compile Include="../il2cpp/PatchWorld_FarmCats.cs" Link="Production/PatchWorld_FarmCats.cs" />
     <Compile Include="../il2cpp/FarmCatMovement.cs" Link="Production/FarmCatMovement.cs" />
     <Compile Include="../il2cpp/GreekScaleScope.cs" Link="Production/GreekScaleScope.cs" />
+    <Compile Include="../il2cpp/PatchWorld_Construction.cs" Link="Production/PatchWorld_Construction.cs" />
   </ItemGroup>
 
   <ItemGroup>

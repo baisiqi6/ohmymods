@@ -30,12 +30,12 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 |---|---|
 | `Probe.cs` | MelonLoader 入口、显式 Harmony 注册、浮球组件与触摸守卫 |
 | `MobileUiInputSurface.cs` | Issue #119 原生 UGUI 命中面（新增）：两个透明 `Image` 命中区与 IMGUI 球/展开面板同矩形，由 `ProbeTicker` 生命周期驱动；不改原生菜单/输入标志 |
-| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 484 / World 484 / Player 406 / Population 376，绘制与触摸同源） |
+| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 484 / World 562 / Player 406 / Population 376，绘制与触摸同源） |
 | `MobileCalendar.cs` `CalendarSnapshot.cs` | 日历显示（开关直读 `CalendarEnabled` entry，切换时保存） |
 | `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（只读缓存） |
-| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 8 个 entry（速度、无限体力、Hold、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
+| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 9 个 entry（速度、无限体力、Hold、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
 | `MobilePlayerMenu.cs` | Player 页 UI（speed / stamina / hold / back；中性文案 "Device settings"） |
-| `MobileWorldMenu.cs` | World 页 UI（enemies / threat growth / infinite money / stock cats / back；猫开关只影响以后关卡加载时的补齐，不删除已有猫；Back 只置 `Layout.WorldPage=false`） |
+| `MobileWorldMenu.cs` | World 页 UI（enemies / threat growth / infinite money / stock cats / fast build / back；六行 98/176/254/332/410/488，面板 562）。猫开关只影响以后关卡加载时的补齐，不删除已有猫；快速建造开关只影响后续每次原生 `InitializeBuild` 调用（前缀在 `_hasStarted` 早退之前写 rate，关闭不热还原已写入实例的 rate）；Back 只置 `Layout.WorldPage=false` |
 | `PatchWorld_Mover.cs` `PatchRide_InfiniteStamina.cs` | 速度倍率与无限体力补丁（显式注册；旧 lease 补偿已删） |
 | `OptionalQoLScope.cs` | 本机世界/层/场景闸门 |
 | `GlobalAliases.cs` | 把共享桌面源的裸游戏类型名映射到 Android interop 的 `Il2Cpp.*` |
@@ -45,6 +45,7 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 | `../il2cpp/PatchPlayer_HoldPurchase.cs` | 未修改链接的生产源（长按续买，默认关闭） |
 | `../il2cpp/PatchWorld_EnemyManager.cs` | 未修改链接的生产源（`AddEnemies` 数量倍率、`GetEnemies` 三个成长天数倍率前缀；默认 1x 不介入） |
 | `../il2cpp/PatchWorld_FarmCats.cs` `../il2cpp/FarmCatMovement.cs` `../il2cpp/GreekScaleScope.cs` | 链接的生产源（农舍猫 + 移动驱动 + 缩放作用域；相对桌面版仅 2 处 `#if` 平台边界，见下） |
+| `../il2cpp/PatchWorld_Construction.cs` | 未修改链接的生产源（`ConstructionBuildingComponent.InitializeBuild` public 前缀：`Enabled && FastBuild` 时写 `_autoBuildRate=50f`；默认 OFF 不介入） |
 
 ## 功能范围与状态
 
@@ -55,15 +56,16 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   分节，不 SetFilePath 自写路径、不每帧读回、不重试、不镜像状态。
   键与默认值：`SpeedMultiplier=1`、`InfiniteSteedStamina=false`、`HoldPurchaseEnabled=false`、
   `CalendarEnabled=false`、`EnemyCountMultiplier=1`、`EnemyTimelineSpeed=1`、
-  `InfiniteMoney=false`、`FarmCatsEnabled=false`。加载边界各一次：速度 clamp 1–5；两个 float 倍率有限值 clamp
+  `InfiniteMoney=false`、`FarmCatsEnabled=false`、`FastBuild=false`。加载边界各一次：速度 clamp 1–5；两个 float 倍率有限值 clamp
   1–5，NaN/Infinity（手工编辑 cfg 的非法输入）回 1 并各 Warning 一次——`Math.Clamp(NaN,…)`
   会返回 NaN，故显式判非有限；只改内存，不回写。切换时恰好一次
   `Category.SaveToFile(printmsg:false)`；失败由 loader 自身 `MelonLogger.Error` 输出真实
-  异常（实际 IL 已核），UI 不承诺“已保存”，8 个 entry 都不另存镜像
+  异常（实际 IL 已核），UI 不承诺“已保存”，9 个 entry 都不另存镜像
   （`Enabled` 是无 UI、不持久化的会话总开关）。`InfiniteMoney` 的原生静态开关只在初始化
   与每次切换各写一次（entry 改 → apply → save），不订阅事件、不每帧写；`ModConfig`
-  本体零 `Il2Cpp.*` 引用，写入由 `Probe.cs` 的 lambda 承担。冷启动 `ANDROID_SETTINGS_READY`
-  行按同序追加 `cats=<bool>`。
+  本体零 `Il2Cpp.*` 引用，写入由 `Probe.cs` 的 lambda 承担。`FastBuild` 只有值翻转 +
+  日志 + 一次 save，不订阅事件、不做配置镜像/读回/retry。冷启动 `ANDROID_SETTINGS_READY`
+  行按同序追加 `cats=<bool>`、`fastBuild=<bool>`。
 - 长按续买（Hold purchase）：共享桌面源链接编译，默认 OFF（不写钱包/库存）。
 - 敌人参数（C2）：`../il2cpp/PatchWorld_EnemyManager.cs` 未修改链接；两个前缀分别缩放
   `AddEnemies` 的数量 multiplier 与 `GetEnemies` 的三个成长天数 int（`Mathf.RoundToInt`
@@ -72,8 +74,14 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   小数（如 4.5）不会被推成 5.5；载入值原样保留，不在运行期加 clamp/守卫。
 - 无限货币：只写原生 `Wallet.InfiniteMoney` 静态开关（native get/set 为纯静态读写、setter
   无副作用、消费点在 `RemoveCurrencyAfterMoving`；见 `native-world-recon/`），不送钱、
-  不改余额/币对象/扣款实现；不同货币类型与联机效果未验。快速建造（C1）不在本阶段：
-  rate 残留与 prefab 重建语义未核验完，不带半成品搬入，`_autoBuildRate` 相关桥接不落地。
+  不改余额/币对象/扣款实现；不同货币类型与联机效果未验。
+- 快速建造（`FastBuild`，默认 OFF，最小适配）：链接未修改的 `PatchWorld_Construction.cs`，
+  在每次原生 `ConstructionBuildingComponent.InitializeBuild()` 调用前（先于其 `_hasStarted`
+  早退）写 `_autoBuildRate=50f`，仅当会话 `Enabled && FastBuild`。写点语义是“每次
+  InitializeBuild 调用”，不是只在首次真正初始化、也不是付款时才运行；不承诺 2 秒建成时长。
+  关闭开关不热还原已写入实例的 rate（无 rate 镜像/缓存/重试/新 driver）；不改原生
+  `AllAutoBuild`/progress/付款流程。其它 rate 写入者与对象池复用语义尚未核验。精确候选已安装隔离设备，
+  狭范围原生初始化、正常付款建造及同岛文件重载结果见末节。
 - 农舍猫（`FarmCatsEnabled`，默认 OFF）：共享源 `PatchWorld_FarmCats.cs` /
   `FarmCatMovement.cs` / `GreekScaleScope.cs` 以链接方式编译，平台边界仅 2 处 `#if`——
   `GreekScaleScope.Tick` 的 `ScaleRegistryHolder.RetryPendingCreation()` 只在非 Android 编译
@@ -110,6 +118,10 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
      `(X-TouchSize/2, Y-TouchSize/2, TouchSize, TouchSize)` 与展开面板
      `(PanelX, PanelY, PanelWidth, PanelHeight)`，屏幕左上坐标转 UGUI 顶左锚点
      `anchoredPosition (x, -y)`。该层在 API35 ARM64 的原生 Rewired UGUI 菜单上已验证命中与排序（见末节 0.0.12）。
+  9. 快速建造注册：`Il2Cpp.ConstructionBuildingComponent.InitializeBuild()`（无参）唯一注册到共享
+     `PatchWorld_Construction.Prefix`，冷启动 `ANDROID_HOOK_COUNTS` 应含该 target 的
+     `parameters=0 prefixes=1 postfixes=0 finalizers=0` 与 `ANDROID_FAST_BUILD_HOOK_INSTALLED
+     sharedSource=true perInitializeBuildCall=true`；reported 入口由 15 增至 16（主 Mod 单独冷启动已逐行复核各一份）。
 - 独立 Android API35 ARM64 模拟器已验：四设置首次默认值、界面切换、配置读回和进程
   重启恢复；隔离配置的保存故障可见日志；去 lease 后三速度入口九组原生 API 对照及
   2x/5x 正常触屏移动；体力 ON/OFF 的原生消耗与速率归还。诊断插件仅用于采证。
@@ -150,6 +162,15 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   linked 三源、无 `ScaleRegistryHolder` 假面）全过；
   loader 0.7.3 `CreateEntry` 吸入已存值与 `SaveToFile` 失败语义有实际 IL 证据
   （本任务 `settings-implementation/evidence/`）。
+- 已做（Issue #122 源码阶段，取代上述 0.0.12 的 484/8-entry 数字）：真实 interop/loader/
+  SupportModules 引用编译 0 warning / 0 error（新增链接 `PatchWorld_Construction.cs`，
+  `Compile Include` 仅一份）；适配层 host 默认 231 passed / 0 failed、`--seed-fast-build`、
+  `--oldcfg`、`--seed-speed=9` 各 177、4.5 小数档 185，全部 0 failed；产物元数据确认 linked
+  `PatchWorld_Construction`（public static `Prefix`，单参数 `Il2Cpp.ConstructionBuildingComponent`）
+  与真实 `set__autoBuildRate` member 引用。详见 `construction-implementation/`。
+- 已验（Issue #122）：私有精确候选安装、原生 InitializeBuild 入口与正常付款建造、
+  ON/OFF 不热应用/还原、配置冷读回及单 main 16 个 reported 各一份（见末节）。
+  全部施工类型、对象池复用、其它 rate 写入者、手机/联机/跨岛仍未验；不公开分发 APK。
 - 已做（农舍猫块，源码/构建/PC 门）：两个 `#if` 边界与基线快照的机器 diff 只含边界行；
   PC candidate wrapper（SDK8、net6、无 ANDROID 定义）与 baseline 的 `GreekScaleScope.Tick` /
   `PatchWorld_FarmCats.EnsureCatScale` 方法体（指令+操作数+局部变量+EH）逐项等价，PC 产物两方法
@@ -182,10 +203,11 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
         android/bin/Release/net10.0/OhMyMods.AndroidProbe.dll
 
 加载边界矩阵（各场景一次运行，期望 0 failed）：`--seed-speed=0|3`、`--oldcfg`、
-`--seed-enemy-count=NaN|Infinity|0.5|9`、`--seed-enemy-timeline=NaN|Infinity|0.5|9`、
+`--seed-fast-build`、`--seed-enemy-count=NaN|Infinity|0.5|9`、`--seed-enemy-timeline=NaN|Infinity|0.5|9`、
 `--seed-enemy-count=4.5 --seed-enemy-timeline=4.5`
 （`NaN`/`Infinity` 走非有限回退 1 + Warning，`0.5`/`9` 走有限 clamp 1–5，`--oldcfg`
-只种入旧四键、验证新键取默认且不回写；4.5 小数档验证载入原样、UI 步进 4.5→5→1 各一次 save）。
+只种入旧四键、验证新键取默认且不回写；`--seed-fast-build` 验证已有 FastBuild 键载入 true；
+4.5 小数档验证载入原样、UI 步进 4.5→5→1 各一次 save）。
 
 共享行为套件（仓库根 `tests/hold-purchase`，链接同一份未修改生产源，只执行不修改）：
 
@@ -194,14 +216,16 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 直接相关 PC 回归（同样只链接未修改/边界源，不拉起无关套件）：`tests/farm-cats`、
 `tests/greek-scale-scope`、`tests/greek-scale-adapters`。
 
-当前基线（0.0.12，含 Issue #119 命中面）：默认 217 passed / 0 failed、seeded 档 168、
-4.5 小数档 176，三种形态全部 0 failed。默认档比 0.0.11（180）多出的检查全部是产物/csproj
-元数据：`UnityEngine.UI`/`UnityEngine.UIModule` 两个 assembly 引用、`Image`/`GraphicRaycaster`/
-`Canvas`/`RectTransform` 类型引用与 setter、`MobileUiInputSurface` 的 sealed 非 MonoBehaviour
-形状、`Sync(GameObject, FloatLayout, bool)` 签名、无 Harmony 特性，以及共享源 SHA-256 冻结
-校验（25 条路径中 22 条 actual 校验；`Probe.cs`/`OhMyMods.AndroidProbe.csproj`/
-`tests/AdapterTests.csproj` 为有意改动，不参与冻结断言）。host 测试只检查适配层与产物
-元数据，不伪造运行期猫池/存档/透明命中结果，也不虚构 UnityRuntime。
+当前基线（0.0.13，含 Issue #122 快速建造适配）：默认 231 passed / 0 failed、seeded 档 177
+（`--seed-fast-build`/`--oldcfg`）、4.5 小数档 185，全部 0 failed。相比 0.0.12（217/168/176）
+新增检查：FastBuild 声明与默认值、seeded 键载入/缺键回退、单次切换单次 save 与日志、
+World 562 几何与 Back 复原快照、产物 linked `PatchWorld_Construction`（public static
+`Prefix(ConstructionBuildingComponent)` 与真实 `set__autoBuildRate` 引用）。共享源 SHA-256
+冻结为 27 条路径、22 条 actual 校验：`FloatLayout.cs`/`MobilePlayerConfig.cs`/
+`MobileWorldMenu.cs`/`Probe.cs`/`OhMyMods.AndroidProbe.csproj` 为本次有意改动不参与断言，
+新增冻结 `MobileUiInputSurface.cs` 与 `il2cpp/PatchWorld_Construction.cs`，
+`tests/AdapterTests.csproj` 恢复实际校验。host 测试只检查适配层与产物元数据，不伪造运行期
+猫池/存档/透明命中结果，也不虚构 UnityRuntime。
 
 ## 0.0.10 隔离设备验证
 
@@ -252,3 +276,24 @@ Campaign/Resume。面板外 Campaign 与收起后的 Resume 仍可点击。拖�
 
 手机/平板、多指、分辨率变化、真实跨岛与文件读档切换仍待验，未称全部平台或场景通过。
 支持模块 Il2Cpp 的依赖发现警告随后由 loader 成功加载解决，未改 Optional 来隐藏兼容边界。
+
+## 0.0.13 快速建造隔离设备验证（Issue #122）
+
+API35 ARM64 主 Mod 单独启动 0.0.13，16 个已报告入口各一份，FastBuild 默认 OFF。
+OFF 的三次原生关卡初始化中 rate=1→1；原生 AllAutoBuild=false。实际浮球 World 新行
+可触屏切换 ON/OFF，已有这三个实例保持 rate=1，未热应用或批量重写。
+
+Playing 中正常滑动取得原生收入，coins=2→8。在 ON 下通过正常付款建第一层墙，
+coins=8→7；原生 InitializeBuild 前 rate=0、started=false、current=0/10，之后
+rate=50、started=true、current=1/10，下一快照达到10/10并有实际墙对象。
+全程 AllAutoBuild=false；没有写钱包、库存、建造进度或调用测试用初始化/完成入口。
+
+触屏关闭后同一墙仍 rate=50。随后正常付款升级第二层墙，coins=7→4，新的原生调用
+rate=0→0、current=0/30，待建脚手架存在；再次开启不热改变这次已初始化的rate=0。
+通过原生 Save 按钮保存并重启，配置读取 FastBuild=true，实际同岛的未完成墙重新加载，
+原生初始化 rate=0→50、current=0→1/30，后续快照达到30/30，coins仍4。
+这是一次同岛原生文件重载与建造恢复结果，没有代替跨岛、全部施工类型或池复用验收。
+
+最终经界面恢复 OFF、移出只读诊断插件并冷启动，设置读回 false；仅主 Mod、16 个已报告
+入口各一份，无 ERROR。临时 observer 只读采样，未进 APK/PR。callMs 是初始化方法调用
+耗时，不是建造时长；快照只能证明采样时刻，未据此宣称固定两秒或性能/全部平台通过。

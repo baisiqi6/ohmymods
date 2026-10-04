@@ -58,6 +58,7 @@ internal static class Program
         float? seededEnemyCount = null;
         float? seededEnemyTimeline = null;
         bool oldCfg = false;
+        bool seedFastBuild = false;
         var artifactArgs = new List<string>();
         foreach (string arg in args)
         {
@@ -69,6 +70,8 @@ internal static class Program
                 seededEnemyTimeline = ParseSeedFloat(timelineText);
             else if (arg == "--oldcfg")
                 oldCfg = true;
+            else if (arg == "--seed-fast-build")
+                seedFastBuild = true;
             else
                 artifactArgs.Add(arg);
         }
@@ -95,8 +98,13 @@ internal static class Program
             MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "CalendarEnabled", true);
             Console.WriteLine("mode: pre-seeded cfg with only the four original keys");
         }
+        if (seedFastBuild)
+        {
+            MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "FastBuild", true);
+            Console.WriteLine("mode: pre-seeded cfg FastBuild true");
+        }
         LayoutChecks();
-        ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg);
+        ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg, seedFastBuild);
         EnemyMathChecks.Run();
         if (artifactArgs.Count < 1)
             Checks.Check(false, "artifact path argument missing (pass the built OhMyMods.AndroidProbe.dll path)");
@@ -141,9 +149,11 @@ internal static class Program
         Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 400f), "touch filter covers the 406-high player panel");
         layout.PlayerPage = false;
         layout.WorldPage = true;
-        Checks.Check(Math.Abs(layout.PanelHeight - 484f) < 1e-4f, "world page panel height is 484 (five rows)");
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 478f), "touch filter covers the 484-high world panel bottom row");
+        Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "world page panel height is 562 (six rows)");
+        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 556f), "touch filter covers the 562-high world panel bottom row");
         layout.WorldPage = false;
+        Checks.Check(Math.Abs(layout.PanelHeight - 484f) < 1e-4f, "Back out of the world page restores the 484-high home panel");
+        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 556f), "the restored home panel no longer covers the six-row boundary");
         layout.PopulationPage = true;
         Checks.Check(Math.Abs(layout.PanelHeight - 376f) < 1e-4f, "population panel height stays 376");
         Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 400f), "population panel keeps its 376 touch boundary");
@@ -151,7 +161,7 @@ internal static class Program
         Checks.Check(Math.Abs(layout.PanelHeight - 484f) < 1e-4f, "closing the subpages restores the 484-high home panel");
     }
 
-    private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg)
+    private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg, bool seededFastBuild)
     {
         var applied = new List<bool>();
         int expectedWarnings = (seededEnemyCount.HasValue && !IsFinite(seededEnemyCount.Value) ? 1 : 0)
@@ -166,7 +176,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 8, "Initialize creates exactly eight entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 9, "Initialize creates exactly nine entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -175,14 +185,16 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/EnemyTimelineSpeed default=1"), "EnemyTimelineSpeed is declared with default 1");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteMoney default=False"), "InfiniteMoney is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/FarmCatsEnabled default=False"), "FarmCatsEnabled is declared OFF");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/FastBuild default=False"), "FastBuild is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "Initialize never writes the cfg");
         Checks.Check(applied.Count == 1 && !applied[0], "cold start applies InfiniteMoney=false through the seam exactly once");
         Checks.Check(MelonLoader.MelonLogger.WarningCalls == expectedWarnings, "the load boundary warns exactly once per non-finite seeded multiplier");
 
         float expectedEnemyCount = seededEnemyCount.HasValue ? ExpectedMultiplier(seededEnemyCount.Value) : 1f;
         float expectedEnemyTimeline = seededEnemyTimeline.HasValue ? ExpectedMultiplier(seededEnemyTimeline.Value) : 1f;
+        string expectedFastBuild = seededFastBuild ? "True" : "False";
 
-        bool seeded = seededSpeed.HasValue || seededEnemyCount.HasValue || seededEnemyTimeline.HasValue || oldCfg;
+        bool seeded = seededSpeed.HasValue || seededEnemyCount.HasValue || seededEnemyTimeline.HasValue || oldCfg || seededFastBuild;
         if (seeded)
         {
             int expectedSpeed = seededSpeed.HasValue ? Math.Clamp(seededSpeed.Value, 1, 5) : (oldCfg ? 3 : 1);
@@ -195,10 +207,12 @@ internal static class Program
                 "the four original entries keep absorbing a pre-existing cfg");
             Checks.Check(!Config.InfiniteMoney.Value, "a cfg without the new keys keeps InfiniteMoney OFF");
             Checks.Check(!Config.FarmCatsEnabled.Value, "a cfg without the new keys keeps FarmCats OFF");
+            Checks.Check(Config.FastBuild.Value == seededFastBuild,
+                seededFastBuild ? "a seeded FastBuild key loads ON at the load boundary" : "a cfg without the FastBuild key keeps FastBuild OFF");
             Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "the load-boundary clamp/fallback does not write the cfg");
             Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=" + expectedSpeed
                 + " stamina=" + oldCfg + " hold=" + oldCfg + " calendar=" + oldCfg
-                + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False",
+                + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild,
                 "cold-start ready line reports the effective values");
             if (seededEnemyCount == 4.5f && seededEnemyTimeline == 4.5f)
             {
@@ -225,8 +239,9 @@ internal static class Program
             && !Config.HoldPurchaseEnabled.Value
             && !Config.CalendarEnabled.Value
             && !Config.InfiniteMoney.Value
-            && !Config.FarmCatsEnabled.Value, "qol switches, InfiniteMoney and FarmCats default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False",
+            && !Config.FarmCatsEnabled.Value
+            && !Config.FastBuild.Value, "qol switches, InfiniteMoney, FarmCats and FastBuild default OFF");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
 
@@ -272,6 +287,15 @@ internal static class Program
         Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_FARM_CATS enabled=False", "ToggleFarmCats logs the OFF state");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleFarmCats OFF saves exactly once");
 
+        Config.ToggleFastBuild();
+        Checks.Check(Config.FastBuild.Value, "ToggleFastBuild turns it ON");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_FAST_BUILD enabled=True", "ToggleFastBuild logs the switch state");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleFastBuild ON saves exactly once");
+        Config.ToggleFastBuild();
+        Checks.Check(Config.FastBuild.Value == false, "ToggleFastBuild turns it OFF again");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_FAST_BUILD enabled=False", "ToggleFastBuild logs the OFF state");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleFastBuild OFF saves exactly once");
+
         for (int next = 2; next <= 5; next++)
         {
             Config.CycleEnemyCount();
@@ -293,7 +317,7 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "CycleEnemyTimeline wrap saves exactly once");
 
         Checks.Check(applied.Count == 3, "the InfiniteMoney seam fires only at Initialize and the two toggles (no subscription or per-frame write)");
-        Checks.Check(saves == 22, "twenty-two switch actions produced twenty-two saves");
+        Checks.Check(saves == 24, "twenty-four switch actions produced twenty-four saves");
     }
 
     private static float ExpectedMultiplier(float seeded)
@@ -376,6 +400,7 @@ internal static class ArtifactChecks
         "Il2Cpp.World", "Il2Cpp.NetworkBigBoss",
         "Il2Cpp.EnemyManager", "Il2Cpp.Wave", "Il2Cpp.Wallet",
         "Il2Cpp.Cat", "Il2Cpp.Farmhouse", "Il2Cpp.Pool", "Il2Cpp.Holder",
+        "Il2Cpp.ConstructionBuildingComponent",
         "Il2Cpp.BiomeHolder", "Il2Cpp.BiomeData", "Il2Cpp.Character", "Il2Cpp.Mover",
         "Il2Cpp.Droppable", "Il2Cpp.Kingdom", "Il2Cpp.StateMachine", "Il2Cpp.Side",
         "Il2Cpp.Embarkee", "Il2Cpp.IslandSaveData", "Il2Cpp.Game", "Il2Cpp.Farmland", "Il2Cpp.GAPS",
@@ -464,6 +489,19 @@ internal static class ArtifactChecks
         Checks.Check(HasConstructorReference(reader, "Il2CppSystem.Collections.IEnumerator"),
             "Il2CppSystem.Collections.IEnumerator(IntPtr) ctor is referenced by the coroutine bridge");
 
+        // Fast-build block (linked PatchWorld_Construction): the shared prefix must land in the
+        // artifact, take ConstructionBuildingComponent as its target and really call the interop
+        // rate setter. Which native method the Operator registers it on is Probe's registration
+        // evidence, not something this metadata snapshot can re-derive.
+        var construction = FindType(reader, "KingdomEnhancedMod", "PatchWorld_Construction");
+        Checks.Check(!construction.IsNil, "artifact contains linked PatchWorld_Construction");
+        CheckHandlers(reader, construction, new Dictionary<string, int> { { "Prefix", 1 } }, MethodAttributes.Public, "public static");
+        if (!construction.IsNil)
+            Checks.Check(SignatureTypes(reader, reader.GetTypeDefinition(construction), "Prefix") == "Il2Cpp.ConstructionBuildingComponent",
+                "the fast-build Prefix patches ConstructionBuildingComponent (its single parameter)");
+        Checks.Check(HasMemberReference(reader, "Il2Cpp.ConstructionBuildingComponent", "set__autoBuildRate"),
+            "the fast-build prefix really calls the Il2Cpp _autoBuildRate setter");
+
         var typeRefs = new HashSet<string>();
         foreach (var handle in reader.TypeReferences)
         {
@@ -524,8 +562,9 @@ internal static class ArtifactChecks
         Console.WriteLine("artifact sha256 " + Checks.ComputeSha256(dllPath));
     }
 
-    // SHA-256 of the shared 0.0.11 sources frozen for the Issue #119 change: those files
-    // must stay byte-identical (the hit surface only reads FloatLayout; it must not
+    // SHA-256 freeze for the Android adapter sources and the linked production sources. Files
+    // listed in intentionallyChanged are the only ones the current issue may edit; every other
+    // frozen source must stay byte-identical (the hit surface only reads FloatLayout; it must not
     // duplicate or alter the geometry, input filtering or menus).
     private static readonly string SourceRoot = Checks.RepositoryRoot();
 
@@ -542,6 +581,7 @@ internal static class ArtifactChecks
         "android/MobilePlayerConfig.cs",
         "android/MobilePlayerMenu.cs",
         "android/MobilePopulation.cs",
+        "android/MobileUiInputSurface.cs",
         "android/MobileWorldMenu.cs",
         "android/OhMyMods.AndroidProbe.csproj",
         "android/OptionalQoLScope.cs",
@@ -555,7 +595,8 @@ internal static class ArtifactChecks
         "android/tests/MelonPreferencesStub.cs",
         "il2cpp/FarmCatMovement.cs",
         "il2cpp/GreekScaleScope.cs",
-        "il2cpp/PatchWorld_FarmCats.cs"
+        "il2cpp/PatchWorld_FarmCats.cs",
+        "il2cpp/PatchWorld_Construction.cs"
     };
 
     private static void VerifyFrozenSources()
@@ -566,32 +607,34 @@ internal static class ArtifactChecks
             { "android/AssemblyInfo.cs", "b5a7ade914d9e157d175ae9f7d42f40bb92cb608722875de4cd025ad50e86a14" },
             { "android/CalendarSnapshot.cs", "0ece4765f9a5311707f1a9bf0d61c491846cd8e17327ac4d09773c37eb0fdb8e" },
             { "android/FloatInput.cs", "17bccf9800a36c2cb1ffd0ee6e9f112f343951b0eae64acd7475afe93f6344a8" },
-            { "android/FloatLayout.cs", "f87f5b3f701381c5e19567fa8405bdafc777082d8f410debe125592f7bdde949" },
             { "android/GlobalAliases.cs", "17c0300c95a2abbfb6ca621c5f36ee6e2449593898e44aab9322b460cb47d230" },
             { "android/HoldBridges.cs", "a9aafb9b4c55b6cf1600f21b99506b3ef1a1304aa722a3d87fd7cff8b8ee5b0e" },
             { "android/MobileCalendar.cs", "f0d174125f0e3771a906712f52398e422f7812862b8614b3ecc709a385271633" },
-            { "android/MobilePlayerConfig.cs", "4c29bfbfc9cac62a5e65d309a0ac0eef2c8d06aac721fb6fdb50087d7d4fe046" },
             { "android/MobilePlayerMenu.cs", "adc0d244926bb9113636190d9655adf11dbda106ac87c270d6ccb0b9838d160c" },
             { "android/MobilePopulation.cs", "6dd431df541a4d2fd268eccfc3e9c757e5837cb8535acbd102bd05b6b1ed3f33" },
-            { "android/MobileWorldMenu.cs", "0ffe8605bbe97c60ce7280deceb05e346e03353b602acfefe315cf8a1c851cd2" },
-            { "android/NuGet.Config", "a0775540245fdb474a74c9a81645ec7cb10dc781b6cccff45d65c1258813fafe" },
+            { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PatchRide_InfiniteStamina.cs", "02a27e7c21d865596e23db3cdfe405dafb8c9e95f303e45481b24a5f72b280fc" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
+            { "android/tests/AdapterTests.csproj", "aad4aba93718df35016419550c9dbee3e93407afae0b61c9ee3b77a8f67d841f" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
             { "android/tests/MelonPreferencesStub.cs", "43cb64d622d4b1827aff0229902a732d209b188400f628d088fde099337e38d2" },
             { "il2cpp/FarmCatMovement.cs", "02e37276ae1fd5ac697ef6b71c4cf5bd79f642981a4f3958667dde525be2a2a4" },
             { "il2cpp/GreekScaleScope.cs", "13d913b12e89338645847bb0f4d04fd4370bd808035e377766e2c5f9da530221" },
-            { "il2cpp/PatchWorld_FarmCats.cs", "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f" }
+            { "il2cpp/PatchWorld_FarmCats.cs", "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f" },
+            { "il2cpp/PatchWorld_Construction.cs", "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79" }
         };
-        // The Issue #119 integration touches exactly these files; every other shared source
-        // is recorded above and must still hash to its 0.0.11 value.
+        // Issue #122 touches exactly these frozen sources: the World panel height, the FastBuild
+        // config entry, the World fast-build row, and the Operator's InitializeBuild registration
+        // plus its Compile Include. Every other frozen source — including the newly frozen
+        // MobileUiInputSurface hit surface and il2cpp/PatchWorld_Construction — must still hash
+        // to its post-#119 value.
         var intentionallyChanged = new HashSet<string>
         {
-            "android/Probe.cs", "android/OhMyMods.AndroidProbe.csproj", "android/README.md",
-            "android/tests/AdapterTests.csproj", "android/tests/Program.cs", "android/MobileUiInputSurface.cs"
+            "android/FloatLayout.cs", "android/MobilePlayerConfig.cs", "android/MobileWorldMenu.cs",
+            "android/Probe.cs", "android/OhMyMods.AndroidProbe.csproj"
         };
         foreach (string relative in FrozenSources)
         {
@@ -664,11 +707,14 @@ internal static class ArtifactChecks
     }
 
     private static bool HasConstructorReference(MetadataReader reader, string typeName)
+        => HasMemberReference(reader, typeName, ".ctor");
+
+    private static bool HasMemberReference(MetadataReader reader, string typeName, string memberName)
     {
         foreach (var handle in reader.MemberReferences)
         {
             var reference = reader.GetMemberReference(handle);
-            if (reader.GetString(reference.Name) == ".ctor" && TypeName(reader, reference.Parent) == typeName) return true;
+            if (reader.GetString(reference.Name) == memberName && TypeName(reader, reference.Parent) == typeName) return true;
         }
         return false;
     }

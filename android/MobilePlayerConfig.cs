@@ -25,6 +25,7 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<float> EnemyTimelineSpeed;
     internal static MelonPreferences_Entry<bool> InfiniteMoney;
     internal static MelonPreferences_Entry<bool> FarmCatsEnabled;
+    internal static MelonPreferences_Entry<bool> FastBuild;
 
     // InfiniteMoney 原生写（Il2Cpp.Wallet.InfiniteMoney）的唯一注入点：本文件保持零
     // Il2Cpp.* 引用（hosttests 直接编译同一份），由平台侧 Probe.OnInitializeMelon 传入
@@ -49,6 +50,7 @@ internal static class ModConfig
         EnemyTimelineSpeed = category.CreateEntry<float>("EnemyTimelineSpeed", 1f);
         InfiniteMoney = category.CreateEntry<bool>("InfiniteMoney", false);
         FarmCatsEnabled = category.CreateEntry<bool>("FarmCatsEnabled", false);
+        FastBuild = category.CreateEntry<bool>("FastBuild", false);
         // 手工编辑 cfg 可能写入越界值，在加载边界做唯一一次 clamp（不使用 validator：未证实
         // 可构造 ValueValidator 子类）；运行期不读回、不重试、不静默替换默认值。
         SpeedMultiplier.Value = Math.Clamp(SpeedMultiplier.Value, 1, 5);
@@ -64,7 +66,8 @@ internal static class ModConfig
             + " enemyCount=" + EnemyCountMultiplier.Value
             + " growth=" + EnemyTimelineSpeed.Value
             + " money=" + InfiniteMoney.Value
-            + " cats=" + FarmCatsEnabled.Value);
+            + " cats=" + FarmCatsEnabled.Value
+            + " fastBuild=" + FastBuild.Value);
     }
 
     // 两个倍率的加载边界：有限值 clamp 到 1..5；NaN/Infinity 是非法外部输入，回 1 并
@@ -130,6 +133,15 @@ internal static class ModConfig
     {
         FarmCatsEnabled.Value = !FarmCatsEnabled.Value;
         MelonLogger.Msg("ANDROID_FARM_CATS enabled=" + FarmCatsEnabled.Value);
+        Save();
+    }
+
+    // 快速建造只作用于后续 InitializeBuild 调用（共享前缀在原生 _hasStarted 早退前写 rate）；
+    // 关闭不热还原已写入实例的 rate，不建镜像、不重试；切换一次落盘一次。
+    internal static void ToggleFastBuild()
+    {
+        FastBuild.Value = !FastBuild.Value;
+        MelonLogger.Msg("ANDROID_WORLD_FAST_BUILD enabled=" + FastBuild.Value);
         Save();
     }
 
