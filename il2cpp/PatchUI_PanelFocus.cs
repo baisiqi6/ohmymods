@@ -313,11 +313,11 @@ internal static class PatchUI_PanelFocus
     // ------------------------------------------------- B 节：输入门手动安装
 
     /// <summary>Init 在 PatchAll 之后调用（harmony 与 PatchAll 同一实例）。</summary>
-    internal static void InstallInputGate(Harmony harmony)
+    internal static void InstallInputGate(HarmonyLib.Harmony harmony)
         => InstallInputGate(harmony, typeof(Player));
 
     /// <summary>带类型参数的安装体（测试用替身类型驱动解析失败路径）。</summary>
-    internal static void InstallInputGate(Harmony harmony, Type playerType)
+    internal static void InstallInputGate(HarmonyLib.Harmony harmony, Type playerType)
     {
         try
         {

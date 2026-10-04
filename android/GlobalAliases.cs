@@ -15,6 +15,7 @@
 // names (CS1537, verified). The global namespace import resolves them instead; explicit
 // aliases still win over it where both exist.
 global using Il2Cpp;
+global using Coatsink = Il2CppCoatsink;
 global using Baker = Il2Cpp.Baker;
 global using BiomeData = Il2Cpp.BiomeData;
 global using Cat = Il2Cpp.Cat;

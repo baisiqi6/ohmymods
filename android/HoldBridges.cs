@@ -44,5 +44,6 @@ internal sealed class Logger
 {
     internal void LogWarning(string message) => MelonLogger.Warning(message);
     internal void LogInfo(string message) => MelonLogger.Msg(message);
+    internal void LogDebug(string message) => MelonDebug.Msg(message);
     internal void LogError(object message) => MelonLogger.Error(message.ToString());
 }

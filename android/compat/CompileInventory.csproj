@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    B0 CompileInventory — API-surface compile inventory for the shared il2cpp sources on the
+    Android line.
+
+    Diagnostic-only: not referenced by android/OhMyMods.AndroidProbe.csproj, not packaged, never
+    loaded or executed. It exists to measure, with real Android interop references, which shared
+    sources still touch the desktop/BepInEx platform boundary and which ModConfig members are
+    still missing on Android.
+
+    Sources (no glob reaches obj/bin or tests):
+      - ../../il2cpp/**/*.cs minus the 9 platform-replacement originals (the Android product uses
+        the android/ files instead; authority for the mapping:
+        D/full-android-compat-inventory/feature-groups.json "replacedOriginals")
+      - the 24 android top-level adapter files via ../*.cs (subdirs tests/, compat/, obj/, bin/
+        are not matched)
+      - DiagnosticGlobalAliases.cs (diagnostic-only Rewired alias) + MyPluginInfo.g.cs (generated at
+        build time from the real project's AssemblyName/Version; see the GenerateMyPluginInfo target)
+
+    References: the real Android interop set (all DLLs from GameInteropDir) + the loader runtime
+    (6 named assemblies) + the support module (Il2Cpp.dll). DesktopMetadataDir is opt-in and
+    compile-only (BepInEx.Core + BepInEx.Unity.IL2CPP) for the comparison run. No default paths.
+
+    Expected results with the current source tree (see android/compat/README.md):
+      - default (no DesktopMetadataDir): declaration-phase errors only, all from the named
+        BepInEx platform boundary (BepInEx.Configuration/BepInEx.Unity.IL2CPP.Hook/INativeDetour/
+        ConfigEntry) — the compile stops there and does not list body-phase errors
+      - -p:DesktopMetadataDir=<BepInEx/core>: 107 errors = 92 missing ModConfig members
+        (91 call sites / 44 distinct names + 1 CrossbowmanRole) + 15 CS0121 WrapToIl2Cpp
+        mixed-extension artifacts; S3 LogDebug and the Coatsink/Harmony name layer are closed.
+
+    Build (SDK 10), e.g.:
+      dotnet build android/compat/CompileInventory.csproj -c Debug \
+        -p:GameInteropDir=<interop> -p:LoaderRuntimeDir=<loader net6> \
+        -p:SupportModuleDir=<SupportModules>
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>KingdomEnhancedMod.CompileInventory</AssemblyName>
+    <RootNamespace>KingdomEnhancedMod</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <DefineConstants>ANDROID;IL2CPP</DefineConstants>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CS0618;CS0612</NoWarn>
+
+    <Il2CppRoot>$(MSBuildThisFileDirectory)../../il2cpp</Il2CppRoot>
+    <OriginalProject>$(Il2CppRoot)/KingdomEnhancedMod.csproj</OriginalProject>
+
+    <!-- Required; deliberately no defaults so no machine's paths are baked in. -->
+    <GameInteropDir></GameInteropDir>
+    <LoaderRuntimeDir></LoaderRuntimeDir>
+    <SupportModuleDir></SupportModuleDir>
+    <!-- Opt-in compile-only desktop BepInEx metadata (BepInEx.Core + BepInEx.Unity.IL2CPP). -->
+    <DesktopMetadataDir></DesktopMetadataDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 230 shared sources minus the 9 platform-replacement originals (Android supersedes them). -->
+    <Compile Include="$(Il2CppRoot)/**/*.cs"
+             Exclude="$(Il2CppRoot)/CalendarSnapshot.cs;$(Il2CppRoot)/KingdomEnhancedPlugin.cs;$(Il2CppRoot)/ModConfig.cs;$(Il2CppRoot)/ModPanel.cs;$(Il2CppRoot)/OptionalQoLScope.cs;$(Il2CppRoot)/PatchRide_InfiniteStamina.cs;$(Il2CppRoot)/PatchRide_SteedCooldown.cs;$(Il2CppRoot)/PatchWorld_Mover.cs;$(Il2CppRoot)/PopulationCounts.cs;$(Il2CppRoot)/**/obj/**;$(Il2CppRoot)/**/bin/**" />
+    <!-- 24 android top-level adapter files; tests/compat/obj/bin subdirs are not matched. -->
+    <Compile Include="$(MSBuildThisFileDirectory)../*.cs" />
+    <Compile Include="DiagnosticGlobalAliases.cs" />
+    <!-- Generated into this project's own obj before CoreCompile (single-sourced from OriginalProject). -->
+    <Compile Include="$(IntermediateOutputPath)MyPluginInfo.g.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- All real Android interop assemblies from the provided directory. -->
+    <Reference Include="$(GameInteropDir)/*.dll">
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Loader runtime (real LemonLoader net6 set) + support module. -->
+    <Reference Include="MelonLoader"><HintPath>$(LoaderRuntimeDir)/MelonLoader.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(LoaderRuntimeDir)/0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppInterop.Runtime"><HintPath>$(LoaderRuntimeDir)/Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppInterop.Common"><HintPath>$(LoaderRuntimeDir)/Il2CppInterop.Common.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2CppInterop.HarmonySupport"><HintPath>$(LoaderRuntimeDir)/Il2CppInterop.HarmonySupport.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(LoaderRuntimeDir)/MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Il2Cpp"><HintPath>$(SupportModuleDir)/Il2Cpp.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(DesktopMetadataDir)' != ''">
+    <!-- Opt-in compile-only desktop BepInEx metadata; resolves the platform-boundary names for the
+         comparison run (these two DLLs are NOT Android runtime assemblies). -->
+    <Reference Include="BepInEx.Core"><HintPath>$(DesktopMetadataDir)/BepInEx.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BepInEx.Unity.IL2CPP"><HintPath>$(DesktopMetadataDir)/BepInEx.Unity.IL2CPP.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <_RequiredInterop Include="Assembly-CSharp.dll;Il2Cppmscorlib.dll" />
+    <_RequiredLoader Include="MelonLoader.dll;0Harmony.dll;Il2CppInterop.Runtime.dll;Il2CppInterop.Common.dll;Il2CppInterop.HarmonySupport.dll;MonoMod.RuntimeDetour.dll" />
+    <_RequiredSupport Include="Il2Cpp.dll" />
+  </ItemGroup>
+  <Target Name="ValidateInventoryDependencyDirs" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(GameInteropDir)' == ''" Text="GameInteropDir is required: the real Android interop directory (Assembly-CSharp.dll, UnityEngine.*, Il2Cppmscorlib.dll, ...)." />
+    <Error Condition="'$(LoaderRuntimeDir)' == ''" Text="LoaderRuntimeDir is required: the loader's net6 runtime directory (MelonLoader.dll, 0Harmony.dll, Il2CppInterop.*.dll, MonoMod.RuntimeDetour.dll)." />
+    <Error Condition="'$(SupportModuleDir)' == ''" Text="SupportModuleDir is required: the loader's SupportModules directory (Il2Cpp.dll)." />
+    <Error Condition="'$(GameInteropDir)' != '' and !Exists('$(GameInteropDir)/%(_RequiredInterop.Identity)')" Text="GameInteropDir '$(GameInteropDir)' is missing %(_RequiredInterop.Identity)." />
+    <Error Condition="'$(LoaderRuntimeDir)' != '' and !Exists('$(LoaderRuntimeDir)/%(_RequiredLoader.Identity)')" Text="LoaderRuntimeDir '$(LoaderRuntimeDir)' is missing %(_RequiredLoader.Identity)." />
+    <Error Condition="'$(SupportModuleDir)' != '' and !Exists('$(SupportModuleDir)/%(_RequiredSupport.Identity)')" Text="SupportModuleDir '$(SupportModuleDir)' is missing %(_RequiredSupport.Identity)." />
+  </Target>
+
+  <!-- MyPluginInfo.g.cs: single-sourced from the real project's properties (AssemblyName ->
+       PLUGIN_GUID / PLUGIN_NAME, Version -> PLUGIN_VERSION) with the same shape the real project's
+       BepInEx.PluginInfoProps generates. Read via XmlPeek, written into this project's own obj so no
+       other project's glob can pick it up. No stored copy of the values anywhere in this repo. -->
+  <Target Name="GenerateMyPluginInfo" BeforeTargets="CoreCompile">
+    <XmlPeek XmlInputPath="$(OriginalProject)" Query="/Project/PropertyGroup/AssemblyName/text()">
+      <Output TaskParameter="Result" PropertyName="_RealAssemblyName" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(OriginalProject)" Query="/Project/PropertyGroup/Version/text()">
+      <Output TaskParameter="Result" PropertyName="_RealVersion" />
+    </XmlPeek>
+    <Error Condition="'$(_RealAssemblyName)' == '' or '$(_RealVersion)' == ''"
+           Text="GenerateMyPluginInfo: cannot read AssemblyName/Version from $(OriginalProject)" />
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <ItemGroup>
+      <_MyPluginInfoLine Include="// &lt;auto-generated&gt; by CompileInventory.csproj: single-sourced from $(OriginalProject) (AssemblyName=$(_RealAssemblyName), Version=$(_RealVersion))." />
+      <_MyPluginInfoLine Include="namespace $(RootNamespace)" />
+      <_MyPluginInfoLine Include="{" />
+      <_MyPluginInfoLine Include="    public static class MyPluginInfo" />
+      <_MyPluginInfoLine Include="    {" />
+      <_MyPluginInfoLine Include="        public const string PLUGIN_GUID = &quot;$(_RealAssemblyName)&quot;%3B" />
+      <_MyPluginInfoLine Include="        public const string PLUGIN_NAME = &quot;$(_RealAssemblyName)&quot;%3B" />
+      <_MyPluginInfoLine Include="        public const string PLUGIN_VERSION = &quot;$(_RealVersion)&quot;%3B" />
+      <_MyPluginInfoLine Include="    }" />
+      <_MyPluginInfoLine Include="}" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(IntermediateOutputPath)MyPluginInfo.g.cs" Lines="@(_MyPluginInfoLine)"
+                      Overwrite="true" WriteOnlyWhenDifferent="true" Encoding="UTF-8" />
+  </Target>
+
+  <!-- 33 declared EmbeddedResources: reused from the real project via XmlPeek (no second registry).
+       The original items are Assets/<name>.png with LogicalName (<RootNamespace>.<file name>);
+       the Include list is read from the real csproj and the logical names are derived by that
+       documented rule, with a count guard against the declared list. -->
+  <Target Name="CollectDeclaredResources" BeforeTargets="PrepareForBuild" DependsOnTargets="ValidateInventoryDependencyDirs">
+    <XmlPeek XmlInputPath="$(OriginalProject)" Query="/Project/ItemGroup/EmbeddedResource/@Include">
+      <Output TaskParameter="Result" ItemName="_OriginalResourceIncludes" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(OriginalProject)" Query="/Project/ItemGroup/EmbeddedResource/@LogicalName">
+      <Output TaskParameter="Result" ItemName="_OriginalResourceLogicalNames" />
+    </XmlPeek>
+    <Error Condition="'@(_OriginalResourceIncludes)' == ''"
+           Text="CompileInventory: no EmbeddedResource items found in $(OriginalProject)" />
+    <Error Condition="'@(_OriginalResourceIncludes->Count())' != '@(_OriginalResourceLogicalNames->Count())'"
+           Text="CompileInventory: EmbeddedResource Include/LogicalName count mismatch in $(OriginalProject)" />
+    <ItemGroup>
+      <EmbeddedResource Include="@(_OriginalResourceIncludes->'$(Il2CppRoot)/%(Identity)')">
+        <LogicalName>$(RootNamespace).%(Filename)%(Extension)</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+
+</Project>

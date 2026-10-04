@@ -1,5 +1,9 @@
 using System;
+#if ANDROID
+using Il2CppCoatsink.Common;
+#else
 using Coatsink.Common;
+#endif
 using UnityEngine;
 using HarmonyLib;
 

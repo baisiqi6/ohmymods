@@ -1131,8 +1131,8 @@ internal static class ArtifactChecks
             { "android/AssemblyInfo.cs", "b5a7ade914d9e157d175ae9f7d42f40bb92cb608722875de4cd025ad50e86a14" },
             { "android/CalendarSnapshot.cs", "0ece4765f9a5311707f1a9bf0d61c491846cd8e17327ac4d09773c37eb0fdb8e" },
             { "android/FloatInput.cs", "17bccf9800a36c2cb1ffd0ee6e9f112f343951b0eae64acd7475afe93f6344a8" },
-            { "android/GlobalAliases.cs", "17c0300c95a2abbfb6ca621c5f36ee6e2449593898e44aab9322b460cb47d230" },
-            { "android/HoldBridges.cs", "a9aafb9b4c55b6cf1600f21b99506b3ef1a1304aa722a3d87fd7cff8b8ee5b0e" },
+            { "android/GlobalAliases.cs", "92f7a6997223c2874aae8a596d69f0f52cfac1da8f01b0bdce47c29c32e417d1" },
+            { "android/HoldBridges.cs", "982ad14e89afc8337a9b30b51dd0ccdddbeee9b7e3a1c21acf326fdec457c916" },
             { "android/MobileCalendar.cs", "f0d174125f0e3771a906712f52398e422f7812862b8614b3ecc709a385271633" },
             { "android/MobileGenerationMenu.cs", "f226e36b04aa2feaa239c2758f3c47858d526017edee062560035d178632c00b" },
             { "android/MobilePlayerMenu.cs", "28524aaa69d061e2e618643e975ef8a8e19ab15666e1fe2be70bcdd92300fb33" },
@@ -1170,6 +1170,9 @@ internal static class ArtifactChecks
         // registration, the Vegetation router) is frozen with its final bytes; the shared
         // il2cpp/PatchWorld_DeerPopulation.cs itself is a frozen actual entry; the rest of the
         // #122/#127/#130/#134/#136/#138 surface stays ordinary frozen entries.
+        // Issue #142 (B0): android/GlobalAliases.cs gains the Coatsink -> Il2CppCoatsink
+        // namespace alias and android/HoldBridges.cs gains the LogDebug -> MelonDebug.Msg
+        // thin bridge; their updated exact hashes remain checked, not skipped.
         var intentionallyChanged = new HashSet<string>
         {
             "android/FloatLayout.cs", "android/MobilePlayerConfig.cs",
