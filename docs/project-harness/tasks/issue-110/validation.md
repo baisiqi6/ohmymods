@@ -12,9 +12,9 @@
 | `il2cpp/CoinCourierLeisureCoin.cs` | 新增：纯相位采样 + 每 view 惰性金币子对象 + 共享 4px 程序金币 |
 | `il2cpp/CoinCourierVisuals.cs` | 接线：view 句柄 `LeisureCoin`、Render 金币采样（含同帧去重命中分支）、Destroy/Shutdown 资源归还 |
 
-测试：`tests/coin-courier-visuals/{Regression.csproj,Stubs.cs,Program.cs}`（新 4 用例 + 预览导出 +
+测试：`tests/coin-courier-visuals/{Regression.csproj,Stubs.cs,Program.cs}`（新 8 用例 + 预览导出 +
 stub 补 `Texture2D.SetPixels32/Apply`）、`tests/coin-courier-visual-lifecycle/{csproj,Program.cs}`
-（新 3 用例，既有 11 条断言未改）。
+（新 4 用例，既有 11 条断言未改）。
 
 工具/产物：`tools/preview_coin_courier_leisure.py`（新）、
 `artifacts/coin-courier-leisure-20261003/{samples.json,preview.gif,contact-sheet.png,preview-manifest.json}`（新）。
@@ -124,3 +124,13 @@ fake-null：丢纹理后下一帧有界重建（精确 1 次）且金币继续�
 ## 8. 用户确认 V1 范围（2026-10-04）
 
 先交付金币动作，沿用原图集；逐帧脸部统一留作实机反馈后的 V2。本文件前述资源验证仍仅覆盖该金币显示代码，不将其转述为游戏内观感已验。上述旧基线/构建哈希代表当时的候选；最终公线兼容、组合构建和安装另记录。
+
+## 9. V1 当前公线与累计安装候选验证（2026-10-04）
+
+已在 `release/v9.5.13 @ 0107c8ce` 上重新验证：visuals31/0、lifecycle15/0、runtimebridge223 checks；独立 limited-fresh Reviewer 同样复跑通过，264 预览采样与已提交哈希一致，未操作游戏。
+
+Mac 当前累计候选10.8.38 / DLL `28865425746ee148554d151f6dbd48287b14951390547e39b7351c96b1c01f9a` 的精确冻结输入321项与161实际引用重核通过。仅替换 Visuals、加入 LeisureCoin，两处构建版本元数据改为10.9.38；322输入核验、34 PNG逐字节保持。真实引用 Release 构建0 warning/0 error。
+
+准备安装的10.9.38 DLL SHA256：`8c58686b99abe8010a35c7fd3dd2769734363e9acc0816c97deeac3aa1aba6fe`。Cecil核验34内嵌资源保持；仅既有View/Visuals与新helper所需编译器静态float数据改变，其余1261既有类型的方法签名、IL及字段常量在版本字面量归一后相同，旧编译器RVA数据保持。此静态核验不证明Unity实机观感。
+
+代码以对应PR合并结果收尾。当前游戏运行中；候选仍未安装，必须玩家正常保存退出后按固定hash、源码/引用与冷安装guard备份替换，配置/存档/其它运行文件不变。脸部一致性按用户决定留作体验后的V2；没有正式tag/release。

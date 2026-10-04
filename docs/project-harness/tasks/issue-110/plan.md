@@ -17,7 +17,7 @@
 - 工具/产物：**新增** `tools/preview_coin_courier_leisure.py`、
   `artifacts/coin-courier-leisure-20261003/{samples.json,preview.gif,contact-sheet.png,preview-manifest.json}`。
 - 未改：`CoinCourierRuntime/CoinCourierRuntimeRules/CoinCourierCoinFlight/CoinCourierShop/
-  CoinCourierEconomy/CoinCourierPersistence/CoinCourierTeleportFx`、33 张 PNG/atlas、
+  CoinCourierEconomy/CoinCourierPersistence/CoinCourierTeleportFx`、全部 PNG/atlas、
   `tools/prepare_coin_courier_b_atlas.py` 与旧 manifest、版本号、配置项、Harmony hook、
   Mono 线、经济/存档/网络行为。
 
