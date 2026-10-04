@@ -1054,10 +1054,13 @@ public static class PatchWorld_TowerSpots
                             }
                         }
                     }
-                    // 复审#7 P1-2：不合格段退一步——前邻离群点会吞掉梯子首点
-                    //（右带实算：151.6 被失败段消耗致 161.6 残留）。j ≥ scan+1
-                    // 保证 scan 严格递增不死循环。
-                    scan = len >= LadderMinRun ? j : j - 1;
+                    // 复审#7 P1-2：不合格段退一步——前邻离群点会吞掉梯子首点。
+                    // Codex R2 P1（探针实证）：尾点（len==1, j==scan+1）时
+                    // j-1==scan 不前进 → 主线程死循环；贴脸间隙≤1 早退同理。
+                    // 递增下限保证终止；保留离群前点可作下一段首点的意图。
+                    int next = len >= LadderMinRun ? j : j - 1;
+                    if (next <= scan) next = scan + 1;
+                    scan = next;
                 }
             }
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
