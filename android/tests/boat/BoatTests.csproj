@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Host-side scenario checks for the actual Android boat-capacity patch source
+       (android/PatchWorld_BoatCapacity.cs) plus the shared policy constants
+       (il2cpp/BoatCapacityProfile.cs, linked read-only), compiled against minimal typed
+       boundary doubles (Stubs.cs): the Il2Cpp.Boat four int properties with counted,
+       injectable get/set failures, the MelonLoader logger/preferences stubs shared with
+       the adapter suite, and a ModConfig double with the two real member shapes the patch
+       reads. The doubles model only the recorded native consumption shape (Boat.OnEnable
+       reads the four max fields before Embarkable::RegisterUnitSlots); they never
+       reimplement the Prefix/End algorithm and they are host evidence, not
+       Unity/Harmony/IL2CPP gameplay proof.
+       Run: dotnet run -c Release (see android/README.md). -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <AssemblyName>BoatTests</AssemblyName>
+    <RootNamespace>OhMyMods.AndroidProbe.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../PatchWorld_BoatCapacity.cs" />
+    <Compile Include="../../../il2cpp/BoatCapacityProfile.cs" />
+    <Compile Include="../MelonLoggerStub.cs" />
+    <Compile Include="../MelonPreferencesStub.cs" />
+    <Compile Include="Stubs.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+
+</Project>

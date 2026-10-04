@@ -30,10 +30,10 @@ public static class Boat_MainCapacity_Patch
         __state.Knights = __instance.maxKnights;
         __state.Pikemen = __instance.maxPikemen;
         __state.Farmers = __instance.maxFarmers;
-        __instance.maxWorkers = 8;
-        __instance.maxKnights = 6;
-        __instance.maxPikemen = 8;
-        __instance.maxFarmers = 3;
+        __instance.maxWorkers = BoatCapacityProfile.Workers;
+        __instance.maxKnights = BoatCapacityProfile.Knights;
+        __instance.maxPikemen = BoatCapacityProfile.Pikemen;
+        __instance.maxFarmers = BoatCapacityProfile.Farmers;
     }
 
     [HarmonyPostfix]

@@ -30,13 +30,14 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 |---|---|
 | `Probe.cs` | MelonLoader 入口、显式 Harmony 注册、浮球组件与触摸守卫 |
 | `MobileUiInputSurface.cs` | Issue #119 原生 UGUI 命中面（新增）：两个透明 `Image` 命中区与 IMGUI 球/展开面板同矩形，由 `ProbeTicker` 生命周期驱动；不改原生菜单/输入标志 |
-| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 484 / World 562 / Player 484 / Population 376，绘制与触摸同源） |
+| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 484 / World 640 / Player 484 / Population 376，绘制与触摸同源） |
 | `MobileCalendar.cs` `CalendarSnapshot.cs` | 日历显示（开关直读 `CalendarEnabled` entry，切换时保存） |
 | `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（只读缓存） |
-| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 10 个 entry（速度、无限体力、Hold、坐骑技能冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
+| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 11 个 entry（速度、无限体力、Hold、坐骑技能冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
 | `MobilePlayerMenu.cs` | Player 页 UI（speed / stamina / hold / steed cooldown / back；冷却文案相对当次 currentCD 的下一次技能调用，不承诺回溯或 prefab 倍率；中性文案 "Device settings"） |
-| `MobileWorldMenu.cs` | World 页 UI（enemies / threat growth / infinite money / stock cats / fast build / back；六行 98/176/254/332/410/488，面板 562）。猫开关只影响以后关卡加载时的补齐，不删除已有猫；快速建造开关只影响后续每次原生 `InitializeBuild` 调用（前缀在 `_hasStarted` 早退之前写 rate，关闭不热还原已写入实例的 rate）；Back 只置 `Layout.WorldPage=false` |
+| `MobileWorldMenu.cs` | World 页 UI（enemies / threat growth / infinite money / stock cats / fast build / extra boat crew / back；七行 98/176/254/332/410/488/566，面板 640）。猫开关只影响以后关卡加载时的补齐，不删除已有猫；快速建造开关只影响后续每次原生 `InitializeBuild` 调用（前缀在 `_hasStarted` 早退之前写 rate，关闭不热还原已写入实例的 rate）；船容量开关只作用于以后新初始化的船（`Boat.OnEnable` 借用窗口），关闭不删除/不热改已登记的 slots；Back 只置 `Layout.WorldPage=false` |
 | `PatchWorld_Mover.cs` `PatchRide_InfiniteStamina.cs` `PatchRide_SteedCooldown.cs` | 速度倍率、无限体力与坐骑技能冷却调用级倍率补丁（显式注册；冷却四个消费者共享一个 Finalizer，无 PC instanceID 缓存/扫场） |
+| `PatchWorld_BoatCapacity.cs` | 主船乘员容量（`BoatCapacityEnabled`，默认 OFF）薄适配：`Boat.OnEnable` 一个 prefix + 一个 Finalizer，在原生 `Embarkable::RegisterUnitSlots` 消费窗口内借用四个 max 字段（目标值来自共享 `BoatCapacityProfile`），调用结束后按 exact int 等值逐字段归还；不写 slots/船位置/航海/存档/native gate，不给登记早退或权限门加补偿 |
 | `OptionalQoLScope.cs` | 本机世界/层/场景闸门 |
 | `GlobalAliases.cs` | 把共享桌面源的裸游戏类型名映射到 Android interop 的 `Il2Cpp.*` |
 | `AndroidCoroutine.cs` | BepInEx `WrapToIl2Cpp` 的 Android 薄桥：loader `MonoEnumeratorWrapper` + 原 owner 的 `StartCoroutine`（无全局 owner、无 GC 守卫） |
@@ -46,6 +47,7 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 | `../il2cpp/PatchWorld_EnemyManager.cs` | 未修改链接的生产源（`AddEnemies` 数量倍率、`GetEnemies` 三个成长天数倍率前缀；默认 1x 不介入） |
 | `../il2cpp/PatchWorld_FarmCats.cs` `../il2cpp/FarmCatMovement.cs` `../il2cpp/GreekScaleScope.cs` | 链接的生产源（农舍猫 + 移动驱动 + 缩放作用域；相对桌面版仅 2 处 `#if` 平台边界，见下） |
 | `../il2cpp/PatchWorld_Construction.cs` | 未修改链接的生产源（`ConstructionBuildingComponent.InitializeBuild` public 前缀：`Enabled && FastBuild` 时写 `_autoBuildRate=50f`；默认 OFF 不介入） |
+| `../il2cpp/BoatCapacityProfile.cs` | 链接的共享策略常量（Workers=8 / Knights=6 / Pikemen=8 / Farmers=3；纯常量、无方法/状态），PC 与 Android 编译同一份 |
 
 ## 功能范围与状态
 
@@ -56,17 +58,18 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   分节，不 SetFilePath 自写路径、不每帧读回、不重试、不镜像状态。
   键与默认值：`SpeedMultiplier=1`、`InfiniteSteedStamina=false`、`HoldPurchaseEnabled=false`、
   `SteedCooldownMultiplier=1`、`CalendarEnabled=false`、`EnemyCountMultiplier=1`、`EnemyTimelineSpeed=1`、
-  `InfiniteMoney=false`、`FarmCatsEnabled=false`、`FastBuild=false`。加载边界各一次：速度 clamp 1–5；两个敌人 float 倍率有限值 clamp
+  `InfiniteMoney=false`、`FarmCatsEnabled=false`、`FastBuild=false`、`BoatCapacityEnabled=false`。加载边界各一次：速度 clamp 1–5；两个敌人 float 倍率有限值 clamp
   1–5、坐骑冷却倍率有限值 clamp 0.2–1（UI 档位 1→0.8→0.6→0.4→0.2→1，载入中间值落到下一较低
   20% 档，如 0.5→0.4）；NaN/Infinity（手工编辑 cfg 的非法输入）回 1 并各 Warning 一次——`Math.Clamp(NaN,…)`
   会返回 NaN，故显式判非有限；只改内存，不回写。切换时恰好一次
   `Category.SaveToFile(printmsg:false)`；失败由 loader 自身 `MelonLogger.Error` 输出真实
-  异常（实际 IL 已核），UI 不承诺“已保存”，10 个 entry 都不另存镜像
+  异常（实际 IL 已核），UI 不承诺“已保存”，11 个 entry 都不另存镜像
   （`Enabled` 是无 UI、不持久化的会话总开关）。`InfiniteMoney` 的原生静态开关只在初始化
   与每次切换各写一次（entry 改 → apply → save），不订阅事件、不每帧写；`ModConfig`
-  本体零 `Il2Cpp.*` 引用，写入由 `Probe.cs` 的 lambda 承担。`FastBuild` 只有值翻转 +
-  日志 + 一次 save，不订阅事件、不做配置镜像/读回/retry。冷启动 `ANDROID_SETTINGS_READY`
-  行按同序追加 `cats=<bool>`、`fastBuild=<bool>`、`cooldown=<float>`。
+  本体零 `Il2Cpp.*` 引用，写入由 `Probe.cs` 的 lambda 承担。`FastBuild` 与
+  `BoatCapacityEnabled` 只有值翻转 + 日志 + 一次 save，不订阅事件、不做配置镜像/读回/retry，
+  也不因开关切换扫描或热改已登记状态。冷启动 `ANDROID_SETTINGS_READY`
+  行按同序追加 `cats=<bool>`、`fastBuild=<bool>`、`cooldown=<float>`、`boat=<bool>`。
 - 长按续买（Hold purchase）：共享桌面源链接编译，默认 OFF（不写钱包/库存）。
 - 敌人参数（C2）：`../il2cpp/PatchWorld_EnemyManager.cs` 未修改链接；两个前缀分别缩放
   `AddEnemies` 的数量 multiplier 与 `GetEnemies` 的三个成长天数 int（`Mathf.RoundToInt`
@@ -97,6 +100,17 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   Finalizer 始终原样返回传入的原生 exception（不重试、不补偿）。未移植 PC 的
   instanceID→(Native,LastApplied) 缓存与 SettingChanged 扫场（其原生来源/生命周期
   未证且不需要）。Glide 体力不足的原生 `time+3` 路径不消费 `_cooldown`，保持 3 秒。
+- 主船乘员容量（`BoatCapacityEnabled`，默认 OFF，Android 专用薄适配）：`PatchWorld_BoatCapacity.cs`
+  只在 `Boat.OnEnable` 一个 prefix + 一个 Finalizer。原生 OnEnable 在本窗口内读 maxKnights →
+  maxWorkers → `_archerPositions` 长度 →（`CanPikemenAndFarmersEmbarkMainBoat` 门后）maxPikemen →
+  maxFarmers，逐项交给 `Embarkable::RegisterUnitSlots`；补丁先完整读取四个当前 max（不用 ctor
+  默认 3 冒充），全部成功才发布借用状态，每字段先记 attempt 责任位再写共享 profile 目标值
+  （Workers=8 / Knights=6 / Pikemen=8 / Farmers=3）。成功与原生异常路径都只由 Finalizer 内联一次
+  End：按 exact int 等值逐字段归还进入值，不同值保留并记 Warning（不识别写入者、同值外部写不可
+  区分），单字段失败只记 Error、不阻其它字段、不重试；prefix 自身写失败时内联清理一次并清空
+  state，Finalizer 无债可还。OFF 或会话关闭零读零写零 state；不写 slots/船位置/航海/存档/native
+  gate，不给登记早退或权限门加补偿，也不热改已登记 slots；Pike/Farmer 的原生权限门保持。
+  弓箭手容量是 `_archerPositions` 数组长度，本补丁不映射也不改；真实登船/航海玩法未验。
 - 农舍猫（`FarmCatsEnabled`，默认 OFF）：共享源 `PatchWorld_FarmCats.cs` /
   `FarmCatMovement.cs` / `GreekScaleScope.cs` 以链接方式编译，平台边界仅 2 处 `#if`——
   `GreekScaleScope.Tick` 的 `ScaleRegistryHolder.RetryPendingCreation()` 只在非 Android 编译
@@ -144,6 +158,10 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
      冷启动 `ANDROID_HOOK_COUNTS` 记录 Buff/Speed 一次，reported 入口 18 个 unique）。
      HarmonyX 2.10.2 的 `__state` 局部量按 patch 类 FullName 分配，因此同一 target 上的体力
      前缀与本类前缀各自持有 state，共享 Finalizer 只会拿到本类的 `Borrow`。
+  11. 船容量注册：`Il2Cpp.Boat.OnEnable()`（无参）唯一注册到共享 `PatchWorld_BoatCapacity.Prefix` +
+     `Finalizer`，冷启动 `ANDROID_HOOK_COUNTS` 应含该 target 的 `parameters=0 prefixes=1 postfixes=0
+     finalizers=1` 与 `ANDROID_BOAT_CAPACITY_HOOK_INSTALLED sharedPolicy=true nativeSlotInitialization=true`；
+     reported 入口由 18 增至 19 个 unique。
 - 独立 Android API35 ARM64 模拟器已验：四设置首次默认值、界面切换、配置读回和进程
   重启恢复；隔离配置的保存故障可见日志；去 lease 后三速度入口九组原生 API 对照及
   2x/5x 正常触屏移动；体力 ON/OFF 的原生消耗与速率归还。诊断插件仅用于采证。
@@ -205,6 +223,20 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   确认 4 prefix + 共享 Finalizer（internal static、无 Harmony 特性、`(SteedAbility, out Borrow)` /
   `(Exception, Borrow)` 签名）与 `get/set__cooldown`、五个坐骑 interop 类型引用。真实技能
   触发、手机/联机未验（当前自然坐骑 `playerSteedAbilities=0`，不制造能力/身份）。
+- 已做（Issue #130 源码阶段，取代上述 0.0.12/#122/#127 的 World 562/10-entry/268 数字）：真实
+  interop/loader/SupportModules 引用编译 0 warning / 0 error（-t:Rebuild，新增
+  `android/PatchWorld_BoatCapacity.cs` 与链接 `il2cpp/BoatCapacityProfile.cs`，各一份）；boat host
+  场景工程 `android/tests/boat` 55 passed / 0 failed（第 2/4 getter 失败零写零 state、原生窗口读
+  8/6/8/3 后归还各进入值、第 2 写者写前/后失败仅 attempt 字段有责、原生异常 identity、cleanup 单字段
+  读写失败互不阻塞不重试、窗口内外部不同值保留/同值不可区分、途中配置切换仍按捕获清理、默认 OFF
+  零触达；host doubles，不冒充 Unity/Harmony/IL2CPP）；适配层 host 默认 299 passed / 0 failed、
+  seeded 档 225、4.5 档 233、`--seed-cooldown=0.5` 227、`--seed-boat` 228、`--oldcfg` 225，全部 0 failed；
+  产物元数据确认 1 prefix + 1 Finalizer（internal static、无 Harmony 特性、`(Boat, out Borrow)` /
+  `(Exception, Borrow)` 签名）、`Il2Cpp.Boat` 与 `get/set_maxWorkers`…`maxFarmers` 成员引用、共享
+  profile 四个 int 常量（8/6/8/3）；PC 侧 baseline（72a2 固定快照）/候选（当前 il2cpp 快照）隔离构建
+  （SDK8/net6、不部署）：全程序集逐方法比较（指令/局部变量/EH）零差异，唯一新增
+  `BoatCapacityProfile` 四常量（8/6/8/3、无方法），8 个内嵌资源逐字节相同，`Boat_MainCapacity_Patch`
+  五方法的 MetaDump 输出逐字节一致（const 内联后进入值与基线一致）。真实船容量/登船/航海未验。
 - 已验（Issue #122）：私有精确候选安装、原生 InitializeBuild 入口与正常付款建造、
   ON/OFF 不热应用/还原、配置冷读回及单 main 16 个 reported 各一份（见末节）。
   全部施工类型、对象池复用、其它 rate 写入者、手机/联机/跨岛仍未验；不公开分发 APK。
@@ -251,6 +283,12 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 getter/setter/cleanup 次数，不冒充 Unity/Harmony/IL2CPP 运行）：
 
     <dotnet10>/dotnet run -c Release --project android/tests/cooldown/CooldownTests.csproj
+
+船容量场景（host doubles，链接实际生产 `PatchWorld_BoatCapacity.cs` + 共享
+`il2cpp/BoatCapacityProfile.cs`；断言四个 max 的消费值、进入值归还与 getter/setter/cleanup
+次数，不冒充 Unity/Harmony/IL2CPP 运行）：
+
+    <dotnet10>/dotnet run -c Release --project android/tests/boat/BoatTests.csproj
 
 共享行为套件（仓库根 `tests/hold-purchase`，链接同一份未修改生产源，只执行不修改）：
 
@@ -362,3 +400,18 @@ loader读回0.8且界面显示0.8，原九项设置保持。保存文件的0.800
 解锁或激活技能。上述证明是加载注册与真实UI设置持久化，不能证明真实技能冷却、Finalizer
 状态运行期注入或新版本协程首yield时序。手机/平板、有技能坐骑、对象池、跨岛和联机仍待验。
 仅代码交付，待对应PR正常合并及任务入口收尾；无公开APK、tag/release或PC/手机部署。
+
+## Issue #130 船员容量的设备边界
+
+精确 0.0.15 候选 Main `aa099c9f…` / 私有 APK `5508739d…` 在同一 Android API35 ARM64
+MoltenVK 模拟器安装成功。安装后启动前完整偏好及原生存档与备份逐字节相同。19 个唯一
+方法及参数数量的钩子读回（Boat.OnEnable 为 1 prefix / 0 postfix / 1 finalizer），旧18形状保持，
+日志无 ERROR；加载器既有场景索引/支持模块等 Warning 仍保留，没有把无 ERROR 写成无 Warning。
+World 640 七行实际显示，Boat物理点击 (180,528)、Back (180,606) 与命中矩形相符。
+真实 UI OFF→ON、冷启动 loaded=true、UI ON→OFF、最终冷启 loaded=false，原十项偏好保持。
+菜单中 Back 回 Mod Home，原生 Campaign 页面未因该点击打开；收起球后原生 Options 正常打开。
+最终仅主 Mod 在 Mods，游戏已停止。22313 原包成员逐字节保持（含 AndroidManifest），仅
+加载入口及测试重签的签名清单变化；助手不打包、不公开分发。
+
+本次没有新船初始化或登船样本，没有证明 native 借用、槽位物化、真实人数、职业权限门、航行、
+池复用、全部外部消费者、手机/平板或联机。源码及设置可交付，玩法继续单列待验。

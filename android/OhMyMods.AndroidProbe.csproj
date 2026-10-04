@@ -12,7 +12,8 @@
            -p:LoaderRuntimeDir=<dir with MelonLoader.dll, 0Harmony.dll, Il2CppInterop.Runtime.dll> ^
            -p:SupportModuleDir=<dir with the loader's SupportModules\Il2Cpp.dll (MonoEnumeratorWrapper)>
 
-       The unmodified desktop sources il2cpp/PatchPlayer_HoldPurchase.cs,
+       The unmodified desktop sources il2cpp/BoatCapacityProfile.cs,
+       il2cpp/PatchPlayer_HoldPurchase.cs,
        il2cpp/PatchWorld_EnemyManager.cs, il2cpp/PatchWorld_FarmCats.cs, il2cpp/FarmCatMovement.cs,
        il2cpp/GreekScaleScope.cs and il2cpp/PatchWorld_Construction.cs
        are linked read-only (Compile Include below); bare game
@@ -55,7 +56,9 @@
     <Compile Include="PatchRide_InfiniteStamina.cs" />
     <Compile Include="PatchRide_SteedCooldown.cs" />
     <Compile Include="PatchWorld_Mover.cs" />
+    <Compile Include="PatchWorld_BoatCapacity.cs" />
     <!-- Unmodified production sources, linked read-only. -->
+    <Compile Include="../il2cpp/BoatCapacityProfile.cs" Link="Production/BoatCapacityProfile.cs" />
     <Compile Include="../il2cpp/PatchPlayer_HoldPurchase.cs" Link="Production/PatchPlayer_HoldPurchase.cs" />
     <Compile Include="../il2cpp/PatchWorld_EnemyManager.cs" Link="Production/PatchWorld_EnemyManager.cs" />
     <Compile Include="../il2cpp/PatchWorld_FarmCats.cs" Link="Production/PatchWorld_FarmCats.cs" />

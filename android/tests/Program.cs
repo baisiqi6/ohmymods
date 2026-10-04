@@ -60,6 +60,7 @@ internal static class Program
         float? seededCooldown = null;
         bool oldCfg = false;
         bool seedFastBuild = false;
+        bool seedBoat = false;
         var artifactArgs = new List<string>();
         foreach (string arg in args)
         {
@@ -75,6 +76,8 @@ internal static class Program
                 oldCfg = true;
             else if (arg == "--seed-fast-build")
                 seedFastBuild = true;
+            else if (arg == "--seed-boat")
+                seedBoat = true;
             else
                 artifactArgs.Add(arg);
         }
@@ -111,8 +114,13 @@ internal static class Program
             MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "FastBuild", true);
             Console.WriteLine("mode: pre-seeded cfg FastBuild true");
         }
+        if (seedBoat)
+        {
+            MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "BoatCapacityEnabled", true);
+            Console.WriteLine("mode: pre-seeded cfg BoatCapacityEnabled true");
+        }
         LayoutChecks();
-        ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg, seedFastBuild, seededCooldown);
+        ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg, seedFastBuild, seededCooldown, seedBoat);
         EnemyMathChecks.Run();
         if (artifactArgs.Count < 1)
             Checks.Check(false, "artifact path argument missing (pass the built OhMyMods.AndroidProbe.dll path)");
@@ -149,6 +157,8 @@ internal static class Program
         var layout = new FloatLayout();
         layout.Resize(1280f, 720f);
         Checks.Check(Math.Abs(layout.Scale - 1f) < 1e-4f, "scale is 1.0 at 1280x720");
+        Checks.Check(Math.Abs(layout.Diameter - 48f) < 1e-4f, "orb visual diameter stays 48");
+        Checks.Check(Math.Abs(layout.TouchSize - 72f) < 1e-4f, "orb square touch target stays 72");
         Checks.Check(Math.Abs(layout.PanelHeight - 484f) < 1e-4f, "home panel height is 484 (five rows)");
         layout.Expanded = true;
         Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 478f), "touch filter covers the 484-high home panel bottom row");
@@ -157,11 +167,11 @@ internal static class Program
         Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 478f), "touch filter covers the 484-high player panel bottom row");
         layout.PlayerPage = false;
         layout.WorldPage = true;
-        Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "world page panel height is 562 (six rows)");
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 556f), "touch filter covers the 562-high world panel bottom row");
+        Checks.Check(Math.Abs(layout.PanelHeight - 640f) < 1e-4f, "world page panel height is 640 (seven rows)");
+        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 630f), "touch filter covers the 640-high world panel bottom row (Back ends at 630)");
         layout.WorldPage = false;
         Checks.Check(Math.Abs(layout.PanelHeight - 484f) < 1e-4f, "Back out of the world page restores the 484-high home panel");
-        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 556f), "the restored home panel no longer covers the six-row boundary");
+        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 630f), "the restored home panel no longer covers the seven-row boundary");
         layout.PopulationPage = true;
         Checks.Check(Math.Abs(layout.PanelHeight - 376f) < 1e-4f, "population panel height stays 376");
         Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 400f), "population panel keeps its 376 touch boundary");
@@ -169,7 +179,7 @@ internal static class Program
         Checks.Check(Math.Abs(layout.PanelHeight - 484f) < 1e-4f, "closing the subpages restores the 484-high home panel");
     }
 
-    private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg, bool seededFastBuild, float? seededCooldown)
+    private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg, bool seededFastBuild, float? seededCooldown, bool seededBoat)
     {
         var applied = new List<bool>();
         int expectedWarnings = (seededEnemyCount.HasValue && !IsFinite(seededEnemyCount.Value) ? 1 : 0)
@@ -185,7 +195,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 10, "Initialize creates exactly ten entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 11, "Initialize creates exactly eleven entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -196,6 +206,7 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/FarmCatsEnabled default=False"), "FarmCatsEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/FastBuild default=False"), "FastBuild is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SteedCooldownMultiplier default=1"), "SteedCooldownMultiplier is declared with default 1");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/BoatCapacityEnabled default=False"), "BoatCapacityEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "Initialize never writes the cfg");
         Checks.Check(applied.Count == 1 && !applied[0], "cold start applies InfiniteMoney=false through the seam exactly once");
         Checks.Check(MelonLoader.MelonLogger.WarningCalls == expectedWarnings, "the load boundary warns exactly once per non-finite seeded multiplier");
@@ -204,8 +215,9 @@ internal static class Program
         float expectedEnemyTimeline = seededEnemyTimeline.HasValue ? ExpectedMultiplier(seededEnemyTimeline.Value) : 1f;
         float expectedCooldown = seededCooldown.HasValue ? ExpectedCooldown(seededCooldown.Value) : 1f;
         string expectedFastBuild = seededFastBuild ? "True" : "False";
+        string expectedBoat = seededBoat ? "True" : "False";
 
-        bool seeded = seededSpeed.HasValue || seededEnemyCount.HasValue || seededEnemyTimeline.HasValue || oldCfg || seededFastBuild || seededCooldown.HasValue;
+        bool seeded = seededSpeed.HasValue || seededEnemyCount.HasValue || seededEnemyTimeline.HasValue || oldCfg || seededFastBuild || seededCooldown.HasValue || seededBoat;
         if (seeded)
         {
             int expectedSpeed = seededSpeed.HasValue ? Math.Clamp(seededSpeed.Value, 1, 5) : (oldCfg ? 3 : 1);
@@ -222,11 +234,13 @@ internal static class Program
                 seededFastBuild ? "a seeded FastBuild key loads ON at the load boundary" : "a cfg without the FastBuild key keeps FastBuild OFF");
             Checks.Check(Config.SteedCooldownMultiplier.Value == expectedCooldown,
                 "SteedCooldownMultiplier is " + Describe(expectedCooldown) + "x after the load boundary (0.2..1 clamp, non-finite fallback 1)");
+            Checks.Check(Config.BoatCapacityEnabled.Value == seededBoat,
+                seededBoat ? "a seeded BoatCapacityEnabled key loads ON at the load boundary" : "a cfg without the BoatCapacityEnabled key keeps it OFF");
             Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "the load-boundary clamp/fallback does not write the cfg");
             Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=" + expectedSpeed
                 + " stamina=" + oldCfg + " hold=" + oldCfg + " calendar=" + oldCfg
                 + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild
-                + " cooldown=" + expectedCooldown,
+                + " cooldown=" + expectedCooldown + " boat=" + expectedBoat,
                 "cold-start ready line reports the effective values");
             if (seededEnemyCount == 4.5f && seededEnemyTimeline == 4.5f)
             {
@@ -251,6 +265,14 @@ internal static class Program
                 Checks.Check(Config.SteedCooldownMultiplier.Value == 0.4f, "cycling a loaded 0.5 cooldown multiplier selects the next lower 20% step (0.4x)");
                 Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == cooldownSaves + 1, "0.5->0.4 saves exactly once");
             }
+            if (seededBoat)
+            {
+                int boatSaves = MelonLoader.MelonPreferencesStub.SaveCalls;
+                Config.ToggleBoatCapacity();
+                Checks.Check(!Config.BoatCapacityEnabled.Value, "toggling the loaded ON boat-capacity switch turns it OFF");
+                Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_BOAT_CAPACITY enabled=False", "the boat-capacity toggle logs the switch state");
+                Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == boatSaves + 1, "one boat-capacity toggle saves exactly once");
+            }
             return;
         }
 
@@ -262,8 +284,9 @@ internal static class Program
             && !Config.CalendarEnabled.Value
             && !Config.InfiniteMoney.Value
             && !Config.FarmCatsEnabled.Value
-            && !Config.FastBuild.Value, "qol switches, InfiniteMoney, FarmCats and FastBuild default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1",
+            && !Config.FastBuild.Value
+            && !Config.BoatCapacityEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild and BoatCapacity default OFF");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
 
@@ -318,6 +341,15 @@ internal static class Program
         Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_FAST_BUILD enabled=False", "ToggleFastBuild logs the OFF state");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleFastBuild OFF saves exactly once");
 
+        Config.ToggleBoatCapacity();
+        Checks.Check(Config.BoatCapacityEnabled.Value, "ToggleBoatCapacity turns it ON");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_BOAT_CAPACITY enabled=True", "ToggleBoatCapacity logs the switch state");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleBoatCapacity ON saves exactly once");
+        Config.ToggleBoatCapacity();
+        Checks.Check(Config.BoatCapacityEnabled.Value == false, "ToggleBoatCapacity turns it OFF again");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_BOAT_CAPACITY enabled=False", "ToggleBoatCapacity logs the OFF state");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleBoatCapacity OFF saves exactly once");
+
         for (int next = 2; next <= 5; next++)
         {
             Config.CycleEnemyCount();
@@ -348,7 +380,7 @@ internal static class Program
         }
 
         Checks.Check(applied.Count == 3, "the InfiniteMoney seam fires only at Initialize and the two toggles (no subscription or per-frame write)");
-        Checks.Check(saves == 29, "twenty-nine switch actions produced twenty-nine saves");
+        Checks.Check(saves == 31, "thirty-one switch actions produced thirty-one saves");
     }
 
     private static float ExpectedMultiplier(float seeded)
@@ -434,7 +466,7 @@ internal static class ArtifactChecks
         "Il2Cpp.World", "Il2Cpp.NetworkBigBoss",
         "Il2Cpp.EnemyManager", "Il2Cpp.Wave", "Il2Cpp.Wallet",
         "Il2Cpp.Cat", "Il2Cpp.Farmhouse", "Il2Cpp.Pool", "Il2Cpp.Holder",
-        "Il2Cpp.ConstructionBuildingComponent",
+        "Il2Cpp.ConstructionBuildingComponent", "Il2Cpp.Boat",
         "Il2Cpp.SteedAbility", "Il2Cpp.BuffUnitsSteedAbility", "Il2Cpp.GlideMovementSteedAbility",
         "Il2Cpp.SpeedBoostSteedAbility", "Il2Cpp.SummonGhostSteedAbility",
         "Il2Cpp.BiomeHolder", "Il2Cpp.BiomeData", "Il2Cpp.Character", "Il2Cpp.Mover",
@@ -453,6 +485,8 @@ internal static class ArtifactChecks
         "TryCast", "get_Pointer",
         "get_InfiniteMoney", "set_InfiniteMoney", "RoundToInt",
         "get__cooldown", "set__cooldown",
+        "get_maxWorkers", "set_maxWorkers", "get_maxKnights", "set_maxKnights",
+        "get_maxPikemen", "set_maxPikemen", "get_maxFarmers", "set_maxFarmers",
         "SpawnOrInstantiate", "DespawnOrDestroy", "get_catPrefab", "GetBorderSideIntact"
     };
 
@@ -567,6 +601,43 @@ internal static class ArtifactChecks
                 "Finalizer(Exception, Borrow) signature returns the original exception");
         }
 
+        // Boat-capacity block (android/PatchWorld_BoatCapacity.cs + the shared policy
+        // il2cpp/BoatCapacityProfile.cs): the one Prefix + one Finalizer must land in the
+        // artifact with the Harmony __instance/__state shape and no auto-scan attributes, and
+        // the shared profile must be compiled in with the four contract constants (the consts
+        // are inlined at the use sites, so their literal values are checked directly).
+        var boat = FindType(reader, "KingdomEnhancedMod", "PatchWorld_BoatCapacity");
+        Checks.Check(!boat.IsNil, "artifact contains PatchWorld_BoatCapacity");
+        CheckHandlers(reader, boat, new Dictionary<string, int> { { "Prefix", 2 }, { "Finalizer", 2 } },
+            MethodAttributes.Assembly, "internal static");
+        if (!boat.IsNil)
+        {
+            bool boatHarmonyAttribute = false;
+            foreach (var handle in reader.GetTypeDefinition(boat).GetMethods())
+            {
+                var method = reader.GetMethodDefinition(handle);
+                foreach (var attributeHandle in method.GetCustomAttributes())
+                    if (AttributeTypeName(reader, reader.GetCustomAttribute(attributeHandle).Constructor).StartsWith("HarmonyLib."))
+                        boatHarmonyAttribute = true;
+            }
+            Checks.Check(!boatHarmonyAttribute, "PatchWorld_BoatCapacity carries no Harmony attributes (explicit registration only)");
+            var boatDefinition = reader.GetTypeDefinition(boat);
+            Checks.Check(SignatureTypes(reader, boatDefinition, "Prefix") == "Il2Cpp.Boat,Borrow&",
+                "Prefix(Boat, out Borrow) signature (Harmony __instance/__state shape)");
+            Checks.Check(SignatureTypes(reader, boatDefinition, "Finalizer") == "System.Exception,Borrow",
+                "Finalizer(Exception, Borrow) signature returns the original exception");
+        }
+
+        var profile = FindType(reader, "KingdomEnhancedMod", "BoatCapacityProfile");
+        Checks.Check(!profile.IsNil, "artifact contains the shared BoatCapacityProfile");
+        if (!profile.IsNil)
+        {
+            Checks.Check(ConstantValue(reader, profile, "Workers") == 8, "BoatCapacityProfile.Workers is the literal 8");
+            Checks.Check(ConstantValue(reader, profile, "Knights") == 6, "BoatCapacityProfile.Knights is the literal 6");
+            Checks.Check(ConstantValue(reader, profile, "Pikemen") == 8, "BoatCapacityProfile.Pikemen is the literal 8");
+            Checks.Check(ConstantValue(reader, profile, "Farmers") == 3, "BoatCapacityProfile.Farmers is the literal 3");
+        }
+
         var typeRefs = new HashSet<string>();
         foreach (var handle in reader.TypeReferences)
         {
@@ -652,6 +723,7 @@ internal static class ArtifactChecks
         "android/OptionalQoLScope.cs",
         "android/PatchRide_InfiniteStamina.cs",
         "android/PatchRide_SteedCooldown.cs",
+        "android/PatchWorld_BoatCapacity.cs",
         "android/PatchWorld_Mover.cs",
         "android/PopulationCounts.cs",
         "android/Probe.cs",
@@ -659,6 +731,7 @@ internal static class ArtifactChecks
         "android/tests/AdapterTests.csproj",
         "android/tests/MelonLoggerStub.cs",
         "android/tests/MelonPreferencesStub.cs",
+        "il2cpp/BoatCapacityProfile.cs",
         "il2cpp/FarmCatMovement.cs",
         "il2cpp/GreekScaleScope.cs",
         "il2cpp/PatchWorld_FarmCats.cs",
@@ -676,30 +749,33 @@ internal static class ArtifactChecks
             { "android/GlobalAliases.cs", "17c0300c95a2abbfb6ca621c5f36ee6e2449593898e44aab9322b460cb47d230" },
             { "android/HoldBridges.cs", "a9aafb9b4c55b6cf1600f21b99506b3ef1a1304aa722a3d87fd7cff8b8ee5b0e" },
             { "android/MobileCalendar.cs", "f0d174125f0e3771a906712f52398e422f7812862b8614b3ecc709a385271633" },
+            { "android/MobilePlayerMenu.cs", "26ef81dc00df6069c3e0ac0fdbb22c7abd01ffcdc5515aa1099ab745bffd7c67" },
             { "android/MobilePopulation.cs", "6dd431df541a4d2fd268eccfc3e9c757e5837cb8535acbd102bd05b6b1ed3f33" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
-            { "android/MobileWorldMenu.cs", "b29b2ce3670a51fb5a0d8800dc5d2496f6d8e7070410ae5e1d995419519be9a1" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PatchRide_InfiniteStamina.cs", "02a27e7c21d865596e23db3cdfe405dafb8c9e95f303e45481b24a5f72b280fc" },
             { "android/PatchRide_SteedCooldown.cs", "b29cfe6d93af38e0d49e33dc4254c501a7b5ee8c664ecf473ec499cadc01eb52" },
+            { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
             { "android/tests/AdapterTests.csproj", "aad4aba93718df35016419550c9dbee3e93407afae0b61c9ee3b77a8f67d841f" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
             { "android/tests/MelonPreferencesStub.cs", "43cb64d622d4b1827aff0229902a732d209b188400f628d088fde099337e38d2" },
+            { "il2cpp/BoatCapacityProfile.cs", "02d43c64922667e6e1f2d834bf29f28f8fbc683878dc27db1430abed4c11c2f2" },
             { "il2cpp/FarmCatMovement.cs", "02e37276ae1fd5ac697ef6b71c4cf5bd79f642981a4f3958667dde525be2a2a4" },
             { "il2cpp/GreekScaleScope.cs", "13d913b12e89338645847bb0f4d04fd4370bd808035e377766e2c5f9da530221" },
             { "il2cpp/PatchWorld_FarmCats.cs", "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f" },
             { "il2cpp/PatchWorld_Construction.cs", "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79" }
         };
-        // Issue #127 touches exactly these frozen sources: the Player panel height, the
-        // steed-cooldown config entry + cycle, the Player cooldown row and Back move, and the
-        // Operator's four-target registration (Probe) plus the new Compile Include. The
-        // MobileWorldMenu row and the rest of the #122 surface are now ordinary frozen entries.
+        // Issue #130 touches exactly these frozen sources: the World panel height (640) with the
+        // boat row and Back move, the boat-capacity config entry + toggle, and the Operator's
+        // Boat.OnEnable registration (Probe) plus the new Compile Includes for the adapter patch
+        // and the shared profile. The MobilePlayerMenu height change from #127 and the rest of
+        // the #122/#127 surface are now ordinary frozen entries.
         var intentionallyChanged = new HashSet<string>
         {
-            "android/FloatLayout.cs", "android/MobilePlayerConfig.cs", "android/MobilePlayerMenu.cs",
+            "android/FloatLayout.cs", "android/MobilePlayerConfig.cs", "android/MobileWorldMenu.cs",
             "android/Probe.cs", "android/OhMyMods.AndroidProbe.csproj"
         };
         foreach (string relative in FrozenSources)
@@ -771,6 +847,22 @@ internal static class ArtifactChecks
             default:
                 return "";
         }
+    }
+
+    // Reads a literal int field's constant from the artifact metadata (the shared profile's
+    // four policy constants), returning null when the field is missing or not an Int32 literal.
+    private static int? ConstantValue(MetadataReader reader, TypeDefinitionHandle type, string fieldName)
+    {
+        foreach (var handle in reader.GetTypeDefinition(type).GetFields())
+        {
+            var field = reader.GetFieldDefinition(handle);
+            if (reader.GetString(field.Name) != fieldName) continue;
+            if ((field.Attributes & FieldAttributes.Literal) == 0 || (field.Attributes & FieldAttributes.HasDefault) == 0) return null;
+            var constant = reader.GetConstant(field.GetDefaultValue());
+            if (constant.TypeCode != ConstantTypeCode.Int32) return null;
+            return reader.GetBlobReader(constant.Value).ReadInt32();
+        }
+        return null;
     }
 
     private static bool HasConstructorReference(MetadataReader reader, string typeName)
