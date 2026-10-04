@@ -3,7 +3,9 @@
   <!-- Android probe mod (Unity 6000.0.61f1, Il2CppInterop 1.5.1, LemonLoader MelonLoader net6).
        The game interop and loader runtime assemblies are referenced from external directories
        supplied on the command line; nothing is downloaded, installed, deployed or copied into
-       the output (Private=false). Missing directories fail with a clear MSBuild error.
+       the output (Private=false). Missing directories or missing UnityEngine.UI.dll /
+       UnityEngine.UIModule.dll (the Issue #119 native hit surface) fail with a clear MSBuild
+       error.
 
          dotnet build -c Release ^
            -p:GameInteropDir=<dir with Assembly-CSharp.dll and the UnityEngine.* / Il2Cpp*.dll interop assemblies> ^
@@ -40,6 +42,7 @@
     <Compile Include="MobilePlayerMenu.cs" />
     <Compile Include="MobileWorldMenu.cs" />
     <Compile Include="Probe.cs" />
+    <Compile Include="MobileUiInputSurface.cs" />
     <Compile Include="FloatInput.cs" />
     <Compile Include="FloatLayout.cs" />
     <Compile Include="TouchClaims.cs" />
@@ -67,6 +70,8 @@
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameInteropDir)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.Physics2DModule"><HintPath>$(GameInteropDir)/UnityEngine.Physics2DModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.IMGUIModule"><HintPath>$(GameInteropDir)/UnityEngine.IMGUIModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.UI"><HintPath>$(GameInteropDir)/UnityEngine.UI.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.UIModule"><HintPath>$(GameInteropDir)/UnityEngine.UIModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(GameInteropDir)/UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.TextRenderingModule"><HintPath>$(GameInteropDir)/UnityEngine.TextRenderingModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Il2Cppmscorlib"><HintPath>$(GameInteropDir)/Il2Cppmscorlib.dll</HintPath><Private>false</Private></Reference>
@@ -74,7 +79,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <_RequiredGameInterop Include="Assembly-CSharp.dll;UnityEngine.CoreModule.dll;UnityEngine.IMGUIModule.dll;UnityEngine.InputLegacyModule.dll;UnityEngine.TextRenderingModule.dll;UnityEngine.Physics2DModule.dll;Il2Cppmscorlib.dll;Il2CppSystem.Core.dll" />
+    <_RequiredGameInterop Include="Assembly-CSharp.dll;UnityEngine.CoreModule.dll;UnityEngine.IMGUIModule.dll;UnityEngine.UI.dll;UnityEngine.UIModule.dll;UnityEngine.InputLegacyModule.dll;UnityEngine.TextRenderingModule.dll;UnityEngine.Physics2DModule.dll;Il2Cppmscorlib.dll;Il2CppSystem.Core.dll" />
     <_RequiredLoaderRuntime Include="MelonLoader.dll;0Harmony.dll;Il2CppInterop.Runtime.dll" />
     <_RequiredSupportModule Include="Il2Cpp.dll" />
   </ItemGroup>

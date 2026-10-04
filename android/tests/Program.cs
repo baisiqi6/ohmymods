@@ -16,12 +16,37 @@ internal static class Checks
     internal static int Passed;
     internal static int Failed;
 
+    // Locates the repository checkout the tests were built from, independent of the
+    // working directory, by walking up from this source file's compiled-in path.
+    internal static string RepositoryRoot([System.Runtime.CompilerServices.CallerFilePath] string path = null)
+    {
+        var directory = new DirectoryInfo(Path.GetDirectoryName(Path.GetFullPath(path)));
+        while (directory != null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "AGENTS.md"))) return directory.FullName;
+            directory = directory.Parent;
+        }
+        return Path.GetDirectoryName(Path.GetFullPath(path));
+    }
+
     internal static void Check(bool condition, string what)
     {
         if (condition) { Passed++; return; }
         Failed++;
         Console.WriteLine("FAIL " + what);
     }
+
+    internal static string ComputeSha256(string absolutePath)
+    {
+        using var stream = File.OpenRead(absolutePath);
+        using var sha = System.Security.Cryptography.SHA256.Create();
+        var hash = sha.ComputeHash(stream);
+        var text = new System.Text.StringBuilder(hash.Length * 2);
+        foreach (byte value in hash) text.Append(value.ToString("x2", CultureInfo.InvariantCulture));
+        return text.ToString();
+    }
+
+
 }
 
 internal static class Program
@@ -456,6 +481,186 @@ internal static class ArtifactChecks
         var assemblyRefs = new HashSet<string>();
         foreach (var handle in reader.AssemblyReferences) assemblyRefs.Add(reader.GetString(reader.GetAssemblyReference(handle).Name));
         foreach (string required in RequiredAssemblies) Checks.Check(assemblyRefs.Contains(required), "references assembly " + required);
+
+        // Issue #119 hit surface: the two native UI DLLs and the four UGUI construction
+        // types must be real references of the artifact, not just compiled-away code.
+        Checks.Check(assemblyRefs.Contains("UnityEngine.UI"), "references assembly UnityEngine.UI");
+        Checks.Check(assemblyRefs.Contains("UnityEngine.UIModule"), "references assembly UnityEngine.UIModule");
+        Checks.Check(typeRefs.Contains("UnityEngine.UI.Image"), "references type UnityEngine.UI.Image");
+        Checks.Check(typeRefs.Contains("UnityEngine.UI.GraphicRaycaster"), "references type UnityEngine.UI.GraphicRaycaster");
+        Checks.Check(typeRefs.Contains("UnityEngine.Canvas"), "references type UnityEngine.Canvas");
+        Checks.Check(typeRefs.Contains("UnityEngine.RectTransform"), "references type UnityEngine.RectTransform");
+        Checks.Check(memberNames.Contains("set_raycastTarget") && memberNames.Contains("set_renderMode") && memberNames.Contains("set_sortingOrder"),
+            "references the Image/Canvas setters used to build the surface");
+
+        var surface = FindType(reader, "OhMyMods.AndroidProbe", "MobileUiInputSurface");
+        Checks.Check(!surface.IsNil, "artifact contains MobileUiInputSurface");
+        if (!surface.IsNil)
+        {
+            var definition = reader.GetTypeDefinition(surface);
+            Checks.Check((definition.Attributes & TypeAttributes.Sealed) != 0, "MobileUiInputSurface is sealed");
+            Checks.Check(TypeName(reader, definition.BaseType) == "System.Object",
+                "MobileUiInputSurface is a plain CLR class, not a MonoBehaviour");
+            var methods = new HashSet<string>();
+            foreach (var handle in definition.GetMethods()) methods.Add(reader.GetString(reader.GetMethodDefinition(handle).Name));
+            Checks.Check(SignatureTypes(reader, definition, "Sync") == "UnityEngine.GameObject,OhMyMods.AndroidProbe.FloatLayout,System.Boolean",
+                "MobileUiInputSurface.Sync(GameObject, FloatLayout, bool)");
+            Checks.Check(methods.Contains("Hide"), "MobileUiInputSurface.Hide()");
+            Checks.Check(methods.Contains("Dispose"), "MobileUiInputSurface.Dispose()");
+            Checks.Check(methods.Contains(".ctor"), "MobileUiInputSurface has a parameterless constructor");
+            // No new Harmony surface: the ticker drives this class directly.
+            bool harmonyAttribute = false;
+            foreach (var handle in definition.GetMethods())
+            {
+                var method = reader.GetMethodDefinition(handle);
+                foreach (var attributeHandle in method.GetCustomAttributes())
+                    if (AttributeTypeName(reader, reader.GetCustomAttribute(attributeHandle).Constructor).StartsWith("HarmonyLib."))
+                        harmonyAttribute = true;
+            }
+            Checks.Check(!harmonyAttribute, "MobileUiInputSurface carries no Harmony attributes");
+        }
+
+        VerifyFrozenSources();
+        Console.WriteLine("artifact sha256 " + Checks.ComputeSha256(dllPath));
+    }
+
+    // SHA-256 of the shared 0.0.11 sources frozen for the Issue #119 change: those files
+    // must stay byte-identical (the hit surface only reads FloatLayout; it must not
+    // duplicate or alter the geometry, input filtering or menus).
+    private static readonly string SourceRoot = Checks.RepositoryRoot();
+
+    private static readonly string[] FrozenSources =
+    {
+        "android/AssemblyInfo.cs",
+        "android/AndroidCoroutine.cs",
+        "android/CalendarSnapshot.cs",
+        "android/FloatInput.cs",
+        "android/FloatLayout.cs",
+        "android/GlobalAliases.cs",
+        "android/HoldBridges.cs",
+        "android/MobileCalendar.cs",
+        "android/MobilePlayerConfig.cs",
+        "android/MobilePlayerMenu.cs",
+        "android/MobilePopulation.cs",
+        "android/MobileWorldMenu.cs",
+        "android/OhMyMods.AndroidProbe.csproj",
+        "android/OptionalQoLScope.cs",
+        "android/PatchRide_InfiniteStamina.cs",
+        "android/PatchWorld_Mover.cs",
+        "android/PopulationCounts.cs",
+        "android/Probe.cs",
+        "android/TouchClaims.cs",
+        "android/tests/AdapterTests.csproj",
+        "android/tests/MelonLoggerStub.cs",
+        "android/tests/MelonPreferencesStub.cs",
+        "il2cpp/FarmCatMovement.cs",
+        "il2cpp/GreekScaleScope.cs",
+        "il2cpp/PatchWorld_FarmCats.cs"
+    };
+
+    private static void VerifyFrozenSources()
+    {
+        var known = new Dictionary<string, string>
+        {
+            { "android/AndroidCoroutine.cs", "c3f16218e82cc26f9f8e5b9ed9e74aa1f81b666da821f0acccf35133fd9ae265" },
+            { "android/AssemblyInfo.cs", "b5a7ade914d9e157d175ae9f7d42f40bb92cb608722875de4cd025ad50e86a14" },
+            { "android/CalendarSnapshot.cs", "0ece4765f9a5311707f1a9bf0d61c491846cd8e17327ac4d09773c37eb0fdb8e" },
+            { "android/FloatInput.cs", "17bccf9800a36c2cb1ffd0ee6e9f112f343951b0eae64acd7475afe93f6344a8" },
+            { "android/FloatLayout.cs", "f87f5b3f701381c5e19567fa8405bdafc777082d8f410debe125592f7bdde949" },
+            { "android/GlobalAliases.cs", "17c0300c95a2abbfb6ca621c5f36ee6e2449593898e44aab9322b460cb47d230" },
+            { "android/HoldBridges.cs", "a9aafb9b4c55b6cf1600f21b99506b3ef1a1304aa722a3d87fd7cff8b8ee5b0e" },
+            { "android/MobileCalendar.cs", "f0d174125f0e3771a906712f52398e422f7812862b8614b3ecc709a385271633" },
+            { "android/MobilePlayerConfig.cs", "4c29bfbfc9cac62a5e65d309a0ac0eef2c8d06aac721fb6fdb50087d7d4fe046" },
+            { "android/MobilePlayerMenu.cs", "adc0d244926bb9113636190d9655adf11dbda106ac87c270d6ccb0b9838d160c" },
+            { "android/MobilePopulation.cs", "6dd431df541a4d2fd268eccfc3e9c757e5837cb8535acbd102bd05b6b1ed3f33" },
+            { "android/MobileWorldMenu.cs", "0ffe8605bbe97c60ce7280deceb05e346e03353b602acfefe315cf8a1c851cd2" },
+            { "android/NuGet.Config", "a0775540245fdb474a74c9a81645ec7cb10dc781b6cccff45d65c1258813fafe" },
+            { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
+            { "android/PatchRide_InfiniteStamina.cs", "02a27e7c21d865596e23db3cdfe405dafb8c9e95f303e45481b24a5f72b280fc" },
+            { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
+            { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
+            { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
+            { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
+            { "android/tests/MelonPreferencesStub.cs", "43cb64d622d4b1827aff0229902a732d209b188400f628d088fde099337e38d2" },
+            { "il2cpp/FarmCatMovement.cs", "02e37276ae1fd5ac697ef6b71c4cf5bd79f642981a4f3958667dde525be2a2a4" },
+            { "il2cpp/GreekScaleScope.cs", "13d913b12e89338645847bb0f4d04fd4370bd808035e377766e2c5f9da530221" },
+            { "il2cpp/PatchWorld_FarmCats.cs", "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f" }
+        };
+        // The Issue #119 integration touches exactly these files; every other shared source
+        // is recorded above and must still hash to its 0.0.11 value.
+        var intentionallyChanged = new HashSet<string>
+        {
+            "android/Probe.cs", "android/OhMyMods.AndroidProbe.csproj", "android/README.md",
+            "android/tests/AdapterTests.csproj", "android/tests/Program.cs", "android/MobileUiInputSurface.cs"
+        };
+        foreach (string relative in FrozenSources)
+        {
+            string path = Path.Combine(SourceRoot, relative.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(path)) { Checks.Check(false, "frozen source present: " + relative); continue; }
+            string hash = Checks.ComputeSha256(path);
+            if (intentionallyChanged.Contains(relative)) continue;
+            if (!known.TryGetValue(relative, out string expected))
+            {
+                Checks.Check(false, "frozen source " + relative + " has no recorded hash");
+                continue;
+            }
+            Checks.Check(hash == expected, "frozen source unchanged: " + relative);
+        }
+    }
+
+    // Walks the raw method-signature blob by ECMA-335 element codes. BlobReader's
+    // ReadSignatureTypeCode maps TypeHandle tokens inconsistently with the raw element
+    // byte (observed 0x01 reported as Void on this runtime), so the element walk is done
+    // explicitly; only the well-formed shapes this artifact uses are decoded.
+    private static string SignatureTypes(MetadataReader reader, TypeDefinition definition, string methodName)
+    {
+        foreach (var handle in definition.GetMethods())
+        {
+            var method = reader.GetMethodDefinition(handle);
+            if (reader.GetString(method.Name) != methodName) continue;
+            var blob = reader.GetBlobReader(method.Signature);
+            blob.ReadByte(); // calling convention
+            int count = blob.ReadCompressedInteger();
+            WalkElementType(reader, ref blob); // return type
+            var names = new List<string>();
+            for (int index = 0; index < count; index++) names.Add(WalkElementType(reader, ref blob));
+            return string.Join(",", names);
+        }
+        return "";
+    }
+
+    private static string WalkElementType(MetadataReader reader, ref BlobReader blob)
+    {
+        byte element = blob.ReadByte();
+        if (element == 0x01) return "System.Void";
+        if (element == 0x02) return "System.Boolean";
+        if (element == 0x08) return "System.Int32";
+        if (element == 0x0C) return "System.Single";
+        if (element == 0x11 || element == 0x12) return BlobTypeName(reader, blob.ReadTypeHandle());
+        return "element-0x" + element.ToString("x2", CultureInfo.InvariantCulture);
+    }
+
+    private static string BlobTypeName(MetadataReader reader, EntityHandle handle)
+    {
+        switch (handle.Kind)
+        {
+            case HandleKind.TypeReference:
+            {
+                var reference = reader.GetTypeReference((TypeReferenceHandle)handle);
+                string ns = reader.GetString(reference.Namespace);
+                string name = reader.GetString(reference.Name);
+                return ns.Length == 0 ? name : ns + "." + name;
+            }
+            case HandleKind.TypeDefinition:
+            {
+                var definition = reader.GetTypeDefinition((TypeDefinitionHandle)handle);
+                string ns = reader.GetString(definition.Namespace);
+                string name = reader.GetString(definition.Name);
+                return ns.Length == 0 ? name : ns + "." + name;
+            }
+            default:
+                return "";
+        }
     }
 
     private static bool HasConstructorReference(MetadataReader reader, string typeName)

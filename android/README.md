@@ -13,7 +13,8 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
         android/OhMyMods.AndroidProbe.csproj
 
 - `GameInteropDir`：用户本机自有的目标 APK 经 Il2CppInterop 生成的互操作目录
-  （`Assembly-CSharp.dll`、`UnityEngine.*.dll`、`Il2Cppmscorlib.dll`、`Il2CppSystem.Core.dll` 等）。
+  （`Assembly-CSharp.dll`、`UnityEngine.*.dll`、`Il2Cppmscorlib.dll`、`Il2CppSystem.Core.dll` 等；
+  Issue #119 起还必须有 `UnityEngine.UI.dll` 与 `UnityEngine.UIModule.dll`，缺失即 MSBuild error）。
 - `LoaderRuntimeDir`：loader 部署中的 net6 运行时目录（`MelonLoader.dll`、`0Harmony.dll`、
   `Il2CppInterop.Runtime.dll` 等），例如 LemonLoader 部署层
   `assets/LemonLoader/runtime/loader/net6`。
@@ -28,6 +29,7 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 | 文件 | 用途 |
 |---|---|
 | `Probe.cs` | MelonLoader 入口、显式 Harmony 注册、浮球组件与触摸守卫 |
+| `MobileUiInputSurface.cs` | Issue #119 原生 UGUI 命中面（新增）：两个透明 `Image` 命中区与 IMGUI 球/展开面板同矩形，由 `ProbeTicker` 生命周期驱动；不改原生菜单/输入标志 |
 | `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 484 / World 484 / Player 406 / Population 376，绘制与触摸同源） |
 | `MobileCalendar.cs` `CalendarSnapshot.cs` | 日历显示（开关直读 `CalendarEnabled` entry，切换时保存） |
 | `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（只读缓存） |
@@ -99,7 +101,15 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
      `PatchWorld_FarmCats.Schedule`）与 `Cat.OnEnable/OnDisable/Update` 三个 handler
      的显式注册（handler 由链接源 `FarmCatMovement` 提供）；
   7. `Probe.OnUpdate` 调 `GreekScaleScope.Tick()`、`OnLateUpdate` 调
-     `GreekScaleScope.MaintainRegisteredY()`（Android 下 Tick 不再有 driver 创建重试段）。
+     `GreekScaleScope.MaintainRegisteredY()`（Android 下 Tick 不再有 driver 创建重试段）；
+  8. `ProbeTicker.OnGUI` 在 layout/绘制处理后调用
+     `MobileUiInputSurface.Sync(gameObject, Layout, UiReady)`，`CancelGesture` 调 `Hide()`，
+     `OnDestroy` 调 `Dispose()`。命中面是普通 CLR owner 类（非 MonoBehaviour driver、无新
+     Harmony、无全场 Find/常驻 retry）：`UiReady=false`/非 RunningGame 只隐藏不创建，
+     首次就绪时惰性创建 root（Canvas + GraphicRaycaster + 两个透明 `Image`），同步球区
+     `(X-TouchSize/2, Y-TouchSize/2, TouchSize, TouchSize)` 与展开面板
+     `(PanelX, PanelY, PanelWidth, PanelHeight)`，屏幕左上坐标转 UGUI 顶左锚点
+     `anchoredPosition (x, -y)`。该层在 API35 ARM64 的原生 Rewired UGUI 菜单上已验证命中与排序（见末节 0.0.12）。
 - 独立 Android API35 ARM64 模拟器已验：四设置首次默认值、界面切换、配置读回和进程
   重启恢复；隔离配置的保存故障可见日志；去 lease 后三速度入口九组原生 API 对照及
   2x/5x 正常触屏移动；体力 ON/OFF 的原生消耗与速率归还。诊断插件仅用于采证。
@@ -184,8 +194,14 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 直接相关 PC 回归（同样只链接未修改/边界源，不拉起无关套件）：`tests/farm-cats`、
 `tests/greek-scale-scope`、`tests/greek-scale-adapters`。
 
-本任务（农舍猫块）当前基线：默认 180 passed / 0 failed、seeded 档 131、4.5 小数档 139，
-三种形态全部 0 failed；host 测试只检查适配层与产物元数据，不伪造运行期猫池/存档结果。
+当前基线（0.0.12，含 Issue #119 命中面）：默认 217 passed / 0 failed、seeded 档 168、
+4.5 小数档 176，三种形态全部 0 failed。默认档比 0.0.11（180）多出的检查全部是产物/csproj
+元数据：`UnityEngine.UI`/`UnityEngine.UIModule` 两个 assembly 引用、`Image`/`GraphicRaycaster`/
+`Canvas`/`RectTransform` 类型引用与 setter、`MobileUiInputSurface` 的 sealed 非 MonoBehaviour
+形状、`Sync(GameObject, FloatLayout, bool)` 签名、无 Harmony 特性，以及共享源 SHA-256 冻结
+校验（25 条路径中 22 条 actual 校验；`Probe.cs`/`OhMyMods.AndroidProbe.csproj`/
+`tests/AdapterTests.csproj` 为有意改动，不参与冻结断言）。host 测试只检查适配层与产物
+元数据，不伪造运行期猫池/存档/透明命中结果，也不虚构 UnityRuntime。
 
 ## 0.0.10 隔离设备验证
 
@@ -214,7 +230,25 @@ Cat_norselands，原生 Persistent path 为 Prefabs/Characters/norselands/Cat_no
 这证明泛型接口、原生登记/注销与临时内存 payload 回放，不能代替文件读档、池缓存、
 真正农舍 stocking、运动/FSM 或 y=1.25 验收（当前岛 farmhouses=0）。诊断未随 APK 打包。
 
-已知输入问题另由 Issue #119 跟进：暂停菜单的原生 UGUI 按钮与悬浮面板区域重叠时，
-一次触摸可能同时点击两层。既有 actor 手势隔离不等于 UGUI 输入隔离，未在本阶段
-宣称此问题已修。支持模块 Il2Cpp 的依赖发现警告随后由 loader 成功加载解决，未改 Optional
-来隐藏该版本兼容边界。
+## 0.0.12 原生菜单触摸隔离验证（Issue #119）
+
+0.0.11 的 actor 手势隔离没有覆盖原生 UGUI 菜单；一次面板触摸会同时点击底层菜单。
+0.0.12 沿用原生 EventSystem/GraphicRaycaster，在浮球和展开面板的两个同源矩形上放透明
+Image 命中面。没有屏幕全覆盖层、原生菜单状态写入或新增 Harmony；既有触摸归属机制
+继续负责玩家移动/付款。只同步布局改变的矩形值，失焦/非 RunningGame 隐藏，owner 销毁时
+归还命中层，无新增驱动、周期场景扫描、镜像或重试。
+
+隔离 API35 ARM64 模拟器确认：原生 Menu Canvas order=2，Mod order=32760、同 sortingLayerID=0，
+alpha=0 的 Image 确实命中且排在底层按钮前；Home 的 World/Player 按钮不会再打开底层
+Campaign/Resume。面板外 Campaign 与收起后的 Resume 仍可点击。拖动到屏幕右侧后，
+面板矩形跟随布局，悬浮球四个矩形角均由原生 RaycastAll 命中 Ball。失焦后的首次采样中
+命中层已 inactive，返回后同一 owner 恢复；冷启动 Loading 阶段没有命中层，Playing 阶段
+仅一个 owner 根层。
+
+同一 Playing 会话中，普通右滑使原生玩家 x=-12→-8.94；打开浮球、Player、Back、Close
+四次实际触摸均保持 x=-8.94、coins=2，随后普通左滑到 x=-12.10。该结果证明本轮 UI
+与普通移动路径，没有代替真实购买或完整连续手势轨迹。只读诊断采证后已移出 Mods；
+主 Mod 单独冷启动，0.0.12 及 15 个已报告入口各一份，旧设置保持。诊断 DLL 未进 APK/PR。
+
+手机/平板、多指、分辨率变化、真实跨岛与文件读档切换仍待验，未称全部平台或场景通过。
+支持模块 Il2Cpp 的依赖发现警告随后由 loader 成功加载解决，未改 Optional 来隐藏兼容边界。
