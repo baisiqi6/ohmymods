@@ -52,6 +52,7 @@ public static class PatchWorld_WallSpots
     private const float OccupiedRatio = 0.6f;
     private const float GapEndMargin = 0.5f;          // 网格点距间隙端点的最小余量
     private const int MaxTotalPerPass = 60;           // 单轮补放总数硬上限（防御性）
+    private const float OffsetWindowCap = 8f;         // 偏移搜索窗口上限（复审#4 P2-3）
 
     private static bool _running;                     // 单轮 in-flight 门（主线程同步，双保险）
     private static float _lastPassTime = float.MinValue;
@@ -258,15 +259,16 @@ public static class PatchWorld_WallSpots
 
         // ---- per-gap 细分补放 ----
         int notBuildableMask = LayerMask.GetMask("NotBuildable"); // 每 pass 缓存一次（复审#2 P2-2）
-        int added = 0;
+        int added = 0, directPlaced = 0, offsetPlaced = 0, searchFailed = 0;
         foreach (GapCandidate candidate in candidates)
         {
             if (added >= MaxTotalPerPass) break;
             // 有界偏移搜索（实机#2：大间隙在 2x 下候选稀疏，单点恰落塔基脚印
-            // 会让整段空置）。先试精确网格点，被任意守卫拦住则在
-            // ±0.5×target 内按 1 单位步进找最近可用位；y/z 沿用该间隙端点值。
+            // 会让整段空置）。先试精确网格点，被任意守卫拦住则在窗口内按 1
+            // 单位步进找最近可用位；窗口= min(0.5×target, 8)（复审#4 P2-3 上限，
+            // 数学上 0.5t<端点 IsFree 半径 0.6t，任何偏移点不可能越过间隙端点）。
             float placedX = float.NaN;
-            float halfWindow = candidate.Target * 0.5f;
+            float halfWindow = Mathf.Min(candidate.Target * 0.5f, OffsetWindowCap);
             for (float offset = 0f; offset <= halfWindow && float.IsNaN(placedX); offset += 1f)
             {
                 float[] signs = offset == 0f ? new float[] { 1f } : new float[] { 1f, -1f };
@@ -275,19 +277,38 @@ public static class PatchWorld_WallSpots
                     float x = candidate.X + signs[si] * offset;
                     if (!IsFree(allX, x, candidate.Target * OccupiedRatio)) continue;
                     if (!TryPlaceX(x, candidate.Y, notBuildableMask)) continue;
+                    // footprint 源兜底：无原生模板时用 prefab（有 renderer/payable，
+                    // 避免整线已购边路恒 Unknown；复审#4 P1-2）。
+                    GameObject footprintSource = candidate.Template != null
+                        ? candidate.Template : prefab;
                     if (OverlapsNativePlacement(prefab, layer, x, null, out _,
-                        candidate.Template)) continue;
-                    if (OverlapsOccupiedRoots(roots, candidate.Template, x, null, layer)
-                        == OverlapResult.Overlap) continue;
+                        footprintSource)) continue;
+                    // 复核 fail-closed：Unknown 不放（与塔基判据/注释对齐，P1-2）。
+                    if (OverlapsOccupiedRoots(roots, footprintSource, x, null, layer)
+                        != OverlapResult.Clear) continue;
                     placedX = x;
                     break;
                 }
             }
-            if (float.IsNaN(placedX)) continue;
+            if (float.IsNaN(placedX))
+            {
+                searchFailed++;
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[WallSpots] candidate blocked gap=[" + candidate.A.x.ToString("F1")
+                    + "," + candidate.B.x.ToString("F1") + "] grid=" + candidate.X.ToString("F1")
+                    + " window=" + halfWindow.ToString("F1"));
+                continue;
+            }
+            // 偏移显著时按最终落位重取较近端点的 y/z（复审#4 P2-2）。
+            bool placedNearInner = Mathf.Abs(placedX - candidate.A.x)
+                <= Mathf.Abs(candidate.B.x - placedX);
+            float placedY = placedNearInner ? candidate.A.y : candidate.B.y;
+            float placedZ = placedNearInner ? candidate.A.z : candidate.B.z;
             GameObject spawned = SpawnSpot(world, prefab, layer, candidate.Template,
-                placedX, candidate.Y, candidate.Z);
+                placedX, placedY, placedZ, candidate.Target);
             if (spawned == null) continue;
             added++;
+            if (Mathf.Abs(placedX - candidate.X) < 0.01f) directPlaced++; else offsetPlaced++;
             // 新点即时进入全量占用（含 footprint 数据源，复审#2 P2-3：同轮
             // 后续点对它做实际 footprint 复核）。
             roots.Add(spawned);
@@ -298,7 +319,8 @@ public static class PatchWorld_WallSpots
             "[WallSpots] pass done: native=" + natives.Count
             + " wallLine=" + wallLine.Count
             + " kemUnbuilt=" + (kemBases.Count - retired)
-            + " added=" + added
+            + " added=" + added + " (direct=" + directPlaced + " offset=" + offsetPlaced + ")"
+            + " searchFailed=" + searchFailed
             + " clampedGaps=" + clampedGaps
             + " multiplier=" + multiplier.ToString("F2")
             + " retired=" + retired);
@@ -374,6 +396,8 @@ public static class PatchWorld_WallSpots
         public float Z;
         public float Target;
         public GameObject Template;
+        public Vector3 A; // 间隙内端点（y/z 随偏移落位重取较近端，复审#4 P2-2）
+        public Vector3 B; // 间隙外端点
     }
 
     /// <summary>
@@ -427,6 +451,8 @@ public static class PatchWorld_WallSpots
                         Z = nearInner ? a.z : b.z,
                         Target = target,
                         Template = template,
+                        A = a,
+                        B = b,
                     });
                 }
             }
@@ -456,13 +482,18 @@ public static class PatchWorld_WallSpots
             if (!CanRetire(spot, world, layer)) continue;
             float x = spot.transform.position.x;
 
-            // on-grid 容差按各间隙自己的目标间距取：有界偏移搜索（见补放）
-            // 落位的点在其网格点的 0.6×target 邻域内即视为成员，反复读档不 churn。
+            // on-grid 判据（复审#4 P1-1）：位置在候选网格点的 0.6×target 邻域
+            // 内，且名字编码的落位 target 与该候选当前 target 一致（档位切换后
+            // 旧点不再豁免，降档真正降密度）；旧名解析失败退回仅位置判据。
+            float? encodedTarget = ParseEncodedTarget(spot.name);
             bool onGrid = false;
             for (int i = 0; i < expected.Count; i++)
             {
                 if (Mathf.Abs(expected[i].X - x)
-                    <= expected[i].Target * OccupiedRatio) { onGrid = true; break; }
+                    > expected[i].Target * OccupiedRatio) continue;
+                if (encodedTarget.HasValue
+                    && Mathf.Abs(expected[i].Target - encodedTarget.Value) > 0.05f) continue;
+                onGrid = true; break;
             }
             bool overlapsOccupancy = OverlapsOccupiedRoots(
                 roots, spot, x, spot, layer) == OverlapResult.Overlap;
@@ -560,7 +591,7 @@ public static class PatchWorld_WallSpots
     /// 成功返回实例（调用方将其计入全量占用），失败返回 null。
     /// </summary>
     private static GameObject SpawnSpot(World world, GameObject prefab, Transform layer,
-        GameObject template, float x, float y, float z)
+        GameObject template, float x, float y, float z, float target)
     {
         if (!TryGetReadyContext(world, out _)) return null;
         GameObject spot = UnityEngine.Object.Instantiate(
@@ -576,7 +607,12 @@ public static class PatchWorld_WallSpots
             }
             FixedTransform fixedTransform = spot.GetComponent<FixedTransform>();
             if (fixedTransform != null) fixedTransform.Fix();
-            spot.name = MarkerPrefix + "_" + x.ToString("F1");
+            // 名字编码落位时的目标间距（复审#4 P1-1）：回收时据此区分"本档
+            // 合法偏移点"与"旧档位网格点"——档位切换后旧 t 与当前枚举不匹配
+            // 即 off-grid 回收，降档真正降密度；旧名（无 _t 后缀）解析失败退
+            // 回按当前容差判断（一次性遗留豁免，有界）。
+            spot.name = MarkerPrefix + "_" + x.ToString("F1")
+                + "_t" + target.ToString("F1");
             if (!TryGetReadyContext(world, out _))
                 throw new InvalidOperationException("wall spot registration context lost");
             NetworkPostbox.Instance.RegisterObject(spot, CRPCType.SemiStatic);
@@ -778,6 +814,24 @@ public static class PatchWorld_WallSpots
             KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
                 "[WallSpots] OnBordersChanged subscribe failed: " + e.Message);
         }
+    }
+
+    /// <summary>解析 KEM 名字后缀 _t&lt;target&gt;（无后缀/坏格式返回 null）。</summary>
+    private static float? ParseEncodedTarget(string name)
+    {
+        try
+        {
+            if (name == null) return null;
+            int idx = name.LastIndexOf("_t", StringComparison.Ordinal);
+            if (idx < 0) return null;
+            if (float.TryParse(name.Substring(idx + 2),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out float t)
+                && t >= MinTargetSpacing)
+                return t;
+        }
+        catch { }
+        return null;
     }
 
     private static bool IsSameHierarchy(GameObject candidate, GameObject root)
