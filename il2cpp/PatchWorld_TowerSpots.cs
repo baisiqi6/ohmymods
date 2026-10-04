@@ -247,6 +247,11 @@ public static class PatchWorld_TowerSpots
         BuildOccupancySnapshot(layer, snapshot, refGos, generatedBases);
 
         LogScatterMetadataOnce(prefab);
+        // Issue #125 联调诊断（WallSpotDiagnostics 门控）：一次性输出占用快照
+        // 全部 root 的 name+x+矩形范围——钉死"宽矩形占用者"与密度残留偏差，
+        // 不依赖回收复现。纯只读，每档加载一轮。
+        if (ModConfig.WallSpotDiagnostics != null && ModConfig.WallSpotDiagnostics.Value)
+            LogOccupancySnapshotRects(snapshot, layer);
 
         // User-authorized same-site duplicates may already be upgraded and have
         // lost the KEM name. Only an independent completed special tower is a
@@ -907,6 +912,50 @@ public static class PatchWorld_TowerSpots
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
                 "[TowerSpots] template metadata unavailable: " + e.Message);
+        }
+    }
+
+    /// <summary>
+    /// 诊断（Issue #125，WallSpotDiagnostics 门控）：占用快照 root 的矩形范围
+    /// 全量清单（每行最多 6 条，name[x .. rect-min..rect-max]）。只读。
+    /// </summary>
+    private static void LogOccupancySnapshotRects(OccupancySnapshot snapshot, Transform layer)
+    {
+        try
+        {
+            var sb = new System.Text.StringBuilder();
+            int lineCount = 0;
+            for (int i = 0; i < snapshot.Roots.Count; i++)
+            {
+                GameObject root = snapshot.Roots[i];
+                if (root == null || root.transform == null) continue;
+                if (lineCount == 0) sb.Append("[TowerSpots] occupancy-root-rects ");
+                try
+                {
+                    float x = root.transform.position.x;
+                    if (!IsLiveOccupant(snapshot, root, layer))
+                        sb.Append(root.name).Append('@').Append(x.ToString("F1")).Append("[inactive] ");
+                    else if (TryGetCombinedOverlapRegion(root, x, false, out Rect r))
+                        sb.Append(root.name).Append('@').Append(x.ToString("F1"))
+                          .Append('[').Append(r.xMin.ToString("F1")).Append("..")
+                          .Append(r.xMax.ToString("F1")).Append("] ");
+                    else
+                        sb.Append(root.name).Append('@').Append(x.ToString("F1")).Append("[no-rect] ");
+                }
+                catch { sb.Append(root.name).Append("[err] "); }
+                if (++lineCount >= 6)
+                {
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(sb.ToString());
+                    sb.Clear(); lineCount = 0;
+                }
+            }
+            if (lineCount > 0)
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(sb.ToString());
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                "[TowerSpots] occupancy diag failed: " + e.Message);
         }
     }
 
