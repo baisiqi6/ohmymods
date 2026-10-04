@@ -85,6 +85,7 @@ public static class PatchWorld_TowerSpots
     private const float OccupiedRatio = 0.6f;   // 距离守卫 = 0.6×目标间距
     private const float OutwardExtension = 1f;  // 越过最外侧原生基底再外扩 1 个原生间距
     private const int MaxPerSide = 40;          // 网格点数硬上限（防御性）
+    private const float WallStructuralHalf = 2.5f; // 复审#5：策略性占用上限（非实测结构宽；BackgroundWall 过滤后的二级钳制）
 
     // per-world 指针守卫：赋值时机在全部就绪检查（holder/prefab/参考集）通过
     // 之后、实际放点之前——瞬时未就绪只跳过本次，不会永久吞掉该世界
@@ -713,9 +714,9 @@ public static class PatchWorld_TowerSpots
         {
             if (go == null) return 0f;
             string t = go.tag;
-            return t == "Wall" || t == "WallWreck" ? 2.5f : 0f;
+            return t == "Wall" || t == "WallWreck" ? WallStructuralHalf : 0f;
         }
-        catch { return 0f; }
+        catch { return WallStructuralHalf; } // 复审#5 P2：失败回退到钳制值（fail-closed），不回中毒矩形
     }
 
     private static bool TryGetVisualBounds(GameObject go, float x, out float minX, out float maxX)
@@ -727,10 +728,35 @@ public static class PatchWorld_TowerSpots
             float rootX = go.transform.position.x;
             if (!float.IsFinite(rootX)) return false;
             Renderer[] renderers = go.GetComponentsInChildren<Renderer>(true);
+            // 复审#5 P1 根因形态：墙根的背景墙段（BackgroundWall 子系统）把渲染
+            // 并集拉成长带（实测每根墙外延 ~5.4）。对 Wall/WallWreck 根在数据
+            // 源处排除 BackgroundWall 子树的渲染器，保留真实墙块宽度；数值
+            // 钳制（WallStructuralHalf）作为二级防线保留。
+            var bgSet = default(HashSet<IntPtr>);
+            if (StructuralHalfCapFor(go) > 0f)
+            {
+                var bgWalls = go.GetComponentsInChildren<BackgroundWall>(true);
+                if (bgWalls != null && bgWalls.Length > 0)
+                {
+                    bgSet = new HashSet<IntPtr>();
+                    for (int b = 0; b < bgWalls.Length; b++)
+                        if (bgWalls[b] != null && bgWalls[b].transform != null)
+                            bgSet.Add(bgWalls[b].transform.Pointer);
+                }
+            }
             bool found = false;
             foreach (Renderer renderer in renderers)
             {
                 if (renderer == null) continue;
+                if (bgSet != null && renderer.transform != null)
+                {
+                    bool underBg = false;
+                    for (Transform t = renderer.transform.parent; t != null; t = t.parent)
+                    {
+                        if (bgSet.Contains(t.Pointer)) { underBg = true; break; }
+                    }
+                    if (underBg) continue;
+                }
                 Bounds bounds = renderer.bounds;
                 float lo = bounds.min.x, hi = bounds.max.x;
                 if (!float.IsFinite(lo) || !float.IsFinite(hi)) return false;
