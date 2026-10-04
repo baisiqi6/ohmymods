@@ -3,6 +3,20 @@ using System.Collections.Generic;
 using System.Globalization;
 using Il2CppInterop.Runtime;
 using UnityEngine;
+#if ANDROID
+// Android（Il2CppInterop namespace-prefix 模式）把 Assembly-CSharp 的全局类型放在 Il2Cpp.* 下；
+// 本文件与 PC 共用同一份逻辑，仅在此把文件用到的游戏类型显式映射到实际 interop 类型，
+// 其余代码（含 PC 分支）逐字相同。UnityEngine/Il2CppSystem/IL2CPP 类型在两个平台同名，无需映射。
+using ContentLayers = Il2Cpp.ContentLayers;
+using IntRange = Il2Cpp.IntRange;
+using Level = Il2Cpp.Level;
+using LevelBlock = Il2Cpp.LevelBlock;
+using LevelBlockGroup = Il2Cpp.LevelBlockGroup;
+using LevelLayout = Il2Cpp.LevelLayout;
+using Persistent = Il2Cpp.Persistent;
+using PoolStamper = Il2Cpp.PoolStamper;
+using Tile = Il2Cpp.Tile;
+#endif
 
 namespace KingdomEnhancedMod;
 

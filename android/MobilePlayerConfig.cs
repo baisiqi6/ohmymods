@@ -28,6 +28,7 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<bool> FarmCatsEnabled;
     internal static MelonPreferences_Entry<bool> FastBuild;
     internal static MelonPreferences_Entry<bool> BoatCapacityEnabled;
+    internal static MelonPreferences_Entry<float> MapSizeMultiplier;
 
     // InfiniteMoney 原生写（Il2Cpp.Wallet.InfiniteMoney）的唯一注入点：本文件保持零
     // Il2Cpp.* 引用（hosttests 直接编译同一份），由平台侧 Probe.OnInitializeMelon 传入
@@ -55,12 +56,14 @@ internal static class ModConfig
         FarmCatsEnabled = category.CreateEntry<bool>("FarmCatsEnabled", false);
         FastBuild = category.CreateEntry<bool>("FastBuild", false);
         BoatCapacityEnabled = category.CreateEntry<bool>("BoatCapacityEnabled", false);
+        MapSizeMultiplier = category.CreateEntry<float>("MapSizeMultiplier", 1f);
         // 手工编辑 cfg 可能写入越界值，在加载边界做唯一一次 clamp（不使用 validator：未证实
         // 可构造 ValueValidator 子类）；运行期不读回、不重试、不静默替换默认值。
         SpeedMultiplier.Value = Math.Clamp(SpeedMultiplier.Value, 1, 5);
         EnemyCountMultiplier.Value = SanitizeMultiplier("EnemyCountMultiplier", EnemyCountMultiplier.Value, 1f, 5f);
         EnemyTimelineSpeed.Value = SanitizeMultiplier("EnemyTimelineSpeed", EnemyTimelineSpeed.Value, 1f, 5f);
         SteedCooldownMultiplier.Value = SanitizeMultiplier("SteedCooldownMultiplier", SteedCooldownMultiplier.Value, 0.2f, 1f);
+        MapSizeMultiplier.Value = SanitizeMultiplier("MapSizeMultiplier", MapSizeMultiplier.Value, 1f, 5f);
         applyInfiniteMoney = moneyApplier;
         applyInfiniteMoney(InfiniteMoney.Value);
         MelonLogger.Msg("ANDROID_SETTINGS_READY category=" + CategoryIdentifier
@@ -74,7 +77,8 @@ internal static class ModConfig
             + " cats=" + FarmCatsEnabled.Value
             + " fastBuild=" + FastBuild.Value
             + " cooldown=" + SteedCooldownMultiplier.Value
-            + " boat=" + BoatCapacityEnabled.Value);
+            + " boat=" + BoatCapacityEnabled.Value
+            + " map=" + MapSizeMultiplier.Value);
     }
 
     // 三个倍率的加载边界：有限值 clamp 到 [min,max]；NaN/Infinity 是非法外部输入，回 1 并
@@ -168,6 +172,16 @@ internal static class ModConfig
     {
         BoatCapacityEnabled.Value = !BoatCapacityEnabled.Value;
         MelonLogger.Msg("ANDROID_WORLD_BOAT_CAPACITY enabled=" + BoatCapacityEnabled.Value);
+        Save();
+    }
+
+    // 地图长度档位 1→2→3→4→5→1；与敌人倍率同一 MathF.Floor 步进：先落到下一整数档再进一
+    // （4.5→5、5→1），合法载入的小数（如 4.5）不会被推成 5.5 越出 1..5 契约。倍率只被
+    // 新岛的原生生成 scope 读取；不改变已生成岛、不追溯/不重生成、不做运行期 clamp；切换一次落盘一次。
+    internal static void CycleMapSize()
+    {
+        MapSizeMultiplier.Value = MathF.Floor(MapSizeMultiplier.Value) % 5f + 1f;
+        MelonLogger.Msg("ANDROID_ISLAND_MAP_SIZE multiplier=" + MapSizeMultiplier.Value);
         Save();
     }
 

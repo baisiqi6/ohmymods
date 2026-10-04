@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.15", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.16", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.15 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.16 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
@@ -82,6 +82,14 @@ public sealed class Probe : MelonMod
   HarmonyInstance.Patch(boatOnEnable,prefix:new HarmonyMethod(boatPatchType,"Prefix"),finalizer:new HarmonyMethod(boatPatchType,"Finalizer"));
   LogHookCounts(boatOnEnable);
   LoggerInstance.Msg("ANDROID_BOAT_CAPACITY_HOOK_INSTALLED sharedPolicy=true nativeSlotInitialization=true");
+  var generateInternal=AccessTools.Method(typeof(Il2Cpp.Level),"GenerateInternal",new[]{typeof(Il2Cpp.LevelConfig),typeof(int)})??throw new MissingMethodException("Level.GenerateInternal(LevelConfig,int)");
+  var mapPatchType=typeof(KingdomEnhancedMod.PatchWorld_Level);
+  HarmonyInstance.Patch(generateInternal,prefix:new HarmonyMethod(mapPatchType,"Prefix"),postfix:new HarmonyMethod(mapPatchType,"Postfix"),finalizer:new HarmonyMethod(mapPatchType,"Finalizer"));
+  LogHookCounts(generateInternal);
+  var getBlocks=AccessTools.Method(typeof(Il2Cpp.LevelLayout),"GetBlocks",Type.EmptyTypes)??throw new MissingMethodException("LevelLayout.GetBlocks()");
+  HarmonyInstance.Patch(getBlocks,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.PatchWorld_Level_GetBlocks),"Postfix"));
+  LogHookCounts(getBlocks);
+  LoggerInstance.Msg("ANDROID_MAP_WIDTH_HOOKS_INSTALLED sharedSource=true newIslandGeneration=true");
   var worldLoaded=AccessTools.Method(typeof(Il2Cpp.World),"OnLevelLoaded",Type.EmptyTypes)??throw new MissingMethodException("World.OnLevelLoaded()");
   HarmonyInstance.Patch(worldLoaded,postfix:new HarmonyMethod(typeof(Probe),nameof(FarmCatsWorldLoaded)));
   LogHookCounts(worldLoaded);
@@ -192,7 +200,11 @@ public sealed class ProbeTicker : MonoBehaviour
     }
     labelStyle.fontSize=(int)(20*u);titleStyle.fontSize=(int)(22*u);buttonStyle.fontSize=(int)(20*u);
     GUI.Box(new Rect(px,py,Layout.PanelWidth,Layout.PanelHeight),"");
-    if(Layout.PlayerPage)
+    if(Layout.GenerationPage)
+    {
+     MobileGenerationMenu.Draw(px,py,u,labelStyle,titleStyle,buttonStyle);
+    }
+    else if(Layout.PlayerPage)
     {
      MobilePlayerMenu.Draw(px,py,u,labelStyle,titleStyle,buttonStyle);
     }
@@ -214,7 +226,8 @@ public sealed class ProbeTicker : MonoBehaviour
      if (GUI.Button(new Rect(px+16*u,py+176*u,248*u,64*u),"Population",buttonStyle))Layout.PopulationPage=true;
      if (GUI.Button(new Rect(px+16*u,py+254*u,248*u,64*u),"Player",buttonStyle))Layout.PlayerPage=true;
      if (GUI.Button(new Rect(px+16*u,py+332*u,248*u,64*u),"World",buttonStyle)) Layout.WorldPage=true;
-     if (GUI.Button(new Rect(px+16*u,py+410*u,248*u,64*u),"Close",buttonStyle)) Layout.Expanded=false;
+     if (GUI.Button(new Rect(px+16*u,py+410*u,248*u,64*u),"Island generation",buttonStyle)) Layout.GenerationPage=true;
+     if (GUI.Button(new Rect(px+16*u,py+488*u,248*u,64*u),"Close",buttonStyle)) Layout.Expanded=false;
     }
    }
    stage="input surface"; inputSurface.Sync(gameObject,Layout,UiReady);

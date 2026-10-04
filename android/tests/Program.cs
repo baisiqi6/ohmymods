@@ -58,6 +58,7 @@ internal static class Program
         float? seededEnemyCount = null;
         float? seededEnemyTimeline = null;
         float? seededCooldown = null;
+        float? seededMap = null;
         bool oldCfg = false;
         bool seedFastBuild = false;
         bool seedBoat = false;
@@ -72,6 +73,8 @@ internal static class Program
                 seededEnemyTimeline = ParseSeedFloat(timelineText);
             else if (TryFlag(arg, "--seed-cooldown=", out string cooldownText))
                 seededCooldown = ParseSeedFloat(cooldownText);
+            else if (TryFlag(arg, "--seed-map=", out string mapText))
+                seededMap = ParseSeedFloat(mapText);
             else if (arg == "--oldcfg")
                 oldCfg = true;
             else if (arg == "--seed-fast-build")
@@ -101,6 +104,11 @@ internal static class Program
             MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "SteedCooldownMultiplier", seededCooldown.Value);
             Console.WriteLine("mode: pre-seeded cfg SteedCooldownMultiplier " + Describe(seededCooldown.Value));
         }
+        if (seededMap.HasValue)
+        {
+            MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "MapSizeMultiplier", seededMap.Value);
+            Console.WriteLine("mode: pre-seeded cfg MapSizeMultiplier " + Describe(seededMap.Value));
+        }
         if (oldCfg)
         {
             if (!seededSpeed.HasValue) MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "SpeedMultiplier", 3);
@@ -120,7 +128,7 @@ internal static class Program
             Console.WriteLine("mode: pre-seeded cfg BoatCapacityEnabled true");
         }
         LayoutChecks();
-        ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg, seedFastBuild, seededCooldown, seedBoat);
+        ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg, seedFastBuild, seededCooldown, seedBoat, seededMap);
         EnemyMathChecks.Run();
         if (artifactArgs.Count < 1)
             Checks.Check(false, "artifact path argument missing (pass the built OhMyMods.AndroidProbe.dll path)");
@@ -159,9 +167,17 @@ internal static class Program
         Checks.Check(Math.Abs(layout.Scale - 1f) < 1e-4f, "scale is 1.0 at 1280x720");
         Checks.Check(Math.Abs(layout.Diameter - 48f) < 1e-4f, "orb visual diameter stays 48");
         Checks.Check(Math.Abs(layout.TouchSize - 72f) < 1e-4f, "orb square touch target stays 72");
-        Checks.Check(Math.Abs(layout.PanelHeight - 484f) < 1e-4f, "home panel height is 484 (five rows)");
+        Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "home panel height is 562 (generation row at 410 + Close at 488)");
         layout.Expanded = true;
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 478f), "touch filter covers the 484-high home panel bottom row");
+        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 552f), "touch filter covers the 562-high home panel Close row bottom (ends at 552)");
+        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 630f), "the home panel keeps its 562 touch boundary (seven-row 630 boundary free)");
+        layout.GenerationPage = true;
+        Checks.Check(Math.Abs(layout.PanelHeight - 250f) < 1e-4f, "generation page panel height is 250 (Length 98 + Back 176)");
+        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 130f), "touch filter covers the generation Length row (98..162)");
+        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 208f), "touch filter covers the generation Back row (176..240)");
+        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 260f), "generation panel keeps its 250 touch boundary");
+        layout.GenerationPage = false;
+        Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "Back out of the generation page restores the 562-high home panel");
         layout.PlayerPage = true;
         Checks.Check(Math.Abs(layout.PanelHeight - 484f) < 1e-4f, "player page panel height is 484 (five rows)");
         Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 478f), "touch filter covers the 484-high player panel bottom row");
@@ -170,21 +186,21 @@ internal static class Program
         Checks.Check(Math.Abs(layout.PanelHeight - 640f) < 1e-4f, "world page panel height is 640 (seven rows)");
         Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 630f), "touch filter covers the 640-high world panel bottom row (Back ends at 630)");
         layout.WorldPage = false;
-        Checks.Check(Math.Abs(layout.PanelHeight - 484f) < 1e-4f, "Back out of the world page restores the 484-high home panel");
-        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 630f), "the restored home panel no longer covers the seven-row boundary");
+        Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "Back out of the world page restores the 562-high home panel");
         layout.PopulationPage = true;
         Checks.Check(Math.Abs(layout.PanelHeight - 376f) < 1e-4f, "population panel height stays 376");
         Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 400f), "population panel keeps its 376 touch boundary");
         layout.PopulationPage = false;
-        Checks.Check(Math.Abs(layout.PanelHeight - 484f) < 1e-4f, "closing the subpages restores the 484-high home panel");
+        Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "closing the subpages restores the 562-high home panel");
     }
 
-    private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg, bool seededFastBuild, float? seededCooldown, bool seededBoat)
+    private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg, bool seededFastBuild, float? seededCooldown, bool seededBoat, float? seededMap)
     {
         var applied = new List<bool>();
         int expectedWarnings = (seededEnemyCount.HasValue && !IsFinite(seededEnemyCount.Value) ? 1 : 0)
             + (seededEnemyTimeline.HasValue && !IsFinite(seededEnemyTimeline.Value) ? 1 : 0)
-            + (seededCooldown.HasValue && !IsFinite(seededCooldown.Value) ? 1 : 0);
+            + (seededCooldown.HasValue && !IsFinite(seededCooldown.Value) ? 1 : 0)
+            + (seededMap.HasValue && !IsFinite(seededMap.Value) ? 1 : 0);
         bool rejected = false;
         try { Config.Initialize(null); }
         catch (ArgumentNullException) { rejected = true; }
@@ -195,7 +211,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 11, "Initialize creates exactly eleven entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 12, "Initialize creates exactly twelve entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -207,6 +223,7 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/FastBuild default=False"), "FastBuild is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SteedCooldownMultiplier default=1"), "SteedCooldownMultiplier is declared with default 1");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/BoatCapacityEnabled default=False"), "BoatCapacityEnabled is declared OFF");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/MapSizeMultiplier default=1"), "MapSizeMultiplier is declared with default 1");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "Initialize never writes the cfg");
         Checks.Check(applied.Count == 1 && !applied[0], "cold start applies InfiniteMoney=false through the seam exactly once");
         Checks.Check(MelonLoader.MelonLogger.WarningCalls == expectedWarnings, "the load boundary warns exactly once per non-finite seeded multiplier");
@@ -214,10 +231,11 @@ internal static class Program
         float expectedEnemyCount = seededEnemyCount.HasValue ? ExpectedMultiplier(seededEnemyCount.Value) : 1f;
         float expectedEnemyTimeline = seededEnemyTimeline.HasValue ? ExpectedMultiplier(seededEnemyTimeline.Value) : 1f;
         float expectedCooldown = seededCooldown.HasValue ? ExpectedCooldown(seededCooldown.Value) : 1f;
+        float expectedMap = seededMap.HasValue ? ExpectedMultiplier(seededMap.Value) : 1f;
         string expectedFastBuild = seededFastBuild ? "True" : "False";
         string expectedBoat = seededBoat ? "True" : "False";
 
-        bool seeded = seededSpeed.HasValue || seededEnemyCount.HasValue || seededEnemyTimeline.HasValue || oldCfg || seededFastBuild || seededCooldown.HasValue || seededBoat;
+        bool seeded = seededSpeed.HasValue || seededEnemyCount.HasValue || seededEnemyTimeline.HasValue || oldCfg || seededFastBuild || seededCooldown.HasValue || seededBoat || seededMap.HasValue;
         if (seeded)
         {
             int expectedSpeed = seededSpeed.HasValue ? Math.Clamp(seededSpeed.Value, 1, 5) : (oldCfg ? 3 : 1);
@@ -236,11 +254,13 @@ internal static class Program
                 "SteedCooldownMultiplier is " + Describe(expectedCooldown) + "x after the load boundary (0.2..1 clamp, non-finite fallback 1)");
             Checks.Check(Config.BoatCapacityEnabled.Value == seededBoat,
                 seededBoat ? "a seeded BoatCapacityEnabled key loads ON at the load boundary" : "a cfg without the BoatCapacityEnabled key keeps it OFF");
+            Checks.Check(Config.MapSizeMultiplier.Value == expectedMap,
+                "MapSizeMultiplier is " + Describe(expectedMap) + "x after the load boundary (1..5 clamp, non-finite fallback 1)");
             Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "the load-boundary clamp/fallback does not write the cfg");
             Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=" + expectedSpeed
                 + " stamina=" + oldCfg + " hold=" + oldCfg + " calendar=" + oldCfg
                 + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild
-                + " cooldown=" + expectedCooldown + " boat=" + expectedBoat,
+                + " cooldown=" + expectedCooldown + " boat=" + expectedBoat + " map=" + expectedMap,
                 "cold-start ready line reports the effective values");
             if (seededEnemyCount == 4.5f && seededEnemyTimeline == 4.5f)
             {
@@ -273,12 +293,23 @@ internal static class Program
                 Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_BOAT_CAPACITY enabled=False", "the boat-capacity toggle logs the switch state");
                 Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == boatSaves + 1, "one boat-capacity toggle saves exactly once");
             }
+            if (seededMap == 4.5f)
+            {
+                int mapSaves = MelonLoader.MelonPreferencesStub.SaveCalls;
+                Config.CycleMapSize();
+                Checks.Check(Config.MapSizeMultiplier.Value == 5f, "cycling a 4.5 map length steps to 5x instead of 5.5x");
+                Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == mapSaves + 1, "map length 4.5->5 saves exactly once");
+                Config.CycleMapSize();
+                Checks.Check(Config.MapSizeMultiplier.Value == 1f, "cycling the map length 5 wraps to 1x");
+                Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == mapSaves + 2, "map length 5->1 saves exactly once");
+            }
             return;
         }
 
         Checks.Check(Config.SpeedMultiplier.Value == 1, "speed multiplier defaults to 1x");
         Checks.Check(Config.EnemyCountMultiplier.Value == 1f && Config.EnemyTimelineSpeed.Value == 1f, "enemy multipliers default to 1x");
         Checks.Check(Config.SteedCooldownMultiplier.Value == 1f, "steed cooldown multiplier defaults to 1x");
+        Checks.Check(Config.MapSizeMultiplier.Value == 1f, "map length multiplier defaults to 1x (native layout)");
         Checks.Check(!Config.InfiniteSteedStamina.Value
             && !Config.HoldPurchaseEnabled.Value
             && !Config.CalendarEnabled.Value
@@ -286,7 +317,7 @@ internal static class Program
             && !Config.FarmCatsEnabled.Value
             && !Config.FastBuild.Value
             && !Config.BoatCapacityEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild and BoatCapacity default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False",
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
 
@@ -379,8 +410,18 @@ internal static class Program
             Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "CycleSteedCooldown to " + next + "x saves exactly once");
         }
 
+        for (int next = 2; next <= 5; next++)
+        {
+            Config.CycleMapSize();
+            Checks.Check(Config.MapSizeMultiplier.Value == next, "CycleMapSize advances to " + next + "x");
+            Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "CycleMapSize to " + next + "x saves exactly once");
+        }
+        Config.CycleMapSize();
+        Checks.Check(Config.MapSizeMultiplier.Value == 1f, "CycleMapSize wraps back to 1x");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "CycleMapSize wrap saves exactly once");
+
         Checks.Check(applied.Count == 3, "the InfiniteMoney seam fires only at Initialize and the two toggles (no subscription or per-frame write)");
-        Checks.Check(saves == 31, "thirty-one switch actions produced thirty-one saves");
+        Checks.Check(saves == 36, "thirty-six switch actions produced thirty-six saves");
     }
 
     private static float ExpectedMultiplier(float seeded)
@@ -472,6 +513,9 @@ internal static class ArtifactChecks
         "Il2Cpp.BiomeHolder", "Il2Cpp.BiomeData", "Il2Cpp.Character", "Il2Cpp.Mover",
         "Il2Cpp.Droppable", "Il2Cpp.Kingdom", "Il2Cpp.StateMachine", "Il2Cpp.Side",
         "Il2Cpp.Embarkee", "Il2Cpp.IslandSaveData", "Il2Cpp.Game", "Il2Cpp.Farmland", "Il2Cpp.GAPS",
+        "Il2Cpp.Level", "Il2Cpp.LevelConfig", "Il2Cpp.LevelLayout", "Il2Cpp.LevelBlock",
+        "Il2Cpp.LevelBlockGroup", "Il2Cpp.IntRange", "Il2Cpp.ContentLayers", "Il2Cpp.Persistent",
+        "Il2Cpp.PoolStamper", "Il2Cpp.Tile",
         "MelonLoader.Support.MonoEnumeratorWrapper", "Il2CppSystem.Collections.IEnumerator"
     };
 
@@ -487,6 +531,10 @@ internal static class ArtifactChecks
         "get__cooldown", "set__cooldown",
         "get_maxWorkers", "set_maxWorkers", "get_maxKnights", "set_maxKnights",
         "get_maxPikemen", "set_maxPikemen", "get_maxFarmers", "set_maxFarmers",
+        "get_blocks", "get__levelEdges", "get_groupOne", "get_groupTwo", "get_groupThree",
+        "get_absoluteCenter", "get_cameraBlockMarker", "get_isDangerSource", "get_persistObject",
+        "get_path", "get_targetPool", "get_noGround", "get_childCount", "GetChild", "GetComponents",
+        "il2cpp_class_get_name_", "TotalWidth",
         "SpawnOrInstantiate", "DespawnOrDestroy", "get_catPrefab", "GetBorderSideIntact"
     };
 
@@ -638,6 +686,47 @@ internal static class ArtifactChecks
             Checks.Check(ConstantValue(reader, profile, "Farmers") == 3, "BoatCapacityProfile.Farmers is the literal 3");
         }
 
+        // Map-width block (shared il2cpp/MapWidthPlanner.cs + il2cpp/MapWidthTerrain.cs +
+        // il2cpp/PatchWorld_Level.cs, linked read-only; the two adapter files only carry the
+        // #if ANDROID alias header). The planner/scope must land in the artifact, both hook
+        // types must carry the exact explicit-registration handler shapes, the GetBlocks
+        // postfix must bind the real Il2Cpp type shapes, and the native members the scope
+        // consumes must really be referenced (dead compiled-away code would not prove it).
+        var levelPatch = FindType(reader, "KingdomEnhancedMod", "PatchWorld_Level");
+        Checks.Check(!levelPatch.IsNil, "artifact contains PatchWorld_Level");
+        CheckHandlers(reader, levelPatch, new Dictionary<string, int>
+        {
+            { "Prefix", 1 }, { "Postfix", 2 }, { "Finalizer", 2 }
+        }, MethodAttributes.Private, "private static");
+        if (!levelPatch.IsNil)
+        {
+            var levelPatchDefinition = reader.GetTypeDefinition(levelPatch);
+            Checks.Check(SignatureTypes(reader, levelPatchDefinition, "Prefix") == "Frame&",
+                "PatchWorld_Level.Prefix(out MapWidthScope.Frame) signature (Harmony __state shape)");
+            Checks.Check(SignatureTypes(reader, levelPatchDefinition, "Postfix") == "Il2Cpp.Level,Frame",
+                "PatchWorld_Level.Postfix(Level, Frame) binds the actual Il2Cpp.Level alias");
+            Checks.Check(SignatureTypes(reader, levelPatchDefinition, "Finalizer") == "System.Exception,Frame",
+                "PatchWorld_Level.Finalizer(Exception, Frame) returns the original exception");
+        }
+
+        var blocksPatch = FindType(reader, "KingdomEnhancedMod", "PatchWorld_Level_GetBlocks");
+        Checks.Check(!blocksPatch.IsNil, "artifact contains PatchWorld_Level_GetBlocks");
+        CheckHandlers(reader, blocksPatch, new Dictionary<string, int> { { "Postfix", 2 } },
+            MethodAttributes.Private, "private static");
+        if (!blocksPatch.IsNil)
+            Checks.Check(SignatureTypes(reader, reader.GetTypeDefinition(blocksPatch), "Postfix")
+                == "Il2Cpp.LevelLayout,Il2CppSystem.Collections.Generic.List`1<Il2Cpp.LevelBlock>&",
+                "PatchWorld_Level_GetBlocks.Postfix(LevelLayout, ref List<LevelBlock>) binds the actual Il2Cpp shapes");
+
+        Checks.Check(!FindType(reader, "KingdomEnhancedMod", "MapWidthPlanner").IsNil,
+            "artifact contains the shared MapWidthPlanner");
+        var mapScope = FindType(reader, "KingdomEnhancedMod", "MapWidthScope");
+        Checks.Check(!mapScope.IsNil, "artifact contains the shared MapWidthScope");
+        CheckHandlers(reader, mapScope, new Dictionary<string, int>
+        {
+            { "Open", 3 }, { "Close", 2 }, { "Abort", 1 }, { "TryApply", 2 }
+        }, MethodAttributes.Assembly, "internal static");
+
         var typeRefs = new HashSet<string>();
         foreach (var handle in reader.TypeReferences)
         {
@@ -714,6 +803,7 @@ internal static class ArtifactChecks
         "android/GlobalAliases.cs",
         "android/HoldBridges.cs",
         "android/MobileCalendar.cs",
+        "android/MobileGenerationMenu.cs",
         "android/MobilePlayerConfig.cs",
         "android/MobilePlayerMenu.cs",
         "android/MobilePopulation.cs",
@@ -734,8 +824,11 @@ internal static class ArtifactChecks
         "il2cpp/BoatCapacityProfile.cs",
         "il2cpp/FarmCatMovement.cs",
         "il2cpp/GreekScaleScope.cs",
+        "il2cpp/MapWidthPlanner.cs",
+        "il2cpp/MapWidthTerrain.cs",
         "il2cpp/PatchWorld_FarmCats.cs",
-        "il2cpp/PatchWorld_Construction.cs"
+        "il2cpp/PatchWorld_Construction.cs",
+        "il2cpp/PatchWorld_Level.cs"
     };
 
     private static void VerifyFrozenSources()
@@ -749,9 +842,11 @@ internal static class ArtifactChecks
             { "android/GlobalAliases.cs", "17c0300c95a2abbfb6ca621c5f36ee6e2449593898e44aab9322b460cb47d230" },
             { "android/HoldBridges.cs", "a9aafb9b4c55b6cf1600f21b99506b3ef1a1304aa722a3d87fd7cff8b8ee5b0e" },
             { "android/MobileCalendar.cs", "f0d174125f0e3771a906712f52398e422f7812862b8614b3ecc709a385271633" },
+            { "android/MobileGenerationMenu.cs", "f226e36b04aa2feaa239c2758f3c47858d526017edee062560035d178632c00b" },
             { "android/MobilePlayerMenu.cs", "26ef81dc00df6069c3e0ac0fdbb22c7abd01ffcdc5515aa1099ab745bffd7c67" },
             { "android/MobilePopulation.cs", "6dd431df541a4d2fd268eccfc3e9c757e5837cb8535acbd102bd05b6b1ed3f33" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
+            { "android/MobileWorldMenu.cs", "e6c49e26a7c63f827e6a0a169279f7ea10896d0f9fd9fa06f57791216857b124" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PatchRide_InfiniteStamina.cs", "02a27e7c21d865596e23db3cdfe405dafb8c9e95f303e45481b24a5f72b280fc" },
             { "android/PatchRide_SteedCooldown.cs", "b29cfe6d93af38e0d49e33dc4254c501a7b5ee8c664ecf473ec499cadc01eb52" },
@@ -765,17 +860,21 @@ internal static class ArtifactChecks
             { "il2cpp/BoatCapacityProfile.cs", "02d43c64922667e6e1f2d834bf29f28f8fbc683878dc27db1430abed4c11c2f2" },
             { "il2cpp/FarmCatMovement.cs", "02e37276ae1fd5ac697ef6b71c4cf5bd79f642981a4f3958667dde525be2a2a4" },
             { "il2cpp/GreekScaleScope.cs", "13d913b12e89338645847bb0f4d04fd4370bd808035e377766e2c5f9da530221" },
+            { "il2cpp/MapWidthPlanner.cs", "3790b85fef8f36c822cec3d845a1ff90fb0a2dbcfaa295169966cc2ad036aa20" },
+            { "il2cpp/MapWidthTerrain.cs", "5fe7ccde3fcdf5ff99e169e17b13b8558b37e3f03d7d7294ada8649d6afa194b" },
             { "il2cpp/PatchWorld_FarmCats.cs", "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f" },
-            { "il2cpp/PatchWorld_Construction.cs", "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79" }
+            { "il2cpp/PatchWorld_Construction.cs", "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79" },
+            { "il2cpp/PatchWorld_Level.cs", "90f9f724db0d0f9353775f4284ed09d6d1782c125c5ad028e83b843b55e1315e" }
         };
-        // Issue #130 touches exactly these frozen sources: the World panel height (640) with the
-        // boat row and Back move, the boat-capacity config entry + toggle, and the Operator's
-        // Boat.OnEnable registration (Probe) plus the new Compile Includes for the adapter patch
-        // and the shared profile. The MobilePlayerMenu height change from #127 and the rest of
-        // the #122/#127 surface are now ordinary frozen entries.
+        // Issue #134 touches exactly these frozen sources: the float panel home height (562) with
+        // the generation-page height (250), the map-length config entry + cycle, the two explicit
+        // MapWidth hook registrations (Probe) and the Compile Includes for the linked map sources.
+        // The World 640/boat surface from #130 and the rest of the #122/#127 surface are now
+        // ordinary frozen entries; the two alias-header sources and the new menu are frozen with
+        // their #134 hashes because the issue owns their final bytes.
         var intentionallyChanged = new HashSet<string>
         {
-            "android/FloatLayout.cs", "android/MobilePlayerConfig.cs", "android/MobileWorldMenu.cs",
+            "android/FloatLayout.cs", "android/MobilePlayerConfig.cs",
             "android/Probe.cs", "android/OhMyMods.AndroidProbe.csproj"
         };
         foreach (string relative in FrozenSources)
@@ -823,6 +922,16 @@ internal static class ArtifactChecks
         if (element == 0x0C) return "System.Single";
         if (element == 0x10) return WalkElementType(reader, ref blob) + "&";
         if (element == 0x11 || element == 0x12) return BlobTypeName(reader, blob.ReadTypeHandle());
+        if (element == 0x15)
+        {
+            byte genericKind = blob.ReadByte(); // 0x11 VALUETYPE | 0x12 CLASS of the generic type definition
+            if (genericKind != 0x11 && genericKind != 0x12) return "genericinst-invalid";
+            string genericType = BlobTypeName(reader, blob.ReadTypeHandle());
+            int argumentCount = blob.ReadCompressedInteger();
+            var arguments = new List<string>();
+            for (int index = 0; index < argumentCount; index++) arguments.Add(WalkElementType(reader, ref blob));
+            return genericType + "<" + string.Join(",", arguments) + ">";
+        }
         return "element-0x" + element.ToString("x2", CultureInfo.InvariantCulture);
     }
 

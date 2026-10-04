@@ -1,5 +1,12 @@
 using System;
 using HarmonyLib;
+#if ANDROID
+// Android（Il2CppInterop namespace-prefix 模式）把 Assembly-CSharp 的全局类型放在 Il2Cpp.* 下；
+// 本文件与 PC 共用同一份 hook 定义，仅在此把文件用到的游戏类型显式映射到实际 interop 类型。
+using Level = Il2Cpp.Level;
+using LevelBlock = Il2Cpp.LevelBlock;
+using LevelLayout = Il2Cpp.LevelLayout;
+#endif
 
 namespace KingdomEnhancedMod;
 

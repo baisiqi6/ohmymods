@@ -15,9 +15,10 @@
        The unmodified desktop sources il2cpp/BoatCapacityProfile.cs,
        il2cpp/PatchPlayer_HoldPurchase.cs,
        il2cpp/PatchWorld_EnemyManager.cs, il2cpp/PatchWorld_FarmCats.cs, il2cpp/FarmCatMovement.cs,
-       il2cpp/GreekScaleScope.cs and il2cpp/PatchWorld_Construction.cs
-       are linked read-only (Compile Include below); bare game
-       type names are mapped by GlobalAliases.cs and Harmony auto-patch-all is suppressed by
+       il2cpp/GreekScaleScope.cs, il2cpp/PatchWorld_Construction.cs and il2cpp/MapWidthPlanner.cs
+       are linked read-only (Compile Include below); il2cpp/MapWidthTerrain.cs and
+       il2cpp/PatchWorld_Level.cs are linked with an #if ANDROID alias header only, and bare game
+       type names are mapped by GlobalAliases.cs; Harmony auto-patch-all is suppressed by
        AssemblyInfo.cs for explicit Operator registration. -->
 
   <PropertyGroup>
@@ -43,6 +44,7 @@
     <Compile Include="MobilePlayerConfig.cs" />
     <Compile Include="MobilePlayerMenu.cs" />
     <Compile Include="MobileWorldMenu.cs" />
+    <Compile Include="MobileGenerationMenu.cs" />
     <Compile Include="Probe.cs" />
     <Compile Include="MobileUiInputSurface.cs" />
     <Compile Include="FloatInput.cs" />
@@ -65,6 +67,11 @@
     <Compile Include="../il2cpp/FarmCatMovement.cs" Link="Production/FarmCatMovement.cs" />
     <Compile Include="../il2cpp/GreekScaleScope.cs" Link="Production/GreekScaleScope.cs" />
     <Compile Include="../il2cpp/PatchWorld_Construction.cs" Link="Production/PatchWorld_Construction.cs" />
+    <!-- Map-width block: the pure planner is linked unmodified; the two adapter files carry only an
+         #if ANDROID alias header mapping the game types onto the actual Il2Cpp interop types. -->
+    <Compile Include="../il2cpp/MapWidthPlanner.cs" Link="Production/MapWidthPlanner.cs" />
+    <Compile Include="../il2cpp/MapWidthTerrain.cs" Link="Production/MapWidthTerrain.cs" />
+    <Compile Include="../il2cpp/PatchWorld_Level.cs" Link="Production/PatchWorld_Level.cs" />
   </ItemGroup>
 
   <ItemGroup>

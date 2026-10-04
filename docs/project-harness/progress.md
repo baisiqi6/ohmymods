@@ -1,3 +1,9 @@
+## 2026-10-04 — Android 新岛地图长度（Issue #134，代码与一次自然生成验证完成，待交付收尾）
+
+共享 MapWidthPlanner（未改、hash 3790b85f…）与 MapWidthTerrain/PatchWorld_Level（仅文件头 `#if ANDROID` 别名）链接进 Android；`Level.GenerateInternal` 原生生成 scope + `LevelLayout.GetBlocks` 单次规划追加，默认 1x 零副作用，不复活 minLevelWidth、不加扫描/驱动/缓存/retry。12 entry、Home562 新增 Island generation 入口、Generation 页 250（Length/Back），World640/Player484/Pop376/球48/touch72 保持。
+
+实际 Android interop 构建 0W0E；map-width host 套件同一生产源两编译模式（PC 全局类型 / `Il2Cpp.*` 别名 stub）各 49/0；适配层 364/280/284 全 0 failed；产物两个新 hook 类型/签名、10 个新类型引用与消费成员、共享 Planner/Scope 落地已核。PC baseline293a/候选快照 SDK8 net6 隔离构建：6704 方法 IL/locals/EH/MaxStack/InitLocals/attrs/signatures 与资源零差异（唯一源码差=两文件 `#if ANDROID` 头）。冻结 34 路径/30 actual。安装启动前 native/prefs 字节保持；实际21唯一注册/旧19形状、菜单1–5循环和2→1冷读回/旧11设置保持、Generation Back通过。原生空 Slot2 正常 Greek @2 新岛：baseline252→planned/native504、13新增块、2接缝、4候选；正常显示/控制与 Save 后默认1冷启，无再规划日志（未独立重测保存后edges）。最终仅主 DLL、游戏停止。完整原生文件因正常空槽创建/保存改变，不能声称最终字节保持。手机/联机/全部 biome/pool/全图地形和原生异常路径未验。详见 tasks/issue-134/ 与任务私有 map-implementation-worker-report.md。
+
 ## 2026-10-04 — 哥布林金币休闲 V1（Issue #110，候选验证完成）
 
 用户确认先实装把玩→抛起→接住→收袋，沿用现有角色图集；脸部逐帧统一留作体验后的V2。生产仅Visuals接线和一个自有金币显示helper，沿用原休闲时钟，不改真实金币、账务、配送、购买、配置或存档。
@@ -6,11 +12,11 @@
 
 本条记录验证完成时的状态：代码交付由对应PR合并收尾，游戏运行期间不热替换；安装和玩家实机观感另记。Issue110没有独立受管checklist条目，未直接修改canonical JSON；EXharness validator与locator检查通过。详情见 tasks/issue-110/。
 
-## 2026-10-04 — Android 船员容量（Issue #130，代码与设置验证完成，待合并）
+## 2026-10-04 — Android 船员容量（Issue #130，代码已合并；真实登船待验）
 
 共用纯 BoatCapacityProfile 四常量，PC仅字面量改常量；Android复用原生Boat.OnEnable槽位初始化，完整四读后写、逐字段attempt责任和一次隔离归还，保留原生异常/职业限制/弓手布局。默认关闭，World640新增一行，悬浮球仍默认收起；无扫描、重试、槽位镜像或热重建。
 
-实际Android及PC双快照构建0W0E；独立host55/299/228全绿，PC6704方法已比IL/locals/EH及补充方法属性相同，1268旧types/8PNG保持。精确Mainaa099c9f/APK5508739d独立源码及安装审查通过，安装启动前native/prefs字节保持；实际19唯一target/旧18形状保持/noERROR，真实UI开关和ON/OFF冷读回、末行Back命中/收球原生Options通过，原10prefs保持，最终mainonly/游戏停止。没有真实新船槽位/登船航行样本，池/手机/联机/外部consumer仍待验；未发布APK或tag。对应PR与代码任务待正常合并收尾。
+实际Android及PC双快照构建0W0E；独立host55/299/228全绿，PC6704方法已比IL/locals/EH及补充方法属性相同，1268旧types/8PNG保持。精确Mainaa099c9f/APK5508739d独立源码及安装审查通过，安装启动前native/prefs字节保持；实际19唯一target/旧18形状保持/noERROR，真实UI开关和ON/OFF冷读回、末行Back命中/收球原生Options通过，原10prefs保持，最终mainonly/游戏停止。没有真实新船槽位/登船航行样本，池/手机/联机/外部consumer仍待验；未发布APK或tag。PR133 已合并（293a4d4a），Issue130 与代码任务正常 done/closed；真实登船等边界继续单列待验。
 
 ## 2026-10-04 — Android 坐骑技能冷却（Issue #127，代码已合并；技能玩法待验）
 
