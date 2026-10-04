@@ -1,0 +1,97 @@
+{
+  "issue": 140,
+  "version": "0.0.19",
+  "mainSHA256": "128400833b3361093e956b14583a4d6255bd2b88c4a5d86c5c6517f112633139",
+  "APKsha256": "aeca1e71d7c8e58513efa8c734db28c2dd8f7b21ce6c8282fdcc0b5684a41904",
+  "oldPrototypeMain8189NotFinalDeviceArtifact": true,
+  "reportedTargets": 25,
+  "old24ShapesUnchanged": true,
+  "old14PrefsUnchanged": true,
+  "firstColdDiskKeys": 14,
+  "firstColdNewKeyAbsentDefaultFalseExpected": true,
+  "afterUiToggleDiskKeys": 15,
+  "newPreferenceFinalFalse": true,
+  "deerUiCycle": [
+    false,
+    true,
+    false,
+    true
+  ],
+  "coldLoads": [
+    false,
+    true,
+    false
+  ],
+  "uiRoutesObserved": [
+    "Home",
+    "World",
+    "Vegetation406",
+    "BackWorld",
+    "BackHome",
+    "Collapse"
+  ],
+  "deerCopyFitsInOnAndOffRuntimeScreenshots": true,
+  "stockCatsAndForestVisibleNotToggled": true,
+  "nativeOptionsOverlapCloseObservedWithoutActivation": true,
+  "nativeAppliedLogProof": "actual same-invocation prefabDeer true/SteedHindfalse/scenehandlechildOf true and native inputoriginal->applied; not long-cycle population proof",
+  "actualLongCyclePopulationOrRefill3xMeasured": false,
+  "phoneOrMultiplayerVerified": false,
+  "onlyMainInMods": true,
+  "gameStopped": true,
+  "startupBeforeLaunchPrefsNativeByteEqual": true,
+  "beforeFinalNativeSnapshotEqual": true,
+  "nativeSnapshotSHA256": "7ba5f975c098f07fe3e4b13dfe10a32a9575508d22ca5a8a82941cc063236bf8",
+  "nativeSnapshotEqualityClaimsWholeFlow": false,
+  "noNativeInvokeOrSpawnOrNewCampaign": true,
+  "rawFileCount": 117,
+  "boundary": "Final Main1284/API35 ARM64 simulator settings/menu/cold-load +2 natural appliedinput logs. UI clipping fixed and observedreadable; full population/refill effect/lifecycle/nativeexception/phoneMP pending. Prototype8189 captures retained history only; old cfg14 keys beforefirstToggle is expectedloadNoSave.",
+  "naturalAppliedObservations": [
+    {
+      "density": [
+        0.027,
+        0.081
+      ],
+      "winterDensityDefault": [
+        0.013,
+        0.039
+      ],
+      "winterDensitySpecial": [
+        0.013,
+        0.039
+      ],
+      "interval": [
+        10.294078,
+        3.4313593
+      ],
+      "prefab": "Deer",
+      "childOfCurrentLayer": true,
+      "prefabDeer": true,
+      "prefabSteed": false,
+      "prefabHind": false
+    },
+    {
+      "density": [
+        0.027,
+        0.081
+      ],
+      "winterDensityDefault": [
+        0.013,
+        0.039
+      ],
+      "winterDensitySpecial": [
+        0.013,
+        0.039
+      ],
+      "interval": [
+        10.259742,
+        3.419914
+      ],
+      "prefab": "Deer",
+      "childOfCurrentLayer": true,
+      "prefabDeer": true,
+      "prefabSteed": false,
+      "prefabHind": false
+    }
+  ],
+  "privateRawAcceptanceSHA256": "7a2e63455dfdf8fb1601f0d12f71f6161dfb2f055f6020cccd5a36c046e6b920"
+}

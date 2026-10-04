@@ -18,7 +18,10 @@
        il2cpp/GreekScaleScope.cs, il2cpp/PatchWorld_Construction.cs and il2cpp/MapWidthPlanner.cs
        are linked read-only (Compile Include below); il2cpp/MapWidthTerrain.cs,
        il2cpp/PatchWorld_Level.cs and il2cpp/PatchWorld_FastForestRecede.cs are linked with an
-       #if ANDROID alias header only, and bare game type names are mapped by GlobalAliases.cs;
+       #if ANDROID alias header only, and il2cpp/PatchWorld_DeerPopulation.cs carries the same
+       alias header plus the ANDROID-specific opt-in gate, default-off fast exit and captured
+       eligibility scope evidence (the shared PC logic and preprocessed output are unchanged);
+       bare game type names are mapped by GlobalAliases.cs;
        Harmony auto-patch-all is suppressed by AssemblyInfo.cs for explicit Operator
        registration. -->
 
@@ -76,6 +79,7 @@
     <Compile Include="../il2cpp/MapWidthTerrain.cs" Link="Production/MapWidthTerrain.cs" />
     <Compile Include="../il2cpp/PatchWorld_Level.cs" Link="Production/PatchWorld_Level.cs" />
     <Compile Include="../il2cpp/PatchWorld_FastForestRecede.cs" Link="Production/PatchWorld_FastForestRecede.cs" />
+    <Compile Include="../il2cpp/PatchWorld_DeerPopulation.cs" Link="Production/PatchWorld_DeerPopulation.cs" />
   </ItemGroup>
 
   <ItemGroup>

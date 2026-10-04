@@ -30,14 +30,14 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 |---|---|
 | `Probe.cs` | MelonLoader 入口、显式 Harmony 注册、浮球组件与触摸守卫 |
 | `MobileUiInputSurface.cs` | Issue #119 原生 UGUI 命中面（新增）：两个透明 `Image` 命中区与 IMGUI 球/展开面板同矩形，由 `ProbeTicker` 生命周期驱动；不改原生菜单/输入标志 |
-| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 562 / World 640 / Vegetation 328 / Player 562 / Population 376 / Generation 250，绘制与触摸同源） |
+| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 562 / World 640 / Vegetation 406 / Player 562 / Population 376 / Generation 250，绘制与触摸同源） |
 | `MobileCalendar.cs` `CalendarSnapshot.cs` | 日历显示（开关直读 `CalendarEnabled` entry，切换时保存） |
 | `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（只读缓存） |
-| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 14 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度、快速森林退缩；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
+| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 15 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度、快速森林退缩、普通鹿数量；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
 | `MobilePlayerMenu.cs` | Player 页 UI（speed / stamina / hold / steed cooldown / staff base cooldown / back；六行 98/176/254/332/410/488，面板 562）。两个冷却文案都相对当次 currentCD 的下一次技能调用，不承诺回溯或 prefab 倍率；法杖行明示只改基础冷却（`applied = 进入时当前 _itemCooldown × 倍率`），原生 per-target 附加时间不缩放；中性文案 "Device settings"，Back 只置 `Layout.PlayerPage=false` |
 | `MobileWorldMenu.cs` | World 页 UI（enemies / threat growth / infinite money / Vegetation 入口 / fast build / extra boat crew / back；七行 98/176/254/332/410/488/566，面板 640）。Vegetation 行只打开子页（`Layout.VegetationPage=true`，World 页保持打开），猫开关已移入该子页（只影响以后关卡加载时的补齐，不删除已有猫）；快速建造开关只影响后续每次原生 `InitializeBuild` 调用（前缀在 `_hasStarted` 早退之前写 rate，关闭不热还原已写入实例的 rate）；船容量开关只作用于以后新初始化的船（`Boat.OnEnable` 借用窗口），关闭不删除/不热改已登记的 slots；Back 只置 `Layout.WorldPage=false` |
 | `MobileGenerationMenu.cs` | Island-generation 页 UI（Length / Back；两行 98/176，面板 250，副文案 "New islands only"）。Length 只改新岛生成读取的 `MapSizeMultiplier`（1→2→3→4→5→1，合法小数先落下一整数档，如 4.5→5）；Back 只置 `Layout.GenerationPage=false`；不调用任何原生游戏 API |
-| `MobileVegetationMenu.cs` | Vegetation 页 UI（Stock cats / Fast forest recede / Back；三行 98/176/254，面板 328，副文案 "World vegetation"）。猫行复用原 World 页文案与 `ToggleFarmCats`（只影响以后关卡加载，不删除已有猫）；森林行切换 `FastForestRecedeEnabled`（只作用于之后进入原生 `FadeAndRemove` 的调用，关闭不回收进行中的淡出）；Back 只置 `Layout.VegetationPage=false` 回到仍打开的 World 页 |
+| `MobileVegetationMenu.cs` | Vegetation & Wildlife 页 UI（Stock cats / Fast forest recede / Deer population / Back；四行 98/176/254/332，面板 406，副文案 "World vegetation & wildlife"）。猫行复用原 World 页文案与 `ToggleFarmCats`（只影响以后关卡加载，不删除已有猫）；森林行切换 `FastForestRecedeEnabled`（只作用于之后进入原生 `FadeAndRemove` 的调用，关闭不回收进行中的淡出）；鹿行切换 `DeerPopulationEnabled`（Greek only；只作用于之后自然进入原生 `PopulationController.Update` 的调用，关闭不删除/不回收已有动物、不改原生存档）；Back 只置 `Layout.VegetationPage=false` 回到仍打开的 World 页 |
 | `PatchWorld_Mover.cs` `PatchRide_InfiniteStamina.cs` `PatchRide_SteedCooldown.cs` | 速度倍率、无限体力与坐骑技能冷却调用级倍率补丁（显式注册；冷却四个消费者共享一个 Finalizer，无 PC instanceID 缓存/扫场） |
 | `PatchDivine_StaffCooldown.cs` | 法杖基础冷却（`StaffCooldownMultiplier`，默认 1，0.2–1）薄适配：`HermesStaff._StartAbilityRoutine_d__17.MoveNext`（仅 `__1__state==0`）与 `ItemOfPower.CanCancel`（仅实际 TryCast 到 HermesStaff）各一个 prefix + 共享 Finalizer，在当次原生读取窗口内借用 `_itemCooldown` 基础值；每转化目标附加时间、min 截断、扫描与已排程 `_nextActivationTime` 全部保持原生；不复制桌面的 profile 写入/`OriginalAbilityRanges` 原值字典/SettingChanged 扫场 |
 | `PatchWorld_BoatCapacity.cs` | 主船乘员容量（`BoatCapacityEnabled`，默认 OFF）薄适配：`Boat.OnEnable` 一个 prefix + 一个 Finalizer，在原生 `Embarkable::RegisterUnitSlots` 消费窗口内借用四个 max 字段（目标值来自共享 `BoatCapacityProfile`），调用结束后按 exact int 等值逐字段归还；不写 slots/船位置/航海/存档/native gate，不给登记早退或权限门加补偿 |
@@ -54,6 +54,7 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 | `../il2cpp/MapWidthPlanner.cs` | 链接的共享纯规划器（Plan/AssignSeams + `MapWidthCandidate/MapWidthPlan`，零 Unity/native 依赖），未修改、逐字节与 PC 同一份（SHA-256 冻结） |
 | `../il2cpp/MapWidthTerrain.cs` `../il2cpp/PatchWorld_Level.cs` | 链接的共享地图长度适配源：相对桌面版仅文件头 `#if ANDROID` 的 `using X = Il2Cpp.X;` 类型别名（Level/LevelBlock/LevelLayout 等），其余逐字相同；Android 下别名编译进实际 interop 类型（见构建/测试节） |
 | `../il2cpp/PatchWorld_FastForestRecede.cs` | 链接的共享快速森林退缩源（`ForestItem.FadeAndRemove` 的 ref delay 前缀：显式正 delay ÷3，否则 `removeDelay × Random(0.5,1.5) ÷ 3`，有限正值才提交；默认 OFF 先于一切 item/native 访问）。相对桌面同一份共用，仅文件头 `#if ANDROID` 的 `Forest`/`ForestItem` 类型别名；故障一条 warning 保留原生等待参数，不建扫描/缓存/重试 |
+| `../il2cpp/PatchWorld_DeerPopulation.cs` | 链接的共享普通鹿数量源（`PopulationController.Update` 的 prefix/postfix/finalizer：Greek 普通鹿、非 biome critters、真实 prefab Deer 非 Steed/Hind、当前 gameLayer 场景成员的 controller 才在单次调用内借用三个 seasonal density ×3 与 `_actualUpdateInterval` ÷3，调用结束按 exact float 等值归还；native 时钟/季节/地区/ceil/生成/池/掉落全保持）。相对桌面同一份共用：`#if ANDROID` 别名头 + 平台 opt-in 门（`ModConfig.Enabled && DeerPopulationEnabled`，默认 OFF 且无自有状态时在 `controller.Pointer` 之前零 interop 返回）+ 同次 Eligible 采集的 scope 证据（scopeGoId/sceneHandle/childOf/prefabDeer/prefabSteed/prefabHind，一次性日志）；PC 预处理输出与 IL/metadata 零差异 |
 
 ## 功能范围与状态
 
@@ -65,18 +66,18 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   键与默认值：`SpeedMultiplier=1`、`InfiniteSteedStamina=false`、`HoldPurchaseEnabled=false`、
   `SteedCooldownMultiplier=1`、`StaffCooldownMultiplier=1`、`CalendarEnabled=false`、`EnemyCountMultiplier=1`、`EnemyTimelineSpeed=1`、
   `InfiniteMoney=false`、`FarmCatsEnabled=false`、`FastBuild=false`、`BoatCapacityEnabled=false`、
-  `MapSizeMultiplier=1`、`FastForestRecedeEnabled=false`。加载边界各一次：速度 clamp 1–5；两个敌人与地图长度 float 倍率有限值 clamp
+  `MapSizeMultiplier=1`、`FastForestRecedeEnabled=false`、`DeerPopulationEnabled=false`。加载边界各一次：速度 clamp 1–5；两个敌人与地图长度 float 倍率有限值 clamp
   1–5、坐骑与法杖基础冷却倍率有限值 clamp 0.2–1（两行共用同一档位 helper 1→0.8→0.6→0.4→0.2→1，
   载入中间值落到下一较低 20% 档，如 0.5→0.4；地图长度与敌人倍率同一 `MathF.Floor` 步进 1→2→3→4→5→1，4.5→5）；NaN/Infinity（手工编辑 cfg 的非法输入）回 1 并各 Warning 一次——`Math.Clamp(NaN,…)`
   会返回 NaN，故显式判非有限；只改内存，不回写。切换时恰好一次
   `Category.SaveToFile(printmsg:false)`；失败由 loader 自身 `MelonLogger.Error` 输出真实
-  异常（实际 IL 已核），UI 不承诺“已保存”，13 个 entry 都不另存镜像
+  异常（实际 IL 已核），UI 不承诺“已保存”，15 个 entry 都不另存镜像
   （`Enabled` 是无 UI、不持久化的会话总开关）。`InfiniteMoney` 的原生静态开关只在初始化
   与每次切换各写一次（entry 改 → apply → save），不订阅事件、不每帧写；`ModConfig`
   本体零 `Il2Cpp.*` 引用，写入由 `Probe.cs` 的 lambda 承担。`FastBuild` 与
   `BoatCapacityEnabled` 只有值翻转 + 日志 + 一次 save，不订阅事件、不做配置镜像/读回/retry，
   也不因开关切换扫描或热改已登记状态。冷启动 `ANDROID_SETTINGS_READY`
-  行按同序追加 `cats=<bool>`、`fastBuild=<bool>`、`cooldown=<float>`、`boat=<bool>`、`map=<float>`、`staff=<float>`。
+  行按同序追加 `cats=<bool>`、`fastBuild=<bool>`、`cooldown=<float>`、`boat=<bool>`、`map=<float>`、`staff=<float>`、`forestRecede=<bool>`、`deerPopulation=<bool>`。
 - 长按续买（Hold purchase）：共享桌面源链接编译，默认 OFF（不写钱包/库存）。
 - 敌人参数（C2）：`../il2cpp/PatchWorld_EnemyManager.cs` 未修改链接；两个前缀分别缩放
   `AddEnemies` 的数量 multiplier 与 `GetEnemies` 的三个成长天数 int（`Mathf.RoundToInt`
@@ -154,6 +155,18 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   生成/回收/存档沿用原生 `Pool.SpawnOrInstantiate<Cat>` + `Persistent` 生命周期与
   联机 fail-closed 语义（详见共享源注释）。`AndroidCoroutine.WrapToIl2Cpp` 用 loader
   `MonoEnumeratorWrapper` 包 `IEnumerator` 并交回**原 owner**的 `StartCoroutine`。
+- 普通鹿数量（`DeerPopulationEnabled`，默认 OFF）：共享源 `../il2cpp/PatchWorld_DeerPopulation.cs`
+  以链接方式编译（`#if ANDROID` 别名头 + 平台 opt-in 门，PC 输出零差异，见末节 #140）。默认 OFF
+  且无自有状态时在 `controller.Pointer` 之前返回（零 interop）；开启后仅对 Greek 普通鹿
+  （`useBiomeCritters=false`、真实 prefab 组件 Deer 且无 Steed/Hind、controller 与当前 gameLayer
+  同场景且是其成员、native `playingOrInMenuWithClient`、`HasWorldAuth`）在单次原生
+  `PopulationController.Update` 调用内借用三个 seasonal density ×3 与 `_actualUpdateInterval` ÷3，
+  postfix/finalizer 按 exact float 等值归还进入值；native 时钟、季节选择、区域下限、
+  `ceil(width×density)` 目标、生成/池、掉落、`_elapsedTime`/`_targetDensity`/序列化
+  `updateInterval`/缩放全部保持原生。恢复机制保留既有 Active/Pending/token/Written/identity
+  边界（partial setter 失败仅归还自己已借 bits、重入不还外层借据、stale finalizer 不清新调用）；
+  首次有效应用记一条含 prefab 与 scope 证据的日志，失败 warning 一生一次。关闭不删除/不回收
+  已有动物、不改原生存档；配置改变只影响未来自然 Update。
 - 已由 Operator 集成（`Probe.cs`）：
   1. `OnInitializeMelon` 最早处 `KingdomEnhancedPlugin.Initialize()` +
      `ModConfig.Initialize(lambda)`；lambda 是 `Il2Cpp.Wallet.InfiniteMoney` 的唯一写入点
@@ -200,6 +213,12 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
      currentFieldRelative=true additiveTimeNative=true`；冷启动 `ANDROID_HOOK_COUNTS` 由既有 21 个
      unique 增至 23（旧 21 行的字段与形状不变，仅嵌套 target 显示 `HermesStaff._StartAbilityRoutine_d__17.MoveNext`）。
      0.0.17 增加 `staff_base_cooldown` feature marker。
+  13. 普通鹿数量注册：`Il2Cpp.PopulationController.Update()`（无参）唯一注册到共享
+     `PopulationController_Update_DeerPopulation_Patch` 的 `Prefix`/`Postfix`/`Finalizer`，
+     冷启动 `ANDROID_HOOK_COUNTS` 应含该 target 的 `parameters=0 prefixes=1 postfixes=1
+     finalizers=1` 与 `ANDROID_DEER_POPULATION_HOOK_INSTALLED sharedSource=true nativeSpawn=true
+     enabled=<bool>`；reported 入口由 24 增至 25（旧 24 行形状不变）。
+     0.0.19 增加 `deer_population` feature marker。
 - 独立 Android API35 ARM64 模拟器已验：四设置首次默认值、界面切换、配置读回和进程
   重启恢复；隔离配置的保存故障可见日志；去 lease 后三速度入口九组原生 API 对照及
   2x/5x 正常触屏移动；体力 ON/OFF 的原生消耗与速率归还。诊断插件仅用于采证。
@@ -377,6 +396,17 @@ staff 行 410 / Back 488 / 面板 562 与点击单次 save；不冒充 Unity/Har
     <dotnet8>/dotnet build -c AndroidAlias -p:DefineConstants=ANDROID tests/map-width/MapWidthTests.csproj
     <dotnet8>/dotnet tests/map-width/bin/AndroidAlias/net8.0/MapWidthTests.dll
 
+普通鹿套件（host doubles，链接实际生产 `PatchWorld_DeerPopulation.cs`；PC 模式跑 27 case；
+typed ANDROID host 用 `Il2Cpp.*` 别名与 Android 平台 config（`Setting<bool>` 会话开关 +
+默认 OFF 的 `MelonPreferences_Entry<bool>` DeerPopulationEnabled、Greek=5、GreeceBiomeIndex 符号）
+跑同一 harness 加 5 个平台用例——默认 OFF 空字典零 interop（controller.Pointer 也被计数与
+ThrowInterop 拦截，覆盖最早 native 访问）、Greek5 应用与 scope 日志、OFF 下 owned pending 只归还
+自己 bits、owned active 重入保持、以及 ON+ThrowInterop 的 negative control（最早 interop 读失败
+被 caught、一次 warning、零字段写）；不冒充 Unity/Harmony/IL2CPP 运行）：
+
+    <dotnet8>/dotnet run -c Release --project tests/deer-population/Regression.csproj
+    <dotnet8>/dotnet run -c Release --project tests/deer-population/android-host/DeerPopulationAndroidHost.csproj
+
 共享行为套件（仓库根 `tests/hold-purchase`，链接同一份未修改生产源，只执行不修改）：
 
     <dotnet8>/dotnet run -c Release --project tests/hold-purchase/HoldPurchaseTests.csproj
@@ -384,26 +414,28 @@ staff 行 410 / Back 488 / 面板 562 与点击单次 save；不冒充 Unity/Har
 直接相关 PC 回归（同样只链接未修改/边界源，不拉起无关套件）：`tests/farm-cats`、
 `tests/greek-scale-scope`、`tests/greek-scale-adapters`。
 
-当前基线（0.0.18，含 Issue #138 快速森林退缩源码阶段；取代下述 0.0.17/#136 数字）：适配层默认
-452 passed / 0 failed、`--oldcfg` 347、`--seed-forest` 351、`--seed-boat` 350、`--seed-map=4.5` 351，
-全部 0 failed；PC 既有 optional-vegetation 套件（直接链接新共享源）31 passed / 0 failed；真实
-`android/OptionalQoLScope` typed alias host（`tests/optional-vegetation/android-host`，ANDROID 定义下
-编译共享源）10 passed / 0 failed。相比 #136（默认 408）新增检查：
-FastForestRecedeEnabled 第 14 个 entry 声明/default false/`--seed-forest` 切换单次 save 与 READY
-`forestRecede=<bool>`；World 行 332 的 Vegetation 入口与 World 640 几何、Vegetation 328 三行
-98/176/254 的触摸界内/界外、Back 只清 VegetationPage 回到仍打开的 World 页、Cats 行复用原文案与
-`ToggleFarmCats` 且不新增清猫路径；产物 `PatchWorld_FastForestRecede`（internal static
-`ScaleForestRecedeDelay(Il2Cpp.ForestItem, ref float)`）与保留名 wrapper
-`ForestItem_FadeAndRemove_OptionalVegetation_Patch` 的 `[HarmonyPatch(typeof(ForestItem), FadeAndRemove)]`
-类属性、`Prefix(Il2Cpp.ForestItem, ref float)` 形状与对共享类的实际调用；`Il2Cpp.ForestItem`/`Il2Cpp.Forest`
-类型引用与 `get_controlsForestSize`/`get_removedByForest`/`get_removeDelay`/`get__forest` 消费成员；
-Probe 源级注册检查（0.0.18、`fast_forest_recede`、ForestItem.FadeAndRemove(float) 与 Prefix 按名注册、
-21+2+1=24 unique、Vegetation 路由）。共享源 SHA-256 冻结为 37 条路径、33 条 actual 校验：
-`FloatLayout.cs`/`MobilePlayerConfig.cs`/`MobileWorldMenu.cs`/`OhMyMods.AndroidProbe.csproj` 为本次
-有意改动不参与断言，`PatchWorld_FastForestRecede.cs`、`MobileVegetationMenu.cs`、`MobilePlayerMenu.cs`
-与 Operator 完成态的 `Probe.cs`（0.0.18）为实际校验项；旧 21+2 行 hook-count 字段由冻结保护。
-host 测试只检查适配层与产物元数据，不伪造运行期森林等待/销毁/存档结果，也不虚构
-UnityRuntime。
+当前基线（0.0.19，含 Issue #140 普通鹿数量源码阶段；取代下述 0.0.18/#138 数字）：适配层默认
+509 passed / 0 failed、`--oldcfg` 400、`--seed-forest` 403、`--seed-boat` 403、`--seed-map=4.5` 404、
+`--seed-staff-cooldown=0.5` 402、`--seed-cooldown=0.5` 402，其余加载边界模式（`--seed-speed=0|3|9`、
+`--seed-fast-build`、NaN/Infinity/0.5/9 各倍率、`--seed-enemy-count=4.5 --seed-enemy-timeline=4.5`）
+全部 0 failed；PC 既有 deer 套件（直接链接共享源）27 passed / 0 failed；typed ANDROID host
+（`tests/deer-population/android-host`，ANDROID 定义下编译共享源、同一 27-case harness 加 5 个平台用例）
+32 passed / 0 failed；PC 快照 baseline/candidate 两个 net6 构建 0W0E，语义比较 0 diffs
+（typesOnlyInBaseline=0 / typesOnlyInCandidate=0 / typeDiffs=0 / resourceDiffs=0，无允许表、无 PE 字节声明）。
+相比 #138（默认 452）新增检查：DeerPopulationEnabled 第 15 个 entry 声明/default false/切换单次 save 与
+READY `deerPopulation=<bool>`；Vegetation & Wildlife 标题与 406 四行 98/176/254/332 的触摸界内/界外、Back
+只清 VegetationPage 回到仍打开的 World 页、鹿行 254 切换 `ToggleDeerPopulation` 且文案 Greek only；
+产物 `PatchWorld_DeerPopulation`（含 `Lease.Scope` 证据字段）、保留名 wrapper
+`PopulationController_Update_DeerPopulation_Patch` 的 `[HarmonyPatch(typeof(PopulationController), Update)]`
+类属性、`Prefix(Il2Cpp.PopulationController, out Lease)`/`Postfix(Lease)`/`Finalizer(Exception, Lease)`
+形状与对共享类的实际调用；`Il2Cpp.PopulationController`/`Il2Cpp.Deer`/`Il2Cpp.Steed`/`Il2Cpp.Hind`/
+`Il2Cpp.Game` 类型引用与四字段 setter 等消费成员；`ModConfig.DeerPopulationEnabled` 字段；Probe 源级注册
+检查（0.0.19、`deer_population`、PopulationController.Update() 与三个 handler 按名注册、24+1=25 unique）。
+共享源 SHA-256 冻结为 38 条路径、34 条 actual 校验：`FloatLayout.cs`/`MobilePlayerConfig.cs`/
+`MobileVegetationMenu.cs`/`OhMyMods.AndroidProbe.csproj` 为本次有意改动不参与断言，
+`il2cpp/PatchWorld_DeerPopulation.cs`（新增实际项）与 Operator 完成态的 `Probe.cs`（0.0.19）为实际校验项；
+旧 24 行 hook-count 字段由冻结保护。host 测试只检查适配层与产物元数据，不伪造运行期鹿数量/补充频率结果，
+也不虚构 UnityRuntime。
 
 ## 0.0.10 隔离设备验证
 
@@ -583,3 +615,38 @@ baseline/candidate 构建 0W0E，语义比较仅允许列出的 forest 迁移（
 安装关口后的设备实测中按自然砍树可观察时才记录，不用 Invoke/fixture 或存档编辑达成。
 
 Issue #138 的模拟器验证：Main 0.0.18（e8677420…）、24 个显式目标，旧 23 个接入形状及旧 13 项配置保持。World→Vegetation 三行页面、开关 OFF→ON→OFF、ON/OFF 冷读回、返回 World/Home、浮球收起与原生 Options 重叠点击隔离已观察；Stock cats 可见但未切换。安装首启前 prefs/native 整字节保持仅证明该时刻，终态已恢复森林开关 OFF 并停止测试游戏。尚未用正常砍树测实际三分之一等待，完整森林退缩/淡出/销毁、换岛/池、手机/平板和联机均待验。私有 APK 不分发。
+
+
+## Issue #140 普通鹿数量与补充频率的源码阶段
+
+本轮是源码阶段：第 15 个 entry `DeerPopulationEnabled`（默认 OFF，切换恰好一次 `SaveToFile`，
+READY 行输出 `deerPopulation=<bool>`）；Vegetation 页升级为 "Vegetation & Wildlife"（面板 406），
+四行：Stock cats 98 / Fast forest recede 176 / Deer population 254（Greek only: target/refill x3，第二行按 1280x720 实机宽度测量改写避免裁切）/
+Back 332（只清 `VegetationPage`，回到仍打开的 World 页）。功能本体是共享源
+`il2cpp/PatchWorld_DeerPopulation.cs`（相对桌面仅 `#if ANDROID` 别名头 + Android 平台 opt-in 门，
+PC 预处理输出与编译 IL/metadata 零差异）：`PopulationController.Update` 的 prefix/postfix/finalizer
+在单次调用内借用三个 seasonal density ×3 与 `_actualUpdateInterval` ÷3，成功/异常/部分失败路径都
+按 exact float 等值归还进入值并保留既有 Active/Pending/token/Written/identity 边界；门为 Greek
+普通鹿、非 biome critters、真实 prefab Deer 非 Steed/Hind、controller 与当前 gameLayer 同场景且是其
+成员、native playingOrInMenuWithClient 与 `HasWorldAuth`；默认 OFF 且无自有状态时在读取
+`controller.Pointer` 之前返回（零 interop），有 owned 状态仍沿原 pointer/token/identity 清理路径
+只归还自己已借 bits。首次有效应用记一条含原→applied 四字段与同次 Eligible 采集 scope 证据
+（scopeGoId/sceneHandle/childOf/prefabDeer/prefabSteed/prefabHind）的日志；新增 scope 证据字段
+不新增 native 读取（复用同次 Eligible 已读值，日志阶段不重新 GetComponent/IsChildOf/取 scene），
+既有 `prefab.name` 读取与 PC LogApplied 原样保留、创建来源仍 Unknown；失败 warning 一生一次。
+native 时钟/季节/区域/ceil 目标/生成/池/掉落与 `_elapsedTime`/`_targetDensity`/serialized
+`updateInterval`/prefab/币/缩放保持原生。
+
+证据（源码阶段，无设备/无 APK 声明）：真实 interop SDK10 `-t:Rebuild` 0W0E（Main SHA-256
+`8189f33f…`）；PC 既有 deer 套件 27/0、typed ANDROID host 32/0；适配层默认 509/0 与全部加载
+边界模式（oldcfg 400、seed-forest/boat 403、seed-map=4.5 404、staff/cooldown 分数档 402 等）0 failed；
+PC 快照 baseline/candidate 两个 net6 构建 0W0E，语义比较 0 diffs（无允许表，不称 PE 字节一致）。
+
+未验：实际 3x population/refill 的数量效果（需长周期自然游玩）、真实 controller 命中时的
+natural apply 日志（无匹配存档则如实 pending）、换岛/读档/池复用、手机/平板与联机（含客户端/
+权威变化与 native 重入）。上述需在安装关口后的设备实测按自然观察记录，不用 Invoke/fixture/
+存档编辑达成。本篇只证明共享源双平台编译、host 行为边界、真实 interop 产物形状与 PC 快照
+语义等价，不冒充 Unity/Harmony/IL2CPP 运行结果或真实玩法验收。
+
+
+Issue #140 的模拟器验证（最终短文案候选 Main 0.0.19 `12840083…` / APK `aeca1e71…`）：25 个显式目标，旧24形状与旧14设置保持、onlyMain、无ERROR与两条既有WARNING；首冷cfg仍14键是load不写盘，新鹿entry默认false；第一次UI切换后15键。Vegetation406短文案ON/OFF完整显示、OFF→ON→OFF与ON/OFF冷读回、BackWorld/Home/收起，以及一次Home覆盖原生Options点击隔离已观察。首次正常应用和ON冷启各有一次真实普通Deer输入日志（0.027→0.081、两季冬密度0.013→0.039、当前interval÷3、当前scene/layer/真实组件门）；这不代表长期数量、补充节奏或归还/异常路径全部验收。终态DeerOFF/游戏停止，装前首启动prefs/native字节保持；before/final native快照相等仅两个时点，不承诺全流程无保存。源码独审与文案修复独审/精确安装关口通过，设备claims独审及正常代码交付收尾待做；真实长期3x、完整池/换岛/读档、手机/平板与联机仍待验。见 tasks/issue-140/device-evidence.json；私有APK不分发。

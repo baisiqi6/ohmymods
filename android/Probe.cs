@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.18", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.19", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.18 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.19 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
@@ -102,6 +102,11 @@ public sealed class Probe : MelonMod
   HarmonyInstance.Patch(forestFadeAndRemove,prefix:new HarmonyMethod(typeof(KingdomEnhancedMod.ForestItem_FadeAndRemove_OptionalVegetation_Patch),"Prefix"));
   LogHookCounts(forestFadeAndRemove);
   LoggerInstance.Msg("ANDROID_FAST_FOREST_RECEDE_HOOK_INSTALLED sharedSource=true nativeEffects=true");
+  var deerUpdate=AccessTools.Method(typeof(Il2Cpp.PopulationController),"Update",Type.EmptyTypes)??throw new MissingMethodException("PopulationController.Update()");
+  var deerPatchType=typeof(KingdomEnhancedMod.PopulationController_Update_DeerPopulation_Patch);
+  HarmonyInstance.Patch(deerUpdate,prefix:new HarmonyMethod(deerPatchType,"Prefix"),postfix:new HarmonyMethod(deerPatchType,"Postfix"),finalizer:new HarmonyMethod(deerPatchType,"Finalizer"));
+  LogHookCounts(deerUpdate);
+  LoggerInstance.Msg("ANDROID_DEER_POPULATION_HOOK_INSTALLED sharedSource=true nativeSpawn=true enabled="+KingdomEnhancedMod.ModConfig.DeerPopulationEnabled.Value);
   var worldLoaded=AccessTools.Method(typeof(Il2Cpp.World),"OnLevelLoaded",Type.EmptyTypes)??throw new MissingMethodException("World.OnLevelLoaded()");
   HarmonyInstance.Patch(worldLoaded,postfix:new HarmonyMethod(typeof(Probe),nameof(FarmCatsWorldLoaded)));
   LogHookCounts(worldLoaded);

@@ -206,11 +206,12 @@ internal static class Program
         Checks.Check(Math.Abs(layout.PanelHeight - 640f) < 1e-4f, "world page panel height is 640 (seven rows)");
         Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 630f), "touch filter covers the 640-high world panel bottom row (Back ends at 630)");
         layout.VegetationPage = true;
-        Checks.Check(Math.Abs(layout.PanelHeight - 328f) < 1e-4f, "vegetation page height is 328 while the world page stays open (cats 98 / forest 176 / Back 254)");
+        Checks.Check(Math.Abs(layout.PanelHeight - 406f) < 1e-4f, "vegetation page height is 406 while the world page stays open (cats 98 / forest 176 / deer 254 / Back 332)");
         Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 130f), "touch filter covers the vegetation cats row (98..162)");
         Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 208f), "touch filter covers the vegetation fast-forest row (176..240)");
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 286f), "touch filter covers the vegetation Back row (254..318)");
-        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 340f), "vegetation panel keeps its 328 touch boundary");
+        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 286f), "touch filter covers the vegetation deer row (254..318)");
+        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 364f), "touch filter covers the vegetation Back row (332..396)");
+        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 416f), "vegetation panel keeps its 406 touch boundary");
         layout.VegetationPage = false;
         Checks.Check(Math.Abs(layout.PanelHeight - 640f) < 1e-4f, "Back out of the vegetation page restores the still-open world page (640)");
         layout.WorldPage = false;
@@ -240,7 +241,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 14, "Initialize creates exactly fourteen entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 15, "Initialize creates exactly fifteen entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -255,6 +256,7 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/BoatCapacityEnabled default=False"), "BoatCapacityEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/MapSizeMultiplier default=1"), "MapSizeMultiplier is declared with default 1");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/FastForestRecedeEnabled default=False"), "FastForestRecedeEnabled is declared OFF");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/DeerPopulationEnabled default=False"), "DeerPopulationEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "Initialize never writes the cfg");
         Checks.Check(applied.Count == 1 && !applied[0], "cold start applies InfiniteMoney=false through the seam exactly once");
         Checks.Check(MelonLoader.MelonLogger.WarningCalls == expectedWarnings, "the load boundary warns exactly once per non-finite seeded multiplier");
@@ -291,6 +293,8 @@ internal static class Program
                 seededBoat ? "a seeded BoatCapacityEnabled key loads ON at the load boundary" : "a cfg without the BoatCapacityEnabled key keeps it OFF");
             Checks.Check(Config.FastForestRecedeEnabled.Value == seedForest,
                 seedForest ? "a seeded FastForestRecede key loads ON at the load boundary" : "a cfg without the FastForestRecede key keeps it OFF");
+            Checks.Check(!Config.DeerPopulationEnabled.Value,
+                "a cfg without the DeerPopulation key keeps it OFF at the load boundary (no apply callback, load does not save)");
             Checks.Check(Config.MapSizeMultiplier.Value == expectedMap,
                 "MapSizeMultiplier is " + Describe(expectedMap) + "x after the load boundary (1..5 clamp, non-finite fallback 1)");
             Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "the load-boundary clamp/fallback does not write the cfg");
@@ -298,7 +302,8 @@ internal static class Program
                 + " stamina=" + oldCfg + " hold=" + oldCfg + " calendar=" + oldCfg
                 + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild
                 + " cooldown=" + expectedCooldown + " boat=" + expectedBoat + " map=" + expectedMap
-                + " staff=" + expectedStaffCooldown + " forestRecede=" + expectedForest,
+                + " staff=" + expectedStaffCooldown + " forestRecede=" + expectedForest
+                + " deerPopulation=False",
                 "cold-start ready line reports the effective values");
             if (seededEnemyCount == 4.5f && seededEnemyTimeline == 4.5f)
             {
@@ -371,8 +376,9 @@ internal static class Program
             && !Config.FarmCatsEnabled.Value
             && !Config.FastBuild.Value
             && !Config.BoatCapacityEnabled.Value
-            && !Config.FastForestRecedeEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild, BoatCapacity and FastForestRecede default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False",
+            && !Config.FastForestRecedeEnabled.Value
+            && !Config.DeerPopulationEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild, BoatCapacity, FastForestRecede and DeerPopulation default OFF");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
 
@@ -445,6 +451,15 @@ internal static class Program
         Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_FAST_FOREST_RECEDE enabled=False", "ToggleFastForestRecede logs the OFF state");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleFastForestRecede OFF saves exactly once");
 
+        Config.ToggleDeerPopulation();
+        Checks.Check(Config.DeerPopulationEnabled.Value, "ToggleDeerPopulation turns it ON");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_DEER_POPULATION enabled=True", "ToggleDeerPopulation logs the switch state");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleDeerPopulation ON saves exactly once");
+        Config.ToggleDeerPopulation();
+        Checks.Check(Config.DeerPopulationEnabled.Value == false, "ToggleDeerPopulation turns it OFF again");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WORLD_DEER_POPULATION enabled=False", "ToggleDeerPopulation logs the OFF state");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "ToggleDeerPopulation OFF saves exactly once");
+
         for (int next = 2; next <= 5; next++)
         {
             Config.CycleEnemyCount();
@@ -494,7 +509,7 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "CycleMapSize wrap saves exactly once");
 
         Checks.Check(applied.Count == 3, "the InfiniteMoney seam fires only at Initialize and the two toggles (no subscription or per-frame write)");
-        Checks.Check(saves == 43, "forty-three switch actions produced forty-three saves");
+        Checks.Check(saves == 45, "forty-five switch actions produced forty-five saves");
     }
 
     private static float ExpectedMultiplier(float seeded)
@@ -580,9 +595,10 @@ internal static class ProbeChecks
         Checks.Check(File.Exists(probePath), "probe source present");
         if (!File.Exists(probePath)) return;
         string source = File.ReadAllText(probePath);
-        Checks.Check(source.Contains("\"0.0.18\""), "Probe reports version 0.0.18");
+        Checks.Check(source.Contains("\"0.0.19\""), "Probe reports version 0.0.19");
         Checks.Check(source.Contains("staff_base_cooldown"), "Probe feature marker advertises staff_base_cooldown");
         Checks.Check(source.Contains("fast_forest_recede"), "Probe feature marker advertises fast_forest_recede");
+        Checks.Check(source.Contains("deer_population"), "Probe feature marker advertises deer_population");
         Checks.Check(source.Contains("typeof(KingdomEnhancedMod.PatchDivine_StaffCooldown)"), "Probe wires the staff patch type");
         Checks.Check(source.Contains("typeof(Il2Cpp.HermesStaff._StartAbilityRoutine_d__17)"), "Probe resolves the nested HermesStaff state machine target");
         Checks.Check(source.Contains("typeof(Il2Cpp.ItemOfPower)"), "Probe resolves the ItemOfPower.CanCancel target");
@@ -601,6 +617,15 @@ internal static class ProbeChecks
             "Probe reports the forest hook count (21 existing + 2 staff + 1 forest = 24 unique lines)");
         Checks.Check(source.Contains("ANDROID_FAST_FOREST_RECEDE_HOOK_INSTALLED sharedSource=true nativeEffects=true"),
             "Probe announces the fast-forest hook installation");
+        Checks.Check(source.Contains("typeof(Il2Cpp.PopulationController),\"Update\"") && source.Contains("Type.EmptyTypes"),
+            "Probe resolves the exact PopulationController.Update() target");
+        Checks.Check(source.Contains("typeof(KingdomEnhancedMod.PopulationController_Update_DeerPopulation_Patch)")
+            && source.Contains("deerPatchType,\"Prefix\"") && source.Contains("deerPatchType,\"Postfix\"") && source.Contains("deerPatchType,\"Finalizer\""),
+            "Probe registers the shared deer prefix/postfix/finalizer by the prepared handler names");
+        Checks.Check(source.Contains("LogHookCounts(deerUpdate)"),
+            "Probe reports the deer hook count (the new target makes 25 unique lines; 24 existing shapes stay)");
+        Checks.Check(source.Contains("ANDROID_DEER_POPULATION_HOOK_INSTALLED sharedSource=true nativeSpawn=true"),
+            "Probe announces the deer hook installation");
         Checks.Check(source.Contains("Layout.VegetationPage") && source.Contains("MobileVegetationMenu.Draw"),
             "Probe routes the Vegetation page to MobileVegetationMenu.Draw");
     }
@@ -629,8 +654,14 @@ internal static class MenuChecks
             "the vegetation cats row (98) reuses the original toggle copy unchanged");
         Checks.Check(vegetation.Contains("py + 176 * scale") && vegetation.Contains("ModConfig.ToggleFastForestRecede()")
             && vegetation.Contains("Fast forest recede: "), "the vegetation fast-forest row (176) arms the shared switch");
-        Checks.Check(vegetation.Contains("py + 254 * scale") && vegetation.Contains("\"Back\"")
-            && vegetation.Contains("Layout.VegetationPage = false"), "Back (254) clears only VegetationPage");
+        Checks.Check(vegetation.Contains("py + 254 * scale") && vegetation.Contains("ModConfig.ToggleDeerPopulation()")
+            && vegetation.Contains("Deer population: ON\\nGreek only: target/refill x3")
+            && vegetation.Contains("Deer population: OFF\\nGreek only: target/refill x3"),
+            "the vegetation deer row (254) arms the shared population switch with the Greek-only x3 copy");
+        Checks.Check(vegetation.Contains("\"Vegetation & Wildlife\"") && vegetation.Contains("\"World vegetation & wildlife\""),
+            "the vegetation page title/subtitle advertises vegetation & wildlife");
+        Checks.Check(vegetation.Contains("py + 332 * scale") && vegetation.Contains("\"Back\"")
+            && vegetation.Contains("Layout.VegetationPage = false"), "Back (332) clears only VegetationPage");
         Checks.Check(!vegetation.Contains("WorldPage = false") && !vegetation.Contains("WorldPage=false"),
             "the vegetation Back never closes the World page");
         Checks.Check(!vegetation.Contains("FarmCatsEnabled.Value =") && !vegetation.Contains("RemoveCat") && !vegetation.Contains("ClearCat"),
@@ -657,6 +688,7 @@ internal static class ArtifactChecks
         "Il2Cpp.SpeedBoostSteedAbility", "Il2Cpp.SummonGhostSteedAbility",
         "Il2Cpp.HermesStaff", "Il2Cpp.ItemOfPower", "_StartAbilityRoutine_d__17",
         "Il2Cpp.ForestItem", "Il2Cpp.Forest",
+        "Il2Cpp.PopulationController", "Il2Cpp.Deer", "Il2Cpp.Steed", "Il2Cpp.Hind", "Il2Cpp.Game",
         "Il2Cpp.BiomeHolder", "Il2Cpp.BiomeData", "Il2Cpp.Character", "Il2Cpp.Mover",
         "Il2Cpp.Droppable", "Il2Cpp.Kingdom", "Il2Cpp.StateMachine", "Il2Cpp.Side",
         "Il2Cpp.Embarkee", "Il2Cpp.IslandSaveData", "Il2Cpp.Game", "Il2Cpp.Farmland", "Il2Cpp.GAPS",
@@ -684,7 +716,12 @@ internal static class ArtifactChecks
         "get_path", "get_targetPool", "get_noGround", "get_childCount", "GetChild", "GetComponents",
         "il2cpp_class_get_name_", "TotalWidth",
         "SpawnOrInstantiate", "DespawnOrDestroy", "get_catPrefab", "GetBorderSideIntact",
-        "get_controlsForestSize", "get_removedByForest", "get_removeDelay", "get__forest"
+        "get_controlsForestSize", "get_removedByForest", "get_removeDelay", "get__forest",
+        "get_density", "set_density", "get_winterDensityDefault", "set_winterDensityDefault",
+        "get_winterDensitySpecial", "set_winterDensitySpecial", "get__actualUpdateInterval", "set__actualUpdateInterval",
+        "get_prefab", "get_useBiomeCritters", "get_enabled", "get_gameObject", "get_scene", "get_handle",
+        "get_transform", "get_activeInHierarchy", "IsChildOf", "GetComponent", "GetInstanceID",
+        "get_Inst", "get_GreeceBiomeIndex", "get_BiomeIndex", "get_playingOrInMenuWithClient", "get_game"
     };
 
     private static readonly string[] RequiredAssemblies =
@@ -860,6 +897,45 @@ internal static class ArtifactChecks
                     "ScaleForestRecedeDelay", "KingdomEnhancedMod.PatchWorld_FastForestRecede"),
                 "the wrapper Prefix really calls the shared PatchWorld_FastForestRecede helper");
         }
+
+        // Deer-population block (shared il2cpp/PatchWorld_DeerPopulation.cs linked with the
+        // #if ANDROID alias header, the Android opt-in gate and the captured scope evidence):
+        // the shared class, the typed class-attribute target, the internal
+        // prefix/postfix/finalizer handler shapes and the real calls into the shared helper
+        // must land in the artifact. Android registration is explicit through Probe, which the
+        // source-level ProbeChecks pin separately.
+        var deer = FindType(reader, "KingdomEnhancedMod", "PatchWorld_DeerPopulation");
+        Checks.Check(!deer.IsNil, "artifact contains the shared PatchWorld_DeerPopulation");
+        var deerPatch = FindType(reader, "KingdomEnhancedMod", "PopulationController_Update_DeerPopulation_Patch");
+        Checks.Check(!deerPatch.IsNil, "artifact contains the deer patch wrapper");
+        CheckHandlers(reader, deerPatch, new Dictionary<string, int>
+        {
+            { "Prefix", 2 }, { "Postfix", 1 }, { "Finalizer", 2 }
+        }, MethodAttributes.Assembly, "internal static");
+        if (!deerPatch.IsNil)
+        {
+            var deerPatchDefinition = reader.GetTypeDefinition(deerPatch);
+            Checks.Check(SignatureTypes(reader, deerPatchDefinition, "Prefix") == "Il2Cpp.PopulationController,Lease&",
+                "Prefix(Il2Cpp.PopulationController, out Lease) binds the typed ANDROID alias and the Harmony __state");
+            Checks.Check(SignatureTypes(reader, deerPatchDefinition, "Postfix") == "Lease",
+                "Postfix(Lease) binds the shared lease state");
+            Checks.Check(SignatureTypes(reader, deerPatchDefinition, "Finalizer") == "System.Exception,Lease",
+                "Finalizer(Exception, Lease) returns the original exception");
+            Checks.Check(HasClassHarmonyPatchTarget(reader, deerPatchDefinition, "PopulationController", "Update"),
+                "the wrapper keeps the [HarmonyPatch(typeof(PopulationController), Update)] class attribute for PC auto-patch");
+            Checks.Check(BodyCallsMethod(pe, reader, deerPatchDefinition, "Prefix",
+                    "Begin", "KingdomEnhancedMod.PatchWorld_DeerPopulation"),
+                "the wrapper Prefix really calls the shared Begin helper");
+            Checks.Check(BodyCallsMethod(pe, reader, deerPatchDefinition, "Postfix",
+                    "Restore", "KingdomEnhancedMod.PatchWorld_DeerPopulation"),
+                "the wrapper Postfix really calls the shared Restore helper");
+        }
+        var modConfig = FindType(reader, "KingdomEnhancedMod", "ModConfig");
+        bool deerEntry = false;
+        if (!modConfig.IsNil)
+            foreach (var handle in reader.GetTypeDefinition(modConfig).GetFields())
+                if (reader.GetString(reader.GetFieldDefinition(handle).Name) == "DeerPopulationEnabled") deerEntry = true;
+        Checks.Check(deerEntry, "the fifteenth ModConfig entry field DeerPopulationEnabled lands in the artifact");
 
         // Boat-capacity block (android/PatchWorld_BoatCapacity.cs + the shared policy
         // il2cpp/BoatCapacityProfile.cs): the one Prefix + one Finalizer must land in the
@@ -1040,6 +1116,7 @@ internal static class ArtifactChecks
         "il2cpp/GreekScaleScope.cs",
         "il2cpp/MapWidthPlanner.cs",
         "il2cpp/MapWidthTerrain.cs",
+        "il2cpp/PatchWorld_DeerPopulation.cs",
         "il2cpp/PatchWorld_FastForestRecede.cs",
         "il2cpp/PatchWorld_FarmCats.cs",
         "il2cpp/PatchWorld_Construction.cs",
@@ -1062,6 +1139,7 @@ internal static class ArtifactChecks
             { "android/MobilePopulation.cs", "6dd431df541a4d2fd268eccfc3e9c757e5837cb8535acbd102bd05b6b1ed3f33" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
             { "android/MobileVegetationMenu.cs", "43af167093c13ae61167a6c474ebfa38892ea3eea5102aac0fe0115ba79298ba" },
+            { "android/MobileWorldMenu.cs", "2dea065e57e62f5f581a35cda9ed826198cdcad6ca96b13e144bdf824145c6f2" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },
             { "android/PatchRide_InfiniteStamina.cs", "02a27e7c21d865596e23db3cdfe405dafb8c9e95f303e45481b24a5f72b280fc" },
@@ -1069,7 +1147,7 @@ internal static class ArtifactChecks
             { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
-            { "android/Probe.cs", "7c4bbc441e2d7f15db1aa83fcccd11d90e14b58b7bc44e48fc84481bc5469b5d" },
+            { "android/Probe.cs", "a9e84ae3e36b18be76840100c08ebeacaad59434389b32484404c90550bcfd4b" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
             { "android/tests/AdapterTests.csproj", "aad4aba93718df35016419550c9dbee3e93407afae0b61c9ee3b77a8f67d841f" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
@@ -1079,22 +1157,23 @@ internal static class ArtifactChecks
             { "il2cpp/GreekScaleScope.cs", "13d913b12e89338645847bb0f4d04fd4370bd808035e377766e2c5f9da530221" },
             { "il2cpp/MapWidthPlanner.cs", "3790b85fef8f36c822cec3d845a1ff90fb0a2dbcfaa295169966cc2ad036aa20" },
             { "il2cpp/MapWidthTerrain.cs", "5fe7ccde3fcdf5ff99e169e17b13b8558b37e3f03d7d7294ada8649d6afa194b" },
+            { "il2cpp/PatchWorld_DeerPopulation.cs", "60ddae20a9dc96cadb769d607eed313bd3cd6c1eb8a6239bbf4165e96452aed2" },
             { "il2cpp/PatchWorld_FastForestRecede.cs", "1b51c0aa24daec749d23647f82aecb789e1b36b7439497eff2bd93dbb40d3193" },
             { "il2cpp/PatchWorld_FarmCats.cs", "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f" },
             { "il2cpp/PatchWorld_Construction.cs", "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79" },
             { "il2cpp/PatchWorld_Level.cs", "90f9f724db0d0f9353775f4284ed09d6d1782c125c5ad028e83b843b55e1315e" }
         };
-        // Issue #138 touches exactly these frozen sources: the FloatLayout vegetation height and
-        // touch geometry, the fourteenth config entry + forest toggle, the World cats row that
-        // became the Vegetation entry, and the new Compile Include. The Operator-owned Probe
-        // entry (version 0.0.18, the forest registration, the Vegetation router) and the new
-        // shared PatchWorld_FastForestRecede.cs / MobileVegetationMenu.cs are frozen with their
-        // final bytes; the rest of the #122/#127/#130/#134/#136 surface stays ordinary frozen
-        // entries.
+        // Issue #140 touches exactly these frozen sources: the FloatLayout vegetation height
+        // (406 with the deer row), the fifteenth config entry + deer toggle with the READY
+        // field, the Vegetation page title/deer row/Back geometry, and the new Compile Include
+        // for the shared deer source. The Operator-owned Probe entry (version 0.0.19, the deer
+        // registration, the Vegetation router) is frozen with its final bytes; the shared
+        // il2cpp/PatchWorld_DeerPopulation.cs itself is a frozen actual entry; the rest of the
+        // #122/#127/#130/#134/#136/#138 surface stays ordinary frozen entries.
         var intentionallyChanged = new HashSet<string>
         {
             "android/FloatLayout.cs", "android/MobilePlayerConfig.cs",
-            "android/MobileWorldMenu.cs", "android/OhMyMods.AndroidProbe.csproj"
+            "android/MobileVegetationMenu.cs", "android/OhMyMods.AndroidProbe.csproj"
         };
         foreach (string relative in FrozenSources)
         {
