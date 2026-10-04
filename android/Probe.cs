@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.14", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.15", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.14 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.15 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
@@ -77,6 +77,11 @@ public sealed class Probe : MelonMod
   HarmonyInstance.Patch(initializeBuild,prefix:new HarmonyMethod(typeof(KingdomEnhancedMod.PatchWorld_Construction),nameof(KingdomEnhancedMod.PatchWorld_Construction.Prefix)));
   LogHookCounts(initializeBuild);
   LoggerInstance.Msg("ANDROID_FAST_BUILD_HOOK_INSTALLED sharedSource=true perInitializeBuildCall=true");
+  var boatOnEnable=AccessTools.Method(typeof(Il2Cpp.Boat),"OnEnable",Type.EmptyTypes)??throw new MissingMethodException("Boat.OnEnable()");
+  var boatPatchType=typeof(KingdomEnhancedMod.PatchWorld_BoatCapacity);
+  HarmonyInstance.Patch(boatOnEnable,prefix:new HarmonyMethod(boatPatchType,"Prefix"),finalizer:new HarmonyMethod(boatPatchType,"Finalizer"));
+  LogHookCounts(boatOnEnable);
+  LoggerInstance.Msg("ANDROID_BOAT_CAPACITY_HOOK_INSTALLED sharedPolicy=true nativeSlotInitialization=true");
   var worldLoaded=AccessTools.Method(typeof(Il2Cpp.World),"OnLevelLoaded",Type.EmptyTypes)??throw new MissingMethodException("World.OnLevelLoaded()");
   HarmonyInstance.Patch(worldLoaded,postfix:new HarmonyMethod(typeof(Probe),nameof(FarmCatsWorldLoaded)));
   LogHookCounts(worldLoaded);

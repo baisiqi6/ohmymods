@@ -27,6 +27,7 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<bool> InfiniteMoney;
     internal static MelonPreferences_Entry<bool> FarmCatsEnabled;
     internal static MelonPreferences_Entry<bool> FastBuild;
+    internal static MelonPreferences_Entry<bool> BoatCapacityEnabled;
 
     // InfiniteMoney 原生写（Il2Cpp.Wallet.InfiniteMoney）的唯一注入点：本文件保持零
     // Il2Cpp.* 引用（hosttests 直接编译同一份），由平台侧 Probe.OnInitializeMelon 传入
@@ -53,6 +54,7 @@ internal static class ModConfig
         InfiniteMoney = category.CreateEntry<bool>("InfiniteMoney", false);
         FarmCatsEnabled = category.CreateEntry<bool>("FarmCatsEnabled", false);
         FastBuild = category.CreateEntry<bool>("FastBuild", false);
+        BoatCapacityEnabled = category.CreateEntry<bool>("BoatCapacityEnabled", false);
         // 手工编辑 cfg 可能写入越界值，在加载边界做唯一一次 clamp（不使用 validator：未证实
         // 可构造 ValueValidator 子类）；运行期不读回、不重试、不静默替换默认值。
         SpeedMultiplier.Value = Math.Clamp(SpeedMultiplier.Value, 1, 5);
@@ -71,7 +73,8 @@ internal static class ModConfig
             + " money=" + InfiniteMoney.Value
             + " cats=" + FarmCatsEnabled.Value
             + " fastBuild=" + FastBuild.Value
-            + " cooldown=" + SteedCooldownMultiplier.Value);
+            + " cooldown=" + SteedCooldownMultiplier.Value
+            + " boat=" + BoatCapacityEnabled.Value);
     }
 
     // 三个倍率的加载边界：有限值 clamp 到 [min,max]；NaN/Infinity 是非法外部输入，回 1 并
@@ -156,6 +159,15 @@ internal static class ModConfig
     {
         FastBuild.Value = !FastBuild.Value;
         MelonLogger.Msg("ANDROID_WORLD_FAST_BUILD enabled=" + FastBuild.Value);
+        Save();
+    }
+
+    // 额外船容量只作用于以后新初始化的船（Boat.OnEnable 借用窗口，原生 RegisterUnitSlots 前）；
+    // 关闭不删除/不热改已登记的 slots，不做全船扫描、不重试；切换一次落盘一次。
+    internal static void ToggleBoatCapacity()
+    {
+        BoatCapacityEnabled.Value = !BoatCapacityEnabled.Value;
+        MelonLogger.Msg("ANDROID_WORLD_BOAT_CAPACITY enabled=" + BoatCapacityEnabled.Value);
         Save();
     }
 
