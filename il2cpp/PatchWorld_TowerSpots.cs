@@ -522,6 +522,44 @@ public static class PatchWorld_TowerSpots
     }
 
     /// <summary>
+    /// 诊断（Issue #125 联调，WallSpotDiagnostics 门控）：回收判定为
+    /// occupied-building 时，列出与候选矩形实际相交的占用 root（名字+范围）。
+    /// 纯只读，最多 4 条/次。
+    /// </summary>
+    private static void LogRetirementBlockers(GameObject spot, float oldX,
+        OccupancySnapshot snapshot, Transform layer)
+    {
+        try
+        {
+            if (!TryGetCombinedOverlapRegion(spot, oldX, false, out Rect cand)) return;
+            var sb = new System.Text.StringBuilder();
+            sb.Append("[TowerSpots] retire-blockers x=").Append(oldX.ToString("F1"))
+              .Append(" candidate=[").Append(cand.xMin.ToString("F1"))
+              .Append(',').Append(cand.xMax.ToString("F1")).Append(']');
+            int logged = 0;
+            for (int i = 0; i < snapshot.Roots.Count && logged < 4; i++)
+            {
+                GameObject root = snapshot.Roots[i];
+                if (root == null || IsSameHierarchy(root, spot)) continue;
+                if (!IsLiveOccupant(snapshot, root, layer)) continue;
+                if (!TryGetCombinedOverlapRegion(root, root.transform.position.x, false, out Rect occ)) continue;
+                if (!cand.Overlaps(occ)) continue;
+                sb.Append(" | ").Append(root.name).Append('[')
+                  .Append(occ.xMin.ToString("F1")).Append(',')
+                  .Append(occ.xMax.ToString("F1")).Append(']');
+                logged++;
+            }
+            if (logged == 0) sb.Append(" | <no-rect-overlap>");
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(sb.ToString());
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                "[TowerSpots] retire-blockers diag failed: " + e.Message);
+        }
+    }
+
+    /// <summary>
     /// 复刻 Level.PopulateRegionWithScatteredObjects 的 AvoidOverlapWith 横向矩形
     /// 判定。Tower 标签有意跳过：同类塔位距离仍由本补丁的目标倍数/占用快照
     /// 管理，否则原生 MinSpacing 会把所有增密点重新全部挡掉；建筑/墙/农场等
@@ -686,6 +724,12 @@ public static class PatchWorld_TowerSpots
             OverlapResult collision = OverlapsOccupiedRoots(snapshot, spot, oldX, spot, layer, world, true);
             bool nativeCollision = OverlapsNativePlacement(prefab, layer, oldX, spot, out string blockedTag, spot);
             bool confirmed = collision == OverlapResult.Overlap || (nativeCollision && blockedTag != "check-error");
+            // Issue #125 联调诊断（WallSpotDiagnostics 门控，默认关）：回收判为
+            // occupied-building 时列出实际相交的占用 root 与矩形范围，钉死
+            // "一个新墙扫掉 60 单位跨度塔基"背后的大矩形来源。纯只读。
+            if (confirmed && collision == OverlapResult.Overlap
+                && ModConfig.WallSpotDiagnostics != null && ModConfig.WallSpotDiagnostics.Value)
+                LogRetirementBlockers(spot, oldX, snapshot, layer);
             if (!confirmed && TryGetCombinedOverlapRegion(spot, oldX, false, out Rect candidate))
             {
                 foreach (GameObject previous in keptGenerated)
