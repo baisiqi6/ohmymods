@@ -95,6 +95,7 @@ public static class PatchWorld_TowerSpots
     private static IntPtr _expandedLayer;
     private static bool _loggedOnlineSkip;
     private static bool _loggedNoTemplate;
+    private static bool _loggedIndeterminateGrid;
     private static bool _loggedVisualHealth;
     private static bool _loggedScatterMetadata;
     private static bool _loggedOverlapRetirement;
@@ -750,8 +751,10 @@ public static class PatchWorld_TowerSpots
                 if (renderer == null) continue;
                 if (bgSet != null && renderer.transform != null)
                 {
+                    // 复审#6 P1-2c/P2-4：起点含渲染器自身节点——BackgroundWall 的
+                    // AcquireSiblingComponents 形态下组件与渲染器可同节点。
                     bool underBg = false;
-                    for (Transform t = renderer.transform.parent; t != null; t = t.parent)
+                    for (Transform t = renderer.transform; t != null; t = t.parent)
                     {
                         if (bgSet.Contains(t.Pointer)) { underBg = true; break; }
                     }
@@ -1250,9 +1253,20 @@ public static class PatchWorld_TowerSpots
         {
             GameObject spot = generatedBases[b];
             if (spot == null || spot.transform == null) continue;
+            if (!spot.activeInHierarchy) continue; // 复审#6 P2-2：已停用点不得抢格
             float bx = spot.transform.position.x;
             SideGrid grid = bx < campfire ? leftGrid : rightGrid;
-            if (grid == null) { indeterminate.Add(spot.Pointer); continue; }
+            if (grid == null)
+            {
+                indeterminate.Add(spot.Pointer);
+                if (!_loggedIndeterminateGrid)
+                {
+                    _loggedIndeterminateGrid = true;
+                    KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                        "[TowerSpots] side grid unavailable; keeping its unbuilt KEM bases this pass");
+                }
+                continue;
+            }
             for (int g = 0; g < grid.Xs.Count; g++)
             {
                 float dist = Mathf.Abs(grid.Xs[g] - bx);
@@ -1276,8 +1290,11 @@ public static class PatchWorld_TowerSpots
         for (int oi = 0; oi < order.Count; oi++)
         {
             int i = order[oi];
+            // 复审#6 P1-1：先查基底是否已认领，再烧网格点——否则已认领基底
+            // 的次近对会烧掉无主网格点，令唯一合法认领者被误判离网回收。
+            if (claimed.Contains(pairBases[i].Pointer)) continue;
             if (!usedGrid.Add(pairs[i][1])) continue;
-            if (!claimed.Add(pairBases[i].Pointer)) continue;
+            claimed.Add(pairBases[i].Pointer);
         }
 
         int retired = 0;

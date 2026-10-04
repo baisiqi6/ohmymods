@@ -805,8 +805,10 @@ public static class PatchWorld_WallSpots
                 if (renderer == null) continue;
                 if (bgSet != null && renderer.transform != null)
                 {
+                    // 复审#6 P1-2c/P2-4：起点含渲染器自身节点——BackgroundWall 的
+                    // AcquireSiblingComponents 形态下组件与渲染器可同节点。
                     bool underBg = false;
-                    for (Transform t = renderer.transform.parent; t != null; t = t.parent)
+                    for (Transform t = renderer.transform; t != null; t = t.parent)
                     {
                         if (bgSet.Contains(t.Pointer)) { underBg = true; break; }
                     }
