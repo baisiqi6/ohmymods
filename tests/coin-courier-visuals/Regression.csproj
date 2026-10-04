@@ -7,6 +7,7 @@
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="../../il2cpp/CoinCourierVisuals.cs" />
+        <Compile Include="../../il2cpp/CoinCourierLeisureCoin.cs" />
         <Compile Include="../../il2cpp/CoinCourierTeleportFx.cs" />
     </ItemGroup>
 </Project>

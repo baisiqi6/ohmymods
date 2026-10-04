@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <Compile Include="../../il2cpp/CoinCourierVisuals.cs" Link="Production/CoinCourierVisuals.cs" />
+    <Compile Include="../../il2cpp/CoinCourierLeisureCoin.cs" Link="Production/CoinCourierLeisureCoin.cs" />
     <Compile Include="../../il2cpp/CoinCourierRuntime.cs" Link="Production/CoinCourierRuntime.cs" />
     <Compile Include="../../il2cpp/CoinCourierCoinFlight.cs" Link="Production/CoinCourierCoinFlight.cs" />
     <Compile Include="../../il2cpp/CoinCourierRuntimeRules.cs" Link="Production/CoinCourierRuntimeRules.cs" />
