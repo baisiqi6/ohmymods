@@ -4,15 +4,16 @@ namespace OhMyMods.AndroidProbe;
 
 /// <summary>
 /// World page of the float panel: enemy count multiplier / threat-growth multiplier /
-/// native infinite-money flag / farm-cat stocking / fast-build prefix / extra boat crew and Back.
-/// Geometry matches the shipped row layout (248x64 buttons at x=16, rows 98/176/254/332/410/488/566);
-/// the World page base height is 640 (FloatLayout.PanelHeight), so the Back row ends at 630 and
-/// stays inside the same rectangle the touch filter uses. The cat row only switches future
-/// stocking (next OnLevelLoaded); it never removes existing cats. The fast-build row only arms the
-/// rate prefix on every native InitializeBuild call (before its _hasStarted early return); turning
-/// it OFF leaves rates already written on that instance. The boat row only arms the capacity
-/// borrow on later Boat.OnEnable calls; it never resizes already registered slots. Back reuses
-/// ProbeTicker.Layout.WorldPage = false.
+/// native infinite-money flag / vegetation subpage entry / fast-build prefix / extra boat
+/// crew and Back. Geometry matches the shipped row layout (248x64 buttons at x=16, rows
+/// 98/176/254/332/410/488/566); the World page base height is 640 (FloatLayout.PanelHeight),
+/// so the Back row ends at 630 and stays inside the same rectangle the touch filter uses.
+/// The Vegetation row only opens the subpage (Layout.VegetationPage = true, WorldPage stays
+/// true); the farm-cat stocking toggle and the fast forest-recede toggle live on that page.
+/// The fast-build row only arms the rate prefix on every native InitializeBuild call (before
+/// its _hasStarted early return); turning it OFF leaves rates already written on that instance.
+/// The boat row only arms the capacity borrow on later Boat.OnEnable calls; it never resizes
+/// already registered slots. Back reuses ProbeTicker.Layout.WorldPage = false.
 /// </summary>
 internal static class MobileWorldMenu
 {
@@ -30,10 +31,8 @@ internal static class MobileWorldMenu
                 KingdomEnhancedMod.ModConfig.InfiniteMoney.Value ? "Infinite money: ON" : "Infinite money: OFF", buttonStyle))
             KingdomEnhancedMod.ModConfig.ToggleMoney();
         if (GUI.Button(new Rect(px + 16 * scale, py + 332 * scale, 248 * scale, 64 * scale),
-                KingdomEnhancedMod.ModConfig.FarmCatsEnabled.Value
-                    ? "Stock cats: ON\nnext level; cats stay"
-                    : "Stock cats: OFF\nnext level; cats stay", buttonStyle))
-            KingdomEnhancedMod.ModConfig.ToggleFarmCats();
+                "Vegetation", buttonStyle))
+            ProbeTicker.Layout.VegetationPage = true;
         if (GUI.Button(new Rect(px + 16 * scale, py + 410 * scale, 248 * scale, 64 * scale),
                 KingdomEnhancedMod.ModConfig.FastBuild.Value
                     ? "Fast build: ON\ninit call; rates stay"

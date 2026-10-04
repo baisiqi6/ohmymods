@@ -16,10 +16,11 @@
        il2cpp/PatchPlayer_HoldPurchase.cs,
        il2cpp/PatchWorld_EnemyManager.cs, il2cpp/PatchWorld_FarmCats.cs, il2cpp/FarmCatMovement.cs,
        il2cpp/GreekScaleScope.cs, il2cpp/PatchWorld_Construction.cs and il2cpp/MapWidthPlanner.cs
-       are linked read-only (Compile Include below); il2cpp/MapWidthTerrain.cs and
-       il2cpp/PatchWorld_Level.cs are linked with an #if ANDROID alias header only, and bare game
-       type names are mapped by GlobalAliases.cs; Harmony auto-patch-all is suppressed by
-       AssemblyInfo.cs for explicit Operator registration. -->
+       are linked read-only (Compile Include below); il2cpp/MapWidthTerrain.cs,
+       il2cpp/PatchWorld_Level.cs and il2cpp/PatchWorld_FastForestRecede.cs are linked with an
+       #if ANDROID alias header only, and bare game type names are mapped by GlobalAliases.cs;
+       Harmony auto-patch-all is suppressed by AssemblyInfo.cs for explicit Operator
+       registration. -->
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -45,6 +46,7 @@
     <Compile Include="MobilePlayerMenu.cs" />
     <Compile Include="MobileWorldMenu.cs" />
     <Compile Include="MobileGenerationMenu.cs" />
+    <Compile Include="MobileVegetationMenu.cs" />
     <Compile Include="Probe.cs" />
     <Compile Include="MobileUiInputSurface.cs" />
     <Compile Include="FloatInput.cs" />
@@ -73,6 +75,7 @@
     <Compile Include="../il2cpp/MapWidthPlanner.cs" Link="Production/MapWidthPlanner.cs" />
     <Compile Include="../il2cpp/MapWidthTerrain.cs" Link="Production/MapWidthTerrain.cs" />
     <Compile Include="../il2cpp/PatchWorld_Level.cs" Link="Production/PatchWorld_Level.cs" />
+    <Compile Include="../il2cpp/PatchWorld_FastForestRecede.cs" Link="Production/PatchWorld_FastForestRecede.cs" />
   </ItemGroup>
 
   <ItemGroup>

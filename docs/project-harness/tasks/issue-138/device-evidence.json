@@ -1,0 +1,41 @@
+{
+  "issue": 138,
+  "mainSHA256": "e8677420a2a3e82f12580df835e778bfea592f743aec558610b247c10fe05efc",
+  "APKsha256": "e7d8e081a81afc17d9e9cbe76d76e66f4d00a5572f1671f199c7d46c48313e6e",
+  "version": "0.0.18",
+  "reportedTargets": 24,
+  "old23ShapesUnchanged": true,
+  "old13PrefsUnchanged": true,
+  "newPreferenceDefaultFalse": true,
+  "newPreferenceFinalFalse": true,
+  "uiRoutesObserved": [
+    "Home",
+    "World",
+    "Vegetation",
+    "BackWorld",
+    "BackHome",
+    "Collapse"
+  ],
+  "forestUiCycle": [
+    false,
+    true,
+    false,
+    true
+  ],
+  "coldLoads": [
+    false,
+    true,
+    false
+  ],
+  "stockCatsVisibleAndNotToggled": true,
+  "nativeOptionsOverlapCloseObservedWithoutActivation": true,
+  "onlyMainInMods": true,
+  "gameStopped": true,
+  "startupBeforeLaunchPrefsNativeByteEqual": true,
+  "terminalWholeNativeByteEqualityClaimed": false,
+  "actualForestWaitMeasured": false,
+  "actualForestFadeOrDestroyCycleVerified": false,
+  "phoneOrMultiplayerVerified": false,
+  "ordinaryPlayNoTreeChopUsed": true,
+  "boundary": "Simulator settings/menu/registration/cold-load evidence only; no actual /3 forest-wait or full lifecycle acceptance."
+}

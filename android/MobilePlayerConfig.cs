@@ -30,6 +30,7 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<bool> FastBuild;
     internal static MelonPreferences_Entry<bool> BoatCapacityEnabled;
     internal static MelonPreferences_Entry<float> MapSizeMultiplier;
+    internal static MelonPreferences_Entry<bool> FastForestRecedeEnabled;
 
     // InfiniteMoney 原生写（Il2Cpp.Wallet.InfiniteMoney）的唯一注入点：本文件保持零
     // Il2Cpp.* 引用（hosttests 直接编译同一份），由平台侧 Probe.OnInitializeMelon 传入
@@ -59,6 +60,7 @@ internal static class ModConfig
         FastBuild = category.CreateEntry<bool>("FastBuild", false);
         BoatCapacityEnabled = category.CreateEntry<bool>("BoatCapacityEnabled", false);
         MapSizeMultiplier = category.CreateEntry<float>("MapSizeMultiplier", 1f);
+        FastForestRecedeEnabled = category.CreateEntry<bool>("FastForestRecedeEnabled", false);
         // 手工编辑 cfg 可能写入越界值，在加载边界做唯一一次 clamp（不使用 validator：未证实
         // 可构造 ValueValidator 子类）；运行期不读回、不重试、不静默替换默认值。
         SpeedMultiplier.Value = Math.Clamp(SpeedMultiplier.Value, 1, 5);
@@ -82,7 +84,8 @@ internal static class ModConfig
             + " cooldown=" + SteedCooldownMultiplier.Value
             + " boat=" + BoatCapacityEnabled.Value
             + " map=" + MapSizeMultiplier.Value
-            + " staff=" + StaffCooldownMultiplier.Value);
+            + " staff=" + StaffCooldownMultiplier.Value
+            + " forestRecede=" + FastForestRecedeEnabled.Value);
     }
 
     // 三个倍率的加载边界：有限值 clamp 到 [min,max]；NaN/Infinity 是非法外部输入，回 1 并
@@ -171,6 +174,15 @@ internal static class ModConfig
     {
         FarmCatsEnabled.Value = !FarmCatsEnabled.Value;
         MelonLogger.Msg("ANDROID_FARM_CATS enabled=" + FarmCatsEnabled.Value);
+        Save();
+    }
+
+    // 快速森林退缩只缩放之后进入原生 FadeAndRemove 的等待参数（共享 prefix；关闭不回收进行中的淡出、
+    // 不扫描世界、不改已写数值）；切换一次落盘一次。
+    internal static void ToggleFastForestRecede()
+    {
+        FastForestRecedeEnabled.Value = !FastForestRecedeEnabled.Value;
+        MelonLogger.Msg("ANDROID_WORLD_FAST_FOREST_RECEDE enabled=" + FastForestRecedeEnabled.Value);
         Save();
     }
 
