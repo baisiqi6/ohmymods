@@ -86,6 +86,7 @@ namespace KingdomEnhancedMod
                 muted.wordWrap = true;
 #if ANDROID
                 GUIStyle value = Style(skin.label, ValueSize, Gold); // V4 实测：skin.box 克隆自带原生黑背景装饰，Android 文字基底改 label
+                value.wordWrap = true;
 #else
                 GUIStyle value = Style(skin.box, ValueSize, Gold);
 #endif

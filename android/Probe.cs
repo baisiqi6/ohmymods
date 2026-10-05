@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.20", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.22", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.20 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.22 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
@@ -107,6 +107,18 @@ public sealed class Probe : MelonMod
   HarmonyInstance.Patch(deerUpdate,prefix:new HarmonyMethod(deerPatchType,"Prefix"),postfix:new HarmonyMethod(deerPatchType,"Postfix"),finalizer:new HarmonyMethod(deerPatchType,"Finalizer"));
   LogHookCounts(deerUpdate);
   LoggerInstance.Msg("ANDROID_DEER_POPULATION_HOOK_INSTALLED sharedSource=true nativeSpawn=true enabled="+KingdomEnhancedMod.ModConfig.DeerPopulationEnabled.Value);
+  var thicketCanSpawn=AccessTools.Method(typeof(Il2Cpp.World),"CanSpawnThicket",new[]{typeof(Il2Cpp.Grass)})??throw new MissingMethodException("World.CanSpawnThicket(Grass)");
+  var thicketCanSpawnPatch=typeof(KingdomEnhancedMod.World_CanSpawnThicket_OptionalVegetation_Patch);
+  HarmonyInstance.Patch(thicketCanSpawn,prefix:new HarmonyMethod(thicketCanSpawnPatch,"Prefix"),postfix:new HarmonyMethod(thicketCanSpawnPatch,"Postfix"),finalizer:new HarmonyMethod(thicketCanSpawnPatch,"Finalizer"));
+  LogHookCounts(thicketCanSpawn);
+  var thicketAdded=AccessTools.Method(typeof(Il2Cpp.World),"AddThicket",new[]{typeof(Il2Cpp.Grass)})??throw new MissingMethodException("World.AddThicket(Grass)");
+  HarmonyInstance.Patch(thicketAdded,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.World_AddThicket_OptionalVegetation_Patch),"Postfix"));
+  LogHookCounts(thicketAdded);
+  var thicketRemove=AccessTools.Method(typeof(Il2Cpp.Grass),"RemoveThicket",Type.EmptyTypes)??throw new MissingMethodException("Grass.RemoveThicket()");
+  var thicketRemovePatch=typeof(KingdomEnhancedMod.Grass_RemoveThicket_OptionalVegetation_Patch);
+  HarmonyInstance.Patch(thicketRemove,prefix:new HarmonyMethod(thicketRemovePatch,"Prefix"),postfix:new HarmonyMethod(thicketRemovePatch,"Postfix"));
+  LogHookCounts(thicketRemove);
+  LoggerInstance.Msg("ANDROID_DENSE_THICKETS_HOOKS_INSTALLED sharedSource=true nativeSpawn=true nativeRemove=true enabled="+KingdomEnhancedMod.ModConfig.DenseThicketsEnabled.Value);
   var worldLoaded=AccessTools.Method(typeof(Il2Cpp.World),"OnLevelLoaded",Type.EmptyTypes)??throw new MissingMethodException("World.OnLevelLoaded()");
   HarmonyInstance.Patch(worldLoaded,postfix:new HarmonyMethod(typeof(Probe),nameof(FarmCatsWorldLoaded)));
   LogHookCounts(worldLoaded);
@@ -147,6 +159,7 @@ public sealed class Probe : MelonMod
   MobileCalendar.Tick();
   MobilePopulation.Tick();
   KingdomEnhancedMod.PatchPlayer_HoldPurchase.Tick();
+  KingdomEnhancedMod.PatchWorld_OptionalVegetation.Tick();
   if (setupAttempted) return;
   setupAttempted = true;
   try

@@ -36,6 +36,9 @@ dotnet build android/compat/CompileInventory.csproj -c Debug \
   `PatchExtensionIsland_Progression.cs`（BepInEx.Unity.IL2CPP.Hook、INativeDetour）、
   `PatchWorld_OptionalVegetation.cs`、`AutoRestockCounts.cs`（BepInEx.Configuration）。
   声明层有错时编译停在该层，不再列出 body 层错误（故 default 看不到配置成员缺口）。
+  **Issue #146 后**：`PatchWorld_OptionalVegetation.cs` 已移除 `BepInEx.Configuration` using
+  （三处局部 `ConfigEntry<bool>` 改 `var`）并已由 Android Main 链接编译，不再属于上述 BepInEx
+  平台边界；本 diagnostic 本批未重跑，default/optin 的错误计数以重跑为准。
 - **optin（DesktopMetadataDir）**：124 = CS0117×105（ModConfig 缺失成员：104 个调用点 / 47 个名字
   + 1 个 CrossbowmanRole）+ CS0121×19（WrapToIl2Cpp 混合扩展伪影，default 引用下不出现）。
   相对 B0 冻结 107：新增 13 个 setting 调用点（WallSpotMultiplier×2 / WallSpotDiagnostics×8 /
@@ -46,6 +49,7 @@ dotnet build android/compat/CompileInventory.csproj -c Debug \
 - 上述计数以 Root 对合并源（232 源 / 57 Bind / 34 声明资源）的实际只读盘点为准
   （`D/common-ui-inventory-delta-summary.md`）；Issue #144 新增的 2 个共享 UI 源 + 2 个 Android
   顶层文件未重跑本 diagnostic（预期不改变上述命名 seam；Main 真编译 0W0E 另由 android 测试矩阵覆盖）。
+  Issue #146 同理未重跑本 diagnostic（`PatchWorld_OptionalVegetation.cs` 的 seam 变化见上）。
 
 ## 盘点口径（供批次规划）
 

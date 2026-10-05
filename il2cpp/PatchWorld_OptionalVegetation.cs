@@ -1,7 +1,14 @@
 using System;
 using System.Collections.Generic;
-using BepInEx.Configuration;
 using HarmonyLib;
+#if ANDROID
+// Android（Il2CppInterop namespace-prefix 模式）把 Assembly-CSharp 的全局类型放在 Il2Cpp.* 下；
+// 本文件与 PC 共用同一份逻辑，仅在此把文件用到的游戏类型显式映射到实际 interop 类型。
+// Managers/World/NetworkBigBoss 由 android/GlobalAliases.cs 的 global alias 提供（本地再 alias 会
+// CS1537）；UnityEngine 类型两个平台同名，无需映射。SpriteRendererFX/BaseSpriteFX 只在 !ANDROID
+// 的 FX 分支出现，Android 无需别名。其余代码（含 PC 分支）逐字相同。
+using Grass = Il2Cpp.Grass;
+#endif
 using UnityEngine;
 
 namespace KingdomEnhancedMod;
@@ -27,10 +34,23 @@ namespace KingdomEnhancedMod;
 ///   同一帧核对 grass._thicket 身份后才算清完；全部清完前拒绝再次开启。回收批次一旦开始，即使
 ///   配置仍为开启也保持停用（同一次持有意图在批次结束后自动恢复）；回收期内任何再次开启
 ///   （面板 TrySet 或外部直接改配置）都会被拒绝并纠正回关闭。
+///   Android 平台门（Issue #146）：默认 OFF 且 Held/Pending/Owned/Records 全空时，四个 hook 入口
+///   在首个 Unity null / Pointer / 字段读取之前用同一纯托管谓词直接返回（零 native 访问）；
+///   有任何旧责任时 OFF 仍走原清账路径。配置写入只在真实变更时各调用一次 ModConfig.Save。
 ///   淡出：真实 Thicket prefab（GO21717）没有 SpriteRendererFX，只有根与 Back L / Back R 三层
 ///   Foliage SpriteRenderer，所以主路径是把该实例所有子层 SpriteRenderer 一起按 alpha 渐变，
 ///   并在原生回收前把每个 renderer 的整色还原（池化复用不留改过的颜色）。存在 FX 的实例优先
 ///   复用 SpriteRendererFX.FadeOut。
+///   Android 兼容（Issue #146）：FX 启动分支与 TryStartFxFade 整体被 #if !ANDROID 裁剪（该分支在
+///   Android 上不产生颜色凭据），Android 构建的所有淡出都无条件走上面的 fallback 并在回收前整色
+///   交还；PC 保留原 FX 优先语义。
+///   Android 颜色写入回执（Issue #146 修复轮）：fallback 淡出逐层在写入前登记 attempted intent、
+///   成功才转正为 lastApplied；写后抛异常或读取不可得时 intent 与凭据保留。下一次淡出的写前分类
+///   按候选定性：已确认 Applied（非 pending 的唯一候选）、未决 attempted、以及 pending 下回到基色；
+///   命中先转正 Applied=getter 实际值再清旧 intent，随后仍走同一份写入与成功 commit，绝不把自有
+///   写入当 Foreign 弃权。回收路径维持基色优先；外部颜色与同一 ptr/id 新生命按既有权责让位/撤权，
+///   intent 与凭据同路清空。Android/PC 共用同一份 Lerp/写/setter/成功 commit，仅平台分类与
+///   intent 标记按平台编译。
 ///   整色交还入口：Grass.RemoveThicket prefix（冬季 / Stage 低于 7 / 城墙等原生删除在真正解除
 ///   _thicket 之前先还原，不拦截原生删除）与本 mod 自己的回收路径都调用同一个幂等还原函数。
 ///   凭据只在三层全部还原成功、对象已销毁、或对象已被新生命占用（不再写）时丢弃；写入失败保留
@@ -47,10 +67,12 @@ namespace KingdomEnhancedMod;
 ///   Tick 兜底时重试。未交还的值不会被当成新基线（否则 /2 会叠加成 /4），读取异常不算对象死亡。
 ///   换 world / 对象死亡只清登记，绝不向旧对象或新 world 写入。
 ///
-/// root 契约（本文件只依赖，不在此实现）：ModConfig.DenseThicketsEnabled 为
-/// ConfigEntry&lt;bool&gt;；OptionalQoLScope.IsActive 由 root 决定可用
+/// root 契约（本文件只依赖，不在此实现）：ModConfig.DenseThicketsEnabled 为真实配置 entry
+/// （PC 为 BepInEx ConfigEntry&lt;bool&gt;，Android 为 MelonPreferences_Entry&lt;bool&gt;；本文件用 var
+/// 推断，两平台共用同一份代码）；OptionalQoLScope.IsActive 由 root 决定可用
 /// 世界；OptionalQoLScope.IsCurrent(Component) 判断组件属于当前 world 层/场景；
-/// ModPanel.Update 每帧调用 Tick()。TrySetDenseThickets 只写配置，实际启停与回收全部发生在主线程 Tick。
+/// PC 由 ModPanel.Update、Android 由 Probe.OnUpdate 每帧调用 Tick()。TrySetDenseThickets 只写配置，
+/// 实际启停与回收全部发生在主线程 Tick。
 ///
 /// 联机边界：本 mod 只在具备世界权威时写 world（新增/回收/临时 scalar 都不在客机发生）；原生
 /// Thicket 对象本身不进 Persistent 存档、也不在客机同步，完整联机视觉表现需实机验证。
@@ -115,10 +137,16 @@ internal static class PatchWorld_OptionalVegetation
         internal ThicketState State;
         internal float FadeStart;
         internal float NextAttempt;
+#if !ANDROID
         internal bool FxFade;
+#endif
         internal SpriteRenderer[] Sprites;
         internal Color[] BaseColors;
         internal Color[] Applied;      // 逐层 lastAppliedColor：只有本 mod 最后写入的值才允许被归还覆盖
+#if ANDROID
+        internal Color[] Attempted;    // 未决 fallback 淡出写入的 attempted 整色（写前登记；成功转正后清）
+        internal bool[] PendingIntent; // 逐层：上一笔 fallback 淡出写入是否尚未收敛（写后抛/读不可得时保留）
+#endif
         internal bool ColorRevoked;    // 该对象已被新生命周期接管：旧凭据不再拥有任何颜色写权
         internal bool Dead;
     }
@@ -194,20 +222,38 @@ internal static class PatchWorld_OptionalVegetation
     /// <summary>
     /// 面板开关入口：只写配置。开启请求在回收期被拒绝，并把可能被外部强设的 true 纠正回 false；
     /// 关闭请求只落配置，实际淡出与原生回收全部由 Tick 在主线程推进。
+    /// Android：entry 真实变更（含拒绝路径纠正旧 true→false）时各调用一次 ModConfig.Save；
+    /// 同值请求与已 false 的拒绝不落盘（PC 维持原 setter 语义）。
     /// </summary>
     internal static bool TrySetDenseThickets(bool enabled)
     {
         try
         {
-            ConfigEntry<bool> entry = ModConfig.DenseThicketsEnabled;
+            var entry = ModConfig.DenseThicketsEnabled;
             if (entry == null) return false;
             if (enabled && IsCleaning)
             {
+#if ANDROID
+                if (entry.Value)
+                {
+                    entry.Value = false;
+                    ModConfig.Save(); // 拒绝重开纠正旧 true→false：真实变更保存一次
+                }
+#else
                 if (entry.Value) entry.Value = false;
+#endif
                 Once("set-refused", "额外实例尚未回收完，拒绝再次开启密灌木");
                 return false;
             }
+#if ANDROID
+            if (entry.Value != enabled)
+            {
+                entry.Value = enabled;
+                ModConfig.Save(); // 仅真实变更保存一次；同值请求不写盘
+            }
+#else
             entry.Value = enabled;
+#endif
             return true;
         }
         catch (Exception error)
@@ -250,6 +296,9 @@ internal static class PatchWorld_OptionalVegetation
         lease = default;
         try
         {
+#if ANDROID
+            if (AndroidOffDebtFree()) return; // 先于 Unity null / Pointer / 字段读取：零 native
+#endif
             if (world == null) return;
             IntPtr pointer = world.Pointer;
             lease.World = world;
@@ -349,6 +398,9 @@ internal static class PatchWorld_OptionalVegetation
     {
         try
         {
+#if ANDROID
+            if (AndroidOffDebtFree()) return; // 先于 Unity null / Pointer / 字段读取：零 native
+#endif
             if (world == null || grass == null) return;
             GameObject thicket = grass._thicket;
             if (thicket == null) return;
@@ -377,6 +429,9 @@ internal static class PatchWorld_OptionalVegetation
     {
         try
         {
+#if ANDROID
+            if (AndroidOffDebtFree()) return; // 先于 Unity null / Pointer / 字段读取：零 native
+#endif
             if (grass == null) return;
             if (Owned.TryGetValue(grass.Pointer, out ExtraThicket record)
                 && record.GrassId == grass.GetInstanceID() && HasPendingColors(record))
@@ -407,6 +462,9 @@ internal static class PatchWorld_OptionalVegetation
     {
         try
         {
+#if ANDROID
+            if (AndroidOffDebtFree()) return; // 先于 Unity null / Pointer / 字段读取：零 native
+#endif
             if (grass == null) return;
             if (!Owned.TryGetValue(grass.Pointer, out ExtraThicket record) || record.Dead) return;
             if (record.GrassId != grass.GetInstanceID())
@@ -569,12 +627,28 @@ internal static class PatchWorld_OptionalVegetation
         return false;
     }
 
+#if ANDROID
+    /// <summary>
+    /// Android 默认 OFF 且无任何自有责任（Held/Pending/Owned/Records 全空）时的纯托管谓词：
+    /// 四个 hook 入口在首个 Unity null 判定 / Pointer / native 字段读取之前用它直接返回。
+    /// 配置开启或存在任何旧责任（含待恢复 scalar、待归还颜色）时返回 false，仍走原清账路径；
+    /// 只读现有状态，不建立镜像。
+    /// </summary>
+    private static bool AndroidOffDebtFree()
+    {
+        // 未接线（entry == null）不静默当关闭：直接读真实 entry.Value，让四个入口的既有 catch
+        // 把接线错误记入日志一次；不为 null 提供默认值或自愈。
+        if (ModConfig.DenseThicketsEnabled.Value) return false;
+        return Held.Count == 0 && Pending.Count == 0 && Owned.Count == 0 && Records.Count == 0;
+    }
+#endif
+
     private static bool DenseRequested(World world)
     {
         try
         {
             if (_cleanupPending) return false; // 回收批次未完成前，配置即使仍为开启也保持停用
-            ConfigEntry<bool> entry = ModConfig.DenseThicketsEnabled;
+            var entry = ModConfig.DenseThicketsEnabled;
             return entry != null && entry.Value && OptionalQoLScope.IsActive
                 && NetworkBigBoss.HasWorldAuth && IsCurrentWorld(world);
         }
@@ -674,12 +748,16 @@ internal static class PatchWorld_OptionalVegetation
             return true;
         }
         float elapsed = Time.time - record.FadeStart;
+#if !ANDROID
+        // PC：存在 SpriteRendererFX 的实例先等原生 FX 淡完；FX 不可用时与 Android 一样走凭据 fallback。
         if (record.FxFade)
         {
             if (elapsed < ExtraThicketFadeSeconds) return false;
         }
         else
+#endif
         {
+            // 凭据驱动的 fallback：淡完先整色交还再尝试原生回收（Android 的唯一点）。
             float progress = ExtraThicketFadeSeconds > 0f ? elapsed / ExtraThicketFadeSeconds : 1f;
             if (progress < 1f)
             {
@@ -719,8 +797,13 @@ internal static class PatchWorld_OptionalVegetation
     {
         record.State = ThicketState.Fading;
         record.FadeStart = Time.time;
+#if ANDROID
+        // Android 兼容：FX 支路已裁剪（该支路不产生颜色凭据），无条件走凭据驱动的 fallback。
+        CaptureSprites(record);
+#else
         record.FxFade = TryStartFxFade(record.Thicket, ExtraThicketFadeSeconds);
         if (!record.FxFade) CaptureSprites(record);
+#endif
         if (!_cleanupPending)
         {
             _cleanupPending = true;
@@ -728,6 +811,7 @@ internal static class PatchWorld_OptionalVegetation
         }
     }
 
+#if !ANDROID
     /// <summary>存在 SpriteRendererFX 的实例优先走原生淡出；真实 Thicket prefab 没有该组件。</summary>
     private static bool TryStartFxFade(GameObject thicket, float seconds)
     {
@@ -751,6 +835,7 @@ internal static class PatchWorld_OptionalVegetation
             return false;
         }
     }
+#endif
 
     /// <summary>
     /// 记录该实例所有子层 SpriteRenderer 的整色（真实 Thicket 是根 + Back L / Back R 三层 Foliage），
@@ -765,6 +850,10 @@ internal static class PatchWorld_OptionalVegetation
             var kept = new SpriteRenderer[sprites.Length];
             var colors = new Color[sprites.Length];
             var applied = new Color[sprites.Length];
+#if ANDROID
+            var attempted = new Color[sprites.Length];
+            var intent = new bool[sprites.Length];
+#endif
             int count = 0;
             for (int i = 0; i < sprites.Length; i++)
             {
@@ -788,11 +877,19 @@ internal static class PatchWorld_OptionalVegetation
                 Array.Resize(ref kept, count);
                 Array.Resize(ref colors, count);
                 Array.Resize(ref applied, count);
+#if ANDROID
+                Array.Resize(ref attempted, count);
+                Array.Resize(ref intent, count);
+#endif
             }
             if (record.Sprites == null) _pendingColorCount++;
             record.Sprites = kept;
             record.BaseColors = colors;
             record.Applied = applied;
+#if ANDROID
+            record.Attempted = attempted;          // 重采集：intent 与凭据同路重置
+            record.PendingIntent = intent;
+#endif
         }
         catch (Exception error)
         {
@@ -806,6 +903,10 @@ internal static class PatchWorld_OptionalVegetation
         Color[] colors = record.BaseColors;
         Color[] applied = record.Applied;
         if (sprites == null || colors == null) return;
+#if ANDROID
+        Color[] attempted = record.Attempted;
+        bool[] intent = record.PendingIntent;
+#endif
         float amount = Mathf.Clamp01(progress);
         for (int i = 0; i < sprites.Length && i < colors.Length; i++)
         {
@@ -813,15 +914,49 @@ internal static class PatchWorld_OptionalVegetation
             if (sprite == null) continue;
             try
             {
+#if ANDROID
+                // 写前分类（仅 Android）：候选 = 已确认 Applied（非 pending 的唯一候选）、未决
+                // attempted、pending 下回到基色。命中先转正 Applied=getter 实际值、再清旧 intent；
+                // 读异常不转正不清 intent，真外部颜色让位。
+                if (applied == null || i >= applied.Length)
+                {
+                    sprites[i] = null; // 无凭据可续：与 PC 的 applied==null 分支同义
+                    if (intent != null && i < intent.Length) intent[i] = false;
+                    continue;
+                }
+                Color current = sprite.color;
+                bool pending = intent != null && i < intent.Length && intent[i];
+                bool matchesApplied = SameColor(current, applied[i]);
+                bool selfOwned = matchesApplied
+                    || (pending && attempted != null && i < attempted.Length && SameColor(current, attempted[i]))
+                    || (pending && SameColor(current, colors[i]));
+                if (!selfOwned)
+                {
+                    sprites[i] = null; // 外部新颜色由外部拥有，后续淡出和归还都不得覆盖。
+                    if (intent != null && i < intent.Length) intent[i] = false;
+                    continue;
+                }
+                if (!matchesApplied) applied[i] = current; // 转正：记录 getter 实际观察到的自有值
+                if (intent != null && i < intent.Length) intent[i] = false; // 旧 intent 先结清
+#else
                 if (applied == null || i >= applied.Length || !SameColor(sprite.color, applied[i]))
                 {
                     sprites[i] = null; // 外部新颜色由外部拥有，后续淡出和归还都不得覆盖。
                     continue;
                 }
+#endif
+                // 共享：同一份淡出取值、写入与成功 commit（PC 与 Android 逐字同源）。
                 Color color = colors[i];
                 color.a = Mathf.Lerp(colors[i].a, 0f, amount);
+#if ANDROID
+                if (attempted != null && i < attempted.Length) attempted[i] = color; // 写前登记新尝试
+                if (intent != null && i < intent.Length) intent[i] = true;
+#endif
                 sprite.color = color;
                 if (applied != null && i < applied.Length) applied[i] = color; // 只有成功写入才更新 lastApplied
+#if ANDROID
+                if (intent != null && i < intent.Length) intent[i] = false; // 成功收敛：清 intent
+#endif
             }
             catch (Exception error)
             {
@@ -840,6 +975,10 @@ internal static class PatchWorld_OptionalVegetation
         SpriteRenderer[] sprites = record.Sprites;
         Color[] colors = record.BaseColors;
         Color[] applied = record.Applied;
+#if ANDROID
+        Color[] attempted = record.Attempted;
+        bool[] intent = record.PendingIntent;
+#endif
         if (sprites == null || colors == null)
         {
             ClearColorReceipt(record);
@@ -871,19 +1010,36 @@ internal static class PatchWorld_OptionalVegetation
             try
             {
                 Color current = sprite.color;
+#if ANDROID
+                // 未决 intent 的落地值同属自有颜色：该候选先于 Foreign 判定，命中即按自有归还。
+                bool attemptedMatch = intent != null && i < intent.Length && intent[i]
+                    && attempted != null && i < attempted.Length && SameColor(current, attempted[i]);
+#endif
                 if (SameColor(current, colors[i]))
                 {
                     sprites[i] = null; // 已是基色：无需写
+#if ANDROID
+                    if (intent != null && i < intent.Length) intent[i] = false;
+#endif
                     continue;
                 }
+#if ANDROID
+                if (!attemptedMatch)
+#endif
                 if (applied == null || i >= applied.Length || !SameColor(current, applied[i]))
                 {
                     // 当前值既不是基色也不是本 mod 最后一次写入：Foliage 或其他 writer 拥有该颜色，放弃该层
                     sprites[i] = null;
+#if ANDROID
+                    if (intent != null && i < intent.Length) intent[i] = false;
+#endif
                     continue;
                 }
                 sprite.color = colors[i]; // 只覆盖本 mod 自己写过的值
                 sprites[i] = null;
+#if ANDROID
+                if (intent != null && i < intent.Length) intent[i] = false; // 该层已解决：intent 与凭据同路清空
+#endif
             }
             catch (Exception error)
             {
@@ -934,11 +1090,19 @@ internal static class PatchWorld_OptionalVegetation
         {
             record.BaseColors = null;
             record.Applied = null;
+#if ANDROID
+            record.Attempted = null;
+            record.PendingIntent = null;
+#endif
             return;
         }
         record.Sprites = null;
         record.BaseColors = null;
         record.Applied = null;
+#if ANDROID
+        record.Attempted = null;
+        record.PendingIntent = null;
+#endif
         if (_pendingColorCount > 0) _pendingColorCount--;
     }
 
@@ -994,13 +1158,21 @@ internal static class PatchWorld_OptionalVegetation
     {
         try
         {
-            ConfigEntry<bool> entry = ModConfig.DenseThicketsEnabled;
+            var entry = ModConfig.DenseThicketsEnabled;
             if (entry == null) return;
             bool value = entry.Value;
             bool roseWhileCleaning = value && !_denseConfigSeen && Records.Count > 0 && IsCleaning;
             _denseConfigSeen = value;
             if (!roseWhileCleaning) return;
+#if ANDROID
+            if (entry.Value)
+            {
+                entry.Value = false;
+                ModConfig.Save(); // 强制纠正旧 true→false：真实变更保存一次
+            }
+#else
             entry.Value = false;
+#endif
             _denseConfigSeen = false;
             Once("forced-off", "回收未完成期间检测到再次开启，已纠正回关闭；额外实例清完后才能再次开启");
         }

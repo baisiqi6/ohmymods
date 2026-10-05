@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="android-host/**" />
+    <Compile Remove="android-dense-host/**" />
     <Compile Include="$(ProductionSource)" Link="Production/OptionalVegetation.cs" />
     <Compile Include="$(FastRecedeProductionSource)" Link="Production/FastForestRecede.cs" />
   </ItemGroup>
