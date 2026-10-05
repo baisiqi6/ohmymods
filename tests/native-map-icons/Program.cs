@@ -9,14 +9,16 @@ using KingdomEnhancedMod;
 namespace KingdomEnhancedMod.Tests
 {
     /// <summary>
-    /// 地图图标纯函数离线回归（r7：原生地理布局取代 5×2 网格）：
-    /// - MapOverviewLayout：真实 native fixture 的统一倍率布局（两两差值同倍率/结构关系/扩展带/
-    ///   第 11 簇不影响原 10/重复应用幂等）；
-    /// - 岛内契约（incident #152）：native 图标只落在所属岛自己的底图盒内（MapIconRegionPlanner 岛外区域已删除）；
-    /// - MapResourceIconPlanner：golden 向量逐值、不变量（surface 内/Gutter/RequestIndex/确定性）、
-    ///   失败时不得部分展示（failed&gt;0 ⇒ 调用方必须丢弃）；
-    /// - --geography-report <out.json>：把真实 native fixture（10 簇原始 anchoredPosition/art）喂给
-    ///   **生产纯函数**，导出统一倍率布局、每岛底图盒与真实 fixture 岛内容量裁决（离线证据）。
+    /// 地图图标纯函数离线回归（issue-156 边界后的保留面）：
+    /// - MapOverviewLayout/MapWorldLayout/MapExtensionShapePlan：真实 native fixture 的统一倍率布局、
+    ///   底部扩展带与扩展岛共享形状（第 11 簇不影响原 10/重复应用幂等）；
+    /// - MapExtensionIslandLayout：扩展岛 16 项自由错落 + 顶面 PlacementMask 容量（真实尺寸集）、
+    ///   确定性/平移等变/诚实 fallback；
+    /// - MapOverviewLifecycle/Presentation/Viewport/Cache/Refresh：生命周期与视口策略纯函数；
+    /// - MapIconVisibility/MapIconPlanFingerprint：遮挡可见性链与指纹稳定；
+    /// - 自有图标目录（3/4/38）与同步产物逐值核验；
+    /// - --geography-report <out.json>：把真实 native fixture 喂给生产纯函数，导出统一倍率布局 +
+    ///   扩展岛 world/detail 容量（离线证据；issue-156 后 native 十岛零接管，不再有 native 容量裁决）。
     /// 运行：dotnet run -c Release（输出 ALL PASS checks=N fails=0）。
     /// </summary>
     internal static class Program
@@ -40,16 +42,6 @@ namespace KingdomEnhancedMod.Tests
         private static bool Near(float a, float b, float eps = 0.01f) => Math.Abs(a - b) <= eps;
 
         private static float Sq(float a, float b) => a * a + b * b;
-
-        /// <summary>与 layout_proof.py WORST10 完全相同的真实尺寸集（取各类型最大真实图标）。</summary>
-        private static List<MapIconRequest> Worst10() => new List<MapIconRequest>
-        {
-            Req(MapIconKind.Steed, 37, 40, 28, 0), Req(MapIconKind.Steed, 35, 40, 22, 1),
-            Req(MapIconKind.Steed, 32, 40, 20, 2), Req(MapIconKind.Steed, 33, 40, 20, 3),
-            Req(MapIconKind.Steed, 29, 38, 26, 4), Req(MapIconKind.Steed, 31, 38, 24, 5),
-            Req(MapIconKind.Steed, 34, 32, 30, 6), Req(MapIconKind.Steed, 30, 32, 22, 7),
-            Req(MapIconKind.Hermit, 0, 18, 24, 0), Req(MapIconKind.Statue, 2, 20, 36, 0),
-        };
 
         /// <summary>与 layout_proof.py STRESS12 完全相同的顺序：8 steeds + 2 hermits + 2 statues。</summary>
         private static List<MapIconRequest> Stress12() => new List<MapIconRequest>
@@ -87,119 +79,12 @@ namespace KingdomEnhancedMod.Tests
         private static void SelfChecks()
         {
             Geography();
-            NativeShapeAndPaperScale();
             Extension();
-            DetailCapacity();
             Lifecycle();
             LiveViewport();
             Presentation();
             WorldCapacity();
             ExtensionShoreShape();
-
-            const float CellW = 62.8f;      // 314 / 5
-            const float CellH = 94.5f;      // 95 - 0.5（含按钮带后的格高减格内上边距增量）
-
-            // ---- golden vectors (tools/layout_proof.py reproduces them exactly) ----
-            Golden("simple", new List<MapIconRequest> { Req(MapIconKind.Steed, 38, 38, 26) },
-                new MapIconSurface(0, 0, 200, 100), new List<MapIconBox>(),
-                expectScale: 1.0f, expectPlaced: 1, expectMisses: 0, firstX: 1.5f, firstY: 1.5f);
-
-            Golden("blocked_bottom", new List<MapIconRequest> { Req(MapIconKind.Steed, 38, 38, 26) },
-                new MapIconSurface(0, 0, 60, 50), new List<MapIconBox> { new MapIconBox(0, 0, 60, 20) },
-                expectScale: 0.85f, expectPlaced: 1, expectMisses: 0, firstX: 1.5f, firstY: 25.1f);
-
-            var cellSurface = new MapIconSurface(0, 0, CellW, CellH);
-            var cellBlocked = new List<MapIconBox> { new MapIconBox(0, CellH * 0.42f, CellW, CellH) };
-
-            // bottom-up（详情面：自岛缘向上堆）
-            Golden("worst10_cell_bottomup", Worst10(), cellSurface, cellBlocked,
-                expectScale: 0.28f, expectPlaced: 10, expectMisses: 0, firstX: 1.5f, firstY: 1.5f, topDown: false);
-            // top-down（总览贴岛画法）——本 golden 用"上方 58% 全遮挡"的病态面，验证降档不放弃
-            Golden("worst10_cell_topdown", Worst10(), cellSurface, cellBlocked,
-                expectScale: 0.28f, expectPlaced: 10, expectMisses: 0, firstX: 1.5f, firstY: 27.26f, topDown: true);
-            Golden("stress12_cell_topdown", Stress12(), cellSurface, cellBlocked,
-                expectScale: 0.28f, expectPlaced: 12, expectMisses: 0, firstX: 1.5f, firstY: 27.26f, topDown: true);
-
-            // ---- invariants on a non-trivial surface ----
-            var surface = new MapIconSurface(0, 0, 200, 120);
-            surface.AddBlocked(new MapIconBox(70, 0, 120, 60));
-            var requests = Stress12();
-            var placements = new List<MapIconPlacement>();
-            bool ok = MapResourceIconPlanner.TryPlan(requests, surface, placements, out float used, out int failed);
-            Check(ok && failed == 0 && placements.Count == requests.Count, "invariants/all-placed");
-            Check(used > 0f, "invariants/scale-positive");
-
-            for (int i = 0; i < placements.Count; i++)
-            {
-                var p = placements[i];
-                float w = p.Request.Width * p.Scale;
-                float h = p.Request.Height * p.Scale;
-                Check(p.X >= surface.X0 && p.Y >= surface.Y0 &&
-                      p.X + w <= surface.X1 && p.Y + h <= surface.Y1,
-                      "invariants/inside-surface#" + i);
-                for (int b = 0; b < surface.BlockedCount; b++)
-                {
-                    var bb = surface.Blocked(b);
-                    // Gutter=1.5：边缘间不允许贴死
-                    bool hits = p.X - 1.5f < bb.X1 && bb.X0 - 1.5f < p.X + w &&
-                                p.Y - 1.5f < bb.Y1 && bb.Y0 - 1.5f < p.Y + h;
-                    Check(!hits, "invariants/no-blocked-overlap#" + i + "_" + b);
-                }
-                for (int j = 0; j < i; j++)
-                {
-                    var q = placements[j];
-                    float qw = q.Request.Width * q.Scale;
-                    float qh = q.Request.Height * q.Scale;
-                    bool hits = p.X - 1.5f < q.X + qw && q.X - 1.5f < p.X + w &&
-                                p.Y - 1.5f < q.Y + qh && q.Y - 1.5f < p.Y + h;
-                    Check(!hits, "invariants/no-icon-overlap#" + i + "_" + j);
-                }
-            }
-            for (int i = 0; i < placements.Count; i++)
-            {
-                Check(placements[i].RequestIndex == i && placements[i].Request.ArrayIndex == requests[i].ArrayIndex,
-                    "invariants/order#" + i);
-            }
-
-            // determinism: two runs identical
-            var again = new List<MapIconPlacement>();
-            MapResourceIconPlanner.TryPlan(requests, surface, again, out float used2, out int failed2);
-            Check(again.Count == placements.Count && failed2 == failed && Near(used2, used), "invariants/deterministic");
-
-            // top-down 与 bottom-up 只在贴边侧不同（同一容量，全部放下）
-            var top = new List<MapIconPlacement>();
-            var bottom = new List<MapIconPlacement>();
-            bool topOk = MapResourceIconPlanner.TryPlan(requests, surface, top, out float topScale, out _, true);
-            bool bottomOk = MapResourceIconPlanner.TryPlan(requests, surface, bottom, out float bottomScale, out _, false);
-            Check(topOk && bottomOk, "orientation/both-fit");
-            Check(Near(topScale, bottomScale) && top.Count == bottom.Count &&
-                  top[0].Y > bottom[0].Y, "orientation/top-hugs-top");
-
-            // empty requests
-            var empty = new List<MapIconPlacement>();
-            Check(MapResourceIconPlanner.TryPlan(new List<MapIconRequest>(), surface, empty, out _, out int emptyFailed)
-                  && empty.Count == 0 && emptyFailed == 0, "empty/no-op");
-
-            // fully blocked surface: nothing placed, all reported, caller must discard (no partial展示)
-            var full = new MapIconSurface(0, 0, 60, 50);
-            full.AddBlocked(new MapIconBox(0, 0, 60, 50));
-            var blockedOut = new List<MapIconPlacement>();
-            bool blockedOk = MapResourceIconPlanner.TryPlan(new List<MapIconRequest> { Req(MapIconKind.Steed, 38, 38, 26) },
-                full, blockedOut, out _, out int blockedFailed);
-            Check(!blockedOk && blockedOut.Count == 0 && blockedFailed == 1, "blocked/all-reported");
-
-            // 部分放不下：必须报告 failed>0 且返回 false（调用方不得只看 placements）
-            var tight = new MapIconSurface(0, 0, 20, 12);
-            var tightOut = new List<MapIconPlacement>();
-            bool tightOk = MapResourceIconPlanner.TryPlan(Worst10(), tight, tightOut, out _, out int tightFailed);
-            Check(!tightOk && tightFailed > 0, "partial/failed-reported");
-
-            // small content keeps full size (no needless shrink)
-            var bigSurface = new MapIconSurface(0, 0, 300, 200);
-            var two = new List<MapIconRequest> { Req(MapIconKind.Steed, 38, 38, 26), Req(MapIconKind.Hermit, 0, 18, 24) };
-            var twoOut = new List<MapIconPlacement>();
-            MapResourceIconPlanner.TryPlan(two, bigSurface, twoOut, out float twoScale, out _);
-            Check(Near(twoScale, 1.0f) && twoOut.Count == 2, "spacious/no-shrink");
 
             // ---- r6: 自有图标目录（user-approved 3/4/38；原版图标仍直接移植） ----
             Check(MapCustomIconCatalog.Count == 3, "custom/count-3");
@@ -296,12 +181,6 @@ namespace KingdomEnhancedMod.Tests
             Check(MapIconPlanFingerprint.Compute(3, true, new List<MapIconRequest>())
                   == MapIconPlanFingerprint.Compute(3, true, new List<MapIconRequest>()), "fingerprint/empty-stable");
 
-            // r4: partial 不认 success —— 部分结果必须 failed>0 且返回 false（调用方不得只数 placements）
-            var partialSurface = new MapIconSurface(0f, 0f, 30f, 20f);
-            var partialOut = new List<MapIconPlacement>();
-            bool partialOk = MapResourceIconPlanner.TryPlan(Stress12(), partialSurface, partialOut, out _, out int partialMisses);
-            Check(!partialOk && partialMisses > 0 && partialOut.Count > 0 && partialOut.Count < 12,
-                "partial/never-success " + partialOut.Count + "/" + partialMisses);
         }
 
         /// <summary>
@@ -313,232 +192,6 @@ namespace KingdomEnhancedMod.Tests
         /// ⑤ 第 11 个登记簇（扩展）在底部带内、且不影响原 10 的任何目标；
         /// ⑥ 重复 apply/restore（绝对赋值 + 冻结原始快照）无累计缩放。
         /// </summary>
-        /// <summary>
-        /// issue-152 纯函数契约（v3，plan-space identity 映射）：
-        /// - native sprite mesh 拓扑预处理（canonical 顶点 / 退化与重复三角形 / 无向边界边 / 非流形 → Unknown）；
-        /// - 形状包含（凹形海角、洞、跨洞细长盒、接缝/混合朝向不误判）；
-        /// - uGUI `Image` Simple+useSpriteMesh 绘制公式（bounds 归一、pivot 锚定 preserveAspect、rect pivot 偏移）；
-        /// - 自然 paper 倍率（art localScale × 全局 fit）与"请求换算到 paper 后 4/4"；
-        /// - planner 的 mesh 约束不影响无形状调用的既有 golden 行为。
-        /// 反例对旧实现（v2：ppu 归一 + 居中 FitAspect + 索引朝向边界判定）为红：见 shape/legacy-* 断言与
-        /// probes/v3-red（编译冻结 v2-snapshot 源码运行同一组规范期望）。
-        /// </summary>
-        private static void NativeShapeAndPaperScale()
-        {
-            // ---- 1) 凹形（diamond）：bbox 四角是海 ⇒ 形状约束必须拒绝 ----
-            // 顶点直接是规划空间坐标（v3：shape 使用 identity 映射）：40×30 的 bbox 内接 diamond。
-            var box = new MapIconBox(0f, 0f, 40f, 30f);
-            float[] diamondX = { 0f, 20f, 40f, 20f };
-            float[] diamondY = { 15f, 30f, 15f, 0f };
-            int[] diamondTris = { 0, 1, 2, 0, 2, 3 };
-            Check(MapIconMeshShape.TryBuildTopology(diamondX, diamondY, 4, diamondTris,
-                    out MapIconMeshTopology diamond, out string diamondReason),
-                "shape/diamond-topology " + diamondReason);
-
-            var seaCorner = new MapIconBox(1.5f, 21.5f, 9.5f, 29.5f);   // bbox 角（海）
-            Check(!MapIconMeshShape.FootprintInside(diamond, seaCorner, MapIconMeshShape.DefaultEpsilon),
-                "shape/diamond-sea-corner-rejected");
-            var islandCenter = new MapIconBox(17f, 13f, 25f, 21f);      // 形内
-            Check(MapIconMeshShape.FootprintInside(diamond, islandCenter, MapIconMeshShape.DefaultEpsilon),
-                "shape/diamond-center-accepted");
-
-            // planner 级：带形状时落点必须完整在形内（无形状时不施加该约束）
-            var plainSurface = new MapIconSurface(0f, 0f, 40f, 30f);
-            var plainOut = new List<MapIconPlacement>();
-            var one = new List<MapIconRequest> { Req(MapIconKind.Steed, 35, 8, 8) };
-            bool plainOk = MapResourceIconPlanner.TryPlan(one, plainSurface, plainOut, out _, out _);
-            Check(plainOk && plainOut.Count == 1 &&
-                  !MapIconMeshShape.FootprintInside(diamond, PlacementBox(plainOut[0]),
-                      MapIconMeshShape.DefaultEpsilon),
-                "shape/plain-bbox-accepts-sea-corner");   // v1/v2 行为（反例基线）
-
-            var shapedSurface = new MapIconSurface(0f, 0f, 40f, 30f);
-            shapedSurface.SetMeshShape(diamond);
-            var shapedOut = new List<MapIconPlacement>();
-            bool shapedOk = MapResourceIconPlanner.TryPlan(one, shapedSurface, shapedOut, out _, out int shapedFail);
-            Check(shapedOk && shapedFail == 0 && shapedOut.Count == 1 &&
-                  MapIconMeshShape.FootprintInside(diamond, PlacementBox(shapedOut[0]),
-                      MapIconMeshShape.DefaultEpsilon),
-                "shape/shaped-places-inside fail=" + shapedFail);
-
-            // 形内被占满（只余海角）⇒ 带形状必须 fail-closed（绝不岛外兜底）
-            float[] halfX = { 0f, 0f, 20f, 20f };
-            float[] halfY = { 0f, 30f, 30f, 0f };
-            int[] halfTris = { 0, 1, 2, 0, 2, 3 };
-            Check(MapIconMeshShape.TryBuildTopology(halfX, halfY, 4, halfTris, out MapIconMeshTopology half,
-                    out _), "shape/half-topology");
-            var blockedSurface = new MapIconSurface(0f, 0f, 40f, 30f);
-            blockedSurface.SetMeshShape(half);
-            blockedSurface.AddBlocked(new MapIconBox(0f, 0f, 20f, 30f));   // 形内整半被占
-            var blockedOut = new List<MapIconPlacement>();
-            bool blockedOk = MapResourceIconPlanner.TryPlan(one, blockedSurface, blockedOut, out _, out int blockedFail);
-            Check(!blockedOk && blockedFail > 0 && blockedOut.Count == 0,
-                "shape/no-sea-fallback ok=" + blockedOk + " placed=" + blockedOut.Count);
-            // 无形状的同一配置：bbox 规划会在形外右半放下（v1/v2 行为；这正是本回归要堵的路径）
-            var bboxSurface = new MapIconSurface(0f, 0f, 40f, 30f);
-            bboxSurface.AddBlocked(new MapIconBox(0f, 0f, 20f, 30f));
-            var bboxOut = new List<MapIconPlacement>();
-            bool bboxOk = MapResourceIconPlanner.TryPlan(one, bboxSurface, bboxOut, out _, out _);
-            Check(bboxOk && bboxOut.Count == 1 &&
-                  !MapIconMeshShape.FootprintInside(half, PlacementBox(bboxOut[0]),
-                      MapIconMeshShape.DefaultEpsilon),
-                "shape/bbox-fallback-is-outside-shape");
-
-            // ---- 2) trimmed sprite：mesh bbox 与 rect 不一致时仍按真实形状判定 ----
-            float[] trimmedX = { 0f, 40f, 40f, 0f };
-            float[] trimmedY = { 10f, 10f, 30f, 30f };   // 只画中上部 20 高
-            int[] trimmedTris = { 0, 1, 2, 0, 2, 3 };
-            Check(MapIconMeshShape.TryBuildTopology(trimmedX, trimmedY, 4, trimmedTris,
-                    out MapIconMeshTopology trimmed, out _), "shape/trimmed-topology");
-            var bottomBand = new MapIconBox(10f, 1f, 18f, 6f);   // trimmed 外（下半）
-            Check(!MapIconMeshShape.FootprintInside(trimmed, bottomBand, MapIconMeshShape.DefaultEpsilon),
-                "shape/trimmed-bottom-rejected");
-            var trimmedInside = new MapIconBox(14f, 14f, 22f, 24f);
-            Check(MapIconMeshShape.FootprintInside(trimmed, trimmedInside, MapIconMeshShape.DefaultEpsilon),
-                "shape/trimmed-inside-accepted");
-
-            // ---- 2b) 带洞岛形（湖/内湾）：洞内不得放置，环上可放 ----
-            float[] ringX = { 0f, 40f, 40f, 0f, 16f, 24f, 24f, 16f };
-            float[] ringY = { 3f, 3f, 27f, 27f, 11f, 11f, 17f, 17f };
-            int[] ringTris = { 0, 1, 4, 1, 5, 4, 1, 2, 5, 2, 6, 5, 2, 3, 6, 3, 7, 6, 3, 0, 7, 0, 4, 7 };
-            Check(MapIconMeshShape.TryBuildTopology(ringX, ringY, 8, ringTris, out MapIconMeshTopology ring,
-                    out _), "shape/ring-topology");
-            var holeBox = new MapIconBox(17f, 12.5f, 23f, 15.5f);   // 洞内
-            Check(!MapIconMeshShape.FootprintInside(ring, holeBox, MapIconMeshShape.DefaultEpsilon),
-                "shape/hole-rejected");
-            var ringBox = new MapIconBox(4f, 6f, 12f, 14f);         // 环上（左臂）
-            Check(MapIconMeshShape.FootprintInside(ring, ringBox, MapIconMeshShape.DefaultEpsilon),
-                "shape/ring-accepted");
-            var straddleBox = new MapIconBox(14f, 12.5f, 30f, 15f); // 跨洞边（细长跨越）
-            Check(!MapIconMeshShape.FootprintInside(ring, straddleBox, MapIconMeshShape.DefaultEpsilon),
-                "shape/hole-boundary-straddle-rejected");
-
-            // ---- 2c) 拓扑规范化：重复坐标接缝 / 混合朝向 / 重复三角形 / 非流形 ----
-            // 对角切分的四边形，两个三角形在**共享边上各带一份重复坐标顶点**（v1/v3 = (40,0)，v2/v5 = (0,30)）。
-            float[] seamX = { 0f, 40f, 0f, 40f, 40f, 0f };
-            float[] seamY = { 0f, 0f, 30f, 0f, 30f, 30f };
-            int[] seamTris = { 0, 1, 2, 3, 4, 5 };
-            Check(MapIconMeshShape.TryBuildTopology(seamX, seamY, 6, seamTris, out MapIconMeshTopology seam,
-                    out string seamReason), "shape/seam-duplicate-coord " + seamReason);
-            Check(seam.VertexCount == 4, "shape/seam-canonical-vertices=" + seam.VertexCount);
-            // 接缝不当作海岸：跨接缝（对角）的足迹应被接受
-            Check(MapIconMeshShape.FootprintInside(seam, new MapIconBox(8f, 6f, 32f, 24f),
-                    MapIconMeshShape.DefaultEpsilon), "shape/seam-not-a-coast");
-
-            // 混合朝向（一个三角形反向）：不产生假边界
-            float[] mixX = { 0f, 20f, 20f, 0f };
-            float[] mixY = { 0f, 0f, 20f, 20f };
-            int[] mixTris = { 0, 1, 2, 0, 3, 2 };   // 第二片 (0,3,2) 与 (0,1,2) 共享边 (0,2)，朝向相反
-            Check(MapIconMeshShape.TryBuildTopology(mixX, mixY, 4, mixTris, out MapIconMeshTopology mixed, out _),
-                "shape/mixed-winding-topology");
-            Check(MapIconMeshShape.FootprintInside(mixed, new MapIconBox(2f, 2f, 18f, 18f),
-                    MapIconMeshShape.DefaultEpsilon), "shape/mixed-winding-accepted");
-
-            // 重复三角形（完全相同的索引集合）去重后不造成非流形
-            float[] dupX = { 0f, 20f, 0f };
-            float[] dupY = { 0f, 0f, 20f };
-            int[] dupTris = { 0, 1, 2, 2, 1, 0 };
-            Check(MapIconMeshShape.TryBuildTopology(dupX, dupY, 3, dupTris, out MapIconMeshTopology dup, out _),
-                "shape/duplicate-triangle-dedup");
-            Check(dup.Triangles.Length == 3, "shape/duplicate-triangle-count=" + dup.Triangles.Length);
-
-            // 非流形（一条无向边 3 个三角形）⇒ Unknown（fail-closed）
-            float[] badX = { 0f, 20f, 0f, 20f, 10f };
-            float[] badY = { 0f, 0f, 20f, 20f, -10f };
-            int[] badTris = { 0, 1, 2, 1, 0, 3, 0, 1, 4 };
-            Check(!MapIconMeshShape.TryBuildTopology(badX, badY, 5, badTris,
-                    out MapIconMeshTopology badTopo, out string badReason),
-                "shape/nonmanifold-unknown " + badReason);
-            Check(badTopo == null && !MapIconMeshShape.FootprintInside(badTopo, new MapIconBox(2f, 2f, 8f, 8f),
-                      MapIconMeshShape.DefaultEpsilon),
-                "shape/nonmanifold-fail-closed");
-
-            // 全退化（零面积三角形）⇒ Unknown；非法索引被忽略但不产生假边界
-            float[] degX = { 0f, 10f, 20f };
-            float[] degY = { 0f, 0f, 0f };
-            Check(!MapIconMeshShape.TryBuildTopology(degX, degY, 3, new int[] { 0, 1, 2 },
-                    out _, out string degReason), "shape/degenerate-unknown " + degReason);
-            Check(!MapIconMeshShape.TryBuildTopology(trimmedX, trimmedY, 4, new int[] { 0, 1, 9 },
-                    out _, out string idxReason), "shape/invalid-index-ignored " + idxReason);
-
-            // ---- 3) uGUI Simple+useSpriteMesh 公式（primary source Image.GenerateSprite/GetDrawingDimensions） ----
-            // (a) bounds != rect/ppu：归一必须用 Sprite.bounds.size（v2 用 rect/ppu ⇒ 位置不同）
-            Check(MapIconNativeArtPlan.TryBuildSimpleMeshDraw(100f, 100f, 0f, 0f, false,
-                    84f, 62f, 42f, 0f, 0.8f, 0.8f, out MapIconImageDraw smallBounds),
-                "shape/draw-bounds");
-            float canonicalX = smallBounds.LocalX(0.2f);       // v=0.2, bounds=0.8, drawing=100
-            float legacyX = 0.2f * 32f;                        // v2：ppu 归一（0.2*ppu = 6.4）再按 rect/ppu 缩放
-            Check(Near(canonicalX, 0.2f / 0.8f * 100f - smallBounds.OffsetX, 1e-3f),
-                "shape/draw-bounds-canonical=" + canonicalX);
-            Check(Math.Abs(canonicalX - legacyX) > 0.5f, "shape/legacy-ppu-differs canonical=" +
-                canonicalX + " legacy=" + legacyX);
-
-            // (b) pivot(0,0) + preserveAspect：缩框按 pivot 锚定（左下），不是居中（v2 FitAspect 居中 ⇒ 红）
-            Check(MapIconNativeArtPlan.TryBuildSimpleMeshDraw(100f, 50f, 0f, 0f, true,
-                    100f, 100f, 50f, 50f, 1f, 1f, out MapIconImageDraw pivotDraw),
-                "shape/aspect-pivot");
-            Check(Near(pivotDraw.DrawingW, 50f) && Near(pivotDraw.DrawingH, 50f),
-                "shape/aspect-pivot-size=" + pivotDraw.DrawingW + "x" + pivotDraw.DrawingH);
-            // 顶点不依赖 GetPixelAdjustedRect 的位置项：只有尺寸参与 ⇒ 与 pivot 无关的部分保持一致
-            Check(Near(pivotDraw.LocalX(0f), 0f / 1f * 50f - pivotDraw.OffsetX, 1e-3f),
-                "shape/aspect-pivot-vertex");
-            // v2 的居中实现会得到 [25,0,75,50]（reviewer v2-map-probe results.txt）；规范值应为 [0,0,50,50]
-            float v2X0 = 25f;
-            Check(Math.Abs((pivotDraw.DrawingW * 0f - pivotDraw.OffsetX) - v2X0) > 0.5f ||
-                  Math.Abs(pivotDraw.OffsetX - (-50f * 0.5f)) < 1e-3f,
-                "shape/legacy-fit-aspect-differs v2X0=" + v2X0 + " canonicalOffset=" + pivotDraw.OffsetX);
-
-            // (c) preserveAspect=false：绘制尺寸 = rect 尺寸
-            Check(MapIconNativeArtPlan.TryBuildSimpleMeshDraw(100f, 50f, 0f, 0f, false,
-                    100f, 100f, 50f, 50f, 1f, 1f, out MapIconImageDraw noAspect) &&
-                  Near(noAspect.DrawingW, 100f) && Near(noAspect.DrawingH, 50f),
-                "shape/no-aspect-size");
-
-            // (d) 非法输入 fail-closed
-            Check(!MapIconNativeArtPlan.TryBuildSimpleMeshDraw(100f, 50f, 0f, 0f, true,
-                      0f, 100f, 50f, 50f, 1f, 1f, out _), "shape/draw-invalid-sprite-rect");
-            Check(!MapIconNativeArtPlan.TryBuildSimpleMeshDraw(0f, 0f, 0f, 0f, false,
-                      100f, 100f, 50f, 50f, 1f, 1f, out _), "shape/draw-invalid-rect");
-
-            // ---- 4) 自然 paper 倍率：drawnInPlan / drawnInOwnerLocal（含 art 自身 scale 与全局 fit） ----
-            var planDrawn = new MapIconBox(0f, 0f, 22.218f, 16.399f);      // 84×62 × 0.5 × 0.529
-            var ownerDrawn = new MapIconBox(-42f, 0f, 42f, 62f);           // art 本地 rect 84×62
-            Check(MapIconNativeArtPlan.TryResolvePaperScale(planDrawn, ownerDrawn, out float natural) &&
-                  Near(natural, 0.2645f, 0.0005f), "shape/natural-paper-scale=" + natural);
-            Check(!MapIconNativeArtPlan.TryResolvePaperScale(planDrawn, default, out _), "shape/scale-degenerate");
-
-            // ---- 5) 请求换算到 paper 后 4/4（reviewer 反例的 green 侧；同一组代表尺寸） ----
-            List<MapIconRequest> representatives = new List<MapIconRequest>
-            {
-                Req(MapIconKind.Steed, 37, 40f, 28f, 0), Req(MapIconKind.Steed, 33, 40f, 20f, 1),
-                Req(MapIconKind.Hermit, 0, 18f, 24f), Req(MapIconKind.Statue, 2, 20f, 36f),
-            };
-            var unscaledOut = new List<MapIconPlacement>();
-            bool unscaledOk = MapResourceIconPlanner.TryPlan(representatives,
-                new MapIconSurface(0f, 0f, 22.218f, 16.399f), unscaledOut, out float unscaledUsed,
-                out int unscaledFail, true, MapResourceIconPlanner.DefaultScaleCount);
-            Check(!unscaledOk && unscaledOut.Count < 4,
-                "shape/unscaled-overflows placed=" + unscaledOut.Count + " scale=" + unscaledUsed);
-            var scaled = new List<MapIconRequest>(representatives.Count);
-            for (int i = 0; i < representatives.Count; i++)
-            {
-                MapIconRequest r = representatives[i];
-                scaled.Add(new MapIconRequest(r.Kind, r.TypeId, r.ArrayIndex, r.Width * natural, r.Height * natural));
-            }
-            var scaledOut = new List<MapIconPlacement>();
-            bool scaledOk = MapResourceIconPlanner.TryPlan(scaled, new MapIconSurface(0f, 0f, 22.218f, 16.399f),
-                scaledOut, out float scaledUsed, out int scaledFail, true, MapResourceIconPlanner.DefaultScaleCount);
-            Check(scaledOk && scaledFail == 0 && scaledOut.Count == 4 && scaledUsed >= 0.36f,
-                "shape/scaled-fits-4of4 ok=" + scaledOk + " used=" + scaledUsed + " placed=" + scaledOut.Count +
-                " unscaledFail=" + unscaledFail);
-            // Request/RequestIndex 身份：换算只作用于装箱副本，placement 仍指向原请求下标
-            for (int i = 0; i < scaledOut.Count; i++)
-            {
-                Check(scaledOut[i].RequestIndex >= 0 && scaledOut[i].RequestIndex < representatives.Count,
-                    "shape/request-index#" + i);
-            }
-        }
-
         private static void Geography()
         {
             List<NativeCluster> clusters = LoadNativeClusters(out string error);
@@ -866,69 +519,6 @@ namespace KingdomEnhancedMod.Tests
                         Check(!Intersects(box, PlacementBox(merged[q]), -0.01f),
                             "extension/set" + count + "/no-overlap-" + p + "_" + q);
                     }
-                }
-            }
-        }
-
-        /// <summary>
-        /// native detail 岛内容量（issue-152 契约）：surface = 本岛真实 Land Image 盒（底图是 placement surface、
-        /// 不是 blocker），只避真实原生图形。真实小条目集（1–4）必须 ≥0.36 放下；15/16 压力集在岛内放不下时
-        /// 必须 fail-closed（failed&gt;0 → 调用方整体丢弃并还原原生槽，绝不岛外兜底）。
-        /// </summary>
-        private static void DetailCapacity()
-        {
-            List<(float W, float H, MapIconKind Kind)> icons16 = MaxResourceIcons(16);
-            Check(icons16.Count == 16, "detail/fixture-16-sizes");
-            if (icons16.Count < 16) return;
-            List<(float W, float H, MapIconKind Kind)> icons15 = MaxResourceIcons(15);
-
-            // 真实 detail 模板 art（resources.assets /Map_Land_* Land Image：138×78 / 120×108 / 152×176 /
-            // 114×82）；native 轮廓/图标避障用真实 detail 船标盒（32×32）作代表。
-            foreach ((float artW, float artH) in new[] { (138f, 78f), (120f, 108f), (152f, 176f), (114f, 82f) })
-            {
-                var surface = new MapIconSurface(-artW * 0.5f, -artH * 0.5f, artW * 0.5f, artH * 0.5f);
-                var boat = new MapIconBox(-16f, -16f, 16f, 16f);
-                surface.AddBlocked(boat);
-
-                var small = new List<MapIconRequest> { Req(MapIconKind.Steed, 37, 40, 28, 0),
-                                                       Req(MapIconKind.Steed, 35, 25, 16, 1),
-                                                       Req(MapIconKind.Hermit, 0, 18, 24, 0),
-                                                       Req(MapIconKind.Statue, 2, 20, 36, 0) };
-                var smallOut = new List<MapIconPlacement>();
-                bool smallOk = MapResourceIconPlanner.TryPlan(small, surface, smallOut, out float smallScale,
-                    out int smallFail, false, MapResourceIconPlanner.DefaultScaleCount);
-                Check(smallOk && smallFail == 0 && smallScale >= 0.36f,
-                    "detail/small-set-" + artW + "x" + artH + " scale=" + smallScale + " placed=" + smallOut.Count);
-                for (int p = 0; p < smallOut.Count; p++)
-                {
-                    MapIconBox box = PlacementBox(smallOut[p]);
-                    Check(box.X0 >= -artW * 0.5f - 0.01f && box.X1 <= artW * 0.5f + 0.01f &&
-                          box.Y0 >= -artH * 0.5f - 0.01f && box.Y1 <= artH * 0.5f + 0.01f,
-                          "detail/small-inside-art-" + artW + "_" + p);
-                    Check(!Intersects(box, boat, -0.01f), "detail/small-clear-boat-" + artW + "_" + p);
-                }
-
-                // 15/16 压力集：放得下 ⇒ 必须**全部在岛内**（≥0.36）；放不下 ⇒ 必须如实 failed>0
-                // （调用方整体丢弃/还原原生槽，绝不岛外兜底、绝不部分贴图当成功）。
-                var stressOut = new List<MapIconPlacement>();
-                bool stressOk = MapResourceIconPlanner.TryPlan(ToRequests(icons16), surface, stressOut,
-                    out float stressScale, out int stressFail, false, MapResourceIconPlanner.DefaultScaleCount);
-                if (stressOk)
-                {
-                    Check(stressFail == 0 && stressScale >= 0.36f && stressOut.Count == 16,
-                        "detail/stress16-fit-" + artW + "x" + artH + " scale=" + stressScale);
-                    for (int p = 0; p < stressOut.Count; p++)
-                    {
-                        MapIconBox box = PlacementBox(stressOut[p]);
-                        Check(box.X0 >= -artW * 0.5f - 0.01f && box.X1 <= artW * 0.5f + 0.01f &&
-                              box.Y0 >= -artH * 0.5f - 0.01f && box.Y1 <= artH * 0.5f + 0.01f,
-                              "detail/stress16-inside-art-" + artW + "_" + p);
-                    }
-                }
-                else
-                {
-                    Check(stressFail > 0, "detail/stress16-fail-reported-" + artW + "x" + artH +
-                        " scale=" + stressScale + " placed=" + stressOut.Count);
                 }
             }
         }
@@ -1832,30 +1422,6 @@ namespace KingdomEnhancedMod.Tests
         // ------------------------------------------------------- geography report (offline evidence)
 
         /// <summary>
-        /// 岛内面裁决（issue-152 契约；与生产 native 总览同一调用形状）：图标只放本岛 art 盒内、自顶向下、可读下限 0.36。
-        /// 离线 fixture 无每岛原生素材遮挡数据 → blockers 为空（真实遮挡由 runtime probe 覆盖）。
-        /// </summary>
-        private static bool PlanIslandArt(List<MapIconRequest> requests, in MapIconBox art,
-            out float usedScale, out List<MapIconPlacement> placements, float paperScale = 1f)
-        {
-            placements = new List<MapIconPlacement>();
-            var surface = new MapIconSurface(art.X0, art.Y0, art.X1, art.Y1);
-            List<MapIconRequest> scaled = requests;
-            if (paperScale > 0f && Math.Abs(paperScale - 1f) > 1e-4f)
-            {
-                scaled = new List<MapIconRequest>(requests.Count);
-                for (int i = 0; i < requests.Count; i++)
-                {
-                    MapIconRequest r = requests[i];
-                    scaled.Add(new MapIconRequest(r.Kind, r.TypeId, r.ArrayIndex,
-                        r.Width * paperScale, r.Height * paperScale));
-                }
-            }
-            return MapResourceIconPlanner.TryPlan(scaled, surface, placements, out usedScale, out _,
-                true, MapResourceIconPlanner.DefaultScaleCount);
-        }
-
-        /// <summary>
         /// 离线证据（issue-152 岛内契约）：真实 native fixture → 生产纯函数的统一倍率布局 + **每岛底图盒** + 容量裁决。
         /// 供 REPORT/operator 复核"哪些真实 fixture 放不下、fallback 是什么"，不参与断言。
         /// </summary>
@@ -1889,39 +1455,12 @@ namespace KingdomEnhancedMod.Tests
             sb.Append("  \"clusters\": [\n");
             for (int i = 0; i < inputs.Count; i++)
             {
-                var three = new List<MapIconRequest> { Req(MapIconKind.Steed, 37, 40, 28, 0),
-                                                       Req(MapIconKind.Steed, 35, 40, 22, 1),
-                                                       Req(MapIconKind.Hermit, 0, 18, 24, 0) };
-                // overview 请求按自然 paper 倍率换算（离线只知全局 fit：art 自身 localScale 由运行期 exact
-                // 测量决定 ⇒ 这里的倍率是**下界**，裁决因此偏保守）。
-                float paperScale = s > 0f ? s : 1f;
-                bool threeOk = PlanIslandArt(three, artBoxes[i], out float threeScale,
-                    out List<MapIconPlacement> merged, paperScale);
-                bool worstOk = PlanIslandArt(Worst10(), artBoxes[i], out float worstScale, out _, paperScale);
-                bool stressOk = PlanIslandArt(Stress12(), artBoxes[i], out float stressScale, out _, paperScale);
                 sb.Append("    {\"name\":").Append(Json(clusters[i].Name));
                 sb.Append(",\"origAnchored\":[").Append(F(inputs[i].OrigX)).Append(",").Append(F(inputs[i].OrigY)).Append("]");
                 sb.Append(",\"targetAnchored\":[").Append(F(targets[i].X)).Append(",").Append(F(targets[i].Y)).Append("]");
                 sb.Append(",\"targetScale\":[").Append(F(targets[i].ScaleX)).Append(",").Append(F(targets[i].ScaleY)).Append("]");
                 sb.Append(",\"artBox\":[").Append(F(artBoxes[i].X0)).Append(",").Append(F(artBoxes[i].Y0)).Append(",")
                   .Append(F(artBoxes[i].X1)).Append(",").Append(F(artBoxes[i].Y1)).Append("]");
-                sb.Append(",\"artArea\":").Append(F(artBoxes[i].Width * artBoxes[i].Height));
-                sb.Append(",\"paperScaleLowerBound\":").Append(F(paperScale));
-                sb.Append(",\"set3\":{\"ok\":").Append(threeOk ? "true" : "false").Append(",\"scale\":").Append(F(threeScale)).Append("}");
-                sb.Append(",\"worst10\":{\"ok\":").Append(worstOk ? "true" : "false").Append(",\"scale\":").Append(F(worstScale)).Append("}");
-                sb.Append(",\"stress12\":{\"ok\":").Append(stressOk ? "true" : "false").Append(",\"scale\":").Append(F(stressScale)).Append("}");
-                if (threeOk)
-                {
-                    sb.Append(",\"placements3\":[");
-                    for (int p = 0; p < merged.Count; p++)
-                    {
-                        if (p > 0) sb.Append(",");
-                        sb.Append("{\"requestIndex\":").Append(merged[p].RequestIndex)
-                          .Append(",\"x\":").Append(F(merged[p].X)).Append(",\"y\":").Append(F(merged[p].Y))
-                          .Append(",\"scale\":").Append(F(merged[p].Scale)).Append("}");
-                    }
-                    sb.Append("]");
-                }
                 sb.Append("}").Append(i + 1 < inputs.Count ? "," : "").Append("\n");
             }
             sb.Append("  ],\n");
@@ -1972,25 +1511,7 @@ namespace KingdomEnhancedMod.Tests
                 sb.Append("null");
             }
             sb.Append(",\n");
-            // native detail（issue-152 契约）：surface = 真实 Land Image 盒（此处取真实 detail 模板 art 尺寸）；
-            // 真实小条目集（1–4）必须放下，16 压力集只在放得下时算成功（否则 fail-closed）。
-            sb.Append("    \"nativeDetail\": {\"sizesFrom\": \"resources.assets /Map_Land_* Land Image\", \"artFixtures\": [");
-            float[][] detailArts = { new[] { 138f, 78f }, new[] { 120f, 108f }, new[] { 152f, 176f }, new[] { 114f, 82f } };
-            for (int f = 0; f < detailArts.Length; f++)
-            {
-                var detailArt = new MapIconBox(-detailArts[f][0] * 0.5f, -detailArts[f][1] * 0.5f,
-                    detailArts[f][0] * 0.5f, detailArts[f][1] * 0.5f);
-                bool detailSmall = PlanIslandArt(ToRequests(new List<(float W, float H, MapIconKind Kind)>
-                    { (40f, 28f, MapIconKind.Steed), (25f, 16f, MapIconKind.Steed), (18f, 24f, MapIconKind.Hermit) }),
-                    detailArt, out float smallScale, out _);
-                bool detailStress = PlanIslandArt(ToRequests(icons16), detailArt, out float stressScale, out _);
-                if (f > 0) sb.Append(",");
-                sb.Append("{\"art1\":[").Append(F(detailArts[f][0])).Append(",").Append(F(detailArts[f][1])).Append("]");
-                sb.Append(",\"small3\":{\"ok\":").Append(detailSmall ? "true" : "false").Append(",\"scale\":").Append(F(smallScale)).Append("}");
-                sb.Append(",\"max16\":{\"ok\":").Append(detailStress ? "true" : "false").Append(",\"scale\":").Append(F(stressScale)).Append("}}");
-            }
-            sb.Append("]},\n");
-            sb.Append("    \"note\": \"world art = real 228×84 Sprite.rect in the reserve band; detail art fixtures are real Land Image sizes\"\n");
+            sb.Append("    \"note\": \"issue-156: native ten islands are pass-through (no mod planning/capacity); extra = real 228×84 Sprite.rect in the reserve band\"\n");
             sb.Append("  },\n");
 
             // ---- r10 有效视口 fixture：nominal 红例 / 带 offset 域 / 较矮视口 / 缓存决策 ----
@@ -2073,23 +1594,5 @@ namespace KingdomEnhancedMod.Tests
 
         private static string F(float v) => v.ToString("0.####", CultureInfo.InvariantCulture);
         private static string Json(string s) => "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
-
-        // ------------------------------------------------------------------ helper
-        private static void Golden(string name, List<MapIconRequest> requests, MapIconSurface surface,
-            List<MapIconBox> blocked, float expectScale, int expectPlaced, int expectMisses,
-            float firstX, float firstY, bool topDown = false)
-        {
-            for (int i = 0; i < blocked.Count; i++) surface.AddBlocked(blocked[i]);
-            var placements = new List<MapIconPlacement>();
-            MapResourceIconPlanner.TryPlan(requests, surface, placements, out float scale, out int misses, topDown);
-            Check(Near(scale, expectScale, 0.001f), "golden/" + name + "/scale=" + scale);
-            Check(placements.Count == expectPlaced, "golden/" + name + "/placed=" + placements.Count);
-            Check(misses == expectMisses, "golden/" + name + "/misses=" + misses);
-            if (placements.Count > 0)
-            {
-                Check(Near(placements[0].X, firstX) && Near(placements[0].Y, firstY),
-                    "golden/" + name + "/first=" + placements[0].X + "," + placements[0].Y);
-            }
-        }
     }
 }
