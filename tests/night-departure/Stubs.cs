@@ -1,3 +1,6 @@
+#if ANDROID
+global using Il2Cpp;
+#endif
 // 夜袭出发补偿回归测试的边界替身（Unity/Harmony/游戏类型）。
 // 形状以任务签名证据为准：actual-interop.json（WaveType 值、两入口签名）、
 // actual-dayphase-api.json（GetTimesOfDayForDay/dawnStart/eveningStart public、Side ±1）、
@@ -42,6 +45,10 @@ namespace UnityEngine
     public class Transform : Component { }
 }
 
+#if ANDROID
+namespace Il2Cpp
+{
+#endif
 public enum Side { Left = -1, Right = 1 }
 
 public enum WaveType
@@ -141,13 +148,18 @@ public class Managers : UnityEngine.Object
     public EnemyManager enemies = new EnemyManager();
 }
 
+#if ANDROID
+}
+#endif
 namespace KingdomEnhancedMod
 {
+#if !ANDROID
     public static class ModConfig
     {
         public class Flag { public bool Value = true; }
         public static Flag Enabled = new Flag();
     }
+#endif
     public class KingdomEnhancedPlugin
     {
         public static KingdomEnhancedPlugin Instance = new KingdomEnhancedPlugin();

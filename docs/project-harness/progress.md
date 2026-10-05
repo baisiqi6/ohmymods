@@ -1,10 +1,18 @@
-## 2026-10-05 — Android 密灌木与公共长状态排版（Issue #146，代码交付待收尾）
+## 2026-10-05 — Android 普通远距夜袭（Issue #148，源码与有限模拟器验证完成；代码交付待合并）
+
+在146正常代码收尾后登记，正常accepted doing/running、依赖146；同一原生API与共享scope/planner复用，不重做日序算法或缓存。新增17th真实默认关闭设置，OFF仍压disabled frame，门只在原Arm与提交复核处读取；公共世界页沿现中文Toggle/帮助与单次真实变更Save，浮球/触摸/布局不改。Root统一Probe0.0.23与两个精确长入口完整patch集，旧28保持至30。
+
+Mainbea349d7/172544B实际SDK10 Rebuild0W0E，strict697/589、46pins0skip；typedAndroid默认/ONseed/旧16各133/0、PC原117/0。实际PC80d2a4b SDK8Release0W0E、234源码34资源、1290共同类型6811方法零语义差异/0allow，未运行部署PC或构建Mono。独立源码审查已批准，私有APK83066b5d已完整CRC/签名/22313原项保持审计并保数据安装，首启前旧Main/cfg/native字节保持；自动Main刷新bea34，实际30唯一目标/旧28形状、公共世界页末行中文与滚动、真实ON/OFF及各自冷读回通过。最终17字典Nightfalse/原16值保持/仅Main/游戏停止，具名loader日志0ERROR，2类原有启动warning分栏。409.44秒自然观察包含cold gap且没有有效scope样本；E/D/current原生时间API实际调用与真正远距效果、phone/multi/MP/长期继续待验。原生档SHA只在具名pre/final相同，不宣称没有自动落盘。设备声明独审与正常PR/canonical代码收尾仍待进行。Native内部周期映射UNKNOWN且继续复用权威API，不深挖重写；不升级旧Dense池/RGBA或旧16完整玩法。
+
+剩余按依赖估计7–11批、70–185工程小时（包含本批），为无新架构级发现前提的宽规划；配置接线含在每批内，手机与联机验收日历另列。详情见 tasks/issue-148/。
+
+## 2026-10-05 — Android 密灌木与公共长状态排版（Issue #146，代码已正常合并；实机边界保留）
 
 公共UI #144已正常收尾：PR #145合并至release/v9.5.13@7a28dd46，GitHub144关闭，canonical review.completed→task.done/closed于04:29:14UTC完成，doctor0E0W/37info；手机/多指/所有DPI/联机及旧15功能完整玩法待验仍保留。完整UI和最终APK的有限模拟器证据见 tasks/issue-144/。
 
 密灌木第16项真实默认关闭设置、原生生成与额外实例清理共用生产源，Android裁掉可选FX路径并补齐部分颜色写入的逐层责任交接；Save只在3个真实写入点按真实变化一次提交，无算法副本、镜像、扫描或重试层。公共Info长值造成标题竖排的真实问题已修在Android共享MeasureRow/DrawRow，单metrics上下排列，短/空值/交互卡和输入保持。最终Probe0.0.22/Main1480d71a，真实Android0W0E、strict676/568、44pins0skip；typed22/0、PC原31/0与独立原反例2/0，完整PC1290types/6811methods/34资源零语义差异。
 
-私有APKbe803edd已保留数据安装并核包/installed base/Main一致；28目标旧25形状、原生输入6→3/首extra、OFF六登记清理/拒重开/登记clear、完整长状态与Back、最终OFF冷读回/旧15值保持/仅Main/游戏停止已观察。中间30be/7ed的ON冷读回单列；登记clear不单独证明原生Remove/RGBA入池，post-finalizer间距未直接仪表读，手机/多指/MP/长期和旧玩法保持待验。源码独审已通过，设备声明独审与正常PR/canonical代码收尾仍待进行；不发布APK或tag。见 tasks/issue-146/implementation.md。
+私有APKbe803edd已保留数据安装并核包/installed base/Main一致；28目标旧25形状、原生输入6→3/首extra、OFF六登记清理/拒重开/登记clear、完整长状态与Back、最终OFF冷读回/旧15值保持/仅Main/游戏停止已观察。中间30be/7ed的ON冷读回单列；登记clear不单独证明原生Remove/RGBA入池，post-finalizer间距未直接仪表读，手机/多指/MP/长期和旧玩法保持待验。源码与有限设备声明独审通过，PR147已正常合并f412b1e4、GitHub146关闭，canonical于08:25:39UTC正常done/closed，其他156完整对象与157顺序/最新101计划保持、doctor0E0W；不发布APK或tag。见 tasks/issue-146/implementation.md。
 
 ## 2026-10-04 — Android 公共 UI（Issue #144，历史交付前快照）
 

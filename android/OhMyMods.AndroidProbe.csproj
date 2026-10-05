@@ -89,6 +89,9 @@
     <!-- Issue #146 密灌木：链接同一份共享源（#if ANDROID 别名头、FX 四项裁剪、默认 OFF 无债
          入口谓词、三个真实配置写入点各自的单次 Save）；PC 预处理输出不变。 -->
     <Compile Include="../il2cpp/PatchWorld_OptionalVegetation.cs" Link="Production/PatchWorld_OptionalVegetation.cs" />
+    <!-- Issue #148：复用原夜袭 scope 与纯规划器；Android仅配置门/有界观察。 -->
+    <Compile Include="../il2cpp/NightDepartureTiming.cs" Link="Production/NightDepartureTiming.cs" />
+    <Compile Include="../il2cpp/PatchWorld_NightDeparture.cs" Link="Production/PatchWorld_NightDeparture.cs" />
     <!-- Issue #144 公共 UI：与 PC 同一份样式工厂/纯绘制（无 BepInEx 依赖），
          ImGuiCompat 提供 GUI.DrawTexture 桩的绕行实现。 -->
     <Compile Include="../il2cpp/ModPanelStyles.cs" Link="Production/ModPanelStyles.cs" />

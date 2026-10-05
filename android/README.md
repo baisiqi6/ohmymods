@@ -34,9 +34,9 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 | `MobileCalendar.cs` `CalendarSnapshot.cs` | 日历显示（开关直读 `CalendarEnabled` entry，切换时保存） |
 | `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（只读缓存；#144 起面板行仅中文展示八个原生角色与骑士，Tick/日志采样不变） |
 | `MobileModPanel.cs` `PanelGesture.cs` | 公共面板容器与纯手势状态机（Issue #144）：唯一 hotControl 手势、固定导航（主页/玩家/世界/生成/人口）与关闭、内容视口裁剪与滚动；手势/滚动单点由 `PanelGesture` 持有（任意方向位移 sticky 取消点击、`End` 按实际抬手归账、滚轮与拖拽共用同一 ScrollY） |
-| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 16 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度、快速森林退缩、普通鹿数量、密灌木；除密灌木外切换即保存）。密灌木的 UI 请求还经共享 `TrySetDenseThickets` 一次，保存只发生在共享源的三个真实写入点（每次真实变更一次），本文件不落盘、不镜像。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
+| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 17 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度、快速森林退缩、普通鹿数量、密灌木、远距夜袭出发补偿；除密灌木外切换即保存，夜袭补偿同值不保存）。密灌木的 UI 请求还经共享 `TrySetDenseThickets` 一次，保存只发生在共享源的三个真实写入点（每次真实变更一次），本文件不落盘、不镜像。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
 | `MobilePlayerMenu.cs` | Player 页 presentation（5 行：君主移动速度 / 坐骑无限体力 / 长按连续购买 / 坐骑技能冷却 / 法杖神器冷却），全部经 `MobileModPanel.Step/Toggle` 公共路径登记 tap rect 并绘制；中文名与 PC 面板同源，冷却帮助行说明“下次调用生效、只缩放基础/该次冷却、原生目标追加不缩放” |
-| `MobileWorldMenu.cs` | World 页 presentation（每波怪物数量 / 怪物时间线推进 / 无限金币 / 植被与野生动物入口 / 快速建造 / 船只额外乘员）。植被入口只置 `VegetationPage=true`（World 保持打开）；快速建造只影响后续每次原生 `InitializeBuild`（关闭不热还原已写入实例的 rate）；船容量只作用于以后新初始化的船（关闭不删除/不热改已登记的 slots） |
+| `MobileWorldMenu.cs` | World 页 presentation（每波怪物数量 / 怪物时间线推进 / 无限金币 / 植被与野生动物入口 / 快速建造 / 船只额外乘员 / 远距夜袭出发补偿）。植被入口只置 `VegetationPage=true`（World 保持打开）；快速建造只影响后续每次原生 `InitializeBuild`（关闭不热还原已写入实例的 rate）；船容量只作用于以后新初始化的船（关闭不删除/不热改已登记的 slots） |
 | `MobileGenerationMenu.cs` | Island-generation 页 presentation（地图大小一行）：只改新岛生成读取的 `MapSizeMultiplier`（1→2→3→4→5→1，合法小数先落下一整数档，如 4.5→5）；不调用任何原生游戏 API |
 | `MobileVegetationMenu.cs` | Vegetation & Wildlife 页 presentation（农舍猫补给 / 森林快速消退 / 普通鹿数量 / 密灌木 / 密灌木状态（仅开启或回收中显示）/ 返回世界）。猫只影响以后关卡载入时的补齐/瘦身（不删除已有猫）；森林只作用于之后进入原生 `FadeAndRemove` 的调用（关闭不回收进行中的淡出）；鹿只作用于之后自然进入原生 `PopulationController.Update` 的调用（Greek 普通鹿目标/补充 ×3；关闭不回收已有动物、不改存档）；密灌木行是唯一请求入口：只调一次共享 `TrySetDenseThickets`（真实启停与额外实例回收由主线程 Tick 推进，保存只在共享源三个真实写入点各一次；帮助说明间距减半、关闭只回收额外实例、回收中暂不能重开），默认 OFF 且无自有责任时状态行条件短路、展示不触 `CurrentWorld`；返回只清 `VegetationPage`（World 保持打开） |
 | `PatchWorld_Mover.cs` `PatchRide_InfiniteStamina.cs` `PatchRide_SteedCooldown.cs` | 速度倍率、无限体力与坐骑技能冷却调用级倍率补丁（显式注册；冷却四个消费者共享一个 Finalizer，无 PC instanceID 缓存/扫场） |
@@ -772,3 +772,29 @@ typed ANDROID 密灌木 host 22/0（原 14 + 颜色写入责任 8；先红后绿
 Remove/RGBA 入池往返，调用结束后的间距未直接仪表读取。长期/全部 biome/换岛、手机、多指、
 联机及旧 15 功能完整玩法仍待验。两条启动警告与归属/拒重开提示分开记录，不分发原游戏、
 loader、interop 或实验 APK。详情见 `docs/project-harness/tasks/issue-146/implementation.md`。
+
+## Issue #148 普通远距夜袭出发补偿（0.0.23 源码与有限模拟器验证）
+
+默认关闭的第17项真实 `NightDepartureEnabled` 接入现有世界页。复用 PC 的单份
+`PatchWorld_NightDeparture.cs` 和 `NightDepartureTiming.cs`，只在原 scope 建立与提交复核处
+增加 Android 设置门；每次调用仍建立 disabled mask，关闭的内层调用不会继承外层资格。
+保持原生 `GetTimesOfDayForDay`、异常交回、身份/世界层/日序/权限/当前时间复核；最多提前两游戏小时，
+原生波次、门、到达参数、数量与速度保持。PC 原行为不变，没有周期映射副本或新增扫描/重试。
+
+公共开关“远距夜袭出发补偿”只在真实变更时保存一次，同值零次，加载不保存；旧16项设置保持。
+显式注册两个真实长入口的完整 patch 集：`Director.ScheduleWaveToday(Wave,Side,float)`
+为 prefix 1 / postfix 0 / finalizer 1，`EnemyManager.GetWaveTravelTime(Wave,float,int)`
+为 0 / 1 / 0，旧28保持至30；原来的小浮球、样式、滚动与触摸路径保持。
+
+Main0.0.23/`bea349d7…` 实际 SDK10 Rebuild 0W0E；strict默认697/0、旧配置589/0、46 pins/0skip；
+同生产源码 Android host 默认/预置ON/旧16模式各133/0（同一套断言的三个模式，不相加称独立场景），
+PC原回归117/0。实际PC SDK8 Release234源码/34资源、1290共同类型/6811方法零语义差异，
+没有运行或部署PC、没有构建Mono。源码已独立批准；私有APK`83066b5d…`已通过CRC/签名/22313原项逐字保持审计，
+同签名保数据更新。启动前旧Main/配置/原生档逐字保持；loader自动刷新为Mainbea34，没有单Main手推。
+模拟器实际30唯一(name+arity)目标/旧28形状保持，公共世界页末行中文/滚动/ON与OFF、ON冷读回与
+最终OFF冷读回通过，17项字典保留原16值。最终仅Main、Night=false、游戏停止，具名loader日志无ERROR。
+409.44秒有限自然观察包含具名cold gap，没有出现有效scope样本；首个自然排期的E/D/current与
+补偿决策及真正远距夜袭效果继续待验，不称已验证。原生档SHA只在具名安装前与最终读回相同，
+不宣称游戏从未自动落盘。内部周期映射作为原生API内部实现
+保持UNKNOWN；不以UI/注册/宿主全绿代替玩法，也不人为改时、生成波次或新建战役。手机、
+多指、联机与长期行为待验，旧Dense的NativeRemove/RGBA入池边界不升级。

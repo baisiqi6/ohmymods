@@ -275,7 +275,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 16, "Initialize creates exactly sixteen entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 17, "Initialize creates exactly seventeen entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -292,6 +292,8 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/FastForestRecedeEnabled default=False"), "FastForestRecedeEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/DeerPopulationEnabled default=False"), "DeerPopulationEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/DenseThicketsEnabled default=False"), "DenseThicketsEnabled is declared OFF");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/NightDepartureEnabled default=False"), "NightDepartureEnabled is declared OFF");
+        Checks.Check(!Config.NightDepartureEnabled.Value, "NightDepartureEnabled missing key defaults OFF without save");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "Initialize never writes the cfg");
         Checks.Check(applied.Count == 1 && !applied[0], "cold start applies InfiniteMoney=false through the seam exactly once");
         Checks.Check(MelonLoader.MelonLogger.WarningCalls == expectedWarnings, "the load boundary warns exactly once per non-finite seeded multiplier");
@@ -340,7 +342,7 @@ internal static class Program
                 + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild
                 + " cooldown=" + expectedCooldown + " boat=" + expectedBoat + " map=" + expectedMap
                 + " staff=" + expectedStaffCooldown + " forestRecede=" + expectedForest
-                + " deerPopulation=False denseThickets=False",
+                + " deerPopulation=False denseThickets=False nightDeparture=False",
                 "cold-start ready line reports the effective values");
             if (seededEnemyCount == 4.5f && seededEnemyTimeline == 4.5f)
             {
@@ -415,8 +417,8 @@ internal static class Program
             && !Config.BoatCapacityEnabled.Value
             && !Config.FastForestRecedeEnabled.Value
             && !Config.DeerPopulationEnabled.Value
-            && !Config.DenseThicketsEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild, BoatCapacity, FastForestRecede, DeerPopulation and DenseThickets default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False denseThickets=False",
+            && !Config.DenseThicketsEnabled.Value && !Config.NightDepartureEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild, BoatCapacity, FastForestRecede, DeerPopulation and DenseThickets default OFF");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False denseThickets=False nightDeparture=False",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
 
@@ -726,8 +728,8 @@ internal static class ProbeChecks
         Checks.Check(File.Exists(probePath), "probe source present");
         if (!File.Exists(probePath)) return;
         string source = File.ReadAllText(probePath);
-        Checks.Check(source.Contains("\"0.0.22\""), "Probe reports version 0.0.22");
-        Checks.Check(source.Split("0.0.22").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
+        Checks.Check(source.Contains("\"0.0.23\""), "Probe reports version 0.0.23");
+        Checks.Check(source.Split("0.0.23").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
         Checks.Check(source.Contains("staff_base_cooldown"), "Probe feature marker advertises staff_base_cooldown");
         Checks.Check(source.Contains("fast_forest_recede"), "Probe feature marker advertises fast_forest_recede");
         Checks.Check(source.Contains("deer_population"), "Probe feature marker advertises deer_population");
@@ -778,6 +780,9 @@ internal static class ProbeChecks
             "Probe announces the dense-thickets hook installation");
         Checks.Check(source.Contains("KingdomEnhancedMod.PatchWorld_OptionalVegetation.Tick();"),
             "Probe drives the shared dense Tick once from the existing OnUpdate");
+        Checks.Check(source.Contains("typeof(Il2Cpp.Director),\"ScheduleWaveToday\"") && source.Contains("typeof(Il2Cpp.EnemyManager),\"GetWaveTravelTime\""), "Probe resolves both real night long entries");
+        Checks.Check(source.Contains("nightSchedulePatch,\"ScheduleWaveToday_Prefix\"") && source.Contains("nightSchedulePatch,\"ScheduleWaveToday_Finalizer\"") && source.Contains("PatchWorld_NightDepartureTravel),\"GetWaveTravelTime_Postfix\""), "Probe registers complete night prefix/finalizer and travel postfix method sets");
+        Checks.Check(source.Contains("LogHookCounts(nightSchedule)") && source.Contains("LogHookCounts(nightTravel)"), "Probe reports two night entries (old 28 plus 2 = 30)");
         Checks.Check(source.Contains("private readonly MobileModPanel panel = new()") && source.Contains("panel.Draw(Layout)"),
             "Probe creates the common panel and hands it the shared layout");
         Checks.Check(source.Contains("panel.CancelGesture()"), "Probe cancels the common panel with the ticker lifecycle");
@@ -859,11 +864,12 @@ internal static class MenuChecks
         Checks.Check(menus["MobileVegetationMenu.cs"].Contains("panel.CloseVegetation"),
             "the vegetation back goes through the panel's page action");
 
+        Checks.Check(menus["MobileWorldMenu.cs"].Contains("panel.Toggle(\"远距夜袭出发补偿\"") && menus["MobileWorldMenu.cs"].Contains("ModConfig.ToggleNightDeparture") && !menus["MobileWorldMenu.cs"].Contains("Save("), "night uses the shared Toggle and config's single-save callback");
         // 16 个可用设置各只在一条页面出现一次（植被入口是导航，不计入）。
         string pages = string.Join("\n", menus.Values);
         string[] settings = { "君主移动速度", "坐骑无限体力", "长按连续购买", "坐骑技能冷却", "法杖神器冷却",
             "每波怪物数量", "怪物时间线推进", "无限金币", "快速建造", "船只额外乘员",
-            "地图大小", "农舍猫补给", "森林快速消退", "普通鹿数量", "密灌木" };
+            "地图大小", "农舍猫补给", "森林快速消退", "普通鹿数量", "密灌木", "远距夜袭出发补偿" };
         foreach (string title in settings)
             Checks.Check(CountOf(pages, "\"" + title + "\"") == 1,
                 "the setting lives on exactly one page: " + title);
@@ -1294,6 +1300,29 @@ internal static class ArtifactChecks
                 "the dense RemoveThicket Postfix really calls the shared OnThicketRemoved helper");
         }
 
+        bool nightEntry = false;
+        if (!modConfig.IsNil) foreach (var h in reader.GetTypeDefinition(modConfig).GetFields())
+            if (reader.GetString(reader.GetFieldDefinition(h).Name) == "NightDepartureEnabled") nightEntry = true;
+        Checks.Check(nightEntry, "the seventeenth real ModConfig entry NightDepartureEnabled lands in the artifact");
+        var nightSchedule = FindType(reader, "KingdomEnhancedMod", "PatchWorld_NightDeparture");
+        var nightTravel = FindType(reader, "KingdomEnhancedMod", "PatchWorld_NightDepartureTravel");
+        Checks.Check(!nightSchedule.IsNil && !nightTravel.IsNil, "artifact contains both shared night patch classes");
+        CheckHandlers(reader, nightSchedule, new Dictionary<string,int>{{"ScheduleWaveToday_Prefix",5},{"ScheduleWaveToday_Finalizer",2}}, MethodAttributes.Assembly,"internal static");
+        CheckHandlers(reader, nightTravel, new Dictionary<string,int>{{"GetWaveTravelTime_Postfix",5}}, MethodAttributes.Assembly,"internal static");
+        if (!nightSchedule.IsNil) {
+            var n = reader.GetTypeDefinition(nightSchedule);
+            Checks.Check(SignatureTypes(reader,n,"ScheduleWaveToday_Prefix")=="Il2Cpp.Director,Il2Cpp.Wave,Il2Cpp.Side,System.Single,State&", "night Schedule Prefix binds actual Android native types and state");
+            Checks.Check(SignatureTypes(reader,n,"ScheduleWaveToday_Finalizer")=="System.Exception,State&", "night Finalizer preserves exception/ref state shape");
+            Checks.Check(BodyCallsMethod(pe,reader,n,"ScheduleWaveToday_Prefix","Arm","KingdomEnhancedMod.NightDepartureScope"),"night Prefix really calls shared Arm");
+        }
+        if (!nightTravel.IsNil) {
+            var n=reader.GetTypeDefinition(nightTravel);
+            Checks.Check(SignatureTypes(reader,n,"GetWaveTravelTime_Postfix")=="Il2Cpp.EnemyManager,Il2Cpp.Wave,System.Single,System.Int32,System.Single&","night Travel Postfix actual typed native signature");
+            Checks.Check(BodyCallsMethod(pe,reader,n,"GetWaveTravelTime_Postfix","TryAdjustTravel","KingdomEnhancedMod.NightDepartureScope"),"night Postfix really calls shared TryAdjustTravel");
+        }
+        Checks.Check(!FindType(reader,"KingdomEnhancedMod","NightDepartureTiming").IsNil && !FindType(reader,"KingdomEnhancedMod","NightDepartureScope").IsNil, "shared night scope and pure planner land in actual artifact");
+        Checks.Check(HasMemberReference(reader,"Il2Cpp.Director","GetTimesOfDayForDay") && HasMemberReference(reader,"Il2Cpp.TimesOfDay","get_eveningStart") && HasMemberReference(reader,"Il2Cpp.TimesOfDay","get_dawnStart"),"night uses actual opaque native profile API and scalar getters");
+
         // Boat-capacity block (android/PatchWorld_BoatCapacity.cs + the shared policy
         // il2cpp/BoatCapacityProfile.cs): the one Prefix + one Finalizer must land in the
         // artifact with the Harmony __instance/__state shape and no auto-scan attributes, and
@@ -1612,6 +1641,8 @@ internal static class ArtifactChecks
         "il2cpp/GreekScaleScope.cs",
         "il2cpp/ImGuiCompat.cs",
         "il2cpp/MapWidthPlanner.cs",
+        "il2cpp/NightDepartureTiming.cs",
+        "il2cpp/PatchWorld_NightDeparture.cs",
         "il2cpp/MapWidthTerrain.cs",
         "il2cpp/ModPanelControls.cs",
         "il2cpp/ModPanelStyles.cs",
@@ -1637,13 +1668,13 @@ internal static class ArtifactChecks
             { "android/MobileCalendar.cs", "49e8fcbdc29a19b5100c5c6525a1317cccb446252bcbe91a8306699afcee718a" },
             { "android/MobileGenerationMenu.cs", "e89f7d9224b31f5ea77ca5392a02d8c7ac1a723c2dd0ee702d4225eb8f53f5d0" },
             { "android/MobileModPanel.cs", "e9a0bd5347da0333b2110b4a93dcf61b0caff4d4375a600a99ad12a124683f12" },
-            { "android/MobilePlayerConfig.cs", "b83128c03784f169dd771e52972a0825dc959b31dc5aaca9ce0dbda574e5f01a" },
+            { "android/MobilePlayerConfig.cs", "13c93160d7c88fede0d698e6c065f4bdb432428d050680b1fe2af31f346eefd3" },
             { "android/MobilePlayerMenu.cs", "849ef81c029258d0a0ddbff4aef1684d9998434f4f85a01525d60236a714e139" },
             { "android/MobilePopulation.cs", "7cc188d1530a328db6f8c4bd88082dc4b17a0b8c2af1be0978ac3cf16c04c849" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
             { "android/MobileVegetationMenu.cs", "40e6be0dda5313a61f01f98e1829422290612ede0b948b8d21c4549a58890e66" },
-            { "android/MobileWorldMenu.cs", "fb19eb33a9e201c3e7b0c9a14c6ec4527a2e461fc24105b03aad68d93fb5fe4e" },
-            { "android/OhMyMods.AndroidProbe.csproj", "b3738e840b5e9166741f13e15d0db97c1692f6f304b21c53fda1afdbf39df08e" },
+            { "android/MobileWorldMenu.cs", "35749b5a0aaa300cb03c439790252f04bacdef91fc38188a25e260af29884fee" },
+            { "android/OhMyMods.AndroidProbe.csproj", "9b116dc3cdb030eb7c5e603921e3df7f4ce6233582c5721ac761763641a745fb" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PanelGesture.cs", "51071fefbc1a1ab4b8f23ee84bf10925c325d8414400b9ed186af238c136e97b" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },
@@ -1652,9 +1683,9 @@ internal static class ArtifactChecks
             { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
-            { "android/Probe.cs", "3a3ba0ea0d43c9c48cef1f15b26d8efbf2d7652eb78f1acea7e70d345a8a91bd" },
+            { "android/Probe.cs", "22f9ea775e999563d98cbeeb785768a8e41ec83f18e31d14893b90b22ae8c8ea" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
-            { "android/tests/AdapterTests.csproj", "67129500b334985090cd07323422d161553f1db08cfe3f5966eb81af67c69bfe" },
+            { "android/tests/AdapterTests.csproj", "788d688ab72d580711a9ec42ec6a540dfa41102af307a65d64965748e36859e1" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
             { "android/tests/MelonPreferencesStub.cs", "43cb64d622d4b1827aff0229902a732d209b188400f628d088fde099337e38d2" },
             { "il2cpp/BoatCapacityProfile.cs", "02d43c64922667e6e1f2d834bf29f28f8fbc683878dc27db1430abed4c11c2f2" },
@@ -1671,6 +1702,8 @@ internal static class ArtifactChecks
             { "il2cpp/PatchWorld_FastForestRecede.cs", "1b51c0aa24daec749d23647f82aecb789e1b36b7439497eff2bd93dbb40d3193" },
             { "il2cpp/PatchWorld_Level.cs", "90f9f724db0d0f9353775f4284ed09d6d1782c125c5ad028e83b843b55e1315e" },
             { "il2cpp/PatchWorld_OptionalVegetation.cs", "0d8d9e892e91b4439f026d211e3a26edb86b14861999438b1148e35cfb8918c0" },
+            { "il2cpp/NightDepartureTiming.cs", "da410c8de68f2933dc3ae62bdc7cad0199b51af73102db9e36e250313a83f50d" },
+            { "il2cpp/PatchWorld_NightDeparture.cs", "fdde1a68bc5a255beefd9f4ac8eb3849a5b807ddece7e0b4ce120bbb738c3a62" },
         };
         foreach (string relative in FrozenSources)
         {
