@@ -1,0 +1,8 @@
+{
+  "il2cpp/MapMountIcons.cs": "556072b9c9c898bae6bb74c58f36fe6b57a9c83ab9103408bd8704fe10e91df0",
+  "il2cpp/MapResourceIconPlan.cs": "f9e60ecfde3f25945559ae98b340d7ba36bc9a0978076e581040b23377ca6a57",
+  "tests/native-map-runtime/Program.cs": "10b941fdc035ff68222d6a96cf694f9c2c204b33b45e98a805df5e844e456faf",
+  "tests/native-map-runtime/GameStubs.cs": "5963c57979d1ab2e829edc4aa5b4859a6328ddb207ec80c13ca4b4ba4d26b122",
+  "tests/native-map-runtime/Stubs.cs": "788322eac01e7f144d22cf959fe207a28953172a7a64879732ff0083f38781e4",
+  "tests/native-map-icons/Program.cs": "6585665ca68b4d218d5d3aa3a88d270ae6661676e57c3341080ac385c3071300"
+}

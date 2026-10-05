@@ -176,6 +176,8 @@ namespace KingdomEnhancedMod
         public enum IconType { Steed = 0, Hermit = 1, Statue = 4, Other = 9 }
 
         public IconType _type;
+        /// <summary>真实 ABI offset 0x24：1-based 坐骑序号（Steed 槽取 steedSpawns[_steedNum-1]）。</summary>
+        public int _steedNum;
         public UIMapIcon _spawnedIcon;
     }
 

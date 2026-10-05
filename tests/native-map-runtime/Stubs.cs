@@ -8,6 +8,7 @@ using System.Collections.Generic;
 namespace UnityEngine
 {
     using UnityEngine.SceneManagement;
+    using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
     public struct Vector2
     {
@@ -58,6 +59,16 @@ namespace UnityEngine
         public Vector2 center => new Vector2(x + width * 0.5f, y + height * 0.5f);
         public Vector2 size => new Vector2(width, height);
         public Vector2 position => new Vector2(x, y);
+    }
+
+    public struct Bounds
+    {
+        public Vector3 center;
+        public Vector3 size;
+        public Bounds(Vector3 center, Vector3 size) { this.center = center; this.size = size; }
+        public Vector3 extents => new Vector3(size.x * 0.5f, size.y * 0.5f, size.z * 0.5f);
+        public Vector3 min => new Vector3(center.x - extents.x, center.y - extents.y, center.z - extents.z);
+        public Vector3 max => new Vector3(center.x + extents.x, center.y + extents.y, center.z + extents.z);
     }
 
     public enum RenderMode { ScreenSpaceOverlay = 0, ScreenSpaceCamera = 1, WorldSpace = 2 }
@@ -319,6 +330,21 @@ namespace UnityEngine
         }
         public Quaternion localRotation;
         public Transform parent { get; private set; }
+
+        /// <summary>真实 Unity 语义：沿父链累乘 localScale（映射/形变判定用；翻转可由符号读出）。</summary>
+        public Vector3 lossyScale
+        {
+            get
+            {
+                Vector3 scale = _localScale;
+                for (Transform cursor = parent; cursor != null; cursor = cursor.parent)
+                {
+                    Vector3 p = cursor._localScale;
+                    scale = new Vector3(scale.x * p.x, scale.y * p.y, scale.z * p.z);
+                }
+                return scale;
+            }
+        }
 
         public int childCount => _children.Count;
         public Transform GetChild(int index) => _children[index];
@@ -593,6 +619,8 @@ namespace UnityEngine.SceneManagement
 
 namespace UnityEngine.UI
 {
+    using Il2CppInterop.Runtime.InteropTypes.Arrays;
+
     public class Graphic : Behaviour
     {
         public bool raycastTarget = true;
@@ -604,13 +632,112 @@ namespace UnityEngine.UI
     public class Sprite : Object
     {
         public Texture2D texture;
-        public Rect rect;
+        private Rect _rect;
+        private Vector2 _pivot;
+        private float _pixelsPerUnit = 100f;
+        private Il2CppStructArray<Vector2> _vertices;
+        private Il2CppStructArray<ushort> _triangles;
+
+        /// <summary>读故障注入：metadata（rect/pivot/ppu）抛。</summary>
+        public bool ThrowOnMetadata;
+        /// <summary>读故障注入：mesh（vertices/triangles，polygon 打包 sprite 在真实 Unity 会抛）抛。</summary>
+        public bool ThrowOnMeshes;
+
+        /// <summary>Sprite.rect（像素）。</summary>
+        public Rect rect
+        {
+            get
+            {
+                if (ThrowOnMetadata) throw new InvalidOperationException("sprite-rect");
+                return _rect;
+            }
+            set => _rect = value;
+        }
+
+        /// <summary>Sprite.pivot（像素，rect 相对）；native 岛图实测例 (42, 0)。</summary>
+        public Vector2 pivot
+        {
+            get
+            {
+                if (ThrowOnMetadata) throw new InvalidOperationException("sprite-pivot");
+                return _pivot;
+            }
+            set => _pivot = value;
+        }
+
+        /// <summary>Sprite.bounds（sprite 单位）：GetDrawingDimensions/GenerateSprite 归一用真实 bounds.size；
+        /// 默认等于 (rect/ppu, pivot 归一) 的 mesh 盒，可由测试按真实字段覆盖。</summary>
+        public Bounds bounds
+        {
+            get
+            {
+                if (ThrowOnMetadata) throw new InvalidOperationException("sprite-bounds");
+                if (_boundsOverride.HasValue) return _boundsOverride.Value;
+                // 默认按"整 rect 紧贴 mesh"的 Unity 约定：尺寸 rect/ppu，中心 (rect/2 - pivot)/ppu（pivot 在原点）。
+                float w = _rect.width / _pixelsPerUnit, h = _rect.height / _pixelsPerUnit;
+                return new Bounds(
+                    new Vector3((_rect.width * 0.5f - _pivot.x) / _pixelsPerUnit,
+                                (_rect.height * 0.5f - _pivot.y) / _pixelsPerUnit, 0f),
+                    new Vector3(w, h, 0f));
+            }
+            set => _boundsOverride = value;
+        }
+
+        private Bounds? _boundsOverride;
+
+        /// <summary>Sprite.pixelsPerUnit（Sprite.vertices 的单位换算；native 岛图实测 32）。</summary>
+        public float pixelsPerUnit
+        {
+            get
+            {
+                if (ThrowOnMetadata) throw new InvalidOperationException("sprite-ppu");
+                return _pixelsPerUnit;
+            }
+            set => _pixelsPerUnit = value;
+        }
+
+        /// <summary>Sprite.vertices（pivot 相对的 sprite 单位：px = v*ppu + pivot）。</summary>
+        public Il2CppStructArray<Vector2> vertices
+        {
+            get
+            {
+                if (ThrowOnMeshes) throw new InvalidOperationException("sprite-vertices");
+                return _vertices;
+            }
+            set => _vertices = value;
+        }
+
+        /// <summary>Sprite.triangles（triangle list）。</summary>
+        public Il2CppStructArray<ushort> triangles
+        {
+            get
+            {
+                if (ThrowOnMeshes) throw new InvalidOperationException("sprite-triangles");
+                return _triangles;
+            }
+            set => _triangles = value;
+        }
+
         public static bool FailNextCreate;
         public static Sprite Create(Texture2D tex, Rect rect, Vector2 pivot, float ppu, uint ext, SpriteMeshType type)
         {
             if (FailNextCreate) { FailNextCreate = false; return null; }
             if (tex == null) return null;
-            return new Sprite { texture = tex, rect = rect };
+            // Unity Sprite.Create 默认 FullRect：4 顶点全矩形 quad（与真实运行时 sprite 一致）。
+            float l = -pivot.x / ppu, b = -pivot.y / ppu;
+            float r = l + rect.width / ppu, t = b + rect.height / ppu;
+            var quad = new Il2CppStructArray<Vector2>(4);
+            quad[0] = new Vector2(l, b);
+            quad[1] = new Vector2(l, t);
+            quad[2] = new Vector2(r, t);
+            quad[3] = new Vector2(r, b);
+            var tris = new Il2CppStructArray<ushort>(6);
+            tris[0] = 0; tris[1] = 1; tris[2] = 2; tris[3] = 2; tris[4] = 3; tris[5] = 0;
+            return new Sprite
+            {
+                texture = tex, rect = rect, pivot = pivot, pixelsPerUnit = ppu,
+                vertices = quad, triangles = tris,
+            };
         }
     }
 
@@ -622,6 +749,27 @@ namespace UnityEngine.UI
         public bool ThrowAfterSet;
         /// <summary>读故障：sprite getter 抛（租约读回/快照路径）。</summary>
         public bool ThrowOnGet;
+        /// <summary>Image.preserveAspect（native 岛图默认 false；映射测试可置 true）。</summary>
+        public bool preserveAspect;
+        /// <summary>Image.type（真实 native 岛图 = Simple；测试可设 Tiled/Filled 证明 fail-closed）。</summary>
+        public Type type = Type.Simple;
+        /// <summary>Image.useSpriteMesh（exact 岛形读取的前提；false = quad 路径 → 必须整体保留 native）。</summary>
+        public bool useSpriteMesh = true;
+        /// <summary>Image.overrideSprite（uGUI activeSprite = overrideSprite ?? sprite）。</summary>
+        public Sprite overrideSprite;
+        /// <summary>Image.GetPixelAdjustedRect 的桩（默认整 rect；测试可设驱动尺寸项）。</summary>
+        public Rect adjustedRect;
+        public bool useAdjustedRect;
+        private RectTransform _rtCache;
+        public Rect GetPixelAdjustedRect()
+        {
+            if (ThrowOnGet) throw new InvalidOperationException("get-adjusted-rect");
+            if (useAdjustedRect) return adjustedRect;
+            RectTransform rt = rectTransform;
+            if (rt == null) return new Rect(0f, 0f, 0f, 0f);
+            return new Rect(rt.rect.x, rt.rect.y, rt.rect.width, rt.rect.height);
+        }
+        public enum Type { Simple = 0, Sliced = 1, Tiled = 2, Filled = 3 }
         public Sprite sprite
         {
             get

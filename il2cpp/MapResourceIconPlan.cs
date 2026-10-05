@@ -92,6 +92,10 @@ namespace KingdomEnhancedMod
         internal float X1;
         internal float Y1;
         private readonly List<MapIconBox> _blocked = new List<MapIconBox>(24);
+        // 可选 native sprite mesh 形状约束（issue-152）：null = 无约束（例如纯矩形测试台）。
+        // 形状顶点/三角形已是**规划空间**坐标（identity 映射，见 MapMountIcons.TryReadNativeArtShape），
+        // 拓扑（canonical 顶点、去重三角形、无向边界边）在此一次性预处理并复用。
+        private MapIconMeshTopology _shapeTopology;
 
         internal MapIconSurface(float x0, float y0, float x1, float y1)
         {
@@ -105,11 +109,25 @@ namespace KingdomEnhancedMod
         internal float Height => Y1 - Y0;
         internal int BlockedCount => _blocked.Count;
         internal MapIconBox Blocked(int index) => _blocked[index];
+        internal bool HasMeshShape => _shapeTopology != null && _shapeTopology.Valid;
 
         internal void AddBlocked(in MapIconBox box)
         {
             if (box.Width <= 0f || box.Height <= 0f) return;
             _blocked.Add(box);
+        }
+
+        /// <summary>设 exact native sprite mesh 拓扑（规划空间坐标；由调用方保证已通过拓扑校验）。</summary>
+        internal void SetMeshShape(MapIconMeshTopology topology)
+        {
+            _shapeTopology = topology;
+        }
+
+        /// <summary>box 是否完整位于 mesh 形状内：无形状约束 → true；形状无效（Unknown）→ false（fail-closed）。</summary>
+        internal bool InsideMeshShape(in MapIconBox box)
+        {
+            if (_shapeTopology == null) return true;
+            return MapIconMeshShape.FootprintInside(_shapeTopology, box, MapIconMeshShape.DefaultEpsilon);
         }
 
         internal bool BlockedFree(in MapIconBox box, float margin)
@@ -119,6 +137,351 @@ namespace KingdomEnhancedMod
                 if (box.Intersects(_blocked[i], margin)) return false;
             }
             return true;
+        }
+    }
+
+    /// <summary>
+    /// 一个 native sprite 的 mesh → 规划空间的轴对齐映射（由真实 Image/RectTransform 变换链测出）：
+    /// Sprite.vertices 是 **pivot 相对的 sprite 单位**（px = v*ppu + pivot），绘制矩形是该 sprite 的
+    /// rect（或 preserveAspect 后的居中矩形）在目标空间的落点；规划坐标 = Origin + px*Scale。
+    /// </summary>
+    /// <summary>
+    /// uGUI `Image` Simple + useSpriteMesh 的实际绘制几何（primary source：
+    /// uGUI `Runtime/UGUI/UI/Core/Image.cs` — `GenerateSprite`(useSpriteMesh 路径) 与 `PreserveSpriteAspectRatio`）：
+    /// - `drawingSize` = 经 `GetPixelAdjustedRect()`（+ preserveAspect 按 **RectTransform.pivot** 缩框）后的矩形尺寸；
+    /// - 每个 sprite 顶点（= `Sprite.vertices`，pivot 相对的 sprite 单位）的 art-local 位置：
+    ///   `v / Sprite.bounds.size * drawingSize - (rectPivot - Sprite.pivot / Sprite.rect.size) * drawingSize`
+    ///   —— 归一用 **bounds.size**（不是 rect/ppu），偏移用 **两个 pivot 的差**；
+    /// - 本结构只承载"尺寸与偏移"，逐顶点换算由 `LocalX/LocalY` 给出（不依赖 GetPixelAdjustedRect 的位置项，
+    ///   与 `GenerateSprite` 只用 r.width/r.height 的事实一致）。
+    /// </summary>
+    internal struct MapIconImageDraw
+    {
+        internal float BoundsW;
+        internal float BoundsH;        // Sprite.bounds.size（sprite 单位）
+        internal float DrawingW;
+        internal float DrawingH;       // 绘制矩形尺寸（art-local）
+        internal float OffsetX;
+        internal float OffsetY;        // (rectPivot - spritePivotNormalized) * drawingSize
+        internal bool Valid;
+
+        internal float LocalX(float vertexX) => vertexX / BoundsW * DrawingW - OffsetX;
+        internal float LocalY(float vertexY) => vertexY / BoundsH * DrawingH - OffsetY;
+    }
+
+    /// <summary>
+    /// native art 的 sprite/Image 几何纯计算（无 UnityEngine 依赖；运行期只负责读
+    /// Image.type/useSpriteMesh/overrideSprite/preserveAspect/GetPixelAdjustedRect 与
+    /// Sprite.rect/pivot/bounds/vertices/triangles，以及 RectTransform.pivot）。
+    /// </summary>
+    internal static class MapIconNativeArtPlan
+    {
+        /// <summary>
+        /// 构建 Simple+useSpriteMesh 的绘制参数：等价 uGUI `PreserveSpriteAspectRatio`（按 RT.pivot 缩框，
+        /// 不是居中）+ `GenerateSprite` 的 `drawingSize`/`drawOffset`。任何非法输入（非正尺寸/非有限值）→ false。
+        /// </summary>
+        internal static bool TryBuildSimpleMeshDraw(float rectW, float rectH, float rectPivotX, float rectPivotY,
+            bool preserveAspect, float spriteRectW, float spriteRectH, float spritePivotX, float spritePivotY,
+            float boundsW, float boundsH, out MapIconImageDraw draw)
+        {
+            draw = default;
+            if (!(rectW > 0f) || !(rectH > 0f)) return false;
+            if (!(spriteRectW > 0f) || !(spriteRectH > 0f)) return false;
+            if (!(boundsW > 0f) || !(boundsH > 0f)) return false;
+            if (!Finite(rectW) || !Finite(rectH) || !Finite(boundsW) || !Finite(boundsH)) return false;
+
+            float drawingW = rectW;
+            float drawingH = rectH;
+            float spriteRatio = spriteRectW / spriteRectH;
+            if (!Finite(spriteRatio)) return false;
+            if (preserveAspect && spriteRatio > 0f)
+            {
+                float rectRatio = drawingW / drawingH;
+                if (spriteRatio > rectRatio)
+                {
+                    // 高度缩到 rect.width*(1/spriteRatio)（宽不变）；位置项不影响顶点（GenerateSprite 只用尺寸）。
+                    drawingH = drawingW * (1.0f / spriteRatio);
+                }
+                else
+                {
+                    drawingW = drawingH * spriteRatio;
+                }
+            }
+            if (!(drawingW > 0f) || !(drawingH > 0f)) return false;
+
+            float spritePivotNormX = spritePivotX / spriteRectW;
+            float spritePivotNormY = spritePivotY / spriteRectH;
+            draw = new MapIconImageDraw
+            {
+                BoundsW = boundsW,
+                BoundsH = boundsH,
+                DrawingW = drawingW,
+                DrawingH = drawingH,
+                OffsetX = (rectPivotX - spritePivotNormX) * drawingW,
+                OffsetY = (rectPivotY - spritePivotNormY) * drawingH,
+                Valid = true,
+            };
+            return true;
+        }
+
+        /// <summary>
+        /// 自然 paper 倍率：**同一条绘制图形**在规划空间与 owner 本地空间的真实变换之比
+        /// （含 art 自身 localScale 与 cluster→paper 全局 fit；不硬编码任何倍率）。
+        /// 图标只能统一缩放 ⇒ 取两轴较小者（保守不放大）。
+        /// </summary>
+        internal static bool TryResolvePaperScale(in MapIconBox drawnInPlan, in MapIconBox drawnInOwnerLocal,
+            out float scale)
+        {
+            scale = 0f;
+            if (drawnInOwnerLocal.Width <= 1e-4f || drawnInOwnerLocal.Height <= 1e-4f) return false;
+            if (drawnInPlan.Width <= 0f || drawnInPlan.Height <= 0f) return false;
+            float sx = drawnInPlan.Width / drawnInOwnerLocal.Width;
+            float sy = drawnInPlan.Height / drawnInOwnerLocal.Height;
+            scale = sx < sy ? sx : sy;
+            return scale > 1e-4f;
+        }
+
+        internal static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+    }
+
+    /// <summary>
+    /// native sprite mesh 的拓扑预处理结果（规划空间坐标；identity 映射，不再做坐标换算）。
+    /// 拓扑规则（几何 union，不看索引朝向）：
+    /// - 按**坐标完全相等**做顶点 canonical 化（不引入 epsilon）；
+    /// - 丢弃退化三角形（canonical 索引重复或零面积），去重完全相同的三角形；
+    /// - 无向边计数：=1 外部边界、=2 内部接缝、&gt;2 非流形 ⇒ **Unknown**（调用方整体保留 native，
+    ///   绝不默认"全部可放"）；
+    /// - 边界边只用于"footprint 是否跨越海岸/凹口"，接缝不再误判为海岸。
+    /// </summary>
+    internal sealed class MapIconMeshTopology
+    {
+        internal float[] VertexX;
+        internal float[] VertexY;
+        internal int VertexCount;          // canonical 顶点数
+        internal int[] Triangles;          // 去重后的三角形（canonical 索引）
+        internal int[] BoundaryEdges;      // 成对
+        internal int BoundaryCount;
+        internal bool Valid;
+    }
+
+    /// <summary>
+    /// native sprite mesh 形状约束（纯函数）：footprint（规划空间轴对齐矩形）是否**完整**位于 mesh 覆盖区内。
+    /// 判据：四角 + 中心都在 mesh 内（triangle union，含边界）∧ 没有任何**几何边界**穿过 footprint 内部
+    /// （ε 内缩）。边界的接缝（内部共享边，含 mixed winding 与重复坐标 seam）不参与该判定。
+    /// </summary>
+    internal static class MapIconMeshShape
+    {
+        internal const float DefaultEpsilon = 0.02f;
+        /// <summary>拓扑/边界预计算的规模上限（超过即 Unknown：宁可整体保留 native，也不做无界扫描）。</summary>
+        internal const int MaxTriangles = 512;
+        internal const int MaxVertices = 2048;
+
+        /// <summary>
+        /// 拓扑预处理（canonical 顶点 / 去重三角形 / 无向边界边）。失败原因写入 reason，
+        /// 调用方必须把该 native sprite 视为"未知几何"并整体保留 native 显示。
+        /// </summary>
+        internal static bool TryBuildTopology(float[] vertexX, float[] vertexY, int vertexCount,
+            int[] triangles, out MapIconMeshTopology topology, out string reason)
+        {
+            topology = null;
+            reason = "unset";
+            if (vertexX == null || vertexY == null || triangles == null) { reason = "no-mesh"; return false; }
+            if (vertexCount < 3) { reason = "mesh-too-few-vertices"; return false; }
+            if (vertexCount > MaxVertices) { reason = "mesh-too-many-vertices"; return false; }
+            if (triangles.Length < 3) { reason = "mesh-no-triangles"; return false; }
+            if (triangles.Length / 3 > MaxTriangles) { reason = "mesh-too-many-triangles"; return false; }
+
+            // 1) 坐标 canonical 化（完全相等；不造 epsilon）
+            var canonicalIndex = new int[vertexCount];
+            var order = new Dictionary<long, int>(vertexCount);
+            var cx = new List<float>(vertexCount);
+            var cy = new List<float>(vertexCount);
+            for (int i = 0; i < vertexCount; i++)
+            {
+                float x = vertexX[i], y = vertexY[i];
+                if (!MapIconNativeArtPlan.Finite(x) || !MapIconNativeArtPlan.Finite(y))
+                {
+                    reason = "mesh-nonfinite-vertex";
+                    return false;
+                }
+                long key = ((long)BitConverter.SingleToInt32Bits(x) << 32) ^
+                           (uint)BitConverter.SingleToInt32Bits(y);
+                if (!order.TryGetValue(key, out int mapped))
+                {
+                    mapped = cx.Count;
+                    order.Add(key, mapped);
+                    cx.Add(x);
+                    cy.Add(y);
+                }
+                canonicalIndex[i] = mapped;
+            }
+            if (cx.Count < 3) { reason = "mesh-degenerate-collapsed"; return false; }
+            float[] vx = cx.ToArray();
+            float[] vy = cy.ToArray();
+
+            // 2) 三角形：丢弃退化（重复索引/零面积）、去重完全相同者
+            var kept = new List<int>(triangles.Length);
+            var seen = new HashSet<long>(triangles.Length / 3);
+            for (int t = 0; t + 2 < triangles.Length; t += 3)
+            {
+                int a = triangles[t], b = triangles[t + 1], c = triangles[t + 2];
+                if (a < 0 || b < 0 || c < 0 || a >= vertexCount || b >= vertexCount || c >= vertexCount)
+                {
+                    continue;   // 无效索引：忽略该三角形
+                }
+                int ca = canonicalIndex[a], cb = canonicalIndex[b], cc = canonicalIndex[c];
+                if (ca == cb || cb == cc || cc == ca) continue;   // 退化：重复顶点
+                float area2 = (vx[cb] - vx[ca]) * (vy[cc] - vy[ca]) - (vx[cc] - vx[ca]) * (vy[cb] - vy[ca]);
+                if (!(Math.Abs(area2) > 1e-12f)) continue;        // 退化：零面积
+                int lo = Math.Min(ca, Math.Min(cb, cc));
+                int hi = Math.Max(ca, Math.Max(cb, cc));
+                int mid = ca + cb + cc - lo - hi;
+                long triKey = ((long)lo * MaxVertices + mid) * MaxVertices + hi;
+                if (!seen.Add(triKey)) continue;                  // 去重：完全相同三角形
+                kept.Add(ca); kept.Add(cb); kept.Add(cc);
+            }
+            if (kept.Count < 3) { reason = "mesh-degenerate-no-area"; return false; }
+
+            // 3) 无向边计数：1=边界、2=内部接缝、>2=非流形（Unknown）
+            var edgeCounts = new Dictionary<long, int>(kept.Count);
+            for (int t = 0; t + 2 < kept.Count; t += 3)
+            {
+                CountEdge(edgeCounts, kept[t], kept[t + 1], cx.Count);
+                CountEdge(edgeCounts, kept[t + 1], kept[t + 2], cx.Count);
+                CountEdge(edgeCounts, kept[t + 2], kept[t], cx.Count);
+            }
+            var boundary = new List<int>(kept.Count);
+            int nonManifold = 0;
+            foreach (KeyValuePair<long, int> pair in edgeCounts)
+            {
+                if (pair.Value > 2) { nonManifold++; continue; }
+                if (pair.Value != 1) continue;
+                long key = pair.Key;
+                int a = (int)(key / MaxVertices);
+                int b = (int)(key % MaxVertices);
+                boundary.Add(a);
+                boundary.Add(b);
+            }
+            if (nonManifold > 0) { reason = "mesh-nonmanifold"; return false; }
+            if (boundary.Count < 4) { reason = "mesh-no-boundary"; return false; }
+
+            topology = new MapIconMeshTopology
+            {
+                VertexX = vx,
+                VertexY = vy,
+                VertexCount = cx.Count,
+                Triangles = kept.ToArray(),
+                BoundaryEdges = boundary.ToArray(),
+                BoundaryCount = boundary.Count,
+                Valid = true,
+            };
+            reason = null;
+            return true;
+        }
+
+        private static void CountEdge(Dictionary<long, int> counts, int a, int b, int vertexCount)
+        {
+            int lo = a < b ? a : b;
+            int hi = a < b ? b : a;
+            long key = (long)lo * MaxVertices + hi;
+            counts.TryGetValue(key, out int current);
+            counts[key] = current + 1;
+        }
+
+        /// <summary>
+        /// footprint（规划空间）是否完整位于拓扑覆盖区内。拓扑无效（Unknown）时返回 false（fail-closed）。
+        /// </summary>
+        internal static bool FootprintInside(MapIconMeshTopology topology, in MapIconBox footprint, float epsilon)
+        {
+            if (topology == null || !topology.Valid) return false;
+            if (footprint.Width <= 0f || footprint.Height <= 0f) return false;
+            float[] vx = topology.VertexX, vy = topology.VertexY;
+            int[] tris = topology.Triangles;
+            int count = topology.VertexCount;
+
+            if (!PointInside(topology, footprint.X0, footprint.Y0)) return false;
+            if (!PointInside(topology, footprint.X1, footprint.Y0)) return false;
+            if (!PointInside(topology, footprint.X1, footprint.Y1)) return false;
+            if (!PointInside(topology, footprint.X0, footprint.Y1)) return false;
+            if (!PointInside(topology, (footprint.X0 + footprint.X1) * 0.5f, (footprint.Y0 + footprint.Y1) * 0.5f))
+            {
+                return false;
+            }
+
+            float ex0 = footprint.X0 + epsilon, ey0 = footprint.Y0 + epsilon;
+            float ex1 = footprint.X1 - epsilon, ey1 = footprint.Y1 - epsilon;
+            if (ex1 <= ex0 || ey1 <= ey0) return false;
+            int[] boundary = topology.BoundaryEdges;
+            for (int e = 0; e + 1 < topology.BoundaryCount; e += 2)
+            {
+                int a = boundary[e], b = boundary[e + 1];
+                if (a < 0 || b < 0 || a >= count || b >= count) continue;
+                if (SegmentCrossesBox(vx[a], vy[a], vx[b], vy[b], ex0, ey0, ex1, ey1)) return false;
+            }
+            return true;
+        }
+
+        internal static bool PointInside(MapIconMeshTopology topology, float px, float py)
+        {
+            if (topology == null || !topology.Valid) return false;
+            float[] vx = topology.VertexX, vy = topology.VertexY;
+            int[] tris = topology.Triangles;
+            int count = topology.VertexCount;
+            for (int t = 0; t + 2 < tris.Length; t += 3)
+            {
+                int a = tris[t], b = tris[t + 1], c = tris[t + 2];
+                if (a < 0 || b < 0 || c < 0 || a >= count || b >= count || c >= count) continue;
+                if (PointInTriangle(px, py, vx[a], vy[a], vx[b], vy[b], vx[c], vy[c])) return true;
+            }
+            return false;
+        }
+
+        private static bool PointInTriangle(float px, float py, float ax, float ay, float bx, float by,
+            float cx, float cy)
+        {
+            float d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by);
+            float d2 = (px - cx) * (by - cy) - (bx - cx) * (py - cy);
+            float d3 = (px - ax) * (cy - ay) - (cx - ax) * (py - ay);
+            bool hasNeg = d1 < 0f || d2 < 0f || d3 < 0f;
+            bool hasPos = d1 > 0f || d2 > 0f || d3 > 0f;
+            if (hasNeg && hasPos) return false;
+            if (!hasNeg && !hasPos)
+            {
+                // 退化（共线/零面积）三角形：只在点确实落在其线段上时算"内"。
+                return PointOnSegment(px, py, ax, ay, bx, by) ||
+                       PointOnSegment(px, py, bx, by, cx, cy) ||
+                       PointOnSegment(px, py, cx, cy, ax, ay);
+            }
+            return true;
+        }
+
+        private static bool PointOnSegment(float px, float py, float ax, float ay, float bx, float by)
+        {
+            float cross = (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+            if (Math.Abs(cross) > 1e-6f) return false;
+            return px >= Math.Min(ax, bx) - 1e-6f && px <= Math.Max(ax, bx) + 1e-6f &&
+                   py >= Math.Min(ay, by) - 1e-6f && py <= Math.Max(ay, by) + 1e-6f;
+        }
+
+        /// <summary>线段是否穿过盒**内部**（贴边/擦角不算）。</summary>
+        private static bool SegmentCrossesBox(float x1, float y1, float x2, float y2,
+            float bx0, float by0, float bx1, float by1)
+        {
+            float dx = x2 - x1, dy = y2 - y1;
+            float t0 = 0f, t1 = 1f;
+            if (!ClipAxis(dx, bx0 - x1, bx1 - x1, ref t0, ref t1)) return false;
+            if (!ClipAxis(dy, by0 - y1, by1 - y1, ref t0, ref t1)) return false;
+            return t1 > t0;
+        }
+
+        private static bool ClipAxis(float d, float lo, float hi, ref float t0, ref float t1)
+        {
+            if (Math.Abs(d) < 1e-9f) return lo <= 0f && hi >= 0f;
+            float ta = lo / d, tb = hi / d;
+            if (ta > tb) { float swap = ta; ta = tb; tb = swap; }
+            if (ta > t0) t0 = ta;
+            if (tb < t1) t1 = tb;
+            return t0 < t1;
         }
     }
 
@@ -192,28 +555,6 @@ namespace KingdomEnhancedMod
             }
             failed = requests.Count;
             return false;
-        }
-
-        /// <summary>
-        /// 固定档位单次装箱（总览一个岛的多个自由矩形共享同一档缩放时使用）：
-        /// true = 全部放下；false 时 into 为该档的尽力结果 + failed&gt;0，调用方可继续在下一矩形重试剩余项，
-        /// 但**单个展示根**仍然只在全部放下时才作为成功（调用方负责整体裁决）。
-        /// </summary>
-        internal static bool TryPlanAtScale(List<MapIconRequest> requests, MapIconSurface surface, float scale,
-            List<MapIconPlacement> into, out int failed, bool topDown)
-        {
-            failed = 0;
-            if (into == null) return false;
-            into.Clear();
-            if (requests == null || requests.Count == 0) return true;
-            if (surface == null || surface.Width <= 0f || surface.Height <= 0f || scale <= 0f)
-            {
-                failed = requests.Count;
-                return false;
-            }
-            int misses = Pack(requests, surface, scale, topDown, into);
-            failed = misses;
-            return misses == 0;
         }
 
         /// <summary>按给定缩放装箱；返回无法放置的条目数（work 中为已放置部分）。</summary>
@@ -292,7 +633,7 @@ namespace KingdomEnhancedMod
                     {
                         if (box.Intersects(placed[p], Gutter)) { clash = true; break; }
                     }
-                    if (!clash)
+                    if (!clash && surface.InsideMeshShape(box))
                     {
                         work.Add(new MapIconPlacement(req, requestIndex, x, y, scale));
                         placed.Add(box);
@@ -716,7 +1057,8 @@ namespace KingdomEnhancedMod
     /// <summary>
     /// 扩展岛（exact 登记 physical11 总览簇）专属：**岛内自由错落**（用户 2026-10-03 直接要求取代
     /// 三行/6,5,5 —— 完整剪影位于岛内顶面、不成行、右侧实际利用）。
-    /// 只服务扩展岛；原十岛继续用 MapOverviewLayout/MapIconRegionPlanner（不改其常量/输出）。
+    /// 只服务扩展岛；native 十岛走各自底图盒（MapMountIcons.PlanOverviewIsland/PlanNativeDetailIsland，
+    /// 不改其常量/输出）。
     /// 语义：
     /// - 请求按稳定序（面积降→高降→宽降→Kind→TypeId→ArrayIndex→原下标）排位，第 s 位固定使用第 s 个
     ///   normalized preferred anchor（常量表；同输入逐值一致，与调用顺序无关）；
@@ -1310,168 +1652,4 @@ namespace KingdomEnhancedMod
         }
     }
 
-    /// <summary>一个岛（owner）的 art 盒（paper 坐标）。owner 语义由调用方定义（本项目 = land 下标）。</summary>
-    internal struct MapIconRegionOwner
-    {
-        internal int Owner;
-        internal MapIconBox Art;
-
-        internal MapIconRegionOwner(int owner, in MapIconBox art)
-        {
-            Owner = owner;
-            Art = art;
-        }
-    }
-
-    /// <summary>
-    /// 图标区域规划（纯函数；r7）：把自由区域按"最近岛"归属（真实 art footprint 的格点 Voronoi），
-    /// 再分解为最大矩形（面积降序）。属性：
-    /// - 区域两两不相交（每个格点只属于一个 owner）⇒ 不同岛的图标不可能互相串位/错归属；
-    /// - 每个区域矩形不与任何 art 盒相交（格点中心在 art 外 + 调用方再按连续 art 盒阻断）；
-    /// - 确定性：同输入（含 owner 顺序）逐值一致；可离线复算。
-    /// 中间岛在原生地理下自由空间有限 ⇒ 区域小是**真实几何结果**，调用方按"放不下就不显示并报告"处理，
-    /// 不移动/缩小岛来腾地方。
-    /// </summary>
-    internal static class MapIconRegionPlanner
-    {
-        internal const float DefaultCell = 2f;
-        internal const int MaxRectsPerOwner = 8;
-        /// <summary>小于该边长的矩形对最小可读档（0.36）图标也无意义，不输出（仍消耗格点，避免死循环）。</summary>
-        internal const float MinRectSide = 8f;
-
-        internal static void Build(List<MapIconRegionOwner> owners, in MapIconBox freeArea, float cellSize,
-            List<MapIconBox> intoRects, List<int> intoOwners)
-        {
-            if (intoRects != null) intoRects.Clear();
-            if (intoOwners != null) intoOwners.Clear();
-            if (owners == null || owners.Count == 0 || intoRects == null || intoOwners == null) return;
-            if (freeArea.Width <= MinRectSide || freeArea.Height <= MinRectSide) return;
-
-            float cell = cellSize > 0.5f ? cellSize : 0.5f;
-            int nx = (int)(freeArea.Width / cell);
-            int ny = (int)(freeArea.Height / cell);
-            if (nx <= 0 || ny <= 0) return;
-
-            int[] ownerGrid = new int[nx * ny];
-            for (int i = 0; i < ownerGrid.Length; i++) ownerGrid[i] = -1;
-            for (int j = 0; j < ny; j++)
-            {
-                float cy = freeArea.Y0 + (j + 0.5f) * cell;
-                for (int i = 0; i < nx; i++)
-                {
-                    float cx = freeArea.X0 + (i + 0.5f) * cell;
-                    float half = cell * 0.5f;
-                    bool inside = false;
-                    for (int o = 0; o < owners.Count; o++)
-                    {
-                        MapIconBox art = owners[o].Art;
-                        // 格点矩形与 art 盒有任何交叠即不算自由（不用中心点判定：避免区域矩形切进 art 边缘）
-                        if (art.X0 < cx + half && cx - half < art.X1 &&
-                            art.Y0 < cy + half && cy - half < art.Y1) { inside = true; break; }
-                    }
-                    if (inside) continue;
-
-                    int bestOwner = -1;
-                    float bestDistance = float.MaxValue;
-                    for (int o = 0; o < owners.Count; o++)
-                    {
-                        float distance = BoxDistanceSq(cx, cy, owners[o].Art);
-                        if (distance < bestDistance) { bestDistance = distance; bestOwner = o; }
-                    }
-                    ownerGrid[j * nx + i] = bestOwner;
-                }
-            }
-
-            bool[] used = new bool[nx * ny];
-            int[] heights = new int[nx];
-            int[] stackIndex = new int[nx + 1];
-            int[] stackHeight = new int[nx + 1];
-            for (int o = 0; o < owners.Count; o++)
-            {
-                var rects = new List<MapIconBox>(MaxRectsPerOwner);
-                var areas = new List<float>(MaxRectsPerOwner);
-                for (int iteration = 0; iteration < MaxRectsPerOwner; iteration++)
-                {
-                    int bestArea = 0;
-                    int bestI0 = 0, bestJ0 = 0, bestI1 = 0, bestJ1 = 0;
-                    for (int i = 0; i < nx; i++) heights[i] = 0;
-                    for (int j = 0; j < ny; j++)
-                    {
-                        for (int i = 0; i < nx; i++)
-                        {
-                            bool mine = ownerGrid[j * nx + i] == o && !used[j * nx + i];
-                            heights[i] = mine ? heights[i] + 1 : 0;
-                        }
-                        // 直方图最大矩形（push 栈，O(nx)）
-                        int top = 0;
-                        for (int i = 0; i <= nx; i++)
-                        {
-                            int h = i < nx ? heights[i] : 0;
-                            int start = i;
-                            while (top > 0 && stackHeight[top - 1] > h)
-                            {
-                                top--;
-                                int si = stackIndex[top];
-                                int sh = stackHeight[top];
-                                int area = sh * (i - si);
-                                if (area > bestArea)
-                                {
-                                    bestArea = area;
-                                    bestI0 = si; bestI1 = i;
-                                    bestJ0 = j - sh + 1; bestJ1 = j;
-                                }
-                                start = si;
-                            }
-                            stackIndex[top] = start;
-                            stackHeight[top] = h;
-                            top++;
-                        }
-                    }
-                    if (bestArea <= 0) break;
-                    for (int j = bestJ0; j <= bestJ1; j++)
-                    {
-                        for (int i = bestI0; i < bestI1; i++) used[j * nx + i] = true;
-                    }
-                    var rect = new MapIconBox(
-                        freeArea.X0 + bestI0 * cell, freeArea.Y0 + bestJ0 * cell,
-                        freeArea.X0 + bestI1 * cell, freeArea.Y0 + (bestJ1 + 1) * cell);
-                    if (rect.Width >= MinRectSide && rect.Height >= MinRectSide)
-                    {
-                        rects.Add(rect);
-                        areas.Add(rect.Width * rect.Height);
-                    }
-                }
-                // 面积降序（同面积：y 高者优先、再 x 小者优先，保证确定性）
-                for (int a = 0; a < rects.Count; a++)
-                {
-                    for (int b = a + 1; b < rects.Count; b++)
-                    {
-                        bool swap = areas[b] > areas[a] + 0.001f ||
-                            (Math.Abs(areas[b] - areas[a]) <= 0.001f &&
-                             (rects[b].Y0 > rects[a].Y0 + 0.001f ||
-                              (Math.Abs(rects[b].Y0 - rects[a].Y0) <= 0.001f && rects[b].X0 < rects[a].X0)));
-                        if (swap)
-                        {
-                            MapIconBox rectSwap = rects[a]; rects[a] = rects[b]; rects[b] = rectSwap;
-                            float areaSwap = areas[a]; areas[a] = areas[b]; areas[b] = areaSwap;
-                        }
-                    }
-                }
-                for (int r = 0; r < rects.Count; r++)
-                {
-                    intoRects.Add(rects[r]);
-                    intoOwners.Add(owners[o].Owner);
-                }
-            }
-        }
-
-        private static float BoxDistanceSq(float x, float y, in MapIconBox box)
-        {
-            float dx = box.X0 - x;
-            if (dx < 0f) dx = x > box.X1 ? x - box.X1 : 0f;
-            float dy = box.Y0 - y;
-            if (dy < 0f) dy = y > box.Y1 ? y - box.Y1 : 0f;
-            return dx * dx + dy * dy;
-        }
-    }
 }
