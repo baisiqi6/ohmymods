@@ -96,13 +96,82 @@ internal static class HeroRecruitmentContexts
         {
             // No proof for this native snapshot while unclaimed paid history remains: reserve and
             // write nothing. A fabricated empty baseline could mask a repurchased hero.
-            var reserved = known ? archive.LatestReservations(context.Active) : new List<HeroPurchaseReceipt>();
+            // issue-150 v3: cross-island seats must not display as reserved here; an
+            // indeterminate classification keeps the original full reservation.
+            var clsQ = known ? ClassifyContext(archive, context, island) : null;
+            List<HeroPurchaseReceipt> reserved;
+            if (clsQ == null || (!clsQ.Indeterminate && clsQ.OwnerEpoch == null && clsQ.MixedEpoch == null))
+                reserved = new List<HeroPurchaseReceipt>();            // nothing provable lives here
+            else if (clsQ.Indeterminate)
+                reserved = archive.LatestReservations(context.Active); // cannot judge: keep #85 shape
+            else
+                reserved = clsQ.OwnerEpoch != null ? clsQ.OwnerCarry : clsQ.MixedCarry;
             return Quarantine(result, archive, null, "unresolved", reserved);
         }
         if (known)
         {
-            // Known context, never seen this native snapshot, nothing unclaimed: the active epoch's
+            // Known context, never seen this native snapshot, nothing unclaimed: the context's
             // own claims are all that can be reserved, and an empty state may confirm normally.
+            // issue-150 v3: classify every epoch (not only Active) against THIS island.
+            var cls = ClassifyContext(archive, context, island);
+            if (cls.Indeterminate)
+            {
+                result.Kind = "unknown"; result.Epoch = context.Active;
+                result.Seats = archive.LatestReservations(context.Active);
+                result.Unresolved = result.Seats.Count > 0;
+                result.Fresh = result.Seats.Count == 0;
+                return result;
+            }
+            if (cls.EmptyIdOnly && cls.OwnerEpoch == null && cls.MixedEpoch == null)
+            {
+                // Id-less seats cannot be attributed across sibling islands: the pre-fix
+                // conservative reservation (review R3 P2-2).
+                result.Kind = "unknown"; result.Epoch = context.Active;
+                result.Seats = archive.LatestReservations(context.Active);
+                result.Unresolved = result.Seats.Count > 0;
+                result.Fresh = result.Seats.Count == 0;
+                return result;
+            }
+            if (cls.OwnerEpoch != null)
+            {
+                // An epoch whose whole walk is provably this island's: unchanged #85 protection,
+                // anchored at that epoch (not at whichever sibling island moved Active).
+                result.Kind = "unknown"; result.Epoch = cls.OwnerEpoch;
+                result.Seats = cls.OwnerCarry;
+                result.Unresolved = result.Seats.Count > 0;
+                result.Fresh = result.Seats.Count == 0;
+                return result;
+            }
+            if (cls.MixedEpoch != null)
+            {
+                // Partial evidence: keep every provable seat reserved and block writes.
+                // Writing here would be ambiguous between this island and the epoch's other owner.
+                result.Kind = "unknown-mixed"; result.Epoch = cls.MixedEpoch;
+                result.Seats = cls.MixedCarry;
+                result.Unresolved = true;
+                return result;
+            }
+            if (cls.AnyWalkSeat)
+            {
+                // Every seat of every epoch is foreign to this island: a different island of
+                // this shared context. Adopt a fresh epoch so this island's reads/writes never
+                // touch (or truncate, or evict) the other islands' snapshots and baselines; the
+                // old epochs stay claimed for their owners (exact-match restore still reaches
+                // them, and their drift loads re-anchor via the owner branch above).
+                if (context.Epochs.Count < HeroRecruitmentArchive.MaxEpochs)
+                {
+                    result.Kind = "foreign-epoch"; result.Epoch = HeroRecruitmentArchive.NewScope();
+                    result.NewEpoch = true; result.Fresh = true;
+                    return result;
+                }
+                // Epoch cap (review v2 P1-B): minting is refused by capacity, and a refused
+                // Stage would veto the whole native save. Degrade to a write-locked unknown
+                // instead — purchase blocked, nothing written, no global save refusal.
+                result.Kind = "epoch-cap"; result.Epoch = context.Active;
+                result.Unresolved = true;
+                return result;
+            }
+            // No epoch of this context has any walk seat: the pre-fix behavior.
             result.Kind = "unknown"; result.Epoch = context.Active;
             result.Seats = archive.LatestReservations(context.Active);
             result.Unresolved = result.Seats.Count > 0;
@@ -192,24 +261,104 @@ internal static class HeroRecruitmentContexts
         return result;
     }
 
+    // issue-150 v2: one pass over the loaded island's Character rows. Null (not empty) means
+    // the island is unavailable or the interop walk failed: callers must treat that as
+    // indeterminate and keep the #85 conservative behavior, never as "no evidence".
+    private static Dictionary<string, int> CharacterRowCount(IslandSaveData island)
+    {
+        if (island == null) return null;
+        try
+        {
+            var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var record in island.objects)
+            {
+                if (record == null) continue;
+                if (!HeroRecruitment.IsCharacterRecord(record)) continue;
+                string id = record.uniqueID;
+                if (string.IsNullOrEmpty(id) || id.Length > 256) continue;
+                counts.TryGetValue(id, out int n);
+                counts[id] = n + 1;
+            }
+            return counts;
+        }
+        catch { return null; }
+    }
+
     // Every receipt owner must be one unique Character record of the loaded island: an empty or
     // missing native id cannot classify a legacy history as belonging to this island.
     private static bool NativeEvidence(IReadOnlyList<HeroPurchaseReceipt> seats, IslandSaveData island)
     {
         if (island == null || seats.Count == 0) return false;
+        var counts = CharacterRowCount(island);
+        if (counts == null) return false;
         foreach (var seat in seats)
         {
             if (seat.NativeId.Length == 0) return false;
-            int count = 0;
-            try
-            {
-                foreach (var record in island.objects)
-                    if (record != null && record.uniqueID == seat.NativeId && HeroRecruitment.IsCharacterRecord(record)) count++;
-            }
-            catch { return false; }
-            if (count != 1) return false;
+            if (!counts.TryGetValue(seat.NativeId, out int n) || n != 1) return false;
         }
         return true;
+    }
+
+    // issue-150 v3: classify EVERY epoch of the context against the loaded island (the active
+    // pointer alternates between sibling islands of one shared context, so an Active-only walk
+    // reopens the #85 double-buy window on the non-active island — review v2 P0-A). Evidence =
+    // exactly one live Character row here, judged on snapshot-original receipts (ids intact).
+    // Empty-id seats cannot be classified and stay conservative (carried within their epoch).
+    // Any failure is indeterminate: the caller keeps the pre-fix behavior instead of guessing.
+    private sealed class ContextClass
+    {
+        internal string OwnerEpoch;                          // an epoch whose walk is fully evidenced here
+        internal List<HeroPurchaseReceipt> OwnerCarry;
+        internal string MixedEpoch;                           // an epoch with partial evidence here
+        internal List<HeroPurchaseReceipt> MixedCarry;
+        internal bool AnyWalkSeat;                            // some epoch has seats, none evidenced here
+        internal bool Indeterminate;
+        internal bool EmptyIdOnly;                           // walk seats exist but none carries an id
+    }
+
+    private static ContextClass ClassifyContext(HeroRecruitmentArchive archive,
+        HeroRecruitmentContext context, IslandSaveData island)
+    {
+        var cls = new ContextClass();
+        if (context == null) return cls;
+        if (island == null) { cls.Indeterminate = true; return cls; }
+        var counts = CharacterRowCount(island);
+        if (counts == null) { cls.Indeterminate = true; return cls; }
+        foreach (string epoch in context.Epochs)
+        {
+            List<HeroPurchaseReceipt> walk;
+            try { walk = archive.LatestWalkOriginals(epoch); }
+            catch { cls.Indeterminate = true; return cls; }
+            if (walk.Count == 0) continue;
+            bool foreign = false, evidenced = false;
+            var carry = new List<HeroPurchaseReceipt>();
+            foreach (var seat in walk)
+            {
+                cls.AnyWalkSeat = true;
+                if (seat.NativeId.Length == 0) { carry.Add(seat.Copy(true)); continue; }
+                if (counts.TryGetValue(seat.NativeId, out int n) && n == 1)
+                { carry.Add(seat.Copy(true)); evidenced = true; }
+                else
+                    foreign = true;
+            }
+            if (!foreign && evidenced)
+            {
+                // This epoch's whole walk is proven here by at least one id match: the island's
+                // own paid epoch. An id-less walk proves nothing and must not claim ownership
+                // ahead of a truly evidenced epoch (review R3 P2-2).
+                if (cls.OwnerEpoch == null) { cls.OwnerEpoch = epoch; cls.OwnerCarry = carry; }
+            }
+            else if (foreign && evidenced && cls.MixedEpoch == null)
+            {
+                cls.MixedEpoch = epoch; cls.MixedCarry = carry;
+            }
+            else if (!foreign && !evidenced && !cls.EmptyIdOnly)
+            {
+                // Only unclassifiable empty-id seats: keep the pre-fix conservative behavior.
+                cls.EmptyIdOnly = true;
+            }
+        }
+        return cls;
     }
 
     // issue-85: a completely unknown context whose loaded snapshot matches no stored snapshot,
