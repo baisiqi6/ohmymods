@@ -387,7 +387,19 @@ internal static class HeroNativeRights
         IReadOnlyList<HeroPurchaseReceipt> sessionSeats, HeroRecruitmentContexts.Resolution result)
     {
         if (result == null || _document == null || _archive == null) return false;
-        if (result.Kind != "unknown" || !result.Unresolved || result.Seats.Count == 0) return false;
+        // issue-150 v3: foreign-epoch legitimately carries zero seats (this island adopted its
+        // own epoch because every stored walk is another island's) yet must still rebind this
+        // source's session purchases; unknown/unknown-mixed keep the unresolved-with-seats
+        // shape. Restores, fresh and quarantine stay out (unchanged).
+        if (result.Kind == "foreign-epoch")
+        {
+            // Seats are empty by construction; custody/checkpoint/session gates below decide.
+        }
+        else if (result.Kind == "unknown" || result.Kind == "unknown-mixed")
+        {
+            if (!result.Unresolved || result.Seats.Count == 0) return false;
+        }
+        else return false;
         var custody = CustodyOf(campaign, challenge, land);
         if (custody == null || custody.Key == null || !InvalidFor(custody)) return false;
         var checkpoint = CheckpointSeats(custody.Key);

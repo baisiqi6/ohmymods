@@ -96,16 +96,24 @@ internal static class HeroRecruitmentContexts
         {
             // No proof for this native snapshot while unclaimed paid history remains: reserve and
             // write nothing. A fabricated empty baseline could mask a repurchased hero.
-            var reserved = known ? archive.LatestReservations(context.Active) : new List<HeroPurchaseReceipt>();
+            // issue-150 v3: cross-island seats must not display as reserved here; an
+            // indeterminate classification keeps the original full reservation.
+            var clsQ = known ? ClassifyContext(archive, context, island) : null;
+            List<HeroPurchaseReceipt> reserved;
+            if (clsQ == null || (!clsQ.Indeterminate && clsQ.OwnerEpoch == null && clsQ.MixedEpoch == null))
+                reserved = new List<HeroPurchaseReceipt>();            // nothing provable lives here
+            else if (clsQ.Indeterminate)
+                reserved = archive.LatestReservations(context.Active); // cannot judge: keep #85 shape
+            else
+                reserved = clsQ.OwnerEpoch != null ? clsQ.OwnerCarry : clsQ.MixedCarry;
             return Quarantine(result, archive, null, "unresolved", reserved);
         }
         if (known)
         {
-            // Known context, never seen this native snapshot, nothing unclaimed: the active epoch's
+            // Known context, never seen this native snapshot, nothing unclaimed: the context's
             // own claims are all that can be reserved, and an empty state may confirm normally.
-            // issue-150 v2: the context key conflates islands sharing a land value, so the
-            // active epoch's walk is classified against THIS island before being carried.
-            var cls = ClassifyWalk(archive, context.Active, island);
+            // issue-150 v3: classify every epoch (not only Active) against THIS island.
+            var cls = ClassifyContext(archive, context, island);
             if (cls.Indeterminate)
             {
                 result.Kind = "unknown"; result.Epoch = context.Active;
@@ -114,30 +122,50 @@ internal static class HeroRecruitmentContexts
                 result.Fresh = result.Seats.Count == 0;
                 return result;
             }
-            if (cls.Dropped == 0)
+            if (cls.OwnerEpoch != null)
             {
-                // The walk is provably this island's: unchanged #85 protection.
-                result.Kind = "unknown"; result.Epoch = context.Active;
-                result.Seats = cls.Carry;
+                // An epoch whose whole walk is provably this island's: unchanged #85 protection,
+                // anchored at that epoch (not at whichever sibling island moved Active).
+                result.Kind = "unknown"; result.Epoch = cls.OwnerEpoch;
+                result.Seats = cls.OwnerCarry;
                 result.Unresolved = result.Seats.Count > 0;
                 result.Fresh = result.Seats.Count == 0;
                 return result;
             }
-            if (cls.Carry.Count == 0)
+            if (cls.MixedEpoch != null)
             {
-                // No seat of the active epoch lives here: a different island of this shared
-                // context. Adopt a fresh epoch so this island's reads/writes never touch (or
-                // truncate, or evict) the other island's snapshots and baseline. The old epochs
-                // stay claimed for the island that still owns them (exact-match restore).
-                result.Kind = "foreign-epoch"; result.Epoch = HeroRecruitmentArchive.NewScope();
-                result.NewEpoch = true; result.Fresh = true;
+                // Partial evidence: keep every provable seat reserved and block writes.
+                // Writing here would be ambiguous between this island and the epoch's other owner.
+                result.Kind = "unknown-mixed"; result.Epoch = cls.MixedEpoch;
+                result.Seats = cls.MixedCarry;
+                result.Unresolved = true;
                 return result;
             }
-            // Mixed: keep every provable seat reserved and block writes (Unresolved). Writing
-            // here would be ambiguous between this island and the epoch's other owner.
-            result.Kind = "unknown-mixed"; result.Epoch = context.Active;
-            result.Seats = cls.Carry;
-            result.Unresolved = true;
+            if (cls.AnyWalkSeat)
+            {
+                // Every seat of every epoch is foreign to this island: a different island of
+                // this shared context. Adopt a fresh epoch so this island's reads/writes never
+                // touch (or truncate, or evict) the other islands' snapshots and baselines; the
+                // old epochs stay claimed for their owners (exact-match restore still reaches
+                // them, and their drift loads re-anchor via the owner branch above).
+                if (context.Epochs.Count < HeroRecruitmentArchive.MaxEpochs)
+                {
+                    result.Kind = "foreign-epoch"; result.Epoch = HeroRecruitmentArchive.NewScope();
+                    result.NewEpoch = true; result.Fresh = true;
+                    return result;
+                }
+                // Epoch cap (review v2 P1-B): minting is refused by capacity, and a refused
+                // Stage would veto the whole native save. Degrade to a write-locked unknown
+                // instead — purchase blocked, nothing written, no global save refusal.
+                result.Kind = "epoch-cap"; result.Epoch = context.Active;
+                result.Unresolved = true;
+                return result;
+            }
+            // No epoch of this context has any walk seat: the pre-fix behavior.
+            result.Kind = "unknown"; result.Epoch = context.Active;
+            result.Seats = archive.LatestReservations(context.Active);
+            result.Unresolved = result.Seats.Count > 0;
+            result.Fresh = result.Seats.Count == 0;
             return result;
         }
         result.Kind = "fresh"; result.Epoch = HeroRecruitmentArchive.NewScope();
@@ -261,33 +289,56 @@ internal static class HeroRecruitmentContexts
         return true;
     }
 
-    // issue-150 v2: classify the active epoch's latest paid walk (snapshot-original receipts,
-    // ids intact) against the loaded island. Evidence = exactly one live Character row here.
-    // Empty-id seats cannot be classified and stay conservative (carried). Any classification
-    // failure is indeterminate: the caller keeps the #85 behavior instead of guessing.
-    private sealed class WalkClass
+    // issue-150 v3: classify EVERY epoch of the context against the loaded island (the active
+    // pointer alternates between sibling islands of one shared context, so an Active-only walk
+    // reopens the #85 double-buy window on the non-active island — review v2 P0-A). Evidence =
+    // exactly one live Character row here, judged on snapshot-original receipts (ids intact).
+    // Empty-id seats cannot be classified and stay conservative (carried within their epoch).
+    // Any failure is indeterminate: the caller keeps the pre-fix behavior instead of guessing.
+    private sealed class ContextClass
     {
-        internal List<HeroPurchaseReceipt> Carry = new(); // reservation copies to carry
-        internal int Dropped;                              // id-present, provably absent here
+        internal string OwnerEpoch;                          // an epoch whose walk is fully evidenced here
+        internal List<HeroPurchaseReceipt> OwnerCarry;
+        internal string MixedEpoch;                           // an epoch with partial evidence here
+        internal List<HeroPurchaseReceipt> MixedCarry;
+        internal bool AnyWalkSeat;                            // some epoch has seats, none evidenced here
         internal bool Indeterminate;
     }
 
-    private static WalkClass ClassifyWalk(HeroRecruitmentArchive archive, string scope, IslandSaveData island)
+    private static ContextClass ClassifyContext(HeroRecruitmentArchive archive,
+        HeroRecruitmentContext context, IslandSaveData island)
     {
-        var cls = new WalkClass();
-        List<HeroPurchaseReceipt> walk;
-        try { walk = archive.LatestWalkOriginals(scope); }
-        catch { cls.Indeterminate = true; return cls; }
+        var cls = new ContextClass();
+        if (context == null) return cls;
         if (island == null) { cls.Indeterminate = true; return cls; }
         var counts = CharacterRowCount(island);
         if (counts == null) { cls.Indeterminate = true; return cls; }
-        foreach (var seat in walk)
+        foreach (string epoch in context.Epochs)
         {
-            if (seat.NativeId.Length == 0) { cls.Carry.Add(seat.Copy(true)); continue; }
-            if (counts.TryGetValue(seat.NativeId, out int n) && n == 1)
-                cls.Carry.Add(seat.Copy(true));
-            else
-                cls.Dropped++;
+            List<HeroPurchaseReceipt> walk;
+            try { walk = archive.LatestWalkOriginals(epoch); }
+            catch { cls.Indeterminate = true; return cls; }
+            if (walk.Count == 0) continue;
+            bool foreign = false, evidenced = false;
+            var carry = new List<HeroPurchaseReceipt>();
+            foreach (var seat in walk)
+            {
+                cls.AnyWalkSeat = true;
+                if (seat.NativeId.Length == 0) { carry.Add(seat.Copy(true)); continue; }
+                if (counts.TryGetValue(seat.NativeId, out int n) && n == 1)
+                { carry.Add(seat.Copy(true)); evidenced = true; }
+                else
+                    foreign = true;
+            }
+            if (!foreign)
+            {
+                // This epoch's whole walk lives here: the island's own paid epoch.
+                if (cls.OwnerEpoch == null) { cls.OwnerEpoch = epoch; cls.OwnerCarry = carry; }
+            }
+            else if (evidenced && cls.MixedEpoch == null)
+            {
+                cls.MixedEpoch = epoch; cls.MixedCarry = carry;
+            }
         }
         return cls;
     }
