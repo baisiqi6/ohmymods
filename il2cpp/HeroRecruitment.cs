@@ -939,7 +939,8 @@ internal static class HeroRecruitment
             // seats and zero writes by construction — there is nothing to mis-pair, so holding a
             // capture responsibility here protects nothing while its Prepare gate refuses the
             // whole native save. Complete it as a no-op success instead of NoteCaptureInvalid.
-            if (!staged && Islands.TryGetValue(ContextKey, out var capState) && capState.MatchKind == "epoch-cap")
+            if (!staged && ContextKey != null && Islands.TryGetValue(ContextKey, out var capState)
+                && ReferenceEquals(capState, _current) && capState.MatchKind == "epoch-cap")
             { Log("save-epoch-cap-noop", null); return; }
             if (!staged) NoteCaptureInvalid();
         }
