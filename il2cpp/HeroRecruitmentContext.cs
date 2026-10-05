@@ -122,6 +122,16 @@ internal static class HeroRecruitmentContexts
                 result.Fresh = result.Seats.Count == 0;
                 return result;
             }
+            if (cls.EmptyIdOnly && cls.OwnerEpoch == null && cls.MixedEpoch == null)
+            {
+                // Id-less seats cannot be attributed across sibling islands: the pre-fix
+                // conservative reservation (review R3 P2-2).
+                result.Kind = "unknown"; result.Epoch = context.Active;
+                result.Seats = archive.LatestReservations(context.Active);
+                result.Unresolved = result.Seats.Count > 0;
+                result.Fresh = result.Seats.Count == 0;
+                return result;
+            }
             if (cls.OwnerEpoch != null)
             {
                 // An epoch whose whole walk is provably this island's: unchanged #85 protection,
@@ -303,6 +313,7 @@ internal static class HeroRecruitmentContexts
         internal List<HeroPurchaseReceipt> MixedCarry;
         internal bool AnyWalkSeat;                            // some epoch has seats, none evidenced here
         internal bool Indeterminate;
+        internal bool EmptyIdOnly;                           // walk seats exist but none carries an id
     }
 
     private static ContextClass ClassifyContext(HeroRecruitmentArchive archive,
@@ -330,14 +341,21 @@ internal static class HeroRecruitmentContexts
                 else
                     foreign = true;
             }
-            if (!foreign)
+            if (!foreign && evidenced)
             {
-                // This epoch's whole walk lives here: the island's own paid epoch.
+                // This epoch's whole walk is proven here by at least one id match: the island's
+                // own paid epoch. An id-less walk proves nothing and must not claim ownership
+                // ahead of a truly evidenced epoch (review R3 P2-2).
                 if (cls.OwnerEpoch == null) { cls.OwnerEpoch = epoch; cls.OwnerCarry = carry; }
             }
-            else if (evidenced && cls.MixedEpoch == null)
+            else if (foreign && evidenced && cls.MixedEpoch == null)
             {
                 cls.MixedEpoch = epoch; cls.MixedCarry = carry;
+            }
+            else if (!foreign && !evidenced && !cls.EmptyIdOnly)
+            {
+                // Only unclassifiable empty-id seats: keep the pre-fix conservative behavior.
+                cls.EmptyIdOnly = true;
             }
         }
         return cls;

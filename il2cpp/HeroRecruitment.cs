@@ -935,6 +935,12 @@ internal static class HeroRecruitment
             bool staged = false;
             try { staged = ApplyCore(); }
             catch (Exception e) { if (_current != null) _current.ReadOnly = true; Log("save", e); }
+            // issue-150 v4 (review R3 P1-1): the capacity-degraded shape (epoch-cap) has empty
+            // seats and zero writes by construction — there is nothing to mis-pair, so holding a
+            // capture responsibility here protects nothing while its Prepare gate refuses the
+            // whole native save. Complete it as a no-op success instead of NoteCaptureInvalid.
+            if (!staged && Islands.TryGetValue(ContextKey, out var capState) && capState.MatchKind == "epoch-cap")
+            { Log("save-epoch-cap-noop", null); return; }
             if (!staged) NoteCaptureInvalid();
         }
 
