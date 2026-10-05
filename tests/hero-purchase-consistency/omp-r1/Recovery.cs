@@ -109,6 +109,7 @@ internal static partial class Program
         var i0 = new IslandSaveData { land = 1, isNew = false, playTimeDays = 1, Json = VirginJsonA };
         var i1 = new IslandSaveData { land = 1, isNew = false, playTimeDays = 1, Json = SavedJsonA };
         c0.CurrentIsland = i0; c1.CurrentIsland = i1;
+        Host.PlaceIsland(c0, i0, 1); Host.PlaceIsland(c1, i1, 1);
         string k0 = HeroRecruitmentArchive.ContextKey(GlobalSaveData.filename, 0, 0, 1);
         string k1 = HeroRecruitmentArchive.ContextKey(GlobalSaveData.filename, 1, 0, 1);
         var r0 = new HeroPurchaseReceipt { Id = Guid.NewGuid(), Side = -1, NativeId = "owner0" };
@@ -128,7 +129,7 @@ internal static partial class Program
         global.campaigns.RemoveAt(0);
         global.currentCampaign = 0; CampaignSaveData.current = global.campaigns[0];
         Check(NativeGlobalSaveAllowed(), "crud-remapped-catalog-saves");
-        bool resolvedOk = HeroNativeRights.Resolve(k0, 0, 0, i1, i1.Json, false,
+        bool resolvedOk = HeroNativeRights.Resolve(k0, 0, 0, 1, i1, i1.Json, false,
             out var resolved, out bool known, out _);
         Check(resolvedOk && known && !resolved.Unresolved && resolved.Seats.Count == 1 && resolved.Seats[0].Id == r1.Id,
             "crud-survivor-resolves-after-remap", resolved?.Kind ?? "null");
@@ -142,7 +143,7 @@ internal static partial class Program
         GlobalSaveData._loaded.campaigns.RemoveAt(0);
         GlobalSaveData._loaded.currentCampaign = 0;
         foreach (var pair in saved) GlobalSaveData._loaded.prefs.contents[pair.Key] = pair.Value;
-        resolvedOk = HeroNativeRights.Resolve(k0, 0, 0, cold.Island, cold.Island.Json, false,
+        resolvedOk = HeroNativeRights.Resolve(k0, 0, 0, 1, cold.Island, cold.Island.Json, false,
             out resolved, out known, out _);
         Check(resolvedOk && known && !resolved.Unresolved && resolved.Seats.Single().Id == r1.Id,
             "crud-cold-survivor-resolves", resolved?.Kind ?? "null");
@@ -155,6 +156,7 @@ internal static partial class Program
         var j0 = new IslandSaveData { land = 1, isNew = false, playTimeDays = 1, Json = VirginJsonA };
         var j1 = new IslandSaveData { land = 1, isNew = false, playTimeDays = 1, Json = SavedJsonB };
         b0.CurrentIsland = j0; b1.CurrentIsland = j1;
+        Host.PlaceIsland(b0, j0, 1); Host.PlaceIsland(b1, j1, 1);
         var q0 = new HeroPurchaseReceipt { Id = Guid.NewGuid(), Side = -1, NativeId = "other0" };
         var q1 = new HeroPurchaseReceipt { Id = Guid.NewGuid(), Side = 1, NativeId = "other1" };
         var f0 = HeroRecruitmentArchive.NewScope();
@@ -169,7 +171,7 @@ internal static partial class Program
         global2.campaigns.RemoveAt(1);
         global2.currentCampaign = 0; CampaignSaveData.current = global2.campaigns[0];
         Check(NativeGlobalSaveAllowed(), "crud-later-delete-catalog-saves");
-        resolvedOk = HeroNativeRights.Resolve(k0, 0, 0, j0, j0.Json, false, out resolved, out known, out _);
+        resolvedOk = HeroNativeRights.Resolve(k0, 0, 0, 1, j0, j0.Json, false, out resolved, out known, out _);
         Check(resolvedOk && known && !resolved.Unresolved && resolved.Seats.Single().Id == q0.Id,
             "crud-earlier-survives-later-delete", resolved?.Kind ?? "null");
     }
@@ -182,6 +184,7 @@ internal static partial class Program
         var host = Host.Create(1, VirginJsonA, isNew: true, days: 0);
         var global = GlobalSaveData._loaded;
         global.campaigns[0].CurrentIsland = new IslandSaveData { land = 1, isNew = false, Json = VirginJsonA };
+        Host.PlaceIsland(global.campaigns[0], global.campaigns[0].CurrentIsland, 1);
         global.currentCampaign = 1; CampaignSaveData.current = global.campaigns[1];
         Check(HeroNativeRights.Track(Guid.NewGuid()), "pending-survivor-track-slot1");
         global.currentCampaign = 0; CampaignSaveData.current = global.campaigns[0];
@@ -221,6 +224,7 @@ internal static partial class Program
         var global = GlobalSaveData._loaded;
 
         var ch1 = new CampaignSaveData { CurrentIsland = new IslandSaveData { land = 1, isNew = false, Json = VirginJsonA } };
+        Host.PlaceIsland(ch1, ch1.CurrentIsland, 1);
         global.challenges.Add(ch1);                       // challenges: [placeholder, ch1]
         global.currentChallenge = 1; CampaignSaveData.current = ch1;
         Check(HeroNativeRights.Track(Guid.NewGuid()), "challenge-pending-sync-entry");
@@ -231,6 +235,7 @@ internal static partial class Program
         Check(NativeGlobalSaveAllowed(), "challenge-sync-delete-releases");
 
         var ch2 = new CampaignSaveData { CurrentIsland = new IslandSaveData { land = 1, isNew = false, Json = VirginJsonA } };
+        Host.PlaceIsland(ch2, ch2.CurrentIsland, 1);
         global.challenges.Add(ch2);
         global.currentChallenge = 1; CampaignSaveData.current = ch2;
         Check(HeroNativeRights.Track(Guid.NewGuid()), "challenge-pending-routine-entry");
@@ -242,6 +247,7 @@ internal static partial class Program
         Check(NativeGlobalSaveAllowed(), "challenge-routine-delete-releases");
 
         var ch3 = new CampaignSaveData { CurrentIsland = new IslandSaveData { land = 1, isNew = false, Json = VirginJsonA } };
+        Host.PlaceIsland(ch3, ch3.CurrentIsland, 1);
         global.challenges.Add(ch3);
         global.currentChallenge = 1; CampaignSaveData.current = ch3;
         Check(HeroNativeRights.Track(Guid.NewGuid()), "challenge-pending-unstarted-routine");

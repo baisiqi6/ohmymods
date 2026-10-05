@@ -485,6 +485,10 @@ public class CampaignSaveData : UnityEngine.Object
     public static CampaignSaveData current;
     public IslandSaveData CurrentIsland;
     public CarryForwardState carryForward = new CarryForwardState();
+    // issue #153: positional island identity. Real 2.4 exposes the campaign's island table as
+    // List<IslandSaveData>; populated slots carry land == slot, never-visited placeholders keep
+    // land = 0. Production only reads it (Count/indexer/Pointer match), never writes.
+    public Il2CppSystem.Collections.Generic.List<IslandSaveData> _islands = new Il2CppSystem.Collections.Generic.List<IslandSaveData>();
     public void ApplyToScene() { }
 }
 

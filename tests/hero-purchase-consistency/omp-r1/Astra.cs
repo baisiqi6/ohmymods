@@ -24,7 +24,7 @@ internal static partial class Program
             var c0=global.campaigns[0]; var c1=global.campaigns[1];
             var i0=new IslandSaveData {land=1,Json="{\"land\":1,\"owner\":0}"};
             var i1=new IslandSaveData {land=1,Json="{\"land\":1,\"owner\":1}"};
-            c0.CurrentIsland=i0;c1.CurrentIsland=i1;
+            c0.CurrentIsland=i0;c1.CurrentIsland=i1;Host.PlaceIsland(c0,i0,1);Host.PlaceIsland(c1,i1,1);
             string k0=HeroRecruitmentArchive.ContextKey(GlobalSaveData.filename,0,0,1);
             string k1=HeroRecruitmentArchive.ContextKey(GlobalSaveData.filename,1,0,1);
             var r0=new HeroPurchaseReceipt {Id=Guid.NewGuid(),Side=1,NativeId="owner0"};
@@ -37,13 +37,13 @@ internal static partial class Program
             Check(HeroNativeRights.Stage(k1,1,0,i1,HeroRecruitmentFingerprint.Hash(i1.Json,e1),e1,new[]{r1},true),"stage-paid-slot1");
             HeroNativeRights.BeforeCatalogMutation(global);global.campaigns.RemoveAt(0);global.currentCampaign=0;
             Check(NativeGlobalSaveAllowed(),"save-remapped-catalog");
-            bool ok=HeroNativeRights.Resolve(k0,0,0,i1,i1.Json,false,out var resolved,out bool known,out _);
+            bool ok=HeroNativeRights.Resolve(k0,0,0,1,i1,i1.Json,false,out var resolved,out bool known,out _);
             Check(ok&&known&&!resolved.Unresolved&&resolved.Seats.Single().Id==r1.Id,"survivor-keeps-rights-after-deleting-earlier-paid-slot",resolved?.Kind??"null");
             var saved=new Dictionary<string,string>(global.prefs.contents);
             var cold=Host.Create(1,i1.Json,false,1);
             GlobalSaveData._loaded.campaigns.RemoveAt(0);GlobalSaveData._loaded.currentCampaign=0;
             foreach(var pair in saved)GlobalSaveData._loaded.prefs.contents[pair.Key]=pair.Value;
-            ok=HeroNativeRights.Resolve(k0,0,0,cold.Island,cold.Island.Json,false,out resolved,out known,out _);
+            ok=HeroNativeRights.Resolve(k0,0,0,1,cold.Island,cold.Island.Json,false,out resolved,out known,out _);
             Check(ok&&known&&!resolved.Unresolved&&resolved.Seats.Single().Id==r1.Id,"cold-survivor-keeps-rights",resolved?.Kind??"null");
             return;
         }
@@ -195,7 +195,7 @@ internal static partial class Program
         int campaignIndex, int challengeIndex, string json)
     {
         var island=new IslandSaveData{land=1,Json=json,isNew=true};
-        campaign.CurrentIsland=island;
+        campaign.CurrentIsland=island;Host.PlaceIsland(campaign,island,1);
         global.currentCampaign=campaignIndex;global.currentChallenge=challengeIndex;
         CampaignSaveData.current=campaign;
         return new Host{Campaign=campaign,Island=island,Player=template.Player,Kingdom=template.Kingdom,

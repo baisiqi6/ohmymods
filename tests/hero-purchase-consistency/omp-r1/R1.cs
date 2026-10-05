@@ -15,7 +15,7 @@ internal static partial class Program
    for(int i=0;i<3;i++)
    {
     g.currentCampaign=i;CampaignSaveData.current=g.campaigns[i];
-    var island=new IslandSaveData{land=1,Json="{\"land\":1,\"account\":"+i+"}"};g.campaigns[i].CurrentIsland=island;
+    var island=new IslandSaveData{land=1,Json="{\"land\":1,\"account\":"+i+"}"};g.campaigns[i].CurrentIsland=island;Host.PlaceIsland(g.campaigns[i],island,1);
     epochs[i]=HeroRecruitmentArchive.NewScope();seats[i]=new(){Id=Guid.NewGuid(),Side=1,NativeId="paid"+i};
     Check(HeroNativeRights.Stage(HeroRecruitmentArchive.ContextKey(GlobalSaveData.filename,i,0,1),i,0,island,
       HeroRecruitmentFingerprint.Hash(island.Json,epochs[i]),epochs[i],new[]{seats[i]},true),"three-stage-"+i);
@@ -24,7 +24,7 @@ internal static partial class Program
    g.currentCampaign=1;CampaignSaveData.current=g.campaigns[1];var surviving=CampaignSaveData.current.CurrentIsland;
    Check(NativeGlobalSaveAllowed(),"three-catalog-remap-saves");
    var key=HeroRecruitmentArchive.ContextKey(GlobalSaveData.filename,1,0,1);
-   Check(HeroNativeRights.Resolve(key,1,0,surviving,surviving.Json,false,out var res,out var known,out _)
+   Check(HeroNativeRights.Resolve(key,1,0,1,surviving,surviving.Json,false,out var res,out var known,out _)
       &&known&&!res.Unresolved&&res.Seats.Single().Id==seats[2].Id,"three-last-survivor-resolves");
    Check(HeroNativeRights.Stage(key,1,0,surviving,HeroRecruitmentFingerprint.Hash(surviving.Json,epochs[2]),epochs[2],new[]{seats[2]},false),
       "three-last-survivor-can-save-despite-shifted-live-alias");
