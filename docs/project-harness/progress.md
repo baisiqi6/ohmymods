@@ -1,3 +1,7 @@
+## 2026-10-05 — 地图资源图标岛内布局（Issue #152，代码交付审查通过，实机待验）
+
+冻结实际安装map方法与release基线一致后复现：详情把底图当障碍，总览主动分配岛外区域。改在既有布局产生处保留原生资源槽位、限定extras到实际绘制mesh，总览请求与clone同用自然paper倍率；删除旧岛外regions与详情扩张边距。未探索physical11不显示资源保持正常规则，无周期纠正/猜测重建。最终runtime236/0、plan827/0、shore101/0，真实ARM完整构建0W0E，6803既有方法/34PNG/Harmony目标保持；独立review APPROVE及12/0反例。PR合并、安装与玩家画面分别记录，当前未安装且未操作游戏/存档。详见tasks/issue-152/。
+
 ## 2026-10-05 — Android 普通远距夜袭（Issue #148，源码与有限模拟器验证完成；代码交付待合并）
 
 在146正常代码收尾后登记，正常accepted doing/running、依赖146；同一原生API与共享scope/planner复用，不重做日序算法或缓存。新增17th真实默认关闭设置，OFF仍压disabled frame，门只在原Arm与提交复核处读取；公共世界页沿现中文Toggle/帮助与单次真实变更Save，浮球/触摸/布局不改。Root统一Probe0.0.23与两个精确长入口完整patch集，旧28保持至30。

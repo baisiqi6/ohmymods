@@ -964,3 +964,11 @@ Mover.SetSpeed参考源码将_movingToGoal=false但仍设置_moveSpeed，不能�
   safeArea 可随系统栏变化，操作须以当前截图与 FloatLayout 为准，不能套历史坐标。
 - ScrollY 与 sticky 位移由唯一手势持有；普通关页不清游戏触摸租约。两时点 skin 数值相同只
   证明那些属性在两个采样点一致，单指证据不证明多指或所有手机兼容。详见 tasks/issue-144/。
+
+### Unity UI 地图岛面与资源图标（IL2CPP 2.4 / Issue #152）
+
+- 岛屿底图是所属资源的放置面，不能与其高亮描边一起计为障碍；被接管动态槽的占位Image也不应自挡。原生槽位提供位置/数组序号，当前reign请求提供资源身份，不能复用旧spawned图标身份。
+- tight Sprite的rect包围盒并非全部岛面。当前native模板为Image Simple+useSpriteMesh；通过active sprite、GetPixelAdjustedRect尺寸、Sprite.bounds.size和两pivot按实际绘制公式生成顶点，再走真实transform链到规划空间。不能用居中FitAspect或rect/ppu归一代替；无需GPU纹理读取。
+- 网格内部接缝不是海岸；放置足迹须检查真实边界及洞。PlanBBox、mesh顶点、遮挡盒和clone坐标须使用相同rect原点。
+- 总览规划尺寸与最终clone必须同乘测得art→paper自然倍率（包含art自身scale）。详情原生槽和扩展岛顶面仍属各自契约。未知模式明确回到native，不用岛外区域掩盖容量问题。
+- 证据为生产源码接线/独立反例和真实ARM接口构建；运行时bounds值与玩家视觉尚未实测，不能用静态submesh AABB代替。详见tasks/issue-152/。
