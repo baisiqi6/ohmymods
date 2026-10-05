@@ -226,7 +226,11 @@ internal static class Harness
 
     private static void AdvanceTime(float dt)
     {
-        Time.deltaTime = Time.timeScale <= 0f ? 0f : dt;
+        // issue #158: model the Unity timing contract the hitch classifier depends on —
+        // unscaledDeltaTime is the true frame length; deltaTime is gated by timeScale and
+        // capped by maximumDeltaTime (default 1/3s).
+        Time.unscaledDeltaTime = dt;
+        Time.deltaTime = Time.timeScale <= 0f ? 0f : Math.Min(dt, 1f / 3f);
         Time.time += Time.deltaTime;
         Time.unscaledTime += dt;
     }

@@ -47,6 +47,12 @@ internal static partial class Program
         Run("baker_wait_immediate_drop_on_occupied_reach_or_action", BakerWaitImmediateDrops);
         Run("tag_shop_full_shelf_still_stops_without_waiting", TagShopFullShelfNeverWaits);
         Run("baker_wait_wrong_shop_window_drops_without_purchase", BakerWaitWrongShopWindow);
+        // issue #158: field transients that used to break continuation.
+        Run("single_frame_hitch_keeps_hold_and_continues", HitchFrameKeepsHold);
+        Run("oversize_gap_ends_hold_even_with_frame_evidence", OversizeGapEndsHold);
+        Run("non_baker_reselect_flicker_gets_grace_then_continues", NonBakerFlickerGraceResumes);
+        Run("non_baker_grace_times_out_at_cap", NonBakerGraceTimesOut);
+        Run("cheap_shop_multi_round_accelerates_after_first_round", CheapShopMultiRoundAcceleration);
 
         AmmoScenarios();
         Console.WriteLine();
@@ -1139,6 +1145,143 @@ internal static partial class Program
     }
 
     /// <summary>True when any logged line contains the marker.</summary>
+    // ------------------------------------------------- issue #158: field transients
+
+    /// <summary>
+    /// One long in-game frame (autosave/GC): the frame's own unscaled length covers the whole
+    /// gap, so the hold must survive it and keep buying without a fresh press.
+    /// </summary>
+    private static void HitchFrameKeepsHold()
+    {
+        Reset();
+        Env env = new Env(priceA: 4, limitA: 20);
+        Player p = env.P1;
+        Env.StandAt(p, env.ShopA);
+        p.coins = 100;
+        for (int i = 0; i < 30; i++) Env.Frame(p, true, i == 0);   // 0.6s: past the hold threshold
+        Eq(1, PatchPlayer_HoldPurchase.ActiveSessionCount, "precondition: one live session");
+
+        Env.Frame(p, true, false, 1.0f);                            // single 1s hitch frame
+        Eq(1, PatchPlayer_HoldPurchase.ActiveSessionCount, "a hitch frame keeps the session");
+        True(HasInfo(KingdomEnhancedPlugin.Instance.LogSource.Infos, "hitch-continue"),
+            "the hitch continuation is diagnosed once per session");
+
+        int purchases = p.Purchases;
+        for (int i = 0; i < 250; i++) Env.Frame(p, true, false);
+        True(p.Purchases >= purchases + 1, "the hold keeps buying after the hitch, got "
+            + p.Purchases + " (was " + purchases + ")");
+        Eq(0, p.GroundDrops, "a hitch frame drops no coin");
+    }
+
+    /// <summary>
+    /// A gap beyond the absolute cap ends the hold even when the frame's own length covers it
+    /// (focus loss / load sized pauses are not distinguishable from giant hitches).
+    /// </summary>
+    private static void OversizeGapEndsHold()
+    {
+        Reset();
+        Env env = new Env(priceA: 4, limitA: 20);
+        Player p = env.P1;
+        Env.StandAt(p, env.ShopA);
+        p.coins = 100;
+        for (int i = 0; i < 30; i++) Env.Frame(p, true, i == 0);
+        Eq(1, PatchPlayer_HoldPurchase.ActiveSessionCount, "precondition: one live session");
+
+        Env.Frame(p, true, false, 8.0f);                            // gap > StallAbsoluteMaxSeconds
+        Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "an oversize gap ends the session");
+        int purchases = p.Purchases;
+        for (int i = 0; i < 200; i++) Env.Frame(p, true, false);
+        True(p.Purchases - purchases <= 1,
+            "at most the in-flight vanilla round finishes; no new round is synthesized, got "
+            + (p.Purchases - purchases));
+    }
+
+    /// <summary>
+    /// A one-frame selection flicker on a non-Baker whitelisted shop (the native refresh clears
+    /// selection for a frame) used to drop the session as stock-no-wait; the reentry grace must
+    /// hold it until the native re-selects, then continue without a fresh press.
+    /// </summary>
+    private static void NonBakerFlickerGraceResumes()
+    {
+        Reset();
+        Env env = new Env(priceA: 4, limitA: 20);
+        Shop shop = env.ShopA;                                      // ShopHammer tag, not Baker
+        Player p = env.P1;
+        Env.StandAt(p, shop);
+        p.coins = 100;
+        for (int i = 0; i < 300 && p.Purchases < 1; i++) Env.Frame(p, true, i == 0);
+        Eq(1, p.Purchases, "precondition: first purchase completed while holding");
+
+        KingdomEnhancedPlugin.Instance.LogSource.Infos.Clear();
+        p.selectedPayable = null;                                   // one-frame native clearing
+        Env.Frame(p, true, false);
+        Eq(1, PatchPlayer_HoldPurchase.ActiveSessionCount,
+            "a selection flicker enters the reentry grace instead of dropping");
+        True(HasInfo(KingdomEnhancedPlugin.Instance.LogSource.Infos, "wait-grace"),
+            "the grace wait is diagnosed");
+
+        // issue #158 F-C: with the session surviving the flicker, HeldElapsed carries over, so
+        // the resumed round must read the accelerated interval immediately (no fresh 0.6s gate).
+        p.timeBetweenCoins = 0.4f;
+        p.RecordReads = true;
+        p.Reads.Clear();
+        int purchases = p.Purchases;
+        for (int i = 0; i < 250; i++) Env.Frame(p, true, false);
+        True(p.Purchases >= purchases + 1, "the hold resumes and keeps buying after the flicker");
+        HasRead(p, 0.1f, "the resumed round accelerates without re-arming the hold threshold");
+        Eq(p.Purchases, shop.TransactionCompleteCalls, "all purchases stay at the same shop");
+        Eq(0, p.GroundDrops, "the flicker frame drops no coin");
+    }
+
+    /// <summary>
+    /// The reentry grace is bounded: a persistent selection failure ends the session at
+    /// ReentryGraceSeconds instead of waiting forever (and never synthesizes a press).
+    /// </summary>
+    private static void NonBakerGraceTimesOut()
+    {
+        Reset();
+        Env env = new Env(priceA: 4, limitA: 20);
+        Player p = env.P1;
+        Env.StandAt(p, env.ShopA);
+        p.coins = 100;
+        for (int i = 0; i < 300 && p.Purchases < 1; i++) Env.Frame(p, true, i == 0);
+        Eq(1, p.Purchases, "precondition: first purchase completed while holding");
+
+        KingdomEnhancedPlugin.Instance.LogSource.Infos.Clear();
+        int purchases = p.Purchases;
+        for (int i = 0; i < 120; i++)                               // 2.4s of forced flicker > 1.5s cap
+        {
+            p.selectedPayable = null;                               // re-cleared every frame
+            Env.Frame(p, true, false);
+        }
+        Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "the grace times out and ends the session");
+        True(HasInfo(KingdomEnhancedPlugin.Instance.LogSource.Infos, "drop: reason=reentry-timeout"),
+            "the timeout drop is diagnosed");
+        Eq(purchases, p.Purchases, "the grace never synthesizes a purchase");
+        Eq(0, p.GroundDrops, "the grace never drops a coin");
+    }
+
+    /// <summary>
+    /// The user-facing pair of symptoms: a cheap shop where one vanilla round is shorter than
+    /// the hold threshold. With continuation intact, every round after the first must run at
+    /// the accelerated interval — proving acceleration and continuation share the fix.
+    /// </summary>
+    private static void CheapShopMultiRoundAcceleration()
+    {
+        Reset();
+        Env env = new Env(priceA: 2, limitA: 20);
+        Player p = env.P1;
+        Env.StandAt(p, env.ShopA);
+        p.coins = 100;
+        p.timeBetweenCoins = 0.4f;
+        p.RecordReads = true;
+        for (int i = 0; i < 400; i++) Env.Frame(p, true, i == 0);
+        True(p.Purchases >= 3, "one hold buys repeatedly at a cheap shop, got " + p.Purchases);
+        HasRead(p, 0.1f, "rounds after the hold threshold read the accelerated interval");
+        Eq(0.4f, p.timeBetweenCoins, "interval restored at every frame boundary");
+        Eq(0, p.GroundDrops, "no coin ever falls");
+    }
+
     private static bool HasInfo(List<string> infos, string marker)
     {
         foreach (string line in infos)

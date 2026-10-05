@@ -51,6 +51,9 @@ namespace UnityEngine
         public static float time;
         public static float deltaTime;
         public static float unscaledTime;
+        /// <summary>issue #158：Unity 语义——真实帧长（不被 maximumDeltaTime 截断），
+        /// deltaTime 才被截断；AdvanceTime 按此建模。</summary>
+        public static float unscaledDeltaTime;
         public static float timeScale = 1f;
     }
 
