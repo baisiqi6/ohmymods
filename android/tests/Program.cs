@@ -145,6 +145,7 @@ internal static class Program
             Console.WriteLine("mode: pre-seeded cfg FastForestRecedeEnabled true");
         }
         LayoutChecks();
+        GestureChecks.Run();
         ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg, seedFastBuild, seededCooldown, seedBoat, seededMap, seededStaffCooldown, seedForest);
         EnemyMathChecks.Run();
         ProbeChecks.Run();
@@ -186,41 +187,74 @@ internal static class Program
         Checks.Check(Math.Abs(layout.Scale - 1f) < 1e-4f, "scale is 1.0 at 1280x720");
         Checks.Check(Math.Abs(layout.Diameter - 48f) < 1e-4f, "orb visual diameter stays 48");
         Checks.Check(Math.Abs(layout.TouchSize - 72f) < 1e-4f, "orb square touch target stays 72");
-        Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "home panel height is 562 (generation row at 410 + Close at 488)");
+        Checks.Check(!layout.Expanded, "panel starts collapsed");
         layout.Expanded = true;
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 552f), "touch filter covers the 562-high home panel Close row bottom (ends at 552)");
-        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 630f), "the home panel keeps its 562 touch boundary (seven-row 630 boundary free)");
-        layout.GenerationPage = true;
-        Checks.Check(Math.Abs(layout.PanelHeight - 250f) < 1e-4f, "generation page panel height is 250 (Length 98 + Back 176)");
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 130f), "touch filter covers the generation Length row (98..162)");
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 208f), "touch filter covers the generation Back row (176..240)");
-        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 260f), "generation panel keeps its 250 touch boundary");
-        layout.GenerationPage = false;
-        Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "Back out of the generation page restores the 562-high home panel");
-        layout.PlayerPage = true;
-        Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "player page panel height is 562 (six rows: staff row at 410, Back at 488)");
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 552f), "touch filter covers the 562-high player panel Back row bottom (ends at 552)");
-        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 630f), "the player panel keeps its 562 touch boundary (seven-row 630 boundary free)");
-        layout.PlayerPage = false;
-        layout.WorldPage = true;
-        Checks.Check(Math.Abs(layout.PanelHeight - 640f) < 1e-4f, "world page panel height is 640 (seven rows)");
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 630f), "touch filter covers the 640-high world panel bottom row (Back ends at 630)");
-        layout.VegetationPage = true;
-        Checks.Check(Math.Abs(layout.PanelHeight - 406f) < 1e-4f, "vegetation page height is 406 while the world page stays open (cats 98 / forest 176 / deer 254 / Back 332)");
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 130f), "touch filter covers the vegetation cats row (98..162)");
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 208f), "touch filter covers the vegetation fast-forest row (176..240)");
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 286f), "touch filter covers the vegetation deer row (254..318)");
-        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 364f), "touch filter covers the vegetation Back row (332..396)");
-        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 416f), "vegetation panel keeps its 406 touch boundary");
-        layout.VegetationPage = false;
-        Checks.Check(Math.Abs(layout.PanelHeight - 640f) < 1e-4f, "Back out of the vegetation page restores the still-open world page (640)");
-        layout.WorldPage = false;
-        Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "Back out of the world page restores the 562-high home panel");
-        layout.PopulationPage = true;
-        Checks.Check(Math.Abs(layout.PanelHeight - 376f) < 1e-4f, "population panel height stays 376");
-        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + 400f), "population panel keeps its 376 touch boundary");
-        layout.PopulationPage = false;
-        Checks.Check(Math.Abs(layout.PanelHeight - 562f) < 1e-4f, "closing the subpages restores the 562-high home panel");
+        Checks.Check(Math.Abs(layout.PanelWidth - 320f) < 1e-4f, "panel outer width is the fixed 320*scale");
+        Checks.Check(Math.Abs(layout.PanelHeight - 480f) < 1e-4f, "panel outer height is the fixed 480*scale");
+        Checks.Check(layout.PanelWidth * layout.PanelHeight <= 179200f, "fixed panel area stays within the old 280x640 world-page cap");
+        // 旧固定页高表已删除：页面 bool 只路由内容，不再改变外框。
+        layout.PlayerPage = true; layout.WorldPage = true; layout.GenerationPage = true;
+        layout.PopulationPage = true; layout.VegetationPage = true;
+        Checks.Check(Math.Abs(layout.PanelWidth - 320f) < 1e-4f && Math.Abs(layout.PanelHeight - 480f) < 1e-4f,
+            "page flags never resize the fixed outer panel");
+        Checks.Check(layout.HitPanel(layout.PanelX + 1f, layout.PanelY + layout.PanelHeight - 1f),
+            "touch filter covers the fixed panel bottom edge");
+        Checks.Check(!layout.HitPanel(layout.PanelX + 1f, layout.PanelY + layout.PanelHeight + 1f),
+            "touch filter ends at the fixed panel rect");
+        Checks.Check(layout.ContentY > layout.PanelY && layout.ContentY + layout.ContentHeight <= layout.PanelY + layout.PanelHeight + 1e-3f,
+            "content viewport stays inside the fixed panel");
+        float content = 900f;
+        Checks.Check(layout.ScrollMax(10f) == 0f, "short content needs no scroll");
+        Checks.Check(Math.Abs(layout.ScrollMax(content) - (content - layout.ContentHeight)) < 1e-3f,
+            "scroll max is the measured content height minus the viewport");
+        Checks.Check(content - layout.ScrollMax(content) <= layout.ContentHeight + 1e-3f,
+            "the last card bottom is reachable at max scroll");
+        layout.PlayerPage = false; layout.WorldPage = false; layout.GenerationPage = false;
+        layout.PopulationPage = false; layout.VegetationPage = false;
+        // 安全区（top-left 绝对边界，与 RootFloatInput 的 nativeScreen.safeArea 转换一致）：
+        // 面板被夹进安全区，浮球拖动也夹进安全区。
+        layout.Resize(1280f, 720f, 60f, 20f, 1200f, 680f);
+        Checks.Check(layout.PanelX >= 60f - 1e-3f && layout.PanelX + layout.PanelWidth <= 1200f + 1e-3f,
+            "panel is clipped into the safe-area x bounds");
+        Checks.Check(layout.PanelY >= 20f - 1e-3f && layout.PanelY + layout.PanelHeight <= 680f + 1e-3f,
+            "panel is clipped into the safe-area y bounds");
+        Checks.Check(layout.Begin(layout.X, layout.Y), "ball press starts inside the ball");
+        layout.Move(-1000f, -1000f);
+        layout.End(-1000f, -1000f);
+        Checks.Check(layout.X >= 60f + layout.TouchSize / 2f - 1e-3f, "ball snap keeps the left safe inset");
+        Checks.Check(layout.Y >= 20f + layout.TouchSize / 2f - 1e-3f, "ball snap keeps the top safe inset");
+        // 球优先：球与面板重叠时球仍独占重叠点（PanelX 随拖动后的 X 重新计算，探测点在真实重叠区）。
+        layout.Resize(1280f, 720f);
+        layout.Expanded = true;
+        Checks.Check(layout.Begin(layout.X, layout.Y), "ball press for the overlap probe");
+        layout.Move(layout.X + 100f, layout.Y);
+        float overlapX = layout.X + layout.Diameter / 2f + 5f * layout.Scale + 1f;
+        Checks.Check(layout.HitBall(overlapX, layout.Y), "a ball beside its panel still owns the overlap point");
+        Checks.Check(layout.HitPanel(overlapX, layout.Y), "the touch filter still covers the panel under the orb");
+        Checks.Check(!layout.HitPanelBody(overlapX, layout.Y), "the panel gesture refuses orb-owned points (orb priority)");
+        layout.Cancel();
+        // 极小屏/小安全区：外框与视口都留在边界内，内容几何不为负（Draw 与 Hit 同界）。
+        var tiny = new FloatLayout();
+        tiny.Resize(100f, 40f);
+        Checks.Check(tiny.PanelX >= -1e-3f && tiny.PanelX + tiny.PanelWidth <= 100f + 1e-3f
+            && tiny.PanelY >= -1e-3f && tiny.PanelY + tiny.PanelHeight <= 40f + 1e-3f,
+            "a tiny screen keeps the outer panel inside the screen bounds");
+        Checks.Check(tiny.ContentWidth >= 0f && tiny.ContentHeight >= 0f, "degenerate screens yield non-negative content metrics");
+        Checks.Check(tiny.ContentHeight == 0f, "a screen too short for the chrome reports no content viewport");
+        tiny.Resize(100f, 40f, 2f, 2f, 98f, 38f);
+        Checks.Check(tiny.PanelX >= 2f - 1e-3f && tiny.PanelX + tiny.PanelWidth <= 98f + 1e-3f
+            && tiny.PanelY >= 2f - 1e-3f && tiny.PanelY + tiny.PanelHeight <= 38f + 1e-3f,
+            "small safe-area bounds keep the outer panel inside the safe rect");
+        Checks.Check(tiny.ContentX >= tiny.PanelX - 1e-3f && tiny.ContentX <= tiny.PanelX + tiny.PanelWidth + 1e-3f
+            && tiny.ContentY >= tiny.PanelY - 1e-3f && tiny.ContentY <= tiny.PanelY + tiny.PanelHeight + 1e-3f
+            && tiny.ContentX + tiny.ContentWidth <= tiny.PanelX + tiny.PanelWidth + 1e-3f
+            && tiny.ContentY + tiny.ContentHeight <= tiny.PanelY + tiny.PanelHeight + 1e-3f,
+            "degenerate screens keep the content viewport a subset of the outer panel");
+        var cramped = new FloatLayout();
+        cramped.Resize(100f, 40f);
+        Checks.Check(cramped.ContentX >= cramped.PanelX - 1e-3f && cramped.ContentX <= cramped.PanelX + cramped.PanelWidth + 1e-3f
+            && cramped.ContentY <= cramped.PanelY + cramped.PanelHeight + 1e-3f,
+            "a tiny screen keeps the viewport origin inside the outer panel");
     }
 
     private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg, bool seededFastBuild, float? seededCooldown, bool seededBoat, float? seededMap, float? seededStaffCooldown, bool seedForest)
@@ -521,6 +555,99 @@ internal static class Program
     private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 }
 
+// 公共面板手势（纯逻辑）：点按恰好一个动作、任意方向位移 sticky 取消点击、cancel/release-outside
+// 零动作、滚轮与拖拽共用同一 ScrollY、范围夹取、固定 chrome 按压取消点击但不滚动。
+internal static class GestureChecks
+{
+    internal static void Run()
+    {
+        var g = new PanelGesture();
+        int fired = 0;
+        g.Begin(100f, 100f, 7, true, 10f);
+        if (g.End(100f, 100f, 7, 1000f) == 7) fired++;
+        Checks.Check(fired == 1, "a tap on the same tap rect fires exactly one action");
+        Checks.Check(!g.Captured && !g.Moved, "the gesture is fully released after a tap");
+
+        g.Begin(100f, 100f, 7, true, 10f);
+        g.Move(100f, 70f, 1000f);
+        Checks.Check(g.Moved && g.Scrolled, "a vertical drag past 10*scale becomes a scroll gesture");
+        Checks.Check(Math.Abs(g.ScrollY - 30f) < 1e-3f, "the scroll follows the drag delta");
+        g.Move(100f, 100f, 1000f);
+        Checks.Check(g.End(100f, 100f, 7, 1000f) == -1, "dragging back to the origin still fires zero actions");
+        Checks.Check(Math.Abs(g.ScrollY) < 1e-3f, "returning to the origin restores the clamped scroll position");
+
+        g.Begin(100f, 100f, 7, true, 10f);
+        g.Move(130f, 100f, 1000f);
+        Checks.Check(g.Moved, "horizontal displacement past the threshold also cancels the tap");
+        Checks.Check(Math.Abs(g.ScrollY) < 1e-3f, "horizontal movement never scrolls the content");
+        Checks.Check(g.End(130f, 100f, 7, 1000f) == -1, "a horizontal drag fires nothing");
+
+        g.Begin(100f, 100f, 7, true, 10f);
+        Checks.Check(g.End(130f, 100f, 7, 1000f) == -1,
+            "a release displaced past the threshold without any drag event fires nothing");
+        g.Begin(100f, 100f, 7, true, 10f);
+        Checks.Check(g.End(105f, 100f, 7, 1000f) == 7, "a release under the threshold stays a tap");
+
+        g.Begin(100f, 100f, 7, true, 10f);
+        Checks.Check(g.End(300f, 300f, -1, 1000f) == -1, "release outside every tap rect fires nothing");
+
+        g.Begin(100f, 100f, 7, true, 10f);
+        g.Cancel();
+        Checks.Check(g.End(100f, 100f, 7, 1000f) == -1, "a cancelled press fires nothing");
+
+        var w = new PanelGesture();
+        w.Wheel(40f, 1000f);
+        w.Begin(10f, 10f, -1, true, 10f);
+        w.Move(10f, -10f, 1000f);
+        Checks.Check(Math.Abs(w.ScrollY - 60f) < 1e-3f, "wheel and drag share one monotonic ScrollY");
+        w.Move(10f, 0f, 1000f);
+        w.Move(10f, -190f, 40f);
+        Checks.Check(Math.Abs(w.ScrollY - 40f) < 1e-3f, "the shared scroll clamps at the measured content max");
+        w.Wheel(-1000f, 40f);
+        Checks.Check(Math.Abs(w.ScrollY) < 1e-3f, "the shared scroll clamps at the top");
+        Checks.Check(w.End(10f, -190f, -1, 40f) == -1, "a scrolled content press fires nothing");
+
+        g.Begin(100f, 100f, 9, false, 10f);
+        g.Move(100f, 300f, 1000f);
+        Checks.Check(g.Moved && !g.Scrolled && Math.Abs(g.ScrollY) < 1e-3f,
+            "fixed chrome presses move-cancel but never scroll");
+        Checks.Check(g.End(100f, 300f, 9, 1000f) == -1, "a moved chrome press fires nothing");
+        g.Begin(100f, 100f, 9, false, 10f);
+        Checks.Check(g.End(100f, 100f, 9, 1000f) == 9, "an unmoved chrome press releases as one action");
+
+        // 帧末收束：内容收缩（无输入）也把唯一 ScrollY 收进新范围。
+        var c = new PanelGesture();
+        c.Wheel(40f, 1000f);
+        c.ClampToMax(10f);
+        Checks.Check(Math.Abs(c.ScrollY - 10f) < 1e-3f, "ClampToMax shrinks the shared ScrollY to the new content max");
+        c.ClampToMax(0f);
+        Checks.Check(Math.Abs(c.ScrollY) < 1e-3f, "ClampToMax(0) collapses the shared ScrollY with no input");
+        c.Wheel(25f, 40f);
+        c.ClampToMax(40f);
+        Checks.Check(Math.Abs(c.ScrollY - 25f) < 1e-3f, "ClampToMax keeps a scroll already inside the range");
+
+        // 按住卡片时滚轮：有效改变 ScrollY 必须先失效旧 pressedAction（sticky Moved）。
+        var w2 = new PanelGesture();
+        w2.Begin(50f, 50f, 6, true, 10f);
+        w2.Wheel(30f, 1000f);
+        Checks.Check(Math.Abs(w2.ScrollY - 30f) < 1e-3f, "an effective wheel updates the shared ScrollY while a press is held");
+        Checks.Check(w2.Moved, "an effective wheel moves-cancels the held press");
+        Checks.Check(w2.End(50f, 50f, 6, 1000f) == -1, "a held press cancelled by an effective wheel fires nothing on release");
+
+        // 夹取后无有效改变：原点击保持。
+        var w3 = new PanelGesture();
+        w3.Begin(50f, 50f, 6, true, 10f);
+        w3.Wheel(-30f, 1000f);
+        Checks.Check(Math.Abs(w3.ScrollY) < 1e-3f && !w3.Moved, "a zero-effective wheel neither scrolls nor cancels");
+        Checks.Check(w3.End(50f, 50f, 6, 1000f) == 6, "a zero-effective wheel keeps the held tap");
+
+        // 无按住手势的滚轮：原滚动数学不变。
+        var w4 = new PanelGesture();
+        w4.Wheel(40f, 100f);
+        Checks.Check(Math.Abs(w4.ScrollY - 40f) < 1e-3f && !w4.Moved, "an uncaptured wheel keeps the original scroll math");
+    }
+}
+
 internal static class EnemyMathChecks
 {
     internal static void Run()
@@ -595,7 +722,7 @@ internal static class ProbeChecks
         Checks.Check(File.Exists(probePath), "probe source present");
         if (!File.Exists(probePath)) return;
         string source = File.ReadAllText(probePath);
-        Checks.Check(source.Contains("\"0.0.19\""), "Probe reports version 0.0.19");
+        Checks.Check(source.Contains("\"0.0.20\""), "Probe reports version 0.0.20");
         Checks.Check(source.Contains("staff_base_cooldown"), "Probe feature marker advertises staff_base_cooldown");
         Checks.Check(source.Contains("fast_forest_recede"), "Probe feature marker advertises fast_forest_recede");
         Checks.Check(source.Contains("deer_population"), "Probe feature marker advertises deer_population");
@@ -626,46 +753,134 @@ internal static class ProbeChecks
             "Probe reports the deer hook count (the new target makes 25 unique lines; 24 existing shapes stay)");
         Checks.Check(source.Contains("ANDROID_DEER_POPULATION_HOOK_INSTALLED sharedSource=true nativeSpawn=true"),
             "Probe announces the deer hook installation");
-        Checks.Check(source.Contains("Layout.VegetationPage") && source.Contains("MobileVegetationMenu.Draw"),
-            "Probe routes the Vegetation page to MobileVegetationMenu.Draw");
+        Checks.Check(source.Contains("private readonly MobileModPanel panel = new()") && source.Contains("panel.Draw(Layout)"),
+            "Probe creates the common panel and hands it the shared layout");
+        Checks.Check(source.Contains("panel.CancelGesture()"), "Probe cancels the common panel with the ticker lifecycle");
+        Checks.Check(source.Contains("panel.Dispose()"), "Probe disposes the common panel on destroy");
+        Checks.Check(source.Contains("Screen.safeArea") && source.Contains("Layout.Resize(Screen.width,Screen.height,safe.xMin,Screen.height-safe.yMax,safe.xMax,Screen.height-safe.yMin)"),
+            "Probe converts the native safe area to the top-left layout bounds");
     }
 }
 
-// Source-level route contract for the vegetation page: the World row 332 becomes the Vegetation
-// entry without closing the World page, the vegetation page reuses the unchanged cats toggle
-// copy and arms the shared forest switch, and Back clears only VegetationPage. These are
-// worker-owned menu sources, frozen by hash in VerifyFrozenSources.
+// 公共 UI 契约（Issue #144）：四个 MobileMenu 与 MobilePopulation 只做 presentation，
+// 全部经 MobileModPanel.Toggle/Step/Info 公共路径（无 GUI.Button、无自持坐标与样式）；
+// 15 个设置各只在一条页面上出现一次；导航/页面路由在 MobileModPanel；日历/人口只中文化
+// 展示（Tick/时钟驱动不动）；csproj 的 Compile 列表是实际 source 列表。
 internal static class MenuChecks
 {
     internal static void Run()
     {
-        string worldPath = Path.Combine(Checks.RepositoryRoot(), "android", "MobileWorldMenu.cs");
-        string vegetationPath = Path.Combine(Checks.RepositoryRoot(), "android", "MobileVegetationMenu.cs");
-        Checks.Check(File.Exists(worldPath) && File.Exists(vegetationPath), "vegetation menu sources present");
-        if (!File.Exists(worldPath) || !File.Exists(vegetationPath)) return;
-        string world = File.ReadAllText(worldPath);
-        string vegetation = File.ReadAllText(vegetationPath);
-        Checks.Check(world.Contains("py + 332 * scale") && world.Contains("\"Vegetation\"")
-            && world.Contains("Layout.VegetationPage = true"), "the World cats row (332) became the Vegetation entry");
-        Checks.Check(!world.Contains("ToggleFarmCats") && !world.Contains("Stock cats"),
-            "the World page no longer toggles or labels cats directly");
-        Checks.Check(vegetation.Contains("py + 98 * scale") && vegetation.Contains("ModConfig.ToggleFarmCats()")
-            && vegetation.Contains("Stock cats: ON\\nnext level; cats stay") && vegetation.Contains("Stock cats: OFF\\nnext level; cats stay"),
-            "the vegetation cats row (98) reuses the original toggle copy unchanged");
-        Checks.Check(vegetation.Contains("py + 176 * scale") && vegetation.Contains("ModConfig.ToggleFastForestRecede()")
-            && vegetation.Contains("Fast forest recede: "), "the vegetation fast-forest row (176) arms the shared switch");
-        Checks.Check(vegetation.Contains("py + 254 * scale") && vegetation.Contains("ModConfig.ToggleDeerPopulation()")
-            && vegetation.Contains("Deer population: ON\\nGreek only: target/refill x3")
-            && vegetation.Contains("Deer population: OFF\\nGreek only: target/refill x3"),
-            "the vegetation deer row (254) arms the shared population switch with the Greek-only x3 copy");
-        Checks.Check(vegetation.Contains("\"Vegetation & Wildlife\"") && vegetation.Contains("\"World vegetation & wildlife\""),
-            "the vegetation page title/subtitle advertises vegetation & wildlife");
-        Checks.Check(vegetation.Contains("py + 332 * scale") && vegetation.Contains("\"Back\"")
-            && vegetation.Contains("Layout.VegetationPage = false"), "Back (332) clears only VegetationPage");
-        Checks.Check(!vegetation.Contains("WorldPage = false") && !vegetation.Contains("WorldPage=false"),
-            "the vegetation Back never closes the World page");
-        Checks.Check(!vegetation.Contains("FarmCatsEnabled.Value =") && !vegetation.Contains("RemoveCat") && !vegetation.Contains("ClearCat"),
-            "the vegetation page never enables, disables or clears cats outside the shared toggle");
+        string androidRoot = Path.Combine(Checks.RepositoryRoot(), "android");
+        string panelPath = Path.Combine(androidRoot, "MobileModPanel.cs");
+        Checks.Check(File.Exists(panelPath), "common panel source present");
+        if (!File.Exists(panelPath)) return;
+        string panel = File.ReadAllText(panelPath);
+        string[] menuFiles = { "MobilePlayerMenu.cs", "MobileWorldMenu.cs", "MobileGenerationMenu.cs", "MobileVegetationMenu.cs" };
+        var menus = new Dictionary<string, string>();
+        foreach (string file in menuFiles)
+        {
+            string path = Path.Combine(androidRoot, file);
+            Checks.Check(File.Exists(path), "menu source present: " + file);
+            if (File.Exists(path)) menus[file] = File.ReadAllText(path);
+        }
+        if (menus.Count != menuFiles.Length) return;
+
+        foreach (var pair in menus)
+        {
+            string source = pair.Value;
+            Checks.Check(source.Contains("internal static void Draw(MobileModPanel panel, float width, float scale)"),
+                pair.Key + " draws through the common panel");
+            Checks.Check(!source.Contains("GUI.Button(") && !source.Contains("GUI.Label(") && !source.Contains("GUIStyle"),
+                pair.Key + " never uses GUI controls or styles of its own");
+            Checks.Check(!source.Contains("py + ") && !source.Contains("px + "),
+                pair.Key + " drops the old fixed row coordinates");
+        }
+        Checks.Check(menus["MobilePlayerMenu.cs"].Contains("panel.Step(\"君主移动速度\"")
+            && menus["MobilePlayerMenu.cs"].Contains("ModConfig.CycleSpeed")
+            && menus["MobilePlayerMenu.cs"].Contains("panel.Toggle(\"坐骑无限体力\"")
+            && menus["MobilePlayerMenu.cs"].Contains("panel.Toggle(\"长按连续购买\"")
+            && menus["MobilePlayerMenu.cs"].Contains("panel.Step(\"坐骑技能冷却\"")
+            && menus["MobilePlayerMenu.cs"].Contains("panel.Step(\"法杖神器冷却\""),
+            "the player page presents the five PC-named settings through Step/Toggle");
+        Checks.Check(menus["MobileWorldMenu.cs"].Contains("panel.Step(\"每波怪物数量\"")
+            && menus["MobileWorldMenu.cs"].Contains("panel.Step(\"怪物时间线推进\"")
+            && menus["MobileWorldMenu.cs"].Contains("panel.Toggle(\"无限金币\"")
+            && menus["MobileWorldMenu.cs"].Contains("panel.Toggle(\"快速建造\"")
+            && menus["MobileWorldMenu.cs"].Contains("panel.Toggle(\"船只额外乘员\"")
+            && menus["MobileWorldMenu.cs"].Contains("panel.OpenVegetation"),
+            "the world page presents its five settings plus the vegetation entry through the panel");
+        Checks.Check(menus["MobileGenerationMenu.cs"].Contains("panel.Step(\"地图大小\"")
+            && menus["MobileGenerationMenu.cs"].Contains("ModConfig.CycleMapSize"),
+            "the generation page presents the map size step");
+        Checks.Check(menus["MobileVegetationMenu.cs"].Contains("panel.Toggle(\"农舍猫补给\"")
+            && menus["MobileVegetationMenu.cs"].Contains("panel.Toggle(\"森林快速消退\"")
+            && menus["MobileVegetationMenu.cs"].Contains("panel.Toggle(\"普通鹿数量\"")
+            && menus["MobileVegetationMenu.cs"].Contains("仅希腊普通鹿"),
+            "the vegetation page presents the three switches with the Greek-only deer scope");
+        Checks.Check(menus["MobileVegetationMenu.cs"].Contains("panel.CloseVegetation"),
+            "the vegetation back goes through the panel's page action");
+
+        // 15 个可用设置各只在一条页面出现一次（植被入口是导航，不计入）。
+        string pages = string.Join("\n", menus.Values);
+        string[] settings = { "君主移动速度", "坐骑无限体力", "长按连续购买", "坐骑技能冷却", "法杖神器冷却",
+            "每波怪物数量", "怪物时间线推进", "无限金币", "快速建造", "船只额外乘员",
+            "地图大小", "农舍猫补给", "森林快速消退", "普通鹿数量" };
+        foreach (string title in settings)
+            Checks.Check(CountOf(pages, "\"" + title + "\"") == 1,
+                "the setting lives on exactly one page: " + title);
+        Checks.Check(CountOf(panel, "\"常驻时间与季节\"") == 1 && CountOf(pages, "\"常驻时间与季节\"") == 0,
+            "the calendar setting lives on exactly one page (the root)");
+
+        // 导航与页面路由在面板；卡片无 GUI.Button；手势/滚动走 PanelGesture 单点生产者。
+        Checks.Check(panel.Contains("\"主页\"") && panel.Contains("\"玩家\"") && panel.Contains("\"世界\"")
+            && panel.Contains("\"生成\"") && panel.Contains("\"人口\""), "the panel carries the Chinese navigation chips");
+        Checks.Check(panel.Contains("HitPanelBody") && panel.Contains("viewport.Contains(point)")
+            && panel.Contains("gesture.Wheel(") && panel.Contains("gesture.Move(") && panel.Contains("gesture.End("),
+            "the panel owns one hit-tested gesture with a shared wheel/drag scroll producer");
+        Checks.Check(panel.Contains("GUI.BeginGroup(panelRect)") && panel.Contains("GUI.BeginGroup(contentGroup)")
+            && panel.Contains("ImGuiCompat.IntersectRect("),
+            "the whole panel is clipped and the content viewport nests the physical geometry");
+        Checks.Check(!panel.Contains("GUI.Button(") && !panel.Contains("catch ("),
+            "the panel never grabs capture with GUI.Button and never swallows draw exceptions");
+        Checks.Check(panel.Contains("VegetationPage") && panel.Contains("SetPage("),
+            "the panel routes the pages itself (vegetation included)");
+
+        string populationPath = Path.Combine(androidRoot, "MobilePopulation.cs");
+        string calendarPath = Path.Combine(androidRoot, "MobileCalendar.cs");
+        Checks.Check(File.Exists(populationPath) && File.Exists(calendarPath), "population/calendar sources present");
+        if (!File.Exists(populationPath) || !File.Exists(calendarPath)) return;
+        string population = File.ReadAllText(populationPath);
+        string calendar = File.ReadAllText(calendarPath);
+        Checks.Check(population.Contains("\"Workers\"") && population.Contains("\"Archers\"") && population.Contains("\"Farmers\"")
+            && population.Contains("\"Pikemen\"") && population.Contains("\"Ninjas\"") && population.Contains("\"Berserkers\"")
+            && population.Contains("\"Villagers\"") && population.Contains("\"Beggars\"") && population.Contains("Knights: "),
+            "the population log payload keeps the original English roster and Knights line");
+        Checks.Check(population.Contains("\"工匠\"") && population.Contains("\"弓箭手\"") && population.Contains("\"农民\"")
+            && population.Contains("\"长枪兵\"") && population.Contains("\"忍者\"") && population.Contains("\"狂战士\"")
+            && population.Contains("\"无业村民\"") && population.Contains("\"乞丐\"") && population.Contains("\"骑士\"")
+            && population.Contains("当前岛屿"),
+            "the population panel shows the eight PC Chinese role names and knights");
+        Checks.Check(population.Contains("ProbeTicker.Layout.Expanded && ProbeTicker.Layout.PopulationPage && ProbeTicker.UiReady"),
+            "the population Tick keeps its page gate unchanged");
+        Checks.Check(calendar.Contains("第 {data.TotalDay} 天") && calendar.Contains("{data.Hour} 点")
+            && calendar.Contains("春") && calendar.Contains("夏") && calendar.Contains("秋") && calendar.Contains("冬"),
+            "the calendar display uses the Chinese date/season strings");
+
+        string csproj = File.ReadAllText(Path.Combine(androidRoot, "OhMyMods.AndroidProbe.csproj"));
+        Checks.Check(csproj.Contains("Compile Include=\"MobileModPanel.cs\"") && csproj.Contains("Compile Include=\"PanelGesture.cs\"")
+            && csproj.Contains("Compile Include=\"../il2cpp/ModPanelStyles.cs\"") && csproj.Contains("Compile Include=\"../il2cpp/ModPanelControls.cs\"")
+            && csproj.Contains("Compile Include=\"../il2cpp/ImGuiCompat.cs\""),
+            "the Android csproj compiles the common panel, gesture and shared UI sources");
+        string testCsproj = File.ReadAllText(Path.Combine(androidRoot, "tests", "AdapterTests.csproj"));
+        Checks.Check(testCsproj.Contains("Compile Include=\"../PanelGesture.cs\""),
+            "the adapter tests compile the pure gesture helper");
+    }
+
+    private static int CountOf(string text, string needle)
+    {
+        int count = 0;
+        for (int index = 0; (index = text.IndexOf(needle, index, StringComparison.Ordinal)) >= 0; index += needle.Length) count++;
+        return count;
     }
 }
 
@@ -1071,20 +1286,151 @@ internal static class ArtifactChecks
             Checks.Check(!harmonyAttribute, "MobileUiInputSurface carries no Harmony attributes");
         }
 
+        var panel = FindType(reader, "OhMyMods.AndroidProbe", "MobileModPanel");
+        Checks.Check(!panel.IsNil, "artifact contains MobileModPanel");
+        if (!panel.IsNil)
+        {
+            var definition = reader.GetTypeDefinition(panel);
+            Checks.Check((definition.Attributes & TypeAttributes.Sealed) != 0, "MobileModPanel is sealed");
+            Checks.Check(TypeName(reader, definition.BaseType) == "System.Object",
+                "MobileModPanel is a plain CLR class, not a MonoBehaviour");
+            var methods = new HashSet<string>();
+            foreach (var handle in definition.GetMethods()) methods.Add(reader.GetString(reader.GetMethodDefinition(handle).Name));
+            Checks.Check(methods.Contains("Draw") && methods.Contains("CancelGesture") && methods.Contains("Dispose")
+                && methods.Contains("Toggle") && methods.Contains("Step") && methods.Contains("Info"),
+                "MobileModPanel exposes the fixed Root/menu surface");
+            Checks.Check(SignatureTypes(reader, definition, "Draw") == "OhMyMods.AndroidProbe.FloatLayout",
+                "MobileModPanel.Draw(FloatLayout)");
+        }
+        var gesture = FindType(reader, "OhMyMods.AndroidProbe", "PanelGesture");
+        Checks.Check(!gesture.IsNil, "artifact contains the pure PanelGesture state machine");
+
+        // Issue #144 native-offset regression: the device loader build is missing the
+        // GUIStyle::AssignRectOffset_Injected icall, so every whole-RectOffset assignment
+        // (set_padding / set_margin / set_overflow) crashed the first panel open at the
+        // ModPanelStyles factory. The shared style provider must instead read each style's
+        // own RectOffset back through the verified getters and write the four Int32 fields.
+        // These checks pin that contract on the built artifact's IL, not on a source mirror;
+        // getter/field-setter runtime behavior stays a device-gate question.
+        var styles = FindType(reader, "KingdomEnhancedMod", "ModPanelStyles");
+        Checks.Check(!styles.IsNil, "artifact contains the shared ModPanelStyles");
+        if (!styles.IsNil)
+        {
+            var styleMembers = BodyReferencedMembers(pe, reader, reader.GetTypeDefinition(styles));
+            Checks.Check(!styleMembers.Contains("UnityEngine.GUIStyle::set_padding")
+                && !styleMembers.Contains("UnityEngine.GUIStyle::set_margin")
+                && !styleMembers.Contains("UnityEngine.GUIStyle::set_overflow")
+                && !styleMembers.Contains("UnityEngine.GUIStyle::AssignRectOffset"),
+                "ModPanelStyles assigns no whole RectOffset (set_padding/set_margin/set_overflow/AssignRectOffset all absent)");
+            Checks.Check(styleMembers.Contains("UnityEngine.GUIStyle::get_padding"),
+                "ModPanelStyles reads each style's own padding back through the getter");
+            Checks.Check(styleMembers.Contains("UnityEngine.RectOffset::set_left")
+                && styleMembers.Contains("UnityEngine.RectOffset::set_right")
+                && styleMembers.Contains("UnityEngine.RectOffset::set_top")
+                && styleMembers.Contains("UnityEngine.RectOffset::set_bottom"),
+                "ModPanelStyles writes each style's own RectOffset through the four field setters");
+            Checks.Check(!styleMembers.Contains("UnityEngine.RectOffset::.ctor"),
+                "ModPanelStyles constructs no replacement RectOffset (writes the style's own one)");
+        }
+
+        // Amendment: every whole-RectOffset assignment anywhere in the artifact funnels into the
+        // same missing icall (ImGuiCompat.BuildStyle hit set_border next), so the ban and the
+        // getter/field-setter evidence are asserted assembly-wide through the artifact's
+        // MemberReference table; no Android-linked source may regress to whole assigns.
+        foreach (string banned in new[] { "set_padding", "set_margin", "set_overflow", "set_border", "AssignRectOffset" })
+            Checks.Check(!HasMemberReference(reader, "UnityEngine.GUIStyle", banned),
+                "artifact references no GUIStyle::" + banned + " (whole-RectOffset assignment path)");
+        Checks.Check(HasMemberReference(reader, "UnityEngine.GUIStyle", "get_padding")
+            && HasMemberReference(reader, "UnityEngine.GUIStyle", "get_margin")
+            && HasMemberReference(reader, "UnityEngine.GUIStyle", "get_overflow")
+            && HasMemberReference(reader, "UnityEngine.GUIStyle", "get_border"),
+            "artifact reads GUIStyle offsets through the getters (padding/margin/overflow/border)");
+        Checks.Check(HasMemberReference(reader, "UnityEngine.RectOffset", "set_left")
+            && HasMemberReference(reader, "UnityEngine.RectOffset", "set_right")
+            && HasMemberReference(reader, "UnityEngine.RectOffset", "set_top")
+            && HasMemberReference(reader, "UnityEngine.RectOffset", "set_bottom"),
+            "artifact writes RectOffset fields through the four Int32 setters");
+
+        // Issue #144 native-drawing adaptation: the Android artifact must not touch the stripped
+        // GUIStyleState background members or the old CalcSize icall, and must not use the stub
+        // drawing / clip-escape paths (GUI|Graphics::DrawTexture, ScaleAroundPivot, Unclip).
+        // Solid fills go through GUI.Label + GUI.matrix; measurement goes through the genuine
+        // CalcSizeWithConstraints (shared MeasureSize). PC keeps its paths behind #if guards in
+        // the shared sources, so these bans apply to the Android-linked artifact only.
+        foreach (string bannedState in new[] { "set_background", "get_background" })
+            Checks.Check(!HasMemberReference(reader, "UnityEngine.GUIStyleState", bannedState),
+                "artifact references no GUIStyleState::" + bannedState + " (stripped background path)");
+        Checks.Check(!HasMemberReference(reader, "UnityEngine.GUIStyle", "CalcSize"),
+            "artifact references no GUIStyle::CalcSize (stripped old measurement icall)");
+        Checks.Check(!HasMemberReference(reader, "UnityEngine.GUI", "DrawTexture")
+            && !HasMemberReference(reader, "UnityEngine.Graphics", "DrawTexture"),
+            "artifact references no GUI/Graphics::DrawTexture stub");
+        Checks.Check(!HasMemberReference(reader, "UnityEngine.GUI", "ScaleAroundPivot")
+            && !HasMemberReference(reader, "UnityEngine.GUIUtility", "Unclip"),
+            "artifact references no pivot/Unclip clip-escape helpers");
+        Checks.Check(HasMemberReference(reader, "UnityEngine.GUIStyle", "CalcSizeWithConstraints"),
+            "the shared MeasureSize really calls CalcSizeWithConstraints");
+        Checks.Check(HasMemberReference(reader, "UnityEngine.GUI", "Label")
+            && HasMemberReference(reader, "UnityEngine.GUI", "set_matrix") && HasMemberReference(reader, "UnityEngine.GUI", "get_matrix"),
+            "primitive solid fills go through GUI.Label + GUI.matrix");
+
+        var imgui = FindType(reader, "KingdomEnhancedMod", "ImGuiCompat");
+        Checks.Check(!imgui.IsNil, "artifact contains the shared ImGuiCompat");
+        if (!imgui.IsNil)
+        {
+            var imguiMethods = new HashSet<string>();
+            foreach (var handle in reader.GetTypeDefinition(imgui).GetMethods())
+                imguiMethods.Add(reader.GetString(reader.GetMethodDefinition(handle).Name));
+            Checks.Check(imguiMethods.Contains("DrawSolidTexture") && imguiMethods.Contains("IntersectRect"),
+                "ImGuiCompat carries the single solid-fill backend and the shared rect intersect");
+        }
+        var drawingControls = FindType(reader, "KingdomEnhancedMod", "ModPanelControls");
+        if (!drawingControls.IsNil)
+            Checks.Check(SignatureTypes(reader, reader.GetTypeDefinition(drawingControls), "DrawRow")
+                .EndsWith(",UnityEngine.Vector2,UnityEngine.Rect", StringComparison.Ordinal),
+                "DrawRow receives the caller's group origin and local clip (producer-side clipping)");
+        var mobilePanel = FindType(reader, "OhMyMods.AndroidProbe", "MobileModPanel");
+        if (!mobilePanel.IsNil)
+        {
+            bool staleIntersect = false;
+            foreach (var handle in reader.GetTypeDefinition(mobilePanel).GetMethods())
+                if (reader.GetString(reader.GetMethodDefinition(handle).Name) == "Intersect") staleIntersect = true;
+            Checks.Check(!staleIntersect,
+                "MobileModPanel no longer carries a private Intersect copy (hit and visual share ImGuiCompat.IntersectRect)");
+        }
+
+        // Correction round (Reviewer's V4 Box observation): on Android the value/tab text styles
+        // must derive from skin.label — clones of skin.box/skin.button keep the native black
+        // decoration background even without background setters — and the PC-only track/thumb
+        // palette textures must not be allocated on Android. Compiled proof: no GUISkin::get_button
+        // reference and exactly three Texture() allocation call sites in ModPanelStyles; source
+        // proof: the conditional base selection keeps the PC box/button branches byte-side by side.
+        var stylesDef = reader.GetTypeDefinition(styles);
+        Checks.Check(!HasMemberReference(reader, "UnityEngine.GUISkin", "get_button"),
+            "Android value/tab no longer clone skin.button (native black decoration base is gone)");
+        Checks.Check(CountBodyCalls(pe, reader, stylesDef, "Texture") == 3,
+            "ModPanelStyles allocates only the three Android palette textures (track/thumb are PC-only)");
+        string stylesSource = File.ReadAllText(Path.Combine(SourceRoot,
+            "il2cpp", "ModPanelStyles.cs"));
+        Checks.Check(stylesSource.Contains("Style(skin.label, ValueSize, Gold)") && stylesSource.Contains("Style(skin.box, ValueSize, Gold)")
+            && stylesSource.Contains("Style(skin.label, TabSize, Muted)") && stylesSource.Contains("Style(skin.button, TabSize, Muted)"),
+            "the value/tab base selection keeps ANDROID label and PC box/button branches side by side");
+
         VerifyFrozenSources();
         Console.WriteLine("artifact sha256 " + Checks.ComputeSha256(dllPath));
     }
 
-    // SHA-256 freeze for the Android adapter sources and the linked production sources. Files
-    // listed in intentionallyChanged are the only ones the current issue may edit; every other
-    // frozen source must stay byte-identical (the current issue only moves the shared
-    // fast-forest source into its own file, wires the vegetation page and the fourteenth entry).
+    // SHA-256 freeze for the Android adapter sources and the linked production sources. Every
+    // listed source must stay byte-identical; this issue mechanically re-pinned every hash it
+    // changed, removed the legacy intentionallyChanged skip set, and added the new shared UI
+    // inputs (ModPanelStyles / ModPanelControls / ImGuiCompat), the common panel container and
+    // the pure gesture helper as strict pins.
     private static readonly string SourceRoot = Checks.RepositoryRoot();
 
     private static readonly string[] FrozenSources =
     {
-        "android/AssemblyInfo.cs",
         "android/AndroidCoroutine.cs",
+        "android/AssemblyInfo.cs",
         "android/CalendarSnapshot.cs",
         "android/FloatInput.cs",
         "android/FloatLayout.cs",
@@ -1092,6 +1438,7 @@ internal static class ArtifactChecks
         "android/HoldBridges.cs",
         "android/MobileCalendar.cs",
         "android/MobileGenerationMenu.cs",
+        "android/MobileModPanel.cs",
         "android/MobilePlayerConfig.cs",
         "android/MobilePlayerMenu.cs",
         "android/MobilePopulation.cs",
@@ -1100,6 +1447,7 @@ internal static class ArtifactChecks
         "android/MobileWorldMenu.cs",
         "android/OhMyMods.AndroidProbe.csproj",
         "android/OptionalQoLScope.cs",
+        "android/PanelGesture.cs",
         "android/PatchDivine_StaffCooldown.cs",
         "android/PatchRide_InfiniteStamina.cs",
         "android/PatchRide_SteedCooldown.cs",
@@ -1114,13 +1462,16 @@ internal static class ArtifactChecks
         "il2cpp/BoatCapacityProfile.cs",
         "il2cpp/FarmCatMovement.cs",
         "il2cpp/GreekScaleScope.cs",
+        "il2cpp/ImGuiCompat.cs",
         "il2cpp/MapWidthPlanner.cs",
         "il2cpp/MapWidthTerrain.cs",
-        "il2cpp/PatchWorld_DeerPopulation.cs",
-        "il2cpp/PatchWorld_FastForestRecede.cs",
-        "il2cpp/PatchWorld_FarmCats.cs",
+        "il2cpp/ModPanelControls.cs",
+        "il2cpp/ModPanelStyles.cs",
         "il2cpp/PatchWorld_Construction.cs",
-        "il2cpp/PatchWorld_Level.cs"
+        "il2cpp/PatchWorld_DeerPopulation.cs",
+        "il2cpp/PatchWorld_FarmCats.cs",
+        "il2cpp/PatchWorld_FastForestRecede.cs",
+        "il2cpp/PatchWorld_Level.cs",
     };
 
     private static void VerifyFrozenSources()
@@ -1130,60 +1481,52 @@ internal static class ArtifactChecks
             { "android/AndroidCoroutine.cs", "c3f16218e82cc26f9f8e5b9ed9e74aa1f81b666da821f0acccf35133fd9ae265" },
             { "android/AssemblyInfo.cs", "b5a7ade914d9e157d175ae9f7d42f40bb92cb608722875de4cd025ad50e86a14" },
             { "android/CalendarSnapshot.cs", "0ece4765f9a5311707f1a9bf0d61c491846cd8e17327ac4d09773c37eb0fdb8e" },
-            { "android/FloatInput.cs", "17bccf9800a36c2cb1ffd0ee6e9f112f343951b0eae64acd7475afe93f6344a8" },
+            { "android/FloatInput.cs", "de1dfaf27d5d32334d9dc4a69b2f28523789f963698b23e3396a328e9d08d8e0" },
+            { "android/FloatLayout.cs", "9fd919964256f18e11aebfad414a7b1a10dab41591ac286564e1b3c05bfbd7c6" },
             { "android/GlobalAliases.cs", "92f7a6997223c2874aae8a596d69f0f52cfac1da8f01b0bdce47c29c32e417d1" },
             { "android/HoldBridges.cs", "982ad14e89afc8337a9b30b51dd0ccdddbeee9b7e3a1c21acf326fdec457c916" },
-            { "android/MobileCalendar.cs", "f0d174125f0e3771a906712f52398e422f7812862b8614b3ecc709a385271633" },
-            { "android/MobileGenerationMenu.cs", "f226e36b04aa2feaa239c2758f3c47858d526017edee062560035d178632c00b" },
-            { "android/MobilePlayerMenu.cs", "28524aaa69d061e2e618643e975ef8a8e19ab15666e1fe2be70bcdd92300fb33" },
-            { "android/MobilePopulation.cs", "6dd431df541a4d2fd268eccfc3e9c757e5837cb8535acbd102bd05b6b1ed3f33" },
+            { "android/MobileCalendar.cs", "49e8fcbdc29a19b5100c5c6525a1317cccb446252bcbe91a8306699afcee718a" },
+            { "android/MobileGenerationMenu.cs", "e89f7d9224b31f5ea77ca5392a02d8c7ac1a723c2dd0ee702d4225eb8f53f5d0" },
+            { "android/MobileModPanel.cs", "e9a0bd5347da0333b2110b4a93dcf61b0caff4d4375a600a99ad12a124683f12" },
+            { "android/MobilePlayerConfig.cs", "6f272276fe7d02dd39417a01bff203b68603809686aed27deada98add9ba2b59" },
+            { "android/MobilePlayerMenu.cs", "849ef81c029258d0a0ddbff4aef1684d9998434f4f85a01525d60236a714e139" },
+            { "android/MobilePopulation.cs", "7cc188d1530a328db6f8c4bd88082dc4b17a0b8c2af1be0978ac3cf16c04c849" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
-            { "android/MobileVegetationMenu.cs", "43af167093c13ae61167a6c474ebfa38892ea3eea5102aac0fe0115ba79298ba" },
-            { "android/MobileWorldMenu.cs", "2dea065e57e62f5f581a35cda9ed826198cdcad6ca96b13e144bdf824145c6f2" },
+            { "android/MobileVegetationMenu.cs", "3690f36d4beb90be39adb0514d50ea129fa1ff7eb43bc2ee6f064e13223d5f34" },
+            { "android/MobileWorldMenu.cs", "fb19eb33a9e201c3e7b0c9a14c6ec4527a2e461fc24105b03aad68d93fb5fe4e" },
+            { "android/OhMyMods.AndroidProbe.csproj", "2393bfb8cf92af8193c0f9e0444cc12739c0f43a7d110fa15548d0f9b57330aa" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
+            { "android/PanelGesture.cs", "51071fefbc1a1ab4b8f23ee84bf10925c325d8414400b9ed186af238c136e97b" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },
             { "android/PatchRide_InfiniteStamina.cs", "02a27e7c21d865596e23db3cdfe405dafb8c9e95f303e45481b24a5f72b280fc" },
             { "android/PatchRide_SteedCooldown.cs", "b29cfe6d93af38e0d49e33dc4254c501a7b5ee8c664ecf473ec499cadc01eb52" },
             { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
-            { "android/Probe.cs", "a9e84ae3e36b18be76840100c08ebeacaad59434389b32484404c90550bcfd4b" },
+            { "android/Probe.cs", "7fc5e16f60b25114c79b9fe2e69d78428b9c15f23c04fa127167c8f7dd7da813" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
-            { "android/tests/AdapterTests.csproj", "aad4aba93718df35016419550c9dbee3e93407afae0b61c9ee3b77a8f67d841f" },
+            { "android/tests/AdapterTests.csproj", "59710a352d2264d0e0a46f093527c0a1a7ef91c3ce3ec3bac8976ea9460d398c" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
             { "android/tests/MelonPreferencesStub.cs", "43cb64d622d4b1827aff0229902a732d209b188400f628d088fde099337e38d2" },
             { "il2cpp/BoatCapacityProfile.cs", "02d43c64922667e6e1f2d834bf29f28f8fbc683878dc27db1430abed4c11c2f2" },
             { "il2cpp/FarmCatMovement.cs", "02e37276ae1fd5ac697ef6b71c4cf5bd79f642981a4f3958667dde525be2a2a4" },
             { "il2cpp/GreekScaleScope.cs", "13d913b12e89338645847bb0f4d04fd4370bd808035e377766e2c5f9da530221" },
+            { "il2cpp/ImGuiCompat.cs", "a69b83eb5c5219b7be84dadc37c7f13f17eafe3f69fa973235d9bb044f53af87" },
             { "il2cpp/MapWidthPlanner.cs", "3790b85fef8f36c822cec3d845a1ff90fb0a2dbcfaa295169966cc2ad036aa20" },
             { "il2cpp/MapWidthTerrain.cs", "5fe7ccde3fcdf5ff99e169e17b13b8558b37e3f03d7d7294ada8649d6afa194b" },
-            { "il2cpp/PatchWorld_DeerPopulation.cs", "60ddae20a9dc96cadb769d607eed313bd3cd6c1eb8a6239bbf4165e96452aed2" },
-            { "il2cpp/PatchWorld_FastForestRecede.cs", "1b51c0aa24daec749d23647f82aecb789e1b36b7439497eff2bd93dbb40d3193" },
-            { "il2cpp/PatchWorld_FarmCats.cs", "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f" },
+            { "il2cpp/ModPanelControls.cs", "202ba7be515effa8e7fa5895f8314bebc26faff8b3a5bc3b13f4bc20efb1e551" },
+            { "il2cpp/ModPanelStyles.cs", "48b40eef494aa8c93a4d1c89ad4327dba48cf9cf628767243ddc7f8f958d8e78" },
             { "il2cpp/PatchWorld_Construction.cs", "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79" },
-            { "il2cpp/PatchWorld_Level.cs", "90f9f724db0d0f9353775f4284ed09d6d1782c125c5ad028e83b843b55e1315e" }
-        };
-        // Issue #140 touches exactly these frozen sources: the FloatLayout vegetation height
-        // (406 with the deer row), the fifteenth config entry + deer toggle with the READY
-        // field, the Vegetation page title/deer row/Back geometry, and the new Compile Include
-        // for the shared deer source. The Operator-owned Probe entry (version 0.0.19, the deer
-        // registration, the Vegetation router) is frozen with its final bytes; the shared
-        // il2cpp/PatchWorld_DeerPopulation.cs itself is a frozen actual entry; the rest of the
-        // #122/#127/#130/#134/#136/#138 surface stays ordinary frozen entries.
-        // Issue #142 (B0): android/GlobalAliases.cs gains the Coatsink -> Il2CppCoatsink
-        // namespace alias and android/HoldBridges.cs gains the LogDebug -> MelonDebug.Msg
-        // thin bridge; their updated exact hashes remain checked, not skipped.
-        var intentionallyChanged = new HashSet<string>
-        {
-            "android/FloatLayout.cs", "android/MobilePlayerConfig.cs",
-            "android/MobileVegetationMenu.cs", "android/OhMyMods.AndroidProbe.csproj"
+            { "il2cpp/PatchWorld_DeerPopulation.cs", "60ddae20a9dc96cadb769d607eed313bd3cd6c1eb8a6239bbf4165e96452aed2" },
+            { "il2cpp/PatchWorld_FarmCats.cs", "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f" },
+            { "il2cpp/PatchWorld_FastForestRecede.cs", "1b51c0aa24daec749d23647f82aecb789e1b36b7439497eff2bd93dbb40d3193" },
+            { "il2cpp/PatchWorld_Level.cs", "90f9f724db0d0f9353775f4284ed09d6d1782c125c5ad028e83b843b55e1315e" },
         };
         foreach (string relative in FrozenSources)
         {
             string path = Path.Combine(SourceRoot, relative.Replace('/', Path.DirectorySeparatorChar));
             if (!File.Exists(path)) { Checks.Check(false, "frozen source present: " + relative); continue; }
             string hash = Checks.ComputeSha256(path);
-            if (intentionallyChanged.Contains(relative)) continue;
             if (!known.TryGetValue(relative, out string expected))
             {
                 Checks.Check(false, "frozen source " + relative + " has no recorded hash");
@@ -1334,6 +1677,60 @@ internal static class ArtifactChecks
             }
         }
         return false;
+    }
+
+    // Collects every call/callvirt/newobj MemberReference target in one type's method bodies as
+    // "DeclaringType::member". Same naive byte-walk scan model as BodyCallsMethod: exact
+    // positive evidence, and any hit on a banned token is decisive for the negative checks.
+    private static HashSet<string> BodyReferencedMembers(PEReader pe, MetadataReader reader, TypeDefinition definition)
+    {
+        var members = new HashSet<string>();
+        foreach (var handle in definition.GetMethods())
+        {
+            var method = reader.GetMethodDefinition(handle);
+            if (method.RelativeVirtualAddress == 0) continue;
+            byte[] il = pe.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();
+            for (int index = 0; index + 4 < il.Length; index++)
+            {
+                if (il[index] != 0x28 && il[index] != 0x6F && il[index] != 0x73) continue; // call / callvirt / newobj
+                int operand = il[index + 1] | (il[index + 2] << 8) | (il[index + 3] << 16) | (il[index + 4] << 24);
+                if ((operand & 0xFF000000) != 0x0A000000) continue; // MemberReference tokens only
+                var reference = reader.GetMemberReference((MemberReferenceHandle)MetadataTokens.EntityHandle(operand));
+                members.Add(TypeName(reader, reference.Parent) + "::" + reader.GetString(reference.Name));
+            }
+        }
+        return members;
+    }
+
+    // Counts call/callvirt sites of one same-assembly method (by name, within the given type) in a
+    // type's method bodies, using the same naive byte-walk scan model as BodyCallsMethod. Used for
+    // exact call-count evidence (the palette texture allocation guard), not general decoding.
+    private static int CountBodyCalls(PEReader pe, MetadataReader reader, TypeDefinition definition, string calleeName)
+    {
+        int token = 0;
+        foreach (var handle in reader.MethodDefinitions)
+        {
+            var candidate = reader.GetMethodDefinition(handle);
+            if (reader.GetString(candidate.Name) != calleeName) continue;
+            if (TypeName(reader, candidate.GetDeclaringType()) != "KingdomEnhancedMod.ModPanelStyles") continue;
+            token = MetadataTokens.GetToken(handle);
+            break;
+        }
+        if (token == 0) return -1;
+        int count = 0;
+        foreach (var handle in definition.GetMethods())
+        {
+            var method = reader.GetMethodDefinition(handle);
+            if (method.RelativeVirtualAddress == 0) continue;
+            byte[] il = pe.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();
+            for (int index = 0; index + 4 < il.Length; index++)
+            {
+                if (il[index] != 0x28 && il[index] != 0x6F) continue; // call / callvirt
+                int operand = il[index + 1] | (il[index + 2] << 8) | (il[index + 3] << 16) | (il[index + 4] << 24);
+                if (operand == token) count++;
+            }
+        }
+        return count;
     }
 
     private static void CheckHandlers(MetadataReader reader, TypeDefinitionHandle type, Dictionary<string, int> required, MethodAttributes expectedAccess, string accessLabel)

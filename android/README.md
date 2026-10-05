@@ -30,14 +30,15 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 |---|---|
 | `Probe.cs` | MelonLoader 入口、显式 Harmony 注册、浮球组件与触摸守卫 |
 | `MobileUiInputSurface.cs` | Issue #119 原生 UGUI 命中面（新增）：两个透明 `Image` 命中区与 IMGUI 球/展开面板同矩形，由 `ProbeTicker` 生命周期驱动；不改原生菜单/输入标志 |
-| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何（Home 562 / World 640 / Vegetation 406 / Player 562 / Population 376 / Generation 250，绘制与触摸同源） |
+| `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何：固定外框 min(320,可用宽) × min(480,可用高) × Scale（与页面/卡片高度无关），`Resize(width,height,left,top,right,bottom)` 接收 native safeArea 转 top-left 原点的安全区绝对边界，浮球与面板都夹在安全区内；内容视口/scrollMax/`HitPanelBody`（球优先）为纯几何，绘制与触摸同源 |
 | `MobileCalendar.cs` `CalendarSnapshot.cs` | 日历显示（开关直读 `CalendarEnabled` entry，切换时保存） |
-| `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（只读缓存） |
+| `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（只读缓存；#144 起面板行仅中文展示八个原生角色与骑士，Tick/日志采样不变） |
+| `MobileModPanel.cs` `PanelGesture.cs` | 公共面板容器与纯手势状态机（Issue #144）：唯一 hotControl 手势、固定导航（主页/玩家/世界/生成/人口）与关闭、内容视口裁剪与滚动；手势/滚动单点由 `PanelGesture` 持有（任意方向位移 sticky 取消点击、`End` 按实际抬手归账、滚轮与拖拽共用同一 ScrollY） |
 | `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 15 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度、快速森林退缩、普通鹿数量；切换即保存）。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
-| `MobilePlayerMenu.cs` | Player 页 UI（speed / stamina / hold / steed cooldown / staff base cooldown / back；六行 98/176/254/332/410/488，面板 562）。两个冷却文案都相对当次 currentCD 的下一次技能调用，不承诺回溯或 prefab 倍率；法杖行明示只改基础冷却（`applied = 进入时当前 _itemCooldown × 倍率`），原生 per-target 附加时间不缩放；中性文案 "Device settings"，Back 只置 `Layout.PlayerPage=false` |
-| `MobileWorldMenu.cs` | World 页 UI（enemies / threat growth / infinite money / Vegetation 入口 / fast build / extra boat crew / back；七行 98/176/254/332/410/488/566，面板 640）。Vegetation 行只打开子页（`Layout.VegetationPage=true`，World 页保持打开），猫开关已移入该子页（只影响以后关卡加载时的补齐，不删除已有猫）；快速建造开关只影响后续每次原生 `InitializeBuild` 调用（前缀在 `_hasStarted` 早退之前写 rate，关闭不热还原已写入实例的 rate）；船容量开关只作用于以后新初始化的船（`Boat.OnEnable` 借用窗口），关闭不删除/不热改已登记的 slots；Back 只置 `Layout.WorldPage=false` |
-| `MobileGenerationMenu.cs` | Island-generation 页 UI（Length / Back；两行 98/176，面板 250，副文案 "New islands only"）。Length 只改新岛生成读取的 `MapSizeMultiplier`（1→2→3→4→5→1，合法小数先落下一整数档，如 4.5→5）；Back 只置 `Layout.GenerationPage=false`；不调用任何原生游戏 API |
-| `MobileVegetationMenu.cs` | Vegetation & Wildlife 页 UI（Stock cats / Fast forest recede / Deer population / Back；四行 98/176/254/332，面板 406，副文案 "World vegetation & wildlife"）。猫行复用原 World 页文案与 `ToggleFarmCats`（只影响以后关卡加载，不删除已有猫）；森林行切换 `FastForestRecedeEnabled`（只作用于之后进入原生 `FadeAndRemove` 的调用，关闭不回收进行中的淡出）；鹿行切换 `DeerPopulationEnabled`（Greek only；只作用于之后自然进入原生 `PopulationController.Update` 的调用，关闭不删除/不回收已有动物、不改原生存档）；Back 只置 `Layout.VegetationPage=false` 回到仍打开的 World 页 |
+| `MobilePlayerMenu.cs` | Player 页 presentation（5 行：君主移动速度 / 坐骑无限体力 / 长按连续购买 / 坐骑技能冷却 / 法杖神器冷却），全部经 `MobileModPanel.Step/Toggle` 公共路径登记 tap rect 并绘制；中文名与 PC 面板同源，冷却帮助行说明“下次调用生效、只缩放基础/该次冷却、原生目标追加不缩放” |
+| `MobileWorldMenu.cs` | World 页 presentation（每波怪物数量 / 怪物时间线推进 / 无限金币 / 植被与野生动物入口 / 快速建造 / 船只额外乘员）。植被入口只置 `VegetationPage=true`（World 保持打开）；快速建造只影响后续每次原生 `InitializeBuild`（关闭不热还原已写入实例的 rate）；船容量只作用于以后新初始化的船（关闭不删除/不热改已登记的 slots） |
+| `MobileGenerationMenu.cs` | Island-generation 页 presentation（地图大小一行）：只改新岛生成读取的 `MapSizeMultiplier`（1→2→3→4→5→1，合法小数先落下一整数档，如 4.5→5）；不调用任何原生游戏 API |
+| `MobileVegetationMenu.cs` | Vegetation & Wildlife 页 presentation（农舍猫补给 / 森林快速消退 / 普通鹿数量 / 返回世界）。猫只影响以后关卡载入时的补齐/瘦身（不删除已有猫）；森林只作用于之后进入原生 `FadeAndRemove` 的调用（关闭不回收进行中的淡出）；鹿只作用于之后自然进入原生 `PopulationController.Update` 的调用（Greek 普通鹿目标/补充 ×3；关闭不回收已有动物、不改存档）；返回只清 `VegetationPage`（World 保持打开） |
 | `PatchWorld_Mover.cs` `PatchRide_InfiniteStamina.cs` `PatchRide_SteedCooldown.cs` | 速度倍率、无限体力与坐骑技能冷却调用级倍率补丁（显式注册；冷却四个消费者共享一个 Finalizer，无 PC instanceID 缓存/扫场） |
 | `PatchDivine_StaffCooldown.cs` | 法杖基础冷却（`StaffCooldownMultiplier`，默认 1，0.2–1）薄适配：`HermesStaff._StartAbilityRoutine_d__17.MoveNext`（仅 `__1__state==0`）与 `ItemOfPower.CanCancel`（仅实际 TryCast 到 HermesStaff）各一个 prefix + 共享 Finalizer，在当次原生读取窗口内借用 `_itemCooldown` 基础值；每转化目标附加时间、min 截断、扫描与已排程 `_nextActivationTime` 全部保持原生；不复制桌面的 profile 写入/`OriginalAbilityRanges` 原值字典/SettingChanged 扫场 |
 | `PatchWorld_BoatCapacity.cs` | 主船乘员容量（`BoatCapacityEnabled`，默认 OFF）薄适配：`Boat.OnEnable` 一个 prefix + 一个 Finalizer，在原生 `Embarkable::RegisterUnitSlots` 消费窗口内借用四个 max 字段（目标值来自共享 `BoatCapacityProfile`），调用结束后按 exact int 等值逐字段归还；不写 slots/船位置/航海/存档/native gate，不给登记早退或权限门加补偿 |
@@ -52,6 +53,7 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 | `../il2cpp/PatchWorld_Construction.cs` | 未修改链接的生产源（`ConstructionBuildingComponent.InitializeBuild` public 前缀：`Enabled && FastBuild` 时写 `_autoBuildRate=50f`；默认 OFF 不介入） |
 | `../il2cpp/BoatCapacityProfile.cs` | 链接的共享策略常量（Workers=8 / Knights=6 / Pikemen=8 / Farmers=3；纯常量、无方法/状态），PC 与 Android 编译同一份 |
 | `../il2cpp/MapWidthPlanner.cs` | 链接的共享纯规划器（Plan/AssignSeams + `MapWidthCandidate/MapWidthPlan`，零 Unity/native 依赖），未修改、逐字节与 PC 同一份（SHA-256 冻结） |
+| `../il2cpp/ModPanelStyles.cs` `../il2cpp/ModPanelControls.cs` `../il2cpp/ImGuiCompat.cs` | 与 PC 同一份的共享 UI 源（Issue #144）：调色板 + 事务式皮肤副本/样式工厂（PC 传 scale=1、Android 传 `Layout.Scale`；不写全局 GUI 状态，持有者设/恢复）、面板底板/宽卡（PC 原几何）/窄端行（换行标题/值徽章/帮助行实测高度）纯绘制、`GUI.DrawTexture` 绕行 |
 | `../il2cpp/MapWidthTerrain.cs` `../il2cpp/PatchWorld_Level.cs` | 链接的共享地图长度适配源：相对桌面版仅文件头 `#if ANDROID` 的 `using X = Il2Cpp.X;` 类型别名（Level/LevelBlock/LevelLayout 等），其余逐字相同；Android 下别名编译进实际 interop 类型（见构建/测试节） |
 | `../il2cpp/PatchWorld_FastForestRecede.cs` | 链接的共享快速森林退缩源（`ForestItem.FadeAndRemove` 的 ref delay 前缀：显式正 delay ÷3，否则 `removeDelay × Random(0.5,1.5) ÷ 3`，有限正值才提交；默认 OFF 先于一切 item/native 访问）。相对桌面同一份共用，仅文件头 `#if ANDROID` 的 `Forest`/`ForestItem` 类型别名；故障一条 warning 保留原生等待参数，不建扫描/缓存/重试 |
 | `../il2cpp/PatchWorld_DeerPopulation.cs` | 链接的共享普通鹿数量源（`PopulationController.Update` 的 prefix/postfix/finalizer：Greek 普通鹿、非 biome critters、真实 prefab Deer 非 Steed/Hind、当前 gameLayer 场景成员的 controller 才在单次调用内借用三个 seasonal density ×3 与 `_actualUpdateInterval` ÷3，调用结束按 exact float 等值归还；native 时钟/季节/地区/ceil/生成/池/掉落全保持）。相对桌面同一份共用：`#if ANDROID` 别名头 + 平台 opt-in 门（`ModConfig.Enabled && DeerPopulationEnabled`，默认 OFF 且无自有状态时在 `controller.Pointer` 之前零 interop 返回）+ 同次 Eligible 采集的 scope 证据（scopeGoId/sceneHandle/childOf/prefabDeer/prefabSteed/prefabHind，一次性日志）；PC 预处理输出与 IL/metadata 零差异 |
@@ -414,28 +416,24 @@ ThrowInterop 拦截，覆盖最早 native 访问）、Greek5 应用与 scope 日
 直接相关 PC 回归（同样只链接未修改/边界源，不拉起无关套件）：`tests/farm-cats`、
 `tests/greek-scale-scope`、`tests/greek-scale-adapters`。
 
-当前基线（0.0.19，含 Issue #140 普通鹿数量源码阶段；取代下述 0.0.18/#138 数字）：适配层默认
-509 passed / 0 failed、`--oldcfg` 400、`--seed-forest` 403、`--seed-boat` 403、`--seed-map=4.5` 404、
-`--seed-staff-cooldown=0.5` 402、`--seed-cooldown=0.5` 402，其余加载边界模式（`--seed-speed=0|3|9`、
-`--seed-fast-build`、NaN/Infinity/0.5/9 各倍率、`--seed-enemy-count=4.5 --seed-enemy-timeline=4.5`）
-全部 0 failed；PC 既有 deer 套件（直接链接共享源）27 passed / 0 failed；typed ANDROID host
-（`tests/deer-population/android-host`，ANDROID 定义下编译共享源、同一 27-case harness 加 5 个平台用例）
-32 passed / 0 failed；PC 快照 baseline/candidate 两个 net6 构建 0W0E，语义比较 0 diffs
-（typesOnlyInBaseline=0 / typesOnlyInCandidate=0 / typeDiffs=0 / resourceDiffs=0，无允许表、无 PE 字节声明）。
-相比 #138（默认 452）新增检查：DeerPopulationEnabled 第 15 个 entry 声明/default false/切换单次 save 与
-READY `deerPopulation=<bool>`；Vegetation & Wildlife 标题与 406 四行 98/176/254/332 的触摸界内/界外、Back
-只清 VegetationPage 回到仍打开的 World 页、鹿行 254 切换 `ToggleDeerPopulation` 且文案 Greek only；
-产物 `PatchWorld_DeerPopulation`（含 `Lease.Scope` 证据字段）、保留名 wrapper
-`PopulationController_Update_DeerPopulation_Patch` 的 `[HarmonyPatch(typeof(PopulationController), Update)]`
-类属性、`Prefix(Il2Cpp.PopulationController, out Lease)`/`Postfix(Lease)`/`Finalizer(Exception, Lease)`
-形状与对共享类的实际调用；`Il2Cpp.PopulationController`/`Il2Cpp.Deer`/`Il2Cpp.Steed`/`Il2Cpp.Hind`/
-`Il2Cpp.Game` 类型引用与四字段 setter 等消费成员；`ModConfig.DeerPopulationEnabled` 字段；Probe 源级注册
-检查（0.0.19、`deer_population`、PopulationController.Update() 与三个 handler 按名注册、24+1=25 unique）。
-共享源 SHA-256 冻结为 38 条路径、34 条 actual 校验：`FloatLayout.cs`/`MobilePlayerConfig.cs`/
-`MobileVegetationMenu.cs`/`OhMyMods.AndroidProbe.csproj` 为本次有意改动不参与断言，
-`il2cpp/PatchWorld_DeerPopulation.cs`（新增实际项）与 Operator 完成态的 `Probe.cs`（0.0.19）为实际校验项；
-旧 24 行 hook-count 字段由冻结保护。host 测试只检查适配层与产物元数据，不伪造运行期鹿数量/补充频率结果，
-也不虚构 UnityRuntime。
+历史 R3 快照（0.0.20，Issue #144 原生 GUI 兼容修复前；最终结果见末节）：适配层默认
+591 passed / 0 failed（R2 修复后为 585；R3 新增 PanelGesture 帧末 `ClampToMax`、退化视口 subset、
+人口日志英文 payload/展示中文名约束等 6 项）；`--oldcfg` 476、`--seed-forest` 479、`--seed-boat` 479、
+`--seed-map=4.5` 480、`--seed-staff-cooldown=0.5`/`--seed-cooldown=0.5` 478、
+`--seed-enemy-count=4.5 --seed-enemy-timeline=4.5` 484 为 R2 运行值（R3 未重跑矩阵）；
+其余加载边界模式（`--seed-speed=0|3|9`、`--seed-fast-build`、各倍率 NaN/Infinity/0.1/0.5/9）全部 0 failed（R2）；
+PC 既有 deer 套件 27/0 与 typed ANDROID host 32/0 为 #140 阶段证据，本轮未重跑（相关共享源未变动）。
+#144 新增检查：固定外框/安全区 `Resize`/极小屏外框与视口界限、内容视口 last-card 可达、球优先与真实
+重叠点（`PanelX` 随拖动后 X 重算）、PanelGesture 点击恰好一个动作、任意方向位移 sticky 取消、
+cancel/release-outside/未拖动抬手归账零动作、滚轮与拖拽共用单调 ScrollY 与夹取、chrome 按压取消点击
+不滚动、四页公共路径（`panel.Step/Toggle/Info`、无 GUI.Button/自持坐标）、15 设置各仅一页（中文标题
+唯一计数）、导航/chrome/中文化契约、csproj 实际 Compile 列表、产物 `MobileModPanel`（sealed、
+Draw(FloatLayout)/CancelGesture/Dispose/Toggle/Step/Info 形状）与 `PanelGesture` 类型。
+共享源 SHA-256 冻结为 43 条路径、43 条 strict 校验（无 intentionallyChanged skip；本批机械重钉
+`FloatLayout/MobileCalendar/MobilePopulation/四个 MobileMenu/Probe/FloatInput/csproj/AdapterTests.csproj`，
+新增 `MobileModPanel.cs`/`PanelGesture.cs`/`il2cpp/ModPanelStyles.cs`/`il2cpp/ModPanelControls.cs`/
+`il2cpp/ImGuiCompat.cs` 为实际校验项）。host 测试只检查适配层与产物元数据，不伪造 Unity/Harmony/IL2CPP
+运行结果、真实触屏手感或字体观感。
 
 ## 0.0.10 隔离设备验证
 
@@ -650,3 +648,40 @@ natural apply 日志（无匹配存档则如实 pending）、换岛/读档/池�
 
 
 Issue #140 的模拟器验证（最终短文案候选 Main 0.0.19 `12840083…` / APK `aeca1e71…`）：25 个显式目标，旧24形状与旧14设置保持、onlyMain、无ERROR与两条既有WARNING；首冷cfg仍14键是load不写盘，新鹿entry默认false；第一次UI切换后15键。Vegetation406短文案ON/OFF完整显示、OFF→ON→OFF与ON/OFF冷读回、BackWorld/Home/收起，以及一次Home覆盖原生Options点击隔离已观察。首次正常应用和ON冷启各有一次真实普通Deer输入日志（0.027→0.081、两季冬密度0.013→0.039、当前interval÷3、当前scene/layer/真实组件门）；这不代表长期数量、补充节奏或归还/异常路径全部验收。终态DeerOFF/游戏停止，装前首启动prefs/native字节保持；before/final native快照相等仅两个时点，不承诺全流程无保存。源码独审与文案修复独审/精确安装关口通过，设备claims独审及正常代码交付收尾待做；真实长期3x、完整池/换岛/读档、手机/平板与联机仍待验。见 tasks/issue-140/device-evidence.json；私有APK不分发。
+
+## 0.0.20 公共面板（Issue #144）
+
+PC 面板的调色板/样式与卡片绘制提取为共享源（`il2cpp/ModPanelStyles.cs`、`il2cpp/ModPanelControls.cs`；
+`GUI.DrawTexture` 桩绕行沿用 `il2cpp/ImGuiCompat.cs`），PC `ModPanel` 只做样式/卡片调用替换：原字号、
+几何、ConfigEntry 回调、Slider 的 `Event.current` 门控与 Update/LateUpdate 全部原位。Android 新增
+`MobileModPanel`（唯一 hotControl 手势、固定外框 min(320,可用宽) × min(480,可用高) × Scale、安全区
+裁剪、内容视口滚动、中文导航“主页/玩家/世界/生成/人口”与关闭）与纯手势状态机 `PanelGesture`；
+四个 MobileMenu 与 MobilePopulation 只做 presentation，经 `panel.Toggle/Step/Info` 公共路径登记 tap rect
+并绘制（无 GUI.Button、无自持坐标）；15 个可用设置各只在一条页面出现一次；卡片不使用 GUI.Button 抢
+capture；日历行改中文日期/季节串、人口八角色+骑士仅中文展示（Tick/时钟驱动与日志采样不变）；
+浮球 48/72、默认折叠、贴边拖动与 `HitPanelBody` 球优先保持，触摸过滤仍覆盖完整面板矩形。
+
+Android 原生 GUI 的实际兼容差异集中在共享 UI 边界：该游戏裁掉了 RectOffset 的整对象赋值、
+GUIStyleState.background 的 getter/setter，以及旧 CalcSize/DrawTexture 入口。样式改为写自己的
+RectOffset 四个字段；Android 值/导航样式从原生 label 派生，纯色背板经真实 native Label、矩阵
+缩放和显式 viewport 求交绘制；尺寸测量使用真实 CalcSizeWithConstraints 的零约束。
+纯色绘制与命中共用一份 IntersectRect。PC 原生 Button/Slider 与宽卡绘制保持原分支；无字体扫描、
+API 假面、每帧重建或追加补偿路径。
+
+最终源码：真实 interop SDK10 `-t:Rebuild` 0W0E，Main `5fc712f4…` / 151040B；strict 适配层
+623/0、43 个 source pins、0 skip。PC SDK8 Release 编译 0W0E（`419d2aa3…`）：6796 个共有方法
+中 6791 保持，5 个具名纯 UI 方法变化、增加 1 个纯数学 helper 和 3 个纯 UI 类型；34 个资源的
+名称和字节保持。历史中间候选及实际失败保留在任务采证中；旧 seed 矩阵结果不冒充最终候选重跑。
+
+模拟器验证：Android API35 ARM64、Unity 6000.0.61f1，最终测试 APK `f9702e2b…` 内嵌/实际加载
+同一 Main，25 个旧接入形状和 15 项配置保持，只有主 Mod，无 ERROR。中文、深色金色卡片、固定
+导航/关闭、内容裁剪、末卡可滚入视野、水平/垂直/回原点及拖出面板的取消点击、浮球两侧拖拽、
+Calendar 原回调、原生菜单叠放输入隔离、外侧操作及失焦取消后新点击恢复均有具名记录。
+实际 640×360 GUI / 1280×720 屏幕下，球直径 24/48、触控方 36/72、面板 160×240/320×480；
+不是整屏遮罩。设置已恢复，测试游戏已停止。原生档与配置的命名快照相等只证明那些时点；
+GUI.skin 四组边距/overflow 的两点采样一致不证明任意时刻的所有属性。见
+`docs/project-harness/tasks/issue-144/device-evidence.json` 与 `implementation.md`。
+
+未验：真实 Android 手机/平板、多指同时在面板外操作、全部 DPI/旋转/文字尺度及联机。PC 只编译
+与语义审计、未运行或部署，Mono 未构建。本 UI 批不替代已有 15 项功能的完整玩法验收；私有测试
+APK 不分发，不作正式版本发布。后续功能统一经 panel.Toggle/Step/Info 接入。

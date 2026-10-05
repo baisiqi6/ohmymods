@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.19", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.20", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.19 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.20 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
@@ -164,29 +164,33 @@ public sealed class Probe : MelonMod
 public sealed class ProbeTicker : MonoBehaviour
 {
  private readonly MobileUiInputSurface inputSurface = new();
+ private readonly MobileModPanel panel = new();
  private bool guiLogged;
  private int actionLogs;
  private int ownControlId;
  private bool renderFailed;
  private Texture2D orb;
  private GUIContent orbContent;
- private GUIStyle labelStyle, titleStyle, buttonStyle, orbStyle;
+ private GUIStyle orbStyle;
  internal static bool UiReady;
  internal static readonly FloatLayout Layout = new();
  public ProbeTicker(IntPtr ptr) : base(ptr) { }
  public void OnDisable() { CancelGesture(); }
- public void OnDestroy() { CancelGesture(); inputSurface.Dispose(); }
+ public void OnDestroy() { CancelGesture(); panel.Dispose(); inputSurface.Dispose(); }
  public void OnApplicationFocus(bool focused) { if (!focused) CancelGesture(); }
- private void CancelGesture() { UiReady=false; FloatInput.Reset(); if (ownControlId!=0 && GUIUtility.hotControl==ownControlId) GUIUtility.hotControl=0; Layout.Cancel(); inputSurface.Hide(); }
+ private void CancelGesture() { panel.CancelGesture(); UiReady=false; FloatInput.Reset(); if (ownControlId!=0 && GUIUtility.hotControl==ownControlId) GUIUtility.hotControl=0; Layout.Cancel(); inputSurface.Hide(); }
  public void OnGUI()
  {
   if (renderFailed) return;
   if (Il2Cpp.ProgramDirector.state!=Il2Cpp.ProgramDirector.State.RunningGame) { CancelGesture(); return; }
   string stage="color"; Color oldColor=Color.white; var oldMatrix=GUI.matrix;
+  var oldSkin=GUI.skin; var oldBackground=GUI.backgroundColor; var oldContent=GUI.contentColor;
+  bool oldEnabled=GUI.enabled,oldChanged=GUI.changed;
   try
   {
    oldColor=GUI.color; GUI.matrix=Matrix4x4.identity; stage="layout";
-   Layout.Resize(Screen.width,Screen.height);
+   var safe=Screen.safeArea;
+   Layout.Resize(Screen.width,Screen.height,safe.xMin,Screen.height-safe.yMax,safe.xMax,Screen.height-safe.yMin);
    if (!Layout.Captured && ownControlId!=0 && GUIUtility.hotControl==ownControlId) GUIUtility.hotControl=0;
    if (!guiLogged) { guiLogged=true; MelonLogger.Msg($"OHMYMODS_FLOAT_GUI size={Screen.width}x{Screen.height} diameter={Layout.Diameter}"); }
    stage="texture"; if (orb == null) CreateOrb();
@@ -200,6 +204,7 @@ public sealed class ProbeTicker : MonoBehaviour
    else if (GUIUtility.hotControl==id && Layout.Captured && e.type==EventType.MouseUp)
    {
     bool clicked=Layout.End(e.mousePosition.x,e.mousePosition.y); GUIUtility.hotControl=0;
+    if(clicked) panel.CancelGesture();
     if (actionLogs++ < 10) MelonLogger.Msg($"OHMYMODS_FLOAT_{(clicked ? "TOGGLE" : "DRAG")} open={Layout.Expanded} x={Layout.X:0.0} y={Layout.Y:0.0}");
     e.Use();
    }
@@ -210,53 +215,19 @@ public sealed class ProbeTicker : MonoBehaviour
    GUI.color=oldColor;
    if (Layout.Expanded)
    {
-    float px=Layout.PanelX, py=Layout.PanelY, u=Layout.Scale;
-    if(labelStyle==null)
-    {
-     labelStyle=new GUIStyle(GUI.skin.label);labelStyle.fontSize=(int)(20*Layout.Scale);
-     titleStyle=new GUIStyle(labelStyle);titleStyle.fontSize=(int)(22*Layout.Scale);
-     buttonStyle=new GUIStyle(GUI.skin.button);buttonStyle.fontSize=(int)(20*Layout.Scale);
-    }
-    labelStyle.fontSize=(int)(20*u);titleStyle.fontSize=(int)(22*u);buttonStyle.fontSize=(int)(20*u);
-    GUI.Box(new Rect(px,py,Layout.PanelWidth,Layout.PanelHeight),"");
-    if(Layout.GenerationPage)
-    {
-     MobileGenerationMenu.Draw(px,py,u,labelStyle,titleStyle,buttonStyle);
-    }
-    else if(Layout.PlayerPage)
-    {
-     MobilePlayerMenu.Draw(px,py,u,labelStyle,titleStyle,buttonStyle);
-    }
-    else if(Layout.VegetationPage)
-    {
-     MobileVegetationMenu.Draw(px,py,u,labelStyle,titleStyle,buttonStyle);
-    }
-    else if(Layout.WorldPage)
-    {
-     MobileWorldMenu.Draw(px,py,u,labelStyle,titleStyle,buttonStyle);
-    }
-    else if(Layout.PopulationPage)
-    {
-     GUI.Label(new Rect(px+16*u,py+12*u,248*u,42*u),"Population",titleStyle);
-     MobilePopulation.DrawPanel(px,py,u,labelStyle);
-     if(GUI.Button(new Rect(px+16*u,py+296*u,248*u,64*u),"Back",buttonStyle))Layout.PopulationPage=false;
-    }
-    else
-    {
-     GUI.Label(new Rect(px+16*u,py+12*u,248*u,42*u),"OhMyMods",titleStyle);
-     GUI.Label(new Rect(px+16*u,py+52*u,248*u,40*u),MobileCalendar.PanelText,labelStyle);
-     if (GUI.Button(new Rect(px+16*u,py+98*u,248*u,64*u),MobileCalendar.Enabled ? "Calendar: ON" : "Calendar: OFF",buttonStyle)) MobileCalendar.Toggle();
-     if (GUI.Button(new Rect(px+16*u,py+176*u,248*u,64*u),"Population",buttonStyle))Layout.PopulationPage=true;
-     if (GUI.Button(new Rect(px+16*u,py+254*u,248*u,64*u),"Player",buttonStyle))Layout.PlayerPage=true;
-     if (GUI.Button(new Rect(px+16*u,py+332*u,248*u,64*u),"World",buttonStyle)) Layout.WorldPage=true;
-     if (GUI.Button(new Rect(px+16*u,py+410*u,248*u,64*u),"Island generation",buttonStyle)) Layout.GenerationPage=true;
-     if (GUI.Button(new Rect(px+16*u,py+488*u,248*u,64*u),"Close",buttonStyle)) Layout.Expanded=false;
-    }
+    GUI.color=GUI.backgroundColor=GUI.contentColor=Color.white;
+    GUI.enabled=true;
+    panel.Draw(Layout);
    }
    stage="input surface"; inputSurface.Sync(gameObject,Layout,UiReady);
   }
   catch (Exception ex) { renderFailed=true; UiReady=false; CancelGesture(); MelonLogger.Error("OHMYMODS_FLOAT_RENDER_FAILED stage="+stage+" "+ex); }
-  finally { if (stage!="color") GUI.color=oldColor; GUI.matrix=oldMatrix; }
+  finally
+  {
+   if (stage!="color") GUI.color=oldColor;
+   GUI.skin=oldSkin; GUI.backgroundColor=oldBackground; GUI.contentColor=oldContent;
+   GUI.matrix=oldMatrix; GUI.enabled=oldEnabled; GUI.changed=oldChanged;
+  }
  }
  private void CreateOrb()
  {

@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Host-side checks for the Android adapter layer:
-       - FloatLayout page heights / touch-filter boundaries (Home 484, World 484, Player 406,
-         Population 376; pure System math),
-       - ModConfig MelonPreferences contract: one category, eight declared entries,
+       - FloatLayout pure geometry (fixed 320x480 max panel via safe-area Resize, content
+         viewport/ScrollMax reachability, orb-priority HitPanelBody) and the pure PanelGesture
+         state machine (tap once / sticky scroll / cancel / release-outside / clamps),
+       - ModConfig MelonPreferences contract: one category, fifteen declared entries,
          load-boundary clamps (seed flags: seed-speed, seed-enemy-count, seed-enemy-timeline;
          NaN and Infinity fallbacks), save-on-switch only, and the Initialize(Action&lt;bool&gt;)
          money seam firing exactly at cold start and each toggle (MelonLogger / MelonPreferences
@@ -12,8 +13,8 @@
          (EnemyStubs.cs): 1x/2x/5x, session-switch OFF, ties-to-even rounding, ref outputs,
        - metadata checks on the built OhMyMods.AndroidProbe.dll (HarmonyDontPatchAll attribute,
          the four private static Hold handlers, the two public static enemy prefixes, the
-         farm-cat handlers + coroutine bridge + no ScaleRegistryHolder stand-in, and the
-         Forge/Ammo/Mead/Enemy/Wallet/FarmCats interop bindings).
+         farm-cat handlers + coroutine bridge + no ScaleRegistryHolder stand-in, the
+         Forge/Ammo/Mead/Enemy/Wallet/FarmCats interop bindings, and the common panel type).
        Run: dotnet run -c Release, then pass the built OhMyMods.AndroidProbe.dll path as the
        single program argument (see android/README.md). -->
 
@@ -30,6 +31,7 @@
 
   <ItemGroup>
     <Compile Include="../FloatLayout.cs" />
+    <Compile Include="../PanelGesture.cs" />
     <Compile Include="../MobilePlayerConfig.cs" />
     <!-- Unmodified production source, linked read-only: the enemy prefix math runs against the
          host doubles in EnemyStubs.cs (Harmony attributes / Mathf / EnemyManager / Wave /

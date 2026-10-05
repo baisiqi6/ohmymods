@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "issue": "https://github.com/baisiqi6/ohmymods/issues/144",
+  "stage": "source and emulator evidence; code PR not merged yet",
+  "main": {
+    "version": "0.0.20",
+    "sha256": "5fc712f4e31fea57a7cba295f6e1c424bb65b6147cc7b7e57091f814a3a8e6ca",
+    "bytes": 151040,
+    "realAndroidBuild": "SDK10 Rebuild 0 warnings 0 errors",
+    "strictAdapter": {
+      "passed": 623,
+      "failed": 0,
+      "sourcePins": 43,
+      "skipped": 0
+    }
+  },
+  "pc": {
+    "sha256": "419d2aa3db6124c79865f8b96f3a0afb17c2e8685be6d634fecbf9e6e88fed1c",
+    "realBuild": "SDK8 Release 0 warnings 0 errors",
+    "commonMethods": 6796,
+    "sameMethods": 6791,
+    "namedPureUiChangedMethods": 5,
+    "newPureMathHelpers": 1,
+    "newPureUiTypes": 3,
+    "resourcesByteSame": 34,
+    "runtimePlayed": false,
+    "deployed": false
+  },
+  "apk": {
+    "originalSHA256": "4b40edd3e7eefb6df43e6777d566bda366179b5e245dd8f20e87810b0b56732d",
+    "apkSHA256": "f9702e2b2119e8530e2bd6e490cfc49d290f39dd9a38752141d53d3c298de1d8",
+    "mainSHA256": "5fc712f4e31fea57a7cba295f6e1c424bb65b6147cc7b7e57091f814a3a8e6ca",
+    "mainBytes": 151040,
+    "apkBytes": 1908870179,
+    "originalMembers": 22317,
+    "candidateMembers": 22687,
+    "byteEqualOriginalMembers": 22313,
+    "changedOriginalMembers": [
+      "META-INF/MANIFEST.MF",
+      "lib/arm64-v8a/libmain.so"
+    ],
+    "removedSignatures": [
+      "META-INF/SHADOW.RSA",
+      "META-INF/SHADOW.SF"
+    ],
+    "addedMembers": 372,
+    "singleMain": [
+      "assets/LemonLoader/deployment/Mods/OhMyMods.AndroidProbe.dll"
+    ],
+    "allMembersReadWithCrcVerification": true,
+    "formalDistribution": false,
+    "signatureVerified": true
+  },
+  "emulator": {
+    "androidAPI": 35,
+    "ABI": "arm64",
+    "unityVersion": "6000.0.61f1",
+    "installedBaseAPKMatchesCandidate": true,
+    "firstLaunchPrefsNativeByteSame": true,
+    "clearedData": false,
+    "onlyMain": true,
+    "loadedMainSHA256": "5fc712f4e31fea57a7cba295f6e1c424bb65b6147cc7b7e57091f814a3a8e6ca",
+    "hookCount": 25,
+    "hookShapesPreserved": true,
+    "settingsCount": 15,
+    "settingsBaselineRestored": true,
+    "errors": 0,
+    "coldDefaultCollapsed": true,
+    "finalNamedSnapshotUTC": "2026-10-05T03:21:30.592632+00:00",
+    "namedPreferencesSHA256": "92ae752a89175c219e5d77c299cea40345800bc4e418819c2be4ffd416a3c666",
+    "namedNativeSHA256": "7ba5f975c098f07fe3e4b13dfe10a32a9575508d22ca5a8a82941cc063236bf8",
+    "processStopped": "Operator force-stop record; later independent read-only pidof exit1 confirms no current process",
+    "observed": [
+      "Chinese native font on all current pages",
+      "dark and gold PC palette",
+      "fixed navigation and close controls",
+      "foreground and solid viewport clipping",
+      "last Player and Vegetation rows reachable by scroll",
+      "horizontal/vertical/out-and-back motion cancels action",
+      "release outside panel cancels action",
+      "orb drag to both edges and collapse",
+      "Calendar callback false/true and original settings restoration",
+      "native menu overlap does not activate obscured Resume",
+      "outside Resume remains usable",
+      "held touch across HOME focus loss cancels old release; next new tap works"
+    ],
+    "skinSample": "same skinId and four numeric RectOffset groups at two sample times only"
+  },
+  "pending": [
+    "real Android phones and tablets",
+    "simultaneous multipointer outside gameplay",
+    "all DPI, rotations and text scales",
+    "multiplayer",
+    "full gameplay acceptance of existing features"
+  ],
+  "history": {
+    "olderAPK036a": "diagnostic mixed embedded6e/files5fc; not final APK acceptance",
+    "nativeMissingCalls": [
+      "GUIStyle::AssignRectOffset_Injected",
+      "GUIStyleState::set_background_Injected",
+      "GUIStyle::Internal_CalcSize_Injected"
+    ],
+    "retainedProbeFailures": "private V1-V6, old source/native errors, and expected raw PC MISMATCH retained separately",
+    "operatorCaptureMistakes": "one wrong coordinate toggled FastBuild then restored; one wrapper assumed full-row Calendar tap would not toggle, actual expected action recorded and restored",
+    "temporaryHelpers": "precisely moved out of Mods; never packaged",
+    "ownedMetadata": "old source-binding.json moved to UserData disabled with same SHA; final package contains only deployment Mods/Main"
+  },
+  "privateEvidence": "android-port-continuation-20261003 task artifact root; raw source/build/review, APK content audit, action log, screenshots and config/native snapshots retained locally; no game binary or native save distributed",
+  "codeDeliveryPending": true,
+  "fullLiveAccepted": false
+}

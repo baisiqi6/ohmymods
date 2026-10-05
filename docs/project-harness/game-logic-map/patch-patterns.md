@@ -949,3 +949,18 @@ Mover.SetSpeed参考源码将_movingToGoal=false但仍设置_moveSpeed，不能�
 ### 2026-09-25 零时长动画切换与收势出口
 
 真实2.4resources.assets的knight/knight_bamboo：AnyState→PowerSlash持续0秒，PowerSlash循环且唯一出口需要Land，Land结束再回Stand。不能以“观察到IsInTransition后才承认状态”捕获它，也不能ResetTrigger当退出；旧日志DefaultHash=-526882654正是PowerSlash毒化。已验证fullPath播放与Land契约替代猜测网。Animator.Play可能延迟到动画求值，同帧失败须连pending Play一并排退出；所有Reset/Set/Play均限定原Animator及controller，不只给Play/Land加门。测试桩必须区分shortNameHash/fullPathHash，避免真假状态门不同步。
+
+### Android 2.4 / Unity 6000.0.61f1 的公共 IMGUI 边界（Issue #144）
+
+- 真实 interop 里有方法不证明游戏保留该 native 调用。实际展开证实 RectOffset 整对象 setter
+  与 GUIStyleState.background setter 缺失；有界原生/API 侦查另证旧 CalcSize 调用缺失、
+  DrawTexture 为 throw stub。写自己的 RectOffset 四字段、CalcSizeWithConstraints(Vector2.zero)
+  和 native Label 已分别实测。
+- Android 原生 box/button 样式包含游戏装饰。无装饰的中文值与导航从 label 派生，纯色背板单独
+  使用共享 1×1 色块绘制 API；该 API 不承诺任意图片的 UV 裁切。
+- 矩阵放大后的纯色 Label 不自动服从 native Group 裁剪。产生处先求 viewport 交集，显式提供
+  group origin；绘制和 hit 共用 IntersectRect，空交集直接结束，不能再增加遮挡层补偿越界。
+- ADB 坐标是屏幕物理像素，GUI 尺寸来自实际游戏日志；此模拟器为 1280×720 对 640×360。
+  safeArea 可随系统栏变化，操作须以当前截图与 FloatLayout 为准，不能套历史坐标。
+- ScrollY 与 sticky 位移由唯一手势持有；普通关页不清游戏触摸租约。两时点 skin 数值相同只
+  证明那些属性在两个采样点一致，单指证据不证明多指或所有手机兼容。详见 tasks/issue-144/。

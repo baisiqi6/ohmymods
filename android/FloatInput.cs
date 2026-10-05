@@ -18,7 +18,8 @@ public static class FloatInput
    int count=__0.Count;
    if(count>16)return;
    var layout=ProbeTicker.Layout;
-   layout.Resize(Screen.width,Screen.height);
+   var safe=Screen.safeArea;
+   layout.Resize(Screen.width,Screen.height,safe.xMin,Screen.height-safe.yMax,safe.xMax,Screen.height-safe.yMin);
    Il2CppSystem.Collections.Generic.List<Touch> filtered=null;
    for(int i=0;i<count;i++)
    {

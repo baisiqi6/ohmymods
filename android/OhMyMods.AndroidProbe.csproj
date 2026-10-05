@@ -15,8 +15,9 @@
        The unmodified desktop sources il2cpp/BoatCapacityProfile.cs,
        il2cpp/PatchPlayer_HoldPurchase.cs,
        il2cpp/PatchWorld_EnemyManager.cs, il2cpp/PatchWorld_FarmCats.cs, il2cpp/FarmCatMovement.cs,
-       il2cpp/GreekScaleScope.cs, il2cpp/PatchWorld_Construction.cs and il2cpp/MapWidthPlanner.cs
-       are linked read-only (Compile Include below); il2cpp/MapWidthTerrain.cs,
+       il2cpp/GreekScaleScope.cs, il2cpp/PatchWorld_Construction.cs, il2cpp/MapWidthPlanner.cs
+       and the shared UI files il2cpp/ModPanelStyles.cs, il2cpp/ModPanelControls.cs and
+       il2cpp/ImGuiCompat.cs are linked read-only (Compile Include below); il2cpp/MapWidthTerrain.cs,
        il2cpp/PatchWorld_Level.cs and il2cpp/PatchWorld_FastForestRecede.cs are linked with an
        #if ANDROID alias header only, and il2cpp/PatchWorld_DeerPopulation.cs carries the same
        alias header plus the ANDROID-specific opt-in gate, default-off fast exit and captured
@@ -50,6 +51,8 @@
     <Compile Include="MobileWorldMenu.cs" />
     <Compile Include="MobileGenerationMenu.cs" />
     <Compile Include="MobileVegetationMenu.cs" />
+    <Compile Include="MobileModPanel.cs" />
+    <Compile Include="PanelGesture.cs" />
     <Compile Include="Probe.cs" />
     <Compile Include="MobileUiInputSurface.cs" />
     <Compile Include="FloatInput.cs" />
@@ -80,6 +83,11 @@
     <Compile Include="../il2cpp/PatchWorld_Level.cs" Link="Production/PatchWorld_Level.cs" />
     <Compile Include="../il2cpp/PatchWorld_FastForestRecede.cs" Link="Production/PatchWorld_FastForestRecede.cs" />
     <Compile Include="../il2cpp/PatchWorld_DeerPopulation.cs" Link="Production/PatchWorld_DeerPopulation.cs" />
+    <!-- Issue #144 公共 UI：与 PC 同一份样式工厂/纯绘制（无 BepInEx 依赖），
+         ImGuiCompat 提供 GUI.DrawTexture 桩的绕行实现。 -->
+    <Compile Include="../il2cpp/ModPanelStyles.cs" Link="Production/ModPanelStyles.cs" />
+    <Compile Include="../il2cpp/ModPanelControls.cs" Link="Production/ModPanelControls.cs" />
+    <Compile Include="../il2cpp/ImGuiCompat.cs" Link="Production/ImGuiCompat.cs" />
   </ItemGroup>
 
   <ItemGroup>
