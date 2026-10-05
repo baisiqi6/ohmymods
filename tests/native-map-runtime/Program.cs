@@ -2,11 +2,14 @@
 // src/MapResourceIconPlan.cs（不修改、不复制方法体），由真实 patch 入口（UpdateLand/MenuTick/ClearLands/
 // OnDisable）驱动控制流；Unity/Il2Cpp 桩来自 oldW R3 entry-probe（原样复制）并按 art 管线（PNG→Sprite）扩展。
 //
-// 场景：
-//  S1 world：扩展簇 terrain/outline 绑定同一 shore/outline；实际 Sprite.rect（228×84）等比框；
-//            16 真实项三行铺在 bottom 带且逐像素在岸内；原 10 统一倍率；state1 精确还原。
-//  S2 detail：唯一扩展 detail 绑定同一 shore；框 230 宽 @centerX+23、不遮 legend；world suspend 不撤 detail；
-//            icons OFF（current/visited 11）仍展示岸线；exact OnDisable 恢复 native 并释放租约。
+// 场景（issue-156 后）：
+//  S1–S12：扩展/共享几何回归（world/detail shore、owner token、commit barrier、viewport、release queue…）。
+//  S13 native resource passthrough：原版十岛零接管（冷开/提交/期满 reign/OFF/state1/换 campaign；
+//      原生状态逐值保持、holder=0、压制=0、source resolve/repaint=0、原生 art 读取=0；原十簇只允许统一 fit）。
+//  S14 return boundaries：统一归还处只归还已捕获扩展责任；legacy/native 账目只销毁 holder+清账，
+//      绝不按旧 OriginalActive 改写原生当次 activeSelf；registry 清后 captured 责任仍归还。
+//  S15 extension boundary + refresh parity：未登记 extra/伪 incoming 不接管、未访问 11 不揭露、
+//      OFF/locked 边界；focused/current reign 的 native refresh 与 16 项 Kind/TypeId 身份准确。
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,69 +27,6 @@ namespace RuntimeProbe
         private static int _checks;
         private static int _fails;
         private static int _frame = 7000;
-
-        /// <summary>
-        /// test 侧读取生产 `NativeArtShape`（反射；仅测试用）：规划空间 box + 顶点数组 + 读取结论。
-        /// 用于"生产顶点 == 独立 uGUI 公式顶点"的逐顶点验证（reviewer v3 要求）。
-        /// </summary>
-        private static bool TryReadProductionShape(RectTransform planSpace, UILand land, out MapIconBox planBox,
-            out float[] vertexX, out float[] vertexY, out string reason)
-        {
-            planBox = default;
-            vertexX = null;
-            vertexY = null;
-            reason = "reflection-failed";
-            const System.Reflection.BindingFlags f = System.Reflection.BindingFlags.NonPublic |
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public;
-            try
-            {
-                Type t = typeof(MapMountIcons);
-                System.Reflection.MethodInfo read = t.GetMethod("TryReadNativeArtShape",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-                Type shapeType = t.GetNestedType("NativeArtShape", System.Reflection.BindingFlags.NonPublic);
-                object shape = Activator.CreateInstance(shapeType);
-                object[] args = { planSpace, land, shape, null };
-                bool ok = (bool)read.Invoke(null, args);
-                reason = (string)args[3];
-                if (!ok) return false;
-                object box = shapeType.GetField("PlanBBox", f).GetValue(shape);
-                planBox = new MapIconBox(
-                    (float)box.GetType().GetField("X0", f).GetValue(box),
-                    (float)box.GetType().GetField("Y0", f).GetValue(box),
-                    (float)box.GetType().GetField("X1", f).GetValue(box),
-                    (float)box.GetType().GetField("Y1", f).GetValue(box));
-                object topo = shapeType.GetField("Topology", f).GetValue(shape);
-                if (topo == null) return false;
-                int count = (int)topo.GetType().GetField("VertexCount", f).GetValue(topo);
-                vertexX = (float[])topo.GetType().GetField("VertexX", f).GetValue(topo);
-                vertexY = (float[])topo.GetType().GetField("VertexY", f).GetValue(topo);
-                return count == vertexX.Length && count == vertexY.Length;
-            }
-            catch (Exception e)
-            {
-                reason = "reflection-failed:" + e.GetType().Name;
-                return false;
-            }
-        }
-
-        private static bool Near(float a, float b, float tolerance) => Math.Abs(a - b) <= tolerance;
-
-        /// <summary>有界日志转储（失败诊断用；只打印已记录的最后 N 行）。</summary>
-        private static void DumpLogTail(int lines)
-        {
-            try
-            {
-                List<string> sink = KingdomEnhancedPlugin.Instance?.LogSource?.Lines;
-                if (sink == null)
-                {
-                    Console.WriteLine("  log: <none>");
-                    return;
-                }
-                int from = sink.Count > lines ? sink.Count - lines : 0;
-                for (int i = from; i < sink.Count; i++) Console.WriteLine("  log| " + sink[i]);
-            }
-            catch (Exception) { }
-        }
 
         private static void Check(bool condition, string label)
         {
@@ -148,9 +88,9 @@ namespace RuntimeProbe
                 ScenarioS10ReviewParity();
                 ScenarioS11ExtensionDetailLayout();
                 ScenarioS12ReleaseQueueSaturation();
-                ScenarioS13IslandSurfaceContract();
-                ScenarioS14NativeShapeAndPaperScale();
-                ScenarioS15RendererParity();
+                ScenarioS13NativePassthrough();
+                ScenarioS14ReturnBoundaries();
+                ScenarioS15ExtensionBoundary();
                 if (_factsPath != null) ScenarioFacts();
             }
             catch (Exception e)
@@ -928,33 +868,16 @@ namespace RuntimeProbe
                 Check(false, "S11/native-boat-fixture-missing");
             }
 
-            // native 0..9（issue-152 岛内契约）：唯一 steed 条目落在 Steed1 原生槽位盒内（位置/尺度保留），
-            // 且整个 footprint 位于本岛底图（Land Image）盒内 —— 旧的“land rect + margin 外边距面”已废除。
+            // native 0..9（issue-156 边界，替换 issue-152 岛内契约）：原版 detail 的 steed 条目完全由原生显示，
+            // Mod 不建 holder、不动槽位显隐 —— 旧「槽心居中/岛形重排」接受条件由 S13/S15 的原生零接管断言接替。
             UILand nativeDetail = f.Greek.lands[0];
             RectTransform nativeRect = nativeDetail.gameObject.GetComponent<RectTransform>();
-            List<RectTransform> nativeIcons = CollectIcons(nativeRect, 1);
-            Check(nativeIcons.Count == 1, "S11/native-detail-icons got=" + nativeIcons.Count);
-            if (nativeIcons.Count == 1)
-            {
-                // stub 归一化：holder 的 anchoredPosition(0,0) 落成 localPosition(0,0)（缺“父 rect 原点 - 锚点
-                // 参考”常量）→ 图标盒先扣除 holder 盒原点，回到真实 land 左下的 placement 空间。
-                RectTransform nativeHolderRt = CollectHolder(nativeRect, 1);
-                MapIconBox nativeHolderBox = nativeHolderRt != null
-                    ? LandLocalBox(nativeRect, nativeHolderRt) : default;
-                MapIconBox rawActual = LandLocalBox(nativeRect, nativeIcons[0]);
-                MapIconBox actual = new MapIconBox(rawActual.X0 - nativeHolderBox.X0, rawActual.Y0 - nativeHolderBox.Y0,
-                    rawActual.X1 - nativeHolderBox.X0, rawActual.Y1 - nativeHolderBox.Y0);
-                MapIconBox slotBox = DetailSlotBox(nativeRect, "Steed1");
-                RectTransform landImage = FindChild(nativeRect, "Land Image");
-                MapIconBox artBox = landImage != null ? LandLocalBox(nativeRect, landImage) : default;
-                Check(Inside(actual, artBox, 0.05f), "S11/native-icon-inside-art actual=" + Fmt(actual) +
-                    " art=" + Fmt(artBox));
-                bool centered = Math.Abs((actual.X0 + actual.X1) * 0.5f - (slotBox.X0 + slotBox.X1) * 0.5f) < 0.05f &&
-                    Math.Abs((actual.Y0 + actual.Y1) * 0.5f - (slotBox.Y0 + slotBox.Y1) * 0.5f) < 0.05f;
-                bool nativeSize = Math.Abs(actual.Width - 20f) < 0.05f && Math.Abs(actual.Height - 20f) < 0.05f;
-                Check(centered && nativeSize, "S11/native-first-slot-centered actual=" + Fmt(actual) +
-                    " slot=" + Fmt(slotBox));
-            }
+            Check(CountNamed(nativeRect.gameObject, "KEM_MapResourceIcons") == 0,
+                "S11/native-detail-no-root given=" + CountNamed(nativeRect.gameObject, "KEM_MapResourceIcons"));
+            Check(!ViewsContainsLand(nativeDetail, false), "S11/native-detail-no-view");
+            GameObject nativeSpawn = nativeDetail._dynamicMapIcons[0]._spawnedIcon.gameObject;
+            Check(nativeSpawn.activeSelf, "S11/native-slot-visible");
+            Check(nativeSpawn.SetActiveCalls == 0, "S11/native-slot-untouched calls=" + nativeSpawn.SetActiveCalls);
             f.Greek.OnDisable();
 
             // 不可满足（全遮挡 blocker）→ 整体 fallback：无 holder/无部分图标
@@ -970,26 +893,6 @@ namespace RuntimeProbe
             int after = CountNamed(g.ExtensionDetail.gameObject, "KEM_MapResourceIcons");
             Check(after == 0, "S11/whole-fallback-no-partial holders=" + before + "->" + after);
             g.Greek.OnDisable();
-        }
-
-        private static bool TryLocalBoxOf(RectTransform space, RectTransform target, out MapIconBox box)
-            => TryLocalBoxViaReflection(space, target, out box);
-
-        private static bool TryLocalBoxViaReflection(RectTransform space, RectTransform target, out MapIconBox box)
-        {
-            box = default;
-            try
-            {
-                System.Reflection.MethodInfo method = typeof(MapMountIcons).GetMethod("TryLocalBox",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static, null,
-                    new[] { typeof(RectTransform), typeof(RectTransform), typeof(MapIconBox).MakeByRefType() }, null);
-                if (method == null) return false;
-                object[] args = { space, target, null };
-                bool ok = (bool)method.Invoke(null, args);
-                if (ok) box = (MapIconBox)args[2];
-                return ok;
-            }
-            catch (Exception) { return false; }
         }
 
         /// <summary>
@@ -1214,584 +1117,724 @@ namespace RuntimeProbe
         /// 绝不岛外兜底。未解锁岛簇仍不揭露（原生 gate 回归）。
         /// 对 baseline 红：旧实现详情把整个 land+margin 当 surface、把 Land Image 当 blocker，总览用岛外 RegionRects。
         /// </summary>
-        private static void ScenarioS13IslandSurfaceContract()
+        // ================================================================== issue-156 native passthrough / boundaries
+
+        /// <summary>原生侧可观察状态快照（整棵子树逐节点）：activeSelf / SetActive 次数 / rect 字段 /
+        /// Image.sprite 身份。用于对照「Mod 回调后原生资源状态逐值保持」。</summary>
+        private sealed class NativeNodeState
         {
-            Console.WriteLine("== S13 island-surface contract (#152) ==");
-            int[] types = { 21, 22, 23, 24, 25, 26, 13, 14, 15, 16, 2, 4, 7, 3, 38, 6 };
-            Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
-            // land0：3 个真实条目（1 个匹配 Steed1 原生槽 + 2 个 extras；detail 模板只有 Steed1/Hermit/Statue）
-            f.Current.landData[0].steedSpawns = Steeds(21, 22, 38);
-            Tick(f, 2);
-            UpdateDetails(f);
+            internal GameObject Node;
+            internal string Name;
+            internal bool RootGeometrySkipped;   // 原十簇根几何属于授权统一变换，不逐值比对
+            internal bool Active;
+            internal int SetActiveCalls;
+            internal Vector2 SizeDelta;
+            internal Vector2 AnchoredPosition;
+            internal Vector3 LocalScale;
+            internal bool HasImage;
+            internal Sprite Sprite;
+        }
 
-            // ---- (a) detail：首槽位置/尺度保留 + extras 只在底图内 + 船标避障 ----
-            UILand land0 = f.Greek.lands[0];
-            RectTransform rect0 = land0.gameObject.GetComponent<RectTransform>();
-            List<RectTransform> icons = CollectIcons(rect0, 3);
-            if (icons.Count != 3) DumpLogTail(20);
-            Check(icons.Count == 3, "S13/detail-icons got=" + icons.Count);
-            if (icons.Count == 3)
+        private static void CaptureNativeNode(RectTransform node, List<NativeNodeState> into, bool skipGeometry)
+        {
+            if (node == null) return;
+            Image image = node.gameObject.GetComponent<Image>();
+            into.Add(new NativeNodeState
             {
-                RectTransform holderRt = CollectHolder(rect0, 3);
-                MapIconBox holderBox = holderRt != null ? LandLocalBox(rect0, holderRt) : default;
-                RectTransform landImage = FindChild(rect0, "Land Image");
-                MapIconBox artBox = landImage != null ? LandLocalBox(rect0, landImage) : default;
-                MapIconBox slotBox = DetailSlotBox(rect0, "Steed1");
-                MapIconBox boatBox = f.DetailBoat != null ? LandLocalBox(rect0, f.DetailBoat) : default;
-                var seen = new List<int>(3);
-                bool allInsideArt = true, allClearBoat = true, slotCentered = false, extrasClearSlot = true;
-                foreach (RectTransform icon in icons)
-                {
-                    MapIconBox raw = LandLocalBox(rect0, icon);
-                    MapIconBox box = new MapIconBox(raw.X0 - holderBox.X0, raw.Y0 - holderBox.Y0,
-                        raw.X1 - holderBox.X0, raw.Y1 - holderBox.Y0);
-                    int type = ParseIconType(icon.gameObject.name);
-                    seen.Add(type);
-                    if (!Inside(box, artBox, 0.05f)) allInsideArt = false;
-                    if (box.Intersects(boatBox, 0.01f)) allClearBoat = false;
-                    if (type == 21)
-                    {
-                        // 首槽：条目的原生尺寸（25×16）等比居中放在 Steed1 槽位盒里
-                        slotCentered =
-                            Math.Abs((box.X0 + box.X1) * 0.5f - (slotBox.X0 + slotBox.X1) * 0.5f) < 0.05f &&
-                            Math.Abs((box.Y0 + box.Y1) * 0.5f - (slotBox.Y0 + slotBox.Y1) * 0.5f) < 0.05f &&
-                            Math.Abs(box.Width - 25f) < 0.05f && Math.Abs(box.Height - 16f) < 0.05f &&
-                            Inside(box, slotBox, 0.05f);
-                    }
-                    else if (box.Intersects(slotBox, 0.01f))
-                    {
-                        extrasClearSlot = false;   // extras 不侵入原生槽位原始占地
-                    }
-                }
-                seen.Sort();
-                Check(seen.Count == 3 && seen[0] == 21 && seen[1] == 22 && seen[2] == 38,
-                    "S13/detail-source-requestindex types=" + string.Join(",", seen));
-                Check(allInsideArt, "S13/detail-icons-inside-art art=" + Fmt(artBox));
-                // exact native sprite mesh：新增条目（extras）必须完整在岛形内（v2 review P1-1）
-                ProbeMeshMap detailMap = ProbeMeshMapOf(landImage, rect0, out MapIconBox detailDrawn);
-                bool detailShapeOk = true;
-                foreach (RectTransform icon in icons)
-                {
-                    MapIconBox raw = LandLocalBox(rect0, icon);
-                    var box = new MapIconBox(raw.X0 - holderBox.X0, raw.Y0 - holderBox.Y0,
-                        raw.X1 - holderBox.X0, raw.Y1 - holderBox.Y0);
-                    if (!MeshBoxInside(detailMap, AthenaMeshX, AthenaMeshY, AthenaMeshIndices, box))
-                    {
-                        detailShapeOk = false;
-                    }
-                }
-                Check(detailShapeOk, "S13/detail-icons-inside-island-shape drawn=" + Fmt(detailDrawn));
-                Check(slotCentered, "S13/detail-first-slot-centered slot=" + Fmt(slotBox));
-                Check(extrasClearSlot, "S13/detail-slot-footprint-reserved");
-                Check(allClearBoat, "S13/detail-boat-blocker-kept boat=" + Fmt(boatBox));
+                Node = node.gameObject,
+                Name = node.gameObject.name,
+                RootGeometrySkipped = skipGeometry,
+                Active = node.gameObject.activeSelf,
+                SetActiveCalls = node.gameObject.SetActiveCalls,
+                SizeDelta = node.sizeDelta,
+                AnchoredPosition = node.anchoredPosition,
+                LocalScale = node.localScale,
+                HasImage = image != null,
+                Sprite = image != null ? image.sprite : null,
+            });
+            for (int i = 0; i < node.childCount; i++)
+            {
+                if (node.GetChild(i) is RectTransform child) CaptureNativeNode(child, into, false);
             }
+        }
 
-            // ---- (b) overview：图标只落在**自己岛**的底图内（1:1 归属）；扩展岛仍 16 项/顶面内 ----
-            var artBoxes = new List<MapIconBox>(11);
+        private static List<NativeNodeState> CaptureNativeState(RectTransform root, bool skipRootGeometry)
+        {
+            var list = new List<NativeNodeState>(32);
+            if (root == null) return list;
+            CaptureNativeNode(root, list, skipRootGeometry);
+            return list;
+        }
+
+        private static List<List<NativeNodeState>> CaptureNativesDetail(Fixture f)
+        {
+            var result = new List<List<NativeNodeState>>(10);
             for (int i = 0; i < 10; i++)
             {
-                RectTransform art = ArtOf(f.Lands[i]) as RectTransform;
-                artBoxes.Add(art != null ? PaperArtBox(f.Paper, art) : default);
+                result.Add(CaptureNativeState(f.Greek.lands[i].gameObject.GetComponent<RectTransform>(), false));
             }
-            RectTransform extensionArt = ArtOf(f.Extension) as RectTransform;
-            artBoxes.Add(extensionArt != null ? PaperArtBox(f.Paper, extensionArt) : default);
+            return result;
+        }
 
-            var perCluster = new int[11];
-            int foreign = 0, placedTotal = 0;
-            var extensionTypes = new List<int>(16);
+        private static List<List<NativeNodeState>> CaptureNativesCluster(Fixture f)
+        {
+            var result = new List<List<NativeNodeState>>(10);
+            for (int i = 0; i < 10; i++)
+            {
+                // 原十簇根的位置/缩放由 MapOverviewLayout 统一 fit 授权变更；子节点必须逐值保持。
+                result.Add(CaptureNativeState(f.Lands[i].gameObject.GetComponent<RectTransform>(), true));
+            }
+            return result;
+        }
+
+        private static bool NativeStateEquals(List<NativeNodeState> before, List<NativeNodeState> after)
+        {
+            if (before.Count != after.Count) return false;
+            for (int i = 0; i < before.Count; i++)
+            {
+                if (before[i].Node != after[i].Node) return false;
+                if (before[i].Active != after[i].Active) return false;
+                if (before[i].SetActiveCalls != after[i].SetActiveCalls) return false;
+                if (before[i].HasImage != after[i].HasImage) return false;
+                if (before[i].HasImage && !ReferenceEquals(before[i].Sprite, after[i].Sprite)) return false;
+                if (before[i].RootGeometrySkipped) continue;
+                if (before[i].SizeDelta.x != after[i].SizeDelta.x ||
+                    before[i].SizeDelta.y != after[i].SizeDelta.y) return false;
+                if (before[i].AnchoredPosition.x != after[i].AnchoredPosition.x ||
+                    before[i].AnchoredPosition.y != after[i].AnchoredPosition.y) return false;
+                if (before[i].LocalScale.x != after[i].LocalScale.x ||
+                    before[i].LocalScale.y != after[i].LocalScale.y ||
+                    before[i].LocalScale.z != after[i].LocalScale.z) return false;
+            }
+            return true;
+        }
+
+        /// <summary>原生 art Image 字段读取总量（只读计数字段，不触发任何 getter）——Mod 不得读原生 art。</summary>
+        private static int NativeArtReadsTotal(Fixture f)
+        {
+            int total = 0;
+            for (int i = 0; i < 10; i++)
+            {
+                total += SubtreeImageReads(f.Greek.lands[i].gameObject.GetComponent<RectTransform>());
+                total += SubtreeImageReads(f.Lands[i].gameObject.GetComponent<RectTransform>());
+            }
+            return total;
+        }
+
+        private static int SubtreeImageReads(RectTransform root)
+        {
+            int total = 0;
+            var stack = new List<RectTransform>(8);
+            if (root != null) stack.Add(root);
+            while (stack.Count > 0)
+            {
+                RectTransform node = stack[stack.Count - 1];
+                stack.RemoveAt(stack.Count - 1);
+                Image image = node.gameObject.GetComponent<Image>();
+                if (image != null) total += image.ReadCalls;
+                for (int i = 0; i < node.childCount; i++)
+                {
+                    if (node.GetChild(i) is RectTransform child) stack.Add(child);
+                }
+            }
+            return total;
+        }
+
+        private static List<MapMountIconView> ViewsList() => (List<MapMountIconView>)ReadStatic("Views");
+
+        private static bool ViewsContainsLand(UILand land, bool overview)
+        {
+            List<MapMountIconView> views = ViewsList();
+            for (int i = 0; i < views.Count; i++)
+            {
+                MapMountIconView view = views[i];
+                if (view != null && view.Land == land && view.Overview == overview) return true;
+            }
+            return false;
+        }
+
+        private static void AssertNativesUnchanged(Fixture f, List<List<NativeNodeState>> detailBefore,
+            List<List<NativeNodeState>> clusterBefore, string tag)
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                RectTransform detail = f.Greek.lands[i].gameObject.GetComponent<RectTransform>();
+                RectTransform cluster = f.Lands[i].gameObject.GetComponent<RectTransform>();
+                Check(CountNamed(detail.gameObject, "KEM_MapResourceIcons") == 0, tag + "/detail-holder-" + i);
+                Check(CountNamed(cluster.gameObject, "KEM_MapResourceIcons") == 0, tag + "/cluster-holder-" + i);
+                Check(!ViewsContainsLand(f.Greek.lands[i], false), tag + "/detail-view-" + i);
+                Check(!ViewsContainsLand(f.Lands[i], true), tag + "/cluster-view-" + i);
+                Check(NativeStateEquals(detailBefore[i], CaptureNativeState(detail, false)),
+                    tag + "/detail-state-" + i);
+                Check(NativeStateEquals(clusterBefore[i], CaptureNativeState(cluster, true)),
+                    tag + "/cluster-state-" + i);
+            }
+        }
+
+        /// <summary>原十簇统一变换（共同 cluster 空间）：s 一致且两两差值 = s × 原始差值；未提交时保持原值。</summary>
+        private static bool NativeFitUniform(Fixture f, out float scale, out string note)
+        {
+            scale = 0f;
+            note = "ok";
+            bool applied = ReadStatic("_overviewApplied") is bool appliedFlag && appliedFlag;
+            var rects = new List<RectTransform>(10);
+            for (int i = 0; i < 10; i++) rects.Add(f.Lands[i].gameObject.GetComponent<RectTransform>());
+            if (!applied)
+            {
+                for (int i = 0; i < 10; i++)
+                {
+                    if (rects[i].anchoredPosition.x != f.OriginalClusterPositions[i].x ||
+                        rects[i].anchoredPosition.y != f.OriginalClusterPositions[i].y)
+                    {
+                        note = "not-applied-but-moved-" + i;
+                        return false;
+                    }
+                }
+                note = "not-applied";
+                return true;
+            }
+            bool have = false;
+            for (int i = 0; i < 10; i++)
+            {
+                for (int j = i + 1; j < 10; j++)
+                {
+                    float dxO = f.OriginalClusterPositions[i].x - f.OriginalClusterPositions[j].x;
+                    float dyO = f.OriginalClusterPositions[i].y - f.OriginalClusterPositions[j].y;
+                    float dxT = rects[i].anchoredPosition.x - rects[j].anchoredPosition.x;
+                    float dyT = rects[i].anchoredPosition.y - rects[j].anchoredPosition.y;
+                    if (Math.Abs(dxO) < 4f && Math.Abs(dyO) < 4f) continue;
+                    float candidate = Math.Abs(dxO) >= 4f ? dxT / dxO : dyT / dyO;
+                    if (!have) { scale = candidate; have = true; }
+                    if (Math.Abs(candidate - scale) > 1e-3f ||
+                        Math.Abs(dxT - scale * dxO) > 0.05f || Math.Abs(dyT - scale * dyO) > 0.05f)
+                    {
+                        note = "pair-" + i + "-" + j + " s=" + candidate + " want=" + scale;
+                        return false;
+                    }
+                }
+            }
+            if (!have) { note = "no-distinct-pairs"; return false; }
+            if (!(scale > 0f) || scale > MapOverviewLayout.MaxUniformScale + 0.001f)
+            {
+                note = "scale-range " + scale;
+                return false;
+            }
+            for (int i = 0; i < 10; i++)
+            {
+                float got = rects[i].localScale.x;
+                float want = f.OriginalClusterScales[i] * scale;
+                if (Math.Abs(got - want) > 1e-3f)
+                {
+                    note = "scale-" + i + " got=" + got + " want=" + want;
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>注入 legacy（旧版本遗留/native）view：模拟既有账目，仅用于验证统一归还处的有界账务回收。
+        /// 只写测试侧可观察字段，不引入任何新入口授权。</summary>
+        private static MapMountIconView InjectLegacyView(UILand land, bool overview, GameObject holder,
+            GameObject suppressedTarget, bool originalActive)
+        {
+            var view = new MapMountIconView { Land = land, Overview = overview, LandIndex = 0, Holder = holder };
+            if (suppressedTarget != null)
+            {
+                view.Suppressed.Add(new SuppressedIcon
+                {
+                    Target = suppressedTarget,
+                    OriginalActive = originalActive,
+                });
+            }
+            ViewsList().Add(view);
+            return view;
+        }
+
+        private static void RemoveInjectedView(MapMountIconView view) => ViewsList().Remove(view);
+
+        private static GameObject MakeHolder(RectTransform parent)
+        {
+            var go = new GameObject("KEM_MapResourceIcons");
+            RectTransform rect = go.AddComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            return go;
+        }
+
+        /// <summary>扩展资源图标只存在于扩展 banner 内：全部 KEM holder 子图标数 = expected 且都在 banner 盒内。</summary>
+        private static bool ExtensionIconsInsideBanner(Fixture f, int expected, string tag)
+        {
             RectTransform[] holders = CollectHolders(f.Paper);
-            for (int h = 0; h < holders.Length; h++)
-            {
-                RectTransform holder = holders[h];
-                for (int c = 0; c < holder.childCount; c++)
-                {
-                    RectTransform icon = holder.GetChild(c) as RectTransform;
-                    if (icon == null) continue;
-                    placedTotal++;
-                    MapIconBox box = PaperArtBox(f.Paper, icon);
-                    int owner = -1;
-                    for (int i = 0; i < artBoxes.Count; i++)
-                    {
-                        if (!Inside(box, artBoxes[i], 0.05f)) continue;
-                        owner = i;
-                        break;
-                    }
-                    if (owner < 0) { foreign++; continue; }
-                    perCluster[owner]++;
-                    if (owner == 10) extensionTypes.Add(ParseIconType(icon.gameObject.name));
-                }
-            }
-            Check(foreign == 0, "S13/overview-icons-outside-own-art foreign=" + foreign);
-
-            // 归属判定之外的更强约束：每个 overview 图标必须完整落在**自己岛**的实际绘制形状（sprite mesh）内，
-            // 而不只是 art rect。原生簇没有资源槽 ⇒ 全部条目都由 planner 放进岛形。
-            var clusterMaps = new ProbeMeshMap[10];
-            for (int i = 0; i < 10; i++)
-            {
-                RectTransform art = ArtOf(f.Lands[i]) as RectTransform;
-                clusterMaps[i] = art != null ? ProbeMeshMapOf(art, f.Paper, out _) : default;
-            }
-            int meshOutside = 0, meshChecked = 0;
-            for (int h = 0; h < holders.Length; h++)
-            {
-                RectTransform holder = holders[h];
-                for (int c = 0; c < holder.childCount; c++)
-                {
-                    RectTransform icon = holder.GetChild(c) as RectTransform;
-                    if (icon == null) continue;
-                    MapIconBox box = PaperArtBox(f.Paper, icon);
-                    int owner = -1;
-                    for (int i = 0; i < artBoxes.Count; i++)
-                    {
-                        if (!Inside(box, artBoxes[i], 0.05f)) continue;
-                        owner = i;
-                        break;
-                    }
-                    if (owner < 0 || owner >= 10 || !clusterMaps[owner].Valid) continue;
-                    meshChecked++;
-                    if (!MeshBoxInside(clusterMaps[owner], AthenaMeshX, AthenaMeshY, AthenaMeshIndices, box))
-                    {
-                        meshOutside++;
-                    }
-                }
-            }
-            Check(meshOutside == 0 && meshChecked >= 9,
-                "S13/overview-icons-inside-own-island-shape outside=" + meshOutside + " checked=" + meshChecked);
-            bool nativesOwned = true;
-            for (int i = 1; i < 10; i++) if (perCluster[i] != 1) nativesOwned = false;
-            Check(nativesOwned, "S13/overview-native-ownership per=" + string.Join(",", perCluster));
-            extensionTypes.Sort();
-            int[] expectedTypes = (int[])types.Clone();
-            Array.Sort(expectedTypes);
-            Check(extensionTypes.Count == 16 && string.Join(",", extensionTypes) == string.Join(",", expectedTypes),
-                "S13/overview-extension-source-requestindex types=" + string.Join(",", extensionTypes));
-            Check(placedTotal >= 9 + 16, "S13/overview-icons-present placed=" + placedTotal);
-
-            // ---- (c) 原生 gate 回归：未解锁岛簇不建/即毁自有图标（不提前揭露） ----
-            UIMainMapLand locked = f.Lands[1].gameObject.GetComponent<UIMainMapLand>();
-            locked.IsUnlocked = false;
-            f.Map.UpdateLandIcons(f.Current);
-            int lockedIcons = 0;
-            holders = CollectHolders(f.Paper);
+            MapIconBox banner = PaperArtBox(f.Paper, ArtOf(f.Extension));
+            int total = 0;
+            bool inside = banner.Width > 1f;
             for (int h = 0; h < holders.Length; h++)
             {
                 for (int c = 0; c < holders[h].childCount; c++)
                 {
                     RectTransform icon = holders[h].GetChild(c) as RectTransform;
-                    if (icon != null && Inside(PaperArtBox(f.Paper, icon), artBoxes[1], 0.05f)) lockedIcons++;
+                    if (icon == null) continue;
+                    total++;
+                    if (!Inside(PaperArtBox(f.Paper, icon), banner, 0.5f)) inside = false;
                 }
             }
-            Check(lockedIcons == 0, "S13/locked-cluster-not-revealed icons=" + lockedIcons);
-            locked.IsUnlocked = true;
-            f.Greek.OnDisable();
-
-            // ---- (d) 岛内容量不足：整体 fallback（无 holder、无部分图标、原生槽精确还原），绝不岛外兜底 ----
-            Fixture g = BuildWorld(withExtension: true, steedCount: 16, types: types);
-            g.Current.landData[0].steedSpawns = Steeds(21, 22, 38);
-            Tick(g, 2);
-            RectTransform hostile = g.Greek.lands[0].gameObject.GetComponent<RectTransform>();
-            // 只盖住*底图*（land 左下 (20,25,144,118)）：旧实现会把图标排到岛外空白（holder 存在），
-            // 新实现 extras 必须整体 fail → 无 holder + 原生槽还原。
-            RectTransform cover = MakeRect("Art Blocker", hostile, new Vector2(124f, 93f), Vector2.zero,
-                new Vector2(0.5f, 0.5f));
-            FixedAnchor(cover, hostile, new Vector2(0.5f, 0.5f), new Vector2(-8f, -3.5f));
-            cover.gameObject.AddComponent<Image>();
-            UpdateDetails(g);
-            Check(CountNamed(hostile.gameObject, "KEM_MapResourceIcons") == 0,
-                "S13/capacity-fail-no-partial holders=" + CountNamed(hostile.gameObject, "KEM_MapResourceIcons"));
-            bool restored = true;
-            string[] slotNames = { "Steed1", "Hermit", "Statue" };
-            for (int i = 0; i < slotNames.Length; i++)
-            {
-                RectTransform slot = FindChild(hostile, slotNames[i]);
-                RectTransform spawned = slot != null ? FindChild(slot, "Spawned " + slotNames[i]) : null;
-                if (spawned == null || !spawned.gameObject.activeSelf) restored = false;
-            }
-            Check(restored, "S13/capacity-fail-native-slots-restored");
-            g.Greek.OnDisable();
+            Check(total == expected, tag + "/extension-icons n=" + total);
+            Check(inside, tag + "/extension-icons-inside-banner");
+            return total == expected && inside;
         }
 
-        /// <summary>facade：真实 Il2CppStructArray&lt;SteedType&gt;（条目数组覆盖用）。</summary>
-        /// <summary>
-        /// S14（review v2 回归：native 岛形约束 + 自然 paper 倍率）——
-        /// (a) 岛形之外的海角必须被拒：只覆盖 art bbox 的旧规划在"唯一剩余空间在形外"的配置下仍会成功；
-        /// (b) overview：原 prefab 尺寸请求必须按实测自然 paper 倍率（art 自身 localScale × 全局 fit）换算，
-        ///     4 个真实资源 4/4 落在岛形内，rendered bbox 与 planner 同倍率（implied rung ∈ 阶梯且各图标一致）；
-        /// (c) 未知几何（空 mesh）→ 诚实整体保留 native（无 holder、无矩形兜底）；
-        /// (d) artist-authored 槽位不因矩形剪影触海被挪动或拒绝。
-        /// 断言只用既有入口与观察量（+ test 侧独立几何复核），同一测试可对 frozen v1 源码红、对本候选绿。
-        /// </summary>
-        private static void ScenarioS14NativeShapeAndPaperScale()
+        /// <summary>未登记 extra detail（owned menu 成员、登记桥拒绝，与真实模板同构）。</summary>
+        private static UILand MakeUnregisteredDetail(Fixture f, string name)
         {
-            Console.WriteLine("== S14 native shape + natural paper scale ==");
-            int[] sixteen = { 21, 22, 23, 24, 25, 26, 13, 14, 15, 16, 2, 4, 7, 3, 38, 6 };
-
-            // ---- (a) 形内被占满、只余形外海角 → 必须整体失败（不落海） ----
-            NativeIslandSpriteFactory = MakeHalfIslandSprite;
-            Fixture a = BuildWorld(withExtension: true, steedCount: 16, types: sixteen);
-            NativeIslandSpriteFactory = () => MakeNativeIslandSprite("athena_tholos_greece");
-            a.Current.landData[0].steedSpawns = Steeds(37, 33);   // 1 槽 + 1 extra
-            Tick(a, 2);
-            RectTransform aLand = a.Greek.lands[0].gameObject.GetComponent<RectTransform>();
-            RectTransform aArt = FindChild(aLand, "Land Image");
-            MapIconBox aArtBox = LandLocalBox(aLand, aArt);
-            // 岛形 = half 变体按 uGUI 公式的真实绘制盒；用覆盖该盒的 blocker 把形内占满
-            // ⇒ 只剩 bbox 海角（旧实现只按 bbox 规划会落海）。
-            ProbeMeshMap coverMap = ProbeMeshMapOf(aArt, aLand, out MapIconBox aDrawn);
-            RectTransform halfCover = MakeRect("Mesh Cover", aLand,
-                new Vector2(aDrawn.Width + 4f, aDrawn.Height + 4f), Vector2.zero, new Vector2(0.5f, 0.5f));
-            FixedAnchor(halfCover, aLand, new Vector2(0.5f, 0.5f),
-                new Vector2((aDrawn.X0 + aDrawn.X1) * 0.5f - aLand.rect.width * 0.5f,
-                            (aDrawn.Y0 + aDrawn.Y1) * 0.5f - aLand.rect.height * 0.5f));
-            halfCover.gameObject.AddComponent<Image>();
-            UpdateDetails(a);
-            if (CountNamed(aLand.gameObject, "KEM_MapResourceIcons") != 0) DumpLogTail(12);
-            Check(CountNamed(aLand.gameObject, "KEM_MapResourceIcons") == 0,
-                "S14/shape-outside-not-used holders=" + CountNamed(aLand.gameObject, "KEM_MapResourceIcons"));
-            Check(NativeSlotsRestored(aLand), "S14/shape-fail-native-restored");
-            a.Greek.OnDisable();
-
-            // ---- (b) overview 自然 paper 倍率：4 个真实资源 4/4 落在岛形内且只缩放一次 ----
-            Fixture b = BuildWorld(withExtension: true, steedCount: 16, types: sixteen);
-            b.Current.landData[0].steedSpawns = Steeds(37, 33);
-            b.Current.landData[0].hermit = Hermits(0);
-            b.Current.landData[0].statue = Statues(2);
-            Tick(b, 2);
-            List<RectTransform> icons = CollectIcons(b.Paper, 4);
-            Check(icons.Count == 4, "S14/overview-4-icons got=" + icons.Count);
-            RectTransform bArt = ArtOf(b.Lands[0]) as RectTransform;
-            ProbeMeshMap map = ProbeMeshMapOf(bArt, b.Paper, out MapIconBox drawn);
-            Check(map.Valid && drawn.Width > 2f, "S14/overview-drawn-box " + Fmt(drawn));
-            float naturalPaperScale = bArt.sizeDelta.x > 0.01f ? drawn.Width / bArt.sizeDelta.x : 0f;
-            Check(naturalPaperScale > 0.05f && naturalPaperScale < 0.95f,
-                "S14/overview-natural-paper-scale=" + naturalPaperScale.ToString("0.####") +
-                " drawn=" + Fmt(drawn) + " sizeDelta=" + bArt.sizeDelta);
-            bool allInsideShape = true, allInsideDrawn = true, rungConsistent = icons.Count > 0;
-            float impliedRung = -1f;
-            for (int i = 0; i < icons.Count; i++)
-            {
-                MapIconBox box = PaperArtBox(b.Paper, icons[i]);
-                if (!Inside(box, drawn, 0.5f)) allInsideDrawn = false;
-                if (!MeshBoxInside(map, AthenaMeshX, AthenaMeshY, AthenaMeshIndices, box)) allInsideShape = false;
-                if (!TryNativeIconSize(icons[i].gameObject.name, out float nativeW, out float nativeH) || nativeW <= 0f)
-                {
-                    rungConsistent = false;
-                    continue;
-                }
-                float rung = box.Width / (nativeW * naturalPaperScale);
-                if (impliedRung < 0f) impliedRung = rung;
-                else if (Math.Abs(rung - impliedRung) > 0.02f) rungConsistent = false;
-                if (box.Height > nativeH * naturalPaperScale * (impliedRung + 0.03f) + 0.05f) rungConsistent = false;
-            }
-            Check(allInsideShape, "S14/overview-icons-inside-island-shape");
-            if (!allInsideDrawn) DumpLogTail(8);
-            Check(allInsideDrawn, "S14/overview-icons-inside-drawn-box drawn=" + Fmt(drawn));
-            Check(rungConsistent && IsLadderRung(impliedRung) && impliedRung >= 0.36f,
-                "S14/overview-single-scale-factor rung=" + impliedRung.ToString("0.###") +
-                " paperScale=" + naturalPaperScale.ToString("0.####"));
-            b.Greek.OnDisable();
-
-            // ---- (c) 未知几何：空 mesh → 无自有图标 + 原生槽还原（绝不矩形兜底） ----
-            NativeIslandSpriteFactory = MakeMeshesUnavailableSprite;
-            Fixture c = BuildWorld(withExtension: true, steedCount: 16, types: sixteen);
-            NativeIslandSpriteFactory = () => MakeNativeIslandSprite("athena_tholos_greece");
-            Tick(c, 2);
-            UpdateDetails(c);
-            RectTransform cLand = c.Greek.lands[0].gameObject.GetComponent<RectTransform>();
-            Check(CountNamed(cLand.gameObject, "KEM_MapResourceIcons") == 0, "S14/unknown-mesh-no-icons");
-            Check(NativeSlotsRestored(cLand), "S14/unknown-mesh-native-restored");
-            MapIconBox cArtBox = PaperArtBox(c.Paper, ArtOf(c.Lands[0]) as RectTransform);
-            RectTransform[] cHolders = CollectHolders(c.Paper);
-            int cOverview = 0;
-            for (int h = 0; h < cHolders.Length; h++)
-            {
-                for (int ch = 0; ch < cHolders[h].childCount; ch++)
-                {
-                    RectTransform icon = cHolders[h].GetChild(ch) as RectTransform;
-                    if (icon == null) continue;
-                    if (PaperArtBox(c.Paper, icon).Intersects(cArtBox, 0.5f)) cOverview++;
-                }
-            }
-            Check(cOverview == 0, "S14/unknown-mesh-overview-absent icons=" + cOverview);
-            c.Greek.OnDisable();
-
-            // ---- (c2) 翻转/镜像 art：轴对齐映射无法表达 ⇒ 同样诚实整体保留 native ----
-            Fixture c2 = BuildWorld(withExtension: true, steedCount: 16, types: sixteen);
-            RectTransform c2Art = FindChild(c2.Greek.lands[0].gameObject.GetComponent<RectTransform>(), "Land Image");
-            c2Art.localScale = new Vector3(-1f, 1f, 1f);   // 镜像（真实数据不出现；必须失败关闭而非镜像错位）
-            Tick(c2, 2);
-            UpdateDetails(c2);
-            Check(CountNamed(c2.Greek.lands[0].gameObject, "KEM_MapResourceIcons") == 0,
-                "S14/flipped-art-no-icons");
-            Check(NativeSlotsRestored(c2.Greek.lands[0].gameObject.GetComponent<RectTransform>()),
-                "S14/flipped-art-native-restored");
-            c2.Greek.OnDisable();
-
-            // ---- (d) authored 槽位保留（槽位剪影在 diamond 的 bbox 海角上也不挪） ----
-            NativeIslandSpriteFactory = MakeDiamondIslandSprite;
-            Fixture d = BuildWorld(withExtension: true, steedCount: 16, types: sixteen);
-            NativeIslandSpriteFactory = () => MakeNativeIslandSprite("athena_tholos_greece");
-            d.Current.landData[0].steedSpawns = Steeds(37);
-            Tick(d, 2);
-            RectTransform dLand = d.Greek.lands[0].gameObject.GetComponent<RectTransform>();
-            RectTransform dSlot = FindChild(dLand, "Steed1");
-            FixedAnchor(dSlot, dLand, new Vector2(0.5f, 0.5f),
-                new Vector2(-58f, 42f));   // art bbox 左上角（diamond 之外）
-            MapIconBox slotBox = LandLocalBox(dLand, dSlot);
-            UpdateDetails(d);
-            List<RectTransform> dIcons = CollectIcons(dLand, 1);
-            Check(dIcons.Count == 1, "S14/authored-slot-kept got=" + dIcons.Count);
-            if (dIcons.Count == 1)
-            {
-                RectTransform holderRt = CollectHolder(dLand, 1);
-                MapIconBox holderBox = holderRt != null ? LandLocalBox(dLand, holderRt) : default;
-                MapIconBox raw = LandLocalBox(dLand, dIcons[0]);
-                var actual = new MapIconBox(raw.X0 - holderBox.X0, raw.Y0 - holderBox.Y0,
-                    raw.X1 - holderBox.X0, raw.Y1 - holderBox.Y0);
-                Check(Math.Abs((actual.X0 + actual.X1) * 0.5f - (slotBox.X0 + slotBox.X1) * 0.5f) < 0.05f &&
-                      Math.Abs((actual.Y0 + actual.Y1) * 0.5f - (slotBox.Y0 + slotBox.Y1) * 0.5f) < 0.05f,
-                    "S14/authored-slot-not-moved actual=" + Fmt(actual) + " slot=" + Fmt(slotBox));
-            }
-            d.Greek.OnDisable();
-
-            // ---- (e) 未访问 extension（landData[11] 为空）：资源保持空白，不提前揭露 ----
-            Fixture e = BuildWorld(withExtension: true, steedCount: 16, types: sixteen);
-            e.Current.landData[11].steedSpawns = new Il2CppStructArray<SteedType>(0);   // 未访问 = 无条目
-            Tick(e, 2);
-            UpdateDetails(e);
-            RectTransform eDetail = e.ExtensionDetail.gameObject.GetComponent<RectTransform>();
-            Check(CountNamed(eDetail.gameObject, "KEM_MapResourceIcons") == 0,
-                "S14/unvisited-extension-detail-blank holders=" +
-                CountNamed(eDetail.gameObject, "KEM_MapResourceIcons"));
-            MapIconBox eBanner = PaperArtBox(e.Paper, ArtOf(e.Extension) as RectTransform);
-            int eIcons = 0;
-            RectTransform[] eHolders = CollectHolders(e.Paper);
-            for (int h = 0; h < eHolders.Length; h++)
-            {
-                for (int ch = 0; ch < eHolders[h].childCount; ch++)
-                {
-                    RectTransform icon = eHolders[h].GetChild(ch) as RectTransform;
-                    if (icon == null) continue;
-                    if (PaperArtBox(e.Paper, icon).Intersects(eBanner, 0.5f)) eIcons++;
-                }
-            }
-            Check(eIcons == 0, "S14/unvisited-extension-overview-blank icons=" + eIcons);
-            e.Greek.OnDisable();
+            var land = new GameObject(name).AddComponent<UILand>();
+            RectTransform rect = land.gameObject.AddComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(180f, 150f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.SetParent(f.Holder, false);
+            RectTransform art = MakeRect("Land Image", rect, new Vector2(114f, 82f), new Vector2(0f, 0f),
+                new Vector2(0f, 0f));
+            FixedAnchor(art, rect, new Vector2(0f, 0f), new Vector2(25f, 30f));
+            art.gameObject.AddComponent<Image>().sprite = MakeNativeIslandSprite("unregistered_extra_island");
+            var hosts = new Il2CppReferenceArray<UIDynamicMapIcon>(3);
+            hosts[0] = MakeDetailSlot(rect, "Steed1", UIDynamicMapIcon.IconType.Steed, 1, new Vector2(38f, 26f));
+            hosts[1] = MakeDetailSlot(rect, "Hermit", UIDynamicMapIcon.IconType.Hermit, 1, new Vector2(22f, 20f));
+            hosts[2] = MakeDetailSlot(rect, "Statue", UIDynamicMapIcon.IconType.Statue, 1, new Vector2(20f, 36f));
+            land._dynamicMapIcons = hosts;
+            return land;
         }
 
         /// <summary>
-        /// issue-152 v3 reviewer 要求：**绘制顶点与 mask 顶点一致，并核验真实变换链**。
-        /// - (a) 生产 `NativeArtShape`（反射读出的规划空间顶点）与 test 侧独立实现的
-        ///   uGUI `Image` Simple+useSpriteMesh 公式逐顶点一致（含真实 art→paper 变换）；
-        /// - (b) `Sprite.bounds != rect/ppu` 反例：两边都按 bounds 归一，且与旧 v2（ppu 归一）位置显著不同；
-        /// - (c) pivot(0,0) + preserveAspect 变化：缩框按 pivot 锚定（非居中），旧 v2 居中结果不同；
-        /// - (d) overrideSprite：uGUI `activeSprite = overrideSprite ?? sprite`，几何取 override 的 mesh；
-        /// - (e) 不支持模式（useSpriteMesh=false / type!=Simple）：读取 fail-closed + 运行时整体保留 native。
+        /// S13（issue-156 红→绿核心反例）：原版十岛资源零接管。
+        /// 覆盖 detail/overview、冷开与提交后、非空/空集/entry null、当次/历史/越界/null reign、
+        /// ON/OFF、state0/1、关菜单与换 campaign；断言原生状态逐值保持、holder=0、压制=0、
+        /// source resolve/repaint=0、原生 art 读取=0；原十簇只允许共同空间的统一 fit。
         /// </summary>
-        private static void ScenarioS15RendererParity()
+        private static void ScenarioS13NativePassthrough()
         {
-            Console.WriteLine("== S15 renderer parity (uGUI Simple+useSpriteMesh) ==");
-            int[] sixteen = { 21, 22, 23, 24, 25, 26, 13, 14, 15, 16, 2, 4, 7, 3, 38, 6 };
+            Console.WriteLine("== S13 native resource passthrough (issue-156) ==");
+            int[] types = { 21, 22, 23, 24, 25, 26, 13, 14, 15, 16, 2, 4, 7, 3, 38, 6 };
 
-            // ---- (a) detail art：生产顶点 == 独立公式顶点 ----
-            Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: sixteen);
+            // (a) 只有原版十岛（无登记扩展）：全流程零资源活动（resolve/repaint/holder/view 全 0）
+            Fixture n0 = BuildWorld(withExtension: false, steedCount: 16, types: types);
+            var n0Detail = CaptureNativesDetail(n0);
+            var n0Cluster = CaptureNativesCluster(n0);
+            int n0Reads = NativeArtReadsTotal(n0);
+            UpdateDetails(n0);
+            n0.Map.UpdateLandIcons(n0.Current);
+            Tick(n0, 3);
+            Check(MapIconSources.ResolveCalls == 0, "S13/native-only-resolve=" + MapIconSources.ResolveCalls);
+            Check(ProbeHooks.RepaintCalls == 0, "S13/native-only-repaint=" + ProbeHooks.RepaintCalls);
+            Check(CollectHolders(n0.Paper).Length == 0 && ViewsList().Count == 0, "S13/native-only-no-roots");
+            Check(NativeArtReadsTotal(n0) == n0Reads, "S13/native-only-art-reads");
+            AssertNativesUnchanged(n0, n0Detail, n0Cluster, "S13/native-only");
+            Check(ReadStatic("_overviewApplied") is bool n0Applied && n0Applied,
+                "S13/native-only-shared-geometry-committed");
+            Check(NativeFitUniform(n0, out float n0Scale, out string n0Note), "S13/native-only-fit " + n0Note);
+            Check(n0Scale > 0.3f, "S13/native-only-fit-scale=" + n0Scale);
+            n0.Greek.OnDisable();
+
+            // (b) 登记扩展存在：原版十岛仍然零接管（混合 非空/空集/entry=null + 原生当次显隐）
+            Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
+            f.Current.landData[0].steedSpawns = Steeds(35);
+            f.Current.landData[0].hermit = Hermits(0);
+            f.Current.landData[0].statue = Statues(2);
+            f.Current.landData[1].steedSpawns = new Il2CppStructArray<SteedType>(0);
+            f.Current.landData[1].hermit = new Il2CppStructArray<Hermit.HermitType>(0);
+            f.Current.landData[1].statue = new Il2CppStructArray<Statue.Deity>(0);
+            f.Current.landData[2] = null;
+
+            // cold opening：真实回调先于任何 tick/commit
+            var detailBefore = CaptureNativesDetail(f);
+            var clusterBefore = CaptureNativesCluster(f);
+            UpdateDetails(f);
+            AssertNativesUnchanged(f, detailBefore, clusterBefore, "S13/opening");
+            Check(CollectHolders(f.Paper).Length == 0, "S13/opening-no-paper-root");
+
+            // 原生当次写入（模拟原生 UpdateLand 的显隐结果；Mod 零写入必须保持这些值）
+            GameObject slotHidden = f.Lands[0]._dynamicMapIcons[0]._spawnedIcon.gameObject;
+            slotHidden.SetActive(false);
+            GameObject slotVisible = f.Lands[3]._dynamicMapIcons[0]._spawnedIcon.gameObject;
+            slotVisible.SetActive(false);
+            slotVisible.SetActive(true);
+            GameObject detailHidden = f.Greek.lands[0]._dynamicMapIcons[0]._spawnedIcon.gameObject;
+            detailHidden.SetActive(false);
+
+            detailBefore = CaptureNativesDetail(f);
+            clusterBefore = CaptureNativesCluster(f);
+            int readsBefore = NativeArtReadsTotal(f);
+            int resolveBefore = MapIconSources.ResolveCalls;
+            int repaintBefore = ProbeHooks.RepaintCalls;
+
+            // 原生专属回调窗口：只驱动 0..9（扩展不参与）→ 任何 Mod 资源活动都是回归
+            for (int i = 0; i < 10; i++) f.Greek.lands[i].UpdateLand(f.Current, i);
+            for (int i = 0; i < 10; i++) f.Lands[i].UpdateLand(f.Current, i);
+            Check(MapIconSources.ResolveCalls == resolveBefore, "S13/native-window-resolve");
+            Check(ProbeHooks.RepaintCalls == repaintBefore, "S13/native-window-repaint");
+            Check(NativeArtReadsTotal(f) == readsBefore, "S13/native-window-art-reads");
+            AssertNativesUnchanged(f, detailBefore, clusterBefore, "S13/native-window");
+            Check(!slotHidden.activeSelf && slotVisible.activeSelf && !detailHidden.activeSelf,
+                "S13/native-window-active-kept");
+
+            // OnClusterEnabled：native cluster 不触碰任何 view/holder
+            f.Lands[1].gameObject.GetComponent<UIMainMapLand>().OnEnable();
+            AssertNativesUnchanged(f, detailBefore, clusterBefore, "S13/cluster-enable");
+
+            // 几何提交 + native refresh：共享几何照常（扩展生效），原十岛仍零接管
+            detailBefore = CaptureNativesDetail(f);
+            clusterBefore = CaptureNativesCluster(f);
+            readsBefore = NativeArtReadsTotal(f);
             Tick(f, 2);
-            RectTransform land = f.Greek.lands[0].gameObject.GetComponent<RectTransform>();
-            UILand landComp = f.Greek.lands[0];
-            RectTransform art = FindChild(land, "Land Image");
-            Check(TryReadProductionShape(land, landComp, out MapIconBox prodBox, out float[] prodX, out float[] prodY,
-                    out string prodReason), "S15/detail-shape-read " + prodReason);
-            ProbeMeshMap detailMap = ProbeMeshMapOf(art, land, out MapIconBox detailDrawn);
-            Check(detailMap.Valid, "S15/detail-map-valid");
-            float detailErr = 0f;
-            int detailMatched = 0;
-            if (prodX != null && prodX.Length == AthenaMeshX.Length && detailMap.Valid)
+            f.Map.UpdateLandIcons(f.Current);
+            Check(NativeArtReadsTotal(f) == readsBefore, "S13/post-commit-art-reads");
+            AssertNativesUnchanged(f, detailBefore, clusterBefore, "S13/post-commit");
+            Check(ReadStatic("_overviewApplied") is bool applied && applied, "S13/post-commit-applied");
+            Check(NativeFitUniform(f, out float fitScale, out string fitNote), "S13/uniform-cluster-space " + fitNote);
+            Check(fitScale > 0.3f && fitScale <= MapOverviewLayout.MaxUniformScale + 0.001f,
+                "S13/uniform-scale=" + fitScale);
+            Check(ExtensionIconsInsideBanner(f, 16, "S13/native-window"), "S13/extension-served");
+
+            // 当前/历史/越界/null reign：native 一律不受影响
+            var history = MakeReign("hist", 11, 40, 1);
+            history.landData[11].steedSpawns = Steeds(37, 33);
+            f.Campaign.previousReigns.Add(history);
+            detailBefore = CaptureNativesDetail(f);
+            clusterBefore = CaptureNativesCluster(f);
+            readsBefore = NativeArtReadsTotal(f);
+            f.Greek.focusedReign = 1;
+            f.Map.UpdateLandIcons(history);
+            f.Greek.focusedReign = 7;                       // 越界：native refresh skip
+            f.Map.UpdateLandIcons(history);
+            f.Greek.focusedReign = -1;                      // 负值：skip
+            f.Map.UpdateLandIcons(f.Current);
+            f.Greek.lands[0].UpdateLand(null, 0);           // null reign 直接回调
+            f.Lands[0].UpdateLand(null, 0);
+            Check(NativeArtReadsTotal(f) == readsBefore, "S13/reign-art-reads");
+            AssertNativesUnchanged(f, detailBefore, clusterBefore, "S13/reign-mix");
+            f.Greek.focusedReign = 0;
+            f.Campaign.previousReigns.Clear();
+            Tick(f, 2);                                     // 恢复 current 几何/图标
+
+            // OFF：撤回自有资源但保留扩展必需几何；native 仍零接管
+            detailBefore = CaptureNativesDetail(f);
+            clusterBefore = CaptureNativesCluster(f);
+            readsBefore = NativeArtReadsTotal(f);
+            int resolveOff = MapIconSources.ResolveCalls;
+            ModConfig.CrossWorldMountsEnabled.Value = false;
+            UpdateDetails(f);
+            Tick(f, 2);
+            Check(MapIconSources.ResolveCalls == resolveOff, "S13/off-resolve");
+            Check(NativeArtReadsTotal(f) == readsBefore, "S13/off-art-reads");
+            AssertNativesUnchanged(f, detailBefore, clusterBefore, "S13/off");
+            Check(CollectHolders(f.Paper).Length == 0 &&
+                  CountNamed(f.ExtensionDetail.gameObject, "KEM_MapResourceIcons") == 0, "S13/off-icons-withdrawn");
+            Check(ReadStatic("_overviewApplied") is bool offApplied && offApplied, "S13/off-geometry-kept");
+            ModConfig.CrossWorldMountsEnabled.Value = true;
+
+            // state1（single）：world 几何撤回到原生；原十簇恢复原始位置/缩放；native 零接管
+            detailBefore = CaptureNativesDetail(f);
+            clusterBefore = CaptureNativesCluster(f);
+            f.Greek._openWorldMapState = MapTimelineMenuGreece.OpenWorldMapState.ShowingSingleIsland;
+            Tick(f, 1);
+            AssertNativesUnchanged(f, detailBefore, clusterBefore, "S13/single");
+            Check(CollectHolders(f.Paper).Length == 0, "S13/single-no-roots");
+            for (int i = 0; i < 10; i++)
             {
-                for (int i = 0; i < AthenaMeshX.Length; i++)
-                {
-                    float ex = detailMap.PlanXFromUnitX(AthenaMeshX[i]);
-                    float ey = detailMap.PlanYFromUnitY(AthenaMeshY[i]);
-                    float dx = Math.Abs(ex - prodX[i]), dy = Math.Abs(ey - prodY[i]);
-                    detailErr = Math.Max(detailErr, Math.Max(dx, dy));
-                    if (dx < 1e-3f && dy < 1e-3f) detailMatched++;
-                }
+                RectTransform rect = f.Lands[i].gameObject.GetComponent<RectTransform>();
+                Check(rect.anchoredPosition.x == f.OriginalClusterPositions[i].x &&
+                      rect.anchoredPosition.y == f.OriginalClusterPositions[i].y,
+                    "S13/single-restore-" + i);
             }
-            Check(detailMatched == AthenaMeshX.Length && detailErr < 1e-3f,
-                "S15/detail-vertex-parity matched=" + detailMatched + "/" + AthenaMeshX.Length +
-                " err=" + detailErr.ToString("0.####"));
-            Check(Math.Abs(prodBox.X0 - detailDrawn.X0) < 1e-3f && Math.Abs(prodBox.Y0 - detailDrawn.Y0) < 1e-3f &&
-                  Math.Abs(prodBox.X1 - detailDrawn.X1) < 1e-3f && Math.Abs(prodBox.Y1 - detailDrawn.Y1) < 1e-3f,
-                "S15/detail-box-parity prod=" + Fmt(prodBox) + " test=" + Fmt(detailDrawn));
-            // 规划空间顶点必须与 mesh bbox 自洽（PlanBBox = 变换后顶点包围盒）
-            float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
-            for (int i = 0; prodX != null && i < prodX.Length; i++)
-            {
-                minX = Math.Min(minX, prodX[i]); maxX = Math.Max(maxX, prodX[i]);
-                minY = Math.Min(minY, prodY[i]); maxY = Math.Max(maxY, prodY[i]);
-            }
-            Check(prodX != null && Math.Abs(minX - prodBox.X0) < 1e-3f && Math.Abs(maxX - prodBox.X1) < 1e-3f &&
-                  Math.Abs(minY - prodBox.Y0) < 1e-3f && Math.Abs(maxY - prodBox.Y1) < 1e-3f,
-                "S15/detail-box-is-vertex-bbox");
+            Check(NativeFitUniform(f, out _, out string singleNote), "S13/single-native-baseline " + singleNote);
+
+            // 回 world：重新提交（viewport/geometry 重启），native 仍零接管
+            detailBefore = CaptureNativesDetail(f);
+            clusterBefore = CaptureNativesCluster(f);
+            readsBefore = NativeArtReadsTotal(f);
+            f.Greek._openWorldMapState = MapTimelineMenuGreece.OpenWorldMapState.ShowingWorld;
+            Tick(f, 4);
+            Check(ReadStatic("_overviewApplied") is bool backApplied && backApplied, "S13/back-to-world-applied");
+            Check(NativeArtReadsTotal(f) == readsBefore, "S13/back-art-reads");
+            AssertNativesUnchanged(f, detailBefore, clusterBefore, "S13/back-to-world");
+            Check(NativeFitUniform(f, out float backScale, out string backNote), "S13/back-fit " + backNote);
+            Check(backScale > 0.3f, "S13/back-fit-scale=" + backScale);
+
+            // 视口更换：可见域尺寸变化 → 有界复测周期（提交或诚实保持 native 基线），native 仍零接管
+            detailBefore = CaptureNativesDetail(f);
+            clusterBefore = CaptureNativesCluster(f);
+            readsBefore = NativeArtReadsTotal(f);
+            SetVisible(f, 170f, 60f);
+            Tick(f, 4);
+            Check(NativeArtReadsTotal(f) == readsBefore, "S13/viewport-art-reads");
+            AssertNativesUnchanged(f, detailBefore, clusterBefore, "S13/viewport-change");
+            Check(NativeFitUniform(f, out _, out string viewportNote), "S13/viewport-fit " + viewportNote);
+
+            // 关菜单（正常收尾）：native 零接管；随后换 campaign 重建
+            detailBefore = CaptureNativesDetail(f);
+            clusterBefore = CaptureNativesCluster(f);
+            readsBefore = NativeArtReadsTotal(f);
             f.Greek.OnDisable();
+            Check(NativeArtReadsTotal(f) == readsBefore, "S13/disable-art-reads");
+            AssertNativesUnchanged(f, detailBefore, clusterBefore, "S13/disable");
+            Check(CollectHolders(f.Paper).Length == 0, "S13/disable-roots-cleared");
 
-            // ---- (b) bounds != rect/ppu：strong 反例（bounds = mesh bbox 的 0.5 倍）----
-            NativeIslandSpriteFactory = MakeHalfBoundsIslandSprite;
-            Fixture g = BuildWorld(withExtension: true, steedCount: 16, types: sixteen);
+            Fixture g = BuildWorld(withExtension: true, steedCount: 16, types: types);
+            var gDetail = CaptureNativesDetail(g);
+            var gCluster = CaptureNativesCluster(g);
+            int gReads = NativeArtReadsTotal(g);
+            UpdateDetails(g);
             Tick(g, 2);
-            RectTransform gLand = g.Greek.lands[0].gameObject.GetComponent<RectTransform>();
-            RectTransform gArt = FindChild(gLand, "Land Image");
-            Check(TryReadProductionShape(gLand, g.Greek.lands[0], out MapIconBox gBox, out float[] gX, out _,
-                    out string gReason), "S15/bounds-shape-read " + gReason);
-            ProbeMeshMap gMap = ProbeMeshMapOf(gArt, gLand, out _);
-            float boundsErr = 0f;
-            int boundsMatched = 0;
-            for (int i = 0; gX != null && i < AthenaMeshX.Length; i++)
-            {
-                float ex = gMap.PlanXFromUnitX(AthenaMeshX[i]);
-                boundsErr = Math.Max(boundsErr, Math.Abs(ex - gX[i]));
-                if (Math.Abs(ex - gX[i]) < 1e-3f) boundsMatched++;
-            }
-            Check(boundsMatched == AthenaMeshX.Length && boundsErr < 1e-3f,
-                "S15/bounds-vertex-parity matched=" + boundsMatched + " err=" + boundsErr.ToString("0.####"));
-            // v2 公式（v*ppu + pivot，按 rect 归一到 art rect）会给出不同位置 ⇒ 该反例对旧实现为红
-            float legacyX = gMap.PlanXFromLocal(AthenaMeshX[0] * 32f + 42f) * 0f +
-                            (gMap.OriginX + (AthenaMeshX[0] * 32f + 42f) / 84f * gMap.ArtW * gMap.ScaleX);
-            Check(gX != null && Math.Abs(legacyX - gX[0]) > 1f,
-                "S15/bounds-legacy-differs legacy=" + legacyX.ToString("0.####") + " canonical=" +
-                (gX == null ? 0f : gX[0]).ToString("0.####"));
+            Check(NativeArtReadsTotal(g) == gReads, "S13/campaign-art-reads");
+            AssertNativesUnchanged(g, gDetail, gCluster, "S13/campaign");
             g.Greek.OnDisable();
-            NativeIslandSpriteFactory = () => MakeNativeIslandSprite("athena_tholos_greece");
+        }
 
-            // ---- (c) pivot(0,0) + preserveAspect：缩框按 pivot 锚定（非居中）----
-            // detail art 114×82 vs sprite rect 84×62：spriteRatio(1.3548) < rectRatio(1.3902) ⇒ 宽缩、右侧收
-            // （pivot.x=0 ⇒ 左侧不动）。旧 v2 FitAspect 居中 ⇒ 两侧各收一半（红）。
-            Check(MapIconNativeArtPlan.TryBuildSimpleMeshDraw(114f, 82f, 0f, 0f, true, 84f, 62f, 42f, 0f,
-                    2.59375f, 1.71875f, out MapIconImageDraw detailDraw), "S15/pivot-aspect-build");
-            Check(Near(detailDraw.DrawingW, 82f * (84f / 62f), 0.01f) && Near(detailDraw.DrawingH, 82f, 0.01f),
-                "S15/pivot-aspect-size " + detailDraw.DrawingW.ToString("0.###") + "x" +
-                detailDraw.DrawingH.ToString("0.###"));
-            Check(Near(detailDraw.OffsetX, (0f - 42f / 84f) * detailDraw.DrawingW, 0.01f),
-                "S15/pivot-aspect-offset " + detailDraw.OffsetX.ToString("0.###"));
-            float centeredX0 = 25f + (114f - detailDraw.DrawingW) * 0.5f;   // v2 居中口径
-            float anchoredX0 = 25f;                                          // 规范：pivot.x=0 ⇒ 左侧不动
-            Check(Math.Abs(anchoredX0 - centeredX0) > 1f,
-                "S15/pivot-aspect-legacy-differs anchored=" + anchoredX0 + " centered=" + centeredX0);
+        /// <summary>
+        /// S14（issue-156 归还边界）：统一归还处只归还「已捕获扩展」责任；legacy/native 账目仅销毁自有
+        /// holder + 清账，绝不按旧 OriginalActive 改写原生当次 activeSelf；登记被清后的真实 captured
+        /// 扩展责任仍须归还（不依赖当前 registry）。
+        /// </summary>
+        private static void ScenarioS14ReturnBoundaries()
+        {
+            Console.WriteLine("== S14 return boundaries (issue-156) ==");
+            int[] types = { 21, 22, 23, 24, 25, 26, 13, 14, 15, 16, 2, 4, 7, 3, 38, 6 };
 
-            // ---- (c2) preserveAspect=false：生产必须用**读到的** flag（而不是硬编码 true）----
-            FixturePreserveAspectOverride = false;
-            Fixture j = BuildWorld(withExtension: true, steedCount: 16, types: sixteen);
-            Tick(j, 2);
-            RectTransform jLand = j.Greek.lands[0].gameObject.GetComponent<RectTransform>();
-            RectTransform jArt = FindChild(jLand, "Land Image");
-            Check(TryReadProductionShape(jLand, j.Greek.lands[0], out MapIconBox jBox, out float[] jX,
-                    out float[] jY, out string jReason), "S15/no-aspect-shape-read " + jReason);
-            ProbeMeshMap jMap = ProbeMeshMapOf(jArt, jLand, out MapIconBox jDrawn);
-            float jErr = 0f;
-            int jMatched = 0;
-            for (int i = 0; jX != null && i < AthenaMeshX.Length; i++)
+            // (a) ON：native postfix 不进入资源路径（legacy 账目留给明确归还边界，native 状态零写入）
             {
-                float ex = jMap.PlanXFromUnitX(AthenaMeshX[i]);
-                float ey = jMap.PlanYFromUnitY(AthenaMeshY[i]);
-                jErr = Math.Max(jErr, Math.Max(Math.Abs(ex - jX[i]), Math.Abs(ey - jY[i])));
-                if (Math.Abs(ex - jX[i]) < 1e-3f && Math.Abs(ey - jY[i]) < 1e-3f) jMatched++;
+                Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
+                Tick(f, 2);
+                UILand land = f.Greek.lands[1];
+                GameObject slot = land._dynamicMapIcons[0]._spawnedIcon.gameObject;
+                slot.SetActive(false);
+                GameObject holder = MakeHolder(land.gameObject.GetComponent<RectTransform>());
+                MapMountIconView legacy = InjectLegacyView(land, false, holder, slot, true);
+                int callsBefore = slot.SetActiveCalls;
+                land.UpdateLand(f.Current, 1);
+                Check(!slot.activeSelf, "S14/on-postfix-active-kept");
+                Check(slot.SetActiveCalls == callsBefore, "S14/on-postfix-no-write");
+                Check(holder != null && legacy.Holder == holder, "S14/on-postfix-legacy-untouched");
+                RemoveInjectedView(legacy);
+                f.Greek.OnDisable();
             }
-            Check(jMatched == AthenaMeshX.Length && jErr < 1e-3f,
-                "S15/no-aspect-vertex-parity matched=" + jMatched + " err=" + jErr.ToString("0.####"));
-            Check(jMap.DrawingW > 0f && Near(jMap.DrawingW, 114f, 0.01f) && Near(jMap.DrawingH, 82f, 0.01f),
-                "S15/no-aspect-drawing-size=" + jMap.DrawingW.ToString("0.##") + "x" + jMap.DrawingH.ToString("0.##"));
-            Check(jBox.Width > 100f, "S15/no-aspect-box-wider=" + jBox.Width.ToString("0.#"));
-            j.Greek.OnDisable();
-            FixturePreserveAspectOverride = null;
 
-            // ---- (d) overrideSprite：几何取 override 的 mesh ----
-            NativeArtOverrideSpriteFactory = MakeDiamondIslandSprite;
-            Fixture h = BuildWorld(withExtension: true, steedCount: 16, types: sixteen);
-            Tick(h, 2);
-            RectTransform hLand = h.Greek.lands[0].gameObject.GetComponent<RectTransform>();
-            Check(TryReadProductionShape(hLand, h.Greek.lands[0], out _, out float[] hX, out _, out string hReason),
-                "S15/override-shape-read " + hReason);
-            Check(hX != null && hX.Length == 4, "S15/override-mesh-used verts=" + (hX == null ? -1 : hX.Length));
-            Image hImage = FindChild(hLand, "Land Image").GetComponent<Image>();
-            Check(hImage != null && hImage.overrideSprite != null && hImage.sprite != null &&
-                  hImage.overrideSprite.name.StartsWith("counterexample_diamond"),
-                "S15/override-sprite-field-kept name=" + (hImage == null || hImage.overrideSprite == null
-                    ? "<none>" : hImage.overrideSprite.name));
-            h.Greek.OnDisable();
-            NativeArtOverrideSpriteFactory = null;
-
-            // ---- (e) 不支持模式：useSpriteMesh=false / type!=Simple ⇒ 读取失败 + 运行时保留 native ----
-            Fixture i1 = BuildWorld(withExtension: true, steedCount: 16, types: sixteen);
-            Tick(i1, 2);
-            RectTransform i1Land = i1.Greek.lands[0].gameObject.GetComponent<RectTransform>();
-            Image i1Image = FindChild(i1Land, "Land Image").GetComponent<Image>();
-            i1Image.useSpriteMesh = false;
-            i1.Current.landData[0].steedSpawns = Steeds(37, 33);
-            UpdateDetails(i1);
-            Check(TryReadProductionShape(i1Land, i1.Greek.lands[0], out _, out _, out _, out string offReason) == false &&
-                  offReason == "sprite-mesh-off", "S15/useSpriteMesh-off-reason=" + offReason);
-            Check(CountNamed(i1Land.gameObject, "KEM_MapResourceIcons") == 0 && NativeSlotsRestored(i1Land),
-                "S15/useSpriteMesh-off-native-kept");
-            i1.Greek.OnDisable();
-        }
-
-        /// <summary>反例 sprite：mesh 与 Athena 相同，但 Sprite.bounds 只有 mesh bbox 的一半（bounds≠rect/ppu 的强反例）。</summary>
-        private static Sprite MakeHalfBoundsIslandSprite()
-        {
-            Sprite sprite = MakeNativeIslandSprite("counterexample_half_bounds");
-            Bounds full = sprite.bounds;
-            sprite.bounds = new Bounds(full.center, new Vector3(full.size.x * 0.5f, full.size.y * 0.5f, 0f));
-            return sprite;
-        }
-
-        /// <summary>名称 "iconType_type(Clone)" → 原 prefab 尺寸（fixture 的真实尺寸表）。</summary>
-        private static bool TryNativeIconSize(string name, out float width, out float height)
-        {
-            width = 0f;
-            height = 0f;
-            if (string.IsNullOrEmpty(name)) return false;
-            // 形如 "SourceIcon 1_37(Clone)"：最后一个空格后是 "<iconType>_<type>"。
-            int underscore = name.LastIndexOf('_');
-            int space = name.LastIndexOf(' ');
-            if (underscore <= 0 || space < 0 || space + 1 >= underscore) return false;
-            if (!int.TryParse(name.Substring(space + 1, underscore - space - 1), out int iconType)) return false;
-            int end = name.IndexOf('(', underscore);
-            string digits = end > 0 ? name.Substring(underscore + 1, end - underscore - 1)
-                : name.Substring(underscore + 1);
-            if (!int.TryParse(digits, out int type)) return false;
-            if (!NativeIconSizes.TryGetValue(iconType + "/" + type, out Vector2 size)) return false;
-            width = size.x;
-            height = size.y;
-            return true;
-        }
-
-        /// <summary>fixture 用的 (iconType/type) 真实尺寸（icon-rects.json 实测值）。</summary>
-        private static readonly Dictionary<string, Vector2> NativeIconSizes = new Dictionary<string, Vector2>
-        {
-            { "1/37", new Vector2(40f, 28f) }, { "1/33", new Vector2(40f, 20f) },
-            { "0/2", new Vector2(20f, 36f) }, { "2/0", new Vector2(18f, 24f) },
-        };
-
-        private static bool IsLadderRung(float rung)
-        {
-            for (int i = 0; i < MapResourceIconPlanner.Scales.Length; i++)
+            // (b) OFF（LayoutWithoutIcons→WithdrawIcons）：legacy 账目 holder 销毁 + 清账，activeSelf 保留当次值
             {
-                if (Math.Abs(MapResourceIconPlanner.Scales[i] - rung) <= 0.02f) return true;
+                Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
+                Tick(f, 2);
+                UILand land = f.Greek.lands[1];
+                GameObject slot = land._dynamicMapIcons[0]._spawnedIcon.gameObject;
+                slot.SetActive(false);
+                GameObject holder = MakeHolder(land.gameObject.GetComponent<RectTransform>());
+                MapMountIconView legacy = InjectLegacyView(land, false, holder, slot, true);
+                int callsBefore = slot.SetActiveCalls;
+                ModConfig.CrossWorldMountsEnabled.Value = false;
+                land.UpdateLand(f.Current, 1);
+                Check(!slot.activeSelf, "S14/off-withdraw-active-kept");
+                Check(slot.SetActiveCalls == callsBefore, "S14/off-withdraw-no-write");
+                Check(holder == null, "S14/off-withdraw-holder-destroyed");
+                Check(!ViewsList().Contains(legacy), "S14/off-withdraw-account-cleared");
+                ModConfig.CrossWorldMountsEnabled.Value = true;
+                f.Greek.OnDisable();
             }
-            return false;
+
+            // (b2) 反向覆盖：OriginalActive=false、native 当次 true → 不得被写回 false
+            {
+                Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
+                Tick(f, 2);
+                UILand land = f.Greek.lands[1];
+                GameObject slot = land._dynamicMapIcons[0]._spawnedIcon.gameObject;
+                slot.SetActive(true);
+                GameObject holder = MakeHolder(land.gameObject.GetComponent<RectTransform>());
+                MapMountIconView legacy = InjectLegacyView(land, false, holder, slot, false);
+                int callsBefore = slot.SetActiveCalls;
+                ModConfig.CrossWorldMountsEnabled.Value = false;
+                land.UpdateLand(f.Current, 1);
+                Check(slot.activeSelf, "S14/off-reverse-active-kept");
+                Check(slot.SetActiveCalls == callsBefore, "S14/off-reverse-no-write");
+                Check(holder == null && !ViewsList().Contains(legacy), "S14/off-reverse-account-cleared");
+                ModConfig.CrossWorldMountsEnabled.Value = true;
+                f.Greek.OnDisable();
+            }
+
+            // (c) Invalidate（提交路径）：legacy overview 账目同样只清不写
+            {
+                Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
+                UILand cluster = f.Lands[2];
+                GameObject slot = cluster._dynamicMapIcons[0]._spawnedIcon.gameObject;
+                slot.SetActive(false);
+                GameObject holder = MakeHolder(f.Paper);
+                MapMountIconView legacy = InjectLegacyView(cluster, true, holder, slot, true);
+                int callsBefore = slot.SetActiveCalls;
+                Tick(f, 2);
+                Check(!slot.activeSelf, "S14/invalidate-active-kept");
+                Check(slot.SetActiveCalls == callsBefore, "S14/invalidate-no-write");
+                Check(holder == null, "S14/invalidate-holder-destroyed");
+                Check(!ViewsList().Contains(legacy), "S14/invalidate-legacy-removed");
+                f.Greek.OnDisable();
+            }
+
+            // (d) Suspend（state1）：legacy overview 账目销毁 + 移除 view，不写原生
+            {
+                Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
+                Tick(f, 2);
+                UILand cluster = f.Lands[3];
+                GameObject slot = cluster._dynamicMapIcons[0]._spawnedIcon.gameObject;
+                slot.SetActive(false);
+                GameObject holder = MakeHolder(f.Paper);
+                MapMountIconView legacy = InjectLegacyView(cluster, true, holder, slot, true);
+                int callsBefore = slot.SetActiveCalls;
+                f.Greek._openWorldMapState = MapTimelineMenuGreece.OpenWorldMapState.ShowingSingleIsland;
+                Tick(f, 1);
+                Check(!slot.activeSelf, "S14/suspend-active-kept");
+                Check(slot.SetActiveCalls == callsBefore, "S14/suspend-no-write");
+                Check(holder == null && !ViewsList().Contains(legacy), "S14/suspend-view-removed");
+                f.Greek.OnDisable();
+            }
+
+            // (e) 已捕获扩展责任：ClearLands 先清登记 → 真实 captured 责任仍归还（四图 + 槽 + view 账）
+            {
+                Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
+                Sprite overviewNative = ArtImage(f.Extension).sprite;
+                Sprite detailNative = f.DetailLandImage.sprite;
+                GameObject overviewSlot = f.Extension._dynamicMapIcons[0]._spawnedIcon.gameObject;
+                GameObject detailSlot = f.ExtensionDetail._dynamicMapIcons[0]._spawnedIcon.gameObject;
+                Tick(f, 2);
+                UpdateDetails(f);
+                Check(!overviewSlot.activeSelf, "S14/captured-suppressed");
+                f.Greek.ClearLands();                       // registry 先清 → 再 OnMenuLandsCleared 归还租约
+                f.Extension.UpdateLand(f.Current, 11);      // 登记已清：DropUnregisteredView 仍须归还 captured 槽
+                f.ExtensionDetail.UpdateLand(f.Current, 10);
+                Check(overviewSlot.activeSelf, "S14/captured-overview-restored");
+                Check(detailSlot.activeSelf, "S14/captured-detail-restored");
+                Check(CountNamed(f.Extension.gameObject, "KEM_MapResourceIcons") == 0 &&
+                      CountNamed(f.ExtensionDetail.gameObject, "KEM_MapResourceIcons") == 0,
+                    "S14/captured-holders-gone");
+                Check(ReferenceEquals(ArtImage(f.Extension).sprite, overviewNative), "S14/captured-overview-native");
+                Check(ReferenceEquals(f.DetailLandImage.sprite, detailNative), "S14/captured-detail-native");
+                Check(MapExtensionIslandArt.LeaseCount == 0, "S14/captured-lease-returned");
+                f.Greek.OnDisable();
+            }
         }
 
-        /// <summary>三个接管槽位的原生 spawned 图标都回到可见（整体 fallback 的可观察证据）。</summary>
-        private static bool NativeSlotsRestored(RectTransform land)
+        /// <summary>
+        /// S15（issue-156 扩展边界 + 刷新身份）：未登记 extra/伪 incoming 不接管；未访问 11 不揭露；
+        /// OFF 时已访问扩展几何保持；locked 簇不揭露；focused/current reign 的 native refresh 与
+        /// 16 项 Kind/TypeId 身份准确（替代旧 S15 renderer-parity：native 不再有自绘/网格约束）。
+        /// </summary>
+        private static void ScenarioS15ExtensionBoundary()
         {
-            string[] names = { "Steed1", "Hermit", "Statue" };
-            for (int i = 0; i < names.Length; i++)
+            Console.WriteLine("== S15 extension boundary + refresh parity (issue-156) ==");
+            int[] types = { 21, 22, 23, 24, 25, 26, 13, 14, 15, 16, 2, 4, 7, 3, 38, 6 };
+
+            // (a) 未登记 extra（owned menu 成员，登记桥拒绝）：伪 incoming 0/11 都不得接管；
+            //     同一 fixture 的登记扩展仍照常服务（门没有砍错人）
             {
-                RectTransform slot = FindChild(land, names[i]);
-                if (slot == null) continue;
-                RectTransform spawned = FindChild(slot, "Spawned " + names[i]);
-                if (spawned == null || !spawned.gameObject.activeSelf) return false;
+                Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
+                Tick(f, 2);
+                UILand extra = MakeUnregisteredDetail(f, "Extra Land");
+                f.Greek.lands.Add(extra);
+                GameObject spawn = extra._dynamicMapIcons[0]._spawnedIcon.gameObject;
+                int callsBefore = spawn.SetActiveCalls;
+                int resolveBefore = MapIconSources.ResolveCalls;
+                extra.UpdateLand(f.Current, 0);    // 伪 native 前缀
+                extra.UpdateLand(f.Current, 11);   // 伪扩展
+                Check(CountNamed(extra.gameObject, "KEM_MapResourceIcons") == 0, "S15/extra-no-root");
+                Check(!ViewsContainsLand(extra, false), "S15/extra-no-view");
+                Check(spawn.activeSelf && spawn.SetActiveCalls == callsBefore, "S15/extra-native-untouched");
+                Check(MapIconSources.ResolveCalls == resolveBefore, "S15/extra-no-resolve");
+                Check(ExtensionIconsInsideBanner(f, 16, "S15/extra"), "S15/extra-extension-served");
+                f.Greek.OnDisable();
             }
-            return true;
+
+            // (b) 未访问 physical11（空资源集）：资源保持空白，不提前揭露
+            {
+                Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
+                f.Current.landData[11].steedSpawns = new Il2CppStructArray<SteedType>(0);
+                f.Current.landData[11].hermit = new Il2CppStructArray<Hermit.HermitType>(0);
+                f.Current.landData[11].statue = new Il2CppStructArray<Statue.Deity>(0);
+                Tick(f, 2);
+                UpdateDetails(f);
+                Check(CountNamed(f.ExtensionDetail.gameObject, "KEM_MapResourceIcons") == 0,
+                    "S15/unvisited-detail-blank");
+                Check(CollectHolders(f.Paper).Length == 0, "S15/unvisited-overview-blank");
+                f.Greek.OnDisable();
+            }
+
+            // (c) OFF 但已访问（current/visited 11）：资源撤回、扩展必需几何与岸线保持，native 仍零接管
+            {
+                Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
+                Tick(f, 2);
+                Check(ExtensionIconsInsideBanner(f, 16, "S15/off-pre"), "S15/off-pre-icons");
+                ModConfig.CrossWorldMountsEnabled.Value = false;
+                var detailBefore = CaptureNativesDetail(f);
+                var clusterBefore = CaptureNativesCluster(f);
+                int readsBefore = NativeArtReadsTotal(f);
+                UpdateDetails(f);
+                Tick(f, 2);
+                Check(ReadStatic("_overviewApplied") is bool applied && applied, "S15/off-geometry-kept");
+                Check(ReadStatic("_shoreOwnerToken") != null, "S15/off-shore-lease-kept");
+                Check(CollectHolders(f.Paper).Length == 0 &&
+                      CountNamed(f.ExtensionDetail.gameObject, "KEM_MapResourceIcons") == 0,
+                    "S15/off-icons-withdrawn");
+                Check(ReferenceEquals(ArtImage(f.Extension).sprite, MapExtensionIslandArt.Shore),
+                    "S15/off-banner-bound");
+                Check(NativeArtReadsTotal(f) == readsBefore, "S15/off-art-reads");
+                AssertNativesUnchanged(f, detailBefore, clusterBefore, "S15/off");
+                ModConfig.CrossWorldMountsEnabled.Value = true;
+                f.Greek.OnDisable();
+            }
+
+            // (d) locked 扩展簇：不建/即毁自有资源（不提前揭露）；解锁后恢复
+            {
+                Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
+                Tick(f, 2);
+                UIMainMapLand clusterGate = f.Extension.gameObject.GetComponent<UIMainMapLand>();
+                clusterGate.IsUnlocked = false;
+                f.Extension.UpdateLand(f.Current, 11);
+                Check(CollectIcons(f.Paper, 16).Count == 0, "S15/locked-not-revealed");
+                clusterGate.IsUnlocked = true;
+                f.Extension.UpdateLand(f.Current, 11);
+                Check(CollectIcons(f.Paper, 16).Count == 16, "S15/unlocked-revealed");
+                f.Greek.OnDisable();
+            }
+
+            // (e) 刷新身份：focused 历史 reign（1）→ hist 数据；single→world 重新提交 → current 16 项
+            {
+                Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
+                var history = MakeReign("hist", 11, 40, 1);
+                history.landData[11].steedSpawns = Steeds(37, 33);
+                f.Campaign.previousReigns.Add(history);
+                f.Greek.focusedReign = 1;
+                Tick(f, 2);
+                Check(ProbeHooks.RefreshReignTags.Contains("hist"),
+                    "S15/refresh-focused-hist tags=" + string.Join(",", ProbeHooks.RefreshReignTags));
+                List<RectTransform> histIcons = CollectIcons(f.Paper, 2);
+                var histTypes = new List<int>(histIcons.Count);
+                for (int i = 0; i < histIcons.Count; i++) histTypes.Add(ParseIconType(histIcons[i].gameObject.name));
+                histTypes.Sort();
+                Check(histTypes.Count == 2 && histTypes[0] == 33 && histTypes[1] == 37,
+                    "S15/history-source-identity types=" + string.Join(",", histTypes));
+                Check(ExtensionIconsInsideBanner(f, 2, "S15/history"), "S15/history-banner-bound");
+
+                f.Greek.focusedReign = 0;
+                f.Greek._openWorldMapState = MapTimelineMenuGreece.OpenWorldMapState.ShowingSingleIsland;
+                Tick(f, 1);
+                f.Greek._openWorldMapState = MapTimelineMenuGreece.OpenWorldMapState.ShowingWorld;
+                Tick(f, 4);
+                Check(ReadStatic("_overviewApplied") is bool resubmitApplied && resubmitApplied,
+                    "S15/resubmit-applied");
+                Check(ProbeHooks.RefreshReignTags.Contains("current"),
+                    "S15/refresh-current tags=" + string.Join(",", ProbeHooks.RefreshReignTags));
+                List<RectTransform> icons = CollectIcons(f.Paper, 16);
+                Check(icons.Count == 16, "S15/current-16-icons n=" + icons.Count);
+                var seen = new List<int>(icons.Count);
+                for (int i = 0; i < icons.Count; i++) seen.Add(ParseIconType(icons[i].gameObject.name));
+                seen.Sort();
+                var expected = (int[])types.Clone();
+                Array.Sort(expected);
+                Check(seen.Count == expected.Length && string.Join(",", seen) == string.Join(",", expected),
+                    "S15/current-source-identity types=" + string.Join(",", seen));
+                Check(ExtensionIconsInsideBanner(f, 16, "S15/current"), "S15/current-banner-bound");
+                f.Greek.OnDisable();
+            }
         }
 
         private static Il2CppStructArray<Hermit.HermitType> Hermits(params int[] values)
@@ -2081,21 +2124,12 @@ namespace RuntimeProbe
             return null;
         }
 
-        /// <summary>detail land 内某个原生动态槽在 land 左下空间的盒（fixture 用固定名）。</summary>
-        private static MapIconBox DetailSlotBox(RectTransform land, string slotName)
-        {
-            RectTransform slot = FindChild(land, slotName);
-            return slot != null ? LandLocalBox(land, slot) : default;
-        }
-
         /// <summary>inner 是否完整落在 outer 内（容差 eps）。</summary>
         private static bool Inside(in MapIconBox inner, in MapIconBox outer, float eps)
         {
             return inner.X0 >= outer.X0 - eps && inner.Y0 >= outer.Y0 - eps &&
                    inner.X1 <= outer.X1 + eps && inner.Y1 <= outer.Y1 + eps;
         }
-
-        // ------------------------------------------------------------------ fixture
 
         private static Fixture BuildWorld(bool withExtension, int steedCount, int[] types)
             => BuildWorldSized(282f, 196f, withExtension, steedCount, types);
@@ -2114,6 +2148,7 @@ namespace RuntimeProbe
             }
             ProbeHooks.Reset();
             MapIconSources.ResetCalls = 0;
+            MapIconSources.ResolveCalls = 0;
             MapCustomIconAssets.ResetCalls = 0;
 
             var f = new Fixture();
@@ -2212,11 +2247,10 @@ namespace RuntimeProbe
                 Image landImage = landImageRect.gameObject.AddComponent<Image>();
                 // exact native island sprite mesh（私有测试事实：Athena tholos 10 顶点/8 三角形，含 pivot/ppu；
                 // 不含位图）——"generic 全矩形" fixture 不能冒充岛形验收。
-                landImage.sprite = NativeIslandSpriteFactory();
-                if (NativeArtOverrideSpriteFactory != null) landImage.overrideSprite = NativeArtOverrideSpriteFactory();
-                landImage.type = FixtureImageTypeOverride ?? Image.Type.Simple;
-                landImage.useSpriteMesh = FixtureUseSpriteMeshOverride ?? true;
-                landImage.preserveAspect = FixturePreserveAspectOverride ?? true;
+                landImage.sprite = MakeNativeIslandSprite("athena_tholos_greece");
+                landImage.type = Image.Type.Simple;
+                landImage.useSpriteMesh = true;
+                landImage.preserveAspect = true;   // 实测资产 m_PreserveAspect=1
                 RectTransform detailOutline = MakeRect("Land Outline Highlight", detailRect, new Vector2(114f, 82f),
                     new Vector2(0f, 0f), new Vector2(0f, 0f));
                 FixedAnchor(detailOutline, detailRect, new Vector2(0f, 0f), new Vector2(25f, 30f));
@@ -2391,11 +2425,10 @@ namespace RuntimeProbe
             {
                 // 真实 native 字段组合：Simple + useSpriteMesh + sprite rect 84×62(=art rect) + bounds=mesh bbox。
                 Image islandImage = art.gameObject.AddComponent<Image>();
-                islandImage.sprite = NativeIslandSpriteFactory();
-                if (NativeArtOverrideSpriteFactory != null) islandImage.overrideSprite = NativeArtOverrideSpriteFactory();
-                islandImage.type = FixtureImageTypeOverride ?? Image.Type.Simple;
-                islandImage.useSpriteMesh = FixtureUseSpriteMeshOverride ?? true;
-                islandImage.preserveAspect = FixturePreserveAspectOverride ?? true;   // 实测资产 m_PreserveAspect=1
+                islandImage.sprite = MakeNativeIslandSprite("athena_tholos_greece");
+                islandImage.type = Image.Type.Simple;
+                islandImage.useSpriteMesh = true;
+                islandImage.preserveAspect = true;   // 实测资产 m_PreserveAspect=1
             }
             if (extension)
             {
@@ -2464,83 +2497,6 @@ namespace RuntimeProbe
         private static readonly ushort[] AthenaMeshIndices =
             { 9, 8, 7, 6, 7, 8, 4, 7, 6, 5, 4, 6, 3, 4, 5, 1, 4, 3, 0, 1, 3, 2, 1, 0 };
 
-        /// <summary>native 岛图 sprite 工厂（默认 = 真实 Athena mesh；反例场景可换成 diamond/空 mesh 变体）。</summary>
-        private static Func<Sprite> NativeIslandSpriteFactory = () => MakeNativeIslandSprite("athena_tholos_greece");
-
-        /// <summary>反例开关：overview/detail 的 native art preserveAspect（默认 false = 与实测 art rect 落点一致）。</summary>
-        private static bool? FixturePreserveAspectOverride;
-
-        /// <summary>反例开关：给 native art 设 overrideSprite（uGUI activeSprite = override ?? sprite）。</summary>
-        private static Func<Sprite> NativeArtOverrideSpriteFactory;
-
-        /// <summary>反例开关：native art Image 的 type（Simple 之外 → 必须整体保留 native）。</summary>
-        private static Image.Type? FixtureImageTypeOverride;
-
-        /// <summary>反例开关：useSpriteMesh=false（quad 路径，无法证明岛形 → 整体保留 native）。</summary>
-        private static bool? FixtureUseSpriteMeshOverride;
-
-        /// <summary>
-        /// 反例用 concave 岛形（diamond 内接于 84×62 sprite rect；pivot (42,0)/ppu 32）：
-        /// bbox 四角是海 ⇒ 只按 art bbox 规划会接受"中心在海上"的放置（reviewer P1-1 反例）。
-        /// </summary>
-        private static Sprite MakeDiamondIslandSprite()
-        {
-            var vertices = new Il2CppStructArray<Vector2>(4);
-            vertices[0] = new Vector2(-42f / 32f, 31f / 32f);
-            vertices[1] = new Vector2(0f, 62f / 32f);
-            vertices[2] = new Vector2(42f / 32f, 31f / 32f);
-            vertices[3] = new Vector2(0f, 0f);
-            var triangles = new Il2CppStructArray<ushort>(6);
-            triangles[0] = 0; triangles[1] = 1; triangles[2] = 2;
-            triangles[3] = 0; triangles[4] = 2; triangles[5] = 3;
-            return new Sprite
-            {
-                name = "counterexample_diamond_island",
-                rect = new Rect(0f, 0f, 84f, 62f),
-                pivot = new Vector2(42f, 0f),
-                pixelsPerUnit = 32f,
-                vertices = vertices,
-                triangles = triangles,
-                bounds = MeshBoundsOf(new float[] { -42f / 32f, 0f, 42f / 32f, 0f },
-                    new float[] { 31f / 32f, 62f / 32f, 31f / 32f, 0f }),
-            };
-        }
-
-        /// <summary>
-        /// 反例用 half 岛形（mesh 只覆盖 sprite rect 右半，pivot (42,0)/ppu 32）：
-        /// 形内占满后 bbox 只剩形外左半 ⇒ 只按 art bbox 规划仍会在"海"上放置（P1-1 反例的第二形态）。
-        /// </summary>
-        private static Sprite MakeHalfIslandSprite()
-        {
-            var vertices = new Il2CppStructArray<Vector2>(4);
-            vertices[0] = new Vector2(0f, 0f);
-            vertices[1] = new Vector2(0f, 62f / 32f);
-            vertices[2] = new Vector2(42f / 32f, 62f / 32f);
-            vertices[3] = new Vector2(42f / 32f, 0f);
-            var triangles = new Il2CppStructArray<ushort>(6);
-            triangles[0] = 0; triangles[1] = 1; triangles[2] = 2;
-            triangles[3] = 0; triangles[4] = 2; triangles[5] = 3;
-            return new Sprite
-            {
-                name = "counterexample_half_island",
-                rect = new Rect(0f, 0f, 84f, 62f),
-                pivot = new Vector2(42f, 0f),
-                pixelsPerUnit = 32f,
-                vertices = vertices,
-                triangles = triangles,
-                bounds = MeshBoundsOf(new float[] { 0f, 0f, 42f / 32f, 42f / 32f },
-                    new float[] { 0f, 62f / 32f, 62f / 32f, 0f }),
-            };
-        }
-
-        /// <summary>空 mesh 变体（未知几何 → 必须整体保留 native，不得退回矩形面）。</summary>
-        private static Sprite MakeMeshesUnavailableSprite()
-        {
-            Sprite sprite = MakeNativeIslandSprite("athena_tholos_greece");
-            sprite.vertices = new Il2CppStructArray<Vector2>(0);
-            return sprite;
-        }
-
         /// <summary>真实字段：Sprite.bounds = mesh 包围盒（sprite 单位，pivot 相对；不是 rect/ppu 假设）。</summary>
         private static Bounds MeshBoundsOf(float[] vx, float[] vy)
         {
@@ -2584,175 +2540,6 @@ namespace RuntimeProbe
         /// preserveAspect **按 RT.pivot** 缩框；顶点 art-local = v/Sprite.bounds.size*drawingSize
         /// - (rectPivot - spritePivot/Sprite.rect.size)*drawingSize；再经真实 RectTransform 链到规划空间。
         /// </summary>
-        private struct ProbeMeshMap
-        {
-            internal float OriginX, OriginY;      // art rect 在规划空间的左下角（LocalBox 约定，已减 paper rect 原点）
-            internal float ScaleX, ScaleY;        // 规划单位 / art-local 单位（含 localScale）
-            internal float RectPivotX, RectPivotY;
-            internal float ArtW, ArtH;            // art rect 尺寸（art-local）
-            internal float BoundsW, BoundsH;      // Sprite.bounds.size
-            internal float DrawingW, DrawingH;    // 缩框后的绘制尺寸
-            internal float OffsetX, OffsetY;      // (rectPivot - spritePivotNorm) * drawingSize
-
-            internal bool Valid => ScaleX > 0f && ScaleY > 0f && ArtW > 0f && ArtH > 0f &&
-                                   BoundsW > 0f && BoundsH > 0f && DrawingW > 0f && DrawingH > 0f;
-
-            internal float LocalX(float planX) => (planX - OriginX) / ScaleX - RectPivotX * ArtW;
-            internal float LocalY(float planY) => (planY - OriginY) / ScaleY - RectPivotY * ArtH;
-            internal float UnitX(float planX) => (LocalX(planX) + OffsetX) * BoundsW / DrawingW;
-            internal float UnitY(float planY) => (LocalY(planY) + OffsetY) * BoundsH / DrawingH;
-            internal float PlanXFromLocal(float localX) => OriginX + (localX + RectPivotX * ArtW) * ScaleX;
-            internal float PlanYFromLocal(float localY) => OriginY + (localY + RectPivotY * ArtH) * ScaleY;
-            // sprite 单位（Sprite.vertices 坐标系）→ 规划空间（uGUI 公式正向）
-            internal float PlanXFromUnitX(float vx) => PlanXFromLocal(vx / BoundsW * DrawingW - OffsetX);
-            internal float PlanYFromUnitY(float vy) => PlanYFromLocal(vy / BoundsH * DrawingH - OffsetY);
-        }
-
-        /// <summary>规划空间 → art-local 的线性映射（art rect 轴对齐；Scale 含 localScale）。</summary>
-        private static ProbeMeshMap ProbeMeshMapOf(RectTransform art, RectTransform space, out MapIconBox drawn)
-        {
-            drawn = default;
-            Image image = art != null ? art.GetComponent<Image>() : null;
-            Sprite sprite = image != null ? (image.overrideSprite != null ? image.overrideSprite : image.sprite) : null;
-            if (image == null || sprite == null) return default;
-            Rect artRect = art.rect;
-            if (!(artRect.width > 0f) || !(artRect.height > 0f)) return default;
-            MapIconBox planRect = LocalBox(space, art);   // art rect 在规划空间的落点（含 localScale）
-            if (planRect.Width <= 0f || planRect.Height <= 0f) return default;
-
-            Rect spriteRect = sprite.rect;
-            Vector3 bounds = sprite.bounds.size;
-            Vector2 spritePivot = sprite.pivot;
-            if (!(spriteRect.width > 0f) || !(spriteRect.height > 0f)) return default;
-            if (!(bounds.x > 0f) || !(bounds.y > 0f)) return default;
-
-            // mesh 包围盒（sprite 单位）——drawn 必须按真实顶点范围，而不是 sprite pivot。
-            Il2CppStructArray<Vector2> verts = sprite.vertices;
-            if (verts == null || verts.Length < 3) return default;
-            float vMinX = float.MaxValue, vMinY = float.MaxValue, vMaxX = float.MinValue, vMaxY = float.MinValue;
-            for (int i = 0; i < verts.Length; i++)
-            {
-                Vector2 v = verts[i];
-                if (v.x < vMinX) vMinX = v.x;
-                if (v.x > vMaxX) vMaxX = v.x;
-                if (v.y < vMinY) vMinY = v.y;
-                if (v.y > vMaxY) vMaxY = v.y;
-            }
-            Rect adjusted = image.GetPixelAdjustedRect();
-            float drawingW = adjusted.width > 0f ? adjusted.width : artRect.width;
-            float drawingH = adjusted.height > 0f ? adjusted.height : artRect.height;
-            if (image.preserveAspect)
-            {
-                float spriteRatio = spriteRect.width / spriteRect.height;
-                float rectRatio = drawingW / drawingH;
-                if (spriteRatio > rectRatio) drawingH = drawingW * (1f / spriteRatio);
-                else drawingW = drawingH * spriteRatio;
-            }
-            Vector2 rtPivot = art.pivot;
-            var map = new ProbeMeshMap
-            {
-                OriginX = planRect.X0, OriginY = planRect.Y0,
-                ScaleX = planRect.Width / artRect.width, ScaleY = planRect.Height / artRect.height,
-                RectPivotX = rtPivot.x, RectPivotY = rtPivot.y,
-                ArtW = artRect.width, ArtH = artRect.height,
-                BoundsW = bounds.x, BoundsH = bounds.y,
-                DrawingW = drawingW, DrawingH = drawingH,
-                OffsetX = (rtPivot.x - spritePivot.x / spriteRect.width) * drawingW,
-                OffsetY = (rtPivot.y - spritePivot.y / spriteRect.height) * drawingH,
-            };
-            float lx0 = vMinX / bounds.x * drawingW - map.OffsetX;
-            float lx1 = vMaxX / bounds.x * drawingW - map.OffsetX;
-            float ly0 = vMinY / bounds.y * drawingH - map.OffsetY;
-            float ly1 = vMaxY / bounds.y * drawingH - map.OffsetY;
-            drawn = new MapIconBox(map.PlanXFromLocal(lx0), map.PlanYFromLocal(ly0),
-                map.PlanXFromLocal(lx1), map.PlanYFromLocal(ly1));
-            return map;
-        }
-
-        /// <summary>test 侧独立 mesh 点内测试（triangle union，含边界）。</summary>
-        private static bool MeshPointInside(ProbeMeshMap map, float[] vx, float[] vy, ushort[] tris,
-            float planX, float planY)
-        {
-            if (!map.Valid || vx == null || vy == null || tris == null) return false;
-            float px = map.UnitX(planX), py = map.UnitY(planY);
-            for (int t = 0; t + 2 < tris.Length; t += 3)
-            {
-                int a = tris[t], b = tris[t + 1], c = tris[t + 2];
-                if (a >= vx.Length || b >= vx.Length || c >= vx.Length) continue;
-                float d1 = (px - vx[b]) * (vy[a] - vy[b]) - (vx[a] - vx[b]) * (py - vy[b]);
-                float d2 = (px - vx[c]) * (vy[b] - vy[c]) - (vx[b] - vx[c]) * (py - vy[c]);
-                float d3 = (px - vx[a]) * (vy[c] - vy[a]) - (vx[c] - vx[a]) * (py - vy[a]);
-                bool hasNeg = d1 < 0f || d2 < 0f || d3 < 0f;
-                bool hasPos = d1 > 0f || d2 > 0f || d3 > 0f;
-                if (!(hasNeg && hasPos)) return true;
-            }
-            return false;
-        }
-
-        /// <summary>test 侧独立"完整足迹在 mesh 内"：四角 + 中心在内，且没有 mesh 边穿过足迹内部（ε 内缩）。</summary>
-        private static bool MeshBoxInside(ProbeMeshMap map, float[] vx, float[] vy, ushort[] tris,
-            in MapIconBox box)
-        {
-            if (!map.Valid) return false;
-            if (!MeshPointInside(map, vx, vy, tris, box.X0, box.Y0) ||
-                !MeshPointInside(map, vx, vy, tris, box.X1, box.Y0) ||
-                !MeshPointInside(map, vx, vy, tris, box.X1, box.Y1) ||
-                !MeshPointInside(map, vx, vy, tris, box.X0, box.Y1) ||
-                !MeshPointInside(map, vx, vy, tris, (box.X0 + box.X1) * 0.5f, (box.Y0 + box.Y1) * 0.5f))
-            {
-                return false;
-            }
-            float ex0 = map.UnitX(box.X0 + 0.02f), ey0 = map.UnitY(box.Y0 + 0.02f);
-            float ex1 = map.UnitX(box.X1 - 0.02f), ey1 = map.UnitY(box.Y1 - 0.02f);
-            if (ex1 <= ex0 || ey1 <= ey0) return false;
-            // 只有边界边能分隔岛内外：三角化内部对角线（两三角形共享）穿越 footprint 不算越界。
-            for (int t = 0; t + 2 < tris.Length; t += 3)
-            {
-                int a = tris[t], b = tris[t + 1], c = tris[t + 2];
-                if (a >= vx.Length || b >= vx.Length || c >= vx.Length) continue;
-                if (ProbeBoundaryCrosses(vx, vy, tris, a, b, ex0, ey0, ex1, ey1) ||
-                    ProbeBoundaryCrosses(vx, vy, tris, b, c, ex0, ey0, ex1, ey1) ||
-                    ProbeBoundaryCrosses(vx, vy, tris, c, a, ex0, ey0, ex1, ey1))
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        /// <summary>该三角边是边界边（无反向共享）且穿过盒内部 ⇒ true。</summary>
-        private static bool ProbeBoundaryCrosses(float[] vx, float[] vy, ushort[] tris, int a, int b,
-            float ex0, float ey0, float ex1, float ey1)
-        {
-            for (int t = 0; t + 2 < tris.Length; t += 3)
-            {
-                int x = tris[t], y = tris[t + 1], z = tris[t + 2];
-                if (x >= vx.Length || y >= vx.Length || z >= vx.Length) continue;
-                if ((x == b && y == a) || (y == b && z == a) || (z == b && x == a)) return false;
-            }
-            return ProbeSegmentCrossesBox(vx[a], vy[a], vx[b], vy[b], ex0, ey0, ex1, ey1);
-        }
-
-        private static bool ProbeSegmentCrossesBox(float x1, float y1, float x2, float y2,
-            float bx0, float by0, float bx1, float by1)
-        {
-            float dx = x2 - x1, dy = y2 - y1;
-            float t0 = 0f, t1 = 1f;
-            if (!ProbeClipAxis(dx, bx0 - x1, bx1 - x1, ref t0, ref t1)) return false;
-            if (!ProbeClipAxis(dy, by0 - y1, by1 - y1, ref t0, ref t1)) return false;
-            return t1 > t0;
-        }
-
-        private static bool ProbeClipAxis(float d, float lo, float hi, ref float t0, ref float t1)
-        {
-            if (Math.Abs(d) < 1e-9f) return lo <= 0f && hi >= 0f;
-            float ta = lo / d, tb = hi / d;
-            if (ta > tb) { float swap = ta; ta = tb; tb = swap; }
-            if (ta > t0) t0 = ta;
-            if (tb < t1) t1 = tb;
-            return t0 < t1;
-        }
-
         private static UIMapIcon MakeSourceIcon(string tag, Vector2 size)
         {
             var go = new GameObject("SourceIcon " + tag);

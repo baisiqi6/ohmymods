@@ -15,28 +15,25 @@ namespace KingdomEnhancedMod
     /// 依据 CONTRACT.md / native-map-abi.json / map-layout.json / r1 REVIEW.md：
     /// - 复用原生 UIMapIcon prefab（clone 后由原生 UIMapIcon.UpdateIcon 决定已获得/未获得态、
     ///   BiomeData 替换与显隐），不改原生全局模板；
+    /// - **作用域（issue-156）**：Mod 资源接管只对 ExtensionIslandMap 已登记的 exact 扩展 UILand
+    ///   （physical11）生效。原版十岛没有任何新增获取点——其资源剪影的生成、位置、状态与显隐完全由
+    ///   UIDynamicMapIcon/UIMapIcon/UILand 原生路径负责，Mod 不建自有 holder、不压制原生槽、不读
+    ///   resource catalog、不 Repaint、不按 mesh/slot 重排（旧 native planner 已删除）；
     /// - 条目唯一来源 = 当次 UILand.UpdateLand 传入的 reignInfo.landData[land]；不带 currentReign
     ///   回退（数据不可用即失效并清掉该 land 旧自有显示，不混用存在性/状态源）；
-    /// - 作用域 = 确切拥有该 UILand 的 Greek MapTimelineMenuGreece 的两套 land（menu.lands /
-    ///   menu._mainMap._lands）；不再按全局 biome 泛化；
-    /// - 动态槽接管（r1 缺陷 3）：对上述 land 的 Steed/Hermit/Statue 三类 UIDynamicMapIcon，
+    /// - 动态槽接管（仅登记扩展）：对扩展 land 的 Steed/Hermit/Statue 三类 UIDynamicMapIcon，
     ///   原生 _spawnedIcon 在 ON 期间统一压制（记录原 activeSelf，teardown 精确还原），
-    ///   全部条目由自有 UIMapIcon clone 按当次数组显示 —— 旧 type/消失条目不会残留；
-    ///   静态剧情/建筑/船/狗/矿等图标一律不动；
+    ///   全部条目由自有 UIMapIcon clone 按当次数组显示；扩展的静态剧情/建筑/船/狗/矿等图标一律不动。
+    ///   统一归还处（DropView/prune/Invalidate/Suspend/WithdrawIcons）只对**已捕获扩展**
+    ///   view（CapturedExtension）执行还原；legacy/native 账目仅销毁自有 holder 并清账，
+    ///   绝不按旧 activeSelf 快照改写原生当次值；
     /// - 总览布局（r7，用户 2026-10-02 否定 5×2 网格后重做）：**保留原生 10 簇地理关系**——
     ///   冻结原始快照后只施加统一倍率 scale + 整体平移（MapOverviewLayout 纯函数），底部固定预留
     ///   扩展带；不做每岛压缩/网格化/地理排序，也不为挤图标移动或缩岛；
-    /// - 排版（issue-152 岛内契约）：图标只落在**所属岛自己的底图**内——详情用真实 Land Image
-    ///   （底图是 placement surface、不再是 blocker），总览用 exact native sprite 的绘制盒（live 测量，
-    ///   含 Image.preserveAspect）；新增条目必须**完整**位于该 sprite 的 mesh 形状内（Sprite.vertices/triangles
-    ///   经 pivot/ppu + Image/RectTransform 映射；凹岸/透明角/画布外一律不放；mesh 不可读 → 整体保留 native，
-    ///   绝不退回矩形面/全白、也不用扩展岛 mask 冒充）；船/寺庙/状态等原生图形继续避障；
-    ///   artist-authored 原生动态槽按其原始槽位盒保留（Steed=_steedNum-1 / Hermit / Statue=0，绝不读
-    ///   _spawnedIcon 的旧 reign 类型，也不因矩形剪影触海被挪动）；总览请求按实测**自然 paper 倍率**
-    ///   （art 自身 localScale × cluster→paper 全局 fit，运行期测得、绝不硬编码）换算到 paper 再装箱，
-    ///   同一倍率带进最终 clone 的 scale（Request/RequestIndex 保持原请求身份，避免 double-scale）；
-    ///   放不下整体不显示（日志记精确缺口与原因），可读下限 0.36 档（相对 native overview 尺寸），
-    ///   绝不部分贴图、也绝不岛外兜底（旧"最近岛自由区域"区域规划已删除）；
+    /// - 排版（issue-156 后仅扩展岛）：图标只落在扩展岛自己的 banner/shore 内——detail 用绑定的
+    ///   shore/outline 与顶面 PlacementMask 终检，overview 用 banner 专属 free-scatter + mask；
+    ///   扩展自有的船标/礁石/状态等真实 native 图形继续避障；放不下整体不显示（日志记精确缺口与原因），
+    ///   scale 下限 = PreferScale，绝不部分贴图、绝不岛外兜底；
     /// - 实机视口（r10）：布局装入"实际可见 paper 矩形"（Screen/safeArea/rootCanvas/camera.pixelRect 与真实
     ///   RectMask2D 交集，投影回 paper 本地），而不是只在 paper 内 fit；缓存含视口签名且只在 world 稳定帧
     ///   重算（连续两次一致才换布局），GrowTo 不再承担收缩（mask clamp 走可逆 ResizeExact）；
@@ -51,6 +48,10 @@ namespace KingdomEnhancedMod
         internal UILand Land;
         internal bool Overview;
         internal int LandIndex = -1;
+        /// <summary>issue-156 资源责任标记：只有经登记桥捕获的扩展 view 才持有"原生动态槽压制"责任；
+        /// 统一归还处（DropView/prune/Invalidate/Suspend/WithdrawIcons）据此决定是否 RestoreSuppressed。
+        /// 绝不反过来作为新接管授权（入口只认登记桥）。</summary>
+        internal bool CapturedExtension;
         internal GameObject Holder;
         internal int Fingerprint = int.MinValue;
         /// <summary>上次判定"放不下"的请求指纹：同内容不重复压制/重建，保持原生动态槽可见。</summary>
@@ -80,7 +81,6 @@ namespace KingdomEnhancedMod
 
         private const int OverviewButtonBandPx = 18;   // paper 顶部原生按钮带（实测 [Map] 按钮占位）
         /// <summary>总览图标可读下限档：0.36（不再自动降到 0.2 超小档）。</summary>
-        private const int OverviewScaleCount = MapResourceIconPlanner.DefaultScaleCount;
 
         /// <summary>Map Area 322×216 减 8 的确定值（真实层级实测；r2 不再用 318×212 名义 cap）。</summary>
         private const float PaperMaxW = 314f;
@@ -271,11 +271,20 @@ namespace KingdomEnhancedMod
             return true;
         }
 
-        /// <summary>UpdateLand 参数解析：登记扩展 → physical11（无论原生前缀是否已改写）；原生 → 当次 index；未登记 extra → false。</summary>
-        private static bool TryResolveIncomingLandIndex(UILand land, int incoming, out int landIndex)
+        /// <summary>UpdateLand 参数解析：登记扩展 → physical11（extensionScope=true，无论原生前缀是否已改写）；
+        /// 原生 → 当次 index（false）；未登记 extra / 越界 → false（不画、不建 view、不接管）。
+        /// extensionScope 只来自登记桥的 exact 实例判定，绝不从 incoming 数值推断。</summary>
+        private static bool TryResolveIncomingLandIndex(UILand land, int incoming, out int landIndex,
+            out bool extensionScope)
         {
             landIndex = -1;
-            if (TryGetRegisteredExtensionIndex(land, out int physical)) { landIndex = physical; return true; }
+            extensionScope = false;
+            if (TryGetRegisteredExtensionIndex(land, out int physical))
+            {
+                landIndex = physical;
+                extensionScope = true;
+                return true;
+            }
             if (incoming < 0 || incoming >= MapOverviewLayout.NativeUiClusterCount) return false;
             landIndex = incoming;
             return true;
@@ -344,8 +353,10 @@ namespace KingdomEnhancedMod
                     return;   // 未知/迟到 sender：不动当前 owner
                 }
 
-                // 登记桥优先：登记扩展实例 → physical11；未登记 extra → 完全不属于本功能（不建 view/不压制）。
-                if (!TryResolveIncomingLandIndex(land, landIndex, out int resolvedLandIndex))
+                // 登记桥优先：登记扩展实例 → physical11（extensionScope）；未登记 extra → 完全不属于本功能
+                // （不建 view/不压制/不布局）。
+                if (!TryResolveIncomingLandIndex(land, landIndex, out int resolvedLandIndex,
+                        out bool extensionScope))
                 {
                     DropUnregisteredView(land);
                     return;
@@ -367,10 +378,11 @@ namespace KingdomEnhancedMod
                 if (action == MapOverviewAction.LayoutWithoutIcons)
                 {
                     if (!OwnerIsCurrent(menu)) return;
-                    // icons 关闭：撤自有 holder + 还原原生槽（不得借必要 layout 继续画 disabled 资源）；
+                    // icons 关闭：撤自有 holder + 归还原生槽（不得借必要 layout 继续画 disabled 资源）；
                     // 但保留扩展地图必需几何（底部带 + 原 10 统一 shift + 真实 paper/mask），供恢复/返航。
-                    // 新岸线属于“扩展地图必需几何”：icons OFF 也要绑定/保持（current/visited 11 恢复场景）。
-                    if (!overview) EnsureDetailShape(land, menu);
+                    // 新岸线属于“扩展地图必需几何”：icons OFF 也要绑定/保持（current/visited 11 恢复场景）；
+                    // 只有 exact 登记扩展走 shape 绑定（native 0..9 一律不碰）。
+                    if (!overview && extensionScope) EnsureDetailShape(land, menu);
                     WithdrawIcons();
                     if (ownedMainMap != null) EnsureOverviewLayout(ownedMainMap);
                     return;
@@ -400,6 +412,14 @@ namespace KingdomEnhancedMod
                         return;
                     }
                 }
+
+                // ---- issue-156 资源边界（原版十岛零接管）--------------------------------------------------
+                // 到此为止的共享几何（生命周期裁决 / OFF 布局 / overview owner+state 门 / 未提交几何的
+                // EnsureOverviewLayout 请求）对全部 owned land 生效。以下整段是 Mod 资源接管路径：
+                // 只允许 exact 登记扩展实例进入——不 FindView/prune、不读 reign、不建请求、不压制原生槽、
+                // 不建 clone、不 Repaint。原生 0..9 的资源剪影由游戏原生生成/定位/显隐，Mod 不规划也不补画。
+                // extensionScope 只来自登记桥（exact 实例），绝不从传入 landIndex/incoming 推断。
+                if (!extensionScope) return;
 
                 MapMountIconView view = FindView(land, true);
 
@@ -484,6 +504,9 @@ namespace KingdomEnhancedMod
                 if (!FeatureEnabled() || mainMapLand == null) return;
                 UILand land = mainMapLand.gameObject.GetComponent<UILand>();
                 if (land == null) return;
+                // issue-156：只有 exact 登记扩展实例的 cluster 才允许触碰自有 view/holder；
+                // native cluster / 未登记 extra 的揭露状态完全由原生 OnEnable 处理，Mod 不写任何东西。
+                if (!TryGetRegisteredExtensionIndex(land, out _)) return;
                 MapMountIconView view = FindView(land, false);
                 if (view == null) return;
                 bool visible = IsClusterUnlocked(land);
@@ -1755,215 +1778,14 @@ namespace KingdomEnhancedMod
             }
         }
 
-        // ------------------------------------------------------------------ native art shape (issue-152 岛内契约)
-
         /// <summary>
-        /// native art 的 exact 绘制几何读数（规划空间坐标，identity 映射）：
-        /// 顶点 = uGUI `Image` Simple+useSpriteMesh 路径下 `Sprite.vertices` 的真实绘制位置，
-        /// 经 art.TransformPoint → planSpace.InverseTransformPoint 转到规划空间；
-        /// OwnerBBox 是同一图形在 art 本地空间的包围盒（用于解析自然 paper 倍率）。
+        /// 扩展接管期的动态槽 Rect 排除 helper（issue-156 收窄）：本模块接管的 Steed/Hermit/Statue host
+        /// 其自身 Image 是锚点占位而不是绘制内容——必须进 excluded，避免占位图挡住扩展资源图标。
+        /// 只做排除收集，不再承担槽位承接/bbox/数组下标责任（原生 0..9 已零接管、不经过本函数）。
         /// </summary>
-        private sealed class NativeArtShape
+        private static void CollectSuppressedSlotRects(UILand land, List<RectTransform> excluded)
         {
-            internal MapIconMeshTopology Topology;   // canonical 顶点/去重三角形/无界边界边（规划空间）
-            internal MapIconBox PlanBBox;            // 绘制图形在规划空间的包围盒
-            internal MapIconBox OwnerBBox;           // 绘制图形在 art 本地空间的包围盒
-            internal int TriangleCount;
-        }
-
-        /// <summary>
-        /// 读 exact native art（本岛 terrain Image）的绘制形状：
-        /// 只按 primary source（uGUI `Image.cs`）已证路径 —— `type == Simple` ∧ `useSpriteMesh`，
-        /// `activeSprite = overrideSprite ?? sprite`，`GetPixelAdjustedRect()` + preserveAspect 按
-        /// `RectTransform.pivot` 缩框，顶点公式 `v/Sprite.bounds.size*drawingSize - (rectPivot - spritePivotNorm)*drawingSize`。
-        /// **不读纹理/像素**；`bounds` 直接读 API（不假设 == rect/ppu）。
-        /// 不支持的模式/无法证明的几何 → false + reason：调用方必须整体保留 native 显示，
-        /// 绝不退回矩形面/全白、也不用扩展岛 mask 冒充；physical11 扩展布局不走本 reader。
-        /// </summary>
-        private static bool TryReadNativeArtShape(RectTransform planSpace, UILand owner, NativeArtShape into,
-            out string reason)
-        {
-            reason = "unset";
-            if (into == null || planSpace == null || owner == null) return false;
-            into.Topology = null;
-            into.PlanBBox = default;
-            into.OwnerBBox = default;
-            into.TriangleCount = 0;
-
-            RectTransform art = FindArtTransform(owner);
-            if (art == null) { reason = "no-art"; return false; }
-            Image image = null;
-            try { image = art.gameObject.GetComponent<Image>(); } catch (Exception) { }
-            if (image == null) { reason = "no-art-image"; return false; }
-
-            // 翻转/镜像的 art 无法用轴对齐映射表达（顶点位置会镜像错位）：诚实保留 native。
-            try
-            {
-                Vector3 lossy = art.lossyScale;
-                if (lossy.x < 0f || lossy.y < 0f) { reason = "art-flipped"; return false; }
-            }
-            catch (Exception)
-            {
-                reason = "art-scale-read-fault";
-                return false;
-            }
-
-            Sprite sprite = null;
-            bool preserveAspect;
-            bool useSpriteMesh;
-            int imageType;
-            float rectW, rectH, rectPivotX, rectPivotY;
-            float spriteRectW, spriteRectH, spritePivotX, spritePivotY;
-            float boundsW, boundsH;
-            Il2CppStructArray<Vector2> vertices;
-            Il2CppStructArray<ushort> triangles;
-            try
-            {
-                imageType = (int)image.type;
-                if (imageType != 0) { reason = "image-type-" + imageType; return false; }   // 仅 Simple
-                useSpriteMesh = image.useSpriteMesh;
-                if (!useSpriteMesh) { reason = "sprite-mesh-off"; return false; }           // quad 路径无法证明岛形
-                preserveAspect = image.preserveAspect;
-
-                Sprite overrideSprite = image.overrideSprite;
-                sprite = overrideSprite != null ? overrideSprite : image.sprite;             // uGUI activeSprite
-                if (sprite == null) { reason = "no-sprite"; return false; }
-
-                Rect spriteRect = sprite.rect;
-                Vector2 spritePivot = sprite.pivot;
-                Vector3 spriteBounds = sprite.bounds.size;
-                spriteRectW = spriteRect.width;
-                spriteRectH = spriteRect.height;
-                spritePivotX = spritePivot.x;
-                spritePivotY = spritePivot.y;
-                boundsW = spriteBounds.x;
-                boundsH = spriteBounds.y;
-                vertices = sprite.vertices;
-                triangles = sprite.triangles;
-
-                Rect adjusted = image.GetPixelAdjustedRect();   // 位置项不影响顶点（GenerateSprite 只用尺寸）
-                rectW = adjusted.width;
-                rectH = adjusted.height;
-                Vector2 rectPivot = art.pivot;
-                rectPivotX = rectPivot.x;
-                rectPivotY = rectPivot.y;
-            }
-            catch (Exception)
-            {
-                reason = "image-read-fault";
-                return false;
-            }
-
-            int vertexCount = vertices == null ? 0 : vertices.Length;
-            int indexCount = triangles == null ? 0 : triangles.Length;
-            if (vertexCount < 3 || indexCount < 3) { reason = "mesh-empty"; return false; }
-            if (vertexCount > MapIconMeshShape.MaxVertices) { reason = "mesh-too-many-vertices"; return false; }
-            if (indexCount / 3 > MapIconMeshShape.MaxTriangles) { reason = "mesh-too-many-triangles"; return false; }
-
-            if (!MapIconNativeArtPlan.TryBuildSimpleMeshDraw(rectW, rectH, rectPivotX, rectPivotY, preserveAspect,
-                    spriteRectW, spriteRectH, spritePivotX, spritePivotY, boundsW, boundsH, out MapIconImageDraw draw))
-            {
-                reason = "image-draw-invalid";
-                return false;
-            }
-
-            // 逐顶点：sprite 单位 → art-local（uGUI 公式）→ 规划空间（真实 transform 链，含 art localScale）。
-            // 规划空间坐标基准 = paper 的 rect 局部系（与 TryLocalBox/CollectNativeBoxes 同一约定：
-            // InverseTransformPoint 结果减去 paper.rect.xMin/yMin），否则形状会整体偏移 paper 原点。
-            float paperOriginX, paperOriginY;
-            try
-            {
-                Rect pr = planSpace.rect;
-                paperOriginX = pr.xMin;
-                paperOriginY = pr.yMin;
-            }
-            catch (Exception)
-            {
-                reason = "paper-rect-read-fault";
-                return false;
-            }
-
-            var planX = new float[vertexCount];
-            var planY = new float[vertexCount];
-            float localMinX = float.MaxValue, localMinY = float.MaxValue;
-            float localMaxX = float.MinValue, localMaxY = float.MinValue;
-            float planMinX = float.MaxValue, planMinY = float.MaxValue;
-            float planMaxX = float.MinValue, planMaxY = float.MinValue;
-            try
-            {
-                for (int i = 0; i < vertexCount; i++)
-                {
-                    Vector2 v = vertices[i];
-                    float localX = draw.LocalX(v.x);
-                    float localY = draw.LocalY(v.y);
-                    if (!MapIconNativeArtPlan.Finite(localX) || !MapIconNativeArtPlan.Finite(localY))
-                    {
-                        reason = "vertex-nonfinite";
-                        return false;
-                    }
-                    Vector3 world = art.TransformPoint(new Vector3(localX, localY, 0f));
-                    Vector3 local = planSpace.InverseTransformPoint(world);
-                    if (!MapIconNativeArtPlan.Finite(local.x) || !MapIconNativeArtPlan.Finite(local.y))
-                    {
-                        reason = "vertex-nonfinite";
-                        return false;
-                    }
-                    planX[i] = local.x - paperOriginX;
-                    planY[i] = local.y - paperOriginY;
-                    if (localX < localMinX) localMinX = localX;
-                    if (localX > localMaxX) localMaxX = localX;
-                    if (localY < localMinY) localMinY = localY;
-                    if (localY > localMaxY) localMaxY = localY;
-                    float planPointX = local.x - paperOriginX;
-                    float planPointY = local.y - paperOriginY;
-                    if (planPointX < planMinX) planMinX = planPointX;
-                    if (planPointX > planMaxX) planMaxX = planPointX;
-                    if (planPointY < planMinY) planMinY = planPointY;
-                    if (planPointY > planMaxY) planMaxY = planPointY;
-                }
-            }
-            catch (Exception)
-            {
-                reason = "vertex-transform-fault";
-                return false;
-            }
-
-            var indexArray = new int[indexCount];
-            for (int i = 0; i < indexCount; i++) indexArray[i] = triangles[i];
-
-            if (!MapIconMeshShape.TryBuildTopology(planX, planY, vertexCount, indexArray,
-                    out MapIconMeshTopology topology, out string topologyReason))
-            {
-                reason = topologyReason;
-                return false;
-            }
-
-            into.Topology = topology;
-            into.PlanBBox = new MapIconBox(planMinX, planMinY, planMaxX, planMaxY);
-            into.OwnerBBox = new MapIconBox(localMinX, localMinY, localMaxX, localMaxY);
-            into.TriangleCount = topology.Triangles.Length / 3;
-            reason = null;
-            return true;
-        }
-
-        private sealed class NativeIconSlot
-        {
-            internal MapIconKind Kind;
-            internal int ArrayIndex;
-            internal MapIconBox Box;
-        }
-
-        private static readonly List<NativeIconSlot> SlotScratch = new List<NativeIconSlot>(8);
-
-        /// <summary>
-        /// 收集 native 动态槽：槽位盒 = space 本地坐标（into 为 null 时只收 excluded）。
-        /// 槽位 GameObject 自身的 Image 是锚点占位而不是绘制内容，接管期由本模块压制并自绘 —— 必须
-        /// 同时进 excluded，否则会挡住自己的槽位位置，也会把 extras 赶出底图。
-        /// </summary>
-        private static void CollectNativeSlots(UILand land, RectTransform space, List<NativeIconSlot> into,
-            List<RectTransform> excluded)
-        {
-            if (into != null) into.Clear();
+            if (excluded == null) return;
             Il2CppReferenceArray<UIDynamicMapIcon> hosts = null;
             try { hosts = land != null ? land._dynamicMapIcons : null; } catch (Exception) { }
             if (hosts == null) return;
@@ -1973,181 +1795,17 @@ namespace KingdomEnhancedMod
                 if (host == null) continue;
                 try
                 {
-                    MapIconKind kind;
-                    int arrayIndex;
                     int dyn = (int)host._type;
-                    if (dyn == DynSteed) { kind = MapIconKind.Steed; arrayIndex = host._steedNum - 1; }
-                    else if (dyn == DynHermit) { kind = MapIconKind.Hermit; arrayIndex = 0; }
-                    else if (dyn == DynStatue) { kind = MapIconKind.Statue; arrayIndex = 0; }
-                    else continue;   // 其它动态类型（市场/矿/狗/采石场…）保持原生，不接管
-                    if (arrayIndex < 0) continue;   // _steedNum=0 是原生越界值，不参与
+                    bool isSteed = dyn == DynSteed;
+                    if (!isSteed && dyn != DynHermit && dyn != DynStatue) continue;
+                    if (isSteed && host._steedNum - 1 < 0) continue;   // _steedNum=0 是原生越界值，不参与
                     RectTransform slotRect = host.transform as RectTransform;
                     if (slotRect == null) continue;
-                    if (excluded != null && !excluded.Contains(slotRect)) excluded.Add(slotRect);
-                    if (into == null) continue;
-                    if (!TryLocalBox(space, slotRect, out MapIconBox box)) continue;
-                    if (box.Width <= 0.5f || box.Height <= 0.5f) continue;
-                    into.Add(new NativeIconSlot { Kind = kind, ArrayIndex = arrayIndex, Box = box });
+                    if (!excluded.Contains(slotRect)) excluded.Add(slotRect);
                 }
                 catch (Exception) { }
             }
         }
-
-        /// <summary>槽位承接的条目 = (类别, 数组下标) 精确匹配；一个槽位只承接一个条目。</summary>
-        private static int FindSlot(List<NativeIconSlot> slots, in MapIconRequest request)
-        {
-            for (int i = 0; i < slots.Count; i++)
-            {
-                if (slots[i].Kind != request.Kind || slots[i].ArrayIndex != request.ArrayIndex) continue;
-                return i;
-            }
-            return -1;
-        }
-
-        /// <summary>本岛的 "Land Outline Highlight"（高亮描边是底图的一部分，绝不当障碍）。</summary>
-        private static RectTransform FindOutlineHighlight(UILand land)
-        {
-            Transform t = land != null ? land.transform : null;
-            if (t == null) return null;
-            for (int i = 0; i < t.childCount; i++)
-            {
-                Transform child = t.GetChild(i);
-                if (child != null && child.name.StartsWith("Land Outline", StringComparison.Ordinal))
-                {
-                    return child.GetComponent<RectTransform>();
-                }
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// native detail（0..9）规划：surface = 本岛真实底图的**sprite 绘制盒**（Land Image × preserveAspect，
-        /// 即 exact native sprite shape 的画布）∩ 详情页域（与 extension detail 同一实测 page 常量；
-        /// 不放大页边距，只保证不被详情滚动 mask 裁掉）。**底图是 placement surface，不是 blocker**；
-        /// 船标/寺庙/状态/原生静物图标继续避障。
-        /// 新增条目（extras）必须**完整**位于 exact native sprite mesh 形状内（透明角/凹岸/画布外均不放）；
-        /// native 网格不可读 → 整体失败并记录原因（调用方保留 native 显示，不退回矩形面、不用扩展岛 mask）。
-        /// artist-authored 原生动态槽按其原始槽位盒**等比居中**保留（不因矩形剪影触海而挪动；
-        /// scale = min(1, 槽位/图标) ⇒ 绝不放大、绝不溢出槽位）。
-        /// 任一放不下 → 整体失败（调用方还原原生槽，岛保持原生可用；绝不岛外兜底）。
-        /// </summary>
-        private static void PlanNativeDetailIsland(UILand land, List<MapIconRequest> requests,
-            List<MapIconPlacement> placements, out float usedScale, out int failed)
-        {
-            placements.Clear();
-            usedScale = 0f;
-            failed = requests == null ? 0 : requests.Count;
-            try
-            {
-                if (land == null || requests == null || requests.Count == 0) return;
-                RectTransform landRect = land.gameObject.GetComponent<RectTransform>();
-                if (landRect == null) return;
-
-                var shape = new NativeArtShape();
-                if (!TryReadNativeArtShape(landRect, land, shape, out string shapeReason))
-                {
-                    MapIconLog.Once("native-detail-shape-" + shapeReason,
-                        "native detail sprite shape unavailable (" + shapeReason +
-                        "); native display kept (no rectangle fallback, no extension mask)");
-                    return;
-                }
-                RectTransform art = FindArtTransform(land);
-                MapIconBox artBox = shape.PlanBBox;
-                if (art == null || artBox.Width <= 2f || artBox.Height <= 2f)
-                {
-                    MapIconLog.Once("native-detail-shape-small",
-                        "native detail sprite drawing box degenerate w=" + artBox.Width.ToString("0.#") +
-                        " h=" + artBox.Height.ToString("0.#") + "; native display kept");
-                    return;
-                }
-
-                float centerX = landRect.rect.width * 0.5f;
-                float centerY = landRect.rect.height * 0.5f;
-                var page = new MapIconBox(centerX - MapExtensionShapePlan.DetailPageHalfWidth,
-                    centerY - MapExtensionShapePlan.DetailPageHalfHeight,
-                    centerX + MapExtensionShapePlan.DetailPageHalfWidth,
-                    centerY + MapExtensionShapePlan.DetailPageHalfHeight);
-                var surfaceBox = new MapIconBox(
-                    Math.Max(artBox.X0, page.X0), Math.Max(artBox.Y0, page.Y0),
-                    Math.Min(artBox.X1, page.X1), Math.Min(artBox.Y1, page.Y1));
-                if (surfaceBox.Width <= 2f || surfaceBox.Height <= 2f) return;
-
-                // 底图两件（Land Image / Land Outline Highlight）+ 本模块接管的动态槽都不是障碍。
-                var excluded = new List<RectTransform>(8);
-                excluded.Add(art);
-                RectTransform outline = FindOutlineHighlight(land);
-                if (outline != null) excluded.Add(outline);
-                List<NativeIconSlot> slots = SlotScratch;
-                CollectNativeSlots(land, landRect, slots, excluded);
-
-                var blocked = new List<MapIconBox>(240);
-                CollectNativeBoxes(landRect, land.transform, blocked, true, excluded);
-                var surface = new MapIconSurface(surfaceBox.X0, surfaceBox.Y0, surfaceBox.X1, surfaceBox.Y1);
-                for (int i = 0; i < blocked.Count; i++) surface.AddBlocked(blocked[i]);
-                // exact native sprite mesh：新增条目必须完整落在岛形内（透明角/凹岸不放）。
-                surface.SetMeshShape(shape.Topology);
-
-                var pending = new List<MapIconRequest>(requests.Count);
-                var pendingIndex = new List<int>(requests.Count);
-                for (int i = 0; i < requests.Count; i++)
-                {
-                    int slot = FindSlot(slots, requests[i]);
-                    if (slot < 0)
-                    {
-                        pending.Add(requests[i]);
-                        pendingIndex.Add(i);
-                        continue;
-                    }
-                    MapIconBox box = slots[slot].Box;
-                    slots.RemoveAt(slot);   // 一个槽位只承接一个条目
-                    float fit = Math.Min(1f, Math.Min(box.Width / requests[i].Width,
-                        box.Height / requests[i].Height));
-                    float width = requests[i].Width * fit;
-                    float height = requests[i].Height * fit;
-                    placements.Add(new MapIconPlacement(requests[i], i,
-                        (box.X0 + box.X1) * 0.5f - width * 0.5f,
-                        (box.Y0 + box.Y1) * 0.5f - height * 0.5f, fit));
-                    surface.AddBlocked(box);   // 槽位原始占地：extras 不侵入
-                }
-
-                if (pending.Count == 0)
-                {
-                    usedScale = 1f;
-                    failed = 0;
-                    return;
-                }
-
-                var packed = new List<MapIconPlacement>(pending.Count);
-                bool ok = MapResourceIconPlanner.TryPlan(pending, surface, packed, out usedScale, out int misses,
-                    false, MapResourceIconPlanner.DefaultScaleCount);
-                if (!ok)
-                {
-                    placements.Clear();
-                    usedScale = 0f;
-                    failed = requests.Count;
-                    MapIconLog.Warn("native detail capacity failed requests=" + requests.Count +
-                        " pending=" + pending.Count + " blockers=" + surface.BlockedCount +
-                        " surface=[" + Fmt(surfaceBox) + "]; display suppressed (no outside-island fallback)");
-                    return;
-                }
-                for (int p = 0; p < packed.Count; p++)
-                {
-                    MapIconPlacement placement = packed[p];
-                    placements.Add(new MapIconPlacement(placement.Request,
-                        pendingIndex[placement.RequestIndex], placement.X, placement.Y, placement.Scale));
-                }
-                failed = 0;
-            }
-            catch (Exception e)
-            {
-                placements.Clear();
-                usedScale = 0f;
-                failed = requests == null ? 0 : requests.Count;
-                MapIconLog.Once("native-detail-" + e.GetType().Name, "native detail plan failed: " + e.Message);
-            }
-        }
-
-        // ------------------------------------------------------------------ rebuild
 
         /// <summary>
         /// exact extension detail 的图标规划（与 world 同算法/同 mask）：用**真正绘制的 shore RectTransform box**
@@ -2186,7 +1844,7 @@ namespace KingdomEnhancedMod
                     Math.Min(shoreBox.X1 - inset, page.X1), Math.Min(shoreBox.Y1 - inset, page.Y1));
                 // 被本模块接管的原生动态槽（Steed/Hermit/Statue，含被压制的 _spawnedIcon）不是绘制内容：
                 // 其 host Image 是锚点占位，重叠 shore box 时不得挤掉真实图标（与 native detail 同口径）。
-                CollectNativeSlots(land, landRect, null, _detailExcludedRects);
+                CollectSuppressedSlotRects(land, _detailExcludedRects);
                 var blockers = new List<MapIconBox>(24);
                 CollectNativeBoxes(landRect, land.transform, blockers, true, _detailExcludedRects);
                 if (!MapExtensionIslandLayout.TryPlan(area, requests, blockers, shoreBox, _placementMask,
@@ -2220,32 +1878,27 @@ namespace KingdomEnhancedMod
             if (space == null) return;
 
             List<MapIconPlacement> placements = new List<MapIconPlacement>(requests.Count);
-            float scale;
-            int failed;
+            float scale = 0f;
+            int failed = requests == null ? 0 : requests.Count;
 
             if (overview)
             {
                 PlanOverviewIsland(paper, landIndex, requests, placements, out scale, out failed);
             }
-            else if (SameInstance(_detailShapeLand, land) && _detailShapeToken != null)
+            else
             {
-                // exact extension detail：与 world 同一自由错落算法（真正绘制的 shore box + 同一顶面 PlacementMask +
-                // page 282×196 + native sidebar/Boat blockers，min scale = PreferScale）。全 16 唯一 TypeId/Index
-                // 或**整体 fallback**；绝不退回 generic 排布、绝不部分展示。
-                if (!PlanExtensionDetailIsland(land, requests, placements, out scale, out failed))
+                // 扩展 detail 资源路径（issue-156：只有登记扩展会到此）：必须已有绑定的自有岸线
+                // （EnsureDetailShape 成功），并与 world 同一自由错落算法（真正绘制的 shore box + 同一顶面
+                // PlacementMask + page 282×196 + native sidebar/Boat blockers，min scale = PreferScale）
+                // 全量放下；否则整体 fallback（绝不部分展示、绝不岛外兜底、绝不退回 native 重排）。
+                if (!SameInstance(_detailShapeLand, land) || _detailShapeToken == null ||
+                    !PlanExtensionDetailIsland(land, requests, placements, out scale, out failed))
                 {
                     placements.Clear();
                     failed = requests == null ? 0 : requests.Count;
-                    MapIconLog.Warn("extension detail plan failed (alpha/page/blockers); whole fallback land=" +
-                        landIndex + " requests=" + failed);
+                    MapIconLog.Warn("extension detail plan failed (shore binding/alpha/page/blockers); " +
+                        "whole fallback land=" + landIndex + " requests=" + failed);
                 }
-            }
-            else
-            {
-                // native detail（0..9，issue-152 岛内契约）：底图（Land Image）本身就是 placement surface（不再是
-                // blocker），三类原生动态槽按槽位原始盒保留，其余条目只在底图内布局；放不下整体 fail
-                // （调用方还原原生槽 → 岛保持原生可用，绝不岛外兜底）。
-                PlanNativeDetailIsland(land, requests, placements, out scale, out failed);
             }
 
             // 只接受全量；部分结果一律丢弃并记录（绝不部分贴图当成功）。
@@ -2257,10 +1910,10 @@ namespace KingdomEnhancedMod
                 view.Fingerprint = int.MinValue;
                 view.FailedFingerprint = fingerprint;
                 view.LayoutVersion = _overviewGeometryVersion;
-                // 超容量 fallback（root 已裁决，不再请求用户）：还原原生动态槽，岛保持原生可用；
+                // 超容量 fallback（root 已裁决，不再请求用户）：归还被接管的原生动态槽，扩展岛保持原生可用；
                 // 完整真实资源列表由详情页提供（详情容量已按 15/16 最坏集覆盖）。
                 RestoreSuppressed(view);
-                MapIconLog.Info("native dynamic slots restored land=" + landIndex + " overview=" + overview +
+                MapIconLog.Info("suppressed native slots restored land=" + landIndex + " overview=" + overview +
                     "; full list stays available in detail");
                 return;
             }
@@ -2320,111 +1973,21 @@ namespace KingdomEnhancedMod
         }
 
         /// <summary>
-        /// 总览排版（native 0..9，issue-152 岛内契约）：图标只放入**本岛自己的底图**（exact native sprite 的
-        /// 绘制盒，paper 坐标）——底图是 surface 而不是 blocker；船标/寺庙/状态等真实原生图形继续避障，
-        /// 自顶向下贴岛内上缘。新增条目必须**完整**位于 exact native sprite mesh 形状内（透明角/凹岸不放）。
-        /// **尺寸换算**：请求是原 prefab 尺寸，paper 里的岛图含 art 自身 localScale 与 cluster→paper 全局 fit，
-        /// 因此先按测得的自然 paper 倍率把请求换算到 paper 单位再装箱，并把同一倍率带进最终 clone 的 scale
-        /// （placement.Request/RequestIndex 仍是原请求，避免 double-scale）。同一岛共享一档缩放（1.0 → 0.36），
-        /// 全部放下才算成功；任何一档放不下即 failed>0（调用方不得部分展示、绝不岛外兜底）。
-        /// native mesh/sprite 不可读或不含资源槽的岛模板 → 诚实保留 native（不可读即失败并记录原因）。
-        /// **绝不移动/缩放岛来腾地方**——岛的目标位置只由 MapOverviewLayout 的统一变换决定。
-        /// 扩展簇仍走 banner 专属 planner（PlanExtensionIsland，顶面 PlacementMask）。
+        /// 总览资源排版（issue-156：只服务登记扩展簇）：banner 专属 planner（PlanExtensionIsland，顶面
+        /// PlacementMask + 真实 native 图形避障）。原生 0..9 的总览剪影完全由游戏原生生成/定位/显隐，
+        /// 本模块不为它们规划、换算 paper 倍率或补画（旧 native mesh/paper-scale 路径已删除）。
+        /// 找不到扩展 entry（身份异常）→ failed=全量，调用方整体 fallback，绝不部分展示。
         /// </summary>
         private static void PlanOverviewIsland(RectTransform paper, int landIndex,
             List<MapIconRequest> requests, List<MapIconPlacement> placements, out float usedScale, out int failed)
         {
             usedScale = 0f;
-            failed = requests.Count;
-            if (paper == null || requests.Count == 0) { failed = requests.Count; return; }
-
+            failed = requests == null ? 0 : requests.Count;
+            if (paper == null || requests == null || requests.Count == 0) return;
             OverviewEntry entry = FindOverviewEntry(landIndex);
-            if (entry == null) return;
-            if (entry.IsExtension)
-            {
-                PlanExtensionIsland(paper, entry, requests, placements, out usedScale, out failed);
-                return;
-            }
-
-            var shape = new NativeArtShape();
-            if (!TryReadNativeArtShape(paper, entry.Cluster, shape, out string shapeReason))
-            {
-                MapIconLog.Once("island-shape-" + landIndex + "-" + shapeReason,
-                    "overview island land=" + landIndex + " sprite shape unavailable (" + shapeReason +
-                    "); entries stay native-absent (no rectangle fallback, no extension mask)");
-                return;
-            }
-            MapIconBox artBox = shape.PlanBBox;
-            if (artBox.Width <= 2f || artBox.Height <= 2f)
-            {
-                MapIconLog.Once("island-shape-small-" + landIndex,
-                    "overview island land=" + landIndex + " sprite drawing box degenerate; entries stay native-absent");
-                return;
-            }
-            if (!MapIconNativeArtPlan.TryResolvePaperScale(shape.PlanBBox, shape.OwnerBBox, out float paperScale))
-            {
-                MapIconLog.Once("island-scale-" + landIndex,
-                    "overview island land=" + landIndex +
-                    " natural paper scale unresolvable; entries stay native-absent (no hardcoded factor)");
-                return;
-            }
-
-            // 本岛底图（Land Button/Image）+ 高亮描边是 surface 自身，绝不当障碍；被接管的动态槽同理
-            // （真实簇模板没有资源槽，这里是为身份一致性防御）。
-            var excluded = new List<RectTransform>(8);
-            RectTransform art = FindArtTransform(entry.Cluster);
-            if (art != null) excluded.Add(art);
-            RectTransform outline = FindOutlineHighlight(entry.Cluster);
-            if (outline != null) excluded.Add(outline);
-            CollectNativeSlots(entry.Cluster, paper, null, excluded);
-
-            var native = new List<MapIconBox>(240);
-            CollectNativeBoxes(paper, paper, native, true, excluded);
-            var surface = new MapIconSurface(artBox.X0, artBox.Y0, artBox.X1, artBox.Y1);
-            for (int i = 0; i < native.Count; i++)
-            {
-                if (!native[i].Intersects(artBox, 0.01f)) continue;
-                surface.AddBlocked(native[i]);   // surface 即 paper 坐标，遮挡盒同系
-            }
-            surface.SetMeshShape(shape.Topology);
-
-            // 原 prefab 尺寸 → paper 单位（自然 paper 倍率；含 art 自身 localScale 与全局 fit）。
-            var paperRequests = PaperRequestScratch;
-            paperRequests.Clear();
-            for (int i = 0; i < requests.Count; i++)
-            {
-                MapIconRequest request = requests[i];
-                paperRequests.Add(new MapIconRequest(request.Kind, request.TypeId, request.ArrayIndex,
-                    request.Width * paperScale, request.Height * paperScale));
-            }
-
-            var packed = PaperPackedScratch;
-            if (MapResourceIconPlanner.TryPlan(paperRequests, surface, packed, out usedScale, out failed,
-                    true, OverviewScaleCount))
-            {
-                for (int p = 0; p < packed.Count; p++)
-                {
-                    MapIconPlacement placement = packed[p];
-                    int index = placement.RequestIndex;
-                    if (index < 0 || index >= requests.Count) continue;
-                    // Request/RequestIndex 保持原请求身份；Scale 乘 paperScale（final clone 与 planner 框一致）。
-                    placements.Add(new MapIconPlacement(requests[index], index, placement.X, placement.Y,
-                        placement.Scale * paperScale));
-                }
-                failed = 0;
-                return;
-            }
-            placements.Clear();
-            usedScale = 0f;
-            failed = requests.Count;
-            MapIconLog.Warn("overview island capacity failed land=" + landIndex + " requests=" + requests.Count +
-                " paperScale=" + paperScale.ToString("0.####") + " art=[" + Fmt(artBox) + "]" +
-                " blockers=" + surface.BlockedCount +
-                "; entries stay native-absent (no outside-island fallback)");
+            if (entry == null || !entry.IsExtension) return;
+            PlanExtensionIsland(paper, entry, requests, placements, out usedScale, out failed);
         }
-
-        private static readonly List<MapIconRequest> PaperRequestScratch = new List<MapIconRequest>(8);
-        private static readonly List<MapIconPlacement> PaperPackedScratch = new List<MapIconPlacement>(8);
 
         /// <summary>按canonical land索引（原生 ui0..9 / 登记扩展 physical11）取布局条目；不再用数组位置反查。</summary>
         private static OverviewEntry FindOverviewEntry(int landIndex)
@@ -3230,7 +2793,9 @@ namespace KingdomEnhancedMod
 
         private static void InvalidateOverviewViews()
         {
-            for (int i = 0; i < Views.Count; i++)
+            // 反向遍历：legacy 账目在清账后直接移除（不再属于本功能 scope）；已捕获扩展 view 保留，
+            // 由随后的 native focused-reign 刷新在其上重建（R3 合同）。
+            for (int i = Views.Count - 1; i >= 0; i--)
             {
                 MapMountIconView view = Views[i];
                 if (view == null || !view.Overview) continue;
@@ -3238,7 +2803,8 @@ namespace KingdomEnhancedMod
                 view.FailedFingerprint = int.MinValue;
                 view.LayoutVersion = -1;
                 DestroyHolder(view);
-                RestoreSuppressed(view);   // R2-3：提交时必须归还原生槽（不能只隐藏 holder 还继续压制 native）
+                ReturnSuppression(view);   // R2-3/issue-156：提交时只归还已捕获扩展的原生槽，legacy 只清账
+                if (!view.CapturedExtension) Views.RemoveAt(i);
             }
         }
 
@@ -4806,13 +4372,22 @@ namespace KingdomEnhancedMod
         // ------------------------------------------------------------------ views
 
         /// <summary>
-        /// 取/建 view。ON+owned 期间即便当次数组为空或数据不可用也要有 view——
-        /// 它是"该 land 原生资源槽已被本功能接管"的唯一凭据（R1 缺陷 3 修复点）。
+        /// 取/建 view（仅登记扩展资源路径调用，issue-156）：ON+owned 期间即便当次数组为空或数据不可用
+        /// 也要有 view——它是「该 land 原生资源槽已被本功能接管」的唯一凭据（R1 缺陷 3 修复点）。
+        /// 创建即写入 CapturedExtension：统一归还处（DropView/prune/Invalidate）据此判定
+        /// 「还原原生槽 vs 只清账」；清理资格绝不依赖当前 registry 是否仍登记
+        /// （ClearLands 会先清登记，真实 captured 责任仍须归还）。
         /// </summary>
         private static MapMountIconView EnsureView(MapMountIconView view, UILand land, int landIndex, bool overview)
         {
             if (view != null) return view;
-            view = new MapMountIconView { Land = land, Overview = overview, LandIndex = landIndex };
+            view = new MapMountIconView
+            {
+                Land = land,
+                Overview = overview,
+                LandIndex = landIndex,
+                CapturedExtension = true,
+            };
             Views.Add(view);
             return view;
         }
@@ -4826,7 +4401,7 @@ namespace KingdomEnhancedMod
                 if (view.Land == land) return view;
                 if (prune && view.Land == null)
                 {
-                    RestoreSuppressed(view);
+                    ReturnSuppression(view);
                     Views.RemoveAt(i);
                 }
             }
@@ -4846,12 +4421,27 @@ namespace KingdomEnhancedMod
             view.Icons.Clear();
         }
 
-        /// <summary>丢下某 land 的自有显示；restoreNative=true 时同时还原原生动态槽。</summary>
+        /// <summary>丢下某 land 的自有显示；restoreNative=true 时只归还已捕获扩展的原生动态槽
+        /// （issue-156：legacy/native 账目仅销毁自有 holder 并清账，绝不按旧 OriginalActive 改写原生当次值）。</summary>
         private static void DropView(MapMountIconView view, bool restoreNative)
         {
             if (view == null) return;
             DestroyHolder(view);
-            if (restoreNative) RestoreSuppressed(view);
+            if (restoreNative) ReturnSuppression(view);
+        }
+
+        /// <summary>统一归还处的资源责任限定（issue-156）：只有经登记桥捕获的扩展 view 才持有原生槽压制责任
+        /// （RestoreSuppressed）；否则只清 Icons/Fingerprint/Suppressed 账，不写原生 activeSelf。
+        /// 清理资格只认 view 上的捕获标记，不查当前 registry（Clear 先清登记的真实 captured 责任仍须归还）。</summary>
+        private static void ReturnSuppression(MapMountIconView view)
+        {
+            if (view == null) return;
+            if (view.CapturedExtension)
+            {
+                RestoreSuppressed(view);
+                return;
+            }
+            view.Suppressed.Clear();
         }
 
         private static class MapIconLog

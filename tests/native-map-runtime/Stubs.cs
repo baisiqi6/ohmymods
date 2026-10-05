@@ -749,12 +749,34 @@ namespace UnityEngine.UI
         public bool ThrowAfterSet;
         /// <summary>读故障：sprite getter 抛（租约读回/快照路径）。</summary>
         public bool ThrowOnGet;
+        private bool _preserveAspect;
+        private Type _type = Type.Simple;
+        private bool _useSpriteMesh = true;
+        /// <summary>图像字段读取计数（issue-156 零接管哨兵）：Mod 若不读 origin 的 native art
+        /// （sprite/type/useSpriteMesh/preserveAspect/GetPixelAdjustedRect），计数必须保持不变。</summary>
+        internal int ReadCalls;
+
         /// <summary>Image.preserveAspect（native 岛图默认 false；映射测试可置 true）。</summary>
-        public bool preserveAspect;
+        public bool preserveAspect
+        {
+            get { ReadCalls++; return _preserveAspect; }
+            set => _preserveAspect = value;
+        }
+
         /// <summary>Image.type（真实 native 岛图 = Simple；测试可设 Tiled/Filled 证明 fail-closed）。</summary>
-        public Type type = Type.Simple;
+        public Type type
+        {
+            get { ReadCalls++; return _type; }
+            set => _type = value;
+        }
+
         /// <summary>Image.useSpriteMesh（exact 岛形读取的前提；false = quad 路径 → 必须整体保留 native）。</summary>
-        public bool useSpriteMesh = true;
+        public bool useSpriteMesh
+        {
+            get { ReadCalls++; return _useSpriteMesh; }
+            set => _useSpriteMesh = value;
+        }
+
         /// <summary>Image.overrideSprite（uGUI activeSprite = overrideSprite ?? sprite）。</summary>
         public Sprite overrideSprite;
         /// <summary>Image.GetPixelAdjustedRect 的桩（默认整 rect；测试可设驱动尺寸项）。</summary>
@@ -763,6 +785,7 @@ namespace UnityEngine.UI
         private RectTransform _rtCache;
         public Rect GetPixelAdjustedRect()
         {
+            ReadCalls++;
             if (ThrowOnGet) throw new InvalidOperationException("get-adjusted-rect");
             if (useAdjustedRect) return adjustedRect;
             RectTransform rt = rectTransform;
@@ -774,6 +797,7 @@ namespace UnityEngine.UI
         {
             get
             {
+                ReadCalls++;
                 if (ThrowOnGet) throw new InvalidOperationException("get-sprite");
                 return _sprite;
             }

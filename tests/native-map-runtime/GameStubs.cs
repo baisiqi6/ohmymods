@@ -322,6 +322,8 @@ namespace KingdomEnhancedMod
         {
             index = -1;
             if (land == null || PhysicalIndexOverride == null) return false;
+            // 真源语义：OnLandsCleared/ClearOwner 后 registry 拒绝（严格 owner）；probe 用 token 建模。
+            if (VisualOwnerToken == null) return false;
             int? value = PhysicalIndexOverride(land);
             if (value == null) return false;
             index = value.Value;
@@ -347,9 +349,14 @@ namespace KingdomEnhancedMod
         /// <summary>probe 控：按 (iconType, type) 返回原生来源图标。</summary>
         public static Func<UILand, int, int, UIMapIcon> Resolver;
         public static int ResetCalls;
+        /// <summary>资源目录读取计数（issue-156：原版十岛零接管 ⇒ 原生回调窗口内必须为 0）。</summary>
+        public static int ResolveCalls;
 
         public static UIMapIcon Resolve(UILand land, int iconType, int type)
-            => Resolver != null ? Resolver(land, iconType, type) : null;
+        {
+            ResolveCalls++;
+            return Resolver != null ? Resolver(land, iconType, type) : null;
+        }
 
         public static void Reset() => ResetCalls++;
     }

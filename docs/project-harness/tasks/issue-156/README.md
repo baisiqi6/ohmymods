@@ -1,0 +1,11 @@
+# Issue #156 — 原版岛资源剪影恢复原生流程
+
+PR154安装后玩家发现原版岛剪影仍越界。用户明确原版十岛没有新增获取点，所有新增项集中在独立原创坐骑岛physical11；此前将原版岛纳入Mod资源排版是错误的接管边界。修复资源入口，而非继续增加原版mask、扫描或重排。
+
+原版UIDynamicMapIcon/UIMapIcon/UILand负责生成、位置、资源状态和显隐。OnLandUpdated完成共享生命周期/几何门后，仅登记桥确认的exact扩展实例进入资源路径；OnClusterEnabled同样限制。原版不会创建Mod资源holder、压制原生槽、读取资源目录重绘或按mesh/slot重排，原生不显示的总览图标不再补画。删除原版专属planner与mesh/paper倍率/槽位补偿。
+
+保留原十簇整体统一fit与平移以预留扩展带；这会随整个簇变换原生内容，不单独调整原版资源节点。原创坐骑岛仍保留16资源、顶面mask、owner/viewport/历史reign与未探索显隐，以及icons OFF时必需几何。扩展被接管槽的占位排除仍有独立用途并保留。
+
+归还责任由新建扩展view捕获：即使ClearLands先清registry仍归还；legacy原版账目清账，不用旧active快照覆盖游戏当次值。安装仅冷加载DLL，不支持跨版本managed view迁移或热升级。
+
+固定地图6路径已独立审查批准。原base4b79c953，集成basef8b365ac含已合并PR157英雄修复，与地图路径不重叠；该修复由其原PR负责，地图审查不替代英雄玩法验收。验证见verification.json与review.md。代码交付待本PR合并，安装后视觉由玩家验证；Windows/联机未验。无正式release/tag，10.9.38仅沿用测试候选版本。同一地图条目多轮返修不重复累计，原patch+3提案保持一次。
