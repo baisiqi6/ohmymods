@@ -33,6 +33,7 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<bool> FastForestRecedeEnabled;
     internal static MelonPreferences_Entry<bool> DeerPopulationEnabled;
     internal static MelonPreferences_Entry<bool> DenseThicketsEnabled;
+    internal static MelonPreferences_Entry<bool> NightDepartureEnabled;
 
     // InfiniteMoney 原生写（Il2Cpp.Wallet.InfiniteMoney）的唯一注入点：本文件保持零
     // Il2Cpp.* 引用（hosttests 直接编译同一份），由平台侧 Probe.OnInitializeMelon 传入
@@ -65,6 +66,7 @@ internal static class ModConfig
         FastForestRecedeEnabled = category.CreateEntry<bool>("FastForestRecedeEnabled", false);
         DeerPopulationEnabled = category.CreateEntry<bool>("DeerPopulationEnabled", false);
         DenseThicketsEnabled = category.CreateEntry<bool>("DenseThicketsEnabled", false);
+        NightDepartureEnabled = category.CreateEntry<bool>("NightDepartureEnabled", false);
         // 手工编辑 cfg 可能写入越界值，在加载边界做唯一一次 clamp（不使用 validator：未证实
         // 可构造 ValueValidator 子类）；运行期不读回、不重试、不静默替换默认值。
         SpeedMultiplier.Value = Math.Clamp(SpeedMultiplier.Value, 1, 5);
@@ -91,7 +93,8 @@ internal static class ModConfig
             + " staff=" + StaffCooldownMultiplier.Value
             + " forestRecede=" + FastForestRecedeEnabled.Value
             + " deerPopulation=" + DeerPopulationEnabled.Value
-            + " denseThickets=" + DenseThicketsEnabled.Value);
+            + " denseThickets=" + DenseThicketsEnabled.Value
+            + " nightDeparture=" + NightDepartureEnabled.Value);
     }
 
     // 三个倍率的加载边界：有限值 clamp 到 [min,max]；NaN/Infinity 是非法外部输入，回 1 并
@@ -218,6 +221,17 @@ internal static class ModConfig
         MelonLogger.Msg("ANDROID_WORLD_BOAT_CAPACITY enabled=" + BoatCapacityEnabled.Value);
         Save();
     }
+
+    // 新开关只在原夜袭调用 scope 的 Arm/提交处读取；无定时轮询或原生重排期。
+    internal static void SetNightDeparture(bool enabled)
+    {
+        if (NightDepartureEnabled.Value == enabled) return;
+        NightDepartureEnabled.Value = enabled;
+        MelonLogger.Msg("ANDROID_WORLD_NIGHT_DEPARTURE enabled=" + enabled);
+        Save();
+    }
+
+    internal static void ToggleNightDeparture() => SetNightDeparture(!NightDepartureEnabled.Value);
 
     // 地图长度档位 1→2→3→4→5→1；与敌人倍率同一 MathF.Floor 步进：先落到下一整数档再进一
     // （4.5→5、5→1），合法载入的小数（如 4.5）不会被推成 5.5 越出 1..5 契约。倍率只被

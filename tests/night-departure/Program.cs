@@ -1,3 +1,6 @@
+#if ANDROID
+using Il2Cpp;
+#endif
 // issue-94 夜袭出发补偿回归：链接真实生产两文件（NightDepartureTiming.cs /
 // PatchWorld_NightDeparture.cs），stub 外部边界。oracle 值全部来自已审设计
 // （decision-proposal-review.md 的算术表），不是生产实现的镜像。
@@ -24,6 +27,9 @@ static (Director dir, EnemyManager em, Wave wave) Graph(
     NightDepartureLog.TestReset();
     KingdomEnhancedPlugin.Instance = new KingdomEnhancedPlugin();
     ModConfig.Enabled.Value = true;
+#if ANDROID
+    ModConfig.NightDepartureEnabled.Value = true; // independent scenarios exercise opt-in ON; default tested below
+#endif
     NetworkBigBoss.HasWorldAuth = true;
 
     var managers = new Managers();
@@ -50,6 +56,82 @@ static float RunTravel(float arrival, float travel, float now,
 }
 
 int NightLogCount() => KingdomEnhancedPlugin.Instance?.LogSource.Info.FindAll(s => s.Contains("[NightDeparture]")).Count ?? 0;
+
+#if ANDROID
+// Real MobilePlayerConfig, standard loader entry host double; no scope/planner mirror.
+bool seedNight = Array.IndexOf(args, "--seed-night") >= 0;
+bool old16 = Array.IndexOf(args, "--old16cfg") >= 0;
+if (old16)
+{
+    foreach (var entry in new Dictionary<string,object> {
+        {"SpeedMultiplier",1},{"InfiniteSteedStamina",false},{"HoldPurchaseEnabled",false},{"CalendarEnabled",true},
+        {"EnemyCountMultiplier",1f},{"EnemyTimelineSpeed",1f},{"SteedCooldownMultiplier",1f},{"StaffCooldownMultiplier",1f},
+        {"InfiniteMoney",false},{"FarmCatsEnabled",false},{"FastBuild",false},{"BoatCapacityEnabled",false},
+        {"MapSizeMultiplier",1f},{"FastForestRecedeEnabled",false},{"DeerPopulationEnabled",false},{"DenseThicketsEnabled",false} })
+        MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android",entry.Key,entry.Value);
+}
+static object Old16Values() => (ModConfig.SpeedMultiplier.Value, ModConfig.InfiniteSteedStamina.Value,
+    ModConfig.HoldPurchaseEnabled.Value, ModConfig.CalendarEnabled.Value, ModConfig.EnemyCountMultiplier.Value,
+    ModConfig.EnemyTimelineSpeed.Value, ModConfig.SteedCooldownMultiplier.Value, ModConfig.StaffCooldownMultiplier.Value,
+    ModConfig.InfiniteMoney.Value, ModConfig.FarmCatsEnabled.Value, ModConfig.FastBuild.Value,
+    ModConfig.BoatCapacityEnabled.Value, ModConfig.MapSizeMultiplier.Value, ModConfig.FastForestRecedeEnabled.Value,
+    ModConfig.DeerPopulationEnabled.Value, ModConfig.DenseThicketsEnabled.Value);
+if (seedNight) MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "NightDepartureEnabled", true);
+ModConfig.Initialize(_ => { });
+Check("Android creates 17 real entries", MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 17);
+Check("Android night declared default false", MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/NightDepartureEnabled default=False"));
+Check("Android night load absorbs seed or defaults OFF", ModConfig.NightDepartureEnabled.Value == seedNight);
+Check("Android load saves zero", MelonLoader.MelonPreferencesStub.SaveCalls == 0);
+object old16Values=Old16Values();
+Check("Android old16 cfg absorbs existing calendar with no save", ModConfig.CalendarEnabled.Value == old16 && MelonLoader.MelonPreferencesStub.SaveCalls==0);
+ModConfig.SetNightDeparture(seedNight);
+Check("Android same value saves zero", MelonLoader.MelonPreferencesStub.SaveCalls == 0);
+ModConfig.SetNightDeparture(!seedNight);
+Check("Android changed value saves once", MelonLoader.MelonPreferencesStub.SaveCalls == 1 && ModConfig.NightDepartureEnabled.Value == !seedNight);
+ModConfig.SetNightDeparture(!seedNight);
+Check("Android repeated same value does not save", MelonLoader.MelonPreferencesStub.SaveCalls == 1);
+ModConfig.ToggleNightDeparture();
+Check("Android UI toggle saves exactly once", MelonLoader.MelonPreferencesStub.SaveCalls == 2 && ModConfig.NightDepartureEnabled.Value == seedNight);
+Check("Android night changes leave all old16 values intact",Old16Values().Equals(old16Values));
+{
+    var (d, em, w) = Graph(0f, 3f);
+    ModConfig.NightDepartureEnabled.Value = false; d.ThrowOnPointer = true;
+    NightDepartureScope.State outer = default;
+    PatchWorld_NightDeparture.ScheduleWaveToday_Prefix(d,w,Side.Left,1f,ref outer);
+    Check("Android OFF still pushes disabled mask before native reads", NightDepartureScope.TestDepth == 1 && d.TimesOfDayQueries.Count == 0 && KingdomEnhancedPlugin.Instance.LogSource.Warning.Count == 0);
+    PatchWorld_NightDeparture.ScheduleWaveToday_Finalizer(null,ref outer);
+}
+{
+    var (d, em, w) = Graph(0f, 3f);
+    NightDepartureScope.State outer = default;
+    PatchWorld_NightDeparture.ScheduleWaveToday_Prefix(d,w,Side.Left,1f,ref outer);
+    ModConfig.NightDepartureEnabled.Value = false;
+    NightDepartureScope.State inner = default;
+    PatchWorld_NightDeparture.ScheduleWaveToday_Prefix(d,w,Side.Left,1f,ref inner);
+    float r=3f;PatchWorld_NightDepartureTravel.GetWaveTravelTime_Postfix(em,w,1.5f,12,ref r);
+    Check("Android OFF nested call masks ON parent", r==3f && NightDepartureScope.TestDepth==2);
+    PatchWorld_NightDeparture.ScheduleWaveToday_Finalizer(null,ref inner);
+    ModConfig.NightDepartureEnabled.Value = true;
+    r=3f;PatchWorld_NightDepartureTravel.GetWaveTravelTime_Postfix(em,w,1.5f,12,ref r);
+    Check("Android parent remains available after disabled child",r==5f);
+    PatchWorld_NightDeparture.ScheduleWaveToday_Finalizer(null,ref outer);
+}
+{
+    var (d,em,w)=Graph(0f,3f);NightDepartureScope.State st=default;
+    PatchWorld_NightDeparture.ScheduleWaveToday_Prefix(d,w,Side.Left,1f,ref st);
+    ModConfig.NightDepartureEnabled.Value=false;
+    float r=3f;PatchWorld_NightDepartureTravel.GetWaveTravelTime_Postfix(em,w,1.5f,12,ref r);
+    Check("Android gate changed at commit keeps native value",r==3f);
+    PatchWorld_NightDeparture.ScheduleWaveToday_Finalizer(null,ref st);
+}
+{
+    var (d,em,w)=Graph(0f,3f);
+    d.ScheduleWaveToday(w,Side.Left,1f);d.ScheduleWaveToday(w,Side.Left,1f);
+    var lines=KingdomEnhancedPlugin.Instance.LogSource.Info.FindAll(s=>s.StartsWith("ANDROID_NIGHT_DEPARTURE_SCOPE"));
+    Check("Android natural scope observation is bounded once",lines.Count==1);
+    Check("Android scope observation includes real captured E D current decision",lines.Count==1&&lines[0].Contains("E=18.00 D=6.00 current=0.00")&&lines[0].Contains("decision=compensated"));
+}
+#endif
 
 // ============ 一、纯策略（真实 NightDepartureTiming.TryPlan） ============
 {
@@ -200,7 +282,7 @@ int NightLogCount() => KingdomEnhancedPlugin.Instance?.LogSource.Info.FindAll(s 
         PatchWorld_NightDepartureTravel.GetWaveTravelTime_Postfix(emr, wr, 1.5f, 12, ref rr);
         PatchWorld_NightDeparture.ScheduleWaveToday_Finalizer(null, ref str);
         Check("side Right works + logged", rr == 5f && NightLogCount() == 1
-            && KingdomEnhancedPlugin.Instance.LogSource.Info[0].Contains("side=Right"));
+            && KingdomEnhancedPlugin.Instance.LogSource.Info.Find(s => s.Contains("[NightDeparture]")).Contains("side=Right"));
     }
     var (dz, emz, wz) = Graph(0f, 3f);
     wz.Pointer = IntPtr.Zero;

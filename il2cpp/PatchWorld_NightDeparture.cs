@@ -148,7 +148,11 @@ internal static class NightDepartureScope
     /// <summary>填充 frame 资格。任何早退都保持 disabled（原生排期完全不受影响）。</summary>
     internal static void Arm(int slot, Director director, Wave wave, Side side, float arrival)
     {
+#if ANDROID
+        if (!ModConfig.Enabled.Value || !ModConfig.NightDepartureEnabled.Value) return;
+#else
         if (!ModConfig.Enabled.Value) return;
+#endif
         if (director == null || wave == null) return;
         if (director.Pointer == IntPtr.Zero || wave.Pointer == IntPtr.Zero) return;
         if (!NetworkBigBoss.HasWorldAuth) return;
@@ -258,7 +262,11 @@ internal static class NightDepartureScope
         frame.Consumed = 1;
 
         // 提交前再查：开关/权限/波型/当前 manager 仍是绑定实例。
+#if ANDROID
+        if (!ModConfig.Enabled.Value || !ModConfig.NightDepartureEnabled.Value || !NetworkBigBoss.HasWorldAuth) return false;
+#else
         if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth) return false;
+#endif
         if (wave.type != WaveType.Regular) return false;
         Managers managers = Managers.Inst;
         if (managers == null || managers.Pointer != frame.Managers) return false;
@@ -284,6 +292,10 @@ internal static class NightDepartureScope
 
         NightDepartureTiming.Plan? plan = NightDepartureTiming.TryPlan(
             frame.Arrival, nativeTravel, frame.EveningStart, frame.NextDawnStart, currentTime);
+#if ANDROID
+        NightDepartureLog.ObserveAndroid(frame.SchedulerDay, frame.SeasonDay, frame.SpawnDay,
+            frame.EveningStart, frame.NextDawnStart, currentTime, nativeTravel, plan);
+#endif
         if (plan == null) return false;
 
         adjusted = plan.Value.TravelWithMargin;
@@ -303,6 +315,29 @@ internal static class NightDepartureLog
 {
     private static bool _readWarned;
     private static bool _postfixWarned;
+#if ANDROID
+    private static bool _androidObserved;
+
+    // 首次自然匹配的有效 scope：沿既有提交点读取与决策，不另采样/轮询或写原生状态。
+    internal static void ObserveAndroid(int schedulerDay, int seasonDay, int spawnDay,
+        float evening, float dawn, float current, float nativeTravel, NightDepartureTiming.Plan? plan)
+    {
+        if (_androidObserved) return;
+        _androidObserved = true;
+        try
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                "ANDROID_NIGHT_DEPARTURE_SCOPE day=" + schedulerDay.ToString(CultureInfo.InvariantCulture)
+                + " profileDay=" + seasonDay.ToString(CultureInfo.InvariantCulture)
+                + " spawnDay=" + spawnDay.ToString(CultureInfo.InvariantCulture)
+                + " E=" + F(evening) + " D=" + F(dawn) + " current=" + F(current)
+                + " nativeTravel=" + F(nativeTravel)
+                + " decision=" + (plan == null ? "native-kept" : "compensated")
+                + " extra=" + (plan == null ? "0.00" : F(plan.Value.ExtraHours)));
+        }
+        catch { } // 观察失败不影响已有规划返回与原生异常；无重试。
+    }
+#endif
 
     internal static void ReadFailure(Exception e)
     {
@@ -348,6 +383,10 @@ internal static class NightDepartureLog
     private static string F(float value) => value.ToString("F2", CultureInfo.InvariantCulture);
 
 #if NIGHTDEPARTURE_TEST
-    internal static void TestReset() { _readWarned = false; _postfixWarned = false; }
+    internal static void TestReset() { _readWarned = false; _postfixWarned = false;
+#if ANDROID
+        _androidObserved = false;
+#endif
+    }
 #endif
 }

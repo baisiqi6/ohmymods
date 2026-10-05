@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.22", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.23", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.22 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.23 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
@@ -119,6 +119,14 @@ public sealed class Probe : MelonMod
   HarmonyInstance.Patch(thicketRemove,prefix:new HarmonyMethod(thicketRemovePatch,"Prefix"),postfix:new HarmonyMethod(thicketRemovePatch,"Postfix"));
   LogHookCounts(thicketRemove);
   LoggerInstance.Msg("ANDROID_DENSE_THICKETS_HOOKS_INSTALLED sharedSource=true nativeSpawn=true nativeRemove=true enabled="+KingdomEnhancedMod.ModConfig.DenseThicketsEnabled.Value);
+  var nightSchedule=AccessTools.Method(typeof(Il2Cpp.Director),"ScheduleWaveToday",new[]{typeof(Il2Cpp.Wave),typeof(Il2Cpp.Side),typeof(float)})??throw new MissingMethodException("Director.ScheduleWaveToday(Wave,Side,float)");
+  var nightSchedulePatch=typeof(KingdomEnhancedMod.PatchWorld_NightDeparture);
+  HarmonyInstance.Patch(nightSchedule,prefix:new HarmonyMethod(nightSchedulePatch,"ScheduleWaveToday_Prefix"),finalizer:new HarmonyMethod(nightSchedulePatch,"ScheduleWaveToday_Finalizer"));
+  LogHookCounts(nightSchedule);
+  var nightTravel=AccessTools.Method(typeof(Il2Cpp.EnemyManager),"GetWaveTravelTime",new[]{typeof(Il2Cpp.Wave),typeof(float),typeof(int)})??throw new MissingMethodException("EnemyManager.GetWaveTravelTime(Wave,float,int)");
+  HarmonyInstance.Patch(nightTravel,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.PatchWorld_NightDepartureTravel),"GetWaveTravelTime_Postfix"));
+  LogHookCounts(nightTravel);
+  LoggerInstance.Msg("ANDROID_NIGHT_DEPARTURE_HOOKS_INSTALLED sharedSource=true nativeSchedule=true enabled="+KingdomEnhancedMod.ModConfig.NightDepartureEnabled.Value);
   var worldLoaded=AccessTools.Method(typeof(Il2Cpp.World),"OnLevelLoaded",Type.EmptyTypes)??throw new MissingMethodException("World.OnLevelLoaded()");
   HarmonyInstance.Patch(worldLoaded,postfix:new HarmonyMethod(typeof(Probe),nameof(FarmCatsWorldLoaded)));
   LogHookCounts(worldLoaded);
