@@ -153,6 +153,24 @@ internal sealed class HeroRecruitmentArchive
         return result;
     }
 
+    // issue-150 v2: evidence classification needs the walk's snapshot-original NativeIds
+    // (reservation copies are stripped by design). Same newest-to-baseline walk and same
+    // side-dedup as LatestReservations, but returns references to the stored receipts.
+    // Read-only: callers must not mutate the returned objects.
+    internal List<HeroPurchaseReceipt> LatestWalkOriginals(string scope)
+    {
+        var result = new List<HeroPurchaseReceipt>();
+        if (!Scopes.TryGetValue(scope, out var list)) return result;
+        Baselines.TryGetValue(scope, out string baseline);
+        foreach (var snapshot in list)
+        {
+            foreach (var seat in snapshot.Seats)
+                if (!result.Any(x => x.Side == seat.Side)) result.Add(seat);
+            if (snapshot.Hash == baseline) break;
+        }
+        return result;
+    }
+
     internal bool ConfirmBaseline(string scope, string hash, IReadOnlyList<HeroPurchaseReceipt> seats, int hashKind, bool legacyV1)
     {
         if (!Record(scope, hash, seats, hashKind, legacyV1)) return false;

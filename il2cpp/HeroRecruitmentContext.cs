@@ -96,20 +96,48 @@ internal static class HeroRecruitmentContexts
         {
             // No proof for this native snapshot while unclaimed paid history remains: reserve and
             // write nothing. A fabricated empty baseline could mask a repurchased hero.
-            var reserved = known ? ReservationsOnIsland(archive.LatestReservations(context.Active), island) : new List<HeroPurchaseReceipt>();
+            var reserved = known ? archive.LatestReservations(context.Active) : new List<HeroPurchaseReceipt>();
             return Quarantine(result, archive, null, "unresolved", reserved);
         }
         if (known)
         {
             // Known context, never seen this native snapshot, nothing unclaimed: the active epoch's
             // own claims are all that can be reserved, and an empty state may confirm normally.
-            result.Kind = "unknown"; result.Epoch = context.Active;
-            // issue-150: only reservations with live native evidence on THIS island are carried;
-            // a shared land value must not import another island's paid seats as a false
-            // purchased display. Unresolved still gates charges while unclaimed history exists.
-            result.Seats = ReservationsOnIsland(archive.LatestReservations(context.Active), island);
-            result.Unresolved = result.Seats.Count > 0;
-            result.Fresh = result.Seats.Count == 0;
+            // issue-150 v2: the context key conflates islands sharing a land value, so the
+            // active epoch's walk is classified against THIS island before being carried.
+            var cls = ClassifyWalk(archive, context.Active, island);
+            if (cls.Indeterminate)
+            {
+                result.Kind = "unknown"; result.Epoch = context.Active;
+                result.Seats = archive.LatestReservations(context.Active);
+                result.Unresolved = result.Seats.Count > 0;
+                result.Fresh = result.Seats.Count == 0;
+                return result;
+            }
+            if (cls.Dropped == 0)
+            {
+                // The walk is provably this island's: unchanged #85 protection.
+                result.Kind = "unknown"; result.Epoch = context.Active;
+                result.Seats = cls.Carry;
+                result.Unresolved = result.Seats.Count > 0;
+                result.Fresh = result.Seats.Count == 0;
+                return result;
+            }
+            if (cls.Carry.Count == 0)
+            {
+                // No seat of the active epoch lives here: a different island of this shared
+                // context. Adopt a fresh epoch so this island's reads/writes never touch (or
+                // truncate, or evict) the other island's snapshots and baseline. The old epochs
+                // stay claimed for the island that still owns them (exact-match restore).
+                result.Kind = "foreign-epoch"; result.Epoch = HeroRecruitmentArchive.NewScope();
+                result.NewEpoch = true; result.Fresh = true;
+                return result;
+            }
+            // Mixed: keep every provable seat reserved and block writes (Unresolved). Writing
+            // here would be ambiguous between this island and the epoch's other owner.
+            result.Kind = "unknown-mixed"; result.Epoch = context.Active;
+            result.Seats = cls.Carry;
+            result.Unresolved = true;
             return result;
         }
         result.Kind = "fresh"; result.Epoch = HeroRecruitmentArchive.NewScope();
@@ -195,28 +223,27 @@ internal static class HeroRecruitmentContexts
         return result;
     }
 
-    // issue-150: a carried reservation must name a live Character row of THIS island. Reserving a
-    // paid seat whose owner provably lives on another island is the false "already purchased"
-    // display: the context key (file/campaign/challenge/land) conflates islands sharing a land
-    // value, so an unrelated island's active-epoch seats must not ride along as reservations.
-    // Purchase stays gated by Unresolved; only the unproven seat is dropped from the carry list.
-    private static List<HeroPurchaseReceipt> ReservationsOnIsland(List<HeroPurchaseReceipt> seats, IslandSaveData island)
+    // issue-150 v2: one pass over the loaded island's Character rows. Null (not empty) means
+    // the island is unavailable or the interop walk failed: callers must treat that as
+    // indeterminate and keep the #85 conservative behavior, never as "no evidence".
+    private static Dictionary<string, int> CharacterRowCount(IslandSaveData island)
     {
-        var result = new List<HeroPurchaseReceipt>();
-        if (seats == null) return result;
-        foreach (var seat in seats)
+        if (island == null) return null;
+        try
         {
-            if (seat == null || seat.NativeId.Length == 0) continue;
-            int count = 0;
-            try
+            var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var record in island.objects)
             {
-                foreach (var record in island.objects)
-                    if (record != null && record.uniqueID == seat.NativeId && HeroRecruitment.IsCharacterRecord(record)) count++;
+                if (record == null) continue;
+                if (!HeroRecruitment.IsCharacterRecord(record)) continue;
+                string id = record.uniqueID;
+                if (string.IsNullOrEmpty(id) || id.Length > 256) continue;
+                counts.TryGetValue(id, out int n);
+                counts[id] = n + 1;
             }
-            catch { continue; }
-            if (count == 1) result.Add(seat);
+            return counts;
         }
-        return result;
+        catch { return null; }
     }
 
     // Every receipt owner must be one unique Character record of the loaded island: an empty or
@@ -224,19 +251,45 @@ internal static class HeroRecruitmentContexts
     private static bool NativeEvidence(IReadOnlyList<HeroPurchaseReceipt> seats, IslandSaveData island)
     {
         if (island == null || seats.Count == 0) return false;
+        var counts = CharacterRowCount(island);
+        if (counts == null) return false;
         foreach (var seat in seats)
         {
             if (seat.NativeId.Length == 0) return false;
-            int count = 0;
-            try
-            {
-                foreach (var record in island.objects)
-                    if (record != null && record.uniqueID == seat.NativeId && HeroRecruitment.IsCharacterRecord(record)) count++;
-            }
-            catch { return false; }
-            if (count != 1) return false;
+            if (!counts.TryGetValue(seat.NativeId, out int n) || n != 1) return false;
         }
         return true;
+    }
+
+    // issue-150 v2: classify the active epoch's latest paid walk (snapshot-original receipts,
+    // ids intact) against the loaded island. Evidence = exactly one live Character row here.
+    // Empty-id seats cannot be classified and stay conservative (carried). Any classification
+    // failure is indeterminate: the caller keeps the #85 behavior instead of guessing.
+    private sealed class WalkClass
+    {
+        internal List<HeroPurchaseReceipt> Carry = new(); // reservation copies to carry
+        internal int Dropped;                              // id-present, provably absent here
+        internal bool Indeterminate;
+    }
+
+    private static WalkClass ClassifyWalk(HeroRecruitmentArchive archive, string scope, IslandSaveData island)
+    {
+        var cls = new WalkClass();
+        List<HeroPurchaseReceipt> walk;
+        try { walk = archive.LatestWalkOriginals(scope); }
+        catch { cls.Indeterminate = true; return cls; }
+        if (island == null) { cls.Indeterminate = true; return cls; }
+        var counts = CharacterRowCount(island);
+        if (counts == null) { cls.Indeterminate = true; return cls; }
+        foreach (var seat in walk)
+        {
+            if (seat.NativeId.Length == 0) { cls.Carry.Add(seat.Copy(true)); continue; }
+            if (counts.TryGetValue(seat.NativeId, out int n) && n == 1)
+                cls.Carry.Add(seat.Copy(true));
+            else
+                cls.Dropped++;
+        }
+        return cls;
     }
 
     // issue-85: a completely unknown context whose loaded snapshot matches no stored snapshot,
