@@ -96,7 +96,7 @@ internal static class HeroRecruitmentContexts
         {
             // No proof for this native snapshot while unclaimed paid history remains: reserve and
             // write nothing. A fabricated empty baseline could mask a repurchased hero.
-            var reserved = known ? archive.LatestReservations(context.Active) : new List<HeroPurchaseReceipt>();
+            var reserved = known ? ReservationsOnIsland(archive.LatestReservations(context.Active), island) : new List<HeroPurchaseReceipt>();
             return Quarantine(result, archive, null, "unresolved", reserved);
         }
         if (known)
@@ -104,7 +104,10 @@ internal static class HeroRecruitmentContexts
             // Known context, never seen this native snapshot, nothing unclaimed: the active epoch's
             // own claims are all that can be reserved, and an empty state may confirm normally.
             result.Kind = "unknown"; result.Epoch = context.Active;
-            result.Seats = archive.LatestReservations(context.Active);
+            // issue-150: only reservations with live native evidence on THIS island are carried;
+            // a shared land value must not import another island's paid seats as a false
+            // purchased display. Unresolved still gates charges while unclaimed history exists.
+            result.Seats = ReservationsOnIsland(archive.LatestReservations(context.Active), island);
             result.Unresolved = result.Seats.Count > 0;
             result.Fresh = result.Seats.Count == 0;
             return result;
@@ -189,6 +192,30 @@ internal static class HeroRecruitmentContexts
         foreach (string scope in scopes)
             foreach (var receipt in archive.LatestReservations(scope))
                 if (!result.Any(x => x.Side == receipt.Side)) result.Add(receipt);
+        return result;
+    }
+
+    // issue-150: a carried reservation must name a live Character row of THIS island. Reserving a
+    // paid seat whose owner provably lives on another island is the false "already purchased"
+    // display: the context key (file/campaign/challenge/land) conflates islands sharing a land
+    // value, so an unrelated island's active-epoch seats must not ride along as reservations.
+    // Purchase stays gated by Unresolved; only the unproven seat is dropped from the carry list.
+    private static List<HeroPurchaseReceipt> ReservationsOnIsland(List<HeroPurchaseReceipt> seats, IslandSaveData island)
+    {
+        var result = new List<HeroPurchaseReceipt>();
+        if (seats == null) return result;
+        foreach (var seat in seats)
+        {
+            if (seat == null || seat.NativeId.Length == 0) continue;
+            int count = 0;
+            try
+            {
+                foreach (var record in island.objects)
+                    if (record != null && record.uniqueID == seat.NativeId && HeroRecruitment.IsCharacterRecord(record)) count++;
+            }
+            catch { continue; }
+            if (count == 1) result.Add(seat);
+        }
         return result;
     }
 
