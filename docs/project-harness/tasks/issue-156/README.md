@@ -8,4 +8,4 @@ PR154安装后玩家发现原版岛剪影仍越界。用户明确原版十岛没
 
 归还责任由新建扩展view捕获：即使ClearLands先清registry仍归还；legacy原版账目清账，不用旧active快照覆盖游戏当次值。安装仅冷加载DLL，不支持跨版本managed view迁移或热升级。
 
-固定地图6路径已独立审查批准。原base4b79c953，集成basef8b365ac含已合并PR157英雄修复，与地图路径不重叠；该修复由其原PR负责，地图审查不替代英雄玩法验收。验证见verification.json与review.md。代码交付待本PR合并，安装后视觉由玩家验证；Windows/联机未验。无正式release/tag，10.9.38仅沿用测试候选版本。同一地图条目多轮返修不重复累计，原patch+3提案保持一次。
+固定地图6路径已独立审查批准。原base4b79c953，集成basef8b365ac含已合并PR157英雄修复，与地图路径不重叠；该修复由其原PR负责，地图审查不替代英雄玩法验收。验证见verification.json与review.md。PR159已合并且冷安装完成，安装后视觉由玩家验证；Windows/联机未验。无正式release/tag，10.9.38仅沿用测试候选版本。同一地图条目多轮返修不重复累计，原patch+3提案保持一次。
