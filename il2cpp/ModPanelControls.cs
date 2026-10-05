@@ -65,14 +65,15 @@ namespace KingdomEnhancedMod
         /// <summary>Android 窄端行的实测尺寸；由 MeasureRow 一次算出，RowHeight/DrawRow 复用。</summary>
         internal readonly struct RowMetrics
         {
-            internal readonly float PadX, PadY, Gap, TitleWidth, TitleHeight, ValueWidth, ValueHeight, TopHeight, HelpHeight, MinHeight;
+            internal readonly float PadX, PadY, Gap, TitleWidth, TitleHeight, ValueWidth, ValueHeight, ValueY, TopHeight, HelpHeight, MinHeight;
 
             internal RowMetrics(float padX, float padY, float gap, float titleWidth, float titleHeight,
-                float valueWidth, float valueHeight, float topHeight, float helpHeight, float minHeight)
+                float valueWidth, float valueHeight, float valueY, float topHeight, float helpHeight, float minHeight)
             {
                 PadX = padX; PadY = padY; Gap = gap;
                 TitleWidth = titleWidth; TitleHeight = titleHeight;
                 ValueWidth = valueWidth; ValueHeight = valueHeight;
+                ValueY = valueY;
                 TopHeight = topHeight; HelpHeight = helpHeight; MinHeight = minHeight;
             }
         }
@@ -92,14 +93,21 @@ namespace KingdomEnhancedMod
             // 最长值也不允许徽章越出卡片边界（极小宽度下优先保证 inside bounds）。
             valueWidth = Mathf.Min(valueWidth, inner);
             float titleWidth = Mathf.Max(0f, inner - valueWidth - 10f * scale);
-            float titleHeight = styles.NarrowLabel.CalcHeight(new GUIContent(title), Mathf.Max(0f, titleWidth));
+            var titleContent = new GUIContent(title);
+            // 0.5 是窄端只读信息的布局策略：值占用过宽时上下排，保留完整中文。
+            // MobileModPanel.Info 是唯一 badge=false 的入口，同时不登记 action/tap rect。
+            bool stacked = !badge && !string.IsNullOrEmpty(value)
+                && titleWidth < Mathf.Min(ModPanelStyles.MeasureSize(styles.NarrowLabel, titleContent).x, inner * 0.5f);
+            if (stacked) titleWidth = valueWidth = inner;
+            float titleHeight = styles.NarrowLabel.CalcHeight(titleContent, Mathf.Max(0f, titleWidth));
             float valueHeight = badge
                 ? Mathf.Max(30f * scale, Mathf.Ceil(valueSize.y) + 8f * scale)
-                : Mathf.Max(24f * scale, Mathf.Ceil(valueSize.y));
-            float topHeight = Mathf.Max(titleHeight, valueHeight);
+                : Mathf.Max(24f * scale, stacked ? styles.Value.CalcHeight(valueContent, valueWidth) : Mathf.Ceil(valueSize.y));
+            float valueY = stacked ? titleHeight + gap : 0f;
+            float topHeight = stacked ? valueY + valueHeight : Mathf.Max(titleHeight, valueHeight);
             float helpHeight = string.IsNullOrEmpty(help) ? 0f : styles.MutedLabel.CalcHeight(new GUIContent(help), inner);
             return new RowMetrics(padX, padY, gap, titleWidth, titleHeight, valueWidth, valueHeight,
-                topHeight, helpHeight, 48f * scale);
+                valueY, topHeight, helpHeight, 48f * scale);
         }
 
         /// <summary>行高（含 48*scale 最小触控高度）；调用方另加 RowGap*scale 行距。</summary>
@@ -115,7 +123,7 @@ namespace KingdomEnhancedMod
             GUIStyle valueStyle = valueOn ? styles.ValueOn : styles.Value;
             ImGuiCompat.DrawSolidTexture(new Rect(x, y, width, height), styles.CardTexture, origin, localClip);
             GUI.Label(new Rect(x + m.PadX, y + m.PadY, m.TitleWidth, m.TitleHeight), title, styles.NarrowLabel);
-            var valueRect = new Rect(x + width - m.PadX - m.ValueWidth, y + m.PadY, m.ValueWidth, m.ValueHeight);
+            var valueRect = new Rect(x + width - m.PadX - m.ValueWidth, y + m.PadY + m.ValueY, m.ValueWidth, m.ValueHeight);
             if (badge)
             {
                 DrawControl(valueRect, value, valueStyle, valueOn ? styles.GoldTexture : styles.BackTexture, origin, localClip);

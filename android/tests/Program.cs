@@ -275,7 +275,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 15, "Initialize creates exactly fifteen entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 16, "Initialize creates exactly sixteen entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -291,6 +291,7 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/MapSizeMultiplier default=1"), "MapSizeMultiplier is declared with default 1");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/FastForestRecedeEnabled default=False"), "FastForestRecedeEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/DeerPopulationEnabled default=False"), "DeerPopulationEnabled is declared OFF");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/DenseThicketsEnabled default=False"), "DenseThicketsEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "Initialize never writes the cfg");
         Checks.Check(applied.Count == 1 && !applied[0], "cold start applies InfiniteMoney=false through the seam exactly once");
         Checks.Check(MelonLoader.MelonLogger.WarningCalls == expectedWarnings, "the load boundary warns exactly once per non-finite seeded multiplier");
@@ -329,6 +330,8 @@ internal static class Program
                 seedForest ? "a seeded FastForestRecede key loads ON at the load boundary" : "a cfg without the FastForestRecede key keeps it OFF");
             Checks.Check(!Config.DeerPopulationEnabled.Value,
                 "a cfg without the DeerPopulation key keeps it OFF at the load boundary (no apply callback, load does not save)");
+            Checks.Check(!Config.DenseThicketsEnabled.Value,
+                "a cfg without the DenseThickets key keeps it OFF at the load boundary (no apply callback, load does not save)");
             Checks.Check(Config.MapSizeMultiplier.Value == expectedMap,
                 "MapSizeMultiplier is " + Describe(expectedMap) + "x after the load boundary (1..5 clamp, non-finite fallback 1)");
             Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "the load-boundary clamp/fallback does not write the cfg");
@@ -337,7 +340,7 @@ internal static class Program
                 + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild
                 + " cooldown=" + expectedCooldown + " boat=" + expectedBoat + " map=" + expectedMap
                 + " staff=" + expectedStaffCooldown + " forestRecede=" + expectedForest
-                + " deerPopulation=False",
+                + " deerPopulation=False denseThickets=False",
                 "cold-start ready line reports the effective values");
             if (seededEnemyCount == 4.5f && seededEnemyTimeline == 4.5f)
             {
@@ -411,8 +414,9 @@ internal static class Program
             && !Config.FastBuild.Value
             && !Config.BoatCapacityEnabled.Value
             && !Config.FastForestRecedeEnabled.Value
-            && !Config.DeerPopulationEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild, BoatCapacity, FastForestRecede and DeerPopulation default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False",
+            && !Config.DeerPopulationEnabled.Value
+            && !Config.DenseThicketsEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild, BoatCapacity, FastForestRecede, DeerPopulation and DenseThickets default OFF");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False denseThickets=False",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
 
@@ -722,10 +726,12 @@ internal static class ProbeChecks
         Checks.Check(File.Exists(probePath), "probe source present");
         if (!File.Exists(probePath)) return;
         string source = File.ReadAllText(probePath);
-        Checks.Check(source.Contains("\"0.0.20\""), "Probe reports version 0.0.20");
+        Checks.Check(source.Contains("\"0.0.22\""), "Probe reports version 0.0.22");
+        Checks.Check(source.Split("0.0.22").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
         Checks.Check(source.Contains("staff_base_cooldown"), "Probe feature marker advertises staff_base_cooldown");
         Checks.Check(source.Contains("fast_forest_recede"), "Probe feature marker advertises fast_forest_recede");
         Checks.Check(source.Contains("deer_population"), "Probe feature marker advertises deer_population");
+        Checks.Check(source.Contains("dense_thickets"), "Probe feature marker advertises dense_thickets");
         Checks.Check(source.Contains("typeof(KingdomEnhancedMod.PatchDivine_StaffCooldown)"), "Probe wires the staff patch type");
         Checks.Check(source.Contains("typeof(Il2Cpp.HermesStaff._StartAbilityRoutine_d__17)"), "Probe resolves the nested HermesStaff state machine target");
         Checks.Check(source.Contains("typeof(Il2Cpp.ItemOfPower)"), "Probe resolves the ItemOfPower.CanCancel target");
@@ -750,9 +756,28 @@ internal static class ProbeChecks
             && source.Contains("deerPatchType,\"Prefix\"") && source.Contains("deerPatchType,\"Postfix\"") && source.Contains("deerPatchType,\"Finalizer\""),
             "Probe registers the shared deer prefix/postfix/finalizer by the prepared handler names");
         Checks.Check(source.Contains("LogHookCounts(deerUpdate)"),
-            "Probe reports the deer hook count (the new target makes 25 unique lines; 24 existing shapes stay)");
+            "Probe reports the deer hook count (deer makes 25 unique lines; the three dense targets make 28; 25 existing shapes stay)");
         Checks.Check(source.Contains("ANDROID_DEER_POPULATION_HOOK_INSTALLED sharedSource=true nativeSpawn=true"),
             "Probe announces the deer hook installation");
+        Checks.Check(source.Contains("typeof(Il2Cpp.World),\"CanSpawnThicket\"") && source.Contains("typeof(Il2Cpp.Grass)")
+            && source.Contains("typeof(Il2Cpp.Grass),\"RemoveThicket\""),
+            "Probe resolves the exact CanSpawnThicket(Grass) and Grass.RemoveThicket() targets");
+        Checks.Check(source.Contains("typeof(KingdomEnhancedMod.World_CanSpawnThicket_OptionalVegetation_Patch)")
+            && source.Contains("typeof(KingdomEnhancedMod.World_AddThicket_OptionalVegetation_Patch)")
+            && source.Contains("typeof(KingdomEnhancedMod.Grass_RemoveThicket_OptionalVegetation_Patch)"),
+            "Probe wires the three dense patch types");
+        Checks.Check(source.Contains("thicketCanSpawnPatch,\"Prefix\"") && source.Contains("thicketCanSpawnPatch,\"Postfix\"") && source.Contains("thicketCanSpawnPatch,\"Finalizer\""),
+            "Probe registers the dense CanSpawn prefix/postfix/finalizer by the prepared handler names");
+        Checks.Check(source.Contains("typeof(KingdomEnhancedMod.World_AddThicket_OptionalVegetation_Patch),\"Postfix\""),
+            "Probe registers the dense AddThicket postfix");
+        Checks.Check(source.Contains("thicketRemovePatch,\"Prefix\"") && source.Contains("thicketRemovePatch,\"Postfix\""),
+            "Probe registers the dense RemoveThicket prefix/postfix");
+        Checks.Check(source.Contains("LogHookCounts(thicketCanSpawn)") && source.Contains("LogHookCounts(thicketAdded)") && source.Contains("LogHookCounts(thicketRemove)"),
+            "Probe reports all three dense hook counts (28 unique lines total; 25 existing shapes stay)");
+        Checks.Check(source.Contains("ANDROID_DENSE_THICKETS_HOOKS_INSTALLED sharedSource=true nativeSpawn=true nativeRemove=true"),
+            "Probe announces the dense-thickets hook installation");
+        Checks.Check(source.Contains("KingdomEnhancedMod.PatchWorld_OptionalVegetation.Tick();"),
+            "Probe drives the shared dense Tick once from the existing OnUpdate");
         Checks.Check(source.Contains("private readonly MobileModPanel panel = new()") && source.Contains("panel.Draw(Layout)"),
             "Probe creates the common panel and hands it the shared layout");
         Checks.Check(source.Contains("panel.CancelGesture()"), "Probe cancels the common panel with the ticker lifecycle");
@@ -762,9 +787,9 @@ internal static class ProbeChecks
     }
 }
 
-// 公共 UI 契约（Issue #144）：四个 MobileMenu 与 MobilePopulation 只做 presentation，
+// 公共 UI 契约（Issue #144/#146）：四个 MobileMenu 与 MobilePopulation 只做 presentation，
 // 全部经 MobileModPanel.Toggle/Step/Info 公共路径（无 GUI.Button、无自持坐标与样式）；
-// 15 个设置各只在一条页面上出现一次；导航/页面路由在 MobileModPanel；日历/人口只中文化
+// 16 个设置各只在一条页面上出现一次；导航/页面路由在 MobileModPanel；日历/人口只中文化
 // 展示（Tick/时钟驱动不动）；csproj 的 Compile 列表是实际 source 列表。
 internal static class MenuChecks
 {
@@ -817,14 +842,28 @@ internal static class MenuChecks
             && menus["MobileVegetationMenu.cs"].Contains("panel.Toggle(\"普通鹿数量\"")
             && menus["MobileVegetationMenu.cs"].Contains("仅希腊普通鹿"),
             "the vegetation page presents the three switches with the Greek-only deer scope");
+        Checks.Check(menus["MobileVegetationMenu.cs"].Contains("panel.Toggle(\"密灌木\"")
+            && menus["MobileVegetationMenu.cs"].Contains("间距减半")
+            && menus["MobileVegetationMenu.cs"].Contains("关闭只回收额外实例")
+            && menus["MobileVegetationMenu.cs"].Contains("回收中暂不能重开"),
+            "the vegetation page presents the dense-thickets switch with the accurate cleanup help");
+        Checks.Check(menus["MobileVegetationMenu.cs"].Contains("ModConfig.DenseThicketsEnabled.Value || PatchWorld_OptionalVegetation.IsCleaning")
+            && menus["MobileVegetationMenu.cs"].Contains("panel.Info(\"密灌木状态\", PatchWorld_OptionalVegetation.DenseStatus"),
+            "the dense status row is shown only when ON or cleaning (the OFF empty display short-circuits without CurrentWorld)");
+        Checks.Check(CountOf(menus["MobileVegetationMenu.cs"], "PatchWorld_OptionalVegetation.TrySetDenseThickets(") == 1
+            && !menus["MobileVegetationMenu.cs"].Contains("Save("),
+            "the dense row requests the shared TrySet exactly once and never saves a second time");
+        Checks.Check(menus["MobileVegetationMenu.cs"].IndexOf("panel.Toggle(\"密灌木\"", StringComparison.Ordinal)
+            < menus["MobileVegetationMenu.cs"].IndexOf("panel.Step(\"返回世界\"", StringComparison.Ordinal),
+            "the dense rows precede the page's final return row");
         Checks.Check(menus["MobileVegetationMenu.cs"].Contains("panel.CloseVegetation"),
             "the vegetation back goes through the panel's page action");
 
-        // 15 个可用设置各只在一条页面出现一次（植被入口是导航，不计入）。
+        // 16 个可用设置各只在一条页面出现一次（植被入口是导航，不计入）。
         string pages = string.Join("\n", menus.Values);
         string[] settings = { "君主移动速度", "坐骑无限体力", "长按连续购买", "坐骑技能冷却", "法杖神器冷却",
             "每波怪物数量", "怪物时间线推进", "无限金币", "快速建造", "船只额外乘员",
-            "地图大小", "农舍猫补给", "森林快速消退", "普通鹿数量" };
+            "地图大小", "农舍猫补给", "森林快速消退", "普通鹿数量", "密灌木" };
         foreach (string title in settings)
             Checks.Check(CountOf(pages, "\"" + title + "\"") == 1,
                 "the setting lives on exactly one page: " + title);
@@ -902,7 +941,7 @@ internal static class ArtifactChecks
         "Il2Cpp.SteedAbility", "Il2Cpp.BuffUnitsSteedAbility", "Il2Cpp.GlideMovementSteedAbility",
         "Il2Cpp.SpeedBoostSteedAbility", "Il2Cpp.SummonGhostSteedAbility",
         "Il2Cpp.HermesStaff", "Il2Cpp.ItemOfPower", "_StartAbilityRoutine_d__17",
-        "Il2Cpp.ForestItem", "Il2Cpp.Forest",
+        "Il2Cpp.ForestItem", "Il2Cpp.Forest", "Il2Cpp.Grass",
         "Il2Cpp.PopulationController", "Il2Cpp.Deer", "Il2Cpp.Steed", "Il2Cpp.Hind", "Il2Cpp.Game",
         "Il2Cpp.BiomeHolder", "Il2Cpp.BiomeData", "Il2Cpp.Character", "Il2Cpp.Mover",
         "Il2Cpp.Droppable", "Il2Cpp.Kingdom", "Il2Cpp.StateMachine", "Il2Cpp.Side",
@@ -936,7 +975,9 @@ internal static class ArtifactChecks
         "get_winterDensitySpecial", "set_winterDensitySpecial", "get__actualUpdateInterval", "set__actualUpdateInterval",
         "get_prefab", "get_useBiomeCritters", "get_enabled", "get_gameObject", "get_scene", "get_handle",
         "get_transform", "get_activeInHierarchy", "IsChildOf", "GetComponent", "GetInstanceID",
-        "get_Inst", "get_GreeceBiomeIndex", "get_BiomeIndex", "get_playingOrInMenuWithClient", "get_game"
+        "get_Inst", "get_GreeceBiomeIndex", "get_BiomeIndex", "get_playingOrInMenuWithClient", "get_game",
+        "get_thicketSpacing", "set_thicketSpacing", "get__grassWithThicket",
+        "get__thicket", "RemoveThicket", "GetComponentsInChildren", "get_color", "set_color"
     };
 
     private static readonly string[] RequiredAssemblies =
@@ -1147,10 +1188,111 @@ internal static class ArtifactChecks
         }
         var modConfig = FindType(reader, "KingdomEnhancedMod", "ModConfig");
         bool deerEntry = false;
+        bool denseEntry = false;
         if (!modConfig.IsNil)
             foreach (var handle in reader.GetTypeDefinition(modConfig).GetFields())
-                if (reader.GetString(reader.GetFieldDefinition(handle).Name) == "DeerPopulationEnabled") deerEntry = true;
+            {
+                string fieldName = reader.GetString(reader.GetFieldDefinition(handle).Name);
+                if (fieldName == "DeerPopulationEnabled") deerEntry = true;
+                if (fieldName == "DenseThicketsEnabled") denseEntry = true;
+            }
         Checks.Check(deerEntry, "the fifteenth ModConfig entry field DeerPopulationEnabled lands in the artifact");
+        Checks.Check(denseEntry, "the sixteenth ModConfig entry field DenseThicketsEnabled lands in the artifact");
+
+        // Dense-thickets block (shared il2cpp/PatchWorld_OptionalVegetation.cs linked with the
+        // #if ANDROID alias header, the FX-seam cut, the default-off debt-free gate and the
+        // three single-save config writers): the shared class surface, the three wrapper types,
+        // the typed handler shapes and the real calls into the shared helpers must land in the
+        // artifact, and the Android build must carry no SpriteRendererFX/FadeOut surface.
+        var dense = FindType(reader, "KingdomEnhancedMod", "PatchWorld_OptionalVegetation");
+        Checks.Check(!dense.IsNil, "artifact contains the shared PatchWorld_OptionalVegetation");
+        if (!dense.IsNil)
+        {
+            var denseMethods = new HashSet<string>();
+            foreach (var handle in reader.GetTypeDefinition(dense).GetMethods())
+                denseMethods.Add(reader.GetString(reader.GetMethodDefinition(handle).Name));
+            Checks.Check(denseMethods.Contains("BeginCanSpawn") && denseMethods.Contains("FinishCanSpawn")
+                && denseMethods.Contains("AbortCanSpawn") && denseMethods.Contains("OnThicketAdded")
+                && denseMethods.Contains("OnNativeRemoveThicket") && denseMethods.Contains("OnThicketRemoved")
+                && denseMethods.Contains("Tick") && denseMethods.Contains("TrySetDenseThickets")
+                && denseMethods.Contains("get_DenseStatus") && denseMethods.Contains("get_IsCleaning"),
+                "the shared dense surface (hooks, Tick, TrySet and the panel status accessors) lands in the artifact");
+            // Issue #146 color-responsibility fix: the Android receipt carries the per-layer
+            // attempted/pending-intent arrays next to BaseColors/Applied and clears them in the
+            // same paths (the typed ANDROID host checks the lifecycle; this pins the shipped shape).
+            TypeDefinitionHandle denseRecord = default;
+            foreach (var nestedHandle in reader.GetTypeDefinition(dense).GetNestedTypes())
+            {
+                if (reader.GetString(reader.GetTypeDefinition(nestedHandle).Name) == "ExtraThicket")
+                {
+                    denseRecord = nestedHandle;
+                    break;
+                }
+            }
+            Checks.Check(!denseRecord.IsNil, "the dense receipt nested type ExtraThicket lands in the artifact");
+            if (!denseRecord.IsNil)
+            {
+                bool attemptedField = false, intentField = false;
+                foreach (var fieldHandle in reader.GetTypeDefinition(denseRecord).GetFields())
+                {
+                    string fieldName = reader.GetString(reader.GetFieldDefinition(fieldHandle).Name);
+                    if (fieldName == "Attempted") attemptedField = true;
+                    if (fieldName == "PendingIntent") intentField = true;
+                }
+                Checks.Check(attemptedField && intentField,
+                    "the Android receipt carries the attempted/pending-intent fields next to Applied");
+            }
+        }
+        var denseCanSpawn = FindType(reader, "KingdomEnhancedMod", "World_CanSpawnThicket_OptionalVegetation_Patch");
+        Checks.Check(!denseCanSpawn.IsNil, "artifact contains the dense CanSpawn wrapper");
+        CheckHandlers(reader, denseCanSpawn, new Dictionary<string, int>
+        {
+            { "Prefix", 2 }, { "Postfix", 4 }, { "Finalizer", 2 }
+        }, MethodAttributes.Assembly, "internal static");
+        if (!denseCanSpawn.IsNil)
+        {
+            var denseCanSpawnDefinition = reader.GetTypeDefinition(denseCanSpawn);
+            Checks.Check(SignatureTypes(reader, denseCanSpawnDefinition, "Prefix") == "Il2Cpp.World,CanSpawnLease&",
+                "dense Prefix(World, out CanSpawnLease) binds the Harmony __state");
+            Checks.Check(SignatureTypes(reader, denseCanSpawnDefinition, "Postfix") == "Il2Cpp.World,Il2Cpp.Grass,System.Boolean&,CanSpawnLease",
+                "dense Postfix(World, Grass, ref bool, CanSpawnLease) binds the native window");
+            Checks.Check(SignatureTypes(reader, denseCanSpawnDefinition, "Finalizer") == "System.Exception,CanSpawnLease",
+                "dense Finalizer(Exception, CanSpawnLease) returns the original exception");
+            Checks.Check(HasClassHarmonyPatchTarget(reader, denseCanSpawnDefinition, "World", "CanSpawnThicket"),
+                "the dense CanSpawn wrapper keeps the [HarmonyPatch(typeof(World), CanSpawnThicket)] class attribute for PC auto-patch");
+            Checks.Check(BodyCallsMethod(pe, reader, denseCanSpawnDefinition, "Prefix",
+                    "BeginCanSpawn", "KingdomEnhancedMod.PatchWorld_OptionalVegetation"),
+                "the dense CanSpawn Prefix really calls the shared BeginCanSpawn helper");
+            Checks.Check(BodyCallsMethod(pe, reader, denseCanSpawnDefinition, "Postfix",
+                    "FinishCanSpawn", "KingdomEnhancedMod.PatchWorld_OptionalVegetation"),
+                "the dense CanSpawn Postfix really calls the shared FinishCanSpawn helper");
+            Checks.Check(BodyCallsMethod(pe, reader, denseCanSpawnDefinition, "Finalizer",
+                    "AbortCanSpawn", "KingdomEnhancedMod.PatchWorld_OptionalVegetation"),
+                "the dense CanSpawn Finalizer really calls the shared AbortCanSpawn helper");
+        }
+        var denseAdded = FindType(reader, "KingdomEnhancedMod", "World_AddThicket_OptionalVegetation_Patch");
+        Checks.Check(!denseAdded.IsNil, "artifact contains the dense AddThicket wrapper");
+        CheckHandlers(reader, denseAdded, new Dictionary<string, int> { { "Postfix", 2 } }, MethodAttributes.Assembly, "internal static");
+        if (!denseAdded.IsNil)
+            Checks.Check(BodyCallsMethod(pe, reader, reader.GetTypeDefinition(denseAdded), "Postfix",
+                    "OnThicketAdded", "KingdomEnhancedMod.PatchWorld_OptionalVegetation"),
+                "the dense AddThicket Postfix really calls the shared OnThicketAdded helper");
+        var denseRemove = FindType(reader, "KingdomEnhancedMod", "Grass_RemoveThicket_OptionalVegetation_Patch");
+        Checks.Check(!denseRemove.IsNil, "artifact contains the dense RemoveThicket wrapper");
+        CheckHandlers(reader, denseRemove, new Dictionary<string, int> { { "Prefix", 1 }, { "Postfix", 1 } },
+            MethodAttributes.Assembly, "internal static");
+        if (!denseRemove.IsNil)
+        {
+            var denseRemoveDefinition = reader.GetTypeDefinition(denseRemove);
+            Checks.Check(HasClassHarmonyPatchTarget(reader, denseRemoveDefinition, "Grass", "RemoveThicket"),
+                "the dense RemoveThicket wrapper keeps the [HarmonyPatch(typeof(Grass), RemoveThicket)] class attribute for PC auto-patch");
+            Checks.Check(BodyCallsMethod(pe, reader, denseRemoveDefinition, "Prefix",
+                    "OnNativeRemoveThicket", "KingdomEnhancedMod.PatchWorld_OptionalVegetation"),
+                "the dense RemoveThicket Prefix really calls the shared OnNativeRemoveThicket helper");
+            Checks.Check(BodyCallsMethod(pe, reader, denseRemoveDefinition, "Postfix",
+                    "OnThicketRemoved", "KingdomEnhancedMod.PatchWorld_OptionalVegetation"),
+                "the dense RemoveThicket Postfix really calls the shared OnThicketRemoved helper");
+        }
 
         // Boat-capacity block (android/PatchWorld_BoatCapacity.cs + the shared policy
         // il2cpp/BoatCapacityProfile.cs): the one Prefix + one Finalizer must land in the
@@ -1243,6 +1385,10 @@ internal static class ArtifactChecks
         var memberNames = new HashSet<string>();
         foreach (var handle in reader.MemberReferences) memberNames.Add(reader.GetString(reader.GetMemberReference(handle).Name));
         foreach (string required in RequiredMembers) Checks.Check(memberNames.Contains(required), "references member " + required);
+        Checks.Check(!typeRefs.Contains("Il2Cpp.SpriteRendererFX") && !typeRefs.Contains("Il2Cpp.BaseSpriteFX"),
+            "the Android artifact references no SpriteRendererFX/BaseSpriteFX types (FX seam cut)");
+        Checks.Check(!memberNames.Contains("FadeOut"),
+            "the Android artifact references no FX FadeOut member");
 
         var assemblyRefs = new HashSet<string>();
         foreach (var handle in reader.AssemblyReferences) assemblyRefs.Add(reader.GetString(reader.GetAssemblyReference(handle).Name));
@@ -1424,7 +1570,9 @@ internal static class ArtifactChecks
     // listed source must stay byte-identical; this issue mechanically re-pinned every hash it
     // changed, removed the legacy intentionallyChanged skip set, and added the new shared UI
     // inputs (ModPanelStyles / ModPanelControls / ImGuiCompat), the common panel container and
-    // the pure gesture helper as strict pins.
+    // the pure gesture helper as strict pins. Issue #146 re-pinned the five files it changed
+    // (Probe / MobilePlayerConfig / MobileVegetationMenu / AndroidProbe.csproj /
+    // AdapterTests.csproj) and added the shared dense source PatchWorld_OptionalVegetation.cs.
     private static readonly string SourceRoot = Checks.RepositoryRoot();
 
     private static readonly string[] FrozenSources =
@@ -1472,6 +1620,7 @@ internal static class ArtifactChecks
         "il2cpp/PatchWorld_FarmCats.cs",
         "il2cpp/PatchWorld_FastForestRecede.cs",
         "il2cpp/PatchWorld_Level.cs",
+        "il2cpp/PatchWorld_OptionalVegetation.cs",
     };
 
     private static void VerifyFrozenSources()
@@ -1488,13 +1637,13 @@ internal static class ArtifactChecks
             { "android/MobileCalendar.cs", "49e8fcbdc29a19b5100c5c6525a1317cccb446252bcbe91a8306699afcee718a" },
             { "android/MobileGenerationMenu.cs", "e89f7d9224b31f5ea77ca5392a02d8c7ac1a723c2dd0ee702d4225eb8f53f5d0" },
             { "android/MobileModPanel.cs", "e9a0bd5347da0333b2110b4a93dcf61b0caff4d4375a600a99ad12a124683f12" },
-            { "android/MobilePlayerConfig.cs", "6f272276fe7d02dd39417a01bff203b68603809686aed27deada98add9ba2b59" },
+            { "android/MobilePlayerConfig.cs", "b83128c03784f169dd771e52972a0825dc959b31dc5aaca9ce0dbda574e5f01a" },
             { "android/MobilePlayerMenu.cs", "849ef81c029258d0a0ddbff4aef1684d9998434f4f85a01525d60236a714e139" },
             { "android/MobilePopulation.cs", "7cc188d1530a328db6f8c4bd88082dc4b17a0b8c2af1be0978ac3cf16c04c849" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
-            { "android/MobileVegetationMenu.cs", "3690f36d4beb90be39adb0514d50ea129fa1ff7eb43bc2ee6f064e13223d5f34" },
+            { "android/MobileVegetationMenu.cs", "40e6be0dda5313a61f01f98e1829422290612ede0b948b8d21c4549a58890e66" },
             { "android/MobileWorldMenu.cs", "fb19eb33a9e201c3e7b0c9a14c6ec4527a2e461fc24105b03aad68d93fb5fe4e" },
-            { "android/OhMyMods.AndroidProbe.csproj", "2393bfb8cf92af8193c0f9e0444cc12739c0f43a7d110fa15548d0f9b57330aa" },
+            { "android/OhMyMods.AndroidProbe.csproj", "b3738e840b5e9166741f13e15d0db97c1692f6f304b21c53fda1afdbf39df08e" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PanelGesture.cs", "51071fefbc1a1ab4b8f23ee84bf10925c325d8414400b9ed186af238c136e97b" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },
@@ -1503,9 +1652,9 @@ internal static class ArtifactChecks
             { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
-            { "android/Probe.cs", "7fc5e16f60b25114c79b9fe2e69d78428b9c15f23c04fa127167c8f7dd7da813" },
+            { "android/Probe.cs", "3a3ba0ea0d43c9c48cef1f15b26d8efbf2d7652eb78f1acea7e70d345a8a91bd" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
-            { "android/tests/AdapterTests.csproj", "59710a352d2264d0e0a46f093527c0a1a7ef91c3ce3ec3bac8976ea9460d398c" },
+            { "android/tests/AdapterTests.csproj", "67129500b334985090cd07323422d161553f1db08cfe3f5966eb81af67c69bfe" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
             { "android/tests/MelonPreferencesStub.cs", "43cb64d622d4b1827aff0229902a732d209b188400f628d088fde099337e38d2" },
             { "il2cpp/BoatCapacityProfile.cs", "02d43c64922667e6e1f2d834bf29f28f8fbc683878dc27db1430abed4c11c2f2" },
@@ -1514,13 +1663,14 @@ internal static class ArtifactChecks
             { "il2cpp/ImGuiCompat.cs", "a69b83eb5c5219b7be84dadc37c7f13f17eafe3f69fa973235d9bb044f53af87" },
             { "il2cpp/MapWidthPlanner.cs", "3790b85fef8f36c822cec3d845a1ff90fb0a2dbcfaa295169966cc2ad036aa20" },
             { "il2cpp/MapWidthTerrain.cs", "5fe7ccde3fcdf5ff99e169e17b13b8558b37e3f03d7d7294ada8649d6afa194b" },
-            { "il2cpp/ModPanelControls.cs", "202ba7be515effa8e7fa5895f8314bebc26faff8b3a5bc3b13f4bc20efb1e551" },
-            { "il2cpp/ModPanelStyles.cs", "48b40eef494aa8c93a4d1c89ad4327dba48cf9cf628767243ddc7f8f958d8e78" },
+            { "il2cpp/ModPanelControls.cs", "0f6ac598c2e61d19cef0797de17f7e73b4c080113a6185da9623c498b83fec5b" },
+            { "il2cpp/ModPanelStyles.cs", "c4de8ec78a4c35a57a0afde3ba80db41e80a1cbff63b27afcd825fd0795a79c5" },
             { "il2cpp/PatchWorld_Construction.cs", "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79" },
             { "il2cpp/PatchWorld_DeerPopulation.cs", "60ddae20a9dc96cadb769d607eed313bd3cd6c1eb8a6239bbf4165e96452aed2" },
             { "il2cpp/PatchWorld_FarmCats.cs", "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f" },
             { "il2cpp/PatchWorld_FastForestRecede.cs", "1b51c0aa24daec749d23647f82aecb789e1b36b7439497eff2bd93dbb40d3193" },
             { "il2cpp/PatchWorld_Level.cs", "90f9f724db0d0f9353775f4284ed09d6d1782c125c5ad028e83b843b55e1315e" },
+            { "il2cpp/PatchWorld_OptionalVegetation.cs", "0d8d9e892e91b4439f026d211e3a26edb86b14861999438b1148e35cfb8918c0" },
         };
         foreach (string relative in FrozenSources)
         {

@@ -1,4 +1,12 @@
-## 2026-10-04 — Android 公共 UI（Issue #144，代码交付处理中）
+## 2026-10-05 — Android 密灌木与公共长状态排版（Issue #146，代码交付待收尾）
+
+公共UI #144已正常收尾：PR #145合并至release/v9.5.13@7a28dd46，GitHub144关闭，canonical review.completed→task.done/closed于04:29:14UTC完成，doctor0E0W/37info；手机/多指/所有DPI/联机及旧15功能完整玩法待验仍保留。完整UI和最终APK的有限模拟器证据见 tasks/issue-144/。
+
+密灌木第16项真实默认关闭设置、原生生成与额外实例清理共用生产源，Android裁掉可选FX路径并补齐部分颜色写入的逐层责任交接；Save只在3个真实写入点按真实变化一次提交，无算法副本、镜像、扫描或重试层。公共Info长值造成标题竖排的真实问题已修在Android共享MeasureRow/DrawRow，单metrics上下排列，短/空值/交互卡和输入保持。最终Probe0.0.22/Main1480d71a，真实Android0W0E、strict676/568、44pins0skip；typed22/0、PC原31/0与独立原反例2/0，完整PC1290types/6811methods/34资源零语义差异。
+
+私有APKbe803edd已保留数据安装并核包/installed base/Main一致；28目标旧25形状、原生输入6→3/首extra、OFF六登记清理/拒重开/登记clear、完整长状态与Back、最终OFF冷读回/旧15值保持/仅Main/游戏停止已观察。中间30be/7ed的ON冷读回单列；登记clear不单独证明原生Remove/RGBA入池，post-finalizer间距未直接仪表读，手机/多指/MP/长期和旧玩法保持待验。源码独审已通过，设备声明独审与正常PR/canonical代码收尾仍待进行；不发布APK或tag。见 tasks/issue-146/implementation.md。
+
+## 2026-10-04 — Android 公共 UI（Issue #144，历史交付前快照）
 
 PC 深色金色样式与中文控件已共用，Android 保留小浮球、固定320×480×Scale面板与内容滚动。Main0.0.20/5fc712f4实际SDK10 0W0E、strict623/0；PC419d2aa3 Release SDK8 0W0E，非UI方法和34资源保持。实际原生GUI缺失入口已在共享绘制/样式边界适配，没有API假面/重复样式/扫描重试。最终私有测试APK f9702e2b只有Main且installed base与包SHA一致；模拟器中文、裁剪/末卡、拖动取消、菜单隔离、失焦恢复已观察，15原设置恢复、游戏停止。实机手机/多指/全部DPI/联机保持待验，旧玩法状态不升级。正常PR合并/canonical代码收尾仍待进行。细节和真实验收范围见 tasks/issue-144/implementation.md 与 device-evidence.json。后续功能统一接入该UI，下一Dense批调查保留；剩余估算8–12批、80–200工程小时，phone/MP日历另列。
 

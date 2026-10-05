@@ -32,6 +32,7 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<float> MapSizeMultiplier;
     internal static MelonPreferences_Entry<bool> FastForestRecedeEnabled;
     internal static MelonPreferences_Entry<bool> DeerPopulationEnabled;
+    internal static MelonPreferences_Entry<bool> DenseThicketsEnabled;
 
     // InfiniteMoney 原生写（Il2Cpp.Wallet.InfiniteMoney）的唯一注入点：本文件保持零
     // Il2Cpp.* 引用（hosttests 直接编译同一份），由平台侧 Probe.OnInitializeMelon 传入
@@ -63,6 +64,7 @@ internal static class ModConfig
         MapSizeMultiplier = category.CreateEntry<float>("MapSizeMultiplier", 1f);
         FastForestRecedeEnabled = category.CreateEntry<bool>("FastForestRecedeEnabled", false);
         DeerPopulationEnabled = category.CreateEntry<bool>("DeerPopulationEnabled", false);
+        DenseThicketsEnabled = category.CreateEntry<bool>("DenseThicketsEnabled", false);
         // 手工编辑 cfg 可能写入越界值，在加载边界做唯一一次 clamp（不使用 validator：未证实
         // 可构造 ValueValidator 子类）；运行期不读回、不重试、不静默替换默认值。
         SpeedMultiplier.Value = Math.Clamp(SpeedMultiplier.Value, 1, 5);
@@ -88,7 +90,8 @@ internal static class ModConfig
             + " map=" + MapSizeMultiplier.Value
             + " staff=" + StaffCooldownMultiplier.Value
             + " forestRecede=" + FastForestRecedeEnabled.Value
-            + " deerPopulation=" + DeerPopulationEnabled.Value);
+            + " deerPopulation=" + DeerPopulationEnabled.Value
+            + " denseThickets=" + DenseThicketsEnabled.Value);
     }
 
     // 三个倍率的加载边界：有限值 clamp 到 [min,max]；NaN/Infinity 是非法外部输入，回 1 并

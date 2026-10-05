@@ -4,11 +4,12 @@
        - FloatLayout pure geometry (fixed 320x480 max panel via safe-area Resize, content
          viewport/ScrollMax reachability, orb-priority HitPanelBody) and the pure PanelGesture
          state machine (tap once / sticky scroll / cancel / release-outside / clamps),
-       - ModConfig MelonPreferences contract: one category, fifteen declared entries,
+       - ModConfig MelonPreferences contract: one category, sixteen declared entries,
          load-boundary clamps (seed flags: seed-speed, seed-enemy-count, seed-enemy-timeline;
          NaN and Infinity fallbacks), save-on-switch only, and the Initialize(Action&lt;bool&gt;)
          money seam firing exactly at cold start and each toggle (MelonLogger / MelonPreferences
-         stubbed; the oldcfg flag simulates a cfg with only the four original keys),
+         stubbed; the oldcfg flag simulates a cfg with only the four original keys; the dense
+         entry's TrySet save matrix runs in the typed ANDROID dense host, not here),
        - enemy prefix math from the linked production source against host doubles
          (EnemyStubs.cs): 1x/2x/5x, session-switch OFF, ties-to-even rounding, ref outputs,
        - metadata checks on the built OhMyMods.AndroidProbe.dll (HarmonyDontPatchAll attribute,
