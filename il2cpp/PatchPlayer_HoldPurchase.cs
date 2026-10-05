@@ -32,6 +32,8 @@ namespace KingdomEnhancedMod;
 /// 5. 松开、面板打开、暂停或菜单停帧、换店、选到别店（等待期选中变 null 属正常，保留
 ///    sameShop 身份）、走出可支付距离、等待超时、钱不足、货架满（非 Baker 识别类）、
 ///    关闭开关、换 world/layer/scene 都会结束这次 hold，必须重新按下才会对新店续买。
+///    issue #158：单帧长卡顿（自动存档/GC，本帧 unscaled 时长覆盖间隔大半且未超
+///    StallAbsoluteMaxSeconds）不算停帧，按住中的会话继续接续下一轮。
 /// 6. 蜜酒塔/面包店（Baker 与 PayableShop 同 GO，货架制）例外：交易成功后若仅因货架满
 ///    （CanPay/CanSelect 假）或原生尚未重新选中而无法续买，会话保留在等待态
 ///    （WaitingForStock），等乞丐吃掉架上酒腾格；等待期每帧只用"容忍丢选"的变体做
@@ -39,6 +41,8 @@ namespace KingdomEnhancedMod;
 ///    CanEnterHolding 全谓词成立才合成按键。等待上限 StockWaitCapSeconds（常量，不开配置项）；
 ///    换店/走远/被占/动作态变/店失效/钱不足/超时都会立即结束。等待期间绝不合成：
 ///    原生 None+payKeyDown 在 CanPay 假时会走掉地币分支。
+///    issue #158：非 Baker 识别类在 armed 续买窗口获得 ReentryGraceSeconds 重入宽限，
+///    仅覆盖"未售罄（CanPay 真）且仅差选中闪断/CanSelect 瞬态"的形态；售罄仍立即结束。
 /// 7. 诊断（默认输出，无新配置项）：每次白名单命中记一行 bind（分支/价格/priceIncrease/
 ///    类型短码），等待与恢复各记一行实测时长，drop 记一行聚合（原因/笔数/等待时长）；
 ///    每个会话最多 6 行，超出的过渡行被丢弃，drop 行始终保留一个名额。
@@ -89,6 +93,16 @@ public static class PatchPlayer_HoldPurchase
     /// 实机 wait→resume 实测间隔回标前保持常量，不开用户配置项。
     /// </summary>
     internal const float StockWaitCapSeconds = 90f;
+    /// <summary>
+    /// issue #158：非 Baker 分支 armed 会话的重入宽限上限。真实的重选瞬态是一帧（原生
+    /// None 态每帧刷新选中），上限只覆盖多帧抖动；售罄（CanPay 假）不属宽限，立即停。
+    /// </summary>
+    internal const float ReentryGraceSeconds = 1.5f;
+    /// <summary>
+    /// issue #158：停帧间隔的绝对上限。超过它的间隔即使帧证据成立也按停帧结束——
+    /// 失焦/读档级停顿不区分于长卡顿，作为有界故障保护接受。
+    /// </summary>
+    internal const float StallAbsoluteMaxSeconds = 5f;
     /// <summary>每个会话的诊断行上限（bind/等待/drop 共享；drop 行保留最后一个名额）。</summary>
     private const int SessionNoteBudget = 6;
     /// <summary>字段归还退避：基数与上限，无限重试但不打爆帧。</summary>
@@ -134,6 +148,8 @@ public static class PatchPlayer_HoldPurchase
         internal bool GoodsViaBaker;
         /// <summary>会话正在等待补货（Baker 类）：不合成、不加速，等原生重选后次帧续买。</summary>
         internal bool WaitingForStock;
+        /// <summary>issue #158：本会话已记过一次 hitch-continue 诊断（每会话只记首例）。</summary>
+        internal bool HitchNoted;
         /// <summary>本次等待的起点（unscaledTime）。</summary>
         internal float WaitSince;
         /// <summary>已结束的等待累计时长（秒），供 drop 行聚合。</summary>
@@ -377,8 +393,16 @@ public static class PatchPlayer_HoldPurchase
                 && now - session.LastUnscaledTime > StallSeconds)
             {
                 // 暂停、菜单、读档等停帧期间钩子不再被调用：恢复调用即结束本次 hold。
-                Drop(session, "stall");
-                session = null;
+                // issue #158：单帧长卡顿（自动存档/GC）期间钩子每帧连续，本帧自身的
+                // unscaled 时长覆盖整个间隔——这是卡顿与停帧的唯一帧级判别证据
+                // （Time.deltaTime 被 maximumDeltaTime 截断，不能用作判据）。只有该形态
+                // 保持本次 hold；间隔超过绝对上限时无条件结束。
+                float gap = now - session.LastUnscaledTime;
+                if (gap > StallAbsoluteMaxSeconds || !HitchEvidence(gap, session))
+                {
+                    Drop(session, "stall");
+                    session = null;
+                }
             }
 
             if (!payKey)
@@ -482,7 +506,7 @@ public static class PatchPlayer_HoldPurchase
                     {
                         // 钱不足、占用、店失效、走远、动作态或非 Baker 店：结束本次 hold，
                         // 要求重新按下（原因按 CanEnterHolding 的谓词逐条归类）。
-                        Drop(session, ClassifyImmediateDrop(session, player, out _) ?? "stock-no-wait");
+                        Drop(session, ClassifyImmediateDrop(session, player, out _, out _) ?? "stock-no-wait");
                         receipt.Session = null;
                         return;
                     }
@@ -680,6 +704,31 @@ public static class PatchPlayer_HoldPurchase
     {
         if (ModConfig.HoldPurchaseEnabled == null) return false;
         return ModConfig.HoldPurchaseEnabled.Value;
+    }
+
+    /// <summary>
+    /// issue #158：停帧间隔的游戏内卡顿证据——本帧 unscaled 时长覆盖间隔的大半（钩子每帧
+    /// 连续，只有真实长帧会这样；暂停/菜单恢复首帧的 unscaled 时长是普通帧长，远小于间隔）。
+    /// 命中时每会话只记首例诊断行。阈值取 0.5 倍：中间形态按停帧处理，方向保守。
+    /// </summary>
+    private static bool HitchEvidence(float gap, Session session)
+    {
+        float unscaled;
+        try
+        {
+            unscaled = Time.unscaledDeltaTime;
+        }
+        catch
+        {
+            return false;
+        }
+        if (!(unscaled > 0f) || !float.IsFinite(unscaled) || unscaled < gap * 0.5f) return false;
+        if (session != null && !session.HitchNoted)
+        {
+            session.HitchNoted = true;
+            TransitionNote(session, "hitch-continue: gap=" + gap.ToString("0.00") + "s");
+        }
+        return true;
     }
 
     private static int ReadState(Player player)
@@ -1121,40 +1170,48 @@ public static class PatchPlayer_HoldPurchase
     }
 
     /// <summary>
-    /// 等待补货（仅 Baker 识别类）：失败归类为货架满/未就绪（CanSelect/CanPay 假）或
-    /// 仅差原生重选（selected==null，其余全绿）时保留会话，等乞丐吃掉架上酒腾格；补货后
-    /// 由原生重选、下一帧全谓词成立才合成续购。其余失败（钱包/距离/占用/动作态/店失效/
-    /// 换店）与超过 StockWaitCapSeconds 的等待都立即 Drop。等待帧绝不合成：原生
-    /// None+payKeyDown 在 CanPay 假时会走掉地币分支。
+    /// 等待裁决（issue #158 扩展）：Baker 识别类维持货架等待全语义（CanSelect/CanPay 假或
+    /// 仅差原生重选都可等，上限 StockWaitCapSeconds）。非 Baker 识别类获得有界重入宽限：
+    /// 只有“未售罄（CanPay 真）且失败仅来自选中闪断/CanSelect 瞬态”才可等（上限
+    /// ReentryGraceSeconds）；CanPay 假=售罄立即停（原 stock-no-wait 语义不变）。等待帧
+    /// 绝不合成：原生 None+payKeyDown 在 CanPay 假时会走掉地币分支。
     /// </summary>
     private static WaitOutcome MaintainStockWait(Session session, Player player, float now)
     {
         try
         {
-            if (session.Shop == null || !session.ShopIsGoods || !session.GoodsViaBaker)
-                return WaitOutcome.NotEligible;
-            string dropReason = ClassifyImmediateDrop(session, player, out bool stockBlocked);
+            if (session.Shop == null || !session.ShopIsGoods) return WaitOutcome.NotEligible;
+            bool baker = session.GoodsViaBaker;
+            string dropReason = ClassifyImmediateDrop(session, player, out bool stockBlocked,
+                out bool payBlocked);
+            if (!baker && (dropReason != null || payBlocked))
+            {
+                Drop(session, dropReason ?? "stock-no-wait");
+                return WaitOutcome.Dropped;
+            }
             if (dropReason != null)
             {
                 Drop(session, dropReason);
                 return WaitOutcome.Dropped;
             }
+            float cap = baker ? StockWaitCapSeconds : ReentryGraceSeconds;
             if (!session.WaitingForStock)
             {
                 session.WaitingForStock = true;
                 session.WaitSince = now;
                 session.WaitEpisodes++;
-                TransitionNote(session, "wait-stock: cause=" + (stockBlocked ? "stock" : "reselect")
+                TransitionNote(session, (baker ? "wait-stock" : "wait-grace")
+                    + ": cause=" + (stockBlocked ? "stock" : "reselect")
                     + " held=" + session.HeldElapsed.ToString("0.00") + "s receipts=" + session.Receipts);
             }
-            else if (now - session.WaitSince > StockWaitCapSeconds)
+            else if (now - session.WaitSince > cap)
             {
                 float waited = now - session.WaitSince;
                 session.WaitedTotal += waited;
                 session.WaitingForStock = false;
                 TransitionNote(session, "wait-timeout: waited=" + waited.ToString("0.00")
-                    + "s cap=" + StockWaitCapSeconds.ToString("0") + "s");
-                Drop(session, "no-stock-timeout");
+                    + "s cap=" + cap.ToString("0.0") + "s");
+                Drop(session, baker ? "no-stock-timeout" : "reentry-timeout");
                 return WaitOutcome.Dropped;
             }
             return WaitOutcome.Waiting;
@@ -1181,11 +1238,14 @@ public static class PatchPlayer_HoldPurchase
     /// <summary>
     /// 逐条镜像 CanEnterHolding 的失败点给出立即结束原因；返回 null 表示可以继续等待
     /// （货架满/未就绪，或仅差原生重选）。stockBlocked 标记 CanSelect/CanPay 假这类
-    /// 可能靠补货恢复的失败，用于等待诊断行。钱包检查显式归类为立即 Drop（P1-4）。
+    /// 可能靠补货恢复的失败，用于等待诊断行；payBlocked 单独标记 CanPay 假（issue #158：
+    /// 非 Baker 分支的售罄立即停依据）。钱包检查显式归类为立即 Drop（P1-4）。
     /// </summary>
-    private static string ClassifyImmediateDrop(Session session, Player player, out bool stockBlocked)
+    private static string ClassifyImmediateDrop(Session session, Player player, out bool stockBlocked,
+        out bool payBlocked)
     {
         stockBlocked = false;
+        payBlocked = false;
         try
         {
             Payable shop = session.Shop;
@@ -1203,6 +1263,7 @@ public static class PatchPlayer_HoldPurchase
                 return "fault";
             }
             stockBlocked = !canSelect || !canPay;
+            payBlocked = !canPay;
             int actionState = (int)player.actionState;
             if (actionState == ActionStateRun || actionState == ActionStateTransformed)
                 return "action-state";
