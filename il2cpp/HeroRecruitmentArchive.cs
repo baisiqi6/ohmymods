@@ -41,9 +41,9 @@ internal sealed class HeroRecruitmentArchive
     internal const int Version = 2;
     internal const int LegacyVersion = 1;
     internal const int HashKindLegacy = 1;
-    internal const int MaxScopes = 128;
+    internal const int MaxScopes = 256;
     internal const int MaxSnapshots = 8;
-    internal const int MaxContexts = 64;
+    internal const int MaxContexts = 128;
     internal const int MaxEpochs = 8;
     internal readonly Dictionary<string, List<HeroRecruitmentSnapshot>> Scopes = new(StringComparer.Ordinal);
     internal readonly Dictionary<string, string> Baselines = new(StringComparer.Ordinal);
@@ -52,21 +52,67 @@ internal sealed class HeroRecruitmentArchive
     internal static string Hash(string text, string scope) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(scope + "\n" + text))).ToLowerInvariant();
     internal static bool HashKindValid(int kind) => kind == HashKindLegacy || kind == HeroRecruitmentFingerprint.Kind;
 
-    // Stable identity of one island lineage: save file, campaign/challenge slots and land.
-    // Runtime DateTime ticks and instance ids are never part of it: the game recreates
-    // realStartDateTime on every load, which is exactly why the legacy tick scopes rot.
-    internal static string ContextKey(string file, int campaign, int challenge, int land)
+    // Stable identity of one island lineage: save file, campaign/challenge slots and the island's
+    // slot index inside campaign._islands (issue #153). The game identifies islands positionally
+    // (GetIsland/SetIsland/TryExpandIslandsArray/securedIslands are index-based); land is a data
+    // field that stays 0 on never-visited placeholder slots, so keying by it collided every
+    // placeholder with the home island. Populated islands carry land == slot (verified on real
+    // saves), which keeps the hashed bytes identical for all existing archives: no migration and
+    // no on-disk format change. Runtime DateTime ticks and instance ids are never part of it: the
+    // game recreates realStartDateTime on every load, which is exactly why the legacy tick scopes
+    // rot.
+    internal static string ContextKey(string file, int campaign, int challenge, int islandSlot)
     {
         var builder = new StringBuilder(192);
         AppendField(builder, "file", file);
         AppendField(builder, "campaign", campaign.ToString(CultureInfo.InvariantCulture));
         AppendField(builder, "challenge", challenge.ToString(CultureInfo.InvariantCulture));
-        AppendField(builder, "land", land.ToString(CultureInfo.InvariantCulture));
+        // The field label stays "land" forever: it is part of the hashed bytes, and every existing
+        // archive key was written with it. Only the value's meaning moved from land to slot.
+        AppendField(builder, "land", islandSlot.ToString(CultureInfo.InvariantCulture));
         return Hash(builder.ToString(), "hero-context");
     }
 
     // Opaque epoch scope for a confirmed new generation. Random, never derived from runtime state.
     internal static string NewScope() => Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+
+    // issue #153: how a campaign's _islands table resolved one island. NotFound also covers a
+    // null campaign/island/table and any read failure; callers fail closed on both shapes.
+    internal enum IslandSlotLookup { Ok, NotFound, Divergent }
+
+    // The game identifies islands by their slot in campaign._islands: GetIsland, SetIsland,
+    // TryExpandIslandsArray and securedIslands are all index-based, and the list only ever grows.
+    // land is a data field that stays 0 on never-visited placeholder slots, so a land-based key
+    // collided every placeholder with the home island (slot 0, land 0) — the origin of the
+    // cross-island "already purchased" state. Populated islands carry land == slot on every real
+    // save observed so far, which keeps the hashed context keys byte-identical for existing
+    // archives: no migration, no format change. A populated island whose land disagrees with its
+    // slot is an unknown shape: its paid history lives under the land-keyed context which stays
+    // claimed, so minting a fresh slot key would open a repurchase window — callers must treat
+    // Divergent as fail-closed (no key, no purchase, no write), never as a fresh island.
+    internal static IslandSlotLookup IslandSlot(CampaignSaveData campaign, IslandSaveData island, out int islandSlot)
+    {
+        islandSlot = -1;
+        if (campaign == null || island == null) return IslandSlotLookup.NotFound;
+        try
+        {
+            var islands = campaign._islands;
+            if (islands == null) return IslandSlotLookup.NotFound;
+            int index = 0;
+            foreach (var entry in islands)
+            {
+                if (entry != null && entry.Pointer == island.Pointer)
+                {
+                    if (island.land != 0 && island.land != index) return IslandSlotLookup.Divergent;
+                    islandSlot = index;
+                    return IslandSlotLookup.Ok;
+                }
+                index++;
+            }
+            return IslandSlotLookup.NotFound;
+        }
+        catch { return IslandSlotLookup.NotFound; }
+    }
 
     private static void AppendField(StringBuilder builder, string name, string value)
     {

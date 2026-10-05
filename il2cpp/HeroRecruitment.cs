@@ -72,9 +72,9 @@ internal static class HeroRecruitment
         internal bool NativeAuthority;
         internal bool SessionRebind; // this re-entry kept the session's own receipts; bindings carry over
         internal bool HasSession;    // seat set came from a resolved snapshot; an empty set is evidence
-        internal IntPtr SourceGlobal; // frozen exact source: Global object + native owner + land
+        internal IntPtr SourceGlobal; // frozen exact source: Global object + native owner + island slot
         internal IntPtr SourceOwner;
-        internal int SourceLand = -1;
+        internal int SourceSlot = -1;
         internal int FallenSeatMask; // Session-only torn-flag feedback; never purchase authority.
     }
     private static readonly Dictionary<IntPtr, Candidate> Candidates = new();
@@ -82,17 +82,17 @@ internal static class HeroRecruitment
 
     // ---- runtime state source identity --------------------------------------------------------
     // One runtime IslandState belongs to one exact source: the Global object it was created under,
-    // the native campaign/challenge owner and the land. Numeric context keys are lookup aliases
-    // only (they move with catalog slots and never prove ownership); MergeSessionRebind may only
-    // use a state whose source matches exactly.
-    private static bool SameSource(IslandState state, IntPtr global, IntPtr owner, int land)
+    // the native campaign/challenge owner and the island slot. Numeric context keys are lookup
+    // aliases only (they move with catalog slots and never prove ownership); MergeSessionRebind
+    // may only use a state whose source matches exactly.
+    private static bool SameSource(IslandState state, IntPtr global, IntPtr owner, int islandSlot)
         => state != null && state.SourceGlobal != IntPtr.Zero && state.SourceGlobal == global
-            && state.SourceOwner == owner && state.SourceLand == land;
+            && state.SourceOwner == owner && state.SourceSlot == islandSlot;
 
-    private static IslandState FindSourceState(IntPtr global, IntPtr owner, int land)
+    private static IslandState FindSourceState(IntPtr global, IntPtr owner, int islandSlot)
     {
         foreach (var pair in Islands)
-            if (SameSource(pair.Value, global, owner, land)) return pair.Value;
+            if (SameSource(pair.Value, global, owner, islandSlot)) return pair.Value;
         return null;
     }
 
@@ -102,9 +102,9 @@ internal static class HeroRecruitment
     // Tick sees the state under the current key instead of re-entering this migration every
     // frame (which also kept FindPurchase's fresh-key check and the per-frame seat queries
     // locked to a stale key).
-    private static IslandState StateForSource(string alias, IntPtr global, IntPtr owner, int land)
+    private static IslandState StateForSource(string alias, IntPtr global, IntPtr owner, int islandSlot)
     {
-        var match = FindSourceState(global, owner, land);
+        var match = FindSourceState(global, owner, islandSlot);
         if (match == null) return null;
         RemoveState(match);
         InstallState(alias, match);
@@ -120,7 +120,7 @@ internal static class HeroRecruitment
         if (Islands.TryGetValue(alias, out var occupant) && !ReferenceEquals(occupant, state)
             && occupant.SourceOwner != IntPtr.Zero
             && occupant.SourceGlobal == GlobalSaveData._loaded?.Pointer)
-            Islands["@" + occupant.SourceOwner.ToInt64() + ":" + occupant.SourceLand] = occupant;
+            Islands["@" + occupant.SourceOwner.ToInt64() + ":" + occupant.SourceSlot] = occupant;
         Islands[alias] = state;
     }
 
@@ -138,12 +138,12 @@ internal static class HeroRecruitment
     private static IntPtr _sourceOwner;
     private static IntPtr _sourceGlobal, _sourceIsland;
     private static string _sourceFile;
-    private static int _sourceCampaign, _sourceChallenge, _sourceLand = -1, _sourceCatalog = -1;
+    private static int _sourceCampaign, _sourceChallenge, _sourceSlot = -1, _sourceCatalog = -1;
     private static bool _sourceValid, _sourceProven;
 
-    private static bool TrySourceIdentity(out IntPtr global, out IntPtr owner, out int land)
+    private static bool TrySourceIdentity(out IntPtr global, out IntPtr owner, out int islandSlot)
     {
-        global = IntPtr.Zero; owner = IntPtr.Zero; land = -1;
+        global = IntPtr.Zero; owner = IntPtr.Zero; islandSlot = -1;
         var value = GlobalSaveData._loaded;
         var campaign = CampaignSaveData.current;
         var island = campaign != null ? campaign.CurrentIsland : null;
@@ -151,13 +151,17 @@ internal static class HeroRecruitment
         if (_sourceValid && _sourceGlobal == value.Pointer && _sourceIsland == island.Pointer
             && _sourceCampaign == value.currentCampaign && _sourceChallenge == value.currentChallenge
             && _sourceFile == GlobalSaveData.filename && _sourceCatalog == HeroNativeRights.CatalogGeneration)
-        { global = _sourceGlobal; owner = _sourceOwner; land = _sourceLand; return _sourceProven; }
+        { global = _sourceGlobal; owner = _sourceOwner; islandSlot = _sourceSlot; return _sourceProven; }
         _sourceGlobal = value.Pointer; _sourceIsland = island.Pointer; _sourceCampaign = value.currentCampaign;
         _sourceChallenge = value.currentChallenge; _sourceFile = GlobalSaveData.filename;
-        _sourceCatalog = HeroNativeRights.CatalogGeneration; _sourceLand = island.land; _sourceValid = true;
-        _sourceProven = HeroNativeRights.TrySourceIdentity(island.land, out _, out _sourceOwner);
+        _sourceCatalog = HeroNativeRights.CatalogGeneration;
+        // An unresolvable or divergent island slot proves no source identity: the slot stays -1
+        // (never matching a real state) and the caller keeps its fail-closed path.
+        bool slotOk = TryIslandSlot(campaign, island, out _sourceSlot);
+        _sourceValid = true;
+        _sourceProven = slotOk && HeroNativeRights.TrySourceIdentity(_sourceSlot, out _, out _sourceOwner);
         if (!_sourceProven) _sourceOwner = IntPtr.Zero;
-        global = _sourceGlobal; owner = _sourceOwner; land = _sourceLand;
+        global = _sourceGlobal; owner = _sourceOwner; islandSlot = _sourceSlot;
         return _sourceProven;
     }
     private static readonly HashSet<IntPtr> BoundRoots = new();
@@ -462,17 +466,17 @@ internal static class HeroRecruitment
             if (_lastTickFrame == Time.frameCount) return;
             _lastTickFrame = Time.frameCount;
             if (!TryContext(out string contextKey, out long world)) return;
-            bool sourceProven = TrySourceIdentity(out IntPtr srcGlobal, out IntPtr srcOwner, out int srcLand);
+            bool sourceProven = TrySourceIdentity(out IntPtr srcGlobal, out IntPtr srcOwner, out int srcSlot);
             if (_current == null || _current.ContextKey != contextKey || _current.World != world
-                || (sourceProven && !SameSource(_current, srcGlobal, srcOwner, srcLand)))
+                || (sourceProven && !SameSource(_current, srcGlobal, srcOwner, srcSlot)))
             {
                 _candidateCacheUntil = 0;
-                IslandState next = sourceProven ? StateForSource(contextKey, srcGlobal, srcOwner, srcLand) : null;
+                IslandState next = sourceProven ? StateForSource(contextKey, srcGlobal, srcOwner, srcSlot) : null;
                 if (next == null)
                 {
                     if (Islands.Count >= HeroRecruitmentArchive.MaxContexts) return;
                     next = NewState(contextKey, world, null, null, false, null, false);
-                    if (sourceProven) { next.SourceGlobal = srcGlobal; next.SourceOwner = srcOwner; next.SourceLand = srcLand; }
+                    if (sourceProven) { next.SourceGlobal = srcGlobal; next.SourceOwner = srcOwner; next.SourceSlot = srcSlot; }
                     InstallState(contextKey, next);
                 }
                 next.World = world; _current = next;
@@ -763,8 +767,12 @@ internal static class HeroRecruitment
             foreach (var seat in previous.Seats) session.Add(seat.Receipt);
         }
         HeroRecruitmentContexts.Resolution resolution;
+        // issue #153: the island's slot is the key identity; an island whose slot cannot be proven
+        // (not in _islands, or a divergent land) must not reach the native resolver at all.
+        int islandSlot = -1;
+        if (island != null && !TryIslandSlot(CampaignSaveData.current, island, out islandSlot)) islandSlot = -1;
         if (!HeroNativeRights.Resolve(contextKey, GlobalSaveData._loaded.currentCampaign,
-            GlobalSaveData._loaded.currentChallenge, island, rawJson, generationPending,
+            GlobalSaveData._loaded.currentChallenge, islandSlot, island, rawJson, generationPending,
             out var native, out bool nativeKnown, out bool nativeBaseline))
         {
             state.ReadOnly = true; state.Unresolved = true; state.MatchKind = "native-unavailable";
@@ -775,9 +783,9 @@ internal static class HeroRecruitment
             state.NativeAuthority = true;
             state.ReadOnly = false;
             resolution = native;
-            if (island != null)
+            if (island != null && islandSlot >= 0)
                 state.SessionRebind = HeroNativeRights.MergeSessionRebind(GlobalSaveData._loaded.currentCampaign,
-                    GlobalSaveData._loaded.currentChallenge, island.land, session, native);
+                    GlobalSaveData._loaded.currentChallenge, islandSlot, session, native);
         }
         else
         {
@@ -811,25 +819,36 @@ internal static class HeroRecruitment
             var island = campaign != null ? campaign.CurrentIsland : null;
             if (global == null || island == null) return false;
             world = WorldKey();
-            bool valid = world != 0 && TryContextKey(global.currentCampaign, global.currentChallenge, island.land, out contextKey);
+            bool valid = world != 0 && TryIslandSlot(campaign, island, out int islandSlot)
+                && TryContextKey(global.currentCampaign, global.currentChallenge, islandSlot, out contextKey);
             if (valid) { _contextKey = contextKey; _contextWorld = world; _contextFrame = Time.frameCount; }
             return valid;
         }
         catch { return false; }
     }
 
+    // Bounded-logging wrapper over the archive's pure slot lookup: a campaign table that cannot
+    // prove this island's slot (or proves a land/slot divergence) must never produce a key.
+    private static bool TryIslandSlot(CampaignSaveData campaign, IslandSaveData island, out int islandSlot)
+    {
+        var lookup = HeroRecruitmentArchive.IslandSlot(campaign, island, out islandSlot);
+        if (lookup == HeroRecruitmentArchive.IslandSlotLookup.NotFound) Log("island-slot-missing", null);
+        else if (lookup == HeroRecruitmentArchive.IslandSlotLookup.Divergent) Log("island-identity-divergent", null);
+        return lookup == HeroRecruitmentArchive.IslandSlotLookup.Ok;
+    }
+
     // Stable context identity for one island lineage. The runtime creation ticks of the loaded
     // island are deliberately excluded: the game recreates them per load and only the stable
-    // file/campaign/challenge/land identity survives, which is what the v2 epochs are keyed on.
-    private static bool TryContextKey(int campaign, int challenge, int land, out string contextKey)
+    // file/campaign/challenge/slot identity survives, which is what the v2 epochs are keyed on.
+    private static bool TryContextKey(int campaign, int challenge, int islandSlot, out string contextKey)
     {
         contextKey = null;
         try
         {
-            if (land < 0) return false;
+            if (islandSlot < 0) return false;
             string file = GlobalSaveData.filename;
             if (string.IsNullOrEmpty(file) || file.Length > 256) return false;
-            contextKey = HeroRecruitmentArchive.ContextKey(file, campaign, challenge, land);
+            contextKey = HeroRecruitmentArchive.ContextKey(file, campaign, challenge, islandSlot);
             return true;
         }
         catch { return false; }
@@ -852,6 +871,7 @@ internal static class HeroRecruitment
         internal int Campaign, Land, Challenge;
         internal IslandSaveData Island;
         internal string ContextKey;
+        internal int IslandSlot = -1;   // frozen with the island, from campaign._islands
         internal IntPtr GlobalPointer, CampaignPointer;
         internal IntPtr SourcePointer;   // source identity frozen at Save entry, before any GetID
         internal long World;
@@ -910,8 +930,9 @@ internal static class HeroRecruitment
                 if (island == null || !IslandSaveData.isSavingGame || (Land != -1 && island.land != Land)
                     || global == null || current == null || global.currentCampaign != Campaign
                     || global.currentChallenge != Challenge) return;
-                if (!HeroRecruitment.TryContextKey(Campaign, Challenge, island.land, out string contextKey)) return;
-                Island = island; ContextKey = contextKey;
+                if (!TryIslandSlot(current, island, out int islandSlot)
+                    || !TryContextKey(Campaign, Challenge, islandSlot, out string contextKey)) return;
+                Island = island; ContextKey = contextKey; IslandSlot = islandSlot;
                 GlobalPointer = global.Pointer; CampaignPointer = current.Pointer;
                 if (SourcePointer == IntPtr.Zero) SourcePointer = current.Pointer;
                 World = WorldKey();
@@ -941,7 +962,16 @@ internal static class HeroRecruitment
             // whole native save. Complete it as a no-op success instead of NoteCaptureInvalid.
             if (!staged && ContextKey != null && Islands.TryGetValue(ContextKey, out var capState)
                 && ReferenceEquals(capState, _current) && capState.MatchKind == "epoch-cap")
-            { Log("save-epoch-cap-noop", null); return; }
+            {
+                // issue #153 (review #2 P1-2b): the unresolved gate in ApplyCore also means a
+                // responsibility recorded earlier for this exact source can never be re-verified
+                // by a Stage — it would only keep refusing the global save. Release exactly that
+                // source (frozen owner + slot); the land value is never used as a fallback key.
+                var capOwner = SourcePointer != IntPtr.Zero ? SourcePointer : CampaignPointer;
+                if (capOwner != IntPtr.Zero && IslandSlot >= 0)
+                    HeroNativeRights.ReleaseEpochCapResponsibility(capOwner, IslandSlot);
+                Log("save-epoch-cap-noop", null); return;
+            }
             if (!staged) NoteCaptureInvalid();
         }
 
@@ -997,8 +1027,10 @@ internal static class HeroRecruitment
 
         // Called when this capture did not complete. The responsibility is taken from the frozen
         // source identity this capture already verified (loaded Global object + campaign object +
-        // land): it must be recorded even when the prefs cannot be read at this moment, and a
-        // later healthy read only resolves its exact identity, never clears it.
+        // island slot): it must exist even when the prefs cannot be read at this moment, and a
+        // later healthy read only resolves its exact identity, never clears it. An island whose
+        // slot cannot be proven carries no responsibility (issue #153: no slot, no custody — a
+        // land value is never turned into another island's key).
         internal void NoteCaptureInvalid()
         {
             try
@@ -1007,11 +1039,29 @@ internal static class HeroRecruitment
                 var owner = SourcePointer != IntPtr.Zero ? SourcePointer : CampaignPointer;
                 if (GlobalPointer == IntPtr.Zero || owner == IntPtr.Zero) return;
                 if (GlobalSaveData._loaded == null || GlobalSaveData._loaded.Pointer != GlobalPointer) return;
-                int land = Land >= 0 ? Land : (Island != null ? Island.land : -1);
-                if (land < 0) return;
-                HeroNativeRights.NoteCaptureInvalid(owner, land);
+                HeroNativeRights.NoteCaptureInvalid(owner, ResolveInvalidSlot(owner));
             }
             catch (Exception e) { Log("save-capture-invalid", e); }
+        }
+
+        // A capture that failed before its first GetID never froze the island. The only slot
+        // evidence then is the frozen owner's own current island — the same object the save
+        // arguments describe (campaign/challenge already verified at FreezeSource/Capture, the
+        // land cross-checked against the argument) — resolved through the campaign's _islands
+        // table. The land value never becomes a key or a slot by itself: land 0 names no island.
+        private int ResolveInvalidSlot(IntPtr owner)
+        {
+            if (IslandSlot >= 0) return IslandSlot;
+            try
+            {
+                var campaign = CampaignSaveData.current;
+                if (campaign == null || campaign.Pointer != owner) return -1;
+                var island = campaign.CurrentIsland;
+                if (island == null || Land < 0 || island.land != Land) return -1;
+                return HeroRecruitmentArchive.IslandSlot(campaign, island, out int slot)
+                    == HeroRecruitmentArchive.IslandSlotLookup.Ok ? slot : -1;
+            }
+            catch { return -1; }
         }
     }
 
@@ -1189,7 +1239,8 @@ internal static class HeroRecruitment
             if (campaign == null || campaign.Pointer != source.Campaign || campaign.CurrentIsland == null
                 || campaign.CurrentIsland.Pointer != source.Island) return;
             if (GlobalSaveData.loaded == null
-                || !TryContextKey(GlobalSaveData.loaded.currentCampaign, GlobalSaveData.loaded.currentChallenge, campaign.CurrentIsland.land, out string contextKey)
+                || !TryIslandSlot(campaign, campaign.CurrentIsland, out int adoptSlot)
+                || !TryContextKey(GlobalSaveData.loaded.currentCampaign, GlobalSaveData.loaded.currentChallenge, adoptSlot, out string contextKey)
                 || contextKey != source.ContextKey || WorldKey() != source.World) return;
             if (!source.CarryFalse || !TryReadCarryFalse(campaign)) return;
             if (HasLivePurchase(Old, source.World) || HasLivePurchase(OldCurrent, source.World)) return;
@@ -1226,24 +1277,25 @@ internal static class HeroRecruitment
             for (var parent = Previous; parent != null; parent = parent.Previous) parent.Nested = true;
             _contextFrame = -1; _lastTickFrame = -1;
             if (!HeroArcherNetwork.AllowsLocalHero || island == null || GlobalSaveData.loaded == null) return;
-            if (!TryContextKey(GlobalSaveData.loaded.currentCampaign, GlobalSaveData.loaded.currentChallenge, island.land, out string contextKey)) return;
+            if (!TryIslandSlot(CampaignSaveData.current, island, out int islandSlot)
+                || !TryContextKey(GlobalSaveData.loaded.currentCampaign, GlobalSaveData.loaded.currentChallenge, islandSlot, out string contextKey)) return;
             string json = JsonUtility.ToJson(island, false);
             if (string.IsNullOrEmpty(json)) return;
             // A virgin island is recorded by the generation bridge after ApplyToScene succeeds;
             // this load must not pre-create its epoch or baseline.
             GenerationPending = IsVirgin(island);
             // The previous runtime state of this exact source is the session's own evidence (its
-            // paid receipts and observed bindings): it is found by frozen Global/owner/land, not by
+            // paid receipts and observed bindings): it is found by frozen Global/owner/slot, not by
             // the numeric alias (which a catalog slot move reuses for another live source).
-            bool sourceProven = TrySourceIdentity(out IntPtr srcGlobal, out IntPtr srcOwner, out int srcLand)
-                && srcLand == island.land;
+            bool sourceProven = TrySourceIdentity(out IntPtr srcGlobal, out IntPtr srcOwner, out int srcSlot)
+                && srcSlot == islandSlot;
             Islands.TryGetValue(contextKey, out Old); OldCurrent = _current;
-            if (sourceProven && !SameSource(Old, srcGlobal, srcOwner, island.land))
-                Old = FindSourceState(srcGlobal, srcOwner, island.land);
+            if (sourceProven && !SameSource(Old, srcGlobal, srcOwner, islandSlot))
+                Old = FindSourceState(srcGlobal, srcOwner, islandSlot);
             bool sessionQualified = sourceProven && Old != null && Old.HasSession
-                && SameSource(Old, srcGlobal, srcOwner, island.land);
+                && SameSource(Old, srcGlobal, srcOwner, islandSlot);
             State = NewState(contextKey, WorldKey(), island, json, GenerationPending, Old, sessionQualified);
-            if (sourceProven) { State.SourceGlobal = srcGlobal; State.SourceOwner = srcOwner; State.SourceLand = island.land; }
+            if (sourceProven) { State.SourceGlobal = srcGlobal; State.SourceOwner = srcOwner; State.SourceSlot = islandSlot; }
             // Keep the exact matched snapshot's stored hash/kind/provenance instead of recomputing;
             // a state without an exact match writes its own kind-2 baseline.
             Hash = State.MatchHash; BaselineKind = State.MatchHashKind; BaselineLegacy = State.MatchLegacy;
@@ -1422,7 +1474,8 @@ internal static class HeroRecruitment
             if (Done || campaign == null || !HeroArcherNetwork.AllowsLocalHero || GlobalSaveData.loaded == null) return;
             var island = campaign.CurrentIsland;
             if (!IsVirgin(island)) return;
-            if (!TryContextKey(GlobalSaveData.loaded.currentCampaign, GlobalSaveData.loaded.currentChallenge, island.land, out string contextKey)) return;
+            if (!TryIslandSlot(campaign, island, out int islandSlot)
+                || !TryContextKey(GlobalSaveData.loaded.currentCampaign, GlobalSaveData.loaded.currentChallenge, islandSlot, out string contextKey)) return;
             long world = WorldKey();
             if (world == 0) return;
             // Once-guard: this virgin generation already owns an epoch in this world.
@@ -1438,7 +1491,8 @@ internal static class HeroRecruitment
             var island = campaign.CurrentIsland;
             // Failed generation, or a different island/campaign/world: alter no context and no data.
             if (island == null || island.Pointer != IslandPointer || !IsVirgin(island)) return;
-            if (!TryContextKey(GlobalSaveData.loaded.currentCampaign, GlobalSaveData.loaded.currentChallenge, island.land, out string contextKey) || contextKey != ContextKey) return;
+            if (!TryIslandSlot(campaign, island, out int islandSlot)
+                || !TryContextKey(GlobalSaveData.loaded.currentCampaign, GlobalSaveData.loaded.currentChallenge, islandSlot, out string contextKey) || contextKey != ContextKey) return;
             long world = WorldKey();
             if (world == 0 || world != SourceWorld) return;
             if (!Islands.ContainsKey(contextKey) && Islands.Count >= HeroRecruitmentArchive.MaxContexts) return;
@@ -1456,8 +1510,8 @@ internal static class HeroRecruitment
             Done = true;
             var state = NewState(contextKey, world, island, json, false, null, false);
             state.VirginIsland = island.Pointer; state.VirginWorld = world;
-            if (HeroNativeRights.TrySourceIdentity(island.land, out var srcGlobal, out var srcOwner))
-            { state.SourceGlobal = srcGlobal; state.SourceOwner = srcOwner; state.SourceLand = island.land; }
+            if (HeroNativeRights.TrySourceIdentity(islandSlot, out var srcGlobal, out var srcOwner))
+            { state.SourceGlobal = srcGlobal; state.SourceOwner = srcOwner; state.SourceSlot = islandSlot; }
             InstallState(contextKey, state); _current = state;
             _contextFrame = -1; _lastTickFrame = -1; _candidateCacheUntil = 0;
             Log("virgin-epoch:" + contextKey.Substring(0, 8) + ":" + scope.Substring(0, 8), null);

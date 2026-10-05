@@ -36,13 +36,15 @@ internal static class HeroNativeRights
 
     // One live source responsibility: the owning campaign/challenge object, the stable native
     // context key it resolves to (null until a healthy catalog read can resolve it), and the
-    // land. A responsibility ends only when its owner is provably gone from a catalog read that
-    // succeeded, when its receipt is consumed/abandoned, or when a complete capture re-verifies
-    // the context.
+    // island slot. The slot is the only island identity here (issue #153): a land fallback key
+    // would hit another island's real context (land 0 is shared by every placeholder and the
+    // home slot), so no slot means no responsibility, never a land-keyed one. A responsibility
+    // ends only when its owner is provably gone from a catalog read that succeeded, when its
+    // receipt is consumed/abandoned, or when a complete capture re-verifies the context.
     private sealed class Custody
     {
         public string Key;
-        public int Land;
+        public int Slot;
         public bool Campaign;
         public IntPtr Owner;
     }
@@ -263,7 +265,7 @@ internal static class HeroNativeRights
             var custody = InvalidCaptures[i];
             if (custody.Key == null)
             {
-                var resolved = CustodyOfOwner(custody.Owner, custody.Land);
+                var resolved = CustodyOfOwner(custody.Owner, custody.Slot);
                 if (resolved == null || resolved.Key == null) InvalidCaptures.RemoveAt(i);
                 else InvalidCaptures[i] = resolved;
                 continue;
@@ -279,18 +281,18 @@ internal static class HeroNativeRights
         var ids = custody.Campaign ? _document.Campaigns : _document.Challenges;
         int index = pointers.IndexOf(custody.Owner);
         if (index < 0 || index >= ids.Count) return false;
-        return ContextKeyOf(custody.Campaign, ids[index], custody.Land) == custody.Key;
+        return ContextKeyOf(custody.Campaign, ids[index], custody.Slot) == custody.Key;
     }
 
-    private static string ContextKeyOf(bool campaign, string guid, int land)
-        => _file == null || guid == null ? null
+    private static string ContextKeyOf(bool campaign, string guid, int islandSlot)
+        => _file == null || guid == null || islandSlot < 0 ? null
             : HeroRecruitmentArchive.Hash(_file + "\n" + (campaign ? "campaign" : "challenge")
-                + "\n" + guid + "\n" + land, "hero-native-context");
+                + "\n" + guid + "\n" + islandSlot, "hero-native-context");
 
-    private static bool ResolveOwner(int campaign, int challenge, int land, out bool isCampaign, out string guid, out IntPtr owner)
+    private static bool ResolveOwner(int campaign, int challenge, int islandSlot, out bool isCampaign, out string guid, out IntPtr owner)
     {
         isCampaign = false; guid = null; owner = IntPtr.Zero;
-        if (land < 0 || _document == null || _global == null || _global.currentCampaign != campaign
+        if (islandSlot < 0 || _document == null || _global == null || _global.currentCampaign != campaign
             || _global.currentChallenge != challenge) return false;
         var current = _global.GetCurrentCampaign();
         if (current == null || current.Pointer == IntPtr.Zero || CampaignSaveData.current == null
@@ -304,23 +306,23 @@ internal static class HeroNativeRights
         return guid != null && !string.IsNullOrEmpty(guid);
     }
 
-    private static string Context(int campaign, int challenge, int land)
-        => ResolveOwner(campaign, challenge, land, out bool isCampaign, out string guid, out _)
-            ? ContextKeyOf(isCampaign, guid, land) : null;
+    private static string Context(int campaign, int challenge, int islandSlot)
+        => ResolveOwner(campaign, challenge, islandSlot, out bool isCampaign, out string guid, out _)
+            ? ContextKeyOf(isCampaign, guid, islandSlot) : null;
 
-    private static Custody CustodyOf(int campaign, int challenge, int land)
-        => ResolveOwner(campaign, challenge, land, out bool isCampaign, out string guid, out IntPtr owner)
-            ? new Custody { Key = ContextKeyOf(isCampaign, guid, land), Land = land, Campaign = isCampaign, Owner = owner }
+    private static Custody CustodyOf(int campaign, int challenge, int islandSlot)
+        => ResolveOwner(campaign, challenge, islandSlot, out bool isCampaign, out string guid, out IntPtr owner)
+            ? new Custody { Key = ContextKeyOf(isCampaign, guid, islandSlot), Slot = islandSlot, Campaign = isCampaign, Owner = owner }
             : null;
 
-    // The exact source identity of the currently loaded Global for one land: the Global object,
-    // the native owner object (campaign or challenge) and the land. Null when none can be proven;
-    // a numeric context key is a lookup alias and is never accepted as proof of ownership.
-    internal static bool TrySourceIdentity(int land, out IntPtr global, out IntPtr owner)
+    // The exact source identity of the currently loaded Global for one island slot: the Global
+    // object, the native owner object (campaign or challenge) and the slot. Null when none can be
+    // proven; a numeric context key is a lookup alias and is never accepted as proof of ownership.
+    internal static bool TrySourceIdentity(int islandSlot, out IntPtr global, out IntPtr owner)
     {
         global = IntPtr.Zero; owner = IntPtr.Zero;
-        if (!Bind() || land < 0 || _global == null) return false;
-        if (!ResolveOwner(_global.currentCampaign, _global.currentChallenge, land, out _, out _, out owner))
+        if (!Bind() || islandSlot < 0 || _global == null) return false;
+        if (!ResolveOwner(_global.currentCampaign, _global.currentChallenge, islandSlot, out _, out _, out owner))
             return false;
         global = _global.Pointer;
         return global != IntPtr.Zero && owner != IntPtr.Zero;
@@ -329,15 +331,15 @@ internal static class HeroNativeRights
     // Same identity, keyed only by the frozen native owner pointer: used for capture
     // responsibilities that were recorded while the prefs could not be read, and when the
     // runtime current-campaign indices may already have moved.
-    private static Custody CustodyOfOwner(IntPtr owner, int land)
+    private static Custody CustodyOfOwner(IntPtr owner, int islandSlot)
     {
-        if (land < 0 || owner == IntPtr.Zero || _document == null) return null;
+        if (islandSlot < 0 || owner == IntPtr.Zero || _document == null) return null;
         int normal = CampaignRefs.IndexOf(owner);
         int special = ChallengeRefs.IndexOf(owner);
         if ((normal >= 0) == (special >= 0)) return null;
         bool isCampaign = normal >= 0;
         string guid = isCampaign ? _document.Campaigns[normal] : _document.Challenges[special];
-        return new Custody { Key = ContextKeyOf(isCampaign, guid, land), Land = land, Campaign = isCampaign, Owner = owner };
+        return new Custody { Key = ContextKeyOf(isCampaign, guid, islandSlot), Slot = islandSlot, Campaign = isCampaign, Owner = owner };
     }
 
     internal static bool Available => Bind();
@@ -345,13 +347,13 @@ internal static class HeroNativeRights
     // A native context, once present, is the authority for this Global's island snapshots.
     // An older native rollback therefore cannot import a later sidecar purchase. A sidecar alias
     // only quarantines the legacy sidecar import: it never vetoes the context's own native rights.
-    internal static bool Resolve(string sidecarContext, int campaign, int challenge, IslandSaveData island, string json,
+    internal static bool Resolve(string sidecarContext, int campaign, int challenge, int islandSlot, IslandSaveData island, string json,
         bool generationPending, out HeroRecruitmentContexts.Resolution result, out bool known,
         out bool baseline)
     {
         result = null; known = false; baseline = false;
         if (!Bind() || island == null) return false;
-        string key = Context(campaign, challenge, island.land);
+        string key = Context(campaign, challenge, islandSlot);
         if (key == null) return false;
         bool native = _archive.TryGetContext(key, out _);
         if (!native && _document.SidecarContexts.TryGetValue(sidecarContext, out string mapped) && mapped != key)
@@ -379,11 +381,11 @@ internal static class HeroNativeRights
     // bindings it had already observed for these receipts.
     //
     // sessionSeats is null unless the caller proved the previous runtime state belongs to this
-    // exact source (same Global object, native owner and land). Only such a qualified session may
+    // exact source (same Global object, native owner and island slot). Only such a qualified session may
     // speak for the seat set, and there an exactly empty set is the authority (a verified death):
     // it must never be revived from an older checkpoint. An unqualified caller gets the checkpoint
     // safe path instead.
-    internal static bool MergeSessionRebind(int campaign, int challenge, int land,
+    internal static bool MergeSessionRebind(int campaign, int challenge, int islandSlot,
         IReadOnlyList<HeroPurchaseReceipt> sessionSeats, HeroRecruitmentContexts.Resolution result)
     {
         if (result == null || _document == null || _archive == null) return false;
@@ -400,7 +402,7 @@ internal static class HeroNativeRights
             if (!result.Unresolved || result.Seats.Count == 0) return false;
         }
         else return false;
-        var custody = CustodyOf(campaign, challenge, land);
+        var custody = CustodyOf(campaign, challenge, islandSlot);
         if (custody == null || custody.Key == null || !InvalidFor(custody)) return false;
         var checkpoint = CheckpointSeats(custody.Key);
         // Without a source-qualified session the last confirmed checkpoint is the only rebind
@@ -438,7 +440,7 @@ internal static class HeroNativeRights
     private static bool InvalidFor(Custody custody)
     {
         foreach (var entry in InvalidCaptures)
-            if (entry.Land == custody.Land && entry.Owner == custody.Owner) return true;
+            if (entry.Slot == custody.Slot && entry.Owner == custody.Owner) return true;
         return false;
     }
 
@@ -458,9 +460,12 @@ internal static class HeroNativeRights
     internal static bool Track(Guid receipt)
     {
         if (receipt == Guid.Empty || !Bind() || Pending.ContainsKey(receipt) || Pending.Count >= 2) return false;
-        var island = CampaignSaveData.current?.CurrentIsland;
+        var campaign = CampaignSaveData.current;
+        var island = campaign?.CurrentIsland;
         if (island == null) return false;
-        var custody = CustodyOf(_global.currentCampaign, _global.currentChallenge, island.land);
+        if (HeroRecruitmentArchive.IslandSlot(campaign, island, out int islandSlot) != HeroRecruitmentArchive.IslandSlotLookup.Ok)
+            return false;
+        var custody = CustodyOf(_global.currentCampaign, _global.currentChallenge, islandSlot);
         if (custody == null || custody.Key == null) return false;
         Pending.Add(receipt, custody);
         return true;
@@ -470,27 +475,43 @@ internal static class HeroNativeRights
 
     // Called by the save capture when an island save that would re-pair this context's owned
     // rights did not complete. The responsibility is recorded from the capture's already frozen
-    // and verified owner pointer: it must exist even when this very call cannot read the prefs,
-    // and a later healthy read only resolves its exact identity (never clears it). The last
-    // successful checkpoint stays the immutable record; the global save stays refused until a
-    // complete capture of the same source re-verifies the pairing.
-    internal static void NoteCaptureInvalid(IntPtr owner, int land)
+    // and verified owner pointer and island slot: it must exist even when this very call cannot
+    // read the prefs, and a later healthy read only resolves its exact identity (never clears
+    // it). No slot, no responsibility (issue #153): a land-derived key would name another
+    // island's real context. The last successful checkpoint stays the immutable record; the
+    // global save stays refused until a complete capture of the same source re-verifies the
+    // pairing.
+    internal static void NoteCaptureInvalid(IntPtr owner, int islandSlot)
     {
         try
         {
-            if (owner == IntPtr.Zero || land < 0) return;
+            if (owner == IntPtr.Zero || islandSlot < 0) return;
             Custody custody = null;
             if (Bind())
             {
-                custody = CustodyOfOwner(owner, land);
+                custody = CustodyOfOwner(owner, islandSlot);
                 // A readable snapshot that has no owned rights for this source has nothing to
                 // mis-pair; the un-staged purchase case is covered by the Pending gate.
                 if (custody == null || custody.Key == null || !HasRights(custody.Key)) return;
             }
-            if (custody == null) custody = new Custody { Key = null, Land = land, Owner = owner };
+            if (custody == null) custody = new Custody { Key = null, Slot = islandSlot, Owner = owner };
             foreach (var entry in InvalidCaptures)
-                if (entry.Owner == owner && entry.Land == land) return;
+                if (entry.Owner == owner && entry.Slot == islandSlot) return;
             InvalidCaptures.Add(custody);
+        }
+        catch { }
+    }
+
+    // issue #153 (review #2 P1-2b): an epoch-cap-degraded context is zero-write by construction
+    // (the unresolved gate in the save capture refuses staging), so a capture responsibility for
+    // that exact source can never be re-verified by a Stage and would only keep refusing the
+    // global save. Releasing it also closes MergeSessionRebind's only entry for the source.
+    internal static void ReleaseEpochCapResponsibility(IntPtr owner, int islandSlot)
+    {
+        try
+        {
+            if (owner == IntPtr.Zero || islandSlot < 0) return;
+            InvalidCaptures.RemoveAll(x => x.Owner == owner && x.Slot == islandSlot);
         }
         catch { }
     }
@@ -510,7 +531,9 @@ internal static class HeroNativeRights
         if (!Bind() || island == null || !HeroRecruitmentArchive.HashValid(sidecarContext)
             || !HeroRecruitmentArchive.HashValid(hash)
             || !HeroRecruitmentArchive.HashValid(epoch) || !HeroRecruitmentArchive.ValidSeats(seats)) return false;
-        var custody = CustodyOf(campaign, challenge, island.land);
+        if (HeroRecruitmentArchive.IslandSlot(CampaignSaveData.current, island, out int islandSlot) != HeroRecruitmentArchive.IslandSlotLookup.Ok)
+            return false;
+        var custody = CustodyOf(campaign, challenge, islandSlot);
         if (custody == null || custody.Key == null) return false;
         string key = custody.Key;
         try
@@ -533,7 +556,7 @@ internal static class HeroNativeRights
             }
             if (!Write(copy, mappings)) return false;
             foreach (var seat in seats) Pending.Remove(seat.Id);
-            InvalidCaptures.RemoveAll(x => x.Key == key || (x.Land == custody.Land && x.Owner == custody.Owner));
+            InvalidCaptures.RemoveAll(x => x.Key == key || (x.Slot == custody.Slot && x.Owner == custody.Owner));
             return true;
         }
         catch { return false; }

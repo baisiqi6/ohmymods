@@ -96,6 +96,7 @@ internal sealed class Host
         GlobalSaveData.loaded.challenges.Add(new CampaignSaveData());
         host.Island = new IslandSaveData { land = land, isNew = isNew, playTimeDays = days, Json = json };
         host.Campaign.CurrentIsland = host.Island;
+        PlaceIsland(host.Campaign, host.Island, land);
 
         NetworkPostbox.Instance = new NetworkPostbox();
         BiomeHolder.Inst = new BiomeHolder { BiomeIndex = 8 };
@@ -127,8 +128,19 @@ internal sealed class Host
         GlobalSaveData.loaded.campaigns.Add(host.Campaign);
         GlobalSaveData.loaded.challenges.Add(new CampaignSaveData());
         host.Campaign.CurrentIsland = host.Island;
+        PlaceIsland(host.Campaign, host.Island, host.Island.land);
         GlobalSaveData.loaded.currentCampaign = 1;
         GlobalSaveData.loaded.currentChallenge = 0;
+    }
+
+    // issue #153: an island takes its positional slot in the campaign table exactly like real
+    // 2.4 — a populated slot i carries land == i, and the padding slots are never-visited
+    // placeholders that keep land = 0.
+    internal static void PlaceIsland(CampaignSaveData campaign, IslandSaveData island, int slot)
+    {
+        while (campaign._islands.Count <= slot)
+            campaign._islands.Add(new IslandSaveData { land = 0, isNew = false, playTimeDays = 0 });
+        campaign._islands[slot] = island;
     }
 
     internal Actor CreateArcher(string name, Side side, bool embarkee = true)
@@ -369,7 +381,7 @@ internal static partial class Program
                 && old.Seats.Count==1 && old.Seats[0].Id==oldReceipt && old.Seats[0].NativeId=="",
                 "legacy-empty-id-history-preserved-byte-semantics");
             var other=new IslandSaveData { land=9,isNew=false,playTimeDays=1,Json=OldHistoryJson };
-            host.Campaign.CurrentIsland=other;
+            host.Campaign.CurrentIsland=other;Host.PlaceIsland(host.Campaign,other,9);
             var oldLoad=new HeroRecruitment.LoadCapture(); oldLoad.Begin(other); oldLoad.End(true);
             Check(HeroRecruitment.DescribeForTests().Contains("unresolved=True") && !HeroRecruitment.CanPurchase,
                 "unknown-legacy-owner-remains-reserved-without-guessing",HeroRecruitment.DescribeForTests());
@@ -499,12 +511,14 @@ internal static partial class Program
         // Same island JSON and NativeId in a different campaign slot is not a paid owner.
         var other=global.campaigns[0];
         other.CurrentIsland=new IslandSaveData { land=1,isNew=false,playTimeDays=1,Json=SavedJsonA };
+        Host.PlaceIsland(other, other.CurrentIsland, 1);
         global.currentCampaign=0; CampaignSaveData.current=other;
         var otherLoad=new HeroRecruitment.LoadCapture(); otherLoad.Begin(other.CurrentIsland); otherLoad.End(true);
         Check(HeroRecruitment.DescribeForTests().Contains("seats=0"),
             "same-json-other-campaign-has-no-paid-seat",HeroRecruitment.DescribeForTests());
 
         var challenge=new CampaignSaveData { CurrentIsland=new IslandSaveData { land=1,isNew=false,playTimeDays=1,Json=SavedJsonA } };
+        Host.PlaceIsland(challenge, challenge.CurrentIsland, 1);
         global.challenges.Add(challenge);
         global.currentCampaign=1; global.currentChallenge=1; CampaignSaveData.current=challenge;
         var challengeLoad=new HeroRecruitment.LoadCapture(); challengeLoad.Begin(challenge.CurrentIsland); challengeLoad.End(true);
@@ -763,6 +777,7 @@ internal static partial class Program
         islandA2.objects.Add(recordA2);
         hostA.Island = islandA2;
         hostA.Campaign.CurrentIsland = islandA2;
+        Host.PlaceIsland(hostA.Campaign, islandA2, 1);
         var loadA = new HeroRecruitment.LoadCapture();
         loadA.Begin(islandA2);
         loadA.Capture(recordA2, actorA2.Persistent);
@@ -1228,6 +1243,7 @@ internal static partial class Program
         islandEmb.objects.Add(recordEmb);
         host.Island = islandEmb;
         host.Campaign.CurrentIsland = islandEmb;
+        Host.PlaceIsland(host.Campaign, islandEmb, 4);
         int unregEmb = EmbarkableSim.UnregisterEvents;
         var loadEmb = new HeroRecruitment.LoadCapture();
         loadEmb.Begin(islandEmb);
@@ -1245,6 +1261,7 @@ internal static partial class Program
         island.objects.Add(record);
         host.Island = island;
         host.Campaign.CurrentIsland = island;
+        Host.PlaceIsland(host.Campaign, island, 4);
         // An old save can leave a pending, not-embarked target on the owner.
         reloaded.Embarkee.SetEmbarkableTarget(embarkable, -1);
         int unreg = EmbarkableSim.UnregisterEvents, clear = reloaded.Embarkee.ClearTargetCalls;

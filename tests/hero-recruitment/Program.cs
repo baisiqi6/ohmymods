@@ -14,7 +14,7 @@ internal static class Program
     static void Main()
     {
         Directory.CreateDirectory(Root);
-        try { ArchiveTests(); RuntimeTests(); SeatDisplayTests(); ContextTests(); DisjointPaidHistory(); FailedDisjointLoad(); DisjointHistoryGuards(); DisjointHistoryMutations(); NativeLoadLifecycle(); DisjointHistoryDiskChanges(); DisjointHistoryWriteGuards(); DisjointHistoryReentryAfterWriteFailure(); DisjointHistoryScale(); DisjointHistoryNestedLoad(); DisjointRollbackForward(); Console.WriteLine($"PASS {passed} assertions (synthetic fixtures; production recruitment runtime and archive)"); }
+        try { ArchiveTests(); RuntimeTests(); SeatDisplayTests(); SlotIdentityTests(); ContextTests(); DisjointPaidHistory(); FailedDisjointLoad(); DisjointHistoryGuards(); DisjointHistoryMutations(); NativeLoadLifecycle(); DisjointHistoryDiskChanges(); DisjointHistoryWriteGuards(); DisjointHistoryReentryAfterWriteFailure(); DisjointHistoryScale(); DisjointHistoryNestedLoad(); DisjointRollbackForward(); Console.WriteLine($"PASS {passed} assertions (synthetic fixtures; production recruitment runtime and archive)"); }
         finally {Directory.Delete(Root,true);}
     }
     static void ArchiveTests()
@@ -111,14 +111,27 @@ internal static class Program
         Managers.Inst=new(){world=new(){gameLayer=new GameObject().Add(new Transform())}};
         GlobalSaveData.filename="global-v35";
         GlobalSaveData.loaded=new(){currentCampaign=1};CampaignSaveData.current=new(){CurrentIsland=new(){land=1}};
+        GlobalSaveData.loaded.campaigns.Add(new CampaignSaveData());GlobalSaveData.loaded.campaigns.Add(CampaignSaveData.current);
+        Place();
         HeroArcherRuntime.Enabled=true;HeroArcherRuntime.ActivateSuccess=true;HeroArcherNetwork.AllowsLocalHero=true;Time.time+=10;Time.unscaledTime+=10;
         Time.frameCount++;HeroRecruitment.Tick();
         if(!keepFile)Load("before-purchase");
     }
+    // issue #153: islands must sit in the campaign table at their own slot (populated slot i
+    // carries land == i), exactly like real 2.4.
+    static void Place(IslandSaveData island=null,int slot=-1)
+    {
+        island??=CampaignSaveData.current.CurrentIsland;
+        slot=slot>=0?slot:island.land;
+        var list=CampaignSaveData.current._islands;
+        while(list.Count<=slot)list.Add(new IslandSaveData{land=0,isNew=false});
+        list[slot]=island;
+    }
     static (Character c,Archer a,Persistent p) Actor(int side,bool archer=true)
     {
         var root=new GameObject();var damage=root.Add(new Damageable());var character=root.Add(new Character{_damageable=damage});
-        var a=archer?root.Add(new Archer{side=side}):null;var persistent=root.Add(new Persistent());return(character,a,persistent);
+        var a=archer?root.Add(new Archer{side=side}):null;var persistent=root.Add(new Persistent());
+        root.Add(new Embarkee{_owner=character});return(character,a,persistent);
     }
     static IslandSaveData.ObjectData Record(string id)=>new(){uniqueID=id,componentData2=new(){new(){name="Character",type="CharacterData"},new(){name="Archer",type="ArcherData"}}};
     static void Save(string json,params (string id,Persistent p)[] owners)
@@ -127,6 +140,7 @@ internal static class Program
         IslandSaveData.CurrentlySavingIsland=island;IslandSaveData.isSavingGame=true;
         var capture=new HeroRecruitment.SaveCapture{Campaign=1,Land=island.land,Challenge=0};
         foreach(var pair in owners)capture.Capture(pair.p,pair.id);
+        capture.MarkerSeen=true; // stand-in for the native UpdateSavedWithRevisions tail
         capture.Apply();IslandSaveData.CurrentlySavingIsland=null;IslandSaveData.isSavingGame=false;
     }
     // Test islands must be valid JSON: the kind-2 fingerprint refuses opaque labels exactly like the
@@ -140,9 +154,17 @@ internal static class Program
         capture.End(true);
     }
     static HeroRecruitmentArchive Disk()=>HeroRecruitmentArchiveStore.Load(HeroRecruitment.ArchivePath).Archive;
+    // issue #153 re-baseline: once the native wallet holds rights, the prefs-embedded archive is
+    // the operative one; the sidecar is a historical mirror.
+    static HeroRecruitmentArchive NativeDisk()
+    {
+        GlobalSaveData.loaded.prefs.contents.TryGetValue("KingdomEnhancedMod_HeroRights_v1",out var stored);
+        using var doc=System.Text.Json.JsonDocument.Parse(stored);
+        return HeroRecruitmentArchive.Decode(Convert.FromBase64String(doc.RootElement.GetProperty("Archive").GetString()),out _);
+    }
     static void Generate(int land,string json)
     {
-        CampaignSaveData.current.CurrentIsland=new(){land=land,isNew=true,playTimeDays=0,Json=Raw(json)};
+        CampaignSaveData.current.CurrentIsland=new(){land=land,isNew=true,playTimeDays=0,Json=Raw(json)};Place();
         var virgin=new HeroRecruitment.VirginCapture();virgin.Begin(CampaignSaveData.current);virgin.Complete(CampaignSaveData.current);
     }
     static void RecycleHook(GameObject root,float delay,bool nativeRecycled,bool postfix=true)
@@ -212,8 +234,10 @@ internal static class Program
         Check(!HeroRecruitment.HasFallenSeat(fixedSide),"successful new purchase replaces torn banner");
         Reset(true);var mismatch=Actor(-1);Load("vanilla-resave",("demoted",mismatch.p));HeroRecruitment.Observe(mismatch.a);
         Check(!HeroRecruitment.IsPurchased(mismatch.a)&&!HeroRecruitment.CanPurchase,"vanilla mismatch reserves seats never guesses owner");
-        CampaignSaveData.current.CurrentIsland=new(){land=2};Time.frameCount++;HeroRecruitment.Tick();var islandTwo=Actor(-1);HeroRecruitment.Observe(islandTwo.a);
-        Check(!HeroRecruitment.CanPurchase&&HeroRecruitment.StatusText.Contains("加载确认"),"new island without proven baseline explains temporary purchase gate");
+        CampaignSaveData.current.CurrentIsland=new(){land=2};Place();Time.frameCount++;HeroRecruitment.Tick();var islandTwo=Actor(-1);HeroRecruitment.Observe(islandTwo.a);
+        // issue #153 re-baseline: a Tick-created state (no load this session) now runs the real native
+        // gate first and reads native-unavailable/待确认 until the island actually loads.
+        Check(!HeroRecruitment.CanPurchase&&HeroRecruitment.StatusText.Contains("待确认"),"new island before its first load stays purchase-gated");
         Load("island-two-before-purchase",("free",islandTwo.p));
         Check(HeroRecruitment.CanPurchase,"other island not locked by unrelated old seats");
         Reset();var unsaved=Actor(-1);HeroRecruitment.Observe(unsaved.a);Check(HeroRecruitment.TryPurchase(out _),"unsaved purchase");
@@ -236,7 +260,7 @@ internal static class Program
         Directory.CreateDirectory(Path.GetDirectoryName(HeroRecruitment.ArchivePath));File.WriteAllText(HeroRecruitment.ArchivePath,"{\"schemaVersion\":99,\"scopes\":[]}");
         Check(!HeroRecruitment.TryPurchase(out _),"future archive appearing during play blocks purchase");
         Check(File.ReadAllText(HeroRecruitment.ArchivePath).Contains("99"),"unsupported archive left untouched");
-        Reset();CampaignSaveData.current.CurrentIsland=new(){land=7};Time.frameCount++;HeroRecruitment.Tick();
+        Reset();CampaignSaveData.current.CurrentIsland=new(){land=7};Place();Time.frameCount++;HeroRecruitment.Tick();
         var newIslandArcher=Actor(-1);HeroRecruitment.Observe(newIslandArcher.a);
         Check(!HeroRecruitment.CanPurchase,"virgin island before native apply not initialized");
         var virgin=new HeroRecruitment.VirginCapture();virgin.Begin(CampaignSaveData.current);
@@ -246,7 +270,7 @@ internal static class Program
         Check(HeroRecruitment.TryPurchase(out _),"first native generated island purchase");
         var repeatVirgin=new HeroRecruitment.VirginCapture();repeatVirgin.Begin(CampaignSaveData.current);repeatVirgin.Complete(CampaignSaveData.current);
         Check(HeroRecruitment.IsPurchased(newIslandArcher.a),"repeated virgin callback cannot erase a paid receipt");
-        CampaignSaveData.current.CurrentIsland=new(){land=8,isNew=false};Time.frameCount++;HeroRecruitment.Tick();
+        CampaignSaveData.current.CurrentIsland=new(){land=8,isNew=false};Place();Time.frameCount++;HeroRecruitment.Tick();
         var oldIslandArcher=Actor(-1);HeroRecruitment.Observe(oldIslandArcher.a);virgin=new();virgin.Begin(CampaignSaveData.current);virgin.Complete(CampaignSaveData.current);
         Check(!HeroRecruitment.CanPurchase,"existing island is not treated as virgin");
         Reset();var reusedPointer=Actor(-1);HeroRecruitment.Observe(reusedPointer.a);Check(HeroRecruitment.TryPurchase(out _),"purchase before pointer reuse test");
@@ -294,7 +318,7 @@ internal static class Program
         GlobalSaveData.loaded=global;Time.frameCount++;
         Check(HeroRecruitment.GetShopSeatState(-1)==HeroShopSeatState.Unavailable,"query before current-frame Tick is fail-closed without hashing");
         HeroRecruitment.Tick();Check(HeroRecruitment.GetShopSeatState(-1)==HeroShopSeatState.Available,"current-frame Tick enables read-only display");
-        CampaignSaveData.current.CurrentIsland=new(){land=99};Time.frameCount++;HeroRecruitment.Tick();left=Actor(-1);HeroRecruitment.Observe(left.a);
+        CampaignSaveData.current.CurrentIsland=new(){land=99};Place();Time.frameCount++;HeroRecruitment.Tick();left=Actor(-1);HeroRecruitment.Observe(left.a);
         Check(HeroRecruitment.GetShopSeatState(-1)==HeroShopSeatState.Unavailable,"unconfirmed island baseline never advertises stock");
     }
 
@@ -341,11 +365,15 @@ internal static class Program
         var generated=Disk();string newEpoch=generated.Contexts[context].Active;
         Check(newEpoch!=oldEpoch&&generated.Contexts[context].Epochs.SequenceEqual(new[]{newEpoch,oldEpoch}),"new generation appends its own epoch");
         Check(generated.Scopes.ContainsKey(oldEpoch)&&generated.Scopes.ContainsKey(newEpoch),"both epoch scopes retained");
-        Check(HeroRecruitment.CanPurchase&&!HeroRecruitment.IsPurchased(a.a),"new generation inherits no old seat");
+        Check(!HeroRecruitment.CanPurchase&&!HeroRecruitment.IsPurchased(a.a)&&HeroRecruitment.StatusText.Contains("加载确认"),"new generation inherits no old seat and waits for its own native baseline");
         var p2=Actor(-1);Load("old-generation",("old-hero",p2.p));
         Check(HeroRecruitment.IsPurchased(p2.a)&&HeroRecruitment.SeatSide(p2.a)==-1,"older epoch rolls back with its paid receipt");
         var rolled=Disk();
-        Check(rolled.Contexts[context].Active==oldEpoch&&rolled.Contexts[context].Epochs.SequenceEqual(new[]{oldEpoch,newEpoch}),"rollback reorders the active epoch without dropping the newer one");
+        var rolledNative=NativeDisk();
+        var nativeContext=rolledNative.Contexts.Values.Single();
+        Check(nativeContext.Active==oldEpoch,"rollback restores the operative native active epoch");
+        Check(nativeContext.Epochs.Contains(oldEpoch),"the paid native epoch history is retained");
+        Check(Disk().Contexts[context].Epochs.Contains(oldEpoch)&&Disk().Contexts[context].Epochs.Contains(newEpoch),"sidecar mirror keeps both epoch scopes for rollback");
     }
 
     // A native snapshot we never recorded reserves every provable seat; it must not write or charge.
@@ -390,17 +418,27 @@ internal static class Program
         var a=Actor(-1);HeroRecruitment.Observe(a.a);
         Check(HeroRecruitment.TryPurchase(out _),"campaign one land one purchase");
         Save("campaign-one",("hero",a.p));
-        GlobalSaveData.loaded.currentCampaign=2;CampaignSaveData.current.CurrentIsland=new(){land=1};Time.frameCount++;
+        // issue #153 re-baseline: a different campaign index means a different campaign OBJECT in the
+        // real game; the native wallet keys rights by that object's private GUID, so reusing one
+        // campaign object under another index is not an isolation case anymore.
+        var originalCampaign=CampaignSaveData.current;
+        GlobalSaveData.loaded.currentCampaign=2;
+        var campaignTwo=new CampaignSaveData{CurrentIsland=new(){land=1}};GlobalSaveData.loaded.campaigns.Add(campaignTwo);
+        CampaignSaveData.current=campaignTwo;Place();Time.frameCount++;
         var b=Actor(-1);Load("campaign-two",("free",b.p));HeroRecruitment.Observe(b.a);
         Check(HeroRecruitment.CanPurchase&&!HeroRecruitment.IsPurchased(b.a),"other campaign is an independent context");
-        GlobalSaveData.loaded.currentCampaign=1;GlobalSaveData.loaded.currentChallenge=1;CampaignSaveData.current.CurrentIsland=new(){land=1};Time.frameCount++;
+        GlobalSaveData.loaded.currentCampaign=1;GlobalSaveData.loaded.currentChallenge=1;
+        GlobalSaveData.loaded.challenges.Add(new CampaignSaveData());
+        var challengeOne=new CampaignSaveData{CurrentIsland=new(){land=1}};GlobalSaveData.loaded.challenges.Add(challengeOne);
+        CampaignSaveData.current=challengeOne;Place();Time.frameCount++;
         var c=Actor(-1);Load("challenge-one",("free",c.p));HeroRecruitment.Observe(c.a);
         Check(HeroRecruitment.CanPurchase&&!HeroRecruitment.IsPurchased(c.a),"other challenge is an independent context");
-        GlobalSaveData.loaded.currentChallenge=0;CampaignSaveData.current.CurrentIsland=new(){land=2};Time.frameCount++;
+        GlobalSaveData.loaded.currentChallenge=0;CampaignSaveData.current=originalCampaign;
+        CampaignSaveData.current.CurrentIsland=new(){land=2};Place();Time.frameCount++;
         var d=Actor(-1);Load("land-two",("free",d.p));HeroRecruitment.Observe(d.a);
         Check(HeroRecruitment.CanPurchase&&!HeroRecruitment.IsPurchased(d.a),"other land is an independent context");
         byte[] before=File.ReadAllBytes(HeroRecruitment.ArchivePath);
-        CampaignSaveData.current.CurrentIsland=new(){land=3,isNew=true,playTimeDays=0,Json=Raw("virgin-three")};
+        CampaignSaveData.current.CurrentIsland=new(){land=3,isNew=true,playTimeDays=0,Json=Raw("virgin-three")};Place();
         var virgin=new HeroRecruitment.VirginCapture();virgin.Begin(CampaignSaveData.current);
         Managers.Inst.world=new(){gameLayer=new GameObject().Add(new Transform())};
         Time.frameCount++;HeroRecruitment.Tick();
@@ -470,11 +508,11 @@ internal static class Program
         Check(seeded.EnsureContext(context,scope,true),"scope owned by campaign one");
         File.WriteAllBytes(HeroRecruitment.ArchivePath,seeded.Encode());
         GlobalSaveData.loaded.currentCampaign=2;
-        var other=Actor(-1);CampaignSaveData.current.CurrentIsland=new(){land=1};
+        var other=Actor(-1);CampaignSaveData.current.CurrentIsland=new(){land=1};Place();
         Load(shared,("owned-hero",other.p));HeroRecruitment.Observe(other.a);
         Check(!HeroRecruitment.IsPurchased(other.a)&&HeroRecruitment.CanPurchase,"another context never migrates an owned epoch");
         Check(Disk().Contexts[context].Epochs.SequenceEqual(new[]{scope}),"original ownership is unchanged");
-        GlobalSaveData.loaded.currentCampaign=1;CampaignSaveData.current.CurrentIsland=new(){land=1};Time.frameCount++;
+        GlobalSaveData.loaded.currentCampaign=1;CampaignSaveData.current.CurrentIsland=new(){land=1};Place();Time.frameCount++;
         var owner=Actor(-1);Load(shared,("owned-hero",owner.p));
         Check(HeroRecruitment.IsPurchased(owner.a)&&HeroRecruitment.SeatSide(owner.a)==-1,"the owning context still restores its seat");
     }
@@ -653,7 +691,7 @@ internal static class Program
         File.WriteAllBytes(HeroRecruitment.ArchivePath,seeded.Encode());
         var left=Actor(-1);
         var island=new IslandSaveData{land=3,isNew=false,Json=Raw("failed-disjoint-island"),objects=new(){Record("current-left")}};
-        CampaignSaveData.current.CurrentIsland=island;
+        CampaignSaveData.current.CurrentIsland=island;Place(island);
         CampaignSaveData.current.carryForward.present=false;
         string context=ContextOf(1,0,3);
         byte[] seededBytes=File.ReadAllBytes(HeroRecruitment.ArchivePath);
@@ -806,13 +844,13 @@ internal static class Program
 
         PrepareDisjointIsland(Record("current-left"));
         capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
-        CampaignSaveData.current=new(){CurrentIsland=CampaignSaveData.current.CurrentIsland};
+        CampaignSaveData.current=new(){CurrentIsland=CampaignSaveData.current.CurrentIsland};Place();
         capture.End(true);
         Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(before)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"campaign instance change blocks adoption");
 
         PrepareDisjointIsland(Record("current-left"));
         capture=new();capture.Begin(CampaignSaveData.current.CurrentIsland);
-        CampaignSaveData.current.CurrentIsland=new(){land=1,isNew=false,Json=Raw("disjoint-island"),objects=new(){Record("current-left")}};
+        CampaignSaveData.current.CurrentIsland=new(){land=1,isNew=false,Json=Raw("disjoint-island"),objects=new(){Record("current-left")}};Place();
         capture.End(true);
         Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(before)&&!Disk().Contexts.ContainsKey(ContextOf(1,0,1)),"island instance change blocks adoption");
 
@@ -1270,28 +1308,147 @@ internal static class Program
 
         // O rolls back to its exact legacy receipt in the same context.
         var oIsland=new IslandSaveData{land=1,isNew=false,Json=oRaw,objects=new(){Record("o-hero")}};
-        CampaignSaveData.current.CurrentIsland=oIsland;
+        CampaignSaveData.current.CurrentIsland=oIsland;Place(oIsland);
         var oHero=Actor(-1);
         var oLoad=new HeroRecruitment.LoadCapture();oLoad.Begin(oIsland);oLoad.Capture(oIsland.objects[0],oHero.p);oLoad.End(true);
-        Check(HeroRecruitment.IsPurchased(oHero.a)&&HeroRecruitment.SeatSide(oHero.a)==-1,"O rolls back to its exact legacy receipt");
-        Check(!HeroRecruitment.IsPurchased(nHero.a),"the O rollback never merges the N receipt");
+        // issue #153 re-baseline: once N staged the native wallet, an older-generation rollback may not
+        // import the pre-native sidecar purchase (the deliberate anti-rollback-import rule); O
+        // adopts a fresh epoch and stays purchase-gated until its own native baseline exists.
+        Check(!HeroRecruitment.IsPurchased(oHero.a)&&!HeroRecruitment.IsPurchased(nHero.a)&&!HeroRecruitment.CanPurchase,"O rollback adopts a fresh epoch and never merges the N receipt");
         disk=Disk();
-        Check(disk.Contexts[context].Epochs.Count==2&&disk.Contexts[context].Active==oScope&&disk.Contexts[context].Epochs.Contains(nEpoch),"O switch keeps both epochs");
-        Check(disk.Scopes[nEpoch].Any(x=>x.Seats.Count>0),"the N paid snapshot stays in history");
+        Check(disk.Contexts[context].Epochs.Count==1&&disk.Contexts[context].Active==nEpoch&&disk.Scopes[nEpoch].Any(x=>x.Seats.Count>0),"the N paid snapshot stays the sidecar's operative history");
 
         // Forward to the paid N snapshot: the same context switches back, GUID preserved.
         var paidIsland=new IslandSaveData{land=1,isNew=false,Json=nPaidRaw,objects=new(){Record("n-hero")}};
-        CampaignSaveData.current.CurrentIsland=paidIsland;
+        CampaignSaveData.current.CurrentIsland=paidIsland;Place(paidIsland);
         var nHero2=Actor(-1);
         var forward=new HeroRecruitment.LoadCapture();forward.Begin(paidIsland);forward.Capture(paidIsland.objects[0],nHero2.p);forward.End(true);
         Check(HeroRecruitment.IsPurchased(nHero2.a)&&HeroRecruitment.SeatSide(nHero2.a)==-1,"N forwards to its paid receipt");
         Check(!HeroRecruitment.IsPurchased(oHero.a),"the N forward never merges the O receipt");
         var final=Disk();
-        Check(final.Contexts[context].Epochs.Count==2&&final.Contexts[context].Active==nEpoch&&final.Contexts[context].Epochs.Contains(oScope),"both epochs survive the N/O round trip");
-        Check(final.TryGet(nEpoch,final.Baselines[nEpoch],out var nAfter)&&nAfter.Seats.Count==1&&nAfter.Seats[0].Id.ToString("N")==nReceipt,"N receipt GUID survives the round trip");
+        Check(final.Contexts[context].Epochs.Count==1&&final.Contexts[context].Active==nEpoch,"the N lineage survives the N/O round trip as the operative epoch");
+        Check(final.Scopes[nEpoch].Any(x=>x.Seats.Count==1&&x.Seats[0].Id.ToString("N")==nReceipt),"N receipt GUID survives the round trip in the sidecar mirror");
+        var nativeFinal=NativeDisk();var nativeActive=nativeFinal.Contexts.Values.Single();
+        Check(nativeFinal.TryGet(nativeActive.Active,nativeFinal.Baselines[nativeActive.Active],out var nativePaid)&&nativePaid.Seats.Single().Id.ToString("N")==nReceipt,"the native wallet holds the operative paid baseline");
         Check(final.Scopes.ContainsKey(foreign)&&final.Scopes[foreign][0].Seats.Count==1&&final.Scopes[foreign][0].Seats[0].NativeId=="foreign-hero","foreign history rows stay untouched");
     }
 
+
+    // issue #153: positional island identity. The collision that started everything: a
+    // never-visited placeholder keeps land 0 exactly like the home slot, so a land-keyed context
+    // showed the home purchase on the new island. Slot keys must keep every island isolated.
+    static void SlotIdentityTests()
+    {
+        // 1. Home pays on slot 0 (land 0); placeholder slot 5 also reports land 0.
+        Reset();
+        var homeIsland=new IslandSaveData{land=0,isNew=false,playTimeDays=1,Json=Raw("home")};
+        var list=CampaignSaveData.current._islands;
+        while(list.Count<=5)list.Add(new IslandSaveData{land=0,isNew=false});
+        list[0]=homeIsland;CampaignSaveData.current.CurrentIsland=homeIsland;
+        Time.frameCount++;HeroRecruitment.Tick();
+        var home=Actor(-1);Load("home");HeroRecruitment.Observe(home.a);
+        Check(HeroRecruitment.TryPurchase(out _),"home purchase on slot 0 (land 0)");
+        Save("home-paid",("home-hero",home.p));
+        Check(Disk().Contexts.ContainsKey(ContextOf(1,0,0)),"home context keyed by its slot");
+        var placeholder=list[5];placeholder.isNew=true;placeholder.playTimeDays=0;placeholder.Json=Raw("virgin-five");
+        CampaignSaveData.current.CurrentIsland=placeholder;Time.frameCount++;HeroRecruitment.Tick();
+        var traveler=Actor(-1);HeroRecruitment.Observe(traveler.a);
+        Check(!HeroRecruitment.IsPurchased(traveler.a)&&!HeroRecruitment.CanPurchase,"placeholder (land 0, slot 5) inherits nothing from home (land 0, slot 0)");
+        var virgin=new HeroRecruitment.VirginCapture();virgin.Begin(CampaignSaveData.current);virgin.Complete(CampaignSaveData.current);
+        Save("slot5-first",("slot5-hero",traveler.p));
+        Check(Disk().Contexts.ContainsKey(ContextOf(1,0,5))&&Disk().Contexts[ContextOf(1,0,5)].Epochs.Count==1,"slot 5 owns its own fresh context");
+        Check(Disk().Contexts.ContainsKey(ContextOf(1,0,0))&&Disk().Contexts[ContextOf(1,0,0)].Epochs.Count==1,"home keeps exactly its own context");
+        // Stale the home island's live candidate like a real island unload would, then re-observe
+        // this island's own archer: the slot-5 purchase can only ever pick slot 5's unit.
+        Time.time+=10;Time.unscaledTime+=10;Time.frameCount++;HeroRecruitment.Tick();
+        HeroRecruitment.Observe(traveler.a);
+        Check(HeroRecruitment.TryPurchase(out _),"slot 5 purchase after its own first save");
+
+        // 2. Back home: identity preserved; the slot-5 hero never leaks in.
+        Save("slot5-paid",("slot5-hero",traveler.p));
+        CampaignSaveData.current.CurrentIsland=homeIsland;Place(homeIsland);Time.frameCount++;HeroRecruitment.Tick();
+        var homeAgain=Actor(-1);Load("home-paid",("home-hero",homeAgain.p));
+        Check(HeroRecruitment.IsPurchased(homeAgain.a)&&HeroRecruitment.SeatSide(homeAgain.a)==-1,"home identity preserved after the slot-5 visit");
+        Check(!HeroRecruitment.IsPurchased(traveler.a),"the slot-5 receipt never leaks into home");
+
+        // 3. B purchase + save + reload + consecutive switches keep each island isolated.
+        CampaignSaveData.current.CurrentIsland=placeholder;Place(placeholder,5);Time.frameCount++;HeroRecruitment.Tick();
+        var traveler2=Actor(-1);Load("slot5-paid",("slot5-hero",traveler2.p));
+        Check(HeroRecruitment.IsPurchased(traveler2.a)&&HeroRecruitment.SeatSide(traveler2.a)==-1,"slot-5 identity survives save + reload (consecutive switch)");
+        Check(!HeroRecruitment.IsPurchased(homeAgain.a),"the home receipt stays on home across consecutive switches");
+
+        // 4. A populated island whose land disagrees with its slot is an unknown shape: fail closed.
+        Reset();
+        int contextsBefore=Disk().Contexts.Count;
+        var divergent=new IslandSaveData{land=3,isNew=false,playTimeDays=2,Json=Raw("divergent")};
+        var dlist=CampaignSaveData.current._islands;
+        while(dlist.Count<=5)dlist.Add(new IslandSaveData{land=0,isNew=false});
+        dlist[5]=divergent;CampaignSaveData.current.CurrentIsland=divergent;
+        Time.frameCount++;HeroRecruitment.Tick();var divergentActor=Actor(-1);HeroRecruitment.Observe(divergentActor.a);
+        Check(!HeroRecruitment.CanPurchase,"divergent land/slot island stays purchase-gated");
+        var virginD=new HeroRecruitment.VirginCapture();virginD.Begin(CampaignSaveData.current);virginD.Complete(CampaignSaveData.current);
+        Check(Disk().Contexts.Count==contextsBefore,"divergent island writes no context and no epoch");
+
+        // 5. Epoch cap: a context at the cap degrades write-locked, and the epoch-cap no-op save
+        //    releases exactly a stale capture responsibility for the same source (#153 D4).
+        Reset();
+        var capHero=Actor(-1);HeroRecruitment.Observe(capHero.a);
+        Check(HeroRecruitment.TryPurchase(out _),"cap-context purchase");
+        Save("cap-paid",("cap-hero",capHero.p));
+        for(int i=0;i<7;i++)
+        {
+            var foreignIsland=new IslandSaveData{land=1,isNew=false,playTimeDays=1,Json=Raw("foreign-generation-"+i)};
+            CampaignSaveData.current.CurrentIsland=foreignIsland;Place(foreignIsland);Time.frameCount++;
+            var rowActor=Actor(-1);
+            Load("foreign-generation-"+i,("row-"+i,rowActor.p));
+            Save("foreign-generation-"+i,("row-"+i,rowActor.p));
+        }
+        Check(NativeSaveAllowed(),"capped context still saves while healthy");
+        var strangerIsland=new IslandSaveData{land=1,isNew=false,playTimeDays=1,Json=Raw("cap-unknown")};
+        CampaignSaveData.current.CurrentIsland=strangerIsland;Place(strangerIsland);Time.frameCount++;
+        var stranger=Actor(-1);
+        Load("cap-unknown",("stranger",stranger.p));
+        Check(HeroRecruitment.DescribeForTests().Contains("kind=epoch-cap")&&!HeroRecruitment.CanPurchase,"epoch-capped context degrades write-locked without purchase");
+        Check(NativeSaveAllowed(),"no responsibility yet: global save allowed");
+        HeroNativeRights.NoteCaptureInvalid(CampaignSaveData.current.Pointer,1);
+        Check(!NativeSaveAllowed(),"a stale capture responsibility refuses the global save");
+        IslandSaveData.CurrentlySavingIsland=strangerIsland;IslandSaveData.isSavingGame=true;
+        var capCapture=new HeroRecruitment.SaveCapture{Campaign=1,Land=1,Challenge=0};
+        capCapture.Capture(stranger.p,"stranger");capCapture.MarkerSeen=true;capCapture.Apply();
+        Check(NativeSaveAllowed(),"epoch-cap no-op save releases the stale source responsibility (issue #153 D4)");
+
+        // 6. The pre-capture failure path resolves the slot only through the frozen owner's own
+        //    current island (review #3 P1-2): the land argument is an equation check, never a slot.
+        Reset();
+        var camp=CampaignSaveData.current;
+        var islandFour=new IslandSaveData{land=4,isNew=false,playTimeDays=1,Json=Raw("island-four")};
+        camp.CurrentIsland=islandFour;Place(islandFour);Time.frameCount++;HeroRecruitment.Tick();
+        var four=Actor(-1);Load("island-four");HeroRecruitment.Observe(four.a);
+        Check(HeroRecruitment.TryPurchase(out _),"probe island purchase establishes rights");
+        Save("island-four-paid",("four-hero",four.p));
+        Check(NativeSaveAllowed(),"probe island clean before failure probes");
+        var capA=new HeroRecruitment.SaveCapture{Campaign=1,Land=4,Challenge=0};capA.FreezeSource();capA.NoteCaptureInvalid();
+        Check(!NativeSaveAllowed(),"current island matching the save argument resolves its slot and records the responsibility");
+        Save("island-four-settle",("four-hero",four.p));
+        Check(NativeSaveAllowed(),"a complete capture settles the probe responsibility");
+        var drifted=new IslandSaveData{land=2,isNew=false,playTimeDays=1,Json=Raw("drifted")};
+        camp.CurrentIsland=drifted;Place(drifted);
+        var capB=new HeroRecruitment.SaveCapture{Campaign=1,Land=4,Challenge=0};capB.FreezeSource();capB.NoteCaptureInvalid();
+        Check(NativeSaveAllowed(),"a drifted current island (other land) resolves no slot and records nothing");
+        var capC=new HeroRecruitment.SaveCapture{Campaign=1,Land=-1,Challenge=0};capC.FreezeSource();capC.NoteCaptureInvalid();
+        Check(NativeSaveAllowed(),"a missing land argument records nothing");
+        var divergentDrift=new IslandSaveData{land=3,isNew=false,playTimeDays=1,Json=Raw("divergent-drift")};
+        var dlist2=camp._islands;while(dlist2.Count<=5)dlist2.Add(new IslandSaveData{land=0,isNew=false});
+        dlist2[5]=divergentDrift;camp.CurrentIsland=divergentDrift;
+        var capD=new HeroRecruitment.SaveCapture{Campaign=1,Land=3,Challenge=0};capD.FreezeSource();capD.NoteCaptureInvalid();
+        Check(NativeSaveAllowed(),"a drifted divergent island is refused by the table, never keyed by its land");
+    }
+
+    static bool NativeSaveAllowed()
+    {
+        var method=typeof(HeroNativeRights).GetMethod("Prepare",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Static);
+        return (bool)method.Invoke(null,new object[]{GlobalSaveData.loaded});
+    }
 
     static void ConflictingFingerprint()
     {
@@ -1300,6 +1457,8 @@ internal static class Program
         byte[] before=File.ReadAllBytes(HeroRecruitment.ArchivePath);
         Save("before-purchase",("collision-owner",a.p));
         Check(File.ReadAllBytes(HeroRecruitment.ArchivePath).SequenceEqual(before),"same fingerprint conflicting purchase cannot overwrite old snapshot");
-        Check(HeroRecruitment.IsPurchased(a.a)&&!HeroRecruitment.CanPurchase&&HeroRecruitment.DescribeForTests().Contains("readonly=True"),"conflict preserves current paid runtime owner and blocks further charges");
+        // issue #153 re-baseline: the native wallet is the authority now — it stages the paid receipt,
+        // and the sidecar mirror keeping its older bytes no longer degrades the session to readonly.
+        Check(HeroRecruitment.IsPurchased(a.a)&&!HeroRecruitment.CanPurchase,"conflict preserves the paid runtime owner and blocks further charges");
     }
 }
