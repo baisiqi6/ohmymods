@@ -1,43 +1,30 @@
-using UnityEngine;
+using System;
+using KingdomEnhancedMod;
 
 namespace OhMyMods.AndroidProbe;
 
 /// <summary>
-/// Vegetation &amp; wildlife page of the float panel: the farm-cat stocking switch moved from the
-/// World page, the fast forest-recede switch, the Deer population switch and Back.
-/// Geometry: 248x64 buttons at x=16, rows 98 cats / 176 forest recede / 254 deer population /
-/// 332 Back; the page base height is 406 (FloatLayout.PanelHeight), so the Back row ends at 396
-/// and stays inside the same rectangle the touch filter uses. The cat row reuses the previous
-/// World-page copy unchanged and only switches future stocking (next OnLevelLoaded); it never
-/// removes existing cats. The forest-recede row only arms the shared ForestItem.FadeAndRemove
-/// prefix on later calls; turning it OFF leaves fades already started. The deer row only arms
-/// the shared PopulationController.Update input prefix on later native calls (Greek ordinary
-/// deer, population target and refill x3); turning it OFF leaves existing animals and saves
-/// untouched. Back clears only VegetationPage, returning to the still-open World page
-/// (ProbeTicker.Layout.WorldPage stays true).
+/// 植被与野生动物页（presentation only，Issue #144）：三个开关行经 MobileModPanel.Toggle 的
+/// 公共路径登记 tap rect 并绘制；不使用 GUI.Button、不自持固定坐标与样式。
+/// 猫行只影响以后关卡载入时的补齐/瘦身（不删除已有猫）；森林行只作用于之后进入原生
+/// FadeAndRemove 的调用（关闭不回收进行中的淡出）；鹿行只作用于之后自然进入原生
+/// PopulationController.Update 的调用（希腊普通鹿目标/补充 x3；关闭不回收已有动物、不改存档）。
+/// 返回世界行只清 VegetationPage，World 页保持打开。
 /// </summary>
 internal static class MobileVegetationMenu
 {
-    internal static void Draw(float px, float py, float scale, GUIStyle labelStyle, GUIStyle titleStyle, GUIStyle buttonStyle)
+    private static readonly Action ToggleFarmCats = ModConfig.ToggleFarmCats;
+    private static readonly Action ToggleFastForestRecede = ModConfig.ToggleFastForestRecede;
+    private static readonly Action ToggleDeerPopulation = ModConfig.ToggleDeerPopulation;
+
+    internal static void Draw(MobileModPanel panel, float width, float scale)
     {
-        GUI.Label(new Rect(px + 16 * scale, py + 12 * scale, 248 * scale, 42 * scale), "Vegetation & Wildlife", titleStyle);
-        GUI.Label(new Rect(px + 16 * scale, py + 54 * scale, 248 * scale, 40 * scale), "World vegetation & wildlife", labelStyle);
-        if (GUI.Button(new Rect(px + 16 * scale, py + 98 * scale, 248 * scale, 64 * scale),
-                KingdomEnhancedMod.ModConfig.FarmCatsEnabled.Value
-                    ? "Stock cats: ON\nnext level; cats stay"
-                    : "Stock cats: OFF\nnext level; cats stay", buttonStyle))
-            KingdomEnhancedMod.ModConfig.ToggleFarmCats();
-        if (GUI.Button(new Rect(px + 16 * scale, py + 176 * scale, 248 * scale, 64 * scale),
-                KingdomEnhancedMod.ModConfig.FastForestRecedeEnabled.Value
-                    ? "Fast forest recede: ON\nnext fades; wait /3"
-                    : "Fast forest recede: OFF\nnext fades; wait /3", buttonStyle))
-            KingdomEnhancedMod.ModConfig.ToggleFastForestRecede();
-        if (GUI.Button(new Rect(px + 16 * scale, py + 254 * scale, 248 * scale, 64 * scale),
-                KingdomEnhancedMod.ModConfig.DeerPopulationEnabled.Value
-                    ? "Deer population: ON\nGreek only: target/refill x3"
-                    : "Deer population: OFF\nGreek only: target/refill x3", buttonStyle))
-            KingdomEnhancedMod.ModConfig.ToggleDeerPopulation();
-        if (GUI.Button(new Rect(px + 16 * scale, py + 332 * scale, 248 * scale, 64 * scale), "Back", buttonStyle))
-            ProbeTicker.Layout.VegetationPage = false;
+        panel.Toggle("农舍猫补给", ModConfig.FarmCatsEnabled.Value,
+            "下次关卡载入生效；已有猫保留。", ToggleFarmCats);
+        panel.Toggle("森林快速消退", ModConfig.FastForestRecedeEnabled.Value,
+            "之后开始的消退等待缩至三分之一；关闭不回收进行中的淡出。", ToggleFastForestRecede);
+        panel.Toggle("普通鹿数量", ModConfig.DeerPopulationEnabled.Value,
+            "仅希腊普通鹿：目标与补充 ×3；关闭不回收已有动物。", ToggleDeerPopulation);
+        panel.Step("返回世界", "←", "回到世界设置。", panel.CloseVegetation);
     }
 }

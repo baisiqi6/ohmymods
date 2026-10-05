@@ -10,16 +10,13 @@ public class ModPanel : MonoBehaviour
 {
     private static bool _shown;
     internal static bool IsShown => _shown;
+    private static ModPanelStyles _styles;
     private static GUISkin _skin;
     private static GUIStyle _title, _label, _muted, _value, _tab, _activeTab, _button, _card;
-    private static Texture2D _back, _cardBack, _gold, _track, _thumb;
     private static Vector2 _scroll;
     private static float _measuredContentHeight; // DrawControls 上一帧实际累计高度（一帧收敛）
     private static int _category;
     private static readonly string[] Categories = { "王国", "人口", "世界", "战斗", "自动补货", "便捷", "弓箭", "骑士", "MOD角色" };
-    private static readonly Color Gold = new Color(0.91f, 0.75f, 0.43f);
-    private static readonly Color Text = new Color(0.94f, 0.94f, 0.91f);
-    private static readonly Color Muted = new Color(0.65f, 0.71f, 0.77f);
     private const float CardHeight = 122f;
 
     public ModPanel(IntPtr ptr) : base(ptr) { }
@@ -166,104 +163,34 @@ public class ModPanel : MonoBehaviour
 
     private static void EnsureStyles()
     {
-        if (_skin != null && _label != null && _button != null && _card != null) return;
-        // Build fully into locals and commit only at the end: assigning _skin first would let a
-        // partial failure poison the cache (skin present, styles null) and break every retry.
-        GUISkin skin = null;
-        Texture2D back = null, cardBack = null, gold = null, track = null, thumb = null;
-        try
-        {
-            skin = UnityEngine.Object.Instantiate(GUI.skin);
-            skin.hideFlags = HideFlags.HideAndDontSave;
-            back = Texture(new Color(0.065f, 0.08f, 0.105f));
-            cardBack = Texture(new Color(0.105f, 0.13f, 0.165f));
-            gold = Texture(Gold);
-            track = Texture(new Color(0.23f, 0.28f, 0.34f));
-            thumb = Texture(new Color(0.74f, 0.64f, 0.43f));
-            GUIStyle label = Style(skin.label, 22, Text);
-            GUIStyle title = Style(skin.label, 30, Gold);
-            title.fontStyle = FontStyle.Bold;
-            GUIStyle muted = Style(skin.label, 17, Muted);
-            muted.wordWrap = true;
-            GUIStyle value = Style(skin.box, 21, Gold);
-            value.alignment = TextAnchor.MiddleCenter;
-            value.normal.background = back;
-            GUIStyle tab = Style(skin.button, 22, Muted);
-            tab.normal.background = cardBack;
-            tab.hover.background = track;
-            tab.hover.textColor = Text;
-            tab.active.background = gold;
-            tab.active.textColor = Color.black;
-            GUIStyle activeTab = new GUIStyle(tab);
-            activeTab.normal.background = gold;
-            activeTab.normal.textColor = new Color(0.10f, 0.11f, 0.13f);
-            activeTab.fontStyle = FontStyle.Bold;
-            GUIStyle button = new GUIStyle(tab);
-            button.fontSize = 19;
-            GUIStyle card = new GUIStyle(skin.box);
-            card.normal.background = cardBack;
-            skin.horizontalSlider.fixedHeight = 8f;
-            skin.horizontalSlider.margin = new RectOffset(0, 0, 10, 10);
-            skin.horizontalSlider.normal.background = track;
-            skin.horizontalSliderThumb.fixedWidth = 20f;
-            skin.horizontalSliderThumb.fixedHeight = 28f;
-            skin.horizontalSliderThumb.normal.background = gold;
-            skin.horizontalSliderThumb.hover.background = gold;
-            skin.horizontalSliderThumb.active.background = thumb;
-            skin.verticalScrollbar.fixedWidth = 16f;
-            skin.verticalScrollbar.normal.background = back;
-            skin.verticalScrollbarThumb.normal.background = thumb;
-            skin.verticalScrollbarThumb.hover.background = gold;
-            skin.verticalScrollbarThumb.active.background = gold;
-            skin.verticalScrollbarThumb.fixedWidth = 16f;
-            skin.verticalScrollbarThumb.fixedHeight = 0f;
-            skin.verticalScrollbarThumb.stretchHeight = true;
-            skin.verticalScrollbarThumb.overflow = new RectOffset(0, 0, 0, 0);
-            _skin = skin; _back = back; _cardBack = cardBack; _gold = gold; _track = track; _thumb = thumb;
-            _label = label; _title = title; _muted = muted; _value = value; _tab = tab;
-            _activeTab = activeTab; _button = button; _card = card;
-        }
-        catch
-        {
-            UnityEngine.Object.Destroy(skin);
-            UnityEngine.Object.Destroy(back); UnityEngine.Object.Destroy(cardBack);
-            UnityEngine.Object.Destroy(gold); UnityEngine.Object.Destroy(track); UnityEngine.Object.Destroy(thumb);
-            throw;
-        }
-    }
-
-    private static Texture2D Texture(Color color)
-    {
-        var texture = new Texture2D(1, 1);
-        texture.hideFlags = HideFlags.HideAndDontSave;
-        texture.SetPixel(0, 0, color);
-        texture.Apply();
-        return texture;
-    }
-
-    private static GUIStyle Style(GUIStyle source, int size, Color color)
-    {
-        var style = new GUIStyle(source);
-        style.fontSize = size;
-        style.normal.textColor = color;
-        style.alignment = TextAnchor.MiddleLeft;
-        style.padding = new RectOffset(8, 8, 2, 2);
-        return style;
+        if (_styles != null) return;
+        // 共享工厂只创建自有资源；GUI.skin 的设置与恢复仍由本类的 OnGUI finally 负责。
+        // Create 成功后才一次性提交字段引用，部分失败不会留下半成品缓存。
+        ModPanelStyles styles = ModPanelStyles.Create(GUI.skin);
+        _styles = styles;
+        _skin = styles.Skin;
+        _label = styles.Label;
+        _title = styles.Title;
+        _muted = styles.MutedLabel;
+        _value = styles.Value;
+        _tab = styles.Tab;
+        _activeTab = styles.ActiveTab;
+        _button = styles.Button;
+        _card = styles.Card;
     }
 
     private static void DrawPanel(float width, float height)
     {
-        ImGuiCompat.DrawTexture(new Rect(0, 0, width, height), _back);
-        ImGuiCompat.DrawTexture(new Rect(0, 0, width, 3), _gold);
-        GUI.Label(new Rect(24, 18, 520, 42), "王国 · 增强设置", _title);
-        GUI.Label(new Rect(26, 62, 560, 28), "KINGDOM ENHANCED  /  调整你的王国", _muted);
+        ModPanelControls.DrawPanelSurface(new Rect(0, 0, width, height), _styles);
+        GUI.Label(new Rect(24, 18, 520, 42), ModPanelControls.PanelTitle, _title);
+        GUI.Label(new Rect(26, 62, 560, 28), ModPanelControls.PanelSubtitle, _muted);
         if (GreekBankScope.IsActive)
         {
             int stashed = BankAssistantCoordinator.GetStashedCoinsForPanel();
             GUI.Box(new Rect(width - 334, 27, 230, 44),
                 stashed < 0 ? "银行 · 未就绪" : "银行 · " + stashed + " 币", _value);
         }
-        if (GUI.Button(new Rect(width - 84, 27, 58, 44), "关闭", _button)) _shown = false;
+        if (GUI.Button(new Rect(width - 84, 27, 58, 44), ModPanelControls.CloseLabel, _button)) _shown = false;
 
         float tabWidth = (width - 48f - 8f * (Categories.Length - 1)) / Categories.Length;
         for (int i = 0; i < Categories.Length; i++)
@@ -487,12 +414,7 @@ public class ModPanel : MonoBehaviour
     }
 
     private static void Card(float y, float width, string title, string value, string help)
-    {
-        GUI.Box(new Rect(0, y, width, CardHeight), GUIContent.none, _card);
-        GUI.Label(new Rect(14, y + 10, width - 210, 34), title, _label);
-        GUI.Box(new Rect(width - 180, y + 12, 162, 32), value, _value);
-        GUI.Label(new Rect(16, y + 88, width - 32, 28), help, _muted);
-    }
+        => ModPanelControls.DrawWideCard(0f, y, width, CardHeight, title, value, help, _styles, 1f);
 
     private static void Toggle(ref float y, float width, string title, ConfigEntry<bool> config, string help)
     {

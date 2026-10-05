@@ -6,7 +6,7 @@ namespace OhMyMods.AndroidProbe;
 internal static class MobileCalendar
 {
  internal static bool Enabled => ModConfig.CalendarEnabled.Value;
- internal static string PanelText => Enabled ? (renderBlocked ? "Calendar display unavailable" : valid ? "Date & season connected" : "Waiting for game data") : "Date & season display";
+ internal static string PanelText => Enabled ? (renderBlocked ? "日历显示不可用" : valid ? "日期与季节已连接" : "等待游戏数据") : "日期与季节显示";
  static bool valid, logged, renderBlocked;static int faults;static float next;static IntPtr worldId, sceneId;static string line="";static GUIStyle style;
  internal static void Toggle(){ModConfig.CalendarEnabled.Value=!ModConfig.CalendarEnabled.Value;renderBlocked=false;Clear();MelonLogger.Msg("ANDROID_CALENDAR_TOGGLE enabled="+Enabled);ModConfig.Save();}
  static void Clear(){valid=false;worldId=sceneId=IntPtr.Zero;next=0;line="";}
@@ -23,7 +23,7 @@ internal static class MobileCalendar
    if(Time.unscaledTime<next)return;next=Time.unscaledTime+.5f;
    valid=CalendarReader.TryRead(director,out var data);
    if(!valid){line="";return;}
-   line=$"Day {data.TotalDay}  |  {data.Hour:00}:00  |  {data.CurrentSeason} {data.SeasonDay}";
+   line=$"第 {data.TotalDay} 天  |  {data.Hour} 点  |  {SeasonName(data.CurrentSeason)} 第 {data.SeasonDay} 天";
    if(!logged){logged=true;MelonLogger.Msg($"ANDROID_CALENDAR_READY day={data.TotalDay} hour={data.Hour} season={data.CurrentSeason} seasonDay={data.SeasonDay} nextSeason={data.NextSeason} nextDay={data.NextSeasonDay} nativeTotalDay={director.TotalDaysInReign} nativeSeasonDay={director.CurrentSeasonDay} nativeTime={director.currentTime}");}
   }catch(Exception e){Clear();next=Time.unscaledTime+1;if(faults++<3)MelonLogger.Warning("ANDROID_CALENDAR_UNAVAILABLE "+e.GetType().Name);}
  }
@@ -40,5 +40,17 @@ internal static class MobileCalendar
   }
   catch(Exception e){renderBlocked=true;MelonLogger.Warning("ANDROID_CALENDAR_DRAW_BLOCKED "+e.Message);}
   finally {GUI.color=color;GUI.contentColor=content;}
+ }
+ // 与 PC CalendarHud.SeasonName 相同的四段中文名（仅展示层；其余 clockdriver 不动）。
+ private static string SeasonName(Il2Cpp.Season season)
+ {
+  switch(season)
+  {
+   case Il2Cpp.Season.Spring: return "春";
+   case Il2Cpp.Season.Summer: return "夏";
+   case Il2Cpp.Season.Autumn: return "秋";
+   case Il2Cpp.Season.Winter: return "冬";
+   default: return "季";
+  }
  }
 }
