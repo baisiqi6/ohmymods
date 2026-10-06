@@ -5,6 +5,7 @@ if (args.Contains("--durability")) { DurabilityCompatibility.Run(); return; }
 if (args.Contains("--r2")) { R2Regression.Run(); R2Regression.RunR3(); return; }
 if (args.Contains("--load-jobs")) { R2Regression.ProbeNativeJobs(); return; }
 if (args.Contains("--r3")) { R2Regression.RunR3(); return; }
+if (args.Contains("--enrollment")) { EnrollmentRegression.Run(); return; }
 
 int checks = 0;
 void Check(bool value, string label) { checks++; if (!value) throw new Exception(label); }

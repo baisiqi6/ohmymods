@@ -971,3 +971,10 @@ Mover.SetSpeed参考源码将_movingToGoal=false但仍设置_moveSpeed，不能�
 - 所有新增获取点集中在physical11；自定义mask/free-scatter及被接管动态槽占位排除只服务该岛。清理依赖view捕获的扩展责任，不能依赖已先清空的registry，也不能拿legacy原版active快照覆写原生当次状态。
 - 撤回#152关于Sprite mesh能保证native岛面内放置的设计依据：真实mesh包含透明海面，玩家安装后仍失败。此前绘制坐标/倍率检查只证明mesh映射，不能证明alpha岛面；旧native planner已由#156删除，不将其作为现行机制。历史源码与证据见tasks/issue-152/，新边界与验证见tasks/issue-156/。
 - 当前冷加载DLL不迁移旧managed view，不支持热升级。真实构建与直链模拟证明接管边界，原生画面和扩展观感仍需玩家实测。
+
+
+### IL2CPP 2.4：首次接入附加账目必须覆盖已访问成员（Issue #167）
+
+只有当前岛的合法row不代表整个首次接入lineage可在下一次跨岛恢复。盾卫未记录付费的首次接入在原生load前冻结真实visited/slot-exact missing成员（≤128），仅成功Pop/明确WasNew生成边界允许全组登记；prefix token和每个成员Pointer/Slot/非current hash须在提交前复核。current对象会被Pop消费，不能end重算其加载快照。未形成candidate前的key/context异常仍属初始化失败，不能等同“不需登记”；结构验证还须包含codec字节容量，不能写入无法发布的Staged。
+
+ExactSave和初始化Enrollment是两个明确协议，共用真实PrefsPrepare copy/readback发布与版本屏障。首次购买保持关闭直到该发布完成；Known当前hash不符、已有付费/过程证据不作为空白新岛。证据与实机边界见tasks/issue-167/，不推广成周期补行或猜测权益恢复。
