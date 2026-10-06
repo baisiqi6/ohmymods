@@ -25,3 +25,10 @@ Staged有两个协议：原有ExactSaveCapture；首次接入Enrollment（Load�
 真实2.4 ARM编译可证明API接线可编译；静态原生Callgraph和scope回归可证明所选分支/guards，不能替代游戏里Pop/生成/保存顺序与JsonUtility稳定性。玩家付款圆点、4Gem付款后出兵、跨岛/读档/联机尚待实机。若仍无圆点，继续读取现有F5盾卫状态分流Carrier/ToolBow，不放宽付款门。
 
 本次独立修复按中等体量patch+3登记为下一正式版本候选条目，同一Issue多轮修订只计一次；此轮无正式tag/发布，不改变10.9.38本机候选号。快购Issue168由ZCode另线处理。
+
+
+## 代码交付与安装准备
+
+[PR #170](https://github.com/baisiqi6/ohmymods/pull/170) head `e3d696905aa992a06089eef854566353860aff8f` 已合并，merge `d5a75900143dda0dcb7b31140e419a675c6bc741`；合并后从真实merge源码核对两H文件hash与审查/构建输入一致，Issue167已按代码交付关闭。未另建重要节点、未手改受管checklist；EXharness validator 0警告通过。
+
+安装候选e573、551个源码/资源/包装器输入、161个实际引用与独审/范围审计绑定在私有manifest；安装器只允许既有372c preimage、固定PR170已合并head、输入/ref未变化且所有游戏进程已关闭时运行。将先备份DLL/SHA256SUMS及玩家配置存档，再只原子替换DLL和对应校验行，校验launcher check-only与受保护文件字节；预检失败即停止，安全条件内回滚，不覆盖peer新候选。当前游戏进程仍运行，已请用户正常保存退出，**尚未安装**。此记录不代表实机购买成功，玩家结果后续另记。
