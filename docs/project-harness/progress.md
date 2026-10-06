@@ -1,3 +1,9 @@
+## 2026-10-06 — 宝石盾卫首次接入登记（Issue #167，代码候选审查完成；PR/冷安装待办）
+
+靠近无付款圈；原生五点已创建。实际KEY有效但仅land0/current8无记录，在生产身份入口复现Unknown阻断。成功原生load/generation边界补登记未记录购买战役的已访问missing成员，两个staging协议共用真实Prepare发布；Known/paid保留，首购等正常保存准备，失败不解锁，不加Tick修正或强制save。
+
+最终独审APPROVE，公开104/0；原identity136/R2 38/R3 27/durability92全部通过，两份真实ARM完整构建0W0E。e573候选仅叠加H修复至372c宫殿候选，6842非变化方法/metadata、338hooks/35PNG保持。当前游戏运行，仅ready，尚未安装或验画面/出兵。代码PR与合并完成后更新本条；玩家实机单列。详见tasks/issue-167/。快购#168由ZCode另线处理。
+
 ## 2026-10-06 — Mac资源清单修复（Issue #162，PR163已合并并冷安装，玩家画面待验）
 
 最新累积安装c1d只有8PNG，官方34，漏26含地图岸线；日志shore missing后提交失败，玩家截图空白。错误来源是私有Mac包装器历史复制清单。官方与Mac改共享EmbeddedAssets.props并提供Compile/Import配对迁移检查，不改地图或玩法代码；最新PR157/159/161保持。

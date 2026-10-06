@@ -5,14 +5,18 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <DefaultItemExcludes>$(DefaultItemExcludes);**/obj/**</DefaultItemExcludes>
+    <!-- RED run: -p:HeavyShieldSourceRoot=<product>/il2cpp ; GREEN (default): candidate il2cpp. -->
+    <HeavyShieldSourceRoot Condition="'$(HeavyShieldSourceRoot)'==''">$(MSBuildThisFileDirectory)../../il2cpp</HeavyShieldSourceRoot>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../il2cpp/HeavyShieldBlockPolicy.cs" Link="HeavyShieldBlockPolicy.cs" />
-    <Compile Include="../../il2cpp/HeavyShieldContracts.cs" Link="HeavyShieldContracts.cs" />
-    <Compile Include="../../il2cpp/HeavyShieldIdentity.cs" Link="HeavyShieldIdentity.cs" />
-    <Compile Include="../../il2cpp/HeavyShieldPersistence.cs" Link="HeavyShieldPersistence.cs" />
-    <Compile Include="../../il2cpp/HeavyShieldPromotionBridge.cs" Link="HeavyShieldPromotionBridge.cs" />
-    <Compile Include="../../il2cpp/HeavyShieldSaveData.cs" Link="HeavyShieldSaveData.cs" />
-    <Compile Include="../../il2cpp/HeavyShieldQuota.cs" Link="HeavyShieldQuota.cs" />
+    <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldBlockPolicy.cs" Link="HeavyShieldBlockPolicy.cs" />
+    <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldContracts.cs" Link="HeavyShieldContracts.cs" />
+    <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldIdentity.cs" Link="HeavyShieldIdentity.cs" />
+    <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldPersistence.cs" Link="HeavyShieldPersistence.cs" />
+    <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldPromotionBridge.cs" Link="HeavyShieldPromotionBridge.cs" />
+    <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldSaveData.cs" Link="HeavyShieldSaveData.cs" />
+    <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldQuota.cs" Link="HeavyShieldQuota.cs" />
+    <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldEnrollment.cs" Link="HeavyShieldEnrollment.cs"
+             Condition="Exists('$(HeavyShieldSourceRoot)/HeavyShieldEnrollment.cs')" />
   </ItemGroup>
 </Project>

@@ -7,6 +7,11 @@ namespace KingdomEnhancedMod;
 // Native callback receiver only. Existing save/GetID/load/generation owners call
 // these methods in their own isolated try/catch; this class installs no duplicate
 // Harmony patches and never blocks the native save on a HeavyShield failure.
+// Staged state has exactly two write protocols: (1) exact save capture stages one
+// island in EndNativeIslandSave; (2) first-connect enrollment stages the frozen
+// baseline of a provably unpaid campaign through one shared commit gate entered
+// from EndNativeIslandLoad or EndNativeGeneration. Both protocols publish only
+// through the native PrefsPrepare copy/readback finalizer.
 internal static class HeavyShieldPersistence
 {
     internal sealed class SaveCapture
@@ -32,6 +37,26 @@ internal static class HeavyShieldPersistence
         internal readonly List<HeavyShieldCareerHandle> Attached = new();
         internal bool Exact, Fresh, Conflict, Closed;
         internal HeavyShieldIdentityPhase SourcePhase;
+        internal EnrollmentCapture Enrollment;
+        internal bool EnrollmentRequired;
+    }
+
+    // Frozen first-connect baseline for one native pop. Captured in the load
+    // prefix (the native pop consumes its objects table), committed in the load
+    // finalizer only when that same pop really succeeded and identity stayed exact.
+    internal sealed class EnrollmentCapture
+    {
+        internal IntPtr Global, Prefs, Campaign, Island;
+        internal long World, OwnerGeneration;
+        internal int Land, Challenge, Slot;
+        internal string Guid;
+        internal HeavyShieldNativeKeyRead KeyRead;
+        internal string KeyRaw;
+        internal bool CurrentMissing;
+        internal bool IncludesCurrent;
+        internal bool KeepBlocked;
+        internal bool RequireCurrentSlot;
+        internal readonly List<HeavyShieldEnrollment.Row> Rows = new();
     }
 
     internal sealed class GenerationCapture
@@ -368,6 +393,7 @@ internal static class HeavyShieldPersistence
             scope.Saved = saved;
             scope.Fresh = result == HeavyShieldSnapshotResolution.ConfirmedFresh;
             scope.Exact = result == HeavyShieldSnapshotResolution.Exact;
+            TryCaptureEnrollment(owner, s, exactIsland, scope, result);
             if (result == HeavyShieldSnapshotResolution.Unknown)
             {
                 scope.Conflict = true; s.Unknown = true;
@@ -492,9 +518,27 @@ internal static class HeavyShieldPersistence
     {
         if (scope == null || scope.Closed) return;
         scope.Closed = true;
-        if (ReferenceEquals(_load, scope)) _load = scope.Previous;
+        bool top = ReferenceEquals(_load, scope);
+        if (top) _load = scope.Previous;
         var s = scope.Session;
         if (s == null) return;
+        bool required = scope.EnrollmentRequired || scope.Enrollment != null;
+        bool keepBlocked = scope.Enrollment != null && scope.Enrollment.KeepBlocked;
+        bool enrolled = scope.Enrollment != null && success && top && TryCommitEnrollment(scope);
+        if (enrolled && !scope.Exact && !scope.Fresh && !keepBlocked)
+        {
+            // The quarantine raised when this exact island had no record is
+            // released by the committed first-connect baseline. The committed
+            // rows carry no claims; the campaign stays barred from payment by
+            // CampaignRestorePending until a real native PrefsPrepare publishes.
+            s.Unknown = false;
+            s.StageFault = false;
+            s.CaptureFaultRecoverable = false;
+            s.Phase = HeavyShieldIdentityPhase.Allocated;
+            if (!s.Quota.BeginVerifiedRestore(false, false, false) || !s.Quota.FinishVerifiedRestore(true))
+                s.Unknown = true;
+            return;
+        }
         bool allProven = scope.Saved == null || scope.Restored.Count == scope.Saved.Claims.Count;
         if (scope.Saved != null && success)
             foreach (var saved in scope.Saved.Claims)
@@ -502,9 +546,13 @@ internal static class HeavyShieldPersistence
                     && !scope.Restored.Contains(id))
                     if (!HeavyShieldIdentity.RestoreUnboundClaim(saved)) scope.Conflict = true;
         bool quotaRestored = s.Quota.FinishVerifiedRestore(allProven && !scope.Conflict);
-        if (!success || scope.Conflict || (!scope.Exact && !scope.Fresh)
+        if ((required && !enrolled) || keepBlocked
+            || !success || scope.Conflict || (!scope.Exact && !scope.Fresh)
             || !allProven || !quotaRestored)
         {
+            // An active-but-undischarged first-connect responsibility keeps the
+            // first purchase closed until a correct lifecycle completes it; the
+            // normal Exact/paid paths never take this branch.
             s.Unknown = true;
             foreach (var handle in scope.Attached)
                 try { HeavyShieldRuntime.DetachCarrier(handle); } catch { }
@@ -565,6 +613,16 @@ internal static class HeavyShieldPersistence
             if (!s.Quota.BeginVerifiedRestore(s.MoldReceipt != null,
                     s.LeftExtraReceipt != null, s.RightExtraReceipt != null)
                 || !s.Quota.FinishVerifiedRestore(true)) { s.Unknown = true; return; }
+            // Verified generation success point: a provably unpaid campaign now
+            // registers its other already-visited baselines before the first Gem.
+            // The new island itself stays owned by this generation boundary.
+            if (!TryEnrollGenerationBaseline(s, island, exactCampaign))
+            {
+                // Active first-connect responsibility could not be discharged:
+                // keep the first purchase closed until a correct lifecycle.
+                s.Unknown = true;
+                return;
+            }
             s.Unknown = false;
             s.Phase = HeavyShieldIdentityPhase.Allocated;
         }
@@ -768,7 +826,7 @@ internal static class HeavyShieldPersistence
             });
         }
         if (!HeavyShieldSaveCodec.TryValidate(draft, out _)) return false;
-        owner.Staged = draft; // EndNativeIslandSave is the only staged-state assignment.
+        owner.Staged = draft; // Staging protocol 1 of 2 (exact save capture); enrollment is protocol 2.
         owner.StagedVersions[(s.Guid, s.Challenge, s.Land)] = ++owner.NextStage;
         return true;
     }
@@ -937,6 +995,282 @@ internal static class HeavyShieldPersistence
                 ? HeavyShieldSnapshotResolution.Exact : HeavyShieldSnapshotResolution.Unknown;
         }
         catch { return HeavyShieldSnapshotResolution.Unknown; }
+    }
+
+    // ---------- first-connect baseline enrollment (issue 167) ----------
+    // The authoritative no-purchase proof: every campaign copy and the live
+    // session must carry no mold/extra receipt and no claim anywhere. TryValidate
+    // already forces every claim/extra to depend on MoldReceipt, so this is exact
+    // inside the mod-owned durable document; it deliberately does not claim any
+    // proof about unrecorded history.
+
+    private static bool CanProveNeverPaid(GlobalBinding owner, HeavyShieldIdentity.Session s)
+    {
+        if (owner == null || s == null) return false;
+        if (s.MoldReceipt != null || s.LeftExtraReceipt != null || s.RightExtraReceipt != null) return false;
+        if (PurchaseRecorded(FindCampaign(owner.Loaded, s.Guid))) return false;
+        if (PurchaseRecorded(FindCampaign(owner.Prepared, s.Guid))) return false;
+        if (PurchaseRecorded(FindCampaign(owner.Staged, s.Guid))) return false;
+        return !PurchaseRecorded(LoadedCopy(owner, s));
+    }
+
+    private static bool PurchaseRecorded(HeavyShieldSavedCampaign campaign)
+    {
+        if (campaign == null) return false;
+        if (campaign.MoldReceipt != null || campaign.LeftExtraReceipt != null
+            || campaign.RightExtraReceipt != null) return true;
+        if (campaign.Islands != null)
+            foreach (var island in campaign.Islands)
+                if (island != null && island.Claims != null && island.Claims.Count != 0) return true;
+        return false;
+    }
+
+    private static HeavyShieldSavedCampaign LoadedCopy(GlobalBinding owner, HeavyShieldIdentity.Session s)
+    {
+        if (owner == null || s == null) return null;
+        return owner.LoadedByNative.TryGetValue(s.Campaign, out var native) && native.Guid == s.Guid
+            ? native : null;
+    }
+
+    private static bool HasKnownIslandRow(GlobalBinding owner, HeavyShieldIdentity.Session s, int land)
+        => FindIsland(FindCampaign(owner.Loaded, s.Guid), s.Challenge, land) != null
+            || FindIsland(FindCampaign(owner.Prepared, s.Guid), s.Challenge, land) != null
+            || FindIsland(FindCampaign(owner.Staged, s.Guid), s.Challenge, land) != null
+            || FindIsland(LoadedCopy(owner, s), s.Challenge, land) != null;
+
+    // Load prefix: freeze the candidate; write nothing here. Once the unpaid proof
+    // holds, the first-connect responsibility is established immediately; every
+    // later early return keeps it until an explicit NoEnrollmentNeeded or a
+    // successful commit releases it.
+    private static void TryCaptureEnrollment(GlobalBinding owner, HeavyShieldIdentity.Session s,
+        IslandSaveData island, LoadCapture scope, HeavyShieldSnapshotResolution result)
+    {
+        try
+        {
+            if (owner == null || owner.Closed || s == null || island == null || scope == null) return;
+            // Already paid or already barred states keep their original rules.
+            if (s.StageFault || s.CaptureFaultRecoverable
+                || s.Claims.Count != 0 || s.Pending.Count != 0 || s.Completed.Count != 0) return;
+            if (owner.PaidEvidence.Contains(s.Guid) || CampaignRestorePending(s)) return;
+            if (!CanProveNeverPaid(owner, s)) return;
+            scope.EnrollmentRequired = true;
+            var game = Managers.Inst?.game;
+            var campaign = CampaignSaveData.current;
+            bool contextOk = game != null && campaign != null && campaign.Pointer == s.Campaign
+                && campaign.CurrentIsland != null && campaign.CurrentIsland.Pointer == island.Pointer
+                && game.currentLand == island.land && island.land >= 0 && island.land == s.Land;
+            bool currentMissing = contextOk && !HasKnownIslandRow(owner, s, island.land);
+            if (contextOk)
+            {
+                if (result == HeavyShieldSnapshotResolution.Unknown)
+                { if (!currentMissing) return; }
+                else if (result != HeavyShieldSnapshotResolution.Exact
+                    && result != HeavyShieldSnapshotResolution.ConfirmedFresh) return;
+            }
+            var copies = new[]
+            {
+                FindCampaign(owner.Loaded, s.Guid), FindCampaign(owner.Prepared, s.Guid),
+                FindCampaign(owner.Staged, s.Guid), LoadedCopy(owner, s),
+            };
+            var outcome = HeavyShieldEnrollment.TryFreezeRows(campaign, island, s.Guid, s.Challenge,
+                copies, out var candidate, out _);
+            if (outcome == HeavyShieldEnrollment.Outcome.NoEnrollmentNeeded)
+            {
+                // The bounded read proved there is nothing to register.
+                scope.EnrollmentRequired = false;
+                return;
+            }
+            if (outcome != HeavyShieldEnrollment.Outcome.Frozen
+                || candidate == null || candidate.Rows.Count == 0) return;
+            // Commit-token preconditions: key phase and the frozen context must be
+            // exact; any divergence leaves the established responsibility standing.
+            var loaded = GlobalSaveData._loaded;
+            var prefs = loaded?.prefs;
+            if (!contextOk || loaded == null || loaded.Pointer != owner.Global || prefs == null
+                || prefs.Pointer != owner.Prefs || prefs.contents == null
+                || loaded.currentCampaign != s.Slot || loaded.currentChallenge != s.Challenge) return;
+            bool found = prefs.contents.ContainsKey(HeavyShieldSaveSchema.Key);
+            string raw = found ? prefs.contents[HeavyShieldSaveSchema.Key] : null;
+            if (owner.KeyRead == HeavyShieldNativeKeyRead.Present)
+            {
+                if (owner.ExpectedRaw == null || !found || raw != owner.ExpectedRaw) return;
+            }
+            else if (owner.KeyRead == HeavyShieldNativeKeyRead.ConfirmedMissing)
+            {
+                // A key inserted after a confirmed-missing bind is not this path.
+                if (found || owner.ExpectedRaw != null || owner.KeyPreflighted) return;
+            }
+            else return;
+            // The current member cannot be enrolled at this boundary (e.g. a
+            // generation target or a never-played slot): the other frozen rows
+            // still register, but the session stays barred until a correct
+            // lifecycle registers the current island too.
+            bool keepBlocked = currentMissing && !candidate.IncludesCurrent;
+            if (!TryValidateEnrollmentDraft(owner, s, candidate.Rows)) return;
+            var capture = new EnrollmentCapture
+            {
+                Global = owner.Global, Prefs = owner.Prefs, Campaign = s.Campaign,
+                Island = island.Pointer, OwnerGeneration = owner.Generation,
+                World = s.World, Land = s.Land, Challenge = s.Challenge, Slot = s.Slot,
+                Guid = s.Guid, KeyRead = owner.KeyRead, KeyRaw = raw, CurrentMissing = currentMissing,
+                IncludesCurrent = candidate.IncludesCurrent, KeepBlocked = keepBlocked,
+                RequireCurrentSlot = true,
+            };
+            capture.Rows.AddRange(candidate.Rows);
+            scope.Enrollment = capture;
+        }
+        catch { }
+    }
+
+    private static bool TryCommitEnrollment(LoadCapture scope)
+        => scope != null && CommitEnrollmentToken(_global, scope.Session, scope.Enrollment);
+
+    // Shared commit gate for both first-connect boundaries (native island pop and
+    // verified new generation). The frozen rows are applied to a clone; the staged
+    // state is assigned once, only if every condition still holds.
+    private static bool CommitEnrollmentToken(GlobalBinding owner, HeavyShieldIdentity.Session s,
+        EnrollmentCapture token)
+    {
+        try
+        {
+            if (token == null || owner == null || s == null || owner.Closed) return false;
+            if (owner.Generation != token.OwnerGeneration || owner.Global != token.Global
+                || owner.Prefs != token.Prefs) return false;
+            var loaded = GlobalSaveData._loaded;
+            if (loaded == null || loaded.Pointer != token.Global
+                || !ReferenceEquals(HeavyShieldIdentity.Current, s)) return false;
+            var prefs = loaded.prefs;
+            if (prefs == null || prefs.Pointer != token.Prefs || prefs.contents == null) return false;
+            bool found = prefs.contents.ContainsKey(HeavyShieldSaveSchema.Key);
+            if (token.KeyRead == HeavyShieldNativeKeyRead.Present)
+            { if (!found || prefs.contents[HeavyShieldSaveSchema.Key] != token.KeyRaw) return false; }
+            else if (token.KeyRead == HeavyShieldNativeKeyRead.ConfirmedMissing)
+            { if (found) return false; }
+            else return false;
+            if (s.Campaign != token.Campaign || s.Guid != token.Guid || s.Slot != token.Slot
+                || s.Challenge != token.Challenge || s.Land != token.Land) return false;
+            // Prefix-frozen world identity: a same-owner refresh by TickBinding must
+            // not launder a world replacement.
+            if (token.World == 0 || s.World != token.World || WorldKey() != token.World) return false;
+            if (s.StageFault || s.CaptureFaultRecoverable
+                || s.Claims.Count != 0 || s.Pending.Count != 0 || s.Completed.Count != 0) return false;
+            if (owner.PaidEvidence.Contains(s.Guid) || CampaignRestorePending(s)) return false;
+            if (loaded.currentCampaign != s.Slot || loaded.currentChallenge != s.Challenge) return false;
+            if (!CanProveNeverPaid(owner, s)) return false;
+            var campaign = CampaignSaveData.current;
+            var game = Managers.Inst?.game;
+            if (campaign == null || game == null || campaign.Pointer != token.Campaign
+                || campaign.CurrentIsland == null || campaign.CurrentIsland.Pointer != token.Island
+                || game.currentLand != token.Land) return false;
+            if (HeavyShieldEnrollment.TryCurrentSlot(campaign, campaign.CurrentIsland, out int currentSlot))
+            { if (currentSlot != token.Land) return false; }
+            else if (token.RequireCurrentSlot) return false;
+            if (!HeavyShieldEnrollment.TryVerifyRows(campaign, campaign.CurrentIsland, s.Guid,
+                    s.Challenge, token.Rows, out _)) return false;
+            if (!HeavyShieldSaveCodec.TrySerialize(owner.Staged, out string json, out _)
+                || !HeavyShieldSaveCodec.TryParse(json, out var draft, out _)) return false;
+            if (!ApplyEnrollmentRows(draft, s, token.Rows, out bool changed) || !changed) return false;
+            if (!HeavyShieldSaveCodec.TrySerialize(draft, out _, out _)) return false;
+            owner.Staged = draft;
+            long version = ++owner.NextStage;
+            foreach (var row in token.Rows)
+                owner.StagedVersions[(s.Guid, s.Challenge, row.Land)] = version;
+            return true;
+        }
+        catch { return false; }
+    }
+
+    // Verified new-generation boundary variant: capture and commit in one call at
+    // the already-verified lifecycle point. Returns true only for an explicit paid
+    // record (original rules), a bounded read that proves nothing to register, or
+    // a successful commit; every context/read/key failure returns false so the
+    // caller keeps the first purchase closed until a correct lifecycle completes
+    // the responsibility. The outer catch never reports success.
+    private static bool TryEnrollGenerationBaseline(HeavyShieldIdentity.Session s,
+        IslandSaveData island, CampaignSaveData campaign)
+    {
+        try
+        {
+            var owner = _global;
+            if (owner == null || owner.Closed || s == null || island == null || campaign == null) return false;
+            // An explicit legitimate paid record belongs to the original rules.
+            if (!CanProveNeverPaid(owner, s) || owner.PaidEvidence.Contains(s.Guid)) return true;
+            var copies = new[]
+            {
+                FindCampaign(owner.Loaded, s.Guid), FindCampaign(owner.Prepared, s.Guid),
+                FindCampaign(owner.Staged, s.Guid), LoadedCopy(owner, s),
+            };
+            var outcome = HeavyShieldEnrollment.TryFreezeRows(campaign, island, s.Guid, s.Challenge,
+                copies, out var candidate, out _);
+            if (outcome == HeavyShieldEnrollment.Outcome.NoEnrollmentNeeded) return true;
+            if (outcome != HeavyShieldEnrollment.Outcome.Frozen
+                || candidate == null || candidate.Rows.Count == 0) return false;
+            if (candidate.IncludesCurrent) return false;
+            var loaded = GlobalSaveData._loaded;
+            var prefs = loaded?.prefs;
+            if (loaded == null || loaded.Pointer != owner.Global || prefs == null
+                || prefs.Pointer != owner.Prefs || prefs.contents == null
+                || loaded.currentCampaign != s.Slot || loaded.currentChallenge != s.Challenge) return false;
+            bool found = prefs.contents.ContainsKey(HeavyShieldSaveSchema.Key);
+            string raw = found ? prefs.contents[HeavyShieldSaveSchema.Key] : null;
+            if (owner.KeyRead == HeavyShieldNativeKeyRead.Present)
+            { if (owner.ExpectedRaw == null || !found || raw != owner.ExpectedRaw) return false; }
+            else if (owner.KeyRead == HeavyShieldNativeKeyRead.ConfirmedMissing)
+            { if (found || owner.ExpectedRaw != null || owner.KeyPreflighted) return false; }
+            else return false;
+            var token = new EnrollmentCapture
+            {
+                Global = owner.Global, Prefs = owner.Prefs, Campaign = s.Campaign,
+                Island = island.Pointer, OwnerGeneration = owner.Generation,
+                World = s.World, Land = s.Land, Challenge = s.Challenge, Slot = s.Slot,
+                Guid = s.Guid, KeyRead = owner.KeyRead, KeyRaw = raw, CurrentMissing = true,
+                RequireCurrentSlot = false,
+            };
+            token.Rows.AddRange(candidate.Rows);
+            return CommitEnrollmentToken(owner, s, token);
+        }
+        catch { return false; }
+    }
+
+    // Adds only missing rows to a cloned draft; an existing row must match or the
+    // whole event aborts. Stored hashes and every other campaign stay untouched.
+    private static bool ApplyEnrollmentRows(HeavyShieldSaveDocument draft,
+        HeavyShieldIdentity.Session s, List<HeavyShieldEnrollment.Row> rows, out bool changed)
+    {
+        changed = false;
+        if (draft == null || s == null || rows == null || rows.Count == 0) return false;
+        var campaign = FindCampaign(draft, s.Guid);
+        if (campaign == null)
+        {
+            campaign = new HeavyShieldSavedCampaign { Guid = s.Guid, Slot = s.Slot };
+            draft.Campaigns.Add(campaign);
+        }
+        foreach (var row in rows)
+        {
+            HeavyShieldSavedIsland existing = null;
+            foreach (var island in campaign.Islands)
+                if (island.Challenge == s.Challenge && island.Land == row.Land)
+                { existing = island; break; }
+            if (existing != null)
+            {
+                if (existing.SnapshotHash != row.SnapshotHash) return false;
+                continue;
+            }
+            campaign.Islands.Add(new HeavyShieldSavedIsland
+            { Challenge = s.Challenge, Land = row.Land, SnapshotHash = row.SnapshotHash });
+            changed = true;
+        }
+        return true;
+    }
+
+    private static bool TryValidateEnrollmentDraft(GlobalBinding owner, HeavyShieldIdentity.Session s,
+        List<HeavyShieldEnrollment.Row> rows)
+    {
+        if (owner?.Staged == null) return false;
+        if (!HeavyShieldSaveCodec.TrySerialize(owner.Staged, out string json, out _)
+            || !HeavyShieldSaveCodec.TryParse(json, out var draft, out _)) return false;
+        if (!ApplyEnrollmentRows(draft, s, rows, out _)) return false;
+        return HeavyShieldSaveCodec.TrySerialize(draft, out _, out _);
     }
 
     private static HeavyShieldSaveDocument Clone(HeavyShieldSaveDocument source)

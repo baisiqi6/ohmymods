@@ -102,6 +102,8 @@ namespace KingdomEnhancedMod
         internal IntPtr Pointer;
         internal int CurrentLand;
         internal IslandSaveData CurrentIsland;
+        // Native campaign island table, addressed by slot; placeholders keep land 0.
+        internal List<IslandSaveData> _islands = new();
     }
     internal sealed class IslandSaveData
     {
