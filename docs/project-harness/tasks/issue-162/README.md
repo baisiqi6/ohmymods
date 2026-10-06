@@ -1,0 +1,11 @@
+# Issue162 — Mac累积候选漏资源导致地图空白
+
+玩家当前DLL c1d1f17e由最新9daa78a累积源码构建，却只嵌入8PNG；上次地图候选ff045a3f为34PNG。实际程序集核对缺26项，含KEM_MapExtensionIsland及三坐骑图标、哥布林/银行助手、重装步兵与休闲素材。已有8PNG与原声明字节相同。玩家日志首次shore resource missing，随后world commit失败与pending gate超时，截图只剩纸面。
+
+首次偏离在构建资源写者：官方csproj资源为30+4项，Mac私有Integration.csproj却复制历史8项清单；引用构建/玩法测试不会发现程序集资源缺口。现将官方34项移到单一EmbeddedAssets.props，official与Mac wrapper同Import。路径基于MSBuildThisFileDirectory，而非wrapper所在目录；LogicalName、PNG字节及非资源官方配置保持。
+
+迁移脚本从当前Compile源目录选对应props，替换资源接线，不改Compile/ref/version/PluginInfo/输出/安装行为。check-only拒绝旧内联清单、Compile已换而Import仍旧、重复名字、缺文件及不支持的声明。今后新增资源只维护props，不逐包装器重抄。脚本不是通用MSBuild解释器；条件资源/复杂源glob不支持而明确拒绝。
+
+没有改地图布局/显隐或任何玩法C#，原版零接管及PR157/159/161功能保留。候选真实ARM0W0E、6809方法与完整最新基线语义保持，34PNG精确匹配官方声明；相对实际安装6808方法保持，唯一Init差异是错误历史版本字串9.5.13恢复测试候选10.9.38。沿用测试候选号，无正式release/tag，无新的玩法条目或版本增量。
+
+12接线测试含真实MSBuild求值通过；official迁移前后与wrapper的34资源名字/路径/bytes对账。代码交付待审查与本PR合并，闭游戏后完整资源冷安装；画面/Windows/联机待验。失败gate在缺资源环境的独立分析另外保留，不把日志native restored当实机恢复证据。
