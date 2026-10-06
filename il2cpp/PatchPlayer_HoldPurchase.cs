@@ -42,7 +42,11 @@ namespace KingdomEnhancedMod;
 ///    换店/走远/被占/动作态变/店失效/钱不足/超时都会立即结束。等待期间绝不合成：
 ///    原生 None+payKeyDown 在 CanPay 假时会走掉地币分支。
 ///    issue #158：非 Baker 识别类在 armed 续买窗口获得 ReentryGraceSeconds 重入宽限，
-///    仅覆盖"未售罄（CanPay 真）且仅差选中闪断/CanSelect 瞬态"的形态；售罄仍立即结束。
+///    仅覆盖"未售罄（CanPay 真）且仅差选中闪断/CanSelect 瞬态"的形态；售罄仍立即结束；
+///    宽限期限对"继续等待"与"恢复注入"两条路统一生效（issue #168：恢复不得绕过上限）。
+///    issue #168：续买注入帧的合法终态是 Holding/Transaction/Completed（长帧下原生一次
+///    调用可走完多态，1 金币店直达 Completed）；注入帧的 Completed 不是 PerformPay 收据，
+///    不 arm、不重发付款，履约仍由后续原生调用链负责。
 /// 7. 诊断（默认输出，无新配置项）：每次白名单命中记一行 bind（分支/价格/priceIncrease/
 ///    类型短码），等待与恢复各记一行实测时长，drop 记一行聚合（原因/笔数/等待时长）；
 ///    每个会话最多 6 行，超出的过渡行被丢弃，drop 行始终保留一个名额。
@@ -484,6 +488,25 @@ public static class PatchPlayer_HoldPurchase
             if (state == StateNone && !payKeyDown && session.ContinuationArmed
                 && session.HeldElapsed >= HoldSeconds)
             {
+                // issue #168：宽限期限约束"继续等待"与"恢复注入"两条路（原先只在等待分支
+                // 检查，恢复的快分支可绕过上限）。等待中的会话超期一律按超时结束；
+                // Baker 维持独立的 90 秒货架上限，售罄/缺钱/走远/切店等硬门不变。
+                if (session.WaitingForStock)
+                {
+                    float activeCap = session.GoodsViaBaker
+                        ? StockWaitCapSeconds : ReentryGraceSeconds;
+                    if (now - session.WaitSince > activeCap)
+                    {
+                        float waited = now - session.WaitSince;
+                        session.WaitedTotal += waited;
+                        session.WaitingForStock = false;
+                        TransitionNote(session, "wait-timeout: waited=" + waited.ToString("0.00")
+                            + "s cap=" + activeCap.ToString("0.0") + "s");
+                        Drop(session, session.GoodsViaBaker ? "no-stock-timeout" : "reentry-timeout");
+                        receipt.Session = null;
+                        return;
+                    }
+                }
                 // 合成前置 = 未修改的 CanEnterHolding 全谓词（selected==shop 必须成立）：
                 // 等待补货恢复后由原生重选选中本店，次帧才在这里合成。
                 if (session.Shop != null && session.ShopIsGoods
@@ -552,15 +575,23 @@ public static class PatchPlayer_HoldPurchase
 
             if (receipt.Injected)
             {
-                if (after != StateHolding)
+                // issue #168：一次原生调用可在长帧里合法走完 None→Holding→Transaction
+                // （2.4 ARM 0x7da27c–0x7da390 之间无返回）；便宜 1 金币店在注入帧即可
+                // 凑满浮动金币直达 Completed（AddCurrencyToSelectedPayable @0x7dbff4 在
+                // 数量达标时置 3）。终态属于"成功进入原生付款流程"的合法状态集即通过；
+                // 只有 None（掉了地币）与 Cancelling（注入即取消）才是注入失败。
+                // 注入帧的 Completed 不是 PerformPay 收据：不 arm、不造 SuccessReceipt、
+                // 不重发付款——履约仍由后续原生 Completed→TransactionComplete→PerformPay→
+                // None 链负责（装填门要求 StateBefore==Completed，天然不在此帧触发）。
+                if (after != StateHolding && after != StateTransaction && after != StateCompleted)
                 {
-                    // 合成的按下没能进入 Holding：原生可能落到了掉地币分支，立即结束本次 hold
-                    // 并留一次告警；绝不在同一 hold 里重试。
+                    // 合成的按下没能进入原生付款流程：原生可能落到了掉地币分支，立即结束
+                    // 本次 hold 并留一次告警；绝不在同一 hold 里重试。
                     if (!_injectionFaultLogged)
                     {
                         _injectionFaultLogged = true;
                         KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
-                            "[HoldPurchase] synthetic payKeyDown did not enter Holding (state="
+                            "[HoldPurchase] synthetic payKeyDown did not enter the pay flow (state="
                             + after + "), hold session dropped");
                     }
                     Drop(session, "injection-fault");
@@ -1194,7 +1225,8 @@ public static class PatchPlayer_HoldPurchase
                 Drop(session, dropReason);
                 return WaitOutcome.Dropped;
             }
-            float cap = baker ? StockWaitCapSeconds : ReentryGraceSeconds;
+            // 超时判定已上提到注入门（issue #168：快分支与等待分支共用同一处期限检查，
+            // 同帧同 cap，此处不再重复判超时）。
             if (!session.WaitingForStock)
             {
                 session.WaitingForStock = true;
@@ -1203,16 +1235,6 @@ public static class PatchPlayer_HoldPurchase
                 TransitionNote(session, (baker ? "wait-stock" : "wait-grace")
                     + ": cause=" + (stockBlocked ? "stock" : "reselect")
                     + " held=" + session.HeldElapsed.ToString("0.00") + "s receipts=" + session.Receipts);
-            }
-            else if (now - session.WaitSince > cap)
-            {
-                float waited = now - session.WaitSince;
-                session.WaitedTotal += waited;
-                session.WaitingForStock = false;
-                TransitionNote(session, "wait-timeout: waited=" + waited.ToString("0.00")
-                    + "s cap=" + cap.ToString("0.0") + "s");
-                Drop(session, baker ? "no-stock-timeout" : "reentry-timeout");
-                return WaitOutcome.Dropped;
             }
             return WaitOutcome.Waiting;
         }

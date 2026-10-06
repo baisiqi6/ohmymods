@@ -53,6 +53,8 @@ internal static partial class Program
         Run("non_baker_reselect_flicker_gets_grace_then_continues", NonBakerFlickerGraceResumes);
         Run("non_baker_grace_times_out_at_cap", NonBakerGraceTimesOut);
         Run("cheap_shop_multi_round_accelerates_after_first_round", CheapShopMultiRoundAcceleration);
+        // issue #168 (Codex independent review counterexamples, current prefab timings).
+        IndependentScenarios();
 
         AmmoScenarios();
         Console.WriteLine();
@@ -1280,6 +1282,97 @@ internal static partial class Program
         HasRead(p, 0.1f, "rounds after the hold threshold read the accelerated interval");
         Eq(0.4f, p.timeBetweenCoins, "interval restored at every frame boundary");
         Eq(0, p.GroundDrops, "no coin ever falls");
+    }
+
+    // ------------------------------------------- issue #168 independent counterexamples
+
+    /// <summary>Current 2.4 Player prefab timings (UnityPy read): keyDownThreshold 0.2s,
+    /// timeBetweenCoins 0.3s — the Unity 1/3s delta clamp crosses both in one long frame.</summary>
+    private static Player ArmedHold(out Env env, int price = 4)
+    {
+        Reset();
+        env = new Env(priceA: price, limitA: 30);
+        Player p = env.P1;
+        Env.StandAt(p, env.ShopA);
+        p.coins = 200;
+        p.keyDownThreshold = 0.2f;
+        p.touchPressedThreshold = 0.015f;
+        p.timeBetweenCoins = 0.3f;
+        p.timeBeforeTransaction = 0.3f;
+        p.timeBeforeCancel = 0.7f;
+        for (int i = 0; i < 300 && p.Purchases < 1; i++) Env.Frame(p, true, i == 0);
+        Eq(1, p.Purchases, "armed");
+        return p;
+    }
+
+    private static void IndependentScenarios()
+    {
+        // 1-coin shop: the injected press on a 1s hitch frame legitimately reaches Completed
+        // inside the same native call; that outcome must retain the session.
+        Run("independent_one_coin_hitch_reentry_completed_is_valid", () =>
+        {
+            Player p = ArmedHold(out Env e, 1);
+            Eq(Native.None, p._payState, "reentry None");
+            bool injected = Env.Frame(p, true, false, 1f);
+            True(injected, "inject cheap item");
+            Eq(Native.Completed, p._payState, "same call legitimately reaches Completed");
+            Eq(0, p.GroundDrops, "no fallback coin");
+            Eq(1, PatchPlayer_HoldPurchase.ActiveSessionCount, "valid Completed end state retains session");
+        });
+        // 4-coin shop: the same shape ends in Transaction and must retain the session too.
+        Run("independent_one_second_hitch_on_reentry_continues", () =>
+        {
+            Player p = ArmedHold(out Env e);
+            Eq(Native.None, p._payState, "before native reentry");
+            bool injected = Env.Frame(p, true, false, 1f);
+            True(injected, "synthesized fresh press");
+            Eq(Native.Transaction, p._payState, "native legitimately advanced to transaction");
+            Eq(0, p.GroundDrops, "no injection error currency fallback");
+            Eq(1, PatchPlayer_HoldPurchase.ActiveSessionCount, "legitimate advanced-state hitch must retain session");
+        });
+        // Repeated 2s hitch frames keep the hold alive throughout.
+        Run("independent_two_second_frames_continue", () =>
+        {
+            Player p = ArmedHold(out Env e);
+            for (int i = 0; i < 4; i++) Env.Frame(p, true, false, 2f);
+            Eq(1, PatchPlayer_HoldPurchase.ActiveSessionCount, "repeated slow frames");
+            Eq(0, p.GroundDrops, "no ground drops");
+        });
+        // Sold out during grace drops even while waiting (CanPay false is a hard stop).
+        Run("independent_grace_soldout_drops", () =>
+        {
+            Player p = ArmedHold(out Env e);
+            p.selectedPayable = null;
+            Env.Frame(p, true, false);
+            e.ShopA.Blocked = true;
+            p.selectedPayable = null;
+            Env.Frame(p, true, false);
+            Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "sold out drops even waiting");
+            Eq(0, p.GroundDrops, "no coin drop");
+        });
+        // An ordinary missed callback (pause-shaped gap) still stops the hold.
+        Run("independent_missed_callback_ordinary_frame_drops", () =>
+        {
+            Player p = ArmedHold(out Env e);
+            Time.unscaledTime += 1f;
+            Env.Frame(p, true, false);
+            Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "missed ordinary frames stop");
+        });
+        // Grace recovery must not bypass the deadline: selection restoring after the 1.5s cap
+        // ends the session instead of injecting (threshold raised to isolate injection itself).
+        Run("independent_grace_expired_before_recovery_stops", () =>
+        {
+            Player p = ArmedHold(out Env e);
+            p.selectedPayable = null;
+            Env.Frame(p, true, false);
+            p.selectedPayable = null;
+            Env.Frame(p, true, false, 1f);
+            p.selectedPayable = e.ShopA;
+            p.keyDownThreshold = 1f;
+            bool injected = Env.Frame(p, true, false, 1f);
+            True(!injected, "must not inject expired hold after 2s wait");
+            Eq(0, PatchPlayer_HoldPurchase.ActiveSessionCount, "elapsed 2s exceeds grace 1.5s");
+        });
     }
 
     private static bool HasInfo(List<string> infos, string marker)
