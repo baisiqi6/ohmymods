@@ -2,7 +2,7 @@
 
 用户靠近店没有付款圆点。日志确认5个原生付款点和Owner/CRPC预检完成；原生CanSelect依赖CanPay。只读原生存档中当前land8、已访问0/4/8，合法v2盾卫表仅有land0且无Mold/扩位/claims。把提取文档输入生产Identity/Persistence后，current8无记录→Unknown→Mold/Shield报价均false。该分支足以解释阻断；没有实时F5或付款gate快照，不能称唯一现场原因。
 
-错误产生于首次接入时只登记当时岛：已有KEY但新当前岛没有row被隔离，Unknown又让正常Save不能补登记。本改动在成功原生生命周期边界建立未登记已访问岛的baseline，身份/付款predicate和schema保持。仅允许全权威副本和live过程均无已记录付费证据的lineage；不宣称能观察崩溃前丢失的历史。
+本轮确认的首个偏离是：已有KEY但当前岛没有row被隔离，Unknown又让正常Save不能补登记；首次接入未补齐已访问missing成员。旧文档为何没有4/8行缺少历史事件证据，不猜测是哪一次生成或保存失败。本改动在成功原生生命周期边界建立未登记已访问岛的baseline，身份/付款predicate和schema保持。仅允许全权威副本和live过程均无已记录付费证据的lineage；不宣称能观察崩溃前丢失的历史。
 
 ## 状态责任
 
