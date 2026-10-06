@@ -14,5 +14,11 @@
   "wiring_failures": 0,
   "player_visual": "pending",
   "windows": "not tested",
-  "multiplayer": "not tested"
+  "multiplayer": "not tested",
+  "review": "APPROVE",
+  "merged_pr": 163,
+  "installed_dll_sha256": "c6ca09b2bfeced325ccc176c59939e51546021857a499e5788f08ca01123a0f9",
+  "protected_files_unchanged": 488,
+  "launcher_check_only_exit": 0,
+  "game_started_by_operator": false
 }
