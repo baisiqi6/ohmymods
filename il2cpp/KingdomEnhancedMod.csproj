@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <Import Project="ProjectSettings.shared.props" />
+    <Import Project="EmbeddedAssets.props" />
 
     <PropertyGroup>
         <AssemblyName>KingdomEnhancedMod</AssemblyName>
@@ -23,36 +24,6 @@
 
     <ItemGroup>
         <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*" />
-        <EmbeddedResource Include="Assets/HeavyShieldSoldierAtlas.png" LogicalName="KingdomEnhancedMod.HeavyShieldSoldierAtlas.png" />
-        <EmbeddedResource Include="Assets/HeavyShieldShopAtlas.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopAtlas.png" />
-        <EmbeddedResource Include="Assets/HeavyShieldShopLayers.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopLayers.png" />
-        <EmbeddedResource Include="Assets/HeavyShieldGreekShopLayers.png" LogicalName="KingdomEnhancedMod.HeavyShieldGreekShopLayers.png" />
-        <EmbeddedResource Include="Assets/HeavyShieldSoldierAtlasCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldSoldierAtlasCoarse.png" />
-        <EmbeddedResource Include="Assets/HeavyShieldShopAtlasCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopAtlasCoarse.png" />
-        <EmbeddedResource Include="Assets/HeavyShieldShopLayersCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopLayersCoarse.png" />
-        <EmbeddedResource Include="Assets/HeavyShieldGreekShopLayersCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldGreekShopLayersCoarse.png" />
-        <EmbeddedResource Include="Assets/HeavyShieldPaidShield.png" LogicalName="KingdomEnhancedMod.HeavyShieldPaidShield.png" />
-        <EmbeddedResource Include="Assets/HeavyShieldPaidShieldCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldPaidShieldCoarse.png" />
-        <EmbeddedResource Include="Assets/HeroArcherAtlas.png" LogicalName="KingdomEnhancedMod.HeroArcherAtlas.png" />
-        <EmbeddedResource Include="Assets/HeroArcherLeisure.png" LogicalName="KingdomEnhancedMod.HeroArcherLeisure.png" />
-        <EmbeddedResource Include="Assets/ArtemisArrow.png" LogicalName="KingdomEnhancedMod.ArtemisArrow.png" />
-        <EmbeddedResource Include="Assets/HeroShop.png" LogicalName="KingdomEnhancedMod.HeroShop.png" />
-        <EmbeddedResource Include="Assets/HeroShopSeats.png" LogicalName="KingdomEnhancedMod.HeroShopSeats.png" />
-        <EmbeddedResource Include="Assets/MusketeerAtlas.png" LogicalName="KingdomEnhancedMod.MusketeerAtlas.png" />
-        <EmbeddedResource Include="Assets/MusketeerLeisure.png" LogicalName="KingdomEnhancedMod.MusketeerLeisure.png" />
-        <EmbeddedResource Include="Assets/MusketeerShop.png" LogicalName="KingdomEnhancedMod.MusketeerShop.png" />
-        <EmbeddedResource Include="Assets/MusketeerGun.png" LogicalName="KingdomEnhancedMod.MusketeerGun.png" />
-        <EmbeddedResource Include="Assets/MusketeerBullet.png" LogicalName="KingdomEnhancedMod.MusketeerBullet.png" />
-        <EmbeddedResource Include="Assets/CoinCourierBAtlas.png" LogicalName="KingdomEnhancedMod.CoinCourierBAtlas.png" />
-        <EmbeddedResource Include="Assets/BankAssistantClerk.png" LogicalName="KingdomEnhancedMod.BankAssistantClerk.png" />
-        <EmbeddedResource Include="Assets/BankAssistantCaravan.png" LogicalName="KingdomEnhancedMod.BankAssistantCaravan.png" />
-        <EmbeddedResource Include="Assets/BankAssistantSteward.png" LogicalName="KingdomEnhancedMod.BankAssistantSteward.png" />
-        <EmbeddedResource Include="Assets/BankAssistantVaultkeeper.png" LogicalName="KingdomEnhancedMod.BankAssistantVaultkeeper.png" />
-        <EmbeddedResource Include="Assets/KnightStylePreview0.png" LogicalName="KingdomEnhancedMod.KnightStylePreview0.png" />
-        <EmbeddedResource Include="Assets/KnightStylePreview1.png" LogicalName="KingdomEnhancedMod.KnightStylePreview1.png" />
-        <EmbeddedResource Include="Assets/KnightStylePreview2.png" LogicalName="KingdomEnhancedMod.KnightStylePreview2.png" />
-        <EmbeddedResource Include="Assets/KnightStylePreview3.png" LogicalName="KingdomEnhancedMod.KnightStylePreview3.png" />
-        <EmbeddedResource Include="Assets/KnightStylePreview4.png" LogicalName="KingdomEnhancedMod.KnightStylePreview4.png" />
     </ItemGroup>
 
     <!-- BIE6_IL2CPP / Debug：IL2CPP 依赖（deps 在 E:\mod-dev\KingdomMod） -->
@@ -183,10 +154,4 @@
         <Message Text="Copied output to: $(BepInExPluginsPath)$(AssemblyName)\" Importance="high" />
     </Target>
 
-  <ItemGroup>
-    <EmbeddedResource Include="Assets/KEM_MapExtensionIsland.png" LogicalName="KingdomEnhancedMod.KEM_MapExtensionIsland.png" />
-    <EmbeddedResource Include="Assets/KEM_MapRainbowPony.png" LogicalName="KingdomEnhancedMod.KEM_MapRainbowPony.png" />
-    <EmbeddedResource Include="Assets/KEM_MapSantaReindeer.png" LogicalName="KingdomEnhancedMod.KEM_MapSantaReindeer.png" />
-    <EmbeddedResource Include="Assets/KEM_MapSpookyhorse.png" LogicalName="KingdomEnhancedMod.KEM_MapSpookyhorse.png" />
-  </ItemGroup>
 </Project>

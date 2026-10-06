@@ -97,6 +97,16 @@ cd ~/projects/ohmymods
 .local/toolchains/dotnet/dotnet build .local/build/Integration.csproj -c Release
 ```
 
+**资源接线（Issue #162）**：官方项目与 Mac 包装器共用 `il2cpp/EmbeddedAssets.props`，不再手抄历史8/13/34项清单。已有包装器先复制到私有构建目录，把主线 Compile 指向固定源码，再迁移资源 Import（输出须在输入同目录，输入不会覆盖）：
+
+```sh
+python3 scripts/sync_mac_embedded_assets.py .local/build/Integration.csproj --output .local/build/Integration.complete.csproj
+python3 scripts/sync_mac_embedded_assets.py .local/build/Integration.complete.csproj --check-only
+.local/toolchains/dotnet/dotnet build .local/build/Integration.complete.csproj -c Release
+```
+
+重定向 Compile 到工作树或 canonical 副本后，必须重新运行迁移/检查；仅改 Compile 而留下旧资源 Import 会被检查拒绝。构建后还需把程序集中的逻辑名与资源字节逐项对照所用 props 输入，不能只看编译成功或玩法测试。迁移脚本不生成SDK/core/interop、版本、PluginInfo或安装步骤；复杂条件/声明明确拒绝。
+
 该包装器和 SDK 是本机准备的资料，不随 Git 分发。**干净 clone 没有 `.local/`，不能直接运行上述命令。** 新宿主先阅读 [ARM64 兼容构建边界](../../compat/macos-arm64/README.md) 与 [x64 兼容说明](../../compat/macos-x64/README.md)，准备匹配的 SDK、加载依赖、游戏指纹和引用程序集；目前未提供从干净 clone 一键重建整个加载链的承诺。
 
 Mac 与 Windows 维护者地位平等。任何一端推进修改前在 GitHub Issue 对齐目标、基线、分支和修改范围，并由接收需求方负责汇报；共享目标和验收标准，但 Mac ARM64、Mac x64/Rosetta、Windows 各自记录测试，不用一端通过替代另一端结果。

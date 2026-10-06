@@ -1,0 +1,18 @@
+{
+  "issue": 162,
+  "base": "9daa78a9aa8b189b21033eb70fbc59cb300410d0",
+  "installed_png_count": 8,
+  "missing_png_count": 26,
+  "canonical_png_count": 34,
+  "candidate_png_matches_canonical_source": true,
+  "arm_warnings": 0,
+  "arm_errors": 0,
+  "unchanged_full_baseline_methods": 6809,
+  "unchanged_installed_methods": 6808,
+  "installed_init_difference": "plugin log version 9.5.13 -> 10.9.38",
+  "wiring_tests": 12,
+  "wiring_failures": 0,
+  "player_visual": "pending",
+  "windows": "not tested",
+  "multiplayer": "not tested"
+}

@@ -1,0 +1,39 @@
+<Project>
+    <!-- Canonical resource list shared by the official project and local Mac wrappers. -->
+    <ItemGroup>
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeavyShieldSoldierAtlas.png" LogicalName="KingdomEnhancedMod.HeavyShieldSoldierAtlas.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeavyShieldShopAtlas.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopAtlas.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeavyShieldShopLayers.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopLayers.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeavyShieldGreekShopLayers.png" LogicalName="KingdomEnhancedMod.HeavyShieldGreekShopLayers.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeavyShieldSoldierAtlasCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldSoldierAtlasCoarse.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeavyShieldShopAtlasCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopAtlasCoarse.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeavyShieldShopLayersCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopLayersCoarse.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeavyShieldGreekShopLayersCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldGreekShopLayersCoarse.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeavyShieldPaidShield.png" LogicalName="KingdomEnhancedMod.HeavyShieldPaidShield.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeavyShieldPaidShieldCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldPaidShieldCoarse.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeroArcherAtlas.png" LogicalName="KingdomEnhancedMod.HeroArcherAtlas.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeroArcherLeisure.png" LogicalName="KingdomEnhancedMod.HeroArcherLeisure.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/ArtemisArrow.png" LogicalName="KingdomEnhancedMod.ArtemisArrow.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeroShop.png" LogicalName="KingdomEnhancedMod.HeroShop.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeroShopSeats.png" LogicalName="KingdomEnhancedMod.HeroShopSeats.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/MusketeerAtlas.png" LogicalName="KingdomEnhancedMod.MusketeerAtlas.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/MusketeerLeisure.png" LogicalName="KingdomEnhancedMod.MusketeerLeisure.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/MusketeerShop.png" LogicalName="KingdomEnhancedMod.MusketeerShop.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/MusketeerGun.png" LogicalName="KingdomEnhancedMod.MusketeerGun.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/MusketeerBullet.png" LogicalName="KingdomEnhancedMod.MusketeerBullet.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/CoinCourierBAtlas.png" LogicalName="KingdomEnhancedMod.CoinCourierBAtlas.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/BankAssistantClerk.png" LogicalName="KingdomEnhancedMod.BankAssistantClerk.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/BankAssistantCaravan.png" LogicalName="KingdomEnhancedMod.BankAssistantCaravan.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/BankAssistantSteward.png" LogicalName="KingdomEnhancedMod.BankAssistantSteward.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/BankAssistantVaultkeeper.png" LogicalName="KingdomEnhancedMod.BankAssistantVaultkeeper.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KnightStylePreview0.png" LogicalName="KingdomEnhancedMod.KnightStylePreview0.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KnightStylePreview1.png" LogicalName="KingdomEnhancedMod.KnightStylePreview1.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KnightStylePreview2.png" LogicalName="KingdomEnhancedMod.KnightStylePreview2.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KnightStylePreview3.png" LogicalName="KingdomEnhancedMod.KnightStylePreview3.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KnightStylePreview4.png" LogicalName="KingdomEnhancedMod.KnightStylePreview4.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapExtensionIsland.png" LogicalName="KingdomEnhancedMod.KEM_MapExtensionIsland.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapRainbowPony.png" LogicalName="KingdomEnhancedMod.KEM_MapRainbowPony.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapSantaReindeer.png" LogicalName="KingdomEnhancedMod.KEM_MapSantaReindeer.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapSpookyhorse.png" LogicalName="KingdomEnhancedMod.KEM_MapSpookyhorse.png" />
+    </ItemGroup>
+</Project>

@@ -1,0 +1,6 @@
+{
+  "il2cpp/KingdomEnhancedMod.csproj": "a570e7cd91710c68c845bc3319e68395e4541392bbc47db71b1c4c86e1f67ef1",
+  "il2cpp/EmbeddedAssets.props": "0d7b4dbe0ad1c28db1efe6406ba71910f834f87f48d7152b0dd2cd2f1bcf2937",
+  "scripts/sync_mac_embedded_assets.py": "52a6a373c53c6d9a44365aa67b244003807ba498491c8d953ed76efb0abfbc00",
+  "tests/mac-embedded-assets/test_wiring.py": "0e876f0b4ed4fb0e8bffa9729cd0b3d8376283684684b3cee33e756f77b0e7d2"
+}
