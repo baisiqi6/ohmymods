@@ -1,3 +1,9 @@
+## 2026-10-06 — 原版弓架站定长按只买一份（Issue #173，代码验证与独审完成；PR交付）
+
+原生fast-retention后还有closest fallback，旧Mod将窄门用于全部续买资格，.75/r1受控场景首购后错误退出。生产入口改有限hold空间减法严格d-r<.5，再按fast保留或原生fallback捕获同店资格；保持原生钱包/出货/回执/拒绝、#169/弹药/库存/归还等独立保护，无新扫描或强制选店。
+
+公共net8 103/103，旧同套18失败/85通过；真实ARM0W0E，6817旧方法/34PNG/338targets及其它元数据保持，仅Hold类型变化。独审Approve，独立107/107与旧86/21；固定源e06da832。未新建重要节点或手改受管checklist，validator0警告。当前现场实际坐标未知，真实购弓/Windows/MP/宫廷联动未验。保持用户A：宫廷完成后从最新tip统一累积安装，本task没有替换DLL/配置/存档或操作游戏。详见tasks/issue-173/。
+
 ## 2026-10-06 — 宝石盾卫首次接入登记（Issue #167 / PR #170 已完成代码交付并冷安装；实机待验）
 
 靠近无付款圈；原生五点已创建。实际KEY有效但仅land0/current8无记录，在生产身份入口复现Unknown阻断。成功原生load/generation边界补登记未记录购买战役的已访问missing成员，两个staging协议共用真实Prepare发布；Known/paid保留，首购等正常保存准备，失败不解锁，不加Tick修正或强制save。

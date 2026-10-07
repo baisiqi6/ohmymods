@@ -57,6 +57,8 @@ internal static partial class Program
         IndependentScenarios();
 
         AmmoScenarios();
+        RangeScenarios();
+        ReviewScenarios();
         Console.WriteLine();
         Console.WriteLine(_failed == 0
             ? "ALL PASS (" + _passed + " scenarios)"
@@ -1420,6 +1422,7 @@ internal static partial class Program
         PatchPlayer_HoldPurchase.Tick();
         PatchPlayer_HoldPurchase.ResetAll();
         PatchPlayer_HoldPurchase.Tick();
+        KingdomEnhancedPlugin.Instance.LogSource.Infos.Clear(); // each scenario must prove its own diagnostics
     }
 
     private static void Run(string name, Action body)

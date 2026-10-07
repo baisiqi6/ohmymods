@@ -77,7 +77,19 @@ namespace UnityEngine
     public class Transform : Component
     {
         public Vector3 position;
+        public Vector3 localScale = new Vector3(1f, 1f, 1f);
         public Transform Parent;
+
+        /// <summary>Unity Transform.root：沿父链上行；生产诊断读取根 localScale.x。</summary>
+        public Transform root
+        {
+            get
+            {
+                Transform current = this;
+                while (current.Parent != null) current = current.Parent;
+                return current;
+            }
+        }
 
         public bool IsChildOf(Transform other)
         {
@@ -171,7 +183,12 @@ public class Payable : UnityEngine.Component
         return CanSelectResult;
     }
 
-    public float PlayerPayPoint() => PayPointX;
+    public bool ThrowOnPayPoint;
+    public float PlayerPayPoint()
+    {
+        if (ThrowOnPayPoint) throw new InvalidOperationException("native pay point read");
+        return PayPointX;
+    }
     public void Select(Player player) { SelectCalls++; }
     public virtual void Deselect(Player player) { DeselectCalls++; }
     public virtual void TransactionComplete() { }
@@ -400,14 +417,51 @@ public class PayableRegistry
 {
     public readonly List<Payable> All = new List<Payable>();
 
+    // Native contract observability for issue #173 tests.
+    /// <summary>Number of native fallback queries issued (production eligibility only).</summary>
+    public int GetClosestCalls;
+    /// <summary>Models an interop failure inside the native selection query.</summary>
+    public bool ThrowOnQuery;
+    public bool ReturnNullOnQuery;
+    public Action BeforeQueryReturn;
+    /// <summary>
+    /// Native Recurse semantics switch (0x7b49e0): the nearest center candidate is included
+    /// without the neighbor range test, so a single far shop can still be returned. Default
+    /// false models the conservative neighbor-candidate relation used by the 82 regressions.
+    /// </summary>
+    public bool NearestCenterAlwaysIncluded;
+
     public Payable GetClosestPayable(float x, float range, Player player)
     {
+        GetClosestCalls++;
+        if (ThrowOnQuery) throw new InvalidOperationException("native payable query failed");
+        if (ReturnNullOnQuery) return null;
+        Payable nearestCenter = null;
+        float nearestDistance = float.MaxValue;
+        if (NearestCenterAlwaysIncluded)
+        {
+            foreach (Payable payable in All)
+            {
+                if (payable == null || payable.gameObject == null) continue;
+                float centerDistance = Math.Abs(payable.PlayerPayPoint() - x);
+                if (centerDistance < nearestDistance)
+                {
+                    nearestDistance = centerDistance;
+                    nearestCenter = payable;
+                }
+            }
+        }
         Payable best = null;
-        float bestDistance = range;
+        float bestDistance = float.MaxValue;
         foreach (Payable payable in All)
         {
             if (payable == null || payable.gameObject == null) continue;
             float distance = Math.Abs(payable.PlayerPayPoint() - x);
+            // Neighbor candidates use the native subtraction condition
+            // (RetrievePayableIndices 0x7b4528-4538 / 0x7b4790-47a0);
+            // the nearest center (when modeled) is included without a range test.
+            if (distance - payable.playerPayDistance >= range
+                && !(NearestCenterAlwaysIncluded && payable == nearestCenter)) continue;
             if (distance > bestDistance) continue;
             // The registrar only offers payables the player may currently select, which is
             // exactly why a client drops its selection while forceBlockPayment is set.
@@ -415,6 +469,7 @@ public class PayableRegistry
             bestDistance = distance;
             best = payable;
         }
+        BeforeQueryReturn?.Invoke();
         return best;
     }
 }

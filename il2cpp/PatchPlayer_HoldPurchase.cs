@@ -30,8 +30,11 @@ namespace KingdomEnhancedMod;
 ///    两者都用 Payable.PerformPay 的 Postfix 记成功回执；客机 Completed 转 None 只是本地
 ///    投币完成，此时进入等待态，不合成、不加速，直到回执或拒绝；
 /// 5. 松开、面板打开、暂停或菜单停帧、换店、选到别店（等待期选中变 null 属正常，保留
-///    sameShop 身份）、走出可支付距离、等待超时、钱不足、货架满（非 Baker 识别类）、
-///    关闭开关、换 world/layer/scene 都会结束这次 hold，必须重新按下才会对新店续买。
+///    sameShop 身份）、走出 Mod 连续 hold 的保守有限空间（issue #173：邻扫描条件
+///    abs(payPoint−playerX)−playerPayDistance ≥ 0.5 即结束，见 ShopReachVerdict；这不是
+///    原生完整 center/entry 选择范围，是 Mod 侧对连续 hold 的空间上限）、等待超时、钱不足、
+///    货架满（非 Baker 识别类）、关闭开关、换 world/layer/scene 都会结束这次 hold，
+///    必须重新按下才会对新店续买。
 ///    issue #158：单帧长卡顿（自动存档/GC，本帧 unscaled 时长覆盖间隔大半且未超
 ///    StallAbsoluteMaxSeconds）不算停帧，按住中的会话继续接续下一轮。
 /// 6. 蜜酒塔/面包店（Baker 与 PayableShop 同 GO，货架制）例外：交易成功后若仅因货架满
@@ -75,6 +78,9 @@ namespace KingdomEnhancedMod;
 ///   PayState 取值：None=0, Holding=1, Transaction=2, Completed=3, Cancelling=7（私有枚举，按数值比较）。
 ///   Payable.CanPay(Player) / CanSelect(Player) / PlayerPayPoint() / Price / Currency /
 ///   interactingPlayer / playerPayDistance / forceBlockPayment(+0x100)：公开成员，直接访问。
+///   issue #173：PayableManager.GetClosestPayable(float,float,Player)→Payable 公开可调
+///   （2.4 interop 实测反射核验；原生 0x7b5788）。查询只读选择：不 Select、不写
+///   selectedPayable、无付款副作用；仅 fast retention 不成立时的 entry 资格对照使用。
 ///   本文件不改 Player.AddCurrencyToSelectedPayable，也不碰 DroppableCurrency 字段。
 /// </summary>
 [HarmonyPatch(typeof(Player))]
@@ -88,7 +94,11 @@ public static class PatchPlayer_HoldPurchase
     internal const float MinCoinInterval = 0.03f;
     /// <summary>本地帧间隔超过该秒数视为暂停/菜单/读档停帧，结束本次 hold。</summary>
     internal const float StallSeconds = 0.5f;
-    /// <summary>与原生 None 分支相同的 0.5 格贴身距离。</summary>
+    /// <summary>
+    /// 0.5 格，三个原生同值角色共用（issue #173）：retention fast-path 的 d≤0.5、
+    /// fallback 查询 range=0.5、以及 Mod 连续 hold 有限空间的减法上限
+    /// d−playerPayDistance&lt;0.5（借自原生邻扫描候选关系，非完整 center/entry 范围）。
+    /// </summary>
     internal const float PayRangeLimit = 0.5f;
     /// <summary>客机等待 RPC 回包的上限，超时结束本次 hold（不无限等待）。</summary>
     internal const float AwaitReceiptSeconds = 5f;
@@ -182,6 +192,27 @@ public static class PatchPlayer_HoldPurchase
         internal float PendingApplied;
         internal int RestoreAttempts;
         internal float NextRestoreAttempt;
+        /// <summary>issue #173：首次 reach/entry 拒绝的同帧几何快照（只捕获一次，drop 行复用；
+        /// 绝不在 drop 时重读冒充当时值，后续拒绝不覆盖首例）。</summary>
+        internal bool HasReachSnap;
+        internal float SnapUnscaledTime;
+        internal bool SnapAtEntry;
+        internal float SnapPlayerX;
+        internal float SnapPayPoint;
+        internal float SnapDistance;
+        internal float SnapPayDistance;
+        internal float SnapMargin;
+        internal int SnapPayState;
+        internal bool SnapSelectedSame;
+        internal bool SnapSelectedNull;
+        internal bool SnapFastRetention;
+        /// <summary>entry fallback 查询结果：0=未查询 1=同店 2=别店 3=null 4=读取异常。</summary>
+        internal byte SnapFallback;
+        /// <summary>读取异常类型或非法数值描述（与真实空间越界可区分）。</summary>
+        internal string SnapFault;
+        /// <summary>issue #173：bind/首笔回执几何行各只记一次。</summary>
+        internal bool GeoBindNoted;
+        internal bool GeoReceiptNoted;
     }
 
     /// <summary>world 指针加 gameLayer 指针加 scene handle 的联合身份。</summary>
@@ -440,27 +471,45 @@ public static class PatchPlayer_HoldPurchase
                     session.AwaitingReceipt = false;
                     session.ContinuationArmed = true;
                     session.Receipts++;
+                    NoteFirstReceiptGeo(session);
                 }
-                else if (!ShopAlive(session) || !ShopInReach(session, player)
-                    || now > session.AwaitDeadline)
+                else if (!ShopAlive(session) || now > session.AwaitDeadline)
                 {
                     Drop(session, "receipt-lost");
                     receipt.Session = null;
                     return;
                 }
-                else if (TryReadForceBlock(session.Shop, out bool blocked) && !blocked)
+                else
                 {
-                    // 回包已解除 forceBlockPayment 却没有成功回执：原生走的是拒绝加退款分支，
-                    // 不重试、不续买，结束本次 hold 要求重新按下。
-                    if (!_denialLogged)
+                    // issue #173：等待回包只用有限空间门。不用普通 closest 查询否决等待：
+                    // forceBlock 期间 CanSelect=false，原生查询天然排除本店，null/别店不是
+                    // 离开或拒绝的证据；超时仍由 AwaitDeadline 负责。
+                    ReachVerdict reach = ShopReachVerdict(session, player, out float payPoint,
+                        out float playerX, out float distance, out float payDistance,
+                        out string reachFault);
+                    if (reach != ReachVerdict.InReach)
                     {
-                        _denialLogged = true;
-                        KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
-                            "[HoldPurchase] client payment was denied (forceBlockPayment cleared without PerformPay), hold dropped");
+                        CaptureReachSnap(session, player, payPoint, playerX, distance, payDistance,
+                            false, FallbackNotQueried, reachFault);
+                        Drop(session, reach == ReachVerdict.OutOfReach ? "receipt-lost"
+                            : reach == ReachVerdict.ReadFault ? "reach-fault" : "reach-invalid");
+                        receipt.Session = null;
+                        return;
                     }
-                    Drop(session, "client-denied");
-                    receipt.Session = null;
-                    return;
+                    if (TryReadForceBlock(session.Shop, out bool blocked) && !blocked)
+                    {
+                        // 回包已解除 forceBlockPayment 却没有成功回执：原生走的是拒绝加退款分支，
+                        // 不重试、不续买，结束本次 hold 要求重新按下。
+                        if (!_denialLogged)
+                        {
+                            _denialLogged = true;
+                            KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                                "[HoldPurchase] client payment was denied (forceBlockPayment cleared without PerformPay), hold dropped");
+                        }
+                        Drop(session, "client-denied");
+                        receipt.Session = null;
+                        return;
+                    }
                 }
                 return;
             }
@@ -510,7 +559,7 @@ public static class PatchPlayer_HoldPurchase
                 // 合成前置 = 未修改的 CanEnterHolding 全谓词（selected==shop 必须成立）：
                 // 等待补货恢复后由原生重选选中本店，次帧才在这里合成。
                 if (session.Shop != null && session.ShopIsGoods
-                    && CanEnterHolding(player, session.Shop))
+                    && CanEnterHolding(player, session))
                 {
                     ResumeFromStockWait(session, now);
                     payKeyDown = true;
@@ -623,6 +672,7 @@ public static class PatchPlayer_HoldPurchase
                     session.AwaitingReceipt = false;
                     session.ContinuationArmed = true;
                     session.Receipts++;
+                    NoteFirstReceiptGeo(session);
                 }
                 else if (NetworkBigBoss.HasWorldAuth)
                 {
@@ -636,6 +686,7 @@ public static class PatchPlayer_HoldPurchase
                     }
                     session.ContinuationArmed = true;
                     session.Receipts++;
+                    NoteFirstReceiptGeo(session);
                 }
                 else if (TryReadForceBlock(session.Shop, out bool blocked) && blocked)
                 {
@@ -975,7 +1026,14 @@ public static class PatchPlayer_HoldPurchase
         {
             if (!session.AwaitingReceipt && !session.ContinuationArmed) return "lost-selection";
             if (!ShopAlive(session)) return "shop-gone";
-            if (!ShopInReach(session, player)) return "out-of-reach";
+            ReachVerdict reach = ShopReachVerdict(session, player, out float payPoint,
+                out float playerX, out float distance, out float payDistance, out string reachFault);
+            if (reach != ReachVerdict.InReach)
+            {
+                CaptureReachSnap(session, player, payPoint, playerX, distance, payDistance,
+                    false, FallbackNotQueried, reachFault);
+                return ReachDropReason(reach);
+            }
             return null;
         }
         return "switched-shop"; // 选到别家店
@@ -1006,21 +1064,84 @@ public static class PatchPlayer_HoldPurchase
         }
     }
 
-    private static bool ShopInReach(Session session, Player player)
+    /// <summary>reach 裁决：真空间越界 / 读取故障 / 非法数值，三类绝不互相伪装（issue #173）。</summary>
+    private enum ReachVerdict : byte
     {
+        InReach = 0,
+        /// <summary>有限空间上限不满足：数值全部有效且读取成功，是真实几何判定。</summary>
+        OutOfReach = 1,
+        /// <summary>interop 读取抛异常：保守拒绝，但不是距离证据。</summary>
+        ReadFault = 2,
+        /// <summary>playerX/payPoint/距离非有限或 r 为负：保守拒绝，不是距离证据。</summary>
+        InvalidNumber = 3
+    }
+
+    /// <summary>
+    /// Mod 连续 hold 的会话有限空间门（issue #173 两责任修复之一）。条件
+    /// abs(payPoint−playerX) − playerPayDistance &lt; PayRangeLimit 借自当前 2.4 原生邻扫描
+    /// 的候选关系（RetrievePayableIndices 0x7b4528–4538 / 0x7b4790–47a0 的邻候选
+    /// abs(point−x)−playerPayDistance&lt;range），保持减法与严格小于的原生浮点语义，
+    /// 不改写成 d&lt;r+.5。这是 Mod 侧连续 hold 的保守上限，不伪称原生完整 center/entry
+    /// 选择范围（Recurse 0x7b49e0 的最近 center 不受 range 拒绝，走远后 nearest 仍可能
+    /// 是本店——那时由本上限负责结束 hold）。r&lt;0、playerX/payPoint/距离非有限、
+    /// wrapper 读取异常都保守拒绝并按 ReadFault/InvalidNumber 归类，不返回猜测默认值。
+    /// </summary>
+    private static ReachVerdict ShopReachVerdict(Session session, Player player,
+        out float payPoint, out float playerX, out float distance, out float payDistance,
+        out string fault)
+    {
+        // 未知坐标一律 NaN（绝不把 0 当"读过 0"）：读取成功才覆盖；读故障/非法数值
+        // 单独归类，快照里 FloatText 会显式打印 NaN/+Inf/-Inf。
+        payPoint = float.NaN;
+        playerX = float.NaN;
+        distance = float.NaN;
+        payDistance = float.NaN;
+        fault = null;
         try
         {
             Payable shop = session.Shop;
-            if (shop == null) return false;
-            float distance = Mathf.Abs(shop.PlayerPayPoint() - player.transform.position.x);
-            // 与原生选中块一致：0.5 格与 playerPayDistance 都要满足。
-            return distance <= PayRangeLimit && distance <= shop.playerPayDistance;
+            if (shop == null)
+            {
+                fault = "shop-null";
+                return ReachVerdict.ReadFault;
+            }
+            payPoint = shop.PlayerPayPoint();
+            playerX = player.transform.position.x;
+            payDistance = shop.playerPayDistance;
+            if (!float.IsFinite(payPoint))
+            {
+                fault = "point=" + FloatText(payPoint);
+                return ReachVerdict.InvalidNumber;
+            }
+            if (!float.IsFinite(playerX))
+            {
+                fault = "x=" + FloatText(playerX);
+                return ReachVerdict.InvalidNumber;
+            }
+            if (!float.IsFinite(payDistance) || payDistance < 0f)
+            {
+                fault = "r=" + FloatText(payDistance);
+                return ReachVerdict.InvalidNumber;
+            }
+            distance = Mathf.Abs(payPoint - playerX);
+            if (!float.IsFinite(distance))
+            {
+                fault = "d=" + FloatText(distance);
+                return ReachVerdict.InvalidNumber;
+            }
+            return distance - payDistance < PayRangeLimit ? ReachVerdict.InReach : ReachVerdict.OutOfReach;
         }
-        catch
+        catch (Exception e)
         {
-            return false;
+            fault = e.GetType().Name;
+            return ReachVerdict.ReadFault;
         }
     }
+
+    /// <summary>裁决到结束原因的映射：读故障与非法数值不伪装成"玩家走远"。</summary>
+    private static string ReachDropReason(ReachVerdict verdict)
+        => verdict == ReachVerdict.OutOfReach ? "out-of-reach"
+            : verdict == ReachVerdict.ReadFault ? "reach-fault" : "reach-invalid";
 
     /// <summary>只读 forceBlockPayment：客机在等待回包期间为 true，回包（成功或拒绝）后变 false。</summary>
     private static bool TryReadForceBlock(Payable shop, out bool blocked)
@@ -1067,7 +1188,15 @@ public static class PatchPlayer_HoldPurchase
             Note("bind", e);
             return;
         }
-        if (session.ShopIsGoods) BindNote(session, branch, payable);
+        if (session.ShopIsGoods)
+        {
+            BindNote(session, branch, payable);
+            if (!session.GeoBindNoted)
+            {
+                session.GeoBindNoted = true;
+                NoteGeo(session, "geo-bind");
+            }
+        }
     }
 
     private static bool SameShop(Session session, Payable selected)
@@ -1155,22 +1284,48 @@ public static class PatchPlayer_HoldPurchase
     /// <summary>
     /// 复刻原生 None 加 payKeyDown 分支进入 Holding 的全部前置条件，逐条一致：
     /// ActionState 不是 Run 也不是 Transformed（原生选中块与 CanPay 都会拒绝这两态，
-    /// 否则原生会先取消选中再走 else 掉地币分支）、同一家被选中的店、CanSelect、
-    /// 0.5 格与 playerPayDistance 贴身、CanPay、占用者可抢占、金币价且付得起一个整价
-    /// （比原生的 HasCurrency 更严，绝不写钱包）。任一条不成立就不合成。
+    /// 否则原生会先取消选中再走 else 掉地币分支）、同一家被选中的店、CanSelect、CanPay、
+    /// 占用者可抢占、金币价且付得起一个整价（比原生的 HasCurrency 更严，绝不写钱包）。
+    /// 任一条不成立就不合成。
+    /// issue #173 几何责任改为两段：先满足与 ShopReachVerdict 相同的 Mod 有限 hold 空间
+    /// （abs(point−x)−r&lt;0.5，修正旧窄门在原生邻候选距离 d−r&lt;0.5 上误拒续买），
+    /// 再证明原生下一刻仍保留同一选择——retention fast-path（UpdatePayState
+    /// 0x7d9fbc–0x7da054：CanSelect 且 d≤0.5 且 d≤playerPayDistance）成立时原生不换店，
+    /// 此时绝不查询 closest（普通查询可能返回另一家更近的可选店，但那不是原生换店证据）；
+    /// fast 不成立时用原生 fallback 查询 GetClosestPayable(playerX, 0.5, 本玩家)
+    /// （0x7da058–0x7da09c → 0x7b5788），仅当它精确返回捕获的同一家店（pointer+实例身份）
+    /// 才允许合成。查询只读选择：不 Select、不 SetSelected、不写 selectedPayable、
+    /// 不额外调用 UpdatePayState、无付款副作用。别店/null/读取异常一律不合成、不重发。
     /// </summary>
-    private static bool CanEnterHolding(Player player, Payable shop)
+    private static bool CanEnterHolding(Player player, Session session)
     {
         try
         {
+            Payable shop = session != null ? session.Shop : null;
             if (shop == null) return false;
             int actionState = (int)player.actionState;
             if (actionState == ActionStateRun || actionState == ActionStateTransformed) return false;
             Payable selected = player.selectedPayable;
-            if (selected == null || selected.Pointer != shop.Pointer) return false;
+            if (!SameShop(session, selected)) return false;
             if (!shop.CanSelect(player)) return false;
-            float distance = Mathf.Abs(shop.PlayerPayPoint() - player.transform.position.x);
-            if (distance > PayRangeLimit || distance > shop.playerPayDistance) return false;
+            ReachVerdict reach = ShopReachVerdict(session, player, out float payPoint,
+                out float playerX, out float distance, out float payDistance, out string reachFault);
+            if (reach != ReachVerdict.InReach)
+            {
+                CaptureReachSnap(session, player, payPoint, playerX, distance, payDistance,
+                    true, FallbackNotQueried, reachFault);
+                return false;
+            }
+            if (!(distance <= PayRangeLimit && distance <= payDistance))
+            {
+                byte fallback = NativeFallbackMatches(player, session, playerX);
+                if (fallback != FallbackSame)
+                {
+                    CaptureReachSnap(session, player, payPoint, playerX, distance, payDistance,
+                        true, fallback, reachFault);
+                    return false;
+                }
+            }
             if (!shop.CanPay(player)) return false;
             Player other = shop.interactingPlayer;
             if (other != null && other.Pointer != player.Pointer && other.gameObject != null
@@ -1184,6 +1339,38 @@ public static class PatchPlayer_HoldPurchase
         {
             Note("canEnter", e);
             return false;
+        }
+    }
+
+    /// <summary>entry fallback 查询结果码（诊断与裁决共用）。</summary>
+    private const byte FallbackNotQueried = 0;
+    private const byte FallbackSame = 1;
+    private const byte FallbackOther = 2;
+    private const byte FallbackNull = 3;
+    private const byte FallbackFault = 4;
+
+    /// <summary>
+    /// 原生 fallback 选择对照：GetClosestPayable(playerX, PayRangeLimit, 本玩家) 是否精确
+    /// 返回捕获的同一家店（pointer + GameObject 实例身份；context/scope 责任仍在会话与
+    /// AmmoGoodsStillValid，不并入这里）。manager 缺失按 null 归类；查询异常按 fault 归类，
+    /// 都不合成、不猜默认。异常细节不在此重复捕获——CaptureReachSnap 由调用方记录。
+    /// </summary>
+    private static byte NativeFallbackMatches(Player player, Session session, float playerX)
+    {
+        try
+        {
+            Managers managers = Managers.Inst;
+            var payables = managers != null ? managers.payables : null;
+            Payable closest = payables != null
+                ? payables.GetClosestPayable(playerX, PayRangeLimit, player)
+                : null;
+            if (closest == null) return FallbackNull;
+            return SameShop(session, closest) ? FallbackSame : FallbackOther;
+        }
+        catch (Exception e)
+        {
+            Note("closestPayable", e);
+            return FallbackFault;
         }
     }
 
@@ -1291,7 +1478,14 @@ public static class PatchPlayer_HoldPurchase
                 return "action-state";
             Payable selected = player.selectedPayable;
             if (selected != null && !SameShop(session, selected)) return "switched-shop";
-            if (!ShopInReach(session, player)) return "out-of-reach";
+            ReachVerdict reach = ShopReachVerdict(session, player, out float payPoint,
+                out float playerX, out float distance, out float payDistance, out string reachFault);
+            if (reach != ReachVerdict.InReach)
+            {
+                CaptureReachSnap(session, player, payPoint, playerX, distance, payDistance,
+                    false, FallbackNotQueried, reachFault);
+                return ReachDropReason(reach);
+            }
             Player other = shop.interactingPlayer;
             if (other != null && other.Pointer != player.Pointer && other.gameObject != null
                 && other.gameObject.activeInHierarchy) return "occupied";
@@ -1439,18 +1633,22 @@ public static class PatchPlayer_HoldPurchase
         EmitNote(session, message);
     }
 
-    /// <summary>白名单命中时的绑定行：分支/价格/priceIncrease/类型短码。</summary>
+    /// <summary>白名单命中时的绑定行：分支/价格/priceIncrease/类型短码/tag/根 scale。</summary>
     private static void BindNote(Session session, GoodsBranch branch, Payable payable)
     {
         if (session == null || session.Notes >= SessionNoteBudget - 1) return;
         string type;
         int price;
         int increase;
+        string tag;
+        string scale;
         try
         {
             type = payable.GetType().Name;
             price = payable.Price;
             increase = payable.priceIncrease;
+            tag = MatchedShopTag(payable, branch);
+            scale = RootScaleText(payable);
         }
         catch
         {
@@ -1458,10 +1656,39 @@ public static class PatchPlayer_HoldPurchase
         }
         EmitNote(session, "bind: branch=" + BranchName(branch) + " price=" + price
             + " priceIncrease=" + increase + " type=" + type
-            + " instance=" + session.ShopInstanceId);
+            + " instance=" + session.ShopInstanceId
+            + " tag=" + tag + " scale=" + scale);
     }
 
-    /// <summary>会话结束的聚合行：原因、确认笔数、等待轮数与累计等待时长。</summary>
+    /// <summary>bind 行的 tag：白名单命中 tag 优先，Baker/弹药分支用分支名（不直接读 go.tag）。</summary>
+    private static string MatchedShopTag(Payable payable, GoodsBranch branch)
+    {
+        GameObject go = payable.gameObject;
+        if (go != null)
+        {
+            for (int i = 0; i < GoodsShopTags.Length; i++)
+            {
+                if (go.CompareTag(GoodsShopTags[i])) return GoodsShopTags[i];
+            }
+        }
+        return BranchName(branch);
+    }
+
+    /// <summary>根 localScale.x（支付点 offset 按其符号翻转，现场区分用）；读取失败记 fault。</summary>
+    private static string RootScaleText(Payable payable)
+    {
+        try
+        {
+            Transform root = payable.transform; // 支付点读取自身 cachedTransform，非最高祖先
+            return root != null ? FloatText(root.localScale.x) : "n/a";
+        }
+        catch (Exception e)
+        {
+            return "fault:" + e.GetType().Name;
+        }
+    }
+
+    /// <summary>会话结束的聚合行：原因、确认笔数、等待轮数与累计等待时长；有历史首次拒绝快照则附捕获时刻及实测值（不表示最终退出原因）。</summary>
     private static void DropNote(Session session, string reason)
     {
         if (session == null || session.Notes >= SessionNoteBudget) return;
@@ -1469,8 +1696,108 @@ public static class PatchPlayer_HoldPurchase
             + " receipts=" + session.Receipts
             + " waits=" + session.WaitEpisodes
             + " waited=" + session.WaitedTotal.ToString("0.00") + "s"
-            + " held=" + session.HeldElapsed.ToString("0.00") + "s");
+            + " held=" + session.HeldElapsed.ToString("0.00") + "s"
+            + (session.HasReachSnap ? ReachSnapText(session) : ""));
     }
+
+    /// <summary>
+    /// 首次 reach/entry 拒绝时捕获同帧实测快照（每会话一次，历史标签带捕获时刻）：数值、margin、payState、
+    /// selected 身份、fast retention 与 fallback 查询结果。drop 行只复用这份捕获值，
+    /// 绝不在 drop 时重读冒充当时值；后续拒绝不覆盖首例。读 fault/非法数值与真实
+    /// out-of-reach 在快照里可区分（fault 字段）。除一次性字符串外无每帧分配。
+    /// </summary>
+    private static void CaptureReachSnap(Session session, Player player, float payPoint,
+        float playerX, float distance, float payDistance, bool atEntry, byte fallback, string fault)
+    {
+        if (session == null || session.HasReachSnap) return;
+        session.HasReachSnap = true;
+        session.SnapUnscaledTime = Time.unscaledTime;
+        session.SnapAtEntry = atEntry;
+        session.SnapPlayerX = playerX;
+        session.SnapPayPoint = payPoint;
+        session.SnapDistance = distance;
+        session.SnapPayDistance = payDistance;
+        session.SnapMargin = distance - payDistance;
+        session.SnapFastRetention = float.IsFinite(distance) && float.IsFinite(payDistance)
+            && distance <= PayRangeLimit && distance <= payDistance;
+        session.SnapFallback = fallback;
+        session.SnapFault = fault;
+        session.SnapPayState = ReadState(player);
+        Payable selected = null;
+        try
+        {
+            selected = player != null ? player.selectedPayable : null;
+        }
+        catch
+        {
+        }
+        session.SnapSelectedNull = selected == null;
+        session.SnapSelectedSame = selected != null && SameShop(session, selected);
+    }
+
+    /// <summary>drop 行尾部的拒绝快照文本（roundtrip 浮点；fb=nq 表示未查询，不为日志重复查询）。</summary>
+    private static string ReachSnapText(Session session)
+    {
+        string fb = session.SnapFallback == FallbackSame ? "same"
+            : session.SnapFallback == FallbackOther ? "other"
+            : session.SnapFallback == FallbackNull ? "null"
+            : session.SnapFallback == FallbackFault ? "fault" : "nq";
+        string sel = session.SnapSelectedNull ? "null"
+            : session.SnapSelectedSame ? "same" : "other";
+        return " first-rejection[t=" + FloatText(session.SnapUnscaledTime)
+            + " " + (session.SnapAtEntry ? "entry" : "keep")
+            + " x=" + FloatText(session.SnapPlayerX)
+            + " point=" + FloatText(session.SnapPayPoint)
+            + " d=" + FloatText(session.SnapDistance)
+            + " r=" + FloatText(session.SnapPayDistance)
+            + " margin=" + FloatText(session.SnapMargin)
+            + " fast=" + (session.SnapFastRetention ? "True" : "False")
+            + " fb=" + fb
+            + " sel=" + sel
+            + " state=" + session.SnapPayState
+            + (session.SnapFault == null ? "" : " fault=" + session.SnapFault)
+            + "]";
+    }
+
+    /// <summary>bind/首笔回执边界的一次性几何行（roundtrip 浮点）；读取失败记异常类型。</summary>
+    private static void NoteGeo(Session session, string label)
+    {
+        try
+        {
+            Payable shop = session.Shop;
+            Player player = session.Player;
+            if (shop == null || player == null) return;
+            float payPoint = shop.PlayerPayPoint();
+            float playerX = player.transform.position.x;
+            float payDistance = shop.playerPayDistance;
+            float distance = Mathf.Abs(payPoint - playerX);
+            TransitionNote(session, label + ": x=" + FloatText(playerX)
+                + " point=" + FloatText(payPoint)
+                + " d=" + FloatText(distance)
+                + " r=" + FloatText(payDistance)
+                + " margin=" + FloatText(distance - payDistance)
+                + " state=" + ReadState(player));
+        }
+        catch (Exception e)
+        {
+            TransitionNote(session, label + ": fault=" + e.GetType().Name);
+        }
+    }
+
+    /// <summary>首笔成功回执边界的一次性几何行（issue #173：现场区分度量的关键读数）。</summary>
+    private static void NoteFirstReceiptGeo(Session session)
+    {
+        if (session == null || session.GeoReceiptNoted) return;
+        session.GeoReceiptNoted = true;
+        NoteGeo(session, "geo-first-receipt");
+    }
+
+    /// <summary>诊断浮点文本：roundtrip 格式，非有限值显式命名。</summary>
+    private static string FloatText(float value)
+        => float.IsNaN(value) ? "NaN"
+            : value == float.PositiveInfinity ? "+Inf"
+            : value == float.NegativeInfinity ? "-Inf"
+            : value.ToString("R");
 
     private static void EmitNote(Session session, string message)
     {

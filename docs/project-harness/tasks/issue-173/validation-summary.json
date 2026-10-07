@@ -1,0 +1,154 @@
+{
+  "sourceSha256": "e06da832a978d64a31bcca2226fec884544bbaa5ab4dc301e898cea2567fa35d",
+  "baseCommit": "83ac937abc27246630b05de3f044fb66c2a1fafd",
+  "behavior": {
+    "newPassed": 103,
+    "oldPassed": 85,
+    "oldFailed": 18,
+    "coreOldPurchases": 1,
+    "coreNewPurchases": 5,
+    "newCoreCoinsSpent": 10,
+    "groundDrops": 0
+  },
+  "armBuild": {
+    "warnings": 0,
+    "errors": 0,
+    "dllSha256": "241d28a930f03006993f53f41a92dca1eecdc7083a54cdcbb6220a1700127479"
+  },
+  "scopeAudit": {
+    "ok": true,
+    "candidateSha256": "241d28a930f03006993f53f41a92dca1eecdc7083a54cdcbb6220a1700127479",
+    "baselineSha256": "2098e3fe8d387909e956c06357935ef6240512e6276dd4df218efe46bb4d85cc",
+    "pngUnchanged": 34,
+    "changedPng": [],
+    "runtimePatches": [
+      {
+        "patch": "PatchExtensionIsland_ProgressionBootstrap",
+        "target": "System.Void Game::SetCurrentLand(System.Int32)"
+      },
+      {
+        "patch": "PatchExtensionIsland_ConfigGet",
+        "target": "LevelConfig BiomeHolder::GetConfigFromIndex(System.Int32)"
+      },
+      {
+        "patch": "PatchExtensionIsland_FilePropsRefresh",
+        "target": "System.Void IslandSaveData::UpdateFileProps()"
+      },
+      {
+        "patch": "PatchExtensionIsland_DefeatGreed",
+        "target": "System.Void Game::DefeatGreed(System.Boolean,System.Single)"
+      },
+      {
+        "patch": "PatchExtensionIsland_CavePortalStart",
+        "target": "System.Void BombablePortal::Start()"
+      },
+      {
+        "patch": "PatchExtensionIsland_CavePortalAwake",
+        "target": "System.Void BombablePortal::Awake()"
+      },
+      {
+        "patch": "PatchExtensionIsland_CaveStateEnabled",
+        "target": "System.Void CliffPortalState::OnEnable()"
+      },
+      {
+        "patch": "PatchExtensionIsland_CavePortalActivate",
+        "target": "System.Void BombablePortal::ActivatePortal(Player)"
+      },
+      {
+        "patch": "PatchExtensionIsland_CaveCanBuildBomb",
+        "target": "System.Boolean SidedCaveData::get_CanBuildBomb()"
+      },
+      {
+        "patch": "PatchExtensionIsland_CaveStateChange",
+        "target": "System.Void CliffPortalState::ChangeState(CliffPortalState/State,System.Boolean,System.Boolean,System.Boolean,System.Boolean)"
+      },
+      {
+        "patch": "PatchExtensionIsland_BombPurchaseSpawn",
+        "target": "System.Void PayableBombPurchase::SpawnBomb()"
+      },
+      {
+        "patch": "PatchExtensionIsland_ForgeSpawn",
+        "target": "System.Void PayableForge::SpawnBomb()"
+      },
+      {
+        "patch": "PatchExtensionIsland_LandChanged",
+        "target": "System.Void Game::SetCurrentLand(System.Int32)"
+      },
+      {
+        "patch": "PatchExtensionIsland_BlockCandidates",
+        "target": "Il2CppSystem.Collections.Generic.List`1<LevelBlock> Level::GetLevelBlocks()"
+      },
+      {
+        "patch": "PatchRide_CrossWorldMount_Scope",
+        "target": "System.Void Level::GenerateInternal(LevelConfig,System.Int32)"
+      },
+      {
+        "patch": "PatchRide_CrossWorldMount_BlockPlaced",
+        "target": "System.Void LevelBlock::CloneInto(Level,System.Single)"
+      },
+      {
+        "patch": "PatchRide_CrossWorldMount_GetBlocks",
+        "target": "Il2CppSystem.Collections.Generic.List`1<LevelBlock> LevelLayout::GetBlocks()"
+      },
+      {
+        "patch": "PatchRide_CrossWorldMount_AssetsInit",
+        "target": "System.Void BiomeSpecificAssets::InitializeAssets()"
+      },
+      {
+        "patch": "PatchRide_CrossWorldMount_SteedQuery",
+        "target": "Steed BiomeSpecificAssets::GetSteedByType(SteedType)"
+      },
+      {
+        "patch": "PatchRide_CrossWorldMount_SpawnSteed",
+        "target": "System.Void SteedSpawn::SpawnSteed(Steed)"
+      },
+      {
+        "patch": "PatchRide_CrossWorldMount_Pay",
+        "target": "System.Void SteedSpawn::Pay()"
+      },
+      {
+        "patch": "PatchRide_CrossWorldMount_PoolInit",
+        "target": "System.Void PoolManager::InitPools()"
+      }
+    ],
+    "unchangedBaselineMethods": 6817,
+    "authorizedChangedMethods": [
+      "System.Void KingdomEnhancedMod.PatchPlayer_HoldPurchase::BeforePayUpdate(Player,System.Boolean,System.Boolean&,KingdomEnhancedMod.PatchPlayer_HoldPurchase/FrameReceipt&)",
+      "System.Void KingdomEnhancedMod.PatchPlayer_HoldPurchase::AfterPayUpdate(Player,System.Boolean,KingdomEnhancedMod.PatchPlayer_HoldPurchase/FrameReceipt)",
+      "System.String KingdomEnhancedMod.PatchPlayer_HoldPurchase::KeepBoundShopReason(KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session,Player)",
+      "System.Boolean KingdomEnhancedMod.PatchPlayer_HoldPurchase::ShopInReach(KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session,Player)",
+      "System.Void KingdomEnhancedMod.PatchPlayer_HoldPurchase::Bind(KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session,Payable)",
+      "System.Boolean KingdomEnhancedMod.PatchPlayer_HoldPurchase::CanEnterHolding(Player,Payable)",
+      "System.String KingdomEnhancedMod.PatchPlayer_HoldPurchase::ClassifyImmediateDrop(KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session,Player,System.Boolean&,System.Boolean&)",
+      "System.Void KingdomEnhancedMod.PatchPlayer_HoldPurchase::BindNote(KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session,KingdomEnhancedMod.PatchPlayer_HoldPurchase/GoodsBranch,Payable)",
+      "System.Void KingdomEnhancedMod.PatchPlayer_HoldPurchase::DropNote(KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session,System.String)"
+    ],
+    "addedMethods": [
+      "KingdomEnhancedMod.PatchPlayer_HoldPurchase/ReachVerdict KingdomEnhancedMod.PatchPlayer_HoldPurchase::ShopReachVerdict(KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session,Player,System.Single&,System.Single&,System.Single&,System.Single&,System.String&)",
+      "System.String KingdomEnhancedMod.PatchPlayer_HoldPurchase::ReachDropReason(KingdomEnhancedMod.PatchPlayer_HoldPurchase/ReachVerdict)",
+      "System.Boolean KingdomEnhancedMod.PatchPlayer_HoldPurchase::CanEnterHolding(Player,KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session)",
+      "System.Byte KingdomEnhancedMod.PatchPlayer_HoldPurchase::NativeFallbackMatches(Player,KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session,System.Single)",
+      "System.String KingdomEnhancedMod.PatchPlayer_HoldPurchase::MatchedShopTag(Payable,KingdomEnhancedMod.PatchPlayer_HoldPurchase/GoodsBranch)",
+      "System.String KingdomEnhancedMod.PatchPlayer_HoldPurchase::RootScaleText(Payable)",
+      "System.Void KingdomEnhancedMod.PatchPlayer_HoldPurchase::CaptureReachSnap(KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session,Player,System.Single,System.Single,System.Single,System.Single,System.Boolean,System.Byte,System.String)",
+      "System.String KingdomEnhancedMod.PatchPlayer_HoldPurchase::ReachSnapText(KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session)",
+      "System.Void KingdomEnhancedMod.PatchPlayer_HoldPurchase::NoteGeo(KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session,System.String)",
+      "System.Void KingdomEnhancedMod.PatchPlayer_HoldPurchase::NoteFirstReceiptGeo(KingdomEnhancedMod.PatchPlayer_HoldPurchase/Session)",
+      "System.String KingdomEnhancedMod.PatchPlayer_HoldPurchase::FloatText(System.Single)"
+    ],
+    "harmonyHookCount": 338,
+    "harmonyTargetsUnchanged": true,
+    "errors": []
+  },
+  "installed": false,
+  "gameplayAccepted": false,
+  "independentReview": {
+    "verdict": "Approve - code delivery",
+    "publicPassed": 103,
+    "additionalOwnPassed": 107,
+    "oldOwnPassed": 86,
+    "oldOwnFailed": 21,
+    "armLogAndArtifactHashVerified": true,
+    "reviewerReranArmBuild": false
+  }
+}
