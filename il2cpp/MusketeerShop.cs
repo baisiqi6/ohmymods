@@ -39,11 +39,9 @@ internal static partial class MusketeerShop
     private static Transform _layer;
     private static NetworkPostbox _postbox;
     private static CRPCHeader _header;
-    private static Texture2D _texture;
     private static Sprite _sprite;
-    private static Sprite[] _frames;
+    private static ShopV2Visuals _v2;
     private static SpriteRenderer _renderer;
-    private static int _frame = -1;
     private static Il2CppSystem.Action<Player> _started;
     private static readonly MusketeerShopPayment Payment = new();
     private static float _retryAt;
@@ -127,9 +125,7 @@ internal static partial class MusketeerShop
                     MaintainBowCache();
                     MaintainRackLayout();
                     if (_menuSuspended) { _menuSuspended = false; Log("resume: retained same shop"); }
-                    float ambientPhase = Time.time % 4f;
-                    int frame = ambientPhase < 2f ? 0 : ambientPhase < 2.5f ? 1 : ambientPhase < 3.5f ? 2 : 3;
-                    if (_renderer != null && frame != _frame) { _renderer.sprite = _frames[frame]; _frame = frame; }
+                    _v2?.TickMerchant(Time.time);
                     bool canPurchase = CanPurchase();
                     _payable.forceBlockPayment = !canPurchase;
                     if (!canPurchase) DumpRackGate(in probe);
@@ -296,6 +292,8 @@ internal static partial class MusketeerShop
                 _object.transform.position.y, native.transform.position.z);
             break;
         }
+        _v2 = ShopV2Visuals.Bind(_object, _renderer, ShopV2Kind.Musket);
+        if (_v2 == null) throw new InvalidOperationException("V2 shop layers unavailable");
         _createStage = "create-owner";
         _object.AddComponent<CRPCStamp>();
         _owner = _object.AddComponent<MusketeerShopOwner>();
@@ -473,7 +471,8 @@ internal static partial class MusketeerShop
             {
                 _object = null; _payable = null; _owner = null; _kingdom = null; _layer = null;
                 _postbox = null; _header = null; _started = null;
-                _renderer = null; _frame = -1; _retiring = false;
+                _v2?.Clear(); _v2 = null;
+                _renderer = null; _retiring = false;
                 RackLayout.Reset(); _rackLayoutReady = false; _nextRackLayoutAt = 0f; RackItems.Clear();
                 Array.Clear(RackItemCache, 0, RackItemCache.Length); SlotNumbers.Clear();
                 _cleanupRetryAt = 0f; _cleanupFailureLogged = false; _menuSuspended = false;
@@ -1053,22 +1052,7 @@ internal static partial class MusketeerShop
 
     private static bool LoadArt()
     {
-        if (_sprite != null) return true;
-        using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("KingdomEnhancedMod.MusketeerShop.png");
-        if (stream == null || stream.Length > 2 * 1024 * 1024) return false;
-        using var bytes = new MemoryStream(); stream.CopyTo(bytes);
-        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-        if (!ImageConversion.LoadImage(texture, bytes.ToArray(), false)) { UnityEngine.Object.Destroy(texture); return false; }
-        if (texture.width != MusketeerShopRules.AtlasWidth || texture.height != MusketeerShopRules.FrameHeight) { UnityEngine.Object.Destroy(texture); return false; }
-        texture.filterMode = FilterMode.Point; texture.wrapMode = TextureWrapMode.Clamp; texture.anisoLevel = 0;
-        _texture = texture;
-        _frames = new Sprite[4];
-        for (int i = 0; i < 4; i++)
-            _frames[i] = Sprite.Create(texture, new Rect(i * MusketeerShopRules.FrameWidth, 0, MusketeerShopRules.FrameWidth, MusketeerShopRules.FrameHeight),
-                new Vector2(MusketeerShopRules.PivotX, MusketeerShopRules.PivotY),
-                32f, 0u, SpriteMeshType.FullRect);
-        _sprite = _frames[0];
-        return _sprite != null;
+        return ShopV2Art.TryGet(ShopV2Kind.Musket, 0, out _sprite);
     }
 
     private static void Log(string message)

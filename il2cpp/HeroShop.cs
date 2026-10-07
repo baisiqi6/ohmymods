@@ -302,11 +302,11 @@ internal static class HeroShop
     private static Transform _layer;
     private static NetworkPostbox _postbox;
     private static CRPCHeader _header;
-    private static Texture2D _texture;
     private static Sprite _sprite;
-    private static Sprite[] _frames;
+    private static ShopV2Visuals _v2;
+    private static int _leftV2State, _rightV2State;
+    private static float _nextV2StateAt;
     private static SpriteRenderer _renderer;
-    private static int _frame = -1;
     private static Il2CppSystem.Action<Player> _started;
     private static readonly HeroShopPayment Payment = new();
     private static float _retryAt;
@@ -363,12 +363,9 @@ internal static class HeroShop
                 {
                     ObserveVisualSelection();
                     if (_menuSuspended) { _menuSuspended = false; Log("resume: retained same shop"); }
-                    float ambientPhase = Time.time % 4f;
-                    int frame = ambientPhase < 2f ? 0 : ambientPhase < 2.5f ? 1 : ambientPhase < 3.5f ? 2 : 3;
-                    if (_renderer != null && frame != _frame) { _renderer.sprite = _frames[frame]; _frame = frame; }
+                    UpdateV2Visuals();
                     _payable.forceBlockPayment = !CanPurchase();
                     _status = HeroRecruitment.StatusText;
-                    HeroShopBannerVisuals.Tick(_object, _renderer);
                     return;
                 }
                 // Native Menu pause: the same shop, body, banners and
@@ -527,6 +524,8 @@ internal static class HeroShop
                 _object.transform.position.y, native.transform.position.z);
             break;
         }
+        _v2 = ShopV2Visuals.Bind(_object, _renderer, ShopV2Kind.Hero);
+        if (_v2 == null) throw new InvalidOperationException("V2 shop layers unavailable");
         _createStage = "create-owner";
         _object.AddComponent<CRPCStamp>();
         _owner = _object.AddComponent<HeroShopOwner>();
@@ -568,7 +567,7 @@ internal static class HeroShop
         if (!HeaderMatches()) throw new InvalidOperationException("native payment header registration failed");
         _createStage = "activate";
         _object.SetActive(true); // native Awake/OnEnable initialize and register exactly once
-        HeroShopBannerVisuals.Tick(_object, _renderer);
+        UpdateV2Visuals();
         _payable.forceBlockPayment = !CanPurchase();
         _status = "英雄商店：8 金币";
         _createStage = "ready";
@@ -717,9 +716,11 @@ internal static class HeroShop
             if (cleaned)
             {
                 HeroShopBannerVisuals.Clear();
+                _nextV2StateAt = 0; _leftV2State = _rightV2State = 0;
                 _object = null; _payable = null; _owner = null; _kingdom = null; _layer = null;
                 _postbox = null; _header = null; _started = null;
-                _renderer = null; _frame = -1; _retiring = false;
+                _v2?.Clear(); _v2 = null;
+                _renderer = null; _retiring = false;
                 _cleanupRetryAt = 0f; _cleanupFailureLogged = false; _menuSuspended = false;
                 // One bounded line per real cleanup, never per frame with nothing to clean.
                 if (hadState && !wasRetrying) Log("clear reason=" + reason);
@@ -819,23 +820,23 @@ internal static class HeroShop
         Payment.Cancel(payer, source, owner);
     }
 
+    private static void UpdateV2Visuals()
+    {
+        if (_v2 == null) return;
+        _v2.TickMerchant(Time.time);
+        // Keep the existing read-only seat sampling cadence; the recruitment owner supplies context.
+        if (Time.unscaledTime >= _nextV2StateAt)
+        {
+            _nextV2StateAt = Time.unscaledTime + .25f;
+            _leftV2State = HeroShopBannerVisuals.VisualState(HeroRecruitment.GetShopSeatState(-1), HeroRecruitment.HasFallenSeat(-1));
+            _rightV2State = HeroShopBannerVisuals.VisualState(HeroRecruitment.GetShopSeatState(1), HeroRecruitment.HasFallenSeat(1));
+        }
+        _v2.TickHero(_leftV2State, _rightV2State, Time.time);
+    }
+
     private static bool LoadArt()
     {
-        if (_sprite != null) return true;
-        using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("KingdomEnhancedMod.HeroShop.png");
-        if (stream == null || stream.Length > 2 * 1024 * 1024) return false;
-        using var bytes = new MemoryStream(); stream.CopyTo(bytes);
-        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-        if (!ImageConversion.LoadImage(texture, bytes.ToArray(), false)) { UnityEngine.Object.Destroy(texture); return false; }
-        if (texture.width != 512 || texture.height != 80) { UnityEngine.Object.Destroy(texture); return false; }
-        texture.filterMode = FilterMode.Point; texture.wrapMode = TextureWrapMode.Clamp; texture.anisoLevel = 0;
-        _texture = texture;
-        _frames = new Sprite[4];
-        for (int i = 0; i < 4; i++)
-            _frames[i] = Sprite.Create(texture, new Rect(i * 128, 0, 128, 80), new Vector2(0.5f, 0.025f),
-                32f, 0u, SpriteMeshType.FullRect);
-        _sprite = _frames[0];
-        return _sprite != null;
+        return ShopV2Art.TryGet(ShopV2Kind.Hero, 0, out _sprite);
     }
 
     private static void Log(string message)

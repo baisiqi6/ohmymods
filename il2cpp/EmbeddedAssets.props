@@ -1,6 +1,9 @@
 <Project>
     <!-- Canonical resource list shared by the official project and local Mac wrappers. -->
     <ItemGroup>
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/ShopV2Hero.png" LogicalName="KingdomEnhancedMod.ShopV2Hero.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/ShopV2Shield.png" LogicalName="KingdomEnhancedMod.ShopV2Shield.png" />
+        <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/ShopV2Musket.png" LogicalName="KingdomEnhancedMod.ShopV2Musket.png" />
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeavyShieldSoldierAtlas.png" LogicalName="KingdomEnhancedMod.HeavyShieldSoldierAtlas.png" />
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeavyShieldShopAtlas.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopAtlas.png" />
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/HeavyShieldShopLayers.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopLayers.png" />
