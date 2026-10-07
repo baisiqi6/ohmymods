@@ -2,6 +2,8 @@
 
 在现有顶部日历条增加本机君主的随身钻石，与主城金库分列。基线 `19c55438af0be47eb271ba861f9342e381299323` 已含 #169/#170/#174；分支 `codex/hud-gems-20261006`。本条只负责代码交付；主会话负责累积构建及冷安装，不用公共源码验证 DLL 替换带宫廷入口的运行候选。
 
+代码交付已完成：PR #178 固定 head `5223323b54588adb7e65d2a5b040e74214a4f6a8` 合并为 `03b7e584959d46c53ea8938dc822b60e3c8d618a`，Issue #175 已关闭。产品与测试9个输入逐项绑定公开验证摘要和独审，合并不表示已安装或玩法已验。
+
 ## 读取责任与接入位置
 
 原顶栏没有钱包信息；新增读取接在 `CalendarHud.Tick` 既有半秒缓存，Draw 只用缓存文本，Clear 清空。每次从当前 `Kingdom.playerOne/playerTwo` 读取，不跨世界保留 Player/Wallet；仅接受活动、位于当前 world scene、`hasLocalAuthority` 的玩家。钱包 `Gems` getter 为唯一余额来源，不读金库、存档或世界总量，不写钱包、不发 RPC、不增加 Harmony target 或全场扫描。沿用原 ShowCalendarHud 开关。
