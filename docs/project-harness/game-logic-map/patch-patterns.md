@@ -978,3 +978,10 @@ Mover.SetSpeed参考源码将_movingToGoal=false但仍设置_moveSpeed，不能�
 只有当前岛的合法row不代表整个首次接入lineage可在下一次跨岛恢复。盾卫未记录付费的首次接入在原生load前冻结真实visited/slot-exact missing成员（≤128），仅成功Pop/明确WasNew生成边界允许全组登记；prefix token和每个成员Pointer/Slot/非current hash须在提交前复核。current对象会被Pop消费，不能end重算其加载快照。未形成candidate前的key/context异常仍属初始化失败，不能等同“不需登记”；结构验证还须包含codec字节容量，不能写入无法发布的Staged。
 
 ExactSave和初始化Enrollment是两个明确协议，共用真实PrefsPrepare copy/readback发布与版本屏障。首次购买保持关闭直到该发布完成；Known当前hash不符、已有付费/过程证据不作为空白新岛。证据与实机边界见tasks/issue-167/，不推广成周期补行或猜测权益恢复。
+
+
+## 当前2.4支付续买：区分保留选择与fallback（Issue #173，2026-10-06）
+
+`Player.UpdatePayState`的 d<=.5 && d<=playerPayDistance 只是当前selected的retention fast-path（ARM0x7d9fbc–0x7da054），失败仍有GetClosestPayable(x,.5,本玩家)（0x7da058–0x7da09c）；None按下入Holding不再重复窄门。RetrievePayableIndices邻候选为严格减法d-r<range（0x7b4528–4538/0x7b4790–47a0），最近center没有hard radius，不能将任何一段冒充全部选择空间。
+
+Mod连续hold使用该邻关系作保守有限上限，entry另核fast保留或fallback返回捕获pointer+实例；fast成立勿无条件closest以更近别店错误否决。RPC forceBlock期CanSelectfalse/普通querynull不等于离开；待回执核身份/空间/既有期限。query不写选择或付款，但维护原生sort/scratch，不冒称纯函数。Payable.Awake cachedTransform是商店自身transform，读取朝向不要用最高祖先Transform.root。依据真实2.4链与prefab，原82+21行为回归/ARM构建；用户现场及联机仍待实机。
