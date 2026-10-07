@@ -148,7 +148,7 @@ public static class ModConfig
             "君主移动速度倍率（1-5x）");
 
         ShowCalendarHud = config.Bind("Display", "ShowCalendarHud", false,
-            "常驻时间与银行：总天数、整点、季节图标、季内天数、下一季开始日和银行存款；只读显示");
+            "常驻时间与银行：总天数、整点、季节图标、季内天数、下一季开始日、银行存款和本机君主随身钻石；只读显示");
 
         ShowPopulationHud = config.Bind("Display", "ShowPopulationHud", true,
             "常驻人数：单机或联机主机显示本岛存活职业和五世界骑士人数，不含待领装备；客机名册不可用时显示提示");

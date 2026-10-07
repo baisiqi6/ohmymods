@@ -1,0 +1,72 @@
+{
+  "baseCommit": "19c55438af0be47eb271ba861f9342e381299323",
+  "sourceHashes": {
+    "il2cpp/CalendarHud.cs": "82bc52b37364dbff2caf53dff9110a595d909740934c0673938686fb74d77c0c",
+    "il2cpp/PatchUI_CalendarGems.cs": "61dc210b03a8eceaf0b7da52ccdf0890e31cdd8a9cd0c1207409da6ded50bb93",
+    "il2cpp/ModConfig.cs": "c258875ffd39d55eaf2442709ceb34ea99b0454175bac53255ce547f7419de44",
+    "tests/calendar-gems/CalendarGemsHudTests.csproj": "9343b6c790641422b266eed08b6fdeccebe9712d173506ac31483e9596dcb06c",
+    "tests/calendar-gems/CalendarGemsTests.csproj": "3f565be63923ea23c65a2be24b1c096d5d325b34dc7f0a459c3fd1e2418de0f6",
+    "tests/calendar-gems/GuiStubs.cs": "4800bfb47a167c60c96a7d422d9006720ae311e7f93097fd29071d382d68e626",
+    "tests/calendar-gems/HudProgram.cs": "01d37138e9c4dfd0c90f6e28f9159add47ed323a24095d9b941e0d6875941519",
+    "tests/calendar-gems/Program.cs": "09c79dadffa5c1c7dcef5b489a54e460f345a763fdb753bb042211284ac5b0eb",
+    "tests/calendar-gems/Stubs.cs": "a69028842921f7ae34b3367cf62cfc5fbcc5f73e567cc8063df70a28a41df133"
+  },
+  "behaviorAssertionsPassed": 40,
+  "guiAssertionsPassed": 46,
+  "calendarAssertionsPassed": 95702,
+  "armBuild": {
+    "warnings": 0,
+    "errors": 0,
+    "dllSha256": "9cf278b4710cd3cd4834abbc481be7f1663200e2af105e81e4ddbd41c69cd4b7",
+    "installed": false
+  },
+  "scopeAudit": {
+    "ok": true,
+    "candidateSha256": "9cf278b4710cd3cd4834abbc481be7f1663200e2af105e81e4ddbd41c69cd4b7",
+    "baselineSha256": "241d28a930f03006993f53f41a92dca1eecdc7083a54cdcbb6220a1700127479",
+    "pngUnchanged": 34,
+    "changedPng": [],
+    "unchangedBaselineMethods": 6825,
+    "authorizedChangedMethods": [
+      "System.Void KingdomEnhancedMod.CalendarHud::Tick()",
+      "System.Void KingdomEnhancedMod.CalendarHud::Clear()",
+      "System.Void KingdomEnhancedMod.CalendarHud::Draw()",
+      "System.Void KingdomEnhancedMod.CalendarHud::EnsureResources()",
+      "System.Boolean KingdomEnhancedMod.CalendarHud::IconShape(System.Int32,System.Single,System.Single)",
+      "System.Void KingdomEnhancedMod.CalendarHud::.cctor()",
+      "UnityEngine.Color KingdomEnhancedMod.CalendarHud/<>c::<EnsureResources>b__37_0(System.Single,System.Single)",
+      "System.Void KingdomEnhancedMod.CalendarHud/<>c__DisplayClass37_0::.ctor()",
+      "UnityEngine.Color KingdomEnhancedMod.CalendarHud/<>c__DisplayClass37_0::<EnsureResources>b__1(System.Single,System.Single)",
+      "System.Void KingdomEnhancedMod.ModConfig::Init(BepInEx.Configuration.ConfigFile)"
+    ],
+    "addedMethods": [
+      "UnityEngine.Color KingdomEnhancedMod.CalendarHud/<>c::<EnsureResources>b__38_0(System.Single,System.Single)",
+      "System.Void KingdomEnhancedMod.CalendarHud/<>c__DisplayClass38_0::.ctor()",
+      "UnityEngine.Color KingdomEnhancedMod.CalendarHud/<>c__DisplayClass38_0::<EnsureResources>b__1(System.Single,System.Single)",
+      "System.String KingdomEnhancedMod.PatchUI_CalendarGems::get_ValueText()",
+      "System.String KingdomEnhancedMod.PatchUI_CalendarGems::get_CaptionText()",
+      "System.Void KingdomEnhancedMod.PatchUI_CalendarGems::Clear()",
+      "System.Void KingdomEnhancedMod.PatchUI_CalendarGems::Refresh(Kingdom,UnityEngine.Transform)",
+      "Player KingdomEnhancedMod.PatchUI_CalendarGems::SafePlayer(Kingdom,System.Int32)",
+      "System.Boolean KingdomEnhancedMod.PatchUI_CalendarGems::TryReadSlot(Player,UnityEngine.Transform,KingdomEnhancedMod.PatchUI_CalendarGems/Slot&)",
+      "System.String KingdomEnhancedMod.PatchUI_CalendarGems::Format(System.Int32)",
+      "System.Void KingdomEnhancedMod.PatchUI_CalendarGems::WarnFaultOnce(System.Exception)",
+      "System.Void KingdomEnhancedMod.PatchUI_CalendarGems::.cctor()",
+      "System.Void KingdomEnhancedMod.PatchUI_CalendarGems/Slot::.ctor(System.IntPtr,System.IntPtr,System.Int32)"
+    ],
+    "harmonyHookCount": 338,
+    "harmonyTargetsUnchanged": true,
+    "errors": []
+  },
+  "platformProof": "Mac ARM compile/native-analysis; GUI/behavior simulation",
+  "playerAcceptance": false,
+  "independentReview": {
+    "verdict": "Approve",
+    "fixedSourceHashesMatched": 9,
+    "helperAssertionsPassed": 40,
+    "publicGuiAssertionsPassed": 46,
+    "augmentedPrivateGuiAssertionsPassed": 51,
+    "artifactHashVerified": true,
+    "fullBuildAndScopeAudit": "receipts inspected; reviewer did not rerun"
+  }
+}
