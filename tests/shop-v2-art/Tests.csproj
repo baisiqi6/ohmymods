@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 纯策略测试：同一份 Patch_ShopV2Art.cs 以 SHOP_V2_CORE_ONLY 编译，无 Unity、无外部包。 -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>ShopV2CoreTests</AssemblyName>
+    <RootNamespace>ShopV2CoreTests</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DefineConstants>SHOP_V2_CORE_ONLY</DefineConstants>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../../il2cpp/Patch_ShopV2Art.cs" Link="Patch_ShopV2Art.cs" />
+  </ItemGroup>
+</Project>

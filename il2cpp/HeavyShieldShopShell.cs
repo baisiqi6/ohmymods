@@ -30,6 +30,7 @@ internal static class HeavyShieldShopShell
     private static Transform _layer;
     private static NetworkPostbox _postbox;
     private static SpriteRenderer[] _renderers;
+    private static ShopV2Visuals _greekV2;
     private static HeavyShieldAtlasId _shopAtlas = HeavyShieldAtlasId.ShopLayers;
     private static long _shopLife;
     private static int _merchantFrame = -1, _fixturesFrame = -1;
@@ -134,17 +135,29 @@ internal static class HeavyShieldShopShell
         RegisterTypes();
         _stage = "resolve-shop-layers";
         var atlas = CurrentShopAtlas();
-        if (!HeavyShieldArtLayout.Validate(atlas, out _)
-            || !TrySequenceFrame(atlas, "rear", 0, out int rearFrame)
-            || !TrySequenceFrame(atlas, "fixtures", 0, out int fixturesFrame)
-            || !TrySequenceFrame(atlas, "merchant", 0, out int merchantFrame)
-            || !TrySequenceFrame(atlas, "front", 0, out int frontFrame)
-            || !TryLayerSprite(atlas, rearFrame, out var rear) || !TryLayerSprite(atlas, fixturesFrame, out var fixtures)
-            || !TryLayerSprite(atlas, merchantFrame, out var merchant) || !TryLayerSprite(atlas, frontFrame, out var front))
-        { _status = "盾具店素材尚未就绪"; return; }
+        bool greek = atlas == HeavyShieldAtlasId.GreekShopLayers;
+        Sprite rear, fixtures = null, merchant, front;
+        if (greek)
+        {
+            if (!ShopV2Art.TryGet(ShopV2Kind.Shield, 0, out rear)
+                || !ShopV2Art.TryGet(ShopV2Kind.Shield, 2, out merchant)
+                || !ShopV2Art.TryGet(ShopV2Kind.Shield, 1, out front))
+            { _status = "盾具店素材尚未就绪"; return; }
+        }
+        else
+        {
+            if (!HeavyShieldArtLayout.Validate(atlas, out _)
+                || !TrySequenceFrame(atlas, "rear", 0, out int rearFrame)
+                || !TrySequenceFrame(atlas, "fixtures", 0, out int fixturesFrame)
+                || !TrySequenceFrame(atlas, "merchant", 0, out int merchantFrame)
+                || !TrySequenceFrame(atlas, "front", 0, out int frontFrame)
+                || !TryLayerSprite(atlas, rearFrame, out rear) || !TryLayerSprite(atlas, fixturesFrame, out fixtures)
+                || !TryLayerSprite(atlas, merchantFrame, out merchant) || !TryLayerSprite(atlas, frontFrame, out front))
+            { _status = "盾具店素材尚未就绪"; return; }
+        }
         if (!HeavyShieldArt.TryGetPaidShieldSprite(out _)) { _status = "盾具素材尚未就绪"; return; }
         var payables = Managers.Inst.payables;
-        float halfWidth = Math.Max(1.5f, HeavyShieldArtLayout.ShopCellWidth / HeavyShieldArtLayout.ShopPixelsPerUnit * .5f);
+        float halfWidth = greek ? 2f : Math.Max(1.5f, HeavyShieldArtLayout.ShopCellWidth / HeavyShieldArtLayout.ShopPixelsPerUnit * .5f);
         _stage = "find-position";
         // Native adapter supplies real payable and blocker intervals to the latest exclusion-provider contract.
         if (!HeroShopPlacementNative.Find(payables, kingdom.GetBorderSideIntact(Side.Left),
@@ -158,16 +171,29 @@ internal static class HeavyShieldShopShell
         _object = new GameObject("KEM_HeavyShieldShop"); _object.SetActive(false);
         _object.transform.SetParent(layer, false);
         _object.transform.position = new Vector3(position, groundY, nativeRenderer.transform.position.z);
-        _renderers = new SpriteRenderer[4];
-        Sprite[] sprites = { rear, fixtures, merchant, front };
-        string[] names = { "rear", "fixtures", "merchant", "front" };
-        for (int i = 0; i < sprites.Length; i++)
+        if (greek)
         {
-            var child = new GameObject("shield_shop_" + names[i]); child.transform.SetParent(_object.transform, false);
-            var renderer = child.AddComponent<SpriteRenderer>(); renderer.sprite = sprites[i];
-            renderer.sortingOrder = nativeRenderer.sortingOrder + i - 2; renderer.sortingLayerID = nativeRenderer.sortingLayerID;
+            var renderer = _object.AddComponent<SpriteRenderer>(); renderer.sprite = rear;
+            renderer.sortingOrder = nativeRenderer.sortingOrder; renderer.sortingLayerID = nativeRenderer.sortingLayerID;
             if (nativeRenderer.sharedMaterial != null) renderer.sharedMaterial = nativeRenderer.sharedMaterial;
-            _renderers[i] = renderer;
+            _greekV2 = ShopV2Visuals.Bind(_object, renderer, ShopV2Kind.Shield);
+            if (_greekV2 == null) throw new InvalidOperationException("V2 shield shop layers unavailable");
+            // The existing payment-icon code keeps its front-layer sorting/material reference.
+            _renderers = new[] { renderer, _greekV2.State0, _greekV2.Merchant, _greekV2.Front };
+        }
+        else
+        {
+            _renderers = new SpriteRenderer[4];
+            Sprite[] sprites = { rear, fixtures, merchant, front };
+            string[] names = { "rear", "fixtures", "merchant", "front" };
+            for (int i = 0; i < sprites.Length; i++)
+            {
+                var child = new GameObject("shield_shop_" + names[i]); child.transform.SetParent(_object.transform, false);
+                var renderer = child.AddComponent<SpriteRenderer>(); renderer.sprite = sprites[i];
+                renderer.sortingOrder = nativeRenderer.sortingOrder + i - 2; renderer.sortingLayerID = nativeRenderer.sortingLayerID;
+                if (nativeRenderer.sharedMaterial != null) renderer.sharedMaterial = nativeRenderer.sharedMaterial;
+                _renderers[i] = renderer;
+            }
         }
         _merchantFrame = 0; _fixturesFrame = 0;
         _points = new Point[Kinds.Length];
@@ -549,6 +575,7 @@ internal static class HeavyShieldShopShell
                     _postbox.DeregisterObject(point.Object, point.Header.NetID, CRPCType.SemiStatic);
             }
             if (_object != null) { _object.SetActive(false); UnityEngine.Object.Destroy(_object); }
+            _greekV2?.Clear(); _greekV2 = null;
             _object = null; _points = null; _kingdom = null; _layer = null; _postbox = null; _renderers = null;
             _bowPrefab = null; _bowPool = null; _pools = null; _bowPrefabId = 0; _nextBowCheck = 0;
             _merchantFrame = -1; _fixturesFrame = -1; _shopAtlas = HeavyShieldAtlasId.ShopLayers;
@@ -602,6 +629,14 @@ internal static class HeavyShieldShopShell
     }
     private static void UpdateVisuals()
     {
+        if (_greekV2 != null)
+        {
+            _greekV2.TickMerchant(Time.time);
+            var greekView = HeavyShieldIdentity.GetQuotaView();
+            _greekV2.TickShield(greekView.Ready, greekView.Unknown, greekView.MoldUnlocked, greekView.LeftExtra, greekView.RightExtra,
+                greekView.LeftOccupied, greekView.RightOccupied, Time.time);
+            return;
+        }
         if (_renderers == null || _renderers.Length != 4) return;
         if (HeavyShieldArtLayout.TryGetSequence(_shopAtlas, "merchant", out var sequence) && sequence.Count > 0)
         {

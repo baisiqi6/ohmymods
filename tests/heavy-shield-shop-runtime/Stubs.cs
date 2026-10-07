@@ -109,14 +109,26 @@ namespace UnityEngine
     public enum TextureFormat { RGBA32 }
     public enum SpriteMeshType { FullRect }
     public record struct Rect(float x, float y, float width, float height);
-    public struct Color32 { public byte a; }
+    public struct Color32 { public byte r, g, b, a; }
     public class Texture2D : Object
     {
         public int width, height, anisoLevel;
         public FilterMode filterMode; public TextureWrapMode wrapMode;
         public Texture2D(int width, int height, TextureFormat format, bool mipmap) { this.width = width; this.height = height; }
         // Pixel roundtrip is covered by the existing Pillow suite; this fake decodes only dimensions for borrowing tests.
-        public Color32[] GetPixels32() { var pixels = new Color32[width*height]; pixels[0].a = 255; return pixels; }
+        public Color32[] GetPixels32()
+        {
+            var pixels = new Color32[width * height];
+            if (width == 512 && height == 504)
+            {
+                // Borrowing test double: ten nonempty structural/merchant cells, valid empty padding.
+                // Real PNG colors, states and feet are checked independently by the pixel audit.
+                for (int slot = 0; slot < 10; slot++)
+                    pixels[(6 - slot / 4) * 72 * width + slot % 4 * 128].a = 255;
+            }
+            else pixels[0].a = 255;
+            return pixels;
+        }
     }
     public static class ImageConversion
     {

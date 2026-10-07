@@ -10,7 +10,7 @@ internal static class Program
     private static void Setup(bool mold = false, bool greek = false)
     {
         // Each case is an independent process/world in effect, without running Unity/IL2CPP initialization.
-        foreach (var name in new[] { "_object", "_points", "_kingdom", "_layer", "_postbox", "_renderers", "_bowPrefab", "_bowPool", "_pools", "_paidBow" })
+        foreach (var name in new[] { "_object", "_points", "_kingdom", "_layer", "_postbox", "_renderers", "_greekV2", "_bowPrefab", "_bowPool", "_pools", "_paidBow" })
             typeof(HeavyShieldShopShell).GetField(name, BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, null);
         foreach (var name in new[] { "_clearing", "_retiring", "_menuSuspended", "_failureLogged", "_economyFault" })
             typeof(HeavyShieldShopShell).GetField(name, BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, false);
@@ -233,13 +233,13 @@ internal static class Program
         foreach (var kind in new[] { HeavyShieldPurchaseKind.ShieldLeft, HeavyShieldPurchaseKind.ShieldRight })
         {
             Setup(true, greek);
-            Check(Point(HeavyShieldPurchaseKind.Mold).payablePlacementExclusionDistance == 1.5f, "three-world-unit shop placement width");
+            Check(Point(HeavyShieldPurchaseKind.Mold).payablePlacementExclusionDistance == (greek ? 2f : 1.5f), "biome-specific shop footprint matches art");
             var renderers = (SpriteRenderer[])typeof(HeavyShieldShopShell).GetField("_renderers", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
-            Check(renderers.Length == 4 && renderers.All(r => r.sprite.rect.width == 144 && r.sprite.rect.height == 90 && r.sprite.pixelsPerUnit == 48f), "detail bilateral layers use shop geometry in both worlds");
+            Check(renderers.Length == 4 && renderers.Where((r, i) => !greek || i != 1).All(r => r.sprite.rect.width == (greek ? 128 : 144) && r.sprite.rect.height == (greek ? 72 : 90) && r.sprite.pixelsPerUnit == (greek ? 32f : 48f)), "biome-specific bilateral layer geometry");
             var firstMerchant = renderers[2].sprite;
-            Time.time += .125f; Time.unscaledTime += .125f; Time.frameCount++;
+            Time.time += greek ? 1.8f : .125f; Time.unscaledTime += .125f; Time.frameCount++;
             HeavyShieldShopShell.Tick(true);
-            Check(!ReferenceEquals(firstMerchant, renderers[2].sprite), "smith advances at manifest eight FPS");
+            Check(!ReferenceEquals(firstMerchant, renderers[2].sprite), "smith advances using its biome animation timing");
             var point = Point(kind); point.Start(P1); Fill(P1, CurrencyType.Coins, 6); point.CompleteNative(P1);
             var bow = Pool.LastIssued;
             var shieldChildren = bow.transform.children.Where(t => t.gameObject.name == "KEM_PaidShield").ToArray();
