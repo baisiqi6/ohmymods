@@ -6,9 +6,10 @@ namespace KingdomEnhancedMod;
 /// <summary>Passive cached calendar overlay; one-time font discovery, no controls or game-state writes.</summary>
 internal static class CalendarHud
 {
-    private const float Width = 684f, Height = 54f;
+    private const float Width = 816f, Height = 54f;
     private static readonly Color Gold = new Color(0.93f, 0.78f, 0.47f);
     private static readonly Color Ivory = new Color(0.95f, 0.92f, 0.84f);
+    private static readonly Color GemTint = new Color(0.55f, 0.80f, 0.87f);
     private static readonly Color Muted = new Color(0.68f, 0.62f, 0.52f);
     // Subdued seasonal tints for the pixel strip.
     private static readonly Color[] SeasonColors =
@@ -17,7 +18,7 @@ internal static class CalendarHud
         new Color(0.82f, 0.56f, 0.38f), new Color(0.58f, 0.72f, 0.85f)
     };
     private static Texture2D _white;
-    private static readonly Texture2D[] Icons = new Texture2D[7];
+    private static readonly Texture2D[] Icons = new Texture2D[8];
     private static GUIStyle _large, _small, _number;
     private static bool _presentationLogged;
     private static IntPtr _world, _scene, _director;
@@ -63,6 +64,8 @@ internal static class CalendarHud
                 ? BankAssistantCoordinator.GetStashedCoinsForPanel() : -1;
             // The coin icon plus the 主城金库 caption already identify the currency; keep the bare number.
             _bankText = stashed < 0 ? "—" : stashed.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+            // issue-175：本机钱包随身钻石与日期共用半秒采样，Draw 不读钱包。
+            PatchUI_CalendarGems.Refresh(managers.kingdom, scene);
             // issue-86：与 F5 面板同源同格式；Draw 只读本缓存，不查游戏状态。
             _wallText = FormatWallStatus(WallEngineerRuntime.Status);
             _valid = CalendarReader.TryRead(director, out _snapshot);
@@ -84,6 +87,7 @@ internal static class CalendarHud
         _nextRead = 0f;
         _bankText = "—";
         _wallText = "未生效";
+        PatchUI_CalendarGems.Clear();
     }
 
     internal static void Draw()
@@ -102,7 +106,7 @@ internal static class CalendarHud
             GUI.depth = -20;
             // Other worlds retain the calendar without the Greek treasury extension.
             bool showBank = GreekBankScope.IsActive;
-            float width = showBank ? Width : 518f;
+            float width = showBank ? Width : 650f;
             float scale = Mathf.Clamp(Mathf.Min(Screen.width / 1280f, Screen.height / 720f), 0.45f, 2f);
             scale = Mathf.Min(scale, Mathf.Max(1f, Screen.width - 24f) / width);
             float x = Mathf.Round((Screen.width / scale - width) * 0.5f);
@@ -128,6 +132,11 @@ internal static class CalendarHud
             if (_snapshot.HasNextSeason)
                 Line(x + 236, y + 39, 136 * Mathf.Clamp01(_snapshot.Progress), 3, currentColor);
             if (showBank) Label(x + 400, y + 31, 132, 20, "主城金库", _small, Muted);
+            // 随身钻石独立于主城金库：双本机玩家各显示各的钱包，不合计。
+            float gemX = x + width - 264f;
+            Icon(7, gemX, y + 8, 16, GemTint);
+            Label(gemX + 24, y + 6, 108, 22, PatchUI_CalendarGems.ValueText, _number, GemTint);
+            Label(gemX, y + 31, 132, 20, PatchUI_CalendarGems.CaptionText, _small, Ivory);
             // issue-86 外墙耐久列：值在上行、标题在下行，占用原日历右侧新增的 132px 列。
             float wallX = x + width - 132f;
             Label(wallX + 14, y + 6, 104, 22, _wallText, _number, Gold);
@@ -304,6 +313,11 @@ internal static class CalendarHud
             return Segment(x, y, 0.18f, 0.5f, 0.80f, 0.5f, 0.04f)
                 || Segment(x, y, 0.56f, 0.73f, 0.80f, 0.5f, 0.04f)
                 || Segment(x, y, 0.56f, 0.27f, 0.80f, 0.5f, 0.04f);
+        if (index == 7) // Diamond silhouette with a small facet gap, aligned to the existing binary icon set.
+        {
+            float diamond = Mathf.Abs(dx) / 0.32f + Mathf.Abs(dy) / 0.42f;
+            return diamond <= 1f && !(Mathf.Abs(dy - 0.08f) < 0.035f && Mathf.Abs(dx) < 0.20f);
+        }
         // index 6: coin — thick ring with a solid core, stays legible at HUD icon size.
         return Mathf.Abs(radius - 0.34f) < 0.085f || radius < 0.12f;
     }

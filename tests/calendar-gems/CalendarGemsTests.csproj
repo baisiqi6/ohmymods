@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net8.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Nullable>disable</Nullable>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+        <AssemblyName>CalendarGemsTests</AssemblyName>
+        <RestorePackagesPath>$(MSBuildThisFileDirectory)obj/packages</RestorePackagesPath>
+    </PropertyGroup>
+    <ItemGroup>
+        <!-- 真实 candidate 产品源码链接进测试程序集，测试直接调用同一实现 -->
+        <Compile Include="../../il2cpp/PatchUI_CalendarGems.cs" />
+        <Compile Include="Stubs.cs" />
+        <Compile Include="Program.cs" />
+    </ItemGroup>
+</Project>
