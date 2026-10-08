@@ -1,3 +1,11 @@
+## 2026-10-08 — Android 全源盘点刷新（Issue #186，代码候选已验证，交付收尾中）
+
+诊断工具原 XmlPeek 资源空清单错误实际复现后，在产生处直接导入PC同一EmbeddedAssets.props，删除失效收集/派生命名/守卫。实际37资源path/LogicalName/内容SHA全等，源项保持：237PC源扣9替代得228共享＋26Android＋1alias＋1生成=256项目源码项（不含SDK AssemblyInfo）。SDK10 default5E0W为Bep平台声明；optin118E1W=95配置引用/42成员＋3图片绘制接口＋1弩手分类＋19混合协程歧义，唯一warningCS0649。编译盘点不强求全绿，不称118原生API缺口，不修改47源Main/20entry/35注册或设备；原失败、Root集成检查误拒与超序读原工程的两失败构建保留，最终证据另栏。
+
+剩余按当前全范围规划8–10组、约80–210工程小时（实现/兼容/必要审查/模拟器验证内含）。依据237/57/37、42成员依赖组、7新增PC源与图片接口缺口；未经验证的原生池/身份/存档责任可触发重估，不是完成率或排期承诺，phone/MP/长周期日历单列。下一公共UI兼容批先有界核图片绘制与只读HUD；详情与分组账目见tasks/issue-186/。
+
+人口批Issue184已按代码交付正常收尾：PR185合并fb60c276、GitHub184 CLOSED、canonical184 done/closed；其他158完整对象/order159与101plan保持、doctor0E0W。最终Maina936/APKb2d8的106/789/629及PC17/完整1307types6901methods37资源验证保留，8 first-observed不是补员出生。自然Spawn delta1、OFF原值、sameScene另一子树、phone/MP/池换岛读档长期继续pending。夜袭148/PR149也已代码done；下方相关交付前文字是历史阶段记录，不撤回已完成移植、不升级其玩法实测。
+
 ## 2026-10-06 — 商店美术方向与通用准则（Issue #176/#177，生产素材尚未完成）
 
 用户将布棚概念改用于英雄弓箭手店（弓/箭袋/箭束，加飘带/丝巾/斗篷点缀），盾卫改原版厚重石造/大理石方向。两店现有预览不作为生产atlas，未修改运行素材。人物独立层、原生成年居民身高、真实地面脚线及建筑空间适配规则纳入AGENTS.md和development/shop-material-standard.md；生产帧表/层序/PPU/pivot/footprint/付款点与实机仍待制作验证，两个Issue保持开放。详见tasks/shop-art-176-177/。

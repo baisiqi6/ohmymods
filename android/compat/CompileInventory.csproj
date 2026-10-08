@@ -14,22 +14,27 @@
       - ../../il2cpp/**/*.cs minus the 9 platform-replacement originals (the Android product uses
         the android/ files instead; authority for the mapping:
         D/full-android-compat-inventory/feature-groups.json "replacedOriginals")
-      - the 24 android top-level adapter files via ../*.cs (subdirs tests/, compat/, obj/, bin/
+      - the Android top-level adapter files via ../*.cs (subdirs tests/, compat/, obj/, bin/
         are not matched)
       - DiagnosticGlobalAliases.cs (diagnostic-only Rewired alias) + MyPluginInfo.g.cs (generated at
         build time from the real project's AssemblyName/Version; see the GenerateMyPluginInfo target)
+
+    Resources: the same canonical ../../il2cpp/EmbeddedAssets.props the real project and Mac
+    wrappers import — Include and LogicalName are authoritative there (resolved via the props' own
+    MSBuildThisFileDirectory). Compilation-only: resources are embedded into this diagnostic
+    assembly only; never packaged, loaded or shipped on Android.
 
     References: the real Android interop set (all DLLs from GameInteropDir) + the loader runtime
     (6 named assemblies) + the support module (Il2Cpp.dll). DesktopMetadataDir is opt-in and
     compile-only (BepInEx.Core + BepInEx.Unity.IL2CPP) for the comparison run. No default paths.
 
-    Expected results with the current source tree (see android/compat/README.md):
-      - default (no DesktopMetadataDir): declaration-phase errors only, all from the named
-        BepInEx platform boundary (BepInEx.Configuration/BepInEx.Unity.IL2CPP.Hook/INativeDetour/
-        ConfigEntry) — the compile stops there and does not list body-phase errors
-      - -p:DesktopMetadataDir=<BepInEx/core>: 107 errors = 92 missing ModConfig members
-        (91 call sites / 44 distinct names + 1 CrossbowmanRole) + 15 CS0121 WrapToIl2Cpp
-        mixed-extension artifacts; S3 LogDebug and the Coatsink/Harmony name layer are closed.
+    Run shape (counts come from each actual run; none are pinned here):
+      - default (no DesktopMetadataDir): the compile stops in the declaration phase and lists the
+        still-open BepInEx platform-boundary names (BepInEx.Configuration/ConfigEntry,
+        BepInEx.Unity.IL2CPP.Hook/INativeDetour, ...); body-phase errors are not reached.
+      - -p:DesktopMetadataDir=<BepInEx/core>: adds the two compile-only desktop metadata DLLs and
+        reaches the body phase, where ModConfig member gaps and mixed-extension WrapToIl2Cpp
+        artifacts appear (the mixed artifacts do not occur under the default Android references).
 
     Build (SDK 10), e.g.:
       dotnet build android/compat/CompileInventory.csproj -c Debug \
@@ -65,11 +70,15 @@
     <DesktopMetadataDir></DesktopMetadataDir>
   </PropertyGroup>
 
+  <!-- Single-source embedded resources from the same canonical props the real project and
+       Mac wrappers import; compilation-only (never packaged or loaded on Android). -->
+  <Import Project="$(Il2CppRoot)/EmbeddedAssets.props" />
+
   <ItemGroup>
-    <!-- 230 shared sources minus the 9 platform-replacement originals (Android supersedes them). -->
+    <!-- Shared sources minus the 9 platform-replacement originals (Android supersedes them). -->
     <Compile Include="$(Il2CppRoot)/**/*.cs"
              Exclude="$(Il2CppRoot)/CalendarSnapshot.cs;$(Il2CppRoot)/KingdomEnhancedPlugin.cs;$(Il2CppRoot)/ModConfig.cs;$(Il2CppRoot)/ModPanel.cs;$(Il2CppRoot)/OptionalQoLScope.cs;$(Il2CppRoot)/PatchRide_InfiniteStamina.cs;$(Il2CppRoot)/PatchRide_SteedCooldown.cs;$(Il2CppRoot)/PatchWorld_Mover.cs;$(Il2CppRoot)/PopulationCounts.cs;$(Il2CppRoot)/**/obj/**;$(Il2CppRoot)/**/bin/**" />
-    <!-- 24 android top-level adapter files; tests/compat/obj/bin subdirs are not matched. -->
+    <!-- Android top-level adapter files; tests/compat/obj/bin subdirs are not matched. -->
     <Compile Include="$(MSBuildThisFileDirectory)../*.cs" />
     <Compile Include="DiagnosticGlobalAliases.cs" />
     <!-- Generated into this project's own obj before CoreCompile (single-sourced from OriginalProject). -->
@@ -141,28 +150,6 @@
     </ItemGroup>
     <WriteLinesToFile File="$(IntermediateOutputPath)MyPluginInfo.g.cs" Lines="@(_MyPluginInfoLine)"
                       Overwrite="true" WriteOnlyWhenDifferent="true" Encoding="UTF-8" />
-  </Target>
-
-  <!-- 33 declared EmbeddedResources: reused from the real project via XmlPeek (no second registry).
-       The original items are Assets/<name>.png with LogicalName (<RootNamespace>.<file name>);
-       the Include list is read from the real csproj and the logical names are derived by that
-       documented rule, with a count guard against the declared list. -->
-  <Target Name="CollectDeclaredResources" BeforeTargets="PrepareForBuild" DependsOnTargets="ValidateInventoryDependencyDirs">
-    <XmlPeek XmlInputPath="$(OriginalProject)" Query="/Project/ItemGroup/EmbeddedResource/@Include">
-      <Output TaskParameter="Result" ItemName="_OriginalResourceIncludes" />
-    </XmlPeek>
-    <XmlPeek XmlInputPath="$(OriginalProject)" Query="/Project/ItemGroup/EmbeddedResource/@LogicalName">
-      <Output TaskParameter="Result" ItemName="_OriginalResourceLogicalNames" />
-    </XmlPeek>
-    <Error Condition="'@(_OriginalResourceIncludes)' == ''"
-           Text="CompileInventory: no EmbeddedResource items found in $(OriginalProject)" />
-    <Error Condition="'@(_OriginalResourceIncludes->Count())' != '@(_OriginalResourceLogicalNames->Count())'"
-           Text="CompileInventory: EmbeddedResource Include/LogicalName count mismatch in $(OriginalProject)" />
-    <ItemGroup>
-      <EmbeddedResource Include="@(_OriginalResourceIncludes->'$(Il2CppRoot)/%(Identity)')">
-        <LogicalName>$(RootNamespace).%(Filename)%(Extension)</LogicalName>
-      </EmbeddedResource>
-    </ItemGroup>
   </Target>
 
 </Project>
