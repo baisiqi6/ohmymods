@@ -1,0 +1,98 @@
+{
+  "task": "issue-188",
+  "scope": "Android public full-image draw and readonly native wallet HUD; code delivery pending PR",
+  "sourcePins": [
+    {
+      "relative": "android/Probe.cs",
+      "sha256": "fc9b43fcad2923a8f52b66711026e958c08974a336e56803661e6a8abd03b1af",
+      "bytes": 22407
+    },
+    {
+      "relative": "android/MobileCalendar.cs",
+      "sha256": "39ac54e3bf7acb37a7a30189f67dd2973bb394f53d28193836481dba0c44723b",
+      "bytes": 3290
+    },
+    {
+      "relative": "il2cpp/ImGuiCompat.cs",
+      "sha256": "7fa6ac341f5a7cafe7b8d133b1d7f2bb7ba1df83442b9dca66d25f08f3687638",
+      "bytes": 2601
+    },
+    {
+      "relative": "android/OhMyMods.AndroidProbe.csproj",
+      "sha256": "8680eb5e7683c7f4d98b87d7f2ca9e78f8a9632dba600535aa028bd3b8440b46",
+      "bytes": 11561
+    },
+    {
+      "relative": "il2cpp/PatchUI_AndroidImages.cs",
+      "sha256": "07b4b29d7ad969f847faea5f0b66ff2a33e19eb95ccdd98000748403adf6bae3",
+      "bytes": 6524
+    },
+    {
+      "relative": "android/PatchUI_MobileCalendarHud.cs",
+      "sha256": "bd2de1b93492901e8cad72af54c370361cee5f3b29e695c3c1721484247f7086",
+      "bytes": 3029
+    },
+    {
+      "relative": "android/tests/Program.cs",
+      "sha256": "8b686870e7af6976f9eb6de61dba06cb2e9d83a9dc6ccb9fefe43a3241c7f4d9",
+      "bytes": 151076
+    }
+  ],
+  "androidBuild": {
+    "SDK": "10.0.401",
+    "warnings": 0,
+    "errors": 0,
+    "MainSHA256": "487b4e065055265ef6726ee448033222e0a965d549f0090bb1100074762ab7b6",
+    "MainBytes": 202752,
+    "sourceItems": 50
+  },
+  "PCBuild": {
+    "warnings": 0,
+    "errors": 0,
+    "fullSemanticComparison": "MATCH",
+    "types": 1307,
+    "methods": 6901,
+    "resourceDiffs": 0,
+    "deployed": false
+  },
+  "host": {
+    "newImageAndMobileCalendarHandoff": 46,
+    "existingWallet": 40,
+    "existingPCHUD": 46,
+    "adapterNormal": 792,
+    "adapterOldcfg": 632,
+    "failed": 0,
+    "strongPinnedInputs": 55
+  },
+  "native": {
+    "launchToConfirmedZeroPIDSeconds": 79.58352550002746,
+    "capturesGUI": "640x360",
+    "capturePNG": "1280x720",
+    "newActualPublicAPIROI": 62080,
+    "ROIReference": "MATCH to prior Round2 including disclosed weak boundary",
+    "edgeLimit": "1pixel line C/D delta35, E/F delta64; not ideal all-pixel equal or wholly black outside",
+    "HUD": "actual world / Chinese date / single local wallet 0",
+    "inputCount": 0,
+    "hookTargets": 35,
+    "errors": 0,
+    "knownWarnings": 2,
+    "cfgCount": 20,
+    "cfgNativeSameAtNamedTimepoints": true,
+    "restoredFixtureFreeProduct": true,
+    "restoredProductLaunched": false
+  },
+  "pending": [
+    "root two-param native entry",
+    "other scale/rotations and partial clipping with non1 parent",
+    "nonzero and2P wallets",
+    "touch and expanded panel in current batch",
+    "phone/MP/highDPI/long life",
+    "native failure injection/recovery"
+  ],
+  "privateArtifactsPublished": false,
+  "reviewEvidenceSHA256": {
+    "source": "a9f8d350ee86fa6ea0526df19be361768c99fdf424713105a93deceabd5fbf59",
+    "nativeObservation": "b9eb1994851d2e4017cbe874831f6f928bc0cef63f64bdb173047c132b2bb5ca",
+    "GLMsource": "b6e9c5d62e7581eb9474576a945528e37268672d736777925014604b60455715"
+  }
+}

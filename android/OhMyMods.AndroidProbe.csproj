@@ -62,6 +62,7 @@
     <Compile Include="FloatLayout.cs" />
     <Compile Include="TouchClaims.cs" />
     <Compile Include="MobileCalendar.cs" />
+    <Compile Include="PatchUI_MobileCalendarHud.cs" />
     <Compile Include="CalendarSnapshot.cs" />
     <Compile Include="MobilePopulation.cs" />
     <Compile Include="PopulationCounts.cs" />
@@ -101,6 +102,9 @@
     <Compile Include="../il2cpp/ModPanelStyles.cs" Link="Production/ModPanelStyles.cs" />
     <Compile Include="../il2cpp/ModPanelControls.cs" Link="Production/ModPanelControls.cs" />
     <Compile Include="../il2cpp/ImGuiCompat.cs" Link="Production/ImGuiCompat.cs" />
+    <!-- Issue #188：公共图片 Android partial 与 PC 同源的只读随身钻石。 -->
+    <Compile Include="../il2cpp/PatchUI_AndroidImages.cs" Link="Production/PatchUI_AndroidImages.cs" />
+    <Compile Include="../il2cpp/PatchUI_CalendarGems.cs" Link="Production/PatchUI_CalendarGems.cs" />
   </ItemGroup>
 
   <ItemGroup>
