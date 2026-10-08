@@ -49,6 +49,7 @@
     <Compile Include="GlobalAliases.cs" />
     <Compile Include="AndroidCoroutine.cs" />
     <Compile Include="HoldBridges.cs" />
+    <Compile Include="../il2cpp/PatchShared_ModDataPaths.cs" Link="Production/PatchShared_ModDataPaths.cs" />
     <Compile Include="MobilePlayerConfig.cs" />
     <Compile Include="MobilePlayerMenu.cs" />
     <Compile Include="MobileWorldMenu.cs" />

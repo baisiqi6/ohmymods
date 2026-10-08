@@ -1,6 +1,12 @@
 using System;
 using System.Collections.Generic;
-using BepInEx.Configuration;
+#if ANDROID
+using ConfigIntEntry = MelonLoader.MelonPreferences_Entry<int>;
+using ConfigFloatEntry = MelonLoader.MelonPreferences_Entry<float>;
+#else
+using ConfigIntEntry = BepInEx.Configuration.ConfigEntry<int>;
+using ConfigFloatEntry = BepInEx.Configuration.ConfigEntry<float>;
+#endif
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
 
@@ -336,7 +342,7 @@ internal static class CoinCourierRuntime
         {
             try
             {
-                ConfigEntry<float> entry = ModConfig.CoinCourierKnightCooldown;
+                ConfigFloatEntry entry = ModConfig.CoinCourierKnightCooldown;
                 if (entry == null) return 15f;
                 float value = entry.Value;
                 if (!float.IsFinite(value)) return 15f;
@@ -349,7 +355,7 @@ internal static class CoinCourierRuntime
         }
     }
 
-    private static int ReadInt(ConfigEntry<int> entry, int min, int max, int fallback)
+    private static int ReadInt(ConfigIntEntry entry, int min, int max, int fallback)
     {
         try
         {

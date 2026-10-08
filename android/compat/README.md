@@ -32,7 +32,16 @@ dotnet build android/compat/CompileInventory.csproj -c Debug \
   第二份资源清单。资源只嵌入本诊断程序集，**不进 Android runtime**：不打包、不加载、不参与产品
   构建（compilation-only）。
 
-## 当前实测结果（Issue #186，2026-10-08）
+## 当前实测结果（Issue #192，2026-10-08）
+
+- 全量260CompileItems：231共享源、27Android顶层、1诊断alias、1生成槽；37公共资源保持。数量随本次实际评估而来，非runtime完成率。
+- default 2E0W：仅扩展岛 Hook / INativeDetour声明缺口；3处Configuration / ConfigEntry声明错误已由真实平台类型别名消除。仍停在声明阶段，后续方法体/原生ABI未由此证明。
+- optin 115E1W：95个ModConfig引用（42成员）＋1个PopulationCounts.CrossbowmanRole＋19个仅诊断PC集合扩展与现有AndroidCoroutine混合歧义。与#188之前相比3个完整图片接口缺口已经实现；本批未伪造其余配置/角色常量或删除失败源码。
+- 当前Android产品51输入、20真实entry、35hook；公共数据根直接转发loader UserData，PC类型与getter目标保持。实际Android/PC编译0W0E，PC全语义/资源MATCH。尚未启用相关持久化feature，无设备安装/玩法验收。
+- 既有Hermes host 25/1与同base原版相同；共享读句柄fixture未产生预期拒写，原版/候选host全语义MATCH。不跳过测试或宣称权限验证通过。
+- raw及完整边界见 `docs/project-harness/tasks/issue-192/implementation.md` 与本机 `.local/tasks/android-port-resume-20261008/common-seams/`。剩余8–10组/80–210工程小时仍为条件估算，主要功能配置与高风险依赖尚未减少。
+
+## 历史实测结果（Issue #186，2026-10-08，当时口径）
 
 - **default（无 DesktopMetadataDir）**：5 个唯一错误、0 warning：CS0234×3、CS0246×2。
   `CoinCourierRuntime.cs` 与 `AutoRestockCounts.cs` 的 Configuration / ConfigEntry，及
@@ -56,7 +65,7 @@ dotnet build android/compat/CompileInventory.csproj -c Debug \
 - ModConfig 成员缺口按后续 feature 批接入，不为凑绿 stub/删文件；本工程只证明静态 API 面，
   不证明运行时行为，也不代表可玩包。
 
-## 本批现状数字（Issue #186 实际评估 pin）
+## 历史批次数字（Issue #186 实际评估 pin）
 
 - 资源：37 项 `EmbeddedResource`，逐项 path / LogicalName / SHA256 与真实 PC 工程实际评估集相同
   （本批 `validation-summary.json` 和 `canonical-resource-proof.json`；原 PC 工程 direct EmbeddedResource=0，资源全部来自
@@ -69,7 +78,7 @@ dotnet build android/compat/CompileInventory.csproj -c Debug \
   完整盘点扣除9具名平台原件，其余228共享源全部保留，不以stub或删失败源码造绿。
 - 数字是编译表面，不是完整 runtime 依赖或完成率；phone / MP / 长期运行验收单列（未验证）。
 
-## 当前剩余规划
+## 上一轮剩余规划（Issue #186，当时口径）
 
 按已完成的人口批与当前237源全范围，规划剩余8–10组、约80–210工程小时，含实现、兼容、
 必要审查和模拟器验证；范围假设与各组账目见本任务implementation。公共图片/HUD→角色与宠物→

@@ -20,7 +20,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using BepInEx;
+#if !ANDROID
+using ModDataPaths = BepInEx.Paths;
+#endif
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
 
@@ -885,7 +887,7 @@ internal static class DeadlandsFollowerCapture
         string path = null;
         try
         {
-            string directory = Path.Combine(Paths.ConfigPath, "KingdomEnhancedMod", "Diagnostics");
+            string directory = Path.Combine(ModDataPaths.ConfigPath, "KingdomEnhancedMod", "Diagnostics");
             Directory.CreateDirectory(directory);
             _sessionSerial++;
             path = Path.Combine(directory,

@@ -36,7 +36,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using BepInEx;
+#if !ANDROID
+using ModDataPaths = BepInEx.Paths;
+#endif
 using HarmonyLib;
 using UnityEngine;
 
@@ -2758,7 +2760,7 @@ namespace KingdomEnhancedMod
             {
                 try
                 {
-                    return System.IO.Path.Combine(Paths.ConfigPath, "KingdomEnhancedMod", "ModSave", "knight-identities.v1.json");
+                    return System.IO.Path.Combine(ModDataPaths.ConfigPath, "KingdomEnhancedMod", "ModSave", "knight-identities.v1.json");
                 }
                 catch (Exception e)
                 {
