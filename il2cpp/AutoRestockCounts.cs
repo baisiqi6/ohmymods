@@ -3,6 +3,12 @@ using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
 
+#if ANDROID
+using ConfigBoolEntry = MelonLoader.MelonPreferences_Entry<bool>;
+#else
+using ConfigBoolEntry = BepInEx.Configuration.ConfigEntry<bool>;
+#endif
+
 namespace KingdomEnhancedMod;
 
 /// <summary>
@@ -273,7 +279,7 @@ internal static class AutoRestockCounts
         return mask;
     }
 
-    private static bool On(BepInEx.Configuration.ConfigEntry<bool> e) => e != null && e.Value;
+    private static bool On(ConfigBoolEntry e) => e != null && e.Value;
 
     // === 上下文 ===
 

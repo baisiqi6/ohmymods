@@ -1773,6 +1773,7 @@ internal static class ArtifactChecks
             "il2cpp/PatchUI_AndroidImages.cs",
         "android/PatchUI_MobileCalendarHud.cs",
         "il2cpp/PatchUI_CalendarGems.cs",
+        "il2cpp/PatchShared_ModDataPaths.cs",
 };
 
     private static void VerifyFrozenSources()
@@ -1795,7 +1796,7 @@ internal static class ArtifactChecks
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
             { "android/MobileVegetationMenu.cs", "40e6be0dda5313a61f01f98e1829422290612ede0b948b8d21c4549a58890e66" },
             { "android/MobileWorldMenu.cs", "35749b5a0aaa300cb03c439790252f04bacdef91fc38188a25e260af29884fee" },
-            { "android/OhMyMods.AndroidProbe.csproj", "8680eb5e7683c7f4d98b87d7f2ca9e78f8a9632dba600535aa028bd3b8440b46" },
+            { "android/OhMyMods.AndroidProbe.csproj", "beb0ab03f45f03d1470d1cad90affa73f86b095d7fe3c507b4767c69c66857cb" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PanelGesture.cs", "51071fefbc1a1ab4b8f23ee84bf10925c325d8414400b9ed186af238c136e97b" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },
@@ -1834,6 +1835,7 @@ internal static class ArtifactChecks
                     { "il2cpp/PatchUI_AndroidImages.cs", "07b4b29d7ad969f847faea5f0b66ff2a33e19eb95ccdd98000748403adf6bae3" },
             { "android/PatchUI_MobileCalendarHud.cs", "bd2de1b93492901e8cad72af54c370361cee5f3b29e695c3c1721484247f7086" },
             { "il2cpp/PatchUI_CalendarGems.cs", "61dc210b03a8eceaf0b7da52ccdf0890e31cdd8a9cd0c1207409da6ded50bb93" },
+            { "il2cpp/PatchShared_ModDataPaths.cs", "f38c27e36ae7d4209a7a849dc06415a9bd7705d9d22b3689120882db2e484d0f" },
 };
         foreach (string relative in FrozenSources)
         {

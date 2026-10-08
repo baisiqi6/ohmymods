@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using BepInEx;
+#if !ANDROID
+using ModDataPaths = BepInEx.Paths;
+#endif
 using HarmonyLib;
 using UnityEngine;
 
@@ -23,7 +25,7 @@ internal static class MusketeerPersistence
     private static SaveCapture _save;
     private static LoadCapture _load;
 
-    internal static string ArchivePath => Path.Combine(Paths.ConfigPath, "KingdomEnhancedMod", "ModSave", "musketeer-identities.v2.json");
+    internal static string ArchivePath => Path.Combine(ModDataPaths.ConfigPath, "KingdomEnhancedMod", "ModSave", "musketeer-identities.v2.json");
 
     internal static MusketeerArchiveStore.ReadResult ReadArchive() => MusketeerArchiveStore.Load(ArchivePath);
 

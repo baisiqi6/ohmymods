@@ -1,0 +1,122 @@
+{
+  "base": "af1ae0b657234d874cfc755a86b956b6703aa4be",
+  "acceptedPlanSHA256": "204be5a88d2a54ce4a8141c7f84b54c0ec38a093d46968649aa6abee065816a4",
+  "sourceStage": "implemented and tested;independentcode gate pending",
+  "codeSourcePins": [
+    {
+      "path": "android/OhMyMods.AndroidProbe.csproj",
+      "sha256": "beb0ab03f45f03d1470d1cad90affa73f86b095d7fe3c507b4767c69c66857cb",
+      "bytes": 11671
+    },
+    {
+      "path": "android/tests/Program.cs",
+      "sha256": "9fa686f357d5b8fa7ea75f283d64d99febda641ce8c2ba8431d21e3a39aa585c",
+      "bytes": 151244
+    },
+    {
+      "path": "il2cpp/AutoRestockCounts.cs",
+      "sha256": "8e05e6a95581f85ad82b51aaa6cf579410568c03614be0d0baf2e654befb7bf3",
+      "bytes": 40682
+    },
+    {
+      "path": "il2cpp/CoinCourierRuntime.cs",
+      "sha256": "1624a530876854c9f9d9ded41775be577fa26aa7f2570d0f85c59965183a8c47",
+      "bytes": 75067
+    },
+    {
+      "path": "il2cpp/DeadlandsFollowerCapture.cs",
+      "sha256": "1a56a838fdb46e554921d9a0968f0b96659520260581b74171fe5c236e79c96e",
+      "bytes": 47265
+    },
+    {
+      "path": "il2cpp/HermesHeadwearCycle.cs",
+      "sha256": "459c213c8dceb4faed431498588aa0e31fc48f42af35d0c8d2ad3da7186a78b2",
+      "bytes": 19348
+    },
+    {
+      "path": "il2cpp/HeroRecruitment.cs",
+      "sha256": "4554bb68c19faef56a4a62fa5bf1de8066624af5c70dad798e3d5c2073aecabf",
+      "bytes": 94656
+    },
+    {
+      "path": "il2cpp/KnightIdentityRuntime.cs",
+      "sha256": "4ce8026df513dbbb6aef563aa132f203f8087fdb370be7c998d1acacefacefa2",
+      "bytes": 161326
+    },
+    {
+      "path": "il2cpp/MusketeerPersistence.cs",
+      "sha256": "24ab5c01dd941b1c58de3a6ebdffeab3f72507a474bff5b68ce166f3a96db6c0",
+      "bytes": 31244
+    },
+    {
+      "path": "il2cpp/PatchShared_ModDataPaths.cs",
+      "sha256": "f38c27e36ae7d4209a7a849dc06415a9bd7705d9d22b3689120882db2e484d0f",
+      "bytes": 507
+    }
+  ],
+  "android": {
+    "compileItems": 51,
+    "warnings": 0,
+    "errors": 0,
+    "assemblySHA256": "4c129bb699532207ca5e061b597841098d65a2891d8f778f7c516d36a52f5549",
+    "assemblyBytes": 219648,
+    "configurationEntriesPreserved": 20,
+    "hooksPreserved": 35,
+    "newHelperOnlyNoFeatureEnable": true,
+    "BepRuntimeRefs": 0
+  },
+  "pc": {
+    "warnings": 0,
+    "errors": 0,
+    "types": 1311,
+    "methods": 6906,
+    "resources": 37,
+    "fullSemanticComparison": "MATCH",
+    "deployed": false
+  },
+  "host": {
+    "courierChecks": 223,
+    "courierFailed": 0,
+    "restockPassed": 86,
+    "restockFailed": 0,
+    "adapterNormalPassed": 793,
+    "adapterNormalFailed": 0,
+    "adapterOldcfgPassed": 633,
+    "adapterOldcfgFailed": 0,
+    "hermesPassed": 25,
+    "hermesFailed": 1,
+    "hermesOriginalPassed": 25,
+    "hermesOriginalFailed": 1,
+    "hermesTestSemantics": "MATCH",
+    "hermesFailure": "existing FileShare.Read replacement fixture did not deny write on this host; exclusive read refusal matched; no production/test skip changes"
+  },
+  "inventory": {
+    "compileItems": 260,
+    "shared": 231,
+    "androidTopLevel": 27,
+    "resources": 37,
+    "defaultUniqueErrors": 2,
+    "optinUniqueErrors": 115,
+    "configurationCalls": 95,
+    "configurationNames": 42,
+    "mixedCoroutineErrors": 19,
+    "modPopulationRoleGaps": 1,
+    "fullCompileSuccess": false
+  },
+  "productInstalled": false,
+  "APKPackaged": false,
+  "nativeObserved": false,
+  "fullLiveAccepted": false,
+  "pending": [
+    "actual Android directory/permissions at future persistence feature enable",
+    "related role/identity/trade gameplay",
+    "phone/MP/long-term pooling and load"
+  ],
+  "estimate": {
+    "groups": "8-10",
+    "engineeringHours": "80-210",
+    "conditional": true,
+    "reason": "three declaration errors eliminated; major feature/configuration dependencies remain"
+  },
+  "privateEvidenceRoot": ".local/tasks/android-port-resume-20261008/common-seams/"
+}

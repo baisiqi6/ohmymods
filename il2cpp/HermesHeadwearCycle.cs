@@ -1,7 +1,7 @@
 // Hermes 头饰轮换游标 + 稳定配额（主机全局、跨存档/跨进程接续；不读写任何原生存档字段）。
 //
 // 契约（schema2）：
-//  * 文件：<BepInEx.Paths.ConfigPath>/KingdomEnhancedMod/ModSave/hermes-headwear-cycle.v2.json；
+//  * 文件：<数据根>/KingdomEnhancedMod/ModSave/hermes-headwear-cycle.v2.json（PC = BepInEx.Paths.ConfigPath，Android = MelonEnvironment.UserDataDirectory）；
 //    schema2 = {"v":2,"kind":"hermes-headwear-cycle","nextChoice":0..43,"credit":0..99}。
 //    闭 schema：未知/重复字段、未知版本、越界值、空文件、超 4 KiB 一律判非法（拒绝且一字不改）。
 //  * 唯一入口 TryAssign(chancePercent, out choice)：Operator 在 EffectiveHostEnabled + ReadChancePercent
@@ -24,6 +24,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+
+#if !ANDROID && !HERMES_CYCLE_TEST
+using ModDataPaths = BepInEx.Paths;
+#endif
 
 namespace KingdomEnhancedMod
 {
@@ -335,7 +339,7 @@ namespace KingdomEnhancedMod
 #if HERMES_CYCLE_TEST
             return string.IsNullOrEmpty(PathOverride) ? null : PathOverride;
 #else
-            try { return Path.Combine(BepInEx.Paths.ConfigPath, "KingdomEnhancedMod", "ModSave", FileName); }
+            try { return Path.Combine(ModDataPaths.ConfigPath, "KingdomEnhancedMod", "ModSave", FileName); }
             catch (Exception e) { LogOnce("config-path-" + e.GetType().Name); return null; }
 #endif
         }

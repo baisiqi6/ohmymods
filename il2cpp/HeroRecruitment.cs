@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using BepInEx;
+#if !ANDROID
+using ModDataPaths = BepInEx.Paths;
+#endif
 using HarmonyLib;
 using UnityEngine;
 
@@ -178,7 +180,7 @@ internal static class HeroRecruitment
     private static readonly HashSet<string> Logged = new(StringComparer.Ordinal);
     private static LoadCapture _load;
     private static SaveCapture _save;
-    internal static string ArchivePath => System.IO.Path.Combine(Paths.ConfigPath, "KingdomEnhancedMod", "ModSave", "hero-identities.v1.json");
+    internal static string ArchivePath => System.IO.Path.Combine(ModDataPaths.ConfigPath, "KingdomEnhancedMod", "ModSave", "hero-identities.v1.json");
 
     internal static void Observe(Archer archer)
     {
