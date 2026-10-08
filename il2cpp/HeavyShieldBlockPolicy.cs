@@ -9,7 +9,7 @@ internal sealed class HeavyShieldBlockPolicy
     internal const int InitialDurability = 4;
     internal const int BashDamage = 1;
     internal const int MaxBashTargets = 3;
-    internal const float BashCooldownSeconds = 8f;
+    internal const float BashCooldownSeconds = 10f;
     internal const int MaxDemoteAttempts = 1;
 
     internal enum HitResult : byte

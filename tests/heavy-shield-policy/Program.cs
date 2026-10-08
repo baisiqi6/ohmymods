@@ -160,8 +160,9 @@ static void BashTargetsAndCooldown()
     Check(!policy.TryRegisterBashTarget(40, true), "fourth target is excluded");
     policy.EndBash();
     Check(!policy.TryRegisterBashTarget(50, true), "no late hit after impact window");
-    Check(!policy.TryBeginBash(107.999f), "eight second cooldown");
-    Check(policy.TryBeginBash(108), "cooldown boundary");
+    Check(!policy.TryBeginBash(108), "old eight-second boundary stays on cooldown");
+    Check(!policy.TryBeginBash(109.999f), "ten second cooldown");
+    Check(policy.TryBeginBash(110), "cooldown boundary");
     Check(policy.TryRegisterBashTarget(10, true), "new bash has independent target cache");
     policy.EvaluateHit(Direct(11, 10, 1));
     policy.EvaluateHit(Direct(11, 10, 1));

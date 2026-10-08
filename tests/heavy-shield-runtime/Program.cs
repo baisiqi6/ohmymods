@@ -774,6 +774,72 @@ for(int fault=0;fault<7;fault++)
     }
 }
 Check(!HeavyShieldRuntime.CarrierMutationInProgress,"all carrier enable/disable finally masks closed");
+// Exercise the actual display producer and action clock, not only the arc sampler.
+// Earlier negative life tests deliberately retain unsafe old-world credentials.
+Managers.Inst.world.gameLayer = new GameObject("hop producer fixture world").transform;
+foreach (var side in new[] { HeavyShieldQuota.Side.Left, HeavyShieldQuota.Side.Right })
+foreach (float parentX in new[] { -2f, 0.8f, 1.5f })
+using (var f = new Fixture(side: side))
+{
+    int facing = side == HeavyShieldQuota.Side.Left ? -1 : 1;
+    f.Go.transform.position = new(facing * 4.75f, .3f, .7f);
+    f.Go.transform.localScale = new(parentX, 1.7f, 1f);
+    Check(f.Attach(new(2, false, false)), "hop producer attach with mirrored/scaled parent");
+    Guard(f);
+    var root = VisualRoot(f);
+    Vector3 anchor = f.Archer._spriteRenderer.transform.position;
+    int commands = f.Archer._mover.CommandWrites;
+    var nativeMove = new HeavyShieldRuntime.MoverFields(f.Archer._mover);
+    Check(HeavyShieldActorVisuals.Trigger(f.Archer, f.Handle.Life, HeavyShieldAction.Bash), "hop begins through existing action API");
+    Time.deltaTime = .25f;
+    HeavyShieldActorVisuals.Tick(f.Handle.GoId);
+    Check(Math.Abs(root.transform.position.x - (anchor.x + facing * .18f)) < .00001f
+        && Math.Abs(root.transform.position.y - (anchor.y + .12f)) < .00001f
+        && root.transform.position.z == anchor.z, "production child peaks forward/up in world space despite parent scale");
+    Check(f.Go.transform.position.x == anchor.x && f.Go.transform.position.y == anchor.y
+        && f.Archer._mover.CommandWrites == commands && nativeMove.Matches(f.Archer._mover), "hop display does not move native feet or command native Mover");
+    float elapsed = Pose(f).Elapsed;
+    Time.timeScale = 0f;
+    HeavyShieldActorVisuals.Tick(f.Handle.GoId);
+    Check(Pose(f).Elapsed == elapsed && Math.Abs(root.transform.position.y - anchor.y - .12f) < .00001f,
+        "pause freezes production hop even with positive callback delta");
+    Time.timeScale = 1f;
+    // A moving native anchor is followed absolutely; no captured old position or += drift.
+    f.Go.transform.position = new(anchor.x + .05f, anchor.y + .02f, anchor.z);
+    Time.deltaTime = 0f;
+    HeavyShieldActorVisuals.Tick(f.Handle.GoId);
+    HeavyShieldActorVisuals.Tick(f.Handle.GoId);
+    anchor = f.Archer._spriteRenderer.transform.position;
+    Check(Math.Abs(root.transform.position.x - anchor.x - facing * .18f) < .00001f
+        && Math.Abs(root.transform.position.y - anchor.y - .12f) < .00001f, "repeat callback follows fresh anchor without accumulating offsets");
+    HeavyShieldActorVisuals.Trigger(f.Archer, f.Handle.Life, HeavyShieldAction.Block);
+    HeavyShieldActorVisuals.Tick(f.Handle.GoId);
+    Check(root.transform.position.x == anchor.x && root.transform.position.y == anchor.y,
+        "block interruption resets owned child before next rendered frame");
+    HeavyShieldActorVisuals.Trigger(f.Archer, f.Handle.Life, HeavyShieldAction.Bash);
+    Time.deltaTime = .25f;
+    HeavyShieldActorVisuals.Tick(f.Handle.GoId);
+    HeavyShieldActorVisuals.Trigger(f.Archer, f.Handle.Life, HeavyShieldAction.Break);
+    Time.deltaTime = 0f;
+    HeavyShieldActorVisuals.Tick(f.Handle.GoId);
+    Check(root.transform.position.x == anchor.x && root.transform.position.y == anchor.y,
+        "break interruption clears leap displacement");
+    Check(HeavyShieldActorVisuals.Unregister(f.Archer, f.Handle.Life) && !root.activeInHierarchy
+        && !HeavyShieldActorVisuals.HasVisual(f.Archer, f.Handle.Life),
+        "retirement destroys owned display instead of leaving a floating child");
+    Check(HeavyShieldActorVisuals.Register(f.Archer, f.Handle.Life), "fresh registration after teardown");
+    var fresh = VisualRoot(f);
+    Check(fresh != root && fresh.transform.position.x == anchor.x && fresh.transform.position.y == anchor.y,
+        "new display lifetime starts at fresh native anchor, not old leap phase");
+    HeavyShieldActorVisuals.Trigger(f.Archer, f.Handle.Life, HeavyShieldAction.Bash);
+    Time.deltaTime = .25f;
+    HeavyShieldActorVisuals.Tick(f.Handle.GoId);
+    Time.deltaTime = .2f;
+    HeavyShieldActorVisuals.Tick(f.Handle.GoId);
+    Check(Pose(f).Action == HeavyShieldAction.Bash && fresh.transform.position.x == anchor.x
+        && fresh.transform.position.y == anchor.y, "hop lands before Bash recovery tail finishes");
+}
+
 Console.WriteLine($"PASS HeavyShield production runtime/combat/life/visuals: {checks} assertions");
 
 sealed class Fixture : IDisposable
