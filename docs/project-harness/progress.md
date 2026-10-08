@@ -1951,3 +1951,15 @@ B33D56B8已安装，唯一行为差异CatScaleY1.2→1.25；build0W0E、DLL常�
 2026-10-04 Android C8 / Issue140：共享普通鹿数量源以 `#if ANDROID` 别名头 + 平台 opt-in 门（`ModConfig.Enabled && DeerPopulationEnabled`，默认 OFF）直接链接进 Android 构建；默认 OFF 且无自有状态时在 `controller.Pointer` 之前零 interop 返回，owned 状态仍沿原指针/token/identity 清理路径只归还自己已借 bits；同次 Eligible 采集 scope 证据供一次性应用日志。第 15 项 entry/READY deerPopulation、Vegetation & Wildlife 406 四行（Cats98/Forest176/Deer254/Back332）、csproj 链接与 AdapterTests 15 项/406/产物形状/冻结同步。验证：真实 SDK10 interop Rebuild 0W0E（Main 8189f33f…）、PC 既有 deer 27/0、typed ANDROID host 32/0（含 controller.Pointer 计数的默认 OFF 零 interop 最早访问、Greek5 应用与日志证据、OFF owned 清理、active 重入、ON+ThrowInterop negative control 零写一次 warning）、适配层默认 509/0 与全部加载边界模式 0 failed、PC 快照 baseline/candidate 0W0E 且语义比较 0 diffs（无允许表）。实际 3x 数量效果/自然 apply 日志/换岛读档/池/手机联机待设备关口后自然观察；本轮回执与证据在 `D/deer-implementation/`。
 
 2026-10-04 Android C8 / Issue140 模拟器阶段：文案超宽已在原scope两处字符串缩短为Greek only: target/refill x3，保留原截图/旧Main8189；最终Main12840083 / APKaeca1e71已保留数据安装，真实25/旧24shape/旧14prefs/onlyMain/0ERROR+2旧warnings，Veg406 ON/OFF文案完整、设置cycle和coldfalse,true,false通过，一次nativeOptions重叠点击隔离。实际普通鹿当前input首次与ONcold日志density0.027→.081、冬密度.013→.039/currentinterval÷3与scene/child/prefabDeer gate已命中；这是输入接入证据，未测长期群量/补充频率效果。最终OFF/stopped，before/final native7ba5相等只两个时点。设备claims独审和PR/normalcanonical收尾进行中，仍自动推进下一依赖块，不以此声明完整手机/联机/保存池验收。
+
+
+2026-10-08 Android / Issue184：营地补员、每帐篷上限与刷新间隔三项真实设置接入现有中文人口页，
+保持小浮球和 PC 共用样式/控件、旧17设置/名单。同源3文件的ANDROID平台门、首写上下文、
+逐字段写凭据/一次精确交还、异常终态停止与原生Spawn门完成，清原周期覆写/2秒retry/attachfallback；
+PC237源/37资源实际DLL对照1307type/6901method零差。实际SDK10Main a93656e7… 0W0E，
+typed host106/0、strict789/0+oldcfg629/0、Grounding17/0；缺失physics getters经原始APK声明、
+正确Unity基库补全链和实际simulated_Injected stack定位，ANDROID只读日志明确4unavailable，
+其余实际物理样本成功，对应完整 loader 日志无新警告。私有APK b2d8b2f3… 单Main/CRC/签名已保数据安装，35真实target/
+20cfg、最终false4/120、old17保持、停机；first-observed不冒充spawn。自然补员delta1/OFF原生值
+读回/全部world/池重建/手机多指MP长周期仍pending。原a551/5559失败与125.86s超120窗口保留。
+代码PR与normal任务收尾待完成，验收边界见tasks/issue-184/implementation.md；不发布游戏/loader/interop。

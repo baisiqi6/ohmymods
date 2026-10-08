@@ -24,6 +24,28 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   生成或安装任何依赖，也不会把游戏/loader 二进制复制进输出（`Private=false`）。
 - 仓库不分发原版 APK、loader（含 winhttp/native host）或 interop 二进制；本目录只含 mod 源码。
 
+## 营地补员（Issue #184）
+
+人口页保留小浮球入口和现有 PC 暗金样式、中文文案及公共控件。新增设置均在原
+`[OhMyMods.Android]` 分节：`PopulationEnabled=false`、`BeggarCampCapacity=4`（1–20 人）、
+`BeggarSpawnIntervalSeconds=120`（1–120 秒）。容量按 1–20 循环，间隔按
+120/60/30/10/5/1 秒切换；合法配置文件中的中间值保留，下次点击进入下一较小档。
+关闭交还原生参数；降低容量只限制后续补员，不删除已有乞丐。暂停时不推进补员计时。
+
+同源链接 `PatchRoles_BeggarCamp.cs`、`PatchPerformance_Population.cs`、`PopulationGrounding.cs`，
+复用原生 `SpawnBeggar`、原有营地归属与网络门、唯一注入协调器；Android 增量由 `#if ANDROID`
+隔离。默认关闭且无自有责任时先于 native 访问退出。字段只在取得责任或配置发生真实变化时写入；
+停止时按写入凭据一次归还，不周期覆写或自动重试。Ninja 藏点附带调用尚未移植，Android 排除该行，
+不表示 Ninja / 跨世界角色、工具、投射物及特效依赖已完成。
+
+营地范围沿原 Unity scene.handle 谓词和当前 Managers/world/gameLayer 身份；同一 Unity scene
+下不同 Transform 子树的排除尚无证据。每进程最多各一条 scope/spawn 日志只用于观察。
+该 APK 的原始方法表缺少 simulated/constraints/collisionDetectionMode getter 与碰撞层查询，
+Android 只读诊断按实际可观测面输出 `unavailable`，保留其他物理读取；不推测为 false/0，
+不通过重试或改写物理状态补齐诊断。
+源码审查、编译及 host 测试已通过；模拟器自然补员、手机、联机、换岛和对象池生命周期分别记录于
+[本批验收记录](../docs/project-harness/tasks/issue-184/implementation.md)，不能互相替代。
+
 ## 源码构成
 
 | 文件 | 用途 |
@@ -32,9 +54,9 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 | `MobileUiInputSurface.cs` | Issue #119 原生 UGUI 命中面（新增）：两个透明 `Image` 命中区与 IMGUI 球/展开面板同矩形，由 `ProbeTicker` 生命周期驱动；不改原生菜单/输入标志 |
 | `FloatInput.cs` `TouchClaims.cs` `FloatLayout.cs` | 浮球触摸归属与面板几何：固定外框 min(320,可用宽) × min(480,可用高) × Scale（与页面/卡片高度无关），`Resize(width,height,left,top,right,bottom)` 接收 native safeArea 转 top-left 原点的安全区绝对边界，浮球与面板都夹在安全区内；内容视口/scrollMax/`HitPanelBody`（球优先）为纯几何，绘制与触摸同源 |
 | `MobileCalendar.cs` `CalendarSnapshot.cs` | 日历显示（开关直读 `CalendarEnabled` entry，切换时保存） |
-| `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（只读缓存；#144 起面板行仅中文展示八个原生角色与骑士，Tick/日志采样不变） |
+| `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（沿既有只读缓存展示八个原生角色与骑士）；#184 起同时使用公共 Toggle/Step 控件提供营地补员、帐篷上限和刷新间隔 |
 | `MobileModPanel.cs` `PanelGesture.cs` | 公共面板容器与纯手势状态机（Issue #144）：唯一 hotControl 手势、固定导航（主页/玩家/世界/生成/人口）与关闭、内容视口裁剪与滚动；手势/滚动单点由 `PanelGesture` 持有（任意方向位移 sticky 取消点击、`End` 按实际抬手归账、滚轮与拖拽共用同一 ScrollY） |
-| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 17 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度、快速森林退缩、普通鹿数量、密灌木、远距夜袭出发补偿；除密灌木外切换即保存，夜袭补偿同值不保存）。密灌木的 UI 请求还经共享 `TrySetDenseThickets` 一次，保存只发生在共享源的三个真实写入点（每次真实变更一次），本文件不落盘、不镜像。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
+| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 20 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度、快速森林退缩、普通鹿数量、密灌木、远距夜袭出发补偿、营地补员开关、每座乞丐帐篷上限、乞丐刷新间隔；除密灌木外切换即保存，夜袭补偿同值不保存）。密灌木的 UI 请求还经共享 `TrySetDenseThickets` 一次，保存只发生在共享源的三个真实写入点（每次真实变更一次），本文件不落盘、不镜像。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
 | `MobilePlayerMenu.cs` | Player 页 presentation（5 行：君主移动速度 / 坐骑无限体力 / 长按连续购买 / 坐骑技能冷却 / 法杖神器冷却），全部经 `MobileModPanel.Step/Toggle` 公共路径登记 tap rect 并绘制；中文名与 PC 面板同源，冷却帮助行说明“下次调用生效、只缩放基础/该次冷却、原生目标追加不缩放” |
 | `MobileWorldMenu.cs` | World 页 presentation（每波怪物数量 / 怪物时间线推进 / 无限金币 / 植被与野生动物入口 / 快速建造 / 船只额外乘员 / 远距夜袭出发补偿）。植被入口只置 `VegetationPage=true`（World 保持打开）；快速建造只影响后续每次原生 `InitializeBuild`（关闭不热还原已写入实例的 rate）；船容量只作用于以后新初始化的船（关闭不删除/不热改已登记的 slots） |
 | `MobileGenerationMenu.cs` | Island-generation 页 presentation（地图大小一行）：只改新岛生成读取的 `MapSizeMultiplier`（1→2→3→4→5→1，合法小数先落下一整数档，如 4.5→5）；不调用任何原生游戏 API |

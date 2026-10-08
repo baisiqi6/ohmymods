@@ -7,6 +7,10 @@ internal static class ModConfig
 {
     private const string CategoryIdentifier = "OhMyMods.Android";
 
+    // 与 PC ModConfig 同源的补员默认值（Constants同PC 120/4）。
+    internal const int DefaultBeggarSpawnIntervalSeconds = 120;
+    internal const int DefaultBeggarCampCapacity = 4;
+
     // 会话总开关：无 UI、不持久化（不建 MelonPreferences entry），保留给现有消费者
     // （OptionalQoLScope.IsActive / PatchWorld_Mover / PatchWorld_EnemyManager 闸门）读取 .Value。
     internal sealed class Setting<T> { internal T Value; internal Setting(T value) { Value = value; } }
@@ -34,6 +38,10 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<bool> DeerPopulationEnabled;
     internal static MelonPreferences_Entry<bool> DenseThicketsEnabled;
     internal static MelonPreferences_Entry<bool> NightDepartureEnabled;
+    // 营地补员批（Issue #184）：换一批门 + 容量/间隔两个档位；加载只做边界 clamp，运行期请求走真实事件。
+    internal static MelonPreferences_Entry<bool> PopulationEnabled;
+    internal static MelonPreferences_Entry<int> BeggarCampCapacity;
+    internal static MelonPreferences_Entry<int> BeggarSpawnIntervalSeconds;
 
     // InfiniteMoney 原生写（Il2Cpp.Wallet.InfiniteMoney）的唯一注入点：本文件保持零
     // Il2Cpp.* 引用（hosttests 直接编译同一份），由平台侧 Probe.OnInitializeMelon 传入
@@ -67,6 +75,9 @@ internal static class ModConfig
         DeerPopulationEnabled = category.CreateEntry<bool>("DeerPopulationEnabled", false);
         DenseThicketsEnabled = category.CreateEntry<bool>("DenseThicketsEnabled", false);
         NightDepartureEnabled = category.CreateEntry<bool>("NightDepartureEnabled", false);
+        PopulationEnabled = category.CreateEntry<bool>("PopulationEnabled", false);
+        BeggarCampCapacity = category.CreateEntry<int>("BeggarCampCapacity", DefaultBeggarCampCapacity);
+        BeggarSpawnIntervalSeconds = category.CreateEntry<int>("BeggarSpawnIntervalSeconds", DefaultBeggarSpawnIntervalSeconds);
         // 手工编辑 cfg 可能写入越界值，在加载边界做唯一一次 clamp（不使用 validator：未证实
         // 可构造 ValueValidator 子类）；运行期不读回、不重试、不静默替换默认值。
         SpeedMultiplier.Value = Math.Clamp(SpeedMultiplier.Value, 1, 5);
@@ -75,6 +86,9 @@ internal static class ModConfig
         SteedCooldownMultiplier.Value = SanitizeMultiplier("SteedCooldownMultiplier", SteedCooldownMultiplier.Value, 0.2f, 1f);
         StaffCooldownMultiplier.Value = SanitizeMultiplier("StaffCooldownMultiplier", StaffCooldownMultiplier.Value, 0.2f, 1f);
         MapSizeMultiplier.Value = SanitizeMultiplier("MapSizeMultiplier", MapSizeMultiplier.Value, 1f, 5f);
+        // 合法载入值（1..20 / 1..120）保留；越界只在加载边界收敛一次，不落盘、不扫描、不写 native。
+        BeggarCampCapacity.Value = Math.Clamp(BeggarCampCapacity.Value, 1, 20);
+        BeggarSpawnIntervalSeconds.Value = Math.Clamp(BeggarSpawnIntervalSeconds.Value, 1, 120);
         applyInfiniteMoney = moneyApplier;
         applyInfiniteMoney(InfiniteMoney.Value);
         MelonLogger.Msg("ANDROID_SETTINGS_READY category=" + CategoryIdentifier
@@ -94,7 +108,10 @@ internal static class ModConfig
             + " forestRecede=" + FastForestRecedeEnabled.Value
             + " deerPopulation=" + DeerPopulationEnabled.Value
             + " denseThickets=" + DenseThicketsEnabled.Value
-            + " nightDeparture=" + NightDepartureEnabled.Value);
+            + " nightDeparture=" + NightDepartureEnabled.Value
+            + " population=" + PopulationEnabled.Value
+            + " capacity=" + BeggarCampCapacity.Value
+            + " interval=" + BeggarSpawnIntervalSeconds.Value);
     }
 
     // 三个倍率的加载边界：有限值 clamp 到 [min,max]；NaN/Infinity 是非法外部输入，回 1 并
@@ -232,6 +249,42 @@ internal static class ModConfig
     }
 
     internal static void ToggleNightDeparture() => SetNightDeparture(!NightDepartureEnabled.Value);
+
+    // 人口页三个真实写入点。开关只翻转一次并落盘一次；真正的运行时接管/交还由具体 toggle
+    // 事件（MobilePopulation 的点击处理）调用 Coordinator 的对应方法，本文件不复制协调器逻辑，
+    // 也不镜像状态：切换失败只记日志，不假装已生效。
+    internal static bool TogglePopulation()
+    {
+        PopulationEnabled.Value = !PopulationEnabled.Value;
+        MelonLogger.Msg("ANDROID_POPULATION_ENABLED enabled=" + PopulationEnabled.Value);
+        Save();
+        return PopulationEnabled.Value;
+    }
+
+    // 容量档位 1→2→…→20→1。只影响后续补员，不删除已有乞丐，不做运行期 clamp/重写。
+    internal static void CycleBeggarCampCapacity()
+    {
+        BeggarCampCapacity.Value = BeggarCampCapacity.Value % 20 + 1;
+        MelonLogger.Msg("ANDROID_POPULATION_CAMP_CAPACITY capacity=" + BeggarCampCapacity.Value);
+        Save();
+    }
+
+    // 间隔档位 120→60→30→10→5→1→120；合法载入的 1..120 值保留，非预设中间值进入下一较小档（45→30）。
+    private static readonly int[] BeggarIntervalSteps = { 120, 60, 30, 10, 5, 1 };
+
+    private static int NextBeggarIntervalStep(int current)
+    {
+        foreach (int step in BeggarIntervalSteps)
+            if (step < current) return step;
+        return BeggarIntervalSteps[0];
+    }
+
+    internal static void CycleBeggarSpawnInterval()
+    {
+        BeggarSpawnIntervalSeconds.Value = NextBeggarIntervalStep(BeggarSpawnIntervalSeconds.Value);
+        MelonLogger.Msg("ANDROID_POPULATION_SPAWN_INTERVAL seconds=" + BeggarSpawnIntervalSeconds.Value);
+        Save();
+    }
 
     // 地图长度档位 1→2→3→4→5→1；与敌人倍率同一 MathF.Floor 步进：先落到下一整数档再进一
     // （4.5→5、5→1），合法载入的小数（如 4.5）不会被推成 5.5 越出 1..5 契约。倍率只被

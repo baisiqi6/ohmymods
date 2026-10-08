@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.23", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.24", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,9 +16,27 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.23 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.24 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
+  var populationApply=AccessTools.Method(typeof(Il2Cpp.CampaignSaveData),"ApplyToScene",Type.EmptyTypes) ?? throw new MissingMethodException("CampaignSaveData.ApplyToScene()");
+  HarmonyInstance.Patch(populationApply,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.PopulationPerformanceApplyPatch),"Postfix"));
+  LogHookCounts(populationApply);
+  var campAwake=AccessTools.Method(typeof(Il2Cpp.BeggarCamp),"Awake",Type.EmptyTypes) ?? throw new MissingMethodException("BeggarCamp.Awake()");
+  var campPatch=typeof(KingdomEnhancedMod.BeggarCamp_Awake_Patch);
+  HarmonyInstance.Patch(campAwake,prefix:new HarmonyMethod(campPatch,"Awake_Prefix"),postfix:new HarmonyMethod(campPatch,"Awake_Postfix"));
+  LogHookCounts(campAwake);
+  var campDestroy=AccessTools.Method(typeof(Il2Cpp.BeggarCamp),"OnDestroy",Type.EmptyTypes) ?? throw new MissingMethodException("BeggarCamp.OnDestroy()");
+  HarmonyInstance.Patch(campDestroy,prefix:new HarmonyMethod(campPatch,"OnDestroy_Prefix"));
+  LogHookCounts(campDestroy);
+  var beggarEnable=AccessTools.Method(typeof(Il2Cpp.Beggar),"OnEnable",Type.EmptyTypes) ?? throw new MissingMethodException("Beggar.OnEnable()");
+  var beggarDisable=AccessTools.Method(typeof(Il2Cpp.Beggar),"OnDisable",Type.EmptyTypes) ?? throw new MissingMethodException("Beggar.OnDisable()");
+  var beggarLifecycle=typeof(KingdomEnhancedMod.Beggar_PopulationLifecycle_Patch);
+  HarmonyInstance.Patch(beggarEnable,prefix:new HarmonyMethod(beggarLifecycle,"OnEnable_Prefix"));
+  HarmonyInstance.Patch(beggarDisable,prefix:new HarmonyMethod(beggarLifecycle,"OnDisable_Prefix"));
+  LogHookCounts(beggarEnable);
+  LogHookCounts(beggarDisable);
+  LoggerInstance.Msg("ANDROID_CAMP_POPULATION_HOOKS_INSTALLED sharedSource=true nativeSpawn=true");
   var touch = AccessTools.Method(typeof(Il2Cpp.InputHelper), "GetTouches")
     ?? throw new MissingMethodException("InputHelper.GetTouches");
   HarmonyInstance.Patch(touch, postfix: new HarmonyMethod(typeof(FloatInput), nameof(FloatInput.FilterTouchesResult)));

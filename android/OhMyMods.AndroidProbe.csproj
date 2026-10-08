@@ -65,6 +65,10 @@
     <Compile Include="CalendarSnapshot.cs" />
     <Compile Include="MobilePopulation.cs" />
     <Compile Include="PopulationCounts.cs" />
+    <!-- Issue #184 营地补员批：三份共享源按原样链接（ANDROID 条件块＋入口纯托管门）。 -->
+    <Compile Include="../il2cpp/PatchRoles_BeggarCamp.cs" Link="Production/PatchRoles_BeggarCamp.cs" />
+    <Compile Include="../il2cpp/PatchPerformance_Population.cs" Link="Production/PatchPerformance_Population.cs" />
+    <Compile Include="../il2cpp/PopulationGrounding.cs" Link="Production/PopulationGrounding.cs" />
     <Compile Include="OptionalQoLScope.cs" />
     <Compile Include="PatchRide_InfiniteStamina.cs" />
     <Compile Include="PatchRide_SteedCooldown.cs" />
