@@ -377,7 +377,7 @@ internal static class HeavyShieldRuntime
         if (action == HeavyShieldAction.Bash)
         {
             Move(e, x, 0f);
-            if (elapsed >= 3f / 12f && e.Policy.TryClaimBashImpact()) BashImpact(e);
+            if (elapsed >= HeavyShieldLeapBash.ImpactAtSeconds && e.Policy.TryClaimBashImpact()) BashImpact(e);
             return;
         }
         if (e.Policy.BashActive) e.Policy.EndBash();

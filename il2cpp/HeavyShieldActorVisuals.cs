@@ -460,6 +460,13 @@ internal static class HeavyShieldActorVisuals
         float inverseX = 1f / Math.Abs(inherited.x), inverseY = 1f / Math.Abs(inherited.y);
         if (!float.IsFinite(inverseX) || !float.IsFinite(inverseY) || inverseX <= 0f || inverseY <= 0f)
             throw new InvalidOperationException("unrepresentable native sprite scale");
+        // This child is the complete shield body sprite. Its existing presentation
+        // owner samples an absolute hop from the current native render anchor;
+        // native feet, colliders, Mover goals and forces remain under their owner.
+        var offset = HeavyShieldLeapBash.Sample(state.Pose.Action == HeavyShieldAction.Bash,
+            state.Pose.Elapsed, state.Facing);
+        Vector3 anchor = native.transform.position;
+        own.transform.position = new Vector3(anchor.x + offset.X, anchor.y + offset.Y, anchor.z);
         own.transform.localScale = new Vector3(inverseX, inverseY, 1f);
         float scaleX = own.transform.lossyScale.x;
         if (!float.IsFinite(scaleX) || scaleX == 0f) throw new InvalidOperationException("unknown world sprite facing");
