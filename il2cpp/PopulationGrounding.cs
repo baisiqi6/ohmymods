@@ -3,6 +3,13 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using UnityEngine;
+#if ANDROID
+// Android（Il2CppInterop namespace-prefix 模式）把 Assembly-CSharp 的全局类型放在 Il2Cpp.* 下；
+// 本文件与 PC 共用同一份诊断逻辑，仅在此映射游戏类型（World 由 android/GlobalAliases.cs 提供），
+// 并在观察入口加纯托管门。PC 分支逐字保留，预处理输出不变。
+using Beggar = Il2Cpp.Beggar;
+using BeggarCamp = Il2Cpp.BeggarCamp;
+#endif
 
 namespace KingdomEnhancedMod;
 
@@ -38,6 +45,10 @@ internal static class PopulationGrounding
     internal static void Observe(Beggar beggar, BeggarCamp owner, int epoch, bool firstObserved,
         bool centralSpawn = false)
     {
+#if ANDROID
+        // ANDROID：观察入口纯托管门；补员门关闭且无自有责任时零 native 读取。
+        if (!PopulationPerformanceCoordinator.PopulationRequested) return;
+#endif
         try
         {
             if (_world == IntPtr.Zero || !ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth
@@ -71,11 +82,26 @@ internal static class PopulationGrounding
                 .Append(" parent=").Append(root.transform.parent == null ? "none" : root.transform.parent.name)
                 .Append(" nativeCamp=").Append(Camp(beggar.camp)).Append(" ownerCamp=").Append(Camp(owner));
             var body = root.GetComponent<Rigidbody2D>();
+#if ANDROID
+            // Android：actual metadata（Unity 6000.0.61）里 simulated/constraints/collisionDetectionMode 的
+            // getter 被 strip（recon：get_simulated nativeMatches=0），这里不调用这些成员、固定输出
+            // unavailable（不是 false/0，无 fallback/guard）；velocity 只读一次 getter 再取 x/y。
+            if (body == null) text.Append(" body=missing");
+            else
+            {
+                Vector2 velocity = body.velocity;
+                text.Append(" body=").Append(body.bodyType)
+                    .Append(" simulated=unavailable gravity=").Append(F(body.gravityScale))
+                    .Append(" constraints=unavailable detect=unavailable")
+                    .Append(" velocity=").Append(F(velocity.x)).Append(',').Append(F(velocity.y));
+            }
+#else
             if (body == null) text.Append(" body=missing");
             else text.Append(" body=").Append(body.bodyType).Append(" simulated=").Append(body.simulated)
                 .Append(" gravity=").Append(F(body.gravityScale)).Append(" constraints=").Append(body.constraints)
                 .Append(" detect=").Append(body.collisionDetectionMode)
                 .Append(" velocity=").Append(F(body.velocity.x)).Append(',').Append(F(body.velocity.y));
+#endif
             var ground = World.GroundCollider;
             text.Append(" ground=").Append(ground == null ? "missing" : ground.gameObject.name + ":" + ground.gameObject.layer
                 + ":enabled=" + ground.enabled + ":trigger=" + ground.isTrigger + ":top=" + F(ground.bounds.max.y));
@@ -92,7 +118,13 @@ internal static class PopulationGrounding
                 // The audited prefab's physical layer is 17 and the terrain is layer 0.
                 // Query only that evidenced pair; unrelated collision masks stay unobserved.
                 if (ground != null && collider.gameObject.layer == 17 && ground.gameObject.layer == 0)
+#if ANDROID
+                    // Android：Physics2D.GetIgnoreLayerCollision 公共 API 与其 _Internal callee 都被 strip，
+                    // 保持原配对条件与输出位置，改输出 unavailable（不新增查询）。
+                    text.Append(":ignoreGround=unavailable");
+#else
                     text.Append(":ignoreGround=").Append(Physics2D.GetIgnoreLayerCollision(17, 0));
+#endif
             }
             text.Append(']');
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(text.ToString());
@@ -101,8 +133,15 @@ internal static class PopulationGrounding
         {
             if (_readFailureLogged) return;
             _readFailureLogged = true;
+#if ANDROID
+            // ANDROID：同一条一次性 warning 追加 ICall 失败的实际 message 与 stack（预算/内部 try-catch、
+            // 成功路径、Budget/Reset、catch 范围均不变）；PC 原日志行在 #else 逐字保留。
+            try { KingdomEnhancedPlugin.Instance?.LogSource.LogWarning("[PopulationGround] diagnostic read failed: " + error.GetType().Name + " message=" + error.Message + Environment.NewLine + error.StackTrace); }
+            catch { }
+#else
             try { KingdomEnhancedPlugin.Instance?.LogSource.LogWarning("[PopulationGround] diagnostic read failed: " + error.GetType().Name); }
             catch { }
+#endif
         }
     }
 

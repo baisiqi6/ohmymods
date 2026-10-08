@@ -275,7 +275,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 17, "Initialize creates exactly seventeen entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 20, "Initialize creates exactly twenty entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -293,7 +293,13 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/DeerPopulationEnabled default=False"), "DeerPopulationEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/DenseThicketsEnabled default=False"), "DenseThicketsEnabled is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/NightDepartureEnabled default=False"), "NightDepartureEnabled is declared OFF");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/PopulationEnabled default=False"), "PopulationEnabled is declared OFF");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/BeggarCampCapacity default=4"), "BeggarCampCapacity is declared with the PC default 4");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/BeggarSpawnIntervalSeconds default=120"), "BeggarSpawnIntervalSeconds is declared with the PC default 120");
         Checks.Check(!Config.NightDepartureEnabled.Value, "NightDepartureEnabled missing key defaults OFF without save");
+        Checks.Check(!Config.PopulationEnabled.Value && Config.BeggarCampCapacity.Value == 4
+            && Config.BeggarSpawnIntervalSeconds.Value == 120,
+            "missing population keys default to the PC gate OFF with capacity 4 and interval 120 without save");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "Initialize never writes the cfg");
         Checks.Check(applied.Count == 1 && !applied[0], "cold start applies InfiniteMoney=false through the seam exactly once");
         Checks.Check(MelonLoader.MelonLogger.WarningCalls == expectedWarnings, "the load boundary warns exactly once per non-finite seeded multiplier");
@@ -342,7 +348,8 @@ internal static class Program
                 + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild
                 + " cooldown=" + expectedCooldown + " boat=" + expectedBoat + " map=" + expectedMap
                 + " staff=" + expectedStaffCooldown + " forestRecede=" + expectedForest
-                + " deerPopulation=False denseThickets=False nightDeparture=False",
+                + " deerPopulation=False denseThickets=False nightDeparture=False"
+                + " population=False capacity=4 interval=120",
                 "cold-start ready line reports the effective values");
             if (seededEnemyCount == 4.5f && seededEnemyTimeline == 4.5f)
             {
@@ -418,7 +425,8 @@ internal static class Program
             && !Config.FastForestRecedeEnabled.Value
             && !Config.DeerPopulationEnabled.Value
             && !Config.DenseThicketsEnabled.Value && !Config.NightDepartureEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild, BoatCapacity, FastForestRecede, DeerPopulation and DenseThickets default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False denseThickets=False nightDeparture=False",
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False denseThickets=False nightDeparture=False"
+            + " population=False capacity=4 interval=120",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
 
@@ -548,8 +556,34 @@ internal static class Program
         Checks.Check(Config.MapSizeMultiplier.Value == 1f, "CycleMapSize wraps back to 1x");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "CycleMapSize wrap saves exactly once");
 
+        Config.TogglePopulation();
+        Checks.Check(Config.PopulationEnabled.Value, "TogglePopulation turns the batch gate ON");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_POPULATION_ENABLED enabled=True", "TogglePopulation logs the switch state");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "TogglePopulation ON saves exactly once");
+        Config.TogglePopulation();
+        Checks.Check(!Config.PopulationEnabled.Value, "TogglePopulation turns the batch gate OFF again");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_POPULATION_ENABLED enabled=False", "TogglePopulation logs the OFF state");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "TogglePopulation OFF saves exactly once");
+
+        for (int next = 5; next <= 20; next++)
+        {
+            Config.CycleBeggarCampCapacity();
+            Checks.Check(Config.BeggarCampCapacity.Value == next, "CycleBeggarCampCapacity advances to " + next);
+            Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "camp capacity " + next + " saves exactly once");
+        }
+        Config.CycleBeggarCampCapacity();
+        Checks.Check(Config.BeggarCampCapacity.Value == 1, "camp capacity wraps 20 -> 1");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "camp capacity wrap 20->1 saves exactly once");
+
+        foreach (int next in new[] { 60, 30, 10, 5, 1, 120 })
+        {
+            Config.CycleBeggarSpawnInterval();
+            Checks.Check(Config.BeggarSpawnIntervalSeconds.Value == next, "CycleBeggarSpawnInterval steps to " + next + "s");
+            Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == ++saves, "spawn interval " + next + "s saves exactly once");
+        }
+
         Checks.Check(applied.Count == 3, "the InfiniteMoney seam fires only at Initialize and the two toggles (no subscription or per-frame write)");
-        Checks.Check(saves == 45, "forty-five switch actions produced forty-five saves");
+        Checks.Check(saves == 70, "seventy switch actions produced seventy saves");
     }
 
     private static float ExpectedMultiplier(float seeded)
@@ -728,8 +762,12 @@ internal static class ProbeChecks
         Checks.Check(File.Exists(probePath), "probe source present");
         if (!File.Exists(probePath)) return;
         string source = File.ReadAllText(probePath);
-        Checks.Check(source.Contains("\"0.0.23\""), "Probe reports version 0.0.23");
-        Checks.Check(source.Split("0.0.23").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
+        Checks.Check(source.Contains("\"0.0.24\""), "Probe reports version 0.0.24");
+        Checks.Check(source.Split("0.0.24").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
+        Checks.Check(source.Contains("camp_population") && source.Contains("ANDROID_CAMP_POPULATION_HOOKS_INSTALLED"), "Probe advertises and announces camp population");
+        Checks.Check(source.Contains("campAwake,prefix:new HarmonyMethod(campPatch,\"Awake_Prefix\"),postfix:new HarmonyMethod(campPatch,\"Awake_Postfix\")"), "Camp Awake registers its whole prefix/postfix method set");
+        Checks.Check(source.Contains("campDestroy,prefix:new HarmonyMethod(campPatch,\"OnDestroy_Prefix\")") && source.Contains("populationApply,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.PopulationPerformanceApplyPatch),\"Postfix\")"), "Camp destruction and campaign application register exact methods");
+        Checks.Check(source.Contains("beggarEnable,prefix:new HarmonyMethod(beggarLifecycle,\"OnEnable_Prefix\")") && source.Contains("beggarDisable,prefix:new HarmonyMethod(beggarLifecycle,\"OnDisable_Prefix\")"), "Beggar enable/disable register exact life prefixes");
         Checks.Check(source.Contains("staff_base_cooldown"), "Probe feature marker advertises staff_base_cooldown");
         Checks.Check(source.Contains("fast_forest_recede"), "Probe feature marker advertises fast_forest_recede");
         Checks.Check(source.Contains("deer_population"), "Probe feature marker advertises deer_population");
@@ -1304,6 +1342,80 @@ internal static class ArtifactChecks
         if (!modConfig.IsNil) foreach (var h in reader.GetTypeDefinition(modConfig).GetFields())
             if (reader.GetString(reader.GetFieldDefinition(h).Name) == "NightDepartureEnabled") nightEntry = true;
         Checks.Check(nightEntry, "the seventeenth real ModConfig entry NightDepartureEnabled lands in the artifact");
+
+        // Issue #184 营地补员批：三个新 entry 字段 + 三份共享源的补丁/协调器/诊断类型
+        // 与原生 static-storage 静态类（无 managed 泛型实例字段）都必须在产物里。
+        bool populationEntry = false, capacityEntry = false, intervalEntry = false;
+        if (!modConfig.IsNil) foreach (var h in reader.GetTypeDefinition(modConfig).GetFields())
+        {
+            string fieldName = reader.GetString(reader.GetFieldDefinition(h).Name);
+            if (fieldName == "PopulationEnabled") populationEntry = true;
+            if (fieldName == "BeggarCampCapacity") capacityEntry = true;
+            if (fieldName == "BeggarSpawnIntervalSeconds") intervalEntry = true;
+        }
+        Checks.Check(populationEntry, "the eighteenth real ModConfig entry PopulationEnabled lands in the artifact");
+        Checks.Check(capacityEntry, "the nineteenth real ModConfig entry BeggarCampCapacity lands in the artifact");
+        Checks.Check(intervalEntry, "the twentieth real ModConfig entry BeggarSpawnIntervalSeconds lands in the artifact");
+        var populationApply = FindType(reader, "KingdomEnhancedMod", "PopulationPerformanceApplyPatch");
+        var populationCoordinator = FindType(reader, "KingdomEnhancedMod", "PopulationPerformanceCoordinator");
+        var campAwakeEntry = FindType(reader, "KingdomEnhancedMod", "BeggarCamp_Awake_Patch");
+        var beggarLifecycleEntry = FindType(reader, "KingdomEnhancedMod", "Beggar_PopulationLifecycle_Patch");
+        var populationGrounding = FindType(reader, "KingdomEnhancedMod", "PopulationGrounding");
+        Checks.Check(!populationApply.IsNil && !populationCoordinator.IsNil && !campAwakeEntry.IsNil
+            && !beggarLifecycleEntry.IsNil && !populationGrounding.IsNil,
+            "artifact contains the shared population entry shells, coordinator and grounding diagnostic");
+        CheckHandlers(reader, populationApply, new Dictionary<string, int> { { "Postfix", 1 } },
+            MethodAttributes.Public, "public static");
+        CheckHandlers(reader, campAwakeEntry, new Dictionary<string, int>
+        {
+            { "Awake_Prefix", 1 }, { "Awake_Postfix", 1 }, { "OnDestroy_Prefix", 1 }
+        }, MethodAttributes.Public, "public static");
+        CheckHandlers(reader, beggarLifecycleEntry, new Dictionary<string, int>
+        {
+            { "OnEnable_Prefix", 1 }, { "OnDisable_Prefix", 1 }
+        }, MethodAttributes.Public, "public static");
+        foreach (var entry in new[]
+        {
+            (populationApply, "Postfix", "Il2Cpp.CampaignSaveData", "BeginScene"),
+            (campAwakeEntry, "Awake_Prefix", "Il2Cpp.BeggarCamp", "CaptureProfile"),
+            (campAwakeEntry, "Awake_Postfix", "Il2Cpp.BeggarCamp", "ConfigureCamp"),
+            (campAwakeEntry, "OnDestroy_Prefix", "Il2Cpp.BeggarCamp", "ForgetCamp"),
+            (beggarLifecycleEntry, "OnEnable_Prefix", "Il2Cpp.Beggar", "BeginBeggarIncarnation"),
+            (beggarLifecycleEntry, "OnDisable_Prefix", "Il2Cpp.Beggar", "ForgetBeggar")
+        })
+        {
+            if (entry.Item1.IsNil) continue;
+            var definition = reader.GetTypeDefinition(entry.Item1);
+            Checks.Check(SignatureTypes(reader, definition, entry.Item2) == entry.Item3,
+                "population handler " + entry.Item2 + " binds the actual Android native instance type");
+            Checks.Check(BodyCallsMethod(pe, reader, definition, entry.Item2, entry.Item4,
+                    "KingdomEnhancedMod.PopulationPerformanceCoordinator"),
+                "population handler " + entry.Item2 + " calls the single shared coordinator entry " + entry.Item4);
+        }
+        if (!populationCoordinator.IsNil)
+        {
+            var coordinatorDefinition = reader.GetTypeDefinition(populationCoordinator);
+            Checks.Check(BodyCallsMethod(pe, reader, coordinatorDefinition, "EnableCurrentScene", "BeginScene",
+                    "KingdomEnhancedMod.PopulationPerformanceCoordinator"),
+                "the Android enable entry really reuses BeginScene instead of a second scene scan");
+            Checks.Check(BodyCallsMethod(pe, reader, coordinatorDefinition, "StopAndRelease", "ReleaseToNative",
+                    "KingdomEnhancedMod.PopulationPerformanceCoordinator"),
+                "the single stop path really releases the owned fields exactly once before clearing state");
+        }
+        if (!populationGrounding.IsNil)
+        {
+            var members = BodyReferencedMembers(pe, reader, reader.GetTypeDefinition(populationGrounding));
+            Checks.Check(!members.Contains("UnityEngine.Rigidbody2D::get_simulated")
+                && !members.Contains("UnityEngine.Rigidbody2D::get_constraints")
+                && !members.Contains("UnityEngine.Rigidbody2D::get_collisionDetectionMode")
+                && !members.Contains("UnityEngine.Physics2D::GetIgnoreLayerCollision"),
+                "the actual Android Grounding artifact does not call the four unsupported physics reads");
+            Checks.Check(members.Contains("UnityEngine.Rigidbody2D::get_bodyType")
+                && members.Contains("UnityEngine.Rigidbody2D::get_gravityScale")
+                && members.Contains("UnityEngine.Rigidbody2D::get_velocity")
+                && members.Contains("UnityEngine.Collider2D::get_bounds"),
+                "the Android Grounding artifact retains the supported native body and collider reads");
+        }
         var nightSchedule = FindType(reader, "KingdomEnhancedMod", "PatchWorld_NightDeparture");
         var nightTravel = FindType(reader, "KingdomEnhancedMod", "PatchWorld_NightDepartureTravel");
         Checks.Check(!nightSchedule.IsNil && !nightTravel.IsNil, "artifact contains both shared night patch classes");
@@ -1652,6 +1764,12 @@ internal static class ArtifactChecks
         "il2cpp/PatchWorld_FastForestRecede.cs",
         "il2cpp/PatchWorld_Level.cs",
         "il2cpp/PatchWorld_OptionalVegetation.cs",
+        "il2cpp/PatchRoles_BeggarCamp.cs",
+        "il2cpp/PatchPerformance_Population.cs",
+        "il2cpp/PopulationGrounding.cs",
+        "android/tests/population-android/PopulationTests.csproj",
+        "android/tests/population-android/Stubs.cs",
+        "android/tests/population-android/Program.cs",
     };
 
     private static void VerifyFrozenSources()
@@ -1668,13 +1786,13 @@ internal static class ArtifactChecks
             { "android/MobileCalendar.cs", "49e8fcbdc29a19b5100c5c6525a1317cccb446252bcbe91a8306699afcee718a" },
             { "android/MobileGenerationMenu.cs", "e89f7d9224b31f5ea77ca5392a02d8c7ac1a723c2dd0ee702d4225eb8f53f5d0" },
             { "android/MobileModPanel.cs", "e9a0bd5347da0333b2110b4a93dcf61b0caff4d4375a600a99ad12a124683f12" },
-            { "android/MobilePlayerConfig.cs", "13c93160d7c88fede0d698e6c065f4bdb432428d050680b1fe2af31f346eefd3" },
+            { "android/MobilePlayerConfig.cs", "c82d4656d57109bfe29539165b4690e730fb25bd2e5c212dc1de2cf30f86c7ac" },
             { "android/MobilePlayerMenu.cs", "849ef81c029258d0a0ddbff4aef1684d9998434f4f85a01525d60236a714e139" },
-            { "android/MobilePopulation.cs", "7cc188d1530a328db6f8c4bd88082dc4b17a0b8c2af1be0978ac3cf16c04c849" },
+            { "android/MobilePopulation.cs", "fdf95ab309d2489f1d0d3e4c4893d3ee44388e9e5ebb37d991c65a6f8c260571" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
             { "android/MobileVegetationMenu.cs", "40e6be0dda5313a61f01f98e1829422290612ede0b948b8d21c4549a58890e66" },
             { "android/MobileWorldMenu.cs", "35749b5a0aaa300cb03c439790252f04bacdef91fc38188a25e260af29884fee" },
-            { "android/OhMyMods.AndroidProbe.csproj", "9b116dc3cdb030eb7c5e603921e3df7f4ce6233582c5721ac761763641a745fb" },
+            { "android/OhMyMods.AndroidProbe.csproj", "432481f6c02cc891da4627e88e67c17badeb3e0f6cad4eca9421b56dff0cde33" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PanelGesture.cs", "51071fefbc1a1ab4b8f23ee84bf10925c325d8414400b9ed186af238c136e97b" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },
@@ -1683,7 +1801,7 @@ internal static class ArtifactChecks
             { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
-            { "android/Probe.cs", "22f9ea775e999563d98cbeeb785768a8e41ec83f18e31d14893b90b22ae8c8ea" },
+            { "android/Probe.cs", "e1660aaa94c93b24ee09ae24f0472fbc0b269e460cbea9c22e65e5a0b680eb66" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
             { "android/tests/AdapterTests.csproj", "788d688ab72d580711a9ec42ec6a540dfa41102af307a65d64965748e36859e1" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
@@ -1701,6 +1819,12 @@ internal static class ArtifactChecks
             { "il2cpp/PatchWorld_FarmCats.cs", "d73a8b40ad60901bf1505731fae2baae867fc9c0b0f9f2fafffdd06868e30d2f" },
             { "il2cpp/PatchWorld_FastForestRecede.cs", "1b51c0aa24daec749d23647f82aecb789e1b36b7439497eff2bd93dbb40d3193" },
             { "il2cpp/PatchWorld_Level.cs", "90f9f724db0d0f9353775f4284ed09d6d1782c125c5ad028e83b843b55e1315e" },
+            { "il2cpp/PatchRoles_BeggarCamp.cs", "0f6ef6e7c15d66e02ff34696fed991ba0864688f0a084377fd459cbc3c8981a9" },
+            { "il2cpp/PatchPerformance_Population.cs", "a88d780cdfecfdcd2038cf524b318e74b2d83e6fb48dbaafc1dfdc3b49c39951" },
+            { "il2cpp/PopulationGrounding.cs", "f343ded6e3bb6bde78fe6c277d3e797e32333b2c2fa8e4af4791606a7e12ca20" },
+            { "android/tests/population-android/PopulationTests.csproj", "d3589f48f6b1a790b796b80740164011fec38e9327a65698097d695852efbcf6" },
+            { "android/tests/population-android/Stubs.cs", "4acd6fd0dd282c1c2bb51bad36dbda1d53e343cfedd203941efce39923c75cf7" },
+            { "android/tests/population-android/Program.cs", "99b2f857fbdd6aed635def5db2a601d87b5ec7ed3377c68e67a710a02412a667" },
             { "il2cpp/PatchWorld_OptionalVegetation.cs", "0d8d9e892e91b4439f026d211e3a26edb86b14861999438b1148e35cfb8918c0" },
             { "il2cpp/NightDepartureTiming.cs", "da410c8de68f2933dc3ae62bdc7cad0199b51af73102db9e36e250313a83f50d" },
             { "il2cpp/PatchWorld_NightDeparture.cs", "fdde1a68bc5a255beefd9f4ac8eb3849a5b807ddece7e0b4ce120bbb738c3a62" },
