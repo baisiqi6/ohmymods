@@ -249,7 +249,7 @@ public sealed class ProbeTicker : MonoBehaviour
    }
    stage="draw"; GUI.color=new Color(1,1,1,Layout.Expanded || Layout.Captured ? .95f : .62f);
    GUI.Label(new Rect(Layout.X-Layout.Diameter/2,Layout.Y-Layout.Diameter/2,Layout.Diameter,Layout.Diameter),orbContent,orbStyle);
-   MobileCalendar.Draw(Layout.Scale);
+   MobileCalendar.Draw(Layout);
    UiReady=true;
    GUI.color=oldColor;
    if (Layout.Expanded)

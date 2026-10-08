@@ -1770,7 +1770,10 @@ internal static class ArtifactChecks
         "android/tests/population-android/PopulationTests.csproj",
         "android/tests/population-android/Stubs.cs",
         "android/tests/population-android/Program.cs",
-    };
+            "il2cpp/PatchUI_AndroidImages.cs",
+        "android/PatchUI_MobileCalendarHud.cs",
+        "il2cpp/PatchUI_CalendarGems.cs",
+};
 
     private static void VerifyFrozenSources()
     {
@@ -1783,7 +1786,7 @@ internal static class ArtifactChecks
             { "android/FloatLayout.cs", "9fd919964256f18e11aebfad414a7b1a10dab41591ac286564e1b3c05bfbd7c6" },
             { "android/GlobalAliases.cs", "92f7a6997223c2874aae8a596d69f0f52cfac1da8f01b0bdce47c29c32e417d1" },
             { "android/HoldBridges.cs", "982ad14e89afc8337a9b30b51dd0ccdddbeee9b7e3a1c21acf326fdec457c916" },
-            { "android/MobileCalendar.cs", "49e8fcbdc29a19b5100c5c6525a1317cccb446252bcbe91a8306699afcee718a" },
+            { "android/MobileCalendar.cs", "39ac54e3bf7acb37a7a30189f67dd2973bb394f53d28193836481dba0c44723b" },
             { "android/MobileGenerationMenu.cs", "e89f7d9224b31f5ea77ca5392a02d8c7ac1a723c2dd0ee702d4225eb8f53f5d0" },
             { "android/MobileModPanel.cs", "e9a0bd5347da0333b2110b4a93dcf61b0caff4d4375a600a99ad12a124683f12" },
             { "android/MobilePlayerConfig.cs", "c82d4656d57109bfe29539165b4690e730fb25bd2e5c212dc1de2cf30f86c7ac" },
@@ -1792,7 +1795,7 @@ internal static class ArtifactChecks
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
             { "android/MobileVegetationMenu.cs", "40e6be0dda5313a61f01f98e1829422290612ede0b948b8d21c4549a58890e66" },
             { "android/MobileWorldMenu.cs", "35749b5a0aaa300cb03c439790252f04bacdef91fc38188a25e260af29884fee" },
-            { "android/OhMyMods.AndroidProbe.csproj", "432481f6c02cc891da4627e88e67c17badeb3e0f6cad4eca9421b56dff0cde33" },
+            { "android/OhMyMods.AndroidProbe.csproj", "8680eb5e7683c7f4d98b87d7f2ca9e78f8a9632dba600535aa028bd3b8440b46" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PanelGesture.cs", "51071fefbc1a1ab4b8f23ee84bf10925c325d8414400b9ed186af238c136e97b" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },
@@ -1801,7 +1804,7 @@ internal static class ArtifactChecks
             { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
-            { "android/Probe.cs", "e1660aaa94c93b24ee09ae24f0472fbc0b269e460cbea9c22e65e5a0b680eb66" },
+            { "android/Probe.cs", "fc9b43fcad2923a8f52b66711026e958c08974a336e56803661e6a8abd03b1af" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
             { "android/tests/AdapterTests.csproj", "788d688ab72d580711a9ec42ec6a540dfa41102af307a65d64965748e36859e1" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
@@ -1809,7 +1812,7 @@ internal static class ArtifactChecks
             { "il2cpp/BoatCapacityProfile.cs", "02d43c64922667e6e1f2d834bf29f28f8fbc683878dc27db1430abed4c11c2f2" },
             { "il2cpp/FarmCatMovement.cs", "02e37276ae1fd5ac697ef6b71c4cf5bd79f642981a4f3958667dde525be2a2a4" },
             { "il2cpp/GreekScaleScope.cs", "13d913b12e89338645847bb0f4d04fd4370bd808035e377766e2c5f9da530221" },
-            { "il2cpp/ImGuiCompat.cs", "a69b83eb5c5219b7be84dadc37c7f13f17eafe3f69fa973235d9bb044f53af87" },
+            { "il2cpp/ImGuiCompat.cs", "7fa6ac341f5a7cafe7b8d133b1d7f2bb7ba1df83442b9dca66d25f08f3687638" },
             { "il2cpp/MapWidthPlanner.cs", "3790b85fef8f36c822cec3d845a1ff90fb0a2dbcfaa295169966cc2ad036aa20" },
             { "il2cpp/MapWidthTerrain.cs", "5fe7ccde3fcdf5ff99e169e17b13b8558b37e3f03d7d7294ada8649d6afa194b" },
             { "il2cpp/ModPanelControls.cs", "0f6ac598c2e61d19cef0797de17f7e73b4c080113a6185da9623c498b83fec5b" },
@@ -1828,7 +1831,10 @@ internal static class ArtifactChecks
             { "il2cpp/PatchWorld_OptionalVegetation.cs", "0d8d9e892e91b4439f026d211e3a26edb86b14861999438b1148e35cfb8918c0" },
             { "il2cpp/NightDepartureTiming.cs", "da410c8de68f2933dc3ae62bdc7cad0199b51af73102db9e36e250313a83f50d" },
             { "il2cpp/PatchWorld_NightDeparture.cs", "fdde1a68bc5a255beefd9f4ac8eb3849a5b807ddece7e0b4ce120bbb738c3a62" },
-        };
+                    { "il2cpp/PatchUI_AndroidImages.cs", "07b4b29d7ad969f847faea5f0b66ff2a33e19eb95ccdd98000748403adf6bae3" },
+            { "android/PatchUI_MobileCalendarHud.cs", "bd2de1b93492901e8cad72af54c370361cee5f3b29e695c3c1721484247f7086" },
+            { "il2cpp/PatchUI_CalendarGems.cs", "61dc210b03a8eceaf0b7da52ccdf0890e31cdd8a9cd0c1207409da6ded50bb93" },
+};
         foreach (string relative in FrozenSources)
         {
             string path = Path.Combine(SourceRoot, relative.Replace('/', Path.DirectorySeparatorChar));
