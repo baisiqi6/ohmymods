@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
@@ -147,6 +148,7 @@ internal static class Program
         LayoutChecks();
         GestureChecks.Run();
         ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg, seedFastBuild, seededCooldown, seedBoat, seededMap, seededStaffCooldown, seedForest);
+        PetProtectionPreferenceChecks();
         EnemyMathChecks.Run();
         ProbeChecks.Run();
         MenuChecks.Run();
@@ -257,6 +259,22 @@ internal static class Program
             "a tiny screen keeps the viewport origin inside the outer panel");
     }
 
+    private static void PetProtectionPreferenceChecks()
+    {
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/PetGuardEnabled default=False"),
+            "the real protection entry defaults OFF even with the old four-key cfg");
+        Checks.Check(!Config.PetGuardEnabled.Value, "loading does not enable protection implicitly");
+        int saves = MelonLoader.MelonPreferencesStub.SaveCalls;
+        Config.TogglePetGuard();
+        Checks.Check(Config.PetGuardEnabled.Value, "protection toggles ON");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == saves + 1, "protection ON saves once");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_PET_PROTECTION enabled=True recovery=false",
+            "the log distinguishes protection from the pending recovery port");
+        Config.TogglePetGuard();
+        Checks.Check(!Config.PetGuardEnabled.Value, "protection toggles OFF");
+        Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == saves + 2, "protection OFF saves once");
+    }
+
     private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg, bool seededFastBuild, float? seededCooldown, bool seededBoat, float? seededMap, float? seededStaffCooldown, bool seedForest)
     {
         var applied = new List<bool>();
@@ -275,7 +293,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 20, "Initialize creates exactly twenty entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 21, "Initialize creates exactly twenty-one entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -344,7 +362,7 @@ internal static class Program
                 "MapSizeMultiplier is " + Describe(expectedMap) + "x after the load boundary (1..5 clamp, non-finite fallback 1)");
             Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "the load-boundary clamp/fallback does not write the cfg");
             Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=" + expectedSpeed
-                + " stamina=" + oldCfg + " hold=" + oldCfg + " calendar=" + oldCfg
+                + " stamina=" + oldCfg + " hold=" + oldCfg + " petGuard=False calendar=" + oldCfg
                 + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild
                 + " cooldown=" + expectedCooldown + " boat=" + expectedBoat + " map=" + expectedMap
                 + " staff=" + expectedStaffCooldown + " forestRecede=" + expectedForest
@@ -425,7 +443,7 @@ internal static class Program
             && !Config.FastForestRecedeEnabled.Value
             && !Config.DeerPopulationEnabled.Value
             && !Config.DenseThicketsEnabled.Value && !Config.NightDepartureEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild, BoatCapacity, FastForestRecede, DeerPopulation and DenseThickets default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False denseThickets=False nightDeparture=False"
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False petGuard=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False denseThickets=False nightDeparture=False"
             + " population=False capacity=4 interval=120",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
@@ -762,8 +780,8 @@ internal static class ProbeChecks
         Checks.Check(File.Exists(probePath), "probe source present");
         if (!File.Exists(probePath)) return;
         string source = File.ReadAllText(probePath);
-        Checks.Check(source.Contains("\"0.0.24\""), "Probe reports version 0.0.24");
-        Checks.Check(source.Split("0.0.24").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
+        Checks.Check(source.Contains("\"0.0.25\""), "Probe reports version 0.0.25");
+        Checks.Check(source.Split("0.0.25").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
         Checks.Check(source.Contains("camp_population") && source.Contains("ANDROID_CAMP_POPULATION_HOOKS_INSTALLED"), "Probe advertises and announces camp population");
         Checks.Check(source.Contains("campAwake,prefix:new HarmonyMethod(campPatch,\"Awake_Prefix\"),postfix:new HarmonyMethod(campPatch,\"Awake_Postfix\")"), "Camp Awake registers its whole prefix/postfix method set");
         Checks.Check(source.Contains("campDestroy,prefix:new HarmonyMethod(campPatch,\"OnDestroy_Prefix\")") && source.Contains("populationApply,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.PopulationPerformanceApplyPatch),\"Postfix\")"), "Camp destruction and campaign application register exact methods");
@@ -869,7 +887,11 @@ internal static class MenuChecks
             && menus["MobilePlayerMenu.cs"].Contains("panel.Toggle(\"长按连续购买\"")
             && menus["MobilePlayerMenu.cs"].Contains("panel.Step(\"坐骑技能冷却\"")
             && menus["MobilePlayerMenu.cs"].Contains("panel.Step(\"法杖神器冷却\""),
-            "the player page presents the five PC-named settings through Step/Toggle");
+            "the original five PC-named settings remain on the player page through Step/Toggle");
+        Checks.Check(menus["MobilePlayerMenu.cs"].Contains("panel.Toggle(\"宠物与隐士防抓\"")
+            && menus["MobilePlayerMenu.cs"].Contains("ModConfig.TogglePetGuard")
+            && menus["MobilePlayerMenu.cs"].Contains("自动找回尚待接入"),
+            "protection reuses the common Toggle and honestly describes the recovery dependency");
         Checks.Check(menus["MobileWorldMenu.cs"].Contains("panel.Step(\"每波怪物数量\"")
             && menus["MobileWorldMenu.cs"].Contains("panel.Step(\"怪物时间线推进\"")
             && menus["MobileWorldMenu.cs"].Contains("panel.Toggle(\"无限金币\"")
@@ -1060,6 +1082,32 @@ internal static class ArtifactChecks
                 dontPatchAll = true;
         }
         Checks.Check(dontPatchAll, "artifact carries MelonLoader.HarmonyDontPatchAll");
+
+        var pet = FindType(reader, "KingdomEnhancedMod", "PatchRoles_PetGuard");
+        var hermit = FindType(reader, "KingdomEnhancedMod", "PatchRoles_Hermit");
+        var aggregate = FindType(reader, "KingdomEnhancedMod", "AndroidPetProtectionHooks");
+        Checks.Check(!pet.IsNil && !hermit.IsNil && !aggregate.IsNil, "artifact links both shared receipts and the thin aggregate");
+        if (!pet.IsNil)
+        {
+            var definition = reader.GetTypeDefinition(pet);
+            var forbidden = new HashSet<string> { "TickRecall", "RecallStolenPets", "RecallDogs", "RecallHermits", "HasDog", "HasHermit", "LogDeferredOnce" };
+            Checks.Check(definition.GetMethods().All(h => !forbidden.Contains(reader.GetString(reader.GetMethodDefinition(h).Name))),
+                "Android excludes all private recovery helpers");
+            Checks.Check(definition.GetFields().All(h => !reader.GetString(reader.GetFieldDefinition(h).Name).StartsWith("_recall", StringComparison.Ordinal)),
+                "Android carries no recovery state fields");
+            Checks.Check(!BodyCallsMethod(pe, reader, definition, "Tick", "TickRecall", "KingdomEnhancedMod.PatchRoles_PetGuard"),
+                "protection Tick has no automatic recovery call");
+        }
+        if (!aggregate.IsNil)
+        {
+            var definition = reader.GetTypeDefinition(aggregate);
+            Checks.Check(BodyCallsMethod(pe, reader, definition, "OnEnablePostfix", "Postfix", "KingdomEnhancedMod.Droppable_OnEnable_HermitPickupPolicy_Patch")
+                && BodyCallsMethod(pe, reader, definition, "OnEnablePostfix", "Postfix", "KingdomEnhancedMod.Droppable_OnEnable_PetGuard_Patch"),
+                "enable aggregate calls the two original shared lifecycle handlers");
+            Checks.Check(BodyCallsMethod(pe, reader, definition, "OnDisablePrefix", "Prefix", "KingdomEnhancedMod.Droppable_OnDisable_HermitPickupPolicy_Patch")
+                && BodyCallsMethod(pe, reader, definition, "OnDisablePrefix", "Prefix", "KingdomEnhancedMod.Droppable_OnDisable_PetGuard_Patch"),
+                "disable aggregate calls the two original shared lifecycle handlers");
+        }
 
         var hold = FindType(reader, "KingdomEnhancedMod", "PatchPlayer_HoldPurchase");
         Checks.Check(!hold.IsNil, "artifact contains linked PatchPlayer_HoldPurchase");
@@ -1774,6 +1822,12 @@ internal static class ArtifactChecks
         "android/PatchUI_MobileCalendarHud.cs",
         "il2cpp/PatchUI_CalendarGems.cs",
         "il2cpp/PatchShared_ModDataPaths.cs",
+        "il2cpp/PatchRoles_PetGuard.cs",
+        "il2cpp/PatchRoles_Hermit.cs",
+        "il2cpp/PatchRoles_AndroidPetProtection.cs",
+        "android/tests/pet-protection/PetProtectionTests.csproj",
+        "android/tests/pet-protection/Stubs.cs",
+        "android/tests/pet-protection/Program.cs",
 };
 
     private static void VerifyFrozenSources()
@@ -1790,13 +1844,13 @@ internal static class ArtifactChecks
             { "android/MobileCalendar.cs", "39ac54e3bf7acb37a7a30189f67dd2973bb394f53d28193836481dba0c44723b" },
             { "android/MobileGenerationMenu.cs", "e89f7d9224b31f5ea77ca5392a02d8c7ac1a723c2dd0ee702d4225eb8f53f5d0" },
             { "android/MobileModPanel.cs", "e9a0bd5347da0333b2110b4a93dcf61b0caff4d4375a600a99ad12a124683f12" },
-            { "android/MobilePlayerConfig.cs", "c82d4656d57109bfe29539165b4690e730fb25bd2e5c212dc1de2cf30f86c7ac" },
-            { "android/MobilePlayerMenu.cs", "849ef81c029258d0a0ddbff4aef1684d9998434f4f85a01525d60236a714e139" },
+            { "android/MobilePlayerConfig.cs", "5fc9cddc4f2877864d9cb2e32dc3981b824284f98a9b63625804f9e9dc7d3fdf" },
+            { "android/MobilePlayerMenu.cs", "9fced29dbb22162ad3eb0ca7bb2d6d7b1c02d437c4831884b16145ed46723d2e" },
             { "android/MobilePopulation.cs", "fdf95ab309d2489f1d0d3e4c4893d3ee44388e9e5ebb37d991c65a6f8c260571" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
             { "android/MobileVegetationMenu.cs", "40e6be0dda5313a61f01f98e1829422290612ede0b948b8d21c4549a58890e66" },
             { "android/MobileWorldMenu.cs", "35749b5a0aaa300cb03c439790252f04bacdef91fc38188a25e260af29884fee" },
-            { "android/OhMyMods.AndroidProbe.csproj", "beb0ab03f45f03d1470d1cad90affa73f86b095d7fe3c507b4767c69c66857cb" },
+            { "android/OhMyMods.AndroidProbe.csproj", "ee0d7efd9638c04bd7523d6f253a609792faae524fa89d20c3b7a8df423278fb" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PanelGesture.cs", "51071fefbc1a1ab4b8f23ee84bf10925c325d8414400b9ed186af238c136e97b" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },
@@ -1805,7 +1859,7 @@ internal static class ArtifactChecks
             { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
-            { "android/Probe.cs", "fc9b43fcad2923a8f52b66711026e958c08974a336e56803661e6a8abd03b1af" },
+            { "android/Probe.cs", "54bd63a7f1c219131d7444bbfb1c38b441b6d9da0b77e97f96e27bdbc2c24766" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
             { "android/tests/AdapterTests.csproj", "788d688ab72d580711a9ec42ec6a540dfa41102af307a65d64965748e36859e1" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
@@ -1836,6 +1890,12 @@ internal static class ArtifactChecks
             { "android/PatchUI_MobileCalendarHud.cs", "bd2de1b93492901e8cad72af54c370361cee5f3b29e695c3c1721484247f7086" },
             { "il2cpp/PatchUI_CalendarGems.cs", "61dc210b03a8eceaf0b7da52ccdf0890e31cdd8a9cd0c1207409da6ded50bb93" },
             { "il2cpp/PatchShared_ModDataPaths.cs", "f38c27e36ae7d4209a7a849dc06415a9bd7705d9d22b3689120882db2e484d0f" },
+            { "il2cpp/PatchRoles_PetGuard.cs", "b9d63a6a89b8525ebb34db7551fbe1a061be935619335246fb09c795a3241269" },
+            { "il2cpp/PatchRoles_Hermit.cs", "e14768158734fc7b994d7159e4e105307c444c72e4b8d773f9a38813c374cc3a" },
+            { "il2cpp/PatchRoles_AndroidPetProtection.cs", "b929887ffdddb43fea8b1f79ef5f0915fa9315cde10164f3ed5a1ffd2ee12915" },
+            { "android/tests/pet-protection/PetProtectionTests.csproj", "493391e9c4c3f71c00e4cc58bcfa6d20cb48f577bfd91183f7a70ab9f730b3b4" },
+            { "android/tests/pet-protection/Stubs.cs", "3d5b2d7a2da0ba45fa4818053bc2ce53579b520e2f06e9a6c28d245b85eb2d0d" },
+            { "android/tests/pet-protection/Program.cs", "a92406354c94db37f8ea1f85a20b7f228d9d72fb06609d56fe4bed79a0a2e6da" },
 };
         foreach (string relative in FrozenSources)
         {

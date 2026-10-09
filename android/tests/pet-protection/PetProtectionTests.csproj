@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Issue #194 Android 保护 host（直接链接生产源）：直接编译候选的两份共享生产源
+       （../../../il2cpp/PatchRoles_PetGuard.cs / ../../../il2cpp/PatchRoles_Hermit.cs）与薄 handler
+       （../../../il2cpp/PatchRoles_AndroidPetProtection.cs），DefineConstants 与 android/OhMyMods.AndroidProbe.csproj
+       一致（ANDROID;IL2CPP）；生产源里的裸游戏类型名按 android/GlobalAliases.cs 的 globalalias 模式
+       由 Stubs.cs 解析到同名 doubles（未修改共享源本身）。
+       最小替身只含共享保护路径成员：不提供 SpawnNearP1 / SetupDog / SetDogStatus / SetHermitStatus /
+       GetDogStatus、CampaignSaveData / Holder / Kingdom / DogType / DogPosition / HermitType /
+       HermitPosition / Il2CppSystem，误保留的召回代码在 ANDROID 预处理下直接编译失败。
+       host 只证控制流，不冒充 native/Unity/Harmony 运行证据。
+       Run（workdir = 本目录，outputs 落在本目录 bin/obj）：
+         /Users/Admin/projects/ohmymods/.local/toolchains/dotnet10/dotnet run -c Release -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>PetProtectionTests</AssemblyName>
+    <RootNamespace>OhMyMods.AndroidProbe.PetProtectionTests</RootNamespace>
+    <DefineConstants>ANDROID;IL2CPP</DefineConstants>
+    <EnableDefaultItems>false</EnableDefaultItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../il2cpp/PatchRoles_PetGuard.cs" />
+    <Compile Include="../../../il2cpp/PatchRoles_Hermit.cs" />
+    <Compile Include="../../../il2cpp/PatchRoles_AndroidPetProtection.cs" />
+    <Compile Include="Stubs.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,67 @@
+{
+  "task": "issue-194",
+  "UTC": "2026-10-09T00:26:20.745653+00:00",
+  "acceptedPlanSHA256": "9e03eda76e7522073117a6a83fdb3041609f39a80800d9bb43dea47c9805095f",
+  "AndroidMainSHA256": "f6e9d7fba3f479f74dafa0da9ddb744a1b298ea2b3ba5c05ba494f351aaac219",
+  "AndroidMainBytes": 228352,
+  "productSources": 54,
+  "SDKGeneratedAtAssemblyInfoQuery": 1,
+  "realPreferences": 21,
+  "explicitTargets": 37,
+  "AndroidBuild": "0W0E",
+  "PCFullSemanticVerdict": "MATCH",
+  "PCResources": 37,
+  "hostProtection": {
+    "passed": 27,
+    "failed": 0,
+    "checks": 222
+  },
+  "hostPCPet": {
+    "passed": 32,
+    "failed": 0,
+    "checks": 154
+  },
+  "adapters": {
+    "normal": "813/0",
+    "oldcfg": "653/0",
+    "sourcePins": 62
+  },
+  "fullInventory": {
+    "default": "2E0W",
+    "optin": "111E1W",
+    "missingConfigSites": 91,
+    "missingConfigMembers": 41,
+    "mixedExtensions": 19,
+    "modRole": 1
+  },
+  "sourceIndependentAccepted": true,
+  "nativeObservationAccepted": false,
+  "phoneMPAccepted": false,
+  "automaticRecoveryPorted": false,
+  "codeScopeComplete": false,
+  "sourceReviewVerdict": "APPROVE_EXACT_ISSUE194_SOURCE_V2_AND_VERIFICATION_WITH_NATIVE_PENDING",
+  "nativeObservationBoundary": "Package update/startup/hooks and touch ON/OFF observed; native role policy mutation/release unobserved",
+  "emulatorObservation": {
+    "version": "0.0.25",
+    "packageMainRefresh": "replaced1",
+    "freshStartupSeconds": 22.931678832974285,
+    "worldObservedSeconds": 29.467520790873095,
+    "zeroPIDSeconds": 59.60566695779562,
+    "inputs": 5,
+    "swipes": 1,
+    "actualTouchToggleOnThenOff": true,
+    "errors": 0,
+    "original20ConfigValuesHeld": true,
+    "originalConfigRestored": true,
+    "nativeSaveHashHeld": true
+  },
+  "pending": [
+    "natural role policy mutation/release",
+    "callback-exception native path",
+    "pool reuse/island loading",
+    "dynamic role component changes within one generation",
+    "automatic recovery/cross-island recall",
+    "phone",
+    "multiplayer"
+  ]
+}

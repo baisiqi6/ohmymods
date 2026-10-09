@@ -820,3 +820,13 @@ PC原回归117/0。实际PC SDK8 Release234源码/34资源、1290共同类型/68
 不宣称游戏从未自动落盘。内部周期映射作为原生API内部实现
 保持UNKNOWN；不以UI/注册/宿主全绿代替玩法，也不人为改时、生成波次或新建战役。手机、
 多指、联机与长期行为待验，旧Dense的NativeRemove/RGBA入池边界不升级。
+
+## Issue #194 — 狗与隐士防抓生命周期（0.0.25）
+
+新增玩家页“宠物与隐士防抓”，沿PC中文与金色通用控件、小浮球及原触屏滚动；一个真实PetGuardEnabled默认OFF。每个Droppable长入口只注册一个聚合handler，复用共享receipt及原Update，保护作用于单机/主机。自动找回/跨岛召回不在本批，UI明确尚待接入。未Bound先等真实scene+layer；同GO双角色在产生处由Dog唯一负责，保留船上OFF延期，不增加scan/mirror/retry。
+
+直接生产源host27/0/222，PCpet32/0/154，adapters813/0及--oldcfg653/0；实际Android构建0W0E，PC全语义及37资源MATCH。54产品源，SDK生成文件单独计；21设置37目标。默认OFF仍做真实跟踪，未承诺零native访问。native/phone/MP、动态组件组成变化及自动找回依赖如实待验，详细分层见docs/project-harness/tasks/issue-194。
+
+升级已有测试副本时，Patcher 的 development 默认 seed 会保留本地已存在的 Main，安装成功并不证明新DLL已运行。打包本项目ownedMain需使用精确规则 `--profile development --policy Mods/OhMyMods.AndroidProbe.dll=refresh`；刷新只在新revision边界发生，不采用enforce持续检查，也不改变UserData或其它Mod策略。运行验收同时核实际Main hash和版本/目标日志；仍加载旧Main时记录失败并定位包声明，不能靠重复启动凑通过。
+
+精确refresh私有包在模拟器实际更新Main0.0.25（replaced1），37真实目标与两个生命周期handler注册成功；第五次具名launch-only观察22.932s新日志启动、29.468s世界/浮球、一次触屏滚动后实际防抓ON/OFF图与日志匹配，59.606s零PID、0 ERROR。原20配置值与native档hash保持，最终OFF新增项经核验恢复原配置。测试脚本键路径、旧log识别与TTY输入边界的失败记录保留，均不当成功。仅接受包/启动/菜单设置证据；天然狗/隐士策略写入/解除、池/换岛、callback异常、动态组件、手机/联机及召回仍待验。

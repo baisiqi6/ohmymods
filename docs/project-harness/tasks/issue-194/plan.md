@@ -1,0 +1,34 @@
+# Issue194 — Android 狗与隐士防抓生命周期接入（自动找回为后续依赖）
+
+owner mac-codex-ohmymods-android-operator；候选branch codex/android-pet-protection；base release/v9.5.13 的 f4afc01e47641f7bc466ff65aafcf587df69301c，已交付192不丢弃。GitHub https://github.com/baisiqi6/ohmymods/issues/194 已公开范围；本plan机械绑定实际Issue号。尚未创建canonical Task或改产品，先审再注册/派worker。
+
+## 范围、证据和修复点
+完成狗+隐士共有防抓机制接入，不宣称完整“防抓并找回”功能完成。PC共享PatchRoles_PetGuard/Hermit目前通过Droppable两个长生命周期入口登记真实同对象receipt、Existing Tick检查owned/contested/authority/worldgeneration；不detour短getter，不全场扫描。Android7type10fields与具名接口实际可用，两个长入口唯一metadata地址2333ac0/2323634。3段精确FDE新增664B与4段1396B分别保留，非资产/运行证据。Droppable.OnDisable先delegate再将+f4保存值写回真实CurrentEnemyPolicy+4c，正常callback返回后native负责禁用reset；若callback异常，reset未必到达，这是明确保留的native异常边界，不宣称异常交接成功。prefix退receipt，不另回写或增加finalizer补偿。OnEnable callees与颜色虚callee仍未知，不能宣称所有writer已穷尽。
+独审还确认一个源条件边界：若Pool.OnEnable早于跨scene parent，当前未Bound时“scene不同→退receipt”会丢初始归属机会；Android真实触发未观察，不能称native已复现。修复点在初始binding判定，不在下游全场补搜。当前召回源条件缺口已获独审：本次Spawn进入列表后颜色/状态提交故障会被HasDog当旧实例而永久pending；DogRecall先写新岛记录后才核holder/spawn。Android实际永久丢失未观察、原生callee副作用未穷尽。本组不启用此逻辑、不新增下游补偿；完整Android角色移植仍明确保留自动找回/跨岛召回依赖组，下一组须在生成产生处明确部分实例和保存责任并去除旧无限retry。PC业务修复需要与primary scope协调后另做，不能本组偷偷变更。
+
+## 实现契约
+1. 直接Compile链接现有il2cpp/PatchRoles_PetGuard.cs与PatchRoles_Hermit.cs。PetGuard/Hermit的ANDROID未Bound分支共用一个契约：initial scene不符尚不是离开世界，未inScope时保留真实identity receipt且零policy写；首次scene+layer都相符才Bound。Bound后离world仍原退役；unbound以实际OnDisable/identity失配/activefalse退出，不加猜测timeout/扫描/重试。PC #else保留原scene早退，完整IL行为不变。PetGuard另仅#if !ANDROID隔离Tick中TickRecall及自动找回专属字段、HermitTypes和私有召回helpers。ANDROID无任何SpawnNearP1/SetupDog/SetDogStatus/SetHermitStatus调用，PC预处理后完整types/methodIL/locals/EH/attrs/resources与base一致。不要新造Android receipt算法、configwrapper、role slots、backup save或全场扫描。
+   审查修正：当同一GameObject同时带真实Dog与Hermit组件，ANDROID在Hermit.OnEnabled的receipt产生处不创建Hermit记录，由Dog receipt唯一负责。原因是两份共享receipt会让后进入Contested的外部状态被另一份未Owned记录改回；狗优先保留既有船上OFF延期责任。只对真实同对象组件做一次分类，不凭名字/子节点/枚举猜测，不在Tick持续纠正。PC条件外原行为不动。正常单角色不改变，dual native是否存在仍未知。
+2. Android真实MelonPreferences一bool PetGuardEnabled defaultfalse，与PC命名一致。初始化21entries；Toggle一次修改一次Save，无轮询持久化/订阅重试/额外总开关。
+3. 现有MobilePlayerMenu公共Toggle新增中文“宠物与隐士防抓”，帮助明确“单机/主机保护狗与隐士；关闭恢复原生拾取。自动找回尚待接入。”沿共同PC金色中文行样式与原浮球/触屏滚动，不新增panel/category/chrome/浮窗。
+4. Operator在Probe显式注册两个长目标，每个target一个HarmonyInstance.Patch注册以复用现有合并机制；一个Android薄handler按PC加载源码中已有顺序Hermit→PetGuard调用两个已有handler，不新加catch、重试或finalizer（OnEnable postfix1；OnDisable prefix1），不为同一target建重叠detour，引用Type.EmptyTypes；新增目标35→37，禁止PatchAll/扫描/短getter/原生bytes改。既有OnUpdate各调一次共享Tick，无新driver。默认OFF允许既有receipt tracking为未来ON准备，这是只读组件/identity访问，不能标“零native调用”；仅EnemyPolicy写被真实配置/authority门控制。新born由OnEnable登记；启动前既有实例的覆盖不能编造，全场scan不允许。
+5. 版本仅本地Androidprobe0.0.25两个标记（正式release/tag不在本组），settings/hooklog如实列scope protection-only no recovery。不动Mono/主线正式环境/primary脏globaldocs。
+
+## Worker权限
+按fresh上海时间和native实际model事件路由；worker在task-private worker-source交付PatchRoles_PetGuard.cs与PatchRoles_Hermit.cs完整候选、仅聚合既有狗/隐士handler的PatchRoles_AndroidPetProtection.cs及直接链接这两生产源的保护host测试（ANDROID模式、测试doubles定义有界native事实），不写W/Probe/Main/project/config/menu/Git/network/device/canonical。Hermit除上述ANDROID未Bound判断与后述receipt单writer归属外只读。Operator统一注册和接线，维护Android适配强pins增加3src/变更已审source hashes，不删旧检查。
+
+## 验证
+- 最小编译确认实际Androidinterop无fakeAPI：SDK10 actualproduct54inputs0W0E，真实loader/path边界192保留，21真实prefs37显式targets。真实binarymetadata不存在召回私有fields/helpers或其spawn/save引用。原已有功能default/--oldcfg adapterchecks全部继续，更新entry/log期望并新增PetGuard默认OFF/ON/OFF只一次save。
+- 新ANDROID保护host直接编译生产源，覆盖dog+hermit、普通Droppable不登记、Anybody/EnemyOnly→Nobody单次write、OFF精确restore、original/general政策不动、native OnDisable正常callback后reset+receipt退场、callback抛错不虚称reset成功、池enable于other/persistent scene后parent入currentworld（首次绑定前0写、后1写）、始终不进world的unbound记录在disable退出、Bound后离world退役、池复用新generation、重复OnEnable不丢原值、加载/暂停/换world/移出layer/失权无write、contested不反复覆盖（含双组件只Dog一份receipt、外部Anybody/EnemyOnly写入后两Tick都不再覆写），双组件与单Dog船上OFF延后及native reset。host Tick调用顺序必须与Probe同为Hermit→PetGuard，不能只核初次写入。无需重新写已有召回镜像测试；调用Tick时即便Stolen状态也应零spawn/save，本组确实隔离召回。host只证控制流，不冒充native。
+- PCbase/candidate全语义MATCH及现pet-guard host全部通过，不部署PC。2longhook唯一地址证据仅准入线索；具体detour安装/native观察另过实证关口。
+- 产品必要模拟器验证：本组构建/源码审查通过后定义一次有界native观察（offcoldstart→真实对象自然生命周期，按实际可观察对象ON/OFF/池复用），未出现dog/hermit就如实pending，不用虚构实例/存档/盲多轮重试凑通过。install/观察有独立actualGLM gate和回滚原产品、cfg/save预算；此plan未预付安装或用户实机验收。不公开privateAPK/game/interop，默认无phone/MP/长周期全绿。
+- independent源码/契约review与actualGLM5.3max三问；必要检查后正常PR至release/v9.5.13，无admin/bypass。代码scopeallPRmerged即可关Issue/normaltaskdone，native未触发/phone/MP独立pending。下一召回组是显式未完成依赖，不在本Issue虚称全功能完成。
+
+## 状态/协作
+正常Issue公开Mac/Codex/AndroidOperator责任；正常Coordinateplan/task/assignment，只有primary明确window内写canonical，保护现162全部otherobjects/顺序及101当前acceptedplan/lease和186188192doneplans，EXharness doctor。一次合并scope与共享window请求，注册完即回还，不常规消息。产品修改只独立W；global进度文件primary有未交变更，结果落task不覆盖。
+
+## 剩余估算
+维持8–10风险组、80–210工程小时条件区间；本组两类型同生命周期一起验证/交付，召回保存事务依赖单列，不按编译错误数折算完成率。后续依据已证API/共享业务/存档/同步风险合并基础战斗与补给等分组。phoneMP日历单列。
+
+## 审查修订记录（2026-10-08）
+旧accepted plan f25f064c/7920B保留历史；首轮实际Main fd5fef17/228352B、23/0/192 host、813/0及653/0 adapters、PC全semanticMATCH，只证明首轮所测范围。独审找到生产Tick顺序与host反序，以及dual组件两receipt在外部write Anybody/EnemyOnly后会再次覆写的明确源码条件反例；Android native实际双组件未观察。新contract扩大Hermit精确许可至同对象singlewriter producer分类，保持原目标/两个longtargets/54产品sourceinputs/21entries/无召回。先直接生产源红测复现，再worker有界修正并独立验证；旧APK 0c4ba53b本机保留，绝不安装旧候选凑通过。actual产品query GenerateAssemblyInfo显示54源码+1SDK generated，与全量inventory的generated项目区分。正常Coordinate plan revise/approve保留原assignment operation/owner/session/branch/lease及其它162objects，接受新plan前不functional改该责任点。本修订仍未预付code完成/安装/native/merge。

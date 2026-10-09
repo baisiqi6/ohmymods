@@ -101,3 +101,7 @@ dotnet build android/compat/CompileInventory.csproj -c Debug \
   批新增 3 项后资源为 37；此后本工程 XmlPeek 直读原 csproj 声明的方式失效。
 - 余量估算 8–12 批 / 80–200 工程小时（含配置接线 24–60h）与 65–180h / 6–10 组均为旧宽口径规划，
   仅作历史参考；本批新估算由 Root 实测后更新，不以编译错误数代替百分比或 runtime 完成度。
+
+## Issue #194 后续角色组快照
+
+在192公共差异保持的基础上，产品直接复用PetGuard/Hermit保护源，ANDROID隔离未完成的召回路径；增加真实PetGuardEnabled而不造其余missing配置。当前全量default仍2E0W（Hook/INativeDetour），optin111E1W=91个ModConfig使用点/41成员+19混合extension+1CrossbowmanRole。旧192的115E/95点/42成员为历史快照，不代表当前数目；全量仍不编译成功，optin额外Bep引用仅诊断。产品54源码/21真实设置/37显式目标已实际编译0W0E；手机、联机与后续召回事务不由编译结果代验。工作量维持8–10风险组、80–210工程小时条件区间。
