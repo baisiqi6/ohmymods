@@ -7,6 +7,8 @@ namespace KingdomEnhancedMod;
 // First-connect baseline enrollment (issue 167). A campaign whose authoritative
 // record proves no purchase may register the frozen snapshots of its already
 // visited, still-missing islands once, at a verified native lifecycle boundary.
+// Issue 198 also permits an explicit upgrade of provably unpaid legacy rows
+// under the same frozen-member and authoritative-campaign checks.
 //
 // This type owns only the bounded native _islands read and the frozen row list.
 // Durability stays with HeavyShieldPersistence' existing Stage/Prepare chain:
@@ -19,7 +21,7 @@ namespace KingdomEnhancedMod;
 // island's objects, so its hash cannot be recomputed at commit time.
 internal static class HeavyShieldEnrollment
 {
-    // NoEnrollmentNeeded: nothing to register (no already-visited missing member).
+    // NoEnrollmentNeeded: no visited missing member or eligible unpaid legacy row.
     // Unavailable: members exist or cannot be proven absent while the freeze could
     // not complete; the caller must keep the first purchase closed.
     internal enum Outcome : byte { NoEnrollmentNeeded, Frozen, Unavailable }
@@ -30,6 +32,8 @@ internal static class HeavyShieldEnrollment
         internal int Slot;
         internal IntPtr Pointer;
         internal string SnapshotHash;
+        internal bool ReplacingLegacy;
+        internal string PreviousHash;
     }
 
     internal sealed class Candidate
@@ -71,7 +75,7 @@ internal static class HeavyShieldEnrollment
     // caller keeps the first purchase closed instead of falling through.
     internal static Outcome TryFreezeRows(CampaignSaveData campaign, IslandSaveData current,
         string campaignGuid, int challenge, HeavyShieldSavedCampaign[] copies,
-        out Candidate candidate, out string reason)
+        out Candidate candidate, out string reason, bool allowUnpaidLegacyUpgrade = false)
     {
         candidate = null;
         reason = null;
@@ -97,15 +101,18 @@ internal static class HeavyShieldEnrollment
                 if (entry.isNew) continue;
                 double played = entry.playTimeDays;
                 if (double.IsNaN(played) || double.IsInfinity(played) || played <= 0.0) continue;
-                // Known rows (any copy, any hash) stay untouched.
-                if (HasKnownRow(copies, challenge, entry.land)) continue;
+                bool known = HasKnownRow(copies, challenge, entry.land);
+                if (known && (!allowUnpaidLegacyUpgrade
+                    || !OnlyUnpaidLegacyRows(copies, challenge, entry.land))) continue;
                 if (entry.objects == null) { reason = "objects"; return Outcome.Unavailable; }
                 string raw = JsonUtility.ToJson(entry, false);
-                string hash = HeavyShieldSaveCodec.SnapshotHash(campaignGuid, challenge, entry.land, raw);
+                string hash = HeavyShieldSnapshotFingerprint.Hash(campaignGuid, challenge, entry.land, raw);
                 if (hash == null) { reason = "hash"; return Outcome.Unavailable; }
                 result.Rows.Add(new Row
                 {
                     Land = entry.land, Slot = slot, Pointer = entry.Pointer, SnapshotHash = hash,
+                    ReplacingLegacy = known,
+                    PreviousHash = StagedRow(copies, challenge, entry.land)?.SnapshotHash,
                 });
                 if (entry.Pointer == current.Pointer) result.IncludesCurrent = true;
             }
@@ -155,7 +162,7 @@ internal static class HeavyShieldEnrollment
                         if (double.IsNaN(played) || double.IsInfinity(played) || played <= 0.0)
                         { reason = "unvisited"; return false; }
                         if (entry.objects == null) { reason = "objects"; return false; }
-                        string hash = HeavyShieldSaveCodec.SnapshotHash(campaignGuid, challenge,
+                        string hash = HeavyShieldSnapshotFingerprint.Hash(campaignGuid, challenge,
                             entry.land, JsonUtility.ToJson(entry, false));
                         if (hash == null || hash != row.SnapshotHash) { reason = "swapped"; return false; }
                     }
@@ -180,5 +187,39 @@ internal static class HeavyShieldEnrollment
                 if (row != null && row.Challenge == challenge && row.Land == land) return true;
         }
         return false;
+    }
+
+    // The caller has separately proved the entire campaign unpaid. Canonical
+    // rows never participate in this compatibility path, even when empty.
+    internal static bool OnlyUnpaidLegacyRows(HeavyShieldSavedCampaign[] copies,
+        int challenge, int land)
+    {
+        bool seen = false;
+        if (copies == null) return false;
+        foreach (var campaign in copies)
+        {
+            if (campaign == null) continue;
+            if (campaign.MoldReceipt != null || campaign.LeftExtraReceipt != null
+                || campaign.RightExtraReceipt != null || campaign.Islands == null) return false;
+            foreach (var row in campaign.Islands)
+            {
+                if (row == null || row.Claims == null || row.Claims.Count != 0) return false;
+                if (row.Challenge != challenge || row.Land != land) continue;
+                seen = true;
+                if (row.HashKind != HeavyShieldSnapshotFingerprint.LegacyKind) return false;
+            }
+        }
+        return seen;
+    }
+
+    // Copies have a fixed operator-owned order: Loaded, Prepared, Staged,
+    // LoadedByNative. Capture the cloned draft's actual row preimage.
+    private static HeavyShieldSavedIsland StagedRow(HeavyShieldSavedCampaign[] copies,
+        int challenge, int land)
+    {
+        if (copies == null || copies.Length != 4 || copies[2]?.Islands == null) return null;
+        foreach (var row in copies[2].Islands)
+            if (row != null && row.Challenge == challenge && row.Land == land) return row;
+        return null;
     }
 }
