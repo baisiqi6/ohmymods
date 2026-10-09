@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.24", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.25", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,9 +16,17 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.24 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.25 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
+  var droppableEnable=AccessTools.Method(typeof(Il2Cpp.Droppable),"OnEnable",Type.EmptyTypes)??throw new MissingMethodException("Droppable.OnEnable()");
+  var droppableDisable=AccessTools.Method(typeof(Il2Cpp.Droppable),"OnDisable",Type.EmptyTypes)??throw new MissingMethodException("Droppable.OnDisable()");
+  var petProtection=typeof(KingdomEnhancedMod.AndroidPetProtectionHooks);
+  HarmonyInstance.Patch(droppableEnable,postfix:new HarmonyMethod(petProtection,"OnEnablePostfix"));
+  HarmonyInstance.Patch(droppableDisable,prefix:new HarmonyMethod(petProtection,"OnDisablePrefix"));
+  LogHookCounts(droppableEnable);
+  LogHookCounts(droppableDisable);
+  LoggerInstance.Msg("ANDROID_PET_PROTECTION_HOOKS_INSTALLED sharedSource=true recovery=false enabled="+KingdomEnhancedMod.ModConfig.PetGuardEnabled.Value);
   var populationApply=AccessTools.Method(typeof(Il2Cpp.CampaignSaveData),"ApplyToScene",Type.EmptyTypes) ?? throw new MissingMethodException("CampaignSaveData.ApplyToScene()");
   HarmonyInstance.Patch(populationApply,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.PopulationPerformanceApplyPatch),"Postfix"));
   LogHookCounts(populationApply);
@@ -186,6 +194,8 @@ public sealed class Probe : MelonMod
   MobilePopulation.Tick();
   KingdomEnhancedMod.PatchPlayer_HoldPurchase.Tick();
   KingdomEnhancedMod.PatchWorld_OptionalVegetation.Tick();
+  KingdomEnhancedMod.PatchRoles_Hermit.Tick();
+  KingdomEnhancedMod.PatchRoles_PetGuard.Tick();
   if (setupAttempted) return;
   setupAttempted = true;
   try

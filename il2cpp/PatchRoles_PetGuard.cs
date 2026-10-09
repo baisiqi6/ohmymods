@@ -27,6 +27,10 @@ namespace KingdomEnhancedMod;
 /// 船上狗还原窗口：Dog.DoJumpOnBoat 会把 CurrentEnemyPolicy 置 Nobody 并把狗挂到
 /// Boat.body 下；关闭开关时不回写 Original，等离船后的 Tick 或原生 OnDisable 重置接管。
 ///
+/// Android（#if ANDROID）构建不含召回段：找回触发/重试与 RecallDogs/RecallHermits 及召回
+/// 专属字段、HermitType 表、LogDeferredOnce 整体由 #if !ANDROID 隔离，只保留 Droppable
+/// 生命周期 receipt 防抓；自动找回/跨岛召回是后续依赖组，Android 不得出现其调用。
+///
 /// 2.4.0 签名验证（game-source/Assembly-CSharp decompile + interop dump）：
 /// CampaignSaveData.SetDogStatus/GetDogStatus/SetHermitStatus/GetHermitStatus/CurrentLand/
 /// SpawnNearP1&lt;T&gt;、Holder.dogPrefab/wolfPupPrefab/hermits(Il2CppReferenceArray)、
@@ -57,19 +61,24 @@ public static class PatchRoles_PetGuard
 
     private static readonly Dictionary<IntPtr, Receipt> Tracked = new();
     private static readonly List<IntPtr> Work = new();
+#if !ANDROID
     private static readonly Hermit.HermitType[] HermitTypes =
     {
         Hermit.HermitType.Horse, Hermit.HermitType.Horn, Hermit.HermitType.Ballista,
         Hermit.HermitType.Baker, Hermit.HermitType.Knight, Hermit.HermitType.Persephone,
         Hermit.HermitType.Fire
     };
+#endif
 
     private static bool _dirty, _lastEnabled, _lastAuthority, _lastHasScope, _loggedProtection, _loggedFailure;
+#if !ANDROID
     private static bool _loggedDeferred;
+#endif
     private static IntPtr _lastWorld, _lastLayer;
     private static int _lastScene;
     private static float _nextCheck;
 
+#if !ANDROID
     // 找回触发：开关或 authority 丢失后重新武装；离开可用上下文（Loading）后再回到
     // Playing/暂停的同一世界，或世界世代变化（读档/换岛）时执行一次。
     // 条件性失败/延后（playerOne 缺失、状态读取或生成异常、同 id 实例仍场）保持 _recallPending，
@@ -80,6 +89,7 @@ public static class PatchRoles_PetGuard
     private static int _recallScene;
     private static float _nextRecallAttempt;
     private const float RecallRetryInterval = 0.5f;
+#endif
 
     private static bool IsEnabled()
         => ModConfig.Enabled != null && ModConfig.Enabled.Value
@@ -135,8 +145,11 @@ public static class PatchRoles_PetGuard
             try { TickReceipts(); }
             catch (Exception ex) { LogFailure(ex); }
         }
+#if !ANDROID
+        // ANDROID 不编译召回段：本组只交付防抓，调用 Tick 不会 spawn/save（无召回镜像）。
         try { TickRecall(); }
         catch (Exception ex) { LogFailure(ex); }
+#endif
     }
 
     private static void TickReceipts()
@@ -202,8 +215,13 @@ public static class PatchRoles_PetGuard
         }
         else
         {
+#if !ANDROID
             // Pool enable can precede parenting. A different loaded scene is already outside this world.
             if (go.scene.handle != scope.Scene) return false;
+#else
+            // ANDROID：scene 不同不是离开世界的证明（池可能在跨 scene parent 之前 enable）；不早退。
+            // 未 inScope 只保留真实 identity receipt 且零 policy 写，首次真实 scene+layer 相符才 Bound。
+#endif
             if (!inScope) return true;
             receipt.Bound = true;
             receipt.WorldPtr = scope.WorldPtr; receipt.LayerPtr = scope.LayerPtr; receipt.Scene = scope.Scene;
@@ -256,6 +274,9 @@ public static class PatchRoles_PetGuard
         return false;
     }
 
+#if !ANDROID
+    // 召回段整体隔离：TickRecall/RecallStolenPets/RecallDogs/RecallHermits/HasDog/HasHermit/
+    // LogDeferredOnce 不在 Android 编译（无 SpawnNearP1/SetupDog/SetDogStatus/SetHermitStatus 调用）。
     private static void TickRecall()
     {
         if (!IsEnabled() || !NetworkBigBoss.HasWorldAuth)
@@ -407,6 +428,7 @@ public static class PatchRoles_PetGuard
         try { KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[PetGuard] " + reason); }
         catch { }
     }
+#endif
 
     private static bool SameIdentity(Receipt receipt, Droppable droppable, Dog dog, GameObject go)
     {

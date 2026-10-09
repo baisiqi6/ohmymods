@@ -50,6 +50,9 @@
     <Compile Include="AndroidCoroutine.cs" />
     <Compile Include="HoldBridges.cs" />
     <Compile Include="../il2cpp/PatchShared_ModDataPaths.cs" Link="Production/PatchShared_ModDataPaths.cs" />
+    <Compile Include="../il2cpp/PatchRoles_PetGuard.cs" Link="Production/PatchRoles_PetGuard.cs" />
+    <Compile Include="../il2cpp/PatchRoles_Hermit.cs" Link="Production/PatchRoles_Hermit.cs" />
+    <Compile Include="../il2cpp/PatchRoles_AndroidPetProtection.cs" Link="Production/PatchRoles_AndroidPetProtection.cs" />
     <Compile Include="MobilePlayerConfig.cs" />
     <Compile Include="MobilePlayerMenu.cs" />
     <Compile Include="MobileWorldMenu.cs" />

@@ -49,6 +49,11 @@ public static class PatchRoles_Hermit
             GameObject go = droppable.gameObject;
             Hermit hermit = go.GetComponent<Hermit>();
             if (hermit == null) return; // Real same-object component, never object names or children.
+#if ANDROID
+            // 同一 GameObject 已带真实 Dog 组件时由 Dog receipt 唯一负责本 Droppable（双 receipt 会在
+            // 外部写入后互相覆写）；让位保留狗的船上 OFF 延期窗口。仅覆盖登记时已同存两组件，运行期增删未定义。
+            if (go.GetComponent<Dog>() != null) return;
+#endif
             IntPtr pointer = droppable.Pointer;
             if (pointer == IntPtr.Zero) return;
             if (!Tracked.TryGetValue(pointer, out Receipt receipt) || !SameIdentity(receipt, droppable, hermit, go))
@@ -153,8 +158,13 @@ public static class PatchRoles_Hermit
         }
         else
         {
+#if !ANDROID
             // Pool enable can precede parenting. A different loaded scene is already outside this world.
             if (go.scene.handle != scope.Scene) return false;
+#else
+            // ANDROID：scene 不同不是离开世界的证明（池可能在跨 scene parent 之前 enable）；不早退。
+            // 未 inScope 只保留真实 identity receipt 且零 policy 写，首次真实 scene+layer 相符才 Bound。
+#endif
             if (!inScope) return true;
             receipt.Bound = true;
             receipt.WorldPtr = scope.WorldPtr; receipt.LayerPtr = scope.LayerPtr; receipt.Scene = scope.Scene;

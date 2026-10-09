@@ -4,7 +4,7 @@ using KingdomEnhancedMod;
 namespace OhMyMods.AndroidProbe;
 
 /// <summary>
-/// 玩家页（presentation only，Issue #144）：五个设置各一行，全部经 MobileModPanel.Step/Toggle
+/// 玩家页（presentation only，Issue #144）：六个设置各一行，全部经 MobileModPanel.Step/Toggle
 /// 这一条公共路径登记 tap rect 并绘制；不使用 GUI.Button、不自持固定坐标与样式。
 /// 内容高度由面板 cursor 单点累计，本方法不返回高度。
 /// 中文名与 PC 面板同源；两个冷却行说明“下次技能调用生效、只缩放该次/基础冷却、原生追加不缩放”。
@@ -14,6 +14,7 @@ internal static class MobilePlayerMenu
     private static readonly Action CycleSpeed = ModConfig.CycleSpeed;
     private static readonly Action ToggleStamina = ModConfig.ToggleStamina;
     private static readonly Action ToggleHold = ModConfig.ToggleHold;
+    private static readonly Action TogglePetGuard = ModConfig.TogglePetGuard;
     private static readonly Action CycleSteedCooldown = ModConfig.CycleSteedCooldown;
     private static readonly Action CycleStaffCooldown = ModConfig.CycleStaffCooldown;
 
@@ -24,6 +25,8 @@ internal static class MobilePlayerMenu
             "本机坐骑奔跑与滑翔不耗体力；关闭恢复自然消耗，技能冷却不变。", ToggleStamina);
         panel.Toggle("长按连续购买", ModConfig.HoldPurchaseEnabled.Value,
             "长按后加速续买；支持火药桶与火塔弹药，松开即停。", ToggleHold);
+        panel.Toggle("宠物与隐士防抓", ModConfig.PetGuardEnabled.Value,
+            "单机/主机保护狗与隐士；关闭恢复原生拾取。自动找回尚待接入。", TogglePetGuard);
         panel.Step("坐骑技能冷却", ModConfig.SteedCooldownMultiplier.Value + "x",
             "下次技能调用生效；原生冷却因坐骑而异。", CycleSteedCooldown);
         panel.Step("法杖神器冷却", ModConfig.StaffCooldownMultiplier.Value + "x",
