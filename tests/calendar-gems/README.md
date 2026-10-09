@@ -1,13 +1,14 @@
-# Calendar HUD 随身钻石
+# 当前战役储存钻石 HUD 回归
+
+产品 `PatchUI_CalendarGems` 和实际 `CalendarHud` 分别直接链接到 helper / HUD console 工程。测试 doubles 不替代原生加载或游戏验收。
+
+口径：当前**离线普通战役**的 `storedGems`，标题“储存钻石”，共享库存只显示一次，不读或合计钱袋。每半秒取已加载的 `GlobalSaveData._loaded`，按 `_currentCampaign` 的显式边界读取 `campaigns[slot]`。不调用可能创建存档的 `loaded` getter、隐式选择器或磁盘存档，不保留 Native 对象。联网/挑战来源尚未验收，显示“—”；未就绪、无效槽位、空对象、负余额或 getter 异常也是未知，可信0才显示0。
+
+验证覆盖取存更新、同global切档、不同global重载、无效slot不fallback0、null/zeroPointer/读取故障、联机/挑战门、清缓存、双本机不合计、无钱包读写和无存档创建调用。HUD集成同时覆盖半秒节拍、Draw只读缓存、金库/日历/墙状态保持、加载/菜单/世界切换、视口范围及异常后的GUI状态恢复。
 
 ```sh
-dotnet run -c Release --project tests/calendar-gems/CalendarGemsTests.csproj
-dotnet run -c Release --project tests/calendar-gems/CalendarGemsHudTests.csproj
+dotnet run --project tests/calendar-gems/CalendarGemsTests.csproj
+dotnet run --project tests/calendar-gems/CalendarGemsHudTests.csproj
 ```
 
-两个工程分别直接链接产品 `PatchUI_CalendarGems.cs` 和产品 `CalendarHud.cs`，无测试专用产品分支。
-
-- helper：40 项断言，覆盖 0/更新/更换钱包、本机/远端/当前世界、双本机、缺钱包/错误归属/负值/读取故障、清理与只读性。本机输入转交给另一 controllable 时仍显示该君主的钱包。
-- HUD：46 项断言，覆盖原日期/金库/外墙同屏、0.5 秒缓存、Draw 不查询钱包、故障不遮掉日历、双人槽位标识、显示开关/换世界、四档屏幕尺寸的列布局、GUI 状态归还。
-
-测试使用受控 Unity/游戏 API doubles；GUI 测试核对调用矩形及状态，不证明真实字体字宽、像素观感、联网角色初始化或玩家拾取/付款已实测。真实 2.4 ARM API 编译与原生身份绑定链证据另见 `docs/project-harness/tasks/issue-175/`。
+保持原 `Refresh(Kingdom, Transform)` 调用签名，kingdom不参与计算；移动端现有调用不改，已暂停的Android实现/构建/安装不在本次范围。Android冻结源码hash清单后续应在其授权恢复时同步新来源，不能把本轮PC测试当作手机实机验收。
