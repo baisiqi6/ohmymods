@@ -36,5 +36,6 @@
     <Compile Include="$(BankRoot)/il2cpp/HeroRecruitmentArchive.cs" />
     <Compile Include="$(BankRoot)/il2cpp/HeroRecruitmentContext.cs" />
     <Compile Include="$(BankRoot)/il2cpp/HeroRecruitmentFingerprint.cs" />
+    <Compile Include="$(BankRoot)/il2cpp/PatchPerf_CanonicalHashBuffer.cs" Link="PatchPerf_CanonicalHashBuffer.cs" />
   </ItemGroup>
 </Project>

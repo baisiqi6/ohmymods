@@ -3,6 +3,7 @@
   <ItemGroup>
     <Compile Include="../../il2cpp/MusketeerIdentity.cs" Link="Production/MusketeerIdentity.cs" />
     <Compile Include="../../il2cpp/MusketeerArchive.cs" Link="Production/MusketeerArchive.cs" />
+    <Compile Include="../../il2cpp/PatchPerf_CanonicalHashBuffer.cs" Link="PatchPerf_CanonicalHashBuffer.cs" />
     <Compile Include="../../il2cpp/MusketeerPersistence.cs" Link="Production/MusketeerPersistence.cs" />
     <Compile Include="../musketeer-identity/Stubs.cs" Link="Stubs.cs" />
   </ItemGroup>

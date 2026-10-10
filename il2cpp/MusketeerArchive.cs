@@ -95,7 +95,7 @@ internal sealed class MusketeerArchive
         }
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         hash.AppendData(Encoding.UTF8.GetBytes("musketeer-island-objects-v2\n" + scope + "\n"));
-        hash.AppendData(stream.ToArray());
+        CanonicalHashBuffer.AppendTo(hash, stream);
         return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
     }
 
