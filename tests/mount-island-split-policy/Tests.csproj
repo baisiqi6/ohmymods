@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>MountIslandSplitPolicyTests</AssemblyName>
+    <RootNamespace>MountIslandSplitPolicyTests</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 直接编译链接实际生产文件（不镜像实现）。 -->
+    <Compile Include="../../il2cpp/Patch_MountIslandSplitPolicy.cs" Link="Patch_MountIslandSplitPolicy.cs" />
+      <Compile Include="../../il2cpp/CrossWorldMountData.cs" Link="CrossWorldMountData.cs" />
+    <Compile Include="../../il2cpp/ExtensionIslandPlan.cs" Link="ExtensionIslandPlan.cs" />
+  </ItemGroup>
+</Project>
