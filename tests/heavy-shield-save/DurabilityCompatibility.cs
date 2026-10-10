@@ -10,7 +10,7 @@ internal static class DurabilityCompatibility
     internal static void Run()
     {
         Check(HeavyShieldSaveSchema.Key == "KEM.HeavyShield.Campaigns.v1"
-            && new HeavyShieldSaveDocument().Version == 2
+            && new HeavyShieldSaveDocument().Version == HeavyShieldSaveSchema.Version
             && HeavyShieldBlockPolicy.InitialDurability == 4
             && HeavyShieldSaveSchema.MaxDurability == 4, "new schema keeps original authority key");
         var legacy = Fixture();
@@ -18,12 +18,12 @@ internal static class DurabilityCompatibility
         Check(legacy.Version == 1 && legacy.Campaigns[0].Islands[0].Claims[0].Durability == 3,
             "serialize preserves caller version and durability");
         Check(HeavyShieldSaveCodec.TryParse(raw, out var loaded, out _), "real v1 fixture parses");
-        Check(loaded.Version == 2 && !ReferenceEquals(legacy, loaded), "upgrade belongs only to parsed object");
+        Check(loaded.Version == HeavyShieldSaveSchema.Version && !ReferenceEquals(legacy, loaded), "upgrade belongs only to parsed object");
         Check(HeavyShieldSaveCodec.TrySerialize(loaded, out var upgraded, out _)
             && SameExceptVersion(raw, upgraded), "all campaigns/islands/receipts/native IDs/flags survive upgrade");
         Check(HeavyShieldSaveCodec.TryParse(upgraded, out var reloaded, out _)
             && HeavyShieldSaveCodec.TrySerialize(reloaded, out var second, out _)
-            && second == upgraded, "v2 roundtrip is stable without further migration");
+            && second == upgraded, "v3 roundtrip preserves legacy hash kinds without further migration");
         Check(legacy.Version == 1, "parse and upgrade do not mutate source document");
 
         foreach (var claim in loaded.Campaigns[0].Islands[0].Claims)
@@ -70,7 +70,7 @@ internal static class DurabilityCompatibility
             foreach (var island in campaign["islands"].AsArray())
                 foreach (var claim in island["claims"].AsArray()) claim.AsObject().Remove("durability");
         Check(HeavyShieldSaveCodec.TryParse(omitted.ToJsonString(), out var defaulted, out _)
-            && defaulted.Version == 2
+            && defaulted.Version == HeavyShieldSaveSchema.Version
             && defaulted.Campaigns.SelectMany(x => x.Islands).SelectMany(x => x.Claims)
                 .All(x => x.Durability == 3), "missing version/durability use original v1 default three");
         Check(HeavyShieldSaveCodec.TrySerialize(defaulted, out var defaultedRaw, out _)
@@ -96,7 +96,7 @@ internal static class DurabilityCompatibility
             && omittedUnknownPolicy.State != HeavyShieldBlockPolicy.LifeState.Guarding,
             "old omitted durability never clears unknown flags to activate a broken career");
         var badVersion = JsonNode.Parse(raw).AsObject();
-        foreach (int version in new[] { -1, 0, 3, 4, int.MaxValue })
+        foreach (int version in new[] { -1, 0, 4, 99, int.MaxValue })
         {
             badVersion["version"] = version;
             Check(!HeavyShieldSaveCodec.TryParse(badVersion.ToJsonString(), out var bad, out _)
@@ -126,7 +126,7 @@ internal static class DurabilityCompatibility
             "invalid v1 serialize neither upgrades nor clamps caller");
 
         NewFourRoundtrips();
-        Console.WriteLine($"PASS heavy-shield v1/v2 codec and production policy compatibility: {checks} checks");
+        Console.WriteLine($"PASS heavy-shield v1/v2/v3 codec and production policy compatibility: {checks} checks");
     }
 
     private static void NewFourRoundtrips()
@@ -171,7 +171,7 @@ internal static class DurabilityCompatibility
     private static HeavyShieldBlockPolicy.Hit Front() => new(true, true, 1, 0, 1);
     private static bool SameExceptVersion(string before, string after)
     {
-        var expected = JsonNode.Parse(before); expected["version"] = 2;
+        var expected = JsonNode.Parse(before); expected["version"] = HeavyShieldSaveSchema.Version;
         return JsonNode.DeepEquals(expected, JsonNode.Parse(after));
     }
     private static HeavyShieldSavedClaim Claim(int durability, HeavyShieldQuota.Side side,

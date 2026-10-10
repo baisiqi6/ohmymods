@@ -3,7 +3,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>disable</Nullable>
+    <Nullable>disable</Nullable><DefineConstants>$(DefineConstants);KEM_HEAVY_SHIELD_SNAPSHOT_PURE_TESTS</DefineConstants>
     <DefaultItemExcludes>$(DefaultItemExcludes);**/obj/**</DefaultItemExcludes>
     <!-- RED run: -p:HeavyShieldSourceRoot=<product>/il2cpp ; GREEN (default): candidate il2cpp. -->
     <HeavyShieldSourceRoot Condition="'$(HeavyShieldSourceRoot)'==''">$(MSBuildThisFileDirectory)../../il2cpp</HeavyShieldSourceRoot>
@@ -18,5 +18,5 @@
     <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldQuota.cs" Link="HeavyShieldQuota.cs" />
     <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldEnrollment.cs" Link="HeavyShieldEnrollment.cs"
              Condition="Exists('$(HeavyShieldSourceRoot)/HeavyShieldEnrollment.cs')" />
-  </ItemGroup>
+  <Compile Include="$(HeavyShieldSourceRoot)/Patch_HeavyShieldSnapshot.cs" Link="Patch_HeavyShieldSnapshot.cs" /></ItemGroup>
 </Project>
