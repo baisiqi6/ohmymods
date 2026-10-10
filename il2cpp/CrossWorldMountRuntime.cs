@@ -53,6 +53,14 @@ internal static class CrossWorldMountRuntime
         internal bool Consumed;
         internal bool Closed;
         internal ulong LevelPointer;
+        // issue-200 fresh 观察票据（private proposal）：Open(Level, LevelConfig, seed) 在 GetBlocks 前
+        // 捕获的目标身份 + 单次转交的候选票据（null = Unknown，newgrant 关闭）。
+        internal ulong TargetLevelPointer;
+        internal LevelConfig Config;
+        internal ulong ConfigPointer;
+        internal int Seed;
+        internal MountIslandFrameTicket FreshTicket;
+        internal int Land = -1;                      // 本 frame 的目标 land（Apply 捕获；commit batch 使用）
     }
 
     internal sealed class PendingGrant
@@ -61,6 +69,7 @@ internal static class CrossWorldMountRuntime
         internal int Land;
         internal LevelBlock Template;
         internal CrossWorldMountGrantState Grant;
+        internal bool Authorized;   // true = 本次授予由 fresh 票据门放行（commit 前须 binding 复核）
     }
 
     private static readonly List<Frame> Frames = new List<Frame>(2);
@@ -70,10 +79,32 @@ internal static class CrossWorldMountRuntime
 
     // ------------------------------------------------------------------ scope
 
+    /// <summary>
+    /// 旧兼容入口（无可信目标身份）：不认领 fresh 票据，frame 恒 Unknown，批准前语义不变。
+    /// </summary>
     internal static Frame Open()
     {
+        return Open(null, null, 0);
+    }
+
+    /// <summary>
+    /// root 统一 Prefix（__instance/__0/__1）入口：在 GetBlocks **之前**捕获目标 Level/config/seed
+    /// 并单次转交 fresh 观察票据（<see cref="MountIslandFreshObservation.ClaimForFrame"/>）。
+    /// config 为空（旧兼容路径）时不认领票据。
+    /// </summary>
+    internal static Frame Open(Level target, LevelConfig config, int seed)
+    {
         var frame = new Frame();
-        try { Frames.Add(frame); }
+        try
+        {
+            frame.TargetLevelPointer = PointerOf(target);
+            frame.Config = config;
+            frame.ConfigPointer = PointerOf(config);
+            frame.Seed = seed;
+            if (config != null)
+                frame.FreshTicket = MountIslandFreshObservation.ClaimForFrame(frame);
+            Frames.Add(frame);
+        }
         catch (Exception e) { LogError("open scope: " + e.Message); }
         return frame;
     }
@@ -87,8 +118,14 @@ internal static class CrossWorldMountRuntime
             if (frame == null || frame.Closed) return;
             frame.Closed = true;
             frame.LevelPointer = PointerOf(level);
-            if (frame.Pending.Count == 0) return;
+            if (frame.Pending.Count == 0)
+            {
+                MountIslandFreshObservation.OnFrameClosed(frame);
+                return;
+            }
 
+            // Pass 1：placement 结果（不写 marker；own marker 写入必须晚于 batch fresh 复核）。
+            var placed = new List<PendingGrant>(frame.Pending.Count);
             for (int i = 0; i < frame.Pending.Count; i++)
             {
                 PendingGrant grant = frame.Pending[i];
@@ -99,13 +136,57 @@ internal static class CrossWorldMountRuntime
                         + grant.Definition.Id + " land=" + grant.Land + "); native marker NOT written");
                     continue;
                 }
-                if (TryWriteMarker(frame, grant.Definition, land))
-                    Log("native marker written after placement verified: def=" + grant.Definition.Id + " land=" + land);
+                if (land != grant.Land)
+                {
+                    LogError("grant aborted: placement reported wrong land (def=" + grant.Definition.Id
+                        + " expected=" + grant.Land + " actual=" + land + "); native marker NOT written");
+                    continue;
+                }
+                placed.Add(grant);
+            }
+
+            // Pass 2：**一次** batch fresh 复核（此刻 island history 尚未包含本帧 own marker；外部新增
+            // 非 own marker 会在此阻止整批 authorized 提交）。
+            bool batchVerified = MountIslandFreshObservation.BeginCommitBatch(frame, out string batchReason);
+            var session = new MountIslandCommitSession(batchVerified, batchReason);
+
+            // Pass 3：逐条 binding（owner/level/config/slot 指针，**不读 island history**）+ 写 own expected marker。
+            for (int i = 0; i < placed.Count; i++)
+            {
+                PendingGrant grant = placed[i];
+                var batchGrant = new MountIslandBatchGrant
+                {
+                    DefinitionId = grant.Definition.Id,
+                    Land = grant.Land,
+                    SteedTypeId = grant.Definition.SteedTypeId,
+                    Authorized = grant.Authorized,
+                    Placed = true,
+                };
+                bool bindingOk = false;
+                string bindingReason = "not authorized";
+                if (grant.Authorized)
+                    bindingOk = MountIslandFreshObservation.IsCommitBindingAuthorized(frame, grant.Land, out bindingReason);
+                if (!session.PlanGrant(batchGrant, bindingOk, frame.Land, out MountIslandMarkerWrite write))
+                {
+                    grant.Grant.Abort();
+                    LogError("grant aborted without marker (def=" + grant.Definition.Id + " land=" + grant.Land
+                        + "): batchVerified=" + batchVerified + " binding=" + bindingOk
+                        + " batchReason=" + batchReason + " bindingReason=" + bindingReason + "; native marker NOT written");
+                    continue;
+                }
+                if (TryWriteMarker(frame, grant.Definition, write.Land))
+                    Log("native marker written after placement verified: def=" + grant.Definition.Id + " land=" + write.Land);
                 else
                     LogError("native marker write failed after placement verified (def="
-                        + grant.Definition.Id + " land=" + land + ")");
+                        + grant.Definition.Id + " land=" + write.Land + ")");
             }
+
+            // Pass 4：批量后 owner/land 终核（只记录；已写入的 marker 不回溯撤销）。
+            if (!MountIslandFreshObservation.EndCommitBatch(frame, out string finalReason))
+                LogError("owner/land changed during marker batch: " + finalReason);
+
             frame.Pending.Clear();
+            MountIslandFreshObservation.OnFrameClosed(frame);
         }
         catch (Exception e) { LogError("close scope: " + e.Message); }
     }
@@ -126,6 +207,7 @@ internal static class CrossWorldMountRuntime
                     + grant.Definition.Id + " land=" + grant.Land + ")");
             }
             frame.Pending.Clear();
+            MountIslandFreshObservation.OnFrameClosed(frame);
         }
         catch (Exception e) { LogError("abort scope: " + e.Message); }
     }
@@ -178,7 +260,15 @@ internal static class CrossWorldMountRuntime
                 PendingGrant grant = frame.Pending[i];
                 LevelBlock template = grant.Template;
                 if (template != null && block.Pointer == template.Pointer)
+                {
+                    if (grant.Authorized && !MountIslandFreshObservation.IsPlacementAuthorized(frame, level, out string recheckReason))
+                    {
+                        LogError("placement not recorded: fresh ticket invalidated (def=" + grant.Definition.Id
+                            + " land=" + grant.Land + "): " + recheckReason);
+                        continue;
+                    }
                     grant.Grant.NotePlaced(levelPointer);
+                }
             }
         }
         catch (Exception) { }
@@ -236,6 +326,8 @@ internal static class CrossWorldMountRuntime
         internal LevelBlock Block;
         internal int Seam;
         internal int Order;
+        /// <summary>true = 本项属于本帧 newgrant 计划（发布前终核失效时仅撤销这些项）。</summary>
+        internal bool Granted;
     }
 
     private static void Apply(Frame frame, ref Il2CppSystem.Collections.Generic.List<LevelBlock> result)
@@ -270,10 +362,10 @@ internal static class CrossWorldMountRuntime
         }
         if (reign == null || land < 0) return;
 
-        // land11：在捕获容器/owner 门之前建立当前确证 reign 的 12 槽容器
+        // 扩展岛（11/13）：在捕获容器/owner 门之前建立当前确证 reign 的 14 槽容器
         // （FIRST-GENERATION-CONTRACT；独立于 SameOwner，含 landData==null 的值类型整体写回与
         // 短容器原地补齐）。其他 land 保持原逻辑。
-        if (land == ExtensionIslandRuntime.LandIndex
+        if (MountIslandSplitPolicy.IsExtensionLand(land)
             && !ExtensionIslandRuntime.TryEnsureExtensionLandDataSlots(campaign, land))
         {
             LogOnce("landdata-ensure-" + land,
@@ -287,7 +379,7 @@ internal static class CrossWorldMountRuntime
         Il2CppSystem.Collections.Generic.List<CampaignSaveData.LandMapData> landData = currentReign.landData;
         if (landData == null)
         {
-            if (land == ExtensionIslandRuntime.LandIndex)
+            if (MountIslandSplitPolicy.IsExtensionLand(land))
                 LogOnce("landdata-null-" + land, "skip generation: campaign landData missing");
             return;
         }
@@ -295,6 +387,18 @@ internal static class CrossWorldMountRuntime
         frame.Campaign = campaign;
         frame.ReignIndex = SafeReign(campaign);
         frame.LandDataPointer = CrossWorldMountDependencies.PointerOfList(landData);
+        frame.Land = land;
+
+        // new-grant 权威快照：本战役全岛 receipt（raw _islands 只读，不 GetIsland）+ 当前 reign marker。
+        // 快照失败/身份不符 = campaign 证据 unknown：本岛已证的 InjectOnly 恢复照常，newgrant 关闭。
+        MountIslandGrantAuthority.Snapshot authority = null;
+        if (MountIslandGrantAuthority.TryCapture(campaign, currentReign, landData, out authority)
+            && authority != null
+            && !authority.MatchesOwner(campaign, frame.ReignIndex, frame.LandDataPointer))
+        {
+            LogOnce("authority-owner-" + land, "campaign grant snapshot owner mismatch; new grants closed this pass");
+            authority = null;
+        }
 
         // 审查补充：同一 owner 门从发布前闭合——身份未确证（无准确 Global owner / reign 或
         // landData 不可读）时不进入任何注入或 receipt 修补，原 result 保持且 Pending 空，
@@ -309,20 +413,23 @@ internal static class CrossWorldMountRuntime
 
         if (land >= landData.Count)
         {
-            if (land == ExtensionIslandRuntime.LandIndex)
+            if (MountIslandSplitPolicy.IsExtensionLand(land))
                 LogOnce("landdata-short-" + land, "skip generation: campaign landData slots="
                     + landData.Count + " (need " + (land + 1) + "); padding did not establish the slot");
             return;
         }
 
         bool grantAllowed = GrantEnabled();
-        bool distributed = land == ExtensionIslandRuntime.LandIndex;
+        bool distributed = MountIslandSplitPolicy.IsExtensionLand(land);   // A11/B13 共用同一分散接缝规则
+        bool freshChecked = false;       // fresh 票据门按需（首个 GrantAndInject）判定一次
+        bool freshGrant = false;
+        string freshReason = null;
         var insertions = new List<Insertion>(2);
 
         for (int index = 0; index < CrossWorldMountCatalog.Definitions.Length; index++)
         {
             CrossWorldMountDefinition definition = CrossWorldMountCatalog.Definitions[index];
-            if (!TryReadIslandState(campaign, reign, landData, land, definition, out CrossWorldMountIslandState state))
+            if (!TryReadIslandState(campaign, reign, landData, land, definition, authority, out CrossWorldMountIslandState state))
             {
                 LogOnce("skip-state-" + definition.Id, "skip def=" + definition.Id + ": island state unreadable (fail-closed)");
                 continue;
@@ -349,11 +456,14 @@ internal static class CrossWorldMountRuntime
                     "skip def=" + definition.Id + " land=" + land + " (feature OFF: no new grants)");
                 continue;
             }
-            if (!CrossWorldMountPolicy.ShouldGrantDefinition(definition, land))
+            // 双岛 membership（仅 new-grant 过滤；InjectOnly/season/deps 语义不变）：稳定 Id → A11/B13，
+            // 未知 Id 一律不授予（不按数值/顺序猜岛；norselands.wolf 的 SteedType=13 与 land13 同值也由 Id 决定）。
+            int targetLand = MountIslandSplitPolicy.GetTargetLand(definition.Id);
+            if (targetLand != land)
             {
                 LogOnce("skip-land-" + definition.Id + "-" + land,
                     "skip def=" + definition.Id + " land=" + land
-                    + " (new grants only on extension land " + ExtensionIslandRuntime.LandIndex + ")");
+                    + " (new-grant target=" + (targetLand < 0 ? "unknown" : targetLand.ToString()) + ")");
                 continue;
             }
             // 活动资格（只作用于真正的新授予）：缺 holder/data、id 不符、非季节活动、异常或活动
@@ -373,15 +483,42 @@ internal static class CrossWorldMountRuntime
                     + CrossWorldMountDependencies.FirstNotReadyReason() + ")");
                 continue;
             }
+            // fresh 观察票据门（A11/B13 新授予统一门，替代原常 Unknown 的 native 资格门占位）：
+            // 只有本 frame 持有匹配的 native 缺记录候选票据才放行；未知/过期/身份漂移一律 closed。
+            // InjectOnly 重建路径不受此门影响（原位顺序不变）。
+            if (!freshChecked)
+            {
+                freshChecked = true;
+                freshGrant = MountIslandFreshObservation.IsGrantAuthorized(frame, land, out freshReason);
+            }
+            if (!freshGrant)
+            {
+                LogOnce("skip-fresh-" + definition.Id + "-" + land,
+                    "skip def=" + definition.Id + " land=" + land + " (fresh ticket gate closed: " + freshReason + ")");
+                continue;
+            }
             if (!QueueInjection(frame, definition, land, result, insertions, granted: true, distributed, out int grantSeam)) continue;
+            frame.Pending[frame.Pending.Count - 1].Authorized = true;
             Log("grant+inject def=" + definition.Id + " land=" + land
                 + (distributed ? " (seam assigned by catalog order)" : " seam=" + grantSeam)
                 + " (marker pending placement)");
         }
 
-        // 附加岛（land11）：全部待注入地块按固定目录顺序确定性分散到合法内部接缝；
-        // 旧岛保留原 ChooseSeam（首 Clearing）接缝次序不漂移。
-        if (distributed && insertions.Count > 0) AssignDistributedSeams(result.Count, insertions);
+        // R3：newgrant 真正发布前**一次**终核（authority 事实 + raw owner；finite 重核，不逐定义扫描）。
+        // 失效 → 撤销本帧全部 newgrant 计划/clones 与 Pending，仅按已证 InjectOnly 项重建最终 result
+        // （不 already-queued 就发布；无剩余项时原样保留调用方列表指针）。
+        bool authorityCurrent = authority != null && authority.MatchesCurrent(campaign);
+        bool ownerCurrent = SameOwner(frame);
+        if (!MountIslandGrantFacts.AllowsGrantPublish(authorityCurrent, ownerCurrent)
+            && HasGrantPlans(insertions))
+        {
+            RevokeGrantPlans(frame, insertions,
+                authorityCurrent ? "raw owner changed before publish" : "authority facts changed before publish");
+        }
+
+        // 扩展岛（A11/B13）：全部待注入地块按固定目录顺序确定性分散到合法内部接缝；
+        // 旧岛保留原 ChooseSeam（首 Clearing）接缝次序不漂移；恢复集按实际授予集 count/order 不重排。
+        if (distributed && insertions.Count > 0) AssignDistributedSeams(land, result.Count, insertions);
 
         Publish(ref result, insertions);
     }
@@ -392,7 +529,7 @@ internal static class CrossWorldMountRuntime
     /// [1, blockCount-1]（不跨首尾端点）。同 seed/同实际授予集重建一致，与付款/发现顺序无关；
     /// 不运行时 Random。
     /// </summary>
-    private static void AssignDistributedSeams(int blockCount, List<Insertion> insertions)
+    private static void AssignDistributedSeams(int land, int blockCount, List<Insertion> insertions)
     {
         int[] seams = ExtensionIslandPlan.DistributeSeams(blockCount - 1, insertions.Count);
         for (int i = 0; i < insertions.Count && i < seams.Length; i++)
@@ -401,18 +538,22 @@ internal static class CrossWorldMountRuntime
             item.Seam = seams[i];
             insertions[i] = item;
         }
-        Log("land " + ExtensionIslandRuntime.LandIndex + " distributed seams: blockCount=" + blockCount
+        Log("land " + land + " distributed seams: blockCount=" + blockCount
             + " definitions=" + insertions.Count + " seams=[" + string.Join(",", seams) + "]");
     }
 
     /// <summary>
-    /// 新授予的活动资格（仅 GrantAndInject 分支调用）：<c>SeasonalChallengeId==0</c> 直接允许
+    /// 新授予活动资格（仅 GrantAndInject/首可用资格评估调用）：<c>SeasonalChallengeId==0</c> 直接允许
     /// （普通获取定义）。非 0 时要求原生 <c>ChallengeHolder.Inst</c> 与其
     /// <c>ChallengeDataForID(id)</c> 有效、返回数据 <c>id</c> 等于该 id、<c>isSeasonalEvent</c>
     /// 为真，且 <c>SeasonalEventManager.IsEventActive(data)</c> 为真（actual 静态方法；正常模式
     /// 由服务器活动与 id 匹配决定，不比较本机日期，不设置 mock）。缺 holder/data、异常、非活动
     /// 一律 false；已授予/回执恢复、依赖注册与坐骑查询不经过本门。
+    /// （availability 侧首可用资格评估复用同一门，不复制第二套活动判定。）
     /// </summary>
+    internal static bool IsNewGrantSeasonEligible(CrossWorldMountDefinition definition)
+        => SeasonalGrantAllowed(definition);
+
     private static bool SeasonalGrantAllowed(CrossWorldMountDefinition definition)
     {
         try
@@ -449,7 +590,7 @@ internal static class CrossWorldMountRuntime
         int count = result.Count;
         if (distributed)
         {
-            insertions.Add(new Insertion { Block = block, Seam = -1, Order = insertions.Count });
+            insertions.Add(new Insertion { Block = block, Seam = -1, Order = insertions.Count, Granted = granted });
         }
         else
         {
@@ -460,7 +601,7 @@ internal static class CrossWorldMountRuntime
                 seam = -1;
                 return false;
             }
-            insertions.Add(new Insertion { Block = block, Seam = seam, Order = insertions.Count });
+            insertions.Add(new Insertion { Block = block, Seam = seam, Order = insertions.Count, Granted = granted });
         }
 
         if (granted)
@@ -506,6 +647,35 @@ internal static class CrossWorldMountRuntime
             cursor++;
         }
         result = published;
+    }
+
+    /// <summary>
+    /// 发布前终核失效：只撤销本帧 newgrant 项（待发布 clones/计划）与对应 Pending（Abort，不写标记），
+    /// 保留已证 InjectOnly 项；result 在 Publish 时按剩余项重建（无剩余则原样保留调用方列表指针）。
+    /// </summary>
+    private static void RevokeGrantPlans(Frame frame, List<Insertion> insertions, string reason)
+    {
+        int removed = 0;
+        for (int i = insertions.Count - 1; i >= 0; i--)
+        {
+            if (!insertions[i].Granted) continue;
+            insertions.RemoveAt(i);
+            removed++;
+        }
+        int aborted = frame.Pending.Count;
+        for (int i = 0; i < frame.Pending.Count; i++) frame.Pending[i].Grant.Abort();
+        frame.Pending.Clear();
+        LogError("newgrant plans revoked before publish (" + reason + "): removed=" + removed
+            + " queued clones, aborted=" + aborted + " pending; publishing InjectOnly-only result");
+    }
+
+    private static bool HasGrantPlans(List<Insertion> insertions)
+    {
+        for (int i = 0; i < insertions.Count; i++)
+        {
+            if (insertions[i].Granted) return true;
+        }
+        return false;
     }
 
     private static void RestoreMarkerFromReceipt(Frame frame, CrossWorldMountDefinition definition, int land)
@@ -619,10 +789,16 @@ internal static class CrossWorldMountRuntime
 
     // ------------------------------------------------------------------ island state (native save data)
 
+    /// <summary>
+    /// 每定义的本岛/本战役信号读取。receipt 走 raw _islands 槽只读（不 GetIsland）：
+    /// 读取异常 → state 不可读（fail-closed，跳过本定义）；null slot/无 objects = 无 record（阴性证据）。
+    /// campaignEvidenceReadable=false 表示 campaign 级快照缺失/不可读 → Decide 拒新授予但不影响本岛恢复。
+    /// </summary>
     private static bool TryReadIslandState(
         CampaignSaveData campaign, CampaignSaveData.ReignInfo reign,
         Il2CppSystem.Collections.Generic.List<CampaignSaveData.LandMapData> landData, int land,
-        CrossWorldMountDefinition definition, out CrossWorldMountIslandState state)
+        CrossWorldMountDefinition definition, MountIslandGrantAuthority.Snapshot authority,
+        out CrossWorldMountIslandState state)
     {
         state = default;
         try
@@ -652,14 +828,20 @@ internal static class CrossWorldMountRuntime
             double playedDays = entry.lastPlayedTimeDays;
             if (double.IsNaN(playedDays) || double.IsInfinity(playedDays) || playedDays < 0d) playedDays = double.MaxValue;
 
+            bool receiptReadable = MountIslandGrantAuthority.TryReadIslandReceipt(
+                campaign, land, definition, out bool receiptOnIsland);
+            bool receiptInCampaign = authority != null && authority.ReceiptInCampaign(definition);
+
             state = new CrossWorldMountIslandState(
                 landValid: true,
                 markerOnIsland: markerOnIsland,
                 markerInCampaign: markerInCampaign,
                 islandVisited: visited,
-                receiptOnIsland: IslandHasReceipt(campaign, land, definition),
+                receiptOnIsland: receiptOnIsland,
                 lastPlayedDays: playedDays,
-                grantedDefinitionCount: CountIslandDefinitions(spawns));
+                grantedDefinitionCount: CountIslandDefinitions(spawns),
+                receiptInCampaign: receiptInCampaign,
+                campaignEvidenceReadable: receiptReadable && authority != null);
             return true;
         }
         catch (Exception e)
@@ -680,31 +862,26 @@ internal static class CrossWorldMountRuntime
         return count;
     }
 
-    /// <summary>岛内存档里是否已有本定义获取设施的原生持久化回执（查询覆盖的已授予兜底共用）。</summary>
+    /// <summary>
+    /// 岛内存档里是否已有本定义获取设施的原生持久化回执（查询覆盖的已授予兜底共用）。
+    /// 现为 raw <c>_islands</c> 槽只读（不调用 GetIsland：其懒补建/IO 副作用未核）；
+    /// null slot/无 objects = 无回执；读取异常按 unknown 记录并按缺失处理（查询兜底的既有语义）。
+    /// </summary>
     internal static bool IslandHasReceipt(CampaignSaveData campaign, int land, CrossWorldMountDefinition definition)
     {
         try
         {
-            IslandSaveData island = campaign.GetIsland(land);
-            if (island == null) return false;
-            Il2CppSystem.Collections.Generic.List<IslandSaveData.ObjectData> objects = island.objects;
-            if (objects == null) return false;
-            int count = objects.Count;
-            for (int i = 0; i < count; i++)
-            {
-                IslandSaveData.ObjectData record = objects[i];
-                if (record == null) continue;
-                if (definition.ReceiptMatches(record.prefabPath)
-                    || definition.ReceiptMatches(record.name)
-                    || definition.ReceiptMatches(record.hierarchyPath))
-                    return true;
-            }
+            if (MountIslandGrantAuthority.TryReadIslandReceipt(campaign, land, definition, out bool found))
+                return found;
+            LogOnce("receipt-slot-" + definition.Id + "-" + land,
+                "island receipt slot read failed (unknown; query fallback treats as absent)");
+            return false;
         }
         catch (Exception e)
         {
             LogOnce("receipt-" + definition.Id + "-" + e.GetType().Name, "island receipt scan failed: " + e.Message);
+            return false;
         }
-        return false;
     }
 
     /// <summary>
@@ -741,13 +918,11 @@ internal static class CrossWorldMountRuntime
     }
 
     /// <summary>
-    /// owner 复核（稳定身份，写入前终检）：
-    /// 1) current 与捕获的 Campaign 同一实例（指针）；
+    /// owner 复核（稳定身份，写入/发布前终检；root R2 转用 raw owner helper，不用 GetCurrentCampaign fallback）：
+    /// 1) raw selected slot（Global.loaded / currentCampaign / campaigns[index] 与 CampaignSaveData.current
+    ///    同一实例）== 捕获的 Campaign；
     /// 2) <c>current.reign</c> 整数与捕获一致（切王朝即失效）；
-    /// 3) 当前 Reign 的 landData 容器指针与捕获一致（换容器即失效；**不用** boxed ReignInfo 指针——
-    ///    get_currentReign 每次 il2cpp_value_box 新包装）；
-    /// 4) Global 当前选择证明：<c>GetCurrentCampaign()</c> 非空且与 current 同一实例——
-    ///    菜单/无选中（currentCampaign==-1）时原生 current 会回退 GetCampaign(0)，此时拒绝写入。
+    /// 3) 当前 Reign 的 landData 容器指针与捕获一致（换容器即失效）。
     /// </summary>
     private static bool SameOwner(Frame frame)
     {
@@ -755,6 +930,9 @@ internal static class CrossWorldMountRuntime
         {
             if (frame == null || frame.Campaign == null || frame.ReignIndex < 0 || frame.LandDataPointer == 0UL)
                 return false;
+            if (!ExtensionIslandRuntime.TryResolveRawOwner(out _, out _, out CampaignSaveData owner))
+                return false;
+            if (owner == null || PointerOf(owner) != PointerOf(frame.Campaign)) return false;
             CampaignSaveData current = CampaignSaveData.current;
             if (current == null) return false;
             if (current.Pointer != frame.Campaign.Pointer) return false;
@@ -762,11 +940,7 @@ internal static class CrossWorldMountRuntime
             CampaignSaveData.ReignInfo reign = current.currentReign;
             if (reign == null || reign.landData == null) return false;
             if (CrossWorldMountDependencies.PointerOfList(reign.landData) != frame.LandDataPointer) return false;
-            GlobalSaveData global = GlobalSaveData.loaded;
-            if (global == null) return false;
-            CampaignSaveData owner = global.GetCurrentCampaign();
-            if (owner == null) return false;
-            return PointerOf(owner) == PointerOf(current);
+            return true;
         }
         catch (Exception e)
         {
@@ -782,7 +956,8 @@ internal static class CrossWorldMountRuntime
         catch (Exception) { return -1; }
     }
 
-    private static int[] ToIntArray(Il2CppStructArray<SteedType> source)
+    /// <summary>landData.steedSpawns → int[]（marker 判定共用；interop 值类型数组读取）。</summary>
+    internal static int[] ToIntArray(Il2CppStructArray<SteedType> source)
     {
         if (source == null) return Array.Empty<int>();
         int count = source.Length;

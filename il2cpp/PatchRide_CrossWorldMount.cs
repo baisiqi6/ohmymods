@@ -13,9 +13,10 @@ namespace KingdomEnhancedMod;
 internal static class PatchRide_CrossWorldMount_Scope
 {
     [HarmonyPrefix]
-    private static void Prefix(out CrossWorldMountRuntime.Frame __state)
+    private static void Prefix(Level __instance, LevelConfig __0, int __1, out CrossWorldMountRuntime.Frame __state)
     {
-        __state = CrossWorldMountRuntime.Open();
+        // root 统一入口：GetBlocks 之前捕获 Level/config/seed 并单次认领 fresh 票据。
+        __state = CrossWorldMountRuntime.Open(__instance, __0, __1);
     }
 
     [HarmonyPostfix]

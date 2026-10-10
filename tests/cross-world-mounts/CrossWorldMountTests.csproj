@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <Compile Include="../../il2cpp/CrossWorldMountData.cs" Link="Production/CrossWorldMountData.cs" />
+    <Compile Include="../../il2cpp/ExtensionIslandPlan.cs" Link="Production/ExtensionIslandPlan.cs" />
+    <Compile Include="../../il2cpp/Patch_MountIslandSplitPolicy.cs" Link="Production/Patch_MountIslandSplitPolicy.cs" />
   </ItemGroup>
 
 </Project>
