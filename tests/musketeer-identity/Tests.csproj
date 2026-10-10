@@ -22,6 +22,7 @@
     <Compile Include="../../il2cpp/MusketeerArchive.cs" Link="Production/MusketeerArchive.cs" />
     <Compile Include="../../il2cpp/MusketeerIdentity.cs" Link="Production/MusketeerIdentity.cs" />
     <Compile Include="../../il2cpp/MusketeerPersistence.cs" Link="Production/MusketeerPersistence.cs" />
+    <Compile Include="../musketeer-boundary/MusketeerNativeSaveStub.cs" Link="Boundary/MusketeerNativeSaveStub.cs" />
   </ItemGroup>
 
   <ItemGroup><Compile Include="../heavy-shield-boundary/DisabledHeavyShieldApis.cs" Link="Boundary/DisabledHeavyShieldApis.cs" /></ItemGroup>
