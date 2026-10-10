@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -16,18 +15,12 @@ internal static class HeavyShieldNativeHooks
     internal static readonly MethodBase ArrowHitMethod = AccessTools.Method(typeof(Arrow), "HitObject", new[] { typeof(GameObject), typeof(bool) }); // 0x4c8470
     internal static readonly MethodBase ArrowDamageMethod = AccessTools.Method(typeof(Arrow), "TryDamage", new[] { typeof(Damageable) }); // 0x4c98e0
     internal static readonly MethodBase DemoteMethod = AccessTools.Method(typeof(Character), "Demote", Type.EmptyTypes); // token100666133, RVA0x97e520, 672B, sameSlots1
-    internal static bool Installed => Has(DamageMethod, typeof(HeavyShieldReceiveDamage))
-        && Has(TrollIntentMethod, typeof(HeavyShieldTrollIntent)) && Has(TrollImpactMethod, typeof(HeavyShieldTrollImpact))
-        && Has(ArrowHitMethod, typeof(HeavyShieldArrowHit)) && Has(ArrowDamageMethod, typeof(HeavyShieldArrowDamage))
-        && Has(DemoteMethod, typeof(HeavyShieldNativeDemote))
-        && HarmonyLib.Harmony.GetPatchInfo(DemoteMethod).Postfixes.Any(p => p.PatchMethod.DeclaringType == typeof(HeavyShieldNativeDemote));
-    private static bool Has(MethodBase method, Type patch)
-    {
-        if (method == null) return false;
-        var info = HarmonyLib.Harmony.GetPatchInfo(method);
-        return info != null && info.Prefixes.Any(p => p.PatchMethod.DeclaringType == patch)
-            && info.Finalizers.Any(p => p.PatchMethod.DeclaringType == patch);
-    }
+    internal static bool Installed => HeavyShieldHookQuery.Has(DamageMethod, typeof(HeavyShieldReceiveDamage))
+        && HeavyShieldHookQuery.Has(TrollIntentMethod, typeof(HeavyShieldTrollIntent))
+        && HeavyShieldHookQuery.Has(TrollImpactMethod, typeof(HeavyShieldTrollImpact))
+        && HeavyShieldHookQuery.Has(ArrowHitMethod, typeof(HeavyShieldArrowHit))
+        && HeavyShieldHookQuery.Has(ArrowDamageMethod, typeof(HeavyShieldArrowDamage))
+        && HeavyShieldHookQuery.Has(DemoteMethod, typeof(HeavyShieldNativeDemote), requirePostfix: true);
 }
 
 [HarmonyPatch]

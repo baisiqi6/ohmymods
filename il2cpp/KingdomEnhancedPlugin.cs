@@ -49,6 +49,7 @@ public class KingdomEnhancedPlugin :
         try
         {
             Instance = this;
+            HeavyShieldNativeKeyReader.BindMainThread();
             // 手动构建戳：日志里区分不同部署（改完记得更新）
             LogSource.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} build=10.8.35-native-scale-farmcats-20261001 loading...");
 

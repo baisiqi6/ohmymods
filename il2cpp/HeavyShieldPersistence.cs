@@ -654,7 +654,7 @@ internal static class HeavyShieldPersistence
                 && loaded != null && loaded.Pointer == owner.Global
                 && prefs != null && prefs.Pointer == owner.Prefs && prefs.contents != null
                 && owner.ExpectedRaw != null && prefs.contents.ContainsKey(HeavyShieldSaveSchema.Key)
-                && prefs.contents[HeavyShieldSaveSchema.Key] == owner.ExpectedRaw;
+                && HeavyShieldNativeKeyReader.EqualsCurrent(prefs.contents, owner.ExpectedRaw);
         }
         catch { return false; }
     }

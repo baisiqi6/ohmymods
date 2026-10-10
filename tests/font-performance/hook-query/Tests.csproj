@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net6.0;net8.0</TargetFrameworks>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <DefineConstants>KEM_HOOKQUERY_TEST_SEAM</DefineConstants>
+    <NoWarn>618</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../../../il2cpp/PatchPerf_HeavyShieldHookQuery.cs" />
+    <Reference Include="$(BepInExRoot)/core/0Harmony.dll">
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="$(BepInExRoot)/core/MonoMod.Utils.dll">
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="$(BepInExRoot)/core/MonoMod.RuntimeDetour.dll">
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="$(BepInExRoot)/core/MonoMod.Backports.dll">
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="$(BepInExRoot)/core/MonoMod.ILHelpers.dll">
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+  <Target Name="ReferenceGuard" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(BepInExRoot)/core/0Harmony.dll')" Text="Pass -p:BepInExRoot=path/to/BepInEx with the tested runtime libraries" />
+  </Target>
+</Project>
