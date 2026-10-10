@@ -13,8 +13,9 @@ namespace KingdomEnhancedMod;
 // Island sidecar bridge for paid musketeer careers. Four native boundaries are reused (all long
 // methods already targeted elsewhere in this mod): IslandSaveData.Save/GetID,
 // IslandSaveData.TryPopObjectsToScene/TryCreateOrFind and CampaignSaveData.ApplyToScene for a
-// confirmed new generation. No mod component data ever enters the native compressed file; the
-// sidecar is a separate compare-and-swap file with a durable backup.
+// confirmed new generation. Career snapshots now stage in a native Prefs key so the game and
+// identity travel in the same compressed payload. The legacy sidecar is a migration source;
+// only a verified accepted native file may produce its mirror and paired backup.
 //
 // A record's persisted NativeId is only ever written from a capture witnessed during that same
 // native save (GetID on the exact root that career is bound to). Unproven holders are persisted
@@ -27,7 +28,7 @@ internal static class MusketeerPersistence
 
     internal static string ArchivePath => Path.Combine(ModDataPaths.ConfigPath, "KingdomEnhancedMod", "ModSave", "musketeer-identities.v2.json");
 
-    internal static MusketeerArchiveStore.ReadResult ReadArchive() => MusketeerArchiveStore.Load(ArchivePath);
+    internal static MusketeerArchiveStore.ReadResult ReadArchive() => MusketeerNativeSave.ReadArchive();
 
     internal sealed class Resolution
     {
@@ -147,19 +148,21 @@ internal static class MusketeerPersistence
         state.HasBaseline = resolution.HasBaseline;
         state.GenerationPending = resolution.GenerationPending;
         foreach (var record in resolution.Records) MusketeerIdentity.AddCareer(state, record);
+        if (resolution.Kind == "exact" && !resolution.Unresolved && resolution.MatchHash != null)
+            MusketeerNativeSave.SeedProof(contextKey, resolution.Epoch, resolution.MatchHash);
         return state;
     }
 
-    // Single writer: mutate a freshly loaded disk state, ride the context/epoch registration in
-    // the same compare-and-swap, and clear the new-epoch marker only after the file landed.
-    internal static bool Commit(MusketeerIdentity.IslandState state, Func<MusketeerArchiveStore.ReadResult, bool> mutate)
+    // Stage the exact captured checkpoint in native Prefs. This does not commit a separate file:
+    // a physical writer must validate this checkpoint against its actual outgoing game payload.
+    internal static bool Commit(MusketeerIdentity.IslandState state, Func<MusketeerArchiveStore.ReadResult, bool> mutate, string hash)
     {
         if (state == null || state.ContextKey == null || state.Epoch == null) return false;
         var disk = ReadArchive();
         if (!disk.Writable || disk.Archive == null) return false;
         if (!mutate(disk)) return false;
         if (!disk.Archive.EnsureContext(state.ContextKey, state.Epoch, state.NewEpoch)) return false;
-        if (!MusketeerArchiveStore.Save(ArchivePath, disk, disk.Archive)) return false;
+        if (!MusketeerNativeSave.Stage(state.ContextKey, state.Epoch, hash, disk, disk.Archive)) return false;
         state.NewEpoch = false;
         return true;
     }
@@ -193,9 +196,26 @@ internal static class MusketeerPersistence
         internal int Campaign, Land, Challenge;
         internal IslandSaveData Island;
         internal string ContextKey;
+        internal bool Protected;
+        internal bool Applied;
         private readonly Dictionary<string, MusketeerIdentity.Career> Owners = new(StringComparer.Ordinal);
         private readonly Dictionary<MusketeerIdentity.Career, string> Ids = new();
         internal bool Conflict;
+
+        internal void Begin()
+        {
+            // Save(-1 land) resolves its actual island inside GetID; an explicit land can
+            // record its source before any row, including a native body that fails early.
+            if (Land < 0 || !MusketeerIdentity.TryContextKey(Campaign, Challenge, Land, out string key)) return;
+            SetSource(key);
+        }
+
+        private void SetSource(string key)
+        {
+            ContextKey = key;
+            Protected = MusketeerIdentity.Islands.TryGetValue(key, out var state) && state != null
+                && state.Ready && state.Epoch != null && !state.GenerationPending;
+        }
 
         internal void Capture(Persistent persistent, string id)
         {
@@ -205,7 +225,7 @@ internal static class MusketeerPersistence
                 var island = IslandSaveData.CurrentlySavingIsland;
                 if (island == null || !IslandSaveData.isSavingGame || (Land != -1 && island.land != Land)) return;
                 if (!MusketeerIdentity.TryContextKey(Campaign, Challenge, island.land, out string contextKey)) return;
-                Island = island; ContextKey = contextKey;
+                Island = island; SetSource(contextKey);
             }
             if (!MusketeerIdentity.Islands.TryGetValue(ContextKey, out var state) || state == null || !state.Ready) return;
             var career = MusketeerIdentity.BoundAt(state, persistent.gameObject);
@@ -257,9 +277,10 @@ internal static class MusketeerPersistence
                 string json = JsonUtility.ToJson(Island, false);
                 if (string.IsNullOrEmpty(json)) { MusketeerIdentity.Log("save-json", null); return; }
                 string hash = MusketeerArchive.IslandHash(json, state.Epoch);
-                if (!Commit(state, disk => disk.Archive.Record(state.Epoch, hash, rows))) { state.ReadOnly = true; MusketeerIdentity.Log("save-readonly", null); return; }
+                if (!Commit(state, disk => disk.Archive.Record(state.Epoch, hash, rows), hash)) { state.ReadOnly = true; MusketeerIdentity.Log("save-readonly", null); return; }
+                Applied = true;
                 state.ReadOnly = false;
-                MusketeerIdentity.Log("saved:records=" + rows.Count + ":bound=" + liveIds.Count, null);
+                MusketeerIdentity.Log("staged:records=" + rows.Count + ":bound=" + liveIds.Count, null);
             }
             catch (Exception e) { MusketeerIdentity.Log("save", e); }
         }
@@ -383,7 +404,7 @@ internal static class MusketeerPersistence
                 var rows = new List<MusketeerCareer>(State.Careers.Count);
                 foreach (var career in State.Careers)
                     rows.Add(new MusketeerCareer { Id = career.Id, Kind = career.Kind, NativeId = career.NativeId, StockSlot = career.StockSlot });
-                if (Commit(State, disk => disk.Archive.ConfirmBaseline(State.Epoch, Hash, rows))) State.HasBaseline = true;
+                if (Commit(State, disk => disk.Archive.ConfirmBaseline(State.Epoch, Hash, rows), Hash)) State.HasBaseline = true;
                 else { State.ReadOnly = true; State.HasBaseline = false; MusketeerIdentity.Log("baseline-unconfirmed", null); }
             }
             // Rack guns: only an exactly proven stock gun of a fully resolved load is restored, and
@@ -448,7 +469,7 @@ internal static class MusketeerPersistence
             try { hash = MusketeerArchive.IslandHash(json, scope); }
             catch (Exception e) { MusketeerIdentity.Log("virgin-json", e); return; }
             var pending = new MusketeerIdentity.IslandState { ContextKey = contextKey, Epoch = scope, MatchKind = "new-generation", NewEpoch = true, World = world, Ready = true };
-            if (!Commit(pending, disk => disk.Archive.ConfirmBaseline(scope, hash, Array.Empty<MusketeerCareer>())))
+            if (!Commit(pending, disk => disk.Archive.ConfirmBaseline(scope, hash, Array.Empty<MusketeerCareer>()), hash))
             { MusketeerIdentity.Log("virgin-baseline-unconfirmed", null); return; }
             Done = true;
             var state = CreateState(contextKey, world, json, false);
@@ -459,20 +480,29 @@ internal static class MusketeerPersistence
         }
     }
 
-    // Existing long native save/load endpoints only; no native compressed-file changes.
+    // Existing island save/load boundaries capture the identity checkpoint. The physical
+    // writer gate lives in Patch_MusketeerNativeSave and never rewrites its outgoing bytes.
     [HarmonyPatch(typeof(IslandSaveData), nameof(IslandSaveData.Save), new[] { typeof(int), typeof(int), typeof(int) })]
     internal static class SavePatch
     {
         [HarmonyPrefix]
         private static void Before(int __0, int __1, int __2, out SaveCapture __state)
-        { __state = new() { Previous = _save, Campaign = __0, Land = __1, Challenge = __2 }; _save = __state; }
+        {
+            __state = new() { Previous = _save, Campaign = __0, Land = __1, Challenge = __2 }; _save = __state;
+            __state.Begin();
+        }
 
         [HarmonyPostfix, HarmonyPriority(Priority.Last)]
         private static void After(SaveCapture __state) { try { __state?.Apply(); } catch (Exception e) { MusketeerIdentity.Log("save-after", e); } }
 
         [HarmonyFinalizer]
         private static Exception Finally(Exception __exception, SaveCapture __state)
-        { if (ReferenceEquals(_save, __state)) _save = __state?.Previous; return __exception; }
+        {
+            if (__state != null && __state.Protected && (!__state.Applied || __exception != null))
+                MusketeerNativeSave.NoteCaptureFailure(__state.ContextKey);
+            if (ReferenceEquals(_save, __state)) _save = __state?.Previous;
+            return __exception;
+        }
     }
 
     [HarmonyPatch(typeof(IslandSaveData), nameof(IslandSaveData.GetID), new[] { typeof(Persistent) })]

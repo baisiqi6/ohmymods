@@ -1977,3 +1977,8 @@ typed host106/0、strict789/0+oldcfg629/0、Grounding17/0；缺失physics getter
 20cfg、最终false4/120、old17保持、停机；first-observed不冒充spawn。自然补员delta1/OFF原生值
 读回/全部world/池重建/手机多指MP长周期仍pending。原a551/5559失败与125.86s超120窗口保留。
 代码PR与normal任务收尾待完成，验收边界见tasks/issue-184/implementation.md；不发布游戏/loader/interop。
+
+
+### 2026-10-10 Issue #198：火铳职业同期保存与严格配对恢复
+
+职业 checkpoint 改为随原生 Prefs 正文保存，物理 writer 验证后才生成同次配对和 legacy mirror；不按原有17份记录补兵。独立源码/host review 通过，pure487、adapter37（追加反例47）、真实producer33及原有生命周期回归通过；固定全Mod net6/net8编译通过。当前交付维持 draft PR，Issue #198开放，原生ABI/线程/GC/Windows及游戏存读档未验，未改正常DLL/配置/存档。完整边界见 [本次任务记录](tasks/issue-198-musketeer-paired-save-20261010.md)。

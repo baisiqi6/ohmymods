@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- net8 console runs the adapter contract tests; net6 keeps the same sources compiling for
+         the Mac integration shape (the interop compile itself is done by the worker's isolated
+         InteropVerify project against the real BepInEx/interop DLLs). -->
+    <TargetFrameworks>net8.0;net6.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>MusketeerNativeSaveAdapterTests</AssemblyName>
+    <RootNamespace>MusketeerNativeSaveAdapterTests</RootNamespace>
+    <NoWarn>$(NoWarn);CS0649;CS0169</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Fixtures.cs" />
+    <Compile Include="Stubs.cs" />
+    <!-- Production sources linked unchanged: the adapter/gate logic under test is the shipped one. -->
+    <Compile Include="../../il2cpp/PatchPerf_CanonicalHashBuffer.cs" Condition="Exists('../../il2cpp/PatchPerf_CanonicalHashBuffer.cs')" />
+    <Compile Include="../../il2cpp/MusketeerArchive.cs" />
+    <Compile Include="../../il2cpp/MusketeerNativeArchive.cs" />
+    <Compile Include="../../il2cpp/MusketeerPairedBackup.cs" />
+    <Compile Include="../../il2cpp/Patch_MusketeerNativeSave.cs" />
+  </ItemGroup>
+</Project>

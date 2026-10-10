@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);CS0649;CS0169</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Stubs.cs" />
+    <Compile Include="../heavy-shield-boundary/DisabledHeavyShieldApis.cs" />
+    <Compile Include="../../il2cpp/PatchPerf_CanonicalHashBuffer.cs" Condition="Exists('../../il2cpp/PatchPerf_CanonicalHashBuffer.cs')" />
+    <Compile Include="../../il2cpp/MusketeerArchive.cs" />
+    <Compile Include="../../il2cpp/MusketeerIdentity.cs" />
+    <Compile Include="../../il2cpp/MusketeerPersistence.cs" />
+    <Compile Include="../../il2cpp/MusketeerNativeArchive.cs" />
+    <Compile Include="../../il2cpp/MusketeerPairedBackup.cs" />
+    <Compile Include="../../il2cpp/Patch_MusketeerNativeSave.cs" />
+  </ItemGroup>
+</Project>
