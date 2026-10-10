@@ -207,11 +207,12 @@ internal static class EnrollmentRegression
             var row4 = campaign?.Islands.Find(x => x.Land == 4);
             var row8 = campaign?.Islands.Find(x => x.Land == 8);
             Check(row4 != null && row8 != null, "flagship: visited missing 4/8 registered");
-            Check(row4 != null && row4.SnapshotHash == Hash(guid, 0, 4, Json4), "flagship: land4 hash is the frozen load snapshot");
-            Check(row8 != null && row8.SnapshotHash == Hash(guid, 0, 8, Json8), "flagship: land8 hash is the frozen load snapshot");
+            Check(row4 != null && row4.HashKind == HeavyShieldSnapshotFingerprint.CanonicalKind && row4.SnapshotHash == HeavyShieldSnapshotFingerprint.Hash(guid, 0, 4, Json4), "flagship: land4 hash is the frozen load snapshot");
+            Check(row8 != null && row8.HashKind == HeavyShieldSnapshotFingerprint.CanonicalKind && row8.SnapshotHash == HeavyShieldSnapshotFingerprint.Hash(guid, 0, 8, Json8), "flagship: land8 hash is the frozen load snapshot");
             var land0 = campaign?.Islands.Find(x => x.Land == 0);
-            Check(land0 != null && land0.SnapshotHash == land0Hash && land0.Claims.Count == 0,
-                "flagship: known land0 row untouched");
+            Check(land0 != null && land0.HashKind == HeavyShieldSnapshotFingerprint.CanonicalKind
+                && land0.SnapshotHash == HeavyShieldSnapshotFingerprint.Hash(guid, 0, 0, Json0)
+                && land0.Claims.Count == 0, "flagship: unpaid legacy land0 is upgraded before first fee");
             Check(campaign != null && campaign.Islands.Count == 3, "flagship: only known0 + visited 4/8, no placeholders");
         }
 
@@ -307,8 +308,8 @@ internal static class EnrollmentRegression
         string guid = "22222222-2222-2222-2222-222222222222";
         var doc = new HeavyShieldSaveDocument();
         var campaign = new HeavyShieldSavedCampaign { Slot = 0, Guid = guid };
-        campaign.Islands.Add(new HeavyShieldSavedIsland { Challenge = 0, Land = 0, SnapshotHash = Hash(guid, 0, 0, Json0) });
-        campaign.Islands.Add(new HeavyShieldSavedIsland { Challenge = 0, Land = 8, SnapshotHash = new string('a', 64) });
+        campaign.Islands.Add(new HeavyShieldSavedIsland { Challenge = 0, Land = 0, HashKind = HeavyShieldSnapshotFingerprint.CanonicalKind, SnapshotHash = HeavyShieldSnapshotFingerprint.Hash(guid, 0, 0, Json0) });
+        campaign.Islands.Add(new HeavyShieldSavedIsland { Challenge = 0, Land = 8, HashKind = HeavyShieldSnapshotFingerprint.CanonicalKind, SnapshotHash = new string('a', 64) });
         doc.Campaigns.Add(campaign);
         Require(HeavyShieldSaveCodec.TrySerialize(doc, out string key, out _), "mismatch key");
         var env = Setup(key, 8);
@@ -423,8 +424,12 @@ internal static class EnrollmentRegression
         Check(env.Prefs.contents[HeavyShieldSaveSchema.Key] == actualKey, "guard nested: non-top scope commits nothing");
         HeavyShieldPersistence.EndNativeIslandLoad(inner, true);
         Prepare(env.Prefs);
+        Check(env.Prefs.contents[HeavyShieldSaveSchema.Key] == actualKey,
+            "guard nested: changed Prepared copy invalidates the captured upgrade preimage");
+        Load(env.Island8);
+        Prepare(env.Prefs);
         Check(TryGetKey(env, out var after) && after.Campaigns.Find(x => x.Islands.Find(y => y.Land == 8) != null) != null,
-            "guard nested: top scope still completes");
+            "guard nested: a later isolated lifecycle completes with a fresh preimage");
     }
 
     private static void GuardIdentityChanges()
@@ -560,9 +565,9 @@ internal static class EnrollmentRegression
         string guid = "66666666-6666-6666-6666-666666666666";
         var doc = new HeavyShieldSaveDocument();
         var campaign = new HeavyShieldSavedCampaign { Slot = 0, Guid = guid };
-        campaign.Islands.Add(new HeavyShieldSavedIsland { Challenge = 0, Land = 0, SnapshotHash = Hash(guid, 0, 0, Json0) });
-        campaign.Islands.Add(new HeavyShieldSavedIsland { Challenge = 0, Land = 4, SnapshotHash = Hash(guid, 0, 4, Json4) });
-        campaign.Islands.Add(new HeavyShieldSavedIsland { Challenge = 0, Land = 8, SnapshotHash = Hash(guid, 0, 8, Json8) });
+        campaign.Islands.Add(new HeavyShieldSavedIsland { Challenge = 0, Land = 0, HashKind = HeavyShieldSnapshotFingerprint.CanonicalKind, SnapshotHash = HeavyShieldSnapshotFingerprint.Hash(guid, 0, 0, Json0) });
+        campaign.Islands.Add(new HeavyShieldSavedIsland { Challenge = 0, Land = 4, HashKind = HeavyShieldSnapshotFingerprint.CanonicalKind, SnapshotHash = HeavyShieldSnapshotFingerprint.Hash(guid, 0, 4, Json4) });
+        campaign.Islands.Add(new HeavyShieldSavedIsland { Challenge = 0, Land = 8, HashKind = HeavyShieldSnapshotFingerprint.CanonicalKind, SnapshotHash = HeavyShieldSnapshotFingerprint.Hash(guid, 0, 8, Json8) });
         doc.Campaigns.Add(campaign);
         Require(HeavyShieldSaveCodec.TrySerialize(doc, out string key, out _), "none-needed key");
         var env = Setup(key, 0);
