@@ -137,15 +137,22 @@ namespace HarmonyLib
     public class HarmonyPatch : Attribute {}
     public static class AccessTools {public static MethodInfo Method(Type t,string n,Type[] p)=>t.GetMethod(n,p);}
     public class Patch {public MethodInfo PatchMethod;}
-    public class Patches {public List<Patch> Prefixes=new(),Finalizers=new(),Postfixes=new();}
+    // Deliberately no PatchManager type: the real helper must use the live compat query.
+    public class PatchInfo { public Patch[] prefixes, finalizers, postfixes; }
+    public class Patches
+    {
+        public System.Collections.ObjectModel.ReadOnlyCollection<Patch> Prefixes, Finalizers, Postfixes;
+        public Patches(List<Patch> p, List<Patch> f, List<Patch> after)
+        { Prefixes=p.AsReadOnly(); Finalizers=f.AsReadOnly(); Postfixes=after.AsReadOnly(); }
+    }
     public class Harmony
     {public static bool Installed=true;public static Patches GetPatchInfo(MethodBase m)
         {if(!Installed||m==null)return null;Type t=m.DeclaringType==typeof(Damageable)?typeof(HeavyShieldReceiveDamage)
             :m.DeclaringType==typeof(Character)?typeof(HeavyShieldNativeDemote):m.DeclaringType==typeof(Troll)?(m.Name=="TryDamage"?typeof(HeavyShieldTrollIntent):typeof(HeavyShieldTrollImpact))
             :(m.Name=="HitObject"?typeof(HeavyShieldArrowHit):typeof(HeavyShieldArrowDamage));
-            var p=new Patches();p.Prefixes.Add(new(){PatchMethod=t.GetMethod("Prefix",BindingFlags.NonPublic|BindingFlags.Static)});
-            var f=t.GetMethod("Finalizer",BindingFlags.NonPublic|BindingFlags.Static);if(f!=null)p.Finalizers.Add(new(){PatchMethod=f});
-            var after=t.GetMethod("Postfix",BindingFlags.NonPublic|BindingFlags.Static);if(after!=null)p.Postfixes.Add(new(){PatchMethod=after});return p;} }
+            var p=new List<Patch>();p.Add(new(){PatchMethod=t.GetMethod("Prefix",BindingFlags.NonPublic|BindingFlags.Static)});
+            var finals=new List<Patch>();var f=t.GetMethod("Finalizer",BindingFlags.NonPublic|BindingFlags.Static);if(f!=null)finals.Add(new(){PatchMethod=f});
+            var posts=new List<Patch>();var after=t.GetMethod("Postfix",BindingFlags.NonPublic|BindingFlags.Static);if(after!=null)posts.Add(new(){PatchMethod=after});return new Patches(p,finals,posts);} }
 }
 namespace KingdomEnhancedMod
 {

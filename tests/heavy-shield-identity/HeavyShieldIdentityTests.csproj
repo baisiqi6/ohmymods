@@ -18,5 +18,6 @@
     <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldQuota.cs" Link="HeavyShieldQuota.cs" />
     <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldEnrollment.cs" Link="HeavyShieldEnrollment.cs"
              Condition="Exists('$(HeavyShieldSourceRoot)/HeavyShieldEnrollment.cs')" />
-  <Compile Include="$(HeavyShieldSourceRoot)/Patch_HeavyShieldSnapshot.cs" Link="Patch_HeavyShieldSnapshot.cs" /></ItemGroup>
+  <Compile Include="$(HeavyShieldSourceRoot)/Patch_HeavyShieldSnapshot.cs" Link="Patch_HeavyShieldSnapshot.cs" />
+    <Compile Include="$(HeavyShieldSourceRoot)/PatchPerf_CanonicalHashBuffer.cs" Link="PatchPerf_CanonicalHashBuffer.cs" Condition="Exists('$(HeavyShieldSourceRoot)/PatchPerf_CanonicalHashBuffer.cs')" /></ItemGroup>
 </Project>

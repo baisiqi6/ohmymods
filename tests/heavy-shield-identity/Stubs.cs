@@ -188,3 +188,17 @@ namespace KingdomEnhancedMod
         { DetachCalls++; Active.Remove(handle); return true; }
     }
 }
+
+namespace KingdomEnhancedMod
+{
+    // This host uses CLR dictionaries and models only the original managed fallback.
+    // The actual reader/Native ABI is tested separately in tests/font-performance/native-key.
+    internal static class HeavyShieldNativeKeyReader
+    {
+        internal static bool EqualsCurrent(System.Collections.Generic.Dictionary<string, string> contents, string expected)
+        {
+            try { return contents[HeavyShieldSaveSchema.Key] == expected; }
+            catch { return false; }
+        }
+    }
+}

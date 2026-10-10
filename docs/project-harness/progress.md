@@ -1,6 +1,6 @@
 ## 2026-10-10 — Issue #206 字体与性能修复
 
-静态Zpix/BestFit写入处归一、盾卫实时Harmony查询去快照分配、fresh Native key比较及三处canonical hash去多余复制。完整累计净包net6/net8 0W0E，实际源回归测试及独审通过；Native诊断候选盾卫托管分配下降96.4%、Mod分配下降87.2%，字体BestFit警告467→0。整帧27.481→27.447ms无明显收益；保存同步scope约141/119ms，仍partial缺火枪兵消费者，不能称完整存读档或净包Native验收。退出后窗口观察意外重启已关闭，最终全部共享内容从测试前像恢复。GLM5.3/max最终交付关口AP，UTC22:17:49正常目录已装净包9ef503f2，仅DLL+校验项变化，存档/配置/游戏/日志保持；未启动净包，首启与玩家体验待验。源码以Draft stacked PR交付，Issue206保持开放，未修改canonical checklist，validator0warnings。详见[任务证据](tasks/issue-206/README.md)。
+静态Zpix/BestFit写入处归一、盾卫实时Harmony查询去快照分配、fresh Native key比较及三处canonical hash去多余复制。完整累计净包net6/net8 0W0E，实际源回归测试及独审通过；Native诊断候选盾卫托管分配下降96.4%、Mod分配下降87.2%，字体BestFit警告467→0。整帧27.481→27.447ms无明显收益；保存同步scope约141/119ms，仍partial缺火枪兵消费者，不能称完整存读档或净包Native验收。退出后窗口观察意外重启已关闭，最终全部共享内容从测试前像恢复。GLM5.3/max最终交付关口AP，UTC22:17:49正常目录已装净包9ef503f2，仅DLL+校验项变化，存档/配置/游戏/日志保持；未启动净包，首启与玩家体验待验。源码以Draft stacked PR交付，Issue206保持开放，未修改canonical checklist，validator0warnings。旧测试新增helper依赖已补齐，8相关旧工程build/run通过；5既有fixture编译缺口与c6基线错误完全同，保留单列。产品/正常净包字节不变。详见[任务证据](tasks/issue-206/README.md)。
 
 ## 2026-10-09 — 盾卫读档身份校验（Issue #198，最终审查通过、部分 PR 交付中）
 
