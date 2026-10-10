@@ -33,8 +33,8 @@ namespace CrossWorldMountTests
 
         private static CrossWorldMountIslandState State(
             bool landValid = true, bool markerOnIsland = false, bool markerInCampaign = false,
-            bool visited = false, bool receipt = false, double playedDays = 0d, int granted = 0)
-            => new CrossWorldMountIslandState(landValid, markerOnIsland, markerInCampaign, visited, receipt, playedDays, granted);
+            bool visited = false, bool receipt = false, double playedDays = 0d, int granted = 0, bool readable = true)
+            => new CrossWorldMountIslandState(landValid, markerOnIsland, markerInCampaign, visited, receipt, playedDays, granted, receiptInCampaign: false, campaignEvidenceReadable: readable);
 
         private static void GrantState()
         {
@@ -115,10 +115,13 @@ namespace CrossWorldMountTests
                 CrossWorldMountPolicy.Decide(State(markerOnIsland: true, markerInCampaign: true, visited: true)),
                 "marker outranks other gates");
 
-            // 稳定分布：固定岛槽位表，与玩家访问顺序无关（纯 land→定义映射）。
-            Check.True(CrossWorldMountPolicy.ShouldGrantDefinition(Pig, Pig.IslandSlot), "definition grants on its slot");
-            Check.False(CrossWorldMountPolicy.ShouldGrantDefinition(Pig, Pig.IslandSlot + 1), "definition must not grant elsewhere");
+            // 新授予使用双岛策略；IslandSlot 元数据保留旧存档恢复位置。
+            Check.Equal(CrossWorldMountDecision.Skip, CrossWorldMountPolicy.Decide(State(readable: false)), "unknown evidence must not grant");
+            Check.True(CrossWorldMountPolicy.ShouldGrantDefinition(Pig, MountIslandSplitPolicy.PrimaryLand), "definition grants on its slot");
+            Check.False(CrossWorldMountPolicy.ShouldGrantDefinition(Pig, MountIslandSplitPolicy.SecondaryLand), "definition must not grant elsewhere");
             Check.False(CrossWorldMountPolicy.ShouldGrantDefinition(Bear, Pig.IslandSlot), "other definition must not leak to that slot");
+            Check.False(CrossWorldMountPolicy.ShouldGrantDefinition(Bear, -1), "unknown definition and sentinel land must not grant");
+            Check.False(CrossWorldMountPolicy.ShouldGrantDefinition(Pig, 12), "Palace land must not grant mount definitions");
             // 固定分布表：允许多条定义同岛，但槽位必须落在希腊岛索引范围内（2..6，见 REPORT 分布表）。
             var slots = new HashSet<int>();
             for (int i = 0; i < CrossWorldMountCatalog.Definitions.Length; i++)
@@ -134,7 +137,7 @@ namespace CrossWorldMountTests
                 for (int i = 0; i < CrossWorldMountCatalog.Definitions.Length; i++)
                 {
                     CrossWorldMountDefinition d = CrossWorldMountCatalog.Definitions[(i + order) % CrossWorldMountCatalog.Definitions.Length];
-                    Check.True(CrossWorldMountPolicy.ShouldGrantDefinition(d, d.IslandSlot), "slot grant is order independent");
+                    Check.True(CrossWorldMountPolicy.ShouldGrantDefinition(d, MountIslandSplitPolicy.GetTargetLand(d.Id)), "slot grant is order independent");
                 }
             }
             // 每个已登记定义都必须带完整原生证据字段（地块/设施/prefab/槽位）。

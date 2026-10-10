@@ -44,28 +44,42 @@ internal static class PatchExtensionIsland_ConfigGet
 }
 
 /// <summary>
-/// 文件容量与 table-ready：前缀标记刷新开始并清 ready（顺带单调抬 MAX），后缀确认成功，
-/// Finalizer 原样保留异常（失败保持未准备）。容量值本身不冒称表已重建。
+/// 文件容量与 table-ready（root 二审修正，单一 hook）：prefix 建立本次 refresh 身份（__state）、
+/// 清 ready；postfix/finalizer 由同一 HarmonyX binder 注入 **readonly `bool __runOriginal`**
+/// （actual 0Harmony 2.10.2 反编译事实见 runtime-followup-review.md:24：WritePostfixes 经
+/// EmitCallParameter 的 variables.TryGetValue→Ldloc，WriteFinalizers 同 variables）——
+/// postfix 为 false 时不记"已执行"，finalizer 复核 false 不确认；finalizer 是唯一收尾。
+/// 原 exception 原样返回；不使用 Priority.Last 位置补丁。
 /// </summary>
 [HarmonyPatch(typeof(IslandSaveData), nameof(IslandSaveData.UpdateFileProps))]
 internal static class PatchExtensionIsland_FilePropsRefresh
 {
+    /// <summary>prefix：身份 + 冻结（提升后 submitted MAX 在桥内记录）+ 清 ready；异常转 NotePrefixFailed。</summary>
     [HarmonyPrefix]
-    private static void Prefix()
+    private static void Prefix(out MountIslandFilePropsRefresh.RefreshCall __state)
     {
-        ExtensionIslandRuntime.OnFilePropsRefreshBegin();
+        ExtensionIslandRuntime.OnFilePropsRefreshBegin(out __state);
     }
 
+    /// <summary>postfix：按 binder 注入的 __runOriginal 记录执行证据（false = 原方法被 skip）。</summary>
     [HarmonyPostfix]
-    private static void Postfix()
+    private static void Postfix(MountIslandFilePropsRefresh.RefreshCall __state, bool __runOriginal)
     {
-        ExtensionIslandRuntime.OnFilePropsRefreshFinished(false);
+        ExtensionIslandRuntime.OnFilePropsRefreshOriginalRun(__state, __runOriginal);
     }
 
+    /// <summary>
+    /// finalizer：唯一收尾，复核 readonly __runOriginal；未拥有/异常/skip/嵌套/容量不符一律不确认 ready。
+    /// __state 缺失 = prefix 链未到本类 → 失效 ready。原异常原样保留。
+    /// </summary>
     [HarmonyFinalizer]
-    private static Exception Finalizer(Exception __exception)
+    private static Exception Finalizer(Exception __exception, MountIslandFilePropsRefresh.RefreshCall __state,
+        bool __runOriginal)
     {
-        ExtensionIslandRuntime.OnFilePropsRefreshFinished(__exception != null);
+        if (__state == null)
+            ExtensionIslandRuntime.OnFilePropsRefreshUnowned();
+        else
+            ExtensionIslandRuntime.OnFilePropsRefreshFinished(__state, __exception != null, __runOriginal);
         return __exception;   // 原样保留原生异常，不吞
     }
 }
