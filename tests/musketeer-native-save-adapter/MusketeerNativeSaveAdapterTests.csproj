@@ -18,6 +18,7 @@
     <Compile Include="Fixtures.cs" />
     <Compile Include="Stubs.cs" />
     <!-- Production sources linked unchanged: the adapter/gate logic under test is the shipped one. -->
+    <Compile Include="../../il2cpp/PatchPerf_CanonicalHashBuffer.cs" Condition="Exists('../../il2cpp/PatchPerf_CanonicalHashBuffer.cs')" />
     <Compile Include="../../il2cpp/MusketeerArchive.cs" />
     <Compile Include="../../il2cpp/MusketeerNativeArchive.cs" />
     <Compile Include="../../il2cpp/MusketeerPairedBackup.cs" />

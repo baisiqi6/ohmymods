@@ -12,6 +12,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Stubs.cs" />
     <Compile Include="../heavy-shield-boundary/DisabledHeavyShieldApis.cs" />
+    <Compile Include="../../il2cpp/PatchPerf_CanonicalHashBuffer.cs" Condition="Exists('../../il2cpp/PatchPerf_CanonicalHashBuffer.cs')" />
     <Compile Include="../../il2cpp/MusketeerArchive.cs" />
     <Compile Include="../../il2cpp/MusketeerIdentity.cs" />
     <Compile Include="../../il2cpp/MusketeerPersistence.cs" />
