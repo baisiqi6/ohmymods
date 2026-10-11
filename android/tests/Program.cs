@@ -67,6 +67,7 @@ internal static class Program
         bool seedBoat = false;
         bool seedForest = false;
         bool seedRoleScale = false;
+        bool seedWallEngineer = false;
         var artifactArgs = new List<string>();
         foreach (string arg in args)
         {
@@ -90,6 +91,8 @@ internal static class Program
                 seedBoat = true;
             else if (arg == "--seed-forest")
                 seedForest = true;
+            else if (arg == "--seed-wall-engineers")
+                seedWallEngineer = true;
             else if (arg == "--seed-role-scale")
                 seedRoleScale = true;
             else
@@ -152,10 +155,12 @@ internal static class Program
             MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "RoleScaleEnabled", true);
         LayoutChecks();
         GestureChecks.Run();
+        if (seedWallEngineer) MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "WallEngineerEnabled", true);
         ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg, seedFastBuild, seededCooldown, seedBoat, seededMap, seededStaffCooldown, seedForest, seedRoleScale);
         PetProtectionPreferenceChecks();
         CombatParameterPreferenceChecks();
         RoleScalePreferenceChecks(seedRoleScale);
+        WallEngineerPreferenceChecks(seedWallEngineer);
         EnemyMathChecks.Run();
         ProbeChecks.Run();
         MenuChecks.Run();
@@ -328,6 +333,32 @@ internal static class Program
             "role choice leaves shared scope gate, cats, pets and combat flags untouched");
     }
 
+    private static void WallEngineerPreferenceChecks(bool seeded)
+    {
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/WallEngineerEnabled default=False")
+            && Config.WallEngineerEnabled.Value == seeded, "wall feature is a real missing-key default-OFF preference");
+        var previous = new System.Collections.Generic.Dictionary<System.Reflection.FieldInfo, object>();
+        foreach (var field in typeof(Config).GetFields(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic))
+        {
+            if (field.Name == "WallEngineerEnabled" || !field.FieldType.Name.StartsWith("MelonPreferences_Entry`")) continue;
+            previous[field] = field.FieldType.GetField("Value", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).GetValue(field.GetValue(null));
+        }
+        Checks.Check(previous.Count == 24, "all previous 24 preference values are captured before the new toggle");
+        int saves = MelonLoader.MelonPreferencesStub.SaveCalls;
+        bool master = Config.Enabled.Value;
+        Config.ToggleWallEngineer();
+        Checks.Check(Config.WallEngineerEnabled.Value == !seeded && MelonLoader.MelonPreferencesStub.SaveCalls == saves + 1,
+            "wall ON saves once and flips the real entry");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_WALL_ENGINEERS enabled=" + !seeded, "wall toggle identifies the real feature");
+        Config.ToggleWallEngineer();
+        Checks.Check(Config.WallEngineerEnabled.Value == seeded && MelonLoader.MelonPreferencesStub.SaveCalls == saves + 2,
+            "wall OFF saves once and restores the choice");
+        foreach (var pair in previous)
+            Checks.Check(object.Equals(pair.Value, pair.Key.FieldType.GetField("Value", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).GetValue(pair.Key.GetValue(null))),
+                "wall toggle preserves old preference " + pair.Key.Name);
+        Checks.Check(Config.Enabled.Value == master, "wall toggle preserves the session master flag");
+    }
+
     private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg, bool seededFastBuild, float? seededCooldown, bool seededBoat, float? seededMap, float? seededStaffCooldown, bool seedForest, bool seedRoleScale)
     {
         var applied = new List<bool>();
@@ -346,7 +377,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 24, "Initialize creates exactly twenty-four entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 25, "Initialize creates exactly twenty-five entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -415,7 +446,7 @@ internal static class Program
                 "MapSizeMultiplier is " + Describe(expectedMap) + "x after the load boundary (1..5 clamp, non-finite fallback 1)");
             Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "the load-boundary clamp/fallback does not write the cfg");
             Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=" + expectedSpeed
-                + " stamina=" + oldCfg + " hold=" + oldCfg + " petGuard=False crownSlowdown=False knightRecruitRange=False roleScaleNextLaunch=" + seedRoleScale + " calendar=" + oldCfg
+                + " stamina=" + oldCfg + " hold=" + oldCfg + " petGuard=False crownSlowdown=False knightRecruitRange=False roleScaleNextLaunch=" + seedRoleScale + " wallEngineers=" + Config.WallEngineerEnabled.Value + " calendar=" + oldCfg
                 + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild
                 + " cooldown=" + expectedCooldown + " boat=" + expectedBoat + " map=" + expectedMap
                 + " staff=" + expectedStaffCooldown + " forestRecede=" + expectedForest
@@ -496,7 +527,7 @@ internal static class Program
             && !Config.FastForestRecedeEnabled.Value
             && !Config.DeerPopulationEnabled.Value
             && !Config.DenseThicketsEnabled.Value && !Config.NightDepartureEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild, BoatCapacity, FastForestRecede, DeerPopulation and DenseThickets default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False petGuard=False crownSlowdown=False knightRecruitRange=False roleScaleNextLaunch=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False denseThickets=False nightDeparture=False"
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False petGuard=False crownSlowdown=False knightRecruitRange=False roleScaleNextLaunch=False wallEngineers=" + Config.WallEngineerEnabled.Value + " calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False denseThickets=False nightDeparture=False"
             + " population=False capacity=4 interval=120",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
@@ -833,6 +864,15 @@ internal static class ProbeChecks
         Checks.Check(File.Exists(probePath), "probe source present");
         if (!File.Exists(probePath)) return;
         string source = File.ReadAllText(probePath);
+        Checks.Check(source.Contains("ANDROID_WALL_ENGINEER_HOOKS_INSTALLED sharedSource=true targets=13 addedUniqueTargets=12 hotToggle=true"), "wall registration reports the shared Apply target once");
+        Checks.Check(source.Split("WallEngineerRuntime.Tick(Il2Cpp.Managers.Inst,Time.time)").Length - 1 == 1,
+            "wall Tick uses the existing unfiltered driver and PC time source exactly once");
+        Checks.Check(source.Contains("public void OnDestroy() { KingdomEnhancedMod.WallEngineerRuntime.Reset();"), "wall Reset uses the actual injected component exit");
+        Checks.Check(!source.Contains("LogHookCounts(populationApply)"), "combined Apply handlers are logged once after complete wall registration");
+        string[] wallHandlers = { "LoadScopePatch", "ApplyToScenePatch", "AddWorkerPatch", "RemoveWorkerPatch", "AddWallPatch", "DestroyWallPatch", "ReplaceWallPatch", "WallDisablePatch", "WallUnsafePatch", "WallDamagePatch", "KingdomDisablePatch", "ShouldFleePatch", "WorkerDisablePatch" };
+        foreach (string handler in wallHandlers)
+            Checks.Check(source.Split("typeof(KingdomEnhancedMod.WallEngineersPatches." + handler + ")").Length - 1 == 1, "wall handler bound once: " + handler);
+        Checks.Check(source.Contains("LoadScopePatch),\"Before\",(string)null,\"Finally\",HarmonyLib.Priority.First"), "wall pop preserves actual First prefix and exception/bool finalizer");
         Checks.Check(source.Contains("if(KingdomEnhancedMod.ModConfig.RoleScaleEnabled.Value)")
             && source.Contains("ANDROID_ROLE_SCALE_HOOKS_INSTALLED sharedSource=true targets=7 nextLaunchOnly=true")
             && source.Contains("ANDROID_ROLE_SCALE_HOOKS_DISABLED targets=0 nextLaunchOnly=true"),
@@ -848,8 +888,8 @@ internal static class ProbeChecks
         foreach (string binding in roleBindings)
             Checks.Check(source.Split(binding).Length - 1 == 1, "exact role binding once: " + binding);
         Checks.Check(!source.Contains("typeof(Il2Cpp.Hermit),\"OnDestroy\""), "private pooled Hermit.OnDestroy is never registered");
-        Checks.Check(source.Contains("\"0.0.27\""), "Probe reports version 0.0.27");
-        Checks.Check(source.Split("0.0.27").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
+        Checks.Check(source.Contains("\"0.0.28\""), "Probe reports version 0.0.28");
+        Checks.Check(source.Split("0.0.28").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
         Checks.Check(source.Contains("combat_parameters") && source.Contains("ANDROID_COMBAT_PARAMETER_HOOKS_INSTALLED"),
             "Probe advertises and reports both parameter targets");
         Checks.Check(source.Contains("typeof(Il2Cpp.CrownStealer),\"Awake\",Type.EmptyTypes")
@@ -1960,6 +2000,10 @@ internal static class ArtifactChecks
         "android/tests/combat-parameters/CombatParameterTests.csproj",
         "android/tests/combat-parameters/Stubs.cs",
         "android/tests/combat-parameters/Program.cs",
+        "il2cpp/WallEngineerRules.cs",
+        "il2cpp/WallEngineerRuntime.cs",
+        "il2cpp/PatchWorld_WallEngineers.cs",
+
 };
 
     private static void VerifyFrozenSources()
@@ -1976,13 +2020,13 @@ internal static class ArtifactChecks
             { "android/MobileCalendar.cs", "39ac54e3bf7acb37a7a30189f67dd2973bb394f53d28193836481dba0c44723b" },
             { "android/MobileGenerationMenu.cs", "e89f7d9224b31f5ea77ca5392a02d8c7ac1a723c2dd0ee702d4225eb8f53f5d0" },
             { "android/MobileModPanel.cs", "e9a0bd5347da0333b2110b4a93dcf61b0caff4d4375a600a99ad12a124683f12" },
-            { "android/MobilePlayerConfig.cs", "19a7bc796ab90041b974f51b8e686f81e5191c01ea86694c29024767480840d3" },
+            { "android/MobilePlayerConfig.cs", "737270197a36d0e43948b5c4af74c29083615c1de7fc6394e9bf466cc2dd1a5a" },
             { "android/MobilePlayerMenu.cs", "9fced29dbb22162ad3eb0ca7bb2d6d7b1c02d437c4831884b16145ed46723d2e" },
             { "android/MobilePopulation.cs", "fdf95ab309d2489f1d0d3e4c4893d3ee44388e9e5ebb37d991c65a6f8c260571" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
             { "android/MobileVegetationMenu.cs", "40e6be0dda5313a61f01f98e1829422290612ede0b948b8d21c4549a58890e66" },
-            { "android/MobileWorldMenu.cs", "8f706a58b2c691850f9a7ae9f87736dc1b622482f7fbf9f91d6130204809859d" },
-            { "android/OhMyMods.AndroidProbe.csproj", "d6dba6065a92d76ccbcc26b2816d0b3656d1c98e1ad9db38ca05c45b5ad3f7b0" },
+            { "android/MobileWorldMenu.cs", "c56718fd9adf39745548ff1f316f9f7763170388b2aa1b040381772773164932" },
+            { "android/OhMyMods.AndroidProbe.csproj", "191491fbd953554dbc2e9e40b2b27830e4d114907c7066a7a8c351794b2fcbad" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PanelGesture.cs", "51071fefbc1a1ab4b8f23ee84bf10925c325d8414400b9ed186af238c136e97b" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },
@@ -1991,7 +2035,7 @@ internal static class ArtifactChecks
             { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
-            { "android/Probe.cs", "b324606260b19d45ba3a00749c30a0ad2024d07ce17d3ad7755a5df72ce9b6e5" },
+            { "android/Probe.cs", "aeeeeaae124120129a480115a79d45def7fda78f9756835196ae4696d011bd44" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
             { "android/tests/AdapterTests.csproj", "3cebefaad713d92c00ae0907f861cdbae66aca367603da838994126fadabcd40" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
@@ -2037,6 +2081,10 @@ internal static class ArtifactChecks
             { "tests/greek-scale-scope/GreekScaleScopeRegression.csproj", "8540738d79d8e61126533f9cbf7d29b389ce6b56580dcbaddeabd456e6aab8a7" },
             { "tests/greek-scale-scope/Program.cs", "3a2d0dac66437e9f40db0d86775d955166be43e7064a60ef9b86ba070a48ce18" },
             { "tests/greek-scale-scope/Stubs.cs", "23e58cefadf6e53cb093030d624ed279321a5096032035258e0b7cfb2d5bc706" },
+            { "il2cpp/WallEngineerRules.cs", "fd6d77fd4ff1584081435d45532a11caca08d5c2c763cd7299a6a505c987df65" },
+            { "il2cpp/WallEngineerRuntime.cs", "6a5c196a539f1987b22388f7660fce0d20105a32a275fbde865fc7d06f997ce9" },
+            { "il2cpp/PatchWorld_WallEngineers.cs", "205fa075694976c4ff865c70c43cfe79b820d71917952e537c5a4f1a18a492b1" },
+
 };
         foreach (string relative in FrozenSources)
         {

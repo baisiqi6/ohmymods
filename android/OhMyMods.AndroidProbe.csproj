@@ -89,6 +89,9 @@
     <Compile Include="../il2cpp/PatchWorld_EnemyManager.cs" Link="Production/PatchWorld_EnemyManager.cs" />
     <Compile Include="../il2cpp/PatchWorld_FarmCats.cs" Link="Production/PatchWorld_FarmCats.cs" />
     <Compile Include="../il2cpp/FarmCatMovement.cs" Link="Production/FarmCatMovement.cs" />
+    <Compile Include="../il2cpp/WallEngineerRules.cs" Link="Production/WallEngineerRules.cs" />
+    <Compile Include="../il2cpp/WallEngineerRuntime.cs" Link="Production/WallEngineerRuntime.cs" />
+    <Compile Include="../il2cpp/PatchWorld_WallEngineers.cs" Link="Production/PatchWorld_WallEngineers.cs" />
     <Compile Include="../il2cpp/GreekScaleScope.cs" Link="Production/GreekScaleScope.cs" />
     <Compile Include="../il2cpp/PatchWorld_Construction.cs" Link="Production/PatchWorld_Construction.cs" />
     <!-- Map-width block: the pure planner is linked unmodified; the two adapter files carry only an

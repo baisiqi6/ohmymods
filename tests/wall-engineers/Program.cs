@@ -41,6 +41,10 @@ internal static class Program
         FixtureWalls.Clear();
         WallEngineerRuntime.Reset();
         ModConfig.Enabled.Value = true;
+#if ANDROID
+        // 旧 247 矩阵的 ON 测试 seed（产品默认 false 由真实 Android config 提供，见 Stubs）。
+        ModConfig.WallEngineerEnabled.Value = true;
+#endif
         NetworkBigBoss.IsOnline = false;
         NetworkBigBoss.HasWorldAuth = true;
         IslandSaveData.poppingObjectsToScene = false;
@@ -449,6 +453,10 @@ internal static class Program
         LocalScaleAndSlots();
         FilterAndLivenessGates();
         BorderRecalculation();
+        WallStatusTextRegression();
+#if ANDROID
+        AndroidFeatureGateRegression();
+#endif
 
         Console.WriteLine((_failed == 0 ? "ALL PASS " : "FAILURES ") + _passed + " passed, " + _failed + " failed");
         return _failed == 0 ? 0 : 1;
@@ -1098,4 +1106,140 @@ internal static class Program
         Check(fixture.Kingdom.BorderCalls >= 2, "border retry actually called native recalc again");
         Eq(fixture.Left._damageable.initialHitPoints, 200, "retry keeps the applied cap");
     }
+
+    private static WallEngineerStatus StatusWith(WallEngineerUnavailableReason reason)
+        => new WallEngineerStatus(true, true, false, 0, 0, 1, reason);
+
+    // 纯文案（PC/ANDROID 同一实现，唯一源为生产 WallEngineerStatusText）：只核对输出表，
+    // 不复制第二份 formatter。
+    private static void WallStatusTextRegression()
+    {
+        Eq(WallEngineerStatusText.Format(StatusWith(WallEngineerUnavailableReason.None)), "未生效", "text none");
+        Eq(WallEngineerStatusText.Format(StatusWith(WallEngineerUnavailableReason.Disabled)), "已关闭", "text disabled");
+        Eq(WallEngineerStatusText.Format(StatusWith(WallEngineerUnavailableReason.NoAuthority)), "未生效", "text no-authority");
+        Eq(WallEngineerStatusText.Format(StatusWith(WallEngineerUnavailableReason.Loading)), "载入中", "text loading");
+        Eq(WallEngineerStatusText.Format(StatusWith(WallEngineerUnavailableReason.NoOuterWall)), "暂无外墙", "text no-outer-wall");
+        Eq(WallEngineerStatusText.Format(StatusWith(WallEngineerUnavailableReason.NativeEvidenceUnavailable)), "未生效", "text native-evidence");
+        Eq(WallEngineerStatusText.Format(StatusWith(WallEngineerUnavailableReason.ApplicationFailed)), "未生效", "text apply-failed");
+        Eq(WallEngineerStatusText.Format(StatusWith(WallEngineerUnavailableReason.NetworkUnsupported)), "仅单机", "text network");
+        Eq(Enum.GetValues(typeof(WallEngineerUnavailableReason)).Length, 8, "text table covers every reason");
+        Eq(WallEngineerStatusText.Format(StatusWith((WallEngineerUnavailableReason)99)), "未生效", "text unknown reason");
+
+        // Ready 优先于 reason；AppliedMultiplier 原样输出（不 clamp、不重算）。
+        Eq(WallEngineerStatusText.Format(new WallEngineerStatus(true, true, true, 2, 1, 2, WallEngineerUnavailableReason.Disabled)), "×2", "text ready beats reason");
+        Eq(WallEngineerStatusText.Format(new WallEngineerStatus(false, false, true, 7, 2, 3, WallEngineerUnavailableReason.None)), "×7", "text ready multiplier unclamped");
+        Eq(WallEngineerStatusText.Format(new WallEngineerStatus(true, true, true, 0, 0, 4, WallEngineerUnavailableReason.Loading)), "×0", "text ready multiplier verbatim");
+    }
+
+#if ANDROID
+    // 真门（ModConfig.WallEngineerEnabled）行为：与 PC 会话 Enabled 取 AND；翻转只在 Tick 内生效，
+    // 归还/暂停/权限/失败 tuple 全部沿用既有状态机，不新增旁路。
+    private static void AndroidFeatureGateRegression()
+    {
+        // 载入时 OFF：完整 load callbacks 保留 proof，且 OFF 期间零写；ON 在下一 Tick 生效。
+        ResetAll();
+        WorldFixture gated = Build(10);
+        ModConfig.WallEngineerEnabled.Value = false;
+        WallEngineerStatus gatedStatus = Apply(gated);
+        Check(!gatedStatus.Ready, "gate off at load not ready");
+        Check(!gatedStatus.Enabled, "gate off status reports disabled");
+        Eq(gatedStatus.Reason, WallEngineerUnavailableReason.Disabled, "gate off reason disabled");
+        Eq(gated.Left._damageable.initialHitPoints, 100, "gate off never writes B");
+        Check(ModConfig.Enabled.Value, "session Enabled remains true under the gate");
+
+        ModConfig.WallEngineerEnabled.Value = true;
+        Tick(gated);
+        Check(WallEngineerRuntime.Status.Ready, "gate on next tick uses the retained load proof");
+        Eq(gated.Left._damageable.initialHitPoints, 200, "gate on applies M2 cap");
+        Eq(gated.Left._damageable.hitPoints, 70, "gate on keeps native hp");
+
+        // ON→OFF：下一 Tick 恢复原 B；高于 B 的 HP 回落 clamp，低于 B 不 healing；原 Enabled 仍 true。
+        ResetAll();
+        WorldFixture clampCase = Build(10, left: false, rightHp: 150);
+        Apply(clampCase);
+        Eq(clampCase.Right._damageable.initialHitPoints, 200, "clamp case baseline cap");
+        ModConfig.WallEngineerEnabled.Value = false;
+        Eq(clampCase.Right._damageable.initialHitPoints, 200, "flipping the gate alone writes nothing");
+        Tick(clampCase);
+        Eq(clampCase.Right._damageable.initialHitPoints, 100, "clamp case returns B");
+        Eq(clampCase.Right._damageable.hitPoints, 100, "clamp case clamps hp above restored B");
+        Check(ModConfig.Enabled.Value, "clamp case keeps session Enabled true");
+        Eq(WallEngineerRuntime.Status.Reason, WallEngineerUnavailableReason.Disabled, "clamp case reason disabled");
+
+        ResetAll();
+        WorldFixture healCase = Build(10, left: false, rightHp: 80);
+        healCase.Kingdom.isSafe = true;
+        Apply(healCase);
+        Worker gateEngineer = Attach(healCase, MakeWorker());
+        healCase.Kingdom.Workers.Items.Add(gateEngineer);
+        gateEngineer._currentWork = healCase.Right;
+        ModConfig.WallEngineerEnabled.Value = false;
+        Tick(healCase);
+        Eq(healCase.Right._damageable.initialHitPoints, 100, "damaged case returns B");
+        Eq(healCase.Right._damageable.hitPoints, 80, "damaged hp is not healed by the return");
+        Check(gateEngineer.ResetWorkCalls >= 1 && gateEngineer._currentWork == null, "gate off returns the native job");
+        Check(healCase.Kingdom.CheckWork(healCase.Right), "safe damaged gate-off republishes native repair");
+
+        // OFF 但 authority 不足：保持旧 owner 未写；恢复 authority 后归还 B 与 job。
+        ResetAll();
+        WorldFixture noAuth = Build(10, left: false, rightHp: 80);
+        Apply(noAuth);
+        Worker noAuthWorker = Attach(noAuth, MakeWorker());
+        noAuth.Kingdom.Workers.Items.Add(noAuthWorker);
+        noAuthWorker._currentWork = noAuth.Right;
+        int noAuthRemoves = noAuth.Kingdom.RemoveWorkCalls;
+        NetworkBigBoss.HasWorldAuth = false;
+        ModConfig.WallEngineerEnabled.Value = false;
+        Tick(noAuth);
+        Eq(noAuth.Right._damageable.initialHitPoints, 200, "gate off without authority writes no B");
+        Eq(noAuth.Kingdom.RemoveWorkCalls, noAuthRemoves, "gate off without authority writes no RemoveWork");
+        Eq(noAuthWorker.ResetWorkCalls, 0, "gate off without authority writes no job reset");
+        Check(!WallEngineerRuntime.Status.Ready, "gate off without authority not ready");
+
+        NetworkBigBoss.HasWorldAuth = true;
+        Tick(noAuth);
+        Eq(noAuth.Right._damageable.initialHitPoints, 100, "authority restored returns B");
+        Check(noAuth.Kingdom.RemoveWorkCalls > noAuthRemoves, "authority restored returns the job");
+        Check(noAuthWorker.ResetWorkCalls >= 1 && noAuthWorker._currentWork == null, "authority restored frees current work");
+
+        // 暂停：既有契约把 disabled 判定放在 pause 分支之前 —— 暂停中关真门照样归还，不留 Ready。
+        ResetAll();
+        WorldFixture pausedOff = Build(10, left: false, rightHp: 100);
+        Apply(pausedOff);
+        pausedOff.Game.state = Game.State.Menu;
+        Tick(pausedOff);
+        Check(WallEngineerRuntime.Status.Ready, "gate on pause keeps the ready snapshot");
+        ModConfig.WallEngineerEnabled.Value = false;
+        Tick(pausedOff);
+        Eq(pausedOff.Right._damageable.initialHitPoints, 100, "gate off releases even while paused");
+        Check(!WallEngineerRuntime.Status.Ready, "gate off while paused not ready");
+
+        // 暂停中翻 ON：非 sameApplied 保持 Loading 且零写；回到 Playing 首个 Tick 才应用（菜单等待契约）。
+        ResetAll();
+        WorldFixture pausedOn = Build(10, left: false, rightHp: 100);
+        ModConfig.WallEngineerEnabled.Value = false;
+        CompleteLoad(pausedOn);
+        pausedOn.Game.state = Game.State.Menu;
+        Tick(pausedOn);
+        Eq(pausedOn.Right._damageable.initialHitPoints, 100, "gate off during menu writes nothing");
+        ModConfig.WallEngineerEnabled.Value = true;
+        Tick(pausedOn);
+        Eq(WallEngineerRuntime.Status.Reason, WallEngineerUnavailableReason.Loading, "gate on during menu waits");
+        Eq(pausedOn.Right._damageable.initialHitPoints, 100, "gate on during menu does not apply");
+        pausedOn.Game.state = Game.State.Playing;
+        Tick(pausedOn);
+        Check(WallEngineerRuntime.Status.Ready, "gate on applies on the first playing tick");
+        Eq(pausedOn.Right._damageable.initialHitPoints, 200, "gate on playing applies the cap");
+
+        // 失败 load tuple：ON 不能绕过（失败 pop 不留下 loaded 证明）。
+        ResetAll();
+        WorldFixture failed = Build(10, left: false, rightHp: 100);
+        failed.Game.state = Game.State.Playing;
+        CompleteLoad(failed, scopeSucceeded: false);
+        Tick(failed);
+        Check(!WallEngineerRuntime.Status.Ready, "gate on cannot bypass a failed load tuple");
+        Eq(WallEngineerRuntime.Status.Reason, WallEngineerUnavailableReason.Loading, "gate on failed tuple reason");
+        Eq(failed.Right._damageable.initialHitPoints, 100, "gate on failed tuple never writes B");
+    }
+#endif
 }

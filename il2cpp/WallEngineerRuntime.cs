@@ -871,7 +871,7 @@ internal static class WallEngineerRuntime
         if (collection == null) throw new InvalidOperationException("no roster");
         int count = collection.Count;
         if (count < 0) throw new InvalidOperationException("bad roster count");
-        var roster = new Il2CppReferenceArray<Worker>(count);
+        var roster = new Il2CppReferenceArray<Worker>((long)count);
         collection.CopyTo(roster, 0);
         return roster;
     }
@@ -1399,7 +1399,8 @@ internal static class WallEngineerRuntime
         if (count < 0) throw new InvalidOperationException("bad roster count");
         if (_roster == null || _rosterDirty || count != _rosterCount || _roster.Count != count)
         {
-            var roster = new Il2CppReferenceArray<Worker>(count);
+            // (long)count selects the Int64 length ctor; a bare int can bind the IntPtr pointer ctor instead.
+            var roster = new Il2CppReferenceArray<Worker>((long)count);
             collection.CopyTo(roster, 0);
             _roster = roster;
             _rosterCount = count;
@@ -1416,8 +1417,18 @@ internal static class WallEngineerRuntime
 
     private static bool FeatureOn()
     {
+#if ANDROID
+        // Android 玩家门：在唯一责任入口与 PC 会话 Enabled 取 AND；entry 缺失或读取异常一律按 OFF 处理。
+        try
+        {
+            return ModConfig.Enabled != null && ModConfig.Enabled.Value
+                && ModConfig.WallEngineerEnabled != null && ModConfig.WallEngineerEnabled.Value;
+        }
+        catch { return false; }
+#else
         try { return ModConfig.Enabled != null && ModConfig.Enabled.Value; }
         catch { return false; }
+#endif
     }
 
     private static bool EnabledNow() => FeatureOn();

@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.27", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.28", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.27 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters,existing_role_scale");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.28 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters,existing_role_scale,wall_engineers");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var crownAwake=AccessTools.Method(typeof(Il2Cpp.CrownStealer),"Awake",Type.EmptyTypes)??throw new MissingMethodException("CrownStealer.Awake()");
@@ -60,7 +60,30 @@ public sealed class Probe : MelonMod
   LoggerInstance.Msg("ANDROID_PET_PROTECTION_HOOKS_INSTALLED sharedSource=true recovery=false enabled="+KingdomEnhancedMod.ModConfig.PetGuardEnabled.Value);
   var populationApply=AccessTools.Method(typeof(Il2Cpp.CampaignSaveData),"ApplyToScene",Type.EmptyTypes) ?? throw new MissingMethodException("CampaignSaveData.ApplyToScene()");
   HarmonyInstance.Patch(populationApply,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.PopulationPerformanceApplyPatch),"Postfix"));
-  LogHookCounts(populationApply);
+  // This shared target is reported once after all its handlers are installed.
+  // Keep every load/return boundary active when the real feature choice is OFF.
+  var wallTargets=new[]{
+   (typeof(Il2Cpp.IslandSaveData),"TryPopObjectsToScene",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.LoadScopePatch),"Before",(string)null,"Finally",HarmonyLib.Priority.First),
+   (typeof(Il2Cpp.CampaignSaveData),"ApplyToScene",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.ApplyToScenePatch),(string)null,"After","Finally",HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Kingdom),"AddWorker",new[]{typeof(Il2Cpp.Worker)},typeof(KingdomEnhancedMod.WallEngineersPatches.AddWorkerPatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Kingdom),"RemoveWorker",new[]{typeof(Il2Cpp.Worker)},typeof(KingdomEnhancedMod.WallEngineersPatches.RemoveWorkerPatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Kingdom),"AddWall",new[]{typeof(Il2Cpp.Wall)},typeof(KingdomEnhancedMod.WallEngineersPatches.AddWallPatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Kingdom),"DestroyWall",new[]{typeof(Il2Cpp.Wall)},typeof(KingdomEnhancedMod.WallEngineersPatches.DestroyWallPatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Kingdom),"ReplaceWall",new[]{typeof(Il2Cpp.Wall)},typeof(KingdomEnhancedMod.WallEngineersPatches.ReplaceWallPatch),"Before","After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Wall),"OnDisable",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.WallDisablePatch),"Before",(string)null,(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Wall),"HandleOnBecameUnSafe",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.WallUnsafePatch),"Before",(string)null,(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Wall),"HandleOnReceiveDamage",new[]{typeof(int),typeof(GameObject),typeof(Il2Cpp.DamageSource)},typeof(KingdomEnhancedMod.WallEngineersPatches.WallDamagePatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Kingdom),"OnDisable",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.KingdomDisablePatch),"Before",(string)null,(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Worker),"ShouldFlee",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.ShouldFleePatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Worker),"OnDisable",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.WorkerDisablePatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal)};
+  foreach(var entry in wallTargets)
+  {
+   var target=AccessTools.Method(entry.Item1,entry.Item2,entry.Item3)??throw new MissingMethodException(entry.Item1.Name+"."+entry.Item2);
+   var prefix=entry.Item5==null?null:new HarmonyMethod(entry.Item4,entry.Item5){priority=entry.Item8};
+   HarmonyInstance.Patch(target,prefix:prefix,postfix:entry.Item6==null?null:new HarmonyMethod(entry.Item4,entry.Item6),finalizer:entry.Item7==null?null:new HarmonyMethod(entry.Item4,entry.Item7));
+   LogHookCounts(target);
+  }
+  LoggerInstance.Msg("ANDROID_WALL_ENGINEER_HOOKS_INSTALLED sharedSource=true targets=13 addedUniqueTargets=12 hotToggle=true");
   var campAwake=AccessTools.Method(typeof(Il2Cpp.BeggarCamp),"Awake",Type.EmptyTypes) ?? throw new MissingMethodException("BeggarCamp.Awake()");
   var campPatch=typeof(KingdomEnhancedMod.BeggarCamp_Awake_Patch);
   HarmonyInstance.Patch(campAwake,prefix:new HarmonyMethod(campPatch,"Awake_Prefix"),postfix:new HarmonyMethod(campPatch,"Awake_Postfix"));
@@ -221,6 +244,7 @@ public sealed class Probe : MelonMod
  public override void OnUpdate()
  {
   KingdomEnhancedMod.GreekScaleScope.Tick();
+  KingdomEnhancedMod.WallEngineerRuntime.Tick(Il2Cpp.Managers.Inst,Time.time);
   MobileCalendar.Tick();
   MobilePopulation.Tick();
   KingdomEnhancedMod.PatchPlayer_HoldPurchase.Tick();
@@ -256,7 +280,7 @@ public sealed class ProbeTicker : MonoBehaviour
  internal static readonly FloatLayout Layout = new();
  public ProbeTicker(IntPtr ptr) : base(ptr) { }
  public void OnDisable() { CancelGesture(); }
- public void OnDestroy() { CancelGesture(); panel.Dispose(); inputSurface.Dispose(); }
+ public void OnDestroy() { KingdomEnhancedMod.WallEngineerRuntime.Reset(); CancelGesture(); panel.Dispose(); inputSurface.Dispose(); }
  public void OnApplicationFocus(bool focused) { if (!focused) CancelGesture(); }
  private void CancelGesture() { panel.CancelGesture(); UiReady=false; FloatInput.Reset(); if (ownControlId!=0 && GUIUtility.hotControl==ownControlId) GUIUtility.hotControl=0; Layout.Cancel(); inputSurface.Hide(); }
  public void OnGUI()
