@@ -3,12 +3,12 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>disable</Nullable>
+    <Nullable>disable</Nullable><DefineConstants>$(DefineConstants);KEM_HEAVY_SHIELD_SNAPSHOT_PURE_TESTS</DefineConstants>
     <DefaultItemExcludes>$(DefaultItemExcludes);**/obj/**;**/bin/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../il2cpp/HeavyShieldBlockPolicy.cs" Link="HeavyShieldBlockPolicy.cs" />
     <Compile Include="../../il2cpp/HeavyShieldQuota.cs" Link="HeavyShieldQuota.cs" />
     <Compile Include="../../il2cpp/HeavyShieldSaveData.cs" Link="HeavyShieldSaveData.cs" />
-  </ItemGroup>
+  <Compile Include="../../il2cpp/Patch_HeavyShieldSnapshot.cs" Link="Patch_HeavyShieldSnapshot.cs" /></ItemGroup>
 </Project>

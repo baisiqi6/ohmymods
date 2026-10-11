@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using UnityEngine;
 
 namespace KingdomEnhancedMod;
@@ -56,6 +59,8 @@ internal static class HeavyShieldPersistence
         internal bool IncludesCurrent;
         internal bool KeepBlocked;
         internal bool RequireCurrentSlot;
+        internal bool AllowUnpaidLegacyUpgrade;
+        internal string CampaignCopiesDigest;
         internal readonly List<HeavyShieldEnrollment.Row> Rows = new();
     }
 
@@ -353,7 +358,7 @@ internal static class HeavyShieldPersistence
                 if (count != 1) { Freeze(s, recoverableCapture: true); return; }
             }
             string raw = JsonUtility.ToJson(island, false);
-            string hash = HeavyShieldSaveCodec.SnapshotHash(s.Guid, s.Challenge, s.Land, raw);
+            string hash = HeavyShieldSnapshotFingerprint.Hash(s.Guid, s.Challenge, s.Land, raw);
             if (hash == null || !StageExactIsland(_global, s, scope, hash))
             { Freeze(s, recoverableCapture: true); return; }
             s.Phase = HeavyShieldIdentityPhase.Staged;
@@ -367,6 +372,7 @@ internal static class HeavyShieldPersistence
     internal static LoadCapture BeginNativeIslandLoad(IslandSaveData exactIsland)
     {
         var scope = new LoadCapture { Previous = _load };
+
         _load = scope;
         try
         {
@@ -387,9 +393,11 @@ internal static class HeavyShieldPersistence
             scope.Island = exactIsland.Pointer; scope.Session = s;
             string raw = JsonUtility.ToJson(exactIsland, false);
             string hash = HeavyShieldSaveCodec.SnapshotHash(s.Guid, s.Challenge, s.Land, raw);
-            var result = ResolveBoundIsland(owner, s, hash, out var campaign, out var saved,
+            string canonicalHash = HeavyShieldSnapshotFingerprint.Hash(s.Guid, s.Challenge, s.Land, raw);
+            var result = ResolveBoundIsland(owner, s, hash, canonicalHash, out var campaign, out var saved,
                 out var sourcePhase);
             scope.SourcePhase = sourcePhase;
+
             scope.Saved = saved;
             scope.Fresh = result == HeavyShieldSnapshotResolution.ConfirmedFresh;
             scope.Exact = result == HeavyShieldSnapshotResolution.Exact;
@@ -516,6 +524,7 @@ internal static class HeavyShieldPersistence
 
     internal static void EndNativeIslandLoad(LoadCapture scope, bool success)
     {
+
         if (scope == null || scope.Closed) return;
         scope.Closed = true;
         bool top = ReferenceEquals(_load, scope);
@@ -560,6 +569,7 @@ internal static class HeavyShieldPersistence
         }
         s.Unknown = false;
         s.Phase = scope.Exact ? scope.SourcePhase : HeavyShieldIdentityPhase.Allocated;
+
     }
 
     internal static GenerationCapture BeginNativeGeneration(CampaignSaveData exactCampaign)
@@ -755,6 +765,7 @@ internal static class HeavyShieldPersistence
                 RightExtraReceipt = saved?.RightExtraReceipt,
             };
             owner.Sessions[native.Pointer] = session;
+
             if (saved != null) owner.LoadedByNative[native.Pointer] = saved;
         }
         var removed = new List<IntPtr>();
@@ -812,6 +823,7 @@ internal static class HeavyShieldPersistence
             campaign.Islands.Add(island);
         }
         island.SnapshotHash = hash;
+        island.HashKind = HeavyShieldSnapshotFingerprint.CanonicalKind;
         island.Claims.Clear();
         foreach (var claim in s.Claims.Values)
         {
@@ -945,7 +957,7 @@ internal static class HeavyShieldPersistence
     // A newer staged island masks startup even when unprepared/mismatched;
     // only a matching successfully prepared version can restore as Staged.
     private static HeavyShieldSnapshotResolution ResolveBoundIsland(GlobalBinding owner,
-        HeavyShieldIdentity.Session s, string hash, out HeavyShieldSavedCampaign campaign,
+        HeavyShieldIdentity.Session s, string hash, string canonicalHash, out HeavyShieldSavedCampaign campaign,
         out HeavyShieldSavedIsland island, out HeavyShieldIdentityPhase sourcePhase)
     {
         campaign = FindCampaign(owner.Prepared, s.Guid);
@@ -974,10 +986,13 @@ internal static class HeavyShieldPersistence
         {
             var prefs = GlobalSaveData._loaded?.prefs;
             if (owner.KeyRead == HeavyShieldNativeKeyRead.Failed || prefs == null
-                || prefs.Pointer != owner.Prefs || prefs.contents == null) return HeavyShieldSnapshotResolution.Unknown;
+                || prefs.Pointer != owner.Prefs || prefs.contents == null)
+                return HeavyShieldSnapshotResolution.Unknown;
             bool found = prefs.contents.ContainsKey(HeavyShieldSaveSchema.Key);
             if (owner.ExpectedRaw != null && (!found || prefs.contents[HeavyShieldSaveSchema.Key] != owner.ExpectedRaw))
+            {
                 return HeavyShieldSnapshotResolution.Unknown;
+            }
             if (pending) return HeavyShieldSnapshotResolution.Unknown;
             if (stagedCampaign)
             {
@@ -988,11 +1003,19 @@ internal static class HeavyShieldPersistence
             {
                 bool evidence = FindCampaign(owner.Staged, s.Guid) != null || owner.PaidEvidence.Contains(s.Guid) || s.Claims.Count != 0
                     || s.Pending.Count != 0 || s.Completed.Count != 0;
+
                 return owner.KeyRead == HeavyShieldNativeKeyRead.ConfirmedMissing && !evidence
                     ? HeavyShieldSnapshotResolution.ConfirmedFresh : HeavyShieldSnapshotResolution.Unknown;
             }
-            return island != null && island.SnapshotHash == hash
-                ? HeavyShieldSnapshotResolution.Exact : HeavyShieldSnapshotResolution.Unknown;
+
+            if (island == null) return HeavyShieldSnapshotResolution.Unknown;
+            bool exact = island.HashKind == HeavyShieldSnapshotFingerprint.CanonicalKind
+                ? island.SnapshotHash == canonicalHash
+                : island.HashKind == HeavyShieldSnapshotFingerprint.LegacyKind
+                    && (island.SnapshotHash == hash
+                        || HeavyShieldNativeLoadProof.TryMatch(GlobalSaveData._loaded, owner.OriginalRaw,
+                            s.Slot, s.Guid, s.Challenge, s.Land, island.SnapshotHash, canonicalHash));
+            return exact ? HeavyShieldSnapshotResolution.Exact : HeavyShieldSnapshotResolution.Unknown;
         }
         catch { return HeavyShieldSnapshotResolution.Unknown; }
     }
@@ -1038,6 +1061,28 @@ internal static class HeavyShieldPersistence
             || FindIsland(FindCampaign(owner.Staged, s.Guid), s.Challenge, land) != null
             || FindIsland(LoadedCopy(owner, s), s.Challenge, land) != null;
 
+    private static HeavyShieldSavedCampaign[] CampaignCopies(GlobalBinding owner,
+        HeavyShieldIdentity.Session s) => new[]
+    {
+        FindCampaign(owner.Loaded, s.Guid), FindCampaign(owner.Prepared, s.Guid),
+        FindCampaign(owner.Staged, s.Guid), LoadedCopy(owner, s),
+    };
+
+    private static bool HasLegacyRows(HeavyShieldSavedCampaign[] copies)
+    {
+        foreach (var campaign in copies)
+            if (campaign?.Islands != null)
+                foreach (var row in campaign.Islands)
+                    if (row.HashKind == HeavyShieldSnapshotFingerprint.LegacyKind) return true;
+        return false;
+    }
+
+    // Captures row existence, every row field and campaign-level entitlements.
+    // Commit compares a fresh digest before cloning; no raw document is retained.
+    private static string CopiesDigest(HeavyShieldSavedCampaign[] copies)
+        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+            JsonSerializer.Serialize(copies)))).ToLowerInvariant();
+
     // Load prefix: freeze the candidate; write nothing here. Once the unpaid proof
     // holds, the first-connect responsibility is established immediately; every
     // later early return keeps it until an explicit NoEnrollmentNeeded or a
@@ -1060,20 +1105,22 @@ internal static class HeavyShieldPersistence
                 && campaign.CurrentIsland != null && campaign.CurrentIsland.Pointer == island.Pointer
                 && game.currentLand == island.land && island.land >= 0 && island.land == s.Land;
             bool currentMissing = contextOk && !HasKnownIslandRow(owner, s, island.land);
+            var copies = CampaignCopies(owner, s);
+            bool currentLegacy = contextOk
+                && HeavyShieldEnrollment.OnlyUnpaidLegacyRows(copies, s.Challenge, island.land);
+            bool allowLegacyUpgrade = contextOk && owner.KeyRead == HeavyShieldNativeKeyRead.Present
+                && HasLegacyRows(copies)
+                && (result != HeavyShieldSnapshotResolution.Unknown || currentMissing || currentLegacy);
+            string copiesDigest = allowLegacyUpgrade ? CopiesDigest(copies) : null;
             if (contextOk)
             {
                 if (result == HeavyShieldSnapshotResolution.Unknown)
-                { if (!currentMissing) return; }
+                { if (!currentMissing && !allowLegacyUpgrade) return; }
                 else if (result != HeavyShieldSnapshotResolution.Exact
                     && result != HeavyShieldSnapshotResolution.ConfirmedFresh) return;
             }
-            var copies = new[]
-            {
-                FindCampaign(owner.Loaded, s.Guid), FindCampaign(owner.Prepared, s.Guid),
-                FindCampaign(owner.Staged, s.Guid), LoadedCopy(owner, s),
-            };
             var outcome = HeavyShieldEnrollment.TryFreezeRows(campaign, island, s.Guid, s.Challenge,
-                copies, out var candidate, out _);
+                copies, out var candidate, out _, allowLegacyUpgrade);
             if (outcome == HeavyShieldEnrollment.Outcome.NoEnrollmentNeeded)
             {
                 // The bounded read proved there is nothing to register.
@@ -1105,8 +1152,8 @@ internal static class HeavyShieldPersistence
             // generation target or a never-played slot): the other frozen rows
             // still register, but the session stays barred until a correct
             // lifecycle registers the current island too.
-            bool keepBlocked = currentMissing && !candidate.IncludesCurrent;
-            if (!TryValidateEnrollmentDraft(owner, s, candidate.Rows)) return;
+            bool keepBlocked = (currentMissing || currentLegacy) && !candidate.IncludesCurrent;
+            if (!TryValidateEnrollmentDraft(owner, s, candidate.Rows, allowLegacyUpgrade)) return;
             var capture = new EnrollmentCapture
             {
                 Global = owner.Global, Prefs = owner.Prefs, Campaign = s.Campaign,
@@ -1114,7 +1161,8 @@ internal static class HeavyShieldPersistence
                 World = s.World, Land = s.Land, Challenge = s.Challenge, Slot = s.Slot,
                 Guid = s.Guid, KeyRead = owner.KeyRead, KeyRaw = raw, CurrentMissing = currentMissing,
                 IncludesCurrent = candidate.IncludesCurrent, KeepBlocked = keepBlocked,
-                RequireCurrentSlot = true,
+                RequireCurrentSlot = true, AllowUnpaidLegacyUpgrade = allowLegacyUpgrade,
+                CampaignCopiesDigest = copiesDigest,
             };
             capture.Rows.AddRange(candidate.Rows);
             scope.Enrollment = capture;
@@ -1157,6 +1205,8 @@ internal static class HeavyShieldPersistence
             if (owner.PaidEvidence.Contains(s.Guid) || CampaignRestorePending(s)) return false;
             if (loaded.currentCampaign != s.Slot || loaded.currentChallenge != s.Challenge) return false;
             if (!CanProveNeverPaid(owner, s)) return false;
+            if (token.AllowUnpaidLegacyUpgrade && (token.CampaignCopiesDigest == null
+                || token.CampaignCopiesDigest != CopiesDigest(CampaignCopies(owner, s)))) return false;
             var campaign = CampaignSaveData.current;
             var game = Managers.Inst?.game;
             if (campaign == null || game == null || campaign.Pointer != token.Campaign
@@ -1169,7 +1219,8 @@ internal static class HeavyShieldPersistence
                     s.Challenge, token.Rows, out _)) return false;
             if (!HeavyShieldSaveCodec.TrySerialize(owner.Staged, out string json, out _)
                 || !HeavyShieldSaveCodec.TryParse(json, out var draft, out _)) return false;
-            if (!ApplyEnrollmentRows(draft, s, token.Rows, out bool changed) || !changed) return false;
+            if (!ApplyEnrollmentRows(draft, s, token.Rows, out bool changed,
+                    token.AllowUnpaidLegacyUpgrade) || !changed) return false;
             if (!HeavyShieldSaveCodec.TrySerialize(draft, out _, out _)) return false;
             owner.Staged = draft;
             long version = ++owner.NextStage;
@@ -1193,15 +1244,17 @@ internal static class HeavyShieldPersistence
         {
             var owner = _global;
             if (owner == null || owner.Closed || s == null || island == null || campaign == null) return false;
+            if (s.StageFault || s.CaptureFaultRecoverable
+                || s.Pending.Count != 0 || s.Completed.Count != 0) return false;
             // An explicit legitimate paid record belongs to the original rules.
             if (!CanProveNeverPaid(owner, s) || owner.PaidEvidence.Contains(s.Guid)) return true;
-            var copies = new[]
-            {
-                FindCampaign(owner.Loaded, s.Guid), FindCampaign(owner.Prepared, s.Guid),
-                FindCampaign(owner.Staged, s.Guid), LoadedCopy(owner, s),
-            };
+            if (s.Claims.Count != 0 || CampaignRestorePending(s)) return false;
+            var copies = CampaignCopies(owner, s);
+            bool allowLegacyUpgrade = owner.KeyRead == HeavyShieldNativeKeyRead.Present
+                && HasLegacyRows(copies);
+            string copiesDigest = allowLegacyUpgrade ? CopiesDigest(copies) : null;
             var outcome = HeavyShieldEnrollment.TryFreezeRows(campaign, island, s.Guid, s.Challenge,
-                copies, out var candidate, out _);
+                copies, out var candidate, out _, allowLegacyUpgrade);
             if (outcome == HeavyShieldEnrollment.Outcome.NoEnrollmentNeeded) return true;
             if (outcome != HeavyShieldEnrollment.Outcome.Frozen
                 || candidate == null || candidate.Rows.Count == 0) return false;
@@ -1224,7 +1277,8 @@ internal static class HeavyShieldPersistence
                 Island = island.Pointer, OwnerGeneration = owner.Generation,
                 World = s.World, Land = s.Land, Challenge = s.Challenge, Slot = s.Slot,
                 Guid = s.Guid, KeyRead = owner.KeyRead, KeyRaw = raw, CurrentMissing = true,
-                RequireCurrentSlot = false,
+                RequireCurrentSlot = false, AllowUnpaidLegacyUpgrade = allowLegacyUpgrade,
+                CampaignCopiesDigest = copiesDigest,
             };
             token.Rows.AddRange(candidate.Rows);
             return CommitEnrollmentToken(owner, s, token);
@@ -1232,10 +1286,13 @@ internal static class HeavyShieldPersistence
         catch { return false; }
     }
 
-    // Adds only missing rows to a cloned draft; an existing row must match or the
-    // whole event aborts. Stored hashes and every other campaign stay untouched.
+    // Adds missing rows to a cloned draft. Explicit upgrades may replace a
+    // legacy row only after every campaign copy proves no paid rights and its
+    // frozen preimage still matches. Other existing rows must match unchanged;
+    // every other campaign stays untouched.
     private static bool ApplyEnrollmentRows(HeavyShieldSaveDocument draft,
-        HeavyShieldIdentity.Session s, List<HeavyShieldEnrollment.Row> rows, out bool changed)
+        HeavyShieldIdentity.Session s, List<HeavyShieldEnrollment.Row> rows, out bool changed,
+        bool allowUnpaidLegacyUpgrade = false)
     {
         changed = false;
         if (draft == null || s == null || rows == null || rows.Count == 0) return false;
@@ -1253,23 +1310,36 @@ internal static class HeavyShieldPersistence
                 { existing = island; break; }
             if (existing != null)
             {
-                if (existing.SnapshotHash != row.SnapshotHash) return false;
+                if (row.ReplacingLegacy)
+                {
+                    if (!allowUnpaidLegacyUpgrade
+                        || existing.HashKind != HeavyShieldSnapshotFingerprint.LegacyKind
+                        || existing.Claims == null || existing.Claims.Count != 0
+                        || existing.SnapshotHash != row.PreviousHash) return false;
+                    existing.SnapshotHash = row.SnapshotHash;
+                    existing.HashKind = HeavyShieldSnapshotFingerprint.CanonicalKind;
+                    changed = true;
+                    continue;
+                }
+                if (existing.HashKind != HeavyShieldSnapshotFingerprint.CanonicalKind
+                    || existing.SnapshotHash != row.SnapshotHash) return false;
                 continue;
             }
             campaign.Islands.Add(new HeavyShieldSavedIsland
-            { Challenge = s.Challenge, Land = row.Land, SnapshotHash = row.SnapshotHash });
+            { Challenge = s.Challenge, Land = row.Land, SnapshotHash = row.SnapshotHash,
+                HashKind = HeavyShieldSnapshotFingerprint.CanonicalKind });
             changed = true;
         }
         return true;
     }
 
     private static bool TryValidateEnrollmentDraft(GlobalBinding owner, HeavyShieldIdentity.Session s,
-        List<HeavyShieldEnrollment.Row> rows)
+        List<HeavyShieldEnrollment.Row> rows, bool allowUnpaidLegacyUpgrade = false)
     {
         if (owner?.Staged == null) return false;
         if (!HeavyShieldSaveCodec.TrySerialize(owner.Staged, out string json, out _)
             || !HeavyShieldSaveCodec.TryParse(json, out var draft, out _)) return false;
-        if (!ApplyEnrollmentRows(draft, s, rows, out _)) return false;
+        if (!ApplyEnrollmentRows(draft, s, rows, out _, allowUnpaidLegacyUpgrade)) return false;
         return HeavyShieldSaveCodec.TrySerialize(draft, out _, out _);
     }
 
@@ -1312,8 +1382,10 @@ internal static class HeavyShieldPersistence
             && (!s.Unknown || s.CaptureFaultRecoverable);
         s.StageFault = true;
         s.Unknown = true;
+
     }
 
     private static void FreezeAll(GlobalBinding owner)
     { foreach (var s in owner.Sessions.Values) Freeze(s); }
+
 }
