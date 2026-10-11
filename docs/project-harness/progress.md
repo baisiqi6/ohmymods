@@ -1,3 +1,7 @@
+## 2026-10-11 — Android 测试环境有界对照（Issue #213，仍 OPEN）
+
+保留已合并的防御工匠0.0.28成果；同API35/host/MoltenVK noMod两窗真实0Mods/Main-state缺失，约174s退出/CFG-native保持，没有复现历史QEMU挂死，但不排除间歇或累计运行。SwiftShader noMod一窗机械停止通过、PNG却黑剪影，EGL具名图形错误保留，视觉失败后跳过第二窗与软件Mod臂。实际原host+冻结APK6c/Main3aa已保数据恢复，真实1Mod/51 targets，11.52s停0PID；截图仍logo，只确认恢复加载，不宣称森林/全UI/longstable或挂死修复。Issue仍OPEN；源/loader未改，手机与自然玩法继续待验。详见 [本任务记录](tasks/issue-213/implementation.md)。
+
 ## 2026-10-11 — Android 防御工匠组（#212，代码PR214已正常合并，运行待验分层保留）
 
 保留既有 Android 成果，继续 LemonLoader/MelonLoader + Il2CppInterop/Harmony 原架构。
