@@ -55,6 +55,15 @@
 
 本批仅报告及证据摘要，不修改产品、不删除补偿、不切换加载器。原始 APK、候选 runtime、interop、用户存档、全量设备日志与模型事件留在本机私有任务目录，不提交仓库；关键私有证据 SHA256 见 [evidence-manifest.json](evidence-manifest.json)。
 
-静态范围与运行事实由独立 reviewer 检查；GLM 5.3 max 公开模型事件确认报告关口。此前等待 Primary 登记是实验结束时的状态；2026-10-11 已核验现存 normal205（operation e2d12a2e-099c-4b5b-9253-6cc93524fe18，接受计划2863B/SHAca4943d8…），主 Operator 明确将报告交付与正常收尾交回 Android Operator。继续沿既有 task identity 处理，当前 PR 未合并、normal完成未发生，不预付 done，不新建重复任务或裸改 checklist/DB。玩家实机及联机均未验。
+静态范围与运行事实由独立 reviewer 检查；GLM 5.3 max 公开模型事件确认报告关口。此前等待 Primary 登记是实验结束时的状态；2026-10-11 已核验现存 normal205（operation e2d12a2e-099c-4b5b-9253-6cc93524fe18，接受计划2863B/SHAca4943d8…），主 Operator 明确将报告交付与正常收尾交回 Android Operator。该恢复阶段继续沿既有 task identity 处理，当时 PR 未合并、normal完成未发生；未预付 done、未新建重复任务或裸改 checklist/DB。最终结果见下节。玩家实机及联机均未验。
 
 后续若继续验证，应把“保持原游戏 Application/Activity 的同进程 BepInEx bootstrap”作为独立工程选项：先核实际 native 入口、可构建依赖和 Android linker/IL2CPP 生命周期，再测试零 Hook 插件；成功后才验证 Hook、组件、配置及冷启。它尚未实现，也没有可靠工期或净省代码估计。本轮不重试旧字符串恢复、SDK 绕行或复制现行 loader payload 冒充 BepInEx。
+
+
+## 2026-10-11 正常报告交付收尾
+
+两处过时生命周期说明按当前证据修正，原实验失败、API unknown、冻结输入和收益计数保持。独立重核四报告文档、35原证据bytes/SHA与56源/12666行计数；实际GLM5.3/max批准后，[PR208](https://github.com/baisiqi6/ohmymods/pull/208)由Draft转正式并正常合并，source0a0108708d9f25d14dee91676dab41ba290c7a01、mergec10e5f6f0b23d4d97509ca5877f31b7ef6b7bb91，Issue205代码/报告关单已读回。没有CI记录，不称CI通过；没有框架切换、产品改动、APK/原始资源发布或新增游戏压测。
+
+原operation e2d12a2e-099c-4b5b-9253-6cc93524fe18及接受计划2863B/SHAca4943d82…保留，正常入口用新resume会话/有效租约恢复认领，未复用旧08:18过期租约。实际packet4740e296ced21a1d27f3d60dd9bac148fb9f0674c95a6dd7b6847a68be6d081c通过独立证据/脚本与实际GLM终审，再按review-result及单任务normal prepare/files/record完成；receipt4076ba83-b095-420f-ba75-e00ba49ee2c3已consumed（eventaa203615-04fc-455b-882f-a49831c931da），canonical/mirror done/closed、owner/session清空、lease16:14:44Z释放。validator0、doctor0错误0警告/44信息，其他168对象/169顺序、11计划、local119/root未归属改动保持；仅205正常reconcile，未force/repair或裸改JSON/DB。
+
+完成对象是本计划的比较评估和报告交付，未抵达的候选Hook/组件/配置/冷启继续unknown，0行实证可删与不切换结论不变，手机/联机不在计划且未验。原架构移植继续，#217代码已收尾、自然玩法待验；#213宿主挂死根因仍开放。
