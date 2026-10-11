@@ -830,3 +830,7 @@ PC原回归117/0。实际PC SDK8 Release234源码/34资源、1290共同类型/68
 升级已有测试副本时，Patcher 的 development 默认 seed 会保留本地已存在的 Main，安装成功并不证明新DLL已运行。打包本项目ownedMain需使用精确规则 `--profile development --policy Mods/OhMyMods.AndroidProbe.dll=refresh`；刷新只在新revision边界发生，不采用enforce持续检查，也不改变UserData或其它Mod策略。运行验收同时核实际Main hash和版本/目标日志；仍加载旧Main时记录失败并定位包声明，不能靠重复启动凑通过。
 
 精确refresh私有包在模拟器实际更新Main0.0.25（replaced1），37真实目标与两个生命周期handler注册成功；第五次具名launch-only观察22.932s新日志启动、29.468s世界/浮球、一次触屏滚动后实际防抓ON/OFF图与日志匹配，59.606s零PID、0 ERROR。原20配置值与native档hash保持，最终OFF新增项经核验恢复原配置。测试脚本键路径、旧log识别与TTY输入边界的失败记录保留，均不当成功。仅接受包/启动/菜单设置证据；天然狗/隐士策略写入/解除、池/换岛、callback异常、动态组件、手机/联机及召回仍待验。
+
+## Issue #196 — 两项战斗参数兼容（0.0.26，代码交付与玩法验收待续）
+
+皇冠窃贼降速与骑士小队补员距离直接复用两PC源，各仅ANDROID真实默认OFF门，公共世界页PC金色中文控件/小浮球接入。Crown只Awake×0.75、Y冲量保持，不OnEnable累乘/补旧对象；Knight原>=120谓词保留（NaN/-Infinity→120，+Infinity保持），仍原生筛选/招募。56产品源+1SDKgenerated单列、23设置39显式目标；SDK10 Mainced6e2fd/231424B0W0E，PC1311types/6906methods/37resourcesMATCH未部署，生产源host27/0，adapters842/0与--oldcfg682/0、67强pins。私有包已安装至emulator-5582，实际39唯一目标注册、小浮球与世界页两中文行及滚动已观察，Main精确ced6e2fd。3个有界观察共210.515秒、5次输入，无产品ERROR，原20键配置和所选native保存文件逐字保持；开关ON/OFF未完成，原生数值/后写者/对象池/实际远距效果、phoneMP仍待验。玩家请求暂停时进程已停止；本批尚无commit/PR/合并，Issue196保留OPEN，不宣称代码交付完成。后续召回保存责任未启用。详情见docs/project-harness/tasks/issue-196。

@@ -25,6 +25,8 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<bool> InfiniteSteedStamina;
     internal static MelonPreferences_Entry<bool> HoldPurchaseEnabled;
     internal static MelonPreferences_Entry<bool> PetGuardEnabled;
+    internal static MelonPreferences_Entry<bool> CrownStealerSlowdownEnabled;
+    internal static MelonPreferences_Entry<bool> KnightRecruitRangeEnabled;
     internal static MelonPreferences_Entry<bool> CalendarEnabled;
     internal static MelonPreferences_Entry<float> EnemyCountMultiplier;
     internal static MelonPreferences_Entry<float> EnemyTimelineSpeed;
@@ -63,6 +65,8 @@ internal static class ModConfig
         InfiniteSteedStamina = category.CreateEntry<bool>("InfiniteSteedStamina", false);
         HoldPurchaseEnabled = category.CreateEntry<bool>("HoldPurchaseEnabled", false);
         PetGuardEnabled = category.CreateEntry<bool>("PetGuardEnabled", false);
+        CrownStealerSlowdownEnabled = category.CreateEntry<bool>("CrownStealerSlowdownEnabled", false);
+        KnightRecruitRangeEnabled = category.CreateEntry<bool>("KnightRecruitRangeEnabled", false);
         CalendarEnabled = category.CreateEntry<bool>("CalendarEnabled", false);
         EnemyCountMultiplier = category.CreateEntry<float>("EnemyCountMultiplier", 1f);
         EnemyTimelineSpeed = category.CreateEntry<float>("EnemyTimelineSpeed", 1f);
@@ -98,6 +102,8 @@ internal static class ModConfig
             + " stamina=" + InfiniteSteedStamina.Value
             + " hold=" + HoldPurchaseEnabled.Value
             + " petGuard=" + PetGuardEnabled.Value
+            + " crownSlowdown=" + CrownStealerSlowdownEnabled.Value
+            + " knightRecruitRange=" + KnightRecruitRangeEnabled.Value
             + " calendar=" + CalendarEnabled.Value
             + " enemyCount=" + EnemyCountMultiplier.Value
             + " growth=" + EnemyTimelineSpeed.Value
@@ -155,6 +161,20 @@ internal static class ModConfig
     {
         PetGuardEnabled.Value = !PetGuardEnabled.Value;
         MelonLogger.Msg("ANDROID_PET_PROTECTION enabled=" + PetGuardEnabled.Value + " recovery=false");
+        Save();
+    }
+
+    internal static void ToggleCrownStealerSlowdown()
+    {
+        CrownStealerSlowdownEnabled.Value = !CrownStealerSlowdownEnabled.Value;
+        MelonLogger.Msg("ANDROID_COMBAT_PARAMETER feature=crownSlowdown enabled=" + CrownStealerSlowdownEnabled.Value);
+        Save();
+    }
+
+    internal static void ToggleKnightRecruitRange()
+    {
+        KnightRecruitRangeEnabled.Value = !KnightRecruitRangeEnabled.Value;
+        MelonLogger.Msg("ANDROID_COMBAT_PARAMETER feature=knightRecruitRange enabled=" + KnightRecruitRangeEnabled.Value);
         Save();
     }
 

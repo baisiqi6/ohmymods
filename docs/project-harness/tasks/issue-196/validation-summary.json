@@ -1,0 +1,50 @@
+{
+  "task": "issue-196",
+  "UTC": "2026-10-09T02:43:59.340408+00:00",
+  "acceptedPlanSHA256": "743ed108b07634ed5e5390b2685495d54bdc94094467c1e38ed3677b37ed10d2",
+  "MainSHA256": "ced6e2fdb2dc3f1330c46a9df260aa27bf6c9c26ae1ca7a8dc1fc36d45e28ad6",
+  "MainBytes": 231424,
+  "AndroidBuild": "0W0E",
+  "productSources": 56,
+  "SDKGeneratedCount": 1,
+  "realPreferences": 23,
+  "explicitTargets": 39,
+  "PCSemantic": "MATCH",
+  "PCTypes": 1311,
+  "PCMethods": 6906,
+  "PCResources": 37,
+  "parameterHost": "27/0",
+  "adapter": "842/0",
+  "oldcfgAdapter": "682/0",
+  "sourcePins": 67,
+  "sourceReviewAccepted": true,
+  "nativeAccepted": false,
+  "phoneMPAccepted": false,
+  "installed": true,
+  "codeScopeComplete": false,
+  "fullInventory": {
+    "default": {
+      "errors": 2,
+      "warnings": 0
+    },
+    "optin": {
+      "errors": 111,
+      "warnings": 1
+    },
+    "configurationSites": 91,
+    "configurationMembers": 41,
+    "mixedExtensions": 19,
+    "roleSlots": 1
+  },
+  "sourceReviewScope": "limited source only; stub precision mechanically corrected and affected hosts rerun; native/installation/merge pending",
+  "runtimeHookRegistrationAccepted": true,
+  "runtimeTargets": 39,
+  "worldChineseRowsObserved": true,
+  "actualToggleONOFFAccepted": false,
+  "naturalParameterEffectsAccepted": false,
+  "currentProcessStopped": true,
+  "observationWindows": 3,
+  "observationSeconds": 210.51465879194438,
+  "observationInputs": 5,
+  "userRequestedPause": true
+}
