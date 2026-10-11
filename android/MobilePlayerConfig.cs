@@ -30,6 +30,12 @@ internal static class ModConfig
     // Controls explicit role hook registration on the next load, not the shared scope or farm cats.
     internal static MelonPreferences_Entry<bool> RoleScaleEnabled;
     internal static MelonPreferences_Entry<bool> WallEngineerEnabled;
+    // Explicit hook choice is consumed once at startup; saved points remain native Persistent objects.
+    internal static MelonPreferences_Entry<bool> WorldLayoutEnabled;
+    internal static MelonPreferences_Entry<float> TowerSpotMultiplier;
+    internal static MelonPreferences_Entry<float> WallSpotMultiplier;
+    internal static MelonPreferences_Entry<bool> TowerLadderCleanup;
+    internal static MelonPreferences_Entry<bool> WallSpotDiagnostics;
     internal static MelonPreferences_Entry<bool> CalendarEnabled;
     internal static MelonPreferences_Entry<float> EnemyCountMultiplier;
     internal static MelonPreferences_Entry<float> EnemyTimelineSpeed;
@@ -72,6 +78,11 @@ internal static class ModConfig
         KnightRecruitRangeEnabled = category.CreateEntry<bool>("KnightRecruitRangeEnabled", false);
         RoleScaleEnabled = category.CreateEntry<bool>("RoleScaleEnabled", false);
         WallEngineerEnabled = category.CreateEntry<bool>("WallEngineerEnabled", false);
+        WorldLayoutEnabled = category.CreateEntry<bool>("WorldLayoutEnabled", false);
+        TowerSpotMultiplier = category.CreateEntry<float>("TowerSpotMultiplier", 2f);
+        WallSpotMultiplier = category.CreateEntry<float>("WallSpotMultiplier", 1f);
+        TowerLadderCleanup = category.CreateEntry<bool>("TowerLadderCleanup", false);
+        WallSpotDiagnostics = category.CreateEntry<bool>("WallSpotDiagnostics", false);
         CalendarEnabled = category.CreateEntry<bool>("CalendarEnabled", false);
         EnemyCountMultiplier = category.CreateEntry<float>("EnemyCountMultiplier", 1f);
         EnemyTimelineSpeed = category.CreateEntry<float>("EnemyTimelineSpeed", 1f);
@@ -97,6 +108,8 @@ internal static class ModConfig
         SteedCooldownMultiplier.Value = SanitizeMultiplier("SteedCooldownMultiplier", SteedCooldownMultiplier.Value, 0.2f, 1f);
         StaffCooldownMultiplier.Value = SanitizeMultiplier("StaffCooldownMultiplier", StaffCooldownMultiplier.Value, 0.2f, 1f);
         MapSizeMultiplier.Value = SanitizeMultiplier("MapSizeMultiplier", MapSizeMultiplier.Value, 1f, 5f);
+        TowerSpotMultiplier.Value = SanitizeMultiplier("TowerSpotMultiplier", TowerSpotMultiplier.Value, 1f, 4f);
+        WallSpotMultiplier.Value = SanitizeMultiplier("WallSpotMultiplier", WallSpotMultiplier.Value, 1f, 4f);
         // 合法载入值（1..20 / 1..120）保留；越界只在加载边界收敛一次，不落盘、不扫描、不写 native。
         BeggarCampCapacity.Value = Math.Clamp(BeggarCampCapacity.Value, 1, 20);
         BeggarSpawnIntervalSeconds.Value = Math.Clamp(BeggarSpawnIntervalSeconds.Value, 1, 120);
@@ -111,6 +124,9 @@ internal static class ModConfig
             + " knightRecruitRange=" + KnightRecruitRangeEnabled.Value
             + " roleScaleNextLaunch=" + RoleScaleEnabled.Value
             + " wallEngineers=" + WallEngineerEnabled.Value
+            + " worldLayoutNextLaunch=" + WorldLayoutEnabled.Value
+            + " towerSpots=" + TowerSpotMultiplier.Value
+            + " wallSpots=" + WallSpotMultiplier.Value
             + " calendar=" + CalendarEnabled.Value
             + " enemyCount=" + EnemyCountMultiplier.Value
             + " growth=" + EnemyTimelineSpeed.Value
@@ -345,6 +361,28 @@ internal static class ModConfig
     {
         MapSizeMultiplier.Value = MathF.Floor(MapSizeMultiplier.Value) % 5f + 1f;
         MelonLogger.Msg("ANDROID_ISLAND_MAP_SIZE multiplier=" + MapSizeMultiplier.Value);
+        Save();
+    }
+
+    internal static void ToggleWorldLayout()
+    {
+        WorldLayoutEnabled.Value = !WorldLayoutEnabled.Value;
+        MelonLogger.Msg("ANDROID_WORLD_LAYOUT_NEXT_LAUNCH enabled=" + WorldLayoutEnabled.Value);
+        Save();
+    }
+
+    // Reuse the map-size integer step rule, preserving loaded fractional values until the user changes them.
+    internal static void CycleTowerSpotMultiplier()
+    {
+        TowerSpotMultiplier.Value = MathF.Floor(TowerSpotMultiplier.Value) % 4f + 1f;
+        MelonLogger.Msg("ANDROID_TOWER_SPOT_MULTIPLIER multiplier=" + TowerSpotMultiplier.Value);
+        Save();
+    }
+
+    internal static void CycleWallSpotMultiplier()
+    {
+        WallSpotMultiplier.Value = MathF.Floor(WallSpotMultiplier.Value) % 4f + 1f;
+        MelonLogger.Msg("ANDROID_WALL_SPOT_MULTIPLIER multiplier=" + WallSpotMultiplier.Value);
         Save();
     }
 

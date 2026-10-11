@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.28", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.29", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.28 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters,existing_role_scale,wall_engineers");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.29 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters,existing_role_scale,wall_engineers,world_layout");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var crownAwake=AccessTools.Method(typeof(Il2Cpp.CrownStealer),"Awake",Type.EmptyTypes)??throw new MissingMethodException("CrownStealer.Awake()");
@@ -209,6 +209,19 @@ public sealed class Probe : MelonMod
   LoggerInstance.Msg("ANDROID_NIGHT_DEPARTURE_HOOKS_INSTALLED sharedSource=true nativeSchedule=true enabled="+KingdomEnhancedMod.ModConfig.NightDepartureEnabled.Value);
   var worldLoaded=AccessTools.Method(typeof(Il2Cpp.World),"OnLevelLoaded",Type.EmptyTypes)??throw new MissingMethodException("World.OnLevelLoaded()");
   HarmonyInstance.Patch(worldLoaded,postfix:new HarmonyMethod(typeof(Probe),nameof(FarmCatsWorldLoaded)));
+  if(KingdomEnhancedMod.ModConfig.WorldLayoutEnabled.Value)
+  {
+   // Component queries in the shared cleanup require the real injected marker type too.
+   ClassInjector.RegisterTypeInIl2Cpp<KingdomEnhancedMod.SpecialTowerRebuildMarker>();
+   HarmonyInstance.Patch(worldLoaded,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.World_TowerSpots_Expand_Host_Patch),"Postfix"));
+   HarmonyInstance.Patch(worldLoaded,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.World_WallSpots_Expand_Host_Patch),"Postfix"));
+   var distributeTowerArchers=AccessTools.Method(typeof(Il2Cpp.Kingdom),"DistributeTowerArchers",Type.EmptyTypes)??throw new MissingMethodException("Kingdom.DistributeTowerArchers()");
+   HarmonyInstance.Patch(distributeTowerArchers,prefix:new HarmonyMethod(typeof(KingdomEnhancedMod.Kingdom_DistributeTowerArchers_CleanupScopePatch),"Prefix"));
+   LogHookCounts(distributeTowerArchers);
+   LoggerInstance.Msg("ANDROID_WORLD_LAYOUT_HOOKS_INSTALLED sharedSource=true handlers=3 nativeTargets=2 nextLaunchOnly=true");
+  }
+  else LoggerInstance.Msg("ANDROID_WORLD_LAYOUT_HOOKS_DISABLED handlers=0 nextLaunchOnly=true");
+  // Farm cats and both layout postfixes share this target; report its final counts once.
   LogHookCounts(worldLoaded);
   foreach(var entry in new[]{("OnEnable","Cat_OnEnable_FarmMovement_Patch",true), ("OnDisable","Cat_OnDisable_FarmMovement_Patch",false), ("Update","Cat_Update_FarmMovement_Patch",true)})
   {
