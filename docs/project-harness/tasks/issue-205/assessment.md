@@ -1,6 +1,6 @@
 # Issue #205：BepInEx.Android 独立对照结果
 
-2026-10-10，Android Operator，Mac ARM64。范围来自用户明确授权：保留既有移植，用独立环境验证同一游戏 APK 与候选加载器，再评估适配收益。本报告交付的是受限评估；Issue #196 仍暂停，没有切换框架或新增玩法实现。
+2026-10-10，Android Operator，Mac ARM64。范围来自用户明确授权：保留既有移植，用独立环境验证同一游戏 APK 与候选加载器，再评估适配收益。本报告交付的是受限评估；实验发生时 Issue #196 仍暂停，没有切换框架或新增玩法实现。2026-10-11 恢复交付核验：#196 已正常合并 PR209 并完成代码/受管收尾，后续原架构移植继续；本报告的实验数据仍对应下述冻结输入。
 
 ## 结论
 
@@ -55,6 +55,6 @@
 
 本批仅报告及证据摘要，不修改产品、不删除补偿、不切换加载器。原始 APK、候选 runtime、interop、用户存档、全量设备日志与模型事件留在本机私有任务目录，不提交仓库；关键私有证据 SHA256 见 [evidence-manifest.json](evidence-manifest.json)。
 
-静态范围与运行事实由独立 reviewer 检查；GLM 5.3 max 公开模型事件确认报告关口。受管 Task 登记、共享 progress 及 Issue 状态由 Primary 按 normal 入口处理；未登记或 PR 未合并不宣称完成 canonical 任务，不裸改 checklist/DB。玩家实机及联机均未验。
+静态范围与运行事实由独立 reviewer 检查；GLM 5.3 max 公开模型事件确认报告关口。此前等待 Primary 登记是实验结束时的状态；2026-10-11 已核验现存 normal205（operation e2d12a2e-099c-4b5b-9253-6cc93524fe18，接受计划2863B/SHAca4943d8…），主 Operator 明确将报告交付与正常收尾交回 Android Operator。继续沿既有 task identity 处理，当前 PR 未合并、normal完成未发生，不预付 done，不新建重复任务或裸改 checklist/DB。玩家实机及联机均未验。
 
 后续若继续验证，应把“保持原游戏 Application/Activity 的同进程 BepInEx bootstrap”作为独立工程选项：先核实际 native 入口、可构建依赖和 Android linker/IL2CPP 生命周期，再测试零 Hook 插件；成功后才验证 Hook、组件、配置及冷启。它尚未实现，也没有可靠工期或净省代码估计。本轮不重试旧字符串恢复、SDK 绕行或复制现行 loader payload 冒充 BepInEx。
