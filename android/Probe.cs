@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.25", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.26", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,9 +16,17 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.25 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.26 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
+  var crownAwake=AccessTools.Method(typeof(Il2Cpp.CrownStealer),"Awake",Type.EmptyTypes)??throw new MissingMethodException("CrownStealer.Awake()");
+  HarmonyInstance.Patch(crownAwake,prefix:new HarmonyMethod(typeof(KingdomEnhancedMod.PatchRoles_CrownStealer),"Awake_Prefix"));
+  LogHookCounts(crownAwake);
+  var knightRecruit=AccessTools.Method(typeof(Il2Cpp.Kingdom),"FetchArchersForJob",new[]{typeof(GameObject),typeof(int),typeof(float),typeof(Il2CppSystem.Func<float,bool>)})??throw new MissingMethodException("Kingdom.FetchArchersForJob(GameObject,int,float,Func<float,bool>)");
+  var knightRecruitPrefix=new HarmonyMethod(typeof(KingdomEnhancedMod.PatchRoles_KnightRecruitRange.Kingdom_FetchArchersForJob_RecruitRange_Patch),"Prefix"){priority=HarmonyLib.Priority.High};
+  HarmonyInstance.Patch(knightRecruit,prefix:knightRecruitPrefix);
+  LogHookCounts(knightRecruit);
+  LoggerInstance.Msg("ANDROID_COMBAT_PARAMETER_HOOKS_INSTALLED sharedSource=true crownAwakeOnly=true nativeRecruitment=true");
   var droppableEnable=AccessTools.Method(typeof(Il2Cpp.Droppable),"OnEnable",Type.EmptyTypes)??throw new MissingMethodException("Droppable.OnEnable()");
   var droppableDisable=AccessTools.Method(typeof(Il2Cpp.Droppable),"OnDisable",Type.EmptyTypes)??throw new MissingMethodException("Droppable.OnDisable()");
   var petProtection=typeof(KingdomEnhancedMod.AndroidPetProtectionHooks);

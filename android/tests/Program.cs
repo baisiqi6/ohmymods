@@ -149,6 +149,7 @@ internal static class Program
         GestureChecks.Run();
         ConfigChecks(seededSpeed, seededEnemyCount, seededEnemyTimeline, oldCfg, seedFastBuild, seededCooldown, seedBoat, seededMap, seededStaffCooldown, seedForest);
         PetProtectionPreferenceChecks();
+        CombatParameterPreferenceChecks();
         EnemyMathChecks.Run();
         ProbeChecks.Run();
         MenuChecks.Run();
@@ -275,6 +276,32 @@ internal static class Program
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == saves + 2, "protection OFF saves once");
     }
 
+    private static void CombatParameterPreferenceChecks()
+    {
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/CrownStealerSlowdownEnabled default=False")
+            && MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/KnightRecruitRangeEnabled default=False"),
+            "both parameter entries are real default-OFF preferences with old configs");
+        Checks.Check(!Config.CrownStealerSlowdownEnabled.Value && !Config.KnightRecruitRangeEnabled.Value,
+            "loading keeps both parameter features OFF");
+        int saves = MelonLoader.MelonPreferencesStub.SaveCalls;
+        Config.ToggleCrownStealerSlowdown();
+        Checks.Check(Config.CrownStealerSlowdownEnabled.Value && MelonLoader.MelonPreferencesStub.SaveCalls == saves + 1,
+            "crown ON flips its entry and saves once");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_COMBAT_PARAMETER feature=crownSlowdown enabled=True",
+            "crown ON log identifies the actual setting");
+        Config.ToggleCrownStealerSlowdown();
+        Checks.Check(!Config.CrownStealerSlowdownEnabled.Value && MelonLoader.MelonPreferencesStub.SaveCalls == saves + 2,
+            "crown OFF flips its entry and saves once");
+        Config.ToggleKnightRecruitRange();
+        Checks.Check(Config.KnightRecruitRangeEnabled.Value && MelonLoader.MelonPreferencesStub.SaveCalls == saves + 3,
+            "knight ON flips its entry and saves once");
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_COMBAT_PARAMETER feature=knightRecruitRange enabled=True",
+            "knight ON log identifies the actual setting");
+        Config.ToggleKnightRecruitRange();
+        Checks.Check(!Config.KnightRecruitRangeEnabled.Value && MelonLoader.MelonPreferencesStub.SaveCalls == saves + 4,
+            "knight OFF flips its entry and saves once");
+    }
+
     private static void ConfigChecks(int? seededSpeed, float? seededEnemyCount, float? seededEnemyTimeline, bool oldCfg, bool seededFastBuild, float? seededCooldown, bool seededBoat, float? seededMap, float? seededStaffCooldown, bool seedForest)
     {
         var applied = new List<bool>();
@@ -293,7 +320,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 21, "Initialize creates exactly twenty-one entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 23, "Initialize creates exactly twenty-three entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -362,7 +389,7 @@ internal static class Program
                 "MapSizeMultiplier is " + Describe(expectedMap) + "x after the load boundary (1..5 clamp, non-finite fallback 1)");
             Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "the load-boundary clamp/fallback does not write the cfg");
             Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=" + expectedSpeed
-                + " stamina=" + oldCfg + " hold=" + oldCfg + " petGuard=False calendar=" + oldCfg
+                + " stamina=" + oldCfg + " hold=" + oldCfg + " petGuard=False crownSlowdown=False knightRecruitRange=False calendar=" + oldCfg
                 + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild
                 + " cooldown=" + expectedCooldown + " boat=" + expectedBoat + " map=" + expectedMap
                 + " staff=" + expectedStaffCooldown + " forestRecede=" + expectedForest
@@ -443,7 +470,7 @@ internal static class Program
             && !Config.FastForestRecedeEnabled.Value
             && !Config.DeerPopulationEnabled.Value
             && !Config.DenseThicketsEnabled.Value && !Config.NightDepartureEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild, BoatCapacity, FastForestRecede, DeerPopulation and DenseThickets default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False petGuard=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False denseThickets=False nightDeparture=False"
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False petGuard=False crownSlowdown=False knightRecruitRange=False calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False denseThickets=False nightDeparture=False"
             + " population=False capacity=4 interval=120",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
@@ -780,8 +807,18 @@ internal static class ProbeChecks
         Checks.Check(File.Exists(probePath), "probe source present");
         if (!File.Exists(probePath)) return;
         string source = File.ReadAllText(probePath);
-        Checks.Check(source.Contains("\"0.0.25\""), "Probe reports version 0.0.25");
-        Checks.Check(source.Split("0.0.25").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
+        Checks.Check(source.Contains("\"0.0.26\""), "Probe reports version 0.0.26");
+        Checks.Check(source.Split("0.0.26").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
+        Checks.Check(source.Contains("combat_parameters") && source.Contains("ANDROID_COMBAT_PARAMETER_HOOKS_INSTALLED"),
+            "Probe advertises and reports both parameter targets");
+        Checks.Check(source.Contains("typeof(Il2Cpp.CrownStealer),\"Awake\",Type.EmptyTypes")
+            && source.Contains("crownAwake,prefix:new HarmonyMethod(typeof(KingdomEnhancedMod.PatchRoles_CrownStealer),\"Awake_Prefix\")")
+            && source.Contains("LogHookCounts(crownAwake)"), "Crown registers only the original Awake prefix");
+        Checks.Check(!source.Contains("typeof(Il2Cpp.CrownStealer),\"OnEnable\""), "Crown has no pooled OnEnable multiplier hook");
+        Checks.Check(source.Contains("typeof(Il2Cpp.Kingdom),\"FetchArchersForJob\",new[]{typeof(GameObject),typeof(int),typeof(float),typeof(Il2CppSystem.Func<float,bool>)}")
+            && source.Contains("PatchRoles_KnightRecruitRange.Kingdom_FetchArchersForJob_RecruitRange_Patch),\"Prefix\"){priority=HarmonyLib.Priority.High}")
+            && source.Contains("knightRecruit,prefix:knightRecruitPrefix") && source.Contains("LogHookCounts(knightRecruit)"),
+            "Knight resolves all four native parameters and explicitly preserves High prefix priority");
         Checks.Check(source.Contains("camp_population") && source.Contains("ANDROID_CAMP_POPULATION_HOOKS_INSTALLED"), "Probe advertises and announces camp population");
         Checks.Check(source.Contains("campAwake,prefix:new HarmonyMethod(campPatch,\"Awake_Prefix\"),postfix:new HarmonyMethod(campPatch,\"Awake_Postfix\")"), "Camp Awake registers its whole prefix/postfix method set");
         Checks.Check(source.Contains("campDestroy,prefix:new HarmonyMethod(campPatch,\"OnDestroy_Prefix\")") && source.Contains("populationApply,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.PopulationPerformanceApplyPatch),\"Postfix\")"), "Camp destruction and campaign application register exact methods");
@@ -899,6 +936,11 @@ internal static class MenuChecks
             && menus["MobileWorldMenu.cs"].Contains("panel.Toggle(\"船只额外乘员\"")
             && menus["MobileWorldMenu.cs"].Contains("panel.OpenVegetation"),
             "the world page presents its five settings plus the vegetation entry through the panel");
+        Checks.Check(menus["MobileWorldMenu.cs"].Contains("panel.Toggle(\"皇冠窃贼降速\"")
+            && menus["MobileWorldMenu.cs"].Contains("panel.Toggle(\"骑士小队补员距离\"")
+            && menus["MobileWorldMenu.cs"].Contains("ModConfig.ToggleCrownStealerSlowdown")
+            && menus["MobileWorldMenu.cs"].Contains("ModConfig.ToggleKnightRecruitRange"),
+            "both parameter settings use the existing common world-page Toggle");
         Checks.Check(menus["MobileGenerationMenu.cs"].Contains("panel.Step(\"地图大小\"")
             && menus["MobileGenerationMenu.cs"].Contains("ModConfig.CycleMapSize"),
             "the generation page presents the map size step");
@@ -1082,6 +1124,23 @@ internal static class ArtifactChecks
                 dontPatchAll = true;
         }
         Checks.Check(dontPatchAll, "artifact carries MelonLoader.HarmonyDontPatchAll");
+
+        var crown = FindType(reader, "KingdomEnhancedMod", "PatchRoles_CrownStealer");
+        Checks.Check(!crown.IsNil, "artifact links the shared Crown source");
+        CheckHandlers(reader, crown, new Dictionary<string, int> { { "Awake_Prefix", 1 } }, MethodAttributes.Public, "public static");
+        foreach (string field in new[] { "walkSpeed", "runSpeed", "jumpSpeed", "chargeSpeed", "wallJumpForce", "chargeJumpForce" })
+            Checks.Check(HasMemberReference(reader, "Il2Cpp.CrownStealer", "get_" + field)
+                && HasMemberReference(reader, "Il2Cpp.CrownStealer", "set_" + field), "Crown calls the real interop accessors for " + field);
+        var recruit = FindType(reader, "KingdomEnhancedMod", "PatchRoles_KnightRecruitRange");
+        Checks.Check(!recruit.IsNil, "artifact links the shared Knight parameter source");
+        if (!recruit.IsNil)
+        {
+            var nested = reader.GetTypeDefinition(recruit).GetNestedTypes().Where(h => reader.GetString(reader.GetTypeDefinition(h).Name)
+                == "Kingdom_FetchArchersForJob_RecruitRange_Patch").ToArray();
+            Checks.Check(nested.Length == 1, "the exact shared private recruit wrapper is present once");
+            if (nested.Length == 1)
+                CheckHandlers(reader, nested[0], new Dictionary<string, int> { { "Prefix", 2 } }, MethodAttributes.Private, "private static");
+        }
 
         var pet = FindType(reader, "KingdomEnhancedMod", "PatchRoles_PetGuard");
         var hermit = FindType(reader, "KingdomEnhancedMod", "PatchRoles_Hermit");
@@ -1828,6 +1887,11 @@ internal static class ArtifactChecks
         "android/tests/pet-protection/PetProtectionTests.csproj",
         "android/tests/pet-protection/Stubs.cs",
         "android/tests/pet-protection/Program.cs",
+        "il2cpp/PatchRoles_CrownStealer.cs",
+        "il2cpp/PatchRoles_KnightRecruitRange.cs",
+        "android/tests/combat-parameters/CombatParameterTests.csproj",
+        "android/tests/combat-parameters/Stubs.cs",
+        "android/tests/combat-parameters/Program.cs",
 };
 
     private static void VerifyFrozenSources()
@@ -1844,13 +1908,13 @@ internal static class ArtifactChecks
             { "android/MobileCalendar.cs", "39ac54e3bf7acb37a7a30189f67dd2973bb394f53d28193836481dba0c44723b" },
             { "android/MobileGenerationMenu.cs", "e89f7d9224b31f5ea77ca5392a02d8c7ac1a723c2dd0ee702d4225eb8f53f5d0" },
             { "android/MobileModPanel.cs", "e9a0bd5347da0333b2110b4a93dcf61b0caff4d4375a600a99ad12a124683f12" },
-            { "android/MobilePlayerConfig.cs", "5fc9cddc4f2877864d9cb2e32dc3981b824284f98a9b63625804f9e9dc7d3fdf" },
+            { "android/MobilePlayerConfig.cs", "2a09bae6dd7e3d5b1bbdf0fd428132f3920ea9f31ed776c104f9e9d663042c43" },
             { "android/MobilePlayerMenu.cs", "9fced29dbb22162ad3eb0ca7bb2d6d7b1c02d437c4831884b16145ed46723d2e" },
             { "android/MobilePopulation.cs", "fdf95ab309d2489f1d0d3e4c4893d3ee44388e9e5ebb37d991c65a6f8c260571" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
             { "android/MobileVegetationMenu.cs", "40e6be0dda5313a61f01f98e1829422290612ede0b948b8d21c4549a58890e66" },
-            { "android/MobileWorldMenu.cs", "35749b5a0aaa300cb03c439790252f04bacdef91fc38188a25e260af29884fee" },
-            { "android/OhMyMods.AndroidProbe.csproj", "ee0d7efd9638c04bd7523d6f253a609792faae524fa89d20c3b7a8df423278fb" },
+            { "android/MobileWorldMenu.cs", "72b24132c19065f19f411ecbd702b9f8f1328ca5dcc7d51b36cfbf0276f763d9" },
+            { "android/OhMyMods.AndroidProbe.csproj", "2c588ad22de75680e44e19b255ad237458af9d87d39d4ad44003e57c112f78ba" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PanelGesture.cs", "51071fefbc1a1ab4b8f23ee84bf10925c325d8414400b9ed186af238c136e97b" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },
@@ -1859,7 +1923,7 @@ internal static class ArtifactChecks
             { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
-            { "android/Probe.cs", "54bd63a7f1c219131d7444bbfb1c38b441b6d9da0b77e97f96e27bdbc2c24766" },
+            { "android/Probe.cs", "580b15d4d19b3c72535546608b927fa9fc3c1049469497070042235791471f47" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
             { "android/tests/AdapterTests.csproj", "788d688ab72d580711a9ec42ec6a540dfa41102af307a65d64965748e36859e1" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
@@ -1896,6 +1960,11 @@ internal static class ArtifactChecks
             { "android/tests/pet-protection/PetProtectionTests.csproj", "493391e9c4c3f71c00e4cc58bcfa6d20cb48f577bfd91183f7a70ab9f730b3b4" },
             { "android/tests/pet-protection/Stubs.cs", "3d5b2d7a2da0ba45fa4818053bc2ce53579b520e2f06e9a6c28d245b85eb2d0d" },
             { "android/tests/pet-protection/Program.cs", "a92406354c94db37f8ea1f85a20b7f228d9d72fb06609d56fe4bed79a0a2e6da" },
+            { "il2cpp/PatchRoles_CrownStealer.cs", "46a06704816d93f98264750e805057ce2f5c5ddff2cefb2ef7155136dce6924f" },
+            { "il2cpp/PatchRoles_KnightRecruitRange.cs", "6be64b47dfebc3acc56fbe34975a136a337a6de8ae2fae86e7c00eb3baa0ab95" },
+            { "android/tests/combat-parameters/CombatParameterTests.csproj", "358fc51817d916686b13badfcdb75524662543e4fe0dd79a332edbcfe97a7b0c" },
+            { "android/tests/combat-parameters/Stubs.cs", "adee57d465df5c4fcf792f20e912929c6a9deec74a8616e6c19e5754d1f0445c" },
+            { "android/tests/combat-parameters/Program.cs", "97d87e1733d7a333d2c6120ab3d0caf3fe7f03a862df071869fce69ec1b714d1" },
 };
         foreach (string relative in FrozenSources)
         {

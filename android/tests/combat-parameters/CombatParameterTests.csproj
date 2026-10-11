@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Issue196 直接生产源 host：net10 + ANDROID define，Compile 项直接指向 ../../../il2cpp 两份共享生产源。
+       验证输出由运行方指定独立 obj/bin；不构建产品/PC，不引用真实 interop 程序集。 -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DefineConstants>$(DefineConstants);ANDROID</DefineConstants>
+    <AssemblyName>CombatParameterTests</AssemblyName>
+    <RootNamespace>CombatParameterTests</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../../../il2cpp/PatchRoles_CrownStealer.cs" Link="candidates/PatchRoles_CrownStealer.cs" />
+    <Compile Include="../../../il2cpp/PatchRoles_KnightRecruitRange.cs" Link="candidates/PatchRoles_KnightRecruitRange.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Stubs.cs" />
+  </ItemGroup>
+
+</Project>
