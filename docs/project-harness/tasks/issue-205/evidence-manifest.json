@@ -1,0 +1,183 @@
+{
+  "createdUTC": "2026-10-10T22:33:21.481673+00:00",
+  "scope": "Issue205 bounded comparison; no product changes; no framework switch",
+  "privateEvidenceRootAlias": "android-bepinex-comparison-20261010",
+  "rawEvidencePublished": false,
+  "entries": [
+    {
+      "privateEvidence": "candidate-provenance.json",
+      "bytes": 980,
+      "sha256": "0af56971816f95515313ecb330b0236d2b8645525076583d82234f10796f40d3"
+    },
+    {
+      "privateEvidence": "candidate-versus-old-payload.json",
+      "bytes": 1217,
+      "sha256": "f147cf59d7e50c4cd6ae5c3f315a6f3970a4cb8f0fd55053af4344d184fa2dbb"
+    },
+    {
+      "privateEvidence": "candidate-actual-api.txt",
+      "bytes": 14158,
+      "sha256": "c9efa45846ade706acb8f6725666bf0b343738b4a0e7ac45dc774f3a2774d0e8"
+    },
+    {
+      "privateEvidence": "install-inputs-receipt.json",
+      "bytes": 1165,
+      "sha256": "82ac051453e7ed70426263d1947eac6fff65245bd83d70a0f52825b6586ccd03"
+    },
+    {
+      "privateEvidence": "existing-probe-source-pin.json",
+      "bytes": 429,
+      "sha256": "551f767745b678598564b995dba0429347f183ed9b5ac060c4dc8abe87b6c168"
+    },
+    {
+      "privateEvidence": "existing-nohook-build-receipt.json",
+      "bytes": 402,
+      "sha256": "d26ae600d45467e9e2994297041d2dfe2644ec2b9c8122b63ebbe2c1d6850ab3"
+    },
+    {
+      "privateEvidence": "nohook-push-receipt.json",
+      "bytes": 690,
+      "sha256": "8910fdc780c707ac939c89af0fc617d45baa58527a8600a15257381f5b3aa117"
+    },
+    {
+      "privateEvidence": "observe-window.py",
+      "bytes": 4207,
+      "sha256": "2d4946a3a8d3a89b1d41290c6c9b654bde6de0ce9cb00987d382b0ef0e07efea"
+    },
+    {
+      "privateEvidence": "boot-order-correction.json",
+      "bytes": 532,
+      "sha256": "ec7be0407b983bdb2bbf554ef903c7d2e7e9c2f9de1f6fe207e9d18fd10c85bb"
+    },
+    {
+      "privateEvidence": "original-baseline/receipt.json",
+      "bytes": 801,
+      "sha256": "32b658f1d340948c2052b53d8960413e4a734e9eebda585c31ad8de47e896644"
+    },
+    {
+      "privateEvidence": "original-baseline-ready/receipt.json",
+      "bytes": 7514,
+      "sha256": "dabff0df0bdf29fd2bf0a045a85458d429ef176a5a3fb3f754ebb9af759903e4"
+    },
+    {
+      "privateEvidence": "original-baseline-ready/world-visible.png",
+      "bytes": 606423,
+      "sha256": "c8f6232936fdfa8cf0ef7213bebf4105905717a4bcb3b9ea9ee17fe7c0d2e086"
+    },
+    {
+      "privateEvidence": "original-baseline-ready/os-tip-dismiss.json",
+      "bytes": 527,
+      "sha256": "50fb9ab914429055b4956ee857f5006b70ccca5dfc5f964246d07e3c38770067"
+    },
+    {
+      "privateEvidence": "launcher-nohook/receipt.json",
+      "bytes": 4174,
+      "sha256": "0f3b06e75f93817dc38ba1b4b9868bf3d43ee2ddce8a0c109a6002f614f4756c"
+    },
+    {
+      "privateEvidence": "launcher-nohook/final.log",
+      "bytes": 285298,
+      "sha256": "7e62c2d632d832cbeee56c92ef703cb90a446ab855dd23acda71f823d00780f4"
+    },
+    {
+      "privateEvidence": "launcher-nohook/late-window-state.png",
+      "bytes": 5336,
+      "sha256": "527f19e0c37f93a2060574f4162d7eafc016fafb91db4b3b7a1fbbf8fa6669a6"
+    },
+    {
+      "privateEvidence": "launcher-nohook/minimal-stage-checks.json",
+      "bytes": 570,
+      "sha256": "485768b28d780accb6400e1f477e81633f2e5bde41ba92d8b9e2ed66c21b7f7b"
+    },
+    {
+      "privateEvidence": "launcher-nohook/check-maps.txt",
+      "bytes": 293955,
+      "sha256": "ff39472ea574b80b416157c84c0872fb62ddf41a412daad8ba54af015b08b4f7"
+    },
+    {
+      "privateEvidence": "launcher-nohook/check-active-config.txt",
+      "bytes": 638,
+      "sha256": "a06053169caca6ec1f8aca268dc4b815cdd224e505276b147199ac73f967301e"
+    },
+    {
+      "privateEvidence": "launcher-nohook/check-plugin-readback.txt",
+      "bytes": 159,
+      "sha256": "6942f59bfc8d869ad10b0948e6bf4cc0d4c4f4966dac116846b92c2546510fd8"
+    },
+    {
+      "privateEvidence": "launcher-nohook/check-bep-log.txt",
+      "bytes": 105,
+      "sha256": "2111854ce201c673d8d2438e1ffcd0c3cd292a78d887716d45987b7396f4a333"
+    },
+    {
+      "privateEvidence": "launcher-nohook/check-interop-files.txt",
+      "bytes": 98,
+      "sha256": "04aa5382ff89921ff57577bbc63c8ff3cc1a053019b97bc3c1dc5a0daaf6cfb5"
+    },
+    {
+      "privateEvidence": "adaptation-static-review.md",
+      "bytes": 7267,
+      "sha256": "23c6501d10b1562514607792f16b6755d6db895b5b01541ec88599548a041e75"
+    },
+    {
+      "privateEvidence": "adaptation-static-inventory.json",
+      "bytes": 205097,
+      "sha256": "11b3020acc6f3eb8f5c9a26c96dc310c8a5a93bda37d54c6ee162d04a39757ba"
+    },
+    {
+      "privateEvidence": "runtime-independent-review.md",
+      "bytes": 8571,
+      "sha256": "0f3eee198f10bd2548d3121e3f995df1f9badcda3d6142a305af30f13dc15678"
+    },
+    {
+      "privateEvidence": "runtime-independent-manifest.json",
+      "bytes": 8065,
+      "sha256": "0d4bff883f66a94b5323307e06ed07f420424c18b65e8303c7b9b223a9b6c0e0"
+    },
+    {
+      "privateEvidence": "startup-gate-result.md",
+      "bytes": 1789,
+      "sha256": "3478a791b523c2e69ba9aa9f834229d6fdd56b1eafc213a200c6b4fd6d822e25"
+    },
+    {
+      "privateEvidence": "startup-gate-model-receipt.json",
+      "bytes": 299,
+      "sha256": "9b7110465fe6e538fa288b2ae45264d300d3eb348abdb65e647870550ca64278"
+    },
+    {
+      "privateEvidence": "boot-correction-gate-result.md",
+      "bytes": 1841,
+      "sha256": "e0d7a4eef209a6be1fa771e14c21feef7e22583326bd7cf60f7d777b4fdf63e4"
+    },
+    {
+      "privateEvidence": "boot-correction-gate-model-receipt.json",
+      "bytes": 276,
+      "sha256": "bec9ab96298e2fcfb5becc6876dec0b66ca7b8cc19d6ad2a7d964f07bb89ed07"
+    },
+    {
+      "privateEvidence": "report-gate-result.md",
+      "bytes": 1342,
+      "sha256": "2c54776b4b9865d228c0233d99e734bbcd43cffb8bd5aac31d1782c1a9c5b5a1"
+    },
+    {
+      "privateEvidence": "report-gate-model-receipt.json",
+      "bytes": 276,
+      "sha256": "bc9703e9b07844a1c89d7d930194a06d440f502f6ecf7195e8c36d3faed05dff"
+    },
+    {
+      "privateEvidence": "preservation-final-receipt.json",
+      "bytes": 4264,
+      "sha256": "ace34295ea11b99f0fbdf1262991ecb2f4bf067165ac79dc4378cde08960fca7"
+    },
+    {
+      "privateEvidence": "isolated-avd-stop-receipt.json",
+      "bytes": 172,
+      "sha256": "40b57af7a4e44e45ccf3c49d49f0d5277f66bed3ec0220119fc4df2314c2e356"
+    },
+    {
+      "privateEvidence": "report-consistency-check.json",
+      "bytes": 221,
+      "sha256": "c6eeaac0d451b1dd1fa1204dbb3e54ed99674df55aac6aae24b3a19f7df7aa27"
+    }
+  ]
+}
