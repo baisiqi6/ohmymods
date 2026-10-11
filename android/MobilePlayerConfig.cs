@@ -29,6 +29,7 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<bool> KnightRecruitRangeEnabled;
     // Controls explicit role hook registration on the next load, not the shared scope or farm cats.
     internal static MelonPreferences_Entry<bool> RoleScaleEnabled;
+    internal static MelonPreferences_Entry<bool> WallEngineerEnabled;
     internal static MelonPreferences_Entry<bool> CalendarEnabled;
     internal static MelonPreferences_Entry<float> EnemyCountMultiplier;
     internal static MelonPreferences_Entry<float> EnemyTimelineSpeed;
@@ -70,6 +71,7 @@ internal static class ModConfig
         CrownStealerSlowdownEnabled = category.CreateEntry<bool>("CrownStealerSlowdownEnabled", false);
         KnightRecruitRangeEnabled = category.CreateEntry<bool>("KnightRecruitRangeEnabled", false);
         RoleScaleEnabled = category.CreateEntry<bool>("RoleScaleEnabled", false);
+        WallEngineerEnabled = category.CreateEntry<bool>("WallEngineerEnabled", false);
         CalendarEnabled = category.CreateEntry<bool>("CalendarEnabled", false);
         EnemyCountMultiplier = category.CreateEntry<float>("EnemyCountMultiplier", 1f);
         EnemyTimelineSpeed = category.CreateEntry<float>("EnemyTimelineSpeed", 1f);
@@ -108,6 +110,7 @@ internal static class ModConfig
             + " crownSlowdown=" + CrownStealerSlowdownEnabled.Value
             + " knightRecruitRange=" + KnightRecruitRangeEnabled.Value
             + " roleScaleNextLaunch=" + RoleScaleEnabled.Value
+            + " wallEngineers=" + WallEngineerEnabled.Value
             + " calendar=" + CalendarEnabled.Value
             + " enemyCount=" + EnemyCountMultiplier.Value
             + " growth=" + EnemyTimelineSpeed.Value
@@ -179,6 +182,13 @@ internal static class ModConfig
     {
         KnightRecruitRangeEnabled.Value = !KnightRecruitRangeEnabled.Value;
         MelonLogger.Msg("ANDROID_COMBAT_PARAMETER feature=knightRecruitRange enabled=" + KnightRecruitRangeEnabled.Value);
+        Save();
+    }
+
+    internal static void ToggleWallEngineer()
+    {
+        WallEngineerEnabled.Value = !WallEngineerEnabled.Value;
+        MelonLogger.Msg("ANDROID_WALL_ENGINEERS enabled=" + WallEngineerEnabled.Value);
         Save();
     }
 

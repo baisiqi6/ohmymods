@@ -21,6 +21,7 @@ internal static class MobileWorldMenu
     private static readonly Action ToggleCrownSlowdown = ModConfig.ToggleCrownStealerSlowdown;
     private static readonly Action ToggleKnightRecruitRange = ModConfig.ToggleKnightRecruitRange;
     private static readonly Action ToggleRoleScale = ModConfig.ToggleRoleScale;
+    private static readonly Action ToggleWallEngineer = ModConfig.ToggleWallEngineer;
 
     internal static void Draw(MobileModPanel panel, float width, float scale)
     {
@@ -39,6 +40,8 @@ internal static class MobileWorldMenu
             "下一次创建实例生效，重进游戏应用；竖直冲量保持。", ToggleCrownSlowdown);
         panel.Toggle("骑士小队补员距离", ModConfig.KnightRecruitRangeEnabled.Value,
             "下次补员扩大至120格，原生预留与筛选保持。", ToggleKnightRecruitRange);
+        panel.Step("外墙耐久上限", WallEngineerStatusText.Format(WallEngineerRuntime.Status),
+            "10名工匠×2，20名及以上×3；新增耐久需维修填满。仅单机，点击切换开关。", ToggleWallEngineer);
         panel.Step("希腊角色体型", ModConfig.RoleScaleEnabled.Value ? "下次开启" : "下次关闭",
             "下次启动游戏生效；只调整希腊世界现有角色体型。", ToggleRoleScale);
         panel.Toggle("远距夜袭出发补偿", ModConfig.NightDepartureEnabled.Value,

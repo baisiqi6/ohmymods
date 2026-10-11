@@ -25,6 +25,27 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
   生成或安装任何依赖，也不会把游戏/loader 二进制复制进输出（`Private=false`）。
 - 仓库不分发原版 APK、loader（含 winhttp/native host）或 interop 二进制；本目录只含 mod 源码。
 
+## 防御工匠（Issue #212，0.0.28）
+
+世界页通过原公共 Step 显示“外墙耐久上限”，沿用小浮球、PC 暗金样式和中文状态。
+真实设置 `WallEngineerEnabled=false` 存在同一个 `[OhMyMods.Android]` 分节，点击切换后由
+下一次共享 Tick 接手。仅单机：10 名现有工匠时 ×2，20 名及以上 ×3；新增耐久由原生维修
+填满。关闭时复用原有责任归还流程恢复上限，按恢复后的上限约束当前血量，不补血。
+权限不足时保留尚未归还的责任，待原流程可写时处理。
+
+直接链接 `WallEngineerRules.cs`、`WallEngineerRuntime.cs`、`PatchWorld_WallEngineers.cs`，
+只在共享 FeatureOn 责任入口补 Android 配置门；人数、HP、加载证明、工匠工作分配及归还
+算法共用 PC 实现。OFF 仍保留完整加载回调和唯一 Tick，退出复用现有注入组件的 OnDestroy。
+完整 13 个声明目标中 ApplyToScene 与人口模块共用，总唯一目标预期为 51（角色体型开启
+时 58）；人口 postfix 与墙 postfix/finalizer 全部安装后只记录一次 Apply 计数。
+
+状态文案只有 `WallEngineerStatusText.Format` 一份，原 PC `CalendarHud.FormatWallStatus`
+保留接口并委托该纯实现。源码、编译和宿主验证通过；实际51注册与触屏开关保存已核。
+启用曾在名单数组分配处报空引用：Android实际产物把人数绑定到指针构造，现共享两处分配
+显式传入long长度，真实产物两处均为Int64构造、PC原IL保持。修后同路径开启约27秒无名单
+异常，状态“暂无外墙”，关闭后旧24设置与所选存档hash保持；这不证明耐久与工匠实际效果。
+天然外墙HP、维修/工匠职责、读档换岛、池、手机与多人验收分别记录在issue-212任务中。
+
 ## 营地补员（Issue #184）
 
 人口页保留小浮球入口和现有 PC 暗金样式、中文文案及公共控件。新增设置均在原
