@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.26", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.27", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.26 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.27 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters,existing_role_scale");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var crownAwake=AccessTools.Method(typeof(Il2Cpp.CrownStealer),"Awake",Type.EmptyTypes)??throw new MissingMethodException("CrownStealer.Awake()");
@@ -27,6 +27,29 @@ public sealed class Probe : MelonMod
   HarmonyInstance.Patch(knightRecruit,prefix:knightRecruitPrefix);
   LogHookCounts(knightRecruit);
   LoggerInstance.Msg("ANDROID_COMBAT_PARAMETER_HOOKS_INSTALLED sharedSource=true crownAwakeOnly=true nativeRecruitment=true");
+  // The saved choice is consumed only at load. UI changes apply on the next launch;
+  // the existing GreekScaleScope Tick/LateUpdate remains the sole shared driver.
+  if(KingdomEnhancedMod.ModConfig.RoleScaleEnabled.Value)
+  {
+   var roleTargets=new[]{
+    (typeof(Il2Cpp.Ninja),"OnStyleSwap",new[]{typeof(int)},typeof(KingdomEnhancedMod.NinjaStyleScale_Patch),"OnStyleSwap_Postfix"),
+    (typeof(Il2Cpp.Ninja),"SetAnimation",new[]{typeof(int)},typeof(KingdomEnhancedMod.NinjaStyleScale_Patch),"SetAnimation_Postfix"),
+    (typeof(Il2Cpp.Ninja),"Persistent_IBehaviour_ApplyData",new[]{typeof(Il2CppSystem.Object)},typeof(KingdomEnhancedMod.NinjaStyleScale_Patch),"ApplyData_Postfix"),
+    (typeof(Il2Cpp.Ninja),"DeserializeFromData",Type.EmptyTypes,typeof(KingdomEnhancedMod.NinjaStyleScale_Patch),"DeserializeFromData_Postfix"),
+    (typeof(Il2Cpp.Banker),"OnEnable",Type.EmptyTypes,typeof(KingdomEnhancedMod.GreeceBankerScale_Patch),"OnEnable_Postfix"),
+    (typeof(Il2Cpp.Hermit),"OnEnable",Type.EmptyTypes,typeof(KingdomEnhancedMod.HermitScale_Patch),"OnEnable_Postfix"),
+    (typeof(Il2Cpp.Dog),"OnEnable",Type.EmptyTypes,typeof(KingdomEnhancedMod.DogScale_Patch),"OnEnable_Postfix")};
+   foreach(var entry in roleTargets)
+   {
+    var target=AccessTools.Method(entry.Item1,entry.Item2,entry.Item3)??throw new MissingMethodException(entry.Item1.Name+"."+entry.Item2);
+    HarmonyInstance.Patch(target,postfix:new HarmonyMethod(entry.Item4,entry.Item5));
+    LogHookCounts(target);
+   }
+   // Private pooled Hermit.OnDestroy is deliberately not detoured; confirmed dead
+   // identities are already removed by GreekScaleScope.Tick.
+   LoggerInstance.Msg("ANDROID_ROLE_SCALE_HOOKS_INSTALLED sharedSource=true targets=7 nextLaunchOnly=true");
+  }
+  else LoggerInstance.Msg("ANDROID_ROLE_SCALE_HOOKS_DISABLED targets=0 nextLaunchOnly=true");
   var droppableEnable=AccessTools.Method(typeof(Il2Cpp.Droppable),"OnEnable",Type.EmptyTypes)??throw new MissingMethodException("Droppable.OnEnable()");
   var droppableDisable=AccessTools.Method(typeof(Il2Cpp.Droppable),"OnDisable",Type.EmptyTypes)??throw new MissingMethodException("Droppable.OnDisable()");
   var petProtection=typeof(KingdomEnhancedMod.AndroidPetProtectionHooks);

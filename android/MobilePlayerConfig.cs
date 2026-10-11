@@ -27,6 +27,8 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<bool> PetGuardEnabled;
     internal static MelonPreferences_Entry<bool> CrownStealerSlowdownEnabled;
     internal static MelonPreferences_Entry<bool> KnightRecruitRangeEnabled;
+    // Controls explicit role hook registration on the next load, not the shared scope or farm cats.
+    internal static MelonPreferences_Entry<bool> RoleScaleEnabled;
     internal static MelonPreferences_Entry<bool> CalendarEnabled;
     internal static MelonPreferences_Entry<float> EnemyCountMultiplier;
     internal static MelonPreferences_Entry<float> EnemyTimelineSpeed;
@@ -67,6 +69,7 @@ internal static class ModConfig
         PetGuardEnabled = category.CreateEntry<bool>("PetGuardEnabled", false);
         CrownStealerSlowdownEnabled = category.CreateEntry<bool>("CrownStealerSlowdownEnabled", false);
         KnightRecruitRangeEnabled = category.CreateEntry<bool>("KnightRecruitRangeEnabled", false);
+        RoleScaleEnabled = category.CreateEntry<bool>("RoleScaleEnabled", false);
         CalendarEnabled = category.CreateEntry<bool>("CalendarEnabled", false);
         EnemyCountMultiplier = category.CreateEntry<float>("EnemyCountMultiplier", 1f);
         EnemyTimelineSpeed = category.CreateEntry<float>("EnemyTimelineSpeed", 1f);
@@ -104,6 +107,7 @@ internal static class ModConfig
             + " petGuard=" + PetGuardEnabled.Value
             + " crownSlowdown=" + CrownStealerSlowdownEnabled.Value
             + " knightRecruitRange=" + KnightRecruitRangeEnabled.Value
+            + " roleScaleNextLaunch=" + RoleScaleEnabled.Value
             + " calendar=" + CalendarEnabled.Value
             + " enemyCount=" + EnemyCountMultiplier.Value
             + " growth=" + EnemyTimelineSpeed.Value
@@ -175,6 +179,13 @@ internal static class ModConfig
     {
         KnightRecruitRangeEnabled.Value = !KnightRecruitRangeEnabled.Value;
         MelonLogger.Msg("ANDROID_COMBAT_PARAMETER feature=knightRecruitRange enabled=" + KnightRecruitRangeEnabled.Value);
+        Save();
+    }
+
+    internal static void ToggleRoleScale()
+    {
+        RoleScaleEnabled.Value = !RoleScaleEnabled.Value;
+        MelonLogger.Msg("ANDROID_ROLE_SCALE_NEXT_LAUNCH enabled=" + RoleScaleEnabled.Value);
         Save();
     }
 

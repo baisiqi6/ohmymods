@@ -14,7 +14,8 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 
 - `GameInteropDir`：用户本机自有的目标 APK 经 Il2CppInterop 生成的互操作目录
   （`Assembly-CSharp.dll`、`UnityEngine.*.dll`、`Il2Cppmscorlib.dll`、`Il2CppSystem.Core.dll` 等；
-  Issue #119 起还必须有 `UnityEngine.UI.dll` 与 `UnityEngine.UIModule.dll`，缺失即 MSBuild error）。
+  Issue #119 起还必须有 `UnityEngine.UI.dll` 与 `UnityEngine.UIModule.dll`，缺失即 MSBuild error；Issue #210 的现存角色体型还需要 `UnityEngine.AnimationModule.dll`，
+  用于共享 Ninja 处理器的真实 Animator 引用）。
 - `LoaderRuntimeDir`：loader 部署中的 net6 运行时目录（`MelonLoader.dll`、`0Harmony.dll`、
   `Il2CppInterop.Runtime.dll` 等），例如 LemonLoader 部署层
   `assets/LemonLoader/runtime/loader/net6`。
@@ -56,7 +57,7 @@ Android 只读诊断按实际可观测面输出 `unavailable`，保留其他物�
 | `MobileCalendar.cs` `CalendarSnapshot.cs` | 日历显示（开关直读 `CalendarEnabled` entry，切换时保存） |
 | `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（沿既有只读缓存展示八个原生角色与骑士）；#184 起同时使用公共 Toggle/Step 控件提供营地补员、帐篷上限和刷新间隔 |
 | `MobileModPanel.cs` `PanelGesture.cs` | 公共面板容器与纯手势状态机（Issue #144）：唯一 hotControl 手势、固定导航（主页/玩家/世界/生成/人口）与关闭、内容视口裁剪与滚动；手势/滚动单点由 `PanelGesture` 持有（任意方向位移 sticky 取消点击、`End` 按实际抬手归账、滚轮与拖拽共用同一 ScrollY） |
-| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 20 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度、快速森林退缩、普通鹿数量、密灌木、远距夜袭出发补偿、营地补员开关、每座乞丐帐篷上限、乞丐刷新间隔；除密灌木外切换即保存，夜袭补偿同值不保存）。密灌木的 UI 请求还经共享 `TrySetDenseThickets` 一次，保存只发生在共享源的三个真实写入点（每次真实变更一次），本文件不落盘、不镜像。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
+| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 24 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度、快速森林退缩、普通鹿数量、密灌木、远距夜袭出发补偿、营地补员开关、每座乞丐帐篷上限、乞丐刷新间隔、宠物保护、皇冠掠夺者减速、骑士招募范围、希腊现存角色体型；除密灌木外切换即保存，夜袭补偿同值不保存）。密灌木的 UI 请求还经共享 `TrySetDenseThickets` 一次，保存只发生在共享源的三个真实写入点（每次真实变更一次），本文件不落盘、不镜像。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
 | `MobilePlayerMenu.cs` | Player 页 presentation（5 行：君主移动速度 / 坐骑无限体力 / 长按连续购买 / 坐骑技能冷却 / 法杖神器冷却），全部经 `MobileModPanel.Step/Toggle` 公共路径登记 tap rect 并绘制；中文名与 PC 面板同源，冷却帮助行说明“下次调用生效、只缩放基础/该次冷却、原生目标追加不缩放” |
 | `MobileWorldMenu.cs` | World 页 presentation（每波怪物数量 / 怪物时间线推进 / 无限金币 / 植被与野生动物入口 / 快速建造 / 船只额外乘员 / 远距夜袭出发补偿）。植被入口只置 `VegetationPage=true`（World 保持打开）；快速建造只影响后续每次原生 `InitializeBuild`（关闭不热还原已写入实例的 rate）；船容量只作用于以后新初始化的船（关闭不删除/不热改已登记的 slots） |
 | `MobileGenerationMenu.cs` | Island-generation 页 presentation（地图大小一行）：只改新岛生成读取的 `MapSizeMultiplier`（1→2→3→4→5→1，合法小数先落下一整数档，如 4.5→5）；不调用任何原生游戏 API |
@@ -838,3 +839,24 @@ PC原回归117/0。实际PC SDK8 Release234源码/34资源、1290共同类型/68
 2026-10-11恢复记录：用户已恢复原LemonLoader/MelonLoader架构移植。Issue196成果已提交并建立Draft PR #209，合入当前release基线后PC两侧0W0E、1319类型/6936方法/37资源严格零语义差异；此前“暂停/未提交”仅为当日历史状态。新菜单ON/OFF观察与代码交付尚在进行，天然参数效果、池/远距招募、手机/联机仍待验，详见Issue196实现与验证记录。
 
 当前菜单证据：皇冠ON/OFF即时真实CFG读回已取得，但所在窗口随后混入人类手动滑动，整窗不判通过；独立Knight-only 6输入93.057秒、ON/OFF与PNG/CFG读回通过，零PID停止。最终原20配置值保持，23存储键中PetGuard/Crown/Knight均false，Main与所选native保存hash保持。没有据跨页现象改产品、没有部署临时诊断或添加补偿；天然参数/招募/池/phoneMP待验。PR209代码合并仍待最终审查，暂不宣称交付完成。
+
+## Issue #210 — 希腊现存角色体型（0.0.27，接线验证完成，代码交付中）
+
+复用 PC 的 `PatchRoles_ScaleAdjustments.cs`；Android 仅用文件内 alias 将原 holder
+绑定到既有 `GreekScaleScope`，不复制缩放算法或另造驱动。只接现存 Ninja 的四个
+形态/加载入口和 Banker、Hermit、Dog 的 `OnEnable` 七个精确 postfix。
+不接私有池对象 `Hermit.OnDestroy`，继续使用共享作用域对已确认死亡/身份变化的清理。
+不生成角色，不改角色身份、原生保存或跨世界资源池。
+
+真实设置 `RoleScaleEnabled=false` 只决定下一次冷启动的注册；世界页沿公共 Step
+控件显示“下次开启/下次关闭”，帮助写明“下次启动游戏生效”。切换一次保存一次，
+不在当前进程热撤销缩放账本或 patch；猫与作用域总开关维持原职责。关闭冷启动保留原
+39 项计数，开启增加七项至46。
+
+真实 Main 构建零错误/警告，共享源码宿主在 PC/ANDROID 两配置各74/0；适配器
+默认876/0、旧配置716/0、开启种子716/0。完整 PC 构建与基线的1317类型、
+6933方法、37资源语义零差异，零允许差异；独立源码审查通过。私有测试包内容、
+签名与123个 interop 引用核验通过。独立模拟器保数据安装后，真实三次冷启动
+39→46→39与触屏开/关保存通过，最终24项设置中角色开关关闭、旧23值保持，
+新版Main/所选native保存哈希与具名备份一致；游戏已停止。自然角色最终缩放、对象池、换岛/读档、手机与联机仍待验。
+详情见 [本批记录](../docs/project-harness/tasks/issue-210/implementation.md)。
