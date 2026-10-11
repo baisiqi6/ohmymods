@@ -46,5 +46,72 @@
   "observationWindows": 3,
   "observationSeconds": 210.51465879194438,
   "observationInputs": 5,
-  "userRequestedPause": true
+  "userRequestedPause": true,
+  "resume": {
+    "UTC": "2026-10-11",
+    "userRequestedResume": true,
+    "sourceCommit": "07c73b2",
+    "mergedReleaseBaseline": "9ea703f8cedca98849390913f53b7d84982fc020",
+    "branchHeadBeforeDocs": "1325404b1d832154e5c92845c959a5aa860df899",
+    "PR": 209,
+    "PRState": "Draft/open",
+    "PCSemantic": "MATCH",
+    "PCTypes": 1319,
+    "PCMethods": 6936,
+    "PCResources": 37,
+    "PCBuilds": "0W0E both",
+    "PCDeployed": false,
+    "sourceReviewAccepted": true,
+    "actualToggleONOFFAccepted": false,
+    "naturalParameterEffectsAccepted": false,
+    "phoneMPAccepted": false,
+    "codeScopeComplete": false,
+    "hybridObservation": {
+      "seconds": 74.161688,
+      "inputs": 3,
+      "flagsClicked": false,
+      "stopped": true,
+      "MainCfgNativeSame": true,
+      "result": "old scroll template mismatch; observer contract only"
+    },
+    "runtimeUI": {
+      "UTC": "2026-10-11",
+      "MainSHA256": "ced6e2fdb2dc3f1330c46a9df260aa27bf6c9c26ae1ca7a8dc1fc36d45e28ad6",
+      "MainBytes": 231424,
+      "finalCfgSHA256": "2fa98bdded726a405fc813577f3082ceb2f60f9c6faf7aed51bf7015ce0a2ab6",
+      "finalCfgBytes": 657,
+      "originalStoredKeys": 20,
+      "finalStoredKeys": 23,
+      "originalValuesHeld": true,
+      "CrownFinal": false,
+      "KnightFinal": false,
+      "PetGuardFinal": false,
+      "NativeSHA256": "7ba5f975c098f07fe3e4b13dfe10a32a9575508d22ca5a8a82941cc063236bf8",
+      "nativeSame": true,
+      "MainSame": true,
+      "processStopped": true,
+      "Knight": {
+        "isolated": true,
+        "ONOFFActualCfgAccepted": true,
+        "secondsToStop": 93.05686774999776,
+        "inputs": 6,
+        "imagePinsAllMatched": true
+      },
+      "Crown": {
+        "ONOFFActualCfgReadbacks": true,
+        "wholeWindowIsolated": false,
+        "wholeWindowAccepted": false,
+        "directionsOnly": "two immediate cfg readbacks, bothWorldPNG; later human/script mixture ended window; no whole-case pass"
+      },
+      "naturalEffectsAccepted": false,
+      "phoneMPAccepted": false,
+      "codeScopeComplete": false,
+      "PRMerged": false
+    },
+    "knightToggleONOFFAccepted": true,
+    "crownDirectionCfgReadbacksAccepted": true,
+    "mixedWindowAccepted": false,
+    "userRequestedPause": false
+  },
+  "topLevelScope": "historical 2026-10-09 paused snapshot; current evidence in resume"
 }

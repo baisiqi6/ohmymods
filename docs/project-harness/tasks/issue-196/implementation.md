@@ -25,3 +25,19 @@ normal196 accepted743ed108/7511，operation251f82e3、doing/running、dependency
 首窗第二输入被15s截图时界拒绝（Operator/model往返约20–25s）；第二窗为保留100s输入界而在两行展示后主动结束。第三窗模板尚未输入即Orb differs：CalendarReady日志早于游戏视觉fade结束，52x52逐像素模板不能跨亮度态匹配。此前“日志ready足以证明视觉ready”推断撤回，原helper/原raw/gate留档。这些是观察编排限制，非已观察产品控制流错误。后一候选改为Root目视确认展开页再接静态不透明面板匹配，已独审决策关口但未启动；用户要求在合适点暂停，故不再开启第四窗。
 
 暂停时源与成果保留，模拟器停止并fresh核Main/cfg/所选保存hash同；无canonical写窗口。Issue196仍OPEN，本批15ownedfiles尚未commit/PR/merge，不标代码完成。恢复时先核设备/源码与canonical lease状态，再补真实开关ON/OFF及产物判定审，随后按正常PR/合并/任务收尾；Crown自然值/原生后写者/池/真实Knight效果、phone/MP/long保持独立pending。完整移植差异仍2E/111E1W，8–10风险组/80–210工程小时为条件估算。
+
+## 恢复与当前发布基线核验（2026-10-11 UTC）
+
+用户已明确恢复原架构移植。15项暂停成果与67强pin核验保持，完成独立limited-fresh源码审查；提交07c73b2，正常合入release/v9.5.13基线9ea703f8（仅新增上游HeavyShield范围），合并提交1325404b。PR #209已建立为Draft，尚未合并。此前暂停与未提交状态仅表示2026-10-09当时结果，不作为当前状态。
+
+针对新发布基线重新运行PC SDK8纯编译，两侧0W0E；1319类型、6936方法、37资源严格零差异MATCH，无允许差异，未部署或启动PC/Mono。首次私有wrapper的MSBuild扩展路径参数遗漏及误选forest比较器的契约失败均保留；修正在验证工具入口，不改产品兜底。既有AndroidMain ced6e2fd与生产源宿主27/0、adapter842/0/旧配置682/0输入保持，未重复无变化的通过项。
+
+normal196由主Operator通过受管入口恢复doing/running，使用新resume session与有效lease，非复用过期lease。启动前核同AVD、唯一Mod、安装APK89eac559与Main/cfg/native精确hash；备份完整Release文件集。恢复后的hybrid观察在74.162秒、3次输入后被旧滚动截图全像素假设拦截，未点击参数开关；游戏与子进程已停止，Main/cfg/native保持，原失败PNG/log/receipt留档。该现象只定位观察模板契约不适用于动态滚动帧，不据此定性为产品bug。后续新观察器移除旧模板，由当前截图人工定位、每个开关立即读取真实配置；观察器的截图计时/input-stop互斥/watchdog预算问题已在入口修正并独立复审。此时新观察窗尚未执行，ON/OFF与自然效果仍不得宣布通过。
+
+## 当前菜单验证结果（2026-10-11 UTC，代码合并仍待审）
+
+皇冠两方向的当前World截图与即时真实CFG读回已取得：开启true、关闭false，读回时原20存储值保持、另一新flag关闭。该窗随后出现World→Player/坐骑体力开启，被检查即时停止；用户直接确认刚才也在手动滑动。因此此窗不是独占试验，不能整窗判通过，也不能从跨页现象定产品bug或推断某个人工手势的具体因果。游戏零PID后保存失败raw，只恢复本任务测试前CFG备份829bd0/563B并逐字读回；未恢复或写入native保存。已批准的临时事件诊断worker随新证据停止（143），私有候选仅留作取消过程证据，未编译、未部署、未改产品或增加守卫。
+
+独立Knight-only新窗（用户获知期间保持模拟器不动）采用当前截图/可见bounds/焦点与30秒新鲜度、最多6输入，输入165/停止175/总停止180秒；此前15秒脚本失败及旧120秒界保留为历史，不宣称全部窗仍适用旧界。6次实际输入，小浮球、World、两次滚动、KnightON/OFF均具名PNG强pin；ON即时CFG=true，OFF即时=false，93.056868秒内全pkg及子进程零PID。所有当前截图与CFG检查均一致，无意外页面变化、无产品ERROR；不能据未复现宣称修复了某产品bug或覆盖每帧所有外部输入。
+
+结束后Main ced6e2fd/231424B精确保持；CFG 2fa98bdded726a405fc813577f3082ceb2f60f9c6faf7aed51bf7015ce0a2ab6 /657B，存储键20→23（自然保存新增既有PetGuard与本批两bool），原20值保持，PetGuard/Crown/Knight最终均false；所选native文件7ba5f975/82978B保持。设置证据分别接受，原混合窗整体失败不改为通过。天然Crown六量/后写者、池复用、真实Knight远距筛选与招募、手机/MP/长时继续pending，不以开关和宿主证明这些效果。PR209最终源码/证据审查与正常合并尚未完成，此时codeScopeComplete仍false。

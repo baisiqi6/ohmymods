@@ -834,3 +834,7 @@ PC原回归117/0。实际PC SDK8 Release234源码/34资源、1290共同类型/68
 ## Issue #196 — 两项战斗参数兼容（0.0.26，代码交付与玩法验收待续）
 
 皇冠窃贼降速与骑士小队补员距离直接复用两PC源，各仅ANDROID真实默认OFF门，公共世界页PC金色中文控件/小浮球接入。Crown只Awake×0.75、Y冲量保持，不OnEnable累乘/补旧对象；Knight原>=120谓词保留（NaN/-Infinity→120，+Infinity保持），仍原生筛选/招募。56产品源+1SDKgenerated单列、23设置39显式目标；SDK10 Mainced6e2fd/231424B0W0E，PC1311types/6906methods/37resourcesMATCH未部署，生产源host27/0，adapters842/0与--oldcfg682/0、67强pins。私有包已安装至emulator-5582，实际39唯一目标注册、小浮球与世界页两中文行及滚动已观察，Main精确ced6e2fd。3个有界观察共210.515秒、5次输入，无产品ERROR，原20键配置和所选native保存文件逐字保持；开关ON/OFF未完成，原生数值/后写者/对象池/实际远距效果、phoneMP仍待验。玩家请求暂停时进程已停止；本批尚无commit/PR/合并，Issue196保留OPEN，不宣称代码交付完成。后续召回保存责任未启用。详情见docs/project-harness/tasks/issue-196。
+
+2026-10-11恢复记录：用户已恢复原LemonLoader/MelonLoader架构移植。Issue196成果已提交并建立Draft PR #209，合入当前release基线后PC两侧0W0E、1319类型/6936方法/37资源严格零语义差异；此前“暂停/未提交”仅为当日历史状态。新菜单ON/OFF观察与代码交付尚在进行，天然参数效果、池/远距招募、手机/联机仍待验，详见Issue196实现与验证记录。
+
+当前菜单证据：皇冠ON/OFF即时真实CFG读回已取得，但所在窗口随后混入人类手动滑动，整窗不判通过；独立Knight-only 6输入93.057秒、ON/OFF与PNG/CFG读回通过，零PID停止。最终原20配置值保持，23存储键中PetGuard/Crown/Knight均false，Main与所选native保存hash保持。没有据跨页现象改产品、没有部署临时诊断或添加补偿；天然参数/招募/池/phoneMP待验。PR209代码合并仍待最终审查，暂不宣称交付完成。
