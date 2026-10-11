@@ -41,3 +41,5 @@ normal196由主Operator通过受管入口恢复doing/running，使用新resume s
 独立Knight-only新窗（用户获知期间保持模拟器不动）采用当前截图/可见bounds/焦点与30秒新鲜度、最多6输入，输入165/停止175/总停止180秒；此前15秒脚本失败及旧120秒界保留为历史，不宣称全部窗仍适用旧界。6次实际输入，小浮球、World、两次滚动、KnightON/OFF均具名PNG强pin；ON即时CFG=true，OFF即时=false，93.056868秒内全pkg及子进程零PID。所有当前截图与CFG检查均一致，无意外页面变化、无产品ERROR；不能据未复现宣称修复了某产品bug或覆盖每帧所有外部输入。
 
 结束后Main ced6e2fd/231424B精确保持；CFG 2fa98bdded726a405fc813577f3082ceb2f60f9c6faf7aed51bf7015ce0a2ab6 /657B，存储键20→23（自然保存新增既有PetGuard与本批两bool），原20值保持，PetGuard/Crown/Knight最终均false；所选native文件7ba5f975/82978B保持。设置证据分别接受，原混合窗整体失败不改为通过。天然Crown六量/后写者、池复用、真实Knight远距筛选与招募、手机/MP/长时继续pending，不以开关和宿主证明这些效果。PR209最终源码/证据审查与正常合并尚未完成，此时codeScopeComplete仍false。
+
+当前全范围编译盘点也已按release新源刷新（274强pins，新增HeavyShieldSnapshot及3项同域源更新）：纯Android仍2E0W（Hook/INativeDetour平台边界）；仅用于诊断的桌面元数据opt-in仍111E1W，91配置使用点/41成员、19混合扩展、1个CrossbowmanRole缺口。没有把opt-in桌面元数据装进Android或补假配置，产品Main未变；8–10风险组/80–210工程小时的条件估计维持，不能用错误条数当功能完成率。下一候选现存角色y叶组复用现GreekScaleScope；私有Hermit.OnDestroy按当前对象池准则排除直接挂接，具体合同未实现。

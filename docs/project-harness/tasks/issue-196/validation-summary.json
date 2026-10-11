@@ -111,7 +111,26 @@
     "knightToggleONOFFAccepted": true,
     "crownDirectionCfgReadbacksAccepted": true,
     "mixedWindowAccepted": false,
-    "userRequestedPause": false
+    "userRequestedPause": false,
+    "fullInventoryCurrent": {
+      "UTC": "2026-10-11T07:07:09Z",
+      "sourcePins": 274,
+      "default": {
+        "errors": 2,
+        "warnings": 0
+      },
+      "optin": {
+        "errors": 111,
+        "warnings": 1,
+        "configurationSites": 91,
+        "configurationMembers": 41,
+        "mixedExtensions": 19,
+        "roleSlots": 1
+      },
+      "newSource": "Patch_HeavyShieldSnapshot.cs",
+      "productRuntimeChanged": false,
+      "fullScopeCompiles": false
+    }
   },
   "topLevelScope": "historical 2026-10-09 paused snapshot; current evidence in resume"
 }
