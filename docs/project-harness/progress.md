@@ -1,3 +1,11 @@
+## 2026-10-11 — Android 建筑点位组（Issue #217，有限验证通过、代码交付中）
+
+从release基线ea5aa89f独立开发，原LemonLoader/MelonLoader架构保持。塔基/墙基/重复塔清理共享复用，原Marker仅抽到共同文件，PC1318类型/6934共有方法/37资源无比较差异；未加入特殊塔拆建或另造生成算法。生成页复用PC暗金中文、Step/Toggle、小浮球与触屏滚动，默认OFF/下次启动注册，已有持久化点位停用保留，1倍退役沿原保护路径。30真实设置、Main0.0.29/ee8cb227…294400B/64源0W0E，81强pins；最终八adapter各1033/0或873/0、25纯reader用例通过。旧测试假call/token逐字节扫描器在产生处统一指令reader，拒绝保留Nternal，未留跳过/吞异常兜底；原失败证据保留。两独立源码审查无mustfix，五具名native2924B仅有限静态直接链。
+
+私有原生producer APKb1ada5ff…与单Mainrefresh、原22313条目字节/123interopGUID-only、实际同证书/对齐/descriptor核验通过。鲜备份后保数据安装，三冷启动51→52→51/7输入/197.762s，小浮球/两中文密度行/滚动/开关保存、实际Main/30cfg/旧25保持、alive到零PID停止通过；最终整组OFF及具名native哈希保持。开启窗共享日志added11塔基，仅单次生成记录，不泛化为建造/退役/读档/换岛/释放/墙基边界/手机/联机或长期验收。#213间歇宿主挂死仍OPEN，未因短窗通过宣称修复。本批正常Git与受管收尾尚在进行；详见[tasks/issue-217](tasks/issue-217/implementation.md)。
+
+后续条件宽估保留约6–8依赖/风险组、70–200工程小时；手机/多人/长期验收日历另计。按本组4–10工程小时量级扣除先前75–210宽估的一部分，不把自然验收pending算作已完成，也不是工期承诺。
+
 ## 2026-10-11 — Android 测试环境有界对照（Issue #213，仍 OPEN）
 
 保留已合并的防御工匠0.0.28成果；同API35/host/MoltenVK noMod两窗真实0Mods/Main-state缺失，约174s退出/CFG-native保持，没有复现历史QEMU挂死，但不排除间歇或累计运行。SwiftShader noMod一窗机械停止通过、PNG却黑剪影，EGL具名图形错误保留，视觉失败后跳过第二窗与软件Mod臂。实际原host+冻结APK6c/Main3aa已保数据恢复，真实1Mod/51 targets，11.52s停0PID；截图仍logo，只确认恢复加载，不宣称森林/全UI/longstable或挂死修复。Issue仍OPEN；源/loader未改，手机与自然玩法继续待验。详见 [本任务记录](tasks/issue-213/implementation.md)。

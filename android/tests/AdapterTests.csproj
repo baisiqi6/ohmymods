@@ -42,6 +42,8 @@
     <Compile Include="MelonLoggerStub.cs" />
     <Compile Include="MelonPreferencesStub.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="IlInstructionReader.cs" />
+    <Compile Include="WorldLayoutPreferenceChecks.cs" />
   </ItemGroup>
 
 </Project>

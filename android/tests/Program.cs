@@ -71,6 +71,7 @@ internal static class Program
         var artifactArgs = new List<string>();
         foreach (string arg in args)
         {
+            if (WorldLayoutPreferenceChecks.Seed(arg)) continue;
             if (TryFlag(arg, "--seed-speed=", out string speedText))
                 seededSpeed = int.Parse(speedText, CultureInfo.InvariantCulture);
             else if (TryFlag(arg, "--seed-enemy-count=", out string countText))
@@ -153,6 +154,7 @@ internal static class Program
         }
         if (seedRoleScale)
             MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "RoleScaleEnabled", true);
+        IlInstructionReaderCases.Run(Checks.Check);
         LayoutChecks();
         GestureChecks.Run();
         if (seedWallEngineer) MelonLoader.MelonPreferencesStub.Seed("OhMyMods.Android", "WallEngineerEnabled", true);
@@ -161,6 +163,7 @@ internal static class Program
         CombatParameterPreferenceChecks();
         RoleScalePreferenceChecks(seedRoleScale);
         WallEngineerPreferenceChecks(seedWallEngineer);
+        WorldLayoutPreferenceChecks.Run();
         EnemyMathChecks.Run();
         ProbeChecks.Run();
         MenuChecks.Run();
@@ -343,7 +346,7 @@ internal static class Program
             if (field.Name == "WallEngineerEnabled" || !field.FieldType.Name.StartsWith("MelonPreferences_Entry`")) continue;
             previous[field] = field.FieldType.GetField("Value", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).GetValue(field.GetValue(null));
         }
-        Checks.Check(previous.Count == 24, "all previous 24 preference values are captured before the new toggle");
+        Checks.Check(previous.Count == 29, "all other 29 preference values are captured before the new toggle");
         int saves = MelonLoader.MelonPreferencesStub.SaveCalls;
         bool master = Config.Enabled.Value;
         Config.ToggleWallEngineer();
@@ -366,7 +369,8 @@ internal static class Program
             + (seededEnemyTimeline.HasValue && !IsFinite(seededEnemyTimeline.Value) ? 1 : 0)
             + (seededCooldown.HasValue && !IsFinite(seededCooldown.Value) ? 1 : 0)
             + (seededStaffCooldown.HasValue && !IsFinite(seededStaffCooldown.Value) ? 1 : 0)
-            + (seededMap.HasValue && !IsFinite(seededMap.Value) ? 1 : 0);
+            + (seededMap.HasValue && !IsFinite(seededMap.Value) ? 1 : 0)
+            + WorldLayoutPreferenceChecks.NonFiniteSeeds;
         bool rejected = false;
         try { Config.Initialize(null); }
         catch (ArgumentNullException) { rejected = true; }
@@ -377,7 +381,7 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 25, "Initialize creates exactly twenty-five entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 30, "Initialize creates exactly thirty entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -446,7 +450,7 @@ internal static class Program
                 "MapSizeMultiplier is " + Describe(expectedMap) + "x after the load boundary (1..5 clamp, non-finite fallback 1)");
             Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "the load-boundary clamp/fallback does not write the cfg");
             Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=" + expectedSpeed
-                + " stamina=" + oldCfg + " hold=" + oldCfg + " petGuard=False crownSlowdown=False knightRecruitRange=False roleScaleNextLaunch=" + seedRoleScale + " wallEngineers=" + Config.WallEngineerEnabled.Value + " calendar=" + oldCfg
+                + " stamina=" + oldCfg + " hold=" + oldCfg + " petGuard=False crownSlowdown=False knightRecruitRange=False roleScaleNextLaunch=" + seedRoleScale + " wallEngineers=" + Config.WallEngineerEnabled.Value + " worldLayoutNextLaunch=" + Config.WorldLayoutEnabled.Value + " towerSpots=" + Config.TowerSpotMultiplier.Value + " wallSpots=" + Config.WallSpotMultiplier.Value + " calendar=" + oldCfg
                 + " enemyCount=" + expectedEnemyCount + " growth=" + expectedEnemyTimeline + " money=False cats=False fastBuild=" + expectedFastBuild
                 + " cooldown=" + expectedCooldown + " boat=" + expectedBoat + " map=" + expectedMap
                 + " staff=" + expectedStaffCooldown + " forestRecede=" + expectedForest
@@ -527,7 +531,7 @@ internal static class Program
             && !Config.FastForestRecedeEnabled.Value
             && !Config.DeerPopulationEnabled.Value
             && !Config.DenseThicketsEnabled.Value && !Config.NightDepartureEnabled.Value, "qol switches, InfiniteMoney, FarmCats, FastBuild, BoatCapacity, FastForestRecede, DeerPopulation and DenseThickets default OFF");
-        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False petGuard=False crownSlowdown=False knightRecruitRange=False roleScaleNextLaunch=False wallEngineers=" + Config.WallEngineerEnabled.Value + " calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False denseThickets=False nightDeparture=False"
+        Checks.Check(MelonLoader.MelonLogger.LastMessage == "ANDROID_SETTINGS_READY category=OhMyMods.Android speed=1 stamina=False hold=False petGuard=False crownSlowdown=False knightRecruitRange=False roleScaleNextLaunch=False wallEngineers=" + Config.WallEngineerEnabled.Value + " worldLayoutNextLaunch=" + Config.WorldLayoutEnabled.Value + " towerSpots=" + Config.TowerSpotMultiplier.Value + " wallSpots=" + Config.WallSpotMultiplier.Value + " calendar=False enemyCount=1 growth=1 money=False cats=False fastBuild=False cooldown=1 boat=False map=1 staff=1 forestRecede=False deerPopulation=False denseThickets=False nightDeparture=False"
             + " population=False capacity=4 interval=120",
             "cold-start ready line reports the effective values");
         Checks.Check(MelonLoader.MelonPreferencesStub.SaveCalls == 0, "reading defaults does not write the cfg");
@@ -888,8 +892,8 @@ internal static class ProbeChecks
         foreach (string binding in roleBindings)
             Checks.Check(source.Split(binding).Length - 1 == 1, "exact role binding once: " + binding);
         Checks.Check(!source.Contains("typeof(Il2Cpp.Hermit),\"OnDestroy\""), "private pooled Hermit.OnDestroy is never registered");
-        Checks.Check(source.Contains("\"0.0.28\""), "Probe reports version 0.0.28");
-        Checks.Check(source.Split("0.0.28").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
+        Checks.Check(source.Contains("\"0.0.29\""), "Probe reports version 0.0.29");
+        Checks.Check(source.Split("0.0.29").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
         Checks.Check(source.Contains("combat_parameters") && source.Contains("ANDROID_COMBAT_PARAMETER_HOOKS_INSTALLED"),
             "Probe advertises and reports both parameter targets");
         Checks.Check(source.Contains("typeof(Il2Cpp.CrownStealer),\"Awake\",Type.EmptyTypes")
@@ -1914,6 +1918,7 @@ internal static class ArtifactChecks
             && stylesSource.Contains("Style(skin.label, TabSize, Muted)") && stylesSource.Contains("Style(skin.button, TabSize, Muted)"),
             "the value/tab base selection keeps ANDROID label and PC box/button branches side by side");
 
+        CheckWorldLayoutArtifact(reader);
         VerifyFrozenSources();
         Console.WriteLine("artifact sha256 " + Checks.ComputeSha256(dllPath));
     }
@@ -2004,6 +2009,15 @@ internal static class ArtifactChecks
         "il2cpp/WallEngineerRuntime.cs",
         "il2cpp/PatchWorld_WallEngineers.cs",
 
+        "il2cpp/PatchWorld_TowerSpots.cs",
+        "il2cpp/PatchWorld_WallSpots.cs",
+        "il2cpp/SpecialTowerDuplicateCleanup.cs",
+        "il2cpp/SpecialTowerRebuildMarker.cs",
+        "il2cpp/PatchWorld_SpecialTowerRebuild.cs",
+        "android/tests/WorldLayoutPreferenceChecks.cs",
+
+        "android/tests/IlInstructionReader.cs",
+
 };
 
     private static void VerifyFrozenSources()
@@ -2018,15 +2032,15 @@ internal static class ArtifactChecks
             { "android/GlobalAliases.cs", "92f7a6997223c2874aae8a596d69f0f52cfac1da8f01b0bdce47c29c32e417d1" },
             { "android/HoldBridges.cs", "982ad14e89afc8337a9b30b51dd0ccdddbeee9b7e3a1c21acf326fdec457c916" },
             { "android/MobileCalendar.cs", "39ac54e3bf7acb37a7a30189f67dd2973bb394f53d28193836481dba0c44723b" },
-            { "android/MobileGenerationMenu.cs", "e89f7d9224b31f5ea77ca5392a02d8c7ac1a723c2dd0ee702d4225eb8f53f5d0" },
+            { "android/MobileGenerationMenu.cs", "c75c115333c7e161e5036dc6dd5b996c6d5c758940bc3f518c7fc2272d559a9e" },
             { "android/MobileModPanel.cs", "e9a0bd5347da0333b2110b4a93dcf61b0caff4d4375a600a99ad12a124683f12" },
-            { "android/MobilePlayerConfig.cs", "737270197a36d0e43948b5c4af74c29083615c1de7fc6394e9bf466cc2dd1a5a" },
+            { "android/MobilePlayerConfig.cs", "9e44b2711509cab3e53750c875b9ab4d46db209c241b5c3934d67504e1bd6e5b" },
             { "android/MobilePlayerMenu.cs", "9fced29dbb22162ad3eb0ca7bb2d6d7b1c02d437c4831884b16145ed46723d2e" },
             { "android/MobilePopulation.cs", "fdf95ab309d2489f1d0d3e4c4893d3ee44388e9e5ebb37d991c65a6f8c260571" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
             { "android/MobileVegetationMenu.cs", "40e6be0dda5313a61f01f98e1829422290612ede0b948b8d21c4549a58890e66" },
             { "android/MobileWorldMenu.cs", "c56718fd9adf39745548ff1f316f9f7763170388b2aa1b040381772773164932" },
-            { "android/OhMyMods.AndroidProbe.csproj", "191491fbd953554dbc2e9e40b2b27830e4d114907c7066a7a8c351794b2fcbad" },
+            { "android/OhMyMods.AndroidProbe.csproj", "bf66aa094ef719fc51b12e0114e966e73a6cbc6f13de4960bb3082f1612d8947" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PanelGesture.cs", "51071fefbc1a1ab4b8f23ee84bf10925c325d8414400b9ed186af238c136e97b" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },
@@ -2035,9 +2049,9 @@ internal static class ArtifactChecks
             { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
-            { "android/Probe.cs", "aeeeeaae124120129a480115a79d45def7fda78f9756835196ae4696d011bd44" },
+            { "android/Probe.cs", "8a2c1b517e010aece0f8e61ab46d8238690d5528cdbc539ecd4c4f638e26a30f" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
-            { "android/tests/AdapterTests.csproj", "3cebefaad713d92c00ae0907f861cdbae66aca367603da838994126fadabcd40" },
+            { "android/tests/AdapterTests.csproj", "a8b78ebdbc5238df84cec0f37e11a318aeeef0d10e9faab616207bb2ad8e0d45" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
             { "android/tests/MelonPreferencesStub.cs", "43cb64d622d4b1827aff0229902a732d209b188400f628d088fde099337e38d2" },
             { "il2cpp/BoatCapacityProfile.cs", "02d43c64922667e6e1f2d834bf29f28f8fbc683878dc27db1430abed4c11c2f2" },
@@ -2084,6 +2098,13 @@ internal static class ArtifactChecks
             { "il2cpp/WallEngineerRules.cs", "fd6d77fd4ff1584081435d45532a11caca08d5c2c763cd7299a6a505c987df65" },
             { "il2cpp/WallEngineerRuntime.cs", "6a5c196a539f1987b22388f7660fce0d20105a32a275fbde865fc7d06f997ce9" },
             { "il2cpp/PatchWorld_WallEngineers.cs", "205fa075694976c4ff865c70c43cfe79b820d71917952e537c5a4f1a18a492b1" },
+            { "il2cpp/PatchWorld_TowerSpots.cs", "61cb8fca5bc954d59b4a26c3b53ed1acc93854b2c569d9121a0b9ebe2edc0a40" },
+            { "il2cpp/PatchWorld_WallSpots.cs", "b2f0ddd54c94fdc2f6d7f29d27013b487139d0c7c281e6fba3d1adc227ad9cfa" },
+            { "il2cpp/SpecialTowerDuplicateCleanup.cs", "3fc9f7f40ba92cc3ae90f4981d5e8cf4e7f3d1cd72b9df5638c2aaeb1b3e3e9c" },
+            { "il2cpp/SpecialTowerRebuildMarker.cs", "7946ee1b3132f1933d5cbfbb0f5900898d4571bbcf403be3d911c67c039384c2" },
+            { "il2cpp/PatchWorld_SpecialTowerRebuild.cs", "b95e156872b74132f9712cfb6c1d9a2251aeace0767afe164e17909f777b635a" },
+            { "android/tests/WorldLayoutPreferenceChecks.cs", "7a732f81385b58c964558d12e20d20f3063d89a578cc140f4ba28b30deafbf1d" },
+            { "android/tests/IlInstructionReader.cs", "9a8734268731a6d17f973eeb80ed09b860e39528b92e1dcbead1e3ff8f92d1eb" },
 
 };
         foreach (string relative in FrozenSources)
@@ -2140,6 +2161,7 @@ internal static class ArtifactChecks
             for (int index = 0; index < argumentCount; index++) arguments.Add(WalkElementType(reader, ref blob));
             return genericType + "<" + string.Join(",", arguments) + ">";
         }
+        if (element == 0x18) return "System.IntPtr";
         return "element-0x" + element.ToString("x2", CultureInfo.InvariantCulture);
     }
 
@@ -2213,7 +2235,9 @@ internal static class ArtifactChecks
 
     // Same-assembly calls compile to MethodDefinition tokens (not MemberReferences), so this
     // scans the method body for a call/callvirt whose 4-byte operand is the callee's metadata
-    // token. Positive-only evidence for one known-shaped call in this artifact.
+    // token. The body is walked on real instruction boundaries (IlInstructionReader); the old raw
+    // byte walk treated any operand byte equal to 0x28/0x6F as a call site and fabricated tokens
+    // out of the bytes that followed it. Positive-only evidence for one known-shaped call.
     private static bool BodyCallsMethod(PEReader pe, MetadataReader reader, TypeDefinition definition,
         string methodName, string calleeName, string calleeType)
     {
@@ -2233,19 +2257,21 @@ internal static class ArtifactChecks
             if (reader.GetString(method.Name) != methodName) continue;
             if (method.RelativeVirtualAddress == 0) continue;
             byte[] il = pe.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();
-            for (int index = 0; index + 4 < il.Length; index++)
+            string context = reader.GetString(definition.Name) + "::" + methodName;
+            foreach (IlInstruction instruction in IlInstructionReader.Read(il, context))
             {
-                if (il[index] != 0x28 && il[index] != 0x6F) continue; // call / callvirt
-                int operand = il[index + 1] | (il[index + 2] << 8) | (il[index + 3] << 16) | (il[index + 4] << 24);
-                if (operand == token) return true;
+                if (!IlInstructionReader.IsCallOrCallvirt(instruction)) continue;
+                if (instruction.OperandToken == token) return true;
             }
         }
         return false;
     }
 
     // Collects every call/callvirt/newobj MemberReference target in one type's method bodies as
-    // "DeclaringType::member". Same naive byte-walk scan model as BodyCallsMethod: exact
-    // positive evidence, and any hit on a banned token is decisive for the negative checks.
+    // "DeclaringType::member", decoded on real instruction boundaries. Exact positive evidence,
+    // and any hit on a banned token is decisive for the negative checks; a call-class operand that
+    // names a MemberRef row outside the table is reported with its type/method/IL offset instead
+    // of surfacing as a bare out-of-bounds read.
     private static HashSet<string> BodyReferencedMembers(PEReader pe, MetadataReader reader, TypeDefinition definition)
     {
         var members = new HashSet<string>();
@@ -2254,12 +2280,19 @@ internal static class ArtifactChecks
             var method = reader.GetMethodDefinition(handle);
             if (method.RelativeVirtualAddress == 0) continue;
             byte[] il = pe.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();
-            for (int index = 0; index + 4 < il.Length; index++)
+            string context = reader.GetString(definition.Name) + "::" + reader.GetString(method.Name);
+            foreach (IlInstruction instruction in IlInstructionReader.Read(il, context))
             {
-                if (il[index] != 0x28 && il[index] != 0x6F && il[index] != 0x73) continue; // call / callvirt / newobj
-                int operand = il[index + 1] | (il[index + 2] << 8) | (il[index + 3] << 16) | (il[index + 4] << 24);
+                if (!IlInstructionReader.IsCallOrCallvirtOrNewobj(instruction)) continue;
+                int operand = instruction.OperandToken;
                 if ((operand & 0xFF000000) != 0x0A000000) continue; // MemberReference tokens only
-                var reference = reader.GetMemberReference((MemberReferenceHandle)MetadataTokens.EntityHandle(operand));
+                var memberHandle = (MemberReferenceHandle)MetadataTokens.EntityHandle(operand);
+                int row = MetadataTokens.GetRowNumber(memberHandle);
+                if (row < 1 || row > reader.MemberReferences.Count)
+                    throw new BadImageFormatException(context + " call-class token at IL_"
+                        + instruction.Offset.ToString("X4") + " names MemberRef row " + row
+                        + " outside the " + reader.MemberReferences.Count + "-row table");
+                var reference = reader.GetMemberReference(memberHandle);
                 members.Add(TypeName(reader, reference.Parent) + "::" + reader.GetString(reference.Name));
             }
         }
@@ -2267,8 +2300,8 @@ internal static class ArtifactChecks
     }
 
     // Counts call/callvirt sites of one same-assembly method (by name, within the given type) in a
-    // type's method bodies, using the same naive byte-walk scan model as BodyCallsMethod. Used for
-    // exact call-count evidence (the palette texture allocation guard), not general decoding.
+    // type's method bodies, decoded on the same real instruction boundaries as BodyCallsMethod.
+    // Used for exact call-count evidence (the palette texture allocation guard).
     private static int CountBodyCalls(PEReader pe, MetadataReader reader, TypeDefinition definition, string calleeName)
     {
         int token = 0;
@@ -2287,14 +2320,65 @@ internal static class ArtifactChecks
             var method = reader.GetMethodDefinition(handle);
             if (method.RelativeVirtualAddress == 0) continue;
             byte[] il = pe.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();
-            for (int index = 0; index + 4 < il.Length; index++)
+            string context = reader.GetString(definition.Name) + "::" + reader.GetString(method.Name);
+            foreach (IlInstruction instruction in IlInstructionReader.Read(il, context))
             {
-                if (il[index] != 0x28 && il[index] != 0x6F) continue; // call / callvirt
-                int operand = il[index + 1] | (il[index + 2] << 8) | (il[index + 3] << 16) | (il[index + 4] << 24);
-                if (operand == token) count++;
+                if (!IlInstructionReader.IsCallOrCallvirt(instruction)) continue;
+                if (instruction.OperandToken == token) count++;
             }
         }
         return count;
+    }
+
+    private static void CheckWorldLayoutArtifact(MetadataReader reader)
+    {
+        foreach (var shape in new[]
+        {
+            ("World_TowerSpots_Expand_Host_Patch", "Postfix", "Il2Cpp.World", "System.Void", "World", "OnLevelLoaded"),
+            ("World_WallSpots_Expand_Host_Patch", "Postfix", "Il2Cpp.World", "System.Void", "World", "OnLevelLoaded"),
+            ("Kingdom_DistributeTowerArchers_CleanupScopePatch", "Prefix", "Il2Cpp.Kingdom", "System.Boolean", "Kingdom", "DistributeTowerArchers")
+        })
+        {
+            var type = FindType(reader, "KingdomEnhancedMod", shape.Item1);
+            Checks.Check(!type.IsNil, "layout artifact contains shared handler type " + shape.Item1);
+            if (type.IsNil) continue;
+            CheckHandlers(reader, type, new Dictionary<string, int> { { shape.Item2, 1 } }, MethodAttributes.Private, "private static");
+            var definition = reader.GetTypeDefinition(type);
+            Checks.Check(SignatureTypes(reader, definition, shape.Item2) == shape.Item3,
+                "layout handler binds the real Android instance type " + shape.Item3);
+            Checks.Check(HasClassHarmonyPatchTarget(reader, definition, shape.Item5, shape.Item6),
+                "layout handler declares its exact native target " + shape.Item5 + "." + shape.Item6);
+            foreach (var handle in definition.GetMethods())
+            {
+                var method = reader.GetMethodDefinition(handle);
+                if (reader.GetString(method.Name) != shape.Item2) continue;
+                var signature = reader.GetBlobReader(method.Signature);
+                signature.ReadSignatureHeader();
+                signature.ReadCompressedInteger();
+                Checks.Check(WalkElementType(reader, ref signature) == shape.Item4,
+                    "layout handler has the expected return type " + shape.Item4);
+                bool instanceNamed = false;
+                foreach (var parameterHandle in method.GetParameters())
+                {
+                    var parameter = reader.GetParameter(parameterHandle);
+                    if (parameter.SequenceNumber == 1 && reader.GetString(parameter.Name) == "__instance") instanceNamed = true;
+                }
+                Checks.Check(instanceNamed, "layout handler names the Harmony instance argument");
+            }
+        }
+        var marker = FindType(reader, "KingdomEnhancedMod", "SpecialTowerRebuildMarker");
+        Checks.Check(!marker.IsNil, "layout links the original shared marker type");
+        if (!marker.IsNil)
+        {
+            var definition = reader.GetTypeDefinition(marker);
+            Checks.Check(TypeName(reader, definition.BaseType) == "UnityEngine.MonoBehaviour"
+                && (definition.Attributes & TypeAttributes.Sealed) != 0, "shared marker remains a sealed native MonoBehaviour wrapper");
+            Checks.Check(definition.GetFields().Count == 0 && definition.GetInterfaceImplementations().Count == 0,
+                "marker carries no state or new persistence/network interface");
+            Checks.Check(SignatureTypes(reader, definition, ".ctor") == "System.IntPtr", "marker retains its native pointer constructor");
+        }
+        Checks.Check(FindType(reader, "KingdomEnhancedMod", "SpecialTowerRebuild").IsNil,
+            "layout does not pull in special-tower rebuild/payment logic");
     }
 
     private static void CheckHandlers(MetadataReader reader, TypeDefinitionHandle type, Dictionary<string, int> required, MethodAttributes expectedAccess, string accessLabel)
