@@ -1,3 +1,9 @@
+## 2026-10-11 — BepInEx.Android 评估报告遗留收尾（#205 / PR208，报告完成）
+
+保留2026-10-10冻结实验：同新AVD原版进入教程世界，候选离线Launcher180s未到托管插件入口；核心/API不能据此判普遍失败，Hook/组件/config/冷启仍unknown。实证可删0行，62毛候选/194旧源触及不是净省；不切换、不删除现有适配。四文档/35raw证据和56源LOC由独立重核，两处过时职责/196暂停语句标为历史与当前事实，未改实验失败或未知边界。
+
+PR208已正常ready/merge c10e5f6f（source0a01087），Issue205代码报告已关闭。原op e2d12a2e/2863B-ca49计划沿正常新resume会话认领，真实packet4740e296经独立+GLM终审；normal receipt4076ba83… consumed，done/closed、owner/session清空、lease16:14:44Z释放，validator0/doctor0E0W44info。其他168对象/169顺序、11计划/local119/root未归属改动保持，未force/repair/全量reconcile。只完成报告目标，不称候选API/手机多人或长期已验；原架构移植继续，#213仍开放。详情见[评估与收尾](tasks/issue-205/assessment.md)。
+
 ## 2026-10-11 — Android 建筑点位组（Issue #217，代码与受管收尾完成、玩法分层待验）
 
 从release基线ea5aa89f独立开发，原LemonLoader/MelonLoader架构保持。塔基/墙基/重复塔清理共享复用，原Marker仅抽到共同文件，PC1318类型/6934共有方法/37资源无比较差异；未加入特殊塔拆建或另造生成算法。生成页复用PC暗金中文、Step/Toggle、小浮球与触屏滚动，默认OFF/下次启动注册，已有持久化点位停用保留，1倍退役沿原保护路径。30真实设置、Main0.0.29/ee8cb227…294400B/64源0W0E，81强pins；最终八adapter各1033/0或873/0、25纯reader用例通过。旧测试假call/token逐字节扫描器在产生处统一指令reader，拒绝保留Nternal，未留跳过/吞异常兜底；原失败证据保留。两独立源码审查无mustfix，五具名native2924B仅有限静态直接链。
