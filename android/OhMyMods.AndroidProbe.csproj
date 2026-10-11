@@ -52,6 +52,7 @@
     <Compile Include="../il2cpp/PatchShared_ModDataPaths.cs" Link="Production/PatchShared_ModDataPaths.cs" />
     <Compile Include="../il2cpp/PatchRoles_CrownStealer.cs" Link="Shared/PatchRoles_CrownStealer.cs" />
     <Compile Include="../il2cpp/PatchRoles_KnightRecruitRange.cs" Link="Shared/PatchRoles_KnightRecruitRange.cs" />
+    <Compile Include="../il2cpp/PatchRoles_ScaleAdjustments.cs" Link="Shared/PatchRoles_ScaleAdjustments.cs" />
     <Compile Include="../il2cpp/PatchRoles_PetGuard.cs" Link="Production/PatchRoles_PetGuard.cs" />
     <Compile Include="../il2cpp/PatchRoles_Hermit.cs" Link="Production/PatchRoles_Hermit.cs" />
     <Compile Include="../il2cpp/PatchRoles_AndroidPetProtection.cs" Link="Production/PatchRoles_AndroidPetProtection.cs" />
@@ -120,6 +121,7 @@
     <Reference Include="Il2Cpp"><HintPath>$(SupportModuleDir)/Il2Cpp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameInteropDir)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameInteropDir)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.AnimationModule"><HintPath>$(GameInteropDir)/UnityEngine.AnimationModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.Physics2DModule"><HintPath>$(GameInteropDir)/UnityEngine.Physics2DModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.IMGUIModule"><HintPath>$(GameInteropDir)/UnityEngine.IMGUIModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.UI"><HintPath>$(GameInteropDir)/UnityEngine.UI.dll</HintPath><Private>false</Private></Reference>
@@ -131,7 +133,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <_RequiredGameInterop Include="Assembly-CSharp.dll;UnityEngine.CoreModule.dll;UnityEngine.IMGUIModule.dll;UnityEngine.UI.dll;UnityEngine.UIModule.dll;UnityEngine.InputLegacyModule.dll;UnityEngine.TextRenderingModule.dll;UnityEngine.Physics2DModule.dll;Il2Cppmscorlib.dll;Il2CppSystem.Core.dll" />
+    <_RequiredGameInterop Include="Assembly-CSharp.dll;UnityEngine.CoreModule.dll;UnityEngine.AnimationModule.dll;UnityEngine.IMGUIModule.dll;UnityEngine.UI.dll;UnityEngine.UIModule.dll;UnityEngine.InputLegacyModule.dll;UnityEngine.TextRenderingModule.dll;UnityEngine.Physics2DModule.dll;Il2Cppmscorlib.dll;Il2CppSystem.Core.dll" />
     <_RequiredLoaderRuntime Include="MelonLoader.dll;0Harmony.dll;Il2CppInterop.Runtime.dll" />
     <_RequiredSupportModule Include="Il2Cpp.dll" />
   </ItemGroup>

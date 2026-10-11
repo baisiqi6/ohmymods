@@ -4,7 +4,7 @@ using KingdomEnhancedMod;
 namespace OhMyMods.AndroidProbe;
 
 /// <summary>
-/// 世界页（presentation only，Issue #144）：九个设置/入口行，全部经 MobileModPanel.Step/Toggle
+/// 世界页（presentation only，Issue #144）：设置/入口行全部经 MobileModPanel.Step/Toggle
 /// 这一条公共路径登记 tap rect 并绘制；不使用 GUI.Button、不自持固定坐标与样式。
 /// 植被与野生动物行只打开子页（Layout.VegetationPage=true，World 页保持打开）。
 /// 快速建造行只影响后续原生 InitializeBuild 调用（关闭不热还原已写入实例的 rate）；
@@ -20,6 +20,7 @@ internal static class MobileWorldMenu
     private static readonly Action ToggleNightDeparture = ModConfig.ToggleNightDeparture;
     private static readonly Action ToggleCrownSlowdown = ModConfig.ToggleCrownStealerSlowdown;
     private static readonly Action ToggleKnightRecruitRange = ModConfig.ToggleKnightRecruitRange;
+    private static readonly Action ToggleRoleScale = ModConfig.ToggleRoleScale;
 
     internal static void Draw(MobileModPanel panel, float width, float scale)
     {
@@ -38,6 +39,8 @@ internal static class MobileWorldMenu
             "下一次创建实例生效，重进游戏应用；竖直冲量保持。", ToggleCrownSlowdown);
         panel.Toggle("骑士小队补员距离", ModConfig.KnightRecruitRangeEnabled.Value,
             "下次补员扩大至120格，原生预留与筛选保持。", ToggleKnightRecruitRange);
+        panel.Step("希腊角色体型", ModConfig.RoleScaleEnabled.Value ? "下次开启" : "下次关闭",
+            "下次启动游戏生效；只调整希腊世界现有角色体型。", ToggleRoleScale);
         panel.Toggle("远距夜袭出发补偿", ModConfig.NightDepartureEnabled.Value,
             "仅之后的普通夜袭排期，最多提前两游戏小时；实际远距效果待验。", ToggleNightDeparture);
     }

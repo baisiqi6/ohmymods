@@ -1,3 +1,13 @@
+## 2026-10-11 — Android 战斗参数代码收尾与角色体型叶组（#196 / #210）
+
+#196的PR209已正常合并3e7b330，GitHub代码关单；normal完成回执已consumed，canonical done/closed且lease释放，mirror closed，validator/doctor0E0W。真实Main0.0.26/39目标及两参数菜单保存证据分层记录；皇冠方向接受、用户手动混合整窗不通过，骑士独立6输入93.057s通过，原20配置保持、最终两flag/Petfalse、Main与所选native保存hash保持。天然六量/写者/池/真实远距及phoneMP/长时仍待验，不把代码关单升级成玩法验收。旧暂停阶段记录保留。
+
+当前release全库盘点274源pin，纯Android2E0W、仅诊断桌面元数据opt-in111E1W，91配置使用点/41成员/19混合扩展/1CrossbowmanRole缺口不补假实现。仍按8–10风险组、80–210工程小时条件估计，日历上的phoneMP另计。
+
+#210 normal accepted3473B/4b4bf339新assignment doing/running，独立branch codex/android-role-scale/base3e7b330；旧Android成果worktree冻结保留。计划只接Ninja四形态/加载和Banker/Hermit/Dog OnEnable的7长入口，private Hermit.OnDestroy不挂，直接file-local alias复用GreekScaleScope与现有驱动/清理。一个真实默认OFF设置只决定下次启动注册，公共中文暗金世界页标“下次开启/下次关闭”，不影响猫或总作用域，不新增热切扫描/副账本/guard/retry。
+
+角色共享源仅alias头，PC和ANDROID定义实际direct-source宿主各74/0（同74例两配置，不相加为148场景）。实际SDK10初build2E0W定位Animator真实模块缺引用，在项目产生处补UnityEngine.AnimationModule/required项后0W0E；未造Animator替身或改生产算法。新Main0.0.27/3bc30f45…236544B；适配器876/0、716/0、716/0，PC完整1317类型/6933方法/37资源语义零差异/0allowlist，独立源码审查approved无mustfix。私有APK4eec4a26…的CRC/签名/123互操作引用已核验，独立模拟器已保数据安装，自动refresh新版Main、冷启动39→46→39、公共中文世界页滚动/角色开关开关保存通过；三窗106.930/119.825/36.294秒零PID收尾，最终24键rolefalse/旧23值保持/Main与所选native保存hash保持、具名日志0ERROR，owned AVD关闭。PR交付审查与正常合并待续；天然角色/最终writer/池/phoneMP待验。
+
 ## 2026-10-09 — 盾卫读档身份校验（Issue #198，最终审查通过、部分 PR 交付中）
 
 已定位旧 raw-JSON 哈希被原生读档的游戏时间 1 ULP 表示差异误触发。改为 v3 分型 canonical 身份，配合精确原始加载证明与已有生命周期的严格无权益迁移；不清购买记录或绕过付款保护。生产链接回归与旧付费受控往返通过，Mac 隔离真实保存/重进恢复 Exact 与 5 个付款点；原生源链在迁移前匹配，实际入口/归属也已核验。所有窗口恢复最新存档、偏好、正常环境和游戏本体一致。

@@ -1,6 +1,9 @@
 using System;
 using HarmonyLib;
 using UnityEngine;
+#if ANDROID
+using ScaleRegistryHolder=KingdomEnhancedMod.GreekScaleScope;
+#endif
 
 namespace KingdomEnhancedMod;
 
