@@ -1,4 +1,4 @@
-## 2026-10-11 — Android 防御工匠组（#212，名单分配根因修复已复测、交付审查中）
+## 2026-10-11 — Android 防御工匠组（#212，代码PR214已正常合并，运行待验分层保留）
 
 保留既有 Android 成果，继续 LemonLoader/MelonLoader + Il2CppInterop/Harmony 原架构。
 #210 已正常合并 PR211（merge2fe6c517），Issue关闭，normal receipt已 consumed、lease释放，
@@ -28,7 +28,8 @@ Main0.0.28/3aa7bc62…245248B、60显式源/15真实refs，SDK10 0W0E。PC/Andro
 随后OFF无输入冷启动遇QEMU主循环/4CPU线程hang，ADB读取/停止超时，宿主HangDetector生成dump并退出。
 该窗没有最终读取/guest零PID证明，不算冷启动通过；false Main/native结果源自跳读，非实测hash漂移。
 ownedPID3079已消失、未再重启；测试环境有界对照跟进 [#213](https://github.com/baisiqi6/ohmymods/issues/213)；先前宿主hang和过期截图0input失败仍保留，未证明GPU根因或mod无因。
-代码交付审查中，Issue212/normal仍开放doing/running。天然外墙耐久/维修/工匠职责、读档换岛、
+代码PR214已正常合并3fbbd2bb（source2efe3a07），GitHub Issue212已关闭读回；
+本次进展记录冻结时（2026-10-11 11:10 UTC）normal完成回执正按受管入口收尾，最终状态以其回执为准。天然外墙耐久/维修/工匠职责、读档换岛、
 池、保存、手机多人及长期仍pending；代码交付、有限名单修复与玩家完整验收分别记录。
 本组估计3–8工程小时；后续约7–9风险组/75–210工程小时为条件宽估，手机多人日历另计。
 
