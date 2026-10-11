@@ -46,6 +46,8 @@ Mac IPS的fault thread3为CrashReporter.hangDetector→GenerateDumpAndDie，owne
 未确认guest零PID/未完成最终读取，跳读导致的mainSame/nativeSame false不代表观察到hash漂移。
 该窗不算冷启动通过，未再boot、未假定GPU根因或mod无因；测试环境有界对照跟进 [#213](https://github.com/baisiqi6/ohmymods/issues/213)；紧急停止检查发现PID已消失，未发信号。
 
-代码PR未创建/未合并，Issue开放，受管状态仍doing/running；完成交付后按规则另行同步。
+代码PR214已正常合并3fbbd2bb295651b26ec969646a834b54e66d45f7，source2efe3a075841983fd9633f1eb01c9ac04beb9563；
+Issue212已关闭读回。此状态文档冻结时（2026-10-11 11:10 UTC）normal受管回执仍在收尾，
+最终receipt/consumed/validator/doctor结果记录在本机R/normal-closeout/normal-final-receipt.json；不预付其通过。
 天然外墙和工匠作用、维修、读档换岛/池/保存/手机多人/长期均pending，不冒充已验。
 源码、APK、日志、存档/interop原始材料留本机，不发游戏资产，不启动PC/Mono/Steam正式目录或手机。
