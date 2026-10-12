@@ -50,6 +50,9 @@
     <Compile Include="AndroidCoroutine.cs" />
     <Compile Include="HoldBridges.cs" />
     <Compile Include="../il2cpp/PatchShared_ModDataPaths.cs" Link="Production/PatchShared_ModDataPaths.cs" />
+    <Compile Include="../il2cpp/PatchRoles_CrownStealer.cs" Link="Shared/PatchRoles_CrownStealer.cs" />
+    <Compile Include="../il2cpp/PatchRoles_KnightRecruitRange.cs" Link="Shared/PatchRoles_KnightRecruitRange.cs" />
+    <Compile Include="../il2cpp/PatchRoles_ScaleAdjustments.cs" Link="Shared/PatchRoles_ScaleAdjustments.cs" />
     <Compile Include="../il2cpp/PatchRoles_PetGuard.cs" Link="Production/PatchRoles_PetGuard.cs" />
     <Compile Include="../il2cpp/PatchRoles_Hermit.cs" Link="Production/PatchRoles_Hermit.cs" />
     <Compile Include="../il2cpp/PatchRoles_AndroidPetProtection.cs" Link="Production/PatchRoles_AndroidPetProtection.cs" />
@@ -86,6 +89,13 @@
     <Compile Include="../il2cpp/PatchWorld_EnemyManager.cs" Link="Production/PatchWorld_EnemyManager.cs" />
     <Compile Include="../il2cpp/PatchWorld_FarmCats.cs" Link="Production/PatchWorld_FarmCats.cs" />
     <Compile Include="../il2cpp/FarmCatMovement.cs" Link="Production/FarmCatMovement.cs" />
+    <Compile Include="../il2cpp/WallEngineerRules.cs" Link="Production/WallEngineerRules.cs" />
+    <Compile Include="../il2cpp/WallEngineerRuntime.cs" Link="Production/WallEngineerRuntime.cs" />
+    <Compile Include="../il2cpp/PatchWorld_WallEngineers.cs" Link="Production/PatchWorld_WallEngineers.cs" />
+    <Compile Include="../il2cpp/PatchWorld_TowerSpots.cs" Link="Production/PatchWorld_TowerSpots.cs" />
+    <Compile Include="../il2cpp/PatchWorld_WallSpots.cs" Link="Production/PatchWorld_WallSpots.cs" />
+    <Compile Include="../il2cpp/SpecialTowerDuplicateCleanup.cs" Link="Production/SpecialTowerDuplicateCleanup.cs" />
+    <Compile Include="../il2cpp/SpecialTowerRebuildMarker.cs" Link="Production/SpecialTowerRebuildMarker.cs" />
     <Compile Include="../il2cpp/GreekScaleScope.cs" Link="Production/GreekScaleScope.cs" />
     <Compile Include="../il2cpp/PatchWorld_Construction.cs" Link="Production/PatchWorld_Construction.cs" />
     <!-- Map-width block: the pure planner is linked unmodified; the two adapter files carry only an
@@ -118,6 +128,7 @@
     <Reference Include="Il2Cpp"><HintPath>$(SupportModuleDir)/Il2Cpp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameInteropDir)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameInteropDir)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.AnimationModule"><HintPath>$(GameInteropDir)/UnityEngine.AnimationModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.Physics2DModule"><HintPath>$(GameInteropDir)/UnityEngine.Physics2DModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.IMGUIModule"><HintPath>$(GameInteropDir)/UnityEngine.IMGUIModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.UI"><HintPath>$(GameInteropDir)/UnityEngine.UI.dll</HintPath><Private>false</Private></Reference>
@@ -129,7 +140,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <_RequiredGameInterop Include="Assembly-CSharp.dll;UnityEngine.CoreModule.dll;UnityEngine.IMGUIModule.dll;UnityEngine.UI.dll;UnityEngine.UIModule.dll;UnityEngine.InputLegacyModule.dll;UnityEngine.TextRenderingModule.dll;UnityEngine.Physics2DModule.dll;Il2Cppmscorlib.dll;Il2CppSystem.Core.dll" />
+    <_RequiredGameInterop Include="Assembly-CSharp.dll;UnityEngine.CoreModule.dll;UnityEngine.AnimationModule.dll;UnityEngine.IMGUIModule.dll;UnityEngine.UI.dll;UnityEngine.UIModule.dll;UnityEngine.InputLegacyModule.dll;UnityEngine.TextRenderingModule.dll;UnityEngine.Physics2DModule.dll;Il2Cppmscorlib.dll;Il2CppSystem.Core.dll" />
     <_RequiredLoaderRuntime Include="MelonLoader.dll;0Harmony.dll;Il2CppInterop.Runtime.dll" />
     <_RequiredSupportModule Include="Il2Cpp.dll" />
   </ItemGroup>

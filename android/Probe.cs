@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.25", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.29", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,9 +16,40 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.25 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.29 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters,existing_role_scale,wall_engineers,world_layout");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
+  var crownAwake=AccessTools.Method(typeof(Il2Cpp.CrownStealer),"Awake",Type.EmptyTypes)??throw new MissingMethodException("CrownStealer.Awake()");
+  HarmonyInstance.Patch(crownAwake,prefix:new HarmonyMethod(typeof(KingdomEnhancedMod.PatchRoles_CrownStealer),"Awake_Prefix"));
+  LogHookCounts(crownAwake);
+  var knightRecruit=AccessTools.Method(typeof(Il2Cpp.Kingdom),"FetchArchersForJob",new[]{typeof(GameObject),typeof(int),typeof(float),typeof(Il2CppSystem.Func<float,bool>)})??throw new MissingMethodException("Kingdom.FetchArchersForJob(GameObject,int,float,Func<float,bool>)");
+  var knightRecruitPrefix=new HarmonyMethod(typeof(KingdomEnhancedMod.PatchRoles_KnightRecruitRange.Kingdom_FetchArchersForJob_RecruitRange_Patch),"Prefix"){priority=HarmonyLib.Priority.High};
+  HarmonyInstance.Patch(knightRecruit,prefix:knightRecruitPrefix);
+  LogHookCounts(knightRecruit);
+  LoggerInstance.Msg("ANDROID_COMBAT_PARAMETER_HOOKS_INSTALLED sharedSource=true crownAwakeOnly=true nativeRecruitment=true");
+  // The saved choice is consumed only at load. UI changes apply on the next launch;
+  // the existing GreekScaleScope Tick/LateUpdate remains the sole shared driver.
+  if(KingdomEnhancedMod.ModConfig.RoleScaleEnabled.Value)
+  {
+   var roleTargets=new[]{
+    (typeof(Il2Cpp.Ninja),"OnStyleSwap",new[]{typeof(int)},typeof(KingdomEnhancedMod.NinjaStyleScale_Patch),"OnStyleSwap_Postfix"),
+    (typeof(Il2Cpp.Ninja),"SetAnimation",new[]{typeof(int)},typeof(KingdomEnhancedMod.NinjaStyleScale_Patch),"SetAnimation_Postfix"),
+    (typeof(Il2Cpp.Ninja),"Persistent_IBehaviour_ApplyData",new[]{typeof(Il2CppSystem.Object)},typeof(KingdomEnhancedMod.NinjaStyleScale_Patch),"ApplyData_Postfix"),
+    (typeof(Il2Cpp.Ninja),"DeserializeFromData",Type.EmptyTypes,typeof(KingdomEnhancedMod.NinjaStyleScale_Patch),"DeserializeFromData_Postfix"),
+    (typeof(Il2Cpp.Banker),"OnEnable",Type.EmptyTypes,typeof(KingdomEnhancedMod.GreeceBankerScale_Patch),"OnEnable_Postfix"),
+    (typeof(Il2Cpp.Hermit),"OnEnable",Type.EmptyTypes,typeof(KingdomEnhancedMod.HermitScale_Patch),"OnEnable_Postfix"),
+    (typeof(Il2Cpp.Dog),"OnEnable",Type.EmptyTypes,typeof(KingdomEnhancedMod.DogScale_Patch),"OnEnable_Postfix")};
+   foreach(var entry in roleTargets)
+   {
+    var target=AccessTools.Method(entry.Item1,entry.Item2,entry.Item3)??throw new MissingMethodException(entry.Item1.Name+"."+entry.Item2);
+    HarmonyInstance.Patch(target,postfix:new HarmonyMethod(entry.Item4,entry.Item5));
+    LogHookCounts(target);
+   }
+   // Private pooled Hermit.OnDestroy is deliberately not detoured; confirmed dead
+   // identities are already removed by GreekScaleScope.Tick.
+   LoggerInstance.Msg("ANDROID_ROLE_SCALE_HOOKS_INSTALLED sharedSource=true targets=7 nextLaunchOnly=true");
+  }
+  else LoggerInstance.Msg("ANDROID_ROLE_SCALE_HOOKS_DISABLED targets=0 nextLaunchOnly=true");
   var droppableEnable=AccessTools.Method(typeof(Il2Cpp.Droppable),"OnEnable",Type.EmptyTypes)??throw new MissingMethodException("Droppable.OnEnable()");
   var droppableDisable=AccessTools.Method(typeof(Il2Cpp.Droppable),"OnDisable",Type.EmptyTypes)??throw new MissingMethodException("Droppable.OnDisable()");
   var petProtection=typeof(KingdomEnhancedMod.AndroidPetProtectionHooks);
@@ -29,7 +60,30 @@ public sealed class Probe : MelonMod
   LoggerInstance.Msg("ANDROID_PET_PROTECTION_HOOKS_INSTALLED sharedSource=true recovery=false enabled="+KingdomEnhancedMod.ModConfig.PetGuardEnabled.Value);
   var populationApply=AccessTools.Method(typeof(Il2Cpp.CampaignSaveData),"ApplyToScene",Type.EmptyTypes) ?? throw new MissingMethodException("CampaignSaveData.ApplyToScene()");
   HarmonyInstance.Patch(populationApply,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.PopulationPerformanceApplyPatch),"Postfix"));
-  LogHookCounts(populationApply);
+  // This shared target is reported once after all its handlers are installed.
+  // Keep every load/return boundary active when the real feature choice is OFF.
+  var wallTargets=new[]{
+   (typeof(Il2Cpp.IslandSaveData),"TryPopObjectsToScene",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.LoadScopePatch),"Before",(string)null,"Finally",HarmonyLib.Priority.First),
+   (typeof(Il2Cpp.CampaignSaveData),"ApplyToScene",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.ApplyToScenePatch),(string)null,"After","Finally",HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Kingdom),"AddWorker",new[]{typeof(Il2Cpp.Worker)},typeof(KingdomEnhancedMod.WallEngineersPatches.AddWorkerPatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Kingdom),"RemoveWorker",new[]{typeof(Il2Cpp.Worker)},typeof(KingdomEnhancedMod.WallEngineersPatches.RemoveWorkerPatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Kingdom),"AddWall",new[]{typeof(Il2Cpp.Wall)},typeof(KingdomEnhancedMod.WallEngineersPatches.AddWallPatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Kingdom),"DestroyWall",new[]{typeof(Il2Cpp.Wall)},typeof(KingdomEnhancedMod.WallEngineersPatches.DestroyWallPatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Kingdom),"ReplaceWall",new[]{typeof(Il2Cpp.Wall)},typeof(KingdomEnhancedMod.WallEngineersPatches.ReplaceWallPatch),"Before","After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Wall),"OnDisable",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.WallDisablePatch),"Before",(string)null,(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Wall),"HandleOnBecameUnSafe",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.WallUnsafePatch),"Before",(string)null,(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Wall),"HandleOnReceiveDamage",new[]{typeof(int),typeof(GameObject),typeof(Il2Cpp.DamageSource)},typeof(KingdomEnhancedMod.WallEngineersPatches.WallDamagePatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Kingdom),"OnDisable",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.KingdomDisablePatch),"Before",(string)null,(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Worker),"ShouldFlee",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.ShouldFleePatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal),
+   (typeof(Il2Cpp.Worker),"OnDisable",Type.EmptyTypes,typeof(KingdomEnhancedMod.WallEngineersPatches.WorkerDisablePatch),(string)null,"After",(string)null,HarmonyLib.Priority.Normal)};
+  foreach(var entry in wallTargets)
+  {
+   var target=AccessTools.Method(entry.Item1,entry.Item2,entry.Item3)??throw new MissingMethodException(entry.Item1.Name+"."+entry.Item2);
+   var prefix=entry.Item5==null?null:new HarmonyMethod(entry.Item4,entry.Item5){priority=entry.Item8};
+   HarmonyInstance.Patch(target,prefix:prefix,postfix:entry.Item6==null?null:new HarmonyMethod(entry.Item4,entry.Item6),finalizer:entry.Item7==null?null:new HarmonyMethod(entry.Item4,entry.Item7));
+   LogHookCounts(target);
+  }
+  LoggerInstance.Msg("ANDROID_WALL_ENGINEER_HOOKS_INSTALLED sharedSource=true targets=13 addedUniqueTargets=12 hotToggle=true");
   var campAwake=AccessTools.Method(typeof(Il2Cpp.BeggarCamp),"Awake",Type.EmptyTypes) ?? throw new MissingMethodException("BeggarCamp.Awake()");
   var campPatch=typeof(KingdomEnhancedMod.BeggarCamp_Awake_Patch);
   HarmonyInstance.Patch(campAwake,prefix:new HarmonyMethod(campPatch,"Awake_Prefix"),postfix:new HarmonyMethod(campPatch,"Awake_Postfix"));
@@ -155,6 +209,19 @@ public sealed class Probe : MelonMod
   LoggerInstance.Msg("ANDROID_NIGHT_DEPARTURE_HOOKS_INSTALLED sharedSource=true nativeSchedule=true enabled="+KingdomEnhancedMod.ModConfig.NightDepartureEnabled.Value);
   var worldLoaded=AccessTools.Method(typeof(Il2Cpp.World),"OnLevelLoaded",Type.EmptyTypes)??throw new MissingMethodException("World.OnLevelLoaded()");
   HarmonyInstance.Patch(worldLoaded,postfix:new HarmonyMethod(typeof(Probe),nameof(FarmCatsWorldLoaded)));
+  if(KingdomEnhancedMod.ModConfig.WorldLayoutEnabled.Value)
+  {
+   // Component queries in the shared cleanup require the real injected marker type too.
+   ClassInjector.RegisterTypeInIl2Cpp<KingdomEnhancedMod.SpecialTowerRebuildMarker>();
+   HarmonyInstance.Patch(worldLoaded,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.World_TowerSpots_Expand_Host_Patch),"Postfix"));
+   HarmonyInstance.Patch(worldLoaded,postfix:new HarmonyMethod(typeof(KingdomEnhancedMod.World_WallSpots_Expand_Host_Patch),"Postfix"));
+   var distributeTowerArchers=AccessTools.Method(typeof(Il2Cpp.Kingdom),"DistributeTowerArchers",Type.EmptyTypes)??throw new MissingMethodException("Kingdom.DistributeTowerArchers()");
+   HarmonyInstance.Patch(distributeTowerArchers,prefix:new HarmonyMethod(typeof(KingdomEnhancedMod.Kingdom_DistributeTowerArchers_CleanupScopePatch),"Prefix"));
+   LogHookCounts(distributeTowerArchers);
+   LoggerInstance.Msg("ANDROID_WORLD_LAYOUT_HOOKS_INSTALLED sharedSource=true handlers=3 nativeTargets=2 nextLaunchOnly=true");
+  }
+  else LoggerInstance.Msg("ANDROID_WORLD_LAYOUT_HOOKS_DISABLED handlers=0 nextLaunchOnly=true");
+  // Farm cats and both layout postfixes share this target; report its final counts once.
   LogHookCounts(worldLoaded);
   foreach(var entry in new[]{("OnEnable","Cat_OnEnable_FarmMovement_Patch",true), ("OnDisable","Cat_OnDisable_FarmMovement_Patch",false), ("Update","Cat_Update_FarmMovement_Patch",true)})
   {
@@ -190,6 +257,7 @@ public sealed class Probe : MelonMod
  public override void OnUpdate()
  {
   KingdomEnhancedMod.GreekScaleScope.Tick();
+  KingdomEnhancedMod.WallEngineerRuntime.Tick(Il2Cpp.Managers.Inst,Time.time);
   MobileCalendar.Tick();
   MobilePopulation.Tick();
   KingdomEnhancedMod.PatchPlayer_HoldPurchase.Tick();
@@ -225,7 +293,7 @@ public sealed class ProbeTicker : MonoBehaviour
  internal static readonly FloatLayout Layout = new();
  public ProbeTicker(IntPtr ptr) : base(ptr) { }
  public void OnDisable() { CancelGesture(); }
- public void OnDestroy() { CancelGesture(); panel.Dispose(); inputSurface.Dispose(); }
+ public void OnDestroy() { KingdomEnhancedMod.WallEngineerRuntime.Reset(); CancelGesture(); panel.Dispose(); inputSurface.Dispose(); }
  public void OnApplicationFocus(bool focused) { if (!focused) CancelGesture(); }
  private void CancelGesture() { panel.CancelGesture(); UiReady=false; FloatInput.Reset(); if (ownControlId!=0 && GUIUtility.hotControl==ownControlId) GUIUtility.hotControl=0; Layout.Cancel(); inputSurface.Hide(); }
  public void OnGUI()

@@ -22,7 +22,12 @@ namespace Il2CppInterop.Runtime.InteropTypes.Arrays
     public class Il2CppReferenceArray<T>
     {
         private readonly T[] _items;
-        public Il2CppReferenceArray(int length) { _items = new T[length]; }
+        public Il2CppReferenceArray(long length) { _items = new T[length]; }
+        public Il2CppReferenceArray(IntPtr nativeObject)
+        {
+            throw new InvalidOperationException(
+                "native-pointer overload: Il2CppReferenceArray(IntPtr) wraps an existing native array and is not valid for length-based creation; use the Int64 length ctor");
+        }
         public int Count => _items.Length;
         public T this[int index]
         {
@@ -176,6 +181,11 @@ namespace KingdomEnhancedMod
     internal static class ModConfig
     {
         public static ConfigEntry<bool> Enabled = new ConfigEntry<bool>();
+#if ANDROID
+        // 宿主测试种子（非产品默认）：Android 真实 config 由 Root 接线、产品默认 false；
+        // 旧 247 矩阵与新增真门用例都需要 ON 起点，故 stub 显式 seed true。ResetAll 会再次 seed。
+        public static ConfigEntry<bool> WallEngineerEnabled = new ConfigEntry<bool> { Value = true };
+#endif
     }
 
     public class LogSource

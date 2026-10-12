@@ -4,7 +4,7 @@
        - FloatLayout pure geometry (fixed 320x480 max panel via safe-area Resize, content
          viewport/ScrollMax reachability, orb-priority HitPanelBody) and the pure PanelGesture
          state machine (tap once / sticky scroll / cancel / release-outside / clamps),
-       - ModConfig MelonPreferences contract: one category, seventeen declared entries,
+       - ModConfig MelonPreferences contract: one category, twenty-four declared entries,
          load-boundary clamps (seed flags: seed-speed, seed-enemy-count, seed-enemy-timeline;
          NaN and Infinity fallbacks), save-on-switch only, and the Initialize(Action&lt;bool&gt;)
          money seam firing exactly at cold start and each toggle (MelonLogger / MelonPreferences
@@ -42,6 +42,8 @@
     <Compile Include="MelonLoggerStub.cs" />
     <Compile Include="MelonPreferencesStub.cs" />
     <Compile Include="Program.cs" />
+    <Compile Include="IlInstructionReader.cs" />
+    <Compile Include="WorldLayoutPreferenceChecks.cs" />
   </ItemGroup>
 
 </Project>
