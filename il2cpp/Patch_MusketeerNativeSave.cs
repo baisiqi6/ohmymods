@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using Coatsink.Common;
 using HarmonyLib;
+using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
 namespace KingdomEnhancedMod;
@@ -54,6 +55,11 @@ internal static class MusketeerNativeSave
     internal const int ResultFailureCode = ResultSave | ResultFailure;                 // 136
     internal const int ResultBusyCode = ResultSave | ResultFailure | ResultBusy;       // 392
     internal const int NoChangeCode = ResultSave | ResultSuccess;                      // 72
+
+    // Native metadata facts for the sync return reader: IL2CPP FIELD_ATTRIBUTE_STATIC, and the
+    // native value size of both Routine.Return<SaveLoadResult> and the SaveLoadResult enum.
+    private const int FieldAttributeStatic = 0x0010;
+    private const int SyncReturnNativeSize = 4;
 
     internal const string ReasonNoMatchingSnapshot = "NoMatchingSnapshot";
     internal const string ReasonScopeAmbiguous = "ScopeAmbiguous";
@@ -1402,6 +1408,51 @@ internal static class MusketeerNativeSave
         }
     }
 
+    // Reads the native `value` field of a boxed Routine.Return<SaveLoadResult> through live
+    // metadata. The generated property must not be used: its get_value hands
+    // PointerToValueGeneric(fieldAddress, true, false) to the runtime, which boxes the field
+    // pointer and then boxes that box, so the call observes the box object header as the enum
+    // (656417088 = 0x27202140) instead of the stored result. Here the closed class is proven by
+    // exact equality with the nonzero Il2CppClassPointerStore for this instantiation (a class name
+    // or the generic template cannot prove the type argument), the field must exist, be non-static
+    // and carry exactly the SaveLoadResult enum class, and both native value sizes must be 4
+    // before any native copy. Every metadata handle is checked for zero before it reaches a native
+    // call that would dereference it (a native null dereference would escape every managed catch),
+    // every mismatch throws into the caller's existing catch, and the raw 32-bit value (including
+    // composites such as 72/136/392) is preserved without a literal switch.
+    internal static unsafe int ReadSyncReturnCode(Routine.Return<SaveLoadResult> boxed)
+    {
+        if (boxed == null) throw new InvalidOperationException("sync-return-null");
+        IntPtr pointer = boxed.Pointer;
+        if (pointer == IntPtr.Zero) throw new InvalidOperationException("sync-return-pointer");
+        IntPtr returnClass = Il2CppClassPointerStore<Routine.Return<SaveLoadResult>>.NativeClassPtr;
+        if (returnClass == IntPtr.Zero) throw new InvalidOperationException("sync-return-class-uninitialized");
+        IntPtr actualClass = IL2CPP.il2cpp_object_get_class(pointer);
+        if (actualClass != returnClass) throw new InvalidOperationException("sync-return-class-mismatch");
+        IntPtr field = IL2CPP.il2cpp_class_get_field_from_name(actualClass, "value");
+        if (field == IntPtr.Zero) throw new InvalidOperationException("sync-return-field-missing");
+        if ((IL2CPP.il2cpp_field_get_flags(field) & FieldAttributeStatic) != 0)
+            throw new InvalidOperationException("sync-return-field-static");
+        IntPtr enumClass = Il2CppClassPointerStore<SaveLoadResult>.NativeClassPtr;
+        if (enumClass == IntPtr.Zero) throw new InvalidOperationException("sync-return-enum-uninitialized");
+        // The type handle is checked before the conversion: il2cpp_class_from_type must never see
+        // a zero handle, because the native dereference would not be catchable in managed code.
+        IntPtr fieldType = IL2CPP.il2cpp_field_get_type(field);
+        if (fieldType == IntPtr.Zero) throw new InvalidOperationException("sync-return-field-type-missing");
+        if (IL2CPP.il2cpp_class_from_type(fieldType) != enumClass)
+            throw new InvalidOperationException("sync-return-field-type");
+        if (!IL2CPP.il2cpp_class_is_valuetype(returnClass) || !IL2CPP.il2cpp_class_is_valuetype(enumClass))
+            throw new InvalidOperationException("sync-return-not-valuetype");
+        uint align = 0;
+        if (IL2CPP.il2cpp_class_value_size(returnClass, ref align) != SyncReturnNativeSize
+            || IL2CPP.il2cpp_class_value_size(enumClass, ref align) != SyncReturnNativeSize)
+            throw new InvalidOperationException("sync-return-size");
+        int value;
+        IL2CPP.il2cpp_field_get_value(pointer, field, &value);
+        GC.KeepAlive(boxed);
+        return value;
+    }
+
     // Sync physical writer coroutine: state 0 is the only body and it writes directly through a
     // FileStream. Rejection sets the native boxed Return to Failure (or Failure|Busy) and skips
     // the body; a successful call (Return == 72) verifies the readback in the same finalizer.
@@ -1440,7 +1491,9 @@ internal static class MusketeerNativeSave
                 if (__state != null)
                 {
                     SyncWriterFinished(__state);
-                    if (__exception == null && __instance != null && (int)__instance.@return.value == NoChangeCode)
+                    // The terminal result comes from the native field: the generated getter is
+                    // defective (double box) and would report the box header instead of 72.
+                    if (__exception == null && __instance != null && ReadSyncReturnCode(__instance.@return) == NoChangeCode)
                         HarvestAttempt(__state.Attempt, NoChangeCode);
                 }
             }
@@ -1455,7 +1508,8 @@ internal static class MusketeerNativeSave
                 var boxed = instance.@return;
                 boxed.value = (SaveLoadResult)value;
                 instance.@return = boxed;
-                if ((int)instance.@return.value != value)
+                // Readback through the native field, never the defective generated getter.
+                if (ReadSyncReturnCode(instance.@return) != value)
                     LogOnce("sync-reject-readback", reason ?? "?");
             }
             catch (Exception e) { Log("sync-reject-write", e); }

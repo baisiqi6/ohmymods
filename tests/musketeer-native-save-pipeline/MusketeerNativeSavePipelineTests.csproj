@@ -5,6 +5,8 @@
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
+    <!-- The linked production file calls the unsafe il2cpp_field_get_value(IntPtr, IntPtr, void*). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <NoWarn>$(NoWarn);CS0649;CS0169</NoWarn>
   </PropertyGroup>

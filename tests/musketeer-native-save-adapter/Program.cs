@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Coatsink.Common;
+using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using KingdomEnhancedMod;
 using static MusketeerNativeSaveAdapterTests.Fx;
@@ -24,6 +25,21 @@ internal static class Check
     }
 
     internal static void False(bool condition, string label) => True(!condition, label);
+
+    // Asserts the action fails closed, optionally on the specific guard reason.
+    internal static void Throws(Action action, string label, string reason = null)
+    {
+        try { action(); }
+        catch (Exception e)
+        {
+            if (reason == null || (e.Message ?? "").Contains(reason)) return;
+            _failures++;
+            Console.WriteLine("  FAIL " + label + " (wrong guard: " + e.Message + ")");
+            return;
+        }
+        _failures++;
+        Console.WriteLine("  FAIL " + label + " (no exception)");
+    }
 
     internal static void Eq(object actual, object expected, string label)
     {
@@ -115,8 +131,12 @@ internal static class Program
         UnknownWriterSticky();
         Check.Case("writer adapter: rejection before the native original; next valid save passes");
         AdapterRejectThenNextValid();
-        Check.Case("sync writer adapter: boxed Failure return, lease release, Return==72 readback");
+        Check.Case("sync writer adapter: native field readback (generated getter stays defective), lease release");
         SyncAdapter();
+        Check.Case("sync writer: only the exact no-change 72 promotes (136/88 stay unpaired)");
+        SyncNonPromotion();
+        Check.Case("sync return reader: metadata guards fail closed, never copy, never fabricate");
+        SyncReturnReaderGuards();
         Check.Case("harvest: accepted callback pairs the real disk file and forwards once");
         HarvestPairs();
         Check.Case("harvest: 72 no-change verifies the existing file (verified-existing)");
@@ -583,7 +603,10 @@ internal static class Program
         bool syncRun = true;
         bool syncShouldRun = MusketeerNativeSave.Musketeer_SyncWriterGate.Prefix(sync, ref syncRun, out _);
         Check.False(syncShouldRun, "sync writer refused while async pending");
-        Check.Eq((int)sync.@return.value, MusketeerNativeSave.ResultBusyCode, "sync busy result");
+        // The generated getter is defective by host design; the value must come from the native
+        // field storage (and the typed reader must agree) for the rejection to be observable.
+        Check.Eq(NativeFakeHeap.StoredValue(sync.@return), MusketeerNativeSave.ResultBusyCode, "sync busy result in native storage");
+        Check.Eq(MusketeerNativeSave.ReadSyncReturnCode(sync.@return), MusketeerNativeSave.ResultBusyCode, "sync busy result through the typed reader");
         Check.Eq(sync.__1__state, -1, "sync rejected call ends the coroutine");
 
         // Terminal witness releases the lease.
@@ -632,13 +655,35 @@ internal static class Program
         Check.True(accepted.Run, "next valid save passes without Busy");
     }
 
+    // The production-linked accepted sync flow with a simulated native body: the gate passes, the
+    // host stands in for the coroutine body by writing the payload to disk and storing the result
+    // through the (correct) boxed setter, and the production finalizer verifies the readback.
+    // Returns whether the readback pair exists. This proves routing/guards, not the game's writer.
+    private static bool SyncAccepted(Harness h, byte[] payload, int stored)
+    {
+        var instance = SyncInstance(h, payload);
+        bool result = true;
+        bool run = MusketeerNativeSave.Musketeer_SyncWriterGate.Prefix(instance, ref result, out var state);
+        Check.True(run, "sync pass");
+        Check.True(state != null, "sync lease captured");
+        File.WriteAllBytes(h.DiskPath, payload);               // simulated native body writer output
+        instance.@return.value = (SaveLoadResult)stored;       // simulated native body result
+        MusketeerNativeSave.Musketeer_SyncWriterGate.Finally(null, instance, state);
+        return File.Exists(h.PairPath);
+    }
+
     private static void SyncAdapter()
     {
         using var h = new Harness();
         string island = Island(0, Row("Archer P7 [22]--1", ArcherPrefab));
         var records = new List<MusketeerCareer> { Career(MusketeerCareer.KindUnit, "Archer P7 [22]--1") };
         Seed(h, 0, 0, 0, island, records);
+        NativeFakeHeap.ResetCounters();
+        int warningsBefore = KingdomEnhancedPlugin.Instance.LogSource.Warnings.Count;
 
+        // The host reproduces the real defect: the generated getter returns the box object header
+        // while the native field storage holds the true value (72/136/392). Every terminal decision
+        // must therefore come from the native field, never from the generated property.
         byte[] broken = PayloadWithStaged(Campaign(Island(0, "")));
         var rejected = SyncInstance(h, broken);
         bool result = true;
@@ -646,26 +691,207 @@ internal static class Program
         Check.False(run, "sync rejection skips the body");
         Check.False(result, "__result false");
         Check.Eq(rejected.__1__state, -1, "state finalised");
-        Check.Eq((int)rejected.@return.value, MusketeerNativeSave.ResultFailureCode, "boxed return carries Save|Failure");
+        Check.Eq(unchecked((int)rejected.@return.value), Routine.Return<SaveLoadResult>.DefectiveGetterSentinel,
+            "host getter stays defective (double-box sentinel)");
+        Check.Eq(NativeFakeHeap.StoredValue(rejected.@return), MusketeerNativeSave.ResultFailureCode,
+            "rejection wrote Save|Failure into the native field");
+        Check.Eq(MusketeerNativeSave.ReadSyncReturnCode(rejected.@return), MusketeerNativeSave.ResultFailureCode,
+            "typed reader reads Save|Failure from the native field");
         Check.True(rejectedState == null, "rejected sync call takes no lease");
         MusketeerNativeSave.Musketeer_SyncWriterGate.Finally(null, rejected, rejectedState);
 
-        // Next valid synchronous save: passes, writes the file, releases the lease and (Return==72)
-        // verifies the readback into a pair.
-        byte[] valid = PayloadWithStaged(Campaign(island));
-        var accepted = SyncInstance(h, valid);
-        result = true;
-        run = MusketeerNativeSave.Musketeer_SyncWriterGate.Prefix(accepted, ref result, out var state);
-        Check.True(run, "valid sync save passes");
-        Check.True(state != null, "sync lease captured");
-        File.WriteAllBytes(h.DiskPath, valid);                 // the native body writes directly
-        accepted.@return.value = SaveLoadResult.Save | SaveLoadResult.Success;
-        MusketeerNativeSave.Musketeer_SyncWriterGate.Finally(null, accepted, state);
-        Check.True(File.Exists(h.PairPath), "sync success produced the readback pair");
+        // Busy rejection (392): while a pending async lease holds the path the sync call is refused
+        // with Save|Failure|Busy and never runs its body.
+        var holder = GateAsync(h, PayloadWithStaged(Campaign(island)));
+        Check.True(holder.Run, "lease holder accepted");
+        var pending = new Il2CppSystem.Threading.Tasks.Task<SaveLoadResult> { IsCompleted = false };
+        MusketeerNativeSave.Musketeer_AsyncWriterGate.Postfix(holder.Call, pending);
+        var busy = SyncInstance(h, PayloadWithStaged(Campaign(island)));
+        bool busyResult = true;
+        bool busyRun = MusketeerNativeSave.Musketeer_SyncWriterGate.Prefix(busy, ref busyResult, out var busyState);
+        Check.False(busyRun, "busy rejection skips the body");
+        Check.False(busyResult, "busy __result false");
+        Check.Eq(busy.__1__state, -1, "busy rejection finalises the state");
+        Check.Eq(NativeFakeHeap.StoredValue(busy.@return), MusketeerNativeSave.ResultBusyCode,
+            "busy rejection wrote Save|Failure|Busy into the native field");
+        Check.Eq(MusketeerNativeSave.ReadSyncReturnCode(busy.@return), MusketeerNativeSave.ResultBusyCode,
+            "typed reader preserves the 392 composite (no literal switch)");
+        pending.IsCompleted = true;
+        var reentered = GateAsync(h, PayloadWithStaged(Campaign(island)));
+        Check.True(reentered.Run, "terminal witness releases the path");
+        MusketeerNativeSave.Musketeer_AsyncWriterGate.Postfix(reentered.Call,
+            new Il2CppSystem.Threading.Tasks.Task<SaveLoadResult> { IsCompleted = true });
+
+        bool readbackLogged = false;
+        for (int i = warningsBefore; i < KingdomEnhancedPlugin.Instance.LogSource.Warnings.Count; i++)
+            if (KingdomEnhancedPlugin.Instance.LogSource.Warnings[i].Contains("sync-reject-readback")) readbackLogged = true;
+        Check.False(readbackLogged, "rejection readback matches the native field (no false mismatch)");
+
+        // Accepted sync save: the native body stores 72 and the finalizer must read the native
+        // field to verify the readback into a pair.
+        int copies = NativeFakeHeap.FieldGetValueCalls;
+        Check.True(SyncAccepted(h, PayloadWithStaged(Campaign(island)), MusketeerNativeSave.NoChangeCode),
+            "sync success produced the readback pair");
+        Check.Eq(NativeFakeHeap.FieldGetValueCalls, copies + 1, "finalizer read the native field exactly once");
 
         // The sync lease is gone: the next async save passes.
         var next = GateAsync(h, PayloadWithStaged(Campaign(island)));
         Check.True(next.Run, "sync lease released by its finalizer");
+    }
+
+    // Only the exact serializer no-change code promotes. A result the simulated native body
+    // produced (136 Save|Failure) and another legitimate composite (88 = Save|Success|Load) both
+    // stay unpromoted while the raw 32-bit value remains readable through the typed reader.
+    private static void SyncNonPromotion()
+    {
+        using var h = new Harness();
+        string island = Island(0, Row("Archer P7 [22]--1", ArcherPrefab));
+        Seed(h, 0, 0, 0, island, new List<MusketeerCareer> { Career(MusketeerCareer.KindUnit, "Archer P7 [22]--1") });
+
+        void NonPromotion(int stored, string label)
+        {
+            byte[] payload = PayloadWithStaged(Campaign(island));
+            var instance = SyncInstance(h, payload);
+            bool ok = true;
+            bool start = MusketeerNativeSave.Musketeer_SyncWriterGate.Prefix(instance, ref ok, out var state);
+            Check.True(start, label + ": gate passes");
+            File.WriteAllBytes(h.DiskPath, payload);
+            instance.@return.value = (SaveLoadResult)stored;
+            Check.Eq(MusketeerNativeSave.ReadSyncReturnCode(instance.@return), stored, label + ": raw value preserved");
+            MusketeerNativeSave.Musketeer_SyncWriterGate.Finally(null, instance, state);
+            Check.False(File.Exists(h.PairPath), label + ": never harvested");
+        }
+        NonPromotion(MusketeerNativeSave.ResultFailureCode, "136 Save|Failure");
+        NonPromotion(MusketeerNativeSave.ResultSave | MusketeerNativeSave.ResultSuccess | 16, "88 Save|Success|Load");
+    }
+
+    // The typed reader is the single terminal decision point; every metadata guard must fail
+    // closed (throw into the existing catch, never copy and never fabricate a result).
+    private static void SyncReturnReaderGuards()
+    {
+        // Raw 32-bit values survive untouched, including composites without a single named constant.
+        var box = new Routine.Return<SaveLoadResult>();
+        ((INativeValueBox)box).NativeValue = MusketeerNativeSave.ResultBusyCode;
+        Check.Eq(MusketeerNativeSave.ReadSyncReturnCode(box), MusketeerNativeSave.ResultBusyCode, "reader preserves 392");
+        ((INativeValueBox)box).NativeValue = 88;
+        Check.Eq(MusketeerNativeSave.ReadSyncReturnCode(box), 88, "reader preserves the 88 composite");
+
+        // Object derived from another closed class: exact store equality is the closed-class proof.
+        NativeFakeHeap.ResetCounters();
+        var mismatch = new Routine.Return<SaveLoadResult>();
+        NativeFakeHeap.SetBoxClass(mismatch, NativeFakeHeap.OtherReturnClass);
+        Check.Throws(() => MusketeerNativeSave.ReadSyncReturnCode(mismatch), "class mismatch fails closed", "sync-return-class-mismatch");
+        Check.Eq(NativeFakeHeap.FieldGetValueCalls, 0, "class mismatch never copies");
+
+        void Variant(string label, string reason, Action<Routine.Return<SaveLoadResult>> shape)
+        {
+            using (NativeFakeHeap.PinStores())
+            {
+                var target = new Routine.Return<SaveLoadResult>();
+                shape(target);
+                NativeFakeHeap.ResetCounters();
+                Check.Throws(() => MusketeerNativeSave.ReadSyncReturnCode(target), label, reason);
+                Check.Eq(NativeFakeHeap.FieldGetValueCalls, 0, label + " never copies");
+                Check.Eq(NativeFakeHeap.ClassFromTypeZeroCalls, 0, label + " never converts a zero type handle");
+            }
+        }
+
+        // Uninitialized expected pointer can never be assumed.
+        using (NativeFakeHeap.PinStores())
+        {
+            Il2CppClassPointerStore<Routine.Return<SaveLoadResult>>.NativeClassPtr = IntPtr.Zero;
+            NativeFakeHeap.ResetCounters();
+            Check.Throws(() => MusketeerNativeSave.ReadSyncReturnCode(new Routine.Return<SaveLoadResult>()),
+                "uninitialized Return store fails closed", "sync-return-class-uninitialized");
+            Check.Eq(NativeFakeHeap.FieldGetValueCalls, 0, "uninitialized store never copies");
+        }
+        using (NativeFakeHeap.PinStores())
+        {
+            Il2CppClassPointerStore<SaveLoadResult>.NativeClassPtr = IntPtr.Zero;
+            NativeFakeHeap.ResetCounters();
+            Check.Throws(() => MusketeerNativeSave.ReadSyncReturnCode(new Routine.Return<SaveLoadResult>()),
+                "uninitialized enum store fails closed", "sync-return-enum-uninitialized");
+            Check.Eq(NativeFakeHeap.FieldGetValueCalls, 0, "uninitialized enum store never copies");
+        }
+
+        Variant("missing value field fails closed", "sync-return-field-missing", target =>
+        {
+            NativeFakeHeap.SetBoxClass(target, NativeFakeHeap.MissingValueFieldClass);
+            Il2CppClassPointerStore<Routine.Return<SaveLoadResult>>.NativeClassPtr = NativeFakeHeap.MissingValueFieldClass.Pointer;
+        });
+        Variant("static value field fails closed", "sync-return-field-static", target =>
+        {
+            NativeFakeHeap.SetBoxClass(target, NativeFakeHeap.StaticValueFieldClass);
+            Il2CppClassPointerStore<Routine.Return<SaveLoadResult>>.NativeClassPtr = NativeFakeHeap.StaticValueFieldClass.Pointer;
+        });
+        Variant("wrong value field type fails closed", "sync-return-field-type", target =>
+        {
+            NativeFakeHeap.SetBoxClass(target, NativeFakeHeap.WrongFieldTypeClass);
+            Il2CppClassPointerStore<Routine.Return<SaveLoadResult>>.NativeClassPtr = NativeFakeHeap.WrongFieldTypeClass.Pointer;
+        });
+        Check.True(NativeFakeHeap.ClassFromTypeCalls >= 1, "type conversion runs on a nonzero handle (instrument live)");
+
+        // A zero type handle must fail closed before il2cpp_class_from_type: passing it there would
+        // dereference null natively, outside every managed catch.
+        using (NativeFakeHeap.PinStores())
+        {
+            var target = new Routine.Return<SaveLoadResult>();
+            NativeFakeHeap.SetBoxClass(target, NativeFakeHeap.MissingFieldTypeClass);
+            Il2CppClassPointerStore<Routine.Return<SaveLoadResult>>.NativeClassPtr = NativeFakeHeap.MissingFieldTypeClass.Pointer;
+            NativeFakeHeap.ResetCounters();
+            Check.Throws(() => MusketeerNativeSave.ReadSyncReturnCode(target),
+                "missing field type fails closed", "sync-return-field-type-missing");
+            Check.Eq(NativeFakeHeap.ClassFromTypeCalls, 0, "missing field type short-circuits before class_from_type");
+            Check.Eq(NativeFakeHeap.ClassFromTypeZeroCalls, 0, "missing field type never converts a zero handle");
+            Check.Eq(NativeFakeHeap.FieldGetValueCalls, 0, "missing field type never copies");
+        }
+        Variant("wide Return native size fails closed", "sync-return-size", target =>
+        {
+            NativeFakeHeap.SetBoxClass(target, NativeFakeHeap.WideReturnClass);
+            Il2CppClassPointerStore<Routine.Return<SaveLoadResult>>.NativeClassPtr = NativeFakeHeap.WideReturnClass.Pointer;
+        });
+        Variant("wide enum native size fails closed", "sync-return-size", target =>
+        {
+            NativeFakeHeap.SetBoxClass(target, NativeFakeHeap.WideEnumFieldClass);
+            Il2CppClassPointerStore<Routine.Return<SaveLoadResult>>.NativeClassPtr = NativeFakeHeap.WideEnumFieldClass.Pointer;
+            Il2CppClassPointerStore<SaveLoadResult>.NativeClassPtr = NativeFakeHeap.WideEnumClass.Pointer;
+        });
+        Variant("non-valuetype Return fails closed", "sync-return-not-valuetype", target =>
+        {
+            NativeFakeHeap.SetBoxClass(target, NativeFakeHeap.RefReturnClass);
+            Il2CppClassPointerStore<Routine.Return<SaveLoadResult>>.NativeClassPtr = NativeFakeHeap.RefReturnClass.Pointer;
+        });
+
+        // Integration: a guard failure inside the real finalizer must stay fail-visible and must
+        // never pair, never copy, never convert a zero type handle and never fabricate a success;
+        // restored metadata pairs the identical flow again.
+        void GuardedFinalizer(FakeClass variant, string label)
+        {
+            using var h = new Harness();
+            string island = Island(0, Row("Archer P7 [22]--1", ArcherPrefab));
+            Seed(h, 0, 0, 0, island, new List<MusketeerCareer> { Career(MusketeerCareer.KindUnit, "Archer P7 [22]--1") });
+            using (NativeFakeHeap.PinStores())
+            {
+                Il2CppClassPointerStore<Routine.Return<SaveLoadResult>>.NativeClassPtr = variant.Pointer;
+                NativeFakeHeap.ResetCounters();
+                int warnings = KingdomEnhancedPlugin.Instance.LogSource.Warnings.Count;
+                int infos = KingdomEnhancedPlugin.Instance.LogSource.Infos.Count;
+                Check.False(SyncAccepted(h, PayloadWithStaged(Campaign(island)), MusketeerNativeSave.NoChangeCode),
+                    label + ": guarded finalizer never harvests");
+                Check.Eq(NativeFakeHeap.FieldGetValueCalls, 0, label + ": guarded finalizer never copies");
+                Check.Eq(NativeFakeHeap.ClassFromTypeZeroCalls, 0, label + ": never converts a zero type handle");
+                bool failVisible = false;
+                for (int i = warnings; i < KingdomEnhancedPlugin.Instance.LogSource.Warnings.Count; i++)
+                    if (KingdomEnhancedPlugin.Instance.LogSource.Warnings[i].Contains("sync-finally")) failVisible = true;
+                Check.True(failVisible, label + ": guard failure is fail-visible");
+                for (int i = infos; i < KingdomEnhancedPlugin.Instance.LogSource.Infos.Count; i++)
+                    Check.False(KingdomEnhancedPlugin.Instance.LogSource.Infos[i].Contains("paired:"), label + ": no fabricated success");
+            }
+            Check.True(SyncAccepted(h, PayloadWithStaged(Campaign(island)), MusketeerNativeSave.NoChangeCode),
+                label + ": restored metadata pairs the same flow");
+        }
+        GuardedFinalizer(NativeFakeHeap.WideReturnClass, "wide Return");
+        GuardedFinalizer(NativeFakeHeap.MissingFieldTypeClass, "missing field type");
     }
 
     private static void HarvestPairs()
