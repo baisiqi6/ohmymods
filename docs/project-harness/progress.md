@@ -1977,3 +1977,7 @@ typed host106/0、strict789/0+oldcfg629/0、Grounding17/0；缺失physics getter
 20cfg、最终false4/120、old17保持、停机；first-observed不冒充spawn。自然补员delta1/OFF原生值
 读回/全部world/池重建/手机多指MP长周期仍pending。原a551/5559失败与125.86s超120窗口保留。
 代码PR与normal任务收尾待完成，验收边界见tasks/issue-184/implementation.md；不发布游戏/loader/interop。
+
+## 2026-10-13 坐骑双岛总览紧凑下排候选
+
+用户选择compact下排。旧78UI预留+左右半区中心导致当前0.507及留白，已改完整原生/固定状态包围盒驱动的普通岛比例与居中一组；完整图形示例0.659而非强制0.77。两源源码审查和127新回归、286旧回归通过，公共IL2CPP禁部署.NET8/当前累计.NET6与.NET8编译0W0E，38资源及地图外body保持。新候选未安装，正常游玩仍b8f的PR204累计版本；没有启动或操作游戏/共享进度。原生刷新后视觉/归还与玩家、Windows/Android验收待测。依赖未合并PR202，Issue200保持开放；过程与边界见 tasks/mount-map-compact-20261013/summary.md。

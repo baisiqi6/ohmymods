@@ -243,6 +243,30 @@ namespace KingdomEnhancedMod
             internal readonly List<RectTransform> BannerExcluded = new List<RectTransform>(4);   // 该 tuple 自己的接管子 rect（不作为兄弟岛 blocker）
         }
 
+        private enum CompactAdmission { Legacy, Ready, Abort }
+
+        private sealed class CompactRoot
+        {
+            internal RectTransform Rect;
+            internal OverviewEntry Land;
+            internal Vector3 Scale;
+            internal Vector2 Position;
+            internal MountIslandFrame Graphics;
+        }
+
+        private sealed class CompactGeometry
+        {
+            internal readonly List<CompactRoot> Roots = new List<CompactRoot>(14);
+            internal MountIslandFrame Native;
+            internal MountIslandFrame Upper;
+            internal MountIslandFrame Band;
+            internal MountIslandFrame Primary;
+            internal MountIslandFrame Secondary;
+            internal float Scale;
+            internal readonly MountIslandFrame[] States = new MountIslandFrame[ExtensionIslandMapPlan.SlotCount];
+            internal readonly bool[] HasState = new bool[ExtensionIslandMapPlan.SlotCount];
+        }
+
         /// <summary>
         /// 私有 owned 详情分页器（不借 native left/right/confirm 岛导航，不改它们 callback）。
         /// 按钮/文字是原生 Button/Text 的克隆（保游戏字体/style），onClick 全部替换为自有事件；
@@ -3295,6 +3319,284 @@ namespace KingdomEnhancedMod
             return slotsSeen == extensionEntries.Count;
         }
 
+        private static MountIslandFrame CompactFrame(in MapIconBox box)
+            => new MountIslandFrame(box.X0, box.Y0, box.X1, box.Y1);
+
+        private static MapIconBox IconFrame(in MountIslandFrame box)
+            => new MapIconBox(box.X0, box.Y0, box.X1, box.Y1);
+
+        private static bool CompactFinite(float value)
+            => !float.IsNaN(value) && !float.IsInfinity(value);
+
+        private static bool CompactValid(in MountIslandFrame box)
+            => CompactFinite(box.X0) && CompactFinite(box.Y0) && CompactFinite(box.X1)
+                && CompactFinite(box.Y1) && box.IsValid;
+
+        private static void AddCompactBox(ref MountIslandFrame union, ref bool any, in MountIslandFrame box)
+        {
+            union = any ? new MountIslandFrame(Math.Min(union.X0, box.X0), Math.Min(union.Y0, box.Y0),
+                Math.Max(union.X1, box.X1), Math.Max(union.Y1, box.Y1)) : box;
+            any = true;
+        }
+
+        // Unlike resource collision collection, this includes inactive/disabled potential state.
+        // A failed read never becomes a partially populated successful union.
+        private static bool TryCompactGraphics(RectTransform paper, Transform root,
+            List<RectTransform> excluded, Transform excludedBranch,
+            out MountIslandFrame union, out bool any)
+        {
+            union = default; any = false;
+            try
+            {
+                if (paper == null || root == null) return false;
+                RectTransform[] rects = root.GetComponentsInChildren<RectTransform>(true);
+                if (rects == null || rects.Length > 512) return false;
+                for (int i = 0; i < rects.Length; i++)
+                {
+                    RectTransform rect = rects[i];
+                    if (rect == null) return false;
+                    if (IsUnderOwnHolder(rect.transform) || (excluded != null && excluded.Contains(rect))) continue;
+                    if (excludedBranch != null)
+                    {
+                        Ancestry relation = CheckAncestry(rect.transform, excludedBranch, 24);
+                        if (relation == Ancestry.Unknown) return false;
+                        if (relation == Ancestry.Under) continue;
+                    }
+                    if (rect.GetComponent<Graphic>() == null) continue;
+                    if (!TryLocalBox(paper, rect, out MapIconBox measured)) return false;
+                    MountIslandFrame box = CompactFrame(measured);
+                    if (!CompactValid(box)) return false;
+                    AddCompactBox(ref union, ref any, box);
+                }
+                return true;
+            }
+            catch (Exception) { union = default; any = false; return false; }
+        }
+
+        private static bool CompactCenteredRoot(RectTransform root, RectTransform paper, bool centeredPivot = true)
+        {
+            if (root == null || paper == null || root.parent != paper.transform) return false;
+            Vector2 a = root.anchorMin, b = root.anchorMax, p = root.pivot;
+            Vector3 s = root.localScale;
+            Vector2 pos = root.anchoredPosition;
+            return Math.Abs(a.x - 0.5f) < 0.001f && Math.Abs(a.y - 0.5f) < 0.001f
+                && Math.Abs(b.x - 0.5f) < 0.001f && Math.Abs(b.y - 0.5f) < 0.001f
+                && CompactFinite(p.x) && CompactFinite(p.y)
+                && (!centeredPivot || (Math.Abs(p.x - 0.5f) < 0.001f && Math.Abs(p.y - 0.5f) < 0.001f))
+                && CompactFinite(s.x) && CompactFinite(s.y) && CompactFinite(s.z)
+                && s.x > 0f && s.y > 0f && CompactFinite(pos.x) && CompactFinite(pos.y);
+        }
+
+        private static bool CompactAnimationFree(Transform root)
+        {
+            // Opaque controllers are not assumed to animate only sprites. New decoration writes
+            // are refused; existing native land animation remains under its original root.
+            Animator[] animators = root.GetComponentsInChildren<Animator>(true);
+            Animation[] animations = root.GetComponentsInChildren<Animation>(true);
+            return animators != null && animations != null && animators.Length == 0 && animations.Length == 0;
+        }
+
+        private static bool TryCompactState(RectTransform paper, OverviewEntry entry,
+            out MountIslandFrame state, out bool any)
+            => TryCompactState(paper, entry, out state, out any, out _);
+
+        private static bool TryCompactState(RectTransform paper, OverviewEntry entry,
+            out MountIslandFrame state, out bool any, out MountIslandFrame absolute)
+        {
+            state = default; any = false; absolute = default;
+            try
+            {
+                if (entry == null || !CompactCenteredRoot(entry.Rect, paper)) return false;
+                RectTransform art = FindArtTransform(entry.Cluster);
+                RectTransform outline = FindNamedDescendant(entry.Cluster.transform, "Land Outline", 4);
+                RectTransform button = FindOverviewButtonRect(entry.Cluster);
+                if (art == null || outline == null) return false;
+                var excluded = new List<RectTransform>(3) { art, outline };
+                if (button != null) excluded.Add(button);
+                Transform bespoke = entry.Cluster.transform.Find("Map Icons/Bespoke");
+                if (!TryCompactGraphics(paper, entry.Cluster.transform, excluded, bespoke,
+                        out absolute, out any)) return false;
+                if (!any) return true;
+                if (!TryLocalBox(paper, entry.Rect, out MapIconBox rootBox)) return false;
+                float cx = (rootBox.X0 + rootBox.X1) * 0.5f;
+                float cy = (rootBox.Y0 + rootBox.Y1) * 0.5f;
+                state = new MountIslandFrame(absolute.X0 - cx, absolute.Y0 - cy, absolute.X1 - cx, absolute.Y1 - cy);
+                return CompactValid(state); // fixed paper dimensions/offset; no division by scale
+            }
+            catch (Exception) { state = default; any = false; absolute = default; return false; }
+        }
+
+        private static CompactAdmission PrepareCompact(UIMainMap map, RectTransform paper,
+            List<OverviewEntry> natives, List<OverviewEntry> extensions,
+            in MapIconBox visible, float buttonBand, out CompactGeometry result)
+        {
+            result = null;
+            if (extensions.Count == 0) return CompactAdmission.Legacy;
+            string reason = "native-shape";
+            bool abort = false;
+            try
+            {
+                if (natives.Count != MapOverviewLayout.NativeUiClusterCount) return CompactAdmission.Legacy;
+                var candidate = new CompactGeometry();
+                bool nativeAny = false;
+                float width = 0f, height = 0f;
+                for (int i = 0; i < natives.Count; i++)
+                {
+                    OverviewEntry entry = natives[i];
+                    reason = "native-root-" + entry.LandIndex;
+                    if (!CompactCenteredRoot(entry.Rect, paper)
+                        || !TryCompactGraphics(paper, entry.Rect, null, null, out var bounds, out bool found)
+                        || !found) return CompactAdmission.Legacy;
+                    candidate.Roots.Add(new CompactRoot { Rect = entry.Rect, Land = entry,
+                        Scale = entry.LocalScale, Position = entry.AnchoredPosition, Graphics = bounds });
+                    AddCompactBox(ref candidate.Native, ref nativeAny, bounds);
+                    width = Math.Max(width, entry.Input.ArtW1 * Math.Abs(entry.Input.OrigScaleX));
+                    height = Math.Max(height, entry.Input.ArtH1 * Math.Abs(entry.Input.OrigScaleY));
+                }
+                reason = "map-animation";
+                if (paper.GetComponent<Animator>() != null || paper.GetComponent<Animation>() != null)
+                    return CompactAdmission.Legacy;
+                string[] names = { "map_icon_whale_tail_greece", "map_icon_tentacles_greece",
+                    "map_icon_rocks_greece", "map_icon_mermaid_tail_greece" };
+                for (int i = 0; i < names.Length; i++)
+                {
+                    reason = "deco-" + names[i];
+                    Transform child = paper.transform.Find(names[i]);
+                    RectTransform rect = child != null ? child.GetComponent<RectTransform>() : null;
+                    // Native decorations have centered anchors but a bottom pivot (.5,0).
+                    // AnchoredPosition denotes that pivot; the same affine applies without editing it.
+                    if (!CompactCenteredRoot(rect, paper, false) || !CompactAnimationFree(rect)
+                        || !TryCompactGraphics(paper, rect, null, null, out var bounds, out bool found)
+                        || !found) return CompactAdmission.Legacy;
+                    candidate.Roots.Add(new CompactRoot { Rect = rect, Scale = rect.localScale,
+                        Position = rect.anchoredPosition, Graphics = bounds });
+                    AddCompactBox(ref candidate.Native, ref nativeAny, bounds);
+                }
+                bool hasState = false;
+                MountIslandFrame state = default;
+                abort = true;
+                for (int i = 0; i < extensions.Count; i++)
+                {
+                    int slot = SlotIndexOfLand(extensions[i].LandIndex);
+                    reason = "state-" + extensions[i].LandIndex;
+                    if (slot < 0 || !TryCompactState(paper, extensions[i], out var one, out bool found))
+                        return CompactAdmission.Abort;
+                    candidate.States[slot] = one;
+                    candidate.HasState[slot] = found;
+                    if (found) AddCompactBox(ref state, ref hasState, one);
+                }
+                abort = false;
+                reason = "numeric-plan";
+                float aspect = SpriteAspect(MapExtensionIslandArt.Shore);
+                if (!MountIslandOverviewLayout.TryBaseInAspect(width, height, aspect,
+                        out float baseWidth, out float baseHeight)
+                    || !MountIslandCompactLayout.TryPlan(CompactFrame(visible), buttonBand, candidate.Native,
+                        baseWidth, baseHeight, hasState, state, out candidate.Upper, out candidate.Band,
+                        out candidate.Primary, out candidate.Secondary, out candidate.Scale))
+                    return CompactAdmission.Legacy;
+                result = candidate;
+                return CompactAdmission.Ready;
+            }
+            catch (Exception e)
+            {
+                reason += "-" + e.GetType().Name;
+                return abort ? CompactAdmission.Abort : CompactAdmission.Legacy;
+            }
+            finally
+            {
+                if (result == null)
+                    MapIconLog.Once("compact-" + map.Pointer + "-" + reason,
+                        "compact overview not admitted: " + reason +
+                        (abort ? "; whole commit aborted (state unknown)" : "; retaining complete legacy layout"));
+            }
+        }
+
+        private static bool ApplyCompactRoots(CompactGeometry geometry, RectTransform paper)
+        {
+            try
+            {
+                for (int i = 0; i < geometry.Roots.Count; i++)
+                {
+                    CompactRoot root = geometry.Roots[i];
+                    if (!CompactCenteredRoot(root.Rect, paper, root.Land != null)
+                        || !MountIslandCompactLayout.TryTransformPoint(geometry.Native, geometry.Upper,
+                            geometry.Scale, root.Position.x + paper.rect.width * 0.5f,
+                            root.Position.y + paper.rect.height * 0.5f, out float x, out float y)) return false;
+                    var target = new MapOverviewClusterTarget(x - paper.rect.width * 0.5f,
+                        y - paper.rect.height * 0.5f, root.Scale.x * geometry.Scale,
+                        root.Scale.y * geometry.Scale, root.Scale.z);
+                    if (root.Land != null) ApplyTarget(root.Land, target);
+                    else
+                    {
+                        Snapshot(root.Rect); // same Expanded restore responsibility; never an OverviewEntry
+                        root.Rect.anchoredPosition = new Vector2(target.X, target.Y);
+                        root.Rect.localScale = new Vector3(target.ScaleX, target.ScaleY, target.ScaleZ);
+                    }
+                }
+                return true;
+            }
+            catch (Exception) { return false; }
+        }
+
+        private static bool CompactNear(in MountIslandFrame a, in MountIslandFrame b)
+            => Math.Abs(a.X0 - b.X0) < 0.03f && Math.Abs(a.Y0 - b.Y0) < 0.03f
+                && Math.Abs(a.X1 - b.X1) < 0.03f && Math.Abs(a.Y1 - b.Y1) < 0.03f;
+
+        private static bool CompactElementMatches(RectTransform paper, RectTransform element,
+            in MountIslandFrame expected, in MountIslandFrame band)
+            => element != null && TryLocalBox(paper, element, out MapIconBox box)
+                && CompactNear(CompactFrame(box), expected) && CompactFrame(box).IsInside(band);
+
+        private static bool VerifyCompact(CompactGeometry geometry, RectTransform paper,
+            List<OverviewEntry> extensions)
+        {
+            try
+            {
+                for (int i = 0; i < geometry.Roots.Count; i++)
+                {
+                    CompactRoot root = geometry.Roots[i];
+                    if (!CompactCenteredRoot(root.Rect, paper, root.Land != null)
+                        || !TryCompactGraphics(paper, root.Rect, null, null, out var actual, out bool found)
+                        || !found || !MountIslandCompactLayout.TryTransformFrame(geometry.Native, geometry.Upper,
+                            geometry.Scale, root.Graphics, out var expected)
+                        || !CompactNear(actual, expected) || !actual.IsInside(geometry.Upper)) return false;
+                }
+                var envelopes = new MountIslandFrame[ExtensionIslandMapPlan.SlotCount];
+                var seen = new bool[ExtensionIslandMapPlan.SlotCount];
+                for (int i = 0; i < extensions.Count; i++)
+                {
+                    OverviewEntry entry = extensions[i];
+                    int slot = SlotIndexOfLand(entry.LandIndex);
+                    if (slot < 0 || seen[slot]) return false;
+                    MountIslandFrame expected = slot == 0 ? geometry.Primary : geometry.Secondary;
+                    MountIslandFrame actual = CompactFrame(entry.TargetArtBox);
+                    RectTransform art = FindArtTransform(entry.Cluster);
+                    RectTransform outline = FindNamedDescendant(entry.Cluster.transform, "Land Outline", 4);
+                    RectTransform button = FindOverviewButtonRect(entry.Cluster);
+                    if (button != null && CheckAncestry(button, art, 8) == Ancestry.Under) button = null;
+                    if (!CompactElementMatches(paper, art, expected, geometry.Band)
+                        || !CompactElementMatches(paper, outline, expected, geometry.Band)
+                        || (button != null && !CompactElementMatches(paper, button, expected, geometry.Band))
+                        || !TryLocalBox(paper, entry.Rect, out MapIconBox rootBox)
+                        || Math.Abs((rootBox.X0 + rootBox.X1 - expected.X0 - expected.X1) * 0.5f) >= 0.03f
+                        || Math.Abs((rootBox.Y0 + rootBox.Y1 - expected.Y0 - expected.Y1) * 0.5f) >= 0.03f)
+                        return false;
+                    if (!CompactNear(actual, expected) || !actual.IsInside(geometry.Band)
+                        || !TryCompactState(paper, entry, out var state, out bool found, out var absoluteState)
+                        || found != geometry.HasState[slot]
+                        || (found && !CompactNear(state, geometry.States[slot]))) return false;
+                    bool any = true;
+                    if (found)
+                        AddCompactBox(ref actual, ref any, absoluteState);
+                    if (!actual.IsInside(geometry.Band)) return false;
+                    envelopes[slot] = actual; seen[slot] = true;
+                }
+                return !seen[0] || !seen[1] || envelopes[0].HorizontalGap(envelopes[1]) >=
+                    MountIslandCompactLayout.PairGap - 0.03f;
+            }
+            catch (Exception) { return false; }
+        }
+
         private static bool CommitOverviewLayout(UIMainMap map, MapTimelineMenuGreece menu, RectTransform paper,
             in MapIconBox verifiedRect, long verifiedSignature)
         {
@@ -3369,35 +3671,56 @@ namespace KingdomEnhancedMod
                 }
                 if (Overview.Count == 0) return false;
 
-                // r15：world 域共同分区（raw：不夹回 0..paperW）→ 原 10 绝对统一 fit 进上部区；扩展占底部预留带。
-                float reserve = extensionEntries.Count > 0 ? MapWorldLayout.DefaultExtensionReserve : 0f;
-                if (!MapWorldLayout.ComposeDomains(visiblePaper, buttonBand, reserve,
-                        out MapIconBox upperArea, out MapIconBox bandArea))
+                // Compact uses complete graphic/state envelopes, not the old large-shore reserve.
+                // Unknown native decoration ownership retains the complete legacy path; unknown
+                // extension state aborts the transaction rather than becoming an empty envelope.
+                CompactAdmission admission = PrepareCompact(map, paper, nativeEntries, extensionEntries,
+                    visiblePaper, buttonBand, out CompactGeometry compact);
+                if (admission == CompactAdmission.Abort)
                 {
-                    MapIconLog.Warn("world domains invalid; islands keep native geometry (no commit)");
+                    FailExtensionCommit();
                     return false;
+                }
+                bool useCompact = admission == CompactAdmission.Ready;
+                MapIconBox upperArea, bandArea;
+                float uniformScale = 1f;
+                var targets = new List<MapOverviewClusterTarget>(nativeInputs.Count);
+                bool planned;
+                if (useCompact)
+                {
+                    upperArea = IconFrame(compact.Upper);
+                    bandArea = IconFrame(compact.Band);
+                    uniformScale = compact.Scale;
+                    if (!ApplyCompactRoots(compact, paper))
+                    {
+                        FailExtensionCommit();
+                        MapIconLog.Once("compact-root-write-" + map.Pointer,
+                            "compact overview root write failed; complete transaction restored");
+                        return false;
+                    }
+                    planned = true;
+                }
+                else
+                {
+                    float reserve = extensionEntries.Count > 0 ? MapWorldLayout.DefaultExtensionReserve : 0f;
+                    if (!MapWorldLayout.ComposeDomains(visiblePaper, buttonBand, reserve, out upperArea, out bandArea))
+                    {
+                        FailExtensionCommit();
+                        MapIconLog.Warn("world domains invalid; islands keep native geometry (no commit)");
+                        return false;
+                    }
+                    planned = MapWorldLayout.TryFitNatives(nativeInputs, paperW, paperH, upperArea, targets,
+                        out uniformScale);
+                    if (planned)
+                    {
+                        for (int i = 0; i < nativeEntries.Count && i < targets.Count; i++)
+                            ApplyTarget(nativeEntries[i], targets[i]);
+                    }
+                    else MapIconLog.Warn("overview native layout plan failed; islands keep native geometry");
                 }
                 _worldDomain = visiblePaper;
                 _worldUpperArea = upperArea;
                 _worldBandArea = bandArea;
-
-                float uniformScale = 1f;
-                var targets = new List<MapOverviewClusterTarget>(nativeInputs.Count);
-                bool planned = MapWorldLayout.TryFitNatives(nativeInputs, paperW, paperH, upperArea, targets,
-                    out uniformScale);
-                if (planned)
-                {
-                    // 只应用统一倍率+平移；native 图标面在 Rebuild 时按 exact sprite 形状与自然 paper 倍率
-                    // 现场测量（issue-152），不再预写布局推导的 art 盒。
-                    for (int i = 0; i < nativeEntries.Count && i < targets.Count; i++)
-                    {
-                        ApplyTarget(nativeEntries[i], targets[i]);
-                    }
-                }
-                else
-                {
-                    MapIconLog.Warn("overview native layout plan failed; islands keep native geometry");
-                }
 
                 // 扩展簇：新岸线（实际 Sprite.rect 等比 + 自有 shore/outline 绑定；子 rect 快照可逆）；
                 // 不动原 10 的目标，不把整簇子图标一起横向拉伸。
@@ -3405,8 +3728,15 @@ namespace KingdomEnhancedMod
                 //（诚实整体 fallback；绝不出现 world 原 Oracle / detail 新 shape 的混合可见态）。
                 // 双岛统一 frame（同 scale/互不重叠/paper 内）；每 tuple 用**自己的** frame 调 banner，
                 // 不再对同一 band 两次居中（那会把两岛叠在一起）。
-                bool extensionBannersOk = TryPlanExtensionFrames(extensionEntries, bandArea,
-                    planned ? uniformScale : 0f, out MapIconBox[] extensionFrames);
+                MapIconBox[] extensionFrames;
+                bool extensionBannersOk;
+                if (useCompact)
+                {
+                    extensionFrames = new[] { IconFrame(compact.Primary), IconFrame(compact.Secondary) };
+                    extensionBannersOk = true;
+                }
+                else extensionBannersOk = TryPlanExtensionFrames(extensionEntries, bandArea,
+                    planned ? uniformScale : 0f, out extensionFrames);
                 for (int i = 0; extensionBannersOk && i < extensionEntries.Count; i++)
                 {
                     int frameSlot = SlotIndexOfLand(extensionEntries[i].LandIndex);
@@ -3429,7 +3759,18 @@ namespace KingdomEnhancedMod
                 }
 
                 // 精确礁石锚点（exact mainMap 直属装饰）：按新 shore bbox 侧上方留水道；只动这一个 rect。
-                ApplyRocksAnchor(paper, menu, visiblePaper, extensionEntries);
+                // Compact keeps rocks in the common native affine frame, never tied to one slot.
+                if (!useCompact) ApplyRocksAnchor(paper, menu, visiblePaper, extensionEntries);
+                if (useCompact && !VerifyCompact(compact, paper, extensionEntries))
+                {
+                    FailExtensionCommit();
+                    MapIconLog.Once("compact-readback-" + map.Pointer,
+                        "compact overview complete graphic/state readback failed; transaction restored");
+                    return false;
+                }
+                if (useCompact)
+                    MapIconLog.Info("compact overview complete graphics fit scale=" + uniformScale.ToString("0.000")
+                        + " rowHeight=" + compact.Band.Height.ToString("0.#") + " roots=" + compact.Roots.Count);
 
                 // 每岛图标面（issue-152 岛内契约）：native 在 Rebuild 时按 exact sprite 形状/绘制盒现场测量，
                 // 扩展簇用 banner 专属 surface（背景不算障碍，Rebuild 时规划）。不再预计算"最近岛自由区域"。
@@ -3499,6 +3840,7 @@ namespace KingdomEnhancedMod
             }
             catch (Exception e)
             {
+                FailExtensionCommit();
                 MapIconLog.Once("commit-" + e.GetType().Name, "overview commit failed: " + e.Message);
             }
             return false;
