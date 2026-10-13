@@ -2045,3 +2045,8 @@ typed host106/0、strict789/0+oldcfg629/0、Grounding17/0；缺失physics getter
 ### 2026-10-10 Issue #198：火铳职业同期保存与严格配对恢复
 
 职业 checkpoint 改为随原生 Prefs 正文保存，物理 writer 验证后才生成同次配对和 legacy mirror；不按原有17份记录补兵。独立源码/host review 通过，pure487、adapter37（追加反例47）、真实producer33及原有生命周期回归通过；固定全Mod net6/net8编译通过。当前交付维持 draft PR，Issue #198开放，原生ABI/线程/GC/Windows及游戏存读档未验，未改正常DLL/配置/存档。完整边界见 [本次任务记录](tasks/issue-198-musketeer-paired-save-20261010.md)。
+
+
+## 2026-10-13 Issue223 旧档火枪手补偿
+
+unknown-paid旧档枪架无付款点已定位到身份保护门，用户选择保留旧历史并一次性授予8名新火枪手。源码与契约回归已通过；正常母版575仅私有准备六源累计候选36faec77，实际八名出生/原生存读档与安装尚待独立验收。详细范围与验证边界见[任务记录](tasks/2026-10-13-issue223-musketeer-legacy-compensation.md)。Issue223保持开放，不以host测试或候选编译代替实机验收。

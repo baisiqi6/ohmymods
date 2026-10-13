@@ -184,7 +184,7 @@ static class Program
         MustReject(Doc("1", Esc(NativeFile), Esc("")), "base64", "empty archive refused");
 
         MustReject(Doc("1", Esc(NativeFile), Esc(Convert.ToBase64String(Encoding.UTF8.GetBytes("hello")))), "archive", "archive payload not an archive");
-        MustReject(Doc("1", Esc(NativeFile), Esc(Convert.ToBase64String(Encoding.UTF8.GetBytes("{\"schemaVersion\":3}")))), "archive-version", "future archive is unsupported", true);
+        MustReject(Doc("1", Esc(NativeFile), Esc(Convert.ToBase64String(Encoding.UTF8.GetBytes("{\"schemaVersion\":4}")))), "archive-version", "future archive is unsupported", true);
         MustReject(Doc("1", Esc(NativeFile), Esc(new string('A', 22_400_000))), "archive-size", "archive over 16MB refused");
         MustReject(new string('a', 25 * 1024 * 1024), "size", "document over 24MB refused");
         Check.False(MusketeerNativeArchive.TryDecode("x/y", good, out _, out _, out string badFileReason), "bad file argument refused");

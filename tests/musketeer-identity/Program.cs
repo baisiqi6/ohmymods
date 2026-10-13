@@ -233,7 +233,7 @@ internal static class Program
         Check(decoded.Contexts[context].Active == scope && decoded.Contexts[context].Epochs.Count == 2, "contexts roundtrip");
         Check(decoded.TryGet(H("stock"), H("stock-snap"), out var stockBack) && stockBack.Records[0].StockSlot == 1, "rack slot survives encoding");
         string text = System.Text.Encoding.UTF8.GetString(archive.Encode());
-        MusketeerArchive.Decode(System.Text.Encoding.UTF8.GetBytes(text.Replace("\"schemaVersion\":2", "\"schemaVersion\":3")), out bool futureVersion);
+        MusketeerArchive.Decode(System.Text.Encoding.UTF8.GetBytes(text.Replace("\"schemaVersion\":2", "\"schemaVersion\":4")), out bool futureVersion);
         Check(futureVersion, "future version detected");
         foreach (string invalid in new[] { text.Replace("\"schemaVersion\":2", "\"schemaVersion\":2,\"extra\":true"), "{}" })
         {
@@ -388,6 +388,17 @@ internal static class Program
         Check(!TryRegister(Gun().tool), "unavailable save rejection endpoint refuses paid career registration");
         Check(MusketeerIdentity.StatusText.Contains("同步保存接口不可用"), "unavailable save endpoint is visible to the player");
         MusketeerNativeSave.RejectEndpointUnavailable = false;
+        // Rebinding the native owner may clear its memory barrier before the selected prepared
+        // island is replaced. Its pending grant must still block all charging/replenishment.
+        var compensation = MusketeerIdentity.Current;
+        compensation.CompensationPending = true;
+        int beforeCompensationGate = compensation.Careers.Count;
+        Check(!MusketeerIdentity.CanPurchase, "pending prepared island blocks purchases with no native owner barrier");
+        Check(!TryRegister(Gun().tool), "pending prepared island refuses paid gun registration");
+        Check(!MusketeerIdentity.TryGetRestockCounts(out _, out _), "pending prepared island blocks replenishment counts");
+        Check(compensation.Careers.Count == beforeCompensationGate, "blocked purchase creates no extra career");
+        compensation.CompensationPending = false;
+        Check(MusketeerIdentity.CanPurchase, "cleared compensation restores the proven purchase gate");
         var first = Gun();
         Check(TryRegister(first.tool), "register gun on the first island");
         Save(IslandJson("row-gun-1"), Row("row-gun-1", first.go));

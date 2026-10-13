@@ -26,4 +26,7 @@
     <Compile Include="../../il2cpp/MusketeerPairedBackup.cs" />
     <Compile Include="../../il2cpp/Patch_MusketeerNativeSave.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../il2cpp/Patch_MusketeerLegacyCompensation.cs" Link="Production/Patch_MusketeerLegacyCompensation.cs" />
+  </ItemGroup>
 </Project>
