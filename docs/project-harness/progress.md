@@ -2049,4 +2049,4 @@ typed host106/0、strict789/0+oldcfg629/0、Grounding17/0；缺失physics getter
 
 ## 2026-10-13 Issue223 旧档火枪手补偿
 
-unknown-paid旧档枪架无付款点已定位到身份保护门，用户选择保留旧历史并一次性授予8名新火枪手。源码与契约回归已通过；正常母版575仅私有准备六源累计候选36faec77，实际八名出生/原生存读档与安装尚待独立验收。详细范围与验证边界见[任务记录](tasks/2026-10-13-issue223-musketeer-legacy-compensation.md)。Issue223保持开放，不以host测试或候选编译代替实机验收。
+unknown-paid旧档枪架无付款点已定位到身份保护门，用户选择保留旧历史并一次性授予8名新火枪手。源码与契约回归、Mac真实8名生成及物理存盘、1次付款身份跨冷进程恢复和不重复补偿已通过独立验收。测试原进度五通道完整恢复后，累计候选36faec77与固定8名私有Plan已安装正常版本；补偿待玩家下一次加载授权战役目标岛执行。原校验失败与额外进程输出保留，隔离postimage未作为正常进度。详细范围与验证边界见[任务记录](tasks/2026-10-13-issue223-musketeer-legacy-compensation.md)。PR224仍Draft、Issue223开放，Windows/Android、多人和换岛实机未验。
