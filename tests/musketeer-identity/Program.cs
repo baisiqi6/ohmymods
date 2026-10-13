@@ -383,6 +383,11 @@ internal static class Program
     {
         Reset();
         Check(MusketeerIdentity.CanPurchase, "confirmed baseline enables the shop");
+        MusketeerNativeSave.RejectEndpointUnavailable = true;
+        Check(!MusketeerIdentity.CanPurchase, "unavailable save rejection endpoint disables purchases before charging");
+        Check(!TryRegister(Gun().tool), "unavailable save rejection endpoint refuses paid career registration");
+        Check(MusketeerIdentity.StatusText.Contains("同步保存接口不可用"), "unavailable save endpoint is visible to the player");
+        MusketeerNativeSave.RejectEndpointUnavailable = false;
         var first = Gun();
         Check(TryRegister(first.tool), "register gun on the first island");
         Save(IslandJson("row-gun-1"), Row("row-gun-1", first.go));

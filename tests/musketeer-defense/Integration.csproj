@@ -5,6 +5,7 @@
     <Compile Include="../../il2cpp/GuardRankDistribution.cs" />
     <Compile Include="../../il2cpp/MusketeerIdentity.cs" />
     <Compile Include="../../il2cpp/MusketeerPersistence.cs" />
+    <Compile Include="../musketeer-boundary/MusketeerNativeSaveStub.cs" />
     <Compile Include="../../il2cpp/MusketeerArchive.cs" />
     <Compile Include="IntegrationStubs.cs" /><Compile Include="IntegrationProgram.cs" />
   </ItemGroup>

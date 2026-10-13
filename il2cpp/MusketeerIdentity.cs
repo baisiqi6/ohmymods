@@ -353,7 +353,7 @@ internal static class MusketeerIdentity
         {
             try
             {
-                if (!MusketeerAccess.Playing) return false;
+                if (!MusketeerAccess.Playing || MusketeerNativeSave.RejectEndpointUnavailable) return false;
                 var state = _current;
                 if (state == null || !state.Ready || state.ReadOnly || state.Unresolved || !state.HasBaseline || state.Epoch == null) return false;
                 if (state.StockRestores.Count > 0) return false;   // failed rack restore: retry before selling
@@ -385,6 +385,7 @@ internal static class MusketeerIdentity
             try
             {
                 if (!MusketeerAccess.TrackAllowed) return "火铳手身份：联机或非权威世界，暂停识别";
+                if (MusketeerNativeSave.RejectEndpointUnavailable) return "火铳手同步保存接口不可用，暂停购买";
                 var state = _current;
                 if (state == null || !state.Ready) return "火铳手身份：等待岛屿存档上下文";
                 if (state.Unresolved) return "火铳手附加档历史待确认，暂停购买";
@@ -404,7 +405,7 @@ internal static class MusketeerIdentity
     {
         try
         {
-            if (!MusketeerAccess.TrackAllowed) return false;
+            if (!MusketeerAccess.TrackAllowed || MusketeerNativeSave.RejectEndpointUnavailable) return false;
             if (tool == null || tool.gameObject == null) return false;
             if (stockSlot < MusketeerCareer.NoStockSlot || stockSlot >= StockSlots) return false;
             var state = _current;
@@ -1010,6 +1011,8 @@ internal static class MusketeerIdentity
             string file = GlobalSaveData.filename;
             if (string.IsNullOrEmpty(file) || file.Length > 256) return false;
             contextKey = MusketeerArchive.ContextKey(file, campaign, challenge, land);
+            try { MusketeerNativeSave.ObserveContext(contextKey, campaign, challenge, land); }
+            catch (Exception e) { Log("native-context", e); }
             return true;
         }
         catch { return false; }
