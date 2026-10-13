@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -105,6 +106,12 @@ internal static class MusketeerNativeSave
         internal readonly HashSet<string> Protected = new(StringComparer.Ordinal);
         internal readonly HashSet<string> Faults = new(StringComparer.Ordinal);
         internal long LastConsumedSequence;
+        internal Guid LegacyRequest;
+        internal string LegacyContext, LegacyEpoch;
+        internal Guid[] LegacyGrantIds;
+        internal bool LegacyWriterBlocked, LegacyAccepted;
+        internal bool LegacySceneCaptureStarted;
+        internal string LegacyNativeBeforeHash, LegacyProvisionalRaw;
     }
 
     internal sealed class Observation
@@ -325,6 +332,113 @@ internal static class MusketeerNativeSave
     // witnessed locator. The explicit hash selects exactly one snapshot inside the context's own
     // epoch: a missing exact snapshot is NoMatchingSnapshot and a non-unique scope/snapshot is
     // ScopeAmbiguous - never a positional pick, and never deferred to the caller.
+    // The partial-scene barrier is acquired before staging a migration or creating any
+    // compensating actor. In particular it also blocks the former zero-Protected pass-through.
+    internal static bool BeginLegacyCompensation(Guid request, string context, string epoch, IReadOnlyList<Guid> grants, out string reason)
+    {
+        reason = null;
+        if (request == Guid.Empty || !MusketeerArchive.HashValid(context) || !MusketeerArchive.HashValid(epoch)
+            || grants == null || grants.Count < 1 || grants.Count > 32 || grants.Any(g => g == Guid.Empty)
+            || grants.Distinct().Count() != grants.Count || _rejectTasksUnavailable)
+        { reason = "legacy-args-or-reject-endpoint"; return false; }
+        OwnerState owner = OwnerForBinding();
+        if (owner == null || !CurrentOwnerIs(owner)) { reason = "legacy-owner"; return false; }
+        string path = EnsureOwnerPath(owner);
+        if (path == null) { reason = "legacy-path"; return false; }
+        byte[] nativeBefore = ReadAllBytesBounded(path);
+        if (nativeBefore == null || !TryReadPrefsKey(owner, out string existingKey) || existingKey != null)
+        { reason = "legacy-native-source"; return false; }
+        lock (Sync)
+        {
+            if (owner.LegacyRequest != Guid.Empty || !owner.Observed.ContainsKey(context)
+                || owner.StagedRaw != null || owner.Proofs.Count != 0 || owner.Protected.Count != 0 || owner.Faults.Count != 0)
+            { reason = "legacy-already-active-or-source"; return false; }
+            if (!TryEnterPath(path, out _, out reason)) return false;
+            owner.LegacyRequest = request; owner.LegacyContext = context; owner.LegacyEpoch = epoch;
+            owner.LegacyGrantIds = grants.ToArray(); owner.LegacyWriterBlocked = true; owner.LegacyAccepted = false;
+            owner.LegacyNativeBeforeHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(nativeBefore));
+        }
+        LogEvent("legacy-compensation-save-barrier:" + Short(context));
+        return true;
+    }
+
+    internal static bool LegacyCompensationAccepted(Guid request, string context, string epoch)
+    {
+        OwnerState owner = _owner;
+        if (owner == null || !CurrentOwnerIs(owner)) return false;
+        lock (Sync) return owner.LegacyAccepted && owner.LegacyRequest == request
+            && owner.LegacyContext == context && owner.LegacyEpoch == epoch;
+    }
+
+    internal static bool AnyLegacyCompensationPending
+    {
+        get
+        {
+            OwnerState owner = _owner;
+            if (owner == null || !CurrentOwnerIs(owner)) return false;
+            lock (Sync) return owner.LegacyRequest != Guid.Empty && !owner.LegacyAccepted;
+        }
+    }
+
+    internal static void NoteLegacySceneCapture(string context)
+    {
+        OwnerState owner = _owner;
+        if (owner == null || !CurrentOwnerIs(owner)) return;
+        lock (Sync)
+            if (owner.LegacyRequest != Guid.Empty && context == owner.LegacyContext)
+                owner.LegacySceneCaptureStarted = true;
+    }
+
+    // Caller must first prove that every newly created object has been removed. We only allow
+    // this narrow pre-capture cancellation: after SerializeObjects, scene-row caches may contain
+    // births even if their live objects were removed, so automatic cancellation is forbidden.
+    internal static bool CancelLegacyBeforeCapture(Guid request, string context, string epoch, out string reason)
+    {
+        reason = null;
+        OwnerState owner = _owner;
+        if (owner == null || !CurrentOwnerIs(owner)) { reason = "legacy-cancel-owner"; return false; }
+        lock (Sync)
+        {
+            if (owner.LegacyRequest != request || owner.LegacyContext != context || owner.LegacyEpoch != epoch
+                || owner.LegacyAccepted || owner.LegacySceneCaptureStarted || !owner.LegacyWriterBlocked)
+            { reason = "legacy-cancel-already-captured-or-foreign"; return false; }
+            if (!TryEnterPath(owner.DiskPath, out _, out reason)) return false;
+            byte[] current = ReadAllBytesBounded(owner.DiskPath);
+            if (current == null || Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(current)) != owner.LegacyNativeBeforeHash)
+            { reason = "legacy-cancel-native-changed"; return false; }
+            if (!TryReadPrefsKey(owner, out string raw) || !string.Equals(raw, owner.LegacyProvisionalRaw, StringComparison.Ordinal)
+                || !string.Equals(owner.StagedRaw, owner.LegacyProvisionalRaw, StringComparison.Ordinal))
+            { reason = "legacy-cancel-staged-changed"; return false; }
+            var prefs = GlobalSaveData.loaded.prefs;
+            if (raw != null && !prefs.contents.Remove(MusketeerNativeArchive.Key))
+            { reason = "legacy-cancel-remove"; return false; }
+            if (!TryReadPrefsKey(owner, out string readback) || readback != null)
+            { reason = "legacy-cancel-readback"; return false; }
+            owner.Proofs.Remove(context); owner.Protected.Remove(context); owner.Faults.Remove(context);
+            owner.StagedRaw = null; owner.LegacyRequest = Guid.Empty; owner.LegacyContext = owner.LegacyEpoch = null;
+            owner.LegacyGrantIds = null; owner.LegacyWriterBlocked = false;
+            owner.LegacyNativeBeforeHash = owner.LegacyProvisionalRaw = null;
+        }
+        LogEvent("legacy-compensation-cancelled-before-capture:" + Short(context));
+        return true;
+    }
+
+    private static bool CompleteLegacyCheckpoint(OwnerState owner, MusketeerArchive archive, string context, string epoch, string hash)
+    {
+        if (owner.LegacyRequest == Guid.Empty || context != owner.LegacyContext || epoch != owner.LegacyEpoch) return false;
+        if (!archive.Compensations.TryGetValue(owner.LegacyRequest, out var receipt) || !receipt.Complete
+            || receipt.Plan.Context != context || receipt.MigrationEpoch != epoch
+            || !receipt.GrantIds.SequenceEqual(owner.LegacyGrantIds)
+            || !archive.TryGet(epoch, hash, out var snapshot)) return false;
+        for (int i = 0; i < owner.LegacyGrantIds.Length; i++)
+        {
+            var rows = snapshot.Records.Where(row => row.Id == owner.LegacyGrantIds[i]).ToArray();
+            if (rows.Length != 1 || rows[0].Kind != MusketeerCareer.KindUnit
+                || rows[0].NativeId != receipt.CapturedNativeIds[i]) return false;
+        }
+        return true;
+    }
+
     internal static bool Stage(string contextKey, string epoch, string hash, MusketeerArchiveStore.ReadResult expected, MusketeerArchive updated)
     {
         try
@@ -375,6 +489,10 @@ internal static class MusketeerNativeSave
                 };
                 owner.Protected.Add(contextKey);
                 owner.Faults.Remove(contextKey);
+                if (owner.LegacyRequest != Guid.Empty && owner.LegacyContext == contextKey && owner.LegacyEpoch == epoch)
+                    owner.LegacyProvisionalRaw = raw;
+                if (owner.LegacyWriterBlocked && CompleteLegacyCheckpoint(owner, updated, contextKey, epoch, hash))
+                    owner.LegacyWriterBlocked = false; // Complete proof only; buying still awaits actual accepted disk bytes.
             }
             LogEvent("staged:" + Short(contextKey) + ":" + Short(epoch) + ":" + Short(hash));
             return true;
@@ -636,6 +754,12 @@ internal static class MusketeerNativeSave
             lock (Sync)
             {
                 if (!TryEnterPath(path, out WriterVerdict blocked, out reason)) return blocked;
+                if (owner.LegacyWriterBlocked)
+                {
+                    reason = "LegacyCompensationPartial";
+                    LogOnce("gate-fail:LegacyCompensationPartial", "旧档补偿尚未收齐真实保存记录，暂停这次保存");
+                    return WriterVerdict.Fail;
+                }
             }
             // Payload validation freezes the rights and reads the catalog once at writer entry;
             // it never rewrites prefs and never takes a lease, so a rejection leaves this path free.
@@ -650,6 +774,7 @@ internal static class MusketeerNativeSave
             {
                 // Re-check after validation: another thread must not have entered meanwhile.
                 if (!TryEnterPath(path, out WriterVerdict blocked, out reason)) return blocked;
+                if (owner.LegacyWriterBlocked) { reason = "LegacyCompensationPartial"; return WriterVerdict.Fail; }
                 // Only the sync coroutine gets an attempt token: its finalizer harvests the same
                 // MoveNext call, so the binding is real. The async callback path is bound by content
                 // (its own frozen observation rights), never by a guessed attempt.
@@ -1221,6 +1346,22 @@ internal static class MusketeerNativeSave
                 return false;
             }
             MirrorSidecar(archiveBytes, archive);
+            lock (Sync)
+            {
+                if (ReferenceEquals(tokenOwner, _owner) && tokenOwner.LegacyRequest != Guid.Empty
+                    && !tokenOwner.LegacyWriterBlocked
+                    // A callback frozen before compensation cannot publish its acceptance,
+                    // even when a later writer has put a valid ledger on disk.
+                    && rights?.Protected == true && rights.DocumentRaw != null
+                    && rights.Proofs.Any(proof => proof.Context == tokenOwner.LegacyContext
+                        && proof.Epoch == tokenOwner.LegacyEpoch
+                        && CompleteLegacyCheckpoint(tokenOwner, archive, proof.Context, proof.Epoch, proof.Hash))
+                    && archive.Compensations.TryGetValue(tokenOwner.LegacyRequest, out var receipt)
+                    && receipt.Complete && receipt.Plan.Context == tokenOwner.LegacyContext
+                    && receipt.MigrationEpoch == tokenOwner.LegacyEpoch
+                    && receipt.GrantIds.SequenceEqual(tokenOwner.LegacyGrantIds))
+                    tokenOwner.LegacyAccepted = true;
+            }
             LogEvent(result == NoChangeCode ? "paired:verified-existing:" + Short(file) : "paired:" + Short(file));
             return true;
         }

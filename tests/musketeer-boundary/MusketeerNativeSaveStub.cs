@@ -6,6 +6,15 @@ namespace KingdomEnhancedMod;
 internal static class MusketeerNativeSave
 {
     internal static bool RejectEndpointUnavailable;
+    // The old disk-fixture suites never activate compensation. Keep this platform boundary
+    // disabled; the new native-gate suite links real Patch_MusketeerNativeSave instead.
+    internal static bool AnyLegacyCompensationPending => false;
+    internal static bool BeginLegacyCompensation(System.Guid request, string context, string epoch,
+        System.Collections.Generic.IReadOnlyList<System.Guid> grants, out string reason)
+        { reason = "compensation disabled in legacy disk-fixture host"; return false; }
+    internal static bool CancelLegacyBeforeCapture(System.Guid request, string context, string epoch,
+        out string reason) { reason = "compensation disabled in legacy disk-fixture host"; return false; }
+    internal static void NoteLegacySceneCapture(string context) { }
     internal static MusketeerArchiveStore.ReadResult ReadArchive()
         => MusketeerArchiveStore.Load(MusketeerPersistence.ArchivePath);
 

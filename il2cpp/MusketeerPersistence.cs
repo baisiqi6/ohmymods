@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text.Json;
 #if !ANDROID
 using ModDataPaths = BepInEx.Paths;
 #endif
@@ -60,7 +62,7 @@ internal static class MusketeerPersistence
             result.Unresolved = result.Records.Count > 0;
             return result;
         }
-        var matches = Collect(archive, context, rawJson);
+        var matches = Collect(archive, contextKey, context, rawJson);
         if (matches.Count > 0)
         {
             if (!Agree(matches)) return Quarantine(archive, matches, "conflict");
@@ -99,12 +101,15 @@ internal static class MusketeerPersistence
         internal MusketeerSnapshot Snapshot;
     }
 
-    private static List<Match> Collect(MusketeerArchive archive, MusketeerContext context, string rawJson)
+    private static List<Match> Collect(MusketeerArchive archive, string contextKey, MusketeerContext context, string rawJson)
     {
         var result = new List<Match>();
         if (context == null) return result;
         foreach (string epoch in context.Epochs)
         {
+            // A manually compensated source is retained for audit/rollback, not a second
+            // claim on the live world when an old hash happens to return.
+            if (archive.HistoricalOnly(contextKey, epoch) || MusketeerLegacyCompensationRuntime.ExcludesSourceEpoch(contextKey, epoch)) continue;
             string hash;
             try { hash = MusketeerArchive.IslandHash(rawJson, epoch); }
             catch (Exception) { continue; }   // unusable native JSON cannot match any stored snapshot
@@ -167,6 +172,76 @@ internal static class MusketeerPersistence
         return true;
     }
 
+    internal static bool PrepareLegacyCompensation(MusketeerIdentity.IslandState old, string rawJson,
+        MusketeerLegacyCompensationPlan plan, IReadOnlyList<Guid> grants,
+        out MusketeerIdentity.IslandState prepared, out MusketeerLegacyCompensationReceipt pending, out string reason)
+    {
+        prepared = null; pending = null; reason = "legacy-source-state";
+        if (plan == null || plan.Units != 8) { reason = "legacy-current-authorization-is-eight"; return false; }
+        if (old == null || !old.Ready || old.ReadOnly || !old.Unresolved || old.MatchKind != "unknown-paid"
+            || old.Epoch != null || old.GenerationPending || !ReferenceEquals(old, MusketeerIdentity.Current)
+            || !MusketeerAccess.TrackAllowed || IslandSaveData.isSavingGame || string.IsNullOrEmpty(rawJson)) return false;
+        var disk = ReadArchive();
+        if (!disk.Writable || disk.Status != MusketeerArchiveStore.State.Valid || disk.Original == null || disk.Archive == null
+            || !disk.Archive.TryGetContext(old.ContextKey, out var context)) return false;
+        string sourceSha = Convert.ToHexString(SHA256.HashData(disk.Original)).ToLowerInvariant();
+        if (!MusketeerLegacyCompensationPolicy.MatchesSource(plan, old.ContextKey, context.Active, sourceSha,
+            disk.Archive.LatestReservations(context.Active).Count)) return false;
+        foreach (var receipt in disk.Archive.Compensations.Values)
+            if (receipt.Plan.Context == old.ContextKey && receipt.Plan.SourceEpoch == context.Active)
+            { reason = "legacy-already-compensated"; return false; }
+        if (grants == null || grants.Any(id => disk.Archive.Scopes.Values.Any(list => list.Any(s => s.Records.Any(r => r.Id == id)))))
+        { reason = "legacy-grant-already-existed"; return false; }
+        string epoch = MusketeerArchive.NewScope();
+        if (!MusketeerLegacyCompensationPolicy.TryCreatePending(plan, epoch, grants, out pending, out reason)) return false;
+        string hash = MusketeerArchive.IslandHash(rawJson, epoch);
+        if (!MusketeerNativeSave.BeginLegacyCompensation(plan.RequestId, old.ContextKey, epoch, grants, out reason)) return false;
+        var next = new MusketeerIdentity.IslandState { ContextKey = old.ContextKey, Epoch = epoch, MatchKind = "legacy-compensation",
+            World = old.World, Ready = true, NewEpoch = true, HasBaseline = true, CompensationPending = true,
+            CompensationRequest = plan.RequestId };
+        // No pending receipt is serialized. The live owner barrier makes this schema-2 bootstrap
+        // unwriteable; schema 3 is introduced only by the successful real scene capture below.
+        if (!Commit(next, read => read.Archive.ConfirmBaseline(epoch, hash, Array.Empty<MusketeerCareer>()), hash))
+        {
+            MusketeerNativeSave.CancelLegacyBeforeCapture(plan.RequestId, old.ContextKey, epoch, out _);
+            reason = "legacy-bootstrap-stage"; return false;
+        }
+        MusketeerIdentity.InstallState(old.ContextKey, next);
+        prepared = next; reason = null;
+        return true;
+    }
+
+    private static bool CompleteLegacyRows(MusketeerIdentity.IslandState state, string json,
+        IReadOnlyList<MusketeerCareer> rows, out MusketeerLegacyCompensationReceipt complete, out string reason)
+    {
+        complete = null; reason = null;
+        if (!state.CompensationPending) return true;
+        if (!MusketeerLegacyCompensationRuntime.TryGetPendingReceipt(state, out var pending))
+        { reason = "legacy-pending-budget"; return false; }
+        // Completion was already staged, but not yet accepted: subsequent normal captures may
+        // update the scene hash; the immutable grant ledger is retained, not recomputed/re-issued.
+        if (pending.Complete) { complete = pending; return true; }
+        using var document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("objects", out var objects) || objects.ValueKind != JsonValueKind.Array)
+        { reason = "legacy-scene-objects"; return false; }
+        var captures = new List<MusketeerLegacyGrantCapture>(pending.GrantIds.Count);
+        foreach (Guid id in pending.GrantIds)
+        {
+            var matches = rows.Where(r => r.Id == id).ToArray();
+            if (matches.Length != 1) { reason = "legacy-capture-budget"; return false; }
+            var row = matches[0]; int count = 0; string path = null;
+            foreach (var obj in objects.EnumerateArray())
+                if (obj.TryGetProperty("uniqueID", out var native) && native.ValueKind == JsonValueKind.String
+                    && native.GetString() == row.NativeId)
+                {
+                    count++;
+                    if (obj.TryGetProperty("prefabPath", out var prefab) && prefab.ValueKind == JsonValueKind.String) path = prefab.GetString();
+                }
+            captures.Add(new MusketeerLegacyGrantCapture(id, row.NativeId, row.Kind, path, count));
+        }
+        return MusketeerLegacyCompensationPolicy.TryComplete(pending, captures, out complete, out reason);
+    }
+
     private static bool IsVirgin(IslandSaveData island)
     {
         try { return island != null && island.isNew && island.playTimeDays == 0.0; }
@@ -215,6 +290,7 @@ internal static class MusketeerPersistence
             ContextKey = key;
             Protected = MusketeerIdentity.Islands.TryGetValue(key, out var state) && state != null
                 && state.Ready && state.Epoch != null && !state.GenerationPending;
+            MusketeerNativeSave.NoteLegacySceneCapture(key);
         }
 
         internal void Capture(Persistent persistent, string id)
@@ -277,7 +353,15 @@ internal static class MusketeerPersistence
                 string json = JsonUtility.ToJson(Island, false);
                 if (string.IsNullOrEmpty(json)) { MusketeerIdentity.Log("save-json", null); return; }
                 string hash = MusketeerArchive.IslandHash(json, state.Epoch);
-                if (!Commit(state, disk => disk.Archive.Record(state.Epoch, hash, rows), hash)) { state.ReadOnly = true; MusketeerIdentity.Log("save-readonly", null); return; }
+                if (!CompleteLegacyRows(state, json, rows, out var complete, out string legacyFailure))
+                { MusketeerIdentity.Log("legacy-save-blocked:" + legacyFailure, null); return; }
+                if (!Commit(state, disk =>
+                {
+                    if (!disk.Archive.Record(state.Epoch, hash, rows)) return false;
+                    if (complete != null) disk.Archive.Compensations[complete.Plan.RequestId] = complete;
+                    return true;
+                }, hash)) { state.ReadOnly = true; MusketeerIdentity.Log("save-readonly", null); return; }
+                if (complete != null) MusketeerLegacyCompensationRuntime.CapturePrepared(complete);
                 Applied = true;
                 state.ReadOnly = false;
                 MusketeerIdentity.Log("staged:records=" + rows.Count + ":bound=" + liveIds.Count, null);
@@ -300,6 +384,7 @@ internal static class MusketeerPersistence
         private MusketeerIdentity.IslandState Old;
         private MusketeerIdentity.IslandState OldCurrent;
         private string Hash;
+        private string RawJson;
         private bool Confirmable;
         private bool GenerationPending;
         private readonly Dictionary<string, IntPtr> Frozen = new(StringComparer.Ordinal);
@@ -315,6 +400,7 @@ internal static class MusketeerPersistence
             if (!MusketeerIdentity.TryContextKey(GlobalSaveData.loaded.currentCampaign, GlobalSaveData.loaded.currentChallenge, island.land, out string contextKey)) return;
             string json = JsonUtility.ToJson(island, false);
             if (string.IsNullOrEmpty(json)) return;
+            RawJson = json;
             // A virgin island is recorded by the generation bridge after ApplyToScene succeeds;
             // this load must not pre-create its epoch or baseline.
             GenerationPending = IsVirgin(island);
@@ -419,6 +505,7 @@ internal static class MusketeerPersistence
             MusketeerIdentity.Log("loaded:" + State.MatchKind + ":records=" + State.Careers.Count
                 + ":bound=" + Bound + ":unbound=" + Unbound + ":pending=" + pending + ":stock=" + StockGuns.Count
                 + ":conflict=" + Conflict, null);
+            MusketeerLegacyCompensationRuntime.OnLoaded(State, RawJson);
         }
     }
 

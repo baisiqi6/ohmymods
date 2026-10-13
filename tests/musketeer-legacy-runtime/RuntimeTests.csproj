@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS0649;CS0169;CS0219</NoWarn>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AssemblyName>MusketeerLegacyRuntime.Tests</AssemblyName>
+    <RootNamespace>MusketeerLegacyRuntime.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Stubs.cs" />
+    <Compile Include="../../il2cpp/Patch_MusketeerLegacyCompensationRuntime.cs" Link="Production/Patch_MusketeerLegacyCompensationRuntime.cs" />
+    <Compile Include="../../il2cpp/Patch_MusketeerLegacyCompensation.cs" Link="Production/Patch_MusketeerLegacyCompensation.cs" />
+  </ItemGroup>
+</Project>
