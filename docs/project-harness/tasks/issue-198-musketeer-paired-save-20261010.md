@@ -54,3 +54,22 @@ dotnet run --project tests/musketeer-identity/Tests.csproj -c Release
 私有 v2 探针 DLL SHA-256 `4497381b1263a06c46e2df90dfe1199618d08bbc2d564bfa78a8c9bbb15ecdbf`，生产保存源码 SHA-256 `080bb7f232ce487cafd46d5b0570626361cbe31f44d3727b5ed0655ac253f9cd`；完整材料、模型与原生行号回执在 `.local/tasks/pr204-native-validation-20261011/`。v2-smoke-i 到 600 秒自动关闭，正常运行目录、游戏文件、共享存档、偏好与日志均恢复到该轮新鲜备份；正常 DLL 仍为 `9ef503f2...`，未安装候选。
 
 自动菜单输入没有进入新战役，已请求玩家仅协助操作隔离窗口。新候选的真实 writer 结果与配对、两笔合法付费的 Unit/Rack 保存、失败拒绝及下一次合法保存、callback/pending GC、退出进程冷读与无探针生产候选仍未验；实际 Busy、Windows 及旧 17 条恢复也未证明。PR 保持 Draft，完整原生关口通过前不合并。
+
+
+## 2026-10-13：Mac 付费样本与原生拒绝路径验证
+
+验证生产基线为 `c1f69dd2`，当前 2.4.0 ARM64 游戏及 Interop 哈希与上一节相同。无探针候选已由玩家真实购买 Unit 1 与 Rack 1，保存退出后冷启动，两份付费身份均绑定到新原生对象；后续原生日志显示敌人拾取工具；最终两条身份记录不能证明枪仍在架上，Bep1500 的原始具体原因仍未确定。该无探针结果与本次私有故障验收分别留证。
+
+最后隔离窗口 `v4-paid-writer-primed-20261013` 使用同一 pristine 付费样本，生产保存代码 SHA256 为 `080bb7f232ce487cafd46d5b0570626361cbe31f44d3727b5ed0655ac253f9cd`，私有 net6 探针 DLL SHA256 为 `d7439a96edd2575e7de9381ef966b7634667709de329f0e230b14f105408224a`。私有命令先调用当前原生 `IslandSaveData.SerializeObjects` 的真实场景采集入口，使用经核对的空 Nullable 包装；checkpoint 与 proof 摘要真实变化，owner 与保护集合保持，磁盘未写。未注入异步保存随后真实 Task/result/callback 返回 72、回调一次、输入与磁盘一致，证明后续故障试验具有合法缓存前置。
+
+- 同步：一次损坏 gzip 注入到实际 writer 后，正文未运行，boxed reader 与 Haglet 返回 136，文件 SHA、长度、mtime 与完整目录逐文件见证均不变；下一次未注入同步 writer 正文运行并返回 72，输入与磁盘 SHA 一致，租约终态 0。
+- 异步：一次同类注入令实际 writer 正文跳过、真实 Task 返回 136，原始回调恰一次收到 136，目录见证不变；下一次合法 writer 正文运行、Task 与原始回调返回 72，回调恰一次、输入与磁盘一致。最后文件 SHA 为 `da4157130f6365fc31c8f0c3dabbe873f7155246929ed2d397ccc7f9732d6242`、305894 字节，配对容器字节与实际文件一致。
+- 一次托管与原生 GC 调用发生在原始回调仍未完成、生产 observation 强根存在时；调用返回后回调仍未完成，随后合法 Task/回调各返回 72。未证明对象确被回收，GC 时 writer factory 尚未返回，不能称覆盖了 pending writer lease。
+
+异步 Task 完成后，生产租约会保留已完成 Task 的强根，直到下一次同路径 writer 在 `TryEnterPath` 读取 `IsCompleted` 并回收。本次下一同步入口真实回收该租约，拒绝及后续合法同步保存的租约均为 0；最终异步保存留下已完成 Task 的惰性强根，不将它写成尚未完成或即时清零。无周期清理、超时释放或人工清租约。
+
+此前私有 seq26/28 直接运行 global serializer，遗漏完整场景采集；未注入调用被 `NoMatchingSnapshot` 拒绝，因此不能作为合法保存恢复失败或生产缺陷证据。原有失败保留，本次修正仅限本机验收工具，未改生产补丁或加入 PR。严格首次 Playing 快照也已观察到两份身份在周期更新前绑定；此快照不表示持续架上库存。
+
+窗口正常退出（732.17 秒，超过 600 秒目标但未延长 1800 秒硬上限），内外恢复及最终只读复核的正常目录、游戏、存档、偏好和日志五项均一致，没有游戏进程；正常 DLL 保持 `9ef503f2`，未安装候选。私有完整回执位于 `.local/tasks/pr204-native-validation-20261011/v4/`，不发布玩家存档、对象 ID 或编码档案。
+
+Mac 必要安全分支已验证；最终独立结果审查与合并裁决另行留证。实际 Busy、Windows、旧 17 条权益恢复及设备端配对恢复接受正例仍未验证，Bep1500 的原始具体原因仍 unknown；这些边界不被 Mac 结果代替。历史材料中的 pending GC、首次 Playing 及全部平台覆盖不再作为额外的 Mac 合并硬门，不无痕改写早前“尚未验”记录。
