@@ -915,3 +915,8 @@ PC原回归117/0。实际PC SDK8 Release234源码/34资源、1290共同类型/68
 真实interop构建、生产wrapper57断言、9配置/产物模式及PC/Android全语义比较通过。原API35 ARM64/host同包3成功cold51→53→51、85.364s/10输入、31真实设置原30保持，最终关闭/游戏停止。工具保护失败如实保留。只证明加载/UI/配置与已选边界，真实转化/命中/容量32/owner层级、读档换岛池重建、手机/多人及长期待验。详见docs/project-harness/tasks/issue-221/implementation.md。
 
 PR229发布后仅进展文档追加段冲突；已保留主线与Android两端原文并同步 release/v9.5.13 100c181。上游8份PC火枪兵变化不在Android66输入中，本批17已审源SHA保持。最新主线全量PC双构建0W0E、候选与精确主线基线1356类型/7141方法/37资源语义MATCH，允许差异0；前文1318/6934是恢复初始基线结果。无需更换Android包或重复冷启动。
+
+
+## Issue #230 — 公共存档 namespace 编译兼容
+
+两个共享存档源在 ANDROID 分支直接导入真实 `Il2CppCoatsink.Common`，PC 原导入保持。默认全量诊断22条声明错误消除20条，剩Hook/INativeDetour2项平台边界；仅诊断opt-in桌面metadata后进入body阶段，仍有96条错误（76配置引用/37成员、1弩手身份缺口、19混合metadata歧义）。这不是全功能编译通过或玩法验收。现有Android66输入没有加入这两个文件，SDK10产品构建0W0E，0.0.30装机成果保持，未新启保存hooks或重打包安装。详情见[本批记录](../docs/project-harness/tasks/issue-230/implementation.md)。

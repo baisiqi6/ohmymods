@@ -2,7 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+#if ANDROID
+using Il2CppCoatsink.Common;
+#else
 using Coatsink.Common;
+#endif
 using UnityEngine;
 #if !ANDROID
 using ModDataPaths = BepInEx.Paths;
