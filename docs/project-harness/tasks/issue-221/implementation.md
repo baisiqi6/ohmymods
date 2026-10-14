@@ -23,3 +23,10 @@
 本节只验收加载、补丁注册与UI/配置闭环，不证明自然法杖转化32、神弓命中效果/其它分支、owner真实层级、容量32、存档读回/换岛/池重建、手机平板、多人或长期稳定。#213环境长挂根因仍开放。源/Git交付及正常任务收尾尚待，不提前关Issue。
 
 PR229发布后仅进展文档追加段冲突；已保留主线与Android两端原文并同步 release/v9.5.13 100c181。上游8份PC火枪兵变化不在Android66输入中，本批17已审源SHA保持。最新主线全量PC双构建0W0E、候选与精确主线基线1356类型/7141方法/37资源语义MATCH，允许差异0；前文1318/6934是恢复初始基线结果。无需更换Android包或重复冷启动。
+
+
+## 2026-10-14 代码交付与 normal 收尾
+
+PR229精确source `8e9320fcaba199d587df03c7c67163925434afd1` 已合并为 `53afef0aa6beecb64fce217aa78a81df4aeda356`，代码Issue221已关闭。主Operator明确交接新窗口后，fresh170项/154计划，正常登记后171/155；完成回执 `f952b4c1-bf09-4aaf-a92e-70dc7828faab` 已消费，canonical done/closed、owner/session空、lease released。对已消费receipt留下的DBmirror滞后，另获主Operator明确正常单任务投影刷新范围，独审与GLM5.3/max通过后仅reconcile issue-221，镜像最终closed；未force/repair-only/global reconcile或重消费。validator通过、doctor0 errors/0 warnings，旧170整行/顺序及全部计划/local checklist保持，窗口已归还。
+
+这仅关闭本批代码交付：自然法杖转化/神弓命中与其它分支、真实owner层级、32池容量、读档换岛与池重建、手机平板、多人和长期稳定性仍未验收；Issue213继续开放。前文待PR/待窗口描述是当时阶段，已由本段实际回执取代，不改写历史证据。

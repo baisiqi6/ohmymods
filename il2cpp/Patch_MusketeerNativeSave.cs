@@ -6,7 +6,11 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+#if ANDROID
+using Il2CppCoatsink.Common;
+#else
 using Coatsink.Common;
+#endif
 using HarmonyLib;
 using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;

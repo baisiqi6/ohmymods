@@ -2056,3 +2056,8 @@ unknown-paid旧档枪架无付款点已定位到身份保护门，用户选择�
 2026-10-14 Android Issue221：同一私有0.0.30包已完成3成功cold51→53→51、85.364s/10真实UI输入；31配置原30保持、最终DivineOFF/游戏0PID，Main/native最终读回保持。旧两次age失败及本轮静态滚动/ON排版模板两次工具保护失败保留，修工具产生处而不改Mod/加retry。自然转化/命中/Pool32/owner层级、手机/MP/长期仍待验，#213开放。详见tasks/issue-221/implementation.md；source检查点ebfd8c6已push，PR与normal任务收尾未提前称完成。
 
 PR229发布后仅进展文档追加段冲突；已保留主线与Android两端原文并同步 release/v9.5.13 100c181。上游8份PC火枪兵变化不在Android66输入中，本批17已审源SHA保持。最新主线全量PC双构建0W0E、候选与精确主线基线1356类型/7141方法/37资源语义MATCH，允许差异0；前文1318/6934是恢复初始基线结果。无需更换Android包或重复冷启动。
+
+
+2026-10-14 Android Issue221 已按新交接窗口完成代码收尾：PR229精确head8e9320f合并为53afef0，Issue221关闭；normal完成回执已消费，canonical与DBmirror均closed，owner/session清空、lease释放，validator通过、doctor0E0W，旧170完整对象及顺序和全部计划保持，窗口已归还主Operator。自然转化/命中、owner实际层级/Pool32、读档换岛/池重建、手机平板、多人及长期待验，#213继续开放。上文“未登记/未交接/待PR”均为此前阶段的历史状态。
+
+2026-10-14 Android Issue230 公共编译批：已在两shared-save import产生处适配Il2CppCoatsink.Common，PC import原样。当前全量声明诊断22→2（Hook/INativeDetour），仅诊断opt-in进入body后96errors/1warning，分类为76配置引用37成员+1CrossbowmanRole+19混合metadata歧义；没有把错误数当完成率。现有Android66产品输入0W0E、PC私有net6全源0W0E及1356/7141/37语义零差异；未新启保存/职业/射击hooks、未改装机或游戏数据。源码候选审查与交付中，详情tasks/issue-230/implementation.md。
