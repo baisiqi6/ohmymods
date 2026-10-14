@@ -1,3 +1,57 @@
+#if ANDROID
+using System;
+
+namespace KingdomEnhancedMod;
+
+/// <summary>
+/// Android candidate-count field for DamageAffectedEnemies is compared directly.
+/// Borrow 20 for this call only; the separate damage loop is not a total-hit cap.
+/// </summary>
+public static class PatchDivine_Artemis
+{
+    private const float AppliedCandidateLimit = 20f;
+
+    internal sealed class Borrow
+    {
+        internal ArtemisArrow Arrow;
+        internal float Original;
+        internal bool Written;
+
+        internal void End()
+        {
+            if (!Written) return;
+            Written = false;
+            try
+            {
+                if (Arrow._maxHitsPerArrow == AppliedCandidateLimit)
+                    Arrow._maxHitsPerArrow = Original;
+            }
+            catch (Exception ex) { AndroidDivineParametersScope.LogError(ex); }
+        }
+    }
+
+    internal static void DamageAffectedEnemies_Prefix(ArtemisArrow __instance, out Borrow __state)
+    {
+        __state = null;
+        if (!AndroidDivineParametersScope.IsEnabled()) return;
+        try
+        {
+            if (!AndroidDivineParametersScope.IsCurrentAuthority(__instance)) return;
+            float original = __instance._maxHitsPerArrow;
+            if (original == AppliedCandidateLimit) return;
+            __state = new Borrow { Arrow = __instance, Original = original, Written = true };
+            __instance._maxHitsPerArrow = AppliedCandidateLimit;
+        }
+        catch (Exception ex) { AndroidDivineParametersScope.LogError(ex); }
+    }
+
+    internal static Exception Finalizer(Exception __exception, Borrow __state)
+    {
+        __state?.End();
+        return __exception;
+    }
+}
+#else
 using System;
 using HarmonyLib;
 using UnityEngine;
@@ -34,3 +88,4 @@ public static class PatchDivine_Artemis
         }
     }
 }
+#endif

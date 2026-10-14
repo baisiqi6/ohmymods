@@ -3,7 +3,7 @@ using MelonLoader;
 using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using UnityEngine;
-[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.29", "OhMyMods")]
+[assembly: MelonInfo(typeof(OhMyMods.AndroidProbe.Probe), "OhMyMods Android Probe", "0.0.30", "OhMyMods")]
 namespace OhMyMods.AndroidProbe;
 public sealed class Probe : MelonMod
 {
@@ -16,7 +16,7 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
-  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.29 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters,existing_role_scale,wall_engineers,world_layout");
+  LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.30 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters,existing_role_scale,wall_engineers,world_layout,divine_parameters");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
   var crownAwake=AccessTools.Method(typeof(Il2Cpp.CrownStealer),"Awake",Type.EmptyTypes)??throw new MissingMethodException("CrownStealer.Awake()");
@@ -137,9 +137,24 @@ public sealed class Probe : MelonMod
   var staffCanCancel=AccessTools.Method(typeof(Il2Cpp.ItemOfPower),"CanCancel",Type.EmptyTypes)??throw new MissingMethodException("ItemOfPower.CanCancel()");
   HarmonyInstance.Patch(staffRoutine,prefix:new HarmonyMethod(staffCooldownType,"RoutinePrefix"),finalizer:new HarmonyMethod(staffCooldownType,"Finalizer"));
   HarmonyInstance.Patch(staffCanCancel,prefix:new HarmonyMethod(staffCooldownType,"CanCancelPrefix"),finalizer:new HarmonyMethod(staffCooldownType,"Finalizer"));
-  LogHookCounts(staffRoutine);
   LogHookCounts(staffCanCancel);
   LoggerInstance.Msg("ANDROID_STAFF_BASE_COOLDOWN_HOOKS_INSTALLED consumers=2 currentFieldRelative=true additiveTimeNative=true");
+  if(KingdomEnhancedMod.ModConfig.DivineParametersEnabled.Value)
+  {
+   var divineStaff=typeof(KingdomEnhancedMod.PatchDivine_HermesStaff);
+   HarmonyInstance.Patch(staffRoutine,prefix:new HarmonyMethod(divineStaff,"RoutinePrefix"),finalizer:new HarmonyMethod(divineStaff,"Finalizer"));
+   var revert=AccessTools.Method(typeof(Il2Cpp.FriendlyTroll),"ShouldRevertToTroll",Type.EmptyTypes)??throw new MissingMethodException("FriendlyTroll.ShouldRevertToTroll()");
+   HarmonyInstance.Patch(revert,prefix:new HarmonyMethod(divineStaff,"FriendlyTroll_ShouldRevertToTroll_Prefix"));
+   var affected=AccessTools.Method(typeof(Il2Cpp.ArtemisArrow),"DamageAffectedEnemies",new[]{typeof(GameObject)})??throw new MissingMethodException("ArtemisArrow.DamageAffectedEnemies(GameObject)");
+   var divineArrow=typeof(KingdomEnhancedMod.PatchDivine_Artemis);
+   HarmonyInstance.Patch(affected,prefix:new HarmonyMethod(divineArrow,"DamageAffectedEnemies_Prefix"),finalizer:new HarmonyMethod(divineArrow,"Finalizer"));
+   LogHookCounts(revert);
+   LogHookCounts(affected);
+   LoggerInstance.Msg("ANDROID_DIVINE_PARAMETERS_HOOKS_INSTALLED targets=3 addedUniqueTargets=2 fieldBorrow=true cooldownOwnerUnchanged=true");
+  }
+  else LoggerInstance.Msg("ANDROID_DIVINE_PARAMETERS_HOOKS_DISABLED targets=0");
+  // One final count after both independent field borrowers on the shared target.
+  LogHookCounts(staffRoutine);
   PatchStamina(typeof(Il2Cpp.Player),"UpdateActionState",typeof(KingdomEnhancedMod.PatchRide_InfiniteStamina),"UpdateActionState_Prefix","UpdateActionState_Postfix","UpdateActionState_Finalizer");
   PatchStamina(typeof(Il2Cpp.SteedAbility),"Activate",typeof(KingdomEnhancedMod.PatchRide_InfiniteStaminaAbility),"Prefix","Postfix");
   PatchStamina(typeof(Il2Cpp.GlideMovementSteedAbility),"Activate",typeof(KingdomEnhancedMod.PatchRide_InfiniteStaminaGlide),"Prefix","Postfix");

@@ -2050,3 +2050,9 @@ typed host106/0、strict789/0+oldcfg629/0、Grounding17/0；缺失physics getter
 ## 2026-10-13 Issue223 旧档火枪手补偿
 
 unknown-paid旧档枪架无付款点已定位到身份保护门，用户选择保留旧历史并一次性授予8名新火枪手。源码与契约回归、Mac真实8名生成及物理存盘、1次付款身份跨冷进程恢复和不重复补偿已通过独立验收。测试原进度五通道完整恢复后，累计候选36faec77与固定8名私有Plan已安装正常版本；补偿待玩家下一次加载授权战役目标岛执行。原校验失败与额外进程输出保留，隔离postimage未作为正常进度。详细范围与验证边界见[任务记录](tasks/2026-10-13-issue223-musketeer-legacy-compensation.md)。PR224仍Draft、Issue223开放，Windows/Android、多人和换岛实机未验。
+
+2026-10-14 Android Issue221恢复：原未提交工作区消失，17原审查源已在独立工作区按原SHA逐字节恢复；实际Android/PC0W0E、9adapter1114/0或954/0、生产wrapper57/0、Android新旧与PC完整语义MATCH。暂停前默认OFF51与中文小浮球/控件观察仍为历史证据，ON/OFF冷启及天然效果待验；当前不把恢复/编译当新实机通过，canonical窗口需重新交接。详见tasks/issue-221/implementation.md。
+
+2026-10-14 Android Issue221：同一私有0.0.30包已完成3成功cold51→53→51、85.364s/10真实UI输入；31配置原30保持、最终DivineOFF/游戏0PID，Main/native最终读回保持。旧两次age失败及本轮静态滚动/ON排版模板两次工具保护失败保留，修工具产生处而不改Mod/加retry。自然转化/命中/Pool32/owner层级、手机/MP/长期仍待验，#213开放。详见tasks/issue-221/implementation.md；source检查点ebfd8c6已push，PR与normal任务收尾未提前称完成。
+
+PR229发布后仅进展文档追加段冲突；已保留主线与Android两端原文并同步 release/v9.5.13 100c181。上游8份PC火枪兵变化不在Android66输入中，本批17已审源SHA保持。最新主线全量PC双构建0W0E、候选与精确主线基线1356类型/7141方法/37资源语义MATCH，允许差异0；前文1318/6934是恢复初始基线结果。无需更换Android包或重复冷启动。

@@ -36,6 +36,7 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<float> WallSpotMultiplier;
     internal static MelonPreferences_Entry<bool> TowerLadderCleanup;
     internal static MelonPreferences_Entry<bool> WallSpotDiagnostics;
+    internal static MelonPreferences_Entry<bool> DivineParametersEnabled;
     internal static MelonPreferences_Entry<bool> CalendarEnabled;
     internal static MelonPreferences_Entry<float> EnemyCountMultiplier;
     internal static MelonPreferences_Entry<float> EnemyTimelineSpeed;
@@ -83,6 +84,7 @@ internal static class ModConfig
         WallSpotMultiplier = category.CreateEntry<float>("WallSpotMultiplier", 1f);
         TowerLadderCleanup = category.CreateEntry<bool>("TowerLadderCleanup", false);
         WallSpotDiagnostics = category.CreateEntry<bool>("WallSpotDiagnostics", false);
+        DivineParametersEnabled = category.CreateEntry<bool>("DivineParametersEnabled", false);
         CalendarEnabled = category.CreateEntry<bool>("CalendarEnabled", false);
         EnemyCountMultiplier = category.CreateEntry<float>("EnemyCountMultiplier", 1f);
         EnemyTimelineSpeed = category.CreateEntry<float>("EnemyTimelineSpeed", 1f);
@@ -212,6 +214,13 @@ internal static class ModConfig
     {
         RoleScaleEnabled.Value = !RoleScaleEnabled.Value;
         MelonLogger.Msg("ANDROID_ROLE_SCALE_NEXT_LAUNCH enabled=" + RoleScaleEnabled.Value);
+        Save();
+    }
+
+    internal static void ToggleDivineParameters()
+    {
+        DivineParametersEnabled.Value = !DivineParametersEnabled.Value;
+        MelonLogger.Msg("ANDROID_DIVINE_PARAMETERS enabled=" + DivineParametersEnabled.Value);
         Save();
     }
 
