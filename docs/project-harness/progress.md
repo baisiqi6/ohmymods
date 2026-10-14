@@ -2042,3 +2042,5 @@ typed host106/0、strict789/0+oldcfg629/0、Grounding17/0；缺失physics getter
 代码PR与normal任务收尾待完成，验收边界见tasks/issue-184/implementation.md；不发布游戏/loader/interop。
 
 2026-10-14 Android Issue221恢复：原未提交工作区消失，17原审查源已在独立工作区按原SHA逐字节恢复；实际Android/PC0W0E、9adapter1114/0或954/0、生产wrapper57/0、Android新旧与PC完整语义MATCH。暂停前默认OFF51与中文小浮球/控件观察仍为历史证据，ON/OFF冷启及天然效果待验；当前不把恢复/编译当新实机通过，canonical窗口需重新交接。详见tasks/issue-221/implementation.md。
+
+2026-10-14 Android Issue221：同一私有0.0.30包已完成3成功cold51→53→51、85.364s/10真实UI输入；31配置原30保持、最终DivineOFF/游戏0PID，Main/native最终读回保持。旧两次age失败及本轮静态滚动/ON排版模板两次工具保护失败保留，修工具产生处而不改Mod/加retry。自然转化/命中/Pool32/owner层级、手机/MP/长期仍待验，#213开放。详见tasks/issue-221/implementation.md；source检查点ebfd8c6已push，PR与normal任务收尾未提前称完成。
