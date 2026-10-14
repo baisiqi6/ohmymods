@@ -6,6 +6,27 @@ using UnityEngine;
 public class Holder { public UnityEngine.Object firePrefab = new(); }
 public class FirePlaceholder : Component { public bool burnsAtNightOnly = true; }
 public class BambooLamp : Component { }
+// Only the lifecycle boundary under test is simulated. This is not native execution.
+public class AutoLightRegister : Component
+{
+    public static bool IgnoreNightLightOnlyWrites, ThrowNightLightOnlyWrites;
+    private bool _nightLightOnly = true;
+    public bool nightLightOnly
+    {
+        get => _nightLightOnly;
+        set
+        {
+            if (ThrowNightLightOnlyWrites) throw new InvalidOperationException("night policy unavailable");
+            if (!IgnoreNightLightOnlyWrites) _nightLightOnly = value;
+        }
+    }
+    public int EnableCalls;
+    public bool? FirstEnableNightLightOnly;
+    public void OnEnable()
+    {
+        if (EnableCalls++ == 0) FirstEnableNightLightOnly = _nightLightOnly;
+    }
+}
 public static class Blender
 {
     public static bool LightsOn, Throw;

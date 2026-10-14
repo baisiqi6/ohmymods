@@ -208,8 +208,64 @@ internal static class Program
     }
     public static int Main()
     {
-        try { ForeignWorldDuringRestore(); InterruptedWithdrawal(); StockRelocation(); NativeLightRegression(); FixedPricesAndReadonly(); GemPhases(); Cancellation(); InvalidReceipts(); MoreTests(); VisualBorrowing(); BilateralPresentation(); FailedStartedTests(); Console.WriteLine("PASS " + _checks + " production payment/native adapter assertions"); return 0; }
+        try { ForeignWorldDuringRestore(); InterruptedWithdrawal(); StockRelocation(); BambooLightRegression(); NativeLightRegression(); FixedPricesAndReadonly(); GemPhases(); Cancellation(); InvalidReceipts(); MoreTests(); VisualBorrowing(); BilateralPresentation(); FailedStartedTests(); Console.WriteLine("PASS " + _checks + " production payment/native adapter assertions"); return 0; }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
+    }
+    private static void BambooLightRegression()
+    {
+        Setup(true);
+        var owner = new GameObject("bamboo-light-owner"); owner.SetActive(false);
+        var light = new CustomShopLighting("bamboo");
+        Check(light.Attach(owner.transform, BiomeHolder.BambooBiomeIndex), "Bamboo attaches below an inactive shop root");
+        var prop = owner.transform.children.Single().gameObject;
+        var register = prop.GetComponentsInChildren<AutoLightRegister>(true).Single();
+        Check(!register.nightLightOnly, "Bamboo Attach disables the cloned day/night writer before publication");
+        Check(register.EnableCalls == 0 && !prop.activeInHierarchy, "Bamboo policy is configured before any first activation");
+        owner.SetActive(true);
+        Check(register.EnableCalls == 0, "shop activation leaves unsampled Bamboo prop unpublished");
+        Blender.LightsOn = true; light.Tick(true);
+        Check(prop.activeInHierarchy && register.EnableCalls == 1 && register.FirstEnableNightLightOnly == false,
+            "first ambient activation exposes the corrected policy to native lifecycle boundary");
+        light.Dispose();
+        Check(prop.Destroyed && !prop.activeSelf && owner.transform.children.Count == 0, "Bamboo Dispose removes its exact clone");
+
+        foreach (string fault in new[] { "missing-register", "multiple-registers", "silent-policy-write", "throw-policy-write", "missing-lamp" })
+        {
+            owner.SetActive(false); light = new CustomShopLighting(fault);
+            UnityEngine.Object.BambooRegisterCount = fault == "missing-register" ? 0 : fault == "multiple-registers" ? 2 : 1;
+            UnityEngine.Object.OmitBambooLamp = fault == "missing-lamp";
+            AutoLightRegister.IgnoreNightLightOnlyWrites = fault == "silent-policy-write";
+            AutoLightRegister.ThrowNightLightOnlyWrites = fault == "throw-policy-write";
+            int created = UnityEngine.Object.InstantiateCalls, destroyed = UnityEngine.Object.DestroyCalls;
+            try
+            {
+                Check(!light.Attach(owner.transform, BiomeHolder.BambooBiomeIndex), "Bamboo rejects " + fault);
+                Check(UnityEngine.Object.InstantiateCalls == created + 1 && UnityEngine.Object.DestroyCalls == destroyed + 1,
+                    "Bamboo failed Attach destroys exactly its new clone: " + fault);
+                var rejected = UnityEngine.Object.LastInstantiated;
+                Check(rejected.Destroyed && !rejected.activeSelf && owner.transform.children.Count == 0,
+                    "Bamboo failed Attach leaves no published or parented clone: " + fault);
+                Check(rejected.GetComponentsInChildren<AutoLightRegister>(true).All(r => r.EnableCalls == 0),
+                    "Bamboo rejects before the first native activation: " + fault);
+                light.Dispose();
+                Check(UnityEngine.Object.DestroyCalls == destroyed + 1, "Bamboo failed Attach cleanup is idempotent: " + fault);
+            }
+            finally
+            {
+                UnityEngine.Object.BambooRegisterCount = 1; UnityEngine.Object.OmitBambooLamp = false;
+                AutoLightRegister.IgnoreNightLightOnlyWrites = AutoLightRegister.ThrowNightLightOnlyWrites = false;
+            }
+        }
+        foreach (int biome in new[] { 0, BiomeHolder.GreeceBiomeIndex })
+        {
+            owner.SetActive(false); light = new CustomShopLighting("fire-control");
+            Check(light.Attach(owner.transform, biome), "Fire donor still attaches without a Bamboo registrar: " + biome);
+            prop = owner.transform.children.Single().gameObject;
+            Check(!prop.GetComponentInChildren<FirePlaceholder>(true).burnsAtNightOnly,
+                "Fire donor retains its original pre-activation policy setup: " + biome);
+            Check(prop.GetComponentsInChildren<AutoLightRegister>(true).Length == 0, "Fire donor does not acquire Bamboo components: " + biome);
+            light.Dispose();
+        }
     }
     private static void NativeLightRegression()
     {

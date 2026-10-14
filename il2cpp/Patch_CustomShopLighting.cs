@@ -17,16 +17,17 @@
 //     burnsAtNightOnly（interop 实测，FirePlaceholder/Fire 均有）。在首次激活前把它置
 //     false（单次写）：SwapNow 会把该值传给 Fire，Fire.Start 因此不订阅
 //     Kingdom.OnDayStart/OnDayEnd，日夜控制只剩本 helper 一个所有者，避免双控制器。
-//   * 竹林 donor（Torch_Bamboo）没有 FirePlaceholder，其 BambooLamp 原生自查
-//     Blender.ShouldLightsBeOn 并自淡入淡出；本 helper 仍只写根 active 标志，
-//     BambooLamp 的内部状态保持原生责任。
+//   * 竹林 donor（Torch_Bamboo）没有 FirePlaceholder；首次激活前要求恰一个现有
+//     AutoLightRegister，并将克隆的 nightLightOnly=false 后读回确认，防止其日夜回调
+//     另写 Light.enabled。BambooLamp 仍原生自查 ShouldLightsBeOn 并管理光晕/子根，
+//     AutoLightRegister 保留原生注册/退注册，本 helper 只控制灯具根 active。
 //   * donor 为独立原生灯具 prefab（prefabs/objects/torch、prefabs/objects/oillamp、
 //     prefabs/buildings and interactive/torch_bamboo，审计核定的 ResourceManager 真实
 //     条目），不带 ShopTag/Payable/Persistent/CRPC——克隆后逐项校验，命中即销毁并拒绝。
 //     不克隆整店、不做场景/资源全量扫描、不改全局 ambient/材质、不新建资产。
 //   * Attach 前置条件（Root 责任）：owner 为未激活的自有店根、资产材质校验已过。
 //     本 helper 强制校验 inactive，违规 fail-closed 返回 false（防止 FirePlaceholder.Start
-//     在 burnsAtNightOnly 写入前触发）。
+//     或 AutoLightRegister.OnEnable 在对应日夜策略写入前触发）。
 //   * pause：Tick(false) 完全 no-op（保持当前亮灯状态）；恢复后到期立即补采样。
 //   * Dispose：销毁自己创建的 prop（anti-rootreuse：按创建时实例 ID + 仍在本 owner
 //     之下判定，绝不误毁新 owner 的灯）；幂等；世界/清退各分支由 Root 调用。
@@ -318,8 +319,8 @@ internal sealed class CustomShopLighting : IDisposable
             }
             if (owner.gameObject.activeInHierarchy)
             {
-                // FirePlaceholder.Start 一旦在激活态触发，SwapNow 会在 burnsAtNightOnly
-                // 写入前完成换装 → 出现原生日夜第二控制器。Root 必须先于激活调用本方法。
+                // FirePlaceholder.Start/AutoLightRegister.OnEnable 在激活态触发会先于
+                // 日夜策略写入，产生原生第二控制器。Root 必须先于激活调用本方法。
                 Fault("attach-owner-active");
                 return false;
             }
@@ -418,7 +419,23 @@ internal sealed class CustomShopLighting : IDisposable
                     Abort("bamboo-lamp-missing");
                     return false;
                 }
-                // BambooLamp 原生自查 ShouldLightsBeOn 并维护淡入淡出；本 helper 只拥有根 active。
+                var registers = prop.GetComponentsInChildren<AutoLightRegister>(true);
+                if (registers == null || registers.Length != 1)
+                {
+                    Abort("bamboo-register-count-mismatch");
+                    return false;
+                }
+                // 当前 donor 审计恰一个注册器。只配置自有 inactive 克隆，首次 OnEnable/Start
+                // 前关闭日夜写者；注册/退注册与 BambooLamp 光晕/子根仍交给原生生命周期。
+                foreach (var register in registers)
+                {
+                    register.nightLightOnly = false;
+                    if (register.nightLightOnly)
+                    {
+                        Abort("bamboo-night-policy-write-unconfirmed");
+                        return false;
+                    }
+                }
             }
 
             try { prop.name = "KEM_ShopLight_" + _policy.OwnerName; }

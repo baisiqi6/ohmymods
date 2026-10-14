@@ -31,12 +31,25 @@ namespace UnityEngine
         public int GetInstanceID() => (int)Pointer;
         public string name;
         public bool Destroyed;
-        public static void Destroy(Object obj) { obj.Destroyed = true; if (obj is GameObject go) { go.SetActive(false); go.transform.SetParent(null, true); } }
+        public static int InstantiateCalls, DestroyCalls, BambooRegisterCount = 1;
+        public static bool OmitBambooLamp;
+        public static GameObject LastInstantiated;
+        public static void Destroy(Object obj) { DestroyCalls++; obj.Destroyed = true; if (obj is GameObject go) { go.SetActive(false); go.transform.SetParent(null, true); } }
         public static T Instantiate<T>(T prefab, Transform owner, bool keep) where T : Object
         {
             var go = new GameObject(prefab.name); go.transform.SetParent(owner, false);
+            InstantiateCalls++; LastInstantiated = go;
             go.transform.localPosition = new Vector3(0, .875f, 0);
-            if (prefab.name == "Torch_Bamboo") go.AddComponent<BambooLamp>(); else go.AddComponent<FirePlaceholder>();
+            if (prefab.name == "Torch_Bamboo")
+            {
+                if (!OmitBambooLamp) go.AddComponent<BambooLamp>();
+                for (int i = 0; i < BambooRegisterCount; i++)
+                {
+                    var child = new GameObject("BambooLight"); child.transform.SetParent(go.transform, false);
+                    child.AddComponent<AutoLightRegister>();
+                }
+            }
+            else go.AddComponent<FirePlaceholder>();
             return go as T;
         }
     }
@@ -100,10 +113,23 @@ namespace UnityEngine
             if (ThrowPlaceholderRead && typeof(T) == typeof(FirePlaceholder)) throw new InvalidOperationException("placeholder unreadable");
             return GetComponent<T>() ?? transform.children.Select(t => t.gameObject.GetComponentInChildren<T>(inactive)).FirstOrDefault(t => t != null);
         }
+        public T[] GetComponentsInChildren<T>(bool inactive) where T : Component
+        {
+            if (!inactive && !activeInHierarchy) return Array.Empty<T>();
+            return _components.OfType<T>().Concat(transform.children.SelectMany(t => t.gameObject.GetComponentsInChildren<T>(inactive))).ToArray();
+        }
         public void SetActive(bool active)
         {
             bool old = activeInHierarchy; activeSelf = active;
-            if (old && !active) DisableTree(this);
+            bool current = activeInHierarchy;
+            if (old && !current) DisableTree(this);
+            else if (!old && current) EnableTree(this);
+        }
+        private static void EnableTree(GameObject go)
+        {
+            if (!go.activeInHierarchy) return;
+            foreach (var c in go._components) c.GetType().GetMethod("OnEnable")?.Invoke(c, null);
+            foreach (var child in go.transform.children.ToArray()) EnableTree(child.gameObject);
         }
         private static void DisableTree(GameObject go)
         {
