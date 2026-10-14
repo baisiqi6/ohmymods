@@ -83,3 +83,16 @@ Mac ARM64 当前 2.4.0、正常累计 DLL `36faec77` 的独立副本完成了一
 恢复原图后的最终源链接回归：helper130、visual891、runtime913项通过；全IL2CPP私有公开编译0警告0错误。编译产物 `6b219418db7f91804d017791a0d139538dbc41b2cacefea30e6f77d93be3a2b9` 的37资源全部与R1源B快照逐字节相同，两Soldier PNG又与当前源码raw exact；相关37个托管方法IL也与R1相同。该编译不是累积发行包，未安装。证据位于主工作区 `.local/tasks/map-shield-visual-20261014/gait-completion/art-revision2/`，含独立美术、trace、embedded审查、root-final-repro和browser-captures。
 
 当前边界：PR仍Draft，待本阶段正常代码交付；不合并、不安装。原生Run/Advance最终节奏与严格锁地未验证，Windows未验证，正常DLL/存档未改。
+
+
+## 2026-10-14：用户改为先交付当前修复，实机由后续游玩验证
+
+用户明确改为“先把现在做好的合并安装，后续游玩自然实测”。据此撤销本轮先完成三步态原生校准再交付的阶段前置；这不补造原生验收。R4采样/隔离工具准备已停止，未启动新测试游戏，也不会把observer装入正常版。前文“补齐腿轨迹”的历史候选批准已撤回，最终仍为完整原B膝踝靴形。
+
+交付行为为三循环按carrier实际位移播放、受挡不继续空踏、反向反读及原B描边柔化；真实移速和AI不变。Walk30/Run48/Advance24仍只是名义视觉步频参考，原生同显示帧校准、严格足底锁地、稳定自然跑步和举盾前进观感、Windows均待验。当前普通Drive只请求walkSpeed；没有证实持续自然Run入口，不能把短暂Run标签当验收。
+
+从本机正常36fa累计母版重建后，只叠ActorVisuals、新Gait及两张B图，私有无observer候选SHA为`3620d5d1c834e77188580ddb61009c347eff0f34dd68572bd847007c68acad04`。独立严格比对不依赖lambda归一化：母版原方法体与38资源保持，候选仅具名Gait集成与两PNG差异，额外PalaceEntryIdle及其余累计修复保留。公开分支37资源编译与正常累计38资源是不同口径，不能混用。net6兼容候选和net8编译通过；本轮fresh helper130、visual891、runtime913通过，测试只在本机既有runtime10按进程设置LatestMajor运行，不修改全局环境。首轮遗漏该设置而apphost退出150的记录保留。
+
+本次按用户授权进入PR #228正常合并、Issue #227代码范围关单与本机安装流程；状态以GitHub回读和私有`gait-native-r4-20261014/player-install/install-receipt.json`为准，不把这段计划当执行成功。安装仅允许主DLL及SHA256SUMS两处变化，先备份旧DLL和当前配置/存档，游戏、配置、存档和其它累计功能保持；安装后由原`/Applications/ohmymods/arm64/launcher.command`启动。仍无新公开release/tag/ZIP，沿用本地10.9.38元数据，后续正式发布按VERSIONING统一核账。
+
+本轮证据位于主工作区`.local/tasks/map-shield-visual-20261014/gait-native-r4-20261014/`：`build-independent-review.*`、`delivery-verification-runtime10/`、`natural-gait-entry-audit.*`及`player-install/`。玩家之后发现的新现象另开具体Issue/PR，不把本代码关单表述为三动作已完成实机验收。
