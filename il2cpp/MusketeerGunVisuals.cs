@@ -16,7 +16,7 @@ internal static class MusketeerGunVisuals
         internal int Id;
         internal SpriteRenderer Native, View;
         internal GameObject Child;
-        internal bool Owned, Original;
+        internal bool Owned, Original, Parked;
         internal int Seen;
     }
     private static readonly Dictionary<IntPtr, Entry> Entries = new();
@@ -42,20 +42,10 @@ internal static class MusketeerGunVisuals
                     if (!Release(old)) continue;
                     Entries.Remove(key);
                 }
-                if (!Entries.TryGetValue(key, out var entry))
-                {
-                    var native = tool.GetComponent<SpriteRenderer>();
-                    if (native == null || native.forceRenderingOff) continue; // do not take another system's hidden object
-                    var child = new GameObject("KEM_MusketeerGunView");
-                    child.transform.SetParent(tool.transform, false);
-                    var view = child.AddComponent<SpriteRenderer>();
-                    view.sprite = _sprite;
-                    entry = new Entry { Tool = tool, Id = tool.gameObject.GetInstanceID(), Native = native, Child = child, View = view, Original = native.forceRenderingOff };
-                    Entries.Add(key, entry);
-                }
+                if (!Entries.TryGetValue(key, out var entry) && (entry = CreateEntry(tool)) == null) continue;
                 entry.Seen = _frame;
                 bool visible = !tool.pickedUp && !tool.IsFake() && entry.Native != null && entry.Native.enabled;
-                if (entry.View != null) entry.View.enabled = visible;
+                if (entry.View != null) entry.View.enabled = visible && !entry.Parked;
                 if (!visible) { Restore(entry); continue; }
                 entry.Child.transform.localPosition = new Vector3(0f, 0f, -0.001f);
                 bool onRack = MusketeerShop.TryGetRackSorting(tool, out int rackLayer, out int rackOrder);
@@ -73,8 +63,46 @@ internal static class MusketeerGunVisuals
         }
         Remove.Clear();
         foreach (var pair in Entries)
-            if (!enabled || pair.Value.Seen != _frame) { if (Release(pair.Value)) Remove.Add(pair.Key); }
+            if (!enabled || (!pair.Value.Parked && pair.Value.Seen != _frame)) { if (Release(pair.Value)) Remove.Add(pair.Key); }
         foreach (var key in Remove) Entries.Remove(key);
+    }
+    private static Entry CreateEntry(DroppableTool tool)
+    {
+        if (tool == null || tool.gameObject == null || !Load()) return null;
+        var native = tool.GetComponent<SpriteRenderer>();
+        if (native == null || native.forceRenderingOff) return null;
+        var child = new GameObject("KEM_MusketeerGunView");
+        child.transform.SetParent(tool.transform, false);
+        var view = child.AddComponent<SpriteRenderer>(); view.sprite = _sprite;
+        var entry = new Entry { Tool = tool, Id = tool.gameObject.GetInstanceID(), Native = native,
+            Child = child, View = view, Original = native.forceRenderingOff };
+        Entries.Add(tool.Pointer, entry); return entry;
+    }
+    internal static bool IsParked(DroppableTool tool)
+        => tool != null && tool.gameObject != null && Entries.TryGetValue(tool.Pointer, out var entry)
+            && entry.Id == tool.gameObject.GetInstanceID() && entry.Parked;
+    internal static void SetParked(DroppableTool tool, bool parked)
+    {
+        if (tool == null || tool.gameObject == null) throw new InvalidOperationException("paid gun missing");
+        if (!Entries.TryGetValue(tool.Pointer, out var entry)) entry = CreateEntry(tool);
+        if (entry == null || entry.Id != tool.gameObject.GetInstanceID())
+            throw new InvalidOperationException("paid gun visual unavailable or reused");
+        if (parked) entry.Parked = true; // retain restore responsibility if a native write throws
+        if (!entry.Owned)
+        {
+            if (entry.Native.forceRenderingOff) throw new InvalidOperationException("native renderer belongs to another owner");
+            entry.Original = false; entry.Owned = true;
+        }
+        if (parked)
+        {
+            entry.Native.forceRenderingOff = true;
+            if (!entry.Native.forceRenderingOff) throw new InvalidOperationException("native gun visibility write unconfirmed");
+        }
+        bool visible = !parked && entry.Native.forceRenderingOff
+            && !tool.pickedUp && !tool.IsFake() && entry.Native.enabled;
+        entry.View.enabled = visible;
+        if (entry.View.enabled != visible) throw new InvalidOperationException("paid gun visibility write unconfirmed");
+        if (!parked) entry.Parked = false; // commit release only after the native renderer write
     }
     private static bool Restore(Entry entry)
     {
@@ -102,6 +130,7 @@ internal static class MusketeerGunVisuals
         foreach (var entry in Entries.Values)
         {
             if (entry.Tool == null || entry.Tool.gameObject == null || entry.Tool.gameObject.Pointer != root.Pointer) continue;
+            entry.Parked = false;
             if (entry.View != null) entry.View.enabled = false;
             Restore(entry); entry.Seen = -1; // destruction remains in ordinary LateUpdate
         }

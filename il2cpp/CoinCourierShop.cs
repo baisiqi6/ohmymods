@@ -114,6 +114,7 @@ internal static class CoinCourierShop
     private static NetworkPostbox _postbox;
     private static CRPCHeader _header;
     private static CoinCourierView _marker;
+    private static CustomShopLighting _lighting;
     private static Il2CppSystem.Action<Player> _started;
     private static readonly CoinCourierShopPayment Payment = new();
     private static readonly CoinCourierCleanupGuard Cleanup = new();
@@ -223,6 +224,7 @@ internal static class CoinCourierShop
                     Clear("left-playing-or-menu");
                     return;
                 case HeroShopRetention.Outcome.Active:
+                    _lighting?.Tick(true);
                     TickActive();
                     return;
                 case HeroShopRetention.Outcome.Keep:
@@ -406,6 +408,8 @@ internal static class CoinCourierShop
         _header = _postbox.RegisterObject(_object, CRPCType.SemiStatic);
         if (!HeaderMatches()) throw new InvalidOperationException("native payment header registration failed");
         _createStage = "activate";
+        _lighting = new CustomShopLighting("CoinCourierShop");
+        if (!_lighting.Attach(_object.transform, BiomeHolder.Inst?.BiomeIndex ?? -1)) Log("lighting: " + _lighting.Status);
         _object.SetActive(true);
         _kingdom = kingdom;
         _layer = layer;
@@ -543,6 +547,7 @@ internal static class CoinCourierShop
                 && found != null && found.Pointer == _header.Pointer)
                 _postbox.DeregisterObject(_object, _header.NetID, CRPCType.SemiStatic);
             if (_marker != null) CoinCourierVisuals.Destroy(_marker);
+            _lighting?.Dispose(); _lighting = null;
             if (_object != null)
             {
                 _object.SetActive(false);

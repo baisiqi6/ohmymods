@@ -56,6 +56,8 @@ internal static class HeavyShieldIdentity
     internal static void Install(Session session)
     {
         if (ReferenceEquals(_current, session)) return;
+        if (!CustomShopStocks.Shield.ReleaseAll())
+            throw new InvalidOperationException("paid shield temporary fields not restored before install");
         _current = session;
         RootLives.Clear();
         RootClaims.Clear();
@@ -264,6 +266,7 @@ internal static class HeavyShieldIdentity
         if (!s.Claims.TryGetValue(lease.Receipt, out var claim)
             || claim.Phase is not (HeavyShieldSavedClaimPhase.PaidTool
                 or HeavyShieldSavedClaimPhase.PaidToolUnresolved)
+            || !CustomShopStocks.Shield.ReleaseRoot(claim.RootObject)
             || !s.Quota.ConfirmRefundedTool(lease.Receipt)) return false;
         s.Claims.Remove(lease.Receipt);
         RootClaims.Remove(claim.Handle.Root);
@@ -331,6 +334,15 @@ internal static class HeavyShieldIdentity
             return root != null && root.GetInstanceID() == handle.GoId;
         }
         catch { return false; }
+    }
+    internal static bool HasExactPaidStockBinding(in HeavyShieldCareerHandle handle)
+    {
+        var s = _current;
+        return s != null && handle.CampaignGuid == s.Guid && handle.Land == s.Land && handle.World == s.World
+            && s.Claims.TryGetValue(handle.Receipt, out var claim) && claim.Handle == handle
+            && claim.Phase == HeavyShieldSavedClaimPhase.PaidTool
+            && RootClaims.TryGetValue(handle.Root, out var receipt) && receipt == handle.Receipt
+            && RootLives.TryGetValue(handle.Root, out long life) && life == handle.Life;
     }
 
     internal static bool TryGetCombatState(in HeavyShieldCareerHandle handle,
@@ -406,6 +418,7 @@ internal static class HeavyShieldIdentity
             || HeroRecruitment.HasPurchasedCareer(successor)
             || MusketeerIdentity.IsMarked(successor.gameObject)
             || !HeavyShieldPromotionBridge.MatchesActiveProof(paidBow, source)
+            || !CustomShopStocks.Shield.ReleaseRoot(claim.RootObject)
             || !s.Quota.ConfirmSoldier(paidBow.Receipt)) return false;
         RootClaims.Remove(paidBow.Root);
         claim.Phase = HeavyShieldSavedClaimPhase.Soldier;
@@ -488,6 +501,10 @@ internal static class HeavyShieldIdentity
             }
             // Existing B contract: observe only the exact successfully rebound
             // paid tool. This cache/visual callback never owns identity success.
+            if (claim.Phase == HeavyShieldSavedClaimPhase.PaidTool
+                && ModConfig.Enabled.Value && ModConfig.HeavyShieldEnabled.Value
+                && !CustomShopStocks.Shield.Capture(bow, Managers.Inst?.world?.gameLayer))
+            { s.Unknown = s.StageFault = true; return false; }
             if (claim.Phase == HeavyShieldSavedClaimPhase.PaidTool)
                 try { HeavyShieldShopShell.ObservePaidBow(bow); } catch { }
         }

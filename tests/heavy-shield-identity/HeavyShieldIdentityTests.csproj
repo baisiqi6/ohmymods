@@ -19,4 +19,5 @@
     <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldEnrollment.cs" Link="HeavyShieldEnrollment.cs"
              Condition="Exists('$(HeavyShieldSourceRoot)/HeavyShieldEnrollment.cs')" />
   <Compile Include="$(HeavyShieldSourceRoot)/Patch_HeavyShieldSnapshot.cs" Link="Patch_HeavyShieldSnapshot.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../custom-shop-boundary/DisabledCustomShopStocks.cs" Link="Boundary/DisabledCustomShopStocks.cs" /></ItemGroup>
 </Project>

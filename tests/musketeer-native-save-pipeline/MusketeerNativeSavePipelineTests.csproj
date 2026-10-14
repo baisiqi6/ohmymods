@@ -26,4 +26,5 @@
     <Compile Include="../../il2cpp/Patch_MusketeerLegacyCompensation.cs" Link="Production/Patch_MusketeerLegacyCompensation.cs" />
     <Compile Include="../musketeer-boundary/DisabledLegacyCompensationRuntime.cs" Link="Boundary/DisabledLegacyCompensationRuntime.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../custom-shop-boundary/DisabledCustomShopStocks.cs" Link="Boundary/DisabledCustomShopStocks.cs" /></ItemGroup>
 </Project>

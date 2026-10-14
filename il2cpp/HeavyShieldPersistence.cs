@@ -135,7 +135,11 @@ internal static class HeavyShieldPersistence
                 || session.Slot != loaded.currentCampaign
                 || session.Challenge != loaded.currentChallenge)
             { HeavyShieldIdentity.Install(null); return; }
-            if (session.Land >= 0 && WorldKey() != 0) session.World = WorldKey();
+            if (session.Land >= 0 && WorldKey() != 0)
+            {
+                if (session.World != WorldKey() && !CustomShopStocks.Shield.ReleaseAll()) return;
+                session.World = WorldKey();
+            }
             HeavyShieldIdentity.Install(session);
             if (session.KeyReady && !IsNativeKeyCurrent(session)) Freeze(session);
             if (_load == null) ActivateBoundSoldiers(session);
@@ -559,10 +563,12 @@ internal static class HeavyShieldPersistence
             || !success || scope.Conflict || (!scope.Exact && !scope.Fresh)
             || !allProven || !quotaRestored)
         {
+            s.Unknown = true;
+            if (!CustomShopStocks.Shield.ReleaseAll())
+                throw new InvalidOperationException("rejected shield stock release failed");
             // An active-but-undischarged first-connect responsibility keeps the
             // first purchase closed until a correct lifecycle completes it; the
             // normal Exact/paid paths never take this branch.
-            s.Unknown = true;
             foreach (var handle in scope.Attached)
                 try { HeavyShieldRuntime.DetachCarrier(handle); } catch { }
             return;

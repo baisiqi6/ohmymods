@@ -18,4 +18,5 @@
     <Compile Include="../../il2cpp/CombatTargetLife.cs" Link="Production/CombatTargetLife.cs" />
     <Compile Include="../../il2cpp/CombatDamage.cs" Link="Production/CombatDamage.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../custom-shop-boundary/DisabledCustomShopStocks.cs" Link="Boundary/DisabledCustomShopStocks.cs" /></ItemGroup>
 </Project>
