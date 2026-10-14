@@ -64,7 +64,7 @@ internal static class WorldLayoutPreferenceChecks
                 || field.Name == "WallSpotDiagnostics") continue;
             original.Add(field, field.FieldType.GetField("Value", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).GetValue(field.GetValue(null)));
         }
-        Checks.Check(original.Count == 25, "layout controls retain all twenty-five prior preferences");
+        Checks.Check(original.Count == 26, "layout controls retain all twenty-five prior preferences plus the later divine choice");
         int saves = MelonPreferencesStub.SaveCalls;
         Config.ToggleWorldLayout();
         Checks.Check(Config.WorldLayoutEnabled.Value == !layoutSeed && MelonPreferencesStub.SaveCalls == ++saves,

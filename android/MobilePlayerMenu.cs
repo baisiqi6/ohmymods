@@ -4,7 +4,7 @@ using KingdomEnhancedMod;
 namespace OhMyMods.AndroidProbe;
 
 /// <summary>
-/// 玩家页（presentation only，Issue #144）：六个设置各一行，全部经 MobileModPanel.Step/Toggle
+/// 玩家页（presentation only，Issue #144）：设置各一行，全部经 MobileModPanel.Step/Toggle
 /// 这一条公共路径登记 tap rect 并绘制；不使用 GUI.Button、不自持固定坐标与样式。
 /// 内容高度由面板 cursor 单点累计，本方法不返回高度。
 /// 中文名与 PC 面板同源；两个冷却行说明“下次技能调用生效、只缩放该次/基础冷却、原生追加不缩放”。
@@ -17,6 +17,7 @@ internal static class MobilePlayerMenu
     private static readonly Action TogglePetGuard = ModConfig.TogglePetGuard;
     private static readonly Action CycleSteedCooldown = ModConfig.CycleSteedCooldown;
     private static readonly Action CycleStaffCooldown = ModConfig.CycleStaffCooldown;
+    private static readonly Action ToggleDivineParameters = ModConfig.ToggleDivineParameters;
 
     internal static void Draw(MobileModPanel panel, float width, float scale)
     {
@@ -31,5 +32,7 @@ internal static class MobilePlayerMenu
             "下次技能调用生效；原生冷却因坐骑而异。", CycleSteedCooldown);
         panel.Step("法杖神器冷却", ModConfig.StaffCooldownMultiplier.Value + "x",
             "只缩放基础冷却，下次使用生效；原生目标追加时间不缩放。", CycleStaffCooldown);
+        panel.Step("神器参数增强", ModConfig.DivineParametersEnabled.Value ? "开启后重启" : "已关闭",
+            "开启后重启，关闭从下次判定生效。法杖每次最多转化32，启用时不自动恢复敌对；神弓范围候选最多20，其它原生命中不变。目标追加冷却仍按原生计算。", ToggleDivineParameters);
     }
 }

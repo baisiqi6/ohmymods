@@ -2040,3 +2040,5 @@ typed host106/0、strict789/0+oldcfg629/0、Grounding17/0；缺失physics getter
 20cfg、最终false4/120、old17保持、停机；first-observed不冒充spawn。自然补员delta1/OFF原生值
 读回/全部world/池重建/手机多指MP长周期仍pending。原a551/5559失败与125.86s超120窗口保留。
 代码PR与normal任务收尾待完成，验收边界见tasks/issue-184/implementation.md；不发布游戏/loader/interop。
+
+2026-10-14 Android Issue221恢复：原未提交工作区消失，17原审查源已在独立工作区按原SHA逐字节恢复；实际Android/PC0W0E、9adapter1114/0或954/0、生产wrapper57/0、Android新旧与PC完整语义MATCH。暂停前默认OFF51与中文小浮球/控件观察仍为历史证据，ON/OFF冷启及天然效果待验；当前不把恢复/编译当新实机通过，canonical窗口需重新交接。详见tasks/issue-221/implementation.md。

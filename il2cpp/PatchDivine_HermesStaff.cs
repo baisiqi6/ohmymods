@@ -1,3 +1,98 @@
+#if ANDROID
+using System;
+using UnityEngine;
+
+namespace KingdomEnhancedMod;
+
+/// <summary>Android call-boundary parameters; all other staff profiles stay native.</summary>
+public static class PatchDivine_HermesStaff
+{
+    private const int EffectiveMaxConvertedTrolls = 32;
+
+    internal sealed class Borrow
+    {
+        internal HermesStaff Staff;
+        internal int Original;
+        internal bool Written;
+
+        internal void End()
+        {
+            if (!Written) return;
+            Written = false;
+            try
+            {
+                // Another writer owns a changed value; only return our still-applied loan.
+                if (Staff._maximumConvertedTrolls == EffectiveMaxConvertedTrolls)
+                    Staff._maximumConvertedTrolls = Original;
+            }
+            catch (Exception ex) { AndroidDivineParametersScope.LogError(ex); }
+        }
+    }
+
+    internal static void RoutinePrefix(HermesStaff._StartAbilityRoutine_d__17 __instance, out Borrow __state)
+    {
+        __state = null;
+        // This pure configuration gate precedes every native or Unity access.
+        if (!AndroidDivineParametersScope.IsEnabled()) return;
+        try
+        {
+            if (__instance == null || __instance.__1__state != 0) return;
+            var staff = __instance.__4__this;
+            if (!AndroidDivineParametersScope.IsCurrentAuthority(staff)) return;
+            int original = staff._maximumConvertedTrolls;
+            if (original == EffectiveMaxConvertedTrolls) return;
+            __state = new Borrow { Staff = staff, Original = original, Written = true };
+            staff._maximumConvertedTrolls = EffectiveMaxConvertedTrolls;
+        }
+        catch (Exception ex) { AndroidDivineParametersScope.LogError(ex); }
+    }
+
+    internal static Exception Finalizer(Exception __exception, Borrow __state)
+    {
+        __state?.End();
+        return __exception;
+    }
+
+    internal static bool FriendlyTroll_ShouldRevertToTroll_Prefix(FriendlyTroll __instance, ref bool __result)
+    {
+        if (!AndroidDivineParametersScope.IsEnabled()) return true;
+        if (!AndroidDivineParametersScope.IsCurrentAuthority(__instance)) return true;
+        __result = false;
+        return false;
+    }
+}
+
+/// <summary>Shared Android scope. Config unavailable means no native access.</summary>
+internal static class AndroidDivineParametersScope
+{
+    internal static bool IsEnabled()
+    {
+        try
+        {
+            return ModConfig.Enabled != null && ModConfig.Enabled.Value
+                && ModConfig.DivineParametersEnabled != null && ModConfig.DivineParametersEnabled.Value;
+        }
+        catch { return false; }
+    }
+
+    internal static bool IsCurrentAuthority(Component component)
+    {
+        try
+        {
+            return !NetworkBigBoss.IsOnline && NetworkBigBoss.HasWorldAuth
+                && OptionalQoLScope.IsActive && OptionalQoLScope.IsCurrent(component);
+        }
+        catch { return false; }
+    }
+
+    internal static void LogError(Exception ex)
+    {
+        // Boundary diagnostics cannot replace a native exception with a logging failure.
+        try { KingdomEnhancedPlugin.Instance?.LogSource?.LogError(ex); }
+        catch { }
+    }
+}
+#else
 using System;
 using HarmonyLib;
 using UnityEngine;
@@ -147,3 +242,4 @@ public static class PatchDivine_HermesStaff
         return false;                               // 跳过原方法
     }
 }
+#endif
