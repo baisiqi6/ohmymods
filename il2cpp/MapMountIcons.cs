@@ -127,8 +127,8 @@ namespace KingdomEnhancedMod
         private static readonly object[] _shoreTokens = new object[ExtensionIslandMapPlan.SlotCount];   // 每 tuple 独立 shore 租约 token
         private static readonly MapTimelineMenuGreece[] _shoreMenus = new MapTimelineMenuGreece[ExtensionIslandMapPlan.SlotCount];
         private static int _overviewExtensionCount;                 // 最近一次提交识别的扩展实例数（漂移检测）
-        private static MapShoreMask _placementMask;                // 顶面 PlacementMask（来自 art.Prep；按 prep 实例缓存）
-        private static object _placementMaskSource;
+        private static readonly MapShoreMask[] PlacementMasks = new MapShoreMask[ExtensionIslandMapPlan.SlotCount];
+        private static readonly object[] PlacementMaskSources = new object[ExtensionIslandMapPlan.SlotCount];
         private static readonly MapTimelineMenuGreece[] _detailMenus = new MapTimelineMenuGreece[ExtensionIslandMapPlan.SlotCount];   // 每 tuple detail 绑定时捕获的 exact menu
         private static readonly UILand[] _detailShapeLands = new UILand[ExtensionIslandMapPlan.SlotCount];        // 每 tuple 已应用 detail 形状的 exact 实例
         private static readonly object[] _detailShapeTokens = new object[ExtensionIslandMapPlan.SlotCount];       // 每 tuple 独立 detail 租约 token
@@ -181,7 +181,6 @@ namespace KingdomEnhancedMod
         // 队列满导致 captured 身份被保留（fail-closed）：仅在 DeferRelease 拒绝时置位，身份清理时复位。
         // 与「健康租约」区分：健康的在租状态不影响注册换代重绑（S3），只有真正的未收尾责任才拒绝新接管。
         private static bool _shoreReleaseRetained;
-        private static readonly List<RectTransform> _detailExcludedRects = new List<RectTransform>(2);
         private static readonly List<RectSnapshot> _detailSnapshots = new List<RectSnapshot>(2);   // detail 独立快照（与 world Expanded 分离）
         // world pending 显示门（消闪）：**自有 CanvasGroup**（AddComponent 创建、绝不用/改 native 既有组）在
         // 同帧渲染前把 exact 当前 _mainMap 子树 alpha 归 0，直到几何提交 + 真实 focused-reign 刷新成功后
@@ -556,7 +555,13 @@ namespace KingdomEnhancedMod
 
                 // 唯一自有 extension detail：在数据/图标路径之前绑定并摆放新岸线（shape 先于测量；
                 // 与 icons 开关解耦，失败不写任何东西、保留 native 详情）。
-                if (!overview) EnsureDetailShape(land, menu);
+                if (!overview && !EnsureDetailShape(land, menu))
+                {
+                    // A failed pair cannot authorize cached icons or a pager on the old shore.
+                    // Retry only on the next ordinary data callback; keep other lands untouched.
+                    DestroyHolder(view);
+                    return;
+                }
 
                 // 只用当次 reign：不可用（null / 越界 / entry null）即失效并清掉该 land 旧自有显示，
                 // 但 ON+owned 期间**不归还**原生资源槽的接管责任：若此刻还原，原生 _spawnedIcon 会带着
@@ -744,10 +749,9 @@ namespace KingdomEnhancedMod
                 }
             }
             // 几何归还先行（失败重试不依赖几何状态）
-            _detailExcludedRects.Clear();
             RestoreDetailSnapshots();
-            _placementMask = null;
-            _placementMaskSource = null;
+            Array.Clear(PlacementMasks, 0, PlacementMasks.Length);
+            Array.Clear(PlacementMaskSources, 0, PlacementMaskSources.Length);
             bool queued = true;
             if (outstanding)
             {
@@ -1771,7 +1775,7 @@ namespace KingdomEnhancedMod
             if (paper == null || entry == null || entry.BannerArea.Width <= 1f) return;
             MapIconBox shoreFrame = entry.TargetArtBox;
             if (shoreFrame.Width <= 1f || shoreFrame.Height <= 1f) return;
-            if (!EnsurePlacementMask()) return;
+            if (!TryGetPlacementMask(entry.LandIndex, out MapShoreMask mask)) return;
 
             var native = new List<MapIconBox>(240);
             List<RectTransform> bannerExcluded = entry.BannerExcluded.Count > 0 ? entry.BannerExcluded : _bannerExcludedRects;
@@ -1785,8 +1789,9 @@ namespace KingdomEnhancedMod
             MapIconBox area = MapWorldLayout.IconAreaOf(shoreFrame);
             // 正常 world 视口同样显式 .60 下限（与 detail 一致）：低于可读下限不再算成功，
             // 真实容量不足一律整组 fallback，绝不让 .36–.50 的降级档冒充正常验收。
-            if (MapExtensionIslandLayout.TryPlan(area, requests, blockers, shoreFrame, _placementMask,
-                    placements, out usedScale, out failed, MapExtensionIslandLayout.PreferScale))
+            if (MapExtensionIslandLayout.TryPlan(area, requests, blockers, shoreFrame, mask,
+                    placements, out usedScale, out failed, MapExtensionIslandLayout.PreferScale,
+                    MapExtensionIslandArtVariant.AnchorsFor(entry.LandIndex)))
             {
                 return;
             }
@@ -1797,13 +1802,19 @@ namespace KingdomEnhancedMod
         }
 
         /// <summary>顶面 PlacementMask 缓存（来自 art.Prep.PlacementMask；按 prep 实例缓存，art Reset 后自动重建）。</summary>
-        private static bool EnsurePlacementMask()
+        private static bool TryGetPlacementMask(int physicalLand, out MapShoreMask mask)
         {
-            MapExtensionIslandArt.ShorePrep prep = MapExtensionIslandArt.Prep;
+            mask = null;
+            int slot = SlotIndexOfLand(physicalLand);
+            if (slot < 0 || !MapExtensionIslandArt.TryEnsure(physicalLand)) return false;
+            MapExtensionIslandArt.ShorePrep prep = MapExtensionIslandArt.PrepFor(physicalLand);
             if (prep == null || prep.PlacementMask == null || prep.Width <= 0 || prep.Height <= 0) return false;
-            if (_placementMask != null && ReferenceEquals(_placementMaskSource, prep)) return true;
-            _placementMask = new MapShoreMask(prep.Width, prep.Height, prep.PlacementMask);
-            _placementMaskSource = prep;
+            if (PlacementMasks[slot] == null || !ReferenceEquals(PlacementMaskSources[slot], prep))
+            {
+                PlacementMasks[slot] = new MapShoreMask(prep.Width, prep.Height, prep.PlacementMask);
+                PlacementMaskSources[slot] = prep;
+            }
+            mask = PlacementMasks[slot];
             return true;
         }
 
@@ -1871,22 +1882,24 @@ namespace KingdomEnhancedMod
                 outlineImage = outline.GetComponent<Image>();
                 if (outlineImage == null) return false;
 
-                Sprite shore = MapExtensionIslandArt.Shore;
+                Sprite shore = MapExtensionIslandArt.ShoreFor(detailPhysical);
+                Sprite outlineSprite = MapExtensionIslandArt.OutlineFor(detailPhysical);
                 // O(1) 快路（P3）：token/land + **两个捕获的原生 Image 身份** + 两份已应用 sprite + 两份几何；
                 // 任一 required Image 缺失/读故障/被外部替换都不能算四图 ready（否则会 reveal 混合 pair）。
                 if (shore != null && ReferenceEquals(token, _detailShapeTokens[detailSlot]) &&
                     SameInstance(_detailShapeLands[detailSlot], land) &&
                     SameInstance(_detailShapeOutlineImages[detailSlot], outlineImage) &&
                     MapExtensionIslandArt.IsApplied(artImage, shore) &&
-                    MapExtensionIslandArt.IsApplied(outlineImage, MapExtensionIslandArt.Outline) &&
+                    MapExtensionIslandArt.IsApplied(outlineImage, outlineSprite) &&
                     DetailGeometryApplied(art, shore.rect.width, shore.rect.height) &&
                     DetailGeometryApplied(outline, shore.rect.width, shore.rect.height))
                 {
                     return true;
                 }
-                if (!MapExtensionIslandArt.TryEnsure()) return false;   // 冷启动：直接 detail 也能加载
-                shore = MapExtensionIslandArt.Shore;
-                if (shore == null) return false;
+                if (!MapExtensionIslandArt.TryEnsure(detailPhysical)) return false;   // 冷启动：直接 detail 也能加载
+                shore = MapExtensionIslandArt.ShoreFor(detailPhysical);
+                outlineSprite = MapExtensionIslandArt.OutlineFor(detailPhysical);
+                if (shore == null || outlineSprite == null) return false;
                 // fail-closed：同上（detail 视角）——旧 owner 责任未收尾时不为新 owner 建租约。
                 if (ShoreTakeoverBlocked(token))
                 {
@@ -1924,8 +1937,8 @@ namespace KingdomEnhancedMod
                 {
                     return false;
                 }
-                if (MapExtensionIslandArt.TryBorrow(outlineImage, MapExtensionIslandArt.Outline, token) == null &&
-                    !MapExtensionIslandArt.IsApplied(outlineImage, MapExtensionIslandArt.Outline))
+                if (MapExtensionIslandArt.TryBorrow(outlineImage, outlineSprite, token) == null &&
+                    !MapExtensionIslandArt.IsApplied(outlineImage, outlineSprite))
                 {
                     MapExtensionIslandArt.ReleaseBorrowed(artImage);   // 事务：outline 失败 → 回滚 art
                     return false;
@@ -1949,9 +1962,6 @@ namespace KingdomEnhancedMod
                     return false;
                 }
 
-                _detailExcludedRects.Clear();
-                _detailExcludedRects.Add(art);
-                _detailExcludedRects.Add(outline);
                 _detailShapeLands[detailSlot] = land;
                 _detailShapeTokens[detailSlot] = token;
                 _detailShapeOutlineImages[detailSlot] = outlineImage;
@@ -2012,6 +2022,8 @@ namespace KingdomEnhancedMod
             internal MapIconBox ShoreBox;
             internal MapIconBox Area;
             internal List<MapIconBox> Blockers;
+            internal MapShoreMask Mask;
+            internal MapIconAnchorSet Anchors;
         }
 
         /// <summary>
@@ -2023,14 +2035,32 @@ namespace KingdomEnhancedMod
             context = null;
             try
             {
-                if (land == null) return false;
+                if (land == null || !TryGetRegisteredExtensionIndex(land, out int physicalLand)) return false;
+                int slot = SlotIndexOfLand(physicalLand);
+                if (slot < 0 || _detailShapeActiveSlot != slot || !SameInstance(_detailShapeLands[slot], land) ||
+                    !ExtensionIslandMap.TryGetDetailTokenForLand(physicalLand, out object token) || token == null ||
+                    !ReferenceEquals(_detailShapeTokens[slot], token)) return false;
+                MapTimelineMenuGreece menu = _detailMenus[slot];
+                if (menu == null || !ExtensionIslandMap.TryGetLiveTuple(token, land, menu, menu._mainMap, out _))
+                    return false;
+
                 RectTransform landRect = land.gameObject.GetComponent<RectTransform>();
-                if (landRect == null || _detailExcludedRects.Count < 2) return false;
-                RectTransform art = _detailExcludedRects[0];
-                if (art == null) return false;
+                RectTransform art = FindArtTransform(land);
+                RectTransform outline = FindNamedDescendant(land.transform, "Land Outline", 4);
+                if (landRect == null || art == null || outline == null) return false;
+                Image artImage = art.GetComponent<Image>();
+                Image outlineImage = outline.GetComponent<Image>();
+                Sprite shore = MapExtensionIslandArt.ShoreFor(physicalLand);
+                Sprite outlineSprite = MapExtensionIslandArt.OutlineFor(physicalLand);
+                if (shore == null || outlineSprite == null || artImage == null || outlineImage == null ||
+                    !SameInstance(_detailShapeOutlineImages[slot], outlineImage) ||
+                    !MapExtensionIslandArt.IsApplied(artImage, shore) ||
+                    !MapExtensionIslandArt.IsApplied(outlineImage, outlineSprite) ||
+                    !DetailGeometryApplied(art, shore.rect.width, shore.rect.height) ||
+                    !DetailGeometryApplied(outline, shore.rect.width, shore.rect.height)) return false;
                 if (!TryLocalBox(landRect, art, out MapIconBox shoreBox)) return false;
-                if (shoreBox.Width <= 1f || shoreBox.Height <= 1f) return false;
-                if (!EnsurePlacementMask()) return false;
+                if (shoreBox.Width <= 1f || shoreBox.Height <= 1f ||
+                    !TryGetPlacementMask(physicalLand, out MapShoreMask mask)) return false;
                 float inset = MapExtensionShapePlan.Margin;
                 float centerX = landRect.rect.width * 0.5f;
                 float centerY = landRect.rect.height * 0.5f;
@@ -2041,10 +2071,15 @@ namespace KingdomEnhancedMod
                 var area = new MapIconBox(
                     Math.Max(shoreBox.X0 + inset, page.X0), Math.Max(shoreBox.Y0 + inset, page.Y0),
                     Math.Min(shoreBox.X1 - inset, page.X1), Math.Min(shoreBox.Y1 - inset, page.Y1));
-                CollectSuppressedSlotRects(land, _detailExcludedRects);
+                var excluded = new List<RectTransform>(4) { art, outline };
+                CollectSuppressedSlotRects(land, excluded);
                 var blockers = new List<MapIconBox>(24);
-                CollectNativeBoxes(landRect, land.transform, blockers, true, _detailExcludedRects);
-                context = new DetailPageContext { ShoreBox = shoreBox, Area = area, Blockers = blockers };
+                CollectNativeBoxes(landRect, land.transform, blockers, true, excluded);
+                context = new DetailPageContext
+                {
+                    ShoreBox = shoreBox, Area = area, Blockers = blockers, Mask = mask,
+                    Anchors = MapExtensionIslandArtVariant.AnchorsFor(physicalLand)
+                };
                 return true;
             }
             catch (Exception e)
@@ -2065,7 +2100,7 @@ namespace KingdomEnhancedMod
             try
             {
                 if (!MapExtensionIslandLayout.TryPlan(context.Area, requests, context.Blockers, context.ShoreBox,
-                        _placementMask, placements, out scale, out failed, MapExtensionIslandLayout.PreferScale))
+                        context.Mask, placements, out scale, out failed, MapExtensionIslandLayout.PreferScale, context.Anchors))
                 {
                     placements.Clear();
                     failed = requests.Count;
@@ -2111,50 +2146,9 @@ namespace KingdomEnhancedMod
             placements.Clear();
             scale = 0f;
             failed = requests == null ? 0 : requests.Count;
-            try
-            {
-                if (land == null || requests == null || requests.Count == 0) return requests != null;
-                RectTransform landRect = land.gameObject.GetComponent<RectTransform>();
-                if (landRect == null || _detailExcludedRects.Count < 2) return false;
-                RectTransform art = _detailExcludedRects[0];         // 真正绘制的 shore 子 rect
-                if (art == null) return false;
-                if (!TryLocalBox(landRect, art, out MapIconBox shoreBox)) return false;
-                if (shoreBox.Width <= 1f || shoreBox.Height <= 1f) return false;
-                if (!EnsurePlacementMask()) return false;
-
-                // 可用区 = 岸线框内缩 ∩ page（page = 282×196 居中于 land rect：box 空间中心 ±141/±98）；
-                // footprint 必须同时在全 alpha 岸内（mask 终检）。
-                float inset = MapExtensionShapePlan.Margin;
-                float centerX = landRect.rect.width * 0.5f;
-                float centerY = landRect.rect.height * 0.5f;
-                var page = new MapIconBox(centerX - MapExtensionShapePlan.DetailPageHalfWidth,
-                    centerY - MapExtensionShapePlan.DetailPageHalfHeight,
-                    centerX + MapExtensionShapePlan.DetailPageHalfWidth,
-                    centerY + MapExtensionShapePlan.DetailPageHalfHeight);
-                var area = new MapIconBox(
-                    Math.Max(shoreBox.X0 + inset, page.X0), Math.Max(shoreBox.Y0 + inset, page.Y0),
-                    Math.Min(shoreBox.X1 - inset, page.X1), Math.Min(shoreBox.Y1 - inset, page.Y1));
-                // 被本模块接管的原生动态槽（Steed/Hermit/Statue，含被压制的 _spawnedIcon）不是绘制内容：
-                // 其 host Image 是锚点占位，重叠 shore box 时不得挤掉真实图标（与 native detail 同口径）。
-                CollectSuppressedSlotRects(land, _detailExcludedRects);
-                var blockers = new List<MapIconBox>(24);
-                CollectNativeBoxes(landRect, land.transform, blockers, true, _detailExcludedRects);
-                if (!MapExtensionIslandLayout.TryPlan(area, requests, blockers, shoreBox, _placementMask,
-                        placements, out scale, out failed, MapExtensionIslandLayout.PreferScale))
-                {
-                    placements.Clear();
-                    failed = requests.Count;
-                    return false;
-                }
-                return true;
-            }
-            catch (Exception e)
-            {
-                placements.Clear();
-                failed = requests.Count;
-                MapIconLog.Once("ext-detail-plan-" + e.GetType().Name, "extension detail plan failed: " + e.Message);
-                return false;
-            }
+            if (land == null || requests == null || requests.Count == 0) return requests != null;
+            return TryBuildDetailPageContext(land, out DetailPageContext context) &&
+                TryPlanDetailSubset(context, requests, placements, out scale, out failed);
         }
 
         private static void Rebuild(MapMountIconView view, UILand land, int landIndex, bool overview,
@@ -3271,14 +3265,29 @@ namespace KingdomEnhancedMod
         /// （0=A physical11、1=B physical13）。放不下直接 false（不扩 reserve/paper、不 clamp、不 retry）；
         /// 单扩展岛保持原居中 band 规划（兼容路径）。
         /// </summary>
+        private static bool TryGetExtensionAspect(List<OverviewEntry> entries, out float aspect)
+        {
+            aspect = 0f;
+            float width = 0f, height = 0f;
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (!MapExtensionIslandArt.TryEnsure(entries[i].LandIndex)) return false;
+                Sprite shore = MapExtensionIslandArt.ShoreFor(entries[i].LandIndex);
+                if (shore == null) return false;
+                if (i == 0) { width = shore.rect.width; height = shore.rect.height; }
+                else if (shore.rect.width != width || shore.rect.height != height) return false;
+            }
+            if (!(width > 0f) || !(height > 0f)) return false;
+            aspect = width / height;
+            return true;
+        }
+
         private static bool TryPlanExtensionFrames(List<OverviewEntry> extensionEntries, in MapIconBox band,
             float appliedScale, out MapIconBox[] frames)
         {
             frames = new MapIconBox[ExtensionIslandMapPlan.SlotCount];
             if (extensionEntries.Count == 0) return true;
-            Sprite shore = MapExtensionIslandArt.Shore;
-            float aspect = SpriteAspect(shore);
-            if (!(aspect > 0f)) return false;
+            if (!TryGetExtensionAspect(extensionEntries, out float aspect)) return false;
             if (!(appliedScale > 0f)) return false;   // native 未成功 fit：不猜比例（fail-closed）
             // 参考尺寸：native 普通 cluster 的 1x art × 自身原始 scale × **共同 uniformScale** = fit 后实际
             // paper 呈现 bbox（不是 raw prefab 尺寸；否则 normal 缩 0.6 时扩展岛会反而大 67%）。
@@ -3487,7 +3496,7 @@ namespace KingdomEnhancedMod
                 }
                 abort = false;
                 reason = "numeric-plan";
-                float aspect = SpriteAspect(MapExtensionIslandArt.Shore);
+                if (!TryGetExtensionAspect(extensions, out float aspect)) return CompactAdmission.Abort;
                 if (!MountIslandOverviewLayout.TryBaseInAspect(width, height, aspect,
                         out float baseWidth, out float baseHeight)
                     || !MountIslandCompactLayout.TryPlan(CompactFrame(visible), buttonBand, candidate.Native,
@@ -4494,9 +4503,9 @@ namespace KingdomEnhancedMod
                 if (art == null) return false;
                 artImage = art.GetComponent<Image>();
                 if (artImage == null) return false;
-                if (!MapExtensionIslandArt.TryEnsure()) return false;
-                Sprite shore = MapExtensionIslandArt.Shore;
-                Sprite outlineSprite = MapExtensionIslandArt.Outline;
+                if (!MapExtensionIslandArt.TryEnsure(physicalLand)) return false;
+                Sprite shore = MapExtensionIslandArt.ShoreFor(physicalLand);
+                Sprite outlineSprite = MapExtensionIslandArt.OutlineFor(physicalLand);
                 if (shore == null || outlineSprite == null) return false;
                 // fail-closed：旧 exact owner 仍有未归还责任（队列满被保留）→ 拒绝新 owner 接管（native 保持）。
                 if (ShoreTakeoverBlocked(token))

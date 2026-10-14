@@ -17,3 +17,18 @@ Issue #200 的总览比例返修，依赖 PR #202 的双岛与详情分页，开
 独立源码审查通过；初审暴露的底部pivot误拒和planned-center掩盖actual-state误差已修复并复审。累计二进制只读metadata复核：38资源与已装b8f累计逐SHA相同；仅overview commit的既有语义body改变，新增managed方法归两源，旧generated closure序号变化单独归一保留原始记录，无地图外body变化。保留PR204修复、HUD/字体/性能、盾卫、两岛、宫廷来源；不安装旧简化DLL替代累计版本。
 
 本轮未启动游戏、未写正常环境或共享进度。源码/host验证不等于Mac原生刷新后视觉、归还及玩家验收；Windows和Android原生未验。PR #202仍Draft/Open，Issue #200保持开放，不因本次代码候选通过宣称双岛全部玩法已验。此为既有候选条目内部返修，无新tag/release/版本账目重复计分。
+
+
+## 2026-10-14 — 右岛宽湾弯月形（源码候选）
+
+用户确认保留当前总览比例/两岛尺寸位置，仅让右岛形状与左岛区分。physical11继续使用原PNG和BuildPrep224，逐RGBA/alpha/outline/placement mask保持；physical13新增Crescent资源，BuildPrep222得到226×82后四边pad1，最终同为228×84，不拉伸。两座岛只改变纸地图美术，不改变世界长度、坐骑分组、授予或旧档。
+
+Art服务以两份固定缓存按physical11/13取shore/outline/prep，共用原有owner租约与无未归还责任的销毁关口。B资源/准备/建Sprite失败即失败，不替换成A；冷开B详情不必先载A。新B顶面mask独立手工轮廓、排除西凹竖崖、内缩2像素，5652可放置像素；包含少量朝上顶沿的浅岸高亮，不声称所有mask都是同一灰色。锚点为不可变profile，仅换前8主锚，后10主锚/全部secondary含NaN保持，容量18和既有分页不变；未采用probe临时修改全局表的方法。
+
+总览和详情都按exactphysical取pair/mask/profile。详情分页上下文保存本岛数据，从该land自身获取art/outline，验证canonical token、live tuple、捕获身份、actual applied pair和几何。审查同时发现旧OnLandUpdated忽略EnsureDetailShape失败：本次在产生处尊重false并撤本view holder/pager，后续普通数据回调才重建；删掉原global detail-excluded事实缓存，避免失败后跨岛混拼。无新定时扫描、重试循环或下游补偿。
+
+验证分层：新helper94、真实MapMountIcons窄host回归161、缺B资源3、原shore101、纯地图286、紧凑规划127检查通过；完整公共IL2CPP源码用当前Mac 2.4 interop的.NET8禁部署包装器编译0W0E。host实际克隆的Prev/Next能换页，坏pair阻止新页且撤pager，数据回调撤旧holder；8/16压力请求身份完整/不重不漏、每页≥.6、完整footprint在本岛mask。此前错误回执（test off-by-one、known-write-vs-unknown-readback、未先读buffer、错误要求view.PageIndex同步）均保留，并以最终证据取代，不修改产品配合假断言。pre-guard私有源投影在跨岛context和匹配fingerprint两条分别RED，当前GREEN。
+
+旧RuntimeProbe最初因缺项目引用/Events等API无法编译；补必要host适配后，旧all-mode仍不通过。用b098f73与当前源码逐S1–S15新进程矩阵保留比较，不能把所有旧失败一概称年代差异。新增S11/S12观测差异来自已删除/早已改名的global字段：私有观察适配后S11=22/0，S12=15/0且饱和9份live lease各Owner逐引用被captured或deferred身份覆盖。未恢复global生产字段来迁就旧测试，也未称整个旧suite通过。独立美术/几何和源码审查通过，详情失败修复有单独GLM5.3 max事前审查；最终源码/host审查与交付回执在本机tasks/map-shield-visual-20261014。
+
+边界：本轮公共源码包装器不是当前累计正常版DLL，禁止直接拿它安装。未启动游戏、未写正常环境/配置/共享存档；正常DLL仍36faec77…84b2c3。Mac原生运行与玩家效果、Windows/Android未验；跨data refresh记忆详情页未修改/未验。继续更新Draft PR222（依赖Draft PR202），Issue200保持开放，不合并、不部署、不新tag，作为既有条目的视觉返修不重复计版。
