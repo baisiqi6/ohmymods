@@ -9,6 +9,8 @@
     <HeavyShieldSourceRoot Condition="'$(HeavyShieldSourceRoot)'==''">$(MSBuildThisFileDirectory)../../il2cpp</HeavyShieldSourceRoot>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(HeavyShieldSourceRoot)/Patch_HeavyShieldDurabilityMigration.cs" Link="Patch_HeavyShieldDurabilityMigration.cs" />
+    <Compile Include="$(HeavyShieldSourceRoot)/Patch_HeavyShieldMaintenancePolicy.cs" Link="Patch_HeavyShieldMaintenancePolicy.cs" />
     <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldBlockPolicy.cs" Link="HeavyShieldBlockPolicy.cs" />
     <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldContracts.cs" Link="HeavyShieldContracts.cs" />
     <Compile Include="$(HeavyShieldSourceRoot)/HeavyShieldIdentity.cs" Link="HeavyShieldIdentity.cs" />

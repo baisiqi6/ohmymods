@@ -5,6 +5,12 @@ using UnityEngine;
 int checks = 0;
 if (!HeavyShieldHookQuery.PerfDiagLine.Contains("mode=compat-unsupported")) throw new Exception("host must test live compat fallback");
 void Check(bool ok, string label) { ++checks; if (!ok) throw new Exception(label); }
+if (args.Length == 1 && args[0].StartsWith("--lifecycle-"))
+{
+    RuntimeLifecycleRegression.Run(Check, args[0].Substring("--lifecycle-".Length));
+    Console.WriteLine($"PASS lifecycle: {checks} assertions");
+    return;
+}
 void Step(Fixture f, float dt=.25f) {Time.deltaTime=dt;Time.time+=dt;Time.unscaledTimeAsDouble+=dt;Time.frameCount++;HeavyShieldActorVisuals.Tick(f.Handle.GoId);HeavyShieldRuntime.Tick();}
 void Guard(Fixture f) {HeavyShieldRuntime.Tick();for(int i=0;i<8;i++)Step(f);Check(HeavyShieldActorVisuals.GuardReady(f.Archer,f.Handle.Life),"equip completes before guard");}
 HeavyShieldSavedCombatState State(Fixture f){Check(HeavyShieldRuntime.CaptureCombat(f.Handle,out var s),"capture exact career");return s;}
@@ -403,27 +409,27 @@ HeavyShieldPoseMachine Pose(Fixture f) {var row=visualRows[f.Handle.GoId];return
 
 // New art contract: the original integer is retained, including a pending zero, and every
 // stance/action selects that wear. Existing three-hit/life/CAS/native-demote negatives above remain.
-foreach(int durability in new[]{4,3,2,1,0})
+foreach(int durability in new[]{40,31,30,21,20,11,10,1,0})
 using(var f=new Fixture())
 {
     Check(f.Attach(new(durability,durability==0,false)),"final four-wear mapping attach");
-    var expected=durability==4?HeavyShieldWear.Intact:durability==3?HeavyShieldWear.Worn:durability==2?HeavyShieldWear.Critical:HeavyShieldWear.Half;
+    var expected=durability>=31?HeavyShieldWear.Intact:durability>=21?HeavyShieldWear.Worn:durability>=11?HeavyShieldWear.Critical:HeavyShieldWear.Half;
     Check(Pose(f).Wear==expected&&State(f).Durability==durability,$"remaining {durability} preserved and maps to {expected}");
     Check((Pose(f).Action==HeavyShieldAction.Break)==(durability==0),"zero only starts terminal break");
 }
 using(var f=new Fixture())
 {
-    Check(f.Attach(new(4,false,false)),"new four-hit shield attach");Guard(f);var troll=TrollAt(5.5f);int demotes=Character.Demotes,exits=HeavyShieldIdentity.Exits;
+    Check(f.Attach(new(40,false,false)),"new forty-hit shield attach");Guard(f);var troll=TrollAt(5.5f);int demotes=Character.Demotes,exits=HeavyShieldIdentity.Exits;
     var successor=PeasantResult();f.Archer._character.DemoteResult=()=>{NativePool(f.Go);return successor;};
-    for(int hit=1;hit<=4;hit++)
+    for(int hit=1;hit<=40;hit++)
     {
         HitTroll(f,troll);var state=State(f);
-        Check(state.Durability==4-hit&&state.PendingBreak==(hit==4)&&f.Damage.NativeHits==0,$"new shield lifetime hit {hit} blocks and decrements exactly once");
-        Check(Pose(f).Wear==(hit==1?HeavyShieldWear.Worn:hit==2?HeavyShieldWear.Critical:HeavyShieldWear.Half),$"hit {hit} retains visible damage");
-        Check((Pose(f).Action==HeavyShieldAction.Break)==(hit==4),"only fourth new-shield hit is terminal");
+        Check(state.Durability==40-hit&&state.PendingBreak==(hit==40)&&f.Damage.NativeHits==0,$"new shield lifetime hit {hit} blocks and decrements exactly once");
+        Check(Pose(f).Wear==(hit<10?HeavyShieldWear.Intact:hit<20?HeavyShieldWear.Worn:hit<30?HeavyShieldWear.Critical:HeavyShieldWear.Half),$"hit {hit} retains visible damage");
+        Check((Pose(f).Action==HeavyShieldAction.Break)==(hit==40),"only fortieth new-shield hit is terminal");
     }
     Step(f,.25f);Check(Character.Demotes==demotes,"break does not truncate before final metadata duration");
-    Step(f,.25f);Check(Character.Demotes==demotes+1&&HeavyShieldIdentity.Exits==exits+1&&!HeavyShieldRuntime.IsControlled(f.Archer),"fourth new-shield hit yields one exact native Peasant demote");
+    Step(f,.25f);Check(Character.Demotes==demotes+1&&HeavyShieldIdentity.Exits==exits+1&&!HeavyShieldRuntime.IsControlled(f.Archer),"fortieth new-shield hit yields one exact native Peasant demote");
 }
 using(var f=new Fixture())
 {
@@ -842,18 +848,21 @@ using (var f = new Fixture(side: side))
 }
 
 RuntimeGaitRegression.Run(Check);
+RuntimeMaintenanceRegression.Run(Check);
+RuntimeLifecycleRegression.Run(Check);
+
 Console.WriteLine($"PASS HeavyShield production runtime/combat/life/visuals: {checks} assertions");
 
 sealed class Fixture : IDisposable
 {
     internal GameObject Go=new("shield");internal Archer Archer;internal Damageable Damage;internal HeavyShieldCareerHandle Handle;internal RuntimeAnimatorController BeforeAnimator;
-    internal Fixture(bool deferBind=false,HeavyShieldQuota.Side side=HeavyShieldQuota.Side.Right)
-    {Go.transform.SetParent(Managers.Inst.world.gameLayer,false);Go.transform.position=new(4.75f,0);Archer=Go.AddComponent<Archer>();Damage=Go.AddComponent<Damageable>();
-        Archer._damageable=Damage;Archer._character=Go.AddComponent<Character>();Archer._mover=Go.AddComponent<Mover>();Archer.persistent=Go.AddComponent<Persistent>();
+    internal Fixture(bool deferBind=false,HeavyShieldQuota.Side side=HeavyShieldQuota.Side.Right,int land=0)
+    {HeavyShieldIdentity.Current.World=Managers.Inst.world.gameLayer.Pointer.ToInt64();HeavyShieldIdentity.Current.Land=land;Go.transform.SetParent(Managers.Inst.world.gameLayer,false);Go.transform.position=new(4.75f,0);Archer=Go.AddComponent<Archer>();Damage=Go.AddComponent<Damageable>();
+        Archer._enemyScanner.observer=Go.transform;Archer._damageable=Damage;Archer._character=Go.AddComponent<Character>();Archer._mover=Go.AddComponent<Mover>();Archer.persistent=Go.AddComponent<Persistent>();
         Archer._spriteRenderer=Go.AddComponent<SpriteRenderer>();Archer._animator=Go.AddComponent<Animator>();Archer.Embarkee=Go.AddComponent<Embarkee>();
         Archer._guardSide=Side.Right;Archer._guardDepth=3;Archer._absoluteFaceIndex=9;Archer._cooldown=7;BeforeAnimator=Archer._animator.runtimeAnimatorController;
         Archer._mover.goalMode=Mover.GoalMode.Position;Archer._mover._goalPosition=23;Archer._mover._goalSpeed=2;
-        Handle=new(Guid.NewGuid(),"campaign",side,0,Go.Pointer,Go.GetInstanceID(),Managers.Inst.world.gameLayer.Pointer.ToInt64(),Go.GetInstanceID());
+        Handle=new(Guid.NewGuid(),"campaign",side,land,Go.Pointer,Go.GetInstanceID(),Managers.Inst.world.gameLayer.Pointer.ToInt64(),Go.GetInstanceID());
         if(!deferBind)HeavyShieldIdentity.Careers.Add(Handle);HeavyShieldIdentity.Lives[Handle.Root]=Handle.Life;Managers.Inst.targetCache.RegisterPriorityTarget(Damage);
         Archer.MutationCheck=()=>{if(!HeavyShieldRuntime.CarrierMutationInProgress)throw new Exception("missing carrier mutation mask");};Embarkee.MutationCheck=Archer.MutationCheck;
     }

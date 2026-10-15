@@ -39,6 +39,10 @@ internal readonly record struct HeavyShieldCareerHandle(
 internal readonly record struct HeavyShieldSavedCombatState(
     int Durability, bool PendingBreak, bool RetirementUnknown);
 
+internal readonly record struct HeavyShieldBannerOrder(float X, int Facing, float Speed, bool Hold);
+internal readonly record struct HeavyShieldRepairSite(long World, long Life, IntPtr Root, float X, float Y);
+internal readonly record struct HeavyShieldRepairOrder(float X, int Facing, bool Working);
+
 internal readonly record struct HeavyShieldQuotaView(
     bool Ready, bool Unknown, bool MoldUnlocked, bool LeftExtra, bool RightExtra,
     int LeftLimit, int RightLimit, int LeftOccupied, int RightOccupied,

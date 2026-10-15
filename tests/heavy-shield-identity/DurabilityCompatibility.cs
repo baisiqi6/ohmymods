@@ -22,9 +22,13 @@ internal static class DurabilityCompatibility
         SoldierRoundtrip(3, false, omitted: true);
         SoldierRoundtrip(0, true);
         PaidToolPromotion();
-        FreshFour();
+        FreshForty();
         V2OriginalRawAndDrift();
+        foreach (int version in new[] { 2, 3 })
+            foreach (var row in new[] { (1, 10), (2, 20), (3, 30), (4, 40) })
+                LaterLegacyRoundtrip(version, row.Item1, row.Item2);
         BadStagedFailsPreflight();
+        RepairCommit();
         Console.WriteLine($"{(failures == 0 ? "PASS" : "FAIL")} heavy-shield real identity/persistence durability compatibility: {checks} checks, {failures} failures");
         if (failures != 0) throw new Exception($"durability compatibility failed: {failures}");
     }
@@ -113,6 +117,8 @@ internal static class DurabilityCompatibility
 
     private static void SoldierRoundtrip(int remaining, bool unknown, bool omitted = false)
     {
+        int migrated = remaining switch { 0 => 0, 1 => 14, 2 => 27, 3 => 40,
+            _ => throw new ArgumentOutOfRangeException(nameof(remaining)) };
         const string json = "{\"land\":0,\"legacy\":true}";
         var raw = LegacyPayload(remaining, unknown, false, json);
         if (omitted)
@@ -137,11 +143,13 @@ internal static class DurabilityCompatibility
         }
         Require(HeavyShieldIdentity.TryGetSoldier(actor.Archer, out var handle), "legacy soldier bound");
         Check(HeavyShieldIdentity.TryGetCombatState(handle, out var combat)
-            && combat == new HeavyShieldSavedCombatState(remaining, remaining == 0, unknown), "identity preserves exact legacy combat state");
-        Check(!HeavyShieldIdentity.UpdateCombatState(handle, new(4, false, false)), "loaded old career cannot refill to four");
+            && combat == new HeavyShieldSavedCombatState(migrated, remaining == 0, unknown),
+            "identity proportionally migrates legacy durability while preserving both flags");
+        Check(!HeavyShieldIdentity.UpdateCombatState(handle, new(migrated + 1, false, false)),
+            "ordinary update cannot increase migrated durability or clear terminal flags");
         var policy = new HeavyShieldBlockPolicy();
         Check(policy.Restore(combat.Durability, combat.PendingBreak, combat.RetirementUnknown)
-            && policy.Durability == remaining && !policy.Activate(), "actual policy accepts exact state without reset");
+            && policy.Durability == migrated && !policy.Activate(), "actual policy accepts exact migrated state without reset");
         if (remaining == 0)
         {
             Check(!policy.TryBeginBash(0)
@@ -159,12 +167,16 @@ internal static class DurabilityCompatibility
             && HeavyShieldPersistence.CampaignRestorePending(HeavyShieldIdentity.Current), "Stage keeps native raw and exposes unprepared revision");
         Prepare(env.Global.prefs);
         var prepared = env.Global.prefs.SerializedContents[HeavyShieldSaveSchema.Key];
-        var expected = JsonNode.Parse(raw); expected["version"] = 3;
+        var expected = JsonNode.Parse(raw); expected["version"] = 4;
         string savedGuid = expected["campaigns"][0]["guid"].GetValue<string>();
         expected["campaigns"][0]["islands"][0]["hashKind"] = HeavyShieldSnapshotFingerprint.CanonicalKind;
         expected["campaigns"][0]["islands"][0]["snapshotHash"] =
             HeavyShieldSnapshotFingerprint.Hash(savedGuid, 0, 0, json);
-        if (omitted) expected["campaigns"][0]["islands"][0]["claims"][0]["durability"] = 3;
+        // Every stored v1 row migrates, including away-island paid tools and quarantined
+        // careers. All other fields stay in this exact whole-document comparison.
+        expected["campaigns"][0]["islands"][0]["claims"][0]["durability"] = migrated;
+        expected["campaigns"][0]["islands"][1]["claims"][0]["durability"] = 40;
+        expected["campaigns"][1]["islands"][1]["claims"][0]["durability"] = 0;
         Check(JsonNode.DeepEquals(expected, JsonNode.Parse(prepared))
             && !HeavyShieldPersistence.CampaignRestorePending(HeavyShieldIdentity.Current), "successful Prepare upgrades current fingerprint and schema while preserving every other row and entitlement");
         Managers.Inst.world.gameLayer = Root().Add<Transform>();
@@ -172,7 +184,7 @@ internal static class DurabilityCompatibility
         Check(HeavyShieldIdentity.TryGetSoldier(returned.Archer, out var nextHandle)
             && HeavyShieldIdentity.TryGetCombatState(nextHandle, out var nextCombat) && nextCombat == combat
             && HeavyShieldIdentity.Current.Phase == HeavyShieldIdentityPhase.Staged
-            && !HeavyShieldIdentity.GetQuotaView().Unknown, "Prepared v2 restores current stage without false priorPrepared mismatch");
+            && !HeavyShieldIdentity.GetQuotaView().Unknown, "Prepared v4 restores current stage without false priorPrepared mismatch");
     }
 
     private static void PaidToolPromotion()
@@ -182,12 +194,12 @@ internal static class DurabilityCompatibility
         var env = Setup(raw, json); var actor = Load(env.Island, true);
         Require(HeavyShieldIdentity.TryGetPaidBow(actor.Tool, out var paid), "legacy paid bound");
         Check(env.Global.prefs.contents[HeavyShieldSaveSchema.Key] == raw
-            && HeavyShieldIdentity.Current.Claims[paid.Receipt].Combat.Durability == 3 && HeavyShieldIdentity.Current.KeyReady,
-            "legacy paid-tool restore preserves raw and three durability");
+            && HeavyShieldIdentity.Current.Claims[paid.Receipt].Combat.Durability == 40 && HeavyShieldIdentity.Current.KeyReady,
+            "legacy full paid-tool restore preserves raw and migrates three to forty");
         Stage(env.Island, actor.Persistent); Prepare(env.Global.prefs);
         Check(HeavyShieldSaveCodec.TryParse(env.Global.prefs.SerializedContents[HeavyShieldSaveSchema.Key], out var toolSaved, out _)
-            && toolSaved.Version == HeavyShieldSaveSchema.Version && toolSaved.Campaigns[0].Islands[0].Claims[0].Durability == 3
-            && !HeavyShieldPersistence.CampaignRestorePending(HeavyShieldIdentity.Current), "legacy paid tool stages as v3 with three, retaining prepared gate");
+            && toolSaved.Version == HeavyShieldSaveSchema.Version && toolSaved.Campaigns[0].Islands[0].Claims[0].Durability == 40
+            && !HeavyShieldPersistence.CampaignRestorePending(HeavyShieldIdentity.Current), "legacy full paid tool stages as v4 with forty, retaining prepared gate");
         var peasant = Root().Add<Peasant>(); var archer = Root().Add<Archer>();
         Check(HeavyShieldIdentity.CanNativePickup(peasant, actor.Tool), "legacy paid tool remains claimable");
         actor.Tool.pickedUp = true;
@@ -196,10 +208,10 @@ internal static class DurabilityCompatibility
         HeavyShieldIdentity.ObservePoolDespawn(actor.Tool.gameObject, 0);
         HeavyShieldPromotionBridge.After(archer, scope); HeavyShieldPromotionBridge.Finally(scope);
         Check(HeavyShieldIdentity.TryGetSoldier(archer, out var soldier)
-            && HeavyShieldIdentity.TryGetCombatState(soldier, out var combat) && combat.Durability == 3
-            && HeavyShieldRuntime.LastRestored.Durability == 3
+            && HeavyShieldIdentity.TryGetCombatState(soldier, out var combat) && combat.Durability == 40
+            && HeavyShieldRuntime.LastRestored.Durability == 40
             && !HeavyShieldIdentity.GetQuotaView().ShopOccupied && HeavyShieldIdentity.GetQuotaView().LeftOccupied == 1,
-            "native pickup promotes old tool with three; no refill, duplicate career or lost side");
+            "host pickup promotes the proportionally migrated tool without another refill, duplicate career or lost side");
     }
 
     private static void V2OriginalRawAndDrift()
@@ -218,8 +230,8 @@ internal static class DurabilityCompatibility
         Check(OwnerField<string>("ExpectedRaw") == raw && OwnerField<bool>("KeyPreflighted")
             && OwnerField<string>("OriginalRaw") == raw, "v2 bookkeeping holds native authority rather than codec output");
         Require(HeavyShieldIdentity.TryGetSoldier(actor.Archer, out var handle), "original v2 soldier");
-        Check(HeavyShieldIdentity.TryGetCombatState(handle, out var combat) && combat.Durability == 4,
-            "v2 original explicit four preserved");
+        Check(HeavyShieldIdentity.TryGetCombatState(handle, out var combat) && combat.Durability == 40,
+            "v2 original explicit four migrates to forty");
         string changed = raw + " "; env.Global.prefs.contents[HeavyShieldSaveSchema.Key] = changed;
         Check(!HeavyShieldPersistence.PreflightKeyWrite(HeavyShieldIdentity.Current)
             && HeavyShieldIdentity.Current.Unknown && HeavyShieldIdentity.Current.StageFault
@@ -228,6 +240,156 @@ internal static class DurabilityCompatibility
             "byte-only native drift freezes without overwriting authority even after prior preflight");
         Check(!HeavyShieldIdentity.CanReservePurchase(HeavyShieldPurchaseKind.ShieldRight),
             "drift frozen state cannot authorize a new fee");
+    }
+
+    private static void LaterLegacyRoundtrip(int version, int remaining, int expected)
+    {
+        const string json = "{\"land\":0,\"laterLegacy\":true}";
+        var payload = JsonNode.Parse(LegacyPayload(3, false, false, json));
+        payload["version"] = version;
+        var current = payload["campaigns"][0]["islands"][0];
+        current["claims"][0]["durability"] = remaining;
+        if (version == 3)
+        {
+            current["hashKind"] = HeavyShieldSnapshotFingerprint.CanonicalKind;
+            current["snapshotHash"] = HeavyShieldSnapshotFingerprint.Hash(
+                payload["campaigns"][0]["guid"].GetValue<string>(), 0, 0, json);
+        }
+        string receipt = current["claims"][0]["receipt"].GetValue<string>();
+        string raw = payload.ToJsonString();
+        var env = Setup(raw, json); var actor = Load(env.Island, false);
+        Require(HeavyShieldIdentity.TryGetSoldier(actor.Archer, out var handle), $"v{version} soldier bound");
+        Check(env.Global.prefs.contents[HeavyShieldSaveSchema.Key] == raw && HeavyShieldIdentity.Current.KeyReady,
+            $"v{version} original authority remains unchanged until save");
+        Check(HeavyShieldIdentity.TryGetCombatState(handle, out var combat)
+            && combat == new HeavyShieldSavedCombatState(expected, false, false)
+            && HeavyShieldRuntime.LastRestored == combat && handle.Receipt.ToString("D") == receipt
+            && handle.Side == HeavyShieldQuota.Side.Left,
+            $"v{version} {remaining} proportionally becomes {expected} with same receipt and side");
+        Check(!HeavyShieldIdentity.UpdateCombatState(handle, new(expected + 1, false, false)),
+            $"v{version} migrated durability still cannot rise through ordinary persistence");
+        Stage(env.Island, actor.Persistent); Prepare(env.Global.prefs);
+        Require(HeavyShieldSaveCodec.TryParse(env.Global.prefs.SerializedContents[HeavyShieldSaveSchema.Key],
+            out var saved, out _), $"v{version} prepared document parses");
+        var savedCurrent = saved.Campaigns[0].Islands[0].Claims[0];
+        var away = saved.Campaigns[0].Islands[1].Claims[0];
+        var quarantined = saved.Campaigns[1].Islands[1].Claims[0];
+        Check(saved.Version == 4 && savedCurrent.Durability == expected && savedCurrent.Receipt == receipt
+            && savedCurrent.Side == HeavyShieldQuota.Side.Left && !savedCurrent.PendingBreak && !savedCurrent.RetirementUnknown
+            && away.Durability == 30 && quarantined.Durability == 0 && quarantined.PendingBreak && quarantined.RetirementUnknown,
+            $"v{version} current, away and quarantined claims all survive v4 preparation");
+        Managers.Inst.world.gameLayer = Root().Add<Transform>();
+        var reloaded = Load(env.Island, false);
+        Check(HeavyShieldIdentity.TryGetSoldier(reloaded.Archer, out var nextHandle)
+            && HeavyShieldIdentity.TryGetCombatState(nextHandle, out var nextCombat) && nextCombat == combat
+            && nextHandle.Receipt == handle.Receipt && nextHandle.Side == handle.Side,
+            $"v{version} prepared v4 reload does not scale durability a second time");
+    }
+
+    // Identity and persistence are production sources. Native objects and lifecycle transport
+    // use this suite's controlled host seams; these calls do not prove Runtime.IsCompleting.
+    private static void RepairCommit()
+    {
+        var env = RepairCareer();
+        var handle = env.Handle;
+        var policy = env.Policy;
+        var original = new HeavyShieldSavedCombatState(20, false, false);
+        var completion = new HeavyShieldRepairCompletion(1, handle.Receipt, handle.Life, handle.World, 1, 20);
+        Check(!HeavyShieldIdentity.UpdateCombatState(handle, new(21, false, false))
+            && HeavyShieldIdentity.TryGetCombatState(handle, out var unchanged) && unchanged == original,
+            "ordinary state update still rejects increases despite the explicit repair API");
+        foreach (var wrong in new[] { completion with { Serial = 0 }, completion with { Receipt = Guid.NewGuid() },
+            completion with { Life = handle.Life + 1 }, completion with { World = handle.World + 1 },
+            completion with { ShopLife = 0 }, completion with { ExpectedDurability = 19 },
+            completion with { ExpectedDurability = 21 } })
+        {
+            Check(!HeavyShieldIdentity.TryCompleteRepair(handle, wrong, policy)
+                && policy.Durability == 20 && HeavyShieldIdentity.TryGetCombatState(handle, out unchanged)
+                && unchanged == original, "mismatched completion changes neither policy nor claim");
+        }
+        foreach (var wrong in new[] { handle with { Root = Ptr() }, handle with { GoId = handle.GoId + 1 },
+            handle with { Side = HeavyShieldQuota.Side.Right }, handle with { Land = handle.Land + 1 },
+            handle with { CampaignGuid = HeavyShieldSaveCodec.NewGuid() } })
+        {
+            Check(!HeavyShieldIdentity.TryCompleteRepair(wrong, completion, policy)
+                && policy.Durability == 20 && HeavyShieldIdentity.TryGetCombatState(handle, out unchanged)
+                && unchanged == original, "mismatched exact career changes neither durable value");
+        }
+        var stale = handle with { Life = handle.Life + 1 };
+        Check(!HeavyShieldIdentity.TryCompleteRepair(stale, completion with { Life = stale.Life }, policy)
+            && policy.Durability == 20 && HeavyShieldIdentity.TryGetCombatState(handle, out unchanged)
+            && unchanged == original, "matching stale completion and handle do not replace current life proof");
+        var mismatchedPolicy = new HeavyShieldBlockPolicy();
+        Require(mismatchedPolicy.Restore(19, false, false), "mismatched repair policy");
+        Check(!HeavyShieldIdentity.TryCompleteRepair(handle, completion, mismatchedPolicy)
+            && mismatchedPolicy.Durability == 19 && HeavyShieldIdentity.TryGetCombatState(handle, out unchanged)
+            && unchanged == original, "policy and claim disagreement is rejected before either write");
+        Check(!HeavyShieldIdentity.TryCompleteRepair(handle, completion, null)
+            && HeavyShieldIdentity.TryGetCombatState(handle, out unchanged) && unchanged == original,
+            "missing policy cannot partially repair claim");
+        Require(policy.TryBeginBash(1), "busy repair policy");
+        Check(!HeavyShieldIdentity.TryCompleteRepair(handle, completion, policy)
+            && policy.Durability == 20 && policy.BashActive
+            && HeavyShieldIdentity.TryGetCombatState(handle, out unchanged) && unchanged == original,
+            "busy real policy rejects repair and leaves claim unchanged");
+        policy.EndBash();
+
+        Check(HeavyShieldIdentity.TryCompleteRepair(handle, completion, policy)
+            && policy.Durability == 40 && !policy.PendingBreak && !policy.RetirementUnknown
+            && HeavyShieldIdentity.TryGetCombatState(handle, out var repaired)
+            && repaired == new HeavyShieldSavedCombatState(40, false, false),
+            "valid managed repair commits current policy and claim to forty together");
+        Check(!HeavyShieldIdentity.TryCompleteRepair(handle, completion, policy)
+            && !HeavyShieldIdentity.TryCompleteRepair(handle, completion with { Serial = 2, ExpectedDurability = 40 }, policy)
+            && policy.Durability == 40 && HeavyShieldIdentity.TryGetCombatState(handle, out repaired)
+            && repaired == new HeavyShieldSavedCombatState(40, false, false),
+            "repeat completion and full-durability completion cannot repair again");
+        Stage(env.Island, env.Persistent); Prepare(env.Global.prefs);
+        Check(HeavyShieldSaveCodec.TryParse(env.Global.prefs.SerializedContents[HeavyShieldSaveSchema.Key], out var saved, out _)
+            && saved.Version == 4 && saved.Campaigns[0].Islands[0].Claims[0].Durability == 40
+            && !saved.Campaigns[0].Islands[0].Claims[0].PendingBreak
+            && !saved.Campaigns[0].Islands[0].Claims[0].RetirementUnknown
+            && saved.Campaigns[0].Islands[0].Claims[0].Receipt == handle.Receipt.ToString("D")
+            && saved.Campaigns[0].Islands[0].Claims[0].Side == handle.Side,
+            "real identity sampling and Stage/Prepare persist the repaired exact career at forty");
+        Managers.Inst.world.gameLayer = Root().Add<Transform>();
+        var cold = Load(env.Island, false);
+        Check(HeavyShieldIdentity.TryGetSoldier(cold.Archer, out var coldHandle)
+            && HeavyShieldIdentity.TryGetCombatState(coldHandle, out var coldCombat)
+            && coldCombat == new HeavyShieldSavedCombatState(40, false, false)
+            && coldHandle.Receipt == handle.Receipt, "saved repair reloads once at forty without another completion");
+
+        // Historic inconsistent quarantine flags are intentionally retained by the codec.
+        // Prove claim flags themselves bar repair even if the separate policy is guarding.
+        foreach (var flags in new[] { (true, false), (false, true), (true, true) })
+        {
+            var blocked = RepairCareer();
+            var state = new HeavyShieldSavedCombatState(20, flags.Item1, flags.Item2);
+            Require(HeavyShieldIdentity.UpdateCombatState(blocked.Handle, state), "quarantined repair claim");
+            var blockedCompletion = new HeavyShieldRepairCompletion(1, blocked.Handle.Receipt, blocked.Handle.Life,
+                blocked.Handle.World, 1, 20);
+            Check(!HeavyShieldIdentity.TryCompleteRepair(blocked.Handle, blockedCompletion, blocked.Policy)
+                && blocked.Policy.Durability == 20
+                && HeavyShieldIdentity.TryGetCombatState(blocked.Handle, out var retained) && retained == state,
+                "pending or unknown claim cannot repair or silently clear either flag");
+        }
+    }
+
+    private static (GlobalSaveData Global, IslandSaveData Island, Persistent Persistent,
+        HeavyShieldCareerHandle Handle, HeavyShieldBlockPolicy Policy) RepairCareer()
+    {
+        const string json = "{\"land\":0,\"repair\":true}";
+        var payload = JsonNode.Parse(LegacyPayload(2, false, false, json));
+        payload["version"] = 4;
+        payload["campaigns"][0]["islands"][0]["claims"][0]["durability"] = 20;
+        var env = Setup(payload.ToJsonString(), json);
+        var actor = Load(env.Island, false);
+        Require(HeavyShieldIdentity.TryGetSoldier(actor.Archer, out var handle)
+            && HeavyShieldIdentity.Current.KeyReady && !HeavyShieldIdentity.Current.Unknown
+            && !HeavyShieldIdentity.Current.StageFault, "repair exact current career fixture");
+        var policy = new HeavyShieldBlockPolicy();
+        Require(policy.Restore(20, false, false), "repair guarding policy fixture");
+        return (env.Global, env.Island, actor.Persistent, handle, policy);
     }
 
     private static object Owner()
@@ -249,14 +411,14 @@ internal static class DurabilityCompatibility
             && !HeavyShieldIdentity.Current.KeyReady && !OwnerField<bool>("KeyPreflighted")
             && env.Global.prefs.contents[HeavyShieldSaveSchema.Key] == raw
             && OwnerField<string>("ExpectedRaw") == raw, "bad startup Staged cannot gain KeyReady via original-string branch");
-        staged.Version = 2;
+        staged.Version = 4;
         Check(HeavyShieldPersistence.PreflightKeyWrite(HeavyShieldIdentity.Current)
             && HeavyShieldIdentity.Current.KeyReady && OwnerField<bool>("KeyPreflighted")
             && env.Global.prefs.contents[HeavyShieldSaveSchema.Key] == raw,
             "restored valid startup clone keeps original authority and preflight bookkeeping");
     }
 
-    private static void FreshFour()
+    private static void FreshForty()
     {
         var env = Setup(null, "{\"land\":0,\"fresh\":true}");
         var load = HeavyShieldPersistence.BeginNativeIslandLoad(env.Island);
@@ -267,35 +429,35 @@ internal static class DurabilityCompatibility
         Require(HeavyShieldIdentity.TryReservePurchase(HeavyShieldPurchaseKind.ShieldLeft, out var purchase)
             && HeavyShieldIdentity.BindIssuedPaidBow(purchase, bow) == HeavyShieldCommitResult.Applied, "fresh shield");
         Require(HeavyShieldIdentity.TryGetPaidBow(bow, out var paid), "fresh paid tool");
-        Check(HeavyShieldIdentity.Current.Claims[paid.Receipt].Combat.Durability == 4, "new paid tool initializes through actual SchemaMax to four");
+        Check(HeavyShieldIdentity.Current.Claims[paid.Receipt].Combat.Durability == 40, "new paid tool initializes through actual SchemaMax to forty");
         var peasant = Root().Add<Peasant>(); var archer = Root().Add<Archer>(); bow.pickedUp = true;
         HeavyShieldPromotionBridge.Before(peasant, bow, out var scope); root.activeInHierarchy = false;
         HeavyShieldIdentity.ObservePoolDespawn(root, 0);
         HeavyShieldPromotionBridge.After(archer, scope); HeavyShieldPromotionBridge.Finally(scope);
         Require(HeavyShieldIdentity.TryGetSoldier(archer, out var soldier), "fresh soldier");
-        Check(HeavyShieldIdentity.TryGetCombatState(soldier, out var fresh) && fresh.Durability == 4,
-            "new promotion keeps four durability");
+        Check(HeavyShieldIdentity.TryGetCombatState(soldier, out var fresh) && fresh.Durability == 40,
+            "new promotion keeps forty durability");
         var persistent = archer.gameObject.Add<Persistent>();
         env.Island.objects.Add(new() { Pointer = Ptr(), uniqueID = "legacy-current" });
         Stage(env.Island, persistent); Prepare(env.Global.prefs);
         Check(HeavyShieldSaveCodec.TryParse(env.Global.prefs.SerializedContents[HeavyShieldSaveSchema.Key], out var freshSaved, out _)
-            && freshSaved.Version == HeavyShieldSaveSchema.Version && freshSaved.Campaigns[0].Islands[0].Claims[0].Durability == 4,
-            "fresh four-point career saves through real Stage/Prepare as v3");
-        var policy = new HeavyShieldBlockPolicy(); Require(policy.Restore(4, false, false), "fresh policy");
-        for (int remaining = 3; remaining >= 0; remaining--)
+            && freshSaved.Version == HeavyShieldSaveSchema.Version && freshSaved.Campaigns[0].Islands[0].Claims[0].Durability == 40,
+            "fresh forty-point career saves through real Stage/Prepare as v4");
+        var policy = new HeavyShieldBlockPolicy(); Require(policy.Restore(40, false, false), "fresh policy");
+        for (int remaining = 39; remaining >= 0; remaining--)
         {
             var result = policy.EvaluateHit(new(true, true, 1, 0, 1));
             Check(HeavyShieldIdentity.UpdateCombatState(soldier, new(policy.Durability, policy.PendingBreak, policy.RetirementUnknown))
                 && HeavyShieldIdentity.TryGetCombatState(soldier, out var state) && state.Durability == remaining
                 && result == (remaining == 0 ? HeavyShieldBlockPolicy.HitResult.ShieldBroken : HeavyShieldBlockPolicy.HitResult.Blocked),
-                "fresh four-point wear updates actual identity monotonically");
+                "fresh forty-point wear updates actual identity monotonically");
             Stage(env.Island, persistent); Prepare(env.Global.prefs);
             Check(HeavyShieldSaveCodec.TryParse(env.Global.prefs.SerializedContents[HeavyShieldSaveSchema.Key], out var wornSaved, out _)
                 && wornSaved.Campaigns[0].Islands[0].Claims[0].Durability == remaining
                 && wornSaved.Campaigns[0].Islands[0].Claims[0].PendingBreak == (remaining == 0),
                 "real Stage/Prepare persists each new wear point without repair");
         }
-        Check(!HeavyShieldIdentity.UpdateCombatState(soldier, new(4, false, false)), "broken new soldier cannot heal either");
+        Check(!HeavyShieldIdentity.UpdateCombatState(soldier, new(40, false, false)), "broken new soldier cannot heal either");
         Require(policy.TryBeginDemote(out var lease), "final retirement lease");
         Check(HeavyShieldIdentity.UpdateCombatState(soldier, new(0, true, true))
             && policy.ConfirmDemote(lease) && !policy.TryBeginDemote(out _), "final native retirement proof remains at most once");

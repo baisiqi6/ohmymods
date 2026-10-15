@@ -26,6 +26,8 @@ internal static class HeavyShieldRuntime
         internal HeavyShieldBlockPolicy Policy = new();
         internal bool EnabledBefore, EnabledWrite, EmbarkBefore, EmbarkWrite, TargetOwned, Attached;
         internal bool Demoting, ExitConfirmed;
+        internal bool ThreatKnown, Threatened, RepairUncertain, RepairWearPending;
+        internal double LastThreatAt;
         internal HeavyShieldCampaignToken DemoteCampaign;
         internal CombatTargetToken DemoteLife;
         internal int Facing;
@@ -36,6 +38,7 @@ internal static class HeavyShieldRuntime
         internal bool NativeOwned;
         internal CombatTargetToken TargetLife;
         internal Il2CppReferenceArray<GameObject> Enemies;
+        internal int EnemyCount;
     }
     internal readonly struct MoverFields
     {
@@ -84,6 +87,13 @@ internal static class HeavyShieldRuntime
     }
     private static readonly Dictionary<int, Entry> Entries = new(4);
     private static readonly List<Entry> Scratch = new(4);
+    private static readonly List<Entry> CurrentRoster = new(4);
+    private static readonly List<HeavyShieldBannerCandidate> BannerCandidates = new(4);
+    private static HeavyShieldCampaignToken _activityCampaign;
+    private static HeavyShieldIdentity.Session _activitySession;
+    private static long _activityWorld;
+    private static int _activityLand = -1;
+    private static readonly HashSet<string> ThreatFaults = new();
     private static bool _logged;
     [ThreadStatic] private static int _carrierMutationDepth;
     [ThreadStatic] private static HeavyShieldIngressStack<NativeDemoteCapture> _nativeDemotes;
@@ -126,6 +136,31 @@ internal static class HeavyShieldRuntime
     {
         get { try { return Enabled && Time.timeScale > 0f && Managers.Inst.game.state == Game.State.Playing; } catch { return false; } }
     }
+    internal static bool Advancing
+    {
+        get { try { return Playing && !HeavyShieldIntegration.SerializationInProgress; } catch { return false; } }
+    }
+
+    // Existence/ownership is independent of pause. Scheduling adds threat and time gates.
+    internal static bool IsMaintenanceEligible(Entry e)
+    {
+        try
+        {
+            var session = HeavyShieldIdentity.Current;
+            return e != null && Enabled && e.Attached && !e.ExitConfirmed && !e.Demoting
+                && !e.RepairUncertain && !e.Policy.PendingBreak && !e.Policy.RetirementUnknown
+                && e.Policy.State == HeavyShieldBlockPolicy.LifeState.Guarding
+                && session != null && session.KeyReady && !session.Unknown && !session.StageFault
+                && HeavyShieldIdentity.ValidateCareer(e.Career) && !e.Damage.isDead
+                && !e.Carrier.enabled && CleanCarrier(e.Carrier)
+                && (e.Embarkee == null || !e.Embarkee.enabled)
+                && !HoldsNativeDemoteProof(e.Carrier.gameObject)
+                && Stopped(e.Carrier.behaviour) && Stopped(e.Carrier.shoot) && Stopped(e.Carrier.attack)
+                && HasNativeSourceLife(e.Carrier, e.Career.Life, false)
+                && HeavyShieldActorVisuals.HasQualifiedVisual(e.Carrier, e.Career.Life);
+        }
+        catch { return false; }
+    }
     // Native contract checks are necessary, while live suspension is additionally verified on each carrier.
     internal static bool CarrierPreflightReady
     {
@@ -137,7 +172,7 @@ internal static class HeavyShieldRuntime
                     || !CombatTargetLife.EnsureRegistered() || !HeavyShieldArt.TryGetSoldierSprite(0, out var sprite) || sprite == null) return false;
                 long world = Managers.Inst.world.gameLayer.Pointer.ToInt64();
                 foreach (var e in Entries.Values)
-                    if (e.Career.World == world && (!e.Attached || !SameRoot(e) || !HeavyShieldIdentity.ValidateCareer(e.Career))) return false;
+                    if (e.Career.World == world && (e.RepairUncertain || !e.Attached || !SameRoot(e) || !HeavyShieldIdentity.ValidateCareer(e.Career))) return false;
                 return true;
             }
             catch { return false; }
@@ -168,7 +203,7 @@ internal static class HeavyShieldRuntime
         try
         {
             if (!Playing || !TryEntry(handle, out var e) || !HeavyShieldIdentity.ValidateCareer(handle)
-                || !e.Attached || e.ExitConfirmed || e.Demoting || e.Policy.RetirementUnknown || e.Policy.PendingBreak
+                || !e.Attached || e.ExitConfirmed || e.Demoting || e.RepairUncertain || e.Policy.RetirementUnknown || e.Policy.PendingBreak
                 || e.Carrier.enabled || !CleanCarrier(e.Carrier)
                 || (e.Embarkee != null && e.Embarkee.enabled) || HoldsNativeDemoteProof(e.Carrier.gameObject)
                 || !Stopped(e.Carrier.behaviour) || !Stopped(e.Carrier.shoot) || !Stopped(e.Carrier.attack)
@@ -211,9 +246,12 @@ internal static class HeavyShieldRuntime
                 || !CarrierComponentsValid(carrier) || carrier._damageable.isDead) return AttachResult.Failed;
             if (!Playing) return AttachResult.Deferred;
             if (!InWorld(carrier.gameObject)) return AttachResult.Failed;
+            if (HeavyShieldRepair.IsUncertainCareer(handle)) return AttachResult.Failed;
+            if (Entries.TryGetValue(handle.GoId, out var endedEntry) && endedEntry.RepairUncertain)
+                TryReleaseEndedRepairLife(endedEntry);
             if (Entries.TryGetValue(handle.GoId, out var existing))
             {
-                if (existing.Career != handle || !SameRoot(existing) || !existing.Attached) return AttachResult.Failed;
+                if (existing.RepairUncertain || existing.Career != handle || !SameRoot(existing) || !existing.Attached) return AttachResult.Failed;
                 if (!CleanCarrier(carrier)) return AttachResult.Deferred;
                 // Ownership is not activation: do not reborrow or re-register an unqualified owned visual.
                 return !carrier.enabled && Stopped(carrier.behaviour) && Stopped(carrier.shoot) && Stopped(carrier.attack)
@@ -235,7 +273,8 @@ internal static class HeavyShieldRuntime
             if (!CarrierPreflightReady) return AttachResult.Failed;
             var e = new Entry { Carrier = carrier, Character = carrier._character, Damage = carrier._damageable,
                 Mover = carrier._mover, Embarkee = carrier.Embarkee, Targets = Managers.Inst.targetCache,
-                Career = handle, Policy = policy, Facing = handle.Side == HeavyShieldQuota.Side.Left ? -1 : 1 };
+                Career = handle, Policy = policy, Facing = handle.Side == HeavyShieldQuota.Side.Left ? -1 : 1,
+                LastThreatAt = Time.time };
             if (!CombatTargetLife.TryResolve(e.Damage, out e.TargetLife)) return AttachResult.Failed;
             e.EnabledBefore = carrier.enabled;
             e.EmbarkBefore = e.Embarkee != null && e.Embarkee.enabled;
@@ -276,7 +315,7 @@ internal static class HeavyShieldRuntime
     internal static bool DetachCarrier(in HeavyShieldCareerHandle handle)
     {
         if (!Entries.TryGetValue(handle.GoId, out var e)) return true;
-        if (e.Career != handle) return false;
+        if (e.Career != handle || e.RepairUncertain) return false;
         if (!ReturnBorrowed(e, true)) return false; // ended original life is safe only with its exact managed stamp
         Entries.Remove(handle.GoId); return true;
     }
@@ -315,16 +354,54 @@ internal static class HeavyShieldRuntime
     internal static void Tick()
     {
         Scratch.Clear(); Scratch.AddRange(Entries.Values);
+        CurrentRoster.Clear(); BannerCandidates.Clear();
+        bool advancing = Advancing;
+        if (!Enabled)
+        {
+            HeavyShieldBanner.Reset();
+            // A configuration switch is not proof of a new owner or an ended life.
+            // The policy cancels ordinary work while retaining an issued unknown result.
+            HeavyShieldRepair.Tick(_activityWorld, CurrentRoster, false);
+            foreach (var entry in Scratch)
+                if (!entry.RepairUncertain || TryReleaseEndedRepairLife(entry)) DetachCarrier(entry.Career);
+            return;
+        }
+        if (!HeavyShieldIdentity.TryGetCampaign(out var campaign))
+        {
+            foreach (var e in Scratch)
+                if (!HasNativeSourceLife(e.Carrier, e.Career.Life, false))
+                { e.Attached = false; HeavyShieldActorVisuals.Suspend(e.Carrier, e.Career.Life); }
+            return;
+        }
+        long world = Managers.Inst.world.gameLayer.Pointer.ToInt64();
+        int land = HeavyShieldIdentity.Current.Land;
+        if (world != _activityWorld || land != _activityLand || !SameActivityOwner(campaign)
+            || !ReferenceEquals(_activitySession, HeavyShieldIdentity.Current))
+        {
+            // ReplaceIslandSession installs a new authority object even for same-world
+            // reloads with unchanged campaign generation. Old work cannot span that owner.
+            HeavyShieldRepair.Reset();
+            foreach (var old in Scratch)
+                if (old.RepairUncertain)
+                {
+                    old.RepairUncertain = false;
+                    if (BorrowedReturned(old)) Entries.Remove(old.Career.GoId);
+                }
+            _activityWorld = world; _activityLand = land; _activityCampaign = campaign;
+            _activitySession = HeavyShieldIdentity.Current;
+            // Banner owns its own context: Activate may already have captured this new
+            // context before our first Tick, so resetting it here would lose that request.
+        }
         for (int i = 0; i < Scratch.Count; i++)
         {
             var e = Scratch[i];
             try
             {
-                if (!Enabled) { DetachCarrier(e.Career); continue; }
+                if (e.RepairUncertain && TryReleaseEndedRepairLife(e)) continue;
                 if (!HasNativeSourceLife(e.Carrier, e.Career.Life, false))
                 { e.Attached = false; HeavyShieldActorVisuals.Suspend(e.Carrier, e.Career.Life); continue; }
                 if (e.Damage.isDead) { ObserveNativeDeath(e.Damage); continue; }
-                if (!Playing || !e.Attached) continue;
+                if (!e.Attached) continue;
                 if (e.Carrier.enabled || !Stopped(e.Carrier.behaviour) || !CleanCarrier(e.Carrier)) { DetachCarrier(e.Career); continue; }
                 if (!HeavyShieldActorVisuals.HasQualifiedVisual(e.Carrier, e.Career.Life))
                 {
@@ -332,16 +409,54 @@ internal static class HeavyShieldRuntime
                     if (e.MoveOwned && e.MoveWrite.Matches(e.Mover)) Move(e, e.Carrier.transform.position.x, 0f);
                     HeavyShieldActorVisuals.Suspend(e.Carrier, e.Career.Life); continue;
                 }
-                if (e.Policy.PendingBreak) { Retire(e); continue; }
-                Drive(e);
+                if (e.Policy.PendingBreak) { if (advancing) Retire(e); continue; }
+                if (e.Career.World != world || e.Career.Land != land || !IsMaintenanceEligible(e)) continue;
+                if (advancing) RefreshThreats(e, false);
+                CurrentRoster.Add(e);
+                BannerCandidates.Add(new(e.Career.Receipt, e.Career.Life,
+                    e.Career.Side == HeavyShieldQuota.Side.Left ? -1 : 1, e.Carrier.transform.position.x,
+                    !e.Policy.BashActive && !HeavyShieldRepair.IsQueued(e.Career.Receipt, e.Career.Life)));
+            }
+            catch (Exception ex) { Log("driver held: " + ex.GetType().Name); e.Attached = false; }
+        }
+        HeavyShieldBanner.Tick(campaign, world, BannerCandidates, advancing);
+        HeavyShieldRepair.Tick(world, CurrentRoster, advancing);
+        if (!advancing) return;
+        foreach (var e in CurrentRoster)
+        {
+            try
+            {
+                if (e.RepairWearPending)
+                { e.RepairWearPending = false; Wear(e); }
+                if (e.RepairUncertain)
+                { Move(e, e.Carrier.transform.position.x, 0f); continue; }
+                if (IsMaintenanceEligible(e)) Drive(e);
             }
             catch (Exception ex) { Log("driver held: " + ex.GetType().Name); e.Attached = false; }
         }
     }
+    private static bool SameActivityOwner(in HeavyShieldCampaignToken campaign)
+        => campaign.Guid == _activityCampaign.Guid && campaign.Global == _activityCampaign.Global
+            && campaign.Campaign == _activityCampaign.Campaign && campaign.OwnerGeneration == _activityCampaign.OwnerGeneration;
     private static void Drive(Entry e)
     {
         float now = Time.time, x = e.Carrier.transform.position.x;
-        var anchor = Managers.Inst.kingdom.GetGuardPosition(e.Facing < 0 ? Side.Left : Side.Right);
+        int homeFacing = e.Career.Side == HeavyShieldQuota.Side.Left ? -1 : 1;
+        if (HeavyShieldRepair.TryGetOrder(e.Career, out var repair))
+        {
+            SetFacing(e, repair.Facing);
+            HeavyShieldActorVisuals.InterruptLeisure(e.Carrier, e.Career.Life);
+            bool known = TryActualMotion(e, out var repairMotion);
+            if (HeavyShieldActorVisuals.GuardReady(e.Carrier, e.Career.Life))
+                HeavyShieldActorVisuals.Trigger(e.Carrier, e.Career.Life, HeavyShieldAction.Stow);
+            HeavyShieldActorVisuals.SetPresentation(e.Carrier, e.Career.Life,
+                repair.Working ? HeavyShieldStance.BackIdle : repairMotion, false, known);
+            Move(e, repair.Working ? x : repair.X,
+                repair.Working || Math.Abs(repair.X - x) <= .1f ? 0f : Math.Max(.1f, e.Carrier.walkSpeed));
+            return;
+        }
+        SetFacing(e, homeFacing);
+        var anchor = Managers.Inst.kingdom.GetGuardPosition(homeFacing < 0 ? Side.Left : Side.Right);
         if (!float.IsFinite(anchor.Value)) return;
         int seat = 0;
         foreach (var other in Entries.Values)
@@ -349,17 +464,19 @@ internal static class HeavyShieldRuntime
                 && other.Career.World == e.Career.World && other.Career.Land == e.Career.Land
                 && other.Career.CampaignGuid == e.Career.CampaignGuid && SameRoot(other)
                 && HeavyShieldIdentity.ValidateCareer(other.Career)) ++seat;
-        float home = anchor.Value - e.Facing * (0.25f + seat * 0.5f);
-        GameObject closest = null;
-        if (now >= e.NextScan)
+        float home = anchor.Value - homeFacing * (0.25f + seat * 0.5f);
+        float travelSpeed = Math.Max(.1f, e.Carrier.walkSpeed);
+        bool inBanner = HeavyShieldBanner.TryGetOrder(e.Career.Receipt, e.Career.Life, out var banner);
+        if (inBanner)
         {
-            e.NextScan = now + 0.2f;
-            // Native scanner is local, bounded and reused; it retains its native predicate/filter.
-            var scanner = e.Carrier._enemyScanner;
-            scanner.Refresh(true); scanner.GetAll(out e.Enemies);
+            SetFacing(e, banner.Facing);
+            if (banner.Hold) { Move(e, x, 0f); return; }
+            home = banner.X;
+            if (float.IsFinite(banner.Speed) && banner.Speed > 0f) travelSpeed = banner.Speed;
         }
+        GameObject closest = null;
         float nearest = 3f;
-        int count = Math.Min(e.Enemies?.Length ?? 0, 32);
+        int count = Math.Min(e.EnemyCount, e.Enemies?.Length ?? 0);
         for (int i = 0; i < count; i++)
         {
             GameObject target = e.Enemies[i];
@@ -368,7 +485,7 @@ internal static class HeavyShieldRuntime
             if (dx > 0f && dx < nearest && Math.Abs(target.transform.position.y - e.Carrier.transform.position.y) < 1.5f)
             { closest = target; nearest = dx; }
         }
-        bool guard = closest != null || Math.Abs(home - x) < 0.15f;
+        bool guard = inBanner || closest != null || Math.Abs(home - x) < 0.15f;
         bool motionKnown = TryActualMotion(e, out HeavyShieldStance backMotion);
         bool actuallyMoving = motionKnown && backMotion != HeavyShieldStance.BackIdle;
         if (closest != null || actuallyMoving || !motionKnown)
@@ -400,7 +517,158 @@ internal static class HeavyShieldRuntime
         HeavyShieldActorVisuals.SetPresentation(e.Carrier, e.Career.Life,
             guard ? (actuallyMoving && ready ? HeavyShieldStance.Advance : HeavyShieldStance.GuardIdle) : backMotion,
             closest != null, motionKnown);
-        Move(e, goal, moving ? Math.Max(0.1f, e.Carrier.walkSpeed) : 0f);
+        Move(e, goal, moving ? travelSpeed : 0f);
+    }
+    private static void SetFacing(Entry e, int facing)
+    {
+        if (facing != -1 && facing != 1) throw new InvalidOperationException("unknown shield facing");
+        if (e.Facing == facing) return;
+        e.Facing = facing;
+        HeavyShieldActorVisuals.SetFacing(e.Carrier, e.Career.Life, facing);
+    }
+
+    private static void RefreshThreats(Entry e, bool force)
+    {
+        float now = Time.time;
+        if (!force && now < e.NextScan) return;
+        e.NextScan = now + .2f;
+        e.ThreatKnown = false; e.Threatened = e.Policy.BashActive; e.EnemyCount = 0;
+        string unknown = null;
+        try
+        {
+            var scanner = e.Carrier._enemyScanner;
+            if (scanner == null) { ThreatUnknown(e, "missing-scanner", now); return; }
+            var observer = scanner.observer;
+            var position = e.Carrier.transform.position;
+            float scale = Math.Abs(e.Carrier.transform.localScale.x);
+            var filter = scanner._contactFilter;
+            // Current 2.4 ARM64 scanner geometry: x +/- localScale.x*range,
+            // bottom y=.5, top observer.y+height. The repair predicate covers
+            // this local Enemies-layer rectangle; damage requests cover other sources.
+            if (observer == null || observer.Pointer != e.Carrier.transform.Pointer
+                || !float.IsFinite(position.x) || !float.IsFinite(position.y)
+                || !float.IsFinite(scale) || scale < .5f || scale > 2f
+                || !float.IsFinite(scanner.range) || !float.IsFinite(scanner.rangeBehind)
+                || scanner.range * scale < 3f || scanner.rangeBehind * scale < 3f
+                || !float.IsFinite(scanner._height) || scanner._height < 6f
+                || position.y + scanner._height <= .5f
+                || !float.IsFinite(scanner._interval) || scanner._interval <= 0f)
+                unknown = "scanner-geometry";
+            if (filter.layerMask.value != 65536 || !filter.useLayerMask || !filter.useTriggers
+                || filter.useDepth || filter.useOutsideDepth || filter.useNormalAngle || filter.useOutsideNormalAngle
+                || scanner._excludeDead || scanner._tags != null || scanner.additionalRequirements != null)
+                unknown = "scanner-filter";
+
+            scanner.Refresh(true);
+            int uncompressed = scanner._numFiltered;
+            var buffer = scanner._filtered;
+            float refreshedAt = scanner._lastRefresh;
+            int count = scanner.GetAll(out e.Enemies);
+            if (count < 0 || e.Enemies == null || count > e.Enemies.Length)
+            { ThreatUnknown(e, "scanner-count", now); return; }
+            e.EnemyCount = count; // Combat and repair consume this same effective prefix.
+            if (buffer == null || buffer.Length != 12 || uncompressed < 0 || uncompressed >= 12
+                || count > uncompressed || buffer.Pointer != e.Enemies.Pointer
+                || !float.IsFinite(refreshedAt) || scanner._lastRefresh != refreshedAt)
+                unknown = "scanner-capacity-or-refresh";
+            if (unknown != null) { ThreatUnknown(e, unknown, now); return; }
+            for (int i = 0; i < count; i++)
+            {
+                var target = e.Enemies[i];
+                if (target == null || !InWorld(target))
+                { unknown = "scanner-target"; break; }
+                var enemy = target.GetComponent<Enemy>();
+                var damage = target.GetComponent<Damageable>();
+                if (enemy == null || damage == null || !damage.enabled)
+                { unknown = "scanner-target"; break; }
+                if (!damage.isDead) e.Threatened = true;
+            }
+            if (unknown != null) { ThreatUnknown(e, unknown, now); return; }
+            e.ThreatKnown = true;
+            if (e.Threatened) e.LastThreatAt = now;
+        }
+        catch { ThreatUnknown(e, "scanner-read", now); }
+    }
+
+    private static void ThreatUnknown(Entry e, string reason, float now)
+    {
+        e.ThreatKnown = false; e.LastThreatAt = now;
+        if (ThreatFaults.Count >= 12 || !ThreatFaults.Add(reason)) return;
+        try { KingdomEnhancedPlugin.Instance?.LogSource?.LogWarning("[HeavyShieldRepair] waiting for known local safety: " + reason); }
+        catch { }
+    }
+
+    internal static void ObserveIncomingDamage(Damageable damage, int amount)
+    {
+        try
+        {
+            if (amount <= 0 || !Playing || !TryGetCareer(damage, out var career)
+                || !TryEntry(career, out var e) || e.ExitConfirmed) return;
+            e.LastThreatAt = Time.time;
+            e.Threatened = true;
+        }
+        catch { }
+    }
+
+    internal static bool TryCompleteRepair(in HeavyShieldRepairCompletion completion,
+        in HeavyShieldRepairSite site, out bool uncertain)
+    {
+        uncertain = false;
+        Entry entry = null;
+        bool committing = false;
+        try
+        {
+            if (!HeavyShieldRepair.IsCompleting(completion) || !Advancing
+                || HeavyShieldCombat.InNativeDamageStack || completion.World != _activityWorld
+                || site.World != completion.World || site.Life != completion.ShopLife) return false;
+            foreach (var e in CurrentRoster)
+                if (e.Career.Receipt == completion.Receipt && e.Career.Life == completion.Life)
+                { entry = e; break; }
+            if (!IsMaintenanceEligible(entry) || entry.Policy.BashActive
+                || HeavyShieldBanner.IsAssigned(completion.Receipt, completion.Life)
+                || !HeavyShieldShopShell.TryGetRepairSite(out var currentSite) || currentSite != site) return false;
+            RefreshThreats(entry, true); // final local observation, never an old .2-second cache
+            var position = entry.Carrier.transform.position;
+            if (!entry.ThreatKnown || entry.Threatened || !double.IsFinite(entry.LastThreatAt)
+                || Time.time - entry.LastThreatAt < HeavyShieldMaintenancePolicy.QuietSeconds
+                || !float.IsFinite(position.x) || !float.IsFinite(position.y)
+                || Math.Abs(position.x - site.X) > .20f || Math.Abs(position.y - site.Y) > .50f
+                || entry.Policy.Durability != completion.ExpectedDurability
+                || !Advancing || !HeavyShieldRepair.IsCompleting(completion)) return false;
+            committing = true;
+            if (!HeavyShieldIdentity.TryCompleteRepair(entry.Career, completion, entry.Policy)) return false;
+            // No native/visual call after the adjacent policy+claim commit. Adapter settles
+            // the exact completion first; the normal driver then refreshes the existing wear.
+            entry.RepairWearPending = true;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            uncertain = committing;
+            if (committing && entry != null) entry.RepairUncertain = true;
+            Log("repair commit held: " + ex.GetType().Name);
+            return false;
+        }
+    }
+
+    internal static bool IsRepairSettled(in HeavyShieldRepairCompletion completion)
+    {
+        Entry entry = null;
+        try
+        {
+            foreach (var e in CurrentRoster)
+                if (e.Career.Receipt == completion.Receipt && e.Career.Life == completion.Life)
+                { entry = e; break; }
+            bool settled = entry != null && HeavyShieldRepair.IsCompleting(completion)
+                && entry.Career.World == completion.World && !entry.RepairUncertain
+                && HasNativeSourceLife(entry.Carrier, entry.Career.Life, false)
+                && HeavyShieldIdentity.TryGetCombatState(entry.Career, out var combat)
+                && combat.Durability == 40 && !combat.PendingBreak && !combat.RetirementUnknown
+                && entry.Policy.Durability == 40 && !entry.Policy.PendingBreak && !entry.Policy.RetirementUnknown;
+            if (!settled && entry != null) entry.RepairUncertain = true;
+            return settled;
+        }
+        catch { if (entry != null) entry.RepairUncertain = true; return false; }
     }
     private static bool TryActualMotion(Entry e, out HeavyShieldStance stance)
     {
@@ -444,7 +712,7 @@ internal static class HeavyShieldRuntime
     }
     private static void BashImpact(Entry e)
     {
-        int count = Math.Min(e.Enemies?.Length ?? 0, 32);
+        int count = Math.Min(e.EnemyCount, e.Enemies?.Length ?? 0);
         for (int i = 0; i < count && e.Policy.BashActive; i++)
         {
             try
@@ -465,6 +733,7 @@ internal static class HeavyShieldRuntime
     internal static bool TryBlock(in HeavyShieldCareerHandle handle, bool arrow, float vx, float sourceX)
     {
         if (!Playing || !HeavyShieldIdentity.ValidateCareer(handle) || !TryEntry(handle, out var e) || !e.Attached || e.Carrier.enabled
+            || e.RepairUncertain
             || !HasNativeSourceLife(e.Carrier, handle.Life, false)
             || !HeavyShieldActorVisuals.GuardReady(e.Carrier, handle.Life)) return false;
         float defenderX = e.Carrier.transform.position.x;
@@ -624,23 +893,65 @@ internal static class HeavyShieldRuntime
             if (root == null || !Entries.TryGetValue(root.GetInstanceID(), out var e) || root.Pointer != e.Career.Root) return;
             if (!e.Demoting && e.Damage.isDead) { ObserveNativeDeath(e.Damage); return; }
             bool held = HoldsNativeDemoteProof(root);
-            if (ReturnBorrowed(e) && !held) Entries.Remove(e.Career.GoId); // only the exact whole-call source keeps its proof
+            if (ReturnBorrowed(e) && !held && !e.RepairUncertain) Entries.Remove(e.Career.GoId);
+            // Uncertain repair credentials survive this BEFORE notification. The actual
+            // native inactive/marker proof in AfterNativePoolDespawn may end their scope.
         }
         catch { }
+    }
+    internal static void AfterNativePoolDespawn(GameObject root, float delay)
+    {
+        try
+        {
+            if (delay > 0f || root == null || root.activeInHierarchy
+                || !Entries.TryGetValue(root.GetInstanceID(), out var e) || root.Pointer != e.Career.Root) return;
+            TryReleaseEndedRepairLife(e);
+        }
+        catch { }
+    }
+    private static bool BorrowedReturned(Entry e) => !e.MoveOwned && !e.NativeOwned && !e.TargetOwned
+        && !e.EnabledWrite && !e.EmbarkWrite;
+    private static bool TryReleaseEndedRepairLife(Entry e)
+    {
+        if (!e.RepairUncertain || !BorrowedReturned(e)) return false;
+        try
+        {
+            // OriginalSourceLife can prove an ended old life without permitting any native
+            // access on its replacement. This path only drops the old managed credential.
+            bool originalProof = OriginalSourceLife(e, e.TargetLife, out bool ended);
+            if (!ended) return false;
+            if (!originalProof)
+            {
+                // Inactive after an observation gap also sets ended=true, but has no
+                // exact last-life receipt. Only an independently observed positive
+                // replacement life can authorize dropping the old credential here.
+                var root = e.Carrier?.gameObject;
+                var marker = root?.GetComponent<CombatTargetLifeMarker>();
+                if (root == null || root.Pointer != e.TargetLife.GoPointer
+                    || root.GetInstanceID() != e.TargetLife.GoId || !root.activeInHierarchy
+                    || marker == null || !marker.enabled || !marker.Observing
+                    || marker.Life <= 0 || marker.Life == e.TargetLife.Life) return false;
+            }
+            HeavyShieldRepair.EndConfirmedCareer(e.Career);
+            e.RepairUncertain = false; e.Attached = false;
+            Entries.Remove(e.Career.GoId);
+            return true;
+        }
+        catch { return false; }
     }
     private static void ReleaseEnded(Entry e)
     {
         // No native field/enable writes after a terminal career: the old root may be pooled already.
+        HeavyShieldRepair.EndConfirmedCareer(e.Career);
         e.Attached = false;
         HeavyShieldActorVisuals.Unregister(e.Carrier, e.Career.Life);
         if (e.TargetOwned) { e.Targets.DeregisterPriorityTarget(e.Damage); e.TargetOwned = false; }
         Entries.Remove(e.Career.GoId);
     }
     private static bool Persist(Entry e)
-        => HeavyShieldIdentity.UpdateCombatState(e.Career, new(e.Policy.Durability, e.Policy.PendingBreak, e.Policy.RetirementUnknown));
+        => !e.RepairUncertain && HeavyShieldIdentity.UpdateCombatState(e.Career, new(e.Policy.Durability, e.Policy.PendingBreak, e.Policy.RetirementUnknown));
     private static void Wear(Entry e)
-    { HeavyShieldActorVisuals.SetWear(e.Carrier, e.Career.Life, e.Policy.Durability >= 4 ? HeavyShieldWear.Intact
-        : e.Policy.Durability == 3 ? HeavyShieldWear.Worn : e.Policy.Durability == 2 ? HeavyShieldWear.Critical : HeavyShieldWear.Half); }
+    { HeavyShieldActorVisuals.SetWear(e.Carrier, e.Career.Life, (HeavyShieldWear)HeavyShieldDurabilityMigration.WearBand(e.Policy.Durability)); }
     internal static bool IsOrdinaryEnemy(GameObject root, bool arrowOwner)
     {
         try

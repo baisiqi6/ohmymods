@@ -23,7 +23,11 @@ internal static class HeavyShieldIntegration
     private static SaveScope _save;
     private static LoadScope _load;
     private static int _poolDepth;
+    private static int _prepareFinalizingDepth;
     private static readonly HashSet<string> Faults = new();
+    internal static bool SerializationInProgress => _save != null || _load != null
+        || _prepareFinalizingDepth != 0 || HeavyShieldPersistence.SerializationInProgress
+        || IslandSaveData.isSavingGame;
 
     internal static void Fault(string point, Exception error)
     {
@@ -56,15 +60,17 @@ internal static class HeavyShieldIntegration
             && !HeavyShieldRuntime.HoldsNativeDemoteProof(root))
             HeavyShieldIdentity.ObservePoolDespawn(root, delay); }
         catch (Exception e) { Fault("pool-despawn", e); }
+        try { HeavyShieldRuntime.AfterNativePoolDespawn(root, delay); }
+        catch (Exception e) { Fault("repair-life-end", e); }
     }
 
     internal static void Tick()
     {
         try { HeavyShieldPersistence.TickBinding(); } catch (Exception e) { Fault("binding", e); }
-        try { HeavyShieldRuntime.Tick(); } catch (Exception e) { Fault("runtime", e); }
         try { HeavyShieldShopShell.Tick(ModConfig.Enabled != null && ModConfig.Enabled.Value
             && ModConfig.HeavyShieldEnabled != null && ModConfig.HeavyShieldEnabled.Value); }
         catch (Exception e) { Fault("shop", e); }
+        try { HeavyShieldRuntime.Tick(); } catch (Exception e) { Fault("runtime", e); }
     }
 
     internal static SaveScope BeginSave(int campaign, int land, int challenge)
@@ -145,8 +151,12 @@ internal static class HeavyShieldIntegration
     }
     internal static void EndPrepare(HeavyShieldPersistence.PrepareCapture scope, bool normalReturn)
     {
+        // Persistence pops its capture before native readback. Keep the outer
+        // serialization mask through that entire finalizer, including reentry.
+        ++_prepareFinalizingDepth;
         try { if (scope != null) HeavyShieldPersistence.EndNativePrefsPrepare(scope, normalReturn); }
         catch (Exception e) { Fault("prefs-prepare-end", e); }
+        finally { --_prepareFinalizingDepth; }
     }
     internal static void BeforeCampaignMutation(GlobalSaveData global)
     {

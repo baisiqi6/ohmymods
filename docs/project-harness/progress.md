@@ -1,3 +1,7 @@
+## 2026-10-15 — 盾卫举旗、耐久与铁匠维修交付（Issue #234）
+
+PR237接入已合226的完整release；同侧1名举旗盾卫、40耐久/旧档比例迁移、店内铁匠免费耗时维修已完成当前source/host交集验证。Android新Banner明确不启用，保留PC完整队形保护和现有平台注册；公共PC双TFM、AndroidD/R及双Adapter、10组相关回归和metadata通过（Android保留1个未使用字段提示）。正常累计候选另审、未用公共DLL替换已装包，详见tasks/issue-234/delivery-verification.md。下方G0/G1及未合并文字为历史；当前PR以GitHub为准，代码合并后关单，玩家后验新问题另Issue/PR。
+
 ## 2026-10-15 — 自定义商店库存与照明源码收尾（Issue #225）
 
 PR226接入含字体性能/地图的当前release，保留stock/save/native-reader各自产生与提交责任；补Android三真实Compile及测试依赖冲突并集。最终完整PC/Android构建、Adapter与13组相关source-linked回归通过；具体数字/调用错误留痕见tasks/issue-225/verification.md。原功能已实装，当前只源码收尾；自然重上架领取、破墙与照明观感/平台实机不冒称通过，后续新问题另Issue/PR。下方旧Draft/Open记录保留历史。
@@ -15,6 +19,12 @@ PR202已合入release，PR222目标改回release并完成当前组合检查；�
 G0/PR233与保存根因修复#235/PR236已合并，#235正常受管完成；下方旧“待PR整合”保留历史。当前G1正式工程173源/184真实refs/21资源、40真实配置、共享13职业人口，显式52owner及真实初始化/驱动源码已接入，删除旧重复PopulationCounts。缩放同名alias遮蔽在产生处修为唯一平台别名，四旧Register+新增Unregister断言红1259/5→最终W1264/0；Population106/0，Android D/R0W0E，fresh PC net8/net6全源严格零语义/IL/资源差异。Main单文件交接与正常exact计划审批已完成，窗口归还，其他任务/plans/lease保持。当前源码尚待PR交付，整个232仍OPEN；未安装新Main/APK，0.0.30成果保留，未预付native ABI/真实保存/池玩法/手机多人验收，#213仍OPEN。详见[本次记录](tasks/issue-232/g1-source-foundation.md)。
 
 后续先补native/保存边界，再按弓弩、火铳、英雄/盾卫完整依赖组推进，公共触屏控件随组复用；职业组条件宽估40–100工程小时，全Android暂维持约6–8风险组/70–200工程小时，实际ABI/环境卡点可改变估算，玩家验收日历另计。
+
+## 2026-10-15 — 盾卫随旗与店匠维修（Issue #234，源码交付）
+
+已实现两金币举旗带同侧一名盾卫、40点候选耐久，以及脱战回盾具店免费维修。由现有店匠负责，到店累计8游戏秒工时，不占用建墙工人；6秒安全期、暂停/保存与迁址中断、未知完成结果保护均接入。v1–v3存档先验证再比例迁移到v4，碎盾/隔离状态与付费身份保留。参数与站位仍需原生玩法校准。
+
+实际生产Runtime/Banner/Repair宿主1140断言、Identity/Persistence 670检查及策略/兼容回归通过，真实interop引用的net8/net6完整构建0W0E。独立复审已闭合首帧旗令丢失、关闭功能误清未知结果和观察缺口误判生命结束三个问题；最终批准仅静态与宿主代码范围。已提交[Draft PR #237](https://github.com/baisiqi6/ohmymods/pull/237)，Issue仍开放；未启动游戏、未安装DLL、未修改玩家存档或配置。原生游戏/平台验收与合并安装另记，详见[验证记录](tasks/issue-234/verification.md)。
 
 ## 2026-10-15 — 共享保存未发布观察根因修复（Issue #235，待 PR 整合）
 

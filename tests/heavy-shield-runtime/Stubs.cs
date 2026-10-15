@@ -10,7 +10,7 @@ namespace Il2CppInterop.Runtime.InteropTypes
 }
 namespace Il2CppInterop.Runtime.InteropTypes.Arrays
 {
-    public class Il2CppReferenceArray<T> { private T[] Rows; public Il2CppReferenceArray(T[] rows){Rows=rows;} public int Length=>Rows.Length;
+    public class Il2CppReferenceArray<T> : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase { private T[] Rows; public Il2CppReferenceArray(T[] rows){Rows=rows;} public int Length=>Rows.Length;
         public T this[int i] {get=>Rows[i];set=>Rows[i]=value;} }
 }
 namespace Il2CppInterop.Runtime.Attributes { public class HideFromIl2CppAttribute : Attribute {} }
@@ -21,7 +21,7 @@ namespace UnityEngine
     public class Object : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase { public virtual int GetInstanceID()=>Pointer.ToInt32();public static void Destroy(Object o) { if(o is GameObject g){g.SetActive(false);g.SendMessage("OnDestroy");} } }
     public class Component : Object { public GameObject gameObject; public Transform transform=>gameObject.transform;
         public T GetComponentInChildren<T>() where T:Component=>gameObject.GetComponent<T>(); public T GetComponent<T>() where T:Component=>gameObject.GetComponent<T>(); }
-    public class Behaviour : Component { protected bool On=true;public int EnabledWrites;
+    public class Behaviour : Component { protected bool On=true;public int EnabledWrites;public bool isActiveAndEnabled=>enabled&&gameObject!=null&&gameObject.activeInHierarchy;
         public virtual bool enabled {get=>On;set{NativeBoundaryWrites.Count++;EnabledWrites++;bool changed=On!=value;On=value;
             if(changed&&gameObject?.activeInHierarchy==true)GameObject.Message(this,value?"OnEnable":"OnDisable");}} }
     public class MonoBehaviour : Behaviour { public MonoBehaviour(){} public MonoBehaviour(IntPtr p){Pointer=p;} }
@@ -48,6 +48,8 @@ namespace UnityEngine
         public Vector3 InverseTransformPoint(Vector3 p){var w=position;var s=lossyScale;return new((p.x-w.x)/s.x,(p.y-w.y)/s.y,(p.z-w.z)/s.z);}
         public void SetParent(Transform p,bool v){var w=position;parent=p;if(v)position=w;} public bool IsChildOf(Transform t)=>this==t||parent!=null&&parent.IsChildOf(t); }
     public struct Scene {public int handle;}
+    public struct LayerMask { public int value; }
+    public struct ContactFilter2D { public LayerMask layerMask; public bool useLayerMask,useTriggers,useDepth,useOutsideDepth,useNormalAngle,useOutsideNormalAngle; }
     public struct Vector2 { public float x,y; public Vector2(float a,float b){x=a;y=b;} }
     public struct Vector3 { public float x,y,z;public Vector3(float a,float b,float c=0){x=a;y=b;z=c;}
         public static Vector3 zero=>new();public static Vector3 one=>new(1,1,1);
@@ -78,7 +80,7 @@ public static class ProgramDirector {public static bool Main=true;public static 
 public class Game {public enum State {Playing,Other} public State state;}
 public class World {public UnityEngine.Transform gameLayer=new UnityEngine.GameObject("world").transform;}
 public class Managers { public static Managers Inst=new();public World world=new();public Game game=new();public TargetCacher targetCache=new();public Kingdom kingdom=new(); }
-public class Kingdom {public float Home=5;public KeyValuePair<Side,float> GetGuardPosition(Side s)=>new(s,Home*(int)s);}
+public class Kingdom {public Player playerOne,playerTwo;public float Home=5;public KeyValuePair<Side,float> GetGuardPosition(Side s)=>new(s,Home*(int)s);}
 public class TargetCacher { public List<Damageable> _trollPriorityTargets=new();public bool FailDeregister;public int Writes;
     public void RegisterPriorityTarget(Damageable d){NativeBoundaryWrites.Count++;Writes++;if(!_trollPriorityTargets.Contains(d))_trollPriorityTargets.Add(d);}
     public void DeregisterPriorityTarget(Damageable d){NativeBoundaryWrites.Count++;Writes++;if(FailDeregister)throw new Exception("target release failed");_trollPriorityTargets.Remove(d);} }
@@ -110,8 +112,28 @@ public class Damageable : UnityEngine.Behaviour
         finally{HeavyShieldCombat.ObserveDamageEnd(this);} }
 }
 public class ArrowAttack : UnityEngine.Object {}
-public class Scanner {public UnityEngine.GameObject[] Rows=Array.Empty<UnityEngine.GameObject>();public void Refresh(bool force){}
-    public int GetAll(out Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<UnityEngine.GameObject> rows){rows=new(Rows);return Rows.Length;} }
+public class Scanner
+{
+    public UnityEngine.GameObject[] Rows=Array.Empty<UnityEngine.GameObject>();
+    public UnityEngine.Transform observer;
+    public float range=6,rangeBehind=6,_height=6,_interval=.5f,_lastRefresh;
+    public bool _excludeDead; public string[] _tags; public object additionalRequirements;
+    public UnityEngine.ContactFilter2D _contactFilter=new(){layerMask=new(){value=65536},useLayerMask=true,useTriggers=true};
+    public int _numFiltered, Refreshes; public Action OnRefresh;
+    public Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<UnityEngine.GameObject> _filtered=new(new UnityEngine.GameObject[12]);
+    public void Refresh(bool force)
+    {
+        if(!force && UnityEngine.Time.time-_lastRefresh<_interval)return;
+        Refreshes++;_lastRefresh=UnityEngine.Time.time;_numFiltered=Math.Min(Rows.Length,12);
+        for(int i=0;i<_numFiltered;i++)_filtered[i]=Rows[i]; // Deliberately retain the stale tail like native Scanner.
+        OnRefresh?.Invoke();
+    }
+    public int GetAll(out Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppReferenceArray<UnityEngine.GameObject> rows)
+    {
+        Refresh(false);int n=0;for(int i=0;i<_numFiltered;i++)if(_filtered[i]!=null&&_filtered[i].activeInHierarchy)_filtered[n++]=_filtered[i];
+        _numFiltered=n;rows=_filtered;return n;
+    }
+}
 public class Archer : UnityEngine.Behaviour
 {
     public enum AttackMode {Ranged,Melee,Shield}
@@ -139,7 +161,8 @@ public class Arrow : UnityEngine.Component {private UnityEngine.Rigidbody2D _bod
     public void HitObject(UnityEngine.GameObject g,bool water){}public bool TryDamage(Damageable d)=>true;}
 namespace HarmonyLib
 {
-    public class HarmonyPatch : Attribute {}
+    public class HarmonyPatch : Attribute {public HarmonyPatch(){}public HarmonyPatch(Type type,string method){}}
+    public class HarmonyPostfix : Attribute {}
     public static class AccessTools {public static MethodInfo Method(Type t,string n,Type[] p)=>t.GetMethod(n,p);}
     public class Patch {public MethodInfo PatchMethod;}
     // Deliberately no PatchManager type: the real helper must use the live compat query.
@@ -169,14 +192,30 @@ namespace KingdomEnhancedMod
     internal static class HeroArcherRuntime {internal static bool IsHero(Archer a)=>false;}
     internal static class MusketeerRuntime {internal static bool IsMusketeer(Archer a)=>false;}
     internal static class HeavyShieldIdentity
-    {internal static HashSet<HeavyShieldCareerHandle> Careers=new();internal static Dictionary<Guid,HeavyShieldSavedCombatState> Saved=new();
+    {internal sealed class Session { internal bool KeyReady=true,Unknown=false,StageFault=false; internal int Land=0; internal long World; }
+        internal static Session Current=new();
+        internal static HeavyShieldIdentityPhase CurrentPhase=HeavyShieldIdentityPhase.Loaded;
+        internal static HashSet<HeavyShieldCareerHandle> Careers=new();internal static Dictionary<Guid,HeavyShieldSavedCombatState> Saved=new();
         internal static HashSet<Guid> Unresolved=new();internal static Dictionary<IntPtr,long> Lives=new();
         internal static Dictionary<Guid,HashSet<HeavyShieldExitKind>> ExitProofs=new();internal static List<HeavyShieldExitKind> ConfirmedKinds=new();internal static bool EconomyUnknown;
         internal static long Generation=1;internal static bool TryGetCampaign(out HeavyShieldCampaignToken token)
-        {token=new("campaign",(IntPtr)10,(IntPtr)20,Generation,HeavyShieldIdentityPhase.Loaded);return true;}
+        {token=new("campaign",(IntPtr)10,(IntPtr)20,Generation,CurrentPhase);return true;}
+        internal static bool ThrowRepairReadback;
+        internal static bool TryGetCombatState(in HeavyShieldCareerHandle h,out HeavyShieldSavedCombatState state)
+        {if(ThrowRepairReadback)throw new Exception("controlled state readback fault");return Saved.TryGetValue(h.Receipt,out state)&&ValidateCareer(h);}
+        // Identity's real commit is tested in heavy-shield-identity. This controlled dependency
+        // lets this suite exercise Runtime/Repair ordering and gates, not native identity proof.
+        internal static bool TryCompleteRepair(in HeavyShieldCareerHandle h,in HeavyShieldRepairCompletion c,HeavyShieldBlockPolicy policy)
+        {
+            if(!ValidateCareer(h)||!Saved.TryGetValue(h.Receipt,out var old)||old.Durability!=c.ExpectedDurability
+                ||old.PendingBreak||old.RetirementUnknown||!policy.TryRepair(c.ExpectedDurability))return false;
+            Saved[h.Receipt]=new(40,false,false);return true;
+        }
         internal static int Exits,Proofs;internal static bool FailUpdate;internal static bool ValidateCareer(in HeavyShieldCareerHandle h)
             =>Careers.Contains(h)&&h.World==Managers.Inst.world.gameLayer.Pointer.ToInt64()&&Lives.TryGetValue(h.Root,out var life)&&life==h.Life;
-        internal static bool ValidateCampaign(in HeavyShieldCampaignToken c)=>TryGetCampaign(out var current)&&current==c;
+        internal static bool ValidateCampaign(in HeavyShieldCampaignToken c)=>TryGetCampaign(out var current)
+            &&c.Guid==current.Guid&&c.Global==current.Global&&c.Campaign==current.Campaign&&c.OwnerGeneration==current.OwnerGeneration
+            &&c.Phase is HeavyShieldIdentityPhase.Allocated or HeavyShieldIdentityPhase.Staged or HeavyShieldIdentityPhase.Loaded;
         internal static bool TryGetSoldier(Archer carrier,out HeavyShieldCareerHandle h)
         {h=default;if(carrier==null)return false;foreach(var c in Careers)if(c.Root==carrier.gameObject.Pointer&&ValidateCareer(c)&&!Unresolved.Contains(c.Receipt)){h=c;return true;}return false;}
         internal static void ObservePoolFreshLife(UnityEngine.GameObject root,bool fresh){if(fresh)Lives[root.Pointer]=Lives.TryGetValue(root.Pointer,out var n)?n+1:1;}
@@ -192,13 +231,19 @@ namespace KingdomEnhancedMod
 }
 
 // Unexercised integration boundary APIs, so the real root Pool callbacks can be linked directly.
-public class IslandSaveData {public class ObjectData{}}
+public class IslandSaveData {public static bool isSavingGame; public class ObjectData{}}
 public class PrefsSaveData {} public class GlobalSaveData {} public class CampaignSaveData {}
 namespace KingdomEnhancedMod
 {
-    internal static class HeavyShieldShopShell {internal static void Tick(bool e){}internal static void CancelPendingTransactionsBeforeNativeSave(){}}
+    internal static class HeavyShieldShopShell
+    {
+        internal static bool SiteEnabled; internal static HeavyShieldRepairSite Site;
+        internal static bool TryGetRepairSite(out HeavyShieldRepairSite site){site=Site;return SiteEnabled;}
+        internal static void Tick(bool e){} internal static void CancelPendingTransactionsBeforeNativeSave(){}
+    }
     internal static class HeavyShieldPersistence
     {
+        internal static bool SerializationInProgress; internal static Action PrepareFinalizerObserver;
         internal class SaveCapture{} internal class LoadCapture{} internal class CreateCapture{} internal class GenerationCapture{} internal class PrepareCapture{}
         internal static void TickBinding(){}internal static SaveCapture BeginNativeIslandSave(int a,int b,int c)=>null;
         internal static void ObserveNativeId(SaveCapture c,Persistent p,string id){}internal static void ObserveNativeIslandCaptured(SaveCapture c,IslandSaveData i){}
@@ -208,7 +253,7 @@ namespace KingdomEnhancedMod
         internal static void EndNativeLoadRow(CreateCapture c){}internal static void EndNativeIslandLoad(LoadCapture c,bool s){}
         internal static void PrepareNativePrefs(PrefsSaveData p){}internal static void BeforeCampaignMutation(GlobalSaveData g){}
         internal static PrepareCapture BeginNativePrefsPrepare(PrefsSaveData p)=>null;
-        internal static void EndNativePrefsPrepare(PrepareCapture c,bool n){}
+        internal static void EndNativePrefsPrepare(PrepareCapture c,bool n){SerializationInProgress=false;PrepareFinalizerObserver?.Invoke();}
         internal static void AfterCampaignCreated(GlobalSaveData g,CampaignSaveData c){}internal static GenerationCapture BeginNativeGeneration(CampaignSaveData c)=>null;
         internal static void EndNativeGeneration(GenerationCapture c,CampaignSaveData s,bool n){}
     }
