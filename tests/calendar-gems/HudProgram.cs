@@ -9,6 +9,12 @@ var campaign=new CampaignSaveData{Stored=96};GlobalSaveData.Raw=new(){campaigns=
 GreekBankScope.IsActive=true;Refresh(1);
 Check(Has("96")&&Has("储存钻石"),"real campaign storage cache reaches top HUD");
 Check(Has("主城金库")&&Has("80")&&Has("第 15 天")&&Has("外墙耐久上限")&&Has("×3"),"old columns retained");
+// 真实生产格式化路径：CalendarHud.FormatWallStatus 委托 il2cpp/WallEngineerRules.cs 的 WallEngineerStatusText。
+// 本工程只链接真实纯规则，不再保留同名 status/enum fixture；以下断言直接吃生产构造契约。
+Check(CalendarHud.FormatWallStatus(new WallEngineerStatus(true,true,false,3,0,0L,WallEngineerUnavailableReason.Disabled))=="已关闭","real reason mapping keeps disabled text");
+Check(CalendarHud.FormatWallStatus(new WallEngineerStatus(true,true,false,3,0,0L,WallEngineerUnavailableReason.NetworkUnsupported))=="仅单机","real reason mapping keeps network text");
+Check(CalendarHud.FormatWallStatus(new WallEngineerStatus(true,true,false,3,0,0L,WallEngineerUnavailableReason.None))=="未生效","unmapped reason falls back to 未生效");
+Check(CalendarHud.FormatWallStatus(new WallEngineerStatus(true,true,true,3,0,0L,WallEngineerUnavailableReason.NoOuterWall))=="×3","ready wins and the multiplier is never clamped");
 int reads=CampaignSaveData.Reads,bankReads=BankAssistantCoordinator.Reads;
 campaign.Stored=92;GUI.Labels.Clear();CalendarHud.Draw();Check(Has("96"),"Draw uses cached value");
 Check(CampaignSaveData.Reads==reads&&BankAssistantCoordinator.Reads==bankReads,"Draw does not read storage or treasury");
@@ -38,6 +44,12 @@ Managers.Inst.game.state=Game.State.Playing;Refresh(13);Check(Has("11"),"playing
 Managers.Inst.game.state=Game.State.Menu;GlobalSaveData.Raw.campaigns[0].Stored=12;Refresh(14);Check(Has("12"),"pause in same known world can refresh storage");
 Managers.Inst=new();Managers.Inst.world.Pointer=(IntPtr)110;Managers.Inst.world.gameLayer.Pointer=(IntPtr)130;Managers.Inst.director.Pointer=(IntPtr)120;Managers.Inst.game.state=Game.State.Menu;Refresh(15);Check(GUI.Labels.Count==0&&PatchUI_CalendarGems.ValueText=="—","new menu does not borrow previous world cache");
 Managers.Inst.game.state=Game.State.NetworkClientPlaying;NetworkBigBoss.Online=true;Refresh(16);Check(Has("—")&&Has("第 15 天"),"network campaign storage remains explicitly unknown");
+// 运行时装填点仍由 fixture 承担（真实 WallEngineerRuntime 依赖 Il2Cpp 边界），但状态值走生产类型/构造契约，
+// 证明 HUD 采样的是生产 status 对象而不是本地影子文案。
+WallEngineerRuntime.Status=new WallEngineerStatus(true,true,false,0,0,0L,WallEngineerUnavailableReason.Loading);
+Refresh(100);Check(Has("载入中")&&!Has("×3"),"production status object drives the drawn wall column");
+WallEngineerRuntime.Status=new WallEngineerStatus(true,true,true,3,0,0L,WallEngineerUnavailableReason.None);
+Refresh(101);Check(Has("×3"),"ready production snapshot restores the multiplier column");
 Check(CampaignSaveData.Writes==0&&GlobalSaveData.LoadedReads==0&&GlobalSaveData.SelectorReads==0,"HUD never creates a save or writes stored gems");
 Check(Wallet.Reads==0&&Wallet.Writes==0,"HUD integration never reads or writes wallet");
 Console.WriteLine($"ALL PASS ({checks} HUD integration assertions)");

@@ -198,17 +198,7 @@ internal static class CalendarHud
 
     /// <summary>issue-86 外墙耐久倍率唯一只读文案来源；F5 设置面板复用同一格式。Ready 时不做 clamp/重算。</summary>
     internal static string FormatWallStatus(WallEngineerStatus status)
-    {
-        if (status.Ready) return "×" + status.AppliedMultiplier;
-        return status.Reason switch
-        {
-            WallEngineerUnavailableReason.Disabled => "已关闭",
-            WallEngineerUnavailableReason.Loading => "载入中",
-            WallEngineerUnavailableReason.NoOuterWall => "暂无外墙",
-            WallEngineerUnavailableReason.NetworkUnsupported => "仅单机",
-            _ => "未生效",
-        };
-    }
+        => WallEngineerStatusText.Format(status);
 
     private static void EnsureResources()
     {

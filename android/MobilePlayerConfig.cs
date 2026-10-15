@@ -25,6 +25,18 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<bool> InfiniteSteedStamina;
     internal static MelonPreferences_Entry<bool> HoldPurchaseEnabled;
     internal static MelonPreferences_Entry<bool> PetGuardEnabled;
+    internal static MelonPreferences_Entry<bool> CrownStealerSlowdownEnabled;
+    internal static MelonPreferences_Entry<bool> KnightRecruitRangeEnabled;
+    // Controls explicit role hook registration on the next load, not the shared scope or farm cats.
+    internal static MelonPreferences_Entry<bool> RoleScaleEnabled;
+    internal static MelonPreferences_Entry<bool> WallEngineerEnabled;
+    // Explicit hook choice is consumed once at startup; saved points remain native Persistent objects.
+    internal static MelonPreferences_Entry<bool> WorldLayoutEnabled;
+    internal static MelonPreferences_Entry<float> TowerSpotMultiplier;
+    internal static MelonPreferences_Entry<float> WallSpotMultiplier;
+    internal static MelonPreferences_Entry<bool> TowerLadderCleanup;
+    internal static MelonPreferences_Entry<bool> WallSpotDiagnostics;
+    internal static MelonPreferences_Entry<bool> DivineParametersEnabled;
     internal static MelonPreferences_Entry<bool> CalendarEnabled;
     internal static MelonPreferences_Entry<float> EnemyCountMultiplier;
     internal static MelonPreferences_Entry<float> EnemyTimelineSpeed;
@@ -43,6 +55,16 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<bool> PopulationEnabled;
     internal static MelonPreferences_Entry<int> BeggarCampCapacity;
     internal static MelonPreferences_Entry<int> BeggarSpawnIntervalSeconds;
+
+    internal static MelonPreferences_Entry<bool> MusketeerEnabled;
+    internal static MelonPreferences_Entry<bool> HeavyShieldEnabled;
+    internal static MelonPreferences_Entry<bool> HeroArcherEnabled;
+    internal static MelonPreferences_Entry<float> CrossbowRecruitmentRatio;
+    internal static MelonPreferences_Entry<bool> ArcherScatterEnabled;
+    internal static MelonPreferences_Entry<bool> ArcherRateEnabled;
+    internal static MelonPreferences_Entry<int> ArcherVolleyCount;
+    internal static MelonPreferences_Entry<float> ArcherRateMultiplier;
+    internal static MelonPreferences_Entry<bool> ArcherImpactEnabled;
 
     // InfiniteMoney 原生写（Il2Cpp.Wallet.InfiniteMoney）的唯一注入点：本文件保持零
     // Il2Cpp.* 引用（hosttests 直接编译同一份），由平台侧 Probe.OnInitializeMelon 传入
@@ -63,6 +85,16 @@ internal static class ModConfig
         InfiniteSteedStamina = category.CreateEntry<bool>("InfiniteSteedStamina", false);
         HoldPurchaseEnabled = category.CreateEntry<bool>("HoldPurchaseEnabled", false);
         PetGuardEnabled = category.CreateEntry<bool>("PetGuardEnabled", false);
+        CrownStealerSlowdownEnabled = category.CreateEntry<bool>("CrownStealerSlowdownEnabled", false);
+        KnightRecruitRangeEnabled = category.CreateEntry<bool>("KnightRecruitRangeEnabled", false);
+        RoleScaleEnabled = category.CreateEntry<bool>("RoleScaleEnabled", false);
+        WallEngineerEnabled = category.CreateEntry<bool>("WallEngineerEnabled", false);
+        WorldLayoutEnabled = category.CreateEntry<bool>("WorldLayoutEnabled", false);
+        TowerSpotMultiplier = category.CreateEntry<float>("TowerSpotMultiplier", 2f);
+        WallSpotMultiplier = category.CreateEntry<float>("WallSpotMultiplier", 1f);
+        TowerLadderCleanup = category.CreateEntry<bool>("TowerLadderCleanup", false);
+        WallSpotDiagnostics = category.CreateEntry<bool>("WallSpotDiagnostics", false);
+        DivineParametersEnabled = category.CreateEntry<bool>("DivineParametersEnabled", false);
         CalendarEnabled = category.CreateEntry<bool>("CalendarEnabled", false);
         EnemyCountMultiplier = category.CreateEntry<float>("EnemyCountMultiplier", 1f);
         EnemyTimelineSpeed = category.CreateEntry<float>("EnemyTimelineSpeed", 1f);
@@ -80,6 +112,15 @@ internal static class ModConfig
         PopulationEnabled = category.CreateEntry<bool>("PopulationEnabled", false);
         BeggarCampCapacity = category.CreateEntry<int>("BeggarCampCapacity", DefaultBeggarCampCapacity);
         BeggarSpawnIntervalSeconds = category.CreateEntry<int>("BeggarSpawnIntervalSeconds", DefaultBeggarSpawnIntervalSeconds);
+        MusketeerEnabled = category.CreateEntry<bool>("MusketeerEnabled", false);
+        HeavyShieldEnabled = category.CreateEntry<bool>("HeavyShieldEnabled", false);
+        HeroArcherEnabled = category.CreateEntry<bool>("HeroArcherEnabled", false);
+        CrossbowRecruitmentRatio = category.CreateEntry<float>("CrossbowRecruitmentRatio", CrossbowRatioPolicy.Default);
+        ArcherScatterEnabled = category.CreateEntry<bool>("ArcherScatterEnabled", false);
+        ArcherRateEnabled = category.CreateEntry<bool>("ArcherRateEnabled", false);
+        ArcherVolleyCount = category.CreateEntry<int>("ArcherVolleyCount", 3);
+        ArcherRateMultiplier = category.CreateEntry<float>("ArcherRateMultiplier", 1.5f);
+        ArcherImpactEnabled = category.CreateEntry<bool>("ArcherImpactEnabled", false);
         // 手工编辑 cfg 可能写入越界值，在加载边界做唯一一次 clamp（不使用 validator：未证实
         // 可构造 ValueValidator 子类）；运行期不读回、不重试、不静默替换默认值。
         SpeedMultiplier.Value = Math.Clamp(SpeedMultiplier.Value, 1, 5);
@@ -88,9 +129,14 @@ internal static class ModConfig
         SteedCooldownMultiplier.Value = SanitizeMultiplier("SteedCooldownMultiplier", SteedCooldownMultiplier.Value, 0.2f, 1f);
         StaffCooldownMultiplier.Value = SanitizeMultiplier("StaffCooldownMultiplier", StaffCooldownMultiplier.Value, 0.2f, 1f);
         MapSizeMultiplier.Value = SanitizeMultiplier("MapSizeMultiplier", MapSizeMultiplier.Value, 1f, 5f);
+        TowerSpotMultiplier.Value = SanitizeMultiplier("TowerSpotMultiplier", TowerSpotMultiplier.Value, 1f, 4f);
+        WallSpotMultiplier.Value = SanitizeMultiplier("WallSpotMultiplier", WallSpotMultiplier.Value, 1f, 4f);
         // 合法载入值（1..20 / 1..120）保留；越界只在加载边界收敛一次，不落盘、不扫描、不写 native。
         BeggarCampCapacity.Value = Math.Clamp(BeggarCampCapacity.Value, 1, 20);
         BeggarSpawnIntervalSeconds.Value = Math.Clamp(BeggarSpawnIntervalSeconds.Value, 1, 120);
+        CrossbowRecruitmentRatio.Value = CrossbowRatioPolicy.Normalize(CrossbowRecruitmentRatio.Value);
+        ArcherVolleyCount.Value = Math.Clamp(ArcherVolleyCount.Value, 1, 3);
+        ArcherRateMultiplier.Value = SanitizeMultiplier("ArcherRateMultiplier", ArcherRateMultiplier.Value, 1f, 2f);
         applyInfiniteMoney = moneyApplier;
         applyInfiniteMoney(InfiniteMoney.Value);
         MelonLogger.Msg("ANDROID_SETTINGS_READY category=" + CategoryIdentifier
@@ -98,6 +144,13 @@ internal static class ModConfig
             + " stamina=" + InfiniteSteedStamina.Value
             + " hold=" + HoldPurchaseEnabled.Value
             + " petGuard=" + PetGuardEnabled.Value
+            + " crownSlowdown=" + CrownStealerSlowdownEnabled.Value
+            + " knightRecruitRange=" + KnightRecruitRangeEnabled.Value
+            + " roleScaleNextLaunch=" + RoleScaleEnabled.Value
+            + " wallEngineers=" + WallEngineerEnabled.Value
+            + " worldLayoutNextLaunch=" + WorldLayoutEnabled.Value
+            + " towerSpots=" + TowerSpotMultiplier.Value
+            + " wallSpots=" + WallSpotMultiplier.Value
             + " calendar=" + CalendarEnabled.Value
             + " enemyCount=" + EnemyCountMultiplier.Value
             + " growth=" + EnemyTimelineSpeed.Value
@@ -155,6 +208,41 @@ internal static class ModConfig
     {
         PetGuardEnabled.Value = !PetGuardEnabled.Value;
         MelonLogger.Msg("ANDROID_PET_PROTECTION enabled=" + PetGuardEnabled.Value + " recovery=false");
+        Save();
+    }
+
+    internal static void ToggleCrownStealerSlowdown()
+    {
+        CrownStealerSlowdownEnabled.Value = !CrownStealerSlowdownEnabled.Value;
+        MelonLogger.Msg("ANDROID_COMBAT_PARAMETER feature=crownSlowdown enabled=" + CrownStealerSlowdownEnabled.Value);
+        Save();
+    }
+
+    internal static void ToggleKnightRecruitRange()
+    {
+        KnightRecruitRangeEnabled.Value = !KnightRecruitRangeEnabled.Value;
+        MelonLogger.Msg("ANDROID_COMBAT_PARAMETER feature=knightRecruitRange enabled=" + KnightRecruitRangeEnabled.Value);
+        Save();
+    }
+
+    internal static void ToggleWallEngineer()
+    {
+        WallEngineerEnabled.Value = !WallEngineerEnabled.Value;
+        MelonLogger.Msg("ANDROID_WALL_ENGINEERS enabled=" + WallEngineerEnabled.Value);
+        Save();
+    }
+
+    internal static void ToggleRoleScale()
+    {
+        RoleScaleEnabled.Value = !RoleScaleEnabled.Value;
+        MelonLogger.Msg("ANDROID_ROLE_SCALE_NEXT_LAUNCH enabled=" + RoleScaleEnabled.Value);
+        Save();
+    }
+
+    internal static void ToggleDivineParameters()
+    {
+        DivineParametersEnabled.Value = !DivineParametersEnabled.Value;
+        MelonLogger.Msg("ANDROID_DIVINE_PARAMETERS enabled=" + DivineParametersEnabled.Value);
         Save();
     }
 
@@ -304,6 +392,28 @@ internal static class ModConfig
     {
         MapSizeMultiplier.Value = MathF.Floor(MapSizeMultiplier.Value) % 5f + 1f;
         MelonLogger.Msg("ANDROID_ISLAND_MAP_SIZE multiplier=" + MapSizeMultiplier.Value);
+        Save();
+    }
+
+    internal static void ToggleWorldLayout()
+    {
+        WorldLayoutEnabled.Value = !WorldLayoutEnabled.Value;
+        MelonLogger.Msg("ANDROID_WORLD_LAYOUT_NEXT_LAUNCH enabled=" + WorldLayoutEnabled.Value);
+        Save();
+    }
+
+    // Reuse the map-size integer step rule, preserving loaded fractional values until the user changes them.
+    internal static void CycleTowerSpotMultiplier()
+    {
+        TowerSpotMultiplier.Value = MathF.Floor(TowerSpotMultiplier.Value) % 4f + 1f;
+        MelonLogger.Msg("ANDROID_TOWER_SPOT_MULTIPLIER multiplier=" + TowerSpotMultiplier.Value);
+        Save();
+    }
+
+    internal static void CycleWallSpotMultiplier()
+    {
+        WallSpotMultiplier.Value = MathF.Floor(WallSpotMultiplier.Value) % 4f + 1f;
+        MelonLogger.Msg("ANDROID_WALL_SPOT_MULTIPLIER multiplier=" + WallSpotMultiplier.Value);
         Save();
     }
 

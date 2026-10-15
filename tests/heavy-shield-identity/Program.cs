@@ -1,6 +1,7 @@
 using KingdomEnhancedMod;
 using UnityEngine;
 
+if (args.Contains("--snapshot-compat")) { SnapshotCompatibilityRegression.Run(); return; }
 if (args.Contains("--durability")) { DurabilityCompatibility.Run(); return; }
 if (args.Contains("--r2")) { R2Regression.Run(); R2Regression.RunR3(); return; }
 if (args.Contains("--load-jobs")) { R2Regression.ProbeNativeJobs(); return; }

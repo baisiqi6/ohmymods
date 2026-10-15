@@ -28,10 +28,24 @@ internal sealed class HeavyShieldPoseMachine
     internal HeavyShieldWear Wear { get; private set; } = HeavyShieldWear.Intact;
     internal HeavyShieldAction Action { get; private set; }
     internal float Elapsed { get; private set; }
+    internal HeavyShieldGaitClock Gait { get; } = new HeavyShieldGaitClock();
+
+    internal static bool IsMovingStance(HeavyShieldStance stance)
+        => stance == HeavyShieldStance.BackWalk || stance == HeavyShieldStance.BackRun
+            || stance == HeavyShieldStance.Advance;
+
+    private static double StrideWorld(HeavyShieldStance stance) => stance switch
+    {
+        HeavyShieldStance.BackWalk => HeavyShieldGaitClock.BackWalkStrideWorld,
+        HeavyShieldStance.BackRun => HeavyShieldGaitClock.BackRunStrideWorld,
+        HeavyShieldStance.Advance => HeavyShieldGaitClock.AdvanceStrideWorld,
+        _ => 0d
+    };
 
     internal void SetStance(HeavyShieldStance stance)
     {
         if (!Enum.IsDefined(typeof(HeavyShieldStance), stance) || Stance == stance) return;
+        if (!IsMovingStance(Stance) || !IsMovingStance(stance)) Gait.ResetPhase();
         Stance = stance;
         if (Action == HeavyShieldAction.None) Elapsed = 0f;
     }
@@ -51,7 +65,7 @@ internal sealed class HeavyShieldPoseMachine
     internal void InterruptLeisure()
     {
         _quietElapsed = 0f; _quietAllowed = false;
-        if (IsLeisureAction(Action)) { Action = HeavyShieldAction.None; Elapsed = 0f; }
+        if (IsLeisureAction(Action)) { Action = HeavyShieldAction.None; Elapsed = 0f; Gait.ResetPhase(); }
     }
 
     // Called with a read-only native motion sample. Edges, not steady moving conditions, trigger clips.
@@ -62,7 +76,7 @@ internal sealed class HeavyShieldPoseMachine
         bool still = stance == HeavyShieldStance.BackIdle || stance == HeavyShieldStance.GuardIdle;
         if (threatened || !motionKnown || !still) InterruptLeisure();
         if (!motionKnown && IsPresentationAction(Action) && Action != HeavyShieldAction.None)
-        { Action = HeavyShieldAction.None; Elapsed = 0f; }
+        { Action = HeavyShieldAction.None; Elapsed = 0f; Gait.ResetPhase(); }
         SetStance(stance);
         _quietAllowed = motionKnown && still && !threatened && IsPresentationAction(Action);
         if (!_quietAllowed) _quietElapsed = 0f;
@@ -88,6 +102,7 @@ internal sealed class HeavyShieldPoseMachine
             || Action == HeavyShieldAction.Break) return false;
         Action = action;
         Elapsed = 0f;
+        Gait.ResetPhase(); // Fence even an event started and cancelled between two render samples.
         if (!IsLeisureAction(action)) _quietElapsed = 0f;
         return true;
     }
@@ -114,12 +129,33 @@ internal sealed class HeavyShieldPoseMachine
         if (Action == HeavyShieldAction.RestExit) _quietElapsed = 0f;
         Action = HeavyShieldAction.None;
         Elapsed = 0f;
+        Gait.ResetPhase();
+    }
+
+    // Event/idle clocks retain their original seconds. Only the three locomotion
+    // loops consume actual carrier displacement; there is no timed-loop fallback.
+    internal void Tick(float deltaTime, in HeavyShieldGaitSample sample)
+    {
+        bool beforeLoop = Action == HeavyShieldAction.None && IsMovingStance(Stance);
+        bool playing = sample.Playing && float.IsFinite(deltaTime) && deltaTime > 0f;
+        if (playing) Tick(deltaTime);
+        var current = sample;
+        current.Playing = playing;
+        current.MovingLoop = beforeLoop && Action == HeavyShieldAction.None && IsMovingStance(Stance);
+        Gait.Observe(current, StrideWorld(Stance)); // Includes paused/non-loop samples to discard their span.
     }
 
     internal bool TryFrame(out int frame)
     {
         frame = -1;
         if (!TrySequence(out var seq)) return false;
+        if (Action == HeavyShieldAction.None && IsMovingStance(Stance))
+        {
+            int gaitOffset = Gait.FrameOffset(seq.Count);
+            if (gaitOffset < 0) return false;
+            frame = seq.First + gaitOffset;
+            return HeavyShieldArtLayout.IsValidFrame(HeavyShieldAtlasId.Soldier, frame);
+        }
         double sample = Math.Floor((double)Elapsed * SafeFrameRate(seq.Fps));
         int offset = seq.Loop ? (int)(sample % seq.Count) : (int)Math.Min(sample, seq.Count - 1);
         if (seq.Loop) offset %= seq.Count;
@@ -230,6 +266,7 @@ internal static class HeavyShieldActorVisuals
         var state = new Visual { Carrier = carrier, Pointer = pointer, GoId = id, Life = life, Native = native,
             Career = career, NativePointer = native.Pointer, NativeId = native.GetInstanceID(), Scene = carrier.gameObject.scene.handle,
             Facing = career.Side == HeavyShieldQuota.Side.Left ? -1 : 1 };
+        state.Pose.Gait.ResetPhase(); // Every new visual/life starts with no borrowed motion baseline.
         try
         {
             state.Root = new GameObject("KEM_HeavyShieldBody");
@@ -301,10 +338,23 @@ internal static class HeavyShieldActorVisuals
     }
 
     internal static void SetFacing(Archer carrier, long life, int facing)
-    { if ((facing == -1 || facing == 1) && TryState(carrier, life, out var state)) state.Facing = facing; }
+    {
+        if ((facing == -1 || facing == 1) && TryState(carrier, life, out var state))
+        {
+            if (state.Facing != facing) state.Pose.Gait.InvalidateBaseline();
+            state.Facing = facing;
+        }
+    }
 
     internal static void Suspend(Archer carrier, long life)
-    { if (TryState(carrier, life, out var state)) { state.Suspended = true; if (state.Own != null) state.Own.enabled = false; } }
+    {
+        if (TryState(carrier, life, out var state))
+        {
+            state.Pose.Gait.InvalidateBaseline();
+            state.Suspended = true;
+            if (state.Own != null) state.Own.enabled = false;
+        }
+    }
 
     internal static void SetStance(Archer carrier, long life, HeavyShieldStance stance)
     {
@@ -362,7 +412,7 @@ internal static class HeavyShieldActorVisuals
             if (state.Suspended) { state.Own.enabled = false; return; }
             // Initialize one complete safe frame during Register. Later invalidation cannot be silently repaired by LateUpdate.
             if (state.Initialized && !Qualified(state)) { state.Suspended = true; state.Own.enabled = false; return; }
-            if (HeavyShieldRuntime.Playing) state.Pose.Tick(Time.deltaTime);
+            state.Pose.Tick(Time.deltaTime, SampleMotion(state, HeavyShieldRuntime.Playing));
             bool nativeVisible = state.Native.enabled && (!state.Native.forceRenderingOff || state.HidNative);
             if (!nativeVisible)
             {
@@ -414,6 +464,7 @@ internal static class HeavyShieldActorVisuals
     private static bool Remove(int id)
     {
         if (!Active.TryGetValue(id, out var state)) return true;
+        state.Pose.Gait.InvalidateBaseline(); // A retained visibility-return credential cannot retain stride debt.
         try { if (state.Own != null) state.Own.enabled = false; }
         catch (Exception) { }
         if (!Release(state)) return false; // keep the only restoration credential for retry
@@ -421,6 +472,30 @@ internal static class HeavyShieldActorVisuals
         RootOwner.Remove(state.RootId);
         Destroy(state.Root);
         return true;
+    }
+
+    private static HeavyShieldGaitSample SampleMotion(Visual state, bool playing)
+    {
+        // The carrier is the physical root. The owned body is moved separately by
+        // Bash, and must never feed its display leap back into locomotion.
+        var root = state.Carrier.transform;
+        var parent = root.parent;
+        Vector3 position = root.position, local = root.localPosition;
+        var gait = state.Pose.Gait;
+        Vector3 anchor = position;
+        if (gait.HasBaseline)
+        {
+            var previous = new Vector3(gait.PreviousLocalX, gait.PreviousLocalY, gait.PreviousLocalZ);
+            anchor = parent != null ? parent.TransformPoint(previous) : previous;
+        }
+        return new HeavyShieldGaitSample
+        {
+            Frame = Time.frameCount, UnscaledTime = Time.unscaledTimeAsDouble,
+            ParentId = parent != null ? parent.GetInstanceID() : 0,
+            Facing = state.Facing, Playing = playing,
+            LocalX = local.x, LocalY = local.y, LocalZ = local.z,
+            WorldX = position.x, WorldY = position.y, AnchorX = anchor.x, AnchorY = anchor.y
+        };
     }
 
     private static bool Release(Visual state)

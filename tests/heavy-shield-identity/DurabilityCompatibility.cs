@@ -159,10 +159,14 @@ internal static class DurabilityCompatibility
             && HeavyShieldPersistence.CampaignRestorePending(HeavyShieldIdentity.Current), "Stage keeps native raw and exposes unprepared revision");
         Prepare(env.Global.prefs);
         var prepared = env.Global.prefs.SerializedContents[HeavyShieldSaveSchema.Key];
-        var expected = JsonNode.Parse(raw); expected["version"] = 2;
+        var expected = JsonNode.Parse(raw); expected["version"] = 3;
+        string savedGuid = expected["campaigns"][0]["guid"].GetValue<string>();
+        expected["campaigns"][0]["islands"][0]["hashKind"] = HeavyShieldSnapshotFingerprint.CanonicalKind;
+        expected["campaigns"][0]["islands"][0]["snapshotHash"] =
+            HeavyShieldSnapshotFingerprint.Hash(savedGuid, 0, 0, json);
         if (omitted) expected["campaigns"][0]["islands"][0]["claims"][0]["durability"] = 3;
         Check(JsonNode.DeepEquals(expected, JsonNode.Parse(prepared))
-            && !HeavyShieldPersistence.CampaignRestorePending(HeavyShieldIdentity.Current), "successful Prepare changes only version across every campaign/island");
+            && !HeavyShieldPersistence.CampaignRestorePending(HeavyShieldIdentity.Current), "successful Prepare upgrades current fingerprint and schema while preserving every other row and entitlement");
         Managers.Inst.world.gameLayer = Root().Add<Transform>();
         var returned = Load(env.Island, false);
         Check(HeavyShieldIdentity.TryGetSoldier(returned.Archer, out var nextHandle)
@@ -182,8 +186,8 @@ internal static class DurabilityCompatibility
             "legacy paid-tool restore preserves raw and three durability");
         Stage(env.Island, actor.Persistent); Prepare(env.Global.prefs);
         Check(HeavyShieldSaveCodec.TryParse(env.Global.prefs.SerializedContents[HeavyShieldSaveSchema.Key], out var toolSaved, out _)
-            && toolSaved.Version == 2 && toolSaved.Campaigns[0].Islands[0].Claims[0].Durability == 3
-            && !HeavyShieldPersistence.CampaignRestorePending(HeavyShieldIdentity.Current), "legacy paid tool stages as v2 with three, retaining prepared gate");
+            && toolSaved.Version == HeavyShieldSaveSchema.Version && toolSaved.Campaigns[0].Islands[0].Claims[0].Durability == 3
+            && !HeavyShieldPersistence.CampaignRestorePending(HeavyShieldIdentity.Current), "legacy paid tool stages as v3 with three, retaining prepared gate");
         var peasant = Root().Add<Peasant>(); var archer = Root().Add<Archer>();
         Check(HeavyShieldIdentity.CanNativePickup(peasant, actor.Tool), "legacy paid tool remains claimable");
         actor.Tool.pickedUp = true;
@@ -275,8 +279,8 @@ internal static class DurabilityCompatibility
         env.Island.objects.Add(new() { Pointer = Ptr(), uniqueID = "legacy-current" });
         Stage(env.Island, persistent); Prepare(env.Global.prefs);
         Check(HeavyShieldSaveCodec.TryParse(env.Global.prefs.SerializedContents[HeavyShieldSaveSchema.Key], out var freshSaved, out _)
-            && freshSaved.Version == 2 && freshSaved.Campaigns[0].Islands[0].Claims[0].Durability == 4,
-            "fresh four-point career saves through real Stage/Prepare as v2");
+            && freshSaved.Version == HeavyShieldSaveSchema.Version && freshSaved.Campaigns[0].Islands[0].Claims[0].Durability == 4,
+            "fresh four-point career saves through real Stage/Prepare as v3");
         var policy = new HeavyShieldBlockPolicy(); Require(policy.Restore(4, false, false), "fresh policy");
         for (int remaining = 3; remaining >= 0; remaining--)
         {

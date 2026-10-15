@@ -56,6 +56,7 @@ internal sealed class MusketeerContext
 internal sealed class MusketeerArchive
 {
     internal const int Version = 2;
+    internal const int CompensationVersion = 3;
     internal const int HashKindFingerprint = 2;
     internal const int MaxRecords = 4096;   // per island state: actors + guns, no eviction
     internal const int MaxStockSlots = 3;   // paid shop rack slots (0..2); -1 = no rack claim
@@ -67,6 +68,47 @@ internal sealed class MusketeerArchive
     internal readonly Dictionary<string, List<MusketeerSnapshot>> Scopes = new(StringComparer.Ordinal);
     internal readonly Dictionary<string, string> Baselines = new(StringComparer.Ordinal);
     internal readonly Dictionary<string, MusketeerContext> Contexts = new(StringComparer.Ordinal);
+    // Only manually authorized legacy compensation adds this schema-3 ledger. Ordinary
+    // archives retain their exact schema-2 encoding; a pending receipt is never a disk grant.
+    internal readonly Dictionary<Guid, MusketeerLegacyCompensationReceipt> Compensations = new();
+
+    internal bool HistoricalOnly(string context, string epoch)
+    {
+        foreach (var receipt in Compensations.Values)
+            if (MusketeerLegacyCompensationPolicy.ExcludesHistoricalEpoch(receipt, context, epoch)) return true;
+        return false;
+    }
+
+    internal bool ValidCompensations()
+    {
+        if (Compensations.Count > MaxContexts) return false;
+        var sources = new HashSet<string>(StringComparer.Ordinal);
+        var grants = new HashSet<Guid>();
+        foreach (var pair in Compensations)
+        {
+            var receipt = pair.Value;
+            if (!MusketeerLegacyCompensationPolicy.ValidateReceipt(receipt, out _)
+                || pair.Key != receipt.Plan.RequestId
+                || !Contexts.TryGetValue(receipt.Plan.Context, out var context)
+                || !context.Epochs.Contains(receipt.Plan.SourceEpoch)
+                || !context.Epochs.Contains(receipt.MigrationEpoch)
+                || !Scopes.ContainsKey(receipt.Plan.SourceEpoch) || !Scopes.ContainsKey(receipt.MigrationEpoch)
+                || LatestReservations(receipt.Plan.SourceEpoch).Count != receipt.Plan.SourceReservations
+                || !sources.Add(receipt.Plan.Context + ":" + receipt.Plan.SourceEpoch)) return false;
+            // Grant ids are new identities, never aliases of historical rights or another grant.
+            foreach (Guid id in receipt.GrantIds)
+            {
+                if (!grants.Add(id)) return false;
+                // A Complete ledger is backed by issued career rights. Later snapshots may
+                // reserve a dead/dropped career or change its native owner, so only the GUID
+                // must remain witnessed; the initial native id is not a permanent live count.
+                if (!Scopes[receipt.MigrationEpoch].Any(snapshot => snapshot.Records.Any(row => row.Id == id))) return false;
+                foreach (var snapshot in Scopes[receipt.Plan.SourceEpoch])
+                    if (snapshot.Records.Any(row => row.Id == id)) return false;
+            }
+        }
+        return true;
+    }
 
     internal static bool HashValid(string value) => value != null && value.Length == 64 && value.All(Uri.IsHexDigit);
     internal static string Hash(string text, string scope) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(scope + "\n" + text))).ToLowerInvariant();
@@ -254,10 +296,11 @@ internal sealed class MusketeerArchive
 
     internal byte[] Encode()
     {
+        if (!ValidCompensations()) throw new FormatException("compensation ledger");
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
         {
-            writer.WriteStartObject(); writer.WriteNumber("schemaVersion", Version); writer.WriteStartArray("scopes");
+            writer.WriteStartObject(); writer.WriteNumber("schemaVersion", Compensations.Count == 0 ? Version : CompensationVersion); writer.WriteStartArray("scopes");
             foreach (var pair in Scopes.OrderBy(x => x.Key, StringComparer.Ordinal))
             {
                 writer.WriteStartObject(); writer.WriteString("scope", pair.Key);
@@ -287,6 +330,13 @@ internal sealed class MusketeerArchive
                 writer.WriteEndArray(); writer.WriteEndObject();
             }
             writer.WriteEndArray();
+            if (Compensations.Count > 0)
+            {
+                writer.WriteStartArray("compensations");
+                foreach (var pair in Compensations.OrderBy(x => x.Key))
+                    MusketeerLegacyCompensationPolicy.WriteReceipt(writer, pair.Value);
+                writer.WriteEndArray();
+            }
             writer.WriteEndObject();
         }
         return stream.ToArray();
@@ -300,9 +350,10 @@ internal sealed class MusketeerArchive
         if (root.ValueKind != JsonValueKind.Object || root.EnumerateObject().Count(x => x.Name == "schemaVersion") != 1)
             throw new FormatException("schema version");
         int version = root.GetProperty("schemaVersion").GetInt32();
-        if (version != Version) { unsupported = true; return null; }
+        if (version != Version && version != CompensationVersion) { unsupported = true; return null; }
         // Duplicate/unknown fields are rejected, never silently discarded on rewrite.
-        Fields(root, "schemaVersion", "scopes", "contexts");
+        if (version == Version) Fields(root, "schemaVersion", "scopes", "contexts");
+        else Fields(root, "schemaVersion", "scopes", "contexts", "compensations");
         var archive = new MusketeerArchive();
         var scopes = root.GetProperty("scopes");
         if (scopes.GetArrayLength() > MaxScopes) throw new FormatException("scope capacity");
@@ -369,6 +420,19 @@ internal sealed class MusketeerArchive
         foreach (var context in archive.Contexts.Values)
             foreach (string epoch in context.Epochs)
                 if (!owners.Add(epoch)) throw new FormatException("shared epoch");
+        if (version == CompensationVersion)
+        {
+            var ledger = root.GetProperty("compensations");
+            if (ledger.ValueKind != JsonValueKind.Array || ledger.GetArrayLength() < 1 || ledger.GetArrayLength() > MaxContexts)
+                throw new FormatException("compensation capacity");
+            foreach (var node in ledger.EnumerateArray())
+            {
+                if (!MusketeerLegacyCompensationPolicy.TryReadReceipt(node, out var receipt, out _)
+                    || !archive.Compensations.TryAdd(receipt.Plan.RequestId, receipt))
+                    throw new FormatException("compensation receipt");
+            }
+            if (!archive.ValidCompensations()) throw new FormatException("compensation ledger");
+        }
         return archive;
     }
 

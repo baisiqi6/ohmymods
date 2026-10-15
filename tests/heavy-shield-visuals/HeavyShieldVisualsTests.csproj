@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../il2cpp/HeavyShieldActorVisuals.cs" Link="HeavyShieldActorVisuals.cs" />
+    <Compile Include="../../il2cpp/Patch_HeavyShieldGait.cs" Link="Patch_HeavyShieldGait.cs" />
     <Compile Include="../../il2cpp/PatchRoles_HeavyShieldArt.cs" Link="PatchRoles_HeavyShieldArt.cs" />
   </ItemGroup>
 </Project>

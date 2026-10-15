@@ -13,7 +13,8 @@ internal static class HeavyShieldSaveSchema
 {
     internal const string Key = "KEM.HeavyShield.Campaigns.v1";
     internal const int LegacyVersion = 1;
-    internal const int Version = 2;
+    internal const int DurabilityVersion = 2;
+    internal const int Version = 3;
     internal const int MaxCampaigns = 32;
     internal const int MaxIslands = 128;
     internal const int MaxClaimsPerIsland = 4;
@@ -44,6 +45,9 @@ internal sealed class HeavyShieldSavedIsland
     public int Challenge { get; set; }
     public int Land { get; set; }
     public string SnapshotHash { get; set; }
+    // V1/V2 hashes cover raw island JSON. V3 explicitly records which digest
+    // each row carries so a legacy digest is never relabelled as canonical.
+    public int HashKind { get; set; } = HeavyShieldSnapshotFingerprint.LegacyKind;
     public List<HeavyShieldSavedClaim> Claims { get; set; } = new();
 }
 
@@ -195,8 +199,11 @@ internal static class HeavyShieldSaveCodec
                 && (version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out sourceVersion)))
             { reason = "document"; return false; }
             if (sourceVersion != HeavyShieldSaveSchema.LegacyVersion
+                && sourceVersion != HeavyShieldSaveSchema.DurabilityVersion
                 && sourceVersion != HeavyShieldSaveSchema.Version)
             { reason = "document"; return false; }
+            if (!ValidSourceHashKinds(raw.RootElement, sourceVersion))
+            { reason = "hash-kind"; return false; }
             document = JsonSerializer.Deserialize<HeavyShieldSaveDocument>(json, Options);
             document.Version = sourceVersion;
             if (document.Campaigns != null)
@@ -207,7 +214,7 @@ internal static class HeavyShieldSaveCodec
                                 foreach (var claim in island.Claims)
                                     if (claim != null && !claim.DurabilitySpecified)
                                     {
-                                        if (sourceVersion == HeavyShieldSaveSchema.Version)
+                                        if (sourceVersion != HeavyShieldSaveSchema.LegacyVersion)
                                         { document = null; reason = "claim"; return false; }
                                         claim.Durability = HeavyShieldSaveSchema.LegacyMaxDurability;
                                     }
@@ -259,6 +266,7 @@ internal static class HeavyShieldSaveCodec
     {
         reason = null;
         if (document == null || (document.Version != HeavyShieldSaveSchema.LegacyVersion
+                && document.Version != HeavyShieldSaveSchema.DurabilityVersion
                 && document.Version != HeavyShieldSaveSchema.Version)
             || document.Campaigns == null || document.Campaigns.Count > HeavyShieldSaveSchema.MaxCampaigns)
         { reason = "document"; return false; }
@@ -284,6 +292,10 @@ internal static class HeavyShieldSaveCodec
             {
                 if (island == null || island.Challenge < 0 || island.Land < 0
                     || !islands.Add((island.Challenge, island.Land))
+                    || (island.HashKind != HeavyShieldSnapshotFingerprint.LegacyKind
+                        && island.HashKind != HeavyShieldSnapshotFingerprint.CanonicalKind)
+                    || (document.Version < HeavyShieldSaveSchema.Version
+                        && island.HashKind != HeavyShieldSnapshotFingerprint.LegacyKind)
                     || !ValidHash(island.SnapshotHash) || island.Claims == null
                     || island.Claims.Count > HeavyShieldSaveSchema.MaxClaimsPerIsland)
                 { reason = "island"; return false; }
@@ -308,6 +320,38 @@ internal static class HeavyShieldSaveCodec
                     || right > (campaign.RightExtraReceipt == null ? 1 : 2)
                     || shop > 1 || (island.Claims.Count > 0 && campaign.MoldReceipt == null))
                 { reason = "quota"; return false; }
+            }
+        }
+        return true;
+    }
+
+    private static bool ValidSourceHashKinds(JsonElement root, int version)
+    {
+        if (!root.TryGetProperty("campaigns", out var campaigns)
+            || campaigns.ValueKind != JsonValueKind.Array) return false;
+        foreach (var campaign in campaigns.EnumerateArray())
+        {
+            if (campaign.ValueKind != JsonValueKind.Object
+                || !campaign.TryGetProperty("islands", out var islands)
+                || islands.ValueKind != JsonValueKind.Array) return false;
+            foreach (var island in islands.EnumerateArray())
+            {
+                if (island.ValueKind != JsonValueKind.Object) return false;
+                bool present = island.TryGetProperty("hashKind", out var kind);
+                int kindCount = 0;
+                foreach (var property in island.EnumerateObject())
+                    if (property.Name == "hashKind") kindCount++;
+                if (kindCount > 1) return false;
+                if (!present)
+                {
+                    if (version == HeavyShieldSaveSchema.Version) return false;
+                    continue;
+                }
+                if (kind.ValueKind != JsonValueKind.Number || !kind.TryGetInt32(out int value)
+                    || (value != HeavyShieldSnapshotFingerprint.LegacyKind
+                        && value != HeavyShieldSnapshotFingerprint.CanonicalKind)
+                    || (version < HeavyShieldSaveSchema.Version
+                        && value != HeavyShieldSnapshotFingerprint.LegacyKind)) return false;
             }
         }
         return true;
