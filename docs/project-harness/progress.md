@@ -2161,3 +2161,5 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 
 
 2026-10-15 Android #232：一次受控85Main实际加载观察到完整职业注册段与组件创建，Main/cfg变更恢复按原字节读回、Release零写，独立结果审核原始台账；尚未见main场景、9值运行读取/逐handler ABI/玩法待验。停止助手原错误保留，后续另证own PID退出，Root reap未记录；整232保持进行中。详见tasks/issue-232/g1-source-foundation.md。
+
+- Android #232 G3 职业与弓弩公共面板接入：世界页新增子页入口，复用 PC 中文/样式和现有 Toggle/Step/Info、PanelGesture、滚动裁剪；五个页签、小浮球与安全区外框保持。九个既有 MelonPreferences entry 仅点按修改/保存一次；普通弩手比例复用共享四档，非整档射速仅点按时进下一 0.25 档，绘制不改值。职业状态复用真实 getter（盾卫含既有 native 只读），不新增业务扫描/重试/配置镜像，也不改共享 PC 源码。隔离 Debug/Release 构建均成功（各 0 errors / 1 既有 CS0169 warning），原适配回归的三处旧 UI 冻结 SHA 红例保留，审查后只更新本次三项并加入新菜单冻结。实机触屏、配置保存读回、状态 native 访问、主场景与实际攻击/转职/保存/完整对象池链仍待验；受控85启动记录不扩大为玩法通过，完整 #232 继续开放。过程及实际模型/host证据留本机 `.local/tasks/android-profession-archery-20261014/g3-profession-ui-preparation-20261015/`。

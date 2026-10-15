@@ -1989,8 +1989,8 @@ internal static class ArtifactChecks
     private static readonly string SourceRoot = Checks.RepositoryRoot();
 
     // Issue #232 owns config/project/Probe/population wiring and the preference tests.
-    // Those explicitly changed or replaced files are excluded here; every remaining
-    // historical source keeps its original immutable hash (no blanket re-pinning).
+    // Those explicitly changed or replaced files are excluded here. G3 re-pins only
+    // the reviewed UI navigation increment and adds its new menu; other hashes stay held.
     private static readonly string[] FrozenSources =
     {
         "android/AndroidCoroutine.cs",
@@ -2007,6 +2007,7 @@ internal static class ArtifactChecks
         "android/MobileUiInputSurface.cs",
         "android/MobileVegetationMenu.cs",
         "android/MobileWorldMenu.cs",
+        "android/PatchUI_MobileProfessionMenu.cs",
         "android/OptionalQoLScope.cs",
         "android/PanelGesture.cs",
         "android/PatchDivine_StaffCooldown.cs",
@@ -2083,16 +2084,17 @@ internal static class ArtifactChecks
             { "android/AssemblyInfo.cs", "b5a7ade914d9e157d175ae9f7d42f40bb92cb608722875de4cd025ad50e86a14" },
             { "android/CalendarSnapshot.cs", "0ece4765f9a5311707f1a9bf0d61c491846cd8e17327ac4d09773c37eb0fdb8e" },
             { "android/FloatInput.cs", "de1dfaf27d5d32334d9dc4a69b2f28523789f963698b23e3396a328e9d08d8e0" },
-            { "android/FloatLayout.cs", "9fd919964256f18e11aebfad414a7b1a10dab41591ac286564e1b3c05bfbd7c6" },
+            { "android/FloatLayout.cs", "ee0333a9a31e120b09422f34fd4c3472748de78890facf299252cb6a5a75e7b2" },
             { "android/GlobalAliases.cs", "92f7a6997223c2874aae8a596d69f0f52cfac1da8f01b0bdce47c29c32e417d1" },
             { "android/HoldBridges.cs", "982ad14e89afc8337a9b30b51dd0ccdddbeee9b7e3a1c21acf326fdec457c916" },
             { "android/MobileCalendar.cs", "39ac54e3bf7acb37a7a30189f67dd2973bb394f53d28193836481dba0c44723b" },
             { "android/MobileGenerationMenu.cs", "c75c115333c7e161e5036dc6dd5b996c6d5c758940bc3f518c7fc2272d559a9e" },
-            { "android/MobileModPanel.cs", "e9a0bd5347da0333b2110b4a93dcf61b0caff4d4375a600a99ad12a124683f12" },
+            { "android/MobileModPanel.cs", "3a1be7018d3033e6a4f55133d0c47947459807ad39b3c42335147b5b42ef473a" },
             { "android/MobilePlayerMenu.cs", "ab58a667ba0cc4b06cfffb97f157fb435eab0c7e7c71bae3b2d87f05d31a7329" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
             { "android/MobileVegetationMenu.cs", "40e6be0dda5313a61f01f98e1829422290612ede0b948b8d21c4549a58890e66" },
-            { "android/MobileWorldMenu.cs", "c56718fd9adf39745548ff1f316f9f7763170388b2aa1b040381772773164932" },
+            { "android/MobileWorldMenu.cs", "f71678089e1141844bc66993520e1450836dbac12aa2730d037c298daab2a389" },
+            { "android/PatchUI_MobileProfessionMenu.cs", "31f37e8b0d2d5eba57ea98fd263012585f274eb2e20a632ce77613d51e854ca1" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PanelGesture.cs", "51071fefbc1a1ab4b8f23ee84bf10925c325d8414400b9ed186af238c136e97b" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },

@@ -95,3 +95,9 @@ physical file-as-folder面真实返回648=Save8|Failure128|Subsystem512，不含
 退出原记录仍保留ownedStop=false/Identity changed before signal：收尾期间QEMU的ps外观转为括号形式，助手未取得退出证明。后来独立只读ps确认own PID32354已消失、5582/5583无监听，作为分离的后验退出证据；未记录Root reaped，不把原错误改成原件成功，也不把它归为游戏问题。单用途gate已spent，原件、红例和备份保存，不重跑。
 
 当前canonical正常计划951226…，原identity/operation/doing-ready-running与lease23:09:36保持，177其他rows/order、161其他plans/primary未拥有改动/localchecklist保护，validator0/doctor0E0W。Main短窗口已归还。源码阶段根因修计时/身份/未知Release覆盖/日志时序及夹具时钟问题，拒绝与作者deadline原件保留；完整232尚未交齐继续开放。下一组按真实依赖接入触屏职业/弓弩控件和实际scene/战斗/池生命周期验证；不发布APK或冒称玩家通过。
+
+### G3 — 职业与弓弩触屏公共面板（2026-10-15，源码/host 批）
+
+世界页的职业子页复用原公共控件和手势；`SetPage` 的 same 判断与 child 清理同时纳入职业页，兄弟子页互斥，World 父页保持，child 在 World 前分派。九设置沿用现有真实条目与共享策略，动作只写目标值、记录日志、保存一次；比例 25/50/75/100% 无关闭档，支数 1..3，射速按下一 .25 档至2后回1。绘制保持合法非整档值；普通弓箭开关不声称关闭英雄的独立效果来源。
+
+职业题目/帮助照 PC；火铳铺与英雄状态取缓存，盾卫状态含原生身份/当前会话只读检查，未新增 Observe/Prime/Save/扫描，也不本地吞异常。真实 Android interop 的 Debug/Release 产品构建成功（各 0 errors / 1 既有 CS0169 warning）；自动检查只证明导航/配置动作和源码契约。未启动新游戏 case 或制作 APK，未证明触屏视觉、真实 loader 落盘读回、主场景、战斗/转职/职业保存与跨 biome 池。完整任务仍开放，下一运行按普通弓箭→投射物效果池→职业生命周期/保存依赖验证。
