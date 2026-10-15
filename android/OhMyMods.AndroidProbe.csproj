@@ -62,6 +62,7 @@
     <Compile Include="MobileWorldMenu.cs" />
     <Compile Include="MobileGenerationMenu.cs" />
     <Compile Include="MobileVegetationMenu.cs" />
+    <Compile Include="PatchUI_MobileProfessionMenu.cs" />
     <Compile Include="MobileModPanel.cs" />
     <Compile Include="PanelGesture.cs" />
     <Compile Include="Probe.cs" />

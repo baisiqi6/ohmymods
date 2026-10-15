@@ -41,6 +41,8 @@ internal sealed class MobileModPanel
     private readonly Action closeAction;
     private readonly Action openVegetation;
     private readonly Action closeVegetation;
+    private readonly Action openProfession;
+    private readonly Action closeProfession;
 
     private ModPanelStyles styles;
     private FloatLayout layout;
@@ -60,11 +62,15 @@ internal sealed class MobileModPanel
         closeAction = Close;
         openVegetation = OpenVegetationPage;
         closeVegetation = CloseVegetationPage;
+        openProfession = OpenProfessionPage;
+        closeProfession = CloseProfessionPage;
     }
 
     /// <summary>菜单行内导航（返回世界/进入植被页）用的自有动作；随面板实例缓存，无每帧委托分配。</summary>
     internal Action OpenVegetation => openVegetation;
     internal Action CloseVegetation => closeVegetation;
+    internal Action OpenProfession => openProfession;
+    internal Action CloseProfession => closeProfession;
 
     private struct Hit
     {
@@ -227,6 +233,7 @@ internal sealed class MobileModPanel
         if (layout.PopulationPage) { MobilePopulation.Draw(this, rowWidth, rowScale); return; }
         if (layout.PlayerPage) { MobilePlayerMenu.Draw(this, rowWidth, rowScale); return; }
         if (layout.VegetationPage) { MobileVegetationMenu.Draw(this, rowWidth, rowScale); return; }
+        if (layout.ProfessionPage) { MobileProfessionMenu.Draw(this, rowWidth, rowScale); return; }
         if (layout.WorldPage) { MobileWorldMenu.Draw(this, rowWidth, rowScale); return; }
         if (layout.GenerationPage) { MobileGenerationMenu.Draw(this, rowWidth, rowScale); return; }
         DrawRoot();
@@ -296,13 +303,14 @@ internal sealed class MobileModPanel
         bool player = page == 1, world = page == 2, generation = page == 3, population = page == 4;
         bool same = current.PlayerPage == player && current.WorldPage == world
             && current.GenerationPage == generation && current.PopulationPage == population
-            && !current.VegetationPage;
+            && !current.VegetationPage && !current.ProfessionPage;
         if (same) return;
         current.PlayerPage = player;
         current.WorldPage = world;
         current.GenerationPage = generation;
         current.PopulationPage = population;
         current.VegetationPage = false;
+        current.ProfessionPage = false;
         CancelGesture();
     }
 
@@ -311,6 +319,7 @@ internal sealed class MobileModPanel
         FloatLayout current = layout;
         if (current == null || current.VegetationPage) return;
         current.VegetationPage = true;
+        current.ProfessionPage = false;
         CancelGesture();
     }
 
@@ -319,6 +328,24 @@ internal sealed class MobileModPanel
         FloatLayout current = layout;
         if (current == null || !current.VegetationPage) return;
         current.VegetationPage = false;
+        CancelGesture();
+    }
+
+    private void OpenProfessionPage()
+    {
+        FloatLayout current = layout;
+        if (current == null || current.ProfessionPage) return;
+        current.WorldPage = true;
+        current.VegetationPage = false;
+        current.ProfessionPage = true;
+        CancelGesture();
+    }
+
+    private void CloseProfessionPage()
+    {
+        FloatLayout current = layout;
+        if (current == null || !current.ProfessionPage) return;
+        current.ProfessionPage = false;
         CancelGesture();
     }
 

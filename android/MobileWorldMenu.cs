@@ -32,6 +32,7 @@ internal static class MobileWorldMenu
         panel.Toggle("无限金币", ModConfig.InfiniteMoney.Value,
             "立即生效 · 君主支付不再消耗金币。", ToggleMoney);
         panel.Step("植被与野生动物", "进入", "农舍猫、森林消退与普通鹿。", panel.OpenVegetation);
+        panel.Step("职业与弓弩", "进入", "火铳铺、英雄驿站、宝石盾卫与弓箭选项。", panel.OpenProfession);
         panel.Toggle("快速建造", ModConfig.FastBuild.Value,
             "后续建造初始化生效；已写入的速率保持。", ToggleFastBuild);
         panel.Toggle("船只额外乘员", ModConfig.BoatCapacityEnabled.Value,
