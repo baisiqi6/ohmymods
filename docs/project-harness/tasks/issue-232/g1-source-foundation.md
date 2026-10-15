@@ -54,3 +54,16 @@ Main明确交接唯一文件 PatchRoles_ScaleAdjustments.cs 的alias与原五调
 最新正常登记计划 `af8f8ca8adc3061823e2b6c7450d46fa08b907d65bc4d77eaf6ffdc4f37b9763`，原identity/operation/doing/ready/running保持，正常lease至17:34:34Z；177其他rows/order、161其他plans及本机checklist保持，validator0/doctor0E0W。正常登记本身不授native；单病例权来自其独立实际GLM5.3/max条件裁决与精确source/input核验。回执与原始数据仅在本机 `.local/tasks/android-profession-archery-20261014/g1-apk-budget-20261015` 及相应private case，不提交APK/原始玩家或设备数据。
 
 下一依赖组核对两个真实私有保存协程对象的Return副本写回与 `Action<SaveLoadResult>` typed native bridge；仍复用同源raw-reader与既有测试机制。真实writer/交易和完整角色、工具、投射物、技能/死亡/撤退特效、召唤物、Holder/sync池及InitPools重建后重新注册继续按真实依赖核对。Main相关未合并草稿的旧边界只代表此前时点，现已闭合的#226/#234等以本次真实handoff为准；不把它们再当待合并阻塞。#232全范围尚未交齐，保持开放，玩家实机状态独立记录。
+
+
+### 2026-10-15 Android 职业/弓弩 G2 公共接线
+
+保留原架构和已合并成果，唯一显式注册表由52基础入口扩为85（52基础+32战斗视觉+像素火矢1），按当前正常PC产物5fb9c5f8…实际TypeDef RID子序排列；原52相对顺序保持，全数组解析在任何classprocessor之前，同target不同priority/state的责任保留。旧52注册表删除，避免重复实现/注册。FireArrowInternal实际4个owner，含MusketeerFire First800。弩矢Init池重注册与转职/复用/防御/skin、Hero/Greek箭/火铳战斗视觉同行。直接链接现有PatchArcher_Impact.cs并在GreekImpact.Tick后驱动其Tick；真实类名并非PixelImpact，无新renderer或共享PC源码改动。未追加choice24、无据Holder/PoolFix强制重建或在线英雄扩权。
+
+实际任务分支SDK10 net10 Debug/Release均0错误、1个既有Banner CS0169警告；184 Compile/184 ReferencePath/21资源；Adapter1264/0与Banner15/0各两配置通过。两个非作者源码审查无mustFix，实际W产物与R已审候选类型/成员/属性/IL/资源严格MATCH（不声称PE/MVID相同）。实际W Debug=e873d657abd182baebc7343ec76707c7c2cb570d52d92265aaba34c5fef911bf，Release=40bee8ebe48b28c8a4534403e126d2df7201ee23e71d87193e8a4b1bd3e56f62；source-only，不是安装/原生/玩法验收。
+
+保存公共依赖另完成两组私有内存病例：原9点Task/Return，与新增27点两保存state.return值副本修改隔离/显式回写24点+真实typed enumAction三收值，分别独立溯源（27不包含Task9）；main场景下27全部actual equal+唯一done，callback计数1/2/3。原Main0.0.30、31键cfg、APK与Release完整读回保持，Addon移除、game0与ownedQEMU退出分别核证；未触发cfg/Release变更恢复push，不宣称该分支已测。生产writer/缓存/ref-out-state/Harmony/原回调/线程GC/保存事务/池和玩法仍未验。
+
+离线资源盘点纠正旧推断：APK内22147个Unity entries、3118个Resources映射确实可读；5 selected条目含51个MonoBehaviour通用base及Script引用，custom serialized字段/完整依赖树尚未解析，不能说资源输入缺失，也不能拿模拟器黑块证明缺资源。4保存target当前APK匹配字节中的Task.Run/ContinueWith及Directory/FileStream call-site只属provisional离线证据，未证明实际线程/函数extent/detour。
+
+#232完整源码范围尚未交齐，保持进行中；后续真实保存门/回调/物理事务、完整Holder/sync与工具/投射物/技能死亡撤退FX/召唤物/InitPools、换岛读档攻防、G2-linked-role24与触屏功能页按依赖继续。玩家实机单独记录，不为关单冒称完成。本批未安装Main/APK、未启用新的原生功能、未修改正式游戏/共享存档或Mono。单次私有过程、哈希及回执位于本机`.local/tasks/android-profession-archery-20261014/g1-savebridge-memory-20261015`与`g2-combat-source-20261015`。

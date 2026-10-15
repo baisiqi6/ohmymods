@@ -202,6 +202,7 @@
     <Compile Include="../il2cpp/MusketeerShopRules.cs" Link="Shared/MusketeerShopRules.cs" />
     <Compile Include="../il2cpp/MusketeerVisuals.cs" Link="Shared/MusketeerVisuals.cs" />
     <Compile Include="../il2cpp/PatchArcher_GreekImpact.cs" Link="Shared/PatchArcher_GreekImpact.cs" />
+    <Compile Include="../il2cpp/PatchArcher_Impact.cs" Link="Shared/PatchArcher_Impact.cs" />
     <Compile Include="../il2cpp/PatchArcher_Options.cs" Link="Shared/PatchArcher_Options.cs" />
     <Compile Include="../il2cpp/PatchDivine_GhostSquads.cs" Link="Shared/PatchDivine_GhostSquads.cs" />
     <Compile Include="../il2cpp/PatchRoles_ArcherNightBand.cs" Link="Shared/PatchRoles_ArcherNightBand.cs" />
@@ -244,7 +245,7 @@
     <Compile Include="../il2cpp/Patch_HeavyShieldDurabilityMigration.cs" Link="Shared/Patch_HeavyShieldDurabilityMigration.cs" />
     <Compile Include="../il2cpp/Patch_HeavyShieldMaintenancePolicy.cs" Link="Shared/Patch_HeavyShieldMaintenancePolicy.cs" />
     <Compile Include="../il2cpp/Patch_HeavyShieldRepair.cs" Link="Shared/Patch_HeavyShieldRepair.cs" />
-    <Compile Include="Patch_ProfessionHooks.cs" />
+    <Compile Include="Patch_ProfessionCombatHooks.cs" />
   </ItemGroup>
 
   <ItemGroup>

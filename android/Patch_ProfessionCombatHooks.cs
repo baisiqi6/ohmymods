@@ -2,13 +2,14 @@ using System;
 
 namespace KingdomEnhancedMod;
 
-internal static class AndroidProfessionHooks
+internal static class AndroidProfessionCombatHooks
 {
-    // Fixed G1 subset in the audited PC assembly's TypeDef RID order.
-    // Resolve the whole array before the caller installs the first class processor.
+    // Fixed 85-owner candidate in the audited PC assembly's TypeDef RID order.
+    // Resolve the whole array before the caller installs the first class processor:
+    // no assembly-wide scan, no metadata re-ordering, no duplicate owner.
     internal static Type[] ResolveOwners()
     {
-        var assembly = typeof(AndroidProfessionHooks).Assembly;
+        var assembly = typeof(AndroidProfessionCombatHooks).Assembly;
         return new Type[]
         {
             assembly.GetType("KingdomEnhancedMod.HeavyShieldNativeDemote", throwOnError: true),
@@ -17,13 +18,35 @@ internal static class AndroidProfessionHooks
             assembly.GetType("KingdomEnhancedMod.HeavyShieldTrollImpact", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.HeavyShieldArrowHit", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.HeavyShieldArrowDamage", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.ArrowAttack_FireArrowInternal_HeroArrowArt_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Arrow_OnEnable_HeroArrowArt_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Kingdom_DistributeFreeArchers_MusketeerDefense_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Musketeer_GunPromotion_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Musketeer_DroppedStock_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Musketeer_PoolSpawnLife_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Musketeer_PoolDespawnLife_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.ArrowAttack_FireArrowInternal_GreekImpact_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Arrow_OnEnable_GreekImpact_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Arrow_TryDamage_GreekImpact_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Arrow_HitObject_ArcherImpact_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.ArrowAttack_FireArrowInternal_Scatter_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Arrow_OnEnable_ExtraLedger_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Archer_OnEnable_RateLifetime_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Archer_Update_RateCadence_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Archer_ShootCoroutine_OptionsCadence_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Archer_SetGuardSlot_CrossbowDefense_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Archer_EnterGuardSlot_CrossbowDefense_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Archer_ExitGuardSlot_CrossbowDefense_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Archer_OnDisable_CrossbowDefense_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Character_Promote_CrossbowmanAlternation_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Archer_IsAvailableForJob_CrossbowmanExclusion_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.World_OnLevelLoaded_CrossbowmanSupervisorHost_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.PoolManager_Init_CrossbowBoltPool_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Pool_FastSpawn_CrossbowmanLifecycleScope_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Archer_OnEnable_CrossbowmanLifecycle_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Archer_OnDisable_CrossbowmanLifecycle_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Archer_ConvertToHunter_CrossbowmanSkin_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Arrow_ReceiveInitialise_Tint_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.CoinCourierPersistence+IslandSaveScopePatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.CoinCourierPersistence+IslandCaptureMarkerPatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.CoinCourierPersistence+PrefsPreparePatch", throwOnError: true),
@@ -32,6 +55,10 @@ internal static class AndroidProfessionHooks
             assembly.GetType("KingdomEnhancedMod.CoinCourierPersistence+CampaignDeleteRoutinePatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.HeavyShieldCareerExclusion+TargetPatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.HeavyShieldCareerExclusion+EmbarkPatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.HeroArcherTowerPolicy+AvailabilityPatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.HeroArcherTowerPolicy+AssignmentPatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.HeroArcherTowerPolicy+SetSlotPatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.HeroArcherTowerPolicy+EnterSlotPatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.HeroBoardingPolicy+TargetPatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.HeroBoardingPolicy+EmbarkPatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.HeroNativeRights+AsyncGate", throwOnError: true),
@@ -49,6 +76,8 @@ internal static class AndroidProfessionHooks
             assembly.GetType("KingdomEnhancedMod.HeroRecruitment+PopPatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.HeroRecruitment+CreatePatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.HeroRecruitment+DespawnPatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.MusketeerGunVisuals+ReusePatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.MusketeerHooks+FirePatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.MusketeerHooks+EligibilityPatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.MusketeerHooks+TargetPatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.MusketeerHooks+PickupPatch", throwOnError: true),
@@ -59,6 +88,11 @@ internal static class AndroidProfessionHooks
             assembly.GetType("KingdomEnhancedMod.MusketeerPersistence+CreatePatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.MusketeerPersistence+VirginPatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.MusketeerRuntime+Archer_OnEnable_MusketeerPackage_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.MusketeerRuntime+Archer_ShouldShootEnemy_MusketeerGroundSelection_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.MusketeerRuntime+Archer_IsAvailableForJob_MusketeerExclusion_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.MusketeerRuntime+Archer_AssignJob_MusketeerExclusion_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.MusketeerRuntime+Archer_SetGuardSlot_MusketeerExclusion_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.MusketeerRuntime+Archer_EnterGuardSlot_MusketeerExclusion_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.HeavyShieldNativeLoadProof+SourceCapturePatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.MusketeerNativeSave+Musketeer_AsyncWriterGate", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.MusketeerNativeSave+Musketeer_SyncWriterGate", throwOnError: true),

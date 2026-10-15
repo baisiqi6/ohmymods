@@ -2148,3 +2148,10 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 
 
 2026-10-15 Android #232 接续：相关主线合并/登记窗口已交还，分支基线ee153aca；G1 PR238已合并，实际183 Compile/184 refs/21资源、D/R0E1W，两产物各Adapter1264/0与Banner metadata15/0，现有Android0.0.30安装保留。私有真实Task/Return三值内存病例九equal+done已独审、原Main/config/Release字节保持、Addon移除、game0与owned QEMU退出通过；此前读取quote错误及3秒校验预算假失败均按实际证据保留，不写成GPU故障。仅核定本memory能力，writer/copy-back/typed callback/事务、完整对象池与玩法仍待分组验证。正常232计划af8登记、其余177 rows/161 plans保持、doctor/validator0E0W；#232仍开放，源码/安装/实机分别记录。详见[本批次任务记录](tasks/issue-232/g1-source-foundation.md)。
+
+
+### 2026-10-15 Android 职业/弓弩 G2 公共接线
+
+唯一注册表52→85，按当前PC实测顺序合并基础与战斗/弩矢池/视觉入口，旧52表删除；像素火矢直接链接共享PatchArcher_Impact并接入已有Tick，无新渲染实现。实际任务分支双配置0E1W、184源码/184引用/21资源，Adapter1264/0和Banner15/0各×2、双独审及R/W严格语义对比通过。原9点及新增27点私有保存内存验证分别独审，原Main/cfg/APK/Release保持、Addon移除和owned VM退出已核；不代表生产writer、回调、线程GC或玩法通过。
+
+完整#232继续进行，未安装本批产物；真实保存/完整池依赖、linked-role24、功能触屏页及实机按依赖推进。已确认资源输入存在，custom serializedrefs仍待解析，不以模拟器黑块定案。详细范围、哈希、回执与未验边界见 [G1/G2任务记录](tasks/issue-232/g1-source-foundation.md)。

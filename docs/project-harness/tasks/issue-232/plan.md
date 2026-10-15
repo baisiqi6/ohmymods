@@ -1,37 +1,18 @@
-# Issue #232 — 累计基线接续与 readfix memory 单次诊断
+# Issue232 — G2 职业战斗公共接线与保存/池验证边界
 
-同一负责人、assignment、operation、session与分支保持：mac-codex-ohmymods-android-operator / codex-android-profession-archery-20261014 / codex/android-profession-archery。源码基准为Main已合并、已闭合交接的 ee153aca3f2b70aee5f73de46af4362b08e332b8，tree f3ce2fe9eeac6eaa92dddf779c8f05df82493fc5，与PR237独审树逐字一致。W仅fast-forward，原已登记e5计划字节保留，旧14fc/07dc/e5批准和失败记录不改写。
+目标保持原Android架构并复用PC共享实现，保留已完成成果；本阶段只交付源码公共接线，不安装新Main/APK，不宣称完整功能/实机通过。当前base1d9393356f7cccae6fae9b58098fc22db9365e3b、branch codex/android-profession-archery，原owner/session/operation与doing-ready-running保留。canonical旧plan5cc5ef907769e42a899010fb3af72efe132b252f4c20358dbbad7e95e6124f1c；同identity正常lease17:26:31Z→19:26:31Z。
 
-## 已交付与当前边界
+已核事实：PR239已合并/公共窗口交回；旧9值Task/Return私有内存、另27点两state.return复制回写+typed enumAction真实病例均独审；原0.0.30Main5460/cfg31/APK9c6、Release读回相同、Addon移除、game0/ownedQEMU退出分别已证。27点不含Task9；各自独立溯源，均不证明生产writer/回调/rooting/线程GC/ref-out-state/Harmony/事务/完整池/玩法。旧readquote/APK3s失败与spent gate/claim/PID/backup保留不复用。
 
-PR238共享基础批已合并；本次累计#201/#202/#207/#222/#226/#237均已合并，#233/#236保存平台边界和未发布观察撤销保全。Android显式183源/184真实refs/21资源；Main实际D/R各0E1W（CS0169 _nextActivation为平台不启用字段）、两DLL完整Adapter1264/0、Banner metadata15/0。保持40真实prefs、13共享人口、原52个G1注册owner及4+1缩放callee。只加入真实2性能、3stock/light、5shield helper；Android固定键仍managed比较，不编/绑定NativeKeyReader；旗帜七处原生能力明确不支持，两observer和三Formation系统未加入，不把它们说成已移植。
+本G2 source候选：直接链接原PatchArcher_Impact.cs（实际类名，非PixelImpact），GreekImpact.Tick后同序驱动其Tick，旧52registry删除并由单一85固定fullname数组替代（52G1+32战斗视觉+Impact1），当前PC5fb真实TypeDefRID子序，旧52relative保持；85全GetType(true)解析完才开始任何classprocessor，每owner唯一目标并保留同target不同priority/__state责任。FireArrowInternal实际4owners含MusketeerFire First800，不能当冗余删除。Crossbow Init池重注册与promotion/postlife/skin/防御、Greek damage和视觉消费同行；只编入≠已运行。共享PC源码/资源不改，不插无据Holder/PoolFix/强制池重建、choice24或在线英雄扩权，不造Shader/Particle/Config/Task或renderer替身。
 
-这只证明代码/host验证。旧安装0.0.30 Main5460与31cfg9758保留，没有安装新Main/APK。上一实际SwiftShader VM boot约20.99秒且game0，prepare首read误将132/131B shell错误当bytes，已确认为工具双重quote及exec-out丢远端状态，不是实际Main/cfg漂移；0Addon/game/native、0Main/cfg/Release写，exact QEMU退出已证。旧首次launcher在AVD选择前因遗漏环境失败，同样完整保留。旧gate均已退休、病例/claim/PID/备份不可复用。#232整体仍OPEN/doing/running，保存writer、池、paid/hook、自然玩法/phone/多人均未验。
+精确候选文件（移除android/Patch_ProfessionHooks.cs）：
+* Patch_ProfessionCombatHooks.cs SHA256 d3df42cfe4d024aa46b9465e98bdb9e0a556c32c835b3cf316fa2020d505c149
+* OhMyMods.AndroidProbe.csproj SHA256 9eff6c4c66093ea15c48eacecf97ef1d33714645e75ab1150e44cd15e6ffbcea
+* Probe.cs SHA256 49eb4523050c05fc8cb4136c2518915ed99e137cdc803c65392b4735d8bdbb5e
 
-## 本阶段：一次全新readfix memory-only病例
+实际SDK10net10 D/R0E1W（已有Banner CS0169），184Compile/184ReferencePath/21资源；Debugc3db851092f8b287dc12f0248f3e7e9526df9f5d36fddd40139794d35ae06a7a、Releaseb025419b7a9d2093c6651448f99047b77be49a7084703f31fa78c8c3f1d3c05d。Adapter1264/0与Banner15/0各×2，两个非作者source独审mustFix[]；这些不是native验收。PC5fb字节和W共享源保持，不构建/部署Mono。
 
-产品、共享il2cpp与玩家UI源码只读；接续时可做纯编译/必要host回归及完整CompileInventory只读刷新，输出只在本机R，不部署、不用桌面metadata混编结果冒称实际产品可用。唯一允许未来实际病例名 swiftshader-memory-20261015-apkbudget-single1；不是自动重试。正常计划登记不授予运行权，仍需独立单次runtime门精确绑定最终source/input/case。
+正常登记只232：fresh CAS旧5cc原子plan upload、typed revise/approve、byte readback、全部其它rows/order/plans/外方lease/本机checklist保护、validator/doctor0E0W，同owner/session/operation/有效lease。写W前需新actualGLM明确正常登记+exactsourceapply+代码交付条件批次裁决（原R-only source门不授W）。复核base、owned dirty仅5cc、portable三文件/原52文件与两个review pins后只apply本owned源码与计划；纯编译禁BepInExPluginsPath，必要实际Wsource/产物与R候选对照，源码范围必要验证/审查齐才commit/push/PR，base release/v9.5.13。受影响progress/task公开记录共享窗口按Main原handback或新冲突协商，原7unowned根工作区dirty保留；不无痕改历史。对应PR由当前shared merge职责协调review后合并，不以本小批交付关闭完整232，不发正式版。
 
-沿原独立API35 ARM64 AVD ohmymods_android35_inprocess / emulator-5582，4096MiB/4核，字面-gpu swiftshader、-no-snapshot/no-wipe。进程环境明确ANDROID_AVD_HOME=/Applications/ohmymods/android/avd、ANDROID_SDK_ROOT=/opt/homebrew/share/android-commandlinetools，不设置/继承ANDROID_EMU_VK_ICD override；不复制旧入口host/MoltenVK配置。全新PID/lstart/argv/hostlog/case，端口5582/5583必须空闲；不并行游戏，不停止用户Mac游戏或其他QEMU。若用户正在游玩，先继续host工作，待共享资源可用；本计划不授权启动Mac测试环境或写共享Mac存档。
-
-R私有packet g1-native-memory-apkbudget最终source：common 1d08c5b6ccf328321dc1eb5fb54c6d7de0664f3f6c2a40616c4f65dd0ef8899f，prepare 8a6ed44931ca21d97dc3ab088840990f43e9caede815a86f396cc415f108969e，run 661b89c0b20fb6e1f956d1cf8c64332d0dba5682d15fe47a9a645d6f333e238a，supervise 13659942ed28f651cf6364cd7f6b1c6a353f73743ce555c667bd89aafe08c70c。readfix parent相对v5只改common.read一行：adb shell -T加shlex.join(cat,path)，使用原生raw shell与远端exit/分流，删除多余sh-c封装；无错误字符串regex、重试或备用读取，parent readfix的其余三源当时逐字不变。parent packet manifest536aea5682c21c5c75878f134e840dabf9d26cc7cd8aca57af1bb8b3c5d0e7a2及parent独审manifest134464ad12664e602daef718879822015414ea8df2fb3138de7b93a89fafc5d5仅作历史parent证据；新apkbudget packet还须最终manifest/非作者独审。当前唯一新增delta是相对readfix的run两处APK sha预算3→30，expected run661b89c0b20fb6e1f956d1cf8c64332d0dba5682d15fe47a9a645d6f333e238a，其余三源保持。实际Case.read→adb→command宿主协议11方法29场景绿，旧reader12需求失败0error，新modules19+7绿，40受控fixture shell/0泄漏；两旧模型缺陷和无效UTC历史保留，不把model当设备证明或SDK binary/source snapshot精确映射。
-
-唯一Addon保持992312c0bf6c57a616c054e8c7b728524559c15a7bc67b168b1bf41300534a47源、f7f8d89d792e07563aec58627b54c0210f508672112ac00234532341a7d310bc DLL、7f297ba04473db2adf62e3631ec49e92b3bd98f620c093f09eba761ecc624b00 rawreader投影。当前生产保存源bacfd259dc37089ad8abe86cd426c9da8e64be38c6269db661c5700593d0c388保持；执行前Root再核相同body/const与精确compile refs。仅Unity主线程一次真实Task.FromResult/Return ctor+setter/rawread，值136/392/72，enum与field/type/size4前置断言，static roots保至进程结束；无Filer/save writer、MoveNext/Action/GC/原生Harmony安装/paid事务。只有九个actual equal（Task.Result/ctor/setter各3）及ABI_MEMORY_RESULT done才记三值memory通过，observed/restore不作为native判据，不由它解锁整个保存或玩法。
-
-## 输入、备份与停止责任
-
-APK完整SHA9c6d65d1d9f00341d12144138a727ba6770bb3707da1facd70cae16266f0c71b；Main5460efd9652731ce50b3d69d10570f3f599cce1935c007e0afe71a0669da156b；31cfg9758bda80f7834063ba3bdee0146e2c93df4d3ccbb63a71a382e30c7f4d7c882不写。四实际APK loader/interop pins文件2b227a18ad9166f14711d07528a24712a6c5a4d57cc13d015b7fa8687419512f、引用等价实证203216531efb93fa22aa07412a218b86d2acadc2ea8551d3a2c487876cbdee18；两interop与编译ref只GUID16B不同，不能假称全字节/MVID一致。所有实际设备readback仍须fresh消费，missing/读取失败/漂移即停，不repin或用旧备份回写。
-
-Root boot-ready总90秒，首guest shell/checked-ps超时即保unknown并exact ownedstop；bootready后prepare60秒host watchdog。鲜Main/cfg/完整Release/log的host+设备备份全部readback证实后才进入首次push。run首次push前再核APK/四runtimePins/host完整备份、Main/cfg/Release/Mods；launchMonotonic在全部条件后、am.start之前持久化，是唯一恢复/停止责任记录。未launch不force-stop、不写cfg/Release，仅在真实game0+精确Mods/ownedAddon hash证实后清本Addon；transport未知继续sticky拒绝盲恢复。运行75秒soft、supervisor85秒停止裕量/90秒host watchdog/95秒hard保持，不重置起点、不延长窗口、不fallback/第二例。
-
-只有game0、Main/Mods/Addon/path集合及原备份均证实后，才删本ownedAddon、按差异恢复同次cfg/完整Release并全字节回读；Main/APK/其他Mods不写，日志取证保留。新增/缺失路径、backup漂移或运输未知时保备份/unknown，不补删非owner文件。所有结局Root都用既有PID/lstart/argv exact stop关自有QEMU并独立留exitproof；QEMU退出不替代restoreproof。原始三流/timeout/host-tail/identity/header/Addon/marker hashes保R，未输出/ABI失败/环境失败分别记录，不宣称图形或#213根因修复。
-
-## 正常登记与后续
-
-Main已闭合并归还canonical职责；只经正常harnessctl同owner/session续租120分钟、Coordinate plan revise/approve，base/source commit均ee153aca3f2b70aee5f73de46af4362b08e332b8，phase保持ready与原doing/running/operation，不force/accept/重建assignment或裸改JSON/DB。修改前fresh核canonical与当前已登记eef plan、无foreign claim，改后保护所有其他rows/order/plans/外方lease、本机checklist，validator/doctor与plan实际字节回读。未知partial不盲重放。独审exact计划与GLM事前门先完成，之后仍需另一精确单次runtime门及有效lease/资源/fresh输入，不借旧gate或本登记运行。
-
-病例无论结果都不关闭#232、不mark-done、不发包/版本或安装G1。结果用于真实保存端点/writer与职业弓弩、火铳、英雄盾卫完整对象池链下一依赖组；后续功能可合并实现/审查/打包，启用与必要验证按组继续。当前40–100h职业组/70–200h全Android条件宽估保持，文件/错误数或本memory通过不当完成率，Main新增能力的Android原生接入仍待独立范围盘点。下一正常代码交付会合并本阶段计划与真实结果记录，旧批准/错误历史不改写。
-
-R=.local/tasks/android-profession-archery-20261014；只此一次新的private memory病例例外，其余产品执行边界保持。
-
-2026-10-15 fresh readfix病例：真实Main/cfg/APK/四refs与完整备份全部readback通过，Case.read一行修正已设备验证；prepare一次1.9GB APK sha成功耗时约10.51s，run重复同一hash却仅3s，raw-run/00021超时后sticky unknown触发精确ownedstop，无push、无launch、无native，退出proof真，停止后额外device readback不可用。不是GPU/ADB死锁证明，不重写历史失败。新R候选仅run同类两处full-APK sha的3s→30s，复用已实际成功的prepare预算；其它源及boot90/prepare60/run75/sup85/90/hard95不变，无重试/fallback。未来新case与fresh gate/backup/PID/claim独立，旧已spent保留。该新packet最终独审pins必须齐，不用未生成结果假称通过。此计划替代eef，normal revise/approve保持同identity/lease/operation/ready/doing/running，只改本232且保护其它row/order/plans。正常登记仍非native权限。
+未验与下一依赖：真实生产保存门/回调/线程GC/写盘事务、Harmony安装/ref-out-state/目标extent/完整Holder/sync/工具/投射物/技能死亡撤退特效召唤池与InitPools重注册、换岛读档/攻防/玩家实机继续分组；离线currentAPK已有22147资源entries/3118Resources映射和5selected51通用base+Script refs可读，custom serializedrefs/完整树未解析，不是资源缺失。四save target离线provisional call-site（Task.Run/ContinueWith、Directory/FileStream）只证当前匹配字节，不证运行线程/extent/detour。后续native需另一具体独审packet/新单次gate/完整备份与ownedstop，不由本source登记预付。

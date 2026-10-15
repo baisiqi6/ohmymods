@@ -20,14 +20,14 @@ public sealed class Probe : MelonMod
   KingdomEnhancedMod.PatchArcher_Options.PrepareWindowObserver = KingdomEnhancedMod.HeroArcherVisuals.RecordPrepareWindow;
   // Paid save/life protection stays installed independently of career toggles and panel visibility.
   // Resolve every exact owner before starting the first class processor; no assembly-wide PatchAll.
-  var professionOwners = KingdomEnhancedMod.AndroidProfessionHooks.ResolveOwners();
+  var professionOwners = KingdomEnhancedMod.AndroidProfessionCombatHooks.ResolveOwners();
   foreach (var owner in professionOwners)
   {
    var patched = HarmonyInstance.CreateClassProcessor(owner).Patch();
    if (patched == null || patched.Count != 1)
-    throw new InvalidOperationException("Expected one G1 target for " + owner.FullName);
+    throw new InvalidOperationException("Expected one profession target for " + owner.FullName);
   }
-  LoggerInstance.Msg("ANDROID_PROFESSION_FOUNDATION_REGISTERED owners="+professionOwners.Length+" sharedSource=true");
+  LoggerInstance.Msg("ANDROID_PROFESSION_COMBAT_REGISTERED owners="+professionOwners.Length+" sharedSource=true");
   LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.30 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters,existing_role_scale,wall_engineers,world_layout,divine_parameters");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
@@ -313,6 +313,7 @@ public sealed class Probe : MelonMod
   KingdomEnhancedMod.HeroArcherArrowVisuals.Tick();
   KingdomEnhancedMod.PatchArcher_Options.Tick();
   KingdomEnhancedMod.PatchArcher_GreekImpact.Tick();
+  KingdomEnhancedMod.PatchArcher_Impact.Tick();
   KingdomEnhancedMod.HeavyShieldIntegration.Tick();
   KingdomEnhancedMod.PatchRoles_Crossbowman.Tick();
   KingdomEnhancedMod.ShopCleanupQueue.TickPendingCleanup();
