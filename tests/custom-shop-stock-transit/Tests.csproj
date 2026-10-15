@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- 契约 integration-contract-v1：host 回归只编译纯核（无 Unity/native 引用）。 -->
+    <DefineConstants>CUSTOM_SHOP_STOCK_TRANSIT_CORE_ONLY</DefineConstants>
+    <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>CustomShopStockTransitTests</AssemblyName>
+    <RootNamespace>CustomShopStockTransitTests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../il2cpp/Patch_CustomShopStockTransit.cs" Link="Production/Patch_CustomShopStockTransit.cs" />
+    <Compile Include="Fakes.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+</Project>

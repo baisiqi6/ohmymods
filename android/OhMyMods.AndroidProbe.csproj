@@ -235,6 +235,10 @@
     <Compile Include="../il2cpp/HeavyShieldCareerExclusion.cs" Link="Shared/HeavyShieldCareerExclusion.cs" />
     <Compile Include="../il2cpp/MusketeerHooks.cs" Link="Shared/MusketeerHooks.cs" />
     <Compile Include="../il2cpp/MusketeerGunVisuals.cs" Link="Shared/MusketeerGunVisuals.cs" />
+    <!-- Issue #225: real shared shop stock, transit, and lighting source closure. -->
+    <Compile Include="../il2cpp/CustomShopStocks.cs" Link="Shared/CustomShopStocks.cs" />
+    <Compile Include="../il2cpp/Patch_CustomShopStockTransit.cs" Link="Shared/Patch_CustomShopStockTransit.cs" />
+    <Compile Include="../il2cpp/Patch_CustomShopLighting.cs" Link="Shared/Patch_CustomShopLighting.cs" />
     <Compile Include="Patch_ProfessionHooks.cs" />
   </ItemGroup>
 

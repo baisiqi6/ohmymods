@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 纯策略测试：同一份 Patch_CustomShopLighting.cs 以 CUSTOM_SHOP_LIGHTING_CORE_ONLY 编译，
+       无 Unity、无 interop、无外部包。原生行为（渲染/LightFaker 注册/占用）按契约另行门控。 -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>CustomShopLightingTests</AssemblyName>
+    <RootNamespace>CustomShopLightingTests</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DefineConstants>CUSTOM_SHOP_LIGHTING_CORE_ONLY</DefineConstants>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="../../il2cpp/Patch_CustomShopLighting.cs" Link="Patch_CustomShopLighting.cs" />
+  </ItemGroup>
+</Project>

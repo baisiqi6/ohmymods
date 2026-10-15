@@ -4,4 +4,5 @@
     <Compile Include="../../il2cpp/HeavyShieldIntegration.cs" Link="Production/HeavyShieldIntegration.cs" />
     <Compile Include="../../il2cpp/HeavyShieldCareerExclusion.cs" Link="Production/HeavyShieldCareerExclusion.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../custom-shop-boundary/DisabledCustomShopStocks.cs" Link="Boundary/DisabledCustomShopStocks.cs" /></ItemGroup>
 </Project>

@@ -13,6 +13,10 @@
     <Compile Include="../../il2cpp/PatchRoles_HeavyShieldArt.cs" Link="Production/PatchRoles_HeavyShieldArt.cs" />
     <Compile Include="../../il2cpp/HeroShop.cs" Link="Production/HeroShop.cs" />
     <Compile Include="Stubs.cs"/><Compile Include="Program.cs"/>
+    <Compile Include="ShopLifecycleStubs.cs" />
+    <Compile Include="../../il2cpp/CustomShopStocks.cs" Link="Production/CustomShopStocks.cs" />
+    <Compile Include="../../il2cpp/Patch_CustomShopStockTransit.cs" Link="Production/Patch_CustomShopStockTransit.cs" />
+    <Compile Include="../../il2cpp/Patch_CustomShopLighting.cs" Link="Production/Patch_CustomShopLighting.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="../../il2cpp/Assets/ShopV2Shield.png" LogicalName="KingdomEnhancedMod.ShopV2Shield.png" />

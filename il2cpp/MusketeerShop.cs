@@ -41,6 +41,8 @@ internal static partial class MusketeerShop
     private static CRPCHeader _header;
     private static Sprite _sprite;
     private static ShopV2Visuals _v2;
+    private static CustomShopLighting _lighting;
+    private static float _nextSiteCheck;
     private static SpriteRenderer _renderer;
     private static Il2CppSystem.Action<Player> _started;
     private static readonly MusketeerShopPayment Payment = new();
@@ -88,6 +90,8 @@ internal static partial class MusketeerShop
     {
         try
         {
+            if (!CustomShopStocks.Musket.CheckContext(ModConfig.Enabled.Value && ModConfig.MusketeerEnabled.Value))
+                throw new InvalidOperationException("stock cleanup pending: " + CustomShopStocks.Musket.Fault);
             if (_retiring)
             {
                 if (Time.unscaledTime >= _cleanupRetryAt) Clear(_retryReason);
@@ -121,6 +125,8 @@ internal static partial class MusketeerShop
                 // Playing: native maintenance only; payment stays governed by CanPurchase.
                 case HeroShopRetention.Outcome.Active:
                 {
+                    if (WithdrawOutsideTerritory()) return;
+                    _lighting?.Tick(true);
                     if (VisualSelectionDiagnostics) ObserveVisualSelection();
                     MaintainBowCache();
                     MaintainRackLayout();
@@ -333,6 +339,8 @@ internal static partial class MusketeerShop
         _header = _postbox.RegisterObject(_object, CRPCType.SemiStatic);
         if (!HeaderMatches()) throw new InvalidOperationException("native payment header registration failed");
         _createStage = "activate";
+        _lighting = new CustomShopLighting("MusketeerShop");
+        if (!_lighting.Attach(_object.transform, BiomeHolder.Inst?.BiomeIndex ?? -1)) Log("lighting: " + _lighting.Status);
         _object.SetActive(true); // native Awake/OnEnable initialize and register exactly once
         _payable.forceBlockPayment = !CanPurchase();
         _status = "火铳铺：4 金币";
@@ -451,16 +459,41 @@ internal static partial class MusketeerShop
                 if (_started != null) _payable.remove_OnTransactionStartedCallback(_started);
             }
             Payment.Clear();
+            if (reason == "territory-contracted")
+            {
+                var state = MusketeerIdentity.Current;
+                if (state == null || _layer == null || _kingdom == null)
+                    throw new InvalidOperationException("stock withdrawal world unavailable");
+                foreach (var career in state.Careers)
+                {
+                    if (career.Kind != MusketeerCareer.KindGun || career.StockSlot < 0 || career.Tool == null) continue;
+                    var gun = career.Tool;
+                    if (gun.pickedUp || gun.friendlyClaimer != null || gun.enemyClaimer != null) continue;
+                    if (!CustomShopStocks.Musket.Capture(career, _layer))
+                        throw new InvalidOperationException("stock withdrawal failed: " + CustomShopStocks.Musket.Fault);
+                }
+                float left = _kingdom.GetBorderSideIntact(Side.Left), right = _kingdom.GetBorderSideIntact(Side.Right);
+                if (!float.IsFinite(left) || !float.IsFinite(right) || left > right
+                    || !CustomShopStocks.Musket.Park(new Vector3((left + right) * .5f, _object.transform.position.y, _object.transform.position.z)))
+                    throw new InvalidOperationException("stock safe anchor unavailable");
+            }
+            else if (!CustomShopStocks.Musket.ReleaseAll())
+                throw new InvalidOperationException("stock release failed: " + CustomShopStocks.Musket.Fault);
             // Match the original registry, never delete a reused NetID from a new island.
             if (_postbox != null && _header != null && _object != null
                 && _postbox.MasterSemiCRPCHLookup.TryGetValue(_object, out var found)
                 && found != null && found.Pointer == _header.Pointer)
                 _postbox.DeregisterObject(_object, _header.NetID, CRPCType.SemiStatic);
+            _lighting?.Dispose(); _lighting = null;
             if (_object != null) { _object.SetActive(false); UnityEngine.Object.Destroy(_object); }
             cleaned = true;
         }
         catch (Exception e)
         {
+            // A failed withdrawal is an aborted rebuild, not a pending hold. Return
+            // temporary fields before retrying teardown under the terminal reason.
+            _retryReason = "error";
+            if (!CustomShopStocks.Musket.ReleaseAll()) _status = "库存临时状态恢复待重试：" + CustomShopStocks.Musket.Fault;
             _cleanupRetryAt = Time.unscaledTime + 1f;
             if (!_cleanupFailureLogged) { Log("cleanup deferred/failed reason=" + reason + ": " + e.GetType().Name); _cleanupFailureLogged = true; }
         }
@@ -875,6 +908,18 @@ internal static partial class MusketeerShop
         var body = gun.GetComponent<Rigidbody2D>();
         if (body == null || !body.isKinematic) return false; // native load must finish its own stock-physics restore
         Vector3 target = _object.transform.position + new Vector3(x, y, z);
+        if (CustomShopStocks.Musket.Holds(gun))
+        {
+            if (!CustomShopStocks.Musket.Place(gun, target)) return false;
+            // The controller may have ended a recycled/claimed lease without moving.
+            // Never follow that result with an unguarded fallback transform write.
+            return RackContextReady() && ReferenceEquals(MusketeerIdentity.Current, stamp.State)
+                && career.Life == stamp.Life && career.StockSlot == slot && MusketeerIdentity.StockClaimProven(career)
+                && career.Tool != null && career.Tool.Pointer.ToInt64() == stamp.Pointer
+                && career.Tool.gameObject.GetInstanceID() == stamp.Instance && _object.GetInstanceID() == stamp.Shop
+                && _layer.Pointer.ToInt64() == stamp.Layer && !gun.pickedUp
+                && gun.friendlyClaimer == null && gun.enemyClaimer == null && SamePosition(gun.transform.position, target);
+        }
         if (!SamePosition(gun.transform.position, target)) gun.transform.position = target;
         return SamePosition(gun.transform.position, target);
     }
@@ -883,6 +928,16 @@ internal static partial class MusketeerShop
         => float.IsFinite(actual.x) && float.IsFinite(actual.y) && float.IsFinite(actual.z)
             && Mathf.Abs(actual.x - target.x) < 0.001f && Mathf.Abs(actual.y - target.y) < 0.001f
             && Mathf.Abs(actual.z - target.z) < 0.001f;
+    private static bool WithdrawOutsideTerritory()
+    {
+        if (Time.unscaledTime < _nextSiteCheck || IslandSaveData.isSavingGame || Time.timeScale <= 0f) return false;
+        _nextSiteCheck = Time.unscaledTime + .5f;
+        float left = _kingdom.GetBorderSideIntact(Side.Left), right = _kingdom.GetBorderSideIntact(Side.Right);
+        if (!float.IsFinite(left) || !float.IsFinite(right) || left > right) return false;
+        if (HeroShopPlacement.Inside(left, right, _object.transform.position.x + MusketeerShopRules.LayoutCenterX,
+            MusketeerShopRules.HalfWidth)) return false;
+        Clear("territory-contracted"); _retryAt = 0f; return true;
+    }
 
     private static void MaintainRackLayout()
     {

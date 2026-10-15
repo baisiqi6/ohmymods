@@ -187,6 +187,7 @@ internal static class MusketeerIdentity
             // Pending work belongs to the bound root's world, not the mutable state.World.
             if (state.DefenseAttempts > 0 && state.DefenseWorld != world)
                 state.DefenseAttempts = 0;
+            if (state.World != world && !CustomShopStocks.Musket.ReleaseAll()) return;
             state.World = world;
             _current = state;
             MusketeerLegacyCompensationRuntime.Tick(state);
@@ -472,6 +473,7 @@ internal static class MusketeerIdentity
             if (tool == null || tool.gameObject == null) return;
             if (!TryGetBound(tool.gameObject, out var career) || career.Kind != MusketeerCareer.KindGun) return;
             if (career.StockSlot == MusketeerCareer.NoStockSlot) { DropPendingRestore(career); return; }
+            if (!CustomShopStocks.Musket.ReleaseRoot(tool.gameObject)) return;
             career.StockSlot = MusketeerCareer.NoStockSlot;
             DropPendingRestore(career);
             Log("stock-released", null);
@@ -525,6 +527,7 @@ internal static class MusketeerIdentity
     internal static void RevokeStock(Career career, string logKey)
     {
         if (career == null || career.StockSlot == MusketeerCareer.NoStockSlot) return;
+        if (career.Tool != null && !CustomShopStocks.Musket.ReleaseRoot(career.Tool.gameObject)) return;
         career.StockSlot = MusketeerCareer.NoStockSlot;
         Log(logKey, null);
     }
@@ -730,6 +733,7 @@ internal static class MusketeerIdentity
             if (delay > 0f) return;   // a delayed request only schedules; the immediate call is the boundary
             if (root == null) return;
             if (!Roots.TryGetValue(root.Pointer, out var slot) || slot == null || !slot.Alive) return;
+            if (!CustomShopStocks.Musket.ReleaseRoot(root)) Log("stock-transit-release-before-despawn-failed", null);
             state = new() { Root = root, Pointer = root.Pointer, Tracked = true };
             if (!IslandSaveData.isSavingGame && MusketeerAccess.Playing
                 && Bound.TryGetValue(root.Pointer, out var career) && career != null
@@ -957,6 +961,8 @@ internal static class MusketeerIdentity
     internal static void Release(Career career)
     {
         if (career == null) return;
+        if (career.Tool != null && !CustomShopStocks.Musket.ReleaseRoot(career.Tool.gameObject))
+            throw new InvalidOperationException("paid stock temporary fields not restored");
         Character previous = career.Character;
         DroppableTool previousTool = career.Tool;
         // A released gun keeps no rack claim (H3'): the claim describes one live rack position, and
@@ -1001,6 +1007,13 @@ internal static class MusketeerIdentity
         }
         catch { return false; }
     }
+    // Managed ownership proof for temporary stock leases. Native reads remain at the
+    // caller so an unreadable object is not mistaken for a confirmed end of life.
+    internal static bool HasExactStockBinding(Career career)
+        => career?.Slot != null && career.Slot.Alive && career.Slot.Life == career.Life
+            && career.Slot.GoId == career.GoId && career.State != null
+            && career.Slot.World == career.State.World
+            && Bound.TryGetValue(career.Slot.Pointer, out var live) && ReferenceEquals(live, career);
 
     internal static RootSlot RootOf(GameObject root, bool create)
     {

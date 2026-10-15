@@ -44,6 +44,9 @@ internal static class HeavyShieldIntegration
     internal static void BeforePoolDespawn(GameObject root, float delay)
     {
         if (delay > 0f) return;
+        try { if (!CustomShopStocks.Shield.ReleaseRoot(root))
+            Fault("stock-release-before-despawn", new InvalidOperationException(CustomShopStocks.Shield.Fault)); }
+        catch (Exception e) { Fault("stock-release-before-despawn", e); }
         try { HeavyShieldRuntime.BeforeNativePoolDespawn(root); }
         catch (Exception e) { Fault("pool-death", e); }
     }
