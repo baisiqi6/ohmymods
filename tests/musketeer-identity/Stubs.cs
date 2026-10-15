@@ -65,7 +65,7 @@ public class Character : UnityEngine.Component
 public class Archer : UnityEngine.Component { }
 public class Droppable : UnityEngine.Component { public bool pickedUp; public UnityEngine.GameObject enemyClaimer; public UnityEngine.GameObject dropper; }
 public class DroppableTool : Droppable { }
-public class Persistent : UnityEngine.Component { }
+public class Persistent : UnityEngine.Component { public string path; public bool ShouldPersist() => false; }
 public class Pool
 {
     public UnityEngine.GameObject FastSpawn(UnityEngine.Vector3 position, UnityEngine.Quaternion rotation, UnityEngine.Transform parent, short netID, bool syncReceipt) => null;

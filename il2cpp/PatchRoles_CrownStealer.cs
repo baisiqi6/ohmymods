@@ -19,6 +19,7 @@ namespace KingdomEnhancedMod;
 ///
 /// 已知边界：已经存活或停在池里的实例不会因总开关热切换而恢复原值；
 /// 开关只在实例创建（Awake）时生效，重进游戏（重建对象池）后按新开关状态生效。
+/// Android 分线（Issue196）：#if ANDROID 下额外受 CrownStealerSlowdownEnabled 独立开关门控。
 ///
 /// 2.4.0 签名验证（Operator 2026-09-30 核对 BepInEx/interop/Assembly-CSharp.dll，
 /// 按同一结论实现，不再重复大范围侦查）：
@@ -37,6 +38,10 @@ public static class PatchRoles_CrownStealer
     public static void Awake_Prefix(CrownStealer __instance)
     {
         if (__instance == null || !ModConfig.Enabled.Value) return;
+#if ANDROID
+        // Android 分线独立开关（Issue196）：总开关开启但本项关闭时保持原生数值。
+        if (ModConfig.CrownStealerSlowdownEnabled?.Value != true) return;
+#endif
 
         try
         {

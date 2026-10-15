@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text.Json;
 #if !ANDROID
 using ModDataPaths = BepInEx.Paths;
 #endif
@@ -13,8 +15,9 @@ namespace KingdomEnhancedMod;
 // Island sidecar bridge for paid musketeer careers. Four native boundaries are reused (all long
 // methods already targeted elsewhere in this mod): IslandSaveData.Save/GetID,
 // IslandSaveData.TryPopObjectsToScene/TryCreateOrFind and CampaignSaveData.ApplyToScene for a
-// confirmed new generation. No mod component data ever enters the native compressed file; the
-// sidecar is a separate compare-and-swap file with a durable backup.
+// confirmed new generation. Career snapshots now stage in a native Prefs key so the game and
+// identity travel in the same compressed payload. The legacy sidecar is a migration source;
+// only a verified accepted native file may produce its mirror and paired backup.
 //
 // A record's persisted NativeId is only ever written from a capture witnessed during that same
 // native save (GetID on the exact root that career is bound to). Unproven holders are persisted
@@ -27,7 +30,7 @@ internal static class MusketeerPersistence
 
     internal static string ArchivePath => Path.Combine(ModDataPaths.ConfigPath, "KingdomEnhancedMod", "ModSave", "musketeer-identities.v2.json");
 
-    internal static MusketeerArchiveStore.ReadResult ReadArchive() => MusketeerArchiveStore.Load(ArchivePath);
+    internal static MusketeerArchiveStore.ReadResult ReadArchive() => MusketeerNativeSave.ReadArchive();
 
     internal sealed class Resolution
     {
@@ -59,7 +62,7 @@ internal static class MusketeerPersistence
             result.Unresolved = result.Records.Count > 0;
             return result;
         }
-        var matches = Collect(archive, context, rawJson);
+        var matches = Collect(archive, contextKey, context, rawJson);
         if (matches.Count > 0)
         {
             if (!Agree(matches)) return Quarantine(archive, matches, "conflict");
@@ -98,12 +101,15 @@ internal static class MusketeerPersistence
         internal MusketeerSnapshot Snapshot;
     }
 
-    private static List<Match> Collect(MusketeerArchive archive, MusketeerContext context, string rawJson)
+    private static List<Match> Collect(MusketeerArchive archive, string contextKey, MusketeerContext context, string rawJson)
     {
         var result = new List<Match>();
         if (context == null) return result;
         foreach (string epoch in context.Epochs)
         {
+            // A manually compensated source is retained for audit/rollback, not a second
+            // claim on the live world when an old hash happens to return.
+            if (archive.HistoricalOnly(contextKey, epoch) || MusketeerLegacyCompensationRuntime.ExcludesSourceEpoch(contextKey, epoch)) continue;
             string hash;
             try { hash = MusketeerArchive.IslandHash(rawJson, epoch); }
             catch (Exception) { continue; }   // unusable native JSON cannot match any stored snapshot
@@ -147,21 +153,93 @@ internal static class MusketeerPersistence
         state.HasBaseline = resolution.HasBaseline;
         state.GenerationPending = resolution.GenerationPending;
         foreach (var record in resolution.Records) MusketeerIdentity.AddCareer(state, record);
+        if (resolution.Kind == "exact" && !resolution.Unresolved && resolution.MatchHash != null)
+            MusketeerNativeSave.SeedProof(contextKey, resolution.Epoch, resolution.MatchHash);
         return state;
     }
 
-    // Single writer: mutate a freshly loaded disk state, ride the context/epoch registration in
-    // the same compare-and-swap, and clear the new-epoch marker only after the file landed.
-    internal static bool Commit(MusketeerIdentity.IslandState state, Func<MusketeerArchiveStore.ReadResult, bool> mutate)
+    // Stage the exact captured checkpoint in native Prefs. This does not commit a separate file:
+    // a physical writer must validate this checkpoint against its actual outgoing game payload.
+    internal static bool Commit(MusketeerIdentity.IslandState state, Func<MusketeerArchiveStore.ReadResult, bool> mutate, string hash)
     {
         if (state == null || state.ContextKey == null || state.Epoch == null) return false;
         var disk = ReadArchive();
         if (!disk.Writable || disk.Archive == null) return false;
         if (!mutate(disk)) return false;
         if (!disk.Archive.EnsureContext(state.ContextKey, state.Epoch, state.NewEpoch)) return false;
-        if (!MusketeerArchiveStore.Save(ArchivePath, disk, disk.Archive)) return false;
+        if (!MusketeerNativeSave.Stage(state.ContextKey, state.Epoch, hash, disk, disk.Archive)) return false;
         state.NewEpoch = false;
         return true;
+    }
+
+    internal static bool PrepareLegacyCompensation(MusketeerIdentity.IslandState old, string rawJson,
+        MusketeerLegacyCompensationPlan plan, IReadOnlyList<Guid> grants,
+        out MusketeerIdentity.IslandState prepared, out MusketeerLegacyCompensationReceipt pending, out string reason)
+    {
+        prepared = null; pending = null; reason = "legacy-source-state";
+        if (plan == null || plan.Units != 8) { reason = "legacy-current-authorization-is-eight"; return false; }
+        if (old == null || !old.Ready || old.ReadOnly || !old.Unresolved || old.MatchKind != "unknown-paid"
+            || old.Epoch != null || old.GenerationPending || !ReferenceEquals(old, MusketeerIdentity.Current)
+            || !MusketeerAccess.TrackAllowed || IslandSaveData.isSavingGame || string.IsNullOrEmpty(rawJson)) return false;
+        var disk = ReadArchive();
+        if (!disk.Writable || disk.Status != MusketeerArchiveStore.State.Valid || disk.Original == null || disk.Archive == null
+            || !disk.Archive.TryGetContext(old.ContextKey, out var context)) return false;
+        string sourceSha = Convert.ToHexString(SHA256.HashData(disk.Original)).ToLowerInvariant();
+        if (!MusketeerLegacyCompensationPolicy.MatchesSource(plan, old.ContextKey, context.Active, sourceSha,
+            disk.Archive.LatestReservations(context.Active).Count)) return false;
+        foreach (var receipt in disk.Archive.Compensations.Values)
+            if (receipt.Plan.Context == old.ContextKey && receipt.Plan.SourceEpoch == context.Active)
+            { reason = "legacy-already-compensated"; return false; }
+        if (grants == null || grants.Any(id => disk.Archive.Scopes.Values.Any(list => list.Any(s => s.Records.Any(r => r.Id == id)))))
+        { reason = "legacy-grant-already-existed"; return false; }
+        string epoch = MusketeerArchive.NewScope();
+        if (!MusketeerLegacyCompensationPolicy.TryCreatePending(plan, epoch, grants, out pending, out reason)) return false;
+        string hash = MusketeerArchive.IslandHash(rawJson, epoch);
+        if (!MusketeerNativeSave.BeginLegacyCompensation(plan.RequestId, old.ContextKey, epoch, grants, out reason)) return false;
+        var next = new MusketeerIdentity.IslandState { ContextKey = old.ContextKey, Epoch = epoch, MatchKind = "legacy-compensation",
+            World = old.World, Ready = true, NewEpoch = true, HasBaseline = true, CompensationPending = true,
+            CompensationRequest = plan.RequestId };
+        // No pending receipt is serialized. The live owner barrier makes this schema-2 bootstrap
+        // unwriteable; schema 3 is introduced only by the successful real scene capture below.
+        if (!Commit(next, read => read.Archive.ConfirmBaseline(epoch, hash, Array.Empty<MusketeerCareer>()), hash))
+        {
+            MusketeerNativeSave.CancelLegacyBeforeCapture(plan.RequestId, old.ContextKey, epoch, out _);
+            reason = "legacy-bootstrap-stage"; return false;
+        }
+        MusketeerIdentity.InstallState(old.ContextKey, next);
+        prepared = next; reason = null;
+        return true;
+    }
+
+    private static bool CompleteLegacyRows(MusketeerIdentity.IslandState state, string json,
+        IReadOnlyList<MusketeerCareer> rows, out MusketeerLegacyCompensationReceipt complete, out string reason)
+    {
+        complete = null; reason = null;
+        if (!state.CompensationPending) return true;
+        if (!MusketeerLegacyCompensationRuntime.TryGetPendingReceipt(state, out var pending))
+        { reason = "legacy-pending-budget"; return false; }
+        // Completion was already staged, but not yet accepted: subsequent normal captures may
+        // update the scene hash; the immutable grant ledger is retained, not recomputed/re-issued.
+        if (pending.Complete) { complete = pending; return true; }
+        using var document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("objects", out var objects) || objects.ValueKind != JsonValueKind.Array)
+        { reason = "legacy-scene-objects"; return false; }
+        var captures = new List<MusketeerLegacyGrantCapture>(pending.GrantIds.Count);
+        foreach (Guid id in pending.GrantIds)
+        {
+            var matches = rows.Where(r => r.Id == id).ToArray();
+            if (matches.Length != 1) { reason = "legacy-capture-budget"; return false; }
+            var row = matches[0]; int count = 0; string path = null;
+            foreach (var obj in objects.EnumerateArray())
+                if (obj.TryGetProperty("uniqueID", out var native) && native.ValueKind == JsonValueKind.String
+                    && native.GetString() == row.NativeId)
+                {
+                    count++;
+                    if (obj.TryGetProperty("prefabPath", out var prefab) && prefab.ValueKind == JsonValueKind.String) path = prefab.GetString();
+                }
+            captures.Add(new MusketeerLegacyGrantCapture(id, row.NativeId, row.Kind, path, count));
+        }
+        return MusketeerLegacyCompensationPolicy.TryComplete(pending, captures, out complete, out reason);
     }
 
     private static bool IsVirgin(IslandSaveData island)
@@ -193,9 +271,27 @@ internal static class MusketeerPersistence
         internal int Campaign, Land, Challenge;
         internal IslandSaveData Island;
         internal string ContextKey;
+        internal bool Protected;
+        internal bool Applied;
         private readonly Dictionary<string, MusketeerIdentity.Career> Owners = new(StringComparer.Ordinal);
         private readonly Dictionary<MusketeerIdentity.Career, string> Ids = new();
         internal bool Conflict;
+
+        internal void Begin()
+        {
+            // Save(-1 land) resolves its actual island inside GetID; an explicit land can
+            // record its source before any row, including a native body that fails early.
+            if (Land < 0 || !MusketeerIdentity.TryContextKey(Campaign, Challenge, Land, out string key)) return;
+            SetSource(key);
+        }
+
+        private void SetSource(string key)
+        {
+            ContextKey = key;
+            Protected = MusketeerIdentity.Islands.TryGetValue(key, out var state) && state != null
+                && state.Ready && state.Epoch != null && !state.GenerationPending;
+            MusketeerNativeSave.NoteLegacySceneCapture(key);
+        }
 
         internal void Capture(Persistent persistent, string id)
         {
@@ -205,7 +301,7 @@ internal static class MusketeerPersistence
                 var island = IslandSaveData.CurrentlySavingIsland;
                 if (island == null || !IslandSaveData.isSavingGame || (Land != -1 && island.land != Land)) return;
                 if (!MusketeerIdentity.TryContextKey(Campaign, Challenge, island.land, out string contextKey)) return;
-                Island = island; ContextKey = contextKey;
+                Island = island; SetSource(contextKey);
             }
             if (!MusketeerIdentity.Islands.TryGetValue(ContextKey, out var state) || state == null || !state.Ready) return;
             var career = MusketeerIdentity.BoundAt(state, persistent.gameObject);
@@ -257,9 +353,18 @@ internal static class MusketeerPersistence
                 string json = JsonUtility.ToJson(Island, false);
                 if (string.IsNullOrEmpty(json)) { MusketeerIdentity.Log("save-json", null); return; }
                 string hash = MusketeerArchive.IslandHash(json, state.Epoch);
-                if (!Commit(state, disk => disk.Archive.Record(state.Epoch, hash, rows))) { state.ReadOnly = true; MusketeerIdentity.Log("save-readonly", null); return; }
+                if (!CompleteLegacyRows(state, json, rows, out var complete, out string legacyFailure))
+                { MusketeerIdentity.Log("legacy-save-blocked:" + legacyFailure, null); return; }
+                if (!Commit(state, disk =>
+                {
+                    if (!disk.Archive.Record(state.Epoch, hash, rows)) return false;
+                    if (complete != null) disk.Archive.Compensations[complete.Plan.RequestId] = complete;
+                    return true;
+                }, hash)) { state.ReadOnly = true; MusketeerIdentity.Log("save-readonly", null); return; }
+                if (complete != null) MusketeerLegacyCompensationRuntime.CapturePrepared(complete);
+                Applied = true;
                 state.ReadOnly = false;
-                MusketeerIdentity.Log("saved:records=" + rows.Count + ":bound=" + liveIds.Count, null);
+                MusketeerIdentity.Log("staged:records=" + rows.Count + ":bound=" + liveIds.Count, null);
             }
             catch (Exception e) { MusketeerIdentity.Log("save", e); }
         }
@@ -279,6 +384,7 @@ internal static class MusketeerPersistence
         private MusketeerIdentity.IslandState Old;
         private MusketeerIdentity.IslandState OldCurrent;
         private string Hash;
+        private string RawJson;
         private bool Confirmable;
         private bool GenerationPending;
         private readonly Dictionary<string, IntPtr> Frozen = new(StringComparer.Ordinal);
@@ -294,6 +400,7 @@ internal static class MusketeerPersistence
             if (!MusketeerIdentity.TryContextKey(GlobalSaveData.loaded.currentCampaign, GlobalSaveData.loaded.currentChallenge, island.land, out string contextKey)) return;
             string json = JsonUtility.ToJson(island, false);
             if (string.IsNullOrEmpty(json)) return;
+            RawJson = json;
             // A virgin island is recorded by the generation bridge after ApplyToScene succeeds;
             // this load must not pre-create its epoch or baseline.
             GenerationPending = IsVirgin(island);
@@ -383,7 +490,7 @@ internal static class MusketeerPersistence
                 var rows = new List<MusketeerCareer>(State.Careers.Count);
                 foreach (var career in State.Careers)
                     rows.Add(new MusketeerCareer { Id = career.Id, Kind = career.Kind, NativeId = career.NativeId, StockSlot = career.StockSlot });
-                if (Commit(State, disk => disk.Archive.ConfirmBaseline(State.Epoch, Hash, rows))) State.HasBaseline = true;
+                if (Commit(State, disk => disk.Archive.ConfirmBaseline(State.Epoch, Hash, rows), Hash)) State.HasBaseline = true;
                 else { State.ReadOnly = true; State.HasBaseline = false; MusketeerIdentity.Log("baseline-unconfirmed", null); }
             }
             // Rack guns: only an exactly proven stock gun of a fully resolved load is restored, and
@@ -398,6 +505,7 @@ internal static class MusketeerPersistence
             MusketeerIdentity.Log("loaded:" + State.MatchKind + ":records=" + State.Careers.Count
                 + ":bound=" + Bound + ":unbound=" + Unbound + ":pending=" + pending + ":stock=" + StockGuns.Count
                 + ":conflict=" + Conflict, null);
+            MusketeerLegacyCompensationRuntime.OnLoaded(State, RawJson);
         }
     }
 
@@ -448,7 +556,7 @@ internal static class MusketeerPersistence
             try { hash = MusketeerArchive.IslandHash(json, scope); }
             catch (Exception e) { MusketeerIdentity.Log("virgin-json", e); return; }
             var pending = new MusketeerIdentity.IslandState { ContextKey = contextKey, Epoch = scope, MatchKind = "new-generation", NewEpoch = true, World = world, Ready = true };
-            if (!Commit(pending, disk => disk.Archive.ConfirmBaseline(scope, hash, Array.Empty<MusketeerCareer>())))
+            if (!Commit(pending, disk => disk.Archive.ConfirmBaseline(scope, hash, Array.Empty<MusketeerCareer>()), hash))
             { MusketeerIdentity.Log("virgin-baseline-unconfirmed", null); return; }
             Done = true;
             var state = CreateState(contextKey, world, json, false);
@@ -459,20 +567,29 @@ internal static class MusketeerPersistence
         }
     }
 
-    // Existing long native save/load endpoints only; no native compressed-file changes.
+    // Existing island save/load boundaries capture the identity checkpoint. The physical
+    // writer gate lives in Patch_MusketeerNativeSave and never rewrites its outgoing bytes.
     [HarmonyPatch(typeof(IslandSaveData), nameof(IslandSaveData.Save), new[] { typeof(int), typeof(int), typeof(int) })]
     internal static class SavePatch
     {
         [HarmonyPrefix]
         private static void Before(int __0, int __1, int __2, out SaveCapture __state)
-        { __state = new() { Previous = _save, Campaign = __0, Land = __1, Challenge = __2 }; _save = __state; }
+        {
+            __state = new() { Previous = _save, Campaign = __0, Land = __1, Challenge = __2 }; _save = __state;
+            __state.Begin();
+        }
 
         [HarmonyPostfix, HarmonyPriority(Priority.Last)]
         private static void After(SaveCapture __state) { try { __state?.Apply(); } catch (Exception e) { MusketeerIdentity.Log("save-after", e); } }
 
         [HarmonyFinalizer]
         private static Exception Finally(Exception __exception, SaveCapture __state)
-        { if (ReferenceEquals(_save, __state)) _save = __state?.Previous; return __exception; }
+        {
+            if (__state != null && __state.Protected && (!__state.Applied || __exception != null))
+                MusketeerNativeSave.NoteCaptureFailure(__state.ContextKey);
+            if (ReferenceEquals(_save, __state)) _save = __state?.Previous;
+            return __exception;
+        }
     }
 
     [HarmonyPatch(typeof(IslandSaveData), nameof(IslandSaveData.GetID), new[] { typeof(Persistent) })]
@@ -484,7 +601,9 @@ internal static class MusketeerPersistence
             HeavyShieldIntegration.ObserveId(__0, __result);
             try { _save?.Capture(__0, __result); }
             catch (Exception e) { if (_save != null) _save.Conflict = true; MusketeerIdentity.Log("get-id", e); }
+#if !ANDROID
             SharedBankNative.ObserveId(__0, __result);
+#endif
         }
     }
 
@@ -494,7 +613,9 @@ internal static class MusketeerPersistence
         [HarmonyPrefix, HarmonyPriority(Priority.First)]
         private static void Before(IslandSaveData __instance, out LoadCapture __state)
         {
+#if !ANDROID
             SharedBankNative.BeginPop(__instance);
+#endif
             var heavy = HeavyShieldIntegration.BeginLoad(__instance);
             __state = new() { Previous = _load, Heavy = heavy }; _load = __state;
             try { __state.Begin(__instance); }
@@ -504,16 +625,20 @@ internal static class MusketeerPersistence
         [HarmonyFinalizer]
         private static Exception Finally(Exception __exception, bool __result, LoadCapture __state)
         {
+#if !ANDROID
             bool complete = __exception == null && __result;
             try
             {
+#endif
                 HeavyShieldIntegration.EndLoad(__state?.Heavy, __exception == null && __result);
                 try { __state?.End(__exception == null && __result); }
                 catch (Exception e) { MusketeerIdentity.Log("load-end", e); }
                 finally { if (ReferenceEquals(_load, __state)) _load = __state?.Previous; }
+#if !ANDROID
             }
             catch (Exception) { complete = false; throw; }
             finally { SharedBankNative.EndPop(SharedBankNative.CurrentPop, complete); }
+#endif
             return __exception;
         }
     }
@@ -529,7 +654,9 @@ internal static class MusketeerPersistence
         private static void After(IslandSaveData.ObjectData __0, Persistent __result)
         {
             HeavyShieldIntegration.ObserveLoadRow(__0, __result);
+#if !ANDROID
             SharedBankNative.Created(__0, __result);
+#endif
             try { _load?.Capture(__0, __result); }
             catch (Exception e) { if (_load != null) _load.Conflict = true; MusketeerIdentity.Log("load-bind", e); }
         }
@@ -556,11 +683,13 @@ internal static class MusketeerPersistence
         {
             try { __state?.Complete(__instance); }
             catch (Exception e) { MusketeerIdentity.Log("virgin-end", e); }
+#if !ANDROID
             // 金币哥布林存档接线：复用本 patch owner 的确认入口。self-wrapped，绝不影响
             // 火枪的判定/顺序；本模块内部自留诊断（条目成功/失败不抛）。
             try { CoinCourierPersistence.EnsureBoundFromApplyToScene(__instance); }
             catch (Exception) { /* CoinCourierPersistence 自带隔离与有界诊断 */ }
             SharedBankNative.SceneApplied();
+#endif
         }
 
         [HarmonyFinalizer]

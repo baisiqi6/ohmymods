@@ -174,3 +174,24 @@ internal static class WallEngineerRules
         return innerMinX >= qMinX && innerMaxX <= qMaxX && rMinY >= qMinY && rMaxY <= qMaxY;
     }
 }
+
+/// <summary>
+/// 外墙耐久倍率唯一只读文案来源（PC CalendarHud / F5 面板与 Android World 页共用）。
+/// Ready 优先且 AppliedMultiplier 原样输出：不做 clamp、不重算；未知/未映射原因统一「未生效」。
+/// body 与 CalendarHud.FormatWallStatus 原实现等价，CalendarHud 保留原 API 并委托到本实现。
+/// </summary>
+internal static class WallEngineerStatusText
+{
+    internal static string Format(WallEngineerStatus status)
+    {
+        if (status.Ready) return "×" + status.AppliedMultiplier;
+        return status.Reason switch
+        {
+            WallEngineerUnavailableReason.Disabled => "已关闭",
+            WallEngineerUnavailableReason.Loading => "载入中",
+            WallEngineerUnavailableReason.NoOuterWall => "暂无外墙",
+            WallEngineerUnavailableReason.NetworkUnsupported => "仅单机",
+            _ => "未生效",
+        };
+    }
+}

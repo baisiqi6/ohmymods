@@ -989,6 +989,9 @@ public static class PatchWorld_TowerSpots
     /// 等差段，仅删除段内部点（两端保留——端点可能是真原生锚）；删除走
     /// CanRetireBaseCore(requireMarker:false) 全套安全检查（付款中/施工中/
     /// 玩家交互一律 fail-closed 保留）。运行后自动关闭配置（一次性维护）。
+    /// Android：自动关闭是真实 true→false（入口只在 Value==true 时调用本函数，
+    /// 且本处是该字段唯一的 false writer），落盘一次 ModConfig.Save，避免
+    /// 维护在每次启动重复执行；PC 走 BepInEx cfg 自身持久化，预处理输出不变。
     /// </summary>
     private static void RunLadderCleanup(World world, Transform layer,
         List<GameObject> refGos, OccupancySnapshot snapshot, float campfire)
@@ -1067,6 +1070,12 @@ public static class PatchWorld_TowerSpots
             KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
                 "[TowerSpots] ladder cleanup done: runs=" + runs + " removed=" + removedTotal);
             ModConfig.TowerLadderCleanup.Value = false; // 一次性维护：自动关闭
+#if ANDROID
+            // 入口条件（调用点只在 Value==true 时进入）与本处唯一 false writer
+            // 保证这里是真实 true→false；Android 无 BepInEx cfg 自动落盘，
+            // 在此保存一次，PC 预处理输出不含本块。
+            ModConfig.Save();
+#endif
         }
         catch (Exception e)
         {
