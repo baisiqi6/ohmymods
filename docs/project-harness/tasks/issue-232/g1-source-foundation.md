@@ -82,3 +82,16 @@ physical file-as-folder面真实返回648=Save8|Failure128|Subsystem512，不含
 正常计划ce4950a4e590dff72bfe530747b42b50070162453ba0b8da57e50491b8c8c5cb已typed revise/approve；同owner/session/operation与doing-ready-running保持，lease19:10:47Z至21:10:47Z，177其它rows/order、161其它plans、primary未拥有改动及本机checklist保持，validator0/doctor0E0W。独立source与actual-result审查分别记录；源检查、normal登记、运行恢复和玩家验收互不代持。完整#232源码/功能范围未交齐继续开放，手机/平板/多人/长期状态如实待验。
 
 下一批按真实依赖准备合并后的85Main+受控40键prefs分组加载，先查实际Hook安装/原生状态与复用池，再分组启用普通弓弩及职业生命周期。原架构及共享源码保留；不因已知游戏原生失败附加位再添失败扫描、重试或强制池重建。单次过程、哈希与回执仅保存在本机`.local/tasks/android-profession-archery-20261014/g2-private-writer-runtime-20261015`，不发布APK/原始玩家或设备数据。
+
+
+### 2026-10-15 85入口实际加载与成对变更恢复
+
+保留原架构，在原API35 ARM64独立SwiftShader AVD仅执行一次无UI受控启动。实际加载已合并85入口Main40bee8…（2,033,664B）与受控40键cfgac31…；原31键875B前缀逐字节保留，6个职业/弓手开关false、弩兵比例25%、连射数量1、射速倍率1。源码确认比例0会被归一为25%，故不能称所有职业关闭；未改共享比例策略或伪造总开关。
+
+本次日志重建后有当前epoch/stat/PID证据，85注册、禁止自动扫描、晚FarmCats注册、graphics与组件创建按严格顺序出现；观察23.9899s、supervisor36.6409s。这里只证明注册段及启动组件，未观察main场景，不证明每handler detour/ABI、9项配置运行值或实际战斗/转职/保存/池/玩家验收。source与host/source审查不能代持这些未验面。独立实际结果审核对1,832条原始命令与5,729文件台账；完整日志保留两个WARNING（Il2Cpp v0.7.3.0依赖与scene build index不可用），选定errorLines为空不等于无警告或未来版本兼容已证。
+
+首次实际触发新版Main与cfg的变更回滚：四次install/restore写入均ledger+byte-readback完成，设备恢复原Main5460…（297,472B）/31键cfg9758…，Release原字节零写、Mods清单、四运行库、APK及checked game0分别核验。各写+readback约0.05–0.12s属此病例合并阶段时间，不是纯传输带宽/跨设备保证；不因它扩大3s/2s或45/85/90/95界限。
+
+退出原记录仍保留ownedStop=false/Identity changed before signal：收尾期间QEMU的ps外观转为括号形式，助手未取得退出证明。后来独立只读ps确认own PID32354已消失、5582/5583无监听，作为分离的后验退出证据；未记录Root reaped，不把原错误改成原件成功，也不把它归为游戏问题。单用途gate已spent，原件、红例和备份保存，不重跑。
+
+当前canonical正常计划951226…，原identity/operation/doing-ready-running与lease23:09:36保持，177其他rows/order、161其他plans/primary未拥有改动/localchecklist保护，validator0/doctor0E0W。Main短窗口已归还。源码阶段根因修计时/身份/未知Release覆盖/日志时序及夹具时钟问题，拒绝与作者deadline原件保留；完整232尚未交齐继续开放。下一组按真实依赖接入触屏职业/弓弩控件和实际scene/战斗/池生命周期验证；不发布APK或冒称玩家通过。

@@ -2158,3 +2158,6 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 
 
 2026-10-15 Android #232 私有writer验证：G2源码PR240已合并851a495；新版85Main仍未安装。本轮原Main/config/APK/Release下，真实async Task及sync factory/exact state/one MoveNext=false各返回72，两独立80B/79B文件与host稳定原件逐字一致。物理失败返回648（Save|Failure|Subsystem），原诊断136-only故保留failure终态，不预付生产GateFail/Busy/交易或玩法通过。Addon移除、原文件readback、game0/ownedVM退出分别有证，变更cfg/Release恢复push本轮未触发；私有树/原失败/单用途spent门保留。正常232计划ce495登记及validator/doctor0E0W、177rows/161plans/primary保持。完整职业/弓弩、保存/池/受控85Main与手机实机继续按依赖分组推进；详见[G1/G2及writer任务记录](tasks/issue-232/g1-source-foundation.md)。
+
+
+2026-10-15 Android #232：一次受控85Main实际加载观察到完整职业注册段与组件创建，Main/cfg变更恢复按原字节读回、Release零写，独立结果审核原始台账；尚未见main场景、9值运行读取/逐handler ABI/玩法待验。停止助手原错误保留，后续另证own PID退出，Root reap未记录；整232保持进行中。详见tasks/issue-232/g1-source-foundation.md。
