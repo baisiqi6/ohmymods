@@ -42,3 +42,15 @@ Main明确交接唯一文件 PatchRoles_ScaleAdjustments.cs 的alias与原五调
 本轮减少了重复人口实现、配置接线及共享编译缺口，但原生保存、跨世界池与完整启用仍是主要成本，不能按173源或零编译错误下调成接近完成。当前职业/弓弩剩余按3个完整启用组加跨组原生/保存/池验证，条件宽估约40–100工程小时；全Android余量暂维持既有约6–8依赖风险组、70–200工程小时。若实际ABI或模拟器阻塞需改方案再重估；手机/平板、多人和长期自然玩法的验收日历另列，这不是工期承诺。
 
 本G1部分PR不使用关闭整个#232的完成关系。全部范围交齐、必要审查验证和对应PR全合并后才正常关单；源码、host、安装与玩家验收分别记录。内部源码前置不新增对外完整功能条目，依据VERSIONING暂不另计版本，不发布游戏包。
+
+## 2026-10-15 接续：合并基线及真实返回值内存验证
+
+主 Operator 的相关合并与登记收尾已完成，Android 分支接续到 `ee153aca3f2b70aee5f73de46af4362b08e332b8`（审树 `f3ce2fe9eeac6eaa92dddf779c8f05df82493fc5`）；G1 源码 PR238 已合并。新增公共差异按真实输入核对：从173到183 Compile，184 ReferencePath与21资源保持，新增2个性能、3个库存/照明、5个盾卫共享 helper，52个G1 owner及4+1缩放callee不变。Debug/Release均0 errors/1 warning（Android未启用旗帜的 `_nextActivation` CS0169），两实际产物分别Adapter1264/0、Banner metadata15/0；未安装新版Android Main/APK。Main NativeKeyReader/原生旗帜及#233/#236边界保留，未借合并自动启用。
+
+私有原生诊断已在原API35 ARM64独立AVD的一次新SwiftShader病例完成：真实 `Task.FromResult<SaveLoadResult>` 的IsCompleted/Result、`Routine.Return<SaveLoadResult>` 构造值与修改后生产同源raw-reader，136/392/72共九项actual equal及 `ABI_MEMORY_RESULT done`，scene main、managed callback thread1、静态roots6。非作者独立结果核对通过。原0.0.30 Main、31项配置及Release路径/字节值保持；诊断Addon已移除，game0及owned QEMU退出有独立证据。本次cfg/Release没有差异，未触发恢复push分支；恢复逻辑的该分支不由本病例签字。它仅更新此前三值Task/Return内存与AOT未知项，不证明实际writer/原saver callback/协程copy-back、GC或线程安全、Harmony接入、保存事务、池重建、跨biome攻防、手机多人或图形通过。
+
+前两次失败完整保留：旧read的 `exec-out sh -c` 重复quote导致错误文本被当文件字节；改为原生 `shell -T` 后实际设备Main/cfg/四refs/完整备份读回通过。之后run对1.9GB APK复核只给3秒，而prepare同一完整校验实际10.51秒（30秒预算），在Addon push和game/native前超时；当时host/get-state仍正常，不能写成GPU/ADB挂死。仅修同类两处校验预算3→30，整轮75/85/90/95界限不变，无fallback或自动重复病例；原始错误与各次spent gate/PID/claim/backup保留。后续正确病例实际九值通过，不无痕改写旧失败。
+
+最新正常登记计划 `af8f8ca8adc3061823e2b6c7450d46fa08b907d65bc4d77eaf6ffdc4f37b9763`，原identity/operation/doing/ready/running保持，正常lease至17:34:34Z；177其他rows/order、161其他plans及本机checklist保持，validator0/doctor0E0W。正常登记本身不授native；单病例权来自其独立实际GLM5.3/max条件裁决与精确source/input核验。回执与原始数据仅在本机 `.local/tasks/android-profession-archery-20261014/g1-apk-budget-20261015` 及相应private case，不提交APK/原始玩家或设备数据。
+
+下一依赖组核对两个真实私有保存协程对象的Return副本写回与 `Action<SaveLoadResult>` typed native bridge；仍复用同源raw-reader与既有测试机制。真实writer/交易和完整角色、工具、投射物、技能/死亡/撤退特效、召唤物、Holder/sync池及InitPools重建后重新注册继续按真实依赖核对。Main相关未合并草稿的旧边界只代表此前时点，现已闭合的#226/#234等以本次真实handoff为准；不把它们再当待合并阻塞。#232全范围尚未交齐，保持开放，玩家实机状态独立记录。
