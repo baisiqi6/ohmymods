@@ -1,3 +1,9 @@
+## 2026-10-15 — Android #232 G1 源码与生命周期接入（尚未合并/运行）
+
+G0/PR233与保存根因修复#235/PR236已合并，#235正常受管完成；下方旧“待PR整合”保留历史。当前G1正式工程173源/184真实refs/21资源、40真实配置、共享13职业人口，显式52owner及真实初始化/驱动源码已接入，删除旧重复PopulationCounts。缩放同名alias遮蔽在产生处修为唯一平台别名，四旧Register+新增Unregister断言红1259/5→最终W1264/0；Population106/0，Android D/R0W0E，fresh PC net8/net6全源严格零语义/IL/资源差异。Main单文件交接与正常exact计划审批已完成，窗口归还，其他任务/plans/lease保持。当前源码尚待PR交付，整个232仍OPEN；未安装新Main/APK，0.0.30成果保留，未预付native ABI/真实保存/池玩法/手机多人验收，#213仍OPEN。详见[本次记录](tasks/issue-232/g1-source-foundation.md)。
+
+后续先补native/保存边界，再按弓弩、火铳、英雄/盾卫完整依赖组推进，公共触屏控件随组复用；职业组条件宽估40–100工程小时，全Android暂维持约6–8风险组/70–200工程小时，实际ABI/环境卡点可改变估算，玩家验收日历另计。
+
 ## 2026-10-15 — 共享保存未发布观察根因修复（Issue #235，待 PR 整合）
 
 职业/弓弩依赖核对发现保存回调转换失败后观察仍占槽，已在创建责任处撤销本次未发布观察及 managed 根，原回调、合法 sibling 和 once 保持；未加扫描/重试/超时补偿。旧源 39 绿+两新增红，修后 adapter41/41、pipeline33断言通过；PC全源net6/net8零警告零错误，Android172源候选Debug/Release零错误、原PrepareWindowObserver CS0649保留。候选仅替换共享修复源，未接新hook/UI、未安装；原生ABI/AOT/真实保存事务及实机分别待验。

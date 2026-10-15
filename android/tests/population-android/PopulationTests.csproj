@@ -16,6 +16,7 @@
     <Compile Include="../../../il2cpp/PatchPerformance_Population.cs" />
     <Compile Include="../../../il2cpp/PopulationGrounding.cs" />
     <Compile Include="../../MobilePlayerConfig.cs" />
+    <Compile Include="../../../il2cpp/CrossbowRatioPolicy.cs" />
     <Compile Include="../MelonLoggerStub.cs" />
     <Compile Include="../MelonPreferencesStub.cs" />
     <Compile Include="Stubs.cs" />
