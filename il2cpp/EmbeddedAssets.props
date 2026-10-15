@@ -35,6 +35,7 @@
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KnightStylePreview3.png" LogicalName="KingdomEnhancedMod.KnightStylePreview3.png" />
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KnightStylePreview4.png" LogicalName="KingdomEnhancedMod.KnightStylePreview4.png" />
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapExtensionIsland.png" LogicalName="KingdomEnhancedMod.KEM_MapExtensionIsland.png" />
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapExtensionIslandCrescent.png" LogicalName="KingdomEnhancedMod.KEM_MapExtensionIslandCrescent.png" />
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapRainbowPony.png" LogicalName="KingdomEnhancedMod.KEM_MapRainbowPony.png" />
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapSantaReindeer.png" LogicalName="KingdomEnhancedMod.KEM_MapSantaReindeer.png" />
         <EmbeddedResource Include="$(MSBuildThisFileDirectory)Assets/KEM_MapSpookyhorse.png" LogicalName="KingdomEnhancedMod.KEM_MapSpookyhorse.png" />

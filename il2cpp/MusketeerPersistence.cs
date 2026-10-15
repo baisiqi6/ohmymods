@@ -452,7 +452,11 @@ internal static class MusketeerPersistence
                 return;
             }
             Bound++;
-            if (career.Kind == MusketeerCareer.KindGun && career.StockSlot != MusketeerCareer.NoStockSlot) StockGuns.Add(career);
+            if (career.Kind == MusketeerCareer.KindGun && career.StockSlot != MusketeerCareer.NoStockSlot)
+            {
+                StockGuns.Add(career);
+                if (MusketeerAccess.Enabled && !CustomShopStocks.Musket.Capture(career, Managers.Inst?.world?.gameLayer)) Conflict = true;
+            }
         }
 
         internal void End(bool success)
@@ -461,6 +465,9 @@ internal static class MusketeerPersistence
             if (State == null) return;
             if (!success)
             {
+                State.Unresolved = true; State.HasBaseline = false;
+                if (!CustomShopStocks.Musket.ReleaseAll())
+                    throw new InvalidOperationException("loaded stock release failed");
                 // A failed load restores the previous state and its bindings unmodified and never
                 // writes an archive association.
                 MusketeerIdentity.ReleaseAll(State);
@@ -484,6 +491,8 @@ internal static class MusketeerPersistence
             {
                 State.Unresolved = true;
                 State.HasBaseline = false;
+                if (!CustomShopStocks.Musket.ReleaseAll())
+                    throw new InvalidOperationException("rejected stock release failed");
             }
             else if (Confirmable)
             {

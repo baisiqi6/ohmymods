@@ -9,12 +9,14 @@ internal static class Program
     private static void Next() { Time.frameCount++; Time.unscaledTime += .6f; Time.time += .6f; }
     private static void Setup(bool mold = false, bool greek = false)
     {
+        Check(CustomShopStocks.Shield.ReleaseAll(), "test world returns exact prior stock fields before reset");
+        ModConfig.HeavyShieldEnabled.Value = ModConfig.Enabled.Value = true;
         // Each case is an independent process/world in effect, without running Unity/IL2CPP initialization.
         foreach (var name in new[] { "_object", "_points", "_kingdom", "_layer", "_postbox", "_renderers", "_greekV2", "_bowPrefab", "_bowPool", "_pools", "_paidBow" })
             typeof(HeavyShieldShopShell).GetField(name, BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, null);
         foreach (var name in new[] { "_clearing", "_retiring", "_menuSuspended", "_failureLogged", "_economyFault" })
             typeof(HeavyShieldShopShell).GetField(name, BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, false);
-        foreach (var name in new[] { "_retryAt", "_cleanupRetryAt", "_nextBowCheck" })
+        foreach (var name in new[] { "_retryAt", "_cleanupRetryAt", "_nextBowCheck", "_nextSiteCheck" })
             typeof(HeavyShieldShopShell).GetField(name, BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, 0f);
         HeavyShieldIdentity.Ready = true; HeavyShieldIdentity.Unknown = false; HeavyShieldIdentity.Mold = mold;
         HeavyShieldIdentity.LeftExtra = false; HeavyShieldIdentity.RightExtra = false;
@@ -206,8 +208,178 @@ internal static class Program
     }
     public static int Main()
     {
-        try { FixedPricesAndReadonly(); GemPhases(); Cancellation(); InvalidReceipts(); MoreTests(); VisualBorrowing(); BilateralPresentation(); FailedStartedTests(); Console.WriteLine("PASS " + _checks + " production payment/native adapter assertions"); return 0; }
+        try { ForeignWorldDuringRestore(); InterruptedWithdrawal(); StockRelocation(); BambooLightRegression(); NativeLightRegression(); FixedPricesAndReadonly(); GemPhases(); Cancellation(); InvalidReceipts(); MoreTests(); VisualBorrowing(); BilateralPresentation(); FailedStartedTests(); Console.WriteLine("PASS " + _checks + " production payment/native adapter assertions"); return 0; }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
+    }
+    private static void BambooLightRegression()
+    {
+        Setup(true);
+        var owner = new GameObject("bamboo-light-owner"); owner.SetActive(false);
+        var light = new CustomShopLighting("bamboo");
+        Check(light.Attach(owner.transform, BiomeHolder.BambooBiomeIndex), "Bamboo attaches below an inactive shop root");
+        var prop = owner.transform.children.Single().gameObject;
+        var register = prop.GetComponentsInChildren<AutoLightRegister>(true).Single();
+        Check(!register.nightLightOnly, "Bamboo Attach disables the cloned day/night writer before publication");
+        Check(register.EnableCalls == 0 && !prop.activeInHierarchy, "Bamboo policy is configured before any first activation");
+        owner.SetActive(true);
+        Check(register.EnableCalls == 0, "shop activation leaves unsampled Bamboo prop unpublished");
+        Blender.LightsOn = true; light.Tick(true);
+        Check(prop.activeInHierarchy && register.EnableCalls == 1 && register.FirstEnableNightLightOnly == false,
+            "first ambient activation exposes the corrected policy to native lifecycle boundary");
+        light.Dispose();
+        Check(prop.Destroyed && !prop.activeSelf && owner.transform.children.Count == 0, "Bamboo Dispose removes its exact clone");
+
+        foreach (string fault in new[] { "missing-register", "multiple-registers", "silent-policy-write", "throw-policy-write", "missing-lamp" })
+        {
+            owner.SetActive(false); light = new CustomShopLighting(fault);
+            UnityEngine.Object.BambooRegisterCount = fault == "missing-register" ? 0 : fault == "multiple-registers" ? 2 : 1;
+            UnityEngine.Object.OmitBambooLamp = fault == "missing-lamp";
+            AutoLightRegister.IgnoreNightLightOnlyWrites = fault == "silent-policy-write";
+            AutoLightRegister.ThrowNightLightOnlyWrites = fault == "throw-policy-write";
+            int created = UnityEngine.Object.InstantiateCalls, destroyed = UnityEngine.Object.DestroyCalls;
+            try
+            {
+                Check(!light.Attach(owner.transform, BiomeHolder.BambooBiomeIndex), "Bamboo rejects " + fault);
+                Check(UnityEngine.Object.InstantiateCalls == created + 1 && UnityEngine.Object.DestroyCalls == destroyed + 1,
+                    "Bamboo failed Attach destroys exactly its new clone: " + fault);
+                var rejected = UnityEngine.Object.LastInstantiated;
+                Check(rejected.Destroyed && !rejected.activeSelf && owner.transform.children.Count == 0,
+                    "Bamboo failed Attach leaves no published or parented clone: " + fault);
+                Check(rejected.GetComponentsInChildren<AutoLightRegister>(true).All(r => r.EnableCalls == 0),
+                    "Bamboo rejects before the first native activation: " + fault);
+                light.Dispose();
+                Check(UnityEngine.Object.DestroyCalls == destroyed + 1, "Bamboo failed Attach cleanup is idempotent: " + fault);
+            }
+            finally
+            {
+                UnityEngine.Object.BambooRegisterCount = 1; UnityEngine.Object.OmitBambooLamp = false;
+                AutoLightRegister.IgnoreNightLightOnlyWrites = AutoLightRegister.ThrowNightLightOnlyWrites = false;
+            }
+        }
+        foreach (int biome in new[] { 0, BiomeHolder.GreeceBiomeIndex })
+        {
+            owner.SetActive(false); light = new CustomShopLighting("fire-control");
+            Check(light.Attach(owner.transform, biome), "Fire donor still attaches without a Bamboo registrar: " + biome);
+            prop = owner.transform.children.Single().gameObject;
+            Check(!prop.GetComponentInChildren<FirePlaceholder>(true).burnsAtNightOnly,
+                "Fire donor retains its original pre-activation policy setup: " + biome);
+            Check(prop.GetComponentsInChildren<AutoLightRegister>(true).Length == 0, "Fire donor does not acquire Bamboo components: " + biome);
+            light.Dispose();
+        }
+    }
+    private static void NativeLightRegression()
+    {
+        Setup(true);
+        var owner = new GameObject("light-regression-owner"); owner.SetActive(false);
+        var light = new CustomShopLighting("regression");
+        Check(light.Attach(owner.transform, 0), "native light adapter attaches under inactive owner");
+        var prop = owner.transform.children.Single().gameObject;
+        owner.SetActive(true); Blender.LightsOn = true; light.Tick(true);
+        Check(prop.activeSelf, "ambient sample enables owned prop");
+        light.Dispose();
+        Check(prop.Destroyed && !prop.activeSelf, "Dispose removes the exact owned lit prop");
+        owner.SetActive(false); light = new CustomShopLighting("adoption");
+        Check(light.Attach(owner.transform, 0), "adoption fixture attaches owned light");
+        prop = owner.transform.children.Single().gameObject;
+        var adopter = new GameObject("foreign-light-owner"); prop.transform.SetParent(adopter.transform, false);
+        Blender.LightsOn = true; light.Tick(true);
+        Check(!prop.activeSelf, "old helper cannot change adopted light active state");
+        light.Dispose(); Check(!prop.Destroyed, "old helper cannot destroy adopted light");
+        owner.SetActive(false); light = new CustomShopLighting("ground");
+        Check(light.Attach(owner.transform, 0), "second native light adapter attaches");
+        prop = owner.transform.children.Single().gameObject;
+        Check(prop.transform.localPosition.y == 0, "native light root stays on shop ground");
+        owner.SetActive(true); Blender.Throw = true;
+        int logs = KingdomEnhancedPlugin.Instance.LogSource.Errors;
+        for (int i = 0; i < 100; i++) { Time.time += .3f; light.Tick(true); }
+        Check(KingdomEnhancedPlugin.Instance.LogSource.Errors - logs <= 3, "native sample failures do not flood logs");
+        Blender.Throw = false; light.Dispose();
+        owner.SetActive(false); light = new CustomShopLighting("failed-clone");
+        GameObject.ThrowPlaceholderRead = true;
+        Check(!light.Attach(owner.transform, 0), "unreadable cloned placeholder rejects attachment");
+        GameObject.ThrowPlaceholderRead = false;
+        Check(owner.transform.children.Count == 0, "failed attachment removes its unpublished clone");
+        light.Dispose();
+    }
+    private static void StockRelocation()
+    {
+        Setup(true);
+        var point = Point(HeavyShieldPurchaseKind.ShieldLeft); point.Start(P1); Fill(P1, CurrencyType.Coins, 6); point.CompleteNative(P1);
+        var bow = Pool.LastIssued; HeavyShieldIdentity.TryGetPaidBow(bow, out var handle);
+        bow.CurrentEnemyPolicy = PickUpPolicy.EnemyOnly;
+        int births = Pool.SpawnCalls;
+        Managers.Inst.kingdom.Left = -19; Next(); HeavyShieldShopShell.Tick(true);
+        Check(!CustomShopStocks.Shield.Pending && bow.pickUpPolicy == PickUpPolicy.Anybody,
+            "changed border inside existing footprint leaves stock untouched");
+        Managers.Inst.kingdom.Left = 1; Next(); HeavyShieldShopShell.Tick(true);
+        Check(CustomShopStocks.Shield.Pending && bow.pickUpPolicy == PickUpPolicy.Blocked && bow.CurrentEnemyPolicy == PickUpPolicy.Blocked,
+            "territory withdrawal protects both pickup policies");
+        Check(HeavyShieldShopShell.IsStockParked(bow) && bow.gameObject.activeInHierarchy && bow.GetComponent<Persistent>().ShouldPersist(),
+            "withdrawal hides only paid visual and retains native active persistence");
+        Next(); HeavyShieldShopShell.Tick(true); Next(); HeavyShieldShopShell.Tick(true);
+        Check(!CustomShopStocks.Shield.Pending && bow.pickUpPolicy == PickUpPolicy.Anybody && bow.CurrentEnemyPolicy == PickUpPolicy.EnemyOnly,
+            "new rack restores exact original policies");
+        Check(bow.transform.position.x > 1 && Pool.SpawnCalls == births && HeavyShieldIdentity.Paid[bow] == handle,
+            "relocation moves the same paid object without spawning or changing its identity");
+        Check(!HeavyShieldShopShell.IsStockParked(bow), "new rack returns owned shield visibility");
+        foreach (string exit in new[] { "feature-off", "online-host", "online-client", "world-loss" })
+        {
+            Check(CustomShopStocks.Shield.Capture(bow, Managers.Inst.world.gameLayer), "terminal test holds exact stock " + exit);
+            bool enabled = exit != "feature-off";
+            if (exit.StartsWith("online")) { NetworkBigBoss.IsOnline = true; NetworkBigBoss.HasWorldAuth = exit == "online-host"; }
+            var oldWorld = Managers.Inst.world.gameLayer;
+            if (exit == "world-loss") Managers.Inst.world.gameLayer = new GameObject("replacement-world").transform;
+            Check(CustomShopStocks.Shield.CheckContext(enabled) && !CustomShopStocks.Shield.Pending,
+                "terminal restores before dropping responsibility " + exit);
+            Check(bow.pickUpPolicy == PickUpPolicy.Anybody && bow.CurrentEnemyPolicy == PickUpPolicy.EnemyOnly
+                && !HeavyShieldShopShell.IsStockParked(bow), "terminal leaves usable visible stock " + exit);
+            NetworkBigBoss.IsOnline = false; NetworkBigBoss.HasWorldAuth = true; Managers.Inst.world.gameLayer = oldWorld;
+        }
+    }
+    private static void InterruptedWithdrawal()
+    {
+        foreach (bool failTeardown in new[] { false, true })
+        {
+            Setup(true);
+            var point = Point(HeavyShieldPurchaseKind.ShieldLeft); point.Start(P1); Fill(P1, CurrencyType.Coins, 6); point.CompleteNative(P1);
+            var bow = Pool.LastIssued; bow.CurrentEnemyPolicy = PickUpPolicy.EnemyOnly;
+            Managers.Inst.payables.BlockAllSites = true;
+            NetworkPostbox.Instance.ThrowNextDeregister = failTeardown;
+            Managers.Inst.kingdom.Left = 1; Next(); HeavyShieldShopShell.Tick(true);
+            if (!failTeardown)
+            {
+                Next(); HeavyShieldShopShell.Tick(true);
+                Check(CustomShopStocks.Shield.Pending, "no-site flow retains explicit rebuild responsibility");
+                Managers.Inst.game.state = Game.State.Menu; Next(); HeavyShieldShopShell.Tick(true);
+                Check(CustomShopStocks.Shield.Pending && bow.pickUpPolicy == PickUpPolicy.Blocked,
+                    "pause retains pending same-world stock without exposing payment");
+                Managers.Inst.game.state = Game.State.Playing;
+            }
+            else Check(!CustomShopStocks.Shield.Pending && !HeavyShieldShopShell.IsStockParked(bow),
+                "failed teardown aborts hold before retrying cleanup");
+            ModConfig.HeavyShieldEnabled.Value = false;
+            Next(); HeavyShieldShopShell.Tick(false); Next(); HeavyShieldShopShell.Tick(false);
+            Check(!CustomShopStocks.Shield.Pending && bow.pickUpPolicy == PickUpPolicy.Anybody
+                && bow.CurrentEnemyPolicy == PickUpPolicy.EnemyOnly && !HeavyShieldShopShell.IsStockParked(bow),
+                "real disabled Tick restores stock and cannot replay old withdrawal");
+        }
+    }
+    private static void ForeignWorldDuringRestore()
+    {
+        Setup(true);
+        var point = Point(HeavyShieldPurchaseKind.ShieldLeft); point.Start(P1); Fill(P1, CurrencyType.Coins, 6); point.CompleteNative(P1);
+        var bow = Pool.LastIssued; bow.CurrentEnemyPolicy = PickUpPolicy.EnemyOnly;
+        Managers.Inst.kingdom.Left = 1; Next(); HeavyShieldShopShell.Tick(true);
+        Check(CustomShopStocks.Shield.Pending, "foreign world fixture starts with held exact stock");
+        var foreign = new GameObject("foreign-stock-world"); foreign.transform.position = new Vector3(400, 0, 0);
+        bow.OnEnemyPolicyWrite = value =>
+        {
+            if (value != PickUpPolicy.EnemyOnly) return;
+            bow.OnEnemyPolicyWrite = null; bow.transform.SetParent(foreign.transform, false);
+        };
+        Next(); HeavyShieldShopShell.Tick(true); Next(); HeavyShieldShopShell.Tick(true);
+        Check(bow.transform.IsChildOf(foreign.transform) && bow.transform.position.x >= 400,
+            "marker cannot move foreign-world tool after controller ends old lease");
     }
     private static void VisualBorrowing()
     {
@@ -218,6 +390,22 @@ internal static class Program
         Check(body.sprite == nativeSprite, "native Bow sprite asset unchanged");
         var placed = bow.transform.position; bow.transform.position = new(6, 2, 0); Next(); HeavyShieldShopShell.Tick(true);
         Check(bow.transform.position.x == 6, "same paid life anchored only once");
+        Check(HeavyShieldIdentity.TryGetPaidBow(bow, out var handle), "relocation retains the paid tool handle");
+        var relocated = new Vector3(12, 3, 0);
+        Check(marker.Place(bow, in handle, relocated) && bow.transform.position == relocated,
+            "same paid tool follows a new rack position");
+        Check(bow.transform.children.Count(t => t.gameObject.name == "KEM_PaidShield") == 1,
+            "relocation reuses the owned shield visual");
+        bow.friendlyClaimer = new GameObject("relocation claimant");
+        Check(!marker.Place(bow, in handle, new Vector3(14, 3, 0)) && bow.transform.position == relocated,
+            "relocation cannot move a claimed paid tool");
+        bow.friendlyClaimer = null;
+        marker.SetParked(true); SpriteRenderer.IgnoreEnabledWrites = true;
+        bool refusedSilentRestore = false;
+        try { marker.SetParked(false); } catch (InvalidOperationException) { refusedSilentRestore = true; }
+        Check(refusedSilentRestore && marker.IsParked(), "silent native visibility restore retains responsibility");
+        SpriteRenderer.IgnoreEnabledWrites = false; marker.SetParked(false);
+        Check(!marker.IsParked(), "confirmed native visibility restore ends responsibility");
         bow.gameObject.SetActive(false);
         Check(body.enabled && !bow._rigidbody.isKinematic, "native pool disable returns borrowed fields");
         Check(HeavyShieldIdentity.Paid.Count == 1, "visual disable never releases paid career");

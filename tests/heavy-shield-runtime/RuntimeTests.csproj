@@ -14,6 +14,7 @@
     <Compile Include="$(RuntimeOwnerSourceRoot)/HeavyShieldRuntime.cs" Link="Production/HeavyShieldRuntime.cs" />
     <Compile Include="../../il2cpp/HeavyShieldCombat.cs" Link="Production/HeavyShieldCombat.cs" />
     <Compile Include="../../il2cpp/HeavyShieldNativeHooks.cs" Link="Production/HeavyShieldNativeHooks.cs" />
+    <Compile Include="../../il2cpp/PatchPerf_HeavyShieldHookQuery.cs" Link="Production/PatchPerf_HeavyShieldHookQuery.cs" />
     <Compile Include="$(RuntimeOwnerSourceRoot)/HeavyShieldIntegration.cs" Link="Production/HeavyShieldIntegration.cs" />
     <Compile Include="../../il2cpp/HeavyShieldBlockPolicy.cs" Link="Production/HeavyShieldBlockPolicy.cs" />
     <Compile Include="../../il2cpp/Patch_HeavyShieldLeapBash.cs" Link="Production/Patch_HeavyShieldLeapBash.cs" />
@@ -25,4 +26,5 @@
     <Compile Include="../../il2cpp/CombatTargetLife.cs" Link="Production/CombatTargetLife.cs" />
     <Compile Include="../../il2cpp/CombatDamage.cs" Link="Production/CombatDamage.cs" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../custom-shop-boundary/DisabledCustomShopStocks.cs" Link="Boundary/DisabledCustomShopStocks.cs" /></ItemGroup>
 </Project>

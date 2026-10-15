@@ -492,6 +492,45 @@ namespace KingdomEnhancedMod
         }
     }
 
+    /// <summary>Immutable per-island placement data. NaN disables a pass; it is not a corrupt profile.</summary>
+    internal sealed class MapIconAnchorSet
+    {
+        private readonly float[] _primaryX, _primaryY, _secondaryX, _secondaryY;
+        internal bool IsValid { get; }
+
+        internal MapIconAnchorSet(float[] primaryX, float[] primaryY, float[] secondaryX, float[] secondaryY)
+        {
+            _primaryX = Copy(primaryX); _primaryY = Copy(primaryY);
+            _secondaryX = Copy(secondaryX); _secondaryY = Copy(secondaryY);
+            int length = _primaryX.Length;
+            IsValid = length > 0 && length <= MapExtensionIslandLayout.MaxItems &&
+                _primaryY.Length == length && _secondaryX.Length == length && _secondaryY.Length == length &&
+                Valid(_primaryX) && Valid(_primaryY) && Valid(_secondaryX) && Valid(_secondaryY);
+        }
+
+        private static float[] Copy(float[] values)
+            => values == null ? Array.Empty<float>() : (float[])values.Clone();
+
+        private static bool Valid(float[] values)
+        {
+            for (int i = 0; i < values.Length; i++)
+                if (!float.IsNaN(values[i]) && (!float.IsFinite(values[i]) || values[i] < 0f || values[i] > 1f))
+                    return false;
+            return true;
+        }
+
+        internal bool TryGet(int slot, int pass, out float x, out float y)
+        {
+            x = y = 0f;
+            if (!IsValid || slot < 0 || slot >= _primaryX.Length || (pass != 0 && pass != 1)) return false;
+            float valueX = pass == 0 ? _primaryX[slot] : _secondaryX[slot];
+            float valueY = pass == 0 ? _primaryY[slot] : _secondaryY[slot];
+            if (float.IsNaN(valueX) || float.IsNaN(valueY)) return false;
+            x = valueX; y = valueY;
+            return true;
+        }
+    }
+
     /// <summary>
     /// 扩展岛（exact 登记 physical11 总览簇）专属：**岛内自由错落**（用户 2026-10-03 直接要求取代
     /// 三行/6,5,5 —— 完整剪影位于岛内顶面、不成行、右侧实际利用）。
@@ -568,11 +607,12 @@ namespace KingdomEnhancedMod
         /// </summary>
         internal static bool TryPlan(in MapIconBox area, List<MapIconRequest> requests, List<MapIconBox> blockers,
             in MapIconBox shoreFrame, MapShoreMask mask, List<MapIconPlacement> placements, out float scale,
-            out int failed, float minScale = MinScale)
+            out int failed, float minScale = MinScale, MapIconAnchorSet anchors = null)
         {
             placements.Clear();
             scale = 0f;
             failed = requests == null ? 0 : requests.Count;
+            if (anchors != null && !anchors.IsValid) return false;
             if (requests == null || requests.Count == 0) { failed = 0; return true; }   // 合法空集
             if (area.Width <= 0f || area.Height <= 0f) return false;
             if (requests.Count > MaxItems) return false;
@@ -585,7 +625,7 @@ namespace KingdomEnhancedMod
             {
                 float candidate = ScaleLadder[si];
                 if (candidate < minScale) break;
-                if (TryPlaceAll(area, candidate, requests, order, blockers, shoreFrame, mask, placements))
+                if (TryPlaceAll(area, candidate, requests, order, blockers, shoreFrame, mask, placements, anchors))
                 {
                     scale = candidate;
                     failed = 0;
@@ -613,7 +653,7 @@ namespace KingdomEnhancedMod
         /// <summary>单个 scale 档：按排位逐项落位；任一项无可行点 → false（该档整体丢弃，调用方试下一档）。</summary>
         private static bool TryPlaceAll(in MapIconBox area, float scale, List<MapIconRequest> requests,
             List<int> order, List<MapIconBox> blockers, in MapIconBox shoreFrame, MapShoreMask mask,
-            List<MapIconPlacement> placements)
+            List<MapIconPlacement> placements, MapIconAnchorSet anchors)
         {
             placements.Clear();
             bool pixelMask = mask != null && mask.Width > 0 && mask.Height > 0 &&
@@ -638,7 +678,7 @@ namespace KingdomEnhancedMod
                 bool placed = false;
                 for (int pass = 0; pass < 2 && !placed; pass++)
                 {
-                    if (!TryAnchor(slot, pass, out float ax, out float ay)) continue;
+                    if (!TryAnchor(slot, pass, anchors, out float ax, out float ay)) continue;
                     int baseX = (int)Math.Floor(ax * gridW - wpx * 0.5f + 0.5f);
                     int baseY = (int)Math.Floor(ay * gridH - hpx * 0.5f + 0.5f);
                     for (int radius = 0; radius <= SearchRadiusPx && !placed; radius++)
@@ -677,8 +717,9 @@ namespace KingdomEnhancedMod
             return true;
         }
 
-        private static bool TryAnchor(int slot, int pass, out float x, out float y)
+        private static bool TryAnchor(int slot, int pass, MapIconAnchorSet anchors, out float x, out float y)
         {
+            if (anchors != null) return anchors.TryGet(slot, pass, out x, out y);
             x = 0f;
             y = 0f;
             float[] tableX = pass == 0 ? PreferredAnchorX : FallbackAnchorX;

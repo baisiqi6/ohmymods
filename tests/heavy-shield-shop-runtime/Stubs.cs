@@ -30,7 +30,28 @@ namespace UnityEngine
         public IntPtr Pointer { get; } = new(++_next);
         public int GetInstanceID() => (int)Pointer;
         public string name;
-        public static void Destroy(Object obj) { if (obj is GameObject go) go.SetActive(false); }
+        public bool Destroyed;
+        public static int InstantiateCalls, DestroyCalls, BambooRegisterCount = 1;
+        public static bool OmitBambooLamp;
+        public static GameObject LastInstantiated;
+        public static void Destroy(Object obj) { DestroyCalls++; obj.Destroyed = true; if (obj is GameObject go) { go.SetActive(false); go.transform.SetParent(null, true); } }
+        public static T Instantiate<T>(T prefab, Transform owner, bool keep) where T : Object
+        {
+            var go = new GameObject(prefab.name); go.transform.SetParent(owner, false);
+            InstantiateCalls++; LastInstantiated = go;
+            go.transform.localPosition = new Vector3(0, .875f, 0);
+            if (prefab.name == "Torch_Bamboo")
+            {
+                if (!OmitBambooLamp) go.AddComponent<BambooLamp>();
+                for (int i = 0; i < BambooRegisterCount; i++)
+                {
+                    var child = new GameObject("BambooLight"); child.transform.SetParent(go.transform, false);
+                    child.AddComponent<AutoLightRegister>();
+                }
+            }
+            else go.AddComponent<FirePlaceholder>();
+            return go as T;
+        }
     }
     public class Component : Object
     {
@@ -73,6 +94,7 @@ namespace UnityEngine
     }
     public class GameObject : Object
     {
+        public static bool ThrowPlaceholderRead;
         public string tag;
         public bool activeSelf = true;
         public bool activeInHierarchy => activeSelf && (transform.parent == null || transform.parent.gameObject.activeInHierarchy);
@@ -86,10 +108,28 @@ namespace UnityEngine
             item.gameObject = this; _components.Add(item); return item;
         }
         public T GetComponent<T>() where T : Component => _components.Find(c => c is T) as T;
+        public T GetComponentInChildren<T>(bool inactive) where T : Component
+        {
+            if (ThrowPlaceholderRead && typeof(T) == typeof(FirePlaceholder)) throw new InvalidOperationException("placeholder unreadable");
+            return GetComponent<T>() ?? transform.children.Select(t => t.gameObject.GetComponentInChildren<T>(inactive)).FirstOrDefault(t => t != null);
+        }
+        public T[] GetComponentsInChildren<T>(bool inactive) where T : Component
+        {
+            if (!inactive && !activeInHierarchy) return Array.Empty<T>();
+            return _components.OfType<T>().Concat(transform.children.SelectMany(t => t.gameObject.GetComponentsInChildren<T>(inactive))).ToArray();
+        }
         public void SetActive(bool active)
         {
             bool old = activeInHierarchy; activeSelf = active;
-            if (old && !active) DisableTree(this);
+            bool current = activeInHierarchy;
+            if (old && !current) DisableTree(this);
+            else if (!old && current) EnableTree(this);
+        }
+        private static void EnableTree(GameObject go)
+        {
+            if (!go.activeInHierarchy) return;
+            foreach (var c in go._components) c.GetType().GetMethod("OnEnable")?.Invoke(c, null);
+            foreach (var child in go.transform.children.ToArray()) EnableTree(child.gameObject);
         }
         private static void DisableTree(GameObject go)
         {
@@ -147,17 +187,24 @@ namespace UnityEngine
     public class SpriteRenderer : Component
     {
         public Sprite sprite;
-        public bool enabled = true, flipX;
+        public static bool IgnoreEnabledWrites;
+        private bool _enabled = true;
+        public bool enabled { get => _enabled; set { if (!IgnoreEnabledWrites) _enabled = value; } }
+        public bool flipX;
         public int sortingOrder, sortingLayerID;
         public object sharedMaterial;
     }
     public class Rigidbody2D : Component { public bool isKinematic; public Vector2 velocity; public float angularVelocity; }
-    public static class Time { public static float unscaledTime = 100, time = 100; public static int frameCount = 10; }
+    public static class Time { public static float unscaledTime = 100, time = 100, timeScale = 1; public static int frameCount = 10; }
+    public static class Resources
+    {
+        public static T Load<T>(string path) where T : Object => new GameObject(path.Contains("oillamp") ? "OilLamp" : path.Contains("bamboo") ? "Torch_Bamboo" : "Torch") as T;
+    }
 }
 
 public enum CurrencyType { Coins, Gems }
 public enum Side { Left = -1, Right = 1 }
-public enum PickUpPolicy { Anybody }
+public enum PickUpPolicy { Anybody = 0, Nobody = 4, Blocked = 5, EnemyOnly = 6 }
 public class LockIndicator { public enum LockReason { Invalid, NotLocked = 21 } }
 public interface IPayableComponentOwner
 {
@@ -231,7 +278,8 @@ public class PayableManager
     public readonly List<PayableComponent> Items = new();
     public PayableComponent[] AllPayables => Items.ToArray();
     public int ExclusionReads;
-    public bool OverlapsAnyExclusions(float x, float halfWidth, bool useGhost) { ExclusionReads++; return false; }
+    public bool BlockAllSites;
+    public bool OverlapsAnyExclusions(float x, float halfWidth, bool useGhost) { ExclusionReads++; return BlockAllSites; }
 }
 public class Persistent : UnityEngine.Component { public bool persistObject = true; public string path = "ToolBow"; public bool ShouldPersist() => gameObject.activeInHierarchy && persistObject; }
 public class DroppableTool : UnityEngine.Component
@@ -240,6 +288,9 @@ public class DroppableTool : UnityEngine.Component
     public PayableShop parentShopRef;
     public bool selfDestruct, pickedUp, Fake;
     public PickUpPolicy pickUpPolicy;
+    private PickUpPolicy _enemyPolicy;
+    public Action<PickUpPolicy> OnEnemyPolicyWrite;
+    public PickUpPolicy CurrentEnemyPolicy { get => _enemyPolicy; set { _enemyPolicy = value; OnEnemyPolicyWrite?.Invoke(value); } }
     public UnityEngine.Rigidbody2D _rigidbody;
     public void SetFake(bool fake) => Fake = fake;
 }
@@ -272,22 +323,23 @@ public class PoolManager : UnityEngine.Component
     public Pool BowPool;
     public Pool GetPoolByPrefabName(string name) => name == "ToolBow" ? BowPool : null;
 }
-public class Game { public enum State { Playing, Menu, Intro }; public State state = State.Playing; }
-public class World { public UnityEngine.Transform gameLayer; }
+public class Game { public enum State { Playing, Menu, Intro, Loading }; public State state = State.Playing; }
+public class World : UnityEngine.Object { public UnityEngine.Transform gameLayer; }
 public class Kingdom : UnityEngine.Component
 {
     public bool HasBorderLoaded = true;
     public Player playerOne, playerTwo;
-    public float GetBorderSideIntact(Side side) => side == Side.Left ? -20 : 20;
+    public float Left = -20, Right = 20;
+    public float GetBorderSideIntact(Side side) => side == Side.Left ? Left : Right;
 }
 public class Managers
 {
     public static Managers Inst;
-    public Game game = new(); public World world = new(); public Kingdom kingdom; public PayableManager payables = new(); public PoolManager pools;
+    public Game game = new(); public World world = new(); public Kingdom kingdom; public PayableManager payables = new(); public PoolManager pools; public Holder holder = new();
 }
 public static class NetworkBigBoss { public static bool IsOnline, HasWorldAuth = true; }
 public static class IslandSaveData { public static bool isSavingGame; }
-public class BiomeHolder { public static BiomeHolder Inst; public const int GreeceBiomeIndex = 8; public int BiomeIndex; }
+public class BiomeHolder { public static BiomeHolder Inst; public const int GreeceBiomeIndex = 8, BambooBiomeIndex = 5; public int BiomeIndex; }
 public class CRPCStamp : UnityEngine.Component { }
 public enum CRPCType { SemiStatic }
 public class CRPCHeader : UnityEngine.Object { public UnityEngine.GameObject referencedGO; public int NetID; public List<int> RemoteMethodList = new() { 1, 2, 3 }; }
@@ -296,6 +348,7 @@ public class NetworkPostbox : UnityEngine.Object
     public static NetworkPostbox Instance;
     public readonly Dictionary<UnityEngine.GameObject, CRPCHeader> MasterSemiCRPCHLookup = new();
     public readonly Dictionary<int, CRPCHeader> SemiStaticObjects = new();
+    public bool ThrowNextDeregister;
     private int _next;
     public CRPCHeader RegisterObject(UnityEngine.GameObject go, CRPCType type)
     {
@@ -303,7 +356,9 @@ public class NetworkPostbox : UnityEngine.Object
         MasterSemiCRPCHLookup.Add(go, header); SemiStaticObjects.Add(header.NetID, header);
         go.GetComponent<PayableComponent>().parentHeaderRef = header; return header;
     }
-    public void DeregisterObject(UnityEngine.GameObject go, int id, CRPCType type) { MasterSemiCRPCHLookup.Remove(go); SemiStaticObjects.Remove(id); }
+    public void DeregisterObject(UnityEngine.GameObject go, int id, CRPCType type)
+    { if (ThrowNextDeregister) { ThrowNextDeregister = false; throw new InvalidOperationException("deregister unavailable"); }
+      MasterSemiCRPCHLookup.Remove(go); SemiStaticObjects.Remove(id); }
 }
 
 namespace KingdomEnhancedMod
@@ -320,10 +375,12 @@ namespace KingdomEnhancedMod
     public class KingdomEnhancedPlugin
     {
         public static KingdomEnhancedPlugin Instance = new(); public Logger LogSource = new();
-        public class Logger { public void LogInfo(string message) { } public void LogWarning(string message) { } }
+        public class Logger { public int Errors; public void LogInfo(string message) { } public void LogWarning(string message) { } public void LogError(string message) { Errors++; } }
     }
     internal static class HeavyShieldIdentity
     {
+        internal static object Current = new();
+        internal static bool HasExactPaidStockBinding(in HeavyShieldCareerHandle handle) => Paid.ContainsValue(handle);
         internal static bool Ready = true, Unknown, Mold, LeftExtra, RightExtra;
         internal static HeavyShieldCommitResult GemResult = HeavyShieldCommitResult.Applied, BowResult = HeavyShieldCommitResult.Applied;
         internal static int Reserves, ReserveCalls, GemCommits, BowBinds, Cancels, UnknownCalls, SeenReceiptCount;

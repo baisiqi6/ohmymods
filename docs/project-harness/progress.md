@@ -1,3 +1,25 @@
+## 2026-10-15 — 盾卫举旗、耐久与铁匠维修交付（Issue #234）
+
+PR237接入已合226的完整release；同侧1名举旗盾卫、40耐久/旧档比例迁移、店内铁匠免费耗时维修已完成当前source/host交集验证。Android新Banner明确不启用，保留PC完整队形保护和现有平台注册；公共PC双TFM、AndroidD/R及双Adapter、10组相关回归和metadata通过（Android保留1个未使用字段提示）。正常累计候选另审、未用公共DLL替换已装包，详见tasks/issue-234/delivery-verification.md。下方G0/G1及未合并文字为历史；当前PR以GitHub为准，代码合并后关单，玩家后验新问题另Issue/PR。
+
+## 2026-10-15 — 自定义商店库存与照明源码收尾（Issue #225）
+
+PR226接入含字体性能/地图的当前release，保留stock/save/native-reader各自产生与提交责任；补Android三真实Compile及测试依赖冲突并集。最终完整PC/Android构建、Adapter与13组相关source-linked回归通过；具体数字/调用错误留痕见tasks/issue-225/verification.md。原功能已实装，当前只源码收尾；自然重上架领取、破墙与照明观感/平台实机不冒称通过，后续新问题另Issue/PR。下方旧Draft/Open记录保留历史。
+
+## 2026-10-15 — 字体与性能源码收尾（Issue #206）
+
+已实装PR207接入当前release（含双岛/弯月地图），处理Android两个真实helper闭包与managed/native读取边界，补三宿主真实依赖。独审与相关实际回归通过，最终公共net8/net6和AndroidD/R+完整Adapter已复核；玩家性能/Windows/native结果不混为源码完成。以下Draft/Open为旧阶段，当前PR状态以GitHub为准，合并后代码关单、后续新问题另Issue/PR。详见tasks/issue-206/verification.md。
+
+## 2026-10-15 — 双坐骑岛地图源码收尾（Issue #200）
+
+PR202已合入release，PR222目标改回release并完成当前组合检查；紧凑布局/右岛弯月形保留正常已装版本。实际compact127/art94/Variant161/shore101/缺B3，以及公共net8/net6、AndroidD/R与完整Adapter1264/0通过。以下旧Draft/Open是历史阶段；当前合并状态以GitHub本轮为准，两个PR全部合并后代码关单，玩家后测另开新问题。未新增实机或安装声明，详见tasks/issue-200/verification-222.md。
+
+## 2026-10-15 — Android #232 G1 源码与生命周期接入（尚未合并/运行）
+
+G0/PR233与保存根因修复#235/PR236已合并，#235正常受管完成；下方旧“待PR整合”保留历史。当前G1正式工程173源/184真实refs/21资源、40真实配置、共享13职业人口，显式52owner及真实初始化/驱动源码已接入，删除旧重复PopulationCounts。缩放同名alias遮蔽在产生处修为唯一平台别名，四旧Register+新增Unregister断言红1259/5→最终W1264/0；Population106/0，Android D/R0W0E，fresh PC net8/net6全源严格零语义/IL/资源差异。Main单文件交接与正常exact计划审批已完成，窗口归还，其他任务/plans/lease保持。当前源码尚待PR交付，整个232仍OPEN；未安装新Main/APK，0.0.30成果保留，未预付native ABI/真实保存/池玩法/手机多人验收，#213仍OPEN。详见[本次记录](tasks/issue-232/g1-source-foundation.md)。
+
+后续先补native/保存边界，再按弓弩、火铳、英雄/盾卫完整依赖组推进，公共触屏控件随组复用；职业组条件宽估40–100工程小时，全Android暂维持约6–8风险组/70–200工程小时，实际ABI/环境卡点可改变估算，玩家验收日历另计。
+
 ## 2026-10-15 — 盾卫随旗与店匠维修（Issue #234，源码交付）
 
 已实现两金币举旗带同侧一名盾卫、40点候选耐久，以及脱战回盾具店免费维修。由现有店匠负责，到店累计8游戏秒工时，不占用建墙工人；6秒安全期、暂停/保存与迁址中断、未知完成结果保护均接入。v1–v3存档先验证再比例迁移到v4，碎盾/隔离状态与付费身份保留。参数与站位仍需原生玩法校准。
@@ -31,6 +53,18 @@
 ## 2026-10-14 — 盾卫只读步态采样（Issue #227，步频修复仍未完成）
 
 Mac ARM64 2.4.0 隔离副本取得两名盾卫自然行走的 1,500 行只读样本，按 30 秒预算停止，无采样/写入故障；正常保存退出码 0，测试前五通道经独立完整回读恢复。采样阶段、Animator 参数缺失和脚点未知边界已保留；描边 PR #228 仍 Draft，未合并/安装，步频代码与真实移速未改。详见[任务记录](tasks/20261014-shield-visuals.md)。
+
+## 2026-10-13/14 — Issue #225：商店库存迁址与原生照明（隔离候选）
+
+第三轮完整上架/领取仍为 **NOT_EXERCISED**：同一付费架枪的 2098 次真实 Peasant 资格检查支持首个已观察检查与保护期拒绝，ReleasedTrue/Rack/实际领取均未触发；无新墙/新架，未解除私有无址 fixture。物理保存及 pair/内嵌身份一致，另一历史单位已为 reservation，未误称存活。Courier 原指针在同原生注册表完整 100 槽中无残留，但 Destroy 前已空，不作该调用导致注销或其他店通过的结论。
+
+保存退出时，同 start/ppid 的 launcher 88763 argv→`(bash)`、stat S 触发 foreign latch；无 run-end/退出码证据，exit status **Unknown**，不记 runner 整轮通过。测试态归档及鲜备份验证后按紧急豁免恢复；冻结 restore 函数体保持，进程查询使用 case/runtime 采集器并核原 PID 消失。五通道恢复严格稳定 31.52 秒，独立两次终检一致、0 游戏/启动器/active，失败历史保留；未写 last-complete、单次 approval 已消费，旧执行入口无可满足的启动批准。正常 DLL 仍 36faec77，Draft PR #226/Issue #225 OPEN，未合并/安装。用户同意下轮在隔离档手动建好左右木墙后再验新架/领取，本轮不再启动。下段保留前两轮与源码交付时边界。
+
+用户追加测试安排：新建隔离档时从游戏界面选择 Peaceful，优先验证上架、领取、存读档与照明；真实破门/战斗另验。和平模式仍有传送门防御波，测试避开传送门，不把现有档写成已切难度。新轮需重新核验现场、备份及当轮审查凭据，不复用已消费批准。
+
+续测：两轮隔离候选已证明无址库存的物理保存及真实冷读准确绑定，Loading 双拾取保护可见；当前测试进度无完整外墙，新架及实际领取未触发，首次 AI 资格排序仍未证。Courier/OilLamp 仅部分在场/关闭观察，不能外推注销或其他店。发现并修正 Bamboo 原生 AutoLightRegister 的额外日夜写者：自有 inactive 克隆首次激活前恰一个注册器、nightLightOnly=false+读回，失败清理；适配回归 372、当前 interop.NET8 0W0E、独立及 GLM 5.3/max 源码审查通过，原生 Bamboo 日暗仍待验。两轮鲜备份均已恢复；第二轮有界记录退出后唯一设置时间戳晚写，恢复后严格五通道稳定通过。仍为 Draft PR #226，未合并、未安装正常版。下段保留初次源码交付时的验证边界。
+
+从 `100c181` 独立分支实现：火铳/盾具保持同一已付未领工具与身份，越界撤收、无址保管、终止恢复；盾具同 handle 新架位；四店原生灯具生命周期与暗处采样。GLM5.3/max两轮 source/Draft 审查通过；核心213/28、照明201、实际盾卫适配334断言，身份/存档生产者回归及公开.NET8/累计.NET6、NET8编译通过。累计38资源与非任务语义保留。当前仅候选，正常DLL保持36faec77；真实破门原因、无址物理保存/冷读前AI、原生照明与在线负面门未验，不合并/正常部署。用户已退出正常游戏，另行准备带鲜备份与归属守卫的隔离原生试验。详见[任务记录](tasks/20261013-custom-shop-stock-and-lighting.md)。
 
 ## 2026-10-11 — BepInEx.Android 评估报告遗留收尾（#205 / PR208，报告完成）
 
@@ -94,6 +128,18 @@ ownedPID3079已消失、未再重启；测试环境有界对照跟进 [#213](htt
 #210 normal accepted3473B/4b4bf339新assignment doing/running，独立branch codex/android-role-scale/base3e7b330；旧Android成果worktree冻结保留。计划只接Ninja四形态/加载和Banker/Hermit/Dog OnEnable的7长入口，private Hermit.OnDestroy不挂，直接file-local alias复用GreekScaleScope与现有驱动/清理。一个真实默认OFF设置只决定下次启动注册，公共中文暗金世界页标“下次开启/下次关闭”，不影响猫或总作用域，不新增热切扫描/副账本/guard/retry。
 
 角色共享源仅alias头，PC和ANDROID定义实际direct-source宿主各74/0（同74例两配置，不相加为148场景）。实际SDK10初build2E0W定位Animator真实模块缺引用，在项目产生处补UnityEngine.AnimationModule/required项后0W0E；未造Animator替身或改生产算法。新Main0.0.27/3bc30f45…236544B；适配器876/0、716/0、716/0，PC完整1317类型/6933方法/37资源语义零差异/0allowlist，独立源码审查approved无mustfix。私有APK4eec4a26…的CRC/签名/123互操作引用已核验，独立模拟器已保数据安装，自动refresh新版Main、冷启动39→46→39、公共中文世界页滚动/角色开关开关保存通过；三窗106.930/119.825/36.294秒零PID收尾，最终24键rolefalse/旧23值保持/Main与所选native保存hash保持、具名日志0ERROR，owned AVD关闭。PR交付审查与正常合并待续；天然角色/最终writer/池/phoneMP待验。
+
+## 2026-10-14 — 右坐骑岛弯月形累计候选已安装，实机待验（PR #222）
+
+按用户要求，将右岛宽湾弯月与配套mask/锚点接入正常累计版；左岛和紧凑布局保持，完整保留刚装的PR228盾卫修复。无observer候选ede15287…ba60（来源a8e11399）经累计/安装器独审，39资源为原38完全保留加Crescent；本轮六组host检查全过，net6/net8编译通过。安装仅改DLL与校验项，旧DLL已备份，配置/存档/游戏保持，启动器只读预检通过；本轮未启动游戏。旧allmode NOT PASS及Mac原生动态数据/视觉、Windows/Android待验保持；PR202/222仍Draft、Issue200开放，无公开发版。详见[任务记录](tasks/mount-map-compact-20261013/summary.md)。
+
+## 2026-10-14 — 坐骑双岛地图形状区分（Issue #200 / Draft PR #222）
+
+保留已选紧凑比例和位置，右岛接入宽湾弯月形；两岛各自shore/outline/cache/mask及不可变锚点，A像素保持，B同228×84 frame。修复详情pair绑定失败后仍使用旧holder/pager和全局几何的产生路径，普通回调恢复，无新增周期补偿。helper94、窄runtime161、缺B3、shore101、地图286、compact127及公共.NET8禁部署编译通过，独立审查通过；旧单岛RuntimeProbe并非全绿，逐scenario矩阵与观察接口适配结果单列。正常累计DLL未改，未原生/Windows/Android实测，不合并安装或关闭Issue。详见tasks/mount-map-compact-20261013/summary.md的10-14段。
+
+## 2026-10-10 — Issue #206 字体与性能修复
+
+静态Zpix/BestFit写入处归一、盾卫实时Harmony查询去快照分配、fresh Native key比较及三处canonical hash去多余复制。完整累计净包net6/net8 0W0E，实际源回归测试及独审通过；Native诊断候选盾卫托管分配下降96.4%、Mod分配下降87.2%，字体BestFit警告467→0。整帧27.481→27.447ms无明显收益；保存同步scope约141/119ms，仍partial缺火枪兵消费者，不能称完整存读档或净包Native验收。退出后窗口观察意外重启已关闭，最终全部共享内容从测试前像恢复。GLM5.3/max最终交付关口AP，UTC22:17:49正常目录已装净包9ef503f2，仅DLL+校验项变化，存档/配置/游戏/日志保持；未启动净包，首启与玩家体验待验。源码以Draft stacked PR交付，Issue206保持开放，未修改canonical checklist，validator0warnings。旧测试新增helper依赖已补齐，8相关旧工程build/run通过；5既有fixture编译缺口与c6基线错误完全同，保留单列。产品/正常净包字节不变。详见[任务证据](tasks/issue-206/README.md)。
 
 ## 2026-10-09 — 盾卫读档身份校验（Issue #198，最终审查通过、部分 PR 交付中）
 
@@ -2095,3 +2141,7 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 2026-10-14 Android Issue221 已按新交接窗口完成代码收尾：PR229精确head8e9320f合并为53afef0，Issue221关闭；normal完成回执已消费，canonical与DBmirror均closed，owner/session清空、lease释放，validator通过、doctor0E0W，旧170完整对象及顺序和全部计划保持，窗口已归还主Operator。自然转化/命中、owner实际层级/Pool32、读档换岛/池重建、手机平板、多人及长期待验，#213继续开放。上文“未登记/未交接/待PR”均为此前阶段的历史状态。
 
 2026-10-14 Android Issue230 公共编译批：已在两shared-save import产生处适配Il2CppCoatsink.Common，PC import原样。当前全量声明诊断22→2（Hook/INativeDetour），仅诊断opt-in进入body后96errors/1warning，分类为76配置引用37成员+1CrossbowmanRole+19混合metadata歧义；没有把错误数当完成率。现有Android66产品输入0W0E、PC私有net6全源0W0E及1356/7141/37语义零差异；未新启保存/职业/射击hooks、未改装机或游戏数据。代码审查及本轮必要编译已通过，合并状态以本批关联PR/Issue为准，详情tasks/issue-230/implementation.md。
+
+## 2026-10-13 坐骑双岛总览紧凑下排候选
+
+用户选择compact下排。旧78UI预留+左右半区中心导致当前0.507及留白，已改完整原生/固定状态包围盒驱动的普通岛比例与居中一组；完整图形示例0.659而非强制0.77。两源源码审查和127新回归、286旧回归通过，公共IL2CPP禁部署.NET8/当前累计.NET6与.NET8编译0W0E，38资源及地图外body保持。新候选未安装，正常游玩仍b8f的PR204累计版本；没有启动或操作游戏/共享进度。原生刷新后视觉/归还与玩家、Windows/Android验收待测。依赖未合并PR202，Issue200保持开放；过程与边界见 tasks/mount-map-compact-20261013/summary.md。

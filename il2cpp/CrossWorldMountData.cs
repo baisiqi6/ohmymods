@@ -267,10 +267,15 @@ internal readonly struct CrossWorldMountIslandState
     internal readonly double LastPlayedDays;
     /// <summary>本岛已登记的定义数（用于多定义的稳定分布）。</summary>
     internal readonly int GrantedDefinitionCount;
+    /// <summary>本战役（_islands 全槽 + 当前 reign markers）已有本定义回执/标记：禁止新授予。</summary>
+    internal readonly bool ReceiptInCampaign;
+    /// <summary>campaign 级证据（_islands 槽 + 本岛 receipt）本轮完整可读；false = unknown，拒新授予。</summary>
+    internal readonly bool CampaignEvidenceReadable;
 
     internal CrossWorldMountIslandState(
         bool landValid, bool markerOnIsland, bool markerInCampaign, bool islandVisited,
-        bool receiptOnIsland, double lastPlayedDays, int grantedDefinitionCount)
+        bool receiptOnIsland, double lastPlayedDays, int grantedDefinitionCount,
+        bool receiptInCampaign = false, bool campaignEvidenceReadable = false)
     {
         LandValid = landValid;
         MarkerOnIsland = markerOnIsland;
@@ -279,6 +284,8 @@ internal readonly struct CrossWorldMountIslandState
         ReceiptOnIsland = receiptOnIsland;
         LastPlayedDays = lastPlayedDays;
         GrantedDefinitionCount = grantedDefinitionCount;
+        ReceiptInCampaign = receiptInCampaign;
+        CampaignEvidenceReadable = campaignEvidenceReadable;
     }
 }
 
@@ -288,27 +295,32 @@ internal static class CrossWorldMountPolicy
     /// 授予/注入判定（每定义一次，顺序即优先级）：
     /// 1. land 无效 → Skip（fail-closed）；
     /// 2. 本岛已有本定义标记或原生回执 → InjectOnly（读档重建时补回地块）；
-    /// 3. 本战役已在其他岛授予本定义 → Skip（一战役一次，原生记录驱动）；
-    /// 4. 该岛已访问过 / lastPlayedTimeDays &gt; 0 → Skip（老岛不追插/不重排）；
-    /// 5. 其余（新生成岛且该定义从未授予）→ GrantAndInject。
+    /// 3. 本战役（当前 reign markers 或 _islands 全槽 receipt）已授予本定义 → Skip（一战役一次，原生记录驱动）；
+    /// 4. campaign 级证据本轮不可读（unknown）→ Skip（**不得新授予**；本岛恢复已在 2. 处置）；
+    /// 5. 该岛已访问过 / lastPlayedTimeDays &gt; 0 → Skip（老岛不追插/不重排）；
+    /// 6. 其余（新生成岛且该定义从未授予）→ GrantAndInject。
     /// </summary>
     internal static CrossWorldMountDecision Decide(in CrossWorldMountIslandState state)
     {
         if (!state.LandValid) return CrossWorldMountDecision.Skip;
         if (state.MarkerOnIsland || state.ReceiptOnIsland) return CrossWorldMountDecision.InjectOnly;
-        if (state.MarkerInCampaign) return CrossWorldMountDecision.Skip;
+        if (state.MarkerInCampaign || state.ReceiptInCampaign) return CrossWorldMountDecision.Skip;
+        if (!state.CampaignEvidenceReadable) return CrossWorldMountDecision.Skip;
         if (state.IslandVisited) return CrossWorldMountDecision.Skip;
         if (state.LastPlayedDays > 0d) return CrossWorldMountDecision.Skip;
         return CrossWorldMountDecision.GrantAndInject;
     }
 
     /// <summary>
-    /// 新授予分布（issue-98 新契约）：16 定义的新获取入口集中到附加岛（物理 land11），
-    /// 与玩家访问顺序无关；定义行的 <c>IslandSlot</c> 只保留为 legacy 元数据（旧岛 marker/receipt
-    /// 的 InjectOnly 恢复不经过本门，不迁移/不复制/不删除旧记录）。非 land11 一律不授予。
+    /// new-grant 目标岛（issue-200 双岛）：按稳定 definitionId 由 <see cref="MountIslandSplitPolicy"/>
+    /// 精确分组——A 组(8)→land11、B 组(8)→land13；未知/未登记 Id 一律 false（fail-closed，
+    /// 绝不按数值/顺序/数组位置猜岛，norselands.wolf 的 SteedType=13 与 land13 同值也由 Id 决定）。
+    /// land12 不属于本集合（宫廷责任不变）；legacy <c>IslandSlot</c> 只保留为历史元数据，
+    /// InjectOnly 恢复不经过本门。
     /// </summary>
     internal static bool ShouldGrantDefinition(in CrossWorldMountDefinition definition, int land)
-        => land == ExtensionIslandPlan.LandIndex;
+        => MountIslandSplitPolicy.IsExtensionLand(land)
+            && MountIslandSplitPolicy.GetTargetLand(definition.Id) == land;
 
     internal static bool Contains(int[] values, int wanted)
     {

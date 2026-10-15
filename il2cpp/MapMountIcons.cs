@@ -4,6 +4,7 @@ using HarmonyLib;
 using Il2CppInterop.Runtime.InteropTypes;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -45,6 +46,9 @@ namespace KingdomEnhancedMod
     /// </summary>
     internal sealed class MapMountIconView
     {
+        /// <summary>详情分页当前页（仅 detail-paged view 使用；数据刷新按内容 fingerprint 决定是否重建）。</summary>
+        internal int PageIndex;
+
         internal UILand Land;
         internal bool Overview;
         internal int LandIndex = -1;
@@ -59,7 +63,8 @@ namespace KingdomEnhancedMod
         internal bool HiddenByNativeGate;
         /// <summary>布局键的一部分：几何版本（viewport 提交递增）；与 fingerprint 一起决定 fast-path。</summary>
         internal int LayoutVersion = -1;
-        internal readonly List<UIMapIcon> Icons = new List<UIMapIcon>(12);
+        /// <summary>当前页 icons（翻页时与 Holder 一起整组交换；旧组在新组就绪后才销毁）。</summary>
+        internal List<UIMapIcon> Icons = new List<UIMapIcon>(12);
         internal readonly List<SuppressedIcon> Suppressed = new List<SuppressedIcon>(4);
     }
 
@@ -119,15 +124,53 @@ namespace KingdomEnhancedMod
         // mainMap → 重建登记 → 新 token），绝不把 raw menu wrapper 当 owner。
         // shore 生命期与 icons 开关解耦（icons OFF 但 current/visited 扩展仍展示岸线），
         // 只在真正 owner 失效/Clear/OnDisable 时按 exact menu 门收尾（旧 sender 不得撤新 owner）。
-        private static object _shoreOwnerToken;                    // 当前 shore/detail 租约 owner（canonical token）
-        private static MapTimelineMenuGreece _shoreOwnerMenu;       // 绑定时捕获的 exact menu（Clear/OnDisable 收尾主门）
-        private static MapShoreMask _placementMask;                // 顶面 PlacementMask（来自 art.Prep；按 prep 实例缓存）
-        private static object _placementMaskSource;
-        private static UILand _detailShapeLand;                    // 已应用 detail 形状的 exact 实例
-        private static object _detailShapeToken;                   // detail 应用时的 canonical token
-        private static Image _detailShapeOutlineImage;             // detail 绑定时捕获的 outline 原生 Image（四图事务）
+        private static readonly object[] _shoreTokens = new object[ExtensionIslandMapPlan.SlotCount];   // 每 tuple 独立 shore 租约 token
+        private static readonly MapTimelineMenuGreece[] _shoreMenus = new MapTimelineMenuGreece[ExtensionIslandMapPlan.SlotCount];
+        private static int _overviewExtensionCount;                 // 最近一次提交识别的扩展实例数（漂移检测）
+        private static readonly MapShoreMask[] PlacementMasks = new MapShoreMask[ExtensionIslandMapPlan.SlotCount];
+        private static readonly object[] PlacementMaskSources = new object[ExtensionIslandMapPlan.SlotCount];
+        private static readonly MapTimelineMenuGreece[] _detailMenus = new MapTimelineMenuGreece[ExtensionIslandMapPlan.SlotCount];   // 每 tuple detail 绑定时捕获的 exact menu
+        private static readonly UILand[] _detailShapeLands = new UILand[ExtensionIslandMapPlan.SlotCount];        // 每 tuple 已应用 detail 形状的 exact 实例
+        private static readonly object[] _detailShapeTokens = new object[ExtensionIslandMapPlan.SlotCount];       // 每 tuple 独立 detail 租约 token
+        private static readonly Image[] _detailShapeOutlineImages = new Image[ExtensionIslandMapPlan.SlotCount];  // 每 tuple outline 原生 Image（四图事务）
+        private static int _detailShapeActiveSlot = -1;            // 当前 detail 租约记账槽（A→B→A 显式归还前一租约）
         // P2：失败归还的 exact cleanup 责任（有界队列）——setter 临时失败等留下 live 租约时，保留 owner token/menu，
         // 由该 owner 的后续 exact 回调（或菜单已死时）重试收尾；完成即出队。绝不 ReleaseAll/Reset 绕过范围。
+        private static int SlotIndexOfLand(int physicalLand)
+        {
+            if (physicalLand == ExtensionIslandMapPlan.PrimaryPhysical) return 0;
+            if (physicalLand == ExtensionIslandMapPlan.SecondaryPhysical) return 1;
+            return -1;
+        }
+
+        /// <summary>显式归还某个 tuple 的 detail shape 租约（per-land release：只 ReleaseOwner 该 tuple token，
+        /// 绝不触碰兄弟岛的租约）；几何快照在调用方按需恢复。</summary>
+        private static void ReleaseDetailShapeLease(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= ExtensionIslandMapPlan.SlotCount) return;
+            object token = _detailShapeTokens[slotIndex];
+            if (token != null) MapExtensionIslandArt.ReleaseOwner(token);
+            if (token != null && MapExtensionIslandArt.HasOutstanding(token))
+            {
+                // setter 临时失败：责任入现 deferred 链（有界 exact retry）；接不下则 fail-closed 保留 captured 身份
+                //（绝不丢未归还的 native image），拒绝新接管，等 exact 回调/回收窗口。
+                if (!DeferRelease(token, _detailMenus[slotIndex]))
+                {
+                    _shoreReleaseRetained = true;
+                    MapIconLog.Once("detail-release-retained",
+                        "detail lease release queue full; captured owner retained for exact retry (no new takeover)");
+                    return;   // 不清字段：责任保留
+                }
+                MapIconLog.Once("detail-release-deferred",
+                    "detail lease release deferred: outstanding native image restore queued for exact retry");
+            }
+            _detailShapeTokens[slotIndex] = null;
+            _detailShapeLands[slotIndex] = null;
+            _detailShapeOutlineImages[slotIndex] = null;
+            _detailMenus[slotIndex] = null;
+            if (_detailShapeActiveSlot == slotIndex) _detailShapeActiveSlot = -1;
+        }
+
         private sealed class DeferredRelease
         {
             internal object Token;
@@ -138,7 +181,6 @@ namespace KingdomEnhancedMod
         // 队列满导致 captured 身份被保留（fail-closed）：仅在 DeferRelease 拒绝时置位，身份清理时复位。
         // 与「健康租约」区分：健康的在租状态不影响注册换代重绑（S3），只有真正的未收尾责任才拒绝新接管。
         private static bool _shoreReleaseRetained;
-        private static readonly List<RectTransform> _detailExcludedRects = new List<RectTransform>(2);
         private static readonly List<RectSnapshot> _detailSnapshots = new List<RectSnapshot>(2);   // detail 独立快照（与 world Expanded 分离）
         // world pending 显示门（消闪）：**自有 CanvasGroup**（AddComponent 创建、绝不用/改 native 既有组）在
         // 同帧渲染前把 exact 当前 _mainMap 子树 alpha 归 0，直到几何提交 + 真实 focused-reign 刷新成功后
@@ -196,8 +238,65 @@ namespace KingdomEnhancedMod
             internal bool IsExtension;
             internal MapOverviewClusterInput Input;
             internal MapIconBox TargetArtBox;
-            internal MapIconBox BannerArea;       // r15：扩展簇 banner（底部预留带）
+            internal MapIconBox BannerArea;       // r15：扩展簇 banner（底部预留带；双岛时=该 tuple 的独立 frame）
+            internal readonly List<RectTransform> BannerExcluded = new List<RectTransform>(4);   // 该 tuple 自己的接管子 rect（不作为兄弟岛 blocker）
         }
+
+        private enum CompactAdmission { Legacy, Ready, Abort }
+
+        private sealed class CompactRoot
+        {
+            internal RectTransform Rect;
+            internal OverviewEntry Land;
+            internal Vector3 Scale;
+            internal Vector2 Position;
+            internal MountIslandFrame Graphics;
+        }
+
+        private sealed class CompactGeometry
+        {
+            internal readonly List<CompactRoot> Roots = new List<CompactRoot>(14);
+            internal MountIslandFrame Native;
+            internal MountIslandFrame Upper;
+            internal MountIslandFrame Band;
+            internal MountIslandFrame Primary;
+            internal MountIslandFrame Secondary;
+            internal float Scale;
+            internal readonly MountIslandFrame[] States = new MountIslandFrame[ExtensionIslandMapPlan.SlotCount];
+            internal readonly bool[] HasState = new bool[ExtensionIslandMapPlan.SlotCount];
+        }
+
+        /// <summary>
+        /// 私有 owned 详情分页器（不借 native left/right/confirm 岛导航，不改它们 callback）。
+        /// 按钮/文字是原生 Button/Text 的克隆（保游戏字体/style），onClick 全部替换为自有事件；
+        /// 点击捕获 ownerToken/land/reign int/请求快照 fingerprint/page，任一失效即 no-op 并清 pager。
+        /// </summary>
+        private sealed class DetailPager
+        {
+            internal GameObject Root;
+            internal Button Prev;
+            internal Button Next;
+            internal Text Label;
+            internal int PageIndex;
+            internal int Pages;
+            internal int PerPage;
+            internal int RequestCount;
+            internal int Fingerprint;
+            internal int BaseFingerprint;
+            internal int RequestSignature;
+            internal int FocusIndex;      // capture 的 menu.focusedReign（浏览 reign；0=current，>0=历史）
+            internal int FocusedLandUi;   // capture 的 menu.focusedLand（detail 单岛焦点）
+            internal int OpenWorldState;  // capture 的 menu._openWorldMapState（须为单岛视图）
+            internal MapTimelineMenuGreece Menu;
+            internal UIMainMap Map;           // capture 的 exact map（派发桥要求与登记 map 同一实例）
+            internal UILand Land;
+            internal MapMountIconView View;   // 绑定的 exact detail view（overview 销毁不得清本 pager）
+            internal int PhysicalLand;
+            internal object OwnerToken;   // 该 tuple 的 detail token（capture；不用 boxed ReignInfo proxy）
+            internal int ReignIndex;      // capture 的 campaign.reign（int）
+        }
+
+        private static DetailPager _detailPager;
 
         private sealed class RectSnapshot
         {
@@ -233,9 +332,18 @@ namespace KingdomEnhancedMod
         /// <summary>缓存几何是否仍需保留（非本菜单/未知 owner 入口用）：缓存实例仍登记且本 campaign 可用。</summary>
         private static bool CachedExtensionGeometryRequired()
         {
-            UILand extension = _overviewExtensionLand;
-            if (extension == null) return false;
-            if (!TryGetRegisteredExtensionIndex(extension, out _)) return false;
+            // 双岛：单实例缓存不能证明兄弟 tuple 仍在同一数组；现场有界复算已登记实例数。
+            if (_overviewExtensionCount <= 0) return false;
+            UIMainMap map = null;
+            try
+            {
+                Menu menuInst = Menu.InstExists ? Menu.Inst : null;
+                MapTimelineMenuGreece greek = menuInst != null ? menuInst.ActiveMap as MapTimelineMenuGreece : null;
+                map = greek != null ? greek._mainMap : null;
+            }
+            catch (Exception) { map = null; }
+            if (map == null) return false;
+            if (FindRegisteredExtensionCount(map) < _overviewExtensionCount) return false;
             return IsExtensionAccessAvailable();
         }
 
@@ -265,6 +373,8 @@ namespace KingdomEnhancedMod
         private static bool TryResolveClusterLandIndex(UILand cluster, int uiPosition, out int landIndex)
         {
             landIndex = -1;
+            // 只认 exact 登记扩展（bridge）；否则仅接受**当前 native 前 10 位**（0..9）作为 native 成员。
+            // 未登记 extra（含 array index 10/11 或任意数字）一律 false —— 不凭 UI 数字/array index 造 authority。
             if (TryGetRegisteredExtensionIndex(cluster, out int physical)) { landIndex = physical; return true; }
             if (uiPosition < 0 || uiPosition >= MapOverviewLayout.NativeUiClusterCount) return false;
             landIndex = uiPosition;
@@ -285,7 +395,9 @@ namespace KingdomEnhancedMod
                 extensionScope = true;
                 return true;
             }
-            if (incoming < 0 || incoming >= MapOverviewLayout.NativeUiClusterCount) return false;
+            // native physical 0..10（含 native 10→UI9 的合法成员）原样交还原生；11/13 只有 bridge exact 才认；
+            // 其余（12/未知 extra/数组位置冒充）一律 false（fail-closed，不建资源/shape/band）。
+            if (incoming < 0 || incoming > MapOverviewLayout.NativeUiClusterCount) return false;
             landIndex = incoming;
             return true;
         }
@@ -305,6 +417,24 @@ namespace KingdomEnhancedMod
             }
             catch (Exception) { }
             return null;
+        }
+
+        /// <summary>已登记扩展实例个数（0..2；漂移检测：单实例缓存不能证明兄弟岛仍在同一数组）。</summary>
+        private static int FindRegisteredExtensionCount(UIMainMap map)
+        {
+            try
+            {
+                Il2CppReferenceArray<UILand> lands = map != null ? map._lands : null;
+                if (lands == null) return 0;
+                int count = 0;
+                for (int i = 0; i < lands.Length; i++)
+                {
+                    if (lands[i] == null) continue;
+                    if (TryGetRegisteredExtensionIndex(lands[i], out _)) count++;
+                }
+                return count;
+            }
+            catch (Exception) { return 0; }
         }
 
         /// <summary>未登记 extra 的陈旧 view（登记被清理后）：撤显示并还原原生槽，之后完全交还原生。</summary>
@@ -365,7 +495,7 @@ namespace KingdomEnhancedMod
 
                 // 生命周期裁决（纯函数决策表）：把"扩展地图必需几何"与"可关闭的 icons"分开。
                 UIMainMap ownedMainMap = menu != null ? menu._mainMap : null;
-                bool extensionRegistered = FindRegisteredExtension(ownedMainMap) != null;
+                bool extensionRegistered = FindRegisteredExtensionCount(ownedMainMap) > 0;
                 bool extensionAvailable = extensionRegistered && IsExtensionAccessAvailable();
                 MapOverviewAction action = MapOverviewLifecycle.DecideForOwnedLand(
                     extensionRegistered, iconsEnabled, extensionAvailable);
@@ -425,7 +555,13 @@ namespace KingdomEnhancedMod
 
                 // 唯一自有 extension detail：在数据/图标路径之前绑定并摆放新岸线（shape 先于测量；
                 // 与 icons 开关解耦，失败不写任何东西、保留 native 详情）。
-                if (!overview) EnsureDetailShape(land, menu);
+                if (!overview && !EnsureDetailShape(land, menu))
+                {
+                    // A failed pair cannot authorize cached icons or a pager on the old shore.
+                    // Retry only on the next ordinary data callback; keep other lands untouched.
+                    DestroyHolder(view);
+                    return;
+                }
 
                 // 只用当次 reign：不可用（null / 越界 / entry null）即失效并清掉该 land 旧自有显示，
                 // 但 ON+owned 期间**不归还**原生资源槽的接管责任：若此刻还原，原生 _spawnedIcon 会带着
@@ -440,6 +576,22 @@ namespace KingdomEnhancedMod
                 }
 
                 if (overview && menu != null && menu._mainMap != null) EnsureOverviewLayout(menu._mainMap);
+
+                if (overview)
+                {
+                    // 总览视图（用户 2026-10-09 双岛契约）：**不建立自有全资源 requests/clones**。
+                    // 清本 owned view 的旧 holder/剪影，并按 suppression lease 归还原生动态槽
+                    //（保留 native 必要状态/船/云/可点击），绝不早 return 留下旧剪影。
+                    MapMountIconView overviewView = EnsureView(view, land, landIndex, true);
+                    overviewView.LandIndex = landIndex;
+                    overviewView.Overview = true;
+                    DestroyHolder(overviewView);
+                    RestoreSuppressed(overviewView);
+                    overviewView.Fingerprint = int.MinValue;
+                    overviewView.FailedFingerprint = int.MinValue;
+                    overviewView.HiddenByNativeGate = false;
+                    return;
+                }
 
                 BuildRequests(land, steedCount, hermitCount, statueCount,
                     out List<MapIconRequest> requests, out List<UIMapIcon> sources);
@@ -520,6 +672,7 @@ namespace KingdomEnhancedMod
         /// 迟到旧 menu 一律不动任何 owner 的展示/几何；当前 owner 自己的 disable 才撤自有组 + 几何回收。</summary>
         internal static void OnMenuDisabled(MapTimelineMenuGreece menu)
         {
+            DestroyDetailPager();
             try
             {
                 if (menu == null) return;                       // 未知 sender：不动任何 owner 的状态
@@ -549,11 +702,19 @@ namespace KingdomEnhancedMod
             {
                 if (menu == null) return;
                 DrainDeferredReleases(menu);   // 该 sender 自身的遗留责任（迟到 A 只收 A，不动 B）
-                bool mine = _shoreOwnerMenu != null && SameInstance(_shoreOwnerMenu, menu);
-                if (!mine && _shoreOwnerMenu == null && ExtensionIslandMap.IsVisualOwnerMenu(menu)) mine = true;
-                // fail-closed 保留身份时：捕获的 exact menu 已死（dead wrapper）→ 允许本次重试收尾（对象已死时
-                // 租约到期即“确证 native death”），否则 retained 责任会永远堵住新 owner 的借用。
-                if (!mine && _shoreOwnerMenu != null && _shoreOwnerMenu.gameObject == null) mine = true;
+                bool mine = false;
+                bool anyCaptured = false;
+                for (int i = 0; i < ExtensionIslandMapPlan.SlotCount; i++)
+                {
+                    MapTimelineMenuGreece captured = _shoreMenus[i] != null ? _shoreMenus[i] : _detailMenus[i];
+                    if (captured == null) continue;
+                    anyCaptured = true;
+                    if (SameInstance(captured, menu)) { mine = true; break; }
+                    // fail-closed 保留身份时：捕获的 exact menu 已死（dead wrapper）→ 允许本次重试收尾
+                    //（对象已死时租约到期即“确证 native death”），否则 retained 责任会永远堵住新 owner 的借用。
+                    if (captured.gameObject == null) { mine = true; break; }
+                }
+                if (!mine && !anyCaptured && ExtensionIslandMap.IsVisualOwnerMenu(menu)) mine = true;
                 if (!mine) return;
                 ReleaseShoreState();
             }
@@ -573,32 +734,41 @@ namespace KingdomEnhancedMod
         /// </summary>
         private static void ReleaseShoreState()
         {
-            object token = _shoreOwnerToken;
-            object detailToken = _detailShapeToken;
-            if (token != null) MapExtensionIslandArt.ReleaseOwner(token);
-            if (detailToken != null && !ReferenceEquals(detailToken, token))
+            // per-tuple 归还：每个 tuple 的独立 token 只 ReleaseOwner 自己的租约（绝不误灭兄弟岛）。
+            bool outstanding = false;
+            for (int i = 0; i < ExtensionIslandMapPlan.SlotCount; i++)
             {
-                MapExtensionIslandArt.ReleaseOwner(detailToken);
+                object token = _shoreTokens[i];
+                if (token != null) MapExtensionIslandArt.ReleaseOwner(token);
+                if (token != null && MapExtensionIslandArt.HasOutstanding(token)) outstanding = true;
+                object detailToken = _detailShapeTokens[i];
+                if (detailToken != null && !ReferenceEquals(detailToken, token))
+                {
+                    MapExtensionIslandArt.ReleaseOwner(detailToken);
+                    if (MapExtensionIslandArt.HasOutstanding(detailToken)) outstanding = true;
+                }
             }
             // 几何归还先行（失败重试不依赖几何状态）
-            _detailExcludedRects.Clear();
             RestoreDetailSnapshots();
-            _placementMask = null;
-            _placementMaskSource = null;
-            bool outstanding = (token != null && MapExtensionIslandArt.HasOutstanding(token)) ||
-                (detailToken != null && !ReferenceEquals(detailToken, token) &&
-                 MapExtensionIslandArt.HasOutstanding(detailToken));
+            Array.Clear(PlacementMasks, 0, PlacementMasks.Length);
+            Array.Clear(PlacementMaskSources, 0, PlacementMaskSources.Length);
             bool queued = true;
             if (outstanding)
             {
-                if (token != null && MapExtensionIslandArt.HasOutstanding(token))
+                for (int i = 0; i < ExtensionIslandMapPlan.SlotCount; i++)
                 {
-                    queued = DeferRelease(token, _shoreOwnerMenu) && queued;   // exact cleanup 责任入队（有界）
-                }
-                if (detailToken != null && !ReferenceEquals(detailToken, token) &&
-                    MapExtensionIslandArt.HasOutstanding(detailToken))
-                {
-                    queued = DeferRelease(detailToken, _shoreOwnerMenu) && queued;
+                    object token = _shoreTokens[i];
+                    if (token != null && MapExtensionIslandArt.HasOutstanding(token))
+                    {
+                        queued = DeferRelease(token, _shoreMenus[i]) && queued;   // exact cleanup 责任入队（有界）
+                    }
+                    object detailToken = _detailShapeTokens[i];
+                    if (detailToken != null && !ReferenceEquals(detailToken, token) &&
+                        MapExtensionIslandArt.HasOutstanding(detailToken))
+                    {
+                        queued = DeferRelease(detailToken, _detailMenus[i]) && queued;   // detail 用自己捕获的 menu，
+                                                                                          // 不以 world menu（或 null）当 dead/wrong identity
+                    }
                 }
                 if (queued)
                 {
@@ -621,11 +791,15 @@ namespace KingdomEnhancedMod
                     "shore release queue full; captured owner retained for exact retry (new takeovers refused)");
                 return;
             }
-            _shoreOwnerToken = null;
-            _shoreOwnerMenu = null;
-            _detailShapeLand = null;
-            _detailShapeToken = null;
-            _detailShapeOutlineImage = null;
+            for (int i = 0; i < ExtensionIslandMapPlan.SlotCount; i++)
+            {
+                _shoreTokens[i] = null;
+                _shoreMenus[i] = null;
+                _detailShapeLands[i] = null;
+                _detailShapeTokens[i] = null;
+                _detailShapeOutlineImages[i] = null;
+            }
+            _detailShapeActiveSlot = -1;
             _shoreReleaseRetained = false;   // 身份已清 = 责任已收尾/已入队 → 解除 fail-closed 接管门
         }
 
@@ -662,15 +836,23 @@ namespace KingdomEnhancedMod
         private static bool ShoreTakeoverBlocked(object requester)
         {
             if (!_shoreReleaseRetained) return false;   // 正常路径（含健康租约的注册换代）不受影响
-            object token = _shoreOwnerToken;
-            object detailToken = _detailShapeToken;
             try
             {
-                bool outstanding = (token != null && MapExtensionIslandArt.HasOutstanding(token)) ||
-                    (detailToken != null && !ReferenceEquals(detailToken, token) &&
-                     MapExtensionIslandArt.HasOutstanding(detailToken));
-                if (!outstanding) return false;   // 责任已自然了结（prune/native death）→ 门自动解除，等回调清身份
-                return !ReferenceEquals(token, requester) && !ReferenceEquals(detailToken, requester);
+                for (int i = 0; i < ExtensionIslandMapPlan.SlotCount; i++)
+                {
+                    object token = _shoreTokens[i];
+                    if (token != null && MapExtensionIslandArt.HasOutstanding(token) && !ReferenceEquals(token, requester))
+                    {
+                        return true;
+                    }
+                    object detailToken = _detailShapeTokens[i];
+                    if (detailToken != null && !ReferenceEquals(detailToken, token) &&
+                        MapExtensionIslandArt.HasOutstanding(detailToken) && !ReferenceEquals(detailToken, requester))
+                    {
+                        return true;
+                    }
+                }
+                return false;   // 责任已自然了结（prune/native death）→ 门自动解除，等回调清身份
             }
             catch (Exception)
             {
@@ -774,6 +956,7 @@ namespace KingdomEnhancedMod
         /// <summary>我们的地图 scope 结束（tick 自己判定的 OFF/结束路径）：展示组先撤，再做几何回收。</summary>
         internal static void Teardown(MapTimelineMenuGreece owner)
         {
+            DestroyDetailPager();
             try { WithdrawPresentation(); }
             catch (Exception) { }
             TeardownGeometry(owner);
@@ -804,6 +987,7 @@ namespace KingdomEnhancedMod
         /// **不动**扩展地图必需几何（不动 cluster 变换与 paper/mask 扩张）。</summary>
         internal static void WithdrawIcons()
         {
+            DestroyDetailPager();   // 整代撤销：显式销 pager（不依赖 holder 销毁）
             try
             {
                 for (int i = 0; i < Views.Count; i++)
@@ -1591,10 +1775,11 @@ namespace KingdomEnhancedMod
             if (paper == null || entry == null || entry.BannerArea.Width <= 1f) return;
             MapIconBox shoreFrame = entry.TargetArtBox;
             if (shoreFrame.Width <= 1f || shoreFrame.Height <= 1f) return;
-            if (!EnsurePlacementMask()) return;
+            if (!TryGetPlacementMask(entry.LandIndex, out MapShoreMask mask)) return;
 
             var native = new List<MapIconBox>(240);
-            CollectNativeBoxes(paper, paper, native, true, _bannerExcludedRects);
+            List<RectTransform> bannerExcluded = entry.BannerExcluded.Count > 0 ? entry.BannerExcluded : _bannerExcludedRects;
+            CollectNativeBoxes(paper, paper, native, true, bannerExcluded);
             var blockers = new List<MapIconBox>(32);
             for (int i = 0; i < native.Count; i++)
             {
@@ -1604,8 +1789,9 @@ namespace KingdomEnhancedMod
             MapIconBox area = MapWorldLayout.IconAreaOf(shoreFrame);
             // 正常 world 视口同样显式 .60 下限（与 detail 一致）：低于可读下限不再算成功，
             // 真实容量不足一律整组 fallback，绝不让 .36–.50 的降级档冒充正常验收。
-            if (MapExtensionIslandLayout.TryPlan(area, requests, blockers, shoreFrame, _placementMask,
-                    placements, out usedScale, out failed, MapExtensionIslandLayout.PreferScale))
+            if (MapExtensionIslandLayout.TryPlan(area, requests, blockers, shoreFrame, mask,
+                    placements, out usedScale, out failed, MapExtensionIslandLayout.PreferScale,
+                    MapExtensionIslandArtVariant.AnchorsFor(entry.LandIndex)))
             {
                 return;
             }
@@ -1616,13 +1802,19 @@ namespace KingdomEnhancedMod
         }
 
         /// <summary>顶面 PlacementMask 缓存（来自 art.Prep.PlacementMask；按 prep 实例缓存，art Reset 后自动重建）。</summary>
-        private static bool EnsurePlacementMask()
+        private static bool TryGetPlacementMask(int physicalLand, out MapShoreMask mask)
         {
-            MapExtensionIslandArt.ShorePrep prep = MapExtensionIslandArt.Prep;
+            mask = null;
+            int slot = SlotIndexOfLand(physicalLand);
+            if (slot < 0 || !MapExtensionIslandArt.TryEnsure(physicalLand)) return false;
+            MapExtensionIslandArt.ShorePrep prep = MapExtensionIslandArt.PrepFor(physicalLand);
             if (prep == null || prep.PlacementMask == null || prep.Width <= 0 || prep.Height <= 0) return false;
-            if (_placementMask != null && ReferenceEquals(_placementMaskSource, prep)) return true;
-            _placementMask = new MapShoreMask(prep.Width, prep.Height, prep.PlacementMask);
-            _placementMaskSource = prep;
+            if (PlacementMasks[slot] == null || !ReferenceEquals(PlacementMaskSources[slot], prep))
+            {
+                PlacementMasks[slot] = new MapShoreMask(prep.Width, prep.Height, prep.PlacementMask);
+                PlacementMaskSources[slot] = prep;
+            }
+            mask = PlacementMasks[slot];
             return true;
         }
 
@@ -1636,7 +1828,7 @@ namespace KingdomEnhancedMod
                 Il2CppSystem.Collections.Generic.List<UILand> lands = menu != null ? menu.lands : null;
                 if (lands == null) return true;
                 bool ok = true;
-                int count = Math.Min(lands.Count, MapOverviewLayout.NativeUiClusterCount + 1);
+                int count = Math.Min(lands.Count, ExtensionIslandMapPlan.ExtendedUiCount);
                 for (int i = 0; i < count; i++)
                 {
                     UILand land = lands[i];
@@ -1672,9 +1864,13 @@ namespace KingdomEnhancedMod
             {
                 if (land == null || menu == null) return true;   // 不是本 detail：非失败
                 // 只服务 exact 登记扩展 detail：native 0..9 与其 clone 一律不碰（登记桥 fail-closed）。
-                if (!TryGetRegisteredExtensionIndex(land, out _)) return true;
-                object token = ExtensionIslandMap.TryGetVisualOwnerToken();
-                if (token == null) return false;   // 已登记但登记上下文不可用：绑定失败（fail-closed）
+                if (!TryGetRegisteredExtensionIndex(land, out int detailPhysical)) return true;
+                int detailSlot = SlotIndexOfLand(detailPhysical);
+                if (detailSlot < 0) return true;
+                if (!ExtensionIslandMap.TryGetDetailTokenForLand(detailPhysical, out object token) || token == null)
+                {
+                    return false;   // 该 tuple 已登记但 token 不可用：绑定失败（fail-closed）
+                }
                 RectTransform landRect = land.gameObject.GetComponent<RectTransform>();
                 RectTransform art = FindArtTransform(land);
                 if (landRect == null || art == null) return false;
@@ -1686,21 +1882,24 @@ namespace KingdomEnhancedMod
                 outlineImage = outline.GetComponent<Image>();
                 if (outlineImage == null) return false;
 
-                Sprite shore = MapExtensionIslandArt.Shore;
+                Sprite shore = MapExtensionIslandArt.ShoreFor(detailPhysical);
+                Sprite outlineSprite = MapExtensionIslandArt.OutlineFor(detailPhysical);
                 // O(1) 快路（P3）：token/land + **两个捕获的原生 Image 身份** + 两份已应用 sprite + 两份几何；
                 // 任一 required Image 缺失/读故障/被外部替换都不能算四图 ready（否则会 reveal 混合 pair）。
-                if (shore != null && ReferenceEquals(token, _detailShapeToken) && SameInstance(_detailShapeLand, land) &&
-                    SameInstance(_detailShapeOutlineImage, outlineImage) &&
+                if (shore != null && ReferenceEquals(token, _detailShapeTokens[detailSlot]) &&
+                    SameInstance(_detailShapeLands[detailSlot], land) &&
+                    SameInstance(_detailShapeOutlineImages[detailSlot], outlineImage) &&
                     MapExtensionIslandArt.IsApplied(artImage, shore) &&
-                    MapExtensionIslandArt.IsApplied(outlineImage, MapExtensionIslandArt.Outline) &&
+                    MapExtensionIslandArt.IsApplied(outlineImage, outlineSprite) &&
                     DetailGeometryApplied(art, shore.rect.width, shore.rect.height) &&
                     DetailGeometryApplied(outline, shore.rect.width, shore.rect.height))
                 {
                     return true;
                 }
-                if (!MapExtensionIslandArt.TryEnsure()) return false;   // 冷启动：直接 detail 也能加载
-                shore = MapExtensionIslandArt.Shore;
-                if (shore == null) return false;
+                if (!MapExtensionIslandArt.TryEnsure(detailPhysical)) return false;   // 冷启动：直接 detail 也能加载
+                shore = MapExtensionIslandArt.ShoreFor(detailPhysical);
+                outlineSprite = MapExtensionIslandArt.OutlineFor(detailPhysical);
+                if (shore == null || outlineSprite == null) return false;
                 // fail-closed：同上（detail 视角）——旧 owner 责任未收尾时不为新 owner 建租约。
                 if (ShoreTakeoverBlocked(token))
                 {
@@ -1725,6 +1924,12 @@ namespace KingdomEnhancedMod
 
                 // 快路失效：**有界重解**——先丢弃本 owner 在这两个 Image 上的陈旧租约（不逐帧全树扫描），
                 // 再按正常事务重绑两份 sprite；失败则整体失败（调用方按四图事务回滚）。
+                if (_detailShapeActiveSlot >= 0 && _detailShapeActiveSlot != detailSlot)
+                {
+                    // A→B→A：切换 detail 目标前，先显式归还前一 tuple 的 detail 租约（per-land release，
+                    // 不触碰兄弟岛；几何快照归还沿用既有 RestoreDetailSnapshots 语义）。
+                    ReleaseDetailShapeLease(_detailShapeActiveSlot);
+                }
                 MapExtensionIslandArt.ReleaseBorrowed(artImage);
                 MapExtensionIslandArt.ReleaseBorrowed(outlineImage);
                 if (MapExtensionIslandArt.TryBorrow(artImage, shore, token) == null &&
@@ -1732,14 +1937,14 @@ namespace KingdomEnhancedMod
                 {
                     return false;
                 }
-                if (MapExtensionIslandArt.TryBorrow(outlineImage, MapExtensionIslandArt.Outline, token) == null &&
-                    !MapExtensionIslandArt.IsApplied(outlineImage, MapExtensionIslandArt.Outline))
+                if (MapExtensionIslandArt.TryBorrow(outlineImage, outlineSprite, token) == null &&
+                    !MapExtensionIslandArt.IsApplied(outlineImage, outlineSprite))
                 {
                     MapExtensionIslandArt.ReleaseBorrowed(artImage);   // 事务：outline 失败 → 回滚 art
                     return false;
                 }
-                _shoreOwnerToken = token;
-                _shoreOwnerMenu = menu;
+                // detail 用独立 owner/captured menu：**绝不覆盖** world 数组（否则切 A/B 详情会撤总览背景）。
+                _detailMenus[detailSlot] = menu;
                 SnapshotDetail(art);
                 touched.Add(art);
                 SnapshotDetail(outline);
@@ -1757,12 +1962,10 @@ namespace KingdomEnhancedMod
                     return false;
                 }
 
-                _detailExcludedRects.Clear();
-                _detailExcludedRects.Add(art);
-                _detailExcludedRects.Add(outline);
-                _detailShapeLand = land;
-                _detailShapeToken = token;
-                _detailShapeOutlineImage = outlineImage;
+                _detailShapeLands[detailSlot] = land;
+                _detailShapeTokens[detailSlot] = token;
+                _detailShapeOutlineImages[detailSlot] = outlineImage;
+                _detailShapeActiveSlot = detailSlot;
                 MapIconLog.Info("detail shore bound w=" + frame.Width.ToString("0.#") +
                     " centerX=" + ((frame.X0 + frame.X1) * 0.5f).ToString("0.#") +
                     " centerY=" + DetailShapeCenterY.ToString("0.#"));
@@ -1813,25 +2016,51 @@ namespace KingdomEnhancedMod
         /// 作 blockers，`MapExtensionIslandLayout` 自由错落 + 逐像素**顶面 PlacementMask**终检；scale 下限 = PreferScale(0.6)。
         /// 失败 → false（调用方整体 fallback，绝不部分展示/绝不退回 generic）。
         /// </summary>
-        private static bool PlanExtensionDetailIsland(UILand land, List<MapIconRequest> requests,
-            List<MapIconPlacement> placements, out float scale, out int failed)
+        /// <summary>detail 分页几何上下文（岸线框/可用区/真实 blockers；构造一次供多页 planning 复用）。</summary>
+        private sealed class DetailPageContext
         {
-            placements.Clear();
-            scale = 0f;
-            failed = requests == null ? 0 : requests.Count;
+            internal MapIconBox ShoreBox;
+            internal MapIconBox Area;
+            internal List<MapIconBox> Blockers;
+            internal MapShoreMask Mask;
+            internal MapIconAnchorSet Anchors;
+        }
+
+        /// <summary>
+        /// 从当次实际 detail 几何构造分页上下文（与 PlanExtensionDetailIsland 同口径：shore box 内缩 ∩
+        /// page 282×196，真实 native blockers）。不命中登记/几何缺失返回 false。
+        /// </summary>
+        private static bool TryBuildDetailPageContext(UILand land, out DetailPageContext context)
+        {
+            context = null;
             try
             {
-                if (land == null || requests == null || requests.Count == 0) return requests != null;
-                RectTransform landRect = land.gameObject.GetComponent<RectTransform>();
-                if (landRect == null || _detailExcludedRects.Count < 2) return false;
-                RectTransform art = _detailExcludedRects[0];         // 真正绘制的 shore 子 rect
-                if (art == null) return false;
-                if (!TryLocalBox(landRect, art, out MapIconBox shoreBox)) return false;
-                if (shoreBox.Width <= 1f || shoreBox.Height <= 1f) return false;
-                if (!EnsurePlacementMask()) return false;
+                if (land == null || !TryGetRegisteredExtensionIndex(land, out int physicalLand)) return false;
+                int slot = SlotIndexOfLand(physicalLand);
+                if (slot < 0 || _detailShapeActiveSlot != slot || !SameInstance(_detailShapeLands[slot], land) ||
+                    !ExtensionIslandMap.TryGetDetailTokenForLand(physicalLand, out object token) || token == null ||
+                    !ReferenceEquals(_detailShapeTokens[slot], token)) return false;
+                MapTimelineMenuGreece menu = _detailMenus[slot];
+                if (menu == null || !ExtensionIslandMap.TryGetLiveTuple(token, land, menu, menu._mainMap, out _))
+                    return false;
 
-                // 可用区 = 岸线框内缩 ∩ page（page = 282×196 居中于 land rect：box 空间中心 ±141/±98）；
-                // footprint 必须同时在全 alpha 岸内（mask 终检）。
+                RectTransform landRect = land.gameObject.GetComponent<RectTransform>();
+                RectTransform art = FindArtTransform(land);
+                RectTransform outline = FindNamedDescendant(land.transform, "Land Outline", 4);
+                if (landRect == null || art == null || outline == null) return false;
+                Image artImage = art.GetComponent<Image>();
+                Image outlineImage = outline.GetComponent<Image>();
+                Sprite shore = MapExtensionIslandArt.ShoreFor(physicalLand);
+                Sprite outlineSprite = MapExtensionIslandArt.OutlineFor(physicalLand);
+                if (shore == null || outlineSprite == null || artImage == null || outlineImage == null ||
+                    !SameInstance(_detailShapeOutlineImages[slot], outlineImage) ||
+                    !MapExtensionIslandArt.IsApplied(artImage, shore) ||
+                    !MapExtensionIslandArt.IsApplied(outlineImage, outlineSprite) ||
+                    !DetailGeometryApplied(art, shore.rect.width, shore.rect.height) ||
+                    !DetailGeometryApplied(outline, shore.rect.width, shore.rect.height)) return false;
+                if (!TryLocalBox(landRect, art, out MapIconBox shoreBox)) return false;
+                if (shoreBox.Width <= 1f || shoreBox.Height <= 1f ||
+                    !TryGetPlacementMask(physicalLand, out MapShoreMask mask)) return false;
                 float inset = MapExtensionShapePlan.Margin;
                 float centerX = landRect.rect.width * 0.5f;
                 float centerY = landRect.rect.height * 0.5f;
@@ -1842,13 +2071,36 @@ namespace KingdomEnhancedMod
                 var area = new MapIconBox(
                     Math.Max(shoreBox.X0 + inset, page.X0), Math.Max(shoreBox.Y0 + inset, page.Y0),
                     Math.Min(shoreBox.X1 - inset, page.X1), Math.Min(shoreBox.Y1 - inset, page.Y1));
-                // 被本模块接管的原生动态槽（Steed/Hermit/Statue，含被压制的 _spawnedIcon）不是绘制内容：
-                // 其 host Image 是锚点占位，重叠 shore box 时不得挤掉真实图标（与 native detail 同口径）。
-                CollectSuppressedSlotRects(land, _detailExcludedRects);
+                var excluded = new List<RectTransform>(4) { art, outline };
+                CollectSuppressedSlotRects(land, excluded);
                 var blockers = new List<MapIconBox>(24);
-                CollectNativeBoxes(landRect, land.transform, blockers, true, _detailExcludedRects);
-                if (!MapExtensionIslandLayout.TryPlan(area, requests, blockers, shoreBox, _placementMask,
-                        placements, out scale, out failed, MapExtensionIslandLayout.PreferScale))
+                CollectNativeBoxes(landRect, land.transform, blockers, true, excluded);
+                context = new DetailPageContext
+                {
+                    ShoreBox = shoreBox, Area = area, Blockers = blockers, Mask = mask,
+                    Anchors = MapExtensionIslandArtVariant.AnchorsFor(physicalLand)
+                };
+                return true;
+            }
+            catch (Exception e)
+            {
+                MapIconLog.Once("detail-page-ctx-" + e.GetType().Name, "detail page context failed: " + e.Message);
+                return false;
+            }
+        }
+
+        /// <summary>用已有上下文 plan 一个请求子集（全量语义；失败清空并且 failed=count）。</summary>
+        private static bool TryPlanDetailSubset(DetailPageContext context, List<MapIconRequest> requests,
+            List<MapIconPlacement> placements, out float scale, out int failed)
+        {
+            scale = 0f;
+            placements.Clear();
+            failed = requests == null ? 0 : requests.Count;
+            if (context == null || requests == null || requests.Count == 0) return requests != null;
+            try
+            {
+                if (!MapExtensionIslandLayout.TryPlan(context.Area, requests, context.Blockers, context.ShoreBox,
+                        context.Mask, placements, out scale, out failed, MapExtensionIslandLayout.PreferScale, context.Anchors))
                 {
                     placements.Clear();
                     failed = requests.Count;
@@ -1860,9 +2112,43 @@ namespace KingdomEnhancedMod
             {
                 placements.Clear();
                 failed = requests.Count;
-                MapIconLog.Once("ext-detail-plan-" + e.GetType().Name, "extension detail plan failed: " + e.Message);
+                MapIconLog.Once("detail-page-plan-" + e.GetType().Name, "detail page plan failed: " + e.Message);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 有限枚举页容量（cap 从 n 递减，现实 ≤16）：每个 candidate 的**每一页**都先用真实 planner 预验
+        /// 全量可放（placements.Count == pageLength）才 commit；无任何可行容量返回 0（调用方整体 fallback）。
+        /// 无副作用、非周期 retry、不改 paper/scale。
+        /// </summary>
+        private static int FindUniformDetailCapacity(DetailPageContext context, List<MapIconRequest> requests)
+        {
+            if (context == null || requests == null || requests.Count == 0) return 0;
+            var page = new List<MapIconRequest>(requests.Count);
+            var placements = new List<MapIconPlacement>(requests.Count);
+            bool PageFits(int offset, int length)
+            {
+                if (length <= 0) return false;
+                page.Clear();
+                for (int i = offset; i < requests.Count && page.Count < length; i++) page.Add(requests[i]);
+                if (page.Count != length) return false;
+                return TryPlanDetailSubset(context, page, placements, out _, out int failed)
+                    && failed == 0 && placements.Count == length;
+            }
+            return MountIslandDetailPagePlan.TryFindUniformPageCapacity(requests.Count, requests.Count,
+                PageFits, out int capacity) ? capacity : 0;
+        }
+
+        private static bool PlanExtensionDetailIsland(UILand land, List<MapIconRequest> requests,
+            List<MapIconPlacement> placements, out float scale, out int failed)
+        {
+            placements.Clear();
+            scale = 0f;
+            failed = requests == null ? 0 : requests.Count;
+            if (land == null || requests == null || requests.Count == 0) return requests != null;
+            return TryBuildDetailPageContext(land, out DetailPageContext context) &&
+                TryPlanDetailSubset(context, requests, placements, out scale, out failed);
         }
 
         private static void Rebuild(MapMountIconView view, UILand land, int landIndex, bool overview,
@@ -1880,6 +2166,10 @@ namespace KingdomEnhancedMod
             List<MapIconPlacement> placements = new List<MapIconPlacement>(requests.Count);
             float scale = 0f;
             int failed = requests == null ? 0 : requests.Count;
+            int detailPageIndex = 0;
+            int detailPageCount = 1;
+            int detailPageOffset = 0;
+            int detailPageCapacity = 0;
 
             if (overview)
             {
@@ -1891,18 +2181,57 @@ namespace KingdomEnhancedMod
                 // （EnsureDetailShape 成功），并与 world 同一自由错落算法（真正绘制的 shore box + 同一顶面
                 // PlacementMask + page 282×196 + native sidebar/Boat blockers，min scale = PreferScale）
                 // 全量放下；否则整体 fallback（绝不部分展示、绝不岛外兜底、绝不退回 native 重排）。
-                if (!SameInstance(_detailShapeLand, land) || _detailShapeToken == null ||
-                    !PlanExtensionDetailIsland(land, requests, placements, out scale, out failed))
+                int rebuildDetailSlot = TryGetRegisteredExtensionIndex(land, out int rebuildPhysical)
+                    ? SlotIndexOfLand(rebuildPhysical) : -1;
+                bool shoreReady = rebuildDetailSlot >= 0 && SameInstance(_detailShapeLands[rebuildDetailSlot], land)
+                    && _detailShapeTokens[rebuildDetailSlot] != null;
+                bool detailPlanned = false;
+                if (shoreReady)
+                {
+                    detailPlanned = PlanExtensionDetailIsland(land, requests, placements, out scale, out failed);
+                    if (!detailPlanned && TryBuildDetailPageContext(land, out DetailPageContext pageContext))
+                    {
+                        // 先正常完整 fit；放不下 → 有限枚举页容量（对**每个连续页**用真实 planner 预验全齐；
+                        // 首个所有页可放下的容量才 commit，否则全量 fallback）——actual 请求集，legacy 15/16 全可达。
+                        detailPageCapacity = FindUniformDetailCapacity(pageContext, requests);
+                        detailPageCount = MountIslandDetailPagePlan.PageCount(requests.Count, detailPageCapacity, 1);
+                        if (detailPageCapacity >= 1 && detailPageCount > 1)
+                        {
+                            detailPageIndex = Mathf.Clamp(view.PageIndex, 0, detailPageCount - 1);
+                            detailPageOffset = detailPageIndex * detailPageCapacity;
+                            var subset = new List<MapIconRequest>(detailPageCapacity);
+                            for (int i = detailPageOffset; i < requests.Count && subset.Count < detailPageCapacity; i++)
+                            {
+                                subset.Add(requests[i]);
+                            }
+                            detailPlanned = TryPlanDetailSubset(pageContext, subset, placements, out scale, out failed);
+                            failed = detailPlanned ? 0 : requests.Count;
+                            if (detailPlanned)
+                            {
+                                MapIconLog.Info("extension detail paged land=" + landIndex + " page=" +
+                                    (detailPageIndex + 1) + "/" + detailPageCount + " capacity=" + detailPageCapacity +
+                                    " total=" + requests.Count);
+                            }
+                        }
+                    }
+                }
+                if (!detailPlanned)
                 {
                     placements.Clear();
+                    detailPageCount = 1;
+                    detailPageIndex = 0;
+                    detailPageOffset = 0;
+                    detailPageCapacity = 0;
                     failed = requests == null ? 0 : requests.Count;
                     MapIconLog.Warn("extension detail plan failed (shore binding/alpha/page/blockers); " +
                         "whole fallback land=" + landIndex + " requests=" + failed);
                 }
             }
 
-            // 只接受全量；部分结果一律丢弃并记录（绝不部分贴图当成功）。
-            if (failed > 0 || placements.Count != requests.Count)
+            // 只接受全量（分页时“全量”= 该页应有条目数）；部分结果一律丢弃并记录（绝不部分贴图当成功）。
+            int expectedReady = overview ? (requests == null ? 0 : requests.Count)
+                : (detailPageCount > 1 ? placements.Count : (requests == null ? 0 : requests.Count));
+            if (failed > 0 || placements.Count != expectedReady)
             {
                 MapIconLog.Warn("icon plan incomplete land=" + landIndex + " overview=" + overview +
                     " placed=" + placements.Count + "/" + requests.Count + " scale=" + scale.ToString("0.00") +
@@ -1945,7 +2274,7 @@ namespace KingdomEnhancedMod
             for (int i = 0; i < placements.Count; i++)
             {
                 MapIconPlacement placement = placements[i];
-                int sourceIndex = placement.RequestIndex;
+                int sourceIndex = placement.RequestIndex + detailPageOffset;
                 UIMapIcon source = sourceIndex >= 0 && sourceIndex < sources.Count ? sources[sourceIndex] : null;
                 UIMapIcon clone = SpawnIcon(source, holderRect, placement);
                 if (clone != null) view.Icons.Add(clone);
@@ -1965,11 +2294,28 @@ namespace KingdomEnhancedMod
 
             holder.SetActive(!view.HiddenByNativeGate);
             Repaint(view, landIndex, reign);
-            view.Fingerprint = fingerprint;
+            int effectiveFingerprint = detailPageCount > 1 ? fingerprint * 31 + detailPageIndex + 1 : fingerprint;
+            view.Fingerprint = effectiveFingerprint;
+            view.PageIndex = detailPageIndex;
             view.FailedFingerprint = int.MinValue;
             view.LayoutVersion = _overviewGeometryVersion;
+            if (detailPageCount > 1)
+            {
+                if (!CreateDetailPager(view, land, landIndex, menu, requests, sources, requests.Count,
+                        detailPageIndex, detailPageCount, detailPageCapacity, fingerprint, effectiveFingerprint))
+                {
+                    // 无原生 Button/Text 样式可克隆 → 不造 GUILabel/字体，诚实整体 fallback（无部分态）。
+                    MapIconLog.Warn("detail pager unavailable (no native button style); whole fallback land=" + landIndex);
+                    DestroyHolder(view);
+                    view.Fingerprint = int.MinValue;
+                    view.FailedFingerprint = fingerprint;
+                    RestoreSuppressed(view);
+                    return;
+                }
+            }
             MapIconLog.Info("icons built land=" + landIndex + " overview=" + overview +
-                " count=" + view.Icons.Count + " scale=" + scale.ToString("0.00"));
+                " count=" + view.Icons.Count + " scale=" + scale.ToString("0.00") +
+                (detailPageCount > 1 ? " page=" + (detailPageIndex + 1) + "/" + detailPageCount : ""));
         }
 
         /// <summary>
@@ -2632,9 +2978,14 @@ namespace KingdomEnhancedMod
                 if (_deferredReleases.Count > 0) DrainDeferredReleases(null);   // 只收菜单已死的遗留责任（有界）
                 // fail-closed 保留身份的自愈：捕获的 exact menu 已死（确证 native death 语义）→ 有界重试归还，
                 // 成功即解除接管门；存活 owner 仍等它自己的 exact 回调（A 的身份不被 B 顶掉）。
-                if (_shoreOwnerToken != null && _shoreOwnerMenu != null && _shoreOwnerMenu.gameObject == null)
+                for (int shoreSlot = 0; shoreSlot < ExtensionIslandMapPlan.SlotCount; shoreSlot++)
                 {
-                    ReleaseShoreState();
+                    MapTimelineMenuGreece capturedShoreMenu = _shoreMenus[shoreSlot];
+                    if (_shoreTokens[shoreSlot] != null && capturedShoreMenu != null && capturedShoreMenu.gameObject == null)
+                    {
+                        ReleaseShoreState();
+                        break;
+                    }
                 }
 
                 int callerState = -1;
@@ -2908,6 +3259,353 @@ namespace KingdomEnhancedMod
         /// 使全部 overview view 失效（销毁旧 holder 并**归还原生槽**）→ **一次**有界 native focused-reign 刷新
         /// （`TryNativeRefreshOverview`）重建；detail 不受影响。
         /// </summary>
+        /// <summary>
+        /// 双扩展岛统一 frame 规划：以当次 native 普通 cluster 的**实际测量 art 尺寸**为参考比例，
+        /// 两岛共用同一 scale、互不重叠且都在 band（paper/mask 可视域）内；返回值按下标对应 tuple
+        /// （0=A physical11、1=B physical13）。放不下直接 false（不扩 reserve/paper、不 clamp、不 retry）；
+        /// 单扩展岛保持原居中 band 规划（兼容路径）。
+        /// </summary>
+        private static bool TryGetExtensionAspect(List<OverviewEntry> entries, out float aspect)
+        {
+            aspect = 0f;
+            float width = 0f, height = 0f;
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (!MapExtensionIslandArt.TryEnsure(entries[i].LandIndex)) return false;
+                Sprite shore = MapExtensionIslandArt.ShoreFor(entries[i].LandIndex);
+                if (shore == null) return false;
+                if (i == 0) { width = shore.rect.width; height = shore.rect.height; }
+                else if (shore.rect.width != width || shore.rect.height != height) return false;
+            }
+            if (!(width > 0f) || !(height > 0f)) return false;
+            aspect = width / height;
+            return true;
+        }
+
+        private static bool TryPlanExtensionFrames(List<OverviewEntry> extensionEntries, in MapIconBox band,
+            float appliedScale, out MapIconBox[] frames)
+        {
+            frames = new MapIconBox[ExtensionIslandMapPlan.SlotCount];
+            if (extensionEntries.Count == 0) return true;
+            if (!TryGetExtensionAspect(extensionEntries, out float aspect)) return false;
+            if (!(appliedScale > 0f)) return false;   // native 未成功 fit：不猜比例（fail-closed）
+            // 参考尺寸：native 普通 cluster 的 1x art × 自身原始 scale × **共同 uniformScale** = fit 后实际
+            // paper 呈现 bbox（不是 raw prefab 尺寸；否则 normal 缩 0.6 时扩展岛会反而大 67%）。
+            float nativeWidth = 0f;
+            float nativeHeight = 0f;
+            for (int i = 0; i < Overview.Count; i++)
+            {
+                OverviewEntry entry = Overview[i];
+                if (entry == null || entry.IsExtension) continue;
+                float w = MountIslandOverviewLayout.NormalizeBaseSize(entry.Input.ArtW1 * Mathf.Abs(entry.Input.OrigScaleX), appliedScale);
+                float h = MountIslandOverviewLayout.NormalizeBaseSize(entry.Input.ArtH1 * Mathf.Abs(entry.Input.OrigScaleY), appliedScale);
+                if (w > nativeWidth) nativeWidth = w;
+                if (h > nativeHeight) nativeHeight = h;
+            }
+            if (!(nativeWidth > 0f) || !(nativeHeight > 0f)) return false;   // 参考读不到：fail-closed，不猜尺寸
+            if (!MountIslandOverviewLayout.TryBaseInAspect(nativeWidth, nativeHeight, aspect,
+                    out float baseWidth, out float baseHeight))
+            {
+                return false;
+            }
+            var bandFrame = new MountIslandFrame(band.X0, band.Y0, band.X1, band.Y1);
+            if (!MountIslandOverviewLayout.TryPlanTwoFrames(bandFrame, baseWidth, baseHeight,
+                    out MountIslandFrame primaryFrame, out MountIslandFrame secondaryFrame, out _))
+            {
+                return false;
+            }
+            // 单岛也走**同一 normal 基准与固定 slot 位置**（A=左半、B=右半），绝不放大填满 band：
+            // 另一岛缺失时其 frame 留空（slot 位置固定，不因兄弟缺失改变本岛比例/位置）。
+            int slotsSeen = 0;
+            for (int i = 0; i < extensionEntries.Count; i++)
+            {
+                int slot = SlotIndexOfLand(extensionEntries[i].LandIndex);
+                if (slot < 0) return false;
+                MountIslandFrame frame = slot == 0 ? primaryFrame : secondaryFrame;
+                frames[slot] = new MapIconBox(frame.X0, frame.Y0, frame.X1, frame.Y1);
+                slotsSeen++;
+            }
+            return slotsSeen == extensionEntries.Count;
+        }
+
+        private static MountIslandFrame CompactFrame(in MapIconBox box)
+            => new MountIslandFrame(box.X0, box.Y0, box.X1, box.Y1);
+
+        private static MapIconBox IconFrame(in MountIslandFrame box)
+            => new MapIconBox(box.X0, box.Y0, box.X1, box.Y1);
+
+        private static bool CompactFinite(float value)
+            => !float.IsNaN(value) && !float.IsInfinity(value);
+
+        private static bool CompactValid(in MountIslandFrame box)
+            => CompactFinite(box.X0) && CompactFinite(box.Y0) && CompactFinite(box.X1)
+                && CompactFinite(box.Y1) && box.IsValid;
+
+        private static void AddCompactBox(ref MountIslandFrame union, ref bool any, in MountIslandFrame box)
+        {
+            union = any ? new MountIslandFrame(Math.Min(union.X0, box.X0), Math.Min(union.Y0, box.Y0),
+                Math.Max(union.X1, box.X1), Math.Max(union.Y1, box.Y1)) : box;
+            any = true;
+        }
+
+        // Unlike resource collision collection, this includes inactive/disabled potential state.
+        // A failed read never becomes a partially populated successful union.
+        private static bool TryCompactGraphics(RectTransform paper, Transform root,
+            List<RectTransform> excluded, Transform excludedBranch,
+            out MountIslandFrame union, out bool any)
+        {
+            union = default; any = false;
+            try
+            {
+                if (paper == null || root == null) return false;
+                RectTransform[] rects = root.GetComponentsInChildren<RectTransform>(true);
+                if (rects == null || rects.Length > 512) return false;
+                for (int i = 0; i < rects.Length; i++)
+                {
+                    RectTransform rect = rects[i];
+                    if (rect == null) return false;
+                    if (IsUnderOwnHolder(rect.transform) || (excluded != null && excluded.Contains(rect))) continue;
+                    if (excludedBranch != null)
+                    {
+                        Ancestry relation = CheckAncestry(rect.transform, excludedBranch, 24);
+                        if (relation == Ancestry.Unknown) return false;
+                        if (relation == Ancestry.Under) continue;
+                    }
+                    if (rect.GetComponent<Graphic>() == null) continue;
+                    if (!TryLocalBox(paper, rect, out MapIconBox measured)) return false;
+                    MountIslandFrame box = CompactFrame(measured);
+                    if (!CompactValid(box)) return false;
+                    AddCompactBox(ref union, ref any, box);
+                }
+                return true;
+            }
+            catch (Exception) { union = default; any = false; return false; }
+        }
+
+        private static bool CompactCenteredRoot(RectTransform root, RectTransform paper, bool centeredPivot = true)
+        {
+            if (root == null || paper == null || root.parent != paper.transform) return false;
+            Vector2 a = root.anchorMin, b = root.anchorMax, p = root.pivot;
+            Vector3 s = root.localScale;
+            Vector2 pos = root.anchoredPosition;
+            return Math.Abs(a.x - 0.5f) < 0.001f && Math.Abs(a.y - 0.5f) < 0.001f
+                && Math.Abs(b.x - 0.5f) < 0.001f && Math.Abs(b.y - 0.5f) < 0.001f
+                && CompactFinite(p.x) && CompactFinite(p.y)
+                && (!centeredPivot || (Math.Abs(p.x - 0.5f) < 0.001f && Math.Abs(p.y - 0.5f) < 0.001f))
+                && CompactFinite(s.x) && CompactFinite(s.y) && CompactFinite(s.z)
+                && s.x > 0f && s.y > 0f && CompactFinite(pos.x) && CompactFinite(pos.y);
+        }
+
+        private static bool CompactAnimationFree(Transform root)
+        {
+            // Opaque controllers are not assumed to animate only sprites. New decoration writes
+            // are refused; existing native land animation remains under its original root.
+            Animator[] animators = root.GetComponentsInChildren<Animator>(true);
+            Animation[] animations = root.GetComponentsInChildren<Animation>(true);
+            return animators != null && animations != null && animators.Length == 0 && animations.Length == 0;
+        }
+
+        private static bool TryCompactState(RectTransform paper, OverviewEntry entry,
+            out MountIslandFrame state, out bool any)
+            => TryCompactState(paper, entry, out state, out any, out _);
+
+        private static bool TryCompactState(RectTransform paper, OverviewEntry entry,
+            out MountIslandFrame state, out bool any, out MountIslandFrame absolute)
+        {
+            state = default; any = false; absolute = default;
+            try
+            {
+                if (entry == null || !CompactCenteredRoot(entry.Rect, paper)) return false;
+                RectTransform art = FindArtTransform(entry.Cluster);
+                RectTransform outline = FindNamedDescendant(entry.Cluster.transform, "Land Outline", 4);
+                RectTransform button = FindOverviewButtonRect(entry.Cluster);
+                if (art == null || outline == null) return false;
+                var excluded = new List<RectTransform>(3) { art, outline };
+                if (button != null) excluded.Add(button);
+                Transform bespoke = entry.Cluster.transform.Find("Map Icons/Bespoke");
+                if (!TryCompactGraphics(paper, entry.Cluster.transform, excluded, bespoke,
+                        out absolute, out any)) return false;
+                if (!any) return true;
+                if (!TryLocalBox(paper, entry.Rect, out MapIconBox rootBox)) return false;
+                float cx = (rootBox.X0 + rootBox.X1) * 0.5f;
+                float cy = (rootBox.Y0 + rootBox.Y1) * 0.5f;
+                state = new MountIslandFrame(absolute.X0 - cx, absolute.Y0 - cy, absolute.X1 - cx, absolute.Y1 - cy);
+                return CompactValid(state); // fixed paper dimensions/offset; no division by scale
+            }
+            catch (Exception) { state = default; any = false; absolute = default; return false; }
+        }
+
+        private static CompactAdmission PrepareCompact(UIMainMap map, RectTransform paper,
+            List<OverviewEntry> natives, List<OverviewEntry> extensions,
+            in MapIconBox visible, float buttonBand, out CompactGeometry result)
+        {
+            result = null;
+            if (extensions.Count == 0) return CompactAdmission.Legacy;
+            string reason = "native-shape";
+            bool abort = false;
+            try
+            {
+                if (natives.Count != MapOverviewLayout.NativeUiClusterCount) return CompactAdmission.Legacy;
+                var candidate = new CompactGeometry();
+                bool nativeAny = false;
+                float width = 0f, height = 0f;
+                for (int i = 0; i < natives.Count; i++)
+                {
+                    OverviewEntry entry = natives[i];
+                    reason = "native-root-" + entry.LandIndex;
+                    if (!CompactCenteredRoot(entry.Rect, paper)
+                        || !TryCompactGraphics(paper, entry.Rect, null, null, out var bounds, out bool found)
+                        || !found) return CompactAdmission.Legacy;
+                    candidate.Roots.Add(new CompactRoot { Rect = entry.Rect, Land = entry,
+                        Scale = entry.LocalScale, Position = entry.AnchoredPosition, Graphics = bounds });
+                    AddCompactBox(ref candidate.Native, ref nativeAny, bounds);
+                    width = Math.Max(width, entry.Input.ArtW1 * Math.Abs(entry.Input.OrigScaleX));
+                    height = Math.Max(height, entry.Input.ArtH1 * Math.Abs(entry.Input.OrigScaleY));
+                }
+                reason = "map-animation";
+                if (paper.GetComponent<Animator>() != null || paper.GetComponent<Animation>() != null)
+                    return CompactAdmission.Legacy;
+                string[] names = { "map_icon_whale_tail_greece", "map_icon_tentacles_greece",
+                    "map_icon_rocks_greece", "map_icon_mermaid_tail_greece" };
+                for (int i = 0; i < names.Length; i++)
+                {
+                    reason = "deco-" + names[i];
+                    Transform child = paper.transform.Find(names[i]);
+                    RectTransform rect = child != null ? child.GetComponent<RectTransform>() : null;
+                    // Native decorations have centered anchors but a bottom pivot (.5,0).
+                    // AnchoredPosition denotes that pivot; the same affine applies without editing it.
+                    if (!CompactCenteredRoot(rect, paper, false) || !CompactAnimationFree(rect)
+                        || !TryCompactGraphics(paper, rect, null, null, out var bounds, out bool found)
+                        || !found) return CompactAdmission.Legacy;
+                    candidate.Roots.Add(new CompactRoot { Rect = rect, Scale = rect.localScale,
+                        Position = rect.anchoredPosition, Graphics = bounds });
+                    AddCompactBox(ref candidate.Native, ref nativeAny, bounds);
+                }
+                bool hasState = false;
+                MountIslandFrame state = default;
+                abort = true;
+                for (int i = 0; i < extensions.Count; i++)
+                {
+                    int slot = SlotIndexOfLand(extensions[i].LandIndex);
+                    reason = "state-" + extensions[i].LandIndex;
+                    if (slot < 0 || !TryCompactState(paper, extensions[i], out var one, out bool found))
+                        return CompactAdmission.Abort;
+                    candidate.States[slot] = one;
+                    candidate.HasState[slot] = found;
+                    if (found) AddCompactBox(ref state, ref hasState, one);
+                }
+                abort = false;
+                reason = "numeric-plan";
+                if (!TryGetExtensionAspect(extensions, out float aspect)) return CompactAdmission.Abort;
+                if (!MountIslandOverviewLayout.TryBaseInAspect(width, height, aspect,
+                        out float baseWidth, out float baseHeight)
+                    || !MountIslandCompactLayout.TryPlan(CompactFrame(visible), buttonBand, candidate.Native,
+                        baseWidth, baseHeight, hasState, state, out candidate.Upper, out candidate.Band,
+                        out candidate.Primary, out candidate.Secondary, out candidate.Scale))
+                    return CompactAdmission.Legacy;
+                result = candidate;
+                return CompactAdmission.Ready;
+            }
+            catch (Exception e)
+            {
+                reason += "-" + e.GetType().Name;
+                return abort ? CompactAdmission.Abort : CompactAdmission.Legacy;
+            }
+            finally
+            {
+                if (result == null)
+                    MapIconLog.Once("compact-" + map.Pointer + "-" + reason,
+                        "compact overview not admitted: " + reason +
+                        (abort ? "; whole commit aborted (state unknown)" : "; retaining complete legacy layout"));
+            }
+        }
+
+        private static bool ApplyCompactRoots(CompactGeometry geometry, RectTransform paper)
+        {
+            try
+            {
+                for (int i = 0; i < geometry.Roots.Count; i++)
+                {
+                    CompactRoot root = geometry.Roots[i];
+                    if (!CompactCenteredRoot(root.Rect, paper, root.Land != null)
+                        || !MountIslandCompactLayout.TryTransformPoint(geometry.Native, geometry.Upper,
+                            geometry.Scale, root.Position.x + paper.rect.width * 0.5f,
+                            root.Position.y + paper.rect.height * 0.5f, out float x, out float y)) return false;
+                    var target = new MapOverviewClusterTarget(x - paper.rect.width * 0.5f,
+                        y - paper.rect.height * 0.5f, root.Scale.x * geometry.Scale,
+                        root.Scale.y * geometry.Scale, root.Scale.z);
+                    if (root.Land != null) ApplyTarget(root.Land, target);
+                    else
+                    {
+                        Snapshot(root.Rect); // same Expanded restore responsibility; never an OverviewEntry
+                        root.Rect.anchoredPosition = new Vector2(target.X, target.Y);
+                        root.Rect.localScale = new Vector3(target.ScaleX, target.ScaleY, target.ScaleZ);
+                    }
+                }
+                return true;
+            }
+            catch (Exception) { return false; }
+        }
+
+        private static bool CompactNear(in MountIslandFrame a, in MountIslandFrame b)
+            => Math.Abs(a.X0 - b.X0) < 0.03f && Math.Abs(a.Y0 - b.Y0) < 0.03f
+                && Math.Abs(a.X1 - b.X1) < 0.03f && Math.Abs(a.Y1 - b.Y1) < 0.03f;
+
+        private static bool CompactElementMatches(RectTransform paper, RectTransform element,
+            in MountIslandFrame expected, in MountIslandFrame band)
+            => element != null && TryLocalBox(paper, element, out MapIconBox box)
+                && CompactNear(CompactFrame(box), expected) && CompactFrame(box).IsInside(band);
+
+        private static bool VerifyCompact(CompactGeometry geometry, RectTransform paper,
+            List<OverviewEntry> extensions)
+        {
+            try
+            {
+                for (int i = 0; i < geometry.Roots.Count; i++)
+                {
+                    CompactRoot root = geometry.Roots[i];
+                    if (!CompactCenteredRoot(root.Rect, paper, root.Land != null)
+                        || !TryCompactGraphics(paper, root.Rect, null, null, out var actual, out bool found)
+                        || !found || !MountIslandCompactLayout.TryTransformFrame(geometry.Native, geometry.Upper,
+                            geometry.Scale, root.Graphics, out var expected)
+                        || !CompactNear(actual, expected) || !actual.IsInside(geometry.Upper)) return false;
+                }
+                var envelopes = new MountIslandFrame[ExtensionIslandMapPlan.SlotCount];
+                var seen = new bool[ExtensionIslandMapPlan.SlotCount];
+                for (int i = 0; i < extensions.Count; i++)
+                {
+                    OverviewEntry entry = extensions[i];
+                    int slot = SlotIndexOfLand(entry.LandIndex);
+                    if (slot < 0 || seen[slot]) return false;
+                    MountIslandFrame expected = slot == 0 ? geometry.Primary : geometry.Secondary;
+                    MountIslandFrame actual = CompactFrame(entry.TargetArtBox);
+                    RectTransform art = FindArtTransform(entry.Cluster);
+                    RectTransform outline = FindNamedDescendant(entry.Cluster.transform, "Land Outline", 4);
+                    RectTransform button = FindOverviewButtonRect(entry.Cluster);
+                    if (button != null && CheckAncestry(button, art, 8) == Ancestry.Under) button = null;
+                    if (!CompactElementMatches(paper, art, expected, geometry.Band)
+                        || !CompactElementMatches(paper, outline, expected, geometry.Band)
+                        || (button != null && !CompactElementMatches(paper, button, expected, geometry.Band))
+                        || !TryLocalBox(paper, entry.Rect, out MapIconBox rootBox)
+                        || Math.Abs((rootBox.X0 + rootBox.X1 - expected.X0 - expected.X1) * 0.5f) >= 0.03f
+                        || Math.Abs((rootBox.Y0 + rootBox.Y1 - expected.Y0 - expected.Y1) * 0.5f) >= 0.03f)
+                        return false;
+                    if (!CompactNear(actual, expected) || !actual.IsInside(geometry.Band)
+                        || !TryCompactState(paper, entry, out var state, out bool found, out var absoluteState)
+                        || found != geometry.HasState[slot]
+                        || (found && !CompactNear(state, geometry.States[slot]))) return false;
+                    bool any = true;
+                    if (found)
+                        AddCompactBox(ref actual, ref any, absoluteState);
+                    if (!actual.IsInside(geometry.Band)) return false;
+                    envelopes[slot] = actual; seen[slot] = true;
+                }
+                return !seen[0] || !seen[1] || envelopes[0].HorizontalGap(envelopes[1]) >=
+                    MountIslandCompactLayout.PairGap - 0.03f;
+            }
+            catch (Exception) { return false; }
+        }
+
         private static bool CommitOverviewLayout(UIMainMap map, MapTimelineMenuGreece menu, RectTransform paper,
             in MapIconBox verifiedRect, long verifiedSignature)
         {
@@ -2982,50 +3680,84 @@ namespace KingdomEnhancedMod
                 }
                 if (Overview.Count == 0) return false;
 
-                // r15：world 域共同分区（raw：不夹回 0..paperW）→ 原 10 绝对统一 fit 进上部区；扩展占底部预留带。
-                float reserve = extensionEntries.Count > 0 ? MapWorldLayout.DefaultExtensionReserve : 0f;
-                if (!MapWorldLayout.ComposeDomains(visiblePaper, buttonBand, reserve,
-                        out MapIconBox upperArea, out MapIconBox bandArea))
+                // Compact uses complete graphic/state envelopes, not the old large-shore reserve.
+                // Unknown native decoration ownership retains the complete legacy path; unknown
+                // extension state aborts the transaction rather than becoming an empty envelope.
+                CompactAdmission admission = PrepareCompact(map, paper, nativeEntries, extensionEntries,
+                    visiblePaper, buttonBand, out CompactGeometry compact);
+                if (admission == CompactAdmission.Abort)
                 {
-                    MapIconLog.Warn("world domains invalid; islands keep native geometry (no commit)");
+                    FailExtensionCommit();
                     return false;
+                }
+                bool useCompact = admission == CompactAdmission.Ready;
+                MapIconBox upperArea, bandArea;
+                float uniformScale = 1f;
+                var targets = new List<MapOverviewClusterTarget>(nativeInputs.Count);
+                bool planned;
+                if (useCompact)
+                {
+                    upperArea = IconFrame(compact.Upper);
+                    bandArea = IconFrame(compact.Band);
+                    uniformScale = compact.Scale;
+                    if (!ApplyCompactRoots(compact, paper))
+                    {
+                        FailExtensionCommit();
+                        MapIconLog.Once("compact-root-write-" + map.Pointer,
+                            "compact overview root write failed; complete transaction restored");
+                        return false;
+                    }
+                    planned = true;
+                }
+                else
+                {
+                    float reserve = extensionEntries.Count > 0 ? MapWorldLayout.DefaultExtensionReserve : 0f;
+                    if (!MapWorldLayout.ComposeDomains(visiblePaper, buttonBand, reserve, out upperArea, out bandArea))
+                    {
+                        FailExtensionCommit();
+                        MapIconLog.Warn("world domains invalid; islands keep native geometry (no commit)");
+                        return false;
+                    }
+                    planned = MapWorldLayout.TryFitNatives(nativeInputs, paperW, paperH, upperArea, targets,
+                        out uniformScale);
+                    if (planned)
+                    {
+                        for (int i = 0; i < nativeEntries.Count && i < targets.Count; i++)
+                            ApplyTarget(nativeEntries[i], targets[i]);
+                    }
+                    else MapIconLog.Warn("overview native layout plan failed; islands keep native geometry");
                 }
                 _worldDomain = visiblePaper;
                 _worldUpperArea = upperArea;
                 _worldBandArea = bandArea;
 
-                float uniformScale = 1f;
-                var targets = new List<MapOverviewClusterTarget>(nativeInputs.Count);
-                bool planned = MapWorldLayout.TryFitNatives(nativeInputs, paperW, paperH, upperArea, targets,
-                    out uniformScale);
-                if (planned)
-                {
-                    // 只应用统一倍率+平移；native 图标面在 Rebuild 时按 exact sprite 形状与自然 paper 倍率
-                    // 现场测量（issue-152），不再预写布局推导的 art 盒。
-                    for (int i = 0; i < nativeEntries.Count && i < targets.Count; i++)
-                    {
-                        ApplyTarget(nativeEntries[i], targets[i]);
-                    }
-                }
-                else
-                {
-                    MapIconLog.Warn("overview native layout plan failed; islands keep native geometry");
-                }
-
                 // 扩展簇：新岸线（实际 Sprite.rect 等比 + 自有 shore/outline 绑定；子 rect 快照可逆）；
                 // 不动原 10 的目标，不把整簇子图标一起横向拉伸。
                 // 四 Image + geometry 同一准备态：任一 terrain/outline 绑定或几何失败 → **整次提交**回滚
                 //（诚实整体 fallback；绝不出现 world 原 Oracle / detail 新 shape 的混合可见态）。
-                bool extensionBannersOk = true;
-                for (int i = 0; i < extensionEntries.Count; i++)
+                // 双岛统一 frame（同 scale/互不重叠/paper 内）；每 tuple 用**自己的** frame 调 banner，
+                // 不再对同一 band 两次居中（那会把两岛叠在一起）。
+                MapIconBox[] extensionFrames;
+                bool extensionBannersOk;
+                if (useCompact)
                 {
-                    if (!ApplyExtensionBanner(extensionEntries[i], bandArea, paper, menu, out MapIconBox bannerArtBox))
+                    extensionFrames = new[] { IconFrame(compact.Primary), IconFrame(compact.Secondary) };
+                    extensionBannersOk = true;
+                }
+                else extensionBannersOk = TryPlanExtensionFrames(extensionEntries, bandArea,
+                    planned ? uniformScale : 0f, out extensionFrames);
+                for (int i = 0; extensionBannersOk && i < extensionEntries.Count; i++)
+                {
+                    int frameSlot = SlotIndexOfLand(extensionEntries[i].LandIndex);
+                    if (frameSlot < 0
+                        || !ApplyExtensionBanner(extensionEntries[i], extensionFrames[frameSlot], paper, menu,
+                            extensionEntries[i].LandIndex, out MapIconBox bannerArtBox))
                     {
                         extensionBannersOk = false;
                         break;
                     }
                     extensionEntries[i].TargetArtBox = bannerArtBox;
-                    extensionEntries[i].BannerArea = bandArea;
+                    extensionEntries[i].BannerArea = extensionFrames[frameSlot];
                 }
                 if (!extensionBannersOk)
                 {
@@ -3036,7 +3768,18 @@ namespace KingdomEnhancedMod
                 }
 
                 // 精确礁石锚点（exact mainMap 直属装饰）：按新 shore bbox 侧上方留水道；只动这一个 rect。
-                ApplyRocksAnchor(paper, menu, visiblePaper, extensionEntries);
+                // Compact keeps rocks in the common native affine frame, never tied to one slot.
+                if (!useCompact) ApplyRocksAnchor(paper, menu, visiblePaper, extensionEntries);
+                if (useCompact && !VerifyCompact(compact, paper, extensionEntries))
+                {
+                    FailExtensionCommit();
+                    MapIconLog.Once("compact-readback-" + map.Pointer,
+                        "compact overview complete graphic/state readback failed; transaction restored");
+                    return false;
+                }
+                if (useCompact)
+                    MapIconLog.Info("compact overview complete graphics fit scale=" + uniformScale.ToString("0.000")
+                        + " rowHeight=" + compact.Band.Height.ToString("0.#") + " roots=" + compact.Roots.Count);
 
                 // 每岛图标面（issue-152 岛内契约）：native 在 Rebuild 时按 exact sprite 形状/绘制盒现场测量，
                 // 扩展簇用 banner 专属 surface（背景不算障碍，Rebuild 时规划）。不再预计算"最近岛自由区域"。
@@ -3080,6 +3823,7 @@ namespace KingdomEnhancedMod
                 _overviewApplied = true;
                 _overviewLandCount = landCount;
                 _overviewExtensionLand = recognizedExtension;
+                _overviewExtensionCount = extensionEntries.Count;
                 _overviewAppliedSignature = finalSignature;
                 _overviewPaper = paper;
                 CollectMaskRects(paper);
@@ -3105,6 +3849,7 @@ namespace KingdomEnhancedMod
             }
             catch (Exception e)
             {
+                FailExtensionCommit();
                 MapIconLog.Once("commit-" + e.GetType().Name, "overview commit failed: " + e.Message);
             }
             return false;
@@ -3733,7 +4478,7 @@ namespace KingdomEnhancedMod
         /// 保持上一状态或诚实 fail-closed；外部替换的值绝不被旧快照覆盖。
         /// </summary>
         private static bool ApplyExtensionBanner(OverviewEntry entry, in MapIconBox banner, RectTransform paper,
-            MapTimelineMenuGreece menu, out MapIconBox artBox)
+            MapTimelineMenuGreece menu, int physicalLand, out MapIconBox artBox)
         {
             artBox = default;
             _bannerExcludedRects.Clear();
@@ -3742,8 +4487,13 @@ namespace KingdomEnhancedMod
             {
                 return false;
             }
-            object token = ExtensionIslandMap.TryGetVisualOwnerToken();
-            if (token == null) return false;   // 非登记上下文：不接管
+            int slotIndex = SlotIndexOfLand(physicalLand);
+            if (slotIndex < 0) return false;
+            if (!ExtensionIslandMap.TryGetVisualOwnerTokenForLand(physicalLand, out object token) || token == null)
+            {
+                return false;   // 该 tuple 未登记/不可用：不接管（per-land token，不误用兄弟岛）
+            }
+            entry.BannerExcluded.Clear();
             var touched = new List<RectTransform>(4);
             Image artImage = null;
             Image outlineImage = null;
@@ -3753,9 +4503,9 @@ namespace KingdomEnhancedMod
                 if (art == null) return false;
                 artImage = art.GetComponent<Image>();
                 if (artImage == null) return false;
-                if (!MapExtensionIslandArt.TryEnsure()) return false;
-                Sprite shore = MapExtensionIslandArt.Shore;
-                Sprite outlineSprite = MapExtensionIslandArt.Outline;
+                if (!MapExtensionIslandArt.TryEnsure(physicalLand)) return false;
+                Sprite shore = MapExtensionIslandArt.ShoreFor(physicalLand);
+                Sprite outlineSprite = MapExtensionIslandArt.OutlineFor(physicalLand);
                 if (shore == null || outlineSprite == null) return false;
                 // fail-closed：旧 exact owner 仍有未归还责任（队列满被保留）→ 拒绝新 owner 接管（native 保持）。
                 if (ShoreTakeoverBlocked(token))
@@ -3765,9 +4515,14 @@ namespace KingdomEnhancedMod
                     return false;
                 }
                 float aspect = SpriteAspect(shore);
-                if (!MapExtensionShapePlan.TryPlanWorldBox(banner, MapExtensionShapePlan.Margin, aspect,
-                        out MapIconBox frame))
+                if (!(aspect > 0f)) return false;
+                MapIconBox frame = banner;   // 双岛：frame 由统一规划给出（同 scale、互不重叠、paper 内；单岛=居中 band）
+                // 规划 frame 的宽高比必须与实际 Sprite.rect 一致（不一致=规划错误，诚实失败，不拉伸）。
+                if (Mathf.Abs(frame.Width / frame.Height - aspect) > 0.02f * aspect + 0.001f)
                 {
+                    MapIconLog.Once("banner-aspect-mismatch-" + physicalLand,
+                        "extension banner frame aspect mismatch land=" + physicalLand +
+                        " frame=" + Fmt(frame) + " aspect=" + aspect.ToString("0.###"));
                     return false;
                 }
 
@@ -3793,18 +4548,21 @@ namespace KingdomEnhancedMod
                     MapExtensionIslandArt.ReleaseBorrowed(artImage);
                     return false;
                 }
-                _shoreOwnerToken = token;
-                _shoreOwnerMenu = menu;
+                _shoreTokens[slotIndex] = token;
+                _shoreMenus[slotIndex] = menu;
 
                 Snapshot(art);
                 touched.Add(art);
                 _bannerExcludedRects.Add(art);
+                entry.BannerExcluded.Add(art);
                 Snapshot(outline); touched.Add(outline); _bannerExcludedRects.Add(outline);
+                entry.BannerExcluded.Add(outline);
                 if (buttonRect != null && buttonRect != art)
                 {
                     Snapshot(buttonRect);
                     touched.Add(buttonRect);
                     _bannerExcludedRects.Add(buttonRect);
+                    entry.BannerExcluded.Add(buttonRect);
                 }
                 if (clusterRoot != null && clusterRoot != art)
                 {
@@ -3812,8 +4570,40 @@ namespace KingdomEnhancedMod
                     touched.Add(clusterRoot);
                 }
 
-                // R4/V2：整簇根刚性平移到 banner 锚点（native 标记随根、尺寸不变）
+                // R4/V2：整簇根刚性平移到 banner 锚点。哪些节点随 root / 哪些按 ratio：
+                // - native 状态标记（船标等小 state icon）挂在簇根下，**随 root 刚性平移**：尺寸不变，
+                //   不参与 art 的 ratio 缩放（不拉成整岛 bbox）；
+                // - terrain/outline/click hitbox 由 PlaceSpriteFrameInSpace 按实际 Sprite.rect 同一 frame 写入（ratio）。
+                // 真实验证（非 mock）：平移必须刚性（宽高不变）且簇根中心落在规划 frame 锚点上，否则整笔失败回滚。
+                float rootBeforeW = 0f;
+                float rootBeforeH = 0f;
+                MapIconBox rootBefore = default;
+                bool rootBeforeOk = clusterRoot != null && TryLocalBox(paper, clusterRoot, out rootBefore);
+                if (rootBeforeOk)
+                {
+                    rootBeforeW = rootBefore.Width;
+                    rootBeforeH = rootBefore.Height;
+                }
                 if (clusterRoot != null) TranslateClusterToBox(clusterRoot, paper, banner);
+                if (rootBeforeOk)
+                {
+                    bool rigid = TryLocalBox(paper, clusterRoot, out MapIconBox rootAfter)
+                        && Mathf.Abs(rootAfter.Width - rootBeforeW) <= rootBeforeW * 0.005f + 0.05f
+                        && Mathf.Abs(rootAfter.Height - rootBeforeH) <= rootBeforeH * 0.005f + 0.05f;
+                    bool anchored = rigid && MountIslandOverviewLayout.SameAnchorPoint(
+                        (rootAfter.X0 + rootAfter.X1) * 0.5f, (rootAfter.Y0 + rootAfter.Y1) * 0.5f,
+                        (banner.X0 + banner.X1) * 0.5f, (banner.Y0 + banner.Y1) * 0.5f, 2f);
+                    if (!anchored)
+                    {
+                        RollbackSnapshots(touched);
+                        MapExtensionIslandArt.ReleaseBorrowed(artImage);
+                        if (outlineImage != null) MapExtensionIslandArt.ReleaseBorrowed(outlineImage);
+                        _bannerExcludedRects.Clear();
+                        MapIconLog.Once("banner-root-" + entry.LandIndex,
+                            "cluster root transform not rigid/anchored; banner aborted (state icons keep native root transform)");
+                        return false;
+                    }
+                }
                 // 子 art/outline/Button 同框：sizeDelta = 实际 Sprite.rect（228×84），只乘一个 uniform scale
                 bool placed = PlaceSpriteFrameInSpace(art, paper, frame, shore.rect.width, shore.rect.height);
                 if (placed && outline != null)
@@ -3874,6 +4664,14 @@ namespace KingdomEnhancedMod
                 if (paper == null || menu == null || extensions == null || extensions.Count == 0) return;
                 RectTransform rocks = FindRocksRect(menu);
                 if (rocks == null) return;
+                // 双扩展岛：rocks 是 exact mainMap 直属的共享 native 装饰，没有 per-island owner ——
+                // 保持原生共同 reference，不锚到 extensions[0]（否则 B 的航线/礁石会被拖去 A frame）。
+                if (extensions.Count > 1)
+                {
+                    MapIconLog.Once("rocks-common-reference",
+                        "rocks anchor skipped with two extension islands: shared native decoration keeps common reference");
+                    return;
+                }
                 MapIconBox shore = extensions[0].TargetArtBox;
                 if (shore.Width <= 1f || shore.Height <= 1f) return;
                 if (!TryLocalBox(paper, rocks, out MapIconBox current) || current.Width <= 1f || current.Height <= 1f)
@@ -4408,8 +5206,451 @@ namespace KingdomEnhancedMod
             return null;
         }
 
+        /// <summary>仅当被销毁的 view 正是该 pager 绑定的 detail view 才清 pager（overview 刷新不清 detail 页）。</summary>
+        private static void DestroyDetailPagerFor(MapMountIconView view)
+        {
+            DetailPager pager = _detailPager;
+            if (pager == null) return;
+            if (view != null && !ReferenceEquals(pager.View, view)) return;
+            DestroyDetailPager();
+        }
+
+        private static void DestroyDetailPager()
+        {
+            DetailPager pager = _detailPager;
+            _detailPager = null;
+            if (pager == null) return;
+            try { if (pager.Prev != null) pager.Prev.onClick = new Button.ButtonClickedEvent(); } catch (Exception) { }
+            try { if (pager.Next != null) pager.Next.onClick = new Button.ButtonClickedEvent(); } catch (Exception) { }
+            DestroyQuiet(pager.Root);
+        }
+
+        /// <summary>实际请求列表 signature：fingerprint(kind/type/arrayIndex/order) ⊕ source 名与自身尺寸。</summary>
+        private static int DetailRequestSignature(int landIndex, List<MapIconRequest> requests, List<UIMapIcon> sources)
+        {
+            unchecked
+            {
+                int hash = MapIconPlanFingerprint.Compute(landIndex, false, requests);
+                if (sources != null)
+                {
+                    for (int i = 0; i < sources.Count; i++)
+                    {
+                        UIMapIcon source = sources[i];
+                        string name = null;
+                        try { name = source != null ? source.name : null; } catch (Exception) { name = null; }
+                        hash = hash * 31 + (name != null ? name.GetHashCode() : 0);
+                        hash = hash * 31 + (TryIconSize(source, out float w, out float h)
+                            ? (int)(w * 100f) * 397 + (int)(h * 100f) : 0);
+                    }
+                }
+                return hash;
+            }
+        }
+
+        private static int ReadFocusedLandUi(MapTimelineMenuGreece menu)
+        {
+            try { return menu != null ? menu.focusedLand : int.MinValue; }
+            catch (Exception) { return int.MinValue; }
+        }
+
+        private static int ReadOpenWorldState(MapTimelineMenuGreece menu)
+        {
+            try { return menu != null ? (int)menu._openWorldMapState : int.MinValue; }
+            catch (Exception) { return int.MinValue; }
+        }
+
+        private static int ReadFocusedReignIndex(MapTimelineMenuGreece menu)
+        {
+            try { return menu != null ? menu.focusedReign : -1; }
+            catch (Exception) { return -1; }
+        }
+
+        /// <summary>浏览 reign 解析（与 TryNativeRefreshOverview 同口径）：0=currentReign；
+        /// &gt;0=previousReigns[Count-focus]；越界/null/unknown 拒绝，绝不回退 currentReign。</summary>
+        private static bool TryResolveFocusedReign(int focus, out CampaignSaveData.ReignInfo reign)
+        {
+            reign = null;
+            try
+            {
+                CampaignSaveData campaign = CampaignSaveData.current;
+                if (campaign == null || focus < 0) return false;
+                if (focus == 0)
+                {
+                    reign = campaign.currentReign;
+                    return reign != null;
+                }
+                Il2CppSystem.Collections.Generic.List<CampaignSaveData.ReignInfo> previous = null;
+                try { previous = campaign.previousReigns; } catch (Exception) { }
+                if (previous == null) return false;
+                int previousCount = 0;
+                try { previousCount = previous.Count; } catch (Exception) { }
+                if (!MapOverviewRefresh.TryResolvePreviousIndex(focus, previousCount, out int previousIndex)
+                    || previousIndex == MapOverviewRefresh.CurrentReign)
+                {
+                    return false;
+                }
+                reign = previous[previousIndex];
+                return reign != null;
+            }
+            catch (Exception) { reign = null; return false; }
+        }
+
+        private static int ReadReignIndex()
+        {
+            try
+            {
+                CampaignSaveData campaign = CampaignSaveData.current;
+                return campaign != null ? campaign.reign : -1;
+            }
+            catch (Exception) { return -1; }
+        }
+
+        private static CampaignSaveData.ReignInfo ReadFreshReign()
+        {
+            try
+            {
+                CampaignSaveData campaign = CampaignSaveData.current;
+                return campaign != null ? campaign.currentReign : null;
+            }
+            catch (Exception) { return null; }
+        }
+
+        /// <summary>克隆原生按钮样式（保游戏字体/style），立即清掉克隆体上的旧 listener。</summary>
+        private static Button ClonePagerButton(GameObject styleSource, RectTransform parent, float x, string label)
+        {
+            try
+            {
+                GameObject clone = UnityEngine.Object.Instantiate(styleSource, parent, false);
+                clone.name = "KEM_DetailPagerButton";
+                RectTransform rect = clone.GetComponent<RectTransform>();
+                if (rect != null) rect.anchoredPosition = new Vector2(x, 0f);
+                Button button = clone.GetComponent<Button>();
+                if (button == null) button = clone.GetComponentInChildren<Button>();
+                if (button == null) return null;
+                button.onClick = new Button.ButtonClickedEvent();   // 旧回调（原岛导航）立即丢弃
+                var texts = clone.GetComponentsInChildren<Text>(true);
+                if (texts != null && texts.Length > 0) texts[0].text = label;
+                return button;
+            }
+            catch (Exception) { return null; }
+        }
+
+        /// <summary>页标签：克隆原生 Text 节点自身（不带按钮行为），保字体/style。</summary>
+        private static Text ClonePagerLabel(GameObject styleSource, RectTransform parent)
+        {
+            try
+            {
+                var texts = styleSource.GetComponentsInChildren<Text>(true);
+                if (texts == null || texts.Length == 0) return null;
+                GameObject clone = UnityEngine.Object.Instantiate(texts[0].gameObject, parent, false);
+                clone.name = "KEM_DetailPagerLabel";
+                RectTransform rect = clone.GetComponent<RectTransform>();
+                if (rect != null) rect.anchoredPosition = new Vector2(0f, 0f);
+                Text text = clone.GetComponent<Text>();
+                if (text != null) text.text = string.Empty;
+                return text;
+            }
+            catch (Exception) { return null; }
+        }
+
+        private static void UpdatePagerLabel(DetailPager pager)
+        {
+            if (pager == null) return;
+            try
+            {
+                if (pager.Label != null) pager.Label.text = (pager.PageIndex + 1) + "/" + pager.Pages;
+                if (pager.Prev != null) pager.Prev.interactable = pager.PageIndex > 0;
+                if (pager.Next != null) pager.Next.interactable = pager.PageIndex < pager.Pages - 1;
+            }
+            catch (Exception) { }
+        }
+
+        /// <summary>
+        /// 私有 owned 分页器：prev/next 与页标签均为原生 Button/Text **克隆**（保游戏字体/style），
+        /// onClick 全部替换为自有事件；不借用/不修改原生 left/right 岛导航按钮 callback。
+        /// </summary>
+        private static bool CreateDetailPager(MapMountIconView view, UILand land, int landIndex,
+            MapTimelineMenuGreece menu, List<MapIconRequest> requests, List<UIMapIcon> sources, int requestCount,
+            int pageIndex, int pages, int perPage, int baseFingerprint, int effectiveFingerprint)
+        {
+            try
+            {
+                if (view == null || view.Holder == null || land == null || menu == null) return false;
+                if (!ExtensionIslandMap.TryGetDetailTokenForLand(landIndex, out object ownerToken) || ownerToken == null)
+                {
+                    return false;
+                }
+                GameObject styleSource = null;
+                try
+                {
+                    Button nativeButton = menu.leftButton != null ? menu.leftButton : menu.confirmButton;
+                    styleSource = nativeButton != null ? nativeButton.gameObject : null;
+                }
+                catch (Exception) { styleSource = null; }
+                if (styleSource == null) return false;   // 无原生样式：不造 GUILabel/字体（诚实放弃）
+                RectTransform holderRect = view.Holder.GetComponent<RectTransform>();
+                if (holderRect == null) return false;
+                // 稳定宿主：exact owned detail UILand 的 RectTransform（与 holder 同坐标系，但**独立于每页 holder**）——
+                // 翻页销毁旧 holder 不会连带销毁 pager 按钮/标签（first Next 之后页仍可达）。
+                RectTransform stableHost = null;
+                try
+                {
+                    stableHost = land != null && land.gameObject != null
+                        ? land.gameObject.GetComponent<RectTransform>() : null;
+                }
+                catch (Exception) { stableHost = null; }
+                if (stableHost == null) return false;
+
+                var pager = new DetailPager
+                {
+                    PageIndex = pageIndex,
+                    Pages = pages,
+                    PerPage = perPage,
+                    RequestCount = requestCount,
+                    Fingerprint = effectiveFingerprint,
+                    BaseFingerprint = baseFingerprint,
+                    RequestSignature = DetailRequestSignature(landIndex, requests, sources),
+                    FocusIndex = ReadFocusedReignIndex(menu),
+                    FocusedLandUi = ReadFocusedLandUi(menu),
+                    OpenWorldState = ReadOpenWorldState(menu),
+                    View = view,
+                    Menu = menu,
+                    Map = menu != null ? menu._mainMap : null,
+                    Land = land,
+                    PhysicalLand = landIndex,
+                    OwnerToken = ownerToken,
+                    ReignIndex = ReadReignIndex(),
+                };
+                var root = new GameObject("KEM_DetailPager");
+                root.SetActive(false);
+                RectTransform rootRect = root.AddComponent<RectTransform>();
+                rootRect.SetParent(stableHost, false);
+                rootRect.anchorMin = new Vector2(0.5f, 0f);
+                rootRect.anchorMax = new Vector2(0.5f, 0f);
+                rootRect.pivot = new Vector2(0.5f, 0f);
+                rootRect.sizeDelta = new Vector2(160f, 30f);
+                rootRect.anchoredPosition = new Vector2(0f, 4f);
+                rootRect.localScale = Vector3.one;
+
+                pager.Root = root;
+                pager.Prev = ClonePagerButton(styleSource, rootRect, -56f, "◀");
+                pager.Next = ClonePagerButton(styleSource, rootRect, 56f, "▶");
+                pager.Label = ClonePagerLabel(styleSource, rootRect);
+                if (pager.Prev == null || pager.Next == null || pager.Label == null) return false;
+                pager.Prev.onClick.AddListener((UnityAction)(System.Action)(() => OnDetailPageStep(pager, -1)));
+                pager.Next.onClick.AddListener((UnityAction)(System.Action)(() => OnDetailPageStep(pager, 1)));
+                UpdatePagerLabel(pager);
+                _detailPager = pager;
+                root.SetActive(true);
+                return true;
+            }
+            catch (Exception e)
+            {
+                MapIconLog.Once("detail-pager-create-" + e.GetType().Name, "detail pager create failed: " + e.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 翻页点击：先逐项核验捕获（pager 仍是当前、view 代次/fingerprint 未变、reign int 未变、
+        /// detail token 未换代、menu/land 仍 dispatch-live）；任一失效 no-op 并清 pager，绝不操作新代次/view。
+        /// </summary>
+        private static void OnDetailPageStep(DetailPager pager, int delta)
+        {
+            try
+            {
+                if (pager == null || !ReferenceEquals(_detailPager, pager)) return;   // 旧回调无权
+                MapMountIconView view = FindView(pager.Land, false);
+                if (view == null || view.Holder == null || view.Overview) { DestroyDetailPager(); return; }
+                if (view.Fingerprint != pager.Fingerprint) { DestroyDetailPagerFor(view); return; }
+                if (ReadFocusedReignIndex(pager.Menu) != pager.FocusIndex) { DestroyDetailPagerFor(view); return; }
+                if (ReadFocusedLandUi(pager.Menu) != pager.FocusedLandUi) { DestroyDetailPagerFor(view); return; }
+                if (ReadOpenWorldState(pager.Menu) != pager.OpenWorldState) { DestroyDetailPagerFor(view); return; }
+                if (!ExtensionIslandMap.IsActiveMenu(pager.Menu)) { DestroyDetailPagerFor(view); return; }
+                if (ReadReignIndex() != pager.ReignIndex) { DestroyDetailPagerFor(view); return; }
+                if (!ExtensionIslandMap.TryGetDetailTokenForLand(pager.PhysicalLand, out object token)
+                    || !ReferenceEquals(token, pager.OwnerToken))
+                {
+                    DestroyDetailPagerFor(view);
+                    return;
+                }
+                // exact 派发桥（不用 aggregate）：token 必须是本 tuple 当前登记的 detail token（撤销即置 null），
+                // capture 的 menu/map/land 与登记一致、ActiveMap 仍是该 menu、tuple 仍 Available。
+                if (!ExtensionIslandMap.TryGetLiveTuple(pager.OwnerToken, pager.Land, pager.Menu, pager.Map, out _))
+                {
+                    DestroyDetailPagerFor(view);
+                    return;
+                }
+                int next = pager.PageIndex + delta;
+                if (next < 0 || next >= pager.Pages) return;
+                DetailPageRebuildOutcome outcome = RebuildDetailPageIcons(view, pager, next);
+                if (outcome == DetailPageRebuildOutcome.RolledBack)
+                {
+                    // 事务已回滚且上下文仍有效：保旧页/fingerprint/pageIndex/pager，用户可继续操作（无自动 retry）。
+                    return;
+                }
+                if (outcome == DetailPageRebuildOutcome.Stale)
+                {
+                    // 上下文/内容/几何已变：显式 invalidate，让正常数据回调全量重建（不留"仅首页无按钮"缓存）。
+                    view.Fingerprint = int.MinValue;
+                    view.FailedFingerprint = int.MinValue;
+                    DestroyDetailPagerFor(view);
+                }
+            }
+            catch (Exception e)
+            {
+                MapIconLog.Once("detail-pager-step-" + e.GetType().Name, "detail pager step failed: " + e.Message);
+            }
+        }
+
+        /// <summary>同页重建结果：RolledBack = 上下文仍有效但事务回滚（保旧页/pager/fingerprint/pageindex）；
+        /// Stale = 上下文/内容/几何已变（销 pager 并显式 invalidate fingerprint）。</summary>
+        private enum DetailPageRebuildOutcome
+        {
+            Committed,
+            RolledBack,
+            Stale
+        }
+
+        /// <summary>同页重建：只重排该页 icons（当次实际请求集/真实 blockers；放不下则不部分展示）。</summary>
+        private static DetailPageRebuildOutcome RebuildDetailPageIcons(MapMountIconView view, DetailPager pager, int pageIndex)
+        {
+            try
+            {
+                // 浏览 reign：以 pager 捕获的 focus 解析（0=current，>0=previousReigns[Count-focus]，越界/null 拒绝，
+                // 绝不回退 currentReign）；不缓存 boxed ReignInfo proxy。
+                if (!TryResolveFocusedReign(pager.FocusIndex, out CampaignSaveData.ReignInfo reign)) return DetailPageRebuildOutcome.Stale;
+                if (!TryReadLand(reign, pager.PhysicalLand, out int steedCount, out int hermitCount, out int statueCount))
+                {
+                    return DetailPageRebuildOutcome.Stale;
+                }
+                BuildRequests(pager.Land, steedCount, hermitCount, statueCount,
+                    out List<MapIconRequest> requests, out List<UIMapIcon> sources);
+                if (requests.Count != pager.RequestCount) return DetailPageRebuildOutcome.Stale;   // 内容变化：交回正常刷新路径
+                // 实际列表 signature（kind/type/arrayIndex/order + source 名与尺寸）必须与建 pager 时一致。
+                if (DetailRequestSignature(pager.PhysicalLand, requests, sources) != pager.RequestSignature) return DetailPageRebuildOutcome.Stale;
+                if (!TryBuildDetailPageContext(pager.Land, out DetailPageContext context)) return DetailPageRebuildOutcome.Stale;
+                int offset = pageIndex * pager.PerPage;
+                var subset = new List<MapIconRequest>(pager.PerPage);
+                for (int i = offset; i < requests.Count && subset.Count < pager.PerPage; i++) subset.Add(requests[i]);
+                var placements = new List<MapIconPlacement>(subset.Count);
+                if (!TryPlanDetailSubset(context, subset, placements, out _, out int failed)
+                    || failed > 0 || placements.Count != subset.Count)
+                {
+                    return DetailPageRebuildOutcome.Stale;   // 该页放不下：保持当前页，不部分展示
+                }
+                RectTransform holderRect = view.Holder != null ? view.Holder.GetComponent<RectTransform>() : null;
+                if (holderRect == null) return DetailPageRebuildOutcome.Stale;
+                // 新页先建到**临时 inactive holder**（同 space/同 rect）：全部 SpawnIcon 完成且身份未变才切换；
+                // 失败只销毁临时 clone，旧页/pager 原样保留（无半页、不提前 destroy 旧 icons）。
+                var tempGo = new GameObject("KEM_MapResourceIcons_page");
+                tempGo.SetActive(false);
+                RectTransform tempRect = tempGo.AddComponent<RectTransform>();
+                tempRect.SetParent(holderRect.parent, false);
+                tempRect.anchorMin = holderRect.anchorMin;
+                tempRect.anchorMax = holderRect.anchorMax;
+                tempRect.pivot = holderRect.pivot;
+                tempRect.sizeDelta = holderRect.sizeDelta;
+                tempRect.anchoredPosition = holderRect.anchoredPosition;
+                tempRect.localScale = Vector3.one;
+                var tempIcons = new List<UIMapIcon>(placements.Count);
+                for (int i = 0; i < placements.Count; i++)
+                {
+                    MapIconPlacement placement = placements[i];
+                    int sourceIndex = placement.RequestIndex + offset;
+                    UIMapIcon source = sourceIndex >= 0 && sourceIndex < sources.Count ? sources[sourceIndex] : null;
+                    UIMapIcon clone = SpawnIcon(source, tempRect, placement);
+                    if (clone != null) tempIcons.Add(clone);
+                }
+                if (tempIcons.Count != placements.Count)
+                {
+                    for (int i = 0; i < tempIcons.Count; i++) { if (tempIcons[i] != null) DestroyQuiet(tempIcons[i].gameObject); }
+                    DestroyQuiet(tempGo);
+                    return DetailPageRebuildOutcome.Stale;
+                }
+                // CAS：pager/view/holder 仍是当次身份才切换（旧回调/换代 view 不得改新代次）。
+                if (!ReferenceEquals(_detailPager, pager) || view.Holder == null
+                    || !SameInstance(holderRect.gameObject, view.Holder))
+                {
+                    for (int i = 0; i < tempIcons.Count; i++) { if (tempIcons[i] != null) DestroyQuiet(tempIcons[i].gameObject); }
+                    DestroyQuiet(tempGo);
+                    return DetailPageRebuildOutcome.Stale;
+                }
+                // 整个新页 group（tempGo + tempIcons）已在旧页仍活时构造/变换完成；切换 = 引用交换 + activate，
+                // 旧 group 保留到交换全部成功后才销毁（任何中间失败 → 销 temp、旧页/pager/租约原样）。
+                List<UIMapIcon> oldIcons = view.Icons;
+                GameObject oldHolder = view.Holder;
+                try
+                {
+                    view.Icons = tempIcons;
+                    Repaint(view, pager.PhysicalLand, reign);   // 数据态先在新页就绪（temp 仍 inactive 不可见）
+                }
+                catch (Exception e)
+                {
+                    view.Icons = oldIcons;
+                    for (int i = 0; i < tempIcons.Count; i++) { if (tempIcons[i] != null) DestroyQuiet(tempIcons[i].gameObject); }
+                    DestroyQuiet(tempGo);
+                    MapIconLog.Once("detail-page-repaint-" + e.GetType().Name, "detail page repaint failed: " + e.Message);
+                    return DetailPageRebuildOutcome.Stale;
+                }
+                // CAS 复核（含 repaint 期间可能发生的换代）
+                if (!ReferenceEquals(_detailPager, pager) || view.Holder == null
+                    || !SameInstance(holderRect.gameObject, oldHolder))
+                {
+                    view.Icons = oldIcons;
+                    for (int i = 0; i < tempIcons.Count; i++) { if (tempIcons[i] != null) DestroyQuiet(tempIcons[i].gameObject); }
+                    DestroyQuiet(tempGo);
+                    return DetailPageRebuildOutcome.Stale;
+                }
+                // 事务（production helper，与 tests 同源）：swapRefs → activate → destroyOld；
+                // activate 异常 → 回滚 view refs、销 temp、旧页保持 active、pager 保留（不吞为成功）。
+                bool committed = MountIslandPageHolderTransaction.TryRunPageSwap(
+                    () => { view.Holder = tempGo; },
+                    () => { tempGo.SetActive(true); },
+                    () =>
+                    {
+                        for (int i = 0; i < oldIcons.Count; i++)
+                        {
+                            UIMapIcon icon = oldIcons[i];
+                            if (icon != null) DestroyQuiet(icon.gameObject);
+                        }
+                        if (oldHolder != null && !SameInstance(oldHolder, tempGo)) DestroyQuiet(oldHolder);
+                    },
+                    () =>
+                    {
+                        view.Holder = oldHolder;
+                        view.Icons = oldIcons;
+                        for (int i = 0; i < tempIcons.Count; i++) { if (tempIcons[i] != null) DestroyQuiet(tempIcons[i].gameObject); }
+                        DestroyQuiet(tempGo);
+                    });
+                if (!committed)
+                {
+                    MapIconLog.Once("detail-page-swap-" + pager.PhysicalLand,
+                        "detail page swap rolled back; old page + pager retained (context still valid)");
+                    return DetailPageRebuildOutcome.RolledBack;
+                }
+                pager.PageIndex = pageIndex;
+                pager.Fingerprint = view.Fingerprint = pager.BaseFingerprint * 31 + pageIndex + 1;
+                UpdatePagerLabel(pager);
+                return DetailPageRebuildOutcome.Committed;
+            }
+            catch (Exception e)
+            {
+                MapIconLog.Once("detail-pager-rebuild-" + e.GetType().Name, "detail page rebuild failed: " + e.Message);
+                return DetailPageRebuildOutcome.Stale;
+            }
+        }
+
+        /// <summary>安静销毁自有对象（异常不外抛；null/已销毁安全）。</summary>
+        private static void DestroyQuiet(GameObject go)
+        {
+            if (go == null) return;
+            try { UnityEngine.Object.Destroy(go); } catch (Exception) { }
+        }
+
         private static void DestroyHolder(MapMountIconView view)
         {
+            DestroyDetailPagerFor(view);   // 只清本 view 绑定的 detail pager；overview 刷新不影响 detail 页
             if (view == null) return;
             try
             {

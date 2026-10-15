@@ -56,6 +56,16 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<int> BeggarCampCapacity;
     internal static MelonPreferences_Entry<int> BeggarSpawnIntervalSeconds;
 
+    internal static MelonPreferences_Entry<bool> MusketeerEnabled;
+    internal static MelonPreferences_Entry<bool> HeavyShieldEnabled;
+    internal static MelonPreferences_Entry<bool> HeroArcherEnabled;
+    internal static MelonPreferences_Entry<float> CrossbowRecruitmentRatio;
+    internal static MelonPreferences_Entry<bool> ArcherScatterEnabled;
+    internal static MelonPreferences_Entry<bool> ArcherRateEnabled;
+    internal static MelonPreferences_Entry<int> ArcherVolleyCount;
+    internal static MelonPreferences_Entry<float> ArcherRateMultiplier;
+    internal static MelonPreferences_Entry<bool> ArcherImpactEnabled;
+
     // InfiniteMoney 原生写（Il2Cpp.Wallet.InfiniteMoney）的唯一注入点：本文件保持零
     // Il2Cpp.* 引用（hosttests 直接编译同一份），由平台侧 Probe.OnInitializeMelon 传入
     // lambda；条目加载完成与 UI 切换时各调用一次，不订阅事件、不每帧写、不做状态镜像。
@@ -102,6 +112,15 @@ internal static class ModConfig
         PopulationEnabled = category.CreateEntry<bool>("PopulationEnabled", false);
         BeggarCampCapacity = category.CreateEntry<int>("BeggarCampCapacity", DefaultBeggarCampCapacity);
         BeggarSpawnIntervalSeconds = category.CreateEntry<int>("BeggarSpawnIntervalSeconds", DefaultBeggarSpawnIntervalSeconds);
+        MusketeerEnabled = category.CreateEntry<bool>("MusketeerEnabled", false);
+        HeavyShieldEnabled = category.CreateEntry<bool>("HeavyShieldEnabled", false);
+        HeroArcherEnabled = category.CreateEntry<bool>("HeroArcherEnabled", false);
+        CrossbowRecruitmentRatio = category.CreateEntry<float>("CrossbowRecruitmentRatio", CrossbowRatioPolicy.Default);
+        ArcherScatterEnabled = category.CreateEntry<bool>("ArcherScatterEnabled", false);
+        ArcherRateEnabled = category.CreateEntry<bool>("ArcherRateEnabled", false);
+        ArcherVolleyCount = category.CreateEntry<int>("ArcherVolleyCount", 3);
+        ArcherRateMultiplier = category.CreateEntry<float>("ArcherRateMultiplier", 1.5f);
+        ArcherImpactEnabled = category.CreateEntry<bool>("ArcherImpactEnabled", false);
         // 手工编辑 cfg 可能写入越界值，在加载边界做唯一一次 clamp（不使用 validator：未证实
         // 可构造 ValueValidator 子类）；运行期不读回、不重试、不静默替换默认值。
         SpeedMultiplier.Value = Math.Clamp(SpeedMultiplier.Value, 1, 5);
@@ -115,6 +134,9 @@ internal static class ModConfig
         // 合法载入值（1..20 / 1..120）保留；越界只在加载边界收敛一次，不落盘、不扫描、不写 native。
         BeggarCampCapacity.Value = Math.Clamp(BeggarCampCapacity.Value, 1, 20);
         BeggarSpawnIntervalSeconds.Value = Math.Clamp(BeggarSpawnIntervalSeconds.Value, 1, 120);
+        CrossbowRecruitmentRatio.Value = CrossbowRatioPolicy.Normalize(CrossbowRecruitmentRatio.Value);
+        ArcherVolleyCount.Value = Math.Clamp(ArcherVolleyCount.Value, 1, 3);
+        ArcherRateMultiplier.Value = SanitizeMultiplier("ArcherRateMultiplier", ArcherRateMultiplier.Value, 1f, 2f);
         applyInfiniteMoney = moneyApplier;
         applyInfiniteMoney(InfiniteMoney.Value);
         MelonLogger.Msg("ANDROID_SETTINGS_READY category=" + CategoryIdentifier

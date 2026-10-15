@@ -136,6 +136,7 @@ internal static class HeavyShieldBanner
     internal static void Tick(in HeavyShieldCampaignToken campaign, long world,
         IReadOnlyList<HeavyShieldBannerCandidate> candidates, bool selecting)
     {
+#if !ANDROID
         if (!ObserveContext(campaign, world, HeavyShieldIdentity.Current)) return;
         // Validate both existing assignments before selecting either local player's new request.
         for (int i = 0; i < Captures.Length; i++)
@@ -160,19 +161,29 @@ internal static class HeavyShieldBanner
             request.Select(candidates, other.Receipt, other.Life);
             if (request.Receipt == Guid.Empty) Captures[i].End(); // Consumed; no future automatic refill.
         }
+#endif
     }
 
     internal static bool IsAssigned(Guid receipt, long life)
     {
+#if ANDROID
+        // This platform has no enabled banner observation/binding owner.
+        return false;
+#else
         if (receipt == Guid.Empty || life <= 0) return false;
         for (int i = 0; i < Captures.Length; i++)
             if (Captures[i].Request.Receipt == receipt && Captures[i].Request.Life == life) return true;
         return false;
+#endif
     }
 
     internal static bool TryGetOrder(Guid receipt, long life, out HeavyShieldBannerOrder order)
     {
         order = default;
+#if ANDROID
+        // Unsupported banner adapter: no command and no native layout read.
+        return false;
+#else
         if (receipt == Guid.Empty || life <= 0) return false;
         for (int i = 0; i < Captures.Length; i++)
         {
@@ -204,6 +215,7 @@ internal static class HeavyShieldBanner
             catch (Exception ex) { Fail(capture, "anchor read " + ex.GetType().Name); return false; }
         }
         return false;
+#endif
     }
 
     internal static void Reset()
@@ -226,11 +238,20 @@ internal static class HeavyShieldBanner
         return true;
     }
 
+#if ANDROID
+    // Capability refusal for this platform: no phase ever has an assignable banner owner.
+    private static bool Available(HeavyShieldIdentityPhase phase) => false;
+#else
     private static bool Available(HeavyShieldIdentityPhase phase) => phase is HeavyShieldIdentityPhase.Allocated
         or HeavyShieldIdentityPhase.Staged or HeavyShieldIdentityPhase.Loaded;
+#endif
 
     private static void Activated(Player player)
     {
+#if ANDROID
+        // Unsupported on this platform: no player/native read, no activation token consumed,
+        // no binding change.
+#else
         try
         {
             if (player == null) return;
@@ -264,6 +285,7 @@ internal static class HeavyShieldBanner
             foreach (var capture in Captures)
                 if (ReferenceEquals(capture.Player, player)) Fail(capture, "activation read " + ex.GetType().Name);
         }
+#endif
     }
 
     private static int LocalIndex(Player player)
@@ -359,6 +381,7 @@ internal static class HeavyShieldBanner
         try { KingdomEnhancedPlugin.Instance?.LogSource?.LogWarning("[HeavyShieldBanner] " + message); } catch { }
     }
 
+#if !ANDROID
     // Static 2.4 ARM64 map: ActivateFormation=0x7dd638, OnDisable=0x664d20, each one mapped CSharp slot.
     // Postfix observes the final native side after ActivateFormation's enabled=true/side/recruit sequence.
     [HarmonyPatch(typeof(Player), nameof(Player.ActivateFormation))]
@@ -380,4 +403,5 @@ internal static class HeavyShieldBanner
                 if (capture.FormationPointer == __instance.Pointer) capture.End();
         }
     }
+#endif
 }

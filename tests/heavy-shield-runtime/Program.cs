@@ -3,6 +3,7 @@ using KingdomEnhancedMod;
 using UnityEngine;
 
 int checks = 0;
+if (!HeavyShieldHookQuery.PerfDiagLine.Contains("mode=compat-unsupported")) throw new Exception("host must test live compat fallback");
 void Check(bool ok, string label) { ++checks; if (!ok) throw new Exception(label); }
 if (args.Length == 1 && args[0].StartsWith("--lifecycle-"))
 {

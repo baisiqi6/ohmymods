@@ -42,9 +42,10 @@ public class Setting {public bool Value=true;}
 public static class ModConfig {public static Setting Enabled=new(),ShowCalendarHud=new();}
 public static class GreekBankScope {public static bool IsActive;}
 public static class BankAssistantCoordinator {public static int Reads;public static int GetStashedCoinsForPanel(){Reads++;return 80;}}
-public enum WallEngineerUnavailableReason {Disabled,Loading,NoOuterWall,NetworkUnsupported}
-public struct WallEngineerStatus {public bool Ready;public int AppliedMultiplier;public WallEngineerUnavailableReason Reason;}
-public static class WallEngineerRuntime {public static WallEngineerStatus Status=new(){Ready=true,AppliedMultiplier=3};}
+// 真实 WallEngineerUnavailableReason / WallEngineerStatus / WallEngineerStatusText 由本工程链接的
+// il2cpp/WallEngineerRules.cs 提供（禁止在此重复声明同名类型）。这里只保留宿主无法链接的运行时装填点，
+// 按生产构造契约注入快照：Enabled/AuthorityAvailable/Ready/AppliedMultiplier/EligibleWallCount/Version/Reason。
+internal static class WallEngineerRuntime {public static WallEngineerStatus Status=new WallEngineerStatus(true,true,true,3,0,0L,WallEngineerUnavailableReason.None);}
 public struct CalendarSnapshot {public int TotalDay,Hour,SeasonDay,NextSeasonDay;public Season CurrentSeason,NextSeason;public bool HasNextSeason;public float Progress;}
 public static class CalendarReader {public static bool TryRead(Director d,out CalendarSnapshot s){s=new(){TotalDay=15,Hour=10,SeasonDay=2,CurrentSeason=Season.Spring,NextSeason=Season.Summer,HasNextSeason=true,NextSeasonDay=30,Progress=.4f};return true;}}
 public static class ImGuiCompat {public static List<(UnityEngine.Rect Rect,UnityEngine.Texture2D Texture)> Textures=new();public static void DrawTexture(UnityEngine.Rect r,UnityEngine.Texture2D t){Textures.Add((r,t));}}

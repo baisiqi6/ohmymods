@@ -38,6 +38,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <DefineConstants>ANDROID;IL2CPP</DefineConstants>
     <EnableDefaultItems>false</EnableDefaultItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
     <GameInteropDir></GameInteropDir>
     <LoaderRuntimeDir></LoaderRuntimeDir>
@@ -72,7 +73,7 @@
     <Compile Include="PatchUI_MobileCalendarHud.cs" />
     <Compile Include="CalendarSnapshot.cs" />
     <Compile Include="MobilePopulation.cs" />
-    <Compile Include="PopulationCounts.cs" />
+
     <!-- Issue #184 营地补员批：三份共享源按原样链接（ANDROID 条件块＋入口纯托管门）。 -->
     <Compile Include="../il2cpp/PatchRoles_BeggarCamp.cs" Link="Production/PatchRoles_BeggarCamp.cs" />
     <Compile Include="../il2cpp/PatchPerformance_Population.cs" Link="Production/PatchPerformance_Population.cs" />
@@ -121,6 +122,129 @@
     <!-- Issue #188：公共图片 Android partial 与 PC 同源的只读随身钻石。 -->
     <Compile Include="../il2cpp/PatchUI_AndroidImages.cs" Link="Production/PatchUI_AndroidImages.cs" />
     <Compile Include="../il2cpp/PatchUI_CalendarGems.cs" Link="Production/PatchUI_CalendarGems.cs" />
+    <!-- G1 source closure: explicit shared owners; runtime installation remains separately verified. -->
+    <Compile Include="../il2cpp/ArcherOptionsScope.cs" Link="Shared/ArcherOptionsScope.cs" />
+    <Compile Include="../il2cpp/CharacterLeisureAtlas.cs" Link="Shared/CharacterLeisureAtlas.cs" />
+    <Compile Include="../il2cpp/CharacterLeisureClock.cs" Link="Shared/CharacterLeisureClock.cs" />
+    <Compile Include="../il2cpp/CoinCourierRuntimeRules.cs" Link="Shared/CoinCourierRuntimeRules.cs" />
+    <Compile Include="../il2cpp/CombatDamage.cs" Link="Shared/CombatDamage.cs" />
+    <Compile Include="../il2cpp/CombatTargetLife.cs" Link="Shared/CombatTargetLife.cs" />
+    <Compile Include="../il2cpp/CrossbowmanBoltWallPierce.cs" Link="Shared/CrossbowmanBoltWallPierce.cs" />
+    <Compile Include="../il2cpp/CrossbowmanLifecycle.cs" Link="Shared/CrossbowmanLifecycle.cs" />
+    <Compile Include="../il2cpp/CrossbowRatioPolicy.cs" Link="Shared/CrossbowRatioPolicy.cs" />
+    <Compile Include="../il2cpp/DeadlandsFollowerCapture.cs" Link="Shared/DeadlandsFollowerCapture.cs" />
+    <Compile Include="../il2cpp/FleetGreekSquads.cs" Link="Shared/FleetGreekSquads.cs" />
+    <Compile Include="../il2cpp/GuardRankDistribution.cs" Link="Shared/GuardRankDistribution.cs" />
+    <Compile Include="../il2cpp/HeavyShieldActorVisuals.cs" Link="Shared/HeavyShieldActorVisuals.cs" />
+    <Compile Include="../il2cpp/HeavyShieldBlockPolicy.cs" Link="Shared/HeavyShieldBlockPolicy.cs" />
+    <Compile Include="../il2cpp/HeavyShieldCombat.cs" Link="Shared/HeavyShieldCombat.cs" />
+    <Compile Include="../il2cpp/HeavyShieldContracts.cs" Link="Shared/HeavyShieldContracts.cs" />
+    <Compile Include="../il2cpp/HeavyShieldEnrollment.cs" Link="Shared/HeavyShieldEnrollment.cs" />
+    <Compile Include="../il2cpp/HeavyShieldIdentity.cs" Link="Shared/HeavyShieldIdentity.cs" />
+    <Compile Include="../il2cpp/HeavyShieldIntegration.cs" Link="Shared/HeavyShieldIntegration.cs" />
+    <Compile Include="../il2cpp/HeavyShieldNativeHooks.cs" Link="Shared/HeavyShieldNativeHooks.cs" />
+    <!-- Issue #206 perf closure: the shared consumers above (HeavyShieldNativeHooks /
+         Patch_HeavyShieldSnapshot / MusketeerArchive / HeroRecruitmentFingerprint) call these two
+         helpers, so the explicit Android source list must carry the real implementations. -->
+    <Compile Include="../il2cpp/PatchPerf_CanonicalHashBuffer.cs" Link="Shared/PatchPerf_CanonicalHashBuffer.cs" />
+    <Compile Include="../il2cpp/PatchPerf_HeavyShieldHookQuery.cs" Link="Shared/PatchPerf_HeavyShieldHookQuery.cs" />
+    <Compile Include="../il2cpp/HeavyShieldPersistence.cs" Link="Shared/HeavyShieldPersistence.cs" />
+    <Compile Include="../il2cpp/HeavyShieldPromotionBridge.cs" Link="Shared/HeavyShieldPromotionBridge.cs" />
+    <Compile Include="../il2cpp/HeavyShieldQuota.cs" Link="Shared/HeavyShieldQuota.cs" />
+    <Compile Include="../il2cpp/HeavyShieldRuntime.cs" Link="Shared/HeavyShieldRuntime.cs" />
+    <Compile Include="../il2cpp/HeavyShieldSaveData.cs" Link="Shared/HeavyShieldSaveData.cs" />
+    <Compile Include="../il2cpp/HeavyShieldShopPayment.cs" Link="Shared/HeavyShieldShopPayment.cs" />
+    <Compile Include="../il2cpp/HeavyShieldShopShell.cs" Link="Shared/HeavyShieldShopShell.cs" />
+    <Compile Include="../il2cpp/HeroArcherAnimation.cs" Link="Shared/HeroArcherAnimation.cs" />
+    <Compile Include="../il2cpp/HeroArcherArrowVisuals.cs" Link="Shared/HeroArcherArrowVisuals.cs" />
+    <Compile Include="../il2cpp/HeroArcherCloth.cs" Link="Shared/HeroArcherCloth.cs" />
+    <Compile Include="../il2cpp/HeroArcherClothPhysics.cs" Link="Shared/HeroArcherClothPhysics.cs" />
+    <Compile Include="../il2cpp/HeroArcherCombat.cs" Link="Shared/HeroArcherCombat.cs" />
+    <Compile Include="../il2cpp/HeroArcherGuardFacing.cs" Link="Shared/HeroArcherGuardFacing.cs" />
+    <Compile Include="../il2cpp/HeroArcherLiveDiagnostics.cs" Link="Shared/HeroArcherLiveDiagnostics.cs" />
+    <Compile Include="../il2cpp/HeroArcherMotion.cs" Link="Shared/HeroArcherMotion.cs" />
+    <Compile Include="../il2cpp/HeroArcherMovement.cs" Link="Shared/HeroArcherMovement.cs" />
+    <Compile Include="../il2cpp/HeroArcherNativePose.cs" Link="Shared/HeroArcherNativePose.cs" />
+    <Compile Include="../il2cpp/HeroArcherNetwork.cs" Link="Shared/HeroArcherNetwork.cs" />
+    <Compile Include="../il2cpp/HeroArcherRange.cs" Link="Shared/HeroArcherRange.cs" />
+    <Compile Include="../il2cpp/HeroArcherRuntime.cs" Link="Shared/HeroArcherRuntime.cs" />
+    <Compile Include="../il2cpp/HeroArcherScarfGeometry.cs" Link="Shared/HeroArcherScarfGeometry.cs" />
+    <Compile Include="../il2cpp/HeroArcherTowerPolicy.cs" Link="Shared/HeroArcherTowerPolicy.cs" />
+    <Compile Include="../il2cpp/HeroArcherVisuals.cs" Link="Shared/HeroArcherVisuals.cs" />
+    <Compile Include="../il2cpp/HeroArcherWallPierce.cs" Link="Shared/HeroArcherWallPierce.cs" />
+    <Compile Include="../il2cpp/HeroNativeRights.cs" Link="Shared/HeroNativeRights.cs" />
+    <Compile Include="../il2cpp/HeroRecruitment.cs" Link="Shared/HeroRecruitment.cs" />
+    <Compile Include="../il2cpp/HeroRecruitmentArchive.cs" Link="Shared/HeroRecruitmentArchive.cs" />
+    <Compile Include="../il2cpp/HeroRecruitmentContext.cs" Link="Shared/HeroRecruitmentContext.cs" />
+    <Compile Include="../il2cpp/HeroRecruitmentFingerprint.cs" Link="Shared/HeroRecruitmentFingerprint.cs" />
+    <Compile Include="../il2cpp/HeroShop.cs" Link="Shared/HeroShop.cs" />
+    <Compile Include="../il2cpp/HeroShopBannerVisuals.cs" Link="Shared/HeroShopBannerVisuals.cs" />
+    <Compile Include="../il2cpp/HeroVisualPriority.cs" Link="Shared/HeroVisualPriority.cs" />
+    <Compile Include="../il2cpp/KnightIdentityArchive.cs" Link="Shared/KnightIdentityArchive.cs" />
+    <Compile Include="../il2cpp/KnightIdentityContext.cs" Link="Shared/KnightIdentityContext.cs" />
+    <Compile Include="../il2cpp/KnightIdentityLoadSeed.cs" Link="Shared/KnightIdentityLoadSeed.cs" />
+    <Compile Include="../il2cpp/KnightIdentityNetwork.cs" Link="Shared/KnightIdentityNetwork.cs" />
+    <Compile Include="../il2cpp/KnightIdentityQuotaRecovery.cs" Link="Shared/KnightIdentityQuotaRecovery.cs" />
+    <Compile Include="../il2cpp/KnightIdentityRuntime.cs" Link="Shared/KnightIdentityRuntime.cs" />
+    <Compile Include="../il2cpp/MedievalScatterPolicy.cs" Link="Shared/MedievalScatterPolicy.cs" />
+    <Compile Include="../il2cpp/MusketeerAccess.cs" Link="Shared/MusketeerAccess.cs" />
+    <Compile Include="../il2cpp/MusketeerAnimation.cs" Link="Shared/MusketeerAnimation.cs" />
+    <Compile Include="../il2cpp/MusketeerArchive.cs" Link="Shared/MusketeerArchive.cs" />
+    <Compile Include="../il2cpp/MusketeerCombat.cs" Link="Shared/MusketeerCombat.cs" />
+    <Compile Include="../il2cpp/MusketeerDefense.cs" Link="Shared/MusketeerDefense.cs" />
+    <Compile Include="../il2cpp/MusketeerIdentity.cs" Link="Shared/MusketeerIdentity.cs" />
+    <Compile Include="../il2cpp/MusketeerNativeArchive.cs" Link="Shared/MusketeerNativeArchive.cs" />
+    <Compile Include="../il2cpp/MusketeerPairedBackup.cs" Link="Shared/MusketeerPairedBackup.cs" />
+    <Compile Include="../il2cpp/MusketeerPersistence.cs" Link="Shared/MusketeerPersistence.cs" />
+    <Compile Include="../il2cpp/MusketeerRuntime.cs" Link="Shared/MusketeerRuntime.cs" />
+    <Compile Include="../il2cpp/MusketeerShop.cs" Link="Shared/MusketeerShop.cs" />
+    <Compile Include="../il2cpp/MusketeerShopAssets.cs" Link="Shared/MusketeerShopAssets.cs" />
+    <Compile Include="../il2cpp/MusketeerShopRules.cs" Link="Shared/MusketeerShopRules.cs" />
+    <Compile Include="../il2cpp/MusketeerVisuals.cs" Link="Shared/MusketeerVisuals.cs" />
+    <Compile Include="../il2cpp/PatchArcher_GreekImpact.cs" Link="Shared/PatchArcher_GreekImpact.cs" />
+    <Compile Include="../il2cpp/PatchArcher_Options.cs" Link="Shared/PatchArcher_Options.cs" />
+    <Compile Include="../il2cpp/PatchDivine_GhostSquads.cs" Link="Shared/PatchDivine_GhostSquads.cs" />
+    <Compile Include="../il2cpp/PatchRoles_ArcherNightBand.cs" Link="Shared/PatchRoles_ArcherNightBand.cs" />
+    <Compile Include="../il2cpp/PatchRoles_Castle.cs" Link="Shared/PatchRoles_Castle.cs" />
+    <Compile Include="../il2cpp/PatchRoles_CrossbowDefense.cs" Link="Shared/PatchRoles_CrossbowDefense.cs" />
+    <Compile Include="../il2cpp/PatchRoles_Crossbowman.cs" Link="Shared/PatchRoles_Crossbowman.cs" />
+    <Compile Include="../il2cpp/PatchRoles_DeadlandsPowers.cs" Link="Shared/PatchRoles_DeadlandsPowers.cs" />
+    <Compile Include="../il2cpp/PatchRoles_GreekFireAssets.cs" Link="Shared/PatchRoles_GreekFireAssets.cs" />
+    <Compile Include="../il2cpp/PatchRoles_HeavyShieldArt.cs" Link="Shared/PatchRoles_HeavyShieldArt.cs" />
+    <Compile Include="../il2cpp/PatchRoles_KnightStyle.cs" Link="Shared/PatchRoles_KnightStyle.cs" />
+    <Compile Include="../il2cpp/PatchRoles_Ninja.cs" Link="Shared/PatchRoles_Ninja.cs" />
+    <Compile Include="../il2cpp/PatchRoles_NorseSquad.cs" Link="Shared/PatchRoles_NorseSquad.cs" />
+    <Compile Include="../il2cpp/PatchRoles_Worker.cs" Link="Shared/PatchRoles_Worker.cs" />
+    <Compile Include="../il2cpp/PatchShared_ScanCache.cs" Link="Shared/PatchShared_ScanCache.cs" />
+    <Compile Include="../il2cpp/Patch_HeavyShieldGait.cs" Link="Shared/Patch_HeavyShieldGait.cs" />
+    <Compile Include="../il2cpp/Patch_HeavyShieldLeapBash.cs" Link="Shared/Patch_HeavyShieldLeapBash.cs" />
+    <Compile Include="../il2cpp/Patch_HeavyShieldSnapshot.cs" Link="Shared/Patch_HeavyShieldSnapshot.cs" />
+    <Compile Include="../il2cpp/Patch_MusketeerLegacyCompensation.cs" Link="Shared/Patch_MusketeerLegacyCompensation.cs" />
+    <Compile Include="../il2cpp/Patch_MusketeerLegacyCompensationRuntime.cs" Link="Shared/Patch_MusketeerLegacyCompensationRuntime.cs" />
+    <Compile Include="../il2cpp/Patch_MusketeerNativeSave.cs" Link="Shared/Patch_MusketeerNativeSave.cs" />
+    <Compile Include="../il2cpp/Patch_ShopV2Art.cs" Link="Shared/Patch_ShopV2Art.cs" />
+    <Compile Include="../il2cpp/ScatterArrowTint.cs" Link="Shared/ScatterArrowTint.cs" />
+    <Compile Include="../il2cpp/ShopCleanupQueue.cs" Link="Shared/ShopCleanupQueue.cs" />
+    <Compile Include="../il2cpp/SquadFollowGuard.cs" Link="Shared/SquadFollowGuard.cs" />
+    <Compile Include="../il2cpp/SquadRosterSnapshot.cs" Link="Shared/SquadRosterSnapshot.cs" />
+    <Compile Include="../il2cpp/PopulationCounts.cs" Link="Shared/PopulationCounts.cs" />
+    <Compile Include="compat/DiagnosticGlobalAliases.cs" Link="Shared/DiagnosticGlobalAliases.cs" />
+    <Compile Include="../il2cpp/CoinCourierGround.cs" Link="Shared/CoinCourierGround.cs" />
+    <Compile Include="../il2cpp/CoinCourierPersistence.Hooks.cs" Link="Shared/CoinCourierPersistence.Hooks.cs" />
+    <Compile Include="../il2cpp/HeroBoardingPolicy.cs" Link="Shared/HeroBoardingPolicy.cs" />
+    <Compile Include="../il2cpp/HeavyShieldCareerExclusion.cs" Link="Shared/HeavyShieldCareerExclusion.cs" />
+    <Compile Include="../il2cpp/MusketeerHooks.cs" Link="Shared/MusketeerHooks.cs" />
+    <Compile Include="../il2cpp/MusketeerGunVisuals.cs" Link="Shared/MusketeerGunVisuals.cs" />
+    <!-- Issue #225: real shared shop stock, transit, and lighting source closure. -->
+    <Compile Include="../il2cpp/CustomShopStocks.cs" Link="Shared/CustomShopStocks.cs" />
+    <Compile Include="../il2cpp/Patch_CustomShopStockTransit.cs" Link="Shared/Patch_CustomShopStockTransit.cs" />
+    <Compile Include="../il2cpp/Patch_CustomShopLighting.cs" Link="Shared/Patch_CustomShopLighting.cs" />
+    <Compile Include="../il2cpp/Patch_HeavyShieldBanner.cs" Link="Shared/Patch_HeavyShieldBanner.cs" />
+    <Compile Include="../il2cpp/Patch_HeavyShieldBannerPolicy.cs" Link="Shared/Patch_HeavyShieldBannerPolicy.cs" />
+    <Compile Include="../il2cpp/Patch_HeavyShieldDurabilityMigration.cs" Link="Shared/Patch_HeavyShieldDurabilityMigration.cs" />
+    <Compile Include="../il2cpp/Patch_HeavyShieldMaintenancePolicy.cs" Link="Shared/Patch_HeavyShieldMaintenancePolicy.cs" />
+    <Compile Include="../il2cpp/Patch_HeavyShieldRepair.cs" Link="Shared/Patch_HeavyShieldRepair.cs" />
+    <Compile Include="Patch_ProfessionHooks.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -129,6 +253,8 @@
     <Reference Include="Il2CppInterop.Runtime"><HintPath>$(LoaderRuntimeDir)/Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Il2Cpp"><HintPath>$(SupportModuleDir)/Il2Cpp.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(GameInteropDir)/Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.ImageConversionModule"><HintPath>$(GameInteropDir)/UnityEngine.ImageConversionModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.JSONSerializeModule"><HintPath>$(GameInteropDir)/UnityEngine.JSONSerializeModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameInteropDir)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.AnimationModule"><HintPath>$(GameInteropDir)/UnityEngine.AnimationModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.Physics2DModule"><HintPath>$(GameInteropDir)/UnityEngine.Physics2DModule.dll</HintPath><Private>false</Private></Reference>
@@ -142,9 +268,34 @@
   </ItemGroup>
 
   <ItemGroup>
-    <_RequiredGameInterop Include="Assembly-CSharp.dll;UnityEngine.CoreModule.dll;UnityEngine.AnimationModule.dll;UnityEngine.IMGUIModule.dll;UnityEngine.UI.dll;UnityEngine.UIModule.dll;UnityEngine.InputLegacyModule.dll;UnityEngine.TextRenderingModule.dll;UnityEngine.Physics2DModule.dll;Il2Cppmscorlib.dll;Il2CppSystem.Core.dll" />
+    <_RequiredGameInterop Include="Assembly-CSharp.dll;UnityEngine.ImageConversionModule.dll;UnityEngine.JSONSerializeModule.dll;UnityEngine.CoreModule.dll;UnityEngine.AnimationModule.dll;UnityEngine.IMGUIModule.dll;UnityEngine.UI.dll;UnityEngine.UIModule.dll;UnityEngine.InputLegacyModule.dll;UnityEngine.TextRenderingModule.dll;UnityEngine.Physics2DModule.dll;Il2Cppmscorlib.dll;Il2CppSystem.Core.dll" />
     <_RequiredLoaderRuntime Include="MelonLoader.dll;0Harmony.dll;Il2CppInterop.Runtime.dll" />
     <_RequiredSupportModule Include="Il2Cpp.dll" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <EmbeddedResource Include="../il2cpp/Assets/ShopV2Hero.png" LogicalName="KingdomEnhancedMod.ShopV2Hero.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/ShopV2Shield.png" LogicalName="KingdomEnhancedMod.ShopV2Shield.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/ShopV2Musket.png" LogicalName="KingdomEnhancedMod.ShopV2Musket.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/HeavyShieldSoldierAtlas.png" LogicalName="KingdomEnhancedMod.HeavyShieldSoldierAtlas.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/HeavyShieldShopAtlas.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopAtlas.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/HeavyShieldShopLayers.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopLayers.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/HeavyShieldGreekShopLayers.png" LogicalName="KingdomEnhancedMod.HeavyShieldGreekShopLayers.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/HeavyShieldSoldierAtlasCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldSoldierAtlasCoarse.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/HeavyShieldShopAtlasCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopAtlasCoarse.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/HeavyShieldShopLayersCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldShopLayersCoarse.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/HeavyShieldGreekShopLayersCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldGreekShopLayersCoarse.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/HeavyShieldPaidShield.png" LogicalName="KingdomEnhancedMod.HeavyShieldPaidShield.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/HeavyShieldPaidShieldCoarse.png" LogicalName="KingdomEnhancedMod.HeavyShieldPaidShieldCoarse.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/HeroArcherAtlas.png" LogicalName="KingdomEnhancedMod.HeroArcherAtlas.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/HeroArcherLeisure.png" LogicalName="KingdomEnhancedMod.HeroArcherLeisure.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/ArtemisArrow.png" LogicalName="KingdomEnhancedMod.ArtemisArrow.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/HeroShopSeats.png" LogicalName="KingdomEnhancedMod.HeroShopSeats.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/MusketeerAtlas.png" LogicalName="KingdomEnhancedMod.MusketeerAtlas.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/MusketeerLeisure.png" LogicalName="KingdomEnhancedMod.MusketeerLeisure.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/MusketeerGun.png" LogicalName="KingdomEnhancedMod.MusketeerGun.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/MusketeerBullet.png" LogicalName="KingdomEnhancedMod.MusketeerBullet.png" />
   </ItemGroup>
 
   <Target Name="ValidateAndroidDependencyDirs" BeforeTargets="PrepareForBuild">

@@ -151,25 +151,28 @@ internal static class ExtensionIslandProgressionGuard
                     //（宁可停止返回 None，也不再执行危险原 unlock）。
                     failClosedOnScopeError = true;
 
-                    if (owner.CurrentLand == ExtensionIslandRuntime.LandIndex)
+                    // 目标集合 {11,13}（MountIslandSplitPolicy 单表，同一 callback/同一 original bits 透传）；
+                    // 宫廷 12 与原生 0..10 一律透传，不吞 12、不复制第二套 native callback。
+                    int ownerLand = owner.CurrentLand;
+                    if (MountIslandSplitPolicy.IsExtensionLand(ownerLand))
                     {
                         Managers managers = Managers.Inst;
                         Game game = managers != null ? managers.game : null;
                         if (game == null)
                         {
-                            LogOnce("scene-unreadable", "owner land " + ExtensionIslandRuntime.LandIndex
+                            LogOnce("scene-unreadable-" + ownerLand, "owner land " + ownerLand
                                 + " confirmed but scene state unreadable; stopping with None (original not executed)");
                             shouldBlock = true;
                         }
-                        else if (game.currentLand == ExtensionIslandRuntime.LandIndex)
+                        else if (game.currentLand == ownerLand)
                         {
-                            LogOnce("guarded", "guarded on extension land " + ExtensionIslandRuntime.LandIndex
+                            LogOnce("guarded-" + ownerLand, "guarded on extension land " + ownerLand
                                 + ": returning None bits, original not executed");
                             shouldBlock = true;
                         }
-                        // 场景不匹配（读取成功且 != 11）→ 按原合同透传（shouldBlock 保持 false）
+                        // 场景不匹配（读取成功且 != ownerLand）→ 按原合同透传（shouldBlock 保持 false）
                     }
-                    // owner 不在 land11 → 透传
+                    // owner 不在扩展岛 → 透传
                 }
             }
         }

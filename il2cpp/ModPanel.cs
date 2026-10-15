@@ -85,8 +85,13 @@ public class ModPanel : MonoBehaviour
 
     private void OnDestroy()
     {
+        HeavyShieldNativeKeyReader.ReleaseNativeResources();
         // 仅面板对象真正销毁（退出游戏）时收尾持久驱动；隐藏面板或暂停不重置。
         WallEngineerRuntime.Reset();
+        try { MusketeerShop.Clear("driver-destroyed"); } catch { }
+        try { HeavyShieldShopShell.Clear("driver-destroyed"); } catch { }
+        try { HeroShop.Clear("driver-destroyed"); } catch { }
+        try { CoinCourierShop.Clear("driver-destroyed"); } catch { }
     }
 
     private static bool _faultLogged;

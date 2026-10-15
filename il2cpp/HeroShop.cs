@@ -92,6 +92,10 @@ internal sealed class HeroShopPayment
 
 internal static class HeroShopPlacement
 {
+    internal static bool Inside(float left, float right, float center, float halfWidth)
+        => float.IsFinite(left) && float.IsFinite(right) && float.IsFinite(center)
+            && float.IsFinite(halfWidth) && halfWidth > 0 && left <= right
+            && center - halfWidth >= left && center + halfWidth <= right;
     internal readonly struct Interval
     {
         internal readonly float Low, High;
@@ -304,6 +308,7 @@ internal static class HeroShop
     private static CRPCHeader _header;
     private static Sprite _sprite;
     private static ShopV2Visuals _v2;
+    private static CustomShopLighting _lighting;
     private static int _leftV2State, _rightV2State;
     private static float _nextV2StateAt;
     private static SpriteRenderer _renderer;
@@ -363,6 +368,7 @@ internal static class HeroShop
                 {
                     ObserveVisualSelection();
                     if (_menuSuspended) { _menuSuspended = false; Log("resume: retained same shop"); }
+                    _lighting?.Tick(true);
                     UpdateV2Visuals();
                     _payable.forceBlockPayment = !CanPurchase();
                     _status = HeroRecruitment.StatusText;
@@ -566,6 +572,8 @@ internal static class HeroShop
         _header = _postbox.RegisterObject(_object, CRPCType.SemiStatic);
         if (!HeaderMatches()) throw new InvalidOperationException("native payment header registration failed");
         _createStage = "activate";
+        _lighting = new CustomShopLighting("HeroShop");
+        if (!_lighting.Attach(_object.transform, BiomeHolder.Inst?.BiomeIndex ?? -1)) Log("lighting: " + _lighting.Status);
         _object.SetActive(true); // native Awake/OnEnable initialize and register exactly once
         UpdateV2Visuals();
         _payable.forceBlockPayment = !CanPurchase();
@@ -702,6 +710,7 @@ internal static class HeroShop
                 && _postbox.MasterSemiCRPCHLookup.TryGetValue(_object, out var found)
                 && found != null && found.Pointer == _header.Pointer)
                 _postbox.DeregisterObject(_object, _header.NetID, CRPCType.SemiStatic);
+            _lighting?.Dispose(); _lighting = null;
             if (_object != null) { _object.SetActive(false); UnityEngine.Object.Destroy(_object); }
             cleaned = true;
         }

@@ -137,7 +137,11 @@ internal static class HeavyShieldPersistence
                 || session.Slot != loaded.currentCampaign
                 || session.Challenge != loaded.currentChallenge)
             { HeavyShieldIdentity.Install(null); return; }
-            if (session.Land >= 0 && WorldKey() != 0) session.World = WorldKey();
+            if (session.Land >= 0 && WorldKey() != 0)
+            {
+                if (session.World != WorldKey() && !CustomShopStocks.Shield.ReleaseAll()) return;
+                session.World = WorldKey();
+            }
             HeavyShieldIdentity.Install(session);
             if (session.KeyReady && !IsNativeKeyCurrent(session)) Freeze(session);
             if (_load == null) ActivateBoundSoldiers(session);
@@ -561,10 +565,12 @@ internal static class HeavyShieldPersistence
             || !success || scope.Conflict || (!scope.Exact && !scope.Fresh)
             || !allProven || !quotaRestored)
         {
+            s.Unknown = true;
+            if (!CustomShopStocks.Shield.ReleaseAll())
+                throw new InvalidOperationException("rejected shield stock release failed");
             // An active-but-undischarged first-connect responsibility keeps the
             // first purchase closed until a correct lifecycle completes it; the
             // normal Exact/paid paths never take this branch.
-            s.Unknown = true;
             foreach (var handle in scope.Attached)
                 try { HeavyShieldRuntime.DetachCarrier(handle); } catch { }
             return;
@@ -656,7 +662,15 @@ internal static class HeavyShieldPersistence
                 && loaded != null && loaded.Pointer == owner.Global
                 && prefs != null && prefs.Pointer == owner.Prefs && prefs.contents != null
                 && owner.ExpectedRaw != null && prefs.contents.ContainsKey(HeavyShieldSaveSchema.Key)
+#if ANDROID
+                // Android keeps the 2.4 managed comparison: the native key reader (#206 / PR207) is
+                // neither compiled nor bound on Android, so its ABI is unverified there and the
+                // native fast path is NOT silently ported. PC (else branch) uses the reviewed real
+                // reader; both answer the same fixed-key equality question.
                 && prefs.contents[HeavyShieldSaveSchema.Key] == owner.ExpectedRaw;
+#else
+                && HeavyShieldNativeKeyReader.EqualsCurrent(prefs.contents, owner.ExpectedRaw);
+#endif
         }
         catch { return false; }
     }

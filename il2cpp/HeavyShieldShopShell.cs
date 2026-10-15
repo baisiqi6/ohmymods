@@ -31,6 +31,8 @@ internal static class HeavyShieldShopShell
     private static NetworkPostbox _postbox;
     private static SpriteRenderer[] _renderers;
     private static ShopV2Visuals _greekV2;
+    private static CustomShopLighting _lighting;
+    private static float _nextSiteCheck;
     private static HeavyShieldAtlasId _shopAtlas = HeavyShieldAtlasId.ShopLayers;
     private static long _shopLife;
     private static int _merchantFrame = -1, _fixturesFrame = -1;
@@ -84,6 +86,8 @@ internal static class HeavyShieldShopShell
     {
         try
         {
+            if (!CustomShopStocks.Shield.CheckContext(enabled))
+                throw new InvalidOperationException("stock cleanup pending: " + CustomShopStocks.Shield.Fault);
             AdvanceFailedStarts();
             ObserveNativeSettlement();
             if (_retiring) { if (Time.unscaledTime >= _cleanupRetryAt) Clear(_retryReason); return; }
@@ -99,6 +103,8 @@ internal static class HeavyShieldShopShell
                 case HeroShopRetention.Outcome.ClearContextLost: Clear("context-lost"); return;
                 case HeroShopRetention.Outcome.ClearNonPlayable: Clear("left-playing-or-menu"); return;
                 case HeroShopRetention.Outcome.Active:
+                    if (WithdrawOutsideTerritory()) return;
+                    _lighting?.Tick(true);
                     _menuSuspended = false;
                     if (IslandSaveData.isSavingGame) CancelPendingTransactionsBeforeNativeSave();
                     MaintainBowPrefab(); UpdatePaymentGates(); UpdateVisuals(); ReconcilePaidBow();
@@ -227,6 +233,8 @@ internal static class HeavyShieldShopShell
         _points = new Point[Kinds.Length];
         for (int i = 0; i < _points.Length; i++) CreatePoint(i, halfWidth);
         if (!HeaderMatches()) throw new InvalidOperationException("native registration failed");
+        _lighting = new CustomShopLighting("HeavyShieldShop");
+        if (!_lighting.Attach(_object.transform, BiomeHolder.Inst?.BiomeIndex ?? -1)) Log("lighting: " + _lighting.Status);
         _stage = "activate"; _object.SetActive(true);
         MaintainBowPrefab(); UpdatePaymentGates(); UpdateVisuals();
         _status = HeavyShieldIdentity.StatusText; _stage = "ready";
@@ -290,7 +298,7 @@ internal static class HeavyShieldShopShell
     private static bool CanStart(Point point, Player player)
     {
         if (player == null || !player.hasLocalAuthority || point.Disabled || _economyFault || _retiring || _menuSuspended
-            || _object == null || !_object.activeInHierarchy || IslandSaveData.isSavingGame
+            || CustomShopStocks.Shield.Pending || _object == null || !_object.activeInHierarchy || IslandSaveData.isSavingGame
             || Managers.Inst?.game == null || Managers.Inst.game.state != Game.State.Playing
             || !HeavyShieldRuntime.CarrierPreflightReady || !HeaderMatches() || !BowUsable() || AnyBusy()) return false;
         if (!TryContext(out var kingdom, out var layer) || _kingdom == null || _layer == null
@@ -588,6 +596,20 @@ internal static class HeavyShieldShopShell
             {
                 UpdatePaymentGates(); _cleanupRetryAt = Time.unscaledTime + .1f; _status = "等待原生付款清理完成"; return;
             }
+            if (reason == "territory-contracted")
+            {
+                if (_paidBow != null && !_paidBow.pickedUp && _paidBow.friendlyClaimer == null && _paidBow.enemyClaimer == null)
+                {
+                    if (!CustomShopStocks.Shield.Capture(_paidBow, _layer))
+                        throw new InvalidOperationException("stock withdrawal failed: " + CustomShopStocks.Shield.Fault);
+                    float left = _kingdom.GetBorderSideIntact(Side.Left), right = _kingdom.GetBorderSideIntact(Side.Right);
+                    if (!float.IsFinite(left) || !float.IsFinite(right) || left > right
+                        || !CustomShopStocks.Shield.Park(new Vector3((left + right) * .5f, _object.transform.position.y, _object.transform.position.z)))
+                        throw new InvalidOperationException("stock safe anchor unavailable");
+                }
+            }
+            else if (!CustomShopStocks.Shield.ReleaseAll())
+                throw new InvalidOperationException("stock release failed: " + CustomShopStocks.Shield.Fault);
             if (_points != null) foreach (var point in _points)
             {
                 if (point == null) continue;
@@ -602,6 +624,7 @@ internal static class HeavyShieldShopShell
                     && found != null && found.Pointer == point.Header.Pointer)
                     _postbox.DeregisterObject(point.Object, point.Header.NetID, CRPCType.SemiStatic);
             }
+            _lighting?.Dispose(); _lighting = null;
             if (_object != null) { _object.SetActive(false); UnityEngine.Object.Destroy(_object); }
             _greekV2?.Clear(); _greekV2 = null;
             _object = null; _points = null; _kingdom = null; _layer = null; _postbox = null; _renderers = null;
@@ -610,7 +633,12 @@ internal static class HeavyShieldShopShell
             _retiring = false; _menuSuspended = false; _cleanupRetryAt = 0;
             _status = "盾具店已清理";
         }
-        catch (Exception e) { _cleanupRetryAt = Time.unscaledTime + 1f; Log("cleanup deferred reason=" + reason + ": " + e.GetType().Name); }
+        catch (Exception e)
+        {
+            _retryReason = "error";
+            if (!CustomShopStocks.Shield.ReleaseAll()) _status = "库存临时状态恢复待重试：" + CustomShopStocks.Shield.Fault;
+            _cleanupRetryAt = Time.unscaledTime + 1f; Log("cleanup deferred reason=" + reason + ": " + e.GetType().Name);
+        }
         finally { _clearing = false; }
     }
     private static HeavyShieldAtlasId CurrentShopAtlas()
@@ -713,6 +741,22 @@ internal static class HeavyShieldShopShell
         if (bow == null || !HeavyShieldIdentity.TryGetPaidBow(bow, out var handle) || !HeavyShieldIdentity.ValidateCareer(in handle)) return;
         _paidBow = bow; ReconcilePaidBow();
     }
+    internal static bool IsStockParked(DroppableTool bow)
+        => bow != null && bow.GetComponent<HeavyShieldPaidBowVisual>()?.IsParked() == true;
+    internal static void SetStockParked(DroppableTool bow, bool parked)
+    {
+        if (bow == null || !HeavyShieldIdentity.TryGetPaidBow(bow, out var handle))
+            throw new InvalidOperationException("paid shield life unavailable");
+        RegisterTypes();
+        var marker = bow.GetComponent<HeavyShieldPaidBowVisual>();
+        if (marker == null)
+        {
+            marker = bow.gameObject.AddComponent<HeavyShieldPaidBowVisual>();
+            if (!marker.Place(bow, in handle, bow.transform.position))
+            { UnityEngine.Object.Destroy(marker); throw new InvalidOperationException("paid shield visual cannot be owned"); }
+        }
+        marker.SetParked(parked);
+    }
     private static void ReconcilePaidBow()
     {
         if (_paidBow == null || _object == null || _layer == null || IslandSaveData.isSavingGame
@@ -723,7 +767,27 @@ internal static class HeavyShieldShopShell
         RegisterTypes();
         var marker = _paidBow.GetComponent<HeavyShieldPaidBowVisual>();
         if (marker == null) marker = _paidBow.gameObject.AddComponent<HeavyShieldPaidBowVisual>();
-        marker.Place(_paidBow, in handle, RackPosition(handle.Side));
+        var tool = _paidBow;
+        int shop = _object.GetInstanceID(); long layer = _layer.Pointer.ToInt64();
+        var target = RackPosition(handle.Side);
+        if (CustomShopStocks.Shield.Holds(tool) && !CustomShopStocks.Shield.Place(tool, target)) return;
+        if (_object == null || _object.GetInstanceID() != shop || !_object.activeInHierarchy
+            || _layer == null || _layer.Pointer.ToInt64() != layer || _paidBow == null || _paidBow.Pointer != tool.Pointer
+            || !tool.gameObject.activeInHierarchy || !tool.transform.IsChildOf(_layer)
+            || tool.pickedUp || tool.friendlyClaimer != null || tool.enemyClaimer != null
+            || !HeavyShieldIdentity.TryGetPaidBow(tool, out var current) || current != handle) return;
+        marker.Place(tool, in handle, target);
+    }
+    private static bool WithdrawOutsideTerritory()
+    {
+        if (Time.unscaledTime < _nextSiteCheck || IslandSaveData.isSavingGame || Time.timeScale <= 0f) return false;
+        _nextSiteCheck = Time.unscaledTime + .5f;
+        float left = _kingdom.GetBorderSideIntact(Side.Left), right = _kingdom.GetBorderSideIntact(Side.Right);
+        if (!float.IsFinite(left) || !float.IsFinite(right) || left > right) return false;
+        float width = _shopAtlas == HeavyShieldAtlasId.GreekShopLayers ? 2f
+            : Math.Max(1.5f, HeavyShieldArtLayout.ShopCellWidth / HeavyShieldArtLayout.ShopPixelsPerUnit * .5f);
+        if (HeroShopPlacement.Inside(left, right, _object.transform.position.x, width)) return false;
+        Clear("territory-contracted"); _retryAt = 0f; return true;
     }
     private static void Log(string message)
     {

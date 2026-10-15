@@ -731,17 +731,33 @@ internal sealed class HeavyShieldPaidBowVisual : MonoBehaviour
     private GameObject _child;
     private bool _bodyEnabled, _kinematic, _placed;
     private Vector2 _velocity;
+    private Vector3 _rackPosition;
+    private bool _parked;
     private float _angularVelocity;
     public HeavyShieldPaidBowVisual(IntPtr pointer) : base(pointer) { }
 
     [HideFromIl2Cpp] internal bool Place(DroppableTool bow, in HeavyShieldCareerHandle handle, Vector3 position)
     {
-        if (_placed) return _handle == handle;
         if (bow == null || bow.gameObject == null || gameObject == null || bow.gameObject.Pointer != gameObject.Pointer
             || bow.gameObject.GetInstanceID() != handle.GoId || handle.Root != gameObject.Pointer
             || bow.pickedUp || bow.friendlyClaimer != null || bow.enemyClaimer != null
             || !HeavyShieldIdentity.TryGetPaidBow(bow, out var actual) || actual != handle
-            || !HeavyShieldIdentity.ValidateCareer(in handle) || !HeavyShieldArt.TryGetPaidShieldSprite(out var sprite)) return false;
+            || !HeavyShieldIdentity.ValidateCareer(in handle)) return false;
+        if (_placed)
+        {
+            if (_handle != handle) return false;
+            // A rack change transfers the same paid tool; repeated maintenance does not
+            // overwrite movement by another owner or recapture borrowed native fields.
+            if (_rackPosition == position) return true;
+            try
+            {
+                if (bow.transform.position != position) bow.transform.position = position;
+                if (bow.transform.position != position) return false;
+                _rackPosition = position; return true;
+            }
+            catch { return false; }
+        }
+        if (!HeavyShieldArt.TryGetPaidShieldSprite(out var sprite)) return false;
         try
         {
             _handle = handle; _body = bow.GetComponent<SpriteRenderer>();
@@ -758,12 +774,25 @@ internal sealed class HeavyShieldPaidBowVisual : MonoBehaviour
             _shield.flipX = handle.Side == HeavyShieldQuota.Side.Right;
             _shield.sortingLayerID = _body.sortingLayerID; _shield.sortingOrder = _body.sortingOrder;
             if (_body.sharedMaterial != null) _shield.sharedMaterial = _body.sharedMaterial;
-            _body.enabled = false; bow.transform.position = position; _placed = true; return true;
+            _body.enabled = false; bow.transform.position = position;
+            if (_body.enabled || bow.transform.position != position) { Restore(); return false; }
+            _rackPosition = position; _placed = true; return true;
         }
         catch { Restore(); return false; }
     }
 
     public void OnDisable() => Restore();
+    [HideFromIl2Cpp] internal bool IsParked() => _parked;
+    [HideFromIl2Cpp] internal void SetParked(bool parked)
+    {
+        if (!_placed || _shield == null || !HeavyShieldIdentity.ValidateCareer(in _handle))
+            throw new InvalidOperationException("paid shield visual unavailable or reused");
+        if (parked) _parked = true;
+        bool visible = !parked && _body != null && !_body.enabled;
+        _shield.enabled = visible;
+        if (_shield.enabled != visible) throw new InvalidOperationException("paid shield visibility write unconfirmed");
+        if (!parked) _parked = false;
+    }
     [HideFromIl2Cpp] private void Restore()
     {
         try { if (_body != null && !_body.enabled) _body.enabled = _bodyEnabled; } catch { }
@@ -778,7 +807,7 @@ internal sealed class HeavyShieldPaidBowVisual : MonoBehaviour
         }
         catch { }
         try { if (_shield != null) _shield.enabled = false; if (_child != null) UnityEngine.Object.Destroy(_child); } catch { }
-        _body = null; _shield = null; _rigidbody = null; _child = null; _handle = default; _placed = false;
+        _body = null; _shield = null; _rigidbody = null; _child = null; _handle = default; _rackPosition = default; _placed = false; _parked = false;
     }
 }
 #endif

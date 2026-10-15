@@ -144,6 +144,27 @@ namespace UnityEngine
 
         public static void DestroyImmediate(Object obj) => Destroy(obj);
 
+        public static GameObject Instantiate(GameObject original, Transform parent, bool worldPositionStays)
+        {
+            if (original == null) return null;
+            var clone = new GameObject(original.name + "(Clone)");
+            clone.transform.SetParent(parent, worldPositionStays);
+            if (original.transform is RectTransform from && clone.transform is RectTransform to)
+            {
+                to.sizeDelta = from.sizeDelta; to.pivot = from.pivot;
+                to.anchorMin = from.anchorMin; to.anchorMax = from.anchorMax;
+                to.localScale = from.localScale; to.anchoredPosition = from.anchoredPosition;
+            }
+            var image = original.GetComponent<UnityEngine.UI.Image>();
+            if (image != null) clone.AddComponent<UnityEngine.UI.Image>().sprite = image.sprite;
+            var text = original.GetComponent<UnityEngine.UI.Text>();
+            if (text != null) clone.AddComponent<UnityEngine.UI.Text>().text = text.text;
+            if (original.GetComponent<UnityEngine.UI.Button>() != null) clone.AddComponent<UnityEngine.UI.Button>();
+            for (int i = 0; i < original.transform.childCount; i++)
+                Instantiate(original.transform.GetChild(i).gameObject, clone.transform, false);
+            return clone;
+        }
+
         public static T Instantiate<T>(T original, Transform parent, bool worldPositionStays) where T : Component
         {
             if (original == null) return null;
@@ -313,6 +334,20 @@ namespace UnityEngine
 
     public class Transform : Component
     {
+        public Transform Find(string path)
+        {
+            Transform current = this;
+            foreach (string part in path.Split('/'))
+            {
+                Transform found = null;
+                for (int i = 0; i < current.childCount; i++)
+                    if (current.GetChild(i).gameObject.name == part) { found = current.GetChild(i); break; }
+                if (found == null) return null;
+                current = found;
+            }
+            return current;
+        }
+
         private readonly List<Transform> _children = new List<Transform>();
 
         public Vector3 localPosition;
@@ -578,6 +613,7 @@ namespace UnityEngine
         public static int Min(int a, int b) => Math.Min(a, b);
         public static int Max(int a, int b) => Math.Max(a, b);
         public static float Clamp01(float v) => v < 0f ? 0f : (v > 1f ? 1f : v);
+        public static int Clamp(int v, int lo, int hi) => Math.Max(lo, Math.Min(hi, v));
         public static float Clamp(float v, float lo, float hi) => v < lo ? lo : (v > hi ? hi : v);
     }
 
@@ -719,9 +755,12 @@ namespace UnityEngine.UI
         }
 
         public static bool FailNextCreate;
+        public static int FailCreateCountdown;
+        public static readonly List<Sprite> CreatedSprites = new List<Sprite>();
         public static Sprite Create(Texture2D tex, Rect rect, Vector2 pivot, float ppu, uint ext, SpriteMeshType type)
         {
             if (FailNextCreate) { FailNextCreate = false; return null; }
+            if (FailCreateCountdown > 0 && --FailCreateCountdown == 0) return null;
             if (tex == null) return null;
             // Unity Sprite.Create 默认 FullRect：4 顶点全矩形 quad（与真实运行时 sprite 一致）。
             float l = -pivot.x / ppu, b = -pivot.y / ppu;
@@ -733,11 +772,13 @@ namespace UnityEngine.UI
             quad[3] = new Vector2(r, b);
             var tris = new Il2CppStructArray<ushort>(6);
             tris[0] = 0; tris[1] = 1; tris[2] = 2; tris[3] = 2; tris[4] = 3; tris[5] = 0;
-            return new Sprite
+            var created = new Sprite
             {
                 texture = tex, rect = rect, pivot = pivot, pixelsPerUnit = ppu,
                 vertices = quad, triangles = tris,
             };
+            CreatedSprites.Add(created);
+            return created;
         }
     }
 
@@ -747,6 +788,7 @@ namespace UnityEngine.UI
         public bool ThrowOnSet;
         /// <summary>写后抛：字段已写入再抛（真实 setter 非原子语义）。</summary>
         public bool ThrowAfterSet;
+        public bool ReadFaultAfterWriteThrow;
         /// <summary>读故障：sprite getter 抛（租约读回/快照路径）。</summary>
         public bool ThrowOnGet;
         private bool _preserveAspect;
@@ -805,7 +847,11 @@ namespace UnityEngine.UI
             {
                 if (ThrowOnSet) throw new InvalidOperationException("set-sprite");
                 _sprite = value;
-                if (ThrowAfterSet) throw new InvalidOperationException("set-sprite-after");
+                if (ThrowAfterSet)
+                {
+                    if (ReadFaultAfterWriteThrow) ThrowOnGet = true;
+                    throw new InvalidOperationException("set-sprite-after");
+                }
             }
         }
     }
@@ -819,7 +865,17 @@ namespace UnityEngine.UI
 
     public class Selectable : Behaviour { }
 
-    public class Button : Selectable { }
+    public class Button : Selectable
+    {
+        public bool interactable = true;
+        public ButtonClickedEvent onClick = new ButtonClickedEvent();
+        public sealed class ButtonClickedEvent
+        {
+            private readonly List<UnityEngine.Events.UnityAction> _listeners = new List<UnityEngine.Events.UnityAction>();
+            public void AddListener(UnityEngine.Events.UnityAction listener) => _listeners.Add(listener);
+            public void Invoke() { foreach (var listener in _listeners) listener.Invoke(); }
+        }
+    }
 }
 
 namespace Il2CppInterop.Runtime.InteropTypes

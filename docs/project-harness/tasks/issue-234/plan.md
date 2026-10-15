@@ -1,3 +1,37 @@
+# Issue #234 当前交付阶段（2026-10-15 用户授权）
+
+原G1技术契约附在下方，标题/尚未授权等文字是当时阶段的历史，不作为现在的拒绝合并/安装理由。本轮继续原operation/owner/session/branch，不重建task；原G1 source head6ffe33d29454a3aaca5aa10bcab8e15bd2a33451。
+
+## 交付范围
+
+同侧1名随旗、40候选耐久、脱战6游戏秒回盾具店免费由原店匠修8游戏秒、v1/v2/v3比例迁移v4。整合先前201/202/207/222/226当前release完成后的真实hunk，保留233/236及既有功能；236已合并仅核其修复纳入安装。先226后237，保留stock生命周期与repair只读工位之间责任。Android只加5个所需纯策略/repair/banner/migration依赖源，不注册新增两个native banner observer、不安装产品。Integration旧host补真实新增3接口fixture，实际跑新整合源。
+
+正常Mac累计候选以已安装911b源/资源组成作为基线，禁止旧237整文件覆盖NativeKeyReader EqualsCurrent/Bind/Release、Palace InstallOnce/Private源与PNG及其它累计功能。按最终实际新源码构成逐hunk/成员验证，233拆分若接入必须Hooks/main/ground成组，不能产生双定义。双TFM真实refs build、实际identity/codec/runtime/shop/Integration保存producer等交叉回归及独立候选审查；原39资源保全或明确审计增量。版本账据最近正式版和当前累计条目审计，最终标识由exact install gate钉，不擅改major、不必发布tag。
+
+用户明确授权merge后安装正常版供玩家实测。本轮不启动游戏；安装前fresh0相关进程、当前输入指纹、鲜备份与恢复能力，精确candidate gate后只改DLL/SUMS及必要版本元数据，保存/config/prefs/game/log保护回读。v4升级后回退需相应存档备份，不能仅换回旧DLL宣称兼容。既有工件Native验收未发生仍pending。
+
+本任务PR237实际合入release且必要代码验证与独审完成后，正常关闭GitHub Issue与受管代码任务。安装与玩家/native各平台结果另记，不把未测标志改true，不等待玩家无限期悬挂；后测问题另Issue/PR。
+
+## 本轮共同行为与交付边界
+
+用户2026-10-15明确授权：已实装PR经必要审查验证合并收尾，236/237检查后合并安装正常版，由用户后续实测；新问题另建Issue/PR。源码审查/编译/host、合并、安装、玩家实机各自留证。未发生的native/Windows/联机不记通过，不再把玩家后测当作代码Issue关闭前置。所有本任务PR进release/v9.5.13且必要代码验证/独审通过后正常关GitHub Issue与受管代码任务。
+
+初始release基准5d931e0fa1700879e41620cf8d48cf2719012bc8；因依赖PR按序合并，每次操作前冻结真实head/base及差异，新增交集重新验证，不把旧绿色结果外推。产品/测试修改仅本任务必要hunk，其他来源/私有累计内容保留。阶段infra phase=ready，owner=mac-codex-ohmymods-main-operator；normal CLI管理task/plan/assignment/closeout，保留foreign rows/order/plans/leases，不裸改JSON/DB或force。原历史状态/失败/验收边界保留，当前记录明确是首次登记或当前阶段修订。
+
+所有构建关闭自动部署(BepInExPluginsPath为空)，真实依赖与source pins留本机。正常Mac安装由issue234的累计候选最终关口统一执行，当前任务不独立覆盖正常DLL；不安装Android、不启动游戏，不改存档/config/prefs/Steam。Android232已交接所列Compile/精准pin/消费兼容hunk供Main，其他产品入口/R诊断/状态不触碰；其native执行不纳入本任务。
+
+## 审查与完成标准
+
+1. 修在错误产生处，状态写入责任清楚；不补fake产品或放宽原断言凑绿。
+2. 按实际source/test/define/ref变化执行必要回归及全源接口构建；旧baseline已有失败保留并对照，不冒称全部suite通过。
+3. 独立审查所有新集成交集；实质决策按GLM5.3/max，具体merge按最终head/base gate。
+4. 正常merge commit保留祖先；整批关联PR未齐不得关本Issue。player/native待验原样附，后续发现另Issue/PR。
+5. closeout packet逐任务串行独审/准确摘要/正常receipt消费，doctor/validator通过，释放本任务lease并保全外项。
+
+---
+
+## 保留的历史G1技术契约
+
 # Issue234 G1 adapter contract — proposal for review
 
 Base: clean 9cc51211165901abc705914feaea2c4f8df2df05 in /Users/Admin/.codex/worktrees/shield-banner-repair-20261015/ohmymods. G0 only has been approved; this document proposes G1, not merge/install/native execution.
