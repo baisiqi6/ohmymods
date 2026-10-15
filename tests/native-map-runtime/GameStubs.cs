@@ -104,6 +104,7 @@ namespace EntryProbe
 public class Menu : UnityEngine.MonoBehaviour
 {
     public static Menu Inst;
+    public static bool InstExists => Inst != null;
     public KingdomEnhancedMod.MapTimelineMenu ActiveMap;
 }
 
@@ -248,6 +249,8 @@ namespace KingdomEnhancedMod
         public RectTransform landScroller;
         public UIMainMap _mainMap;
         public OpenWorldMapState _openWorldMapState = OpenWorldMapState.ShowingWorld;
+        public int focusedLand;
+        public Button leftButton, confirmButton;
 
         public void OnDisable() => ProbeHooks.RunMenuDisablePostfix(this);
 
@@ -272,7 +275,7 @@ namespace KingdomEnhancedMod
         public static ConfigEntry<bool> CrossWorldMountsEnabled = new ConfigEntry<bool>(true);
     }
 
-    public static class ExtensionIslandMap
+    public static partial class ExtensionIslandMap
     {
         /// <summary>probe 桥控：返回 non-null 即视作已登记扩展 UILand（physical index）。</summary>
         public static Func<UILand, int?> PhysicalIndexOverride;
