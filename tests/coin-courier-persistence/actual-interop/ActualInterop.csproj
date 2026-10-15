@@ -21,6 +21,7 @@
   <ItemGroup>
     <Compile Include="../../../il2cpp/CoinCourierSaveData.cs" />
     <Compile Include="../../../il2cpp/CoinCourierPersistence.cs" />
+    <Compile Include="../../../il2cpp/CoinCourierPersistence.Hooks.cs" />
     <Compile Include="../../../il2cpp/CoinCourierCampaignState.cs" />
     <Compile Include="../../../il2cpp/CoinCourierPurse.cs" />
     <Compile Include="RuntimeApiShim.cs" />

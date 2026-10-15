@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Direct production-source host checks; typed native/Unity doubles live only here.
+       No game algorithm is duplicated. This is call-boundary evidence, not device gameplay. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <DefineConstants>$(DefineConstants);ANDROID</DefineConstants>
+    <DefineConstants Condition="'$(LegacyRed)' == 'true'">$(DefineConstants);LEGACY_RED</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../il2cpp/PatchDivine_HermesStaff.cs" />
+    <Compile Include="../../../il2cpp/PatchDivine_Artemis.cs" />
+    <Compile Include="../../OptionalQoLScope.cs" />
+    <Compile Include="Stubs.cs" />
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+</Project>

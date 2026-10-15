@@ -14,7 +14,8 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 
 - `GameInteropDir`：用户本机自有的目标 APK 经 Il2CppInterop 生成的互操作目录
   （`Assembly-CSharp.dll`、`UnityEngine.*.dll`、`Il2Cppmscorlib.dll`、`Il2CppSystem.Core.dll` 等；
-  Issue #119 起还必须有 `UnityEngine.UI.dll` 与 `UnityEngine.UIModule.dll`，缺失即 MSBuild error）。
+  Issue #119 起还必须有 `UnityEngine.UI.dll` 与 `UnityEngine.UIModule.dll`，缺失即 MSBuild error；Issue #210 的现存角色体型还需要 `UnityEngine.AnimationModule.dll`，
+  用于共享 Ninja 处理器的真实 Animator 引用）。
 - `LoaderRuntimeDir`：loader 部署中的 net6 运行时目录（`MelonLoader.dll`、`0Harmony.dll`、
   `Il2CppInterop.Runtime.dll` 等），例如 LemonLoader 部署层
   `assets/LemonLoader/runtime/loader/net6`。
@@ -23,6 +24,53 @@ MelonLoader 0.7.3（net6 loader 目录）。产物 `OhMyMods.AndroidProbe.dll` �
 - 三个参数必填。目录不存在或缺关键 DLL 时构建直接给出 MSBuild error；工程不会自动下载、
   生成或安装任何依赖，也不会把游戏/loader 二进制复制进输出（`Private=false`）。
 - 仓库不分发原版 APK、loader（含 winhttp/native host）或 interop 二进制；本目录只含 mod 源码。
+
+## 建筑点位（Issue #217，0.0.29，有限模拟器验证通过）
+
+本批将箭塔基底密度、墙基密度及塔基已有的同址重复塔清理合并接入，直接链接 PC 共享算法，
+沿原生预制体、网络注册和持久化流程工作。岛屿生成页使用现有暗金中文公共控件与小浮球入口。
+`WorldLayoutEnabled=false` 是整组启动选择；仅单机，开关在重启游戏后应用。
+已保存的点位在停用后仍保留。需要降回原生密度时，保持点位调整开启、将对应倍率设为 1，
+随后沿重载地图/墙基边界扩张流程回收可删未建点位；已建、付款及施工中的对象保护保持。
+塔基默认 2 倍、墙基默认 1 倍，触屏档位 1–4；已有存档的有效小数配置保持到玩家再次调整。
+
+本组只拆出同一个 `SpecialTowerRebuildMarker` 类型供注入与保护查询，未带入特殊塔拆建付款逻辑。
+必要同步分配 prefix 随整组启动启用；已有 `World.OnLevelLoaded` 目标增加两个 postfix，
+默认关闭仍保留旧 51 个唯一目标，启用后新增一个至 52（角色体型同时启用时 59），
+共用目标只报告一次最终计数。四个共享文件链接，配置 25→30；维护成功自动关闭时只保存一次。
+诊断设置仅覆盖塔基源码已有日志，未接入 PC 独立墙位诊断模块。
+
+当前构建、受控 PC 语义对比与原生静态调用链事实见 `docs/project-harness/tasks/issue-217`。
+测试工具的旧逐字节 IL 扫描误造方法引用，已在指令边界解码处修复并移除三份旧扫描；
+最终25纯用例和八组适配回归通过（1033/0或873/0，81强pins），两个独立源码审查无must-fix。
+Main294400B/ee8cb227…、64源0W0E；PC1318类型/6934共有方法/37资源比较无差异。
+五具名native函数2924B仅有限静态直接链；私有包完成实际签名/对齐/原资源/interop审计后，
+已保数据安装并完成三次冷启动51→52→51、7次输入/197.762秒。小浮球、两中文密度行、滚动及
+开关真实保存通过，最终30键中整组关闭、旧25保持，实际Main与具名native回读相等、游戏零PID。
+开启窗共享日志记录新增11塔基，仅单次加载日志证据；天然建造/退役、弓箭手释放事务、点位持久化、
+读档换岛、墙基边界扩张、长期稳定和手机/联机仍待验。#213模拟器宿主挂死根因仍未确定。
+代码PR218已正常合并、Issue217已关闭，受管任务done/closed、回执已消费及租约释放；详见本批任务记录，不据有限测试预付玩家完整验收。
+
+## 防御工匠（Issue #212，0.0.28）
+
+世界页通过原公共 Step 显示“外墙耐久上限”，沿用小浮球、PC 暗金样式和中文状态。
+真实设置 `WallEngineerEnabled=false` 存在同一个 `[OhMyMods.Android]` 分节，点击切换后由
+下一次共享 Tick 接手。仅单机：10 名现有工匠时 ×2，20 名及以上 ×3；新增耐久由原生维修
+填满。关闭时复用原有责任归还流程恢复上限，按恢复后的上限约束当前血量，不补血。
+权限不足时保留尚未归还的责任，待原流程可写时处理。
+
+直接链接 `WallEngineerRules.cs`、`WallEngineerRuntime.cs`、`PatchWorld_WallEngineers.cs`，
+只在共享 FeatureOn 责任入口补 Android 配置门；人数、HP、加载证明、工匠工作分配及归还
+算法共用 PC 实现。OFF 仍保留完整加载回调和唯一 Tick，退出复用现有注入组件的 OnDestroy。
+完整 13 个声明目标中 ApplyToScene 与人口模块共用，总唯一目标预期为 51（角色体型开启
+时 58）；人口 postfix 与墙 postfix/finalizer 全部安装后只记录一次 Apply 计数。
+
+状态文案只有 `WallEngineerStatusText.Format` 一份，原 PC `CalendarHud.FormatWallStatus`
+保留接口并委托该纯实现。源码、编译和宿主验证通过；实际51注册与触屏开关保存已核。
+启用曾在名单数组分配处报空引用：Android实际产物把人数绑定到指针构造，现共享两处分配
+显式传入long长度，真实产物两处均为Int64构造、PC原IL保持。修后同路径开启约27秒无名单
+异常，状态“暂无外墙”，关闭后旧24设置与所选存档hash保持；这不证明耐久与工匠实际效果。
+天然外墙HP、维修/工匠职责、读档换岛、池、手机与多人验收分别记录在issue-212任务中。
 
 ## 营地补员（Issue #184）
 
@@ -56,7 +104,7 @@ Android 只读诊断按实际可观测面输出 `unavailable`，保留其他物�
 | `MobileCalendar.cs` `CalendarSnapshot.cs` | 日历显示（开关直读 `CalendarEnabled` entry，切换时保存） |
 | `MobilePopulation.cs` `PopulationCounts.cs` | 当前岛人口（沿既有只读缓存展示八个原生角色与骑士）；#184 起同时使用公共 Toggle/Step 控件提供营地补员、帐篷上限和刷新间隔 |
 | `MobileModPanel.cs` `PanelGesture.cs` | 公共面板容器与纯手势状态机（Issue #144）：唯一 hotControl 手势、固定导航（主页/玩家/世界/生成/人口）与关闭、内容视口裁剪与滚动；手势/滚动单点由 `PanelGesture` 持有（任意方向位移 sticky 取消点击、`End` 按实际抬手归账、滚轮与拖拽共用同一 ScrollY） |
-| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 20 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度、快速森林退缩、普通鹿数量、密灌木、远距夜袭出发补偿、营地补员开关、每座乞丐帐篷上限、乞丐刷新间隔；除密灌木外切换即保存，夜袭补偿同值不保存）。密灌木的 UI 请求还经共享 `TrySetDenseThickets` 一次，保存只发生在共享源的三个真实写入点（每次真实变更一次），本文件不落盘、不镜像。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
+| `MobilePlayerConfig.cs` | 设置唯一来源：单个 `[OhMyMods.Android]` MelonPreferences 分节共 24 个 entry（速度、无限体力、Hold、坐骑技能冷却、法杖基础冷却、日历、敌人数量、威胁成长、无限货币、农舍猫 stocking、快速建造、额外船容量、新岛地图长度、快速森林退缩、普通鹿数量、密灌木、远距夜袭出发补偿、营地补员开关、每座乞丐帐篷上限、乞丐刷新间隔、宠物保护、皇冠掠夺者减速、骑士招募范围、希腊现存角色体型；除密灌木外切换即保存，夜袭补偿同值不保存）。密灌木的 UI 请求还经共享 `TrySetDenseThickets` 一次，保存只发生在共享源的三个真实写入点（每次真实变更一次），本文件不落盘、不镜像。`InfiniteMoney` 的原生写不在本文件：经 `Initialize(Action<bool>)` 注入，由 `Probe.cs` 传 lambda 接线 |
 | `MobilePlayerMenu.cs` | Player 页 presentation（5 行：君主移动速度 / 坐骑无限体力 / 长按连续购买 / 坐骑技能冷却 / 法杖神器冷却），全部经 `MobileModPanel.Step/Toggle` 公共路径登记 tap rect 并绘制；中文名与 PC 面板同源，冷却帮助行说明“下次调用生效、只缩放基础/该次冷却、原生目标追加不缩放” |
 | `MobileWorldMenu.cs` | World 页 presentation（每波怪物数量 / 怪物时间线推进 / 无限金币 / 植被与野生动物入口 / 快速建造 / 船只额外乘员 / 远距夜袭出发补偿）。植被入口只置 `VegetationPage=true`（World 保持打开）；快速建造只影响后续每次原生 `InitializeBuild`（关闭不热还原已写入实例的 rate）；船容量只作用于以后新初始化的船（关闭不删除/不热改已登记的 slots） |
 | `MobileGenerationMenu.cs` | Island-generation 页 presentation（地图大小一行）：只改新岛生成读取的 `MapSizeMultiplier`（1→2→3→4→5→1，合法小数先落下一整数档，如 4.5→5）；不调用任何原生游戏 API |
@@ -830,3 +878,45 @@ PC原回归117/0。实际PC SDK8 Release234源码/34资源、1290共同类型/68
 升级已有测试副本时，Patcher 的 development 默认 seed 会保留本地已存在的 Main，安装成功并不证明新DLL已运行。打包本项目ownedMain需使用精确规则 `--profile development --policy Mods/OhMyMods.AndroidProbe.dll=refresh`；刷新只在新revision边界发生，不采用enforce持续检查，也不改变UserData或其它Mod策略。运行验收同时核实际Main hash和版本/目标日志；仍加载旧Main时记录失败并定位包声明，不能靠重复启动凑通过。
 
 精确refresh私有包在模拟器实际更新Main0.0.25（replaced1），37真实目标与两个生命周期handler注册成功；第五次具名launch-only观察22.932s新日志启动、29.468s世界/浮球、一次触屏滚动后实际防抓ON/OFF图与日志匹配，59.606s零PID、0 ERROR。原20配置值与native档hash保持，最终OFF新增项经核验恢复原配置。测试脚本键路径、旧log识别与TTY输入边界的失败记录保留，均不当成功。仅接受包/启动/菜单设置证据；天然狗/隐士策略写入/解除、池/换岛、callback异常、动态组件、手机/联机及召回仍待验。
+
+## Issue #196 — 两项战斗参数兼容（0.0.26，代码交付与玩法验收待续）
+
+皇冠窃贼降速与骑士小队补员距离直接复用两PC源，各仅ANDROID真实默认OFF门，公共世界页PC金色中文控件/小浮球接入。Crown只Awake×0.75、Y冲量保持，不OnEnable累乘/补旧对象；Knight原>=120谓词保留（NaN/-Infinity→120，+Infinity保持），仍原生筛选/招募。56产品源+1SDKgenerated单列、23设置39显式目标；SDK10 Mainced6e2fd/231424B0W0E，PC1311types/6906methods/37resourcesMATCH未部署，生产源host27/0，adapters842/0与--oldcfg682/0、67强pins。私有包已安装至emulator-5582，实际39唯一目标注册、小浮球与世界页两中文行及滚动已观察，Main精确ced6e2fd。3个有界观察共210.515秒、5次输入，无产品ERROR，原20键配置和所选native保存文件逐字保持；开关ON/OFF未完成，原生数值/后写者/对象池/实际远距效果、phoneMP仍待验。玩家请求暂停时进程已停止；本批尚无commit/PR/合并，Issue196保留OPEN，不宣称代码交付完成。后续召回保存责任未启用。详情见docs/project-harness/tasks/issue-196。
+
+2026-10-11恢复记录：用户已恢复原LemonLoader/MelonLoader架构移植。Issue196成果已提交并建立Draft PR #209，合入当前release基线后PC两侧0W0E、1319类型/6936方法/37资源严格零语义差异；此前“暂停/未提交”仅为当日历史状态。新菜单ON/OFF观察与代码交付尚在进行，天然参数效果、池/远距招募、手机/联机仍待验，详见Issue196实现与验证记录。
+
+当前菜单证据：皇冠ON/OFF即时真实CFG读回已取得，但所在窗口随后混入人类手动滑动，整窗不判通过；独立Knight-only 6输入93.057秒、ON/OFF与PNG/CFG读回通过，零PID停止。最终原20配置值保持，23存储键中PetGuard/Crown/Knight均false，Main与所选native保存hash保持。没有据跨页现象改产品、没有部署临时诊断或添加补偿；天然参数/招募/池/phoneMP待验。PR209代码合并仍待最终审查，暂不宣称交付完成。
+
+## Issue #210 — 希腊现存角色体型（0.0.27，接线验证完成，代码交付中）
+
+复用 PC 的 `PatchRoles_ScaleAdjustments.cs`；Android 仅用文件内 alias 将原 holder
+绑定到既有 `GreekScaleScope`，不复制缩放算法或另造驱动。只接现存 Ninja 的四个
+形态/加载入口和 Banker、Hermit、Dog 的 `OnEnable` 七个精确 postfix。
+不接私有池对象 `Hermit.OnDestroy`，继续使用共享作用域对已确认死亡/身份变化的清理。
+不生成角色，不改角色身份、原生保存或跨世界资源池。
+
+真实设置 `RoleScaleEnabled=false` 只决定下一次冷启动的注册；世界页沿公共 Step
+控件显示“下次开启/下次关闭”，帮助写明“下次启动游戏生效”。切换一次保存一次，
+不在当前进程热撤销缩放账本或 patch；猫与作用域总开关维持原职责。关闭冷启动保留原
+39 项计数，开启增加七项至46。
+
+真实 Main 构建零错误/警告，共享源码宿主在 PC/ANDROID 两配置各74/0；适配器
+默认876/0、旧配置716/0、开启种子716/0。完整 PC 构建与基线的1317类型、
+6933方法、37资源语义零差异，零允许差异；独立源码审查通过。私有测试包内容、
+签名与123个 interop 引用核验通过。独立模拟器保数据安装后，真实三次冷启动
+39→46→39与触屏开/关保存通过，最终24项设置中角色开关关闭、旧23值保持，
+新版Main/所选native保存哈希与具名备份一致；游戏已停止。自然角色最终缩放、对象池、换岛/读档、手机与联机仍待验。
+详情见 [本批记录](../docs/project-harness/tasks/issue-210/implementation.md)。
+
+## Issue #221 — 神器参数兼容（私有0.0.30）
+
+玩家公共页新增默认关闭的“神器参数增强”，保留中文样式与小浮球。首次开启需重启注册，关闭从下一次判定生效。有效离线当前世界主控范围内，法杖调用借转化上限32、神弓借范围候选20，结束按字段责任归还；Friendly不自动恢复敌对。其它神弓原生命中分支、法杖目标追加冷却保持，范围×2未移植。
+
+真实interop构建、生产wrapper57断言、9配置/产物模式及PC/Android全语义比较通过。原API35 ARM64/host同包3成功cold51→53→51、85.364s/10输入、31真实设置原30保持，最终关闭/游戏停止。工具保护失败如实保留。只证明加载/UI/配置与已选边界，真实转化/命中/容量32/owner层级、读档换岛池重建、手机/多人及长期待验。详见docs/project-harness/tasks/issue-221/implementation.md。
+
+PR229发布后仅进展文档追加段冲突；已保留主线与Android两端原文并同步 release/v9.5.13 100c181。上游8份PC火枪兵变化不在Android66输入中，本批17已审源SHA保持。最新主线全量PC双构建0W0E、候选与精确主线基线1356类型/7141方法/37资源语义MATCH，允许差异0；前文1318/6934是恢复初始基线结果。无需更换Android包或重复冷启动。
+
+
+## Issue #230 — 公共存档 namespace 编译兼容
+
+两个共享存档源在 ANDROID 分支直接导入真实 `Il2CppCoatsink.Common`，PC 原导入保持。默认全量诊断22条声明错误消除20条，剩Hook/INativeDetour2项平台边界；仅诊断opt-in桌面metadata后进入body阶段，仍有96条错误（76配置引用/37成员、1弩手身份缺口、19混合metadata歧义）。这不是全功能编译通过或玩法验收。现有Android66输入没有加入这两个文件，SDK10产品构建0W0E，0.0.30装机成果保持，未新启保存hooks或重打包安装。详情见[本批记录](../docs/project-harness/tasks/issue-230/implementation.md)。

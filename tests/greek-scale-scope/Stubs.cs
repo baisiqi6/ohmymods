@@ -33,15 +33,16 @@ namespace UnityEngine
  public class Animator {public bool Fisher;public bool GetBool(int key)=>Fisher;}
  public static class Time{public static int frameCount;}
 }
+namespace Il2CppSystem{public class Object{}}
 public class Mover:UnityEngine.Component{public bool enabled=true;}
 public class Embarkee:UnityEngine.Component{public bool IsEmbarked,IsTargetingEmbarkable;}
 public class Ninja:UnityEngine.Component
 {
- public const int APIsFisher=17;public bool _isFisher;public UnityEngine.Animator _animator=new();
- public void OnStyleSwap(){}public void SetAnimation(){}public void Persistent_IBehaviour_ApplyData(){}public void DeserializeFromData(){}
+ public static int APIsFisher{get;set;}=17;public bool _isFisher;public UnityEngine.Animator _animator=new();
+ public void OnStyleSwap(int isFisher){}public void SetAnimation(int animCode){}public void Persistent_IBehaviour_ApplyData(Il2CppSystem.Object data){}public void DeserializeFromData(){}
 }
 public class Banker:UnityEngine.Component {public Mover _mover;public void OnEnable(){}}
-public class Dog:UnityEngine.Component{}
+public class Dog:UnityEngine.Component{public void OnEnable(){}}
 public class Hermit:UnityEngine.Component
 {
  public enum HermitType{Baker,Horn,Horse,Ballista,Knight,Fire,Other}public HermitType Type;public Mover mover;public void OnEnable(){}public void OnDestroy(){}
@@ -52,6 +53,7 @@ namespace KingdomEnhancedMod
 {
  public static class ModConfig{public static Setting Enabled=new();public class Setting{public bool Value=true;}}
  public class KingdomEnhancedPlugin{public static KingdomEnhancedPlugin Instance;public Logger LogSource=new();public class Logger{public void LogError(object message)=>throw new Exception("adapter error: "+message);public void LogWarning(object message){}public void LogInfo(object message){}}}
+#if !ANDROID
  public static class ScaleRegistryHolder
  {
   public static void RetryPendingCreation(){}
@@ -59,4 +61,5 @@ namespace KingdomEnhancedMod
   public static bool TryGet(Mover m,out float y)=>GreekScaleScope.TryGet(m,out y);
   public static void Unregister(Mover m)=>GreekScaleScope.Unregister(m);
  }
+#endif
 }

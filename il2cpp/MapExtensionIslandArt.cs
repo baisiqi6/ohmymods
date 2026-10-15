@@ -8,8 +8,8 @@ using UnityEngine.UI;
 namespace KingdomEnhancedMod
 {
     /// <summary>
-    /// 扩展岛岸线窄 art 服务（唯一新增自有 PNG：EmbeddedResource
-    /// KingdomEnhancedMod.KEM_MapExtensionIsland.png，Root 提供、原字节不可变）。
+    /// 扩展岛岸线 art 服务：physical11 与 physical13 各自固定资源/缓存，
+    /// 两种形状共用原有 owner 租约与回收关口；PNG 原字节不可变。
     ///
     /// 冷启动一次像素准备（业务算法在 C#，不在测试/工具里）：
     /// 1) 读入源 alpha，取**最大 4-连通岛面**（排除零星外点/噪点）；
@@ -331,25 +331,38 @@ namespace KingdomEnhancedMod
 
         // ------------------------------------------------------------------ 运行时（Unity）
 
-        private static Texture2D _shoreTex;
-        private static Texture2D _outlineTex;
-        private static Sprite _shore;
-        private static Sprite _outline;
-        private static bool _attempted;
-        private static ShorePrep _prep;
+        // Fixed identities: a failed B decode must never borrow A's cache.
+        private sealed class ArtCache
+        {
+            internal Texture2D ShoreTexture, OutlineTexture;
+            internal Sprite Shore, Outline;
+            internal bool Attempted;
+            internal ShorePrep Prep;
+            internal bool Ready => Shore != null && Outline != null;
+        }
 
-        internal static bool Ready { get { return _shore != null && _outline != null; } }
+        private static readonly ArtCache Primary = new ArtCache();
+        private static readonly ArtCache Crescent = new ArtCache();
+        private static ArtCache CacheFor(int physicalLand)
+            => physicalLand == 11 ? Primary : physicalLand == 13 ? Crescent : null;
 
-        internal static Sprite Shore { get { return _shore; } }
-
-        internal static Sprite Outline { get { return _outline; } }
+        internal static bool Ready => Primary.Ready;
+        internal static Sprite Shore => Primary.Shore;
+        internal static Sprite Outline => Primary.Outline;
+        internal static Sprite ShoreFor(int physicalLand) => CacheFor(physicalLand)?.Shore;
+        internal static Sprite OutlineFor(int physicalLand) => CacheFor(physicalLand)?.Outline;
+        internal static ShorePrep PrepFor(int physicalLand) => CacheFor(physicalLand)?.Prep;
 
         /// <summary>冷启动一次：解码 PNG → BuildPrep → 建 shore/outline Sprite（同画布/pivot/PPU）。</summary>
-        internal static bool TryEnsure()
+        internal static bool TryEnsure() => TryEnsure(11);
+
+        internal static bool TryEnsure(int physicalLand)
         {
-            if (Ready) return true;
-            if (_attempted) return false;
-            _attempted = true;
+            ArtCache cache = CacheFor(physicalLand);
+            if (cache == null) return false;
+            if (cache.Ready) return true;
+            if (cache.Attempted) return false;
+            cache.Attempted = true;
             Texture2D rawTex = null;
             int rawTextureWidth = 0;
             int rawTextureHeight = 0;
@@ -359,7 +372,7 @@ namespace KingdomEnhancedMod
             Sprite outline = null;
             try
             {
-                byte[] bytes = ReadResource();
+                byte[] bytes = ReadResource(MapExtensionIslandArtVariant.ResourceNameFor(physicalLand));
                 if (bytes == null) return false;
 
                 rawTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
@@ -373,7 +386,7 @@ namespace KingdomEnhancedMod
                 Color32[] rawPixels;
                 try { rawPixels = rawTex.GetPixels32(); }
                 finally { DestroyQuietly(rawTex); rawTex = null; }     // raw 只用于取像素，立即回收
-                ShorePrep prep = BuildPrep(rawPixels, rawTextureWidth, rawTextureHeight, TargetLogicalWidth);
+                ShorePrep prep = MapExtensionIslandArtVariant.Prepare(physicalLand, rawPixels, rawTextureWidth, rawTextureHeight);
                 if (prep == null)
                 {
                     Warn("shore prep failed " + rawTextureWidth + "x" + rawTextureHeight);
@@ -400,12 +413,12 @@ namespace KingdomEnhancedMod
                     return false;
                 }
 
-                _shoreTex = shoreTex;
-                _outlineTex = outlineTex;
-                _shore = shore;
-                _outline = outline;
-                _prep = prep;
-                Info("shore ready canvas=" + prep.Width + "x" + prep.Height + " bbox=" + prep.BboxWidth + "x" +
+                cache.ShoreTexture = shoreTex;
+                cache.OutlineTexture = outlineTex;
+                cache.Shore = shore;
+                cache.Outline = outline;
+                cache.Prep = prep;
+                Info("shore land=" + physicalLand + " ready canvas=" + prep.Width + "x" + prep.Height + " bbox=" + prep.BboxWidth + "x" +
                      prep.BboxHeight + " aspect=" + prep.Aspect.ToString("0.###") +
                      " levels=" + prep.LevelsUsed + " island=" + prep.IslandPixels +
                      " placement=" + prep.PlacementPixels + " comps=" + prep.ComponentCount);
@@ -419,7 +432,7 @@ namespace KingdomEnhancedMod
             finally
             {
                 DestroyQuietly(rawTex);          // 任何路径都不得遗留 raw 临时贴图
-                if (!Ready)
+                if (!cache.Ready)
                 {
                     DestroyQuietly(outline);
                     DestroyQuietly(shore);
@@ -430,11 +443,11 @@ namespace KingdomEnhancedMod
         }
 
         /// <summary>供布局终检：岸内 mask 与画布/bbox 事实（准备完成前返回 null）。</summary>
-        internal static ShorePrep Prep { get { return _prep; } }
+        internal static ShorePrep Prep => Primary.Prep;
 
         internal static bool IsInsideShore(float canvasX, float canvasY)   // 画布左下角原点、像素单位
         {
-            ShorePrep prep = _prep;
+            ShorePrep prep = Primary.Prep;
             if (prep == null) return false;
             int x = (int)canvasX;
             int y = (int)canvasY;
@@ -469,16 +482,22 @@ namespace KingdomEnhancedMod
 
         private static void DestroyOwnCache()
         {
-            DestroyQuietly(_shore);
-            DestroyQuietly(_outline);
-            _shore = null;
-            _outline = null;
-            DestroyQuietly(_shoreTex);
-            DestroyQuietly(_outlineTex);
-            _shoreTex = null;
-            _outlineTex = null;
-            _prep = null;
-            _attempted = false;
+            DestroyOneCache(Primary);
+            DestroyOneCache(Crescent);
+        }
+
+        private static void DestroyOneCache(ArtCache cache)
+        {
+            DestroyQuietly(cache.Shore);
+            DestroyQuietly(cache.Outline);
+            cache.Shore = null;
+            cache.Outline = null;
+            DestroyQuietly(cache.ShoreTexture);
+            DestroyQuietly(cache.OutlineTexture);
+            cache.ShoreTexture = null;
+            cache.OutlineTexture = null;
+            cache.Prep = null;
+            cache.Attempted = false;
         }
 
         // ------------------------------------------------------------------ owner/代际租约
@@ -895,7 +914,9 @@ namespace KingdomEnhancedMod
 
         // ------------------------------------------------------------------ 内部
 
-        internal static byte[] ReadResourceBytes() => ReadResource();
+        internal static byte[] ReadResourceBytes() => ReadResource(ResourceName);
+        internal static byte[] ReadResourceBytes(int physicalLand)
+            => ReadResource(MapExtensionIslandArtVariant.ResourceNameFor(physicalLand));
 
         private static void ApplyTexturePolicy(Texture2D tex)
         {
@@ -904,16 +925,17 @@ namespace KingdomEnhancedMod
             tex.anisoLevel = 0;
         }
 
-        private static byte[] ReadResource()
+        private static byte[] ReadResource(string resourceName)
         {
+            if (resourceName == null) return null;
             try
             {
                 Assembly assembly = typeof(MapExtensionIslandArt).Assembly;
-                using (Stream stream = assembly.GetManifestResourceStream(ResourceName))
+                using (Stream stream = assembly.GetManifestResourceStream(resourceName))
                 {
                     if (stream == null)
                     {
-                        Warn("shore resource missing: " + ResourceName);
+                        Warn("shore resource missing: " + resourceName);
                         return null;
                     }
                     long length = stream.Length;

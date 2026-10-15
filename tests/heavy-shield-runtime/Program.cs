@@ -5,7 +5,7 @@ using UnityEngine;
 int checks = 0;
 if (!HeavyShieldHookQuery.PerfDiagLine.Contains("mode=compat-unsupported")) throw new Exception("host must test live compat fallback");
 void Check(bool ok, string label) { ++checks; if (!ok) throw new Exception(label); }
-void Step(Fixture f, float dt=.25f) {Time.deltaTime=dt;Time.time+=dt;HeavyShieldActorVisuals.Tick(f.Handle.GoId);HeavyShieldRuntime.Tick();}
+void Step(Fixture f, float dt=.25f) {Time.deltaTime=dt;Time.time+=dt;Time.unscaledTimeAsDouble+=dt;Time.frameCount++;HeavyShieldActorVisuals.Tick(f.Handle.GoId);HeavyShieldRuntime.Tick();}
 void Guard(Fixture f) {HeavyShieldRuntime.Tick();for(int i=0;i<8;i++)Step(f);Check(HeavyShieldActorVisuals.GuardReady(f.Archer,f.Handle.Life),"equip completes before guard");}
 HeavyShieldSavedCombatState State(Fixture f){Check(HeavyShieldRuntime.CaptureCombat(f.Handle,out var s),"capture exact career");return s;}
 void HitTroll(Fixture f, Troll troll, DamageSource kind=DamageSource.Troll, int amount=1)
@@ -841,6 +841,7 @@ using (var f = new Fixture(side: side))
         && fresh.transform.position.y == anchor.y, "hop lands before Bash recovery tail finishes");
 }
 
+RuntimeGaitRegression.Run(Check);
 Console.WriteLine($"PASS HeavyShield production runtime/combat/life/visuals: {checks} assertions");
 
 sealed class Fixture : IDisposable

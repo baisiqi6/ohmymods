@@ -1,6 +1,11 @@
 using System;
 using HarmonyLib;
 using UnityEngine;
+#if ANDROID
+using RoleScaleRegistry = KingdomEnhancedMod.GreekScaleScope;
+#else
+using RoleScaleRegistry = KingdomEnhancedMod.ScaleRegistryHolder;
+#endif
 
 namespace KingdomEnhancedMod;
 
@@ -57,7 +62,7 @@ public static class NinjaStyleScale_Patch
         {
             float targetY = isFisher ? FisherStyleY : AttackStyleY;
             GreekScaleScope.ApplyY(ninja.transform, targetY);
-            ScaleRegistryHolder.Register(ninja.GetComponent<Mover>(), targetY);
+            RoleScaleRegistry.Register(ninja.GetComponent<Mover>(), targetY);
         }
         catch (Exception e)
         {
@@ -86,7 +91,7 @@ public static class GreeceBankerScale_Patch
 
             float targetY = GreeceBankerY;
             GreekScaleScope.ApplyY(__instance.transform, targetY);
-            ScaleRegistryHolder.Register(mover, targetY);
+            RoleScaleRegistry.Register(mover, targetY);
         }
         catch (Exception e)
         {
@@ -152,7 +157,7 @@ public static class HermitScale_Patch
             if (mover == null) return;
 
             GreekScaleScope.ApplyY(__instance.transform, targetY);
-            ScaleRegistryHolder.Register(mover, targetY);
+            RoleScaleRegistry.Register(mover, targetY);
         }
         catch (Exception e)
         {
@@ -176,7 +181,7 @@ public static class HermitScale_Patch
                 && __instance.Type != Hermit.HermitType.Fire) return;
 
             Mover mover = __instance.mover != null ? __instance.mover : __instance.GetComponent<Mover>();
-            ScaleRegistryHolder.Unregister(mover);
+            RoleScaleRegistry.Unregister(mover);
         }
         catch (Exception e)
         {
@@ -204,7 +209,7 @@ public static class DogScale_Patch
             if (mover == null) return;
 
             GreekScaleScope.ApplyY(__instance.transform, DogY);
-            ScaleRegistryHolder.Register(mover, DogY);
+            RoleScaleRegistry.Register(mover, DogY);
         }
         catch (Exception e)
         {

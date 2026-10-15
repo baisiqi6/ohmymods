@@ -39,9 +39,14 @@ namespace UnityEngine
         public void SendMessage(string name){foreach(var c in Components.Values.ToArray())Message(c,name);}
         internal static void Message(Component c,string name)=>c.GetType().GetMethod(name,BindingFlags.NonPublic|BindingFlags.Instance)?.Invoke(c,null);
     }
-    public class Transform : Component {public Vector3 position,localPosition;public Vector3 localScale=Vector3.one;public Quaternion localRotation;public Transform parent;
+    // Test geometry supports translation and signed/non-unit scale; rotations are
+    // intentionally not simulated. World/local positions must stay consistent.
+    public class Transform : Component {public Vector3 localPosition;public Vector3 localScale=Vector3.one;public Quaternion localRotation;public Transform parent;
+        public Vector3 position {get=>parent==null?localPosition:parent.TransformPoint(localPosition);set=>localPosition=parent==null?value:parent.InverseTransformPoint(value);}
         public Vector3 lossyScale=>parent==null?localScale:new(localScale.x*parent.lossyScale.x,localScale.y*parent.lossyScale.y,localScale.z*parent.lossyScale.z);
-        public void SetParent(Transform p,bool v){parent=p;} public bool IsChildOf(Transform t)=>this==t||parent!=null&&parent.IsChildOf(t); }
+        public Vector3 TransformPoint(Vector3 p){var w=position;var s=lossyScale;return new(w.x+p.x*s.x,w.y+p.y*s.y,w.z+p.z*s.z);}
+        public Vector3 InverseTransformPoint(Vector3 p){var w=position;var s=lossyScale;return new((p.x-w.x)/s.x,(p.y-w.y)/s.y,(p.z-w.z)/s.z);}
+        public void SetParent(Transform p,bool v){var w=position;parent=p;if(v)position=w;} public bool IsChildOf(Transform t)=>this==t||parent!=null&&parent.IsChildOf(t); }
     public struct Scene {public int handle;}
     public struct Vector2 { public float x,y; public Vector2(float a,float b){x=a;y=b;} }
     public struct Vector3 { public float x,y,z;public Vector3(float a,float b,float c=0){x=a;y=b;z=c;}
@@ -61,7 +66,7 @@ namespace UnityEngine
         public Sprite sprite;public Material sharedMaterial=new(); public void GetPropertyBlock(MaterialPropertyBlock b){}public void SetPropertyBlock(MaterialPropertyBlock b){NativeBoundaryWrites.Count++;} }
     public class Rigidbody2D : Component {public bool VelocityReadFails;public int VelocityReads;private Vector2 Velocity;
         public Vector2 velocity {get{VelocityReads++;if(VelocityReadFails)throw new Exception("physical velocity unavailable");return Velocity;}set=>Velocity=value;} }
-    public static class Time {public static float time,deltaTime=.2f,timeScale=1;}
+    public static class Time {public static float time,deltaTime=.2f,timeScale=1;public static int frameCount {get;set;}public static double unscaledTimeAsDouble {get;set;}}
 }
 namespace Coatsink.Common { public class IHaglet : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase {}
     public class Haglet : IHaglet {public bool stopped,completed,executing;} }

@@ -11,11 +11,13 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../il2cpp/MapExtensionIslandArt.cs" />
+    <Compile Include="../../il2cpp/Patch_MountIslandArtVariant.cs" />
     <Compile Include="../../il2cpp/MapResourceIconPlan.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="LayoutReport.cs" />
     <Compile Include="Fakes.cs" />
     <EmbeddedResource Include="../../il2cpp/Assets/KEM_MapExtensionIsland.png" LogicalName="KingdomEnhancedMod.KEM_MapExtensionIsland.png" />
+    <EmbeddedResource Include="../../il2cpp/Assets/KEM_MapExtensionIslandCrescent.png" LogicalName="KingdomEnhancedMod.KEM_MapExtensionIslandCrescent.png" />
     <None Include="fixtures/native-map-analysis.json" CopyToOutputDirectory="PreserveNewest" TargetPath="fixtures/native-map-analysis.json" />
     <None Include="fixtures/layout-manifest.json" CopyToOutputDirectory="PreserveNewest" TargetPath="fixtures/layout-manifest.json" />
   </ItemGroup>
