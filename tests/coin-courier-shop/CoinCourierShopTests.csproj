@@ -20,6 +20,7 @@
     <Compile Include="../coin-courier-runtime-bridge/Stubs.cs" Link="Stubs.cs" />
     <Compile Include="../../il2cpp/CoinCourierShop.cs" Link="Production/CoinCourierShop.cs" />
     <Compile Include="../../il2cpp/CoinCourierRuntime.cs" Link="Production/CoinCourierRuntime.cs" />
+    <Compile Include="../../il2cpp/CoinCourierGround.cs" Link="Production/CoinCourierGround.cs" />
     <Compile Include="../../il2cpp/CoinCourierCoinFlight.cs" Link="Production/CoinCourierCoinFlight.cs" />
     <Compile Include="../../il2cpp/CoinCourierRuntimeRules.cs" Link="Production/CoinCourierRuntimeRules.cs" />
     <Compile Include="../../il2cpp/CoinCourierCampaignState.cs" Link="Production/CoinCourierCampaignState.cs" />

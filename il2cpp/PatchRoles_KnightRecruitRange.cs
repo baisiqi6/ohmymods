@@ -10,6 +10,7 @@ namespace KingdomEnhancedMod;
 /// 1-3/4。原生候选按就近排序（Kingdom.cs FetchArchersForJob 的 Sort），放大窗口只会
 /// 优先取近者，行为安全；minFreeArchers 预留、占用/守卫/弩手过滤全部原样。
 /// 2.1.0 全源码唯一小半径调用方即骑士补员；守位等走 MaxValue 天然不受影响。挂主开关。
+/// Android 分线（Issue196）：#if ANDROID 下额外受 KnightRecruitRangeEnabled 独立开关门控。
 /// </summary>
 internal static class PatchRoles_KnightRecruitRange
 {
@@ -24,6 +25,10 @@ internal static class PatchRoles_KnightRecruitRange
             try
             {
                 if (ModConfig.Enabled?.Value != true) return;
+#if ANDROID
+                // Android 分线独立开关（Issue196）：总开关开启但本项关闭时保持调用方原值。
+                if (ModConfig.KnightRecruitRangeEnabled?.Value != true) return;
+#endif
                 if (maxRange >= KnightSquadRecruitRange) return;
                 Knight knight = jobObject != null ? jobObject.GetComponent<Knight>() : null;
                 if (knight == null) return;

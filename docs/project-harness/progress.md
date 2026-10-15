@@ -1,3 +1,104 @@
+## 2026-10-15 — 双坐骑岛地图源码收尾（Issue #200）
+
+PR202已合入release，PR222目标改回release并完成当前组合检查；紧凑布局/右岛弯月形保留正常已装版本。实际compact127/art94/Variant161/shore101/缺B3，以及公共net8/net6、AndroidD/R与完整Adapter1264/0通过。以下旧Draft/Open是历史阶段；当前合并状态以GitHub本轮为准，两个PR全部合并后代码关单，玩家后测另开新问题。未新增实机或安装声明，详见tasks/issue-200/verification-222.md。
+
+## 2026-10-15 — Android #232 G1 源码与生命周期接入（尚未合并/运行）
+
+G0/PR233与保存根因修复#235/PR236已合并，#235正常受管完成；下方旧“待PR整合”保留历史。当前G1正式工程173源/184真实refs/21资源、40真实配置、共享13职业人口，显式52owner及真实初始化/驱动源码已接入，删除旧重复PopulationCounts。缩放同名alias遮蔽在产生处修为唯一平台别名，四旧Register+新增Unregister断言红1259/5→最终W1264/0；Population106/0，Android D/R0W0E，fresh PC net8/net6全源严格零语义/IL/资源差异。Main单文件交接与正常exact计划审批已完成，窗口归还，其他任务/plans/lease保持。当前源码尚待PR交付，整个232仍OPEN；未安装新Main/APK，0.0.30成果保留，未预付native ABI/真实保存/池玩法/手机多人验收，#213仍OPEN。详见[本次记录](tasks/issue-232/g1-source-foundation.md)。
+
+后续先补native/保存边界，再按弓弩、火铳、英雄/盾卫完整依赖组推进，公共触屏控件随组复用；职业组条件宽估40–100工程小时，全Android暂维持约6–8风险组/70–200工程小时，实际ABI/环境卡点可改变估算，玩家验收日历另计。
+
+## 2026-10-15 — 共享保存未发布观察根因修复（Issue #235，待 PR 整合）
+
+职业/弓弩依赖核对发现保存回调转换失败后观察仍占槽，已在创建责任处撤销本次未发布观察及 managed 根，原回调、合法 sibling 和 once 保持；未加扫描/重试/超时补偿。旧源 39 绿+两新增红，修后 adapter41/41、pipeline33断言通过；PC全源net6/net8零警告零错误，Android172源候选Debug/Release零错误、原PrepareWindowObserver CS0649保留。候选仅替换共享修复源，未接新hook/UI、未安装；原生ABI/AOT/真实保存事务及实机分别待验。
+
+#235已由Main正常登记doing/running，原批准计划保持；独立分支交付PR供Main整合，未合并前不关单。#232仍OPEN，仅G0公共保存源码已合并；旧段落168源/23CS0117是当时快照，当前私有172源已接真实配置接口与完整编译前置，但不代表职业批次运行完成。PR226保存职责和#234盾卫玩法仍归Main，Android0.0.30安装成果保留。详见[本次验证](tasks/issue-235/verification.md)。
+
+## 2026-10-14 — Android #232 G0 公共职业保存源码边界
+
+#232 已经正常登记 doing/running，仅 Scope-G0 计划批准；未做完成/关单，171 旧对象与155旧plan、顺序及本地镜像保持，validator0/doctor0E0W。当前公共五源+五测试链接候选按精确审查字节接入独立分支，未加Android新pref/hook/版本/安装；整个职业/弓弩组仍待后续实施。受控PC net6及net8基线/候选0W0E、strict语义/resource MATCH；net6 1358types/7158methods，net8 1355/7154；四原TFM host54tests/223checks/73checks/15tests通过。旧actual-interop独立工程基线与候选同SharedBankNative CS0246预存失败，不补stub、不记通过。默认Android66源与182refs保持。
+
+私有Android168源/297真实refs实际Debug/Release仍23项CS0117，9个真实ModConfig接口待接，人口13职业消费及完整native/保存/池/玩法待验，不据静态前沿称完整闭包。PC/Windows、Android真机/联机与长期验证分别记录；#213仍开放。公共源码本轮按Main协调窗口归Android分支拥有，PR226库存/释放hunks不得整文件覆盖。详情见 [G0记录](tasks/issue-232/g0-source-foundation.md) 与 [阶段计划](tasks/issue-232/plan.md)。
+
+## 2026-10-14 — 盾卫当前修复进入合并安装，玩家实机后验（Issue #227）
+
+用户改为先交付当前版本，后续自然游玩实测；取消本轮三步态原生校准前置，R4准备停止且未启动新游戏。完整原B腿形与描边保留，三移动循环按实际位移播放、真实移速不变；fresh130/891/913源链接回归通过，累计无observer候选3620d5d1…ad04经独立严格IL/38资源最小差异核验，保留正常版其它累计内容。按授权进行PR228合并和正常DLL安装，实际状态见GitHub及任务安装回执；原生Run/Advance观感、严格锁地与Windows仍待验，不冒称实机通过。详见[任务记录](tasks/20261014-shield-visuals.md)。
+
+## 2026-10-14 — 盾卫保留原画腿形，位移步频离线复核（Issue #227）
+
+新几何腿与371微移均撤回，恢复选定B全部原膝踝靴形；四wear×两density共160帧逐帧及三动作1×明暗各三圈已复核。三移动循环已有carrier位移时钟，130/891/913源链接回归通过、全源私有编译0W0E，37资源与原B快照相同；数值仅视觉步频参考，不称严格锁地或原生Run/Advance已验。PR保持Draft，不合并/安装；正常DLL/存档未改。详见[任务记录](tasks/20261014-shield-visuals.md)。
+
+## 2026-10-14 — 盾卫腿形返修，旧候选交付批准撤回（Issue #227）
+
+三移动位移时钟的源链接回归已通过，但玩家指出新 Run 第4/8帧膝踝与靴子不自然，已撤回离线美术与该候选交付批准，保持 Draft；正在重做并要求逐帧及自然尺度连播复核。未提交本轮代码、未合并/安装；未用像素和连通测试代替自然度验收。详见[任务记录](tasks/20261014-shield-visuals.md)。
+
+## 2026-10-14 — 盾卫只读步态采样（Issue #227，步频修复仍未完成）
+
+Mac ARM64 2.4.0 隔离副本取得两名盾卫自然行走的 1,500 行只读样本，按 30 秒预算停止，无采样/写入故障；正常保存退出码 0，测试前五通道经独立完整回读恢复。采样阶段、Animator 参数缺失和脚点未知边界已保留；描边 PR #228 仍 Draft，未合并/安装，步频代码与真实移速未改。详见[任务记录](tasks/20261014-shield-visuals.md)。
+
+## 2026-10-11 — BepInEx.Android 评估报告遗留收尾（#205 / PR208，报告完成）
+
+保留2026-10-10冻结实验：同新AVD原版进入教程世界，候选离线Launcher180s未到托管插件入口；核心/API不能据此判普遍失败，Hook/组件/config/冷启仍unknown。实证可删0行，62毛候选/194旧源触及不是净省；不切换、不删除现有适配。四文档/35raw证据和56源LOC由独立重核，两处过时职责/196暂停语句标为历史与当前事实，未改实验失败或未知边界。
+
+PR208已正常ready/merge c10e5f6f（source0a01087），Issue205代码报告已关闭。原op e2d12a2e/2863B-ca49计划沿正常新resume会话认领，真实packet4740e296经独立+GLM终审；normal receipt4076ba83… consumed，done/closed、owner/session清空、lease16:14:44Z释放，validator0/doctor0E0W44info。其他168对象/169顺序、11计划/local119/root未归属改动保持，未force/repair/全量reconcile。只完成报告目标，不称候选API/手机多人或长期已验；原架构移植继续，#213仍开放。详情见[评估与收尾](tasks/issue-205/assessment.md)。
+
+## 2026-10-11 — Android 建筑点位组（Issue #217，代码与受管收尾完成、玩法分层待验）
+
+从release基线ea5aa89f独立开发，原LemonLoader/MelonLoader架构保持。塔基/墙基/重复塔清理共享复用，原Marker仅抽到共同文件，PC1318类型/6934共有方法/37资源无比较差异；未加入特殊塔拆建或另造生成算法。生成页复用PC暗金中文、Step/Toggle、小浮球与触屏滚动，默认OFF/下次启动注册，已有持久化点位停用保留，1倍退役沿原保护路径。30真实设置、Main0.0.29/ee8cb227…294400B/64源0W0E，81强pins；最终八adapter各1033/0或873/0、25纯reader用例通过。旧测试假call/token逐字节扫描器在产生处统一指令reader，拒绝保留Nternal，未留跳过/吞异常兜底；原失败证据保留。两独立源码审查无mustfix，五具名native2924B仅有限静态直接链。
+
+私有原生producer APKb1ada5ff…与单Mainrefresh、原22313条目字节/123interopGUID-only、实际同证书/对齐/descriptor核验通过。鲜备份后保数据安装，三冷启动51→52→51/7输入/197.762s，小浮球/两中文密度行/滚动/开关保存、实际Main/30cfg/旧25保持、alive到零PID停止通过；最终整组OFF及具名native哈希保持。开启窗共享日志added11塔基，仅单次生成记录，不泛化为建造/退役/读档/换岛/释放/墙基边界/手机/联机或长期验收。#213间歇宿主挂死仍OPEN，未因短窗通过宣称修复。代码PR218已正常合并4ced5f67（source32abd66c），Issue217已关闭；normal完成回执2b9aedc7…已consumed，done/closed、owner/session清空、lease15:35:40Z释放，validator0/doctor0E0W，其他168项/169顺序、11计划及本机119保持。详见[tasks/issue-217](tasks/issue-217/implementation.md)。
+
+后续条件宽估保留约6–8依赖/风险组、70–200工程小时；手机/多人/长期验收日历另计。按本组4–10工程小时量级扣除先前75–210宽估的一部分，不把自然验收pending算作已完成，也不是工期承诺。
+
+## 2026-10-11 — Android 测试环境有界对照（Issue #213，仍 OPEN）
+
+保留已合并的防御工匠0.0.28成果；同API35/host/MoltenVK noMod两窗真实0Mods/Main-state缺失，约174s退出/CFG-native保持，没有复现历史QEMU挂死，但不排除间歇或累计运行。SwiftShader noMod一窗机械停止通过、PNG却黑剪影，EGL具名图形错误保留，视觉失败后跳过第二窗与软件Mod臂。实际原host+冻结APK6c/Main3aa已保数据恢复，真实1Mod/51 targets，11.52s停0PID；截图仍logo，只确认恢复加载，不宣称森林/全UI/longstable或挂死修复。Issue仍OPEN；源/loader未改，手机与自然玩法继续待验。详见 [本任务记录](tasks/issue-213/implementation.md)。
+
+## 2026-10-11 — Android 防御工匠组（#212，代码PR214已正常合并，运行待验分层保留）
+
+保留既有 Android 成果，继续 LemonLoader/MelonLoader + Il2CppInterop/Harmony 原架构。
+#210 已正常合并 PR211（merge2fe6c517），Issue关闭，normal receipt已 consumed、lease释放，
+canonical/mirror done/closed与validator/doctor通过；下方#210段落保留当时交付前快照。
+#212 独立分支 codex/android-wall-engineers 从该merge启动，5826B/5785a2bf计划已受管批准，
+依赖仅210，accepted assignment doing/running；旧任务、八旧plan及本机119清单未改。
+
+三共享源复用，无需重写算法；实际分配重载差异已在原责任点修正。实际接入只增加原FeatureOn上的Android真实默认OFF门、
+13完整边界/12新唯一target、已有Time.time单Tick和退出Reset，以及唯一共享纯formatter/PC委托。
+公共世界Step沿PC中文/暗金/小浮球与滚动；默认25键，切换Save一次、旧24设置保持，OFF仍处理
+加载证明与既有责任归还。未增加状态镜像、第二算法、扫描或重试；旧补偿有独立责任继续保留。
+
+Main0.0.28/3aa7bc62…245248B、60显式源/15真实refs，SDK10 0W0E。PC/Android共享宿主260/0与296/0，
+原247保留，新增13纯文案及36Android门场景；适配器927/0、四原键oldcfg767/0、预存ON927/0，
+原71源pin路径保留加三源至74。PC完整两build0W0E，只有1旧wrapper/1新纯type有意差异、迁移body等价，
+所比较metadata/IL/37资源无其他差异；工具覆盖局限保留，不称PE byte-equal或全量元数据证明。
+独立源码审查approved无mustfix。13原生exactFDE body9960B/零callee最小检查仅limited-static批准，
+96B unsafe确证receiver传递，未据map唯一/长度预付detour、最终writer或玩法。
+
+原APK45619c51保数据安装后，ON真实roster NRE/未生效，先前UI/配置stageAccepted不是效果通过；
+该失败原样保留。私有首栈和4具名IL确认两处人数绑定IntPtr指针构造，PC原为Int64长度构造。
+共享两处分配显式(long)count，宿主对齐真实long/IntPtr形状；原诊断日志不留产品，不加分叉/兜底。
+修后实际Main两处Int64、PC两完整方法IL原样，源码/宿主/适配器独立复审通过。
+私有修后APK6c792318…同证书/资源CRC与123interop已核，保数据install-r一次；UI ON→OFF六输入八PNG
+123.153秒zeroPID，ON26.977秒/13.974秒后二次capture，无wall warning/ERROR，状态“暂无外墙”，
+原名单错误在产生处已消失。最终25cfgWallfalse/Rolefalse/旧24保持、Main和selectedNative保持。
+随后OFF无输入冷启动遇QEMU主循环/4CPU线程hang，ADB读取/停止超时，宿主HangDetector生成dump并退出。
+该窗没有最终读取/guest零PID证明，不算冷启动通过；false Main/native结果源自跳读，非实测hash漂移。
+ownedPID3079已消失、未再重启；测试环境有界对照跟进 [#213](https://github.com/baisiqi6/ohmymods/issues/213)；先前宿主hang和过期截图0input失败仍保留，未证明GPU根因或mod无因。
+代码PR214已正常合并3fbbd2bb（source2efe3a07），GitHub Issue212已关闭读回；
+本次进展记录冻结时（2026-10-11 11:10 UTC）normal完成回执正按受管入口收尾，最终状态以其回执为准。天然外墙耐久/维修/工匠职责、读档换岛、
+池、保存、手机多人及长期仍pending；代码交付、有限名单修复与玩家完整验收分别记录。
+本组估计3–8工程小时；后续约7–9风险组/75–210工程小时为条件宽估，手机多人日历另计。
+
+## 2026-10-11 — Android 战斗参数代码收尾与角色体型叶组（#196 / #210）
+
+#196的PR209已正常合并3e7b330，GitHub代码关单；normal完成回执已consumed，canonical done/closed且lease释放，mirror closed，validator/doctor0E0W。真实Main0.0.26/39目标及两参数菜单保存证据分层记录；皇冠方向接受、用户手动混合整窗不通过，骑士独立6输入93.057s通过，原20配置保持、最终两flag/Petfalse、Main与所选native保存hash保持。天然六量/写者/池/真实远距及phoneMP/长时仍待验，不把代码关单升级成玩法验收。旧暂停阶段记录保留。
+
+当前release全库盘点274源pin，纯Android2E0W、仅诊断桌面元数据opt-in111E1W，91配置使用点/41成员/19混合扩展/1CrossbowmanRole缺口不补假实现。仍按8–10风险组、80–210工程小时条件估计，日历上的phoneMP另计。
+
+#210 normal accepted3473B/4b4bf339新assignment doing/running，独立branch codex/android-role-scale/base3e7b330；旧Android成果worktree冻结保留。计划只接Ninja四形态/加载和Banker/Hermit/Dog OnEnable的7长入口，private Hermit.OnDestroy不挂，直接file-local alias复用GreekScaleScope与现有驱动/清理。一个真实默认OFF设置只决定下次启动注册，公共中文暗金世界页标“下次开启/下次关闭”，不影响猫或总作用域，不新增热切扫描/副账本/guard/retry。
+
+角色共享源仅alias头，PC和ANDROID定义实际direct-source宿主各74/0（同74例两配置，不相加为148场景）。实际SDK10初build2E0W定位Animator真实模块缺引用，在项目产生处补UnityEngine.AnimationModule/required项后0W0E；未造Animator替身或改生产算法。新Main0.0.27/3bc30f45…236544B；适配器876/0、716/0、716/0，PC完整1317类型/6933方法/37资源语义零差异/0allowlist，独立源码审查approved无mustfix。私有APK4eec4a26…的CRC/签名/123互操作引用已核验，独立模拟器已保数据安装，自动refresh新版Main、冷启动39→46→39、公共中文世界页滚动/角色开关开关保存通过；三窗106.930/119.825/36.294秒零PID收尾，最终24键rolefalse/旧23值保持/Main与所选native保存hash保持、具名日志0ERROR，owned AVD关闭。PR交付审查与正常合并待续；天然角色/最终writer/池/phoneMP待验。
+
 ## 2026-10-14 — 右坐骑岛弯月形累计候选已安装，实机待验（PR #222）
 
 按用户要求，将右岛宽湾弯月与配套mask/锚点接入正常累计版；左岛和紧凑布局保持，完整保留刚装的PR228盾卫修复。无observer候选ede15287…ba60（来源a8e11399）经累计/安装器独审，39资源为原38完全保留加Crescent；本轮六组host检查全过，net6/net8编译通过。安装仅改DLL与校验项，旧DLL已备份，配置/存档/游戏保持，启动器只读预检通过；本轮未启动游戏。旧allmode NOT PASS及Mac原生动态数据/视觉、Windows/Android待验保持；PR202/222仍Draft、Issue200开放，无公开发版。详见[任务记录](tasks/mount-map-compact-20261013/summary.md)。
@@ -1985,6 +2086,27 @@ typed host106/0、strict789/0+oldcfg629/0、Grounding17/0；缺失physics getter
 20cfg、最终false4/120、old17保持、停机；first-observed不冒充spawn。自然补员delta1/OFF原生值
 读回/全部world/池重建/手机多指MP长周期仍pending。原a551/5559失败与125.86s超120窗口保留。
 代码PR与normal任务收尾待完成，验收边界见tasks/issue-184/implementation.md；不发布游戏/loader/interop。
+
+
+### 2026-10-10 Issue #198：火铳职业同期保存与严格配对恢复
+
+职业 checkpoint 改为随原生 Prefs 正文保存，物理 writer 验证后才生成同次配对和 legacy mirror；不按原有17份记录补兵。独立源码/host review 通过，pure487、adapter37（追加反例47）、真实producer33及原有生命周期回归通过；固定全Mod net6/net8编译通过。当前交付维持 draft PR，Issue #198开放，原生ABI/线程/GC/Windows及游戏存读档未验，未改正常DLL/配置/存档。完整边界见 [本次任务记录](tasks/issue-198-musketeer-paired-save-20261010.md)。
+
+
+## 2026-10-13 Issue223 旧档火枪手补偿
+
+unknown-paid旧档枪架无付款点已定位到身份保护门，用户选择保留旧历史并一次性授予8名新火枪手。源码与契约回归、Mac真实8名生成及物理存盘、1次付款身份跨冷进程恢复和不重复补偿已通过独立验收。测试原进度五通道完整恢复后，累计候选36faec77与固定8名私有Plan已安装正常版本；补偿待玩家下一次加载授权战役目标岛执行。原校验失败与额外进程输出保留，隔离postimage未作为正常进度。详细范围与验证边界见[任务记录](tasks/2026-10-13-issue223-musketeer-legacy-compensation.md)。PR224仍Draft、Issue223开放，Windows/Android、多人和换岛实机未验。
+
+2026-10-14 Android Issue221恢复：原未提交工作区消失，17原审查源已在独立工作区按原SHA逐字节恢复；实际Android/PC0W0E、9adapter1114/0或954/0、生产wrapper57/0、Android新旧与PC完整语义MATCH。暂停前默认OFF51与中文小浮球/控件观察仍为历史证据，ON/OFF冷启及天然效果待验；当前不把恢复/编译当新实机通过，canonical窗口需重新交接。详见tasks/issue-221/implementation.md。
+
+2026-10-14 Android Issue221：同一私有0.0.30包已完成3成功cold51→53→51、85.364s/10真实UI输入；31配置原30保持、最终DivineOFF/游戏0PID，Main/native最终读回保持。旧两次age失败及本轮静态滚动/ON排版模板两次工具保护失败保留，修工具产生处而不改Mod/加retry。自然转化/命中/Pool32/owner层级、手机/MP/长期仍待验，#213开放。详见tasks/issue-221/implementation.md；source检查点ebfd8c6已push，PR与normal任务收尾未提前称完成。
+
+PR229发布后仅进展文档追加段冲突；已保留主线与Android两端原文并同步 release/v9.5.13 100c181。上游8份PC火枪兵变化不在Android66输入中，本批17已审源SHA保持。最新主线全量PC双构建0W0E、候选与精确主线基线1356类型/7141方法/37资源语义MATCH，允许差异0；前文1318/6934是恢复初始基线结果。无需更换Android包或重复冷启动。
+
+
+2026-10-14 Android Issue221 已按新交接窗口完成代码收尾：PR229精确head8e9320f合并为53afef0，Issue221关闭；normal完成回执已消费，canonical与DBmirror均closed，owner/session清空、lease释放，validator通过、doctor0E0W，旧170完整对象及顺序和全部计划保持，窗口已归还主Operator。自然转化/命中、owner实际层级/Pool32、读档换岛/池重建、手机平板、多人及长期待验，#213继续开放。上文“未登记/未交接/待PR”均为此前阶段的历史状态。
+
+2026-10-14 Android Issue230 公共编译批：已在两shared-save import产生处适配Il2CppCoatsink.Common，PC import原样。当前全量声明诊断22→2（Hook/INativeDetour），仅诊断opt-in进入body后96errors/1warning，分类为76配置引用37成员+1CrossbowmanRole+19混合metadata歧义；没有把错误数当完成率。现有Android66产品输入0W0E、PC私有net6全源0W0E及1356/7141/37语义零差异；未新启保存/职业/射击hooks、未改装机或游戏数据。代码审查及本轮必要编译已通过，合并状态以本批关联PR/Issue为准，详情tasks/issue-230/implementation.md。
 
 ## 2026-10-13 坐骑双岛总览紧凑下排候选
 

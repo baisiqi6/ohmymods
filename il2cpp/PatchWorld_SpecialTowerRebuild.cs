@@ -11,19 +11,6 @@ using UnityEngine;
 namespace KingdomEnhancedMod;
 
 /// <summary>
-/// Marker added to supported special-tower prefab assets before their CRPC
-/// components are enumerated.  It deliberately carries no state and implements
-/// neither IRPCable nor Persistent.IBehaviour; the native PayableUpgrade added
-/// beside it owns the original payment, networking and save-data lifecycle.
-/// </summary>
-public sealed class SpecialTowerRebuildMarker : MonoBehaviour
-{
-    public SpecialTowerRebuildMarker(IntPtr pointer) : base(pointer)
-    {
-    }
-}
-
-/// <summary>
 /// First, deliberately narrow special-tower rebuild slice:
 ///
 /// - an idle Ballista specialisation may be rebuilt into the current biome's

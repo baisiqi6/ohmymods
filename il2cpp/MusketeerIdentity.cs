@@ -118,6 +118,8 @@ internal static class MusketeerIdentity
         internal bool Unresolved;          // unproven native snapshot / load anomaly: preserve + block
         internal bool NewEpoch;
         internal bool HasBaseline;
+        internal bool CompensationPending;
+        internal Guid CompensationRequest;
         internal bool GenerationPending;
         internal IntPtr VirginIsland;      // once-guard for repeated ApplyToScene of one generation
         internal long VirginWorld;
@@ -187,7 +189,9 @@ internal static class MusketeerIdentity
                 state.DefenseAttempts = 0;
             state.World = world;
             _current = state;
+            MusketeerLegacyCompensationRuntime.Tick(state);
             if (state.Ready && state.DefenseAttempts > 0 && !GunPromotionInProgress
+                && !state.CompensationPending
                 && (!MusketeerAccess.Enabled || MusketeerAccess.Playing)
                 && Time.frameCount > state.DefenseBindFrame)
             {
@@ -257,8 +261,8 @@ internal static class MusketeerIdentity
         try
         {
             var state = _current;
-            if (!MusketeerAccess.TrackAllowed || state == null || !state.Ready || state.ReadOnly
-                || state.Unresolved || !state.HasBaseline || state.Epoch == null
+            if (MusketeerNativeSave.AnyLegacyCompensationPending || !MusketeerAccess.TrackAllowed || state == null || !state.Ready || state.ReadOnly
+                || state.Unresolved || state.CompensationPending || !state.HasBaseline || state.Epoch == null
                 || state.StockRestores.Count != 0 || state.Careers.Count > MaxRecords
                 || !TryContext(out var context, out var world, true)
                 || context != state.ContextKey || world != state.World) return false;
@@ -353,9 +357,9 @@ internal static class MusketeerIdentity
         {
             try
             {
-                if (!MusketeerAccess.Playing) return false;
+                if (!MusketeerAccess.Playing || MusketeerNativeSave.RejectEndpointUnavailable) return false;
                 var state = _current;
-                if (state == null || !state.Ready || state.ReadOnly || state.Unresolved || !state.HasBaseline || state.Epoch == null) return false;
+                if (MusketeerNativeSave.AnyLegacyCompensationPending || state == null || !state.Ready || state.ReadOnly || state.Unresolved || state.CompensationPending || !state.HasBaseline || state.Epoch == null) return false;
                 if (state.StockRestores.Count > 0) return false;   // failed rack restore: retry before selling
                 if (state.Careers.Count >= MaxRecords) return false;
                 if (_contextKey == null || _contextKey != state.ContextKey) return false;
@@ -372,7 +376,7 @@ internal static class MusketeerIdentity
             try
             {
                 var state = _current;
-                return state != null && state.Ready && (state.Unresolved || state.StockRestores.Count > 0);
+                return state != null && state.Ready && (state.Unresolved || state.CompensationPending || state.StockRestores.Count > 0);
             }
             catch { return false; }
         }
@@ -385,8 +389,11 @@ internal static class MusketeerIdentity
             try
             {
                 if (!MusketeerAccess.TrackAllowed) return "火铳手身份：联机或非权威世界，暂停识别";
+                if (MusketeerNativeSave.RejectEndpointUnavailable) return "火铳手同步保存接口不可用，暂停购买";
+                if (MusketeerNativeSave.AnyLegacyCompensationPending) return MusketeerLegacyCompensationRuntime.StatusText;
                 var state = _current;
                 if (state == null || !state.Ready) return "火铳手身份：等待岛屿存档上下文";
+                if (state.CompensationPending) return MusketeerLegacyCompensationRuntime.StatusText;
                 if (state.Unresolved) return "火铳手附加档历史待确认，暂停购买";
                 if (state.StockRestores.Count > 0) return "火铳手货架枪物理待恢复，暂停购买";
                 if (state.ReadOnly) return "火铳手附加档只读，暂停购买";
@@ -404,11 +411,11 @@ internal static class MusketeerIdentity
     {
         try
         {
-            if (!MusketeerAccess.TrackAllowed) return false;
+            if (!MusketeerAccess.TrackAllowed || MusketeerNativeSave.RejectEndpointUnavailable) return false;
             if (tool == null || tool.gameObject == null) return false;
             if (stockSlot < MusketeerCareer.NoStockSlot || stockSlot >= StockSlots) return false;
             var state = _current;
-            if (state == null || !state.Ready || state.ReadOnly || state.Unresolved || !state.HasBaseline || state.Epoch == null) return false;
+            if (MusketeerNativeSave.AnyLegacyCompensationPending || state == null || !state.Ready || state.ReadOnly || state.Unresolved || state.CompensationPending || !state.HasBaseline || state.Epoch == null) return false;
             if (!MusketeerAccess.InWorld(tool)) return false;
             if (tool.gameObject.tag != "Bow") return false;
             // A registerable rack gun is one that is still uncollected and unclaimed; otherwise the
@@ -807,6 +814,46 @@ internal static class MusketeerIdentity
         catch { return null; }
     }
 
+    internal static long LegacyBirthLife(Character character)
+    {
+        if (character == null || character.gameObject == null) return 0;
+        return RootOf(character.gameObject, true)?.Life ?? 0;
+    }
+
+    internal static bool RegisterLegacyArcher(IslandState state, Character character, Guid id, Guid request, out string reason)
+    {
+        reason = "legacy-birth-not-owned";
+        if (!ReferenceEquals(state, _current) || !state.Ready || state.ReadOnly || !state.CompensationPending
+            || state.CompensationRequest != request || !MusketeerAccess.TrackAllowed || character == null
+            || !MusketeerLegacyCompensationRuntime.OwnsBirth(character, id, request)
+            || state.Careers.Exists(c => c.Id == id) || !MusketeerAccess.InWorld(character)) return false;
+        var archer = character.GetComponent<Archer>();
+        var persistent = character.GetComponent<Persistent>();
+        if (archer == null || character._damageable == null || character._damageable.isDead
+            || persistent == null || persistent.path != MusketeerLegacyGrantCapture.MusketeerPrefabPath
+            || !persistent.ShouldPersist() || HeroRecruitment.HasPurchasedCareer(character))
+        { reason = "legacy-birth-not-native-archer"; return false; }
+        var slot = RootOf(character.gameObject, true);
+        if (slot == null || !slot.Alive || Bound.ContainsKey(slot.Pointer)) return false;
+        var career = new Career { Id = id, State = state };
+        if (!Bind(career, slot, character, archer, null, MusketeerCareer.NoStockSlot)) return false;
+        state.Careers.Add(career);
+        reason = null;
+        Log("legacy-new-unit:" + id.ToString("N"), null);
+        return true;
+    }
+
+    internal static bool ForgetLegacyBirth(IslandState state, Character character, Guid id, Guid request)
+    {
+        if (state == null || state.CompensationRequest != request || !state.CompensationPending
+            || !MusketeerLegacyCompensationRuntime.OwnsBirth(character, id, request)) return false;
+        var career = state.Careers.Find(c => c.Id == id);
+        if (career == null) return true; // Spawned but registration failed: no career to release.
+        if (career.Character == null || career.Character.Pointer != character.Pointer || !ValidBinding(career)) return false;
+        Release(career); state.Careers.Remove(career);
+        return true;
+    }
+
     internal static Career AddCareer(IslandState state, MusketeerCareer record)
     {
         var career = new Career
@@ -1010,6 +1057,8 @@ internal static class MusketeerIdentity
             string file = GlobalSaveData.filename;
             if (string.IsNullOrEmpty(file) || file.Length > 256) return false;
             contextKey = MusketeerArchive.ContextKey(file, campaign, challenge, land);
+            try { MusketeerNativeSave.ObserveContext(contextKey, campaign, challenge, land); }
+            catch (Exception e) { Log("native-context", e); }
             return true;
         }
         catch { return false; }

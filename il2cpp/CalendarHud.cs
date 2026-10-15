@@ -64,7 +64,7 @@ internal static class CalendarHud
                 ? BankAssistantCoordinator.GetStashedCoinsForPanel() : -1;
             // The coin icon plus the 主城金库 caption already identify the currency; keep the bare number.
             _bankText = stashed < 0 ? "—" : stashed.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
-            // issue-175：本机钱包随身钻石与日期共用半秒采样，Draw 不读钱包。
+            // issue-199：当前战役储存钻石与日期共用半秒采样，Draw 不读存档/钱包。
             PatchUI_CalendarGems.Refresh(managers.kingdom, scene);
             // issue-86：与 F5 面板同源同格式；Draw 只读本缓存，不查游戏状态。
             _wallText = FormatWallStatus(WallEngineerRuntime.Status);
@@ -132,7 +132,7 @@ internal static class CalendarHud
             if (_snapshot.HasNextSeason)
                 Line(x + 236, y + 39, 136 * Mathf.Clamp01(_snapshot.Progress), 3, currentColor);
             if (showBank) Label(x + 400, y + 31, 132, 20, "主城金库", _small, Muted);
-            // 随身钻石独立于主城金库：双本机玩家各显示各的钱包，不合计。
+            // 储存钻石独立于主城金库：共享战役库存只显示一次，不合计本机钱包。
             float gemX = x + width - 264f;
             Icon(7, gemX, y + 8, 16, GemTint);
             Label(gemX + 24, y + 6, 108, 22, PatchUI_CalendarGems.ValueText, _number, GemTint);
@@ -198,17 +198,7 @@ internal static class CalendarHud
 
     /// <summary>issue-86 外墙耐久倍率唯一只读文案来源；F5 设置面板复用同一格式。Ready 时不做 clamp/重算。</summary>
     internal static string FormatWallStatus(WallEngineerStatus status)
-    {
-        if (status.Ready) return "×" + status.AppliedMultiplier;
-        return status.Reason switch
-        {
-            WallEngineerUnavailableReason.Disabled => "已关闭",
-            WallEngineerUnavailableReason.Loading => "载入中",
-            WallEngineerUnavailableReason.NoOuterWall => "暂无外墙",
-            WallEngineerUnavailableReason.NetworkUnsupported => "仅单机",
-            _ => "未生效",
-        };
-    }
+        => WallEngineerStatusText.Format(status);
 
     private static void EnsureResources()
     {
