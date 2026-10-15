@@ -2145,3 +2145,6 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 ## 2026-10-13 坐骑双岛总览紧凑下排候选
 
 用户选择compact下排。旧78UI预留+左右半区中心导致当前0.507及留白，已改完整原生/固定状态包围盒驱动的普通岛比例与居中一组；完整图形示例0.659而非强制0.77。两源源码审查和127新回归、286旧回归通过，公共IL2CPP禁部署.NET8/当前累计.NET6与.NET8编译0W0E，38资源及地图外body保持。新候选未安装，正常游玩仍b8f的PR204累计版本；没有启动或操作游戏/共享进度。原生刷新后视觉/归还与玩家、Windows/Android验收待测。依赖未合并PR202，Issue200保持开放；过程与边界见 tasks/mount-map-compact-20261013/summary.md。
+
+
+2026-10-15 Android #232 接续：相关主线合并/登记窗口已交还，分支基线ee153aca；G1 PR238已合并，实际183 Compile/184 refs/21资源、D/R0E1W，两产物各Adapter1264/0与Banner metadata15/0，现有Android0.0.30安装保留。私有真实Task/Return三值内存病例九equal+done已独审、原Main/config/Release字节保持、Addon移除、game0与owned QEMU退出通过；此前读取quote错误及3秒校验预算假失败均按实际证据保留，不写成GPU故障。仅核定本memory能力，writer/copy-back/typed callback/事务、完整对象池与玩法仍待分组验证。正常232计划af8登记、其余177 rows/161 plans保持、doctor/validator0E0W；#232仍开放，源码/安装/实机分别记录。详见[本批次任务记录](tasks/issue-232/g1-source-foundation.md)。
