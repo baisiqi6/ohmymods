@@ -76,7 +76,14 @@ namespace Il2CppSystem
     {
         private readonly System.Action<T> _managed;
         public Action(System.Action<T> managed) { _managed = managed; }
-        public static implicit operator Action<T>(System.Action<T> value) => new Action<T>(value);
+        // Test-only fault injection; default OFF. No production or observer implementation here.
+        public static bool FailImplicitConversion = false;
+        public static implicit operator Action<T>(System.Action<T> value)
+        {
+            if (FailImplicitConversion)
+                throw new InvalidOperationException("OBSERVER_TEST_IMPLICIT_CONVERSION_FAILURE");
+            return new Action<T>(value);
+        }
         public void Invoke(T value) => _managed(value);
     }
 }

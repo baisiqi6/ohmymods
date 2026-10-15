@@ -177,6 +177,7 @@ internal static class Program
         ResidualDeletedChallengeSource();
         Check.Case("residual: a rooted Task survives another patch's finalizer exception");
         ResidualKnownTaskException();
+        ObserverConversionFailureCases();
         return Check.Finish();
     }
 
@@ -1464,5 +1465,116 @@ internal static class Program
         Check.True(AcceptedAsync(h, payload), "pair still saved from the real disk payload");
         Check.True(File.Exists(h.PairPath), "pair exists");
         Check.True(File.ReadAllBytes(MusketeerPersistence.ArchivePath).AsSpan().SequenceEqual(foreign), "corrupt sidecar preserved, not overwritten");
+    }
+    // Reads only the production observable pending-root fixture surface already used by
+    // ResidualCapacityKeepsRoots. No observer implementation is mirrored here.
+    private static MusketeerNativeSave.SaveObservation[] PendingSnapshot()
+    {
+        var field = typeof(MusketeerNativeSave).GetField("PendingObservations",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        return ((List<MusketeerNativeSave.SaveObservation>)field.GetValue(null)).ToArray();
+    }
+
+    private static bool ContainsPending(MusketeerNativeSave.SaveObservation item)
+    {
+        foreach (var pending in PendingSnapshot()) if (ReferenceEquals(item, pending)) return true;
+        return false;
+    }
+
+    private static void ObserverConversionFailureCases()
+    {
+        Check.Case("Regression observer conversion failure: pending returns to pre-call membership; published sibling survives");
+        ObserverOneFailedConversion();
+        Check.Case("Regression observer conversion failure: nine failures never exhaust the eight pending slots");
+        ObserverNineFailedConversions();
+    }
+
+    private static void ObserverOneFailedConversion()
+    {
+        using var h = new Harness();
+        try
+        {
+            Il2CppSystem.Action<SaveLoadResult>.FailImplicitConversion = false;
+            Seed(h, 0, 0, 0, Island(0, ""), new List<MusketeerCareer>());
+            int siblingForwarded = 0, failedForwarded = 0;
+            Il2CppSystem.Action<SaveLoadResult> sibling = new Il2CppSystem.Action<SaveLoadResult>(_ => siblingForwarded++);
+            var siblingOriginal = sibling;
+            bool siblingRun = true;
+            bool siblingPrefix = MusketeerNativeSave.Musketeer_SaveAsyncObserver.Prefix(h.Global, ref sibling, ref siblingRun);
+            Check.True(siblingPrefix && siblingRun && !ReferenceEquals(sibling, siblingOriginal), "sibling genuinely published");
+            var baseline = PendingSnapshot();
+            Check.Eq(baseline.Length, 1, "one legitimate published sibling");
+            var published = baseline[0];
+            var owner = published.Owner; var rights = published.Rights; var managed = published.Managed;
+            long sequence = published.Sequence; string path = published.Path;
+            Il2CppSystem.Action<SaveLoadResult> callback = new Il2CppSystem.Action<SaveLoadResult>(_ => failedForwarded++);
+            var original = callback;
+            Il2CppSystem.Action<SaveLoadResult>.FailImplicitConversion = true;
+            bool run = true;
+            bool prefix = MusketeerNativeSave.Musketeer_SaveAsyncObserver.Prefix(h.Global, ref callback, ref run);
+            Check.True(ReferenceEquals(callback, original), "failed publication keeps original callback identity");
+            Check.True(prefix && run, "failed publication permits native original without changing __runOriginal");
+            Check.Eq(failedForwarded, 0, "failed callback not synchronously forwarded");
+            Check.Eq(siblingForwarded, 0, "sibling not synchronously forwarded");
+            Check.Eq(PendingSnapshot().Length, baseline.Length, "single failure must restore pending count");
+            Check.True(ContainsPending(published), "published sibling remains a pending member by reference");
+            Check.True(ReferenceEquals(published.Owner, owner) && ReferenceEquals(published.Rights, rights)
+                && ReferenceEquals(published.Managed, managed) && published.Sequence == sequence && published.Path == path,
+                "published sibling reference members and frozen identity preserved");
+            Console.WriteLine("EVIDENCE single pendingBefore=" + baseline.Length + " pendingAfter=" + PendingSnapshot().Length);
+            Il2CppSystem.Action<SaveLoadResult>.FailImplicitConversion = false;
+            sibling.Invoke(SaveLoadResult.Save | SaveLoadResult.Failure);
+            sibling.Invoke(SaveLoadResult.Save | SaveLoadResult.Failure);
+            Check.Eq(siblingForwarded, 1, "published sibling completes exactly once despite duplicate callback");
+            Check.False(ContainsPending(published), "completed sibling removed by its own reference");
+            Check.True(published.Managed == null, "completed sibling releases its managed root");
+            Check.Eq(failedForwarded, 0, "failed publication never invents a callback");
+        }
+        finally { Il2CppSystem.Action<SaveLoadResult>.FailImplicitConversion = false; }
+    }
+
+    private static void ObserverNineFailedConversions()
+    {
+        using var h = new Harness();
+        try
+        {
+            Seed(h, 0, 0, 0, Island(0, ""), new List<MusketeerCareer>());
+            var baseline = PendingSnapshot();
+            int warningStart = KingdomEnhancedPlugin.Instance.LogSource.Warnings.Count;
+            int forwarded = 0;
+            Il2CppSystem.Action<SaveLoadResult>.FailImplicitConversion = true;
+            for (int i = 0; i < 9; i++)
+            {
+                Il2CppSystem.Action<SaveLoadResult> callback = new Il2CppSystem.Action<SaveLoadResult>(_ => forwarded++);
+                var original = callback; bool run = true;
+                bool prefix = MusketeerNativeSave.Musketeer_SaveAsyncObserver.Prefix(h.Global, ref callback, ref run);
+                Check.True(ReferenceEquals(callback, original), "failure " + i + " keeps original callback identity");
+                Check.True(prefix && run, "failure " + i + " preserves original execution contract");
+                Check.Eq(forwarded, 0, "failure " + i + " never forwards synchronously");
+            }
+            int afterFailures = PendingSnapshot().Length;
+            Il2CppSystem.Action<SaveLoadResult>.FailImplicitConversion = false;
+            Il2CppSystem.Action<SaveLoadResult> valid = new Il2CppSystem.Action<SaveLoadResult>(_ => forwarded++);
+            var validOriginal = valid; bool validRun = true;
+            bool validPrefix = MusketeerNativeSave.Musketeer_SaveAsyncObserver.Prefix(h.Global, ref valid, ref validRun);
+            bool capacityAvailable = !ReferenceEquals(valid, validOriginal);
+            bool capLogged = false;
+            var warnings = KingdomEnhancedPlugin.Instance.LogSource.Warnings;
+            for (int i = warningStart; i < warnings.Count; i++)
+                if (warnings[i].Contains("observe-cap:", StringComparison.Ordinal)) capLogged = true;
+            Console.WriteLine("EVIDENCE nine pendingBefore=" + baseline.Length + " pendingAfterFailures=" + afterFailures
+                + " subsequentCallbackWrapped=" + capacityAvailable + " observeCapLogged=" + capLogged);
+            Check.True(afterFailures == baseline.Length && capacityAvailable,
+                "nine failed publications must retain free capacity (pending=" + afterFailures + ", wrapped=" + capacityAvailable + ")");
+            Check.True(validPrefix && validRun, "capacity probe still permits original native continuation");
+            Check.Eq(forwarded, 0, "capacity probe never calls continuation synchronously");
+            if (capacityAvailable)
+            {
+                valid.Invoke(SaveLoadResult.Save | SaveLoadResult.Failure);
+                valid.Invoke(SaveLoadResult.Save | SaveLoadResult.Failure);
+                Check.Eq(forwarded, 1, "later valid callback forwards exactly once");
+            }
+        }
+        finally { Il2CppSystem.Action<SaveLoadResult>.FailImplicitConversion = false; }
     }
 }

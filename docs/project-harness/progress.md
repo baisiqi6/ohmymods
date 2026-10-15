@@ -1,3 +1,9 @@
+## 2026-10-15 — 共享保存未发布观察根因修复（Issue #235，待 PR 整合）
+
+职业/弓弩依赖核对发现保存回调转换失败后观察仍占槽，已在创建责任处撤销本次未发布观察及 managed 根，原回调、合法 sibling 和 once 保持；未加扫描/重试/超时补偿。旧源 39 绿+两新增红，修后 adapter41/41、pipeline33断言通过；PC全源net6/net8零警告零错误，Android172源候选Debug/Release零错误、原PrepareWindowObserver CS0649保留。候选仅替换共享修复源，未接新hook/UI、未安装；原生ABI/AOT/真实保存事务及实机分别待验。
+
+#235已由Main正常登记doing/running，原批准计划保持；独立分支交付PR供Main整合，未合并前不关单。#232仍OPEN，仅G0公共保存源码已合并；旧段落168源/23CS0117是当时快照，当前私有172源已接真实配置接口与完整编译前置，但不代表职业批次运行完成。PR226保存职责和#234盾卫玩法仍归Main，Android0.0.30安装成果保留。详见[本次验证](tasks/issue-235/verification.md)。
+
 ## 2026-10-14 — Android #232 G0 公共职业保存源码边界
 
 #232 已经正常登记 doing/running，仅 Scope-G0 计划批准；未做完成/关单，171 旧对象与155旧plan、顺序及本地镜像保持，validator0/doctor0E0W。当前公共五源+五测试链接候选按精确审查字节接入独立分支，未加Android新pref/hook/版本/安装；整个职业/弓弩组仍待后续实施。受控PC net6及net8基线/候选0W0E、strict语义/resource MATCH；net6 1358types/7158methods，net8 1355/7154；四原TFM host54tests/223checks/73checks/15tests通过。旧actual-interop独立工程基线与候选同SharedBankNative CS0246预存失败，不补stub、不记通过。默认Android66源与182refs保持。
