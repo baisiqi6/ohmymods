@@ -28,6 +28,7 @@
     <Compile Include="../../PatchDivine_StaffCooldown.cs" />
     <Compile Include="../../HoldBridges.cs" />
     <Compile Include="../../MobilePlayerConfig.cs" />
+    <Compile Include="../../../il2cpp/CrossbowRatioPolicy.cs" />
     <Compile Include="../../MobilePlayerMenu.cs" />
     <Compile Include="../../FloatLayout.cs" />
     <Compile Include="../MelonLoggerStub.cs" />

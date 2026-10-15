@@ -28,23 +28,23 @@ var actions = new (HeavyShieldAction Action, string Name)[] {
 string Prefix(HeavyShieldWear wear) => wear switch { HeavyShieldWear.Worn => "worn_", HeavyShieldWear.Critical => "critical_", HeavyShieldWear.Half => "half_", _ => "" };
 
 var capped = new HeavyShieldPoseMachine(); capped.SetStance(HeavyShieldStance.BackWalk); capped.Tick(.34f);
-Check(capped.Elapsed == .25f, "large delta keeps original 0.25 clock cap"); Frame(capped, "back_walk", 2);
+Check(capped.Elapsed == .25f, "large delta keeps original 0.25 clock cap"); Frame(capped, "back_walk", 0);
 capped.Tick(-1f); Check(capped.Elapsed == .25f, "negative delta cannot rewind phase");
-capped.SetWear(HeavyShieldWear.Half); Check(capped.Elapsed == .25f, "changed wear preserves movement phase"); Frame(capped, "half_back_walk", 2);
+capped.SetWear(HeavyShieldWear.Half); Check(capped.Elapsed == .25f, "changed wear preserves event seconds"); Frame(capped, "half_back_walk", 0);
 
-// Exact production clip selection and frame clocks for every one of the final 19x4 wear clips.
+// Event and idle frame clocks stay unchanged. Locomotion supplied no displacement stays frozen.
 foreach (var wear in Enum.GetValues<HeavyShieldWear>())
 {
     foreach (var row in stances)
     {
         var p = new HeavyShieldPoseMachine(); p.SetWear(wear); p.SetStance(row.Stance);
         string name = Prefix(wear) + row.Name; var seq = Clip(name); Frame(p, name);
-        p.Tick(.125f); int offset = (int)Math.Floor(.125 * seq.Fps); Frame(p, name, offset);
+        p.Tick(.125f); int offset = HeavyShieldPoseMachine.IsMovingStance(row.Stance) ? 0 : (int)Math.Floor(.125 * seq.Fps); Frame(p, name, offset);
         float elapsed = p.Elapsed; p.SetStance(row.Stance); p.SetWear(wear);
         Check(p.Elapsed == elapsed, name + " repeated stance/wear keeps phase");
         p.Tick(0f); p.Tick(float.NaN); p.Tick(float.PositiveInfinity); Check(p.Elapsed == elapsed, name + " paused/invalid dt keeps phase");
         Advance(p, 2.5f);
-        Frame(p, name, (int)Math.Floor((double)p.Elapsed * seq.Fps) % seq.Count);
+        Frame(p, name, HeavyShieldPoseMachine.IsMovingStance(row.Stance) ? 0 : (int)Math.Floor((double)p.Elapsed * seq.Fps) % seq.Count);
     }
     foreach (var row in actions)
     {
@@ -79,7 +79,7 @@ Advance(motion, .5f); motion.SetPresentation(HeavyShieldStance.BackWalk, false, 
 Check(motion.Action == HeavyShieldAction.WalkStartAlt, "next real walk edge uses alternate start");
 motion.SetPresentation(HeavyShieldStance.BackRun, false, true); Check(motion.Action == HeavyShieldAction.RunStart, "walk to actual run starts");
 motion.Tick(.125f); motion.SetPresentation(HeavyShieldStance.BackRun, false, true); Check(motion.Elapsed == .125f, "steady run keeps start phase");
-Advance(motion, .25f); Frame(motion, "back_run", (int)Math.Floor((double)motion.Elapsed * Clip("back_run").Fps));
+Advance(motion, .25f); Frame(motion, "back_run", 0);
 motion.SetPresentation(HeavyShieldStance.BackWalk, false, true); Check(motion.Action == HeavyShieldAction.RunStop, "run to walk brakes once");
 Advance(motion, .5f); motion.SetPresentation(HeavyShieldStance.BackIdle, false, false);
 Check(motion.Action == HeavyShieldAction.None, "unknown sample cancels motion transition"); Advance(motion, 10f);
@@ -121,4 +121,34 @@ try
     }
 }
 finally { table[breakIndex] = original; }
+
+// These assertions exercise the linked pose/frame selector, not a copied gait model.
+HeavyShieldGaitSample MotionSample(HeavyShieldPoseMachine p, float x, int frame, double time, bool playing = true)
+    => new() { Frame = frame, UnscaledTime = time, ParentId = 1, Facing = 1,
+        LocalX = x, WorldX = x, AnchorX = p.Gait.PreviousLocalX, Playing = playing };
+foreach (var wear in Enum.GetValues<HeavyShieldWear>())
+foreach (var row in new[] {
+    (HeavyShieldStance.BackWalk, "back_walk", HeavyShieldGaitClock.BackWalkStrideWorld),
+    (HeavyShieldStance.BackRun, "back_run", HeavyShieldGaitClock.BackRunStrideWorld),
+    (HeavyShieldStance.Advance, "defense_advance", HeavyShieldGaitClock.AdvanceStrideWorld) })
+{
+    var p = new HeavyShieldPoseMachine(); p.SetWear(wear); p.SetStance(row.Item1);
+    p.Tick(.1f, MotionSample(p, 0f, 1, .1));
+    float x = (float)(row.Item3 * .3);
+    p.Tick(.1f, MotionSample(p, x, 2, .2));
+    Check(Math.Abs(p.Gait.Phase - .3) < .00001, "linked pose consumes real displacement for " + row.Item2);
+    var seq = Clip(Prefix(wear) + row.Item2);
+    Frame(p, Prefix(wear) + row.Item2, (int)Math.Floor(.3 * seq.Count));
+    double phase = p.Gait.Phase;
+    p.Tick(.1f, MotionSample(p, x, 3, .3));
+    Check(p.Gait.Phase == phase, "blocked loop cannot spend event seconds as steps");
+    p.SetWear(wear); p.SetStance(row.Item1);
+    Check(p.Gait.Phase == phase, "repeated wear/stance preserves canonical contact phase");
+    p.Tick(.1f, MotionSample(p, x, 4, .4, false));
+    float elapsed = p.Elapsed;
+    p.Tick(.1f, MotionSample(p, x + .4f, 5, .5, false));
+    Check(p.Elapsed == elapsed && p.Gait.Phase == phase, "pause freezes event and movement clocks");
+    p.Tick(.1f, MotionSample(p, x + .4f, 6, .6));
+    Check(p.Gait.Phase == phase, "resume seeds without paused displacement debt");
+}
 Console.WriteLine($"HeavyShieldVisuals: {assertions} assertions passed");

@@ -6,7 +6,11 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+#if ANDROID
+using Il2CppCoatsink.Common;
+#else
 using Coatsink.Common;
+#endif
 using HarmonyLib;
 using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
@@ -1669,17 +1673,31 @@ internal static class MusketeerNativeSave
         internal static bool Prefix(GlobalSaveData __instance, ref Il2CppSystem.Action<SaveLoadResult> __0, ref bool __runOriginal)
         {
             if (!__runOriginal) return true;
+            SaveObservation unpublished = null;
             try
             {
                 var original = __0;
                 if (original == null || __instance == null) return true;
                 var observation = BeginSaveObservation(__instance);
                 if (observation == null) return true;
+                unpublished = observation;
                 System.Action<SaveLoadResult> managed = result => CompleteSaveObservation(observation, result, original);
                 observation.Managed = managed;                       // explicit managed root until completion
+                // Publishing __0 must remain the final try statement; any later statement requires a published guard.
                 __0 = (Il2CppSystem.Action<SaveLoadResult>)managed;  // converted IL2CPP delegate replaces the argument
             }
-            catch (Exception e) { Log("save-observer", e); }
+            catch (Exception e)
+            {
+                if (unpublished != null)
+                {
+                    lock (Sync)
+                    {
+                        unpublished.Managed = null;
+                        PendingObservations.Remove(unpublished);
+                    }
+                }
+                Log("save-observer", e);
+            }
             return true;
         }
     }

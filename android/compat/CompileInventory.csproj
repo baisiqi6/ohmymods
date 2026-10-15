@@ -75,9 +75,9 @@
   <Import Project="$(Il2CppRoot)/EmbeddedAssets.props" />
 
   <ItemGroup>
-    <!-- Shared sources minus the 9 platform-replacement originals (Android supersedes them). -->
+    <!-- Shared sources minus the 8 platform-replacement originals (Android supersedes them). -->
     <Compile Include="$(Il2CppRoot)/**/*.cs"
-             Exclude="$(Il2CppRoot)/CalendarSnapshot.cs;$(Il2CppRoot)/KingdomEnhancedPlugin.cs;$(Il2CppRoot)/ModConfig.cs;$(Il2CppRoot)/ModPanel.cs;$(Il2CppRoot)/OptionalQoLScope.cs;$(Il2CppRoot)/PatchRide_InfiniteStamina.cs;$(Il2CppRoot)/PatchRide_SteedCooldown.cs;$(Il2CppRoot)/PatchWorld_Mover.cs;$(Il2CppRoot)/PopulationCounts.cs;$(Il2CppRoot)/**/obj/**;$(Il2CppRoot)/**/bin/**" />
+             Exclude="$(Il2CppRoot)/CalendarSnapshot.cs;$(Il2CppRoot)/KingdomEnhancedPlugin.cs;$(Il2CppRoot)/ModConfig.cs;$(Il2CppRoot)/ModPanel.cs;$(Il2CppRoot)/OptionalQoLScope.cs;$(Il2CppRoot)/PatchRide_InfiniteStamina.cs;$(Il2CppRoot)/PatchRide_SteedCooldown.cs;$(Il2CppRoot)/PatchWorld_Mover.cs;$(Il2CppRoot)/**/obj/**;$(Il2CppRoot)/**/bin/**" />
     <!-- Android top-level adapter files; tests/compat/obj/bin subdirs are not matched. -->
     <Compile Include="$(MSBuildThisFileDirectory)../*.cs" />
     <Compile Include="DiagnosticGlobalAliases.cs" />

@@ -62,6 +62,7 @@ internal static class Program
         float? seededCooldown = null;
         float? seededStaffCooldown = null;
         float? seededMap = null;
+        bool configOnly = false;
         bool oldCfg = false;
         bool seedFastBuild = false;
         bool seedBoat = false;
@@ -71,7 +72,10 @@ internal static class Program
         var artifactArgs = new List<string>();
         foreach (string arg in args)
         {
+            if (arg == "--config-only") { configOnly = true; continue; }
+            if (ProfessionPreferenceChecks.Seed(arg)) continue;
             if (WorldLayoutPreferenceChecks.Seed(arg)) continue;
+            if (DivinePreferenceChecks.Seed(arg)) continue;
             if (TryFlag(arg, "--seed-speed=", out string speedText))
                 seededSpeed = int.Parse(speedText, CultureInfo.InvariantCulture);
             else if (TryFlag(arg, "--seed-enemy-count=", out string countText))
@@ -164,7 +168,13 @@ internal static class Program
         RoleScalePreferenceChecks(seedRoleScale);
         WallEngineerPreferenceChecks(seedWallEngineer);
         WorldLayoutPreferenceChecks.Run();
+        DivinePreferenceChecks.Run();
         EnemyMathChecks.Run();
+        if (configOnly)
+        {
+            Console.WriteLine("config/adapter host only: " + Checks.Passed + " passed / " + Checks.Failed + " failed; product metadata not evaluated");
+            return Checks.Failed == 0 ? 0 : 1;
+        }
         ProbeChecks.Run();
         MenuChecks.Run();
         if (artifactArgs.Count < 1)
@@ -346,7 +356,7 @@ internal static class Program
             if (field.Name == "WallEngineerEnabled" || !field.FieldType.Name.StartsWith("MelonPreferences_Entry`")) continue;
             previous[field] = field.FieldType.GetField("Value", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).GetValue(field.GetValue(null));
         }
-        Checks.Check(previous.Count == 29, "all other 29 preference values are captured before the new toggle");
+        Checks.Check(previous.Count == 39, "all other 39 preference values, including the nine profession entries, are captured before the wall toggle");
         int saves = MelonLoader.MelonPreferencesStub.SaveCalls;
         bool master = Config.Enabled.Value;
         Config.ToggleWallEngineer();
@@ -370,7 +380,8 @@ internal static class Program
             + (seededCooldown.HasValue && !IsFinite(seededCooldown.Value) ? 1 : 0)
             + (seededStaffCooldown.HasValue && !IsFinite(seededStaffCooldown.Value) ? 1 : 0)
             + (seededMap.HasValue && !IsFinite(seededMap.Value) ? 1 : 0)
-            + WorldLayoutPreferenceChecks.NonFiniteSeeds;
+            + WorldLayoutPreferenceChecks.NonFiniteSeeds
+            + ProfessionPreferenceChecks.NonFiniteSeeds;
         bool rejected = false;
         try { Config.Initialize(null); }
         catch (ArgumentNullException) { rejected = true; }
@@ -380,8 +391,9 @@ internal static class Program
 
         Config.Initialize(enabled => applied.Add(enabled));
 
+        ProfessionPreferenceChecks.AfterInitialize(oldCfg);
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 30, "Initialize creates exactly thirty entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 40, "Initialize creates forty real entries: the existing thirty-one plus nine profession entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -892,8 +904,17 @@ internal static class ProbeChecks
         foreach (string binding in roleBindings)
             Checks.Check(source.Split(binding).Length - 1 == 1, "exact role binding once: " + binding);
         Checks.Check(!source.Contains("typeof(Il2Cpp.Hermit),\"OnDestroy\""), "private pooled Hermit.OnDestroy is never registered");
-        Checks.Check(source.Contains("\"0.0.29\""), "Probe reports version 0.0.29");
-        Checks.Check(source.Split("0.0.29").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
+        Checks.Check(source.Contains("if(KingdomEnhancedMod.ModConfig.DivineParametersEnabled.Value)")
+            && source.Contains("ANDROID_DIVINE_PARAMETERS_HOOKS_INSTALLED targets=3 addedUniqueTargets=2")
+            && source.Contains("ANDROID_DIVINE_PARAMETERS_HOOKS_DISABLED targets=0"),
+            "divine boot registration uses the real default-OFF choice");
+        Checks.Check(source.Split("LogHookCounts(staffRoutine)").Length - 1 == 1,
+            "shared staff target reports the final handler count once");
+        Checks.Check(source.Contains("typeof(Il2Cpp.FriendlyTroll),\"ShouldRevertToTroll\",Type.EmptyTypes")
+            && source.Contains("typeof(Il2Cpp.ArtemisArrow),\"DamageAffectedEnemies\",new[]{typeof(GameObject)}"),
+            "divine registration binds the exact native instance method overloads");
+        Checks.Check(source.Contains("\"0.0.30\""), "Probe reports version 0.0.30");
+        Checks.Check(source.Split("0.0.30").Length - 1 == 2, "Probe carries the two version markers (MelonInfo + load banner)");
         Checks.Check(source.Contains("combat_parameters") && source.Contains("ANDROID_COMBAT_PARAMETER_HOOKS_INSTALLED"),
             "Probe advertises and reports both parameter targets");
         Checks.Check(source.Contains("typeof(Il2Cpp.CrownStealer),\"Awake\",Type.EmptyTypes")
@@ -1239,14 +1260,25 @@ internal static class ArtifactChecks
                 { "ApplyData_Postfix", 1 }, { "DeserializeFromData_Postfix", 1 }, { "Apply", 2 } }, MethodAttributes.Private, "private static");
             Checks.Check(BodyCallsMethod(pe, reader, reader.GetTypeDefinition(roleNinja), "Apply", "Register", "KingdomEnhancedMod.GreekScaleScope"),
                 "Ninja uses direct shared registration without a holder adapter");
+            Console.WriteLine("METADATA_BINDING NinjaStyleScale_Patch.Apply->ScaleRegistryHolder.Register="
+                + BodyCallsMethod(pe, reader, reader.GetTypeDefinition(roleNinja), "Apply", "Register", "KingdomEnhancedMod.ScaleRegistryHolder"));
         }
         foreach (string roleType in new[] { "GreeceBankerScale_Patch", "HermitScale_Patch", "DogScale_Patch" })
         {
             var role = FindType(reader, "KingdomEnhancedMod", roleType);
             Checks.Check(!role.IsNil, "artifact links shared " + roleType);
-            if (!role.IsNil) Checks.Check(BodyCallsMethod(pe, reader, reader.GetTypeDefinition(role), "OnEnable_Postfix", "Register", "KingdomEnhancedMod.GreekScaleScope"),
-                roleType + " registers directly with the shared scope");
+            if (!role.IsNil)
+            {
+                Checks.Check(BodyCallsMethod(pe, reader, reader.GetTypeDefinition(role), "OnEnable_Postfix", "Register", "KingdomEnhancedMod.GreekScaleScope"),
+                    roleType + " registers directly with the shared scope");
+                Console.WriteLine("METADATA_BINDING " + roleType + ".OnEnable_Postfix->ScaleRegistryHolder.Register="
+                    + BodyCallsMethod(pe, reader, reader.GetTypeDefinition(role), "OnEnable_Postfix", "Register", "KingdomEnhancedMod.ScaleRegistryHolder"));
+            }
         }
+        var hermitScale = FindType(reader, "KingdomEnhancedMod", "HermitScale_Patch");
+        Checks.Check(!hermitScale.IsNil && BodyCallsMethod(pe, reader, reader.GetTypeDefinition(hermitScale),
+            "OnDestroy_Postfix", "Unregister", "KingdomEnhancedMod.GreekScaleScope"),
+            "Hermit OnDestroy unregisters directly with GreekScaleScope, preserving the Android ownership boundary");
         Checks.Check(HasMemberReference(reader, "Il2Cpp.Ninja", "get_APIsFisher")
             && HasMemberReference(reader, "UnityEngine.Animator", "GetBool"), "Ninja reads real dynamic API key and final Animator bool");
 
@@ -1286,12 +1318,35 @@ internal static class ArtifactChecks
 
         // Farm-cat block (linked PatchWorld_FarmCats / FarmCatMovement / GreekScaleScope) and the
         // Operator's explicit registration targets. The Android build must contain no
-        // ScaleRegistryHolder stand-in; ScaleRegistryHolder.Register is replaced at the source
-        // boundary by GreekScaleScope.Register.
+        // empty ScaleRegistryHolder stand-in. G1 links the real shared registry/driver;
+        // FarmCats still binds directly to GreekScaleScope at its Android boundary.
         Checks.Check(!FindType(reader, "KingdomEnhancedMod", "PatchWorld_FarmCats").IsNil, "artifact contains linked PatchWorld_FarmCats");
         Checks.Check(!FindType(reader, "KingdomEnhancedMod", "FarmCatMovement").IsNil, "artifact contains linked FarmCatMovement");
         Checks.Check(!FindType(reader, "KingdomEnhancedMod", "GreekScaleScope").IsNil, "artifact contains linked GreekScaleScope");
-        Checks.Check(FindType(reader, "KingdomEnhancedMod", "ScaleRegistryHolder").IsNil, "artifact contains no ScaleRegistryHolder stand-in");
+        var registry = FindType(reader, "KingdomEnhancedMod", "ScaleRegistryHolder");
+        Checks.Check(!registry.IsNil, "artifact contains the real shared ScaleRegistryHolder");
+        if (!registry.IsNil)
+        {
+            var definition = reader.GetTypeDefinition(registry);
+            Checks.Check(TypeName(reader, definition.BaseType) == "UnityEngine.MonoBehaviour",
+                "shared registry is the real injectable MonoBehaviour, not an empty stand-in");
+            Checks.Check(BodyCallsMethod(pe, reader, definition, "Register", "Register", "KingdomEnhancedMod.GreekScaleScope")
+                && BodyCallsMethod(pe, reader, definition, "Unregister", "Unregister", "KingdomEnhancedMod.GreekScaleScope")
+                && BodyCallsMethod(pe, reader, definition, "LateUpdate", "MaintainRegisteredY", "KingdomEnhancedMod.GreekScaleScope"),
+                "shared Register/Unregister/LateUpdate bind the one real GreekScaleScope owner");
+            Checks.Check(BodyCallsTarget(pe, reader, definition, "EnsureCreated", "Il2CppInterop.Runtime.Injection.ClassInjector", "IsTypeRegisteredInIl2Cpp")
+                && BodyCallsTarget(pe, reader, definition, "EnsureCreated", "Il2CppInterop.Runtime.Injection.ClassInjector", "RegisterTypeInIl2Cpp")
+                && BodyCallsTarget(pe, reader, definition, "EnsureCreated", "UnityEngine.GameObject", ".ctor")
+                && BodyCallsTarget(pe, reader, definition, "EnsureCreated", "UnityEngine.GameObject", "AddComponent", "KingdomEnhancedMod.ScaleRegistryHolder"),
+                "EnsureCreated really registers/injects and creates AddComponent<ScaleRegistryHolder>");
+            Checks.Check(BodyCallsMethod(pe, reader, definition, "QueueShieldEquip", "EnsureCreated", "KingdomEnhancedMod.ScaleRegistryHolder")
+                && BodyCallsMethod(pe, reader, definition, "Update", "TryEquipShieldAfterRegistration", "KingdomEnhancedMod.Worker_OnEnable_Patch"),
+                "real registry retains its post-registration shield queue path");
+        }
+        var farm = reader.GetTypeDefinition(FindType(reader, "KingdomEnhancedMod", "PatchWorld_FarmCats"));
+        Checks.Check(BodyCallsMethod(pe, reader, farm, "EnsureCatScale", "Register", "KingdomEnhancedMod.GreekScaleScope")
+            && !BodyCallsMethod(pe, reader, farm, "EnsureCatScale", "Register", "KingdomEnhancedMod.ScaleRegistryHolder"),
+            "Android FarmCats still uses GreekScaleScope directly when the real registry is present");
         CheckHandlers(reader, FindType(reader, "KingdomEnhancedMod", "PatchWorld_FarmCats"),
             new Dictionary<string, int> { { "Schedule", 1 } }, MethodAttributes.Public, "public static");
         CheckHandlers(reader, FindType(reader, "KingdomEnhancedMod", "Cat_OnEnable_FarmMovement_Patch"),
@@ -1919,6 +1974,7 @@ internal static class ArtifactChecks
             "the value/tab base selection keeps ANDROID label and PC box/button branches side by side");
 
         CheckWorldLayoutArtifact(reader);
+        CheckDivineArtifact(reader);
         VerifyFrozenSources();
         Console.WriteLine("artifact sha256 " + Checks.ComputeSha256(dllPath));
     }
@@ -1932,6 +1988,9 @@ internal static class ArtifactChecks
     // AdapterTests.csproj) and added the shared dense source PatchWorld_OptionalVegetation.cs.
     private static readonly string SourceRoot = Checks.RepositoryRoot();
 
+    // Issue #232 owns config/project/Probe/population wiring and the preference tests.
+    // Those explicitly changed or replaced files are excluded here; every remaining
+    // historical source keeps its original immutable hash (no blanket re-pinning).
     private static readonly string[] FrozenSources =
     {
         "android/AndroidCoroutine.cs",
@@ -1944,13 +2003,10 @@ internal static class ArtifactChecks
         "android/MobileCalendar.cs",
         "android/MobileGenerationMenu.cs",
         "android/MobileModPanel.cs",
-        "android/MobilePlayerConfig.cs",
         "android/MobilePlayerMenu.cs",
-        "android/MobilePopulation.cs",
         "android/MobileUiInputSurface.cs",
         "android/MobileVegetationMenu.cs",
         "android/MobileWorldMenu.cs",
-        "android/OhMyMods.AndroidProbe.csproj",
         "android/OptionalQoLScope.cs",
         "android/PanelGesture.cs",
         "android/PatchDivine_StaffCooldown.cs",
@@ -1958,10 +2014,7 @@ internal static class ArtifactChecks
         "android/PatchRide_SteedCooldown.cs",
         "android/PatchWorld_BoatCapacity.cs",
         "android/PatchWorld_Mover.cs",
-        "android/PopulationCounts.cs",
-        "android/Probe.cs",
         "android/TouchClaims.cs",
-        "android/tests/AdapterTests.csproj",
         "android/tests/MelonLoggerStub.cs",
         "android/tests/MelonPreferencesStub.cs",
         "il2cpp/BoatCapacityProfile.cs",
@@ -1983,7 +2036,6 @@ internal static class ArtifactChecks
         "il2cpp/PatchRoles_BeggarCamp.cs",
         "il2cpp/PatchPerformance_Population.cs",
         "il2cpp/PopulationGrounding.cs",
-        "android/tests/population-android/PopulationTests.csproj",
         "android/tests/population-android/Stubs.cs",
         "android/tests/population-android/Program.cs",
             "il2cpp/PatchUI_AndroidImages.cs",
@@ -2014,7 +2066,8 @@ internal static class ArtifactChecks
         "il2cpp/SpecialTowerDuplicateCleanup.cs",
         "il2cpp/SpecialTowerRebuildMarker.cs",
         "il2cpp/PatchWorld_SpecialTowerRebuild.cs",
-        "android/tests/WorldLayoutPreferenceChecks.cs",
+        "il2cpp/PatchDivine_HermesStaff.cs",
+        "il2cpp/PatchDivine_Artemis.cs",
 
         "android/tests/IlInstructionReader.cs",
 
@@ -2024,6 +2077,8 @@ internal static class ArtifactChecks
     {
         var known = new Dictionary<string, string>
         {
+            { "il2cpp/PatchDivine_HermesStaff.cs", "dea9c0b49e1faa3a7b285e1565c79ef95f748fca5a4f28c0df45742468adc3c8" },
+            { "il2cpp/PatchDivine_Artemis.cs", "c61e39e28dcf83e1264dba6e006410359381cbd5e60729053037e9011fba5e97" },
             { "android/AndroidCoroutine.cs", "c3f16218e82cc26f9f8e5b9ed9e74aa1f81b666da821f0acccf35133fd9ae265" },
             { "android/AssemblyInfo.cs", "b5a7ade914d9e157d175ae9f7d42f40bb92cb608722875de4cd025ad50e86a14" },
             { "android/CalendarSnapshot.cs", "0ece4765f9a5311707f1a9bf0d61c491846cd8e17327ac4d09773c37eb0fdb8e" },
@@ -2034,13 +2089,10 @@ internal static class ArtifactChecks
             { "android/MobileCalendar.cs", "39ac54e3bf7acb37a7a30189f67dd2973bb394f53d28193836481dba0c44723b" },
             { "android/MobileGenerationMenu.cs", "c75c115333c7e161e5036dc6dd5b996c6d5c758940bc3f518c7fc2272d559a9e" },
             { "android/MobileModPanel.cs", "e9a0bd5347da0333b2110b4a93dcf61b0caff4d4375a600a99ad12a124683f12" },
-            { "android/MobilePlayerConfig.cs", "9e44b2711509cab3e53750c875b9ab4d46db209c241b5c3934d67504e1bd6e5b" },
-            { "android/MobilePlayerMenu.cs", "9fced29dbb22162ad3eb0ca7bb2d6d7b1c02d437c4831884b16145ed46723d2e" },
-            { "android/MobilePopulation.cs", "fdf95ab309d2489f1d0d3e4c4893d3ee44388e9e5ebb37d991c65a6f8c260571" },
+            { "android/MobilePlayerMenu.cs", "ab58a667ba0cc4b06cfffb97f157fb435eab0c7e7c71bae3b2d87f05d31a7329" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
             { "android/MobileVegetationMenu.cs", "40e6be0dda5313a61f01f98e1829422290612ede0b948b8d21c4549a58890e66" },
             { "android/MobileWorldMenu.cs", "c56718fd9adf39745548ff1f316f9f7763170388b2aa1b040381772773164932" },
-            { "android/OhMyMods.AndroidProbe.csproj", "bf66aa094ef719fc51b12e0114e966e73a6cbc6f13de4960bb3082f1612d8947" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PanelGesture.cs", "51071fefbc1a1ab4b8f23ee84bf10925c325d8414400b9ed186af238c136e97b" },
             { "android/PatchDivine_StaffCooldown.cs", "fed3aa92423d4cada13071dde8e04f8a4a2b49c6379220a0bf216b908aa74cda" },
@@ -2048,10 +2100,7 @@ internal static class ArtifactChecks
             { "android/PatchRide_SteedCooldown.cs", "b29cfe6d93af38e0d49e33dc4254c501a7b5ee8c664ecf473ec499cadc01eb52" },
             { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
-            { "android/PopulationCounts.cs", "bc7342133e52ef79ae79e15969bc358a61b9fccc0e84386c8cff3cf5563ec1c4" },
-            { "android/Probe.cs", "8a2c1b517e010aece0f8e61ab46d8238690d5528cdbc539ecd4c4f638e26a30f" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
-            { "android/tests/AdapterTests.csproj", "a8b78ebdbc5238df84cec0f37e11a318aeeef0d10e9faab616207bb2ad8e0d45" },
             { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
             { "android/tests/MelonPreferencesStub.cs", "43cb64d622d4b1827aff0229902a732d209b188400f628d088fde099337e38d2" },
             { "il2cpp/BoatCapacityProfile.cs", "02d43c64922667e6e1f2d834bf29f28f8fbc683878dc27db1430abed4c11c2f2" },
@@ -2070,7 +2119,6 @@ internal static class ArtifactChecks
             { "il2cpp/PatchRoles_BeggarCamp.cs", "0f6ef6e7c15d66e02ff34696fed991ba0864688f0a084377fd459cbc3c8981a9" },
             { "il2cpp/PatchPerformance_Population.cs", "a88d780cdfecfdcd2038cf524b318e74b2d83e6fb48dbaafc1dfdc3b49c39951" },
             { "il2cpp/PopulationGrounding.cs", "f343ded6e3bb6bde78fe6c277d3e797e32333b2c2fa8e4af4791606a7e12ca20" },
-            { "android/tests/population-android/PopulationTests.csproj", "d3589f48f6b1a790b796b80740164011fec38e9327a65698097d695852efbcf6" },
             { "android/tests/population-android/Stubs.cs", "4acd6fd0dd282c1c2bb51bad36dbda1d53e343cfedd203941efce39923c75cf7" },
             { "android/tests/population-android/Program.cs", "99b2f857fbdd6aed635def5db2a601d87b5ec7ed3377c68e67a710a02412a667" },
             { "il2cpp/PatchWorld_OptionalVegetation.cs", "0d8d9e892e91b4439f026d211e3a26edb86b14861999438b1148e35cfb8918c0" },
@@ -2078,7 +2126,7 @@ internal static class ArtifactChecks
             { "il2cpp/PatchWorld_NightDeparture.cs", "fdde1a68bc5a255beefd9f4ac8eb3849a5b807ddece7e0b4ce120bbb738c3a62" },
                     { "il2cpp/PatchUI_AndroidImages.cs", "07b4b29d7ad969f847faea5f0b66ff2a33e19eb95ccdd98000748403adf6bae3" },
             { "android/PatchUI_MobileCalendarHud.cs", "bd2de1b93492901e8cad72af54c370361cee5f3b29e695c3c1721484247f7086" },
-            { "il2cpp/PatchUI_CalendarGems.cs", "61dc210b03a8eceaf0b7da52ccdf0890e31cdd8a9cd0c1207409da6ded50bb93" },
+            { "il2cpp/PatchUI_CalendarGems.cs", "795007b27072238568328d50bb7c9031916c1b5efc3b0e24a54df8770508fd1a" },
             { "il2cpp/PatchShared_ModDataPaths.cs", "f38c27e36ae7d4209a7a849dc06415a9bd7705d9d22b3689120882db2e484d0f" },
             { "il2cpp/PatchRoles_PetGuard.cs", "b9d63a6a89b8525ebb34db7551fbe1a061be935619335246fb09c795a3241269" },
             { "il2cpp/PatchRoles_Hermit.cs", "e14768158734fc7b994d7159e4e105307c444c72e4b8d773f9a38813c374cc3a" },
@@ -2091,7 +2139,7 @@ internal static class ArtifactChecks
             { "android/tests/combat-parameters/CombatParameterTests.csproj", "358fc51817d916686b13badfcdb75524662543e4fe0dd79a332edbcfe97a7b0c" },
             { "android/tests/combat-parameters/Stubs.cs", "adee57d465df5c4fcf792f20e912929c6a9deec74a8616e6c19e5754d1f0445c" },
             { "android/tests/combat-parameters/Program.cs", "97d87e1733d7a333d2c6120ab3d0caf3fe7f03a862df071869fce69ec1b714d1" },
-            { "il2cpp/PatchRoles_ScaleAdjustments.cs", "1ddc29f77b1dacaff0c4ea7df6d3274925932c52b3c910ec4106d572805a80ec" },
+            { "il2cpp/PatchRoles_ScaleAdjustments.cs", "2f58b328ad19217687e8859104af3da7c0c3be835618f6e31814f1c749ae68ca" },
             { "tests/greek-scale-scope/GreekScaleScopeRegression.csproj", "8540738d79d8e61126533f9cbf7d29b389ce6b56580dcbaddeabd456e6aab8a7" },
             { "tests/greek-scale-scope/Program.cs", "3a2d0dac66437e9f40db0d86775d955166be43e7064a60ef9b86ba070a48ce18" },
             { "tests/greek-scale-scope/Stubs.cs", "23e58cefadf6e53cb093030d624ed279321a5096032035258e0b7cfb2d5bc706" },
@@ -2103,7 +2151,6 @@ internal static class ArtifactChecks
             { "il2cpp/SpecialTowerDuplicateCleanup.cs", "3fc9f7f40ba92cc3ae90f4981d5e8cf4e7f3d1cd72b9df5638c2aaeb1b3e3e9c" },
             { "il2cpp/SpecialTowerRebuildMarker.cs", "7946ee1b3132f1933d5cbfbb0f5900898d4571bbcf403be3d911c67c039384c2" },
             { "il2cpp/PatchWorld_SpecialTowerRebuild.cs", "b95e156872b74132f9712cfb6c1d9a2251aeace0767afe164e17909f777b635a" },
-            { "android/tests/WorldLayoutPreferenceChecks.cs", "7a732f81385b58c964558d12e20d20f3063d89a578cc140f4ba28b30deafbf1d" },
             { "android/tests/IlInstructionReader.cs", "9a8734268731a6d17f973eeb80ed09b860e39528b92e1dcbead1e3ff8f92d1eb" },
 
 };
@@ -2267,6 +2314,51 @@ internal static class ArtifactChecks
         return false;
     }
 
+    // Positive external/generic-call evidence on the existing instruction reader. Resolve
+    // MethodSpecification to its real method token, and optionally its actual generic args.
+    // This never scans raw operand bytes or source text for call names.
+    private static bool BodyCallsTarget(PEReader pe, MetadataReader reader, TypeDefinition definition,
+        string methodName, string calleeType, string calleeName, string genericArguments = null)
+    {
+        foreach (var handle in definition.GetMethods())
+        {
+            var method = reader.GetMethodDefinition(handle);
+            if (reader.GetString(method.Name) != methodName || method.RelativeVirtualAddress == 0) continue;
+            string context = reader.GetString(definition.Name) + "::" + methodName;
+            foreach (var instruction in IlInstructionReader.Read(pe.GetMethodBody(method.RelativeVirtualAddress).GetILBytes(), context))
+            {
+                if (!IlInstructionReader.IsCallOrCallvirtOrNewobj(instruction)) continue;
+                EntityHandle target = MetadataTokens.EntityHandle(instruction.OperandToken);
+                string arguments = null;
+                if (target.Kind == HandleKind.MethodSpecification)
+                {
+                    var specification = reader.GetMethodSpecification((MethodSpecificationHandle)target);
+                    var blob = reader.GetBlobReader(specification.Signature);
+                    if (blob.ReadByte() != 0x0A) throw new BadImageFormatException(context + " invalid method instantiation");
+                    int count = blob.ReadCompressedInteger();
+                    var decoded = new List<string>();
+                    for (int index = 0; index < count; index++) decoded.Add(WalkElementType(reader, ref blob));
+                    arguments = string.Join(",", decoded);
+                    target = specification.Method;
+                }
+                if (genericArguments != null && arguments != genericArguments) continue;
+                if (target.Kind == HandleKind.MemberReference)
+                {
+                    var reference = reader.GetMemberReference((MemberReferenceHandle)target);
+                    if (TypeName(reader, reference.Parent) == calleeType && reader.GetString(reference.Name) == calleeName)
+                        return true;
+                }
+                else if (target.Kind == HandleKind.MethodDefinition)
+                {
+                    var called = reader.GetMethodDefinition((MethodDefinitionHandle)target);
+                    if (TypeName(reader, called.GetDeclaringType()) == calleeType && reader.GetString(called.Name) == calleeName)
+                        return true;
+                }
+            }
+        }
+        return false;
+    }
+
     // Collects every call/callvirt/newobj MemberReference target in one type's method bodies as
     // "DeclaringType::member", decoded on real instruction boundaries. Exact positive evidence,
     // and any hit on a banned token is decisive for the negative checks; a call-class operand that
@@ -2328,6 +2420,47 @@ internal static class ArtifactChecks
             }
         }
         return count;
+    }
+
+    private static void CheckDivineArtifact(MetadataReader reader)
+    {
+        foreach (var shape in new[]
+        {
+            ("PatchDivine_HermesStaff", "RoutinePrefix", "_StartAbilityRoutine_d__17,Borrow&", "System.Void", 2),
+            ("PatchDivine_HermesStaff", "Finalizer", "System.Exception,Borrow", "System.Exception", 2),
+            ("PatchDivine_HermesStaff", "FriendlyTroll_ShouldRevertToTroll_Prefix", "Il2Cpp.FriendlyTroll,System.Boolean&", "System.Boolean", 2),
+            ("PatchDivine_Artemis", "DamageAffectedEnemies_Prefix", "Il2Cpp.ArtemisArrow,Borrow&", "System.Void", 2),
+            ("PatchDivine_Artemis", "Finalizer", "System.Exception,Borrow", "System.Exception", 2)
+        })
+        {
+            var type = FindType(reader, "KingdomEnhancedMod", shape.Item1);
+            Checks.Check(!type.IsNil, "divine artifact contains shared type " + shape.Item1);
+            if (type.IsNil) continue;
+            var definition = reader.GetTypeDefinition(type);
+            CheckHandlers(reader, type, new Dictionary<string, int> { { shape.Item2, shape.Item5 } },
+                MethodAttributes.Assembly, "internal static");
+            Checks.Check(SignatureTypes(reader, definition, shape.Item2) == shape.Item3,
+                "divine handler binds the actual native instance and managed receipt " + shape.Item1 + "." + shape.Item2);
+            foreach (var methodHandle in definition.GetMethods())
+            {
+                var method = reader.GetMethodDefinition(methodHandle);
+                if (reader.GetString(method.Name) != shape.Item2) continue;
+                var signature = reader.GetBlobReader(method.Signature);
+                signature.ReadSignatureHeader();
+                signature.ReadCompressedInteger();
+                Checks.Check(WalkElementType(reader, ref signature) == shape.Item4,
+                    "divine handler preserves native exception/return binding " + shape.Item2);
+            }
+            foreach (var fieldHandle in definition.GetFields())
+                Checks.Check(reader.GetString(reader.GetFieldDefinition(fieldHandle).Name) != "OriginalAbilityRanges",
+                    "Android does not import the strong-key range registry");
+            foreach (var methodHandle in definition.GetMethods())
+            {
+                string name = reader.GetString(reader.GetMethodDefinition(methodHandle).Name);
+                Checks.Check(name != "ApplyCooldownProfile" && name != "OnStaffCooldownMultiplierChanged",
+                    "Android leaves the existing staff cooldown writer as sole owner");
+            }
+        }
     }
 
     private static void CheckWorldLayoutArtifact(MetadataReader reader)

@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <Compile Include="../../il2cpp/CoinCourierRuntime.cs" Link="Production/CoinCourierRuntime.cs" />
+    <Compile Include="../../il2cpp/CoinCourierGround.cs" Link="Production/CoinCourierGround.cs" />
     <Compile Include="../../il2cpp/CoinCourierCoinFlight.cs" Link="Production/CoinCourierCoinFlight.cs" />
     <Compile Include="../../il2cpp/CoinCourierRuntimeRules.cs" Link="Production/CoinCourierRuntimeRules.cs" />
     <Compile Include="../../il2cpp/CoinCourierCampaignState.cs" Link="Production/CoinCourierCampaignState.cs" />
@@ -26,6 +27,7 @@
     <Compile Include="../../il2cpp/CoinCourierPurse.cs" Link="Production/CoinCourierPurse.cs" />
     <Compile Include="../../il2cpp/CoinCourierRules.cs" Link="Production/CoinCourierRules.cs" />
     <Compile Include="../../il2cpp/CoinCourierPersistence.cs" Link="Production/CoinCourierPersistence.cs" />
+    <Compile Include="../../il2cpp/CoinCourierPersistence.Hooks.cs" Link="Production/CoinCourierPersistence.Hooks.cs" />
     <Compile Include="../../il2cpp/CoinCourierSaveData.cs" Link="Production/CoinCourierSaveData.cs" />
     <Compile Include="../../il2cpp/HeroShop.cs" Link="Production/HeroShop.cs" />
   </ItemGroup>

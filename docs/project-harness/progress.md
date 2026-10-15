@@ -1,3 +1,49 @@
+## 2026-10-15 — 自定义商店库存与照明源码收尾（Issue #225）
+
+PR226接入含字体性能/地图的当前release，保留stock/save/native-reader各自产生与提交责任；补Android三真实Compile及测试依赖冲突并集。最终完整PC/Android构建、Adapter与13组相关source-linked回归通过；具体数字/调用错误留痕见tasks/issue-225/verification.md。原功能已实装，当前只源码收尾；自然重上架领取、破墙与照明观感/平台实机不冒称通过，后续新问题另Issue/PR。下方旧Draft/Open记录保留历史。
+
+## 2026-10-15 — 字体与性能源码收尾（Issue #206）
+
+已实装PR207接入当前release（含双岛/弯月地图），处理Android两个真实helper闭包与managed/native读取边界，补三宿主真实依赖。独审与相关实际回归通过，最终公共net8/net6和AndroidD/R+完整Adapter已复核；玩家性能/Windows/native结果不混为源码完成。以下Draft/Open为旧阶段，当前PR状态以GitHub为准，合并后代码关单、后续新问题另Issue/PR。详见tasks/issue-206/verification.md。
+
+## 2026-10-15 — 双坐骑岛地图源码收尾（Issue #200）
+
+PR202已合入release，PR222目标改回release并完成当前组合检查；紧凑布局/右岛弯月形保留正常已装版本。实际compact127/art94/Variant161/shore101/缺B3，以及公共net8/net6、AndroidD/R与完整Adapter1264/0通过。以下旧Draft/Open是历史阶段；当前合并状态以GitHub本轮为准，两个PR全部合并后代码关单，玩家后测另开新问题。未新增实机或安装声明，详见tasks/issue-200/verification-222.md。
+
+## 2026-10-15 — Android #232 G1 源码与生命周期接入（尚未合并/运行）
+
+G0/PR233与保存根因修复#235/PR236已合并，#235正常受管完成；下方旧“待PR整合”保留历史。当前G1正式工程173源/184真实refs/21资源、40真实配置、共享13职业人口，显式52owner及真实初始化/驱动源码已接入，删除旧重复PopulationCounts。缩放同名alias遮蔽在产生处修为唯一平台别名，四旧Register+新增Unregister断言红1259/5→最终W1264/0；Population106/0，Android D/R0W0E，fresh PC net8/net6全源严格零语义/IL/资源差异。Main单文件交接与正常exact计划审批已完成，窗口归还，其他任务/plans/lease保持。当前源码尚待PR交付，整个232仍OPEN；未安装新Main/APK，0.0.30成果保留，未预付native ABI/真实保存/池玩法/手机多人验收，#213仍OPEN。详见[本次记录](tasks/issue-232/g1-source-foundation.md)。
+
+后续先补native/保存边界，再按弓弩、火铳、英雄/盾卫完整依赖组推进，公共触屏控件随组复用；职业组条件宽估40–100工程小时，全Android暂维持约6–8风险组/70–200工程小时，实际ABI/环境卡点可改变估算，玩家验收日历另计。
+
+## 2026-10-15 — 共享保存未发布观察根因修复（Issue #235，待 PR 整合）
+
+职业/弓弩依赖核对发现保存回调转换失败后观察仍占槽，已在创建责任处撤销本次未发布观察及 managed 根，原回调、合法 sibling 和 once 保持；未加扫描/重试/超时补偿。旧源 39 绿+两新增红，修后 adapter41/41、pipeline33断言通过；PC全源net6/net8零警告零错误，Android172源候选Debug/Release零错误、原PrepareWindowObserver CS0649保留。候选仅替换共享修复源，未接新hook/UI、未安装；原生ABI/AOT/真实保存事务及实机分别待验。
+
+#235已由Main正常登记doing/running，原批准计划保持；独立分支交付PR供Main整合，未合并前不关单。#232仍OPEN，仅G0公共保存源码已合并；旧段落168源/23CS0117是当时快照，当前私有172源已接真实配置接口与完整编译前置，但不代表职业批次运行完成。PR226保存职责和#234盾卫玩法仍归Main，Android0.0.30安装成果保留。详见[本次验证](tasks/issue-235/verification.md)。
+
+## 2026-10-14 — Android #232 G0 公共职业保存源码边界
+
+#232 已经正常登记 doing/running，仅 Scope-G0 计划批准；未做完成/关单，171 旧对象与155旧plan、顺序及本地镜像保持，validator0/doctor0E0W。当前公共五源+五测试链接候选按精确审查字节接入独立分支，未加Android新pref/hook/版本/安装；整个职业/弓弩组仍待后续实施。受控PC net6及net8基线/候选0W0E、strict语义/resource MATCH；net6 1358types/7158methods，net8 1355/7154；四原TFM host54tests/223checks/73checks/15tests通过。旧actual-interop独立工程基线与候选同SharedBankNative CS0246预存失败，不补stub、不记通过。默认Android66源与182refs保持。
+
+私有Android168源/297真实refs实际Debug/Release仍23项CS0117，9个真实ModConfig接口待接，人口13职业消费及完整native/保存/池/玩法待验，不据静态前沿称完整闭包。PC/Windows、Android真机/联机与长期验证分别记录；#213仍开放。公共源码本轮按Main协调窗口归Android分支拥有，PR226库存/释放hunks不得整文件覆盖。详情见 [G0记录](tasks/issue-232/g0-source-foundation.md) 与 [阶段计划](tasks/issue-232/plan.md)。
+
+## 2026-10-14 — 盾卫当前修复进入合并安装，玩家实机后验（Issue #227）
+
+用户改为先交付当前版本，后续自然游玩实测；取消本轮三步态原生校准前置，R4准备停止且未启动新游戏。完整原B腿形与描边保留，三移动循环按实际位移播放、真实移速不变；fresh130/891/913源链接回归通过，累计无observer候选3620d5d1…ad04经独立严格IL/38资源最小差异核验，保留正常版其它累计内容。按授权进行PR228合并和正常DLL安装，实际状态见GitHub及任务安装回执；原生Run/Advance观感、严格锁地与Windows仍待验，不冒称实机通过。详见[任务记录](tasks/20261014-shield-visuals.md)。
+
+## 2026-10-14 — 盾卫保留原画腿形，位移步频离线复核（Issue #227）
+
+新几何腿与371微移均撤回，恢复选定B全部原膝踝靴形；四wear×两density共160帧逐帧及三动作1×明暗各三圈已复核。三移动循环已有carrier位移时钟，130/891/913源链接回归通过、全源私有编译0W0E，37资源与原B快照相同；数值仅视觉步频参考，不称严格锁地或原生Run/Advance已验。PR保持Draft，不合并/安装；正常DLL/存档未改。详见[任务记录](tasks/20261014-shield-visuals.md)。
+
+## 2026-10-14 — 盾卫腿形返修，旧候选交付批准撤回（Issue #227）
+
+三移动位移时钟的源链接回归已通过，但玩家指出新 Run 第4/8帧膝踝与靴子不自然，已撤回离线美术与该候选交付批准，保持 Draft；正在重做并要求逐帧及自然尺度连播复核。未提交本轮代码、未合并/安装；未用像素和连通测试代替自然度验收。详见[任务记录](tasks/20261014-shield-visuals.md)。
+
+## 2026-10-14 — 盾卫只读步态采样（Issue #227，步频修复仍未完成）
+
+Mac ARM64 2.4.0 隔离副本取得两名盾卫自然行走的 1,500 行只读样本，按 30 秒预算停止，无采样/写入故障；正常保存退出码 0，测试前五通道经独立完整回读恢复。采样阶段、Animator 参数缺失和脚点未知边界已保留；描边 PR #228 仍 Draft，未合并/安装，步频代码与真实移速未改。详见[任务记录](tasks/20261014-shield-visuals.md)。
+
 ## 2026-10-13/14 — Issue #225：商店库存迁址与原生照明（隔离候选）
 
 第三轮完整上架/领取仍为 **NOT_EXERCISED**：同一付费架枪的 2098 次真实 Peasant 资格检查支持首个已观察检查与保护期拒绝，ReleasedTrue/Rack/实际领取均未触发；无新墙/新架，未解除私有无址 fixture。物理保存及 pair/内嵌身份一致，另一历史单位已为 reservation，未误称存活。Courier 原指针在同原生注册表完整 100 槽中无残留，但 Destroy 前已空，不作该调用导致注销或其他店通过的结论。
@@ -72,6 +118,18 @@ ownedPID3079已消失、未再重启；测试环境有界对照跟进 [#213](htt
 #210 normal accepted3473B/4b4bf339新assignment doing/running，独立branch codex/android-role-scale/base3e7b330；旧Android成果worktree冻结保留。计划只接Ninja四形态/加载和Banker/Hermit/Dog OnEnable的7长入口，private Hermit.OnDestroy不挂，直接file-local alias复用GreekScaleScope与现有驱动/清理。一个真实默认OFF设置只决定下次启动注册，公共中文暗金世界页标“下次开启/下次关闭”，不影响猫或总作用域，不新增热切扫描/副账本/guard/retry。
 
 角色共享源仅alias头，PC和ANDROID定义实际direct-source宿主各74/0（同74例两配置，不相加为148场景）。实际SDK10初build2E0W定位Animator真实模块缺引用，在项目产生处补UnityEngine.AnimationModule/required项后0W0E；未造Animator替身或改生产算法。新Main0.0.27/3bc30f45…236544B；适配器876/0、716/0、716/0，PC完整1317类型/6933方法/37资源语义零差异/0allowlist，独立源码审查approved无mustfix。私有APK4eec4a26…的CRC/签名/123互操作引用已核验，独立模拟器已保数据安装，自动refresh新版Main、冷启动39→46→39、公共中文世界页滚动/角色开关开关保存通过；三窗106.930/119.825/36.294秒零PID收尾，最终24键rolefalse/旧23值保持/Main与所选native保存hash保持、具名日志0ERROR，owned AVD关闭。PR交付审查与正常合并待续；天然角色/最终writer/池/phoneMP待验。
+
+## 2026-10-14 — 右坐骑岛弯月形累计候选已安装，实机待验（PR #222）
+
+按用户要求，将右岛宽湾弯月与配套mask/锚点接入正常累计版；左岛和紧凑布局保持，完整保留刚装的PR228盾卫修复。无observer候选ede15287…ba60（来源a8e11399）经累计/安装器独审，39资源为原38完全保留加Crescent；本轮六组host检查全过，net6/net8编译通过。安装仅改DLL与校验项，旧DLL已备份，配置/存档/游戏保持，启动器只读预检通过；本轮未启动游戏。旧allmode NOT PASS及Mac原生动态数据/视觉、Windows/Android待验保持；PR202/222仍Draft、Issue200开放，无公开发版。详见[任务记录](tasks/mount-map-compact-20261013/summary.md)。
+
+## 2026-10-14 — 坐骑双岛地图形状区分（Issue #200 / Draft PR #222）
+
+保留已选紧凑比例和位置，右岛接入宽湾弯月形；两岛各自shore/outline/cache/mask及不可变锚点，A像素保持，B同228×84 frame。修复详情pair绑定失败后仍使用旧holder/pager和全局几何的产生路径，普通回调恢复，无新增周期补偿。helper94、窄runtime161、缺B3、shore101、地图286、compact127及公共.NET8禁部署编译通过，独立审查通过；旧单岛RuntimeProbe并非全绿，逐scenario矩阵与观察接口适配结果单列。正常累计DLL未改，未原生/Windows/Android实测，不合并安装或关闭Issue。详见tasks/mount-map-compact-20261013/summary.md的10-14段。
+
+## 2026-10-10 — Issue #206 字体与性能修复
+
+静态Zpix/BestFit写入处归一、盾卫实时Harmony查询去快照分配、fresh Native key比较及三处canonical hash去多余复制。完整累计净包net6/net8 0W0E，实际源回归测试及独审通过；Native诊断候选盾卫托管分配下降96.4%、Mod分配下降87.2%，字体BestFit警告467→0。整帧27.481→27.447ms无明显收益；保存同步scope约141/119ms，仍partial缺火枪兵消费者，不能称完整存读档或净包Native验收。退出后窗口观察意外重启已关闭，最终全部共享内容从测试前像恢复。GLM5.3/max最终交付关口AP，UTC22:17:49正常目录已装净包9ef503f2，仅DLL+校验项变化，存档/配置/游戏/日志保持；未启动净包，首启与玩家体验待验。源码以Draft stacked PR交付，Issue206保持开放，未修改canonical checklist，validator0warnings。旧测试新增helper依赖已补齐，8相关旧工程build/run通过；5既有fixture编译缺口与c6基线错误完全同，保留单列。产品/正常净包字节不变。详见[任务证据](tasks/issue-206/README.md)。
 
 ## 2026-10-09 — 盾卫读档身份校验（Issue #198，最终审查通过、部分 PR 交付中）
 
@@ -2062,3 +2120,18 @@ typed host106/0、strict789/0+oldcfg629/0、Grounding17/0；缺失physics getter
 ## 2026-10-13 Issue223 旧档火枪手补偿
 
 unknown-paid旧档枪架无付款点已定位到身份保护门，用户选择保留旧历史并一次性授予8名新火枪手。源码与契约回归、Mac真实8名生成及物理存盘、1次付款身份跨冷进程恢复和不重复补偿已通过独立验收。测试原进度五通道完整恢复后，累计候选36faec77与固定8名私有Plan已安装正常版本；补偿待玩家下一次加载授权战役目标岛执行。原校验失败与额外进程输出保留，隔离postimage未作为正常进度。详细范围与验证边界见[任务记录](tasks/2026-10-13-issue223-musketeer-legacy-compensation.md)。PR224仍Draft、Issue223开放，Windows/Android、多人和换岛实机未验。
+
+2026-10-14 Android Issue221恢复：原未提交工作区消失，17原审查源已在独立工作区按原SHA逐字节恢复；实际Android/PC0W0E、9adapter1114/0或954/0、生产wrapper57/0、Android新旧与PC完整语义MATCH。暂停前默认OFF51与中文小浮球/控件观察仍为历史证据，ON/OFF冷启及天然效果待验；当前不把恢复/编译当新实机通过，canonical窗口需重新交接。详见tasks/issue-221/implementation.md。
+
+2026-10-14 Android Issue221：同一私有0.0.30包已完成3成功cold51→53→51、85.364s/10真实UI输入；31配置原30保持、最终DivineOFF/游戏0PID，Main/native最终读回保持。旧两次age失败及本轮静态滚动/ON排版模板两次工具保护失败保留，修工具产生处而不改Mod/加retry。自然转化/命中/Pool32/owner层级、手机/MP/长期仍待验，#213开放。详见tasks/issue-221/implementation.md；source检查点ebfd8c6已push，PR与normal任务收尾未提前称完成。
+
+PR229发布后仅进展文档追加段冲突；已保留主线与Android两端原文并同步 release/v9.5.13 100c181。上游8份PC火枪兵变化不在Android66输入中，本批17已审源SHA保持。最新主线全量PC双构建0W0E、候选与精确主线基线1356类型/7141方法/37资源语义MATCH，允许差异0；前文1318/6934是恢复初始基线结果。无需更换Android包或重复冷启动。
+
+
+2026-10-14 Android Issue221 已按新交接窗口完成代码收尾：PR229精确head8e9320f合并为53afef0，Issue221关闭；normal完成回执已消费，canonical与DBmirror均closed，owner/session清空、lease释放，validator通过、doctor0E0W，旧170完整对象及顺序和全部计划保持，窗口已归还主Operator。自然转化/命中、owner实际层级/Pool32、读档换岛/池重建、手机平板、多人及长期待验，#213继续开放。上文“未登记/未交接/待PR”均为此前阶段的历史状态。
+
+2026-10-14 Android Issue230 公共编译批：已在两shared-save import产生处适配Il2CppCoatsink.Common，PC import原样。当前全量声明诊断22→2（Hook/INativeDetour），仅诊断opt-in进入body后96errors/1warning，分类为76配置引用37成员+1CrossbowmanRole+19混合metadata歧义；没有把错误数当完成率。现有Android66产品输入0W0E、PC私有net6全源0W0E及1356/7141/37语义零差异；未新启保存/职业/射击hooks、未改装机或游戏数据。代码审查及本轮必要编译已通过，合并状态以本批关联PR/Issue为准，详情tasks/issue-230/implementation.md。
+
+## 2026-10-13 坐骑双岛总览紧凑下排候选
+
+用户选择compact下排。旧78UI预留+左右半区中心导致当前0.507及留白，已改完整原生/固定状态包围盒驱动的普通岛比例与居中一组；完整图形示例0.659而非强制0.77。两源源码审查和127新回归、286旧回归通过，公共IL2CPP禁部署.NET8/当前累计.NET6与.NET8编译0W0E，38资源及地图外body保持。新候选未安装，正常游玩仍b8f的PR204累计版本；没有启动或操作游戏/共享进度。原生刷新后视觉/归还与玩家、Windows/Android验收待测。依赖未合并PR202，Issue200保持开放；过程与边界见 tasks/mount-map-compact-20261013/summary.md。

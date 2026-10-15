@@ -31,6 +31,7 @@
     <Compile Include="$(SrcRoot)/il2cpp/HeroRecruitmentArchive.cs" />
     <Compile Include="$(SrcRoot)/il2cpp/HeroRecruitmentContext.cs" />
     <Compile Include="$(SrcRoot)/il2cpp/HeroRecruitmentFingerprint.cs" />
+    <Compile Include="$(SrcRoot)/il2cpp/PatchPerf_CanonicalHashBuffer.cs" Link="PatchPerf_CanonicalHashBuffer.cs" />
     <Compile Include="$(SrcRoot)/il2cpp/HeroArcherNetwork.cs" />
     <Compile Include="$(SrcRoot)/il2cpp/HeroArcherTowerPolicy.cs" />
     <Compile Include="$(SrcRoot)/il2cpp/ArcherOptionsScope.cs" />
