@@ -67,3 +67,18 @@ Main明确交接唯一文件 PatchRoles_ScaleAdjustments.cs 的alias与原五调
 离线资源盘点纠正旧推断：APK内22147个Unity entries、3118个Resources映射确实可读；5 selected条目含51个MonoBehaviour通用base及Script引用，custom serialized字段/完整依赖树尚未解析，不能说资源输入缺失，也不能拿模拟器黑块证明缺资源。4保存target当前APK匹配字节中的Task.Run/ContinueWith及Directory/FileStream call-site只属provisional离线证据，未证明实际线程/函数extent/detour。
 
 #232完整源码范围尚未交齐，保持进行中；后续真实保存门/回调/物理事务、完整Holder/sync与工具/投射物/技能死亡撤退FX/召唤物/InitPools、换岛读档攻防、G2-linked-role24与触屏功能页按依赖继续。玩家实机单独记录，不为关单冒称完成。本批未安装Main/APK、未启用新的原生功能、未修改正式游戏/共享存档或Mono。单次私有过程、哈希及回执位于本机`.local/tasks/android-profession-archery-20261014/g1-savebridge-memory-20261015`与`g2-combat-source-20261015`。
+
+
+### 2026-10-15 私有原生 writer ABI：成功写入与实际失败位分别核对
+
+G2源码PR240已合并至851a495；当前184源码/184引用/21资源与85owner注册范围保持，仍未安装新版Main或启用新职业玩法。这一轮只临时安装私有诊断Addon，在原API35 ARM64独立AVD执行一次真实写入，原0.0.30 Main、31键cfg、Release、运行库与APK保留。诊断和case脚本的源审拒绝历史及修订完整保留；修复接口工厂exact-class误拒、失败终态未封、同步失败后续写、异常归因、复用旧文件oracle、typed参数、超时截止与结果解析/恢复边界，优先修产生处，未复制游戏writer逻辑或伪造Global/owner/Task/enum。静态strong roots保留managed wrapper，本例native对象可调用；不证明跨GC压力存活或pinning。
+
+实际单病例结果分面：async真实SaveFileToDiskAsync返回Task，P4观测结果72（Save|Success），私有新文件80B/SHA e26bf241b7a94c339f38efe9292c2ce94ed57cef895f0928300b7197b16e5a4a；sync经真实factory返回IEnumerator、assignable核对后TryCast exact state，仅一次MoveNext=false、生产同源raw-return=72，另一新文件79B/SHA 53c988da6c0ce97c1d2b7fe9093b6337a52d6bc31faf04495d24a25b25edc66b。softstop后host原件、前后inventory/hash与日志逐面一致；没有整体native成功聚合。P4与terminal的Stopwatch为不同观察时点，不是Task精确耗时基准。
+
+physical file-as-folder面真实返回648=Save8|Failure128|Subsystem512，不含Busy256，sentinel53B字节保持、未产生目标文件。原诊断仅认可136，故原件仍记录unexpected-result-648及唯一failure terminal；不改成原运行done，也不把它归为游戏存档bug。当前枚举与同原生库已选body的648 literal另作只读事实核对，不证明具体异常因果/执行分支，更不证明生产GateFail/Busy/owner lease/pairedbackup/Global回调。
+
+原件恢复逐字readback、Mods恢复原清单、临时Addon移除、checked game0及owned QEMU reaped退出分别留证。cfg/Release本次与原字节一致，未实际触发变更恢复push；原始日志、私有文件树及失败记录保留，本次单用途gate已spent，不重跑。运行在模拟器而非手机验收，不外推线程/GC压力、detour/ref-out-state、保存事务、完整跨biome池或玩法。
+
+正常计划ce4950a4e590dff72bfe530747b42b50070162453ba0b8da57e50491b8c8c5cb已typed revise/approve；同owner/session/operation与doing-ready-running保持，lease19:10:47Z至21:10:47Z，177其它rows/order、161其它plans、primary未拥有改动及本机checklist保持，validator0/doctor0E0W。独立source与actual-result审查分别记录；源检查、normal登记、运行恢复和玩家验收互不代持。完整#232源码/功能范围未交齐继续开放，手机/平板/多人/长期状态如实待验。
+
+下一批按真实依赖准备合并后的85Main+受控40键prefs分组加载，先查实际Hook安装/原生状态与复用池，再分组启用普通弓弩及职业生命周期。原架构及共享源码保留；不因已知游戏原生失败附加位再添失败扫描、重试或强制池重建。单次过程、哈希与回执仅保存在本机`.local/tasks/android-profession-archery-20261014/g2-private-writer-runtime-20261015`，不发布APK/原始玩家或设备数据。

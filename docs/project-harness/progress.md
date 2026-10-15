@@ -2155,3 +2155,6 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 唯一注册表52→85，按当前PC实测顺序合并基础与战斗/弩矢池/视觉入口，旧52表删除；像素火矢直接链接共享PatchArcher_Impact并接入已有Tick，无新渲染实现。实际任务分支双配置0E1W、184源码/184引用/21资源，Adapter1264/0和Banner15/0各×2、双独审及R/W严格语义对比通过。原9点及新增27点私有保存内存验证分别独审，原Main/cfg/APK/Release保持、Addon移除和owned VM退出已核；不代表生产writer、回调、线程GC或玩法通过。
 
 完整#232继续进行，未安装本批产物；真实保存/完整池依赖、linked-role24、功能触屏页及实机按依赖推进。已确认资源输入存在，custom serializedrefs仍待解析，不以模拟器黑块定案。详细范围、哈希、回执与未验边界见 [G1/G2任务记录](tasks/issue-232/g1-source-foundation.md)。
+
+
+2026-10-15 Android #232 私有writer验证：G2源码PR240已合并851a495；新版85Main仍未安装。本轮原Main/config/APK/Release下，真实async Task及sync factory/exact state/one MoveNext=false各返回72，两独立80B/79B文件与host稳定原件逐字一致。物理失败返回648（Save|Failure|Subsystem），原诊断136-only故保留failure终态，不预付生产GateFail/Busy/交易或玩法通过。Addon移除、原文件readback、game0/ownedVM退出分别有证，变更cfg/Release恢复push本轮未触发；私有树/原失败/单用途spent门保留。正常232计划ce495登记及validator/doctor0E0W、177rows/161plans/primary保持。完整职业/弓弩、保存/池/受控85Main与手机实机继续按依赖分组推进；详见[G1/G2及writer任务记录](tasks/issue-232/g1-source-foundation.md)。

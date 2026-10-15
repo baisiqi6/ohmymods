@@ -1,18 +1,15 @@
-# Issue232 — G2 职业战斗公共接线与保存/池验证边界
+# Issue232 — G2共享接线、私有writer验证收尾与下一依赖
 
-目标保持原Android架构并复用PC共享实现，保留已完成成果；本阶段只交付源码公共接线，不安装新Main/APK，不宣称完整功能/实机通过。当前base1d9393356f7cccae6fae9b58098fc22db9365e3b、branch codex/android-profession-archery，原owner/session/operation与doing-ready-running保留。canonical旧plan5cc5ef907769e42a899010fb3af72efe132b252f4c20358dbbad7e95e6124f1c；同identity正常lease17:26:31Z→19:26:31Z。
+本阶段状态：PR240源码已合并851a495；原API35 ARM64独立AVD的唯一private-writer case已运行并独立核定。完整职业/弓弩范围未交齐，doing-ready-running和原owner/session/operation继续；不关闭232，不发正式版。源码、normal登记、运行恢复、玩家验收分别记录。
 
-已核事实：PR239已合并/公共窗口交回；旧9值Task/Return私有内存、另27点两state.return复制回写+typed enumAction真实病例均独审；原0.0.30Main5460/cfg31/APK9c6、Release读回相同、Addon移除、game0/ownedQEMU退出分别已证。27点不含Task9；各自独立溯源，均不证明生产writer/回调/rooting/线程GC/ref-out-state/Harmony/事务/完整池/玩法。旧readquote/APK3s失败与spent gate/claim/PID/backup保留不复用。
+已证：184 Compile/184 ReferencePath/21资源；单一85owner表按当前PC TypeDefRID排序，旧52相对顺序保持、全解析先于classprocessor，无PC共享源改造或重复注册。实际源码/必要构建/Adapter1264+Banner15/双独审齐并由PR240合并；新版85Main仍未安装。旧9值Task/Return与另27点两state copyback+typed enumAction独立病例保留，不混入本writer计数。
 
-本G2 source候选：直接链接原PatchArcher_Impact.cs（实际类名，非PixelImpact），GreekImpact.Tick后同序驱动其Tick，旧52registry删除并由单一85固定fullname数组替代（52G1+32战斗视觉+Impact1），当前PC5fb真实TypeDefRID子序，旧52relative保持；85全GetType(true)解析完才开始任何classprocessor，每owner唯一目标并保留同target不同priority/__state责任。FireArrowInternal实际4owners含MusketeerFire First800，不能当冗余删除。Crossbow Init池重注册与promotion/postlife/skin/防御、Greek damage和视觉消费同行；只编入≠已运行。共享PC源码/资源不改，不插无据Holder/PoolFix/强制池重建、choice24或在线英雄扩权，不造Shader/Particle/Config/Task或renderer替身。
+当前private writer：source-approved诊断DLL3c879237...（85504B）仅临时放入原Main0.0.30/cfg31/APK/Release环境；真实async结果72与80B新file、sync真实factory/exact state/一次MoveNext=false/raw72与79B另一file全部源日志及softstop后host稳定原件一致。physical raw648=Save|Failure|Subsystem，sentinel53B未变且noNewTarget，原probe136-only故仍保留unexpected-result-648/唯一failure terminal。仅认实测失败位，不定exception因果/实际native branch或生产GateFail/Busy/lease/pairedbackup/Global callback。
 
-精确候选文件（移除android/Patch_ProfessionHooks.cs）：
-* Patch_ProfessionCombatHooks.cs SHA256 d3df42cfe4d024aa46b9465e98bdb9e0a556c32c835b3cf316fa2020d505c149
-* OhMyMods.AndroidProbe.csproj SHA256 9eff6c4c66093ea15c48eacecf97ef1d33714645e75ab1150e44cd15e6ffbcea
-* Probe.cs SHA256 49eb4523050c05fc8cb4136c2518915ed99e137cdc803c65392b4735d8bdbb5e
+恢复原Main/cfg/Release/运行库/APK已hash读回，ownAddon移除、game0/ownedQEMU reaped退出分别证；cfg/Release changed-byte restore push没有实际触发。private树/原始日志/source拒绝修订/原失败和spent一次性gate保留，不重跑。native线程/GC压力/pinning、detour/ref-out-state、保存事务、完整跨biome池与玩法、手机平板/多人/长期仍待验证。
 
-实际SDK10net10 D/R0E1W（已有Banner CS0169），184Compile/184ReferencePath/21资源；Debugc3db851092f8b287dc12f0248f3e7e9526df9f5d36fddd40139794d35ae06a7a、Releaseb025419b7a9d2093c6651448f99047b77be49a7084703f31fa78c8c3f1d3c05d。Adapter1264/0与Banner15/0各×2，两个非作者source独审mustFix[]；这些不是native验收。PC5fb字节和W共享源保持，不构建/部署Mono。
+此前exact单病例normal计划ce4950a4...与唯一case swiftshader-private-writer-20261015-single1是已执行历史，不再授下一运行；normal回执20:06:51Z保持177其它rows/order、161其它plans、primary未拥有改动/本机checklist，validator0/doctor0E0W。当前正常租约19:10:47Z至21:10:47Z，运行前必须fresh核，不沿用此文本作现时保证。
 
-正常登记只232：fresh CAS旧5cc原子plan upload、typed revise/approve、byte readback、全部其它rows/order/plans/外方lease/本机checklist保护、validator/doctor0E0W，同owner/session/operation/有效lease。写W前需新actualGLM明确正常登记+exactsourceapply+代码交付条件批次裁决（原R-only source门不授W）。复核base、owned dirty仅5cc、portable三文件/原52文件与两个review pins后只apply本owned源码与计划；纯编译禁BepInExPluginsPath，必要实际Wsource/产物与R候选对照，源码范围必要验证/审查齐才commit/push/PR，base release/v9.5.13。受影响progress/task公开记录共享窗口按Main原handback或新冲突协商，原7unowned根工作区dirty保留；不无痕改历史。对应PR由当前shared merge职责协调review后合并，不以本小批交付关闭完整232，不发正式版。
+本次正常登记/公开记录收尾范围：仅更新本232计划、progress和g1-source-foundation两个受影响记录；同identity/operation/status/lease、CAS旧canonicalce495→本plan、typed revise/approve/readback/validator/doctor，保护其它任务和primary。记录经非作者审查/actualGLM具体条件通过后，only3 owned docs落W，正常commit/push/PR（base release/v9.5.13）；必要审查后交付合并，完整232继续开放。此门不授新的VM/安装/功能启用/关单或版本发布。
 
-未验与下一依赖：真实生产保存门/回调/线程GC/写盘事务、Harmony安装/ref-out-state/目标extent/完整Holder/sync/工具/投射物/技能死亡撤退特效召唤池与InitPools重注册、换岛读档/攻防/玩家实机继续分组；离线currentAPK已有22147资源entries/3118Resources映射和5selected51通用base+Script refs可读，custom serializedrefs/完整树未解析，不是资源缺失。四save target离线provisional call-site（Task.Run/ContinueWith、Directory/FileStream）只证当前匹配字节，不证运行线程/extent/detour。后续native需另一具体独审packet/新单次gate/完整备份与ownedstop，不由本source登记预付。
+下一真实依赖：先准备合并85Main的分批native加载与受控40键prefs（新career开关OFF/CrossbowRatio0）具体packet，保全原Main/cfg31/Release/refs/APK并完整回滚；原private失败判读修在诊断源头，适用新casefolder/新gate，禁止借spent旧gate/clear private现场。查actualHook/状态ABI和原生对象池复用，再按普通弓弩→职业生命周期/商店/枪弹视觉→英雄盾卫及跨世界池分组启用。优先共享源码及原生机制，不fakeowner/Lease/Global，不用占位、重复实现、无据扫描重试或强制池重建。所有下一运行需要独立精确正常登记/源审/actualGLM批次gate；不能将source输入扩大当玩家游玩通过。
