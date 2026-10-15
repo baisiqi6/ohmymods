@@ -203,6 +203,8 @@ internal static class HeavyShieldCombat
 
     internal static bool TryBlock(Damageable target, int damage, GameObject source, DamageSource kind)
     {
+        // A rear/unsupported hit is still a threat even though the shield lets it pass.
+        HeavyShieldRuntime.ObserveIncomingDamage(target, damage);
         try
         {
             if (damage <= 0 || target == null || source == null || !Impacts.TryPeek(out var ticket)

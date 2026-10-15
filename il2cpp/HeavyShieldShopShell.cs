@@ -52,6 +52,34 @@ internal static class HeavyShieldShopShell
         }
     }
 
+    // A read-only workshop point, separate from payment and unclaimed stock.
+    // Pause preserves a valid site; retirement and the actual territory do not.
+    internal static bool TryGetRepairSite(out HeavyShieldRepairSite site)
+    {
+        site = default;
+        try
+        {
+            if (_clearing || _retiring || _economyFault || _shopLife <= 0
+                || _object == null || !_object.activeInHierarchy || _layer == null
+                || _renderers == null || _renderers.Length < 3 || _renderers[2] == null
+                || !_renderers[2].enabled || _renderers[2].sprite == null
+                || !TryContext(out var kingdom, out var layer) || _kingdom == null
+                || kingdom.Pointer != _kingdom.Pointer || layer.Pointer != _layer.Pointer
+                || !_object.transform.IsChildOf(layer) || !HeaderMatches()
+                || _shopAtlas != CurrentShopAtlas()) return false;
+            var position = _object.transform.position;
+            float half = _shopAtlas == HeavyShieldAtlasId.GreekShopLayers ? 2f
+                : Math.Max(1.5f, HeavyShieldArtLayout.ShopCellWidth / HeavyShieldArtLayout.ShopPixelsPerUnit * .5f);
+            float left = kingdom.GetBorderSideIntact(Side.Left), right = kingdom.GetBorderSideIntact(Side.Right);
+            if (!float.IsFinite(position.x) || !float.IsFinite(position.y)
+                || !float.IsFinite(left) || !float.IsFinite(right) || left >= right
+                || position.x - half < left || position.x + half > right) return false;
+            site = new(layer.Pointer.ToInt64(), _shopLife, _object.Pointer, position.x + .55f, position.y);
+            return true;
+        }
+        catch { return false; }
+    }
+
     internal static void Tick(bool enabled)
     {
         try

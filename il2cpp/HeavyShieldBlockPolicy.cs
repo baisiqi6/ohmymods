@@ -6,7 +6,7 @@ namespace KingdomEnhancedMod;
 // identity, native damage, knockback and the deferred Peasant conversion.
 internal sealed class HeavyShieldBlockPolicy
 {
-    internal const int InitialDurability = 4;
+    internal const int InitialDurability = 40;
     internal const int BashDamage = 1;
     internal const int MaxBashTargets = 3;
     internal const float BashCooldownSeconds = 10f;
@@ -76,6 +76,17 @@ internal sealed class HeavyShieldBlockPolicy
         _demoteAttempts = 0;
         RetirementUnknown = false;
         ClearBash();
+    }
+
+    // Only the shop-work completion owner calls this after the exact career,
+    // job and claim have been checked. No native calls or callbacks in this commit.
+    internal bool TryRepair(int expectedDurability)
+    {
+        if (State != LifeState.Guarding || _bashActive || RetirementUnknown
+            || expectedDurability <= 0 || expectedDurability >= InitialDurability
+            || Durability != expectedDurability) return false;
+        Durability = InitialDurability;
+        return true;
     }
 
     internal bool Activate()

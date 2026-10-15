@@ -358,6 +358,25 @@ internal static class HeavyShieldIdentity
         return true;
     }
 
+    // Runtime's exact outstanding shop-work completion is the sole repair caller.
+    // All native reads precede the adjacent, callback-free policy/claim writes.
+    internal static bool TryCompleteRepair(in HeavyShieldCareerHandle handle,
+        in HeavyShieldRepairCompletion completion, HeavyShieldBlockPolicy policy)
+    {
+        if (completion.Serial <= 0 || completion.Receipt != handle.Receipt
+            || completion.Life != handle.Life || completion.World != handle.World
+            || completion.ShopLife <= 0 || !ValidateCareer(handle)
+            || _current.Unknown || _current.StageFault || !_current.KeyReady
+            || !_current.Claims.TryGetValue(handle.Receipt, out var claim)
+            || claim.Phase != HeavyShieldSavedClaimPhase.Soldier
+            || claim.Combat.PendingBreak || claim.Combat.RetirementUnknown
+            || claim.Combat.Durability != completion.ExpectedDurability
+            || policy == null || policy.Durability != claim.Combat.Durability) return false;
+        if (!policy.TryRepair(completion.ExpectedDurability)) return false;
+        claim.Combat = new(HeavyShieldSaveSchema.MaxDurability, false, false);
+        return true;
+    }
+
     internal static bool ConfirmExit(in HeavyShieldCareerHandle handle,
         HeavyShieldExitKind kind, Character successor)
     {

@@ -3,11 +3,12 @@ using KingdomEnhancedMod;
 var cases = new (string Name, Action Run)[]
 {
     ("direction and damage classification", DirectionAndDamageClassification),
-    ("four direct hits and one deferred demotion", FourHitsAndDemotion),
+    ("forty direct hits and one deferred demotion", FortyHitsAndDemotion),
     ("death supersedes deferred demotion", DeathSupersedesDemotion),
     ("demotion lease confirms only successful native replacement", DemotionLease),
     ("bash target identity and cooldown", BashTargetsAndCooldown),
     ("reset on load and pool reuse", ResetOnLoadAndReuse),
+    ("checked repair cannot revive or overwrite damage", CheckedRepair),
 };
 
 foreach (var test in cases)
@@ -49,28 +50,25 @@ static void DirectionAndDamageClassification()
     Check(policy.EvaluateHit(Direct(10, 10, 1)) == pass, "neutral source passes through");
     Check(policy.EvaluateHit(Direct(11, 10, 0)) == pass, "unknown facing passes through");
     Check(policy.EvaluateHit(Direct(float.NaN, 10, 1)) == pass, "invalid coordinate passes through");
-    Check(policy.Durability == 4, "pass-through never spends shield");
+    Check(policy.Durability == 40, "pass-through never spends shield");
     Check(policy.EvaluateHit(Direct(9, 10, -1)) == HeavyShieldBlockPolicy.HitResult.Blocked,
         "mirrored facing blocks its front");
-    Check(policy.Durability == 3, "mirrored front hit spends one durability");
+    Check(policy.Durability == 39, "mirrored front hit spends one durability");
 }
 
-static void FourHitsAndDemotion()
+static void FortyHitsAndDemotion()
 {
     var policy = Ready();
     var front = Direct(11, 10, 1);
-    Check(policy.EvaluateHit(front) == HeavyShieldBlockPolicy.HitResult.Blocked && policy.Durability == 3,
-        "first direct hit");
-    Check(policy.EvaluateHit(front) == HeavyShieldBlockPolicy.HitResult.Blocked && policy.Durability == 2,
-        "second direct hit");
-    Check(policy.EvaluateHit(front) == HeavyShieldBlockPolicy.HitResult.Blocked && policy.Durability == 1,
-        "third direct hit retains the half shield");
+    for (int hit = 1; hit < 40; hit++)
+        Check(policy.EvaluateHit(front) == HeavyShieldBlockPolicy.HitResult.Blocked && policy.Durability == 40 - hit,
+            "each qualified hit spends one of forty points");
     Check(policy.EvaluateHit(front) == HeavyShieldBlockPolicy.HitResult.ShieldBroken && policy.Durability == 0,
-        "fourth hit breaks shield");
+        "fortieth hit still blocks, then breaks");
     Check(policy.State == HeavyShieldBlockPolicy.LifeState.PendingDemote,
         "breaking only queues conversion for after the damage chain");
     Check(policy.EvaluateHit(front) == HeavyShieldBlockPolicy.HitResult.PassThrough,
-        "no fifth hit is blocked while conversion is pending");
+        "no forty-first hit is blocked while conversion is pending");
     Check(!policy.TryBeginBash(20), "broken shield cannot bash");
     Check(policy.TryBeginDemote(out var lease), "deferred conversion can begin after damage chain");
     Check(policy.ConfirmDemote(lease), "confirmed native conversion commits once");
@@ -87,14 +85,14 @@ static void DeathSupersedesDemotion()
             == HeavyShieldBlockPolicy.HitResult.Blocked,
         "a high-damage frontal hit is still absorbed by the shield");
     Check(nativeHealth == 1 && policy.State == HeavyShieldBlockPolicy.LifeState.Guarding
-            && policy.Durability == 3,
+            && policy.Durability == 39,
         "predicted lethality cannot bypass frontal protection");
 
     foreach (var areaDamage in new[] { false, true })
     {
         policy = Ready();
         nativeHealth = 1;
-        for (var i = 0; i < 4; i++) policy.EvaluateHit(Direct(11, 10, 1));
+        for (var i = 0; i < 40; i++) policy.EvaluateHit(Direct(11, 10, 1));
         Check(policy.State == HeavyShieldBlockPolicy.LifeState.PendingDemote, "shield broke");
         var hit = areaDamage ? new HeavyShieldBlockPolicy.Hit(false, true, 11, 10, 1)
                              : Direct(9, 10, 1);
@@ -110,7 +108,7 @@ static void DeathSupersedesDemotion()
 static void DemotionLease()
 {
     var policy = Ready();
-    for (var i = 0; i < 4; i++) policy.EvaluateHit(Direct(11, 10, 1));
+    for (var i = 0; i < 40; i++) policy.EvaluateHit(Direct(11, 10, 1));
     Check(policy.TryBeginDemote(out var first), "first native attempt begins");
     Check(!policy.TryBeginDemote(out _), "reentrant callback cannot start a second replacement");
     Check(!policy.ConfirmDemote(first + 1) && !policy.AbortDemoteUnchanged(first + 1),
@@ -122,7 +120,7 @@ static void DemotionLease()
         "one native attempt remains unknown even when unchanged; never replay");
 
     policy = Ready();
-    for (var i = 0; i < 4; i++) policy.EvaluateHit(Direct(11, 10, 1));
+    for (var i = 0; i < 40; i++) policy.EvaluateHit(Direct(11, 10, 1));
     Check(policy.TryBeginDemote(out var dyingLease), "conversion attempt starts");
     policy.MarkDead();
     Check(!policy.ConfirmDemote(dyingLease) && !policy.AbortDemoteUnchanged(dyingLease)
@@ -130,7 +128,7 @@ static void DemotionLease()
         "death during native attempt invalidates its lease");
 
     policy = Ready();
-    for (var i = 0; i < 4; i++) policy.EvaluateHit(Direct(11, 10, 1));
+    for (var i = 0; i < 40; i++) policy.EvaluateHit(Direct(11, 10, 1));
     for (var i = 0; i < HeavyShieldBlockPolicy.MaxDemoteAttempts; i++)
     {
         Check(policy.TryBeginDemote(out var lease), "bounded retry starts");
@@ -164,9 +162,7 @@ static void BashTargetsAndCooldown()
     Check(!policy.TryBeginBash(109.999f), "ten second cooldown");
     Check(policy.TryBeginBash(110), "cooldown boundary");
     Check(policy.TryRegisterBashTarget(10, true), "new bash has independent target cache");
-    policy.EvaluateHit(Direct(11, 10, 1));
-    policy.EvaluateHit(Direct(11, 10, 1));
-    policy.EvaluateHit(Direct(11, 10, 1));
+    for (int hit = 0; hit < 39; hit++) policy.EvaluateHit(Direct(11, 10, 1));
     Check(policy.BashActive && policy.Durability == 1, "half shield remains combat capable");
     policy.EvaluateHit(Direct(11, 10, 1));
     Check(!policy.BashActive && !policy.TryRegisterBashTarget(50, true),
@@ -183,14 +179,14 @@ static void ResetOnLoadAndReuse()
         "unbound instance cannot retain a paid role");
     Check(!policy.TryRegisterBashTarget(1002, true) && !policy.TryBeginDemote(out _),
         "old impact and conversion callbacks have no state to consume");
-    Check(policy.Activate() && policy.Durability == 4, "new purchase starts with fresh shield");
+    Check(policy.Activate() && policy.Durability == 40, "new purchase starts with fresh shield");
     Check(policy.TryBeginBash(0) && policy.TryRegisterBashTarget(1001, true),
         "new life has no old cooldown or target cache");
-    for (var i = 0; i < 4; i++) policy.EvaluateHit(Direct(11, 10, 1));
+    for (var i = 0; i < 40; i++) policy.EvaluateHit(Direct(11, 10, 1));
     Check(policy.TryBeginDemote(out var oldLease), "old life can hold a conversion lease");
     policy.Reset();
     Check(policy.Activate(), "new pooled life activates");
-    for (var i = 0; i < 4; i++) policy.EvaluateHit(Direct(11, 10, 1));
+    for (var i = 0; i < 40; i++) policy.EvaluateHit(Direct(11, 10, 1));
     Check(policy.TryBeginDemote(out var newLease) && newLease != oldLease,
         "pooled life uses a new conversion lease");
     Check(!policy.ConfirmDemote(oldLease) && policy.AbortDemoteUnchanged(newLease),
@@ -198,6 +194,23 @@ static void ResetOnLoadAndReuse()
     policy.MarkDead();
     policy.Reset();
     Check(policy.Activate(), "dead pooled object can be bound to another life");
+}
+
+static void CheckedRepair()
+{
+    var policy = new HeavyShieldBlockPolicy();
+    Check(!policy.TryRepair(20), "inactive career cannot repair");
+    Check(policy.Restore(20, false, false), "worn career restored");
+    Check(!policy.TryRepair(19) && policy.Durability == 20, "stale expected wear cannot overwrite current state");
+    Check(policy.TryRepair(20) && policy.Durability == 40, "checked completed work repairs to full");
+    Check(!policy.TryRepair(20) && !policy.TryRepair(40), "same completion and full shield cannot repair again");
+    policy = new HeavyShieldBlockPolicy(); policy.Restore(20, false, false);
+    Check(policy.TryBeginBash(0) && !policy.TryRepair(20), "combat animation cannot be repaired mid-impact");
+    policy.EndBash(); policy.MarkDead();
+    Check(!policy.TryRepair(0) && policy.Durability == 0, "dead career cannot revive");
+    policy = new HeavyShieldBlockPolicy(); policy.Restore(0, true, false);
+    Check(!policy.TryRepair(0) && policy.PendingBreak, "broken shield retains native retirement");
+    Check(policy.TryBeginDemote(out _) && !policy.TryRepair(0), "unknown native retirement cannot repair");
 }
 
 static void Check(bool condition, string explanation)

@@ -14,14 +14,16 @@ internal static class HeavyShieldSaveSchema
     internal const string Key = "KEM.HeavyShield.Campaigns.v1";
     internal const int LegacyVersion = 1;
     internal const int DurabilityVersion = 2;
-    internal const int Version = 3;
+    internal const int FingerprintVersion = 3;
+    internal const int Version = 4;
     internal const int MaxCampaigns = 32;
     internal const int MaxIslands = 128;
     internal const int MaxClaimsPerIsland = 4;
     internal const int MaxDocumentBytes = 256 * 1024;
     internal const int MaxNativeIdLength = 512;
     internal const int LegacyMaxDurability = 3;
-    internal const int MaxDurability = 4;
+    internal const int PreviousMaxDurability = 4;
+    internal const int MaxDurability = 40;
 }
 
 internal sealed class HeavyShieldSaveDocument
@@ -200,6 +202,7 @@ internal static class HeavyShieldSaveCodec
             { reason = "document"; return false; }
             if (sourceVersion != HeavyShieldSaveSchema.LegacyVersion
                 && sourceVersion != HeavyShieldSaveSchema.DurabilityVersion
+                && sourceVersion != HeavyShieldSaveSchema.FingerprintVersion
                 && sourceVersion != HeavyShieldSaveSchema.Version)
             { reason = "document"; return false; }
             if (!ValidSourceHashKinds(raw.RootElement, sourceVersion))
@@ -224,6 +227,17 @@ internal static class HeavyShieldSaveCodec
         {
             // Validate against the source version before upgrading only this
             // isolated object. The caller still owns the original native string.
+            foreach (var campaign in document.Campaigns)
+                foreach (var island in campaign.Islands)
+                    foreach (var claim in island.Claims)
+                    {
+                        // Historical quarantined flags remain verbatim. They are not
+                        // permission to activate an inconsistent career at runtime.
+                        if (!HeavyShieldDurabilityMigration.TryUpgrade(document.Version,
+                            claim.Durability, claim.Durability == 0, out int upgraded))
+                        { document = null; reason = "durability"; return false; }
+                        claim.Durability = upgraded;
+                    }
             document.Version = HeavyShieldSaveSchema.Version;
             return true;
         }
@@ -267,11 +281,13 @@ internal static class HeavyShieldSaveCodec
         reason = null;
         if (document == null || (document.Version != HeavyShieldSaveSchema.LegacyVersion
                 && document.Version != HeavyShieldSaveSchema.DurabilityVersion
+                && document.Version != HeavyShieldSaveSchema.FingerprintVersion
                 && document.Version != HeavyShieldSaveSchema.Version)
             || document.Campaigns == null || document.Campaigns.Count > HeavyShieldSaveSchema.MaxCampaigns)
         { reason = "document"; return false; }
         int maxDurability = document.Version == HeavyShieldSaveSchema.LegacyVersion
-            ? HeavyShieldSaveSchema.LegacyMaxDurability : HeavyShieldSaveSchema.MaxDurability;
+            ? HeavyShieldSaveSchema.LegacyMaxDurability : document.Version < HeavyShieldSaveSchema.Version
+                ? HeavyShieldSaveSchema.PreviousMaxDurability : HeavyShieldSaveSchema.MaxDurability;
         var slots = new HashSet<int>();
         var campaigns = new HashSet<string>(StringComparer.Ordinal);
         var receipts = new HashSet<Guid>();
@@ -294,7 +310,7 @@ internal static class HeavyShieldSaveCodec
                     || !islands.Add((island.Challenge, island.Land))
                     || (island.HashKind != HeavyShieldSnapshotFingerprint.LegacyKind
                         && island.HashKind != HeavyShieldSnapshotFingerprint.CanonicalKind)
-                    || (document.Version < HeavyShieldSaveSchema.Version
+                    || (document.Version < HeavyShieldSaveSchema.FingerprintVersion
                         && island.HashKind != HeavyShieldSnapshotFingerprint.LegacyKind)
                     || !ValidHash(island.SnapshotHash) || island.Claims == null
                     || island.Claims.Count > HeavyShieldSaveSchema.MaxClaimsPerIsland)
@@ -344,13 +360,13 @@ internal static class HeavyShieldSaveCodec
                 if (kindCount > 1) return false;
                 if (!present)
                 {
-                    if (version == HeavyShieldSaveSchema.Version) return false;
+                    if (version >= HeavyShieldSaveSchema.FingerprintVersion) return false;
                     continue;
                 }
                 if (kind.ValueKind != JsonValueKind.Number || !kind.TryGetInt32(out int value)
                     || (value != HeavyShieldSnapshotFingerprint.LegacyKind
                         && value != HeavyShieldSnapshotFingerprint.CanonicalKind)
-                    || (version < HeavyShieldSaveSchema.Version
+                    || (version < HeavyShieldSaveSchema.FingerprintVersion
                         && value != HeavyShieldSnapshotFingerprint.LegacyKind)) return false;
             }
         }

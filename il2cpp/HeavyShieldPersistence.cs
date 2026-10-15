@@ -120,6 +120,8 @@ internal static class HeavyShieldPersistence
     private static PrepareCapture _prepare;
     private static readonly HeavyShieldLoadRowMask CreateMask = new();
     internal static bool ShieldLoadInProgress => CreateMask.Active;
+    internal static bool SerializationInProgress
+        => _save != null || _load != null || _create != null || _prepare != null;
 
     internal static void TickBinding()
     {

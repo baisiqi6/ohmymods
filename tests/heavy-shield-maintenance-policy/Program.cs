@@ -38,6 +38,11 @@ internal static class Program
         Equal(HeavyShieldMaintenancePhase.CompletionDue, policy.Phase, "eight safe seconds produce due");
         return policy;
     }
+    private static int AcceptedCount(HeavyShieldMaintenancePolicy policy) =>
+        ((System.Collections.IDictionary)typeof(HeavyShieldMaintenancePolicy)
+            .GetField("_accepted", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(policy)!).Count;
+    private static bool ConfirmSettled(HeavyShieldMaintenancePolicy policy, Guid receipt, long life, int durability) =>
+        policy.ConfirmSettled(receipt, life, durability);
     private static int Main()
     {
         Test("released version migration keeps proportional wear", () =>
@@ -348,6 +353,71 @@ internal static class Program
             Tick(policy, 15, subject with { Life = 2 });
             Equal(2L, policy.ActiveLife, "new life can start");
             Equal(0d, policy.WorkedSeconds, "new life starts zero");
+        });
+        Test("settled confirmation removes only the exact accepted full repair", () =>
+        {
+            var policy = Due(out _);
+            Check(policy.TryTakeCompletion(out var completion), "take");
+            Check(!ConfirmSettled(policy, A, 1, 40), "cannot confirm before acceptance");
+            Check(policy.ResolveCompletion(completion.Serial, true, false), "accept");
+            Equal(1, AcceptedCount(policy), "accepted fence exists");
+            foreach (var row in new[] { (B, 1L, 40), (Guid.Empty, 1L, 40), (A, 0L, 40),
+                (A, 2L, 40), (A, 1L, 39), (A, 1L, 41), (A, 1L, 0) })
+            {
+                Check(!ConfirmSettled(policy, row.Item1, row.Item2, row.Item3), "unproved confirmation rejected");
+                Equal(1, AcceptedCount(policy), "mismatch preserves accepted fence");
+            }
+            Check(ConfirmSettled(policy, A, 1, 40), "exact current full proof settles acceptance");
+            Equal(0, AcceptedCount(policy), "settled result releases historical reference");
+            Check(!ConfirmSettled(policy, A, 1, 40), "duplicate confirmation has no effect");
+        });
+        Test("old-life confirmation cannot clear a newer accepted career", () =>
+        {
+            var policy = Due(out var subject);
+            Check(policy.TryTakeCompletion(out var first), "first completion");
+            Check(policy.ResolveCompletion(first.Serial, true, false), "first accepted");
+            Tick(policy, 15, subject with { Life = 2 });
+            Tick(policy, 23, subject with { Life = 2 });
+            Check(policy.TryTakeCompletion(out var second), "new life completed");
+            Check(policy.ResolveCompletion(second.Serial, true, false), "new life accepted");
+            Check(!ConfirmSettled(policy, A, 1, 40), "stale life cannot settle newer fence");
+            Equal(1, AcceptedCount(policy), "new life fence remains");
+            Tick(policy, 24, subject with { Life = 2 });
+            Equal(HeavyShieldMaintenancePhase.Idle, policy.Phase, "new accepted stale snapshot suppressed");
+            Check(ConfirmSettled(policy, A, 2, 40), "current life settles");
+            Equal(0, AcceptedCount(policy), "only current fence removed");
+        });
+        Test("confirmation cannot release uncertain completion", () =>
+        {
+            var policy = Due(out _);
+            Check(policy.TryTakeCompletion(out var completion), "take");
+            Check(policy.ResolveCompletion(completion.Serial, true, true), "unknown dominates");
+            Check(!ConfirmSettled(policy, A, 1, 40), "no accepted result to settle");
+            Equal(HeavyShieldMaintenancePhase.HeldUnknown, policy.Phase, "unknown remains held");
+            Check(policy.IsQueued(A, 1), "unknown career remains reserved");
+            Check(!policy.TryTakeCompletion(out _), "confirmation never enables replay");
+        });
+        Test("synchronous settlement bounds history across many distinct careers", () =>
+        {
+            var policy = new HeavyShieldMaintenancePolicy();
+            long previousSerial = 0;
+            for (int i = 1; i <= 256; i++)
+            {
+                var receipt = new Guid(i, 0, 0, new byte[8]);
+                var subject = Subject(receipt, life: i);
+                double start = i * 10d;
+                Tick(policy, start, subject);
+                Tick(policy, start + 8, subject);
+                Check(policy.TryTakeCompletion(out var completion), "each career completes fresh work");
+                Check(completion.Serial > previousSerial, "history cleanup never recycles serial");
+                previousSerial = completion.Serial;
+                Check(policy.ResolveCompletion(completion.Serial, true, false), "accept current career");
+                Equal(1, AcceptedCount(policy), "only current accepted fence retained");
+                Check(ConfirmSettled(policy, receipt, i, 40), "synchronously settle exact full result");
+                Equal(0, AcceptedCount(policy), "settled history does not grow");
+                Tick(policy, start + 9);
+                Check(!policy.IsQueued(receipt, i), "departed settled career has no job");
+            }
         });
         Test("ordinary invalid ticks cannot erase awaiting or unknown barriers", () =>
         {

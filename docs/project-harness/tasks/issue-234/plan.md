@@ -1,128 +1,97 @@
-# Issue #234 — 盾卫举旗前排与店内维修实现计划
+# Issue234 G1 adapter contract — proposal for review
 
-> For agentic workers: use subagent-driven-development / executing-plans within the exact assigned files. Operator owns shared integration and review.
+Base: clean 9cc51211165901abc705914feaea2c4f8df2df05 in /Users/Admin/.codex/worktrees/shield-banner-repair-20261015/ohmymods. G0 only has been approved; this document proposes G1, not merge/install/native execution.
 
-**Goal:** 两金币举旗仅带同侧一名盾卫站在长矛前方；新盾耐久40，脱战后回盾具店由店内铁匠免费花时间修补。
-**Architecture:** HeavyShieldRuntime保留移动、朝向、动作和职业生命控制权；新Banner adapter只提供经过当前原生PlayerFormation校验的随行锚点。Repair controller独占单店队列/行程/工时证明，只有显式完成入口可提高耐久。
-**Tech Stack:** IL2CPP2.4.0、C#/.NET8、BepInEx6/Il2CppInterop/HarmonyX；Mac玩家兼容net6候选另验证。
+User decisions remain one same-side escort, 40 candidate durability, free shop-smith repair after 6 safe game seconds and 8 actual work seconds. All queued/travelling/working soldiers remain excluded from a new banner, as previously approved. Broken soldiers keep existing retirement. No asset edits, Builder recruitment, currency changes or field regeneration.
 
-## Authority and scope
+## Ownership and dispatch
 
-- GitHub https://github.com/baisiqi6/ohmymods/issues/234；Mac Max/Codex maintainer；基线 release/v9.5.13@6ca5dc24c24eceb2beb5dd7893c65bbacf33d2cc；独立branch codex/shield-banner-repair-20261015。
-- 用户已选同侧1名（覆盖先前2名），免费、店内铁匠、不占建造工人。40/脱战6秒/到店工时8秒是Operator初轮候选，不宣称平衡实测通过。
-- Android232已交接盾卫玩法核心文件给本任务，仅保留移动端注册/配置/资源/ABI适配责任。新save schema/公开接口在PC合入前集中交接一次；不向对方发送普通进度ACK。
-- PR226库存/照明仍Draft，正常版含其私有累积候选。本任务只新增玩法，不覆盖库存hunks或NativeKeyReader等累积实现。当前原版/正常Mod/存档/配置不写入、不启动。候选纯编译必须禁部署。
-- Root历史Mono冻结；root七个既有未拥有改动不触碰。canonical通过受管正常CLI，保护全部其他条目/plan/lease；不raw JSON/DB，不force/reconcile。
+- Banner worker only creates il2cpp/Patch_HeavyShieldBanner.cs plus focused tests if a meaningful pure production seam is needed. Root integrates existing owners. New Harmony observers on already statically verified unique Player.ActivateFormation and Formation.OnDisable methods; no Deactivate detour, no native array writes. Existing FleetBoatFormation remains the sole layout writer; current heavy-shield combat/demote detours unchanged.
+- Repair worker only creates il2cpp/Patch_HeavyShieldRepair.cs, may extend its owned G0 Patch_HeavyShieldMaintenancePolicy.cs and actual-source maintenance tests for explicit settled-result cleanup. Root integrates Runtime/Identity/SaveData/BlockPolicy/ShopShell/Integration/Combat, compile lists and descriptions. No worker edits existing unrelated owners.
+- Both workers read current 2.4 metadata/disassembly in reviewer-native; interop assemblies only prove API signatures, not original C# implementations. No running game, copying DLLs, saves/config or canonical writes.
 
-## Accepted gameplay contract
-
-1. 每次成功举旗只选同侧1名已购、身份/生命和战斗就绪、不在维修队列/行程/工时中的盾卫，离本次旗位置最近优先，同距按职业receipt稳定排序。没有人则空缺，不额外收费、不造人、不抢原生其它兵种席位。该次失员不递补；下次举旗重新选。
-2. 随行仍由盾卫controller驱动。读取当前有效PlayerFormation最高存活Pikemen索引的GetFormationPosition世界目标，再向锁定侧外偏约0.4；无存活长矛则读前沿槽位目标。实际数组索引不可写死，不用GetXPosForIndex相对值代替world x，不按角色瞬时x反复换前排。约0.4/边界/时序须实机校准。
-3. 成功ActivateFormation返回后校验当前active/side/world再bind；Deactivate不清引用，因此inactive/侧变化/world或身份失配/离岛也必须退出。再次举旗同实例先释放旧binding。收旗生存者回原守位；碎盾/死亡先退临时binding再执行既有Retire/native exit，不用Detach抢跑打断退职。无登船/跨岛运输。
-4. 非随旗、未碎且损耗1..39、连续6游戏秒安全才入维修队列。FIFO，同帧receipt稳定顺序；一次修1名，其余继续守位等待。附近敌人（不只普通小怪）或新受击重置安全窗口。复用现有局部enemy scanner，不加全场扫描。
-5. 只有到有效盾具店维修点、身份/world/shop life一致、持续安全且8游戏秒工时完成才能修满。暂停不积时；受扰/店撤收迁址/领地失效/离岛取消工时，同world活人回守位，离场不跨world发指令。下次重新完整计时。不改金币，无Builder岗位、假工具或新增士兵。店匠动作使用现有素材前先证实可用。
-6. 修满仅明确完成入口；通常UpdateCombatState仍拒绝上升。先验证原来的耐久、职业生命、repair job、shop life和工时证明，再提交对应同一生命；重复完成不得重放，失败不假装已修复。
-7. v1旧上限3、v2/v3旧上限4，新v4上限40。先完整旧格式验证，再换算正剩余耐久ceil(old*40/oldMax)；0/broken不复活，权益/receipt/native id/hash-kind不变。视觉磨损按40/30/20/10四档比例。维修与随行进度不落盘，重载恢复职业/磨损后回守位再走新流程。
-
-## Stage G0 — pure policies and compatibility
-
-Files (worker new leaves/tests only):
-- il2cpp/Patch_HeavyShieldDurabilityMigration.cs：已发布旧版本耐久比例转换及磨损档；不操作全局状态、文件或原生。
-- il2cpp/Patch_HeavyShieldMaintenancePolicy.cs：以传入缩放游戏时间和资格/到店/安全/shop-life事实推进Idle/Queued/Travelling/Repairing/CompletionDue；不自己修复职业。
-- il2cpp/Patch_HeavyShieldBannerPolicy.cs：同侧单人确定性选择、一次举旗life binding、active/side/world/职业失配终止；不写原生Formation数组。
-- tests/heavy-shield-maintenance-policy/ 与 tests/heavy-shield-banner-policy/：运行实际生产叶子，不写同实现替身。
-
-Exact G0 signatures and required results are fixed below. Inputs are plain value snapshots and outputs are decisions; policies cannot prove native identity or call Unity/Git/files.
-
-- [ ] Write failing cases: opposite-side exclusion, only1 selected from2, deterministic tie, stale activation/side, sameFormation reactivation, no-refill on death, all-repairing means no escort.
-- [ ] Write failing cases: before6s no queue; travel is not repair; worker-free queue is FIFO; before8s no completion; paused/nonplaying and oldshoplife cannot complete; threat and relocation abort; repeated completion refuses; durability-zero never repairs.
-- [ ] Write version cases: v1 1/3→14,2/3→27,3/3→40; v2/v3 1/4→10,2/4→20,3/4→30,4/4→40; 0 remainsbroken; invalid version/out-of-range rejected; repeat currentv4 no multiplication.
-- [ ] Implement minimal pure leaves and run host suites under originalTFM, then independent review. No native/runtime acceptance from these tests.
-
-## Stage G1 — current2.4 adapter and owner integration
-
-Files: new Patch_HeavyShieldBanner.cs, Patch_HeavyShieldRepair.cs; Operator scoped edits HeavyShieldRuntime.cs, HeavyShieldBlockPolicy.cs, HeavyShieldIdentity.cs, HeavyShieldSaveData.cs, HeavyShieldShopShell.cs, HeavyShieldIntegration.cs, HeavyShieldContracts.cs, relevant project/test compile lists, ModConfig help text if descriptions contain obsolete durability. Main registration only by Operator.
-
-- [ ] Verify Activate/Deactivate native address non-folding and registration path against current2.4; keep existing 5combat+Demote hooks intact.
-- [ ] Runtime exposes bounded current4-career snapshots to policies; refresh existing local threat facts before deciding repair completion; keep a single Mover/pose/facing writer.
-- [ ] Banner reads validated active/player/world/current array and restricted-world target; native array remains owned by FleetBoatFormation. Exact offset clamp/native invocation and one-frame-order constraints need current signatures before code.
-- [ ] ShopShell exposes read-only repair site with root/world/shoplife and ground/renderer reference; old private parent identity and Clear invalidate all requests. Repair display cannot become a DroppableTool or paid inventory entry.
-- [ ] Add explicit repair completion mutation with expected-before and mature work proof; policy/identity updates remain coherent. Serialize only durable wear, not jobs.
-- [ ] Update codec validation/version migration and production callsites; preserve native key checks and PR226 stock cleanup hunks when later building cumulative candidate.
-- [ ] Add real-source integration assertions and currentinterop compile checks; review unload/failure/reentry, saved identities, prefabs/pools and rollback boundaries.
-
-## Stage G2 — verification and delivery
-
-- [ ] Run focused host suites for durability, save schema, identity, shop runtime, banner layout coexistence, pose/gait/repair decisions; no broad repeated tests without a new reason. Existing standalone native-key harness gaps must stay disclosed, not patched with fake success.
-- [ ] Build net8 with BepInExPluginsPath disabled plus Macnet6 actualreferences, zero unintended runtime copies. Compare allowed source/resource/binary deltas against baseline.
-- [ ] Independent code review + GLM5.3/max decision review of actual frozen candidate; fix and re-review.
-- [ ] If safe isolated native test environment is available, use backups/no simultaneous games; test both sides/flags/noPike/retreat/death/break/paused/queued/arrival/8s work/threat/shopmove/save-load. Real player saves are not trial input in place. Mac/Windows record separate.
-- [ ] Commit/push only owned files, create PR with code/native boundary. Merge/normal install only after applicable authorization and exact candidate review/checks; no automatic install on current gameplay.
-
-## Completion
-
-G0 approval alone cannot close issue234 or authorizeG1 native adapter/merge/install. Entire code scope needs necessary review/verification and all associated PRs merged before managed completion; actual installation/player results separately recorded. Unknown native or platform behavior stays explicitly unverified. No model/self-report/build-only live acceptance.
-
-## G0 exact contracts (frozen before worker dispatch)
-
-All are `internal` in namespace `KingdomEnhancedMod`, no Unity/native/file dependency. Adapters must supply proven snapshots; these values cannot prove a native identity by themselves.
+## Shared types and APIs (Root defines types in HeavyShieldContracts.cs)
 
 ```csharp
-internal static class HeavyShieldDurabilityMigration
+internal readonly record struct HeavyShieldBannerOrder(float X, int Facing, float Speed, bool Hold);
+internal readonly record struct HeavyShieldRepairSite(long World, long Life, IntPtr Root, float X, float Y);
+internal readonly record struct HeavyShieldRepairOrder(float X, int Facing, bool Working);
+// Existing Entry additions by Root: bool ThreatKnown, Threatened; double LastThreatAt.
+// Runtime owns Entry and the only Mover/pose/facing writes.
+// Root provides IsMaintenanceEligible(Entry): exact live identity/visual/native ownership, independent of pause.
+// Root provides TryCompleteRepair(in completion,in site,out bool uncertain): complete current proofs then commit.
+```
+
+### Banner leaf
+
+```csharp
+internal static class HeavyShieldBanner
 {
-    internal const int CurrentVersion = 4;
-    internal const int Maximum = 40;
-    internal static bool TryUpgrade(int sourceVersion, int durability, bool broken, out int upgraded);
-    internal static int WearBand(int durability); // 0 intact,1 worn,2 critical,3 half; -1 invalid
-}
-internal readonly record struct HeavyShieldBannerCandidate(Guid Receipt, long Life, int Side, float X, bool Eligible);
-internal static class HeavyShieldBannerSelection
-{
-    internal static bool TrySelect(IReadOnlyList<HeavyShieldBannerCandidate> candidates, int side, float bannerX, out HeavyShieldBannerCandidate chosen);
-}
-internal sealed class HeavyShieldBannerBinding
-{
-    internal bool TryBind(long activation, long formation, long world, int side, in HeavyShieldBannerCandidate chosen);
-    internal bool IsCurrent(long activation, long formation, long world, int side, bool active, Guid receipt, long life);
-    internal void End(); // does not permit rebinding the same activation
-    internal void Reset(); // world teardown only; never ordinary loss/empty slot
-}
-internal readonly record struct HeavyShieldMaintenanceSubject(Guid Receipt, long Life, int Durability, bool Valid, bool InBanner, bool AtShop, bool Threatened, double LastThreatAt);
-internal readonly record struct HeavyShieldRepairCompletion(long Serial, Guid Receipt, long Life, long World, long ShopLife, int ExpectedDurability);
-internal enum HeavyShieldMaintenancePhase { Idle, Travelling, Repairing, CompletionDue, AwaitingResult, HeldUnknown }
-internal sealed class HeavyShieldMaintenancePolicy
-{
-    internal const double QuietSeconds = 6d;
-    internal const double WorkSeconds = 8d;
-    internal HeavyShieldMaintenancePhase Phase { get; }
-    internal Guid ActiveReceipt { get; }
-    internal long ActiveLife { get; }
-    internal double WorkedSeconds { get; }
-    internal bool IsQueued(Guid receipt, long life);
-    internal void Tick(double gameTime, bool playing, long world, long shopLife, bool siteValid, IReadOnlyList<HeavyShieldMaintenanceSubject> subjects);
-    internal bool TryTakeCompletion(out HeavyShieldRepairCompletion completion); // emits once per serial
-    internal bool ResolveCompletion(long serial, bool accepted, bool uncertain);
-    internal void Reset(); // world/owner teardown only
+  internal static void Tick(in HeavyShieldCampaignToken campaign, long world,
+    IReadOnlyList<HeavyShieldBannerCandidate> candidates, bool selecting);
+  internal static bool IsAssigned(Guid receipt,long life);
+  internal static bool TryGetOrder(Guid receipt,long life,out HeavyShieldBannerOrder order);
+  internal static void Reset();
 }
 ```
 
-Policy obligations:
-- Native Side is normalized -1/+1; reject other values, NaN/Infinity coordinates/time and nonpositive life/world/formation identifiers. Guid.Empty never selected.
-- Candidate scope is the current verified island roster (max4), no global enumeration. Ties use Guid.CompareTo for deterministic equality. Activation monotonic positive token, one choice per activation; End retains last token so death cannot refill.
-- Repair eligibility: Valid, durability1..39, not InBanner, not Threatened, gameTime-LastThreatAt>=6; full/broken/invalid values never enter. Input list duplicates or >4 must fail closed for that tick, not merge different lives. FIFO first qualified observation; same-tick tie by Guid; same receipt new Life never inherits progress.
-- Queue waiting counts IsQueued=true, so banner selection skips it. Only active queue head receives travel/work; no moving/repairing output for other rows.
-- On invalid site/context change or interruption remove old job/progress. Paused Tick never advances work or grants completion; first arrival starts at0, travel time cannot count as work. Use successive playing game-time deltas only; paused calls reset delta baseline. Clock rollback cancels current work.
-- Current durability must remain equal to ExpectedDurability through work and completion; a new hit cancels instead of repairing the newly damaged state under an old proof.
-- TryTakeCompletion changes phase toAwaitingResult before caller can mutate; a second call for the same serial fails. False definite result cancels work and requires a new complete job; uncertain result goesHeldUnknown until owner/world Reset (no blind replay). Accepted result releases the job; do not requeue that same still-stale subject snapshot until a later Tick proves full/new durability or a new native life.
-- `WearBand`: 31..40→0,21..30→1,11..20→2,0..10→3; outside0..40→-1. Upgrade checks source upper bounds before conversion; broken must exactly match zero. Version4 is identity/no multiplication.
+Observers privately capture successful actual Activate return (__runOriginal) and Formation.OnDisable. Capture only offline enabled main-world local Player/PlayerFormation with finite x, native side -1/+1, exact campaign token/world, valid actual activation. Keep at most two player bindings and monotonically increasing activation counter; do not reuse tokens on Reset. Same formation reactivation consumes a fresh token and ends prior binding. Pending selection processes once on next eligible Tick; no selection while paused/saving. With no eligible soldier, consume the activation with default chosen; never refill this activation. Exclude soldiers already bound by another local player. If outer world/campaign differs, discard old bindings and native references.
 
-G0 worker may create only the three named Patch_ policy files and its two named test directories; does not edit existing owners/Main/config/projects/runtime. Main owns adapter integration after G0 independent review. These signatures are compile-time contracts for independent leaves, not assertions that currentnative adapters already exist.
+For every current binding validate original Player + formation reference/active/side/world and selected receipt/life. Call G0 IsCurrent only with that selected receipt/life, never loop all candidates through its mutating check. On loss, end binding without freeing same activation for refill. Candidate Eligible is for initial selection; don't invalidate assigned soldier solely because repairing eligibility excludes InBanner. Source roster still proves current receipt/life exists; invalid native carrier must end binding.
 
-### G0 review amendments — empty activation and completion fence
+GetFormationPosition(index,null) yields world x in current ARM64. Choose highest currently alive Pikemen index (actual unitTypes/units, GetGO active, Pikeman damageable alive and its GetFormation matches); otherwise highest current front occupied slot, or last legitimate slot if empty. Validate arrays equal length, bounded <=128, enum/spacing index readability. Check HasActiveDirectedTransaction and HasDirtyRowTypes before touching temporary layouts. During a dirty layout return Hold at current assigned soldier position (Root supplies hold behavior; X may be0 if Hold=true), retaining binding; no guessed coordinates. Restrict final candidate with formation.RestrictPosition(frontX+side*.4f), then finite check. Travel speed use finite positive formation.overrideMoveSpeed when applicable else soldier walk speed (order Speed=0 tells Root to use walk speed). Root applies order only after exact carrier proof. Native read failure ends that binding once with bounded diagnostic, not global retry. Facing remains locked native side. No global scene scans or native recruitment.
 
-- `TryBind` validates the outer positive activation/formation/world/side first. A newer legal activation always consumes its token and ends the prior binding even when chosen is default or ineligible; it returns false with no bound career. Later valid candidates for that same activation remain rejected. Invalid outer context does not consume or revive a binding. Tests cover empty activation→later available candidate and rejected-repeat activation.
-- Repair completion serial increases monotonically for the lifetime of a policy instance; `Reset` clears jobs/context/clock but never resets or reuses the serial counter. Overflow fails closed.
-- `ResolveCompletion` has effect only in AwaitingResult with the exact current serial. Wrong/old/duplicate serial or wrong phase returns false without changes. If uncertain=true it wins even when accepted=true, and phase becomesHeldUnknown.
-- Ordinary Tick inputs (site invalid, threat, snapshot invalid, pause) cannot erase AwaitingResult/HeldUnknown and start another job. Tick can update the playing observation but preserves that transaction barrier until explicit matching Resolve or a real owner/world teardown Reset.
-- `TryTakeCompletion` requires the latest observation to be playing=true; a CompletionDue job cannot emit while paused. After pause, resume still requires the current job/context/subject to validate before any grant; no paused/expired proof authorizes a repair.
-- Tests cover CompletionDue→paused Take refusal; stale completion afterReset and a newjob; wrongphase/doubleResolve; uncertain-over-accepted; invalidTick whileAwaiting/HeldUnknown never replays or auto-releases.
+### Repair leaf
+
+```csharp
+internal static class HeavyShieldRepair
+{
+  internal static void Tick(long world,IReadOnlyList<HeavyShieldRuntime.Entry> entries,bool advancing);
+  internal static bool IsQueued(Guid receipt,long life);
+  internal static bool TryGetOrder(in HeavyShieldCareerHandle career,out HeavyShieldRepairOrder order);
+  internal static bool IsCompleting(in HeavyShieldRepairCompletion completion);
+  internal static void Reset();
+}
+// ShopShell.TryGetRepairSite(out HeavyShieldRepairSite site): read-only; Root supplies.
+// MaintenancePolicy.ConfirmSettled(Guid receipt,long life,int durability): remove matching accepted fence only for exact life + full40; do not clear based on absent rows.
+```
+
+Use one policy instance, reused bounded lists of at most4 entries, no second identity ledger. Build actual subjects from Root IsMaintenanceEligible, policy durability, banner assignment, latest threat facts. Unknown threat counts unsafe. AtShop requires finite actual x/y within .20 horizontal/.50 vertical of site. Site must be current shop object/world/life/header, valid sprites and intact territorial footprint, not clearing/retiring/economyfault, including during pause (pause itself is not site invalidation). One repair point near existing smith (Root sets shop x+.55, visual calibration pending); actual existing merchant sprite animation continues, no fake additional craftsman/held-tool asset.
+
+Tick once after Runtime refreshes local enemy scans for all valid entries. advancing false for pause/save/load; full subject/site facts still observed so genuine threat/relocation cancels, but elapsed work freezes and no grant. Policy World/shop invalidation handled as G0; true campaign/world/owner teardown calls Reset, not ordinary inactive-frame retry. Jobs and banner assignments never persisted. Autosave pauses work, does not silently disband banner.
+
+Take completion only after policy latest current facts qualify. Set adapter's exact current completion before calling Runtime.TryCompleteRepair; IsCompleting matches every value and only during this synchronous call. In finally ResolveCompletion once (unknown if unexpected exception after possibly committing), clear completing proof. If accepted, fresh read Runtime policy + Identity claim both exactly full40/current life, then ConfirmSettled. Missing/mismatch must not guess accepted cleanup; hold/report and require owner reset. This closes G0 historical accepted receipt retention in the normal path; no absence-driven pruning.
+
+TryGetOrder only outputs the active travelling/repairing/completion-due exact career and current site; others guard at home. Travelling faces towards the shop; working faces smith. Interruption returns to normal guard, not forced commands across world. No retries of uncertain completion.
+
+## Root integration
+
+1. Runtime Tick: capture bounded owned current roster; validate exact identity/native roots; refresh existing local scanner before repair decisions (all enemy types for threat, native scanner radius unchanged). Per-entry scan-known failure blocks repair; scan cap over32 means threat-unknown. Track LastThreatAt on any nearby live Enemy and any positive incoming Damageable request for exact shield career, not only successful shield block. This observer must not change damage result/old block semantics. Use scaled Time.time; new attachment starts LastThreatAt=now.
+2. Context owns one campaign token/world. Reset adapters on genuine teardown/change, not pause, autosave, missing temporary availability. Tick Banner before Repair then Drive. Initial selection excludes repair IsQueued. Dead/broken/unknown/demoting cannot be selected or repaired. Invalid current carrier ends banner; existing retirement remains authority.
+3. Home side is Career.Side, never mutable Facing. Repair can face inward without changing home guard anchor/seat. Move and visual SetFacing remain Runtime-only. Drive chooses repair travel/work (safe only), else banner goal, else home guard; combat can interrupt work, existing bash/block poses retained. Guarding banner movement uses actual-motion gait.
+4. TryCompleteRepair validates current completion proof, world/site/root/life, fresh finite arrival, advancing/no native damage stack/no save/load, current entry and claim exact expected durability, no pendingbreak/unknown/exit/threat/new threat timestamp, mature policy already proven. Then Identity.TryCompleteRepair(handle,completion,policy) rechecks native identity before any managed write and all expected values. Policy.TryRepair(expected) is pure and succeeds only guarding, no bash, not unknown, exact durability1..39. Once it succeeds, assign claim.Combat=(40,false,false) immediately with no native/allocating call between writes. General UpdateCombatState still monotonic. Wear refresh happens only after both states agree; visual exception never retries repair.
+5. Save v4: introduce FingerprintVersion=3 separate from latestVersion4. Validate source-v1 range0..3, sourcev2/3 range0..4, current0..40 before migration. Preserve hashKind3+ required; legacy1/2 only legacykind. Scale every stored claim durability (including quarantined) once; for migration broken argument derives durability==0, preserving PendingBreak/RetirementUnknown verbatim rather than resurrecting/silently sanitizing historic quarantine. Runtime still refuses inconsistent live states. Do not alter native key logic. Add v1/2/3/4 whole-codec regression vectors including v3 canonical hash, missing/duplicate hashKind, old out-of-range, broken/unknown and repeat roundtrip.
+6. ShopShell read-only site checks its existing object/_layer/_shopLife/renderer/header against current world/kingdom/intact borders; no movement/payment/inventory writes. Full footprint validation blocks obsolete outside-territory site before PR226 cleanup next tick. Update shop Tick before Runtime Tick so retirement is observed promptly. No dependency on unmerged PR226 to implement this read-only site check; later integration preserves its inventory/lighting hunks.
+7. Focused tests actual policies/codec + genuine interop full builds net8/net6 with autodeploy disabled. Independent implementation review. Preserve native pending facts; merge/install requires separate exact-candidate gate.
+
+## Parallel coordination decisions requested with this phase
+
+- PR226 read-only merge audit found only progress.md conflict against PR233 base6ca5dc2, no new confirmed product defect. Permit preparing an owned integration branch/worktree to reconcile that conflict, preserve both saving roles/compile items, rerun affected five host suites and full net8/net6 builds, then independent review. This is NOT approval to merge/install; final exact-head gate remains. Historical native pending claims stay pending. User already requested normal installs and continuing coordination, but has not reported actual restock pickup outcome.
+- Android232 discovered a verified prepublication SaveAsync observation leak (R sibling android-profession-archery-20261014/g1-save-abi-contract/report.md). Delegate only unpublished-wrapper conversion-failure cancellation + pure lifecycle tests on a separate peer-owned branch: original callback remains unchanged; release only this unpublished observation/Managed closure, never published/pending unrelated callbacks; no replay/timeout/second ledger; preserve native ABI pending. This grants source ownership for that branch only, no merge/install, no broad rewrite of save core. Main234 does not touch Patch_MusketeerNativeSave.cs. Send one consolidated ownership/blocker message, not repeated ACKs.
+
+## G1 preflight amendments (required before implementation)
+
+- Campaign owner lineage compares Guid/Global/Campaign/OwnerGeneration plus world; do not compare Phase in token equality. Native save legitimately changes Phase to Staged and must not disband banner or Reset repair. Phase is checked for availability only.
+- Add read-only HeavyShieldPersistence.SerializationInProgress covering _save/_load/_create/_prepare (the entire capture scopes), and HeavyShieldIntegration.SerializationInProgress covering its outer _save/_load plus persistence. Combine with IslandSaveData.isSavingGame in Runtime advancement/commit gate. Existing ShieldLoadInProgress is only per-row mask, not enough. Do not change native key reader or serializer ownership.
+- Completion ordering clarified: Runtime performs both durable managed writes and marks a pending wear refresh, but makes no visual/native call after successful writes. Adapter obtains exact current full40 policy+claim proof BEFORE ResolveCompletion. If any post-commit uncertainty, resolve uncertain and retain barrier. Otherwise ResolveCompletion(accepted) immediately followed by ConfirmSettled exact receipt/life/full40 with no native call in between. Runtime refreshes visual wear after the adapter settles. A visual failure does not change accepted durability or trigger replay.
+- All policy flags PendingBreak/RetirementUnknown/BashActive are checked before repair. Root exposes readonly fresh completion-state check if needed; it must validate exact life/receipt and both current durable values. ConfirmSettled is not a general absence-driven cache purge.
+
+## Approved implementation checks (GLM5.3/max R2 and independent preflight)
+
+- Repair threat observations cover both sides regardless of mutable Facing; home-side anchor/seat and outward combat fallback use Career.Side. A maintenance inward-facing turn must never hide threats. The reviewer wording "home-side threat direction" is implemented more conservatively as undirected repair threat detection, retaining home-side combat semantics separately.
+- A scanner result above32 is unknown for repair; combat may retain its preexisting capped scan. Hold means actual current x at speed0, never the placeholder X=0.
+- Integration.EndPrepare wraps the full existing Persistence.EndNativePrefsPrepare with a try/finally finalizing-depth gate because the existing persistence scope pops before native readback. This is only a narrow outer mask; original persistence/key/readback order stays intact. Serialization gate combines the outer save/load/finalizing scopes, persistence _save/_load/_create/_prepare and IslandSaveData.isSavingGame.
+- Root IsMaintenanceEligible additionally requires the exact current session KeyReady, !Unknown and !StageFault; ValidateCareer alone does not prove those.
+- ConfirmSettled remains the simple exact receipt/life/full40 API. It is called synchronously only after current completion and two-state full-value proof; never queue it for later callbacks. Tests cover stale/mismatched/full-value confirmation. No post-native interleaving before Resolve accepted and cleanup.
+- Partial-write uncertainty freezes the affected entry's future repair and ordinary combat persistence, rather than silently allowing downward writes to hide divergence. No detach/reset to release an uncertain transaction. True owner/world teardown still releases transient references.
+- Approved G1 source implementation only. G2 original/native execution, merge, install and task completion remain separate decisions. No gaming environment is launched or changed by this plan revision.

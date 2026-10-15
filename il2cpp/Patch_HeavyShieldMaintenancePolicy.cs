@@ -176,6 +176,16 @@ internal sealed class HeavyShieldMaintenancePolicy
         return true;
     }
 
+    // Only the synchronous caller's exact, full policy + claim proof settles an accepted
+    // mutation. Missing rows and unrelated lives are not evidence that it was applied.
+    internal bool ConfirmSettled(Guid receipt, long life, int fullDurability)
+    {
+        if (fullDurability != HeavyShieldDurabilityMigration.Maximum ||
+            !_accepted.TryGetValue(receipt, out var accepted) || accepted.Life != life)
+            return false;
+        return _accepted.Remove(receipt);
+    }
+
     internal void Reset()
     {
         ClearJobs();

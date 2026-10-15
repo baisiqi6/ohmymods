@@ -1,3 +1,9 @@
+## 2026-10-15 — 盾卫随旗与店匠维修（Issue #234，源码交付）
+
+已实现两金币举旗带同侧一名盾卫、40点候选耐久，以及脱战回盾具店免费维修。由现有店匠负责，到店累计8游戏秒工时，不占用建墙工人；6秒安全期、暂停/保存与迁址中断、未知完成结果保护均接入。v1–v3存档先验证再比例迁移到v4，碎盾/隔离状态与付费身份保留。参数与站位仍需原生玩法校准。
+
+实际生产Runtime/Banner/Repair宿主1140断言、Identity/Persistence 670检查及策略/兼容回归通过，真实interop引用的net8/net6完整构建0W0E。独立复审已闭合首帧旗令丢失、关闭功能误清未知结果和观察缺口误判生命结束三个问题；最终批准仅静态与宿主代码范围。准备Draft PR，Issue仍开放；未启动游戏、未安装DLL、未修改玩家存档或配置。原生游戏/平台验收与合并安装另记，详见[验证记录](tasks/issue-234/verification.md)。
+
 ## 2026-10-14 — Android #232 G0 公共职业保存源码边界
 
 #232 已经正常登记 doing/running，仅 Scope-G0 计划批准；未做完成/关单，171 旧对象与155旧plan、顺序及本地镜像保持，validator0/doctor0E0W。当前公共五源+五测试链接候选按精确审查字节接入独立分支，未加Android新pref/hook/版本/安装；整个职业/弓弩组仍待后续实施。受控PC net6及net8基线/候选0W0E、strict语义/resource MATCH；net6 1358types/7158methods，net8 1355/7154；四原TFM host54tests/223checks/73checks/15tests通过。旧actual-interop独立工程基线与候选同SharedBankNative CS0246预存失败，不补stub、不记通过。默认Android66源与182refs保持。
