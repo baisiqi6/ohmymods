@@ -1,3 +1,9 @@
+## 2026-10-14 — Android #232 G0 公共职业保存源码边界
+
+#232 已经正常登记 doing/running，仅 Scope-G0 计划批准；未做完成/关单，171 旧对象与155旧plan、顺序及本地镜像保持，validator0/doctor0E0W。当前公共五源+五测试链接候选按精确审查字节接入独立分支，未加Android新pref/hook/版本/安装；整个职业/弓弩组仍待后续实施。受控PC net6及net8基线/候选0W0E、strict语义/resource MATCH；net6 1358types/7158methods，net8 1355/7154；四原TFM host54tests/223checks/73checks/15tests通过。旧actual-interop独立工程基线与候选同SharedBankNative CS0246预存失败，不补stub、不记通过。默认Android66源与182refs保持。
+
+私有Android168源/297真实refs实际Debug/Release仍23项CS0117，9个真实ModConfig接口待接，人口13职业消费及完整native/保存/池/玩法待验，不据静态前沿称完整闭包。PC/Windows、Android真机/联机与长期验证分别记录；#213仍开放。公共源码本轮按Main协调窗口归Android分支拥有，PR226库存/释放hunks不得整文件覆盖。详情见 [G0记录](tasks/issue-232/g0-source-foundation.md) 与 [阶段计划](tasks/issue-232/plan.md)。
+
 ## 2026-10-14 — 盾卫当前修复进入合并安装，玩家实机后验（Issue #227）
 
 用户改为先交付当前版本，后续自然游玩实测；取消本轮三步态原生校准前置，R4准备停止且未启动新游戏。完整原B腿形与描边保留，三移动循环按实际位移播放、真实移速不变；fresh130/891/913源链接回归通过，累计无observer候选3620d5d1…ad04经独立严格IL/38资源最小差异核验，保留正常版其它累计内容。按授权进行PR228合并和正常DLL安装，实际状态见GitHub及任务安装回执；原生Run/Advance观感、严格锁地与Windows仍待验，不冒称实机通过。详见[任务记录](tasks/20261014-shield-visuals.md)。
