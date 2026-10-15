@@ -1,56 +1,33 @@
-# Issue #232 — Android 职业身份与弓弩移植
+# Issue #232 — Android 职业身份与弓弩移植：G1 源码接入
 
-负责：Mac / Codex / Android Operator。GitHub https://github.com/baisiqi6/ohmymods/issues/232。
-基线 `b5c2becffbad9a342b4ce214b953a8617475a662`；分支 `codex/android-profession-archery`；已有 Android 0.0.30 保留，沿用 LemonLoader/MelonLoader + Il2CppInterop + Harmony。
+负责：Mac Max / Codex / Android Operator。GitHub https://github.com/baisiqi6/ohmymods/issues/232。
+当前实施基准 `6fbf46c91590fd96f20022ca8a742535fdcaad37`；分支 `codex/android-profession-archery`，工作树保留本任务已实现且未提交的 G1 源码改动。保留 Android 0.0.30 与 LemonLoader/MelonLoader + Il2CppInterop/Harmony 原架构；本阶段不替换已安装 Main/APK。
 
-## 目标与边界
+## 已完成与现有证据
 
-复用真实职业权益、手动付款、原生保存/恢复和对象池机制移植火铳、重盾、英雄弓箭手与弓弩选项。公共 UI 沿既有小浮球、PC 中文和样式接入。不为编译增加假配置、恒假身份或第二份状态账本；经济/银行/自动采购不顺带启用。根目录 Mono 冻结，Steam/正常 Mac 游戏和无归属改动不动。
+G0 公共源码隔离已合并 PR233/6ca5dc2，详见 g0-source-foundation.md；#235/PR236 未发布观察撤销已合并为当前基准，GitHub及正常受管代码收尾已完成。旧计划和诊断记录仍在Git历史及本机R，不把过去168源/297refs/23CS0117当当前结果。
 
-本计划分依赖阶段交付，批准范围以每阶段独立审查与实际证据为准。前置源码组已经形成私有候选；仅此前置的可逆源码隔离有实施批准，不能据此预付未来功能/native/安装批准。重要任务通过正常 Coordinate lifecycle 登记，不裸改 canonical checklist/DB。
+私有真实职业候选172源/184真refs/21具名资源、原31+9真实MelonPreferences共40项，Debug/Release零错误、原PrepareWindowObserver未接CS0649保留。v2契约108相关owner/64精确target：G1最小必装52、G2职业/弓弩32、额外联动角色24；当前工作树产品已接入173源（172共享/平台源加显式owner目录）、40真实prefs、13共享人口类别，Debug/Release 0W0E；完整host回归发现旧Android缩放别名被同namespace真类型遮蔽，原4条失败仍保留。编译及源码接线不代表运行。
 
-## 当前真实盘点
+64个target当前method-definition/map地址均非零且唯一；不能代替函数体/inline/Harmony ABI/运行。真实scene曾观察到DotNetAgent/dummyMode=true，但不等于writer命中。native Task/Return私有诊断已构建，尚未运行：新AVD在Addon安装/启动游戏前guest shell阻塞，已exact PID停止并保留证据，#213继续OPEN。
 
-- Android 默认产品66源，31项持久设置，SDK10真实引用构建0W0E；现有安装/游戏未改。
-- 当前职业/英雄/弓弩/手动producer/六个外部Heavy保存owner的保守静态源集168项，297个真实Android refs（移除两份desktop Bepmetadata）。实际Debug/Release Roslyn诊断均23项CS0117，只有9个真实ModConfig成员缺口。没有加stub或抹掉诊断；静态前沿不等于完整产品闭包、资源池/ABI/运行证明或完成百分比。
-- 人口共享消费与中文展示须单独接通：当前Android9类与PC13类不同，不能只补CrossbowmanRole常量。当前选源不含PC PopulationHud，不能据无该诊断宣称此缺口已解决。
-- 实际原生metadata审计23个方法名/25个具体方法（含Promote/Drop overload），与当前方法映射一致、无同地址其他method-definition；3个save writer另已核独立地址。未读函数体/未核实际Agent、线程、回调/保存事务；PC证据不代替Android ABI。
+## 本次批准申请范围：G1 源码实现、编译和必要host审查
 
-## 阶段G0：公共源码边界（本次已冻结实施范围）
+1. 正式产品工程复用上述真实共享源集合、184实际引用与21资源，不带PC Bepmetadata、不引第二配置/角色/保存实现。原Android PopulationCounts编译入口替换为PC共享PopulationCounts，接共享13职业真实读数与中文触屏人口展示，保留现有通用控件/小浮球；不重新扫描场景或建第二职业表。
+2. 将私有已审计的9个真实配置接口落到MobilePlayerConfig原机制：三个职业bool默认OFF；弩手比例默认.25、档位.25/.5/.75/1；散射/射速/冲击bool默认OFF、箭数3且1..3、射速1.5且1..2。原31 key/type/default/归一化/回调与单次Save机制保持，优先复用CrossbowRatioPolicy.Normalize和现有SanitizeMultiplier。未完成职业的启用控件与实际打包在对应完整功能组一起交付，不伪装成可玩的按钮。
+3. 沿v2精确52个G1 owner实现显式注册源码：Harmony逐个CreateClassProcessor，保留真实attributes/priority/prefix/postfix/finalizer/__state；private nested owner仅按精确已知full type解析，禁止PatchAll/程序集扫描或按target去重。不全局提前注入12种已有lazy组件，不改原注入机制。
+4. G1保持真实save/marker/prepare/load/campaign边界，paid-life与pickup/boarding/promotion/drop/ReplaceBy保护，Heavy Installed六owner与真实CombatTargetLife初始化完整。完整保留Pool_FastSpawn_CrossbowmanLifecycleScope与Archer_OnEnable_CrossbowmanLifecycle两个owner（Heavy fresh-life真实producer），不抽单行新adapter；ArcherOptions.OnEnable→Hero身份边界同组保留。关闭职业/隐藏UI不能撤销已有付费权益保护。
+5. Probe统一接现有初始化、Update/LateUpdate与确有归属的退出生命周期：CombatTargetLife.Initialize、PrepareWindowObserver=HeroArcherVisuals.RecordPrepareWindow，沿PC实际身份/商店/HeavyIntegration与弓弩驱动顺序复用；不新建后台时钟、扫描重试、统一重置付费身份或清未知writer/task lease。源码接线不等于原生安装执行；本阶段所有原生执行仍须下述对应关口。
+6. Worker仅实现自有Android Patch_ProfessionHooks.cs等契约文件/私有candidate；Operator统一Probe/工程/配置/人口接入。共享il2cpp逻辑只读消费；唯一例外是 `il2cpp/PatchRoles_ScaleAdjustments.cs` 的平台类型别名修复：将文件级同名 ScaleRegistryHolder alias 改为唯一 RoleScaleRegistry，ANDROID 映 GreekScaleScope、else 映真实 ScaleRegistryHolder，并替换该文件原有四 Register 与一 Unregister 调用。原文件基线SHA256 `1ddc29f77b1dacaff0c4ea7df6d3274925932c52b3c910ec4106d572805a80ec`。PC在G0前父提交b5c2becffbad9a342b4ce214b953a8617475a662及更早Android适配前一直使用真实Holder，Android旧66源无真Holder，G1新增Compile后发生遮蔽；修改只恢复原Android直接scope绑定，保留PC原调用。不得扩大为驱动重构、提前注入或新补偿；PR226库存与#234盾卫runtime/耐久/维修/schema/owner仍由Main独占。未闭合时不复制Draft或整文件overlay；后续合并基准只按真实hunk/接口变化重核。不新增自动采购/银行/经济或额外24联动角色玩法。
 
-1. CoinCourierGround整类原样抽共享源，不改探地/净空/缓存/常量与消费者。
-2. CoinCourierPersistence尾部三个只读helper与全部Harmony owner迁同名partial Hooks，保留PC嵌套owner、签名、属性、执行/异常顺序。Android仅保留六个Heavy保存目标及真实state/finalizer：IslandSave、marker、Prefs prepare、campaign create、async delete、d__91.MoveNext；经济字段/通知/取消交易/经济postfix及两个bank-only challenge owner !ANDROID。
-3. MusketeerPersistence的六个银行/金币通知仅PC，Heavy/Musketeer原核心与异常收尾只一份，不注册未移植银行门。
-4. 五个真正显式链接旧源的测试csproj补必要新源。旧补偿尚有独立迁移/保护责任，本阶段不擅删。
+## 验证与执行边界
 
-验收：Ground原文、PC所有type/member/attrs/IL/生成类型/resources严格无差异（无允许映射）；真实全树受控PC build、四组现存host测试与旧owner反射检查；默认Android源/引用保持与0W0E；独立代码审查，无功能注册/新pref/版本/安装。私有候选PC1358types/7158methods MATCH，四套54tests/223checks/73checks/15tests已通过。
+当前申请只允许上述源码实现、受控编译、必要host验证与独立审查；不允许实际加载此新Main/新APK、native Hook安装或paid功能启用。G1未运行的ABI、真实保存端点与Action/GC/Harmony行为必须用真实环境验证；不得以null/常量/fake Installed或第二账本占位。环境卡点保留具体机制，不为编译补假逻辑；实现与ABI诊断准备可以并行。
 
-已发现旧actual-interop独立工程未接SharedBankNative，在未修改基线和候选均同一CS0246，保持失败记录，不补替身；真实完整PC源构建含真实银行并通过。不得将该单独工程记为通过。
+对真实变更运行必要测试，旧31配置与原功能行为保持，保留四条原Register精确IL断言并新增Hermit OnDestroy直接GreekScaleScope.Unregister永久断言，五处逐点核最终callee与红绿结果；唯一alias须在全部实际Compile输入中无同名type声明。PC以同SDK/TFM/refs/资源/全源码的fresh before/after严格metadata/IL/resources零差异对照，控制编译禁部署；Android真实引用Debug/Release及最终资源/owner集合逐项核对。新增接线消除PrepareWindowObserver缺口后不压警告。独立review先核首次状态责任、paid保护/lifecycle完整、UI中文与共享控件，再核实现；构建/host/静态native/实际安装/玩法分层记录。
 
-## 后续G1：完整职业身份/保存/池基础与真实配置
+G2按完整依赖组继续弓弩cadence/scatter/impact及池回收、火铳手动店和弹丸/枪视觉、英雄/重盾运行时与完整资源池，必要相关小功能合并交付。不在整个移植完成前拖延公共UI整理；用户浮球与PC视觉中文约定持续有效。
 
-- 以G0源边界减少文件共置依赖，排除独立MusketeerRestock自动采购partial；保留真实手动Shop付款→原生ToolBow→权益注册producer。
-- 沿MobilePlayerConfig真实MelonPreferences创建9个共享消费者需要的entries：MusketeerEnabled/HeavyShieldEnabled/HeroArcherEnabled(bool default false)；CrossbowRecruitmentRatio(float .25，四档.25/.5/.75/1，不能以0伪关闭)；ArcherScatterEnabled/ArcherRateEnabled/ArcherImpactEnabled(bool false)，ArcherVolleyCount(int3，1..3)，ArcherRateMultiplier(float1.5，1..2)。只在真实控制接入时增加，真实加载边界归一化与单次保存，不为全库存错误填设置。
-- 完整rights producer/consumer、native Prefs writer与capture/marker/prepare/load/campaign mutation、promotion/drop/ReplaceBy/pool新life与隐藏重开/Tick驱动一起接通；玩法OFF时已有付费身份与保存保护不能消失。
-- 共享人口13职业真实分类与Android中文页接入，避免重复身份识别/第二份角色表。
-- 编译所选源码不等于注册所有玩法；每组显式注册，auto PatchAll始终禁用。产品边界/真实hooks+native ABI具名证据和必要适配先冻结再过实施门；不把当前仅私有诊断Hooks-main分离许可扩成产品许可。
+整个#232所有范围代码完成必要审查验证、相关PR全部合并后再正常关单/完成receipt；只有G0或本G1源接入不关闭整批。玩家手机/平板/联机、换岛读档、池重建/攻击技能死亡撤退未覆盖如实pending，后续实机新问题另开Issue。重要任务只经正常Coordinate plan revise/approve/assignment入口，原owner/session维持，非232任务/plans/order/foreignleases保持，validator/doctor回读；不裸改JSON/DB。
 
-## 后续G2：弓弩与职业玩法/视觉按真实依赖分组
-
-直接复用既有ArcherOptions/GreekImpact/HeroRuntime/CrossbowLifecycle/Defense、重盾/火铳运行时和手动店源码；相关小功能可合并审查、打包。审完整角色/工具/投射物/技能/死亡撤退FX/召唤/Holder/sync池和InitPools后重注册。火铳自有managed弹丸与visual pool，不能当原生Arrow略过；弩矢真实Arrow克隆池及撞墙归还，原生塔弩不被全局影响。
-
-按真实资源/池责任而非文件数量启用。UI沿现有浮球、PC中文/暗金通用控件做触屏布局，减少遮挡；不等全部功能完成才统一。
-
-## 后续G3：必要验证、独立包与代码收尾
-
-真实Android引用构建、必要host与受控PC语义保持分别留证；静态原生地址、注入组件/具体Hook桥接、保存writer实际Agent/线程/回调/文件事务分别验证。独立Android环境新备份/不并发游戏；分批启用有界实际交互。购买/转职/读档换岛/InitPools重建/攻击技能死亡撤退等没覆盖的如实pending，手机平板/联机/长期稳定不预付。#213模拟器宿主长挂根因独立OPEN。
-
-完成必要审查验证且整个#232范围所有PR合并后关闭代码Issue并正常完成受管任务/消费回执/释放lease；仅G0合并不能提前关闭整批。实机待验不伪造，后续新实机问题另开Issue/PR。
-
-## 跨Operator协调
-
-PR226 draft涉及同一MusketeerPersistence的库存载入/释放hunks，本组通知边界在另一区域。保留它的真实库存producer/生命周期变化，按hunk合并并重新核基线，不做整文件overlay、不擅自合并draft226。主Operator给新的登记写入窗口后操作，仅issue232状态/plan允许变化，其他tasks/plans/order/leases保持，操作后validator与doctor回读；窗口用完合并一次交接归还。
-
-## 完成记录位置
-
-当前进度只同步受影响docs/project-harness/progress.md；G0过程/验证边界写本任务记录；后续根据实际结果修订本plan。详细本机原始证据R=.local/tasks/android-profession-archery-20261014，原错误报告及失败窗口保留，不作为现行通过依据。
+R=.local/tasks/android-profession-archery-20261014；目前只申请G1 source阶段，不把memory-only probe批准扩成产品接线或运行许可。当前进度写受影响progress.md，单次过程写本任务记录，可复用发现才入逻辑地图。阶段余量按真实依赖和验证难度重新估算，不用文件数或编译成功换算完成比例。

@@ -16,6 +16,18 @@ public sealed class Probe : MelonMod
    Il2Cpp.Wallet.InfiniteMoney=enabled;
    MelonLogger.Msg("ANDROID_MONEY_FLAG enabled="+Il2Cpp.Wallet.InfiniteMoney);
   });
+  KingdomEnhancedMod.CombatTargetLife.Initialize();
+  KingdomEnhancedMod.PatchArcher_Options.PrepareWindowObserver = KingdomEnhancedMod.HeroArcherVisuals.RecordPrepareWindow;
+  // Paid save/life protection stays installed independently of career toggles and panel visibility.
+  // Resolve every exact owner before starting the first class processor; no assembly-wide PatchAll.
+  var professionOwners = KingdomEnhancedMod.AndroidProfessionHooks.ResolveOwners();
+  foreach (var owner in professionOwners)
+  {
+   var patched = HarmonyInstance.CreateClassProcessor(owner).Patch();
+   if (patched == null || patched.Count != 1)
+    throw new InvalidOperationException("Expected one G1 target for " + owner.FullName);
+  }
+  LoggerInstance.Msg("ANDROID_PROFESSION_FOUNDATION_REGISTERED owners="+professionOwners.Length+" sharedSource=true");
   LoggerInstance.Msg("OHMYMODS_ANDROID_PROBE_LOADED version=0.0.30 gameplay_features=optional_player_qol,hold_purchase,enemy_parameters,native_money,farm_cats,fast_build,steed_cooldown,boat_capacity,map_width,staff_base_cooldown,fast_forest_recede,deer_population,dense_thickets,night_departure,camp_population,pet_protection,combat_parameters,existing_role_scale,wall_engineers,world_layout,divine_parameters");
   LoggerInstance.Msg("ANDROID_REGISTRATION autoPatchDisabled="+MelonAssembly.HarmonyDontPatchAll);
   if(!MelonAssembly.HarmonyDontPatchAll)throw new InvalidOperationException("Android assembly must disable automatic patch scanning");
@@ -255,7 +267,19 @@ public sealed class Probe : MelonMod
   if(KingdomEnhancedMod.ModConfig.Enabled.Value&&KingdomEnhancedMod.ModConfig.FarmCatsEnabled.Value&&__instance!=null)
    KingdomEnhancedMod.PatchWorld_FarmCats.Schedule(__instance);
  }
- public override void OnLateUpdate()=>KingdomEnhancedMod.GreekScaleScope.MaintainRegisteredY();
+ public override void OnLateUpdate()
+ {
+  KingdomEnhancedMod.GreekScaleScope.MaintainRegisteredY();
+  KingdomEnhancedMod.HeroArcherVisuals.Sync("android-late");
+  KingdomEnhancedMod.MusketeerVisuals.Sync();
+  KingdomEnhancedMod.MusketeerGunVisuals.Sync();
+ }
+ public override void OnDeinitializeMelon()
+ {
+  // Release only this platform's delegate and read-only roster cache, never paid identities or writer roots.
+  KingdomEnhancedMod.PatchArcher_Options.PrepareWindowObserver = null;
+  KingdomEnhancedMod.PopulationCounts.Reset();
+ }
  private void PatchStamina(Type targetType,string name,Type patchType,string before,string after,string finish=null)
  {
   var target=AccessTools.Method(targetType,name)??throw new MissingMethodException(name);
@@ -279,6 +303,19 @@ public sealed class Probe : MelonMod
   KingdomEnhancedMod.PatchWorld_OptionalVegetation.Tick();
   KingdomEnhancedMod.PatchRoles_Hermit.Tick();
   KingdomEnhancedMod.PatchRoles_PetGuard.Tick();
+  // Shared career lifetimes run while the floating panel is hidden too.
+  KingdomEnhancedMod.MusketeerIdentity.Tick();
+  KingdomEnhancedMod.MusketeerRuntime.Tick();
+  KingdomEnhancedMod.MusketeerShop.Tick();
+  KingdomEnhancedMod.HeroRecruitment.Tick();
+  KingdomEnhancedMod.HeroArcherRuntime.Tick();
+  KingdomEnhancedMod.HeroShop.Tick();
+  KingdomEnhancedMod.HeroArcherArrowVisuals.Tick();
+  KingdomEnhancedMod.PatchArcher_Options.Tick();
+  KingdomEnhancedMod.PatchArcher_GreekImpact.Tick();
+  KingdomEnhancedMod.HeavyShieldIntegration.Tick();
+  KingdomEnhancedMod.PatchRoles_Crossbowman.Tick();
+  KingdomEnhancedMod.ShopCleanupQueue.TickPendingCleanup();
   if (setupAttempted) return;
   setupAttempted = true;
   try
