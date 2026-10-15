@@ -81,7 +81,7 @@ internal static class HeavyShieldSnapshotFingerprint
             hash.AppendData(Encoding.UTF8.GetBytes(Domain + "\n" + guid + "\n"
                 + challenge.ToString(CultureInfo.InvariantCulture) + "\n"
                 + land.ToString(CultureInfo.InvariantCulture) + "\n"));
-            hash.AppendData(stream.ToArray());
+            CanonicalHashBuffer.AppendTo(hash, stream);
             return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
         }
     }

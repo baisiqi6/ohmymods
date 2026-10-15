@@ -1,3 +1,7 @@
+## 2026-10-15 — 字体与性能源码收尾（Issue #206）
+
+已实装PR207接入当前release（含双岛/弯月地图），处理Android两个真实helper闭包与managed/native读取边界，补三宿主真实依赖。独审与相关实际回归通过，最终公共net8/net6和AndroidD/R+完整Adapter已复核；玩家性能/Windows/native结果不混为源码完成。以下Draft/Open为旧阶段，当前PR状态以GitHub为准，合并后代码关单、后续新问题另Issue/PR。详见tasks/issue-206/verification.md。
+
 ## 2026-10-15 — 双坐骑岛地图源码收尾（Issue #200）
 
 PR202已合入release，PR222目标改回release并完成当前组合检查；紧凑布局/右岛弯月形保留正常已装版本。实际compact127/art94/Variant161/shore101/缺B3，以及公共net8/net6、AndroidD/R与完整Adapter1264/0通过。以下旧Draft/Open是历史阶段；当前合并状态以GitHub本轮为准，两个PR全部合并后代码关单，玩家后测另开新问题。未新增实机或安装声明，详见tasks/issue-200/verification-222.md。
@@ -106,6 +110,10 @@ ownedPID3079已消失、未再重启；测试环境有界对照跟进 [#213](htt
 ## 2026-10-14 — 坐骑双岛地图形状区分（Issue #200 / Draft PR #222）
 
 保留已选紧凑比例和位置，右岛接入宽湾弯月形；两岛各自shore/outline/cache/mask及不可变锚点，A像素保持，B同228×84 frame。修复详情pair绑定失败后仍使用旧holder/pager和全局几何的产生路径，普通回调恢复，无新增周期补偿。helper94、窄runtime161、缺B3、shore101、地图286、compact127及公共.NET8禁部署编译通过，独立审查通过；旧单岛RuntimeProbe并非全绿，逐scenario矩阵与观察接口适配结果单列。正常累计DLL未改，未原生/Windows/Android实测，不合并安装或关闭Issue。详见tasks/mount-map-compact-20261013/summary.md的10-14段。
+
+## 2026-10-10 — Issue #206 字体与性能修复
+
+静态Zpix/BestFit写入处归一、盾卫实时Harmony查询去快照分配、fresh Native key比较及三处canonical hash去多余复制。完整累计净包net6/net8 0W0E，实际源回归测试及独审通过；Native诊断候选盾卫托管分配下降96.4%、Mod分配下降87.2%，字体BestFit警告467→0。整帧27.481→27.447ms无明显收益；保存同步scope约141/119ms，仍partial缺火枪兵消费者，不能称完整存读档或净包Native验收。退出后窗口观察意外重启已关闭，最终全部共享内容从测试前像恢复。GLM5.3/max最终交付关口AP，UTC22:17:49正常目录已装净包9ef503f2，仅DLL+校验项变化，存档/配置/游戏/日志保持；未启动净包，首启与玩家体验待验。源码以Draft stacked PR交付，Issue206保持开放，未修改canonical checklist，validator0warnings。旧测试新增helper依赖已补齐，8相关旧工程build/run通过；5既有fixture编译缺口与c6基线错误完全同，保留单列。产品/正常净包字节不变。详见[任务证据](tasks/issue-206/README.md)。
 
 ## 2026-10-09 — 盾卫读档身份校验（Issue #198，最终审查通过、部分 PR 交付中）
 

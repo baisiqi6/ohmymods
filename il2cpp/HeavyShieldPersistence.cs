@@ -654,7 +654,15 @@ internal static class HeavyShieldPersistence
                 && loaded != null && loaded.Pointer == owner.Global
                 && prefs != null && prefs.Pointer == owner.Prefs && prefs.contents != null
                 && owner.ExpectedRaw != null && prefs.contents.ContainsKey(HeavyShieldSaveSchema.Key)
+#if ANDROID
+                // Android keeps the 2.4 managed comparison: the native key reader (#206 / PR207) is
+                // neither compiled nor bound on Android, so its ABI is unverified there and the
+                // native fast path is NOT silently ported. PC (else branch) uses the reviewed real
+                // reader; both answer the same fixed-key equality question.
                 && prefs.contents[HeavyShieldSaveSchema.Key] == owner.ExpectedRaw;
+#else
+                && HeavyShieldNativeKeyReader.EqualsCurrent(prefs.contents, owner.ExpectedRaw);
+#endif
         }
         catch { return false; }
     }

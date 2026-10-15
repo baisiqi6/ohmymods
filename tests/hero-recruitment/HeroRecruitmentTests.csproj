@@ -5,6 +5,7 @@
     <Compile Include="../../il2cpp/HeroRecruitmentArchive.cs" Link="HeroRecruitmentArchive.cs" />
     <Compile Include="../../il2cpp/HeroRecruitmentContext.cs" Link="HeroRecruitmentContext.cs" />
     <Compile Include="../../il2cpp/HeroRecruitmentFingerprint.cs" Link="HeroRecruitmentFingerprint.cs" />
+    <Compile Include="../../il2cpp/PatchPerf_CanonicalHashBuffer.cs" Link="PatchPerf_CanonicalHashBuffer.cs" />
     <!-- issue #153: the real native-rights gate is part of the regression surface now -->
     <Compile Include="../../il2cpp/HeroNativeRights.cs" Link="HeroNativeRights.cs" />
     <Compile Include="Stubs.cs" /><Compile Include="Program.cs" />
