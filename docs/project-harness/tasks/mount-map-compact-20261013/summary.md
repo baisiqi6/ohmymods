@@ -32,3 +32,14 @@ Art服务以两份固定缓存按physical11/13取shore/outline/prep，共用原�
 旧RuntimeProbe最初因缺项目引用/Events等API无法编译；补必要host适配后，旧all-mode仍不通过。用b098f73与当前源码逐S1–S15新进程矩阵保留比较，不能把所有旧失败一概称年代差异。新增S11/S12观测差异来自已删除/早已改名的global字段：私有观察适配后S11=22/0，S12=15/0且饱和9份live lease各Owner逐引用被captured或deferred身份覆盖。未恢复global生产字段来迁就旧测试，也未称整个旧suite通过。独立美术/几何和源码审查通过，详情失败修复有单独GLM5.3 max事前审查；最终源码/host审查与交付回执在本机tasks/map-shield-visual-20261014。
 
 边界：本轮公共源码包装器不是当前累计正常版DLL，禁止直接拿它安装。未启动游戏、未写正常环境/配置/共享存档；正常DLL仍36faec77…84b2c3。Mac原生运行与玩家效果、Windows/Android未验；跨data refresh记忆详情页未修改/未验。继续更新Draft PR222（依赖Draft PR202），Issue200保持开放，不合并、不部署、不新tag，作为既有条目的视觉返修不重复计版。
+
+
+## 2026-10-14 — 用户授权安装右岛宽湾弯月候选
+
+用户要求将本PR后续右岛形状安装到正常游玩版。构建来源为当前正常累计版3620d5d1（已含PR228盾卫位移步频/B图）叠加本PR a8e11399的六个产品文件；不以公开分支编译覆盖累计版，不夹入PR226。左岛原图和紧凑布局/两岛尺寸位置保持，世界长度、分组、存档及真实移速不改。
+
+本轮fresh源码链接验证helper94、variant161、缺B资源3、shore101、地图规划546、compact127全部通过；与此前286的旧摘要口径分别保存，不把旧allmode NOT PASS改写为通过。Mac原生LandMapData/动态blocker/实际视觉、Windows/Android仍待验。
+
+安装后的实际candidateSHA、旧DLL备份、两owned文件变化和配置/存档保全结果见本机map-player-install-20261014/player-install/install-receipt.json，PR说明同步当前事实。此项仅用户本机候选安装，不合并PR202/222、不关Issue200、无公开release/tag/ZIP；本地10.9.38元数据延续，内部返修不重复计版。
+
+实际已装：`ede15287ae7bba3e0cab3772872200cf19091c6c2de153de58fa42a3de11ba60`，旧DLL `3620d5d1c834e77188580ddb61009c347eff0f34dd68572bd847007c68acad04` 已备份；实际只读launcher校验退出0，五通道除两项自有软件文件外精确保全。此记录在安装回执成功后写入。

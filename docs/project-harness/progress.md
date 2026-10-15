@@ -1,3 +1,7 @@
+## 2026-10-14 — 右坐骑岛弯月形累计候选已安装，实机待验（PR #222）
+
+按用户要求，将右岛宽湾弯月与配套mask/锚点接入正常累计版；左岛和紧凑布局保持，完整保留刚装的PR228盾卫修复。无observer候选ede15287…ba60（来源a8e11399）经累计/安装器独审，39资源为原38完全保留加Crescent；本轮六组host检查全过，net6/net8编译通过。安装仅改DLL与校验项，旧DLL已备份，配置/存档/游戏保持，启动器只读预检通过；本轮未启动游戏。旧allmode NOT PASS及Mac原生动态数据/视觉、Windows/Android待验保持；PR202/222仍Draft、Issue200开放，无公开发版。详见[任务记录](tasks/mount-map-compact-20261013/summary.md)。
+
 ## 2026-10-14 — 坐骑双岛地图形状区分（Issue #200 / Draft PR #222）
 
 保留已选紧凑比例和位置，右岛接入宽湾弯月形；两岛各自shore/outline/cache/mask及不可变锚点，A像素保持，B同228×84 frame。修复详情pair绑定失败后仍使用旧holder/pager和全局几何的产生路径，普通回调恢复，无新增周期补偿。helper94、窄runtime161、缺B3、shore101、地图286、compact127及公共.NET8禁部署编译通过，独立审查通过；旧单岛RuntimeProbe并非全绿，逐scenario矩阵与观察接口适配结果单列。正常累计DLL未改，未原生/Windows/Android实测，不合并安装或关闭Issue。详见tasks/mount-map-compact-20261013/summary.md的10-14段。
