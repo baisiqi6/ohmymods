@@ -2126,7 +2126,7 @@ internal static class ArtifactChecks
             { "il2cpp/PatchWorld_NightDeparture.cs", "fdde1a68bc5a255beefd9f4ac8eb3849a5b807ddece7e0b4ce120bbb738c3a62" },
                     { "il2cpp/PatchUI_AndroidImages.cs", "07b4b29d7ad969f847faea5f0b66ff2a33e19eb95ccdd98000748403adf6bae3" },
             { "android/PatchUI_MobileCalendarHud.cs", "bd2de1b93492901e8cad72af54c370361cee5f3b29e695c3c1721484247f7086" },
-            { "il2cpp/PatchUI_CalendarGems.cs", "61dc210b03a8eceaf0b7da52ccdf0890e31cdd8a9cd0c1207409da6ded50bb93" },
+            { "il2cpp/PatchUI_CalendarGems.cs", "795007b27072238568328d50bb7c9031916c1b5efc3b0e24a54df8770508fd1a" },
             { "il2cpp/PatchShared_ModDataPaths.cs", "f38c27e36ae7d4209a7a849dc06415a9bd7705d9d22b3689120882db2e484d0f" },
             { "il2cpp/PatchRoles_PetGuard.cs", "b9d63a6a89b8525ebb34db7551fbe1a061be935619335246fb09c795a3241269" },
             { "il2cpp/PatchRoles_Hermit.cs", "e14768158734fc7b994d7159e4e105307c444c72e4b8d773f9a38813c374cc3a" },

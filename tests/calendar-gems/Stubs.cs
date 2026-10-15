@@ -1,111 +1,20 @@
 using System;
-using UnityEngine;
-
-// 测试独立 stubs：只模拟 candidate 实际使用的现代 2.4 接口形态
-// （Player.wallet/hasLocalAuthority/gameObject/transform/Pointer、Wallet.Gems/_playerRef/Pointer、
-//  Kingdom.playerOne/playerTwo、Transform.IsChildOf、GameObject.activeInHierarchy、
-//  KingdomEnhancedPlugin.Instance.LogSource.LogWarning）。
-namespace UnityEngine
-{
-    public partial class Object
-    {
-    }
-
-    public class GameObject : Object
-    {
-        public bool activeInHierarchy = true;
-    }
-
-    public partial class Transform : Object
-    {
-        // 测试模型：Parent 指向所属 scene 根，IsChildOf 仅认同一 scene 根。
-        public Transform Parent;
-
-        public bool IsChildOf(Transform parent) => parent != null && Parent == parent;
-    }
+using System.Collections.Generic;
+namespace UnityEngine { public partial class Object {} public partial class Transform : Object {} }
+public class Kingdom { public Player playerOne,playerTwo; }
+public class Player { public Wallet wallet; }
+public class Wallet { public static int Reads,Writes; public int Gems { get { Reads++;throw new Exception("wallet must not be read"); } set {Writes++;} } }
+public static class NetworkBigBoss { public static bool Online,ThrowOnRead; public static bool IsOnline {get {if(ThrowOnRead)throw new Exception("network fault");return Online;}} }
+public class CampaignSaveData {
+ public IntPtr Pointer=(IntPtr)2; public static int Reads,Writes; public bool ThrowOnStored; public int Stored;
+ public int storedGems {get {Reads++;if(ThrowOnStored)throw new Exception("stored fault");return Stored;} set {Writes++;Stored=value;}}
 }
-
-public class Wallet
-{
-    public static int GemWrites;
-    public static int GemReads;
-
-    public int gems;
-    public bool ThrowOnGems;
-    public Player _playerRef;
-    public IntPtr Pointer;
-
-    public int Gems
-    {
-        get
-        {
-            if (ThrowOnGems) throw new InvalidOperationException("stub gems getter fault");
-            GemReads++;
-            return gems;
-        }
-        set
-        {
-            GemWrites++;
-            gems = value;
-        }
-    }
+public class GlobalSaveData {
+ public static GlobalSaveData Raw; public static bool ThrowOnRaw; public static int RawReads,LoadedReads,SelectorReads;
+ public static GlobalSaveData _loaded {get {RawReads++;if(ThrowOnRaw)throw new Exception("raw field fault");return Raw;}}
+ public static GlobalSaveData loaded {get {LoadedReads++;throw new Exception("loaded may create a save");}}
+ public CampaignSaveData GetCurrentCampaign(){SelectorReads++;throw new Exception("implicit selector forbidden");}
+ public IntPtr Pointer=(IntPtr)1; public int _currentCampaign,_currentChallenge; public List<CampaignSaveData> campaigns=new();
 }
-
-public class Player
-{
-    public bool hasLocalAuthority = true;
-    public bool TunnelInput;
-    public Wallet wallet;
-    public GameObject gameObject;
-    public Transform transform;
-    public IntPtr Pointer;
-}
-
-public class Kingdom
-{
-    private Player _one, _two;
-    public bool ThrowOnOne, ThrowOnTwo;
-
-    public Player playerOne
-    {
-        get
-        {
-            if (ThrowOnOne) throw new InvalidOperationException("stub kingdom.playerOne fault");
-            return _one;
-        }
-        set => _one = value;
-    }
-
-    public Player playerTwo
-    {
-        get
-        {
-            if (ThrowOnTwo) throw new InvalidOperationException("stub kingdom.playerTwo fault");
-            return _two;
-        }
-        set => _two = value;
-    }
-}
-
-namespace BepInEx.Logging
-{
-    public partial class ManualLogSource
-    {
-        public static readonly System.Collections.Generic.List<string> Warnings =
-            new System.Collections.Generic.List<string>();
-
-        public void LogWarning(string message) => Warnings.Add(message);
-    }
-}
-
-namespace KingdomEnhancedMod
-{
-    public class KingdomEnhancedPlugin
-    {
-        public static KingdomEnhancedPlugin Instance =
-            new KingdomEnhancedPlugin();
-
-        public BepInEx.Logging.ManualLogSource LogSource =
-            new BepInEx.Logging.ManualLogSource();
-    }
-}
+namespace BepInEx.Logging {public partial class ManualLogSource {public static readonly List<string> Warnings=new();public void LogWarning(string s){Warnings.Add(s);}}}
+namespace KingdomEnhancedMod { public class KingdomEnhancedPlugin {public static KingdomEnhancedPlugin Instance=new();public BepInEx.Logging.ManualLogSource LogSource=new();}}
