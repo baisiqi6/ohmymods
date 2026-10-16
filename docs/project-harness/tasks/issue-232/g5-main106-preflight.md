@@ -44,3 +44,29 @@ single1规格 `eba7afa4…` / manifest `604249e0…`；single2规格 `17bc52c5�
 继续有限离线池依赖审计，复用既有同APK资源索引，只沿NorseArcher、Crossbow和GreekFire/Impact具名根追踪；custom serialized refs未解析处如实保留缺口，不加register-all/forcePoolFix或无依据LoadAll、扫描、重试。ADB读阻后续先用最小只读探针区分guest文件系统、输出通道和冷启动就绪；本批不再盲调读取时限或开启第三例。
 
 私有证据根：`.local/tasks/android-profession-archery-20261014/g5-main106-runtime-20261016/`，single2在其`boot-budget-main106-single2/`。原始APK、native、设备/玩家数据及模型完整流不随本次文档交付发布。
+
+## 2026-10-16 后续 G9–G14：资源责任、测试基线与准备范围
+
+上文“当前计划15b1”仅代表G5时点。G12已正常登记2c8a，G14已正常登记b2d960；完整#232仍开放，分支计划镜像按本次最终登记结果同步。每次正常登记分别核177个其他任务与161个其他计划不变，validator通过、doctor0 errors/0 warnings。
+
+G9沿同APK具名箭资源根解析三种Arrow组合及有限直接边：_impactSpawner实际类型为ParticleSystem，同SO HitObject存在null跳过Play分支，不据null追加PoolSpawner补丁。Buff receiver有限原生路径读取本地BuffData与渐变overlay。静态依赖责任不代表整个池链、对端或视觉玩法验收。
+
+G10读到原Main空字节；G11另次明确Main/cfg都是普通空文件，保留实际空原件后，只将这两成员从已核G2备份分阶段push/readback/sync/mv恢复。第二次独立只读启动六文件匹配，原Main297472/5460efd9、cfg875/9758bda8。该有限恢复和重启证明不确定此前变空原因；旧同boot读回与后续空文件事实并存。
+
+G12原Main shell2秒超时，G13 exec-out首读2秒也超时且未执行旧shell对照，两者均无当前文件内容证明，不归因单一通道。G14仅修任务私有prepare预算来源：Root与child Timer/read共享同一绝对60秒截止，保持原shell -T cat及checked语义，无重试/fallback，不改common/runner/writer或产品源码。旧冷读RED保留，独立13项host通过。
+
+G14单次实际已完整读到原Main297472/5460efd9、cfg875/9758bda8和四runtime pins；随后prepare60耗尽，未到devicebackup、候选安装或游戏。原“日志父目录”实际193项包含net6、Dependencies、Il2CppAssemblies；573逐项test后开始内容读取，host partial日志目录21文件24,827,625B，Latest.log尚未备到。部分host原件/raw/spent门均保留，不称备份完成或游戏失败。
+
+G14实际独审报告1f05494c…，2254稳定pins由Root再次核验；Root真实wait0与后续host无本案进程/端口分别留证，prepare进程快照不代独立wait。候选c906/106到G14仍未安装或加载，九值/触屏、攻击、转职、保存/完整对象池及手机多人均未提前验收。后续G15只修日志保护入口为Latest.log+完整Logs归档，不扩大prepare预算；实际结果单列。
+
+## 2026-10-16 G15：精确日志范围后的单次启动
+
+G15仅修改私有prepare日志入口与Root prepare pin：保护Latest.log和完整Logs归档，使用原Case.read/snapshot/verify_tree，不遍历或复制其runtime父树。旧错误范围RED保留；新日志7项、阶段reader12项、原UserData1项及六源AST通过，独立20项重跑和76项source pins已核。产品Main c906、cfg ac31、common、runner、writer、所有预算均未改。运行库仍只核四项pin，不声称备份全runtime树。
+
+单次 `swiftshader-main106-20261016-log-scope1` 的正常计划为8816b473c87486defd7a75eb7cc5a55d54aafd7d754e766f7593ec04265b80f7，06:35:28Z已通过正常登记、177/161保护、validator和doctor；本分支plan.md逐字镜像该计划，未裸改checklist/DB。前文15b1、2c8a和b2d960是各阶段历史计划。具体actualGLM单用途门与canonical截止澄清保留，原source/raw/spent不改。
+
+本次在原60秒准备上限内完成原Main/cfg、Release、精确logs与UserData的host/device备份及读回。候选pair实际安装读回；当前PID的新鲜日志中106注册顺序、组件创建、preloader→loader→main目标均达到，main回调为23:38:04，零UI操作。唯一PNG已人工查看：黑底加载条，未见world、面板或浮球；有效PNG和main回调不代表画面就绪、可游玩或触屏验收，不据单帧定案图形问题。
+
+游戏停止后Main/cfg由唯一pair helper恢复并独立读回5460efd9/9758bda8，Release字节/Mods列表/四运行库/APK核对保持，UserData文件及目录差异为空。guest sync ACK不提升为再启动持久性证明，不声称日志或整环境恢复原样。Root真实wait返回-9并于06:38:25Z记录回收；父Root进程exit0与case/facet结果分开。06:39:08Z host后快照无VM/game/5582–5584监听、PC正常DLL和localChecklist保持，工作区当时clean。资源已提前归还，未追加病例。
+
+本次非作者actual独审为verified_single_case_startup_and_scoped_restore，报告SHA1f210e1c…、2665稳定pins由Root再次核验，mustFix=[]只表示本范围证据一致，不是玩法或完整native验收。允许的33文件device备份及host证据原样保留；Latest.log改变的原件与本次版本都已留证，运行后Logs归档未再次inventory，不声称全文件系统零残留或日志全恢复。完整#232继续OPEN；九值运行读取/触屏、实射/转职、完整Holder/sync/FX池、保存事务/换岛读档、手机平板及多人长期仍未验收。本轮不发布APK/loader/game，不把启动目标通过写成完整移植完成。私有证据：`.local/tasks/android-profession-archery-20261014/g15-loader-log-scope-20261016/`。
