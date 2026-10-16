@@ -479,17 +479,29 @@ namespace KnightIdentityRuntimeTests
                     Check.True(File.Exists(f.SidecarPath + ".bak"), "second save creates the backup used by the write path");
 
                     byte[] before = File.ReadAllBytes(f.SidecarPath);
-                    using (FileStream locked = new FileStream(f.SidecarPath + ".bak", FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                    // An open backup handle does not block POSIX rename. A nonempty directory
+                    // at the owned backup path rejects file replacement on both attempts.
+                    string backup = f.SidecarPath + ".bak";
+                    File.Delete(backup);
+                    Directory.CreateDirectory(backup);
+                    string sentinel = Path.Combine(backup, "failure-fixture.txt");
+                    File.WriteAllText(sentinel, "keep this failure barrier");
+                    try
                     {
                         island.biome++;
                         NativeSim.RunSave(island, 0, 11, 0, new List<KnightUnit> { unit });
                         island.biome++;
                         NativeSim.RunSave(island, 0, 11, 0, new List<KnightUnit> { unit });
-                    }
 
-                    Check.True(before.AsSpan().SequenceEqual(File.ReadAllBytes(f.SidecarPath)), "a failed retry keeps the previous file");
-                    Check.True(Logged("sidecar-save:Failed"), "the existing failed path still runs");
-                    Check.Equal(1, LoggedCount("write-retry=1 failed"), "the failed retry is logged exactly once");
+                        Check.True(before.AsSpan().SequenceEqual(File.ReadAllBytes(f.SidecarPath)), "a failed retry keeps the previous file");
+                        Check.True(Logged("sidecar-save:Failed"), "the existing failed path still runs");
+                        Check.Equal(1, LoggedCount("write-retry=1 failed"), "the failed retry is logged exactly once");
+                        Check.Equal("keep this failure barrier", File.ReadAllText(sentinel), "the failure barrier remains intact");
+                    }
+                    finally
+                    {
+                        Directory.Delete(backup, true);
+                    }
                 }
             });
         }
