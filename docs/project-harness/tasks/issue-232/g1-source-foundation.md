@@ -101,3 +101,11 @@ physical file-as-folder面真实返回648=Save8|Failure128|Subsystem512，不含
 世界页的职业子页复用原公共控件和手势；`SetPage` 的 same 判断与 child 清理同时纳入职业页，兄弟子页互斥，World 父页保持，child 在 World 前分派。九设置沿用现有真实条目与共享策略，动作只写目标值、记录日志、保存一次；比例 25/50/75/100% 无关闭档，支数 1..3，射速按下一 .25 档至2后回1。绘制保持合法非整档值；普通弓箭开关不声称关闭英雄的独立效果来源。
 
 职业题目/帮助照 PC；火铳铺与英雄状态取缓存，盾卫状态含原生身份/当前会话只读检查，未新增 Observe/Prime/Save/扫描，也不本地吞异常。真实 Android interop 的 Debug/Release 产品构建成功（各 0 errors / 1 既有 CS0169 warning）；自动检查只证明导航/配置动作和源码契约。未启动新游戏 case 或制作 APK，未证明触屏视觉、真实 loader 落盘读回、主场景、战斗/转职/职业保存与跨 biome 池。完整任务仍开放，下一运行按普通弓箭→投射物效果池→职业生命周期/保存依赖验证。
+
+### G4 — 身份生产者、完整事件依赖与池完成边界（源码/host）
+
+断点位于显式注册生产者：`TryGetResolvedStyleIndex`读States，散射style0/GreekImpact style3要求真实已解析身份；编译类与UI开关不能替代producer。复用KnightStyle5、persist/seeding5、Network4、Norse4、GreekFire2共20个已有owner，GreekFire单一共享源新增Compile。另有Android `InitPools`完成postfix只复用Norse与Crossbow原Ensure，无全Greek dispatcher/forceInit/fallback/新扫描或重试。原85相对序、resolve-before-patch保持；105共享owner依PC TypeDef RID序，Android新pool owner最后，总106唯一。实际新增20目标、attrs和handler/state/priority匹配，真实PDB与构建源绑定；没有把105全部跨平台语义等同，原CoinCourier的PC/Android取消副作用差异仍属旧边界。
+
+Debug/Release纯构建0errors，各1个既有CS0169；adapter1265/0；身份runtime由85/1修至86/0，Network48、整合9断言、散射17、Crossbow42case511断言通过，GreekImpact exit0，poolhost5通过。runtime失败为测试假设：macOS替换打开的.bak成功，旧FileShare.None没有注入失败；owned非空bak目录+sentinel使真实Store返回Failed/Retried=true且原件不变，故只修唯一host测试方法并保3原断言，生产Archive/Runtime原字节保持。旧红例、源审、provider实际GLM/max与host实验分别保存。
+
+所有结果是源码/host层；未启动QEMU/游戏、未安装Main/APK或写PC玩家目录。原R6的五注册标记完成后主动break、predicate不含main，未见main不是hang；最近同环境原Main loader后10s到main，不能预付新106Main。原QEMU stopfalse/短argv与后PID/port快照、Root reap not-recorded分别保留；Android PR_SET_NAME不能解释macOS QEMU。后续运行须另审明确main目标与有界Root waiter，复用现pair/backup/freshness，不克隆多套runner。完整106 detour/ABI、9配置真实读取、触屏、普通攻击/技能/死亡撤退、完整Holder/sync/FX/工具池重建、职业与真实保存事务及手机/多人/长期全部仍待验，232保持开放。

@@ -63,6 +63,7 @@
     <Compile Include="MobileGenerationMenu.cs" />
     <Compile Include="MobileVegetationMenu.cs" />
     <Compile Include="PatchUI_MobileProfessionMenu.cs" />
+    <Compile Include="PatchAndroid_ProfessionPoolLifecycle.cs" />
     <Compile Include="MobileModPanel.cs" />
     <Compile Include="PanelGesture.cs" />
     <Compile Include="Probe.cs" />
@@ -211,6 +212,7 @@
     <Compile Include="../il2cpp/PatchRoles_CrossbowDefense.cs" Link="Shared/PatchRoles_CrossbowDefense.cs" />
     <Compile Include="../il2cpp/PatchRoles_Crossbowman.cs" Link="Shared/PatchRoles_Crossbowman.cs" />
     <Compile Include="../il2cpp/PatchRoles_DeadlandsPowers.cs" Link="Shared/PatchRoles_DeadlandsPowers.cs" />
+    <Compile Include="../il2cpp/PatchRoles_GreekFire.cs" Link="Shared/PatchRoles_GreekFire.cs" />
     <Compile Include="../il2cpp/PatchRoles_GreekFireAssets.cs" Link="Shared/PatchRoles_GreekFireAssets.cs" />
     <Compile Include="../il2cpp/PatchRoles_HeavyShieldArt.cs" Link="Shared/PatchRoles_HeavyShieldArt.cs" />
     <Compile Include="../il2cpp/PatchRoles_KnightStyle.cs" Link="Shared/PatchRoles_KnightStyle.cs" />

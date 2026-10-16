@@ -4,7 +4,8 @@ namespace KingdomEnhancedMod;
 
 internal static class AndroidProfessionCombatHooks
 {
-    // Fixed 85-owner candidate in the audited PC assembly's TypeDef RID order.
+    // Fixed 106 owners: the prior 85 plus 20 shared producers and one Android pool lifecycle.
+    // Shared owners follow the audited PC TypeDef RID order; the Android pool owner follows.
     // Resolve the whole array before the caller installs the first class processor:
     // no assembly-wide scan, no metadata re-ordering, no duplicate owner.
     internal static Type[] ResolveOwners()
@@ -20,6 +21,11 @@ internal static class AndroidProfessionCombatHooks
             assembly.GetType("KingdomEnhancedMod.HeavyShieldArrowDamage", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.ArrowAttack_FireArrowInternal_HeroArrowArt_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Arrow_OnEnable_HeroArrowArt_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.KnightIdentityGenerationPatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.KnightIdentitySavePatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.KnightIdentityGetIdPatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.KnightIdentityTryPopPatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.KnightIdentityTryCreateOrFindPatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Kingdom_DistributeFreeArchers_MusketeerDefense_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Musketeer_GunPromotion_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Musketeer_DroppedStock_Patch", throwOnError: true),
@@ -46,6 +52,17 @@ internal static class AndroidProfessionCombatHooks
             assembly.GetType("KingdomEnhancedMod.Archer_OnEnable_CrossbowmanLifecycle_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Archer_OnDisable_CrossbowmanLifecycle_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Archer_ConvertToHunter_CrossbowmanSkin_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Knight_Update_GreekFire_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Knight_OnDisable_GreekFire_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Character_Promote_KnightStyle_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Knight_OnEnable_KnightStyleRederive_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.World_OnLevelLoaded_KnightStyleHost_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Archer_ConvertToSoldier_KnightStyleSkin_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Archer_ConvertToHunter_KnightStyleSkin_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Archer_AssignJob_NorseSquad_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.NpcShieldUser_RPCRegistration_NorseSquad_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.Holder_InitializeTagCharacterPairs_NorseSquadPool_Patch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.World_OnLevelLoaded_NorseSquadRestoreHost_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.Arrow_ReceiveInitialise_Tint_Patch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.CoinCourierPersistence+IslandSaveScopePatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.CoinCourierPersistence+IslandCaptureMarkerPatch", throwOnError: true),
@@ -76,6 +93,10 @@ internal static class AndroidProfessionCombatHooks
             assembly.GetType("KingdomEnhancedMod.HeroRecruitment+PopPatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.HeroRecruitment+CreatePatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.HeroRecruitment+DespawnPatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.KnightIdentityNetwork+KnightSerializationPatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.KnightIdentityNetwork+KnightDeserializePatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.KnightIdentityNetwork+RegisterComponentsPatch", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.KnightIdentityNetwork+HeaderFlushPatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.MusketeerGunVisuals+ReusePatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.MusketeerHooks+FirePatch", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.MusketeerHooks+EligibilityPatch", throwOnError: true),
@@ -97,6 +118,7 @@ internal static class AndroidProfessionCombatHooks
             assembly.GetType("KingdomEnhancedMod.MusketeerNativeSave+Musketeer_AsyncWriterGate", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.MusketeerNativeSave+Musketeer_SyncWriterGate", throwOnError: true),
             assembly.GetType("KingdomEnhancedMod.MusketeerNativeSave+Musketeer_SaveAsyncObserver", throwOnError: true),
+            assembly.GetType("KingdomEnhancedMod.AndroidProfessionPoolLifecycle", throwOnError: true),
         };
     }
 }
