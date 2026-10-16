@@ -2168,3 +2168,9 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 
 
 - 2026-10-16 UTC Android #232 G5：main106控制器已完成显式规格/逐阶段SHA、独立main目标、整树UserData保护与Root真实wait/reap修正，源码/normal独审及必要host通过。两个独立实际病例均未安装候选或启动游戏：single1卡boot属性2秒读取；single2以原90秒剩余预算读启动属性，boot46.506秒通过，随后prepare读取设备原Main时2秒超时且无字节，未到cfg/备份/pair。原误预填“已修改”回执独立纠正、旧source/raw/spent门原样保留；两例Root真回收/后双端口空闲分别有证，不把未执行恢复写成恢复失败或UserData/Release字节保持。正常计划现15b1ad8d，分支计划逐字同步；177其他任务/161其他计划、primary7/正常PC DLL保持，validator/doctor0E0W，资源窗已交还。完整232开放，106加载、main/触屏/攻击/完整池/保存与手机多人仍待验；继续具名资源根的离线依赖审计，ADB读阻先区分假设，不加盲重试。详见 [G5记录](tasks/issue-232/g5-main106-preflight.md)。
+
+
+- 2026-10-16 UTC Android #232 G9–G14续接：同APK三箭资源与optional ParticleSystem/null原生分支、本地BuffData渐变receiver仅作有限静态责任核对，不加臆测pool补偿。测试基线两空成员按已核原件恢复并另boot六文件读回，旧变空原因未知。G12/G13二秒读取失败未形成通道定案；G14私有prepare与Root统一绝对60秒deadline，独立13host通过，实际原Main/cfg/4refs已读正确。该次随后在包含runtime整树的“日志父目录”备份过程中耗尽prepare60，devicebackup/候选安装/game未到；原部分host文件及失败完整保留。Rootwait0、独立实际审查和保护/端口快照已核，完整232开放；c906/106截至G14仍未加载。下一步修日志scope产生处，保留Latest.log+Logs与全部既有数据保护，不扩时限。详见[后续记录](tasks/issue-232/g5-main106-preflight.md)。
+
+
+- Android #232 G15：精确日志入口source/host20项独立回归通过，产品候选保持c906/106。新单次实际在prepare60内完成完整计划范围的host/device备份读回，候选pair安装、fresh106有序注册/组件创建和main场景回调达到；唯一截图仍是加载条，无UI操作，不当作可游玩画面。退出后原pair5460/9758独立读回，Release/Mods/四refs/APK保持，UserData文件/目录无差异；Root真实wait=-9及host端口/保护快照另证，窗口已交还。正常计划8816b473已登记并逐字镜像，原15b1等历史判断保留。实际最终独审1f210e1c…/2665稳定pins已由Root重核，允许备份保留、postgame日志归档差异未覆盖，不发布APK、不关闭完整232，触屏/攻击/保存/全池与手机多人仍待分组验证。详见[G15记录](tasks/issue-232/g5-main106-preflight.md)。
