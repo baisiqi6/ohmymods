@@ -11,6 +11,7 @@
 | Mono 自用环境 | `E:/Kingdom Two Crowns/`（GOG 2.1.0 x86） |
 | 旧目标游戏（2.0.1 x64，已弃用） | `E:/Kingdom.Two.Crowns.Call.of.Olympus/Kingdom.Two.Crowns.Call.of.Olympus-P2P` |
 | 2.1.0 逻辑说明书（只读） | `game-source/Assembly-CSharp-2.1.0/` |
+| Windows 2.1.0 反编译源（只读） | `E:/Kingdom Two Crowns/Assembly-CSharp/` |
 | 共享存档（禁止自动修改） | `%USERPROFILE%/AppData/LocalLow/noio/KingdomTwoCrowns/Release/global-v35` |
 
 > 版本差异记录：2.0.1→2.1.0 仅发现 `Pool.syncID` int→short（Patch_Castle 已加显式转换）。
@@ -32,16 +33,16 @@ C:/Users/ADMIN/dotnet8/dotnet.exe build -c Debug
 
 ### Mono 自用线
 
-```bash
-cd C:/Users/ADMIN/Projects/ohmymods
-build.bat
-# 产物：MyMod.dll（编译到仓库根），手动拷贝到 E:/.../Mods/MyMod/MyMod.dll
-```
+Mono 只在用户明确要求维护或任务直接修改 Mono 源码时构建。在仓库根使用 Framework 4.7.2
+的 csc.exe，引用 `E:/Kingdom Two Crowns/KingdomTwoCrowns_Data/Managed/` 下 Assembly-CSharp、
+UnityEngine*、netstandard，以及 `UnityModManager/` 下 UnityModManager 和 0Harmony-1.2。
+源文件用 `for f in Main.cs Patch_*.cs` 通配收集；`build.bat` 是 cmd 通配版，有编码问题，
+bash 中不要运行。产物为根目录 `MyMod.dll`，部署到 `E:/Kingdom Two Crowns/Mods/MyMod/`。
 
-build.bat 内部：Framework 4.7.2 csc.exe + 引用游戏 Managed DLL（UnityEngine*/Assembly-CSharp/
-UnityModManager/0Harmony-1.2）+ 全部 Patch_*.cs。
-
-注意：**csc 是 C# 5 编译器**——不能用字符串插值、null 条件运算符等新语法。
+注意：**csc 是 C# 5 编译器**——不能用字符串插值、null 条件运算符等新语法；Harmony 为
+v1.2，入口 `HarmonyInstance`。2.1.0 中 `Pool.syncID` 是 short；`Worker.OnTriggerEnter2D` 在
+`npcShieldUser == null` 时早退，希腊工人要补组件才能捡 BerserkerTool；`NpcShieldUser.Awake`
+可能提前 return，须补 `regenWait` 初始化。这些是 Mono 2.1.0 的版本差异，不作为当前 IL2CPP 证据。
 
 ## [Mono-only] 安装 / 更新
 
@@ -69,6 +70,8 @@ target_assembly = E:\Kingdom Two Crowns\KingdomTwoCrowns_Data\Managed\UnityModMa
 （静默放弃，UMM 不加载）。BepInEx 5.4.23.3 的 doorstop 兼容。BepInEx 完整包只需 winhttp.dll +
 doorstop_config.ini 两个文件（不需要 BepInEx 目录）；BepInEx 目录仅用于验证 doorstop 是否工作
 （LogOutput.log 生成即证明注入成功）。
+
+BepInEx 5 的 x86 winhttp 备份为 `E:/mod-dev/winhttp_bepinex5_x86.dll`。
 
 **验证注入是否成功**：Player.log 开头应有 `[Manager] Reading file ... Info.json` 与全部
 `[MyMod] Patched XXX` 日志。
