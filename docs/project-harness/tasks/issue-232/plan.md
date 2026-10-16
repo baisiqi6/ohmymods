@@ -1,9 +1,15 @@
-# Issue232 — 身份生产者与池完成入口源码接入
+# Issue232 — 单次 main106 场景验证计划
 
-保留G1/G2/G3既有Android成果。G4已源码核实：HarmonyDontPatchAll的显式85注册表漏骑士风格生产者及其保存/种子、网络、北境随从入口，普通中世纪随从散射与GreekImpact所需style0/3自然身份不能仅凭已Compile/UI开关成立。本组复用20个既有production owner与GreekFire单源，另一个Android InitPools成功完成postfix仅调用Norse/Crossbow现有Ensure，不启用全Greek dispatcher或旧forceInit/fallback。105共享owner按actual PC RID序，保原85相对顺序，总106唯一；真实Android目标与state/priority/finalizer独立核验，源码/host不等native效果。
+代码基线351aa354（相对已合并G4产品仅规范文档）。仅在source packet及独立审查、typed本计划revise/approve和具体actualGLM单用途gate齐备后，执行独立API35 ARM64 AVD5582 SwiftShader的一次无UI病例swiftshader-main106-20261016-single2。Main为G4已审Release c906ca77e86bdd8842a1d0cf5bf01405179a58a6566b33174ee295a152daa4fb；受控40键cfgac31c005cd5d6cbce47348f17b977dee96f6629dda6bc177c6e68277093c2890。6boolfalse、ratio25%/volley1/rate1不是全新功能off，身份producer仍有真实生命周期/旁档写责任。
 
-Debug/Release纯构建通过，保既有CS0169警告；适配1265/0，network48/0、integration9断言、scatter17/0、crossbow42case511断言、GreekImpact exit0。身份runtime原保存失败注入因macOS允许替换打开的bak而未触发失败，改fixture为owned非空bak目录+哨兵，保原3断言，修后86/0；生产Archive/Runtime无改。初始红例、独立primitive/真实store区分实验保留。池postfix host5检查仅reflection/doubles，非实际InitPools。
+CaseSpec显式固定name/root/candidatepins/expectedOwners106/requireMain/预算，rawSHA在prepare、supervisor、run、Root逐阶段核一致。启动注册五标记严格序与main事实分离，当前PID+deviceepoch/stat/bytes新鲜日志中注册正确且实际main才达本例目标；没有main到期是inconclusive，不诊断卡死、不延时或重试。main后可在同观察预算内截一次PNG，只作独立图片事实；无tap/swipe、改功能开关、攻击/购买、新Addon/observer或APK。
 
-上轮受控85启动五注册标记齐后主动结束，完成条件本不含main，未见main不是hang诊断；原stop=false及后PID/port独立快照、Root reap未记录保持。后续新case必须以可信scene-main为独立目标，复用原备份/成对恢复/日志新鲜性，Root持有Popen并记录boundedwait结果，旧spent门不可复用，不克隆多套runner、不动态改globals冒固定证据。具体新source/normal/actualcase另审，本计划不授启动/安装/APK。
+Rootboot90s、postbootprepare60s为前序分相；supervisorT0起soft180/restore220/watchdog225/hard230，含所有在途timeout与截图2s。整资源占用按上述阶段上界另加前置校验留余量安排，若排他资源窗口剩余不足则不启动，不把正常登记窗口当native批准。亲自持有Popen的Root有界wait/join，返回码/回收时刻分别记录；exactidentity信号保护不退成PIDonly，子emergency的退出不冒称parentreap，任何QEMU退出不代恢复。
 
-任务保持doing-ready-running与原owner/session/op，完整232源码/功能未交齐不关单。下一实际依赖：main与9值真实读取/触屏→普通射速散射及Greek火矢/弩矢→完整工具投射物技能死亡撤退FX与Holder/sync InitPools→职业身份/保存事务/换岛读档。原ratio0归一25%无关闭能力，不能伪全off；手机平板、多人与长期玩家验收如实待验。
+新鲜启动前备份原Main5460/cfg9758、Release全树、loaderlogs与UserData全树（含存在或不存在ModSave状态），host及devicebackup读回。唯一路径R5paired helper安装并恢复Main/cfg，unknownpair不盲写；Release只读核对。game0+pairrestore之后，UserData按相对路径文件与目录的new/missing/changed逐项比对，未知差异保留，不覆盖/删除新旁档，不造整环境已恢复；保存host+device原件备份，标记阻止后继自动case直到逐项解释。每一面单独证明，不把cfg文件键存在当9运行值读取，不把main/注册当攻击/ABI/GC/完整池/保存事务通过。
+
+source和旧R6十文件已逐字archive，旧spentgate/actual/reviews/logs不改，新identity不可复用旧单case门。现common/R5pair/freshness原机制复用，控制器只做必要显式参数化/主场景目标/Rootwait，不复制五套、动态改globals/parser或改游戏业务。若prepare数据面超60，只能拒绝并留证，不临时扩预算或缩树。
+
+接受条件分别为：候选pair安装readback；fresh106ordered注册；trustedscene-main或如实inconclusive；截图独立成败；game0；原Main/cfgbyte-readback；Release、Mods、运行库、APK保持；UserData每项差异；Root回收/端口独立。完整232仍doing-ready-running/同owner session op，未交齐不关单。后续真实触屏/9值/射速散射Greek火矢弩矢/完整Holder-sync-FX/职业保存、换岛读档及手机多人长期另按依赖验证。本计划不发布APK或正常PC版本。
+
+本例为独立single2：single1在boot54秒时getprop默认2秒超时、未到prepare/安装/游戏，原始83命令和spentgate保留，不能改写成产品失败或恢复失败。Root仅把boot getprop单条读取约束为同90秒阶段剩余预算，运行阶段/common/180..230预算不变、不增加重试。删除mainOrCfgEdited预设true的误导字段，actual写入继续依赖pairledger。single1执行Root原字节另存并hash ffd3f2b1，旧回执原文不改。此新门只一次single2，必须重新独审/typed正常登记/actualGLM，并由Main明确确认可沿用至03:50排他窗且剩余≥7分钟，否则不启动。
