@@ -191,3 +191,25 @@ if (sp.HasPlacedShop(type)) {
     }
 }
 ```
+
+## 跨世界扩展槽位计划（IL2CPP 2.4.0，Issue #255）
+
+PC 2.4.0 把希腊方案泛化为 `WorldShopPlan`（`il2cpp/WorldShopPlan.cs`）：忍者用 7/8，狂战士用 12/13
+（Awake 临时改 shopType=ShieldShop 注册，Postfix 恢复 Pike）。原生白名单见
+[castle-upgrade.md](castle-upgrade.md)；Norse 保留原生 ShieldShop/Berserker，Shogun 保留原生 Ninja。
+
+| 世界 | 新增 | 槽位 | 城堡门槛 |
+|---|---|---|---|
+| Europe(0) | Ninja + Berserker | 7/8 + 12/13 | Castle5 / Castle4 |
+| Dead Lands(2) | Ninja + Berserker | 7/8 + 12/13 | Castle5 / Castle4 |
+| Norse(3) | Ninja | 7/8 | Castle5 |
+| Shogun(1) | Berserker | 12/13 | Castle4 |
+| Greece(5) | 既有 | 7/8 + 12/13 | Castle5 / Castle4 |
+
+注意：
+- Android 编译时 `WorldShopPlan` 只返回 Greek 计划（保持 Android 现有行为）。
+- 新世界的 12/13 若被未知商店占用，`EnsureBerserkerShop` fail-closed 跳过；不把希腊的旧店清理
+  机制复制到未验证世界。
+- 池/角色依赖：Ninja 的 ThrowingStar(sync41)/Smokebomb(local)、Berserker/BerserkerLeader/Tool 池，
+  每次 `PoolManager.InitPools` 后由 `ReRegisterModPools` 按世界计划重注册。
+- 实机购买→领取→转职→战斗、迁址库存、读档/换岛、照明与联机仍待验收（见 `tasks/issue-255/`）。

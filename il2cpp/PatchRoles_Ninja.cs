@@ -5,7 +5,8 @@ using UnityEngine;
 namespace KingdomEnhancedMod;
 
 /// <summary>
-/// Cross-biome Ninja runtime support for Greece.
+/// Cross-biome Ninja runtime support（Greek 既有；2026-10-17 起扩展到
+/// Europe/DeadLands/Norse 的扩展忍术商店世界，见 WorldShopPlan）。
 ///
 /// The Ninja prefab can be imported through Holder without importing the bamboo
 /// biome's object-pool collection.  Its projectile and smoke routines both call
@@ -49,11 +50,11 @@ public static class PatchRoles_Ninja
     private static bool _loggedBeggarCampAdded;
     private static bool _loggedBeggarCampReused;
 
-    public static void EnsureRuntimePoolsInGreece(Holder holder)
+    public static void EnsureRuntimePools(Holder holder)
     {
         if (!ModConfig.Enabled.Value) return;
-        if (BiomeHolder.Inst == null
-            || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
+        if (BiomeHolder.Inst == null) return;
+        if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex).Ninja) return;
         if (holder == null || holder.tagCharacterPairs == null) return;
 
         try
@@ -199,8 +200,8 @@ public static class PatchRoles_Ninja
     public static void EnsureThicketHidingSpots(Grass grass)
     {
         if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth) return;
-        if (BiomeHolder.Inst == null
-            || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
+        if (BiomeHolder.Inst == null) return;
+        if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex).Ninja) return;
         if (grass == null || grass._thicket == null) return;
 
         try
@@ -236,7 +237,7 @@ public static class PatchRoles_Ninja
             {
                 _loggedThicketAdded = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[Ninja] Prepared 3 Greece thicket hiding anchors"
+                    "[Ninja] Prepared 3 thicket hiding anchors"
                     + (useLegacyRootAsCenter ? " (legacy root used as center)" : string.Empty)
                     + " (side=" + sideLabel + ", x=" + x + ")");
             }
@@ -244,7 +245,7 @@ public static class PatchRoles_Ninja
             {
                 _loggedThicketReused = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[Ninja] Re-registered reused Greece thicket hiding anchors (3 anchors, side="
+                    "[Ninja] Re-registered reused thicket hiding anchors (3 anchors, side="
                     + sideLabel + ", x=" + x + ")");
             }
         }
@@ -258,8 +259,8 @@ public static class PatchRoles_Ninja
     public static void EnsureTreeHidingSpot(PayableTree tree)
     {
         if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth) return;
-        if (BiomeHolder.Inst == null
-            || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
+        if (BiomeHolder.Inst == null) return;
+        if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex).Ninja) return;
         if (tree == null || tree.gameObject == null || !tree.gameObject.activeInHierarchy) return;
 
         try
@@ -285,29 +286,29 @@ public static class PatchRoles_Ninja
             {
                 _loggedTreeAdded = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[Ninja] Prepared 1 Greece tree hiding anchor (side="
+                    "[Ninja] Prepared 1 tree hiding anchor (side="
                     + GetSideLabel(kingdom, x) + ", x=" + x + ")");
             }
             if (reused && !_loggedTreeReused)
             {
                 _loggedTreeReused = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[Ninja] Re-registered reused Greece tree hiding anchor (side="
+                    "[Ninja] Re-registered reused tree hiding anchor (side="
                     + GetSideLabel(kingdom, x) + ", x=" + x + ")");
             }
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(
-                "[Ninja] Failed to prepare HidingSpot for Greece tree: " + e);
+                "[Ninja] Failed to prepare HidingSpot for tree: " + e);
         }
     }
 
     public static void EnsureBeggarCampHidingSpots(BeggarCamp camp)
     {
         if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth) return;
-        if (BiomeHolder.Inst == null
-            || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
+        if (BiomeHolder.Inst == null) return;
+        if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex).Ninja) return;
         if (camp == null || camp.gameObject == null || !camp.gameObject.activeInHierarchy) return;
 
         try
@@ -333,21 +334,21 @@ public static class PatchRoles_Ninja
             {
                 _loggedBeggarCampAdded = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[Ninja] Prepared 5 Greece beggar-camp hiding anchors (side="
+                    "[Ninja] Prepared 5 beggar-camp hiding anchors (side="
                     + GetSideLabel(kingdom, x) + ", x=" + x + ")");
             }
             if (reused && !_loggedBeggarCampReused)
             {
                 _loggedBeggarCampReused = true;
                 KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                    "[Ninja] Re-registered reused Greece beggar-camp hiding anchors (5 anchors, side="
+                    "[Ninja] Re-registered reused beggar-camp hiding anchors (5 anchors, side="
                     + GetSideLabel(kingdom, x) + ", x=" + x + ")");
             }
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(
-                "[Ninja] Failed to prepare HidingSpots for Greece beggar camp: " + e);
+                "[Ninja] Failed to prepare HidingSpots for beggar camp: " + e);
         }
     }
 
@@ -463,7 +464,7 @@ public static class NinjaRuntimePoolWarmup_Patch
     [HarmonyPriority(Priority.Last)]
     public static void Postfix(Holder __instance)
     {
-        PatchRoles_Ninja.EnsureRuntimePoolsInGreece(__instance);
+        PatchRoles_Ninja.EnsureRuntimePools(__instance);
     }
 }
 

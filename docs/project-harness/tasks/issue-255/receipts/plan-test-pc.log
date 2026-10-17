@@ -1,0 +1,16 @@
+mode: PC (world shop extension)
+PASS Europe index 0
+PASS Shogun index 1
+PASS DeadLands index 2
+PASS Norse index 3
+PASS Greek keeps existing ninja + berserker adaptation
+PASS Europe: ninja 7/8 + berserker 12/13
+PASS Shogun: berserker only (native ninja kept)
+PASS DeadLands: ninja + berserker
+PASS Norse: ninja only (native berserker kept)
+PASS unknown biome 4 stays unexpanded
+PASS unknown biome 6 stays unexpanded
+PASS unknown biome 7 stays unexpanded
+PASS Greek detection follows supplied GreeceBiomeIndex
+RESULT: 13 passed, 0 failed
+EXIT=0

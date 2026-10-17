@@ -1,0 +1,9 @@
+# PC build metadata check — 2026-10-17T16:10:23Z
+# Method: strings (UTF-8 metadata/#Strings heap)
+dll=/tmp/ohmymods-build-B3/bin/Release/net6.0/KingdomEnhancedMod.dll
+dll_sha256=2e2356cf004ad0f72faa41ace704f1f22fc3e5642708a86ec8971aa5bd38d5cc
+worldshop_type_occurrences=1
+ensure_world_extra_occurrences=1
+ensure_berserker_shop_occurrences=1
+finalizer_occurrences=1
+control_PatchRoles_Castle_occurrences=1
