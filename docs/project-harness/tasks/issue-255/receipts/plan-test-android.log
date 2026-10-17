@@ -1,0 +1,13 @@
+mode: ANDROID (Greek-only preservation)
+PASS Europe index 0
+PASS Shogun index 1
+PASS DeadLands index 2
+PASS Norse index 3
+PASS Greek keeps existing ninja + berserker adaptation
+PASS Android: biome 0 stays unexpanded
+PASS Android: biome 1 stays unexpanded
+PASS Android: biome 2 stays unexpanded
+PASS Android: biome 3 stays unexpanded
+PASS Android: biome 4 stays unexpanded
+RESULT: 10 passed, 0 failed
+EXIT=0

@@ -41,16 +41,14 @@ public static class Castle_Queue_Patch
     [HarmonyPostfix]
     public static void CatchupToLevel_Postfix(Castle __instance)
     {
-        PatchRoles_Castle.EnsureNinjaShopsInGreece(__instance);
-        PatchRoles_Castle.EnsureBerserkerToolShopInGreece(__instance);
+        PatchRoles_Castle.EnsureWorldExtraShops(__instance);
     }
 
     [HarmonyPatch(nameof(Castle.ReQueueAllBuildings))]
     [HarmonyPostfix]
     public static void ReQueueAllBuildings_Postfix(Castle __instance)
     {
-        PatchRoles_Castle.EnsureNinjaShopsInGreece(__instance);
-        PatchRoles_Castle.EnsureBerserkerToolShopInGreece(__instance);
+        PatchRoles_Castle.EnsureWorldExtraShops(__instance);
     }
 }
 
@@ -60,12 +58,12 @@ public static class Castle_Queue_Patch
 /// 再对已经存在的城堡执行一次幂等补建。
 /// </summary>
 [HarmonyPatch(typeof(ShopPlanner), nameof(ShopPlanner.Start))]
-public static class ShopPlanner_Start_GreeceShopRetry_Patch
+public static class ShopPlanner_Start_WorldShopRetry_Patch
 {
     [HarmonyPostfix]
     public static void Start_Postfix(ShopPlanner __instance)
     {
-        PatchRoles_Castle.RetryGreeceShopsAfterPlannerStart(__instance);
+        PatchRoles_Castle.RetryWorldShopsAfterPlannerStart(__instance);
     }
 }
 
@@ -83,12 +81,14 @@ public static class PatchRoles_Castle
     // ============================================================
     // 忍者商店：走 ShopPlanner 标准队列
     // ============================================================
-    public static void EnsureNinjaShopsInGreece(Castle castle)
+    public static void EnsureNinjaShops(Castle castle)
     {
         if (!ModConfig.Enabled.Value) return;
         try
         {
-            if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != GREECE_BIOME) return;
+            if (BiomeHolder.Inst == null) return;
+            if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, GREECE_BIOME).Ninja) return;
+            int biome = BiomeHolder.Inst.BiomeIndex;
             if (castle == null || castle.level < Castle.Level.Castle5) return;
             if (!NetworkBigBoss.HasWorldAuth) return;
 
@@ -120,14 +120,14 @@ public static class PatchRoles_Castle
                 sp.QueueNewShopForPlacement(
                     PayableShop.ShopType.NinjaLeft,
                     new Il2CppSystem.Nullable<Side>(Side.Left));
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[Roles] Queued NinjaLeft shop for Greece");
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[Roles] Queued NinjaLeft shop for biome " + biome);
             }
             if (!sp.IsPlacedOrQueued(PayableShop.ShopType.NinjaRight))
             {
                 sp.QueueNewShopForPlacement(
                     PayableShop.ShopType.NinjaRight,
                     new Il2CppSystem.Nullable<Side>(Side.Right));
-                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[Roles] Queued NinjaRight shop for Greece");
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo("[Roles] Queued NinjaRight shop for biome " + biome);
             }
 
             EnsurePoolForDroppableTool("ToolNinja");
@@ -180,18 +180,36 @@ public static class PatchRoles_Castle
         }
     }
 
-    public static void RetryGreeceShopsAfterPlannerStart(ShopPlanner shopPlanner)
+    public static void RetryWorldShopsAfterPlannerStart(ShopPlanner shopPlanner)
     {
         _initializedShopPlanner = shopPlanner;
         if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth) return;
-        if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != GREECE_BIOME) return;
+        if (BiomeHolder.Inst == null) return;
+        if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, GREECE_BIOME).Any) return;
 
         Castle castle = null;
         var managers = Managers.Inst;
         if (managers != null && managers.kingdom != null)
             castle = managers.kingdom.castle;
-        EnsureNinjaShopsInGreece(castle);
-        EnsureBerserkerToolShopInGreece(castle);
+        EnsureWorldExtraShops(castle);
+    }
+
+    /// <summary>
+    /// 当前世界扩展商店的总入口：Greek 走既有两段（保持原行为），其它计划世界走通用入口。
+    /// 所有前置条件（启用/世界/权威/城堡等级/ShopPlanner 就绪）在各实现内复核。
+    /// </summary>
+    public static void EnsureWorldExtraShops(Castle castle)
+    {
+        if (!ModConfig.Enabled.Value || !NetworkBigBoss.HasWorldAuth) return;
+        if (BiomeHolder.Inst == null) return;
+        var plan = WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, GREECE_BIOME);
+        if (!plan.Any) return;
+
+        if (plan.Ninja) EnsureNinjaShops(castle);
+        if (!plan.Berserker) return;
+
+        if (plan.Greece) EnsureBerserkerToolShopInGreece(castle);
+        else EnsureBerserkerShop(castle);
     }
 
     // ============================================================
@@ -267,6 +285,100 @@ public static class PatchRoles_Castle
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(
                 "[Roles] Berserker shop queue failed after readiness checks: " + e);
             return false;
+        }
+    }
+
+    /// <summary>
+    /// 非希腊计划世界的狂战士商店：占用 ShieldShop 12/13。
+    /// 这些世界这两个槽位不在原生入队白名单；若被未知对象占用则 fail-closed 跳过。
+    /// 跨世界旧商店清理不在本任务引入（希腊仍走既有 ShopCleanupQueue 路径）。
+    /// </summary>
+    private static void EnsureBerserkerShop(Castle castle)
+    {
+        if (!ModConfig.Enabled.Value) return;
+        try
+        {
+            if (BiomeHolder.Inst == null) return;
+            var plan = WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, GREECE_BIOME);
+            if (!plan.Berserker || plan.Greece) return;
+            if (castle == null || castle.level < Castle.Level.Castle4) return;
+            if (!NetworkBigBoss.HasWorldAuth) return;
+
+            var managers = Managers.Inst;
+            var sp = managers != null ? managers.shopPlanner : null;
+            if (sp == null || _initializedShopPlanner != sp) return;
+            if (sp.shopTypePrefabPairs == null
+                || !sp.shopTypePrefabPairs.ContainsKey(PayableShop.ShopType.ShieldShopLeft)
+                || !sp.shopTypePrefabPairs.ContainsKey(PayableShop.ShopType.ShieldShopRight))
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                    "[Roles] Berserker shop prefab mapping is missing after ShopPlanner.Start");
+                return;
+            }
+            if (sp.raisingShops == null || sp._placedShops == null || sp._queuedShopPlacements == null)
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                    "[Roles] Berserker shop queue state is unavailable after ShopPlanner.Start");
+                return;
+            }
+
+            RepairQueuedSidedShopValues(sp);
+
+            if (ShieldSlotHasForeignShop(sp, PayableShop.ShopType.ShieldShopLeft)
+                || ShieldSlotHasForeignShop(sp, PayableShop.ShopType.ShieldShopRight))
+            {
+                KingdomEnhancedPlugin.Instance?.LogSource.LogWarning(
+                    "[Roles] Berserker shop skipped: ShieldShop slot holds an unexpected shop in biome "
+                    + BiomeHolder.Inst.BiomeIndex);
+                return;
+            }
+
+            int biome = BiomeHolder.Inst.BiomeIndex;
+            if (!sp.IsPlacedOrQueued(PayableShop.ShopType.ShieldShopLeft))
+            {
+                sp.QueueNewShopForPlacement(
+                    PayableShop.ShopType.ShieldShopLeft,
+                    new Il2CppSystem.Nullable<Side>(Side.Left));
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[Roles] Queued Berserker shop (ShieldShopLeft) for biome " + biome);
+            }
+            if (!sp.IsPlacedOrQueued(PayableShop.ShopType.ShieldShopRight))
+            {
+                sp.QueueNewShopForPlacement(
+                    PayableShop.ShopType.ShieldShopRight,
+                    new Il2CppSystem.Nullable<Side>(Side.Right));
+                KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
+                    "[Roles] Queued Berserker shop (ShieldShopRight) for biome " + biome);
+            }
+
+            EnsurePoolForDroppableTool("ToolBerserker");
+            EnsurePoolForCharacter("Berserker");
+            EnsurePoolForCharacter("BerserkerLeader");
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+                "[Roles] Berserker shop queue failed after readiness checks: " + e);
+        }
+    }
+
+    /// <summary>槽位已放置的商店是否不是 BerserkerTool（新世界 fail-closed 保护，不登记清理）。</summary>
+    private static bool ShieldSlotHasForeignShop(ShopPlanner sp, PayableShop.ShopType type)
+    {
+        try
+        {
+            var placedArr = sp != null ? sp._placedShops : null;
+            if (placedArr == null || (int)type < 0 || (int)type >= placedArr.Length) return false;
+            GameObject placed = placedArr[(int)type];
+            if (placed == null) return false;
+
+            PayableShop ps = placed.GetComponent<PayableShop>();
+            return ps == null || ps.itemPrefab == null || !ps.itemPrefab.CompareTag("BerserkerTool");
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+            return true; // 读不到槽位就 fail-closed，不叠加商店
         }
     }
 
@@ -347,30 +459,50 @@ public static class PatchRoles_Castle
             // Holder 就绪/prefab 解析/池已存在三重幂等门，未就绪静默跳过。
             PatchRoles_NorseSquad.EnsureNorseArcherPool();
 
-            if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
+            if (BiomeHolder.Inst == null) return;
+            var plan = WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex);
+            if (!plan.Any) return;
 
             // Cerberus' two Norselands-behaviour clone pools do not depend on
             // Holder tags and must be registered on host and clients even when
             // PoolManager.Init runs before Holder.InitializeTagCharacterPairs.
-            PatchDivine_GhostSquads.EnsurePools();
+            if (plan.Greece) PatchDivine_GhostSquads.EnsurePools();
 
             // Holder 未就绪（Init 早于 Holder.InitializeTagCharacterPairs）时静默跳过——
             // 角色池由 Holder postfix 补注册（ReRegisterModPools 幂等），避免时序噪音错误。
             var holder = Managers.Inst != null ? Managers.Inst.holder : null;
-            if (holder == null || holder.tagCharacterPairs == null || !holder.tagCharacterPairs.ContainsKey("Ninja")) return;
+            if (holder == null || holder.tagCharacterPairs == null) return;
 
-            // 工具池
-            EnsurePoolForDroppableTool("ToolNinja");
-            EnsurePoolForDroppableTool("ToolBerserker");
-            // PoolManager.Init_Prefix 会强制 InitPools() 并清空全部运行时池缓存；
-            // Holder 若已就绪，不会再次触发 Holder postfix，因此这里同步恢复忍者
-            // 的飞镖/烟雾依赖池，再恢复 Ninja 角色池。
-            PatchRoles_Ninja.EnsureRuntimePoolsInGreece(holder);
-            // 角色池（从 Holder 拿 prefab）
-            EnsurePoolForCharacter("Ninja");
-            EnsurePoolForCharacter("Berserker");
-            EnsurePoolForCharacter("BerserkerLeader");
-            EnsurePoolForCharacter("Worker");
+            if (plan.Greece)
+            {
+                // 既有希腊顺序保持不变。
+                if (!holder.tagCharacterPairs.ContainsKey("Ninja")) return;
+                EnsurePoolForDroppableTool("ToolNinja");
+                EnsurePoolForDroppableTool("ToolBerserker");
+                // PoolManager.Init_Prefix 会强制 InitPools() 并清空全部运行时池缓存；
+                // Holder 若已就绪，不会再次触发 Holder postfix，因此这里同步恢复忍者
+                // 的飞镖/烟雾依赖池，再恢复 Ninja 角色池。
+                PatchRoles_Ninja.EnsureRuntimePools(holder);
+                EnsurePoolForCharacter("Ninja");
+                EnsurePoolForCharacter("Berserker");
+                EnsurePoolForCharacter("BerserkerLeader");
+                EnsurePoolForCharacter("Worker");
+                return;
+            }
+
+            // 非希腊计划世界：只恢复该世界计划新增的依赖。
+            if (plan.Ninja && holder.tagCharacterPairs.ContainsKey("Ninja"))
+            {
+                EnsurePoolForDroppableTool("ToolNinja");
+                PatchRoles_Ninja.EnsureRuntimePools(holder);
+                EnsurePoolForCharacter("Ninja");
+            }
+            if (plan.Berserker && holder.tagCharacterPairs.ContainsKey("Berserker"))
+            {
+                EnsurePoolForDroppableTool("ToolBerserker");
+                EnsurePoolForCharacter("Berserker");
+                EnsurePoolForCharacter("BerserkerLeader");
+            }
         }
         catch (Exception e)
         {

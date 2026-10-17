@@ -1,0 +1,17 @@
+# Android probe build (Issue #255) — 2026-10-17T16:09:55Z
+# base: 1f9c6753ef2a87ba994d38c96dc49b111927551c; worktree content snapshot
+# command: dotnet10 build -c Release -p:GameInteropDir=/Users/Admin/projects/ohmymods/.local/tasks/android-inprocess-probe-20261003/interop -p:LoaderRuntimeDir=/Users/Admin/projects/ohmymods/.local/tasks/android-inprocess-probe-20261003/loader-payload/assets/LemonLoader/runtime/loader/net6 -p:SupportModuleDir=/Users/Admin/projects/ohmymods/.local/tasks/android-inprocess-probe-20261003/loader-payload/assets/LemonLoader/runtime/loader/Dependencies/SupportModules android/OhMyMods.AndroidProbe.csproj
+  正在确定要还原的项目…
+  所有项目均是最新的，无法还原。
+/Users/Admin/projects/WorkTrees/ohmymods-world-shops-20261017/il2cpp/Patch_HeavyShieldBanner.cs(132,33): warning CS0169: 从不使用字段“HeavyShieldBanner._nextActivation” [/Users/Admin/projects/WorkTrees/ohmymods-world-shops-20261017/android/OhMyMods.AndroidProbe.csproj]
+  OhMyMods.AndroidProbe -> /Users/Admin/projects/WorkTrees/ohmymods-world-shops-20261017/android/bin/Release/net10.0/OhMyMods.AndroidProbe.dll
+
+已成功生成。
+
+/Users/Admin/projects/WorkTrees/ohmymods-world-shops-20261017/il2cpp/Patch_HeavyShieldBanner.cs(132,33): warning CS0169: 从不使用字段“HeavyShieldBanner._nextActivation” [/Users/Admin/projects/WorkTrees/ohmymods-world-shops-20261017/android/OhMyMods.AndroidProbe.csproj]
+    1 个警告
+    0 个错误
+
+已用时间 00:00:01.45
+EXIT=0
+b41ccfeb1861c9bbcc0aace5e98029c1ebdaaeaecaccd3a359d9c517c8261b9d  android/bin/Release/net10.0/OhMyMods.AndroidProbe.dll

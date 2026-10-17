@@ -65,7 +65,7 @@ namespace KingdomEnhancedMod
     public static class PatchRoles_Ninja
     {
         public static int EnsureRuntimePoolsCalls;
-        public static void EnsureRuntimePoolsInGreece(Holder holder) { EnsureRuntimePoolsCalls++; }
+        public static void EnsureRuntimePools(Holder holder) { EnsureRuntimePoolsCalls++; }
         public static void ResetCounters() { EnsureRuntimePoolsCalls = 0; }
     }
 
