@@ -27,8 +27,9 @@ namespace KingdomEnhancedMod;
 ///   - BagCurrency.Reset(int nthCoin, bool stack) → 2.4.0 改名 + 加参：
 ///     ResetVisuals(bool backLayer, int nthCoin, bool stack = true)。本 patch 改为 Hook ResetVisuals。
 ///   - 2.4.0 钱包重做为多币种 CurrencyMap（Wallet._currencyAmount / _allowedCurrencies /
-///     GetCurrency/SetCurrency）。TotalCapacity 字段仍存在但语义作用未经运行时验证（IL2CPP 方法体不可读），
-///     扩容效果待 Operator 决策（见 notes-economy.md）。
+///     GetCurrency/SetCurrency）。2.4.0 r23488 原生静态核验确认 TotalCapacity 参与
+///     TryToGrabCurrency/SuckCurrency/SetCurrency 的容量限制；实际收币/掉币及读档仍须实机验收。
+///     interop 是包装器，原生证据见 docs/project-harness/tasks/issue-247/verification.md。
 /// </summary>
 [HarmonyPatch(typeof(CurrencyBag))]
 public static class PatchEconomy_CurrencyBag
@@ -48,7 +49,7 @@ public static class PatchEconomy_CurrencyBag
     [HarmonyPostfix]
     public static void RecalcPosition_Postfix(CurrencyBag __instance)
     {
-        if (!GreekScaleScope.IsActive) return;
+        if (!GreekScaleScope.IsEnabledAllWorldsActive) return;
         try
         {
             Vector3 position = __instance.transform.position;
@@ -68,7 +69,7 @@ public static class PatchEconomy_CurrencyBag
     [HarmonyPostfix]
     public static void StartShow_Postfix(CurrencyBag __instance)
     {
-        if (!GreekScaleScope.IsActive) return;
+        if (!GreekScaleScope.IsEnabledAllWorldsActive) return;
         CurrencyBagViewport.KeepVisible(__instance);
     }
 
@@ -77,7 +78,7 @@ public static class PatchEconomy_CurrencyBag
     [HarmonyPostfix]
     public static void OnGameStartHandler_Postfix(CurrencyBagHandler __instance)
     {
-        if (!ModConfig.Enabled.Value) return;
+        if (ModConfig.Enabled == null || !ModConfig.Enabled.Value) return;
         try
         {
             __instance.ChangeCurrencyBag(CurrencyBagType.Hermes, 0);
@@ -95,7 +96,7 @@ public static class PatchEconomy_CurrencyBag
     [HarmonyPostfix]
     public static void ChangeCurrencyBag_Postfix(CurrencyBagType currencyBagType, int playerIndex)
     {
-        if (!ModConfig.Enabled.Value) return;
+        if (ModConfig.Enabled == null || !ModConfig.Enabled.Value) return;
         try
         {
             int capacity = (currencyBagType == CurrencyBagType.Hermes) ? HermesCapacity : BagCapacity;
@@ -117,14 +118,14 @@ public static class PatchEconomy_CurrencyBag
     }
 
     /// <summary>
-    /// 视觉堆叠上限：nthCoin &lt; 600 堆叠显示，超出散落（原版 300）。
+    /// 视觉堆叠参数：nthCoin &lt; 600（原版 300）；不等于实际钱包容量或已验证掉币阈值。
     /// 2.4.0 由 Reset 改名 ResetVisuals，新增 backLayer 参数（不参与逻辑）。
     /// </summary>
     [HarmonyPatch(typeof(BagCurrency), nameof(BagCurrency.ResetVisuals))]
     [HarmonyPrefix]
     public static void ResetVisuals_Prefix(BagCurrency __instance, bool backLayer, int nthCoin, ref bool stack)
     {
-        if (!ModConfig.Enabled.Value) return;
+        if (ModConfig.Enabled == null || !ModConfig.Enabled.Value) return;
         try
         {
             stack = nthCoin < VisualCoinLimit;
@@ -141,9 +142,11 @@ public static class PatchEconomy_CurrencyBag
     [HarmonyPostfix]
     public static void Awake_Postfix(CurrencyBag __instance)
     {
-        if (!ModConfig.Enabled.Value) return;
         try
         {
+            // Register the wallet's desired scale even while disabled/unknown; the
+            // scope replay writes it once the switch becomes active and capacity
+            // work below stays gated on the enabled switch.
             ApplyBagScale(__instance);
             EnsureWalletCapacity();
         }
@@ -154,11 +157,12 @@ public static class PatchEconomy_CurrencyBag
     }
 
     /// <summary>
-    /// 读档恢复的钱袋不触发 ChangeCurrencyBag/OnGameStartHandler（那些是新游戏开局流程），
-    /// 容量保持存档原值 → "钱袋变大没生效"。此处按钱袋 Awake 时机补齐（mod 目标即大容量钱包）。
+    /// 在 Awake 时尽力补齐已建立的玩家钱包；管理器/钱包未就绪时不写。
+    /// 这不证明覆盖了全部恢复时序；最终容量须在原生加载完成后独立核验。
     /// </summary>
     private static void EnsureWalletCapacity()
     {
+        if (ModConfig.Enabled == null || !ModConfig.Enabled.Value) return;
         var kingdom = SingletonMonoBehaviour<Managers>.Inst?.kingdom;
         if (kingdom == null) return;
         if (kingdom.playerOne != null && kingdom.playerOne.wallet != null)
@@ -174,7 +178,6 @@ public static class PatchEconomy_CurrencyBag
     [HarmonyPostfix]
     public static void SetCurrencyBag_Postfix(CurrencyBag __result)
     {
-        if (!ModConfig.Enabled.Value) return;
         try
         {
             ApplyBagScale(__result);
@@ -193,17 +196,19 @@ public static class PatchEconomy_CurrencyBag
     private static void ApplyBagScale(CurrencyBag bag)
     {
         if (bag == null) return;
-        Vector3 s = GreekScaleScope.NativeScale(bag.transform);
-        s.x *= BagScaleMultiplier;
-        s.y *= BagScaleMultiplier;
-        GreekScaleScope.ApplyScale(bag.transform, s);
+        Vector3 nativeRoot = GreekScaleScope.NativeScale(bag.transform);
+        if (!Finite(nativeRoot)) return;
+        // XY only: Z stays authored by the native prefab at every level.
+        GreekScaleScope.ApplyScaleXyAllWorlds(bag.transform,
+            new Vector3(nativeRoot.x * BagScaleMultiplier, nativeRoot.y * BagScaleMultiplier, nativeRoot.z));
 
         Transform container = bag._container;
-        if (container != null)
-        {
-            GreekScaleScope.ApplyScale(container,
-                new Vector3(1f / BagScaleMultiplier, 1f / BagScaleMultiplier, 1f));
-        }
+        if (container == null) return;
+        Vector3 nativeContainer = GreekScaleScope.NativeScale(container);
+        if (!Finite(nativeContainer)) return;
+        GreekScaleScope.ApplyScaleXyAllWorlds(container,
+            new Vector3(nativeContainer.x / BagScaleMultiplier, nativeContainer.y / BagScaleMultiplier,
+                nativeContainer.z));
     }
 
     private static void ApplyCoinScale(BagCurrency coin)
@@ -211,48 +216,52 @@ public static class PatchEconomy_CurrencyBag
         if (coin == null) return;
         CurrencyBag bag = coin.bag;
         Transform container = bag != null ? bag._container : null;
-        if (container == null)
-        {
-            GreekScaleScope.ApplyScale(coin.transform, Vector3.one);
-            return;
-        }
-        Vector3 nativeContainer = GreekScaleScope.NativeScale(container);
+        // No scene object/resource -> never guess a transform.
+        if (container == null) return;
+
         Vector3 actualContainer = container.localScale;
-        if (nativeContainer.x == actualContainer.x && nativeContainer.y == actualContainer.y
-            && nativeContainer.z == actualContainer.z)
+        Vector3 nativeContainer = GreekScaleScope.NativeScale(container);
+        if (!Finite(actualContainer) || !Finite(nativeContainer)) return;
+
+        // Claim only what this mod's own parent scale caused. Without an owned
+        // parent discrepancy an existing coin is left exactly as authored.
+        bool ownsParentDifference = false;
+        for (int axis = 0; axis < 3; axis++)
         {
-            // No parent scale owned by this mod: preserve this instance's native
-            // or third-party scale instead of replacing it with a prefab guess.
-            GreekScaleScope.ApplyScale(coin.transform, Vector3.one);
-            return;
+            if (nativeContainer[axis] == 0f) return; // zero denominator: no guess
+            ownsParentDifference |= nativeContainer[axis] != actualContainer[axis];
         }
+        if (!ownsParentDifference) return;
+
         var currency = Managers.Inst != null ? Managers.Inst.currency : null;
-        if (currency == null || BiomeHolder.Inst == null
+        if (currency == null
             || !currency.TryGetData(coin.CurrencyType, out CurrencyConfig config)
             || config == null || config.BagPrefab == null) return;
         BagCurrency prefab = BiomeData.GetPrefabSwap(config.BagPrefab);
         if (prefab == null) return;
 
-        // SpawnCurrency instantiates under the bag, then reparents to _container
-        // with worldPositionStays. Our enlarged parent can already have doubled
-        // this incoming local scale, so it is not a valid native-size snapshot.
-        Vector3 nativeCoin = prefab.transform.localScale;
+        Vector3 prefabScale = prefab.transform.localScale;
         Vector3 incoming = coin.transform.localScale;
-        bool matchesInheritedScale = true;
+        if (!Finite(prefabScale) || !Finite(incoming)) return;
+
+        // SpawnCurrency instantiates under the bag, then reparents to _container
+        // with worldPositionStays. Only when the incoming local scale proves it
+        // inherited our parent difference do we adopt the native composition.
+        Vector3 nativeCoin = default;
         for (int axis = 0; axis < 3; axis++)
         {
-            if (!float.IsFinite(nativeContainer[axis]) || nativeContainer[axis] == 0f
-                || !float.IsFinite(actualContainer[axis]) || actualContainer[axis] == 0f) return;
-            float expectedIncoming = nativeCoin[axis] / actualContainer[axis];
-            matchesInheritedScale &= Mathf.Approximately(incoming[axis], expectedIncoming);
-            nativeCoin[axis] /= nativeContainer[axis];
+            if (actualContainer[axis] == 0f) return;
+            float expectedIncoming = prefabScale[axis] / actualContainer[axis];
+            if (!float.IsFinite(expectedIncoming)
+                || !Mathf.Approximately(incoming[axis], expectedIncoming)) return;
+            nativeCoin[axis] = prefabScale[axis] / nativeContainer[axis];
             if (!float.IsFinite(nativeCoin[axis])) return;
         }
-        if (matchesInheritedScale)
-            // The parent discrepancy proves our contribution. Record even during
-            // loading so a later foreign-world transition can undo that inheritance.
-            GreekScaleScope.ApplyInheritedScale(coin.transform, Vector3.one, nativeCoin);
-        else
-            GreekScaleScope.ApplyScale(coin.transform, Vector3.one);
+        // Desired equals this proof's native composition, so the final world scale
+        // stays nativeRoot * swapped prefab. The correction owns nothing afterwards.
+        GreekScaleScope.ApplyOneShotAllWorlds(coin.transform, nativeCoin, nativeCoin);
     }
+
+    private static bool Finite(Vector3 value)
+        => float.IsFinite(value.x) && float.IsFinite(value.y) && float.IsFinite(value.z);
 }
