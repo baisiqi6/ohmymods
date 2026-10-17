@@ -8,8 +8,9 @@ namespace UnityEngine
  public class Object
  {
   static int next; public int Id=++next;public IntPtr Pointer;public bool Invalid;
+  public int IdCalls, FailIdAtCall;
   public Object(){Pointer=(IntPtr)Id;}
-  public int GetInstanceID(){if(Invalid)throw new InvalidOperationException("destroyed");return Id;}
+  public int GetInstanceID(){if(++IdCalls==FailIdAtCall)throw new InvalidOperationException("identity transient");if(Invalid)throw new InvalidOperationException("destroyed");return Id;}
  }
  public class Component:Object {public GameObject gameObject; public Transform transform=>gameObject.transform;public T GetComponent<T>()where T:Component=>gameObject.GetComponent<T>();}
  public class GameObject:Object
