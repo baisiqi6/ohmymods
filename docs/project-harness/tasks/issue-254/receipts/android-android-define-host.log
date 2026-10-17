@@ -1,0 +1,33 @@
+# ANDROID-define host (android/tests/combat-parameters), 2026-10-17T16:09:18Z
+# shared source SHA256: e4821c83282dfa1258b126122a84da1125ac4251964f45ae01810d51a1bafe34
+host: ANDROID define = True ; knight Prefix bind = True
+host: 直接 Compile 绑定 candidates/PatchRoles_CrownStealer.cs 与 candidates/PatchRoles_KnightRecruitRange.cs
+PASS crown ANDROID flag=null main=ON zero-write :: walk=4 run=7 jump=12 charge=9 wall=(3.5,8.25) cjump=(-2.5,6.5)
+PASS crown ANDROID flag=OFF main=ON zero-write :: walk=4 run=7 jump=12 charge=9 wall=(3.5,8.25) cjump=(-2.5,6.5)
+PASS crown main=OFF flag=ON zero-write (既有门在前) :: walk=4 run=7 jump=12 charge=9 wall=(3.5,8.25) cjump=(-2.5,6.5)
+PASS crown ON normal x*0.75 & y bit-kept :: seeds(4,7,12,9;3.5,8.25;-2.5,6.5) -> walk=3 run=5.25 jump=9 charge=6.75 wall=(2.625,8.25) cjump=(-1.875,6.5)
+PASS crown ON negative-x-and-run x*0.75 & y bit-kept :: seeds(6,-8,12,9;-4,5;-6,7) -> walk=4.5 run=-6 jump=9 charge=6.75 wall=(-3,5) cjump=(-4.5,7)
+PASS crown ON zeros x*0.75 & y bit-kept :: seeds(0,7,0,9;0,5;0,7) -> walk=0 run=5.25 jump=0 charge=6.75 wall=(0,5) cjump=(0,7)
+PASS crown ON NaN-fields-no-clamp x*0.75 & y bit-kept :: seeds(NaN,7,12,NaN;NaN,NaN;3,8) -> walk=NaN run=5.25 jump=9 charge=NaN wall=(NaN,NaN) cjump=(2.25,8)
+PASS crown ON +Inf x*0.75 & y bit-kept :: seeds(5,+Inf,12,9;+Inf,5;2,9) -> walk=3.75 run=+Inf jump=9 charge=6.75 wall=(+Inf,5) cjump=(1.5,9)
+PASS crown flag-off NEW instance keeps originals (非旧实例 restore) :: walk=4 run=7 jump=12 charge=9 wall=(3,5) cjump=(2,4)
+PASS crown hot-off does NOT revert earlier instance (源注释已知边界) :: walk=3 run=5.25 jump=9 charge=6.75 wall=(2.25,5) cjump=(1.5,4)
+PASS crown exception lock runSpeed getter :: walk=3 run=7 jump=12 charge=9 wall=(3,5) cjump=(2,4) logs=1 first=InvalidOperationException
+PASS crown exception lock runSpeed setter :: walk=3 run=7 jump=12 charge=9 wall=(3,5) cjump=(2,4) logs=1 first=InvalidOperationException
+PASS knight reflection bind :: KingdomEnhancedMod.PatchRoles_KnightRecruitRange+Kingdom_FetchArchersForJob_RecruitRange_Patch.Prefix
+PASS stub sanity GetComponent same-object :: 同实例语义
+PASS knight flag=OFF main=ON r=10 keep :: in=10 out=10 expected=10
+PASS knight flag=null main=ON r=10 keep :: in=10 out=10 expected=10
+PASS knight flag=ON main=OFF r=10 keep :: in=10 out=10 expected=10
+PASS knight real knight 10 -> 120 :: in=10 out=120 expected=120
+PASS knight real knight =120 keep :: in=120 out=120 expected=120
+PASS knight real knight >120 (500) keep :: in=500 out=500 expected=500
+PASS knight real knight +Inf keep :: in=+Inf out=+Inf expected=+Inf
+PASS knight real knight NaN -> 120 (原 >= 谓词) :: in=NaN out=120 expected=120
+PASS knight real knight -Inf -> 120 (原 >= 谓词) :: in=-Inf out=120 expected=120
+PASS knight plain job (no component) keep :: in=10 out=10 expected=10
+PASS knight other-component job keep :: in=10 out=10 expected=10
+PASS knight null job keep :: in=10 out=10 expected=10
+PASS knight non-knight NaN keep NaN :: in=NaN out=NaN expected=NaN
+SUMMARY pass=27 fail=0
+EXIT=0

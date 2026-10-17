@@ -1,0 +1,8 @@
+# Android frozen-source pin check (Issue #254) — 2026-10-17T16:08:57Z
+# The shared source is intentionally re-pinned in the same commit (source-level ANDROID guard), and the probe was rebuilt.
+android_pin=e4821c83282dfa1258b126122a84da1125ac4251964f45ae01810d51a1bafe34
+worktree_file_sha256=e4821c83282dfa1258b126122a84da1125ac4251964f45ae01810d51a1bafe34
+base_file_sha256=46a06704816d93f98264750e805057ce2f5c5ddff2cefb2ef7155136dce6924f
+pin_matches_worktree=true
+source_changed_from_base=true
+# android probe rebuilt; AdapterTests 1265/0 recorded in receipts/android-adaptertests.log
