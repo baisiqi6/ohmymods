@@ -1,3 +1,7 @@
+## 2026-10-17 — #251 原生 R1 仍失败，原件已恢复
+
+R3私有候选实际generation已定位slot11/raw0，随后capture闭合失败、原生SaveFailurePrompt重现。独立postimage仍为原seed九槽、无index11；旧Msk/pair付费历史保持，不把rc0或旧pair当新保存成功。原正常窗口已按用户授权结束；本轮测试退出后五通道恢复、严格30秒稳定观察与原12份文件核对通过，正常DLL5fb保持。PR253继续Draft、Issue251开放，未合并安装；下一步补最小有界分支诊断，不能先加猜测兜底。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-原生隔离-r1generation-修正生效完整保存仍失败)。
+
 ## 2026-10-17 — 首次登坐骑岛保存失败候选（Issue #251）
 
 玩家确认首次到访。日志出现目标岛11的火枪generation context按默认land0错绑，已用表内唯一pointer→slot修复live/gen/load及-1保存来源；原生writer保护、付费身份/历史epoch、补偿和Heavy/Bank/Courier共享接线保留。R3独立重跑pipeline86、identity508、defense127、restock72通过；完整正常累计270源/39资源/161引用只替换2核心，net6/net8各0W0E，独立源码双审批准候选。当前仅Draft交付，未合并安装；12份原档/配置及正常DLL5fb保持，原游戏未操作，原生首存回调/冷进入/付款保存往返与当前会话恢复仍待协调隔离验证，不能宣称已修或整档损坏。盾卫同源风险另列#252。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md)。

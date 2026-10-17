@@ -48,3 +48,17 @@ DOTNET_ROLL_FORWARD=Major <dotnet10>/dotnet run --project <project> -c Release \
 **本阶段仅候选与 Draft PR，#251 继续开放。** 原生 Save/GetID 真实时序、原生 land 赋值、缺岛 11 完整快照的冷进入、真实付款/保存/退出/重进、Harmony/ABI 和当前失败会话恢复仍未验；Windows/Android/多人亦未验。未合并、未安装。后续须先协调当前正常窗口，说明可能丢失未保存航行进度，再用隔离环境验证，不能与正常版并行。
 
 本机详细证据根：`.local/tasks/mount-island-save-failure-20261017/`。不上传私有累计源码或玩家存档。
+
+## 2026-10-17 原生隔离 R1：generation 修正生效，完整保存仍失败
+
+本节更新上文原生未验和正常游戏仍在运行的历史状态。用户明确允许结束正常游戏并继续隔离验证后，已保全原件并停止原窗口；原退出码未知，不作为保存通过。新单次 R1 使用上述 net6 `06435dde…`，精确隔离 launcher/game 83924/84171，原生 UI 观察到到岛场景；自动保存已有 CaptureFault，随后从暂停菜单选择“保存＋退出”再次出现原生 SaveFailurePrompt。未点击重试，经 CmdQ 正常结束 own launcher，rc0仅为退出成功。
+
+实际日志先有 `virgin-epoch:277028ac:8f267d35:slot=11:dataLand=0:campaign=0:challenge=0`，后有 `capture-fault:277028ac`、`gate-fail:CaptureFault`、`sync-reject:CaptureFault`。因此新 generation 的 slot11 来源已获得原生正向证据，但受保护 capture 没有闭合；目前尚不能区分显式 land11/raw0 交叉检查、GetID/静态时序、Apply 早退或异常，不能猜测后加兜底。
+
+独立 postimage 核验：native `global-v35` SHA `798bec70ccfdcb4d2e9beba533041e70f6a0632ecaf9998e315f68e988acd189` 仍逐字节等 seed，9槽且无index11；Msk sidecar及配对主/备档亦等seed，保留全部旧付费历史，但这不是新保存。隔离 Hero/Knight sidecar新增空scope/active变化，旧scope与prior epochs值保留，不能称全部数据未写。完整保存判定 **FAIL_NO_TARGET11_CHECKPOINT**。
+
+controller完成 closed 32.057秒观察、五通道恢复（normal/game/save/prefs/logs），再 strict 31.492秒稳定观察；Operator另核最初12份原档/配置逐字恢复，正常DLL仍 `5fb9c5f8…`。R1已消费，不复用。一次菜单坐标操作曾误进Heraldry，立即退出且未选择修改，保存fault早于此操作；后续改逐键导航到已截图确认的SaveQuit。
+
+本机 case：`/Applications/ohmymods/player-tests/issue251-native-save-20261017-r1/runs/manual-a50c7056e26640a39c75c97055a16504`。BepInEx日志 SHA `48eec00011a3d5da696136aea04f9f6ad1714f80e99bc5a10f212cd80fd20044`；独立核验 JSON SHA `ff2794ce5b4761776185218650e0e372e9641b9dde8bc1ef660a1b2f7540236b`，详见本机 `native-preflight/r1-postimage-review.md` 与 `capture-fault-diagnostic-plan.md`。不上传玩家文件。
+
+**R1推翻了“该候选已足以消除此场景保存失败”的推断；不推翻slot11 generation已生效的证据。PR #253仍Draft、Issue #251开放，未合并安装。** 下一步只在新私有候选的既有hooks补有界分支诊断，明确首次退因后修根因，再重新做原生保存和冷读验证。
