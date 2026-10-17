@@ -7,8 +7,14 @@ void NextFrame() { Time.frameCount++; Time.unscaledTime += .1f; MusketeerIdentit
 MusketeerIdentity.IslandState Setup()
 {
     Managers.Inst = new Managers { world = new World { gameLayer = new GameObject().Add(new Transform()) }, kingdom = new Kingdom() };
-    GlobalSaveData.loaded = new GlobalSaveData { currentCampaign = 1 };
-    CampaignSaveData.current = new CampaignSaveData { CurrentIsland = new IslandSaveData { land = 1, isNew = false } };
+    var home = new IslandSaveData { land = 1, isNew = false, playTimeDays = 1 };
+    var campaign = new CampaignSaveData { challengeId = 0, CurrentLand = 1, CurrentIsland = home };
+    for (int i = 0; i < 12; i++) campaign._islands.Add(new IslandSaveData { land = 0 });
+    campaign._islands[1] = home;
+    GlobalSaveData.loaded = new GlobalSaveData { currentCampaign = 1, currentChallenge = 0, CurrentCampaign = campaign };
+    GlobalSaveData.loaded.campaigns.Add(null);
+    GlobalSaveData.loaded.campaigns.Add(campaign);
+    CampaignSaveData.current = campaign;
     MusketeerIdentity.Islands.Clear();
     MusketeerAccess.TrackAllowed = true;
     MusketeerAccess.Enabled = true;

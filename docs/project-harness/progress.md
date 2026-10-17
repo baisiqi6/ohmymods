@@ -1,3 +1,7 @@
+## 2026-10-17 — 首次登坐骑岛保存失败候选（Issue #251）
+
+玩家确认首次到访。日志出现目标岛11的火枪generation context按默认land0错绑，已用表内唯一pointer→slot修复live/gen/load及-1保存来源；原生writer保护、付费身份/历史epoch、补偿和Heavy/Bank/Courier共享接线保留。R3独立重跑pipeline86、identity508、defense127、restock72通过；完整正常累计270源/39资源/161引用只替换2核心，net6/net8各0W0E，独立源码双审批准候选。当前仅Draft交付，未合并安装；12份原档/配置及正常DLL5fb保持，原游戏未操作，原生首存回调/冷进入/付款保存往返与当前会话恢复仍待协调隔离验证，不能宣称已修或整档损坏。盾卫同源风险另列#252。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md)。
+
 ## 2026-10-15 — 盾卫举旗、耐久与铁匠维修交付（Issue #234）
 
 PR237接入已合226的完整release；同侧1名举旗盾卫、40耐久/旧档比例迁移、店内铁匠免费耗时维修已完成当前source/host交集验证。Android新Banner明确不启用，保留PC完整队形保护和现有平台注册；公共PC双TFM、AndroidD/R及双Adapter、10组相关回归和metadata通过（Android保留1个未使用字段提示）。正常累计候选另审、未用公共DLL替换已装包，详见tasks/issue-234/delivery-verification.md。下方G0/G1及未合并文字为历史；当前PR以GitHub为准，代码合并后关单，玩家后验新问题另Issue/PR。
