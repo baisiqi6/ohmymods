@@ -1,0 +1,11 @@
+# Android AdapterTests against the rebuilt probe (Issue #254) — 2026-10-17T16:08:23Z
+# command: dotnet10 android/tests/bin/Release/net10.0/AdapterTests.dll android/bin/Release/net10.0/OhMyMods.AndroidProbe.dll
+# shared source sha256: e4821c83282dfa1258b126122a84da1125ac4251964f45ae01810d51a1bafe34
+AdapterTests: FloatLayout / ModConfig-MelonPreferences / enemy prefix math / artifact metadata
+METADATA_BINDING NinjaStyleScale_Patch.Apply->ScaleRegistryHolder.Register=False
+METADATA_BINDING GreeceBankerScale_Patch.OnEnable_Postfix->ScaleRegistryHolder.Register=False
+METADATA_BINDING HermitScale_Patch.OnEnable_Postfix->ScaleRegistryHolder.Register=False
+METADATA_BINDING DogScale_Patch.OnEnable_Postfix->ScaleRegistryHolder.Register=False
+artifact sha256 7a5492d2ee2185fd9d0297f33efd65e5fc9d273697add7c1e4200d9152ce6d12
+adapter tests: 1265 passed / 0 failed
+EXIT=0

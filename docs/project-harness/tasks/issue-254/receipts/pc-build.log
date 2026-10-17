@@ -1,0 +1,16 @@
+# PC compile evidence (Issue #254) — 2026-10-17T16:08:55Z
+# base: 1f9c6753ef2a87ba994d38c96dc49b111927551c; worktree content snapshot
+# worktree: /Users/Admin/projects/WorkTrees/ohmymods-crown-native-speed-20261017
+# command: dotnet build build.csproj -c Release -t:Rebuild (temp project = Mac wrapper with source glob redirected; no Compile Remove; source-level #if ANDROID guard does the exclusion)
+# references: /Applications/ohmymods/arm64/BepInEx/core + interop (Mac 2.4.0); EmbeddedResource: canonical EmbeddedAssets.props imported (wrapper template), embedded PNGs present
+  Determining projects to restore...
+  Restored /private/tmp/ohmymods-build-A3/build.csproj (in 43 ms).
+  build -> /private/tmp/ohmymods-build-A3/bin/Release/net6.0/KingdomEnhancedMod.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.89
+EXIT=0
+c0586367a3228387eb88aa4cb4925d1cd9f22dbafabff99ef004d9c82eb2de4e  bin/Release/net6.0/KingdomEnhancedMod.dll
