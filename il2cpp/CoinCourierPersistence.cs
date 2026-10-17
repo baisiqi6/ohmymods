@@ -9,6 +9,13 @@ using HarmonyLib;
 using Il2CppInterop.Runtime.InteropTypes;
 using UnityEngine;
 
+// Bind the typed MoveNext hooks to the explicitly selected interop version.
+#if KTC_GAME_243
+using DeleteCampaignRoutine = GlobalSaveData.__TryDeleteCampaign_d__94;
+#else
+using DeleteCampaignRoutine = GlobalSaveData.__TryDeleteCampaign_d__91;
+#endif
+
 namespace KingdomEnhancedMod;
 
 /// <summary>
@@ -329,7 +336,7 @@ internal static partial class CoinCourierPersistence
     /// 删除协程状态机 MoveNext 的记账入口：只在首次执行（__1__state == 0，RemoveAt 之前）绑定。
     /// 只读 state；绝不读写 Return&lt;T&gt;/native 协程状态；异常只留一次有界诊断，不阻塞原生 body。
     /// </summary>
-    internal static void ObserveDeleteRoutineState(GlobalSaveData.__TryDeleteCampaign_d__91 routine)
+    internal static void ObserveDeleteRoutineState(DeleteCampaignRoutine routine)
     {
         if (routine == null) return;
         try
