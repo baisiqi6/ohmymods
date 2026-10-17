@@ -1,3 +1,7 @@
+## 2026-10-17 — #251 C3 首次原生保存通过，冷读待验
+
+真实候选69ce8e首入slot11后stage/paired通过，postnative7f4838与seed不同、岛表9→12，index11 raw0/3100objects，pair逐字节匹配；旧4contexts/9scopes/CompleteComp8保持。通过范围为空付费checkpoint，不称新岛付费单位恢复或raw逐步时序。own退出/五通道内容与所有文件stat恢复通过，唯一Release目录mtime差单列待窄归还。C4须继承该真实postimage及完整ModSave验证冷读重存；PR253仍Draft、normal5fb未安装。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-原生-c3空付费-slot11-首次-checkpoint-落盘通过)。
+
 ## 2026-10-17 — #251 R4 离线修复候选通过，原生关口待验
 
 显式/-1保存统一可信slot来源，锁存raw0 witness与SourceWorld；冷读仅从可信slot做字节精确的只读land0指纹兼容，保留所有records冲突与physical保护。最终独审、operator独立233/652/127/72回归和完整累计net6/net8 0W0E通过；四源差异、旧PC接线和其余功能闭包保持，R2诊断移除。C3首次保存及继承真实postimage/完整ModSave的C4冷读尚未运行；模板初审缺陷修正中。正常DLL5fb、原五通道恢复保持，PR253 Draft/Issue251 OPEN，未合并安装。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-r4源码及离线候选已通过原生首存冷读待验)。

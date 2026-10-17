@@ -89,3 +89,18 @@ Load完整收集eligible exact/preimage历史，再比较全records；empty/paid
 完整私有累计闭包仍270 C#/39资源/161引用/1Import，与正常来源相比仅四源有差异：Identity、Persistence、Archive、NativeSave。public R4业务prefix与原private PC hook尾部作精确拼合，既有!ANDROID包装保留，R2诊断已移除。net6/net8均0W0E、禁用部署目标，候选SHA分别为 `69ce8eb7f2055c26e571fa312017cf75993d05f01fb56fb1fbe957c8d7ae5257`、`76b0303ba3faf4f3dda027e2140e9345d3c078f45caa0e9f6e5aeb4062f5d80b`。二进制范围独审与隔离controller关口分别留证。
 
 当前无游戏运行，正常DLL仍5fb9c5f8；R1/R2五通道已完整恢复。新C3准备首次保存，C4须继承**真正C3验收postimage native及对应完整ModSave**再冷读重存，不能拿旧pair或退出码当通过。模板初审发现schemaVersion误读、最终stat取早、父路径接线与来源校验缺口，已要求修正；尚未prepare新运行包。PR253继续Draft、Issue251开放，未合并安装。详细本机证据在 `implementation-r4/` 与 `capture-diagnostics/`；不上传私有累计源码或玩家存档。
+
+
+## 2026-10-17 原生 C3：空付费 slot11 首次 checkpoint 落盘通过
+
+精确完整累计候选net6 `69ce8eb7…5257` 经实际prepare五通道/hash/stat审核及单次GLM5.3/max启动关口后，首次从原seed进入岛11。C3实际PID40026/launcher39796，CUA只观察，无移动/付费/设置/菜单保存；约一分钟取得正证后CmdQ退出，own launcher/controller实际exit0。C3单次已消费，不能复用。
+
+新generation日志为 `virgin-epoch:277028ac:7150f246:slot=11:dataLand=0:campaign=0:challenge=0`；随后真实stage `4268b4bc`、records0/bound0与本case `paired:verified-existing`。这个verified-existing不能单独证明新保存，本轮另核实际native已从旧seed `798bec70…c189` 变为 `7f4838102315464a91dd605bfbbcf1d41d3e94f1c8894ac107905a641e61400a`，岛表9→12，真实index11存在、raw land0、objects3100。primary pair canonical base64解出native逐字节等该postimage，native/archive digest、唯一Prefs envelope和schemaVersion3均对上；未见本case CaptureFault/gate-fail/sync-reject或SaveFailurePrompt。原生writer实际接受了这个新增检查点。
+
+独立业务审查确认旧4个Musketeer contexts、9个scopes和CompleteComp8的完整历史/记录保持；native旧0/4相同，8仅playTimeDays末位浮点变化、objects相同。Hero/Knight旧scope保持，新增空scope及active切换单列，不称整个保存字节未变。Unity ToJSON的IslandHash没有在外部独立重算，实际runtime writer proof与stage/paired、配对原生字节另有正证；不把数据一致性冒称重新执行了Unity原算法。
+
+本轮通过范围只含**空付费slot11首次checkpoint**，不证明新岛付费单位恢复。日志仅证明generation raw0，postimage也真实raw0；GetID/Apply每一步raw未记录，不能反推完整时序，raw0→11冷读兼容仍须C4实际验证。
+
+closed32.1516秒、strict31.5104秒（无timestamp例外）后，独立两次回读五通道492/71/2/1/2项内容均等原prepared/preimage，所有文件stat相同、0game/launcher/active。唯一剩余受管stat差异为shared SAVE/Release目录mtime，原1792227381258358727、现1792258079664822876；原restore基于内容hash严格通过，不把目录stat冒称全等。准备在下一关口按真实preimage恢复该目录mtime，不改冻结restore逻辑或任何文件内容；utime不可避免更新ctime会诚实记录。
+
+本机case：`/Applications/ohmymods/player-tests/issue251-native-save-20261017-r4-c3/runs/manual-f6c550f1aa784ada924c73d6e5d5ce72`。独立业务及恢复报告位于本机 `capture-diagnostics/c3-binding/`；C4来源receipt必须绑定该真实postimage与对应runtime完整ModSave，不可回退原shared或旧pair。PR253继续Draft、正常DLL仍5fb9c5f8，未合并安装；冷读/再次保存尚未验。
