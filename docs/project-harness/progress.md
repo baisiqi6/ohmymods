@@ -1,3 +1,7 @@
+## 2026-10-17 — #251 首次保存、真实冷读及再次保存通过
+
+C3首次slot11 raw0检查点7f，经C4r2精确继承及原生loaded:preimage沿用7150 epoch，再由原生“保存＋退出”产生f19/raw11新检查点与精确pair。业务49项、恢复58项独审通过：旧paid/CompleteComp8/Hero/Knight历史保全，原件五通道hash及全部文件stat恢复；只有Release目录mtime边界如实单列，未utime。目标paid为空，不称付费单位复原或整个坐骑玩法已验；已有启动错误的责任/技能池后来all-ready另记边界。PR253转待审、Issue251开放，normal5fb未合并安装。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-原生-c4r2空付费冷读和再次保存通过)。
+
 ## 2026-10-17 — #251 C3 首次原生保存通过，冷读待验
 
 真实候选69ce8e首入slot11后stage/paired通过，postnative7f4838与seed不同、岛表9→12，index11 raw0/3100objects，pair逐字节匹配；旧4contexts/9scopes/CompleteComp8保持。通过范围为空付费checkpoint，不称新岛付费单位恢复或raw逐步时序。own退出/五通道内容与所有文件stat恢复通过，唯一Release目录mtime差单列待窄归还。C4须继承该真实postimage及完整ModSave验证冷读重存；PR253仍Draft、normal5fb未安装。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-原生-c3空付费-slot11-首次-checkpoint-落盘通过)。

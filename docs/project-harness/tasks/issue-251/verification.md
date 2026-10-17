@@ -1,5 +1,7 @@
 # Issue #251：首次登坐骑岛保存失败候选
 
+> 最新状态见文末 C4r2 节。前文 R3 两源范围、正常窗口仍运行及原生未验等描述均为当时阶段记录，已由后续 R4/C3/C4r2 更新；失败证据保留。
+
 ## 范围与已确认事实
 
 2026-10-17 玩家确认第一次到目标岛。当前 2.4.0 Mac 日志中，岛 11 的新生成火枪 context 对应 land 0，而英雄和共享保存来源指向岛 11；物理 writer 至少一次因 `NoMatchingSnapshot` 拒绝。当前原生主档可解析，已保存岛表只有 9 槽、目标为 11，缺目标完整快照可能是正常航行检查点，不能据此判整档损坏。失败事件的全部原生调用分支尚未取得，身份错绑是已复现的机制，未证明是当前弹窗唯一原因。
@@ -104,3 +106,35 @@ Load完整收集eligible exact/preimage历史，再比较全records；empty/paid
 closed32.1516秒、strict31.5104秒（无timestamp例外）后，独立两次回读五通道492/71/2/1/2项内容均等原prepared/preimage，所有文件stat相同、0game/launcher/active。唯一剩余受管stat差异为shared SAVE/Release目录mtime，原1792227381258358727、现1792258079664822876；原restore基于内容hash严格通过，不把目录stat冒称全等。准备在下一关口按真实preimage恢复该目录mtime，不改冻结restore逻辑或任何文件内容；utime不可避免更新ctime会诚实记录。
 
 本机case：`/Applications/ohmymods/player-tests/issue251-native-save-20261017-r4-c3/runs/manual-f6c550f1aa784ada924c73d6e5d5ce72`。独立业务及恢复报告位于本机 `capture-diagnostics/c3-binding/`；C4来源receipt必须绑定该真实postimage与对应runtime完整ModSave，不可回退原shared或旧pair。PR253继续Draft、正常DLL仍5fb9c5f8，未合并安装；冷读/再次保存尚未验。
+
+
+## 2026-10-17 原生 C4r2：空付费冷读和再次保存通过
+
+本节补齐 C3 的冷读待验项。最终完整累计候选仍为 net6 `69ce8eb7…5257`，产品源未再修改。C4r2 只继承 C3 已独立验收的 `7f483810…400a` 原生 postimage 与对应全部八份 ModSave；原件恢复责任始终是 `798bec70…c189`，没有以测试进度覆盖正常档。实际 prepare exit0，101 项独审检查及 129 项源输入稳定核对通过；业务与启动单独批准后才执行一次 native。
+
+CUA 核对实际 own launcher53371/game53591 的 PID、PPID、start、完整 argv 与 runtime DLL69 后，观察到原检查点的森林场景，无 SaveFailurePrompt。暂停菜单逐项核对高亮后执行原生“保存＋退出”；未移动、付款、改设置、重试、继续或重玩，退出后没有再次 getApp 启动游戏。
+
+- 新日志第1422行实际 `loaded:preimage:records=0:bound=0:unbound=0:pending=0:stock=0:conflict=False`；同 context `277028ac…`、原 epoch `7150f246…`，没有 fresh generation。
+- 该 loaded 之后第1577行出现新 stage `854a3766…`，第1578行 records0/bound0，第1580行 `paired:verified-existing`。当前 native 已实际从7f变为 **`f19a619c53843b428947a88efb3934f2fa486fbedb703d197da86569b55de7a6`**（353018B）；12槽，slot11 raw land11、objects3121。不是仅靠模板 pair 或退出码判通过。
+- primary pair 的 canonical base64/native digest 逐字节对应本轮 f19；唯一 native Msk envelope、archive digest 与 mirror 原字节相符，archive SHA **`ae09db77abaae852288a8dcb4591021a337fcc77fe44ee3b4c5e809b3c34d890`**。backup pair仍对应C3的7f，完整八文件集合/备份旋转逐项核验。
+- Msk 五个 contexts、十个 scopes、全部61个旧paid GUID及其Kind/NativeId/StockSlot、CompleteComp8完整对象保全。slot11旧22c99…/4268…快照原对象保留，同epoch新增854a…空记录快照；baseline由22c99…更新为已存4268…。其余九scope精确不变，旧native岛0/4/8也无任何变化。Hero旧历史保全，仅新增两个空快照及一处baseline；Knight主/备字节不变。
+
+业务独审36＋13项检查通过。own run-end exit0@18:42:09.686Z；closed32.1687秒、strict-restored31.4957秒，timestampException=false；driver/controller最终exit0@18:43:28.213Z。恢复独审58项、70份输入稳定，五通道492/71/2/1/2项完整hash及所有文件/链接stat均等本case fresh原件，正常DLL仍5fb9c5f8、当前无相关PID/active/timeout、C3父源未漂移。
+
+完整目录stat不声称全等：只有 shared `SAVE/Release` 目录mtime，原 `1792227381258358727`、现 `1792258079664822876`（mode同16877）；按本轮明确关口仅如实记录，未utime、未声称ctime/所有时间戳还原。之前C3的那次目录归还另有回执，不改写其历史报告。
+
+本轮实证范围是 **Mac 2.4.0 空paid目标岛的首次保存→真实raw0检查点冷载preimage兼容→新的原生保存**。没有slot11付费单位，不证明枪具/兵力复原；未独立重算Unity ToJSON/IslandHash，不从postraw推断GetID/Apply逐步原值或时序。Windows、Materialized补偿窗口、Heavy同源#252及旧rawslot adoption/收费生命周期#256仍是独立边界。
+
+本轮还核对了与正常模板/C3相同的六条启动Error签名：HarmonyX stack trace fix Permission denied、MountIslandFresh NoEnvelope Abort、四条CrossWorldMount skill pool未就绪。NoEnvelope撤销为no-op，技能池随后有all-ready正证，但没有验证技能实战；Harmony被拒操作的具体目标未知。独审判定它们不阻断本次严格Msk空paid保存接受链，**不能称整体零错误、无害或坐骑技能已验**；本PR不修改这些模块。
+
+测试准备阶段的C4/C4r1 Path接口失败及prebind locale解码失败均保留，没有算作原生通过；最终新C4r2以严格manifest/copy双红双绿27组/99负例、精确AST/源码与绑定独审、实际prepare0及native0交付。worker在文档收尾时的5分钟deadline exit1如实保留、缺失receipt未伪造，最终产物由operator和独立审查同bytes实际重跑验收；产品候选不受这些控制器改动影响。
+
+本机case：`/Applications/ohmymods/player-tests/issue251-native-save-20261017-r4-c4r2/runs/manual-bf58f1c11d574bf4a08baee1cdb9d564`。本机证据根 `capture-diagnostics/c4-full-path-r2/`：
+
+| 回执 | SHA256 |
+|---|---|
+| native-audit/business-review.json | `95647ea9326a5bd43208f3cfecc415dd0364448c12f305458baf73a4443ae72b` |
+| native-audit/restore-review.json | `609b1a78ce7ed217e23a644bb58ee813f2660452969b8d2963998ee105a307f0` |
+| operator-native-acceptance.json | `7405e05724df3bcf8007b7a2acf5f2686a79aee73c949c23708a1e3a71e97c87` |
+
+经已批准的条件式验收，PR #253 转为待审，Issue #251 仍开放；**未合并、未安装正常版**。不上传玩家文件、私有累计源、无关进程命令或完整私有日志。
