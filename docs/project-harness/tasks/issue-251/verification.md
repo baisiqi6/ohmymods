@@ -62,3 +62,30 @@ controller完成 closed 32.057秒观察、五通道恢复（normal/game/save/pre
 本机 case：`/Applications/ohmymods/player-tests/issue251-native-save-20261017-r1/runs/manual-a50c7056e26640a39c75c97055a16504`。BepInEx日志 SHA `48eec00011a3d5da696136aea04f9f6ad1714f80e99bc5a10f212cd80fd20044`；独立核验 JSON SHA `ff2794ce5b4761776185218650e0e372e9641b9dde8bc1ef660a1b2f7540236b`，详见本机 `native-preflight/r1-postimage-review.md` 与 `capture-fault-diagnostic-plan.md`。不上传玩家文件。
 
 **R1推翻了“该候选已足以消除此场景保存失败”的推断；不推翻slot11 generation已生效的证据。PR #253仍Draft、Issue #251开放，未合并安装。** 下一步只在新私有候选的既有hooks补有界分支诊断，明确首次退因后修根因，再重新做原生保存和冷读验证。
+
+## 2026-10-17 原生隔离 R2：锁定首次拒绝，仍未修复
+
+单次私有诊断候选 `55e0f49339d5c6c0c6544068d493a91e5b78e7373535184424fae4e77d0cc63d` 只在既有 hooks 增加有界计数，flag-off 与 R3 逐方法 IL 等价；没有改变状态、返回、原生字段或 fault。独立源码透明性及 binary scope 审查通过后，经 GLM 5.3 max 决策关口启动，未安装正常版。
+
+稳定日志 SHA `89999973be0d4269ec5bc89a713e454d1593078d2c037d2a17f99fe8d299dd46` 的首个 Save 是显式参数 campaign0/land11/challenge0。4114 次有效对象 capture 均通过原生 static/isSaving 检查，却均在 `raw land != 11` 比较处早退；只单独记录了**首次 raw=0**，不推断后续各次原值。未绑定 Island，无 conflict/exception；Apply 进入后返回 `no-captured-island`，随后 CaptureFault 和 writer gate 拒绝。独立审查确认稳定快照与最终日志前缀相同。
+
+这推翻了 R3 显式保存支路的 raw/index 等同前提；没有证明 raw0 是扩展岛 producer 缺陷或完整 Save 后仍为0。扩展桥只负责容量、LevelConfig、landData 和导航目标；没有证据表明它拥有 raw `IslandSaveData.land` 初始化责任。继续核验当前原生字段写入/加载语义，不能为通过 guard 而写 raw11、改 hash、清 fault 或新增补偿。
+
+native postimage 仍为旧 seed `798bec70…`，没有目标11检查点。仅等待首次 autosave取证，未手动保存、未移动或改设置，CmdQ 结束 own launcher rc0。controller closed32.615秒、五通道恢复、strict31.529秒；Operator随后重新计算当前完整五通道 manifest，全部等 prepared 原件。正常 DLL 仍 `5fb9c5f8…`、无游戏进程，R2已消费。**保存业务仍 FAIL，PR253保持Draft，未合并安装。**
+
+本机证据：`native-preflight/r2-diagnosis-review.{md,json}`、`r2-operator-result.json`、`capture-diagnostics/producer-responsibility-readonly.md`。不上传玩家文件或私有诊断源码。
+
+
+## 2026-10-17 R4：源码及离线候选已通过，原生首存/冷读待验
+
+本节替代上文R3的生产范围与“显式保存保留旧raw比较”边界，历史证据保留。当前修复在R3之上修改Persistence、Archive和NativeSave；R3 Identity/witness源码保持。当前ARM64静态证据明确 `IslandSaveData.land` 为 +0x48，并由原生加载协程按请求岛号写入；这解释了保存JSON raw0与冷载raw11可能产生不同指纹，不能因此写原生字段或放宽任意hash。
+
+显式与-1保存统一按入口冻结global/file/event owner与唯一表成员slot证明来源。首次及后续Capture、Apply持续校验，失配sticky；若任何capture观察到非主岛raw0，generation witness义务及首次SourceWorld一直保持，不允许字段随后恢复掩盖。新generation仍exact-only；只有通过来源证明的Load启用只读兼容指纹：仅把唯一顶层无符号整数land token从可信slot投影为0，其余UTF8字节必须原样，原hash算法/domain/schema/hashKind不变，不产生投影JSON或新的历史snapshot。
+
+Load完整收集eligible exact/preimage历史，再比较全records；empty/paid或任何Id/Kind/NativeId/StockSlot冲突都quarantine，不择优。physical writer按proof.Land真实数组索引验完整原始hash与rows，同JSON放错槽仍拒；只有确实使用preimage的分支才扫描同context最多8个epoch的所有匹配记录，纯持久化HistoricalOnly排除保持，其他epoch不能代替本proof。旧exact写侧与保守Load冲突行为不对称明确保留；旧raw==slot adoption/收费生命周期另跟踪#256，不称本轮已修。
+
+真实业务红例覆盖explicit raw0、wrong-slot同hash、accepted gzip重建fresh DTO后的cold0→slot、SourceWorld漂移、VirginCapture误开第三入口，以及另一epoch冲突。最终源码独立复审通过。Operator冻结后独立重跑pipeline **233**、identity **652**、真实defense Integration **127**、restock **72**，全部exit0；worker另跑legacy-native-gate **18 cases/405**、legacy-compensation **202/202**，只作为worker回执，未冒充operator重跑。真实Materialized compensation完整生命周期、native ABI及原生冷载仍未验，pipeline禁用边界不作替代。
+
+完整私有累计闭包仍270 C#/39资源/161引用/1Import，与正常来源相比仅四源有差异：Identity、Persistence、Archive、NativeSave。public R4业务prefix与原private PC hook尾部作精确拼合，既有!ANDROID包装保留，R2诊断已移除。net6/net8均0W0E、禁用部署目标，候选SHA分别为 `69ce8eb7f2055c26e571fa312017cf75993d05f01fb56fb1fbe957c8d7ae5257`、`76b0303ba3faf4f3dda027e2140e9345d3c078f45caa0e9f6e5aeb4062f5d80b`。二进制范围独审与隔离controller关口分别留证。
+
+当前无游戏运行，正常DLL仍5fb9c5f8；R1/R2五通道已完整恢复。新C3准备首次保存，C4须继承**真正C3验收postimage native及对应完整ModSave**再冷读重存，不能拿旧pair或退出码当通过。模板初审发现schemaVersion误读、最终stat取早、父路径接线与来源校验缺口，已要求修正；尚未prepare新运行包。PR253继续Draft、Issue251开放，未合并安装。详细本机证据在 `implementation-r4/` 与 `capture-diagnostics/`；不上传私有累计源码或玩家存档。

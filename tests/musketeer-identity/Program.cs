@@ -24,12 +24,44 @@ internal static class Program
         Directory.CreateDirectory(Root);
         try
         {
+            // Isolated red/green replay: one case at a time so the first failing assertion cannot
+            // mask the following ones. Unset -> the full suite.
+            string only = Environment.GetEnvironmentVariable("KEM_CASE");
+            if (!string.IsNullOrEmpty(only))
+            {
+                switch (only)
+                {
+                    case "r2-explicit-raw0": R2ExplicitRawZeroTests(); break;
+                    case "cold-preimage": ColdPreimageTests(); break;
+                    case "r4-background": BackgroundSlotSaveTests(); break;
+                    case "r4-explicit-sticky": ExplicitWitnessStickyTests(); break;
+                    case "r4-source-shapes": ExplicitSourceShapeTests(); break;
+                    case "r4-preimage": PreimageResolutionTests(); break;
+                    case "r4-projection": PreimageProjectionTests(); break;
+                    case "r4-pins": DeferredBoundaryPinTests(); break;
+                    case "r4d-witness-world": WitnessWorldFreezeTests(); break;
+                    case "r4d-virgin-exact": VirginExactOnlyTests(); break;
+                    default: throw new Exception("unknown case " + only);
+                }
+                Console.WriteLine("CASE PASS " + only + " assertions=" + passed);
+                return;
+            }
             ArchiveTests();
             StoreTests();
             StoreReliabilityTests();
             ContextTests();
             SlotGenerationTests();
             DeferredSaveTests();
+            R2ExplicitRawZeroTests();
+            ColdPreimageTests();
+            BackgroundSlotSaveTests();
+            ExplicitWitnessStickyTests();
+            ExplicitSourceShapeTests();
+            PreimageResolutionTests();
+            PreimageProjectionTests();
+            DeferredBoundaryPinTests();
+            WitnessWorldFreezeTests();
+            VirginExactOnlyTests();
             ChallengeOwnerTests();
             WitnessBoundaryTests();
             SharedWiringTests();
@@ -200,6 +232,7 @@ internal static class Program
         island.objects = new List<IslandSaveData.ObjectData> { new() { uniqueID = "foreign-row" } };
         IslandSaveData.CurrentlySavingIsland = island; IslandSaveData.isSavingGame = true;
         var capture = CreateSave();
+        capture.Begin();   // the real Save prefix always freezes the source before any GetID
         capture.Capture(Persist(foreign), "foreign-row");
         capture.Apply();
         IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
@@ -936,6 +969,650 @@ internal static class Program
         Check(DiskBytes().SequenceEqual(beforeDivergent), "divergent -1 capture mints no epoch and writes nothing");
     }
 
+    // R2 failure shape: explicit Save(campaign, 11, challenge) while the generated island's native
+    // land field is still 0. The witness comes from the real VirginCapture chain above; nothing is
+    // injected and the native field is never rewritten to satisfy the capture.
+    static void R2ExplicitRawZeroTests()
+    {
+        Reset();
+        var target = GeneratePlaceholder(11, "r2-explicit");
+        string context11 = Ctx(1, 0, 11);
+        string epoch11 = MusketeerIdentity.Current.Epoch;
+        target.isNew = false; target.playTimeDays = 2;
+        Time.frameCount++; MusketeerIdentity.Tick();
+        Check(MusketeerIdentity.CanPurchase, "R2 explicit raw0 starts inside the real generation receipt");
+        var gun = Gun(); Check(TryRegister(gun.tool), "R2 gun registered");
+        var unitGun = Gun(); Check(TryRegister(unitGun.tool), "R2 unit gun registered");
+        var unit = Unit(); Promote(MusketeerIdentity.Current.Careers.Single(x => x.Tool == unitGun.tool), unit);
+        string json = IslandJsonAt(0, RowId("r2-gun"), RowId("r2-unit"), RowId("r2-plain"));
+        target.Json = Raw(json);
+        target.objects = new List<IslandSaveData.ObjectData>
+        {
+            new() { uniqueID = "r2-gun" }, new() { uniqueID = "r2-unit" }, new() { uniqueID = "r2-plain" }
+        };
+        IslandSaveData.CurrentlySavingIsland = target; IslandSaveData.isSavingGame = true;
+        var capture = new MusketeerPersistence.SaveCapture { Campaign = 1, Land = 11, Challenge = 0 };
+        capture.Begin();
+        capture.Capture(Persist(gun.go), "r2-gun");
+        capture.Capture(Persist(unit.go), "r2-unit");
+        Check(capture.Island != null, "R2 explicit raw0 first GetID latches the frozen owner slot");
+        Check(capture.ContextKey == context11, "R2 explicit raw0 keeps the args context slot 11");
+        capture.Apply();
+        InvokePatch(typeof(MusketeerPersistence.SavePatch), "Finally", new object[] { null, capture });
+        IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
+        Check(capture.Applied && !capture.Conflict, "R2 explicit raw0 save stages without rewriting the native land");
+        Check(target.land == 0, "R2 native land field stays 0 (never written by the mod)");
+        Check(MusketeerIdentity.Islands[context11].Epoch == epoch11, "R2 explicit raw0 keeps the generation epoch");
+        var rows = RowsOf(context11);
+        Check(rows.Any(x => x.NativeId == "r2-gun" && x.Kind == MusketeerCareer.KindGun)
+            && rows.Any(x => x.NativeId == "r2-unit" && x.Kind == MusketeerCareer.KindUnit),
+            "R2 explicit raw0 stages the witnessed gun and unit rows");
+        Check(rows.Count == 2, "R2 unmarked native rows are not invented as careers");
+    }
+
+    // Cold restore from a stored raw0 preimage: the native loader is only modeled by the proven
+    // 0 -> requested-slot store, so the DTO copy (never the original instance) carries land 11.
+    static void ColdPreimageTests()
+    {
+        Reset();
+        string context11 = Ctx(1, 0, 11);
+        string epoch = MusketeerArchive.NewScope();
+        var record = new MusketeerCareer
+        {
+            Id = Guid.NewGuid(), Kind = MusketeerCareer.KindGun, NativeId = "cold-gun", StockSlot = MusketeerCareer.NoStockSlot
+        };
+        string raw0 = IslandJsonAt(0, RowId("cold-gun"));
+        string hash0 = MusketeerArchive.IslandHash(raw0, epoch);
+        var archive = new MusketeerArchive();
+        Check(archive.ConfirmBaseline(epoch, hash0, new[] { record }), "cold fixture records the raw0 baseline");
+        Check(archive.EnsureContext(context11, epoch, true), "cold fixture registers the slot 11 context");
+        Check(MusketeerArchiveStore.Save(ArchivePath, MusketeerArchiveStore.Load(ArchivePath), archive),
+            "cold fixture archive is written through the store");
+
+        var rewritten = new IslandSaveData
+        {
+            land = 11, isNew = false, playTimeDays = 4, Json = Raw(IslandJsonAt(11, RowId("cold-gun"))),
+            objects = new List<IslandSaveData.ObjectData> { new() { uniqueID = "cold-gun" } }
+        };
+        var coldCampaign = BuildCampaign(1, new IslandSaveData { land = 1, isNew = false, playTimeDays = 1, Json = Raw("cold-home") });
+        InstallIsland(coldCampaign, 11, rewritten);
+        coldCampaign.CurrentIsland = rewritten; coldCampaign.CurrentLand = 11;
+        GlobalSaveData.loaded = new GlobalSaveData { currentCampaign = 1, currentChallenge = 0, CurrentCampaign = coldCampaign };
+        GlobalSaveData.loaded.campaigns.Add(null);
+        GlobalSaveData.loaded.campaigns.Add(coldCampaign);
+        CampaignSaveData.current = coldCampaign;
+        Managers.Inst = new Managers { world = new World { gameLayer = new GameObject().Add(new Transform()) } };
+        MusketeerIdentity.InvalidateContextCache();
+        Time.frameCount++;
+
+        var gun = Gun();
+        string projected = MusketeerArchive.IslandHashPreimage(IslandJsonAt(11, RowId("cold-gun")), epoch, 11);
+        Check(projected == hash0, "cold fixture preimage projects exactly the trusted slot token to land 0");
+        var capture = new MusketeerPersistence.LoadCapture();
+        capture.Begin(rewritten);
+        Check(MusketeerIdentity.Islands.ContainsKey(context11), "cold load installs the slot 11 state");
+        Check(MusketeerIdentity.Islands[context11].MatchKind == "preimage",
+            "cold rawslot load is classified as the bounded preimage compatibility path");
+        capture.Capture(rewritten.objects[0], Persist(gun.go));
+        capture.End(true);
+        Check(MusketeerIdentity.IsGun(gun.tool), "cold rawslot load restores the paid gun through the raw0 preimage");
+        Check(MusketeerIdentity.Islands[context11].Epoch == epoch, "cold preimage load keeps the stored epoch");
+        Check(MusketeerIdentity.Islands[context11].Careers.Count == 1
+            && MusketeerIdentity.Islands[context11].Careers[0].Id == record.Id,
+            "cold preimage load restores the exact paid GUID");
+        Check(MusketeerIdentity.Islands[context11].HasBaseline, "cold preimage load keeps the pinned raw0 baseline");
+        var after = MusketeerArchiveStore.Load(ArchivePath).Archive;
+        Check(after.TryGet(epoch, hash0, out var kept) && kept.Records.Count == 1,
+            "cold preimage load never rewrites the stored old hash");
+        Check(Disk().Scopes[epoch].Count == 1, "cold preimage load adds no compatibility checkpoint");
+
+        // A subsequent real Save stages the actual serialized JSON hash (the old preimage hash is
+        // only ever used to explain the historical baseline).
+        string land11Json = IslandJsonAt(11, RowId("cold-gun"));
+        rewritten.playTimeDays = 5;
+        rewritten.Json = Raw(land11Json);
+        rewritten.objects = new List<IslandSaveData.ObjectData> { new() { uniqueID = "cold-gun" } };
+        var realSave = SaveOn(rewritten, 1, 11, 0, land11Json, ("cold-gun", gun.go));
+        string actualHash = MusketeerArchive.IslandHash(land11Json, epoch);
+        Check(realSave.Applied, "post-preimage real save stages through the frozen source");
+        Check(actualHash != hash0 && Disk().Scopes[epoch][0].Hash == actualHash,
+            "post-preimage real save stages the actual serialized JSON hash");
+        Check(MusketeerIdentity.Islands[context11].Epoch == epoch, "post-preimage real save keeps the epoch");
+
+        // Non-land content that differs from the stored fingerprint never matches the preimage.
+        var changed = new IslandSaveData
+        {
+            land = 11, isNew = false, playTimeDays = 4, Json = Raw(IslandJsonAt(11, RowId("cold-gun-changed"))),
+            objects = new List<IslandSaveData.ObjectData> { new() { uniqueID = "cold-gun-changed" } }
+        };
+        var changedCampaign = BuildCampaign(1, new IslandSaveData { land = 1, isNew = false, playTimeDays = 1, Json = Raw("cold-home") });
+        InstallIsland(changedCampaign, 11, changed);
+        changedCampaign.CurrentIsland = changed; changedCampaign.CurrentLand = 11;
+        GlobalSaveData.loaded = new GlobalSaveData { currentCampaign = 1, currentChallenge = 0, CurrentCampaign = changedCampaign };
+        GlobalSaveData.loaded.campaigns.Add(null);
+        GlobalSaveData.loaded.campaigns.Add(changedCampaign);
+        CampaignSaveData.current = changedCampaign;
+        Managers.Inst = new Managers { world = new World { gameLayer = new GameObject().Add(new Transform()) } };
+        MusketeerIdentity.InvalidateContextCache();
+        Time.frameCount++;
+        var changedGun = Gun();
+        string beforeChanged = Convert.ToHexString(DiskBytes());
+        var changedCapture = new MusketeerPersistence.LoadCapture();
+        changedCapture.Begin(changed);
+        changedCapture.Capture(changed.objects[0], Persist(changedGun.go));
+        changedCapture.End(true);
+        Check(!MusketeerIdentity.IsGun(changedGun.tool), "changed native rows never match the preimage");
+        Check(MusketeerIdentity.Islands[context11].Unresolved, "changed native rows keep the paid history as reservations");
+        Check(!MusketeerIdentity.CanPurchase, "changed native rows block new charges");
+        Check(Convert.ToHexString(DiskBytes()) == beforeChanged, "changed native rows write no baseline");
+    }
+
+    // ---- R4: frozen save source, preimage compatibility, deferred-boundary pins ----
+
+    static MusketeerCareer Paid(Guid id, int kind, string nativeId, int stock = MusketeerCareer.NoStockSlot)
+        => new() { Id = id, Kind = kind, NativeId = nativeId, StockSlot = stock };
+
+    static void BackgroundSlotSaveTests()
+    {
+        Reset();
+        string homeEpoch = MusketeerIdentity.Current.Epoch;
+        Guid[] homeIds = MusketeerIdentity.Current.Careers.Select(x => x.Id).OrderBy(x => x).ToArray();
+        var contexts = new Dictionary<int, string>();
+        var epochs = new Dictionary<int, string>();
+        var islands = new Dictionary<int, IslandSaveData>();
+        var guns = new Dictionary<int, GameObject>();
+        foreach (int slot in new[] { 0, 4, 8 })
+        {
+            var target = GeneratePlaceholder(slot, "bg-" + slot);
+            target.isNew = false; target.playTimeDays = 2;
+            target.land = slot;   // visited island: raw land equals its positional slot (0 stays 0)
+            Time.frameCount++; MusketeerIdentity.Tick();
+            Check(MusketeerIdentity.CanPurchase, "background slot " + slot + " starts authorized");
+            var gun = Gun(); Check(TryRegister(gun.tool), "background slot " + slot + " paid gun registered");
+            contexts[slot] = Ctx(1, 0, slot);
+            epochs[slot] = MusketeerIdentity.Islands[contexts[slot]].Epoch;
+            islands[slot] = target; guns[slot] = gun.go;
+        }
+        var scene = GeneratePlaceholder(11, "bg-11");
+        scene.isNew = false; scene.playTimeDays = 2;
+        Time.frameCount++; MusketeerIdentity.Tick();
+        string ctx11 = Ctx(1, 0, 11);
+        string epoch11 = MusketeerIdentity.Current.Epoch;
+        Guid[] ids11 = MusketeerIdentity.Current.Careers.Select(x => x.Id).OrderBy(x => x).ToArray();
+        string HomeRows() => string.Join("|", RowsOf(Context1).OrderBy(x => x.NativeId, StringComparer.Ordinal)
+            .Select(x => x.Id + ":" + x.Kind + ":" + x.NativeId + ":" + x.StockSlot));
+        string Rows11() => string.Join("|", RowsOf(ctx11).OrderBy(x => x.NativeId, StringComparer.Ordinal)
+            .Select(x => x.Id + ":" + x.Kind + ":" + x.NativeId + ":" + x.StockSlot));
+        string homeRowsBefore = HomeRows();
+        string rows11Before = Rows11();
+        int homeSnapshots = Disk().Scopes[homeEpoch].Count;
+        int snapshots11 = Disk().Scopes[epoch11].Count;
+        foreach (int slot in new[] { 0, 4, 8 })
+        {
+            string row = "bg-row-" + slot;
+            var capture = SaveOn(islands[slot], 1, slot, 0, IslandJsonAt(slot, RowId(row)), (row, guns[slot]));
+            Check(capture.Applied && capture.ContextKey == contexts[slot],
+                "explicit background Save(" + slot + ") stages under its own frozen context");
+            Check(islands[slot].land == slot, "background Save(" + slot + ") leaves the native land value untouched");
+            Check(MusketeerIdentity.Islands[contexts[slot]].Epoch == epochs[slot],
+                "background Save(" + slot + ") keeps its own epoch");
+            Check(RowsOf(contexts[slot]).Any(x => x.NativeId == row),
+                "background Save(" + slot + ") writes its exact row");
+        }
+        Check(MusketeerIdentity.Islands[ctx11].Epoch == epoch11
+            && MusketeerIdentity.Islands[ctx11].Careers.Select(x => x.Id).OrderBy(x => x).SequenceEqual(ids11),
+            "background saves never move the current slot11 epoch or paid rows");
+        Check(MusketeerIdentity.Current.ContextKey == ctx11, "background saves never move the live context");
+        Check(MusketeerIdentity.Islands[Context1].Epoch == homeEpoch
+            && MusketeerIdentity.Islands[Context1].Careers.Select(x => x.Id).OrderBy(x => x).SequenceEqual(homeIds)
+            && HomeRows() == homeRowsBefore && Disk().Scopes[homeEpoch].Count == homeSnapshots,
+            "background saves leave the home context rows, hashes and snapshots untouched");
+        Check(Rows11() == rows11Before && Disk().Scopes[epoch11].Count == snapshots11,
+            "background saves leave the slot11 rows, StockSlot metadata and snapshots untouched");
+    }
+
+    static (IslandSaveData target, GameObject gun) ExplicitRawZeroFixture(string label)
+    {
+        var target = GeneratePlaceholder(11, label);
+        target.isNew = false; target.playTimeDays = 2;
+        Time.frameCount++; MusketeerIdentity.Tick();
+        Check(MusketeerIdentity.CanPurchase, label + " starts authorized by the real generation receipt");
+        var gun = Gun(); Check(TryRegister(gun.tool), label + " paid gun registered");
+        target.playTimeDays = 3;
+        target.Json = Raw(IslandJsonAt(0, RowId(label + "-gun")));
+        target.objects = new List<IslandSaveData.ObjectData> { new() { uniqueID = label + "-gun" } };
+        IslandSaveData.CurrentlySavingIsland = target; IslandSaveData.isSavingGame = true;
+        return (target, gun.go);
+    }
+
+    static void ExplicitWitnessStickyTests()
+    {
+        // First raw0 capture latches the exact witness; world replacement then loses it, and the
+        // later raw==slot value never releases the obligation.
+        Reset();
+        var first = ExplicitRawZeroFixture("sticky-world");
+        string ctx11 = Ctx(1, 0, 11);
+        string epoch = MusketeerIdentity.Islands[ctx11].Epoch;
+        byte[] disk = DiskBytes();
+        var capture = new MusketeerPersistence.SaveCapture { Campaign = 1, Land = 11, Challenge = 0 };
+        capture.Begin();
+        capture.Capture(Persist(first.gun), "sticky-world-gun");
+        Check(capture.Island != null && capture.WitnessRequired,
+            "explicit raw0 first capture latches the generation witness obligation");
+        Managers.Inst = new Managers { world = new World { gameLayer = new GameObject().Add(new Transform()) } };
+        first.target.land = 11;
+        first.target.Json = Raw(IslandJsonAt(11, RowId("sticky-world-gun")));
+        capture.Apply();
+        InvokePatch(typeof(MusketeerPersistence.SavePatch), "Finally", new object[] { null, capture });
+        IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
+        Check(!capture.Applied && capture.Conflict,
+            "world drift after a raw0 capture stays closed even though raw now reads the slot");
+        Check(DiskBytes().SequenceEqual(disk), "sticky witness loss writes no archive bytes");
+        Check(MusketeerIdentity.Islands[ctx11].Epoch == epoch, "sticky witness loss keeps the generation epoch");
+
+        // An explicitly revoked witness is equivalent: Apply must not fall back to a current scene.
+        Reset();
+        var second = ExplicitRawZeroFixture("sticky-revoke");
+        string ctx11b = Ctx(1, 0, 11);
+        string epochB = MusketeerIdentity.Islands[ctx11b].Epoch;
+        byte[] diskB = DiskBytes();
+        var revoked = new MusketeerPersistence.SaveCapture { Campaign = 1, Land = 11, Challenge = 0 };
+        revoked.Begin();
+        revoked.Capture(Persist(second.gun), "sticky-revoke-gun");
+        Check(revoked.Island != null && revoked.WitnessRequired, "second raw0 capture latches the witness");
+        MusketeerIdentity.RevokeGenerationWitnessForLoad(second.target);
+        second.target.land = 11;
+        second.target.Json = Raw(IslandJsonAt(11, RowId("sticky-revoke-gun")));
+        revoked.Apply();
+        InvokePatch(typeof(MusketeerPersistence.SavePatch), "Finally", new object[] { null, revoked });
+        IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
+        Check(!revoked.Applied && revoked.Conflict, "a revoked witness fails Apply after the raw value changed");
+        Check(DiskBytes().SequenceEqual(diskB) && MusketeerIdentity.Islands[ctx11b].Epoch == epochB,
+            "revoked witness refusal preserves the archive and epoch");
+
+        // Symmetric direction: first capture at raw==slot needs nothing, but observing raw0 later
+        // in the same save requires the same exact witness, which a background slot never had.
+        Reset();
+        var background = GeneratePlaceholder(4, "sticky-bg");
+        background.isNew = false; background.playTimeDays = 2;
+        Time.frameCount++; MusketeerIdentity.Tick();
+        var bgGun = Gun(); Check(TryRegister(bgGun.tool), "background gun registered");
+        var scene = GeneratePlaceholder(11, "sticky-bg-11");
+        scene.isNew = false; scene.playTimeDays = 2;
+        Time.frameCount++; MusketeerIdentity.Tick();
+        string bgContext = Ctx(1, 0, 4);
+        string bgEpoch = MusketeerIdentity.Islands[bgContext].Epoch;
+        byte[] bgDisk = DiskBytes();
+        background.land = 4;   // visited island: first capture observes raw==slot, no witness
+        background.playTimeDays = 3;
+        background.Json = Raw(IslandJsonAt(4, RowId("sticky-bg-gun")));
+        background.objects = new List<IslandSaveData.ObjectData> { new() { uniqueID = "sticky-bg-gun" } };
+        IslandSaveData.CurrentlySavingIsland = background; IslandSaveData.isSavingGame = true;
+        var symmetric = new MusketeerPersistence.SaveCapture { Campaign = 1, Land = 4, Challenge = 0 };
+        symmetric.Begin();
+        symmetric.Capture(Persist(bgGun.go), "sticky-bg-gun");
+        Check(symmetric.Island != null && !symmetric.WitnessRequired,
+            "first raw==slot capture needs no generation witness");
+        background.land = 0;
+        symmetric.Apply();
+        InvokePatch(typeof(MusketeerPersistence.SavePatch), "Finally", new object[] { null, symmetric });
+        IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
+        Check(!symmetric.Applied && symmetric.Conflict,
+            "raw0 observed after a raw-slot first capture needs the same witness and sticks");
+        Check(DiskBytes().SequenceEqual(bgDisk) && MusketeerIdentity.Islands[bgContext].Epoch == bgEpoch,
+            "symmetric witness rejection preserves the background archive and epoch");
+    }
+
+    static void ExplicitSourceShapeTests()
+    {
+        // A first GetID for any island other than the frozen explicit source closes the capture.
+        Reset();
+        var target = GeneratePlaceholder(11, "shape-other");
+        target.isNew = false; target.playTimeDays = 2;
+        Time.frameCount++; MusketeerIdentity.Tick();
+        var gun = Gun(); Check(TryRegister(gun.tool), "shape-search gun registered");
+        var other = CampaignSaveData.current._islands[1];
+        string ctx11 = Ctx(1, 0, 11);
+        string epoch = MusketeerIdentity.Islands[ctx11].Epoch;
+        byte[] disk = DiskBytes();
+        target.Json = Raw(IslandJsonAt(0, RowId("shape-other-gun")));
+        target.objects = new List<IslandSaveData.ObjectData> { new() { uniqueID = "shape-other-gun" } };
+        IslandSaveData.CurrentlySavingIsland = other; IslandSaveData.isSavingGame = true;
+        var wrongFirst = new MusketeerPersistence.SaveCapture { Campaign = 1, Land = 11, Challenge = 0 };
+        wrongFirst.Begin();
+        wrongFirst.Capture(Persist(gun.go), "shape-other-gun");
+        Check(wrongFirst.Island == null && wrongFirst.Conflict,
+            "explicit Save(11) whose first GetID observes another island closes the capture");
+        wrongFirst.Apply();
+        InvokePatch(typeof(MusketeerPersistence.SavePatch), "Finally", new object[] { null, wrongFirst });
+        IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
+        Check(DiskBytes().SequenceEqual(disk) && MusketeerIdentity.Islands[ctx11].Epoch == epoch,
+            "wrong first island stages nothing and preserves the epoch");
+
+        // Duplicate table pointer: no unique source at all.
+        Reset();
+        var dup = GeneratePlaceholder(11, "shape-dup");
+        dup.isNew = false; dup.playTimeDays = 2;
+        Time.frameCount++; MusketeerIdentity.Tick();
+        var dupGun = Gun(); Check(TryRegister(dupGun.tool), "duplicate-shape gun registered");
+        CampaignSaveData.current._islands[5] = CampaignSaveData.current._islands[1];
+        byte[] dupDisk = DiskBytes();
+        IslandSaveData.CurrentlySavingIsland = CampaignSaveData.current._islands[1]; IslandSaveData.isSavingGame = true;
+        var duplicate = new MusketeerPersistence.SaveCapture { Campaign = 1, Land = 1, Challenge = 0 };
+        duplicate.Begin();
+        duplicate.Capture(Persist(dupGun.go), "shape-dup-gun");
+        Check(duplicate.Island == null && duplicate.Conflict, "a duplicated owner-table pointer is not a unique source");
+        Check(DiskBytes().SequenceEqual(dupDisk), "duplicate source stages nothing");
+        IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
+
+        // Island present only at another positional slot than the explicit argument.
+        Reset();
+        var outside = GeneratePlaceholder(11, "shape-outside");
+        outside.isNew = false; outside.playTimeDays = 2;
+        Time.frameCount++; MusketeerIdentity.Tick();
+        var outsideGun = Gun(); Check(TryRegister(outsideGun.tool), "outside-shape gun registered");
+        byte[] outsideDisk = DiskBytes();
+        IslandSaveData.CurrentlySavingIsland = outside; IslandSaveData.isSavingGame = true;
+        var mismatch = new MusketeerPersistence.SaveCapture { Campaign = 1, Land = 10, Challenge = 0 };
+        mismatch.Begin();
+        mismatch.Capture(Persist(outsideGun.go), "shape-outside-gun");
+        Check(mismatch.Island == null && mismatch.Conflict,
+            "an island only present at another slot is rejected for the explicit args");
+        Check(DiskBytes().SequenceEqual(outsideDisk), "outside-slot source stages nothing");
+        IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
+
+        // A zero native pointer is never an identity.
+        Reset();
+        var zeroPointer = GeneratePlaceholder(11, "shape-zero-pointer");
+        zeroPointer.isNew = false; zeroPointer.playTimeDays = 2;
+        Time.frameCount++; MusketeerIdentity.Tick();
+        var zeroPointerGun = Gun(); Check(TryRegister(zeroPointerGun.tool), "zero-pointer gun registered");
+        zeroPointer.Pointer = IntPtr.Zero;
+        byte[] zeroPointerDisk = DiskBytes();
+        IslandSaveData.CurrentlySavingIsland = zeroPointer; IslandSaveData.isSavingGame = true;
+        var zeroPointerCapture = new MusketeerPersistence.SaveCapture { Campaign = 1, Land = 11, Challenge = 0 };
+        zeroPointerCapture.Begin();
+        zeroPointerCapture.Capture(Persist(zeroPointerGun.go), "shape-zero-pointer-gun");
+        Check(zeroPointerCapture.Island == null && zeroPointerCapture.Conflict,
+            "a zero native island pointer is rejected as a save source");
+        Check(DiskBytes().SequenceEqual(zeroPointerDisk), "zero native pointer stages nothing");
+        IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
+
+        // No GetID at all: the capture never latches and stages nothing.
+        Reset();
+        var zero = GeneratePlaceholder(11, "shape-zero");
+        zero.isNew = false; zero.playTimeDays = 2;
+        Time.frameCount++; MusketeerIdentity.Tick();
+        byte[] zeroDisk = DiskBytes();
+        IslandSaveData.CurrentlySavingIsland = zero; IslandSaveData.isSavingGame = true;
+        var noRows = new MusketeerPersistence.SaveCapture { Campaign = 1, Land = 11, Challenge = 0 };
+        noRows.Begin();
+        noRows.Apply();
+        InvokePatch(typeof(MusketeerPersistence.SavePatch), "Finally", new object[] { null, noRows });
+        IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
+        Check(!noRows.Applied && !noRows.Conflict && DiskBytes().SequenceEqual(zeroDisk),
+            "an explicit save without any GetID stages nothing");
+    }
+
+    static void PreimageResolutionTests()
+    {
+        string context = Ctx(1, 0, 11);
+        string epoch = MusketeerArchive.NewScope();
+        string json0 = IslandJsonAt(0, RowId("preimage-paid"));
+        string jsonSlot = IslandJsonAt(11, RowId("preimage-paid"));
+        string json4 = IslandJsonAt(4, RowId("preimage-paid"));
+        string json8 = IslandJsonAt(8, RowId("preimage-paid"));
+        Guid id = Guid.NewGuid();
+        var archive = new MusketeerArchive();
+        Check(archive.ConfirmBaseline(epoch, MusketeerArchive.IslandHash(json0, epoch), new[] { Paid(id, MusketeerCareer.KindGun, "preimage-paid") }),
+            "preimage fixture records the raw0 baseline");
+        Check(archive.EnsureContext(context, epoch, true), "preimage fixture registers the context");
+
+        var agreed = MusketeerPersistence.Resolve(archive, context, jsonSlot, false, 11);
+        Check(agreed.Kind == "preimage" && agreed.Epoch == epoch && !agreed.Unresolved,
+            "a trusted slot resolves the unique raw0 preimage");
+        Check(agreed.MatchHash == MusketeerArchive.IslandHash(json0, epoch),
+            "the preimage match keeps the stored old hash");
+        Check(agreed.Records.Count == 1 && agreed.Records[0].Id == id, "the preimage match restores the paid record");
+
+        var untrusted = MusketeerPersistence.Resolve(archive, context, jsonSlot, false);
+        Check(untrusted.Kind == "unknown-paid" && untrusted.Unresolved && untrusted.MatchHash == null,
+            "without a proven slot the projection is never used and the paid history stays reserved");
+
+        var reverse = MusketeerPersistence.Resolve(archive, context, json0, false, 11);
+        Check(reverse.Kind == "exact" && reverse.Epoch == epoch,
+            "a raw0 payload is exact and never projected forward to the slot");
+
+        Check(archive.Record(epoch, MusketeerArchive.IslandHash(jsonSlot, epoch), Array.Empty<MusketeerCareer>()),
+            "preimage fixture adds an empty exact snapshot in the same epoch");
+        var emptyVsPaid = MusketeerPersistence.Resolve(archive, context, jsonSlot, false, 11);
+        Check(emptyVsPaid.Kind == "conflict" && emptyVsPaid.Unresolved,
+            "empty exact vs paid preimage records quarantine");
+        Check(emptyVsPaid.Records.Any(x => x.Id == id), "quarantine preserves the paid history");
+
+        string epoch2 = MusketeerArchive.NewScope();
+        Guid otherId = Guid.NewGuid();
+        Check(archive.Record(epoch2, MusketeerArchive.IslandHash(jsonSlot, epoch2), new[] { Paid(otherId, MusketeerCareer.KindGun, "preimage-other") }),
+            "preimage fixture records a cross-epoch exact snapshot");
+        Check(archive.EnsureContext(context, epoch2, true), "preimage fixture activates the second epoch");
+        var crossEpoch = MusketeerPersistence.Resolve(archive, context, jsonSlot, false, 11);
+        Check(crossEpoch.Kind == "conflict" && crossEpoch.Records.Count >= 2,
+            "cross-epoch paid candidates quarantine and preserve both histories");
+
+        // Agreeing candidates: the pinned baseline selects its epoch; no arbitrary newest-wins.
+        string pinnedContext = Ctx(1, 0, 4);
+        string pinnedEpoch = MusketeerArchive.NewScope();
+        string otherEpoch = MusketeerArchive.NewScope();
+        var paid = Paid(Guid.NewGuid(), MusketeerCareer.KindUnit, "preimage-agree");
+        var pinned = new MusketeerArchive();
+        Check(pinned.ConfirmBaseline(pinnedEpoch, MusketeerArchive.IslandHash(json0, pinnedEpoch), new[] { paid }),
+            "pinned fixture baseline");
+        Check(pinned.EnsureContext(pinnedContext, pinnedEpoch, true), "pinned fixture context");
+        Check(pinned.Record(otherEpoch, MusketeerArchive.IslandHash(json0, otherEpoch), new[] { paid }),
+            "same paid content in a second epoch");
+        Check(pinned.EnsureContext(pinnedContext, otherEpoch, true), "second epoch becomes active");
+        var picked = MusketeerPersistence.Resolve(pinned, pinnedContext, json4, false, 4);
+        Check(picked.Kind == "preimage" && picked.Epoch == pinnedEpoch,
+            "agreeing candidates pick the baseline-pinned epoch");
+
+        // A completed compensation receipt makes its source epoch historical: never searched.
+        string excludedContext = Ctx(1, 0, 8);
+        string sourceEpoch = MusketeerArchive.NewScope();
+        string migrationEpoch = MusketeerArchive.NewScope();
+        var grant = Guid.NewGuid();
+        var plan = new MusketeerLegacyCompensationPlan(1, Guid.NewGuid(), excludedContext, sourceEpoch, new string('a', 64), 2, 1);
+        Check(MusketeerLegacyCompensationPolicy.TryCreatePending(plan, migrationEpoch, new[] { grant }, out var pending, out string reason), reason);
+        Check(MusketeerLegacyCompensationPolicy.TryComplete(pending,
+            new[] { new MusketeerLegacyGrantCapture(grant, "grant-1", MusketeerLegacyGrantCapture.UnitKind,
+                MusketeerLegacyGrantCapture.MusketeerPrefabPath, 1) }, out var completed, out reason), reason);
+        var excluded = new MusketeerArchive();
+        Check(excluded.Record(sourceEpoch, MusketeerArchive.IslandHash(json0, sourceEpoch),
+            new[] { Paid(Guid.NewGuid(), MusketeerCareer.KindGun, "preimage-source") }), "excluded fixture source snapshot");
+        Check(excluded.EnsureContext(excludedContext, sourceEpoch, true), "excluded fixture context");
+        excluded.Compensations[plan.RequestId] = completed;
+        var hidden = MusketeerPersistence.Resolve(excluded, excludedContext, json8, false, 8);
+        Check(hidden.Kind == "unknown-paid" && hidden.Unresolved,
+            "a compensated historical epoch is never searched for the preimage");
+    }
+
+    static void PreimageProjectionTests()
+    {
+        string scope = "a".PadRight(64, 'b');
+        Check(MusketeerArchive.IslandHashPreimage("{\"land\":4,\"objects\":[]}", scope, 4)
+            == MusketeerArchive.IslandHash("{\"land\":0,\"objects\":[]}", scope),
+            "projection rewrites exactly the trusted top-level land token to 0");
+        string unicode = "{\"land\":4,\"note\":\"火枪手\",\"objects\":[]}";
+        Check(MusketeerArchive.IslandHashPreimage(unicode, scope, 4)
+            == MusketeerArchive.IslandHash("{\"land\":0,\"note\":\"火枪手\",\"objects\":[]}", scope),
+            "all non-land bytes are preserved verbatim (UTF-8 round trip)");
+        Check(MusketeerArchive.IslandHashPreimage("{\"land\":4.0,\"objects\":[]}", scope, 4) == null, "fraction land is refused");
+        Check(MusketeerArchive.IslandHashPreimage("{\"land\":4e0,\"objects\":[]}", scope, 4) == null, "exponent land is refused");
+        Check(MusketeerArchive.IslandHashPreimage("{\"land\":-4,\"objects\":[]}", scope, 4) == null, "signed land is refused");
+        Check(MusketeerArchive.IslandHashPreimage("{\"land\":04,\"objects\":[]}", scope, 4) == null, "leading-zero land is refused");
+        Check(MusketeerArchive.IslandHashPreimage("{\"land\":\"4\",\"objects\":[]}", scope, 4) == null, "string land is refused");
+        Check(MusketeerArchive.IslandHashPreimage("{\"land\":4,\"land\":0,\"objects\":[]}", scope, 4) == null, "duplicate land is refused");
+        Check(MusketeerArchive.IslandHashPreimage("{\"land\":0,\"objects\":[{\"land\":4}]}", scope, 4) == null,
+            "a nested land property never substitutes the top-level token");
+        Check(MusketeerArchive.IslandHashPreimage("{\"objects\":[{\"land\":4}]}", scope, 4) == null,
+            "a missing top-level land yields no preimage");
+        Check(MusketeerArchive.IslandHashPreimage("{\"land\":4,\"objects\":[]}", scope, 5) == null, "a different slot yields no preimage");
+        string exact = "{\"land\":4,\"objects\":[]}";
+        Check(MusketeerArchive.IslandHashPreimage(exact, scope, 4) != MusketeerArchive.IslandHash(exact, scope),
+            "the projected fingerprint differs from the exact hash and is never the save hash");
+        Check(MusketeerArchive.IslandHashPreimage(exact, scope, 0) == null, "slot 0 is never projected");
+    }
+
+    static void DeferredBoundaryPinTests()
+    {
+        // Issue #256 (explicitly deferred): a raw==slot island with no stored context is still
+        // adopted, minting a fresh epoch and an empty baseline. R4 does not change this path.
+        Reset();
+        var cold = new IslandSaveData { land = 11, isNew = false, playTimeDays = 5, Json = Raw(IslandJsonAt(11)) };
+        var campaign = BuildCampaign(1, new IslandSaveData { land = 1, isNew = false, playTimeDays = 1, Json = Raw("pin-home") });
+        InstallIsland(campaign, 11, cold);
+        campaign.CurrentIsland = cold; campaign.CurrentLand = 11;
+        GlobalSaveData.loaded.campaigns[1] = campaign;
+        GlobalSaveData.loaded.CurrentCampaign = campaign;
+        CampaignSaveData.current = campaign;
+        string ctx11 = Ctx(1, 0, 11);
+        Time.frameCount++; MusketeerIdentity.Tick();
+        Check(!MusketeerIdentity.Islands.TryGetValue(ctx11, out var pinPre) || pinPre.Epoch == null,
+            "rawslot adoption pin starts without a slot11 epoch");
+        var load = new MusketeerPersistence.LoadCapture();
+        load.Begin(cold);
+        Check(MusketeerIdentity.Islands.ContainsKey(ctx11) && MusketeerIdentity.Islands[ctx11].MatchKind == "fresh",
+            "rawslot unknown-context legacy adoption still starts a fresh epoch (Issue #256 pin)");
+        load.End(true);
+        Check(MusketeerIdentity.Islands[ctx11].HasBaseline,
+            "rawslot legacy adoption still confirms an empty baseline (Issue #256 pin)");
+        Time.frameCount++; MusketeerIdentity.Tick();
+        Check(MusketeerIdentity.CanPurchase, "rawslot legacy adoption still authorizes purchases (Issue #256 pin)");
+
+        // Same key with a new island pointer/world: raw0 without a witness cannot inherit charge
+        // authority (unchanged), while raw==slot keeps the existing adoption behavior.
+        Reset();
+        var home = MusketeerIdentity.Current;
+        var paid = Gun(); Check(TryRegister(paid.tool), "same-key pin paid gun registered");
+        Save(IslandJson("pin-gun"), Row("pin-gun", paid.go));
+        string homeEpoch = home.Epoch;
+        Guid[] ids = home.Careers.Select(x => x.Id).OrderBy(x => x).ToArray();
+        var replaced = new IslandSaveData { land = 0, isNew = false, playTimeDays = 2, Json = Raw(IslandJsonAt(0)) };
+        InstallIsland(CampaignSaveData.current, 1, replaced);
+        CampaignSaveData.current.CurrentIsland = replaced; CampaignSaveData.current.CurrentLand = 1;
+        Managers.Inst = new Managers { world = new World { gameLayer = new GameObject().Add(new Transform()) } };
+        Time.frameCount++; MusketeerIdentity.Tick();
+        Check(!MusketeerIdentity.CanPurchase && !TryRegister(Gun().tool),
+            "same-key raw0 island/world replacement without a witness cannot charge (unchanged)");
+        Check(MusketeerIdentity.Islands[Context1].Epoch == homeEpoch
+            && MusketeerIdentity.Islands[Context1].Careers.Select(x => x.Id).OrderBy(x => x).SequenceEqual(ids),
+            "the refused raw0 replacement preserves the old epoch and paid rights");
+        replaced.land = 1; replaced.Json = Raw(IslandJsonAt(1));
+        Managers.Inst = new Managers { world = new World { gameLayer = new GameObject().Add(new Transform()) } };
+        Time.frameCount++; MusketeerIdentity.Tick();
+        Check(MusketeerIdentity.CanPurchase,
+            "rawslot same-key lifecycle adoption still authorizes purchases (Issue #256 pin)");
+        Check(MusketeerIdentity.Islands[Context1].Epoch == homeEpoch,
+            "rawslot adoption reuses the previous epoch (Issue #256 pin)");
+    }
+
+    // R4D-1: the witness obligation must remember the world it was first proven in. A newly
+    // generated receipt in another world cannot continue the old capture, even though every
+    // current pointer/slot/context still matches.
+    static void WitnessWorldFreezeTests()
+    {
+        Reset();
+        var target = GeneratePlaceholder(11, "world-freeze");
+        target.isNew = false; target.playTimeDays = 2;
+        Time.frameCount++; MusketeerIdentity.Tick();
+        Check(MusketeerIdentity.CanPurchase, "world-freeze fixture starts authorized");
+        var gun = Gun(); Check(TryRegister(gun.tool), "world-freeze paid gun registered");
+        string context11 = Ctx(1, 0, 11);
+        var firstSave = SaveOn(target, 1, 11, 0, IslandJsonAt(0, RowId("world-freeze-gun")), ("world-freeze-gun", gun.go));
+        Check(firstSave.Applied, "world-freeze fixture records the paid raw0 history in W1");
+        string oldEpoch = MusketeerIdentity.Islands[context11].Epoch;
+        string oldHash = MusketeerArchive.IslandHash(IslandJsonAt(0, RowId("world-freeze-gun")), oldEpoch);
+        Guid paidId = MusketeerIdentity.Islands[context11].Careers.Single().Id;
+
+        target.isNew = false; target.playTimeDays = 3;
+        target.Json = Raw(IslandJsonAt(0, RowId("world-freeze-gun")));
+        target.objects = new List<IslandSaveData.ObjectData> { new() { uniqueID = "world-freeze-gun" } };
+        IslandSaveData.CurrentlySavingIsland = target; IslandSaveData.isSavingGame = true;
+        var capture = new MusketeerPersistence.SaveCapture { Campaign = 1, Land = 11, Challenge = 0 };
+        capture.Begin();
+        capture.Capture(Persist(gun.go), "world-freeze-gun");
+        Check(capture.Island != null && capture.WitnessRequired && !capture.Conflict,
+            "W1 first raw0 capture latches and verifies its witness");
+
+        // Real new generation in W2 on the same island/slot/context. The once guard allows it
+        // because the world differs; this is a genuinely established new receipt, not an injected
+        // flag and not merely an expired old witness.
+        Managers.Inst = new Managers { world = new World { gameLayer = new GameObject().Add(new Transform()) } };
+        target.isNew = true; target.playTimeDays = 0;
+        target.Json = Raw(IslandJsonAt(0));
+        var regeneration = new MusketeerPersistence.VirginCapture();
+        regeneration.Begin(CampaignSaveData.current);
+        regeneration.Complete(CampaignSaveData.current);
+        Time.frameCount++; MusketeerIdentity.Tick();
+        Check(capture.ContextKey == Ctx(1, 0, 11), "W2 generation keeps the same context key");
+        Check(Disk().Contexts[context11].Epochs.Count >= 2, "W2 generation committed a new epoch");
+
+        capture.Capture(Persist(gun.go), "world-freeze-gun");
+        Check(capture.Conflict, "a witness rebuilt in W2 cannot continue the W1 capture");
+        capture.Apply();
+        InvokePatch(typeof(MusketeerPersistence.SavePatch), "Finally", new object[] { null, capture });
+        IslandSaveData.CurrentlySavingIsland = null; IslandSaveData.isSavingGame = false;
+        Check(!capture.Applied, "the W2-latched capture cannot stage");
+        var archive = Disk();
+        Check(archive.TryGet(oldEpoch, oldHash, out var oldSnapshot)
+            && oldSnapshot.Records.Any(x => x.Id == paidId && x.NativeId == "world-freeze-gun"),
+            "the original W1 epoch keeps its paid history");
+        Check(archive.Contexts[context11].Epochs.Contains(oldEpoch), "the original W1 epoch remains in the context");
+    }
+
+    // R4D-2: a brand-new generation is not a historical raw0 load. VirginCapture must resolve
+    // exact-only, so an old raw0 history in the same context cannot be inherited or quarantined
+    // against the freshly committed epoch.
+    static void VirginExactOnlyTests()
+    {
+        Reset();
+        string context11 = Ctx(1, 0, 11);
+        string oldEpoch = MusketeerArchive.NewScope();
+        string oldJson = "{\"land\":0,\"objects\":[],\"playTimeDays\":0}";
+        string slotJson = "{\"land\":11,\"objects\":[],\"playTimeDays\":0}";
+        var reservation = Paid(Guid.NewGuid(), MusketeerCareer.KindGun, "");
+        var archive = new MusketeerArchive();
+        Check(archive.ConfirmBaseline(oldEpoch, MusketeerArchive.IslandHash(oldJson, oldEpoch), new[] { reservation }),
+            "virgin-exact fixture records the old raw0 reservation epoch");
+        Check(archive.EnsureContext(context11, oldEpoch, true), "virgin-exact fixture registers the old context");
+        Check(MusketeerArchiveStore.Save(ArchivePath, MusketeerArchiveStore.Load(ArchivePath), archive),
+            "virgin-exact fixture writes the old history through the store");
+
+        var campaign = CampaignSaveData.current;
+        var target = new IslandSaveData { land = 11, isNew = true, playTimeDays = 0, Json = Raw(slotJson) };
+        InstallIsland(campaign, 11, target);
+        campaign.CurrentIsland = target; campaign.CurrentLand = 11;
+        MusketeerIdentity.InvalidateContextCache();
+        var virgin = new MusketeerPersistence.VirginCapture();
+        virgin.Begin(campaign);
+        virgin.Complete(campaign);
+        Time.frameCount++; MusketeerIdentity.Tick();
+
+        var context = Disk().Contexts[context11];
+        string newEpoch = context.Epochs.Single(epoch => epoch != oldEpoch);
+        Check(MusketeerIdentity.Islands[context11].Epoch == newEpoch,
+            "new generation keeps its own epoch instead of inheriting the raw0 history");
+        Check(MusketeerIdentity.Islands[context11].HasBaseline && !MusketeerIdentity.Islands[context11].Unresolved,
+            "new generation keeps its own empty baseline and is not quarantined");
+        Check(MusketeerIdentity.Islands[context11].Careers.Count == 0, "new generation inherits no old paid record");
+        Check(MusketeerIdentity.CanPurchase, "a clean new generation stays purchase-ready");
+        Check(Disk().Scopes[newEpoch].Count == 1 && Disk().Scopes[newEpoch][0].Records.Count == 0,
+            "the new epoch has exactly its empty baseline");
+        Check(Disk().TryGet(oldEpoch, MusketeerArchive.IslandHash(oldJson, oldEpoch), out var oldSnapshot)
+            && oldSnapshot.Records.Count == 1 && oldSnapshot.Records[0].Id == reservation.Id,
+            "the old raw0 scope and paid reservation stay byte-identical");
+        Check(Disk().LatestReservations(oldEpoch).Count == 1, "the old paid reservation remains visible for history");
+    }
+
     static void ChallengeOwnerTests()
     {
         Reset();
@@ -1533,7 +2210,9 @@ internal static class Program
         // must have different native JSON, not conflicting metadata for one snapshot.
         SaveWithMissedRow(IslandJson(), new GameObject());
         var hiddenRows = RowsOf(Context1);
-        Check(hiddenRows.Count == 1 && hiddenRows[0].NativeId == "" && hiddenRows[0].StockSlot == -1, "hidden career persisted as a reservation without a stale id or rack claim");
+        Check(hiddenRows.Count == 1 && hiddenRows[0].NativeId == "" && hiddenRows[0].StockSlot == -1,
+            "hidden career persisted as a reservation without a stale id or rack claim"
+            + " rows=" + hiddenRows.Count + " " + MusketeerIdentity.DescribeForTests() + " | " + Dump());
         hidden.go.activeInHierarchy = true;
         Save(IslandJson("row-hidden"), Row("row-hidden", hidden.go));
         var witnessed = RowsOf(Context1);

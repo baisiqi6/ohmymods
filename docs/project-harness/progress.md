@@ -1,3 +1,11 @@
+## 2026-10-17 — #251 R4 离线修复候选通过，原生关口待验
+
+显式/-1保存统一可信slot来源，锁存raw0 witness与SourceWorld；冷读仅从可信slot做字节精确的只读land0指纹兼容，保留所有records冲突与physical保护。最终独审、operator独立233/652/127/72回归和完整累计net6/net8 0W0E通过；四源差异、旧PC接线和其余功能闭包保持，R2诊断移除。C3首次保存及继承真实postimage/完整ModSave的C4冷读尚未运行；模板初审缺陷修正中。正常DLL5fb、原五通道恢复保持，PR253 Draft/Issue251 OPEN，未合并安装。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-r4源码及离线候选已通过原生首存冷读待验)。
+
+## 2026-10-17 — #251 R2 已锁定显式保存首次拒绝
+
+显式 Save(0,11,0) 的4114次有效capture均因 raw/index 比较不符早退；首次raw0已证，其余原值未逐次保留。Apply无captured island而触发CaptureFault，native仍旧seed、无11岛检查点。正在核验字段原生写入/冷读语义，不能先写raw11或放松hash。R2退出与五通道完整恢复均通过，正常DLL5fb保持、无游戏运行；PR253继续Draft、未合并安装。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-原生隔离-r2锁定首次拒绝仍未修复)。
+
 ## 2026-10-17 — #251 原生 R1 仍失败，原件已恢复
 
 R3私有候选实际generation已定位slot11/raw0，随后capture闭合失败、原生SaveFailurePrompt重现。独立postimage仍为原seed九槽、无index11；旧Msk/pair付费历史保持，不把rc0或旧pair当新保存成功。原正常窗口已按用户授权结束；本轮测试退出后五通道恢复、严格30秒稳定观察与原12份文件核对通过，正常DLL5fb保持。PR253继续Draft、Issue251开放，未合并安装；下一步补最小有界分支诊断，不能先加猜测兜底。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-原生隔离-r1generation-修正生效完整保存仍失败)。

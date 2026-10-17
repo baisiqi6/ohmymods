@@ -1,3 +1,34 @@
+# Issue #251：首次登坐骑岛保存与冷读修复
+
+## 当前契约 R4（2026-10-17，替代下方历史实施边界）
+
+R1/R2 原生隔离仍失败：generation正确slot11/raw0，显式Save(0,11,0)的有效Capture均在raw/index比较处拒绝，Apply无captured Island而触发CaptureFault；仅first raw0已记录，其余raw原值及Save后最终值未知。native已绑定land为ARM64+0x48，加载协程按请求land重写该字段；不能写raw11或改hash来迎合检查。正常游戏已按用户授权结束；R1/R2退出后完整五通道恢复、当前manifest复核通过，正常DLL未变。
+
+### 本轮代码与验证
+
+- 增量生产仅MusketeerPersistence、Patch_MusketeerNativeSave、MusketeerArchive；保留此前R3 Identity源码及全部GenerationWitness/live raw0权限/非virgin nonhome raw0 Load拒绝。既有Virgin lifecycle、onceguard、unknown-paid/reservations/收费权限保留，不新增epoch创建入口。
+- explicit与-1统一冻结file/global/eventowner，以owner表内唯一同pointer位置定slot；explicit与实参一致，旧/后台岛不借当前场景。任何Capture观察到nonhome raw0即锁存同一generation witness/world要求至Apply；冻结来源漂移sticky。其它负land、duplicate/outside/zeropointer/nonzero raw冲突和zeroGetID/missed-active-paid保护不变。
+- 物理proof只校验frozenowner的目标数组slot，禁止全表rawland/hash替代位置；完整context/epoch/scope/hash/native rows/kind校验保留。
+- 原IslandHash算法、域、schema/hashKind、旧context/epoch/hash/GUID及补偿账目不变。只读兼容政策：可信slot>0且raw==slot的加载JSON可仅投影顶层land数字token为0，匹配旧完整指纹；不是历史转换鉴证。所有其它bytes保留，不写回投影，不用于新Save/Stage。收齐同context eligible epochs全部exact/preimage命中后先Agree/quarantine，不择优丢弃paid；HistoricalOnly/compensation排除不变。
+- 先对R3跑实际红例并冻证，再实现；修复前后用同一用例验证raw0完整首存、显式旧岛与challenge来源、source漂移/sticky、wrong-slot同hash、完整hash反例、真正accepted host payload重建的cold/native0→slot模型、exact/preimage冲突、unknown-paid/hidden reservations、旧0/4/8与complete comp8历史不变。保留原四套source-linked回归及net6/net8完整私有累计构建、代码/二进制独审。
+- 原生启动、共享档事务恢复需新singleuse包与精确候选关口；已授权隔离无需重复向人类询问。记录实际raw各点，只有实际accepted raw0才声称0→11兼容验证；退出重进必须同epoch/GUID/kind/NativeID/StockSlot恢复，不把模型、退出码或旧pair当native保存通过。
+
+### R4复审收紧（2026-10-17）
+
+- raw0 witness首次SourceWorld锁存，任何后续合法capture/Apply都不能切换world；VirginCapture仍exact-only，第三个preimage入口已删除。
+- physical仅在实际使用preimage时对同context全部eligible epochs作纯托管记录一致性检查（最多8）；跳过自身epoch与持久化HistoricalOnly，不读实时attempt/runtime/scene。其他epoch不替代本proof。exact-used旧路径不新增扫描，读侧保守quarantine不对称保留，旧authority问题另#256。
+- 最终独立源码审查与operator四套回归已通过，完整累计候选net6/net8各0W0E；native需要新的C3/C4单次controller，C4只用实际C3验收产物，不能回退shared/旧pair。controller修正是既有C1–C12执行，未获native启动批准前不运行。
+
+### 边界与状态
+
+PR253保持Draft、Issue251开放；尚未合并安装。正常私有累计宫廷/盾卫/地图等全闭包保留，不用公共DLL覆盖。不改Main/build/Heavy/Bank/Courier/shared wiring、原生字段、配置、原档、hash/schema、补偿或fault生命周期，不增加扫描/重试。盾卫同源风险#252独立。既有raw==slot legacy adoption与同key更换island/world后的收费授权另跟踪 #256，本轮测试钉定行为未变，不声称已修。
+
+实施＋offline方案已通过真实GLM5.3/max修订复审和独立技术复审；native/merge/install均未获本阶段技术批准。用户当前明确授权继续隔离。源码基线与分支不变；R4最终源码/构建/原生结果分别留证，全部交齐且PR合并后才同步代码任务完成。
+
+---
+
+## 历史 R3 计划（已由上文 R4 替代，仅保留演进证据）
+
 # Issue #251：坐骑岛首次登岛保存失败
 
 ## 目标与基线

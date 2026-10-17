@@ -47,7 +47,10 @@ internal static class MusketeerPersistence
     // Fail-closed context/epoch resolution. Exact snapshot matches come only from this context's
     // own epochs; an unknown native snapshot with paid history is preserved as reservations and
     // blocks new charges instead of guessing an owner or writing a fabricated baseline.
-    internal static Resolution Resolve(MusketeerArchive archive, string contextKey, string rawJson, bool generationPending)
+    // trustedSlot is only supplied by a caller that already proved the exact owner + unique
+    // positional slot (LoadCapture / indexed physical proof). Every other caller stays exact-only:
+    // no raw value or arbitrary integer can buy the land 0 compatibility projection.
+    internal static Resolution Resolve(MusketeerArchive archive, string contextKey, string rawJson, bool generationPending, int trustedSlot = -1)
     {
         var result = new Resolution();
         if (archive == null || !MusketeerArchive.HashValid(contextKey)) return result;
@@ -62,12 +65,17 @@ internal static class MusketeerPersistence
             result.Unresolved = result.Records.Count > 0;
             return result;
         }
-        var matches = Collect(archive, contextKey, context, rawJson);
+        var matches = Collect(archive, contextKey, context, rawJson, trustedSlot);
         if (matches.Count > 0)
         {
             if (!Agree(matches)) return Quarantine(archive, matches, "conflict");
             var match = Pick(archive, matches);
-            result.Kind = "exact"; result.Epoch = match.Scope;
+            string exactHash;
+            try { exactHash = MusketeerArchive.IslandHash(rawJson, match.Scope); }
+            catch (Exception) { exactHash = null; }
+            // "preimage" is the bounded compatibility match; both preserve the stored old hash.
+            result.Kind = string.Equals(exactHash, match.Snapshot.Hash, StringComparison.Ordinal) ? "exact" : "preimage";
+            result.Epoch = match.Scope;
             result.MatchHash = match.Snapshot.Hash;
             result.Records = match.Snapshot.Records.Select(x => x.Copy()).ToList();
             result.HasBaseline = archive.Baselines.TryGetValue(match.Scope, out string baseline) && baseline == match.Snapshot.Hash;
@@ -101,7 +109,10 @@ internal static class MusketeerPersistence
         internal MusketeerSnapshot Snapshot;
     }
 
-    private static List<Match> Collect(MusketeerArchive archive, string contextKey, MusketeerContext context, string rawJson)
+    // Collects the complete exact + preimage history of every eligible epoch before anything is
+    // selected: an exact hit never short-circuits a conflicting preimage (and vice versa).
+    // HistoricalOnly / compensation exclusions stay exactly as they were.
+    private static List<Match> Collect(MusketeerArchive archive, string contextKey, MusketeerContext context, string rawJson, int trustedSlot)
     {
         var result = new List<Match>();
         if (context == null) return result;
@@ -113,9 +124,20 @@ internal static class MusketeerPersistence
             string hash;
             try { hash = MusketeerArchive.IslandHash(rawJson, epoch); }
             catch (Exception) { continue; }   // unusable native JSON cannot match any stored snapshot
-            if (archive.TryGet(epoch, hash, out var snapshot)) result.Add(new Match { Scope = epoch, Snapshot = snapshot });
+            AddMatch(result, archive, epoch, hash);
+            if (trustedSlot <= 0) continue;
+            string preimage = MusketeerArchive.IslandHashPreimage(rawJson, epoch, trustedSlot);
+            if (preimage != null && !string.Equals(preimage, hash, StringComparison.Ordinal))
+                AddMatch(result, archive, epoch, preimage);
         }
         return result;
+    }
+
+    private static void AddMatch(List<Match> matches, MusketeerArchive archive, string epoch, string hash)
+    {
+        if (!archive.TryGet(epoch, hash, out var snapshot)) return;
+        if (matches.Exists(x => x.Scope == epoch && x.Snapshot.Hash == snapshot.Hash)) return;
+        matches.Add(new Match { Scope = epoch, Snapshot = snapshot });
     }
 
     private static bool Agree(List<Match> matches) => matches.All(x => MusketeerArchive.Same(matches[0].Snapshot.Records, x.Snapshot.Records));
@@ -139,12 +161,12 @@ internal static class MusketeerPersistence
         return ordered[0];
     }
 
-    internal static MusketeerIdentity.IslandState CreateState(string contextKey, long world, string rawJson, bool generationPending)
+    internal static MusketeerIdentity.IslandState CreateState(string contextKey, long world, string rawJson, bool generationPending, int trustedSlot = -1)
     {
         var disk = ReadArchive();
         var state = new MusketeerIdentity.IslandState { ContextKey = contextKey, World = world, Ready = true, ReadOnly = !disk.Writable };
         if (disk.Archive == null) return state;
-        var resolution = Resolve(disk.Archive, contextKey, rawJson, generationPending);
+        var resolution = Resolve(disk.Archive, contextKey, rawJson, generationPending, trustedSlot);
         state.Epoch = resolution.Epoch;
         state.MatchKind = resolution.Kind;
         state.MatchHash = resolution.MatchHash;
@@ -153,7 +175,8 @@ internal static class MusketeerPersistence
         state.HasBaseline = resolution.HasBaseline;
         state.GenerationPending = resolution.GenerationPending;
         foreach (var record in resolution.Records) MusketeerIdentity.AddCareer(state, record);
-        if (resolution.Kind == "exact" && !resolution.Unresolved && resolution.MatchHash != null)
+        if (!resolution.Unresolved && resolution.MatchHash != null
+            && (resolution.Kind == "exact" || resolution.Kind == "preimage"))
             MusketeerNativeSave.SeedProof(contextKey, resolution.Epoch, resolution.MatchHash);
         return state;
     }
@@ -275,30 +298,30 @@ internal static class MusketeerPersistence
         internal bool Applied;
         internal IntPtr GlobalPointer, OwnerPointer;
         internal string File;
+        internal int Slot = -1;
+        internal bool WitnessRequired;
+        internal long SourceWorld;   // world of the first successfully verified witness obligation
         private readonly Dictionary<string, MusketeerIdentity.Career> Owners = new(StringComparer.Ordinal);
         private readonly Dictionary<MusketeerIdentity.Career, string> Ids = new();
         internal bool Conflict;
 
         internal void Begin()
         {
-            // Save(-1 land) resolves its actual island inside GetID. Freeze the exact event owner,
-            // global and file now: a later catalog/file drift closes this capture instead of
-            // attaching the rows to whatever happens to be current when GetID arrives. An
-            // explicit land keeps the original source rule (including old/background islands).
-            if (Land < 0)
-            {
-                // -1 is the only legal deferred sentinel. Every other negative value keeps the
-                // original rejection semantics: no key, no island, no stage.
-                if (Land != -1) return;
-                var global = GlobalSaveData.loaded;
-                if (global == null) return;
-                GlobalPointer = global.Pointer;
-                File = GlobalSaveData.filename;
-                var owner = MusketeerIdentity.CatalogOwner(global, Campaign, Challenge);
-                OwnerPointer = owner != null ? owner.Pointer : IntPtr.Zero;
-                return;
-            }
+            // Every legal Save entry freezes the exact global/file/event owner before any native
+            // object row arrives; a later drift closes this capture instead of attaching the rows
+            // to whatever happens to be current. -1 defers its island to the first GetID, an
+            // explicit land keeps the original args source (including old/background islands).
+            if (Land < -1) return;   // -2 and below keep the original rejection semantics
+            var global = GlobalSaveData.loaded;
+            if (global == null) return;
+            GlobalPointer = global.Pointer;
+            File = GlobalSaveData.filename;
+            var owner = MusketeerIdentity.CatalogOwner(global, Campaign, Challenge);
+            OwnerPointer = owner != null ? owner.Pointer : IntPtr.Zero;
+            if (owner == null) return;
+            if (Land < 0) return;    // -1: the slot/key are proven by the first GetID
             if (!MusketeerIdentity.TryContextKey(Campaign, Challenge, Land, out string key)) return;
+            Slot = Land;
             SetSource(key);
         }
 
@@ -310,28 +333,43 @@ internal static class MusketeerPersistence
             MusketeerNativeSave.NoteLegacySceneCapture(key);
         }
 
-        // Read-only check of the frozen -1 source. It never reads CurrentlySavingIsland or
-        // isSavingGame (the native body may have cleared those before Apply): only the captured
-        // exact island, the frozen global/file/event owner and the same table slot/key are
-        // re-proven under the normal land/placeholder-receipt rules.
+        // Read-only re-proof of the frozen source for every save shape. It never reads
+        // CurrentlySavingIsland or isSavingGame (the native body may have cleared those before
+        // Apply): only the captured exact island, the frozen global/file/event owner and the same
+        // table slot/key are consulted. A non-home raw0 at any checkpoint latches the exact
+        // generation witness obligation for the rest of this save; a later raw==slot never
+        // releases it, and the reverse order (slot first, raw0 later) needs the same receipt.
         private bool TryFrozenSource(IslandSaveData island, out string contextKey)
         {
             contextKey = null;
-            if (Land != -1 || island == null) return false;
+            if (Land < -1 || island == null || OwnerPointer == IntPtr.Zero) return false;
             var global = GlobalSaveData.loaded;
             if (global == null || global.Pointer != GlobalPointer
                 || !string.Equals(GlobalSaveData.filename, File, StringComparison.Ordinal)) return false;
             var owner = MusketeerIdentity.CatalogOwner(global, Campaign, Challenge);
             if (owner == null || owner.Pointer != OwnerPointer) return false;
             if (MusketeerIdentity.IslandSlot(owner, island, out int slot) != MusketeerIdentity.IslandSlotLookup.Ok) return false;
-            if (island.land == 0 && slot != 0)
+            if (Land >= 0 && slot != Land) return false;
+            if (Slot >= 0 && slot != Slot) return false;
+            if (slot != 0 && island.land == 0) WitnessRequired = true;
+            if (WitnessRequired)
             {
+                if (slot == 0) return false;
                 long world = MusketeerIdentity.WorldKey();
+                // The obligation belongs to the world where it was first proven. A new generation
+                // receipt in another world (the once guard allows a different world) must not
+                // continue this capture even though every current pointer/slot/context matches.
+                if (SourceWorld != 0 && world != SourceWorld) return false;
                 if (!MusketeerIdentity.TryGenerationWitness(global, owner, island, slot, world, out string witnessKey)) return false;
-                return MusketeerIdentity.TryContextKey(Campaign, Challenge, slot, out contextKey)
-                    && string.Equals(contextKey, witnessKey, StringComparison.Ordinal);
+                if (!MusketeerIdentity.TryContextKey(Campaign, Challenge, slot, out contextKey)
+                    || !string.Equals(contextKey, witnessKey, StringComparison.Ordinal)) return false;
+                if (SourceWorld == 0) SourceWorld = world;
+                Slot = slot;
+                return true;
             }
-            return MusketeerIdentity.TryContextKey(Campaign, Challenge, slot, out contextKey);
+            if (!MusketeerIdentity.TryContextKey(Campaign, Challenge, slot, out contextKey)) return false;
+            Slot = slot;
+            return true;
         }
 
         // Sticky: after any observed source mismatch the capture stays closed even if the
@@ -346,35 +384,26 @@ internal static class MusketeerPersistence
         internal void Capture(Persistent persistent, string id)
         {
             if (persistent == null || string.IsNullOrEmpty(id) || id.Length > MusketeerArchive.MaxNativeIdLength) return;
-            // Only -1 has deferred semantics; other negative lands are rejected outright.
+            // -1 is the only deferred sentinel; every other negative land is rejected outright.
             if (Land < -1) return;
             if (Conflict) return;
             // Every later GetID after the first capture re-proves the frozen source. A mismatch
             // observed here closes this capture permanently and never stages the captured rows.
-            if (Island != null && Land == -1
-                && (!TryFrozenSource(Island, out string frozenKey)
-                    || !string.Equals(frozenKey, ContextKey, StringComparison.Ordinal)))
-            { LoseFrozenSource(); return; }
-            if (Island == null)
+            if (Island != null)
             {
+                if (!TryFrozenSource(Island, out string frozenKey)
+                    || !string.Equals(frozenKey, ContextKey, StringComparison.Ordinal))
+                { LoseFrozenSource(); return; }
+            }
+            else
+            {
+                // The first GetID must observe exactly the frozen save source: the unique member of
+                // the event owner's table at the explicit arg slot (or at its positional slot for
+                // -1). Raw land may be 0 or that slot; any other island/owner is a source loss.
                 var island = IslandSaveData.CurrentlySavingIsland;
                 if (island == null || !IslandSaveData.isSavingGame) return;
-                if (Land >= 0)
-                {
-                    // Explicit save arguments are the old-island source; the scene island never
-                    // replaces them. The native land cross-check stays exactly as it was.
-                    if (island.land != Land) return;
-                    if (!MusketeerIdentity.TryContextKey(Campaign, Challenge, island.land, out string explicitKey)) return;
-                    Island = island; SetSource(explicitKey);
-                }
-                else if (Land == -1)
-                {
-                    // Land=-1: the event owner was frozen at Save entry. The target island must be
-                    // the unique member of that owner's table and the key is built from the
-                    // original event campaign/challenge + positional slot, never from raw land.
-                    if (!TryFrozenSource(island, out string contextKey)) { LoseFrozenSource(); return; }
-                    Island = island; SetSource(contextKey);
-                }
+                if (!TryFrozenSource(island, out string contextKey)) { LoseFrozenSource(); return; }
+                Island = island; SetSource(contextKey);
             }
             if (!MusketeerIdentity.Islands.TryGetValue(ContextKey, out var state) || state == null || !state.Ready) return;
             var career = MusketeerIdentity.BoundAt(state, persistent.gameObject);
@@ -387,12 +416,11 @@ internal static class MusketeerPersistence
         internal void Apply()
         {
             if (Conflict || Island == null || !MusketeerAccess.TrackAllowed) return;
-            // The deferred source is re-proven once more before any Stage. Native may already have
-            // cleared CurrentlySavingIsland/isSavingGame; only the captured island and the frozen
-            // global/file/owner/slot/key are consulted. A mismatch is sticky and never stages.
-            if (Land == -1
-                && (!TryFrozenSource(Island, out string frozenKey)
-                    || !string.Equals(frozenKey, ContextKey, StringComparison.Ordinal)))
+            // The frozen source is re-proven once more before any Stage for every save shape.
+            // Native may already have cleared CurrentlySavingIsland/isSavingGame; only the
+            // captured island and the frozen global/file/owner/slot/key/witness are consulted.
+            if (!TryFrozenSource(Island, out string frozenKey)
+                || !string.Equals(frozenKey, ContextKey, StringComparison.Ordinal))
             { LoseFrozenSource(); return; }
             if (!MusketeerIdentity.Islands.TryGetValue(ContextKey, out var state) || state == null || !state.Ready) return;
             // An unknown native snapshot may never generate a fresh snapshot: the previous provable
@@ -495,7 +523,9 @@ internal static class MusketeerPersistence
             // A virgin island is recorded by the generation bridge after ApplyToScene succeeds;
             // this load must not pre-create its epoch or baseline.
             GenerationPending = virgin;
-            var state = CreateState(contextKey, MusketeerIdentity.WorldKey(), json, GenerationPending);
+            // The exact owner + unique positional slot above is the only proof this load has;
+            // it authorizes the land 0 compatibility projection for this exact slot.
+            var state = CreateState(contextKey, MusketeerIdentity.WorldKey(), json, GenerationPending, slot);
             if (state == null) return;
             // Keep the exact matched snapshot's stored hash instead of recomputing; a state
             // without an exact match writes its own kind-2 baseline.
@@ -672,6 +702,8 @@ internal static class MusketeerPersistence
             if (!Commit(pending, disk => disk.Archive.ConfirmBaseline(scope, hash, Array.Empty<MusketeerCareer>()), hash))
             { MusketeerIdentity.Log("virgin-baseline-unconfirmed", null); return; }
             Done = true;
+            // A confirmed new generation is not a historical raw0 load: only LoadCapture and the
+            // indexed physical proof may use the compatibility projection. Exact-only here.
             var state = CreateState(contextKey, world, json, false);
             state.VirginIsland = island.Pointer; state.VirginWorld = world;
             MusketeerIdentity.InstallState(contextKey, state);
