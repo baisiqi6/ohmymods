@@ -2136,7 +2136,7 @@ internal static class ArtifactChecks
             { "android/tests/pet-protection/PetProtectionTests.csproj", "493391e9c4c3f71c00e4cc58bcfa6d20cb48f577bfd91183f7a70ab9f730b3b4" },
             { "android/tests/pet-protection/Stubs.cs", "3d5b2d7a2da0ba45fa4818053bc2ce53579b520e2f06e9a6c28d245b85eb2d0d" },
             { "android/tests/pet-protection/Program.cs", "a92406354c94db37f8ea1f85a20b7f228d9d72fb06609d56fe4bed79a0a2e6da" },
-            { "il2cpp/PatchRoles_CrownStealer.cs", "46a06704816d93f98264750e805057ce2f5c5ddff2cefb2ef7155136dce6924f" },
+            { "il2cpp/PatchRoles_CrownStealer.cs", "e4821c83282dfa1258b126122a84da1125ac4251964f45ae01810d51a1bafe34" },
             { "il2cpp/PatchRoles_KnightRecruitRange.cs", "6be64b47dfebc3acc56fbe34975a136a337a6de8ae2fae86e7c00eb3baa0ab95" },
             { "android/tests/combat-parameters/CombatParameterTests.csproj", "358fc51817d916686b13badfcdb75524662543e4fe0dd79a332edbcfe97a7b0c" },
             { "android/tests/combat-parameters/Stubs.cs", "adee57d465df5c4fcf792f20e912929c6a9deec74a8616e6c19e5754d1f0445c" },

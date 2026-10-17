@@ -1,0 +1,8 @@
+# Mac wrapper build metadata check — 2026-10-17T16:08:45Z
+# Method: strings (UTF-8 metadata/#Strings heap); friendly-troll log literal is UTF-16 and does not define a type.
+dll=/tmp/ohmymods-macwrapper-A/bin/Release/net6.0/KingdomEnhancedMod.dll
+dll_sha256=11d8b6dce803ef8e2abf18f499ad0d13070e5d2b57235a1170861b68d2ae72ba
+crown_type_occurrences=0
+crown_game_type_lines_utf8=0
+control_PatchRoles_Castle_occurrences=1
+pdb_contains_crown_source=1
