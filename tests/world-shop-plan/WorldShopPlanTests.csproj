@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Issue #255 pure plan regression: links the production WorldShopPlan.cs into a net8 console.
+       The plan is deliberately free of Unity/interop types so both the PC table and the
+       ANDROID Greek-only table can be compiled and asserted without the game.
+       Run PC table:      dotnet run -c Release
+       Run ANDROID table: dotnet run -c Release -p:DefineConstants=ANDROID -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../il2cpp/WorldShopPlan.cs" Link="Production/WorldShopPlan.cs" />
+  </ItemGroup>
+</Project>

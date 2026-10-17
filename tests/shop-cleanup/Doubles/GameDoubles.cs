@@ -394,7 +394,7 @@ public static class Sim
     /// <summary>Mirrors the ShopPlanner.Start postfix that marks a planner ready.</summary>
     public static void MarkPlannerReady()
     {
-        KingdomEnhancedMod.PatchRoles_Castle.RetryGreeceShopsAfterPlannerStart(Planner);
+        KingdomEnhancedMod.PatchRoles_Castle.RetryWorldShopsAfterPlannerStart(Planner);
     }
 
     /// <summary>Builds a Greece world with a ready ShopPlanner (as ShopPlanner.Start would leave it).</summary>
@@ -444,7 +444,7 @@ public static class Sim
         Planner.shopTypePrefabPairs.Add(PayableShop.ShopType.NinjaRight, new GameObject("ShopNinjaRight"));
 
         // Mirrors the ShopPlanner.Start postfix that marks the planner ready.
-        KingdomEnhancedMod.PatchRoles_Castle.RetryGreeceShopsAfterPlannerStart(Planner);
+        KingdomEnhancedMod.PatchRoles_Castle.RetryWorldShopsAfterPlannerStart(Planner);
     }
 
     /// <summary>World switch: a new scene handle (and layer); the old wrappers stay behind.</summary>
