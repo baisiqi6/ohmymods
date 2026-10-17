@@ -75,8 +75,27 @@ public class Pool
 }
 public class World { public UnityEngine.Transform gameLayer; }
 public class Managers { public static Managers Inst; public World world; }
-public class GlobalSaveData : UnityEngine.Object { public static GlobalSaveData loaded; public static string filename = "global-v35"; public int currentCampaign, currentChallenge; public PrefsSaveData prefs = new(); public Il2CppSystem.Collections.Generic.List<CampaignSaveData> campaigns = new(); public Il2CppSystem.Collections.Generic.List<CampaignSaveData> challenges = new(); public void SaveAsync(Il2CppSystem.Action<Coatsink.Common.SaveLoadResult> cb) { } }
-public class CampaignSaveData : UnityEngine.Object { public static CampaignSaveData current; public int challengeId; public IslandSaveData CurrentIsland; public void ApplyToScene() { } }
+public class GlobalSaveData : UnityEngine.Object
+{
+    public static GlobalSaveData loaded;
+    public static string filename = "global-v35";
+    public int currentCampaign, currentChallenge;
+    public PrefsSaveData prefs = new();
+    public Il2CppSystem.Collections.Generic.List<CampaignSaveData> campaigns = new();
+    public Il2CppSystem.Collections.Generic.List<CampaignSaveData> challenges = new();
+    public CampaignSaveData CurrentCampaign;
+    public CampaignSaveData GetCurrentCampaign() => CurrentCampaign;
+    public void SaveAsync(Il2CppSystem.Action<Coatsink.Common.SaveLoadResult> cb) { }
+}
+public class CampaignSaveData : UnityEngine.Object
+{
+    public static CampaignSaveData current;
+    public int challengeId;
+    public int CurrentLand;
+    public IslandSaveData CurrentIsland;
+    public Il2CppSystem.Collections.Generic.List<IslandSaveData> _islands = new();
+    public void ApplyToScene() { }
+}
 public class IslandSaveData : UnityEngine.Object
 {
     public static IslandSaveData CurrentlySavingIsland; public static bool isSavingGame;
