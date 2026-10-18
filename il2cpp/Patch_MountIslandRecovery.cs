@@ -43,6 +43,8 @@ internal static class MountIslandRecoveryRuntime
         internal bool[] ReceiptUnknown;
         internal bool CampaignEvidenceReadable;
         internal int SavedSeed;
+        internal int SavedLevelMin;
+        internal int SavedLevelMax;
         internal ulong ObjectsPointer;
         internal int ObjectsCount;
     }
@@ -123,7 +125,8 @@ internal static class MountIslandRecoveryRuntime
                     out _, out _, out _, out string reason)
                 || !MountIslandRecoveryScope.SameLoadExceptSeed(capture.Scope, now)
                 || !MountIslandRecoveryScope.IsAllowedSeedTransition(
-                    capture.Scope.Seed, now.Seed, capture.SavedSeed))
+                    capture.Scope.Seed, now.Seed, capture.SavedSeed)
+                || !TryMatchSavedLevelEdges(capture, out reason))
             {
                 LogOnce("post-" + reason, "post-pop scope/seed rejected; token withdrawn: " + reason);
                 Tokens.Cancel(token);
@@ -233,6 +236,9 @@ internal static class MountIslandRecoveryRuntime
             return false;
         }
 
+        if (!TryReadSavedLevelEdges(island, out int savedLevelMin, out int savedLevelMax, out reason))
+            return false;
+
         if (!MountIslandMarkerRuntime.TryReadAllMarkers(
                 scope.GlobalPointer, campaign, scope.ReignIndex, scope.LandDataPointer,
                 out int[][] markers, out reason))
@@ -242,6 +248,15 @@ internal static class MountIslandRecoveryRuntime
         MountIslandRecoveryCell[] cells = ReadCells(islands);
         ulong objectsPointer = PointerOf(objects);
         int objectsCount = objects.Count;
+
+        // 保存边界是此次旧档的输入；在原有 scope 围栏内双读，不能借生成期 Level cache 回退。
+        if (!TryReadSavedLevelEdges(island, out int savedLevelMinAgain, out int savedLevelMaxAgain, out reason))
+            return false;
+        if (savedLevelMinAgain != savedLevelMin || savedLevelMaxAgain != savedLevelMax)
+        {
+            reason = "saved LevelEdges changed during evidence scan";
+            return false;
+        }
 
         // 扫描前后稳定：owner/容器/Level/seed/holder/GameLayer + markers + receipts + objects。
         if (!TryReadScope(ScopeReadPhase.BeforeNativePop, selected, land, island,
@@ -298,6 +313,8 @@ internal static class MountIslandRecoveryRuntime
             ReceiptUnknown = facts.Unknown,
             CampaignEvidenceReadable = facts.Readable,
             SavedSeed = savedSeed,
+            SavedLevelMin = savedLevelMin,
+            SavedLevelMax = savedLevelMax,
             ObjectsPointer = objectsPointer,
             ObjectsCount = objectsCount,
         };
@@ -463,6 +480,50 @@ internal static class MountIslandRecoveryRuntime
                 + " message=" + message;
             return false;
         }
+    }
+
+    // IslandSaveData owns the saved geometry; Level._levelEdges is only a generation cache.
+    // Always read one value snapshot, and keep raw integer equality separate from float validity.
+    private static bool TryReadSavedLevelEdges(IslandSaveData island,
+        out int min, out int max, out string reason)
+    {
+        min = max = 0;
+        reason = string.Empty;
+        try
+        {
+            if (island == null) { reason = "saved LevelEdges island missing"; return false; }
+            IntRange edges = island.LevelEdges;
+            float minFloat = edges.min;
+            float maxFloat = edges.max;
+            if (edges.min >= edges.max || !float.IsFinite(minFloat) || !float.IsFinite(maxFloat)
+                || maxFloat - minFloat <= 1e-3f)
+            {
+                reason = "saved LevelEdges invalid";
+                return false;
+            }
+            min = edges.min;
+            max = edges.max;
+            return true;
+        }
+        catch (Exception e)
+        {
+            reason = "saved LevelEdges read failed: " + e.GetType().Name;
+            return false;
+        }
+    }
+
+    private static bool TryMatchSavedLevelEdges(Capture capture, out string reason)
+    {
+        reason = string.Empty;
+        if (capture == null) { reason = "saved LevelEdges capture missing"; return false; }
+        if (!TryReadSavedLevelEdges(capture.Island, out int min, out int max, out reason))
+            return false;
+        if (min != capture.SavedLevelMin || max != capture.SavedLevelMax)
+        {
+            reason = "saved LevelEdges changed after capture";
+            return false;
+        }
+        return true;
     }
 
     /// <summary>
@@ -738,6 +799,12 @@ internal static class MountIslandRecoveryRuntime
             return;
         }
 
+        if (!TryMatchSavedLevelEdges(capture, out reason))
+        {
+            LogError("consume rejected: " + reason);
+            return;
+        }
+
         // 原生依赖复用：只在进入恢复时 EnsureAll；IsDefinitionReady 逐定义。
         try { CrossWorldMountDependencies.EnsureAll(); }
         catch (Exception e) { LogError("EnsureAll failed: " + e.GetType().Name + " " + e.Message); }
@@ -806,6 +873,7 @@ internal static class MountIslandRecoveryRuntime
             try
             {
                 if (!TryBuildPlacementModel(level, gameLayer, world,
+                        capture.SavedLevelMin, capture.SavedLevelMax,
                         out PlacementModel model, out reason))
                 {
                     LogError("create batch stopped: " + reason);
@@ -977,6 +1045,7 @@ internal static class MountIslandRecoveryRuntime
     }
 
     private static bool TryBuildPlacementModel(Level level, Transform gameLayer, World world,
+        int savedLevelMin, int savedLevelMax,
         out PlacementModel model, out string reason)
     {
         model = null;
@@ -985,8 +1054,8 @@ internal static class MountIslandRecoveryRuntime
         {
             var result = new PlacementModel
             {
-                LevelMin = level._levelEdges.min,
-                LevelMax = level._levelEdges.max,
+                LevelMin = savedLevelMin,
+                LevelMax = savedLevelMax,
             };
             if (!float.IsFinite(result.LevelMin) || !float.IsFinite(result.LevelMax)
                 || result.LevelMax - result.LevelMin <= 1e-3f)
@@ -1678,7 +1747,7 @@ internal static class MountIslandRecoveryRuntime
                 reason = "load scope changed after post confirmation";
                 return false;
             }
-            return true;
+            return TryMatchSavedLevelEdges(_capture, out reason);
         }
 
         private bool EnsureStaging(out string reason)

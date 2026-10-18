@@ -105,3 +105,15 @@ A11 使用 A-only `3fb35bfa…fc9`，实际七项 bootstrap、新鲜健康回执
 Root 事后独立确认 D4 两 PID 和 A11 controller `73584`/child `73697` 均不存在，正常六类闭包 `badabb0908…26b9f`、正常 DLL `8345f086…9d9e1b`、正常存档 `2c62f885…e737`、431 文件模板 `8b9fc0ab…261287` 保持；A11 私有 fixture 仍为 `cb1e545a…deca`。原始失败、旧 prepared gate 与源码包原件保留，新规则下旧未消费 gate 标为 UNUSED。没有替换、恢复或安装正常文件，Mac CUA 短焦点已实际释放。
 
 旧岛恢复、首次生成、137 旧建筑及权益的恢复后保存保护、地图详情和真实冷读仍未通过；C2 仍不能从这些失败或只读 case 派生。当前占地修正仍仅 source/host 通过，尚未进入实际恢复候选。Issue #260 开放、PR #264 Draft 的边界不变。
+
+## 2026-10-18：D5 实际边界、产品修复与 A12 测试调用方失败
+
+D5 的私有只读诊断完成了 guard 和 firstPlaying 两阶段，真实日志 SHA `053acfee8e67f08797b5425638511ac3e345340874ff99fa61bffac9b2887616`。原存档、同 token/raw owner 的 `IslandSaveData.LevelEdges` 均为 `[-552,519]`；当前 metadata 门通过后读取的 `Level._levelEdges` wrapper、原生 field-copy 与 raw8 均为 `[0,0]`。`World` 的等值微小浮点区间无效，实体地面 backing 未取得，均未用于补偿。当前 ARM 写者证据确认生成缓存与存档边界是独立字段；本次错误产生在恢复消费者选择了生成缓存，不是已证实的 getter 装箱故障或坏档。D5 没有设施、marker 或测试保存，不代表功能恢复。
+
+产品 `Patch_MountIslandRecovery.cs` 冻结 SHA `8ec2c609b109a63db26d4ec754c559576d414d7fd13c1c564badbe366e1572c5`：在 BeforePop 原 scope 两遍校验内读取原始整数边界 A/B，要求合法且精确相等后一次冻结；AfterPop、consume 和 Host 最终围栏要求 live 仍与冻结值相等。实际 placement model 仅取冻结的两个整数，未写 `Level` 缓存、引入延时或猜测范围；Tile、地面、桥海岸、旧建筑占用、完整 footprint 与原生 snap 判据保持。占地修正仍在当前候选内，其实际触发情况未证明。
+
+独立审查报告 SHA `a02d9fe3c92b70d571a2a226d51e1151ee9002dc36cafaec74f414579ff42572` 接受 source/host：同输入旧 cache 路径红、新路径 20/20；实际 BeforePop/AfterPop/consume/Host 方法链 20/20；8 个故意变异负控拒绝。相关 host 的 Unity/scope/seed/marker 桩有明确边界，不能证明真实 clone、ABI 或存档保持。实际累计纯构建均 0 warnings/0 errors，其他 276 源码输入、39 资源及 161 引用逐项保持：net6 SHA `6391c733fca92410007f169feb96eed55bc844d88db3e2d9c0975f6052209201`、MVID `45844f02-6fcc-4c16-ad71-fd17adacfb44`；net8 SHA `5dfe1dadb060e04dc04e75ec93b4d796877f2a9ab3901c1b7297cdec2e729747`、MVID `e3035a59-f8d0-420d-bf50-5946fbd5a135`。私有观测 overlay 独立，不进入交付源码或纯候选。
+
+A12 仅测试首次生成前置，但启动器在正常 `sandbox-exec → arch → Game` 链中比较整段 `ps` 字符串，报 `owned birth or argv drift`；失败时的第二条 live 命令行没有保存，不能断言具体停在哪个中间阶段。实际没有 helper/candidate bootstrap、许可、Start、CUA、到岛或测试保存。controller `99124`、child `99169` 均已实际回收，原回执的 `unknownPending=true / cleared=false` 原样保留。Root 于 `2026-10-18T17:51:40.174889Z` 独立核实两 PID 不存在、正常六类闭包 `badabb0908…26b9f`、431 文件模板 `8b9fc0ab…261287`、正常 DLL `8345f086…9d9e1b`、原存档 `2c62f885…e737` 及 A12 私有 fixture `cb1e545a…deca` 保持；未恢复或替换正常文件。新 case 才可修调用方并重试，旧 gate 不重放。
+
+下一功能验证仍须使用独立副本，建立首次设施 clone 前的实际计划、资源与预计位置证据，按本次新建实例核对保存 UID、marker、原 137 建筑与完整权益历史；不能给旧 C1 零增量比较器换 SHA 冒充新增设施验收。真实恢复成功后才可继承该后像做纯候选冷读和幂等验证。目前这几项及地图详情仍待完成，PR #264 Draft、Issue #260 开放，未合并或安装。
