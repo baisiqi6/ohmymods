@@ -124,3 +124,33 @@ G17证据收尾PR259已合并为3b340713；随后自有源码前移到f60共享�
 readonly-storage-state-20261018-single1实际30.21s，boot23.83s，8查询/10stat完成、0 unknown/超时/非零退出，cat0、game0，无APK/game/UI启动或设备文件写命令。当前user0、CE=true、boot=1，而sm采样显示emulated;0仍checking；随后/sdcard解析到/storage/emulated/0，全部具名祖先及target stat可见，target为562B普通文件。该同次时序直接证明boot标志与卷状态不同步，支持先前目录过早读取的假设；两次启动样本不能证明上例ENOENT的唯一根因，也不能从metadata推出旁档payload/hash/schema或paid。原件/备份保持保留，G17内容未知未解除。后续必要场景备份/保存可合并读取旁档，不再单为每个字段新增整轮case。
 
 Root于05:58:41.934Z真实wait=-9/reap，自有QEMU退出；05:58:55独立host检查无game/VM、5582/83空，正常DLL8345与primary checklist efb52c89字节保持，窗口提前归还Main。本例只完成只读诊断，未安装新Android产物、未读取正文、未验真实付款/原生writer/池重建或玩家设备；不将无写命令等同整游戏目录字节恢复证明。私有新证据位于上述G18目录的storage-diagnostic/{normal,actual,review,host-after.json}，历史失败、已执行源码及spent均保留。
+
+
+<a id="g19-world-state"></a>
+## 2026-10-18 UTC G19：世界状态实际达到，旧聚合目标仍未通过
+
+当前职业/弓弩源码基线为 `02758672`；本批实际设备候选是 net6 `ab059fd2…`、40键受控配置 `ac31c005…`、只读 V2 AddOn `adb434cd…`。它不是旧 net10 诊断产物，也不是 PR263 的133-owner经济候选。角色功能开关保持受控关闭；不能用启动或世界状态代替已启用业务路径验证。
+
+| 案例 | 实际达到 | 停止点与边界 |
+|---|---|---|
+| `readonly-world-prereq-20261018-single1` | 临时overlay启动游戏；原UserData备份中取得562B旁档 | 日志先cat、后stat的两次读取遇到追加，长度不一致而提前中止；不是资源或游戏失败定案。QEMU真实reap，原盘/保护文件保持。 |
+| `…-single2` | boot、准备和临时安装读回；未发起activity | 外部stat读取`/proc/self/fd/3`，该self是子进程而非持有fd的shell；原始51B错误与frame拒绝保留，不称游戏启动失败。 |
+| `…-single3` | 106-owner注册、V2加载、一次main；可信日志中的RunningGame/Playing、双玩家和wallet实际出现 | 新parent-fd读取成功；900秒观察后旧combined条件仍未满足，无PNG，exact objective维持`inconclusive`。保留world partial，不写成仅见浮球或完整玩法通过。 |
+
+G19备份取得的562B `hero-identities.v1.json` 已通过原生产 `Archive.Decode` 薄入口核对；原始SHA `352a864c…`、源码/fixture绑定和原件保留。它解决的是旁档payload分类，未产生新付费身份，也不证明原生保存/冷读往返。G17的“当时payload未知”是历史事实，不无痕改写。
+
+日志修复发生在私有采集器产生处：同一fd一次fstat并读取声明长度的prefix，外部stat路径改为`/proc/$$/fd/3`；沿用原1秒观察周期/绝对deadline，不加独立重试或下游长度补偿。42项host检查与独审完成后，single3使用新source `4fbcc232…`、plan `22a7b62d…`、唯一新gate；前两例执行源码/raw/spent完整保留。实际`raw-world/02087.stdout`直接保留`WPRLOG1 20066 1792320890`首行及20066B payload，不需要另建header保存层。
+
+single3于10:45:22.471545Z启动QEMU62519，activity检查10:45:55.764598Z，均在已协调窗口和10:47 exclusive准入内。可信设备日志03:46:17记录`owners=106`，03:46:43记录`RunningGame/256`、`Playing/2`、`worldReady=true`、`commerceReady=false`；首次world采样的钱包为0、容量1000，shopCount=0，payableCount=2000。coins不在后续fingerprint内，不能据此说整个窗口始终为0。无controller输入/支付/手动保存读档/RPC；app与loader可自然载入并在临时overlay写入，不能扩大成native零load/write。
+
+旧exact目标把world、通用commerce和截图捆绑，未见`S1_READY_COMMERCE`或combined，故原报告`objectiveReportable=false`正确保留。旧parser只在combined时填world/commerce，派生`floatGuiOnly=true`因此低估了partial；该字段不表示日志没有world。world观察实际900.001205秒是1.2ms测量尾差，不写严格≤900；总955.816秒未超1200秒预算。无PNG，视觉/触屏/实付/保存/池与手机多人均未由本例代验。
+
+原生有界核对进一步确认：当前Android2.4.0 `PayableManager`构造分配2000容量数组，活跃数另有`currentPayableCount`；`ShopPlanner.shops`是其管理的商店注册表，不是所有可交互对象或放置队列。数组Length为容量、注册表非空也不证明某个目标已激活可付款；shops=0本身不能定案资源缺失。Root对3个核心函数252条机器指令独立核对，ELF `77487143…`；不外推PC/其它版本，不为游戏新增补偿patch。
+
+因此仅修未来私有V3观察器的目的：保留原native world predicate与O(1)输入读取，删除失去依据的commerce门及通用shop/payable遥测。0.0.4源码 `aab44af1…`、net6 DLL `308584c2…`实际编译0W0E，独审`APPROVE_V3_WORLD_INPUT_SOURCE_ONLY`；旧a45/a281和design已归档。V3未注册/安装，不能直接套用旧执行器；未来controller仍须与新marker/事实采集匹配并使用新exact门。world marker只证明世界，触控表面另须`S1_INPUT_SURFACE`及后续观察，Missing即停，无回退/扫描/新count补偿。
+
+QEMU于11:00:56.856Z真实reap=-9；controller62451于11:01:06.673Z实际wait=1，两者分开。Root11:01:56再次核对game/VM0、5582/83空闲，6个AVD backing文件与正常DLL8345/primary checklist efb共8项的字节及检查metadata与before/after一致；不恢复原盘，不声称整个AVD目录不变。资源已实际归还。actual独审及raw-header窄复审为`APPROVE_SINGLE3_ACTUAL_REPORTING_ONLY`，报告SHA `5c10ddb10804b0bb0598b5419591e650dc5162c3fad41dc4ddd8023809a92f6b`；初版“header未落盘”被原始stdout反证，已明确撤回，不新增保存层。
+
+正常路径已将本分支plan逐字镜像为22a7；11:03同身份TTL120续租后232/262到13:03:08Z/13:03:09Z，只改lease/updated_at，183其它row、169plans和primary local checklist保持，独立fresh185rows/169plans与producer after一致。validator0；全局doctor仍旧3E/56findings、232无blocking，非global pass。任务租约继续持有与VM资源已归还不矛盾，不释放进行中任务来表示机器空闲。
+
+完整232仍OPEN：具名真实付款/晋升→原生保存→装载及两池InitPools后生成/攻击/回收兼容场景尚待验证；玩家手机平板、多人长期等单列，不作为唯一关单理由。PR263经济候选在本例未安装，不能借106/world证据宣称其133-owner运行或交易保存通过。本批不发APK、不变更产品版本。私有证据位于`.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/`的`world-prereq-runner/{actual-world-single3,single3-actual-review,case-packet-single3}`、`world-commerce-surface-audit/`及`v3-world-only-{worker,code-review}/`；原设备/用户数据与模型完整流不发布。
