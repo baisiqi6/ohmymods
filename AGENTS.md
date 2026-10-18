@@ -6,7 +6,7 @@ Mac 开发入口 `~/projects/ohmymods`；Windows `C:/Users/ADMIN/Projects/ohmymo
 ## 工作边界
 
 - 根目录 `Main.cs + Patch_*.cs` 是冻结的 Mono 2.1.0 / UMM 历史自用线；除非用户明确要求，不修改、不构建、不部署。直接触及 Mono 源码的任务须追加 Mono 验证。
-- IL2CPP 测试和部署只写独立测试副本；禁止测试或写入 Steam 正式目录 `D:/Steam/steamapps/common/Kingdom Two Crowns`。Mac 各环境共用游戏、共享存档，启动测试前按工作区规范备份，不并行启动。
+- IL2CPP 测试和部署只写独立测试副本；禁止测试或写入 Steam 正式目录 `D:/Steam/steamapps/common/Kingdom Two Crowns`。Mac 测试先备份；默认共享存档的实例不得并行，已核验数据与运行资源隔离后可并行，只串行真实冲突，见 Mac 工作区规范。
 - 正常开发完成必要审查与验证后，自行 commit、push、创建或更新 PR，无需逐次请求用户授权；只提交本任务拥有的改动，使用独立任务分支。
 - 恢复任务先核验当前源码、游戏版本、运行环境和证据。历史“已修复/已验收”只代表当时结果；已推翻的结论注明原因，不无痕改写或继续当作现行依据。
 
