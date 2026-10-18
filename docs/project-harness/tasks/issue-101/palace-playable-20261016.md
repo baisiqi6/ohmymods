@@ -134,3 +134,11 @@ R13首轮42/42作者测试仍漏实际planner路径、preferences备份完整文
 固定11:10Z准入未齐，已正式记录`full-flow-r13/actual-unused-receipt.json`并归还预留资源。R13为0真实plan、0stage、0游戏、0UI、0付款、0保存/返回；没有替换既有隔离DLL6154或正常8345，没有覆盖、恢复共享档。Root11:02:55Z另行只读重核正常六类对象保持，11:07:22Z只把旧私有6154另存一份并回读hash，候选dd987保持；该归档不是安装。剩余scope检查只离线修正，修好也不补记11:10前ready或重放此case。
 
 当前2.4.0 ARM64 `Player.UpdatePayState`静态证据同时纠正了投币操作假设：Holding松开会清timer回None；Transaction松开不继续加币，并可能超时取消；每枚AddCurrency重置timer。没有实时阈值，不能把12次0.2秒短按当作12币，也不能证明单次一秒足够投满十枚。HoldPurchase不覆盖宫廷入口。既有用户S/下键授权单次一秒保持，已询问仅隔离PID内最多五秒投币扩展，尚未收到答复；不把沉默或离线准备通过当授权。后续实际收费、端部镜头、原生保存冷读及返回仍须新case/真实数据/资源交接/独立门及相应人类输入授权。
+
+## 2026-10-18 剩余离线验证器修正通过（11:19Z）
+
+只改私有测试准备的三个residue/scope函数和对应测试：完整扫描runtime、save、home与steam-install实际相对路径；合法三插件仅按精确路径和冻结SHA豁免，错误hash/复制目录及plugins中的伪旁文件拒绝；paid/trip/geometry使用词边界，strip/tripod/unpaid不误拒。保留完整save map/root、bcab/VDF、五分钟fresh及handoff时序。独立46/46、实际函数接线4/4、范围/边界22/22全部通过；Root另实际验证九项并逐文件核对当前hash，P1/P2=0，仅采纳离线验证器。当前plan SHA `b4869fc68ab49ce1653dd0fadc6a711279279f320c99a4333cc76dc4e0394ddd`，stage/controller/identity/policy与旧UNUSED回执保持。
+
+本轮worker实际normal stop。其“临时文件只在worker/tmp”的收据口径过宽：运行独审接线脚本也在reviewer-owned scratch建立并清理自身临时fixture；独审及Root已追加更正，原报告不覆盖。两个反例仅fake/temp字典或测试文件，不是实际运行库中的残文件，不需要也未进行真实清理。
+
+证据：本机`full-flow-r13-review/report-scope.json`、`full-flow-r13/root-scope-function-rerun.json`和`root-offline-scope-adoption.json`。R13仍UNUSED，未补写sourceOfflineReady/Native门，无本轮新游戏、扣费、保存冷读或返回，也未合并安装。生产候选dd987、PR产品源/素材/宿主测试保持；长按投币的人类回复仍待取得，完整实机另排。

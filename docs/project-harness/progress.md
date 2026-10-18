@@ -4,6 +4,8 @@
 
 源码检查点已推送 [Draft PR #265](https://github.com/baisiqi6/ohmymods/pull/265)，head `906b0b6`。完整流程R13在固定11:10Z准入前仍有私有config/home中付费/旅程旁文件漏查，已记UNUSED、取消资源预留，0实际plan/stage/game/UI/付款，未替换隔离或正常DLL。修正只继续离线，不能补标为按时ready或重用过期门；当前原生投币连续按住需求已由ARM64静态语义确认，既有人类单次一秒上限的扩展尚待答复。完整实机与合并安装仍待完成。
 
+11:19Z补充：剩余源scope漏查已离线修完，独立46/46、实际接线4/4与边界22/22通过，Root另核九项实际函数反例，当前P1/P2为0。只采纳测试准备中的验证器，R13仍UNUSED、无Native准入；正常包、宫廷产品候选与共享档无新改动，下一实机需另排窗口及相应输入授权。
+
 ## 2026-10-17 — 钱袋全世界视觉复核（PR #249）
 
 接入3b340713最新主线，精确修复共享源/两测试的3个Android frozen pin。scope88、adapters24、viewport49/20、Android scope88和Adapter1265全部通过；Mac net6/net8与Windows240引用完整编译0W0E，保留39资源的正常私有累计候选已审来源。容量业务未改，实际收币/上限/外观与存读档仍单列玩家待验；合并、安装分别以精确提交和DLL回执留证，不用代码测试替代原生验收。详见 tasks/issue-247/verification.md。
