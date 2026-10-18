@@ -1,3 +1,7 @@
+## 2026-10-18 — Android 133面板实际打开/关闭，诊断收口；银行初始化与完整UI仍未通过
+
+`controlled-economy133-ui-api-20261018-single1` 在独立临时 overlay 中达到 133-owner、world 与严格 touch surface；Root 3 输入/3 PNG：swipe 附近有 moving/位置响应，浮球 tap 后 open=True、ENTER/COMPLETE frame 709、open PNG 实际见面板，再 tap 后 closed PNG 无面板。四个 bank controller 已 Resolved、旧 AOC 首错消失，但 flipY ICall 与 clerk atlas decode 仍 MissingICall，`bankInitializationPassed=false`；不是 NativeBanker/完整 UI 通过。actual 独审 `APPROVE_DIAGNOSTIC_UI_OPEN_CLOSE_ACTUAL_ONLY`（报告SHA `05bc264c…`），Root disposition `ACCEPT_…`。计划 `5384d902…` 正常登记，185/169 readback 与 184/168 保护保持，validator 0、doctor 旧 3E/56 且 232 无 block；QEMU56614/controller56556 真实 reap/wait 0，fresh8/进程/端口保持，无 restore 层。无 intentional pay/save/RPC，自然临时 overlay 写入可能。232/262 OPEN、263 Draft；真实付款/保存/装载与池兼容仍待验，详见[G19记录](tasks/issue-232/g5-main106-preflight.md#g19-ui-open-close-actual)。
+
 ## 2026-10-18 — Android 银行AOC首错调用已移除，实际控制器/池仍待复测
 
 复用现有资源图与基类查询，Android去掉两处缺失AOC getter及重复专用查询，PC完整active源保持。Root独立PC73/0、Android78/0、旧源75/3预期失败；默认net6 D/R各0错误、Adapter1504/0，真实DLL getter调用由2降0。独立源码/host审查通过，候选b9dc/3a39未部署；四名实际加载、池、交易保存及UI可见性仍未验，PR263与262保持进行中。详见[本批记录](tasks/issue-262/verification.md#g20-aoc-getter)。

@@ -1,5 +1,5 @@
 {
-  "case": "controlled-economy133-input-ui-20261018-single1",
+  "case": "controlled-economy133-ui-api-20261018-single1",
   "objective": "world-input-ui",
   "serial": "emulator-5582",
   "avd": "ohmymods_android35_inprocess",
@@ -22,8 +22,8 @@
     "never"
   ],
   "candidateMain": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g20-economy-dependency-audit-20261018/bank-load-bridge-fix/product/release/OhMyMods.AndroidProbe.dll",
-    "sha256": "e0b7f7482a4bdc45cb38c1239efff510000d7c886ecbdc98359566ce59ddef9e",
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/post-input-ui-runtime-triage/bank-api-repaint-diagnostic/release/OhMyMods.AndroidProbe.dll",
+    "sha256": "3e7cdf7c316de3109801dae534140dbd98e96c155c4a06930799f2d8472d86c0",
     "dest": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.AndroidProbe.dll",
     "originalSHA256": "5460efd9652731ce50b3d69d10570f3f599cce1935c007e0afe71a0669da156b"
   },
@@ -130,13 +130,13 @@
     "launchActivity": "eagle.simple.sdks.manage.FakeActivity",
     "addon": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.S1InputSurfaceProbeV3.dll"
   },
-  "resourceWindowSHA256": "ff99392b4a473cec3d68b9d7257d6d740f9126bd7f6fceb058dc72125d4e3c03",
+  "resourceWindowSHA256": "7e379679ad90c072c5528b4eb300e471cb0e72a56708113590327b578023bbac",
   "taskIdentity": {
     "issue": 232,
     "owner": "mac-codex-ohmymods-android-operator",
     "session": "codex-android-profession-archery-20261014",
     "operation": "a7459a58-3446-4856-aaa3-5f02e1115de2"
   },
-  "gateSHA256": "1c6a01f0701833e50b9b767638c587fb9156d956c2e21ea8b41fe90d051d613f",
-  "sourceReviewSHA256": "1772b2db3450b418d1baa36b2ec1fdd55354bb8cc9e16f7051400b5b6aedde26"
+  "gateSHA256": "098c57a6d2a702fe47fa4aaf13c7945b4f679eab06de476ef0728f9f5b100761",
+  "sourceReviewSHA256": "ffc74fc58dd2603923785eaa14eb8b21130be67cf77b9c619104bcdebe27eb32"
 }
