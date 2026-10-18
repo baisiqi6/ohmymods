@@ -1,5 +1,16 @@
 # Android #232 G5：main106 验证准备与环境预检结果
 
+## Android 专项协作路由（2026-10-18 北京时间用户更新）
+
+本节适用于当前移动端适配专项 Operator 的后续派发，覆盖本专项原有的 Worker、Reviewer 模型与时段安排；不改变其他 Operator 的协作规则。
+
+| 北京时间派发时段 | Worker | 独立 Reviewer |
+| --- | --- | --- |
+| 工作日 09:00≤时间<12:00、14:00≤时间<18:00 | Codex subagent，`gpt-6.1-sol`，思考强度按任务选择 | Codex subagent，`gpt-6-astra`，`high` |
+| 其余时段，包括午休、夜间和周末 | OMP DeepSeek Flash，`thinking=max` | 独立 OMP DeepSeek Flash session，`thinking=max` |
+
+方案、决策和实现的独立审查均按 Reviewer 列派发。Operator 负责拆分、共享契约、集成、验证及交付，Worker 与 Reviewer 保持独立；每次派发记录北京时间与实际模型证据，不静默替换。新规则从本次用户指令起生效，已完成的历史审查按其原始模型与证据保留。
+
 2026-10-16 UTC，Mac Max / Codex / Android Operator。产品基线 `351aa35466d710a3858828ed1d79ba984f44977c`；G4 PR #244 已合并。本批只修改本机测试控制脚本并记录证据，未修改产品源码、Mono、版本或发布包。
 
 ## 保留的产品与本批测试能力
@@ -63,10 +74,30 @@ G14实际独审报告1f05494c…，2254稳定pins由Root再次核验；Root真�
 
 G15仅修改私有prepare日志入口与Root prepare pin：保护Latest.log和完整Logs归档，使用原Case.read/snapshot/verify_tree，不遍历或复制其runtime父树。旧错误范围RED保留；新日志7项、阶段reader12项、原UserData1项及六源AST通过，独立20项重跑和76项source pins已核。产品Main c906、cfg ac31、common、runner、writer、所有预算均未改。运行库仍只核四项pin，不声称备份全runtime树。
 
-单次 `swiftshader-main106-20261016-log-scope1` 的正常计划为8816b473c87486defd7a75eb7cc5a55d54aafd7d754e766f7593ec04265b80f7，06:35:28Z已通过正常登记、177/161保护、validator和doctor；本分支plan.md逐字镜像该计划，未裸改checklist/DB。前文15b1、2c8a和b2d960是各阶段历史计划。具体actualGLM单用途门与canonical截止澄清保留，原source/raw/spent不改。
+单次 `swiftshader-main106-20261016-log-scope1` 的正常计划为8816b473c87486defd7a75eb7cc5a55d54aafd7d754e766f7593ec04265b80f7，06:35:28Z已通过正常登记、177/161保护、validator和doctor；本分支当时的plan.md逐字镜像该计划，未裸改checklist/DB。前文15b1、2c8a和b2d960是各阶段历史计划。具体actualGLM单用途门与canonical截止澄清保留，原source/raw/spent不改。
 
 本次在原60秒准备上限内完成原Main/cfg、Release、精确logs与UserData的host/device备份及读回。候选pair实际安装读回；当前PID的新鲜日志中106注册顺序、组件创建、preloader→loader→main目标均达到，main回调为23:38:04，零UI操作。唯一PNG已人工查看：黑底加载条，未见world、面板或浮球；有效PNG和main回调不代表画面就绪、可游玩或触屏验收，不据单帧定案图形问题。
 
 游戏停止后Main/cfg由唯一pair helper恢复并独立读回5460efd9/9758bda8，Release字节/Mods列表/四运行库/APK核对保持，UserData文件及目录差异为空。guest sync ACK不提升为再启动持久性证明，不声称日志或整环境恢复原样。Root真实wait返回-9并于06:38:25Z记录回收；父Root进程exit0与case/facet结果分开。06:39:08Z host后快照无VM/game/5582–5584监听、PC正常DLL和localChecklist保持，工作区当时clean。资源已提前归还，未追加病例。
 
 本次非作者actual独审为verified_single_case_startup_and_scoped_restore，报告SHA1f210e1c…、2665稳定pins由Root再次核验，mustFix=[]只表示本范围证据一致，不是玩法或完整native验收。允许的33文件device备份及host证据原样保留；Latest.log改变的原件与本次版本都已留证，运行后Logs归档未再次inventory，不声称全文件系统零残留或日志全恢复。完整#232继续OPEN；九值运行读取/触屏、实射/转职、完整Holder/sync/FX池、保存事务/换岛读档、手机平板及多人长期仍未验收。本轮不发布APK/loader/game，不把启动目标通过写成完整移植完成。私有证据：`.local/tasks/android-profession-archery-20261014/g15-loader-log-scope-20261016/`。
+
+## 2026-10-18 UTC G16–G17：APK 核对职责与浮球观察
+
+G16 的单次 `swiftshader-main106-20261016-gui1` 已在 prepare 内完成33文件的 host/device 备份；随后 runner 重复计算1.9GB APK的完整SHA，在原30秒上限内超时且 stdout/stderr 为空。未到 pair 写入、游戏或截图。独立实际审查报告 `65586cad…`、1832项 pins 已核；Root真实 wait=-9，原失败、备份、raw与spent门保留，未把 restore unknown 提升为恢复证明。底层读取延迟原因仍未知，不据此认定 Mod 或资源故障。
+
+G17 在私有测试控制器的责任处去掉 runtime 两次重复完整 hash：prepare 只做一次完整 APK SHA，并在其前后及 runtime 安装前、恢复后核对同一 checked 安装路径与普通非链接文件的完整 identity。字段含 device/inode/size、完整 mtime/ctime、mode/uid/gid；缺失、变化或读取异常均拒绝，不退回重算或重试。`apkSame` 与结束后完整SHA保留 null，独立记录 `identityHeld`，不冒称末次全字节校验或对抗 root 篡改证明。固定总预算、唯一 pair helper、GUI单图/下一fresh采样和产品候选均不改。54项源码用例与6项AST检查、独立源码审查已完成；旧重复hash红例保留。
+
+新单次 `swiftshader-main106-20261016-gui-apk1` 使用原 c906 Main、ac31配置及351aa354产品源码。33文件 host/device 备份逐文件核验，实际四条 push→sync→readback 链分别完成候选安装和原 pair 恢复；另行读取原 Main `5460efd9…`、cfg `9758bda8…`。Release原存档、Mods清单及四运行库保持。prepare一次完整APK SHA为 `9c6d65d1…`，四阶段原始stat字节一致、`identityHeld=true`、APK写入0；没有结束后的重复完整hash。
+
+本次 fresh日志达到106有序注册、组件创建、preloader→loader→main，以及component/main之后唯一 `OHMYMODS_FLOAT_GUI`。正向候选只取一张PNG，再用下一次既有可信PID/fresh采样确认。实际PNG为1280×720、8809B、SHA `f96d84af456e0bb825864221c6fe84acd61605ae58aeb40a78097e0af1bd1c66`；人工及独立查看均见黑底、加载条和小金色浮球，未见世界或展开面板。没有tap/swipe；日志、浮球可见与画面/触屏/玩法验收分别记录，不凭单帧定案图形根因。
+
+UserData原19个文件字节保持，无 missing/changed；新增 `KingdomEnhancedMod/ModSave/hero-identities.v1.json` 及其两级目录。本次diff仅采新路径的存在/类型，未读取新JSON payload，大小、SHA、schema及付费身份持久性未知。状态保持 `unknown-preserved`，当前文件与备份均保留，阻止下一自动case。精确351aa354源码表明既有成功加载后的 ConfirmBaseline→Commit→Store.Save 能创建该路径，与本次 loaded:fresh 日志一致；这只是写入责任线索，不代替内容或重启验证，也不据六个开关false新增 Enabled 守卫或删除旁档。
+
+Root于03:30:40Z真实 wait=-9并记录reap；父进程exit0与case各facet分开。03:33:02Z host后快照无本案VM/game、5582–5584无监听，PC正常DLL和localChecklist按当时基线保持。资源已提前归还；主Operator后来按用户授权于03:43:34Z安装新正常Mac DLL `4a388011…`，不将这一已知后续变更误报为本例保护失败。本例仅证明 scoped pair 恢复，不声称日志或整个环境恢复原样。
+
+本次独立实际审查为 `verified_gui_observation_pair_restore_with_userdata_delta`，JSON报告SHA `c93b74a8d474310e89a6ba82ea7cac75c9ac225b4dcada97f9d00ce28fb72898`，`mustFix=[]`；2689稳定pins经Root再次核验无漂移。`aggregateNativeOrGameplayPass=false`、`entireEnvironmentRestored=false`，旧失败和旁档缺口不改写。该审查早于本专项新路由指令，保留其原模型记录。
+
+正常入口在原owner/session/operation下完成续租和精确计划登记：当前计划 `f1e957521f75b167205cd187c3f6d3dd519b232bfa4fc75850444b8e2d34faf3`，本分支plan.md逐字镜像；原8816、75a7等为各阶段历史计划。03:27:52Z续租到05:27:52Z；续租保持全部167计划，登记只改232计划，182个其他任务对象及顺序、166个其他计划保持，validator通过。全局doctor实际为3 errors/0 warnings，均为已有247/251问题，232无blocking finding；本批只按精确无关finding集合核验，未修其他任务，也不报告全局全绿。私有管理员脚本增量经独立审查与正反例验证，不修改产品源码。
+
+完整#232因交付范围尚未齐而继续OPEN，不发布APK/loader/game或变更版本。下一组先核对已合并共享保存差异，再在新计划/资源窗口内最小只读分类新增旁档；普通弓箭/弹丸池、职业付款/保存/池重建按真实依赖推进。九值运行读取与触屏、攻击/转职、完整Holder/sync及FX链、换岛读档、手机平板、多人长期仍待验。G17只验证旧c906/351aa354候选，不将后续主线f60a83d6产物视为已装机。私有证据根：`.local/tasks/android-profession-archery-20261014/g17-apk-verification-scope-20261016/`，actual在`native-single1/`，本轮登记与增量审查在`resume-20261018/`；原始设备、游戏和模型完整流不随文档发布。
