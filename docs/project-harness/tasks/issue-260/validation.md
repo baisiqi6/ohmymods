@@ -59,3 +59,49 @@ D1 R2 只增加诊断信息，实际原生与托管栈均定位到 `BeforePop` �
 D1 实际进程已回收，`2026-10-18T12:28:09.521574Z` 再次核验正常六类闭包、DLL、存档及模板保持，未恢复或替换正常文件。D1 的一次私有保存发生在控制器自动结束前，只是诊断证据，不能作为 C2 输入。
 
 C3 是新的功能验证 case，尚未运行。原 C1 功能失败、旧严格 UID 比较失败均保留；原生 UID、层级顺序、Z 与冷却写入责任已经独立取证，新的结构比较规则单独审查，不声称完整 3133 对象或整份存档无损已证明。A9 正准备正确的原版自然登船路径，首次生成、旧岛恢复、地图详情、保存及冷读仍是合并安装前的待验项目。
+
+## 2026-10-18 15:11 UTC：实际 C3/A9 结果、暂停与恢复
+
+本节依据本机已固定日志、输入与退出回执重建事实。原隔离工作树路径在暂停后缺失，原因未知；受管入口已从同一 `7d65a29` 分支重建新工作树。此前两份未提交的事实更新没有按原字节找回，不把本节称为原文件恢复；正常 DLL 与存档未因此回写。
+
+C3 已使用累计 net6 `4bc8ea13…fe37e` 与原存档副本 `2c62f885…e737` 实际运行。前像、合法 seed 交接和原 pop 后完整 scope 通过，计划 `creates=8 / markerOnly=0 / rejects=0`；placement 在收集 Tile 与占用前因 `LevelEdges invalid` 停止。后续发生一次私有保存与采样，`sceneSteedSpawn=0 / markerArray=0`。旧岛恢复功能失败；不能称测试止于保存前，也不能把这个后像作为 C2 输入。
+
+当前静态证据确认 `IntRange` 的 8 字节 inline payload 及 `Level._levelEdges` 生成写者，不支持把其 getter 错误装箱作为本次结论。原版 `World.OnLevelLoaded` 在加载地面后重算 `worldBoundsStrict`，`worldBounds` 再向内缩 8；它们不取 Level 生成 cache。C3 没有实际 min/max，故没有定案为 0/0、坏档或单纯时序。runtime 子字段 raw offsets 与分析器归一化坐标也不能混为一谈。
+
+A9 用 A-only `3fb35bfa…fc9`、未派生旧备份 `cb1e545a…deca` 实际加载 campaign0/land0，原版母船、P1、选中 SailPosition、乘客和 NaturalReady 均成立。Root 没有执行付款、移动或地图选择；source90 到界后控制器回收进程，未 Sailing/Loading/到 land11/请求保存，私有 fixture 保持。它没有到达首次生成验证，不记为 A 产品 PASS/FAIL。
+
+两次游戏均已实际回收。用户于 14:35 UTC 要求暂停后，完整 fresh 回执确认正常六类闭包 `badabb0908…26b9f`、DLL `8345f086…9d9e1b`、存档 `2c62f885…e737`、模板 `8b9fc0ab…261287` 保持，游戏/VM 零；没有正常文件恢复、替换或安装。用户随后明确恢复任务，指定 GPT-6.1 Sol 内置 worker；14:49 UTC 实际正常 DLL/存档 hash 再核保持。
+
+旧 D2 R1/R2 均未进入 Native，独审保留了真实 producer 与 collector 的身份格式/LIVE 输出不匹配、完整 fence 与读取责任等阻塞，不能以其 mock 绿色结论放行。新 D3 在独立私有源包中只使用一个 candidate-owned bridge，probe 调该 bridge，读取既有 raw slot 和 TryPop token witness；不调用可懒建岛屿的 `CurrentIsland/GetIsland`，不扫描 Tile/Bridge、不生成或触发保存。WORLD/PHYSICAL 仅是边界诊断对照，不能证明最终 placement 安全。双 TF 累计构建与实际源方法日志重放已交独审，尚未运行。
+
+A10 新包为 runner-only 首次生成验证，准确原版 typed runner 保留 Prepare/flags/yield/Boat/Game 链，跳过货币交易及 Pay bookkeeping，不作为付款验收。其 R1 缺 parent 健康屏障与真正调用前负控，已由新 worker 修正并交独审；未来 Root 必须真实核验七项 bootstrap、进程与私有目录后才能发布单次健康许可，许可文件格式本身不证明游戏初始化健康。当前无实际许可、stage 或运行。
+
+存档保护工具 V2 R2 独审只接受固定 C1-only 有限范围：137 旧结构 exact core、原生 Z/createOrder/cooldown 约束及权益历史事实分别记录；39 负控与 5 拒写检查通过。它仍禁止对象增量，不能换后像 SHA 冒充恢复后比较器。C3 实际对象总数 3133→3132，少一个 Coin 类别尚未归因；全 3133 与 wholeSave 保持未证明。8 个候选设施的资源闭包含 10 个 Persistent（Sleipnir 两只 Fireflies 另有持久化），后续须以 clone 前冻结计划及实际持久化责任核对新增对象与窄 marker 差异，不能只按总数判无损。
+
+PR #264 保持 Draft、Issue #260 开放；旧岛实际恢复、原建筑保持、首次生成、详情剪影和真实保存冷读仍待通过。代码、host、Native、安装与玩家验收继续分别留证。
+
+## 2026-10-18 16:19 UTC：D3/A10 实际结果与占地修正
+
+D3 的新单次测试在 bootstrap 前被其测试控制器中止。控制器对非身份 console 使用全局 `fault` 子串判断，误中了真实加载日志中的 `default` 内存映射行与 `MTLCreateSystemDefaultDevice` 符号行，共 69 条。保留原失败回执，不把它算成边界采样、原生加载通过或场景根因；私有存档字节仍为原输入 `2c62f885…e737`。D4 在新私有包修 origin/event 分类并重放完整真实日志，仍待独立审查及新的单次运行。
+
+A10 实际通过七项 bootstrap，Root 新鲜健康回执和原子单次许可后，唯一 typed runner 调用产生原生登船 flags 与 `SailingAway`。120 秒内没有选岛后的 `Loading/Playing11`，零测试保存、零采样。Root 只观察并 Raise 窗口，没有按方向键或选岛。用户随后指出航行画面需要左右键才出现地图选项；本次测试步骤不完整，不能据此认定航行故障。后续 A11 必须使用新 case，补有界自然方向键交互，不放宽计时或重放已消费 A10。
+
+两个控制器及各自子进程均实际退出并回收；16:03 fresh handoff 证实正常六类闭包、模板、游戏/VM、端口、原 ADB 与 IPC 边界保持，未安装或恢复正常文件。17:00:19 原任务租约随后通过官方同身份入口续至 18:16:19，184 其他任务与 169 计划保持，独立读回与官方 after 一致；validator 通过，原 doctor 3 errors/56 findings 未冒称全绿。
+
+另有一个独立、已确认的 source predicate 缺口：原 `CollectOccupancy` 聚合未标记装饰父组的整树美术 bounds，实际方法 host 反例会排空整段地面。修正保留 marked 对象原保护路径；unmarked 对象只逐个保护直挂的有效实体 Collider，再递归保护后代，未知碰撞区间拒绝恢复。旧方法同一 25 案中 11 案失败，新方法 25/25 通过；policy/transaction、scope 与独立重跑均通过，独立审查仅接受 source/host。实际 C3 更早停止，本缺口是否触发当前存档仍 Unknown，不能取代尚缺的边界采样。该改动尚未进入真实恢复候选，D3/D4/A10/A11 固定诊断包均不夹带它。
+
+当前仍未证明旧岛恢复、首次生成、详情剪影、恢复后保存冷读或玩家效果；PR #264 保持 Draft，Issue #260 保持开放。
+
+## 2026-10-18 16:54 UTC：D4/A11 实际结果与资源边界修订
+
+用户最新资源规则取代此前未开始的全局 Native/VM 排队和跨专项整轮归还前置。新私有 launcher、checker、许可发布器及 fresh 只移除与本任务无交集的 QEMU/ADB 活动和模拟器端口空闲判据；数据闭包、真实 owner/PID/birth/argv/Filer、未知同游戏冲突、协议 partial/critical、只停止自有 child 等保护保留。独立重跑 113 项测试及 15 组实际函数/AST 控制通过，独审接受仅 source/host。既有同名 Mac 实例尚无足够证据保证私有数据与 CUA 画面归属，仍拒绝未知冲突；这不代表互斥锁文件存在或进程存活就整轮持锁。没有新建全局调度器，也不操作 Android AVD/ADB。
+
+D4 使用新单次 case、原累计诊断候选 `756f5bf0…42012` 和原空岛副本。七项 bootstrap 全部成立，实际 controller `71977` 与 child `72032` 随后因 `BEFORE status=Unknown reason=after-fence` 停止；真实回执 SHA `9f6cf8b5…60665`。尚未输出 BEGIN、边界各 channel 或 END，零测试保存、零设施/marker 写入，私有存档仍为 `2c62f885…e737`。控制器按未知拒绝是正确的，不能通过放松它补成成功采样。
+
+新独立调查绑定当前 interop 与反编译原件，确认 `currentReign` 是每次 getter 都调用 `il2cpp_value_box` 的值类型。D3/D4 诊断却比较并编码这个临时 box 指针；产品 core 本身用 campaign、reign index 和 landData 等真实身份，不比较 box。原 host 将 getter 桩成固定引用，故未覆盖该缺口。D4 的合并失败原因未记录具体变化字段，这仍是一个明确的诊断源码错误，不能称唯一实测差异。D5 仅在新私有包移除该伪身份，保留全部稳定身份和未知拒绝，并增加真实 getter 语义的旧红新绿及字段漂移负控；不提前修改产品边界或重跑已消费 D4。
+
+A11 使用 A-only `3fb35bfa…fc9`，实际七项 bootstrap、新鲜健康回执及单次 273 字节原子许可通过，唯一 typed runner 产生登船 flags 与 `SailingAway`。按用户指引，Root 在实际 SAILING-OBSERVED 后按右键 100ms，画面从出航封面切到原生世界地图，证明上一轮遗漏这一步。随后两次鼠标点击左侧 A（第二次按住 100ms），新截图均未见岛屿选中、详情或确认；120 秒截止，实际回执 SHA `745c0ee1…ecf5b`，没有 Loading/Playing11、测试保存或采样。没有发送左方向键、下方向键、付款、游戏内移动或 API 确认。原生选岛接线与命中区域仍需核对，不能直接认定岛未解锁或原版不支持鼠标。
+
+Root 事后独立确认 D4 两 PID 和 A11 controller `73584`/child `73697` 均不存在，正常六类闭包 `badabb0908…26b9f`、正常 DLL `8345f086…9d9e1b`、正常存档 `2c62f885…e737`、431 文件模板 `8b9fc0ab…261287` 保持；A11 私有 fixture 仍为 `cb1e545a…deca`。原始失败、旧 prepared gate 与源码包原件保留，新规则下旧未消费 gate 标为 UNUSED。没有替换、恢复或安装正常文件，Mac CUA 短焦点已实际释放。
+
+旧岛恢复、首次生成、137 旧建筑及权益的恢复后保存保护、地图详情和真实冷读仍未通过；C2 仍不能从这些失败或只读 case 派生。当前占地修正仍仅 source/host 通过，尚未进入实际恢复候选。Issue #260 开放、PR #264 Draft 的边界不变。

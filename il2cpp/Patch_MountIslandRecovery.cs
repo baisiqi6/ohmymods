@@ -1241,16 +1241,20 @@ internal static class MountIslandRecoveryRuntime
                 bool marked = persistent != null || payable != null
                     || child.GetComponent<ForestItem>() != null
                     || child.GetComponent<ScatteredObject>() != null;
-                bool hasBounds = TryCollectBounds(child.gameObject, out float minX, out float maxX);
-                if (hasBounds)
-                    exclusions.Add(new MountIslandRecoveryInterval(minX, maxX));
-                if (payable != null && payable.gameObject != null)
+                if (marked)
                 {
-                    Rect overlap = level.GetOverlapRegion(payable.gameObject);
-                    if (float.IsFinite(overlap.xMin) && float.IsFinite(overlap.xMax))
-                        exclusions.Add(new MountIslandRecoveryInterval(overlap.xMin, overlap.xMax));
+                    bool hasBounds = TryCollectBounds(child.gameObject, out float minX, out float maxX);
+                    if (hasBounds)
+                        exclusions.Add(new MountIslandRecoveryInterval(minX, maxX));
+                    if (payable != null && payable.gameObject != null)
+                    {
+                        Rect overlap = level.GetOverlapRegion(payable.gameObject);
+                        if (float.IsFinite(overlap.xMin) && float.IsFinite(overlap.xMax))
+                            exclusions.Add(new MountIslandRecoveryInterval(overlap.xMin, overlap.xMax));
+                    }
+                    if (marked && hasBounds) continue;   // 对象整棵子树已被 bounds 覆盖
                 }
-                if (marked && hasBounds) continue;   // 对象整棵子树已被 bounds 覆盖
+                else if (!TryCollectDirectColliderBounds(child.gameObject, exclusions, out reason)) return false;
                 if (!CollectOccupancy(level, child, exclusions, out reason)) return false;
             }
             catch (Exception e)
@@ -1260,6 +1264,46 @@ internal static class MountIslandRecoveryRuntime
             }
         }
         return true;
+    }
+
+    // Unmarked art is not occupancy; each direct solid collider still protects its own interval.
+    private static bool TryCollectDirectColliderBounds(GameObject root,
+        List<MountIslandRecoveryInterval> exclusions, out string reason)
+    {
+        reason = string.Empty;
+        try
+        {
+            Collider2D[] colliders = root.GetComponents<Collider2D>();
+            if (colliders == null)
+            {
+                reason = "occupancy direct colliders unreadable";
+                return false;
+            }
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                Collider2D collider = colliders[i];
+                if (collider == null || collider.gameObject == null)
+                {
+                    reason = "occupancy direct collider unreadable";
+                    return false;
+                }
+                if (!collider.gameObject.activeInHierarchy || !collider.enabled || collider.isTrigger) continue;
+                Bounds bounds = collider.bounds;
+                if (!float.IsFinite(bounds.min.x) || !float.IsFinite(bounds.max.x)
+                    || bounds.max.x < bounds.min.x)
+                {
+                    reason = "occupancy direct collider bounds invalid";
+                    return false;
+                }
+                exclusions.Add(new MountIslandRecoveryInterval(bounds.min.x, bounds.max.x));
+            }
+            return true;
+        }
+        catch (Exception e)
+        {
+            reason = "occupancy direct collider read failed: " + e.GetType().Name;
+            return false;
+        }
     }
 
     private static bool TryPlanPlacements(MountIslandRecoveryPlan plan, PlacementModel model,
