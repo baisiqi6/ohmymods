@@ -124,3 +124,13 @@ N6 于10:30:22Z启动PID56817，历史trace6154、helper/observer及实际OS身�
 完整NoTrace实测首版脚本R12经独立反例审查为REQUEST_CHANGES：备份路径、物理/alias启动身份、日志正向来源、后续case生命周期、源码SHA绑定及窗口/进程门等存在缺口。作者19项绿色测试没有覆盖这些真实反例，故整体封存为被拒提案，未运行实际planner/stage/launch，也不改生产修复。R13只从已验证N6/R11做首程F1最小机械准备；F2必须继承真实已付入宫并原生保存后的postimage，再单独核验冷读返回，不预造玩法PASS或自动连开。
 
 本机证据：`native-n6/post-native-audit.json`、`native-n6/postimage/`、`full-flow-preparation-review/`、`full-flow-r13-decision/`。受管#101租约已按真实同owner/session正常续至12:43Z，其他184行及169计划保持；续租不是Native或安装许可。正常包/存档未改，完整收费—保存—冷读—返回及端部镜头仍待实际验证，未合并安装。
+
+## 2026-10-18 源码 Draft 与实机窗口取消（11:12Z）
+
+已对221项owned路径逐文件核验并单独提交`906b0b652b0bdf8ca37e6161cbdc324f1130da1c`，创建并读回 [Draft PR #265](https://github.com/baisiqi6/ohmymods/pull/265)，base仍0275867，未合并、未关#101、未安装正常包。除进展/任务记录外，生产源、素材与测试文件保持最终独审hash。主目录10项非本任务改动、旧工作树index均未触及。正式版本账未变。
+
+R13首轮42/42作者测试仍漏实际planner路径、preferences备份完整文件路径重复拼接、耗时快照后跨窗unlink、源scope缺完整性、R6模型证明错接、准备hash漏plan/stage及旧零付款UI合同等缺口，独审REQUEST_CHANGES。一次集中delta后45/45及四项真实接线反例转绿，实际R6证明与六源hash绑定修正；但私有config与home内的宫廷付费/Trip旁文件仍漏检，两个独立反例未关。两轮worker均到有界cap后aborted，报告“complete”不作为完成证据；旧报告与反例版本化保留。
+
+固定11:10Z准入未齐，已正式记录`full-flow-r13/actual-unused-receipt.json`并归还预留资源。R13为0真实plan、0stage、0游戏、0UI、0付款、0保存/返回；没有替换既有隔离DLL6154或正常8345，没有覆盖、恢复共享档。Root11:02:55Z另行只读重核正常六类对象保持，11:07:22Z只把旧私有6154另存一份并回读hash，候选dd987保持；该归档不是安装。剩余scope检查只离线修正，修好也不补记11:10前ready或重放此case。
+
+当前2.4.0 ARM64 `Player.UpdatePayState`静态证据同时纠正了投币操作假设：Holding松开会清timer回None；Transaction松开不继续加币，并可能超时取消；每枚AddCurrency重置timer。没有实时阈值，不能把12次0.2秒短按当作12币，也不能证明单次一秒足够投满十枚。HoldPurchase不覆盖宫廷入口。既有用户S/下键授权单次一秒保持，已询问仅隔离PID内最多五秒投币扩展，尚未收到答复；不把沉默或离线准备通过当授权。后续实际收费、端部镜头、原生保存冷读及返回仍须新case/真实数据/资源交接/独立门及相应人类输入授权。
