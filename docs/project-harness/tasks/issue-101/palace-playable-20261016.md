@@ -154,3 +154,16 @@ R7独立20组mock及Root复跑通过；新实际GLM5.3/max/非fallback/normal-st
 两peer实际Native quiet覆盖12:45–13:40Z；Android本轮12:15已启动，Root等其实际reap/postflight交回后于12:40Z起独立fresh，不按clock推断归还。F1 exact须12:44前、stage/Popen12:45–12:50、最长1200秒且13:10硬终止。F2正在纯离线准备，仅可使用实际F1自然10币/settlement/到达宫廷/原生菜单保存/owned reap及配对postimage，再新fresh/exact冷读与免费返回；缺任项不得自动续跑。尚无R14真实plan/stage/game/UI/付款/保存返回，PR265仍Draft，未合并、未关#101、未安装正常包。
 
 本机证据：`full-flow-r14-review/final-delta.json`、`pay-ui-r4-review/final-delta.json`、`lease-renewal-r7-review/report.json`、`lease-renewal-r7/receipt.json`、`full-flow-r14/source-review.json`、`offline-ready.json`及`root-ui-source-adoption.json`。构建、离线审查、安装与实际玩法各自留证。
+
+
+## 2026-10-18 R17 真实十币成功，来源捕获阻断（13:13Z）
+
+本节替代上节的未来R14排程。R14的实际plan已产生但Native审查超时、没有stage/游戏；R15源码未及时交齐；R16源码报告真实12:55:03晚于12:55，冻结在写入前拒绝。三者均封存UNUSED，未补写就绪/游戏。随后R17只机械重排已审脚本与UI：实际66/66+接线5/5、UI0W0E/65/65+15+18通过；Root12:58:51真实freeze、13:07:53采纳本轮GLM5.3/max/nonfallback/normalstop精确Native审查。源码/产品保持dd987，输入授权仍来自用户5秒原文。13:08:59的一次提前preflight在阶段时窗检查拒绝、未写stage.started；13:09:03准时重做仍未消费的阶段后，13:09:12隔离安装完成。正常19文件备份、原6154 baseline/retired双副本均验证；未写正常版。
+
+13:09:20Z真实启动PID31276/controller31239，bootstrap及OS身份通过。Root短步接近入口后仅一次连续下键4.5秒（实际down/up4.500805秒、确保松开），原生OnPay得到floating10，frame4041结算钱包84→74；同trip51407aaf-22e4-4e42-80d9-4f9b462e4d49 claim8→12，来源TriggerSave唯一callback raw72。随后明确失败`physical paid source refused: no-durable-capture`，尚未选择目标12、没有global-only72或实际arrival。UI仍显示“正在前往天朝”，这也记录为故障表现，不能当实际出行。
+
+失败后不重复付款，不补造proof、不退款、不恢复、不调用保存菜单。Root13:12:31只向核验过的owned controller发SIGTERM；实际child143、controller1/receivedSignal15是主动停止结果，不记游戏成功。13:13:08Z配对postimage封存：manifest SHA `c8f774bd843c2c530822a10d60f9177975f5dcce37f49da07002bfddf74f1860`；actualpostflight SHA `34468997309e7f8f13f6bbf5294eb07b534e844103a5f024316ef4f4bafce8f2`。normal6完整hash保持、game/VM0、5554–7/5582–3空闲；正常DLL仍8345、共享档保持，没有覆盖/恢复。资源已实际交还两peer，本轮不再Native。
+
+真实Paid原始bytes经现有production BCL codec只读解析：input/sourceBound SHA `ef4af3333c7680a5045ccfb62be7f63f57c79a58f7923e21b75378f9e8b1e4bd`，PaidObserved/revision3、onpay/settlement真、capture/file proof缺；nativeSuccessProven=false保持。已确认Paid owner与native HeavyShield GUID一致，CoinCourier使用独立GUID，不当成冲突。`no-durable-capture`发生在ReadPhysical之前；共享Save/Coin marker路径有本次staged证据，Palace自己的capture/Wallet/Prefs首次拒绝尚无观测。raw land=-1与既有effectiveLand解析差异正在静态核实，仅为候选，未当已证根因或直接放宽校验。
+
+回执见[本轮实机记录](receipts/native-r17-payment-blocked-20261018.json)，原始材料在本机`.local/tasks/palace-resume-20261017/full-flow-r17/`及`full-flow-r17-review/`。原始启动Error10/Exception1/skill-pool4与本case previous逐行同文同计数，不写“无错误”。本次只确认自然十币/结算/source回调，不能升级两端画面、宫廷保存、冷读或免费返程。PR265仍Draft、#101开放，未合并安装正常版。
