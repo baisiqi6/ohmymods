@@ -120,3 +120,18 @@ Root 独立核对八份完整 PC active 源逐字相同，九个原 GetPixels32 
 独立 OMP DeepSeek Flash/max（无fallback）源码/host审查批准 `APPROVE_SHARED_OWNED_PNG_SOURCE_AND_HOST_ONLY`；采纳精简建议后仅变 Android 测试，Root重新构建运行上述四组及商店旧源反例。方案审查修正过点数和 Android fixture 接线，未引入无用 Compile。上节807的初始化观察只适用于当次产物，本次抽取后的 Bank/Shop 仍需新的具名 Native 兼容场景；真实助手、交易补货、保存装载与池重建继续待验。PR263保持Draft、#232/#262开放，手机平板、多人和长期玩法单列，不发布游戏或APK。
 
 本机证据在G19 `resume-1453/shared-pixel-adaptation/`（source audit、正式产品绑定/IL、root-host-final、Adapter），独立审查在同级 `shared-pixel-code-review/`。15:50正常入口仅续租232/262至17:50:19/20Z，183其它rows/169plans保持，validator0；Root15:50:54Z完整独立readback一致（回执 `543be915…`），旧doctor3E/56非全局通过。该续租未改plan/runtime或扩大运行权限。
+
+<a id="g20-ownedpng-native"></a>
+## 2026-10-18：新候选的七张图集与固定像素原生观察
+
+单次 `controlled-ownedpng133-bank-shop-isolated-20261018-single1` 在 SDK read-only 临时 overlay 装入默认 Main `0cd53939…`（0.0.30）及私有 AddOn `cf3fdf5b…`（0.0.6），58键受控配置保持、没有新APK。实际读回校验后达到133注册、world与严格surface；四名bank controller解析、八模板/同步池30120..30127及byId/byName缓存匹配，四张图集各32个精灵存储引用。当前fresh没有先前AOC/flipY/图集decode及Unknown错误。
+
+新私有组件在原one-shot位置先读四张银行纹理，再对三类商店各调用一次现有 `ShopV2Art.TryGet(kind,0)`；这是主动资源生产入口，可加载/校验/创建Sprite并写cache，失败会置Unavailable，不能称整体只读。日志没有preState，故不归因该call首次触发Load。三类cache实际Ready=1、sprites为20/26/10，返回值与cache0的managed引用一致。七张纹理本轮均为真实ARGB32；每张一次额外公共helper读回、一个非对称不透明RGBA点与一个只比较A0的透明点，共十四点与按输入PNG SHA固定的独立oracle完全匹配，验证了这些样本的通道和左下行序目标。Native RGBA32没有样本，仍只具host证据；未逐路径验证其余七份产品consumer，更不代表全图像素、renderer可见性或完整ABI。
+
+按用户最新隔离准则，本机新candidate仅将两处全局“其它KTC/QEMU即拒绝”收窄为自己的AVD/serial/端口、物理FD、配置和六镜像身份、原ADB88434身份；未知VM不放行，既有八项SHA/metadata、只own PID/start/exe停止、spend门和预算保持。未改旧spent/live代码，未新增调度框架/全局锁。实际 `lsof +D` 能检出目录外hardlink/symlink持有者，故撤回无依据的nlink限制；本机exit1+数字PID也按占用处理。66项host、7项真实小fixture文件/5582端口边界通过；SDK `-no-window` 与定向ADB通道避免桌面输入互斥，未声称本轮恰有两端同时运行或做性能比较。
+
+Controller90803于17:19:34.900031Z实际wait=0，QEMU90872于17:19:25.747426Z实际reap=0；observer按原120秒预算停止（120.11s、events1）。Root17:20:19.503749Z独立fresh八项字节/metadata与resume原件及源码before/after相等，own PID不存在、AVD无holder、5582/3释放、原ADB同身份，无restore层。本次Root0输入/0额外PNG，controller仅1张基线；原图仍暗黑，仅日期HUD/小浮球/月水面可见，未见玩家/助手/商店，不记视觉通过。app自然load与临时overlay写入存在，未执行有意付款、保存装载、RPC或池重建。
+
+实际结果独审仅批准 `APPROVE_NAMED_ASSET_PIXEL_OBSERVATION_ONLY`（report SHA `d08a0d7444ee67fb…`），Root接纳同一窄范围；新source及exact数据分别独审，正常计划 `2105140e…` 已经受管登记并fresh读回，184其它row/168其它plan及262计划保持，validator0；旧doctor3E/56不是全局通过。没有复用撤销的全局Native排队窗口或旧运行凭据。PR263继续Draft、#232/#262开放；真实身份付款→原生保存装载、职业/弓弩/助手生成攻击回收及池重建仍属必要兼容事项，手机/平板、多人长期验收另列。
+
+证据：G19 `next-bank-shop-isolated-case/actual/`；fresh log SHA `d66976cf…`、Root最终裁定 `dd3571f9…`、postflight `7fb38c36…`，代码/边界测试与分组审查在 `resume-1453/` 对应目录。不分发游戏、APK、interop或玩家存档。原银行私有读取副本已清理，所有本批生产读取继续复用唯一helper。
