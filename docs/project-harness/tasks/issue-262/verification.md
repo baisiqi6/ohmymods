@@ -68,3 +68,17 @@
 本次只确认错误调用已从真实Android产物移除；当前Android四名控制器实际加载、助手池初始化/复用、业务补货/扣款、保存/装载/换岛仍未由新候选验证。UI源码尚无已定根因，采用私有编译隔离的首个Repaint ENTER/COMPLETE诊断准备下一有界案例；生产UI没有猜测改动，Draw完成也不代替最终像素。其它引擎API只按具名证据继续核对，不用缺少字符串推断所有平台必然故障。
 
 本地证据根为G19的 `post-input-ui-runtime-triage/`（worker、源码审查、正式产品与真实IL），旧e0b候选和失败原始包均保留；不发布游戏、APK、interop或用户存档。手机/平板、多人和长期玩家验收继续单列。
+
+
+<a id="g20-bank-ui-api"></a>
+## 2026-10-18：四名原生控制器与面板开关已观察，模板初始化仍未通过
+
+新单次 `controlled-economy133-ui-api-20261018-single1` 在独立临时overlay实际加载私有Main `3e7cdf7c…`。它包含同一银行修复及仅限诊断的首个Repaint/七项ICall读取；默认Release `b9dc46c8…` 与Debug `3a397a10…`仍未部署，生产UI源码 `abcd27cf…`保持。58键配置及V3沿用原件，没有安装新APK。
+
+fresh日志实际解析了banker、bamboo、deadlands、norselands四名controller；旧AOC getter首错不再出现。这解决上一节“新候选四名实际加载未证”的局部缺口，但随后在EnsurePrefabs→EnsurePools→PoolManager.Init触发 `SpriteRenderer::get_flipY_Injected` 缺失，另有clerk图集decode的 `MissingIl2CppInternalCallException`，现有catch未记录具体成员。七项只读resolve结果中Animator runtime-controller为true，AOC getter、flipY get/set、avatar setter、applyRootMotion setter、updateMode getter为false；未调用返回指针，非零不代表ABI或可调用性。模板、池、八助手与业务补货没有通过。
+
+Root依次执行一次300ms swipe、浮球open和close，共三次输入/三张PNG。首次Repaint ENTER/COMPLETE同为frame709，之后取得的open图实际可见暗金中文面板，open=False后闭合图不见面板；没有改生产Draw或增加截图重试。一次开关可见不等于所有菜单/滚动/配置验收，世界仍有暗黑区域。旧case单张open图的唯一根因未证，不能把本次成功反写成旧UI已通过或资源问题已解决。手势附近moving/位置变化只记时间对应，不证明Rewired同帧消费。
+
+QEMU56614于14:08:57.202780Z真实reap=0，controller56556于14:09:06.960030Z实际wait=0。Root14:09:42.005172Z fresh核对八项原盘/保护文件SHA及metadata保持、game/VM0、5582/83空闲；回执SHA `34330099ae25f4e20ed302f6e5d9a7cd3bd3cc8f3f6f4c4e1f5389f97a83ce03`。没有原盘恢复层；游戏可自然加载并写临时overlay，无有意支付、保存/装载或RPC，不扩大为native零写。资源已归还主Operator。
+
+actual独审 `APPROVE_DIAGNOSTIC_UI_OPEN_CLOSE_ACTUAL_ONLY`，报告SHA `05bc264c5d4370b0fc8668151c2e6d5c88ae75b036f2e156330986e23aa8a366`；实际OMP DeepSeek Flash/max、无fallback。源码、编译、装机观察和完整玩法分开。静态配对engine/API调查仅用于下一步区分假设，尚未用常量、删除校验或回退贴图绕过本次失败。PR263继续Draft，#232/#262保持开放；真实交易/身份保存与池重建必要验证继续推进，手机平板、多人和长期验收单列。完整输入、图像与收尾见[232新单次记录](../issue-232/g5-main106-preflight.md#g19-ui-open-close-actual)。
