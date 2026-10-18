@@ -1106,21 +1106,39 @@ internal static class MusketeerNativeSave
         }
         if (!entry.TryGetProperty("_islands", out var islands) || islands.ValueKind != JsonValueKind.Array)
             return ReasonCatalogInconsistent;
-        int islandMatches = 0;
-        JsonElement islandMatch = default;
-        foreach (var island in islands.EnumerateArray())
+        // The proof names one positional slot; only that member may satisfy it. Identical JSON or
+        // hash in any other member is a different island and never substitutes.
+        if (!TryArrayElement(entry, "_islands", proof.Land, out var islandMatch))
+            return ReasonCatalogInconsistent;
+        int landCount = 0, land = -1;
+        foreach (var property in islandMatch.EnumerateObject())
         {
-            if (island.ValueKind != JsonValueKind.Object) continue;
-            if (!island.TryGetProperty("land", out var landNode) || !landNode.TryGetInt32(out int land) || land != proof.Land) continue;
-            string hash;
-            try { hash = MusketeerArchive.IslandHash(island.GetRawText(), proof.Epoch); }
-            catch (Exception) { continue; }
-            if (!string.Equals(hash, proof.Hash, StringComparison.Ordinal)) continue;
-            islandMatches++;
-            islandMatch = island;
+            if (!property.NameEquals("land")) continue;
+            landCount++;
+            if (property.Value.ValueKind != JsonValueKind.Number || !property.Value.TryGetInt32(out land))
+                return "IslandLand";
         }
-        if (islandMatches == 0) return ReasonNoMatchingSnapshot;
-        if (islandMatches != 1) return ReasonScopeAmbiguous;
+        // 0 (pre-finalization) or the positional slot itself; nothing else is this island.
+        if (landCount != 1 || (land != 0 && land != proof.Land)) return "IslandLand";
+        string rawIsland = islandMatch.GetRawText();
+        string exact;
+        try { exact = MusketeerArchive.IslandHash(rawIsland, proof.Epoch); }
+        catch (Exception) { return ReasonNoMatchingSnapshot; }
+        // Bounded compatibility for snapshots stored before the native loader rewrote raw 0 to the
+        // requested slot. Both candidates of this epoch are resolved first: disagreeing paid
+        // records are ambiguous even when only one of them would satisfy the proof.
+        string preimage = land == proof.Land
+            ? MusketeerArchive.IslandHashPreimage(rawIsland, proof.Epoch, proof.Land)
+            : null;
+        var exactSnapshot = FindSnapshot(snapshots, exact);
+        var preimageSnapshot = preimage == null || string.Equals(preimage, exact, StringComparison.Ordinal)
+            ? null : FindSnapshot(snapshots, preimage);
+        if (exactSnapshot == null && preimageSnapshot == null) return ReasonNoMatchingSnapshot;
+        if (exactSnapshot != null && preimageSnapshot != null
+            && !MusketeerArchive.Same(exactSnapshot.Records, preimageSnapshot.Records)) return ReasonScopeAmbiguous;
+        bool proven = (exactSnapshot != null && string.Equals(exactSnapshot.Hash, proof.Hash, StringComparison.Ordinal))
+            || (preimageSnapshot != null && string.Equals(preimageSnapshot.Hash, proof.Hash, StringComparison.Ordinal));
+        if (!proven) return ReasonNoMatchingSnapshot;
         if (!islandMatch.TryGetProperty("objects", out var objects) || objects.ValueKind != JsonValueKind.Array) return "IslandObjects";
         foreach (var record in matched.Records)
         {
@@ -1143,6 +1161,57 @@ internal static class MusketeerNativeSave
             if (rows != 1) return "NativeIdDuplicate";
             if (!kindOk) return "NativeIdKind";
         }
+        // Compatibility acceptance: only when this proof.Hash is satisfied by the land-slot -> 0
+        // projection rather than the actual exact hash. The same-epoch candidates were already
+        // checked above; every other eligible epoch of this exact context must agree with the
+        // matched records before the projected acceptance can stand.
+        bool exactUsed = string.Equals(exact, proof.Hash, StringComparison.Ordinal);
+        bool preimageUsed = preimage != null && string.Equals(preimage, proof.Hash, StringComparison.Ordinal);
+        if (!exactUsed && preimageUsed)
+        {
+            string history = ValidatePreimageEpochHistory(proof, archive, rawIsland, land, matched);
+            if (history != null) return history;
+        }
+        return null;
+    }
+
+    // Bounded preimage-used history check. Scans only this proof's context (<= MaxEpochs), skips
+    // the proof epoch itself (covered by the same-epoch candidate check), and excludes persisted
+    // HistoricalOnly epochs. It never consults the compensation runtime, Unity/scene state or a
+    // runtime attempt; a legitimate Complete ledger is visible through the archive alone.
+    private static string ValidatePreimageEpochHistory(FrozenProof proof, MusketeerArchive archive,
+        string rawIsland, int land, MusketeerSnapshot matched)
+    {
+        if (!archive.TryGetContext(proof.Context, out var context)) return ReasonNoMatchingSnapshot;
+        foreach (string epoch in context.Epochs)
+        {
+            if (string.Equals(epoch, proof.Epoch, StringComparison.Ordinal)) continue;
+            if (archive.HistoricalOnly(proof.Context, epoch)) continue;
+            if (!archive.Scopes.TryGetValue(epoch, out var snapshots)) continue;
+            string exact;
+            try { exact = MusketeerArchive.IslandHash(rawIsland, epoch); }
+            catch (Exception) { continue; }
+            string preimage = land == proof.Land
+                ? MusketeerArchive.IslandHashPreimage(rawIsland, epoch, proof.Land)
+                : null;
+            // Collect every matching snapshot in this epoch; any disagreement is ambiguous. No
+            // favorable-first lookup and no selection: the proof epoch stays the only authority.
+            foreach (var snapshot in snapshots)
+            {
+                bool hit = string.Equals(snapshot.Hash, exact, StringComparison.Ordinal)
+                    || (preimage != null && string.Equals(snapshot.Hash, preimage, StringComparison.Ordinal));
+                if (!hit) continue;
+                if (!MusketeerArchive.Same(matched.Records, snapshot.Records)) return ReasonScopeAmbiguous;
+            }
+        }
+        return null;
+    }
+
+    private static MusketeerSnapshot FindSnapshot(List<MusketeerSnapshot> snapshots, string hash)
+    {
+        if (hash == null) return null;
+        foreach (var snapshot in snapshots)
+            if (string.Equals(snapshot.Hash, hash, StringComparison.Ordinal)) return snapshot;
         return null;
     }
 

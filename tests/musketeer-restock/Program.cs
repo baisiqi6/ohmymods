@@ -10,8 +10,13 @@ MusketeerIdentity.IslandState Setup()
         obj.GetType().GetMethod("Clear").Invoke(obj,null);
     }
     Managers.Inst=new Managers {world=new World {gameLayer=new GameObject().Add(new Transform())}};
-    GlobalSaveData.loaded=new GlobalSaveData {currentCampaign=1,currentChallenge=0};
-    CampaignSaveData.current=new CampaignSaveData {CurrentIsland=new IslandSaveData {land=1}};
+    var home=new IslandSaveData {land=1,isNew=false,playTimeDays=1};
+    var campaign=new CampaignSaveData {challengeId=0,CurrentLand=1,CurrentIsland=home};
+    for(int i=0;i<12;i++) campaign._islands.Add(new IslandSaveData {land=0});
+    campaign._islands[1]=home;
+    GlobalSaveData.loaded=new GlobalSaveData {currentCampaign=1,currentChallenge=0,CurrentCampaign=campaign};
+    GlobalSaveData.loaded.campaigns.Add(null); GlobalSaveData.loaded.campaigns.Add(campaign);
+    CampaignSaveData.current=campaign;
     MusketeerAccess.TrackAllowed=MusketeerAccess.Enabled=MusketeerAccess.Playing=MusketeerAccess.InWorldResult=true;
     IslandSaveData.isSavingGame=false; Time.frameCount++; MusketeerIdentity.InvalidateContextCache();
     Check(MusketeerIdentity.TryContext(out var key,out var world,true),"context");

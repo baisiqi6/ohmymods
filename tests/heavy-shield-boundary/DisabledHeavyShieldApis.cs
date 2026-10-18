@@ -13,10 +13,72 @@ internal static class HeavyShieldIdentity
 }
 internal static class HeavyShieldPersistence
 {
-    internal class GenerationCapture { }
-    internal class CreateCapture { }
+    internal class GenerationCapture
+    {
+        internal int Token;
+        internal bool Closed;
+    }
+    internal class CreateCapture
+    {
+        internal int Token;
+        internal bool Closed;
+    }
     internal class PrepareCapture { }
     internal static bool ShieldLoadInProgress { get; set; }
+}
+
+// Neutral wiring spy for suites that link the musketeer persistence source but deliberately do
+// not link HeavyShield's real algorithm. Every method still behaves exactly like the old no-op
+// double; the counters only prove that the shared begin/end callbacks were wired once, balanced
+// and closed by the exception finalizer. It is never evidence that HeavyShield itself works.
+internal static class HeavyShieldWiringSpy
+{
+    internal static int GenerationBegins, GenerationEnds, GenerationOpen, GenerationDoubleEnds;
+    internal static int LoadBegins, LoadEnds, LoadOpen, LoadDoubleEnds;
+    internal static int LoadRowBegins, LoadRowEnds, LoadRowOpen, LoadRowDoubleEnds;
+    internal static int SaveBegins, SaveEnds, SaveOpen, SaveDoubleEnds;
+    internal static bool? LastGenerationSuccess, LastLoadSuccess, LastLoadRowSuccess, LastSaveSuccess;
+    private static int _nextToken;
+
+    internal static void Reset()
+    {
+        GenerationBegins = GenerationEnds = GenerationOpen = GenerationDoubleEnds = 0;
+        LoadBegins = LoadEnds = LoadOpen = LoadDoubleEnds = 0;
+        LoadRowBegins = LoadRowEnds = LoadRowOpen = LoadRowDoubleEnds = 0;
+        SaveBegins = SaveEnds = SaveOpen = SaveDoubleEnds = 0;
+        LastGenerationSuccess = LastLoadSuccess = LastLoadRowSuccess = LastSaveSuccess = null;
+        _nextToken = 0;
+    }
+
+    internal static int NextToken() => ++_nextToken;
+
+    internal static void BeganGeneration() { GenerationBegins++; GenerationOpen++; }
+    internal static void EndedGeneration(int token, bool closed, bool success)
+    {
+        if (closed) { GenerationDoubleEnds++; return; }
+        GenerationEnds++; GenerationOpen--; LastGenerationSuccess = success;
+    }
+
+    internal static void BeganLoad() { LoadBegins++; LoadOpen++; }
+    internal static void EndedLoad(int token, bool closed, bool success)
+    {
+        if (closed) { LoadDoubleEnds++; return; }
+        LoadEnds++; LoadOpen--; LastLoadSuccess = success;
+    }
+
+    internal static void BeganLoadRow() { LoadRowBegins++; LoadRowOpen++; }
+    internal static void EndedLoadRow(int token, bool closed)
+    {
+        if (closed) { LoadRowDoubleEnds++; return; }
+        LoadRowEnds++; LoadRowOpen--;
+    }
+
+    internal static void BeganSave() { SaveBegins++; SaveOpen++; }
+    internal static void EndedSave(int token, bool closed, bool success)
+    {
+        if (closed) { SaveDoubleEnds++; return; }
+        SaveEnds++; SaveOpen--; LastSaveSuccess = success;
+    }
 }
 internal static class HeavyShieldPromotionBridge
 {
@@ -31,24 +93,60 @@ internal static class HeavyShieldRuntime
 }
 internal static class HeavyShieldIntegration
 {
-    internal class SaveScope { }
-    internal class LoadScope { }
+    internal class SaveScope { internal int Token; internal bool Closed; }
+    internal class LoadScope { internal int Token; internal bool Closed; }
     internal static void Fault(string point, System.Exception error) { }
-    internal static SaveScope BeginSave(int campaign, int land, int challenge) => new();
-    internal static void EndSave(SaveScope scope, bool normal) { }
+    internal static SaveScope BeginSave(int campaign, int land, int challenge)
+    {
+        HeavyShieldWiringSpy.BeganSave();
+        return new SaveScope { Token = HeavyShieldWiringSpy.NextToken() };
+    }
+    internal static void EndSave(SaveScope scope, bool normal)
+    {
+        if (scope == null) { HeavyShieldWiringSpy.EndedSave(0, false, normal); return; }
+        HeavyShieldWiringSpy.EndedSave(scope.Token, scope.Closed, normal);
+        scope.Closed = true;
+    }
     internal static void ObserveId(object root, string id) { }
     internal static void ObserveMarker(object island) { }
-    internal static LoadScope BeginLoad(object island) => new();
-    internal static void EndLoad(LoadScope scope, bool success) { }
+    internal static LoadScope BeginLoad(object island)
+    {
+        HeavyShieldWiringSpy.BeganLoad();
+        return new LoadScope { Token = HeavyShieldWiringSpy.NextToken() };
+    }
+    internal static void EndLoad(LoadScope scope, bool success)
+    {
+        if (scope == null) { HeavyShieldWiringSpy.EndedLoad(0, false, success); return; }
+        HeavyShieldWiringSpy.EndedLoad(scope.Token, scope.Closed, success);
+        scope.Closed = true;
+    }
     internal static void ObserveLoadRow(object row, object root) { }
-    internal static HeavyShieldPersistence.CreateCapture BeginLoadRow(object row) => new();
-    internal static void EndLoadRow(HeavyShieldPersistence.CreateCapture scope) { }
+    internal static HeavyShieldPersistence.CreateCapture BeginLoadRow(object row)
+    {
+        HeavyShieldWiringSpy.BeganLoadRow();
+        return new HeavyShieldPersistence.CreateCapture { Token = HeavyShieldWiringSpy.NextToken() };
+    }
+    internal static void EndLoadRow(HeavyShieldPersistence.CreateCapture scope)
+    {
+        if (scope == null) { HeavyShieldWiringSpy.EndedLoadRow(0, false); return; }
+        HeavyShieldWiringSpy.EndedLoadRow(scope.Token, scope.Closed);
+        scope.Closed = true;
+    }
     internal static HeavyShieldPersistence.PrepareCapture BeginPrepare(object prefs) => new();
     internal static void EndPrepare(HeavyShieldPersistence.PrepareCapture scope, bool normal) { }
     internal static void BeforeCampaignMutation(object global) { }
     internal static void AfterCampaignCreated(object global, object campaign) { }
-    internal static HeavyShieldPersistence.GenerationCapture BeginGeneration(object campaign) => new();
-    internal static void EndGeneration(HeavyShieldPersistence.GenerationCapture scope, object campaign, bool success) { }
+    internal static HeavyShieldPersistence.GenerationCapture BeginGeneration(object campaign)
+    {
+        HeavyShieldWiringSpy.BeganGeneration();
+        return new HeavyShieldPersistence.GenerationCapture { Token = HeavyShieldWiringSpy.NextToken() };
+    }
+    internal static void EndGeneration(HeavyShieldPersistence.GenerationCapture scope, object campaign, bool success)
+    {
+        if (scope == null) { HeavyShieldWiringSpy.EndedGeneration(0, false, success); return; }
+        HeavyShieldWiringSpy.EndedGeneration(scope.Token, scope.Closed, success);
+        scope.Closed = true;
+    }
     internal static void BeginPoolSpawn() { }
     internal static bool InPoolSpawn => false;
     internal static void EndPoolSpawn() { }

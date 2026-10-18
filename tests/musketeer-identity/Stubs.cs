@@ -73,8 +73,28 @@ public class Pool
 }
 public class World { public UnityEngine.Transform gameLayer; }
 public class Managers { public static Managers Inst; public World world; }
-public class GlobalSaveData { public static GlobalSaveData loaded; public static string filename = "global-v35"; public int currentCampaign, currentChallenge; }
-public class CampaignSaveData : UnityEngine.Object { public static CampaignSaveData current; public IslandSaveData CurrentIsland; public void ApplyToScene() { } }
+public class GlobalSaveData : UnityEngine.Object
+{
+    public static GlobalSaveData loaded;
+    public static string filename = "global-v35";
+    public int currentCampaign, currentChallenge;
+    public readonly List<CampaignSaveData> campaigns = new();
+    public readonly List<CampaignSaveData> challenges = new();
+    public readonly PrefsSaveData prefs = new();
+    // The fixture registers this explicitly; GetCurrentCampaign never derives an owner from slots.
+    public CampaignSaveData CurrentCampaign;
+    public CampaignSaveData GetCurrentCampaign() => CurrentCampaign;
+}
+public class PrefsSaveData : UnityEngine.Object { public readonly Dictionary<string, string> contents = new(); }
+public class CampaignSaveData : UnityEngine.Object
+{
+    public static CampaignSaveData current;
+    public int challengeId;
+    public int CurrentLand;
+    public IslandSaveData CurrentIsland;
+    public readonly List<IslandSaveData> _islands = new();
+    public void ApplyToScene() { }
+}
 public class IslandSaveData : UnityEngine.Object
 {
     public static IslandSaveData CurrentlySavingIsland; public static bool isSavingGame;
