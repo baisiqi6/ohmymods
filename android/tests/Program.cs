@@ -1246,6 +1246,26 @@ internal static class ArtifactChecks
         Checks.Check(targetFramework == ".NETCoreApp,Version=v6.0",
             "device artifact targets the actual net6 loader runtime");
 
+        // The shared bank joins the existing firearm save/load owners; compiling the
+        // bank types alone must not leave these producer calls behind a platform cut.
+        var persistence = FindType(reader, "KingdomEnhancedMod", "MusketeerPersistence");
+        foreach (var bridge in new[]
+        {
+            (Owner: "GetIdPatch", Handler: "After", Callee: "ObserveId"),
+            (Owner: "PopPatch", Handler: "Before", Callee: "BeginPop"),
+            (Owner: "PopPatch", Handler: "Finally", Callee: "EndPop"),
+            (Owner: "CreatePatch", Handler: "After", Callee: "Created"),
+            (Owner: "VirginPatch", Handler: "After", Callee: "SceneApplied")
+        })
+        {
+            TypeDefinitionHandle owner = persistence.IsNil ? default
+                : reader.GetTypeDefinition(persistence).GetNestedTypes()
+                    .FirstOrDefault(handle => reader.GetString(reader.GetTypeDefinition(handle).Name) == bridge.Owner);
+            Checks.Check(!owner.IsNil && BodyCallsMethod(pe, reader, reader.GetTypeDefinition(owner),
+                bridge.Handler, bridge.Callee, "KingdomEnhancedMod.SharedBankNative"),
+                "shared bank producer bridge retained: " + bridge.Owner + "." + bridge.Callee);
+        }
+
         var crown = FindType(reader, "KingdomEnhancedMod", "PatchRoles_CrownStealer");
         Checks.Check(!crown.IsNil, "artifact links the shared Crown source");
         CheckHandlers(reader, crown, new Dictionary<string, int> { { "Awake_Prefix", 1 } }, MethodAttributes.Public, "public static");

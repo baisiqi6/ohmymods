@@ -751,9 +751,7 @@ internal static class MusketeerPersistence
             HeavyShieldIntegration.ObserveId(__0, __result);
             try { _save?.Capture(__0, __result); }
             catch (Exception e) { if (_save != null) _save.Conflict = true; MusketeerIdentity.Log("get-id", e); }
-#if !ANDROID
             SharedBankNative.ObserveId(__0, __result);
-#endif
         }
     }
 
@@ -763,9 +761,7 @@ internal static class MusketeerPersistence
         [HarmonyPrefix, HarmonyPriority(Priority.First)]
         private static void Before(IslandSaveData __instance, out LoadCapture __state)
         {
-#if !ANDROID
             SharedBankNative.BeginPop(__instance);
-#endif
             var heavy = HeavyShieldIntegration.BeginLoad(__instance);
             __state = new() { Previous = _load, Heavy = heavy }; _load = __state;
             try { __state.Begin(__instance); }
@@ -775,20 +771,16 @@ internal static class MusketeerPersistence
         [HarmonyFinalizer]
         private static Exception Finally(Exception __exception, bool __result, LoadCapture __state)
         {
-#if !ANDROID
             bool complete = __exception == null && __result;
             try
             {
-#endif
                 HeavyShieldIntegration.EndLoad(__state?.Heavy, __exception == null && __result);
                 try { __state?.End(__exception == null && __result); }
                 catch (Exception e) { MusketeerIdentity.Log("load-end", e); }
                 finally { if (ReferenceEquals(_load, __state)) _load = __state?.Previous; }
-#if !ANDROID
             }
             catch (Exception) { complete = false; throw; }
             finally { SharedBankNative.EndPop(SharedBankNative.CurrentPop, complete); }
-#endif
             return __exception;
         }
     }
@@ -804,9 +796,7 @@ internal static class MusketeerPersistence
         private static void After(IslandSaveData.ObjectData __0, Persistent __result)
         {
             HeavyShieldIntegration.ObserveLoadRow(__0, __result);
-#if !ANDROID
             SharedBankNative.Created(__0, __result);
-#endif
             try { _load?.Capture(__0, __result); }
             catch (Exception e) { if (_load != null) _load.Conflict = true; MusketeerIdentity.Log("load-bind", e); }
         }
@@ -838,8 +828,8 @@ internal static class MusketeerPersistence
             // 火枪的判定/顺序；本模块内部自留诊断（条目成功/失败不抛）。
             try { CoinCourierPersistence.EnsureBoundFromApplyToScene(__instance); }
             catch (Exception) { /* CoinCourierPersistence 自带隔离与有界诊断 */ }
-            SharedBankNative.SceneApplied();
 #endif
+            SharedBankNative.SceneApplied();
         }
 
         [HarmonyFinalizer]
