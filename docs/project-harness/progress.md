@@ -1,3 +1,7 @@
+## 2026-10-18 — Android G19 世界状态实际达到，聚合目标保持未通过
+
+旧106-owner net6候选在单次SDK临时overlay中实际进入RunningGame/Playing，玩家/wallet存在；旧V2的commerce+截图目标未达到，900秒后仍inconclusive、0PNG，不补成玩法通过。原生核对定位通用商店门/付款数组容量的语义问题，未来私有V3仅保留world/input目的，实际编译与独审通过、未安装；旧失败/源码/raw/spent保留。QEMU真实reap与Root8文件/进程/端口fresh保持，正常登记/续租和无关旧doctor边界分别留证。232真实交易保存及池兼容仍待必要验证，PR263未由本例代验；详见[G19记录](tasks/issue-232/g5-main106-preflight.md#g19-world-state)。
+
 ## 2026-10-18 — Android 经济与九类补货源码接入（Issue #262）
 
 复用17份PC经济共享源、原协调器、八助手sync池与四张atlas，接齐18个真实配置和触屏经济子页；保留小浮球与PC中文风格。原106 owner及动态目标保持，133 owner/141关联不混作唯一原生方法。实际net6 D/R编译、各1504 Adapter、旧cfg661及载入边界821通过；前阶段PC全源net6/net8通过；补查在原Msk owner处恢复银行ID/装载/世界确认五桥，PC预处理保持，修前五条红转绿。独审及必要运行边界见[本批记录](tasks/issue-262/verification.md)。当前未安装，真实扣款、保存/读档/池重建未验，Issue保持开放；#232仍有具名原生兼容场景，不能用本批编译代替。
