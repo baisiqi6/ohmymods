@@ -1,3 +1,7 @@
+## 2026-10-18 — Android 银行AOC首错调用已移除，实际控制器/池仍待复测
+
+复用现有资源图与基类查询，Android去掉两处缺失AOC getter及重复专用查询，PC完整active源保持。Root独立PC73/0、Android78/0、旧源75/3预期失败；默认net6 D/R各0错误、Adapter1504/0，真实DLL getter调用由2降0。独立源码/host审查通过，候选b9dc/3a39未部署；四名实际加载、池、交易保存及UI可见性仍未验，PR263与262保持进行中。详见[本批记录](tasks/issue-262/verification.md#g20-aoc-getter)。
+
 ## 2026-10-18 — Android 133注册与输入响应已观察，银行API和面板仍待修复核对
 
 新的133-owner net6经济候选在独立临时overlay中达到world和严格原生touch surface；一次水平手势附近有moving/位置响应。浮球open=True后的单图未见面板，故未继续close，UI不记通过；同时实际触发银行助手AOC getter缺失ICall，262继续修复，PR263保持Draft。自有VM已真实reap，Root独立8文件/进程/端口核对后交回资源。actual独审批准诊断记录；支付、保存/装载、池与玩家验收均未由本例代验。详见[G19输入记录](tasks/issue-232/g5-main106-preflight.md#g19-input-ui)。
@@ -8,7 +12,7 @@
 
 ## 2026-10-18 — Android 经济与九类补货源码接入（Issue #262）
 
-复用17份PC经济共享源、原协调器、八助手sync池与四张atlas，接齐18个真实配置和触屏经济子页；保留小浮球与PC中文风格。原106 owner及动态目标保持，133 owner/141关联不混作唯一原生方法。实际net6 D/R编译、各1504 Adapter、旧cfg661及载入边界821通过；前阶段PC全源net6/net8通过；补查在原Msk owner处恢复银行ID/装载/世界确认五桥，PC预处理保持，修前五条红转绿。独审及必要运行边界见[本批记录](tasks/issue-262/verification.md)。当前未安装，真实扣款、保存/读档/池重建未验，Issue保持开放；#232仍有具名原生兼容场景，不能用本批编译代替。
+复用17份PC经济共享源、原协调器、八助手sync池与四张atlas，接齐18个真实配置和触屏经济子页；保留小浮球与PC中文风格。原106 owner及动态目标保持，133 owner/141关联不混作唯一原生方法。实际net6 D/R编译、各1504 Adapter、旧cfg661及载入边界821通过；前阶段PC全源net6/net8通过；补查在原Msk owner处恢复银行ID/装载/世界确认五桥，PC预处理保持，修前五条红转绿。独审及必要运行边界见[本批记录](tasks/issue-262/verification.md)。原源码阶段未安装；后续诊断与AOC修复见上方记录。真实扣款、保存/读档/池重建未验，Issue保持开放；#232仍有具名原生兼容场景，不能用本批编译代替。
 
 ## 2026-10-17 — 钱袋全世界视觉复核（PR #249）
 

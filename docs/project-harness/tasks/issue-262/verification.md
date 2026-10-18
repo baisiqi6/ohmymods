@@ -14,6 +14,8 @@
 
 ## 已运行的验证
 
+下表记录首轮源码阶段；后续单次装机诊断和AOC修复见文末，不能把历史“未安装”当作当前总状态。
+
 | 层次 | 实际结果 | 边界 |
 |---|---|---|
 | Android 产品 | SDK10、实际 net6 Debug/Release 均0错误，保留已有 CS0169 提示；206 Compile / 176 ReferencePath / 25资源，407输入绑定 | 未安装 |
@@ -29,7 +31,7 @@
 
 首次构建的私有 restore 错配 net10 失败保留，构建命令修为显式 net6 restore 后 `build --no-restore`，没有添加占位代码。
 
-最终 Release SHA256：`e0b7f7482a4bdc45cb38c1239efff510000d7c886ecbdc98359566ce59ddef9e`。Debug：`9398709458b9550329bad1bcbbba1f1ee8d7664745e9b42a03260c96a8514785`。完整本机回执位于 `.local/tasks/android-profession-archery-20261014/g20-economy-dependency-audit-20261018/formal-build/`，游戏文件、APK、interop、存档正文和 provider transcript 不提交。
+首轮源码阶段 Release SHA256：`e0b7f7482a4bdc45cb38c1239efff510000d7c886ecbdc98359566ce59ddef9e`。Debug：`9398709458b9550329bad1bcbbba1f1ee8d7664745e9b42a03260c96a8514785`。完整本机回执位于 `.local/tasks/android-profession-archery-20261014/g20-economy-dependency-audit-20261018/formal-build/`，游戏文件、APK、interop、存档正文和 provider transcript 不提交。
 
 ## 后续全链补查：银行 ID、装载与世界确认桥
 
@@ -43,8 +45,26 @@
 
 #262 已正常 create/approve/assignment，operation `ef82994b-4fed-445d-b357-0b3fbe5093b1`，exact plan `9b7b13e6879a0479109fd9992b3aa5a4ec2d3ae1f51a9a54e97c9d4549a5def2`；其余184项/168份计划保持，validator通过。登记只代表实施授权。
 
-本批尚无安装或原生结果。必要运行仍按基础职业、其余补货及全部助手、保存/读档/换岛/池重建分组；同方法多 owner 的保存回调、真实扣款和池行为不能用编译或静态入口检查替代。手机/平板、多人、长期游玩及完整视觉单列。代码交付与必要兼容验证未齐时 #262 保持开放。
+本节对应的首轮源码阶段尚无安装或原生结果；后续事实见文末。必要运行仍按基础职业、其余补货及全部助手、保存/读档/换岛/池重建分组；同方法多 owner 的保存回调、真实扣款和池行为不能用编译或静态入口检查替代。手机/平板、多人、长期游玩及完整视觉单列。代码交付与必要兼容验证未齐时 #262 保持开放。
 
-#232 职业身份/弓弩的原生保存和池场景继续独立保留。新 world-prereq 工具初审发现日志首次截断误判等问题，正在离线修复；预留的07:50登记与08:00运行窗口已完整归还 UNUSED，未借旧计划运行。G18的562B旁档只证明存在，正文、schema和 paid 状态仍未知；不把本批源码进展写成 #232 验收完成。
+#232 职业身份/弓弩的原生保存和池场景继续独立保留。新 world-prereq 工具初审发现日志首次截断误判等问题，正在离线修复；预留的07:50登记与08:00运行窗口已完整归还 UNUSED，未借旧计划运行。在该G18阶段，562B旁档只证明存在，正文、schema和 paid 状态当时未知；后续真实Decode分类见232 G19记录，仍不代表新付费保存往返或#232验收完成。
 
 下一依赖先完成当前必要运行和代码收尾，再处理尚未接入的共享功能；不逐项新建重复驱动或将普通实现选择升级为用户审批。
+
+
+<a id="g20-aoc-getter"></a>
+## 2026-10-18：133-owner诊断与 AOC getter 根因处修复
+
+旧Release `e0b7f748…`、58键受控配置和V3在独立临时overlay实际启动，达到133注册、world/严格触控表面与水平手势附近的移动响应。但浮球open=True后的唯一PNG未见面板，且 `PoolManager.Init` 路径真实抛出 `AnimatorOverrideController::get_runtimeAnimatorController_Injected` 未解析；不能记录银行/助手初始化或UI通过。两次Root输入、两张PNG、真实reap和八项原盘/保护文件独立核对的完整边界见[232 G19输入诊断](../issue-232/g5-main106-preflight.md#g19-input-ui)。本批因此仍有必要原生兼容检查，PR263保持Draft，262未关闭。
+
+修复提交 `0ccefc1` 仅在共享 `TryResolveControllers` 的Android分支移除两处不可用AOC底层getter及重复AOC专用查询，复用现有live Animator、BiomeHolder original/swap与唯一RuntimeAnimatorController基类资源查询。四名、缺失/歧义/实例检查、失败关闭、原池职责与原加载节流保持。没有getter替身、native地址、catch、额外扫描或重试。PC完整active源逐字节相同，SHA `d137565e…`；后续合入PR267只有文档差异，没有改产品输入。
+
+现有池fixture增加5条Android用例：banker为基类、其它三名为真实AOC派生fixture；Resources-only只通过基类查询得到具名AOC。抛错getter负控在旧生产源实际调用处触发：旧源75通过/3预期失败，新Android78/0、PC73/0；缺三名/缺一名保持失败关闭，同实例多来源不误判、异实例同名继续拒绝。Root独立重新编译运行了同一组结果，未新增生产占位或另造池/账本。
+
+默认net6的Debug/Release实际构建均0错误、各1条既有CS0169；evaluated Compile/ReferencePath/资源仍206/176/25，407输入在构建前后保持。实际两产物Adapter各1504/0。Root直接检查真实DLL的 `TryResolveControllers` IL：旧候选AOC getter调用2、资源查询2；新D/R getter0、基类查询1。新增Release SHA `b9dc46c8e99842649627ee2637aa4cbcac2b861866999d118e1a8e4dc96b20b5`，Debug `3a397a1038bb95e88d07f85b686ba4bb22c9ec8a1b2e9e603335fefbd13098f8`；两者均未部署。独立limited-fresh审查 `APPROVE_BANK_AOC_SOURCE_AND_HOST_ONLY`，报告SHA `f7b28f1906f203e202c79660a2e98fd7e240e96391c6f21e6176139a72faa1de`，实际DeepSeek Flash/max、无fallback。
+
+构建工具最初用过宽的TargetFramework子串校验，误命中CheckEolTargetFramework，未开始编译即中止；已在校验产生处改为精确属性前缀。另补显式Configuration的metadata核对：首版getItem默认Debug，真实build一直使用正确的-c；补查D/R各407输入与原绑定完全相同。旧失败和补充回执保留，不扩大为新产品失败或反复重建。
+
+本次只确认错误调用已从真实Android产物移除；当前Android四名控制器实际加载、助手池初始化/复用、业务补货/扣款、保存/装载/换岛仍未由新候选验证。UI源码尚无已定根因，采用私有编译隔离的首个Repaint ENTER/COMPLETE诊断准备下一有界案例；生产UI没有猜测改动，Draw完成也不代替最终像素。其它引擎API只按具名证据继续核对，不用缺少字符串推断所有平台必然故障。
+
+本地证据根为G19的 `post-input-ui-runtime-triage/`（worker、源码审查、正式产品与真实IL），旧e0b候选和失败原始包均保留；不发布游戏、APK、interop或用户存档。手机/平板、多人和长期玩家验收继续单列。
