@@ -1,3 +1,7 @@
+## 2026-10-17 — #251 接入当前主线后的联合复核通过
+
+用户明确允许合并、后续玩家游玩另记实测。#253 分支已合入当前 release961817dd（含#257/#258），测试 head3fb2c2b，四Msk产品源保持旧native冻结字节。新头实际233/652/127/72回归、PC/Mac wrapper0W0E、世界计划13/10、cleanup49、Androidprobe0E/既有1W+Adapter1265全过。旧空paid C3首存→C4冷读→再次保存证据49/58保持，未冒称本轮新主线已实机；保存保护仍在。合并关口待执行、正常DLL5fb未替换；旧受管元数据错误与安装/实测分别记录。见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-当前主线集成复核与合并授权)。
+
 ## 2026-10-17 — #251 首次保存、真实冷读及再次保存通过
 
 C3首次slot11 raw0检查点7f，经C4r2精确继承及原生loaded:preimage沿用7150 epoch，再由原生“保存＋退出”产生f19/raw11新检查点与精确pair。业务49项、恢复58项独审通过：旧paid/CompleteComp8/Hero/Knight历史保全，原件五通道hash及全部文件stat恢复；只有Release目录mtime边界如实单列，未utime。目标paid为空，不称付费单位复原或整个坐骑玩法已验；已有启动错误的责任/技能池后来all-ready另记边界。PR253转待审、Issue251开放，normal5fb未合并安装。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-原生-c4r2空付费冷读和再次保存通过)。

@@ -138,3 +138,16 @@ CUA 核对实际 own launcher53371/game53591 的 PID、PPID、start、完整 arg
 | operator-native-acceptance.json | `7405e05724df3bcf8007b7a2acf5f2686a79aee73c949c23708a1e3a71e97c87` |
 
 经已批准的条件式验收，PR #253 转为待审，Issue #251 仍开放；**未合并、未安装正常版**。不上传玩家文件、私有累计源、无关进程命令或完整私有日志。
+
+
+## 2026-10-17 当前主线集成复核与合并授权
+
+用户明确允许合并，将后续实际游玩另记为实测。本次接入已合入 #257/#258 的当前 `release/v9.5.13@961817ddc158264402275bf1bc88d57d9bcc4dfc`，原 PR head `5c9176ea…` 以正常非 ff merge 更新为 `3fb2c2b26eaf0e34a2c06564d60ee86bcd3bc948`。父链保留，无 rebase/forcepush；四份 Msk 产品源 SHA 逐一等于原 R4/native 冻结值，A/B 产品与 Android 输入逐字等当前 base，没有冲突解析改动。
+
+在这个新 head 上实际重跑：pipeline **233**、identity **652**、defense Integration **127**、restock **72**，全部 exit0；PC 风格与 Mac wrapper 各 **0W0E**，PE 中 Crown patch 类型及 CrownStealer 类型引用均为0，WorldShopPlan/Castle 对照存在。世界计划 PC **13/13**、ANDROID **10/10**、shop-cleanup **49/49**；Android probe 重新编译 **0 errors**（既有 HeavyShieldBanner CS0169 一条 warning），重新编译并运行 AdapterTests **1265/0**，probe SHA256 `eace37ad8058360d7c3bb7bc09e13e1506ed508794d3705f96d39978abdd3dcb`。Android 是 host 构建/适配回归，不称设备玩法通过；Mac 引用构建不称 Windows 2.4.3 实机。测试 wrapper 仍是类型/编译验证用途，不作为私有累计安装包。
+
+本轮没有再次启动游戏、没有写共享存档或替换正常 DLL。原 C3/C4r2 的业务49/恢复58回执及 hash 再次核对一致；其原生证据适用原私有累计69ce候选的空付费slot11场景，不冒称新合并态已经实机。后续付费单位/技能、四世界等玩家游玩反馈另记，真实新问题新开 Issue/PR。保存保护仍启用，本修复修正来源与指纹兼容，不隐藏或强行绕过保存失败弹窗。
+
+既有 workspace doctor 三项 #247/#251 登记/镜像元数据错误仍如实保留；用户本次明确允许继续源码合并，不伪称全局检查已绿，不裸改 canonical JSON/DB。源码合并、GitHub代码 Issue、受管登记、安装和玩家实测分别记录；本节提交时实际合并关口待执行，正常版仍5fb9c5f8，未安装。
+
+本机新回执位于 `merge-20261017/msk-tests/receipt.json` 与 `merge-20261017/AB253-current/verification.json`；完整旧失败证据和 native 回执继续保留。
