@@ -74,6 +74,7 @@ internal static class Program
         {
             if (arg == "--config-only") { configOnly = true; continue; }
             if (ProfessionPreferenceChecks.Seed(arg)) continue;
+            if (EconomyMenuChecks.Seed(arg)) continue;
             if (WorldLayoutPreferenceChecks.Seed(arg)) continue;
             if (DivinePreferenceChecks.Seed(arg)) continue;
             if (TryFlag(arg, "--seed-speed=", out string speedText))
@@ -170,6 +171,7 @@ internal static class Program
         WorldLayoutPreferenceChecks.Run();
         DivinePreferenceChecks.Run();
         EnemyMathChecks.Run();
+        EconomyMenuChecks.RunMenu();
         if (configOnly)
         {
             Console.WriteLine("config/adapter host only: " + Checks.Passed + " passed / " + Checks.Failed + " failed; product metadata not evaluated");
@@ -356,7 +358,7 @@ internal static class Program
             if (field.Name == "WallEngineerEnabled" || !field.FieldType.Name.StartsWith("MelonPreferences_Entry`")) continue;
             previous[field] = field.FieldType.GetField("Value", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).GetValue(field.GetValue(null));
         }
-        Checks.Check(previous.Count == 39, "all other 39 preference values, including the nine profession entries, are captured before the wall toggle");
+        Checks.Check(previous.Count == 57, "all other 57 preference values, including profession and economy entries, are captured before the wall toggle");
         int saves = MelonLoader.MelonPreferencesStub.SaveCalls;
         bool master = Config.Enabled.Value;
         Config.ToggleWallEngineer();
@@ -392,8 +394,9 @@ internal static class Program
         Config.Initialize(enabled => applied.Add(enabled));
 
         ProfessionPreferenceChecks.AfterInitialize(oldCfg);
+        EconomyMenuChecks.AfterInitialize();
         Checks.Check(Config.Enabled.Value, "session master switch defaults ON and is not persisted");
-        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 40, "Initialize creates forty real entries: the existing thirty-one plus nine profession entries (no persisted master switch)");
+        Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Count == 58, "Initialize creates fifty-eight real entries: forty existing plus eighteen economy entries (no persisted master switch)");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/SpeedMultiplier default=1"), "SpeedMultiplier is declared with default 1 in the OhMyMods.Android category");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/InfiniteSteedStamina default=False"), "InfiniteSteedStamina is declared OFF");
         Checks.Check(MelonLoader.MelonPreferencesStub.CreatedEntries.Contains("OhMyMods.Android/HoldPurchaseEnabled default=False"), "HoldPurchaseEnabled is declared OFF");
@@ -1227,13 +1230,21 @@ internal static class ArtifactChecks
         var reader = pe.GetMetadataReader();
 
         bool dontPatchAll = false;
+        string targetFramework = null;
         foreach (var handle in reader.GetAssemblyDefinition().GetCustomAttributes())
         {
             var attribute = reader.GetCustomAttribute(handle);
             if (AttributeTypeName(reader, attribute.Constructor) == "MelonLoader.HarmonyDontPatchAllAttribute")
                 dontPatchAll = true;
+            if (AttributeTypeName(reader, attribute.Constructor) == "System.Runtime.Versioning.TargetFrameworkAttribute")
+            {
+                var value = reader.GetBlobReader(attribute.Value);
+                if (value.ReadUInt16() == 1) targetFramework = value.ReadSerializedString();
+            }
         }
         Checks.Check(dontPatchAll, "artifact carries MelonLoader.HarmonyDontPatchAll");
+        Checks.Check(targetFramework == ".NETCoreApp,Version=v6.0",
+            "device artifact targets the actual net6 loader runtime");
 
         var crown = FindType(reader, "KingdomEnhancedMod", "PatchRoles_CrownStealer");
         Checks.Check(!crown.IsNil, "artifact links the shared Crown source");
@@ -2007,6 +2018,7 @@ internal static class ArtifactChecks
         "android/MobileUiInputSurface.cs",
         "android/MobileVegetationMenu.cs",
         "android/MobileWorldMenu.cs",
+        "android/Patch_EconomyAutoRestockMenu.cs",
         "android/PatchUI_MobileProfessionMenu.cs",
         "android/OptionalQoLScope.cs",
         "android/PanelGesture.cs",
@@ -2017,6 +2029,7 @@ internal static class ArtifactChecks
         "android/PatchWorld_Mover.cs",
         "android/TouchClaims.cs",
         "android/tests/MelonLoggerStub.cs",
+        "android/tests/EconomyMenuChecks.cs",
         "android/tests/MelonPreferencesStub.cs",
         "il2cpp/BoatCapacityProfile.cs",
         "il2cpp/FarmCatMovement.cs",
@@ -2084,16 +2097,17 @@ internal static class ArtifactChecks
             { "android/AssemblyInfo.cs", "b5a7ade914d9e157d175ae9f7d42f40bb92cb608722875de4cd025ad50e86a14" },
             { "android/CalendarSnapshot.cs", "0ece4765f9a5311707f1a9bf0d61c491846cd8e17327ac4d09773c37eb0fdb8e" },
             { "android/FloatInput.cs", "de1dfaf27d5d32334d9dc4a69b2f28523789f963698b23e3396a328e9d08d8e0" },
-            { "android/FloatLayout.cs", "ee0333a9a31e120b09422f34fd4c3472748de78890facf299252cb6a5a75e7b2" },
+            { "android/FloatLayout.cs", "1d71b17a7593657c974077fe05436aaecdf35d8e463a8f9600f847a7b5f3390c" },
             { "android/GlobalAliases.cs", "92f7a6997223c2874aae8a596d69f0f52cfac1da8f01b0bdce47c29c32e417d1" },
             { "android/HoldBridges.cs", "982ad14e89afc8337a9b30b51dd0ccdddbeee9b7e3a1c21acf326fdec457c916" },
             { "android/MobileCalendar.cs", "39ac54e3bf7acb37a7a30189f67dd2973bb394f53d28193836481dba0c44723b" },
             { "android/MobileGenerationMenu.cs", "c75c115333c7e161e5036dc6dd5b996c6d5c758940bc3f518c7fc2272d559a9e" },
-            { "android/MobileModPanel.cs", "3a1be7018d3033e6a4f55133d0c47947459807ad39b3c42335147b5b42ef473a" },
+            { "android/MobileModPanel.cs", "abcd27cf65bc76658e7fdaa304d33a1ddd59c01bb5250062a59f8a2d34cbe09b" },
             { "android/MobilePlayerMenu.cs", "ab58a667ba0cc4b06cfffb97f157fb435eab0c7e7c71bae3b2d87f05d31a7329" },
             { "android/MobileUiInputSurface.cs", "62d8e15aaab385853bfab63e36d382906c9ebdc17179520e52191526bb25fad7" },
             { "android/MobileVegetationMenu.cs", "40e6be0dda5313a61f01f98e1829422290612ede0b948b8d21c4549a58890e66" },
-            { "android/MobileWorldMenu.cs", "f71678089e1141844bc66993520e1450836dbac12aa2730d037c298daab2a389" },
+            { "android/MobileWorldMenu.cs", "a23ceff974d91a8a58ecfe06051b4b008ca7f383551c64230531abf768713bcd" },
+            { "android/Patch_EconomyAutoRestockMenu.cs", "606f8de3db5c408f7f28d2c6008ca449d56fc534bb72503e51c6166139bd03af" },
             { "android/PatchUI_MobileProfessionMenu.cs", "31f37e8b0d2d5eba57ea98fd263012585f274eb2e20a632ce77613d51e854ca1" },
             { "android/OptionalQoLScope.cs", "6c1d02d0f92ba9a202ea26a5a0d05c0ea07c5d3cb7a64c05af8fa2f19b4e27ac" },
             { "android/PanelGesture.cs", "51071fefbc1a1ab4b8f23ee84bf10925c325d8414400b9ed186af238c136e97b" },
@@ -2103,7 +2117,8 @@ internal static class ArtifactChecks
             { "android/PatchWorld_BoatCapacity.cs", "3addaeaf8a4e1672bf1727e56e5b38efd242894c2bb1310937e0d923a435cc57" },
             { "android/PatchWorld_Mover.cs", "278414cb21ba169e1ca3e32aaca610e7dfd1a5d1ba5695ad7ab3b8d53f62788e" },
             { "android/TouchClaims.cs", "ff41eb50d02792ff8da8d62ed4f4a7c18a3d7ce3eb07d4ce79859c93f5fb140a" },
-            { "android/tests/MelonLoggerStub.cs", "816742fe131ed5a8d4ac906788c7ced7e8ef47e59ca340cab2de983dcff65a49" },
+            { "android/tests/MelonLoggerStub.cs", "1fdb85df4e39b15f2910ecb636be3512bf3d5359f7baee52a6df54c835f4e4c7" },
+            { "android/tests/EconomyMenuChecks.cs", "4e172f2bc012e67148d26ce0f9c5a50f098be4ed8d16451cf000b81ba0744fdd" },
             { "android/tests/MelonPreferencesStub.cs", "43cb64d622d4b1827aff0229902a732d209b188400f628d088fde099337e38d2" },
             { "il2cpp/BoatCapacityProfile.cs", "02d43c64922667e6e1f2d834bf29f28f8fbc683878dc27db1430abed4c11c2f2" },
             { "il2cpp/FarmCatMovement.cs", "02e37276ae1fd5ac697ef6b71c4cf5bd79f642981a4f3958667dde525be2a2a4" },
@@ -2111,7 +2126,7 @@ internal static class ArtifactChecks
             { "il2cpp/ImGuiCompat.cs", "7fa6ac341f5a7cafe7b8d133b1d7f2bb7ba1df83442b9dca66d25f08f3687638" },
             { "il2cpp/MapWidthPlanner.cs", "3790b85fef8f36c822cec3d845a1ff90fb0a2dbcfaa295169966cc2ad036aa20" },
             { "il2cpp/MapWidthTerrain.cs", "5fe7ccde3fcdf5ff99e169e17b13b8558b37e3f03d7d7294ada8649d6afa194b" },
-            { "il2cpp/ModPanelControls.cs", "0f6ac598c2e61d19cef0797de17f7e73b4c080113a6185da9623c498b83fec5b" },
+            { "il2cpp/ModPanelControls.cs", "803ebeddb7e1df414f1c00045cd0bc0d9b18765d8f1b467d164f277d30f9b904" },
             { "il2cpp/ModPanelStyles.cs", "c4de8ec78a4c35a57a0afde3ba80db41e80a1cbff63b27afcd825fd0795a79c5" },
             { "il2cpp/PatchWorld_Construction.cs", "5ac44db39daf30e1e8ae4a5c73005ab212571e49424cee72215ce665c576ad79" },
             { "il2cpp/PatchWorld_DeerPopulation.cs", "60ddae20a9dc96cadb769d607eed313bd3cd6c1eb8a6239bbf4165e96452aed2" },

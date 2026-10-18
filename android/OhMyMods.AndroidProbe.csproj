@@ -12,25 +12,14 @@
            -p:LoaderRuntimeDir=<dir with MelonLoader.dll, 0Harmony.dll, Il2CppInterop.Runtime.dll> ^
            -p:SupportModuleDir=<dir with the loader's SupportModules\Il2Cpp.dll (MonoEnumeratorWrapper)>
 
-       The unmodified desktop sources il2cpp/BoatCapacityProfile.cs,
-       il2cpp/PatchPlayer_HoldPurchase.cs,
-       il2cpp/PatchWorld_EnemyManager.cs, il2cpp/PatchWorld_FarmCats.cs, il2cpp/FarmCatMovement.cs,
-       il2cpp/GreekScaleScope.cs, il2cpp/PatchWorld_Construction.cs, il2cpp/MapWidthPlanner.cs
-       and the shared UI files il2cpp/ModPanelStyles.cs, il2cpp/ModPanelControls.cs and
-       il2cpp/ImGuiCompat.cs are linked read-only (Compile Include below); il2cpp/MapWidthTerrain.cs,
-       il2cpp/PatchWorld_Level.cs and il2cpp/PatchWorld_FastForestRecede.cs are linked with an
-       #if ANDROID alias header only, and il2cpp/PatchWorld_DeerPopulation.cs carries the same
-       alias header plus the ANDROID-specific opt-in gate, default-off fast exit and captured
-       eligibility scope evidence; il2cpp/PatchWorld_OptionalVegetation.cs carries the alias
-       header plus the ANDROID FX-seam cut, the default-off debt-free entry gate and the three
-       real config writers each saving once on a real change (all shared PC logic and
-       preprocessed output are unchanged);
-       bare game type names are mapped by GlobalAliases.cs;
+       Shared desktop sources are linked in the Compile items below; platform aliases and
+       existing ANDROID branches preserve their native mechanisms. The device assembly targets
+       the deployed net6 loader; separate host tests may target the installed host SDK.
        Harmony auto-patch-all is suppressed by AssemblyInfo.cs for explicit Operator
        registration. -->
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <AssemblyName>OhMyMods.AndroidProbe</AssemblyName>
     <RootNamespace>OhMyMods.AndroidProbe</RootNamespace>
     <LangVersion>latest</LangVersion>
@@ -63,6 +52,7 @@
     <Compile Include="MobileGenerationMenu.cs" />
     <Compile Include="MobileVegetationMenu.cs" />
     <Compile Include="PatchUI_MobileProfessionMenu.cs" />
+    <Compile Include="Patch_EconomyAutoRestockMenu.cs" />
     <Compile Include="PatchAndroid_ProfessionPoolLifecycle.cs" />
     <Compile Include="MobileModPanel.cs" />
     <Compile Include="PanelGesture.cs" />
@@ -250,6 +240,24 @@
     <Compile Include="../il2cpp/Patch_HeavyShieldMaintenancePolicy.cs" Link="Shared/Patch_HeavyShieldMaintenancePolicy.cs" />
     <Compile Include="../il2cpp/Patch_HeavyShieldRepair.cs" Link="Shared/Patch_HeavyShieldRepair.cs" />
     <Compile Include="Patch_ProfessionCombatHooks.cs" />
+    <!-- Shared economic driver, bank ledger, assistant lifecycle and all nine restock types. -->
+    <Compile Include="../il2cpp/PatchEconomy_BankAssistants.cs" />
+    <Compile Include="../il2cpp/PatchEconomy_Banker.cs" />
+    <Compile Include="../il2cpp/PatchEconomy_AutoRestock.cs" />
+    <Compile Include="../il2cpp/GreekBankScope.cs" />
+    <Compile Include="../il2cpp/AutoRestockCounts.cs" />
+    <Compile Include="../il2cpp/SiegeAmmoCounts.cs" />
+    <Compile Include="../il2cpp/BankAssistantCoinOrigin.cs" />
+    <Compile Include="../il2cpp/BankAssistantAtlasMetadata.cs" />
+    <Compile Include="../il2cpp/BankAssistantAtlasVisuals.cs" />
+    <Compile Include="../il2cpp/BankAssistantTeleportVisuals.cs" />
+    <Compile Include="../il2cpp/MainBankerFixedDomain.cs" />
+    <Compile Include="../il2cpp/SharedBankNative.cs" />
+    <Compile Include="../il2cpp/SharedBankState.cs" />
+    <Compile Include="../il2cpp/CoinCourierBankScope.cs" />
+    <Compile Include="../il2cpp/FireTowerRestockCapacity.cs" />
+    <Compile Include="../il2cpp/MusketeerRestock.cs" />
+    <Compile Include="../il2cpp/CoinCourierTeleportFx.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -301,6 +309,10 @@
     <EmbeddedResource Include="../il2cpp/Assets/MusketeerLeisure.png" LogicalName="KingdomEnhancedMod.MusketeerLeisure.png" />
     <EmbeddedResource Include="../il2cpp/Assets/MusketeerGun.png" LogicalName="KingdomEnhancedMod.MusketeerGun.png" />
     <EmbeddedResource Include="../il2cpp/Assets/MusketeerBullet.png" LogicalName="KingdomEnhancedMod.MusketeerBullet.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/BankAssistantClerk.png" LogicalName="KingdomEnhancedMod.BankAssistantClerk.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/BankAssistantCaravan.png" LogicalName="KingdomEnhancedMod.BankAssistantCaravan.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/BankAssistantSteward.png" LogicalName="KingdomEnhancedMod.BankAssistantSteward.png" />
+    <EmbeddedResource Include="../il2cpp/Assets/BankAssistantVaultkeeper.png" LogicalName="KingdomEnhancedMod.BankAssistantVaultkeeper.png" />
   </ItemGroup>
 
   <Target Name="ValidateAndroidDependencyDirs" BeforeTargets="PrepareForBuild">

@@ -33,9 +33,7 @@ internal static partial class CoinCourierPersistence
             internal SaveScope Coin;
 #endif
             internal HeavyShieldIntegration.SaveScope Heavy;
-#if !ANDROID
             internal SharedBankNative.Scope Bank;
-#endif
         }
         [HarmonyPrefix]
         private static void Prefix(int __0, int __1, int __2, out Capture __state)
@@ -46,8 +44,8 @@ internal static partial class CoinCourierPersistence
             __state = new Capture { Heavy = HeavyShieldIntegration.BeginSave(__0, __1, __2) };
 #if !ANDROID
             __state.Coin = BeginIslandSave(__0, __1, __2);
-            __state.Bank = SharedBankNative.BeginSave(__0, __1, __2);
 #endif
+            __state.Bank = SharedBankNative.BeginSave(__0, __1, __2);
         }
 
 #if !ANDROID
@@ -71,31 +69,29 @@ internal static partial class CoinCourierPersistence
         }
 #endif
 
-#if !ANDROID
         [HarmonyPostfix]
         private static void Postfix(Capture __state)
         {
+#if !ANDROID
             EndIslandSave(__state?.Coin, true);
+#endif
             SharedBankNative.EndSave(__state?.Bank, true);
         }
-#endif
 
         [HarmonyFinalizer]
         private static Exception Finalizer(Exception __exception, Capture __state)
         {
-#if !ANDROID
             try
             {
-#endif
                 HeavyShieldIntegration.EndSave(__state?.Heavy, __exception == null);
-#if !ANDROID
             }
             finally
             {
+#if !ANDROID
                 EndIslandSave(__state?.Coin, false);
+#endif
                 SharedBankNative.EndSave(__state?.Bank, false);
             }
-#endif
             return __exception;
         }
     }
@@ -109,8 +105,8 @@ internal static partial class CoinCourierPersistence
             HeavyShieldIntegration.ObserveMarker(__instance);
 #if !ANDROID
             ObserveMarker(__instance);
-            SharedBankNative.Marker(__instance);
 #endif
+            SharedBankNative.Marker(__instance);
         }
     }
 
@@ -143,8 +139,8 @@ internal static partial class CoinCourierPersistence
             HeavyShieldIntegration.BeforeCampaignMutation(__instance);
 #if !ANDROID
             ObserveCampaignMutation(__instance);
-            SharedBankNative.BeforeMutation(__instance);
 #endif
+            SharedBankNative.BeforeMutation(__instance);
         }
 
         [HarmonyPostfix]
@@ -168,8 +164,8 @@ internal static partial class CoinCourierPersistence
             HeavyShieldIntegration.BeforeCampaignMutation(SafeLoaded());
 #if !ANDROID
             ObserveCampaignMutation(SafeLoaded());
-            SharedBankNative.BeforeMutation(SafeLoaded());
 #endif
+            SharedBankNative.BeforeMutation(SafeLoaded());
         }
     }
 
@@ -188,17 +184,16 @@ internal static partial class CoinCourierPersistence
             catch (Exception e) { HeavyShieldIntegration.Fault("delete-routine", e); }
 #if !ANDROID
             ObserveDeleteRoutineState(__instance);
+#endif
             try
             {
                 if (__instance != null && __instance.__1__state == 0)
                     SharedBankNative.BeforeMutation(SafeLoaded());
             }
             catch (Exception) { SharedBankNative.BeforeMutation(SafeLoaded()); }
-#endif
         }
     }
 
-#if !ANDROID
     [HarmonyPatch(typeof(GlobalSaveData), nameof(GlobalSaveData.DeleteChallenge))]
     internal static class ChallengeDeletePatch
     {
@@ -216,5 +211,4 @@ internal static partial class CoinCourierPersistence
                 SharedBankNative.BeforeMutation(SafeLoaded());
         }
     }
-#endif
 }

@@ -66,6 +66,26 @@ internal static class ModConfig
     internal static MelonPreferences_Entry<float> ArcherRateMultiplier;
     internal static MelonPreferences_Entry<bool> ArcherImpactEnabled;
 
+    // Shared AutoRestock settings: real entries with the PC defaults and load-time target bounds.
+    internal static MelonPreferences_Entry<bool> AutoRestockWorkersEnabled;
+    internal static MelonPreferences_Entry<bool> AutoRestockArchersEnabled;
+    internal static MelonPreferences_Entry<bool> AutoRestockNinjasEnabled;
+    internal static MelonPreferences_Entry<bool> AutoRestockBerserkersEnabled;
+    internal static MelonPreferences_Entry<bool> AutoRestockPeasantsEnabled;
+    internal static MelonPreferences_Entry<bool> AutoRestockFarmersEnabled;
+    internal static MelonPreferences_Entry<bool> AutoRestockCatapultBarrelsEnabled;
+    internal static MelonPreferences_Entry<bool> AutoRestockFireTowerAmmoEnabled;
+    internal static MelonPreferences_Entry<bool> AutoRestockMusketeersEnabled;
+    internal static MelonPreferences_Entry<int> AutoRestockWorkersTarget;
+    internal static MelonPreferences_Entry<int> AutoRestockArchersTarget;
+    internal static MelonPreferences_Entry<int> AutoRestockNinjasTarget;
+    internal static MelonPreferences_Entry<int> AutoRestockBerserkersTarget;
+    internal static MelonPreferences_Entry<int> AutoRestockPeasantsTarget;
+    internal static MelonPreferences_Entry<int> AutoRestockFarmersTarget;
+    internal static MelonPreferences_Entry<int> AutoRestockCatapultBarrelsTarget;
+    internal static MelonPreferences_Entry<int> AutoRestockFireTowerAmmoTarget;
+    internal static MelonPreferences_Entry<int> AutoRestockMusketeersTarget;
+
     // InfiniteMoney 原生写（Il2Cpp.Wallet.InfiniteMoney）的唯一注入点：本文件保持零
     // Il2Cpp.* 引用（hosttests 直接编译同一份），由平台侧 Probe.OnInitializeMelon 传入
     // lambda；条目加载完成与 UI 切换时各调用一次，不订阅事件、不每帧写、不做状态镜像。
@@ -137,6 +157,36 @@ internal static class ModConfig
         CrossbowRecruitmentRatio.Value = CrossbowRatioPolicy.Normalize(CrossbowRecruitmentRatio.Value);
         ArcherVolleyCount.Value = Math.Clamp(ArcherVolleyCount.Value, 1, 3);
         ArcherRateMultiplier.Value = SanitizeMultiplier("ArcherRateMultiplier", ArcherRateMultiplier.Value, 1f, 2f);
+
+        AutoRestockWorkersEnabled = category.CreateEntry<bool>("WorkersEnabled", false);
+        AutoRestockArchersEnabled = category.CreateEntry<bool>("ArchersEnabled", false);
+        AutoRestockNinjasEnabled = category.CreateEntry<bool>("NinjasEnabled", false);
+        AutoRestockBerserkersEnabled = category.CreateEntry<bool>("BerserkersEnabled", false);
+        AutoRestockPeasantsEnabled = category.CreateEntry<bool>("PeasantsEnabled", false);
+        AutoRestockFarmersEnabled = category.CreateEntry<bool>("FarmersEnabled", false);
+        AutoRestockCatapultBarrelsEnabled = category.CreateEntry<bool>("CatapultBarrelsEnabled", false);
+        AutoRestockFireTowerAmmoEnabled = category.CreateEntry<bool>("FireTowerAmmoEnabled", false);
+        AutoRestockMusketeersEnabled = category.CreateEntry<bool>("MusketeersEnabled", false);
+        AutoRestockWorkersTarget = category.CreateEntry<int>("WorkersTarget", 15);
+        AutoRestockArchersTarget = category.CreateEntry<int>("ArchersTarget", 15);
+        AutoRestockNinjasTarget = category.CreateEntry<int>("NinjasTarget", 15);
+        AutoRestockBerserkersTarget = category.CreateEntry<int>("BerserkersTarget", 15);
+        AutoRestockPeasantsTarget = category.CreateEntry<int>("PeasantsTarget", 15);
+        AutoRestockFarmersTarget = category.CreateEntry<int>("FarmersTarget", 15);
+        AutoRestockCatapultBarrelsTarget = category.CreateEntry<int>("CatapultBarrelsTarget", 15);
+        AutoRestockFireTowerAmmoTarget = category.CreateEntry<int>("FireTowerAmmoTarget", 15);
+        AutoRestockMusketeersTarget = category.CreateEntry<int>("MusketeersTarget", 15);
+
+        AutoRestockWorkersTarget.Value = Math.Clamp(AutoRestockWorkersTarget.Value, 1, 200);
+        AutoRestockArchersTarget.Value = Math.Clamp(AutoRestockArchersTarget.Value, 1, 200);
+        AutoRestockNinjasTarget.Value = Math.Clamp(AutoRestockNinjasTarget.Value, 1, 200);
+        AutoRestockBerserkersTarget.Value = Math.Clamp(AutoRestockBerserkersTarget.Value, 1, 200);
+        AutoRestockPeasantsTarget.Value = Math.Clamp(AutoRestockPeasantsTarget.Value, 1, 200);
+        AutoRestockFarmersTarget.Value = Math.Clamp(AutoRestockFarmersTarget.Value, 1, 200);
+        AutoRestockCatapultBarrelsTarget.Value = Math.Clamp(AutoRestockCatapultBarrelsTarget.Value, 1, 200);
+        AutoRestockFireTowerAmmoTarget.Value = Math.Clamp(AutoRestockFireTowerAmmoTarget.Value, 1, 200);
+        AutoRestockMusketeersTarget.Value = Math.Clamp(AutoRestockMusketeersTarget.Value, 1, 200);
+
         applyInfiniteMoney = moneyApplier;
         applyInfiniteMoney(InfiniteMoney.Value);
         MelonLogger.Msg("ANDROID_SETTINGS_READY category=" + CategoryIdentifier

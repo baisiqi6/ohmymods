@@ -1,3 +1,7 @@
+## 2026-10-18 — Android 经济与九类补货源码接入（Issue #262）
+
+复用17份PC经济共享源、原协调器、八助手sync池与四张atlas，接齐18个真实配置和触屏经济子页；保留小浮球与PC中文风格。原106 owner及动态目标保持，133 owner/141关联不混作唯一原生方法。实际net6 D/R编译、各1499 Adapter、旧cfg661及载入边界821通过；受影响PC全源net6/net8和预处理保持。独审及必要运行边界见[本批记录](tasks/issue-262/verification.md)。当前未安装，真实扣款、保存/读档/池重建未验，Issue保持开放；#232仍有具名原生兼容场景，不能用本批编译代替。
+
 ## 2026-10-17 — 钱袋全世界视觉复核（PR #249）
 
 接入3b340713最新主线，精确修复共享源/两测试的3个Android frozen pin。scope88、adapters24、viewport49/20、Android scope88和Adapter1265全部通过；Mac net6/net8与Windows240引用完整编译0W0E，保留39资源的正常私有累计候选已审来源。容量业务未改，实际收币/上限/外观与存读档仍单列玩家待验；合并、安装分别以精确提交和DLL回执留证，不用代码测试替代原生验收。详见 tasks/issue-247/verification.md。

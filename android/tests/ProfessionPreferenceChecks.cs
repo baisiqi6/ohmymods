@@ -84,9 +84,9 @@ internal static class ProfessionPreferenceChecks
             .Where(field => field.FieldType.IsGenericType
                 && field.FieldType.GetGenericTypeDefinition() == typeof(MelonPreferences_Entry<>))
             .ToDictionary(field => field.Name);
-        Checks.Check(fields.Count == 40, "forty real loader entries, no persisted session Enabled");
-        Checks.Check(MelonPreferencesStub.CreatedEntries.Count == 40
-            && MelonPreferencesStub.CreatedEntries.Select(entry => entry.Split(' ')[0]).Distinct().Count() == 40,
+        Checks.Check(fields.Count == 58, "fifty-eight real loader entries, no persisted session Enabled");
+        Checks.Check(MelonPreferencesStub.CreatedEntries.Count == 58
+            && MelonPreferencesStub.CreatedEntries.Select(entry => entry.Split(' ')[0]).Distinct().Count() == 58,
             "Initialize creates each real entry exactly once in the existing category");
         Checks.Check(!MelonPreferencesStub.CreatedEntries.Any(entry => entry.StartsWith(Category + "/Enabled ", StringComparison.Ordinal)),
             "session master has no persisted preference");
@@ -146,7 +146,7 @@ internal static class ProfessionPreferenceChecks
         var before = fields.ToDictionary(pair => pair.Key, pair => Value(pair.Value));
         int extraCallbacks = 0;
         Config.Initialize(_ => extraCallbacks++);
-        Checks.Check(extraCallbacks == 0 && MelonPreferencesStub.CreatedEntries.Count == 40
+        Checks.Check(extraCallbacks == 0 && MelonPreferencesStub.CreatedEntries.Count == 58
             && MelonPreferencesStub.SaveCalls == 0, "repeat Initialize neither recreates entries, saves, nor replaces/applies the original callback");
         foreach (var entry in fields)
             Checks.Check(Equals(before[entry.Key], Value(entry.Value)), "repeat Initialize preserves loaded entry " + entry.Key);
