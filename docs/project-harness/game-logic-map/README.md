@@ -59,3 +59,12 @@ Kingdom Two Crowns: Call of Olympus 反编译代码业务逻辑地图——商�
 - `Castle.Level` — 城堡等级（Castle1 ... Castle7）
 - `Side` — 方向（Left, Right）
 - `TechnologyAge` — 科技时代（None, Wood, Stone, Iron）
+
+
+## Android 2.4.0 原生核对：商店注册表与付款容量
+
+仅适用当前Android APK（`libil2cpp.so` SHA77487143…，2026-10-18有界核对），不覆盖本页上方Mono2.1历史资料或Windows其它版本：
+
+- `PayableManager.AllPayables.Length`表示数组容量；构造时分配2000，活跃数量另存`currentPayableCount`，不能拿Length当活跃对象数或世界就绪门。
+- `ShopPlanner.shops`返回其管理的商店注册表；`_placedShops`和`_queuedShopPlacements`是其它字段。注册表为空不足以证明资源缺失，非空也不证明具体目标已激活、处于当前世界或可以付款。
+- 世界状态与目标商店分别核对；已有目标引用能定位时直接读目标，不为通用就绪判断增加场景扫描或轮询补偿。当前证据与适用边界见[G19核对](../tasks/issue-232/g5-main106-preflight.md#g19-world-state)。

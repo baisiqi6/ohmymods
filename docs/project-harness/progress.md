@@ -1,3 +1,7 @@
+## 2026-10-18 — Android G19 世界状态实际达到，聚合目标保持未通过
+
+旧106-owner net6候选在单次SDK临时overlay中实际进入RunningGame/Playing，玩家/wallet存在；旧V2的commerce+截图目标未达到，900秒后仍inconclusive、0PNG，不补成玩法通过。原生核对定位通用商店门/付款数组容量的语义问题，未来私有V3仅保留world/input目的，实际编译与独审通过、未安装；旧失败/源码/raw/spent保留。QEMU真实reap与Root8文件/进程/端口fresh保持，正常登记/续租和无关旧doctor边界分别留证。232真实交易保存及池兼容仍待必要验证，PR263未由本例代验；详见[G19记录](tasks/issue-232/g5-main106-preflight.md#g19-world-state)。
+
 ## 2026-10-17 — 钱袋全世界视觉复核（PR #249）
 
 接入3b340713最新主线，精确修复共享源/两测试的3个Android frozen pin。scope88、adapters24、viewport49/20、Android scope88和Adapter1265全部通过；Mac net6/net8与Windows240引用完整编译0W0E，保留39资源的正常私有累计候选已审来源。容量业务未改，实际收币/上限/外观与存读档仍单列玩家待验；合并、安装分别以精确提交和DLL回执留证，不用代码测试替代原生验收。详见 tasks/issue-247/verification.md。
