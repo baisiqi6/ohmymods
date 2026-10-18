@@ -224,8 +224,8 @@ internal static class MountIslandRecoveryRuntime
         if (objects == null || objects.Count <= 0) { reason = "island objects empty/null"; return false; }
         if (!TryReadSavedWorldSeed(island, out int savedSeed, out reason)) return false;
 
-        if (!TryReadScope(selected, land, island, out MountIslandRecoveryScope scope,
-                out _, out _, out _, out reason))
+        if (!TryReadScope(ScopeReadPhase.BeforeNativePop, selected, land, island,
+                out MountIslandRecoveryScope scope, out _, out _, out _, out reason))
             return false;
         if (scope.GlobalPointer != PointerOf(global))
         {
@@ -244,8 +244,8 @@ internal static class MountIslandRecoveryRuntime
         int objectsCount = objects.Count;
 
         // 扫描前后稳定：owner/容器/Level/seed/holder/GameLayer + markers + receipts + objects。
-        if (!TryReadScope(selected, land, island, out MountIslandRecoveryScope again,
-                out _, out _, out _, out reason)
+        if (!TryReadScope(ScopeReadPhase.BeforeNativePop, selected, land, island,
+                out MountIslandRecoveryScope again, out _, out _, out _, out reason)
             || !MountIslandRecoveryScope.SameLoad(scope, again))
         {
             reason = "scope changed during evidence scan";
@@ -304,13 +304,32 @@ internal static class MountIslandRecoveryRuntime
         return true;
     }
 
-    /// <summary>读当前 scope 身份；不要求 objects 非空（消费时 objects 已被原生清空）。</summary>
+    // 原生 Level cache（Level.GetLayer 的字典）只在 TryPop original 的 ClearLevel→ValidateLayers
+    // 之后存在；Prefix 读取只能跳过该 cache 关系校验，post-pop 必须使用 FULL。
+    private enum ScopeReadPhase
+    {
+        // Zero must be FULL so default(ScopeReadPhase) can never bypass the post-producer
+        // cache relation check. Before is explicit and nonzero.
+        AfterNativePop = 0,
+        BeforeNativePop = 1,
+    }
+
+    /// <summary>读当前 scope 身份；默认 FULL（AfterNativePop）。</summary>
     private static bool TryReadScope(int land, IslandSaveData island,
         out MountIslandRecoveryScope scope, out Level level, out Transform gameLayer, out World world,
         out string reason)
-        => TryReadScope(-1, land, island, out scope, out level, out gameLayer, out world, out reason);
+        => TryReadScope(ScopeReadPhase.AfterNativePop, -1, land, island,
+            out scope, out level, out gameLayer, out world, out reason);
 
+    /// <summary>读当前 scope 身份；默认 FULL（AfterNativePop）。</summary>
     private static bool TryReadScope(int selectedExpected, int land, IslandSaveData island,
+        out MountIslandRecoveryScope scope, out Level level, out Transform gameLayer, out World world,
+        out string reason)
+        => TryReadScope(ScopeReadPhase.AfterNativePop, selectedExpected, land, island,
+            out scope, out level, out gameLayer, out world, out reason);
+
+    private static bool TryReadScope(ScopeReadPhase phase, int selectedExpected, int land,
+        IslandSaveData island,
         out MountIslandRecoveryScope scope, out Level level, out Transform gameLayer, out World world,
         out string reason)
     {
@@ -321,6 +340,11 @@ internal static class MountIslandRecoveryRuntime
         reason = string.Empty;
         try
         {
+            if (phase != ScopeReadPhase.BeforeNativePop && phase != ScopeReadPhase.AfterNativePop)
+            {
+                reason = "invalid scope phase";
+                return false;
+            }
             if (island == null) { reason = "island null"; return false; }
             CampaignSaveData campaign = CampaignSaveData.current;
             if (campaign == null) { reason = "campaign null"; return false; }
@@ -373,11 +397,15 @@ internal static class MountIslandRecoveryRuntime
                 reason = "GameLayer unavailable";
                 return false;
             }
-            GameObject layerByContent = level.GetLayer(ContentLayers.GameLayer);
-            if (layerByContent == null || PointerOf(layerByContent) != PointerOf(gameLayer.gameObject))
+            if (phase == ScopeReadPhase.AfterNativePop)
             {
-                reason = "Level GameLayer != World.gameLayer";
-                return false;
+                GameObject layerByContent = level.GetLayer(ContentLayers.GameLayer);
+                if (layerByContent == null
+                    || PointerOf(layerByContent) != PointerOf(gameLayer.gameObject))
+                {
+                    reason = "Level GameLayer != World.gameLayer";
+                    return false;
+                }
             }
             Scene levelScene = level.gameObject.scene;
             Scene layerScene = gameLayer.gameObject.scene;
@@ -421,7 +449,18 @@ internal static class MountIslandRecoveryRuntime
         }
         catch (Exception e)
         {
-            reason = "scope read failed: " + e.GetType().Name;
+            string message;
+            try
+            {
+                message = e.Message ?? string.Empty;
+                if (message.Length > 512) message = message.Substring(0, 512);
+            }
+            catch (Exception)
+            {
+                message = "<unavailable>";
+            }
+            reason = "scope read failed: " + e.GetType().Name + " phase=" + phase
+                + " message=" + message;
             return false;
         }
     }
