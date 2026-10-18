@@ -167,3 +167,18 @@ R7独立20组mock及Root复跑通过；新实际GLM5.3/max/非fallback/normal-st
 真实Paid原始bytes经现有production BCL codec只读解析：input/sourceBound SHA `ef4af3333c7680a5045ccfb62be7f63f57c79a58f7923e21b75378f9e8b1e4bd`，PaidObserved/revision3、onpay/settlement真、capture/file proof缺；nativeSuccessProven=false保持。已确认Paid owner与native HeavyShield GUID一致，CoinCourier使用独立GUID，不当成冲突。`no-durable-capture`发生在ReadPhysical之前；共享Save/Coin marker路径有本次staged证据，Palace自己的capture/Wallet/Prefs首次拒绝尚无观测。raw land=-1与既有effectiveLand解析差异正在静态核实，仅为候选，未当已证根因或直接放宽校验。
 
 回执见[本轮实机记录](receipts/native-r17-payment-blocked-20261018.json)，原始材料在本机`.local/tasks/palace-resume-20261017/full-flow-r17/`及`full-flow-r17-review/`。原始启动Error10/Exception1/skill-pool4与本case previous逐行同文同计数，不写“无错误”。本次只确认自然十币/结算/source回调，不能升级两端画面、宫廷保存、冷读或免费返程。PR265仍Draft、#101开放，未合并安装正常版。
+
+
+## 2026-10-18 来源捕获诊断候选（离线完成，尚未实机）
+
+R17 已证自然十币与84→74结算、唯一raw72，但capture凭据缺失；本节仅交付定位工具，不补造SourceCaptured。冻结原始存档经完整生产BCL native reader接受，排除该归档输入的格式拒绝；静态当前2.4.0调用链不支持“自然保存无条件传-1”，不做猜测归一化。
+
+编译期 `PALACE_PAID_CAPTURE_DIAGNOSTICS` 默认关闭，开启只在原有责任边界记录标量。每个不可变TripId句柄持有独立32行终身预算，null句柄单独记账；不记录完整钱包/JSON/prefs，不新增hook、配置、Unity/native getter或reader调用。外来钱包skip保持silent，缺阶段记unobserved；End/Prefs保留既有runOriginal/error，Begin保留当时stage与首次invalid stage；终端Resolve失败不冒充上游原因。业务守卫、短路顺序、异常和写入责任保持。
+
+前两版诊断曾有预算重置、Unity调用/分类问题，返修后完整编译又抓到接线漏参，均保留原始失败日志且未采纳/安装。最终源码47524151由Root完成窄接线与stage合同补齐，两路独审P1/P2为0。普通与诊断net6/net8四构建各0W0E；57项focused、20项独立反例及真stale-DLL身份负例通过；重新提取编译H3 13用例71断言、H4 35用例39断言和六组1029断言全通过。默认IL/元数据0差异、183资源相同且无诊断type/field；enabled原8业务调用序列与15条Begin惰性条件保持。两个SDK NuGet迁移缓存标记逐字节移到本机tasks证据目录，未提交。
+
+工具侧异常单列：审查者一次元数据host的SDK首次启动提示“已安装开发HTTPS证书”，实际证书是否新建及身份未核实，未trust/delete/做系统探针；日志与命令如实保留，后续关闭自动生成。该事件不记作零系统副作用。
+
+诊断候选 net6 SHA717853de65f339a78f66bd3ead4ff8aab08d216abf0e68dce6b69a796b1a5c71，net8 SHA8257a1075b5b92c2f53787fdedcd77563fde7ed28e3a8a3c94b995174a2882b6；均只在本机构建目录，未装入隔离或正常运行包。正常DLL、配置与共享档8个定向文件只读复核保持；不将该检查冒称完整六对象fresh。
+
+下一步：在另行协调的新隔离案例采样；R17失败trip/postimage保持证据，不重放旧准入、不伪造proof。之后修真实首拒根因，才继续两端画面、宫廷原生菜单保存/冷读/免费返回。PR265仍Draft，#101仍开放，不合并安装。[可移植离线回执](receipts/capture-diagnostics-offline-20261018.json)；完整本机原始材料位于 `.local/tasks/palace-resume-20261017/capture-diagnostic-*`。

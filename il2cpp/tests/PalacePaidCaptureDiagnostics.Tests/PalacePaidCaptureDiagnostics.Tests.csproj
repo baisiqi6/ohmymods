@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseSharedCompilation>false</UseSharedCompilation>
+    <NodeReuse>false</NodeReuse>
+    <NuGetAudit>false</NuGetAudit>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <PaidSource>$(MSBuildProjectDirectory)/../../Patch_PalacePaidResponsibility.cs</PaidSource>
+    <GeneratedDir>$(MSBuildProjectDirectory)/obj/Generated</GeneratedDir>
+  </PropertyGroup>
+  <Target Name="ExtractDiagnostics" BeforeTargets="BeforeCompile">
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; run --project &quot;$(MSBuildProjectDirectory)/Extractor/Extractor.csproj&quot; -c Release -p:UseSharedCompilation=false -p:NuGetAudit=false -- &quot;$(PaidSource)&quot; &quot;$(GeneratedDir)&quot;"
+          EnvironmentVariables="MSBUILDDISABLENODEREUSE=1" />
+  </Target>
+  <ItemGroup>
+    <Compile Include="Program.cs.txt" />
+    <Compile Include="$(GeneratedDir)/PalacePaidCaptureDiagnostics.Extracted.cs" />
+    <Compile Include="$(GeneratedDir)/PalacePaidCaptureDiagnostics.Identity.cs" />
+    <AssemblyMetadata Include="PaidSourcePath" Value="$(PaidSource)" />
+    <AssemblyMetadata Include="DiagnosticsGeneratedSource" Value="$(GeneratedDir)/PalacePaidCaptureDiagnostics.Extracted.cs" />
+  </ItemGroup>
+</Project>

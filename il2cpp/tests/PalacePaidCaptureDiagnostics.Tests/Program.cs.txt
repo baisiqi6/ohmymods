@@ -1,0 +1,330 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
+
+namespace KingdomEnhancedMod
+{
+    internal static class Program
+    {
+        private static int _passed, _failed;
+
+        private static int Main()
+        {
+            TestSourceIdentity();
+            TestDefaultBuildOff();
+            TestInstanceBudgetIndependence();
+            TestNullScopeIsolation();
+            TestThrowingSink();
+            TestBeginInvalidStage();
+            TestMissingPhasesUnobserved();
+            TestResolveIsOutcome();
+            TestPrefsUnobservedAndApplied();
+            TestWalletGuardStructure();
+            TestFinalizerFlags();
+            TestCapturedStage();
+            Console.WriteLine("cases=" + (_passed + _failed) + " passed=" + _passed + " failed=" + _failed);
+            return _failed == 0 ? 0 : 1;
+        }
+
+        private static void Check(string name, bool condition, string detail = "")
+        {
+            if (condition) { _passed++; Console.WriteLine("PASS " + name); }
+            else { _failed++; Console.WriteLine("FAIL " + name + (detail.Length == 0 ? "" : " :: " + detail)); }
+        }
+
+        private static string Join(List<string> lines) => string.Join("\n", lines);
+        private static bool Has(string text, string value) => text.IndexOf(value, StringComparison.Ordinal) >= 0;
+
+        private static List<string> Lines() => new List<string>();
+
+        private static PalacePaidCaptureDiagnostics New(Guid trip, List<string> lines)
+            => new PalacePaidCaptureDiagnostics(trip, lines.Add);
+
+        private static void BeginAccepted(PalacePaidCaptureDiagnostics d)
+            => d.Begin(11, 8, 6, 3, true, false, false, true, true, false, 0, 2);
+
+        private static void MarkerAccepted(PalacePaidCaptureDiagnostics d) => d.Marker(true);
+        private static void WalletAccepted(PalacePaidCaptureDiagnostics d) => d.Wallet(true);
+        private static void EndStaged(PalacePaidCaptureDiagnostics d)
+            => d.End(true,false,true, false, true, true, true, true, true, false, false, true);
+
+        private static void TestSourceIdentity()
+        {
+            string source = File.ReadAllText(PalacePaidCaptureDiagnosticsIdentity.SourcePath, Encoding.UTF8);
+            byte[] sourceBytes = Encoding.UTF8.GetBytes(source);
+            Check("identity-source-present", source.Length > 0);
+            Check("identity-source-bytes", sourceBytes.Length == PalacePaidCaptureDiagnosticsIdentity.SourceBytes);
+            Check("identity-source-sha", Sha(sourceBytes) == PalacePaidCaptureDiagnosticsIdentity.SourceSha256);
+
+            string region;
+            try { region = ExtractRegion(source); }
+            catch (Exception e) { Check("identity-region-extract", false, e.Message); return; }
+            Check("identity-region-chars", region.Length == PalacePaidCaptureDiagnosticsIdentity.RegionChars);
+            Check("identity-region-sha", Sha(Encoding.UTF8.GetBytes(region)) == PalacePaidCaptureDiagnosticsIdentity.RegionSha256);
+            Check("identity-region-class", Has(region, "internal sealed class PalacePaidCaptureDiagnostics"));
+            Check("identity-region-no-mirror", !Has(region, "class Extracted") && !Has(region, "class Mirror"));
+            Check("identity-no-touch-reset", !Has(region, "Touch(") && !Has(region, "_hasTrip"));
+            Check("identity-immutable-trip", Has(region, "private readonly Guid _trip;"));
+
+            byte[] generated = File.ReadAllBytes(PalacePaidCaptureDiagnosticsIdentity.GeneratedPath);
+            Check("identity-generated-bytes", generated.Length == PalacePaidCaptureDiagnosticsIdentity.GeneratedBytes);
+            Check("identity-generated-sha", Sha(generated) == PalacePaidCaptureDiagnosticsIdentity.GeneratedSha256);
+            Check("identity-generated-verbatim", Encoding.UTF8.GetString(generated).IndexOf(region, StringComparison.Ordinal) >= 0);
+
+            string mutated = source.Replace("MaxLines=32", "MaxLines=33", StringComparison.Ordinal);
+            Check("identity-negative-sha", mutated != source && Sha(Encoding.UTF8.GetBytes(mutated))
+                != PalacePaidCaptureDiagnosticsIdentity.SourceSha256);
+            bool rejected = false;
+            try { ExtractRegion(mutated.Replace("// <PALACE-PAID-CAPTURE-DIAGNOSTICS-END>", "", StringComparison.Ordinal)); }
+            catch (InvalidOperationException) { rejected = true; }
+            Check("identity-negative-markers", rejected);
+        }
+
+        private static void TestDefaultBuildOff()
+        {
+            string source = File.ReadAllText(PalacePaidCaptureDiagnosticsIdentity.SourcePath, Encoding.UTF8);
+            int depth = 0, ifs = 0, endifs = 0, outside = 0;
+            foreach (string raw in source.Split('\n'))
+            {
+                string line = raw.TrimStart();
+                if (line.StartsWith("#if PALACE_PAID_CAPTURE_DIAGNOSTICS", StringComparison.Ordinal))
+                { depth++; ifs++; continue; }
+                if (line.StartsWith("#endif", StringComparison.Ordinal))
+                { if (depth > 0) depth--; endifs++; continue; }
+                if (depth > 0) continue;
+                if (Has(line, "PalacePaidCaptureDiagnostics") || Has(line, "_nullCaptureDiagnostics")
+                    || Has(line, "CaptureDiagnostic") || Has(line, "DiagBegin") || Has(line, "DiagMarker")
+                    || Has(line, "DiagWallet") || Has(line, "DiagEnd") || Has(line, "DiagPrefs")
+                    || Has(line, "DiagResolve") || Has(line, "PALACE-PAID-CAPTURE-DIAGNOSTICS-BEGIN")
+                    || Has(line, "PALACE-PAID-CAPTURE-DIAGNOSTICS-END")) outside++;
+            }
+            Check("default-off-balanced", depth == 0 && ifs == endifs && ifs > 0, "ifs=" + ifs + " endifs=" + endifs);
+            Check("default-off-zero-observer", outside == 0, "outside=" + outside);
+            Check("default-off-no-unity-debug-log", !Has(source, "UnityEngine.Debug.Log"));
+        }
+
+        private static void TestInstanceBudgetIndependence()
+        {
+            var aLines = Lines();
+            var bLines = Lines();
+            var a = New(Guid.NewGuid(), aLines);
+            var b = New(Guid.NewGuid(), bLines);
+            MethodInfo emit = typeof(PalacePaidCaptureDiagnostics).GetMethod("Emit",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            for (int i = 0; i < 40; i++) emit.Invoke(a, new object[] { "probe-" + i });
+
+            string aText = Join(aLines);
+            Check("budget-a-32", aLines.Count == 32, "lines=" + aLines.Count);
+            Check("budget-a-prefix", aLines.TrueForAll(x => x.StartsWith("[PALACE-PAID-CAPTURE] ", StringComparison.Ordinal)));
+            Check("budget-a-no-33", !Has(aText, "probe-32"));
+
+            BeginAccepted(b);
+            b.Resolve(true, false, "no-durable-capture");
+            int bCount = bLines.Count;
+            Check("budget-b-independent", bCount == 2, "lines=" + bCount);
+            Check("budget-b-summary", Has(Join(bLines), "resolve=0:no-durable-capture"));
+
+            BeginAccepted(a);
+            a.Resolve(true, false, "no-durable-capture");
+            Check("budget-a-not-reset", aLines.Count == 32, "lines=" + aLines.Count);
+            Check("old-callbacks-keep-b", bLines.Count == bCount && Has(Join(bLines), "summary trip="), "lines=" + bLines.Count);
+        }
+
+        private static void TestNullScopeIsolation()
+        {
+            var handleLines = Lines();
+            var nullLines = Lines();
+            var handle = New(Guid.NewGuid(), handleLines);
+            var nullScope = New(Guid.Empty, nullLines);
+
+            nullScope.Begin(1, 8, 6, 3, false, false, false, false, false, false, 1, -1);
+            nullScope.Resolve(false, false, "no-durable-capture");
+            BeginAccepted(handle);
+            handle.Resolve(true, false, "no-durable-capture");
+
+            string nullText = Join(nullLines);
+            string handleText = Join(handleLines);
+            Check("null-scope-trip-null", Has(nullText, "trip=null"));
+            Check("null-scope-begin-unobserved-handle", Has(nullText, "handle=0") && Has(nullText, "resolve=0:"));
+            Check("null-scope-not-joined", !Has(handleText, "trip=null")
+                && !Has(handleText, "bfail=1") && Has(handleText, "begin=1/1/0/0/0"));
+            Check("handle-scope-kept", Has(handleText, "first=unobserved") && Has(handleText, "begin=1/1/0/0/0"));
+        }
+
+        private static void TestThrowingSink()
+        {
+            var trip = Guid.NewGuid();
+            bool survived = true;
+            try
+            {
+                var d = new PalacePaidCaptureDiagnostics(trip, _ => throw new InvalidOperationException("sink"));
+                BeginAccepted(d);
+                d.Marker(false);
+                d.Wallet(false);
+                d.End(true,false,false, true, true, true, true, true, false, false, false, false);
+                d.PrefsBegin(true, 11);
+                d.PrefsResult(true,false,false, false, true, true, false, "x", false, false, "");
+                d.Resolve(true, false, "no-durable-capture");
+            }
+            catch (Exception e) { survived = false; Console.WriteLine("sink failure escaped: " + e); }
+            Check("throwing-sink-contained", survived);
+        }
+
+        private static void TestBeginInvalidStage()
+        {
+            var lines = Lines();
+            var d = New(Guid.NewGuid(), lines);
+            d.Begin(7, 8, 6, 3, true, false, false, true, false, false, 0, 0);
+            d.Resolve(true, true, "");
+            string text = Join(lines);
+            Check("begin-invalid-stage", Has(text, "phase=begin result=invalid-stage"), text);
+            Check("begin-invalid-not-accepted", !Has(text, "result=accepted") && Has(text, "begin=1/0/1/0/0"), text);
+        }
+
+        private static void TestMissingPhasesUnobserved()
+        {
+            var lines = Lines();
+            var d = New(Guid.NewGuid(), lines);
+            d.Resolve(false, false, "no-durable-capture");
+            string text = Join(lines);
+            Check("missing-phases", Has(text, "marker=unobserved") && Has(text, "wallet=unobserved")
+                && Has(text, "end=unobserved") && Has(text, "prefs=unobserved") && Has(text, "src=unobserved")
+                && Has(text, "apply=unobserved") && Has(text, "begin=unobserved"), text);
+            Check("missing-first-unobserved", Has(text, "first=unobserved") && Has(text, "captured=0"), text);
+        }
+
+        private static void TestResolveIsOutcome()
+        {
+            var lines = Lines();
+            var d = New(Guid.NewGuid(), lines);
+            d.Begin(1, 8, 6, 3, true, false, false, false, false, false, 9, 2);
+            d.Resolve(true, false, "no-durable-capture");
+            string text = Join(lines);
+            Check("resolve-not-first-cause", Has(text, "first=begin:fail=9") && Has(text, "resolve=0:no-durable-capture"), text);
+            Check("resolve-no-causality-word", !Has(text, "first=resolve:"), text);
+        }
+
+        private static void TestPrefsUnobservedAndApplied()
+        {
+            var pendingLines = Lines();
+            var pending = New(Guid.NewGuid(), pendingLines);
+            BeginAccepted(pending); MarkerAccepted(pending); WalletAccepted(pending); EndStaged(pending);
+            pending.PrefsBegin(true, 11);
+            pending.Resolve(true, false, "no-durable-capture");
+            string pendingText = Join(pendingLines);
+            Check("prefs-unobserved", Has(pendingText, "src=unobserved") && Has(pendingText, "apply=unobserved")
+                && Has(pendingText, "captured=0"), pendingText);
+
+            var sourceLines = Lines();
+            var source = New(Guid.NewGuid(), sourceLines);
+            BeginAccepted(source);
+            source.PrefsBegin(false, 0);
+            source.PrefsResult(true,false,true, false, true, true, false, "source-read-reason", false, false, "");
+            source.Resolve(true, false, "no-durable-capture");
+            string sourceText = Join(sourceLines);
+            Check("prefs-source-refused", Has(sourceText, "first=source-read:source-read-reason")
+                && Has(sourceText, "src=1/0") && Has(sourceText, "apply=unobserved"), sourceText);
+
+            var applyLines = Lines();
+            var applied = New(Guid.NewGuid(), applyLines);
+            BeginAccepted(applied);
+            applied.PrefsBegin(true, 11);
+            applied.PrefsResult(true,false,true, true, false, true, true, "", true, true, "");
+            applied.Resolve(true, true, "");
+            string appliedText = Join(applyLines);
+            Check("prefs-captured-only-after-apply", Has(appliedText, "result=captured")
+                && Has(appliedText, "apply=1") && Has(appliedText, "captured=1") && Has(appliedText, "resolve=1:"), appliedText);
+
+            var applyFailLines = Lines();
+            var applyFail = New(Guid.NewGuid(), applyFailLines);
+            BeginAccepted(applyFail);
+            applyFail.PrefsBegin(true, 11);
+            applyFail.PrefsResult(true,false,true, true, false, true, true, "", true, false, "journal-rejected");
+            applyFail.Resolve(true, false, "no-durable-capture");
+            string applyFailText = Join(applyFailLines);
+            Check("prefs-apply-refused", Has(applyFailText, "first=apply:journal-rejected")
+                && Has(applyFailText, "apply=0") && Has(applyFailText, "captured=0"), applyFailText);
+        }
+
+        private static void TestCapturedStage()
+        {
+            var lines = Lines();
+            var d = New(Guid.NewGuid(), lines);
+            d.Begin(1, 8, 6, 3, true, false, false, true, false, false, 0, 0);
+            d.Begin(2, 8, 6, 3, true, false, false, true, false, false, 0, 2);
+            d.Resolve(true, false, "no-durable-capture");
+            string text = Join(lines);
+            Check("begin-stage-first-invalid-preserved", Has(text, "invalidStage=0"));
+            Check("begin-stage-latest-scalar-preserved", Has(text, "stage=2 invalidStage=0"));
+            Check("begin-stage-event-at-observation", Has(text, "result=invalid-stage stage=0"));
+            var absentLines = Lines();
+            var absent = New(Guid.NewGuid(), absentLines);
+            absent.Resolve(true, false, "no-durable-capture");
+            Check("begin-stage-unobserved", Has(Join(absentLines), "stage=unobserved invalidStage=unobserved"));
+        }
+
+        private static void TestFinalizerFlags()
+        {
+            var lines = new List<string>();
+            var d = New(Guid.NewGuid(), lines);
+            d.End(false, false, true, true, true, true, true, true, false, false, false, false);
+            d.PrefsBegin(true, 31);
+            d.PrefsResult(false, true, true, false, true, false, false, "", false, false, "");
+            d.Resolve(true, false, "no-durable-capture");
+            string summary = Join(lines);
+            Check("end-actual-original-false", Has(summary, "eorig=0"));
+            Check("end-actual-error-false", Has(summary, "eerror=0"));
+            Check("prefs-actual-original-false", Has(summary, "porig=0"));
+            Check("prefs-actual-error-true", Has(summary, "perror=1"));
+            Check("prefs-flags-do-not-invent-source", Has(summary, "src=unobserved"));
+            Check("prefs-flags-do-not-invent-apply", Has(summary, "apply=unobserved"));
+
+            var untouchedLines = new List<string>();
+            var untouched = New(Guid.NewGuid(), untouchedLines);
+            untouched.Resolve(true, false, "no-durable-capture");
+            string absent = Join(untouchedLines);
+            Check("absent-end-flags-unobserved", Has(absent, "eorig=unobserved eerror=unobserved"));
+            Check("absent-prefs-flags-unobserved", Has(absent, "porig=unobserved perror=unobserved"));
+        }
+
+        private static void TestWalletGuardStructure()
+        {
+            string source = File.ReadAllText(PalacePaidCaptureDiagnosticsIdentity.SourcePath, Encoding.UTF8);
+            Check("wallet-no-observation-null", !Has(source, "observation.Wallet!=null"));
+            Check("wallet-no-unity-null-check", !Has(source, "walletPresent"));
+            Check("wallet-foreign-skip-silent", Has(source, "Foreign/absent wallet: silent skip"));
+            int postfix = source.IndexOf("private static void WalletPostfix", StringComparison.Ordinal);
+            int finalizer = source.IndexOf("private static Exception? WalletFinalizer", StringComparison.Ordinal);
+            Check("wallet-postfix-guard-order", postfix >= 0 && finalizer > postfix);
+            string postfixText = source.Substring(postfix, finalizer - postfix);
+            Check("wallet-no-diagnostic-before-match", !Has(postfixText, "DiagWallet(t,__state")
+                && !Has(postfixText, "DiagWallet(t,false);return"));
+            string region = ExtractRegion(source);
+            Check("wallet-diagnostic-scalar-only", !Has(region, "UnityEngine") && !Has(region, "Il2Cpp")
+                && !Has(region, "Wallet "), region);
+        }
+
+        private static string ExtractRegion(string source)
+        {
+            const string beginMarker = "// <PALACE-PAID-CAPTURE-DIAGNOSTICS-BEGIN>";
+            const string endMarker = "// <PALACE-PAID-CAPTURE-DIAGNOSTICS-END>";
+            int begin = source.IndexOf(beginMarker, StringComparison.Ordinal);
+            if (begin < 0 || source.IndexOf(beginMarker, begin + beginMarker.Length, StringComparison.Ordinal) >= 0)
+                throw new InvalidOperationException("begin marker");
+            int beginLineEnd = source.IndexOf('\n', begin);
+            if (beginLineEnd < 0) throw new InvalidOperationException("begin line");
+            int regionStart = beginLineEnd + 1;
+            int end = source.IndexOf(endMarker, regionStart, StringComparison.Ordinal);
+            if (end < 0 || source.IndexOf(endMarker, end + endMarker.Length, StringComparison.Ordinal) >= 0)
+                throw new InvalidOperationException("end marker");
+            int endLineStart = source.LastIndexOf('\n', end);
+            if (endLineStart < regionStart) throw new InvalidOperationException("empty region");
+            return source.Substring(regionStart, endLineStart + 1 - regionStart);
+        }
+
+        private static string Sha(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+    }
+}
