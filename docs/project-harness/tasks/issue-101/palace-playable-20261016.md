@@ -142,3 +142,15 @@ R13首轮42/42作者测试仍漏实际planner路径、preferences备份完整文
 本轮worker实际normal stop。其“临时文件只在worker/tmp”的收据口径过宽：运行独审接线脚本也在reviewer-owned scratch建立并清理自身临时fixture；独审及Root已追加更正，原报告不覆盖。两个反例仅fake/temp字典或测试文件，不是实际运行库中的残文件，不需要也未进行真实清理。
 
 证据：本机`full-flow-r13-review/report-scope.json`、`full-flow-r13/root-scope-function-rerun.json`和`root-offline-scope-adoption.json`。R13仍UNUSED，未补写sourceOfflineReady/Native门，无本轮新游戏、扣费、保存冷读或返回，也未合并安装。生产候选dd987、PR产品源/素材/宿主测试保持；长按投币的人类回复仍待取得，完整实机另排。
+
+## 2026-10-18 新输入授权与R14离线准备（12:18Z）
+
+用户实际回复“允许隔离窗口投币键最多5秒（推荐）”，原文回执SHA256 `1d8055d41e1f1b6346d129a9ffff8f9a4c7721aa0463b3ce65df65ba749812ed`；仅核对PID的隔离窗口，确保松开。R4请求上限4.5秒、实际down/up上限5秒，原短按保护保持。独审复现任意成功解释器可冒充guard的P1后，固定CPython实际路径/bytes和guard并在子调用前后、activation/down前复核；独立重建0W0E，作者及独立产物各65/65，编译15项与独立调用链18项通过，P1/P2=0。这仍不证明实际按键送达。
+
+R14只重排新F1，R13旧UNUSED不变。准备脚本的R7 request/decision/session原始字节链与UI字段/self-hash缺口经集中delta关闭；独立66/66、实际接线/导入隔离5/5、UI契约4/4、R7窄审22/22通过，Root12:13:15Z实际记录source-ready。plan `1ca8687a…`、stage `d1d0e1eb…`、controller `4e8ae769…`、identity4946、policyea516；产品dd987不变，Native仍未开始。Root仅把既有6154归档复制为新case恢复材料，不是运行库安装或私有状态新快照。
+
+R7独立20组mock及Root复跑通过；新实际GLM5.3/max/非fallback/normal-stop决策绑定真实本次request/decision/session字节。12:12:10Z经部署harnessctl正常续租至14:12:10Z，仅#101 lease/updated_at及顶层updated_at改变，其余184行/169计划、primary十项未拥有改动/local与正常DLL8345保持；validator0、旧doctor3E/56finding不变。真实receipt SHA `51aa53ec8ed6d40485b2bc8fd7b7b5aa4136d5d7d41bd75b0f95525efb7f123e`。这是协作租约结果，不是游戏或安装验收。
+
+两peer实际Native quiet覆盖12:45–13:40Z；Android本轮12:15已启动，Root等其实际reap/postflight交回后于12:40Z起独立fresh，不按clock推断归还。F1 exact须12:44前、stage/Popen12:45–12:50、最长1200秒且13:10硬终止。F2正在纯离线准备，仅可使用实际F1自然10币/settlement/到达宫廷/原生菜单保存/owned reap及配对postimage，再新fresh/exact冷读与免费返回；缺任项不得自动续跑。尚无R14真实plan/stage/game/UI/付款/保存返回，PR265仍Draft，未合并、未关#101、未安装正常包。
+
+本机证据：`full-flow-r14-review/final-delta.json`、`pay-ui-r4-review/final-delta.json`、`lease-renewal-r7-review/report.json`、`lease-renewal-r7/receipt.json`、`full-flow-r14/source-review.json`、`offline-ready.json`及`root-ui-source-adoption.json`。构建、离线审查、安装与实际玩法各自留证。
