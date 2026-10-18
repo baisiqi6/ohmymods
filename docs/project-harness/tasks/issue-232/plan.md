@@ -1,19 +1,23 @@
-# Issue232 — 单次浮球GUI观察与APK阶段身份核对
-
-基线1f9c6753ef2a87ba994d38c96dc49b111927551c为PR246文档合并，Android/IL2CPP源相对351不变。保留全部已完成移植，候选c906ca77e86bdd8842a1d0cf5bf01405179a58a6566b33174ee295a152daa4fb与40键cfgac31c005cd5d6cbce47348f17b977dee96f6629dda6bc177c6e68277093c2890不改；六boolfalse、ratio25/volley1/rate1不是全功能off。G15已实际106有序/main及逐面恢复，图像仅loadingbar，触屏/玩法不因此通过，旧raw/partbackup/spent和失败保持。
-
-新独立case swiftshader-main106-20261016-gui-apk1，API35ARM64/AVD5582/SwiftShader/no-snapshot/no-wipe，一次无UI观察。显式requireFloatGui=true、requireMain=true、expectedOwners106、screenshotOnMain=true；rawSpecSHA跨Root/prepare/supervisor/run一致。既有freshness/单PID/有序注册和main仍必须；新增只解析现有OHMYMODS_FLOAT_GUI。实际ProbeTicker.OnGUI在ProgramDirector.RunningGame门后仅首次guiLogged发该行（源49eb4523，L338/L365），行先于texture/draw，不能单独当画面证据。不新增Mod observer/Addon，不改产品/字体/UI或游戏状态。
-
-纯日志候选要在component/main后恰一条合法正数dimensions/finite diameter、无FLOAT_RENDER_FAILED及error；默认requireFloatGui=false保持旧语义。正向候选在原剩余>11.2秒才采一张PNG，之后只下一次既有fresh采样确认连续PID/可信源/无错误，确认前objectiveComplete=false；无新增poller/delay/重试。11.2=截图2+既有sleep1+可能host2.2+原log/stat/ps6。截图失败、后采样不可信/错误不重拍；视觉就绪由Root人工看真实PNG另记，程序不从有效PNG推导orb/world通过。
-
-无GUI或明确失败、或剩余不足正向11.2时，最多一张同一capture函数的端点诊断图（remaining>2且原soft内才发）；立即inconclusive/failed，诊断图从不使objective/visual通过，不用作成功兜底，不采第二张；不足2秒明确未采，不挪用恢复窗。到期缺GUI只表示本观察未见，不称游戏挂死，不扩时或另跑。
-
-全部G15保护沿用：原Main/cfg、Release、Latest.log+完整Logs与UserData全树host/devicebackup+读回；APK仅prepare一次完整远端SHA并在该计算前后核同一安装路径/文件identity，runtime安装前及恢复后只复核安装路径/完整identity，四runtimepins保持（无全runtime备份/写承诺）。common1d08/helper905/历史R53e527/supervise复用，唯一pair helper装/复原Maincfg，unknown保留不盲写；game0后独立pair/Release/Mods/refs/APK初始SHA与identity复核/UserData逐面记录，新未知旁档不删不覆，阻后继自动case。33文件旧备份与新的case备份均保留；logs/nativegame写与整环境恢复不混写。
-
-boot90与prepare60前序；supervisorT0起soft170/restore220/watchdog225/hard230不扩；原53.0install/24.4launch准入保持，所有inflightremainingcap；恢复名义50只core46账目，其它facets来不及保持unknown，不借220之后补写。Root exactPID/lstart/argv信号+bounded实际wait/reap；ps/ports不代恢复。native启动前source/host独审、typed本计划精确登记、actualGLM本例门与Main新资源窗齐备且fresh剩余>=420秒；无门不跑，旧G15不复用。
-
-#232继续原owner/session/op/doing-ready-running，不关单、不发布APK/loader/game。GUI观察和Root图像事实是后续职业/弓弩九值只读触屏的依赖，同一UI批按证据继续，不为每个小设置分别全交付。本例不发送tap/swipe、不写配置或声明九值运行读回/攻击/保存/全池/手机多人通过。
-
-G16实测边界：prepare33payload备份完整，runner第二次APK全hash cap30超时且无output，未到pairpush/sync/game launch/PNG。actual65586cad/1832pins held，Root真实wait-9，host保护/ports保持；restoreunknown不提升，所有raw/backups/spent保留。底层超时原因未知，不归因Mod。G17在私有控制器根源去掉runner两个重复fullhash；不延长原30/prepare60，不盲重跑。
-固定APK协议见本rawspec.apkIdentityContract（不是可选配置旋钮）：同一个checked单base包路径，无split；toybox stat不加-L，用完整mode确定regular/非link，核device/inode/size/完整mtime和ctime文本/mode/uid/gid；prepare hash前后均相同且size等本机APK实际字节才登记initialFullSHA基线，runtime前和结束时重新checked pm path+相同identity。任何字段缺失/坏格式/变化/命令unknown拒绝、不退回hash或重试。语义严格分离：apkSame不复用为metadataTrue，明确initialFullSHA与每阶段identity事实，不声称结束后重复字节校验或对抗root篡改证明；限定独占AVD且控制器无APK写路径，APKwrites0。Root传递真实apkVerification新facet，pair已恢复但APKidentity变化时仍如实保留pair读回而整体unknown。
-源码仍351产品基线，本批仅私有prepare/run/纯解析和Root接线/actualpins；CaseSpec/supervise/common/helper/product保持，默认GUI路径/一张图/下一freshsample和所有固定预算不变。下一执行仍需exact审查/normal/新GLM门/新Main窗，不复用G16。
+{
+  "case": "readonly-storage-state-20261018-single1",
+  "targetPath": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/UserData/KingdomEnhancedMod/ModSave/hero-identities.v1.json",
+  "minBytes": 2,
+  "maxBytes": 1048576,
+  "bootSecondsMax": 90,
+  "readSecondsMax": 60,
+  "totalSecondsMax": 190,
+  "cleanupSecondsMax": 10,
+  "windowMinRemainingSeconds": 210,
+  "serial": "emulator-5582",
+  "avd": "ohmymods_android35_inprocess",
+  "gateSHA256": "038acf7e630fb762d73fe3c52d63c8f1e6a6d3569ddc81c6ce3f20923ad3ff00",
+  "sourceReviewSHA256": "1d8c5c19aa7f6d77ecc316ea264de753f55e1762f62ee20917737810096ffdaa",
+  "resourceWindowSHA256": "355dad61fd1ec12010fdb7328d72203ef47d40dc70310bb515cc93a4693b7cba",
+  "taskIdentity": {
+    "issue": 232,
+    "owner": "mac-codex-ohmymods-android-operator",
+    "session": "codex-android-profession-archery-20261014",
+    "operation": "a7459a58-3446-4856-aaa3-5f02e1115de2"
+  },
+  "objective": "diagnose-storage"
+}

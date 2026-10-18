@@ -2209,3 +2209,9 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 
 
 - 2026-10-18 UTC Android #232 G16–G17：去掉私有runner重复APK全hash，复用prepare一次完整SHA及四阶段严格文件identity，保持预算/产品/唯一writer，无重试。G16原第二hash超时、未pair写入或启动的失败保留；G17单次完整33文件备份后实际106注册/main和唯一FLOAT_GUI达到，一张图加下一fresh采样确认。PNG可见小金色浮球与加载条，world/展开页未见，无触屏操作，不称可游玩。原pair5460/9758独立读回、Release/Mods/4refs保持；原19个UserData字节保持，新增hero-identities.v1.json及两目录仅存在性已采，payload未知、原件/备份保留并阻下一自动case。既有ConfirmBaseline保存责任可解释路径，但不代验内容。Root真reap及资源归还已证，独立actual c93b74a8/2689稳定pins由Root重核；整体native/玩法和整环境恢复均非通过。正常计划f1e95752已登记并逐字镜像，182其他任务/166其他计划保持，validator通过；全局doctor3E0W为已有247/251错误，232无blocker，未写全绿。完整232仍OPEN，下一组先核共享保存差异/旁档只读分类，再按普通弓箭与职业依赖推进。新的专项Worker/Reviewer分时路由已记，历史模型证据保留。详见[G16–G17记录](tasks/issue-232/g5-main106-preflight.md)。
+
+
+- 2026-10-18 Android #232 G18：PR259文档收尾已合并3b340713，源码已source-only吸收f60共享保存修复及249合并906；旧c906/证据保留，未装新Android产物。共享增量直接复用，八保存入口仅索引/契约及一段260B线性窗口有限核对，ABI/detour/paid未预验。新单次只读分类在boot1/game0后UserData目录不可见、target stat ENOENT，未cat/无payload、无APK/game启动或游戏目录写命令；Root真实reap/后端口和8345保护字节已证，独审仍inconclusive，不定性文件丢失/ADB断线。正常计划063ffc6e已登记并镜像，其他182rows/166plans保持，validator0、原doctor3E0W/232无block；普通同身份续租到07:16:17且全部167plans保持。G17旁档仍unknown，不删除/覆盖、不解自动case；下一步先最小存储状态采样，与精确功能范围盘点并行，避免因实机未验无限挂单或为关单虚称范围已齐。详见[G18记录](tasks/issue-232/g5-main106-preflight.md)。
+
+
+- Android #232 G18只读存储诊断随后完成：新具名objective源码/29host经独审、最终producer1+6由Root在c148重跑后，正常计划58161139登记、独立读回及本分支镜像一致，其他任务/计划、lease及既有doctor边界保持。单次30.21s中boot1/CEtrue时emulated卷仍checking，随后全部祖先与562B旁档stat可见；这提供启动/存储时序线索，未读取正文或定上例唯一根因。8查询/10stat无unknown/timeout，cat0/game0/无设备文件写命令，Root真reap及后host/端口/8345保护已核，原生窗口提前交还。完整232的真实付款/保存/load及池重建兼容组仍待验；当前906的232具名职业/弓弩闭环未发现确认源码缺口，旧相同input构建与106注册证据复用，后续场景按producer和池依赖合并，不为每字段重复全交付。详见[G18记录](tasks/issue-232/g5-main106-preflight.md)。
