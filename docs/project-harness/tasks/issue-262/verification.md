@@ -135,3 +135,16 @@ Controller90803于17:19:34.900031Z实际wait=0，QEMU90872于17:19:25.747426Z实
 实际结果独审仅批准 `APPROVE_NAMED_ASSET_PIXEL_OBSERVATION_ONLY`（report SHA `d08a0d7444ee67fb…`），Root接纳同一窄范围；新source及exact数据分别独审，正常计划 `2105140e…` 已经受管登记并fresh读回，184其它row/168其它plan及262计划保持，validator0；旧doctor3E/56不是全局通过。没有复用撤销的全局Native排队窗口或旧运行凭据。PR263继续Draft、#232/#262开放；真实身份付款→原生保存装载、职业/弓弩/助手生成攻击回收及池重建仍属必要兼容事项，手机/平板、多人长期验收另列。
 
 证据：G19 `next-bank-shop-isolated-case/actual/`；fresh log SHA `d66976cf…`、Root最终裁定 `dd3571f9…`、postflight `7fb38c36…`，代码/边界测试与分组审查在 `resume-1453/` 对应目录。不分发游戏、APK、interop或玩家存档。原银行私有读取副本已清理，所有本批生产读取继续复用唯一helper。
+
+<a id="g20-profession-activation"></a>
+## 2026-10-18 UTC：三职业自然启用与共享选址状态观察
+
+新单次 `controlled-profession133-activation-isolated-20261018-single1` 保持 Main `0cd53939…`，使用私有只读 AddOn `3b78e784…`（0.0.7）。配置 `16b68641…` 相对受控58键基座 `f49c3cfc…` 只把 `InfiniteMoney/MusketeerEnabled/HeavyShieldEnabled/HeroArcherEnabled` 由false改true，其余54项保持；这不是与设备原始31键配置 `9758bda8…` 的逐项等同比较。会话主开关仍复用原内部 `Setting<bool>`，未添加配置项。0.0.7从0.0.5保留Bank快照与原readiness/120秒/128事件生命周期，只在首个surface和原Stop各读一次真实managed状态，不含0.0.6主动TryGet/额外像素读回。独立net6编译0W0E、68项控制器host通过，source与21份快照/具体文件绑定分别独审；本批未修改产品源码或PC业务。
+
+设备字节读回核对Main/配置/AddOn及六份runtime引用后达到133注册、world与严格surface。两个时点共12条职业标记，无PROFESSION_UNKNOWN；四项配置与内部主开关均true，`Wallet.InfiniteMoney`原生getter为true且与配置一致，但玩家实际coins仍0。HeroShop、MusketeerShop、HeavyShieldShopShell的`_registered`均true，`_object`及付款点/points存储均null，stage均`find-position`；文案分别来自共享Find正常返回false。源码顺序说明各Create已越过素材预检，不能据此扩成精灵视觉、native owner存活、接口回调或商店完整创建通过；两固定点也不证明其间连续状态。
+
+共享Find没有吞异常catch。当前false尚不能区分边界/半宽无效或过窄，与候选全被原生exclusions拒绝；不能直接归因资源未加载、Android API失败或“只需扩城”。下一步仅补读当前真实边界与参数，不加新候选搜索、扫描/重试、放宽排除或强制Create。当前fresh另有`KnightStyle`缺`knight_norselands`、风格池缩为4/5的残余，北境风格行为待核；本次未隐去或宣称已修。
+
+本Operator未发送输入或额外PNG，controller只取1张基线；该行动记录不冒充对其它输入来源的独立测量。截图仍暗，仅HUD/浮球/月与水面可见。observer在120.04秒/events1按原预算Stop，QEMU14485于18:16:35.775687Z真实reap0，controller14383实际wait0；Root18:17:47.613671Z重新核对八项SHA/metadata与原件、before/after一致，own PID/AVD holder消失、5582/5583释放、ADB88434身份保持，无restore。未执行有意付款、保存/装载、RPC或池重建；app自然加载和临时overlay写入仍存在。
+
+正常计划 `2fe840be…` 于18:10登记，18:11独立fresh185 rows/169 plans与producer after一致，184其它rows/168其它plans及262计划保持；validator0，原doctor3E/56且232无blocker，不写全局通过。旧门已消费，未复用旧凭据。实际审查首轮因Deadline exceeded退出、未产出verdict，不计通过；同一独立OMP Flash/max session续接后公开批准 `APPROVE_ACTIVATION_STATE_OBSERVATION_ONLY`（报告SHA `94ea77177f946ea4…`），Root仅采纳上述窄范围。证据在G19 `next-profession-activation-case/actual/` 及 `resume-1453/profession-activation-actual-review/`：fresh log `b257e798…`、Root裁定 `78cdf698…`、独立postflight `9a4dd704…`。PR263继续Draft、#232/#262开放；真实身份付款、职业/助手生成攻击回收、原生保存装载与池重建仍属必要兼容事项，手机/平板、多人长期验收另列。
