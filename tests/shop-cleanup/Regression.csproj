@@ -21,11 +21,13 @@
     <NoWarn>$(NoWarn);CS0649;CS0414;CS0169</NoWarn>
     <CastleSource Condition="'$(CastleSource)' == ''">$(MSBuildThisFileDirectory)../../il2cpp/PatchRoles_Castle.cs</CastleSource>
     <QueueSource Condition="'$(QueueSource)' == ''">$(MSBuildThisFileDirectory)../../il2cpp/ShopCleanupQueue.cs</QueueSource>
+    <WorldShopPlanSource Condition="'$(WorldShopPlanSource)' == ''">$(MSBuildThisFileDirectory)../../il2cpp/WorldShopPlan.cs</WorldShopPlanSource>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="$(CastleSource)" Link="Production/PatchRoles_Castle.cs" />
     <Compile Include="$(QueueSource)" Link="Production/ShopCleanupQueue.cs" />
+    <Compile Include="$(WorldShopPlanSource)" Link="Production/WorldShopPlan.cs" />
   </ItemGroup>
 
 </Project>

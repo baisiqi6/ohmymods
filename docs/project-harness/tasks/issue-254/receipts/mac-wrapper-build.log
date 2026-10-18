@@ -1,0 +1,17 @@
+# Mac private-wrapper-style build (Issue #254) — 2026-10-17T16:08:42Z
+# wrapper source: /Users/Admin/projects/ohmymods/.local/build/Integration.csproj (macos-workspace.md build entry; private, not in git)
+# only change vs real wrapper: Compile glob redirected to task worktree (same as sync_mac_embedded_assets.py); no Compile Remove, no other edits.
+# worktree: /Users/Admin/projects/WorkTrees/ohmymods-crown-native-speed-20261017
+# command: dotnet build build.csproj -c Release (SDK 8.0.425, net6 target, Mac 2.4.0 interop)
+  Determining projects to restore...
+  Restored /private/tmp/ohmymods-macwrapper-A/build.csproj (in 44 ms).
+  build -> /private/tmp/ohmymods-macwrapper-A/bin/Release/net6.0/KingdomEnhancedMod.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.74
+EXIT=0
+# dll_sha256_below
+11d8b6dce803ef8e2abf18f499ad0d13070e5d2b57235a1170861b68d2ae72ba  bin/Release/net6.0/KingdomEnhancedMod.dll

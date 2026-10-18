@@ -1,0 +1,17 @@
+# World shop plan / queue / pool gates (production sources)
+android/OhMyMods.AndroidProbe.csproj:212:    <Compile Include="../il2cpp/WorldShopPlan.cs" Link="Shared/WorldShopPlan.cs" />
+il2cpp/PatchEconomy_Shops.cs:111:            var worldPlan = WorldShopPlan.Get(biomeIdx, BiomeHolder.GreeceBiomeIndex);
+il2cpp/PatchEconomy_Shops.cs:194:        if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex).Berserker) return false;
+il2cpp/PatchEconomy_Shops.cs:212:            if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex).Berserker) return;
+il2cpp/PatchRoles_Castle.cs:90:            if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, GREECE_BIOME).Ninja) return;
+il2cpp/PatchRoles_Castle.cs:188:        if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, GREECE_BIOME).Any) return;
+il2cpp/PatchRoles_Castle.cs:205:        var plan = WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, GREECE_BIOME);
+il2cpp/PatchRoles_Castle.cs:302:            var plan = WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, GREECE_BIOME);
+il2cpp/PatchRoles_Castle.cs:455:            var plan = WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex);
+il2cpp/PatchRoles_Ninja.cs:9:/// Europe/DeadLands/Norse 的扩展忍术商店世界，见 WorldShopPlan）。
+il2cpp/PatchRoles_Ninja.cs:57:        if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex).Ninja) return;
+il2cpp/PatchRoles_Ninja.cs:204:        if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex).Ninja) return;
+il2cpp/PatchRoles_Ninja.cs:263:        if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex).Ninja) return;
+il2cpp/PatchRoles_Ninja.cs:311:        if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex).Ninja) return;
+tests/shop-cleanup/Regression.csproj:24:    <WorldShopPlanSource Condition="'$(WorldShopPlanSource)' == ''">$(MSBuildThisFileDirectory)../../il2cpp/WorldShopPlan.cs</WorldShopPlanSource>
+tests/shop-cleanup/Regression.csproj:30:    <Compile Include="$(WorldShopPlanSource)" Link="Production/WorldShopPlan.cs" />

@@ -104,9 +104,12 @@ public static class PatchEconomy_Shops
                 }
             }
 
-            // 第三部分：希腊世界狂战士商店原生刷新——占用 ShieldShop 槽位(12/13)
-            // 配合 SidedShop Awake 改写（Berserker 实例以 ShieldShop 身份自注册）。
-            if (biomeHolder != null && biomeIdx == BiomeHolder.GreeceBiomeIndex)
+            // 第三部分：按世界计划把狂战士商店注册到 ShieldShop 槽位(12/13)。
+            // Europe / DeadLands / Shogun / Greece 复用 12/13；Norse 保留原生
+            // ShieldShop 与原生狂战士商店，不覆盖任何槽位。
+            // 配合 SidedShop Awake 身份改写（Berserker 实例以 ShieldShop 身份自注册）。
+            var worldPlan = WorldShopPlan.Get(biomeIdx, BiomeHolder.GreeceBiomeIndex);
+            if (biomeHolder != null && worldPlan.Berserker)
             {
                 var berserkerShop = FindShopTagPrefab("ShopBerserker_norselands");
                 if (berserkerShop != null)
@@ -114,7 +117,8 @@ public static class PatchEconomy_Shops
                     pairs[PayableShop.ShopType.ShieldShopLeft] = berserkerShop.gameObject;
                     pairs[PayableShop.ShopType.ShieldShopRight] = berserkerShop.gameObject;
                     KingdomEnhancedPlugin.Instance?.LogSource.LogInfo(
-                        "[Economy] Greece: ShieldShop slot -> ShopBerserker_norselands (native refresh, Pike kept)");
+                        "[Economy] biome " + biomeIdx
+                        + ": ShieldShop slots -> ShopBerserker_norselands (world slot plan)");
                 }
                 else
                 {
@@ -183,11 +187,11 @@ public static class PatchEconomy_Shops
 
     // === SidedShop：狂战士商店身份改写 ===
 
-    /// <summary>判断是否为希腊世界的狂战士工具商店。</summary>
-    private static bool IsGreeceBerserkerShop(PayableSidedShop shop)
+    /// <summary>判断是否为按世界计划占用 ShieldShop 槽位的狂战士工具商店。</summary>
+    private static bool IsBerserkerShieldSlotShop(PayableSidedShop shop)
     {
-        if (shop == null) return false;
-        if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return false;
+        if (shop == null || BiomeHolder.Inst == null) return false;
+        if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex).Berserker) return false;
 
         PayableShop ps = shop.GetComponent<PayableShop>();
         return ps != null && ps.itemPrefab != null && ps.itemPrefab.CompareTag("BerserkerTool");
@@ -204,8 +208,8 @@ public static class PatchEconomy_Shops
         if (!ModConfig.Enabled.Value) return;
         try
         {
-            if (__instance == null) return;
-            if (BiomeHolder.Inst == null || BiomeHolder.Inst.BiomeIndex != BiomeHolder.GreeceBiomeIndex) return;
+            if (__instance == null || BiomeHolder.Inst == null) return;
+            if (!WorldShopPlan.Get(BiomeHolder.Inst.BiomeIndex, BiomeHolder.GreeceBiomeIndex).Berserker) return;
 
             PayableShop ps = __instance.GetComponent<PayableShop>();
             bool isBerserker = ps != null && ps.itemPrefab != null && ps.itemPrefab.CompareTag("BerserkerTool");
@@ -227,12 +231,32 @@ public static class PatchEconomy_Shops
         if (!ModConfig.Enabled.Value) return;
         try
         {
-            if (!IsGreeceBerserkerShop(__instance)) return;
+            if (!IsBerserkerShieldSlotShop(__instance)) return;
             __instance.shopType = PayableShop.UnsidedShopType.Pike;
         }
         catch (Exception e)
         {
             KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
         }
+    }
+
+    /// <summary>
+    /// 异常兜底：原生 Awake 在 Prefix 之后抛异常时 Postfix 不会执行，
+    /// 这里恢复原始 shopType（Pike），避免实例以 ShieldShop 身份留在内存。
+    /// </summary>
+    [HarmonyPatch(typeof(PayableSidedShop), nameof(PayableSidedShop.Awake))]
+    [HarmonyFinalizer]
+    public static Exception SidedShop_Awake_Finalizer(Exception __exception, PayableSidedShop __instance)
+    {
+        try
+        {
+            if (__instance != null && IsBerserkerShieldSlotShop(__instance))
+                __instance.shopType = PayableShop.UnsidedShopType.Pike;
+        }
+        catch (Exception e)
+        {
+            KingdomEnhancedPlugin.Instance?.LogSource.LogError(e);
+        }
+        return __exception;
     }
 }
