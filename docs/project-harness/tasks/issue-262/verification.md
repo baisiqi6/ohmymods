@@ -100,3 +100,23 @@ Root独立host结果：银行PC73/0、Android85/0，旧源78/7预期失败（包
 用户要求在本批适当位置暂停：只收拢当前离线改动、必要审查验证与Draft保存，不再启动下一单次或下一功能组。14:31正常入口仅同身份续租232/262到16:31:13Z，全部169plans及183其它row保持；Root14:31:53fresh185rows/169plans与producer-after一致、validator0，doctor仍旧3E/56且232无block，非全局通过。后续14:56–14:59登记与15:05–15:30运行申请已撤回，旧spent门不复用。PR268诊断文档已合并a8efb06；PR263继续Draft，#232/#262保持OPEN。新候选八模板池、实际助手/补货/扣款、保存装载、暂停朝向及池重建尚未运行，手机平板/多人长期另列。恢复时重新核对源码、租约与环境，再申请新的精确运行门。
 
 本机证据：G19 `post-ui-api-runtime-fixes/` 的两实现/审查目录、`bank-android-asset-trace/root-independent-asset-check.json`、`root-host-verification/`和`product-build/`；本批不发布游戏、APK、interop或玩家数据。
+
+<a id="g20-bank-init-actual"></a>
+## 2026-10-18：银行初始化单次实际观察
+
+用户已直接恢复运行，旧暂停状态仅为历史、不再生效。默认Main `807e5b95…` 与私有Addon `2831e044…`（version 0.0.5、58键）为同件产物，无新APK；normal plan `cc4a45c8…`。new case `controlled-economy133-bank-init-20261018-single1`：fresh日志4名controller均Resolved；13条单次snapshot标记（1 SNAPSHOT+8 SLOT+4 SHEET，同秒单组）；atlasState=1、Ready=1、Failed=2；4张纹理各有32帧存储引用；8个template/pool为30120..30127，prefab/sync/byId/byName/syncId匹配。旧AOC getter、flipY、atlas decode failed、S1_READY/INPUT_UNKNOWN在fresh中缺席。边界：日志不证明每slot的controller绑定，managed引用非native alive，非完整ABI、非像素可见；GetValue可能触发managed cctor（atlas 4次StringToHash），helper不ForceEnsure，不称零副作用。
+
+Root 0输入、1张controller baseline PNG；画面暗，orb/dateHUD/moon+水面可见，未见assistants。无有意交易/保存/换岛/池重建；允许app自然load与临时overlay写入。QEMU12810于15:29:03.186474Z真实reap=-9，controller12644 actual wait于15:29:14.543869Z=0；Root 15:29:31.736041Z fresh核对8项SHA+metadata保持、game/VM进程0、5582/5583空闲、无restore层，postflight回执SHA `078ce2d0…`。normal 15:15登记、15:16 fresh其余rows/plans/leasehold一致，validator 0；doctor旧3E/56，不是全局通过。actual独审仅`APPROVE_BANK_INITIALIZATION_OBSERVATION_ONLY`（报告SHA `d9ee3d37…`）；PR263 Draft、#232/#262 OPEN。据此允许下一依赖组处理其余7个当前产品owned PNG readback，尚未实现，不声称通过。
+
+<a id="g20-shared-owned-png"></a>
+## 2026-10-18：集中适配当前产品的自有 PNG 像素读取
+
+将银行原有 Android 读取方法体原样抽到唯一 `android/AndroidTexturePixels.cs`，银行、闲暇图集、英雄人物/箭、火铳人物/弹丸、重盾两处及商店共八文件九处复用。仅适用于自建、可读、无 mip 的 PNG 纹理；保留 RGBA32/ARGB32 白名单、checked 4N、实际数据大小/非空指针验证与单次复制，完整保留 RGB。原银行私有副本及其无用 using 已删。各 consumer 的透明度/透明 RGB、尺寸、缓存、异常和资源清理责任保持，没有新增 decoder、地址读取、扫描、重试或回退机制。四份尚未进入产品的调用者未改，Samurai 的导入纹理需要不同契约，不盲套。
+
+Root 独立核对八份完整 PC active 源逐字相同，九个原 GetPixels32 留在 PC 分支；Android 两个实际产品 IL 均为旧调用0、公共方法9。默认 net6 Debug/Release 编译0错误/各1条既有CS0169，207 Compile/176引用/25资源；相对上一候选399输入保持、8共享源改变、增加1 helper。产品工程显式链接，CompileInventory 按原 android/*.cs 自动纳入；该诊断工程这里只核接线，未宣称其全量构建通过。Release `0cd539392b23ca0cea9b13e85879f77803890cbec00f9a9fb9cc9e471cf30344`，Debug `59a98bad4b4ff18b2dffc0679cb3ceb4b955f603d7bb2e452d51142ec86012da`，均未安装。
+
+最终 Root host：银行图集PC37/0、Android41/0；商店PC372、Android383且实际输出 Android consumer 标记。银行集中保留非对称 RGBA/ARGB、格式/大小/指针、透明帧/清理与 count/4N 两级真实溢出覆盖；商店去掉重复 helper 通道断言，改由真实 ValidateCells 在两种格式下覆盖三类商店及透明 RGB 原异常，保留 unsupported/shortsize 与 GetPixels32 硬抛、调用计数0。两组旧生产源在真实 GetPixels32 路径分别预期失败，未拿 helper 缺失充当红例。stub 的 LoadImage 只提供尺寸与 fixture，不冒充 PNG 解码或 Unity 实际颜色证据。两个实际产品 Adapter 各1504/0。初次 Root host 还原误取net8，显式 host TargetFrameworks=net10后修正；旧负控的收集器也曾过度要求旧catch未记录的Message，原始失败记录保留，未改生产或测试预期迁就。
+
+独立 OMP DeepSeek Flash/max（无fallback）源码/host审查批准 `APPROVE_SHARED_OWNED_PNG_SOURCE_AND_HOST_ONLY`；采纳精简建议后仅变 Android 测试，Root重新构建运行上述四组及商店旧源反例。方案审查修正过点数和 Android fixture 接线，未引入无用 Compile。上节807的初始化观察只适用于当次产物，本次抽取后的 Bank/Shop 仍需新的具名 Native 兼容场景；真实助手、交易补货、保存装载与池重建继续待验。PR263保持Draft、#232/#262开放，手机平板、多人和长期玩法单列，不发布游戏或APK。
+
+本机证据在G19 `resume-1453/shared-pixel-adaptation/`（source audit、正式产品绑定/IL、root-host-final、Adapter），独立审查在同级 `shared-pixel-code-review/`。15:50正常入口仅续租232/262至17:50:19/20Z，183其它rows/169plans保持，validator0；Root15:50:54Z完整独立readback一致（回执 `543be915…`），旧doctor3E/56非全局通过。该续租未改plan/runtime或扩大运行权限。

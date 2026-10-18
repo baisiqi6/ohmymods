@@ -723,7 +723,11 @@ internal static class HeroArcherArrowVisuals
                 return false;
             }
 
+#if ANDROID
+            Color32[] pixels = AndroidTexturePixels.ReadOwnedPng(texture, texture.width, texture.height);
+#else
             Color32[] pixels = texture.GetPixels32();
+#endif
             if (pixels == null || pixels.Length != width * height)
             {
                 Unavailable("artemis arrow PNG pixel read failed (" + (pixels == null ? 0 : pixels.Length) + ")");

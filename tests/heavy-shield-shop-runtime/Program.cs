@@ -208,7 +208,17 @@ internal static class Program
     }
     public static int Main()
     {
-        try { ForeignWorldDuringRestore(); InterruptedWithdrawal(); StockRelocation(); BambooLightRegression(); NativeLightRegression(); FixedPricesAndReadonly(); GemPhases(); Cancellation(); InvalidReceipts(); MoreTests(); VisualBorrowing(); BilateralPresentation(); FailedStartedTests(); Console.WriteLine("PASS " + _checks + " production payment/native adapter assertions"); return 0; }
+        try
+        {
+            ForeignWorldDuringRestore(); InterruptedWithdrawal(); StockRelocation(); BambooLightRegression();
+            NativeLightRegression(); FixedPricesAndReadonly(); GemPhases(); Cancellation(); InvalidReceipts();
+            MoreTests(); VisualBorrowing(); BilateralPresentation(); FailedStartedTests();
+#if ANDROID
+            AndroidSharedPixelConsumer();
+#endif
+            Console.WriteLine("PASS " + _checks + " production payment/native adapter assertions");
+            return 0;
+        }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
     }
     private static void BambooLightRegression()
@@ -570,4 +580,137 @@ internal static class Program
         Next(); HeavyShieldShopShell.Tick(true);
         Check(!Point(HeavyShieldPurchaseKind.Mold).Owner.CanPay(P1), "shop recreate does not clear module failure latch");
     }
+
+#if ANDROID
+    private static readonly BindingFlags HiddenStatic = BindingFlags.NonPublic | BindingFlags.Static;
+
+    /// <summary>真实调用生产 consumer ShopV2Art.ValidateCells（RGBA32/ARGB32）：结构图通过、
+    /// 透明 RGB 走原 InvalidDataException，另覆盖 helper unsupported/shortsize 与 GetPixels32 硬失败。
+    /// host 只证 fixture 字节与路径，不证 Unity 实际颜色或完整 native ABI。</summary>
+    private static void AndroidSharedPixelConsumer()
+    {
+        Texture2D.ThrowOnGetPixels32 = true;
+        Texture2D.GetPixels32Calls = 0;
+        int liveBefore = Texture2D.LiveImageDataCount;
+        try
+        {
+            var validate = typeof(ShopV2Art).GetMethod("ValidateCells", HiddenStatic);
+            Check(validate != null, "ShopV2Art.ValidateCells must exist");
+            foreach (TextureFormat format in new[] { TextureFormat.RGBA32, TextureFormat.ARGB32 })
+            {
+                foreach (ShopV2Kind kind in Enum.GetValues<ShopV2Kind>())
+                {
+                    var texture = NativeTexture(kind, AtlasFixture(kind, false), format);
+                    try { validate.Invoke(null, new object[] { kind, texture }); }
+                    finally { texture.FreeImageData(); }
+                }
+
+                var badRgb = NativeTexture(ShopV2Kind.Shield, AtlasFixture(ShopV2Kind.Shield, true), format);
+                try
+                {
+                    ExpectValidateFailure(validate, ShopV2Kind.Shield, badRgb,
+                        typeof(InvalidDataException), "transparent RGB must be zero");
+                }
+                finally { badRgb.FreeImageData(); }
+            }
+
+            var unsupported = NativeTexture(ShopV2Kind.Shield, AtlasFixture(ShopV2Kind.Shield, false),
+                TextureFormat.RGBA32);
+            try
+            {
+                unsupported.format = TextureFormat.BGRA32;
+                ExpectValidateFailure(validate, ShopV2Kind.Shield, unsupported,
+                    typeof(InvalidOperationException), "unsupported image format");
+            }
+            finally { unsupported.FreeImageData(); }
+
+            var shortSize = NativeTexture(ShopV2Kind.Shield, AtlasFixture(ShopV2Kind.Shield, false),
+                TextureFormat.RGBA32);
+            try
+            {
+                shortSize.imageDataSize -= 4;
+                ExpectValidateFailure(validate, ShopV2Kind.Shield, shortSize,
+                    typeof(InvalidOperationException), "image data size");
+            }
+            finally { shortSize.FreeImageData(); }
+
+            Check(Texture2D.GetPixels32Calls == 0, "Android consumer must not call GetPixels32");
+            Check(Texture2D.LiveImageDataCount == liveBefore, "test owner releases every native image buffer");
+            Console.WriteLine("ANDROID_SHARED_PIXEL_CONSUMER_EXECUTED");
+        }
+        finally { Texture2D.ThrowOnGetPixels32 = false; }
+    }
+
+    private static Color32[] AtlasFixture(ShopV2Kind kind, bool transparentNonzeroRgb)
+    {
+        int width = ShopV2Layout.AtlasWidth(kind), height = ShopV2Layout.AtlasHeight(kind);
+        int cellWidth = ShopV2Layout.CellWidth(kind), cellHeight = ShopV2Layout.CellHeight(kind);
+        int rows = ShopV2Layout.Rows(kind);
+        var pixels = new Color32[width * height];
+        for (int slot = 0; slot < ShopV2Layout.FirstSeatCell; slot++)
+        {
+            int x = ShopV2Layout.ColumnOf(slot) * cellWidth;
+            int y = (rows - 1 - ShopV2Layout.RowOf(slot)) * cellHeight;
+            pixels[y * width + x] = new Color32
+            {
+                r = (byte)(0x11 + slot), g = (byte)(0x33 + slot), b = (byte)(0x77 + slot), a = 255
+            };
+        }
+        if (transparentNonzeroRgb)
+        {
+            int slot = ShopV2Layout.FirstSeatCell;
+            int x = ShopV2Layout.ColumnOf(slot) * cellWidth;
+            int y = (rows - 1 - ShopV2Layout.RowOf(slot)) * cellHeight;
+            pixels[y * width + x] = new Color32 { r = 0x41, g = 0x52, b = 0x63, a = 0 };
+        }
+        return pixels;
+    }
+
+    private static Texture2D NativeTexture(ShopV2Kind kind, Color32[] pixels, TextureFormat format)
+        => NativeTexture(pixels, ShopV2Layout.AtlasWidth(kind), ShopV2Layout.AtlasHeight(kind), format);
+
+    private static Texture2D NativeTexture(Color32[] pixels, int width, int height, TextureFormat format)
+    {
+        var raw = new byte[pixels.Length * 4];
+        for (int i = 0; i < pixels.Length; i++)
+        {
+            int n = i * 4;
+            if (format == TextureFormat.RGBA32)
+            {
+                raw[n] = pixels[i].r; raw[n + 1] = pixels[i].g;
+                raw[n + 2] = pixels[i].b; raw[n + 3] = pixels[i].a;
+            }
+            else
+            {
+                raw[n] = pixels[i].a; raw[n + 1] = pixels[i].r;
+                raw[n + 2] = pixels[i].g; raw[n + 3] = pixels[i].b;
+            }
+        }
+        return NativeTexture(raw, width, height, format);
+    }
+
+    private static Texture2D NativeTexture(byte[] raw, int width, int height, TextureFormat format)
+    {
+        var texture = new Texture2D(width, height, format, false) { format = format };
+        texture.SetImageData(raw);
+        return texture;
+    }
+
+    private static void ExpectValidateFailure(MethodInfo validate, ShopV2Kind kind, Texture2D texture,
+        Type expected, string fragment)
+    {
+        try { validate.Invoke(null, new object[] { kind, texture }); }
+        catch (TargetInvocationException error)
+        {
+            Check(error.InnerException != null && expected.IsInstanceOfType(error.InnerException),
+                "expected " + expected.Name + ", got " + (error.InnerException == null
+                    ? "null" : error.InnerException.GetType().Name));
+            Check(error.InnerException.Message.Contains(fragment),
+                "expected message containing '" + fragment + "', got '" + error.InnerException.Message + "'");
+            return;
+        }
+        throw new Exception("ValidateCells must fail: " + expected.Name + " / " + fragment);
+    }
+#endif
+
 }

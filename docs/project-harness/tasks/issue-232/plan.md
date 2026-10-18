@@ -1,5 +1,5 @@
 {
-  "case": "controlled-economy133-ui-api-20261018-single1",
+  "case": "controlled-economy133-bank-init-20261018-single1",
   "objective": "world-input-ui",
   "serial": "emulator-5582",
   "avd": "ohmymods_android35_inprocess",
@@ -22,8 +22,8 @@
     "never"
   ],
   "candidateMain": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/post-input-ui-runtime-triage/bank-api-repaint-diagnostic/release/OhMyMods.AndroidProbe.dll",
-    "sha256": "3e7cdf7c316de3109801dae534140dbd98e96c155c4a06930799f2d8472d86c0",
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/post-ui-api-runtime-fixes/product-build/release/OhMyMods.AndroidProbe.dll",
+    "sha256": "807e5b95b8328f35e88105a7f31dc049455ade3722992051ee28d7e1f9c6d48b",
     "dest": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.AndroidProbe.dll",
     "originalSHA256": "5460efd9652731ce50b3d69d10570f3f599cce1935c007e0afe71a0669da156b"
   },
@@ -35,8 +35,8 @@
     "preferenceKeys": 58
   },
   "addon": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/v3-input-observer/bin/net6.0/OhMyMods.S1InputSurfaceProbeV3.dll",
-    "sha256": "308584c2efbb2135acfbf81f1ee90083706fb867cdff847539345591eccab061",
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/resume-1453/bank-observer-worker/addon/bin/net6.0/OhMyMods.S1InputSurfaceProbeV3.dll",
+    "sha256": "2831e0441c2a62d26d11477cdf1866da1b1015237238f40282f5b92afc187a9b",
     "dest": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.S1InputSurfaceProbeV3.dll"
   },
   "runtimeRefs": [
@@ -130,13 +130,13 @@
     "launchActivity": "eagle.simple.sdks.manage.FakeActivity",
     "addon": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.S1InputSurfaceProbeV3.dll"
   },
-  "resourceWindowSHA256": "7e379679ad90c072c5528b4eb300e471cb0e72a56708113590327b578023bbac",
+  "resourceWindowSHA256": "be847842de8e4a3770f9a6d9ff1825c5932f7fcf3e813639a45f1170e7ff2034",
   "taskIdentity": {
     "issue": 232,
     "owner": "mac-codex-ohmymods-android-operator",
     "session": "codex-android-profession-archery-20261014",
     "operation": "a7459a58-3446-4856-aaa3-5f02e1115de2"
   },
-  "gateSHA256": "098c57a6d2a702fe47fa4aaf13c7945b4f679eab06de476ef0728f9f5b100761",
-  "sourceReviewSHA256": "ffc74fc58dd2603923785eaa14eb8b21130be67cf77b9c619104bcdebe27eb32"
+  "gateSHA256": "895b50040385f633b98a474013511bbd000d2d4c8d64138f8f4e14cc610a620b",
+  "sourceReviewSHA256": "8c704b789976c868221ee26428768872259e70532b830441f992b5a7e20a7dc5"
 }

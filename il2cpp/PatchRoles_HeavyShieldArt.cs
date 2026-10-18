@@ -446,7 +446,11 @@ internal static class HeavyShieldArt
             texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             if (!ImageConversion.LoadImage(texture, bytes, false) || texture.width != width || texture.height != height)
                 throw new InvalidDataException("paid shield decode/dimensions invalid");
+#if ANDROID
+            Color32[] pixels = AndroidTexturePixels.ReadOwnedPng(texture, width, height);
+#else
             Color32[] pixels = texture.GetPixels32();
+#endif
             if (pixels == null || pixels.Length != width * height) throw new InvalidDataException("paid shield pixel read failed");
             int opaque = 0;
             for (int i = 0; i < pixels.Length; i++)
@@ -609,7 +613,11 @@ internal static class HeavyShieldArt
                 return false;
             }
 
+#if ANDROID
+            Color32[] pixels = AndroidTexturePixels.ReadOwnedPng(texture, sheetWidth, sheetHeight);
+#else
             Color32[] pixels = texture.GetPixels32();
+#endif
             if (pixels == null || pixels.Length != sheetWidth * sheetHeight)
             {
                 Fail(atlas, texture, "pixel read failed");

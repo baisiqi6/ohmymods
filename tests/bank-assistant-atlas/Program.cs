@@ -39,6 +39,7 @@ internal static class Program
         Test("Android RGBA/ARGB byte order maps to Color32 channels", AndroidPixelFormatMapping);
         Test("Android native read fails closed on format, size, pointer, empty frame",
             AndroidNativeReadFailsClosed);
+        Test("Android native read rejects checked size overflow", AndroidNativeReadRejectsOverflow);
 #endif
 #endif
         Test("asset prevalidation fails closed without embedded resources", EnsureAssetsFailClosed);
@@ -718,8 +719,8 @@ internal static class Program
         var texture = new Texture2D(width, height, format, false);
         texture.format = format;
         texture.SetImageData(bytes);
-        var helper = typeof(BankAssistantAtlasVisuals).GetMethod("ReadOwnedPixels", StaticFlags);
-        Check(helper != null, "ReadOwnedPixels helper must exist");
+        var helper = typeof(AndroidTexturePixels).GetMethod("ReadOwnedPng", StaticFlags);
+        Check(helper != null, "AndroidTexturePixels.ReadOwnedPng must exist");
         try
         {
             return (Color32[])helper.Invoke(null, new object[] { texture, width, height });
@@ -735,6 +736,39 @@ internal static class Program
         Check(pixel.r == r && pixel.g == g && pixel.b == b && pixel.a == a,
             why + ": expected (" + r + "," + g + "," + b + "," + a + "), got ("
             + pixel.r + "," + pixel.g + "," + pixel.b + "," + pixel.a + ")");
+    }
+
+    /// <summary>checked 乘法必须在分配前真实溢出：count 与 4N 各触发一次，
+    /// 不分配超大数组，也不伪造异常。</summary>
+    private static void AndroidNativeReadRejectsOverflow()
+    {
+        var helper = typeof(AndroidTexturePixels).GetMethod("ReadOwnedPng", StaticFlags);
+        Check(helper != null, "AndroidTexturePixels.ReadOwnedPng must exist");
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false) { format = TextureFormat.RGBA32 };
+        try
+        {
+            foreach (var dimensions in new[] { (Width: int.MaxValue, Height: 2), (Width: 1, Height: 536870912) })
+            {
+                try
+                {
+                    helper.Invoke(null, new object[] { texture, dimensions.Width, dimensions.Height });
+                }
+                catch (TargetInvocationException e)
+                {
+                    Check(e.InnerException is OverflowException,
+                        dimensions.Width + "x" + dimensions.Height + " must fail checked overflow, got "
+                        + (e.InnerException == null ? "null" : e.InnerException.GetType().Name));
+                    Equal(0, Texture2D.LiveImageDataCount, "overflow fails before any native allocation");
+                    continue;
+                }
+                throw new Exception(dimensions.Width + "x" + dimensions.Height
+                    + " must fail with checked overflow");
+            }
+        }
+        finally
+        {
+            UnityEngine.Object.Destroy(texture);
+        }
     }
 
     private static void AndroidNativeReadFailsClosed()

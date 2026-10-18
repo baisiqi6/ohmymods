@@ -1200,7 +1200,11 @@ internal static class HeroArcherVisuals
                 return false;
             }
 
+#if ANDROID
+            Color32[] pixels = AndroidTexturePixels.ReadOwnedPng(texture, texture.width, texture.height);
+#else
             Color32[] pixels = texture.GetPixels32();
+#endif
             if (pixels == null || pixels.Length != AtlasWidth * AtlasHeight)
             {
                 LogOnceUnavailable("atlas pixel read failed");

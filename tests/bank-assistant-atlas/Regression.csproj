@@ -10,6 +10,7 @@
     <ItemGroup>
         <Compile Include="../../il2cpp/BankAssistantAtlasMetadata.cs" />
         <Compile Include="$(BankAtlasSource)" />
+        <Compile Include="../../android/AndroidTexturePixels.cs" />
         <Compile Include="../../il2cpp/CharacterLeisureClock.cs" />
     </ItemGroup>
 </Project>

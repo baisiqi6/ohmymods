@@ -38,6 +38,7 @@
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="GlobalAliases.cs" />
     <Compile Include="AndroidCoroutine.cs" />
+    <Compile Include="AndroidTexturePixels.cs" />
     <Compile Include="HoldBridges.cs" />
     <Compile Include="../il2cpp/PatchShared_ModDataPaths.cs" Link="Production/PatchShared_ModDataPaths.cs" />
     <Compile Include="../il2cpp/PatchRoles_CrownStealer.cs" Link="Shared/PatchRoles_CrownStealer.cs" />

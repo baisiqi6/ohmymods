@@ -1906,7 +1906,11 @@ internal static class MusketeerCombat
                     DestroyQuietly(texture);
                     return false;
                 }
+#if ANDROID
+                Color32[] pixels = AndroidTexturePixels.ReadOwnedPng(texture, texture.width, texture.height);
+#else
                 Color32[] pixels = texture.GetPixels32();
+#endif
                 if (pixels == null || pixels.Length != BulletSpriteWidth * BulletSpriteHeight)
                 {
                     DestroyQuietly(texture);
