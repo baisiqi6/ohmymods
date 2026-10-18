@@ -1,3 +1,7 @@
+## 2026-10-18 — Android 133注册与输入响应已观察，银行API和面板仍待修复核对
+
+新的133-owner net6经济候选在独立临时overlay中达到world和严格原生touch surface；一次水平手势附近有moving/位置响应。浮球open=True后的单图未见面板，故未继续close，UI不记通过；同时实际触发银行助手AOC getter缺失ICall，262继续修复，PR263保持Draft。自有VM已真实reap，Root独立8文件/进程/端口核对后交回资源。actual独审批准诊断记录；支付、保存/装载、池与玩家验收均未由本例代验。详见[G19输入记录](tasks/issue-232/g5-main106-preflight.md#g19-input-ui)。
+
 ## 2026-10-18 — Android G19 世界状态实际达到，聚合目标保持未通过
 
 旧106-owner net6候选在单次SDK临时overlay中实际进入RunningGame/Playing，玩家/wallet存在；旧V2的commerce+截图目标未达到，900秒后仍inconclusive、0PNG，不补成玩法通过。原生核对定位通用商店门/付款数组容量的语义问题，未来私有V3仅保留world/input目的，实际编译与独审通过、未安装；旧失败/源码/raw/spent保留。QEMU真实reap与Root8文件/进程/端口fresh保持，正常登记/续租和无关旧doctor边界分别留证。232真实交易保存及池兼容仍待必要验证，PR263未由本例代验；详见[G19记录](tasks/issue-232/g5-main106-preflight.md#g19-world-state)。
