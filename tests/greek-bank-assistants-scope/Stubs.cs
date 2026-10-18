@@ -15,6 +15,11 @@
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 using UnityEngine;
 using Object = UnityEngine.Object;
+#if ANDROID
+using CoatsinkFixture = Il2CppCoatsink.Common;
+#else
+using CoatsinkFixture = Coatsink.Common;
+#endif
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -78,9 +83,14 @@ namespace HarmonyLib
     { public HarmonyPriority(int priority) { } }
 }
 
+#if ANDROID
+namespace Il2CppCoatsink.Common
+#else
 namespace Coatsink.Common
+#endif
 {
-    // Marker namespace so production `using Coatsink.Common;` resolves.
+    // Marker namespace so production `using Coatsink.Common;` (PC) /
+    // `using Il2CppCoatsink.Common;` (ANDROID) resolves to the same fixture types.
     /// <summary>原生保存回执位（与真实 2.4 位值一致）：Save|Failure = 0x88。</summary>
     [Flags]
     public enum SaveLoadResult
@@ -530,7 +540,22 @@ namespace UnityEngine
 
     public class AnimatorOverrideController : RuntimeAnimatorController
     {
-        public RuntimeAnimatorController runtimeAnimatorController;
+        /// <summary>
+        /// Test hook for the captured runtime path: the current Android 2.4 runtime failed
+        /// to resolve the AOC base-controller getter (MissingICall). Tests enable this to
+        /// prove the Android branch never calls it; no claim about other Android/PC builds.
+        /// </summary>
+        public static bool ThrowOnRuntimeControllerGet;
+        private RuntimeAnimatorController _runtimeController;
+
+        public RuntimeAnimatorController runtimeAnimatorController
+        {
+            get => ThrowOnRuntimeControllerGet
+                ? throw new MissingMethodException("UnityEngine.AnimatorOverrideController::get_runtimeAnimatorController_Injected")
+                : _runtimeController;
+            set => _runtimeController = value;
+        }
+
         public AnimatorOverrideController(string name) : base(name) { }
     }
 
@@ -754,15 +779,15 @@ public class GlobalSaveData : UnityEngine.Object
         => currentChallenge == 0 ? campaigns[currentCampaign] : challenges[currentChallenge - 1];
 
     /// <summary>原生 SaveAsync 的最小形状（SharedBankNative.AsyncGate 的门控目标）。</summary>
-    public void SaveAsync(Il2CppSystem.Action<Coatsink.Common.SaveLoadResult> callback) { }
+    public void SaveAsync(Il2CppSystem.Action<CoatsinkFixture.SaveLoadResult> callback) { }
 
     /// <summary>真实 _Save_d__89 的最小形状（SharedBankNative.SyncGate 读取 state/@return）。</summary>
     public sealed class _Save_d__89
     {
         public int __1__state;
         public GlobalSaveData __4__this;
-        private Coatsink.Common.Routine.Return<Coatsink.Common.SaveLoadResult> _stored = new();
-        public Coatsink.Common.Routine.Return<Coatsink.Common.SaveLoadResult> @return
+        private CoatsinkFixture.Routine.Return<CoatsinkFixture.SaveLoadResult> _stored = new();
+        public CoatsinkFixture.Routine.Return<CoatsinkFixture.SaveLoadResult> @return
         {
             get => new() { value = _stored.value }; // boxed copy, as the interop Return slot behaves
             set => _stored = new() { value = value.value };

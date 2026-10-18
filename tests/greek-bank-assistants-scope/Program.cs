@@ -155,6 +155,40 @@ static class Program
         CoordinatorUpdate(coordinator);
     }
 
+#if ANDROID
+    static GameObject PrefabAt(int index)
+        => (GameObject)((Array)GetStatic(typeof(PatchEconomy_BankAssistants), "Prefabs")).GetValue(index);
+
+    static string ControllerFailure()
+        => (string)GetStatic(typeof(PatchEconomy_BankAssistants), "_lastControllerFailure");
+
+    static RuntimeAnimatorController[] FourControllers() => new RuntimeAnimatorController[]
+    {
+        new RuntimeAnimatorController("banker"),
+        new AnimatorOverrideController("banker_bamboo"),
+        new AnimatorOverrideController("banker_deadlands"),
+        new AnimatorOverrideController("banker_norselands"),
+    };
+
+    static Banker NewControllerBanker(out Fixture fixture, out Animator sourceAnimator)
+    {
+        fixture = Fixture.BuildGreek();
+        Banker banker = fixture.AddBanker();
+        True(Fixture.SeedNative(banker, 100), "bank account seeded");
+        sourceAnimator = banker.gameObject.AddComponent<Animator>();
+        return banker;
+    }
+
+    static void ProvideBiomeSwap(params RuntimeAnimatorController[] controllers)
+    {
+        var swap = new BiomeSwapData();
+        for (int i = 0; i < controllers.Length; i++)
+            swap.animatorSwapPool.Add(new BiomeSwapData.AnimatorSwapData { original = controllers[i] });
+        BiomeHolder.Inst.biomePreloadData =
+            new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppArrayBase<BiomeSwapData>(new[] { swap });
+    }
+#endif
+
     static int Main()
     {
         Test("idle assistants survive unknown receipt and are removed in foreign world", () =>
@@ -1636,6 +1670,111 @@ static class Program
             False((bool)Invoke("IsTrackableCoin", inside, -5f, 5f, false),
                 "inside domain stays banker-owned");
         });
+#if ANDROID
+        Test("android: live AOC base-controller getter is never called; biome swap supplies four names", () =>
+        {
+            Banker banker = NewControllerBanker(out Fixture f, out Animator sourceAnimator);
+            RuntimeAnimatorController[] controllers = FourControllers();
+            ProvideBiomeSwap(controllers);
+            var liveOverride = new AnimatorOverrideController("banker_live_override");
+            liveOverride.runtimeAnimatorController = controllers[0];
+            sourceAnimator.runtimeAnimatorController = liveOverride;
+            AnimatorOverrideController.ThrowOnRuntimeControllerGet = true;
+
+            PatchEconomy_BankAssistants.EnsurePools(banker, f.Pools);
+
+            for (int i = 0; i < 4; i++)
+            {
+                True(PrefabAt(i) != null, "slot " + i + " resolved from the biome swap graph");
+                EqStr(controllers[i].name, PrefabAt(i).GetComponent<Animator>()
+                    .runtimeAnimatorController.name, "slot " + i + " controller");
+            }
+            True(ControllerFailure() == null, "no controller failure");
+        });
+        Test("android: loaded named AOC targets resolved by base query without getter", () =>
+        {
+            Banker banker = NewControllerBanker(out Fixture f, out _);
+            RuntimeAnimatorController[] controllers = FourControllers();
+            for (int i = 0; i < controllers.Length; i++)
+                UnityEngine.Resources.Assets.Add(controllers[i]);
+            AnimatorOverrideController.ThrowOnRuntimeControllerGet = true;
+
+            PatchEconomy_BankAssistants.EnsurePools(banker, f.Pools);
+
+            for (int i = 0; i < 4; i++)
+            {
+                True(PrefabAt(i) != null, "slot " + i + " resolved from the runtime controller scan");
+                EqStr(controllers[i].name, PrefabAt(i).GetComponent<Animator>()
+                    .runtimeAnimatorController.name, "slot " + i + " controller");
+            }
+            True(ControllerFailure() == null, "no controller failure");
+        });
+        Test("android: one live AOC cannot fake the other three names; graph stays fail-closed", () =>
+        {
+            Banker banker = NewControllerBanker(out Fixture f, out Animator sourceAnimator);
+            // Only the live AOC's own base name exists: constructing the other three
+            // fixture controllers would make them discoverable via Object.All.
+            var bankerController = new RuntimeAnimatorController("banker");
+            ProvideBiomeSwap(bankerController);
+            var liveOverride = new AnimatorOverrideController("banker_live_override");
+            liveOverride.runtimeAnimatorController = bankerController;
+            sourceAnimator.runtimeAnimatorController = liveOverride;
+            AnimatorOverrideController.ThrowOnRuntimeControllerGet = true;
+
+            PatchEconomy_BankAssistants.EnsurePools(banker, f.Pools);
+
+            for (int i = 0; i < 4; i++)
+                True(PrefabAt(i) == null, "slot " + i + " must stay empty; failure=" + ControllerFailure());
+            True(ControllerFailure() != null, "failure recorded");
+            True(ControllerFailure().Contains(
+                "missing=banker_bamboo,banker_deadlands,banker_norselands"), "exact missing names");
+        });
+        Test("android: incomplete resource graph fails closed", () =>
+        {
+            Banker banker = NewControllerBanker(out Fixture f, out _);
+            // norselands is never constructed: a constructed controller would already be
+            // visible through the runtime scan regardless of Resources registration.
+            RuntimeAnimatorController[] controllers =
+            {
+                new RuntimeAnimatorController("banker"),
+                new RuntimeAnimatorController("banker_bamboo"),
+                new RuntimeAnimatorController("banker_deadlands"),
+            };
+            for (int i = 0; i < controllers.Length; i++)
+                UnityEngine.Resources.Assets.Add(controllers[i]);
+
+            PatchEconomy_BankAssistants.EnsurePools(banker, f.Pools);
+
+            for (int i = 0; i < 4; i++)
+                True(PrefabAt(i) == null, "slot " + i + " must stay empty");
+            True(ControllerFailure().Contains("missing=banker_norselands"), "missing name recorded");
+        });
+        Test("android: duplicate names stay ambiguous; one instance from two sources is not", () =>
+        {
+            Banker banker = NewControllerBanker(out Fixture f, out _);
+            RuntimeAnimatorController[] controllers = FourControllers();
+            for (int i = 0; i < controllers.Length; i++)
+                UnityEngine.Resources.Assets.Add(controllers[i]);
+            ProvideBiomeSwap(controllers);   // same instances: no ambiguity
+            PatchEconomy_BankAssistants.EnsurePools(banker, f.Pools);
+
+            for (int i = 0; i < 4; i++)
+                True(PrefabAt(i) != null, "same-instance duplicate slot " + i + " resolves");
+            True(ControllerFailure() == null, "same instance is not ambiguous");
+
+            Harness.ResetStatics();
+            banker = NewControllerBanker(out f, out _);
+            controllers = FourControllers();
+            for (int i = 0; i < controllers.Length; i++)
+                UnityEngine.Resources.Assets.Add(controllers[i]);
+            UnityEngine.Resources.Assets.Add(new RuntimeAnimatorController("banker")); // second instance
+            PatchEconomy_BankAssistants.EnsurePools(banker, f.Pools);
+
+            for (int i = 0; i < 4; i++)
+                True(PrefabAt(i) == null, "ambiguous slot " + i + " must stay empty");
+            True(ControllerFailure().Contains("ambiguousNames=True"), "ambiguity recorded");
+        });
+#endif
         return Finish();
     }
 }

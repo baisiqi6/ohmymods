@@ -331,9 +331,18 @@ public static class PatchEconomy_BankAssistants
         RuntimeAnimatorController liveController = sourceAnimator != null
             ? sourceAnimator.runtimeAnimatorController : null;
         ConsiderController(liveController, resolved, ref ambiguous);
+#if ANDROID
+        // 当前 Android 2.4 运行时无法解析
+        // AnimatorOverrideController.runtimeAnimatorController 底层 getter（MissingICall）。
+        // 这里裁掉 AOC 解包与下方 AOC 专用扫描；controller 集合仍由 live Animator
+        // controller、BiomeHolder 的 original/swap 与唯一 RuntimeAnimatorController
+        // 查询提供，缺名时继续 fail closed，不做 getter 替身或回退扫描。
+#endif
+#if !ANDROID
         AnimatorOverrideController liveOverride = liveController as AnimatorOverrideController;
         if (liveOverride != null)
             ConsiderController(liveOverride.runtimeAnimatorController, resolved, ref ambiguous);
+#endif
 
         // These preload entries are the authoritative biome asset graph. Unlike
         // Resources.LoadAll(""), they retain direct references to animator overrides
@@ -362,12 +371,14 @@ public static class PatchEconomy_BankAssistants
         var loadedControllers = Resources.FindObjectsOfTypeAll<RuntimeAnimatorController>();
         for (int i = 0; i < loadedControllers.Length; i++)
             ConsiderController(loadedControllers[i], resolved, ref ambiguous);
+#if !ANDROID
         var loadedOverrides = Resources.FindObjectsOfTypeAll<AnimatorOverrideController>();
         for (int i = 0; i < loadedOverrides.Length; i++)
         {
             ConsiderController(loadedOverrides[i], resolved, ref ambiguous);
             ConsiderController(loadedOverrides[i]?.runtimeAnimatorController, resolved, ref ambiguous);
         }
+#endif
 
         bool complete = !ambiguous;
         string missing = "";
