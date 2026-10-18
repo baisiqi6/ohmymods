@@ -184,7 +184,15 @@ internal static class CoinCourierTeleportBodyBox
             float offsetY = (pixelCenterY - pivot.y) / ppu * sy;
             if (!float.IsFinite(offsetX) || !float.IsFinite(offsetY)) return false;
             if (renderer.flipX) offsetX = -offsetX;
+#if ANDROID
+            // Android 2.4 的 UnityEngine.SpriteRenderer 没有 flipY getter（缺失 ICall）。
+            // 本分支仅服务 Android 当前在编唯一 sized caller：BankAssistant 自建的
+            // SpriteRenderer（构造不写 Y，动画也无 Y track），故按未翻转处理。
+            // 未来新增 Android caller 或游戏版本出现 Y 写入时，必须先重验本契约。
+            // 全 repo 另有 CoinCourierRuntime 的 PC caller，不随本边界删除。
+#else
             if (renderer.flipY) offsetY = -offsetY;
+#endif
             float width = (local.MaxX - local.MinX) / ppu * Math.Abs(sx);
             float height = (local.MaxY - local.MinY) / ppu * Math.Abs(sy);
             if (!(width > 0f) || !(height > 0f)) return false;

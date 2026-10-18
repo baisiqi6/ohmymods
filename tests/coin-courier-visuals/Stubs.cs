@@ -315,7 +315,17 @@ namespace UnityEngine
     public class SpriteRenderer : Renderer
     {
         public static int SpriteWrites;
-        public bool flipX, flipY;
+        public bool flipX;
+#if ANDROID
+        public static int FlipYReads, FlipYWrites;
+        public bool flipY
+        {
+            get { FlipYReads++; throw new InvalidOperationException("Android 2.4 SpriteRenderer has no flipY getter"); }
+            set { FlipYWrites++; throw new InvalidOperationException("Android 2.4 SpriteRenderer has no flipY setter"); }
+        }
+#else
+        public bool flipY;
+#endif
         private Sprite current;
 
         public Sprite sprite

@@ -1,6 +1,6 @@
 {
-  "case": "controlled-profession133-activation-isolated-20261018-single1",
-  "objective": "profession-activation",
+  "case": "controlled-profession133-placement-isolated-20261018-single1",
+  "objective": "profession-placement",
   "serial": "emulator-5582",
   "avd": "ohmymods_android35_inprocess",
   "emulator": "/opt/homebrew/share/android-commandlinetools/emulator/emulator",
@@ -36,8 +36,8 @@
     "preferenceKeys": 58
   },
   "addon": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/resume-1453/profession-activation-root-build/bin/OhMyMods.S1InputSurfaceProbeV3.dll",
-    "sha256": "3b78e784255be56bc83e8df4da3dbcf93dcc4fb18fef08566f3137d6fae536e5",
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/resume-1453/profession-placement-root-build/bin/OhMyMods.S1InputSurfaceProbeV3.dll",
+    "sha256": "26bc4bd9a860f3aabfe0d141ead60a0dac5b2a3be260d40fff4be93e399de2e6",
     "dest": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.S1InputSurfaceProbeV3.dll"
   },
   "runtimeRefs": [
@@ -131,9 +131,9 @@
     "launchActivity": "eagle.simple.sdks.manage.FakeActivity",
     "addon": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.S1InputSurfaceProbeV3.dll"
   },
-  "gateSHA256": "1d1771d6cd11538d5d5fbf09d7d5bf148a9b82d1844c73de0951df95f2a2f449",
-  "sourceReviewSHA256": "88b34219e8209d7451fcedc46b863522f84f1e425a5ea5c7f52e472ab31b0f5d",
-  "resourceWindowSHA256": "19f33d3d6d301db08de8467fd35694e52ad6d9e48030e44f9a728fd96cfb4a38",
+  "gateSHA256": "089e1f823057c73f53015d13c03e7a3dd9e7978d6095df5a14fbf072a60dddfc",
+  "sourceReviewSHA256": "9186ee499723cce91c1d863931c54c60e03dc44b8b0c7fd433fe4eb249e250c6",
+  "resourceWindowSHA256": "bbcbb3fd34279f417e27e8dd447a8f6812b6ca951b3d2ef2f8729306fede1042",
   "taskIdentity": {
     "issue": 232,
     "owner": "mac-codex-ohmymods-android-operator",

@@ -148,3 +148,27 @@ Controller90803于17:19:34.900031Z实际wait=0，QEMU90872于17:19:25.747426Z实
 本Operator未发送输入或额外PNG，controller只取1张基线；该行动记录不冒充对其它输入来源的独立测量。截图仍暗，仅HUD/浮球/月与水面可见。observer在120.04秒/events1按原预算Stop，QEMU14485于18:16:35.775687Z真实reap0，controller14383实际wait0；Root18:17:47.613671Z重新核对八项SHA/metadata与原件、before/after一致，own PID/AVD holder消失、5582/5583释放、ADB88434身份保持，无restore。未执行有意付款、保存/装载、RPC或池重建；app自然加载和临时overlay写入仍存在。
 
 正常计划 `2fe840be…` 于18:10登记，18:11独立fresh185 rows/169 plans与producer after一致，184其它rows/168其它plans及262计划保持；validator0，原doctor3E/56且232无blocker，不写全局通过。旧门已消费，未复用旧凭据。实际审查首轮因Deadline exceeded退出、未产出verdict，不计通过；同一独立OMP Flash/max session续接后公开批准 `APPROVE_ACTIVATION_STATE_OBSERVATION_ONLY`（报告SHA `94ea77177f946ea4…`），Root仅采纳上述窄范围。证据在G19 `next-profession-activation-case/actual/` 及 `resume-1453/profession-activation-actual-review/`：fresh log `b257e798…`、Root裁定 `78cdf698…`、独立postflight `9a4dd704…`。PR263继续Draft、#232/#262开放；真实身份付款、职业/助手生成攻击回收、原生保存装载与池重建仍属必要兼容事项，手机/平板、多人长期验收另列。
+
+<a id="g20-placement-parameters"></a>
+## 2026-10-18 UTC：当前选址参数与原生领地前置
+
+`controlled-profession133-placement-isolated-20261018-single1` 保持Main `0cd53939…`及四项打开的配置，私有0.0.8 `26bc4bd9…`复用原观察器，仅在原有效固定时点新增参数读回。Hero半宽来自实际`_sprite.bounds`，Msk与Shield布局常量读实际Main元数据，Shield图集复用原只读`CurrentShopAtlas()`；不重复Find/Collect/候选搜索。场景失效时先Unknown，新增原生读取不介入；原6项快照、Wallet读取和Stop finally保持。Root独立net6 0W0E、真实source-linked net10 host11行为检查及controller68通过，源码/24快照绑定分别独审。
+
+实际14条标记中无Unknown，原四项/钱包一致；两点都读到`left=right=width=0`、`HasBorderLoaded=true`、半宽`2/2.75/2`、图集`GreekShopLayers`。据共享Find的double区间公式，此时三家均`low>high`，当前参数会在原生exclusions前被拒绝；不代表完整记录每次历史Find，也不证明为何边界为0。实际图集查询纠正了先前从`islandBiome0`推非Greek/半宽1.5的假设；没有采用硬编码。两套interop的Side原值为-1/+1，原始v31值一致，无Side占位0问题。
+
+当前2.4原始反汇编另显示：`GetBorderSideIntact`只读缓存，`HasBorderLoaded`在首次计算前置true；`CalculateBorderOnSide`先把旧border写入intact缓存，有intact墙再覆盖，墙/城堡事件才推动后续重算。未发展场景是候选原因，尚需非intact边界、castleBuilt及墙状态闭环；未将旧2.1源码或偏移变成运行时补丁，不改Find、不强制重算或伪造支付状态。
+
+observer按120秒/events1结束；controller38364实际wait0，QEMU38540于19:11:31.755169Z实际reap0。Root19:15:30.484775Z fresh八项SHA/metadata与原件及before/after一致，AVD/5582/5583释放、ADB88434保持，无restore；本Operator0输入/0额外PNG，controller1基线，画面不作角色/商店视觉证据。计划`96f73eef…`正常登记及独立读回保持其它184rows/168plans、262计划与primary；validator0、原doctor3E/56未扩大。18:29同身份官方续租仅更新TTL至20:29，全部169计划保持。独立actual批准`APPROVE_PLACEMENT_PARAMETER_OBSERVATION_ONLY`，报告SHA `a7a9c4967450e1e8…`，Root裁定`a5d11a6b…`、postflight`f233fc1a…`。完整商店、付款、角色/助手、保存池与视觉继续待验。
+
+<a id="g20-flipy-boundary"></a>
+## 2026-10-18 UTC：四处已裁剪 flipY 调用的公共平台边界
+
+当前Android原始v31 metadata中SpriteRenderer保留flipX方法，却无get/set flipY及Injected定义，与实际缺ICall一致；未用生成interop的MemberRef缺失替代原游戏证据。离线动画初次2359条因遗漏level/split/builtin被Root拒绝全量结论，补齐后覆盖2449 AnimationClip、4296条SpriteRenderer绑定。普通属性无flipY；34条customType22按[AssetRipper解码实现](https://github.com/AssetRipper/AssetRipper/blob/master/Source/AssetRipper.Processing/AnimationClips/CustomCurveResolver.cs)属于material属性，未命名shader参数不冒充SpriteRenderer的Y字段。原APK与历史9c6候选的22147个Data条目CRC/解压尺寸及metadata SHA匹配；未重复整包SHA，不把CRC当全资产密码学证明。原生插件、外部资源和未来版本写入仍留边界。
+
+在HeavyShieldActorVisuals、HeroArcherVisuals、MusketeerVisuals的原复制点，以及CoinCourierTeleportFx原offsetY计算点加Android条件，不读取当前不可用的Y接口；新建自有renderer的原朝向、父transform符号、颜色/层/材质/PropertyBlock与几何继续原路径。Coin当前Android在编sized caller仅BankAssistant自建renderer；完整repo另有CoinCourierRuntime的PC调用，保留原路径，未来新增caller须复核。没有假getter、重复状态/新helper、扫描/重试/回退；一般catch/CopyFailure仍有其它独立故障责任，未盲删。
+
+Root四份完整PC有效源码保留空行和注释后逐字节相同。Android host：Hero160、Msk113、Heavy真实actor focused3、Coin15；PC包含Heavy完整1144及各Y正负/offset反号。相同strict Y桩跑真实旧源，分别观察到getter调用与字段复制中断/attach或bodybox失败，不用缺helper编译失败充当红例。测试用像素桩仅隔离已有解码，不证明Native图像。独立Reviewer在私有副本复跑上述正反例并批准`APPROVE_ANDROID_FLIPY_SOURCE_AND_HOST_ONLY`（报告SHA `55fb3779…`）。
+
+Root默认net6 D/R均0E/1条既有CS0169，207源码/176引用/25资源；408输入中404保持、仅上述4源改变。Release `a757fbe777db220c60b0020d3d1fc35c27d6ca57e97f88b3a0c79ff79ef09dd2`，Debug `91fb78dc66d1fe206e816074e7e023505116712a5869bf55a25d1207168c1dd0`，实际全装配get/set flipY均0，GetPixels32仍0、ReadOwnedPng9；基础Animator getter21不误算AOC。新产物未装载，不能复用旧0cd的Native结果。Coin身体框仍有GetPixels1待具体ICall/纹理契约核对，角色/助手真实显示与生命周期继续待验；SamuraiDash/HermesHeadwear等未入Android闭包的Y路径未擅改。PR263保持Draft、#232/#262开放。
+
+证据：G19 `resume-1453/flipy-adaptation-worker/`、`flipy-root-product-build/`、`flipy-root-il/`、`flipy-code-review/`，以及`next-profession-placement-case/actual/`、`native-border-precondition-audit/`。本批不分发游戏、APK、interop或玩家存档。

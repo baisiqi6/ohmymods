@@ -672,7 +672,12 @@ internal static class HeroArcherVisuals
             own.sortingLayerID = native.sortingLayerID;
             own.sortingOrder = native.sortingOrder;
             own.flipX = native.flipX;
+#if ANDROID
+            // Android 2.4 的 UnityEngine.SpriteRenderer 没有 flipY getter（缺失 ICall）；
+            // 自有新 sprite 初始为未翻转，跳过这一个读取，其余同 try 内的颜色/层与后续材质完整复制。
+#else
             own.flipY = native.flipY;
+#endif
             own.color = native.color;
             // 层跟随原生（碰撞/渲染筛选与本体一致；层是 GameObject 属性，不是 renderer 独有）。
             GameObject ownObject = own.gameObject;

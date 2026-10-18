@@ -10,9 +10,13 @@
         <ImportDirectoryBuildProps>false</ImportDirectoryBuildProps>
         <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
         <GeneratePropertiesFile>false</GeneratePropertiesFile>
+        <CoinCourierTeleportFxSource Condition="'$(CoinCourierTeleportFxSource)'==''">../../il2cpp/CoinCourierTeleportFx.cs</CoinCourierTeleportFxSource>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(AndroidFlipYTest)'=='true'">
+        <DefineConstants>$(DefineConstants);ANDROID</DefineConstants>
     </PropertyGroup>
     <ItemGroup>
-        <Compile Include="../../il2cpp/CoinCourierTeleportFx.cs" Link="Production/CoinCourierTeleportFx.cs" />
+        <Compile Include="$(CoinCourierTeleportFxSource)" Link="Production/CoinCourierTeleportFx.cs" />
         <Compile Include="../coin-courier-visuals/Stubs.cs" Link="Stubs.cs" />
     </ItemGroup>
 </Project>

@@ -34,6 +34,7 @@ internal static class Program
         Test("stripes share one uniform tilt and stay mutually parallel at every age", StripesShareOneUniformTilt);
         Test("body fit matches the visible character size and keeps the tilt", BodyFitMatchesCharacterSize);
         Test("packed native banker evidence yields a conservative body box", NativeEvidenceFallback);
+        Test("body box follows the platform flipY contract", BodyBoxFlipYContract);
         Test("horizontal palette stays clear gold and never white", HorizontalPaletteIsGold);
         Test("vertical palette stays near black, warm-tipped and ignores base rgb", VerticalPaletteIsNearBlack);
         Test("arrival rises to a full-length peak exactly at the anchor", ArrivalPeaksAtAnchor);
@@ -413,6 +414,24 @@ internal static class Program
             vertices = vertices
         };
         return renderer;
+    }
+
+    private static void BodyBoxFlipYContract()
+    {
+        var renderer = NewBodyRenderer(32, 40, 16f, 3f, 32f, 4, 4, 8, 32, 1f, 1f);
+#if ANDROID
+        Check(CoinCourierTeleportBodyBox.TryResolve(renderer, out var box),
+            "Android resolves without reading flipY (reads=" + SpriteRenderer.FlipYReads + ")");
+        Check(SpriteRenderer.FlipYReads == 0 && SpriteRenderer.FlipYWrites == 0,
+            "Android never accesses flipY: reads=" + SpriteRenderer.FlipYReads + " writes=" + SpriteRenderer.FlipYWrites);
+        Check(box.Width > 0f && box.Height > 0f, "Android geometry stays valid");
+#else
+        Check(CoinCourierTeleportBodyBox.TryResolve(renderer, out var unflipped), "unflipped body resolves");
+        renderer.flipY = true;
+        Check(CoinCourierTeleportBodyBox.TryResolve(renderer, out var flipped), "flipped body resolves");
+        Near(-unflipped.Center.y, flipped.Center.y, 1e-5f, "PC flipY inverts the Y offset sign");
+        Check(Math.Abs(unflipped.Center.y) > 1e-3f, "fixture has a non-zero Y offset");
+#endif
     }
 
     private static void NativeEvidenceFallback()

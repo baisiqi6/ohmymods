@@ -1,3 +1,7 @@
+## 2026-10-18 UTC — Android 共享选址参数已观察，四处 flipY 兼容边界完成源码验证
+
+私有0.0.8在原两固定时点读到完整城墙边界0/0、半宽2/2.75/2，当前区间不足以选址；实际图集为Greek，未套用“biome0即非Greek”的推断。Root fresh八项保持，进程已退出，独立actual只批准当前参数观察；边界为何为0及有效原生测试场景继续定位，不强制创建商店。四处在编flipY调用已在原共享源Android边界集中适配，PC完整有效源码逐字相同，旧源真实接口异常反例及新host、默认net6双构建、实际两产物get/set调用清零和独立审查通过；新候选尚未装载，Coin的GetPixels调用仍待核。PR263继续Draft，完整交易、生成攻击回收、保存装载与池重建待验。详见[参数观察](tasks/issue-262/verification.md#g20-placement-parameters)与[接口修复](tasks/issue-262/verification.md#g20-flipy-boundary)。
+
 ## 2026-10-18 UTC — Android 三职业自然启用，选址前置继续定位
 
 Main `0cd53939…` 保持；新单次临时 overlay 仅相对58键受控基座打开无限金币、火铳、盾卫、英雄弓手四项，其余54项保持。两固定时点均读到配置及原生钱包标志一致；三个商店的 managed 注册标志为真，但对象/付款点为空、状态均为共享选址返回失败，不能记为商店创建或玩法通过。原120秒观察结束，实际wait/reap为0，Root fresh八项字节和metadata保持。独立actual审查只批准配置与选址状态观察；下一步读真实边界/半宽，区分参数不足与原生候选拒绝，不放宽选址或强制创建。PR263 Draft、#232/#262 OPEN；真实付款、生成攻击回收、保存装载和池重建仍待兼容验证。详见[自然启用结果](tasks/issue-262/verification.md#g20-profession-activation)。

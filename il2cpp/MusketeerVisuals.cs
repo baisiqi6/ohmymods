@@ -654,7 +654,12 @@ internal static class MusketeerVisuals
             own.sortingLayerID = native.sortingLayerID;
             own.sortingOrder = native.sortingOrder;
             own.flipX = native.flipX;
+#if ANDROID
+            // Android 2.4 的 UnityEngine.SpriteRenderer 没有 flipY getter（缺失 ICall）；
+            // 自有新 sprite 初始为未翻转，跳过这一个读取，其余同 try 内的颜色/层与后续材质完整复制。
+#else
             own.flipY = native.flipY;
+#endif
             own.color = native.color;          // 命中闪白/染色/石化色一起继承（原始调色以原生为准）
             GameObject ownObject = own.gameObject;
             GameObject nativeObject = native.gameObject;
