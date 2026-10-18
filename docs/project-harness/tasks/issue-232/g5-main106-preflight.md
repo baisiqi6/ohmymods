@@ -174,3 +174,22 @@ V3首次world后的120.11秒停止，controller状态 `evidence-observed/input-s
 Root12:19:56.057422Z独立fresh核对8个原盘/保护文件：SHA、size、mtimeNs、inode、mode、blocks、uid/gid与before/source-after保持；game/VM0、4200/4261不在、5582/83空。临时overlay随VM结束丢弃，未加原盘恢复层，不称整个AVD目录无变化。资源已实际归还Main，后续Native按交接窗口进行。
 
 本次actual独立审查及计数/路径窄复审为 `APPROVE_DIAGNOSTIC_ACTUAL_ONLY`，报告SHA `09d8375c4e9985d662fde41bac06627d89be341e41769ea69553cd5613832215`；Reviewer对extraPNG字段的无来源解释已撤回，公开记录采用Root原始更正。完整232及262保持OPEN，PR263保持Draft；必要真实付款/晋升→保存/装载及池生成/攻击/回收检查尚未完成，手机/平板与多人长期另列。新增actual证据只更新上述范围，不宣称整批移植或UI通过。私有证据为G19目录下 `next-input-ui-case/{packet,actual}`、`next-input-ui-{code-review,plan-review}` 和 `post-input-ui-runtime-triage/`；原设备、游戏文件、用户数据与模型完整流不发布。
+
+<a id="g19-ui-open-close-actual"></a>
+## 2026-10-18 UTC G19：面板实际打开/关闭，诊断通过而 NativeBanker/完整 UI 仍未通过
+
+新 actual `controlled-economy133-ui-api-20261018-single1` 使用私有 net6 Main `3e7cdf7c…`；UI 只替换诊断副本 `4b41fb60…`，生产 `android/MobileModPanel.cs` 原件 `abcd27cf…` 未改，银行源修复为 `d478499b…`；58键配置 `f49c3cfc…`、V3 DLL `308584c2…` 与前案相同。构建 407 输入前后保持（Compile 206 / ReferencePath 176 / EmbeddedResource 25），Adapter 通过；诊断只在既有一次性 Repaint 门后增加 7 项 ICall lookup，不参与任何分支。
+
+13:55:24.832684Z 正常入口将 232 计划从 `14dceac7…` 更新为 `5384d902…`，262 计划 `9b7b13e6…` 保持；原 owner/session/operation 身份与 lease 截止14:55:15Z不变。184个其它row、168份其它plan保持；Root fresh 185 rows / 169 plans与producer-after一致，W1 plan mirror精确匹配，primary local checklist保持。validator 0；doctor 仍 3E/56 findings（53I/0W）、232 无 blocking，不是 global pass。
+
+QEMU 56614 于 14:05:21.827713Z 以独立临时 overlay 启动（controller Popen 14:05:21.813981Z）；boot 28.055秒，fresh segment 24451B / SHA `b9c0d7bd…`。设备日志 07:06:23 记录 `owners=133`；07:06:55 达到 RunningGame/Playing、world=true 及 `S1_INPUT_SURFACE`（offline、touchControls/active handler/initialized 均 true，coop rect 640×180，Unity 640×360）。world marker 与严格 surface 只证明观察面，不是完整输入或玩法通过。
+
+Root 在 1280×720 baseline `b8771741…` 后执行 3 个输入、截 3 图（retry 0）：一次 300ms 水平 swipe 后 fresh 采样 moving false→true→false、x −76.000→−75.362，horizontal 仍 0，只记时间上对应的移动响应，不称 Rewired 同帧消费已证；一次浮球 tap 后 open=True，首次 Repaint ENTER/COMPLETE 均为 frame 709，open PNG `530b6ae5…` 实际可见面板；再次 tap 后 open=False，closed PNG `fd020ad3…` 实际无面板，两图均 1280×720。世界仍暗/黑，未见生产 UI 外观改动；`priorSinglePNGRootCauseProven=false`，只支持截图顺序问题，旧单张 PNG 因果未证，菜单控件/滚动/设置等完整 UI 未验。
+
+四个 bank controller 名（banker、banker_bamboo、banker_deadlands、banker_norselands）实际 Resolved，旧 AOC getter 首错在本 fresh log 消失；但 `SpriteRenderer::get_flipY_Injected` 仍抛 MissingIl2CppInternalCallException（EnsurePrefabs→EnsurePools→PoolManager.Init），clerk atlas decode 仍因 MissingIl2CppInternalCallException 失败，`bankInitializationPassed=false`。7 项 lookup 只比较返回指针是否为零，不调用、不证明 ABI；positive control Animator runtimeAC=true，其余 6 项 false。因此不是 NativeBanker/银行初始化通过。
+
+actual 独立审查为 `APPROVE_DIAGNOSTIC_UI_OPEN_CLOSE_ACTUAL_ONLY`、mustFix 无；报告 SHA `05bc264c…`（自行重算与 Root disposition 记录一致）。Root disposition 于 14:15:04.250555Z 为 `ACCEPT_DIAGNOSTIC_UI_OPEN_CLOSE_ACTUAL_ONLY`，文件 SHA `fc3386ef…`。该批准只覆盖一次 open/close 诊断，不等于完整 UI/银行/池/付费/存档。
+
+收尾：自有 QEMU 56614 于 14:08:57.202780Z reap rc0，controller 56556 于 14:09:06.960030Z wait rc0；Root 于 14:09:42.005172Z fresh 核对 8 项原盘/保护文件 SHA/size/mtime/inode/mode/blocks/uid/gid 与 before/after 一致（normal DLL `8345f086…`、primary checklist `efb52c89…` 等），game/VM 0、5582/83 空闲，未加 restore layer，不声称整个 AVD 目录不变；postflight 文件 SHA `34330099…`。无 intentional pay/save/load/RPC；app/loader 在临时 overlay 的自然 load/write 可发生，不扩大成 native 零写入。
+
+完整 232/262 继续 OPEN，PR263 保持 Draft；必要真实付款/晋升→原生保存→装载及两池 InitPools 后生成/攻击/回收检查仍未验收，手机/平板与多人长期另列。私有证据位于 G19 目录 `next-bank-ui-api-case/{packet,actual}` 与 `post-ui-api-runtime-fixes/actual-review/`；原设备/游戏/用户数据及模型完整流不发布。
