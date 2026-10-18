@@ -68,3 +68,11 @@
   `__instance`、不依赖返回类型，签名兼容。
 - 共享存款 PlayerPrefs 键名沿用 `MyMod_SharedBankStash`。
 - CurrencyBagType 枚举 2.4.0 新增 `EggBasket`；容量段 `(type == Hermes) ? 2000 : 1000` 会把 EggBasket 归入 1000 档（未单独处理）。
+
+## 2026-10-17：Issue247 的 2.4.0 r23488 静态复核
+
+此前“TotalCapacity 可能已退化为遗留字段”的条目是迁移时待验假设。对与玩家日志版本/修订/构建标识一致的 Windows 2.4.0 r23488（Unity6000.0.61f1）新核对后，原生 TryToGrabCurrency、SuckCurrency 和 SetCurrency 均读取实例偏移0x54的容量字段。因此该假设对这份二进制已被推翻，没有依据据此直接改 `_currencyAmount` 或绕过 SetCurrency。
+
+数值容量、SpawnCurrency 的300堆叠参数和 CurrencyFell 的自然掉币是不同阶段；实际所属玩家的容量/币量、界面物理溢出与保存重进仍未验收。仅检查的 ApplyData 等方法未见直接覆写容量，不泛化成全部恢复链均不会覆盖。原生时序支持 ResetVisuals Prefix 在 SetParent(true) 之后，未见 Show/Hide 的相关直接链覆写 root scale；无需为猜测添加显示时循环补偿。
+
+钱袋视觉候选将钱包 root/container 与币继承纠正设为全世界作用域；默认角色仍希腊限定。币继承纠正是每次双重证明后的单次责任，成功即移出注册表，避免跨容器旧基线和关开重放。代码/host审查不替代实机。详见 tasks/issue-247/verification.md。Windows2.4.3适配是独立Issue248，不用于本条证据。

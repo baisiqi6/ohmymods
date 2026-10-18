@@ -1,3 +1,7 @@
+## 2026-10-17 — 钱袋全世界视觉复核（PR #249）
+
+接入3b340713最新主线，精确修复共享源/两测试的3个Android frozen pin。scope88、adapters24、viewport49/20、Android scope88和Adapter1265全部通过；Mac net6/net8与Windows240引用完整编译0W0E，保留39资源的正常私有累计候选已审来源。容量业务未改，实际收币/上限/外观与存读档仍单列玩家待验；合并、安装分别以精确提交和DLL回执留证，不用代码测试替代原生验收。详见 tasks/issue-247/verification.md。
+
 ## 2026-10-17 — #251 接入当前主线后的联合复核通过
 
 用户明确允许合并、后续玩家游玩另记实测。#253 分支已合入当前 release961817dd（含#257/#258），测试 head3fb2c2b，四Msk产品源保持旧native冻结字节。新头实际233/652/127/72回归、PC/Mac wrapper0W0E、世界计划13/10、cleanup49、Androidprobe0E/既有1W+Adapter1265全过。旧空paid C3首存→C4冷读→再次保存证据49/58保持，未冒称本轮新主线已实机；保存保护仍在。合并关口待执行、正常DLL5fb未替换；旧受管元数据错误与安装/实测分别记录。见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-当前主线集成复核与合并授权)。
