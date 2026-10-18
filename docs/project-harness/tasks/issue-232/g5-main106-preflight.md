@@ -154,3 +154,23 @@ QEMU于11:00:56.856Z真实reap=-9；controller62451于11:01:06.673Z实际wait=1�
 正常路径已将本分支plan逐字镜像为22a7；11:03同身份TTL120续租后232/262到13:03:08Z/13:03:09Z，只改lease/updated_at，183其它row、169plans和primary local checklist保持，独立fresh185rows/169plans与producer after一致。validator0；全局doctor仍旧3E/56findings、232无blocking，非global pass。任务租约继续持有与VM资源已归还不矛盾，不释放进行中任务来表示机器空闲。
 
 完整232仍OPEN：具名真实付款/晋升→原生保存→装载及两池InitPools后生成/攻击/回收兼容场景尚待验证；玩家手机平板、多人长期等单列，不作为唯一关单理由。PR263经济候选在本例未安装，不能借106/world证据宣称其133-owner运行或交易保存通过。本批不发APK、不变更产品版本。私有证据位于`.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/`的`world-prereq-runner/{actual-world-single3,single3-actual-review,case-packet-single3}`、`world-commerce-surface-audit/`及`v3-world-only-{worker,code-review}/`；原设备/用户数据与模型完整流不发布。
+
+
+<a id="g19-input-ui"></a>
+## 2026-10-18 UTC G19：133-owner、世界与原生输入表面，UI仍未通过
+
+旧 single3 结论保持。本次 `controlled-economy133-input-ui-20261018-single1` 使用 PR263 的实际 net6 Main `e0b7f748…`、58键受控配置 `f49c3cfc…` 和 V3 `308584c2…`；并非106-owner旧候选。新controller在事实产生处分别记录world、严格input surface、gesture、float toggle、133注册和stop，不再以通用commerce决定world。54项host与独立源码审查完成，8份执行器/helper、1份测试与1份登记源，共10份，在启动前精确归档。
+
+12:05正常入口将232计划登记为 `14dceac774e9f368d5f930de4cf226f9d0cde814ba0252e60eb5670af0a6264a`，本分支plan逐字镜像；184个其它row、168份其它plan、232原owner/session/op与lease保持。validator0；doctor仍原3E/56 findings、232无block，不是global pass。新gate只消费一次；旧gate、raw与source未覆盖。
+
+QEMU4261于12:15:21.748523Z启动，符合已协调12:15–12:40窗口及12:17 exclusive准入。fresh设备日志05:16:16记录133-owner注册，05:16:47达到RunningGame/Playing、world=true及 `S1_INPUT_SURFACE`：offline、player1 handler、touchEnabled/allowTouchControls/initialized均为true，active rect 640×180，Unity screen640×360。world marker本身不替代这些输入表面条件。
+
+Root查看新1280×720 baseline后仅执行两个输入：一次300ms水平swipe，其后一次浮球tap。swipe附近原生采样见moving true→false、位置x从−76.000到−75.381；horizontal采样仍为0，因此只记时间上对应的移动响应，不称Rewired同帧消费已证。tap后日志为open=True，tap命令开始至screencap命令开始约0.39秒，PNG仍未见面板。因计划要求True与可见面板同时满足才允许close，未发第三个输入或再截图；共1张controller baseline＋1张Root open图，没有closed图。Root初版 `extraPNGsTaken=0` 是汇总误计，已用独立更正回执明确为1；原raw、两张PNG及最初判定保留。
+
+世界画面仍有暗/黑区域，浮球与日历可见；不能从单张open图判定资源、GUI或截图时序根因。UI visual=false、动作链未完成。另有明确的新运行异常：`AnimatorOverrideController::get_runtimeAnimatorController_Injected` 未解析，调用链为 BankAssistants.TryResolveControllers→EnsurePrefabs→EnsurePools→PoolManager.Init。经济候选不再写“未安装”，但本例也不能写成银行/助手初始化通过；该API兼容问题进入262修复。
+
+V3首次world后的120.11秒停止，controller状态 `evidence-observed/input-stop` 和 `evidenceReportable=true` 仅表示诊断证据可报告。controller自身没有UI input，Root外部两次输入另有raw，不混写成整个案例无输入。无有意支付、保存/装载或RPC；游戏可自然加载并写临时overlay，不声称native零写入。12:18:49.357619Z自有QEMU真实reap=-9，controller4200于12:18:58.793102Z实际wait=0；清理与功能结果分开。
+
+Root12:19:56.057422Z独立fresh核对8个原盘/保护文件：SHA、size、mtimeNs、inode、mode、blocks、uid/gid与before/source-after保持；game/VM0、4200/4261不在、5582/83空。临时overlay随VM结束丢弃，未加原盘恢复层，不称整个AVD目录无变化。资源已实际归还Main，后续Native按交接窗口进行。
+
+本次actual独立审查及计数/路径窄复审为 `APPROVE_DIAGNOSTIC_ACTUAL_ONLY`，报告SHA `09d8375c4e9985d662fde41bac06627d89be341e41769ea69553cd5613832215`；Reviewer对extraPNG字段的无来源解释已撤回，公开记录采用Root原始更正。完整232及262保持OPEN，PR263保持Draft；必要真实付款/晋升→保存/装载及池生成/攻击/回收检查尚未完成，手机/平板与多人长期另列。新增actual证据只更新上述范围，不宣称整批移植或UI通过。私有证据为G19目录下 `next-input-ui-case/{packet,actual}`、`next-input-ui-{code-review,plan-review}` 和 `post-input-ui-runtime-triage/`；原设备、游戏文件、用户数据与模型完整流不发布。
