@@ -141,6 +141,65 @@ internal sealed class MusketeerArchive
         return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
     }
 
+    // Read-only compatibility preimage for a caller-proven positional slot. Only a unique
+    // top-level `land` integer token equal to that slot (> 0) is rewritten to `0`; every other
+    // byte is preserved verbatim. This is a bounded fingerprint-equivalence policy for snapshots
+    // the native loader rewrote from land 0 to the requested slot - it does not prove that such a
+    // rewrite happened, it is never output to any document, and it never produces a Save/Stage
+    // hash. Duplicate top-level land, nested substitutes, signs, fractions, exponents and leading
+    // zeros all yield no preimage.
+    internal static string IslandHashPreimage(string json, string scope, int slot)
+    {
+        if (string.IsNullOrEmpty(json) || slot <= 0) return null;
+        try
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(json);
+            var reader = new Utf8JsonReader(bytes, new JsonReaderOptions { MaxDepth = 64 });
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject) return null;
+            int depth = 1, landCount = 0, start = -1, length = 0;
+            while (reader.Read())
+            {
+                switch (reader.TokenType)
+                {
+                    case JsonTokenType.StartObject:
+                    case JsonTokenType.StartArray:
+                        depth++;
+                        break;
+                    case JsonTokenType.EndObject:
+                    case JsonTokenType.EndArray:
+                        if (--depth < 0) return null;
+                        break;
+                    case JsonTokenType.PropertyName:
+                        if (depth != 1 || !reader.ValueTextEquals("land")) break;
+                        if (++landCount != 1) return null;
+                        if (!reader.Read() || reader.TokenType != JsonTokenType.Number) return null;
+                        var span = reader.ValueSpan;
+                        if (span.Length < 1 || span.Length > 10) return null;
+                        long value = 0;
+                        for (int i = 0; i < span.Length; i++)
+                        {
+                            byte digit = span[i];
+                            if (digit < (byte)'0' || digit > (byte)'9') return null;              // sign/fraction/exponent
+                            if (i == 0 && digit == (byte)'0' && span.Length != 1) return null;    // leading zero
+                            value = value * 10 + (digit - (byte)'0');
+                            if (value > int.MaxValue) return null;
+                        }
+                        if (value != slot) return null;
+                        start = checked((int)reader.TokenStartIndex);
+                        length = span.Length;
+                        break;
+                }
+            }
+            if (landCount != 1 || start < 0) return null;
+            byte[] projected = new byte[bytes.Length - length + 1];
+            Array.Copy(bytes, 0, projected, 0, start);
+            projected[start] = (byte)'0';
+            Array.Copy(bytes, start + length, projected, start + 1, bytes.Length - start - length);
+            return IslandHash(Encoding.UTF8.GetString(projected), scope);
+        }
+        catch (Exception) { return null; }
+    }
+
     // Stable identity of one island lineage: save file, campaign/challenge slots and land.
     // Runtime DateTime ticks and instance ids are never part of it: the game recreates
     // realStartDateTime on every load, which is exactly why runtime-tick scopes rot.

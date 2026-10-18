@@ -1,0 +1,7 @@
+# PC build metadata check — 2026-10-17T16:08:57Z
+# Method: strings (UTF-8 metadata/#Strings heap). The guarded source file still participates as an empty compilation unit; its type/IL must be absent.
+dll=/tmp/ohmymods-build-A3/bin/Release/net6.0/KingdomEnhancedMod.dll
+dll_sha256=c0586367a3228387eb88aa4cb4925d1cd9f22dbafabff99ef004d9c82eb2de4e
+crown_type_occurrences=0
+crown_game_type_lines_utf8=0
+control_PatchRoles_Castle_occurrences=1

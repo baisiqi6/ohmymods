@@ -1,0 +1,153 @@
+# Issue #251：首次登坐骑岛保存失败候选
+
+> 最新状态见文末 C4r2 节。前文 R3 两源范围、正常窗口仍运行及原生未验等描述均为当时阶段记录，已由后续 R4/C3/C4r2 更新；失败证据保留。
+
+## 范围与已确认事实
+
+2026-10-17 玩家确认第一次到目标岛。当前 2.4.0 Mac 日志中，岛 11 的新生成火枪 context 对应 land 0，而英雄和共享保存来源指向岛 11；物理 writer 至少一次因 `NoMatchingSnapshot` 拒绝。当前原生主档可解析，已保存岛表只有 9 槽、目标为 11，缺目标完整快照可能是正常航行检查点，不能据此判整档损坏。失败事件的全部原生调用分支尚未取得，身份错绑是已复现的机制，未证明是当前弹窗唯一原因。
+
+代码基线 `release/v9.5.13@1f9c6753ef2a87ba994d38c96dc49b111927551c`。生产仅修改 `MusketeerIdentity.cs` 和 `MusketeerPersistence.cs`；正常私有累计版本的宫廷、盾卫、地图等输入保留，不用公共 DLL 覆盖。原生字段、存档格式、历史 epoch/GUID、补偿、physical writer、Heavy/Bank/Courier 产品与共享接线不改。盾卫同源风险另跟踪 #252。
+
+## 修复行为
+
+- exact owning campaign 表内唯一 island pointer → slot；零指针、重复、表外、非零 land 与 slot 分歧、owner 不符均拒绝。
+- generation 实际 Commit/Stage/Install 成功后才建立单个会话 receipt，证明同 file/global/owner/island/world/slot 的默认 land 0；live 换岛/null、owner/world/file/slot 变化和 exact reload 撤销。原每帧缓存保留。
+- 显式 `Save(Land >= 0)` 保留原旧岛来源。仅 `-1` 延迟解析：Save 入口冻结 file/global/event owner，真实 GetID 对象必须是该 owner 的唯一成员，首次绑定后每次有效 Capture 与 Stage 前 Apply 持续复证；一旦失配，恢复字段也不复活。
+- 不加零 GetID 兜底。新出站 JSON 有有效变化却未被 Capture 时仍由真实 writer 拒绝，原 bytes/proof/epoch 保持。
+
+## 实际验证
+
+R3 冻结后 operator 独立重跑四组 source-linked managed 套件，全部退出 0：pipeline **86**、identity **508**、defense **127**、restock **72**。命令统一为：
+
+```sh
+DOTNET_ROLL_FORWARD=Major <dotnet10>/dotnet run --project <project> -c Release \
+  -p:BepInExPluginsPath= -p:UseSharedCompilation=false --disable-build-servers
+```
+
+四项目分别为 `tests/musketeer-native-save-pipeline/MusketeerNativeSavePipelineTests.csproj`、`tests/musketeer-identity/Tests.csproj`、`tests/musketeer-defense/Integration.csproj`、`tests/musketeer-restock/Tests.csproj`。实际命令/日志/退出码绑定在本机任务证据 `implementation/final-candidate-build/operator-tests.json`；不把 doubles 当原生行为。
+
+12 槽 fixture 独立建模 CurrentIsland、表成员、CurrentLand 和 getter/static owner，含原岛 0 与新岛 11 的付费身份、真实 Stage/Apply/Gate、建模冷载和返岛。receipt 失效、挑战 campaign=-1、非法负 land、冻结来源首绑定前后漂移均有反例。zero GetID 的空岛组先用真实 Capture/Stage/Accept 完成检查点；paid 组先证 Gate Pass，再改变 hash-significant native objects 得到独立 `NoMatchingSnapshot`，恢复 JSON 后再 Pass，不删除既有 proof/fault。共享重入/异常只做中性 disabled spy，不宣称盾卫/金库/信使算法实测。
+
+最早红例按原基线产品重放：pipeline/identity 退出 134，恢复候选后绿；这是 baseline replay，非伪称完整 R3 新测试全部先红。完整历史日志保留。pipeline/identity 无警告；defense/restock 保留既有 CS0649。
+
+完整私有累计输入为 **270 C# / 39 resources / 161 references**。先无修复重建 net6/net8 各 0W0E，net6 与正常安装版本逐资源、metadata、Cecil IL 和 raw method body 等价。再只应用两文件 diff，R3 net6/net8 各 **0W0E**，明确 `BepInExPluginsPath=`，没有部署副作用。
+
+| 输入或产物 | SHA-256 |
+|---|---|
+| public MusketeerIdentity | `f43622524ae4ba1979ae5e46952b5f588d41ff15d4dfd5115b2b248553e0277e` |
+| public MusketeerPersistence | `57bb27497c845007bf478e9de9d111bc842dfaace2a3ef1ee9e3cda6313b0bba` |
+| private Persistence，保留既有 !ANDROID 包装 | `a78a8540c53b78c4a0cc5e87b2077b57624c3b0ee4a7b25acd4839aa78b104a5` |
+| 本次 R3 net6 候选 DLL | `06435ddeb82ce3ce9e3120c98a87942898547eb03fc42fb9a16fbce87ed6bdda` |
+| 本次 R3 net8 候选 DLL | `0c78e449ced890133f4c2611f7dde7484a9bd7617cd88b6e1c93ebf1d92de205` |
+| 保持原样的正常 DLL | `5fb9c5f8afcdb2774e7f250dc9ae9bd3c24f9218f37e241c262b6acd4ee89352` |
+
+## 审查、保全与未验边界
+
+独立代码最终复审和第二独立 A/B 复审均批准候选/Draft 交付。最终 net6/net8 程序集独审通过：8 个实际修改方法、11 个新增 helper、单 witness 类型/slot 枚举与精确闭包换号均对应两授权源；39 资源 payload、其余类型/方法及共享 hooks 保持。完整输入闭包 471 项仅两源码变化，保全复核单独留证；GLM 5.3 max 决策审查与 DeepSeek Flash max worker 的实际 model/thinking 事件保留，不以请求参数代替实际模型证据。
+
+当前正常游戏进程仍在运行，用户此前已被要求保留失败弹窗。12 份原生/ModSave/prefs/config 文件与首次只读快照逐字保持，正常 DLL 保持；备份不含进程内未保存航行/登岛状态。没有退出/操作游戏、启动新游戏、恢复存档或安装候选。既有 paired backup 的原岛 8 对照部分通过，但其他岛未证完整，不能把它称作完整可恢复存档，也不自动回滚。
+
+**本阶段仅候选与 Draft PR，#251 继续开放。** 原生 Save/GetID 真实时序、原生 land 赋值、缺岛 11 完整快照的冷进入、真实付款/保存/退出/重进、Harmony/ABI 和当前失败会话恢复仍未验；Windows/Android/多人亦未验。未合并、未安装。后续须先协调当前正常窗口，说明可能丢失未保存航行进度，再用隔离环境验证，不能与正常版并行。
+
+本机详细证据根：`.local/tasks/mount-island-save-failure-20261017/`。不上传私有累计源码或玩家存档。
+
+## 2026-10-17 原生隔离 R1：generation 修正生效，完整保存仍失败
+
+本节更新上文原生未验和正常游戏仍在运行的历史状态。用户明确允许结束正常游戏并继续隔离验证后，已保全原件并停止原窗口；原退出码未知，不作为保存通过。新单次 R1 使用上述 net6 `06435dde…`，精确隔离 launcher/game 83924/84171，原生 UI 观察到到岛场景；自动保存已有 CaptureFault，随后从暂停菜单选择“保存＋退出”再次出现原生 SaveFailurePrompt。未点击重试，经 CmdQ 正常结束 own launcher，rc0仅为退出成功。
+
+实际日志先有 `virgin-epoch:277028ac:8f267d35:slot=11:dataLand=0:campaign=0:challenge=0`，后有 `capture-fault:277028ac`、`gate-fail:CaptureFault`、`sync-reject:CaptureFault`。因此新 generation 的 slot11 来源已获得原生正向证据，但受保护 capture 没有闭合；目前尚不能区分显式 land11/raw0 交叉检查、GetID/静态时序、Apply 早退或异常，不能猜测后加兜底。
+
+独立 postimage 核验：native `global-v35` SHA `798bec70ccfdcb4d2e9beba533041e70f6a0632ecaf9998e315f68e988acd189` 仍逐字节等 seed，9槽且无index11；Msk sidecar及配对主/备档亦等seed，保留全部旧付费历史，但这不是新保存。隔离 Hero/Knight sidecar新增空scope/active变化，旧scope与prior epochs值保留，不能称全部数据未写。完整保存判定 **FAIL_NO_TARGET11_CHECKPOINT**。
+
+controller完成 closed 32.057秒观察、五通道恢复（normal/game/save/prefs/logs），再 strict 31.492秒稳定观察；Operator另核最初12份原档/配置逐字恢复，正常DLL仍 `5fb9c5f8…`。R1已消费，不复用。一次菜单坐标操作曾误进Heraldry，立即退出且未选择修改，保存fault早于此操作；后续改逐键导航到已截图确认的SaveQuit。
+
+本机 case：`/Applications/ohmymods/player-tests/issue251-native-save-20261017-r1/runs/manual-a50c7056e26640a39c75c97055a16504`。BepInEx日志 SHA `48eec00011a3d5da696136aea04f9f6ad1714f80e99bc5a10f212cd80fd20044`；独立核验 JSON SHA `ff2794ce5b4761776185218650e0e372e9641b9dde8bc1ef660a1b2f7540236b`，详见本机 `native-preflight/r1-postimage-review.md` 与 `capture-fault-diagnostic-plan.md`。不上传玩家文件。
+
+**R1推翻了“该候选已足以消除此场景保存失败”的推断；不推翻slot11 generation已生效的证据。PR #253仍Draft、Issue #251开放，未合并安装。** 下一步只在新私有候选的既有hooks补有界分支诊断，明确首次退因后修根因，再重新做原生保存和冷读验证。
+
+## 2026-10-17 原生隔离 R2：锁定首次拒绝，仍未修复
+
+单次私有诊断候选 `55e0f49339d5c6c0c6544068d493a91e5b78e7373535184424fae4e77d0cc63d` 只在既有 hooks 增加有界计数，flag-off 与 R3 逐方法 IL 等价；没有改变状态、返回、原生字段或 fault。独立源码透明性及 binary scope 审查通过后，经 GLM 5.3 max 决策关口启动，未安装正常版。
+
+稳定日志 SHA `89999973be0d4269ec5bc89a713e454d1593078d2c037d2a17f99fe8d299dd46` 的首个 Save 是显式参数 campaign0/land11/challenge0。4114 次有效对象 capture 均通过原生 static/isSaving 检查，却均在 `raw land != 11` 比较处早退；只单独记录了**首次 raw=0**，不推断后续各次原值。未绑定 Island，无 conflict/exception；Apply 进入后返回 `no-captured-island`，随后 CaptureFault 和 writer gate 拒绝。独立审查确认稳定快照与最终日志前缀相同。
+
+这推翻了 R3 显式保存支路的 raw/index 等同前提；没有证明 raw0 是扩展岛 producer 缺陷或完整 Save 后仍为0。扩展桥只负责容量、LevelConfig、landData 和导航目标；没有证据表明它拥有 raw `IslandSaveData.land` 初始化责任。继续核验当前原生字段写入/加载语义，不能为通过 guard 而写 raw11、改 hash、清 fault 或新增补偿。
+
+native postimage 仍为旧 seed `798bec70…`，没有目标11检查点。仅等待首次 autosave取证，未手动保存、未移动或改设置，CmdQ 结束 own launcher rc0。controller closed32.615秒、五通道恢复、strict31.529秒；Operator随后重新计算当前完整五通道 manifest，全部等 prepared 原件。正常 DLL 仍 `5fb9c5f8…`、无游戏进程，R2已消费。**保存业务仍 FAIL，PR253保持Draft，未合并安装。**
+
+本机证据：`native-preflight/r2-diagnosis-review.{md,json}`、`r2-operator-result.json`、`capture-diagnostics/producer-responsibility-readonly.md`。不上传玩家文件或私有诊断源码。
+
+
+## 2026-10-17 R4：源码及离线候选已通过，原生首存/冷读待验
+
+本节替代上文R3的生产范围与“显式保存保留旧raw比较”边界，历史证据保留。当前修复在R3之上修改Persistence、Archive和NativeSave；R3 Identity/witness源码保持。当前ARM64静态证据明确 `IslandSaveData.land` 为 +0x48，并由原生加载协程按请求岛号写入；这解释了保存JSON raw0与冷载raw11可能产生不同指纹，不能因此写原生字段或放宽任意hash。
+
+显式与-1保存统一按入口冻结global/file/event owner与唯一表成员slot证明来源。首次及后续Capture、Apply持续校验，失配sticky；若任何capture观察到非主岛raw0，generation witness义务及首次SourceWorld一直保持，不允许字段随后恢复掩盖。新generation仍exact-only；只有通过来源证明的Load启用只读兼容指纹：仅把唯一顶层无符号整数land token从可信slot投影为0，其余UTF8字节必须原样，原hash算法/domain/schema/hashKind不变，不产生投影JSON或新的历史snapshot。
+
+Load完整收集eligible exact/preimage历史，再比较全records；empty/paid或任何Id/Kind/NativeId/StockSlot冲突都quarantine，不择优。physical writer按proof.Land真实数组索引验完整原始hash与rows，同JSON放错槽仍拒；只有确实使用preimage的分支才扫描同context最多8个epoch的所有匹配记录，纯持久化HistoricalOnly排除保持，其他epoch不能代替本proof。旧exact写侧与保守Load冲突行为不对称明确保留；旧raw==slot adoption/收费生命周期另跟踪#256，不称本轮已修。
+
+真实业务红例覆盖explicit raw0、wrong-slot同hash、accepted gzip重建fresh DTO后的cold0→slot、SourceWorld漂移、VirginCapture误开第三入口，以及另一epoch冲突。最终源码独立复审通过。Operator冻结后独立重跑pipeline **233**、identity **652**、真实defense Integration **127**、restock **72**，全部exit0；worker另跑legacy-native-gate **18 cases/405**、legacy-compensation **202/202**，只作为worker回执，未冒充operator重跑。真实Materialized compensation完整生命周期、native ABI及原生冷载仍未验，pipeline禁用边界不作替代。
+
+完整私有累计闭包仍270 C#/39资源/161引用/1Import，与正常来源相比仅四源有差异：Identity、Persistence、Archive、NativeSave。public R4业务prefix与原private PC hook尾部作精确拼合，既有!ANDROID包装保留，R2诊断已移除。net6/net8均0W0E、禁用部署目标，候选SHA分别为 `69ce8eb7f2055c26e571fa312017cf75993d05f01fb56fb1fbe957c8d7ae5257`、`76b0303ba3faf4f3dda027e2140e9345d3c078f45caa0e9f6e5aeb4062f5d80b`。二进制范围独审与隔离controller关口分别留证。
+
+当前无游戏运行，正常DLL仍5fb9c5f8；R1/R2五通道已完整恢复。新C3准备首次保存，C4须继承**真正C3验收postimage native及对应完整ModSave**再冷读重存，不能拿旧pair或退出码当通过。模板初审发现schemaVersion误读、最终stat取早、父路径接线与来源校验缺口，已要求修正；尚未prepare新运行包。PR253继续Draft、Issue251开放，未合并安装。详细本机证据在 `implementation-r4/` 与 `capture-diagnostics/`；不上传私有累计源码或玩家存档。
+
+
+## 2026-10-17 原生 C3：空付费 slot11 首次 checkpoint 落盘通过
+
+精确完整累计候选net6 `69ce8eb7…5257` 经实际prepare五通道/hash/stat审核及单次GLM5.3/max启动关口后，首次从原seed进入岛11。C3实际PID40026/launcher39796，CUA只观察，无移动/付费/设置/菜单保存；约一分钟取得正证后CmdQ退出，own launcher/controller实际exit0。C3单次已消费，不能复用。
+
+新generation日志为 `virgin-epoch:277028ac:7150f246:slot=11:dataLand=0:campaign=0:challenge=0`；随后真实stage `4268b4bc`、records0/bound0与本case `paired:verified-existing`。这个verified-existing不能单独证明新保存，本轮另核实际native已从旧seed `798bec70…c189` 变为 `7f4838102315464a91dd605bfbbcf1d41d3e94f1c8894ac107905a641e61400a`，岛表9→12，真实index11存在、raw land0、objects3100。primary pair canonical base64解出native逐字节等该postimage，native/archive digest、唯一Prefs envelope和schemaVersion3均对上；未见本case CaptureFault/gate-fail/sync-reject或SaveFailurePrompt。原生writer实际接受了这个新增检查点。
+
+独立业务审查确认旧4个Musketeer contexts、9个scopes和CompleteComp8的完整历史/记录保持；native旧0/4相同，8仅playTimeDays末位浮点变化、objects相同。Hero/Knight旧scope保持，新增空scope及active切换单列，不称整个保存字节未变。Unity ToJSON的IslandHash没有在外部独立重算，实际runtime writer proof与stage/paired、配对原生字节另有正证；不把数据一致性冒称重新执行了Unity原算法。
+
+本轮通过范围只含**空付费slot11首次checkpoint**，不证明新岛付费单位恢复。日志仅证明generation raw0，postimage也真实raw0；GetID/Apply每一步raw未记录，不能反推完整时序，raw0→11冷读兼容仍须C4实际验证。
+
+closed32.1516秒、strict31.5104秒（无timestamp例外）后，独立两次回读五通道492/71/2/1/2项内容均等原prepared/preimage，所有文件stat相同、0game/launcher/active。唯一剩余受管stat差异为shared SAVE/Release目录mtime，原1792227381258358727、现1792258079664822876；原restore基于内容hash严格通过，不把目录stat冒称全等。准备在下一关口按真实preimage恢复该目录mtime，不改冻结restore逻辑或任何文件内容；utime不可避免更新ctime会诚实记录。
+
+本机case：`/Applications/ohmymods/player-tests/issue251-native-save-20261017-r4-c3/runs/manual-f6c550f1aa784ada924c73d6e5d5ce72`。独立业务及恢复报告位于本机 `capture-diagnostics/c3-binding/`；C4来源receipt必须绑定该真实postimage与对应runtime完整ModSave，不可回退原shared或旧pair。PR253继续Draft、正常DLL仍5fb9c5f8，未合并安装；冷读/再次保存尚未验。
+
+
+## 2026-10-17 原生 C4r2：空付费冷读和再次保存通过
+
+本节补齐 C3 的冷读待验项。最终完整累计候选仍为 net6 `69ce8eb7…5257`，产品源未再修改。C4r2 只继承 C3 已独立验收的 `7f483810…400a` 原生 postimage 与对应全部八份 ModSave；原件恢复责任始终是 `798bec70…c189`，没有以测试进度覆盖正常档。实际 prepare exit0，101 项独审检查及 129 项源输入稳定核对通过；业务与启动单独批准后才执行一次 native。
+
+CUA 核对实际 own launcher53371/game53591 的 PID、PPID、start、完整 argv 与 runtime DLL69 后，观察到原检查点的森林场景，无 SaveFailurePrompt。暂停菜单逐项核对高亮后执行原生“保存＋退出”；未移动、付款、改设置、重试、继续或重玩，退出后没有再次 getApp 启动游戏。
+
+- 新日志第1422行实际 `loaded:preimage:records=0:bound=0:unbound=0:pending=0:stock=0:conflict=False`；同 context `277028ac…`、原 epoch `7150f246…`，没有 fresh generation。
+- 该 loaded 之后第1577行出现新 stage `854a3766…`，第1578行 records0/bound0，第1580行 `paired:verified-existing`。当前 native 已实际从7f变为 **`f19a619c53843b428947a88efb3934f2fa486fbedb703d197da86569b55de7a6`**（353018B）；12槽，slot11 raw land11、objects3121。不是仅靠模板 pair 或退出码判通过。
+- primary pair 的 canonical base64/native digest 逐字节对应本轮 f19；唯一 native Msk envelope、archive digest 与 mirror 原字节相符，archive SHA **`ae09db77abaae852288a8dcb4591021a337fcc77fe44ee3b4c5e809b3c34d890`**。backup pair仍对应C3的7f，完整八文件集合/备份旋转逐项核验。
+- Msk 五个 contexts、十个 scopes、全部61个旧paid GUID及其Kind/NativeId/StockSlot、CompleteComp8完整对象保全。slot11旧22c99…/4268…快照原对象保留，同epoch新增854a…空记录快照；baseline由22c99…更新为已存4268…。其余九scope精确不变，旧native岛0/4/8也无任何变化。Hero旧历史保全，仅新增两个空快照及一处baseline；Knight主/备字节不变。
+
+业务独审36＋13项检查通过。own run-end exit0@18:42:09.686Z；closed32.1687秒、strict-restored31.4957秒，timestampException=false；driver/controller最终exit0@18:43:28.213Z。恢复独审58项、70份输入稳定，五通道492/71/2/1/2项完整hash及所有文件/链接stat均等本case fresh原件，正常DLL仍5fb9c5f8、当前无相关PID/active/timeout、C3父源未漂移。
+
+完整目录stat不声称全等：只有 shared `SAVE/Release` 目录mtime，原 `1792227381258358727`、现 `1792258079664822876`（mode同16877）；按本轮明确关口仅如实记录，未utime、未声称ctime/所有时间戳还原。之前C3的那次目录归还另有回执，不改写其历史报告。
+
+本轮实证范围是 **Mac 2.4.0 空paid目标岛的首次保存→真实raw0检查点冷载preimage兼容→新的原生保存**。没有slot11付费单位，不证明枪具/兵力复原；未独立重算Unity ToJSON/IslandHash，不从postraw推断GetID/Apply逐步原值或时序。Windows、Materialized补偿窗口、Heavy同源#252及旧rawslot adoption/收费生命周期#256仍是独立边界。
+
+本轮还核对了与正常模板/C3相同的六条启动Error签名：HarmonyX stack trace fix Permission denied、MountIslandFresh NoEnvelope Abort、四条CrossWorldMount skill pool未就绪。NoEnvelope撤销为no-op，技能池随后有all-ready正证，但没有验证技能实战；Harmony被拒操作的具体目标未知。独审判定它们不阻断本次严格Msk空paid保存接受链，**不能称整体零错误、无害或坐骑技能已验**；本PR不修改这些模块。
+
+测试准备阶段的C4/C4r1 Path接口失败及prebind locale解码失败均保留，没有算作原生通过；最终新C4r2以严格manifest/copy双红双绿27组/99负例、精确AST/源码与绑定独审、实际prepare0及native0交付。worker在文档收尾时的5分钟deadline exit1如实保留、缺失receipt未伪造，最终产物由operator和独立审查同bytes实际重跑验收；产品候选不受这些控制器改动影响。
+
+本机case：`/Applications/ohmymods/player-tests/issue251-native-save-20261017-r4-c4r2/runs/manual-bf58f1c11d574bf4a08baee1cdb9d564`。本机证据根 `capture-diagnostics/c4-full-path-r2/`：
+
+| 回执 | SHA256 |
+|---|---|
+| native-audit/business-review.json | `95647ea9326a5bd43208f3cfecc415dd0364448c12f305458baf73a4443ae72b` |
+| native-audit/restore-review.json | `609b1a78ce7ed217e23a644bb58ee813f2660452969b8d2963998ee105a307f0` |
+| operator-native-acceptance.json | `7405e05724df3bcf8007b7a2acf5f2686a79aee73c949c23708a1e3a71e97c87` |
+
+经已批准的条件式验收，PR #253 转为待审，Issue #251 仍开放；**未合并、未安装正常版**。不上传玩家文件、私有累计源、无关进程命令或完整私有日志。
+
+
+## 2026-10-17 当前主线集成复核与合并授权
+
+用户明确允许合并，将后续实际游玩另记为实测。本次接入已合入 #257/#258 的当前 `release/v9.5.13@961817ddc158264402275bf1bc88d57d9bcc4dfc`，原 PR head `5c9176ea…` 以正常非 ff merge 更新为 `3fb2c2b26eaf0e34a2c06564d60ee86bcd3bc948`。父链保留，无 rebase/forcepush；四份 Msk 产品源 SHA 逐一等于原 R4/native 冻结值，A/B 产品与 Android 输入逐字等当前 base，没有冲突解析改动。
+
+在这个新 head 上实际重跑：pipeline **233**、identity **652**、defense Integration **127**、restock **72**，全部 exit0；PC 风格与 Mac wrapper 各 **0W0E**，PE 中 Crown patch 类型及 CrownStealer 类型引用均为0，WorldShopPlan/Castle 对照存在。世界计划 PC **13/13**、ANDROID **10/10**、shop-cleanup **49/49**；Android probe 重新编译 **0 errors**（既有 HeavyShieldBanner CS0169 一条 warning），重新编译并运行 AdapterTests **1265/0**，probe SHA256 `eace37ad8058360d7c3bb7bc09e13e1506ed508794d3705f96d39978abdd3dcb`。Android 是 host 构建/适配回归，不称设备玩法通过；Mac 引用构建不称 Windows 2.4.3 实机。测试 wrapper 仍是类型/编译验证用途，不作为私有累计安装包。
+
+本轮没有再次启动游戏、没有写共享存档或替换正常 DLL。原 C3/C4r2 的业务49/恢复58回执及 hash 再次核对一致；其原生证据适用原私有累计69ce候选的空付费slot11场景，不冒称新合并态已经实机。后续付费单位/技能、四世界等玩家游玩反馈另记，真实新问题新开 Issue/PR。保存保护仍启用，本修复修正来源与指纹兼容，不隐藏或强行绕过保存失败弹窗。
+
+既有 workspace doctor 三项 #247/#251 登记/镜像元数据错误仍如实保留；用户本次明确允许继续源码合并，不伪称全局检查已绿，不裸改 canonical JSON/DB。源码合并、GitHub代码 Issue、受管登记、安装和玩家实测分别记录；本节提交时实际合并关口待执行，正常版仍5fb9c5f8，未安装。
+
+本机新回执位于 `merge-20261017/msk-tests/receipt.json` 与 `merge-20261017/AB253-current/verification.json`；完整旧失败证据和 native 回执继续保留。

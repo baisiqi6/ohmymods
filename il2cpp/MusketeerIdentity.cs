@@ -127,6 +127,25 @@ internal static class MusketeerIdentity
         internal readonly List<StockRestore> StockRestores = new();
     }
 
+    // One completed virgin generation receipt. A newly generated island may keep a native land
+    // field of 0 for a while (modeled: even after its first save), so its identity is the exact
+    // positional slot proven by this receipt. The receipt is created only after the generation
+    // bridge actually staged and installed its epoch, and is never a general "land 0 is fine".
+    private sealed class GenerationWitness
+    {
+        internal IntPtr Global;
+        internal IntPtr Owner;
+        internal IntPtr Island;
+        internal string File;
+        internal string ContextKey;
+        internal long World;
+        internal int Slot;
+        internal int Campaign;
+        internal int Challenge;
+    }
+
+    private static GenerationWitness _generation;
+
     internal static readonly Dictionary<string, IslandState> Islands = new(StringComparer.Ordinal);
     private static readonly Dictionary<IntPtr, RootSlot> Roots = new();
     private static readonly Dictionary<IntPtr, Career> Bound = new();
@@ -417,6 +436,9 @@ internal static class MusketeerIdentity
             if (stockSlot < MusketeerCareer.NoStockSlot || stockSlot >= StockSlots) return false;
             var state = _current;
             if (MusketeerNativeSave.AnyLegacyCompensationPending || state == null || !state.Ready || state.ReadOnly || state.Unresolved || state.CompensationPending || !state.HasBaseline || state.Epoch == null) return false;
+            // The selected state is only sellable while the live owner/island/slot still resolves
+            // to its exact key. A revoked generation receipt or a stale scene must not charge.
+            if (_contextKey == null || _contextKey != state.ContextKey) return false;
             if (!MusketeerAccess.InWorld(tool)) return false;
             if (tool.gameObject.tag != "Bow") return false;
             // A registerable rack gun is one that is still uncollected and unclaimed; otherwise the
@@ -1040,6 +1062,176 @@ internal static class MusketeerIdentity
         return slot;
     }
 
+    // The game identifies islands positionally: GetIsland/SetIsland/TryExpandIslandsArray and
+    // every real save table are index-based, while a never-visited placeholder keeps land 0. The
+    // slot is therefore the only identity. NotFound also covers a null owner/table/island, a
+    // duplicate pointer and any read failure; Divergent is a populated member whose non-zero
+    // land disagrees with its slot (unknown shape: no key, no migration, no purchase).
+    internal enum IslandSlotLookup { Ok, NotFound, Divergent }
+
+    internal static IslandSlotLookup IslandSlot(CampaignSaveData campaign, IslandSaveData island, out int slot)
+    {
+        slot = -1;
+        if (campaign == null || island == null) return IslandSlotLookup.NotFound;
+        try
+        {
+            // A zero native pointer is not an identity and must not be read as one. Check before
+            // touching the table or the island's fields so an invalid wrapper fails closed without
+            // native field access.
+            if (campaign.Pointer == IntPtr.Zero || island.Pointer == IntPtr.Zero) return IslandSlotLookup.NotFound;
+            var islands = campaign._islands;
+            if (islands == null) return IslandSlotLookup.NotFound;
+            int index = 0, matches = 0, found = -1;
+            foreach (var entry in islands)
+            {
+                if (entry != null && entry.Pointer == island.Pointer) { matches++; found = index; }
+                index++;
+            }
+            if (matches != 1) return IslandSlotLookup.NotFound;
+            int land = island.land;
+            if (land < 0 || (land != 0 && land != found)) return IslandSlotLookup.Divergent;
+            slot = found;
+            return IslandSlotLookup.Ok;
+        }
+        catch { return IslandSlotLookup.NotFound; }
+    }
+
+    // The same catalog rule the native save gate already uses: a normal campaign is addressed by
+    // campaigns[campaign]; a challenge is matched by its unique challengeId across both catalogs.
+    // Never derived from the current scene and never guessed from a land value.
+    internal static CampaignSaveData CatalogOwner(GlobalSaveData global, int campaign, int challenge)
+    {
+        try
+        {
+            if (global == null || challenge < 0) return null;
+            if (challenge == 0)
+            {
+                // A normal campaign is addressed by its catalog index; a negative index is never
+                // a valid normal owner.
+                if (campaign < 0) return null;
+                var campaigns = global.campaigns;
+                if (campaigns == null || campaign >= campaigns.Count) return null;
+                return campaigns[campaign];
+            }
+            // Challenge contexts are selected by the unique challengeId. The campaign index can be
+            // -1 in the native arguments (NativeSave's proof validator also ignores it for
+            // challenges), so it must not disable an otherwise unique challenge owner.
+            CampaignSaveData found = null;
+            int count = 0;
+            for (int group = 0; group < 2; group++)
+            {
+                var list = group == 0 ? global.campaigns : global.challenges;
+                if (list == null) continue;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var entry = list[i];
+                    if (entry == null || entry.challengeId != challenge) continue;
+                    count++;
+                    found = entry;
+                }
+            }
+            return count == 1 ? found : null;
+        }
+        catch { return null; }
+    }
+
+    // The loaded global must name exactly the same campaign instance through the native getter
+    // and the static the game keeps for the scene. A catalog entry alone is not enough.
+    internal static bool IsCurrentOwner(GlobalSaveData global, CampaignSaveData owner)
+    {
+        try
+        {
+            if (global == null || owner == null || owner.Pointer == IntPtr.Zero) return false;
+            var current = global.GetCurrentCampaign();
+            if (current == null || current.Pointer != owner.Pointer) return false;
+            var scene = CampaignSaveData.current;
+            return scene != null && scene.Pointer == owner.Pointer;
+        }
+        catch { return false; }
+    }
+
+    internal static bool IsExactCurrentOwner(GlobalSaveData global, CampaignSaveData owner)
+    {
+        try
+        {
+            if (!IsCurrentOwner(global, owner)) return false;
+            var catalog = CatalogOwner(global, global.currentCampaign, global.currentChallenge);
+            return catalog != null && catalog.Pointer == owner.Pointer;
+        }
+        catch { return false; }
+    }
+
+    internal static bool TryGenerationWitness(GlobalSaveData global, CampaignSaveData owner, IslandSaveData island,
+        int slot, long world, out string contextKey)
+    {
+        contextKey = null;
+        var witness = _generation;
+        if (witness == null || global == null || owner == null || island == null) return false;
+        if (world == 0 || global.Pointer != witness.Global || owner.Pointer != witness.Owner
+            || island.Pointer != witness.Island) return false;
+        if (global.currentCampaign != witness.Campaign || global.currentChallenge != witness.Challenge) return false;
+        if (!string.Equals(GlobalSaveData.filename, witness.File, StringComparison.Ordinal)) return false;
+        if (slot != witness.Slot || world != witness.World) return false;
+        contextKey = witness.ContextKey;
+        return true;
+    }
+
+    // Called only after the generation bridge's Commit/Stage and InstallState succeeded. The
+    // receipt never authorizes a different owner/island/world/slot or another save file.
+    internal static void EstablishGenerationWitness(GlobalSaveData global, CampaignSaveData owner, IslandSaveData island,
+        int slot, long world, string contextKey)
+    {
+        if (global == null || owner == null || island == null || string.IsNullOrEmpty(contextKey)) return;
+        _generation = new GenerationWitness
+        {
+            Global = global.Pointer,
+            Owner = owner.Pointer,
+            Island = island.Pointer,
+            File = GlobalSaveData.filename,
+            ContextKey = contextKey,
+            World = world,
+            Slot = slot,
+            Campaign = global.currentCampaign,
+            Challenge = global.currentChallenge
+        };
+    }
+
+    // A load of the exact generated island starts a new scene lifecycle: the placeholder receipt
+    // must not survive it, even when that load later fails. Loads of other islands leave it alone.
+    internal static void RevokeGenerationWitnessForLoad(IslandSaveData island)
+    {
+        var witness = _generation;
+        if (witness == null || island == null) return;
+        if (island.Pointer == witness.Island
+            && string.Equals(GlobalSaveData.filename, witness.File, StringComparison.Ordinal))
+            _generation = null;
+    }
+
+    private static void ReconcileGenerationWitness(GlobalSaveData global, CampaignSaveData owner, IslandSaveData island,
+        IslandSlotLookup lookup, int slot, long world)
+    {
+        var witness = _generation;
+        if (witness == null) return;
+        bool boundary = global == null || global.Pointer != witness.Global
+            || !string.Equals(GlobalSaveData.filename, witness.File, StringComparison.Ordinal)
+            || global.currentCampaign != witness.Campaign || global.currentChallenge != witness.Challenge
+            || owner == null || owner.Pointer != witness.Owner || world == 0 || world != witness.World;
+        if (boundary) { _generation = null; return; }
+        // Any live island observation that is not the exact witness island is a lifecycle change:
+        // another member, a null current island, or an owner proof failure (the caller passes null
+        // there) must revoke rather than merely pause authorization. Explicit old-island saves do
+        // not run this live reconciliation; their read-only witness lookup never revokes.
+        if (island == null || island.Pointer != witness.Island) { _generation = null; return; }
+        // The witness island itself must still be the unique member at the recorded slot.
+        if (lookup != IslandSlotLookup.Ok || slot != witness.Slot)
+            _generation = null;
+    }
+
+    private static void DropCachedContext()
+    {
+        _contextKey = null; _contextWorld = 0; _contextFrame = -1;
+    }
+
     internal static bool TryContext(out string contextKey, out long world, bool fresh = false)
     {
         contextKey = null; world = 0;
@@ -1048,15 +1240,44 @@ internal static class MusketeerIdentity
             if (!MusketeerAccess.TrackAllowed) return false;
             if (!fresh && _contextFrame == Time.frameCount) { contextKey = _contextKey; world = _contextWorld; return contextKey != null && world != 0; }
             var global = GlobalSaveData.loaded;
-            var campaign = CampaignSaveData.current;
-            var island = campaign != null ? campaign.CurrentIsland : null;
-            if (global == null || island == null) return false;
-            world = WorldKey();
-            bool valid = world != 0 && TryContextKey(global.currentCampaign, global.currentChallenge, island.land, out contextKey);
-            if (valid) { _contextKey = contextKey; _contextWorld = world; _contextFrame = Time.frameCount; }
-            return valid;
+            long currentWorld = WorldKey();
+            var owner = CatalogOwner(global, global != null ? global.currentCampaign : -1, global != null ? global.currentChallenge : -1);
+            if (global == null || !IsCurrentOwner(global, owner))
+            {
+                ReconcileGenerationWitness(global, owner, null, IslandSlotLookup.NotFound, -1, currentWorld);
+                DropCachedContext();
+                return false;
+            }
+            var island = owner.CurrentIsland;
+            if (island == null || currentWorld == 0)
+            {
+                ReconcileGenerationWitness(global, owner, island, IslandSlotLookup.NotFound, -1, currentWorld);
+                DropCachedContext();
+                return false;
+            }
+            var lookup = IslandSlot(owner, island, out int slot);
+            ReconcileGenerationWitness(global, owner, island, lookup, slot, currentWorld);
+            if (lookup != IslandSlotLookup.Ok
+                || !TryContextKey(global.currentCampaign, global.currentChallenge, slot, out string key))
+            {
+                DropCachedContext();
+                return false;
+            }
+            // A non-home member whose native land is still 0 is only a generated placeholder:
+            // without the receipt for this exact identity there is no slot key at all.
+            if (island.land == 0 && slot != 0
+                && (!TryGenerationWitness(global, owner, island, slot, currentWorld, out string witnessKey)
+                    || !string.Equals(witnessKey, key, StringComparison.Ordinal)))
+            {
+                DropCachedContext();
+                return false;
+            }
+            contextKey = key;
+            world = currentWorld;
+            _contextKey = contextKey; _contextWorld = world; _contextFrame = Time.frameCount;
+            return true;
         }
-        catch { return false; }
+        catch { DropCachedContext(); return false; }
     }
 
     // Stable context identity for one island lineage; runtime DateTime ticks and instance ids

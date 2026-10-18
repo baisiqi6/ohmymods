@@ -1,3 +1,31 @@
+## 2026-10-17 — #251 接入当前主线后的联合复核通过
+
+用户明确允许合并、后续玩家游玩另记实测。#253 分支已合入当前 release961817dd（含#257/#258），测试 head3fb2c2b，四Msk产品源保持旧native冻结字节。新头实际233/652/127/72回归、PC/Mac wrapper0W0E、世界计划13/10、cleanup49、Androidprobe0E/既有1W+Adapter1265全过。旧空paid C3首存→C4冷读→再次保存证据49/58保持，未冒称本轮新主线已实机；保存保护仍在。合并关口待执行、正常DLL5fb未替换；旧受管元数据错误与安装/实测分别记录。见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-当前主线集成复核与合并授权)。
+
+## 2026-10-17 — #251 首次保存、真实冷读及再次保存通过
+
+C3首次slot11 raw0检查点7f，经C4r2精确继承及原生loaded:preimage沿用7150 epoch，再由原生“保存＋退出”产生f19/raw11新检查点与精确pair。业务49项、恢复58项独审通过：旧paid/CompleteComp8/Hero/Knight历史保全，原件五通道hash及全部文件stat恢复；只有Release目录mtime边界如实单列，未utime。目标paid为空，不称付费单位复原或整个坐骑玩法已验；已有启动错误的责任/技能池后来all-ready另记边界。PR253转待审、Issue251开放，normal5fb未合并安装。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-原生-c4r2空付费冷读和再次保存通过)。
+
+## 2026-10-17 — #251 C3 首次原生保存通过，冷读待验
+
+真实候选69ce8e首入slot11后stage/paired通过，postnative7f4838与seed不同、岛表9→12，index11 raw0/3100objects，pair逐字节匹配；旧4contexts/9scopes/CompleteComp8保持。通过范围为空付费checkpoint，不称新岛付费单位恢复或raw逐步时序。own退出/五通道内容与所有文件stat恢复通过，唯一Release目录mtime差单列待窄归还。C4须继承该真实postimage及完整ModSave验证冷读重存；PR253仍Draft、normal5fb未安装。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-原生-c3空付费-slot11-首次-checkpoint-落盘通过)。
+
+## 2026-10-17 — #251 R4 离线修复候选通过，原生关口待验
+
+显式/-1保存统一可信slot来源，锁存raw0 witness与SourceWorld；冷读仅从可信slot做字节精确的只读land0指纹兼容，保留所有records冲突与physical保护。最终独审、operator独立233/652/127/72回归和完整累计net6/net8 0W0E通过；四源差异、旧PC接线和其余功能闭包保持，R2诊断移除。C3首次保存及继承真实postimage/完整ModSave的C4冷读尚未运行；模板初审缺陷修正中。正常DLL5fb、原五通道恢复保持，PR253 Draft/Issue251 OPEN，未合并安装。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-r4源码及离线候选已通过原生首存冷读待验)。
+
+## 2026-10-17 — #251 R2 已锁定显式保存首次拒绝
+
+显式 Save(0,11,0) 的4114次有效capture均因 raw/index 比较不符早退；首次raw0已证，其余原值未逐次保留。Apply无captured island而触发CaptureFault，native仍旧seed、无11岛检查点。正在核验字段原生写入/冷读语义，不能先写raw11或放松hash。R2退出与五通道完整恢复均通过，正常DLL5fb保持、无游戏运行；PR253继续Draft、未合并安装。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-原生隔离-r2锁定首次拒绝仍未修复)。
+
+## 2026-10-17 — #251 原生 R1 仍失败，原件已恢复
+
+R3私有候选实际generation已定位slot11/raw0，随后capture闭合失败、原生SaveFailurePrompt重现。独立postimage仍为原seed九槽、无index11；旧Msk/pair付费历史保持，不把rc0或旧pair当新保存成功。原正常窗口已按用户授权结束；本轮测试退出后五通道恢复、严格30秒稳定观察与原12份文件核对通过，正常DLL5fb保持。PR253继续Draft、Issue251开放，未合并安装；下一步补最小有界分支诊断，不能先加猜测兜底。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md#2026-10-17-原生隔离-r1generation-修正生效完整保存仍失败)。
+
+## 2026-10-17 — 首次登坐骑岛保存失败候选（Issue #251）
+
+玩家确认首次到访。日志出现目标岛11的火枪generation context按默认land0错绑，已用表内唯一pointer→slot修复live/gen/load及-1保存来源；原生writer保护、付费身份/历史epoch、补偿和Heavy/Bank/Courier共享接线保留。R3独立重跑pipeline86、identity508、defense127、restock72通过；完整正常累计270源/39资源/161引用只替换2核心，net6/net8各0W0E，独立源码双审批准候选。当前仅Draft交付，未合并安装；12份原档/配置及正常DLL5fb保持，原游戏未操作，原生首存回调/冷进入/付款保存往返与当前会话恢复仍待协调隔离验证，不能宣称已修或整档损坏。盾卫同源风险另列#252。详见[tasks/issue-251/verification.md](tasks/issue-251/verification.md)。
+
 ## 2026-10-15 — 盾卫举旗、耐久与铁匠维修交付（Issue #234）
 
 PR237接入已合226的完整release；同侧1名举旗盾卫、40耐久/旧档比例迁移、店内铁匠免费耗时维修已完成当前source/host交集验证。Android新Banner明确不启用，保留PC完整队形保护和现有平台注册；公共PC双TFM、AndroidD/R及双Adapter、10组相关回归和metadata通过（Android保留1个未使用字段提示）。正常累计候选另审、未用公共DLL替换已装包，详见tasks/issue-234/delivery-verification.md。下方G0/G1及未合并文字为历史；当前PR以GitHub为准，代码合并后关单，玩家后验新问题另Issue/PR。

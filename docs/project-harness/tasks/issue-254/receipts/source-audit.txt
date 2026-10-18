@@ -1,0 +1,76 @@
+# Source audit (Issue #254) — 2026-10-17T16:08:57Z
+# PC-visible sources: the patch body is inside a whole-file #if ANDROID guard; non-ANDROID builds compile it empty.
+il2cpp/PatchDivine_FriendlyTroll.cs:1306:                        + $"({state.Removed.Count} excluded; CrownStealer remains valid).");
+il2cpp/PatchRoles_CrownStealer.cs:1:// 2026-10-17 用户要求恢复皇冠窃贼（CrownStealer）原生速度。
+il2cpp/PatchRoles_CrownStealer.cs:18:/// [仅 Android] CrownStealer（皇冠窃贼）移动/跳跃水平速度与冲量 ×0.75
+il2cpp/PatchRoles_CrownStealer.cs:34:///   - CrownStealer.Awake：存在，public virtual；
+il2cpp/PatchRoles_CrownStealer.cs:39:[HarmonyPatch(typeof(CrownStealer), nameof(CrownStealer.Awake))]
+il2cpp/PatchRoles_CrownStealer.cs:40:public static class PatchRoles_CrownStealer
+il2cpp/PatchRoles_CrownStealer.cs:46:    public static void Awake_Prefix(CrownStealer __instance)
+il2cpp/PatchRoles_CrownStealer.cs:50:        if (ModConfig.CrownStealerSlowdownEnabled?.Value != true) return;
+il2cpp/notes-world.md:73:   CrownStealer 恰为最近敌人时，巨魔会反复"选中→校验失败→游荡 2 秒"，期间不转而攻击次近的地面敌人。
+
+# The six horizontal fields only exist inside the Android-gated block:
+il2cpp/HeavyShieldRuntime.cs:455:                repair.Working || Math.Abs(repair.X - x) <= .1f ? 0f : Math.Max(.1f, e.Carrier.walkSpeed));
+il2cpp/HeavyShieldRuntime.cs:468:        float travelSpeed = Math.Max(.1f, e.Carrier.walkSpeed);
+il2cpp/HeavyShieldRuntime.cs:696:        stance = ClassifyActualMotion(speed, e.Carrier.walkSpeed);
+il2cpp/HeavyShieldRuntime.cs:699:    internal static HeavyShieldStance ClassifyActualMotion(float speed, float walkSpeed)
+il2cpp/HeavyShieldRuntime.cs:702:        return float.IsFinite(walkSpeed) && walkSpeed > 0f && Math.Abs(speed) > walkSpeed + 0.05f
+il2cpp/HeroArcherGuardFacing.cs:7://   * 自由弓手夜间走位由原生行为 goto==8（城墙态）驱动：`SetGoal(wallTargetPos, runSpeed)`；
+il2cpp/HeroArcherMotion.cs:36:    /// NaN/±Inf → Idle；负速度（向左移动）合法，取绝对值；walkSpeed 非法/非正时只分 Idle/Walk。
+il2cpp/HeroArcherMotion.cs:37:    /// 有界切换：超过 walkSpeed + epsilon 才切 Run，同值 SetMotion 由动画状态机 no-op，不重置走路相位。
+il2cpp/HeroArcherMotion.cs:39:    internal static HeroArcherAnimation Classify(float actualSpeed, float walkSpeed)
+il2cpp/HeroArcherMotion.cs:44:        if (float.IsFinite(walkSpeed) && walkSpeed > 0f && magnitude > walkSpeed + WalkSpeedEpsilon)
+il2cpp/HeroArcherMovement.cs:14:/// 现改为**不引入任何逐帧作用域改写**：只认领 actor 实例字段 `Archer.walkSpeed/runSpeed`（×1.5），
+il2cpp/HeroArcherMovement.cs:20:///   编队行走 L459/465（`runSpeed`；仅当 `Formation.overrideMoveSpeed > 0` 才用编队值，该字段默认 -1f
+il2cpp/HeroArcherMovement.cs:21:///   且 2.1.0 全源码无赋值）、L486/L502/L515/L542/L551/L557/L605/L608（`runSpeed`）、
+il2cpp/HeroArcherMovement.cs:22:///   L592/L598 边界狩猎（`runSpeed`/`walkSpeed`）、可控制路径 L2034（玩家控制，英雄资格已排除）。
+il2cpp/HeroArcherMovement.cs:345:        try { current = walk ? archer.walkSpeed : archer.runSpeed; }
+il2cpp/HeroArcherMovement.cs:368:            try { archer.walkSpeed = target; }
+il2cpp/HeroArcherMovement.cs:380:        try { archer.runSpeed = target; }
+il2cpp/HeroArcherMovement.cs:429:        try { current = walk ? archer.walkSpeed : archer.runSpeed; }
+il2cpp/HeroArcherMovement.cs:444:            if (walk) archer.walkSpeed = slot.Original; else archer.runSpeed = slot.Original;
+il2cpp/HeroArcherNativePose.cs:15://   本文件不再读 Speed/Prepare、不再 Classify(walkSpeed+0.05)、不再让 Prepare 永远压住移动。
+il2cpp/HeroArcherRuntime.cs:10://   * 移动：HeroArcherMovement 认领英雄本人 Archer.walkSpeed/runSpeed = 基准 ×1.5（逐字段 CAS 归还；
+il2cpp/PatchDivine_FriendlyTroll.cs:261:                mover.SetSpeed(troll.runSpeed, direction);
+il2cpp/PatchDivine_FriendlyTroll.cs:371:                ? troll._currentWalkSpeed : troll.walkSpeed;
+il2cpp/PatchDivine_FriendlyTroll.cs:871:            RunSpeed = friendly._runSpeed,
+il2cpp/PatchDivine_FriendlyTroll.cs:888:            friendly._runSpeed = shouldEnhance
+il2cpp/PatchDivine_FriendlyTroll.cs:1421:            friendly._runSpeed = profile.RunSpeed;
+il2cpp/PatchEconomy_Banker.cs:77:///     walkSpeed(float)、runSpeed(float)、playerMaxCoins(int) —— 全部存在。
+il2cpp/PatchEconomy_Banker.cs:410:            Claim(ref profile.WalkSpeed, banker.walkSpeed, 1.95f);
+il2cpp/PatchEconomy_Banker.cs:411:            banker.walkSpeed = 1.95f;
+il2cpp/PatchEconomy_Banker.cs:412:            Claim(ref profile.RunSpeed, banker.runSpeed, 3.6f);
+il2cpp/PatchEconomy_Banker.cs:413:            banker.runSpeed = 3.6f;
+il2cpp/PatchEconomy_Banker.cs:581:            if (NeedsRestore(ref profile.WalkSpeed, banker.walkSpeed))
+il2cpp/PatchEconomy_Banker.cs:583:                banker.walkSpeed = profile.WalkSpeed.Original;
+il2cpp/PatchEconomy_Banker.cs:586:            if (NeedsRestore(ref profile.RunSpeed, banker.runSpeed))
+il2cpp/PatchEconomy_Banker.cs:588:                banker.runSpeed = profile.RunSpeed.Original;
+il2cpp/PatchRoles_CrossbowDefense.cs:187:    /// SetGoal(target, walkSpeed)——步行前往，绝不瞬移；在途目标已在带内
+il2cpp/PatchRoles_CrossbowDefense.cs:224:            archer._mover.SetGoal(target, archer.walkSpeed);
+il2cpp/PatchRoles_CrownStealer.cs:21:/// 只改这六个水平量：walkSpeed、runSpeed、jumpSpeed、chargeSpeed、
+il2cpp/PatchRoles_CrownStealer.cs:22:/// wallJumpForce.x、chargeJumpForce.x。两个 Vector2 的 y（跳跃竖直力）逐值原样保留；
+il2cpp/PatchRoles_CrownStealer.cs:35:///   - walkSpeed / runSpeed / jumpSpeed / chargeSpeed：存在（float）；
+il2cpp/PatchRoles_CrownStealer.cs:36:///   - wallJumpForce / chargeJumpForce：存在（Vector2）；
+il2cpp/PatchRoles_CrownStealer.cs:54:            __instance.walkSpeed *= SpeedScale;
+il2cpp/PatchRoles_CrownStealer.cs:55:            __instance.runSpeed *= SpeedScale;
+il2cpp/PatchRoles_CrownStealer.cs:56:            __instance.jumpSpeed *= SpeedScale;
+il2cpp/PatchRoles_CrownStealer.cs:57:            __instance.chargeSpeed *= SpeedScale;
+il2cpp/PatchRoles_CrownStealer.cs:59:            Vector2 wallJumpForce = __instance.wallJumpForce;
+il2cpp/PatchRoles_CrownStealer.cs:60:            wallJumpForce.x *= SpeedScale;
+il2cpp/PatchRoles_CrownStealer.cs:61:            __instance.wallJumpForce = wallJumpForce;
+il2cpp/PatchRoles_CrownStealer.cs:63:            Vector2 chargeJumpForce = __instance.chargeJumpForce;
+il2cpp/PatchRoles_CrownStealer.cs:64:            chargeJumpForce.x *= SpeedScale;
+il2cpp/PatchRoles_CrownStealer.cs:65:            __instance.chargeJumpForce = chargeJumpForce;
+il2cpp/PatchRoles_SamuraiPowerDash.cs:236:        Goal(m, StationX(a), k._runSpeed);
+il2cpp/PatchRoles_SamuraiPowerDash.cs:253:            if (Mathf.Abs(target - m.GoalX) > .25f) Goal(m, target, a.Owner._runSpeed);
+il2cpp/PatchWorld_DefenseSpacing.cs:745:    // 同行 num4 = this.walkSpeed（Archer.cs:598）。照抄原生：狩猎在墙外
+il2cpp/PatchWorld_DefenseSpacing.cs:895:                // walkSpeed 步行前往。SetGoal(float,float) 过自家 prefix：
+il2cpp/PatchWorld_DefenseSpacing.cs:901:                archer._mover.SetGoal(goal, archer.walkSpeed);
+il2cpp/PatchWorld_DefenseSpacing.cs:943:    // walkSpeed; that rear space is low-density, so the push system no
+il2cpp/PatchWorld_DefenseSpacing.cs:996:                    archer._mover.SetGoal(knight.gameObject, archer.runSpeed,
+il2cpp/PatchWorld_DefenseSpacing.cs:1034:                // 以 walkSpeed 步行回位（Archer.cs:598 狩猎路径同款公开字段）。
+il2cpp/PatchWorld_DefenseSpacing.cs:1048:                archer._mover.SetGoal(wall - sideSign * deep, archer.walkSpeed);
+il2cpp/PatchWorld_DefenseSpacing.cs:1297:// SetGoal(this._knight.gameObject, this.runSpeed, -this.knightFollowDistance,
+il2cpp/PatchWorld_Mover.cs:11:///   - 玩家（Player）是 Rewired 输入直接控制，每帧调 Mover.SetSpeed(walkSpeed/runSpeed, direction)
+il2cpp/notes-economy.md:66:  （`_stashedCoins`、`coinScanRange`、`_coinScanner`、`walkSpeed`、`runSpeed`、`_container` 等）。

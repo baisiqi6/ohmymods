@@ -1,0 +1,9 @@
+# Android frozen-source pins vs files changed by Issue #255 — 2026-10-17T16:04:27Z
+# android/tests/Program.cs pins only an explicit list; check whether the shared sources changed here are pinned:
+PatchRoles_Castle.cs: 0
+PatchRoles_Ninja.cs: 0
+PatchEconomy_Shops.cs: 0
+WorldShopPlan.cs: 0
+ShopCleanupQueue.cs: 0
+# pins_unaffected_by_this_task = true (0 matches above for every changed file)
+# Android behavior is gated by WorldShopPlan's #if ANDROID branch (Greek-only), so probe semantics stay Greek-only.

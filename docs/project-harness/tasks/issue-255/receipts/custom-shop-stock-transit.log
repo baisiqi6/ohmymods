@@ -1,0 +1,31 @@
+ok   counts-0-to-4-and-capacity
+ok   ctor-validation
+ok   protect-requires-full-adapter
+ok   protect-eligibility-exclusions
+ok   protect-captures-actual-originals
+ok   repeat-protect-idempotent
+ok   same-guid-rebind
+ok   claim-mid-acquire-aborts-and-rolls-back
+ok   partial-throw-before-field-write
+ok   partial-throw-after-field-write
+ok   unrestorable-rollback-keeps-lease
+ok   no-site-holding-then-new-rack
+ok   release-keeps-current-position
+ok   foreign-writer-cas-during-hold
+ok   restore-throw-keeps-lease-then-recovers
+ok   foreign-after-restore-write-never-overwritten
+ok   restore-silent-noop-retains-lease
+ok   claim-after-move-during-place
+ok   claim-before-move-during-park
+ok   fake-cold-recapture
+ok   release-unknown-token
+ok   release-all-idempotent
+ok   release-all-abort-branches
+ok   move-unverified-keeps-lease
+ok   non-finite-coordinates-refused
+ok   owner-change-rebind-after-cycle
+ok   token-equality-all-fields-and-owner
+ok   custom-policy-and-capacity
+
+PASS 213 checks / 28 tests
+EXIT=0
