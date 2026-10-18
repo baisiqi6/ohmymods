@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>MountIslandNativeResult.InteropCheck</AssemblyName>
+    <RootNamespace>KingdomEnhancedMod</RootNamespace>
+    <InteropDir Condition="'$(InteropDir)' == ''">/Applications/ohmymods/arm64/BepInEx/interop</InteropDir>
+    <CoreDir Condition="'$(CoreDir)' == ''">/Applications/ohmymods/arm64/BepInEx/core</CoreDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="InteropCheck.cs" />
+    <Compile Include="../../../il2cpp/Patch_MountIslandRequestEntry.cs" Link="Patch_MountIslandRequestEntry.cs" />
+    <Compile Include="../../../il2cpp/Patch_MountIslandNativeResult.cs" Link="Patch_MountIslandNativeResult.cs" />
+    <Compile Include="../../../il2cpp/Patch_MountIslandFreshEvidence.cs" Link="Patch_MountIslandFreshEvidence.cs" />
+    <Compile Include="../../../il2cpp/Patch_MountIslandAvailabilityPolicy.cs" Link="Patch_MountIslandAvailabilityPolicy.cs" />
+    <Compile Include="../../../il2cpp/Patch_MountIslandSplitPolicy.cs" Link="Patch_MountIslandSplitPolicy.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(InteropDir)/Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>$(InteropDir)/Il2Cppmscorlib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(CoreDir)/Il2CppInterop.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(InteropDir)/UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(InteropDir)/UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

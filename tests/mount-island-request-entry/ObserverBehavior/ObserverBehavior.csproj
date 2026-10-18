@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>MountIslandObserverBehavior</AssemblyName>
+    <RootNamespace>MountIslandObserverBehavior</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Public tests default to the actual current production file. The frozen old observer is
+         compared only by explicitly passing -p:ObserverSource=<path>; it is not copied here. -->
+    <ObserverSource Condition="'$(ObserverSource)' == ''">../../../il2cpp/Patch_MountIslandFreshObserver.cs</ObserverSource>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="BehaviorProgram.cs" />
+    <Compile Include="Stubs.cs" />
+    <Compile Include="$(ObserverSource)" Link="Patch_MountIslandFreshObserver.cs" />
+    <Compile Include="../../../il2cpp/Patch_MountIslandFreshEvidence.cs" Link="Patch_MountIslandFreshEvidence.cs" />
+    <Compile Include="../../../il2cpp/Patch_MountIslandRequestEntry.cs" Link="Patch_MountIslandRequestEntry.cs" />
+    <Compile Include="../../../il2cpp/Patch_MountIslandNativeResult.cs" Link="Patch_MountIslandNativeResult.cs" />
+    <Compile Include="../../../il2cpp/Patch_MountIslandAvailabilityPolicy.cs" Link="Patch_MountIslandAvailabilityPolicy.cs" />
+    <Compile Include="../../../il2cpp/Patch_MountIslandSplitPolicy.cs" Link="Patch_MountIslandSplitPolicy.cs" />
+  </ItemGroup>
+</Project>

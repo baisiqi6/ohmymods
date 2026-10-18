@@ -891,30 +891,15 @@ internal static class CrossWorldMountRuntime
     /// </summary>
     private static bool TryWriteMarker(Frame frame, CrossWorldMountDefinition definition, int land)
     {
-        try
-        {
-            if (frame == null) return false;
-            if (!SameOwner(frame)) return false;
-            CampaignSaveData current = CampaignSaveData.current;
-            CampaignSaveData.ReignInfo reign = current != null ? current.currentReign : null;
-            if (reign == null) return false;
-            Il2CppSystem.Collections.Generic.List<CampaignSaveData.LandMapData> landData = reign.landData;
-            if (landData == null || land < 0 || land >= landData.Count) return false;
-
-            CampaignSaveData.LandMapData entry = landData[land];
-            int[] next = CrossWorldMountPolicy.AppendMarker(ToIntArray(entry.steedSpawns), definition.SteedTypeId);
-            var typed = new SteedType[next.Length];
-            for (int i = 0; i < next.Length; i++) typed[i] = (SteedType)next[i];
-            entry.steedSpawns = typed;   // Il2CppStructArray<SteedType> 隐式转换
-            landData[land] = entry;      // List<T> 值类型元素：必须回写（interop 值类型读为副本）
-            CrossWorldMountDependencies.InvalidateGrantCache();   // 查询覆盖的 receipt 兜底缓存立即失效
-            return true;
-        }
-        catch (Exception e)
-        {
-            LogError("marker write failed: " + e.GetType().Name + " " + e.Message);
-            return false;
-        }
+        // #260 C：共享 marker 单写者（SameOwner 复核、值类型 entry 回写、cache invalidate 语义
+        // 均在 helper 内保留）。本方法只保留既有 bool 返回契约。
+        return MountIslandMarkerRuntime.TryWriteMarker(
+            frame != null ? frame.Campaign : null,
+            frame != null ? frame.ReignIndex : -1,
+            frame != null ? frame.LandDataPointer : 0UL,
+            definition,
+            land,
+            out _);
     }
 
     /// <summary>
