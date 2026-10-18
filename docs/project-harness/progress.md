@@ -2202,3 +2202,6 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 
 
 - Android #232 G15：精确日志入口source/host20项独立回归通过，产品候选保持c906/106。新单次实际在prepare60内完成完整计划范围的host/device备份读回，候选pair安装、fresh106有序注册/组件创建和main场景回调达到；唯一截图仍是加载条，无UI操作，不当作可游玩画面。退出后原pair5460/9758独立读回，Release/Mods/四refs/APK保持，UserData文件/目录无差异；Root真实wait=-9及host端口/保护快照另证，窗口已交还。正常计划8816b473已登记并逐字镜像，原15b1等历史判断保留。实际最终独审1f210e1c…/2665稳定pins已由Root重核，允许备份保留、postgame日志归档差异未覆盖，不发布APK、不关闭完整232，触屏/攻击/保存/全池与手机多人仍待分组验证。详见[G15记录](tasks/issue-232/g5-main106-preflight.md)。
+
+
+- 2026-10-18 UTC Android #232 G16–G17：去掉私有runner重复APK全hash，复用prepare一次完整SHA及四阶段严格文件identity，保持预算/产品/唯一writer，无重试。G16原第二hash超时、未pair写入或启动的失败保留；G17单次完整33文件备份后实际106注册/main和唯一FLOAT_GUI达到，一张图加下一fresh采样确认。PNG可见小金色浮球与加载条，world/展开页未见，无触屏操作，不称可游玩。原pair5460/9758独立读回、Release/Mods/4refs保持；原19个UserData字节保持，新增hero-identities.v1.json及两目录仅存在性已采，payload未知、原件/备份保留并阻下一自动case。既有ConfirmBaseline保存责任可解释路径，但不代验内容。Root真reap及资源归还已证，独立actual c93b74a8/2689稳定pins由Root重核；整体native/玩法和整环境恢复均非通过。正常计划f1e95752已登记并逐字镜像，182其他任务/166其他计划保持，validator通过；全局doctor3E0W为已有247/251错误，232无blocker，未写全绿。完整232仍OPEN，下一组先核共享保存差异/旁档只读分类，再按普通弓箭与职业依赖推进。新的专项Worker/Reviewer分时路由已记，历史模型证据保留。详见[G16–G17记录](tasks/issue-232/g5-main106-preflight.md)。
