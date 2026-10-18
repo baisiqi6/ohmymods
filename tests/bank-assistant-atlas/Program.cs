@@ -40,6 +40,7 @@ internal static class Program
         Test("Android native read fails closed on format, size, pointer, empty frame",
             AndroidNativeReadFailsClosed);
         Test("Android native read rejects checked size overflow", AndroidNativeReadRejectsOverflow);
+        Test("published atlas textures are owned by native identity only", OwnsTextureIdentity);
 #endif
 #endif
         Test("asset prevalidation fails closed without embedded resources", EnsureAssetsFailClosed);
@@ -857,6 +858,40 @@ internal static class Program
         for (int y = y0; y < y1; y++)
         for (int x = x0; x < x1; x++)
             pixels[(y * width + x) * 4 + 3] = 0;
+    }
+
+    /// <summary>真实 supplier：只有 _textures 的当前 4 个实例才 owned；同名/同尺寸外来纹理拒绝；
+    /// 同一 native 身份的不同托管包装命中（stub 以 InstanceIdOverride 模拟，不是 ABI 证据）；
+    /// 未 ready 或已销毁一律拒绝。</summary>
+    private static void OwnsTextureIdentity()
+    {
+        InstallAtlases();
+        var textures = (Texture2D[])GetStatic(typeof(BankAssistantAtlasVisuals), "_textures");
+        Check(textures != null && textures.Length == 4, "four published textures");
+        for (int i = 0; i < textures.Length; i++)
+            Check(BankAssistantAtlasVisuals.OwnsTexture(textures[i]), "published texture " + i + " is owned");
+        Check(!BankAssistantAtlasVisuals.OwnsTexture(null), "null is not owned");
+
+        var foreign = new Texture2D(textures[0].width, textures[0].height, TextureFormat.RGBA32, false)
+        {
+            name = textures[0].name
+        };
+        Check(!BankAssistantAtlasVisuals.OwnsTexture(foreign), "same name/size foreign texture is not owned");
+
+        var alias = new Texture2D(1, 1, TextureFormat.RGBA32, false)
+        {
+            InstanceIdOverride = textures[0].GetInstanceID()
+        };
+        Check(BankAssistantAtlasVisuals.OwnsTexture(alias),
+            "same native id through a different managed wrapper (stub simulation, not ABI)");
+
+        SetStatic(typeof(BankAssistantAtlasVisuals), "_atlasState", 0);
+        Check(!BankAssistantAtlasVisuals.OwnsTexture(textures[0]), "not ready => not owned");
+        SetStatic(typeof(BankAssistantAtlasVisuals), "_atlasState", 1);
+        Check(BankAssistantAtlasVisuals.OwnsTexture(textures[0]), "ready again => owned");
+
+        UnityEngine.Object.Destroy(textures[0]);
+        Check(!BankAssistantAtlasVisuals.OwnsTexture(textures[0]), "destroyed owned texture is not owned");
     }
 
     private static bool Warns(string fragment) => ManualLogSource.Warnings.Any(w => w.Contains(fragment));

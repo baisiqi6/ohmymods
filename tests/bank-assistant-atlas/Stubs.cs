@@ -40,6 +40,13 @@ namespace UnityEngine
         public bool nativeAlive = true;
         public HideFlags hideFlags = HideFlags.None;
 
+        // Unity 原生对象身份的最小替身：同一 native 实例的不同托管包装共享 InstanceId
+        // （测试用 InstanceIdOverride 模拟），仅用于身份契约；不是 IL2CPP ABI 证据。
+        public static int InstanceIdSeq = 1000;
+        public readonly int InstanceId = ++InstanceIdSeq;
+        public int InstanceIdOverride;
+        public int GetInstanceID() => InstanceIdOverride != 0 ? InstanceIdOverride : InstanceId;
+
         public static void Destroy(Object target)
         {
             if (target == null) return;   // 已销毁或 C# null：不重复计数
@@ -99,12 +106,9 @@ namespace UnityEngine
 
     public class GameObject : Object
     {
-        public static int InstanceIdSeq = 1000;
         public static int AddComponentCalls;
 
         public readonly List<Component> Components = new();
-        public readonly int InstanceId = ++InstanceIdSeq;
-        public int InstanceIdOverride;
         public IntPtr Pointer;
         public Transform transform;
         private bool active = true;
@@ -120,7 +124,6 @@ namespace UnityEngine
         public bool activeSelf => active;
         public bool activeInHierarchy => active && (transform.parent == null || transform.parent.gameObject.activeInHierarchy);
         public void SetActive(bool value) => active = value;
-        public int GetInstanceID() => InstanceIdOverride != 0 ? InstanceIdOverride : InstanceId;
 
         public T AddComponent<T>() where T : Component, new()
         {

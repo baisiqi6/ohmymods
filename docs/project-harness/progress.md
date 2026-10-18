@@ -1,3 +1,11 @@
+## 2026-10-18 UTC — Android 像素/北境资源 producer 合批源码完成
+
+已据实际GetPixels解析差异复用ownedPNG helper，并按当前APK prefab置换责任补北境骑士controller，仅Android边界。原bbox/cache算法复用，清理重复FindAll调用；三份PC完整active逐字相同。Root默认net6D/R0E1旧W、各Adapter1504/0、实际旧API调用清零及正负host/独审通过；新2e55/993e尚未装载。必要Native路径、触屏/交易/保存/池验证继续，PR263保持Draft，见[本批记录](tasks/issue-262/verification.md#g20-pixel-norse-batch)。
+
+## 2026-10-18 UTC — Android 剩余像素接口与原生建造前置已定位
+
+新 `.9r2` 在独立临时 overlay 观察到 GetPixels 精确名解析0、Animator正对照非0；两点 ordinary边界-20.75/-3.25、intact0/0、castle未建/墙0、camp-12，未放宽共享选址。实际浮球几何改用现有managed字段，避免安全区/坐标镜像。Root移动脚本因剩余预算不足在intent前拒绝，实际0输入，未记触屏/付款通过；原120.12秒STOP、controller wait0、QEMU reap-9与Root fresh八原件/自身资源保持已留证，独立actual仅接受观察范围。现按已证接口差异与Norse prefab注册责任合批修复，必要业务与保存/池验证继续，PR263 Draft、232/262开放。详见[当前边界](tasks/issue-262/verification.md#g20-native-readiness)。
+
 ## 2026-10-18 UTC — Android 共享选址参数已观察，四处 flipY 兼容边界完成源码验证
 
 私有0.0.8在原两固定时点读到完整城墙边界0/0、半宽2/2.75/2，当前区间不足以选址；实际图集为Greek，未套用“biome0即非Greek”的推断。Root fresh八项保持，进程已退出，独立actual只批准当前参数观察；边界为何为0及有效原生测试场景继续定位，不强制创建商店。四处在编flipY调用已在原共享源Android边界集中适配，PC完整有效源码逐字相同，旧源真实接口异常反例及新host、默认net6双构建、实际两产物get/set调用清零和独立审查通过；新候选尚未装载，Coin的GetPixels调用仍待核。PR263继续Draft，完整交易、生成攻击回收、保存装载与池重建待验。详见[参数观察](tasks/issue-262/verification.md#g20-placement-parameters)与[接口修复](tasks/issue-262/verification.md#g20-flipy-boundary)。

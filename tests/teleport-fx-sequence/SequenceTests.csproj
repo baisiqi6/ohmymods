@@ -18,5 +18,6 @@
     <ItemGroup>
         <Compile Include="$(CoinCourierTeleportFxSource)" Link="Production/CoinCourierTeleportFx.cs" />
         <Compile Include="../coin-courier-visuals/Stubs.cs" Link="Stubs.cs" />
+        <Compile Include="../musketeer-runtime/AndroidTexturePixelsStub.cs" Link="AndroidTexturePixelsStub.cs" />
     </ItemGroup>
 </Project>

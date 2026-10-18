@@ -172,3 +172,38 @@ Root四份完整PC有效源码保留空行和注释后逐字节相同。Android 
 Root默认net6 D/R均0E/1条既有CS0169，207源码/176引用/25资源；408输入中404保持、仅上述4源改变。Release `a757fbe777db220c60b0020d3d1fc35c27d6ca57e97f88b3a0c79ff79ef09dd2`，Debug `91fb78dc66d1fe206e816074e7e023505116712a5869bf55a25d1207168c1dd0`，实际全装配get/set flipY均0，GetPixels32仍0、ReadOwnedPng9；基础Animator getter21不误算AOC。新产物未装载，不能复用旧0cd的Native结果。Coin身体框仍有GetPixels1待具体ICall/纹理契约核对，角色/助手真实显示与生命周期继续待验；SamuraiDash/HermesHeadwear等未入Android闭包的Y路径未擅改。PR263保持Draft、#232/#262开放。
 
 证据：G19 `resume-1453/flipy-adaptation-worker/`、`flipy-root-product-build/`、`flipy-root-il/`、`flipy-code-review/`，以及`next-profession-placement-case/actual/`、`native-border-precondition-audit/`。本批不分发游戏、APK、interop或玩家存档。
+
+<a id="g20-native-readiness"></a>
+## 2026-10-18：原生边界前置、实际浮球几何与剩余像素接口已观察
+
+新单次 `controlled-profession133-native-readiness-isolated-20261018-single1` 在同一独立 SDK 临时 overlay 装载正式候选 Main `a757fbe7…`、58 键受控 cfg `16b68641…` 与私有 `.9r2` `15872f36…`。观察器沿原两固定点增加当前 Kingdom 和纯 managed 浮球 Layout 读数，首 surface 仅解析两个具名 ICall，不调用返回指针。源码/host（19 项、控制器 77 项）、exact binding 与正常登记分别留证，未使用旧 spent 门。原先未证为正对照的 TextureWritable 名称已替换为既有实际可解析的 Animator getter；不能据旧错误名的 0 推断 helper 缺失。
+
+本次 `Texture2D::GetPixels_Injected` 返回 0，`Animator::get_runtimeAnimatorController_Injected` 非 0，确认当前精确名字的解析差异；不是所有纹理 API 都不可用的结论，也不是函数调用 ABI 验收。剩余 Coin body-box 像素路径可据此复用已验证的自有 PNG helper，限定真实所有权，不增加 getter 替身或逐像素 Native 调用。
+
+baseline 与 final 两点一致：**ordinary / `GetBorderSide` 为 -20.75 / -3.25**；**intact / `GetBorderSideIntact` 为 0 / 0**，商店半宽 Hero 2、Musketeer 2.75、Shield 2，当前图集 Greek。`castleBuilt=false`、`Walls.Count=0`、`CampfireWorldPosition=-12`、`HasBorderLoaded=true`。普通边界、完整城墙边界与“已加载”是不同事实；本例未满足完整边界选址前置，不放宽共享选址，也不宣称 cache 失效。快照是两个当前值，不是全部历史 Find 参数或连续状态。
+
+实际 managed Layout 为 `640×360`、GUI 位置 `86,79.2`、触控方边长 36、ready=true、expanded/captured=false；当前 logical display 与唯一 baseline PNG 均 `1280×720`，rotation=90。原“0°才可输入”假设已由当前原始显示信息推翻，输入使用当前显示像素与 GUI/touch Y 转换，不再镜像默认浮球位置或安全区。唯一图可见小浮球、HUD、月亮与水面，暗黑世界区域仍在，未记完整视觉/可玩性通过。
+
+Root 曾启动一次移动脚本的只读检查，但 `action_budget` 在创建 intent / 派发 swipe **之前**因剩余时限不足拒绝：实际 Root Native 输入 0、Root PNG 0、controller baseline PNG 1；未尝试 pay、未重放、未热改已审源码。不能把“拒绝后 0 次输入”写成移动或投币校准通过。后续合批运行将把有界 Root 动作接在当前 baseline 到达处，避免操作调度延迟；仍保留 unknown 即停与原观察器结束。
+
+观察器在 `23:20:40Z` 以 time-budget STOP，elapsed=120.12s、events=1；controller11213 实际 wait=0，QEMU11272 于 `23:20:41.680459Z` 已 reap，returnCode=-9（不记为优雅退出 0）。Root 独立 fresh 八项原件字节及 metadata 相等，own AVD 无 holder、5582/5583 空闲、ADB88434 原身份仍在，无 restore 层。postflight SHA `46c97be846e4b02c7465de6fce14d8a2c336b969e219579cc0b5585f4e1228f5`。
+
+plan `716b7823…` 正常 revise/approve 后独立读回185行/169计划；其余184行/168计划保持，validator 0，doctor 旧3E/56 findings、232无阻塞，未称全局健康通过。cfg ledger 只证明安装时 readback；result.userData 的 `9758…` 是 prepare 原件，不是 post-run 回退，运行 flags 真另由日志证明；post-run cfg 文件体未采样。源/构建/安装只读观察与玩法验收仍分开。
+
+独立 actual 审查与 Root 裁决见本机 G19 `resume-1453/native-readiness-actual-review/`、新 case 的 `actual/root-actual-adjudication.json` 与 `root-independent-postflight.json`。本例不证明原生付款、建城、角色生成/攻击/回收、保存/装载、换岛或池重建；手机/平板、多人、长期与完整视觉继续单列。#232/#262 OPEN、PR263 Draft；当前 API 与 Norse 视觉控制器缺口合批修复，必要运行继续。
+
+Actual 独审修正后报告 SHA `d1b39a4d9a348f1b2c94ef709f372dc70fd21c04ef163c0e9df5836b6fe2560f`，Root 接受为 observation-only；原审稿及勘误保存，不沿用其 ordinary/intact 与 cfg 时序误标。
+
+
+<a id="g20-pixel-norse-batch"></a>
+## 2026-10-18：传送像素读取与北境控制器 producer 合批兼容
+
+当前设备已记录 GetPixels 精确名0/Animator正对照非0，故在共享 Coin body-box 原位置接入现有自有 PNG reader。新增 Android-only `OwnsTexture` 只读已发布四纹理数组，以 Unity native instance ID 判同实例（不按名/尺寸/CLR包装引用）；foreign、未 ready、已销毁拒收。像素源、非零 rect 的整图 stride、byte alpha<8 三处作平台边界，共用原 bbox 扫描、缓存、失败、Clear、pivot/PPU/父级 transform 与朝向逻辑。Root 删除初稿重复的整段 Android bbox 算法；width 只读一次，没有新缓存、逐像素 Native getter、Marshal 或回退。
+
+同批核实持续 4/5 告警来自**视觉风格池**。当前2.4 APK中北境骑士资产存在，原生将它放在 prefabSwapPool（base Knight→Knight_norselands），其 animatorSwapPool 没有该映射；不是 sync 池丢失或 APK 缺资产。只在 Android 的现 producer 补 full BiomeData 原生 prefab 映射：精确 base Knight 实例、根 Animator、精确 controller 名才填空 slot4；不实例化、不改角色身份/存档/随机选择/五 style 顺序/缩放/RPC。Android 两次重复全量 FindAll 改用同次已填 base slots；其它风格仍需要的 loaded/animator/旧 LoadAll 与渐进 ready 职责保留，完整10/10后不介入。静态图读取16具名节点9,477,328B，不能代替live唯一性或style4实际角色应用。
+
+三份 PC 完整active文本（含注释/空白、不normalize）与基座逐字相同：Bank 25,566B、Coin 59,207B、Knight 87,137B。Root source-linked独立host：atlas Android42/PC37、FX Android18/PC15、bank teleport17、coin visuals31；旧FX真源在缺GetPixels fixture中14通过/4预期失败。Norse Android12/PC2，旧真源双变体各1项确认4/5；成功后第二次ensure无新扫描/加载。所有host为离线替身/源码验证，不是Native ABI。
+
+默认net6 Debug/Release均0错误/1既有CS0169，207 Compile/176 refs/25资源；408输入中405保持，仅三份产品源改变。实际两DLL各Adapter1504/0；Root指令边界检查 GetPixels/GetPixels32/flipY get/set均0，ReadOwnedPng由9→10，未加patch owner。新Release SHA `2e55f5bcc6af844111ee1d89147bca91b13c3250ab6b4efde8db7e0fb50e4754`，Debug `993ec885d412a12f1011fa0322e6655728211ad7baa33f1d234a1cfbdd990c51`，本阶段均未装载。host移动obj时曾吸入项目旧obj导致CS0579，已在构建命令的默认Compile来源排除旧obj，未改产品/未关生成属性掩盖问题；旧输出保留。
+
+独立代码审查 `APPROVE_GROUPED_ANDROID_PIXEL_AND_NORSE_SOURCE_ONLY`，实际OMP DeepSeek Flash/max、无fallback，报告SHA `328124a854d0086debb508122243406617b2a9c34b2d9d1759d3107079338c65`。Root接受为source/host范围；后续合批Native验证真实owned纹理路径、Norse5/5与有界输入，实际FX/角色/付款/保存装载/换岛/池重建仍待验。#232/#262开放、PR263 Draft，不以源码通过代替安装/玩法或合并授权。证据本机G19 `resume-1453/grouped-root-*`、两Worker与`grouped-api-style-code-review/`；未提交游戏/APK/interop/用户存档。

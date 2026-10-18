@@ -5,8 +5,11 @@ namespace KingdomEnhancedMod
     /// Texture2D.Pixels, so the Android branch sees the same pixels without native image APIs.</summary>
     internal static class AndroidTexturePixels
     {
+        internal static int ReadCalls;
+
         internal static UnityEngine.Color32[] ReadOwnedPng(UnityEngine.Texture2D texture, int width, int height)
         {
+            ReadCalls++;
             if (texture == null) throw new System.InvalidOperationException("texture required");
             return texture.GetPixels32();
         }

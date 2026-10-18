@@ -249,8 +249,16 @@ public static class PatchRoles_KnightStyle
             BiomeHolder holder = BiomeHolder.Inst;
             if (holder == null || holder.biomePathStrings == null) return;
 
+#if ANDROID
+            // The first ResolveFromSet in the same synchronous EnsureStyleAssets
+            // call just filled the base slots; two more full FindAll scans are
+            // redundant. The exact original-name checks below stay in place.
+            RuntimeAnimatorController baseKnight = KnightControllers[0];
+            RuntimeAnimatorController baseSoldier = SoldierControllers[0];
+#else
             RuntimeAnimatorController baseKnight = FindControllerByName("knight");
             RuntimeAnimatorController baseSoldier = FindControllerByName("archer_soldier");
+#endif
             // index 0 is the base medieval controller; the other styles come from
             // their native biome swap tables (Bamboo=1, Deadlands=2, Norse=3,
             // Greece=5).
@@ -294,6 +302,9 @@ public static class PatchRoles_KnightStyle
                         SoldierControllers[style] = entry.swap;
                 }
             }
+#if ANDROID
+            ResolveNorseKnightFromPrefabSwapPool(holder);
+#endif
         }
         catch (Exception e)
         {
@@ -301,6 +312,54 @@ public static class PatchRoles_KnightStyle
         }
     }
 
+#if ANDROID
+    /// <summary>
+    /// Norselands registers its knight through BiomeData.swapData.prefabSwapPool
+    /// (base "Knight" prefab -> Knight_norselands prefab); its animatorSwapPool
+    /// has no base-knight entry, so the loop above can never fill the Norse slot.
+    /// Read the swapped prefab root Animator controller only when the slot is
+    /// still empty, matching the exact base Knight instance. No instantiation,
+    /// pool registration, or name-based prefab guessing.
+    /// </summary>
+    private static void ResolveNorseKnightFromPrefabSwapPool(BiomeHolder holder)
+    {
+        if (KnightControllers[NorseStyleIndex] != null) return;
+        if (holder == null || holder.biomePathStrings == null) return;
+        int norseIndex = BiomeHolder.NorselandsBiomeIndex;
+        if (norseIndex < 0 || norseIndex >= holder.biomePathStrings.Length) return;
+        string norsePath = holder.biomePathStrings[norseIndex];
+        if (string.IsNullOrEmpty(norsePath)) return;
+
+        // The preload table can be lightweight; the full BiomeData carries the
+        // prefab table (same reason the animator loop reloads the full asset).
+        BiomeData norseBiomeData = Resources.Load<BiomeData>(norsePath);
+        if (norseBiomeData == null || norseBiomeData.swapData == null) return;
+        var prefabSwapPool = norseBiomeData.swapData.prefabSwapPool;
+        if (prefabSwapPool == null) return;
+
+        Managers managers = Managers.Inst;
+        Holder characterHolder = managers != null ? managers.holder : null;
+        if (characterHolder == null) return;
+        Character baseKnight = characterHolder.GetCharacterByTag("Knight");
+        if (baseKnight == null || baseKnight.gameObject == null) return;
+
+        GameObject baseKnightGO = baseKnight.gameObject;
+        for (int i = 0; i < prefabSwapPool.Count; i++)
+        {
+            var swap = prefabSwapPool[i];
+            if (swap == null || swap.original == null || swap.swap == null) continue;
+            if (swap.original != baseKnightGO) continue;
+            Animator animator = swap.swap.GetComponent<Animator>();
+            if (animator == null) return;
+            RuntimeAnimatorController controller = animator.runtimeAnimatorController;
+            if (controller == null) return;
+            if (controller.name != KnightControllerNames[NorseStyleIndex]) return;
+            KnightControllers[NorseStyleIndex] = controller;
+            return;
+        }
+    }
+
+#endif
     private static RuntimeAnimatorController FindControllerByName(string name)
     {
         RuntimeAnimatorController[] all = Resources.FindObjectsOfTypeAll<RuntimeAnimatorController>();

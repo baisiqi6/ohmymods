@@ -35,6 +35,11 @@ internal static class Program
         Test("body fit matches the visible character size and keeps the tilt", BodyFitMatchesCharacterSize);
         Test("packed native banker evidence yields a conservative body box", NativeEvidenceFallback);
         Test("body box follows the platform flipY contract", BodyBoxFlipYContract);
+#if ANDROID
+        Test("Android owned PNG bodies read full-image stride with byte alpha", AndroidOwnedPngBodyBox);
+        Test("Android foreign unpacked bodies fail closed without GetPixels", AndroidForeignUnpackedBodyBox);
+        Test("Android packed native bodies never read owned pixels", AndroidPackedNativeSkipsPixels);
+#endif
         Test("horizontal palette stays clear gold and never white", HorizontalPaletteIsGold);
         Test("vertical palette stays near black, warm-tipped and ignores base rgb", VerticalPaletteIsNearBlack);
         Test("arrival rises to a full-length peak exactly at the anchor", ArrivalPeaksAtAnchor);
@@ -79,6 +84,14 @@ internal static class Program
         SpriteRenderer.SpriteWrites = 0;
         UnityEngine.Object.DestroyCalls = 0;
         Time.frameCount = 0;
+        Texture2D.GetPixelsCalls = 0;
+#if ANDROID
+        // 设备当前真实缺陷：GetPixels 的 ICall 不可解析。Android host 全程保持该失败，
+        // 任何意外落入旧 GetPixels 的路径都会真实抛错，而不是被替身悄悄满足。
+        Texture2D.ThrowOnGetPixels = true;
+        AndroidTexturePixels.ReadCalls = 0;
+        BankAssistantAtlasVisuals.ClearOwned();
+#endif
     }
 
     private static void Check(bool condition, string why)
@@ -255,18 +268,41 @@ internal static class Program
         }
     }
 
+    /// <summary>平台像素读取计数：Android 是自有 PNG 整图读取，PC 是原 GetPixels 调用。</summary>
+    private static int PixelReads()
+    {
+#if ANDROID
+        return AndroidTexturePixels.ReadCalls;
+#else
+        return Texture2D.GetPixelsCalls;
+#endif
+    }
+
+    private static void ResetPixelReads()
+    {
+#if ANDROID
+        AndroidTexturePixels.ReadCalls = 0;
+#else
+        Texture2D.GetPixelsCalls = 0;
+#endif
+    }
+
     /// <summary>构造可读身体 fixture：纹理内一个不透明矩形 + sprite rect/pivot/PPU + renderer 缩放。</summary>
     private static SpriteRenderer NewBodyRenderer(int texW, int texH, float pivotX, float pivotY, float ppu,
         int boxX, int boxY, int boxW, int boxH, float scaleX, float scaleY)
     {
         var go = new GameObject("body-fixture");
         var renderer = go.AddComponent<SpriteRenderer>();
+        var texture = new Texture2D(texW, texH, TextureFormat.RGBA32, false)
+        {
+            OpaqueAt = (x, y) => x >= boxX && x < boxX + boxW && y >= boxY && y < boxY + boxH
+        };
+#if ANDROID
+        BankAssistantAtlasVisuals.MarkOwned(texture);
+#endif
         renderer.sprite = new Sprite
         {
-            texture = new Texture2D(texW, texH, TextureFormat.RGBA32, false)
-            {
-                OpaqueAt = (x, y) => x >= boxX && x < boxX + boxW && y >= boxY && y < boxY + boxH
-            },
+            texture = texture,
             rect = new Rect(0f, 0f, texW, texH),
             pivot = new Vector2(pivotX, pivotY),
             pixelsPerUnit = ppu
@@ -374,21 +410,21 @@ internal static class Program
 
         // —— 缓存：同一 sprite 只扫描一次；Tick 零扫描；Clear 释放缓存后可重扫 ——
         CoinCourierTeleportFx.Clear();
-        Texture2D.GetPixelsCalls = 0;
+        ResetPixelReads();
         var h1 = CoinCourierTeleportFx.Begin(Vector3.zero, Color.white, 1f, 0, 0,
             CoinCourierTeleportStyle.Horizontal, CoinCourierTeleportDirection.Arrival, 0.12f, clerk);
         Check(h1.IsValid, "cache probe begin valid");
-        Equal(1, Texture2D.GetPixelsCalls, "the same sprite is scanned once");
+        Equal(1, PixelReads(), "the same sprite is scanned once");
         CoinCourierTeleportFx.Cancel(h1);
         CoinCourierTeleportFx.Begin(Vector3.zero, Color.white, 1f, 0, 0,
             CoinCourierTeleportStyle.Vertical, CoinCourierTeleportDirection.Departure, 0.12f, clerk);
-        Equal(1, Texture2D.GetPixelsCalls, "a second begin with the same sprite does not rescan");
+        Equal(1, PixelReads(), "a second begin with the same sprite does not rescan");
         for (int i = 0; i < 20; i++) CoinCourierTeleportFx.TickForFrame(1f / 60f, 5000 + i);
-        Equal(1, Texture2D.GetPixelsCalls, "ticking never scans pixels");
+        Equal(1, PixelReads(), "ticking never scans pixels");
         CoinCourierTeleportFx.Clear();
         CoinCourierTeleportFx.Begin(Vector3.zero, Color.white, 1f, 0, 0,
             CoinCourierTeleportStyle.Horizontal, CoinCourierTeleportDirection.Departure, 0.12f, clerk);
-        Equal(2, Texture2D.GetPixelsCalls, "Clear releases the cache and the next begin rescans");
+        Equal(2, PixelReads(), "Clear releases the cache and the next begin rescans");
     }
 
     /// <summary>native 证据 fallback fixture：packed/unreadable 的 32×32/PPU32/pivot(16,0) 5~10 顶点紧 mesh。</summary>
@@ -433,6 +469,122 @@ internal static class Program
         Check(Math.Abs(unflipped.Center.y) > 1e-3f, "fixture has a non-zero Y offset");
 #endif
     }
+
+#if ANDROID
+    /// <summary>
+    /// 非 0 rect fixture：整图读取必须用 texture.width 作 stride，LocalBox 返回 rect 局部行列；
+    /// alpha 7 跳过、alpha 8 计入（保持 8f/255f 的 byte 语义）。同 sprite 命中缓存，Clear 后重读。
+    /// </summary>
+    private static void AndroidOwnedPngBodyBox()
+    {
+        Texture2D.ThrowOnGetPixels = true;
+        var texture = new Texture2D(320, 160, TextureFormat.RGBA32, false);
+        var pixels = new Color32[320 * 160];
+        int alpha7 = (120 + 5) * 320 + (280 + 3);
+        int alpha8 = (120 + 6) * 320 + (280 + 4);
+        pixels[alpha7] = new Color32(9, 9, 9, 7);
+        pixels[alpha8] = new Color32(9, 9, 9, 8);
+        texture.WrittenPixels = pixels;
+        BankAssistantAtlasVisuals.MarkOwned(texture);
+
+        var go = new GameObject("android-owned-fixture");
+        var renderer = go.AddComponent<SpriteRenderer>();
+        renderer.sprite = new Sprite
+        {
+            texture = texture,
+            rect = new Rect(280f, 120f, 40f, 40f),
+            pivot = new Vector2(0f, 0f),
+            pixelsPerUnit = 1f
+        };
+
+        Check(CoinCourierTeleportBodyBox.TryResolve(renderer, out var box), "owned non-zero rect resolves");
+        Near(1f, box.Width, 1e-5f, "alpha 7 is skipped and alpha 8 is included (width)");
+        Near(1f, box.Height, 1e-5f, "alpha 7 is skipped and alpha 8 is included (height)");
+        Near(4.5f, box.Center.x, 1e-5f, "rect-local x center uses full-image stride");
+        Near(6.5f, box.Center.y, 1e-5f, "rect-local y center uses full-image stride");
+        Equal(1, AndroidTexturePixels.ReadCalls, "one full-image read on cache miss");
+        Check(CoinCourierTeleportBodyBox.TryResolve(renderer, out _), "second resolve hits cache");
+        Equal(1, AndroidTexturePixels.ReadCalls, "cache avoids a second read");
+        Equal(0, Texture2D.GetPixelsCalls, "owned path never calls GetPixels");
+
+        // 全透明：换 sprite 实例（同 texture/rect）强制新 key，失败结果进入原 Cache。
+        texture.WrittenPixels = new Color32[320 * 160];
+        var transparent = new GameObject("android-transparent-fixture");
+        var transparentRenderer = transparent.AddComponent<SpriteRenderer>();
+        transparentRenderer.sprite = new Sprite
+        {
+            texture = texture,
+            rect = new Rect(280f, 120f, 40f, 40f),
+            pivot = new Vector2(0f, 0f),
+            pixelsPerUnit = 1f
+        };
+        Check(!CoinCourierTeleportBodyBox.TryResolve(transparentRenderer, out _), "fully transparent is refused");
+        Equal(2, AndroidTexturePixels.ReadCalls, "transparent sprite read once");
+        Check(!CoinCourierTeleportBodyBox.TryResolve(transparentRenderer, out _), "transparent failure cached");
+        Equal(2, AndroidTexturePixels.ReadCalls, "transparent failure is not re-read");
+
+        CoinCourierTeleportBodyBox.Clear();
+        texture.WrittenPixels = pixels;
+        Check(CoinCourierTeleportBodyBox.TryResolve(renderer, out _), "Clear releases the cache");
+        Equal(3, AndroidTexturePixels.ReadCalls, "Clear forces one fresh read");
+    }
+
+    /// <summary>
+    /// 非 owned、unpacked 的 unknown 纹理：不读像素、不碰 GetPixels，失败进入原 Cache；
+    /// 即使之后把它标成 owned，同一 key 仍命中失败缓存，Clear 后才重读。同名同尺寸不构成身份。
+    /// </summary>
+    private static void AndroidForeignUnpackedBodyBox()
+    {
+        Texture2D.ThrowOnGetPixels = true;
+        var texture = new Texture2D(32, 40, TextureFormat.RGBA32, false)
+        {
+            name = "BankAssistantAtlas_Clerk",
+            OpaqueAt = (x, y) => x >= 4 && x < 20 && y >= 4 && y < 36
+        };
+        var go = new GameObject("android-foreign-fixture");
+        var renderer = go.AddComponent<SpriteRenderer>();
+        renderer.sprite = new Sprite
+        {
+            name = "BankAssistantAtlas_Clerk",
+            texture = texture,
+            rect = new Rect(0f, 0f, 32f, 40f),
+            pivot = new Vector2(16f, 3f),
+            pixelsPerUnit = 32f
+        };
+
+        Check(!CoinCourierTeleportBodyBox.TryResolve(renderer, out _),
+            "same name and same dimensions do not imply ownership");
+        Equal(0, AndroidTexturePixels.ReadCalls, "foreign texture never reaches the owned reader");
+        Equal(0, Texture2D.GetPixelsCalls, "foreign texture never calls GetPixels");
+        Check(!CoinCourierTeleportFx.Begin(Vector3.zero, Color.white, 1f, 0, 0,
+            CoinCourierTeleportStyle.Horizontal, CoinCourierTeleportDirection.Departure, 0.12f, renderer).IsValid,
+            "sized Begin fails closed for a foreign texture");
+        Equal(0, CoinCourierTeleportFx.ActiveCount, "foreign failure consumes no pool slot");
+
+        BankAssistantAtlasVisuals.MarkOwned(texture);
+        Check(!CoinCourierTeleportBodyBox.TryResolve(renderer, out _), "failure stays cached");
+        Equal(0, AndroidTexturePixels.ReadCalls, "cached failure is not re-read after ownership changes");
+
+        CoinCourierTeleportBodyBox.Clear();
+        Check(CoinCourierTeleportBodyBox.TryResolve(renderer, out _), "after Clear the now-owned texture resolves");
+        Equal(1, AndroidTexturePixels.ReadCalls, "only the post-Clear resolve reads");
+        var handle = CoinCourierTeleportFx.Begin(Vector3.zero, Color.white, 1f, 0, 0,
+            CoinCourierTeleportStyle.Horizontal, CoinCourierTeleportDirection.Departure, 0.12f, renderer);
+        Check(handle.IsValid, "owned texture now produces a sized effect");
+        Equal(1, AndroidTexturePixels.ReadCalls, "Begin reuses the cached body box");
+        CoinCourierTeleportFx.Cancel(handle);
+    }
+
+    /// <summary>packed native 仍走原 vertices 路径：不读 owned PNG，也不调用 GetPixels。</summary>
+    private static void AndroidPackedNativeSkipsPixels()
+    {
+        Texture2D.ThrowOnGetPixels = true;
+        var renderer = NewNativeRenderer(NativeBankerFixture.Rows[0]);
+        Check(CoinCourierTeleportBodyBox.TryResolve(renderer, out _), "packed native resolves through vertices");
+        Equal(0, AndroidTexturePixels.ReadCalls, "packed native never reads owned png bytes");
+        Equal(0, Texture2D.GetPixelsCalls, "packed native never calls GetPixels");
+    }
+#endif
 
     private static void NativeEvidenceFallback()
     {
@@ -517,6 +669,10 @@ internal static class Program
         var foreign = NewNativeRenderer(new NativeBankerFixture.Row("idol_oracle_omphalos_2", "foreign", "idol_idle", 7, -.25f, 0f, .25f, .8f, 16, 24, 0f));
         foreign.sprite.packed = true;
         Check(!CoinCourierTeleportBodyBox.TryResolve(foreign, out _), "packed sprite outside the evidence family is refused");
+#if ANDROID
+        Equal(0, AndroidTexturePixels.ReadCalls, "packed native evidence path never reads owned png bytes");
+        Equal(0, Texture2D.GetPixelsCalls, "packed native evidence path never calls GetPixels");
+#endif
     }
 
     private static void HorizontalPaletteIsGold()

@@ -188,6 +188,8 @@ namespace UnityEngine
         public int width, height;
         public bool isReadable = true;
         public static int GetPixelsCalls;
+        /// <summary>Android 缺 GetPixels ICall 的真实失败替身：置位后任何调用立即抛 MissingMethodException。</summary>
+        public static bool ThrowOnGetPixels;
         public FilterMode filterMode;
         public TextureWrapMode wrapMode;
         public int anisoLevel;
@@ -202,6 +204,8 @@ namespace UnityEngine
         public Color[] GetPixels(int x, int y, int blockWidth, int blockHeight)
         {
             GetPixelsCalls++;
+            if (ThrowOnGetPixels)
+                throw new MissingMethodException("MissingICall: Texture2D.GetPixels");
             var pixels = new Color[blockWidth * blockHeight];
             for (int row = 0; row < blockHeight; row++)
             {
@@ -216,10 +220,23 @@ namespace UnityEngine
             return pixels;
         }
 
+        public static int GetPixels32Calls;
+
         public Color32[] GetPixels32()
         {
+            GetPixels32Calls++;
+            if (WrittenPixels != null) return (Color32[])WrittenPixels.Clone();
             var pixels = new Color32[width * height];
-            for (int i = 0; i < pixels.Length; i++) pixels[i] = new Color32(0, 0, 0, FillAlpha);
+            for (int row = 0; row < height; row++)
+            {
+                for (int col = 0; col < width; col++)
+                {
+                    bool opaque = OpaqueAt != null
+                        ? OpaqueAt(col, row)
+                        : FillAlpha > 0;
+                    pixels[row * width + col] = new Color32(0, 0, 0, opaque ? (byte)255 : (byte)0);
+                }
+            }
             return pixels;
         }
 

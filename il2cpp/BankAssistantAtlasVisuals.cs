@@ -86,6 +86,23 @@ internal static class BankAssistantAtlasVisuals
 
     internal static int LiveStateCount => States.Count;
     internal static bool AssetsReady => _atlasState == AtlasReady;
+#if ANDROID
+    /// <summary>Android 2.4 缺 Texture2D.GetPixels ICall；传送身体框只允许读取模块自己发布的
+    /// 四张无 mip PNG。身份按 Unity 原生对象 ID 判定（同 native 实例的不同托管包装仍命中），
+    /// 不按名字/尺寸/ReferenceEquals；数组不对外暴露，未 ready 或已销毁一律 false。</summary>
+    internal static bool OwnsTexture(Texture2D texture)
+    {
+        if (texture == null || _atlasState != AtlasReady || _textures == null) return false;
+        int instanceId = texture.GetInstanceID();
+        Texture2D[] textures = _textures;
+        for (int i = 0; i < textures.Length; i++)
+        {
+            Texture2D owned = textures[i];
+            if (owned != null && owned.GetInstanceID() == instanceId) return true;
+        }
+        return false;
+    }
+#endif
 
     /// <summary>
     /// 同步预检并解码全部四张图集（幂等）。任一资源缺失/超限/尺寸不符/整块不可见/某动作帧全透明
