@@ -1,3 +1,7 @@
+## 2026-10-18 — Android API适配离线检查点，按用户要求暂停
+
+银行二维模板与图集像素读取在原共享源的Android边界适配，保持PC active字节和原校验/池/保存职责。Root独立银行85/73、图集40/37回归通过并保留旧源反例；默认net6 D/R0错误/1既有warning，Adapter各1504/0、其余405产品输入保持。两组独立代码审查均通过，保存为Draft暂停检查点；新候选未安装，后续登记/Native申请已撤回，不开下一组。#232/#262 OPEN、PR263 Draft；八模板池、真实业务保存及玩家验收如实待验，见[本批记录](tasks/issue-262/verification.md#g20-android-api-checkpoint)。
+
 ## 2026-10-18 — Android 133面板实际打开/关闭，诊断收口；银行初始化与完整UI仍未通过
 
 `controlled-economy133-ui-api-20261018-single1` 在独立临时 overlay 中达到 133-owner、world 与严格 touch surface；Root 3 输入/3 PNG：swipe 附近有 moving/位置响应，浮球 tap 后 open=True、ENTER/COMPLETE frame 709、open PNG 实际见面板，再 tap 后 closed PNG 无面板。四个 bank controller 已 Resolved、旧 AOC 首错消失，但 flipY ICall 与 clerk atlas decode 仍 MissingICall，`bankInitializationPassed=false`；不是 NativeBanker/完整 UI 通过。actual 独审 `APPROVE_DIAGNOSTIC_UI_OPEN_CLOSE_ACTUAL_ONLY`（报告SHA `05bc264c…`），Root disposition `ACCEPT_…`。计划 `5384d902…` 正常登记，185/169 readback 与 184/168 保护保持，validator 0、doctor 旧 3E/56 且 232 无 block；QEMU56614/controller56556 真实 reap/wait 0，fresh8/进程/端口保持，无 restore 层。无 intentional pay/save/RPC，自然临时 overlay 写入可能。232/262 OPEN、263 Draft；真实付款/保存/装载与池兼容仍待验，详见[G19记录](tasks/issue-232/g5-main106-preflight.md#g19-ui-open-close-actual)。

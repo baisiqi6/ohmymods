@@ -277,7 +277,9 @@ public static class PatchEconomy_BankAssistants
                 renderer.sharedMaterial = sourceRenderer.sharedMaterial;
                 renderer.color = sourceRenderer.color;
                 renderer.flipX = sourceRenderer.flipX;
+#if !ANDROID
                 renderer.flipY = sourceRenderer.flipY;
+#endif
                 renderer.sortingLayerID = sourceRenderer.sortingLayerID;
                 renderer.sortingOrder = sourceRenderer.sortingOrder;
             }
@@ -286,6 +288,15 @@ public static class PatchEconomy_BankAssistants
             // Use the controller selected above; controllers[] only covers the four native
             // names, so indexing it for slots 4..7 would be out of range.
             animator.runtimeAnimatorController = controller;
+#if ANDROID
+            // Android 2.4 的 Animator avatar/applyRootMotion setter 与 updateMode getter
+            // 同样缺失（MissingICall）。2D sprite 模板不依赖 avatar 或 root motion，
+            // 显式写原生 Normal（0，scaled time）建立暂停契约，不读源未知 getter；
+            // 坐标仍由 PositionSync 驱动。其余 culling 等复制保持不变。
+            animator.updateMode = AnimatorUpdateMode.Normal;
+            if (sourceAnimator != null)
+                animator.cullingMode = sourceAnimator.cullingMode;
+#else
             if (sourceAnimator != null)
             {
                 animator.avatar = sourceAnimator.avatar;
@@ -293,6 +304,7 @@ public static class PatchEconomy_BankAssistants
                 animator.updateMode = sourceAnimator.updateMode;
                 animator.cullingMode = sourceAnimator.cullingMode;
             }
+#endif
 
             Rigidbody2D body = prefab.AddComponent<Rigidbody2D>();
             body.bodyType = RigidbodyType2D.Kinematic;
@@ -326,6 +338,11 @@ public static class PatchEconomy_BankAssistants
         out RuntimeAnimatorController[] resolved)
     {
         resolved = new RuntimeAnimatorController[ControllerNames.Length];
+#if ANDROID
+        // avatar getter 可用但 setter 缺失：源 bank 使用 avatar 时无法复制，必须在
+        // 任何资源查询/成功日志之前 fail closed，且复用同一去重失败 owner。
+        if (!AndroidSourceAvatarSupported(sourceAnimator)) return false;
+#endif
         bool ambiguous = false;
 
         RuntimeAnimatorController liveController = sourceAnimator != null
@@ -404,6 +421,9 @@ public static class PatchEconomy_BankAssistants
             string failure = "missing=" + (missing.Length == 0 ? "none" : missing)
                 + "; ambiguousNames=" + ambiguous
                 + "; duplicateInstances=" + duplicateInstance;
+#if ANDROID
+            LogAndroidControllerFailure(failure);
+#else
             if (!string.Equals(_lastControllerFailure, failure, StringComparison.Ordinal))
             {
                 _lastControllerFailure = failure;
@@ -411,6 +431,7 @@ public static class PatchEconomy_BankAssistants
                     "[BankAssistants] Banker controller set unavailable; assistants fail closed ("
                     + failure + ")");
             }
+#endif
             return false;
         }
 
@@ -423,6 +444,28 @@ public static class PatchEconomy_BankAssistants
         }
         return complete;
     }
+#if ANDROID
+    /// <summary>
+    /// 源 banker 使用 avatar 时无法把 avatar 复制到 2D 模板（setter MissingICall）。
+    /// getter 可用，因此只读验证；非 null 复用 _lastControllerFailure 同一 owner 去重，
+    /// 在任何资源查询与成功日志之前 fail closed，恢复 null 后下一次正常解析。
+    /// </summary>
+    private static bool AndroidSourceAvatarSupported(Animator sourceAnimator)
+    {
+        if (sourceAnimator == null || sourceAnimator.avatar == null) return true;
+        LogAndroidControllerFailure("unsupported-avatar");
+        return false;
+    }
+
+    private static void LogAndroidControllerFailure(string failure)
+    {
+        if (string.Equals(_lastControllerFailure, failure, StringComparison.Ordinal)) return;
+        _lastControllerFailure = failure;
+        KingdomEnhancedPlugin.Instance?.LogSource.LogError(
+            "[BankAssistants] Banker controller set unavailable; assistants fail closed ("
+            + failure + ")");
+    }
+#endif
 
     private static void GatherSwapControllers(BiomeSwapData swapData,
         RuntimeAnimatorController[] resolved, ref bool ambiguous)

@@ -1,4 +1,7 @@
 using System;
+#if ANDROID
+using System.Runtime.InteropServices;
+#endif
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -416,7 +419,11 @@ internal static class BankAssistantAtlasVisuals
                 DestroyQuietly(created);
                 return false;
             }
+#if ANDROID
+            Color32[] pixels = ReadOwnedPixels(created, style.SheetWidth, style.SheetHeight);
+#else
             Color32[] pixels = created.GetPixels32();
+#endif
             if (pixels == null || pixels.Length != style.SheetWidth * style.SheetHeight)
             {
                 WarnOnce("atlas pixel read failed: " + style.Name);
@@ -459,12 +466,50 @@ internal static class BankAssistantAtlasVisuals
         }
         catch (Exception e)
         {
+#if ANDROID
+            WarnOnce("atlas decode failed: " + style.Name + " " + e.GetType().Name + " " + e.Message);
+#else
             WarnOnce("atlas decode failed: " + style.Name + " " + e.GetType().Name);
+#endif
             ReleaseSprites(createdSprites);
             DestroyQuietly(created);
             return false;
         }
     }
+#if ANDROID
+    /// <summary>Android 真实 PNG 纹理：GetPixels32 缺 ICall。只读 public 的
+    /// format/GetImageDataSize/GetWritableImageData(0)，一次复制到托管数组后立即释放原生指针
+    /// 控制权（不缓存、不 Apply、不 Dispose/free 原生指针）。RGBA32 = R,G,B,A；ARGB32 = A,R,G,B
+    /// （Unity 6000 PNG LoadImage 的实际格式）。其它格式/尺寸/指针直接抛上下文异常给原 catch。</summary>
+    private static Color32[] ReadOwnedPixels(Texture2D texture, int width, int height)
+    {
+        TextureFormat format = texture.format;
+        if (format != TextureFormat.RGBA32 && format != TextureFormat.ARGB32)
+            throw new InvalidOperationException("unsupported image format " + format + " for "
+                + width + "x" + height);
+        int count = checked(width * height);
+        int length = checked(count * 4);
+        ulong size = texture.GetImageDataSize();
+        if (size != (ulong)length)
+            throw new InvalidOperationException("image data size " + size + " != expected " + length
+                + " for " + width + "x" + height + " " + format);
+        IntPtr pointer = texture.GetWritableImageData(0);
+        if (pointer == IntPtr.Zero)
+            throw new InvalidOperationException("image data pointer unavailable for "
+                + width + "x" + height + " " + format);
+        byte[] bytes = new byte[length];
+        Marshal.Copy(pointer, bytes, 0, length);
+        Color32[] pixels = new Color32[count];
+        for (int i = 0; i < count; i++)
+        {
+            int n = i * 4;
+            pixels[i] = format == TextureFormat.RGBA32
+                ? new Color32(bytes[n], bytes[n + 1], bytes[n + 2], bytes[n + 3])
+                : new Color32(bytes[n + 1], bytes[n + 2], bytes[n + 3], bytes[n]);
+        }
+        return pixels;
+    }
+#endif
 
     private static bool RectHasContent(Color32[] pixels, int width, int height, Rect rect)
     {

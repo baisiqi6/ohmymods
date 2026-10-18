@@ -308,12 +308,16 @@ namespace UnityEngine
     public static class Resources
     {
         public static readonly List<Object> Assets = new List<Object>();
+        public static int FindCalls;
 
         public static Il2CppArrayBase<T> LoadAll<T>(string path) where T : Object
             => new Il2CppArrayBase<T>(Assets.OfType<T>().Where(item => !Object.IsNull(item)).ToArray());
 
         public static Il2CppArrayBase<T> FindObjectsOfTypeAll<T>() where T : Object
-            => new Il2CppArrayBase<T>(Object.All.OfType<T>().Where(item => !Object.IsNull(item)).ToArray());
+        {
+            FindCalls++;
+            return new Il2CppArrayBase<T>(Object.All.OfType<T>().Where(item => !Object.IsNull(item)).ToArray());
+        }
     }
 
     public class Component : Object
@@ -561,12 +565,50 @@ namespace UnityEngine
 
     public class Animator : Behaviour
     {
+        /// <summary>
+        /// Android 2.4 实测缺失的 API 钩子（仅测试）：当前运行时 avatar/applyRootMotion
+        /// setter 与 updateMode getter 经注入层抛 MissingMethodException。只模拟这些成员，
+        /// avatar getter、updateMode/cullingMode setter 保持可用，不声称其它平台行为。
+        /// </summary>
+        public static bool ThrowOnAvatarSet;
+        public static bool ThrowOnApplyRootMotionSet;
+        public static bool ThrowOnUpdateModeGet;
+        public static int UpdateModeSetCalls;
+
         public RuntimeAnimatorController runtimeAnimatorController;
-        public Avatar avatar;
-        public bool applyRootMotion;
-        public AnimatorUpdateMode updateMode;
+        private Avatar _avatar;
+        private bool _applyRootMotion;
+        private AnimatorUpdateMode _updateMode;
         public AnimatorCullingMode cullingMode;
         public readonly Dictionary<int, float> Floats = new Dictionary<int, float>();
+
+        public Avatar avatar
+        {
+            get => _avatar;
+            set => _avatar = ThrowOnAvatarSet
+                ? throw new MissingMethodException("UnityEngine.Animator::set_avatar_Injected")
+                : value;
+        }
+
+        public bool applyRootMotion
+        {
+            get => _applyRootMotion;
+            set => _applyRootMotion = ThrowOnApplyRootMotionSet
+                ? throw new MissingMethodException("UnityEngine.Animator::set_applyRootMotion_Injected")
+                : value;
+        }
+
+        public AnimatorUpdateMode updateMode
+        {
+            get => ThrowOnUpdateModeGet
+                ? throw new MissingMethodException("UnityEngine.Animator::get_updateMode_Injected")
+                : _updateMode;
+            set
+            {
+                _updateMode = value;
+                UpdateModeSetCalls++;
+            }
+        }
 
         public void SetFloat(int hash, float value) => Floats[hash] = value;
         public static int StringToHash(string name) => name.GetHashCode();
@@ -574,11 +616,26 @@ namespace UnityEngine
 
     public class SpriteRenderer : Behaviour
     {
+        /// <summary>Android 2.4 实测缺失的 flipY getter/setter 测试钩子。</summary>
+        public static bool ThrowOnFlipYGet;
+        public static bool ThrowOnFlipYSet;
+
         public Sprite sprite;
         public Material sharedMaterial;
         public Color color;
-        public bool flipX, flipY;
+        public bool flipX;
+        private bool _flipY;
         public int sortingLayerID, sortingOrder;
+
+        public bool flipY
+        {
+            get => ThrowOnFlipYGet
+                ? throw new MissingMethodException("UnityEngine.SpriteRenderer::get_flipY_Injected")
+                : _flipY;
+            set => _flipY = ThrowOnFlipYSet
+                ? throw new MissingMethodException("UnityEngine.SpriteRenderer::set_flipY_Injected")
+                : value;
+        }
     }
 
     public struct Keyframe

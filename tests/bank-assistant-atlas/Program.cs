@@ -33,6 +33,14 @@ internal static class Program
         Test("frame math rejects invalid phases deterministically", FrameMathInvalidPhases);
         Test("decode builds 32 fixed sprites per style", DecodeBuildsFixedSprites);
         Test("decode is fail-closed on bad bytes, size, or empty art", DecodeFailClosed);
+#if ANDROID
+        Test("decode reads Android image data without GetPixels32", AndroidDecodeUsesNativeImageData);
+#if !ATLAS_OLD_SOURCE_CONTROL
+        Test("Android RGBA/ARGB byte order maps to Color32 channels", AndroidPixelFormatMapping);
+        Test("Android native read fails closed on format, size, pointer, empty frame",
+            AndroidNativeReadFailsClosed);
+#endif
+#endif
         Test("asset prevalidation fails closed without embedded resources", EnsureAssetsFailClosed);
         Test("tick writes the atlas frame from the native state clock", TickWritesNativeFrame);
         Test("tick repairs a native sprite overwrite and stays idempotent", TickRepairsOverwriteAndIdempotent);
@@ -656,6 +664,170 @@ internal static class Program
 
     private static object[] BuildDecodeArgs(BankAssistantAtlasStyle style)
         => new object[] { style, Array.Empty<byte>(), null, null };
+
+#if ANDROID
+    /// <summary>Android 真实纹理的 GetPixels32 缺 ICall；DecodeSheet 必须走
+    /// format/GetImageDataSize/GetWritableImageData 并完成 sprite 构建。旧源在此用例实际
+    /// 抛 MissingICall 后 fail-closed，不能用“helper 不存在”充当红例。</summary>
+    private static void AndroidDecodeUsesNativeImageData()
+    {
+        var decode = typeof(BankAssistantAtlasVisuals).GetMethod("DecodeSheet", StaticFlags);
+        BankAssistantAtlasStyle style = BankAssistantAtlasMetadata.Styles[0];
+        ImageConversion.Result = true;
+        ImageConversion.SimulatedWidth = style.SheetWidth;
+        ImageConversion.SimulatedHeight = style.SheetHeight;
+        Texture2D.FillAlpha = 255;
+        Texture2D.ThrowOnGetPixels32 = true;
+        object[] args = BuildDecodeArgs(style);
+        bool ok = (bool)decode.Invoke(null, args);
+        Check(ok, "Android decode must not require GetPixels32; warnings="
+            + string.Join(" | ", ManualLogSource.Warnings));
+        Check(args[2] != null && args[3] != null, "decoded sprites and texture escape");
+        Equal(0, Texture2D.GetPixels32Calls, "the Android path never calls GetPixels32");
+        Check(!ManualLogSource.Warnings.Any(w => w.Contains("MissingICall")),
+            "no MissingICall warning: " + string.Join(" | ", ManualLogSource.Warnings));
+    }
+
+#if !ATLAS_OLD_SOURCE_CONTROL
+    /// <summary>Unity 6000 PNG LoadImage 的原始字节：RGBA32 = R,G,B,A；ARGB32 = A,R,G,B。
+    /// oracle 每像素四通道互不相同，alpha 覆盖 0 / 非 0 / 255。</summary>
+    private static void AndroidPixelFormatMapping()
+    {
+        byte[] raw =
+        {
+            0x11, 0x22, 0x33, 0x00,
+            0x44, 0x55, 0x66, 0x7F,
+            0x88, 0x99, 0xAA, 0xFF,
+            0xFF, 0x01, 0x02, 0x03,
+        };
+        Color32[] rgba = ReadNativePixels(raw, TextureFormat.RGBA32, 2, 2);
+        EqualColor(rgba[0], 0x11, 0x22, 0x33, 0x00, "RGBA alpha 0");
+        EqualColor(rgba[1], 0x44, 0x55, 0x66, 0x7F, "RGBA alpha nonzero");
+        EqualColor(rgba[2], 0x88, 0x99, 0xAA, 0xFF, "RGBA alpha 255");
+        EqualColor(rgba[3], 0xFF, 0x01, 0x02, 0x03, "RGBA byte order");
+
+        Color32[] argb = ReadNativePixels(raw, TextureFormat.ARGB32, 2, 2);
+        EqualColor(argb[0], 0x22, 0x33, 0x00, 0x11, "ARGB alpha nonzero");
+        EqualColor(argb[1], 0x55, 0x66, 0x7F, 0x44, "ARGB byte order");
+        EqualColor(argb[2], 0x99, 0xAA, 0xFF, 0x88, "ARGB alpha nonzero 2");
+        EqualColor(argb[3], 0x01, 0x02, 0x03, 0xFF, "ARGB alpha 255");
+    }
+
+    private static Color32[] ReadNativePixels(byte[] bytes, TextureFormat format, int width, int height)
+    {
+        var texture = new Texture2D(width, height, format, false);
+        texture.format = format;
+        texture.SetImageData(bytes);
+        var helper = typeof(BankAssistantAtlasVisuals).GetMethod("ReadOwnedPixels", StaticFlags);
+        Check(helper != null, "ReadOwnedPixels helper must exist");
+        try
+        {
+            return (Color32[])helper.Invoke(null, new object[] { texture, width, height });
+        }
+        finally
+        {
+            UnityEngine.Object.Destroy(texture);
+        }
+    }
+
+    private static void EqualColor(Color32 pixel, byte r, byte g, byte b, byte a, string why)
+    {
+        Check(pixel.r == r && pixel.g == g && pixel.b == b && pixel.a == a,
+            why + ": expected (" + r + "," + g + "," + b + "," + a + "), got ("
+            + pixel.r + "," + pixel.g + "," + pixel.b + "," + pixel.a + ")");
+    }
+
+    private static void AndroidNativeReadFailsClosed()
+    {
+        var decode = typeof(BankAssistantAtlasVisuals).GetMethod("DecodeSheet", StaticFlags);
+        BankAssistantAtlasStyle style = BankAssistantAtlasMetadata.Styles[0];
+        int length = style.SheetWidth * style.SheetHeight * 4;
+
+        // 非法 format：BGRA32 是独立格式，不按 packed uint 猜通道顺序。
+        ConfigureAndroidDecode(style, TextureFormat.BGRA32, new byte[length]);
+        object[] args = BuildDecodeArgs(style);
+        Check(!(bool)decode.Invoke(null, args), "BGRA32 must fail closed");
+        Check(args[2] == null && args[3] == null, "illegal format yields no sprites/texture");
+        Equal(1, Texture2D.DestroyedCount, "illegal format releases the texture");
+        Equal(0, Texture2D.LiveImageDataCount, "illegal format frees the native buffer");
+        Check(Warns("unsupported image format") && Warns("BGRA32"), "format context in warning");
+
+        // size 严格等于 w*h*4：少 4 字节必须拒绝。
+        Texture2D.ResetCounters();
+        Sprite.ResetCounters();
+        ManualLogSource.Reset();
+        ConfigureAndroidDecode(style, TextureFormat.RGBA32, new byte[length - 4]);
+        args = BuildDecodeArgs(style);
+        Check(!(bool)decode.Invoke(null, args), "short image data must fail closed");
+        Equal(1, Texture2D.DestroyedCount, "short size releases the texture");
+        Equal(0, Texture2D.LiveImageDataCount, "short size frees the native buffer");
+        Check(Warns("image data size") && Warns("expected " + length), "size context in warning");
+
+        // 指针为零：不猜、不 fallback。
+        Texture2D.ResetCounters();
+        Sprite.ResetCounters();
+        ManualLogSource.Reset();
+        ConfigureAndroidDecode(style, TextureFormat.RGBA32, new byte[length]);
+        ImageConversion.SimulatedPointerNull = true;
+        args = BuildDecodeArgs(style);
+        Check(!(bool)decode.Invoke(null, args), "zero pointer must fail closed");
+        Equal(1, Texture2D.DestroyedCount, "zero pointer releases the texture");
+        Check(Warns("pointer unavailable"), "pointer context in warning");
+
+        // 单帧全透明：其余帧不透明也必须拒绝（每帧 RectHasContent 契约保留）。
+        Texture2D.ResetCounters();
+        Sprite.ResetCounters();
+        ManualLogSource.Reset();
+        byte[] pixels = new byte[length];
+        for (int i = 0; i < pixels.Length; i += 4) pixels[i + 3] = 255;
+        ClearRectAlpha(pixels, style.SheetWidth, style.Rects[0]);
+        ConfigureAndroidDecode(style, TextureFormat.RGBA32, pixels);
+        args = BuildDecodeArgs(style);
+        Check(!(bool)decode.Invoke(null, args), "one transparent frame must fail closed");
+        Equal(1, Texture2D.DestroyedCount, "transparent frame releases the texture");
+        Equal(0, Texture2D.LiveImageDataCount, "transparent frame frees the native buffer");
+        Check(Warns("no visible pixels") && Warns("frame 0"), "frame context in warning");
+        Equal(0, Sprite.CreateCalls, "no sprites created for an empty frame");
+
+        // 整张全透明：与旧套件同契约，但走 Android 原生读取路径。
+        Texture2D.ResetCounters();
+        Sprite.ResetCounters();
+        ManualLogSource.Reset();
+        ((ICollection<string>)GetStatic(typeof(BankAssistantAtlasVisuals), "Warned"))?.Clear();
+        ConfigureAndroidDecode(style, TextureFormat.RGBA32, new byte[length]);
+        args = BuildDecodeArgs(style);
+        Check(!(bool)decode.Invoke(null, args), "fully transparent sheet must fail closed");
+        Equal(1, Texture2D.DestroyedCount, "transparent sheet releases the texture");
+        Equal(0, Texture2D.LiveImageDataCount, "transparent sheet frees the native buffer");
+        Check(Warns("no visible pixels"), "transparent sheet warning");
+        Equal(0, Sprite.CreateCalls, "no sprites created for a fully transparent sheet");
+    }
+
+    private static void ConfigureAndroidDecode(BankAssistantAtlasStyle style, TextureFormat format,
+        byte[] pixels)
+    {
+        ImageConversion.Result = true;
+        ImageConversion.SimulatedWidth = style.SheetWidth;
+        ImageConversion.SimulatedHeight = style.SheetHeight;
+        ImageConversion.SimulatedFormat = format;
+        ImageConversion.SimulatedPixels = pixels;
+        ImageConversion.SimulatedPointerNull = false;
+    }
+
+    private static void ClearRectAlpha(byte[] pixels, int width, Rect rect)
+    {
+        int x0 = (int)rect.x;
+        int y0 = (int)rect.y;
+        int x1 = x0 + (int)rect.width;
+        int y1 = y0 + (int)rect.height;
+        for (int y = y0; y < y1; y++)
+        for (int x = x0; x < x1; x++)
+            pixels[(y * width + x) * 4 + 3] = 0;
+    }
+
+    private static bool Warns(string fragment) => ManualLogSource.Warnings.Any(w => w.Contains(fragment));
+#endif
+#endif
 
     private static void EnsureAssetsFailClosed()
     {

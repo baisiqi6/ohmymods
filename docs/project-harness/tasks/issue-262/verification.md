@@ -82,3 +82,21 @@ Root依次执行一次300ms swipe、浮球open和close，共三次输入/三张P
 QEMU56614于14:08:57.202780Z真实reap=0，controller56556于14:09:06.960030Z实际wait=0。Root14:09:42.005172Z fresh核对八项原盘/保护文件SHA及metadata保持、game/VM0、5582/83空闲；回执SHA `34330099ae25f4e20ed302f6e5d9a7cd3bd3cc8f3f6f4c4e1f5389f97a83ce03`。没有原盘恢复层；游戏可自然加载并写临时overlay，无有意支付、保存/装载或RPC，不扩大为native零写。资源已归还主Operator。
 
 actual独审 `APPROVE_DIAGNOSTIC_UI_OPEN_CLOSE_ACTUAL_ONLY`，报告SHA `05bc264c5d4370b0fc8668151c2e6d5c88ae75b036f2e156330986e23aa8a366`；实际OMP DeepSeek Flash/max、无fallback。源码、编译、装机观察和完整玩法分开。静态配对engine/API调查仅用于下一步区分假设，尚未用常量、删除校验或回退贴图绕过本次失败。PR263继续Draft，#232/#262保持开放；真实交易/身份保存与池重建必要验证继续推进，手机平板、多人和长期验收单列。完整输入、图像与收尾见[232新单次记录](../issue-232/g5-main106-preflight.md#g19-ui-open-close-actual)。
+
+
+<a id="g20-android-api-checkpoint"></a>
+## 2026-10-18：Android 原生接口适配与用户暂停检查点
+
+本批集中处理已确认的引擎接口差异，保留原 Lemon/Melon 架构和共享经济源。三套 Android AOC 已沿 ResourceManager→BiomeData.swapData→PPtr 定位，九个 override clip 与三份 base clip 都只有精灵帧绑定，没有根位移或骨骼曲线；Root与独立Reviewer分别重读3个AOC/9个片段，Root还逐字对比同APK原件。原先仅base三片段的证据缺口已补足，不再借Mac资产代替Android。调查实际读取30个具名引用节点，超过任务原20节点预算，已如实保留；未逐个扫描无关GUID。静态资产仍不代表live实例状态。
+
+二维模板在Android省去缺失的flipY复制、avatar/rootMotion setter和source updateMode getter，使用原生Normal更新模式，坐标仍由PositionSync负责。source avatar非null时在资源查询/成功日志之前，经原_lastControllerFailure同一owner去重并失败关闭；没有假getter、默认返回值、克隆Banker、额外扫描或重试。其它视觉字段、八槽/同步ID、池、保存和业务职责保持。四套动画无root曲线使该配置不依赖“新Animator默认rootMotion=false”的猜测；live updateMode无法读取，未宣称逐字段运行等价。
+
+图集只在Android改用现有typed format/GetImageDataSize/GetWritableImageData接口，验证RGBA32/ARGB32、严格4N字节和非空指针后立即一次复制；按Unity格式定义转换，保留每帧透明检查、32 sprite及失败清理。未用泛型NativeArray、native地址、PNG解码器或回退贴图。原catch仅补异常Message，下一次运行可直接定位具体成员；现有clerk异常尚无完整栈，不将该适配冒称唯一根因已经实机证实。PC两个完整active源码逐字保持。
+
+Root独立host结果：银行PC73/0、Android85/0，旧源78/7预期失败（包含五项实际缺失API路径）；图集PC37/0、Android40/0，旧源37/1预期失败且实际进入GetPixels32。新增测试用真实AllocHGlobal/Marshal.Copy与独立非对称颜色字节，覆盖格式/字节数/空指针/透明帧和清理；测试桩不证明Native默认值。默认net6 Debug/Release实际构建各0错误、1条原CS0169，两个实际产品Adapter各1504/0。输入仍206 Compile/176 ReferencePath/25资源；407项相对上批只有两份产品源改变，其余405项保持。Release SHA `807e5b95b8328f35e88105a7f31dc049455ade3722992051ee28d7e1f9c6d48b`，Debug `91a0613184aea2a52c6dc71514828618188f1c74fe808ea46097bdc72f355f36`，均未安装。
+
+图集独立代码审查为 `APPROVE_ATLAS_NATIVE_PIXEL_SOURCE_AND_HOST_ONLY`，银行模板为 `APPROVE_BANK_ANDROID_TEMPLATE_SOURCE_AND_HOST_ONLY`，均无mustFix，仅批准源码/host范围；未开放设备或合并关口。方案与实现由不同OMP DeepSeek Flash/max session承担，Root核验原生model_change/thinking_level_change、无fallback；不以Reviewer自述代替模型证据。两组源码/host结果及正式产品核对已完成，作为本次Draft暂停检查点。
+
+用户要求在本批适当位置暂停：只收拢当前离线改动、必要审查验证与Draft保存，不再启动下一单次或下一功能组。14:31正常入口仅同身份续租232/262到16:31:13Z，全部169plans及183其它row保持；Root14:31:53fresh185rows/169plans与producer-after一致、validator0，doctor仍旧3E/56且232无block，非全局通过。后续14:56–14:59登记与15:05–15:30运行申请已撤回，旧spent门不复用。PR268诊断文档已合并a8efb06；PR263继续Draft，#232/#262保持OPEN。新候选八模板池、实际助手/补货/扣款、保存装载、暂停朝向及池重建尚未运行，手机平板/多人长期另列。恢复时重新核对源码、租约与环境，再申请新的精确运行门。
+
+本机证据：G19 `post-ui-api-runtime-fixes/` 的两实现/审查目录、`bank-android-asset-trace/root-independent-asset-check.json`、`root-host-verification/`和`product-build/`；本批不发布游戏、APK、interop或玩家数据。

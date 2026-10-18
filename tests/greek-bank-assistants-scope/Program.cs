@@ -187,6 +187,97 @@ static class Program
         BiomeHolder.Inst.biomePreloadData =
             new Il2CppInterop.Runtime.InteropTypes.Arrays.Il2CppArrayBase<BiomeSwapData>(new[] { swap });
     }
+
+    /// <summary>
+    /// 2D 模板契约：当前 Android 2.4 缺失的五个成员各自可抛；生产 Android 分支
+    /// 不读/不写它们，仍建立四控制器模板与正常朝向，并显式写 native Normal。
+    /// </summary>
+    static void AssertAndroidTemplateSkipsApis(bool flipYGet, bool flipYSet,
+        bool avatarSet, bool rootMotionSet, bool updateModeGet)
+    {
+        ResetAndroidMissingApis();
+        Banker banker = NewControllerBanker(out Fixture f, out Animator sourceAnimator);
+        SpriteRenderer sourceRenderer = banker.gameObject.AddComponent<SpriteRenderer>();
+        Sprite sprite = new Sprite { name = "banker_source" };
+        Material material = new Material();
+        Color color = new Color(0.25f, 0.5f, 0.75f, 0.5f);
+        sourceRenderer.sprite = sprite;
+        sourceRenderer.sharedMaterial = material;
+        sourceRenderer.color = color;
+        sourceRenderer.flipX = true;
+        sourceRenderer.flipY = true;
+        sourceRenderer.sortingLayerID = 7;
+        sourceRenderer.sortingOrder = 3;
+        sourceAnimator.updateMode = AnimatorUpdateMode.AnimatePhysics;
+        sourceAnimator.cullingMode = AnimatorCullingMode.CullCompletely;
+        ProvideBiomeSwap(FourControllers());
+
+        Animator.UpdateModeSetCalls = 0;
+        SpriteRenderer.ThrowOnFlipYGet = flipYGet;
+        SpriteRenderer.ThrowOnFlipYSet = flipYSet;
+        Animator.ThrowOnAvatarSet = avatarSet;
+        Animator.ThrowOnApplyRootMotionSet = rootMotionSet;
+        Animator.ThrowOnUpdateModeGet = updateModeGet;
+        try
+        {
+            PatchEconomy_BankAssistants.EnsurePools(banker, f.Pools);
+        }
+        finally
+        {
+            ResetAndroidMissingApis();
+        }
+
+        Eq(4, Animator.UpdateModeSetCalls, "explicit Normal writes");
+        True(ControllerFailure() == null, "no controller failure");
+        RuntimeAnimatorController[] controllers = FourControllers();
+        for (int i = 0; i < 4; i++)
+        {
+            GameObject prefab = PrefabAt(i);
+            True(prefab != null, "slot " + i + " template");
+            SpriteRenderer renderer = prefab.GetComponent<SpriteRenderer>();
+            True(renderer.sprite == sprite, "slot " + i + " sprite copied");
+            True(renderer.sharedMaterial == material, "slot " + i + " material copied");
+            Eq(color.r, renderer.color.r, "slot " + i + " color r");
+            Eq(color.g, renderer.color.g, "slot " + i + " color g");
+            Eq(color.b, renderer.color.b, "slot " + i + " color b");
+            Eq(color.a, renderer.color.a, "slot " + i + " color a");
+            True(renderer.flipX, "slot " + i + " flipX preserved");
+            False(renderer.flipY, "slot " + i + " native upright");
+            Eq(7, renderer.sortingLayerID, "slot " + i + " sorting layer");
+            Eq(3, renderer.sortingOrder, "slot " + i + " sorting order");
+
+            Animator animator = prefab.GetComponent<Animator>();
+            EqStr(controllers[i].name, animator.runtimeAnimatorController.name,
+                "slot " + i + " controller");
+            Eq((int)AnimatorUpdateMode.Normal, (int)animator.updateMode,
+                "slot " + i + " explicit normal mode");
+            Eq((int)AnimatorCullingMode.CullCompletely, (int)animator.cullingMode,
+                "slot " + i + " culling copied");
+            True(animator.avatar == null, "slot " + i + " avatar stays null");
+            False(animator.applyRootMotion, "slot " + i + " root motion stays off");
+
+            Pool pool = PatchEconomy_BankAssistants.GetRegisteredPool(i);
+            True(pool != null && pool.prefab == prefab, "slot " + i + " registered pool");
+            Eq((short)(30120 + i), pool.syncID, "slot " + i + " sync id");
+            True(pool.sync, "slot " + i + " synced");
+            True(prefab.GetComponent<Banker>() == null
+                && prefab.GetComponent<Wallet>() == null
+                && prefab.GetComponent<Persistent>() == null,
+                "slot " + i + " has no account identity");
+        }
+    }
+
+    static void ResetAndroidMissingApis()
+    {
+        SpriteRenderer.ThrowOnFlipYGet = false;
+        SpriteRenderer.ThrowOnFlipYSet = false;
+        Animator.ThrowOnAvatarSet = false;
+        Animator.ThrowOnApplyRootMotionSet = false;
+        Animator.ThrowOnUpdateModeGet = false;
+    }
+
+    static int LogCount(System.Collections.Generic.IEnumerable<string> lines, string fragment)
+        => lines.Count(line => line != null && line.Contains(fragment));
 #endif
 
     static int Main()
@@ -1773,6 +1864,107 @@ static class Program
             for (int i = 0; i < 4; i++)
                 True(PrefabAt(i) == null, "ambiguous slot " + i + " must stay empty");
             True(ControllerFailure().Contains("ambiguousNames=True"), "ambiguity recorded");
+        });
+        Test("android: template never reads the missing flipY getter", () =>
+            AssertAndroidTemplateSkipsApis(flipYGet: true, flipYSet: false,
+                avatarSet: false, rootMotionSet: false, updateModeGet: false));
+        Test("android: template never writes the missing flipY setter", () =>
+            AssertAndroidTemplateSkipsApis(flipYGet: false, flipYSet: true,
+                avatarSet: false, rootMotionSet: false, updateModeGet: false));
+        Test("android: template never uses the missing avatar setter", () =>
+            AssertAndroidTemplateSkipsApis(flipYGet: false, flipYSet: false,
+                avatarSet: true, rootMotionSet: false, updateModeGet: false));
+        Test("android: template never uses the missing applyRootMotion setter", () =>
+            AssertAndroidTemplateSkipsApis(flipYGet: false, flipYSet: false,
+                avatarSet: false, rootMotionSet: true, updateModeGet: false));
+        Test("android: template never reads the missing source updateMode getter", () =>
+            AssertAndroidTemplateSkipsApis(flipYGet: false, flipYSet: false,
+                avatarSet: false, rootMotionSet: false, updateModeGet: true));
+        Test("android: missing source animator still writes explicit native Normal mode", () =>
+        {
+            ResetAndroidMissingApis();
+            Fixture f = Fixture.BuildGreek();
+            Banker banker = f.AddBanker();
+            True(Fixture.SeedNative(banker, 100), "bank account seeded");
+            ProvideBiomeSwap(FourControllers());
+            Animator.UpdateModeSetCalls = 0;
+            SpriteRenderer.ThrowOnFlipYGet = true;
+            SpriteRenderer.ThrowOnFlipYSet = true;
+            Animator.ThrowOnAvatarSet = true;
+            Animator.ThrowOnApplyRootMotionSet = true;
+            Animator.ThrowOnUpdateModeGet = true;
+            try
+            {
+                PatchEconomy_BankAssistants.EnsurePools(banker, f.Pools);
+            }
+            finally
+            {
+                ResetAndroidMissingApis();
+            }
+
+            Eq(4, Animator.UpdateModeSetCalls, "four explicit native Normal writes");
+            True(ControllerFailure() == null, "no controller failure");
+            for (int i = 0; i < 4; i++)
+            {
+                True(PrefabAt(i) != null, "slot " + i + " template");
+                Eq((int)AnimatorUpdateMode.Normal,
+                    (int)PrefabAt(i).GetComponent<Animator>().updateMode,
+                    "slot " + i + " explicit normal mode");
+            }
+        });
+        Test("android: non-null source avatar fails closed once and recovers", () =>
+        {
+            ResetAndroidMissingApis();
+            Banker banker = NewControllerBanker(out Fixture f, out Animator sourceAnimator);
+            sourceAnimator.avatar = new Avatar();
+            ProvideBiomeSwap(FourControllers());
+
+            int errorsBefore = LogCount(KingdomEnhancedPlugin.Instance.LogSource.Errors,
+                "unsupported-avatar");
+            int successBefore = LogCount(KingdomEnhancedPlugin.Instance.LogSource.Infos,
+                "Resolved unique banker controllers");
+            int findsBefore = UnityEngine.Resources.FindCalls;
+
+            PatchEconomy_BankAssistants.EnsurePools(banker, f.Pools);
+            Eq(errorsBefore + 1,
+                LogCount(KingdomEnhancedPlugin.Instance.LogSource.Errors, "unsupported-avatar"),
+                "one unsupported-avatar failure");
+            EqStr("unsupported-avatar", ControllerFailure(), "avatar failure owner");
+            Eq(findsBefore, UnityEngine.Resources.FindCalls,
+                "no controller query before failing closed");
+            Eq(successBefore,
+                LogCount(KingdomEnhancedPlugin.Instance.LogSource.Infos,
+                    "Resolved unique banker controllers"),
+                "no resolved-success log while the avatar is unsupported");
+            for (int i = 0; i < 4; i++)
+                True(PrefabAt(i) == null, "slot " + i + " must stay empty");
+
+            Advance(2.1f);
+            PatchEconomy_BankAssistants.EnsurePools(banker, f.Pools);
+            Eq(errorsBefore + 1,
+                LogCount(KingdomEnhancedPlugin.Instance.LogSource.Errors, "unsupported-avatar"),
+                "the same failure is not repeated on the 2s retry");
+            Eq(findsBefore, UnityEngine.Resources.FindCalls,
+                "no controller query on the failed retry");
+            Eq(successBefore,
+                LogCount(KingdomEnhancedPlugin.Instance.LogSource.Infos,
+                    "Resolved unique banker controllers"),
+                "still no resolved-success log");
+            EqStr("unsupported-avatar", ControllerFailure(), "avatar failure stays deduped");
+
+            sourceAnimator.avatar = null;
+            Advance(2.1f);
+            PatchEconomy_BankAssistants.EnsurePools(banker, f.Pools);
+            True(ControllerFailure() == null, "failure cleared after the avatar recovers");
+            Eq(successBefore + 1,
+                LogCount(KingdomEnhancedPlugin.Instance.LogSource.Infos,
+                    "Resolved unique banker controllers"),
+                "one resolved-success log after recovery");
+            Eq(errorsBefore + 1,
+                LogCount(KingdomEnhancedPlugin.Instance.LogSource.Errors, "unsupported-avatar"),
+                "the failure log is not rewritten after recovery");
+            for (int i = 0; i < 4; i++)
+                True(PrefabAt(i) != null, "slot " + i + " resolves after recovery");
         });
 #endif
         return Finish();
