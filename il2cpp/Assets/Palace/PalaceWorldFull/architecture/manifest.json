@@ -1,0 +1,952 @@
+{
+  "schema": 2,
+  "task": "world-expansion-20261006 architecture candidate-r3",
+  "round": "r3",
+  "supersedes": "architecture/candidate-r2 (production copied; only skyline-a/b revised per Astra R2 minor-revise; R1/R2 kept frozen)",
+  "userAuthorizedPythonPixelEditing": true,
+  "source": {
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+    "sha256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+    "logical": [
+      184,
+      188
+    ],
+    "pixelMultiplier": 4
+  },
+  "logicalPixelsPerUnitCandidate": 32,
+  "assets": [
+    {
+      "id": "original-tang-tower-exact",
+      "file": "buildings/original-tang-tower/exact-logical.png",
+      "logicalCanvas": [
+        96,
+        168
+      ],
+      "pixelMultiplier": 1,
+      "logicalPixelsPerUnitCandidate": 32,
+      "texturePixelsPerUnitImplied": 32,
+      "pivot": [
+        48,
+        168
+      ],
+      "pivotOrigin": "top-left of logical canvas",
+      "semanticLayerRole": "architecture",
+      "bounds": [
+        0,
+        4,
+        95,
+        167
+      ],
+      "boundsUnits": [
+        3.0,
+        5.125
+      ],
+      "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "derivedOrPreserved": "preserved",
+      "structuralEditRegions": [],
+      "nativeBindingConfirmed": false,
+      "runtimeWired": false,
+      "styleApproved": true,
+      "alphaRule": "binary 0/255; transparent pixels RGB=(0,0,0)",
+      "paletteRule": "subset of source 116-color palette",
+      "worldScaleCalibratedInNative": false,
+      "backgroundTransparencyRule": "alpha=0 iff source color in background family {(248,219,171),(244,213,169),(247,221,178),(242,215,171),(242,216,170)}; all other pixels kept verbatim",
+      "sourceRoi": [
+        0,
+        20,
+        96,
+        188
+      ],
+      "retainedNonStructureRegions": {
+        "balconyPerson": [
+          52,
+          76,
+          67,
+          101
+        ],
+        "samuraiPartial": [
+          0,
+          162,
+          23,
+          188
+        ],
+        "officialPartial": [
+          75,
+          158,
+          96,
+          188
+        ],
+        "gardenWallFragments": [
+          0,
+          163,
+          96,
+          183
+        ],
+        "sharedPodiumStrip": [
+          0,
+          183,
+          96,
+          188
+        ]
+      },
+      "notes": "source-preserved exact cut; non-background pixels verbatim",
+      "relativeSortCandidate": {
+        "value": -2,
+        "basis": "MAIN doc: architecture -2 (candidate only, no native binding)"
+      },
+      "artReview": "ASTRA-architecture-r3.md; other eleven PNGs inherited R2 review by equal SHA",
+      "derivedFromReviewPNG": "buildings/original-tang-tower/exact.png",
+      "derivedRule": "exact integer reduction, no color or shape edits"
+    },
+    {
+      "id": "original-tang-tower-clean",
+      "file": "buildings/original-tang-tower/clean-logical.png",
+      "logicalCanvas": [
+        96,
+        168
+      ],
+      "pixelMultiplier": 1,
+      "logicalPixelsPerUnitCandidate": 32,
+      "texturePixelsPerUnitImplied": 32,
+      "pivot": [
+        48,
+        168
+      ],
+      "pivotOrigin": "top-left of logical canvas",
+      "semanticLayerRole": "architecture",
+      "bounds": [
+        1,
+        4,
+        95,
+        167
+      ],
+      "boundsUnits": [
+        2.969,
+        5.125
+      ],
+      "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "derivedOrPreserved": "derived-preserved",
+      "structuralEditRegions": [
+        {
+          "rects": [
+            [
+              0,
+              159,
+              23,
+              183
+            ],
+            [
+              75,
+              158,
+              96,
+              183
+            ]
+          ],
+          "action": "remove-to-transparent",
+          "removes": "left standing samurai + left garden-wall + right official + right garden-wall fragments above the podium band (y<183)"
+        },
+        {
+          "rows": "y183..187",
+          "action": "keep-only-visible-podium-run",
+          "removes": "on the podium band only pixels outside the contiguous stone run that contains x=48 (per-row runs in podium_keep_runs); figures/wall base outside that run become transparent"
+        },
+        {
+          "pixels": "source x=94..95,y=161..162 (roof-C eave tip that falls inside the ROI)",
+          "action": "removed-to-transparent-in-clean-only",
+          "removes": "2px neighbouring tower eave tip"
+        }
+      ],
+      "nativeBindingConfirmed": false,
+      "runtimeWired": false,
+      "styleApproved": true,
+      "alphaRule": "binary 0/255; transparent pixels RGB=(0,0,0)",
+      "paletteRule": "subset of source 116-color palette",
+      "worldScaleCalibratedInNative": false,
+      "backgroundTransparencyRule": "alpha=0 iff source color in background family {(248,219,171),(244,213,169),(247,221,178),(242,215,171),(242,216,170)}; all other pixels kept verbatim",
+      "sourceRoi": [
+        0,
+        20,
+        96,
+        188
+      ],
+      "retainedNonStructureRegions": {
+        "balconyPerson": [
+          52,
+          76,
+          67,
+          101
+        ]
+      },
+      "notes": "no redraw: removals become transparent. R2 restores the visible stone podium edge that R1 mistakenly cut (left x20-22 y183-185, right x75-78 y183-184 and x79-81 y185-187). Tower structure, spire, chimes, roofs, base and balcony person stay byte-identical to source. R1's claim 'tower base/podium zero loss' is RETRACTED.",
+      "podium_keep_runs": {
+        "183": [
+          20,
+          78
+        ],
+        "184": [
+          20,
+          79
+        ],
+        "185": [
+          19,
+          80
+        ],
+        "186": [
+          18,
+          80
+        ],
+        "187": [
+          17,
+          81
+        ]
+      },
+      "relativeSortCandidate": {
+        "value": -2,
+        "basis": "MAIN doc: architecture -2 (candidate only, no native binding)"
+      },
+      "artReview": "ASTRA-architecture-r3.md; other eleven PNGs inherited R2 review by equal SHA",
+      "derivedFromReviewPNG": "buildings/original-tang-tower/clean.png",
+      "derivedRule": "exact integer reduction, no color or shape edits"
+    },
+    {
+      "id": "tang-side-pavilion-exact",
+      "file": "buildings/tang-side-pavilion/exact-logical.png",
+      "logicalCanvas": [
+        52,
+        68
+      ],
+      "pixelMultiplier": 1,
+      "logicalPixelsPerUnitCandidate": 32,
+      "texturePixelsPerUnitImplied": 32,
+      "pivot": [
+        24,
+        68
+      ],
+      "pivotOrigin": "top-left of logical canvas",
+      "semanticLayerRole": "architecture",
+      "bounds": [
+        0,
+        6,
+        51,
+        67
+      ],
+      "boundsUnits": [
+        1.625,
+        1.938
+      ],
+      "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "derivedOrPreserved": "preserved",
+      "structuralEditRegions": [],
+      "nativeBindingConfirmed": false,
+      "runtimeWired": false,
+      "styleApproved": true,
+      "alphaRule": "binary 0/255; transparent pixels RGB=(0,0,0)",
+      "paletteRule": "subset of source 116-color palette",
+      "worldScaleCalibratedInNative": false,
+      "backgroundTransparencyRule": "alpha=0 iff source color in background family {(248,219,171),(244,213,169),(247,221,178),(242,215,171),(242,216,170)}; all other pixels kept verbatim",
+      "sourceRoi": [
+        94,
+        120,
+        146,
+        188
+      ],
+      "retainedNonStructureRegions": {
+        "gardenWallStrip": [
+          94,
+          165,
+          103,
+          188
+        ],
+        "naginataBlade": [
+          140,
+          143,
+          146,
+          153
+        ],
+        "naginataShaft": [
+          145,
+          150,
+          146,
+          184
+        ],
+        "podiumStrip": [
+          94,
+          184,
+          146,
+          188
+        ]
+      },
+      "notes": "source-preserved exact cut",
+      "relativeSortCandidate": {
+        "value": -2,
+        "basis": "MAIN doc: architecture -2 (candidate only, no native binding)"
+      },
+      "artReview": "ASTRA-architecture-r3.md; other eleven PNGs inherited R2 review by equal SHA",
+      "derivedFromReviewPNG": "buildings/tang-side-pavilion/exact.png",
+      "derivedRule": "exact integer reduction, no color or shape edits"
+    },
+    {
+      "id": "tang-side-pavilion-clean",
+      "file": "buildings/tang-side-pavilion/clean-logical.png",
+      "logicalCanvas": [
+        52,
+        68
+      ],
+      "pixelMultiplier": 1,
+      "logicalPixelsPerUnitCandidate": 32,
+      "texturePixelsPerUnitImplied": 32,
+      "pivot": [
+        24,
+        68
+      ],
+      "pivotOrigin": "top-left of logical canvas",
+      "semanticLayerRole": "architecture",
+      "bounds": [
+        0,
+        6,
+        48,
+        67
+      ],
+      "boundsUnits": [
+        1.531,
+        1.938
+      ],
+      "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "derivedOrPreserved": "derived-preserved",
+      "structuralEditRegions": [
+        {
+          "rect_per_row": {
+            "166": [
+              94,
+              166,
+              101,
+              167
+            ],
+            "167": [
+              94,
+              167,
+              101,
+              168
+            ],
+            "168": [
+              94,
+              168,
+              101,
+              169
+            ],
+            "169": [
+              94,
+              169,
+              102,
+              170
+            ],
+            "170": [
+              94,
+              170,
+              103,
+              171
+            ],
+            "171": [
+              94,
+              171,
+              103,
+              172
+            ],
+            "172": [
+              94,
+              172,
+              103,
+              173
+            ],
+            "173": [
+              94,
+              173,
+              103,
+              174
+            ],
+            "174": [
+              94,
+              174,
+              103,
+              175
+            ],
+            "175": [
+              94,
+              175,
+              103,
+              176
+            ],
+            "176": [
+              94,
+              176,
+              103,
+              177
+            ],
+            "177": [
+              94,
+              177,
+              103,
+              178
+            ],
+            "178": [
+              94,
+              178,
+              103,
+              179
+            ],
+            "179": [
+              94,
+              179,
+              103,
+              180
+            ],
+            "180": [
+              94,
+              180,
+              103,
+              181
+            ],
+            "181": [
+              94,
+              181,
+              103,
+              182
+            ],
+            "182": [
+              94,
+              182,
+              103,
+              183
+            ],
+            "183": [
+              94,
+              183,
+              103,
+              184
+            ],
+            "184": [
+              94,
+              184,
+              102,
+              185
+            ],
+            "185": [
+              94,
+              185,
+              102,
+              186
+            ],
+            "186": [
+              94,
+              186,
+              100,
+              187
+            ],
+            "187": [
+              94,
+              187,
+              100,
+              188
+            ]
+          },
+          "action": "remove-to-transparent",
+          "removes": "garden-wall strip left of pavilion (per-row cut table)"
+        },
+        {
+          "pixel_set": "component(id1: naginata+guard, 8-conn) intersected with ROI",
+          "action": "remove-to-transparent",
+          "removes": "naginata blade (x140-145,y143-152) + shaft column (x145,y150-183)"
+        },
+        {
+          "pixel_set": "[(94,143),(95,143),(94,144)] = local (0,23),(1,23),(0,24)",
+          "action": "remove-to-transparent",
+          "removes": "3px teal fragment belonging to the neighbouring tower roof-C eave tip (cut residue), NOT pavilion structure; the pavilion's own eave tips at y161-162 are kept"
+        }
+      ],
+      "nativeBindingConfirmed": false,
+      "runtimeWired": false,
+      "styleApproved": true,
+      "alphaRule": "binary 0/255; transparent pixels RGB=(0,0,0)",
+      "paletteRule": "subset of source 116-color palette",
+      "worldScaleCalibratedInNative": false,
+      "backgroundTransparencyRule": "alpha=0 iff source color in background family {(248,219,171),(244,213,169),(247,221,178),(242,215,171),(242,216,170)}; all other pixels kept verbatim",
+      "sourceRoi": [
+        94,
+        120,
+        146,
+        188
+      ],
+      "retainedNonStructureRegions": {},
+      "notes": "pavilion structure untouched; removed sets provably disjoint from the pavilion component prior to removal",
+      "relativeSortCandidate": {
+        "value": -2,
+        "basis": "MAIN doc: architecture -2 (candidate only, no native binding)"
+      },
+      "artReview": "ASTRA-architecture-r3.md; other eleven PNGs inherited R2 review by equal SHA",
+      "derivedFromReviewPNG": "buildings/tang-side-pavilion/clean.png",
+      "derivedRule": "exact integer reduction, no color or shape edits"
+    },
+    {
+      "id": "tang-garden-pavilion",
+      "file": "buildings/tang-garden-pavilion/idle-logical.png",
+      "logicalCanvas": [
+        72,
+        60
+      ],
+      "pixelMultiplier": 1,
+      "logicalPixelsPerUnitCandidate": 32,
+      "texturePixelsPerUnitImplied": 32,
+      "pivot": [
+        35,
+        59
+      ],
+      "pivotOrigin": "top-left of logical canvas",
+      "semanticLayerRole": "architecture",
+      "bounds": [
+        2,
+        0,
+        69,
+        58
+      ],
+      "boundsUnits": [
+        2.125,
+        1.844
+      ],
+      "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "derivedOrPreserved": "new-original",
+      "structuralEditRegions": [],
+      "nativeBindingConfirmed": false,
+      "runtimeWired": false,
+      "styleApproved": true,
+      "alphaRule": "binary 0/255; transparent pixels RGB=(0,0,0)",
+      "paletteRule": "subset of source 116-color palette plus declared plant colors (#75933b,#556b35 from reviewed R6 lotus)",
+      "worldScaleCalibratedInNative": false,
+      "notes": "R2 new viewing pavilion: concentrated hip roof with continuous tile ribs (ridge->eave) and hip lines, thick deep-red beam, stacked bearing blocks at each column, four columns landing on the plinth",
+      "relativeSortCandidate": {
+        "value": -2,
+        "basis": "MAIN doc: architecture -2 (candidate only, no native binding)"
+      },
+      "artReview": "ASTRA-architecture-r3.md; other eleven PNGs inherited R2 review by equal SHA",
+      "derivedFromReviewPNG": "buildings/tang-garden-pavilion/idle.png",
+      "derivedRule": "exact integer reduction, no color or shape edits"
+    },
+    {
+      "id": "tang-covered-walk",
+      "file": "buildings/tang-covered-walk/module-logical.png",
+      "logicalCanvas": [
+        96,
+        54
+      ],
+      "pixelMultiplier": 1,
+      "logicalPixelsPerUnitCandidate": 32,
+      "texturePixelsPerUnitImplied": 32,
+      "pivot": [
+        48,
+        53
+      ],
+      "pivotOrigin": "top-left of logical canvas",
+      "semanticLayerRole": "architecture",
+      "bounds": [
+        0,
+        0,
+        95,
+        52
+      ],
+      "boundsUnits": [
+        3.0,
+        1.656
+      ],
+      "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "derivedOrPreserved": "new-original",
+      "structuralEditRegions": [],
+      "nativeBindingConfirmed": false,
+      "runtimeWired": false,
+      "styleApproved": true,
+      "alphaRule": "binary 0/255; transparent pixels RGB=(0,0,0)",
+      "paletteRule": "subset of source 116-color palette plus declared plant colors (#75933b,#556b35 from reviewed R6 lotus)",
+      "worldScaleCalibratedInNative": false,
+      "notes": "R2 corridor module: straight mid eave with continuous ribs, beam + bearing blocks on 24px column rhythm; landing screen (stiles to ground + top rail + lattice) in bay 2; left edge starts a column, right edge ends inside the open bay so repeats keep 24px",
+      "horizontalRepeatLogicalPx": 96,
+      "relativeSortCandidate": {
+        "value": -2,
+        "basis": "MAIN doc: architecture -2 (candidate only, no native binding)"
+      },
+      "artReview": "ASTRA-architecture-r3.md; other eleven PNGs inherited R2 review by equal SHA",
+      "derivedFromReviewPNG": "buildings/tang-covered-walk/module.png",
+      "derivedRule": "exact integer reduction, no color or shape edits"
+    },
+    {
+      "id": "tang-covered-walk-end",
+      "file": "buildings/tang-covered-walk/end-right-logical.png",
+      "logicalCanvas": [
+        32,
+        54
+      ],
+      "pixelMultiplier": 1,
+      "logicalPixelsPerUnitCandidate": 32,
+      "texturePixelsPerUnitImplied": 32,
+      "pivot": [
+        16,
+        53
+      ],
+      "pivotOrigin": "top-left of logical canvas",
+      "semanticLayerRole": "architecture",
+      "bounds": [
+        0,
+        0,
+        31,
+        52
+      ],
+      "boundsUnits": [
+        1.0,
+        1.656
+      ],
+      "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "derivedOrPreserved": "new-original",
+      "structuralEditRegions": [],
+      "nativeBindingConfirmed": false,
+      "runtimeWired": false,
+      "styleApproved": true,
+      "alphaRule": "binary 0/255; transparent pixels RGB=(0,0,0)",
+      "paletteRule": "subset of source 116-color palette plus declared plant colors (#75933b,#556b35 from reviewed R6 lotus)",
+      "worldScaleCalibratedInNative": false,
+      "notes": "R2 separate corridor end piece: right-side upturned corner eave + gable end face + end column. Its left column (x0..3) continues the 24px module rhythm, so placing it to the right of a module terminates the run without curling every module. For a left-side end Main may mirror it (declared, not done here)",
+      "relativeSortCandidate": {
+        "value": -2,
+        "basis": "MAIN doc: architecture -2 (candidate only, no native binding)"
+      },
+      "artReview": "ASTRA-architecture-r3.md; other eleven PNGs inherited R2 review by equal SHA",
+      "derivedFromReviewPNG": "buildings/tang-covered-walk/end-right.png",
+      "derivedRule": "exact integer reduction, no color or shape edits"
+    },
+    {
+      "id": "court-performance-stage-deck",
+      "file": "buildings/court-performance-stage/deck-back-logical.png",
+      "logicalCanvas": [
+        144,
+        88
+      ],
+      "pixelMultiplier": 1,
+      "logicalPixelsPerUnitCandidate": 32,
+      "texturePixelsPerUnitImplied": 32,
+      "pivot": [
+        72,
+        87
+      ],
+      "pivotOrigin": "top-left of logical canvas",
+      "semanticLayerRole": "architecture-stage-back",
+      "bounds": [
+        10,
+        1,
+        133,
+        86
+      ],
+      "boundsUnits": [
+        3.875,
+        2.688
+      ],
+      "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "derivedOrPreserved": "new-original",
+      "structuralEditRegions": [],
+      "nativeBindingConfirmed": false,
+      "runtimeWired": false,
+      "styleApproved": true,
+      "alphaRule": "binary 0/255; transparent pixels RGB=(0,0,0)",
+      "paletteRule": "subset of source 116-color palette plus declared plant colors (#75933b,#556b35 from reviewed R6 lotus)",
+      "worldScaleCalibratedInNative": false,
+      "notes": "R2 stage back layer: low wide roof + fascia + thick beam + end bearing blocks and end columns + white back screen with two dark windows + lacquered deck + stone podium. deckBaselineRow counts from the canvas top-left; actors rest their feet there",
+      "deckBaselineRow": 65,
+      "frameUndersideRow": 20,
+      "clearHeightLogicalPx": 45,
+      "clearOpening": [
+        24,
+        120
+      ],
+      "characterEnvelopes": {
+        "standing28": 28,
+        "standing30": 30,
+        "raisedRibbon42": 42
+      },
+      "relativeSortCandidate": {
+        "value": -2,
+        "basis": "MAIN doc: architecture -2 (candidate only, no native binding)"
+      },
+      "artReview": "ASTRA-architecture-r3.md; other eleven PNGs inherited R2 review by equal SHA",
+      "derivedFromReviewPNG": "buildings/court-performance-stage/deck-back.png",
+      "derivedRule": "exact integer reduction, no color or shape edits"
+    },
+    {
+      "id": "court-performance-stage-front",
+      "file": "buildings/court-performance-stage/front-rail-logical.png",
+      "logicalCanvas": [
+        144,
+        14
+      ],
+      "pixelMultiplier": 1,
+      "logicalPixelsPerUnitCandidate": 32,
+      "texturePixelsPerUnitImplied": 32,
+      "pivot": [
+        72,
+        14
+      ],
+      "pivotOrigin": "top-left of logical canvas",
+      "semanticLayerRole": "performance-stage-front-edge",
+      "bounds": [
+        0,
+        0,
+        143,
+        13
+      ],
+      "boundsUnits": [
+        4.5,
+        0.438
+      ],
+      "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "derivedOrPreserved": "new-original",
+      "structuralEditRegions": [],
+      "nativeBindingConfirmed": false,
+      "runtimeWired": false,
+      "styleApproved": true,
+      "alphaRule": "binary 0/255; transparent pixels RGB=(0,0,0)",
+      "paletteRule": "subset of source 116-color palette plus declared plant colors (#75933b,#556b35 from reviewed R6 lotus)",
+      "worldScaleCalibratedInNative": false,
+      "notes": "R2 front layer: only two side segments (x0..23 and x120..143); the whole central span x24..119 is fully transparent - no rail, board or post crosses the performers; occlusion native-unapproved",
+      "clearOpening": [
+        24,
+        120
+      ],
+      "occlusionBand": [
+        0,
+        13
+      ],
+      "alignment": "rail lowest row (13) aligns with deck row 65 (deckBaselineRow); rail sits on the deck surface",
+      "relativeSortCandidate": {
+        "value": null,
+        "basis": "relative occlusion against stage deck, actors and foreground pending Main verification"
+      },
+      "artReview": "ASTRA-architecture-r3.md; other eleven PNGs inherited R2 review by equal SHA",
+      "derivedFromReviewPNG": "buildings/court-performance-stage/front-rail.png",
+      "derivedRule": "exact integer reduction, no color or shape edits"
+    },
+    {
+      "id": "skyline-a",
+      "file": "layers/skyline-a/skyline-a-logical.png",
+      "logicalCanvas": [
+        512,
+        192
+      ],
+      "pixelMultiplier": 1,
+      "logicalPixelsPerUnitCandidate": 32,
+      "texturePixelsPerUnitImplied": 32,
+      "pivot": [
+        256,
+        192
+      ],
+      "pivotOrigin": "top-left of logical canvas",
+      "semanticLayerRole": "far-scenery",
+      "bounds": [
+        7,
+        114,
+        511,
+        178
+      ],
+      "boundsUnits": [
+        15.781,
+        2.031
+      ],
+      "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "derivedOrPreserved": "new-original",
+      "structuralEditRegions": [],
+      "nativeBindingConfirmed": false,
+      "runtimeWired": false,
+      "styleApproved": true,
+      "alphaRule": "binary 0/255; transparent pixels RGB=(0,0,0)",
+      "paletteRule": "subset of source 116-color palette plus declared plant colors (#75933b,#556b35 from reviewed R6 lotus)",
+      "worldScaleCalibratedInNative": false,
+      "notes": "R3 minor revise (Astra R2): wall/eave internal contrast lowered - muted red-brown eave line (#a47e70) + #896a5e under-eave thickness replacing the hard dark-red line, wall keeps its light identity with a #8c959b side band and #9ca5ab base, roof de-saturated to teal-shadow/teal-rib/teal-deep; some masses overlap and ridge-only fragments peek behind front halls; transparent sky and horizontal gaps kept; no new color values introduced (all source-palette)",
+      "relativeSortCandidate": {
+        "value": -3,
+        "basis": "MAIN doc: far scenery -3 (candidate only, no native binding)"
+      },
+      "artReview": "ASTRA-architecture-r3.md; other eleven PNGs inherited R2 review by equal SHA",
+      "derivedFromReviewPNG": "layers/skyline-a/skyline-a.png",
+      "derivedRule": "exact integer reduction, no color or shape edits"
+    },
+    {
+      "id": "skyline-b",
+      "file": "layers/skyline-b/skyline-b-logical.png",
+      "logicalCanvas": [
+        512,
+        192
+      ],
+      "pixelMultiplier": 1,
+      "logicalPixelsPerUnitCandidate": 32,
+      "texturePixelsPerUnitImplied": 32,
+      "pivot": [
+        256,
+        192
+      ],
+      "pivotOrigin": "top-left of logical canvas",
+      "semanticLayerRole": "far-scenery",
+      "bounds": [
+        23,
+        114,
+        479,
+        187
+      ],
+      "boundsUnits": [
+        14.281,
+        2.312
+      ],
+      "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "derivedOrPreserved": "new-original",
+      "structuralEditRegions": [],
+      "nativeBindingConfirmed": false,
+      "runtimeWired": false,
+      "styleApproved": true,
+      "alphaRule": "binary 0/255; transparent pixels RGB=(0,0,0)",
+      "paletteRule": "subset of source 116-color palette plus declared plant colors (#75933b,#556b35 from reviewed R6 lotus)",
+      "worldScaleCalibratedInNative": false,
+      "notes": "R3 minor revise (Astra R2): wall/eave internal contrast lowered - muted red-brown eave line (#a47e70) + #896a5e under-eave thickness replacing the hard dark-red line, wall keeps its light identity with a #8c959b side band and #9ca5ab base, roof de-saturated to teal-shadow/teal-rib/teal-deep; some masses overlap and ridge-only fragments peek behind front halls; transparent sky and horizontal gaps kept; no new color values introduced (all source-palette)",
+      "relativeSortCandidate": {
+        "value": -3,
+        "basis": "MAIN doc: far scenery -3 (candidate only, no native binding)"
+      },
+      "artReview": "ASTRA-architecture-r3.md; other eleven PNGs inherited R2 review by equal SHA",
+      "derivedFromReviewPNG": "layers/skyline-b/skyline-b.png",
+      "derivedRule": "exact integer reduction, no color or shape edits"
+    },
+    {
+      "id": "mid-wall-corridor-trees",
+      "file": "layers/mid-wall-corridor-trees/mid-wall-corridor-trees-logical.png",
+      "logicalCanvas": [
+        512,
+        192
+      ],
+      "pixelMultiplier": 1,
+      "logicalPixelsPerUnitCandidate": 32,
+      "texturePixelsPerUnitImplied": 32,
+      "pivot": [
+        256,
+        192
+      ],
+      "pivotOrigin": "top-left of logical canvas",
+      "semanticLayerRole": "mid-scenery",
+      "bounds": [
+        0,
+        69,
+        511,
+        186
+      ],
+      "boundsUnits": [
+        16.0,
+        3.688
+      ],
+      "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "derivedOrPreserved": "new-original",
+      "structuralEditRegions": [],
+      "nativeBindingConfirmed": false,
+      "runtimeWired": false,
+      "styleApproved": true,
+      "alphaRule": "binary 0/255; transparent pixels RGB=(0,0,0)",
+      "paletteRule": "subset of source 116-color palette plus declared plant colors (#75933b,#556b35 from reviewed R6 lotus)",
+      "worldScaleCalibratedInNative": false,
+      "notes": "new transparent background layer; native sky/clouds/water/weather left to the game; no baked sky or water",
+      "relativeSortCandidate": {
+        "value": null,
+        "basis": "candidate band between far scenery and architecture; MAIN doc gives no slot - offline art candidate only, no native binding"
+      },
+      "artReview": "ASTRA-architecture-r3.md; other eleven PNGs inherited R2 review by equal SHA",
+      "derivedFromReviewPNG": "layers/mid-wall-corridor-trees/mid-wall-corridor-trees.png",
+      "derivedRule": "exact integer reduction, no color or shape edits"
+    },
+    {
+      "id": "near-rail-lantern-foliage",
+      "file": "layers/near-rail-lantern-foliage/near-rail-lantern-foliage-logical.png",
+      "logicalCanvas": [
+        512,
+        192
+      ],
+      "pixelMultiplier": 1,
+      "logicalPixelsPerUnitCandidate": 32,
+      "texturePixelsPerUnitImplied": 32,
+      "pivot": [
+        256,
+        192
+      ],
+      "pivotOrigin": "top-left of logical canvas",
+      "semanticLayerRole": "near-foreground-decoration",
+      "bounds": [
+        0,
+        124,
+        511,
+        191
+      ],
+      "boundsUnits": [
+        16.0,
+        2.125
+      ],
+      "sourceSHA256": "876044a5502676755b7939815c60bdd9ba2d46305e4cbb68351a22909a0b029e",
+      "sourcePath": "/Users/Admin/projects/ohmymods/.local/tasks/ming-imperial-palace-20261002/player-assets/received/玩家提供的原创素材/唐朝建筑和一些角色.png",
+      "derivedOrPreserved": "new-original",
+      "structuralEditRegions": [],
+      "nativeBindingConfirmed": false,
+      "runtimeWired": false,
+      "styleApproved": true,
+      "alphaRule": "binary 0/255; transparent pixels RGB=(0,0,0)",
+      "paletteRule": "subset of source 116-color palette plus declared plant colors (#75933b,#556b35 from reviewed R6 lotus)",
+      "worldScaleCalibratedInNative": false,
+      "notes": "new transparent background layer; native sky/clouds/water/weather left to the game; no baked sky or water",
+      "relativeSortCandidate": {
+        "value": 1,
+        "basis": "MAIN doc: near-water decoration +1 is the only current evidence; NOT an approved foreground layer"
+      },
+      "artReview": "ASTRA-architecture-r3.md; other eleven PNGs inherited R2 review by equal SHA",
+      "derivedFromReviewPNG": "layers/near-rail-lantern-foliage/near-rail-lantern-foliage.png",
+      "derivedRule": "exact integer reduction, no color or shape edits"
+    }
+  ],
+  "assetMetadataFiles": {},
+  "semanticLayerCandidates": {
+    "far-scenery": -3,
+    "mid-scenery": null,
+    "architecture": -2,
+    "performance-stage-front-edge": 1,
+    "near-foreground-decoration": 1,
+    "note": "semantic only; not bound to any old enum; native numbering untested"
+  },
+  "boards": [
+    "boards/buildings-2x.png",
+    "boards/buildings-3x.png",
+    "boards/layers-2x.png",
+    "boards/layers-3x.png",
+    "boards/tower-source-compare-4x.png",
+    "boards/stage-calibration-2x.png",
+    "boards/composite-mock-2x.png"
+  ],
+  "validation": "validation.json",
+  "nativeBindingConfirmed": false,
+  "runtimeWired": false,
+  "styleApproved": false,
+  "knownLimitations": [
+    "source scene is bottom-cropped by the source image edge; podium rows y=183..187 are source-truncated and have no ground line data below",
+    "tower/pavilion lower figures are retained in the exact cuts (source-preserved); clean variants remove them to transparent without redraw",
+    "clean tower keeps the source's *visible* podium run only; pixels hidden behind the figures are not invented",
+    "balcony person inside the tower is retained as source static decoration in both cuts",
+    "stage clear height is 45 logical px measured from the frame underside (row 20) to the deck baseline (row 65); real dancer envelopes still need freezing by the actors round - 26/30/42 px test blocks are placeholders",
+    "no native parallax/foreground binding exists yet; layer order values are candidates"
+  ],
+  "acceptanceBoundary": "offline art only; actual actor/stage composition is separately recorded; no native binding"
+}

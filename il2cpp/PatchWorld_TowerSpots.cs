@@ -143,6 +143,9 @@ public static class PatchWorld_TowerSpots
     /// <summary>OnLevelLoaded postfix 入口：调度延迟协程。</summary>
     public static void Schedule(World world)
     {
+#if !ANDROID
+        if (!PalaceCourtArea.AllowManagedSpotSchedule(world, "tower")) return;
+#endif
         try
         {
             if (world == null || world.gameObject == null) return;
@@ -182,6 +185,9 @@ public static class PatchWorld_TowerSpots
         out Transform currentLayer)
     {
         currentLayer = null;
+#if !ANDROID
+        if (!PalaceCourtArea.AllowManagedSpotSchedule(capturedWorld, "tower")) return false;
+#endif
         try
         {
             if (!ModConfig.Enabled.Value || NetworkBigBoss.IsOnline

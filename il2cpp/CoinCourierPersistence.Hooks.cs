@@ -31,6 +31,7 @@ internal static partial class CoinCourierPersistence
         {
 #if !ANDROID
             internal SaveScope Coin;
+            internal PalacePaidCaptureToken Palace;
 #endif
             internal HeavyShieldIntegration.SaveScope Heavy;
 #if !ANDROID
@@ -47,6 +48,7 @@ internal static partial class CoinCourierPersistence
 #if !ANDROID
             __state.Coin = BeginIslandSave(__0, __1, __2);
             __state.Bank = SharedBankNative.BeginSave(__0, __1, __2);
+            __state.Palace = PalacePaidResponsibility.BeginSourceCapture(__0, __1, __2);
 #endif
         }
 
@@ -81,9 +83,16 @@ internal static partial class CoinCourierPersistence
 #endif
 
         [HarmonyFinalizer]
+#if !ANDROID
+        private static Exception Finalizer(Exception __exception, Capture __state, bool __runOriginal)
+#else
         private static Exception Finalizer(Exception __exception, Capture __state)
+#endif
         {
 #if !ANDROID
+            Exception palaceError = __exception;
+            try
+            {
             try
             {
 #endif
@@ -95,6 +104,9 @@ internal static partial class CoinCourierPersistence
                 EndIslandSave(__state?.Coin, false);
                 SharedBankNative.EndSave(__state?.Bank, false);
             }
+            }
+            catch (Exception error) { palaceError = error; throw; }
+            finally { PalacePaidResponsibility.EndSourceCapture(__state?.Palace, __runOriginal, palaceError); }
 #endif
             return __exception;
         }
@@ -104,12 +116,17 @@ internal static partial class CoinCourierPersistence
     internal static class IslandCaptureMarkerPatch
     {
         [HarmonyPostfix]
+#if !ANDROID
+        private static void Postfix(IslandSaveData __instance, bool __runOriginal)
+#else
         private static void Postfix(IslandSaveData __instance)
+#endif
         {
             HeavyShieldIntegration.ObserveMarker(__instance);
 #if !ANDROID
             ObserveMarker(__instance);
             SharedBankNative.Marker(__instance);
+            PalacePaidResponsibility.ObserveCaptureMarker(__instance, __runOriginal);
 #endif
         }
     }
@@ -117,6 +134,29 @@ internal static partial class CoinCourierPersistence
     [HarmonyPatch(typeof(PrefsSaveData), nameof(PrefsSaveData.PrepareBeforeSave))]
     internal static class PrefsPreparePatch
     {
+#if !ANDROID
+        internal sealed class PalacePrepareCapture
+        {
+            internal HeavyShieldPersistence.PrepareCapture Heavy;
+            internal PalacePaidPrefsToken Palace;
+        }
+        [HarmonyPrefix]
+        private static void Prefix(PrefsSaveData __instance, out PalacePrepareCapture __state)
+        {
+            __state = new PalacePrepareCapture { Heavy = HeavyShieldIntegration.BeginPrepare(__instance) };
+            __state.Palace = PalacePaidResponsibility.BeginPrefsPrepare(__instance);
+            ObservePrepare(__instance);
+        }
+        [HarmonyFinalizer]
+        private static Exception Finalizer(Exception __exception, PalacePrepareCapture __state, bool __runOriginal)
+        {
+            Exception palaceError = __exception;
+            try { HeavyShieldIntegration.EndPrepare(__state?.Heavy, __exception == null); }
+            catch (Exception error) { palaceError = error; throw; }
+            finally { PalacePaidResponsibility.EndPrefsPrepare(__state?.Palace, __runOriginal, palaceError); }
+            return __exception;
+        }
+#else
         [HarmonyPrefix]
         private static void Prefix(PrefsSaveData __instance, out HeavyShieldPersistence.PrepareCapture __state)
         {
@@ -132,6 +172,7 @@ internal static partial class CoinCourierPersistence
             HeavyShieldIntegration.EndPrepare(__state, __exception == null);
             return __exception;
         }
+#endif
     }
 
     [HarmonyPatch(typeof(GlobalSaveData), nameof(GlobalSaveData.CreateNewCampaign))]

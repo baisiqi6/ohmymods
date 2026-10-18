@@ -36,7 +36,8 @@ internal static class PatchExtensionIsland_ConfigGet
     [HarmonyPrefix]
     private static bool Prefix(BiomeHolder __instance, int configIndex, ref LevelConfig __result)
     {
-        if (!ExtensionIslandRuntime.TryHandleConfigRequest(__instance, configIndex, out LevelConfig config))
+        if (!ExtensionIslandRuntime.TryHandleConfigRequest(__instance, configIndex, out LevelConfig config)
+            && !PalaceLand12Runtime.TryHandleConfigRequest(__instance, configIndex, out config))
             return true;
         __result = config;
         return false;
@@ -95,7 +96,8 @@ internal static class PatchExtensionIsland_DefeatGreed
     [HarmonyPrefix]
     private static bool Prefix(Game __instance)
     {
-        return !ExtensionIslandRuntime.ShouldBlockDefeatGreed(__instance);
+        return !ExtensionIslandRuntime.ShouldBlockDefeatGreed(__instance)
+            && !PalaceLand12Runtime.ShouldBlockDefeatGreed(__instance);
     }
 }
 
