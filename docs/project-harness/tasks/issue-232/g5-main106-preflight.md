@@ -101,3 +101,26 @@ Root于03:30:40Z真实 wait=-9并记录reap；父进程exit0与case各facet分�
 正常入口在原owner/session/operation下完成续租和精确计划登记：当前计划 `f1e957521f75b167205cd187c3f6d3dd519b232bfa4fc75850444b8e2d34faf3`，本分支plan.md逐字镜像；原8816、75a7等为各阶段历史计划。03:27:52Z续租到05:27:52Z；续租保持全部167计划，登记只改232计划，182个其他任务对象及顺序、166个其他计划保持，validator通过。全局doctor实际为3 errors/0 warnings，均为已有247/251问题，232无blocking finding；本批只按精确无关finding集合核验，未修其他任务，也不报告全局全绿。私有管理员脚本增量经独立审查与正反例验证，不修改产品源码。
 
 完整#232因交付范围尚未齐而继续OPEN，不发布APK/loader/game或变更版本。下一组先核对已合并共享保存差异，再在新计划/资源窗口内最小只读分类新增旁档；普通弓箭/弹丸池、职业付款/保存/池重建按真实依赖推进。九值运行读取与触屏、攻击/转职、完整Holder/sync及FX链、换岛读档、手机平板、多人长期仍待验。G17只验证旧c906/351aa354候选，不将后续主线f60a83d6产物视为已装机。私有证据根：`.local/tasks/android-profession-archery-20261014/g17-apk-verification-scope-20261016/`，actual在`native-single1/`，本轮登记与增量审查在`resume-20261018/`；原始设备、游戏和模型完整流不随文档发布。
+
+## 2026-10-18 G18：共享保存增量与首次只读分类
+
+G17证据收尾PR259已合并为3b340713；随后自有源码前移到f60共享保存修复，再前移到已合并PR249的906da521。旧c906/ac31、原raw/backups/spent及G17四个可变工作树输入的精确归档保留。351→f60的11文件增量经Worker盘点、独立Reviewer与Root文件/日志绑定核对，维持Android既有行为无需新增适配实现；当前前移是source-only，未安装新Main或APK。249修改GreekScaleScope与对应3个Android测试pin，Android仍走原GreekOnly；真实Decode的9个编译输入在906与3b逐字相同。Main另行安装的正常Mac DLL8345是已知外部授权变更，不混入Android验收。
+
+五个Persistence owner与三个NativeSave gate的target/handler契约在351→f60保持，三个writer类本体未改。当前APK索引可定位八入口；method-map按ptr聚合后本就全唯一，其family=1不能当无folding证明。metadata定义同entry计数仅排除第二个同址方法定义，仍不排除thunk/generic/shared body；Observer只有type+name唯一定位，token未证。只对AsyncWriterGate的260B固定片段完成独立线性反汇编核对，局部条件直接边在窗口内、末尾RET、8处BL调用（5个不同callee）未跟踪；不提升完整extent/ABI/inline/detour/runtime安全，不外推另七入口。G2四个72是async/sync两面的code/bits镜像，physical648的harness终态不是两面失败或实付保存通过。原错误口径及修正记录保留，未据此新增Mod补丁。
+
+首次分类工具复用Case台账、原stat/reader和LauncherReaper；仅在唯一底层command传递阶段剩余预算，删除冗余adb/shell包装。Root真实Case调用链复现旧TypeError后修正；host进程判断按本机真实comm列完整字段取basename，删除args恢复分支并拒绝空表。登记前共用纯plan/window校验，防止先写坏计划再在下游拒绝。最终源e01cd322…、测试ff871c70…经独审，Root22项host及2个空表反例通过；登记producer正1/拒6，真实Archive.Decode薄入口6fixture（含非空历史记录）通过。它们仅证明源码/host接线，不代表真实旁档、paid或设备通过；未造业务parser/stub。此前Source/预算/审查中止与修正均留证，不将无正式结论的中止视为批准。
+
+原04:22/04:25窗口因源码未齐取消，零登记/VM；新明确窗口内04:50正常登记计划063ffc6eb4b16111b58c6064acfc7fbf41e91ef68bf0299d4068a5353c23d08a，本分支plan.md逐字镜像。原owner/session/op/doing-ready-running保持，182其他任务对象及顺序、166其他计划保持，validator0；doctor仍原3E0W/232无block，不报全局全绿。plan.ready事件内嵌的10-15旧lease是历史operation快照；本例实际raw00004的live232行与normal receipt均为03:27:52→05:27:52，controller严格比较这两者才允许Popen，不消费旧快照授权。随后普通续租于05:16:17→07:16:17，只改lease/updated_at，182其他rows与全部167plans保持，未改063计划或完成任务。
+
+唯一readonly-sidecar-20261018-single1于04:52:42启动，raw00040于04:53:05.639577见sys.boot_completed=1；raw00043在+0.146s记录game0，raw00044在+0.240s的test-L返回1，raw00045在+0.301s的UserData test-d返回1，raw00046在+0.366s的目标stat返回ENOENT。没有cat、没有payload，decoder未处理真实数据；checked shell非零触发旧helper的transport-failed标签，不证明ADB断线或timeout。只能记路径当时不可见，不定性永久丢失、存档损坏、权限或挂载根因；surface图形错误独立记录，不作因果。约27.1秒后Root真实wait=-9并于04:53:07回收，04:55后快照无本案game/VM、5582/5583空、正常DLL8345及本机checklist当前字节保持。未启动APK/游戏、未向游戏目录发写入/恢复命令，不声称VM系统盘零变化或整环境恢复。
+
+实际结果经独立审查收口为inconclusive_no_payload_no_game_write；证据语义mustFix已补明确，仍不是目标采集通过。G17旁档payload/schema/paid仍unknown，未解除自动后继case阻断，未删/覆/重建旁档。Scout对照旧成功只发现：G17直到boot标志后约2.65s才证实UserData可读，且media进程状态不同；这支持进一步测用户/存储状态，不能据此添加sleep/retry或定案。该时点计划一次新的具名存储状态诊断，不复用spent或旧窗口；后续执行结果见下文。完整232必要交付/验证范围继续逐项核对，不以玩家实机未验作为唯一关单理由。私有证据在`.local/tasks/android-profession-archery-20261014/g18-shared-save-sidecar-20261018/`，原始设备/用户数据及模型流不发布。
+
+功能范围盘点随后经独立审查收窄：当前906的232具名职业/弓弩闭环没有已确认的源码缺口；当前OPEN的理由是关键共享保存body尚缺真实付款/晋升→保存→同会话装载的兼容触发，以及两池InitPools后的必要生成/攻击/回收检查。手机平板、多人长期和完整FX观感属后续玩家验收，不能作为唯一关单前置。既有构建按完整inputs相同可复用，不能因merge hash变了强求另编；旧c906的106注册成功已蕴含每owner count=1，不再要求重复回读目标数，但也不称新fd969已装机。GhostSquads四hook属于SummonGhostSteedAbility，当前职业池链不调用它，是232范围外候选，不补注册凑完整。Hero/Msk/HeavyShield商店已有真实Tick/付款producer，不因Castle/Ninja未启而新增重复商店机制。下一必要运行组按当前保存body、具体producer和池交接合并设计，目录可见性先作最小诊断，旁档实读可纳入随后必要备份/保存验证，不再为每个只读字段单独全交付。
+
+
+同日新诊断已按独立源码审查收尾：objective明确为diagnose-storage，8个系统查询、10条具名raw stat和一次game0采样各执行一次；capture与diagnose的marker/verdict互斥，diag不cat、不回退为采集。最终controller c148deaf…/测试694a95fc…/admin b46be7ce…经独审，Root与Reviewer各29项host通过，登记producer在最终c148上正1/拒6重新核对。Main明确交还N0资源后，新的05:55–05:58登记窗及05:58–06:05原生窗才生效；正常入口将计划从063更新为58161139…，operation/lease07:16:17保持，其他182rows/166plans、validator0与原doctor3E0W/232无block边界保持。Root独立远端读回与本分支plan逐字一致。
+
+readonly-storage-state-20261018-single1实际30.21s，boot23.83s，8查询/10stat完成、0 unknown/超时/非零退出，cat0、game0，无APK/game/UI启动或设备文件写命令。当前user0、CE=true、boot=1，而sm采样显示emulated;0仍checking；随后/sdcard解析到/storage/emulated/0，全部具名祖先及target stat可见，target为562B普通文件。该同次时序直接证明boot标志与卷状态不同步，支持先前目录过早读取的假设；两次启动样本不能证明上例ENOENT的唯一根因，也不能从metadata推出旁档payload/hash/schema或paid。原件/备份保持保留，G17内容未知未解除。后续必要场景备份/保存可合并读取旁档，不再单为每个字段新增整轮case。
+
+Root于05:58:41.934Z真实wait=-9/reap，自有QEMU退出；05:58:55独立host检查无game/VM、5582/83空，正常DLL8345与primary checklist efb52c89字节保持，窗口提前归还Main。本例只完成只读诊断，未安装新Android产物、未读取正文、未验真实付款/原生writer/池重建或玩家设备；不将无写命令等同整游戏目录字节恢复证明。私有新证据位于上述G18目录的storage-diagnostic/{normal,actual,review,host-after.json}，历史失败、已执行源码及spent均保留。
