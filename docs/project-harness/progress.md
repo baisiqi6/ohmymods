@@ -1,3 +1,7 @@
+## 2026-10-19 UTC — Android 新候选具名资源解析与移动原生验证通过观察门
+
+2e55/.10e128在新overlay单次启动；五knight/五soldier具名controller槽含Norse均解析，旧partial缺口消失，不代实际角色/style4或sync池。Root首帧自动调度两真实输入：5秒右滑原生X -76→-64.386后停止；下滑无新消费证据记Unknown且不重试，未到camp/未付款。120.11s STOP、controller wait0/QEMUreap-9、Root fresh八原件与自身资源保持，actual独审只过启动/输入观察。剩余FX/角色/保存/池仍待，现定位原生pay生产条件；PR263 Draft，详见[当前记录](tasks/issue-262/verification.md#g20-compat-startup-input)。
+
 ## 2026-10-18 UTC — Android 像素/北境资源 producer 合批源码完成
 
 已据实际GetPixels解析差异复用ownedPNG helper，并按当前APK prefab置换责任补北境骑士controller，仅Android边界。原bbox/cache算法复用，清理重复FindAll调用；三份PC完整active逐字相同。Root默认net6D/R0E1旧W、各Adapter1504/0、实际旧API调用清零及正负host/独审通过；新2e55/993e尚未装载。必要Native路径、触屏/交易/保存/池验证继续，PR263保持Draft，见[本批记录](tasks/issue-262/verification.md#g20-pixel-norse-batch)。

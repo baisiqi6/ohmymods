@@ -207,3 +207,19 @@ Actual 独审修正后报告 SHA `d1b39a4d9a348f1b2c94ef709f372dc70fd21c04ef163c
 默认net6 Debug/Release均0错误/1既有CS0169，207 Compile/176 refs/25资源；408输入中405保持，仅三份产品源改变。实际两DLL各Adapter1504/0；Root指令边界检查 GetPixels/GetPixels32/flipY get/set均0，ReadOwnedPng由9→10，未加patch owner。新Release SHA `2e55f5bcc6af844111ee1d89147bca91b13c3250ab6b4efde8db7e0fb50e4754`，Debug `993ec885d412a12f1011fa0322e6655728211ad7baa33f1d234a1cfbdd990c51`，本阶段均未装载。host移动obj时曾吸入项目旧obj导致CS0579，已在构建命令的默认Compile来源排除旧obj，未改产品/未关生成属性掩盖问题；旧输出保留。
 
 独立代码审查 `APPROVE_GROUPED_ANDROID_PIXEL_AND_NORSE_SOURCE_ONLY`，实际OMP DeepSeek Flash/max、无fallback，报告SHA `328124a854d0086debb508122243406617b2a9c34b2d9d1759d3107079338c65`。Root接受为source/host范围；后续合批Native验证真实owned纹理路径、Norse5/5与有界输入，实际FX/角色/付款/保存装载/换岛/池重建仍待验。#232/#262开放、PR263 Draft，不以源码通过代替安装/玩法或合并授权。证据本机G19 `resume-1453/grouped-root-*`、两Worker与`grouped-api-style-code-review/`；未提交游戏/APK/interop/用户存档。
+
+
+<a id="g20-compat-startup-input"></a>
+## 2026-10-19 UTC：新兼容候选启动、具名控制器与真实移动已观察
+
+新单次 `controlled-profession133-compat-input-isolated-20261018-single1` 在独立SDK临时overlay装载Main `2e55f5bc…`、cfg `16b68641…` 与最小 `.10` `e12886cf…`。观察器仅沿已审 `.9r2` 七份源改版本/引用/输出，net6 0W0E、19 host；未选用额外514行反射FX诊断原型，也未为了测试创建Actor或改业务字段。控制器78 host与独立Source/Exact通过；Root调用挂在完整baseline+UILayout到达处，未知即停，原controller仍0自己的输入、120s/128event预算保持。
+
+当前原生日志的 `KnightStyle resolution` 五个knight和五个soldier条目均为具名引用，包括 `knight_norselands`；旧 `<null>`/partial 4/5缺口未再出现。该事实证明当前producer完成具名槽解析；没有采集十个distinct pointer，不能写成唯一原生实例/实际style4骑士应用、身份恢复或sync池通过。新ownedPNG FX消费者仍未由本例触发。
+
+Root实际两次ADB输入、0 Root PNG/1 controller baseline：5000ms水平 `128,540→1152,540`，exit0/未超时，event2 moving=true后event3 moving=false，玩家X从-76到-64.386（+11.614），支持本例右向移动映射；随后400ms下滑 `640,450→640,630`，exit0/未超时，但无新OBS，记录 `UNCHANGED_UNKNOWN_NO_RETRY`。没有反复换手势、没有额外输入或热改源。启动调度成功不等于支付消费；coins0、selected=null、payState=None/0，不能由手势命令exit0/_payInput推定付款。玩家仍离campfire -12较远，未建城、未到商店。
+
+baseline/final两点 ordinary边界-20.75/-3.25、intact0/0、castleBuilt=false、Walls.Count=0、Campfire=-12、三半宽2/2.75/2保持；UI实际640×360、GUI x86/y79.2、touchSize36、ready/折叠/未captured，logical display/PNG1280×720。原生显示与UI字段实读，不镜像默认或强制0°，两点不代连续状态。画面暗区仍不记视觉通过，安装readback与prepare原件/未测post-run cfg时序分别记录。
+
+原观察器 `00:04:08Z` time-budget STOP elapsed120.11s/events3；controller31694实际wait0，QEMU31794于`00:04:09.738359Z` reap=-9（非优雅0）。Root独立fresh八原件hash及metadata相等、own目录/5582/5583释放、ADB88434仍同身份，无restore层；postflight SHA `cce7344508236ec13ca0d408ddcc7371d5323ce80cf2feb8900feeead6aae256`。
+
+plan `81fe1361…` 正常登记与独立185行/169计划readback通过，其余184行/168计划保持，validator0，doctor旧3E/57（54I）且232无阻塞，未称全局pass；中途260的两条新drift曾使续租在mutation前停止，fresh恢复旧基线后以新操作正常续租，未改他任务。Source/Exact/actual各自留证，不复用旧spent门。独立actual公开报告SHA `f67a074ed0623013dc1b01013517504ae70a506bd36c89448f71739417e7cf57`，Root接受为startup/input observation-only。真实FX、角色生成攻击回收、支付/保存装载、换岛池重建及手机多人长期仍待；投币生产条件进入当前2.4源码/Native只读定位，不盲目重试。#232/#262 OPEN、PR263 Draft。
