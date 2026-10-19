@@ -265,3 +265,17 @@ plan `800d802f…` 已经官方登记及独立185行/169计划读回，其余184
 postrun原生文件读取实际260337B/SHA `35faea07…`，与导入原件逐字节相同；这是观察结束后的READ，没有调用Save，不预付保存/身份恢复链。Root/controller均0输入、Root0PNG、controller1PNG。controller32558真实wait0，QEMU于17:02:32.157809Z reap=-9，无restore层。原Root postflight曾因fresh dict漏uid/gid而误判全字典不等，失败记录保留；使用同frozen `host_file_snapshot`（真实clock callable）完整重读八项后，与原始基线及case before/after全部键精确相等，自身目录/端口释放、ADB88434同身份，补充资源裁决SHA `fb7335cb…`。未删比较键或覆盖原件来制造通过。
 
 独立actual仅接受 `ACCEPT_ORIGINAL_MAIN_OBSERVATION_ONLY`：原Main场景观察、无Main对照INVALID及资源归还，非候选验收。后续保持同一只读probe、原生输入和loader，先核候选完整配置是否复现，再按实际结果区分功能组；不再次移出Main、不改APK、删船字段或吞异常。主程序集/配置/观察器差异与未知保留于本机G19 `resume-20261019/boat-load-audit/`，未提交游戏、原始日志或存档。#232/#262 OPEN、PR263 Draft；真实交易、角色/FX/攻击/回收、保存、换岛及完整池仍待验，手机多人长期另列。
+
+
+<a id="g20-config-isolation"></a>
+## 2026-10-19 UTC：同观察器复现与四项关闭配置的隔离结果
+
+同一候选Main `2e55f5bc…`、完整58键cfg `16b68641…`、原生输入 `35faea07…` 改用上述相同只读probe `609efed2…` 后，fresh Melon hash与INIT确认controlValid=true，仍在 `BoatPart.CopyProperties → Wharf.StackPart` 完整NRE栈失败。52.025s观察即按计划收尾，worldReady/nativeLoadObserved=false，没有READY/120s STOP、PNG或输入。失败后读取到的原生文件仍为260337B/SHA `35faea07…`；读取不代Save。controller53312真实wait0，owned launcher reap0于17:24:28.954932Z；Root postflight `c2630e90…` 八原件/metadata及自身资源保持、无restore。独审只接受 `ACCEPT_CANDIDATE_SAME_OBSERVER_FAILURE_ONLY`，不以code/version文案辨产物：两个不同SHA都记录version0.0.30。
+
+下一单次保持同一Main/probe/F，仅从完整cfg原始字节另存 `f49c3cfc…`（1535B），将InfiniteMoney、HeavyShieldEnabled、HeroArcherEnabled、MusketeerEnabled四行true改false；Root核对其余54值与其它字节精确不变。复制用例中的旧objective标签曾在Root启动器、Popen/VM/gate消费前被拒绝，原物化件完整归档，未发生Native；重复的Root objective字面检查已移除，由原有Core/登记入口统一校验，错误objective仍拒绝。修订Source21pins与10host、增量审查、fresh绑定和正常计划 `bcd0fd9a…` 分别留证，185行/169计划其它项保持、validator0；没有改已spent脚本或重用旧门。
+
+四项关闭文件下，实际候选SHA/INIT同样controlValid=true，46.821s后仍出现相同Boat NRE，world/nativeLoad均false，无READY/STOP/PNG/input。postread仍精确 `35faea07…`，仅READ。现场money=False有独立日志，另三个职业entry未独立采样；因此只记“该关闭文件下仍复现”，不宣称严格排除运行期flags，更不等同卸载身份、保存或池注册代码。根因仍未定，未改船字段、跳ApplyBoat、假getter、吞异常或加业务补偿。
+
+此例raw stop返回 `Identity changed before signal`，qemuExitProven=false、cleanupUnknown=true，原result保留inconclusive/evidenceReportable=false、controller61535 wait1。随后独立owned launcher reap0于17:38:38.613595Z；Root fresh postflight `87400787…` 核对八项全部键与基线/before/after相等、controller/launcher不存活、自身AVD及双端口释放、ADB原身份。资源实际归还与raw stop未知分别记录，未把raw改成功，也不推测身份变化原因或称优雅游戏退出。actual独审仅接受 `ACCEPT_MASKED_FAILURE_FACTS_WITH_CLEANUP_UNKNOWN`。
+
+下一步为具名长方法CopyProperties入口的实参只读诊断：先核当前SDK和真实MethodPointer/地址折叠契约，再区分loosePart空参数与函数内部其它空值；该项尚无Native结果，不预付Prefab/Pool根因或修复。PR263 Draft、#232/#262 OPEN；原生成功加载、实际角色/攻击/回收、FX/交易补货、保存、换岛及完整池仍待验，手机/多人/长期继续单列。过程原件仅存本机G19，不入Git。

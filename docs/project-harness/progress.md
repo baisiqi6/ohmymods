@@ -1,3 +1,7 @@
+## 2026-10-19 UTC — Android 候选在相同观察器与关闭配置下仍复现船坞加载异常
+
+当前2e55候选换用同一609e观察器后，完整cfg与四项关闭文件两例均出现相同BoatPart.CopyProperties/Wharf.StackPart NRE，均未记Native加载或玩法通过。关闭配置仅文件级四值已证，现场只有moneyFalse，另三职业entry未独立采样，不等于卸载保存/身份/池模块。两例postread同原始输入只证明读取；masked例raw退出身份unknown保持，Root独立确认八原件与自身资源已归还。重复Root objective字面检查已清理，Core统一责任仍严格校验。当前正常plan bcd0fd9a，必要审查与10host已留证；继续核实真实实参/Native目标契约，不做下游业务补偿。PR263 Draft、232/262开放。详见[隔离结果与退出边界](tasks/issue-262/verification.md#g20-config-isolation)。
+
 ## 2026-10-19 UTC — Android 同档旧版Main进入场景，无Main对照因启动器补回失效
 
 同一原生测试档在旧Main0.0.30下进入Playing8、墙7并完成120秒只读观察；APK启动部署自动补回已移出的Main，故无Main对照INVALID，不能据此定案主Mod/loader/平台。存档postread逐字节同输入，只证明读取，不代保存验收。候选Main仍有船体恢复NRE，继续同observer的候选完整配置对照后按差异分组。八原件/metadata与自身资源保持经完整字段复核；保留Root投影漏uid/gid的原失败记录。Source/Exact/actual独审完成，当前plan c4bda32a；PR263 Draft、232/262开放。详见[本轮结果与边界](tasks/issue-262/verification.md#g20-original-main-baseline)。
