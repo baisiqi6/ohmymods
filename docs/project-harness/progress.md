@@ -1,3 +1,7 @@
+## 2026-10-19 UTC — Android 已观察到船件入口NULL，完整根因仍待上游字段补证
+
+独立参数诊断确认CopyProperties第一次调用的receiver非空、loosePart为空、dummyPart=false；真实代码RVA/安装/mode与完整sample均核验，独审仅接受入口事实。新Harmony边界会捕获原异常，已明确不验原传播/场景兼容；世界仍Loading，未把观测当修复。按360s预算收尾，Root八原件/metadata与自身资源归还保持，postread同输入仅为读取。静态更正prefab为Wharf.boatPartPrefab，旧+0x140 prefab解释撤回；直接Android偏移与现场pool/parent仍待证，不补假对象或重建池。当前plan54d58d1b，PR263 Draft、232/262开放。详见[入口样本及限制](tasks/issue-262/verification.md#g20-boat-entry-arguments)。
+
 ## 2026-10-19 UTC — Android 候选在相同观察器与关闭配置下仍复现船坞加载异常
 
 当前2e55候选换用同一609e观察器后，完整cfg与四项关闭文件两例均出现相同BoatPart.CopyProperties/Wharf.StackPart NRE，均未记Native加载或玩法通过。关闭配置仅文件级四值已证，现场只有moneyFalse，另三职业entry未独立采样，不等于卸载保存/身份/池模块。两例postread同原始输入只证明读取；masked例raw退出身份unknown保持，Root独立确认八原件与自身资源已归还。重复Root objective字面检查已清理，Core统一责任仍严格校验。当前正常plan bcd0fd9a，必要审查与10host已留证；继续核实真实实参/Native目标契约，不做下游业务补偿。PR263 Draft、232/262开放。详见[隔离结果与退出边界](tasks/issue-262/verification.md#g20-config-isolation)。

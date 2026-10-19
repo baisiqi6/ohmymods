@@ -279,3 +279,19 @@ postrun原生文件读取实际260337B/SHA `35faea07…`，与导入原件逐字
 此例raw stop返回 `Identity changed before signal`，qemuExitProven=false、cleanupUnknown=true，原result保留inconclusive/evidenceReportable=false、controller61535 wait1。随后独立owned launcher reap0于17:38:38.613595Z；Root fresh postflight `87400787…` 核对八项全部键与基线/before/after相等、controller/launcher不存活、自身AVD及双端口释放、ADB原身份。资源实际归还与raw stop未知分别记录，未把raw改成功，也不推测身份变化原因或称优雅游戏退出。actual独审仅接受 `ACCEPT_MASKED_FAILURE_FACTS_WITH_CLEANUP_UNKNOWN`。
 
 下一步为具名长方法CopyProperties入口的实参只读诊断：先核当前SDK和真实MethodPointer/地址折叠契约，再区分loosePart空参数与函数内部其它空值；该项尚无Native结果，不预付Prefab/Pool根因或修复。PR263 Draft、#232/#262 OPEN；原生成功加载、实际角色/攻击/回收、FX/交易补货、保存、换岛及完整池仍待验，手机/多人/长期继续单列。过程原件仅存本机G19，不入Git。
+
+
+<a id="g20-boat-entry-arguments"></a>
+## 2026-10-19 UTC：真实入口参数为空，仍不等于完整根因或修复
+
+为区分静态null候选，私有probe0.0.2在独立overlay为具名长方法 `BoatPart.CopyProperties(Droppable,bool)` 加一次手动Harmony入口观察，仅前3样本，不引用Main、不改参数/结果/池/Save/config或RPC。独审发现当前HarmonySupport `bf102683…` 的native→managed trampoline捕获System.Exception后ReportException、没有rethrow，故void Prefix/无finalizer不能保证原异常传播。原声称“透传”的未部署原型保留但未使用；本例明确收窄为**有managed catch传播差异的入口实参观测**，不验场景兼容。自身Pointer/日志读取失败独立unknown，不伪造sample；普通null用ReferenceEquals，不混入Unity判空。完整cfg16b、Main2e55与F35fae保持，新的Root DLL `cb860331…` /23040B由4源7引用独立net6编译0W0E，纯source-linked11规则及控制器13host通过；8项runtime引用含实际HarmonySupport只读SHA。
+
+Source `b82b61af…`、机械Exact与新正常计划 `54d58d1b…` 分别完成；21pins、13host，185行/169计划其它项保持、validator0，官方同身份lease续至19:57Z。唯一新单次 `controlled-candidate133-boat-args-isolated-20261019-single1` 实际加载Main2e55/probecb860及完整cfg/F，INIT/mode/目标安装/样本均齐。native code `0x787A368E24` 减具名lib base `0x7877E77000` 等于 `RVA 0x24F1E24`，目标name/两参数/Token `0x06000705`吻合，静态同址map唯一、extent572B；不能把MethodInfo指针或managed名字唯一当代码地址证明。
+
+唯一实际样本：**seq1，instanceNull=false、instancePtrZero=false；looseNull=true、loosePtrZero=true；dummyPart=false**。本次接收者非空且wrapper指针非零、入口船件参数确为空，已超出原静态猜测；仍未证明是prefab缺失、SpawnGO失败、GetComponent为null或其它上游生命周期责任。随后NRE block仅有CopyProperties；另有独立ArgumentNullException/key block经Wharf.StackPart/ApplyBoat，不能误写“日志完全没有Wharf栈”，也不将它们合并成原连续NRE同因证明。场景仍Loading/0、world=false，原360s世界预算到期，无READY/120STOP、PNG或输入。
+
+`argumentDiagnosticValid=true`仅表示mode+map+install+完整sample通过；`nativeCompatibilityAcceptance=false`、`originalExceptionPropagationPreserved=false`、`sameBoatFailureCauseEstablished=false`如实保留。controller82311实际wait0，owned launcher于18:29:16.543574Z reap0，cleanupUnknown=false；Root postflight SHA `54185419…` 八原件及metadata全部键与base/before/after一致，自身AVD/端口释放、ADB原身份，无restore。postread260337B/SHA35fae仍与导入输入相同，只是观察结束后READ，不代Save。actual独审只接受 `ACCEPT_BOAT_ENTRY_ARGUMENT_FACTS_ONLY`。
+
+后续静态核对更正旧字段解释：`Wharf+0x148` 对应 `boatPartPrefab`（Droppable），是Spawn的prefab参数；旧报告把单例链 `+0x20/+0x140`称为prefab已被推翻，当前更可能为Managers.world/World.gameLayer父级。字段名来自当前Android2.4 metadata/SDK，偏移映射仍是Android指令加2.4layout推断，直接Android FieldInfo offset与共享泛型T尚未闭环，不预付现场Prefab/parent/pool值。旧报告保留、Root勘误另记；下一步在现有生命周期/已接入边界核实源字段，不增加下游假对象、吞错或无依据池重建。
+
+本轮游戏、APK、interop、原始存档/日志未入Git；未合并PR263、未关闭232/262。原生成功加载、真实角色/攻击/回收、FX/银行交易/补货、保存、换岛及池重建仍待验；手机/多人/长期单列。

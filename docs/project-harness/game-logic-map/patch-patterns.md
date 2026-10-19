@@ -985,3 +985,12 @@ ExactSave和初始化Enrollment是两个明确协议，共用真实PrefsPrepare 
 `Player.UpdatePayState`的 d<=.5 && d<=playerPayDistance 只是当前selected的retention fast-path（ARM0x7d9fbc–0x7da054），失败仍有GetClosestPayable(x,.5,本玩家)（0x7da058–0x7da09c）；None按下入Holding不再重复窄门。RetrievePayableIndices邻候选为严格减法d-r<range（0x7b4528–4538/0x7b4790–47a0），最近center没有hard radius，不能将任何一段冒充全部选择空间。
 
 Mod连续hold使用该邻关系作保守有限上限，entry另核fast保留或fallback返回捕获pointer+实例；fast成立勿无条件closest以更近别店错误否决。RPC forceBlock期CanSelectfalse/普通querynull不等于离开；待回执核身份/空间/既有期限。query不写选择或付款，但维护原生sort/scratch，不冒称纯函数。Payable.Awake cachedTransform是商店自身transform，读取朝向不要用最高祖先Transform.root。依据真实2.4链与prefab，原82+21行为回归/ARM构建；用户现场及联机仍待实机。
+
+
+### Android 2.4 / Lemon-Melon HarmonySupport 的诊断异常边界（#232/#262，2026-10-19）
+
+适用本次 `Il2CppInterop.HarmonySupport.dll` SHA `bf102683…`、Runtime `c80e8e88…` 与Unity6000.0.61f1，不能推广为所有未来后端。GenerateNativeToManagedTrampoline在调用managed替身外捕获System.Exception、ReportException后无rethrow；新增callee detour可能改变原生异常传播。void Prefix、不写参数及没有finalizer都不等于传播保真。需要保真时先复用现有边界或单独验证native方案；若实验只接受入口观测，明确隔离与语义差异，不以instrumented世界进入、无原连续栈或evidenceReportable当修复/兼容证明。
+
+`Il2CppObjectBase.Pointer`在该Runtime通过GCHandle取得目标，可抛ObjectCollectedException，并非普通字段。诊断自身读取失败应单独unknown，不伪造零/false样本、不捕获目标游戏异常；managed null用ReferenceEquals，避免Unity对象判空混入语义。NativeMethodInfoPtr不是代码指针，复用UnityVersionHandler.Wrap读取name/参数数/token/MethodPointer，再核真实映射与地址折叠，不能仅凭managed名字唯一判断detour安全。
+
+本次实际RVA `0x24F1E24`入口样本证实receiver非空、loosePart为空、dummyPart=false；只定位入口，不证明Prefab/Pool根因。独立NRE/ANE日志块须分别记录。源码/依赖IL、实际SHA与原生观察边界见 [任务证据](../tasks/issue-262/verification.md#g20-boat-entry-arguments)，原未部署“异常透传”方案已撤回但留档；此项不构成新增业务fallback或全局禁用Harmony的规则。
