@@ -239,3 +239,29 @@ Root 默认 net6 编译0W0E，原19项snapshot host保持；新控制器87 tests
 plan `800d802f…` 已经官方登记及独立185行/169计划读回，其余184行/168计划保持、validator0，doctor旧3E/57（54I）且232无blocking，未称全局通过。actual独审仅 `APPROVE_INPUT_ROUTING_OBSERVATION_ONLY`，报告SHA `2fae3155d3f81460a14f300838163503e909f31f083aeaa0660db86a302b776b`；Root postflight SHA `d5d15808cdac8316ec1ffcd9242a2363f3126d1ab1443979d9d51d101daf18df`。Source、Exact、实际观测分别留证，旧spent用例未重放。
 
 为后续合法玩法前置，主Operator交接了已封存的Mac2.4.0原生测试档，只读离线核对确认与Android基座均为global-v35、gzip/UTF8 JSON、save schema16/revision23485。原生文件内嵌五项Mod prefs，当前读取契约继续核对；尚未导入Android，未携带外部Mac sidecar或配置，不以codec相同预付身份恢复或保存链通过。PR263 Draft、#232/#262 OPEN；角色/FX/交易/保存及池必要验证继续，手机/多人/长期另记。过程与原件仅在本机G19 `resume-20261019/`，未提交游戏文件或原始日志。
+
+
+<a id="g20-fixture-native-load-failure"></a>
+## 2026-10-19 UTC：已发展原生测试档导入，船体恢复链阻断加载
+
+主Operator提供的封存2.4.0 global-v35已在离线确认gzip/UTF8 JSON、schema16及具名结构与Android基座一致；四项在编Mod prefs读取格式匹配，CoinCourier键未编译消费，跨biome猫及实际reader/池仍待验。输入按原字节保留，不剥内嵌Mod数据、不改船字段、不导入外部Mac sidecar。Root独立校验原件与副本SHA `35faea07…`、260337B保持，文件级匹配不代原生加载。
+
+新的单次 `controlled-profession133-fixture-load-isolated-20261019-single1` 在game0确认原82978B/SHA `7ba5f975…` 后，只向临时overlay的原生global-v35写入该输入并实际读回匹配；Main `2e55f5bc…`、58键 `16b68641…` 与私有`.11 fc66…`保持。Root/controller均0输入、无强制支付/创建或业务字段写入，正常app/Mod仍可在overlay处理内嵌状态。Source82 tests（81通过/1未绑定专用检查跳过）及独审完成。初次登记曾因旧报告路径被本地SHA断言拦截，尚未SSH/建normal/启动Native；旧未消费物化件完整归档，统一报告来源并补真实main入口回归后，以新Source `733ace44…` / Exact `ed7034d9…` 和新plan `bd357dd5…` 正常登记，未重放旧门。
+
+原生状态读到island/campaign/gameLand=8、玩家和钱包存在；首个明确NRE位于 `BoatPart.CopyProperties → Wharf.StackPart → Wharf.CatchupBoat → CampaignSaveData.ApplyBoat → ApplyToScene`，Game仍Loading/0、playable=false。随后Character.ReplaceBy/Promote异常不先作首因。Hero/Musketeer部分加载日志不能据此接受身份恢复或角色玩法；BoatCapacity=false也不能单独排除其它主Mod影响。静态调用流显示Pool.Spawn返回值传给CopyProperties，尚无故障PC/寄存器证明究竟哪个对象为空，未把该线索定成根因。
+
+用例按原900s世界预算到期，world/surface均未通过，无120s观察STOP、无PNG；postrunNative因没有STOP未采集，不冒作保存/键保留。controller89087实际wait1，QEMU于16:16:45.218452Z reap=-9；Root fresh八原件与metadata保持、自身资源/端口释放、ADB同身份，无restore层，postflight SHA `ff8a74f29ceee2bf427735b5d4f09ab64a59401d493fc3449a1a3b62164bf731`。独立审计只接受 `ACCEPT_FIXTURE_LOAD_FAILURE_EVIDENCE_ONLY`，报告SHA `a44f4f290deded904cca340d303631bd1113a90a2c089ada9a59d02ddfd13307`；不是Native加载或保存链通过。
+
+同一输入另有Mac2.4.0、私有主Mod开启的Playing8成功source加载证据，不能据此定位Android平台、loader或主Mod责任。下一步保留输入/loader/隔离方式，仅移除主Mod并使用不引用Main的原生状态观察器对照；不改numStackedParts、不跳ApplyBoat、不吞异常或补默认值。#232/#262 OPEN、PR263 Draft；角色/FX/银行/交易/保存/池、手机多人长期仍如实待验。原始日志/存档和过程仅存本机G19 `resume-20261019/`。
+
+
+<a id="g20-original-main-baseline"></a>
+## 2026-10-19 UTC：移出主程序集的对照失效，旧版主程序集同档进入场景
+
+`controlled-loader-only-fixture-20261019-single1` 在game0把原Main `5460efd9…` 按字节核验后移到UserData的独立目录，只安装不引用Main、无Harmony的只读probe `609efed2…`，cfg不写，同一原生输入 `35faea07…` 精确导入。新Source26 tests及clock真实API红绿回归、Source/Exact独审完成；正常计划 `c4bda32a…` 登记并由Root独立读回185行/169计划，其余184行/168计划保持、validator0，旧doctor3E/57、232无阻塞。
+
+启动后APK的packaged deployment报告installed1，Melon明确加载原Main `5460efd9…` / 0.0.30，probe INIT的 `mainAssemblyPresent=true`。故 **预期无Main对照无效**，`controlValid=false`，不能据此排除主Mod或声称纯APK/loader问题。实际却观察到原Main、原cfg `9758…` 下同一land8进入 `Playing/2`、worldReady=true、城墙7；probe120.03s/events2 STOP，本次fresh段未见同一Boat NRE。候选Main、cfg与观察器仍有多个差异，未定单一根因。唯一PNG仍为暗场，金色浮球/HUD/水面可见，不记完整视觉或玩法通过。
+
+postrun原生文件读取实际260337B/SHA `35faea07…`，与导入原件逐字节相同；这是观察结束后的READ，没有调用Save，不预付保存/身份恢复链。Root/controller均0输入、Root0PNG、controller1PNG。controller32558真实wait0，QEMU于17:02:32.157809Z reap=-9，无restore层。原Root postflight曾因fresh dict漏uid/gid而误判全字典不等，失败记录保留；使用同frozen `host_file_snapshot`（真实clock callable）完整重读八项后，与原始基线及case before/after全部键精确相等，自身目录/端口释放、ADB88434同身份，补充资源裁决SHA `fb7335cb…`。未删比较键或覆盖原件来制造通过。
+
+独立actual仅接受 `ACCEPT_ORIGINAL_MAIN_OBSERVATION_ONLY`：原Main场景观察、无Main对照INVALID及资源归还，非候选验收。后续保持同一只读probe、原生输入和loader，先核候选完整配置是否复现，再按实际结果区分功能组；不再次移出Main、不改APK、删船字段或吞异常。主程序集/配置/观察器差异与未知保留于本机G19 `resume-20261019/boat-load-audit/`，未提交游戏、原始日志或存档。#232/#262 OPEN、PR263 Draft；真实交易、角色/FX/攻击/回收、保存、换岛及完整池仍待验，手机多人长期另列。

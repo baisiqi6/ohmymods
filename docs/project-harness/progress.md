@@ -1,3 +1,11 @@
+## 2026-10-19 UTC — Android 同档旧版Main进入场景，无Main对照因启动器补回失效
+
+同一原生测试档在旧Main0.0.30下进入Playing8、墙7并完成120秒只读观察；APK启动部署自动补回已移出的Main，故无Main对照INVALID，不能据此定案主Mod/loader/平台。存档postread逐字节同输入，只证明读取，不代保存验收。候选Main仍有船体恢复NRE，继续同observer的候选完整配置对照后按差异分组。八原件/metadata与自身资源保持经完整字段复核；保留Root投影漏uid/gid的原失败记录。Source/Exact/actual独审完成，当前plan c4bda32a；PR263 Draft、232/262开放。详见[本轮结果与边界](tasks/issue-262/verification.md#g20-original-main-baseline)。
+
+## 2026-10-19 UTC — Android 原生测试档已导入，加载阻断定位到船体恢复链
+
+封存测试档按原字节导入临时overlay并读回匹配，原生已到land8，但BoatPart.CopyProperties经Wharf恢复船件时报空引用，Game保持Loading，未接受读档/角色/保存通过。原900s用例收尾，wait1/reap-9与fresh八原件/自身资源保持已核，独审仅接受失败证据。现准备同档同loader、无主Mod的最小对照；不修改存档字段或下游吞错。PR263 Draft，232/262开放，详见[失败与归因边界](tasks/issue-262/verification.md#g20-fixture-native-load-failure)。
+
 ## 2026-10-19 UTC — Android 单机输入观测已修正，继续建立玩法测试前置
 
 私有诊断按原生COOP/online分支选择唯一处理器并实读手势阈值，清掉旧路由缓存；产品Main保持。新单次已观察真实水平输入与27秒移动（-76→-32.830），仍离营地20.83，付款前置拒绝、实际仅1输入，未记消费通过。Source/Exact/actual独审分别完成，120.01s STOP、wait0/reap-9、fresh八原件及自身资源保持。主Operator已交接封存的原生已发展存档，codec与Android基座一致，内嵌Mod prefs契约核对及隔离导入仍待；角色/银行/保存/池继续必要验证，PR263 Draft、232/262开放。详见[本次记录](tasks/issue-262/verification.md#g20-input-route-repair)。
