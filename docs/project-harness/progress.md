@@ -1,3 +1,7 @@
+## 2026-10-19 UTC — Android 单机输入观测已修正，继续建立玩法测试前置
+
+私有诊断按原生COOP/online分支选择唯一处理器并实读手势阈值，清掉旧路由缓存；产品Main保持。新单次已观察真实水平输入与27秒移动（-76→-32.830），仍离营地20.83，付款前置拒绝、实际仅1输入，未记消费通过。Source/Exact/actual独审分别完成，120.01s STOP、wait0/reap-9、fresh八原件及自身资源保持。主Operator已交接封存的原生已发展存档，codec与Android基座一致，内嵌Mod prefs契约核对及隔离导入仍待；角色/银行/保存/池继续必要验证，PR263 Draft、232/262开放。详见[本次记录](tasks/issue-262/verification.md#g20-input-route-repair)。
+
 ## 2026-10-19 UTC — Android 新候选具名资源解析与移动原生验证通过观察门
 
 2e55/.10e128在新overlay单次启动；五knight/五soldier具名controller槽含Norse均解析，旧partial缺口消失，不代实际角色/style4或sync池。Root首帧自动调度两真实输入：5秒右滑原生X -76→-64.386后停止；下滑无新消费证据记Unknown且不重试，未到camp/未付款。120.11s STOP、controller wait0/QEMUreap-9、Root fresh八原件与自身资源保持，actual独审只过启动/输入观察。剩余FX/角色/保存/池仍待，现定位原生pay生产条件；PR263 Draft，详见[当前记录](tasks/issue-262/verification.md#g20-compat-startup-input)。

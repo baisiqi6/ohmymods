@@ -223,3 +223,19 @@ baseline/final两点 ordinary边界-20.75/-3.25、intact0/0、castleBuilt=false�
 原观察器 `00:04:08Z` time-budget STOP elapsed120.11s/events3；controller31694实际wait0，QEMU31794于`00:04:09.738359Z` reap=-9（非优雅0）。Root独立fresh八原件hash及metadata相等、own目录/5582/5583释放、ADB88434仍同身份，无restore层；postflight SHA `cce7344508236ec13ca0d408ddcc7371d5323ce80cf2feb8900feeead6aae256`。
 
 plan `81fe1361…` 正常登记与独立185行/169计划readback通过，其余184行/168计划保持，validator0，doctor旧3E/57（54I）且232无阻塞，未称全局pass；中途260的两条新drift曾使续租在mutation前停止，fresh恢复旧基线后以新操作正常续租，未改他任务。Source/Exact/actual各自留证，不复用旧spent门。独立actual公开报告SHA `f67a074ed0623013dc1b01013517504ae70a506bd36c89448f71739417e7cf57`，Root接受为startup/input observation-only。真实FX、角色生成攻击回收、支付/保存装载、换岛池重建及手机多人长期仍待；投币生产条件进入当前2.4源码/Native只读定位，不盲目重试。#232/#262 OPEN、PR263 Draft。
+
+
+<a id="g20-input-route-repair"></a>
+## 2026-10-19 UTC：输入观测源修正与真实单机路由验证
+
+原私有观察器仅按在线/离线选择处理器，离线时会误读本地合作 P1。当前2.4 metadata、TypeInfo重定位与原生静态字段访问链已闭环：`Managers.COOP_ENABLED && !NetworkBigBoss.IsOnline` 才用 `_touchHandlerPlayer1/_coopRectPlayer1`；其余用 `_touchHandler/Rect.zero`。原生 InputUpdate 的四零参数跳过分屏几何检查，不能替换成 topRect。`.11` 在每次 Sample 选择唯一真实处理器、读取两个实际 deadzone，删除旧路由缓存，保留同 Sample 的 mode 文案；没有修改游戏输入、钱包或产品Main。
+
+Root 默认 net6 编译0W0E，原19项snapshot host保持；新控制器87 tests OK（86通过、1项仅未绑定状态测试跳过）。复审修正 localCoop active/raw矩形一致性及真实日志fixture；非活动矩形仅解析原始值，不增加正尺寸或范围守卫。7个既有core、34源pins保持；Source/Exact独审分别为 `749d785a…` / `9d2193a9…`。恢复工作目录后原产品408项输入逐一保持，继续使用 Main `2e55f5bc…`、58键配置 `16b68641…`，只读AddOn为 `fc669a6c…`。
+
+新单次 `controlled-profession133-input-routing-isolated-20261019-single1` 实际观察到 COOP/online均false、`_touchHandler/Rect.zero`，内外阈值 `17.067/51.200`；移动时水平输入1、moving=true，后回零停止。唯一27000ms手势exit0/未超时，event1→4、X -76→-32.830（+43.170），期间出现原生gallop；不据此推永久速度。玩家仍离camp20.83、selected=null，故付款前置拒绝且未发送第二输入（无pay intent），不是投币失败或消费通过。原“可能接近96”的阈值猜测不再作当前依据，也不倒推历史付款结果。
+
+两固定点仍未建城、墙0、ordinary边界-20.75/-3.25、intact0/0；本例未触发真实Actor/FX、付款、银行交易、保存读档、换岛或池重建。观察器120.01s/events4 STOP；从launch计179.569s含加载阶段。controller41577实际wait0，QEMU于15:02:39.829343Z reap=-9，非优雅退出；Root fresh八原件及metadata保持、自身目录/端口释放、ADB同身份，无restore层。实际仅1 Root输入/0 Root PNG/1 controller PNG，临时overlay仍允许app写入；prepare的userData/release不冒作postrun保存导出。基线图已查看，仍为暗场，视觉未验。
+
+plan `800d802f…` 已经官方登记及独立185行/169计划读回，其余184行/168计划保持、validator0，doctor旧3E/57（54I）且232无blocking，未称全局通过。actual独审仅 `APPROVE_INPUT_ROUTING_OBSERVATION_ONLY`，报告SHA `2fae3155d3f81460a14f300838163503e909f31f083aeaa0660db86a302b776b`；Root postflight SHA `d5d15808cdac8316ec1ffcd9242a2363f3126d1ab1443979d9d51d101daf18df`。Source、Exact、实际观测分别留证，旧spent用例未重放。
+
+为后续合法玩法前置，主Operator交接了已封存的Mac2.4.0原生测试档，只读离线核对确认与Android基座均为global-v35、gzip/UTF8 JSON、save schema16/revision23485。原生文件内嵌五项Mod prefs，当前读取契约继续核对；尚未导入Android，未携带外部Mac sidecar或配置，不以codec相同预付身份恢复或保存链通过。PR263 Draft、#232/#262 OPEN；角色/FX/交易/保存及池必要验证继续，手机/多人/长期另记。过程与原件仅在本机G19 `resume-20261019/`，未提交游戏文件或原始日志。
