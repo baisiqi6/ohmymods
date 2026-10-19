@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ProductionPlan>../../il2cpp/ExtensionIslandMapResultPlan.cs</ProductionPlan>
+    <ProductionSplitPolicy>../../il2cpp/Patch_MountIslandSplitPolicy.cs</ProductionSplitPolicy>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(ProductionPlan)" Link="Production/ExtensionIslandMapResultPlan.cs" />
+    <Compile Include="$(ProductionSplitPolicy)" Link="Production/Patch_MountIslandSplitPolicy.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,51 @@
+{
+  "inputs": {
+    "il2cpp/ExtensionIslandMap.cs": "f5647580f77333d897e75cd699e069c5d99a2d37ada5f3a256b083f237fb0219",
+    "il2cpp/PatchExtensionIsland_MapResult.cs": "1d5994f090dbadd382923b720b07805fc1de69c5e213190bc52a8f0fd2a57454",
+    "il2cpp/ExtensionIslandMapResultPlan.cs": "b84b84b9abc003e69432d15a897c7a6dd3a02ca145367f8965b40d4ae14e4b17",
+    "tests/mount-island-map-result/Program.cs": "2fbffaba2d9a31c1a3ed04f8aa8ea11cbf6813899322c1e1795c651c23e0a0be"
+  },
+  "inputsStable": true,
+  "builds": [
+    {
+      "framework": "net6.0",
+      "command": [
+        "/Users/Admin/projects/ohmymods/.local/toolchains/dotnet10/dotnet",
+        "build",
+        "/Users/Admin/.codex/worktrees/mount-map-result-handoff-20261019/ohmymods/.local/issue270-worker/build/Issue270Overlay-net6.0.csproj",
+        "-c",
+        "Release",
+        "--no-restore",
+        "-p:NoDeploy=true",
+        "-p:BepInExPluginsPath=",
+        "-p:UseSharedCompilation=false",
+        "--nologo"
+      ],
+      "returncode": 0,
+      "output_tail": "  Issue270Overlay-net6.0 -> /Users/Admin/.codex/worktrees/mount-map-result-handoff-20261019/ohmymods/.local/issue270-worker/build/out-Issue270Overlay-net6.0/Release/net6.0/KingdomEnhancedMod.dll\n\n\u5df2\u6210\u529f\u751f\u6210\u3002\n    0 \u4e2a\u8b66\u544a\n    0 \u4e2a\u9519\u8bef\n\n\u5df2\u7528\u65f6\u95f4 00:00:03.58\n",
+      "artifact": "/Users/Admin/.codex/worktrees/mount-map-result-handoff-20261019/ohmymods/.local/issue270-worker/build/out-Issue270Overlay-net6.0/Release/net6.0/KingdomEnhancedMod.dll",
+      "sha256": "da4183e427a4292d14a84d9c3969986d24bd0fa48dbb29b69c8bed5b7c7ec6b8"
+    },
+    {
+      "framework": "net8.0",
+      "command": [
+        "/Users/Admin/projects/ohmymods/.local/toolchains/dotnet10/dotnet",
+        "build",
+        "/Users/Admin/.codex/worktrees/mount-map-result-handoff-20261019/ohmymods/.local/issue270-worker/build/Issue270Overlay-net8.0.csproj",
+        "-c",
+        "Release",
+        "--no-restore",
+        "-p:NoDeploy=true",
+        "-p:BepInExPluginsPath=",
+        "-p:UseSharedCompilation=false",
+        "--nologo"
+      ],
+      "returncode": 0,
+      "output_tail": "  Issue270Overlay-net8.0 -> /Users/Admin/.codex/worktrees/mount-map-result-handoff-20261019/ohmymods/.local/issue270-worker/build/out-Issue270Overlay-net8.0/Release/net8.0/KingdomEnhancedMod.dll\n\n\u5df2\u6210\u529f\u751f\u6210\u3002\n    0 \u4e2a\u8b66\u544a\n    0 \u4e2a\u9519\u8bef\n\n\u5df2\u7528\u65f6\u95f4 00:00:04.32\n",
+      "artifact": "/Users/Admin/.codex/worktrees/mount-map-result-handoff-20261019/ohmymods/.local/issue270-worker/build/out-Issue270Overlay-net8.0/Release/net8.0/KingdomEnhancedMod.dll",
+      "sha256": "7dc7ab1b5d812a0d1bda5e3a93fcf5bb0481b793a4a721a4282aee27273c6145"
+    }
+  ],
+  "Native": false,
+  "installed": false
+}
