@@ -113,6 +113,7 @@ namespace KingdomEnhancedMod
             try
             {
                 if (menu == null) return;
+                ExtensionIslandMapResult.Clear(menu);
                 if (AnySlotMenu(menu))
                 {
                     FixLookup(menu, false, false);
@@ -204,15 +205,29 @@ namespace KingdomEnhancedMod
 
                     if (action != ExtensionConfirmAction.Succeed) return true;
 
-                    // 原生阶段 2 成功：结果写该 tuple 的 physical（11/13）；音效/菜单字段与原生一致。
+                    // 原生只把 focusedLand 返回给调用者；landResult 不是实际出航结果。
+                    // UI 字段保持 UI 域，由本次 exact show 的完成边界交接 physical（11/13）。
                     if (!ExtensionIslandMapPlan.TryGetConfirmResultLand(landIndex, out int resultLand)) return true;
-                    menu.landResult = resultLand;
+                    menu.landResult = resultLand; // 保留原有辅助字段及其与音效的调用顺序。
                     AudioSource audio = menu.newIslandAudioSource;
                     if (audio != null && !audio.isPlaying) audio.Play();
                     Menu menuInst = Menu.InstExists ? Menu.Inst : null;
-                    if (menuInst != null) menuInst.menuBackoutAllowed = true;
                     Menu hide = menuInst != null ? menuInst : menu._menu;
-                    if (hide != null) hide.Hide();
+                    if (hide == null || !ExtensionIslandMapResult.TryArm(
+                        menu, hide, landIndex, resultLand, slot.WorldToken, slot.CampaignPointer,
+                        out object confirmationHandle)) return true;
+                    try
+                    {
+                        if (menuInst != null) menuInst.menuBackoutAllowed = true;
+                        hide.Hide();
+                        ExtensionIslandMapResult.AfterHide(menu, confirmationHandle);
+                    }
+                    catch
+                    {
+                        // Hide 可同步完成；只撤销尚未提交的票，不声称能回滚已消费结果。
+                        ExtensionIslandMapResult.Abort(menu, confirmationHandle);
+                        throw;
+                    }
                     return true;
                 }
 
