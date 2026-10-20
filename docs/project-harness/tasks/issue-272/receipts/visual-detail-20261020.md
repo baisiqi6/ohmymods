@@ -22,3 +22,17 @@ Source-only，基于 `d886565fbe2e4beb1df4eadd4fe05401ba70d3cf`；PR #273 仍 Dr
 私有raw locator：`.local/tasks/map-detail-visual-20261020/`；`palette/out/palette-receipt.json`、`palette/logs/`、`source/*-r2.log`、`root-build/product-*-r2.json/log`、`review-session/`及`worker-session/`公开模型事件。PNG原图、原始玩家数据/日志与interop不提交。复跑入口仍为现有 `tests/map-island-art-variants/Tests.csproj`、`tests/native-map-shore-art/ShoreArtTests.csproj`、`tests/native-map-runtime/VariantProbe.csproj`、`tests/mount-island-map/Tests.csproj`，构建使用任务私有bin/obj。
 
 实际native pointer别名、Unity ImageConversion、船/涟漪动画、详情剪影渲染未由本轮静态证据验收；Windows2.4.3、Android设备和联机不外推。A33仍用旧H候选只诊断剪影，不混入此视觉增量；新Source/Native身份与审查分别记录。
+
+## 登岛后冷重进复现（A33/A34，旧 H，2026-10-20）
+
+用户确认截图可能发生在首次成功登岛后，不能用未访问档缺记录解释。A34从唯一真实A30自然SaveQuit完整16文件重进，实际Loading→Playing11、8设施/8markers，随后原生UI打开第一岛详情，已截图复现无剪影；产品仍H/net6 `fa4c5f1b1b1e532985ede9556f33fa79ce07ca2fa0333de52314b0ce7643995a`，没有混入本PR船位/RGB增量。
+
+稳定详情snapshot3（worldState1/isAnimating=false）精确匹配当前tuple与view：8个clone、holder active、HiddenByNativeGate=false；8种position=0（实际枚举GemLocked），8份sprites[1]和最终Image.sprite均有效，图形enabled/activeInHierarchy=true、colorAlpha/rendererAlpha=1、cull=false。因此无坐骑记录、未提供锁定贴图、整体inactive/alpha0不是这一帧的解释。此处未证明坐标/裁剪/覆盖关系正确，也未定缺图根因。
+
+角点/bounds数据本次作废：诊断器把managed Vector3[4]隐式转成临时Il2CppStructArray，原生填临时数组后仍读原managed零数组。当前interop方法与Runtime隐式转换已独立核实，不能把全零当作产品几何；冻结H和PR的TryLocalBox直接从rect四角计算，没有同一GetCorners错误。后续应显式读取同一native数组，再取有效位置/clip证据；不改发现/解锁/历史凑显示。
+
+A33曾因新JSON快照被普通token parser误拒、错误收尾仍为cleanup而留下孤儿；保留失败原件，专门GLM5.3/max及Astra审核后只对精确原birth的PID21087一次SIGKILL，kernelGone，不冒称自然退出或同Popen reap。A34已修独立严格JSON分流、producer fallback身份、TryCast漏采及drain异常明确probe-invalid；Source worker48项、Root受影响9项（包括真实C#Builder正常/预算输出经实际Evidence.line回放）通过，helper/probe双TFM0W0E，阶段GLM与Astra分别留证。这些是测试工具验证，不是产品玩法通过。
+
+A34收尾点击在发事件前被前台检查拒绝，随后原saveexit300时限到达，原控制器精确KILL/reap为-9、cleared=true/stopPending=false，未遗留新孤儿；没有完成自然UI保存退出，不作合格存档父。两轮结束后完整normal closure均仍 `ec6453f57d93445c9168501ba7b69575684668e369e046a295099c8dcb360144`，正常DLL/存档/配置未改、未restore。历史A30 normal baseline与已知prefs/日志漂移单列保留。
+
+私有证据：`.local/tasks/mount32-fresh-validation-20261019/native-a33-mapdetail/a33-failure-closeout.json`、`native-a34-mapdetail/a34-result.json`、`captured-map-snapshots.json`、`final-evidence/`、`run-source/captures/a34-enter-detail.png`；静态interop证据在 `.local/tasks/map-detail-visual-20261020/native-ui/`。Source/Native审批、原始失败与运行凭据分别保留，不能复用已消耗A34窗口。PR273仍Draft，未合并/安装；boat/RGB的实际渲染仍待独立候选验收。

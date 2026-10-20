@@ -1,8 +1,6 @@
-## 2026-10-20 — #272 地图生命周期与详情视觉增量，剪影仍待隔离复现
+## 2026-10-20 — #272 已复现登岛后详情缺剪影，船位与配色仍待Native验收
 
-既有字典prior/last-owned归还、菜单重入及双岛独立贴图/pager修复保留。新增自有隐藏详情clone发布前的船/涟漪岸外初始化，以及两PNG仅RGB校色；岛形/尺寸/alpha/放置mask不变。数据原位status和普通事件固定key诊断替代初稿focus/Canvas/Mask观察器，不增加新tick扫描。阶段GLM5.3/max与独立R2复审通过；Root双TFM NoDeploy0W0E，Variant280/0、接线360/0、art96/0、shore101/0；RuntimeProbe39既有失败仍原样保留。见[视觉回执](tasks/issue-272/receipts/visual-detail-20261020.md)。
-
-A30热登岛与A32独立重进已实际恢复八设施/markers，并两次真实UI自然保存退出；已有fresh/pool日志、inactive source时钟末位差异及退出后默认进程仍使其不是完整clean验收。默认进程获用户许可后已结束，正常存档/Mod配置/DLL未变，偏好plist既有漂移未覆盖。用户确认剪影空白发生在成功登岛后，不能用出航前无地图记录解释本图；新A33只用旧H隔离候选取数据/可见性/裁切/层序事实，不混此视觉delta。#272开放、#273仍Draft，结合#271仍未合并安装。
+船/涟漪岸外初始化及两PNG仅RGB校色已通过Source审查/双TFM构建，PR273保持Draft、未合并安装。旧H的A34隔离冷重进已实际复现第一岛详情空白：8设施/8地图记录/8图标及锁定贴图均存在，稳定详情帧active/alpha正常。诊断器GetCorners的managed/native数组复制使坐标数据无效，尚不能定摆放/遮挡根因；不得据此改解锁或补历史。A33协议错误及A34受控超时退出原件保留，A34未完成自然保存退出、不作合格父；正常DLL/存档/配置与完整closure保持。详见[本轮记录](tasks/issue-272/receipts/visual-detail-20261020.md)。
 
 ## 2026-10-18 — Android 133面板实际打开/关闭，诊断收口；银行初始化与完整UI仍未通过
 
