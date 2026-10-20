@@ -615,6 +615,21 @@ internal static class Program
         Check(ensureBody.Contains("if (LookupDictStillCurrent(menu, lookupDict))") == false,
             "dict identity check gates publish on refusal path only");
 
+        // 详情船位：cache 重建之后（其扫描不含 inactive）→ 隐藏新 clone → 初始化 _ship → 才登记/发布。
+        int cacheAt = ensureBody.IndexOf("RebuildStaticIconCache(detailGo, detail);", StringComparison.Ordinal);
+        int hideAt = ensureBody.IndexOf("detailGo.SetActive(false);", StringComparison.Ordinal);
+        int shipAt = ensureBody.IndexOf("TryInitializeExtensionDetailShip(detail, physical)", StringComparison.Ordinal);
+        int callbackAt = ensureBody.IndexOf("AttachDetailCallback(pending)", StringComparison.Ordinal);
+        int addAt = ensureBody.IndexOf("lands.Add(detail);", StringComparison.Ordinal);
+        Check(cacheAt >= 0 && hideAt > cacheAt && shipAt > hideAt && callbackAt > shipAt && addAt > callbackAt,
+            "ship init sits after cache rebuild/hide and before callback/lands.Add");
+        int failedAt = ensureBody.IndexOf("MapMountIcons.DetailShipInit.Failed", StringComparison.Ordinal);
+        int failedReturn = failedAt >= 0 ? ensureBody.IndexOf("return;", failedAt, StringComparison.Ordinal) : -1;
+        Check(failedAt > shipAt && failedReturn > failedAt && failedReturn < callbackAt,
+            "unrecoverable ship write returns before registration (finally destroys unpublished clone)");
+        Check(CountOccurrences(source, "TryInitializeExtensionDetailShip(") == 1,
+            "ship init has exactly one production call site (detail clone only; templates/native untouched)");
+
         // OnLandsCleared：按账目归还，不再泛降级 9；poison/_generation 只在责任消解后清。
         string clearBody = ExtractMethodBody(source, "internal static void OnLandsCleared");
         Check(!clearBody.Contains("FixLookup("), "native-clear no longer degrades via FixLookup(false,false)");
@@ -680,6 +695,14 @@ internal static class Program
         string releaseBody = ExtractMethodBody(source, "private static bool ReleaseLookup");
         Check(releaseBody.Contains("if (generation.LookupUncertain)"),
             "release refuses to settle uncertain ledger as foreign");
+    }
+
+    private static int CountOccurrences(string source, string needle)
+    {
+        int count = 0;
+        for (int at = source.IndexOf(needle, StringComparison.Ordinal); at >= 0;
+            at = source.IndexOf(needle, at + needle.Length, StringComparison.Ordinal)) count++;
+        return count;
     }
 
     /// <summary>统计区间内的字典写调用次数（setter/remove/restore），零写断言用。</summary>

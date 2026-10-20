@@ -1,6 +1,8 @@
-## 2026-10-20 — #272 地图清理/详情代码完成，隔离实测待续
+## 2026-10-20 — #272 地图生命周期与详情视觉增量，剪影仍待隔离复现
 
-现有Generation保存字典prior和last-owned并按exact实例归还；详情贴图/pager改为各岛独立，移除互相归还与旧无账目降级。已独审菜单重入、旧attempt回滚/poison/tombstone与迟到点击边界；Root双TFM NoDeploy0W0E、357计划/接线、81真实方法故障、194/4/3UI通过。旧RuntimeProbe39失败与HEAD完全相同，未标全绿。A23完成结果交接但探针异常停进程，确切throw未知；新私有诊断保留全部成功门。#272保持Draft/未合并安装，结合#271的新case仍须8→11、八设施、保存退出与独立冷读；正常存档不动。见[#272复核](tasks/issue-272/receipts/verification.md)。
+既有字典prior/last-owned归还、菜单重入及双岛独立贴图/pager修复保留。新增自有隐藏详情clone发布前的船/涟漪岸外初始化，以及两PNG仅RGB校色；岛形/尺寸/alpha/放置mask不变。数据原位status和普通事件固定key诊断替代初稿focus/Canvas/Mask观察器，不增加新tick扫描。阶段GLM5.3/max与独立R2复审通过；Root双TFM NoDeploy0W0E，Variant280/0、接线360/0、art96/0、shore101/0；RuntimeProbe39既有失败仍原样保留。见[视觉回执](tasks/issue-272/receipts/visual-detail-20261020.md)。
+
+A30热登岛与A32独立重进已实际恢复八设施/markers，并两次真实UI自然保存退出；已有fresh/pool日志、inactive source时钟末位差异及退出后默认进程仍使其不是完整clean验收。默认进程获用户许可后已结束，正常存档/Mod配置/DLL未变，偏好plist既有漂移未覆盖。用户确认剪影空白发生在成功登岛后，不能用出航前无地图记录解释本图；新A33只用旧H隔离候选取数据/可见性/裁切/层序事实，不混此视觉delta。#272开放、#273仍Draft，结合#271仍未合并安装。
 
 ## 2026-10-18 — Android 133面板实际打开/关闭，诊断收口；银行初始化与完整UI仍未通过
 

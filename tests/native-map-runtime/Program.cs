@@ -740,6 +740,13 @@ namespace RuntimeProbe
             Console.WriteLine("== S11 extension detail layout ==");
             int[] types = { 21, 22, 23, 24, 25, 26, 13, 14, 15, 16, 2, 4, 7, 3, 38, 6 };
             Fixture f = BuildWorld(withExtension: true, steedCount: 16, types: types);
+            // producer 接线：clone 隐藏（未发布）时用真实 helper 初始化 _ship；随后恢复 fixture 可见态。
+            f.ExtensionDetail._ship = f.DetailBoat.gameObject;
+            f.ExtensionDetail.gameObject.SetActive(false);
+            MapMountIcons.DetailShipInit shipInit =
+                MapMountIcons.TryInitializeExtensionDetailShip(f.ExtensionDetail, 11);
+            f.ExtensionDetail.gameObject.SetActive(true);
+            Check(shipInit == MapMountIcons.DetailShipInit.Applied, "S11/detail-ship-init=" + shipInit);
             // bind 前核 actual 旧 art 中心 (-8,-4)（anchor0/pivot0/ap(25,30)/114×82，180×150 root）
             RectTransform preRect = f.ExtensionDetail.gameObject.GetComponent<RectTransform>();
             MapIconBox nativeArt = LandLocalBox(preRect, f.DetailLandImage.transform as RectTransform);
@@ -841,27 +848,39 @@ namespace RuntimeProbe
                 Check(false, "S11/shore-bindings-missing");
             }
 
-            // 精确 native detail boat 框（同一实际 fixture 的静态模板数值；不被任何绘制手挪）：
-            // page 空间（相对 root 中心）AABB[-64,2,-32,34] ⇔ root 左下 (26,77,58,109)，32×32@scale1。
+            // 船位初始化后不变量（原 native −48,18 中心会压在岛内）：保持 x/尺寸/scale，
+            // 完整 footprint 在 page 282×196 内且位于最终岸线 bbox 北侧水道之外。
             if (f.DetailBoat != null)
             {
-                MapIconBox boatRaw = LandLocalBox(detailRect, f.DetailBoat);
-                Check(Math.Abs(boatRaw.X0 - 26f) < 0.05f && Math.Abs(boatRaw.Y0 - 77f) < 0.05f &&
-                    Math.Abs(boatRaw.X1 - 58f) < 0.05f && Math.Abs(boatRaw.Y1 - 109f) < 0.05f,
-                    "S11/native-boat-box(26,77,58,109) got=" + Fmt(boatRaw));
+                RectTransform detailRoot = f.ExtensionDetail.gameObject.GetComponent<RectTransform>();
+                RectTransform shoreArt = f.DetailLandImage.transform as RectTransform;
+                MapIconBox shoreRaw = LandLocalBox(detailRoot, shoreArt);
+                MapIconBox boatRaw = LandLocalBox(detailRoot, f.DetailBoat);
+                float halfW = detailRoot.rect.width * 0.5f, halfH = detailRoot.rect.height * 0.5f;
+                MapIconBox shorePage = new MapIconBox(shoreRaw.X0 - halfW, shoreRaw.Y0 - halfH,
+                    shoreRaw.X1 - halfW, shoreRaw.Y1 - halfH);
+                MapIconBox boatPage = new MapIconBox(boatRaw.X0 - halfW, boatRaw.Y0 - halfH,
+                    boatRaw.X1 - halfW, boatRaw.Y1 - halfH);
+                float boatCenterX = (boatPage.X0 + boatPage.X1) * 0.5f;
+                float boatCenterY = (boatPage.Y0 + boatPage.Y1) * 0.5f;
                 Check(Math.Abs(f.DetailBoat.sizeDelta.x - 32f) < 1e-3f &&
                     Math.Abs(f.DetailBoat.sizeDelta.y - 32f) < 1e-3f &&
                     Math.Abs(f.DetailBoat.localScale.x - 1f) < 1e-4f &&
                     Math.Abs(f.DetailBoat.localScale.y - 1f) < 1e-4f,
-                    "S11/native-boat-32@scale1 size=" + f.DetailBoat.sizeDelta +
+                    "S11/detail-boat-size-scale-kept size=" + f.DetailBoat.sizeDelta +
                     " scale=" + f.DetailBoat.localScale);
-                MapIconBox boatPage = new MapIconBox(boatRaw.X0 - detailRect.rect.width * 0.5f,
-                    boatRaw.Y0 - detailRect.rect.height * 0.5f,
-                    boatRaw.X1 - detailRect.rect.width * 0.5f,
-                    boatRaw.Y1 - detailRect.rect.height * 0.5f);
-                Check(Math.Abs(boatPage.X0 + 64f) < 0.05f && Math.Abs(boatPage.Y0 - 2f) < 0.05f &&
-                    Math.Abs(boatPage.X1 + 32f) < 0.05f && Math.Abs(boatPage.Y1 - 34f) < 0.05f,
-                    "S11/native-boat-page(-64,2,-32,34) got=" + Fmt(boatPage));
+                Check(Math.Abs(boatCenterX + 48f) < 0.1f,
+                    "S11/detail-boat-keeps-native-x got=" + boatCenterX.ToString("0.###"));
+                Check(Math.Abs(boatCenterY - 58.3684f) < 0.1f,
+                    "S11/detail-boat-centerY got=" + boatCenterY.ToString("0.###"));
+                Check(boatPage.Y0 >= shorePage.Y1 + MapExtensionShapePlan.DetailWaterGap - 0.05f,
+                    "S11/detail-boat-above-shore boatY0=" + boatPage.Y0.ToString("0.###") +
+                    " shoreTop=" + shorePage.Y1.ToString("0.###"));
+                Check(boatPage.X0 >= -MapExtensionShapePlan.DetailPageHalfWidth - 0.05f &&
+                    boatPage.X1 <= MapExtensionShapePlan.DetailPageHalfWidth + 0.05f &&
+                    boatPage.Y0 >= -MapExtensionShapePlan.DetailPageHalfHeight - 0.05f &&
+                    boatPage.Y1 <= MapExtensionShapePlan.DetailPageHalfHeight + 0.05f,
+                    "S11/detail-boat-inside-page got=" + Fmt(boatPage));
             }
             else
             {

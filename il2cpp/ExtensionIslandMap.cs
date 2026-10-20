@@ -600,6 +600,17 @@ namespace KingdomEnhancedMod
                     UILand detail = detailGo.GetComponent<UILand>();
                     if (detail == null) return;
                     RebuildStaticIconCache(detailGo, detail);
+                    // 船位：clone 尚未登记/发布。缓存重建后再隐藏（其扫描不含 inactive），
+                    // 然后初始化自有 _ship 整棵子树（含 inactive 涟漪）；模板/native 一律不碰。
+                    // 不可读只保 native fallback；写后无法恢复 → 返回触发 finally 销毁本次未发布 clone。
+                    detailGo.SetActive(false);
+                    if (MapMountIcons.TryInitializeExtensionDetailShip(detail, physical)
+                        == MapMountIcons.DetailShipInit.Failed)
+                    {
+                        LogOnce("ship-init-" + physical,
+                            "detail ship init failed with unrecoverable transform; unpublished clone rollback");
+                        return;
+                    }
                     // 不可导航的 UI 不登记（回滚）：回调捕获 immutable Registration（含 detail token）。
                     var pending = new Registration
                     {

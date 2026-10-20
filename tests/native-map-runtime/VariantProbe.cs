@@ -472,13 +472,403 @@ namespace RuntimeProbe
             Check(MapExtensionIslandArt.LeaseCount == 0, "disable releases all leases");
         }
 
+        // ---------------------------------------------------------------- detail ship + 缺剪影诊断
+
+        private static RectTransform ChildRect(string name, RectTransform parent, Vector2 size)
+        {
+            var go = new GameObject(name);
+            RectTransform rect = (RectTransform)go.transform;
+            rect.SetParent(parent, false);
+            rect.sizeDelta = size;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            return rect;
+        }
+
+        /// <summary>真实 detail clone 形状（root 180×150 位于带缩放的父级；Map Icons→Generic→Boat Icon）。</summary>
+        private static UILand ShipLand(float genericScale, out RectTransform boat, out RectTransform ripple)
+        {
+            var land = new GameObject("detail ship clone").AddComponent<UILand>();
+            RectTransform root = (RectTransform)land.transform;
+            root.sizeDelta = new Vector2(180f, 150f);
+            root.pivot = new Vector2(0.5f, 0.5f);
+            root.anchorMin = new Vector2(0.5f, 0.5f);
+            root.anchorMax = new Vector2(0.5f, 0.5f);
+            var holderGo = new GameObject("detail holder");
+            RectTransform holder = (RectTransform)holderGo.transform;
+            holder.sizeDelta = new Vector2(320f, 320f);
+            holder.localPosition = new Vector3(37f, -51f, 0f);
+            holder.localScale = new Vector3(2f, 2f, 1f);
+            root.SetParent(holder, false);
+            root.localPosition = new Vector3(11f, -7f, 0f);
+
+            RectTransform icons = ChildRect("Map Icons", root, Vector2.zero);
+            RectTransform generic = ChildRect("Generic", icons, Vector2.zero);
+            generic.localScale = new Vector3(genericScale, genericScale, 1f);
+            boat = ChildRect("Boat Icon", generic, new Vector2(32f, 32f));
+            boat.anchoredPosition = new Vector2(-48.0000114f, 18.0000114f);
+            boat.gameObject.AddComponent<Image>().sprite = new Sprite { name = "map_boat_0" };
+            ripple = ChildRect("Ripple", boat, new Vector2(32f, 32f));
+            ripple.gameObject.AddComponent<Image>();
+            ripple.gameObject.SetActive(false);   // 原生涟漪可处于 inactive：footprint 仍须计入
+            land._ship = boat.gameObject;
+            land.gameObject.SetActive(false);     // producer 在 RebuildStaticIconCache 后先隐藏
+            return land;
+        }
+
+        private static MapIconBox ShipFootprint(UILand land)
+        {
+            object[] args = { (RectTransform)land.transform, (RectTransform)land._ship.transform, null };
+            Check((bool)Call("TryMeasureShipFootprint", args), "ship footprint readable");
+            return (MapIconBox)args[2];
+        }
+
+        private static MapMountIcons.DetailShipInit InitShip(UILand land, int physical)
+            => (MapMountIcons.DetailShipInit)Call("TryInitializeExtensionDetailShip", land, physical);
+
+        private static MapIconBox DetailFrame(int physical)
+        {
+            Check(MapExtensionIslandArt.TryEnsure(physical), "ship art ready " + physical);
+            Sprite shore = MapExtensionIslandArt.ShoreFor(physical);
+            Check(shore != null, "ship shore " + physical);
+            float aspect = shore.rect.width / shore.rect.height;
+            Check(MapExtensionShapePlan.TryPlanDetailBox(MapExtensionShapePlan.DetailPageHalfWidth,
+                MapExtensionShapePlan.DetailLegendRight, MapExtensionShapePlan.DetailWaterGap,
+                MapExtensionShapePlan.DetailMaxWidth, aspect, MapExtensionShapePlan.DetailCenterY,
+                out MapIconBox frame, out _), "ship frame plan " + physical);
+            return frame;
+        }
+
+        private static void ShipPlacement(int physical, float genericScale, string tag)
+        {
+            MapIconBox frame = DetailFrame(physical);
+            UILand land = ShipLand(genericScale, out RectTransform boat, out _);
+            RectTransform root = (RectTransform)land.transform;
+            Rect rootSize = root.rect;
+            MapIconBox before = ShipFootprint(land);
+            float beforeCenterX = (before.X0 + before.X1) * 0.5f - rootSize.width * 0.5f;
+            Vector2 sizeBefore = boat.sizeDelta;
+            Vector3 scaleBefore = boat.localScale;
+            Quaternion rotationBefore = boat.localRotation;
+            int subtreeBefore = boat.GetComponentsInChildren<RectTransform>(true).Length;
+
+            Check(InitShip(land, physical) == MapMountIcons.DetailShipInit.Applied, tag + "/applied");
+            MapIconBox after = ShipFootprint(land);
+            float x0 = after.X0 - rootSize.width * 0.5f;
+            float x1 = after.X1 - rootSize.width * 0.5f;
+            float y0 = after.Y0 - rootSize.height * 0.5f;
+            float y1 = after.Y1 - rootSize.height * 0.5f;
+            float centerX = (x0 + x1) * 0.5f;
+            float centerY = (y0 + y1) * 0.5f;
+            float expectedCenterY = frame.Y1 + MapExtensionShapePlan.DetailWaterGap + after.Height * 0.5f;
+            Check(Math.Abs(centerY - expectedCenterY) < 0.06f,
+                tag + "/centerY=" + centerY.ToString("0.###") + " expected=" + expectedCenterY.ToString("0.###"));
+            Check(Math.Abs(centerX - beforeCenterX) < 0.01f,
+                tag + "/keeps-x=" + centerX.ToString("0.###") + " before=" + beforeCenterX.ToString("0.###"));
+            Check(y0 >= frame.Y1 + MapExtensionShapePlan.DetailWaterGap - 0.05f,
+                tag + "/above-shore y0=" + y0.ToString("0.###") + " shoreTop=" + frame.Y1.ToString("0.###"));
+            Check(x0 >= -MapExtensionShapePlan.DetailPageHalfWidth - 0.05f &&
+                x1 <= MapExtensionShapePlan.DetailPageHalfWidth + 0.05f &&
+                y0 >= -MapExtensionShapePlan.DetailPageHalfHeight - 0.05f &&
+                y1 <= MapExtensionShapePlan.DetailPageHalfHeight + 0.05f,
+                tag + "/inside-page x=" + x0.ToString("0.#") + ".." + x1.ToString("0.#") +
+                " y=" + y0.ToString("0.#") + ".." + y1.ToString("0.#"));
+            Check(Math.Abs(boat.sizeDelta.x - sizeBefore.x) < 1e-6f &&
+                Math.Abs(boat.sizeDelta.y - sizeBefore.y) < 1e-6f &&
+                Math.Abs(boat.localScale.x - scaleBefore.x) < 1e-6f &&
+                Math.Abs(boat.localScale.y - scaleBefore.y) < 1e-6f &&
+                boat.localRotation.Equals(rotationBefore) &&
+                boat.GetComponentsInChildren<RectTransform>(true).Length == subtreeBefore,
+                tag + "/size-scale-rotation-subtree-unchanged");
+
+            // 重复初始化（同 clone 同规划）不漂移。
+            Check(InitShip(land, physical) == MapMountIcons.DetailShipInit.Applied, tag + "/reapplied");
+            MapIconBox again = ShipFootprint(land);
+            Check(Math.Abs((again.Y0 + again.Y1) * 0.5f - (after.Y0 + after.Y1) * 0.5f) < 0.01f &&
+                Math.Abs((again.X0 + again.X1) * 0.5f - (after.X0 + after.X1) * 0.5f) < 0.01f,
+                tag + "/idempotent");
+        }
+
+        private static bool SameBox(in MapIconBox a, in MapIconBox b)
+            => Math.Abs(a.X0 - b.X0) < 0.01f && Math.Abs(a.Y0 - b.Y0) < 0.01f &&
+               Math.Abs(a.X1 - b.X1) < 0.01f && Math.Abs(a.Y1 - b.Y1) < 0.01f;
+
+        private static void ShipFallbacks()
+        {
+            MapExtensionIslandArt.TryEnsure(11);
+
+            // 已激活 clone（已发布/未隐藏）：绝不写。
+            UILand active = ShipLand(1f, out RectTransform activeBoat, out _);
+            active.gameObject.SetActive(true);
+            MapIconBox activeBefore = ShipFootprint(active);
+            Check(InitShip(active, 11) == MapMountIcons.DetailShipInit.Unavailable, "ship/active-refused");
+            Check(SameBox(activeBefore, ShipFootprint(active)), "ship/active-untouched");
+
+            // _ship 不是本 clone 后代：外部对象 transform 原样。
+            UILand externalLand = ShipLand(1f, out _, out _);
+            var external = new GameObject("external boat").AddComponent<RectTransform>();
+            external.sizeDelta = new Vector2(32f, 32f);
+            Vector3 externalLocal = external.localPosition;
+            externalLand._ship = external.gameObject;
+            Check(InitShip(externalLand, 11) == MapMountIcons.DetailShipInit.Unavailable, "ship/external-refused");
+            Check(external.localPosition.Equals(externalLocal), "ship/external-untouched");
+
+            // 缺失 _ship：诊断 + 不阻断，clone transform 不变。
+            UILand missing = ShipLand(1f, out _, out _);
+            missing._ship = null;
+            Check(InitShip(missing, 11) == MapMountIcons.DetailShipInit.Unavailable, "ship/missing-refused");
+
+            // 完整 footprint 无法同时满足岸线外 + page 内：不写。
+            UILand tooBig = ShipLand(1f, out RectTransform bigBoat, out _);
+            RectTransform huge = ChildRect("Huge Ripple", bigBoat, new Vector2(400f, 400f));
+            huge.gameObject.AddComponent<Image>();
+            huge.gameObject.SetActive(false);
+            MapIconBox tooBigBefore = ShipFootprint(tooBig);
+            Check(InitShip(tooBig, 11) == MapMountIcons.DetailShipInit.Unavailable, "ship/infeasible-refused");
+            Check(SameBox(tooBigBefore, ShipFootprint(tooBig)), "ship/infeasible-untouched");
+
+            // 该 physical 没有岸线资源：保 native fallback。
+            UILand noArt = ShipLand(1f, out RectTransform noArtBoat, out _);
+            Vector3 noArtLocal = noArtBoat.localPosition;
+            Check(InitShip(noArt, 12) == MapMountIcons.DetailShipInit.Unavailable, "ship/no-art-refused");
+            Check(noArtBoat.localPosition.Equals(noArtLocal), "ship/no-art-untouched");
+
+            // 写后抛异常但恢复成功 → Unavailable，原 transform 精确恢复；随后正常调用可应用。
+            UILand recover = ShipLand(1f, out RectTransform recoverBoat, out _);
+            MapIconBox recoverBefore = ShipFootprint(recover);
+            Vector3 recoverLocal = recoverBoat.localPosition;
+            recoverBoat.ThrowAfterLocalPositionSet = true;
+            Check(InitShip(recover, 11) == MapMountIcons.DetailShipInit.Unavailable, "ship/write-restored");
+            Check(recoverBoat.localPosition.Equals(recoverLocal), "ship/write-restored-exact");
+            Check(SameBox(recoverBefore, ShipFootprint(recover)), "ship/write-restored-footprint");
+            Check(InitShip(recover, 11) == MapMountIcons.DetailShipInit.Applied, "ship/retry-after-write-fault");
+
+            // 写与恢复都失败 → Failed（调用方销毁未发布 clone）。
+            UILand broken = ShipLand(1f, out RectTransform brokenBoat, out _);
+            Vector3 brokenLocal = brokenBoat.localPosition;
+            brokenBoat.ThrowOnLocalPositionSet = true;
+            Check(InitShip(broken, 11) == MapMountIcons.DetailShipInit.Failed, "ship/unrecoverable-failed");
+            brokenBoat.ThrowOnLocalPositionSet = false;
+            Check(brokenBoat.localPosition.Equals(brokenLocal), "ship/unrecoverable-untouched");
+
+            // 写前 getter 异常：完整 preflight catch → Unavailable，零写。
+            UILand getter = ShipLand(1f, out RectTransform getterBoat, out _);
+            Vector3 getterLocal = getterBoat.localPosition;
+            getterBoat.ThrowOnLocalPositionGet = true;
+            Check(InitShip(getter, 11) == MapMountIcons.DetailShipInit.Unavailable, "ship/preflight-getter-fault");
+            getterBoat.ThrowOnLocalPositionGet = false;
+            Check(getterBoat.localPosition.Equals(getterLocal), "ship/preflight-getter-untouched");
+
+            // NaN 图形：逐角 finite 拒测（不能只看 union）。
+            UILand nan = ShipLand(1f, out RectTransform nanBoat, out _);
+            Vector3 nanLocal = nanBoat.localPosition;
+            nanBoat.sizeDelta = new Vector2(float.NaN, 32f);
+            Check(InitShip(nan, 11) == MapMountIcons.DetailShipInit.Unavailable, "ship/nan-refused");
+            Check(nanBoat.localPosition.Equals(nanLocal), "ship/nan-untouched");
+
+            // Inf 父级变换：转换/bbox 非有限 → Unavailable，零写。
+            UILand inf = ShipLand(1f, out RectTransform infBoat, out _);
+            Vector3 infLocal = infBoat.localPosition;
+            ((RectTransform)infBoat.parent).localPosition = new Vector3(float.PositiveInfinity, 0f, 0f);
+            Check(InitShip(inf, 11) == MapMountIcons.DetailShipInit.Unavailable, "ship/inf-refused");
+            Check(infBoat.localPosition.Equals(infLocal), "ship/inf-untouched");
+
+            // 静默忽略写：验证失败且 restore 读回原值 → Unavailable（绝不声称 Applied）。
+            UILand silent = ShipLand(1f, out RectTransform silentBoat, out _);
+            Vector3 silentLocal = silentBoat.localPosition;
+            silentBoat.SilentLocalPositionSet = true;
+            Check(InitShip(silent, 11) == MapMountIcons.DetailShipInit.Unavailable, "ship/silent-setter-refused");
+            silentBoat.SilentLocalPositionSet = false;
+            Check(silentBoat.localPosition.Equals(silentLocal), "ship/silent-setter-untouched");
+
+            // restore 读回异常 → Failed（调用方销毁未发布 clone）。
+            UILand readback = ShipLand(1f, out RectTransform readbackBoat, out _);
+            readbackBoat.ThrowAfterLocalPositionSet = true;
+            readbackBoat.ThrowOnLocalPositionGetAfterSet = true;
+            Check(InitShip(readback, 11) == MapMountIcons.DetailShipInit.Failed, "ship/restore-readback-throw");
+            readbackBoat.ThrowAfterLocalPositionSet = false;
+            readbackBoat.ThrowOnLocalPositionGetAfterSet = false;
+
+            // restore 读回 scale 不一致 → Failed，且绝不重写 scale 伪装恢复。
+            UILand drift = ShipLand(1f, out RectTransform driftBoat, out _);
+            Vector3 driftScale = driftBoat.localScale;
+            driftBoat.ScaleDriftOnLocalPositionSet = true;
+            Check(InitShip(drift, 11) == MapMountIcons.DetailShipInit.Failed, "ship/restore-scale-mismatch");
+            driftBoat.ScaleDriftOnLocalPositionSet = false;
+            Check(Math.Abs(driftBoat.localScale.x - driftScale.x) > 0.5f, "ship/scale-not-falsely-restored");
+        }
+
+        private static bool LogsContain(string needle)
+            => KingdomEnhancedPlugin.Instance.LogSource.Lines.Exists(line => line.Contains(needle));
+
+        private static int LogsCount(string needle)
+            => KingdomEnhancedPlugin.Instance.LogSource.Lines.FindAll(line => line.Contains(needle)).Count;
+
+        /// <summary>仅测试：清空 MapIconLog.Once 的 key 集与桩日志，保证 Once 断言可重复。</summary>
+        private static void ResetDetailLogs()
+        {
+            Type logType = typeof(MapMountIcons).GetNestedType("MapIconLog", BindingFlags.NonPublic);
+            var keys = logType != null
+                ? (HashSet<string>)logType.GetField("Keys", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null)
+                : null;
+            keys?.Clear();
+            KingdomEnhancedPlugin.Instance.LogSource.Lines.Clear();
+        }
+
+        private sealed class ReadFacts
+        {
+            internal bool Ok;
+            internal MapMountIcons.LandReadStatus Status;
+            internal int DataCount, Steed, Hermit, Statue;
+        }
+
+        private static ReadFacts ReadWithStatus(CampaignSaveData.ReignInfo reign, int land)
+        {
+            object[] args = { reign, land, 0, 0, 0, null, 0 };
+            var facts = new ReadFacts { Ok = (bool)Call("TryReadLandWithStatus", args) };
+            facts.Status = (MapMountIcons.LandReadStatus)args[5];
+            facts.DataCount = (int)args[6];
+            facts.Steed = (int)args[2];
+            facts.Hermit = (int)args[3];
+            facts.Statue = (int)args[4];
+            return facts;
+        }
+
+        private static void ReadStatuses()
+        {
+            ReadFacts f = ReadWithStatus(null, 13);
+            Check(!f.Ok && f.Status == MapMountIcons.LandReadStatus.NullReign && f.DataCount == -1,
+                "read-status/null-reign " + f.Status + "/" + f.DataCount);
+            var reign = new CampaignSaveData.ReignInfo();
+            reign.landData = null;
+            f = ReadWithStatus(reign, 13);
+            Check(!f.Ok && f.Status == MapMountIcons.LandReadStatus.NullLandData && f.DataCount == -1,
+                "read-status/null-list " + f.Status);
+            reign.landData = new Il2CppSystem.Collections.Generic.List<CampaignSaveData.LandMapData>();
+            f = ReadWithStatus(reign, 13);
+            Check(!f.Ok && f.Status == MapMountIcons.LandReadStatus.LandOutOfRange && f.DataCount == 0,
+                "read-status/out-of-range " + f.Status + "/" + f.DataCount);
+            while (reign.landData.Count <= 13) reign.landData.Add(new CampaignSaveData.LandMapData());
+            reign.landData[13] = null;
+            f = ReadWithStatus(reign, 13);
+            Check(!f.Ok && f.Status == MapMountIcons.LandReadStatus.NullEntry && f.DataCount == 14,
+                "read-status/null-entry " + f.Status + "/" + f.DataCount);
+            reign.landData[13] = new CampaignSaveData.LandMapData();
+            f = ReadWithStatus(reign, 13);
+            Check(f.Ok && f.Status == MapMountIcons.LandReadStatus.SuccessEmpty && f.DataCount == 14 &&
+                f.Steed == 0 && f.Hermit == 0 && f.Statue == 0, "read-status/success-empty " + f.Status);
+            reign.landData[13].steedSpawns = Steeds(14);
+            f = ReadWithStatus(reign, 13);
+            Check(f.Ok && f.Status == MapMountIcons.LandReadStatus.Success && f.Steed == 1,
+                "read-status/success " + f.Status + " counts=" + f.Steed);
+            object[] legacy = { reign, 13, 0, 0, 0 };
+            Check((bool)Call("TryReadLand", legacy) && (int)legacy[2] == 1,
+                "read-status/legacy-wrapper-unchanged");
+            var faulted = new Il2CppSystem.Collections.Generic.List<CampaignSaveData.LandMapData>();
+            faulted.ThrowCount = true;
+            reign.landData = faulted;
+            f = ReadWithStatus(reign, 13);
+            Check(!f.Ok && f.Status == MapMountIcons.LandReadStatus.ReadFault && f.DataCount == -1,
+                "read-status/read-fault " + f.Status);
+            faulted.ThrowCount = false;
+        }
+
+        private static void DetailDiagnostics()
+        {
+            ReadStatuses();
+            ResetDetailLogs();
+            Pair p = NewPair();
+            Bind(p, p.B);
+            p.Menu._openWorldMapState = MapTimelineMenuGreece.OpenWorldMapState.ShowingSingleIsland;
+
+            // 当次 success-empty：logs data=SuccessEmpty/counts/requests，且 Once 只写一次。
+            var data = new Il2CppSystem.Collections.Generic.List<CampaignSaveData.LandMapData>();
+            while (data.Count <= 13) data.Add(new CampaignSaveData.LandMapData());
+            p.Reign.landData = data;
+            MapMountIcons.OnLandUpdated(p.B, 11, p.Reign);
+            Check(LogsContain("reason=empty") && LogsContain("data=SuccessEmpty") &&
+                LogsContain("counts=0/0/0") && LogsContain("requests=0"), "diag/empty-facts");
+            int emptyLines = LogsCount("reason=empty");
+            MapMountIcons.OnLandUpdated(p.B, 11, p.Reign);
+            Check(LogsCount("reason=empty") == emptyLines, "diag/once-per-key");
+            Check(emptyLines == 1, "diag/empty-once lines=" + emptyLines);
+
+            // 非空但 requests=0（source 缺失）与读取失败 unknown。
+            data[13].steedSpawns = Steeds(14);
+            Func<UILand, int, int, UIMapIcon> resolver = MapIconSources.Resolver;
+            MapIconSources.Resolver = null;
+            MapMountIcons.OnLandUpdated(p.B, 11, p.Reign);
+            Check(LogsContain("reason=no-requests") && LogsContain("data=Success") &&
+                LogsContain("counts=1/0/0") && LogsContain("requests=0") && LogsContain("sources=0"),
+                "diag/no-requests-facts");
+            MapIconSources.Resolver = resolver;
+
+            MapMountIcons.OnLandUpdated(p.B, 11, null);
+            Check(LogsContain("reason=no-reign") && LogsContain("data=NullReign") &&
+                LogsContain("counts=unknown") && LogsContain("requests=unknown") &&
+                LogsContain("dataCount=unknown"), "diag/read-failure-unknown");
+            int noReignLines = LogsCount("reason=no-reign");
+            MapMountIcons.OnLandUpdated(p.B, 11, null);
+            Check(LogsCount("reason=no-reign") == noReignLines && noReignLines == 1,
+                "diag/read-failure-once lines=" + noReignLines);
+
+            // Feature OFF：不读数据时明确 unknown，不冒充 0。
+            ModConfig.CrossWorldMountsEnabled.Value = false;
+            MapMountIcons.OnLandUpdated(p.B, 11, p.Reign);
+            Check(LogsContain("reason=feature-off") && LogsContain("data=Unknown") &&
+                LogsContain("counts=unknown"), "diag/feature-off-facts");
+            ModConfig.CrossWorldMountsEnabled.Value = true;
+
+            // 简单 holder 事实：present/inactive/inHierarchy/hiddenGate；不扫 parent/Canvas/Mask。
+            var holder = new GameObject("KEM_MapResourceIcons");
+            holder.transform.SetParent(p.B.transform, false);
+            holder.SetActive(false);
+            var view = new MapMountIconView { Land = p.B, LandIndex = 13, Holder = holder, HiddenByNativeGate = true };
+            Call("DiagnoseDetail", p.Menu, p.B, 13, 11, "holder-test", p.Reign, view,
+                MapMountIcons.LandReadStatus.Success, 1, 0, 0, 1, 1, 14);
+            Check(LogsContain("reason=holder-test") && LogsContain("holder=present") &&
+                LogsContain("active=false") && LogsContain("inHierarchy=false") &&
+                LogsContain("hiddenGate=true"), "diag/holder-facts");
+            Call("DiagnoseDetail", p.Menu, p.B, 13, 11, "holder-none-test", p.Reign, null,
+                MapMountIcons.LandReadStatus.Unknown, -1, -1, -1, -1, -1, -1);
+            Check(LogsContain("reason=holder-none-test") && LogsContain("view=absent") &&
+                LogsContain("holder=unknown"), "diag/holder-unknown");
+
+            p.Menu.OnDisable();
+            ModConfig.CrossWorldMountsEnabled.Value = true;
+        }
+
+        private static void ShipPlanner()
+        {
+            Check(MapExtensionShapePlan.TryPlanDetailShip(MapExtensionShapePlan.DetailPageHalfWidth,
+                    MapExtensionShapePlan.DetailPageHalfHeight, 38.36842f, MapExtensionShapePlan.DetailWaterGap,
+                    16f, 16f, -48f, out float centerY) && Math.Abs(centerY - 58.36842f) < 1e-3f,
+                "ship-plan/known-center=" + centerY.ToString("0.#####"));
+            Check(!MapExtensionShapePlan.TryPlanDetailShip(141f, 98f, 38.36842f, 4f, 16f, 60f, -48f, out _),
+                "ship-plan/page-height-rejected");
+            Check(!MapExtensionShapePlan.TryPlanDetailShip(141f, 98f, 38.36842f, 4f, 30f, 16f, 130f, out _),
+                "ship-plan/page-width-rejected");
+            Check(!MapExtensionShapePlan.TryPlanDetailShip(141f, 98f, float.NaN, 4f, 16f, 16f, -48f, out _),
+                "ship-plan/nan-rejected");
+            Check(!MapExtensionShapePlan.TryPlanDetailShip(141f, 98f, 38.36842f, -1f, 16f, 16f, -48f, out _),
+                "ship-plan/negative-gap-rejected");
+            Check(!MapExtensionShapePlan.TryPlanDetailShip(float.PositiveInfinity, 98f, 38.36842f, 4f, 16f, 16f, -48f, out _),
+                "ship-plan/inf-page-rejected");
+            Check(!MapExtensionShapePlan.TryPlanDetailShip(141f, 98f, 38.36842f, float.PositiveInfinity, 16f, 16f, -48f, out _),
+                "ship-plan/inf-gap-rejected");
+            Check(!MapExtensionShapePlan.TryPlanDetailShip(141f, 98f, float.MaxValue, 4f, 16f, 16f, -48f, out _),
+                "ship-plan/overflow-rejected");
+        }
+
         public static int Main(string[] args)
         {
             try
             {
                 if (Array.IndexOf(args, "--missing-b") >= 0) MissingB();
                 else if (Array.IndexOf(args, "--callback-only") >= 0) CallbackOnly();
-                else { CrossLand(); BrokenPair(false); BrokenPair(true); CallbackOnly(); PagerFault(false); PagerFault(true); Planning(); SecondSpriteFailure(); DualPrepare(); WorldPrebuildPagers(); }
+                else { CrossLand(); BrokenPair(false); BrokenPair(true); CallbackOnly(); PagerFault(false); PagerFault(true); Planning(); SecondSpriteFailure(); DualPrepare(); WorldPrebuildPagers(); ShipPlanner(); ShipPlacement(11, 1f, "ship/A"); ShipPlacement(13, 1.4f, "ship/B-scaled"); ShipFallbacks(); DetailDiagnostics(); }
                 Console.WriteLine("PASS variant runtime checks=" + checks); return 0;
             }
             catch (Exception e) { Console.WriteLine("FAIL checks=" + checks + " " + e); return 1; }

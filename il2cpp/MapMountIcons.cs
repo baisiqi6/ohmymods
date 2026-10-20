@@ -170,8 +170,6 @@ namespace KingdomEnhancedMod
         private static long _worldGateStamp = long.MinValue;
         private static WorldGateMemo _worldGateFailed;          // 失败 memo（同 tuple 才跳过 hide/retry）
         private const int WorldGateMaxFrames = 120;   // 自有有界超时（scroll 永不稳定也必须 fail-open）
-        /// <summary>detail 岸线垂直中心（相对 land 中心；保留旧 shore 的 −4 锚点，页域 ±93 内且与 legend 分离）。</summary>
-        private const float DetailShapeCenterY = -4f;
         private static bool _nativeRefreshActive;                  // 同步重入门
         private static int _nativeRefreshAttemptedVersion = -1;    // 每几何版本至多一次刷新尝试
 
@@ -428,6 +426,7 @@ namespace KingdomEnhancedMod
             try
             {
                 if (land == null || landIndex < 0) return;
+                int incomingUi = landIndex;
 
                 bool iconsEnabled = FeatureEnabled();
 
@@ -448,6 +447,11 @@ namespace KingdomEnhancedMod
                 {
                     // 非本菜单/未知 owner：icons OFF 且缓存几何也不再需要时完整还原（与旧 OFF 清理一致）；
                     // 必需几何（current/visited11 注册扩展）在生效时**不**被这里的 Teardown 撤回。
+                    if (TryGetRegisteredExtensionIndex(land, out int orphanPhysical))
+                    {
+                        DiagnoseDetail(menu, land, orphanPhysical, incomingUi, "owner-missing", reign, null,
+                            LandReadStatus.Unknown, -1, -1, -1, -1, -1, -1);
+                    }
                     if (OwnerIsCurrent(menu) &&
                         MapOverviewLifecycle.ShouldTeardownOnForeignLand(iconsEnabled, CachedExtensionGeometryRequired()))
                     {
@@ -475,11 +479,21 @@ namespace KingdomEnhancedMod
 
                 if (action == MapOverviewAction.Teardown)
                 {
+                    if (!overview && extensionScope)
+                    {
+                        DiagnoseDetail(menu, land, landIndex, incomingUi, "teardown", reign, FindView(land, false),
+                            LandReadStatus.Unknown, -1, -1, -1, -1, -1, -1);
+                    }
                     if (OwnerIsCurrent(menu)) Teardown(menu);
                     return;
                 }
                 if (action == MapOverviewAction.LayoutWithoutIcons)
                 {
+                    if (!overview && extensionScope)
+                    {
+                        DiagnoseDetail(menu, land, landIndex, incomingUi, "feature-off", reign, FindView(land, false),
+                            LandReadStatus.Unknown, -1, -1, -1, -1, -1, -1);
+                    }
                     if (!OwnerIsCurrent(menu)) return;
                     // icons 关闭：撤自有 holder + 归还原生槽（不得借必要 layout 继续画 disabled 资源）；
                     // 但保留扩展地图必需几何（底部带 + 原 10 统一 shift + 真实 paper/mask），供恢复/返航。
@@ -532,6 +546,8 @@ namespace KingdomEnhancedMod
                 {
                     // A failed pair cannot authorize cached icons or a pager on the old shore.
                     // Retry only on the next ordinary data callback; keep other lands untouched.
+                    DiagnoseDetail(menu, land, landIndex, incomingUi, "shape-fail", reign, view,
+                        LandReadStatus.Unknown, -1, -1, -1, -1, -1, -1);
                     DestroyHolder(view);
                     return;
                 }
@@ -539,10 +555,16 @@ namespace KingdomEnhancedMod
                 // 只用当次 reign：不可用（null / 越界 / entry null）即失效并清掉该 land 旧自有显示，
                 // 但 ON+owned 期间**不归还**原生资源槽的接管责任：若此刻还原，原生 _spawnedIcon 会带着
                 // 上一历史 reign 的旧 type 回显（R1 缺陷 3 的第三条路径）。数据不可用 ≠ 原生云层门。
-                if (!TryReadLand(reign, landIndex, out int steedCount, out int hermitCount, out int statueCount))
+                if (!TryReadLandWithStatus(reign, landIndex, out int steedCount, out int hermitCount,
+                        out int statueCount, out LandReadStatus readStatus, out int dataCount))
                 {
                     MapMountIconView stale = EnsureView(view, land, landIndex, overview);
                     SuppressNativeDynamicIcons(land, stale);
+                    if (!overview)
+                    {
+                        DiagnoseDetail(menu, land, landIndex, incomingUi, ReadStatusReason(readStatus), reign, stale,
+                            readStatus, -1, -1, -1, -1, -1, dataCount);
+                    }
                     DestroyHolder(stale);
                     stale.HiddenByNativeGate = false;
                     return;
@@ -581,6 +603,8 @@ namespace KingdomEnhancedMod
                 if (view.Holder == null && view.FailedFingerprint == fingerprint &&
                     view.LayoutVersion == _overviewGeometryVersion)
                 {
+                    DiagnoseDetail(menu, land, landIndex, incomingUi, "failed-fallback", reign, view,
+                        readStatus, steedCount, hermitCount, statueCount, requests.Count, sources.Count, dataCount);
                     RestoreSuppressed(view);
                     return;
                 }
@@ -601,6 +625,8 @@ namespace KingdomEnhancedMod
                 if (view.Holder != null && view.Fingerprint == fingerprint && view.Icons.Count == requests.Count &&
                     (!overview || view.LayoutVersion == _overviewGeometryVersion))
                 {
+                    DiagnoseDetail(menu, land, landIndex, incomingUi, "holder-fastpath", reign, view,
+                        readStatus, steedCount, hermitCount, statueCount, requests.Count, sources.Count, dataCount);
                     Repaint(view, landIndex, reign);
                     return;
                 }
@@ -608,12 +634,16 @@ namespace KingdomEnhancedMod
                 if (requests.Count == 0)
                 {
                     // 合法空集：只清自有图根/fingerprint；原生槽保持压制（还原只发生在 OFF/退出）。
+                    DiagnoseDetail(menu, land, landIndex, incomingUi,
+                        readStatus == LandReadStatus.SuccessEmpty ? "empty" : "no-requests", reign, view,
+                        readStatus, steedCount, hermitCount, statueCount, requests.Count, sources.Count, dataCount);
                     DestroyHolder(view);
                     view.Fingerprint = fingerprint;
                     return;
                 }
 
-                Rebuild(view, land, landIndex, overview, menu, reign, requests, sources, fingerprint);
+                Rebuild(view, land, landIndex, overview, menu, reign, requests, sources, fingerprint,
+                    readStatus, steedCount, hermitCount, statueCount, dataCount);
             }
             catch (Exception e)
             {
@@ -1574,26 +1604,52 @@ namespace KingdomEnhancedMod
 
         // ------------------------------------------------------------------ data
 
-        /// <summary>只读当次 reign；任何不可用（null/越界/entry null）都返回 false，绝不回退 currentReign。</summary>
+        internal enum LandReadStatus
+        {
+            Unknown,
+            Success,
+            SuccessEmpty,
+            NullReign,
+            NullLandData,
+            LandOutOfRange,
+            NullEntry,
+            ReadFault,
+        }
+
+        /// <summary>兼容入口：保留原签名/原成功语义，供 pager/tests 使用；status 细节由 WithStatus 提供。</summary>
         private static bool TryReadLand(CampaignSaveData.ReignInfo reign, int land,
             out int steedCount, out int hermitCount, out int statueCount)
+            => TryReadLandWithStatus(reign, land, out steedCount, out hermitCount, out statueCount,
+                out _, out _);
+
+        /// <summary>只读当次 reign；读取顺序/成功语义与原 TryReadLand 相同，每个返回处填 status/dataCount。
+        /// 绝不回退 currentReign；失败时 counts 不当作事实（调用方应看 status）。</summary>
+        private static bool TryReadLandWithStatus(CampaignSaveData.ReignInfo reign, int land,
+            out int steedCount, out int hermitCount, out int statueCount,
+            out LandReadStatus status, out int dataCount)
         {
             steedCount = hermitCount = statueCount = 0;
+            status = LandReadStatus.Unknown;
+            dataCount = -1;
             try
             {
-                if (reign == null) return false;
+                if (reign == null) { status = LandReadStatus.NullReign; return false; }
                 Il2CppSystem.Collections.Generic.List<CampaignSaveData.LandMapData> landData = reign.landData;
-                if (landData == null || land < 0 || land >= landData.Count) return false;
-
+                if (landData == null) { status = LandReadStatus.NullLandData; return false; }
+                dataCount = landData.Count;
+                if (land < 0 || land >= dataCount) { status = LandReadStatus.LandOutOfRange; return false; }
                 CampaignSaveData.LandMapData entry = landData[land];
-                if (entry == null) return false;
+                if (entry == null) { status = LandReadStatus.NullEntry; return false; }
                 steedCount = CopyInto(entry.steedSpawns, SteedBuffer);
                 hermitCount = CopyInto(entry.hermit, HermitBuffer);
                 statueCount = CopyInto(entry.statue, StatueBuffer);
+                status = steedCount == 0 && hermitCount == 0 && statueCount == 0
+                    ? LandReadStatus.SuccessEmpty : LandReadStatus.Success;
                 return true;
             }
             catch (Exception)
             {
+                status = LandReadStatus.ReadFault;
                 return false;
             }
         }
@@ -1883,7 +1939,7 @@ namespace KingdomEnhancedMod
                 float aspect = SpriteAspect(shore);
                 if (!MapExtensionShapePlan.TryPlanDetailBox(MapExtensionShapePlan.DetailPageHalfWidth,
                         MapExtensionShapePlan.DetailLegendRight, MapExtensionShapePlan.DetailWaterGap,
-                        MapExtensionShapePlan.DetailMaxWidth, aspect, DetailShapeCenterY,
+                        MapExtensionShapePlan.DetailMaxWidth, aspect, MapExtensionShapePlan.DetailCenterY,
                         out MapIconBox frame, out _))
                 {
                     return false;
@@ -1935,7 +1991,7 @@ namespace KingdomEnhancedMod
                 _detailShapeOutlineImages[detailSlot] = outlineImage;
                 MapIconLog.Info("detail shore bound w=" + frame.Width.ToString("0.#") +
                     " centerX=" + ((frame.X0 + frame.X1) * 0.5f).ToString("0.#") +
-                    " centerY=" + DetailShapeCenterY.ToString("0.#"));
+                    " centerY=" + MapExtensionShapePlan.DetailCenterY.ToString("0.#"));
                 return true;
             }
             catch (Exception e)
@@ -1945,6 +2001,420 @@ namespace KingdomEnhancedMod
                 if (outlineImage != null) MapExtensionIslandArt.ReleaseBorrowed(outlineImage);
                 MapIconLog.Once("detail-shape-" + e.GetType().Name, "detail shore binding failed: " + e.Message);
                 return false;
+            }
+        }
+
+        /// <summary>扩展 detail 未发布 clone 的 `_ship` 初始化结果；Failed 表示写后无法验证且无法恢复原 transform。</summary>
+        internal enum DetailShipInit
+        {
+            Applied,
+            Unavailable,
+            Failed,
+        }
+
+        /// <summary>ship footprint 有界节点上限（root + 原生绘图子树；含 inactive 涟漪）。</summary>
+        private const int ShipFootprintMaxRects = 24;
+
+        private static bool IsDescendantOf(Transform node, Transform root)
+        {
+            for (int depth = 0; node != null && depth < 24; depth++, node = node.parent)
+            {
+                if (SameInstance(node, root)) return true;
+            }
+            return false;
+        }
+
+        private static bool IsFiniteVector(Vector3 v)
+            => float.IsFinite(v.x) && float.IsFinite(v.y) && float.IsFinite(v.z);
+
+        private static bool IsFiniteQuaternion(Quaternion q)
+            => float.IsFinite(q.x) && float.IsFinite(q.y) && float.IsFinite(q.z) && float.IsFinite(q.w);
+
+        private static bool IsFiniteRect(Rect r)
+            => float.IsFinite(r.x) && float.IsFinite(r.y) &&
+               float.IsFinite(r.width) && float.IsFinite(r.height);
+
+        private static bool IsFiniteBox(in MapIconBox box)
+            => float.IsFinite(box.X0) && float.IsFinite(box.Y0) &&
+               float.IsFinite(box.X1) && float.IsFinite(box.Y1) &&
+               float.IsFinite(box.Width) && float.IsFinite(box.Height);
+
+        private static bool SameVector(Vector3 a, Vector3 b)
+            => a.x == b.x && a.y == b.y && a.z == b.z;
+
+        /// <summary>逐角有限性校验的本地 bbox（不全局改 TryLocalBox）：任一 corner/rect/结果非有限即 Unknown。</summary>
+        private static bool TryFiniteLocalBox(RectTransform space, RectTransform target, out MapIconBox box)
+        {
+            box = default;
+            if (space == null || target == null) return false;
+            try
+            {
+                Rect r = target.rect;
+                if (!IsFiniteRect(r)) return false;
+                float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+                for (int i = 0; i < 4; i++)
+                {
+                    float x = (i & 1) == 0 ? r.xMin : r.xMax;
+                    float y = (i & 2) == 0 ? r.yMin : r.yMax;
+                    Vector3 world = target.TransformPoint(new Vector3(x, y, 0f));
+                    if (!IsFiniteVector(world)) return false;
+                    Vector3 local = space.InverseTransformPoint(world);
+                    if (!IsFiniteVector(local)) return false;
+                    if (local.x < minX) minX = local.x;
+                    if (local.x > maxX) maxX = local.x;
+                    if (local.y < minY) minY = local.y;
+                    if (local.y > maxY) maxY = local.y;
+                }
+                Rect sr = space.rect;
+                if (!IsFiniteRect(sr)) return false;
+                box = new MapIconBox(minX - sr.xMin, minY - sr.yMin, maxX - sr.xMin, maxY - sr.yMin);
+                return IsFiniteBox(box);
+            }
+            catch (Exception) { return false; }
+        }
+
+        /// <summary>
+        /// 未发布 detail clone 的船位初始化（ExtensionIslandMap 在 RebuildStaticIconCache 之后、登记/激活之前调用）：
+        /// - 只接受 exact clone 自身的 `_ship` 后代；clone 必须已隐藏，绝不移动外部对象；
+        /// - 保持船原 page-local x、size/scale/rotation；用最终 detail frame（真实 Sprite.rect aspect、
+        ///   共用 DetailCenterY）的北缘 + DetailWaterGap + 完整绘图 footprint 半高计算 y；
+        /// - 完整写前阶段（含 rect/Sprite.rect/transform 快照/父级变换）全部 catch → Unavailable 零写；
+        /// - 写后复核 page 内、岸线外、尺寸/x 不变；失败只恢复 localPosition 并读回验证，
+        ///   读回不相等/读回异常才 Failed（scale/rotation 只核验，不重写）；
+        /// - 资源/几何不可读时只记有界诊断并保 native fallback（不阻断岛可旅行/append）。
+        /// </summary>
+        internal static DetailShipInit TryInitializeExtensionDetailShip(UILand land, int physicalLand)
+        {
+            RectTransform landRect = null;
+            RectTransform ship = null;
+            try
+            {
+                if (land == null) return DetailShipInit.Unavailable;
+                landRect = land.gameObject.GetComponent<RectTransform>();
+                GameObject shipGo = land._ship;
+                ship = shipGo != null ? shipGo.transform as RectTransform : null;
+            }
+            catch (Exception e)
+            {
+                MapIconLog.Once("ship-read-" + physicalLand,
+                    "detail ship init skipped land=" + physicalLand + ": ship read failed: " + e.GetType().Name);
+                return DetailShipInit.Unavailable;
+            }
+
+            MapIconBox frame = default;
+            MapIconBox before = default;
+            Rect landSize;
+            float centerX, targetY;
+            Vector3 originalLocal, originalScale, parentDelta;
+            Quaternion originalRotation;
+            try
+            {
+                if (landRect == null)
+                {
+                    MapIconLog.Once("ship-noroot-" + physicalLand,
+                        "detail ship init skipped land=" + physicalLand + ": no land RectTransform");
+                    return DetailShipInit.Unavailable;
+                }
+                if (ship == null || !IsDescendantOf(ship, land.transform))
+                {
+                    MapIconLog.Once("ship-missing-" + physicalLand,
+                        "detail ship init skipped land=" + physicalLand + ": _ship missing or not a descendant of the clone");
+                    return DetailShipInit.Unavailable;
+                }
+                if (land.gameObject.activeSelf)
+                {
+                    MapIconLog.Once("ship-visible-" + physicalLand,
+                        "detail ship init skipped land=" + physicalLand + ": clone is active (must be unpublished/hidden)");
+                    return DetailShipInit.Unavailable;
+                }
+                if (!MapExtensionIslandArt.TryEnsure(physicalLand))
+                {
+                    MapIconLog.Once("ship-art-" + physicalLand,
+                        "detail ship init skipped land=" + physicalLand + ": shore art unavailable; native fallback kept");
+                    return DetailShipInit.Unavailable;
+                }
+                Sprite shore = MapExtensionIslandArt.ShoreFor(physicalLand);
+                float aspect = SpriteAspect(shore);
+                if (!(aspect > 0f) ||
+                    !MapExtensionShapePlan.TryPlanDetailBox(MapExtensionShapePlan.DetailPageHalfWidth,
+                        MapExtensionShapePlan.DetailLegendRight, MapExtensionShapePlan.DetailWaterGap,
+                        MapExtensionShapePlan.DetailMaxWidth, aspect, MapExtensionShapePlan.DetailCenterY,
+                        out frame, out _))
+                {
+                    MapIconLog.Once("ship-frame-" + physicalLand,
+                        "detail ship init skipped land=" + physicalLand + ": final detail frame unavailable");
+                    return DetailShipInit.Unavailable;
+                }
+                if (!TryMeasureShipFootprint(landRect, ship, out before))
+                {
+                    MapIconLog.Once("ship-measure-" + physicalLand,
+                        "detail ship init skipped land=" + physicalLand + ": ship drawing footprint unreadable");
+                    return DetailShipInit.Unavailable;
+                }
+                landSize = landRect.rect;
+                if (!IsFiniteRect(landSize))
+                {
+                    MapIconLog.Once("ship-measure-" + physicalLand,
+                        "detail ship init skipped land=" + physicalLand + ": land rect unreadable");
+                    return DetailShipInit.Unavailable;
+                }
+                float halfWidth = before.Width * 0.5f;
+                float halfHeight = before.Height * 0.5f;
+                centerX = (before.X0 + before.X1) * 0.5f - landSize.width * 0.5f;
+                float centerY = (before.Y0 + before.Y1) * 0.5f - landSize.height * 0.5f;
+                if (!MapExtensionShapePlan.TryPlanDetailShip(MapExtensionShapePlan.DetailPageHalfWidth,
+                        MapExtensionShapePlan.DetailPageHalfHeight, frame.Y1, MapExtensionShapePlan.DetailWaterGap,
+                        halfWidth, halfHeight, centerX, out targetY))
+                {
+                    MapIconLog.Once("ship-infeasible-" + physicalLand,
+                        "detail ship init skipped land=" + physicalLand + ": footprint w=" + before.Width.ToString("0.#") +
+                        " h=" + before.Height.ToString("0.#") + " cannot sit above shore inside page");
+                    return DetailShipInit.Unavailable;
+                }
+                originalLocal = ship.localPosition;
+                originalScale = ship.localScale;
+                originalRotation = ship.localRotation;
+                if (!IsFiniteVector(originalLocal) || !IsFiniteVector(originalScale) ||
+                    !IsFiniteQuaternion(originalRotation))
+                {
+                    MapIconLog.Once("ship-preflight-" + physicalLand,
+                        "detail ship init skipped land=" + physicalLand + ": non-finite transform snapshot");
+                    return DetailShipInit.Unavailable;
+                }
+                float deltaY = targetY - centerY;
+                if (!float.IsFinite(deltaY)) return DetailShipInit.Unavailable;
+                Vector3 worldDelta = landRect.TransformVector(new Vector3(0f, deltaY, 0f));
+                if (!IsFiniteVector(worldDelta)) return DetailShipInit.Unavailable;
+                parentDelta = ship.parent != null ? ship.parent.InverseTransformVector(worldDelta) : worldDelta;
+                if (!IsFiniteVector(parentDelta)) return DetailShipInit.Unavailable;
+            }
+            catch (Exception e)
+            {
+                MapIconLog.Once("ship-preflight-" + physicalLand,
+                    "detail ship init skipped land=" + physicalLand + ": preflight unreadable: " + e.GetType().Name);
+                return DetailShipInit.Unavailable;
+            }
+
+            try
+            {
+                ship.localPosition = originalLocal + parentDelta;
+            }
+            catch (Exception e)
+            {
+                if (!TryRestoreShipLocalPosition(ship, originalLocal, originalScale, originalRotation))
+                {
+                    MapIconLog.Info("detail ship init failed land=" + physicalLand +
+                        ": write threw and original localPosition could not be verified (" + e.GetType().Name + ")");
+                    return DetailShipInit.Failed;
+                }
+                MapIconLog.Once("ship-write-" + physicalLand,
+                    "detail ship init skipped land=" + physicalLand + ": write failed, original transform restored: " + e.GetType().Name);
+                return DetailShipInit.Unavailable;
+            }
+
+            string reason;
+            if (!VerifyDetailShip(landRect, ship, before, frame.Y1, centerX, targetY,
+                    originalScale, originalRotation, out reason))
+            {
+                if (!TryRestoreShipLocalPosition(ship, originalLocal, originalScale, originalRotation))
+                {
+                    MapIconLog.Info("detail ship init failed land=" + physicalLand +
+                        ": postcondition " + reason + " and original localPosition could not be verified");
+                    return DetailShipInit.Failed;
+                }
+                MapIconLog.Once("ship-verify-" + physicalLand,
+                    "detail ship init skipped land=" + physicalLand + ": postcondition " + reason +
+                    "; original transform restored, native fallback kept");
+                return DetailShipInit.Unavailable;
+            }
+            MapIconLog.Once("ship-init-" + physicalLand,
+                "detail ship placed land=" + physicalLand + " pageY=" + targetY.ToString("0.###") +
+                " shoreTop=" + frame.Y1.ToString("0.###") + " footprint=" + before.Width.ToString("0.#") +
+                "x" + before.Height.ToString("0.#") + " (native x/size/scale/rotation kept)");
+            return DetailShipInit.Applied;
+        }
+
+        /// <summary>船 root + 原生绘图子树（有界、含 inactive 涟漪）在 landRect 本地空间的并集 bbox；
+        /// 每节点逐角 finite，root 用 native pointer SameInstance 识别。</summary>
+        private static bool TryMeasureShipFootprint(RectTransform space, RectTransform ship, out MapIconBox box)
+        {
+            box = default;
+            if (space == null || ship == null) return false;
+            try
+            {
+                RectTransform[] rects = ship.GetComponentsInChildren<RectTransform>(true);
+                if (rects == null || rects.Length == 0 || rects.Length > ShipFootprintMaxRects) return false;
+                float x0 = float.MaxValue, y0 = float.MaxValue, x1 = float.MinValue, y1 = float.MinValue;
+                bool any = false;
+                for (int i = 0; i < rects.Length; i++)
+                {
+                    RectTransform rect = rects[i];
+                    if (rect == null) continue;
+                    bool drawing = SameInstance(rect, ship);
+                    if (!drawing && rect.gameObject.GetComponent<Graphic>() == null) continue;
+                    if (!TryFiniteLocalBox(space, rect, out MapIconBox part)) return false;
+                    if (!IsFiniteBox(part)) return false;
+                    if (part.X0 < x0) x0 = part.X0;
+                    if (part.Y0 < y0) y0 = part.Y0;
+                    if (part.X1 > x1) x1 = part.X1;
+                    if (part.Y1 > y1) y1 = part.Y1;
+                    any = true;
+                }
+                if (!any) return false;
+                box = new MapIconBox(x0, y0, x1, y1);
+                return IsFiniteBox(box) && box.Width > 0.5f && box.Height > 0.5f;
+            }
+            catch (Exception) { return false; }
+        }
+
+        /// <summary>只恢复 localPosition；读回必须有限且与快照相等，scale/rotation 只核验不重写。</summary>
+        private static bool TryRestoreShipLocalPosition(RectTransform ship, Vector3 localPosition, Vector3 scale,
+            Quaternion rotation)
+        {
+            try
+            {
+                ship.localPosition = localPosition;
+                Vector3 read = ship.localPosition;
+                if (!IsFiniteVector(read) || !SameVector(read, localPosition)) return false;
+                Vector3 readScale = ship.localScale;
+                Quaternion readRotation = ship.localRotation;
+                return IsFiniteVector(readScale) && IsFiniteQuaternion(readRotation) &&
+                    SameVector(readScale, scale) && readRotation.Equals(rotation);
+            }
+            catch (Exception) { return false; }
+        }
+
+        /// <summary>写后不变量：page 内、岸线 bbox 之外、footprint 尺寸/x 中心与写前一致、scale/rotation 未变。</summary>
+        private static bool VerifyDetailShip(RectTransform landRect, RectTransform ship, in MapIconBox before,
+            float shoreTop, float centerX, float targetCenterY, Vector3 scale, Quaternion rotation, out string reason)
+        {
+            reason = "readback";
+            if (!TryMeasureShipFootprint(landRect, ship, out MapIconBox after)) return false;
+            try
+            {
+                Vector3 readScale = ship.localScale;
+                Quaternion readRotation = ship.localRotation;
+                if (!IsFiniteVector(readScale) || !IsFiniteQuaternion(readRotation) ||
+                    !SameVector(readScale, scale) || !readRotation.Equals(rotation))
+                {
+                    reason = "transform-changed";
+                    return false;
+                }
+                Rect size = landRect.rect;
+                if (!IsFiniteRect(size)) { reason = "readback"; return false; }
+                float dx = Mathf.Abs(after.Width - before.Width);
+                float dy = Mathf.Abs(after.Height - before.Height);
+                if (dx > 0.05f || dy > 0.05f)
+                {
+                    reason = "footprint-size";
+                    return false;
+                }
+                float actualX = (after.X0 + after.X1) * 0.5f - size.width * 0.5f;
+                float actualY = (after.Y0 + after.Y1) * 0.5f - size.height * 0.5f;
+                if (!float.IsFinite(actualX) || !float.IsFinite(actualY) ||
+                    Mathf.Abs(actualX - centerX) > 0.05f || Mathf.Abs(actualY - targetCenterY) > 0.05f)
+                {
+                    reason = "center-drift";
+                    return false;
+                }
+                float x0 = after.X0 - size.width * 0.5f;
+                float x1 = after.X1 - size.width * 0.5f;
+                float y0 = after.Y0 - size.height * 0.5f;
+                float y1 = after.Y1 - size.height * 0.5f;
+                if (!float.IsFinite(x0) || !float.IsFinite(x1) || !float.IsFinite(y0) || !float.IsFinite(y1))
+                {
+                    reason = "readback";
+                    return false;
+                }
+                if (y0 < shoreTop + MapExtensionShapePlan.DetailWaterGap - 0.05f)
+                {
+                    reason = "shore-overlap";
+                    return false;
+                }
+                if (x0 < -MapExtensionShapePlan.DetailPageHalfWidth - 0.05f ||
+                    x1 > MapExtensionShapePlan.DetailPageHalfWidth + 0.05f ||
+                    y0 < -MapExtensionShapePlan.DetailPageHalfHeight - 0.05f ||
+                    y1 > MapExtensionShapePlan.DetailPageHalfHeight + 0.05f)
+                {
+                    reason = "page-overflow";
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception) { return false; }
+        }
+
+        /// <summary>
+        /// 最小详情诊断：仅普通 OnLandUpdated/Rebuild 事件；固定 physical 11/13 + 固定 reason 的
+        /// MapIconLog.Once（全生命周期每 key 一次，key 不含 count/pointer/exception 文本）。
+        /// 只读当次事实；读取失败写 unknown，绝不以 false/0 冒充未知。不扫描 parent/Canvas/Mask/UI 树。
+        /// </summary>
+        private static void DiagnoseDetail(MapTimelineMenuGreece menu, UILand land, int physical, int incomingUi,
+            string reason, CampaignSaveData.ReignInfo reign, MapMountIconView view,
+            LandReadStatus status, int steed, int hermit, int statue, int requests, int sources, int dataCount)
+        {
+            try
+            {
+                if (menu == null || reason == null) return;
+                if (physical != ExtensionIslandMapPlan.PrimaryPhysical &&
+                    physical != ExtensionIslandMapPlan.SecondaryPhysical) return;
+                string data;
+                if (status == LandReadStatus.Success || status == LandReadStatus.SuccessEmpty)
+                {
+                    data = "data=" + status + " dataCount=" + dataCount +
+                        " counts=" + steed + "/" + hermit + "/" + statue +
+                        " requests=" + requests + " sources=" + sources;
+                }
+                else
+                {
+                    data = "data=" + status + " dataCount=" + (dataCount >= 0 ? dataCount.ToString() : "unknown") +
+                        " counts=unknown requests=unknown sources=unknown";
+                }
+                string focusLand = "unknown", focusReign = "unknown", state = "unknown", reignFact = "unknown";
+                try { focusLand = menu.focusedLand.ToString(); } catch (Exception) { }
+                try { focusReign = menu.focusedReign.ToString(); } catch (Exception) { }
+                try { state = ((int)menu._openWorldMapState).ToString(); } catch (Exception) { }
+                try { reignFact = reign == null ? "null" : "ptr=" + reign.Pointer; } catch (Exception) { }
+                string viewFact = view == null ? "view=absent" : "view=present";
+                string holderFact = "holder=unknown", holderActive = "active=unknown",
+                    holderHierarchy = "inHierarchy=unknown", hiddenGate = "hiddenGate=unknown";
+                if (view != null)
+                {
+                    try { hiddenGate = "hiddenGate=" + (view.HiddenByNativeGate ? "true" : "false"); }
+                    catch (Exception) { }
+                    GameObject holder = null;
+                    try { holder = view.Holder; } catch (Exception) { }
+                    if (holder != null)
+                    {
+                        holderFact = "holder=present";
+                        try { holderActive = "active=" + (holder.activeSelf ? "true" : "false"); }
+                        catch (Exception) { }
+                        try { holderHierarchy = "inHierarchy=" + (holder.activeInHierarchy ? "true" : "false"); }
+                        catch (Exception) { }
+                    }
+                    else holderFact = "holder=absent";
+                }
+                MapIconLog.Once("detail-" + physical + "-" + reason,
+                    "detail diag physical=" + physical + " incoming=" +
+                    (incomingUi >= 0 ? incomingUi.ToString() : "unknown") +
+                    " reason=" + reason + " focusLand=" + focusLand + " focusReign=" + focusReign +
+                    " state=" + state + " reign[" + reignFact + "] " + data + " " + viewFact + " " +
+                    holderFact + " " + holderActive + " " + holderHierarchy + " " + hiddenGate);
+            }
+            catch (Exception) { }
+        }
+
+        /// <summary>固定 reason 映射（不二次读取 reign；Unknown 只表示未读/失败原因未分类）。</summary>
+        private static string ReadStatusReason(LandReadStatus status)
+        {
+            switch (status)
+            {
+                case LandReadStatus.NullReign: return "no-reign";
+                case LandReadStatus.NullLandData: return "no-land-data";
+                case LandReadStatus.LandOutOfRange: return "land-out-of-range";
+                case LandReadStatus.NullEntry: return "no-entry";
+                case LandReadStatus.ReadFault: return "read-fault";
+                default: return "read-unknown";
             }
         }
 
@@ -2120,7 +2590,8 @@ namespace KingdomEnhancedMod
 
         private static void Rebuild(MapMountIconView view, UILand land, int landIndex, bool overview,
             MapTimelineMenuGreece menu, CampaignSaveData.ReignInfo reign,
-            List<MapIconRequest> requests, List<UIMapIcon> sources, int fingerprint)
+            List<MapIconRequest> requests, List<UIMapIcon> sources, int fingerprint,
+            LandReadStatus readStatus, int steedCount, int hermitCount, int statueCount, int dataCount)
         {
             DestroyHolder(view);
 
@@ -2203,6 +2674,11 @@ namespace KingdomEnhancedMod
                 MapIconLog.Warn("icon plan incomplete land=" + landIndex + " overview=" + overview +
                     " placed=" + placements.Count + "/" + requests.Count + " scale=" + scale.ToString("0.00") +
                     "; display suppressed (no partial)");
+                if (!overview)
+                {
+                    DiagnoseDetail(menu, land, landIndex, -1, "plan-fail", reign, view,
+                        readStatus, steedCount, hermitCount, statueCount, requests.Count, sources.Count, dataCount);
+                }
                 view.Fingerprint = int.MinValue;
                 view.FailedFingerprint = fingerprint;
                 view.LayoutVersion = _overviewGeometryVersion;
@@ -2252,6 +2728,11 @@ namespace KingdomEnhancedMod
                 // 完整性按**当页** placements（分页时只 spawn 该页；非分页两者相等，语义不变）。
                 MapIconLog.Warn("icon spawn incomplete land=" + landIndex +
                     " spawned=" + view.Icons.Count + "/" + placements.Count + "; display suppressed");
+                if (!overview)
+                {
+                    DiagnoseDetail(menu, land, landIndex, -1, "spawn-fail", reign, view,
+                        readStatus, steedCount, hermitCount, statueCount, requests.Count, sources.Count, dataCount);
+                }
                 DestroyHolder(view);
                 view.Fingerprint = int.MinValue;
                 view.FailedFingerprint = fingerprint;
@@ -2274,12 +2755,22 @@ namespace KingdomEnhancedMod
                 {
                     // 无原生 Button/Text 样式可克隆 → 不造 GUILabel/字体，诚实整体 fallback（无部分态）。
                     MapIconLog.Warn("detail pager unavailable (no native button style); whole fallback land=" + landIndex);
+                    if (!overview)
+                    {
+                        DiagnoseDetail(menu, land, landIndex, -1, "pager-fail", reign, view,
+                            readStatus, steedCount, hermitCount, statueCount, requests.Count, sources.Count, dataCount);
+                    }
                     DestroyHolder(view);
                     view.Fingerprint = int.MinValue;
                     view.FailedFingerprint = fingerprint;
                     RestoreSuppressed(view);
                     return;
                 }
+            }
+            if (!overview)
+            {
+                DiagnoseDetail(menu, land, landIndex, -1, "built", reign, view,
+                    readStatus, steedCount, hermitCount, statueCount, requests.Count, sources.Count, dataCount);
             }
             MapIconLog.Info("icons built land=" + landIndex + " overview=" + overview +
                 " count=" + view.Icons.Count + " scale=" + scale.ToString("0.00") +
