@@ -46,6 +46,26 @@ internal static class Program
     private static bool SamePixels(Color32[] left, Color32[] right)
         => left != null && right != null && Rgba(left).SequenceEqual(Rgba(right));
 
+    // Reviewed palette contract after remapping the source RGB: primary 227 plateau, 189 cliff,
+    // 245 shallow shore and 255 highlight must remain; the two dark detail tones must be gone.
+    private static bool ToneContract(Color32[] shore, out int primary)
+    {
+        var counts = new SortedDictionary<byte, int>();
+        foreach (Color32 pixel in shore)
+        {
+            if (pixel.a == 0) continue;
+            counts.TryGetValue(pixel.r, out int count);
+            counts[pixel.r] = count + 1;
+        }
+        primary = 0;
+        int best = -1;
+        foreach (KeyValuePair<byte, int> pair in counts)
+            if (pair.Value > best) { best = pair.Value; primary = pair.Key; }
+        return primary == 227 && !counts.ContainsKey(116) && !counts.ContainsKey(155) &&
+            counts.ContainsKey(189) && counts.ContainsKey(227) &&
+            counts.ContainsKey(245) && counts.ContainsKey(255);
+    }
+
     private static bool SameFloat(float left, float right)
         => BitConverter.SingleToInt32Bits(left) == BitConverter.SingleToInt32Bits(right);
 
@@ -69,6 +89,9 @@ internal static class Program
         if (actual == null) return;
         Check(actual.Width == 228 && actual.Height == 84, "A strict unchanged frame");
         SameMetadata(expected, actual, "A source diagnostic metadata unchanged");
+        int primary;
+        Check(ToneContract(actual.Shore, out primary),
+            "A prepared palette primary 227 without 116/155 primary=" + primary);
         Check(SamePixels(expected.Shore, actual.Shore), "A shore byte exact legacy BuildPrep224");
         Check(SamePixels(expected.Outline, actual.Outline), "A outline byte exact legacy");
         Check(expected.Mask.SequenceEqual(actual.Mask), "A alpha mask unchanged");
@@ -111,10 +134,13 @@ internal static class Program
                 ring.b == 255 && !actual.Mask[i];
         }
         Check(pixels && mask && border, "B shore outline and mask exact +1/+1 transparent letterbox");
-        Check(tones && outline, "B six tones binary alpha and white external outline");
+        Check(tones && outline, "B palette tones binary alpha and white external outline");
+        int primary;
+        Check(ToneContract(actual.Shore, out primary),
+            "B prepared palette primary 227 without 116/155 primary=" + primary);
         Check(actual.Mask.Count(value => value) == 10611 && actual.IslandPixels == 10611, "B alpha pixel count");
-        Check(Sha(Rgba(actual.Shore)) == "60110a9fd1f47ee98639fb526b1d5be37594293ca393ed2b95938f84e3f9cf78",
-            "B RGBA matches independently reviewed v3 preparation");
+        Check(Sha(Rgba(actual.Shore)) == "0a2d3bb6c1f1617e2c63c8171466a90e2305f1fc345bb23552f254ce0048aeed",
+            "B RGBA matches reviewed palette-remapped preparation");
         Check(actual.PlacementPixels == 5652 && actual.PlacementMask.Count(value => value) == 5652,
             "B independently authored top mask pixel count");
         Check(Sha(actual.PlacementMask.Select(value => value ? (byte)1 : (byte)0).ToArray()) ==
@@ -306,8 +332,8 @@ internal static class Program
             MapExtensionIslandArtVariant.ResourceNameFor(13) == BResource &&
             MapExtensionIslandArtVariant.ResourceNameFor(12) == null, "exact per-land resource names");
         byte[] a = Read(AResource), b = Read(BResource);
-        Check(Sha(a) == "bd29b0fd3dd2783adab7ed450907b1578f9a48197c882eef65dd7cdf8baa81bf" &&
-            Sha(b) == "4db255b13213b4a88e8bed556876d199e2cf32d770e262afdf563073c8e52afb", "reviewed raw asset bytes embedded");
+        Check(Sha(a) == "44c7463fed7e6cb222dfae8c701e492f000b26a21b7d37541fdc76fa994b1479" &&
+            Sha(b) == "a056d1a3ff81ea13c5d9e065abc71d734e45226df2829184e1bd183606a79357", "reviewed raw asset bytes embedded");
         Png.DecodeBottomUp(a, out int aw, out int ah, out Color32[] ap);
         Png.DecodeBottomUp(b, out int bw, out int bh, out Color32[] bp);
         TestA(ap, aw, ah); TestB(bp, bw, bh); TestAnchors(); TestInvalid(); TestCachesAndSharedLeases();

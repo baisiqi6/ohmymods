@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>MountIslandMapR2Host</AssemblyName>
+    <RootNamespace>MountIslandMapR2Host</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="R2Program.cs" />
+    <Compile Include="HostedMethods.cs" />
+    <Compile Include="../../../il2cpp/Patch_MountIslandSplitPolicy.cs" />
+    <Compile Include="../../../il2cpp/ExtensionIslandMapPlan.cs" />
+    <Compile Include="../../../il2cpp/Patch_MountIslandMapLayout.cs" />
+  </ItemGroup>
+</Project>

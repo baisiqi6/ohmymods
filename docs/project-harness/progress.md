@@ -1,3 +1,15 @@
+## 2026-10-20 — 坐骑岛剪影/船位/配色及同候选保存重进通过
+
+正式NoAudit候选B（0b17095，net6 25d9…c156/net8 74d7…0b6d，两TFM0W0E）已在A41 F1和实际后像A39 F2冷读验证：Playing11/8设施/8markers，八剪影、岸外单船、配色、地图往返及两次UI自然SaveQuit exit0通过。正常存档/配置未动；旧岛8只保留原生时间1ULP变化，不称全角色Exact。剪影原因是旧岛地同色；详情船由managed as失败改原生GetComponent，坐标诊断器改同native数组读回。合并安装关口集中复核中，仍未安装。#260旧正常空岛回填继续开放；B首次重新出航、第二岛自然抵达、其它平台和联机不由本例代验。详见[联合记录](tasks/issue-272/receipts/joint-native-20261020.md)。下文为历史时点。
+
+## 2026-10-20 — #272 坐标采样已修，缺剪影转查渲染层
+
+A35真实稳定详情快照已取得有效native坐标：8图标均有尺寸、在裁剪内、父级alpha正常，空白仍复现，不支持几何补偿。隔离UI保存退出samePopen exit0/wait0、无signal，8标记落盘；正常完整closure未变。继续以船标对照Canvas/depth/layer/effective sprite，船位/RGB最终联合Native尚待完成，未合并release或安装。#260必要出航修复已窄接主线Source、双TFM0W0E和17/0测试及独审通过；不包含旧空岛自动补发。详见本任务收据，下面A34为历史。
+
+## 2026-10-20 — #272 已复现登岛后详情缺剪影，船位与配色仍待Native验收
+
+船/涟漪岸外初始化及两PNG仅RGB校色已通过Source审查/双TFM构建，PR273保持Draft、未合并安装。旧H的A34隔离冷重进已实际复现第一岛详情空白：8设施/8地图记录/8图标及锁定贴图均存在，稳定详情帧active/alpha正常。诊断器GetCorners的managed/native数组复制使坐标数据无效，尚不能定摆放/遮挡根因；不得据此改解锁或补历史。A33协议错误及A34受控超时退出原件保留，A34未完成自然保存退出、不作合格父；正常DLL/存档/配置与完整closure保持。详见[本轮记录](tasks/issue-272/receipts/visual-detail-20261020.md)。
+
 ## 2026-10-19 — #270 扩展地图出航返回边界已修，隔离 Native 待验
 
 A21 实际确认后原生返回 focusedLand(UI10)，旧补丁只写 landResult11，Campaign 因而落10并由守卫终止，不能称已证游戏崩溃。当前窄修复在 exact BaseShow 完成处一次交接物理编号；不改 UI focus/Campaign/hasValue，不制造 None。最终 Root net6/net8 0W0E、22测试/230断言与独审通过，具体专属结果cell已静态核验；真实布局/hook、出航11/八设施、Save+Quit及同实际后像冷重进尚未通过。正常存档/配置/DLL未改，Issue270开放、未合并安装；详情岛形另项未修。见[tasks/issue-270/receipts/root-verification.md](tasks/issue-270/receipts/root-verification.md)。

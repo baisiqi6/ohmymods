@@ -135,9 +135,13 @@ namespace KingdomEnhancedMod
                 MapResultCompletionDecision decision = ExtensionIslandMapResultPlan.Complete(ref ticket.State, facts);
                 if (decision == MapResultCompletionDecision.Commit)
                 {
+                    MountIslandDeparturePreimage departure = MountIslandFreshObservation.CaptureDeparture(
+                        show, ticket, ticket.Token, ticket.State.Physical, ticket.Campaign);
                     if (TryCommitInline(show, ticket, out MapResultCommitOutcome outcome))
                     {
                         ticket.State.Committed = true;
+                        bool departureCurrent = IsDepartureStillCurrent(show, ticket, out object currentDepartureToken);
+                        MountIslandFreshObservation.PublishDeparture(departure, ticket, currentDepartureToken, departureCurrent);
                         LogInfoOnce("commit", "committed native result: pid=" + Environment.ProcessId
                             + " ui=" + ticket.State.ExpectedUi + " physical=" + ticket.State.Physical
                             + " iterator=0x" + show.IteratorPointer.ToString("x")
@@ -145,6 +149,7 @@ namespace KingdomEnhancedMod
                     }
                     else
                     {
+                        MountIslandFreshObservation.CancelDeparture(show);
                         LogErrorOnce("commit-" + outcome, "commit skipped: " + outcome);
                     }
                 }
@@ -407,6 +412,7 @@ namespace KingdomEnhancedMod
                 ReleaseShow(previous);
             }
             _activeShow = show;
+            MountIslandFreshObservation.BeginDeparture(show);
             return show;
         }
 
@@ -424,6 +430,21 @@ namespace KingdomEnhancedMod
             return ReferenceEquals(_activeShow, show) && !show.Revoked && show.Ticket == null;
         }
 
+        private static bool IsDepartureStillCurrent(Show show, Ticket ticket, out object token)
+        {
+            token = null;
+            try
+            {
+                if (!ReferenceEquals(_activeShow, show) || show.Revoked || !ReferenceEquals(show.Ticket, ticket)
+                    || !ReferenceEquals(ticket.Show, show) || !ticket.State.Committed
+                    || CurrentCampaignPointer() != ticket.Campaign
+                    || !ExtensionIslandMap.TryGetVisualOwnerTokenForLand(ticket.State.Physical, out token)
+                    || !ReferenceEquals(token, ticket.Token)) return false;
+                return ReferenceEquals(_activeShow, show) && !show.Revoked && ReferenceEquals(show.Ticket, ticket);
+            }
+            catch (Exception) { return false; }
+        }
+
         private static void ReleaseShow(Show show)
         {
             if (show == null) return;
@@ -437,6 +458,7 @@ namespace KingdomEnhancedMod
         {
             if (ticket == null) return;
             if (ticket.State.Revoked || ticket.State.Committed || ticket.State.Consumed) return;
+            MountIslandFreshObservation.CancelDeparture(ticket.Show);
             ExtensionIslandMapResultPlan.Revoke(ref ticket.State);
             if (!ticket.State.Revoked) return;
             if (ticket.Show != null)

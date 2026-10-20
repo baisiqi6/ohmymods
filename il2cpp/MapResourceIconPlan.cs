@@ -444,6 +444,8 @@ namespace KingdomEnhancedMod
         internal const float DetailWaterGap = 4f;
         internal const float DetailMaxWidth = 230f;
         internal const float DetailRightMargin = 3f;
+        /// <summary>detail 岸线垂直中心（相对 land 中心；保留旧 shore 的 −4 锚点）。shape 与船位共用。</summary>
+        internal const float DetailCenterY = -4f;
 
         internal static bool TryFitAspect(float maxWidth, float maxHeight, float aspect,
             out float width, out float height)
@@ -489,6 +491,35 @@ namespace KingdomEnhancedMod
             box = new MapIconBox(left, centerY - height * 0.5f, right, centerY + height * 0.5f);
             gap = left - legendRight;
             return true;
+        }
+
+        /// <summary>
+        /// detail 船标（native `_ship` 整棵绘图子树）的纯位置规划：x 保持原值，绘图 footprint 的
+        /// 下缘落在最终岸线 bbox 北缘 + 水道之上；完整 footprint 必须仍在页域内。
+        /// 输入均为 land 中心坐标；footprint 半宽/半高来自实际子树 bbox（含未激活涟漪）。
+        /// 不可满足返回 false（调用方保 native fallback，绝不夹取/拉伸）。
+        /// </summary>
+        internal static bool TryPlanDetailShip(float pageHalfWidth, float pageHalfHeight,
+            float shoreTop, float waterGap, float footprintHalfWidth, float footprintHalfHeight,
+            float centerX, out float centerY)
+        {
+            centerY = 0f;
+            if (!float.IsFinite(pageHalfWidth) || !float.IsFinite(pageHalfHeight) ||
+                !float.IsFinite(waterGap)) return false;
+            if (!(pageHalfWidth > 0f) || !(pageHalfHeight > 0f) || waterGap < 0f) return false;
+            if (!(footprintHalfWidth > 0f) || !(footprintHalfHeight > 0f)) return false;
+            if (!float.IsFinite(shoreTop) || !float.IsFinite(centerX) ||
+                !float.IsFinite(footprintHalfWidth) || !float.IsFinite(footprintHalfHeight))
+            {
+                return false;
+            }
+            float bottom = shoreTop + waterGap;
+            centerY = bottom + footprintHalfHeight;
+            if (!float.IsFinite(bottom) || !float.IsFinite(centerY)) return false;
+            return centerX - footprintHalfWidth >= -pageHalfWidth
+                && centerX + footprintHalfWidth <= pageHalfWidth
+                && centerY - footprintHalfHeight >= -pageHalfHeight
+                && centerY + footprintHalfHeight <= pageHalfHeight;
         }
     }
 

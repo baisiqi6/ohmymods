@@ -311,6 +311,19 @@ internal static class CrossWorldMountPolicy
         return CrossWorldMountDecision.GrantAndInject;
     }
 
+    /// <summary>Only a live, rechecked generation-frame operand can identify this transition's map time.</summary>
+    internal static CrossWorldMountDecision DecideWithCurrentTransitionTime(
+        in CrossWorldMountIslandState state, in MountIslandCurrentTransitionTime time)
+    {
+        if (!state.LandValid) return CrossWorldMountDecision.Skip;
+        if (state.MarkerOnIsland || state.ReceiptOnIsland) return CrossWorldMountDecision.InjectOnly;
+        if (state.MarkerInCampaign || state.ReceiptInCampaign || !state.CampaignEvidenceReadable
+            || state.IslandVisited) return CrossWorldMountDecision.Skip;
+        if (!time.IsCurrent || double.IsNaN(state.LastPlayedDays) || double.IsInfinity(state.LastPlayedDays)
+            || state.LastPlayedDays < 0d) return CrossWorldMountDecision.Skip;
+        return CrossWorldMountDecision.GrantAndInject;
+    }
+
     /// <summary>
     /// new-grant 目标岛（issue-200 双岛）：按稳定 definitionId 由 <see cref="MountIslandSplitPolicy"/>
     /// 精确分组——A 组(8)→land11、B 组(8)→land13；未知/未登记 Id 一律 false（fail-closed，

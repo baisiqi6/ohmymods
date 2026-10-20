@@ -14,7 +14,7 @@ namespace KingdomEnhancedMod
     ///   **Transferred**（单次转交 frame）或 **Closed**（撤销）。TryPublish 只接受 Started，
     ///   因此同 envelope 不可能二次 publish；无 seal 的 draft 不被当作新请求。
     /// - 完成后候选必须：非零 completion 后 slot（零 completion 保持 Unknown，不允许任何后来
-    ///   known-empty pointer 承接）；pre/post 历史正证 OR 为假；同 routine/请求/身份。
+    ///   known-empty pointer 承接）；经同一 departure proof 判定的 pre/post 有效历史正证 OR 为假；同 routine/请求/身份。
     /// - 提交批量（<see cref="MountIslandCommitSession"/>）：Close 在**任何本帧 own marker 写入之前**
     ///   做一次 fresh 历史/身份复核；此后逐条只做 binding/level/config/slot/owner 复核（不读 island
     ///   history），因此本帧自己写入的 marker 不会被当作旧历史反证；外部非 own marker 仍会阻止批量。
@@ -158,6 +158,8 @@ namespace KingdomEnhancedMod
         internal bool AnyPositive;
         internal bool SlotPresent;
         internal ulong SlotPointer;
+        internal bool NonMapPositive;
+        internal double MapDays;
 
         internal static MountIslandHistoryView Create(bool readsOk, bool anyPositive, bool slotPresent, ulong slotPointer)
         {
@@ -165,9 +167,17 @@ namespace KingdomEnhancedMod
             {
                 ReadsOk = readsOk,
                 AnyPositive = anyPositive,
+                NonMapPositive = anyPositive,
                 SlotPresent = slotPresent,
                 SlotPointer = slotPointer,
             };
+        }
+        internal static MountIslandHistoryView CreateObserved(bool readsOk, bool anyPositive,
+            bool slotPresent, ulong slotPointer, bool nonMapPositive, double mapDays)
+        {
+            return new MountIslandHistoryView { ReadsOk = readsOk, AnyPositive = anyPositive,
+                SlotPresent = slotPresent, SlotPointer = slotPointer,
+                NonMapPositive = nonMapPositive, MapDays = mapDays };
         }
     }
 
@@ -184,6 +194,7 @@ namespace KingdomEnhancedMod
         internal ulong PreSlotPointer;
         internal bool PreHistoryReadsOk;
         internal bool PreHistoryAnyPositive;
+        internal MountIslandTransitionProof TransitionProof;
     }
 
     /// <summary>envelope 生命周期（one envelope = 一个请求）：None→Started→CompletedOnce→Transferred|Closed。</summary>
@@ -216,6 +227,7 @@ namespace KingdomEnhancedMod
             if (envelope.Owner.CurrentLand != envelope.RequestLand) return false;
             if (envelope.Owner.SelectedCampaignIndex != envelope.RequestCampaignIndex) return false;
             if (!envelope.PreHistoryReadsOk) return false;
+            if (envelope.TransitionProof == null) return false;
             return true;
         }
     }
@@ -235,6 +247,7 @@ namespace KingdomEnhancedMod
         /// <summary>completion 后 raw slot 指针；候选要求非零并精确冻结（零 completion 保持 Unknown）。</summary>
         internal ulong SlotPointer;
         internal long IssuedGeneration;
+        internal MountIslandTransitionProof TransitionProof;
     }
 
     /// <summary>转交给 frame 的一次性候选票据（frame 持有；Unknown = null）。</summary>
@@ -243,6 +256,7 @@ namespace KingdomEnhancedMod
         private readonly MountIslandTicketDraft _draft;
         private bool _consumed;
         private bool _invalidated;
+        private object _frame;
 
         internal MountIslandFrameTicket(MountIslandTicketDraft draft)
         {
@@ -258,6 +272,14 @@ namespace KingdomEnhancedMod
         internal int RawFlags => _draft.RawFlags;
         internal ulong SlotPointer => _draft.SlotPointer;
         internal MountIslandOwnerIdentity Owner => _draft.Owner;
+        internal MountIslandTransitionProof TransitionProof => _draft.TransitionProof;
+        internal bool BindFrame(object frame)
+        {
+            if (frame == null || _frame != null) return false;
+            _frame = frame;
+            return true;
+        }
+        internal bool BelongsToFrame(object frame) => frame != null && ReferenceEquals(_frame, frame);
         internal bool Consumed => _consumed;
         internal bool Invalidated => _invalidated;
         internal bool Usable => !_consumed && !_invalidated;
@@ -310,6 +332,10 @@ namespace KingdomEnhancedMod
         /// <summary>state0 封印新请求：覆盖旧 envelope（撤销旧候选），代次递增；输入必须先通过校验。</summary>
         internal bool TrySealEnvelope(MountIslandRequestEnvelope envelope)
         {
+            // A proof bound before a reentrant newer seal must not revoke that newer gate.
+            if (envelope.TransitionProof != null
+                && !envelope.TransitionProof.Matches(envelope.Owner, envelope.RoutinePointer,
+                    _generation + 1, envelope.RequestLand)) return false;
             if (!MountIslandEnvelopeValidator.IsSealable(envelope))
             {
                 Revoke();
@@ -351,6 +377,8 @@ namespace KingdomEnhancedMod
             if (_state != MountIslandEnvelopeState.Started) return false;
             if (!_envelope.ScopeOk || !_envelope.PreHistoryReadsOk) return false;
             if (_envelope.PreHistoryAnyPositive) return false;
+            if (draft.TransitionProof == null || !ReferenceEquals(draft.TransitionProof, _envelope.TransitionProof)
+                || !draft.TransitionProof.Matches(draft.Owner, draft.RoutinePointer, _generation, draft.RequestLand)) return false;
             if (_hasPending) return false;
             if (draft.CompletionClass != MountIslandCompletionClass.MissingData) return false;
             if (draft.RoutinePointer != _envelope.RoutinePointer) return false;
