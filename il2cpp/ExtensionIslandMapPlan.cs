@@ -15,7 +15,8 @@ namespace KingdomEnhancedMod
     ///   Game.currentLand!=目标 land 才写 landResult 并关菜单；其余 state 由原生抛异常。
     /// - <c>LAND_TO_MAP_LAND</c> 是每实例 Dictionary&lt;physical,ui&gt;：0→0…9→9、10→9；
     ///   扩展只 append 11→UI10、13→UI11。B 不可用只隐藏节点/禁 travel，dict 13→11 仍存在
-    ///   （读未知禁 travel，绝不回落 native Top 焦点）。
+    ///   （读未知禁 travel，绝不回落 native Top 焦点）。单 tuple 撤销的降级 9 是本代 last-owned
+    ///   账目值；整代释放按 first-capture prior 归还（原存在恢复原值/原无键删除），不残留 9。
     ///
     /// 岛号/UI 映射的真实来源是 <see cref="MountIslandSplitPolicy"/>（直接 Compile link，不复制常量语义）。
     /// </summary>

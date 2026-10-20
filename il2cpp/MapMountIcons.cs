@@ -131,9 +131,8 @@ namespace KingdomEnhancedMod
         private static readonly object[] PlacementMaskSources = new object[ExtensionIslandMapPlan.SlotCount];
         private static readonly MapTimelineMenuGreece[] _detailMenus = new MapTimelineMenuGreece[ExtensionIslandMapPlan.SlotCount];   // 每 tuple detail 绑定时捕获的 exact menu
         private static readonly UILand[] _detailShapeLands = new UILand[ExtensionIslandMapPlan.SlotCount];        // 每 tuple 已应用 detail 形状的 exact 实例
-        private static readonly object[] _detailShapeTokens = new object[ExtensionIslandMapPlan.SlotCount];       // 每 tuple 独立 detail 租约 token
+        private static readonly object[] _detailShapeTokens = new object[ExtensionIslandMapPlan.SlotCount];       // 每 tuple 独立 detail 租约 token（贴图存续按 slot，与 pager 焦点分离）
         private static readonly Image[] _detailShapeOutlineImages = new Image[ExtensionIslandMapPlan.SlotCount];  // 每 tuple outline 原生 Image（四图事务）
-        private static int _detailShapeActiveSlot = -1;            // 当前 detail 租约记账槽（A→B→A 显式归还前一租约）
         // P2：失败归还的 exact cleanup 责任（有界队列）——setter 临时失败等留下 live 租约时，保留 owner token/menu，
         // 由该 owner 的后续 exact 回调（或菜单已死时）重试收尾；完成即出队。绝不 ReleaseAll/Reset 绕过范围。
         private static int SlotIndexOfLand(int physicalLand)
@@ -141,34 +140,6 @@ namespace KingdomEnhancedMod
             if (physicalLand == ExtensionIslandMapPlan.PrimaryPhysical) return 0;
             if (physicalLand == ExtensionIslandMapPlan.SecondaryPhysical) return 1;
             return -1;
-        }
-
-        /// <summary>显式归还某个 tuple 的 detail shape 租约（per-land release：只 ReleaseOwner 该 tuple token，
-        /// 绝不触碰兄弟岛的租约）；几何快照在调用方按需恢复。</summary>
-        private static void ReleaseDetailShapeLease(int slotIndex)
-        {
-            if (slotIndex < 0 || slotIndex >= ExtensionIslandMapPlan.SlotCount) return;
-            object token = _detailShapeTokens[slotIndex];
-            if (token != null) MapExtensionIslandArt.ReleaseOwner(token);
-            if (token != null && MapExtensionIslandArt.HasOutstanding(token))
-            {
-                // setter 临时失败：责任入现 deferred 链（有界 exact retry）；接不下则 fail-closed 保留 captured 身份
-                //（绝不丢未归还的 native image），拒绝新接管，等 exact 回调/回收窗口。
-                if (!DeferRelease(token, _detailMenus[slotIndex]))
-                {
-                    _shoreReleaseRetained = true;
-                    MapIconLog.Once("detail-release-retained",
-                        "detail lease release queue full; captured owner retained for exact retry (no new takeover)");
-                    return;   // 不清字段：责任保留
-                }
-                MapIconLog.Once("detail-release-deferred",
-                    "detail lease release deferred: outstanding native image restore queued for exact retry");
-            }
-            _detailShapeTokens[slotIndex] = null;
-            _detailShapeLands[slotIndex] = null;
-            _detailShapeOutlineImages[slotIndex] = null;
-            _detailMenus[slotIndex] = null;
-            if (_detailShapeActiveSlot == slotIndex) _detailShapeActiveSlot = -1;
         }
 
         private sealed class DeferredRelease
@@ -284,9 +255,10 @@ namespace KingdomEnhancedMod
             internal int Fingerprint;
             internal int BaseFingerprint;
             internal int RequestSignature;
-            internal int FocusIndex;      // capture 的 menu.focusedReign（浏览 reign；0=current，>0=历史）
-            internal int FocusedLandUi;   // capture 的 menu.focusedLand（detail 单岛焦点）
-            internal int OpenWorldState;  // capture 的 menu._openWorldMapState（须为单岛视图）
+            internal int FocusIndex;      // capture 的 actual menu.focusedReign（浏览 reign；0=current，>0=历史）
+            internal int ExpectedFocusedLandUi;   // 将来交互契约：本 tuple 的 UI 岛值（10/11；非 physical 11/13），
+                                                   // 点击时 actual menu.focusedLand 必须等于它（world 预建期 actual 是 9，不冒称 observed）
+            internal int ExpectedOpenWorldState;  // 将来交互契约：ShowingSingleIsland；点击时 actual menu._openWorldMapState 必须等于它
             internal MapTimelineMenuGreece Menu;
             internal UIMainMap Map;           // capture 的 exact map（派发桥要求与登记 map 同一实例）
             internal UILand Land;
@@ -296,7 +268,8 @@ namespace KingdomEnhancedMod
             internal int ReignIndex;      // capture 的 campaign.reign（int）
         }
 
-        private static DetailPager _detailPager;
+        // issue-272：每 tuple 一个 pager（A/B 互不抢占；pager 焦点与 per-slot 贴图租约分离）。
+        private static readonly DetailPager[] _detailPagers = new DetailPager[ExtensionIslandMapPlan.SlotCount];
 
         private sealed class RectSnapshot
         {
@@ -799,7 +772,6 @@ namespace KingdomEnhancedMod
                 _detailShapeTokens[i] = null;
                 _detailShapeOutlineImages[i] = null;
             }
-            _detailShapeActiveSlot = -1;
             _shoreReleaseRetained = false;   // 身份已清 = 责任已收尾/已入队 → 解除 fail-closed 接管门
         }
 
@@ -1851,9 +1823,10 @@ namespace KingdomEnhancedMod
         /// - 冷启动可直接工作：`shore == null` 时也会先 TryEnsure（不依赖此前是否跑过 world）；
         /// - outline 为**必需**参与者（首绑/重绑都要求存在且是 Image）；
         /// - 幂等（P3 四图事务）：同 token/land + **两个捕获 Image 身份** + 两份 sprite 应用 + 两份几何都在
-        ///   目标态时 O(1) 返回；任一失效走有界重解（丢弃陈旧租约后重绑两份），失败整体 false 由调用方回滚；
-        /// - 幂等 marker 与 world 的快照队列分离（Expanded vs _detailSnapshots），world suspend 不影响 detail；
-        /// - 事务式：outline 绑定/几何失败回滚 art（不半成功），失败不改变可见状态之外的东西。
+        ///   目标态时 O(1) 返回；任一失效走有界重解（只丢弃这两个 Image 自身的陈旧租约后重绑两份），
+        ///   失败整体 false 由调用方回滚；
+        /// - issue-272：贴图存续按 tuple slot 各自独立（per-slot lands/tokens/outline 数组）——为兄弟 tuple
+        ///   绑定形状绝不释放本 tuple 的租约；归还只发生在 exact owner 收尾（OnDisable/Clear/Teardown）。
         /// </summary>
         private static bool EnsureDetailShape(UILand land, MapTimelineMenuGreece menu)
         {
@@ -1922,14 +1895,9 @@ namespace KingdomEnhancedMod
                     frame.X0 + landRectRect.width * 0.5f, frame.Y0 + landRectRect.height * 0.5f,
                     frame.X1 + landRectRect.width * 0.5f, frame.Y1 + landRectRect.height * 0.5f);
 
-                // 快路失效：**有界重解**——先丢弃本 owner 在这两个 Image 上的陈旧租约（不逐帧全树扫描），
-                // 再按正常事务重绑两份 sprite；失败则整体失败（调用方按四图事务回滚）。
-                if (_detailShapeActiveSlot >= 0 && _detailShapeActiveSlot != detailSlot)
-                {
-                    // A→B→A：切换 detail 目标前，先显式归还前一 tuple 的 detail 租约（per-land release，
-                    // 不触碰兄弟岛；几何快照归还沿用既有 RestoreDetailSnapshots 语义）。
-                    ReleaseDetailShapeLease(_detailShapeActiveSlot);
-                }
+                // 快路失效：**有界重解**——只丢弃这两个 Image 自身的陈旧租约（不逐帧全树扫描，也绝不
+                // 触碰兄弟 tuple 的 detail 租约：贴图存续按 slot 各自独立），再按正常事务重绑两份 sprite；
+                // 失败则整体失败（调用方按四图事务回滚）。
                 MapExtensionIslandArt.ReleaseBorrowed(artImage);
                 MapExtensionIslandArt.ReleaseBorrowed(outlineImage);
                 if (MapExtensionIslandArt.TryBorrow(artImage, shore, token) == null &&
@@ -1965,7 +1933,6 @@ namespace KingdomEnhancedMod
                 _detailShapeLands[detailSlot] = land;
                 _detailShapeTokens[detailSlot] = token;
                 _detailShapeOutlineImages[detailSlot] = outlineImage;
-                _detailShapeActiveSlot = detailSlot;
                 MapIconLog.Info("detail shore bound w=" + frame.Width.ToString("0.#") +
                     " centerX=" + ((frame.X0 + frame.X1) * 0.5f).ToString("0.#") +
                     " centerY=" + DetailShapeCenterY.ToString("0.#"));
@@ -2037,7 +2004,7 @@ namespace KingdomEnhancedMod
             {
                 if (land == null || !TryGetRegisteredExtensionIndex(land, out int physicalLand)) return false;
                 int slot = SlotIndexOfLand(physicalLand);
-                if (slot < 0 || _detailShapeActiveSlot != slot || !SameInstance(_detailShapeLands[slot], land) ||
+                if (slot < 0 || !SameInstance(_detailShapeLands[slot], land) ||
                     !ExtensionIslandMap.TryGetDetailTokenForLand(physicalLand, out object token) || token == null ||
                     !ReferenceEquals(_detailShapeTokens[slot], token)) return false;
                 MapTimelineMenuGreece menu = _detailMenus[slot];
@@ -2279,11 +2246,12 @@ namespace KingdomEnhancedMod
                 UIMapIcon clone = SpawnIcon(source, holderRect, placement);
                 if (clone != null) view.Icons.Add(clone);
             }
-            if (view.Icons.Count != requests.Count)
+            if (view.Icons.Count != placements.Count)
             {
                 // spawn 失败（异常/空源）同样不作为成功：整体丢弃，下一次刷新重试。
+                // 完整性按**当页** placements（分页时只 spawn 该页；非分页两者相等，语义不变）。
                 MapIconLog.Warn("icon spawn incomplete land=" + landIndex +
-                    " spawned=" + view.Icons.Count + "/" + requests.Count + "; display suppressed");
+                    " spawned=" + view.Icons.Count + "/" + placements.Count + "; display suppressed");
                 DestroyHolder(view);
                 view.Fingerprint = int.MinValue;
                 view.FailedFingerprint = fingerprint;
@@ -5206,23 +5174,42 @@ namespace KingdomEnhancedMod
             return null;
         }
 
-        /// <summary>仅当被销毁的 view 正是该 pager 绑定的 detail view 才清 pager（overview 刷新不清 detail 页）。</summary>
+        /// <summary>只销毁绑定该 view 的 detail pager（overview 刷新不影响 detail 页；两 slot 互不牵连）。</summary>
         private static void DestroyDetailPagerFor(MapMountIconView view)
         {
-            DetailPager pager = _detailPager;
-            if (pager == null) return;
-            if (view != null && !ReferenceEquals(pager.View, view)) return;
-            DestroyDetailPager();
+            for (int i = 0; i < _detailPagers.Length; i++)
+            {
+                DetailPager pager = _detailPagers[i];
+                if (pager == null) continue;
+                if (view != null && !ReferenceEquals(pager.View, view)) continue;
+                DestroyDetailPagerAt(i);
+            }
         }
 
+        /// <summary>整代撤销（OnDisable/Teardown/WithdrawIcons）：销毁全部 tuple 的 pager。</summary>
         private static void DestroyDetailPager()
         {
-            DetailPager pager = _detailPager;
-            _detailPager = null;
+            for (int i = 0; i < _detailPagers.Length; i++) DestroyDetailPagerAt(i);
+        }
+
+        /// <summary>销毁单个 tuple slot 的 pager（回调清空 + root 安静销毁）。</summary>
+        private static void DestroyDetailPagerAt(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= _detailPagers.Length) return;
+            DetailPager pager = _detailPagers[slotIndex];
+            _detailPagers[slotIndex] = null;
             if (pager == null) return;
             try { if (pager.Prev != null) pager.Prev.onClick = new Button.ButtonClickedEvent(); } catch (Exception) { }
             try { if (pager.Next != null) pager.Next.onClick = new Button.ButtonClickedEvent(); } catch (Exception) { }
             DestroyQuiet(pager.Root);
+        }
+
+        /// <summary>pager 仍是本 tuple slot 的当前 pager（被替换/已销毁的旧回调无权）。</summary>
+        private static bool IsCurrentDetailPager(DetailPager pager)
+        {
+            if (pager == null) return false;
+            int slot = SlotIndexOfLand(pager.PhysicalLand);
+            return slot >= 0 && ReferenceEquals(_detailPagers[slot], pager);
         }
 
         /// <summary>实际请求列表 signature：fingerprint(kind/type/arrayIndex/order) ⊕ source 名与自身尺寸。</summary>
@@ -5376,6 +5363,8 @@ namespace KingdomEnhancedMod
             try
             {
                 if (view == null || view.Holder == null || land == null || menu == null) return false;
+                int pagerSlot = SlotIndexOfLand(landIndex);
+                if (pagerSlot < 0) return false;
                 if (!ExtensionIslandMap.TryGetDetailTokenForLand(landIndex, out object ownerToken) || ownerToken == null)
                 {
                     return false;
@@ -5411,8 +5400,11 @@ namespace KingdomEnhancedMod
                     BaseFingerprint = baseFingerprint,
                     RequestSignature = DetailRequestSignature(landIndex, requests, sources),
                     FocusIndex = ReadFocusedReignIndex(menu),
-                    FocusedLandUi = ReadFocusedLandUi(menu),
-                    OpenWorldState = ReadOpenWorldState(menu),
+                    // 交互契约（非 observed）：本 tuple 的 UI 焦点与单岛态——world 预建期 actual 焦点是
+                    // 原生 UI9/state0，点击时才要求 actual 达到契约值（expected 不冒称当前观测）。
+                    ExpectedFocusedLandUi = ExtensionIslandMapPlan.TryGetSlotUi(landIndex, out int expectedUi)
+                        ? expectedUi : -1,
+                    ExpectedOpenWorldState = MapOverviewPresentationPolicy.ShowingSingleIsland,
                     View = view,
                     Menu = menu,
                     Map = menu != null ? menu._mainMap : null,
@@ -5440,7 +5432,8 @@ namespace KingdomEnhancedMod
                 pager.Prev.onClick.AddListener((UnityAction)(System.Action)(() => OnDetailPageStep(pager, -1)));
                 pager.Next.onClick.AddListener((UnityAction)(System.Action)(() => OnDetailPageStep(pager, 1)));
                 UpdatePagerLabel(pager);
-                _detailPager = pager;
+                DestroyDetailPagerAt(pagerSlot);   // exact-slot 替换：旧 pager 回调清空，不占本 tuple 槽位
+                _detailPagers[pagerSlot] = pager;
                 root.SetActive(true);
                 return true;
             }
@@ -5452,20 +5445,24 @@ namespace KingdomEnhancedMod
         }
 
         /// <summary>
-        /// 翻页点击：先逐项核验捕获（pager 仍是当前、view 代次/fingerprint 未变、reign int 未变、
-        /// detail token 未换代、menu/land 仍 dispatch-live）；任一失效 no-op 并清 pager，绝不操作新代次/view。
+        /// 翻页点击：hard stale（pager 仍是本 slot 当前、view 代次/fingerprint、浏览 reign、owner menu、
+        /// reign int、注册 token、派发桥 live）任一失效即 no-op 并清本 slot pager；通过后 actual
+        /// focus/state 未达本 tuple 交互契约只**拒绝本次动作**、保留 per-slot 缓存（迟到点击不清 pager）。
         /// </summary>
         private static void OnDetailPageStep(DetailPager pager, int delta)
         {
             try
             {
-                if (pager == null || !ReferenceEquals(_detailPager, pager)) return;   // 旧回调无权
+                if (!IsCurrentDetailPager(pager)) return;   // 旧回调/被替换 pager 无权
                 MapMountIconView view = FindView(pager.Land, false);
-                if (view == null || view.Holder == null || view.Overview) { DestroyDetailPager(); return; }
+                if (view == null || view.Holder == null || view.Overview)
+                {
+                    DestroyDetailPagerAt(SlotIndexOfLand(pager.PhysicalLand));
+                    return;
+                }
+                // hard stale 先行清理（代次/浏览 reign/owner/reign int/注册 token/派发桥任一失效即清本 slot）。
                 if (view.Fingerprint != pager.Fingerprint) { DestroyDetailPagerFor(view); return; }
                 if (ReadFocusedReignIndex(pager.Menu) != pager.FocusIndex) { DestroyDetailPagerFor(view); return; }
-                if (ReadFocusedLandUi(pager.Menu) != pager.FocusedLandUi) { DestroyDetailPagerFor(view); return; }
-                if (ReadOpenWorldState(pager.Menu) != pager.OpenWorldState) { DestroyDetailPagerFor(view); return; }
                 if (!ExtensionIslandMap.IsActiveMenu(pager.Menu)) { DestroyDetailPagerFor(view); return; }
                 if (ReadReignIndex() != pager.ReignIndex) { DestroyDetailPagerFor(view); return; }
                 if (!ExtensionIslandMap.TryGetDetailTokenForLand(pager.PhysicalLand, out object token)
@@ -5481,6 +5478,12 @@ namespace KingdomEnhancedMod
                     DestroyDetailPagerFor(view);
                     return;
                 }
+                // 软交互契约门（P2/r3）：actual 焦点/状态未到本 tuple 的 expected（UI10/11 + 单岛态）只是
+                // **本次不具交互资格**——per-slot 缓存仍有效（用户看 B/world 时 A 是合法缓存），迟到点击
+                // 仅拒绝本次动作、保留 pager；无 UpdateLand 回 A 后仍可翻页。放在 hard stale 之后，
+                // 不因 focus 不匹配而放过上面的清理。
+                if (ReadFocusedLandUi(pager.Menu) != pager.ExpectedFocusedLandUi) return;
+                if (ReadOpenWorldState(pager.Menu) != pager.ExpectedOpenWorldState) return;
                 int next = pager.PageIndex + delta;
                 if (next < 0 || next >= pager.Pages) return;
                 DetailPageRebuildOutcome outcome = RebuildDetailPageIcons(view, pager, next);
@@ -5569,7 +5572,7 @@ namespace KingdomEnhancedMod
                     return DetailPageRebuildOutcome.Stale;
                 }
                 // CAS：pager/view/holder 仍是当次身份才切换（旧回调/换代 view 不得改新代次）。
-                if (!ReferenceEquals(_detailPager, pager) || view.Holder == null
+                if (!IsCurrentDetailPager(pager) || view.Holder == null
                     || !SameInstance(holderRect.gameObject, view.Holder))
                 {
                     for (int i = 0; i < tempIcons.Count; i++) { if (tempIcons[i] != null) DestroyQuiet(tempIcons[i].gameObject); }
@@ -5594,7 +5597,7 @@ namespace KingdomEnhancedMod
                     return DetailPageRebuildOutcome.Stale;
                 }
                 // CAS 复核（含 repaint 期间可能发生的换代）
-                if (!ReferenceEquals(_detailPager, pager) || view.Holder == null
+                if (!IsCurrentDetailPager(pager) || view.Holder == null
                     || !SameInstance(holderRect.gameObject, oldHolder))
                 {
                     view.Icons = oldIcons;

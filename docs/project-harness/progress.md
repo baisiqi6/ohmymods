@@ -1,3 +1,7 @@
+## 2026-10-20 — #272 地图清理/详情代码完成，隔离实测待续
+
+现有Generation保存字典prior和last-owned并按exact实例归还；详情贴图/pager改为各岛独立，移除互相归还与旧无账目降级。已独审菜单重入、旧attempt回滚/poison/tombstone与迟到点击边界；Root双TFM NoDeploy0W0E、357计划/接线、81真实方法故障、194/4/3UI通过。旧RuntimeProbe39失败与HEAD完全相同，未标全绿。A23完成结果交接但探针异常停进程，确切throw未知；新私有诊断保留全部成功门。#272保持Draft/未合并安装，结合#271的新case仍须8→11、八设施、保存退出与独立冷读；正常存档不动。见[#272复核](tasks/issue-272/receipts/verification.md)。
+
 ## 2026-10-18 — Android 133面板实际打开/关闭，诊断收口；银行初始化与完整UI仍未通过
 
 `controlled-economy133-ui-api-20261018-single1` 在独立临时 overlay 中达到 133-owner、world 与严格 touch surface；Root 3 输入/3 PNG：swipe 附近有 moving/位置响应，浮球 tap 后 open=True、ENTER/COMPLETE frame 709、open PNG 实际见面板，再 tap 后 closed PNG 无面板。四个 bank controller 已 Resolved、旧 AOC 首错消失，但 flipY ICall 与 clerk atlas decode 仍 MissingICall，`bankInitializationPassed=false`；不是 NativeBanker/完整 UI 通过。actual 独审 `APPROVE_DIAGNOSTIC_UI_OPEN_CLOSE_ACTUAL_ONLY`（报告SHA `05bc264c…`），Root disposition `ACCEPT_…`。计划 `5384d902…` 正常登记，185/169 readback 与 184/168 保护保持，validator 0、doctor 旧 3E/56 且 232 无 block；QEMU56614/controller56556 真实 reap/wait 0，fresh8/进程/端口保持，无 restore 层。无 intentional pay/save/RPC，自然临时 overlay 写入可能。232/262 OPEN、263 Draft；真实付款/保存/装载与池兼容仍待验，详见[G19记录](tasks/issue-232/g5-main106-preflight.md#g19-ui-open-close-actual)。

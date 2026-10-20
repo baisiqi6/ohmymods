@@ -17,8 +17,9 @@ namespace KingdomEnhancedMod
     ///   共享 CampaignData/模板数组/资产一律不写；原 0..9 与 10→UI9 完全不动。
     /// - 登记有效性 = 该 tuple 实例活着 + 三套数组槽位（固定 12，前 10 exact 引用）+ **当前 menu._mainMap 身份**
     ///   + 当前 campaign；任一失效即对该 tuple 撤销（隐藏/销毁自有节点、解除数组槽位与 UI selection、
-    ///   字典降级 9），并移入 tombstone（按 menu+UI 拒绝身份）直到原生 ClearLands/菜单销毁真清理。
-    /// - 每 tuple 持有独立资约 token（<see cref="TryGetVisualOwnerTokenForLand"/>，MapMountIcons 的
+    ///   字典降级 9——该 9 记为本代 last-owned 账目值），并移入 tombstone（按 menu+UI 拒绝身份）
+    ///   直到原生 ClearLands/菜单销毁真清理；整代清理按 first-capture prior CAS 归还字典
+    ///   （原存在恢复原值/原无键删除），不留降级 9 残渣（自身降级 9 残留导致重登记被拒是已修缺陷）。
     ///   shore/detail 租约按 land 绑定与归还）；menu 代次另有聚合 token 供旧 caller 兼容。
     ///   per-land 释放只 ReleaseOwner(该 tuple token)，绝不误释放兄弟岛。
     /// - B 不可用（未宣布/未就绪/未访问）只隐藏该 slot 节点并禁 travel；数组槽位与字典 13→11 仍存在，
@@ -65,7 +66,12 @@ namespace KingdomEnhancedMod
         /// <summary>menu 代次聚合 token（旧 caller 兼容；每次成功登记 new 实例）。</summary>
         private static object _menuToken;
 
-        /// <summary>登记代次的最初引用（整代 cleanup 只按它归还原生 10，不依赖 Slots[] 当前是否非 null）。</summary>
+        /// <summary>
+        /// 登记代次的最初引用（整代 cleanup 只按它归还原生 10，不依赖 Slots[] 当前是否非 null）。
+        /// 字典责任同代入账：first capture 的 exact dict + 两键 prior + 每 key 最后 owned 值；
+        /// 本代一切字典写/归还只按这份账目（成功 append 后不再丢弃——丢弃导致的降级 9 残留
+        /// 拒绝重登记是已修缺陷）。
+        /// </summary>
         private sealed class Generation
         {
             internal MapTimelineMenuGreece Menu;
@@ -74,6 +80,22 @@ namespace KingdomEnhancedMod
             internal Il2CppReferenceArray<UIMainMapLand> OriginalButtons;
             internal UILand[] OriginalListPrefix;
             internal readonly Registration[] Owned = new Registration[ExtensionIslandMapPlan.SlotCount];
+
+            /// <summary>本代 first capture 的 exact 字典实例；本代写/归还固定用它，不重新 get 借权另一个对象。</summary>
+            internal Il2CppSystem.Collections.Generic.Dictionary<int, int> LookupDict;
+            /// <summary>append 前 first capture 的两键 prior（存在/值）；幂等刷新绝不重捕获（不把自己的 owned 值刷成 prior）。</summary>
+            internal readonly List<MountIslandMapDictEntry> LookupPriors = new List<MountIslandMapDictEntry>(ExtensionIslandMapPlan.SlotCount);
+            /// <summary>本代每键最后 owned 值：初始 = append 写入值（10/11），单 tuple 撤销降级 9 写成功读回后更新；
+            /// 整代归还只按它 CAS（真 foreign 9 不认）。</summary>
+            internal readonly int[] LastOwnedLookup = new int[ExtensionIslandMapPlan.SlotCount];
+            /// <summary>字典账目已全部归还/消解（重复释放不再写字典）。</summary>
+            internal bool LookupReleased;
+            /// <summary>Degrade 写 9 的 owned 转换未能被独立 readback 证明（写后抛错且读回也失败）：
+            /// 当前值既不能证明本代 owned 也不能证明 foreign，Release 不得把 CAS 失配当确定 foreign
+            /// 消解——保留账目与 poison，不自动认领未验证的 9。</summary>
+            internal bool LookupUncertain;
+            /// <summary>是否仍持有未结字典账目。</summary>
+            internal bool HasLookupLedger => LookupDict != null && LookupPriors.Count > 0;
         }
 
         private static Generation _generation;
@@ -113,18 +135,27 @@ namespace KingdomEnhancedMod
             try
             {
                 if (menu == null) return;
-                if (AnySlotMenu(menu))
+                Generation generation = _generation;
+                bool generationMine = generation != null && SameMenu(generation.Menu, menu);
+                if (AnySlotMenu(menu) || generationMine)
                 {
-                    FixLookup(menu, false, false);
+                    // 整代 native-clear：字典按 first-capture priors CAS 归还（prior 存在恢复原值/
+                    // 原无键删除本代项），不再泛降级 9——降级残留正是自身重登记被拒的根因。
+                    bool lookupClean = !generationMine || ReleaseLookup(generation, "native-clear");
                     ClearOwner(menu, "native-clear");
+                    if (lookupClean)
+                    {
+                        if (generationMine) _generation = null;   // 字典责任未结时保留账目（不覆盖/不丢弃）
+                        if (IsPoisoned(menu)) _poisonedMenu = null;   // 责任已消解才解除（不尾部无条件清）
+                    }
                 }
                 if (SameMenu(_detailTemplateMenu, menu))
                 {
                     _detailTemplateMenu = null;
                     _detailTemplatePrefab = null;
                 }
-                if (IsPoisoned(menu)) _poisonedMenu = null;   // 真清理后解除 poisoned
-                if (_generation != null && SameMenu(_generation.Menu, menu)) _generation = null;
+                // 无账目可归还的 poison（如 append 事务回滚失败留下的）保留：fail-closed，
+                // 由菜单销毁/后续生命周期解除；不凭当前值猜测补偿。
                 RemoveTombstone(menu);
                 PruneTombstones();
             }
@@ -452,14 +483,25 @@ namespace KingdomEnhancedMod
                     ApplySlotVisibility(slot);
                 }
                 RefreshAvailability(menu);
-                // 幂等：只校正字典值与可见性；被撤 tuple 的键按注册存在性交给降级 CAS（不指回已销毁 UI）。
-                FixLookup(menu, SlotPresentForLookup(ExtensionIslandMapPlan.PrimaryPhysical),
-                    SlotPresentForLookup(ExtensionIslandMapPlan.SecondaryPhysical));
+                // 幂等刷新不写字典：本代字典账目（priors/last-owned）一次性——降级只发生在
+                // RevokeSlot（带账目更新），升值只发生在整代重建；周期性重写既掩盖真实漂移，
+                // 又会把降级 9 写进字典而不更新 last-owned 账目（释放即失配）。
                 return;   // 本轮不重建：重建留待后续合法生命周期
             }
 
             // 登记属于另一个菜单实例（Unity Destroy 可能延迟到帧末）：先降级为 tombstone，再允许本实例登记。
             if (AnySlot()) RevokeAllAny("menu-replaced");
+
+            // 旧代字典责任未结（menu replacement 换代，或同 menu 重入的 pending 旧 attempt）：
+            // 先按其 exact 账目归还；归还失败则拒绝本代 append（fail-closed）——绝不用新
+            // generation 覆盖未结责任（不借新代结旧账）。
+            Generation previousGeneration = _generation;
+            if (previousGeneration != null && previousGeneration.HasLookupLedger
+                && !previousGeneration.LookupReleased)
+            {
+                if (!ReleaseLookup(previousGeneration,
+                    SameMenu(previousGeneration.Menu, menu) ? "pending-superseded" : "menu-replaced")) return;
+            }
 
             Registration tomb = FindAnyTombstone(menu);
             if (tomb != null && !tomb.RevokeRecoverable) return;   // 该菜单上下文已失效：保持拒绝，等真清理
@@ -476,9 +518,9 @@ namespace KingdomEnhancedMod
             if (!primaryReady && !secondaryReady)
             {
                 LogOnce("no-extension-authorized", "no extension tuple available/ready; extension island UI stays closed");
-                // 无 ownership 时**不写** keys 11/13：只对仍持有 owned 期望映射的遗留键做 CAS 降级
-                //（foreign/未知一律不动，绝不旁路 WriteLookup 的 foreign 保护）。
-                try { FixLookup(menu, false, false); } catch (Exception) { }
+                // 无本代账目授权零写：值等于 10/11 不证明本代拥有该键（foreign 10/11 同样可能），
+                // 不再凭数值降级写 9（R1 遗留的无账目写入口已清除）。真实无 UI 焦点需要 9 只能由
+                // RevokeSlot 的显式持有账目路径产生并在整代归还；同/异 menu 未结账目已在入口/守卫结清。
                 return;
             }
 
@@ -525,6 +567,8 @@ namespace KingdomEnhancedMod
             GameObject[] overviewGos = new GameObject[ExtensionIslandMapPlan.SlotCount];
             bool appended = false;
             bool arraysReplaced = false;
+            Il2CppReferenceArray<UILand> newLands = null;
+            Il2CppReferenceArray<UIMainMapLand> newButtons = null;
             bool success = false;
             Il2CppSystem.Collections.Generic.Dictionary<int, int> lookupDict = null;
             List<MountIslandMapDictEntry> lookupPriors = null;
@@ -605,8 +649,8 @@ namespace KingdomEnhancedMod
                 }
 
                 // 3) 三套数组同步扩到 12（exact 配对；前 10 exact 引用不动）。
-                var newLands = new Il2CppReferenceArray<UILand>(ExtensionIslandMapPlan.ExtendedUiCount);
-                var newButtons = new Il2CppReferenceArray<UIMainMapLand>(ExtensionIslandMapPlan.ExtendedUiCount);
+                newLands = new Il2CppReferenceArray<UILand>(ExtensionIslandMapPlan.ExtendedUiCount);
+                newButtons = new Il2CppReferenceArray<UIMainMapLand>(ExtensionIslandMapPlan.ExtendedUiCount);
                 for (int i = 0; i < ExtensionIslandMapPlan.NativeUiCount; i++)
                 {
                     newLands[i] = originalLands[i];
@@ -632,14 +676,38 @@ namespace KingdomEnhancedMod
                 }
                 if (!arraysOk) return;   // finally 回滚
 
-                // 4) 字典 11→10、13→11（只 append；原生 0..10 值不动）——先捕获 prior（存在/值），
-                //    任一步失败按 CAS 恢复/移除我们写入的键（绝不覆盖 foreign/未知值）。
+                // 4) 字典 11→10、13→11（只 append；原生 0..10 值不动）——first-capture 后、第一次
+                //    可能写入之前就把账目挂入同代 generation 并发布为 pending（UI 授权与账目持有
+                //    分开）：失败路径由 lifecycle 按这份账目归还，不靠无账目的永久 poison；
+                //    本次写固定用捕获的 exact dict 实例（不重新 get menu.LAND_TO_MAP_LAND 借权
+                //    可能已切换的另一个对象），foreign/未知值绝不覆盖。
                 if (!CaptureLookupPriors(menu, out lookupDict, out lookupPriors))
                 {
                     return;   // 字典读不到：整笔回滚（不抛、不建半套 UI）
                 }
-                if (!FixLookup(menu, true, true)) return;   // finally 回滚（含字典 CAS 恢复）
+                AttachLookupLedger(generation, lookupDict, lookupPriors);
+                _generation = generation;   // pending 责任：Owned 仍空，OnLandsCleared/TryReclaim 可按账目归还
+                if (!FixLookupOnDict(lookupDict, true, true)) return;   // finally 回滚（含字典 CAS 恢复）
 
+                // 发布边界：确认 menu 当前仍使用 capture 的 exact dictionary（native pointer 身份；
+                // managed wrapper 别名同 pointer 视为同实例）。漂移/读未知 → 拒绝发布、不写 D2，
+                // 按 D1 捕获账目归还（finally），保留 unknown 责任。
+                if (!LookupDictStillCurrent(menu, lookupDict)) return;
+
+                // visibility 先行：所有会进入 Unity 的 SetActive 在 commit 之前完成（同步生命周期
+                // 回调可在此换 dict/Clear pending 代/重绑新 g2），此时 Slots 尚未发布、失败仍走整笔回滚。
+                for (int s = 0; s < created.Count; s++)
+                {
+                    ApplySlotVisibility(created[s]);
+                }
+                if (!RemoveTombstoneForPendingGeneration(generation)) return;
+
+                // commit 终检（R3 重入边界）：exact D1 复核（dict getter 本身也可能重入）之后，
+                // 最后做纯 managed 身份复核——仍是同一 pending generation、未结清、无 uncertain；
+                // 任一失配拒绝发布（finally 按本次责任 CAS 回滚，不覆盖 g2/D2）。
+                if (!LookupCommitGuard(generation, menu, lookupDict)) return;
+
+                // 纯 managed commit：Slots/Owned 之间不夹任何 Unity 写。
                 for (int s = 0; s < created.Count; s++)
                 {
                     Registration slot = created[s];
@@ -647,11 +715,8 @@ namespace KingdomEnhancedMod
                     if (slotIndex < 0) return;   // 不可能：tuple 常量来自 policy
                     Slots[slotIndex] = slot;
                     generation.Owned[slotIndex] = slot;
-                    ApplySlotVisibility(slot);
                 }
-                _generation = generation;
                 _menuToken = new object();
-                RemoveTombstone(menu);
                 success = true;
                 Log("extension island UI appended: detail lands[10,11], overview _lands/_mainMapLands[10,11], lookup 11->10/13->11; available=A:"
                     + (Slots[0] != null && Slots[0].Available ? "yes" : "no")
@@ -663,8 +728,9 @@ namespace KingdomEnhancedMod
                 {
                     if (arraysReplaced)
                     {
-                        try { map._lands = originalLands; } catch (Exception) { }
-                        try { map._mainMapLands = originalButtons; } catch (Exception) { }
+                        // 拒绝后的数组回滚只 CAS 本次实际替换的引用（native pointer 身份）：
+                        // 重入回调已把 map 换成 g2/foreign 数组时绝不覆盖（保留新代/外部状态）。
+                        RestoreReplacedArraysIfStillOurs(map, newLands, newButtons, originalLands, originalButtons);
                     }
                     if (appended)
                     {
@@ -686,16 +752,26 @@ namespace KingdomEnhancedMod
                                 else if (liveLands[added.UiIndex] != null)
                                 {
                                     // foreign 替换：不删他人元素，保留责任并 poison（等 Native Clear/lifecycle）。
-                                    if (MountIslandMapDictTransaction.RequiresPoisonOnRollbackFailure(true)) _poisonedMenu = menu;
+                                    if (CanPoisonAppendAttempt(generation)
+                                        && MountIslandMapDictTransaction.RequiresPoisonOnRollbackFailure(true)) _poisonedMenu = menu;
                                 }
                             }
                         }
                         catch (Exception)
                         {
-                            if (MountIslandMapDictTransaction.RequiresPoisonOnRollbackFailure(true)) _poisonedMenu = menu;
+                            if (CanPoisonAppendAttempt(generation)
+                                && MountIslandMapDictTransaction.RequiresPoisonOnRollbackFailure(true)) _poisonedMenu = menu;
                         }
                     }
-                    RestoreLookupPriors(menu, lookupDict, lookupPriors);
+                    // pending 字典账目按捕获账目归还（真实 postcondition）：foreign/已删键不碰；
+                    // 读回未知/写失败保留账目+poison（lifecycle 后续归还），不丢 pending captured ledger。
+                    if (ReferenceEquals(_generation, generation))
+                    {
+                        if (ReleaseLookup(generation, "append-rollback"))
+                        {
+                            _generation = null;   // 账目已消解：不留空账挂账
+                        }
+                    }
                     for (int s = 0; s < ExtensionIslandMapPlan.SlotCount; s++)
                     {
                         DestroySafe(overviewGos[s]);
@@ -706,9 +782,10 @@ namespace KingdomEnhancedMod
         }
 
         /// <summary>
-        /// 撤销单个 tuple：隐藏/销毁自有节点、解除该 tuple 的数组槽位与 UI selection、字典降级 9；
-        /// 登记移入 tombstone（拒绝身份）。只碰“当前 map 就是登记 map 且槽位仍是我们”的数组；
-        /// 兄弟 tuple 的槽位/字典键/租约不动（它的 hidden slot 继续存在）。
+        /// 撤销单个 tuple：隐藏/销毁自有节点、解除该 tuple 的数组槽位与 UI selection、字典降级 9
+        /// （该 9 记为本代 last-owned，整代清理只归还自己的 9）；登记移入 tombstone（拒绝身份）。
+        /// 只碰“当前 map 就是登记 map 且槽位仍是我们”的数组；兄弟 tuple 的槽位/字典键/租约不动
+        /// （它的 hidden slot 继续存在）。
         /// </summary>
         private static void RevokeSlot(Registration slot, string reason)
         {
@@ -733,7 +810,13 @@ namespace KingdomEnhancedMod
 
             try { if (slot.DetailGo != null) slot.DetailGo.SetActive(false); } catch (Exception) { }
             try { if (slot.OverviewGo != null) slot.OverviewGo.SetActive(false); } catch (Exception) { }
-            try { if (menu != null) FixLookup(menu, SlotPresentForLookup(ExtensionIslandMapPlan.PrimaryPhysical), SlotPresentForLookup(ExtensionIslandMapPlan.SecondaryPhysical)); } catch (Exception) { }
+            // 字典降级：固定本代 capture 的 exact dict（不重新 get 借权），只降级本 tuple 键并把
+            // 写成功读回的 9 记为本代 last-owned；兄弟键不动（hidden 登记的 11 保持）。
+            Generation revokeGeneration = _generation;
+            if (revokeGeneration != null && SameMenu(revokeGeneration.Menu, menu))
+            {
+                DegradeLookupForRevoke(revokeGeneration, slot);
+            }
 
             // 单 tuple 撤销**绝不缩** menu.lands 或三数组（兄弟 exact/旅行必须继续有效）；
             // 只 CAS 把自己槽位置 null（仅当该槽仍是我们），长度保持 12，等整代 cleanup 才归还原生 10。
@@ -830,8 +913,12 @@ namespace KingdomEnhancedMod
                 for (int i = 0; i < generation.Owned.Length; i++)
                 {
                     Registration owned = generation.Owned[i];
-                    if (owned != null && !owned.Revoked) return;   // 还有活 tuple：保持 12
+                    if (owned != null && !owned.Revoked) return;   // 还有活 tuple：保持 12（含其字典 11 映射）
                 }
+                // 字典责任先行归还（不依赖 arrays 形状/map 身份：dict 属 menu 实例，capture 的
+                // exact 引用仍可写）；失败 poison 并保留账目（_generation 不置空），等下一次
+                // lifecycle 事件重试，不做轮询循环。
+                bool lookupClean = ReleaseLookup(generation, "reclaim");
                 // 只有当前 menu._mainMap 仍是 capture 的**同一实例**才允许写回原数组；
                 // 否则（外部替换/新 map）只清旧 owned 节点/责任，绝不把旧 generations 的 arrays 写进新 map。
                 UIMainMap currentMap = null;
@@ -840,7 +927,7 @@ namespace KingdomEnhancedMod
                 {
                     LogOnce("reclaim-map-drifted-" + (generation.Menu != null ? generation.Menu.GetInstanceID() : 0),
                         "generation reclaim skipped: current map is not the captured map (old nodes cleared, arrays untouched)");
-                    _generation = null;
+                    if (lookupClean) _generation = null;   // 字典责任未结时保留账目
                     return;
                 }
                 UIMainMap map = generation.Map;
@@ -880,8 +967,11 @@ namespace KingdomEnhancedMod
                         }
                     }
                 }
-                _generation = null;
-                LogOnce("generation-reclaimed", "extension island generation reclaimed to native 10 (all tuples down)");
+                if (lookupClean)
+                {
+                    _generation = null;   // 字典责任未结（poison）时保留账目，等下次 lifecycle 事件
+                    LogOnce("generation-reclaimed", "extension island generation reclaimed to native 10 (all tuples down)");
+                }
             }
             catch (Exception e)
             {
@@ -1217,26 +1307,6 @@ namespace KingdomEnhancedMod
 
         // ------------------------------------------------------------------ 字典 / 生命周期
 
-        /// <summary>
-        /// 把该实例字典的 tuple 键校正为当前 UI 存在性（A 有 UI→10、B 有 UI→11；无 UI→9 降级焦点）。
-        /// 返回 true 表示全部已写键读回一致（追加事务要求）；无字典时返回 false。
-        /// </summary>
-        private static bool FixLookup(MapTimelineMenuGreece menu, bool primaryUiPresent, bool secondaryUiPresent)
-        {
-            try
-            {
-                if (menu == null) return false;
-                Il2CppSystem.Collections.Generic.Dictionary<int, int> dict = menu.LAND_TO_MAP_LAND;
-                if (dict == null) return false;
-                if (!WriteLookup(dict, ExtensionIslandMapPlan.PrimaryPhysical, primaryUiPresent)) return false;
-                return WriteLookup(dict, ExtensionIslandMapPlan.SecondaryPhysical, secondaryUiPresent);
-            }
-            catch (Exception e)
-            {
-                LogOnce("lookup", "LAND_TO_MAP_LAND update failed: " + e.GetType().Name + " " + e.Message);
-                return false;
-            }
-        }
 
         private static bool WriteLookup(Il2CppSystem.Collections.Generic.Dictionary<int, int> dict,
             int physicalLand, bool uiPresent)
@@ -1320,35 +1390,266 @@ namespace KingdomEnhancedMod
             }
         }
 
-        /// <summary>整笔回滚：对我们写入的键按 CAS 恢复 prior / 移除新建键（foreign/未知值绝不覆盖）。</summary>
-        private static void RestoreLookupPriors(MapTimelineMenuGreece menu,
+
+        /// <summary>本代字典写入口：固定传入的 exact dict 实例（append 时 capture 锁定），
+        /// 不重新 get menu.LAND_TO_MAP_LAND——menu getter 可能已切到另一个对象。</summary>
+        private static bool FixLookupOnDict(Il2CppSystem.Collections.Generic.Dictionary<int, int> dict,
+            bool primaryUiPresent, bool secondaryUiPresent)
+        {
+            if (dict == null) return false;
+            if (!WriteLookup(dict, ExtensionIslandMapPlan.PrimaryPhysical, primaryUiPresent)) return false;
+            return WriteLookup(dict, ExtensionIslandMapPlan.SecondaryPhysical, secondaryUiPresent);
+        }
+
+        /// <summary>
+        /// append 事务的 first-capture 账目挂入同代 generation（必须在第一次可能写入之前调用）：
+        /// exact dict + 两键 prior + 每 key 初始 last-owned（=append 写入值 10/11）。
+        /// UI 授权与账目持有分开——未 publish 的失败路径也由这份 pending 账目经 ReleaseLookup 归还。
+        /// </summary>
+        private static void AttachLookupLedger(Generation generation,
             Il2CppSystem.Collections.Generic.Dictionary<int, int> dict, List<MountIslandMapDictEntry> priors)
         {
-            if (dict == null || priors == null) return;
+            if (generation == null || dict == null || priors == null) return;
+            generation.LookupDict = dict;
+            generation.LookupPriors.AddRange(priors);
             for (int i = 0; i < priors.Count; i++)
             {
-                MountIslandMapDictEntry entry = priors[i];
+                int idx = SlotIndexOf(priors[i].Physical);
+                if (idx >= 0)
+                {
+                    generation.LastOwnedLookup[idx] =
+                        ExtensionIslandMapPlan.LookupUiForPhysical(priors[i].Physical, true);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 发布边界复核：menu 当前使用的仍是 capture 的 exact dictionary（native pointer 身份；
+        /// managed wrapper 别名同 pointer 视为同实例）。漂移/读未知返回 false——调用方拒绝发布、
+        /// 不写新字典，只按捕获账目归还旧字典并保留 unknown 责任。
+        /// </summary>
+        private static bool LookupDictStillCurrent(MapTimelineMenuGreece menu,
+            Il2CppSystem.Collections.Generic.Dictionary<int, int> captured)
+        {
+            if (menu == null || captured == null) return false;
+            try
+            {
+                Il2CppSystem.Collections.Generic.Dictionary<int, int> current = menu.LAND_TO_MAP_LAND;
+                return current != null && current.Pointer == captured.Pointer;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 旧 attempt 的回滚只能冻结自身尚未结清的责任；Clear 已结清或新 g2 已接手时，
+        /// 迟到的 g1 不能将同一个 menu 的新代标为 poisoned。尚未挂账的本次失败仍保留故障保护。
+        /// </summary>
+        private static bool CanPoisonAppendAttempt(Generation generation)
+        {
+            return generation != null && !generation.LookupReleased
+                && (_generation == null || _generation.LookupReleased || ReferenceEquals(_generation, generation));
+        }
+
+        /// <summary>只为仍属本 attempt 的 pending 代清 tombstone；迟到 g1 不撤销新 g2 的拒绝身份。</summary>
+        private static bool RemoveTombstoneForPendingGeneration(Generation generation)
+        {
+            if (!ReferenceEquals(_generation, generation) || generation.LookupReleased || generation.LookupUncertain)
+                return false;
+            if (!LookupCommitGuard(generation, generation.Menu, generation.LookupDict)) return false;
+            RemoveTombstone(generation.Menu);
+            return true;
+        }
+
+        /// <summary>exact dict getter 后最后复核同一 pending 代、账目未结清且无 uncertain。</summary>
+        private static bool LookupCommitGuard(Generation generation, MapTimelineMenuGreece menu,
+            Il2CppSystem.Collections.Generic.Dictionary<int, int> capturedDict)
+        {
+            if (!LookupDictStillCurrent(menu, capturedDict)) return false;
+            return ReferenceEquals(_generation, generation)
+                && !generation.LookupReleased
+                && !generation.LookupUncertain;
+        }
+
+        /// <summary>
+        /// 失败回滚的数组 CAS 恢复：仅当前数组仍是本次实际替换的 exact 引用（native pointer 身份）
+        /// 才写回 original——重入回调已换成 g2/foreign 数组时绝不覆盖（保留新代/外部状态与责任）。
+        /// </summary>
+        private static void RestoreReplacedArraysIfStillOurs(UIMainMap map,
+            Il2CppReferenceArray<UILand> newLands, Il2CppReferenceArray<UIMainMapLand> newButtons,
+            Il2CppReferenceArray<UILand> originalLands, Il2CppReferenceArray<UIMainMapLand> originalButtons)
+        {
+            if (map == null) return;
+            try
+            {
+                if (newLands != null && map._lands != null && map._lands.Pointer == newLands.Pointer)
+                {
+                    map._lands = originalLands;
+                }
+            }
+            catch (Exception) { }
+            try
+            {
+                if (newButtons != null && map._mainMapLands != null && map._mainMapLands.Pointer == newButtons.Pointer)
+                {
+                    map._mainMapLands = originalButtons;
+                }
+            }
+            catch (Exception) { }
+        }
+
+        /// <summary>
+        /// 单 tuple 撤销的降级写（fallback 9，防真实无 UI 焦点悬空）：固定本代 capture 的 exact dict；
+        /// 仅当前值仍是本代该键 last-owned 值才写（不泛认 9/10/11，foreign/漂移不动）。
+        /// owned 转换（10/11→9）以 pending 责任持有：setter 抛错/静默失败/读回抛错时用**独立 readback**
+        /// 消解——读到 9 认领本代 owned、读到原值判定未写生效；readback 也失败则保留 LookupUncertain
+        /// 账目与 poison，绝不把这次转换当 no-op 完成或留给 Release 当确定 foreign 消解。
+        /// </summary>
+        private static void DegradeLookupForRevoke(Generation generation, Registration slot)
+        {
+            if (generation == null || generation.LookupDict == null || slot == null) return;
+            int idx = SlotIndexOf(slot.PhysicalLand);
+            if (idx < 0) return;
+            int key = slot.PhysicalLand;
+            int current;
+            try
+            {
+                if (!generation.LookupDict.ContainsKey(key)) return;   // 本代从未写入该键：无可降级
+                current = generation.LookupDict[key];
+                if (current == ExtensionIslandMapPlan.FallbackFocusUi) return;   // 已降级幂等（账目已同步）
+                if (!MountIslandMapDictTransaction.ShouldDegradeRevoke(current, generation.LastOwnedLookup[idx]))
+                {
+                    return;   // foreign/漂移值：无本代授权不凭值猜 owned
+                }
+            }
+            catch (Exception e)
+            {
+                LogOnce("lookup-degrade-read-" + key, "LAND_TO_MAP_LAND degrade read failed (no write attempted, land "
+                    + key + "): " + e.GetType().Name + " " + e.Message);
+                return;   // 读阶段失败：本次无写发生，账目保持原值
+            }
+            // 写阶段：pending owned 转换（current → 9）。任何异常都由独立 readback 消解或保留 uncertain。
+            try { generation.LookupDict[key] = ExtensionIslandMapPlan.FallbackFocusUi; }
+            catch (Exception e)
+            {
+                LogOnce("lookup-degrade-write-" + key, "LAND_TO_MAP_LAND degrade setter threw (resolving by readback, land "
+                    + key + "): " + e.GetType().Name + " " + e.Message);
+            }
+            int after;
+            bool afterKnown;
+            try
+            {
+                after = generation.LookupDict[key];
+                afterKnown = true;
+            }
+            catch (Exception e)
+            {
+                after = 0;
+                afterKnown = false;
+                LogOnce("lookup-degrade-readback-" + key, "LAND_TO_MAP_LAND degrade readback failed (uncertain, land "
+                    + key + "): " + e.GetType().Name + " " + e.Message);
+            }
+            if (afterKnown && after == ExtensionIslandMapPlan.FallbackFocusUi)
+            {
+                generation.LastOwnedLookup[idx] = ExtensionIslandMapPlan.FallbackFocusUi;   // 转换已证明：9 认领本代
+                return;
+            }
+            if (afterKnown && after == current)
+            {
+                return;   // 写未生效（静默忽略）：账目保持原 owned 值，责任原值等整代归还
+            }
+            // readback 失败或值漂移到非预期：写入状态不可证明——保留 uncertain 责任并 poison，
+            // Release 不得把该键 CAS 失配当确定 foreign 消解（不自动认领未验证的 9）。
+            generation.LookupUncertain = true;
+            if (MountIslandMapDictTransaction.RequiresPoisonOnRollbackFailure(true)) _poisonedMenu = generation.Menu;
+        }
+
+        /// <summary>
+        /// 整代字典归还：按 first-capture priors 把两扩展键 CAS 归还——prior 存在恢复原值、
+        /// 原无键删除本代项（仅当前值仍是本代该键 last-owned 值：append 写入值或本代降级 9）；
+        /// foreign 改值/已删键不碰（责任已消解）。LookupUncertain（Degrade 写 9 未被 readback 证明）
+        /// 时不得把 CAS 失配当确定 foreign 消解——直接保留账目与 poison。读回未知/写失败同样
+        /// poison 并保留账目（等下一次 Native Clear/menu lifecycle 事件，不做 retry 循环）。
+        /// 返回 true = 责任全部消解。
+        /// </summary>
+        private static bool ReleaseLookup(Generation generation, string reason)
+        {
+            if (generation == null || !generation.HasLookupLedger) return true;
+            if (generation.LookupReleased) return true;   // 重复释放不再写字典
+            if (generation.LookupUncertain)
+            {
+                if (MountIslandMapDictTransaction.RequiresPoisonOnRollbackFailure(true)) _poisonedMenu = generation.Menu;
+                LogOnce("lookup-release-uncertain-" + reason + "-" + MenuId(generation.Menu),
+                    "LAND_TO_MAP_LAND release refused: degrade ownership unproven, ledger kept and menu poisoned (menu "
+                    + MenuId(generation.Menu) + ")");
+                return false;
+            }
+            Il2CppSystem.Collections.Generic.Dictionary<int, int> dict = generation.LookupDict;
+            bool clean = true;
+            string failure = "";
+            for (int i = 0; i < generation.LookupPriors.Count; i++)
+            {
+                MountIslandMapDictEntry entry = generation.LookupPriors[i];
+                int idx = SlotIndexOf(entry.Physical);
+                if (idx < 0) continue;
                 try
                 {
                     bool present = dict.ContainsKey(entry.Physical);
                     int current = present ? dict[entry.Physical] : 0;
-                    if (MountIslandMapDictTransaction.ShouldRestoreRollback(entry, present, current))
+                    if (present && current == entry.PriorValue)
+                    {
+                        continue;   // 已处于 prior 状态（写入从未发生/已被归还）：零写通过
+                    }
+                    int lastOwned = generation.LastOwnedLookup[idx];
+                    if (MountIslandMapDictTransaction.ShouldRestoreRelease(entry, lastOwned, present, current))
                     {
                         dict[entry.Physical] = entry.PriorValue;
                     }
-                    else if (MountIslandMapDictTransaction.ShouldRemoveRollback(entry, present, current))
+                    else if (MountIslandMapDictTransaction.ShouldRemoveRelease(entry, lastOwned, present, current))
                     {
                         dict.Remove(entry.Physical);
+                    }
+                    else
+                    {
+                        continue;   // foreign 改值/已删键：不接管，责任消解
+                    }
+                    bool afterPresent = dict.ContainsKey(entry.Physical);
+                    int afterValue = afterPresent ? dict[entry.Physical] : 0;
+                    if (!MountIslandMapDictTransaction.ReleaseReadbackMatches(entry, afterPresent, afterValue))
+                    {
+                        clean = false;   // setter 静默失败/读回未知：责任未消解
+                        failure = "readback key " + entry.Physical;
                     }
                 }
                 catch (Exception e)
                 {
-                    // 回滚读回未知/失败：该代次 poisoned（不 dispatch/不 append/不 travel），
-                    // 由 Native Clear/menu lifecycle 有界归还；不做自动 retry 扫描。
-                    if (MountIslandMapDictTransaction.RequiresPoisonOnRollbackFailure(true)) _poisonedMenu = menu;
-                    LogOnce("lookup-rollback", "LAND_TO_MAP_LAND rollback failed: " + e.GetType().Name + " " + e.Message);
+                    clean = false;   // 读写抛错：unknown，责任保留
+                    failure = e.GetType().Name + " key " + entry.Physical;
                 }
             }
+            if (clean)
+            {
+                generation.LookupReleased = true;
+                LogOnce("lookup-release-" + reason + "-" + MenuId(generation.Menu),
+                    "LAND_TO_MAP_LAND ledger released (" + reason + ", menu " + MenuId(generation.Menu)
+                    + ", dict 0x" + dict.Pointer.ToString("X") + "): keys back to first-capture priors");
+            }
+            else
+            {
+                if (MountIslandMapDictTransaction.RequiresPoisonOnRollbackFailure(true)) _poisonedMenu = generation.Menu;
+                LogOnce("lookup-release-fail-" + reason + "-" + MenuId(generation.Menu),
+                    "LAND_TO_MAP_LAND release kept responsible and menu poisoned (" + reason + ", menu "
+                    + MenuId(generation.Menu) + ", " + failure + ")");
+            }
+            return clean;
+        }
+
+        private static int MenuId(MapTimelineMenuGreece menu)
+        {
+            try { return menu != null ? menu.GetInstanceID() : 0; }
+            catch (Exception) { return 0; }
         }
 
         private static void ApplySlotVisibility(Registration slot)
