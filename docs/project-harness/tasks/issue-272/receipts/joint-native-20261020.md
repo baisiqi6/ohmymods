@@ -27,3 +27,9 @@ Issue260中**正常旧档已访问空岛的补发/回填仍未实现**，该Issu
 ## 证据与阶段
 
 Source/Native逐阶段审查与新凭据分开；既有未变测试复用，增量host、真实两轮截图、完整16文件/receipt/cold/manifest及模型公开事件留本机 `.local/tasks/map-detail-visual-20261020/` 和 `.local/tasks/mount32-fresh-validation-20261019/native-a41-mapshipfinal/`、`native-a39-mapreentry/`。诊断器、原始玩家资料和interop不提交GitHub。最终Native独审与GLM合并安装审查完成后，按#271→更新并合并#273收尾；此记录写入时尚未合并、安装，安装回执另记。
+
+## 最终合并、安装与关单
+
+#271以 `0fc779a45d4cd9e7afdec6ebe7d6222e97ea537e` 合并，随后#273以 `1b892284d884a16340f1fe650a346038ad243508` 合并。480全部构建输入重哈希、318项repo输入逐byte匹配被测B，il2cpp/tests diff为空；产品未重建。最终GLM5.3/max实际公开model事件无fallback，独立Native和安装脚本审查通过；输出pin损坏未采纳，同session格式修正后强pin裁决才执行。270/272已手动关闭并回读CLOSED，260保持OPEN。
+
+17:47UTC，同一net6 `25d9ffef5ad20436bf49c8f7f7c7fdb395e16a86f2bae63900ee6df0a8f4c156` 安装到独立Mac ARM64正常包；旧8345…9e1b DLL、配置/完整共享存档、偏好/VDF及两清单已复制并逐hash备份，locator `.local/tasks/map-detail-visual-20261020/normal-install-backup-20261020T174745Z/`。只更新DLL、manifest的DLL hash/size和SHA256SUMS对应两行，修正既有manifest陈旧pin；正常16个save/config/prefs/Steam数据文件逐hash未变，未恢复旧档、未写Steam本体。启动器check-only与安装后独立274项checksum通过，normal闭包精确只变上述三路径；未自动启动正常游戏。备份、installation-receipt、install-postcheck及模型公开证据保留同任务本机目录，公开最终回执同步PR273。此段仅补真实交付状态，不改变产品、版本或前文未验边界。

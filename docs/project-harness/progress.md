@@ -1,6 +1,8 @@
-## 2026-10-20 — 坐骑岛剪影/船位/配色及同候选保存重进通过
+## 2026-10-20 — 坐骑岛显示修复已合并、安装，正常存档未替换
 
-正式NoAudit候选B（0b17095，net6 25d9…c156/net8 74d7…0b6d，两TFM0W0E）已在A41 F1和实际后像A39 F2冷读验证：Playing11/8设施/8markers，八剪影、岸外单船、配色、地图往返及两次UI自然SaveQuit exit0通过。正常存档/配置未动；旧岛8只保留原生时间1ULP变化，不称全角色Exact。剪影原因是旧岛地同色；详情船由managed as失败改原生GetComponent，坐标诊断器改同native数组读回。合并安装关口集中复核中，仍未安装。#260旧正常空岛回填继续开放；B首次重新出航、第二岛自然抵达、其它平台和联机不由本例代验。详见[联合记录](tasks/issue-272/receipts/joint-native-20261020.md)。下文为历史时点。
+#271→#273分别合并为0fc779a4、1b892284；合并态318项repo构建输入与实测B逐byte相同，NoAudit net6/net8两TFM0W0E。A41 F1→真实后像A39 F2已Playing11/八设施/八markers、八剪影、岸外单船、配色及地图往返、两次UI自然SaveQuit exit0通过。原生坐标采样、旧岛地同色和船managed wrapper根因及验证边界见[联合回执](tasks/issue-272/receipts/joint-native-20261020.md)。
+
+同B net6 DLL25d9…c156已装独立ARM64正常游玩包，安装前完整备份，16个save/config/prefs/Steam文件逐hash未变，未restore；仅DLL/manifest/SHA256SUMS三个部署文件改变，启动器check-only与独立274项checksum通过，未开正常游戏。270/272已关闭；**260旧正常空岛回填仍开放、未实装**。旧岛8原生时间1ULP、角色Unknown、已有日志警告保留；B本轮是冷读已有设施，首次出航证据来自H，第二岛自然抵达/Windows243/Android设备/联机不外推。本地checklist未见三项独立节点，未裸改canonical，validator0warning。下文为历史时点。
 
 ## 2026-10-20 — #272 坐标采样已修，缺剪影转查渲染层
 
