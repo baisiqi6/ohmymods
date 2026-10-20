@@ -135,6 +135,9 @@ namespace KingdomEnhancedMod
             try
             {
                 if (menu == null) return;
+                // Revoke this menu's pending result before releasing its lookup/art ownership.
+                // Both operations are exact-owner/idempotent; a late result cannot reuse a cleared slot.
+                ExtensionIslandMapResult.Clear(menu);
                 Generation generation = _generation;
                 bool generationMine = generation != null && SameMenu(generation.Menu, menu);
                 if (AnySlotMenu(menu) || generationMine)
@@ -235,15 +238,29 @@ namespace KingdomEnhancedMod
 
                     if (action != ExtensionConfirmAction.Succeed) return true;
 
-                    // 原生阶段 2 成功：结果写该 tuple 的 physical（11/13）；音效/菜单字段与原生一致。
+                    // 原生只把 focusedLand 返回给调用者；landResult 不是实际出航结果。
+                    // UI 字段保持 UI 域，由本次 exact show 的完成边界交接 physical（11/13）。
                     if (!ExtensionIslandMapPlan.TryGetConfirmResultLand(landIndex, out int resultLand)) return true;
-                    menu.landResult = resultLand;
+                    menu.landResult = resultLand; // 保留原有辅助字段及其与音效的调用顺序。
                     AudioSource audio = menu.newIslandAudioSource;
                     if (audio != null && !audio.isPlaying) audio.Play();
                     Menu menuInst = Menu.InstExists ? Menu.Inst : null;
-                    if (menuInst != null) menuInst.menuBackoutAllowed = true;
                     Menu hide = menuInst != null ? menuInst : menu._menu;
-                    if (hide != null) hide.Hide();
+                    if (hide == null || !ExtensionIslandMapResult.TryArm(
+                        menu, hide, landIndex, resultLand, slot.WorldToken, slot.CampaignPointer,
+                        out object confirmationHandle)) return true;
+                    try
+                    {
+                        if (menuInst != null) menuInst.menuBackoutAllowed = true;
+                        hide.Hide();
+                        ExtensionIslandMapResult.AfterHide(menu, confirmationHandle);
+                    }
+                    catch
+                    {
+                        // Hide 可同步完成；只撤销尚未提交的票，不声称能回滚已消费结果。
+                        ExtensionIslandMapResult.Abort(menu, confirmationHandle);
+                        throw;
+                    }
                     return true;
                 }
 

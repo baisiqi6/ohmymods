@@ -1,0 +1,23 @@
+PASS A UI10 -> physical11：完成交接只写 4 字节
+PASS B UI11 -> physical13：完成交接只写 4 字节
+PASS A 重复 false 保持 11，绝不把 A physical11 再映射成 B physical13
+PASS wrong expected UI 原样保留
+PASS None 原样保留，不宣称可用取消
+PASS 非规范 hasValue 原样保留
+PASS native/foreign/无票：非本 ticket 的 show 返回 Stale 且不消费原票
+PASS menu/iterator/show/campaign/token/arm 失配全部拒绝
+PASS completion 失配：campaign/token 改变时原样保留
+PASS 新 show 使旧票失效，旧 iterator 迟到不影响新票
+PASS revoke/nativeClear：撤销后不提交
+PASS Hide 早退：Still Showing/Opening 才撤销，Closing/Closed 保留 pending
+PASS Hide 异常（Abort）撤销未提交票
+PASS 同步完成之后 Abort 不可假回滚
+PASS completion 非 expected UI / 无票：原样保留
+PASS 生产归一化：raw boxed 16/16/20 + Return header16 + Nullable class size24 -> payload 0/0/4
+PASS exact confirmation handle：旧/外来 handle 不影响新票
+PASS 布局合法基线
+PASS 布局失败：size/offset/type/越界/对齐/引用/boxed 任一不符即拒绝
+PASS 等值 expectedUI==physical 仍返回 Committed（不得误判为未提交）
+PASS 无条件写边界：null 指针/错误 layout/非 4 对齐全部拒绝
+PASS 读取前元数据硬门与读取后字节校验分阶段，不伪造装箱观测
+RESULT passed=22 failed=0 assertions=230

@@ -1,0 +1,23 @@
+[
+  {
+    "role": "worker",
+    "sha256": "605e601572afcfad6cfe6ddd43f0786f17e224910b11aff9f30b8133613c98db",
+    "model": "deepseek/deepseek-flash",
+    "thinkingLevel": "max",
+    "resolvedModelIsFallback": false
+  },
+  {
+    "role": "decision",
+    "sha256": "266a53b765a26da7a19a40aa0c937661c6aeac1821e648c9deb8d5536c4271b6",
+    "model": "zhipu-coding-plan/glm-5.3",
+    "thinkingLevel": "max",
+    "resolvedModelIsFallback": false
+  },
+  {
+    "role": "source-plan-decision",
+    "sha256": "4aebecf74531116fc321b1f318813d3a9126797b65648afbca4d305dfaf1aded",
+    "model": "zhipu-coding-plan/glm-5.3",
+    "thinkingLevel": "max",
+    "resolvedModelIsFallback": false
+  }
+]
