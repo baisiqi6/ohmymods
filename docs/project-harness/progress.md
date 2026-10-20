@@ -1,3 +1,7 @@
+## 2026-10-20 — #272 坐标采样已修，缺剪影转查渲染层
+
+A35真实稳定详情快照已取得有效native坐标：8图标均有尺寸、在裁剪内、父级alpha正常，空白仍复现，不支持几何补偿。隔离UI保存退出samePopen exit0/wait0、无signal，8标记落盘；正常完整closure未变。继续以船标对照Canvas/depth/layer/effective sprite，船位/RGB最终联合Native尚待完成，未合并release或安装。#260必要出航修复已窄接主线Source、双TFM0W0E和17/0测试及独审通过；不包含旧空岛自动补发。详见本任务收据，下面A34为历史。
+
 ## 2026-10-20 — #272 已复现登岛后详情缺剪影，船位与配色仍待Native验收
 
 船/涟漪岸外初始化及两PNG仅RGB校色已通过Source审查/双TFM构建，PR273保持Draft、未合并安装。旧H的A34隔离冷重进已实际复现第一岛详情空白：8设施/8地图记录/8图标及锁定贴图均存在，稳定详情帧active/alpha正常。诊断器GetCorners的managed/native数组复制使坐标数据无效，尚不能定摆放/遮挡根因；不得据此改解锁或补历史。A33协议错误及A34受控超时退出原件保留，A34未完成自然保存退出、不作合格父；正常DLL/存档/配置与完整closure保持。详见[本轮记录](tasks/issue-272/receipts/visual-detail-20261020.md)。

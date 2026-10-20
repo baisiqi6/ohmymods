@@ -27,7 +27,68 @@ namespace KingdomEnhancedMod
     {
         private const string LogPrefix = "[MountIslandFresh]";
         internal static readonly MountIslandFreshGate Gate = new MountIslandFreshGate();
+        private static readonly MountIslandTransitionHistory Departures = new MountIslandTransitionHistory();
+        private static readonly MountIslandRequestEntryTracker EntryTracker = new MountIslandRequestEntryTracker();
         private static readonly HashSet<string> LoggedKeys = new HashSet<string>(StringComparer.Ordinal);
+
+        internal static void BeginDeparture(object show)
+        {
+            Departures.Begin(show);
+            Gate.Revoke(); // next show also supersedes an already claimed generation frame.
+            EntryTracker.Clear();
+        }
+        internal static void CancelDeparture(object show) => Departures.Cancel(show);
+
+        // Existing Completed boundary only. Failed evidence must never block the native departure.
+        internal static MountIslandDeparturePreimage CaptureDeparture(object show, object confirmation,
+            object token, int targetLand, IntPtr campaign)
+        {
+            try
+            {
+                if (!TryReadRawOwnerIdentitySingle(out MountIslandOwnerIdentity before)
+                    || before.CampaignPointer != (ulong)campaign.ToInt64()
+                    || before.CurrentLand == targetLand || before.HolderBiomeIndex != BiomeHolder.GreeceBiomeIndex
+                    || GlobalSaveData.loaded.InChallenge || NetworkBigBoss.IsOnline || IslandSaveData.isSavingGame)
+                    return null;
+                if (!TryReadHistory(targetLand, out MountIslandHistoryView history))
+                    return null;
+                if (!TryReadRawOwnerIdentitySingle(out MountIslandOwnerIdentity after)
+                    || !MountIslandOwnerIdentity.Matches(before, after)) return null;
+                Log("departure preimage source=" + before.CurrentLand + " target=" + targetLand
+                    + " slot=0x" + history.SlotPointer.ToString("X") + " rawPositive=" + history.AnyPositive
+                    + " mapDays=" + history.MapDays.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+                return Departures.Capture(show, confirmation, token, before, targetLand, history);
+            }
+            catch (Exception) { return null; }
+        }
+
+        internal static void PublishDeparture(MountIslandDeparturePreimage pre, object confirmation,
+            object token, bool committedAndCurrent)
+        {
+            try
+            {
+                if (pre == null) return;
+                bool ownerOk = TryReadRawOwnerIdentitySingle(out MountIslandOwnerIdentity source);
+                bool published = Departures.Publish(pre, confirmation, token, source, committedAndCurrent && ownerOk);
+                Log("departure proof published=" + published + " source=" + pre.Source.CurrentLand + " target=" + pre.TargetLand);
+            }
+            catch (Exception) { if (pre != null) Departures.Cancel(pre.Show); }
+        }
+
+        internal static bool TryGetCurrentTransitionTime(CrossWorldMountRuntime.Frame frame, int land,
+            out MountIslandCurrentTransitionTime time)
+        {
+            time = default;
+            if (!IsGrantAuthorized(frame, land, out _)) return false;
+            var operand = new MountIslandCurrentTransitionTime(frame, frame.FreshTicket, Gate);
+            if (!operand.IsCurrent) return false;
+            time = operand;
+            Log("transition map time admitted for generation frame: source=" + frame.FreshTicket.TransitionProof.SourceLand
+                    + " target=" + land + " epoch=" + frame.FreshTicket.TransitionProof.Epoch
+                    + " routine=0x" + frame.FreshTicket.RoutinePointer.ToString("X")
+                    + " issuedGen=" + frame.FreshTicket.IssuedGeneration);
+            return true;
+        }
 
         private enum FactKind
         {
@@ -37,7 +98,10 @@ namespace KingdomEnhancedMod
 
         // ------------------------------------------------------------------ endpoint 侧
 
-        /// <summary>prefix：state 0 封印请求 envelope（stamp 闭合）；1/2 核 envelope 可用性；-1 只拒绝。</summary>
+        /// <summary>
+        /// prefix：唯一入口判定。PC0 初始化 seal；PC1 在同一 generation 首次进入时续用，restart/其他
+        /// 则重读前像封印新代次；PC2 只 resume，绝不补 seal；closed/首见 PC2 拒绝。
+        /// </summary>
         internal static bool OnLoadStart(IslandSaveData.__TryLoad_d__54 instance, long prefixGeneration,
             out long issuedGeneration, out string detail)
         {
@@ -46,57 +110,116 @@ namespace KingdomEnhancedMod
             try
             {
                 if (instance == null) return false;
-                int preState = instance.__1__state;
-                if (preState == 0)
+                if (!TryReadEntryInput(instance, out MountIslandRequestEntryInput input, out detail))
                 {
-                    // state 0 = 新请求边界：撤旧 envelope/票据（R5 next-state0 语义）。
-                    if (!TryBuildEnvelope(instance, out MountIslandRequestEnvelope envelope, out detail))
-                    {
-                        Gate.Revoke();
-                        LogError("state 0 envelope not sealed; this request stays Unknown: " + detail);
-                        return false;
-                    }
-                    if (!Gate.TrySealEnvelope(envelope))
-                    {
-                        LogError("state 0 envelope failed seal validation: " + detail);
-                        return false;
-                    }
-                    issuedGeneration = Gate.Generation;   // 本次成功 seal 的 issued generation（不是 pre-seal 值）
-                    Log("state 0 envelope sealed (Started): routine=0x" + envelope.RoutinePointer.ToString("X")
-                        + " campaignIndex=" + envelope.RequestCampaignIndex + " challenge=" + envelope.RequestChallengeId
-                        + " land=" + envelope.RequestLand + " currentLand=" + envelope.Owner.CurrentLand
-                        + " slot=0x" + envelope.PreSlotPointer.ToString("X")
-                        + " prePositive=" + envelope.PreHistoryAnyPositive
-                        + " issuedGen=" + issuedGeneration);
-                    detail = "ok";
-                    return true;
+                    // instance 请求字段读不了：本次 attempt 不可 fence（Unfenced → no-op）。
+                    MountIslandRouteFence fence = EvaluateAttempt(instance, snapshotOk: false,
+                        prefixGeneration: prefixGeneration);
+                    MountIslandAdapterRouteFence.ApplyRevocation(Gate, fence);
+                    return false;
                 }
 
-                if (preState == 1 || preState == 2)
+                // closed（-1）/未知 preState：拒绝且不 fence、不撤任何 current（重复 closed 无副作用）。
+                if (input.PreState != 0 && input.PreState != 1 && input.PreState != 2)
                 {
-                    bool sealedNow = Gate.EnvelopeSealed
-                        && Gate.Envelope.RoutinePointer == PointerOf(instance);
-                    if (sealedNow)
-                        issuedGeneration = Gate.Generation;   // routine 未变 ⇒ generation 即本请求 issued 值
-                    else
-                    {
-                        // 统一路由 fence：只有属于当前 envelope 的 own/mutated attempt 才撤；
-                        // foreign/stale/unfenced 一律保新 current（不能毁另一个新请求）。
-                        MountIslandRouteFence fence = EvaluateAttempt(instance, snapshotOk: true, prefixGeneration: prefixGeneration);
-                        MountIslandAdapterRouteFence.ApplyRevocation(Gate, fence);
-                        if (MountIslandAdapterRouteFence.CanRevoke(fence))
-                            LogError("active resume without matching state 0 envelope: fenced revocation (fence="
-                                + fence + ", preState=" + preState + ")");
-                        else
-                            LogError("active resume not fenced to current request (fence=" + fence
-                                + "); new current request preserved (preState=" + preState + ")");
-                    }
-                    detail = sealedNow ? "ok" : "no matching state 0 envelope (fenced check applied)";
-                    return sealedNow;
+                    detail = "closed/unknown state " + input.PreState;
+                    return false;
                 }
 
-                detail = "closed state " + preState;
-                return false;
+                EntryTracker.ObserveGeneration(Gate.Generation);
+                input.Entry1SeenForCurrentGeneration = EntryTracker.Entry1SeenFor(Gate.Generation);
+
+                MountIslandRequestEntryAction action = MountIslandRequestEntryPolicy.Decide(input);
+                switch (action)
+                {
+                    case MountIslandRequestEntryAction.SealInitial:
+                        {
+                            // state 0 = 新请求边界：撤旧 envelope/票据（R5 next-state0 语义）。
+                            if (!TryBuildEnvelope(instance, out MountIslandRequestEnvelope envelope, out detail))
+                            {
+                                if (Gate.Generation == prefixGeneration) Gate.Revoke();
+                                EntryTracker.ObserveGeneration(Gate.Generation);
+                                LogError("state 0 envelope not sealed; this request stays Unknown: " + detail);
+                                return false;
+                            }
+                            if (!Gate.TrySealEnvelope(envelope))
+                            {
+                                EntryTracker.ObserveGeneration(Gate.Generation);
+                                LogError("state 0 envelope failed seal validation: " + detail);
+                                return false;
+                            }
+                            issuedGeneration = Gate.Generation;
+                            EntryTracker.ObserveGeneration(issuedGeneration);
+                            Log("state 0 envelope sealed (Started): routine=0x" + envelope.RoutinePointer.ToString("X")
+                                + " campaignIndex=" + envelope.RequestCampaignIndex + " challenge=" + envelope.RequestChallengeId
+                                + " land=" + envelope.RequestLand + " currentLand=" + envelope.Owner.CurrentLand
+                                + " slot=0x" + envelope.PreSlotPointer.ToString("X")
+                                + " prePositive=" + envelope.PreHistoryAnyPositive
+                                + " issuedGen=" + issuedGeneration);
+                            detail = "ok";
+                            return true;
+                        }
+
+                    case MountIslandRequestEntryAction.ContinueAndMarkEntry1:
+                        {
+                            issuedGeneration = Gate.Generation;
+                            EntryTracker.MarkEntry1(issuedGeneration);
+                            detail = "ok";
+                            return true;
+                        }
+
+                    case MountIslandRequestEntryAction.SealNewGeneration:
+                        {
+                            // PC1 合法复用/restart：在 Native 原执行之前读取当前前像并封印新代次。
+                            if (!TryBuildEnvelope(instance, out MountIslandRequestEnvelope envelope, out detail))
+                            {
+                                MountIslandRouteFence fence = EvaluateAttempt(instance, snapshotOk: true,
+                                    prefixGeneration: prefixGeneration);
+                                MountIslandAdapterRouteFence.ApplyRevocation(Gate, fence);
+                                if (MountIslandAdapterRouteFence.CanRevoke(fence)) EntryTracker.Clear();
+                                else EntryTracker.ObserveGeneration(Gate.Generation);
+                                LogError("state 1 new request envelope not sealed (fence=" + fence
+                                    + ", preState=" + input.PreState + "): " + detail);
+                                return false;
+                            }
+                            if (!Gate.TrySealEnvelope(envelope))
+                            {
+                                // TrySealEnvelope 已在失败时 Revoke；这里只同步 tracker，不再二次撤。
+                                EntryTracker.ObserveGeneration(Gate.Generation);
+                                LogError("state 1 new request failed seal validation: " + detail);
+                                return false;
+                            }
+                            issuedGeneration = Gate.Generation;
+                            EntryTracker.MarkEntry1(issuedGeneration);
+                            Log("state 1 data entry sealed new generation: routine=0x"
+                                + envelope.RoutinePointer.ToString("X")
+                                + " campaignIndex=" + envelope.RequestCampaignIndex
+                                + " challenge=" + envelope.RequestChallengeId
+                                + " land=" + envelope.RequestLand
+                                + " slot=0x" + envelope.PreSlotPointer.ToString("X")
+                                + " prePositive=" + envelope.PreHistoryAnyPositive
+                                + " issuedGen=" + issuedGeneration);
+                            detail = "ok";
+                            return true;
+                        }
+
+                    case MountIslandRequestEntryAction.ResumeOnly:
+                        {
+                            issuedGeneration = Gate.Generation;
+                            detail = "ok";
+                            return true;
+                        }
+
+                    default:
+                        {
+                            MountIslandRouteFence fence = EvaluateAttempt(instance, snapshotOk: true,
+                                prefixGeneration: prefixGeneration);
+                            MountIslandAdapterRouteFence.ApplyRevocation(Gate, fence);
+                            if (MountIslandAdapterRouteFence.CanRevoke(fence)) EntryTracker.Clear();
+                            detail = "request entry rejected (preState=" + input.PreState + ", fence=" + fence + ")";
+                            return false;
+                        }
+                }
             }
             catch (Exception e)
             {
@@ -104,6 +227,36 @@ namespace KingdomEnhancedMod
                 // 读 fault 的 attempt 不可 fence（Unfenced/NoEnvelope → no-op）；不凭空撤新 current。
                 MountIslandRouteFence fence = EvaluateAttempt(instance, snapshotOk: false, prefixGeneration: prefixGeneration);
                 MountIslandAdapterRouteFence.ApplyRevocation(Gate, fence);
+                if (MountIslandAdapterRouteFence.CanRevoke(fence)) EntryTracker.Clear();
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 构造入口策略输入：请求字段/指针读失败 → false（本 attempt Unfenced）；envelope 状态与
+        /// 同 routine/同请求都由 live gate 精确比较，不使用上一轮的猜测值。
+        /// </summary>
+        private static bool TryReadEntryInput(IslandSaveData.__TryLoad_d__54 instance,
+            out MountIslandRequestEntryInput input, out string detail)
+        {
+            input = default;
+            detail = "entry unreadable";
+            try
+            {
+                input.PreState = instance.__1__state;
+                input.EnvelopeState = Gate.State;
+                bool sealedNow = Gate.EnvelopeSealed;
+                input.SameRoutine = sealedNow && Gate.Envelope.RoutinePointer == PointerOf(instance);
+                input.SameRequest = input.SameRoutine
+                    && Gate.Envelope.RequestCampaignIndex == instance.campaignIndex
+                    && Gate.Envelope.RequestChallengeId == instance.challengeId
+                    && Gate.Envelope.RequestLand == instance.land;
+                detail = "ok";
+                return true;
+            }
+            catch (Exception e)
+            {
+                detail = "entry read fault: " + e.GetType().Name;
                 return false;
             }
         }
@@ -213,39 +366,90 @@ namespace KingdomEnhancedMod
                 if (outcome == MountIslandAdvanceOutcome.Abort)
                 {
                     MountIslandAdapterRouteFence.ApplyRevocation(Gate, fence);
+                    if (MountIslandAdapterRouteFence.CanRevoke(fence)) EntryTracker.Clear();
                     LogError("advance Abort (mutated/skipped/invalid postState/no envelope; preState="
                         + observation.PreState + " postState=" + (postOk ? postState.ToString() : "read-fault")
                         + " fence=" + fence + ")");
                     return;
                 }
 
-                // Terminal：真实终末（false + -1 + 活动恢复 + 同 envelope）才读 flags。
-                CompleteTerminal(instance, observation, flagsSource: true);
+                // Terminal：flags 读取前必须先通过 snapshot + Terminal + OwnCurrent。Stale/Foreign/
+                // Unfenced 只记录，不读 flags、不发布、不撤新 current；不能再用 live generation 重建
+                // attempt stamp 把旧 N 洗成新 N+1。
+                if (!MountIslandTerminalReadGate.IsAuthorized(outcome, fence, observation.SnapshotReadOk,
+                        observation.EnvelopeSealed))
+                {
+                    LogError("terminal attempt not authorized (fence=" + fence
+                        + ", preState=" + observation.PreState + ", snapshotOk=" + observation.SnapshotReadOk
+                        + ", entryAuthorized=" + observation.EnvelopeSealed
+                        + "); flags not read, no publish, current preserved");
+                    return;
+                }
+                CompleteTerminal(instance, observation, outcome, fence);
             }
             catch (Exception e)
             {
                 MountIslandRouteFence fence = EvaluateAttempt(instance, snapshotOk: observation != null && observation.SnapshotReadOk,
                     prefixGeneration: observation != null ? observation.PrefixGeneration : -1);
                 MountIslandAdapterRouteFence.ApplyRevocation(Gate, fence);
+                if (MountIslandAdapterRouteFence.CanRevoke(fence)) EntryTracker.Clear();
                 LogError("finalized observation failed (fence=" + fence + "): " + e.GetType().Name + " " + e.Message);
             }
         }
 
-        private static void CompleteTerminal(IslandSaveData.__TryLoad_d__54 instance, MoveNextObservation observation, bool flagsSource)
+        private static void CompleteTerminal(IslandSaveData.__TryLoad_d__54 instance, MoveNextObservation observation,
+            MountIslandAdvanceOutcome outcome, MountIslandRouteFence fence)
         {
-            int flags;
-            bool flagsReadOk;
-            try
+            // 非当前 Started envelope：连 flags 都不读（已完成/已转交/已关闭请求的候选保持不动）。
+            if (Gate.State != MountIslandEnvelopeState.Started || !Gate.EnvelopeSealed)
             {
-                flags = (int)instance.@return.value;
-                flagsReadOk = true;
-            }
-            catch (Exception)
-            {
-                flags = 0;
-                flagsReadOk = false;
+                LogOnce("terminal-not-started", "terminal missing-data-capable call but envelope is not Started; no flags read, no publish");
+                return;
             }
 
+            // 1) 在 flags 之前固定本 attempt 的 envelope 和 issued generation；live 只做一致性检查，
+            //    漂移时绝不拿新 live 重建 expected。
+            MountIslandRequestEnvelope envelope = Gate.Envelope;
+            long expectedGeneration = observation.PrefixGeneration;
+            if (expectedGeneration < 0 || expectedGeneration != Gate.Generation)
+            {
+                RevokeTerminalScope(instance, observation);
+                LogError("terminal expected generation unavailable/mismatched (prefix=" + expectedGeneration
+                    + ", live=" + Gate.Generation + "); flags not read, current preserved");
+                return;
+            }
+            MountIslandObservationStamp expected = NewOwnerStamp(envelope.Owner, envelope.RoutinePointer,
+                envelope.RequestCampaignIndex, envelope.RequestChallengeId, envelope.RequestLand, expectedGeneration);
+
+            // 2) flags 之前闭合 request/owner/stamp。
+            if (!TryReadInstanceStamp(instance, out MountIslandObservationStamp before, out string beforeReason)
+                || !MountIslandStampMatch.Matches(before, expected))
+            {
+                RevokeTerminalScope(instance, observation);
+                LogError("terminal before-flags stamp mismatch (live gen="
+                    + (beforeReason == "ok" ? before.Generation.ToString() : beforeReason)
+                    + ", expected=" + expectedGeneration + "); flags not read");
+                return;
+            }
+
+            // 3) 现在才读 flags。
+            int flags;
+            bool flagsReadOk = MountIslandTerminalReadGate.TryReadFlags(outcome, fence,
+                observation.SnapshotReadOk, observation.EnvelopeSealed,
+                new MountIslandNativeResultReader(instance), out flags, out string flagsReason);
+
+            // 4) 立刻闭合 after：必须与 before/expected 一致；读取期间任何漂移都丢弃 flags。
+            if (!TryReadInstanceStamp(instance, out MountIslandObservationStamp afterFlags, out string afterFlagsReason)
+                || !MountIslandStampMatch.Matches(before, afterFlags)
+                || !MountIslandStampMatch.Matches(afterFlags, expected))
+            {
+                RevokeTerminalScope(instance, observation);
+                LogError("terminal after-flags stamp mismatch (live gen=" + afterFlags.Generation
+                    + " vs " + before.Generation + ", " + afterFlagsReason + "); flags not trusted");
+                return;
+            }
+
+            // 5) flags 闭合后才分类。
             var completion = new MountIslandLoadCompletion
             {
                 FlagsReadOk = flagsReadOk,
@@ -262,29 +466,11 @@ namespace KingdomEnhancedMod
                 LogOnce("closed-terminal-" + observation.PreState + "-" + (flagsReadOk ? flags : -1),
                     "terminal classified " + classification + " (flags="
                     + (flagsReadOk ? "0x" + flags.ToString("X") : "unreadable")
-                    + "); active request revoked, no fresh candidate");
+                    + ", reason=" + flagsReason + "); active request revoked, no fresh candidate");
                 return;
             }
 
-            if (Gate.State != MountIslandEnvelopeState.Started || !Gate.EnvelopeSealed)
-            {
-                LogOnce("terminal-not-started", "terminal MissingData but envelope is not Started; no publish");
-                return;
-            }
-            MountIslandRequestEnvelope envelope = Gate.Envelope;
-            long expectedGeneration = Gate.Generation;   // live 读取（不回填 ticket/envelope 旧值）
-            MountIslandObservationStamp expected = NewOwnerStamp(envelope.Owner, envelope.RoutinePointer,
-                envelope.RequestCampaignIndex, envelope.RequestChallengeId, envelope.RequestLand, expectedGeneration);
-
-            // stamp 闭合：before（owner+请求+holder+live gen）→ 一次 history → after；紧邻 publish。
-            if (!TryReadInstanceStamp(instance, out MountIslandObservationStamp before, out string beforeReason)
-                || !MountIslandStampMatch.Matches(before, expected))
-            {
-                RevokeTerminalScope(instance, observation);
-                LogError("terminal before-stamp mismatch (live gen=" + (beforeReason == "ok" ? before.Generation.ToString() : beforeReason)
-                    + ", expected=" + expectedGeneration + "); no candidate");
-                return;
-            }
+            // 6) 原有 history 闭合：一次 history → after stamp，仍与 before/expected 闭合。
             if (!TryReadHistory(envelope.RequestLand, out MountIslandHistoryView post))
             {
                 RevokeTerminalScope(instance, observation);
@@ -292,15 +478,16 @@ namespace KingdomEnhancedMod
                 return;
             }
             if (!TryReadInstanceStamp(instance, out MountIslandObservationStamp after, out string afterReason)
-                || !MountIslandStampMatch.Matches(before, after))
+                || !MountIslandStampMatch.Matches(before, after)
+                || !MountIslandStampMatch.Matches(after, expected))
             {
                 RevokeTerminalScope(instance, observation);
-                LogError("terminal after-stamp mismatch (live gen=" + after.Generation + " vs " + before.Generation
-                    + ", " + afterReason + "); no candidate");
+                LogError("terminal after-history stamp mismatch (live gen=" + after.Generation
+                    + " vs " + before.Generation + ", " + afterReason + "); no candidate");
                 return;
             }
 
-            if (envelope.PreHistoryAnyPositive || post.AnyPositive)
+            if (envelope.PreHistoryAnyPositive || !envelope.TransitionProof.AllowsHistory(post))
             {
                 RevokeTerminalScope(instance, observation);
                 Log("terminal revoked: prior/post generation evidence present (pre="
@@ -331,7 +518,8 @@ namespace KingdomEnhancedMod
                 RequestChallengeId = envelope.RequestChallengeId,
                 RequestLand = envelope.RequestLand,
                 HistoryReadsOk = post.ReadsOk,
-                HistoryAnyPositive = post.AnyPositive,
+                HistoryAnyPositive = !envelope.TransitionProof.AllowsHistory(post),
+                TransitionProof = envelope.TransitionProof,
                 SlotPointer = post.SlotPointer,
             };
             if (Gate.TryPublish(draft))
@@ -354,6 +542,7 @@ namespace KingdomEnhancedMod
                 snapshotOk: observation != null && observation.SnapshotReadOk,
                 prefixGeneration: observation != null ? observation.PrefixGeneration : -1);
             MountIslandAdapterRouteFence.ApplyRevocation(Gate, fence);
+            if (MountIslandAdapterRouteFence.CanRevoke(fence)) EntryTracker.Clear();
         }
 
 internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNextObservation observation, Exception exception)
@@ -363,7 +552,10 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
                 prefixGeneration: observation != null ? observation.PrefixGeneration : -1);
             MountIslandAdapterRouteFence.ApplyRevocation(Gate, fence);
             if (MountIslandAdapterRouteFence.CanRevoke(fence))
+            {
+                EntryTracker.Clear();
                 LogError("TryLoad MoveNext threw (" + exception.GetType().Name + "); fenced revocation applied (fence=" + fence + ")");
+            }
             else
                 LogError("TryLoad MoveNext threw (" + exception.GetType().Name + "); attempt not fenced (fence=" + fence
                     + "); new current request preserved, this attempt produces no fresh");
@@ -377,6 +569,7 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
             ticket = frame != null ? frame.FreshTicket : null;
             reason = "no fresh candidate ticket for this frame";
             if (ticket == null) return false;
+            if (!ticket.BelongsToFrame(frame)) { ticket.InvalidateAgainst(Gate); reason = "ticket belongs to another generation frame"; return false; }
             if (!ticket.Usable) { reason = "ticket consumed/invalidated (sticky)"; return false; }
             if (ticket.IssuedGeneration != Gate.Generation)
             {
@@ -411,7 +604,7 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
                     out MountIslandHistoryView history, out ulong slotPointer, out bool ownedConfig, out string factsReason);
                 bool generationMatches = draft.IssuedGeneration == Gate.Generation;
                 bool targetLevelCaptured = frame.TargetLevelPointer != 0UL;
-                bool slotPolicyOk = factsOk && history.ReadsOk && !history.AnyPositive
+                bool slotPolicyOk = factsOk && history.ReadsOk && draft.TransitionProof != null && draft.TransitionProof.AllowsHistory(history)
                     && draft.SlotPointer != 0UL && slotPointer == draft.SlotPointer;
 
                 if (!factsOk
@@ -432,7 +625,12 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
 
                 MountIslandFrameTicket ticket = Gate.TakeFrameTicket();
                 if (ticket != null)
+                {
+                    if (!ticket.BindFrame(frame)) { ticket.InvalidateAgainst(Gate); return null; }
+                    // 只清理本 ticket 代次的 tracker；更新的请求可能已经建立自己的入口标记。
+                    if (EntryTracker.Generation == ticket.IssuedGeneration) EntryTracker.Clear();
                     Log("fresh candidate transferred to generation frame (Transferred): " + ticket.Describe());
+                }
                 return ticket;
             }
             catch (Exception e)
@@ -445,7 +643,11 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
         /// <summary>claim 拒绝的撤销只作用于仍属该 draft 代次的请求，绝不误撤已出现的新 gate。</summary>
         private static void RevokeDraftScope(MountIslandTicketDraft draft)
         {
-            if (draft.IssuedGeneration == Gate.Generation) Gate.Revoke();
+            if (draft.IssuedGeneration == Gate.Generation)
+            {
+                Gate.Revoke();
+                EntryTracker.Clear();
+            }
         }
 
         /// <summary>GetBlocks 授权复核（读已存在历史反证）。任何 unknown/拒绝 → sticky 失效。</summary>
@@ -490,7 +692,7 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
                 MountIslandGrantAdmission admission = MountIslandGrantAdmissionEvaluator.EvaluateFrameRecheck(
                     ticket, generationMatches: generationMatches, ownerMatches: true, levelMatches: levelMatches,
                     configMatches: configMatches, ownedConfigConfirmed: ownedConfig,
-                    historyReadsOk: history.ReadsOk, historyAnyPositive: history.AnyPositive, slotMatches: slotMatches);
+                    historyReadsOk: history.ReadsOk, historyAnyPositive: ticket.TransitionProof == null || !ticket.TransitionProof.AllowsHistory(history), slotMatches: slotMatches);
 
                 if (admission != MountIslandGrantAdmission.Fresh)
                 {
@@ -606,6 +808,8 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
             {
                 MountIslandFrameTicket ticket = frame != null ? frame.FreshTicket : null;
                 if (ticket == null) return;
+                // 旧 frame 关闭不得清掉更新请求的入口标记：只清理同一代次。
+                if (EntryTracker.Generation == ticket.IssuedGeneration) EntryTracker.Clear();
                 ticket.Consume();
                 LogOnce("frame-closed-" + ticket.RequestLand,
                     "frame closed; fresh candidate ticket consumed/discarded (land=" + ticket.RequestLand + ")");
@@ -728,6 +932,8 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
         {
             envelope = default;
             detail = "unreadable";
+            // Spend at entry even if a getter faults or this request fails scope. A retry cannot reacquire it.
+            MountIslandDeparturePreimage departure = Departures.TakePending();
             try
             {
                 int campaignIndex = instance.campaignIndex;
@@ -760,6 +966,15 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
                 if (owner.SelectedCampaignIndex != campaignIndex) { detail = "request campaignIndex != raw selected index"; return false; }
                 if (owner.HolderBiomeIndex != BiomeHolder.GreeceBiomeIndex) { detail = "not greek biome"; return false; }
 
+                // The route is now closed. One departure can bind only this routine and next gate generation.
+                if (!Departures.TryBindTaken(departure, owner, land, routine, Gate.Generation + 1, pre,
+                    out MountIslandTransitionProof transition))
+                { detail = "no usable departure preimage (Unknown)"; return false; }
+
+                Log("transition proof bound: source=" + transition.SourceLand + " target=" + land
+                    + " epoch=" + transition.Epoch + " routine=0x" + routine.ToString("X")
+                    + " issuedGen=" + (Gate.Generation + 1) + " rawEntryPositive=" + pre.AnyPositive
+                    + " effectivePositive=" + !transition.AllowsHistory(pre));
                 envelope = new MountIslandRequestEnvelope
                 {
                     ScopeOk = true,
@@ -771,7 +986,8 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
                     PreSlotPresent = pre.SlotPresent,
                     PreSlotPointer = pre.SlotPointer,
                     PreHistoryReadsOk = pre.ReadsOk,
-                    PreHistoryAnyPositive = pre.AnyPositive,
+                    PreHistoryAnyPositive = !transition.AllowsHistory(pre),
+                    TransitionProof = transition,
                 };
                 detail = "ok";
                 return true;
@@ -787,9 +1003,14 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
         private static bool TryReadOwnerIdentitySingle(int land, out MountIslandOwnerIdentity identity)
         {
             identity = default;
+            return land >= 0 && TryReadRawOwnerIdentitySingle(out identity) && identity.CurrentLand == land;
+        }
+
+        private static bool TryReadRawOwnerIdentitySingle(out MountIslandOwnerIdentity identity)
+        {
+            identity = default;
             try
             {
-                if (land < 0) return false;
                 // runtime 已发布 raw owner helper（无 GetCurrentCampaign fallback）：
                 //   ExtensionIslandRuntime.TryResolveRawOwner(out GlobalSaveData global, out int selectedIndex, out CampaignSaveData owner)
                 if (!ExtensionIslandRuntime.TryResolveRawOwner(out GlobalSaveData global, out int selected, out CampaignSaveData current))
@@ -813,7 +1034,6 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
                     HolderBiomeIndex = holder != null ? holder.BiomeIndex : -1,
                     CurrentLand = current.CurrentLand,
                 };
-                if (identity.CurrentLand != land) return false;
                 return identity.IsComplete;
             }
             catch (Exception e)
@@ -824,7 +1044,10 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
             }
         }
 
-        /// <summary>raw <c>_islands</c> 槽只读（不 GetIsland）；结构/played 不可读 → false（unknown）。</summary>
+        /// <summary>
+        /// raw <c>_islands</c> 槽只读（不 GetIsland）；结构/played 不可读 → false（unknown）。
+        /// 单次读取同时产生 transition 判定所需 non-map 正证与 mapDays，不增加 native getter。
+        /// </summary>
         private static bool TryReadHistory(int land, out MountIslandHistoryView view)
         {
             view = default;
@@ -844,8 +1067,11 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
 
                 bool slotPresent = false;
                 bool anyPositive = false;
+                bool nonMapPositive = false;
+                double observedMapDays = 0d;
                 ulong slotPointer = 0UL;
-                if (land < islands.Count)
+                int islandsCount = islands.Count;
+                if (land < islandsCount)
                 {
                     IslandSaveData slot = islands[land];
                     if (slot != null)
@@ -856,31 +1082,33 @@ internal static void OnAborted(IslandSaveData.__TryLoad_d__54 instance, MoveNext
                         double playDays = slot.playTimeDays;
                         double lastPlayed = slot.lastPlayedTimeDays;
                         if (BadDays(playDays) || BadDays(lastPlayed)) return false;
-                        if (playDays > 0d || lastPlayed > 0d) anyPositive = true;
+                        if (playDays > 0d || lastPlayed > 0d) anyPositive = nonMapPositive = true;
 
                         Il2CppSystem.Collections.Generic.List<IslandSaveData.ObjectData> objects = slot.objects;
-                        if (objects != null && objects.Count > 0) anyPositive = true;
+                        if (objects != null && objects.Count > 0) anyPositive = nonMapPositive = true;
                         Il2CppSystem.Collections.Generic.List<int> revisions = slot.savedWithRevisions;
-                        if (revisions != null && revisions.Count > 0) anyPositive = true;
+                        if (revisions != null && revisions.Count > 0) anyPositive = nonMapPositive = true;
                     }
                 }
 
-                if (visited.Contains(land)) anyPositive = true;
+                if (visited.Contains(land)) anyPositive = nonMapPositive = true;
 
-                if (land < landData.Count)
+                int landDataCount = landData.Count;
+                if (land < landDataCount)
                 {
                     CampaignSaveData.LandMapData entry = landData[land];
                     if (entry != null)
                     {
                         double mapDays = entry.lastPlayedTimeDays;
+                        observedMapDays = mapDays;
                         if (BadDays(mapDays)) return false;
                         if (mapDays > 0d) anyPositive = true;
                         Il2CppStructArray<SteedType> spawns = entry.steedSpawns;
-                        if (spawns != null && spawns.Length > 0) anyPositive = true;
+                        if (spawns != null && spawns.Length > 0) anyPositive = nonMapPositive = true;
                     }
                 }
 
-                view = MountIslandHistoryView.Create(true, anyPositive, slotPresent, slotPointer);
+                view = MountIslandHistoryView.CreateObserved(true, anyPositive, slotPresent, slotPointer, nonMapPositive, observedMapDays);
                 return true;
             }
             catch (Exception e)

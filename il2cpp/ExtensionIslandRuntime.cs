@@ -61,7 +61,7 @@ internal static class ExtensionIslandRuntime
     private struct ConfigSlot
     {
         internal LevelConfig Config;
-        internal ulong BiomePointer;
+        internal ulong BiomePointer; // BiomeData asset identity, distinct from the current BiomeHolder guard.
         internal ulong TemplatePointer;
         internal ulong CampaignPointer;
     }
@@ -76,7 +76,7 @@ internal static class ExtensionIslandRuntime
     /// land ∈ {11,13}；Greek biome 且 holder 与当前实例同指针；raw owner（
     /// <see cref="TryResolveRawOwner"/>，无 GetCurrentCampaign fallback）确证且 <c>owner.CurrentLand == land</c>；
     /// 私有 <see cref="ConfigSlot"/> 的 Config 指针精确等于入参（alias wrapper 同 ptr 可接受），且
-    /// 缓存身份三元组 BiomePointer/CampaignPointer 与当前 live 身份精确一致。任一读取失败/未知 → false。
+    /// 缓存的 BiomeData/Campaign 指针与当前 live 身份精确一致；current-holder 门独立保留。任一读取失败/未知 → false。
     /// </summary>
     internal static bool IsOwnedConfig(LevelConfig config, int land)
     {
@@ -92,7 +92,9 @@ internal static class ExtensionIslandRuntime
             ConfigSlot cached = ConfigSlots[ConfigSlotIndex(land)];
             if (cached.Config == null) return false;
             if (PointerOf(cached.Config) != PointerOf(config)) return false;
-            if (cached.BiomePointer != PointerOf(holder)) return false;
+            BiomeData biomeData = holder.curBiomeData;
+            if (biomeData == null) return false;
+            if (cached.BiomePointer != PointerOf(biomeData)) return false;
             if (cached.CampaignPointer != PointerOf(owner)) return false;
             return true;
         }
@@ -648,7 +650,7 @@ internal static class ExtensionIslandRuntime
             if (landData != null)
             {
                 while (landData.Count < RequiredFileCapacity)
-                    landData.Add(new CampaignSaveData.LandMapData());
+                    MountIslandLandMapList.Add(landData, new CampaignSaveData.LandMapData());
                 Log("landData container padded in place to " + landData.Count + " slots for land " + land);
             }
             else
@@ -656,7 +658,7 @@ internal static class ExtensionIslandRuntime
                 var fresh = new Il2CppSystem.Collections.Generic.List<CampaignSaveData.LandMapData>(
                     RequiredFileCapacity);
                 for (int i = 0; i < RequiredFileCapacity; i++)
-                    fresh.Add(new CampaignSaveData.LandMapData());
+                    MountIslandLandMapList.Add(fresh, new CampaignSaveData.LandMapData());
                 if (PointerOf(scoped) != PointerOf(campaign) || campaign.CurrentLand != land
                     || SafeReign(campaign) != reignIndex)
                 {

@@ -36,3 +36,12 @@ A33曾因新JSON快照被普通token parser误拒、错误收尾仍为cleanup而
 A34收尾点击在发事件前被前台检查拒绝，随后原saveexit300时限到达，原控制器精确KILL/reap为-9、cleared=true/stopPending=false，未遗留新孤儿；没有完成自然UI保存退出，不作合格存档父。两轮结束后完整normal closure均仍 `ec6453f57d93445c9168501ba7b69575684668e369e046a295099c8dcb360144`，正常DLL/存档/配置未改、未restore。历史A30 normal baseline与已知prefs/日志漂移单列保留。
 
 私有证据：`.local/tasks/mount32-fresh-validation-20261019/native-a33-mapdetail/a33-failure-closeout.json`、`native-a34-mapdetail/a34-result.json`、`captured-map-snapshots.json`、`final-evidence/`、`run-source/captures/a34-enter-detail.png`；静态interop证据在 `.local/tasks/map-detail-visual-20261020/native-ui/`。Source/Native审批、原始失败与运行凭据分别保留，不能复用已消耗A34窗口。PR273仍Draft，未合并/安装；boat/RGB的实际渲染仍待独立候选验收。
+
+
+## A35 — 坐标采样修正与稳定帧核对
+
+采样器改为显式native数组、同buffer读回，两个TFM实际IL均ctor(int64)；managed复制红/绿、真实Source提取、nativeptr身份及8图标完整pose预算均验证，51项通过，Astra独立增量审通过。R2包装器ReferenceEquals与负载只填一份pose的问题已修正，原记录保留。
+
+实际PID75121的稳定快照3（worldState1、isAnimatingfalse）仍详情空白；8图标有效locked/final sprite、active、alpha1、cullfalse。正确角点显示holder180×150、8个有效尺寸图标，均落两道裁剪矩形内，root与drawable Rect同指针。此样本不支持几何过期、零尺寸或裁剪假设，不能据此加坐标补偿；下一步以同页原生船标对照Canvas/depth/layer和effective sprite。
+
+UI保存退出真实samePopen exit0/wait0/kernelGone，未signal；落盘仍含8种坐骑标记。旧岛8的playTimeDays与父档有微小差异，未将此后像认证为新父或整档无差异验收。完整正常closure `ec6453f57d93445c9168501ba7b69575684668e369e046a295099c8dcb360144` 未变，无恢复/安装。具体原始snapshot、截图、receipt与全部私有后像在本机 `.local/tasks/mount32-fresh-validation-20261019/native-a35-mapdetail/`。本例仍为旧H诊断，并不替代最终关闭审计、含PR273船位/RGB候选的联合实测。
