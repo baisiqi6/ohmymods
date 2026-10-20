@@ -2092,7 +2092,8 @@ namespace KingdomEnhancedMod
                 if (land == null) return DetailShipInit.Unavailable;
                 landRect = land.gameObject.GetComponent<RectTransform>();
                 GameObject shipGo = land._ship;
-                ship = shipGo != null ? shipGo.transform as RectTransform : null;
+                // typed 组件查找：interop 的 GameObject.transform 返回 managed 基类包装器，CLR `as` 不做原生类型判定。
+                ship = shipGo != null ? shipGo.GetComponent<RectTransform>() : null;
             }
             catch (Exception e)
             {

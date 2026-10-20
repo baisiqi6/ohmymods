@@ -488,7 +488,8 @@ namespace RuntimeProbe
         }
 
         /// <summary>真实 detail clone 形状（root 180×150 位于带缩放的父级；Map Icons→Generic→Boat Icon）。</summary>
-        private static UILand ShipLand(float genericScale, out RectTransform boat, out RectTransform ripple)
+        private static UILand ShipLand(float genericScale, out RectTransform boat, out RectTransform ripple,
+            bool baseTransformWrapper = false)
         {
             var land = new GameObject("detail ship clone").AddComponent<UILand>();
             RectTransform root = (RectTransform)land.transform;
@@ -514,13 +515,32 @@ namespace RuntimeProbe
             ripple.gameObject.AddComponent<Image>();
             ripple.gameObject.SetActive(false);   // 原生涟漪可处于 inactive：footprint 仍须计入
             land._ship = boat.gameObject;
+            if (baseTransformWrapper) boat.gameObject.UseBaseTransformWrapper();
             land.gameObject.SetActive(false);     // producer 在 RebuildStaticIconCache 后先隐藏
+            return land;
+        }
+
+        /// <summary>真实 Transform 存在但没有 RectTransform 的船根（typed 取型必须 null）。</summary>
+        private static UILand ShipLandWithoutRect(out GameObject boatGo)
+        {
+            var land = new GameObject("detail ship no-rect clone").AddComponent<UILand>();
+            RectTransform root = (RectTransform)land.transform;
+            root.sizeDelta = new Vector2(180f, 150f);
+            root.pivot = new Vector2(0.5f, 0.5f);
+            root.anchorMin = new Vector2(0.5f, 0.5f);
+            root.anchorMax = new Vector2(0.5f, 0.5f);
+            boatGo = new GameObject("Boat Icon", false);
+            boatGo.transform.SetParent(root, false);
+            boatGo.transform.localPosition = new Vector3(-48f, 18f, 0f);
+            land._ship = boatGo;
+            land.gameObject.SetActive(false);
             return land;
         }
 
         private static MapIconBox ShipFootprint(UILand land)
         {
-            object[] args = { (RectTransform)land.transform, (RectTransform)land._ship.transform, null };
+            RectTransform ship = land._ship != null ? land._ship.GetComponent<RectTransform>() : null;
+            object[] args = { (RectTransform)land.transform, ship, null };
             Check((bool)Call("TryMeasureShipFootprint", args), "ship footprint readable");
             return (MapIconBox)args[2];
         }
@@ -541,10 +561,21 @@ namespace RuntimeProbe
             return frame;
         }
 
-        private static void ShipPlacement(int physical, float genericScale, string tag)
+        private static void ShipPlacement(int physical, float genericScale, string tag,
+            bool baseTransformWrapper = false)
         {
             MapIconBox frame = DetailFrame(physical);
-            UILand land = ShipLand(genericScale, out RectTransform boat, out _);
+            UILand land = ShipLand(genericScale, out RectTransform boat, out _, baseTransformWrapper);
+            if (baseTransformWrapper)
+            {
+                Transform view = land._ship.transform;
+                RectTransform typed = land._ship.GetComponent<RectTransform>();
+                Check(view != null && !(view is RectTransform), tag + "/base-transform-wrapper");
+                Check(ReferenceEquals(view.gameObject, land._ship), tag + "/wrapper-same-owner");
+                Check((land._ship.transform as RectTransform) == null, tag + "/as-null");
+                Check(typed != null && ReferenceEquals(typed, boat), tag + "/typed-present");
+                Check(typed.Pointer == view.Pointer, tag + "/same-native-pointer");
+            }
             RectTransform root = (RectTransform)land.transform;
             Rect rootSize = root.rect;
             MapIconBox before = ShipFootprint(land);
@@ -698,6 +729,21 @@ namespace RuntimeProbe
             Check(InitShip(drift, 11) == MapMountIcons.DetailShipInit.Failed, "ship/restore-scale-mismatch");
             driftBoat.ScaleDriftOnLocalPositionSet = false;
             Check(Math.Abs(driftBoat.localScale.x - driftScale.x) > 0.5f, "ship/scale-not-falsely-restored");
+
+            // transform 真实存在但没有 RectTransform：typed exact getter null → 原 missing 门，Unavailable 零写。
+            UILand noRect = ShipLandWithoutRect(out GameObject noRectBoat);
+            Transform noRectTransform = noRectBoat.transform;
+            Check(noRectTransform != null && !(noRectTransform is RectTransform), "ship/no-rect-transform-only");
+            Check(noRectBoat.GetComponent<RectTransform>() == null, "ship/no-rect-typed-null");
+            Vector3 noRectLocal = noRectTransform.localPosition;
+            Vector3 noRectScale = noRectTransform.localScale;
+            Quaternion noRectRotation = noRectTransform.localRotation;
+            ResetDetailLogs();
+            Check(InitShip(noRect, 11) == MapMountIcons.DetailShipInit.Unavailable, "ship/no-rect-refused");
+            Check(LogsContain("detail ship init skipped land=11: _ship missing"), "ship/no-rect-missing-gate");
+            Check(noRectTransform.localPosition.Equals(noRectLocal) &&
+                noRectTransform.localScale.Equals(noRectScale) &&
+                noRectTransform.localRotation.Equals(noRectRotation), "ship/no-rect-untouched");
         }
 
         private static bool LogsContain(string needle)
@@ -868,7 +914,8 @@ namespace RuntimeProbe
             {
                 if (Array.IndexOf(args, "--missing-b") >= 0) MissingB();
                 else if (Array.IndexOf(args, "--callback-only") >= 0) CallbackOnly();
-                else { CrossLand(); BrokenPair(false); BrokenPair(true); CallbackOnly(); PagerFault(false); PagerFault(true); Planning(); SecondSpriteFailure(); DualPrepare(); WorldPrebuildPagers(); ShipPlanner(); ShipPlacement(11, 1f, "ship/A"); ShipPlacement(13, 1.4f, "ship/B-scaled"); ShipFallbacks(); DetailDiagnostics(); }
+                else if (Array.IndexOf(args, "--ship-only") >= 0) { ShipPlanner(); ShipPlacement(11, 1f, "ship/A"); ShipPlacement(13, 1.4f, "ship/B-scaled"); ShipPlacement(11, 1f, "ship/wrapper", true); ShipFallbacks(); }
+                else { CrossLand(); BrokenPair(false); BrokenPair(true); CallbackOnly(); PagerFault(false); PagerFault(true); Planning(); SecondSpriteFailure(); DualPrepare(); WorldPrebuildPagers(); ShipPlanner(); ShipPlacement(11, 1f, "ship/A"); ShipPlacement(13, 1.4f, "ship/B-scaled"); ShipPlacement(11, 1f, "ship/wrapper", true); ShipFallbacks(); DetailDiagnostics(); }
                 Console.WriteLine("PASS variant runtime checks=" + checks); return 0;
             }
             catch (Exception e) { Console.WriteLine("FAIL checks=" + checks + " " + e); return 1; }

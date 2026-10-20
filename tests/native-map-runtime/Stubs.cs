@@ -128,6 +128,8 @@ namespace UnityEngine
 
     public class Object : Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase
     {
+        public Object() { }
+        internal Object(IntPtr pointer) : base(pointer) { }
         public string name;
         private bool _destroyed;
         internal bool Destroyed => _destroyed;
@@ -206,6 +208,8 @@ namespace UnityEngine
 
     public class Component : Object
     {
+        public Component() { }
+        internal Component(IntPtr pointer) : base(pointer) { }
         internal GameObject Owner;
 
         public GameObject gameObject => Owner;
@@ -231,17 +235,32 @@ namespace UnityEngine
     {
         private readonly List<Component> _components = new List<Component>();
         private Transform _transform;
+        private Transform _transformView;
 
         public GameObject() : this("GameObject") { }
 
-        public GameObject(string name)
+        public GameObject(string name) : this(name, true) { }
+
+        internal GameObject(string name, bool rectTransform)
         {
             this.name = name;
-            _transform = new RectTransform { Owner = this, name = name };
+            _transform = rectTransform
+                ? (Transform)new RectTransform { Owner = this, name = name }
+                : new Transform { Owner = this, name = name };
             _components.Add(_transform);
         }
 
-        public Transform transform => _transform;
+        public Transform transform => _transformView ?? _transform;
+
+        /// <summary>
+        /// 测试专用 opt-in：模拟 interop GameObject.transform 返回 Transform 基类 managed wrapper，
+        /// 但 canonical 组件表（GetComponent）仍返回真实 RectTransform；两者共享同一 native Pointer。
+        /// </summary>
+        internal void UseBaseTransformWrapper()
+        {
+            if (_transformView == null)
+                _transformView = new Transform(_transform.Pointer) { Owner = this, name = name };
+        }
         public bool activeSelf { get; private set; } = true;
 
         // R2 复核 fixture 仪器：scene 身份、GetComponent/扫描计数与可控读异常
@@ -336,6 +355,8 @@ namespace UnityEngine
 
     public class Transform : Component
     {
+        public Transform() { }
+        internal Transform(IntPtr pointer) : base(pointer) { }
         public Transform Find(string path)
         {
             Transform current = this;
@@ -926,6 +947,8 @@ namespace Il2CppInterop.Runtime.InteropTypes
         public readonly IntPtr Pointer;
 
         public Il2CppObjectBase() { Pointer = new IntPtr(System.Threading.Interlocked.Increment(ref _next)); }
+        /// <summary>测试专用：同一 native 对象的另一个 managed wrapper 视图共享 Pointer。</summary>
+        protected Il2CppObjectBase(IntPtr pointer) { Pointer = pointer; }
     }
 
     public static class Il2CppObjectBaseExtensions
