@@ -1,3 +1,7 @@
+## 2026-10-20 — 坐骑岛剪影/船位/配色及同候选保存重进通过
+
+正式NoAudit候选B（0b17095，net6 25d9…c156/net8 74d7…0b6d，两TFM0W0E）已在A41 F1和实际后像A39 F2冷读验证：Playing11/8设施/8markers，八剪影、岸外单船、配色、地图往返及两次UI自然SaveQuit exit0通过。正常存档/配置未动；旧岛8只保留原生时间1ULP变化，不称全角色Exact。剪影原因是旧岛地同色；详情船由managed as失败改原生GetComponent，坐标诊断器改同native数组读回。合并安装关口集中复核中，仍未安装。#260旧正常空岛回填继续开放；B首次重新出航、第二岛自然抵达、其它平台和联机不由本例代验。详见[联合记录](tasks/issue-272/receipts/joint-native-20261020.md)。下文为历史时点。
+
 ## 2026-10-20 — #272 坐标采样已修，缺剪影转查渲染层
 
 A35真实稳定详情快照已取得有效native坐标：8图标均有尺寸、在裁剪内、父级alpha正常，空白仍复现，不支持几何补偿。隔离UI保存退出samePopen exit0/wait0、无signal，8标记落盘；正常完整closure未变。继续以船标对照Canvas/depth/layer/effective sprite，船位/RGB最终联合Native尚待完成，未合并release或安装。#260必要出航修复已窄接主线Source、双TFM0W0E和17/0测试及独审通过；不包含旧空岛自动补发。详见本任务收据，下面A34为历史。
