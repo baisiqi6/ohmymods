@@ -2287,3 +2287,8 @@ PR229发布后仅进展文档追加段冲突；已保留主线与Android两端�
 
 
 - Android #232 G18只读存储诊断随后完成：新具名objective源码/29host经独审、最终producer1+6由Root在c148重跑后，正常计划58161139登记、独立读回及本分支镜像一致，其他任务/计划、lease及既有doctor边界保持。单次30.21s中boot1/CEtrue时emulated卷仍checking，随后全部祖先与562B旁档stat可见；这提供启动/存储时序线索，未读取正文或定上例唯一根因。8查询/10stat无unknown/timeout，cat0/game0/无设备文件写命令，Root真reap及后host/端口/8345保护已核，原生窗口提前交还。完整232的真实付款/保存/load及池重建兼容组仍待验；当前906的232具名职业/弓弩闭环未发现确认源码缺口，旧相同input构建与106注册证据复用，后续场景按producer和池依赖合并，不为每字段重复全交付。详见[G18记录](tasks/issue-232/g5-main106-preflight.md)。
+
+
+- 2026-10-21 Android #232/#262：Boat 上游实际 FieldInfo 已确认0x20/0x140/0x148；prefab/parent有效，raw-key池entry缺失、learningMode=false、cachedPools=9。当前ELF证明SpawnGO先swap后查池且会调用FastSpawn，已撤回旧“船路径不经过FastSpawn”判断；raw-key与缺postfix均不代实际swap-key根因。原生OnLevelLoaded Count门控及Norse1+Bank8源码候选存在，入口九池身份仍未取到，不加force-init/补池。私有0.0.4独立构建0W0E/67checks；修复控制器把同PID `<pre-initialized>` 误判退出的产生处，启动+parser28/控制器37回归通过，无新启动/宽限/重试。single2 fresh归属及同Boat失败成立，但入口探针maps-line-limit安装前拒绝，diagnosticGoalReached=false，Native/玩法未验；更名分支该例未重现，不冒充实测。停止/wait已合为同Popen单一owner，两新例真wait0/all8完整metadataheld；N9原cleanupUnknown保留，后读F一致仅READ。正常计划d2a751f4受管登记/独立镜像，其他184rows/168plans保持、validator0；旧doctor247/251错误不冒称全绿。产品Main2e55不变、PR263 Draft、232/262 OPEN。详见[上游与入口观测记录](tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。
+
+- 2026-10-21 Android #232/#262 N11增量：私有0.0.5以单次dladdr代全maps遍历，删除旧预检和重复地址检查；Root0W0E/17地址ABI host，未变67复用、controller37/parser启动28通过。实际模块/RVA及两个target安装成立，无entry/九池身份；单条日志快照2秒超时令局部facts未合并，raw保留，不定挂死。F后读未执行；严格owner TERM→KILL/wait-9与独立八项完整metadata/资源交还另证，旧postflight失败保留。正常计划fbbe4a7d受管登记/镜像、其他184rows/168plans保持；仅接受有限安装和物理事实，产品Main未变、Pool目标与根因未知。继续修只读snapshot阶段预算/错误交接，详见[同一记录](tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。

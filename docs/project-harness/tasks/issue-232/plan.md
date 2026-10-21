@@ -1,6 +1,6 @@
 {
-  "case": "controlled-candidate133-boat-args-isolated-20261019-single1",
-  "objective": "boat-argument-diagnostic",
+  "case": "controlled-candidate133-pool-phase-address-isolated-20261021-single1",
+  "objective": "boat-pool-phase-diagnostic",
   "serial": "emulator-5582",
   "avd": "ohmymods_android35_inprocess",
   "emulator": "/opt/homebrew/share/android-commandlinetools/emulator/emulator",
@@ -36,8 +36,8 @@
     "preferenceKeys": 58
   },
   "addon": {
-    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/g19-s1-runtime-preparation-20261018/resume-20261019/boat-argument-probe-worker/root-build-instrumented/bin/OhMyMods.NativeSceneControlProbe.dll",
-    "sha256": "cb86033197bd1f4ded428329409296d618ab7671a2526f4fe0ff2945f40b4caa",
+    "path": "/Users/Admin/projects/ohmymods/.local/tasks/android-profession-archery-20261014/boat-upstream-20261021/pool-phase-address-probe/root-build/bin/OhMyMods.NativeSceneControlProbe.dll",
+    "sha256": "c58b7db478263c9d906ec27ab688fdfc6da6daac05f585ffdf6292591c60259a",
     "dest": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.NativeSceneControlProbe.dll",
     "assembly": "OhMyMods.NativeSceneControlProbe"
   },
@@ -95,7 +95,7 @@
     {
       "label": "normalDLL",
       "path": "/Applications/ohmymods/arm64/BepInEx/plugins/KingdomEnhancedMod/KingdomEnhancedMod.dll",
-      "sha256": "8345f086c2a93ec6202f3e6c292733661b4f81e0e7fd28dff8993e51ec9d9e1b"
+      "sha256": "25d9ffef5ad20436bf49c8f7f7c7fdb395e16a86f2bae63900ee6df0a8f4c156"
     },
     {
       "label": "localChecklist",
@@ -150,9 +150,9 @@
     "launchActivity": "eagle.simple.sdks.manage.FakeActivity",
     "probe": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.NativeSceneControlProbe.dll"
   },
-  "gateSHA256": "ed69514785f73661278d02179355a141d21e3d014fe3547d9191b4301d498ca8",
-  "sourceReviewSHA256": "42d9f55823a020d9979f09d8504df9d167340aedbc253e95d788be04505fc621",
-  "resourceWindowSHA256": "42c32668410e39e3d89145af557bc21dd59bdf69d5ea95815305aac2d7108272",
+  "gateSHA256": "a17a23c1162060b6449524620ee5caafdc3acad2ca6170c2c6c34a8f4966aa50",
+  "sourceReviewSHA256": "a1de7493be50209c2c6d5e182e8687c0858ab9930e15423fd33fe19a7abc0a42",
+  "resourceWindowSHA256": "b8f341aa04dd8e20e8e9267cd920f5fe879912689d53a4e02d4f71229528e1e8",
   "taskIdentity": {
     "issue": 232,
     "owner": "mac-codex-ohmymods-android-operator",

@@ -295,3 +295,26 @@ Source `b82b61af…`、机械Exact与新正常计划 `54d58d1b…` 分别完成�
 后续静态核对更正旧字段解释：`Wharf+0x148` 对应 `boatPartPrefab`（Droppable），是Spawn的prefab参数；旧报告把单例链 `+0x20/+0x140`称为prefab已被推翻，当前更可能为Managers.world/World.gameLayer父级。字段名来自当前Android2.4 metadata/SDK，偏移映射仍是Android指令加2.4layout推断，直接Android FieldInfo offset与共享泛型T尚未闭环，不预付现场Prefab/parent/pool值。旧报告保留、Root勘误另记；下一步在现有生命周期/已接入边界核实源字段，不增加下游假对象、吞错或无依据池重建。
 
 本轮游戏、APK、interop、原始存档/日志未入Git；未合并PR263、未关闭232/262。原生成功加载、真实角色/攻击/回收、FX/银行交易/补货、保存、换岛及池重建仍待验；手机/多人/长期单列。
+
+
+<a id="g20-boat-upstream-pool-phase"></a>
+## 2026-10-21 UTC：源字段与原始池表已核实，初始化入口仍未命中
+
+本阶段保持候选 Main `2e55f5bc…`、完整 cfg `16b68641…` 和原生输入 `35faea07…`，只替换不引用 Main 的私有只读观察器。N9 的实际 FieldInfo 确认 Managers.world/World.gameLayer/Wharf.boatPartPrefab 偏移分别为 `0x20/0x140/0x148`，纠正上节尚属推断的状态。ApplyToScene 快照中 prefab Unity-valid、parent 有效；对 **raw prefab GameObject** 的 TryGetValue 明确 entry 不存在，learningMode=false、cachedPools.Count=9。随后连续 BoatPart.CopyProperties→Wharf.StackPart→Wharf.CatchupBoat→CampaignSaveData.ApplyBoat NRE；仍为 Loading/0、world=false。
+
+当前 Android 2.4 ELF 又确认 SpawnGO 在 GetAssetSwap 之后查池，满足条件会在 `0x24d5544` 调用 FastSpawn `0x24d58a0`。撤回早期审查的“船路径不经过 FastSpawn”判断。raw key 缺池不能替代 swap 后实际 key，缺 postfix 样本也不能单独证明原生查池失败；GetComponent 另有返回 null 的路径。GetAssetSwap 还可能触发 singleton、资源或字典初始化，不能把无条件 getter 调用当纯读诊断。
+
+OnLevelLoaded `0x24dbce4` 的原生 Count 非零跳过 InitPools 门控已由当前 ELF 确认；源码中 Norse 一池和银行助手八池会写该集合。但目前没有该回调入口的九条实际身份，不能把 `1+8=9` 定为本次根因，更未实现 force-init、补池、默认船件或吞异常。InitPools 完成也可能来自卸载 ResetPools 路径，不等于新场景就绪；后续注册设计还须闭合换岛、资源晚到和网络消费者时序。
+
+私有 0.0.4 独立构建 0 warnings/0 errors、67 host checks；控制器和纯 parser 分别 37/18 通过。首个 pool-phase 用例在 0.347s 时被控制器记为 game-exited-before-ready；原 ps 实为同 PID3654 从包名变成 `<pre-initialized>`，Latest.log 未更新。因此真实退出、插件加载及崩溃原因均未知。已在观察结果产生处修正：单次 checked ps 表同时检查包名与绑定 PID，启动时精确 pending-name 样本不进入 freshness，沿原预算继续采样；异名、换 PID、多 PID、缺 PID 仍拒绝归属。没有新启动、宽限或重试。新增 10 个完整循环回归与 parser 共 28 通过，控制器 37 通过；旧 loader Fake 补齐 ps 输入后原 26 断言通过，旧 fixture 两项 normalDLL pin 漂移仍保留，未声称全套绿。
+
+新的 single2 实际运行 117.96s，fresh Main/loader/INIT 归属成立，再现同一 Boat NRE 与 raw-key 缺池/Count=9。新 OnLevelLoaded 探针在 patch 前触发 maps-line-limit 安全拒绝，InitPools 安装日志存在但无 entry；`diagnosticGoalReached=false`、nativeLoadObserved=false，九池身份仍未知。此例未再触发瞬时更名分支，其 Native 验证不能由 fresh 启动成功替代。正在离线准备定点模块地址查询，替换整个 maps 遍历，不提高盲扫描上限；尚非产品修复。
+
+N9 原 stop 的 identity mismatch、cleanupUnknown/blockNextAutomaticCase 保留；独立资源交还不追改原清理器成功。已将本控制器停止和 wait 合为同 Popen 单一同步 owner，身份不符仍拒绝 signal，TERM 有界 wait 返回后不再要求 ps 完全消失。两个 pool-phase 实际用例均由同一 child wait=0 证明回收，rawUnknown=false；独立八项 bytes/完整 metadata、专属 AVD/端口及 ADB 身份均保持。各例 F 后读仍为 260337B/SHA35fae，仅 READ、不代 Save；零输入、零 PNG，无持久盘 restore。
+
+single2 正常计划 `d2a751f4…` 已由受管入口登记并逐字镜像，其他184行/168计划保持，validator=0；既有全局 doctor247/251错误未冒称已消失。实际独审分别接受 N9 的有限源字段、首例的清理/启动分类事实及 single2 的有限快照，不接受根因、Native兼容或玩家验收。#232/#262保持 OPEN，PR263保持 Draft；产品Main未变，原有移植成果保留。原始材料仅存本机 `boat-upstream-20261021/` 与 G19 两个 pool-phase 用例，游戏/SDK/原始存档日志不入Git。
+
+
+同日后续 N11 将全 maps 遍历替换为单次 Android linker `dladdr` 查询。Root 私有0.0.5 `c58b7db4…` 独立编译0W0E、17项source-linked地址/ABI检查通过；其余未变纯规则67项复用，controller37、parser/启动28通过。移除旧 maps reader、重复 caller 地址比较和重复RVA常量，不新增fallback。当前ELF/SDK/methodmap及NDK ARM64四指针ABI分别核对；运行时执行权限仍unknown。实际 fresh INIT/Main2e55 成立，OnLevelLoaded 的 nativeCode/virtualCode/expectedCode 均为 `0x72DB6FDCE4`，Token/slot/flags及两target安装日志匹配，证明本次模块/RVA核验与安装记录，仍没有entry、九池身份或Apply快照。
+
+N11在07:38:57Z的一条Latest.log一致快照读（raw00421）触及内部2秒上限，stdout/stderr均0B，无header；前两秒guest日志仍增长且ps成功，不能定为guest/app挂死。Case.adb即使check=False仍对timeout抛错，越过snapshot.error与返回record路径，导致原result丢掉局部已获INIT/STATE；保留的fresh段可独立解析为controlValid/sourceInstallValid=true，原result仍inconclusive、wait1、diagnosticGoalReached=false，不追改历史。F后读未执行，不能记字节保持。单一owner经严格身份TERM、再KILL、同child wait=-9完成回收；独立八项bytes/完整metadata、专属资源/ADB身份保持。原postflight wrapper因耦合F后读而assert失败保留；actual独审只接受Native API安装与独立物理交还，不接受整包、pool目标或Native兼容。下一步只修日志读取预算与错误交接，不提高游戏预算、不重启/重试、不吞游戏异常。N11正常计划 `fbbe4a7d…` 已受管登记并镜像，其他184行/168计划保持、validator0；PR263 Draft、232/262继续OPEN。
