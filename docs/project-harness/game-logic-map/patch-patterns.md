@@ -1000,6 +1000,6 @@ Mod连续hold使用该邻关系作保守有限上限，entry另核fast保留或f
 
 当前 Android2.4 ELF：Wharf.StackPart 用 boatPartPrefab 进入 Pool.Spawn<T>；SpawnGO先 GetAssetSwap 再查池，`0x24d5544` 可调用 FastSpawn `0x24d58a0`。因此 raw prefab 查不到池、没有目标 FastSpawn postfix，均不足以排除 swap/前段异常/采样过滤，也不足以确定返回 null 的责任；GetComponent另有null路径。实际 FieldInfo 已确认 Managers.world=0x20、World.gameLayer=0x140、Wharf.boatPartPrefab=0x148。不要调用带懒初始化的 GetAssetSwap 来“补读”现场。
 
-PoolManager.Init 仅在 scene loaded 条件成立时 InitPools；OnLevelLoaded 的 cachedPools.Count 非零分支会跳过 InitPools。自定义模板准备与向该缓存注册是两个职责，不能用外层 Init 返回、Holder 存在或任意非空池表代替原生池完成证据。OnDisable→ResetPools也可能调用InitPools，完成回调须结合实际生命周期解释。当前仅有ApplyToScene时Count=9与Norse1/Bank8源码候选，入口身份尚未知，不据此发布强制初始化补丁。详见 [G20实际边界](../tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。
+PoolManager.Init 仅在 scene loaded 条件成立时 InitPools；OnLevelLoaded 的 cachedPools.Count 非零分支会跳过 InitPools。自定义模板准备与向该缓存注册是两个职责，不能用外层 Init 返回、Holder 存在或任意非空池表代替原生池完成证据。OnDisable→ResetPools也可能调用InitPools，完成回调须结合实际生命周期解释。N9阶段仅有ApplyToScene时Count=9与Norse1/Bank8源码候选；N12现已完整采到同PM OnLevelLoaded入口9池为银行助手8个30120..30127及Archer_norselands30000，随后Apply仍同PM/Count9。入口诊断成立，缺Init回调仍unknown，静态分支合同不代独立运行分支遥测，raw-key不代实际swap-key；产品修复和完整根因尚未验。下一步修提前注册writer的交接时机，不据此发布强制初始化补丁。详见 [G20实际边界](../tasks/issue-262/verification.md#g20-boat-upstream-pool-phase)。
 
 Android ps的NAME不是PID存活证明：独立用例中同PID3654由包名暂变成 `<pre-initialized>`。观察器须在同一checked表区分“包名未就绪”“绑定PID缺失”“身份未知”；pending-name不归属fresh日志，不新增启动或宽限。自有QEMU停止和回收由同一Popen owner协调，成功wait后不再额外要求退出收尾阶段的argv/ps消失；身份异常不向陌生PID发信号，原失败回执不追改。这些是诊断控制器规则，不能代替游戏兼容验收。

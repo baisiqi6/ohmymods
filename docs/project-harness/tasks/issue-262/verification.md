@@ -318,3 +318,17 @@ single2 正常计划 `d2a751f4…` 已由受管入口登记并逐字镜像，其
 同日后续 N11 将全 maps 遍历替换为单次 Android linker `dladdr` 查询。Root 私有0.0.5 `c58b7db4…` 独立编译0W0E、17项source-linked地址/ABI检查通过；其余未变纯规则67项复用，controller37、parser/启动28通过。移除旧 maps reader、重复 caller 地址比较和重复RVA常量，不新增fallback。当前ELF/SDK/methodmap及NDK ARM64四指针ABI分别核对；运行时执行权限仍unknown。实际 fresh INIT/Main2e55 成立，OnLevelLoaded 的 nativeCode/virtualCode/expectedCode 均为 `0x72DB6FDCE4`，Token/slot/flags及两target安装日志匹配，证明本次模块/RVA核验与安装记录，仍没有entry、九池身份或Apply快照。
 
 N11在07:38:57Z的一条Latest.log一致快照读（raw00421）触及内部2秒上限，stdout/stderr均0B，无header；前两秒guest日志仍增长且ps成功，不能定为guest/app挂死。Case.adb即使check=False仍对timeout抛错，越过snapshot.error与返回record路径，导致原result丢掉局部已获INIT/STATE；保留的fresh段可独立解析为controlValid/sourceInstallValid=true，原result仍inconclusive、wait1、diagnosticGoalReached=false，不追改历史。F后读未执行，不能记字节保持。单一owner经严格身份TERM、再KILL、同child wait=-9完成回收；独立八项bytes/完整metadata、专属资源/ADB身份保持。原postflight wrapper因耦合F后读而assert失败保留；actual独审只接受Native API安装与独立物理交还，不接受整包、pool目标或Native兼容。下一步只修日志读取预算与错误交接，不提高游戏预算、不重启/重试、不吞游戏异常。N11正常计划 `fbbe4a7d…` 已受管登记并镜像，其他184行/168计划保持、validator0；PR263 Draft、232/262继续OPEN。
+
+### N12：场景回调入口九池身份已取到，游戏仍失败（2026-10-21）
+
+保留产品Main2e55、完整cfg16b、私有0.0.5 c58及F35fae。采集器只修`read_log_snapshot`：单次读取使用原阶段remaining，Case.adb的命令RuntimeError交回既有snapshot.error终态并保留此前可信facts；无新读/启动/重试/阶段预算。新增8项、既有定点8项、Root独立8项通过；当前资源身份更新后controller37通过，parser/启动28及未变probe构建/规则证据复用。旧2秒中断和旧PID静态测试失败均保留，不追改为成功。
+
+中断恢复时原ADB1490/5037不存在、自有AVD/5582/5583空；八保护文件与九路径身份重新核验一致。一次显式SDK `-L tcp:localhost:5037 server nodaemon`由Root持有TTY，direct exec/listener PID86762、UID/lstart/argv/exe匹配；没有kill-server/start-server或领养。N/core仅冻结新identity、测试仅更新旧case PID pin；最终Source92d68510、独审6d476acb通过。原W4目录消失，已用原生工作树工具从已推4bb3恢复W5，仍自有codex/android-economy-262；同identity官方续租至13:32Z，新plan `cea19dc699748dbff38799ce2b5ab0227d67c5b49ff5c315a02dadc322c1a705`受管登记并逐字镜像，其他184行/168计划保持、validator0。
+
+唯一新单次`controlled-candidate133-pool-phase-readbudget-isolated-20261021-single1`真实controlValid=true。fresh行176..185为OnLevelLoaded入口`pm=0x76DE20BCC0/count=9`及完整index0..8：KEM_BankAssistant_0..7（banker/bamboo/deadlands/norselands/eastern/desert/royal/dwarf，sync30120..30127）和Archer_norselands（30000）。随后行191 ApplyToScene仍同PM/Count9，prefab和parent有效、learningMode=false，对raw prefabGo查表entry缺失；随后连续CopyProperties→Wharf→ApplyBoat NRE，Loading/0、无READY/STOP/FastSpawn/PNG/输入。
+
+当前parser的sourceInstallValid/entryFactsValid/poolPhaseValid及diagnosticGoalReached均true，表示**入口身份诊断目标完成**；InitPools entry仍unknown，`poolPhaseReason=InitPools-callback-missing:unknown`，RootCauseEstablished=false。此前摘要把缺Init回调解释为整个goal必false不准确，以当前源码和raw为准。静态ELF的Count非0跳InitPools合同与本次完整9个Mod writer身份共同支持修复提前注册的方案设计；本次没有独立分支遥测、实际swap-key结果或原异常传播证明，不把它记作完整boat根因/修复。
+
+controller93392 actualWait0，ownedQEMU93474严格identity后TERM、同child wait0；104.613s收尾，rawUnknown/cleanupUnknown=false。F在观察结束后、QEMU停止前读到260337B/35fae，仅READ非Save；Root原postflight wrapper exit0、八保护bytes/完整metadata一致、专属AVD/端口交还，Root持有的ADB86762仍运行。原N9未知与N11失败不覆盖。独审`e0d944d3…`接受入口身份和资源事实，仅进入producer生命周期方案，不批准产品实现/新例/合并/关单/手机验收。
+
+原始本机证据：result `e472d8e2ad98672d20ff82ca9e0a569b3143b4e5ff6acfee6e3d699e5bec9d25`、fresh `d6b67f8a1a0b8530a2dc52a82fec9416a7e76106314d61affd8eb47dd938928e`、Root postflight `68835bb4fdb0a0ae344e6960e84a1dc7e3aa152abd2cf8714fa6b428cab61d8f`，位于G19 `next-pool-phase-readbudget-case/`；审查及采集器增量在`boat-upstream-20261021/`，游戏/SDK/原始日志与存档不入Git。产品Main未改，PR263 Draft，232/262 OPEN；下一阶段须同时核对Bank账务/旧actor收尾、Norse/bolt晚到资产、native池清建与保存/网络消费者，不删仍有独立用途的机制。

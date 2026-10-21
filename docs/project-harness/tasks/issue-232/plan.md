@@ -1,5 +1,5 @@
 {
-  "case": "controlled-candidate133-pool-phase-address-isolated-20261021-single1",
+  "case": "controlled-candidate133-pool-phase-readbudget-isolated-20261021-single1",
   "objective": "boat-pool-phase-diagnostic",
   "serial": "emulator-5582",
   "avd": "ohmymods_android35_inprocess",
@@ -150,9 +150,9 @@
     "launchActivity": "eagle.simple.sdks.manage.FakeActivity",
     "probe": "/sdcard/Android/data/com.rawfury.kingdom2crowns/files/MelonLoader/Mods/OhMyMods.NativeSceneControlProbe.dll"
   },
-  "gateSHA256": "a17a23c1162060b6449524620ee5caafdc3acad2ca6170c2c6c34a8f4966aa50",
-  "sourceReviewSHA256": "a1de7493be50209c2c6d5e182e8687c0858ab9930e15423fd33fe19a7abc0a42",
-  "resourceWindowSHA256": "b8f341aa04dd8e20e8e9267cd920f5fe879912689d53a4e02d4f71229528e1e8",
+  "gateSHA256": "72e96fe993a79ad824b07fe3cc9d0f0b7882efbb137c7656a05a9173bfdc73ce",
+  "sourceReviewSHA256": "b259710cde3347554b705741ff9989c2bf9515738c3f55bed5ae95647c39fbc1",
+  "resourceWindowSHA256": "81cc989b29953172057b1661986d19ccf7293337141b5d6f7f9dc69c101bd648",
   "taskIdentity": {
     "issue": 232,
     "owner": "mac-codex-ohmymods-android-operator",
