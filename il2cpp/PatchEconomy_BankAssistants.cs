@@ -153,6 +153,21 @@ public static class PatchEconomy_BankAssistants
         if (source != null) EnsurePools(source, poolManager);
     }
 
+#if ANDROID
+    /// <summary>
+    /// InitPools 正常返回后的纯池登记入口：只注入类型、选取当前 main banker 或资源
+    /// prefab，并调用原 EnsurePools；不执行 ClearPoolHandles/Flush/ResetAll 等业务收尾。
+    /// </summary>
+    internal static void EnsurePreparedPools(PoolManager poolManager)
+    {
+        if (poolManager == null || !GreekBankScope.IsActive) return;
+        EnsureInjectedTypes();
+        Banker source = BankAssistantCoordinator.HasMainBanker
+            ? BankAssistantCoordinator.MainBanker
+            : FindBankerPrefab();
+        if (source != null) EnsurePools(source, poolManager);
+    }
+#endif
     private static void EnsureInjectedTypes()
     {
         if (_registeredCoordinatorType) return;
@@ -175,6 +190,9 @@ public static class PatchEconomy_BankAssistants
         if (!GreekBankScope.IsActive || banker == null || poolManager == null) return;
 
         EnsurePrefabs(banker);
+#if ANDROID
+        if (!AndroidProfessionPoolLifecycle.CanRegisterCustomPools(poolManager)) return;
+#endif
         for (int i = 0; i < Prefabs.Length; i++)
         {
             GameObject prefab = Prefabs[i];

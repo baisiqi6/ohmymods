@@ -61,7 +61,12 @@ internal static class MedievalScatterPolicy
         if (damageable == null || damageable.isDead) return false;
         if (!ArcherOptionsScope.IsCurrent(archer)) return false;
         if (PatchRoles_Crossbowman.IsCrossbowman(archer)) return false;  // 独立/弩包弩手
+#if ANDROID
+        bool isNorse;
+        return PatchRoles_NorseSquad.TryGetNorseArcherIdentity(archer, out isNorse) && !isNorse;
+#else
         return !PatchRoles_NorseSquad.IsNorseArcherInstance(archer);     // 移交过来的北境近战随从
+#endif
     }
 
     /// <summary>当前队籍骑士：活跃 tagKnight、存活、当前 world，且固定身份解析为 style0。</summary>

@@ -1,3 +1,9 @@
+## 2026-10-21 UTC — Android 池初始化交接修复进入 Playing，保存 Draft 检查点后暂停
+
+修复原提前注册处：自定义角色/工具、北境弓手、弩箭与银行助手只在 native InitPools 正常返回的同一当前 PM 上注册，World 仅消费该事实；删除 Android 旧外层 Init 弩箭登记，银行原账务收尾顺序保留。北境身份改读 prefab/实例 Persistent.path，所有 Android 消费者把未知保留为未知，PC 有效代码保持。Root 19 条生命周期回归、默认 net6 双构建、两实际 DLL 各 Adapter1504/0、独立源码审查通过。
+
+新候选 c1e43 在唯一一次 Native 中记录原生池 0→109、自定义登记后118，九具名池与 syncID 匹配；船池在 Apply 已存在，三次自然 FastSpawn 非空，世界进入第8岛 Playing 并观察120秒。独立 actual 审查允许 Draft 代码检查点；诊断32池上限及 mode-schema 使两个聚合目标仍 false，原始异常传播/无额外探针兼容、完整职业经济保存及玩家验收不记通过。Root 确认真实 wait/reap、八原件和完整 metadata、自有 AVD/端口保持；未写 Steam 或持久 AVD。按用户要求在本批暂停，不开下一 Native。PR263 Draft，232/262 OPEN；下一步先无额外 detour 加载核对，再按真实依赖处理两处已观察的缺失引擎调用与玩法。详见[本次记录](tasks/issue-262/verification.md#g20-native-definitions-fix)。
+
 ## 2026-10-19 UTC — Android 已观察到船件入口NULL，完整根因仍待上游字段补证
 
 独立参数诊断确认CopyProperties第一次调用的receiver非空、loosePart为空、dummyPart=false；真实代码RVA/安装/mode与完整sample均核验，独审仅接受入口事实。新Harmony边界会捕获原异常，已明确不验原传播/场景兼容；世界仍Loading，未把观测当修复。按360s预算收尾，Root八原件/metadata与自身资源归还保持，postread同输入仅为读取。静态更正prefab为Wharf.boatPartPrefab，旧+0x140 prefab解释撤回；直接Android偏移与现场pool/parent仍待证，不补假对象或重建池。当前plan54d58d1b，PR263 Draft、232/262开放。详见[入口样本及限制](tasks/issue-262/verification.md#g20-boat-entry-arguments)。

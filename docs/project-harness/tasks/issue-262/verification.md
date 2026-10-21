@@ -332,3 +332,25 @@ N11在07:38:57Z的一条Latest.log一致快照读（raw00421）触及内部2秒�
 controller93392 actualWait0，ownedQEMU93474严格identity后TERM、同child wait0；104.613s收尾，rawUnknown/cleanupUnknown=false。F在观察结束后、QEMU停止前读到260337B/35fae，仅READ非Save；Root原postflight wrapper exit0、八保护bytes/完整metadata一致、专属AVD/端口交还，Root持有的ADB86762仍运行。原N9未知与N11失败不覆盖。独审`e0d944d3…`接受入口身份和资源事实，仅进入producer生命周期方案，不批准产品实现/新例/合并/关单/手机验收。
 
 原始本机证据：result `e472d8e2ad98672d20ff82ca9e0a569b3143b4e5ff6acfee6e3d699e5bec9d25`、fresh `d6b67f8a1a0b8530a2dc52a82fec9416a7e76106314d61affd8eb47dd938928e`、Root postflight `68835bb4fdb0a0ae344e6960e84a1dc7e3aa152abd2cf8714fa6b428cab61d8f`，位于G19 `next-pool-phase-readbudget-case/`；审查及采集器增量在`boat-upstream-20261021/`，游戏/SDK/原始日志与存档不入Git。产品Main未改，PR263 Draft，232/262 OPEN；下一阶段须同时核对Bank账务/旧actor收尾、Norse/bolt晚到资产、native池清建与保存/网络消费者，不删仍有独立用途的机制。
+
+
+<a id="g20-native-definitions-fix"></a>
+### N13：native 定义先建、自定义池后登记，进入第8岛（2026-10-21；暂停检查点）
+
+N12 的入口九池身份与当前版本 Count 门控共同指向提前写入责任。本批在原 producer 处交接，不 force InitPools、造船件、添加计时重试或复制池机制：AndroidProfessionPoolLifecycle 的原 InitPools owner 改为 prefix 撤销旧事实、正常 postfix 保存同一 PM 的定义完成事实；写入还须当前 Managers.pools、同一 Unity 实例、active 与总开关成立。已有 World.OnLevelLoaded 边界只消费该事实。inactive 正常返回保留事实、失败重建不授权，未新增 OnDisable 短方法 detour、finalizer 或 scene 镜像。
+
+Castle 的 Character/Tool、Norse 的临时 Holder 写入、bolt 和 Bank 八助手三表写入均在原注册处接同一门；晚到资产沿原 Ensure 路径注册，删除 Android 旧 PoolManager.Init 弩箭 owner。Bank 只补纯池登记入口，原 Clear/Flush/ResetAll 账务与 actor 收尾职责/顺序保留。Android Norse 身份不再依赖可能重建的 Pool origins，改用 native prefab/实例的非空 Persistent.path 精确比较；全部八个消费点区分未知，不因缺池/读取失败 Promote 或套错身份，PC 原逻辑保留。实际注册日志仍 owners=133；声明替换不扩大为唯一 native 方法数。
+
+Root 在旧实现得到5条失败、新实现19/0生命周期检查，覆盖 inactive→active、失败重建、当前全局 PM、指针复用与 Unity 身份等交接。当前真实 net6 Release `c1e43d48960a99977c870f88f331e106ded3a8ea2201c4f81e9f01925d9445c6`、Debug `0b126011204034418420a6af0be616cbd49701106758ff1dd4426508b37e3056`，各0错误/1既有CS0169、Adapter各1504/0，207 Compile/176引用/25资源。408输入中仅10份产品源码改变，398保持；8份共享源在两组PC符号下的有效 token 保持。私有 probe 0.0.6 `f415a21b…` 独立构建0W0E、32 host/26 parser；控制器37/0。独立 Source 报告 `89d2d0b8…` 通过，仅授权当前范围。
+
+新 case `controlled-candidate133-native-definitions-fix-isolated-20261021-single1` 使用 c1e43/cfg16b/F35fae。首次13:36:36 host-only调用因窗口尚未开始退出，未启动VM、未写设备、gate未消耗，原始失败保留；Root核对明确原因后13:37:45在当前窗口继续首次 Native，唯一 QEMU70178/controller69906，未重放任何已执行的 Native。
+
+同 PM `0x6CCB1FBCC0` 的自然 InitPools 入口 count0，产品正常返回日志109，随后 probe return118；九次 direct TryGetValue 得到八助手30120..30127与 Archer_norselands30000，prefab名匹配。北境 prefab Persistent.path 实读为47字符 `Prefabs/Characters/norselands/Archer_norselands`，仅证明 prefab 字段，不代实例身份/读档恢复。Apply时船 prefab/parent有效、pool匹配且cachedContains=true；之后三次自然 FastSpawn结果非空且有Droppable。世界 Loading→RunningGame/Playing，island/campaign/game均8，castleBuilt=true/walls7，READY后120秒STOP，未出现原同船NRE。银行仅观察 helper0一次assignment/submission accepted1，不推广为全部交易、补货或保存通过。
+
+**原始 false/unknown 不改写**：OnLevel入口118超过probe的32池枚举上限，`poolPhaseValid=false`、`diagnosticGoalReached=false`，reason为count-out-of-bound/diagnostic-read-unknown；九名定点return读取与原生状态事实分别有效。另 `upstreamDiagnosticValid=false`、reason=mode-schema，聚合outcome=unknown，不把原始snapshot和三次spawn改成聚合通过。PM.OnLevelLoaded私有新callee仍有managed-catch/no-rethrow异常边界，`nativeCompatibilityAcceptance=false`、`originalExceptionPropagationPreserved=false`、`sameBoatFailureCauseEstablished=false`均保留。加载障碍在本场景消失与原始传播/完整因果、无额外探针兼容是不同结论，不为诊断绿而放宽或重跑。
+
+225.02秒后controller wait0、同Popen QEMU TERM/wait0；Root fresh八文件bytes及完整metadata、独立自身AVD/端口/ADB身份保持。观察结束后停VM前F后读仍260337B/SHA35fae，是READ非Save；Root0输入/0PNG、controller0PNG，无持久盘restore。正常计划 `e1040c5f…` 官方登记/validator0，其他184行/168计划保持、独立readback及worktree镜像一致。canonical中的旧reviewer role ID不代表实际模型，本批Source与actual均独立OMP DeepSeek Flash/max、无fallback。
+
+独审 `APPROVE_DRAFT_CODE_CHECKPOINT_BOAT_POOL_FIX_RAW_NATIVE_FACTS_ONLY`（报告SHA `49a03c6157782981842c228d56b0df2511fb3f30cfca8f07fc33aa252b5b335b`）与Root接受只到Draft代码检查点。实际result SHA `96c7826cc91987660a9f1c81f8b64fab8b7ca30c72256dcd3e557c8074d876ed`、fresh `43ee153114efbfcb31bdea9d0cd199408d1ae4ccc2a8ef66d3152a429b6f3fc4`、Root postflight `df50381b9258aa6ee9caa2b981c0c298cb8b65f5e5bee5986b8fb5212f1119cd`。本机材料位于G19 `next-native-definitions-fix-case/` 与 `boat-upstream-20261021/implementation-native-definitions-20261021/`；不提交原生二进制、存档或日志。
+
+用户要求在合适节点暂停，现收为Draft检查点，不启动下一批。后续先用既有609e control-only观察器复核无额外Pool/Boat detour加载，再核对职业身份/弓弩及银行经济的攻击、FX、回收、保存装载/换岛/池重建。日志新观察的 HeavyShieldRuntime/ CoinCourierTeleportFx 两条 MissingIl2CppInternalCallException 仅登记待定位，不猜API或加入catch兜底。手机/平板、多人、长期和完整视觉继续单列；232/262 OPEN，PR263 Draft，未merge、未关单。
