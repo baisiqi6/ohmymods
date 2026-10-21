@@ -31,6 +31,49 @@ C:/Users/ADMIN/dotnet8/dotnet.exe build -c Debug
 只做编译验证时应覆盖/清空 `BepInExPluginsPath`，部署则只复制到独立测试副本。
 日志在 `<测试副本>/BepInEx/LogOutput.log`。首次启动可能只生成 interop；退出后第二次启动再确认插件加载。
 
+交付构建使用标准 `Release` 配置。`GameInteropVersion` 只选择 `KTC_GAME_243` 宏，**不会**切换
+`GameInteropDir`；默认 `GameInteropDir` 是 2.4.0 路径，构建 2.4.3 必须显式覆盖到对应版本的
+interop。受管工程现在直接引用以下文件，不再依赖旧预览 wrapper 的额外引用闭包：
+
+- `GameInteropDir` 下：`Assembly-CSharp`、`Assembly-CSharp-firstpass`、`Il2CppSystem`、
+  `Il2Cppmscorlib`、`Il2CppSystem.Core`、`UnityEngine`、`UnityEngine.CoreModule`、
+  `UnityEngine.AnimationModule`、`UnityEngine.AudioModule`、`UnityEngine.UIModule`、
+  `UnityEngine.UI`、`UnityEngine.IMGUIModule`、`UnityEngine.ImageConversionModule`、
+  `UnityEngine.JSONSerializeModule`、`Rewired_Core`、`UnityEngine.InputLegacyModule`、
+  `UnityEngine.Physics2DModule`、`UnityEngine.TextRenderingModule`。
+- `KTCModDevLibsDir\core` 下：`0Harmony`、`BepInEx.Core`、`BepInEx.Unity.IL2CPP`、
+  `Il2CppInterop.Runtime`、`Il2CppInterop.Common`、`MonoMod.RuntimeDetour`。当前源码编译不需要
+  直接引用 `MonoMod.Backports`；若后续源显式使用它，必须加 `backports` 非全局 alias，避免与
+  net6 的 `System.Runtime.Span` 冲突，不得改成全局引用。
+
+```powershell
+# 2.4.0：使用 csproj 默认 interop/core 路径
+dotnet build -c Release
+
+# 2.4.3：两个路径都必须指向 2.4.3/BIE6_IL2CPP 实际引用根
+dotnet build -c Release -p:GameInteropVersion=2.4.3 `
+  -p:GameInteropDir='<2.4.3 独立副本>\BepInEx\interop' `
+  -p:KTCModDevLibsDir='E:\mod-dev\KingdomMod\deps\KTC-ModDevLibs\BIE6_IL2CPP'
+```
+
+其中 `<2.4.3 独立副本>` 必须替换为该版本实际副本根；不能复用默认 2.4.0 interop。目录内
+`Assembly-CSharp.dll` 等必须由 2.4.3 生成（243 typed Save 为 `_Save_d__92` /
+`__TryDeleteCampaign_d__94` / `__TryDeleteChallenge_d__97`），否则即使宏校验通过也会绑定错类型。
+
+- `Release` 与 `Debug` 使用相同的 `net6.0`、`IL2CPP;BIE;BIE6` 宏和引用闭包，额外开启
+  `Optimize=true`；产物为 `il2cpp/bin/Release/KingdomEnhancedMod.dll`，Debuggable 不应包含
+  `DisableOptimizations`（0x100）。
+- `GameInteropVersion` 只接受 `2.4.0`（默认）和 `2.4.3`，必须用命令行全局属性传入，确保
+  `KTC_GAME_243` 在求值时加入；`CoreCompile` 前会复核版本/宏，未知版本、243 缺宏或 240 多宏
+  直接失败。
+- `Release` 不执行 `CopyOutput`，不会自动复制到运行包。`Debug` 构建若只想编译，显式传
+  `-p:NoDeploy=true`（或清空 `BepInExPluginsPath`）以禁用复制。
+- Mac 或独立引用闭包可覆盖 `GameInteropDir` 和 `KTCModDevLibsDir`；Windows 默认路径保留。
+- 回归检查：`python3 scripts/test_il2cpp_release_build.py`；脚本从当前 MSBuild 求值发现
+  Compile/Resource/Reference 集合并与 Debug 对比，不固定候选计数。传入
+  `--dll-240/--dll-243` 可额外核验最终 PE 的 TFM、BasePlugin、typed Save 引用、
+  Debuggable 与求值得到的资源数。
+
 ### Mono 自用线
 
 Mono 只在用户明确要求维护或任务直接修改 Mono 源码时构建。在仓库根使用 Framework 4.7.2
