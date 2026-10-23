@@ -1,0 +1,15 @@
+{
+  "scope": "metadata/validator increment after GLM conditional approval; no visual change",
+  "approvedOldLayoutSHA256": "5078d7c2091fbfee916ce1c553fe410b0ae1aad2fe0874c01c9d94fa00686f8a",
+  "newLayoutSHA256": "ff18f6c45ae620c248c88f99d393d370c3330dc06b6c6afb30220e6d7a0a6a7d",
+  "all86PNGsUnchanged": true,
+  "all452VisualTransformsAndRolesUnchanged": true,
+  "allThreeAstraApprovedCompositionImagesByteIdentical": true,
+  "outsideWalkDomainDecoration": [
+    "far-palace-0",
+    "forest-0",
+    "forest-74"
+  ],
+  "canvasExternalGroundSocketsConvertedToInternalTopAnchorPlusExplicitDescent": 108,
+  "nativeAccepted": false
+}
